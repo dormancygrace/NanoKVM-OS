@@ -107,17 +107,33 @@ class KernelPRTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 k.prepare(self.root)
 
+    def pull(self, ref, owner='dormancygrace', state='closed'):
+        return {'html_url': 'https://example.test/pr/1', 'state': state,
+                'head': {'ref': ref, 'label': owner + ':' + ref}}
+
     def test_existing_open_or_closed_pr_is_not_recreated_or_overwritten(self):
         for state in ('open', 'closed'):
-            with self.subTest(state=state), patch.object(k, 'api', return_value=[{
-                'html_url': 'https://example.test/pr/1', 'state': state}]) as api:
-                self.assertEqual(k.publish(dict(latest=self.next)), 'https://example.test/pr/1')
-                api.assert_called_once()
-                self.assertIn('state=all', api.call_args.args[0])
+            for ref in ('deps/upstream-linux-' + self.next, 'old-prefix/upstream-linux-' + self.next):
+                with self.subTest(state=state, ref=ref), patch.object(
+                        k, 'api', return_value=[self.pull(ref, state=state)]) as api:
+                    self.assertEqual(k.publish(dict(latest=self.next)), 'https://example.test/pr/1')
+                    api.assert_called_once()
+                    self.assertIn('state=all', api.call_args.args[0])
+
+    def test_other_candidates_and_forks_do_not_count(self):
+        pulls = [self.pull('deps/upstream-linux-1.0.0'), self.pull('deps/upstream-linux-' + self.next, owner='someone'),
+                 self.pull('upstream-linux-' + self.next)]
+        self.assertEqual(k.proposed('deps/upstream-linux-' + self.next, pulls), [])
+
+    def test_pull_requests_reads_every_page(self):
+        full = [self.pull('deps/upstream-linux-1.0.%d' % i) for i in range(100)]
+        with patch.object(k, 'api', side_effect=[full, full[:3]]) as api:
+            self.assertEqual(len(k.pull_requests()), 103)
+        self.assertEqual([c.args[0][-6:] for c in api.call_args_list], ['page=1', 'page=2'])
 
     def test_publisher_preserves_modes_identity_and_uses_draft(self):
         plan = self.plan()
-        branch = 'codex/upstream-linux-' + self.next
+        branch = 'deps/upstream-linux-' + self.next
         responses = [[], {'object': {'sha': 'base'}}, [], {'tree': {'sha': 'base-tree'}},
                      {'sha': 'tree'}, {'sha': 'commit'}, {}, {'html_url': 'https://example.test/pr/1'}]
         modes = b''.join((('100755' if name == 'platform/build.sh' else '100644') +
@@ -142,7 +158,7 @@ class KernelPRTests(unittest.TestCase):
 
     def test_retry_after_branch_creation_does_not_rewrite_branch(self):
         plan = self.plan()
-        branch = 'codex/upstream-linux-' + self.next
+        branch = 'deps/upstream-linux-' + self.next
         responses = [[], {'object': {'sha': 'base'}}, [{'ref': 'refs/heads/' + branch}],
                      {'html_url': 'https://example.test/pr/1'}]
         with patch.object(k, 'api', side_effect=responses) as api, \

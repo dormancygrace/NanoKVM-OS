@@ -11,6 +11,9 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
 IDENTITY = {'name': 'Gleb Pesin', 'email': 'dormancygrace@gmail.com'}
+# Proposal branches are BRANCH_PREFIX + 'upstream-' + candidate. Only the part
+# after the first '/' names the candidate (see proposed()).
+BRANCH_PREFIX = 'deps/'
 spec = importlib.util.spec_from_file_location('upstream', ROOT / 'scripts/check-upstream.py')
 upstream = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(upstream)
@@ -115,18 +118,41 @@ This is an automated draft, not a qualified firmware update. Checksums are read 
 Before marking ready and merging:
 - [ ] Review/rebase NanoKVM kernel and out-of-tree driver patches.
 - [ ] Regenerate and review the kernel config with olddefconfig.
-- [ ] Build the kernel, modules and full image; test on a coordinated device.
+- [ ] Build the kernel, modules and full image; test them on a device.
 - [ ] Check the Release build comment: it lists the outputs this PR changes. Qualify them on a device before merging.
 
 GitHub may show Approve workflows to run for this GITHUB_TOKEN-created PR. Approve those checks in the PR before review. No automatic merge or deployment is enabled.
 """
 
 
-def publish(plan, root=ROOT):
-    branch = plan.get('branch', 'codex/upstream-linux-' + plan['latest'])
+def pull_requests():
+    """Every PR of the repository against main: open, merged and closed."""
+    pulls, page = [], 1
+    while True:
+        batch = api('pulls?state=all&base=main&per_page=100&page=' + str(page))
+        pulls += batch
+        if len(batch) < 100:
+            return pulls
+        page += 1
+
+
+def proposed(branch, pulls):
+    """The PRs among pulls that propose the candidate of branch.
+
+    A branch names its candidate after the first '/', so a PR opened under an
+    earlier prefix still counts: a closed proposal keeps its candidate closed.
+    Only branches of this repository count, not forks.
+    """
     owner = REPOSITORY.split('/')[0]
+    name = branch.split('/', 1)[1]
+    return [p for p in pulls if p['head']['label'] == owner + ':' + p['head']['ref']
+            and p['head']['ref'].partition('/')[2] == name]
+
+
+def publish(plan, root=ROOT):
+    branch = plan.get('branch', BRANCH_PREFIX + 'upstream-linux-' + plan['latest'])
     # Keep closed PRs closed and never overwrite a maintainer's work on a PR.
-    existing = api('pulls?state=all&head=' + owner + ':' + branch + '&base=main&per_page=100')
+    existing = proposed(branch, pull_requests())
     if existing:
         print('Already proposed: ' + existing[0]['html_url'])
         return existing[0]['html_url']

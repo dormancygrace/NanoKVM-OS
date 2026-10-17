@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { getUsbInternet, setUsbInternet, usbCompositionChangedEvent } from '@/api/virtual-device';
 import type { UsbInternetStatus } from '@/api/virtual-device';
 
-export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
+// Sharing needs the USB network function. Without it the switch is shown
+// only while sharing is still on, so that it can be turned off.
+export const UsbInternet = ({ usbBusy, network }: { usbBusy: boolean; network: boolean }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useState<UsbInternetStatus>();
   const [saving, setSaving] = useState(false);
@@ -64,6 +66,7 @@ export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
     }
   }
 
+  if (!network && !status?.enabled) return null;
   const state = failed ? 'unavailable' : (status?.state ?? 'loading');
   return (
     <div className="mb-6 space-y-2">
@@ -77,8 +80,8 @@ export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
           onChange={(value) => void toggle(value)}
         />
       </div>
-      <p className="text-xs text-fg-muted">{t('settings.usb.internet.description')}</p>
-      <div role="status" aria-live="polite" className="text-xs text-fg-muted">
+      <p className="text-fg-muted text-xs">{t('settings.usb.internet.description')}</p>
+      <div role="status" aria-live="polite" className="text-fg-muted text-xs">
         {t(`settings.usb.internet.states.${state}`, {
           defaultValue: t('settings.usb.internet.states.error'),
           uplink: status?.uplink,
@@ -86,7 +89,7 @@ export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
         })}
       </div>
       {state === 'active' && (
-        <div className="text-xs text-fg-muted">
+        <div className="text-fg-muted text-xs">
           {t(
             status?.flowOffload
               ? 'settings.usb.internet.offload'
@@ -94,7 +97,7 @@ export const UsbInternet = ({ usbBusy }: { usbBusy: boolean }) => {
           )}
         </div>
       )}
-      <p className="text-xs text-fg-muted">{t('settings.usb.internet.renew')}</p>
+      <p className="text-fg-muted text-xs">{t('settings.usb.internet.renew')}</p>
     </div>
   );
 };

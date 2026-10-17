@@ -6,8 +6,15 @@ use crypto_secretbox::{Key, Nonce, Tag, XSalsa20Poly1305};
 use prost::Message as ProstMessage;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-const MAX_PACKET_LENGTH: usize = 8 << 20;
+pub(crate) const MAX_PACKET_LENGTH: usize = 8 << 20;
+// Before login a peer sends only its public key and a LoginRequest, a few
+// hundred bytes each. The limit keeps unauthenticated peers from making the
+// server allocate full-size packets.
+pub(crate) const MAX_LOGIN_PACKET_LENGTH: usize = 64 << 10;
 const MAX_RETAINED_BUFFER: usize = 1 << 20;
+// Room for the longest length prefix in front of a frame, so the prefix and
+// the payload go out in one write.
+const HEADER_ROOM: usize = 4;
 
 #[derive(Clone)]
 pub struct SessionKey {
@@ -84,6 +91,7 @@ pub struct FrameReader<R> {
     cipher: Option<FrameCipher>,
     sequence: u64,
     buffer: Vec<u8>,
+    max_length: usize,
 }
 
 pub struct FrameWriter<W> {
@@ -103,40 +111,52 @@ where
             cipher: key.map(|key| FrameCipher::new(Key::from_slice(&key.receive))),
             sequence: 0,
             buffer: Vec::new(),
+            max_length: MAX_PACKET_LENGTH,
         }
+    }
+
+    // Packets longer than this are rejected before anything is allocated.
+    pub fn set_max_length(&mut self, max_length: usize) {
+        self.max_length = max_length.min(MAX_PACKET_LENGTH);
     }
 
     pub async fn read<M>(&mut self) -> io::Result<M>
     where
         M: ProstMessage + Default,
     {
-        read_payload_into(&mut self.inner, &mut self.buffer).await?;
-        let mut offset = 0;
-        if let Some(cipher) = &self.cipher {
-            self.sequence = self.sequence.checked_add(1).ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "session nonce counter exhausted",
-                )
-            })?;
-            if self.buffer.len() < XSalsa20Poly1305::TAG_SIZE {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "frame decryption failed",
-                ));
-            }
-            let tag = Tag::clone_from_slice(&self.buffer[..XSalsa20Poly1305::TAG_SIZE]);
-            offset = XSalsa20Poly1305::TAG_SIZE;
-            cipher
-                .decrypt(&nonce(self.sequence), &mut self.buffer[offset..], &tag)
-                .map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidData, "frame decryption failed")
-                })?;
-        }
-        let result = M::decode(&self.buffer[offset..])
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error));
+        let result = self.read_plaintext().await.and_then(|offset| {
+            M::decode(&self.buffer[offset..])
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+        });
         release_oversized_buffer(&mut self.buffer);
         result
+    }
+
+    // Reads and decrypts one packet into the buffer and returns where the
+    // plaintext starts.
+    async fn read_plaintext(&mut self) -> io::Result<usize> {
+        read_payload_into(&mut self.inner, &mut self.buffer, self.max_length).await?;
+        let Some(cipher) = &self.cipher else {
+            return Ok(0);
+        };
+        self.sequence = self.sequence.checked_add(1).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "session nonce counter exhausted",
+            )
+        })?;
+        if self.buffer.len() < XSalsa20Poly1305::TAG_SIZE {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "frame decryption failed",
+            ));
+        }
+        let tag = Tag::clone_from_slice(&self.buffer[..XSalsa20Poly1305::TAG_SIZE]);
+        let offset = XSalsa20Poly1305::TAG_SIZE;
+        cipher
+            .decrypt(&nonce(self.sequence), &mut self.buffer[offset..], &tag)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "frame decryption failed"))?;
+        Ok(offset)
     }
 }
 
@@ -158,17 +178,18 @@ where
         M: ProstMessage,
     {
         self.buffer.clear();
-        let offset = if self.cipher.is_some() {
+        let tag_length = if self.cipher.is_some() {
             XSalsa20Poly1305::TAG_SIZE
         } else {
             0
         };
+        let offset = HEADER_ROOM + tag_length;
         let length = message
             .encoded_len()
-            .checked_add(offset)
+            .checked_add(tag_length)
             .filter(|&length| length <= MAX_PACKET_LENGTH)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "packet is too large"))?;
-        self.buffer.reserve(length);
+        self.buffer.reserve(HEADER_ROOM + length);
         self.buffer.resize(offset, 0);
         message
             .encode(&mut self.buffer)
@@ -185,9 +206,9 @@ where
                 .map_err(|_| {
                     io::Error::new(io::ErrorKind::InvalidData, "frame encryption failed")
                 })?;
-            self.buffer[..offset].copy_from_slice(&tag);
+            self.buffer[HEADER_ROOM..offset].copy_from_slice(&tag);
         }
-        let result = write_payload(&mut self.inner, &self.buffer).await;
+        let result = write_frame(&mut self.inner, &mut self.buffer).await;
         release_oversized_buffer(&mut self.buffer);
         result
     }
@@ -204,7 +225,17 @@ where
     R: AsyncRead + Unpin,
     M: ProstMessage + Default,
 {
-    let payload = read_payload(reader).await?;
+    read_message_within(reader, MAX_PACKET_LENGTH).await
+}
+
+// read_message for an unauthenticated peer: longer packets are rejected
+// before anything is allocated.
+pub async fn read_message_within<R, M>(reader: &mut R, max_length: usize) -> io::Result<M>
+where
+    R: AsyncRead + Unpin,
+    M: ProstMessage + Default,
+{
+    let payload = read_payload(reader, max_length).await?;
     M::decode(payload.as_slice()).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 
@@ -213,22 +244,30 @@ where
     W: AsyncWrite + Unpin,
     M: ProstMessage,
 {
-    let payload = message.encode_to_vec();
-    write_payload(writer, &payload).await
+    let mut frame = Vec::with_capacity(HEADER_ROOM + message.encoded_len());
+    frame.resize(HEADER_ROOM, 0);
+    message
+        .encode(&mut frame)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    write_frame(writer, &mut frame).await
 }
 
-async fn read_payload<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Vec<u8>> {
+async fn read_payload<R: AsyncRead + Unpin>(
+    reader: &mut R,
+    max_length: usize,
+) -> io::Result<Vec<u8>> {
     let mut payload = Vec::new();
-    read_payload_into(reader, &mut payload).await?;
+    read_payload_into(reader, &mut payload, max_length).await?;
     Ok(payload)
 }
 
 async fn read_payload_into<R: AsyncRead + Unpin>(
     reader: &mut R,
     payload: &mut Vec<u8>,
+    max_length: usize,
 ) -> io::Result<()> {
     let length = read_length(reader).await?;
-    if length > MAX_PACKET_LENGTH {
+    if length > max_length {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "packet is too large",
@@ -245,10 +284,22 @@ fn release_oversized_buffer(buffer: &mut Vec<u8>) {
     }
 }
 
-async fn write_payload<W: AsyncWrite + Unpin>(writer: &mut W, payload: &[u8]) -> io::Result<()> {
-    write_length(writer, payload.len()).await?;
-    writer.write_all(payload).await?;
+// Writes a frame whose payload starts after HEADER_ROOM unused bytes: the
+// length prefix goes into the end of that room, and the prefix and the
+// payload leave in one write.
+async fn write_frame<W: AsyncWrite + Unpin>(writer: &mut W, frame: &mut [u8]) -> io::Result<()> {
+    let (encoded, bytes) = encoded_length(frame.len() - HEADER_ROOM)?;
+    let start = HEADER_ROOM - bytes;
+    frame[start..HEADER_ROOM].copy_from_slice(&encoded.to_le_bytes()[..bytes]);
+    writer.write_all(&frame[start..]).await?;
     writer.flush().await
+}
+
+#[cfg(test)]
+async fn write_payload<W: AsyncWrite + Unpin>(writer: &mut W, payload: &[u8]) -> io::Result<()> {
+    let mut frame = vec![0; HEADER_ROOM];
+    frame.extend_from_slice(payload);
+    write_frame(writer, &mut frame).await
 }
 
 async fn read_length<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<usize> {
@@ -259,11 +310,6 @@ async fn read_length<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<usize> 
         encoded |= usize::from(reader.read_u8().await?) << (offset * 8);
     }
     Ok(encoded >> 2)
-}
-
-async fn write_length<W: AsyncWrite + Unpin>(writer: &mut W, length: usize) -> io::Result<()> {
-    let (encoded, bytes) = encoded_length(length)?;
-    writer.write_all(&encoded.to_le_bytes()[..bytes]).await
 }
 
 fn encoded_length(length: usize) -> io::Result<(usize, usize)> {
@@ -361,7 +407,9 @@ mod tests {
             let mut writer =
                 super::FrameWriter::new(left, Some(super::SessionKey::new([0x37; 32])));
             writer.write(&message).await.unwrap();
-            let actual = super::read_payload(&mut right).await.unwrap();
+            let actual = super::read_payload(&mut right, super::MAX_PACKET_LENGTH)
+                .await
+                .unwrap();
             let reference = crypto_secretbox::XSalsa20Poly1305::new((&[0x37; 32]).into())
                 .encrypt(&super::nonce(1), message.encode_to_vec().as_slice())
                 .unwrap();
@@ -392,5 +440,121 @@ mod tests {
                 std::io::ErrorKind::InvalidData
             );
         }
+    }
+
+    // Records every write call separately.
+    #[derive(Default)]
+    struct Writes(Vec<Vec<u8>>);
+
+    impl tokio::io::AsyncWrite for Writes {
+        fn poll_write(
+            mut self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+            buf: &[u8],
+        ) -> std::task::Poll<std::io::Result<usize>> {
+            self.0.push(buf.to_vec());
+            std::task::Poll::Ready(Ok(buf.len()))
+        }
+        fn poll_flush(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+        fn poll_shutdown(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn length_prefix_and_payload_leave_in_one_write() {
+        use prost::Message as _;
+        // Payload sizes on both sides of each length-prefix width.
+        for size in [0, 50, 60, 70, 0x3ff0, 0x4010, 0x3ffff0, 0x400010] {
+            let message = Message {
+                union: Some(message::Union::Hash(Hash {
+                    salt: "x".repeat(size),
+                    challenge: String::new(),
+                })),
+            };
+            for key in [None, Some(super::SessionKey::new([5; 32]))] {
+                let encrypted = key.is_some();
+                let mut writer = super::FrameWriter::new(Writes::default(), key.clone());
+                writer.write(&message).await.unwrap();
+                writer.write(&message).await.unwrap();
+                let writes = &writer.inner.0;
+                assert_eq!(writes.len(), 2, "size={size} encrypted={encrypted}");
+                let wire = writes.concat();
+                let mut reader = super::FrameReader::new(wire.as_slice(), key);
+                for _ in 0..2 {
+                    assert_eq!(reader.read::<Message>().await.unwrap(), message);
+                }
+            }
+            let mut writes = Writes::default();
+            write_message(&mut writes, &message).await.unwrap();
+            assert_eq!(writes.0.len(), 1, "size={size}");
+            // The RustDesk prefix: little-endian length << 2, low bits the
+            // prefix width minus one.
+            let length = message.encoded_len();
+            let (prefix, width) = match length {
+                0..=0x3f => (length << 2, 1),
+                0x40..=0x3fff => ((length << 2) | 1, 2),
+                0x4000..=0x3fffff => ((length << 2) | 2, 3),
+                _ => ((length << 2) | 3, 4),
+            };
+            assert_eq!(writes.0[0][..width], prefix.to_le_bytes()[..width]);
+            let mut wire = writes.0[0].as_slice();
+            let payload = super::read_payload(&mut wire, super::MAX_PACKET_LENGTH)
+                .await
+                .unwrap();
+            assert_eq!(payload, message.encode_to_vec());
+            assert!(wire.is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn login_limit_rejects_a_long_packet_before_reading_it() {
+        use std::time::Duration;
+        use tokio::io::AsyncWriteExt;
+        // A 1 MiB length prefix (3 bytes, low bits 2) and no payload: the
+        // read must fail at once instead of waiting for the payload.
+        let header = (((1_usize << 20) << 2) | 2).to_le_bytes();
+        let (mut left, right) = duplex(64);
+        left.write_all(&header[..3]).await.unwrap();
+        let mut reader = super::FrameReader::new(right, None);
+        reader.set_max_length(super::MAX_LOGIN_PACKET_LENGTH);
+        let error = tokio::time::timeout(Duration::from_secs(5), reader.read::<Message>())
+            .await
+            .expect("an over-limit packet must be rejected without reading it")
+            .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert_eq!(reader.buffer.capacity(), 0);
+
+        let (mut left, mut right) = duplex(64);
+        left.write_all(&header[..3]).await.unwrap();
+        let error = tokio::time::timeout(
+            Duration::from_secs(5),
+            super::read_message_within::<_, Message>(&mut right, super::MAX_LOGIN_PACKET_LENGTH),
+        )
+        .await
+        .expect("an over-limit packet must be rejected without reading it")
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+
+        // A packet within the limit still reads.
+        let expected = Message {
+            union: Some(message::Union::Hash(Hash {
+                salt: "s".repeat(1000),
+                challenge: "c".to_owned(),
+            })),
+        };
+        let (mut left, right) = duplex(4096);
+        write_message(&mut left, &expected).await.unwrap();
+        let mut reader = super::FrameReader::new(right, None);
+        reader.set_max_length(super::MAX_LOGIN_PACKET_LENGTH);
+        assert_eq!(reader.read::<Message>().await.unwrap(), expected);
     }
 }

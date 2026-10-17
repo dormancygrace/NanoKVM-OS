@@ -130,7 +130,7 @@ fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
 fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS-packages/releases/download/nanokvm-rustdesk-0.5.3-r0/nanokvm-rustdesk-0.5.3-source.tar.gz
 
 The exported source can also cross-build directly without repository scripts:
-CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc RUSTFLAGS='-C target-feature=+crt-static' cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
+CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
 
 Install the Rust riscv64gc-unknown-linux-musl target first. Keep the linker
 symlink name intact for Buildroot wrappers. The builder produces a static RV64GC

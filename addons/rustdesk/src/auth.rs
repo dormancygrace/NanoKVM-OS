@@ -13,7 +13,7 @@ use std::{
 
 const RECONNECT_GRACE: Duration = Duration::from_secs(30);
 const MAX_RECENT_SESSIONS: usize = 32;
-type Session = (String, String, u64);
+pub(crate) type Session = (String, String, u64);
 
 pub(crate) struct Credentials {
     current: String,
@@ -37,7 +37,9 @@ impl Credentials {
             recent: HashMap::new(),
         }
     }
-    fn key(login: &LoginRequest) -> Option<Session> {
+    // The reconnect key of a login; the login of a connection never changes,
+    // so a session computes it once.
+    pub fn session(login: &LoginRequest) -> Option<Session> {
         if login.my_id.is_empty()
             || login.session_id == 0
             || login.my_id.len() > 128
@@ -51,7 +53,8 @@ impl Credentials {
         self.recent
             .retain(|_, (_, last)| last.elapsed() < RECONNECT_GRACE);
         if self.temporary {
-            if let Some((password, _)) = Self::key(login).and_then(|key| self.recent.get(&key)) {
+            if let Some((password, _)) = Self::session(login).and_then(|key| self.recent.get(&key))
+            {
                 if crate::server::verify_password(password, hash, login) {
                     return Ok(Some(Verified {
                         password: password.clone(),
@@ -91,7 +94,7 @@ impl Credentials {
         if verified.fresh {
             self.rotate()?;
         }
-        if let Some(key) = Self::key(login) {
+        if let Some(key) = Self::session(login) {
             if self.recent.len() >= MAX_RECENT_SESSIONS && !self.recent.contains_key(&key) {
                 if let Some(oldest) = self
                     .recent
@@ -106,8 +109,8 @@ impl Credentials {
         }
         Ok(())
     }
-    pub fn touch(&mut self, login: &LoginRequest) {
-        if let Some(entry) = Self::key(login).and_then(|key| self.recent.get_mut(&key)) {
+    pub fn touch(&mut self, session: &Session) {
+        if let Some(entry) = self.recent.get_mut(session) {
             entry.1 = Instant::now();
         }
     }

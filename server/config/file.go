@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -15,6 +16,9 @@ import (
 const ConfigurationFile = "/etc/kvm/server.yaml"
 
 var configurationFile = ConfigurationFile
+
+// All settings that share server.yaml must serialize the entire edit.
+var configurationFileMu sync.Mutex
 
 func Read() (*Config, error) {
 	data, err := os.ReadFile(configurationFile)
@@ -51,6 +55,8 @@ func UpdateTLS(proto string, cert Cert) error {
 // back atomically, keeping every key, comment and unknown field it does not
 // touch.
 func editFile(edit func(root *yaml.Node)) error {
+	configurationFileMu.Lock()
+	defer configurationFileMu.Unlock()
 	data, err := os.ReadFile(configurationFile)
 	if err != nil {
 		return err

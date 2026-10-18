@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -19,8 +20,9 @@ import (
 const maxStunServers = 4
 
 var (
-	readWebRTC   = config.WebRTCSettings
-	updateWebRTC = func(w config.WebRTC) error {
+	webRTCUpdateMu sync.Mutex
+	readWebRTC     = config.WebRTCSettings
+	updateWebRTC   = func(w config.WebRTC) error {
 		if err := config.UpdateWebRTC(w); err != nil {
 			return err
 		}
@@ -211,6 +213,10 @@ func (s *Service) SetWebRTCServers(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
+	// Retaining a password is a read-modify-write operation: do not restore
+	// an old password over another administrator's concurrent update.
+	webRTCUpdateMu.Lock()
+	defer webRTCUpdateMu.Unlock()
 	settings, err := webrtcServersConfig(req, readWebRTC().Turn)
 	if err != nil {
 		rsp.ErrRsp(c, -1, err.Error())

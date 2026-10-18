@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -113,5 +116,51 @@ func TestSetWebRTCServers(t *testing.T) {
 	if code, _, _ = postWebRTCServers(t, `{"stunMode":"default","turn":{"address":""}}`); code != 0 || state.stun != config.DefaultStun ||
 		state.turn != (config.Turn{}) || state.cipher != config.DTLSChaCha20 {
 		t.Fatalf("defaults: %d %+v", code, state)
+	}
+}
+
+func TestConcurrentWebRTCSaveRetainsLatestCredential(t *testing.T) {
+	oldRead, oldUpdate := readWebRTC, updateWebRTC
+	defer func() { readWebRTC, updateWebRTC = oldRead, oldUpdate }()
+	var mu sync.Mutex
+	state := config.WebRTC{Stun: config.DefaultStun, Turn: config.Turn{TurnAddr: "turn.example:3478", TurnUser: "alice", TurnCred: "old-secret"}}
+	readWebRTC = func() config.WebRTC { mu.Lock(); defer mu.Unlock(); return state }
+	entered, release, written := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	updateWebRTC = func(w config.WebRTC) error {
+		first := calls.Add(1) == 1
+		if first {
+			close(entered)
+			<-release
+		} else {
+			<-written
+		}
+		mu.Lock()
+		state = w
+		mu.Unlock()
+		if first {
+			close(written)
+		}
+		return nil
+	}
+	result := make(chan int, 2)
+	go func() {
+		code, _, _ := postWebRTCServers(t, `{"stunMode":"default","turn":{"address":"turn.example:3478","username":"alice","credential":"new-secret"}}`)
+		result <- code
+	}()
+	<-entered
+	go func() {
+		code, _, _ := postWebRTCServers(t, `{"stunMode":"default","turn":{"address":"turn.example:3478","username":"bob","credential":""}}`)
+		result <- code
+	}()
+	time.Sleep(100 * time.Millisecond)
+	close(release)
+	for range 2 {
+		if code := <-result; code != 0 {
+			t.Fatalf("save failed: %d", code)
+		}
+	}
+	if got := readWebRTC().Turn; got.TurnCred != "new-secret" || got.TurnUser != "bob" {
+		t.Fatalf("retained stale credential: %+v", got)
 	}
 }

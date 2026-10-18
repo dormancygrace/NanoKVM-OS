@@ -17,7 +17,7 @@ const noSpaces = (value: string) => /^[\x21-\x7e]+$/.test(value);
 /*
  * The STUN and TURN servers that WebRTC video, audio and RustDesk use to
  * reach the device across NAT, and the DTLS cipher offered first. Saved in
- * server.yaml; new connections use them at once. The TURN password never leaves the device: an empty field
+ * server.yaml; new connections use them at once. This settings response does not expose the TURN password: an empty field
  * keeps the stored one.
  */
 export const WebRTCServers = () => {

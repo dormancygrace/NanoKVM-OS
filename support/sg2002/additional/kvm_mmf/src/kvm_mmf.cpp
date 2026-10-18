@@ -545,15 +545,10 @@ static CVI_S32 _mmf_init(void)
 	PIC_SIZE_E enPicSize;
 	SIZE_S stSize;
 	CVI_S32 s32Ret = CVI_SUCCESS;
-	LOG_LEVEL_CONF_S log_conf;
 
 	// Kernel modules are managed by board startup, not by a media client.
 	CVI_SYS_GetVersion(&stVersion);
 	SAMPLE_PRT("maix multi-media version:%s\n", stVersion.version);
-
-	log_conf.enModId = CVI_ID_LOG;
-	log_conf.s32Level = CVI_DBG_DEBUG;
-	CVI_LOG_SetLevelConf(&log_conf);
 
 	s32Ret = SAMPLE_COMM_VI_ParseIni(&stIniCfg);
 	if (s32Ret != CVI_SUCCESS) {

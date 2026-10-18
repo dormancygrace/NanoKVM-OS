@@ -39,6 +39,18 @@ func Read() (*Config, error) {
 // the whole struct would, for example, turn an absent trustedProxies into an
 // explicit empty list and drop the loopback proxy default.
 func UpdateTLS(proto string, cert Cert) error {
+	return editFile(func(root *yaml.Node) {
+		setScalar(root, "proto", proto)
+		certNode := mappingChild(root, "cert")
+		setScalar(certNode, "crt", cert.Crt)
+		setScalar(certNode, "key", cert.Key)
+	})
+}
+
+// editFile applies edit to the root mapping of server.yaml and writes it
+// back atomically, keeping every key, comment and unknown field it does not
+// touch.
+func editFile(edit func(root *yaml.Node)) error {
 	data, err := os.ReadFile(configurationFile)
 	if err != nil {
 		return err
@@ -50,11 +62,7 @@ func UpdateTLS(proto string, cert Cert) error {
 	if document.Kind != yaml.DocumentNode || len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
 		return errors.New("configuration root is not a mapping")
 	}
-	root := document.Content[0]
-	setScalar(root, "proto", proto)
-	certNode := mappingChild(root, "cert")
-	setScalar(certNode, "crt", cert.Crt)
-	setScalar(certNode, "key", cert.Key)
+	edit(document.Content[0])
 
 	var out bytes.Buffer
 	encoder := yaml.NewEncoder(&out)

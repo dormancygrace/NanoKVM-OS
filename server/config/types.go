@@ -10,9 +10,12 @@ type Config struct {
 	JWT            JWT    `yaml:"jwt"`
 	// Stun lists STUN servers (host:port) separated by commas or spaces;
 	// "disable" turns STUN off.
-	Stun     string   `yaml:"stun"`
-	Turn     Turn     `yaml:"turn"`
-	Security Security `yaml:"security"`
+	Stun string `yaml:"stun"`
+	Turn Turn   `yaml:"turn"`
+	// DTLSCipher is the DTLS suite the WebRTC peers offer first: chacha20
+	// (default) or aes-gcm.
+	DTLSCipher string   `yaml:"dtlsCipher"`
+	Security   Security `yaml:"security"`
 
 	Hardware Hardware `yaml:"-"`
 }

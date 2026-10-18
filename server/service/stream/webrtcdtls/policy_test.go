@@ -30,6 +30,24 @@ func TestCipherSuitesPreserveCertificateCompatibility(t *testing.T) {
 	}
 }
 
+func TestAESPreferenceSelectsAES(t *testing.T) {
+	SetPreference(func() string { return PreferAESGCM })
+	defer SetPreference(func() string { return PreferChaCha20 })
+	if got := CipherSuites()[0]; got != dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 {
+		t.Fatalf("first suite %s", got)
+	}
+	both := []dtls.CipherSuiteID{
+		dtls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+		dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	}
+	if got := negotiateConfiguredAnswer(t, both); got != dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 {
+		t.Fatalf("negotiated %s, want AES-128-GCM", got)
+	}
+	if got := negotiateConfiguredAnswer(t, both[:1]); got != dtls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 {
+		t.Fatalf("ChaCha20-only client: %s", got)
+	}
+}
+
 func TestConfigureNegotiatesPreferredCipherAndFallback(t *testing.T) {
 	tests := []struct {
 		name         string

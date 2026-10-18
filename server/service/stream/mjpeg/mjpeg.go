@@ -32,13 +32,6 @@ func mjpegBlocked() bool {
 	return true
 }
 
-type LatestFrame struct {
-	Data       []byte
-	Width      uint16
-	Height     uint16
-	CapturedAt time.Time
-}
-
 func Connect(c *gin.Context) {
 	if mjpegBlocked() {
 		c.AbortWithStatusJSON(http.StatusConflict, proto.Response{Code: -3, Msg: common.MjpegBlockedMessage})
@@ -76,12 +69,4 @@ func newResponseController(writer http.ResponseWriter) *http.ResponseController 
 	}
 
 	return http.NewResponseController(writer)
-}
-
-func EnableLatestFrameCache() {
-	streamer.enableLatestFrameCache()
-}
-
-func DisableLatestFrameCache() {
-	streamer.disableLatestFrameCache()
 }

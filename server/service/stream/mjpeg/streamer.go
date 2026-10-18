@@ -85,9 +85,6 @@ type Streamer struct {
 	clients        map[*mjpegClient]struct{}
 	clientSnapshot atomic.Pointer[[]*mjpegClient]
 	running        bool
-	frameMutex     sync.RWMutex
-	latestFrame    LatestFrame
-	cacheRefs      int32
 	viewerVersion  uint64
 }
 
@@ -237,11 +234,10 @@ func (s *Streamer) run() {
 			fps = screen.FPS
 			ticker.Reset(time.Second / time.Duration(fps))
 		}
-		// Snapshot consumers still need fresh captures even when browser
-		// writers are backed up. Otherwise avoid captures nobody can use.
+		// Avoid captures nobody can use while browser writers are backed up.
 		busy := !viewersReady(clients)
 		quality := adaptive.next(int(screen.Quality), busy, time.Now())
-		if !s.frameCacheEnabled() && busy {
+		if busy {
 			continue
 		}
 
@@ -261,10 +257,6 @@ func (s *Streamer) run() {
 			continue
 		}
 
-		if s.frameCacheEnabled() {
-			s.setLatestFrame(data, screen.Width, screen.Height)
-		}
-
 		if delivery.offer(clients, data, time.Now()) {
 			stream.GetFrameRateCounter().Update()
 		}
@@ -281,52 +273,6 @@ func (s *Streamer) stopIfIdle() bool {
 
 	s.running = false
 	return true
-}
-
-func (s *Streamer) setLatestFrame(data []byte, width uint16, height uint16) {
-	// Capture owns an immutable Go buffer shared with delivery queues. Retain
-	// it here without a copy.
-
-	s.frameMutex.Lock()
-	defer s.frameMutex.Unlock()
-
-	s.latestFrame = LatestFrame{
-		Data:       data,
-		Width:      width,
-		Height:     height,
-		CapturedAt: time.Now(),
-	}
-}
-
-func (s *Streamer) clearLatestFrame() {
-	s.frameMutex.Lock()
-	defer s.frameMutex.Unlock()
-
-	s.latestFrame = LatestFrame{}
-}
-
-func (s *Streamer) enableLatestFrameCache() {
-	atomic.AddInt32(&s.cacheRefs, 1)
-}
-
-func (s *Streamer) disableLatestFrameCache() {
-	for {
-		current := atomic.LoadInt32(&s.cacheRefs)
-		if current <= 0 {
-			return
-		}
-
-		if atomic.CompareAndSwapInt32(&s.cacheRefs, current, current-1) {
-			if current == 1 {
-				s.clearLatestFrame()
-			}
-			return
-		}
-	}
-}
-
-func (s *Streamer) frameCacheEnabled() bool {
-	return atomic.LoadInt32(&s.cacheRefs) > 0
 }
 
 func writeFrame(c *gin.Context, controller *http.ResponseController, data []byte, first bool) (err error) {

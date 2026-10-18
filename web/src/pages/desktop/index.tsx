@@ -34,7 +34,6 @@ import { ControlNotice } from './control.tsx';
 import { Keyboard } from './keyboard';
 import { Menu } from './menu';
 import { Mouse } from './mouse';
-import { H264ModeNotification } from './notification.tsx';
 import { ActionOverlay } from './picoclaw/action-overlay.tsx';
 import { Screen } from './screen';
 import { AutoRegion } from './screen/auto-region.tsx';
@@ -347,7 +346,6 @@ export const Desktop = () => {
     <div className="h-dvh w-full overflow-hidden bg-neutral-950">
       <Head title={t('head.desktop')} />
 
-      <H264ModeNotification />
       <UpdateNotification />
       <ControlNotice />
       {recovery.active && <VideoRecovery retrying={recovery.retrying} />}

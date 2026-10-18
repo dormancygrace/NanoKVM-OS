@@ -396,10 +396,6 @@
     "retryJoin": "重试",
     "sessions": "活跃视频会话：{{count}}",
     "encoderConflict": "另一位观看者正在使用不同的编码器设置。请关闭该会话或选择相同的设置。",
-    "mixedH264": {
-      "title": "H.264 视频流冲突",
-      "description": "检测到 H.264 Direct 和 H.264 WebRTC 同时使用，可能导致画面撕裂或花屏。请只保留一种 H.264 模式。"
-    },
     "webrtcConnectionFailed": {
       "title": "WebRTC 连接失败",
       "description": "请检查网络连接或切换视频模式。"

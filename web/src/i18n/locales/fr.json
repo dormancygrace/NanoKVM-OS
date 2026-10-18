@@ -396,10 +396,6 @@
     "retryJoin": "Réessayer",
     "sessions": "Sessions vidéo actives : {{count}}",
     "encoderConflict": "Un autre spectateur utilise des paramètres d'encodeur différents. Fermez-le ou sélectionnez les mêmes paramètres.",
-    "mixedH264": {
-      "title": "Conflit de flux H.264",
-      "description": "Les modes H.264 Direct et H.264 WebRTC sont utilisés simultanément. Cela peut provoquer des déchirures d’écran ou une vidéo corrompue. Veuillez n’utiliser qu’un seul mode H.264."
-    },
     "webrtcConnectionFailed": {
       "title": "Échec de la connexion WebRTC",
       "description": "Vérifiez la connexion réseau ou changez de mode vidéo."

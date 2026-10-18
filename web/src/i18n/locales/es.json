@@ -396,10 +396,6 @@
     "retryJoin": "Reintentar",
     "sessions": "Sesiones de vídeo activas: {{count}}",
     "encoderConflict": "Otro espectador está usando una configuración de codificador diferente. Ciérralo o selecciona la misma configuración.",
-    "mixedH264": {
-      "title": "Conflicto de flujo H.264",
-      "description": "H.264 Direct y H.264 WebRTC se están utilizando al mismo tiempo. Esto puede causar tearing de pantalla o vídeo corrupto. Utilice solo un modo H.264."
-    },
     "webrtcConnectionFailed": {
       "title": "Error de conexión de WebRTC",
       "description": "Compruebe la conexión de red o cambie el modo de vídeo."

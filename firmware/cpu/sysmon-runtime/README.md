@@ -99,7 +99,9 @@ nanokvm-app service starts the server through the same script.
 (its schedtick and syscalltick) for that long. Accepted values are `50`, `100`
 and `200`; unset, empty or `0` keeps the original policy, other values are
 ignored with the runtime message `ignored invalid NanoKVM sysmon park grace`.
-It is off by default.
+It is off by default. To enable it on the device, add
+`export NANOKVM_SYSMON_PARK_GRACE_MS=100` to /etc/conf.d/nanokvm-app; OpenRC
+sources that file and the exported value reaches the server through S95.
 
 Upstream sysmon deep-sleeps as soon as every P is idle, and the next
 goroutine to enter a syscall wakes it (entersyscallWakeSysmon). A video

@@ -121,6 +121,7 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
               {t(enabled ? 'videoSettings.captureOn' : 'videoSettings.captureOff')}
             </StatusBadge>
           </div>
+          {caps?.input.receiver && line(t('videoSettings.receiver'), caps.input.receiver)}
           {line(
             t('videoSettings.input'),
             enabled && status

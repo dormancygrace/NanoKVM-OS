@@ -1707,6 +1707,7 @@
     "bitrate": "Bitová rychlost",
     "discard": "Zahodit změny",
     "captureOff": "Zachycování zakázáno",
+    "receiver": "Čip zachytávání",
     "input": "HDMI vstup",
     "captureOn": "Zachycování povoleno",
     "output": "Enkódovaný proud",

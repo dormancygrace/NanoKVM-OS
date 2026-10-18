@@ -144,7 +144,7 @@ func videoCapabilities() gin.H {
 	inputWidth, inputHeight := captureInput()
 	return gin.H{
 		"input": gin.H{
-			"width": inputWidth, "height": inputHeight,
+			"width": inputWidth, "height": inputHeight, "receiver": common.HDMIReceiverModel(),
 			"fps":    common.ReadVideoValue("/run/nanokvm/input_fps"),
 			"maxFps": common.CaptureRateLimit(inputWidth, inputHeight),
 		},

@@ -17,3 +17,11 @@ func TestEDIDHardwareCapabilities(t *testing.T) {
 		}
 	}
 }
+
+func TestHDMIReceiverModel(t *testing.T) {
+	for chip, want := range map[string]string{"c": "LT6911C", "ux": "LT6911UXC", "d": "LT6911D", "ue": "", "": ""} {
+		if got := hdmiReceiverModel(chip); got != want {
+			t.Errorf("%q = %q, want %q", chip, got, want)
+		}
+	}
+}

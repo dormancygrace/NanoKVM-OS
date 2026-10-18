@@ -36,6 +36,22 @@ func monitorHardwareSupported(board, chip string) bool {
 	}
 	return (board == "alpha" || board == "beta") && (chip == "c" || chip == "ux" || chip == "d")
 }
+// HDMIReceiverModel names the HDMI receiver S15kvmhwd identified, or "".
+func HDMIReceiverModel() string {
+	chip, _ := os.ReadFile(monitorHDMIChipFile)
+	return hdmiReceiverModel(strings.TrimSpace(string(chip)))
+}
+func hdmiReceiverModel(chip string) string {
+	switch chip {
+	case "c":
+		return "LT6911C"
+	case "ux":
+		return "LT6911UXC"
+	case "d":
+		return "LT6911D"
+	}
+	return ""
+}
 func MonitorRequiresPowerCycle() bool {
 	board, _ := os.ReadFile(monitorBoardFile)
 	value := strings.TrimSpace(string(board))

@@ -270,6 +270,7 @@
     "current": "Текущее видео",
     "captureOn": "Захват включён",
     "captureOff": "Захват выключен",
+    "receiver": "Чип захвата",
     "input": "HDMI-вход",
     "output": "Кодируемый поток",
     "monitor": "HDMI-монитор",

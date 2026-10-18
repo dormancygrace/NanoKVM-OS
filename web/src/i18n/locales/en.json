@@ -270,6 +270,7 @@
     "current": "Current video",
     "captureOn": "Capture enabled",
     "captureOff": "Capture disabled",
+    "receiver": "Capture chip",
     "input": "HDMI input",
     "output": "Encoded stream",
     "monitor": "HDMI monitor",

@@ -86,6 +86,9 @@ typedef struct {
 	int enc_jpg_quality;
 	VIDEO_FRAME_INFO_S *enc_jpg_frame;
 	int enc_jpg_input_pool_id;
+	// The JPEG channel whose CVI_VENC_DestroyChn failed, retried in teardown.
+	bool enc_jpg_destroy_failed;
+	int enc_jpg_destroy_ch;
 
 	venc_info_t venc[MMF_VENC_MAX_CHN];
 
@@ -442,7 +445,6 @@ static SAMPLE_VI_CONFIG_S g_stViConfig;
 static int mmf_vi_deinit(void);
 static int mmf_del_vi_channel_all(void);
 static int mmf_del_venc_channel_all(void);
-static CVI_S32 _mmf_vpss_deinit_new(VPSS_GRP VpssGrp);
 
 static inline CVI_VOID VENC_GetPicBufferConfig2(CVI_U32 u32Width, CVI_U32 u32Height,
 	PIXEL_FORMAT_E enPixelFormat, DATA_BITWIDTH_E enBitWidth, COMPRESS_MODE_E enCmpMode,
@@ -469,72 +471,6 @@ static VIDEO_FRAME_INFO_S *_mmf_alloc_frame(int id, SIZE_S size, PIXEL_FORMAT_E 
 static CVI_S32 _mmf_free_frame(VIDEO_FRAME_INFO_S *frame)
 {
     return nanokvm::media::release(frame);
-}
-
-static int _try_release_sys(void)
-{
-	CVI_S32 s32Ret = CVI_FAILURE;
-	SAMPLE_INI_CFG_S	   	stIniCfg;
-	SAMPLE_VI_CONFIG_S 		stViConfig;
-	if (SAMPLE_COMM_VI_ParseIni(&stIniCfg)) {
-		SAMPLE_PRT("Parse complete\n");
-		return s32Ret;
-	}
-
-	s32Ret = CVI_VI_SetDevNum(stIniCfg.devNum);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("VI_SetDevNum failed with %#x\n", s32Ret);
-		return s32Ret;
-	}
-
-	s32Ret = SAMPLE_COMM_VI_IniToViCfg(&stIniCfg, &stViConfig);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("SAMPLE_COMM_VI_IniToViCfg failed with %#x\n", s32Ret);
-		return s32Ret;
-	}
-
-	s32Ret = SAMPLE_COMM_VI_DestroyIsp(&stViConfig);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("SAMPLE_COMM_VI_DestroyIsp failed with %#x\n", s32Ret);
-		return s32Ret;
-	}
-
-	// No SAMPLE_COMM_VI_DestroyVi: its channel, pipe and device stops need
-	// the VI context that CVI_VI_SetDevAttr maps, which a new process does not
-	// have yet. They did nothing and logged seven errors per start ("Call
-	// SetDevAttr first"). SAMPLE_COMM_SYS_Exit releases what a previous
-	// process left.
-	SAMPLE_COMM_SYS_Exit();
-	return s32Ret;
-}
-
-int _try_release_vi(void)
-{
-	CVI_S32 s32Ret = CVI_FAILURE;
-	s32Ret = mmf_del_vi_channel_all();
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("mmf_del_vi_channel_all failed with %#x\n", s32Ret);
-		return s32Ret;
-	}
-	return s32Ret;
-}
-
-int _try_release_venc_all(void)
-{
-	for (int ch = 0; ch < VENC_MAX_CHN_NUM; ch ++) {
-		CVI_VENC_StopRecvFrame(ch);
-		CVI_VENC_ResetChn(ch);
-		CVI_VENC_DestroyChn(ch);
-	}
-	return 0;
-}
-
-int _try_release_vpss_all(void)
-{
-	for (int ch = 0; ch < 4; ch ++) {
-		_mmf_vpss_deinit_new(ch);
-	}
-	return 0;
 }
 
 static void _mmf_sys_exit(void)
@@ -619,9 +555,10 @@ static CVI_S32 _mmf_init(void)
 	log_conf.s32Level = CVI_DBG_DEBUG;
 	CVI_LOG_SetLevelConf(&log_conf);
 
-	// Get config from ini if found.
-	if (SAMPLE_COMM_VI_ParseIni(&stIniCfg)) {
-		SAMPLE_PRT("Parse complete\n");
+	s32Ret = SAMPLE_COMM_VI_ParseIni(&stIniCfg);
+	if (s32Ret != CVI_SUCCESS) {
+		SAMPLE_PRT("SAMPLE_COMM_VI_ParseIni failed with %#x\n", s32Ret);
+		return s32Ret;
 	}
 
 	//Set sensor number
@@ -695,11 +632,26 @@ static int _mmf_deinit(void)
 	mmf_enc_jpg_deinit(0);
 	const int vi_stopped = mmf_del_vi_channel_all();
 	if (vi_stopped != CVI_SUCCESS) return vi_stopped;
-	_try_release_venc_all();
-	_try_release_vpss_all();
+	if (priv.enc_jpg_destroy_failed) {
+		// A JPEG channel whose CVI_VENC_DestroyChn failed: its state was
+		// cleared (mmf_enc_jpg_deinit), retry once the encoders are gone.
+		const int ch = priv.enc_jpg_destroy_ch;
+		CVI_VENC_StopRecvFrame(ch);
+		CVI_VENC_ResetChn(ch);
+		if (CVI_VENC_DestroyChn(ch) == CVI_SUCCESS) priv.enc_jpg_destroy_failed = false;
+	}
 	mmf_vi_deinit();
 	_mmf_sys_exit();
 	return CVI_SUCCESS;
+}
+
+static void _mmf_jpg_destroy(int ch)
+{
+	const CVI_S32 result = CVI_VENC_DestroyChn(ch);
+	if (result == CVI_SUCCESS) return;
+	printf("CVI_VENC_DestroyChn [%d] failed with %#x\n", ch, result);
+	priv.enc_jpg_destroy_failed = true;
+	priv.enc_jpg_destroy_ch = ch;
 }
 
 static int _vi_get_unused_ch() {
@@ -719,23 +671,13 @@ int mmf_init(void)
     }
 
 	/*
-	 * Best-effort cleanup must visit stale VENC consumers before their
-	 * SYS/VI producers. Runtime qualification determines whether this is
-	 * sufficient for a service restart.
+	 * SYS/VB state left by a previous process. SAMPLE_COMM_SYS_Init repeats
+	 * these two exits; the explicit call is kept as the documented reset.
+	 * VENC and VPSS need no sweep here: a new process has no VENC device
+	 * open, so the vendor calls would not reach the driver, and VPSS group 0
+	 * is recreated by _mmf_vpss_init_new.
 	 */
-	if (_try_release_venc_all() != CVI_SUCCESS) {
-		printf("try release stale venc failed\n");
-		return -1;
-	} else {
-		printf("try release stale venc ok\n");
-	}
-
-	if (_try_release_sys() != CVI_SUCCESS) {
-		printf("try release sys failed\n");
-		return -1;
-	} else {
-		printf("try release sys ok\n");
-	}
+	SAMPLE_COMM_SYS_Exit();
 
     if (_mmf_init() != CVI_SUCCESS) {
         printf("maix multi-media init failed\n");
@@ -745,14 +687,6 @@ int mmf_init(void)
 	}
 
 	priv.mmf_used_cnt = 1;
-
-	if (_try_release_vi() != CVI_SUCCESS) {
-		printf("try release vio failed\n");
-		return -1;
-	} else {
-		printf("try release vio ok\n");
-	}
-
     return 0;
 }
 
@@ -914,12 +848,15 @@ static CVI_S32 _mmf_vpss_init_new(VPSS_GRP VpssGrp, CVI_U32 width, CVI_U32 heigh
 	s32Ret = CVI_VPSS_ResetGrp(VpssGrp);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("CVI_VPSS_ResetGrp(grp:%d) failed with %#x!%d\n", VpssGrp, s32Ret, CVI_ERR_VPSS_ILLEGAL_PARAM);
+		CVI_VPSS_DestroyGrp(VpssGrp);
 		return CVI_FAILURE;
 	}
 
 	s32Ret = CVI_VPSS_StartGrp(VpssGrp);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("CVI_VPSS_StartGrp failed with %#x\n", s32Ret);
+		// The caller leaves vi_is_inited false, so teardown would not see it.
+		CVI_VPSS_DestroyGrp(VpssGrp);
 		return CVI_FAILURE;
 	}
 	return s32Ret;
@@ -1282,14 +1219,14 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 	s32Ret = CVI_VENC_GetJpegParam(ch, &stJpegParam);
 	if (s32Ret != CVI_SUCCESS) {
 		printf("CVI_VENC_GetJpegParam failed with %#x\n", s32Ret);
-		CVI_VENC_DestroyChn(ch);
+		_mmf_jpg_destroy(ch);
 		return s32Ret;
 	}
 	stJpegParam.u32Qfactor = quality;
 	s32Ret = CVI_VENC_SetJpegParam(ch, &stJpegParam);
 	if (s32Ret != CVI_SUCCESS) {
 		printf("CVI_VENC_SetJpegParam failed with %#x\n", s32Ret);
-		CVI_VENC_DestroyChn(ch);
+		_mmf_jpg_destroy(ch);
 		return s32Ret;
 	}
 
@@ -1304,7 +1241,7 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		printf("CVI_VENC_StartRecvPic failed with %#x\n", s32Ret);
 		// Not yet owned by enc_jpg_is_init: destroy it here, so that no
 		// vendor channel outlives its bookkeeping.
-		CVI_VENC_DestroyChn(ch);
+		_mmf_jpg_destroy(ch);
 		return CVI_FAILURE;
 	}
 
@@ -1348,6 +1285,8 @@ int mmf_enc_jpg_deinit(int ch)
 	s32Ret = CVI_VENC_DestroyChn(ch);
 	if (s32Ret != CVI_SUCCESS) {
 		printf("CVI_VENC_DestroyChn [%d] failed with %d\n", ch, s32Ret);
+		priv.enc_jpg_destroy_failed = true;
+		priv.enc_jpg_destroy_ch = ch;
 	}
 
 	if (priv.enc_jpg_frame) {

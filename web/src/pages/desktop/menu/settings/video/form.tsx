@@ -192,7 +192,10 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
   const deviceTransport = caps.stream.transport;
   // This browser plays another transport than the device's.
   const otherDeviceTransport =
-    admin && !!deviceTransport && deviceTransport !== saved.transport && draft.transport === saved.transport;
+    admin &&
+    !!deviceTransport &&
+    deviceTransport !== saved.transport &&
+    draft.transport === saved.transport;
 
   async function makeDeviceTransport() {
     if (applying.current) return;
@@ -316,9 +319,14 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                 fps: delivered,
                 size: size(out.width, out.height) || '—'
               })
-            : t(caps.monitor.followsStreamRate ? 'videoSettings.frameRateHint' : 'videoSettings.frameRateFixedHint', {
-                value: maxFps
-              })
+            : t(
+                caps.monitor.followsStreamRate
+                  ? 'videoSettings.frameRateHint'
+                  : 'videoSettings.frameRateFixedHint',
+                {
+                  value: maxFps
+                }
+              )
         )}
         {mjpeg
           ? row(

@@ -308,8 +308,7 @@ export const RustDeskControls = () => {
                             {status.video_transport === 'webrtc'
                               ? t('webrtcOn')
                               : t('webrtcOff', {
-                                  transport:
-                                    status.video_transport === 'mjpeg' ? 'MJPEG' : 'Direct'
+                                  transport: status.video_transport === 'mjpeg' ? 'MJPEG' : 'Direct'
                                 })}
                           </Typography.Text>
                         </Form.Item>

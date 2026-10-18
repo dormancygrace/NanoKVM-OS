@@ -177,8 +177,7 @@ text = text.replace(sleep, sleep.replace('usleep(delay)', 'usleep(nanokvmSysmonD
 # Deep sleep only after the park grace (nanokvmSysmonMayPark); gcwaiting still parks at once.
 park = '\t\tif debug.schedtrace <= 0 && (sched.gcwaiting.Load() || sched.npidle.Load() == gomaxprocs) {\n'
 assert text.count(park) == 1
-text = text.replace(park, park.replace('sched.npidle.Load() == gomaxprocs',
-                                       'nanokvmSysmonMayPark(now, sched.npidle.Load() == gomaxprocs)'))
+text = text.replace(park, '\t\tif debug.schedtrace <= 0 && nanokvmSysmonMayPark(now, sched.gcwaiting.Load(), sched.npidle.Load() == gomaxprocs) {\n')
 pos = text.index('\tminit()\n', text.index('func mstart1() {')) + len('\tminit()\n')
 text = text[:pos] + '\tnanokvmThreadInit()\n' + text[pos:]
 (out / 'src/runtime/proc.go').write_text(text)

@@ -61,6 +61,9 @@ jobs:
           du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
 
+      - name: Check sysmon park transitions
+        run: python3 tests/test-sysmon-park.py --goroot "$OUT/server/goroot" --go "$OUT/server/go/bin/go"
+
       - name: Check VDI poll deadlines
         run: python3 tests/test-vdi-poll.py --source "$OUT/modules/sources/osdrv/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c"
 

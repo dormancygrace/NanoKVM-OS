@@ -100,14 +100,21 @@ func nanokvmSysmonParkGraceInit() {
 }
 
 // nanokvmSysmonMayPark reports whether sysmon may enter its deep sleep; idle
-// says that every P is idle. With a grace and one P, the P must also have
+// says that every P is idle. A GC stop bypasses the grace and clears the
+// quiet delay. With a grace and one P, the P must also have
 // had no scheduling or syscall activity since a check at least the grace ago.
 // Until then sysmon sleeps 10 ms per iteration instead, so the short idle gaps
 // of a stream neither park sysmon nor make the next syscall wake it. Runs on
 // sysmon without a P: no allocation, no write barriers.
 //
 //go:nowritebarrierrec
-func nanokvmSysmonMayPark(now int64, idle bool) bool {
+func nanokvmSysmonMayPark(now int64, gcwaiting, idle bool) bool {
+	if gcwaiting {
+		// GC bypasses the grace, but must not carry its quiet delay across
+		// a park and subsequent syscall wake.
+		nanokvmSysmonQuiet = false
+		return true
+	}
 	if nanokvmSysmonParkGrace == 0 || gomaxprocs != 1 {
 		nanokvmSysmonQuiet = false
 		return idle

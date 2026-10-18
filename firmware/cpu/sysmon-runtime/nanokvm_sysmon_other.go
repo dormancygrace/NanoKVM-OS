@@ -11,4 +11,4 @@ func nanokvmThreadInit() {}
 //go:nosplit
 func nanokvmSysmonDelay(delay uint32) uint32 { return delay }
 
-func nanokvmSysmonMayPark(now int64, idle bool) bool { return idle }
+func nanokvmSysmonMayPark(now int64, gcwaiting, idle bool) bool { return gcwaiting || idle }

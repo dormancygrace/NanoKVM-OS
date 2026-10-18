@@ -1,11 +1,11 @@
 # Opt-in Go sysmon policies
 
 These are the selected opt-in Go runtime modifications for NanoKVM on
-Linux/riscv64: a sysmon timer slack and a sysmon sleep floor for GOMAXPROCS=1.
+Linux/riscv64: a sysmon timer slack, sleep floor and park grace for GOMAXPROCS=1.
 The source version and original proc.go checksum are pinned in
 go-source-pin.json. The shared Go installation is not modified. Runtime source
 is copied; other GOROOT components are symlinked and the base installation must
-remain available. prepare.py patches four sites in the pinned proc.go: a
+remain available. prepare.py patches five sites in the pinned proc.go: a
 startup hook at the start of sysmon, a thread hook after minit in mstart1,
 the argument of sysmon's per-iteration usleep, sysmon's deep-sleep condition
 and the memmove flag in cpuinit (below). Other OS/architecture
@@ -122,7 +122,8 @@ its next iteration. In the smoke below, a 5 ms ticker that competes with a
 30 ms blocking syscall ran at most 3.6-3.9 ms late without the grace and
 10-12 ms late with it (p99 2 ms -> 6-7 ms). Upstream sysmon has the same
 worst case whenever it backs off to 10 ms in a busy program. A
-`gcwaiting` stop still parks sysmon at once, the parked case is unchanged,
+`gcwaiting` stop still parks sysmon at once and clears the quiet delay, so a
+syscall wake resumes with the ordinary backoff and configured sleep floor,
 and the policy is inactive whenever gomaxprocs is greater than 1.
 
 The policies may delay sysmon's scheduler duties. A CPU saving does not establish
@@ -138,6 +139,13 @@ python3 firmware/cpu/sysmon-runtime/prepare.py --base /path/to/go1.27.2 --output
 for smoke in thread-policy-smoke sysmon-floor-smoke sysmon-park-smoke; do
   GOROOT=/new/path/to/go-nanokvm GOTOOLCHAIN=local GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 /path/to/go1.27.2/bin/go build -trimpath -o /tmp/$smoke firmware/cpu/sysmon-runtime/$smoke.go
 done
+```
+
+The deterministic policy test uses the prepared hook and park condition with
+stub scheduler state (no device or timing assumptions):
+
+```sh
+python3 tests/test-sysmon-park.py --goroot /new/path/to/go-nanokvm --go /path/to/go1.27.2/bin/go
 ```
 
 The output directory must not exist. The builder verifies source/version and

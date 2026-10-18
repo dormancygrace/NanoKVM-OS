@@ -7,17 +7,6 @@
 #include "mjpeg_policy.hpp"
 #include "geometry_gate.hpp"
 #include "capture_park.hpp"
-/**
- * 待解决的问题:
- * // 分辨率跟随输出
- * // 自动切换分辨率
- * // HDMI分辨率问题
- * // H264输入空图,VENC容易炸问题
- * // MJPEG/H264切换时卡退
- * // 再加一条手动清空全部内存
- * // deinit时free全部内存
- * // free 错内存时会炸的问题
- */
 #include "kvm_vision.h"
 #include "kvm_mmf.hpp"
 #include "kvm_capture.hpp"
@@ -98,7 +87,6 @@ struct kvmv_cfg_t {
     uint8_t hdmi_cable_state = 0;
     uint8_t try_exit_thread = 0;
     uint8_t thread_is_running = 0;
-    uint8_t Auto_res = 0;
     uint8_t hdmi_version = 0;
     uint8_t hw_version = 0;
     uint8_t hdmi_stop_flag = 0;
@@ -187,7 +175,6 @@ static bool restart_capture_now()
     }
     kvmv_cfg.vpss_width = default_vpss_width;
     kvmv_cfg.vpss_height = default_vpss_height;
-    kvmv_cfg.Auto_res = 0;
     kvmv_cfg.reinit_flag = 1;
     return true;
 }
@@ -1382,16 +1369,15 @@ static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
 }
 
 uint8_t kvmvenc_fps = default_h264_fps;
-mmf_venc_cfg_t cfg;
 
 int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t codec,
 	uint8_t fps)
 {
+	mmf_venc_cfg_t cfg{};
 	cfg.type = codec == VENC_H265 ? 1 : 2; // MMF/PAYLOAD_TYPE_E: 1 h265, 2 h264
     cfg.w = width;
     cfg.h = height;
     cfg.fmt = nanokvm::nv21_format();
-    cfg.jpg_quality = 0;       // unused
 	cfg.intput_fps = fps;
 	cfg.output_fps = fps;
 	cfg.bitrate = bitrate;
@@ -1786,7 +1772,6 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }
-        kvmv_cfg.Auto_res = (_width == 0 || _height == 0);
         const int capture_format = mjpeg_capture_format(_type, kvmv_cfg.frame_detact != 0,
                                                          capture_now, output.width);
         int retired = 0;

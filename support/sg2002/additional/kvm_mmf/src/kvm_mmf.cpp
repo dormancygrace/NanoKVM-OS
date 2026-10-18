@@ -38,7 +38,6 @@
 #endif
 
 typedef struct {
-	uint8_t ch;
 	uint8_t type;	// 0, jpg; 1, h265; 2, h264
 	uint8_t is_inited;
 	uint8_t is_used;
@@ -48,21 +47,6 @@ typedef struct {
 	mmf_venc_cfg_t cfg;
 	uint32_t pool_id;
 } venc_info_t;
-
-typedef enum {
-	MMF_MOD_VI,
-	MMF_MOD_VPSS,
-	MMF_MOD_VENC,
-} mmf_mod_type_t;
-
-typedef struct {
-	char name[15];
-	uint8_t is_used;
-	mmf_mod_type_t mod;
-	uint32_t pool_id;
-	uint32_t size;
-	uint32_t max_num;
-} mmf_vb_pool_t;
 
 typedef struct {
 	int mmf_used_cnt;
@@ -75,7 +59,6 @@ typedef struct {
     int vi_buffers[MMF_VI_MAX_CHN], vi_queue_depth[MMF_VI_MAX_CHN];
 	SIZE_S vi_size;
 	VIDEO_FRAME_INFO_S vi_frame[MMF_VI_MAX_CHN];
-	VB_CONFIG_S vb_conf;
 
 	int enc_jpg_is_init;
 	VENC_STREAM_S enc_jpeg_frame;
@@ -92,7 +75,7 @@ typedef struct {
 
 	venc_info_t venc[MMF_VENC_MAX_CHN];
 
-	mmf_vb_pool_t vb_pool[VB_MAX_COMM_POOLS];
+	bool vb_pool_used[VB_MAX_COMM_POOLS];  // created by _create_vb_pool
 
 	// Zero-copy state: VI frame leases and the VENC streams and inputs.
 	bool vi_frame_valid[MMF_VI_MAX_CHN];
@@ -395,7 +378,7 @@ static void *_mmf_map_vi_frame(int ch)
 	return vir_addr;
 }
 
-static int _create_vb_pool(char *name, mmf_mod_type_t mod, uint32_t size, uint32_t max_num)
+static int _create_vb_pool(uint32_t size, uint32_t max_num)
 {
 	uint32_t pool_id = -1;
 	VB_POOL_CONFIG_S stVbPoolCfg;
@@ -412,14 +395,7 @@ static int _create_vb_pool(char *name, mmf_mod_type_t mod, uint32_t size, uint32
 		return -2;
 	}
 
-	mmf_vb_pool_t *info = (mmf_vb_pool_t *)&priv.vb_pool[pool_id];
-	info->pool_id = pool_id;
-	strncpy(info->name, name, sizeof(info->name));
-	info->mod = mod;
-	info->size = size;
-	info->max_num = max_num;
-	info->is_used = 1;
-
+	priv.vb_pool_used[pool_id] = true;
 	return pool_id;
 }
 
@@ -427,15 +403,12 @@ static int _destroy_vb_pool(uint32_t pool_id)
 {
 	if (pool_id == VB_INVALID_POOLID) return CVI_SUCCESS;
 	if (pool_id >= VB_MAX_COMM_POOLS) return CVI_FAILURE;
-	CVI_S32 s32Ret;
-	mmf_vb_pool_t *info = (mmf_vb_pool_t *)&priv.vb_pool[pool_id];
-	if (info->is_used) {
-		s32Ret =  CVI_VB_DestroyPool(pool_id);
-		if (s32Ret != CVI_SUCCESS) {
+	if (priv.vb_pool_used[pool_id]) {
+		if (CVI_VB_DestroyPool(pool_id) != CVI_SUCCESS) {
 			printf("CVI_VB_DestroyPool : %d fail!\n", pool_id);
 			return -1;
 		}
-		memset(info, 0, sizeof(mmf_vb_pool_t));
+		priv.vb_pool_used[pool_id] = false;
 	}
 
 	return 0;
@@ -490,7 +463,6 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 	COMPRESS_MODE_E    enCompressMode   = COMPRESS_MODE_NONE;
 
 	memset(&stVbConf, 0, sizeof(VB_CONFIG_S));
-	memcpy(&stVbConf, &priv.vb_conf, sizeof(VB_CONFIG_S));
 
 	// vi
 	u32BlkSize = COMMON_GetPicBufferSize(stSize.u32Width, stSize.u32Height, PIXEL_FORMAT_UYVY,
@@ -707,7 +679,8 @@ int mmf_get_vi_unused_channel(void) {
 	return _vi_get_unused_ch();
 }
 
-static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width, int height, PIXEL_FORMAT_E format, int fps, int depth, bool mirror, bool flip, int fit)
+// Keeps the aspect ratio and crops the group input to the output's ratio.
+static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width, int height, PIXEL_FORMAT_E format, int fps, int depth, bool mirror, bool flip)
 {
 	VPSS_GRP_ATTR_S stGrpAttr;
 	VPSS_CROP_INFO_S   stChnCropInfo;
@@ -721,71 +694,32 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 	}
 	CVI_FLOAT corp_scale_w = (CVI_FLOAT)stGrpAttr.u32MaxW / width;
 	CVI_FLOAT corp_scale_h = (CVI_FLOAT)stGrpAttr.u32MaxH / height;
-	CVI_U32 crop_w = -1, crop_h = -1;
-	if (fit == 0) {
-		chn_attr.u32Width                    = width;
-		chn_attr.u32Height                   = height;
-		chn_attr.enVideoFormat               = VIDEO_FORMAT_LINEAR;
-		chn_attr.enPixelFormat               = format;
-		chn_attr.stFrameRate.s32SrcFrameRate = fps;
-		chn_attr.stFrameRate.s32DstFrameRate = fps;
-		chn_attr.u32Depth                    = depth;
-		chn_attr.bMirror                     = mirror;
-		chn_attr.bFlip                       = flip;
-		chn_attr.stAspectRatio.enMode        = ASPECT_RATIO_MANUAL;
-		chn_attr.stAspectRatio.stVideoRect.s32X       = 0;
-		chn_attr.stAspectRatio.stVideoRect.s32Y       = 0;
-		chn_attr.stAspectRatio.stVideoRect.u32Width   = width;
-		chn_attr.stAspectRatio.stVideoRect.u32Height  = height;
-		chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
-		chn_attr.stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
-		chn_attr.stNormalize.bEnable         = CVI_FALSE;
+	chn_attr.u32Width                    = width;
+	chn_attr.u32Height                   = height;
+	chn_attr.enVideoFormat               = VIDEO_FORMAT_LINEAR;
+	chn_attr.enPixelFormat               = format;
+	chn_attr.stFrameRate.s32SrcFrameRate = fps;
+	chn_attr.stFrameRate.s32DstFrameRate = fps;
+	chn_attr.u32Depth                    = depth;
+	chn_attr.bMirror                     = mirror;
+	chn_attr.bFlip                       = flip;
+	chn_attr.stAspectRatio.enMode        = ASPECT_RATIO_AUTO;
+	chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
+	chn_attr.stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
+	chn_attr.stNormalize.bEnable         = CVI_FALSE;
 
-		stChnCropInfo.bEnable = false;
-	} else if (fit == 1) {
-		chn_attr.u32Width                    = width;
-		chn_attr.u32Height                   = height;
-		chn_attr.enVideoFormat               = VIDEO_FORMAT_LINEAR;
-		chn_attr.enPixelFormat               = format;
-		chn_attr.stFrameRate.s32SrcFrameRate = fps;
-		chn_attr.stFrameRate.s32DstFrameRate = fps;
-		chn_attr.u32Depth                    = depth;
-		chn_attr.bMirror                     = mirror;
-		chn_attr.bFlip                       = flip;
-		chn_attr.stAspectRatio.enMode        = ASPECT_RATIO_AUTO;
-		chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
-		chn_attr.stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
-		chn_attr.stNormalize.bEnable         = CVI_FALSE;
-
-		stChnCropInfo.bEnable = false;
-	} else {
-		chn_attr.u32Width                    = width;
-		chn_attr.u32Height                   = height;
-		chn_attr.enVideoFormat               = VIDEO_FORMAT_LINEAR;
-		chn_attr.enPixelFormat               = format;
-		chn_attr.stFrameRate.s32SrcFrameRate = fps;
-		chn_attr.stFrameRate.s32DstFrameRate = fps;
-		chn_attr.u32Depth                    = depth;
-		chn_attr.bMirror                     = mirror;
-		chn_attr.bFlip                       = flip;
-		chn_attr.stAspectRatio.enMode        = ASPECT_RATIO_AUTO;
-		chn_attr.stAspectRatio.bEnableBgColor = CVI_TRUE;
-		chn_attr.stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
-		chn_attr.stNormalize.bEnable         = CVI_FALSE;
-
-		crop_w = corp_scale_w < corp_scale_h ? width * corp_scale_w: width * corp_scale_h;
-		crop_h = corp_scale_w < corp_scale_h ? height * corp_scale_w: height * corp_scale_h;
-		if (corp_scale_h < 0 || corp_scale_w < 0) {
-			SAMPLE_PRT("crop scale error. corp_scale_w: %f, corp_scale_h: %f\n", corp_scale_w, corp_scale_h);
-			return -1;
-		}
-
-		stChnCropInfo.bEnable = true;
-		stChnCropInfo.stCropRect.s32X = (stGrpAttr.u32MaxW - crop_w) / 2;
-		stChnCropInfo.stCropRect.s32Y = (stGrpAttr.u32MaxH - crop_h) / 2;
-		stChnCropInfo.stCropRect.u32Width = crop_w;
-		stChnCropInfo.stCropRect.u32Height = crop_h;
+	CVI_U32 crop_w = corp_scale_w < corp_scale_h ? width * corp_scale_w: width * corp_scale_h;
+	CVI_U32 crop_h = corp_scale_w < corp_scale_h ? height * corp_scale_w: height * corp_scale_h;
+	if (corp_scale_h < 0 || corp_scale_w < 0) {
+		SAMPLE_PRT("crop scale error. corp_scale_w: %f, corp_scale_h: %f\n", corp_scale_w, corp_scale_h);
+		return -1;
 	}
+
+	stChnCropInfo.bEnable = true;
+	stChnCropInfo.stCropRect.s32X = (stGrpAttr.u32MaxW - crop_w) / 2;
+	stChnCropInfo.stCropRect.s32Y = (stGrpAttr.u32MaxH - crop_h) / 2;
+	stChnCropInfo.stCropRect.u32Width = crop_w;
+	stChnCropInfo.stCropRect.u32Height = crop_h;
 
 	if (crop_w != 0 && crop_h != 0) {
 		s32Ret = CVI_VPSS_SetChnCrop(VpssGrp, VpssChn, &stChnCropInfo);
@@ -950,7 +884,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 		return CVI_FAILURE;
 	}
 
-	s32Ret = _mmf_vpss_chn_init(0, ch, width_out, height_out, format_out, fps, depth, mirror, flip, 2);
+	s32Ret = _mmf_vpss_chn_init(0, ch, width_out, height_out, format_out, fps, depth, mirror, flip);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("_mmf_vpss_chn_init failed with %#x!\n", s32Ret);
 		return CVI_FAILURE;
@@ -969,17 +903,15 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 		goto _need_deinit_vpss_chn;
 	}
 
-	char name[20];
-	snprintf(name, 20, "vi_vpss%.1d", ch);
 	pool_size_out = COMMON_GetPicBufferSize(width_out, height_out, format_out, DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
 	// Four surfaces cover two queued outputs, the encoder lease and the producer.
-	pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, buffers);
+	pool_id = _create_vb_pool(pool_size_out, buffers);
 	if (pool_id < 0 && buffers > 3) {
-		pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 3);
+		pool_id = _create_vb_pool(pool_size_out, 3);
 	}
 	if (pool_id < 0 && buffers > 2) {
 		// Keep capture usable on profiles with a smaller reserved video heap.
-		pool_id = _create_vb_pool(name, MMF_MOD_VI, pool_size_out, 2);
+		pool_id = _create_vb_pool(pool_size_out, 2);
 	}
 	if (pool_id < 0) {
 		printf("[%s][%d]_create_vb_pool failed, id %d\n", __func__, __LINE__, pool_id);
@@ -1341,7 +1273,7 @@ static int _mmf_jpg_push_copy(int ch, uint8_t *data, int w, int h, int format, i
         if (priv.enc_jpg_input_pool_id == (int)VB_INVALID_POOLID) {
             const uint32_t size = COMMON_GetPicBufferSize(w, h, (PIXEL_FORMAT_E)format,
                 DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
-            const int pool = _create_vb_pool((char *)"enc_jpeg_in", MMF_MOD_VENC, size, 1);
+            const int pool = _create_vb_pool(size, 1);
             if (pool < 0) return CVI_FAILURE;
             priv.enc_jpg_input_pool_id = pool;
             created = true;
@@ -1684,7 +1616,6 @@ int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg) {
 	// local bookkeeping still says that the channel is free.
 	venc_info_t *info = (venc_info_t *)&priv.venc[ch];
 	memset(info, 0, sizeof(venc_info_t));
-	info->ch = ch;
 	info->type = cfg->type;
 	info->pool_id = VB_INVALID_POOLID;
 	priv.venc_stream_acquired[ch] = false;
@@ -1876,11 +1807,9 @@ static int _mmf_venc_push_copy(int ch, uint8_t *data, int w, int h, int format,
     if (info->is_running || w != info->cfg.w || h != info->cfg.h || format != info->cfg.fmt)
         return CVI_FAILURE;
     if (!info->capture_frame) {
-        char name[20];
-        snprintf(name, sizeof(name), "venc%.1d", ch);
         const uint32_t size = VDEC_GetPicBufferSize((PAYLOAD_TYPE_E)info->cfg.type,
             w, h, (PIXEL_FORMAT_E)format, DATA_BITWIDTH_8, COMPRESS_MODE_NONE);
-        const int pool = _create_vb_pool(name, MMF_MOD_VENC, size, 1);
+        const int pool = _create_vb_pool(size, 1);
         if (pool < 0) {
             note_video_memory(true);
             return CVI_FAILURE;

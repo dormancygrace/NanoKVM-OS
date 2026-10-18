@@ -22,7 +22,7 @@ struct {
 } kvm_venc;
 struct {
     std::atomic<int> reopen_cam_flag{0};
-    int vpss_width = 0, vpss_height = 0, Auto_res = 0, reinit_flag = 0;
+    int vpss_width = 0, vpss_height = 0, reinit_flag = 0;
     uint8_t hdmi_cable_state = 1;
 } kvmv_cfg;
 constexpr int default_vpss_width = 1920, default_vpss_height = 1080, KVMV_MAX_TRY_NUM = 3;

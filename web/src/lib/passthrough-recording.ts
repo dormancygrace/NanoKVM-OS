@@ -1,4 +1,4 @@
-// Records the Direct stream into MP4 without re-encoding: the H.264/H.265
+// Records the Direct or WebRTC stream into MP4 without re-encoding: the H.264/H.265
 // frames go into the file as received, the USB audio (if any) is encoded to
 // Opus. Mediabunny writes a fragmented MP4, so a file cut short stays
 // playable up to its last fragment. Loaded on demand.
@@ -12,13 +12,13 @@ import {
   StreamTarget
 } from 'mediabunny';
 
+import { DIRECT_H264_CODEC, DIRECT_H265_CODEC } from '@/lib/encoder.ts';
 import {
   PacketTimeline,
-  type DirectPacket,
-  type DirectRecordingSource,
+  type RecordingPacket,
+  type RecordingSource,
   type TimedPacket
-} from '@/lib/direct-recording.ts';
-import { DIRECT_H264_CODEC, DIRECT_H265_CODEC } from '@/lib/encoder.ts';
+} from '@/lib/recording-source.ts';
 
 export type PassthroughRecording = {
   stop: () => void;
@@ -27,8 +27,13 @@ export type PassthroughRecording = {
   done: Promise<void>;
 };
 
+// Fragments start at keyframes only, so the recording asks for one when the
+// last is this old: a fragment holds this much video in memory at most, and a
+// file cut short loses at most this much.
+const KEYFRAME_INTERVAL = 5;
+
 export async function recordPassthrough(
-  source: DirectRecordingSource,
+  source: RecordingSource,
   writable: FileSystemWritableFileStream,
   audio: MediaStreamTrack | null,
   maxPendingBytes = 32 * 1024 * 1024
@@ -86,6 +91,8 @@ export async function recordPassthrough(
   let failure: Error | undefined;
   let started = false;
   let first = true;
+  let lastKeyframe = 0;
+  let lastRequest = 0;
   let finished = false;
   let markStarted!: () => void;
   const startedPromise = new Promise<void>((resolve) => {
@@ -120,7 +127,7 @@ export async function recordPassthrough(
         finish();
       });
   };
-  const onPacket = (packet: DirectPacket) => {
+  const onPacket = (packet: RecordingPacket) => {
     if (finished) return;
     const dropped = timeline.dropped;
     const result = timeline.push(packet);
@@ -144,6 +151,14 @@ export async function recordPassthrough(
       });
     }
     if (!result) return;
+    if (result.key) lastKeyframe = result.seconds;
+    else if (
+      result.seconds - lastKeyframe >= KEYFRAME_INTERVAL &&
+      result.seconds - lastRequest >= KEYFRAME_INTERVAL
+    ) {
+      lastRequest = result.seconds;
+      source.requestKeyframe();
+    }
     enqueue(() => add(result));
   };
   // A disposed source may end synchronously during subscription.

@@ -1,10 +1,10 @@
-// Recording the Direct stream as received: the player publishes a source that
-// hands over the H.264/H.265 frames it decodes, and PacketTimeline turns them
-// into the packets of one MP4 video track.
+// Recording the stream as received: the Direct and WebRTC players publish a
+// source that hands over the H.264/H.265 frames they decode, and
+// PacketTimeline turns them into the packets of one MP4 video track.
 
-// One frame of the Direct stream: Annex B data, the device timestamp in
-// microseconds and the picture size the player shows.
-export type DirectPacket = {
+// One frame of the stream: Annex B data, its timestamp in microseconds and
+// the picture size.
+export type RecordingPacket = {
   key: boolean;
   timestamp: number;
   width: number;
@@ -12,37 +12,52 @@ export type DirectPacket = {
   data: Uint8Array;
 };
 
-export type DirectRecordingEnd = 'stopped' | 'closed' | 'stream-error';
+export type RecordingEnd = 'stopped' | 'closed' | 'stream-error';
 
-export type DirectRecordingSource = {
+export type RecordingSource = {
   codec: 'h264' | 'h265';
   // Starts handing over frames (from a requested keyframe on); returns stop.
   start: (
-    onPacket: (packet: DirectPacket) => void,
-    onEnd: (reason: DirectRecordingEnd) => void
+    onPacket: (packet: RecordingPacket) => void,
+    onEnd: (reason: RecordingEnd) => void
   ) => () => void;
+  // Asks the device for a keyframe while recording. The device encoder sends
+  // few of them, and the MP4 writer starts its fragments only at keyframes.
+  requestKeyframe: () => void;
 };
 
-let current: DirectRecordingSource | null = null;
-const watchers = new Set<(source: DirectRecordingSource | null) => void>();
+let current: RecordingSource | null = null;
+const watchers = new Set<(source: RecordingSource | null) => void>();
 
-export function publishDirectRecording(source: DirectRecordingSource | null) {
+export function publishRecordingSource(source: RecordingSource | null) {
   if (current === source) return;
   current = source;
   watchers.forEach((watch) => watch(source));
 }
 
-export function getDirectRecording(): DirectRecordingSource | null {
+export function getRecordingSource(): RecordingSource | null {
   return current;
 }
 
-export function watchDirectRecording(
-  watch: (source: DirectRecordingSource | null) => void
-): () => void {
+export function watchRecordingSource(watch: (source: RecordingSource | null) => void): () => void {
   watchers.add(watch);
   return () => {
     watchers.delete(watch);
   };
+}
+
+// RTP video timestamps (90 kHz, wrapping at 2^32) as microseconds that keep
+// counting across the wrap; the first frame is zero.
+export class RtpClock {
+  private last: number | null = null;
+  private ticks = 0;
+
+  microseconds(rtpTimestamp: number): number {
+    const rtp = rtpTimestamp >>> 0;
+    if (this.last !== null) this.ticks += (rtp - this.last) | 0;
+    this.last = rtp;
+    return Math.round((this.ticks * 100) / 9);
+  }
 }
 
 export type TimedPacket = {
@@ -77,7 +92,7 @@ export function parameterSets(data: Uint8Array, codec: 'h264' | 'h265'): string 
 }
 
 /*
- * The packets of one MP4 track from Direct frames: the track starts at the
+ * The packets of one MP4 track from received frames: the track starts at the
  * first keyframe with a known size and counts from zero in seconds; a frame
  * that goes back in time is dropped and counted; each packet lasts until the
  * next one, so packets come out one frame late. A keyframe with other
@@ -91,7 +106,7 @@ export class PacketTimeline {
   height = 0;
   private base: number | null = null;
   private config = '';
-  private pending: (DirectPacket & { seconds: number }) | null = null;
+  private pending: (RecordingPacket & { seconds: number }) | null = null;
   private lastSeconds = -1;
   private lastDuration = 1 / 60;
 
@@ -101,7 +116,7 @@ export class PacketTimeline {
     return this.base !== null;
   }
 
-  push(packet: DirectPacket): TimedPacket | 'size-changed' | null {
+  push(packet: RecordingPacket): TimedPacket | 'size-changed' | null {
     if (this.base === null) {
       if (!packet.key || !packet.width || !packet.height) return null;
       this.base = packet.timestamp;
@@ -134,7 +149,7 @@ export class PacketTimeline {
     return last ? this.timed(last, this.lastDuration) : null;
   }
 
-  private timed(packet: DirectPacket & { seconds: number }, duration: number): TimedPacket {
+  private timed(packet: RecordingPacket & { seconds: number }, duration: number): TimedPacket {
     return {
       key: packet.key,
       seconds: packet.seconds,

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { encoderCodecQuery, getEncoderCodec, supportsWebRTCH265 } from '@/lib/encoder.ts';
+import { publishRecordingSource } from '@/lib/recording-source.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { createVideoAudioChannel, getVideoAudio, publishVideoAudio } from '@/lib/video-audio.ts';
@@ -14,6 +15,7 @@ import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
 import { ScreenViewport } from './viewport.tsx';
 import { startWebrtcDiagnostics } from './webrtc-diagnostics.ts';
+import { canRecordReceiver, receiverRecording } from './webrtc-recording.ts';
 
 type SignalingMessage = {
   event?: string;
@@ -82,6 +84,15 @@ export const H264Webrtc = ({
       audioChannel.emit('closed');
       audioChannel = null;
       audioTransceiver = null;
+    };
+    // Recordings take the received frames as they are; see webrtc-recording.ts.
+    // Closed after the connection.
+    let recording: ReturnType<typeof receiverRecording> | null = null;
+    const closeRecording = () => {
+      if (!recording) return;
+      publishRecordingSource(null);
+      recording.close();
+      recording = null;
     };
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -203,7 +214,14 @@ export const H264Webrtc = ({
         }
       };
 
-      peer.addTransceiver('video', { direction: 'recvonly' });
+      const videoTransceiver = peer.addTransceiver('video', { direction: 'recvonly' });
+      if (canRecordReceiver()) {
+        recording = receiverRecording(videoTransceiver.receiver, codec, () => ({
+          width: videoElement?.videoWidth ?? 0,
+          height: videoElement?.videoHeight ?? 0
+        }));
+        publishRecordingSource(recording.source);
+      }
       // Always offered, so USB audio enabled later needs no renegotiation;
       // the server sends nothing until audio-start.
       audioChannel = createVideoAudioChannel(peer, (event) => sendMsg(event, ''));
@@ -321,6 +339,7 @@ export const H264Webrtc = ({
             closeAudioChannel();
             video?.close();
             video = null;
+            closeRecording();
             ws.close();
             break;
           }
@@ -372,6 +391,7 @@ export const H264Webrtc = ({
 
       video?.close();
       video = null;
+      closeRecording();
       if (videoElement) {
         videoElement.srcObject = null;
       }

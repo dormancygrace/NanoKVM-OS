@@ -4,13 +4,13 @@ import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import {
-  publishDirectRecording,
-  type DirectPacket,
-  type DirectRecordingEnd
-} from '@/lib/direct-recording.ts';
 import { encoderCodecQuery, getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder.ts';
 import { getDirectPlayback } from '@/lib/localstorage';
+import {
+  publishRecordingSource,
+  type RecordingEnd,
+  type RecordingPacket
+} from '@/lib/recording-source.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse';
 import { screenshotSourceAtom } from '@/jotai/screen.ts';
@@ -52,10 +52,10 @@ export const H264Direct = ({
     const pendingScreenshots = screenshotRequests.current;
     // The recording that receives this worker's frames, if any.
     let recorder: {
-      onPacket: (packet: DirectPacket) => void;
-      onEnd: (reason: DirectRecordingEnd) => void;
+      onPacket: (packet: RecordingPacket) => void;
+      onEnd: (reason: RecordingEnd) => void;
     } | null = null;
-    const endRecording = (reason: DirectRecordingEnd) => {
+    const endRecording = (reason: RecordingEnd) => {
       const active = recorder;
       recorder = null;
       workerRef.current?.postMessage({ type: 'record', record: false });
@@ -108,7 +108,7 @@ export const H264Direct = ({
           detail?: string;
           requestId?: number;
           blob?: Blob;
-          packet?: DirectPacket;
+          packet?: RecordingPacket;
           stats?: {
             seconds: number;
             counts: Record<string, number>;
@@ -191,7 +191,7 @@ export const H264Direct = ({
         },
         [offscreen]
       );
-      publishDirectRecording({
+      publishRecordingSource({
         codec,
         start: (onPacket, onEnd) => {
           if (disposed) {
@@ -205,14 +205,15 @@ export const H264Direct = ({
           return () => {
             if (recorder === active) endRecording('stopped');
           };
-        }
+        },
+        requestKeyframe: () => worker.postMessage({ type: 'keyframe' })
       });
     });
 
     return () => {
       disposed = true;
       endRecording('closed');
-      publishDirectRecording(null);
+      publishRecordingSource(null);
       const worker = workerRef.current;
       workerRef.current = null;
       if (worker) {

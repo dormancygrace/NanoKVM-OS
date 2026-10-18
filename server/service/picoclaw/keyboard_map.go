@@ -175,27 +175,8 @@ var keycodeMap = map[string]byte{
 	"NumpadClear":          0xd8,
 	"NumpadClearEntry":     0xd9,
 
-	"BrowserSearch":    0xf0,
-	"BrowserHome":      0xf1,
-	"BrowserBack":      0xf2,
-	"BrowserForward":   0xf3,
-	"BrowserStop":      0xf4,
-	"BrowserRefresh":   0xf5,
-	"BrowserFavorites": 0xf6,
-
-	"MediaPlayPause":     0xe8,
-	"MediaStop":          0xe9,
-	"MediaTrackPrevious": 0xea,
-	"MediaTrackNext":     0xeb,
-	"Eject":              0xec,
-	"MediaSelect":        0xed,
-	"LaunchMail":         0xee,
-	"LaunchApp1":         0xef,
-	"LaunchApp2":         0xf0,
-	"Sleep":              0xf8,
-	"Wake":               0xf9,
-	"MediaRewind":        0xfa,
-	"MediaFastForward":   0xfb,
+	// Usages end at 0xE7, like the keyboard descriptor; media, browser,
+	// launch and sleep keys are Consumer/System Control usages it cannot send.
 }
 
 func resolveKey(key string) (string, byte, bool, error) {

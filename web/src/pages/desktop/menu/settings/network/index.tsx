@@ -6,6 +6,7 @@ import { Ethernet } from './ethernet.tsx';
 import { Gateway } from './gateway.tsx';
 import { NetworkInformation } from './information.tsx';
 import { Mdns } from './mdns';
+import { WebRTCServers } from './webrtc-servers.tsx';
 import { Wifi } from './wifi.tsx';
 
 export const Network = () => (
@@ -26,3 +27,5 @@ export const WifiSettings = () => <Wifi />;
 export const EthernetSettings = () => <Ethernet />;
 
 export const BluetoothSettings = () => <Bluetooth />;
+
+export const WebRTCSettings = () => <WebRTCServers />;

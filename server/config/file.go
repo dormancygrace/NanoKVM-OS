@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -15,6 +16,9 @@ import (
 const ConfigurationFile = "/etc/kvm/server.yaml"
 
 var configurationFile = ConfigurationFile
+
+// All settings that share server.yaml must serialize the entire edit.
+var configurationFileMu sync.Mutex
 
 func Read() (*Config, error) {
 	data, err := os.ReadFile(configurationFile)
@@ -39,6 +43,20 @@ func Read() (*Config, error) {
 // the whole struct would, for example, turn an absent trustedProxies into an
 // explicit empty list and drop the loopback proxy default.
 func UpdateTLS(proto string, cert Cert) error {
+	return editFile(func(root *yaml.Node) {
+		setScalar(root, "proto", proto)
+		certNode := mappingChild(root, "cert")
+		setScalar(certNode, "crt", cert.Crt)
+		setScalar(certNode, "key", cert.Key)
+	})
+}
+
+// editFile applies edit to the root mapping of server.yaml and writes it
+// back atomically, keeping every key, comment and unknown field it does not
+// touch.
+func editFile(edit func(root *yaml.Node)) error {
+	configurationFileMu.Lock()
+	defer configurationFileMu.Unlock()
 	data, err := os.ReadFile(configurationFile)
 	if err != nil {
 		return err
@@ -50,11 +68,7 @@ func UpdateTLS(proto string, cert Cert) error {
 	if document.Kind != yaml.DocumentNode || len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
 		return errors.New("configuration root is not a mapping")
 	}
-	root := document.Content[0]
-	setScalar(root, "proto", proto)
-	certNode := mappingChild(root, "cert")
-	setScalar(certNode, "crt", cert.Crt)
-	setScalar(certNode, "key", cert.Key)
+	edit(document.Content[0])
 
 	var out bytes.Buffer
 	encoder := yaml.NewEncoder(&out)

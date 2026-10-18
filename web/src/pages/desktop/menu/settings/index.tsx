@@ -28,6 +28,7 @@ import {
   NetworkIcon,
   PackageIcon,
   PaletteIcon,
+  RadioTowerIcon,
   SettingsIcon,
   ShieldIcon,
   StethoscopeIcon,
@@ -110,6 +111,9 @@ const EthernetSettings = lazy(() =>
 );
 const BluetoothSettings = lazy(() =>
   import('./network').then((module) => ({ default: module.BluetoothSettings }))
+);
+const WebRTCSettings = lazy(() =>
+  import('./network').then((module) => ({ default: module.WebRTCSettings }))
 );
 
 // Marks the settings button and System > Updates while updates are available.
@@ -203,6 +207,11 @@ export const Settings = ({
                 }
               ]
             : []),
+          {
+            id: 'network-webrtc',
+            icon: <RadioTowerIcon size={16} />,
+            component: <WebRTCSettings />
+          },
           { id: 'vpn', icon: <GlobeLockIcon size={16} />, component: <VPNList open={changeTab} /> },
           {
             id: 'vpn-wireguard',
@@ -427,6 +436,7 @@ export const Settings = ({
     if (id === 'network-wifi') return t('settings.network.wifi.title');
     if (id === 'network-ethernet') return t('settings.network.ethernet.name');
     if (id === 'network-bluetooth') return 'Bluetooth';
+    if (id === 'network-webrtc') return 'WebRTC';
     if (id === 'vpn') return t('settings.vpn.title');
     if (id === 'vpn-openvpn') return 'OpenVPN';
     if (id === 'vpn-tailscale') return 'Tailscale';

@@ -11,10 +11,10 @@ import (
 	"NanoKVM-Server/config"
 )
 
-// FromConfig returns the servers of the loaded configuration.
+// FromConfig returns the servers in use; they may change at run time.
 func FromConfig() []webrtc.ICEServer {
-	conf := config.GetInstance()
-	return List(conf.Stun, conf.Turn)
+	settings := config.WebRTCSettings()
+	return List(settings.Stun, settings.Turn)
 }
 
 // List returns the STUN servers, a list separated by commas or spaces

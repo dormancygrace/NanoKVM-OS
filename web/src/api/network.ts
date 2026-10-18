@@ -87,6 +87,33 @@ export function setDNS(mode: DNSMode, servers: string[]) {
   return http.post('/api/network/dns', { mode, servers });
 }
 
+export type StunMode = 'default' | 'custom' | 'off';
+
+export type WebRTCServers = {
+  stunMode: StunMode;
+  stun: string[];
+  defaultStun: string[];
+  turn: { address: string; username: string; hasCredential: boolean };
+  dtlsCipher: DTLSCipher;
+};
+
+export type DTLSCipher = 'chacha20' | 'aes-gcm';
+
+// The STUN and TURN servers of WebRTC video, audio and RustDesk.
+export function getWebRTCServers() {
+  return http.get('/api/network/webrtc');
+}
+
+// credential: empty keeps the stored TURN password; an empty address removes TURN.
+export function setWebRTCServers(body: {
+  stunMode: StunMode;
+  stun: string[];
+  turn: { address: string; username: string; credential: string };
+  dtlsCipher: DTLSCipher;
+}) {
+  return http.post('/api/network/webrtc', body);
+}
+
 export function getEthernet() {
   return http.get('/api/network/ethernet');
 }

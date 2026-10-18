@@ -10,6 +10,7 @@ import (
 
 func networkRouter(r *gin.Engine) {
 	service := network.NewService()
+	network.InitWebRTC()
 
 	r.POST("/api/network/wifi", service.ConnectWifiNoAuth)    // connect Wi-Fi without auth (only available in ap mode)
 	r.POST("/api/network/wifi/verify", service.VerifyApLogin) // verify ap login
@@ -42,4 +43,6 @@ func networkRouter(r *gin.Engine) {
 	admin.POST("/network/ethernet", service.SetEthernet) // set Ethernet IPv4 configuration
 	admin.GET("/network/gateway", service.GetGatewayPreference)
 	admin.POST("/network/gateway", service.SetGatewayPreference)
+	admin.GET("/network/webrtc", service.GetWebRTCServers)  // STUN and TURN servers
+	admin.POST("/network/webrtc", service.SetWebRTCServers) // set STUN and TURN servers
 }

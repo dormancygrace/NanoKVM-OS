@@ -68,7 +68,7 @@ record_cpu_profile(out/'cpu-profile-cgo.json', cross+'gcc')
 for name, source in sources.items():
     shutil.copyfile(source, lib/name)
 env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='1',
-           GOEXPERIMENT='boringcrypto', CC=cross+'gcc',
+           GOEXPERIMENT='', CC=cross+'gcc',
            CGO_CFLAGS=' '.join(cpu_flags() + [f'-I{compression}/include']), CGO_CXXFLAGS=' '.join(cpu_flags()),
            CGO_LDFLAGS=f'-L{lib} -L{compression}/lib -Wl,-rpath-link,{lib} -Wl,--enable-new-dtags -Wl,-rpath,$ORIGIN/dl_lib')
 # Resolve the GOROOT directory, not bin/go: prepared runtimes symlink bin/ to
@@ -98,7 +98,7 @@ if custom_runtime_expected and not custom_runtime_present:
 shutil.copyfile(out/'NanoKVM-Server', out/'NanoKVM-Server.stripped')
 subprocess.run([cross+'strip', '--strip-debug', str(out/'NanoKVM-Server.stripped')], check=True)
 (out/'NanoKVM-Server.stripped').chmod(0o755)
-helper_env = dict(env, CGO_ENABLED='0', GOEXPERIMENT='')
+helper_env = dict(env, CGO_ENABLED='0')
 subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',
                 '-o', str(out/'nkos-update'), './cmd/nkos-update'],
                cwd=repo/'server', env=helper_env, check=True)

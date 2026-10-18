@@ -146,11 +146,12 @@ func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
 		checked bool
 		wantErr bool
 	}{
-		{"1080p100 left in flash", 1080, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "1080", false, false},
-		{"720p saved", 720, edid100, nil, "NanoKVM-cube-monitor-720.bin", "720", false, false},
-		{"QHD saved by a PCIe image", 1440, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "0", false, false},
+		{"1080p100 left in flash", 1080, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "1080", true, false},
+		{"720p saved", 720, edid100, nil, "NanoKVM-cube-monitor-720.bin", "720", true, false},
+		{"QHD saved by a PCIe image", 1440, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "0", true, false},
 		{"Cube EDID", 1080, edid60, nil, "", "1080", true, false},
 		{"read failure", 1080, nil, errors.New("i2c"), "", "1080", false, true},
+		{"read returned zeros", 1080, make([]byte, 256), nil, "", "1080", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, tc.saved, false, 1920)
@@ -182,5 +183,25 @@ func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// An image that identified a Cube as PCIe recorded the 100 Hz profile it
+// programmed; the Cube is still checked, once.
+func TestCubeFirstStartIgnoresProfileRecordedAsPCIe(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	if err := os.WriteFile(monitorEDIDHashFile, []byte("0\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var applied []string
+	hw := firstStartBackend(true, true, &applied, nil)
+	reads := 0
+	hw.read = func() ([]byte, error) { reads++; return testEDID(1920, 720, 1080, 45, 29700), nil }
+	path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
+	if err != nil || filepath.Base(path) != "NanoKVM-cube-monitor-1080.bin" || len(applied) != 1 {
+		t.Fatalf("error %v, path %q, applied %v", err, path, applied)
+	}
+	if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 1 || len(applied) != 1 {
+		t.Fatalf("second start: error %v, reads %d, applied %v", err, reads, applied)
 	}
 }

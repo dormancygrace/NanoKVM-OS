@@ -52,9 +52,9 @@ func ApplyMonitorSettings(update MonitorSettings) error {
 // the input. Until a profile is recorded, which profile the receiver holds is
 // unknown. nanokvm_update_edid reads the EDID first and skips the flash write
 // when the profile is already installed. It returns the programmed profile, or
-// "" when a profile is recorded or EDID is not programmable. A Cube is only
-// reprogrammed when its receiver advertises modes it cannot capture
-// (checkCubeMonitorEDIDLocked).
+// "" when a profile is recorded or EDID is not programmable. A Cube is checked
+// once instead and only reprogrammed when its receiver advertises modes it
+// cannot capture (checkCubeMonitorEDIDLocked).
 func ProgramMonitorProfileOnFirstStart() (string, error) {
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()
@@ -66,14 +66,16 @@ func ProgramMonitorProfileOnFirstStart() (string, error) {
 }
 
 func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool VideoPool) (string, error) {
-	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
-		return "", nil
-	}
 	if hw.requireHardware() != nil {
 		return "", nil
 	}
+	// Before the recorded-profile check: an image that identified a Cube as
+	// PCIe recorded the 100 Hz profile it programmed there.
 	if hw.powerCycle() {
 		return checkCubeMonitorEDIDLocked(hw)
+	}
+	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
+		return "", nil
 	}
 	// Fitting may have failed, or the saved state may have changed since it ran.
 	// Never advertise a profile this boot cannot capture.
@@ -105,12 +107,15 @@ func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (string, error) {
 		return "", nil
 	}
 	edid, err := hw.read()
+	if err == nil && !edidValid(edid) {
+		err = errors.New("invalid EDID header or checksum")
+	}
 	if err != nil {
 		return "", fmt.Errorf("checking the Cube receiver EDID: %w", err)
 	}
 	mode, beyond := edidBeyondCube(edid)
 	if !beyond {
-		return "", atomicWriteMonitorFile(monitorEDIDCheckedFile, []byte("1\n"), ".monitor_edid_checked-*")
+		return "", markMonitorEDIDCheckedLocked()
 	}
 	height := savedMonitorResolutionLocked()
 	if height != 720 && height != 1080 {
@@ -126,7 +131,11 @@ func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (string, error) {
 			return path, fmt.Errorf("saving monitor resolution failed: %w", err)
 		}
 	}
-	return path, nil
+	return path, markMonitorEDIDCheckedLocked()
+}
+
+func markMonitorEDIDCheckedLocked() error {
+	return atomicWriteMonitorFile(monitorEDIDCheckedFile, []byte("1\n"), ".monitor_edid_checked-*")
 }
 
 func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBackend) error {

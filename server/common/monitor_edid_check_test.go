@@ -7,9 +7,8 @@ import (
 	"testing"
 )
 
-// testEDID returns a 256-byte EDID: one base-block detailed timing and a CTA
-// extension with the given short video descriptors. Checksums are not set;
-// edidBeyondCube does not validate them.
+// testEDID returns a valid 256-byte EDID: one base-block detailed timing and
+// a CTA extension with the given short video descriptors.
 func testEDID(h, hb, v, vb int, clock10kHz int, svds ...byte) []byte {
 	e := make([]byte, 256)
 	copy(e, []byte{0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0})
@@ -26,7 +25,32 @@ func testEDID(h, hb, v, vb int, clock10kHz int, svds ...byte) []byte {
 	x[4] = 2<<5 | byte(len(svds))
 	copy(x[5:], svds)
 	x[2] = byte(5 + len(svds))
+	for _, block := range [][]byte{e[:128], e[128:]} {
+		var sum byte
+		for _, b := range block[:127] {
+			sum += b
+		}
+		block[127] = -sum
+	}
 	return e
+}
+
+func TestEDIDValid(t *testing.T) {
+	good := testEDID(1920, 280, 1080, 45, 14850, 16)
+	if !edidValid(good) {
+		t.Fatal("valid EDID rejected")
+	}
+	ones := make([]byte, 256)
+	for i := range ones {
+		ones[i] = 0xff
+	}
+	bad := append([]byte(nil), good...)
+	bad[200] ^= 1
+	for name, edid := range map[string][]byte{"zeros": make([]byte, 256), "ones": ones, "extension checksum": bad, "short": good[:100]} {
+		if edidValid(edid) {
+			t.Errorf("%s accepted", name)
+		}
+	}
 }
 
 func TestEDIDBeyondCube(t *testing.T) {

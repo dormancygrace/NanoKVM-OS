@@ -19,6 +19,25 @@ var cubeUnsafeVICs = func() map[byte]bool {
 	return vics
 }()
 
+// edidValid checks the EDID header and the checksum of every block present,
+// so a failed read (all zeros or all ones) is not taken for an EDID without
+// fast modes.
+func edidValid(edid []byte) bool {
+	if len(edid) < 128 || string(edid[:8]) != "\x00\xff\xff\xff\xff\xff\xff\x00" {
+		return false
+	}
+	for block := 0; block <= int(edid[126]) && (block+1)*128 <= len(edid); block++ {
+		var sum byte
+		for _, b := range edid[block*128 : (block+1)*128] {
+			sum += b
+		}
+		if sum != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // edidBeyondCube reports the first mode an EDID advertises that a Cube
 // receiver cannot capture: a timing wider than 1920 or taller than 1080
 // pixels, or with more pixels per second than 1920x1080 at 60 Hz. It checks

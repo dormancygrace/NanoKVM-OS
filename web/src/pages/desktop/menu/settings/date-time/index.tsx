@@ -107,7 +107,7 @@ export function DateTimeSettings() {
             </div>
             <div className="text-fg-muted mt-2 flex flex-wrap items-center gap-2 text-xs">
               <span>{status.config.timezone}</span>
-              <StatusBadge tone={status.synchronized ? 'success' : 'neutral'}>
+              <StatusBadge tone={status.synchronized ? 'success' : 'danger'}>
                 {t(status.synchronized ? 'dateTime.synchronized' : 'dateTime.waiting')}
               </StatusBadge>
             </div>

@@ -661,11 +661,15 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             {line(t('dashboard.timezone'), extra.time?.config.timezone)}
             {line(
               t('dashboard.synchronization'),
-              extra.time
-                ? t(
+              extra.time ? (
+                <StatusBadge tone={extra.time.synchronized ? 'success' : 'danger'}>
+                  {t(
                     extra.time.synchronized ? 'dashboard.synchronized' : 'dashboard.notSynchronized'
-                  )
-                : '—'
+                  )}
+                </StatusBadge>
+              ) : (
+                '—'
+              )
             )}
             {line(t('dashboard.timeService'), extra.time?.daemon)}
             {line(t('dashboard.ntpServers'), extra.time?.config.servers.join(', '))}

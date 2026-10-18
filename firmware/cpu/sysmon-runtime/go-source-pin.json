@@ -21,7 +21,7 @@
   },
   "x_crypto_v0.57.0_sum_riscv64_s_sha256": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",
   "target": "linux/riscv64",
-  "activation": "NANOKVM_SYSMON_TIMER_SLACK_NS=250000 and NANOKVM_SYSMON_MIN_DELAY_US=500|1000|2000 and NANOKVM_SYSMON_PARK_GRACE_MS=50|100|200; unset or 0 leaves the original runtime policy. ChaCha20 uses XTheadVector when detected; NANOKVM_CHACHA20=generic selects the generic code",
+  "activation": "NANOKVM_SYSMON_TIMER_SLACK_NS=250000 and NANOKVM_SYSMON_MIN_DELAY_US=500|1000|2000; unset or 0 leaves the original runtime policy. ChaCha20 uses XTheadVector when detected; NANOKVM_CHACHA20=generic selects the generic code",
   "official_source": {
     "url": "https://go.dev/dl/go1.27.2.src.tar.gz",
     "sha256": "03495da2ba64894d40f5c4992e49454fa78b50690604ff92b6afff5081b76e62",

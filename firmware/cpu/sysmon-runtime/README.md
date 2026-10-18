@@ -28,7 +28,8 @@ those byte loops were the most expensive user-space code on the device. When
 riscv_hwprobe reports fast misaligned scalar access (`HasFastMisaligned`; the
 C906 kernel probe does), prepare.py lets that case align the destination and
 continue in the existing 8-byte loops, which then load from a misaligned
-source. Pointer-carrying memory is always pointer-aligned on both sides, so
+source; copies under 32 bytes keep the byte loops, where aligning the
+destination costs more than it saves. The co-aligned path is unchanged. Pointer-carrying memory is always pointer-aligned on both sides, so
 it never takes this path. `GODEBUG=cpu.fastmisaligned=off` restores the byte
 loops for comparison.
 

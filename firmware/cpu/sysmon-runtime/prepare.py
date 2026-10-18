@@ -178,15 +178,26 @@ pos = text.index('\tminit()\n', text.index('func mstart1() {')) + len('\tminit()
 text = text[:pos] + '\tnanokvmThreadInit()\n' + text[pos:]
 (out / 'src/runtime/proc.go').write_text(text)
 # A source and destination of different alignment continue in the 8-byte loops
-# (misaligned loads) instead of the byte loops when the loads are fast.
+# (misaligned loads) instead of the byte loops when the loads are fast. The
+# test sits out of line, so the co-aligned path is unchanged. Below 32 bytes
+# aligning the destination byte by byte costs more than it saves.
 for d in 'fb':
     edit('runtime/memmove_riscv64.s',
-         f'\tBNE\tX5, X6, {d}_loop8_unaligned_check\n\tBEQZ\tX5, {d}_loop_check\n',
-         f'\tBEQ\tX5, X6, {d}_same_alignment\n'
-         '\tMOVBU\truntime·nanokvmFastMisaligned(SB), X7\t// NanoKVM: nanokvm_memmove.go\n'
-         f'\tBEQZ\tX7, {d}_loop8_unaligned_check\n'
-         f'{d}_same_alignment:\n'
-         f'\tBEQZ\tX5, {d}_loop_check\n')
+         '\t// Check alignment - if alignment differs we have to do one byte at a time.\n'
+         f'\tAND\t$7, X10, X5\n\tAND\t$7, X11, X6\n\tBNE\tX5, X6, {d}_loop8_unaligned_check\n',
+         '\t// Check alignment - if alignment differs we have to do one byte at a time,\n'
+         '\t// unless misaligned loads are fast (NanoKVM: nanokvm_memmove.go).\n'
+         f'\tAND\t$7, X10, X5\n\tAND\t$7, X11, X6\n\tBNE\tX5, X6, {d}_misaligned\n'
+         f'{d}_same_alignment:\n')
+    edit('runtime/memmove_riscv64.s',
+         f'\tJMP\t{d}_loop4_check\n\n{d}_loop8_unaligned_check:\n',
+         f'\tJMP\t{d}_loop4_check\n\n'
+         f'{d}_misaligned:\n'
+         '\tMOV\t$32, X7\n'
+         f'\tBLT\tX12, X7, {d}_loop8_unaligned_check\n'
+         '\tMOVBU\truntime·nanokvmFastMisaligned(SB), X7\n'
+         f'\tBNEZ\tX7, {d}_same_alignment\n'
+         f'{d}_loop8_unaligned_check:\n')
 for p in source.glob('nanokvm_*'):
     shutil.copyfile(p, out / 'src/runtime' / p.name)
 manifest = {'source_go': str(base), 'goroot': str(out), 'source_pin': pin,

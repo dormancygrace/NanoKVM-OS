@@ -62,6 +62,23 @@ func PortraitMaxSupported() bool {
 	return portraitMaxSupportedLocked()
 }
 
+// PortraitSupportedFor and PortraitMaxSupportedFor are PortraitSupported and
+// PortraitMaxSupported with another video pool than the booted one: the pool
+// of a video memory mode the device would restart into.
+func PortraitSupportedFor(p VideoPool) bool {
+	monitorMutex.Lock()
+	defer monitorMutex.Unlock()
+
+	return portraitSupportedForPoolLocked(p)
+}
+
+func PortraitMaxSupportedFor(p VideoPool) bool {
+	monitorMutex.Lock()
+	defer monitorMutex.Unlock()
+
+	return portraitMaxSupportedForPoolLocked(p)
+}
+
 // ApplyMonitorResolution changes the virtual HDMI monitor, without forcing the
 // HDMI source to adopt it. BIOS and operating systems may choose other timings.
 func ApplyMonitorResolution(height uint16) error {
@@ -129,6 +146,10 @@ func portraitStrideSupported() bool {
 }
 
 func portraitSupportedLocked() bool {
+	return portraitSupportedForPoolLocked(BootedVideoPool())
+}
+
+func portraitSupportedForPoolLocked(p VideoPool) bool {
 	if !MonitorHighRefreshSupported() {
 		return false
 	}
@@ -138,7 +159,7 @@ func portraitSupportedLocked() bool {
 	if requireMonitorHardwareLocked() != nil {
 		return false
 	}
-	if !SupportsQHD() {
+	if !p.QHD() {
 		return false
 	}
 	info, err := os.Stat(portraitMonitorEDID)
@@ -146,13 +167,17 @@ func portraitSupportedLocked() bool {
 }
 
 func portraitMaxSupportedLocked() bool {
+	return portraitMaxSupportedForPoolLocked(BootedVideoPool())
+}
+
+func portraitMaxSupportedForPoolLocked(p VideoPool) bool {
 	if !MonitorHighRefreshSupported() {
 		return false
 	}
 	if requireMonitorHardwareLocked() != nil {
 		return false
 	}
-	if !BootedVideoPool().PortraitMax() {
+	if !p.PortraitMax() {
 		return false
 	}
 	info, err := os.Stat(portraitMaxMonitorEDID)
@@ -160,17 +185,21 @@ func portraitMaxSupportedLocked() bool {
 }
 
 func portraitResolutionSupportedLocked(resolution uint16) bool {
+	return portraitResolutionSupportedForPoolLocked(resolution, BootedVideoPool())
+}
+
+func portraitResolutionSupportedForPoolLocked(resolution uint16, p VideoPool) bool {
 	switch resolution {
 	case portraitResolutionAVC:
 		info, err := os.Stat(portraitAVCMonitorEDID)
-		return portraitSupportedLocked() && err == nil && info.Mode().IsRegular()
+		return portraitSupportedForPoolLocked(p) && err == nil && info.Mode().IsRegular()
 	case portraitResolutionHD:
 		info, err := os.Stat(portraitHDMonitorEDID)
-		return portraitSupportedLocked() && err == nil && info.Mode().IsRegular()
+		return portraitSupportedForPoolLocked(p) && err == nil && info.Mode().IsRegular()
 	case portraitResolutionDefault:
-		return portraitSupportedLocked()
+		return portraitSupportedForPoolLocked(p)
 	case portraitResolutionMax:
-		return portraitMaxSupportedLocked()
+		return portraitMaxSupportedForPoolLocked(p)
 	default:
 		return false
 	}

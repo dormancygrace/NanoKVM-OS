@@ -94,12 +94,15 @@ func monitorState(t *testing.T, height int, portrait bool, portraitResolution in
 	dir := t.TempDir()
 	oldRes, oldPortrait, oldPortraitRes := monitorResolutionFile, monitorPortraitFile, monitorPortraitResolutionFile
 	oldDir, oldHash, oldChecked := monitorEDIDDir, monitorEDIDHashFile, monitorEDIDCheckedFile
+	oldDeferred := monitorDeferredFile
 	t.Cleanup(func() {
 		monitorResolutionFile, monitorPortraitFile, monitorPortraitResolutionFile = oldRes, oldPortrait, oldPortraitRes
 		monitorEDIDDir, monitorEDIDHashFile, monitorEDIDCheckedFile = oldDir, oldHash, oldChecked
+		monitorDeferredFile = oldDeferred
 	})
 	monitorResolutionFile, monitorPortraitFile, monitorPortraitResolutionFile = filepath.Join(dir, "resolution"), filepath.Join(dir, "portrait"), filepath.Join(dir, "portrait_resolution")
 	monitorEDIDDir, monitorEDIDHashFile, monitorEDIDCheckedFile = dir, filepath.Join(dir, "hash"), filepath.Join(dir, "checked")
+	monitorDeferredFile = filepath.Join(dir, "deferred")
 	on := "0"
 	if portrait {
 		on = "1"

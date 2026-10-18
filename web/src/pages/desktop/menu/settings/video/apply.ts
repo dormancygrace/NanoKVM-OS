@@ -40,6 +40,8 @@ type ApplyResult = {
   capabilities: VideoCapabilities | null;
   monitorRewritten: boolean;
   reloading: boolean;
+  // The device restarts with this video memory mode.
+  restart?: string;
 };
 
 // Storage names the WebRTC transport after its original H.264 player.
@@ -50,12 +52,15 @@ const storedMode = (transport: VideoDraft['transport']) =>
  * Apply a draft: the shared settings (administrators only) as one validated
  * request, then this browser's player choices. The page reloads when the
  * player changes. Users change only the transport and the Direct playback.
+ * With fitVideoMemory the device may switch the video memory mode and
+ * restart: the other device settings go first then, as the restart follows
+ * the response at once.
  */
 export async function applyVideoDraft(
   saved: VideoDraft,
   draft: VideoDraft,
   caps: VideoCapabilities,
-  options: { admin: boolean; confirmPowerCycle: boolean },
+  options: { admin: boolean; confirmPowerCycle: boolean; fitVideoMemory?: boolean },
   deps: ApplyDeps = defaultApplyDeps
 ): Promise<ApplyResult> {
   const changes = draftChanges(saved, draft, caps);
@@ -65,13 +70,20 @@ export async function applyVideoDraft(
     reloading: false
   };
   if (options.admin) {
-    const body = settingsRequest(saved, draft);
-    if (Object.keys(body).length > 0) {
-      const rsp = await deps.applyVideoSettings(body, options.confirmPowerCycle);
+    const fit = !!options.fitVideoMemory;
+    const shared = async () => {
+      const body = settingsRequest(saved, draft);
+      if (Object.keys(body).length === 0) return;
+      const rsp = await deps.applyVideoSettings(body, options.confirmPowerCycle, fit);
       if (rsp.code !== 0) throw new Error(rsp.msg || 'video-settings-failed');
-      result.capabilities = rsp.data ?? null;
+      if (rsp.data?.restart) {
+        result.restart = String(rsp.data.videoMemoryMode ?? '');
+      } else {
+        result.capabilities = rsp.data ?? null;
+      }
       result.monitorRewritten = changes.monitorRewrite;
-    }
+    };
+    if (!fit) await shared();
     if (draft.frameDetect !== saved.frameDetect) {
       const rsp = await deps.updateFrameDetect(draft.frameDetect);
       if (rsp.code !== 0) throw new Error(rsp.msg || 'video-settings-failed');
@@ -83,6 +95,7 @@ export async function applyVideoDraft(
       const rsp = await deps.selectEncoderCodec(draft.codec);
       if (rsp.code !== 0) throw new Error(rsp.msg || 'video-settings-failed');
     }
+    if (fit) await shared();
     if (draft.codec !== saved.codec) deps.setEncoderCodec(draft.codec);
   }
   if (draft.directPlayback !== saved.directPlayback) {
@@ -94,7 +107,8 @@ export async function applyVideoDraft(
     draft.transport !== saved.transport ||
     (options.admin && draft.transport !== 'mjpeg' && draft.codec !== saved.codec) ||
     (draft.transport === 'direct' && draft.directPlayback !== saved.directPlayback);
-  if (reconnect) {
+  // No reload while the device restarts.
+  if (reconnect && result.restart === undefined) {
     result.reloading = true;
     deps.reload();
   }

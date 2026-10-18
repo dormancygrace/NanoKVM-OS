@@ -62,6 +62,16 @@ export type VideoCapabilities = {
   };
   transports: Record<Transport, string[]>;
   videoMemoryMiB: number;
+  // Absent on servers that cannot switch the video memory with a resolution.
+  videoMemory?: VideoMemory;
+};
+
+// The video memory modes: fixed carveouts that a reboot switches between.
+export type VideoMemoryMode = 'fhd' | 'qhd' | 'uhd';
+export type VideoMemory = {
+  active: string; // the booted mode, or "unknown"
+  selected: string; // the mode of the next boot
+  modes: { mode: VideoMemoryMode; mib: number; installed: boolean }[];
 };
 
 export type Transport = 'direct' | 'webrtc' | 'mjpeg';
@@ -418,12 +428,37 @@ export function draftAutoBitrate(draft: VideoDraft, caps: VideoCapabilities) {
   return autoBitrate(out.width, out.height, effectiveFps(draft, prospective), draft.codec);
 }
 
+// The video memory a draft's monitor needs, in MiB, as the server judges it
+// (VideoPool in server/common/video_pool.go): 3840x2160 the UHD pool, 2560x1440
+// and every portrait profile the QHD pool. The landscape monitor counts while
+// portrait is on: turning portrait off restores it.
+export function videoMemoryNeedMiB(draft: Pick<VideoDraft, 'monitor' | 'portrait'>) {
+  if (draft.monitor === 2160) return 104;
+  if (draft.monitor === 1440 || draft.portrait) return 54;
+  return 0;
+}
+
+// The smallest installed video memory mode that captures a draft's monitor.
+export function videoMemoryFor(
+  draft: Pick<VideoDraft, 'monitor' | 'portrait'>,
+  caps: VideoCapabilities
+): VideoMemoryMode | undefined {
+  const need = videoMemoryNeedMiB(draft);
+  return caps.videoMemory?.modes
+    .filter((m) => m.installed && m.mib >= need)
+    .sort((a, b) => a.mib - b.mib)[0]?.mode;
+}
+
 export type DraftChange = {
   keys: (keyof VideoDraft)[];
   // The source re-detects the monitor (a short HDMI blackout).
   monitorRewrite: boolean;
   // The page reloads to switch the player.
   reconnect: boolean;
+  // Applying switches to this video memory mode and restarts the device: the
+  // monitor changes and the smallest installed mode that captures it is not
+  // the booted one, larger or smaller.
+  memoryRestart?: VideoMemoryMode;
 };
 
 export function draftChanges(
@@ -443,7 +478,41 @@ export function draftChanges(
     draft.transport !== saved.transport ||
     (draft.transport !== 'mjpeg' && draft.codec !== saved.codec) ||
     (draft.transport === 'direct' && draft.directPlayback !== saved.directPlayback);
-  return { keys, monitorRewrite, reconnect };
+  const change: DraftChange = { keys, monitorRewrite, reconnect };
+  const active = caps.videoMemory?.active;
+  if (
+    caps.monitor.programmable &&
+    (draft.monitor !== saved.monitor || draft.portrait !== saved.portrait) &&
+    active &&
+    active !== 'unknown'
+  ) {
+    const target = videoMemoryFor(draft, caps);
+    if (target && target !== active) change.memoryRestart = target;
+  }
+  return change;
+}
+
+// The issues that keep a draft from being applied. The video memory of the
+// monitor or the portrait profile does not when applying switches to an
+// installed mode that captures it; the portrait profile still decides the
+// transport and the codec.
+export function blockingIssues(
+  saved: VideoDraft,
+  draft: VideoDraft,
+  caps: VideoCapabilities,
+  browser: BrowserSupport
+): DraftIssues {
+  const issues = draftIssues(draft, caps, browser);
+  if (!draftChanges(saved, draft, caps).memoryRestart) return issues;
+  if (issues.monitor === 'video-memory') delete issues.monitor;
+  if (issues.portrait === 'video-memory') {
+    delete issues.portrait;
+    const profile = portraitProfile(caps, draft.portrait);
+    if (profile && !profile.transports.includes(draft.transport)) issues.transport ??= 'portrait';
+    else if (profile && draft.transport !== 'mjpeg' && !profile.codecs.includes(draft.codec))
+      issues.codec ??= 'portrait';
+  }
+  return issues;
 }
 
 // The shared part of a draft as a POST /api/vm/video body: changed fields only.

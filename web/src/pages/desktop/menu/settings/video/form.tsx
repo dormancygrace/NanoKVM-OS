@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Collapse, InputNumber, message, Modal, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
-import { getMemoryStatus, reboot, setVideoMemory } from '@/api/vm';
-import { pickVideoMemoryMode } from '@/lib/video-memory-mode';
 import {
   BITRATE_CHOICES,
+  blockingIssues,
   draftAutoBitrate,
   draftChanges,
   draftIssues,
@@ -18,6 +17,7 @@ import {
   recommendedResolution,
   resolutionChoices,
   resolutionOf,
+  videoMemoryFor,
   withResolution,
   type BrowserSupport,
   type Reason,
@@ -56,6 +56,8 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
   const [draft, setDraft] = useState<VideoDraft>(saved);
   const [bitrate, setBitrate] = useState<BitrateChoice>(() => bitrateChoice(saved, caps));
   const [busy, setBusy] = useState(false);
+  // The video memory mode the device is restarting with.
+  const [restarting, setRestarting] = useState('');
   const applying = useRef(false);
   const syncAtoms = useSyncStreamAtoms();
 
@@ -72,6 +74,16 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
     }
   }, [savedKey, baseline, dirty, saved, caps]);
 
+  // Unlock once the polled capabilities report the new video memory mode.
+  const activeMemory = caps.videoMemory?.active;
+  useEffect(() => {
+    if (!restarting || activeMemory?.toUpperCase() !== restarting) return;
+    setRestarting('');
+    applying.current = false;
+    setBusy(false);
+    setIsLocked(false);
+  }, [restarting, activeMemory, setIsLocked]);
+
   // The automatic bitrate follows the mode and the codec.
   const auto = draftAutoBitrate(draft, caps);
   useEffect(() => {
@@ -79,8 +91,9 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
   }, [bitrate, auto, draft.bitRate]);
 
   const issues = draftIssues(draft, caps, browser);
-  const valid = Object.keys(issues).length === 0;
+  const valid = Object.keys(blockingIssues(saved, draft, caps, browser)).length === 0;
   const changes = draftChanges(saved, draft, caps);
+  const modeName = (mode: string) => mode.toUpperCase();
   const reason = (r?: Reason) => (r ? t(`videoSettings.reason.${r}`) : '');
   const withReason = (label: string, r?: Reason) => (r ? `${label} — ${reason(r)}` : label);
   const hz = (value: number) => t('videoSettings.hz', { value });
@@ -94,20 +107,44 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
   async function apply(next = draft) {
     if (applying.current) return;
     const nextChanges = draftChanges(saved, next, caps);
-    if (nextChanges.keys.length === 0 || Object.keys(draftIssues(next, caps, browser)).length)
+    if (
+      nextChanges.keys.length === 0 ||
+      Object.keys(blockingIssues(saved, next, caps, browser)).length
+    )
       return;
     applying.current = true;
-    const powerCycle = admin && nextChanges.monitorRewrite && caps.monitor.requiresPowerCycle;
-    if (powerCycle) {
-      const confirmed = await new Promise<boolean>((resolve) =>
+    const ask = (title: string, content: string, okText: string, cancelText?: string) =>
+      new Promise<boolean>((resolve) =>
         Modal.confirm({
-          title: t('videoSettings.powerCycleTitle'),
-          content: t('videoSettings.powerCycleConfirm'),
-          okText: t('videoSettings.powerCycleWrite'),
-          cancelText: t('videoSettings.powerCycleCancel'),
+          title,
+          content,
+          okText,
+          cancelText,
           onOk: () => resolve(true),
           onCancel: () => resolve(false)
         })
+      );
+    // The restart first: it is the larger consequence.
+    const memory = admin ? nextChanges.memoryRestart : undefined;
+    if (memory) {
+      const mode = modeName(memory);
+      const confirmed = await ask(
+        t('videoSettings.memoryRestartTitle', { mode }),
+        t('videoSettings.memoryRestartConfirm', { mode }),
+        t('videoSettings.memoryRestartApply')
+      );
+      if (!confirmed) {
+        applying.current = false;
+        return;
+      }
+    }
+    const powerCycle = admin && nextChanges.monitorRewrite && caps.monitor.requiresPowerCycle;
+    if (powerCycle) {
+      const confirmed = await ask(
+        t('videoSettings.powerCycleTitle'),
+        t('videoSettings.powerCycleConfirm'),
+        t('videoSettings.powerCycleWrite'),
+        t('videoSettings.powerCycleCancel')
       );
       if (!confirmed) {
         applying.current = false;
@@ -116,13 +153,20 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
     }
     setBusy(true);
     setIsLocked(true);
+    let restart: string | undefined;
     try {
       const result = await applyVideoDraft(saved, next, caps, {
         admin,
-        confirmPowerCycle: powerCycle
+        confirmPowerCycle: powerCycle,
+        fitVideoMemory: !!memory
       });
+      restart = result.restart;
       if (admin) syncAtoms(next, caps);
-      if (!result.reloading) {
+      if (restart !== undefined) {
+        const mode = modeName(restart || memory || '');
+        setRestarting(mode);
+        message.info(t('screen.captureStatus.videoMemoryRebooting', { mode }));
+      } else if (!result.reloading) {
         message.success(
           t(powerCycle ? 'videoSettings.powerCycleWritten' : 'videoSettings.applied')
         );
@@ -134,38 +178,14 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
           : t('videoSettings.failed')
       );
     } finally {
-      await refresh();
-      applying.current = false;
-      setBusy(false);
-      setIsLocked(false);
-    }
-  }
-
-  // 3840x2160 needs the UHD video memory, which applies after a reboot.
-  function switchToUhd() {
-    Modal.confirm({
-      title: t('videoSettings.uhdTitle'),
-      content: t('videoSettings.uhdConfirm'),
-      okText: t('videoSettings.uhdSwitch'),
-      onOk: async () => {
-        try {
-          const status = await getMemoryStatus();
-          if (status.code !== 0) throw new Error(status.msg);
-          const mode = pickVideoMemoryMode(status.data.videoMemory.modes ?? [], 'uhd');
-          if (!mode) throw new Error(t('videoSettings.uhdUnavailable'));
-          const set = await setVideoMemory(mode);
-          if (set.code !== 0) throw new Error(set.msg);
-          const restart = await reboot();
-          if (restart.code !== 0) throw new Error(restart.msg);
-          message.info(t('videoSettings.uhdRebooting'));
-        } catch (error) {
-          message.error(
-            error instanceof Error && error.message ? error.message : t('videoSettings.failed')
-          );
-          throw error;
-        }
+      // The device is going down: the form stays locked until it is back.
+      if (restart === undefined) {
+        await refresh();
+        applying.current = false;
+        setBusy(false);
+        setIsLocked(false);
       }
-    });
+    }
   }
 
   const row = (label: string, control: React.ReactNode, note?: React.ReactNode) => (
@@ -181,16 +201,22 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
   const choices = resolutionChoices(caps);
   const current = resolutionOf(draft, caps);
   const recommended = recommendedResolution(caps);
-  const choiceOption = (c: (typeof choices)[number]) => ({
-    value: c.key,
-    label: withReason(
-      `${size(c.width, c.height)}${c.key === recommended?.key ? ` · ${t('videoSettings.modeRecommended')}` : ''}`,
-      c.available ? undefined : c.reason
-    ),
-    // A resolution that only needs the UHD memory stays selectable: choosing
-    // it offers the switch.
-    disabled: !c.available && c.reason !== 'video-memory'
-  });
+  const choiceOption = (c: (typeof choices)[number]) => {
+    const label = `${size(c.width, c.height)}${c.key === recommended?.key ? ` · ${t('videoSettings.modeRecommended')}` : ''}`;
+    // A resolution that needs another installed video memory mode stays
+    // selectable: applying it switches the mode and restarts the device.
+    const memory =
+      !c.available && c.reason === 'video-memory'
+        ? videoMemoryFor(withResolution(draft, c, caps), caps)
+        : undefined;
+    return {
+      value: c.key,
+      label: memory
+        ? `${label} — ${t('videoSettings.memoryRestartOption', { mode: modeName(memory) })}`
+        : withReason(label, c.available ? undefined : c.reason),
+      disabled: !c.available && !memory
+    };
+  };
   const landscape = choices.filter((c) => !c.portrait);
   const portrait = choices.filter((c) => c.portrait);
   const out = draftSize(draft, caps);
@@ -267,19 +293,6 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
             : t(caps.monitor.followsStreamRate ? 'videoSettings.frameRateHint' : 'videoSettings.frameRateFixedHint', {
                 value: maxFps
               })
-        )}
-        {issues.monitor === 'video-memory' && target.height >= 2160 && (
-          <Alert
-            type="warning"
-            showIcon
-            message={t('videoSettings.uhdNeedsMemory')}
-            description={t('videoSettings.uhdNeedsMemoryHint')}
-            action={
-              <Button size="small" disabled={!admin || busy} onClick={switchToUhd}>
-                {t('videoSettings.uhdSwitch')}
-              </Button>
-            }
-          />
         )}
         {mjpeg
           ? row(
@@ -471,23 +484,39 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
       />
 
       <div className="border-line sticky bottom-0 z-10 space-y-2 border-t bg-neutral-900 py-3">
-        {dirty && (changes.monitorRewrite || changes.reconnect) && (
-          <ul className="text-warning space-y-1 text-xs" role="status">
-            {changes.monitorRewrite && (
-              <li>
-                {t('videoSettings.changeMonitor', {
-                  monitor: `${size(target.width, target.height) || t('videoSettings.automatic')}${target.refresh ? ` · ${hz(target.refresh)}` : ''}`
-                })}
-              </li>
-            )}
-            {changes.reconnect && <li>{t('videoSettings.changeReload')}</li>}
-          </ul>
+        {restarting && (
+          <Alert
+            type="info"
+            showIcon
+            message={t('screen.captureStatus.videoMemoryRebooting', { mode: restarting })}
+          />
         )}
+        {dirty &&
+          !restarting &&
+          (changes.monitorRewrite || changes.reconnect || changes.memoryRestart) && (
+            <ul className="text-warning space-y-1 text-xs" role="status">
+              {changes.monitorRewrite && (
+                <li>
+                  {t('videoSettings.changeMonitor', {
+                    monitor: `${size(target.width, target.height) || t('videoSettings.automatic')}${target.refresh ? ` · ${hz(target.refresh)}` : ''}`
+                  })}
+                </li>
+              )}
+              {changes.reconnect && <li>{t('videoSettings.changeReload')}</li>}
+              {changes.memoryRestart && admin && (
+                <li>
+                  {t('videoSettings.changeMemoryRestart', {
+                    mode: modeName(changes.memoryRestart)
+                  })}
+                </li>
+              )}
+            </ul>
+          )}
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="primary"
             loading={busy}
-            disabled={!dirty || !valid}
+            disabled={!dirty || !valid || !!restarting}
             onClick={() => void apply()}
           >
             {t('videoSettings.apply')}

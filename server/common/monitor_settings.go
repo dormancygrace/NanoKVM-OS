@@ -70,31 +70,45 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	if hw.requireHardware() != nil {
 		return "", nil
 	}
-	// Before the recorded-profile check: an image that identified a Cube as
-	// PCIe recorded the 100 Hz profile it programmed there. A Cube or Lite
-	// with an LT6911UXC captures every profile it can hold.
-	if hw.powerCycle() {
-		if receiverChip() == "ux" {
-			return "", nil
+	deferred := false
+	if data, err := os.ReadFile(monitorDeferredFile); err == nil {
+		if strings.TrimSpace(string(data)) != "1" {
+			return "", fmt.Errorf("invalid deferred monitor request")
 		}
-		return checkCubeMonitorEDIDLocked(hw)
-	}
-	// The LT6911D on PCIe is programmed only when the user applies a profile:
-	// its EDID write has not yet run on that board.
-	if receiverChip() == "d" {
-		return "", nil
-	}
-	if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
-		if !retiredMonitorProfiles[strings.TrimSpace(string(recorded))] {
-			return "", nil
-		}
-		if err := retireStreamRateLocked(); err != nil {
-			return "", err
-		}
-		log.Infof("the HDMI receiver holds a retired 1080p 100 Hz profile; programming the current one")
+		deferred = true
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return "", nil
+		return "", fmt.Errorf("reading deferred monitor request: %w", err)
 	}
+	// A confirmed memory switch is an explicit request, unlike first-install
+	// maintenance. It must finish on Cube/Lite too, after the new pool boots.
+	if !deferred {
+		// Before the recorded-profile check: an image that identified a Cube as
+		// PCIe recorded the 100 Hz profile it programmed there. A Cube or Lite
+		// with an LT6911UXC captures every profile it can hold.
+		if hw.powerCycle() {
+			if receiverChip() == "ux" {
+				return "", nil
+			}
+			return checkCubeMonitorEDIDLocked(hw)
+		}
+		// The LT6911D on PCIe is programmed only when the user applies a profile:
+		// its EDID write has not yet run on that board.
+		if receiverChip() == "d" {
+			return "", nil
+		}
+		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
+			if !retiredMonitorProfiles[strings.TrimSpace(string(recorded))] {
+				return "", nil
+			}
+			if err := retireStreamRateLocked(); err != nil {
+				return "", err
+			}
+			log.Infof("the HDMI receiver holds a retired 1080p 100 Hz profile; programming the current one")
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
+	}
+
 	// Fitting may have failed, or the saved state may have changed since it ran.
 	// Never advertise a profile this boot cannot capture.
 	if err := monitorFitsVideoPoolLocked(pool); err != nil {
@@ -110,6 +124,11 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	// On failure no profile is recorded, so the next start tries again.
 	if err := hw.apply(path); err != nil {
 		return "", err
+	}
+	if deferred {
+		if err := os.Remove(monitorDeferredFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return path, fmt.Errorf("clearing deferred monitor request: %w", err)
+		}
 	}
 	return path, nil
 }

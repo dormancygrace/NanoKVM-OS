@@ -2,6 +2,7 @@ package vm
 
 import (
 	"NanoKVM-Server/proto"
+	"os"
 	"testing"
 )
 
@@ -25,5 +26,31 @@ func TestPortraitSettingsRequirePowerCycleConfirmation(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// The batch uses validateScreenSettingFor directly after #301. Confirm that
+// the guard runs before an otherwise valid FPS update has any side effects.
+func TestBatchPortraitConfirmationBeforeStreamWrites(t *testing.T) {
+	for _, body := range []string{
+		`{"portrait":true,"fps":30}`,
+		`{"portrait":false,"fps":30}`,
+		`{"portraitResolution":1280,"fps":30}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			stand := newSwitchStand(t, "qhd", 1080)
+			old := screenMonitorRequiresPowerCycle
+			screenMonitorRequiresPowerCycle = func() bool { return true }
+			t.Cleanup(func() { screenMonitorRequiresPowerCycle = old })
+			if rsp := postVideo(t, body); rsp.Code != -5 {
+				t.Fatalf("response %+v", rsp)
+			}
+			if _, err := os.Stat(screenFileMap["fps"]); !os.IsNotExist(err) {
+				t.Fatal("unconfirmed request changed FPS")
+			}
+			if len(stand.programmed) != 0 || len(stand.activated) != 0 || stand.restarts != 0 {
+				t.Fatal("unconfirmed request changed device state")
+			}
+		})
 	}
 }

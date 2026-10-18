@@ -316,6 +316,28 @@ func TestIPv6StaticAddressAndGateway(t *testing.T) {
 	}
 }
 
+// The static address and gateway are saved and passed to ip(8) as netip
+// prints them, whatever the spelling of the request or the file.
+func TestIPv6StaticValuesAreCanonical(t *testing.T) {
+	ipv6Fixture(t)
+	setIPv6Request(t, `{"enabled":true,"interface":"eth0","mode":"static","address":" 2001:DB8:0:0::0010/64 ","gateway":"2001:0db8::0001"}`)
+	policy, err := readIPv6Policy()
+	if err != nil || policy["eth0"] != (ipv6Setting{Mode: ipv6Static, Address: "2001:db8::10/64", Gateway: "2001:db8::1"}) {
+		t.Fatalf("policy %+v, %v", policy["eth0"], err)
+	}
+	if calls := takeCalls(t, os.Getenv("NANOKVM_IP")+".log"); calls != "-6 addr replace 2001:db8::10/64 dev eth0\n-6 route replace default via 2001:db8::1 dev eth0 metric 200" {
+		t.Fatalf("ip calls %q", calls)
+	}
+	// A file written before by hand or an older version reads canonical too.
+	if err := os.WriteFile(ipv6ConfigFile, []byte("wlan0=static wlan0.address=2001:DB8::0020/64\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	policy, err = readIPv6Policy()
+	if err != nil || policy["wlan0"].Address != "2001:db8::20/64" {
+		t.Fatalf("policy %+v, %v", policy["wlan0"], err)
+	}
+}
+
 func TestIPv6AddressSource(t *testing.T) {
 	previous := ipv6RunDir
 	t.Cleanup(func() { ipv6RunDir = previous })

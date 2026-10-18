@@ -108,18 +108,34 @@ export const Recorder = () => {
           return;
         }
         const { recordPassthrough } = await import('@/lib/passthrough-recording.ts');
-        const sound = getUsbAudioStream()?.getAudioTracks()[0]?.clone() ?? null;
+        const currentAttempt = () =>
+          active.current && attempt === generation.current && getDirectRecording() === directSource;
+        if (!currentAttempt()) {
+          await writer.abort();
+          writer = undefined;
+          return;
+        }
+        const sound =
+          getUsbAudioStream()
+            ?.getAudioTracks()
+            .find((track) => track.readyState === 'live')
+            ?.clone() ?? null;
         const passthroughSession = await recordPassthrough(
           directSource,
           writer as unknown as FileSystemWritableFileStream,
           sound
         );
         session = passthroughSession;
+        if (!currentAttempt()) {
+          passthroughSession.stop();
+          await passthroughSession.done.catch(() => {});
+          return;
+        }
         recording.current = passthroughSession;
         setElapsed(0);
         setState('waiting');
         void passthroughSession.started.then(() => {
-          if (active.current && recording.current === passthroughSession) {
+          if (currentAttempt() && recording.current === passthroughSession) {
             setElapsed(0);
             setState('recording');
           }
@@ -200,18 +216,12 @@ export const Recorder = () => {
         <Button
           type="text"
           aria-label={title}
-          aria-pressed={state === 'recording'}
-          disabled={
-            !supported ||
-            !captureEnabled ||
-            state === 'choosing' ||
-            state === 'waiting' ||
-            state === 'saving'
-          }
+          aria-pressed={state === 'recording' || state === 'waiting'}
+          disabled={!supported || !captureEnabled || state === 'choosing' || state === 'saving'}
           className={`flex! h-[30px]! min-w-[30px]! items-center! justify-center! !px-1 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!supported || !captureEnabled ? '!text-neutral-500' : state === 'recording' || state === 'waiting' || state === 'saving' ? '!text-red-400 hover:!text-red-300' : '!text-neutral-300 hover:!text-white'}`}
-          onClick={state === 'recording' ? stop : () => void start()}
+          onClick={state === 'recording' || state === 'waiting' ? stop : () => void start()}
           icon={
-            state === 'recording' ? (
+            state === 'recording' || state === 'waiting' ? (
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" />
               </svg>

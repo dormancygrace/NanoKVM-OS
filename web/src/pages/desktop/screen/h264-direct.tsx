@@ -194,6 +194,10 @@ export const H264Direct = ({
       publishDirectRecording({
         codec,
         start: (onPacket, onEnd) => {
+          if (disposed) {
+            onEnd('closed');
+            return () => {};
+          }
           if (recorder) endRecording('stopped');
           const active = { onPacket, onEnd };
           recorder = active;

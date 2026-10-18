@@ -15,7 +15,7 @@ import (
 // cannot pick another rate.
 var monitorRates = map[uint16][]int{
 	720:  {120, 60, 30},
-	1080: {100, 75, 60, 30},
+	1080: {90, 75, 60, 30},
 	1440: {60, 50, 40, 30},
 	2160: {30},
 }
@@ -24,7 +24,7 @@ var monitorRates = map[uint16][]int{
 // first: NanoKVM-portrait-<w>x<h>-<hz>.bin.
 var portraitRates = map[uint16][]int{
 	portraitResolutionHD:      {120, 60, 30},
-	portraitResolutionDefault: {100, 75, 60, 30},
+	portraitResolutionDefault: {90, 75, 60, 30},
 	portraitResolutionAVC:     {60, 50, 30},
 	portraitResolutionMax:     {60, 50, 30},
 }
@@ -99,7 +99,7 @@ func MonitorRefreshFollowsStream() bool {
 	return MonitorHighRefreshSupported()
 }
 
-// Auto is 1920x1080 (up to 100 Hz) wherever live EDID writes exist; QHD and
+// Auto is 1920x1080 (up to 90 Hz) wherever live EDID writes exist; QHD and
 // UHD are explicit choices. Elsewhere it is the stock receiver profile.
 // AutoMonitorHeight is the size Auto stands for, 0 for the stock profile.
 func AutoMonitorHeight() uint16 { return autoMonitorHeight() }

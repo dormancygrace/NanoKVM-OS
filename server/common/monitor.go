@@ -86,7 +86,7 @@ func monitorProfilePath(height uint16) string {
 	if height == 0 {
 		profile = "NanoKVM-stock.bin"
 		if MonitorHighRefreshSupported() {
-			// Auto: 1920x1080 at up to 100 Hz.
+			// Auto: 1920x1080 at up to 90 Hz.
 			profile = "NanoKVM-final-video-profiles.bin"
 		}
 	}

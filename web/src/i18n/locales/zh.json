@@ -1405,7 +1405,6 @@
         "security": "安全性",
         "open": "开放网络",
         "unsupported": "不支持的安全类型",
-        "reconnect": "重新连接",
         "applying": "正在应用… 与此设备的连接可能会短暂中断。",
         "operationFailed": "无法应用 Wi-Fi 设置，请重试。",
         "statusFailed": "无法读取 Wi-Fi 状态。",
@@ -1422,6 +1421,10 @@
         "ssid": "名称",
         "password": "密码",
         "joinBtn": "加入",
+        "disconnectButton": "断开",
+        "disconnectConfirm": "断开与 {{ssid}} 的连接？",
+        "disconnectHint": "NanoKVM 将离开此网络并忘记其密码。Wi-Fi 保持开启，您可以重新加入网络。",
+        "disconnectOverWifi": "此页面通过该 Wi-Fi 网络连接 NanoKVM：连接将会中断。要重新加入网络，请通过以太网或 USB 网络连接。",
         "confirmBtn": "确定",
         "cancelBtn": "取消",
         "connection": {

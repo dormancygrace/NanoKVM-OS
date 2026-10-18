@@ -424,8 +424,7 @@
         "hidden": "Mạng ẩn",
         "security": "Bảo mật",
         "open": "Mạng mở",
-        "loading": "Đang tải...",
-        "reconnect": "Kết nối lại"
+        "loading": "Đang tải..."
       },
       "tls": {
         "description": "Bật giao thức HTTPS",

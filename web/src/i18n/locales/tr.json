@@ -424,8 +424,7 @@
         "hidden": "Gizli ağ",
         "security": "Güvenlik",
         "open": "Açık ağ",
-        "loading": "Yükleniyor...",
-        "reconnect": "Yeniden bağlan"
+        "loading": "Yükleniyor..."
       },
       "tls": {
         "description": "HTTPS protokolünü etkinleştir",

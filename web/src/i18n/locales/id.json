@@ -424,8 +424,7 @@
         "hidden": "Jaringan tersembunyi",
         "security": "Keamanan",
         "open": "Jaringan terbuka",
-        "loading": "Memuat...",
-        "reconnect": "Hubungkan kembali"
+        "loading": "Memuat..."
       },
       "tls": {
         "description": "Aktifkan protokol HTTPS",

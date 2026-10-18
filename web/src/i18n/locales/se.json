@@ -424,8 +424,7 @@
         "hidden": "Dolt nätverk",
         "security": "Säkerhet",
         "open": "Öppet nätverk",
-        "loading": "Laddar...",
-        "reconnect": "Anslut igen"
+        "loading": "Laddar..."
       },
       "tls": {
         "description": "Aktivera HTTPS-protokoll",

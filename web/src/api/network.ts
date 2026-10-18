@@ -168,6 +168,8 @@ export type WifiStatus = {
   busy: boolean;
   error: string;
   connection?: WifiConnection;
+  // The page reaches the device over Wi-Fi.
+  thisConnection?: boolean;
 };
 // The current association; a value the driver does not report is missing.
 export type WifiConnection = {
@@ -196,6 +198,10 @@ export type WifiProfile = {
   hidden: boolean;
   security: WifiSecurity;
 };
+export function disconnectWifi() {
+  return http.post('/api/network/wifi/disconnect');
+}
+
 export function setWifiEnabled(enabled: boolean) {
   return http.post('/api/network/wifi/enabled', { enabled });
 }

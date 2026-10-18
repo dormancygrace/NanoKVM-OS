@@ -424,8 +424,7 @@
         "hidden": "Rete nascosta",
         "security": "Sicurezza",
         "open": "Rete aperta",
-        "loading": "Caricamento...",
-        "reconnect": "Riconnetti"
+        "loading": "Caricamento..."
       },
       "tls": {
         "description": "Abilita protocollo HTTPS",

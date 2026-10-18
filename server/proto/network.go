@@ -38,6 +38,8 @@ type GetWifiRsp struct {
 	PreferredBand string `json:"preferredBand"`
 	// The current association, while connected.
 	Connection *WifiConnection `json:"connection,omitempty"`
+	// ThisConnection: the request reached the device over this interface.
+	ThisConnection bool `json:"thisConnection"`
 }
 
 // WifiConnection comes from wpa_supplicant's STATUS and SIGNAL_POLL. A value

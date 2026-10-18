@@ -12,7 +12,7 @@ func TestMonitorRefreshFollowsStreamRate(t *testing.T) {
 		fps    int
 		want   int
 	}{
-		{1080, 120, 100}, {1080, 100, 100}, {1080, 90, 100}, {1080, 75, 75}, {1080, 60, 60}, {1080, 50, 60}, {1080, 30, 30}, {1080, 25, 30},
+		{1080, 120, 90}, {1080, 100, 90}, {1080, 90, 90}, {1080, 76, 90}, {1080, 75, 75}, {1080, 60, 60}, {1080, 50, 60}, {1080, 30, 30}, {1080, 25, 30},
 		{1440, 60, 60}, {1440, 55, 60}, {1440, 50, 50}, {1440, 45, 50}, {1440, 40, 40}, {1440, 30, 30}, {1440, 10, 30},
 		{720, 120, 120}, {720, 90, 120}, {720, 60, 60}, {720, 31, 60}, {720, 30, 30},
 		{2160, 60, 30}, {2160, 30, 30}, {600, 30, 0},
@@ -98,8 +98,8 @@ func TestAutomaticMonitorProfilePolicy(t *testing.T) {
 	if got := autoMonitorHeight(); got != 1080 {
 		t.Fatalf("Automatic is %dp, want 1080", got)
 	}
-	if got := MonitorRates(0); len(got) != 4 || got[0] != 100 || got[3] != 30 {
-		t.Fatalf("Automatic rates %v, want 100 75 60 30", got)
+	if got := MonitorRates(0); len(got) != 4 || got[0] != 90 || got[3] != 30 {
+		t.Fatalf("Automatic rates %v, want 90 75 60 30", got)
 	}
 	// Static Automatic file: the final profile (1080p100), not the stock EDID.
 	if got := filepath.Base(monitorProfilePath(0)); got != "NanoKVM-final-video-profiles.bin" {
@@ -109,14 +109,14 @@ func TestAutomaticMonitorProfilePolicy(t *testing.T) {
 	if got := filepath.Base(monitorProfilePathAt(0, 60)); got != "NanoKVM-final-video-profiles.bin" {
 		t.Fatalf("no rate profile: %s", got)
 	}
-	write("NanoKVM-monitor-1080-100.bin", "NanoKVM-monitor-1080-75.bin",
+	write("NanoKVM-monitor-1080-90.bin", "NanoKVM-monitor-1080-75.bin",
 		"NanoKVM-monitor-1080-60.bin", "NanoKVM-monitor-1080-30.bin")
 	for _, c := range []struct {
 		fps  int
 		want string
 	}{
-		{120, "NanoKVM-monitor-1080-100.bin"}, {100, "NanoKVM-monitor-1080-100.bin"},
-		{90, "NanoKVM-monitor-1080-100.bin"}, {75, "NanoKVM-monitor-1080-75.bin"},
+		{120, "NanoKVM-monitor-1080-90.bin"}, {100, "NanoKVM-monitor-1080-90.bin"},
+		{90, "NanoKVM-monitor-1080-90.bin"}, {75, "NanoKVM-monitor-1080-75.bin"},
 		{60, "NanoKVM-monitor-1080-60.bin"}, {50, "NanoKVM-monitor-1080-60.bin"},
 		{30, "NanoKVM-monitor-1080-30.bin"}, {25, "NanoKVM-monitor-1080-30.bin"},
 	} {

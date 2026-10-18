@@ -19,7 +19,7 @@ LEGACY = {(720, 1280): (120, HD_MODE), (1080, 1920): (75, MODE),
           (1296, 2304): (50, AVC_MODE), (1440, 2560): (50, MAX_MODE)}
 # Refresh rates of each portrait profile, fastest first, as landscape: the
 # monitor follows the stream frame rate (server/common/monitor_rate.go).
-RATES = {1280: (120, 60, 30), 1920: (100, 75, 60, 30), 2304: (60, 50, 30), 2560: (60, 50, 30)}
+RATES = {1280: (120, 60, 30), 1920: (90, 75, 60, 30), 2304: (60, 50, 30), 2560: (60, 50, 30)}
 WIDTHS = {1280: 720, 1920: 1080, 2304: 1296, 2560: 1440}
 
 

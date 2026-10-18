@@ -426,13 +426,14 @@ def build_uhd_profile(source: bytes) -> tuple[bytes, object]:
 
 
 # Refresh rates per monitor height; the first is the default profile.
-RATES = {720: (120, 60, 30), 1080: (100, 75, 60, 30), 1440: (60, 50, 40, 30), 2160: (30,)}
+RATES = {720: (120, 60, 30), 1080: (90, 75, 60, 30), 1440: (60, 50, 40, 30), 2160: (30,)}
 
 # Timings that the final CTA block does not already list.
 EXTRA_TIMINGS = {
-    # CVT reduced blanking; the encoder sustains about 109 fps at 1080p.
-    (1920, 1080, 100): dict(width=1920, height=1080, pixel_clock_hz=235_500_000, hblank=160,
-                            vblank=53, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
+    # CVT reduced blanking (89.90 Hz); the encoder sustains about 109 fps at
+    # 1080p, so 90 keeps a margin that 100 did not.
+    (1920, 1080, 90): dict(width=1920, height=1080, pixel_clock_hz=210_750_000, hblank=160,
+                           vblank=47, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
     # CVT reduced blanking.
     (2560, 1440, 60): dict(width=2560, height=1440, pixel_clock_hz=241_500_000, hblank=160,
                            vblank=41, hfront=48, hsync=32, vfront=3, vsync=5, flags=0x1A),
@@ -475,19 +476,19 @@ def build_rate_profile(source: bytes, height: int, rate: int) -> tuple[bytes, ob
 
 
 # The static Automatic profile (NanoKVM-monitor-auto.bin, installed as
-# NanoKVM-final-video-profiles.bin) is the 1080p100 rate profile.
-AUTO_HEIGHT, AUTO_RATE = 1080, 100
+# NanoKVM-final-video-profiles.bin) is the 1080p90 rate profile.
+AUTO_HEIGHT, AUTO_RATE = 1080, 90
 
 
 def build_auto_profile(source: bytes) -> tuple[bytes, object]:
     """The static Automatic profile: strict single-rate, like every other
     profile. It advertises no 1080p60 (or any other 1080-or-larger mode)
-    beside 1080p100 on purpose. Boards that write the EDID live apply this
+    beside 1080p90 on purpose. Boards that write the EDID live apply this
     file at install, on a Windows-pointer USB switch and when a rate profile
     is missing, and the Windows GPU driver tested here picks a fallback
     (1080p50/60, 2560x1440@50) whenever more than the preferred mode is
     listed at or above the resolution. A 60 Hz fallback would therefore
-    make the default Automatic output 60 Hz instead of 100 Hz. While
+    make the default Automatic output 60 Hz instead of 90 Hz. While
     Automatic runs, the server replaces this file by the rate profile
     NanoKVM-monitor-1080-<hz>.bin of the stream rate."""
     return build_rate_profile(source, AUTO_HEIGHT, AUTO_RATE)
@@ -548,7 +549,7 @@ def main() -> int:
             "only_mode_at_or_above_resolution": True,
         }
     )
-    # Auto is 1920x1080 at 100 Hz; QHD and UHD are explicit choices.
+    # Auto is 1920x1080 at 90 Hz; QHD and UHD are explicit choices.
     # The runtime already resolves monitor value 0 to
     # NanoKVM-final-video-profiles.bin; the package install step maps this
     # generated Auto file to that stable runtime name.
@@ -564,7 +565,7 @@ def main() -> int:
             "refresh_hz": round(auto_timing.refresh_hz, 6),
             "source_sha256": sha256(source),
             "sha256": sha256(auto_data),
-            "identical_to": "NanoKVM-monitor-1080-100.bin",
+            "identical_to": "NanoKVM-monitor-1080-90.bin",
             "only_mode_at_or_above_resolution": True,
         }
     )

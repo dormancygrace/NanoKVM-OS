@@ -25,9 +25,11 @@ uses relay. The explicit IP listener remains loopback by default.
 WebRTC is an optional setting, disabled by default. It uses ICE/DTLS/SCTP through
 the existing Go/Pion stack without decode/re-encode. SDP and ICE use authenticated
 encrypted hbbs TCP; the signed RustDesk identity binds the local DTLS fingerprint.
-Relay remains available when the ID server cannot route signaling. Relay-only
-ICE requests use the TCP relay because no TURN configuration is supplied. The
-first data channel must be ordered and fully reliable. Configure the same custom
+Relay remains available when the ID server cannot route signaling. ICE uses
+the STUN and TURN servers of the NanoKVM configuration (stun and turn in
+/etc/kvm/server.yaml), as the browser video stream does. Relay-only ICE
+requests still use the TCP relay: the add-on does not accept them yet, even
+with a TURN server configured. The first data channel must be ordered and fully reliable. Configure the same custom
 ID server and public key in the client.
 
 Only one session owns input. An existing browser controller blocks external

@@ -4,9 +4,9 @@ import (
 	"NanoKVM-Server/common/pathmtu"
 	"NanoKVM-Server/common/rtpmtu"
 	"NanoKVM-Server/common/udpfast"
-	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
+	"NanoKVM-Server/service/stream/iceservers"
 	"NanoKVM-Server/service/stream/srtpaccel"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
@@ -75,7 +75,7 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 	wsConn.SetReadLimit(maxSignalingSize)
 
 	// create video connection
-	iceServers := createICEServers()
+	iceServers := iceservers.FromConfig()
 
 	mediaEngine, err := createMediaEngine(encoderConfig)
 	if err != nil {
@@ -123,28 +123,6 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 			}
 		}
 	}
-}
-
-func createICEServers() []webrtc.ICEServer {
-	var iceServers []webrtc.ICEServer
-
-	conf := config.GetInstance()
-
-	if conf.Stun != "" && conf.Stun != "disable" {
-		iceServers = append(iceServers, webrtc.ICEServer{
-			URLs: []string{"stun:" + conf.Stun},
-		})
-	}
-
-	if conf.Turn.TurnAddr != "" && conf.Turn.TurnUser != "" && conf.Turn.TurnCred != "" {
-		iceServers = append(iceServers, webrtc.ICEServer{
-			URLs:       []string{"turn:" + conf.Turn.TurnAddr},
-			Username:   conf.Turn.TurnUser,
-			Credential: conf.Turn.TurnCred,
-		})
-	}
-
-	return iceServers
 }
 
 type clientICEServer struct {

@@ -11,6 +11,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -88,7 +89,9 @@ func TestRustDeskRTCRealDataChannelAndRPCLifetime(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Configure before publishing the listener or starting accept.
-	b := &rtcBridge{listener: listener, sessions: make(map[string]*rtcSession), connections: make(map[net.Conn]struct{})}
+	var serverRequests atomic.Int32
+	b := &rtcBridge{listener: listener, sessions: make(map[string]*rtcSession), connections: make(map[net.Conn]struct{}),
+		iceServers: func() []webrtc.ICEServer { serverRequests.Add(1); return nil }}
 	go b.accept()
 	defer b.close()
 	client, err := webrtc.NewPeerConnection(webrtc.Configuration{})
@@ -155,6 +158,13 @@ func TestRustDeskRTCRealDataChannelAndRPCLifetime(t *testing.T) {
 	}
 	if fp, err := rtcFingerprint(description.SDP); err != nil || fp != answer.Fingerprint {
 		t.Fatal("identity mismatch")
+	}
+	// The shared DTLS policy: NanoKVM answers as the DTLS server.
+	if !strings.Contains(description.SDP, "a=setup:passive") {
+		t.Fatal("answer is not the DTLS server")
+	}
+	if serverRequests.Load() != 1 {
+		t.Fatalf("ICE servers requested %d times, want once per session", serverRequests.Load())
 	}
 	if err = client.SetRemoteDescription(description); err != nil {
 		t.Fatal(err)

@@ -2,6 +2,8 @@
 package rustdesk
 
 import (
+	"NanoKVM-Server/service/stream/iceservers"
+	"NanoKVM-Server/service/stream/webrtcdtls"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -47,8 +49,10 @@ type rtcBridge struct {
 	mu          sync.Mutex
 	sessions    map[string]*rtcSession
 	connections map[net.Conn]struct{}
-	iceServers  []webrtc.ICEServer
-	closed      bool
+	// iceServers returns the STUN and TURN servers of a new session; nil
+	// means none.
+	iceServers func() []webrtc.ICEServer
+	closed     bool
 }
 type rtcSession struct {
 	pc          *webrtc.PeerConnection
@@ -72,7 +76,8 @@ type rtcSession struct {
 func startRTCBridge(listener net.Listener) *rtcBridge {
 	b := &rtcBridge{listener: listener, sessions: make(map[string]*rtcSession),
 		connections: make(map[net.Conn]struct{}),
-		iceServers:  []webrtc.ICEServer{{URLs: []string{"stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"}}}}
+		// The servers of the video stream, read for each session.
+		iceServers: iceservers.FromConfig}
 	go b.accept()
 	return b
 }
@@ -236,8 +241,18 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	setting := webrtc.SettingEngine{}
 	setting.SetSCTPMaxMessageSize(65536)
 	setting.SetSCTPMaxReceiveBufferSize(256 << 10)
+	// The DTLS policy of every NanoKVM peer. The bridge carries data
+	// channels only, so the SRTP and RTP path settings do not apply.
+	if err = webrtcdtls.Configure(&setting); err != nil {
+		close(s.pcReady)
+		return failed(err)
+	}
+	var servers []webrtc.ICEServer
+	if b.iceServers != nil {
+		servers = b.iceServers()
+	}
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(setting))
-	s.pc, err = api.NewPeerConnection(webrtc.Configuration{ICEServers: b.iceServers})
+	s.pc, err = api.NewPeerConnection(webrtc.Configuration{ICEServers: servers})
 	close(s.pcReady)
 	if err != nil {
 		return failed(err)

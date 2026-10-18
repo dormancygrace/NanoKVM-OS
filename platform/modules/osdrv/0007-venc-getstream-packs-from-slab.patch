@@ -1,0 +1,73 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] interdrv: cvi_vc_drv: no vmalloc per GetStream
+
+CVI_VENC_GetStream allocated the pack array of every frame with
+vzalloc and the ioctl freed it with vfree. The array holds a few
+VENC_PACK_S entries, yet each frame paid for a vmalloc mapping: a vmap
+area insert and removal, page allocation, zeroing and a TLB flush. perf
+on the capture thread showed that at about 10 % of its samples with a
+moving picture.
+
+The array now comes from kvcalloc, which uses the slab for this size,
+and every free of that array is kvfree. The other MEM_FREE users
+(the per-channel stream buffer) are unchanged.
+---
+  interdrv/cvi_vc_drv/cvi_vc_drv.c          | 6 +++---
+  interdrv/cvi_vc_drv/module/src/cvi_venc.c | 6 ++++--
+  2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/interdrv/cvi_vc_drv/cvi_vc_drv.c b/interdrv/cvi_vc_drv/cvi_vc_drv.c
+index e40c99d..1a04a22 100644
+--- a/interdrv/cvi_vc_drv/cvi_vc_drv.c
++++ b/interdrv/cvi_vc_drv/cvi_vc_drv.c
+@@ -218,7 +218,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
+ 		if (s32Ret != CVI_SUCCESS) {
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+ 			if (stStream.pstPack) {
+-				vfree(stStream.pstPack);
++				kvfree(stStream.pstPack);
+ 				stStream.pstPack = NULL;
+ 			}
+ #endif
+@@ -233,7 +233,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
+ 					 stStream.u32PackCount) != 0) {
+ 
+ 				if (stStream.pstPack) {
+-					vfree(stStream.pstPack);
++					kvfree(stStream.pstPack);
+ 					stStream.pstPack = NULL;
+ 				}
+ 
+@@ -242,7 +242,7 @@ static long cvi_vc_drv_venc_ioctl(struct file *filp, u_int cmd, u_long arg)
+ 			}
+ 
+ 			if (stStream.pstPack) {
+-				vfree(stStream.pstPack);
++				kvfree(stStream.pstPack);
+ 				stStream.pstPack = NULL;
+ 			}
+ 		}
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_venc.c b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+index ff391a6..cffa31a 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+@@ -3343,7 +3343,9 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN VeChn, VENC_STREAM_S *pstStream,
+ 	}
+ 
+ #if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+-	pstStream->pstPack = vzalloc(sizeof(VENC_PACK_S) * _cviGetNumPacks(pChnAttr->stVencAttr.enType));
++	/* A few packs per frame: slab memory, not a vmalloc mapping per frame. */
++	pstStream->pstPack = kvcalloc(_cviGetNumPacks(pChnAttr->stVencAttr.enType),
++				      sizeof(VENC_PACK_S), GFP_KERNEL);
+ 	if (pstStream->pstPack == NULL)
+ 		return CVI_ERR_VENC_NOMEM;
+ #endif
+@@ -3784,7 +3786,7 @@ CVI_S32 CVI_VENC_DestroyChn(VENC_CHN VeChn)
+ 					CVI_VENC_ReleaseStream(VeChn, &stStream);
+ 
+ 				if (stStream.pstPack)
+-					MEM_FREE(stStream.pstPack);
++					kvfree(stStream.pstPack);
+ 			}
+ 		}
+ 

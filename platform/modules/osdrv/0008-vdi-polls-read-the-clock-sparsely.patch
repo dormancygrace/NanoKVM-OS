@@ -11,11 +11,12 @@ The timeout now reads ktime_get_ns() every 64 turns, starting the
 deadline at the first read; a short poll reads no clock at all. The
 timeouts keep their length (plus a few microseconds), use the
 monotonic clock instead of the wall clock, and still work with
-interrupts disabled, which jiffies would not. cviGetSysTime and
-vdi_timeval_t had no other users and are removed.
+interrupts disabled, which jiffies would not. Sleeping diagnostic polls
+start their deadline before sleeping and check it after every sleep.
+cviGetSysTime and vdi_timeval_t had no other users and are removed.
 ---
-  interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c | 76 ++++++++--------------
-  1 file changed, 28 insertions(+), 48 deletions(-)
+  interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c | 81 +++++++++--------------
+  1 file changed, 33 insertions(+), 48 deletions(-)
 
 diff --git a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
 index 1743517..0cdcdcb 100644
@@ -128,7 +129,16 @@ index 1743517..0cdcdcb 100644
  	code = vdi_read_register(core_idx, VPU_PRODUCT_CODE_REGISTER);
  	/* read product code */
  	if (PRODUCT_CODE_W_SERIES(code)) {
-@@ -2325,10 +2313,7 @@ int vdi_wait_vpu_busy(unsigned long core_idx, int timeout,
+@@ -2321,14 +2309,16 @@
+ 
+ 		if (READ_ONCE(busy_poll_sleep_us) && !in_atomic() && !irqs_disabled()) {
+ 			unsigned int delay = min(READ_ONCE(busy_poll_sleep_us), 1000U);
++			/* Sleeping polls need a deadline before the first sleep. */
++			if (timeout > 0 && !deadline.end_ns)
++				deadline.end_ns = ktime_get_ns() + (u64)timeout * NSEC_PER_MSEC;
+ 			usleep_range(delay, delay + 50);
++			/* Check after every sleep, even if the knob changes mid-poll. */
++			deadline.turns = 63;
  		}
  
  		if (timeout > 0) {
@@ -140,7 +150,7 @@ index 1743517..0cdcdcb 100644
  				Uint32 index;
  				for (index = 0; index < 50; index++) {
  					CVI_VC_ERR("[VDI] timeout, PC=0x%x\n",
-@@ -2369,10 +2354,9 @@ int vdi_wait_interrupt(unsigned long coreIdx, int timeout,
+@@ -2369,10 +2359,9 @@ int vdi_wait_interrupt(unsigned long coreIdx, int timeout,
  				 ((long int)intr_info.intr_tv_nsec / 1000);
  	}
  #else
@@ -152,7 +162,7 @@ index 1743517..0cdcdcb 100644
  
  	UNREFERENCED_PARAMETER(intr_info);
  
-@@ -2387,8 +2371,6 @@ int vdi_wait_interrupt(unsigned long coreIdx, int timeout,
+@@ -2387,8 +2376,6 @@ int vdi_wait_interrupt(unsigned long coreIdx, int timeout,
  		return -1;
  	}
  
@@ -161,7 +171,7 @@ index 1743517..0cdcdcb 100644
  	while (TRUE) {
  		if (vdi_read_register(coreIdx, intrStatusReg)) {
  			intr_reason =
-@@ -2397,9 +2379,7 @@ int vdi_wait_interrupt(unsigned long coreIdx, int timeout,
+@@ -2397,9 +2384,7 @@ int vdi_wait_interrupt(unsigned long coreIdx, int timeout,
  				break;
  		}
  

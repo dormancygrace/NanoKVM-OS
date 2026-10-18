@@ -1,126 +1,189 @@
 package vm
 
 import (
-	"NanoKVM-Server/proto"
-	"NanoKVM-Server/utils"
+	"errors"
+	"fmt"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
+	"strings"
+	"syscall"
+	"time"
 
-	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/internal/atomicfile"
 )
 
-const autostartDirectory = "/etc/kvm/autostart"
+// Scripts marked "run at startup" (Scripts window) run once per boot, after
+// the web server listens: as root, in the background, each in a session of
+// its own, so that restarting or updating the server leaves them running.
+// A small shell wrapper keeps the first 64 KiB of their output and their exit
+// status in /run (RAM, cleared at boot) without the server in between.
+var (
+	autostartList   = "/etc/kvm/autostart.list"
+	autostartRunDir = "/run/nanokvm/autostart"
+)
 
-// autostartFile keeps a name from the URL to one file in autostartDirectory.
-func autostartFile(name string) (string, error) {
-	for _, value := range name {
-		if value < 0x20 || value == 0x7f || value == '/' || value == '\\' {
-			return "", errInvalidScript
+const autostartLogLimit = 64 << 10
+
+// The wrapper: $1 status file, $2 log file, then the command. Output beyond
+// the limit is read and dropped, so a talkative script never blocks or dies
+// of SIGPIPE.
+const autostartWrapper = `status=$1; log=$2; shift 2
+( "$@"; echo "exited $?" > "$status" ) 2>&1 | { head -c %d > "$log"; cat > /dev/null; }`
+
+// readAutostart returns the scripts marked to run at startup.
+func readAutostart() ([]string, error) {
+	data, err := os.ReadFile(autostartList)
+	if errors.Is(err, os.ErrNotExist) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	names := []string{}
+	for _, line := range strings.Split(string(data), "\n") {
+		if name := strings.TrimSpace(line); validScriptName(name, true) {
+			names = append(names, name)
 		}
 	}
-	return utils.JoinWithin(autostartDirectory, name)
+	return names, nil
 }
 
-func (s *Service) GetAutostart(c *gin.Context) {
-	var rsp proto.Response
-
-	var files []string
-	err := filepath.Walk(autostartDirectory, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+func writeAutostart(names []string) error {
+	seen := map[string]bool{}
+	unique := []string{}
+	for _, name := range names {
+		if !seen[name] {
+			seen[name] = true
+			unique = append(unique, name)
+		}
+	}
+	sort.Strings(unique)
+	if len(unique) == 0 {
+		if err := os.Remove(autostartList); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-
-		if !info.IsDir() {
-			files = append(files, info.Name())
-		}
-
 		return nil
-	})
-	if err != nil {
-		rsp.ErrRsp(c, -1, "get autostart directory fail")
-		return
 	}
-	rsp.OkRspWithData(c, &proto.GetAutostartRsp{
-		Files: files,
-	})
-
-	log.Debugf("get autostart total %d", len(files))
+	return atomicfile.Write(autostartList, []byte(strings.Join(unique, "\n")+"\n"), 0o644)
 }
 
-func (s *Service) UploadAutostart(c *gin.Context) {
-	var req proto.UploadAutostartReq
-	var rsp proto.Response
-
-	fileName := c.Param("name")
-
-	if err := proto.ParseFormRequest(c, &req); err != nil {
-		rsp.ErrRsp(c, -1, "parse form request fail")
-		return
+// setAutostart marks or unmarks an existing script.
+func setAutostart(root, name string, enabled bool) error {
+	if enabled {
+		if _, err := scriptPath(root, name); err != nil {
+			return err
+		}
+	} else if !validScriptName(name, true) {
+		return errInvalidScript
 	}
-
-	if _, err := os.Stat(autostartDirectory); err != nil {
-		_ = os.MkdirAll(autostartDirectory, 0o755)
-	}
-
-	target, err := autostartFile(fileName)
+	names, err := readAutostart()
 	if err != nil {
-		rsp.ErrRsp(c, -1, "invalid file name")
-		return
+		return err
 	}
-
-	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
-	if err != nil {
-		rsp.ErrRsp(c, -1, "create file fail")
-		return
+	kept := []string{}
+	for _, current := range names {
+		if current != name {
+			kept = append(kept, current)
+		}
 	}
-
-	defer f.Close()
-	_, err = f.WriteString(req.Content)
-	if err != nil {
-		rsp.ErrRsp(c, -1, "write content fail")
-		return
+	if enabled {
+		kept = append(kept, name)
 	}
-
-	rsp.OkRspWithData(c, fileName)
-
-	log.Debugf("upload autostart %s success", fileName)
+	return writeAutostart(kept)
 }
 
-func (s *Service) DeleteAutostart(c *gin.Context) {
-	var rsp proto.Response
-
-	fileName := c.Param("name")
-
-	file, err := autostartFile(fileName)
-	if err != nil {
-		rsp.ErrRsp(c, -3, "invalid file name")
-		return
-	}
-	if err := os.Remove(file); err != nil {
-		log.Errorf("delete autostart file %s fail", fileName)
-		rsp.ErrRsp(c, -3, "remove file fail")
-		return
-	}
-
-	rsp.OkRsp(c)
-	log.Debugf("delete autostart %s success", fileName)
+// autostartBase names the log and status files of a script.
+func autostartBase(name string) string {
+	return filepath.Join(autostartRunDir, strings.ReplaceAll(name, "/", "__"))
 }
 
-func (s *Service) GetAutostartContent(c *gin.Context) {
-	var rsp proto.Response
-	fileName := c.Param("name")
-	file, err := autostartFile(fileName)
-	if err != nil {
-		rsp.ErrRsp(c, -1, "invalid file name")
-		return
+// autostartStatus reports this boot's state of each marked script: running,
+// exited N, or an error.
+func autostartStatus(names []string) map[string]string {
+	status := map[string]string{}
+	for _, name := range names {
+		if data, err := os.ReadFile(autostartBase(name) + ".status"); err == nil {
+			status[name] = strings.TrimSpace(string(data))
+		}
 	}
-	content, err := os.ReadFile(file)
-	if err != nil {
-		rsp.ErrRsp(c, -1, "read file fail")
-		return
-	}
+	return status
+}
 
-	rsp.OkRspWithData(c, string(content))
-	log.Debugf("get autostart content %s success", fileName)
+// RunAutostart starts the marked scripts once per boot: a marker in /run,
+// created before the first start, keeps server restarts from running them
+// again.
+func RunAutostart(root string) {
+	if err := os.MkdirAll(autostartRunDir, 0o700); err != nil {
+		log.Errorf("autostart: %s", err)
+		return
+	}
+	marker, err := os.OpenFile(filepath.Join(autostartRunDir, ".started"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			log.Errorf("autostart: %s", err)
+		}
+		return
+	}
+	marker.Close()
+	names, err := readAutostart()
+	if err != nil {
+		log.Errorf("autostart: %s", err)
+		return
+	}
+	for _, name := range names {
+		if err := startAutostart(root, name); err != nil {
+			log.Errorf("autostart %s: %s", name, err)
+			_ = os.WriteFile(autostartBase(name)+".status", []byte("error: "+err.Error()+"\n"), 0o600)
+			continue
+		}
+		log.Infof("autostart: started %s", name)
+	}
+}
+
+func startAutostart(root, name string) error {
+	path, err := scriptPath(root, name)
+	if err != nil {
+		return err
+	}
+	script, err := scriptCommand(path)
+	if err != nil {
+		return err
+	}
+	base := autostartBase(name)
+	if err = os.WriteFile(base+".status", []byte("running\n"), 0o600); err != nil {
+		return err
+	}
+	args := append([]string{"-c", fmt.Sprintf(autostartWrapper, autostartLogLimit), "nanokvm-autostart",
+		base + ".status", base + ".log"}, script.Args...)
+	cmd := exec.Command("/bin/sh", args...)
+	cmd.Dir = filepath.Dir(path)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+	// Reap it while the server runs; after a restart init does.
+	go func() { _ = cmd.Wait() }()
+	return nil
+}
+
+// StartAutostartWhenListening waits up to a minute for the web server on
+// host and port (all addresses when host is empty), then runs the marked
+// scripts.
+func StartAutostartWhenListening(host string, port int) {
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	address := net.JoinHostPort(host, fmt.Sprint(port))
+	for deadline := time.Now().Add(time.Minute); time.Now().Before(deadline); time.Sleep(time.Second) {
+		if conn, err := net.DialTimeout("tcp", address, time.Second); err == nil {
+			conn.Close()
+			break
+		}
+	}
+	RunAutostart(ScriptDirectory)
 }

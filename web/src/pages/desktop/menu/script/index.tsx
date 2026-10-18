@@ -1,8 +1,8 @@
 import { ChangeEvent, useRef, useState } from 'react';
 import { UploadOutlined } from '@ant-design/icons';
-import { Button, Divider, Popconfirm } from 'antd';
+import { Button, Divider, Popconfirm, Switch } from 'antd';
 import clsx from 'clsx';
-import { ChevronRightIcon, FileJsonIcon } from 'lucide-react';
+import { ChevronRightIcon, FileJsonIcon, PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/script.ts';
@@ -15,6 +15,10 @@ export const Script = () => {
   const { t } = useTranslation();
 
   const [scripts, setScripts] = useState<string[]>([]);
+  // Scripts that run at startup, and their state in this boot.
+  const [autostart, setAutostart] = useState<string[]>([]);
+  const [autostartStatus, setAutostartStatus] = useState<Record<string, string>>({});
+  const [isTogglingAutostart, setIsTogglingAutostart] = useState(false);
   const [currentScript, setCurrentScript] = useState('');
   const [isRunning, setIsRunning] = useState(false);
 
@@ -92,6 +96,8 @@ export const Script = () => {
         if (rsp.data?.files?.length > 0) {
           setScripts(rsp.data.files);
         }
+        setAutostart(rsp.data?.autostart ?? []);
+        setAutostartStatus(rsp.data?.autostartStatus ?? {});
       })
       .catch((err) => showRequestError(err));
   }
@@ -108,8 +114,38 @@ export const Script = () => {
         }
 
         setScripts(scripts.filter((script) => script !== currentScript));
+        setAutostart(autostart.filter((script) => script !== currentScript));
       })
       .catch((err) => showRequestError(err));
+  }
+
+  function toggleAutostart(enabled: boolean) {
+    if (!currentScript || isTogglingAutostart) return;
+    const script = currentScript;
+    setIsTogglingAutostart(true);
+    api
+      .setScriptAutostart(script, enabled)
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          showRequestError(rsp);
+          return;
+        }
+        setAutostart(
+          enabled ? [...autostart, script] : autostart.filter((name) => name !== script)
+        );
+      })
+      .catch((err) => showRequestError(err))
+      .finally(() => setIsTogglingAutostart(false));
+  }
+
+  // This boot's state of a script that runs at startup.
+  function startupState(script: string) {
+    const status = autostartStatus[script];
+    if (!status) return '';
+    if (status === 'running') return t('script.autostartRunning');
+    const exited = /^exited (\d+)$/.exec(status);
+    if (exited) return t('script.autostartExited', { code: exited[1] });
+    return t('script.autostartFailed');
   }
 
   function activate(script: string) {
@@ -153,11 +189,37 @@ export const Script = () => {
             className="flex items-center justify-between space-x-5 px-2 py-1.5"
             onClick={() => activate(script)}
           >
-            <div className="max-w-[300px] select-none truncate">{script}</div>
+            <div className="flex max-w-[300px] items-center gap-1.5 select-none">
+              <span className="truncate">{script}</span>
+              {autostart.includes(script) && (
+                <PowerIcon
+                  size={12}
+                  className="text-fg-muted shrink-0"
+                  aria-label={t('script.autostart')}
+                />
+              )}
+            </div>
             <div className={clsx('h-[16px] w-[16px]', script === currentScript && 'rotate-90')}>
               <ChevronRightIcon size={16} />
             </div>
           </div>
+
+          {script === currentScript && (
+            <div className="space-y-1 px-3 pt-2">
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span>{t('script.autostart')}</span>
+                <Switch
+                  size="small"
+                  checked={autostart.includes(script)}
+                  loading={isTogglingAutostart}
+                  onChange={toggleAutostart}
+                />
+              </label>
+              <p className="text-fg-muted m-0 text-xs">
+                {startupState(script) || t('script.autostartHint')}
+              </p>
+            </div>
+          )}
 
           {script === currentScript && (
             <div className="flex items-center justify-end space-x-2 p-3">

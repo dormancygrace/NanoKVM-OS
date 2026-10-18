@@ -15,6 +15,11 @@ export function runScript(name: string, type: string) {
   return http.post('/api/vm/script/run', { name, type });
 }
 
+// Mark or unmark a script to run once at every startup.
+export function setScriptAutostart(name: string, enabled: boolean) {
+  return http.post('/api/vm/script/autostart', { name, enabled });
+}
+
 export function getScripts() {
   return http.get('/api/vm/script');
 }

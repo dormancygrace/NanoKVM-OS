@@ -630,7 +630,12 @@
     "confirm": "Ja",
     "cancel": "Nein",
     "delete": "Löschen",
-    "close": "Schliessen"
+    "close": "Schliessen",
+    "autostart": "Beim Start ausführen",
+    "autostartHint": "Läuft nach jedem Start einmal im Hintergrund; siehe die Skript-Anleitung.",
+    "autostartRunning": "Start-Lauf: läuft",
+    "autostartExited": "Start-Lauf: Exit-Code {{code}}",
+    "autostartFailed": "Start-Lauf: konnte nicht starten"
   },
   "terminal": {
     "title": "Terminal",

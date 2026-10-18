@@ -40,6 +40,15 @@ type SetScreenReq struct {
 
 type GetScriptsRsp struct {
 	Files []string `json:"files"`
+	// Scripts that run at startup, and their state in this boot: running,
+	// exited N, or error: ...
+	Autostart       []string          `json:"autostart"`
+	AutostartStatus map[string]string `json:"autostartStatus"`
+}
+
+type SetScriptAutostartReq struct {
+	Name    string `validate:"required"`
+	Enabled bool   `validate:"omitempty"`
 }
 
 type UploadScriptRsp struct {
@@ -57,15 +66,6 @@ type RunScriptRsp struct {
 
 type DeleteScriptReq struct {
 	Name string `validate:"required"`
-}
-
-// autostart
-type GetAutostartRsp struct {
-	Files []string `json:"files"`
-}
-
-type UploadAutostartReq struct {
-	Content string `json:"content"`
 }
 
 type GetVirtualDeviceRsp struct {

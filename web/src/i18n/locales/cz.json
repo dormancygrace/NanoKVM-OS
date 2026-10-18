@@ -336,7 +336,12 @@
     "confirm": "Ano",
     "cancel": "Ne",
     "delete": "Smazat",
-    "close": "Zavřít"
+    "close": "Zavřít",
+    "autostart": "Spustit při startu",
+    "autostartHint": "Spustí se jednou po každém startu, na pozadí; viz průvodce skripty.",
+    "autostartRunning": "Spuštění při startu: běží",
+    "autostartExited": "Spuštění při startu: návratový kód {{code}}",
+    "autostartFailed": "Spuštění při startu: nepodařilo se spustit"
   },
   "terminal": {
     "title": "Terminál",

@@ -233,13 +233,26 @@ func readIPv6Policy() (ipv6Policy, error) {
 	return parseIPv6Policy(string(data))
 }
 
+// applyIPv6 runs S02ipv6 on a policy. The policy reaches the script in a
+// file, as the saved one does at boot, never on its command line.
 func applyIPv6(policy ipv6Policy) error {
+	file, err := os.CreateTemp("", "nanokvm-ipv6-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	_, err = file.WriteString(strings.Join(policy.words(), "\n") + "\n")
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	args := append([]string{"-s", "--", "apply"}, policy.words()...)
-	cmd := exec.CommandContext(ctx, "/bin/sh", args...)
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-s", "--", "start")
 	cmd.Stdin = strings.NewReader(ipv6BootScript)
-	cmd.Env = append(os.Environ(), "NANOKVM_IPV6_SYSCTL="+ipv6SysctlRoot)
+	cmd.Env = append(os.Environ(), "NANOKVM_IPV6_SYSCTL="+ipv6SysctlRoot, "NANOKVM_IPV6_CONF="+file.Name())
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("apply IPv6: %w: %s", err, strings.TrimSpace(string(output)))
 	}

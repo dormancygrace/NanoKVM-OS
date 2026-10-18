@@ -188,6 +188,11 @@ type SetMemoryLimitReq struct {
 type GetMemoryLimitRsp struct {
 	Enabled bool  `json:"enabled"`
 	Limit   int64 `json:"limit"`
+	// MiB: the limit without a saved one, the limit in effect (0: none)
+	// and the smallest limit that can be saved.
+	Default int64 `json:"default"`
+	Current int64 `json:"current"`
+	Minimum int64 `json:"minimum"`
 }
 
 type SetOledReq struct {

@@ -351,3 +351,22 @@ export function setCPUFrequency(target: number, applyAtBoot: boolean) {
 export function setVideoMemory(mode: VideoMemoryMode) {
   return http.post('/api/vm/memory/video', { mode });
 }
+
+// MiB; current and default are 0 without a limit.
+export type MemoryLimit = {
+  enabled: boolean;
+  limit: number;
+  default: number;
+  current: number;
+  minimum: number;
+};
+
+// The Go memory limit of the NanoKVM server.
+export function getMemoryLimit() {
+  return http.get('/api/vm/memory/limit');
+}
+
+// enabled false removes the saved limit and returns to the default.
+export function setMemoryLimit(enabled: boolean, limit: number) {
+  return http.post('/api/vm/memory/limit', { enabled, limit });
+}

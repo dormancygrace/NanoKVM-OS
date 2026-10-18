@@ -856,7 +856,14 @@
       "priorityNote": "ZRAM 优先于 SD 交换使用。更改立即生效，重启后仍保留。",
       "unavailable": "需要包含此功能的 NanoKVM OS 版本。",
       "loadError": "无法读取内存状态",
-      "changeError": "无法更改交换设置"
+      "changeError": "无法更改交换设置",
+      "limitTitle": "服务器内存上限",
+      "limitDescription": "接近此上限时，NanoKVM 服务器会更积极地释放内存，而不是占用 apk 和系统其他部分的内存。关闭：内存的四分之一（{{default}} MiB）。自定义上限至少为 {{minimum}} MiB（即使默认值更低），无需重启立即生效。",
+      "limitValue": "上限",
+      "limitApply": "应用",
+      "limitCurrent": "当前生效：{{current}} MiB。",
+      "limitNone": "当前生效：无上限。",
+      "limitError": "无法更改内存上限"
     },
     "system": {
       "title": "系统",

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, message, Progress, Select, Spin, Switch } from 'antd';
+import { Alert, Button, InputNumber, message, Progress, Select, Spin, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
-import type { MemoryStatus, MemorySwap } from '@/api/vm.ts';
+import type { MemoryLimit, MemoryStatus, MemorySwap } from '@/api/vm.ts';
 import { swapRequestSize } from '@/lib/swap-request.ts';
 import { themeTokens } from '@/lib/theme-tokens.ts';
 import {
@@ -16,6 +16,106 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 const mib = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MiB`;
+
+/*
+ * The Go memory limit of the NanoKVM server: near it the runtime collects
+ * garbage harder instead of growing into memory that apk and the rest of the
+ * system need. Without a saved limit it is a quarter of RAM. Changes apply at
+ * once and persist.
+ */
+const ServerMemoryLimit = ({ totalBytes }: { totalBytes: number }) => {
+  const { t } = useTranslation();
+  const [state, setState] = useState<MemoryLimit>();
+  const [value, setValue] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const adopt = useCallback((next: MemoryLimit) => {
+    setState(next);
+    setValue(next.enabled ? next.limit : Math.max(next.default, next.minimum));
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getMemoryLimit()
+      .then((rsp) => {
+        if (active && rsp.code === 0) adopt(rsp.data as MemoryLimit);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [adopt]);
+
+  async function save(enabled: boolean, limit: number) {
+    setBusy(true);
+    try {
+      const rsp = await api.setMemoryLimit(enabled, limit);
+      if (rsp.code !== 0) throw new Error(rsp.msg || t('settings.memory.limitError'));
+      adopt(rsp.data as MemoryLimit);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : t('settings.memory.limitError'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!state) return null;
+  const maximum = Math.max(state.minimum, Math.floor(totalBytes / 1048576));
+  const changed = state.enabled && value !== null && value !== state.limit;
+  return (
+    <Panel className="space-y-4">
+      <SettingRow
+        label={t('settings.memory.limitTitle')}
+        description={t('settings.memory.limitDescription', {
+          default: state.default,
+          minimum: state.minimum
+        })}
+        htmlFor="memory-limit"
+      >
+        <Switch
+          id="memory-limit"
+          aria-describedby="memory-limit-description"
+          checked={state.enabled}
+          loading={busy}
+          disabled={busy}
+          onChange={(enabled) => void save(enabled, value ?? state.minimum)}
+        />
+      </SettingRow>
+      {state.enabled && (
+        <SettingRow label={t('settings.memory.limitValue')} htmlFor="memory-limit-value">
+          <div className="flex items-center gap-2">
+            <InputNumber
+              id="memory-limit-value"
+              min={state.minimum}
+              max={maximum}
+              value={value}
+              disabled={busy}
+              addonAfter="MiB"
+              style={{ width: 160 }}
+              onChange={(next) => setValue(typeof next === 'number' ? next : null)}
+              onPressEnter={() => changed && value !== null && void save(true, value)}
+            />
+            {changed && (
+              <Button
+                type="primary"
+                loading={busy}
+                onClick={() => value !== null && void save(true, value)}
+              >
+                {t('settings.memory.limitApply')}
+              </Button>
+            )}
+          </div>
+        </SettingRow>
+      )}
+      <p className="text-fg-muted m-0 text-sm">
+        {state.current
+          ? t('settings.memory.limitCurrent', { current: state.current })
+          : t('settings.memory.limitNone')}
+      </p>
+    </Panel>
+  );
+};
 
 export const Memory = () => {
   const { t } = useTranslation();
@@ -310,6 +410,7 @@ export const Memory = () => {
           {swapCard('zram', data.zram)}
           {swapCard('sd', data.sd)}
           <p className="text-fg-muted m-0 text-xs">{t('settings.memory.priorityNote')}</p>
+          <ServerMemoryLimit totalBytes={data.totalBytes} />
         </>
       )}
     </div>

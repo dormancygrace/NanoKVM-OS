@@ -856,7 +856,14 @@
       "priorityNote": "ZRAM は SD スワップより先に使用されます。変更はすぐに適用され、再起動後も保持されます。",
       "unavailable": "この機能を含む NanoKVM OS ビルドが必要です。",
       "loadError": "メモリの状態を読み取れませんでした",
-      "changeError": "スワップ設定を変更できませんでした"
+      "changeError": "スワップ設定を変更できませんでした",
+      "limitTitle": "サーバーのメモリ上限",
+      "limitDescription": "この上限に近づくと、NanoKVM サーバーは apk やシステムの他の部分からメモリを奪わず、より積極的にメモリを解放します。オフ：RAM の 4 分の 1（{{default}} MiB）。カスタム上限は、デフォルトがそれより低くても {{minimum}} MiB 以上で、再起動なしですぐに適用されます。",
+      "limitValue": "上限",
+      "limitApply": "適用",
+      "limitCurrent": "現在の上限：{{current}} MiB。",
+      "limitNone": "現在の上限：なし。",
+      "limitError": "メモリ上限を変更できませんでした"
     },
     "system": {
       "title": "システム",

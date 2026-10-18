@@ -29,30 +29,24 @@ func (s *Service) SetMemoryLimit(c *gin.Context) {
 		return
 	}
 
-	rsp.OkRsp(c)
+	s.GetMemoryLimit(c)
 	log.Debugf("set memory limit successful, enabled: %t, limit: %d", req.Enabled, req.Limit)
 }
 
 func (s *Service) GetMemoryLimit(c *gin.Context) {
 	var rsp proto.Response
-
-	exist := utils.IsGoMemLimitExist()
-	if !exist {
-		rsp.OkRspWithData(c, &proto.GetMemoryLimitRsp{
-			Enabled: false,
-			Limit:   0,
-		})
-		return
+	data := &proto.GetMemoryLimitRsp{
+		Default: utils.GoMemLimitDefaultMiB(),
+		Current: utils.GoMemLimitCurrentMiB(),
+		Minimum: utils.GoMemLimitMinimumMiB,
 	}
-
-	limit, err := utils.GetGoMemLimit()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "failed to get memory limit")
-		return
+	if utils.IsGoMemLimitExist() {
+		limit, err := utils.GetGoMemLimit()
+		if err != nil {
+			rsp.ErrRsp(c, -1, "failed to get memory limit")
+			return
+		}
+		data.Enabled, data.Limit = true, limit
 	}
-
-	rsp.OkRspWithData(c, &proto.GetMemoryLimitRsp{
-		Enabled: true,
-		Limit:   limit,
-	})
+	rsp.OkRspWithData(c, data)
 }

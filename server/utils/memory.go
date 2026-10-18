@@ -166,6 +166,32 @@ func DelGoMemLimit() error {
 	return goMemLimit.remove()
 }
 
+// toMiB rounds bytes down to MiB, as the start log does; 0 stands for no
+// limit.
+func toMiB(limit int64) int64 {
+	if limit <= 0 || limit == math.MaxInt64 {
+		return 0
+	}
+	return limit / (1024 * 1024)
+}
+
+// GoMemLimitDefaultMiB is the limit without a saved setting (0 for none).
+func GoMemLimitDefaultMiB() int64 {
+	goMemLimit.mutex.Lock()
+	defer goMemLimit.mutex.Unlock()
+	return toMiB(goMemLimit.fallback)
+}
+
+// GoMemLimitCurrentMiB is the limit the runtime applies now (0 for none).
+func GoMemLimitCurrentMiB() int64 {
+	goMemLimit.mutex.Lock()
+	defer goMemLimit.mutex.Unlock()
+	return toMiB(goMemLimit.apply(-1))
+}
+
+// GoMemLimitMinimumMiB is the smallest saved limit; lower values are raised.
+const GoMemLimitMinimumMiB = minGoMemLimitMiB
+
 func IsGoMemLimitExist() bool {
 	goMemLimit.mutex.Lock()
 	defer goMemLimit.mutex.Unlock()

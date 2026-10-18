@@ -51,7 +51,7 @@ These are targets, not guaranteed delivered rates. Available modes depend on the
 - **Adaptive MJPEG quality and JPEG colour sampling:** quality falls when all viewers lag and recovers up to your selected limit. Choose **4:2:2** (default) or **4:2:0**, with the selection saved across reboots.
 - **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Video modes apply monitor resolution and frame rate together; **Same as input** preserves the input dimensions.
 - **Portrait profiles:** 720 × 1280, 1080 × 1920, 1296 × 2304 for H.264, and 1440 × 2560 for H.265, subject to the reported device and browser capabilities.
-- **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder.
+- **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder. Direct records the H.264/H.265 stream into MP4 as received, without re-encoding; the other transports record WebM. Recordings include the USB audio while it plays in the page.
 - **Playback recovery:** Direct requests fresh keyframes after dropped frames; stalled capture has a bounded recovery path. H.264/H.265 streams carry BT.709 colour information.
 - **HDMI enable/disable and capture idle timeout**, so capture can stop when no viewer is watching.
 

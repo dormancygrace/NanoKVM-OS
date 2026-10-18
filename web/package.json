@@ -32,6 +32,7 @@
     "i18next": "26.4.5",
     "jotai": "3.0.1",
     "lucide-react": "1.57.0",
+    "mediabunny": "1.61.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-draggable": "4.7.2",

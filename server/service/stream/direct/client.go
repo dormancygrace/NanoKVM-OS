@@ -13,6 +13,9 @@ import (
 const (
 	frameAckMessage     byte = 2
 	streamResyncMessage byte = 3
+	// keyframeRequestMessage asks for an IDR without dropping the queue: a
+	// recording starts at the next keyframe while the picture plays on.
+	keyframeRequestMessage byte = 4
 
 	// The pending queue holds about queueDelay of video, so a stall of a given
 	// length costs the same at any stream rate; the frame count only bounds
@@ -469,6 +472,9 @@ func (c *client) markDiscontinuity() {
 	c.queue.markDiscontinuity()
 }
 
+// requestCaptureKeyframe asks the capture owner for an IDR; replaced in tests.
+var requestCaptureKeyframe = stream.RequestKeyframe
+
 func (c *client) handleControl(messageType int, data []byte) {
 	if messageType != websocket.BinaryMessage || len(data) == 0 {
 		return
@@ -483,7 +489,11 @@ func (c *client) handleControl(messageType int, data []byte) {
 	case streamResyncMessage:
 		if len(data) == 1 {
 			c.queue.requestResync()
-			stream.RequestKeyframe()
+			requestCaptureKeyframe()
+		}
+	case keyframeRequestMessage:
+		if len(data) == 1 {
+			requestCaptureKeyframe()
 		}
 	}
 }

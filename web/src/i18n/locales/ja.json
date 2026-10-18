@@ -55,6 +55,9 @@
     "saveFailed": "設定を適用できませんでした。サーバーアドレスとデバイスの接続を確認してください。"
   },
   "recorder": {
+    "startDirect": "元のストリームの録画を開始（MP4）",
+    "startDirectWithAudio": "元のストリームを音声付きで録画開始（MP4）",
+    "waitingKeyframe": "キーフレームを待っています…",
     "startWithAudio": "音声付きで録画を開始",
     "title": "ビデオ録画",
     "start": "録画を開始",

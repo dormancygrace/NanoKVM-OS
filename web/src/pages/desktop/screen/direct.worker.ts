@@ -42,6 +42,8 @@ const maxQueuedFrames = 1;
 const maxReconnectDelayMs = 5_000;
 const frameAckMessage = 2;
 const streamResyncMessage = 3;
+// Asks for a keyframe without a resync; older servers ignore it.
+const keyframeRequestMessage = 4;
 // ACKs go out as soon as a frame is handed to the decoder, so the window only
 // has to cover the round trip. They are withheld from decoderHighWatermark
 // queued chunks until the queue falls to decoderLowWatermark. Keep
@@ -56,7 +58,8 @@ const frameQueue = new Queue<VideoFrame>();
 const frameChannel = new MessageChannel();
 
 type WorkerMessage = {
-  type: 'video' | 'stop' | 'screenshot';
+  type: 'video' | 'stop' | 'screenshot' | 'record';
+  record?: boolean;
   requestId?: number;
   codec?: 'h264' | 'h265';
   canvas?: OffscreenCanvas;
@@ -69,6 +72,9 @@ type WorkerMessage = {
 };
 
 let codec: 'h264' | 'h265' = 'h264';
+// While recording, every frame given to the decoder is also posted to the
+// page: the recording has the same decodable sequence the picture has.
+let recording = false;
 
 frameChannel.port1.onmessage = () => {
   flushScheduled = false;
@@ -146,6 +152,10 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       break;
     case 'screenshot':
       void captureScreenshot(event.data.requestId);
+      break;
+    case 'record':
+      recording = event.data.record === true;
+      if (recording) requestKeyframe();
       break;
   }
 };
@@ -298,6 +308,7 @@ function handleWsMessage(message: ArrayBuffer) {
     }
 
     if (decoder?.state === 'configured') {
+      if (recording) postRecordedFrame(isKeyFrame, timestamp, data);
       decode(decoder, isKeyFrame, timestamp, data);
     }
   } catch (error) {
@@ -619,6 +630,33 @@ function sendAck(timestamp: number) {
   view.setBigUint64(1, BigInt(timestamp), true);
   try {
     currentSocket.send(message);
+  } catch {
+    currentSocket.close();
+  }
+}
+
+function postRecordedFrame(isKeyFrame: boolean, timestamp: number, data: Uint8Array) {
+  const copy = data.slice();
+  self.postMessage(
+    {
+      type: 'record-packet',
+      packet: {
+        key: isKeyFrame,
+        timestamp,
+        width: reportedFrameWidth,
+        height: reportedFrameHeight,
+        data: copy
+      }
+    },
+    { transfer: [copy.buffer] }
+  );
+}
+
+function requestKeyframe() {
+  const currentSocket = socket;
+  if (!currentSocket || currentSocket.readyState !== WebSocket.OPEN) return;
+  try {
+    currentSocket.send(new Uint8Array([keyframeRequestMessage]));
   } catch {
     currentSocket.close();
   }

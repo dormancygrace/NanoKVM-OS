@@ -55,6 +55,9 @@
     "saveFailed": "Could not apply settings. Check server addresses and the device connection."
   },
   "recorder": {
+    "startDirect": "Start recording the original stream (MP4)",
+    "startDirectWithAudio": "Start recording the original stream with sound (MP4)",
+    "waitingKeyframe": "Waiting for a keyframe…",
     "title": "Video recording",
     "start": "Start recording",
     "startWithAudio": "Start recording with sound",

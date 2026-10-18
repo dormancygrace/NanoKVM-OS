@@ -3,6 +3,7 @@ import { Button, message, Tooltip } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
+import { getDirectRecording, watchDirectRecording } from '@/lib/direct-recording.ts';
 import {
   captureRecordingSource,
   recordingMimeType,
@@ -23,9 +24,11 @@ export const Recorder = () => {
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
   const fps = useAtomValue(streamFpsAtom);
   const mode = useAtomValue(videoModeAtom);
-  const [state, setState] = useState<'idle' | 'choosing' | 'recording' | 'saving'>('idle');
+  const [state, setState] = useState<'idle' | 'choosing' | 'waiting' | 'recording' | 'saving'>(
+    'idle'
+  );
   const [elapsed, setElapsed] = useState(0);
-  const recording = useRef<ReturnType<typeof recordStream> | null>(null);
+  const recording = useRef<{ stop: () => void } | null>(null);
   const active = useRef(true);
   const generation = useRef(0);
   const busy = useRef(false);
@@ -36,9 +39,16 @@ export const Recorder = () => {
     setAudio(getUsbAudioStream());
     return watchUsbAudioStream(() => setAudio(getUsbAudioStream()));
   }, []);
+  // Direct records the stream as received, without re-encoding.
+  const [direct, setDirect] = useState(() => getDirectRecording());
+  useEffect(() => {
+    setDirect(getDirectRecording());
+    return watchDirectRecording(setDirect);
+  }, []);
+  const passthrough = mode === 'direct' && !!direct;
   const mime = recordingMimeType();
   const picker = (window as Window & { showSaveFilePicker?: SavePicker }).showSaveFilePicker;
-  const supported = window.isSecureContext && !!picker && !!mime;
+  const supported = window.isSecureContext && !!picker && (passthrough || !!mime);
 
   const invalidatePending = useCallback(() => {
     generation.current++;
@@ -57,7 +67,7 @@ export const Recorder = () => {
     recording.current?.stop();
   }, [captureEnabled, mode]);
   useEffect(() => {
-    if (state !== 'recording' && state !== 'saving') return;
+    if (state !== 'recording' && state !== 'waiting' && state !== 'saving') return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = '';
@@ -82,8 +92,42 @@ export const Recorder = () => {
     setState('choosing');
     let writer: RecordingWriter | undefined;
     let source: ReturnType<typeof captureRecordingSource> | undefined;
-    let session: ReturnType<typeof recordStream> | undefined;
+    let session: { stop: () => void; done: Promise<void> } | undefined;
     try {
+      const directSource = mode === 'direct' ? getDirectRecording() : null;
+      if (directSource) {
+        const handle = await picker!.call(window, {
+          suggestedName: `NanoKVM-${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`,
+          types: [{ description: t('recorder.title'), accept: { 'video/mp4': ['.mp4'] } }]
+        });
+        if (!active.current || attempt !== generation.current) return;
+        writer = await handle.createWritable();
+        if (!active.current || attempt !== generation.current) {
+          await writer.abort();
+          writer = undefined;
+          return;
+        }
+        const { recordPassthrough } = await import('@/lib/passthrough-recording.ts');
+        const sound = getUsbAudioStream()?.getAudioTracks()[0]?.clone() ?? null;
+        const passthroughSession = await recordPassthrough(
+          directSource,
+          writer as unknown as FileSystemWritableFileStream,
+          sound
+        );
+        session = passthroughSession;
+        recording.current = passthroughSession;
+        setElapsed(0);
+        setState('waiting');
+        void passthroughSession.started.then(() => {
+          if (active.current && recording.current === passthroughSession) {
+            setElapsed(0);
+            setState('recording');
+          }
+        });
+        await passthroughSession.done;
+        if (active.current) message.success(t('recorder.saved'));
+        return;
+      }
       const extension = mime!.includes('mp4') ? '.mp4' : '.webm';
       const handle = await picker!.call(window, {
         suggestedName: `NanoKVM-${new Date().toISOString().replace(/[:.]/g, '-')}${extension}`,
@@ -132,17 +176,24 @@ export const Recorder = () => {
     setState('saving');
     recording.current?.stop();
   }
+  const startTitle = passthrough
+    ? audio
+      ? t('recorder.startDirectWithAudio')
+      : t('recorder.startDirect')
+    : audio
+      ? t('recorder.startWithAudio')
+      : t('recorder.start');
   const title = !supported
     ? t('recorder.unsupported')
     : !captureEnabled
       ? t('recorder.captureDisabled')
       : state === 'recording'
         ? t('recorder.stop')
-        : state === 'saving'
-          ? t('recorder.saving')
-          : audio
-            ? t('recorder.startWithAudio')
-            : t('recorder.start');
+        : state === 'waiting'
+          ? t('recorder.waitingKeyframe')
+          : state === 'saving'
+            ? t('recorder.saving')
+            : startTitle;
   return (
     <Tooltip title={title} mouseEnterDelay={0.6}>
       <span className="flex shrink-0">
@@ -150,8 +201,14 @@ export const Recorder = () => {
           type="text"
           aria-label={title}
           aria-pressed={state === 'recording'}
-          disabled={!supported || !captureEnabled || state === 'choosing' || state === 'saving'}
-          className={`flex! h-[30px]! min-w-[30px]! items-center! justify-center! !px-1 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!supported || !captureEnabled ? '!text-neutral-500' : state === 'recording' || state === 'saving' ? '!text-red-400 hover:!text-red-300' : '!text-neutral-300 hover:!text-white'}`}
+          disabled={
+            !supported ||
+            !captureEnabled ||
+            state === 'choosing' ||
+            state === 'waiting' ||
+            state === 'saving'
+          }
+          className={`flex! h-[30px]! min-w-[30px]! items-center! justify-center! !px-1 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!supported || !captureEnabled ? '!text-neutral-500' : state === 'recording' || state === 'waiting' || state === 'saving' ? '!text-red-400 hover:!text-red-300' : '!text-neutral-300 hover:!text-white'}`}
           onClick={state === 'recording' ? stop : () => void start()}
           icon={
             state === 'recording' ? (

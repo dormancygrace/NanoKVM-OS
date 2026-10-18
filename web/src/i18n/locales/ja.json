@@ -804,7 +804,11 @@
           "modules": "カーネルモジュール",
           "firmware": "ボードファームウェア",
           "keys": "署名鍵",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "ブートローダー",
+          "zlib": "圧縮ライブラリ",
+          "exfatprogs": "exFAT ツール",
+          "i2ctools": "I2C ツール"
         }
       },
       "notice": {

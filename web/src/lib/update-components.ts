@@ -13,7 +13,11 @@ const labels: Record<string, string> = {
   'nanokvm-kmod-sg2002': 'modules',
   'nanokvm-firmware-sg2002': 'firmware',
   'nanokvm-keys': 'keys',
-  'nanokvm-rustdesk': 'rustdesk'
+  'nanokvm-rustdesk': 'rustdesk',
+  'nanokvm-bootloader-sg2002': 'bootloader',
+  'nanokvm-zlib': 'zlib',
+  'nanokvm-exfatprogs': 'exfatprogs',
+  'nanokvm-i2c-tools': 'i2ctools'
 };
 
 export function componentLabel(t: TFunction, name: string): string {

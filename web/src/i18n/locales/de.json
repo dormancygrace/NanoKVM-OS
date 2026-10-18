@@ -804,7 +804,11 @@
           "modules": "Kernelmodule",
           "firmware": "Board-Firmware",
           "keys": "Signaturschlüssel",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "Bootloader",
+          "zlib": "Kompressionsbibliothek",
+          "exfatprogs": "exFAT-Werkzeuge",
+          "i2ctools": "I2C-Werkzeuge"
         }
       },
       "notice": {

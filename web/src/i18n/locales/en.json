@@ -804,7 +804,11 @@
           "modules": "Kernel modules",
           "firmware": "Board firmware",
           "keys": "Signing keys",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "Bootloader",
+          "zlib": "Compression library",
+          "exfatprogs": "exFAT tools",
+          "i2ctools": "I2C tools"
         }
       },
       "notice": {

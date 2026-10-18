@@ -804,7 +804,11 @@
           "modules": "内核模块",
           "firmware": "板载固件",
           "keys": "签名密钥",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "引导加载程序",
+          "zlib": "压缩库",
+          "exfatprogs": "exFAT 工具",
+          "i2ctools": "I2C 工具"
         }
       },
       "notice": {

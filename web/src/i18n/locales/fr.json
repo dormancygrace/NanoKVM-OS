@@ -804,7 +804,11 @@
           "modules": "Modules du noyau",
           "firmware": "Micrologiciel de la carte",
           "keys": "Clés de signature",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "Chargeur d'amorçage",
+          "zlib": "Bibliothèque de compression",
+          "exfatprogs": "Outils exFAT",
+          "i2ctools": "Outils I2C"
         }
       },
       "notice": {

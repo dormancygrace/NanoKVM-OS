@@ -804,7 +804,11 @@
           "modules": "Módulos del kernel",
           "firmware": "Firmware de la placa",
           "keys": "Claves de firma",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "Cargador de arranque",
+          "zlib": "Biblioteca de compresión",
+          "exfatprogs": "Herramientas exFAT",
+          "i2ctools": "Herramientas I2C"
         }
       },
       "notice": {

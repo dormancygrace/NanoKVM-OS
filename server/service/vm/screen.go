@@ -25,6 +25,8 @@ var screenFileMap = map[string]string{
 	"resolution":   "/kvmapp/kvm/res",
 }
 
+var screenMonitorRequiresPowerCycle = common.MonitorRequiresPowerCycle
+
 var mjpegChromaMutex sync.Mutex
 var readMjpegChromaStatus = common.GetMjpegChromaStatus
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
@@ -139,6 +141,12 @@ func mjpegSelectionFailure(batch *VideoSettingsReq) *settingError {
 // validateScreenSettingIn is validateScreenSetting for a setting that is part
 // of a batch (nil for a single one).
 func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *settingError {
+	// Portrait profiles also write receiver flash on Cube/Lite with an UXC.
+	// Check before any batch setting can change stream state.
+	if (req.Type == "monitor" || req.Type == "portrait" || req.Type == "portrait_resolution") &&
+		screenMonitorRequiresPowerCycle() && !req.ConfirmPowerCycle {
+		return settingFailure(-5, "Physical power cycle required after EDID programming; confirm before writing")
+	}
 	switch req.Type {
 	case "mjpeg_chroma":
 		if req.Value != 420 && req.Value != 422 {
@@ -163,9 +171,6 @@ func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *s
 			return settingFailure(-3, "portrait monitor profile is unavailable")
 		}
 	case "monitor":
-		if common.MonitorRequiresPowerCycle() && !req.ConfirmPowerCycle {
-			return settingFailure(-5, "Physical power cycle required after EDID programming; confirm before writing")
-		}
 		if req.Value != 0 && req.Value != 720 && req.Value != 1080 && req.Value != 1440 && req.Value != 2160 {
 			return settingFailure(-1, "unsupported monitor profile")
 		}

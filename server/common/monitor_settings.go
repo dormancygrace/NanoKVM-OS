@@ -194,8 +194,8 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 		if _, ok := ResolutionMap[height]; !ok {
 			return fmt.Errorf("unsupported monitor resolution")
 		}
-		if hw.powerCycle() && height != 0 && height != 720 && height != 1080 {
-			return fmt.Errorf("Cube EDID profiles are limited to 720p/1080p at 60 Hz")
+		if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 {
+			return fmt.Errorf("HDMI receiver EDID profiles are limited to 720p/1080p at 60 Hz")
 		}
 	}
 	if update.Portrait != nil {

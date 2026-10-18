@@ -148,6 +148,7 @@ func TestMonitorFitsVideoPool(t *testing.T) {
 }
 
 func TestFitMonitorToVideoPool(t *testing.T) {
+	selectBoard(t, "pcie", "ux")
 	for _, tc := range []struct {
 		name               string
 		pool               VideoPool

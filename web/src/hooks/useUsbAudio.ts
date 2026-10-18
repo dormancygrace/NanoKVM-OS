@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
+import { publishUsbAudioStream } from '@/lib/usb-audio-stream.ts';
 import { getVideoAudio, watchVideoAudio, type VideoAudioChannel } from '@/lib/video-audio.ts';
 
 type Playback = {
@@ -66,6 +67,7 @@ export const useUsbAudio = () => {
       old.renderer.pause();
       old.renderer.srcObject = null;
     }
+    if (old) publishUsbAudioStream(null);
     setReceiving(false);
     old?.unsubscribe?.();
     old?.channel?.stop();
@@ -234,6 +236,7 @@ export const useUsbAudio = () => {
                 renderer.muted = true;
                 renderer.srcObject = stream;
                 active.renderer = renderer;
+                publishUsbAudioStream(stream);
                 void renderer.play().catch(() => fail('playback'));
                 active.source = context.createMediaStreamSource(stream);
                 active.source.connect(gain);
@@ -311,6 +314,7 @@ export const useUsbAudio = () => {
       renderer.muted = true;
       renderer.srcObject = stream;
       active.renderer = renderer;
+      publishUsbAudioStream(stream);
       void renderer.play().catch(() => fail('playback'));
       active.source?.disconnect();
       active.source = active.context.createMediaStreamSource(stream);

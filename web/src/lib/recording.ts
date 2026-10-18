@@ -29,7 +29,10 @@ export function recordStream(
   };
   const ended = () => stop();
   const tracks = stream.getTracks();
-  tracks.forEach((track) => track.addEventListener('ended', ended));
+  // The video ends the recording; sound that stops (the user turns it off)
+  // leaves the rest of the recording silent.
+  const videoTracks = tracks.filter((track) => track.kind !== 'audio');
+  videoTracks.forEach((track) => track.addEventListener('ended', ended));
   recorder.ondataavailable = (event) => {
     if (!event.data.size || failure) return;
     pendingBytes += event.data.size;
@@ -52,10 +55,8 @@ export function recordStream(
   recorder.onstop = async () => {
     if (stopped) return;
     stopped = true;
-    tracks.forEach((track) => {
-      track.removeEventListener('ended', ended);
-      track.stop();
-    });
+    videoTracks.forEach((track) => track.removeEventListener('ended', ended));
+    tracks.forEach((track) => track.stop());
     await writes;
     try {
       if (failure) {
@@ -74,19 +75,28 @@ export function recordStream(
   try {
     recorder.start(1000);
   } catch (error) {
-    tracks.forEach((track) => track.removeEventListener('ended', ended));
+    videoTracks.forEach((track) => track.removeEventListener('ended', ended));
     throw error;
   }
   return { stop, done };
 }
 
-export function recordingMimeType(): string | null {
+export function recordingMimeType(withAudio = false): string | null {
   if (typeof MediaRecorder === 'undefined') return null;
-  return (
-    ['video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find((type) =>
-      MediaRecorder.isTypeSupported(type)
-    ) ?? null
-  );
+  const types = withAudio
+    ? ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
+    : ['video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
+}
+
+// Adds a copy of the live USB audio to a recording stream. The copy belongs to
+// the recorder; the speakers keep the original.
+export function withRecordingAudio(stream: MediaStream, audio: MediaStream | null) {
+  audio
+    ?.getAudioTracks()
+    .filter((track) => track.readyState === 'live')
+    .forEach((track) => stream.addTrack(track.clone()));
+  return stream;
 }
 
 // The returned stream belongs to the recorder. Never stop the live WebRTC tracks.

@@ -57,6 +57,7 @@
   "recorder": {
     "title": "Video recording",
     "start": "Start recording",
+    "startWithAudio": "Start recording with sound",
     "stop": "Stop recording",
     "saving": "Saving recording…",
     "saved": "Recording saved",

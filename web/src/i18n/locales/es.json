@@ -57,6 +57,7 @@
   "recorder": {
     "title": "Grabación de vídeo",
     "start": "Iniciar grabación",
+    "startWithAudio": "Iniciar grabación con sonido",
     "stop": "Detener grabación",
     "saving": "Guardando grabación…",
     "saved": "Grabación guardada",

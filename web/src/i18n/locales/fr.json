@@ -57,6 +57,7 @@
   "recorder": {
     "title": "Enregistrement vidéo",
     "start": "Démarrer l'enregistrement",
+    "startWithAudio": "Démarrer l'enregistrement avec le son",
     "stop": "Arrêter l'enregistrement",
     "saving": "Enregistrement du fichier…",
     "saved": "Enregistrement sauvegardé",

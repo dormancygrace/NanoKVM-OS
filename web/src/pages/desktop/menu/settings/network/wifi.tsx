@@ -333,6 +333,10 @@ export const Wifi = () => {
                   {state.band && <WifiBandTag band={state.band} />}
                 </div>
                 {state.connection && <ConnectionDetails connection={state.connection} />}
+                {/* Also for a hidden network or one missing from the last scan. */}
+                <Button size="small" danger disabled={locked} onClick={disconnect}>
+                  {tr('disconnectButton')}
+                </Button>
               </div>
             ) : enabled ? (
               tr('description')

@@ -307,6 +307,53 @@ func (k *KvmVision) ApplyMonitorProfile(path string) error {
 	return nil
 }
 
+// ReadMonitorEDID copies the HDMI receiver's EDID (256 bytes) under the same
+// serialization as ApplyMonitorProfile: nanokvm_update_edid reads it with the
+// register sequence that programming uses to compare the installed EDID.
+func (k *KvmVision) ReadMonitorEDID() ([]byte, error) {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+	if k.closed {
+		return nil, fmt.Errorf("video capture is closed")
+	}
+	defer k.pauseCaptureLocked()()
+	if MonitorRequiresPowerCycle() {
+		if C.edid_maintenance(1) < 0 {
+			return nil, fmt.Errorf("Cube EDID maintenance requires updated native video library")
+		}
+		defer C.edid_maintenance(0)
+	} else {
+		defer C.kvmv_hdmi_control(1)
+		if C.kvmv_hdmi_control(0) < 0 {
+			return nil, fmt.Errorf("cannot pause HDMI to read the monitor EDID")
+		}
+	}
+	f, err := os.CreateTemp("/run", "nanokvm-edid-*.bin")
+	if err != nil {
+		return nil, err
+	}
+	name := f.Name()
+	defer os.Remove(name)
+	if err = f.Close(); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "/usr/sbin/nanokvm_update_edid", "--dump", name).CombinedOutput()
+	if err != nil {
+		log.Errorf("reading the monitor EDID failed: %v: %s", err, output)
+		return nil, fmt.Errorf("reading the monitor EDID failed")
+	}
+	data, err := os.ReadFile(name)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) != 256 {
+		return nil, fmt.Errorf("monitor EDID copy has %d bytes", len(data))
+	}
+	return data, nil
+}
+
 // RequestKeyframe queues native intent; it does not touch VENC from this thread.
 func (k *KvmVision) RequestKeyframe() {
 	k.mutex.RLock()

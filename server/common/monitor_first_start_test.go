@@ -3,6 +3,7 @@ package common
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -21,6 +22,7 @@ func firstStartBackend(hardware, powerCycle bool, applied *[]string, fail error)
 			*applied = append(*applied, path)
 			return fail
 		},
+		read: func() ([]byte, error) { return testEDID(1920, 280, 1080, 45, 14850, 16), nil },
 	}
 }
 
@@ -128,5 +130,57 @@ func TestProgramMonitorProfileOnFirstStartStopsAfterRecordedSuccess(t *testing.T
 	}
 	if writes != 1 {
 		t.Fatalf("programmed %d times", writes)
+	}
+}
+
+func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
+	edid100 := testEDID(1920, 720, 1080, 45, 29700)
+	edid60 := testEDID(1920, 280, 1080, 45, 14850, 16)
+	for _, tc := range []struct {
+		name    string
+		saved   int
+		edid    []byte
+		readErr error
+		path    string
+		saved2  string
+		checked bool
+		wantErr bool
+	}{
+		{"1080p100 left in flash", 1080, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "1080", false, false},
+		{"720p saved", 720, edid100, nil, "NanoKVM-cube-monitor-720.bin", "720", false, false},
+		{"QHD saved by a PCIe image", 1440, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "0", false, false},
+		{"Cube EDID", 1080, edid60, nil, "", "1080", true, false},
+		{"read failure", 1080, nil, errors.New("i2c"), "", "1080", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, tc.saved, false, 1920)
+			var applied []string
+			hw := firstStartBackend(true, true, &applied, nil)
+			reads := 0
+			hw.read = func() ([]byte, error) { reads++; return tc.edid, tc.readErr }
+			path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("error %v", err)
+			}
+			if tc.path == "" {
+				if path != "" || len(applied) != 0 {
+					t.Fatalf("reported %q, applied %v", path, applied)
+				}
+			} else if filepath.Base(path) != tc.path || len(applied) != 1 || applied[0] != path {
+				t.Fatalf("reported %q, applied %v", path, applied)
+			}
+			if saved, _ := os.ReadFile(monitorResolutionFile); string(saved) != tc.saved2 {
+				t.Fatalf("saved resolution %q", saved)
+			}
+			if _, err := os.Stat(monitorEDIDCheckedFile); (err == nil) != tc.checked {
+				t.Fatalf("checked marker present = %v", err == nil)
+			}
+			// A checked receiver is not read again on later starts.
+			if tc.checked {
+				if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 1 {
+					t.Fatalf("second start: error %v, reads %d", err, reads)
+				}
+			}
+		})
 	}
 }

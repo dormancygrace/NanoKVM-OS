@@ -2,6 +2,8 @@
 
 package common
 
+import "errors"
+
 // KvmVision is a no-hardware implementation used by architecture-independent
 // unit tests. Production builds compile kvm_vision.go and use the real C ABI.
 type KvmVision struct{}
@@ -38,6 +40,8 @@ func (k *KvmVision) SetFrameDetect(uint8) {}
 func (k *KvmVision) Close() {}
 
 func (k *KvmVision) ApplyMonitorProfile(string) error { return nil }
+
+func (k *KvmVision) ReadMonitorEDID() ([]byte, error) { return nil, errors.New("no HDMI receiver") }
 
 func (k *KvmVision) RequestKeyframe() {}
 

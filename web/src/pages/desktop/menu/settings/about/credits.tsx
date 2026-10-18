@@ -30,7 +30,7 @@ export const Credits = () => {
     { name: 'SOPHGO / CVITEK', contribution: tr('silicon') },
     { name: 'Linux · Buildroot · Alpine Linux · APK Tools', contribution: tr('systemStack') },
     { name: 'Go · Pion · React · Ant Design · OpenSSL · Opus', contribution: tr('appStack') },
-    { name: 'Radxa · PiKVM · OneKVM', contribution: tr('projects') },
+    { name: 'Radxa · PiKVM', contribution: tr('projects') },
     { name: tr('contributorsTitle'), contribution: tr('contributors') }
   ];
 

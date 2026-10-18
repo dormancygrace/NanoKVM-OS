@@ -117,7 +117,7 @@ where
     if &header[..4] != MEDIA_MAGIC || header[4] != MEDIA_VERSION {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "invalid OneKVM media frame header",
+            "invalid media frame header",
         ));
     }
     if header[5] == 0 {
@@ -141,7 +141,7 @@ where
         value => {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("unsupported OneKVM codec id {value}"),
+                format!("unsupported codec id {value}"),
             ));
         }
     };
@@ -149,7 +149,7 @@ where
     if payload_length > MAX_MEDIA_PAYLOAD {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "OneKVM media frame is too large",
+            "media frame is too large",
         ));
     }
     let mut payload = vec![0; payload_length];
@@ -176,7 +176,7 @@ pub async fn query_video_info(socket_path: &str, identity: &Identity) -> io::Res
     {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            "invalid OneKVM video metadata",
+            "invalid video metadata",
         ));
     }
     Ok(VideoInfo {
@@ -281,7 +281,7 @@ impl HidClient {
         };
         let mut stream = UnixStream::connect(&self.socket_path).await?;
         let headers = format!(
-            "POST {path} HTTP/1.1\r\nHost: unix\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAuthorization: Bearer {}\r\nX-OneKVM-Extension: {}\r\nX-NanoKVM-Session: {}\r\nConnection: close\r\n\r\n",
+            "POST {path} HTTP/1.1\r\nHost: unix\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAuthorization: Bearer {}\r\nX-NanoKVM-Extension: {}\r\nX-NanoKVM-Session: {}\r\nConnection: close\r\n\r\n",
             body.len(), self.identity.token, self.identity.extension_id, self.session
         );
         let mut request = headers.into_bytes();
@@ -300,7 +300,7 @@ impl HidClient {
             return Ok(());
         }
         Err(io::Error::other(format!(
-            "OneKVM HID request failed: {}",
+            "HID request failed: {}",
             String::from_utf8_lossy(status_line).trim()
         )))
     }

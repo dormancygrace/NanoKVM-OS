@@ -1,11 +1,9 @@
 # NanoKVM RustDesk add-on
 
-Optional HDMI/USB HID endpoint derived from
-[onekvm/onekvm-extension-rustdesk](https://github.com/onekvm/onekvm-extension-rustdesk)
-at 7a278b5897716786dcc075a167b72f04d5b73766 (AGPL-3.0-only).
-It implements RustDesk password authentication, ID registration and relay
-encryption. It obtains encoded HDMI frames and submits USB input to the existing
-NanoKVM app. The original OneKVM firmware is not used.
+Optional HDMI/USB HID endpoint for RustDesk clients (AGPL-3.0-only; see
+NOTICE). It implements RustDesk password authentication, ID registration and
+relay encryption. It obtains encoded HDMI frames and submits USB input to the
+existing NanoKVM app.
 
 ## Architecture and limits
 
@@ -173,7 +171,7 @@ before relying on the add-on.
 The add-on has its own Cargo/APK version. `upstream.json` records the audited
 RustDesk 1.5.0 protocol reference and exact source commits; it is embedded in
 the daemon and installed alongside it so the UI follows the installed package.
-This partial endpoint is derived through OneKVM, not a full RustDesk fork.
+This is a partial protocol endpoint, not a full RustDesk fork.
 `nanokvm-rustdesk --version` prints both versions without starting the service.
 The network version remains the reference version, not the newest client release.
 

@@ -29,7 +29,7 @@ use crate::{
     },
     identity::RustDeskIdentity,
     input::InputState,
-    onekvm::{self, Codec, HidClient, Identity, MediaFrame, MediaSubscriber, VideoInfo},
+    nanokvm::{self, Codec, HidClient, Identity, MediaFrame, MediaSubscriber, VideoInfo},
     protocol::{
         login_response, message, video_frame, DisplayInfo, EncodedVideoFrame, EncodedVideoFrames,
         Features, Hash, IdPk, KeyEvent, LoginRequest, LoginResponse, Message, MouseEvent, PeerInfo,
@@ -271,14 +271,14 @@ pub async fn run(
 
     if !config.rendezvous_server.trim().is_empty() {
         let rendezvous_config = Arc::clone(&config);
-        let rendezvous_onekvm = Arc::clone(&identity);
+        let rendezvous_app = Arc::clone(&identity);
         let rendezvous_identity = Arc::clone(&rustdesk_identity);
         let rendezvous_shutdown = shutdown_receiver.clone();
         let rendezvous_limits = limits.clone();
         sessions.spawn(async move {
             rendezvous::run(
                 rendezvous_config,
-                rendezvous_onekvm,
+                rendezvous_app,
                 rendezvous_identity,
                 rendezvous_shutdown,
                 rendezvous_limits,
@@ -548,7 +548,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 
     let video_info = time::timeout(
         MEDIA_TIMEOUT,
-        onekvm::query_video_info(&config.media_socket, &identity),
+        nanokvm::query_video_info(&config.media_socket, &identity),
     )
     .await
     .unwrap_or_else(|_| {
@@ -582,7 +582,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     video_info.fps = video_info.fps.min(config.fps);
     // Pin the negotiated codec for this session. A shared setting change must
     // reconnect instead of sending H.265 frames to an H.264-only decoder.
-    let video_profile = onekvm::VideoProfile {
+    let video_profile = nanokvm::VideoProfile {
         codec: video_info.codec,
     };
 
@@ -1256,7 +1256,7 @@ mod tests {
         config::Config,
         framing::{read_message, write_message, FrameReader, FrameWriter},
         identity::RustDeskIdentity,
-        onekvm::{Codec, Identity, MediaFrame, VideoInfo},
+        nanokvm::{Codec, Identity, MediaFrame, VideoInfo},
         protocol::{
             login_response, message, Hash, LoginRequest, LoginResponse, Message, MouseEvent,
             OptionMessage, SupportedDecoding, TestDelay,
@@ -1552,7 +1552,7 @@ mod tests {
             challenge: "challenge".to_owned(),
         };
         let mut first = Sha256::new();
-        first.update(b"onekvm-test");
+        first.update(b"rustdesk-test");
         first.update(hash.salt.as_bytes());
         let mut second = Sha256::new();
         second.update(first.finalize());
@@ -1561,7 +1561,7 @@ mod tests {
             password: second.finalize().to_vec(),
             ..Default::default()
         };
-        assert!(verify_password("onekvm-test", &hash, &login));
+        assert!(verify_password("rustdesk-test", &hash, &login));
         assert!(!verify_password("wrong-password", &hash, &login));
     }
 
@@ -1626,7 +1626,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bridges_login_video_and_hid_with_mock_onekvm() {
+    async fn bridges_login_video_and_hid_with_mock_app() {
         bridge_mock(true).await;
     }
     #[tokio::test]
@@ -1954,7 +1954,7 @@ mod tests {
             let mut hid_response_receiver = Some(hid_response_receiver);
             for request_index in 0..6 {
                 let (mut stream, _) = hid_listener.accept().await.unwrap();
-                let request = crate::onekvm::read_test_http_request(&mut stream).await;
+                let request = crate::nanokvm::read_test_http_request(&mut stream).await;
                 hid_sender.send(request).await.unwrap();
                 if request_index == 0 {
                     let _ = hid_response_receiver.take().unwrap().await;
@@ -1977,7 +1977,7 @@ mod tests {
         let config = Arc::new(Config {
             service_enabled: true,
             codec: "h265".to_owned(), // A stale preference must not override H.264 metadata.
-            password: "onekvm-test".to_owned(),
+            password: "rustdesk-test".to_owned(),
             media_socket: media_path.to_string_lossy().into_owned(),
             audio_socket: directory
                 .join("absent-audio.sock")
@@ -2064,7 +2064,7 @@ mod tests {
                 disable_keyboard: if initially_disabled { 2 } else { 0 },
                 ..Default::default()
             }),
-            password: password_hash("onekvm-test", &hash),
+            password: password_hash("rustdesk-test", &hash),
             my_id: "test-client".to_owned(),
             my_name: "NanoKVM test".to_owned(),
             version: crate::upstream::version().to_owned(),
@@ -2577,6 +2577,6 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("onekvm-rustdesk-{}-{unique}", std::process::id()))
+        std::env::temp_dir().join(format!("nanokvm-rustdesk-{}-{unique}", std::process::id()))
     }
 }

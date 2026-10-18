@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn identity_is_stable_and_signatures_are_sodium_compatible() {
         let root = std::env::temp_dir().join(format!(
-            "onekvm-rustdesk-identity-{}-{}",
+            "rustdesk-identity-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -227,7 +227,7 @@ mod tests {
             0o600
         );
 
-        let message = b"OneKVM RustDesk identity";
+        let message = b"RustDesk identity";
         let signed = first.sign(message);
         let signature = Signature::from_slice(&signed[..64]).unwrap();
         VerifyingKey::from_bytes(&first.public_key())

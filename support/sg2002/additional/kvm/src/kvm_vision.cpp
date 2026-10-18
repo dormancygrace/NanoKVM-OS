@@ -1601,6 +1601,8 @@ static std::atomic<bool> requested_keyframe{false};
  * Applied under vi_mutex by kvmv_read_img, at most once per second.
  */
 static std::atomic<int> capture_target_fps{0};
+// The nominal HDMI input rate (0: unknown), updated with the capture rate.
+static std::atomic<int> capture_input_fps{0};
 int kvmv_set_capture_fps(uint8_t fps)
 {
     capture_target_fps.store(fps, std::memory_order_relaxed);
@@ -1614,6 +1616,8 @@ static void apply_capture_rate(void)
     if (now - last_ms < 1000) return;
     last_ms = now;
     const int input_fps = mmf_vi_input_fps();
+    static nanokvm::InputRateFilter input_rate;
+    capture_input_fps.store(input_rate.update(input_fps), std::memory_order_relaxed);
     mmf_vpss_set_rate(input_fps, capture_target_fps.load(std::memory_order_relaxed));
     static int published_fps = -1;
     if (input_fps != published_fps) {
@@ -1630,6 +1634,11 @@ static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width,
 #ifdef NANOKVM_OS
     const int limit = nanokvm::capture_stream_rate_limit(src.width, src.height, width, height);
     if (fps > limit) fps = limit;
+    // Never configure the encoder above the rate that arrives: a 60 Hz input
+    // with a 100 fps setting (a Cube keeps 60 Hz) would get the rate control
+    // and the pre-submit pacing of 100 fps.
+    const int input = capture_input_fps.load(std::memory_order_relaxed);
+    if (input > 0 && fps > input) fps = input;
 #else
     (void)src;
 #endif

@@ -8,6 +8,7 @@ import (
 )
 
 func TestMonitorSettingsProgramsOnlyFinalProfile(t *testing.T) {
+	selectBoard(t, "pcie", "ux") // the rate profiles of a live LT6911UXC
 	height, portraitSize, off, on := uint16(1080), uint16(1280), false, true
 	for _, tc := range []struct {
 		name            string

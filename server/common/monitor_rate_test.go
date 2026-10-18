@@ -24,6 +24,7 @@ func TestMonitorRefreshFollowsStreamRate(t *testing.T) {
 }
 
 func TestMonitorProfileForStreamRate(t *testing.T) {
+	selectBoard(t, "pcie", "ux")
 	dir := t.TempDir()
 	old := monitorEDIDDir
 	monitorEDIDDir = dir
@@ -142,14 +143,51 @@ func TestAutomaticMonitorProfileOnOtherBoards(t *testing.T) {
 	if got := MonitorRates(0); len(got) != 0 {
 		t.Fatalf("stock Automatic rates %v", got)
 	}
-	// Cube keeps its single 60 Hz profile at every stream rate.
-	selectBoard(t, "alpha", "ux")
-	for _, fps := range []int{100, 60, 30} {
-		if got := filepath.Base(monitorProfilePathAt(0, fps)); got != "NanoKVM-cube-monitor-1080.bin" {
-			t.Fatalf("Cube Automatic at %d fps: %s", fps, got)
+	// The LT6911C and LT6911D keep their single 60 Hz profile at every stream
+	// rate, on a Cube and on PCIe.
+	for _, board := range [][2]string{{"alpha", "c"}, {"beta", "d"}, {"pcie", "d"}} {
+		selectBoard(t, board[0], board[1])
+		for _, fps := range []int{100, 60, 30} {
+			if got := filepath.Base(monitorProfilePathAt(0, fps)); got != "NanoKVM-cube-monitor-1080.bin" {
+				t.Fatalf("%s/%s Automatic at %d fps: %s", board[0], board[1], fps, got)
+			}
+		}
+		if got := MonitorRates(0); len(got) != 1 || got[0] != 60 {
+			t.Fatalf("%s/%s Automatic rates %v", board[0], board[1], got)
+		}
+		if got := MonitorRates(1440); got != nil {
+			t.Fatalf("%s/%s QHD rates %v", board[0], board[1], got)
 		}
 	}
-	if got := MonitorRates(0); len(got) != 1 || got[0] != 60 {
-		t.Fatalf("Cube Automatic rates %v", got)
+}
+
+// A Cube or Lite with an LT6911UXC gets the full profile set, but its monitor
+// keeps the fastest rate of the resolution: every EDID write needs a power
+// cycle, so it does not follow the stream rate.
+func TestCubeWithUXCKeepsTheFastestRate(t *testing.T) {
+	selectBoard(t, "beta", "ux")
+	dir := t.TempDir()
+	old := monitorEDIDDir
+	monitorEDIDDir = dir
+	t.Cleanup(func() { monitorEDIDDir = old })
+	for _, name := range []string{"NanoKVM-monitor-1080-90.bin", "NanoKVM-monitor-1080-60.bin",
+		"NanoKVM-monitor-1440-60.bin", "NanoKVM-monitor-1440-30.bin"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !MonitorHighRefreshSupported() || MonitorRefreshFollowsStream() || !MonitorRequiresPowerCycle() {
+		t.Fatal("Cube with UXC: full profiles, power cycle, no rate following")
+	}
+	if got := MonitorRates(1440); len(got) != 4 || got[0] != 60 {
+		t.Fatalf("QHD rates %v", got)
+	}
+	for _, fps := range []int{120, 60, 30} {
+		if got := filepath.Base(monitorProfilePathAt(1080, fps)); got != "NanoKVM-monitor-1080-90.bin" {
+			t.Errorf("1080p at %d fps: %s", fps, got)
+		}
+		if got := filepath.Base(monitorProfilePathAt(1440, fps)); got != "NanoKVM-monitor-1440-60.bin" {
+			t.Errorf("1440p at %d fps: %s", fps, got)
+		}
 	}
 }

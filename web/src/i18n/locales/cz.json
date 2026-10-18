@@ -1787,7 +1787,7 @@
     "mjpegChromaFallback_diagnostic": "Ve stávajícím režimu zachytávání není 4:2:2 k dispozici.",
     "mjpegChromaFallback_hardware": "Po chybě zachytávání náhradně používá 4:2:0. Pokud je signál stabilní, zkuste znovu 4:2:2.",
     "mjpegChromaFallback_pending": "4:2:2 bude použito pro příští zachycený snímek.",
-    "cubeMonitorHint": "Cube/Lite: zapisuje a ověřuje EDID. Aby se uplatnilo, fyzicky odpojte veškeré zdroje napájení a následně je připojte nazpět. Jen softwarový restart nestačí. Automatické používá konzervativní profil 1080p/60.",
+    "cubeMonitorHint": "Cube/Lite: zapíše a ověří EDID. Pro použití fyzicky odpojte všechny zdroje napájení a znovu je připojte; softwarový restart nestačí. Monitor ponechá nejvyšší obnovovací frekvenci zvoleného rozlišení a snímková frekvence omezuje jen stream.",
     "powerCycleConfirm": "Pokračujte pouze pokud po zapsání máte možnost fyzicky odpojit veškeré zdroje napájení od NanoKVM. Je možné, že do doby, než provedete operaci s napájením, přenos obrazu bude přerušen. Tuto změnu v nastavení není možné uplatnit softwarovým restartováním.",
     "powerCycleWritten": "EDID zapsáno a ověřeno. Odpojte NanoKVM od napájení (a pak připojte k němu nazpět).",
     "powerCyclePending": "Údržba EDID: je zapotřebí úplné vypnutí/zapnutí",

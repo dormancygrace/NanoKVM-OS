@@ -243,7 +243,7 @@
     "mjpegChromaFallback_diagnostic": "Le 4:2:2 n'est pas disponible dans le mode de capture actuel.",
     "mjpegChromaFallback_hardware": "La capture est revenue au 4:2:0 après une erreur. Réessayez le 4:2:2 lorsque le signal est stable.",
     "mjpegChromaFallback_pending": "Le 4:2:2 s'appliquera à la prochaine image capturée.",
-    "cubeMonitorHint": "Cube/Lite : écrit et vérifie l'EDID. Débranchez physiquement toutes les sources d'alimentation puis rebranchez-les pour l'appliquer. Un redémarrage logiciel ne suffit pas. Automatique utilise le profil prudent 1080p/60.",
+    "cubeMonitorHint": "Cube/Lite : écrit et vérifie l’EDID. Pour l’appliquer, débranchez physiquement toutes les sources d’alimentation puis rebranchez-les ; un redémarrage logiciel ne suffit pas. Le moniteur garde la fréquence de rafraîchissement la plus élevée de la résolution choisie, et la fréquence d’images ne limite que le flux.",
     "powerCycleTitle": "Coupure physique de l'alimentation requise",
     "powerCycleConfirm": "Continuez uniquement si vous pouvez débrancher physiquement toutes les sources d'alimentation du NanoKVM après l'écriture. La vidéo peut être interrompue d'ici là. Un redémarrage logiciel n'applique pas cette modification.",
     "powerCycleWrite": "Écrire l'EDID",

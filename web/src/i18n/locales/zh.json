@@ -243,7 +243,7 @@
     "mjpegChromaFallback_diagnostic": "当前采集模式下无法使用 4:2:2。",
     "mjpegChromaFallback_hardware": "采集出错后已回退到 4:2:0。请在信号稳定后重试 4:2:2。",
     "mjpegChromaFallback_pending": "4:2:2 将从下一帧采集画面开始生效。",
-    "cubeMonitorHint": "Cube/Lite：写入并校验 EDID。需物理断开所有电源后重新接通才能生效，软件重启无效。“自动”使用保守的 1080p/60 配置。",
+    "cubeMonitorHint": "Cube/Lite：写入并校验 EDID。需物理断开所有电源后重新连接才能生效，软件重启无效。显示器保持所选分辨率的最高刷新率，帧率只限制视频流。",
     "powerCycleTitle": "需要物理断电重启",
     "powerCycleConfirm": "仅当写入后你能物理断开 NanoKVM 的所有电源时才继续。在此之前视频可能中断。通过软件重启无法应用此更改。",
     "powerCycleWrite": "写入 EDID",

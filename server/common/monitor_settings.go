@@ -71,9 +71,18 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 		return "", nil
 	}
 	// Before the recorded-profile check: an image that identified a Cube as
-	// PCIe recorded the 100 Hz profile it programmed there.
+	// PCIe recorded the 100 Hz profile it programmed there. A Cube or Lite
+	// with an LT6911UXC captures every profile it can hold.
 	if hw.powerCycle() {
+		if receiverChip() == "ux" {
+			return "", nil
+		}
 		return checkCubeMonitorEDIDLocked(hw)
+	}
+	// The LT6911D on PCIe is programmed only when the user applies a profile:
+	// its EDID write has not yet run on that board.
+	if receiverChip() == "d" {
+		return "", nil
 	}
 	if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
 		if !retiredMonitorProfiles[strings.TrimSpace(string(recorded))] {

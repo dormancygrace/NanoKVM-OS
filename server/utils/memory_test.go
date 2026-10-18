@@ -78,6 +78,16 @@ func TestGoMemoryLimitDefaultsToQuarterOfMemTotal(t *testing.T) {
 	}
 }
 
+func TestGoMemoryLimitMiB(t *testing.T) {
+	for _, tc := range []struct{ bytes, mib int64 }{
+		{0, 0}, {-1, 0}, {math.MaxInt64, 0}, {1, 0}, {26 * 1024 * 1024, 26}, {27*1024*1024 - 1, 26},
+	} {
+		if got := toMiB(tc.bytes); got != tc.mib {
+			t.Errorf("toMiB(%d) = %d, want %d", tc.bytes, got, tc.mib)
+		}
+	}
+}
+
 func TestGoMemoryLimitSavedSettingWinsAtStart(t *testing.T) {
 	store, runtime := newDefaultStore(t, deviceMemInfo)
 	if err := os.WriteFile(store.path, []byte("75\n"), 0o644); err != nil {

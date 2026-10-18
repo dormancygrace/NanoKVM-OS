@@ -853,7 +853,14 @@
       "priorityNote": "ZRAM se usa antes que el swap en SD. Los cambios se aplican de inmediato y se conservan tras reiniciar.",
       "unavailable": "Requiere una compilación de NanoKVM OS con esta función.",
       "loadError": "No se pudo leer el estado de la memoria",
-      "changeError": "No se pudo cambiar la configuración de swap"
+      "changeError": "No se pudo cambiar la configuración de swap",
+      "limitTitle": "Límite de memoria del servidor",
+      "limitDescription": "Cerca de este límite, el servidor NanoKVM libera memoria con más empeño en lugar de quitársela a apk y al resto del sistema. Desactivado: una cuarta parte de la RAM ({{default}} MiB). Un límite propio es de al menos {{minimum}} MiB, aunque el predeterminado sea menor, y se aplica al instante sin reiniciar.",
+      "limitValue": "Límite",
+      "limitApply": "Aplicar",
+      "limitCurrent": "En vigor: {{current}} MiB.",
+      "limitNone": "En vigor: sin límite.",
+      "limitError": "No se pudo cambiar el límite de memoria"
     },
     "system": {
       "title": "Sistema",

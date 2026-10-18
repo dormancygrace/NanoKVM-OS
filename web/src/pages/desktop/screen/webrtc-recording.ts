@@ -3,8 +3,12 @@ import { RtpClock, type RecordingEnd, type RecordingSource } from '@/lib/recordi
 import type { ReceivedFrame } from './webrtc-record.worker.ts';
 import RecordWorker from './webrtc-record.worker.ts?worker';
 
+// A transform worker that fails (its chunk gone after an update) holds every
+// frame; the player then reconnects, and this page stays without transforms.
+let transformFailed = false;
+
 export function canRecordReceiver(): boolean {
-  return typeof RTCRtpScriptTransform !== 'undefined';
+  return !transformFailed && typeof RTCRtpScriptTransform !== 'undefined';
 }
 
 /*
@@ -18,7 +22,8 @@ export function canRecordReceiver(): boolean {
 export function receiverRecording(
   receiver: RTCRtpReceiver,
   codec: 'h264' | 'h265',
-  pictureSize: () => { width: number; height: number }
+  pictureSize: () => { width: number; height: number },
+  onFailure: () => void
 ): { source: RecordingSource; close: () => void } {
   const worker = new RecordWorker();
   receiver.transform = new RTCRtpScriptTransform(worker);
@@ -59,6 +64,12 @@ export function receiverRecording(
     if (!current) return;
     worker.postMessage({ recording: 0 });
     current.onEnd(reason);
+  };
+
+  worker.onerror = () => {
+    transformFailed = true;
+    end('stream-error');
+    onFailure();
   };
 
   const source: RecordingSource = {

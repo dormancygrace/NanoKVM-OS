@@ -216,10 +216,21 @@ export const H264Webrtc = ({
 
       const videoTransceiver = peer.addTransceiver('video', { direction: 'recvonly' });
       if (canRecordReceiver()) {
-        recording = receiverRecording(videoTransceiver.receiver, codec, () => ({
-          width: videoElement?.videoWidth ?? 0,
-          height: videoElement?.videoHeight ?? 0
-        }));
+        recording = receiverRecording(
+          videoTransceiver.receiver,
+          codec,
+          () => ({
+            width: videoElement?.videoWidth ?? 0,
+            height: videoElement?.videoHeight ?? 0
+          }),
+          () => {
+            // At once: the connection may still turn connected, which cancels
+            // a scheduled reconnect, while the picture stays frozen.
+            if (disposed) return;
+            console.error('WebRTC recording transform failed; reconnecting without it');
+            setConnectionAttempt((attempt) => attempt + 1);
+          }
+        );
         publishRecordingSource(recording.source);
       }
       // Always offered, so USB audio enabled later needs no renegotiation;

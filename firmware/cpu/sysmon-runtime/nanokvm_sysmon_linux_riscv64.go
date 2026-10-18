@@ -16,6 +16,7 @@ var nanokvmSysmonMinDelay uint32
 func nanokvmSysmonInit() {
 	nanokvmSysmonSlackInit()
 	nanokvmSysmonMinDelayInit()
+	nanokvmSysmonParkGraceInit()
 }
 
 func nanokvmSysmonSlackInit() {
@@ -64,10 +65,79 @@ func nanokvmSysmonMinDelayInit() {
 //
 //go:nosplit
 func nanokvmSysmonDelay(delay uint32) uint32 {
+	if nanokvmSysmonQuiet && gomaxprocs == 1 {
+		return 10 * 1000 // sysmon's own maximum
+	}
 	if floor := nanokvmSysmonMinDelay; floor > delay && gomaxprocs == 1 {
 		return floor
 	}
 	return delay
+}
+
+// Deep-sleep grace in nanoseconds while GOMAXPROCS is 1; 0 keeps the original
+// policy. Only the sysmon thread writes (once, at startup) and reads it, and
+// the state below.
+var nanokvmSysmonParkGrace int64
+
+var (
+	nanokvmSysmonQuiet      bool   // the last check found the P idle: sleep 10 ms
+	nanokvmSysmonTick       uint32 // P activity seen at the last check
+	nanokvmSysmonQuietSince int64
+)
+
+func nanokvmSysmonParkGraceInit() {
+	switch gogetenv("NANOKVM_SYSMON_PARK_GRACE_MS") {
+	case "", "0":
+	case "50":
+		nanokvmSysmonParkGrace = 50 * 1000 * 1000
+	case "100":
+		nanokvmSysmonParkGrace = 100 * 1000 * 1000
+	case "200":
+		nanokvmSysmonParkGrace = 200 * 1000 * 1000
+	default:
+		print("runtime: ignored invalid NanoKVM sysmon park grace\n")
+	}
+}
+
+// nanokvmSysmonMayPark reports whether sysmon may enter its deep sleep; idle
+// says that every P is idle. A GC stop bypasses the grace and clears the
+// quiet delay. With a grace and one P, the P must also have
+// had no scheduling or syscall activity since a check at least the grace ago.
+// Until then sysmon sleeps 10 ms per iteration instead, so the short idle gaps
+// of a stream neither park sysmon nor make the next syscall wake it. Runs on
+// sysmon without a P: no allocation, no write barriers.
+//
+//go:nowritebarrierrec
+func nanokvmSysmonMayPark(now int64, gcwaiting, idle bool) bool {
+	if gcwaiting {
+		// GC bypasses the grace, but must not carry its quiet delay across
+		// a park and subsequent syscall wake.
+		nanokvmSysmonQuiet = false
+		return true
+	}
+	if nanokvmSysmonParkGrace == 0 || gomaxprocs != 1 {
+		nanokvmSysmonQuiet = false
+		return idle
+	}
+	lock(&allpLock)
+	var tick uint32
+	if len(allp) > 0 && allp[0] != nil {
+		tick = allp[0].schedtick + allp[0].syscalltick
+	}
+	unlock(&allpLock)
+	if !idle || tick != nanokvmSysmonTick {
+		nanokvmSysmonTick = tick
+		nanokvmSysmonQuietSince = now
+		nanokvmSysmonQuiet = idle
+		return false
+	}
+	if now-nanokvmSysmonQuietSince < nanokvmSysmonParkGrace {
+		nanokvmSysmonQuiet = true
+		return false
+	}
+	// Deep sleep: after a wakeup, sysmon restarts with its own short delay.
+	nanokvmSysmonQuiet = false
+	return true
 }
 
 func nanokvmThreadInit() {

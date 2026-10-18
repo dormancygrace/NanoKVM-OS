@@ -1,14 +1,14 @@
 # Opt-in Go sysmon policies
 
 These are the selected opt-in Go runtime modifications for NanoKVM on
-Linux/riscv64: a sysmon timer slack and a sysmon sleep floor for GOMAXPROCS=1.
+Linux/riscv64: a sysmon timer slack, sleep floor and park grace for GOMAXPROCS=1.
 The source version and original proc.go checksum are pinned in
 go-source-pin.json. The shared Go installation is not modified. Runtime source
 is copied; other GOROOT components are symlinked and the base installation must
-remain available. prepare.py patches four sites in the pinned proc.go: a
+remain available. prepare.py patches five sites in the pinned proc.go: a
 startup hook at the start of sysmon, a thread hook after minit in mstart1,
-the argument of sysmon's per-iteration usleep, and the memmove flag in
-cpuinit (below). Other OS/architecture
+the argument of sysmon's per-iteration usleep, sysmon's deep-sleep condition
+and the memmove flag in cpuinit (below). Other OS/architecture
 combinations have no-op hooks.
 
 prepare.py also copies the std-vendored `golang.org/x/crypto/chacha20` and
@@ -92,6 +92,40 @@ environment of the server; kvmapp/system/init.d/S95nanokvm keeps an explicit
 value and otherwise defaults it to 1000. Alpine's OpenRC
 nanokvm-app service starts the server through the same script.
 
+## Park grace policy
+
+`NANOKVM_SYSMON_PARK_GRACE_MS=100` lets sysmon enter its deep sleep, while
+`gomaxprocs == 1`, only after the P has had no scheduling or syscall activity
+(its schedtick and syscalltick) for that long. Accepted values are `50`, `100`
+and `200`; unset, empty or `0` keeps the original policy, other values are
+ignored with the runtime message `ignored invalid NanoKVM sysmon park grace`.
+It is off by default. To enable it on the device, add
+`export NANOKVM_SYSMON_PARK_GRACE_MS=100` to /etc/conf.d/nanokvm-app; OpenRC
+sources that file and the exported value reaches the server through S95.
+
+Upstream sysmon deep-sleeps as soon as every P is idle, and the next
+goroutine to enter a syscall wakes it (entersyscallWakeSysmon). A video
+stream idles in the netpoller between frames, so with one P sysmon parks and
+is woken once per frame. On the device at 1080p75 that was about 216 sysmon
+sleeps per second and 1.6% of the core in the sysmon thread alone; the sleep
+floor and SCHED_BATCH for sysmon did not change it. With the grace, sysmon
+sleeps 10 ms per iteration while the P is idle and only parks after a quiet
+period, so nothing wakes it from the stream's syscalls. Measured on the device
+with the same server binary, three alternating pairs: sysmon 1.65% -> 0.68% of
+the core, sysmon sleeps 216 -> 105 per second, server process 17.0% -> 16.3%.
+With no stream, sysmon sleeps rose from 5 to about 22 per second (the
+server's own timers keep the P from staying quiet), about +0.1% of the core.
+
+Trade-off: a goroutine that enters a blocking syscall while sysmon sleeps
+10 ms keeps the only P until sysmon notices the syscall and retakes the P in
+its next iteration. In the smoke below, a 5 ms ticker that competes with a
+30 ms blocking syscall ran at most 3.6-3.9 ms late without the grace and
+10-12 ms late with it (p99 2 ms -> 6-7 ms). Upstream sysmon has the same
+worst case whenever it backs off to 10 ms in a busy program. A
+`gcwaiting` stop still parks sysmon at once and clears the quiet delay, so a
+syscall wake resumes with the ordinary backoff and configured sleep floor,
+and the policy is inactive whenever gomaxprocs is greater than 1.
+
 The policies may delay sysmon's scheduler duties. A CPU saving does not establish
 input latency, GC/preemption behavior, WebRTC pacing or endurance. Do not set
 the allowance globally or hardcode a discovered thread ID in a boot script.
@@ -102,9 +136,16 @@ Run from the repository root, replacing paths with explicit local locations:
 
 ```sh
 python3 firmware/cpu/sysmon-runtime/prepare.py --base /path/to/go1.27.2 --output /new/path/to/go-nanokvm
-for smoke in thread-policy-smoke sysmon-floor-smoke; do
+for smoke in thread-policy-smoke sysmon-floor-smoke sysmon-park-smoke; do
   GOROOT=/new/path/to/go-nanokvm GOTOOLCHAIN=local GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 /path/to/go1.27.2/bin/go build -trimpath -o /tmp/$smoke firmware/cpu/sysmon-runtime/$smoke.go
 done
+```
+
+The deterministic policy test uses the prepared hook and park condition with
+stub scheduler state (no device or timing assumptions):
+
+```sh
+python3 tests/test-sysmon-park.py --goroot /new/path/to/go-nanokvm --go /path/to/go1.27.2/bin/go
 ```
 
 The output directory must not exist. The builder verifies source/version and
@@ -129,5 +170,14 @@ at run time) and 2000, in three interleaved rounds compared by median, and
 checks that an invalid value is rejected. Other processes share the single
 core and the scheduler already stretches 20 us sleeps under load, so the
 thresholds are loose and the absolute rates vary with device load.
+
+The park grace smoke (`NANOKVM_SYSMON_TIMER_SLACK_NS=250000
+NANOKVM_SYSMON_MIN_DELAY_US=1000 /tmp/sysmon-park-smoke`) runs a 75 fps loop
+with about 1.5 ms of work per frame and counts the sysmon thread's voluntary
+context switches, then measures the lateness of a 5 ms ticker while another
+goroutine blocks the only P in a 30 ms syscall every 97 ms. It compares the
+grace unset and at 100 ms in three interleaved rounds by median: the grace
+must cut sysmon wakeups by at least a fifth and keep the worst lateness under
+25 ms. It also checks that an invalid value is rejected.
 
 These smoke tests do not measure browser latency.

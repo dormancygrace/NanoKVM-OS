@@ -194,46 +194,26 @@ static venc_tuning_t load_venc_tuning(void)
  * use is near 100 % in normal operation and says nothing about a fault. A
  * shortage shows as failed allocations instead: a VPSS pool that cannot be
  * created or an encoder without its buffers (CVI_ERR_VENC_NOBUF from
- * SendFrame, see platform/modules/osdrv/0004). The watchdog reboots only
- * after it has lasted (chack_ion); a gap of 2 s without failures, or one
- * encoded frame, ends it.
+ * SendFrame, see platform/modules/osdrv/0004). It is logged once; a gap of
+ * 2 s without failures, or one encoded frame, ends it. The capture owner
+ * serializes all callers.
  */
-static uint64_t video_memory_short_first_ms, video_memory_short_last_ms;
-static pthread_mutex_t video_memory_short_lock = PTHREAD_MUTEX_INITIALIZER;
-
-static uint64_t video_memory_now_ms(void)
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-}
+static uint64_t video_memory_short_last_ms; // 0: no shortage
 
 static void note_video_memory(bool short_now)
 {
-	const uint64_t now = video_memory_now_ms();
-	pthread_mutex_lock(&video_memory_short_lock);
 	if (!short_now) {
-		video_memory_short_first_ms = video_memory_short_last_ms = 0;
-	} else {
-		if (!video_memory_short_first_ms || now - video_memory_short_last_ms > 2000) {
-			video_memory_short_first_ms = now;
-			fprintf(stderr, "[kvm_mmf] video memory exhausted: a buffer of the video pipeline cannot be allocated\n");
-			fflush(stderr);
-		}
-		video_memory_short_last_ms = now;
+		video_memory_short_last_ms = 0;
+		return;
 	}
-	pthread_mutex_unlock(&video_memory_short_lock);
-}
-
-uint32_t mmf_video_memory_short_ms(void)
-{
-	const uint64_t now = video_memory_now_ms();
-	pthread_mutex_lock(&video_memory_short_lock);
-	uint64_t span = 0;
-	if (video_memory_short_first_ms && now - video_memory_short_last_ms <= 2000)
-		span = now - video_memory_short_first_ms;
-	pthread_mutex_unlock(&video_memory_short_lock);
-	return span > UINT32_MAX ? UINT32_MAX : (uint32_t)span;
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	const uint64_t now = (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+	if (!video_memory_short_last_ms || now - video_memory_short_last_ms > 2000) {
+		fprintf(stderr, "[kvm_mmf] video memory exhausted: a buffer of the video pipeline cannot be allocated\n");
+		fflush(stderr);
+	}
+	video_memory_short_last_ms = now;
 }
 
 // Per-second encoder statistics for measurements (venc_tuning.stats).

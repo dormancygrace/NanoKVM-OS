@@ -28,7 +28,6 @@
 #include "internal/vi_state_writer.hpp"
 #include "internal/small_file.hpp"
 #include "internal/file_stamp.hpp"
-#include "internal/ion_summary.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -64,14 +63,10 @@
 #define hdmi_mode_path          "/etc/kvm/hdmi_mode"
 #define hdmi_state_path         "/proc/lt_int"
 #define hdmi_signal_file_path   "/run/nanokvm/state"
-#define watchdog_mode_path      "/etc/kvm/watchdog"
-#define watchdog_temp_path      "/tmp/watchdog"
-#define watchdog_file           "/tmp/nanokvm_wd"
 #define vi_state_publish_interval_ms 10000U
 #define vi_detection_active_poll_ms 10U
 #define vi_detection_idle_poll_ms 100U
 #define hdmi_mode_max_age_ms 1000U
-#define ion_summary_path "/sys/kernel/debug/ion/cvi_carveout_heap_dump/summary"
 /* 3840x2160 H.265 holds 102.7 MiB of ION on a NanoKVM, H.264 no more, the
  * same after bitrate, fps and codec changes: the VI blocks, three NV21 VPSS
  * buffers, the reconstruction frames, an 8 MiB bitstream and codec tables.
@@ -87,9 +82,7 @@
 pthread_mutex_t vi_mutex;
 pthread_mutex_t hdmi_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t vi_detection_thread;
-static pthread_t watchdog_thread;
 static uint8_t vi_detection_thread_started = 0;
-static uint8_t watchdog_thread_started = 0;
 
 static nanokvm::I2c LT6911_i2c(4);
 
@@ -495,26 +488,6 @@ int get_hdmi_mode(void)
     return 0;
 }
 
-uint8_t watchdog_sf_is_open(void)
-{
-	if(access(watchdog_mode_path, F_OK) == 0) return 1;
-    else if(access(watchdog_temp_path, F_OK) == 0) return 1;
-	else return 0;
-}
-
-int vision_update_watchdog()
-{
-    FILE *file;
-
-    file = fopen(watchdog_file, "w");
-    if (file == NULL) {
-        debug("[kvmv] watchdog open error\n");
-        return -1;
-    }
-    fclose(file);
-    return 1;
-}
-
 int get_manual_resolution(void)
 {
     uint8_t RW_Data[35];
@@ -640,23 +613,6 @@ uint8_t auto_try_res()
     err_code = refresh_vi_state();
     if (err_code == 1 || err_code == 2) return err_code;
     return 0;
-}
-
-/* return :
- * 0 : error
- * 1 : out of mem
- * 2 : normal
-*/
-uint8_t chack_ion()
-{
-    const int rate = nanokvm::ion_usage_rate_from_file(ion_summary_path);
-    // Unavailable, malformed or failed reads retain the watchdog's error
-    // result. A valid reading is not judged by its percentage: the video
-    // pools are sized to the measured peak and run near 100 % (53.9 of
-    // 54 MiB at 1440p60 with MJPEG). Out of memory is a pipeline that has
-    // not been able to get its buffers for 30 s (mmf_video_memory_short_ms).
-    if (rate < 0) return 0;
-    return mmf_video_memory_short_ms() >= 30000U ? 1 : 2;
 }
 
 void lt6911_enable()
@@ -957,24 +913,6 @@ static uint8_t detect_csi_res()
 }
 
 // ==============================================================
-
-void* watchdog_sf_feed(void *)
-{
-    while(true)
-    {
-        if(__atomic_load_n(&kvmv_cfg.try_exit_thread, __ATOMIC_ACQUIRE) == 1)
-            break;
-        nanokvm::sleep_ms(500);
-        if (watchdog_sf_is_open()){
-            if (chack_ion() == 1){
-                debug("[kvmv] Ion memory is full reboot now!\n");
-                system("reboot");
-            }
-            vision_update_watchdog();
-        }
-    }
-    return NULL;
-}
 
 void get_hdmi_version()
 {
@@ -1736,14 +1674,6 @@ void kvmv_init(uint8_t _debug_info_en)
             vi_detection_thread_started = 1;
         }
     }
-
-    if (watchdog_thread_started == 0) {
-        if (0 != pthread_create(&watchdog_thread, NULL, watchdog_sf_feed, NULL)) {
-            debug("[kvmv]create watchdog_sf_feed thread failed!\r\n");
-        } else {
-            watchdog_thread_started = 1;
-        }
-    }
 }
 
 uint8_t check_kvmv(uint8_t _try_num)
@@ -2174,10 +2104,6 @@ void kvmv_deinit()
     if (vi_detection_thread_started == 1) {
         pthread_join(vi_detection_thread, NULL);
         vi_detection_thread_started = 0;
-    }
-    if (watchdog_thread_started == 1) {
-        pthread_join(watchdog_thread, NULL);
-        watchdog_thread_started = 0;
     }
 
     set_hdmi_capture_enabled(0);

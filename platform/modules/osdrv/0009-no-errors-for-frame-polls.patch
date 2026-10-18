@@ -1,0 +1,67 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vpss, venc: no errors for polls that find no frame
+
+libkvm polls for frames with short timeouts. At high pixel rates it
+pre-submits the next frame with a 5 ms wait, and VENC is polled
+non-blocking. A poll that finds no frame yet is normal.
+
+Each such poll was still logged as an error, three ways:
+- vpss "get chn frame fail, s32MilliSec=5";
+- base "jobs wait(0) work(1) done(0)";
+- the encoder's "encoder timeout happened in non_block mode".
+
+The stand logged 119 encoder timeouts and 33 VPSS failures since boot.
+Its kernel log, archived to the SD card, was mostly these lines.
+
+Only a wait of 100 ms or more that ends without a frame is now an error.
+The encoder poll message is a trace. The "Grp invalid," warning for a job
+of a group that was just stopped is now debug.
+---
+--- a/interdrv/base/base_context.c
++++ b/interdrv/base/base_context.c
+@@ -264,6 +264,8 @@
+ 			vb_release_block(s->blk);
+ 		TAILQ_REMOVE(&jobs->snap_jobs, s, tailq);
+ 		mutex_unlock(&jobs->dlock);
++		/* A short poll that finds no frame is not an error. */
++		if (timeout_ms < 0 || timeout_ms >= 100)
+ 		CVI_TRACE_BASE_RATELIMITED(CVI_BASE_DBG_ERR, "Mod(%s) Grp(%d) Chn(%d), jobs wait(%d) work(%d) done(%d)\n"
+ 			, sys_get_modname(chn.enModId), chn.s32DevId, chn.s32ChnId
+ 			, FIFO_SIZE(&jobs->waitq), FIFO_SIZE(&jobs->workq), FIFO_SIZE(&jobs->doneq));
+--- a/interdrv/vpss/common/vpss.c
++++ b/interdrv/vpss/common/vpss.c
+@@ -3056,7 +3056,8 @@
+ 		return;
+ 	}
+ 	if (!vpssCtx[workingGrp] || !vpssCtx[workingGrp]->isStarted) {
+-		CVI_TRACE_VPSS(CVI_DBG_WARN, "Grp(%d) invalid,\n", workingGrp);
++		/* A job of a group that was just stopped; nothing to do. */
++		CVI_TRACE_VPSS(CVI_DBG_DEBUG, "Grp(%d) invalid,\n", workingGrp);
+ 		ctx->workingGrp = VPSS_MAX_GRP_NUM;
+ 		ctx->workingMask = 0;
+ 		atomic_set(&ctx->events, 0);
+@@ -4590,7 +4591,9 @@
+ 	memset(pstFrameInfo, 0, sizeof(*pstFrameInfo));
+ 	ret = base_get_chn_buffer(chn, &blk, s32MilliSec);
+ 	if (ret != 0 || blk == VB_INVALID_HANDLE) {
+-		if (s32MilliSec != 0)
++		/* Only a wait of 100 ms or more that ends without a frame is an
++		 * error; shorter waits poll for a frame that may not be due. */
++		if (s32MilliSec < 0 || s32MilliSec >= 100)
+ 			CVI_TRACE_VPSS(CVI_DBG_ERR, "Grp(%d) Chn(%d) get chn frame fail, s32MilliSec=%d, ret=%d\n",
+ 					VpssGrp, VpssChn, s32MilliSec, ret);
+ 		return CVI_ERR_VPSS_BUF_EMPTY;
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -2500,8 +2500,9 @@
+ 
+ 		if (int_reason == -1) {
+ 			if (s32MilliSec >= 0) {
+-				CVI_VC_ERR(
+-					"Error : encoder timeout happened in non_block mode\n");
++				/* A poll: the caller retries. */
++				CVI_VC_TRACE(
++					"encoder timeout happened in non_block mode\n");
+ 				return TE_STA_ENC_TIMEOUT;
+ 			}
+ 

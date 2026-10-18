@@ -1,0 +1,55 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] lt6911: no I2C trace, chip identity in the system log
+
+Every receiver register access was written to the system log at debug
+level: twelve lines per capture start and more on each HDMI event. They
+are written to the SD card with the rest of /var/log/messages.
+
+The chip identity is now written once instead, as an info line. It went to
+stdout before, which the server does not keep. That line names the
+receiver in a user's log (LT6911C reads 1605, LT6911UXC 1704), which is
+what the traces were useful for.
+---
+--- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
++++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
+@@ -102,7 +102,6 @@
+ 		data = buf[0];
+ 	}
+ 
+-	syslog(LOG_DEBUG, "vipipe:%d i2c r 0x%x = 0x%x\n", ViPipe, addr, data);
+ 	return data;
+ }
+ 
+@@ -136,7 +135,6 @@
+ 		return CVI_FAILURE;
+ 	}
+ 	// ret = read(g_fd[ViPipe], buf, lt6911_addr_byte + lt6911_data_byte);
+-	syslog(LOG_DEBUG, "ViPipe:%d i2c w 0x%x 0x%x\n", ViPipe, addr, data);
+ 	return CVI_SUCCESS;
+ }
+ 
+@@ -231,7 +229,7 @@
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911D bank E0 probe failed.\n");
+ 		return CVI_FAILURE;
+ 	}
+-	printf("LT6911D bank E0 active: %02x%02x %02x%02x\n",
++	syslog(LOG_INFO, "LT6911D bank E0 active: %02x%02x %02x%02x",
+ 	       horizontal[0], horizontal[1], vertical[0], vertical[1]);
+ 	return CVI_SUCCESS;
+ }
+@@ -254,13 +252,13 @@
+ 	/* The legacy LT6911 and the NanoKVM UXC use different ID banks. */
+ 	int legacy_id = lt6911_read_id(ViPipe, 0xa000);
+ 	if (legacy_id == 0x1605) {
+-		printf("LT6911 ID: %04x\n", legacy_id);
++		syslog(LOG_INFO, "LT6911 ID: %04x", legacy_id);
+ 		return CVI_SUCCESS;
+ 	}
+ #ifdef NANOKVM_OS
+ 	int uxc_id = legacy_id < 0 ? CVI_FAILURE : lt6911_read_id(ViPipe, 0x8100);
+ 	if (uxc_id == 0x1704) {
+-		printf("LT6911UXC ID: %04x\n", uxc_id);
++		syslog(LOG_INFO, "LT6911UXC ID: %04x", uxc_id);
+ 		return CVI_SUCCESS;
+ 	}
+ #endif

@@ -519,12 +519,11 @@ static int _try_release_sys(void)
 		return s32Ret;
 	}
 
-	s32Ret = SAMPLE_COMM_VI_DestroyVi(&stViConfig);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("SAMPLE_COMM_VI_DestroyVi failed with %#x\n", s32Ret);
-		return s32Ret;
-	}
-
+	// No SAMPLE_COMM_VI_DestroyVi: its channel, pipe and device stops need
+	// the VI context that CVI_VI_SetDevAttr maps, which a new process does not
+	// have yet. They did nothing and logged seven errors per start ("Call
+	// SetDevAttr first"). SAMPLE_COMM_SYS_Exit releases what a previous
+	// process left.
 	SAMPLE_COMM_SYS_Exit();
 	return s32Ret;
 }

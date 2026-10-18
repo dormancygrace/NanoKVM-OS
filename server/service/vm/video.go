@@ -1,12 +1,19 @@
 package vm
 
 import (
+	"context"
 	"encoding/binary"
+	"errors"
 	"net/http"
 	"os"
+	"os/exec"
+	"slices"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/common"
@@ -113,7 +120,13 @@ func videoCapabilities() gin.H {
 			Rates: common.PortraitRates(resolution), Codecs: codecs, Transports: transports, Available: ok}
 		if !ok {
 			p.Reason = reasonReceiver
-			if live && programmable {
+			// Only when the largest video memory mode would capture it.
+			largest := common.VideoPool{MiB: videoMemoryModes[len(videoMemoryModes)-1].mib}
+			supported := common.PortraitSupportedFor(largest)
+			if resolution == 2560 {
+				supported = common.PortraitMaxSupportedFor(largest)
+			}
+			if live && programmable && supported {
 				p.Reason = reasonVideoMemory
 			}
 		}
@@ -175,7 +188,25 @@ func videoCapabilities() gin.H {
 			"mjpeg":  []string{"mjpeg"},
 		},
 		"videoMemoryMiB": videoMemoryMiB(),
+		"videoMemory":    videoMemoryCapabilities(readVideoMemoryStatus(videoMemoryFiles)),
 	}
+}
+
+type videoMemoryModeCapability struct {
+	Mode      string `json:"mode"`
+	MiB       int    `json:"mib"`
+	Installed bool   `json:"installed"`
+}
+
+// videoMemoryCapabilities tells clients which mode applying a resolution
+// switches to: a resolution that needs another installed mode is applied with
+// fitVideoMemory and restarts the device.
+func videoMemoryCapabilities(status videoMemoryStatus) gin.H {
+	modes := make([]videoMemoryModeCapability, 0, len(videoMemoryModes))
+	for _, m := range videoMemoryModes {
+		modes = append(modes, videoMemoryModeCapability{m.name, m.mib, slices.Contains(status.Modes, m.name)})
+	}
+	return gin.H{"active": status.Active, "selected": status.Selected, "modes": modes}
 }
 
 func videoMemoryMiB() int {
@@ -189,7 +220,11 @@ func videoMemoryMiB() int {
 // VideoSettingsReq is a set of screen settings applied together; absent
 // fields stay unchanged.
 type VideoSettingsReq struct {
-	ConfirmPowerCycle  bool  `json:"confirmPowerCycle"`
+	ConfirmPowerCycle bool `json:"confirmPowerCycle"`
+	// FitVideoMemory lets a monitor change switch the video memory mode: to
+	// the smallest installed mode that captures the new monitor, larger or
+	// smaller, which restarts the device.
+	FitVideoMemory     bool  `json:"fitVideoMemory"`
 	Type               *int  `json:"type"`
 	Quality            *int  `json:"quality"`
 	BitRate            *int  `json:"bitRate"`
@@ -228,8 +263,86 @@ func (r VideoSettingsReq) settings() []proto.SetScreenReq {
 	return list
 }
 
+// monitor is the final HDMI state of the request.
+func (r VideoSettingsReq) monitor() common.MonitorSettings {
+	monitor := common.MonitorSettings{Portrait: r.Portrait, SyncRefresh: r.FPS != nil}
+	if r.Monitor != nil {
+		value := uint16(*r.Monitor)
+		monitor.Resolution = &value
+	}
+	if r.PortraitResolution != nil {
+		value := uint16(*r.PortraitResolution)
+		monitor.PortraitResolution = &value
+	}
+	return monitor
+}
+
+func (r VideoSettingsReq) changesMonitor() bool {
+	return r.Monitor != nil || r.Portrait != nil || r.PortraitResolution != nil
+}
+
 var videoSettingsMutex sync.Mutex
-var applyVideoMonitorSettings = common.ApplyMonitorSettings
+
+// Seams for tests.
+var (
+	applyVideoMonitorSettings = common.ApplyMonitorSettings
+	saveMonitorForRestart     = common.SaveMonitorSettingsForRestart
+	holdMonitorForRestart     = common.HoldMonitorProfileForRestart
+	monitorStateAfter         = common.MonitorStateAfter
+	bootedVideoPool           = common.BootedVideoPool
+	restartDevice             = func(c *gin.Context) {
+		// Deliver the response first, as for a TLS change; the caller keeps
+		// its locks until the restart is under way.
+		c.Writer.Flush()
+		time.Sleep(time.Second)
+		log.Println("reboot system: video memory mode switch")
+		if err := exec.Command("reboot").Run(); err != nil {
+			log.Errorf("failed to reboot: %s", err)
+		}
+	}
+)
+
+// Set once a video memory switch has been activated: the device is about to
+// restart and accepts no further video or memory changes.
+var videoMemoryRestartPending atomic.Bool
+
+// videoMemorySwitch is a change of the video memory mode that a request needs.
+type videoMemorySwitch struct {
+	previous string // the mode selected before, to undo the activation
+	target   string
+	pool     common.VideoPool
+}
+
+// targetVideoMemoryMode is the smallest installed mode that captures a monitor.
+func targetVideoMemoryMode(installed []string, state common.MonitorState) (string, bool) {
+	for _, mode := range videoMemoryModes {
+		pool, _ := videoMemoryPool(mode.name)
+		if slices.Contains(installed, mode.name) && state.FitsVideoPool(pool) == nil {
+			return mode.name, true
+		}
+	}
+	return "", false
+}
+
+// planVideoMemorySwitch tells whether a request switches the video memory
+// mode: only with fitVideoMemory, only when it changes the monitor, and only
+// when the smallest installed mode that captures the new monitor is not the
+// booted one. Otherwise the request is applied as it always was.
+func planVideoMemorySwitch(req *VideoSettingsReq) (videoMemorySwitch, bool) {
+	if !req.FitVideoMemory || !req.changesMonitor() {
+		return videoMemorySwitch{}, false
+	}
+	status := readVideoMemoryStatus(videoMemoryFiles)
+	if status.Active == "unknown" {
+		return videoMemorySwitch{}, false
+	}
+	target, ok := targetVideoMemoryMode(status.Modes, monitorStateAfter(req.monitor()))
+	if !ok || target == status.Active {
+		return videoMemorySwitch{}, false
+	}
+	pool, _ := videoMemoryPool(target)
+	return videoMemorySwitch{previous: status.Selected, target: target, pool: pool}, true
+}
 
 // SetVideoSettings validates every setting before it changes any, applies
 // them in order and, when the stream rate changed but the monitor did not,
@@ -255,37 +368,118 @@ func (s *Service) SetVideoSettings(c *gin.Context) {
 	}
 	videoSettingsMutex.Lock()
 	defer videoSettingsMutex.Unlock()
+	if videoMemoryRestartPending.Load() {
+		rsp.ErrRsp(c, -6, common.ErrMonitorRestartPending.Error())
+		return
+	}
 
+	booted := bootedVideoPool()
+	change, switching := planVideoMemorySwitch(&req)
+	pool := booted
+	if switching {
+		pool = change.pool
+	}
 	settings := req.settings()
 	for _, setting := range settings {
-		if failure := validateScreenSettingIn(setting, &req); failure != nil {
+		failure := validateScreenSettingFor(setting, &req, pool)
+		// A stream limit applies at once and after the restart.
+		if failure == nil && switching && setting.Type == "resolution" {
+			failure = validateScreenSettingFor(setting, &req, booted)
+		}
+		if failure != nil {
 			rsp.ErrRsp(c, failure.code, failure.msg)
 			return
 		}
 	}
-	for _, setting := range settings {
-		switch setting.Type {
-		case "monitor", "portrait", "portrait_resolution":
-			continue // Apply the final HDMI state once after stream settings.
-		}
-		if _, failure := applyScreenSetting(setting); failure != nil {
-			rsp.ErrRsp(c, failure.code, failure.msg)
-			return
-		}
+	if switching {
+		s.switchVideoMemory(c, &req, settings, change, booted)
+		return
 	}
-	monitor := common.MonitorSettings{Portrait: req.Portrait, SyncRefresh: req.FPS != nil}
-	if req.Monitor != nil {
-		value := uint16(*req.Monitor)
-		monitor.Resolution = &value
+	if failure := applyStreamSettings(settings); failure != nil {
+		rsp.ErrRsp(c, failure.code, failure.msg)
+		return
 	}
-	if req.PortraitResolution != nil {
-		value := uint16(*req.PortraitResolution)
-		monitor.PortraitResolution = &value
-	}
-	if err := applyVideoMonitorSettings(monitor); err != nil {
+	if err := applyVideoMonitorSettings(req.monitor()); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
 	}
 
 	rsp.OkRspWithData(c, videoCapabilities())
+}
+
+// applyStreamSettings applies the validated settings except the monitor ones,
+// which make one final HDMI state after them.
+func applyStreamSettings(settings []proto.SetScreenReq) *settingError {
+	for _, setting := range settings {
+		switch setting.Type {
+		case "monitor", "portrait", "portrait_resolution":
+			continue
+		}
+		if _, failure := applyScreenSetting(setting); failure != nil {
+			return failure
+		}
+	}
+	return nil
+}
+
+// switchVideoMemory applies a validated request together with the video
+// memory mode it needs, then restarts the device. A monitor that the booted
+// pool cannot capture is only saved, and the first start after the restart
+// programs it; one that fits (a switch to a smaller mode) is programmed now,
+// as a Cube must be. The mode is activated before anything else changes, so a
+// failed activation leaves everything as it was; a later failure selects the
+// previous mode again.
+func (s *Service) switchVideoMemory(c *gin.Context, req *VideoSettingsReq, settings []proto.SetScreenReq,
+	change videoMemorySwitch, booted common.VideoPool) {
+	var rsp proto.Response
+	lock, err := lockVideoMemory()
+	if err != nil {
+		rsp.ErrRsp(c, -2, err.Error())
+		return
+	}
+	defer lock.Close()
+	memoryMutation.Lock()
+	defer memoryMutation.Unlock()
+
+	monitor := req.monitor()
+	var restore func() error
+	if monitorStateAfter(monitor).FitsVideoPool(booted) != nil {
+		if restore, err = saveMonitorForRestart(monitor, change.pool); err != nil {
+			rsp.ErrRsp(c, -4, err.Error())
+			return
+		}
+	}
+	if err = activateVideoMemoryMode(c.Request.Context(), change.target); err != nil {
+		if restore != nil {
+			err = errors.Join(err, restore())
+		}
+		rsp.ErrRsp(c, -2, err.Error())
+		return
+	}
+	undo := func(code int, cause error) {
+		errs := []error{cause}
+		if err := activateVideoMemoryMode(context.Background(), change.previous); err != nil {
+			errs = append(errs, err)
+		}
+		if restore != nil {
+			errs = append(errs, restore())
+		}
+		rsp.ErrRsp(c, code, errors.Join(errs...).Error())
+	}
+	if failure := applyStreamSettings(settings); failure != nil {
+		undo(failure.code, errors.New(failure.msg))
+		return
+	}
+	if restore == nil {
+		if err = applyVideoMonitorSettings(monitor); err != nil {
+			undo(-4, err)
+			return
+		}
+		holdMonitorForRestart()
+	}
+
+	videoMemoryRestartPending.Store(true)
+	log.Infof("video memory mode %s selected for the monitor; restarting", change.target)
+	rsp.OkRspWithData(c, gin.H{"restart": true, "videoMemoryMode": change.target})
+	restartDevice(c)
 }

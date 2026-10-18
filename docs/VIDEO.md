@@ -8,7 +8,7 @@ The quick video menu shows the measured stream size, frame rate and bitrate. Its
 
 ## Video modes and bitrate
 
-Video modes combine the monitor resolution and stream frame rate. The page separates shared picture settings from this browser's transport and playback settings. Unavailable choices explain the hardware, memory, permission or browser limitation. A UHD selection can offer the required memory-mode change and reboot.
+Video modes combine the monitor resolution and stream frame rate. The page separates shared picture settings from this browser's transport and playback settings. Unavailable choices explain the hardware, memory, permission or browser limitation. A resolution that needs another installed video memory mode stays selectable: applying it switches the mode and restarts the device, after a confirmation (see Video memory modes).
 
 **Auto bitrate** selects a ceiling for motion from the prospective stream dimensions, frame rate and codec: about 0.09 bit per pixel for H.265 and 1.3 times that for H.264, rounded up to an offered value, capped at 20 Mbit/s. H.265 examples: 1280×720@120 selects 10 Mbit/s, 1920×1080@60 selects 12 Mbit/s, and QHD@60 or UHD@30 selects 20 Mbit/s. **Economy** selects 3 Mbit/s. Manual bitrate remains available. A still desktop normally sends much less than the ceiling.
 
@@ -47,7 +47,7 @@ Capture follows the actual HDMI dimensions when the BIOS, bootloader or operatin
 
 ## Video memory modes
 
-**Settings → Memory → Video memory allocation** selects the boot image; a change applies after a restart.
+The video settings choose the mode with the resolution: applying a monitor resolution or portrait profile switches to the smallest installed mode that captures it, larger or smaller (a smaller mode leaves Linux more memory), and restarts the device; video stops for about a minute. **Settings → Memory → Video memory allocation** also selects the boot image; that change applies at the next restart.
 
 | Mode | Video memory | Largest size | Linux memory |
 |---|---|---|---|
@@ -63,7 +63,7 @@ The pools run near 100 % in use, so a fault does not show as use but as an alloc
 
 The 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the UHD mode; elsewhere they are shown as unavailable with the reason. Portrait monitors and the 1440p monitor profile and stream limit need QHD or UHD. In the UHD mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
 
-The device never advertises a monitor profile that its video memory cannot capture. A mode is refused while the saved monitor resolution or an enabled portrait monitor needs more memory (lower it in the video settings first), and a profile saved under a larger mode is lowered when the server starts.
+The device never advertises a monitor profile that its video memory cannot capture. A mode is refused while the saved monitor resolution or an enabled portrait monitor needs more memory (lower it in the video settings first), and a profile saved under a larger mode is lowered when the server starts. When a resolution switches to a larger mode, its profile is only saved: the receiver keeps the current one until the restart, and the first start in the new mode programs the saved profile. When it switches to a smaller mode, the profile fits the booted mode and is programmed at once. If selecting the new boot image fails, nothing is changed.
 
 Devices upgraded from earlier releases keep the resolution they had: the CMA (128 MiB), Fixed and QHD Fixed modes become QHD, FHD Fixed becomes FHD, and UHD stays UHD.
 
@@ -87,8 +87,8 @@ MJPEG is unavailable while the HDMI input is 3840×2160, whatever the stream lim
 
 ## API
 
-- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory. Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the UHD video memory mode, or 1440p and portrait with too little video memory) or `receiver`.
-- `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities.
+- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory (`videoMemoryMiB`, and `videoMemory`: the `active` and `selected` modes and every mode with its size and whether it is `installed`). Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the UHD video memory mode, or 1440p and portrait with too little video memory) or `receiver`.
+- `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`, `fitVideoMemory`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities. With `fitVideoMemory` a request that changes the monitor and needs another installed video memory mode is validated for that mode, selects it and returns `{"restart": true, "videoMemoryMode": "qhd"}`; the server then restarts the device and refuses further video changes until it does.
 - `GET/POST /api/vm/screen` remain for single settings.
 
 ## Advanced settings

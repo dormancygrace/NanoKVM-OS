@@ -5,6 +5,7 @@ import (
 	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/proto"
 	"context"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"os"
 	"os/exec"
@@ -152,6 +153,39 @@ func ionSizeMiB(root string) int {
 	}
 	return int(uint32(data[0])<<24|uint32(data[1])<<16|uint32(data[2])<<8|uint32(data[3])) >> 20
 }
+
+// Seams for tests: the root of the device files, the update lock and the
+// activation helper of the kernel package.
+var (
+	videoMemoryFiles  = "/"
+	lockVideoMemory   = osupdate.Lock
+	runActivateKernel = func(ctx context.Context, board, mode string) ([]byte, error) {
+		return exec.CommandContext(ctx, "/usr/libexec/nanokvm/activate-kernel", board, mode).CombinedOutput()
+	}
+)
+
+// activateVideoMemoryMode selects the boot image of an installed video memory
+// mode for the next boot. The caller holds osupdate.Lock and memoryMutation.
+func activateVideoMemoryMode(ctx context.Context, mode string) error {
+	if !slices.Contains(readVideoMemoryStatus(videoMemoryFiles).Modes, mode) {
+		return errors.New("Install the kernel package with this video memory mode first")
+	}
+	board, err := os.ReadFile(filepath.Join(videoMemoryFiles, "sys/firmware/devicetree/base/sipeed,board-revision"))
+	if err != nil {
+		return errors.New("Board profile unavailable")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	output, err := runActivateKernel(ctx, strings.Trim(string(board), "\x00 \r\n"), mode)
+	if err != nil {
+		if len(output) > 800 {
+			output = output[len(output)-800:]
+		}
+		return errors.New("Failed to select video memory mode: " + strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
 func (s *Service) SetVideoMemory(c *gin.Context) {
 	var rsp proto.Response
 	var req struct {
@@ -166,7 +200,7 @@ func (s *Service) SetVideoMemory(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "Invalid video memory mode")
 		return
 	}
-	lock, err := osupdate.Lock()
+	lock, err := lockVideoMemory()
 	if err != nil {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
@@ -174,31 +208,21 @@ func (s *Service) SetVideoMemory(c *gin.Context) {
 	defer lock.Close()
 	memoryMutation.Lock()
 	defer memoryMutation.Unlock()
-	if !slices.Contains(readVideoMemoryStatus("/").Modes, mode) {
-		rsp.ErrRsp(c, -2, "Install the kernel package with this video memory mode first")
+	if videoMemoryRestartPending.Load() {
+		rsp.ErrRsp(c, -2, common.ErrMonitorRestartPending.Error())
 		return
 	}
 	// The monitor profile is programmed into the HDMI receiver and survives
 	// the restart: refuse a mode that cannot capture it rather than boot into
 	// "Current resolution is not supported".
-	pool, _ := videoMemoryPool(mode)
-	if err = common.MonitorFitsVideoPool(pool); err != nil {
-		rsp.ErrRsp(c, -3, "Cannot select "+mode+": "+err.Error()+". Lower the monitor setting in the video settings first.")
-		return
-	}
-	board, err := os.ReadFile("/sys/firmware/devicetree/base/sipeed,board-revision")
-	if err != nil {
-		rsp.ErrRsp(c, -2, "Board profile unavailable")
-		return
-	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 90*time.Second)
-	defer cancel()
-	output, err := exec.CommandContext(ctx, "/usr/libexec/nanokvm/activate-kernel", strings.Trim(string(board), "\x00 \r\n"), mode).CombinedOutput()
-	if err != nil {
-		if len(output) > 800 {
-			output = output[len(output)-800:]
+	if pool, ok := videoMemoryPool(mode); ok {
+		if err = common.MonitorFitsVideoPool(pool); err != nil {
+			rsp.ErrRsp(c, -3, "Cannot select "+mode+": "+err.Error()+". Lower the monitor setting in the video settings first.")
+			return
 		}
-		rsp.ErrRsp(c, -2, "Failed to select video memory mode: "+strings.TrimSpace(string(output)))
+	}
+	if err = activateVideoMemoryMode(c.Request.Context(), mode); err != nil {
+		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
 	s.GetMemoryStatus(c)

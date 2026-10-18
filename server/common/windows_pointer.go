@@ -68,6 +68,10 @@ func parsePointerContainerID(text string) ([]byte, error) {
 }
 
 func applyMonitorPointerProfileLocked(path string, enabled bool) error {
+	// Every EDID write passes here.
+	if monitorRestartPending {
+		return ErrMonitorRestartPending
+	}
 	if !enabled {
 		return GetKvmVision().ApplyMonitorProfile(path)
 	}

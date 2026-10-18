@@ -135,6 +135,8 @@ test('administrator transport changes select the shared encoder', async () => {
   const { apply, deps, calls } = applier();
   await apply(saved, { ...saved, transport: 'webrtc' }, caps, { admin: true, confirmPowerCycle: false }, deps);
   assert.deepEqual(calls.encoder, ['h264']);
+  // An administrator's transport is the device transport too.
+  assert.deepEqual(calls.shared, [[{ transport: 'webrtc' }, false]]);
   assert.equal(calls.reloads, 1);
 });
 
@@ -174,7 +176,7 @@ test('a video memory switch saves the other device settings first and does not r
   );
   assert.deepEqual(calls.shared, [
     ['frameDetect', true],
-    [{ type: 2, monitor: 1440 }, false, true]
+    [{ transport: 'webrtc', type: 2, monitor: 1440 }, false, true]
   ]);
   assert.deepEqual(calls.encoder, ['h265']);
   assert.equal(result.restart, 'qhd');
@@ -183,7 +185,7 @@ test('a video memory switch saves the other device settings first and does not r
   assert.equal(result.reloading, false);
 });
 
-function renderForm(role) {
+function renderForm(role, deviceTransport) {
   let stateIndex = 0;
   const element = (type, props) => ({ type, props: props ?? {} });
   const components = Object.fromEntries(
@@ -210,7 +212,7 @@ function renderForm(role) {
   );
   void stateIndex;
   const tree = form.VideoForm({
-    caps,
+    caps: deviceTransport ? { ...caps, stream: { ...caps.stream, transport: deviceTransport } } : caps,
     browser,
     saved,
     admin: role === 'admin',
@@ -241,6 +243,13 @@ test('administrators edit the shared picture', () => {
   assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, false);
   assert.equal(control('Select', 'screen.codec').props.disabled, false);
   assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, false);
+});
+
+test('administrators see when the device transport is another one', () => {
+  const note = (nodes) => nodes.find((n) => n.type === 'Alert' && n.props.title === 'videoSettings.deviceTransport');
+  assert.ok(note(renderForm('admin', 'webrtc')));
+  assert.equal(note(renderForm('admin', 'direct')), undefined);
+  assert.equal(note(renderForm('user', 'webrtc')), undefined);
 });
 
 function renderQuickVideo(role, session) {

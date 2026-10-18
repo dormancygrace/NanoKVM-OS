@@ -1,6 +1,8 @@
 # Video and HDMI settings
 
-Fresh-browser default: **H.265 Direct** over HTTPS. Existing browser preferences are retained. Browsers without secure WebCodecs fall back to WebRTC, then MJPEG when WebRTC is unavailable; H.265 falls back to H.264 when the browser cannot decode it for the chosen transport.
+Fresh-browser default: the **device transport**, **H.265 Direct** over HTTPS until an administrator chooses another. Existing browser preferences are retained. Browsers without secure WebCodecs fall back to WebRTC, then MJPEG when WebRTC is unavailable; H.265 falls back to H.264 when the browser cannot decode it for the chosen transport.
+
+The device transport (`/kvmapp/kvm/transport`: `direct`, `webrtc` or `mjpeg`) is what an administrator last applied as the transport in **Settings → Video** or the quick video menu. A browser that has never chosen a transport of its own opens the video with it, and the RustDesk add-on follows it: it accepts WebRTC connections exactly when the device transport is WebRTC, and uses TCP and relay otherwise. When an administrator's browser plays another transport than the device's, the video settings offer to make it the device transport. A device upgraded with RustDesk WebRTC enabled starts with the WebRTC device transport.
 
 H.265 is available over WebRTC again. It was disabled in v2.1-b1 because the device could freeze while CryptoDMA encrypted SRTP; the AES driver now runs ciphers out of place, which removed the freeze.
 
@@ -77,7 +79,7 @@ Examples:
 | 1024×768 | 720p | 960×720 |
 | 800×600 | 720p | 800×600 |
 
-Scaling occurs in VPSS before encoding. Browser scale only changes local presentation. Stream resolution, FPS, bitrate and the active encoder codec are device-wide; transport and playback preferences belong to the viewing browser. A transport fallback that changes the shared codec requires administrator permission.
+Scaling occurs in VPSS before encoding. Browser scale only changes local presentation. Stream resolution, FPS, bitrate and the active encoder codec are device-wide; transport and playback preferences belong to the viewing browser, and an administrator's transport also sets the device transport. A transport fallback that changes the shared codec requires administrator permission.
 
 ## Frame rate limits
 
@@ -87,7 +89,7 @@ MJPEG is unavailable while the HDMI input is 3840×2160, whatever the stream lim
 
 ## API
 
-- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport and the video memory (`videoMemoryMiB`, and `videoMemory`: the `active` and `selected` modes and every mode with its size and whether it is `installed`). Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the UHD video memory mode, or 1440p and portrait with too little video memory) or `receiver`.
+- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport, the device transport (`stream.transport`) and the video memory (`videoMemoryMiB`, and `videoMemory`: the `active` and `selected` modes and every mode with its size and whether it is `installed`). Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the UHD video memory mode, or 1440p and portrait with too little video memory) or `receiver`.
 - `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`, `fitVideoMemory`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities. With `fitVideoMemory` a request that changes the monitor and needs another installed video memory mode is validated for that mode, selects it and returns `{"restart": true, "videoMemoryMode": "qhd"}`; the server then restarts the device and refuses further video changes until it does.
 - `GET/POST /api/vm/screen` remain for single settings.
 

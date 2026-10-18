@@ -14,6 +14,7 @@ func rustdeskRouter(r *gin.Engine) {
 	bridge := rustdesk.NewBridge()
 	go bridge.Monitor(context.Background())
 	service := rustdesk.NewService(bridge)
+	service.FollowVideoTransport()
 	api := r.Group("/api/addons/rustdesk").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	api.GET("/source", func(c *gin.Context) {
 		source := service.SourceURL()

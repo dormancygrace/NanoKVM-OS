@@ -106,7 +106,7 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 
 | Add-on | Installation and capabilities |
 | --- | --- |
-| **[RustDesk](https://github.com/rustdesk/rustdesk)** | Optional signed APK, managed from Software. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP and optional WebRTC. Based on the RustDesk 1.5 protocol. |
+| **[RustDesk](https://github.com/rustdesk/rustdesk)** | Optional signed APK, managed from Software. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP, and WebRTC when it is the video transport. Based on the RustDesk 1.5 protocol. |
 | **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install, update or remove the official latest RISC-V release from Software → Add-ons. Configure the model, API key and endpoint for remote-control or general-assistant use. Its navigation entry appears only while installed. |
 | **[acme.sh](https://github.com/acmesh-official/acme.sh)** | Install on demand from Software → Add-ons, then configure HTTPS certificates in Settings → Network. Issue and renew certificates through ACME using HTTP-01 or DNS-01 with supported DNS providers; renewed certificates take effect without restarting the service. |
 

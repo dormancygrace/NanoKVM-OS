@@ -20,7 +20,7 @@ func WindowsPointerEnabled() bool {
 
 func WindowsPointerSupported() bool {
 	_, err := os.Stat("/sys/kernel/config/usb_gadget/g0/os_desc/container_id")
-	return err == nil && MonitorProfileSupported() && !MonitorRequiresPowerCycle()
+	return err == nil && MonitorHighRefreshSupported() && !MonitorRequiresPowerCycle()
 }
 
 // Called while switching the USB composition. Every normal EDID change also

@@ -100,6 +100,36 @@ func TestFirstStartReplacesRetired100HzProfile(t *testing.T) {
 	}
 }
 
+// What the first start does by board and receiver: a Cube or Lite with an
+// LT6911UXC is not checked (it captures every profile it can hold), and the
+// LT6911D on PCIe is never programmed without the user.
+func TestFirstStartByReceiver(t *testing.T) {
+	for _, tc := range []struct {
+		board, chip string
+		powerCycle  bool
+		writes      int
+	}{
+		{"pcie", "ux", false, 1},
+		{"pcie", "d", false, 0},
+		{"beta", "ux", true, 0},
+	} {
+		t.Run(tc.board+"/"+tc.chip, func(t *testing.T) {
+			monitorState(t, 1080, false, 1920)
+			selectBoard(t, tc.board, tc.chip)
+			var applied []string
+			reads := 0
+			hw := firstStartBackend(true, tc.powerCycle, &applied, nil)
+			hw.read = func() ([]byte, error) { reads++; return testEDID(1920, 160, 1080, 53, 23550, 16), nil }
+			if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil {
+				t.Fatal(err)
+			}
+			if len(applied) != tc.writes || (tc.powerCycle && reads != 0) {
+				t.Fatalf("applied %v, EDID reads %d", applied, reads)
+			}
+		})
+	}
+}
+
 // The saved portrait profile is the one advertised, as in applyMonitorSettings.
 func TestProgramMonitorProfileOnFirstStartPortrait(t *testing.T) {
 	monitorState(t, 1080, true, 1920)

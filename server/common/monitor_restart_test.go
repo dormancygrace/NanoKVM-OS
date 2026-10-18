@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -23,6 +24,7 @@ func clearMonitorRestartHold(t *testing.T) {
 }
 
 func TestSaveMonitorSettingsForRestartDefersTheEDID(t *testing.T) {
+	selectBoard(t, "pcie", "ux")
 	monitorState(t, 1080, false, 1920)
 	clearMonitorRestartHold(t)
 	if err := os.WriteFile(monitorEDIDHashFile, []byte("recorded\n"), 0600); err != nil {
@@ -69,6 +71,7 @@ func TestSaveMonitorSettingsForRestartDefersTheEDID(t *testing.T) {
 }
 
 func TestSaveMonitorSettingsForRestartRestoresAbsentFiles(t *testing.T) {
+	selectBoard(t, "pcie", "ux")
 	monitorState(t, 1440, false, 1920)
 	clearMonitorRestartHold(t)
 	for _, path := range []string{monitorPortraitFile, monitorPortraitResolutionFile} {
@@ -92,7 +95,7 @@ func TestSaveMonitorSettingsForRestartRestoresAbsentFiles(t *testing.T) {
 	if err := restore(); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{monitorPortraitFile, monitorPortraitResolutionFile, monitorEDIDHashFile} {
+	for _, path := range []string{monitorPortraitFile, monitorPortraitResolutionFile, monitorEDIDHashFile, monitorDeferredFile} {
 		if _, ok := readMonitorTestFile(t, path); ok {
 			t.Fatalf("%s exists after the rollback", path)
 		}
@@ -103,6 +106,7 @@ func TestSaveMonitorSettingsForRestartRestoresAbsentFiles(t *testing.T) {
 }
 
 func TestSaveMonitorSettingsForRestartRefuses(t *testing.T) {
+	selectBoard(t, "pcie", "ux")
 	uhd, qhd := uint16(2160), uint16(1440)
 	for _, tc := range []struct {
 		name       string
@@ -111,10 +115,13 @@ func TestSaveMonitorSettingsForRestartRefuses(t *testing.T) {
 		powerCycle bool
 	}{
 		{"the target pool cannot capture it", &uhd, poolQHD, false},
-		{"a Cube programs at once", &qhd, poolQHD, true},
+		{"a limited receiver cannot capture it", &qhd, poolQHD, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 1080, false, 1920)
+			if tc.powerCycle {
+				selectBoard(t, "beta", "c")
+			}
 			clearMonitorRestartHold(t)
 			if err := os.WriteFile(monitorEDIDHashFile, []byte("recorded\n"), 0600); err != nil {
 				t.Fatal(err)
@@ -151,6 +158,101 @@ func TestMonitorStateFitsVideoPool(t *testing.T) {
 		got := [3]bool{tc.state.FitsVideoPool(poolFHD) == nil, tc.state.FitsVideoPool(poolQHD) == nil, tc.state.FitsVideoPool(poolUHD) == nil}
 		if got != [3]bool{tc.fhd, tc.qhd, tc.uhd} {
 			t.Errorf("%+v fits %v", tc.state, got)
+		}
+	}
+}
+
+func TestCubeUXCDeferredMonitorAfterMemorySwitch(t *testing.T) {
+	for _, board := range []string{"alpha", "beta"} {
+		for _, portrait := range []bool{false, true} {
+			t.Run(board+fmt.Sprint(portrait), func(t *testing.T) {
+				monitorState(t, 1080, false, 1920)
+				selectBoard(t, board, "ux")
+				clearMonitorRestartHold(t)
+				var applied []string
+				hw := firstStartBackend(true, true, &applied, nil)
+				height := uint16(1440)
+				update := MonitorSettings{Resolution: &height}
+				if portrait {
+					update = MonitorSettings{Portrait: &portrait}
+				}
+				restore, err := saveMonitorSettingsForRestartLocked(update, poolQHD, hw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(applied) != 0 {
+					t.Fatal("EDID written before the new memory pool boots")
+				}
+				if value, ok := readMonitorTestFile(t, monitorDeferredFile); !ok || value != "1\n" {
+					t.Fatal("missing deferred intent")
+				}
+				// Activation failure must restore the old state and remove the intent.
+				if err := restore(); err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := readMonitorTestFile(t, monitorDeferredFile); ok {
+					t.Fatal("rollback kept deferred intent")
+				}
+				if savedMonitorResolutionLocked() != 1080 || monitorPortraitEnabledLocked() {
+					t.Fatal("rollback changed monitor")
+				}
+				if _, err := saveMonitorSettingsForRestartLocked(update, poolQHD, hw); err != nil {
+					t.Fatal(err)
+				}
+				monitorRestartPending = false // fresh server process after reboot
+				if _, err := programMonitorProfileOnFirstStartLocked(hw, poolFHD); err == nil || len(applied) != 0 {
+					t.Fatal("wrote a profile that the booted memory pool cannot capture")
+				}
+				failing := hw
+				failing.apply = func(string) error { return errors.New("flash failed") }
+				if _, err := programMonitorProfileOnFirstStartLocked(failing, poolQHD); err == nil {
+					t.Fatal("lost write failure")
+				}
+				if _, ok := readMonitorTestFile(t, monitorDeferredFile); !ok {
+					t.Fatal("failed write consumed intent")
+				}
+				if _, err := programMonitorProfileOnFirstStartLocked(hw, poolQHD); err != nil {
+					t.Fatal(err)
+				}
+				want := monitorProfilePathAt(1440, GetScreen().FPS)
+				if portrait {
+					want = portraitProfilePathAt(1920, GetScreen().FPS)
+				}
+				if len(applied) != 1 || applied[0] != want {
+					t.Fatalf("deferred writes %v; want %s", applied, want)
+				}
+				if _, ok := readMonitorTestFile(t, monitorDeferredFile); ok {
+					t.Fatal("successful write kept intent")
+				}
+				if _, err := programMonitorProfileOnFirstStartLocked(hw, poolQHD); err != nil || len(applied) != 1 {
+					t.Fatal("ordinary Cube startup rewrote EDID")
+				}
+			})
+		}
+	}
+}
+
+func TestDeferredMonitorRejectsLimitedReceivers(t *testing.T) {
+	for _, board := range []string{"alpha", "beta", "pcie"} {
+		for _, chip := range []string{"c", "d"} {
+			t.Run(board+"/"+chip, func(t *testing.T) {
+				monitorState(t, 1080, false, 1920)
+				selectBoard(t, board, chip)
+				clearMonitorRestartHold(t)
+				var applied []string
+				hw := firstStartBackend(true, MonitorRequiresPowerCycle(), &applied, nil)
+				hw.requireHardware = requireMonitorHardwareLocked
+				height := uint16(1440)
+				if _, err := saveMonitorSettingsForRestartLocked(MonitorSettings{Resolution: &height}, poolQHD, hw); err == nil {
+					t.Fatal("accepted QHD on a limited receiver")
+				}
+				if _, ok := readMonitorTestFile(t, monitorDeferredFile); ok {
+					t.Fatal("rejected request left deferred intent")
+				}
+				if savedMonitorResolutionLocked() != 1080 || monitorRestartPending {
+					t.Fatal("rejected request changed state")
+				}
+			})
 		}
 	}
 }

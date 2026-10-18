@@ -55,7 +55,7 @@ func slowestRateFor(rates []int, fps int) int {
 // portraitProfilePathAt is the portrait profile for a stream rate, falling
 // back to the single-rate profile.
 func portraitProfilePathAt(resolution uint16, fps int) string {
-	if rate := slowestRateFor(portraitRates[resolution], fps); rate > 0 {
+	if rate := slowestRateFor(portraitRates[resolution], profileRate(fps)); rate > 0 {
 		path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-portrait-%dx%d-%d.bin",
 			portraitWidths[resolution], resolution, rate))
 		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
@@ -73,8 +73,8 @@ var (
 // MonitorRates returns the refresh rates offered for a monitor setting
 // (0 is Auto), fastest first; nil when the refresh rate is fixed.
 func MonitorRates(height uint16) []int {
-	if MonitorRequiresPowerCycle() {
-		// Cube receivers keep their single 60 Hz profiles.
+	if MonitorProfileSupported() && !MonitorHighRefreshSupported() {
+		// The LT6911C and LT6911D keep their single 60 Hz profiles.
 		if height == 0 || height == 720 || height == 1080 {
 			return []int{60}
 		}
@@ -94,9 +94,20 @@ func MonitorRefreshFor(height uint16, fps int) int {
 
 // MonitorRefreshFollowsStream reports whether applying video settings may
 // rewrite the EDID to follow the stream rate, for landscape and portrait
-// profiles alike. Cube receivers need a power cycle after every write.
+// profiles alike. A Cube or Lite needs a power cycle after every write, so
+// its monitor keeps the fastest rate of the chosen resolution instead and the
+// stream setting only limits the encoder.
 func MonitorRefreshFollowsStream() bool {
-	return MonitorHighRefreshSupported()
+	return MonitorHighRefreshSupported() && !MonitorRequiresPowerCycle()
+}
+
+// profileRate is the stream rate a profile is chosen for: the setting where
+// the monitor follows it, else the fastest profile of the resolution.
+func profileRate(fps int) int {
+	if MonitorRefreshFollowsStream() {
+		return fps
+	}
+	return 1 << 30
 }
 
 // Auto is 1920x1080 (up to 90 Hz) wherever live EDID writes exist; QHD and
@@ -114,12 +125,12 @@ func autoMonitorHeight() uint16 {
 // monitorProfilePathAt is the monitor profile for a setting and stream rate,
 // falling back to the single-rate profile when no rate profile exists.
 func monitorProfilePathAt(height uint16, fps int) string {
-	if !MonitorRequiresPowerCycle() {
+	if MonitorHighRefreshSupported() {
 		effective := height
 		if effective == 0 {
 			effective = autoMonitorHeight()
 		}
-		if rate := MonitorRefreshFor(height, fps); rate > 0 {
+		if rate := MonitorRefreshFor(height, profileRate(fps)); rate > 0 {
 			path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-monitor-%d-%d.bin", effective, rate))
 			if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
 				return path

@@ -2,12 +2,14 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestMonitorSettingsProgramsOnlyFinalProfile(t *testing.T) {
+	selectBoard(t, "pcie", "ux") // the rate profiles of a live LT6911UXC
 	height, portraitSize, off, on := uint16(1080), uint16(1280), false, true
 	for _, tc := range []struct {
 		name            string
@@ -88,5 +90,36 @@ func TestMonitorSettingsProgramsOnlyFinalProfile(t *testing.T) {
 				t.Fatal("saved monitor state differs from final request")
 			}
 		})
+	}
+}
+
+// Exercise the apply boundary, not just the advertised capability or path.
+func TestMonitorSettingsReceiverLimits(t *testing.T) {
+	for _, board := range []string{"alpha", "beta", "pcie"} {
+		for _, chip := range []string{"ux", "c", "d"} {
+			for _, height := range []uint16{0, 720, 1080, 1440, 2160} {
+				t.Run(board+"/"+chip+"/"+fmt.Sprint(height), func(t *testing.T) {
+					monitorState(t, 1080, false, 1920)
+					selectBoard(t, board, chip)
+					var paths []string
+					hw := firstStartBackend(true, MonitorRequiresPowerCycle(), &paths, nil)
+					hw.requireHardware = requireMonitorHardwareLocked
+					wantOK := MonitorProfileSupported() && (chip == "ux" || height == 0 || height == 720 || height == 1080)
+					err := applyMonitorSettingsLocked(MonitorSettings{Resolution: &height}, hw)
+					if (err == nil) != wantOK {
+						t.Fatalf("apply error = %v; want success %v", err, wantOK)
+					}
+					if !wantOK {
+						if len(paths) != 0 || savedMonitorResolutionLocked() != 1080 {
+							t.Fatal("rejected profile changed hardware or saved settings")
+						}
+						return
+					}
+					if len(paths) != 1 || savedMonitorResolutionLocked() != height {
+						t.Fatalf("writes %v, saved %d; want one write and saved %d", paths, savedMonitorResolutionLocked(), height)
+					}
+				})
+			}
+		}
 	}
 }

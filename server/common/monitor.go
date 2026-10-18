@@ -96,7 +96,8 @@ func ApplyPortraitResolution(resolution uint16) error {
 }
 
 func monitorProfilePath(height uint16) string {
-	if MonitorRequiresPowerCycle() {
+	if MonitorProfileSupported() && !MonitorHighRefreshSupported() {
+		// The LT6911C and LT6911D: the 720p and 1080p profiles at 60 Hz.
 		return cubeMonitorProfilePath(height)
 	}
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)
@@ -110,7 +111,8 @@ func monitorProfilePath(height uint16) string {
 	return filepath.Join("/usr/share/nanokvm/edid", profile)
 }
 
-// cubeMonitorProfilePath is a Cube profile: 720 or 1080, and Auto (0) is 1080.
+// cubeMonitorProfilePath is a 60 Hz profile, first made for the Cube's
+// LT6911C: 720 or 1080, and Auto (0) is 1080.
 func cubeMonitorProfilePath(height uint16) string {
 	if height == 0 {
 		height = 1080

@@ -15,6 +15,9 @@ var ErrMonitorRestartPending = errors.New("the device is restarting with another
 // monitorMutex. Only a restart clears it, or the rollback of a failed switch.
 var monitorRestartPending bool
 
+// Durable intent for an explicitly requested write after a memory-mode reboot.
+var monitorDeferredFile = "/etc/kvm/monitor_edid_deferred"
+
 // HoldMonitorProfileForRestart refuses every EDID write until the device
 // restarts (the restart that switches the video memory mode).
 func HoldMonitorProfileForRestart() {
@@ -46,14 +49,12 @@ func saveMonitorSettingsForRestartLocked(update MonitorSettings, pool VideoPool,
 	if err := hw.requireHardware(); err != nil {
 		return nil, err
 	}
-	// A Cube programs no saved profile on its first start, and its profiles
-	// fit every video memory mode anyway.
-	if hw.powerCycle() {
-		return nil, fmt.Errorf("Cube EDID profiles are programmed at once")
-	}
 	state := monitorStateAfterLocked(update)
 	if _, ok := ResolutionMap[state.Resolution]; !ok {
 		return nil, fmt.Errorf("unsupported monitor resolution")
+	}
+	if !MonitorHighRefreshSupported() && state.Resolution != 0 && state.Resolution != 720 && state.Resolution != 1080 {
+		return nil, fmt.Errorf("HDMI receiver EDID profiles are limited to 720p/1080p at 60 Hz")
 	}
 	if state.Portrait || update.PortraitResolution != nil {
 		if !validPortraitResolution(state.PortraitResolution) || !hw.portraitSupported(state.PortraitResolution) {
@@ -64,7 +65,7 @@ func saveMonitorSettingsForRestartLocked(update MonitorSettings, pool VideoPool,
 		return nil, err
 	}
 
-	files := []string{monitorResolutionFile, monitorPortraitFile, monitorPortraitResolutionFile, monitorEDIDHashFile}
+	files := []string{monitorResolutionFile, monitorPortraitFile, monitorPortraitResolutionFile, monitorEDIDHashFile, monitorDeferredFile}
 	saved := make([]savedMonitorFile, len(files))
 	for i, path := range files {
 		data, err := os.ReadFile(path)
@@ -97,6 +98,9 @@ func saveMonitorSettingsForRestartLocked(update MonitorSettings, pool VideoPool,
 			if err := persistMonitorPortraitLocked(state.Portrait); err != nil {
 				return err
 			}
+		}
+		if err := atomicWriteMonitorFile(monitorDeferredFile, []byte("1\n"), ".monitor_deferred-*"); err != nil {
+			return err
 		}
 		if err := os.Remove(monitorEDIDHashFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err

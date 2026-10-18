@@ -24,18 +24,34 @@ var (
 	monitorHDMIChipFile = "/etc/kvm/hdmi_version"
 )
 
+// The board decides how a new EDID takes effect: PCIe boards reset the
+// receiver, Cube and Lite boards (alpha, beta) need a power cycle. The
+// receiver decides what the monitor may advertise: the LT6911UXC takes every
+// profile, the LT6911C and LT6911D take 720p and 1080p at 60 Hz until they are
+// measured beyond that. nanokvm_update_edid programs all three.
+func monitorBoard() string {
+	board, _ := os.ReadFile(monitorBoardFile)
+	return strings.TrimSpace(string(board))
+}
+func receiverChip() string {
+	chip, _ := os.ReadFile(monitorHDMIChipFile)
+	return strings.TrimSpace(string(chip))
+}
+
 // MonitorProfileSupported describes EDID programming, not capture timings.
 func MonitorProfileSupported() bool {
-	board, _ := os.ReadFile(monitorBoardFile)
-	chip, _ := os.ReadFile(monitorHDMIChipFile)
-	return monitorHardwareSupported(strings.TrimSpace(string(board)), strings.TrimSpace(string(chip)))
+	return monitorHardwareSupported(monitorBoard(), receiverChip())
 }
 func monitorHardwareSupported(board, chip string) bool {
-	if board == "pcie" {
-		return chip == "ux"
+	switch board {
+	case "pcie":
+		return chip == "ux" || chip == "d"
+	case "alpha", "beta":
+		return chip == "c" || chip == "ux" || chip == "d"
 	}
-	return (board == "alpha" || board == "beta") && (chip == "c" || chip == "ux" || chip == "d")
+	return false
 }
+
 // HDMIReceiverModel names the HDMI receiver S15kvmhwd identified, or "".
 func HDMIReceiverModel() string {
 	chip, _ := os.ReadFile(monitorHDMIChipFile)
@@ -53,12 +69,14 @@ func hdmiReceiverModel(chip string) string {
 	return ""
 }
 func MonitorRequiresPowerCycle() bool {
-	board, _ := os.ReadFile(monitorBoardFile)
-	value := strings.TrimSpace(string(board))
-	return value == "alpha" || value == "beta"
+	board := monitorBoard()
+	return board == "alpha" || board == "beta"
 }
+
+// MonitorHighRefreshSupported reports a receiver that takes the full profile
+// set (above 1080p60, QHD, UHD, portrait): the LT6911UXC, on any board.
 func MonitorHighRefreshSupported() bool {
-	return MonitorProfileSupported() && !MonitorRequiresPowerCycle()
+	return MonitorProfileSupported() && receiverChip() == "ux"
 }
 
 // Persist across software reboots: a reboot cannot prove a Cube power cycle.

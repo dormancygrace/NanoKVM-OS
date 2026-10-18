@@ -247,6 +247,19 @@ If NanoKVM OS makes your hardware more useful, consider [sponsoring Gleb Pesin o
 
 Testing, bug reports, translations and code contributions are just as valuable. Thank you for helping improve NanoKVM OS.
 
+### 📦 Donate hardware
+
+Help bring NanoKVM OS to more devices! I’m looking for donated hardware to explore new ports and keep them tested:
+
+- **Sipeed NanoKVM-GO**
+- **NanoKVM Pro (Desk WiFi)**
+- **NanoKVM Pro (ATX+WiFi)**
+- **NanoKVM-USB**
+
+Working used devices and manufacturer development samples are welcome. If you have one to contribute, please [email me](mailto:dormancygrace@gmail.com) with the model and hardware revision before shipping so we can arrange delivery to Israel.
+
+These are targets for exploration, not a list of currently supported devices. A donated device helps make development possible, but a working port and its timeline depend on the hardware, documentation and available source code. Progress will be shared openly, and hardware contributors will be credited unless they prefer to remain anonymous.
+
 ## ❤️ Credits and licenses
 
 Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go, [Pion](https://github.com/pion) and [OneKVM](https://github.com/onekvm), with thanks to the contributors and hardware testers.

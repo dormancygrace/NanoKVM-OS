@@ -178,19 +178,6 @@
       }
     },
     {
-      "name": "OpenSSL (stock Alpine)",
-      "path": "scripts/build-alpine-packages.sh",
-      "pattern": "ALPINE_VERSION=\"([0-9.]+)\"",
-      "kind": "alpine-stock",
-      "aport": "main/openssl",
-      "packages": [
-        "openssl",
-        "libssl3",
-        "libcrypto3"
-      ],
-      "arch": "riscv64"
-    },
-    {
       "name": "Alpine stable branch",
       "path": "scripts/build-alpine-packages.sh",
       "pattern": "ALPINE_VERSION=\"([0-9.]+)\"",
@@ -421,13 +408,6 @@
         "id": "rustdesk-hbb-common-reference",
         "mode": "review"
       }
-    },
-    {
-      "name": "OneKVM RustDesk reference",
-      "path": "addons/rustdesk/upstream.json",
-      "pattern": "\"onekvm_commit\":\\s*\"([a-f0-9]{40})\"",
-      "kind": "github-commit",
-      "repo": "onekvm/onekvm-extension-rustdesk"
     },
     {
       "name": "Go CORS nested module",

@@ -204,7 +204,6 @@ test('users choose transport and playback; shared settings are read-only', () =>
   const control = (type, label) =>
     nodes.find((n) => n.type === type && n.props['aria-label'] === label);
   assert.equal(control('Select', 'videoSettings.resolution').props.disabled, true);
-  assert.equal(control('Select', 'videoSettings.frameRate').props.disabled, true);
   assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, true);
   assert.equal(control('Select', 'screen.codec').props.disabled, true);
   assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, true);
@@ -217,7 +216,6 @@ test('administrators edit the shared picture', () => {
   const control = (type, label) =>
     nodes.find((n) => n.type === type && n.props['aria-label'] === label);
   assert.equal(control('Select', 'videoSettings.resolution').props.disabled, false);
-  assert.equal(control('Select', 'videoSettings.frameRate').props.disabled, false);
   assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, false);
   assert.equal(control('Select', 'screen.codec').props.disabled, false);
   assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, false);

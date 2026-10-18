@@ -211,26 +211,8 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
         ]
       : landscape.map(choiceOption))
   ];
-  // The rates of the resolution, fastest first; a saved rate off the list
-  // (set in Advanced) is shown as custom.
-  const rates = current?.rates ?? [];
-  const rateOptions = [
-    ...(rates.includes(draft.fps)
-      ? []
-      : [
-          {
-            value: draft.fps,
-            label: t('videoSettings.modeCustom', {
-              value: t('videoSettings.fpsValue', { value: draft.fps })
-            }),
-            disabled: true
-          }
-        ]),
-    ...rates.map((value, index) => ({
-      value,
-      label: `${t('videoSettings.fpsValue', { value })}${index === 0 ? ` · ${t('videoSettings.fpsMax')}` : ''}`
-    }))
-  ];
+  // The fastest rate of the resolution: the monitor cannot refresh faster.
+  const maxFps = Math.min(caps.stream.maxFps, current?.rates[0] ?? caps.stream.maxFps);
   const target = monitorTarget(draft, caps);
   const delivered = effectiveFps(draft, caps);
   const mjpeg = draft.transport === 'mjpeg';
@@ -266,16 +248,25 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
             : t('videoSettings.monitorUnavailable')
         )}
         {row(
-          t('videoSettings.frameRate'),
-          <Select
-            className="w-full"
-            aria-label={t('videoSettings.frameRate')}
-            value={draft.fps}
-            options={rateOptions}
-            disabled={busy || !admin || rates.length === 0}
-            onChange={(value: number) => change('fps', value)}
+          t('videoSettings.fpsOverride'),
+          <InputNumber
+            className="w-full!"
+            aria-label={t('videoSettings.fpsOverride')}
+            value={draft.fps || null}
+            min={caps.stream.minFps}
+            max={maxFps}
+            precision={0}
+            disabled={busy || !admin}
+            onChange={(value) => change('fps', value ?? 0)}
           />,
-          t(caps.monitor.followsStreamRate ? 'videoSettings.frameRateHint' : 'videoSettings.frameRateFixedHint')
+          delivered < draft.fps
+            ? t('videoSettings.fpsDelivered', {
+                fps: delivered,
+                size: size(out.width, out.height) || '—'
+              })
+            : t(caps.monitor.followsStreamRate ? 'videoSettings.frameRateHint' : 'videoSettings.frameRateFixedHint', {
+                value: maxFps
+              })
         )}
         {issues.monitor === 'video-memory' && target.height >= 2160 && (
           <Alert
@@ -440,25 +431,6 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                   out.width
                     ? t('videoSettings.streamSize', { value: size(out.width, out.height) })
                     : undefined
-                )}
-                {row(
-                  t('videoSettings.fpsOverride'),
-                  <InputNumber
-                    className="w-full!"
-                    aria-label={t('videoSettings.fpsOverride')}
-                    value={draft.fps || null}
-                    min={caps.stream.minFps}
-                    max={caps.stream.maxFps}
-                    precision={0}
-                    disabled={busy || !admin}
-                    onChange={(value) => change('fps', value ?? 0)}
-                  />,
-                  delivered < draft.fps
-                    ? t('videoSettings.fpsDelivered', {
-                        fps: delivered,
-                        size: size(out.width, out.height) || '—'
-                      })
-                    : t('videoSettings.fpsOverrideHint')
                 )}
                 {mjpeg &&
                   row(

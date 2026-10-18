@@ -396,10 +396,6 @@
     "retryJoin": "Retry",
     "sessions": "Active video sessions: {{count}}",
     "encoderConflict": "Another viewer is using different encoder settings. Close it or select the same settings.",
-    "mixedH264": {
-      "title": "H.264 stream conflict",
-      "description": "H.264 Direct and H.264 WebRTC are being used at the same time. This may cause screen tearing or corrupted video. Please use only one H.264 mode."
-    },
     "webrtcConnectionFailed": {
       "title": "WebRTC connection failed",
       "description": "Check the network connection or switch the video mode."

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -270,5 +271,73 @@ func TestVideoCapabilitiesDescribeTheVideoMemory(t *testing.T) {
 	want := []videoMemoryModeCapability{{"fhd", 40, true}, {"qhd", 56, false}, {"uhd", 104, true}}
 	if caps["active"] != "fhd" || caps["selected"] != "fhd" || !slices.Equal(modes, want) {
 		t.Fatalf("capabilities %+v", caps)
+	}
+}
+
+// Requests that arrived before the restart hold must recheck it after
+// the in-flight video transaction finishes, without changing saved state.
+func TestQueuedScreenChangeCannotOutrunRestartHold(t *testing.T) {
+	for _, kind := range []string{"fps", "quality"} {
+		t.Run(kind, func(t *testing.T) {
+			newSwitchStand(t, "fhd", 1080)
+			gin.SetMode(gin.TestMode)
+			videoSettingsMutex.Lock()
+			done := make(chan int, 1)
+			go func() { done <- postScreenSetting(t, `{"type":"`+kind+`","value":30}`) }()
+			var early *int
+			select {
+			case code := <-done:
+				early = &code
+			case <-time.After(100 * time.Millisecond):
+			}
+			videoMemoryRestartPending.Store(true)
+			videoSettingsMutex.Unlock()
+			code := 0
+			if early != nil {
+				code = *early
+			} else {
+				select {
+				case code = <-done:
+				case <-time.After(5 * time.Second):
+					t.Fatal("screen request did not finish")
+				}
+			}
+			if code != -6 {
+				t.Fatalf("queued %s response %d, want restart refusal", kind, code)
+			}
+			if _, err := os.Stat(screenFileMap[kind]); !os.IsNotExist(err) {
+				t.Fatalf("queued %s modified settings during restart: %v", kind, err)
+			}
+		})
+	}
+}
+
+func TestQueuedMemorySelectionCannotOutrunRestartHold(t *testing.T) {
+	stand := newSwitchStand(t, "fhd", 1080)
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"mode":"qhd"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	videoSettingsMutex.Lock()
+	done := make(chan struct{})
+	go func() { (&Service{}).SetVideoMemory(c); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+	}
+	videoMemoryRestartPending.Store(true)
+	videoSettingsMutex.Unlock()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("memory request did not finish")
+	}
+	var rsp switchResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &rsp); err != nil {
+		t.Fatal(err)
+	}
+	if rsp.Code != -2 || len(stand.activated) != 0 {
+		t.Fatalf("queued selection changed the restart target: response %+v, activations %v", rsp, stand.activated)
 	}
 }

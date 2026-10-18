@@ -200,6 +200,10 @@ func (s *Service) SetVideoMemory(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "Invalid video memory mode")
 		return
 	}
+	// Share the video transaction lock so a standalone memory selection
+	// cannot invalidate a batch plan or slip past its restart hold.
+	videoSettingsMutex.Lock()
+	defer videoSettingsMutex.Unlock()
 	lock, err := lockVideoMemory()
 	if err != nil {
 		rsp.ErrRsp(c, -2, err.Error())

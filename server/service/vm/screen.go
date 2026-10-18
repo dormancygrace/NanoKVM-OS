@@ -77,6 +77,9 @@ func (s *Service) SetScreen(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
+	// Serialize every setting with a batch, including its restart hold.
+	videoSettingsMutex.Lock()
+	defer videoSettingsMutex.Unlock()
 	if failure := validateScreenSetting(req); failure != nil {
 		rsp.ErrRsp(c, failure.code, failure.msg)
 		return
@@ -84,12 +87,6 @@ func (s *Service) SetScreen(c *gin.Context) {
 	if videoMemoryRestartPending.Load() {
 		rsp.ErrRsp(c, -6, common.ErrMonitorRestartPending.Error())
 		return
-	}
-	if req.Type == "fps" {
-		// The batch endpoint does the same after its stream settings; serialize
-		// with it so the EDID always follows the rate that was saved last.
-		videoSettingsMutex.Lock()
-		defer videoSettingsMutex.Unlock()
 	}
 	data, failure := applyScreenSetting(req)
 	if failure != nil {

@@ -3,7 +3,10 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    # "/" covers .github/workflows only; the composite actions use actions too.
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: daily
       time: "06:00"
@@ -22,8 +25,11 @@ updates:
     cooldown:
       default-days: 3
     open-pull-requests-limit: 10
+    # Direct dependencies only: pnpm cannot pin a transitive package, so a
+    # major update of one (@babel/runtime 7 -> 8) failed every run. Security
+    # updates still cover transitive packages.
     allow:
-      - dependency-type: all
+      - dependency-type: direct
     # Keep Node types aligned with the Node 24 LTS build runtime and CI.
     # Revisit this together with a deliberate Node major upgrade.
     ignore:
@@ -43,7 +49,6 @@ updates:
       - /server/third_party/pion-dtls
       - /server/third_party/pion-ice
       - /server/third_party/pion-srtp
-      - /firmware/crypto/experimental/sg2002-crypto-all/ghash-go
     schedule:
       interval: daily
       time: "06:00"
@@ -71,20 +76,6 @@ updates:
       # Upstream v2.0.0 lacks a /v2 module path; use the pinned Go-resolvable
       # pseudo-version and independent proxy check until upstream fixes tags.
       - dependency-name: github.com/mervick/aes-bridge-go
-
-  - package-ecosystem: docker
-    directories:
-      - /server/third_party/pion-dtls/e2e
-      - /server/third_party/pion-ice/examples/nat-rules
-    schedule:
-      interval: daily
-      time: "06:00"
-    cooldown:
-      default-days: 3
-    open-pull-requests-limit: 5
-    groups:
-      test-images:
-        patterns: ['*']
 
   - package-ecosystem: cargo
     directory: /addons/rustdesk

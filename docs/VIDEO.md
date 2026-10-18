@@ -28,7 +28,7 @@ The monitor profile advertises preferred and fallback modes through EDID. **Auto
 | 1296×2304, 1440×2560 | 60, 50, 30 |
 | 3840×2160 | 30 |
 
-A 30 fps stream therefore makes the computer render and send 30 frames per second instead of 100. These profiles leave out the faster modes of their resolution, because a source otherwise picks the fastest one. Cube/Lite boards keep their single 60 Hz profiles. Changing FPS through the single-setting API now resynchronizes the EDID too, but only when a different monitor timing is selected.
+A 30 fps stream therefore makes the computer render and send 30 frames per second instead of 100. These profiles leave out the faster modes of their resolution, because a source otherwise picks the fastest one. Cube/Lite boards keep their single 60 Hz profiles. Their receiver keeps its EDID in flash across reinstalls, so on the first start the server reads it once and, if it advertises a mode beyond 720p/1080p at 60 Hz (for example 1920×1080 at 100 Hz left by another system), programs the saved Cube profile and asks for a power cycle. Changing FPS through the single-setting API now resynchronizes the EDID too, but only when a different monitor timing is selected.
 
 **Automatic has two parts, and both are strict.**
 

@@ -24,9 +24,15 @@ export function receiverRecording(
   codec: 'h264' | 'h265',
   pictureSize: () => { width: number; height: number },
   onFailure: () => void
-): { source: RecordingSource; close: () => void } {
-  const worker = new RecordWorker();
-  receiver.transform = new RTCRtpScriptTransform(worker);
+): { source: RecordingSource; close: () => void } | null {
+  let worker: Worker;
+  try {
+    worker = new RecordWorker();
+  } catch {
+    transformFailed = true;
+    onFailure();
+    return null;
+  }
   let nextId = 1;
   let closed = false;
   let active: {
@@ -38,8 +44,12 @@ export function receiverRecording(
     height: number;
   } | null = null;
 
-  worker.onmessage = (event: MessageEvent<ReceivedFrame>) => {
+  worker.onmessage = (event: MessageEvent<ReceivedFrame | { type: 'transform-error' }>) => {
     const frame = event.data;
+    if ('type' in frame) {
+      fail();
+      return;
+    }
     const current = active;
     // Frames sent before the worker learned of a stop belong to no recording.
     if (!current || frame.recording !== current.id) return;
@@ -66,11 +76,22 @@ export function receiverRecording(
     current.onEnd(reason);
   };
 
-  worker.onerror = () => {
+  const fail = () => {
+    if (closed) return;
+    closed = true;
     transformFailed = true;
     end('stream-error');
     onFailure();
   };
+  worker.onerror = fail;
+  worker.onmessageerror = fail;
+  try {
+    receiver.transform = new RTCRtpScriptTransform(worker);
+  } catch {
+    fail();
+    worker.terminate();
+    return null;
+  }
 
   const source: RecordingSource = {
     codec,

@@ -231,7 +231,7 @@ export const H264Webrtc = ({
             setConnectionAttempt((attempt) => attempt + 1);
           }
         );
-        publishRecordingSource(recording.source);
+        if (recording) publishRecordingSource(recording.source);
       }
       // Always offered, so USB audio enabled later needs no renegotiation;
       // the server sends nothing until audio-start.

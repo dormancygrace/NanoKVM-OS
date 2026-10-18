@@ -51,5 +51,5 @@ self.onrtctransform = (event: RTCTransformEvent) => {
       })
     )
     .pipeTo(transformer.writable)
-    .catch(() => {});
+    .catch(() => self.postMessage({ type: 'transform-error' }));
 };

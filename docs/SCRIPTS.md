@@ -50,7 +50,8 @@ for its last command so that it does not leave a shell behind.
 
 The marks are kept in `/etc/kvm/autostart.list`, one script name per line.
 During a boot each marked script has two files in `/run/nanokvm/autostart`
-(RAM, cleared at the next boot; `/` in a name becomes `__`):
+(RAM, cleared at the next boot; `<name>` is the SHA-256 hash of the
+script name relative to `/etc/kvm/scripts`):
 
 - `<name>.log`: the first 64 KiB of its output (standard output and errors
   together). Later output is read and dropped, so a talkative script is never

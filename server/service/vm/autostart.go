@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 // A small shell wrapper keeps the first 64 KiB of their output and their exit
 // status in /run (RAM, cleared at boot) without the server in between.
 var (
+	autostartMu     sync.Mutex
 	autostartList   = "/etc/kvm/autostart.list"
 	autostartRunDir = "/run/nanokvm/autostart"
 )
@@ -46,7 +49,7 @@ func readAutostart() ([]string, error) {
 	}
 	names := []string{}
 	for _, line := range strings.Split(string(data), "\n") {
-		if name := strings.TrimSpace(line); validScriptName(name, true) {
+		if name := line; validScriptName(name, true) {
 			names = append(names, name)
 		}
 	}
@@ -74,6 +77,8 @@ func writeAutostart(names []string) error {
 
 // setAutostart marks or unmarks an existing script.
 func setAutostart(root, name string, enabled bool) error {
+	autostartMu.Lock()
+	defer autostartMu.Unlock()
 	if enabled {
 		if _, err := scriptPath(root, name); err != nil {
 			return err
@@ -99,7 +104,9 @@ func setAutostart(root, name string, enabled bool) error {
 
 // autostartBase names the log and status files of a script.
 func autostartBase(name string) string {
-	return filepath.Join(autostartRunDir, strings.ReplaceAll(name, "/", "__"))
+	// A fixed-size digest handles nested and maximum-length script names
+	// without collisions from replacing path separators.
+	return filepath.Join(autostartRunDir, fmt.Sprintf("%x", sha256.Sum256([]byte(name))))
 }
 
 // autostartStatus reports this boot's state of each marked script: running,

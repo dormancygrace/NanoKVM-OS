@@ -1,10 +1,12 @@
 package vm
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -98,5 +100,77 @@ func TestRunAutostartOncePerBootWithLogAndStatus(t *testing.T) {
 	status := autostartStatus([]string{"ok.sh", "loud.sh", "never.sh"})
 	if status["ok.sh"] != "exited 3" || status["loud.sh"] != "exited 0" || status["never.sh"] != "" {
 		t.Fatalf("status %v", status)
+	}
+}
+
+func TestAutostartConcurrentMarksAreNotLost(t *testing.T) {
+	root := temporaryAutostart(t)
+	const count = 32
+	for i := range count {
+		writeTestScript(t, filepath.Join(root, fmt.Sprintf("%d.sh", i)), "#!/bin/sh\n")
+	}
+	start := make(chan struct{})
+	errs := make(chan error, count)
+	var wg sync.WaitGroup
+	for i := range count {
+		wg.Add(1)
+		go func() { defer wg.Done(); <-start; errs <- setAutostart(root, fmt.Sprintf("%d.sh", i), true) }()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	names, err := readAutostart()
+	if err != nil || len(names) != count {
+		t.Fatalf("lost marks: %d/%d: %v", len(names), count, err)
+	}
+}
+
+func TestAutostartPreservesNamesAndSeparateLogs(t *testing.T) {
+	root := temporaryAutostart(t)
+	names := []string{"dir/a.sh", "dir__a.sh"}
+	for _, name := range names {
+		writeTestScript(t, filepath.Join(root, name), "#!/bin/sh\necho '"+name+"'\n")
+		if err := setAutostart(root, name, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stored, err := readAutostart()
+	if err != nil || !reflect.DeepEqual(stored, names) {
+		t.Fatalf("names changed: %q, %v", stored, err)
+	}
+	RunAutostart(root)
+	for _, name := range names {
+		if got := waitForStatus(t, name, "exited"); got != "exited 0" {
+			t.Fatalf("%s: %s", name, got)
+		}
+		data, err := os.ReadFile(autostartBase(name) + ".log")
+		if err != nil || string(data) != name+"\n" {
+			t.Errorf("%s log = %q, %v", name, data, err)
+		}
+	}
+}
+
+func TestAutostartPreservesLeadingSpaces(t *testing.T) {
+	root := temporaryAutostart(t)
+	name := " leading.sh"
+	writeTestScript(t, filepath.Join(root, name), "#!/bin/sh\n")
+	if err := setAutostart(root, name, true); err != nil {
+		t.Fatal(err)
+	}
+	names, err := readAutostart()
+	if err != nil || !reflect.DeepEqual(names, []string{name}) {
+		t.Fatalf("name changed: %q, %v", names, err)
+	}
+	if err := setAutostart(root, name, false); err != nil {
+		t.Fatal(err)
+	}
+	names, err = readAutostart()
+	if err != nil || len(names) != 0 {
+		t.Fatalf("could not unmark: %q, %v", names, err)
 	}
 }

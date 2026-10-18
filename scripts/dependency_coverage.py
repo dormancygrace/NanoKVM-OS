@@ -23,16 +23,28 @@ def dependabot_directories(text):
     return result
 
 
+# Manifests deliberately outside Dependabot, with the reason. An entry for a
+# file that no longer exists fails, so the list cannot go stale.
+UNMONITORED = {
+    'server/third_party/pion-dtls/e2e/Dockerfile': 'upstream test image of the vendored fork; never built here',
+    'server/third_party/pion-ice/examples/nat-rules/Dockerfile': 'upstream example of the vendored fork; never built here',
+    'firmware/crypto/experimental/sg2002-crypto-all/ghash-go/go.mod': 'experimental benchmark module; not in the firmware',
+}
+
+
 def validate_coverage(root, sources):
     buildroot_recipes(root)
     files = tracked_files(root)
+    stale = sorted(set(UNMONITORED) - set(files))
+    if stale:
+        raise ValueError('Stale unmonitored entries: ' + ', '.join(stale))
     configured = dependabot_directories((root / '.github/dependabot.yml').read_text())
     manifests = {'package.json': 'npm', 'go.mod': 'gomod', 'Cargo.toml': 'cargo', 'Dockerfile': 'docker',
                  'rust-toolchain.toml': 'rust-toolchain', 'rust-toolchain': 'rust-toolchain'}
     missing = []
     for path in files:
         ecosystem = manifests.get(Path(path).name)
-        if ecosystem and ('/' if str(Path(path).parent) == '.' else '/' + str(Path(path).parent)) not in configured.get(ecosystem, set()):
+        if ecosystem and path not in UNMONITORED and ('/' if str(Path(path).parent) == '.' else '/' + str(Path(path).parent)) not in configured.get(ecosystem, set()):
             missing.append(path)
         # Fail visibly when a new ecosystem needs configuration, not just the known ones.
         if Path(path).name in {'pyproject.toml', 'requirements.txt', 'Gemfile', 'composer.json', 'pom.xml'}:

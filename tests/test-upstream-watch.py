@@ -176,6 +176,19 @@ class CoverageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'new-addon/Cargo.toml'):
                 c.validate_coverage(ROOT, sources)
 
+    def test_unmonitored_manifests_are_listed_and_not_stale(self):
+        import dependency_coverage as c
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        files = c.tracked_files(ROOT)
+        # A listed manifest is exempt; the same kind of file elsewhere is not.
+        with patch.object(c, 'tracked_files', return_value=files + ['server/third_party/pion-ice/e2e/Dockerfile']):
+            with self.assertRaisesRegex(ValueError, 'pion-ice/e2e/Dockerfile'):
+                c.validate_coverage(ROOT, sources)
+        gone = next(iter(c.UNMONITORED))
+        with patch.object(c, 'tracked_files', return_value=[f for f in files if f != gone]):
+            with self.assertRaisesRegex(ValueError, 'Stale unmonitored entries'):
+                c.validate_coverage(ROOT, sources)
+
     def test_rust_toolchains_require_separate_dependabot_coverage(self):
         import dependency_coverage as c
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']

@@ -252,9 +252,9 @@ Testing, bug reports, translations and code contributions are just as valuable. 
 Help bring NanoKVM OS to more devices! I’m looking for donated hardware to explore new ports and keep them tested:
 
 - **Sipeed NanoKVM-GO**
-- **NanoKVM Pro (Desk WiFi)**
-- **NanoKVM Pro (ATX+WiFi)**
-- **NanoKVM-USB**
+- **Sipeed NanoKVM Pro (Desk WiFi)**
+- **Sipeed NanoKVM Pro (ATX+WiFi)**
+- **Sipeed NanoKVM-USB**
 
 Working used devices and manufacturer development samples are welcome. If you have one to contribute, please [email me](mailto:dormancygrace@gmail.com) with the model and hardware revision before shipping so we can arrange delivery to Israel.
 

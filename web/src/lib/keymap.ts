@@ -220,37 +220,12 @@ const KeycodeMap: Record<string, number> = {
   NumpadMemoryAdd: 0xd3,
   NumpadMemorySubtract: 0xd4,
   NumpadClear: 0xd8,
-  NumpadClearEntry: 0xd9,
+  NumpadClearEntry: 0xd9
 
-  // Additional browser/system keys
-  BrowserSearch: 0xf0,
-  BrowserHome: 0xf1,
-  BrowserBack: 0xf2,
-  BrowserForward: 0xf3,
-  BrowserStop: 0xf4,
-  BrowserRefresh: 0xf5,
-  BrowserFavorites: 0xf6,
-
-  // Media keys
-  MediaPlayPause: 0xe8,
-  MediaStop: 0xe9,
-  MediaTrackPrevious: 0xea,
-  MediaTrackNext: 0xeb,
-  Eject: 0xec,
-  MediaSelect: 0xed,
-
-  // Application launch keys
-  LaunchMail: 0xee,
-  LaunchApp1: 0xef,
-  LaunchApp2: 0xf0,
-
-  // Sleep/Wake keys
-  Sleep: 0xf8,
-  Wake: 0xf9,
-
-  // Accessibility keys
-  MediaRewind: 0xfa,
-  MediaFastForward: 0xfb
+  // The keyboard reports usages 0x00-0xE7 only (its descriptor and the boot
+  // protocol end there; hosts drop larger codes). Media, browser, launch and
+  // sleep keys are Consumer and System Control usages, which this keyboard
+  // does not send.
 };
 
 // Check if code is a modifier key

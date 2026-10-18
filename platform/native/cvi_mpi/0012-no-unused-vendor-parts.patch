@@ -1,0 +1,234 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] nanokvm: no devmem processes, DWA, RGN or VI debug thread
+
+Parts of CVI_SYS_Init and VI that NanoKVM does not use cost processes,
+threads and log lines.
+
+- Low-power off ran 27 "devmem ADDR 32 VALUE" shell processes (about 54
+  execs) on every server start. The same register writes now go through
+  one /dev/mem descriptor.
+- The DWA (dewarp) and RGN (region overlay) devices were opened and
+  closed. NanoKVM calls no DWA or RGN API, and their modules are no longer
+  loaded.
+- The first enabled VI channel started vi_dbg_handler at SCHED_RR 85. It
+  waited in select() without a timeout and, on an event, ran
+  "cat /proc/mipi-rx" and "cat /proc/cvitek/vi_dbg" in child shells;
+  disabling the last channel joined it, so capture stop waited for it to
+  wake. The thread and the join are removed.
+---
+--- a/modules/sys/src/cvi_sys.c
++++ b/modules/sys/src/cvi_sys.c
+@@ -49,41 +49,59 @@
+ static uint32_t tdma_pio_seq;
+ static pthread_once_t lp_off_once = PTHREAD_ONCE_INIT;
+ 
++/* Disable the fabric low-power and slow-down modes: sys_ctrl, ddrsys and
++ * vipsys clklp. The same writes as 27 "devmem ADDR 32 VALUE" processes,
++ * through one /dev/mem descriptor. */
+ static void _sys_low_power_off(void)
+ {
+-	// disable fab lowpower/slowdown
+-	// sys_ctrl clklp
+-	system("devmem 0x03002A50 32 0xFFFFFFFF");
+-	system("devmem 0x03002A60 32 0xFFFFFFFF");
+-	system("devmem 0x03002A00 32 0x003F5500");
+-	system("devmem 0x03002A04 32 0x003F5500");
+-	system("devmem 0x03002A0C 32 0x003F5500");
+-	system("devmem 0x03002A10 32 0x003F5500");
+-	system("devmem 0x03002A14 32 0x003F5500");
+-	system("devmem 0x03002A18 32 0x003F5500");
+-	system("devmem 0x03002A1C 32 0x003F5500");
+-	system("devmem 0x03002A20 32 0x003F5500");
+-	system("devmem 0x03002A24 32 0x003F5500");
+-	system("devmem 0x03002A28 32 0x003F5500");
+-	system("devmem 0x03002A2C 32 0x003F5500");
+-	system("devmem 0x03002A30 32 0x003F5500");
+-	// ddrsys clklp
+-	system("devmem 0x0800A014 32 0x00000FFF");
+-	// vipsys clklp
+-	system("devmem 0X0A0C8020 32 0x00000C01");
+-	system("devmem 0x0A0C8024 32 0x00000C01");
+-	system("devmem 0x0A0C8028 32 0x00000C01");
+-	system("devmem 0x0A0C802C 32 0x0C010C01");
+-	system("devmem 0x0A0C8038 32 0x001F0500");
+-	system("devmem 0x0A0C803C 32 0x001F0500");
+-	system("devmem 0x0A0C8040 32 0x001F0500");
+-	system("devmem 0x0A0C8044 32 0x001F0500");
+-	system("devmem 0x0A0C8048 32 0x001F0500");
+-	system("devmem 0x0A0C80C4 32 0x001F0500");
+-	system("devmem 0x0A0C80C8 32 0x001F0500");
+-	system("devmem 0x0A0C80CC 32 0x001F0500");
+-	// vc fab
+-	// system("devmem 0x0B030028 32 0x07");
++	static const struct { uint32_t addr, value; } regs[] = {
++		{0x03002A50, 0xFFFFFFFF},
++		{0x03002A60, 0xFFFFFFFF},
++		{0x03002A00, 0x003F5500},
++		{0x03002A04, 0x003F5500},
++		{0x03002A0C, 0x003F5500},
++		{0x03002A10, 0x003F5500},
++		{0x03002A14, 0x003F5500},
++		{0x03002A18, 0x003F5500},
++		{0x03002A1C, 0x003F5500},
++		{0x03002A20, 0x003F5500},
++		{0x03002A24, 0x003F5500},
++		{0x03002A28, 0x003F5500},
++		{0x03002A2C, 0x003F5500},
++		{0x03002A30, 0x003F5500},
++		{0x0800A014, 0x00000FFF},
++		{0x0A0C8020, 0x00000C01},
++		{0x0A0C8024, 0x00000C01},
++		{0x0A0C8028, 0x00000C01},
++		{0x0A0C802C, 0x0C010C01},
++		{0x0A0C8038, 0x001F0500},
++		{0x0A0C803C, 0x001F0500},
++		{0x0A0C8040, 0x001F0500},
++		{0x0A0C8044, 0x001F0500},
++		{0x0A0C8048, 0x001F0500},
++		{0x0A0C80C4, 0x001F0500},
++		{0x0A0C80C8, 0x001F0500},
++		{0x0A0C80CC, 0x001F0500},
++	};
++	const long page = sysconf(_SC_PAGESIZE);
++	int fd = open("/dev/mem", O_RDWR | O_SYNC | O_CLOEXEC);
++
++	if (fd < 0) {
++		CVI_TRACE_SYS(CVI_DBG_ERR, "low_power_off: /dev/mem: %s\n", strerror(errno));
++		return;
++	}
++	for (size_t i = 0; i < sizeof(regs) / sizeof(regs[0]); i++) {
++		const off_t base = regs[i].addr & ~(uint32_t)(page - 1);
++		volatile uint32_t *map = mmap(NULL, page, PROT_READ | PROT_WRITE, MAP_SHARED, fd, base);
++
++		if (map == MAP_FAILED) {
++			CVI_TRACE_SYS(CVI_DBG_ERR, "low_power_off: map %#x: %s\n", regs[i].addr, strerror(errno));
++			continue;
++		}
++		map[(regs[i].addr - base) / sizeof(uint32_t)] = regs[i].value;
++		munmap((void *)map, page);
++	}
++	close(fd);
+ 
+ 	CVI_TRACE_SYS(CVI_DBG_INFO, "low_power_off\n");
+ }
+@@ -238,23 +256,10 @@
+ 		//return CVI_ERR_SYS_NOTREADY;
+ 	}
+ 
+-	/* NanoKVM has no video output: no /dev/cvi-vo to open. */
++	/* NanoKVM has no video output, dewarp or region overlays: no VO, DWA or
++	 * RGN device to open. */
+ 
+-	s32ret = dwa_dev_open();
+-	if (s32ret != CVI_SUCCESS) {
+-		CVI_TRACE_SYS(CVI_DBG_DEBUG, "base_dwa_open failed\n");
+-		//If ko is not insmod, means no need this function.
+-		//return CVI_ERR_SYS_NOTREADY;
+-		s32ret = CVI_SUCCESS;
+-	}
+ 
+-	s32ret = rgn_dev_open();
+-	if (s32ret != CVI_SUCCESS) {
+-		CVI_TRACE_SYS(CVI_DBG_DEBUG, "base_rgn_open failed\n");
+-		//If ko is not insmod, means no need this function.
+-		//return CVI_ERR_SYS_NOTREADY;
+-		s32ret = CVI_SUCCESS;
+-	}
+ 
+ #if 0 //TODO: need remove to vo module
+ 	// check fb parameters to see if fb on vpss or vo.
+@@ -343,17 +348,7 @@
+ 	}
+ #endif
+ 
+-	s32ret = dwa_dev_close();
+-	if (s32ret != CVI_SUCCESS) {
+-		CVI_TRACE_SYS(CVI_DBG_ERR, "base_dwa_close failed\n");
+-		return CVI_ERR_SYS_NOTREADY;
+-	}
+ 
+-	s32ret = rgn_dev_close();
+-	if (s32ret != CVI_SUCCESS) {
+-		CVI_TRACE_SYS(CVI_DBG_ERR, "base_rgn_close failed\n");
+-		return CVI_ERR_SYS_NOTREADY;
+-	}
+ 
+ 	if (ionFd > 0) {
+ 		close(ionFd);
+--- a/modules/vi/src/cvi_vi.c
++++ b/modules/vi/src/cvi_vi.c
+@@ -130,46 +130,6 @@
+  *   Internal APIs for vi only
+  **************************************************************************/
+ 
+-static CVI_VOID *vi_dbg_handler(CVI_VOID *data)
+-{
+-	CVI_S32 fd = -1;
+-	fd_set rfds;
+-	//struct timeval tv;
+-	CVI_S32 ret = CVI_SUCCESS;
+-	UNUSED(data);
+-
+-	prctl(PR_SET_NAME, "vi_dbg_handler");
+-
+-	fd = get_vi_fd();
+-
+-	// gViDbgTH.dbg_th_disable = CVI_TRUE;
+-
+-	while (!gViDbgTH.dbg_th_disable) {
+-		FD_ZERO(&rfds);
+-		FD_SET(fd, &rfds);
+-
+-		//tv.tv_sec = 10;
+-		//tv.tv_usec = 0;
+-
+-		ret = select(fd + 1, &rfds, NULL, NULL, NULL);
+-		if (ret == -1) {
+-			if (errno == EINTR)
+-				continue;
+-			CVI_TRACE_VI(CVI_DBG_ERR, "vi_dbg_thread select error\n");
+-			break;
+-		}
+-
+-		//Cat vi_dbg/mipi_rx if error
+-		if (FD_ISSET(fd, &rfds) && !gViDbgTH.dbg_th_disable) {
+-			system("cat /proc/mipi-rx");
+-			system("cat /proc/cvitek/vi_dbg");
+-		}
+-	}
+-	CVI_TRACE_VI(CVI_DBG_INFO, "-\n");
+-
+-	pthread_exit(NULL);
+-}
+-
+ static CVI_S32 _vi_proc_mmap(void)
+ {
+ 	struct vdev *d;
+@@ -1496,19 +1456,6 @@
+ 			return CVI_ERR_VI_FAILED_NOT_ENABLED;
+ 		}
+ 
+-		if (!gViDbgTH.dbg_th_disable) {
+-			struct sched_param param;
+-			pthread_attr_t attr;
+-
+-			param.sched_priority = 85;
+-
+-			pthread_attr_init(&attr);
+-			pthread_attr_setschedpolicy(&attr, SCHED_RR);
+-			pthread_attr_setschedparam(&attr, &param);
+-			pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+-
+-			pthread_create(&gViDbgTH.vi_dbg_thread, &attr, (void *)vi_dbg_handler, NULL);
+-		}
+ 	}
+ 
+ 	return CVI_SUCCESS;
+@@ -1557,7 +1504,6 @@
+ 				return CVI_ERR_VI_FAILED_NOT_ENABLED;
+ 			}
+ 
+-			pthread_join(gViDbgTH.vi_dbg_thread, NULL);
+ 
+ 			s32Ret = _cvi_vi_freeIonBuf();
+ 			if (s32Ret != CVI_SUCCESS) {

@@ -790,6 +790,30 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
     return 0;
 }
 
+// Copies the receiver's EDID without writing it, with the same register
+// sequence that programming uses to compare the installed EDID first.
+static int lt6911_edid_dump(chip_version_t chip_version, uint8_t *edid_data)
+{
+    if ((client = open(I2C_DEVICE, O_RDWR)) < 0) {
+        perror("Failed to open the i2c bus");
+        return -1;
+    }
+    if (ioctl(client, I2C_SLAVE, I2C_ADDRESS) < 0) {
+        perror("Failed to acquire bus access and/or talk to slave");
+        close(client);
+        return -1;
+    }
+    int ret = -1;
+    if (chip_version == CHIP_LT6911UXC)
+        ret = lt6911uxc_edid_read(edid_data, EDID_BUFFER_SIZE);
+    else if (chip_version == CHIP_LT6911C)
+        ret = lt6911c_edid_read(edid_data, EDID_BUFFER_SIZE);
+    else if (chip_version == CHIP_LT6911D)
+        ret = lt6911d_edid_read(edid_data, EDID_BUFFER_SIZE);
+    close(client);
+    return ret;
+}
+
 // =======================================================================================================
 
 void print_warning(product_version_t product_version) {
@@ -930,8 +954,29 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (argc == 3 && strcmp(argv[1], "--dump") == 0) {
+        // Read-only. PCIe receivers are reset around the read as around
+        // programming; Cube receivers are read in place, as programming does.
+        int lock_fd = maintenance_lock();
+        if (lock_fd < 0) { perror("EDID maintenance lock"); return 1; }
+        uint8_t edid[EDID_BUFFER_SIZE] = {0};
+        if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset() < 0) { perror("HDMI reset failed"); return 1; }
+        int ret = lt6911_edid_dump(chip_version, edid);
+        if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset() < 0) { perror("HDMI reset failed"); return 1; }
+        if (ret != 0) { fprintf(stderr, "Cannot read the receiver EDID\n"); return 1; }
+        FILE *out = fopen(argv[2], "wb");
+        if (out == NULL || fwrite(edid, 1, sizeof(edid), out) != sizeof(edid)) {
+            perror("Failed to save the EDID copy");
+            if (out != NULL) fclose(out);
+            return 1;
+        }
+        if (fclose(out) != 0) { perror("Failed to save the EDID copy"); return 1; }
+        puts("Receiver EDID copied; EDID was not written");
+        return 0;
+    }
+
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s EDID.bin | --reset-only | --check EDID.bin\n", argv[0]);
+        fprintf(stderr, "Usage: %s EDID.bin | --reset-only | --check EDID.bin | --dump COPY.bin\n", argv[0]);
         return 1;
     }
     int lock_fd = maintenance_lock();

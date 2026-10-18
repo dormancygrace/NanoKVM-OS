@@ -80,10 +80,7 @@ func ApplyPortraitResolution(resolution uint16) error {
 
 func monitorProfilePath(height uint16) string {
 	if MonitorRequiresPowerCycle() {
-		if height == 0 {
-			height = 1080
-		}
-		return filepath.Join("/usr/share/nanokvm/edid", fmt.Sprintf("NanoKVM-cube-monitor-%d.bin", height))
+		return cubeMonitorProfilePath(height)
 	}
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)
 	if height == 0 {
@@ -94,6 +91,14 @@ func monitorProfilePath(height uint16) string {
 		}
 	}
 	return filepath.Join("/usr/share/nanokvm/edid", profile)
+}
+
+// cubeMonitorProfilePath is a Cube profile: 720 or 1080, and Auto (0) is 1080.
+func cubeMonitorProfilePath(height uint16) string {
+	if height == 0 {
+		height = 1080
+	}
+	return filepath.Join("/usr/share/nanokvm/edid", fmt.Sprintf("NanoKVM-cube-monitor-%d.bin", height))
 }
 
 func portraitMonitorEDIDPath(resolution uint16) string {
@@ -218,7 +223,10 @@ func applyMonitorProfileLocked(path string) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("monitor profile is unavailable: %s is not a regular file", path)
 	}
-	if err = applyMonitorPointerProfileLocked(path, WindowsPointerEnabled()); err != nil {
+	// A Cube cannot carry the Windows pointer identity, which needs live EDID
+	// writes; ignore a marker left by an image that identified it as PCIe.
+	pointer := WindowsPointerEnabled() && !MonitorRequiresPowerCycle()
+	if err = applyMonitorPointerProfileLocked(path, pointer); err != nil {
 		return err
 	}
 	recordMonitorProfileLocked(path)

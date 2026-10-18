@@ -3,6 +3,7 @@ package common
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -21,6 +22,7 @@ func firstStartBackend(hardware, powerCycle bool, applied *[]string, fail error)
 			*applied = append(*applied, path)
 			return fail
 		},
+		read: func() ([]byte, error) { return testEDID(1920, 280, 1080, 45, 14850, 16), nil },
 	}
 }
 
@@ -128,5 +130,100 @@ func TestProgramMonitorProfileOnFirstStartStopsAfterRecordedSuccess(t *testing.T
 	}
 	if writes != 1 {
 		t.Fatalf("programmed %d times", writes)
+	}
+}
+
+func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
+	edid100 := testEDID(1920, 720, 1080, 45, 29700)
+	edid60 := testEDID(1920, 280, 1080, 45, 14850, 16)
+	for _, tc := range []struct {
+		name    string
+		saved   int
+		edid    []byte
+		readErr error
+		path    string
+		saved2  string
+		checked bool
+		wantErr bool
+	}{
+		{"1080p100 left in flash", 1080, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "1080", true, false},
+		{"720p saved", 720, edid100, nil, "NanoKVM-cube-monitor-720.bin", "720", true, false},
+		{"QHD saved by a PCIe image", 1440, edid100, nil, "NanoKVM-cube-monitor-1080.bin", "0", true, false},
+		{"Cube EDID", 1080, edid60, nil, "", "1080", true, false},
+		{"read failure", 1080, nil, errors.New("i2c"), "", "1080", false, true},
+		{"read returned zeros", 1080, make([]byte, 256), nil, "", "1080", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, tc.saved, false, 1920)
+			var applied []string
+			hw := firstStartBackend(true, true, &applied, nil)
+			reads := 0
+			hw.read = func() ([]byte, error) { reads++; return tc.edid, tc.readErr }
+			path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("error %v", err)
+			}
+			if tc.path == "" {
+				if path != "" || len(applied) != 0 {
+					t.Fatalf("reported %q, applied %v", path, applied)
+				}
+			} else if filepath.Base(path) != tc.path || len(applied) != 1 || applied[0] != path {
+				t.Fatalf("reported %q, applied %v", path, applied)
+			}
+			if saved, _ := os.ReadFile(monitorResolutionFile); string(saved) != tc.saved2 {
+				t.Fatalf("saved resolution %q", saved)
+			}
+			if _, err := os.Stat(monitorEDIDCheckedFile); (err == nil) != tc.checked {
+				t.Fatalf("checked marker present = %v", err == nil)
+			}
+			// A checked receiver is not read again on later starts.
+			if tc.checked {
+				if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 1 {
+					t.Fatalf("second start: error %v, reads %d", err, reads)
+				}
+			}
+		})
+	}
+}
+
+// An image that identified a Cube as PCIe recorded the 100 Hz profile it
+// programmed; the Cube is still checked, once.
+func TestCubeFirstStartIgnoresProfileRecordedAsPCIe(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	if err := os.WriteFile(monitorEDIDHashFile, []byte("0\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var applied []string
+	hw := firstStartBackend(true, true, &applied, nil)
+	reads := 0
+	hw.read = func() ([]byte, error) { reads++; return testEDID(1920, 720, 1080, 45, 29700), nil }
+	path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
+	if err != nil || filepath.Base(path) != "NanoKVM-cube-monitor-1080.bin" || len(applied) != 1 {
+		t.Fatalf("error %v, path %q, applied %v", err, path, applied)
+	}
+	if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 1 || len(applied) != 1 {
+		t.Fatalf("second start: error %v, reads %d, applied %v", err, reads, applied)
+	}
+}
+
+func TestCubeFirstStartRetriesIncompleteEDID(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	var applied []string
+	hw := firstStartBackend(true, true, &applied, nil)
+	edid := testEDID(1920, 280, 1080, 45, 14850, 16)
+	edid[126]++
+	edid[127]--
+	reads := 0
+	hw.read = func() ([]byte, error) { reads++; return edid, nil }
+	for i := 0; i < 2; i++ {
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err == nil {
+			t.Error("incomplete EDID accepted")
+		}
+	}
+	if reads != 2 || len(applied) != 0 {
+		t.Fatalf("reads %d, writes %d", reads, len(applied))
+	}
+	if _, err := os.Stat(monitorEDIDCheckedFile); !os.IsNotExist(err) {
+		t.Fatal("incomplete EDID marked checked")
 	}
 }

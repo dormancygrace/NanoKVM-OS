@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // MonitorSettings describes one final HDMI monitor state. Nil fields retain
@@ -23,7 +25,13 @@ type monitorSettingsBackend struct {
 	powerCycle        func() bool
 	followsRefresh    func() bool
 	apply             func(string) error
+	read              func() ([]byte, error)
 }
+
+func readMonitorEDIDLocked() ([]byte, error) { return GetKvmVision().ReadMonitorEDID() }
+
+// Set once the first start found a Cube receiver EDID within 720p/1080p at 60 Hz.
+var monitorEDIDCheckedFile = "/etc/kvm/monitor_edid_checked"
 
 // ApplyMonitorSettings resolves all requested fields before programming the
 // receiver. Intermediate orientations/resolutions are never sent to HDMI.
@@ -33,6 +41,7 @@ func ApplyMonitorSettings(update MonitorSettings) error {
 	return applyMonitorSettingsLocked(update, monitorSettingsBackend{
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
+		readMonitorEDIDLocked,
 	})
 }
 
@@ -43,22 +52,29 @@ func ApplyMonitorSettings(update MonitorSettings) error {
 // the input. Until a profile is recorded, which profile the receiver holds is
 // unknown. nanokvm_update_edid reads the EDID first and skips the flash write
 // when the profile is already installed. It returns the programmed profile, or
-// "" when a profile is recorded, EDID is not programmable, or the board needs
-// a power cycle (Cube).
+// "" when a profile is recorded or EDID is not programmable. A Cube is checked
+// once instead and only reprogrammed when its receiver advertises modes it
+// cannot capture (checkCubeMonitorEDIDLocked).
 func ProgramMonitorProfileOnFirstStart() (string, error) {
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()
 	return programMonitorProfileOnFirstStartLocked(monitorSettingsBackend{
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
+		readMonitorEDIDLocked,
 	}, BootedVideoPool())
 }
 
 func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool VideoPool) (string, error) {
-	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
+	if hw.requireHardware() != nil {
 		return "", nil
 	}
-	if hw.requireHardware() != nil || hw.powerCycle() {
+	// Before the recorded-profile check: an image that identified a Cube as
+	// PCIe recorded the 100 Hz profile it programmed there.
+	if hw.powerCycle() {
+		return checkCubeMonitorEDIDLocked(hw)
+	}
+	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}
 	// Fitting may have failed, or the saved state may have changed since it ran.
@@ -78,6 +94,48 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 		return "", err
 	}
 	return path, nil
+}
+
+// A Cube receiver keeps its EDID in flash across reinstalls, and writing it
+// needs a power cycle, so the first start does not program it. An EDID left by
+// another system or by an image that identified the board as PCIe can still
+// advertise 1920x1080 at 100 Hz or larger modes, which the source then sends
+// and the Cube cannot capture. Read it once and program the saved Cube profile
+// only then; the power-cycle reminder follows from the write.
+func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (string, error) {
+	if _, err := os.Stat(monitorEDIDCheckedFile); err == nil {
+		return "", nil
+	}
+	edid, err := hw.read()
+	if err == nil && !edidValid(edid) {
+		err = errors.New("invalid EDID header or checksum")
+	}
+	if err != nil {
+		return "", fmt.Errorf("checking the Cube receiver EDID: %w", err)
+	}
+	mode, beyond := edidBeyondCube(edid)
+	if !beyond {
+		return "", markMonitorEDIDCheckedLocked()
+	}
+	height := savedMonitorResolutionLocked()
+	if height != 720 && height != 1080 {
+		height = 0 // Auto: the Cube's 1080p profile
+	}
+	path := cubeMonitorProfilePath(height)
+	log.Warnf("the HDMI receiver EDID advertises %s, beyond the Cube's 720p/1080p at 60 Hz; programming %s", mode, path)
+	if err := hw.apply(path); err != nil {
+		return "", err
+	}
+	if height != savedMonitorResolutionLocked() {
+		if err := atomicWriteMonitorFile(monitorResolutionFile, []byte(fmt.Sprint(height)), ".monitor_resolution-*"); err != nil {
+			return path, fmt.Errorf("saving monitor resolution failed: %w", err)
+		}
+	}
+	return path, markMonitorEDIDCheckedLocked()
+}
+
+func markMonitorEDIDCheckedLocked() error {
+	return atomicWriteMonitorFile(monitorEDIDCheckedFile, []byte("1\n"), ".monitor_edid_checked-*")
 }
 
 func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBackend) error {

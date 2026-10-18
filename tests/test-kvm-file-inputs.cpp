@@ -1,5 +1,4 @@
-// Included after the production get/set HDMI mode and ION-check functions.
-#include <algorithm>
+// Included after the production get/set HDMI mode and rejected-input functions.
 #include <limits>
 #include <stdexcept>
 #include <vector>
@@ -15,64 +14,6 @@ static void write_file(const std::string &path, const std::string &contents) {
     expect(fp != nullptr, "open fixture");
     expect(std::fwrite(contents.data(), 1, contents.size(), fp) == contents.size(), "write fixture");
     expect(std::fclose(fp) == 0, "close fixture");
-}
-
-static ssize_t partial_read_error(void *cookie, char *buffer, size_t size) {
-    unsigned &calls = *static_cast<unsigned *>(cookie);
-    if (calls++ == 0) {
-        const char text[] = "usage rate:100%, memory usage peak 123 bytes\n";
-        const size_t count = std::min(size, sizeof(text) - 1);
-        std::memcpy(buffer, text, count);
-        return static_cast<ssize_t>(count);
-    }
-    errno = EIO;
-    return -1;
-}
-
-static void test_ion(const std::string &path, const std::string &directory) {
-    // Every valid percentage is normal, 100 included: only a video memory
-    // shortage of 30 s reboots.
-    for (int rate = 0; rate <= 100; ++rate) {
-        const std::string text = "Summary:\n[0] carveout heap size:78643200 bytes, used:31010816 bytes\n  usage rate:"
-            + std::to_string(rate) + "%, memory usage peak 31010816 bytes\n";
-        expect(nanokvm::ion_usage_rate_from_summary(text.c_str()) == rate, "parse percentage");
-        write_file(path, text);
-        fake_short_ms = 0;
-        expect(chack_ion() == 2, "full pool is normal");
-        fake_short_ms = 29999;
-        expect(chack_ion() == 2, "short shortage is normal");
-        fake_short_ms = 30000;
-        expect(chack_ion() == 1, "lasting shortage reboots");
-    }
-    fake_short_ms = 30000;
-    for (const char *text : {"", "Summary:\n", "usage rate:%", "usage rate:-1%", "usage rate:+95%",
-        "usage rate:101%", "usage rate:99999999999999999999999999%", "usage rate:100",
-        "usage rate:100junk%", "usage rate:95.5%", "usage rate:\n95%", "not usage rate:100%"}) {
-        expect(nanokvm::ion_usage_rate_from_summary(text) == -1, "reject malformed percentage");
-        write_file(path, text);
-        expect(chack_ion() == 0, "malformed input cannot reboot");
-    }
-    expect(nanokvm::ion_usage_rate_from_summary(nullptr) == -1, "reject null summary");
-    expect(nanokvm::ion_usage_rate_from_summary("\tusage rate:\t95 %") == 95, "allow horizontal whitespace");
-    expect(nanokvm::ion_usage_rate_from_stream(nullptr) == -1, "reject null stream");
-    expect(nanokvm::ion_usage_rate_from_file(nullptr) == -1, "reject null path");
-    expect(unlink(path.c_str()) == 0, "remove ION fixture");
-    expect(chack_ion() == 0, "missing debugfs input cannot reboot");
-    expect(nanokvm::ion_usage_rate_from_file(directory.c_str()) == -1, "directory read error");
-
-    unsigned calls = 0;
-    cookie_io_functions_t functions = {};
-    functions.read = partial_read_error;
-    FILE *fp = fopencookie(&calls, "r", functions);
-    expect(fp != nullptr, "open failing stream");
-    expect(nanokvm::ion_usage_rate_from_stream(fp) == -1, "reject read error after valid percentage");
-    expect(std::ferror(fp) != 0, "read error was exercised");
-    expect(std::fclose(fp) == 0, "close failing stream");
-
-    write_file(path, "usage rate:100%\n" + std::string(100000, 'x'));
-    expect(chack_ion() == 1, "ignore long per-buffer table");
-    write_file(path, std::string(511, ' ') + "usage rate:100%\n");
-    expect(chack_ion() == 0, "bounded read does not scan entire table");
 }
 
 static void test_stamp() {
@@ -228,11 +169,8 @@ int main(int argc, char **argv) {
     if (argc != 2) return 2;
     const std::string directory = argv[1];
     const std::string mode = directory + "/hdmi_mode";
-    const std::string ion = directory + "/ion_summary";
     hdmi_mode_path = mode.c_str();
-    ion_summary_path = ion.c_str();
     try {
-        test_ion(ion, directory);
         test_stamp();
         test_mode(mode, directory);
         test_rejected_input(directory);
@@ -240,6 +178,6 @@ int main(int argc, char **argv) {
         std::fprintf(stderr, "FAIL: %s\n", error.what());
         return 1;
     }
-    std::printf("Native ION, HDMI mode and rejected-input regressions passed (%u checks)\n", checks);
+    std::printf("Native HDMI mode and rejected-input regressions passed (%u checks)\n", checks);
     return 0;
 }

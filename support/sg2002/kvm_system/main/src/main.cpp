@@ -166,7 +166,6 @@ void* thread_sys_handle(void *)
 		}
 
 		kvms::sleep_ms(STATE_DELAY);
-		auto_remove_temp_watchdog();
     }
 	kvm_sys_state.sys_thread_running = 0;
 	return nullptr;
@@ -252,24 +251,8 @@ int main(int argc, char* argv[])
 	}
 
 	// while(!app::need_exit()){
-	uint8_t kvm_wd_count = 0;
-	int kvm_wd_state = 0;
 	while(kvm_sys_state.sys_thread_running){
 		kvms::sleep_ms(1000);
-		if(watchdog_sf_is_open()){
-			kvm_wd_state = check_watchdog();
-			if(kvm_wd_state == 1) kvm_wd_count = 0;
-			else if(kvm_wd_state == 0) {
-				kvm_wd_count++;
-				printf("Vision service unresponsive : %d\n", kvm_wd_count);
-			}
-			if(kvm_wd_count > KVM_WD_COUNT_MAX){
-				printf("Vision service unresponsive, restart now\n");
-				system("reboot");
-			}
-		} else {
-			kvm_wd_count = 0;
-		}
 	}
 	kvm_sys_state.sys_thread_running = 0;
 	kvm_sys_state.oled_thread_running = 0;

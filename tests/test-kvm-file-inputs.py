@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compile/run native file-input regressions without the camera SDK or device.
 
-The harness uses the real HDMI mode and watchdog-check functions, with only
+The harness uses the real HDMI mode and rejected-input functions, with only
 paths, the clock and fopen replaced. Optional CXXFLAGS can enable sanitizers.
 """
 from pathlib import Path
@@ -29,7 +29,6 @@ def function(signature):
 
 
 prefix = r'''#include "internal/file_stamp.hpp"
-#include "internal/ion_summary.hpp"
 #include "internal/small_file.hpp"
 #include <cstdarg>
 #include <cstdlib>
@@ -41,7 +40,6 @@ prefix = r'''#include "internal/file_stamp.hpp"
 static const char *hdmi_mode_path;
 static const char *rejected_input_path;
 static const char *rejected_input_tmp_path;
-static const char *ion_summary_path;
 static constexpr uint32_t hdmi_mode_max_age_ms = 1000U;
 static nanokvm::FileStamp hdmi_mode_stamp;
 static struct { uint8_t hdmi_mode = 0; } kvmv_cfg;
@@ -57,15 +55,12 @@ static FILE *mode_fopen(const char *path, const char *mode) {
     return std::fopen(path, mode);
 }
 static void debug(const char *, ...) {}
-static uint32_t fake_short_ms = 0;
-static uint32_t mmf_video_memory_short_ms(void) { return fake_short_ms; }
 #define fopen mode_fopen
 '''
 functions = "\n\n".join(function(signature) for signature in (
     "static void publish_rejected_input(uint16_t _width, uint16_t _height)",
     "int set_hdmi_mode(uint8_t _hdmi_mode)",
     "int get_hdmi_mode(void)",
-    "uint8_t chack_ion()",
 ))
 harness = (repo / "tests/test-kvm-file-inputs.cpp").read_text()
 with tempfile.TemporaryDirectory(prefix="kvm-file-inputs-") as directory:

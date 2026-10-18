@@ -50,11 +50,9 @@ typedef struct {
 } venc_info_t;
 
 typedef enum {
-	MMF_MOD_VO,
 	MMF_MOD_VI,
 	MMF_MOD_VPSS,
 	MMF_MOD_VENC,
-	MMF_MOD_VDEC,
 } mmf_mod_type_t;
 
 typedef struct {
@@ -88,7 +86,6 @@ typedef struct {
 	int enc_jpg_quality;
 	VIDEO_FRAME_INFO_S *enc_jpg_frame;
 	int enc_jpg_input_pool_id;
-	int enc_jpg_output_pool_id;
 
 	venc_info_t venc[MMF_VENC_MAX_CHN];
 
@@ -442,6 +439,9 @@ static int _destroy_vb_pool(uint32_t pool_id)
 }
 
 static SAMPLE_VI_CONFIG_S g_stViConfig;
+static int mmf_vi_deinit(void);
+static int mmf_del_vi_channel_all(void);
+static int mmf_del_venc_channel_all(void);
 static CVI_S32 _mmf_vpss_deinit_new(VPSS_GRP VpssGrp);
 
 static inline CVI_VOID VENC_GetPicBufferConfig2(CVI_U32 u32Width, CVI_U32 u32Height,
@@ -581,21 +581,6 @@ error:
 	return s32Ret;
 }
 
-static CVI_S32 _mmf_vpss_deinit(VPSS_GRP VpssGrp, VPSS_CHN VpssChn)
-{
-	CVI_BOOL           abChnEnable[VPSS_MAX_PHY_CHN_NUM] = {0};
-	CVI_S32 s32Ret = CVI_SUCCESS;
-
-	/*start vpss*/
-	abChnEnable[VpssChn] = CVI_TRUE;
-	s32Ret = SAMPLE_COMM_VPSS_Stop(VpssGrp, abChnEnable);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("init vpss group failed. s32Ret: 0x%x !\n", s32Ret);
-	}
-
-	return s32Ret;
-}
-
 static CVI_S32 _mmf_vpss_deinit_new(VPSS_GRP VpssGrp)
 {
 	CVI_S32 s32Ret = CVI_SUCCESS;
@@ -612,135 +597,6 @@ static CVI_S32 _mmf_vpss_deinit_new(VPSS_GRP VpssGrp)
 		return CVI_FAILURE;
 	}
 
-	return s32Ret;
-}
-
-// fit = 0, width to new width, height to new height, may be stretch
-// fit = 1, keep aspect ratio, fill blank area with black color
-// fit = other, keep aspect ratio, crop image to fit new size
-static CVI_S32 _mmf_vpss_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, SIZE_S stSizeIn, SIZE_S stSizeOut, PIXEL_FORMAT_E formatIn, PIXEL_FORMAT_E formatOut,
-int fps, int depth, bool mirror, bool flip, int fit)
-{
-	VPSS_GRP_ATTR_S    stVpssGrpAttr;
-	VPSS_CROP_INFO_S   stGrpCropInfo;
-	CVI_BOOL           abChnEnable[VPSS_MAX_PHY_CHN_NUM] = {0};
-	VPSS_CHN_ATTR_S    astVpssChnAttr[VPSS_MAX_PHY_CHN_NUM];
-	CVI_S32 s32Ret = CVI_SUCCESS;
-
-	memset(&stVpssGrpAttr, 0, sizeof(VPSS_GRP_ATTR_S));
-	stVpssGrpAttr.stFrameRate.s32SrcFrameRate    = -1;
-	stVpssGrpAttr.stFrameRate.s32DstFrameRate    = -1;
-	stVpssGrpAttr.enPixelFormat                  = formatIn;
-	stVpssGrpAttr.u32MaxW                        = stSizeIn.u32Width;
-	stVpssGrpAttr.u32MaxH                        = stSizeIn.u32Height;
-	stVpssGrpAttr.u8VpssDev                      = 0;
-
-	CVI_FLOAT corp_scale_w = (CVI_FLOAT)stSizeIn.u32Width / stSizeOut.u32Width;
-	CVI_FLOAT corp_scale_h = (CVI_FLOAT)stSizeIn.u32Height / stSizeOut.u32Height;
-	CVI_U32 crop_w = -1, crop_h = -1;
-	if (fit == 0) {
-		memset(astVpssChnAttr, 0, sizeof(VPSS_CHN_ATTR_S) * VPSS_MAX_PHY_CHN_NUM);
-		astVpssChnAttr[VpssChn].u32Width                    = stSizeOut.u32Width;
-		astVpssChnAttr[VpssChn].u32Height                   = stSizeOut.u32Height;
-		astVpssChnAttr[VpssChn].enVideoFormat               = VIDEO_FORMAT_LINEAR;
-		astVpssChnAttr[VpssChn].enPixelFormat               = formatOut;
-		astVpssChnAttr[VpssChn].stFrameRate.s32SrcFrameRate = fps;
-		astVpssChnAttr[VpssChn].stFrameRate.s32DstFrameRate = fps;
-		astVpssChnAttr[VpssChn].u32Depth                    = depth;
-		astVpssChnAttr[VpssChn].bMirror                     = mirror;
-		astVpssChnAttr[VpssChn].bFlip                       = flip;
-		astVpssChnAttr[VpssChn].stAspectRatio.enMode        = ASPECT_RATIO_MANUAL;
-		astVpssChnAttr[VpssChn].stAspectRatio.stVideoRect.s32X       = 0;
-		astVpssChnAttr[VpssChn].stAspectRatio.stVideoRect.s32Y       = 0;
-		astVpssChnAttr[VpssChn].stAspectRatio.stVideoRect.u32Width   = stSizeOut.u32Width;
-		astVpssChnAttr[VpssChn].stAspectRatio.stVideoRect.u32Height  = stSizeOut.u32Height;
-		astVpssChnAttr[VpssChn].stAspectRatio.bEnableBgColor = CVI_TRUE;
-		astVpssChnAttr[VpssChn].stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
-		astVpssChnAttr[VpssChn].stNormalize.bEnable         = CVI_FALSE;
-
-		stGrpCropInfo.bEnable = false;
-	} else if (fit == 1) {
-		memset(astVpssChnAttr, 0, sizeof(VPSS_CHN_ATTR_S) * VPSS_MAX_PHY_CHN_NUM);
-		astVpssChnAttr[VpssChn].u32Width                    = stSizeOut.u32Width;
-		astVpssChnAttr[VpssChn].u32Height                   = stSizeOut.u32Height;
-		astVpssChnAttr[VpssChn].enVideoFormat               = VIDEO_FORMAT_LINEAR;
-		astVpssChnAttr[VpssChn].enPixelFormat               = formatOut;
-		astVpssChnAttr[VpssChn].stFrameRate.s32SrcFrameRate = fps;
-		astVpssChnAttr[VpssChn].stFrameRate.s32DstFrameRate = fps;
-		astVpssChnAttr[VpssChn].u32Depth                    = depth;
-		astVpssChnAttr[VpssChn].bMirror                     = mirror;
-		astVpssChnAttr[VpssChn].bFlip                       = flip;
-		astVpssChnAttr[VpssChn].stAspectRatio.enMode        = ASPECT_RATIO_AUTO;
-		astVpssChnAttr[VpssChn].stAspectRatio.bEnableBgColor = CVI_TRUE;
-		astVpssChnAttr[VpssChn].stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
-		astVpssChnAttr[VpssChn].stNormalize.bEnable         = CVI_FALSE;
-
-		stGrpCropInfo.bEnable = false;
-	} else {
-		memset(astVpssChnAttr, 0, sizeof(VPSS_CHN_ATTR_S) * VPSS_MAX_PHY_CHN_NUM);
-		astVpssChnAttr[VpssChn].u32Width                    = stSizeOut.u32Width;
-		astVpssChnAttr[VpssChn].u32Height                   = stSizeOut.u32Height;
-		astVpssChnAttr[VpssChn].enVideoFormat               = VIDEO_FORMAT_LINEAR;
-		astVpssChnAttr[VpssChn].enPixelFormat               = formatOut;
-		astVpssChnAttr[VpssChn].stFrameRate.s32SrcFrameRate = fps;
-		astVpssChnAttr[VpssChn].stFrameRate.s32DstFrameRate = fps;
-		astVpssChnAttr[VpssChn].u32Depth                    = depth;
-		astVpssChnAttr[VpssChn].bMirror                     = mirror;
-		astVpssChnAttr[VpssChn].bFlip                       = flip;
-		astVpssChnAttr[VpssChn].stAspectRatio.enMode        = ASPECT_RATIO_AUTO;
-		astVpssChnAttr[VpssChn].stAspectRatio.bEnableBgColor = CVI_TRUE;
-		astVpssChnAttr[VpssChn].stAspectRatio.u32BgColor    = COLOR_RGB_BLACK;
-		astVpssChnAttr[VpssChn].stNormalize.bEnable         = CVI_FALSE;
-
-		crop_w = corp_scale_w < corp_scale_h ? stSizeOut.u32Width * corp_scale_w: stSizeOut.u32Width * corp_scale_h;
-		crop_h = corp_scale_w < corp_scale_h ? stSizeOut.u32Height * corp_scale_w: stSizeOut.u32Height * corp_scale_h;
-		if (corp_scale_h < 0 || corp_scale_w < 0) {
-			SAMPLE_PRT("crop scale error. corp_scale_w: %f, corp_scale_h: %f\n", corp_scale_w, corp_scale_h);
-			goto error;
-		}
-
-		stGrpCropInfo.bEnable = true;
-		stGrpCropInfo.stCropRect.s32X = (stSizeIn.u32Width - crop_w) / 2;
-		stGrpCropInfo.stCropRect.s32Y = (stSizeIn.u32Height - crop_h) / 2;
-		stGrpCropInfo.stCropRect.u32Width = crop_w;
-		stGrpCropInfo.stCropRect.u32Height = crop_h;
-	}
-
-	/*start vpss*/
-	abChnEnable[0] = CVI_TRUE;
-	s32Ret = SAMPLE_COMM_VPSS_Init(VpssGrp, abChnEnable, &stVpssGrpAttr, astVpssChnAttr);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("init vpss group failed. s32Ret: 0x%x ! retry!!!\n", s32Ret);
-		s32Ret = SAMPLE_COMM_VPSS_Stop(VpssGrp, abChnEnable);
-		if (s32Ret != CVI_SUCCESS) {
-			SAMPLE_PRT("stop vpss group failed. s32Ret: 0x%x !\n", s32Ret);
-		}
-		s32Ret = SAMPLE_COMM_VPSS_Init(VpssGrp, abChnEnable, &stVpssGrpAttr, astVpssChnAttr);
-		if (s32Ret != CVI_SUCCESS) {
-			SAMPLE_PRT("retry to init vpss group failed. s32Ret: 0x%x !\n", s32Ret);
-			return s32Ret;
-		} else {
-			SAMPLE_PRT("retry to init vpss group ok!\n");
-		}
-	}
-
-	if (crop_w != 0 && crop_h != 0) {
-		s32Ret = CVI_VPSS_SetChnCrop(VpssGrp, VpssChn, &stGrpCropInfo);
-		if (s32Ret != CVI_SUCCESS) {
-			SAMPLE_PRT("set vpss group crop failed. s32Ret: 0x%x !\n", s32Ret);
-			goto error;
-		}
-	}
-
-	s32Ret = SAMPLE_COMM_VPSS_Start(VpssGrp, abChnEnable, &stVpssGrpAttr, astVpssChnAttr);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("start vpss group failed. s32Ret: 0x%x !\n", s32Ret);
-		goto error;
-	}
-
-	return s32Ret;
-error:
-	_mmf_vpss_deinit(VpssGrp, VpssChn);
 	return s32Ret;
 }
 
@@ -918,10 +774,6 @@ int mmf_try_deinit(bool force) {
 	return CVI_SUCCESS;
 }
 
-int mmf_deinit(void) {
-    return mmf_try_deinit(false);
-}
-
 int mmf_get_vi_unused_channel(void) {
 	return _vi_get_unused_ch();
 }
@@ -1092,7 +944,7 @@ int mmf_vi_init(void)
 	return s32Ret;
 }
 
-int mmf_vi_deinit(void)
+static int mmf_vi_deinit(void)
 {
 	if (!priv.vi_is_inited) {
 		return 0;
@@ -1141,8 +993,7 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 		return -1;
 	}
 
-	if (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16
-		&& format != PIXEL_FORMAT_RGB_888) {
+	if (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16) {
 		printf("invalid format\n");
 		return -1;
 	}
@@ -1226,11 +1077,6 @@ int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int
     return result;
 }
 
-int mmf_add_vi_channel(int ch, int width, int height, int format) {
-	printf("mmf_add_vi_channel..\r\n");
-	return mmf_add_vi_channel_configured(ch, width, height, format, 4, 2);
-}
-
 int mmf_del_vi_channel(int ch) {
  if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
  if (!priv.vi_chn_is_inited[ch]) return CVI_SUCCESS;
@@ -1260,7 +1106,7 @@ int mmf_del_vi_channel(int ch) {
  return CVI_SUCCESS;
 }
 
-int mmf_del_vi_channel_all() {
+static int mmf_del_vi_channel_all(void) {
 	for (int i = 0; i < MMF_VI_MAX_CHN; i++) {
 		if (priv.vi_chn_is_inited[i] == true) {
 			const int result = mmf_del_vi_channel(i);
@@ -1285,39 +1131,6 @@ int mmf_reset_vi_channel(int ch, int width, int height, int format)
 	const int result = mmf_del_vi_channel(ch);
 	if (result != CVI_SUCCESS) return result;
 	return mmf_add_vi_channel_configured(ch, width, height, format, buffers, depth);
-}
-
-int mmf_vi_aligned_width(int ch) {
-	UNUSED(ch);
-	return DEFAULT_ALIGN;
-}
-
-int mmf_vi_frame_pop(int ch, void **data, int *len, int *width, int *height, int *format) {
-	if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
-		printf("[%d] invalid ch %d\n", __LINE__, ch);
-		return -1;
-	}
-	if (!priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]) {
-        return -1;
-    }
-    if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
-        printf("[%d] invalid ch %d\n", __LINE__, ch);
-        return -1;
-    }
-    if (data == NULL || len == NULL || width == NULL || height == NULL || format == NULL) {
-        printf("invalid param\n");
-        return -1;
-    }
-
-	if (_mmf_acquire_vi_frame(ch, len, width, height, format) != 0) {
-		return -1;
-	}
-	*data = _mmf_map_vi_frame(ch);
-	if (*data == NULL) {
-		_mmf_release_vi_frame(ch);
-		return -1;
-	}
-	return 0;
 }
 
 int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
@@ -1427,15 +1240,14 @@ static CVI_U32 jpeg_stream_buffer(int w, int h)
 	return (bytes + 0x3ff) & ~0x3ffu; // the driver needs a multiple of 1 KiB
 }
 
-int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
+static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 {
 	if (priv.enc_jpg_is_init)
 		return 0;
 
     if (ch < 0 || ch >= MMF_VENC_MAX_CHN || w <= 0 || h <= 0
         || w > UINT16_MAX || h > UINT16_MAX || quality < 20 || quality > 99
-        || (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16 && format != PIXEL_FORMAT_RGB_888)
-        || ((format == PIXEL_FORMAT_NV21 || format == PIXEL_FORMAT_NV16) && (w % 2 || h % 2))) {
+        || (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16) || w % 2 || h % 2) {
         printf("Invalid JPEG channel, size, format or quality\n");
 		return -1;
 	}
@@ -1498,65 +1310,9 @@ int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		return s32Ret;
 	}
 
-	switch (format) {
-	case PIXEL_FORMAT_RGB_888:
-		{
-			s32Ret = _mmf_vpss_init(2, ch, (SIZE_S){(CVI_U32)w, (CVI_U32)h}, (SIZE_S){(CVI_U32)w, (CVI_U32)h}, PIXEL_FORMAT_RGB_888, PIXEL_FORMAT_YUV_PLANAR_420, 30, 0, CVI_FALSE, CVI_FALSE, 0);
-			if (s32Ret != CVI_SUCCESS) {
-				printf("VPSS init failed with %#x\n", s32Ret);
-				CVI_VENC_StopRecvFrame(ch);
-				CVI_VENC_DestroyChn(ch);
-				return s32Ret;
-			}
-
-			s32Ret = SAMPLE_COMM_VPSS_Bind_VENC(2, ch, ch);
-			if (s32Ret != CVI_SUCCESS) {
-				printf("VPSS bind VENC failed with %#x\n", s32Ret);
-				_mmf_vpss_deinit(2, ch);
-				CVI_VENC_StopRecvFrame(ch);
-				CVI_VENC_DestroyChn(ch);
-				return s32Ret;
-			}
-
-			uint32_t input_size = 0, output_size = 0;
-			input_size = COMMON_GetPicBufferSize(w, h, (PIXEL_FORMAT_E)format, DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
-			output_size = COMMON_GetPicBufferSize(w, h, (PIXEL_FORMAT_E)PIXEL_FORMAT_YUV_PLANAR_420, DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
-			int pool_id = _create_vb_pool((char *)"enc_jpeg_in", MMF_MOD_VENC, input_size, 1);
-			if (pool_id < 0) {
-				printf("[%s][%d]_create_vb_pool failed, id %d\n", __func__, __LINE__, pool_id);
-				return -1;
-			}
-			priv.enc_jpg_input_pool_id = pool_id;
-
-			pool_id = _create_vb_pool((char *)"enc_jpeg_out", MMF_MOD_VENC, output_size, 1);
-			if (pool_id < 0) {
-				printf("[%s][%d]_create_vb_pool failed, id %d\n", __func__, __LINE__, pool_id);
-				return -1;
-			}
-			priv.enc_jpg_output_pool_id = pool_id;
-
-			s32Ret = CVI_VPSS_AttachVbPool(2, ch, priv.enc_jpg_output_pool_id);
-			if (s32Ret != CVI_SUCCESS) {
-				SAMPLE_PRT("CVI_VPSS_AttachVbPool failed. s32Ret: 0x%x !\n", s32Ret);
-				_destroy_vb_pool(priv.enc_jpg_output_pool_id);
-				_destroy_vb_pool(priv.enc_jpg_input_pool_id);
-				return CVI_FAILURE;
-			}
-		}
-		break;
-	case PIXEL_FORMAT_NV21:
-	case PIXEL_FORMAT_NV16:
-		{
-			// Native semi-planar frames already own their VPSS buffer.
-			priv.enc_jpg_input_pool_id = VB_INVALID_POOLID;
-		}
-		break;
-	default:
-		printf("unknown format!\n");
-		CVI_VENC_StopRecvFrame(ch);
-		CVI_VENC_DestroyChn(ch);
-		return -1;
-	}
+	// Native semi-planar frames already own their VPSS buffer; a copy
+	// buffer is allocated only by the copied fallback (_mmf_jpg_push_copy).
+	priv.enc_jpg_input_pool_id = VB_INVALID_POOLID;
 
 	VENC_RECV_PIC_PARAM_S stRecvParam;
 	stRecvParam.s32RecvPicNum = -1;
@@ -1592,24 +1348,6 @@ int mmf_enc_jpg_deinit(int ch)
 		mmf_enc_jpg_free(ch);
 	}
 
-	switch (priv.enc_jpg_frame_fmt) {
-	case PIXEL_FORMAT_RGB_888:
-		s32Ret = SAMPLE_COMM_VPSS_UnBind_VENC(2, ch, ch);
-		if (s32Ret != CVI_SUCCESS) {
-			printf("VPSS unbind VENC failed with %d\n", s32Ret);
-		}
-
-		s32Ret = _mmf_vpss_deinit(2, ch);
-		if (s32Ret != CVI_SUCCESS) {
-			printf("VPSS deinit failed with %d\n", s32Ret);
-		}
-		break;
-	case PIXEL_FORMAT_NV21:
-		break;
-	default:
-		break;
-	}
-
 	s32Ret = CVI_VENC_StopRecvFrame(ch);
 	if (s32Ret != CVI_SUCCESS) {
 		printf("CVI_VENC_StopRecvPic failed with %d\n", s32Ret);
@@ -1631,23 +1369,10 @@ int mmf_enc_jpg_deinit(int ch)
 		priv.enc_jpg_frame = NULL;
 	}
 
-	switch (priv.enc_jpg_frame_fmt) {
-	case PIXEL_FORMAT_RGB_888:
-		_destroy_vb_pool(priv.enc_jpg_output_pool_id);
-		priv.enc_jpg_output_pool_id = -1;
-		_destroy_vb_pool(priv.enc_jpg_input_pool_id);
-		priv.enc_jpg_input_pool_id = -1;
-		break;
-	case PIXEL_FORMAT_NV21:
-	case PIXEL_FORMAT_NV16:
-		_destroy_vb_pool(priv.enc_jpg_input_pool_id);
-		priv.enc_jpg_input_pool_id = -1;
-		break;
-	default:
-		break;
-	}
+	_destroy_vb_pool(priv.enc_jpg_input_pool_id);
+	priv.enc_jpg_input_pool_id = VB_INVALID_POOLID;
 
-	if (mmf_deinit()) {
+	if (mmf_try_deinit(false)) {
 		return -1;
 	}
 
@@ -1679,16 +1404,14 @@ static int _mmf_jpg_update_quality(int ch, int quality)
 static int _mmf_jpg_push_copy(int ch, uint8_t *data, int w, int h, int format, int quality,
                               const VIDEO_FRAME_INFO_S *source)
 {
-    if (ch < 0 || ch >= MMF_VENC_MAX_CHN || !data || w <= 0 || h <= 0
-        || (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_RGB_888 && format != PIXEL_FORMAT_UINT8_C1))
+    if (ch < 0 || ch >= MMF_VENC_MAX_CHN || !data || w <= 0 || h <= 0 || format != PIXEL_FORMAT_NV21)
         return CVI_FAILURE;
     if (priv.enc_jpg_running) return CVI_FAILURE;
-    const int encoder_format = format == PIXEL_FORMAT_UINT8_C1 ? PIXEL_FORMAT_NV21 : format;
     if (!priv.enc_jpg_is_init || priv.enc_jpg_frame_w != w || priv.enc_jpg_frame_h != h
-        || priv.enc_jpg_frame_fmt != encoder_format) {
+        || priv.enc_jpg_frame_fmt != format) {
         const int stopped = mmf_enc_jpg_deinit(ch);
         if (stopped != CVI_SUCCESS) return stopped;
-        const int started = mmf_enc_jpg_init(ch, w, h, encoder_format, quality);
+        const int started = mmf_enc_jpg_init(ch, w, h, format, quality);
         if (started != CVI_SUCCESS) return started;
     }
     const int updated = _mmf_jpg_update_quality(ch, quality);
@@ -1696,7 +1419,7 @@ static int _mmf_jpg_push_copy(int ch, uint8_t *data, int w, int h, int format, i
     if (!priv.enc_jpg_frame) {
         bool created = false;
         if (priv.enc_jpg_input_pool_id == (int)VB_INVALID_POOLID) {
-            const uint32_t size = COMMON_GetPicBufferSize(w, h, (PIXEL_FORMAT_E)encoder_format,
+            const uint32_t size = COMMON_GetPicBufferSize(w, h, (PIXEL_FORMAT_E)format,
                 DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
             const int pool = _create_vb_pool((char *)"enc_jpeg_in", MMF_MOD_VENC, size, 1);
             if (pool < 0) return CVI_FAILURE;
@@ -1704,7 +1427,7 @@ static int _mmf_jpg_push_copy(int ch, uint8_t *data, int w, int h, int format, i
             created = true;
         }
         priv.enc_jpg_frame = _mmf_alloc_frame(priv.enc_jpg_input_pool_id, {(CVI_U32)w, (CVI_U32)h},
-                                             (PIXEL_FORMAT_E)encoder_format);
+                                             (PIXEL_FORMAT_E)format);
         if (!priv.enc_jpg_frame) {
             if (created) {
                 _destroy_vb_pool(priv.enc_jpg_input_pool_id);
@@ -1717,9 +1440,7 @@ static int _mmf_jpg_push_copy(int ch, uint8_t *data, int w, int h, int format, i
         ? nanokvm::media::copy_mapped_nv21_and_flush(priv.enc_jpg_frame, source, data)
         : nanokvm::media::copy_packed_and_flush(priv.enc_jpg_frame, data, w, h, (PIXEL_FORMAT_E)format);
     if (copied != CVI_SUCCESS) return copied;
-    const int sent = format == PIXEL_FORMAT_RGB_888
-        ? CVI_VPSS_SendFrame(2, priv.enc_jpg_frame, 1000)
-        : CVI_VENC_SendFrame(ch, priv.enc_jpg_frame, 1000);
+    const int sent = CVI_VENC_SendFrame(ch, priv.enc_jpg_frame, 1000);
     if (sent == CVI_SUCCESS) priv.enc_jpg_running = 1;
     return sent;
 }
@@ -1891,23 +1612,6 @@ int mmf_enc_jpg_free(int ch)
 	return s32Ret;
 }
 
-int mmf_invert_format_to_mmf(int maix_format) {
-	switch (maix_format) {
-		case 0:
-			return PIXEL_FORMAT_RGB_888;
-		case 1:
-			return PIXEL_FORMAT_BGR_888;
-		case 3:
-			return PIXEL_FORMAT_ARGB_8888;
-		case 8:
-			return PIXEL_FORMAT_NV21;
-		case 12:
-			return PIXEL_FORMAT_UINT8_C1;
-		default:
-			return -1;
-	}
-}
-
 void mmf_set_vi_hmirror(int ch, bool en)
 {
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
@@ -1918,17 +1622,6 @@ void mmf_set_vi_hmirror(int ch, bool en)
 	g_priv.vi_hmirror[ch] = en;
 }
 
-void mmf_get_vi_hmirror(int ch, bool *en)
-{
-	if (en == NULL) return;
-	if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
-		printf("invalid ch %d, must be [0, %d)\r\n", ch, MMF_VI_MAX_CHN);
-		return;
-	}
-
-	*en = (bool)g_priv.vi_hmirror[ch];
-}
-
 void mmf_set_vi_vflip(int ch, bool en)
 {
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
@@ -1937,17 +1630,6 @@ void mmf_set_vi_vflip(int ch, bool en)
 	}
 
 	g_priv.vi_vflip[ch] = en;
-}
-
-void mmf_get_vi_vflip(int ch, bool *en)
-{
-	if (en == NULL) return;
-	if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
-		printf("invalid ch %d, must be [0, %d)\r\n", ch, MMF_VI_MAX_CHN);
-		return;
-	}
-
-	*en = (bool)g_priv.vi_vflip[ch];
 }
 
 /*
@@ -2255,7 +1937,7 @@ int mmf_del_venc_channel(int ch) {
 	return 0;
 }
 
-int mmf_del_venc_channel_all() {
+static int mmf_del_venc_channel_all(void) {
 	for (int i = 0; i < MMF_VENC_MAX_CHN; i ++) {
 		const int result = mmf_del_venc_channel(i);
 		if (result != CVI_SUCCESS) return result;
@@ -2302,8 +1984,7 @@ static int _mmf_venc_push_copy(int ch, uint8_t *data, int w, int h, int format,
 }
 
 int mmf_venc_push(int ch, uint8_t *data, int w, int h, int format) {
-	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || data == NULL
-		|| (format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_RGB_888)) {
+	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || data == NULL || format != PIXEL_FORMAT_NV21) {
 		printf("Invalid param. ch:%d data:%p format:%d\r\n", ch, data, format);
 		return -1;
 	}

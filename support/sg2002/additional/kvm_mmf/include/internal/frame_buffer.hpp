@@ -90,26 +90,22 @@ inline CVI_S32 copy_and_flush(VIDEO_FRAME_INFO_S *destination, const View &sourc
     if (!destination || !source.width || !source.height) return CVI_FAILURE;
     auto &frame = destination->stVFrame;
     if (frame.u32Width != source.width || frame.u32Height != source.height) return CVI_FAILURE;
-    const bool gray = source.format == PIXEL_FORMAT_UINT8_C1;
-    const bool nv21 = source.format == PIXEL_FORMAT_NV21 || gray;
-    if ((!nv21 && source.format != PIXEL_FORMAT_RGB_888)
-        || frame.enPixelFormat != (nv21 ? PIXEL_FORMAT_NV21 : PIXEL_FORMAT_RGB_888)
-        || (nv21 && (source.width % 2 || source.height % 2))) return CVI_FAILURE;
-    const unsigned planes = nv21 ? 2 : 1;
-    const size_t row_bytes = static_cast<size_t>(source.width) * (nv21 ? 1 : 3);
+    if (source.format != PIXEL_FORMAT_NV21 || frame.enPixelFormat != PIXEL_FORMAT_NV21
+        || source.width % 2 || source.height % 2) return CVI_FAILURE;
+    const unsigned planes = 2;
+    const size_t row_bytes = source.width;
     // Validate all planes before writing any destination data or flushing.
     for (unsigned i = 0; i < planes; ++i) {
         const size_t rows = i == 0 ? source.height : source.height / 2;
         const Plane dst{frame.pu8VirAddr[i], frame.u32Length[i], frame.u32Stride[i]};
         if (!frame.u64PhyAddr[i] || !valid_plane(dst, row_bytes, rows)
-            || (!(gray && i == 1) && !valid_plane(source.planes[i], row_bytes, rows))) return CVI_FAILURE;
+            || !valid_plane(source.planes[i], row_bytes, rows)) return CVI_FAILURE;
     }
     for (unsigned i = 0; i < planes; ++i) {
         const size_t rows = i == 0 ? source.height : source.height / 2;
         for (size_t row = 0; row < rows; ++row) {
-            uint8_t *out = frame.pu8VirAddr[i] + row * frame.u32Stride[i];
-            if (gray && i == 1) memset(out, 128, row_bytes);
-            else memcpy(out, source.planes[i].data + row * source.planes[i].stride, row_bytes);
+            memcpy(frame.pu8VirAddr[i] + row * frame.u32Stride[i],
+                   source.planes[i].data + row * source.planes[i].stride, row_bytes);
         }
     }
     // Every CPU-written plane must reach memory before VENC/VPSS can read it.
@@ -122,12 +118,11 @@ inline CVI_S32 copy_and_flush(VIDEO_FRAME_INFO_S *destination, const View &sourc
 inline CVI_S32 copy_packed_and_flush(VIDEO_FRAME_INFO_S *destination, const uint8_t *data,
                                     int width, int height, PIXEL_FORMAT_E format) {
     if (!data || width <= 0 || height <= 0 || width > UINT16_MAX || height > UINT16_MAX) return CVI_FAILURE;
-    const bool rgb = format == PIXEL_FORMAT_RGB_888;
-    const uint32_t stride = static_cast<uint32_t>(width) * (rgb ? 3 : 1);
+    // Packed NV21: the VU plane follows the Y plane, both one width per row.
+    const uint32_t stride = static_cast<uint32_t>(width);
     const size_t y_length = static_cast<size_t>(stride) * height;
-    View source{static_cast<uint32_t>(width), static_cast<uint32_t>(height), format,
-                {{data, y_length, stride}, {nullptr, 0, 0}}};
-    if (format == PIXEL_FORMAT_NV21) source.planes[1] = {data + y_length, y_length / 2, stride};
+    const View source{stride, static_cast<uint32_t>(height), format,
+                      {{data, y_length, stride}, {data + y_length, y_length / 2, stride}}};
     return copy_and_flush(destination, source);
 }
 inline CVI_S32 copy_mapped_nv21_and_flush(VIDEO_FRAME_INFO_S *destination,

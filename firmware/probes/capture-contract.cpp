@@ -22,7 +22,8 @@ int mmf_try_deinit(bool force) { assert(force); ++shutdowns; if (shutdown_error)
 int mmf_get_vi_unused_channel() { ++calls; return !opened[0] ? 0 : !opened[1] ? 1 : -1; }
 void mmf_set_vi_hmirror(int ch, bool value) { assert(ch >= 0 && ch < 2); ++calls; mirror = value; }
 void mmf_set_vi_vflip(int ch, bool value) { assert(ch >= 0 && ch < 2); ++calls; flip = value; }
-int mmf_add_vi_channel(int ch, int w, int h, int fmt) {
+// The one place the fake opens an output; the real MMF has no such export.
+static int add_output(int ch, int w, int h, int fmt) {
     assert(ch >= 0 && ch < 2 && w > 0 && h > 0 && (fmt == nanokvm::nv21_format() || fmt == nanokvm::nv16_format()));
     configured_format = fmt;
     ++adds; ++calls; opened[ch] = !add_error; return add_error;
@@ -30,12 +31,12 @@ int mmf_add_vi_channel(int ch, int w, int h, int fmt) {
 int mmf_del_vi_channel(int ch) { assert(ch >= 0 && ch < 2); if (delete_error) return delete_error; opened[ch] = false; return 0; }
 bool mmf_vi_chn_is_open(int ch) { assert(ch >= 0 && ch < 2); return opened[ch]; }
 int mmf_add_vi_channel_configured(int ch, int w, int h, int fmt, int count, int depth) {
-    assert(count == 2 && depth == 1); return mmf_add_vi_channel(ch,w,h,fmt);
+    assert(count == 2 && depth == 1); return add_output(ch,w,h,fmt);
 }
 static int discarded, drop_result;
 int mmf_vi_drop_pending(int ch) { assert(ch >= 0 && ch < 2 && opened[ch]); ++discarded; return drop_result; }
 int mmf_reset_vi_channel(int ch, int w, int h, int fmt) {
-    const int result=mmf_del_vi_channel(ch); if(result)return result; return mmf_add_vi_channel(ch, w, h, fmt);
+    const int result=mmf_del_vi_channel(ch); if(result)return result; return add_output(ch, w, h, fmt);
 }
 int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *out) {
     assert(ch == 0 && opened[ch]); if (pop_error) return pop_error; *out = supplied; return 0;

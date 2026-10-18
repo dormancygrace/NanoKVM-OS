@@ -220,8 +220,15 @@ func (s *Service) GetScripts(c *gin.Context) {
 		return
 	}
 
+	autostart, err := readAutostart()
+	if err != nil {
+		log.Errorf("read autostart list: %s", err)
+		autostart = []string{}
+	}
 	rsp.OkRspWithData(c, &proto.GetScriptsRsp{
-		Files: files,
+		Files:           files,
+		Autostart:       autostart,
+		AutostartStatus: autostartStatus(autostart),
 	})
 
 	log.Debugf("get scripts total %d", len(files))
@@ -304,9 +311,30 @@ func (s *Service) DeleteScript(c *gin.Context) {
 		rsp.ErrRsp(c, -3, "delete failed")
 		return
 	}
+	if err := setAutostart(ScriptDirectory, req.Name, false); err != nil {
+		log.Errorf("unmark deleted script %q: %s", req.Name, err)
+	}
 
 	rsp.OkRsp(c)
 	log.Debugf("delete script %q success", req.Name)
+}
+
+// SetScriptAutostart marks or unmarks a script to run at startup.
+func (s *Service) SetScriptAutostart(c *gin.Context) {
+	var req proto.SetScriptAutostartReq
+	var rsp proto.Response
+
+	if err := proto.ParseFormRequest(c, &req); err != nil {
+		rsp.ErrRsp(c, -1, "invalid arguments")
+		return
+	}
+	if err := setAutostart(ScriptDirectory, req.Name, req.Enabled); err != nil {
+		log.Errorf("autostart %q: %s", req.Name, err)
+		rsp.ErrRsp(c, -2, "invalid script")
+		return
+	}
+	rsp.OkRsp(c)
+	log.Debugf("autostart %q: %t", req.Name, req.Enabled)
 }
 
 func isScript(name string) bool {

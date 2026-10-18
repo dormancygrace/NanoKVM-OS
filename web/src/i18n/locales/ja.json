@@ -633,7 +633,12 @@
     "confirm": "はい",
     "cancel": "いいえ",
     "delete": "削除",
-    "close": "閉じる"
+    "close": "閉じる",
+    "autostart": "起動時に実行",
+    "autostartHint": "起動のたびにバックグラウンドで 1 回実行されます。詳しくはスクリプトガイドを参照してください。",
+    "autostartRunning": "起動時の実行：実行中",
+    "autostartExited": "起動時の実行：終了コード {{code}}",
+    "autostartFailed": "起動時の実行：開始できませんでした"
   },
   "terminal": {
     "title": "ターミナル",

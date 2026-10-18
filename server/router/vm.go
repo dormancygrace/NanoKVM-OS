@@ -61,10 +61,11 @@ func vmRouter(r *gin.Engine) {
 
 	admin.GET("/vm/terminal", service.Terminal) // web terminal
 
-	admin.GET("/vm/script", service.GetScripts)           // get script
-	admin.POST("/vm/script/upload", service.UploadScript) // upload script
-	admin.POST("/vm/script/run", service.RunScript)       // run script
-	admin.DELETE("/vm/script", service.DeleteScript)      // delete script
+	admin.GET("/vm/script", service.GetScripts)                    // get script
+	admin.POST("/vm/script/upload", service.UploadScript)          // upload script
+	admin.POST("/vm/script/run", service.RunScript)                // run script
+	admin.DELETE("/vm/script", service.DeleteScript)               // delete script
+	admin.POST("/vm/script/autostart", service.SetScriptAutostart) // run a script at startup
 
 	admin.GET("/vm/device/virtual", service.GetVirtualDevice)     // get virtual device
 	admin.POST("/vm/device/virtual", service.UpdateVirtualDevice) // update virtual device
@@ -127,11 +128,6 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/tls/certificate", service.UploadTlsCertificate)        // install a custom certificate
 	admin.POST("/vm/tls/certificate/delete", service.DeleteTlsCertificate) // back to the generated certificate
 	admin.POST("/vm/tls/reload", service.ReloadTls)                        // serve the pair on disk
-
-	admin.GET("/vm/autostart", service.GetAutostart)              // get autostart list
-	admin.GET("/vm/autostart/:name", service.GetAutostartContent) // get autostart content
-	admin.DELETE("/vm/autostart/:name", service.DeleteAutostart)  // delete autostart script
-	admin.POST("/vm/autostart/:name", service.UploadAutostart)    // upload autostart script
 
 	admin.POST("/vm/system/reboot", service.Reboot) // reboot system
 }

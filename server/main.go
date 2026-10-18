@@ -157,6 +157,15 @@ func run() {
 
 	router.Init(r)
 
+	// Scripts marked to run at startup find the web server listening.
+	go func() {
+		port := conf.Port.Http
+		if conf.Proto == "https" {
+			port = conf.Port.Https
+		}
+		vm.StartAutostartWhenListening(conf.Host, port)
+	}()
+
 	httpAddr := utils.ListenAddr(conf.Host, strconv.Itoa(conf.Port.Http))
 	loopbackHTTPAddr := utils.ListenAddr("127.0.0.1", strconv.Itoa(conf.Port.Http))
 	needsLoopbackHTTP := utils.NeedsDedicatedLoopbackListener(conf.Host)

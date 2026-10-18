@@ -633,7 +633,12 @@
     "confirm": "Sí",
     "cancel": "No",
     "delete": "Eliminar",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "autostart": "Ejecutar al iniciar",
+    "autostartHint": "Se ejecuta una vez tras cada arranque, en segundo plano; consulte la guía de scripts.",
+    "autostartRunning": "Ejecución al iniciar: en curso",
+    "autostartExited": "Ejecución al iniciar: código de salida {{code}}",
+    "autostartFailed": "Ejecución al iniciar: no se pudo iniciar"
   },
   "terminal": {
     "title": "Consola",

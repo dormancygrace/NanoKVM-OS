@@ -633,7 +633,12 @@
     "confirm": "确定",
     "cancel": "取消",
     "delete": "删除",
-    "close": "关闭"
+    "close": "关闭",
+    "autostart": "启动时运行",
+    "autostartHint": "每次启动后在后台运行一次；参见脚本指南。",
+    "autostartRunning": "启动时运行：运行中",
+    "autostartExited": "启动时运行：退出代码 {{code}}",
+    "autostartFailed": "启动时运行：无法启动"
   },
   "terminal": {
     "title": "终端",

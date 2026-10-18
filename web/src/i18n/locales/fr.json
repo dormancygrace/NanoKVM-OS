@@ -633,7 +633,12 @@
     "confirm": "Oui",
     "cancel": "Non",
     "delete": "Supprimer",
-    "close": "Fermer"
+    "close": "Fermer",
+    "autostart": "Lancer au démarrage",
+    "autostartHint": "S'exécute une fois après chaque démarrage, en arrière-plan ; voir le guide des scripts.",
+    "autostartRunning": "Lancement au démarrage : en cours",
+    "autostartExited": "Lancement au démarrage : code de sortie {{code}}",
+    "autostartFailed": "Lancement au démarrage : échec du lancement"
   },
   "terminal": {
     "title": "Terminal",

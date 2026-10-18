@@ -123,6 +123,7 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 | **CPU** | Frequency control, thermal protection and an explicit Apply at startup option; an incomplete overclocked startup triggers a 1000 MHz fallback on the next boot |
 | **Diagnostics** | Service, USB, firewall and package-operation status, plus system logs in the GUI |
 | **Terminal** | Browser shell and serial sessions, with shell command history |
+| **Scripts** | Shell and Python scripts on the device, run on demand or once at every startup; see [Scripts](docs/SCRIPTS.md) |
 | **Appearance** | Menu layout/icons, colours, language, web title, bundled branding choices and custom logo/favicon uploads |
 | **Device** | OLED settings, mouse jiggler, date/time and reboot controls |
 

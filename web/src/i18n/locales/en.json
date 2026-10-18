@@ -633,7 +633,12 @@
     "confirm": "Yes",
     "cancel": "No",
     "delete": "Delete",
-    "close": "Close"
+    "close": "Close",
+    "autostart": "Run at startup",
+    "autostartHint": "Runs once after each boot, in the background; see the Scripts guide.",
+    "autostartRunning": "Startup run: running",
+    "autostartExited": "Startup run: exit code {{code}}",
+    "autostartFailed": "Startup run: could not start"
   },
   "terminal": {
     "title": "Terminal",

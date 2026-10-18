@@ -924,18 +924,9 @@ void get_hdmi_version()
         fread(RW_Data, sizeof(char), 2, fp);
         fclose(fp);
         if(RW_Data[0] == 'u'){
-            // 6911uxc
-            if(RW_Data[1] == 'e'){
-                kvmv_cfg.hdmi_version = 2;
-                debug("[hdmi]HDMI-UE exist!\n");
-                set_hdmi_mode(1);
-            } else if(RW_Data[1] == 'x') {
-                kvmv_cfg.hdmi_version = 1;
-                debug("[hdmi]HDMI-UX exist!\n");
-            } else {
-                kvmv_cfg.hdmi_version = 1;
-                debug("[hdmi]Incomplete version number, set to 'ux'\n");
-            }
+            // 6911uxc; S15kvmhwd publishes "ux"
+            kvmv_cfg.hdmi_version = 1;
+            debug("[hdmi]HDMI-UX exist!\n");
         } else if(RW_Data[0] == 'd'){
             // 6911d
             kvmv_cfg.hdmi_version = 3;

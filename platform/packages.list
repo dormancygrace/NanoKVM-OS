@@ -40,6 +40,7 @@ base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/
 base  file  /etc/init.d/nanokvm-board                     0755  firmware/alpine/openrc/nanokvm-board
 base  file  /etc/init.d/nanokvm-mdns                      0755  firmware/alpine/openrc/nanokvm-mdns
 base  file  /etc/init.d/nanokvm-modules                   0755  firmware/alpine/openrc/nanokvm-modules
+base  file  /etc/modprobe.d/nanokvm-media.conf            0644  firmware/alpine/modprobe.d/nanokvm-media.conf
 base  file  /etc/init.d/nanokvm-network                   0755  firmware/alpine/openrc/nanokvm-network
 base  file  /etc/init.d/nanokvm-policy                    0755  firmware/alpine/openrc/nanokvm-policy
 base  file  /etc/init.d/nanokvm-ssh                       0755  firmware/alpine/openrc/nanokvm-ssh

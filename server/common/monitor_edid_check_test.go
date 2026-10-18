@@ -53,6 +53,36 @@ func TestEDIDValid(t *testing.T) {
 	}
 }
 
+func TestEDIDValidRequiresAllDeclaredBlocks(t *testing.T) {
+	good := testEDID(1920, 280, 1080, 45, 14850, 16)
+	if edidValid(good[:128]) {
+		t.Error("accepted missing declared extension")
+	}
+	if edidValid(good[:200]) {
+		t.Error("accepted partial extension")
+	}
+	missing := append([]byte(nil), good...)
+	missing[126]++
+	missing[127]-- // Keep the base checksum valid, but declare two extensions.
+	if edidValid(missing) {
+		t.Error("accepted missing second extension")
+	}
+	complete := append(append([]byte(nil), missing...), make([]byte, 128)...)
+	if !edidValid(complete) {
+		t.Error("rejected complete EDID")
+	}
+	complete[300] = 1
+	if edidValid(complete) {
+		t.Error("accepted corrupt second extension")
+	}
+	baseOnly := append([]byte(nil), good[:128]...)
+	baseOnly[126] = 0
+	baseOnly[127]++
+	if !edidValid(baseOnly) {
+		t.Error("rejected base-only EDID")
+	}
+}
+
 func TestEDIDBeyondCube(t *testing.T) {
 	for _, tc := range []struct {
 		name string

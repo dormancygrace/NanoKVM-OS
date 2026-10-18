@@ -23,10 +23,16 @@ var cubeUnsafeVICs = func() map[byte]bool {
 // so a failed read (all zeros or all ones) is not taken for an EDID without
 // fast modes.
 func edidValid(edid []byte) bool {
-	if len(edid) < 128 || string(edid[:8]) != "\x00\xff\xff\xff\xff\xff\xff\x00" {
+	if len(edid) < 128 || len(edid)%128 != 0 || string(edid[:8]) != "\x00\xff\xff\xff\xff\xff\xff\x00" {
 		return false
 	}
-	for block := 0; block <= int(edid[126]) && (block+1)*128 <= len(edid); block++ {
+	// Never classify a partial read as safe: an omitted extension may contain
+	// the timing that requires replacing the receiver profile.
+	blocks := int(edid[126]) + 1
+	if blocks*128 > len(edid) {
+		return false
+	}
+	for block := 0; block < blocks; block++ {
 		var sum byte
 		for _, b := range edid[block*128 : (block+1)*128] {
 			sum += b

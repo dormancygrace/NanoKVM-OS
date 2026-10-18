@@ -205,3 +205,25 @@ func TestCubeFirstStartIgnoresProfileRecordedAsPCIe(t *testing.T) {
 		t.Fatalf("second start: error %v, reads %d, applied %v", err, reads, applied)
 	}
 }
+
+func TestCubeFirstStartRetriesIncompleteEDID(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	var applied []string
+	hw := firstStartBackend(true, true, &applied, nil)
+	edid := testEDID(1920, 280, 1080, 45, 14850, 16)
+	edid[126]++
+	edid[127]--
+	reads := 0
+	hw.read = func() ([]byte, error) { reads++; return edid, nil }
+	for i := 0; i < 2; i++ {
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err == nil {
+			t.Error("incomplete EDID accepted")
+		}
+	}
+	if reads != 2 || len(applied) != 0 {
+		t.Fatalf("reads %d, writes %d", reads, len(applied))
+	}
+	if _, err := os.Stat(monitorEDIDCheckedFile); !os.IsNotExist(err) {
+		t.Fatal("incomplete EDID marked checked")
+	}
+}

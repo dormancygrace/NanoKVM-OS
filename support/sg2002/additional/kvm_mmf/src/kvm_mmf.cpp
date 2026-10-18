@@ -1277,23 +1277,6 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		return s32Ret;
 	}
 
-	s32Ret = CVI_VENC_ResetChn(ch);
-	if (s32Ret != CVI_SUCCESS) {
-		printf("CVI_VENC_CreateChn [%d] failed with %#x\n", ch, s32Ret);
-		return s32Ret;
-	}
-
-	s32Ret = CVI_VENC_DestroyChn(ch);
-	if (s32Ret != CVI_SUCCESS) {
-		printf("CVI_VENC_destroyChn [%d] failed with %#x\n", ch, s32Ret);
-	}
-
-	s32Ret = CVI_VENC_CreateChn(ch, &stVencChnAttr);
-	if (s32Ret != CVI_SUCCESS) {
-		printf("CVI_VENC_CreateChn [%d] failed with %#x\n", ch, s32Ret);
-		return s32Ret;
-	}
-
 	VENC_JPEG_PARAM_S stJpegParam;
 	memset(&stJpegParam, 0, sizeof(VENC_JPEG_PARAM_S));
 	s32Ret = CVI_VENC_GetJpegParam(ch, &stJpegParam);
@@ -1319,6 +1302,9 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 	s32Ret = CVI_VENC_StartRecvFrame(ch, &stRecvParam);
 	if (s32Ret != CVI_SUCCESS) {
 		printf("CVI_VENC_StartRecvPic failed with %#x\n", s32Ret);
+		// Not yet owned by enc_jpg_is_init: destroy it here, so that no
+		// vendor channel outlives its bookkeeping.
+		CVI_VENC_DestroyChn(ch);
 		return CVI_FAILURE;
 	}
 

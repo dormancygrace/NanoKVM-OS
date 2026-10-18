@@ -5,9 +5,10 @@ Linux/riscv64: a sysmon timer slack and a sysmon sleep floor for GOMAXPROCS=1.
 The source version and original proc.go checksum are pinned in
 go-source-pin.json. The shared Go installation is not modified. Runtime source
 is copied; other GOROOT components are symlinked and the base installation must
-remain available. prepare.py patches three sites in the pinned proc.go: a
-startup hook at the start of sysmon, a thread hook after minit in mstart1, and
-the argument of sysmon's per-iteration usleep. Other OS/architecture
+remain available. prepare.py patches four sites in the pinned proc.go: a
+startup hook at the start of sysmon, a thread hook after minit in mstart1,
+the argument of sysmon's per-iteration usleep, and the memmove flag in
+cpuinit (below). Other OS/architecture
 combinations have no-op hooks.
 
 prepare.py also copies the std-vendored `golang.org/x/crypto/chacha20` and
@@ -19,6 +20,17 @@ materializes `internal/cpu`, `crypto/internal/fips140deps/cpu`,
 `crypto/internal/fips140/sha256` and `crypto/sha1` for the T-Head SHA-1 and
 SHA-256 blocks described there (`cpu.RISCV64.HasXTheadBb`).
 nanokvm-manifest.json records the resulting vendored source checksums.
+
+`runtime.memmove` on riscv64 copies byte by byte whenever the source and
+destination alignments differ. Video frames hit that case on every copy behind
+a WebSocket (2, 4 or 10 bytes) or TLS record (5 bytes) header, and at 1080p75
+those byte loops were the most expensive user-space code on the device. When
+riscv_hwprobe reports fast misaligned scalar access (`HasFastMisaligned`; the
+C906 kernel probe does), prepare.py lets that case align the destination and
+continue in the existing 8-byte loops, which then load from a misaligned
+source. Pointer-carrying memory is always pointer-aligned on both sides, so
+it never takes this path. `GODEBUG=cpu.fastmisaligned=off` restores the byte
+loops for comparison.
 
 ## Timer slack policy
 

@@ -2000,6 +2000,7 @@
     "locked": "Vstup je v této relaci vypnut. Zvolením „Převzít ovládání“ ho povolíte."
   },
   "recorder": {
+    "startWithAudio": "Spustit nahrávání se zvukem",
     "saved": "Nahrávka uložena",
     "saving": "Ukládání nahrávky…",
     "start": "Zahájit nahrávání",

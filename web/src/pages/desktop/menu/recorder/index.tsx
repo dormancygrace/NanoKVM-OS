@@ -7,8 +7,10 @@ import {
   captureRecordingSource,
   recordingMimeType,
   recordStream,
+  withRecordingAudio,
   type RecordingWriter
 } from '@/lib/recording';
+import { getUsbAudioStream, watchUsbAudioStream } from '@/lib/usb-audio-stream.ts';
 import { isHdmiEnabledAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
 
 type SavePicker = (options: {
@@ -27,6 +29,13 @@ export const Recorder = () => {
   const active = useRef(true);
   const generation = useRef(0);
   const busy = useRef(false);
+  // The recording includes the USB audio this page plays, if any.
+  const [audio, setAudio] = useState(() => getUsbAudioStream());
+  useEffect(() => {
+    // A stream published before this subscription counts too.
+    setAudio(getUsbAudioStream());
+    return watchUsbAudioStream(() => setAudio(getUsbAudioStream()));
+  }, []);
   const mime = recordingMimeType();
   const picker = (window as Window & { showSaveFilePicker?: SavePicker }).showSaveFilePicker;
   const supported = window.isSecureContext && !!picker && !!mime;
@@ -92,7 +101,9 @@ export const Recorder = () => {
         return;
       }
       source = captureRecordingSource(element, Math.min(60, Math.max(1, fps)));
-      session = recordStream(source.stream, writer, mime!);
+      const sound = getUsbAudioStream();
+      withRecordingAudio(source.stream, sound);
+      session = recordStream(source.stream, writer, recordingMimeType(!!sound) ?? mime!);
       recording.current = session;
       setElapsed(0);
       setState('recording');
@@ -129,7 +140,9 @@ export const Recorder = () => {
         ? t('recorder.stop')
         : state === 'saving'
           ? t('recorder.saving')
-          : t('recorder.start');
+          : audio
+            ? t('recorder.startWithAudio')
+            : t('recorder.start');
   return (
     <Tooltip title={title} mouseEnterDelay={0.6}>
       <span className="flex shrink-0">

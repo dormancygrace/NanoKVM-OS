@@ -57,6 +57,7 @@
   "recorder": {
     "title": "Videoaufzeichnung",
     "start": "Aufzeichnung starten",
+    "startWithAudio": "Aufnahme mit Ton starten",
     "stop": "Aufzeichnung stoppen",
     "saving": "Aufzeichnung wird gespeichert…",
     "saved": "Aufzeichnung gespeichert",

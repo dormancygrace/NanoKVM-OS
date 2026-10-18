@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { recordStream } from '../src/lib/recording.ts';
+import { recordingMimeType, recordStream, withRecordingAudio } from '../src/lib/recording.ts';
 
 class FakeRecorder {
   static last;
@@ -123,4 +123,39 @@ test('close failure aborts the unfinished file transaction', async () => {
   s.stop();
   await rejection;
   assert.equal(aborted, true);
+});
+
+test('sound that ends leaves the recording running; the video ends it', async () => {
+  const closed = [];
+  const video = new EventTarget();
+  video.kind = 'video';
+  video.stop = () => {};
+  const audio = new EventTarget();
+  audio.kind = 'audio';
+  audio.stopped = false;
+  audio.stop = () => {
+    audio.stopped = true;
+  };
+  const writer = { write: async () => {}, close: async () => closed.push('close'), abort: async () => {} };
+  const s = recordStream({ getTracks: () => [video, audio] }, writer, 'video/webm');
+  audio.dispatchEvent(new Event('ended'));
+  await new Promise((ok) => setTimeout(ok, 5));
+  assert.equal(FakeRecorder.last.state, 'recording');
+  video.dispatchEvent(new Event('ended'));
+  await s.done;
+  assert.deepEqual(closed, ['close']);
+  assert.equal(audio.stopped, true);
+});
+
+test('recordings with sound ask for Opus and copy only live audio', () => {
+  FakeRecorder.isTypeSupported = (type) => type !== 'video/mp4';
+  assert.equal(recordingMimeType(true), 'video/webm;codecs=vp8,opus');
+  assert.equal(recordingMimeType(), 'video/webm;codecs=vp8');
+  const added = [];
+  const stream = { addTrack: (track) => added.push(track) };
+  const live = { readyState: 'live', clone: () => 'copy' };
+  const ended = { readyState: 'ended', clone: () => assert.fail('ended track copied') };
+  withRecordingAudio(stream, { getAudioTracks: () => [live, ended] });
+  withRecordingAudio(stream, null);
+  assert.deepEqual(added, ['copy']);
 });

@@ -424,8 +424,7 @@
         "hidden": "Sieć ukryta",
         "security": "Zabezpieczenia",
         "open": "Sieć otwarta",
-        "loading": "Ładowanie...",
-        "reconnect": "Połącz ponownie"
+        "loading": "Ładowanie..."
       },
       "tls": {
         "description": "Włącz protokół HTTPS",

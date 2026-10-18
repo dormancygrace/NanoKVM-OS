@@ -423,8 +423,7 @@
         "manual": "Opret forbindelse manuelt",
         "hidden": "Skjult netværk",
         "security": "Sikkerhed",
-        "open": "Åbent netværk",
-        "reconnect": "Opret forbindelse igen"
+        "open": "Åbent netværk"
       },
       "tls": {
         "description": "Aktiver HTTPS-protokol",

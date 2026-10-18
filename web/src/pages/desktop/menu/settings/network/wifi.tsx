@@ -14,7 +14,7 @@ import { WifiBandTag } from './wifi-band';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { WifiSignal } from './wifi-signal';
 
-type Pending = { until: number; enabled?: boolean; ssid?: string };
+type Pending = { until: number; enabled?: boolean; ssid?: string; disconnect?: boolean };
 
 // wpa_supplicant's key management of the association, as users know it.
 function keyMgmtLabel(keyMgmt: string, open: string) {
@@ -102,8 +102,9 @@ export const Wifi = () => {
         setStatusFailed(false);
         const operation = pendingRef.current;
         if (operation && !next.busy) {
-          const done =
-            operation.ssid !== undefined
+          const done = operation.disconnect
+            ? !next.connected
+            : operation.ssid !== undefined
               ? next.connected && next.ssid === operation.ssid
               : next.enabled === operation.enabled;
           if (next.error || done) {
@@ -230,6 +231,39 @@ export const Wifi = () => {
     }, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  // Leave and forget the joined network. Over Wi-Fi this cuts the page off.
+  async function disconnect() {
+    if (locked || !state?.connected) return;
+    const overWifi = !!state.thisConnection;
+    if (
+      !(await confirmAction({
+        title: t('settings.network.wifi.disconnectConfirm', { ssid: state.ssid }),
+        content: (
+          <div className="space-y-2">
+            <p>{tr('disconnectHint')}</p>
+            {overWifi && <Alert type="warning" showIcon message={tr('disconnectOverWifi')} />}
+          </div>
+        ),
+        okText: tr('disconnectButton'),
+        danger: true
+      }))
+    )
+      return;
+    setBusy(true);
+    try {
+      const rsp = await api.disconnectWifi();
+      if (rsp.code !== 0) {
+        showRequestError(rsp, 'settings.network.wifi.operationFailed');
+        return;
+      }
+      track({ disconnect: true });
+    } catch (err) {
+      showRequestError(err, 'settings.network.wifi.operationFailed');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const groupedNetworks = groupWifiNetworks(networks);
 
@@ -396,18 +430,19 @@ export const Wifi = () => {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    size="small"
-                    disabled={locked || network.security === 'unsupported'}
-                    onClick={() => open(network)}
-                  >
-                    {state.connected &&
-                    state.ssid === network.ssid &&
-                    !!state.band &&
-                    network.bands.includes(state.band)
-                      ? tr('reconnect')
-                      : tr('joinBtn')}
-                  </Button>
+                  {state.connected && state.ssid === network.ssid ? (
+                    <Button size="small" danger disabled={locked} onClick={disconnect}>
+                      {tr('disconnectButton')}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      disabled={locked || network.security === 'unsupported'}
+                      onClick={() => open(network)}
+                    >
+                      {tr('joinBtn')}
+                    </Button>
+                  )}
                 </div>
               ))}
             </Panel>

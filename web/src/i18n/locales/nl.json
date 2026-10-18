@@ -424,8 +424,7 @@
         "hidden": "Verborgen netwerk",
         "security": "Beveiliging",
         "open": "Open netwerk",
-        "loading": "Laden...",
-        "reconnect": "Opnieuw verbinden"
+        "loading": "Laden..."
       },
       "tls": {
         "description": "HTTPS-protocol inschakelen",

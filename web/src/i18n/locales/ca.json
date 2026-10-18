@@ -424,8 +424,7 @@
         "hidden": "Xarxa oculta",
         "security": "Seguretat",
         "open": "Xarxa oberta",
-        "loading": "Carregant...",
-        "reconnect": "Torna a connectar"
+        "loading": "Carregant..."
       },
       "tls": {
         "description": "Activa el protocol HTTPS",

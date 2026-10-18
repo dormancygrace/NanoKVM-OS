@@ -424,8 +424,7 @@
         "hidden": "隱藏網路",
         "security": "安全性",
         "open": "開放網路",
-        "loading": "載入中...",
-        "reconnect": "重新連線"
+        "loading": "載入中..."
       },
       "tls": {
         "description": "啟用 HTTPS 協議",

@@ -424,8 +424,7 @@
         "hidden": "숨겨진 네트워크",
         "security": "보안",
         "open": "개방형 네트워크",
-        "loading": "불러오는 중...",
-        "reconnect": "다시 연결"
+        "loading": "불러오는 중..."
       },
       "tls": {
         "description": "HTTPS 프로토콜 활성화",

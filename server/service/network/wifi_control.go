@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -675,6 +677,71 @@ func (s *Service) SetWifiBandPreference(c *gin.Context) {
 			log.Warnf("Wi-Fi band preference saved; applying it now failed: %v", err)
 		}
 	}()
+}
+
+// Files of the joined network. The band preference is a separate setting.
+var wifiProfileFiles = []string{"wifi.ssid", "wifi.pass", "wifi.security", "wifi.hidden",
+	"wifi.freq_list", "wifi.freq_list_2.4", "wifi.freq_list_5"}
+
+func (w radioControl) forgetProfile() error {
+	for _, name := range wifiProfileFiles {
+		if err := os.Remove(filepath.Join(w.etc, name)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+// DisconnectWifi leaves the joined network and forgets it. Wi-Fi stays on and
+// idle (S30wifi starts without a network), so another one can be joined. The
+// reply goes out before the interface that may carry this request stops.
+func (s *Service) DisconnectWifi(c *gin.Context) {
+	var rsp proto.Response
+	if !checkRadio(c, true) {
+		return
+	}
+	rsp.OkRsp(c)
+	c.Writer.Flush()
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		err := wifiControl.forgetProfile()
+		if err == nil {
+			// disable also drops the addresses of the left network.
+			_, err = wifiControl.run(WiFiScript, "disable")
+		}
+		if err == nil {
+			_, err = wifiControl.run(WiFiScript, "start")
+		}
+		finishWifi(err)
+	}()
+}
+
+// requestOnInterface reports whether the connection of this request ends at
+// an address of the interface, so the page can warn before cutting it.
+func requestOnInterface(c *gin.Context, name string) bool {
+	local, ok := c.Request.Context().Value(http.LocalAddrContextKey).(net.Addr)
+	if !ok {
+		return false
+	}
+	host, _, err := net.SplitHostPort(local.String())
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(strings.Split(host, "%")[0])
+	iface, err := net.InterfaceByName(name)
+	if ip == nil || err != nil {
+		return false
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return false
+	}
+	for _, addr := range addrs {
+		if prefix, ok := addr.(*net.IPNet); ok && prefix.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) ConfigureWifi(c *gin.Context) {

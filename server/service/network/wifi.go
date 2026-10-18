@@ -2,9 +2,7 @@ package network
 
 import (
 	"crypto/subtle"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -29,7 +27,9 @@ const (
 func (s *Service) GetWifi(c *gin.Context) {
 	var rsp proto.Response
 
-	rsp.OkRspWithData(c, wifiControl.status())
+	status := wifiControl.status()
+	status.ThisConnection = requestOnInterface(c, "wlan0")
+	rsp.OkRspWithData(c, status)
 }
 
 func (s *Service) ConnectWifiNoAuth(c *gin.Context) {
@@ -131,32 +131,6 @@ func (s *Service) ConnectWifi(c *gin.Context) {
 	}
 
 	rsp.ErrRsp(c, -3, "failed to get wifi status")
-}
-
-func (s *Service) DisconnectWifi(c *gin.Context) {
-	var rsp proto.Response
-	if !reserveWifi() {
-		rsp.ErrRsp(c, -2, "Wi-Fi busy")
-		return
-	}
-	defer finishWifi(nil)
-
-	command := fmt.Sprintf("%s stop", WiFiScript)
-	cmd := exec.Command("sh", "-c", command)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Errorf("failed to disconnect wifi: %s", output)
-		rsp.ErrRsp(c, -1, "failed to stop wifi")
-		return
-	}
-
-	time.Sleep(5 * time.Second)
-
-	_ = os.Remove(WiFiSSID)
-	_ = os.Remove(WiFiPasswd)
-
-	rsp.OkRsp(c)
-	log.Debugf("stop wifi successfully")
 }
 
 func connect(ssid string, password string) error {

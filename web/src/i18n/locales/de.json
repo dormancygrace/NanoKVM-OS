@@ -1405,7 +1405,6 @@
         "security": "Sicherheit",
         "open": "Offenes Netzwerk",
         "unsupported": "Nicht unterstützte Sicherheit",
-        "reconnect": "Erneut verbinden",
         "applying": "Wird übernommen… Die Verbindung zu diesem Gerät kann kurz unterbrochen werden.",
         "operationFailed": "Wi-Fi-Einstellungen konnten nicht übernommen werden. Versuchen Sie es erneut.",
         "statusFailed": "Wi-Fi-Status konnte nicht gelesen werden.",
@@ -1422,6 +1421,10 @@
         "ssid": "Name",
         "password": "Passwort",
         "joinBtn": "Verbinden",
+        "disconnectButton": "Trennen",
+        "disconnectConfirm": "Von {{ssid}} trennen?",
+        "disconnectHint": "NanoKVM verlässt dieses Netzwerk und vergisst sein Passwort. WLAN bleibt eingeschaltet, sodass Sie erneut einem Netzwerk beitreten können.",
+        "disconnectOverWifi": "Diese Seite erreicht NanoKVM über dieses WLAN: Die Verbindung geht verloren. Um erneut einem Netzwerk beizutreten, verbinden Sie sich über Ethernet oder das USB-Netzwerk.",
         "confirmBtn": "OK",
         "cancelBtn": "Abbrechen",
         "connection": {

@@ -424,8 +424,7 @@
         "hidden": "Skjult nettverk",
         "security": "Sikkerhet",
         "open": "Åpent nettverk",
-        "loading": "Laster...",
-        "reconnect": "Koble til på nytt"
+        "loading": "Laster..."
       },
       "tls": {
         "description": "Aktiver HTTPS-protokoll",

@@ -202,8 +202,7 @@
         "security": "אבטחה",
         "open": "רשת פתוחה",
         "password": "סיסמה",
-        "cancelBtn": "ביטול",
-        "reconnect": "התחברות מחדש"
+        "cancelBtn": "ביטול"
       },
       "tls": {
         "certificate": {

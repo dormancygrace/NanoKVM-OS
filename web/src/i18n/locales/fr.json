@@ -1405,7 +1405,6 @@
         "security": "Sécurité",
         "open": "Réseau ouvert",
         "unsupported": "Sécurité non prise en charge",
-        "reconnect": "Se reconnecter",
         "applying": "Application… La connexion à cet appareil peut être brièvement interrompue.",
         "operationFailed": "Impossible d'appliquer les paramètres Wi-Fi. Réessayez.",
         "statusFailed": "Impossible de lire l'état du Wi-Fi.",
@@ -1422,6 +1421,10 @@
         "ssid": "Nom",
         "password": "Mot de passe",
         "joinBtn": "Rejoindre",
+        "disconnectButton": "Déconnecter",
+        "disconnectConfirm": "Se déconnecter de {{ssid}} ?",
+        "disconnectHint": "NanoKVM quitte ce réseau et oublie son mot de passe. Le Wi-Fi reste activé, vous pouvez donc rejoindre un réseau à nouveau.",
+        "disconnectOverWifi": "Cette page accède à NanoKVM par ce réseau Wi-Fi : la connexion sera perdue. Pour rejoindre un réseau à nouveau, connectez-vous par Ethernet ou par le réseau USB.",
         "confirmBtn": "OK",
         "cancelBtn": "Annuler",
         "connection": {

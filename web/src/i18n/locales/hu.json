@@ -424,8 +424,7 @@
         "hidden": "Rejtett hálózat",
         "security": "Biztonság",
         "open": "Nyílt hálózat",
-        "loading": "Betöltés...",
-        "reconnect": "Újracsatlakozás"
+        "loading": "Betöltés..."
       },
       "tls": {
         "description": "HTTPS protokoll engedélyezése",

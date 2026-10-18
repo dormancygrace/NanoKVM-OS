@@ -800,7 +800,11 @@
           "modules": "Модули ядра",
           "firmware": "Прошивки платы",
           "keys": "Ключи подписи",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "Загрузчик",
+          "zlib": "Библиотека сжатия",
+          "exfatprogs": "Утилиты exFAT",
+          "i2ctools": "Утилиты I2C"
         }
       },
       "notice": {

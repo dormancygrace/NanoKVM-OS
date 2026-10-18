@@ -1493,7 +1493,11 @@
           "modules": "Moduly jádra systému",
           "firmware": "Firmware desky",
           "keys": "Podepisovací klíče",
-          "rustdesk": "RustDesk"
+          "rustdesk": "RustDesk",
+          "bootloader": "Zavaděč systému",
+          "zlib": "Knihovna komprese",
+          "exfatprogs": "Nástroje exFAT",
+          "i2ctools": "Nástroje I2C"
         }
       },
       "notice": {

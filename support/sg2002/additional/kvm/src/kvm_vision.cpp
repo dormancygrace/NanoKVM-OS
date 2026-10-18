@@ -44,13 +44,8 @@
 #define KVMV_MAX_TRY_NUM	   	2
 #define vi_min_width            32
 #define vi_min_height           3
-#ifdef NANOKVM_OS
 #define vi_max_width            3840
 #define vi_max_height           2160
-#else
-#define vi_max_width            1920
-#define vi_max_height           1080
-#endif
 
 
 #define default_vi_width        1920
@@ -327,7 +322,6 @@ int maxmin_data(int _max, int _min, int _data)
 
 uint16_t hdmi_res_list[][2] = {
     {1920, 1080},
-#ifdef NANOKVM_OS
     {3840, 2160},
     {2560, 1440},
     {720, 1280},
@@ -335,7 +329,6 @@ uint16_t hdmi_res_list[][2] = {
     {1088, 1920},
     {1296, 2304},
     {1440, 2560},
-#endif
     {1600, 900},
     {1440, 1080},
     {1440, 900},
@@ -366,7 +359,6 @@ uint16_t hdmi_unsupported_res_list[][2] = {
 /* Whether the video memory of this boot holds a capture of this size. */
 static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
 {
-#ifdef NANOKVM_OS
     if (_width > 1920 || _height > 1080) {
         // Extended capture profiles require the qualified carveout, including Auto.
         uint8_t ion_size[4] = {};
@@ -383,7 +375,6 @@ static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
         if (required_mib == uhd_ion_mib && access("/proc/device-tree/reserved-memory/ion/reusable", F_OK) == 0)
             return false;
     }
-#endif
     return true;
 }
 
@@ -582,14 +573,11 @@ int get_manual_resolution(void)
         nanokvm::write_small_uint(vi_width_path, tmp_width);
         nanokvm::write_small_uint(vi_height_path, tmp_height);
     }
-    bool portrait = false;
-#ifdef NANOKVM_OS
-    portrait = (tmp_width == 720 && tmp_height == 1280)
+    const bool portrait = (tmp_width == 720 && tmp_height == 1280)
         || (tmp_width == 1296 && tmp_height == 2304)
         || (tmp_width == 1080 && tmp_height == 1920)
         || (tmp_width == 1088 && tmp_height == 1920)
         || (tmp_width == 1440 && tmp_height == 2560);
-#endif
     if(tmp_height > vi_max_height && !portrait){
         tmp_height = vi_max_height;
         nanokvm::write_small_uint(vi_height_path, vi_max_height);
@@ -1042,9 +1030,7 @@ void* vi_subsystem_detection(void *)
 
     // Refresh on elapsed time, not loop iterations whose work varies widely.
     last_vi_state_refresh_ms = vi_state_shared::monotonic_ms() - vi_state_publish_interval_ms;
-#ifdef NANOKVM_OS
     uint64_t last_hdmi_poll_ms = vi_state_shared::monotonic_ms() - 1000U;
-#endif
     while(true)
     {
         if(__atomic_load_n(&kvmv_cfg.try_exit_thread, __ATOMIC_ACQUIRE) == 1)
@@ -1094,7 +1080,6 @@ void* vi_subsystem_detection(void *)
                 if (tmp8 != 0) fputs("0", fp);
                 fclose(fp);
             }
-#ifdef NANOKVM_OS
             else if (access(hdmi_state_path, F_OK) != 0) {
                 // Mainline kernels do not provide the vendor /proc/lt_int
                 // edge counter. Re-read bridge geometry at a bounded rate;
@@ -1106,7 +1091,6 @@ void* vi_subsystem_detection(void *)
                     tmp8 = 11; // Check both C rising and UXC/D falling paths.
                 }
             }
-#endif
             {
                 if(tmp8 != 0){
                     // count edge ints
@@ -1631,7 +1615,6 @@ void kvmv_request_keyframe(void) {
 
 static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width, int height, uint8_t fps)
 {
-#ifdef NANOKVM_OS
     const int limit = nanokvm::capture_stream_rate_limit(src.width, src.height, width, height);
     if (fps > limit) fps = limit;
     // Never configure the encoder above the rate that arrives: a 60 Hz input
@@ -1639,9 +1622,6 @@ static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width,
     // and the pre-submit pacing of 100 fps.
     const int input = capture_input_fps.load(std::memory_order_relaxed);
     if (input > 0 && fps > input) fps = input;
-#else
-    (void)src;
-#endif
     return fps;
 }
 
@@ -1728,7 +1708,6 @@ void kvmv_init(uint8_t _debug_info_en)
     if(_debug_info_en == 0) debug_en = 0;
     else                    debug_en = 1;
 
-#ifdef NANOKVM_OS
     // The HDMI source may already be stable before the detection thread starts.
     // Read UXC dimensions before MMF allocates VI pools; waiting for a new edge
     // can leave the provisional FHD sensor geometry active on a QHD input.
@@ -1742,7 +1721,6 @@ void kvmv_init(uint8_t _debug_info_en)
         }
         lt6911_disable();
     }
-#endif
 
     cam->hmirror(1);
     cam->vflip(1);
@@ -2215,7 +2193,6 @@ void kvmv_deinit()
     pthread_mutex_destroy(&vi_mutex);
 }
 
-#ifdef NANOKVM_OS
 static int set_owned_hdmi_reset(bool asserted)
 {
     const char *path = "/sys/bus/platform/devices/hdmi-reset/asserted";
@@ -2227,7 +2204,6 @@ static int set_owned_hdmi_reset(bool asserted)
     if (!written || closed != 0) { perror("HDMI reset write"); return -1; }
     return 0;
 }
-#endif
 
 // Pause the HDMI detector and capture without touching board-specific GPIO.
 // Called under the server maintenance/capture mutex for Cube EDID writes.
@@ -2287,27 +2263,13 @@ int kvmv_hdmi_control(uint8_t _en)
         }
         return -1;
     }
-#ifndef NANOKVM_OS
-    if(access("/sys/class/gpio/gpio451/value", F_OK) != 0){
-        nanokvm::write_small_file("/sys/class/gpio/export", "451\n");
-        nanokvm::write_small_file("/sys/class/gpio/gpio451/direction", "out\n");
-    }
-#endif
     if(_en == 0){
         kvmv_cfg.hdmi_stop_flag = 1;
         while(kvmv_cfg.hdmi_reading_flag == 1) nanokvm::sleep_ms(10);
-#ifdef NANOKVM_OS
         if (set_owned_hdmi_reset(true) != 0) return -1;
-#else
-        nanokvm::write_small_file("/sys/class/gpio/gpio451/value", "0\n");
-#endif
         return 0;
     } else {
-#ifdef NANOKVM_OS
         if (set_owned_hdmi_reset(false) != 0) return -1;
-#else
-        nanokvm::write_small_file("/sys/class/gpio/gpio451/value", "1\n");
-#endif
         kvmv_cfg.hdmi_stop_flag = 0;
 
         // Keep the existing VI channel and consume queued frames after idle.

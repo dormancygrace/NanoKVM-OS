@@ -72,7 +72,7 @@ typedef struct {
 	bool vi_chn_is_inited[MMF_VI_MAX_CHN];
 	bool vi_chn_stopping[MMF_VI_MAX_CHN];
 	bool vi_chn_disabled[MMF_VI_MAX_CHN];
-	bool vi_source_bound[MMF_VI_MAX_CHN];
+	bool vi_source_bound;  // the one VI source is bound to VPSS group 0
 	int vi_chn_pool_id[MMF_VI_MAX_CHN];
     int vi_buffers[MMF_VI_MAX_CHN], vi_queue_depth[MMF_VI_MAX_CHN];
 	SIZE_S vi_size;
@@ -584,12 +584,8 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 	u32BlkSize = MAX(u32BlkSize, u32BlkRotSize);
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
 	// The pipeline serializes encoder leases. Two source surfaces
-    // retain producer/VPSS overlap.
-#ifdef NANOKVM_OS
-    stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 2;
-#else
-    stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 3;
-#endif
+	// retain producer/VPSS overlap.
+	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 2;
 	stVbConf.astCommPool[MMF_VB_VI_ID].enRemapMode	= VB_REMAP_MODE_CACHED;
 	stVbConf.u32MaxPoolCnt = 1;
 
@@ -1144,11 +1140,9 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
   if (priv.vi_chn_stopping[i]) return CVI_ERR_VENC_BUSY;
 	uint32_t pool_size_out = 0;
 	int pool_id = -1;
-#ifdef NANOKVM_OS
 	// VI has one source channel. The index here selects a VPSS output, not VI.
 	bool another_output = false;
 	for (int i = 0; i < MMF_VI_MAX_CHN; ++i) another_output |= priv.vi_chn_is_inited[i];
-#endif
 
 	if (!priv.mmf_used_cnt) {
 		printf("%s: maix multi-media or vi not inited\n", __func__);
@@ -1205,13 +1199,8 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
  priv.vi_chn_stopping[ch] = true;
  priv.vi_chn_disabled[ch] = false;
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
-#ifdef NANOKVM_OS
  s32Ret = another_output ? CVI_SUCCESS : SAMPLE_COMM_VI_Bind_VPSS(0, 0, 0);
- if (s32Ret == CVI_SUCCESS) priv.vi_source_bound[0] = true;
-#else
- s32Ret = SAMPLE_COMM_VI_Bind_VPSS(0, ch, 0);
- if (s32Ret == CVI_SUCCESS) priv.vi_source_bound[ch] = true;
-#endif
+ if (s32Ret == CVI_SUCCESS) priv.vi_source_bound = true;
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("vi bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
 		goto _need_deinit_vpss_chn;
@@ -1268,20 +1257,14 @@ int mmf_del_vi_channel(int ch) {
  priv.vi_chn_stopping[ch] = true;
  int result = _mmf_release_vi_frame(ch);
  if (result != CVI_SUCCESS) return result;
-#ifdef NANOKVM_OS
+ // VI has one source; it stays bound while another VPSS output is open.
  bool another_output = false;
  for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
   if (i != ch) another_output |= priv.vi_chn_is_inited[i];
- const int source = 0;
- const bool unbind = !another_output;
-#else
- const int source = ch;
- const bool unbind = true;
-#endif
- if (unbind && priv.vi_source_bound[source]) {
-  result = SAMPLE_COMM_VI_UnBind_VPSS(0, source, 0);
+ if (!another_output && priv.vi_source_bound) {
+  result = SAMPLE_COMM_VI_UnBind_VPSS(0, 0, 0);
   if (result != CVI_SUCCESS) return result;
-  priv.vi_source_bound[source] = false;
+  priv.vi_source_bound = false;
  }
  if (!priv.vi_chn_disabled[ch]) {
   result = _mmf_vpss_chn_deinit(0, ch);

@@ -1282,7 +1282,7 @@
         },
         "headless": {
           "title": "Server bez videovýstupu",
-          "description": "Pouze sériová konzole, pro servery, u kterých už je nastavené přihlašování se přes sériovou konzoli (s „KVM + sériová konzole“ a jeho pomocným diskem nebo přes síť). Na počítači se neobjeví klávesnice, myš či úložiště; po zapnutí vzdálené plochy bude zpět přidána klávesnice, myš a zvuk."
+          "description": "Sériová konzole a virtuální disk s pomocným diskem, na kterém je skript pro nastavení přihlašování přes sériovou konzoli, takže server nepotřebuje síť. Na počítači se neobjeví klávesnice ani myš; po zapnutí vzdálené plochy bude zpět přidána klávesnice, myš a zvuk."
         },
         "console": {
           "title": "KVM + sériová konzole",

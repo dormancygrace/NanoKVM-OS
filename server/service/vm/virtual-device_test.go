@@ -43,9 +43,9 @@ func TestUSBEndpointBudget(t *testing.T) {
 			in:    4, out: 5, fits: true,
 		},
 		{
-			name:  "headless server: serial only",
-			state: usbComposition{mode: hid.ModeNormal, serial: true},
-			in:    2, out: 1, fits: true,
+			name:  "headless server: serial and disk",
+			state: usbComposition{mode: hid.ModeNormal, serial: true, disk: true},
+			in:    3, out: 2, fits: true,
 		},
 	}
 

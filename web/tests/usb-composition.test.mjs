@@ -57,10 +57,11 @@ test('the presets say what they give up', () => {
   // serial does not fit next to HID and network, and network not next to HID and serial
   assert.equal(canToggleDevice(preset('standard'), 'serial', status), false);
   assert.equal(canToggleDevice(preset('console'), 'network', status), false);
-  // the headless server is the console only, with room for network, disk and audio
-  assert.deepEqual(endpointUsage(preset('headless'), status.costs), { in: 2, out: 1 });
+  // the headless server is the console and the disk, with room for network and audio
+  assert.deepEqual(endpointUsage(preset('headless'), status.costs), { in: 3, out: 2 });
   for (const name of ['network', 'disk', 'audio']) assert.equal(canToggleDevice(preset('headless'), name, status), true);
-  for (const name of ['keyboard', 'relative', 'absolute', 'disk']) assert.equal(preset('headless')[name], false);
+  for (const name of ['keyboard', 'relative', 'absolute']) assert.equal(preset('headless')[name], false);
+  assert.equal(preset('headless').disk, true);
   // RustDesk adds the three HID functions and audio to it: 5 IN / 5 OUT, still fits
   assert.equal(fitsBudget({ ...preset('headless'), keyboard: true, relative: true, absolute: true, audio: true }, status), true);
   // audio fits on top of the two full KVM presets

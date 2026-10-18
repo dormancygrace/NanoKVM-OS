@@ -160,6 +160,10 @@ vendor_files += ['internal/cpu/cpu.go', 'internal/cpu/cpu_riscv64.go', 'internal
                  'crypto/sha1/sha1block_decl.go', 'crypto/sha1/sha1block_riscv64.s',
                  'crypto/sha1/sha1block_riscv64.go', 'crypto/sha1/sha1block_c906_riscv64.s']
 text = original.decode()
+# memmove: misaligned 8-byte loads where riscv_hwprobe reports them fast.
+zbb = '\t\triscv64HasZbb = cpu.RISCV64.HasZbb\n'
+assert text.count(zbb) == 1
+text = text.replace(zbb, zbb + '\t\tnanokvmFastMisaligned = cpu.RISCV64.HasFastMisaligned\n')
 anchor = 'func sysmon() {\n'
 assert text.count(anchor) == 1
 text = text.replace(anchor, anchor + '\tnanokvmSysmonInit()\n')
@@ -173,11 +177,32 @@ text = text.replace(sleep, sleep.replace('usleep(delay)', 'usleep(nanokvmSysmonD
 pos = text.index('\tminit()\n', text.index('func mstart1() {')) + len('\tminit()\n')
 text = text[:pos] + '\tnanokvmThreadInit()\n' + text[pos:]
 (out / 'src/runtime/proc.go').write_text(text)
+# A source and destination of different alignment continue in the 8-byte loops
+# (misaligned loads) instead of the byte loops when the loads are fast. The
+# test sits out of line, so the co-aligned path is unchanged. Below 32 bytes
+# aligning the destination byte by byte costs more than it saves.
+for d in 'fb':
+    edit('runtime/memmove_riscv64.s',
+         '\t// Check alignment - if alignment differs we have to do one byte at a time.\n'
+         f'\tAND\t$7, X10, X5\n\tAND\t$7, X11, X6\n\tBNE\tX5, X6, {d}_loop8_unaligned_check\n',
+         '\t// Check alignment - if alignment differs we have to do one byte at a time,\n'
+         '\t// unless misaligned loads are fast (NanoKVM: nanokvm_memmove.go).\n'
+         f'\tAND\t$7, X10, X5\n\tAND\t$7, X11, X6\n\tBNE\tX5, X6, {d}_misaligned\n'
+         f'{d}_same_alignment:\n')
+    edit('runtime/memmove_riscv64.s',
+         f'\tJMP\t{d}_loop4_check\n\n{d}_loop8_unaligned_check:\n',
+         f'\tJMP\t{d}_loop4_check\n\n'
+         f'{d}_misaligned:\n'
+         '\tMOV\t$32, X7\n'
+         f'\tBLT\tX12, X7, {d}_loop8_unaligned_check\n'
+         '\tMOVBU\truntime·nanokvmFastMisaligned(SB), X7\n'
+         f'\tBNEZ\tX7, {d}_same_alignment\n'
+         f'{d}_loop8_unaligned_check:\n')
 for p in source.glob('nanokvm_*'):
     shutil.copyfile(p, out / 'src/runtime' / p.name)
 manifest = {'source_go': str(base), 'goroot': str(out), 'source_pin': pin,
             'runtime_sources': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                                for p in [out / 'src/runtime/proc.go', *sorted((out / 'src/runtime').glob('nanokvm_*'))]},
+                                for p in [out / 'src/runtime/proc.go', out / 'src/runtime/memmove_riscv64.s', *sorted((out / 'src/runtime').glob('nanokvm_*'))]},
             'vendor_sources': {rel: sha256(out / 'src' / rel) for rel in vendor_files}}
 (out / 'nanokvm-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 assert hashlib.sha256((base / 'src/runtime/proc.go').read_bytes()).hexdigest() == pin['proc_go_sha256']

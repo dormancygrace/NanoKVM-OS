@@ -5,7 +5,7 @@ This is a derivative firmware project, not an original implementation of every c
 - NanoKVM application/native code: Sipeed and contributors, GPL-3.0; see root `LICENSE` and retained source headers.
 - Linux and applicable drivers: their upstream licenses, including GPL-2.0; kernel patches retain source notices.
 - Pion SRTP local adaptation: MIT, with the upstream license in `server/third_party/pion-srtp/LICENSE`. Other Go modules remain pinned in `go.mod`/`go.sum` and retain their own licenses.
-- Web dependencies retain their package licenses; versions are pinned in `web/pnpm-lock.yaml`. [Mediabunny](https://github.com/Vanilagy/mediabunny) (MPL-2.0), which writes Direct recordings into MP4, is bundled unmodified; its source is the published npm package of the pinned version.
+- Web dependencies retain their package licenses; versions are pinned in `web/pnpm-lock.yaml`. [Mediabunny](https://github.com/Vanilagy/mediabunny) (MPL-2.0), which writes Direct and WebRTC recordings into MP4, is bundled unmodified; its source is the published npm package of the pinned version.
 - Go runtime additions retain the Go license in `firmware/cpu/sysmon-runtime/LICENSE`; the additions to Go's vendored x/crypto in `firmware/cpu/go-crypto-c906/LICENSE`.
 - SOPHGO/CVITEK MPI, ISP, drivers and sensor dependencies have component-specific terms. Some ISP/3A algorithm objects remain vendor supplied; this repository does not claim a completely open-source replacement for those objects.
 - OpenVPN, Tailscale, Buildroot packages, Wi-Fi firmware and toolchain components retain their individual licenses. Building or distributing a full image requires corresponding source and firmware notices beyond the application license.

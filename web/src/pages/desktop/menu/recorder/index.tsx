@@ -3,7 +3,6 @@ import { Button, message, Tooltip } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { getDirectRecording, watchDirectRecording } from '@/lib/direct-recording.ts';
 import {
   captureRecordingSource,
   recordingMimeType,
@@ -11,6 +10,7 @@ import {
   withRecordingAudio,
   type RecordingWriter
 } from '@/lib/recording';
+import { getRecordingSource, watchRecordingSource } from '@/lib/recording-source.ts';
 import { getUsbAudioStream, watchUsbAudioStream } from '@/lib/usb-audio-stream.ts';
 import { isHdmiEnabledAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
 
@@ -39,13 +39,14 @@ export const Recorder = () => {
     setAudio(getUsbAudioStream());
     return watchUsbAudioStream(() => setAudio(getUsbAudioStream()));
   }, []);
-  // Direct records the stream as received, without re-encoding.
-  const [direct, setDirect] = useState(() => getDirectRecording());
+  // Direct and WebRTC record the stream as received, without re-encoding.
+  const [received, setReceived] = useState(() => getRecordingSource());
   useEffect(() => {
-    setDirect(getDirectRecording());
-    return watchDirectRecording(setDirect);
+    setReceived(getRecordingSource());
+    return watchRecordingSource(setReceived);
   }, []);
-  const passthrough = mode === 'direct' && !!direct;
+  const passthroughMode = mode === 'direct' || mode === 'h264';
+  const passthrough = passthroughMode && !!received;
   const mime = recordingMimeType();
   const picker = (window as Window & { showSaveFilePicker?: SavePicker }).showSaveFilePicker;
   const supported = window.isSecureContext && !!picker && (passthrough || !!mime);
@@ -94,8 +95,8 @@ export const Recorder = () => {
     let source: ReturnType<typeof captureRecordingSource> | undefined;
     let session: { stop: () => void; done: Promise<void> } | undefined;
     try {
-      const directSource = mode === 'direct' ? getDirectRecording() : null;
-      if (directSource) {
+      const receivedSource = passthroughMode ? getRecordingSource() : null;
+      if (receivedSource) {
         const handle = await picker!.call(window, {
           suggestedName: `NanoKVM-${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`,
           types: [{ description: t('recorder.title'), accept: { 'video/mp4': ['.mp4'] } }]
@@ -109,7 +110,9 @@ export const Recorder = () => {
         }
         const { recordPassthrough } = await import('@/lib/passthrough-recording.ts');
         const currentAttempt = () =>
-          active.current && attempt === generation.current && getDirectRecording() === directSource;
+          active.current &&
+          attempt === generation.current &&
+          getRecordingSource() === receivedSource;
         if (!currentAttempt()) {
           await writer.abort();
           writer = undefined;
@@ -121,7 +124,7 @@ export const Recorder = () => {
             .find((track) => track.readyState === 'live')
             ?.clone() ?? null;
         const passthroughSession = await recordPassthrough(
-          directSource,
+          receivedSource,
           writer as unknown as FileSystemWritableFileStream,
           sound
         );

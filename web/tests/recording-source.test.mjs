@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { PacketTimeline, parameterSets } from '../src/lib/direct-recording.ts';
+import { PacketTimeline, parameterSets, RtpClock } from '../src/lib/recording-source.ts';
 
 const frame = (timestamp, key = false, width = 1920, height = 1080) => ({
   key,
@@ -65,4 +65,14 @@ test('a keyframe with other parameter sets ends the track before it', () => {
   assert.equal(timeline.push(key(20_000, 5)).key, false);
   assert.equal(timeline.push(key(30_000, 6)), 'size-changed');
   assert.equal(timeline.flush().seconds, 0.02);
+});
+
+test('RTP timestamps count in microseconds from the first frame, across the wrap', () => {
+  const clock = new RtpClock();
+  const start = 2 ** 32 - 1500;
+  assert.equal(clock.microseconds(start), 0);
+  assert.equal(clock.microseconds(start + 1500 - 2 ** 32), 16_667);
+  assert.equal(clock.microseconds(1500), 33_333);
+  // A frame that goes back stays behind instead of jumping ahead by 13 hours.
+  assert.equal(clock.microseconds(0), 16_667);
 });

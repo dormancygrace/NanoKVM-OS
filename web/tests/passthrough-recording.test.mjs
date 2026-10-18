@@ -37,7 +37,7 @@ function fixture(options = {}) {
   });
   const send = (timestamp, bytes = data) =>
     packet({ key: true, timestamp, width: 160, height: 90, data: bytes });
-  return { source, writable, events, chunks, send, end: () => end('closed') };
+  return { source, writable, events, chunks, send, packet: (p) => packet(p), end: () => end('closed') };
 }
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 test('MP4 commits only after successful finalization', async () => {
@@ -106,4 +106,21 @@ test('packets retained inside a long MP4 fragment count towards the memory limit
   await rejected;
   assert.ok(f.events.includes('abort'));
   assert.ok(!f.events.includes('commit'));
+});
+test('a recording asks for a keyframe when the last one is 5 s old', async () => {
+  const f = fixture();
+  let requests = 0;
+  f.source.requestKeyframe = () => requests++;
+  const s = await recordPassthrough(f.source, f.writable, null);
+  f.send(0);
+  await s.started;
+  const delta = (timestamp) => f.packet({ key: false, timestamp, width: 160, height: 90, data });
+  for (let second = 1; second <= 9; second++) delta(second * 1_000_000);
+  // Packets come out one frame late: 5 s is out after the frame at 6 s.
+  assert.equal(requests, 1);
+  f.send(10_000_000);
+  for (let second = 11; second <= 16; second++) delta(second * 1_000_000);
+  assert.equal(requests, 2);
+  s.stop();
+  await s.done;
 });

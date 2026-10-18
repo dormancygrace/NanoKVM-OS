@@ -58,7 +58,7 @@ const frameQueue = new Queue<VideoFrame>();
 const frameChannel = new MessageChannel();
 
 type WorkerMessage = {
-  type: 'video' | 'stop' | 'screenshot' | 'record';
+  type: 'video' | 'stop' | 'screenshot' | 'record' | 'keyframe';
   record?: boolean;
   requestId?: number;
   codec?: 'h264' | 'h265';
@@ -155,6 +155,9 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       break;
     case 'record':
       recording = event.data.record === true;
+      if (recording) requestKeyframe();
+      break;
+    case 'keyframe':
       if (recording) requestKeyframe();
       break;
   }

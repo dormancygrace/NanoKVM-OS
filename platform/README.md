@@ -247,3 +247,19 @@ hashes only. The release version (`/kvmapp/version`, `VERSION` in
 `nanokvm-release`, so `nanokvm` and `nanokvm-web` change only when their files
 do. Package revisions are visible through Software, diagnostic reports,
 or `apk info -v nanokvm nanokvm-web nanokvm-app`.
+
+### Independent add-on updates
+
+APK add-ons have their own releases and update through the same signed Pages
+repository as the OS. The APK repository workflow discovers stable releases
+from supported add-on channels (currently RustDesk), verifies the published
+checksums and package metadata, then signs the combined v3 index in the protected
+`release` environment. This does not change `packages.json`, the OS version,
+the legacy v2 index or the latest SD-image link. Six add-on revisions per channel
+are retained in addition to versions referenced by retained OS snapshots.
+
+An OS build uses its committed `firmware/alpine/addons.json` snapshot. Pages also
+includes independently published add-ons, so an older snapshot cannot downgrade
+the repository. Add-ons declare capability dependencies; a version requiring a
+newer runtime cannot be installed on an incompatible OS. PicoClaw and acme.sh
+continue to use their existing upstream and Alpine update mechanisms.

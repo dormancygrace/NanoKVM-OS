@@ -2,7 +2,9 @@
 """Assemble the NanoKVM OS APK repository that GitHub Pages serves, from the
 packages and indexes attached to the GitHub releases.
 
-The newest published release that carries Packages.adb supplies both indexes.
+The newest published OS release supplies the core packages and legacy index.
+Independent stable add-on releases augment the v3 index, which Pages signs
+separately; they do not change the OS version or the latest SD image.
 Newest means the highest vX.Y.Z (releases with other tags, from before that
 scheme, rank below, by publication time): a minor release published from its
 draft after a patch release must not replace the patch's indexes.
@@ -79,6 +81,42 @@ def releases(repository, fetch=fetch):
         if len(batch) < 100:
             return sorted(found, key=order, reverse=True)
         page += 1
+
+
+# Explicitly supported add-on release channels. Add future APK add-ons here;
+# PicoClaw/acme.sh retain their own upstream/Alpine update mechanisms.
+ADDON_TAG = re.compile(r'(nanokvm-rustdesk)-(\d+\.\d+\.\d+)-r(\d+)')
+
+
+def independent_addons(repository, keep=6, fetch=fetch):
+    """Discover stable add-on assets independently of OS release snapshots."""
+    found, page = [], 1
+    while True:
+        batch = json.loads(fetch(f'https://api.github.com/repos/{repository}/releases?per_page=100&page={page}',
+                                 'application/vnd.github+json'))
+        found += [r for r in batch if not r['draft'] and not r.get('prerelease')
+                  and r.get('published_at') and ADDON_TAG.fullmatch(r['tag_name'])]
+        if len(batch) < 100:
+            break
+        page += 1
+    def version(r):
+        m = ADDON_TAG.fullmatch(r['tag_name'])
+        return m[1], tuple(map(int, m[2].split('.'))), int(m[3])
+    entries, counts = {}, {}
+    for release in sorted(found, key=version, reverse=True):
+        name, _, _ = version(release)
+        if counts.get(name, 0) >= keep:
+            continue
+        counts[name] = counts.get(name, 0) + 1
+        filename = release['tag_name'] + '.apk'
+        metadata = next(a for a in release['assets'] if a['name'] == filename)
+        sums = checksums(asset(release, 'SHA256SUMS', fetch).decode())
+        url = f'https://github.com/{repository}/releases/download/{release["tag_name"]}/{filename}'
+        if metadata['browser_download_url'] != url:
+            raise ValueError(f'Unexpected add-on asset URL: {filename}')
+        entry = {'url': url, 'sha256': sums[filename], 'size': metadata['size']}
+        entries.update(addon_packages.manifest(json.dumps({'packages': {filename: entry}})))
+    return entries
 
 
 def order(release):
@@ -173,7 +211,7 @@ def image_badge(output, published):
 ''')
 
 
-def assemble(output, published, keep, branch, keys, fetch=fetch):
+def assemble(output, published, keep, branch, keys, fetch=fetch, independent=None):
     if not published:
         raise ValueError('No published release carries Packages.adb')
     output = Path(output)
@@ -191,6 +229,10 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
         if 'addons.json' in {a['name'] for a in release['assets']}:
             data = checked(release, 'addons.json', sums[release['tag_name']], fetch)
             addons.update(addon_packages.manifest(data))
+    for name, item in (independent or {}).items():
+        if name in addons and addons[name] != item:
+            raise ValueError(f"Published add-on conflicts with an OS pin: {name}")
+        addons[name] = item
     newest = published[0]
     for name in INDEXES:
         (repo / name).write_bytes(checked(newest, name, sums[newest['tag_name']], fetch))
@@ -206,6 +248,7 @@ def assemble(output, published, keep, branch, keys, fetch=fetch):
         if 'addons.json' in {a['name'] for a in release['assets']}:
             data = checked(release, 'addons.json', sums[release['tag_name']], fetch)
             wanted.update({name: item['size'] for name, item in addon_packages.manifest(data).items()})
+    wanted.update({name: item["size"] for name, item in (independent or {}).items()})
     for name, size in sorted(wanted.items()):
         source = next((r for r in published if name in {a['name'] for a in r['assets']}), None)
         if source is not None:
@@ -249,7 +292,8 @@ def main():
     if args.keep < 1:
         parser.error('--keep must be at least 1')
     tag, names = assemble(args.output, releases(args.repository), args.keep, alpine_branch(),
-                          ROOT / 'firmware/alpine/keys')
+                          ROOT / 'firmware/alpine/keys',
+                          independent=independent_addons(args.repository, args.keep))
     print(f'{args.output}: indexes of {tag}, {len(names)} packages')
     for name in names:
         print('  ' + name)

@@ -102,11 +102,23 @@ production APKBUILD and SHA256SUMS. N is one more than the highest revision of
 VERSION in this repository's releases.
 The release is never the repository's latest; that is NanoKVM OS.
 
-Nothing is signed there. Devices trust the add-on through the signed index of a
-NanoKVM OS release, which pins it by size and SHA-256 in
-`firmware/alpine/addons.json`. The run therefore opens a pull request that pins
-the new release and updates the recipe; merge it before the next NanoKVM OS
-release, which then serves the add-on. `dry_run` builds and checks only.
+The APK is authenticated through the signed repository index. After publishing,
+the workflow starts **APK repository**: it discovers stable add-on releases,
+checks their hashes and package metadata, and combines them with the latest OS
+packages. The protected `release` job signs the new v3 index with both release
+keys before deploying it to Pages. Approve that job to make the add-on available;
+no NanoKVM OS release is required. If publication or deployment needs retrying,
+rerun APK repository on main instead of rebuilding another add-on revision.
+
+Users refresh package indexes and update RustDesk from Software → Add-ons.
+They can keep their current OS version when its runtime satisfies the add-on's
+capability dependencies. Older retained add-on versions remain available; APK
+rejects incompatible combinations rather than bypassing dependency checks.
+
+The pin PR updates `firmware/alpine/addons.json` and APKBUILD only to record the
+snapshot used by reproducible OS builds. Merging it is not a prerequisite for
+independent add-on updates. A later OS release cannot roll back a newer add-on
+already published in the repository. `dry_run` builds and checks only.
 
 ## Build and source
 

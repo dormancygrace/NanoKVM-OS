@@ -123,6 +123,60 @@ class AssembleTests(unittest.TestCase):
             'APKINDEX.tar.gz': apkindex([('nanokvm', '4-r0', len('nanokvm 4-r0'))])})
         return name, item, data
 
+    def independent_release(self, version='0.6.0', revision=0, **flags):
+        tag = f'nanokvm-rustdesk-{version}-r{revision}'
+        filename = tag + '.apk'
+        data = tag.encode()
+        url = f'https://github.com/dormancygrace/NanoKVM-OS/releases/download/{tag}/{filename}'
+        sums_url = url.rsplit('/', 1)[0] + '/SHA256SUMS'
+        self.fake.files[url] = data
+        self.fake.files[sums_url] = f'{hashlib.sha256(data).hexdigest()}  {filename}\n'.encode()
+        self.fake.list.append({'tag_name': tag, 'draft': False, 'prerelease': False,
+                              'published_at': '2026-09-01T00:00:00Z', **flags,
+                              'assets': [{'name': filename, 'browser_download_url': url, 'size': len(data)},
+                                         {'name': 'SHA256SUMS', 'browser_download_url': sums_url}]})
+        return filename, url
+
+    def test_addon_update_without_os_release_or_pin_change(self):
+        old, _, _ = self.external_addon()
+        new, _ = self.independent_release()
+        entries = a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
+        tag, files = a.assemble(self.out, a.releases('o/r', self.fake.fetch), 1, '3.24',
+                               self.keys, self.fake.fetch, independent=entries)
+        self.assertEqual(tag, 'v4')
+        self.assertIn(old, files)
+        self.assertIn(new, files)
+        self.assertEqual((self.repo() / 'APKINDEX.tar.gz').read_bytes(), self.fake.files['https://dl.test/v4/APKINDEX.tar.gz'])
+        self.assertIn(new, json.loads((self.repo() / 'addons.json').read_text())['packages'])
+
+    def test_addon_versions_are_numeric_and_draft_prerelease_ignored(self):
+        self.independent_release('0.9.0', revision=12)
+        wanted, _ = self.independent_release('0.10.0', revision=2)
+        self.independent_release('0.10.0', revision=3, draft=True)
+        self.independent_release('1.0.0', prerelease=True)
+        self.assertEqual(list(a.independent_addons('dormancygrace/NanoKVM-OS', 1, self.fake.fetch)), [wanted])
+
+    def test_independent_addon_corruption_stops_assembly(self):
+        name, url = self.independent_release()
+        entries = a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
+        self.fake.files[url] += b'tampered'
+        with self.assertRaisesRegex(ValueError, 'pinned size or SHA256'):
+            a.assemble(self.out, a.releases('o/r', self.fake.fetch), 1, '3.24',
+                       self.keys, self.fake.fetch, independent=entries)
+
+    def test_independent_addon_url_cannot_escape_repository(self):
+        self.independent_release()
+        self.fake.list[-1]['assets'][0]['browser_download_url'] = 'https://evil.invalid/x.apk'
+        with self.assertRaisesRegex(ValueError, 'asset URL'):
+            a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
+
+    def test_republished_addon_cannot_override_existing_os_pin(self):
+        name, item, _ = self.external_addon()
+        with self.assertRaisesRegex(ValueError, 'conflicts with an OS pin'):
+            a.assemble(self.out, a.releases('o/r', self.fake.fetch), 1, '3.24',
+                       self.keys, self.fake.fetch, independent={name: {**item, 'sha256': 'a' * 64}})
+
+
     def test_optional_addon_from_separate_release_is_available(self):
         name, _, data = self.external_addon()
         self.run_assemble(keep=1)

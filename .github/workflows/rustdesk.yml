@@ -5,10 +5,10 @@ name: RustDesk add-on
 # source with the vendored crates, the production APKBUILD and SHA256SUMS.
 # Run it by hand (Actions → RustDesk add-on → Run workflow) after merging a
 # change to the add-on. Nothing is signed here: the APK is an apk-tools 3
-# package that devices trust through the signed index of a NanoKVM OS release,
-# which pins it by size and SHA-256 in firmware/alpine/addons.json. The run
-# therefore opens a pull request that pins the new release; merge it before
-# the next NanoKVM OS release, which then serves the add-on.
+# package that devices trust through the signed APK repository index. Pages
+# verifies each add-on release by its published checksum and signs a combined
+# repository index independently of OS releases. The pin PR records the source
+# snapshot for future OS builds; devices do not wait for it to merge.
 #
 # Pull requests that change the add-on's build, and dry runs, build and test
 # without publishing and keep the result as an artifact.
@@ -176,6 +176,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     steps:
       - uses: actions/checkout@v7
 
@@ -198,8 +199,10 @@ jobs:
           # Not the repository's latest release: that is NanoKVM OS.
           gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
             --title "RustDesk add-on $VERSION-r$REVISION" \
-            --notes "Optional RustDesk add-on for NanoKVM OS, built from $GITHUB_SHA. Devices receive it with the first NanoKVM OS release after firmware/alpine/addons.json pins it." \
+            --notes "Optional RustDesk add-on for NanoKVM OS, built from $GITHUB_SHA. Devices can update it independently once the APK repository index has been signed and deployed." \
             "$a"/*
+          # GITHUB_TOKEN release events do not start another workflow.
+          gh workflow run apk-repository.yml --ref main
           branch=rustdesk/pin-$VERSION-r$REVISION
           git switch -c "$branch"
           cp "$a/APKBUILD" firmware/alpine/packages/nanokvm-rustdesk/APKBUILD
@@ -217,4 +220,4 @@ jobs:
             -m "Built from $GITHUB_SHA by the RustDesk add-on workflow; the release is $TAG."
           git push -q origin "$branch"
           gh pr create --base main --head "$branch" --title "addons: pin the RustDesk add-on $VERSION-r$REVISION" \
-            --body "Pins [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG), built from $GITHUB_SHA by the RustDesk add-on workflow. Merge before the next NanoKVM OS release so that it serves this add-on; until then devices keep the previous one."
+            --body "Pins [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG), built from $GITHUB_SHA by the RustDesk add-on workflow. This pin preserves the snapshot for reproducible OS builds. Independent add-on updates are published by the APK repository workflow and do not wait for this PR or an OS release."

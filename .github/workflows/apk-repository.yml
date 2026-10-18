@@ -1,10 +1,9 @@
 name: APK repository
 
 # Serves the NanoKVM OS APK repository on GitHub Pages. It is assembled from
-# the packages and indexes attached to the published releases
-# (scripts/assemble-apk-repo.py), so publishing a release publishes its
-# packages. Pull requests that change this workflow or the script assemble and
-# check the repository without deploying it.
+# published OS and independent add-on releases. The v3 index is regenerated
+# and signed in the protected release environment; the OS version and legacy
+# index are unchanged by add-on updates. PRs use test keys and never deploy.
 on:
   release:
     types: [published]
@@ -14,6 +13,8 @@ on:
       - .github/workflows/apk-repository.yml
       - scripts/assemble-apk-repo.py
       - scripts/addon_packages.py
+      - scripts/index-apk-repo.py
+      - tests/test-index-apk-repo.py
       - firmware/alpine/addons.json
       - tests/test-assemble-apk-repo.py
 
@@ -30,6 +31,10 @@ jobs:
     name: Assemble and check
     runs-on: ubuntu-26.04
     steps:
+      - name: Validate publication branch
+        if: github.event_name == 'workflow_dispatch'
+        run: test "$GITHUB_REF" = refs/heads/main
+
       - uses: actions/checkout@v7
 
       - name: Assemble
@@ -43,19 +48,25 @@ jobs:
       - name: Check with apk
         run: |
           branch=$(ls site/alpine)
-          docker run --rm -v "$PWD/site:/site:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -v "$PWD/scripts:/scripts:ro" -e "branch=$branch" \
+          docker run --rm -v "$PWD/site:/site" -v "$PWD/firmware/alpine/keys:/keys:ro" -v "$PWD/scripts:/scripts:ro" -e "branch=$branch" \
             alpine:3.24 sh -euc '
               repo=/site/alpine/$branch/riscv64
               for key in /keys/*.pub; do
                 dir=$(mktemp -d); cp "$key" "$dir/"
                 apk --keys-dir "$dir" verify "$repo/Packages.adb"
               done
-              apk add --no-cache python3 > /dev/null
-              python3 /scripts/addon_packages.py --verify --output "$repo" --keys /keys
+              apk add --no-cache python3 openssl > /dev/null
+              python3 /scripts/index-apk-repo.py --repo "$repo" --keys /keys
+              # Only a disposable test key is available in the assembly job.
+              testkeys=$(mktemp -d)
+              openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$testkeys/test.key"
+              openssl pkey -in "$testkeys/test.key" -pubout -out "$testkeys/test.pub"
+              apk --allow-untrusted --sign-key "$testkeys/test.key" adbsign --reset-signatures "$repo/Packages.pending.adb"
+              apk --keys-dir "$testkeys" verify "$repo/Packages.pending.adb"
               root=$(mktemp -d)
               mkdir -p "$root/etc/apk/keys"
-              cp /keys/*.pub "$root/etc/apk/keys/"
-              echo "$repo/Packages.adb" > "$root/etc/apk/repositories"
+              cp /keys/*.pub "$testkeys/test.pub" "$root/etc/apk/keys/"
+              echo "$repo/Packages.pending.adb" > "$root/etc/apk/repositories"
               apk --root "$root" --arch riscv64 add --initdb --no-scripts
               apk --root "$root" --arch riscv64 update
               apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
@@ -63,6 +74,52 @@ jobs:
                 apk --root "$root" --arch riscv64 fetch --stdout nanokvm-rustdesk > /dev/null
               fi'
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: apk-repository-candidate
+          path: site
+          include-hidden-files: true
+          retention-days: 1
+
+  sign:
+    name: Sign repository index
+    if: github.event_name != 'pull_request'
+    needs: assemble
+    runs-on: ubuntu-26.04
+    environment: release
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: apk-repository-candidate
+          path: site
+      - name: Sign and verify the index
+        env:
+          RSA_KEY: ${{ secrets.APK_RSA_KEY }}
+          EC_KEY: ${{ secrets.APK_EC_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$RSA_KEY" ] && [ -n "$EC_KEY" ]
+          k=$RUNNER_TEMP/index-keys
+          install -d -m 0700 "$k"
+          trap 'rm -rf "$k"' EXIT
+          (umask 077
+           printf '%s\n' "$RSA_KEY" > "$k/release.rsa"
+           printf '%s\n' "$EC_KEY" > "$k/release.key")
+          branch=$(ls site/alpine)
+          docker run --rm -v "$PWD/site:/site" -v "$k:/signing:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -e "branch=$branch" \
+            alpine:3.24 sh -euc '
+              repo=/site/alpine/$branch/riscv64
+              apk --allow-untrusted --sign-key /signing/release.rsa --sign-key /signing/release.key \
+                adbsign --reset-signatures "$repo/Packages.pending.adb"
+              for key in /keys/*.pub; do
+                dir=$(mktemp -d); cp "$key" "$dir/"
+                apk --keys-dir "$dir" verify "$repo/Packages.pending.adb"
+              done
+              mv "$repo/Packages.pending.adb" "$repo/Packages.adb"'
+      - name: Remove signing keys
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/index-keys"
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
@@ -70,7 +127,7 @@ jobs:
   deploy:
     name: Deploy
     if: github.event_name != 'pull_request'
-    needs: assemble
+    needs: sign
     runs-on: ubuntu-26.04
     permissions:
       pages: write

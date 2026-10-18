@@ -272,6 +272,7 @@
     "current": "Vidéo actuelle",
     "captureOn": "Capture activée",
     "captureOff": "Capture désactivée",
+    "receiver": "Puce de capture",
     "input": "Entrée HDMI",
     "output": "Flux encodé",
     "monitor": "Moniteur HDMI",

@@ -272,6 +272,7 @@
     "current": "当前视频",
     "captureOn": "采集已启用",
     "captureOff": "采集已禁用",
+    "receiver": "采集芯片",
     "input": "HDMI 输入",
     "output": "编码视频流",
     "monitor": "HDMI 显示器",

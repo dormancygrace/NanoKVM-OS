@@ -41,7 +41,8 @@ export type MjpegCapability = { available: boolean; reason?: Reason; maxSide: nu
 export type RateTier = { longSide: number; shortSide: number; fps: number };
 
 export type VideoCapabilities = {
-  input: { width: number; height: number; fps: number; maxFps: number };
+  // receiver: the HDMI receiver chip, e.g. LT6911UXC; absent or empty if unknown.
+  input: { width: number; height: number; fps: number; maxFps: number; receiver?: string };
   monitor: {
     programmable: boolean;
     requiresPowerCycle: boolean;

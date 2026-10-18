@@ -272,6 +272,7 @@
     "current": "現在の映像",
     "captureOn": "キャプチャ有効",
     "captureOff": "キャプチャ無効",
+    "receiver": "キャプチャチップ",
     "input": "HDMI 入力",
     "output": "エンコード済みストリーム",
     "monitor": "HDMI モニター",

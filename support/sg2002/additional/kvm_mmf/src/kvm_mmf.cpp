@@ -1370,10 +1370,14 @@ int mmf_enc_jpg_push_with_quality(int ch, uint8_t *data, int w, int h, int forma
     return _mmf_jpg_push_copy(ch, data, w, h, format, quality, NULL);
 }
 
+// Read once: called for every frame, and the environment does not change.
 static bool diagnostic_force_copy()
 {
-    const char *value = getenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
-    return value && strcmp(value, "1") == 0;
+    static const bool force = [] {
+        const char *value = getenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
+        return value && strcmp(value, "1") == 0;
+    }();
+    return force;
 }
 
 /*

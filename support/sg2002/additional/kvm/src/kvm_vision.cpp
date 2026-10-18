@@ -1261,11 +1261,17 @@ static uint64_t mjpeg_monotonic_ms()
     clock_gettime(CLOCK_MONOTONIC, &time);
     return static_cast<uint64_t>(time.tv_sec) * 1000 + time.tv_nsec / 1000000;
 }
+// The environment switches, read on first use (-1: not read yet). The
+// server's environment does not change at runtime; callers hold vi_mutex.
+static int mjpeg_422_env = -1, mjpeg_force_copy_env = -1;
 static bool mjpeg_422_requested()
 {
     if (mjpeg_chroma_choice >= 0) return mjpeg_chroma_choice == 1;
-    const char *requested = getenv("NANOKVM_MJPEG_422");
-    return !requested || strcmp(requested, "0") != 0;
+    if (mjpeg_422_env < 0) {
+        const char *requested = getenv("NANOKVM_MJPEG_422");
+        mjpeg_422_env = !requested || strcmp(requested, "0") != 0;
+    }
+    return mjpeg_422_env;
 }
 static bool mjpeg_video_reader_active(uint64_t now_ms)
 {
@@ -1277,8 +1283,11 @@ static bool mjpeg_jpeg_reader_active(uint64_t now_ms)
 }
 static bool mjpeg_force_copy()
 {
-    const char *copy = getenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
-    return copy && strcmp(copy, "1") == 0;
+    if (mjpeg_force_copy_env < 0) {
+        const char *copy = getenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
+        mjpeg_force_copy_env = copy && strcmp(copy, "1") == 0;
+    }
+    return mjpeg_force_copy_env;
 }
 static void disable_mjpeg_422(const char *reason)
 {

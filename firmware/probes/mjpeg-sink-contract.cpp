@@ -32,6 +32,8 @@ static int owned_sink(uintptr_t context,const uint8_t *data,uint32_t size,uint32
     assert(context==123 && data && !active && offset==0 && size==total);
     copied.assign(data,data+size);return sink_error;
 }
+// The production code reads the environment once; read it again after a change.
+static void env_changed() { mjpeg_422_env = mjpeg_force_copy_env = -1; }
 static void reset() {
     pushes=pops=frees=deinit_count=released=0;
     push_error=pop_error=free_error=sink_error=0;active=false;encoded[2]=0x11;copied.clear();
@@ -39,11 +41,11 @@ static void reset() {
 }
 int main() {
     pthread_mutex_init(&vi_mutex, nullptr);
-    unsetenv("NANOKVM_MJPEG_422"); unsetenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
+    unsetenv("NANOKVM_MJPEG_422"); unsetenv("NANOKVM_DIAGNOSTIC_FORCE_COPY"); env_changed();
     assert(mjpeg_capture_format(VENC_MJPEG, false, 10000, 2560) == nanokvm::nv16_format());
-    setenv("NANOKVM_MJPEG_422", "0", 1);
+    setenv("NANOKVM_MJPEG_422", "0", 1); env_changed();
     assert(mjpeg_capture_format(VENC_MJPEG, false, 10000, 2560) == nanokvm::nv21_format());
-    setenv("NANOKVM_MJPEG_422", "1", 1);
+    setenv("NANOKVM_MJPEG_422", "1", 1); env_changed();
     mjpeg_last_video_ms=9000; mjpeg_last_video_width=2560;
     auto limited=mjpeg_parallel_size({2560,1440},VENC_MJPEG,false,9001);
     assert(limited.width==1920 && limited.height==1080 && mjpeg_resolution_limited);
@@ -63,9 +65,9 @@ int main() {
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12001, 2560) == nanokvm::nv16_format());
     assert(mjpeg_capture_format(VENC_MJPEG, true, 12002, 2560) == nanokvm::nv21_format());
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12003, 2560) == nanokvm::nv16_format());
-    setenv("NANOKVM_DIAGNOSTIC_FORCE_COPY", "1", 1);
+    setenv("NANOKVM_DIAGNOSTIC_FORCE_COPY", "1", 1); env_changed();
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12004, 2560) == nanokvm::nv21_format());
-    unsetenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
+    unsetenv("NANOKVM_DIAGNOSTIC_FORCE_COPY"); env_changed();
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12005, 2560) == nanokvm::nv16_format());
     disable_mjpeg_422("fault injection");
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12006, 2560) == nanokvm::nv21_format());
@@ -75,7 +77,7 @@ int main() {
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12008, 2560) == nanokvm::nv21_format());
     assert(set_mjpeg_chroma(2) == -1 && mjpeg_chroma_choice == 0);
     mjpeg_last_video_ms = 0;
-    unsetenv("NANOKVM_MJPEG_422");
+    unsetenv("NANOKVM_MJPEG_422"); env_changed();
     kvmv_data_t frame{};
     reset();video_sink=sink;video_sink_context=123;
     assert(frame_to_jpeg(0,&frame,80)==IMG_MJPEG_TYPE);

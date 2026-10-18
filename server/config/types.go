@@ -1,16 +1,18 @@
 package config
 
 type Config struct {
-	Proto          string   `yaml:"proto"`
-	Host           string   `yaml:"host"`
-	Port           Port     `yaml:"port"`
-	Cert           Cert     `yaml:"cert"`
-	Logger         Logger   `yaml:"logger"`
-	Authentication string   `yaml:"authentication"`
-	JWT            JWT      `yaml:"jwt"`
-	Stun           string   `yaml:"stun"`
-	Turn           Turn     `yaml:"turn"`
-	Security       Security `yaml:"security"`
+	Proto          string `yaml:"proto"`
+	Host           string `yaml:"host"`
+	Port           Port   `yaml:"port"`
+	Cert           Cert   `yaml:"cert"`
+	Logger         Logger `yaml:"logger"`
+	Authentication string `yaml:"authentication"`
+	JWT            JWT    `yaml:"jwt"`
+	// Stun lists STUN servers (host:port) separated by commas or spaces;
+	// "disable" turns STUN off.
+	Stun     string   `yaml:"stun"`
+	Turn     Turn     `yaml:"turn"`
+	Security Security `yaml:"security"`
 
 	Hardware Hardware `yaml:"-"`
 }

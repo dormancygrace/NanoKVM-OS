@@ -1,8 +1,8 @@
 package audio
 
 import (
-	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/stream/iceservers"
 	"NanoKVM-Server/service/stream/srtpaccel"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
@@ -51,18 +51,6 @@ func Status(c *gin.Context) {
 func StatusData() gin.H {
 	return gin.H{"audio": enabled(), "bitrate": 192000, "complexity": 3}
 }
-func iceServers() []webrtc.ICEServer {
-	servers := []webrtc.ICEServer{}
-	conf := config.GetInstance()
-	if conf.Stun != "" && conf.Stun != "disable" {
-		servers = append(servers, webrtc.ICEServer{URLs: []string{"stun:" + conf.Stun}})
-	}
-	if conf.Turn.TurnAddr != "" && conf.Turn.TurnUser != "" && conf.Turn.TurnCred != "" {
-		servers = append(servers, webrtc.ICEServer{URLs: []string{"turn:" + conf.Turn.TurnAddr}, Username: conf.Turn.TurnUser, Credential: conf.Turn.TurnCred})
-	}
-	return servers
-}
-
 func createPeerConnection(servers []webrtc.ICEServer) (*webrtc.PeerConnection, error) {
 	settings := webrtc.SettingEngine{}
 	srtpaccel.Configure(&settings)
@@ -90,7 +78,7 @@ func Connect(c *gin.Context) {
 	defer ws.Close()
 	stopWatcher := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatcher()
-	servers := iceServers()
+	servers := iceservers.FromConfig()
 	peer, err := createPeerConnection(servers)
 	if err != nil {
 		return

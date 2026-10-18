@@ -2,6 +2,22 @@ package config
 
 import "log"
 
+// DefaultStun is the STUN servers of a configuration that names none: two
+// public servers, so ICE still finds the public address when one is down.
+const DefaultStun = "stun.l.google.com:19302,stun.cloudflare.com:3478"
+
+// legacyDefaultStun is the single server older versions wrote into
+// server.yaml as their default; it stands for the default set.
+const legacyDefaultStun = "stun.l.google.com:19302"
+
+// stunOrDefault returns the default set for an empty or legacy default value.
+func stunOrDefault(stun string) string {
+	if stun == "" || stun == legacyDefaultStun {
+		return DefaultStun
+	}
+	return stun
+}
+
 var defaultConfig = &Config{
 	Proto: "https",
 	Host:  "",
@@ -22,7 +38,7 @@ var defaultConfig = &Config{
 		RefreshTokenDuration: 2678400,
 		RevokeTokensOnLogout: true,
 	},
-	Stun: "stun.l.google.com:19302",
+	Stun: DefaultStun,
 	Turn: Turn{
 		TurnAddr: "",
 		TurnUser: "",
@@ -51,9 +67,7 @@ func checkDefaultValue() {
 		instance.JWT.RefreshTokenDuration = 2678400
 	}
 
-	if instance.Stun == "" {
-		instance.Stun = "stun.l.google.com:19302"
-	}
+	instance.Stun = stunOrDefault(instance.Stun)
 
 	if instance.Authentication == "" {
 		instance.Authentication = "enable"

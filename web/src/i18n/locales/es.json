@@ -55,6 +55,9 @@
     "saveFailed": "No se pudo aplicar la configuración. Comprueba las direcciones de los servidores y la conexión del dispositivo."
   },
   "recorder": {
+    "startDirect": "Iniciar la grabación de la transmisión original (MP4)",
+    "startDirectWithAudio": "Iniciar la grabación de la transmisión original con sonido (MP4)",
+    "waitingKeyframe": "Esperando un fotograma clave…",
     "title": "Grabación de vídeo",
     "start": "Iniciar grabación",
     "startWithAudio": "Iniciar grabación con sonido",

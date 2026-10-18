@@ -2000,6 +2000,9 @@
     "locked": "Vstup je v této relaci vypnut. Zvolením „Převzít ovládání“ ho povolíte."
   },
   "recorder": {
+    "startDirect": "Spustit nahrávání původního streamu (MP4)",
+    "startDirectWithAudio": "Spustit nahrávání původního streamu se zvukem (MP4)",
+    "waitingKeyframe": "Čekání na klíčový snímek…",
     "startWithAudio": "Spustit nahrávání se zvukem",
     "saved": "Nahrávka uložena",
     "saving": "Ukládání nahrávky…",

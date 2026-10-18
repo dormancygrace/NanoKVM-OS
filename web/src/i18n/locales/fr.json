@@ -55,6 +55,9 @@
     "saveFailed": "Impossible d'appliquer les paramètres. Vérifiez les adresses des serveurs et la connexion à l'appareil."
   },
   "recorder": {
+    "startDirect": "Démarrer l'enregistrement du flux d'origine (MP4)",
+    "startDirectWithAudio": "Démarrer l'enregistrement du flux d'origine avec le son (MP4)",
+    "waitingKeyframe": "En attente d'une image clé…",
     "title": "Enregistrement vidéo",
     "start": "Démarrer l'enregistrement",
     "startWithAudio": "Démarrer l'enregistrement avec le son",

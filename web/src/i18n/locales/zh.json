@@ -55,6 +55,9 @@
     "saveFailed": "无法应用设置。请检查服务器地址和设备连接。"
   },
   "recorder": {
+    "startDirect": "开始录制原始流（MP4）",
+    "startDirectWithAudio": "开始录制原始流（含声音，MP4）",
+    "waitingKeyframe": "正在等待关键帧…",
     "startWithAudio": "开始录制（含声音）",
     "title": "视频录制",
     "start": "开始录制",

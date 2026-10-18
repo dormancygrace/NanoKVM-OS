@@ -4,6 +4,11 @@ import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
+import {
+  publishDirectRecording,
+  type DirectPacket,
+  type DirectRecordingEnd
+} from '@/lib/direct-recording.ts';
 import { encoderCodecQuery, getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder.ts';
 import { getDirectPlayback } from '@/lib/localstorage';
 import { getBaseUrl } from '@/lib/service.ts';
@@ -45,6 +50,17 @@ export const H264Direct = ({
   useEffect(() => {
     let disposed = false;
     const pendingScreenshots = screenshotRequests.current;
+    // The recording that receives this worker's frames, if any.
+    let recorder: {
+      onPacket: (packet: DirectPacket) => void;
+      onEnd: (reason: DirectRecordingEnd) => void;
+    } | null = null;
+    const endRecording = (reason: DirectRecordingEnd) => {
+      const active = recorder;
+      recorder = null;
+      workerRef.current?.postMessage({ type: 'record', record: false });
+      active?.onEnd(reason);
+    };
     const requestedCodec = getEncoderCodec();
     setFatalError(null);
 
@@ -92,6 +108,7 @@ export const H264Direct = ({
           detail?: string;
           requestId?: number;
           blob?: Blob;
+          packet?: DirectPacket;
           stats?: {
             seconds: number;
             counts: Record<string, number>;
@@ -101,6 +118,10 @@ export const H264Direct = ({
         }>
       ) => {
         const { type, width, height, code, detail } = event.data;
+        if (type === 'record-packet' && event.data.packet) {
+          recorder?.onPacket(event.data.packet);
+          return;
+        }
         if (type === 'screenshot-result' && event.data.requestId) {
           const pending = pendingScreenshots.get(event.data.requestId);
           if (!pending) return;
@@ -121,6 +142,7 @@ export const H264Direct = ({
           return;
         }
         if (type === 'stream-error') {
+          endRecording('stream-error');
           if (code === 'encoder-conflict' && onEncoderConflict(detail === 'encoder-reconfigured'))
             return;
           if (detail) console.error('Direct video stream rejected:', detail);
@@ -169,10 +191,28 @@ export const H264Direct = ({
         },
         [offscreen]
       );
+      publishDirectRecording({
+        codec,
+        start: (onPacket, onEnd) => {
+          if (disposed) {
+            onEnd('closed');
+            return () => {};
+          }
+          if (recorder) endRecording('stopped');
+          const active = { onPacket, onEnd };
+          recorder = active;
+          worker.postMessage({ type: 'record', record: true });
+          return () => {
+            if (recorder === active) endRecording('stopped');
+          };
+        }
+      });
     });
 
     return () => {
       disposed = true;
+      endRecording('closed');
+      publishDirectRecording(null);
       const worker = workerRef.current;
       workerRef.current = null;
       if (worker) {

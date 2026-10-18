@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"testing"
+
+	"github.com/gorilla/websocket"
 )
 
 func TestMarkDiscontinuityWaitsForNextKeyframe(t *testing.T) {
@@ -153,5 +155,27 @@ func TestAckStallStillBoundsPendingFramesAndBytes(t *testing.T) {
 		if !q.offer(key) || q.popForWrite() != key {
 			t.Fatal("keyframe recovery failed")
 		}
+	}
+}
+
+func TestKeyframeRequestKeepsTheQueue(t *testing.T) {
+	requests := 0
+	old := requestCaptureKeyframe
+	requestCaptureKeyframe = func() { requests++ }
+	defer func() { requestCaptureKeyframe = old }()
+	c := newClient(nil)
+	c.queue.waitingForKeyframe = false
+	c.handleControl(websocket.BinaryMessage, []byte{keyframeRequestMessage})
+	if requests != 1 || c.queue.waitingForKeyframe {
+		t.Fatalf("keyframe request: %d requests, waiting %v", requests, c.queue.waitingForKeyframe)
+	}
+	c.handleControl(websocket.BinaryMessage, []byte{keyframeRequestMessage, 0})
+	c.handleControl(websocket.TextMessage, []byte{keyframeRequestMessage})
+	if requests != 1 {
+		t.Fatalf("malformed requests counted: %d", requests)
+	}
+	c.handleControl(websocket.BinaryMessage, []byte{streamResyncMessage})
+	if requests != 2 || !c.queue.waitingForKeyframe {
+		t.Fatalf("resync: %d requests, waiting %v", requests, c.queue.waitingForKeyframe)
 	}
 }

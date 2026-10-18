@@ -55,6 +55,9 @@
     "saveFailed": "Einstellungen konnten nicht übernommen werden. Überprüfen Sie die Serveradressen und die Geräteverbindung."
   },
   "recorder": {
+    "startDirect": "Aufnahme des Originalstreams starten (MP4)",
+    "startDirectWithAudio": "Aufnahme des Originalstreams mit Ton starten (MP4)",
+    "waitingKeyframe": "Warte auf ein Schlüsselbild…",
     "title": "Videoaufzeichnung",
     "start": "Aufzeichnung starten",
     "startWithAudio": "Aufnahme mit Ton starten",

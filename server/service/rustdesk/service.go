@@ -686,6 +686,8 @@ func (s *Service) FollowVideoTransport() {
 // syncTransport rewrites the configuration, restarting a running daemon, when
 // webrtc_enabled differs from the device transport.
 func (s *Service) syncTransport() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, err := s.command("apk", "info", "-e", Package); err != nil {
 		return
 	}
@@ -698,7 +700,7 @@ func (s *Service) syncTransport() {
 	if err != nil || c.WebRTC == s.wantsWebRTC() {
 		return
 	}
-	if err = s.Configure(c); err != nil {
+	if err = s.configureLocked(c); err != nil {
 		log.Errorf("RustDesk: follow the video transport: %s", err)
 	}
 }
@@ -718,6 +720,11 @@ func (s *Service) supportsAudioSettings() bool {
 func (s *Service) Configure(candidate Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.configureLocked(candidate)
+}
+
+// configureLocked keeps reads and writes in the same service transaction.
+func (s *Service) configureLocked(candidate Config) error {
 	current, err := readConfig()
 	if err != nil {
 		return err

@@ -984,3 +984,41 @@ func slicesContain(list []string, value string) bool {
 	}
 	return false
 }
+
+func TestTransportSyncKeepsConcurrentConfiguration(t *testing.T) {
+	temporaryConfig(t)
+	fakeDeviceTransport(t, vm.TransportWebRTC)
+	s := NewService(NewBridge())
+	s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
+	if err := os.WriteFile(s.upstreamFile, []byte(`{"features":{"transport_settings":true}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s.run = func(context.Context, string, ...string) ([]byte, error) { return nil, nil }
+	original := defaultConfig()
+	original.Password = "old-password"
+	if err := writeConfig(original); err != nil {
+		t.Fatal(err)
+	}
+	// Model an administrator holding the configuration lock while a transport
+	// notification arrives. Its snapshot must be read after this save finishes.
+	s.mu.Lock()
+	done := make(chan struct{})
+	go func() { s.syncTransport(); close(done) }()
+	time.Sleep(100 * time.Millisecond)
+	latest := original
+	latest.Password = "new-password"
+	latest.MaxClients = 2
+	err := writeConfig(latest)
+	s.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-done
+	got, err := readConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Password != latest.Password || got.MaxClients != latest.MaxClients || !got.WebRTC {
+		t.Fatalf("transport synchronization overwrote administrator settings: %+v", got)
+	}
+}

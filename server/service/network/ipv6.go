@@ -101,26 +101,31 @@ type ipv6Setting struct {
 	Gateway string // optional static gateway
 }
 
-// validate checks a static address and gateway; they are passed to ip(8).
-func (s ipv6Setting) validate() error {
+// normalized checks a static address and gateway and returns the setting
+// with both in canonical form, as netip prints them. They are passed to ip(8)
+// and saved, so only the parsed value goes on, never the text as entered.
+func (s ipv6Setting) normalized() (ipv6Setting, error) {
 	if s.Address != "" {
 		prefix, err := netip.ParsePrefix(s.Address)
 		if err != nil || !prefix.Addr().Is6() || prefix.Addr().Is4In6() || prefix.Addr().Zone() != "" ||
 			prefix.Addr().IsUnspecified() || prefix.Addr().IsMulticast() || prefix.Addr().IsLoopback() {
-			return fmt.Errorf("invalid IPv6 address")
+			return s, fmt.Errorf("invalid IPv6 address")
 		}
+		// Keeps the host bits: 2001:db8::10/64 stays itself, not 2001:db8::/64.
+		s.Address = prefix.String()
 	}
 	if s.Gateway != "" {
 		gateway, err := netip.ParseAddr(s.Gateway)
 		if err != nil || !gateway.Is6() || gateway.Is4In6() || gateway.Zone() != "" ||
 			gateway.IsUnspecified() || gateway.IsMulticast() || gateway.IsLoopback() {
-			return fmt.Errorf("invalid IPv6 gateway")
+			return s, fmt.Errorf("invalid IPv6 gateway")
 		}
+		s.Gateway = gateway.String()
 	}
 	if s.Mode == ipv6Static && s.Address == "" {
-		return fmt.Errorf("static IPv6 needs an address")
+		return s, fmt.Errorf("static IPv6 needs an address")
 	}
-	return nil
+	return s, nil
 }
 
 type ipv6Status struct {
@@ -176,10 +181,12 @@ func parseIPv6Policy(text string) (ipv6Policy, error) {
 		}
 		policy[name] = setting
 	}
-	for _, setting := range policy {
-		if setting.validate() != nil {
+	for name, setting := range policy {
+		normalized, err := setting.normalized()
+		if err != nil {
 			return nil, invalid
 		}
+		policy[name] = normalized
 	}
 	return policy, nil
 }
@@ -411,10 +418,12 @@ func (s *Service) SetIPv6(c *gin.Context) {
 			case setting.Mode == "":
 				setting.Mode = ipv6DHCPv6
 			}
-			if err := setting.validate(); err != nil {
+			normalized, err := setting.normalized()
+			if err != nil {
 				rsp.ErrRsp(c, -1, err.Error())
 				return
 			}
+			setting = normalized
 		}
 		next[name] = setting
 	}

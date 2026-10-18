@@ -1,0 +1,100 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] nanokvm: no VO device, thermal thread or ISP tuning file
+
+CVI_SYS_Init opened /dev/cvi-vo, which NanoKVM does not have, and logged
+two lines about it on every capture start. It also started the thermal
+thread, at SCHED_RR priority 85. That thread waits for the vendor
+kernel's "thermal_event" generic netlink family, which the mainline
+kernel does not have: it logged "family ID request : receive error" and
+"NETLINK_ADD_MEMBERSHIP fail", then exited. CVI_SYS_Exit then warned
+that the thread had not been started.
+
+SAMPLE_COMM_VI_CreateIsp looked for the ISP tuning file
+/mnt/cfg/param/cvi_sdr_bin, which a camera sensor uses. An HDMI receiver
+delivers YUV, and the file does not exist. SAMPLE_COMM_GetSnsI2cInfo
+warned that the receiver has no suspend/resume I2C sequence.
+
+With this patch:
+- the VO device is not opened;
+- the thermal thread is not started;
+- the tuning file is not looked for;
+- the I2C-info warning is dropped.
+
+That is eight log lines per capture start; the stand had 25 starts since
+boot.
+---
+--- a/modules/sys/src/cvi_sys.c
++++ b/modules/sys/src/cvi_sys.c
+@@ -238,15 +238,7 @@
+ 		//return CVI_ERR_SYS_NOTREADY;
+ 	}
+ 
+-#ifndef __CV180X__
+-	s32ret = vo_dev_open();
+-	if (s32ret != CVI_SUCCESS) {
+-		CVI_TRACE_SYS(CVI_DBG_DEBUG, "base_vo_open failed\n");
+-		s32ret = CVI_SUCCESS;
+-		//If ko is not insmod, means no need this function.
+-		//return CVI_ERR_SYS_NOTREADY;
+-	}
+-#endif
++	/* NanoKVM has no video output: no /dev/cvi-vo to open. */
+ 
+ 	s32ret = dwa_dev_open();
+ 	if (s32ret != CVI_SUCCESS) {
+@@ -288,8 +280,8 @@
+ 		for (CVI_U8 i = 0; i < VPSS_IP_NUM; ++i)
+ 			stVPSSMode.aenInput[i] = VPSS_INPUT_MEM;
+ 		CVI_SYS_SetVPSSModeEx(&stVPSSMode);
+-
+-		CVI_SYS_StartThermalThread();
++		/* No thermal thread: it waits for the vendor kernel's
++		 * "thermal_event" netlink family, which mainline lacks. */
+ 	}
+ 
+ 	sys_set_sys_init(_sys_fd);
+@@ -330,9 +322,6 @@
+ 
+ 	_sys_fd = get_sys_fd();
+ 	sys_get_sys_init(_sys_fd, &sys_init);
+-	if (sys_init == 1) {
+-		CVI_SYS_StopThermalThread();
+-	}
+ 
+ 	s32ret = vi_dev_close();
+ 	if (s32ret != CVI_SUCCESS) {
+--- a/sample/common/sample_common_vi.c
++++ b/sample/common/sample_common_vi.c
+@@ -6,6 +6,11 @@
+  *   Common sample code for video input.
+  */
+ 
++#ifdef NANOKVM_OS
++#define NANOKVM_OS_BUILD 1
++#else
++#define NANOKVM_OS_BUILD 0
++#endif
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -313,7 +318,9 @@
+ 		}
+ 		return CVI_SUCCESS;
+ 	default:
+-		CVI_TRACE_LOG(CVI_DBG_WARN, "fail to get sensor i2c info!\n");
++		/* The HDMI receivers have no suspend/resume sequence. */
++		if (!NANOKVM_OS_BUILD)
++			CVI_TRACE_LOG(CVI_DBG_WARN, "fail to get sensor i2c info!\n");
+ 		return CVI_SUCCESS;
+ 	}
+ 
+@@ -855,7 +862,8 @@
+ 			CVI_TRACE_LOG(CVI_DBG_WARN, "read block(%d) para fail: %#x!\n", CVI_BIN_ID_ISP0 + i, s32Ret);
+ 		}
+ 		#else
+-		if (i == (pstViConfig->s32WorkingViNum - 1)) {
++		/* An HDMI receiver delivers YUV: there is no ISP tuning file. */
++		if (!NANOKVM_OS_BUILD && i == (pstViConfig->s32WorkingViNum - 1)) {
+ 			s32Ret = SAMPLE_COMM_BIN_ReadParaFrombin();
+ 			if (s32Ret != CVI_SUCCESS) {
+ 				CVI_TRACE_LOG(CVI_DBG_WARN, "read para fail: %#x,use default para!\n", s32Ret);

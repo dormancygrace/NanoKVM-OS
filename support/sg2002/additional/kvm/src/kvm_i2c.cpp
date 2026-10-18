@@ -14,8 +14,17 @@ bool I2c::select(int address) {
         snprintf(path, sizeof(path), "/dev/i2c-%d", bus_);
         fd_ = open(path, O_RDWR | O_CLOEXEC);
         if (fd_ < 0) return false;
+        selected_ = -1;
     }
-    return ioctl(fd_, I2C_SLAVE, address) == 0;
+    // The target address belongs to this open file (i2c-dev keeps one client
+    // per fd), so it stays set between transfers.
+    if (selected_ == address) return true;
+    if (ioctl(fd_, I2C_SLAVE, address) != 0) {
+        selected_ = -1;
+        return false;
+    }
+    selected_ = address;
+    return true;
 }
 bool I2c::writeto(int address, const uint8_t *bytes, size_t length) {
     if (!bytes || !length || length > 65535 || !select(address)) return false;

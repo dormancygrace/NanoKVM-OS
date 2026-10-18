@@ -15,5 +15,6 @@ public:
 private:
     bool select(int address);
     int bus_, fd_ = -1;
+    int selected_ = -1; // the address I2C_SLAVE last set on fd_, or -1
 };
 }

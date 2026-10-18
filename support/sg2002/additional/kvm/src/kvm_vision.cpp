@@ -950,10 +950,10 @@ void* vi_subsystem_detection(void *)
     uint8_t falling_times = 0;
     uint8_t auto_change_mode = 0;
     kvmv_cfg.thread_is_running = 1;
-	if(access("/proc/lt_int", F_OK) != 0){
-		nanokvm::sleep_ms(10);
-		debug("[hdmi]/proc/lt_int not ok\n");
-	}
+    // The vendor kernel's LT6911 edge counter. Mainline kernels have none and
+    // nothing creates it later, so look once and otherwise poll the receiver.
+    const bool hdmi_edge_counter = access(hdmi_state_path, F_OK) == 0;
+    if (!hdmi_edge_counter) debug("[hdmi]%s absent, polling the receiver\n", hdmi_state_path);
 
     get_hdmi_version();
 
@@ -991,7 +991,7 @@ void* vi_subsystem_detection(void *)
             if(get_new_hdmi_mode == 1){
                 kvmv_cfg.vi_detect_state = 0;
                 // reset hdmi_state
-                nanokvm::write_small_uint(hdmi_state_path, 0);
+                if (hdmi_edge_counter) nanokvm::write_small_uint(hdmi_state_path, 0);
                 // reset hdmi
                 kvmv_hdmi_control(0);
                 nanokvm::sleep_ms(10);
@@ -1001,18 +1001,19 @@ void* vi_subsystem_detection(void *)
             tmp8 = 0;
             bool hdmi_poll_fallback;
             hdmi_poll_fallback = false;
-            fp = fopen(hdmi_state_path, "r+");
-            if (fp != NULL) {
-                char events[3] = {0};
-                fread(events, 1, sizeof(events) - 1, fp);
-                tmp8 = static_cast<uint8_t>(atoi(events));
-                if (tmp8 != 0) fputs("0", fp);
-                fclose(fp);
-            }
-            else if (access(hdmi_state_path, F_OK) != 0) {
-                // Mainline kernels do not provide the vendor /proc/lt_int
-                // edge counter. Re-read bridge geometry at a bounded rate;
-                // the existing NEW_RES path requests capture reconfiguration.
+            if (hdmi_edge_counter) {
+                fp = fopen(hdmi_state_path, "r+");
+                if (fp != NULL) {
+                    char events[3] = {0};
+                    fread(events, 1, sizeof(events) - 1, fp);
+                    tmp8 = static_cast<uint8_t>(atoi(events));
+                    if (tmp8 != 0) fputs("0", fp);
+                    fclose(fp);
+                }
+            } else {
+                // Without the edge counter, re-read bridge geometry at a
+                // bounded rate; the existing NEW_RES path requests capture
+                // reconfiguration.
                 uint64_t now = vi_state_shared::monotonic_ms();
                 if (now - last_hdmi_poll_ms >= 1000U) {
                     last_hdmi_poll_ms = now;

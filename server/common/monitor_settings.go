@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -74,7 +75,15 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	if hw.powerCycle() {
 		return checkCubeMonitorEDIDLocked(hw)
 	}
-	if _, err := os.Stat(monitorEDIDHashFile); !errors.Is(err, os.ErrNotExist) {
+	if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
+		if !retiredMonitorProfiles[strings.TrimSpace(string(recorded))] {
+			return "", nil
+		}
+		if err := retireStreamRateLocked(); err != nil {
+			return "", err
+		}
+		log.Infof("the HDMI receiver holds a retired 1080p 100 Hz profile; programming the current one")
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}
 	// Fitting may have failed, or the saved state may have changed since it ran.
@@ -94,6 +103,27 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 		return "", err
 	}
 	return path, nil
+}
+
+// Profiles that earlier releases programmed and this one no longer ships:
+// 1920x1080 and 1080x1920 at 100 Hz, now 90 Hz. A receiver that still holds
+// one is programmed with the current profile at the next start, as if no
+// profile were recorded, and the old default stream rate of 100 fps becomes
+// 90.
+var retiredMonitorProfiles = map[string]bool{
+	"8e90f013b8d93be6936bbcdaa324640ad9de03dd877891732c9f4daa2b95ca8a": true, // NanoKVM-monitor-1080-100.bin, also Automatic
+	"2d7fd4976ab726052bcb3a17b46951f8a5d0516e01816a0061a5d98d91087bb5": true, // NanoKVM-portrait-1080x1920-100.bin
+}
+
+func retireStreamRateLocked() error {
+	if GetScreen().FPS != 100 {
+		return nil
+	}
+	if err := atomicWriteMonitorFile(screenFileMap["fps"], []byte("90"), ".fps-*"); err != nil {
+		return fmt.Errorf("saving the stream rate failed: %w", err)
+	}
+	SetScreen("fps", 90)
+	return nil
 }
 
 // A Cube receiver keeps its EDID in flash across reinstalls, and writing it

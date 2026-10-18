@@ -61,6 +61,45 @@ func TestProgramMonitorProfileOnFirstStart(t *testing.T) {
 	}
 }
 
+// A receiver left with a 100 Hz profile of an earlier release is programmed
+// with the current one, and the old default stream rate of 100 fps becomes 90.
+func TestFirstStartReplacesRetired100HzProfile(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	fpsFile := filepath.Join(t.TempDir(), "fps")
+	previous := screenFileMap["fps"]
+	screenFileMap["fps"] = fpsFile
+	SetScreen("fps", 100)
+	t.Cleanup(func() { screenFileMap["fps"] = previous; SetScreen("fps", 90) })
+	for hash, retired := range map[string]bool{
+		"8e90f013b8d93be6936bbcdaa324640ad9de03dd877891732c9f4daa2b95ca8a": true,
+		"0": false,
+	} {
+		if err := os.WriteFile(monitorEDIDHashFile, []byte(hash+"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		var applied []string
+		path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil), poolUHD)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !retired {
+			if len(applied) != 0 || path != "" {
+				t.Fatalf("current profile %q: applied %v", hash, applied)
+			}
+			continue
+		}
+		if len(applied) != 1 || path != monitorProfilePathAt(1080, 90) {
+			t.Fatalf("retired profile: reported %q, applied %v", path, applied)
+		}
+		if GetScreen().FPS != 90 {
+			t.Fatalf("stream rate %d, want 90", GetScreen().FPS)
+		}
+		if data, err := os.ReadFile(fpsFile); err != nil || string(data) != "90" {
+			t.Fatalf("saved stream rate %q, %v", data, err)
+		}
+	}
+}
+
 // The saved portrait profile is the one advertised, as in applyMonitorSettings.
 func TestProgramMonitorProfileOnFirstStartPortrait(t *testing.T) {
 	monitorState(t, 1080, true, 1920)

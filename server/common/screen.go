@@ -172,7 +172,7 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		Height:      0,
 		Quality:     80,
 		FPS:         90,
-		BitRate:     12000, // recommended for 1080p100 H.265 with motion
+		BitRate:     12000, // recommended for 1080p90 H.265 with motion
 		MjpegChroma: 422,
 	}
 

@@ -1326,7 +1326,7 @@
         },
         "headless": {
           "title": "Headless-Server",
-          "description": "Nur die serielle Konsole, für einen Server, dessen serielle Anmeldung bereits eingerichtet ist (mit „KVM + serielle Konsole“ und ihrem Hilfslaufwerk oder über das Netzwerk). Auf dem Computer erscheinen weder Tastatur, Maus noch Speicher; der Remote-Desktop fügt Tastatur, Mäuse und Audio wieder hinzu, wenn er aktiviert ist."
+          "description": "Die serielle Konsole und das virtuelle Laufwerk mit seinem Hilfslaufwerk, das das Skript zum Einrichten der seriellen Anmeldung enthält, sodass der Server kein Netzwerk braucht. Auf dem Computer erscheinen weder Tastatur noch Maus; der Remote-Desktop fügt Tastatur, Mäuse und Audio wieder hinzu, wenn er aktiviert ist."
         },
         "remote": {
           "title": "Remote-Desktop",

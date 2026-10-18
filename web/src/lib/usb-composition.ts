@@ -104,9 +104,9 @@ export const usbPresets: { id: string; composition: UsbComposition }[] = [
   { id: 'kvm', composition: { ...hid, ...none, disk: true, mode: 'normal' } },
   { id: 'standard', composition: { ...hid, ...none, network: true, disk: true, mode: 'normal' } },
   { id: 'console', composition: { ...hid, ...none, serial: true, disk: true, mode: 'normal' } },
-  // a server whose serial login is already set up (with the console preset
-  // above, or over the network): the serial console and nothing else, so no
-  // USB storage shows up in its boot order
+  // a server managed over its serial login: the serial console and the
+  // virtual disk, which carries the helper disk with the script that sets the
+  // login up, so the server needs no network; no keyboard or mouse
   {
     id: 'headless',
     composition: {
@@ -115,6 +115,7 @@ export const usbPresets: { id: string; composition: UsbComposition }[] = [
       absolute: false,
       ...none,
       serial: true,
+      disk: true,
       mode: 'normal'
     }
   },

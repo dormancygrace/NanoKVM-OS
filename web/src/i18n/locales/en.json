@@ -1326,7 +1326,7 @@
         },
         "headless": {
           "title": "Headless server",
-          "description": "The serial console only, for a server whose serial login is already set up (with \"KVM + serial console\" and its helper disk, or over the network). No keyboard, mouse or storage appears on the computer; the remote desktop adds keyboard, mice and audio back when it is enabled."
+          "description": "The serial console and the virtual disk with its helper disk, which carries the script that sets up the serial login, so the server needs no network. No keyboard or mouse appears on the computer; the remote desktop adds keyboard, mice and audio back when it is enabled."
         },
         "remote": {
           "title": "Remote desktop",

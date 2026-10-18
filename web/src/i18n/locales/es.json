@@ -1326,7 +1326,7 @@
         },
         "headless": {
           "title": "Servidor sin monitor",
-          "description": "Solo la consola serie, para un servidor cuyo inicio de sesión serie ya está configurado (con \"KVM + consola serie\" y su disco auxiliar, o por la red). No aparece teclado, ratón ni almacenamiento en el equipo; el escritorio remoto vuelve a añadir teclado, ratones y audio cuando está activado."
+          "description": "La consola serie y el disco virtual con su disco auxiliar, que contiene el script que configura el inicio de sesión serie, así que el servidor no necesita red. No aparece teclado ni ratón en el equipo; el escritorio remoto vuelve a añadir teclado, ratones y audio cuando está activado."
         },
         "remote": {
           "title": "Escritorio remoto",

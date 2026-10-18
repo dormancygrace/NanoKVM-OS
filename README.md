@@ -192,16 +192,6 @@ Updates retain settings, user data and independently installed packages. The thi
 
 The bootloader package updates fip.bin on existing installations; see [bootloader updates and recovery](docs/BOOT.md#updating-fipbin). A full image includes the rebuilt bootloader as well as the applications and system packages.
 
-<a id="limitations"></a>
-
-## 🧪 Release status and limits
-
-- **v3.2.0 / Image v1.4:** published with verified packages, sources and image files. It is developed and tested on the NanoKVM PCIe; reports from other models are welcome ([help test](#help-test)).
-- Frame-rate targets, portrait modes and H.265 decoding depend on the source, receiver, memory profile and client. Viewers share the active codec and encoder settings.
-- USB functions share a limited endpoint budget; not every combination can be enabled together. Internet sharing is IPv4-only.
-- OpenVPN supports routed TUN profiles; TAP, scripts and interactive SSO/MFA are not supported.
-- Native media or SoC lockups can require physical power cycling; a service restart or watchdog is not guaranteed to recover every hardware fault.
-
 <a id="build"></a>
 
 ## 💻 Build from the public repository

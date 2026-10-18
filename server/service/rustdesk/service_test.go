@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"NanoKVM-Server/service/vm"
 )
 
 func temporaryConfig(t *testing.T) {
@@ -541,18 +543,6 @@ func TestTransportConfigIsOptionalAndCapabilityGated(t *testing.T) {
 			t.Fatal("legacy metadata must not expose transport controls")
 		}
 	}
-	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		if name == "apk" && args[0] == "info" {
-			return []byte(Package + "-0.3.0-r1"), nil
-		}
-		t.Fatalf("must reject unsupported option before service mutation: %s", name)
-		return nil, nil
-	}
-	c := defaultConfig()
-	c.WebRTC = true
-	if err := s.Configure(c); err == nil || !strings.Contains(err.Error(), "update") {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(s.upstreamFile, []byte(`{"rustdesk_version":"1.5.0","features":{"transport_settings":true}}`), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -887,5 +877,148 @@ func TestAPKStampFollowsStateFiles(t *testing.T) {
 			t.Fatal("apk state change kept the stamp")
 		}
 		stamp = next
+	}
+}
+
+func fakeDeviceTransport(t *testing.T, value string) *string {
+	t.Helper()
+	oldGet, oldSet, oldStore, oldOn := deviceTransport, deviceTransportSet, storeDeviceTransport, onTransportChange
+	t.Cleanup(func() {
+		deviceTransport, deviceTransportSet, storeDeviceTransport, onTransportChange = oldGet, oldSet, oldStore, oldOn
+	})
+	current := value
+	deviceTransport = func() string {
+		if current == "" {
+			return vm.TransportDirect
+		}
+		return current
+	}
+	deviceTransportSet = func() bool { return current != "" }
+	return &current
+}
+
+func TestWebRTCFollowsTheDeviceTransport(t *testing.T) {
+	temporaryConfig(t)
+	transport := fakeDeviceTransport(t, vm.TransportDirect)
+	s := NewService(NewBridge())
+	s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
+	var commands []string
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		commands = append(commands, name+" "+strings.Join(args, " "))
+		return nil, nil
+	}
+	c := defaultConfig()
+	c.Password = "example-pass"
+	c.WebRTC = true // ignored: the device transport decides
+	saved := func() bool {
+		stored, err := readConfig()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return stored.WebRTC
+	}
+	if err := s.Configure(c); err != nil || saved() {
+		t.Fatalf("Direct: %v, WebRTC %v", err, saved())
+	}
+	*transport = vm.TransportWebRTC
+	if err := s.Configure(c); err != nil || saved() {
+		t.Fatalf("an add-on without transport settings: %v, WebRTC %v", err, saved())
+	}
+	if err := os.WriteFile(s.upstreamFile, []byte(`{"rustdesk_version":"1.5.0","features":{"transport_settings":true}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Configure(c); err != nil || !saved() {
+		t.Fatalf("WebRTC: %v, WebRTC %v", err, saved())
+	}
+	status, err := s.Status()
+	if err != nil || status.VideoTransport != vm.TransportWebRTC || !status.Config.WebRTC {
+		t.Fatalf("status %+v, %v", status, err)
+	}
+
+	// A change of the device transport rewrites the configuration once.
+	*transport = vm.TransportMJPEG
+	commands = nil
+	s.syncTransport()
+	if saved() || !slicesContain(commands, "rc-service "+Package+" stop") {
+		t.Fatalf("after MJPEG: WebRTC %v, commands %v", saved(), commands)
+	}
+	commands = nil
+	s.syncTransport()
+	for _, command := range commands {
+		if !strings.HasPrefix(command, "apk ") {
+			t.Fatalf("an unchanged transport touched the daemon: %v", commands)
+		}
+	}
+}
+
+func TestUpgradeKeepsRustDeskWebRTC(t *testing.T) {
+	temporaryConfig(t)
+	transport := fakeDeviceTransport(t, "")
+	stored := make(chan string, 1)
+	storeDeviceTransport = func(value string) error { *transport = value; stored <- value; return nil }
+	onTransportChange = func(func(string)) {}
+	c := defaultConfig()
+	c.Password = "example-pass"
+	c.WebRTC = true
+	if err := writeConfig(c); err != nil {
+		t.Fatal(err)
+	}
+	s := NewService(NewBridge())
+	s.run = func(context.Context, string, ...string) ([]byte, error) { return nil, nil }
+	s.FollowVideoTransport()
+	select {
+	case value := <-stored:
+		if value != vm.TransportWebRTC {
+			t.Fatalf("stored %s", value)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the device transport was not set from RustDesk")
+	}
+}
+
+func slicesContain(list []string, value string) bool {
+	for _, item := range list {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
+
+func TestTransportSyncKeepsConcurrentConfiguration(t *testing.T) {
+	temporaryConfig(t)
+	fakeDeviceTransport(t, vm.TransportWebRTC)
+	s := NewService(NewBridge())
+	s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
+	if err := os.WriteFile(s.upstreamFile, []byte(`{"features":{"transport_settings":true}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s.run = func(context.Context, string, ...string) ([]byte, error) { return nil, nil }
+	original := defaultConfig()
+	original.Password = "old-password"
+	if err := writeConfig(original); err != nil {
+		t.Fatal(err)
+	}
+	// Model an administrator holding the configuration lock while a transport
+	// notification arrives. Its snapshot must be read after this save finishes.
+	s.mu.Lock()
+	done := make(chan struct{})
+	go func() { s.syncTransport(); close(done) }()
+	time.Sleep(100 * time.Millisecond)
+	latest := original
+	latest.Password = "new-password"
+	latest.MaxClients = 2
+	err := writeConfig(latest)
+	s.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-done
+	got, err := readConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Password != latest.Password || got.MaxClients != latest.MaxClients || !got.WebRTC {
+		t.Fatalf("transport synchronization overwrote administrator settings: %+v", got)
 	}
 }

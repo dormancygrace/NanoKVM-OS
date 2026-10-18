@@ -58,7 +58,7 @@ export function getVideoCapabilities() {
 // { restart: true, videoMemoryMode } when fitVideoMemory switched the video
 // memory mode and the device restarts
 export function applyVideoSettings(
-  settings: Record<string, number | boolean>,
+  settings: Record<string, number | boolean | string>,
   confirmPowerCycle = false,
   fitVideoMemory = false
 ) {

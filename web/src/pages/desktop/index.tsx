@@ -50,6 +50,13 @@ function getDefaultVideoMode() {
   return isDirectSupported() ? 'direct' : window.RTCPeerConnection ? 'h264' : 'mjpeg';
 }
 
+// The player of a device transport, when this browser plays it.
+function deviceVideoMode(transport: unknown) {
+  if (transport === 'direct') return isDirectSupported() ? 'direct' : null;
+  if (transport === 'webrtc') return window.RTCPeerConnection ? 'h264' : null;
+  return transport === 'mjpeg' ? 'mjpeg' : null;
+}
+
 function getVideoMode() {
   const defaultVideoMode = getDefaultVideoMode();
 
@@ -111,6 +118,24 @@ export const Desktop = () => {
   useDeviceTime();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
   const [activeVideoMode, setActiveVideoMode] = useState(getVideoMode);
+  // Without a choice of its own, this browser waits for the device transport.
+  const [videoModeKnown, setVideoModeKnown] = useState(() => storage.getVideoMode() !== null);
+  useEffect(() => {
+    if (videoModeKnown) return;
+    let active = true;
+    getVideoCapabilities()
+      .then((rsp) => {
+        const mode = rsp.code === 0 ? deviceVideoMode(rsp.data?.stream?.transport) : null;
+        if (active && mode) setActiveVideoMode(mode);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setVideoModeKnown(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [videoModeKnown]);
   const [mjpegRefused, setMjpegRefused] = useState(false);
   const [encoderReady, setEncoderReady] = useState(false);
   const [encoderError, setEncoderError] = useState<string | null>(null);
@@ -153,6 +178,7 @@ export const Desktop = () => {
   const isPicoclawChatOpen = useAtomValue(picoclawChatOpenAtom);
 
   useEffect(() => {
+    if (!videoModeKnown) return;
     let active = true;
     let switching = false;
     setEncoderReady(false);
@@ -198,7 +224,7 @@ export const Desktop = () => {
     return () => {
       active = false;
     };
-  }, [activeVideoMode, joinAttempt, setVideoMode]);
+  }, [activeVideoMode, joinAttempt, setVideoMode, videoModeKnown]);
 
   useEffect(() => {
     client.connect();

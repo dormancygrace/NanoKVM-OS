@@ -180,6 +180,9 @@ func videoCapabilities() gin.H {
 			"minFps":    10,
 			"maxFps":    120,
 			"mjpeg":     mjpegCapabilities(inputWidth, inputHeight),
+			// The device transport: browsers without a choice of their own
+			// start with it, and RustDesk follows it.
+			"transport": StreamTransport(),
 		},
 		// Every transport carries every codec; the browser checks its decoder.
 		"transports": gin.H{
@@ -234,6 +237,9 @@ type VideoSettingsReq struct {
 	PortraitResolution *int  `json:"portraitResolution"`
 	Portrait           *bool `json:"portrait"`
 	Monitor            *int  `json:"monitor"`
+	// Transport is the device transport (direct, webrtc or mjpeg), stored
+	// after the other settings.
+	Transport *string `json:"transport"`
 }
 
 // settings lists the request in application order. The EDID is written last
@@ -261,6 +267,13 @@ func (r VideoSettingsReq) settings() []proto.SetScreenReq {
 	}
 	add("monitor", r.Monitor)
 	return list
+}
+
+func (r VideoSettingsReq) storeTransport() error {
+	if r.Transport == nil {
+		return nil
+	}
+	return SetStreamTransport(*r.Transport)
 }
 
 // monitor is the final HDMI state of the request.
@@ -366,6 +379,10 @@ func (s *Service) SetVideoSettings(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "bitrate must be 101-20000 kbit/s")
 		return
 	}
+	if req.Transport != nil && !validTransport(*req.Transport) {
+		rsp.ErrRsp(c, -1, "transport must be direct, webrtc or mjpeg")
+		return
+	}
 	videoSettingsMutex.Lock()
 	defer videoSettingsMutex.Unlock()
 	if videoMemoryRestartPending.Load() {
@@ -401,6 +418,10 @@ func (s *Service) SetVideoSettings(c *gin.Context) {
 	}
 	if err := applyVideoMonitorSettings(req.monitor()); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
+		return
+	}
+	if err := req.storeTransport(); err != nil {
+		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
 
@@ -476,6 +497,10 @@ func (s *Service) switchVideoMemory(c *gin.Context, req *VideoSettingsReq, setti
 			return
 		}
 		holdMonitorForRestart()
+	}
+	if err = req.storeTransport(); err != nil {
+		undo(-2, err)
+		return
 	}
 
 	videoMemoryRestartPending.Store(true)

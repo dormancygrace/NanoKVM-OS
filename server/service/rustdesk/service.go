@@ -21,6 +21,8 @@ import (
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/service/vm"
 
+	log "github.com/sirupsen/logrus"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -43,22 +45,24 @@ type Config struct {
 	MaxClients   int    `json:"max_clients"`
 }
 type Status struct {
-	SupportsTransportSettings bool            `json:"supports_transport_settings"`
-	SupportsAudio             bool            `json:"supports_audio"`
-	SupportsAudioSettings     bool            `json:"supports_audio_settings"`
-	USBAudioEnabled           bool            `json:"usb_audio_enabled"`
-	Installed                 bool            `json:"installed"`
-	Version                   string          `json:"version,omitempty"`
-	RustDeskVersion           string          `json:"rustdesk_version,omitempty"`
-	SourceURL                 string          `json:"source_url,omitempty"`
-	UpdateVersion             string          `json:"update_version,omitempty"`
-	Available                 bool            `json:"available"`
-	Running                   bool            `json:"running"`
-	Config                    Config          `json:"config"`
-	HasPassword               bool            `json:"has_password"`
-	TemporaryPassword         string          `json:"temporary_password,omitempty"`
-	ID                        string          `json:"id"`
-	Runtime                   json.RawMessage `json:"runtime,omitempty"`
+	SupportsTransportSettings bool `json:"supports_transport_settings"`
+	// The device video transport that decides webrtc_enabled.
+	VideoTransport        string          `json:"video_transport"`
+	SupportsAudio         bool            `json:"supports_audio"`
+	SupportsAudioSettings bool            `json:"supports_audio_settings"`
+	USBAudioEnabled       bool            `json:"usb_audio_enabled"`
+	Installed             bool            `json:"installed"`
+	Version               string          `json:"version,omitempty"`
+	RustDeskVersion       string          `json:"rustdesk_version,omitempty"`
+	SourceURL             string          `json:"source_url,omitempty"`
+	UpdateVersion         string          `json:"update_version,omitempty"`
+	Available             bool            `json:"available"`
+	Running               bool            `json:"running"`
+	Config                Config          `json:"config"`
+	HasPassword           bool            `json:"has_password"`
+	TemporaryPassword     string          `json:"temporary_password,omitempty"`
+	ID                    string          `json:"id"`
+	Runtime               json.RawMessage `json:"runtime,omitempty"`
 }
 type Service struct {
 	mu           sync.Mutex
@@ -427,7 +431,7 @@ func (s *Service) Status() (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
-	status := Status{Config: c, HasPassword: c.Password != ""}
+	status := Status{Config: c, HasPassword: c.Password != "", VideoTransport: deviceTransport()}
 	status.Config.Password = ""
 	stamp := s.stamp()
 	installed := s.installedFacts(stamp)
@@ -646,6 +650,61 @@ func (s *Service) supportsTransportSettings() bool {
 	}
 	return json.Unmarshal(data, &metadata) == nil && metadata.Features.TransportSettings
 }
+
+// wantsWebRTC reports whether the daemon accepts WebRTC connections: when
+// the device transport is WebRTC and the installed add-on supports it.
+func (s *Service) wantsWebRTC() bool {
+	return deviceTransport() == vm.TransportWebRTC && s.supportsTransportSettings()
+}
+
+// The device transport, replaced in tests.
+var (
+	deviceTransport      = vm.StreamTransport
+	deviceTransportSet   = vm.StreamTransportSet
+	storeDeviceTransport = vm.SetStreamTransport
+	onTransportChange    = vm.OnStreamTransportChange
+)
+
+// FollowVideoTransport keeps webrtc_enabled equal to the device transport,
+// now and after each change. A device that has never stored a transport
+// takes WebRTC when RustDesk had it enabled, so an upgrade keeps it on.
+func (s *Service) FollowVideoTransport() {
+	onTransportChange(func(string) { go s.syncTransport() })
+	go func() {
+		if !deviceTransportSet() {
+			if c, err := readConfig(); err == nil && c.WebRTC {
+				if err = storeDeviceTransport(vm.TransportWebRTC); err != nil {
+					log.Errorf("RustDesk: keep WebRTC as the video transport: %s", err)
+				}
+				return // the change runs syncTransport
+			}
+		}
+		s.syncTransport()
+	}()
+}
+
+// syncTransport rewrites the configuration, restarting a running daemon, when
+// webrtc_enabled differs from the device transport.
+func (s *Service) syncTransport() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := s.command("apk", "info", "-e", Package); err != nil {
+		return
+	}
+	// A daemon that was never configured is off; Configure derives the
+	// option when the user sets RustDesk up.
+	if _, err := os.Stat(ConfigFile); err != nil {
+		return
+	}
+	c, err := readConfig()
+	if err != nil || c.WebRTC == s.wantsWebRTC() {
+		return
+	}
+	if err = s.configureLocked(c); err != nil {
+		log.Errorf("RustDesk: follow the video transport: %s", err)
+	}
+}
+
 func (s *Service) supportsAudioSettings() bool {
 	data, err := os.ReadFile(s.upstreamFile)
 	if err != nil {
@@ -661,6 +720,11 @@ func (s *Service) supportsAudioSettings() bool {
 func (s *Service) Configure(candidate Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.configureLocked(candidate)
+}
+
+// configureLocked keeps reads and writes in the same service transaction.
+func (s *Service) configureLocked(candidate Config) error {
 	current, err := readConfig()
 	if err != nil {
 		return err
@@ -680,9 +744,8 @@ func (s *Service) Configure(candidate Config) error {
 	if _, err = s.command("apk", "info", "-e", Package); err != nil {
 		return errors.New("install the RustDesk package first")
 	}
-	if candidate.WebRTC && !s.supportsTransportSettings() {
-		return errors.New("update the RustDesk add-on before enabling WebRTC")
-	}
+	// WebRTC is not a setting of its own: it follows the device transport.
+	candidate.WebRTC = s.wantsWebRTC()
 	if candidate.AudioEnabled != nil && !s.supportsAudioSettings() {
 		return errors.New("update the RustDesk add-on before configuring sound transmission")
 	}

@@ -264,6 +264,8 @@ test('the request carries changed shared settings only', () => {
     { fps: 30 }
   );
   assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, codec: 'h264' }) }, { type: 1 });
+  // The transport is also the device transport: WebRTC carries the same codec.
+  assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, transport: 'webrtc' }) }, { transport: 'webrtc' });
   assert.deepEqual(
     { ...model.settingsRequest(saved, { ...saved, portrait: 2560 }) },
     { portraitResolution: 2560, portrait: true }

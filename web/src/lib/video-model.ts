@@ -59,6 +59,8 @@ export type VideoCapabilities = {
     minFps: number;
     maxFps: number;
     mjpeg?: MjpegCapability;
+    // The device transport; absent on older servers.
+    transport?: Transport;
   };
   transports: Record<Transport, string[]>;
   videoMemoryMiB: number;
@@ -516,8 +518,10 @@ export function blockingIssues(
 }
 
 // The shared part of a draft as a POST /api/vm/video body: changed fields only.
+// An administrator's transport choice is also the device transport.
 export function settingsRequest(saved: VideoDraft, draft: VideoDraft) {
-  const body: Record<string, number | boolean> = {};
+  const body: Record<string, number | boolean | string> = {};
+  if (draft.transport !== saved.transport) body.transport = draft.transport;
   if (streamType(draft) !== streamType(saved)) body.type = streamType(draft);
   if (draft.bitRate !== saved.bitRate) body.bitRate = draft.bitRate;
   if (draft.quality !== saved.quality) body.quality = draft.quality;

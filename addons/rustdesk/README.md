@@ -22,7 +22,8 @@ sessions attempt encrypted direct TCP by ID using LAN address exchange and NAT
 punching, then fall back to encrypted relay. IPv6-only direct-by-ID currently
 uses relay. The explicit IP listener remains loopback by default.
 
-WebRTC is an optional setting, disabled by default. It uses ICE/DTLS/SCTP through
+WebRTC follows the NanoKVM video transport (Settings > Video): the daemon
+accepts WebRTC exactly when that transport is WebRTC. It uses ICE/DTLS/SCTP through
 the existing Go/Pion stack without decode/re-encode. SDP and ICE use authenticated
 encrypted hbbs TCP; the signed RustDesk identity binds the local DTLS fingerprint.
 Relay remains available when the ID server cannot route signaling. ICE uses
@@ -192,9 +193,10 @@ its input lease; remote keyboard options cannot override server-side permissions
 
 ## Default transport policy (0.3.0-r2)
 
-WebRTC is disabled by default, including upgrades whose configuration has no
-webrtc_enabled field. Enable it explicitly through the installed add-on settings
-(or set webrtc_enabled to true). Classic TCP rendezvous now attempts encrypted
+webrtc_enabled is not set by hand: the NanoKVM server writes it from the device
+video transport (true with WebRTC, false with Direct and MJPEG, false while the
+installed add-on lacks transport support) and restarts a running daemon when it
+changes. A configuration without the field keeps WebRTC off. Classic TCP rendezvous now attempts encrypted
 direct TCP and local-address connection before relay. A direct listener is
 created only for a bounded ID-server request; the permanent direct-IP listener
 keeps its existing loopback default. Authentication, signed identity, KX v1,

@@ -26,7 +26,7 @@ import {
 } from '@/lib/video-model';
 
 import { Reset } from '../../screen/reset';
-import { applyVideoDraft } from './apply';
+import { applyVideoDraft, setDeviceTransport } from './apply';
 import { useSyncStreamAtoms } from './use-video-settings';
 
 type Props = {
@@ -188,6 +188,35 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
     }
   }
 
+  const transportNames = { direct: 'Direct', webrtc: 'WebRTC', mjpeg: 'MJPEG' } as const;
+  const deviceTransport = caps.stream.transport;
+  // This browser plays another transport than the device's.
+  const otherDeviceTransport =
+    admin &&
+    !!deviceTransport &&
+    deviceTransport !== saved.transport &&
+    draft.transport === saved.transport;
+
+  async function makeDeviceTransport() {
+    if (applying.current) return;
+    applying.current = true;
+    setBusy(true);
+    try {
+      await setDeviceTransport(saved.transport);
+      message.success(t('videoSettings.applied'));
+    } catch (error) {
+      message.error(
+        error instanceof Error && error.message !== 'video-settings-failed'
+          ? error.message
+          : t('videoSettings.failed')
+      );
+    } finally {
+      await refresh();
+      applying.current = false;
+      setBusy(false);
+    }
+  }
+
   const row = (label: string, control: React.ReactNode, note?: React.ReactNode) => (
     <div className="grid items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(200px,1.2fr)]">
       <span className="text-fg pt-1 text-sm">{label}</span>
@@ -290,9 +319,14 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                 fps: delivered,
                 size: size(out.width, out.height) || '—'
               })
-            : t(caps.monitor.followsStreamRate ? 'videoSettings.frameRateHint' : 'videoSettings.frameRateFixedHint', {
-                value: maxFps
-              })
+            : t(
+                caps.monitor.followsStreamRate
+                  ? 'videoSettings.frameRateHint'
+                  : 'videoSettings.frameRateFixedHint',
+                {
+                  value: maxFps
+                }
+              )
         )}
         {mjpeg
           ? row(
@@ -383,14 +417,37 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
               return {
                 value,
                 label: withReason(
-                  { direct: 'Direct', webrtc: 'WebRTC', mjpeg: 'MJPEG' }[value],
+                  transportNames[value],
                   noBrowser ? 'browser' : noMjpeg ? 'mjpeg-4k' : blocked
                 ),
                 disabled: noBrowser || noMjpeg
               };
             })}
           />,
-          t(`videoSettings.transportHint.${draft.transport}`)
+          admin
+            ? `${t(`videoSettings.transportHint.${draft.transport}`)} ${t('videoSettings.deviceTransportHint')}`
+            : t(`videoSettings.transportHint.${draft.transport}`)
+        )}
+        {otherDeviceTransport && (
+          <Alert
+            type="info"
+            className="text-xs"
+            title={t('videoSettings.deviceTransport', {
+              transport: transportNames[deviceTransport]
+            })}
+            action={
+              <Button
+                size="small"
+                type="link"
+                disabled={busy}
+                onClick={() => void makeDeviceTransport()}
+              >
+                {t('videoSettings.deviceTransportUse', {
+                  transport: transportNames[saved.transport]
+                })}
+              </Button>
+            }
+          />
         )}
         {draft.transport === 'direct' &&
           row(

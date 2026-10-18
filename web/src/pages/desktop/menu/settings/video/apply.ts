@@ -44,6 +44,15 @@ type ApplyResult = {
   restart?: string;
 };
 
+// Make a transport the device transport without changing this browser.
+export async function setDeviceTransport(
+  transport: VideoDraft['transport'],
+  apply: typeof applyVideoSettings = applyVideoSettings
+) {
+  const rsp = await apply({ transport });
+  if (rsp.code !== 0) throw new Error(rsp.msg || 'video-settings-failed');
+}
+
 // Storage names the WebRTC transport after its original H.264 player.
 const storedMode = (transport: VideoDraft['transport']) =>
   transport === 'webrtc' ? 'h264' : transport;

@@ -4,6 +4,8 @@
 package iceservers
 
 import (
+	"strings"
+
 	"github.com/pion/webrtc/v4"
 
 	"NanoKVM-Server/config"
@@ -15,12 +17,19 @@ func FromConfig() []webrtc.ICEServer {
 	return List(conf.Stun, conf.Turn)
 }
 
-// List returns the STUN server unless it is empty or "disable", and the TURN
-// server when its address and both credentials are set.
+// List returns the STUN servers, a list separated by commas or spaces
+// ("disable" or an empty list for none), and the TURN server when its address
+// and both credentials are set.
 func List(stun string, turn config.Turn) []webrtc.ICEServer {
 	var servers []webrtc.ICEServer
-	if stun != "" && stun != "disable" {
-		servers = append(servers, webrtc.ICEServer{URLs: []string{"stun:" + stun}})
+	var urls []string
+	for _, server := range strings.FieldsFunc(stun, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' }) {
+		if server != "disable" {
+			urls = append(urls, "stun:"+server)
+		}
+	}
+	if len(urls) > 0 {
+		servers = append(servers, webrtc.ICEServer{URLs: urls})
 	}
 	if turn.TurnAddr != "" && turn.TurnUser != "" && turn.TurnCred != "" {
 		servers = append(servers, webrtc.ICEServer{

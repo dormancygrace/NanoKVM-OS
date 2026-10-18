@@ -1,6 +1,7 @@
 package iceservers
 
 import (
+	"strings"
 	"testing"
 
 	"NanoKVM-Server/config"
@@ -18,6 +19,8 @@ func TestList(t *testing.T) {
 		{"STUN disabled", "disable", config.Turn{}, nil},
 		{"no STUN", "", config.Turn{}, nil},
 		{"STUN and TURN", "stun.example:3478", turn, []string{"stun:stun.example:3478", "turn:turn.example:3478"}},
+		{"the default set", config.DefaultStun, config.Turn{}, []string{"stun:stun.l.google.com:19302 stun:stun.cloudflare.com:3478"}},
+		{"a spaced list", " a.example:3478  b.example:3478 ", config.Turn{}, []string{"stun:a.example:3478 stun:b.example:3478"}},
 		{"TURN alone", "disable", turn, []string{"turn:turn.example:3478"}},
 		{"TURN without a credential", "disable", config.Turn{TurnAddr: "turn.example:3478", TurnUser: "user"}, nil},
 	}
@@ -28,7 +31,7 @@ func TestList(t *testing.T) {
 				t.Fatalf("servers %+v, want %v", servers, test.urls)
 			}
 			for i, server := range servers {
-				if len(server.URLs) != 1 || server.URLs[0] != test.urls[i] {
+				if strings.Join(server.URLs, " ") != test.urls[i] {
 					t.Fatalf("server %d: %+v, want %s", i, server, test.urls[i])
 				}
 				turnServer := test.urls[i][:5] == "turn:"

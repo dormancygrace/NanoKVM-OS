@@ -392,3 +392,99 @@ test('MJPEG follows the monitor the draft writes', () => {
   );
   assert.equal(model.mjpegBlocked(draft({ monitor: 2160, portrait: 1920 }), c), false);
 });
+
+// A device booted in one video memory mode, with the given modes installed:
+// the server marks what the booted pool cannot capture "video-memory".
+function memoryCaps(active, installed = ['fhd', 'qhd', 'uhd']) {
+  const mib = { fhd: 40, qhd: 56, uhd: 104 };
+  const c = caps({ uhd: active === 'uhd' });
+  const qhd = mib[active] >= 54;
+  c.monitor.modes = c.monitor.modes.map((m) =>
+    m.height === 1440 && !qhd ? { ...m, available: false, reason: 'video-memory' } : m
+  );
+  c.monitor.portrait.profiles = c.monitor.portrait.profiles.map((p) =>
+    qhd ? p : { ...p, available: false, reason: 'video-memory' }
+  );
+  c.videoMemoryMiB = mib[active];
+  c.videoMemory = {
+    active,
+    selected: active,
+    modes: ['fhd', 'qhd', 'uhd'].map((mode) => ({
+      mode,
+      mib: mib[mode],
+      installed: installed.includes(mode)
+    }))
+  };
+  return c;
+}
+
+test('a QHD resolution on the FHD video memory restarts with QHD and can be applied', () => {
+  const c = memoryCaps('fhd');
+  const saved = draft({ monitor: 1080 });
+  const next = draft({ monitor: 1440 });
+  assert.equal(model.draftChanges(saved, next, c).memoryRestart, 'qhd');
+  assert.equal(model.draftIssues(next, c, everything).monitor, 'video-memory');
+  assert.deepEqual({ ...model.blockingIssues(saved, next, c, everything) }, {});
+  assert.equal(model.draftChanges(saved, draft({ monitor: 2160 }), c).memoryRestart, 'uhd');
+});
+
+test('an FHD resolution on the QHD video memory restarts with FHD', () => {
+  const c = memoryCaps('qhd');
+  const saved = draft({ monitor: 1440 });
+  assert.equal(model.draftChanges(saved, draft({ monitor: 1080 }), c).memoryRestart, 'fhd');
+  assert.equal(model.draftChanges(saved, draft({ monitor: 0 }), c).memoryRestart, 'fhd');
+  // Without the FHD image the smallest installed mode is the booted one.
+  const noFhd = memoryCaps('qhd', ['qhd', 'uhd']);
+  assert.equal(model.draftChanges(saved, draft({ monitor: 1080 }), noFhd).memoryRestart, undefined);
+});
+
+test('the booted video memory mode, or no monitor change, restarts nothing', () => {
+  const c = memoryCaps('qhd');
+  assert.equal(
+    model.draftChanges(draft({ monitor: 1080 }), draft({ monitor: 1440 }), c).memoryRestart,
+    undefined
+  );
+  // A stream change alone keeps the mode, though a smaller one would fit.
+  assert.equal(
+    model.draftChanges(draft({ monitor: 1080 }), draft({ monitor: 1080, fps: 30 }), c)
+      .memoryRestart,
+    undefined
+  );
+  // Servers without the switch report no video memory.
+  const old = caps({ uhd: false });
+  assert.equal(
+    model.draftChanges(draft({ monitor: 1080 }), draft({ monitor: 2160 }), old).memoryRestart,
+    undefined
+  );
+  assert.equal(
+    model.blockingIssues(draft({ monitor: 1080 }), draft({ monitor: 2160 }), old, everything)
+      .monitor,
+    'video-memory'
+  );
+});
+
+test('a resolution that no installed mode captures stays blocked', () => {
+  const c = memoryCaps('fhd', ['fhd', 'qhd']);
+  const saved = draft({ monitor: 1080 });
+  const next = draft({ monitor: 2160 });
+  assert.equal(model.draftChanges(saved, next, c).memoryRestart, undefined);
+  assert.equal(model.blockingIssues(saved, next, c, everything).monitor, 'video-memory');
+});
+
+test('portrait on the FHD video memory restarts with QHD and keeps its codec rules', () => {
+  const c = memoryCaps('fhd');
+  const saved = draft({ monitor: 1080 });
+  assert.equal(model.draftChanges(saved, draft({ portrait: 1920 }), c).memoryRestart, 'qhd');
+  assert.deepEqual({ ...model.blockingIssues(saved, draft({ portrait: 1920 }), c, everything) }, {});
+  const mjpeg = draft({ portrait: 2560, transport: 'mjpeg' });
+  assert.deepEqual(
+    { ...model.blockingIssues(saved, mjpeg, c, everything) },
+    { transport: 'portrait' }
+  );
+  // The landscape monitor counts while portrait is on.
+  assert.equal(
+    model.draftChanges(draft({ monitor: 2160 }), draft({ monitor: 2160, portrait: 1920 }), memoryCaps('fhd'))
+      .memoryRestart,
+    'uhd'
+  );
+});

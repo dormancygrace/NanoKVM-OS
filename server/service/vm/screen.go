@@ -77,15 +77,16 @@ func (s *Service) SetScreen(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
+	// Serialize every setting with a batch, including its restart hold.
+	videoSettingsMutex.Lock()
+	defer videoSettingsMutex.Unlock()
 	if failure := validateScreenSetting(req); failure != nil {
 		rsp.ErrRsp(c, failure.code, failure.msg)
 		return
 	}
-	if req.Type == "fps" {
-		// The batch endpoint does the same after its stream settings; serialize
-		// with it so the EDID always follows the rate that was saved last.
-		videoSettingsMutex.Lock()
-		defer videoSettingsMutex.Unlock()
+	if videoMemoryRestartPending.Load() {
+		rsp.ErrRsp(c, -6, common.ErrMonitorRestartPending.Error())
+		return
 	}
 	data, failure := applyScreenSetting(req)
 	if failure != nil {
@@ -139,6 +140,12 @@ func mjpegSelectionFailure(batch *VideoSettingsReq) *settingError {
 // validateScreenSettingIn is validateScreenSetting for a setting that is part
 // of a batch (nil for a single one).
 func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *settingError {
+	return validateScreenSettingFor(req, batch, common.BootedVideoPool())
+}
+
+// validateScreenSettingFor checks a setting against a video pool: the booted
+// one, or the one of the mode a batch switches to.
+func validateScreenSettingFor(req proto.SetScreenReq, batch *VideoSettingsReq, pool common.VideoPool) *settingError {
 	switch req.Type {
 	case "mjpeg_chroma":
 		if req.Value != 420 && req.Value != 422 {
@@ -156,10 +163,10 @@ func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *s
 		if req.Value != 2304 && req.Value != 1280 && req.Value != 1920 && req.Value != 2560 {
 			return settingFailure(-1, "unsupported portrait monitor resolution")
 		}
-		if req.Value == 2560 && !common.PortraitMaxSupported() {
+		if req.Value == 2560 && !common.PortraitMaxSupportedFor(pool) {
 			return settingFailure(-3, "maximum portrait monitor profile is unavailable")
 		}
-		if req.Value != 2560 && !common.PortraitSupported() {
+		if req.Value != 2560 && !common.PortraitSupportedFor(pool) {
 			return settingFailure(-3, "portrait monitor profile is unavailable")
 		}
 	case "monitor":
@@ -169,14 +176,14 @@ func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *s
 		if req.Value != 0 && req.Value != 720 && req.Value != 1080 && req.Value != 1440 && req.Value != 2160 {
 			return settingFailure(-1, "unsupported monitor profile")
 		}
-		if req.Value == 1440 && !common.SupportsQHD() {
+		if req.Value == 1440 && !pool.QHD() {
 			return settingFailure(-3, "2560x1440 requires the QHD or UHD video memory mode (Settings > Memory)")
 		}
-		if req.Value == 2160 && !common.SupportsUHD() {
+		if req.Value == 2160 && !pool.UHD() {
 			return settingFailure(-3, "3840x2160 requires the UHD video memory mode (Settings > Memory)")
 		}
 	case "resolution":
-		if req.Value < 0 || req.Value > 2160 || (req.Value > 1440 && !common.SupportsUHD()) {
+		if req.Value < 0 || req.Value > 2160 || (req.Value > 1440 && !pool.UHD()) {
 			return settingFailure(-1, "unsupported stream limit")
 		}
 		if _, ok := common.ResolutionMap[uint16(req.Value)]; !ok {

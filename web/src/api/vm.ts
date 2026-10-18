@@ -54,12 +54,19 @@ export function getVideoCapabilities() {
   return http.get('/api/vm/video/capabilities');
 }
 
-// apply several video settings together; returns the new capabilities
+// apply several video settings together; returns the new capabilities, or
+// { restart: true, videoMemoryMode } when fitVideoMemory switched the video
+// memory mode and the device restarts
 export function applyVideoSettings(
   settings: Record<string, number | boolean>,
-  confirmPowerCycle = false
+  confirmPowerCycle = false,
+  fitVideoMemory = false
 ) {
-  return http.post('/api/vm/video', { ...settings, confirmPowerCycle });
+  return http.post('/api/vm/video', {
+    ...settings,
+    confirmPowerCycle,
+    ...(fitVideoMemory ? { fitVideoMemory: true } : {})
+  });
 }
 
 // get the device-level absolute mouse input region

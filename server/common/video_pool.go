@@ -62,7 +62,48 @@ func MonitorFitsVideoPool(p VideoPool) error {
 }
 
 func monitorFitsVideoPoolLocked(p VideoPool) error {
-	switch savedMonitorResolutionLocked() {
+	return savedMonitorStateLocked().FitsVideoPool(p)
+}
+
+// MonitorState is a complete HDMI monitor profile: the landscape resolution
+// (0 is Auto), whether portrait is on and the portrait profile.
+type MonitorState struct {
+	Resolution         uint16
+	Portrait           bool
+	PortraitResolution uint16
+}
+
+func savedMonitorStateLocked() MonitorState {
+	return MonitorState{savedMonitorResolutionLocked(), monitorPortraitEnabledLocked(), savedPortraitResolutionLocked()}
+}
+
+// MonitorStateAfter is the monitor profile that an update leads to: its
+// fields, the saved settings for the others.
+func MonitorStateAfter(update MonitorSettings) MonitorState {
+	monitorMutex.Lock()
+	defer monitorMutex.Unlock()
+
+	return monitorStateAfterLocked(update)
+}
+
+func monitorStateAfterLocked(update MonitorSettings) MonitorState {
+	state := savedMonitorStateLocked()
+	if update.Resolution != nil {
+		state.Resolution = *update.Resolution
+	}
+	if update.Portrait != nil {
+		state.Portrait = *update.Portrait
+	}
+	if update.PortraitResolution != nil {
+		state.PortraitResolution = *update.PortraitResolution
+	}
+	return state
+}
+
+// FitsVideoPool reports why a video pool cannot capture the profile, or nil
+// when it can. The landscape resolution counts even while portrait is on.
+func (s MonitorState) FitsVideoPool(p VideoPool) error {
+	switch s.Resolution {
 	case 2160:
 		if !p.UHD() {
 			return fmt.Errorf("the monitor resolution 3840x2160 needs the UHD video memory mode")
@@ -72,8 +113,8 @@ func monitorFitsVideoPoolLocked(p VideoPool) error {
 			return fmt.Errorf("the monitor resolution 2560x1440 needs the QHD or UHD video memory mode")
 		}
 	}
-	if monitorPortraitEnabledLocked() {
-		return monitorFitsPortraitLocked(p)
+	if s.Portrait {
+		return portraitFitsVideoPool(s.PortraitResolution, p)
 	}
 	return nil
 }
@@ -120,7 +161,11 @@ func fitMonitorToVideoPoolLocked(p VideoPool, hw monitorSettingsBackend) (bool, 
 }
 
 func monitorFitsPortraitLocked(p VideoPool) error {
-	if savedPortraitResolutionLocked() == portraitResolutionMax {
+	return portraitFitsVideoPool(savedPortraitResolutionLocked(), p)
+}
+
+func portraitFitsVideoPool(resolution uint16, p VideoPool) error {
+	if resolution == portraitResolutionMax {
 		if !p.PortraitMax() {
 			return fmt.Errorf("the portrait monitor 1440x2560 needs the QHD or UHD video memory mode")
 		}

@@ -159,6 +159,30 @@ test('a rejected request leaves this browser unchanged', async () => {
   assert.equal(calls.reloads, 0);
 });
 
+test('a video memory switch saves the other device settings first and does not reload', async () => {
+  const { apply, deps, calls } = applier();
+  deps.applyVideoSettings = async (body, confirm, fit) => {
+    calls.shared.push([{ ...body }, confirm, fit]);
+    return { code: 0, data: { restart: true, videoMemoryMode: 'qhd' } };
+  };
+  const result = await apply(
+    saved,
+    { ...saved, monitor: 1440, transport: 'webrtc', codec: 'h265', frameDetect: true },
+    caps,
+    { admin: true, confirmPowerCycle: false, fitVideoMemory: true },
+    deps
+  );
+  assert.deepEqual(calls.shared, [
+    ['frameDetect', true],
+    [{ type: 2, monitor: 1440 }, false, true]
+  ]);
+  assert.deepEqual(calls.encoder, ['h265']);
+  assert.equal(result.restart, 'qhd');
+  assert.equal(result.capabilities, null);
+  assert.equal(calls.reloads, 0);
+  assert.equal(result.reloading, false);
+});
+
 function renderForm(role) {
   let stateIndex = 0;
   const element = (type, props) => ({ type, props: props ?? {} });
@@ -176,8 +200,6 @@ function renderForm(role) {
       'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
       'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
       antd: { ...components, message: { success: () => {}, error: () => {} } },
-      '@/api/vm': { getMemoryStatus: async () => ({}), reboot: async () => ({}), setVideoMemory: async () => ({}) },
-      '@/lib/video-memory-mode': { pickVideoMemoryMode: () => undefined },
       '@/lib/video-model': model,
       '../../screen/reset': { Reset: 'Reset' },
       './apply': { applyVideoDraft: async () => ({}) },

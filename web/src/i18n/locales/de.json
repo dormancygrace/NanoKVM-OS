@@ -188,6 +188,9 @@
     "imageHint": "Gilt für alle Zuschauer.",
     "mode": "Modus",
     "modeRecommended": "empfohlen",
+    "resolution": "Auflösung",
+    "frameRateHint": "Der NanoKVM-Monitor aktualisiert mit dieser Rate, also rendert der Computer sie. Eine neue Auflösung beginnt mit ihrem Maximum, {{value}} fps; senken Sie sie, um Datenverkehr zu sparen.",
+    "frameRateFixedHint": "Der Empfänger behält seine eigene Bildwiederholrate; der Stream überträgt höchstens {{value}} fps.",
     "modeCustom": "Benutzerdefiniert: {{value}}",
     "modeHint": "Die Auflösung und Bildwiederholrate, die der Computer ausgibt und die der NanoKVM-Monitor meldet; der Stream verwendet dieselbe Rate. Eine Änderung verbindet HDMI kurz neu.",
     "uhdNeedsMemory": "3840 × 2160 erfordert den UHD-Videospeichermodus",
@@ -207,7 +210,6 @@
     "browserSectionHint": "In diesem Browser gespeichert; andere Zuschauer behalten ihre eigenen Einstellungen.",
     "player": "Player",
     "fpsOverride": "Bildrate des Streams",
-    "fpsOverrideHint": "Wird durch den Modus festgelegt; ändern Sie sie nur für eine Rate, die die Modi nicht anbieten.",
     "landscape": "Monitor im Querformat",
     "transport": "Übertragung",
     "transportHint": {

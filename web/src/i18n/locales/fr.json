@@ -188,6 +188,9 @@
     "imageHint": "Partagé par tous les spectateurs.",
     "mode": "Mode",
     "modeRecommended": "recommandé",
+    "resolution": "Résolution",
+    "frameRateHint": "Le moniteur NanoKVM se rafraîchit à cette fréquence, l’ordinateur la rend donc. Une nouvelle résolution démarre à son maximum, {{value}} fps ; baissez-la pour économiser du trafic.",
+    "frameRateFixedHint": "Le récepteur garde sa propre fréquence de rafraîchissement ; le flux transporte au plus {{value}} fps.",
     "modeCustom": "Personnalisé : {{value}}",
     "modeHint": "La résolution et la fréquence de rafraîchissement rendues par l'ordinateur, annoncées par le moniteur NanoKVM ; le flux utilise la même fréquence. La modification reconnecte brièvement le HDMI.",
     "uhdNeedsMemory": "3840 × 2160 nécessite le mode de mémoire vidéo UHD",
@@ -207,7 +210,6 @@
     "browserSectionHint": "Enregistré dans ce navigateur ; les autres spectateurs conservent les leurs.",
     "player": "Lecteur",
     "fpsOverride": "Fréquence d'images du flux",
-    "fpsOverrideHint": "Définie par le mode ; modifiez-la uniquement pour une fréquence que les modes ne proposent pas.",
     "landscape": "Moniteur paysage",
     "transport": "Transport",
     "transportHint": {

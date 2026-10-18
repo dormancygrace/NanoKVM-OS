@@ -188,6 +188,9 @@
     "imageHint": "Shared by every viewer.",
     "mode": "Mode",
     "modeRecommended": "recommended",
+    "resolution": "Resolution",
+    "frameRateHint": "The NanoKVM monitor refreshes at this rate, so the computer renders it. A new resolution starts at its maximum, {{value}} fps; lower it to save traffic.",
+    "frameRateFixedHint": "The receiver keeps its own refresh rate; the stream carries at most {{value}} fps.",
     "modeCustom": "Custom: {{value}}",
     "modeHint": "The resolution and refresh rate the computer renders, advertised by the NanoKVM monitor; the stream carries the same rate. Changing it briefly reconnects HDMI.",
     "uhdNeedsMemory": "3840 × 2160 needs the UHD video memory mode",
@@ -207,7 +210,6 @@
     "browserSectionHint": "Saved in this browser; other viewers keep their own.",
     "player": "Player",
     "fpsOverride": "Stream frame rate",
-    "fpsOverrideHint": "Set by the mode; change it only for a rate the modes do not offer.",
     "landscape": "Landscape monitor",
     "transport": "Transport",
     "transportHint": {

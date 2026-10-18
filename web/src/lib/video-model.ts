@@ -283,103 +283,107 @@ export function transportChoice(
     .find((draft) => draftPlayable(draft, caps, browser));
 }
 
-// A video mode: the monitor the computer renders and the rate the stream
-// carries, as one choice. Landscape modes come from the programmable monitor
-// profiles and their refresh rates, portrait modes from the portrait profiles;
-// with a fixed receiver the mode is the current input at a stream rate.
-export type VideoMode = {
+// A resolution: the monitor the computer renders, with the stream rates it
+// offers, fastest first. Landscape choices come from the programmable monitor
+// profiles, portrait ones from the portrait profiles; with a fixed receiver the
+// choice is the current input at the stream rates. The monitor refresh follows
+// the chosen rate (monitorTarget), so a resolution and a rate are two choices.
+export type ResolutionChoice = {
   key: string;
-  monitor: number; // the draft's monitor setting; ignored for portrait modes
+  monitor: number; // the draft's monitor setting; ignored for portrait choices
   portrait: number;
   width: number;
   height: number;
-  fps: number;
+  rates: number[];
   available: boolean;
   reason?: Reason;
 };
 
-export function modeKey(kind: 'm' | 'p' | 'i', height: number, fps: number) {
-  return `${kind}${height}@${fps}`;
+export function resolutionKey(kind: 'm' | 'p' | 'i', height: number) {
+  return `${kind}${height}`;
 }
 
-export function videoModes(caps: VideoCapabilities): VideoMode[] {
+export function resolutionChoices(caps: VideoCapabilities): ResolutionChoice[] {
   if (!caps.monitor.programmable) {
     const { width, height } = caps.input;
     const ceiling = rateLimit(caps.stream.rateTiers, width, height);
-    return FPS_CHOICES.filter((fps) => fps <= ceiling && fps >= caps.stream.minFps).map((fps) => ({
-      key: modeKey('i', height, fps),
-      monitor: caps.monitor.selected,
-      portrait: 0,
-      width,
-      height,
-      fps,
-      available: true
-    }));
+    return [
+      {
+        key: resolutionKey('i', height),
+        monitor: caps.monitor.selected,
+        portrait: 0,
+        width,
+        height,
+        rates: FPS_CHOICES.filter((fps) => fps <= ceiling && fps >= caps.stream.minFps),
+        available: true
+      }
+    ];
   }
-  const modes: VideoMode[] = [];
+  const choices: ResolutionChoice[] = [];
   for (const mode of caps.monitor.modes) {
     if (!mode.height) continue; // Auto stands for one of the sizes listed
-    for (const fps of mode.rates) {
-      modes.push({
-        key: modeKey('m', mode.height, fps),
-        monitor: mode.height,
-        portrait: 0,
-        width: mode.width,
-        height: mode.height,
-        fps,
-        available: mode.available,
-        reason: mode.reason
-      });
-    }
+    choices.push({
+      key: resolutionKey('m', mode.height),
+      monitor: mode.height,
+      portrait: 0,
+      width: mode.width,
+      height: mode.height,
+      rates: [...mode.rates],
+      available: mode.available,
+      reason: mode.reason
+    });
   }
   for (const profile of caps.monitor.portrait.profiles) {
-    for (const fps of profile.rates ?? [profile.rate]) {
-      modes.push({
-        key: modeKey('p', profile.resolution, fps),
-        monitor: caps.monitor.selected,
-        portrait: profile.resolution,
-        width: profile.width,
-        height: profile.resolution,
-        fps,
-        available: profile.available,
-        reason: profile.reason
-      });
-    }
+    choices.push({
+      key: resolutionKey('p', profile.resolution),
+      monitor: caps.monitor.selected,
+      portrait: profile.resolution,
+      width: profile.width,
+      height: profile.resolution,
+      rates: [...(profile.rates ?? [profile.rate])],
+      available: profile.available,
+      reason: profile.reason
+    });
   }
-  return modes;
+  return choices;
 }
 
-// The mode a draft is in; undefined when it uses a rate no mode offers.
-export function modeOf(draft: VideoDraft, caps: VideoCapabilities) {
+// The resolution a draft is in.
+export function resolutionOf(draft: VideoDraft, caps: VideoCapabilities) {
   let key: string;
-  if (!caps.monitor.programmable) key = modeKey('i', caps.input.height, draft.fps);
-  else if (draft.portrait) key = modeKey('p', draft.portrait, draft.fps);
+  if (!caps.monitor.programmable) key = resolutionKey('i', caps.input.height);
+  else if (draft.portrait) key = resolutionKey('p', draft.portrait);
   else {
     const height = draft.monitor || monitorSize(monitorMode(caps, 0)).height;
-    key = modeKey('m', height, draft.fps);
+    key = resolutionKey('m', height);
   }
-  return videoModes(caps).find((m) => m.key === key);
+  return resolutionChoices(caps).find((c) => c.key === key);
 }
 
-// The mode to suggest: 2560x1440 at 60 fps, else 1920x1080 at 60 fps.
-export function recommendedMode(caps: VideoCapabilities) {
-  const modes = videoModes(caps).filter((m) => m.available && !m.portrait);
+// The resolution to suggest: 2560x1440, else 1920x1080.
+export function recommendedResolution(caps: VideoCapabilities) {
+  const choices = resolutionChoices(caps).filter((c) => c.available && !c.portrait);
   for (const [width, height] of [
     [2560, 1440],
     [1920, 1080]
   ]) {
-    const mode = modes.find((m) => m.width === width && m.height === height && m.fps === 60);
-    if (mode) return mode;
+    const choice = choices.find((c) => c.width === width && c.height === height);
+    if (choice) return choice;
   }
-  return modes[0];
+  return choices[0];
 }
 
-// The draft with a mode applied. A portrait profile only plays some transports
-// and codecs; the draft keeps its own where they fit.
-export function withMode(draft: VideoDraft, mode: VideoMode, caps: VideoCapabilities): VideoDraft {
-  const next = { ...draft, fps: mode.fps, portrait: mode.portrait };
-  if (caps.monitor.programmable && !mode.portrait) next.monitor = mode.monitor;
-  const profile = mode.portrait ? portraitProfile(caps, mode.portrait) : undefined;
+// The draft with a resolution applied, at its fastest rate: the receiver's
+// limit for that size, which the user may lower. A portrait profile only plays
+// some transports and codecs; the draft keeps its own where they fit.
+export function withResolution(
+  draft: VideoDraft,
+  choice: ResolutionChoice,
+  caps: VideoCapabilities
+): VideoDraft {
+  const next = { ...draft, fps: choice.rates[0] ?? draft.fps, portrait: choice.portrait };
+  if (caps.monitor.programmable && !choice.portrait) next.monitor = choice.monitor;
+  const profile = choice.portrait ? portraitProfile(caps, choice.portrait) : undefined;
   if (profile) {
     if (!profile.transports.includes(next.transport)) next.transport = 'direct';
     if (next.transport !== 'mjpeg' && !profile.codecs.includes(next.codec)) {
@@ -389,23 +393,23 @@ export function withMode(draft: VideoDraft, mode: VideoMode, caps: VideoCapabili
   return next;
 }
 
-// The capabilities as the draft's mode will see them: the input becomes the
-// monitor the draft writes, else stays the current input.
+// The capabilities as the draft's resolution will see them: the input becomes
+// the monitor the draft writes, else stays the current input.
 function prospectiveCaps(draft: VideoDraft, caps: VideoCapabilities): VideoCapabilities {
-  const mode = modeOf(draft, caps);
-  return mode
-    ? { ...caps, input: { ...caps.input, width: mode.width, height: mode.height } }
+  const choice = resolutionOf(draft, caps);
+  return choice
+    ? { ...caps, input: { ...caps.input, width: choice.width, height: choice.height } }
     : caps;
 }
 
-// The size a draft streams: its mode (the monitor it writes), else the current
-// input, within the stream limit.
+// The size a draft streams: its resolution (the monitor it writes), else the
+// current input, within the stream limit.
 export function draftSize(draft: VideoDraft, caps: VideoCapabilities) {
   return streamSize(draft, prospectiveCaps(draft, caps));
 }
 
 // The automatic bitrate of a draft (autoBitrate of what it streams). Size and
-// frame-rate limit both come from the mode the draft switches to, not from the
+// frame-rate limit both come from the resolution the draft switches to, not from the
 // current input (a 3840x2160 input would cap a 1440p60 draft at 30 fps).
 export function draftAutoBitrate(draft: VideoDraft, caps: VideoCapabilities) {
   const prospective = prospectiveCaps(draft, caps);

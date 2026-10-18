@@ -4,10 +4,10 @@ import { CheckIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
-import type { DTLSCipher, StunMode, WebRTCServers as State } from '@/api/network.ts';
+import type { DTLSCipher, WebRTCServers as State, StunMode } from '@/api/network.ts';
+import { validIceAddress } from '@/lib/ice-address.ts';
 import { requestErrorText } from '@/lib/request-error.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
-import { validIceAddress } from '@/lib/ice-address.ts';
 import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 const maxServers = 4;
@@ -90,7 +90,11 @@ export const WebRTCServers = () => {
       const rsp = await api.setWebRTCServers({
         stunMode: mode,
         stun: mode === 'custom' ? entered : [],
-        turn: { address: turnAddress.trim(), username: turnOn ? turnUser : '', credential: turnPassword },
+        turn: {
+          address: turnAddress.trim(),
+          username: turnOn ? turnUser : '',
+          credential: turnPassword
+        },
         dtlsCipher: cipher
       });
       if (rsp.code !== 0) {
@@ -129,7 +133,9 @@ export const WebRTCServers = () => {
         label={t('settings.network.webrtc.stun')}
         description={
           mode === 'default'
-            ? t('settings.network.webrtc.stunDefault', { servers: saved?.defaultStun.join(', ') ?? '' })
+            ? t('settings.network.webrtc.stunDefault', {
+                servers: saved?.defaultStun.join(', ') ?? ''
+              })
             : mode === 'off'
               ? t('settings.network.webrtc.stunOffHint')
               : t('settings.network.webrtc.stunCustomHint')

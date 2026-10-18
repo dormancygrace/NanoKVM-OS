@@ -101,16 +101,6 @@ def alpine_index(raw, arch):
     return found
 
 
-def alpine_packages(raw, names, arch):
-    found = alpine_index(raw, arch)
-    if set(names) - found.keys():
-        raise ValueError('Missing Alpine packages: ' + ', '.join(sorted(set(names) - found.keys())))
-    versions = {found[name] for name in names}
-    if len(versions) != 1:
-        raise ValueError('Alpine OpenSSL subpackage versions disagree')
-    return next(iter(versions))
-
-
 def check_alpine_inventory(root=ROOT):
     path = 'firmware/alpine/packages'
     try:
@@ -136,7 +126,7 @@ def check_alpine_inventory(root=ROOT):
             raise ValueError('VPN package inventory could not be read')
         optional = set(re.findall(r'"([^"\n]+)":', match[1]))
         optional = {'wireguard-tools' if name == 'wireguard' else name for name in optional}
-        packages |= optional | {'busybox', 'libssl3', 'libcrypto3', 'apk-tools'}
+        packages |= optional | {'busybox', 'apk-tools'}
         available = {}
         for channel in ('v' + branch + '/main', 'v' + branch + '/community'):
             url = 'https://dl-cdn.alpinelinux.org/alpine/' + channel + '/riscv64/APKINDEX.tar.gz'
@@ -157,16 +147,7 @@ def check(source, root=ROOT):
         current = current_pin(root, source)
         result['current'] = current
         kind = source['kind']
-        if kind == 'alpine-stock':
-            if not re.fullmatch(r'\d+\.\d+', current):
-                raise ValueError('Invalid Alpine stable branch')
-            url = ('https://dl-cdn.alpinelinux.org/alpine/v' + current + '/'
-                   + source['aport'].split('/')[0] + '/' + source['arch'] + '/APKINDEX.tar.gz')
-            latest = alpine_packages(request_bytes(url), source['packages'], source['arch'])
-            result.update(current='Alpine v' + current + ' package channel', latest=latest,
-                          link=url, status='repository-managed',
-                          detail='Stock signed APKs; installed device versions are not inspected. Use apk update and apk upgrade')
-        elif kind == 'npm':
+        if kind == 'npm':
             data = json.loads(request('https://registry.npmjs.org/' + urllib.parse.quote(source['package'], safe='') + '/latest'))
             latest = data['version']
             result.update(latest=latest, link='https://www.npmjs.com/package/' + source['package'])

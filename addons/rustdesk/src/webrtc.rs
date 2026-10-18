@@ -2,7 +2,7 @@
 use crate::{
     config::Config,
     identity::RustDeskIdentity,
-    onekvm::Identity,
+    nanokvm::Identity,
     protocol::{rendezvous_message, IceCandidate, PunchHole, PunchHoleSent, RendezvousMessage},
     server::{self, ClientLimits},
     signaling,

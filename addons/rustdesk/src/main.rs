@@ -7,7 +7,7 @@ mod framing;
 mod frame_crypto;
 mod identity;
 mod input;
-mod onekvm;
+mod nanokvm;
 mod protocol;
 mod rendezvous;
 mod server;
@@ -100,12 +100,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let onekvm_identity = onekvm::Identity::load()?;
-    onekvm::HidClient::new(config.admin_socket.clone(), onekvm_identity.clone())
+    let app_identity = nanokvm::Identity::load()?;
+    nanokvm::HidClient::new(config.admin_socket.clone(), app_identity.clone())
         .prepare()
         .await?;
     let rustdesk_identity = identity::RustDeskIdentity::load()?;
     rustdesk_identity.publish_settings_output()?;
-    server::run(config, onekvm_identity, rustdesk_identity).await?;
+    server::run(config, app_identity, rustdesk_identity).await?;
     Ok(())
 }

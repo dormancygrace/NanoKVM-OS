@@ -2,7 +2,7 @@
 use crate::{
     config::Config,
     identity::RustDeskIdentity,
-    onekvm::Identity,
+    nanokvm::Identity,
     protocol::{rendezvous_message, LocalAddr, NatType, PunchHoleSent, RendezvousMessage},
     rendezvous, server,
 };
@@ -73,7 +73,7 @@ pub(crate) struct Request {
 pub(crate) fn spawn(
     request: Request,
     config: Arc<Config>,
-    onekvm: Arc<Identity>,
+    app: Arc<Identity>,
     rd: Arc<RustDeskIdentity>,
     mut shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
@@ -93,7 +93,7 @@ pub(crate) fn spawn(
         match connection {
             Ok((stream, peer)) => {
                 if let Err(error) = server::serve(
-                    stream, peer, config, onekvm, rd, true, shutdown, limits, pending,
+                    stream, peer, config, app, rd, true, shutdown, limits, pending,
                 )
                 .await
                 {
@@ -111,7 +111,7 @@ pub(crate) fn spawn(
                     request.peer_v6,
                     request.relay,
                     config,
-                    onekvm,
+                    app,
                     rd,
                     shutdown,
                     limits,

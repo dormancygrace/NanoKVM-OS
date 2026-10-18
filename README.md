@@ -252,7 +252,7 @@ These are targets for exploration, not a list of currently supported devices. A 
 
 ## ❤️ Credits and licenses
 
-Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go, [Pion](https://github.com/pion) and [OneKVM](https://github.com/onekvm), with thanks to the contributors and hardware testers.
+Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go and [Pion](https://github.com/pion), with thanks to the contributors and hardware testers.
 
 NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Other components retain their own licenses and notices. See [third-party notices](docs/THIRD-PARTY.md), [distribution status](docs/DISTRIBUTION.md) and the [corresponding-source build](platform/README.md#corresponding-source). Release downloads include the corresponding-source archive; RustDesk has its own source release.
 

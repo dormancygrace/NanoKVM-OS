@@ -34,8 +34,8 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 - **Every entry in `platform/sources.lock`**: Linux, Buildroot, U-Boot, OpenSBI, Sophgo SDK/drivers/media/sensors, AIC8800, cryptodev, json-c, miniz, inih, tinyalsa, zlib-ng, xz, Opus, BusyBox devmem source, wireless-regdb, Go, Node, pnpm, Alpine minirootfs and the QEMU build helper.
 - **All direct frontend dependencies**, including dev dependencies and npm aliases, against registry `latest`, independently of cooldown or whether Dependabot can produce a lockfile update. Indirect frontend packages remain owned by Dependabot/security alerts. Unrecognized version ranges fail visibly instead of being skipped.
 - **Buildroot stable releases only**, including stable point releases. Selected recipes (binutils, musl, initramfs BusyBox, filesystem and host tools) follow that Buildroot release; master snapshots, release candidates and per-recipe development changes are not reported or proposed separately. GCC stable releases retain their independent check.
-- **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and core BusyBox/OpenSSL/APK tools. Stable main/community availability is checked, for the optional VPN packages too. Installed device versions are not inspected.
-- **RustDesk protocol/reference sources**, hbb_common and OneKVM.
+- **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and the core BusyBox and APK tools. Stable main/community availability is checked, for the optional VPN packages too. Installed device versions are not inspected.
+- **RustDesk protocol/reference sources** and hbb_common.
 - Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
 
 **tinyalsa cadence:** monitor commits on the upstream default branch quarterly, at 05:41 UTC on January 1, April 1, July 1 and October 1. Both reports and draft PR discovery skip tinyalsa in daily runs; the quarterly run checks only tinyalsa. Manual dispatch and CLI runs default to all sources; use --cadence daily or --cadence quarterly to select a group. The existing tinyalsa PR remains available for review. Upstream still publishes releases, but the latest is [v2.0.0 (February 8, 2021)](https://github.com/tinyalsa/tinyalsa/releases/tag/v2.0.0), so commit tracking is retained.
@@ -80,7 +80,7 @@ Every proposal includes a small .github/upstream-candidates/<component>.json rec
 
 Each component/candidate has a deterministic branch, `deps/upstream-<component>-<digest>` (Linux: `deps/upstream-linux-<version>`). The bots recognise a candidate by the branch name after its prefix, so proposals opened under an earlier prefix still count. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes qualified output hashes.
 
-QEMU, stock Alpine APK updates and the OneKVM reference remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
+QEMU and stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
 Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary. tests/test-upstream-update-prs.py checks policy coverage, pin preparation, notification deduplication and publication; it runs in CI.
 

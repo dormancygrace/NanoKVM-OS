@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn valid_direct_access_config() {
         let config = Config {
-            password: "onekvm-test".to_owned(),
+            password: "rustdesk-test".to_owned(),
             rendezvous_server: "test.invalid:21116".to_owned(),
             ..Config::default()
         };
@@ -261,7 +261,7 @@ mod tests {
             rendezvous_server: "custom.example:21116".to_owned(),
             relay_server: "custom.example:21117".to_owned(),
             server_key: STANDARD_KEY.to_owned(),
-            password: "onekvm-test".to_owned(),
+            password: "rustdesk-test".to_owned(),
             ..Config::default()
         };
         config.apply_server_mode();

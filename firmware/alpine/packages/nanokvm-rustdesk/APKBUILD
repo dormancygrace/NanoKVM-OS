@@ -3,7 +3,7 @@ pkgname=nanokvm-rustdesk
 pkgver=0.5.4
 pkgrel=0
 pkgdesc="RustDesk endpoint for NanoKVM HDMI capture and USB HID"
-url="https://github.com/onekvm/onekvm-extension-rustdesk"
+url="https://github.com/dormancygrace/NanoKVM-OS/tree/main/addons/rustdesk"
 arch="riscv64"
 license="AGPL-3.0-only"
 depends="nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc"

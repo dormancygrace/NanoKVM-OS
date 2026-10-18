@@ -207,7 +207,7 @@ install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
 install(stage/"build-profile.json","usr/share/nanokvm-rustdesk/build-profile.json")
 apkfile=output/f"nanokvm-rustdesk-{package_version}.apk"
 command=[str(args.apk.resolve()),"mkpkg","--files",str(payload),"--output",str(apkfile)]
-for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc","url:https://github.com/onekvm/onekvm-extension-rustdesk"]:
+for value in ["name:nanokvm-rustdesk",f"version:{package_version}","arch:riscv64","license:AGPL-3.0-only","description:RustDesk HDMI and USB HID endpoint for NanoKVM OS","depends:nanokvm-rustdesk-bridge=1 nanokvm-rustdesk-webrtc=1 nanokvm-rustdesk-audio=1 nanokvm-rustdesk-auto-codec=1 nanokvm-rustdesk-usb-defaults=1 openrc","url:https://github.com/dormancygrace/NanoKVM-OS/tree/main/addons/rustdesk"]:
     command+=["--info",value]
 for action in ["pre-upgrade","post-upgrade","pre-deinstall"]:
     command+=["--script",action+":"+str(pkg/("nanokvm-rustdesk."+action))]

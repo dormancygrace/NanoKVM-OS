@@ -102,25 +102,6 @@ class WatchTests(unittest.TestCase):
             archive.addfile(item, io.BytesIO(data))
         return output.getvalue()
 
-    def test_openssl_uses_alpine_not_historical_buildroot(self):
-        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
-        selected = [s for s in sources if 'openssl' in s['name'].lower()]
-        self.assertEqual(len(selected), 1)
-        self.assertEqual(selected[0]['kind'], 'alpine-stock')
-        self.assertNotIn('buildroot', selected[0]['path'])
-
-    def test_stock_alpine_does_not_require_c906_rebuild(self):
-        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
-        source = next(s for s in sources if s['kind'] == 'alpine-stock')
-        with patch.object(u, 'request_bytes', return_value=self.alpine_index('3.5.9-r0')), patch.object(u, 'request') as recipe:
-            result = u.check(source)
-            self.assertEqual(result['status'], 'repository-managed')
-            self.assertEqual(result['latest'], '3.5.9-r0')
-            self.assertIn('not inspected', result['detail'])
-            recipe.assert_not_called()
-        with patch.object(u, 'request_bytes', return_value=self.alpine_index('3.5.9-r0', missing='libssl3')):
-            self.assertEqual(u.check(source)['status'], 'error')
-
     def test_retired_buildroot_packages_are_not_current_candidates(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
         retired = {'openvpn3', 'Asio', 'Superfile upstream', 'apk-tools', 'nanokvm-vendor-libc'}

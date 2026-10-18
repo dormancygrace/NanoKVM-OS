@@ -51,8 +51,7 @@ class ProposalTests(unittest.TestCase):
     def test_all_requested_sources_have_an_explicit_policy(self):
         names = {s['name'] for s in self.sources}
         all_names = {s['name'] for s in json.loads((self.root / '.github/upstream-watch.json').read_text())['sources']}
-        self.assertEqual(all_names - names, {'Linux', 'OpenSSL (stock Alpine)',
-                                           'QEMU Ubuntu build helper', 'OneKVM RustDesk reference'})
+        self.assertEqual(all_names - names, {'Linux', 'QEMU Ubuntu build helper'})
         self.assertEqual(len(names), 34)
         self.assertEqual(self.source('aic8800')['repo'], 'radxa-pkg/aic8800')
         for name in ('Go runtime', 'Patched Pion dtls/v3', 'Patched Pion ice/v4',

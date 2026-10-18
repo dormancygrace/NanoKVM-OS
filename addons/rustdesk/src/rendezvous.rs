@@ -18,7 +18,7 @@ use crate::{
     config::Config,
     framing::write_message,
     identity::RustDeskIdentity,
-    onekvm::Identity,
+    nanokvm::Identity,
     protocol::{
         relay_response, rendezvous_message, ConnType, RegisterPeer, RegisterPk, RegisterPkResult,
         RelayResponse, RendezvousMessage, RequestRelay,
@@ -35,7 +35,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
 
 pub async fn run(
     config: Arc<Config>,
-    onekvm_identity: Arc<Identity>,
+    app_identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     mut shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
@@ -49,7 +49,7 @@ pub async fn run(
         let started = time::Instant::now();
         let result = run_once(
             Arc::clone(&config),
-            Arc::clone(&onekvm_identity),
+            Arc::clone(&app_identity),
             Arc::clone(&rustdesk_identity),
             shutdown.clone(),
             limits.clone(),
@@ -84,7 +84,7 @@ pub async fn run(
 
 async fn run_once(
     config: Arc<Config>,
-    onekvm_identity: Arc<Identity>,
+    app_identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     mut shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
@@ -180,7 +180,7 @@ async fn run_once(
                         spawn_requested_relay(
                             request,
                             Arc::clone(&config),
-                            Arc::clone(&onekvm_identity),
+                            Arc::clone(&app_identity),
                             Arc::clone(&rustdesk_identity),
                             shutdown.clone(),
                             limits.clone(),
@@ -195,33 +195,33 @@ async fn run_once(
                             if !request.force_relay                                 && request.nat_type != crate::protocol::NatType::Symmetric as i32
                                 && request.webrtc_sdp_offer.is_empty()
                             {
-                                crate::direct::spawn(crate::direct::Request {peer:request.socket_addr, peer_v6:request.socket_addr_v6,relay:request.relay_server,lan:false},Arc::clone(&config),Arc::clone(&onekvm_identity),Arc::clone(&rustdesk_identity),shutdown.clone(),limits.clone());
+                                crate::direct::spawn(crate::direct::Request {peer:request.socket_addr, peer_v6:request.socket_addr_v6,relay:request.relay_server,lan:false},Arc::clone(&config),Arc::clone(&app_identity),Arc::clone(&rustdesk_identity),shutdown.clone(),limits.clone());
                                 continue;
                             }
                             spawn_fallback_relay(request.socket_addr, request.socket_addr_v6, request.relay_server,
-                                Arc::clone(&config), Arc::clone(&onekvm_identity), Arc::clone(&rustdesk_identity),
+                                Arc::clone(&config), Arc::clone(&app_identity), Arc::clone(&rustdesk_identity),
                                 shutdown.clone(), limits.clone());
                         } else {
                             let manager = webrtc.clone();
                             let config = Arc::clone(&config);
-                            let onekvm = Arc::clone(&onekvm_identity);
+                            let app = Arc::clone(&app_identity);
                             let rd = Arc::clone(&rustdesk_identity);
                             let shutdown = shutdown.clone();
                             let limits = limits.clone();
                             tokio::spawn(async move {
-                                if let Err(error) = manager.answer(&request, Arc::clone(&config), Arc::clone(&onekvm),
+                                if let Err(error) = manager.answer(&request, Arc::clone(&config), Arc::clone(&app),
                                     Arc::clone(&rd), shutdown.clone(), limits.clone()).await {
                                     if *shutdown.borrow(){return}
                                     eprintln!("RustDesk WebRTC unavailable: {error}; using relay");
                                     spawn_fallback_relay(request.socket_addr, request.socket_addr_v6, request.relay_server,
-                                        config, onekvm, rd, shutdown, limits);
+                                        config, app, rd, shutdown, limits);
                                 }
                             });
                         }
                     }
                     Some(rendezvous_message::Union::FetchLocalAddr(request)) => {
                         let limits=limits.with_permissions(request.control_permissions.as_ref());
-                        crate::direct::spawn(crate::direct::Request{peer:request.socket_addr,peer_v6:request.socket_addr_v6,relay:request.relay_server,lan:true},Arc::clone(&config),Arc::clone(&onekvm_identity),Arc::clone(&rustdesk_identity),shutdown.clone(),limits);
+                        crate::direct::spawn(crate::direct::Request{peer:request.socket_addr,peer_v6:request.socket_addr_v6,relay:request.relay_server,lan:true},Arc::clone(&config),Arc::clone(&app_identity),Arc::clone(&rustdesk_identity),shutdown.clone(),limits);
                     }
                     _ => {}
                 }
@@ -234,7 +234,7 @@ async fn run_once(
 fn spawn_requested_relay(
     request: RequestRelay,
     config: Arc<Config>,
-    onekvm_identity: Arc<Identity>,
+    app_identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
@@ -277,7 +277,7 @@ fn spawn_requested_relay(
                 peer,
                 request.secure,
                 config,
-                onekvm_identity,
+                app_identity,
                 rustdesk_identity,
                 shutdown,
                 limits,
@@ -297,7 +297,7 @@ pub(crate) fn spawn_fallback_relay(
     socket_addr_v6: Vec<u8>,
     offered_relay: String,
     config: Arc<Config>,
-    onekvm_identity: Arc<Identity>,
+    app_identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
@@ -344,7 +344,7 @@ pub(crate) fn spawn_fallback_relay(
                 peer,
                 true,
                 config,
-                onekvm_identity,
+                app_identity,
                 rustdesk_identity,
                 shutdown,
                 limits,
@@ -365,7 +365,7 @@ async fn connect_relay(
     peer: SocketAddr,
     secure: bool,
     config: Arc<Config>,
-    onekvm_identity: Arc<Identity>,
+    app_identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
@@ -398,7 +398,7 @@ async fn connect_relay(
         stream,
         peer,
         config,
-        onekvm_identity,
+        app_identity,
         rustdesk_identity,
         secure,
         shutdown,
@@ -676,7 +676,7 @@ mod tests {
                 union: Some(message::Union::LoginRequest(LoginRequest {
                     password: second.finalize().to_vec(),
                     my_id: "interop-probe".to_owned(),
-                    my_name: "OneKVM interop probe".to_owned(),
+                    my_name: "NanoKVM interop probe".to_owned(),
                     version: crate::upstream::version().to_owned(),
                     my_platform: "Linux".to_owned(),
                     option: Some(crate::protocol::OptionMessage {

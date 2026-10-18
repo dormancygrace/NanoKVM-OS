@@ -9763,7 +9763,7 @@ index 7fa1f28..93c3735 100644
 -		ktime_get_real_ts64(&ts2);
 -		t2 = ts2.tv_sec * 1000000 + ts2.tv_nsec / 1000;
 -	} while ((t2 - t1) < 1000000);
-+	/* OneKVM's video-path review highlighted intrusive VI diagnostics.
++	/* A video-path review highlighted intrusive VI diagnostics.
 +	 * Sample over a sleeping interval: the vendor 940ms sleep followed by a
 +	 * busy loop burned CPU on the single C906 and used adjustable wall time.
 +	 * This does not reprogram CSI or change the capture ownership model.
@@ -11200,7 +11200,7 @@ index 7fa1f28..93c3735 100644
 -		ktime_get_real_ts64(&ts2);
 -		t2 = ts2.tv_sec * 1000000 + ts2.tv_nsec / 1000;
 -	} while ((t2 - t1) < 1000000);
-+	/* OneKVM's video-path review highlighted intrusive VI diagnostics.
++	/* A video-path review highlighted intrusive VI diagnostics.
 +	 * Sample over a sleeping interval: the vendor 940ms sleep followed by a
 +	 * busy loop burned CPU on the single C906 and used adjustable wall time.
 +	 * This does not reprogram CSI or change the capture ownership model.

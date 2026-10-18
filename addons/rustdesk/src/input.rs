@@ -2,7 +2,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    onekvm::HidClient,
+    nanokvm::HidClient,
     protocol::{key_event, ControlKey, KeyEvent, KeyboardMode, MouseEvent},
 };
 

@@ -8,12 +8,12 @@ import {
   draftAutoBitrate,
   draftPlayable,
   ECONOMY_BITRATE,
-  modeOf,
   QUALITY_CHOICES,
-  recommendedMode,
+  recommendedResolution,
+  resolutionChoices,
+  resolutionOf,
   transportChoice,
-  videoModes,
-  withMode,
+  withResolution,
   type Codec,
   type Transport,
   type VideoDraft
@@ -134,33 +134,35 @@ export const QuickVideo = () => {
   // Mode: landscape modes the device offers (portrait ones are in Settings).
   // A Cube receiver applies a monitor change only after a power cycle, which
   // Settings → Video confirms first.
-  const current = modeOf(saved, caps);
-  const recommended = recommendedMode(caps);
+  const current = resolutionOf(saved, caps);
+  const recommended = recommendedResolution(caps);
   const auto = draftAutoBitrate(saved, caps);
   const autoBitrate = saved.bitRate === auto;
-  const modeItems: Item[] = videoModes(caps)
-    .filter((m) => m.key === current?.key || (m.available && !m.portrait))
-    .map((mode) => ({
-      key: mode.key,
-      checked: mode.key === current?.key,
+  // A resolution applies at its fastest rate; Settings lowers it.
+  const modeItems: Item[] = resolutionChoices(caps)
+    .filter((c) => c.key === current?.key || (c.available && !c.portrait))
+    .map((choice) => ({
+      key: choice.key,
+      checked: choice.key === current?.key,
       disabled: busy || caps.monitor.requiresPowerCycle,
       label: (
         <>
-          {`${mode.width} × ${mode.height} · ${t('videoSettings.fpsValue', { value: mode.fps })}`}
-          {mode.key === recommended?.key && (
+          {`${choice.width} × ${choice.height} · ${t('videoSettings.fpsValue', { value: choice.key === current?.key ? saved.fps : (choice.rates[0] ?? saved.fps) })}`}
+          {choice.key === recommended?.key && (
             <span className="text-neutral-500"> · {t('videoSettings.modeRecommended')}</span>
           )}
         </>
       ),
       pick: () => {
-        const draft = withMode(saved, mode, caps);
+        if (choice.key === current?.key) return;
+        const draft = withResolution(saved, choice, caps);
         // An automatic bitrate follows the mode.
         if (autoBitrate) draft.bitRate = draftAutoBitrate(draft, caps);
         void apply(draft);
       }
     }));
   const modeValue = current
-    ? `${current.width} × ${current.height} · ${current.fps}`
+    ? `${current.width} × ${current.height} · ${saved.fps}`
     : `${width} × ${height} · ${saved.fps}`;
 
   const bitrateItems: Item[] = mjpeg

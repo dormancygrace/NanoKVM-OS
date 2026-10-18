@@ -173,58 +173,77 @@ test('unavailable choices carry their reason', () => {
   assert.equal(model.draftIssues(draft({ fps: 5 }), c, everything).fps, 'range');
 });
 
-test('modes list every monitor size at its refresh rates, then portrait', () => {
-  const keys = model.videoModes(caps()).map((m) => m.key);
+test('resolutions list every monitor size with its rates, then portrait', () => {
+  const choices = model.resolutionChoices(caps());
   assert.deepEqual(
-    [...keys.slice(0, 5)],
-    ['m2160@30', 'm1440@60', 'm1440@50', 'm1440@40', 'm1440@30']
+    [...choices.map((c) => c.key)],
+    ['m2160', 'm1440', 'm1080', 'm720', 'p1920', 'p2560']
   );
-  assert.ok(keys.includes('m720@120'));
-  assert.ok(!keys.some((k) => k.startsWith('m0@')), 'Auto is not a mode of its own');
-  assert.deepEqual([...keys.slice(-3)], ['p2560@60', 'p2560@50', 'p2560@30']);
-  const uhd = model.videoModes(caps({ uhd: false })).find((m) => m.key === 'm2160@30');
+  assert.deepEqual([...choices.find((c) => c.key === 'm1080').rates], [100, 75, 60, 30]);
+  assert.ok(!choices.some((c) => c.key === 'm0'), 'Auto is not a resolution of its own');
+  const uhd = model.resolutionChoices(caps({ uhd: false })).find((c) => c.key === 'm2160');
   assert.deepEqual([uhd.available, uhd.reason], [false, 'video-memory']);
 });
 
 test('a fixed receiver offers the input size at the stream rates', () => {
-  const modes = model.videoModes(caps({ programmable: false }));
-  assert.deepEqual([...modes.map((m) => m.key)], ['i1440@60', 'i1440@50', 'i1440@40', 'i1440@30']);
-  assert.equal(model.modeOf(draft({ fps: 50 }), caps({ programmable: false })).key, 'i1440@50');
+  const fixed = caps({ programmable: false });
+  const choices = model.resolutionChoices(fixed);
+  assert.deepEqual([...choices.map((c) => c.key)], ['i1440']);
+  assert.deepEqual([...choices[0].rates], [60, 50, 40, 30]);
+  assert.equal(model.resolutionOf(draft({ fps: 50 }), fixed).key, 'i1440');
 });
 
-test('the recommended mode is 1440p60, else 1080p60', () => {
-  assert.equal(model.recommendedMode(caps()).key, 'm1440@60');
+test('the recommended resolution is 1440p, else 1080p', () => {
+  assert.equal(model.recommendedResolution(caps()).key, 'm1440');
   const noQhd = caps();
   noQhd.monitor.modes = noQhd.monitor.modes.map((m) =>
     m.height === 1440 ? { ...m, available: false, reason: 'video-memory' } : m
   );
-  assert.equal(model.recommendedMode(noQhd).key, 'm1080@60');
+  assert.equal(model.recommendedResolution(noQhd).key, 'm1080');
 });
 
-test('a draft is in the mode of its monitor and rate', () => {
+test('a draft is in the resolution of its monitor, whatever its rate', () => {
   const c = caps();
-  assert.equal(model.modeOf(draft({ monitor: 1440, fps: 60 }), c).key, 'm1440@60');
+  assert.equal(model.resolutionOf(draft({ monitor: 1440, fps: 60 }), c).key, 'm1440');
+  assert.equal(model.resolutionOf(draft({ monitor: 1440, fps: 45 }), c).key, 'm1440');
   // Auto stands for 1920x1080.
-  assert.equal(model.modeOf(draft({ monitor: 0, fps: 100 }), c).key, 'm1080@100');
-  assert.equal(model.modeOf(draft({ portrait: 1920, fps: 75 }), c).key, 'p1920@75');
-  assert.equal(model.modeOf(draft({ monitor: 1440, fps: 45 }), c), undefined);
+  assert.equal(model.resolutionOf(draft({ monitor: 0, fps: 100 }), c).key, 'm1080');
+  assert.equal(model.resolutionOf(draft({ portrait: 1920, fps: 75 }), c).key, 'p1920');
 });
 
-test('applying a mode sets the monitor and the rate, and fits portrait limits', () => {
+test('a resolution applies at its fastest rate, and fits portrait limits', () => {
   const c = caps();
-  const mode = (key) => model.videoModes(c).find((m) => m.key === key);
-  const qhd = model.withMode(draft({ portrait: 1920 }), mode('m1440@60'), c);
+  const choice = (key) => model.resolutionChoices(c).find((x) => x.key === key);
+  const fhd = model.withResolution(draft({ monitor: 720, fps: 30 }), choice('m1080'), c);
+  assert.deepEqual([fhd.monitor, fhd.portrait, fhd.fps], [1080, 0, 100]);
+  const qhd = model.withResolution(draft({ portrait: 1920 }), choice('m1440'), c);
   assert.deepEqual([qhd.monitor, qhd.portrait, qhd.fps], [1440, 0, 60]);
-  const tall = model.withMode(draft({ transport: 'mjpeg', codec: 'h264' }), mode('p2560@50'), c);
+  const tall = model.withResolution(
+    draft({ transport: 'mjpeg', codec: 'h264' }),
+    choice('p2560'),
+    c
+  );
   assert.deepEqual(
     [tall.portrait, tall.fps, tall.transport, tall.codec],
-    [2560, 50, 'direct', 'h265']
+    [2560, 60, 'direct', 'h265']
   );
   assert.deepEqual({ ...model.draftIssues(tall, c, everything) }, {});
   // A fixed receiver keeps its monitor.
   const fixed = caps({ programmable: false });
-  const rate = model.withMode(draft({ monitor: 1080 }), model.videoModes(fixed)[0], fixed);
+  const rate = model.withResolution(
+    draft({ monitor: 1080 }),
+    model.resolutionChoices(fixed)[0],
+    fixed
+  );
   assert.deepEqual([rate.monitor, rate.fps], [1080, 60]);
+});
+
+test('the monitor refresh follows a lower rate of the resolution', () => {
+  const c = caps();
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 100 }), c).refresh, 100);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), c).refresh, 60);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), caps({ follows: false })).refresh, 100);
 });
 
 test('a slower stream rate rewrites the monitor only when it follows the rate', () => {

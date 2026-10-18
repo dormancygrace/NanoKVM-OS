@@ -13,12 +13,12 @@ import {
   ECONOMY_BITRATE,
   effectiveFps,
   mjpegBlocked,
-  modeOf,
   monitorTarget,
   QUALITY_CHOICES,
-  recommendedMode,
-  videoModes,
-  withMode,
+  recommendedResolution,
+  resolutionChoices,
+  resolutionOf,
+  withResolution,
   type BrowserSupport,
   type Reason,
   type VideoCapabilities,
@@ -178,42 +178,58 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
     </div>
   );
 
-  const modes = videoModes(caps);
-  const current = modeOf(draft, caps);
-  const recommended = recommendedMode(caps);
-  const modeLabel = (m: { width: number; height: number; fps: number }) =>
-    `${size(m.width, m.height)} · ${t('videoSettings.fpsValue', { value: m.fps })}`;
-  const modeOption = (m: (typeof modes)[number]) => ({
-    value: m.key,
+  const choices = resolutionChoices(caps);
+  const current = resolutionOf(draft, caps);
+  const recommended = recommendedResolution(caps);
+  const choiceOption = (c: (typeof choices)[number]) => ({
+    value: c.key,
     label: withReason(
-      `${modeLabel(m)}${m.key === recommended?.key ? ` · ${t('videoSettings.modeRecommended')}` : ''}`,
-      m.available ? undefined : m.reason
+      `${size(c.width, c.height)}${c.key === recommended?.key ? ` · ${t('videoSettings.modeRecommended')}` : ''}`,
+      c.available ? undefined : c.reason
     ),
-    // A mode that only needs the UHD memory stays selectable: choosing it
-    // offers the switch.
-    disabled: !m.available && m.reason !== 'video-memory'
+    // A resolution that only needs the UHD memory stays selectable: choosing
+    // it offers the switch.
+    disabled: !c.available && c.reason !== 'video-memory'
   });
-  const landscape = modes.filter((m) => !m.portrait);
-  const portrait = modes.filter((m) => m.portrait);
+  const landscape = choices.filter((c) => !c.portrait);
+  const portrait = choices.filter((c) => c.portrait);
   const out = draftSize(draft, caps);
-  const modeOptions = [
+  const resolutionOptions = [
     ...(current
       ? []
       : [
           {
             value: 'custom',
-            label: t('videoSettings.modeCustom', {
-              value: modeLabel({ width: out.width, height: out.height, fps: draft.fps })
-            }),
+            label: t('videoSettings.modeCustom', { value: size(out.width, out.height) }),
             disabled: true
           }
         ]),
     ...(portrait.length
       ? [
-          { label: t('videoSettings.landscape'), options: landscape.map(modeOption) },
-          { label: t('videoSettings.portrait'), options: portrait.map(modeOption) }
+          { label: t('videoSettings.landscape'), options: landscape.map(choiceOption) },
+          { label: t('videoSettings.portrait'), options: portrait.map(choiceOption) }
         ]
-      : landscape.map(modeOption))
+      : landscape.map(choiceOption))
+  ];
+  // The rates of the resolution, fastest first; a saved rate off the list
+  // (set in Advanced) is shown as custom.
+  const rates = current?.rates ?? [];
+  const rateOptions = [
+    ...(rates.includes(draft.fps)
+      ? []
+      : [
+          {
+            value: draft.fps,
+            label: t('videoSettings.modeCustom', {
+              value: t('videoSettings.fpsValue', { value: draft.fps })
+            }),
+            disabled: true
+          }
+        ]),
+    ...rates.map((value, index) => ({
+      value,
+      label: `${t('videoSettings.fpsValue', { value })}${index === 0 ? ` · ${t('videoSettings.fpsMax')}` : ''}`
+    }))
   ];
   const target = monitorTarget(draft, caps);
   const delivered = effectiveFps(draft, caps);
@@ -229,16 +245,16 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
           </p>
         </div>
         {row(
-          t('videoSettings.mode'),
+          t('videoSettings.resolution'),
           <Select
             className="w-full"
-            aria-label={t('videoSettings.mode')}
+            aria-label={t('videoSettings.resolution')}
             value={current?.key ?? 'custom'}
-            options={modeOptions}
+            options={resolutionOptions}
             disabled={busy || !admin}
             onChange={(key: string) => {
-              const mode = modes.find((m) => m.key === key);
-              if (mode) setDraft((d) => withMode(d, mode, caps));
+              const choice = choices.find((c) => c.key === key);
+              if (choice) setDraft((d) => withResolution(d, choice, caps));
             }}
           />,
           caps.monitor.programmable
@@ -248,6 +264,18 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                   : 'videoSettings.modeHint'
               )
             : t('videoSettings.monitorUnavailable')
+        )}
+        {row(
+          t('videoSettings.frameRate'),
+          <Select
+            className="w-full"
+            aria-label={t('videoSettings.frameRate')}
+            value={draft.fps}
+            options={rateOptions}
+            disabled={busy || !admin || rates.length === 0}
+            onChange={(value: number) => change('fps', value)}
+          />,
+          t(caps.monitor.followsStreamRate ? 'videoSettings.frameRateHint' : 'videoSettings.frameRateFixedHint')
         )}
         {issues.monitor === 'video-memory' && target.height >= 2160 && (
           <Alert

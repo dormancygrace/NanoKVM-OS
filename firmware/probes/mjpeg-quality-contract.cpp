@@ -7,7 +7,7 @@ CVI_S32 CVI_VENC_GetJpegParam(VENC_CHN ch, VENC_JPEG_PARAM_S *p) {
     assert(ch == 0); ++gets; p->u32Qfactor = 80; p->u32MCUPerECS = 17; return get_error;
 }
 CVI_S32 CVI_VENC_SetJpegParam(VENC_CHN ch, const VENC_JPEG_PARAM_S *p) {
-    assert(ch == 0 && p->u32MCUPerECS == 17); ++sets; requested=p->u32Qfactor; return set_error;
+    assert(ch == 0 && p->u32MCUPerECS == 17 && p->u32Qfactor != 50); ++sets; requested=p->u32Qfactor; return set_error;
 }
 int main() {
     priv={}; priv.enc_jpg_is_init=1; priv.enc_jpg_quality=80;
@@ -24,10 +24,14 @@ int main() {
     set_error=0; assert(_mmf_jpg_update_quality(0,90)==0 && sets==2 && requested==90 && priv.enc_jpg_quality==90);
     assert(_mmf_jpg_update_quality(0,90)==0 && sets==2);
     assert(_mmf_jpg_update_quality(0,51)==0 && requested==51);
-    assert(_mmf_jpg_update_quality(0,50)==0 && requested==50 && priv.enc_jpg_quality==50);
+    const int before50 = sets;
+    assert(_mmf_jpg_update_quality(0,50)==0 && sets==before50 && requested==51 && priv.enc_jpg_quality==51);
+    assert(_mmf_jpg_update_quality(0,80)==0 && requested==80);
+    assert(_mmf_jpg_update_quality(0,50)==0 && requested==51 && priv.enc_jpg_quality==51);
+    for (int q=20; q<=99; ++q) assert(_mmf_jpg_qfactor(q)==(q==50 ? 51 : q));
     assert(_mmf_jpg_update_quality(0,30)==0 && requested==30 && priv.enc_jpg_quality==30);
     assert(_mmf_jpg_update_quality(0,20)==0 && requested==20 && priv.enc_jpg_quality==20);
     assert(_mmf_jpg_update_quality(0,99)==0 && requested==99);
     priv.enc_jpg_is_init=0; assert(_mmf_jpg_update_quality(0,80)!=0);
-    puts("PASS real JPEG Qfactor: no-op, busy, invalid Q (outside 20..99)/channel, 20/30/50 accepted, retained vendor fields, setter errors and retry.");
+    puts("PASS real JPEG Qfactor: no-op, busy, invalid Q (outside 20..99)/channel, 20/30 accepted, 50 encoded as 51 without repeated writes, retained vendor fields, setter errors and retry.");
 }

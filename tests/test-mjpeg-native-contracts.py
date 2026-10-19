@@ -94,7 +94,7 @@ def check_no_gop_setting():
 check_read_img_gates()
 check_no_gop_setting()
 
-for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park']:
+for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
     if case == 'teardown':
@@ -110,7 +110,12 @@ for case in ['quality', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown
         sources = [repo / 'support/sg2002/additional/kvm/tests/geometry_gate_test.cpp']
     elif case == 'park':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
-    subprocess.run(flags + [str(path) for path in sources] + ['-o', str(binary)], check=True)
+    extra = ['-Wl,--wrap=fopen'] if case == 'colour' else []
+    subprocess.run(flags + extra + [str(path) for path in sources] + ['-o', str(binary)], check=True)
+    if case == 'colour':
+        for mode in ['new', 'old', 'input-failure', 'restore-failure', 'attr-failure']:
+            subprocess.run([str(binary), mode], check=True)
+        continue
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     (args.output / (case + '.txt')).write_text(
         result.stdout + result.stderr + f'exit={result.returncode}\n')

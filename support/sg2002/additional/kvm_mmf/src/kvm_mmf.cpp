@@ -694,7 +694,7 @@ int mmf_get_vi_unused_channel(void) {
 extern "C" CVI_S32 vpss_set_grp_csc(CVI_S32 fd, const struct vpss_grp_csc_cfg *cfg);
 static bool _mmf_vpss_true_rgb = true;
 
-static void _mmf_vpss_set_source_colour(VPSS_GRP grp, bool bt709)
+static CVI_S32 _mmf_vpss_set_source_colour(VPSS_GRP grp, bool bt709)
 {
 	// 10-bit fractions, bit 13 the sign. BT.709 limited: 1.1644 (Y - 16)
 	// + 1.7927 (Cr - 128); - 0.2132 (Cb - 128) - 0.5329 (Cr - 128);
@@ -710,10 +710,10 @@ static void _mmf_vpss_set_source_colour(VPSS_GRP grp, bool bt709)
 	cfg.sub[0] = bt709 ? 16 : 0;
 	cfg.sub[1] = cfg.sub[2] = 128;
 	const CVI_S32 fd = CVI_VPSS_GetChnFd(grp, 0);
-	if (fd < 0 || vpss_set_grp_csc(fd, &cfg) != CVI_SUCCESS) {
+	const CVI_S32 result = fd < 0 ? fd : vpss_set_grp_csc(fd, &cfg);
+	if (result != CVI_SUCCESS)
 		SAMPLE_PRT("VPSS group %d input colour matrix not set\n", grp);
-		_mmf_vpss_true_rgb = false;
-	}
+	return result;
 }
 
 // Whether the kernel knows VIDEO_FORMAT_LINEAR_BT709: its /proc/cvitek/vpss
@@ -798,11 +798,15 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 	if (chn_attr.enVideoFormat == VIDEO_FORMAT_LINEAR_BT709 && !_mmf_vpss_bt709_supported()) {
 		// A kernel without the BT.709 channel output: back to the default
 		// matrices, so the video keeps its colours.
-		_mmf_vpss_set_source_colour(VpssGrp, false);
+		s32Ret = _mmf_vpss_set_source_colour(VpssGrp, false);
+		if (s32Ret != CVI_SUCCESS)
+			return s32Ret;
 		chn_attr.enVideoFormat = VIDEO_FORMAT_LINEAR;
 		s32Ret = CVI_VPSS_SetChnAttr(VpssGrp, VpssChn, &chn_attr);
-		if (s32Ret != CVI_SUCCESS)
+		if (s32Ret != CVI_SUCCESS) {
 			SAMPLE_PRT("CVI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
+			return s32Ret;
+		}
 	}
 
 	s32Ret = CVI_VPSS_EnableChn(VpssGrp, VpssChn);
@@ -850,7 +854,11 @@ static CVI_S32 _mmf_vpss_init_new(VPSS_GRP VpssGrp, CVI_U32 width, CVI_U32 heigh
 		CVI_VPSS_DestroyGrp(VpssGrp);
 		return CVI_FAILURE;
 	}
-	_mmf_vpss_set_source_colour(VpssGrp, _mmf_vpss_true_rgb);
+	s32Ret = _mmf_vpss_set_source_colour(VpssGrp, _mmf_vpss_true_rgb);
+	if (s32Ret != CVI_SUCCESS) {
+		CVI_VPSS_DestroyGrp(VpssGrp);
+		return s32Ret;
+	}
 
 	s32Ret = CVI_VPSS_StartGrp(VpssGrp);
 	if (s32Ret != CVI_SUCCESS) {

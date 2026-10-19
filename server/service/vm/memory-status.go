@@ -31,8 +31,8 @@ type memorySwap struct {
 	Recompress          bool   `json:"recompress"`
 	RecompressAvailable bool   `json:"recompressAvailable"`
 	RecompressReady     bool   `json:"recompressReady"`
-	// zram only: the size follows the memory (half of MemTotal); sizeMiB is
-	// then the current size.
+	// zram only: the size follows the memory (zramAutoMiB); sizeMiB is then
+	// the current size.
 	Auto bool `json:"auto"`
 }
 type memoryStatus struct {
@@ -91,6 +91,20 @@ func parseActiveSwaps(text string) map[string]memorySwap {
 	return result
 }
 
+// zramAutoMiB is the "auto" zram size of S38memory: half of the memory Linux
+// keeps while video holds its largest buffer set. Outside a CMA region that is
+// all of MemTotal; the shared video region (CmaTotal) lends Linux what 2160p
+// capture (104 MiB) leaves of it.
+func zramAutoMiB(counters map[string]uint64) int64 {
+	const video = 104 << 20
+	cma := min(counters["CmaTotal"], counters["MemTotal"])
+	linux := counters["MemTotal"] - cma
+	if cma > video {
+		linux += cma - video
+	}
+	return int64(linux / 2 >> 20)
+}
+
 func validSwapRequest(req memorySwapRequest) bool {
 	switch req.Kind {
 	case "zram":
@@ -106,7 +120,7 @@ func validSwapRequest(req memorySwapRequest) bool {
 
 func readMemoryStatus() (memoryStatus, error) {
 	var result memoryStatus
-	result.VideoMemory = readVideoMemoryStatus("/")
+	result.VideoMemory = readVideoMemoryStatus()
 	raw, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return result, err
@@ -151,7 +165,7 @@ func readMemoryStatus() (memoryStatus, error) {
 		if key == "ZRAM_SIZE" && value == "auto" {
 			result.Zram.Auto = true
 			if !result.Zram.Enabled {
-				result.Zram.SizeMiB = int64(counters["MemTotal"] / 2 >> 20)
+				result.Zram.SizeMiB = zramAutoMiB(counters)
 			}
 			continue
 		}

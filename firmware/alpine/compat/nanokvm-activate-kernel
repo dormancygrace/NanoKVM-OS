@@ -2,49 +2,17 @@
 # Internal APK trigger: activate the matched boot payload without replacing rootfs.
 set -eu
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-# Serialize GUI selection and APK-triggered boot activation.
+# Serialize boot activations.
 mkdir -p /run
 exec 9>/run/nanokvm-boot.lock
 flock -x 9
 payload=/usr/lib/nanokvm/boot
-selection=/etc/kvm/video-memory-mode
-# Video memory modes, each a fixed carveout: fhd (1920x1080, 40 MiB, the
-# default), qhd (2560x1440, 56 MiB) and uhd (3840x2160, 104 MiB). Earlier
-# releases also had cma (128 MiB CMA), fixed, fhd-fixed and qhd-fixed; they
-# keep their capability: cma, fixed and qhd-fixed -> qhd, fhd-fixed -> fhd.
-legacy_mode() { case "$1" in cma|fixed|qhd-fixed) echo qhd;; fhd-fixed) echo fhd;; *) echo "$1";; esac; }
-# The mode of the running boot image, for a device without a selection.
-running_mode() {
-    dt=/sys/firmware/devicetree/base
-    raw=$(tr -d '\000' < "$dt/nanokvm,video-memory-mode" 2>/dev/null || true)
-    case "$raw" in
-        cma|fixed|uhd|fhd|fhd-fixed|qhd|qhd-fixed) legacy_mode "$raw"; return ;;
-    esac
-    # Boot images from before the property: CMA, or a fixed carveout of
-    # 128 MiB (uhd) or less (fixed).
-    if [ -e "$dt/cvitek-ion/heap-carveout/nanokvm,cma-backend" ]; then
-        echo qhd
-    elif [ "$(tr -d '\000' < "$dt/reserved-memory/ion/compatible" 2>/dev/null || true)" = ion-region ]; then
-        set -- $(od -An -tu1 -N4 "$dt/reserved-memory/ion/size" 2>/dev/null || echo 0)
-        if [ "$1" -ge 8 ]; then echo uhd; else echo qhd; fi
-    else
-        echo fhd
-    fi
-}
-if [ -n "${2:-}" ]; then
-    mode=$2
-elif [ -f "$selection" ]; then
-    mode=$(cat "$selection")
-else
-    mode=$(running_mode)
-fi
-mode=$(legacy_mode "$mode")
-case "$mode" in fhd|qhd|uhd) ;; *) echo 'Invalid video memory mode' >&2; exit 1;; esac
 profile=${1:-$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)}
 case "$profile" in alpha|beta|pcie|lite) ;; *) echo "Unsupported board profile: $profile" >&2; exit 1;; esac
-# The default mode is the board's own image, the others add the mode.
+# One boot image per board: a reusable CMA region holds the video buffers of
+# every resolution. Earlier releases had an image per video memory mode,
+# selected in /etc/kvm/video-memory-mode; every mode becomes this one.
 name=$profile
-[ "$mode" = fhd ] || name=$profile-$mode
 release=$(cat "$payload/kernel.release")
 case "$release" in ''|*[!a-zA-Z0-9._+-]*) echo 'Invalid kernel release' >&2; exit 1;; esac
 [ -d "/lib/modules/$release" ] || { echo 'Matching kernel modules are missing' >&2; exit 1; }
@@ -69,12 +37,10 @@ awk '$1 == "/dev/mmcblk0p1" && $2 == "/boot" && $3 == "vfat" { found=1 } END { e
 # compose-fit replaces boot.sd only with an image matching the build's hash.
 sh "$payload/compose-fit" "$payload" "$name" /boot/boot.sd
 printf '%s\n' "$release" > /boot/kernel.release
-mkdir -p /etc/kvm
-printf '%s\n' "$mode" > "$selection"
-printf '%s\n' "$mode" > /boot/video-memory-mode
-sync /boot/boot.sd /boot/kernel.release "$selection" /boot/video-memory-mode
+rm -f /etc/kvm/video-memory-mode /boot/video-memory-mode
+sync /boot/boot.sd /boot/kernel.release
 mkdir -p /run
 printf '%s\n' 'Kernel updated; reboot to use the installed kernel.' > /run/reboot-required
 printf '%s\n' nanokvm-kernel-sg2002 >> /run/reboot-required.pkgs
 rm -f /var/lib/nanokvm/firmware-activation-required
-echo "NanoKVM kernel $release activated for $profile ($mode); reboot required."
+echo "NanoKVM kernel $release activated for $profile; reboot required."

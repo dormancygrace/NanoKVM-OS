@@ -16,6 +16,24 @@ func TestActiveSwapParsingKeepsDevicesIndependent(t *testing.T) {
 	}
 }
 
+// Matches S38memory: the shared 144 MiB region lends Linux what 2160p capture
+// leaves of it, so the size is that of the earlier 104 MiB carveout.
+func TestZramAutoSize(t *testing.T) {
+	for _, tc := range []struct {
+		meminfo string
+		want    int64
+	}{
+		{"MemTotal: 240984 kB\nCmaTotal: 147456 kB\n", 65},
+		{"MemTotal: 199840 kB\nCmaTotal: 0 kB\n", 97},
+		{"MemTotal: 133120 kB\n", 65},
+		{"MemTotal: 196608 kB\nCmaTotal: 65536 kB\n", 64},
+	} {
+		if got := zramAutoMiB(parseMemoryCounters(tc.meminfo)); got != tc.want {
+			t.Errorf("%q: %d MiB, want %d", tc.meminfo, got, tc.want)
+		}
+	}
+}
+
 func TestMemoryCountersAndSwapValidation(t *testing.T) {
 	counters := parseMemoryCounters("MemTotal: 193712 kB\nMemAvailable: 142644 kB\nSwapTotal: 65532 kB\nInvalid: unknown kB\n")
 	if counters["MemTotal"] != 193712*1024 || counters["MemAvailable"] != 142644*1024 {

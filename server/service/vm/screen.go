@@ -79,15 +79,11 @@ func (s *Service) SetScreen(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
-	// Serialize every setting with a batch, including its restart hold.
+	// Serialize every setting with a batch.
 	videoSettingsMutex.Lock()
 	defer videoSettingsMutex.Unlock()
 	if failure := validateScreenSetting(req); failure != nil {
 		rsp.ErrRsp(c, failure.code, failure.msg)
-		return
-	}
-	if videoMemoryRestartPending.Load() {
-		rsp.ErrRsp(c, -6, common.ErrMonitorRestartPending.Error())
 		return
 	}
 	data, failure := applyScreenSetting(req)

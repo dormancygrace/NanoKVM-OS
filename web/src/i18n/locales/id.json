@@ -569,8 +569,7 @@
       "available": "Tersedia",
       "size": "Kapasitas",
       "used": "Terpakai",
-      "algorithm": "Kompresi",
-      "videoUnknown": "Tidak diketahui"
+      "algorithm": "Kompresi"
     },
     "system": {
       "general": "Umum",

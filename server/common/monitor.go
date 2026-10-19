@@ -247,10 +247,6 @@ func savedPortraitResolutionLocked() uint16 {
 }
 
 func applyMonitorProfileLocked(path string) error {
-	// Every EDID write passes here.
-	if monitorRestartPending {
-		return ErrMonitorRestartPending
-	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("monitor profile is unavailable: %w", err)

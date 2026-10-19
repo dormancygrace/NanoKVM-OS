@@ -593,8 +593,7 @@
       "available": "Elérhető",
       "size": "Kapacitás",
       "used": "Felhasznált",
-      "algorithm": "Tömörítés",
-      "videoUnknown": "Ismeretlen"
+      "algorithm": "Tömörítés"
     },
     "system": {
       "general": "Általános",

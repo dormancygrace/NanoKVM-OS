@@ -569,8 +569,7 @@
       "available": "Khả dụng",
       "size": "Dung lượng",
       "used": "Đã dùng",
-      "algorithm": "Nén",
-      "videoUnknown": "Không rõ"
+      "algorithm": "Nén"
     },
     "system": {
       "general": "Chung",

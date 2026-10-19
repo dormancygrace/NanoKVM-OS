@@ -14,19 +14,21 @@ test('a refused MJPEG capture has its own message', () => {
 
 const wrap = (status) => ({ data: JSON.stringify({ data: JSON.stringify(status) }) });
 
-test('an input refused for the video memory names its size and the mode it needs', () => {
+test('an input refused for the video memory names its size', () => {
   const status = parseCaptureStatusMessage(
-    wrap({ ok: false, result: -6, inputWidth: 2560, inputHeight: 1440, videoMemory: 'qhd' })
+    wrap({ ok: false, result: -6, inputWidth: 3840, inputHeight: 2160, videoMemory: true })
   );
-  assert.deepEqual(getVideoMemoryNeed(status), { size: '2560 × 1440', mode: 'qhd' });
+  assert.deepEqual(getVideoMemoryNeed(status), { size: '3840 × 2160' });
 });
 
 test('other unsupported inputs keep the generic message', () => {
   for (const status of [
     { ok: false, result: -6 },
-    { ok: false, result: -6, inputWidth: 2560, inputHeight: 1440, videoMemory: 'fhd' },
-    { ok: false, result: -6, inputWidth: 0, inputHeight: 1440, videoMemory: 'qhd' },
-    { ok: false, result: -1, inputWidth: 2560, inputHeight: 1440, videoMemory: 'qhd' }
+    { ok: false, result: -6, inputWidth: 3840, inputHeight: 2160, videoMemory: false },
+    // Only the boolean flag counts, not a string.
+    { ok: false, result: -6, inputWidth: 3840, inputHeight: 2160, videoMemory: 'true' },
+    { ok: false, result: -6, inputWidth: 0, inputHeight: 2160, videoMemory: true },
+    { ok: false, result: -1, inputWidth: 3840, inputHeight: 2160, videoMemory: true }
   ]) {
     assert.equal(getVideoMemoryNeed(parseCaptureStatusMessage(wrap(status))), null);
   }

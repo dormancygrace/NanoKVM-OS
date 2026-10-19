@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"NanoKVM-Server/common"
 	"NanoKVM-Server/proto"
 	"os"
 	"testing"
@@ -38,7 +39,7 @@ func TestBatchPortraitConfirmationBeforeStreamWrites(t *testing.T) {
 		`{"portraitResolution":1280,"fps":30}`,
 	} {
 		t.Run(body, func(t *testing.T) {
-			stand := newSwitchStand(t, "qhd", 1080)
+			stand := newVideoStand(t, common.SharedVideoPool)
 			old := screenMonitorRequiresPowerCycle
 			screenMonitorRequiresPowerCycle = func() bool { return true }
 			t.Cleanup(func() { screenMonitorRequiresPowerCycle = old })
@@ -48,7 +49,7 @@ func TestBatchPortraitConfirmationBeforeStreamWrites(t *testing.T) {
 			if _, err := os.Stat(screenFileMap["fps"]); !os.IsNotExist(err) {
 				t.Fatal("unconfirmed request changed FPS")
 			}
-			if len(stand.programmed) != 0 || len(stand.activated) != 0 || stand.restarts != 0 {
+			if len(stand.programmed) != 0 {
 				t.Fatal("unconfirmed request changed device state")
 			}
 		})

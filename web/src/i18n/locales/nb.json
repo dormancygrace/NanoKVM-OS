@@ -569,8 +569,7 @@
       "available": "Tilgjengelig",
       "size": "Kapasitet",
       "used": "Brukt",
-      "algorithm": "Komprimering",
-      "videoUnknown": "Ukjent"
+      "algorithm": "Komprimering"
     },
     "system": {
       "general": "Generelt",

@@ -1,7 +1,6 @@
 import { ControlRegionMode, InputRegion, OriginalResolution } from '@/types';
 import { http } from '@/lib/http.ts';
 import { inputLeaseHeaders } from '@/lib/input-lease.ts';
-import type { VideoMemoryMode } from '@/lib/video-memory-mode.ts';
 
 // get NanoKVM information
 export function getInfo() {
@@ -54,19 +53,12 @@ export function getVideoCapabilities() {
   return http.get('/api/vm/video/capabilities');
 }
 
-// apply several video settings together; returns the new capabilities, or
-// { restart: true, videoMemoryMode } when fitVideoMemory switched the video
-// memory mode and the device restarts
+// apply several video settings together; returns the new capabilities
 export function applyVideoSettings(
   settings: Record<string, number | boolean | string>,
-  confirmPowerCycle = false,
-  fitVideoMemory = false
+  confirmPowerCycle = false
 ) {
-  return http.post('/api/vm/video', {
-    ...settings,
-    confirmPowerCycle,
-    ...(fitVideoMemory ? { fitVideoMemory: true } : {})
-  });
+  return http.post('/api/vm/video', { ...settings, confirmPowerCycle });
 }
 
 // get the device-level absolute mouse input region
@@ -306,16 +298,13 @@ export type MemorySwap = {
   auto?: boolean;
 };
 
-export type { VideoMemoryMode };
-
 export type MemoryStatus = {
+  // The booted video memory. shared: one reusable region for every resolution
+  // that Linux uses while video does not; false only until a device updated
+  // from a fixed carveout restarts.
   videoMemory: {
-    active: string;
-    selected: VideoMemoryMode;
     sizeMiB: number;
-    modes?: VideoMemoryMode[];
-    available: boolean;
-    rebootRequired: boolean;
+    shared: boolean;
   };
   totalBytes: number;
   availableBytes: number;
@@ -346,10 +335,6 @@ export function getCPUFrequency() {
 }
 export function setCPUFrequency(target: number, applyAtBoot: boolean) {
   return http.post('/api/vm/cpu-frequency', { target, applyAtBoot });
-}
-
-export function setVideoMemory(mode: VideoMemoryMode) {
-  return http.post('/api/vm/memory/video', { mode });
 }
 
 // MiB; current and default are 0 without a limit.

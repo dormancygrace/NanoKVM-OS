@@ -7,10 +7,11 @@ export type CaptureStatus = {
   mode: string;
   severity: 'error' | 'warning' | '';
   updatedAt: string;
-  // With -6: an input refused for the video memory of this boot.
+  // With -6: an input refused for the video memory of this boot, on a device
+  // that has not restarted since the update to the shared video memory.
   inputWidth?: number;
   inputHeight?: number;
-  videoMemory?: 'qhd' | 'uhd';
+  videoMemory?: boolean;
 };
 
 export function parseCaptureStatusMessage(message: { data: unknown }): CaptureStatus | null {
@@ -47,7 +48,7 @@ export function parseCaptureStatusMessage(message: { data: unknown }): CaptureSt
 function rejectedInput(status: Partial<CaptureStatus>) {
   const { inputWidth, inputHeight, videoMemory } = status;
   if (
-    (videoMemory !== 'qhd' && videoMemory !== 'uhd') ||
+    videoMemory !== true ||
     typeof inputWidth !== 'number' ||
     typeof inputHeight !== 'number' ||
     inputWidth <= 0 ||
@@ -58,15 +59,12 @@ function rejectedInput(status: Partial<CaptureStatus>) {
   return { inputWidth, inputHeight, videoMemory };
 }
 
-// An input refused for the video memory: the size and the mode it needs.
+// An input refused for the video memory: its size.
 export function getVideoMemoryNeed(status: CaptureStatus | null) {
   if (!status || status.ok || status.result !== -6 || !status.videoMemory) {
     return null;
   }
-  return {
-    size: `${status.inputWidth} × ${status.inputHeight}`,
-    mode: status.videoMemory
-  };
+  return { size: `${status.inputWidth} × ${status.inputHeight}` };
 }
 
 export function getCaptureStatusMessageKey(result: number) {

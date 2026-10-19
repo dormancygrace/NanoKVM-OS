@@ -569,8 +569,7 @@
       "available": "พร้อมใช้งาน",
       "size": "ความจุ",
       "used": "ใช้แล้ว",
-      "algorithm": "การบีบอัด",
-      "videoUnknown": "ไม่ทราบ"
+      "algorithm": "การบีบอัด"
     },
     "system": {
       "general": "ทั่วไป",

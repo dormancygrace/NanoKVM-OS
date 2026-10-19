@@ -8,8 +8,8 @@ SOURCE = ROOT/'firmware/alpine/compat/nanokvm-activate-kernel'
 COMPOSE = ROOT/'platform/boot/compose-fit'
 # A miniature FIT: 4 bytes, the 8-byte device tree, its 32-byte SHA-256, 4 bytes.
 TEMPLATE = b'HEAD' + bytes(8) + bytes(32) + b'TAIL'
-# One 8-byte device tree per video memory mode, as the layout below expects.
-DTBS = {'fhd': b'pcie-fhd', 'qhd': b'pcie-qhd', 'uhd': b'pcie-uhd'}
+# The board's 8-byte device tree, as the layout below expects.
+DTB = b'pcie-dtb'
 def composed(dtb):
     return b'HEAD' + dtb + hashlib.sha256(dtb).digest() + b'TAIL'
 class ActivationTests(unittest.TestCase):
@@ -27,7 +27,7 @@ class ActivationTests(unittest.TestCase):
         (self.payload/'fit-template.sd').write_bytes(TEMPLATE)
         (self.payload/'fit.layout').write_text('DTB_OFFSET=4\nDTB_SIZE=8\nHASH_OFFSET=12\n')
         shutil.copyfile(COMPOSE,self.payload/'compose-fit')
-        self.image('fhd')
+        self.put_image('pcie',DTB)
         (self.modules/'test.ko').write_bytes(b'module')
         (self.boot/'boot.sd').write_bytes(b'old FIT')
         (self.dt/'sipeed,board-revision').write_text('pcie')
@@ -42,8 +42,6 @@ class ActivationTests(unittest.TestCase):
         source=source.replace('/proc/mounts',str(self.root/'mounts')).replace('/var/lib/nanokvm',str(self.root/'state')).replace('/run',str(self.root/'run'))
         source=source.replace('export PATH=/usr/sbin:/usr/bin:/sbin:/bin','export PATH='+str(self.root/'bin')+':/usr/bin:/bin')
         self.script=self.root/'activate';self.script.write_text(source)
-    def image(self,mode):
-        self.put_image('pcie' if mode=='fhd' else 'pcie-'+mode,DTBS[mode])
     def put_image(self,name,dtb):
         (self.payload/f'{name}.dtb').write_bytes(dtb)
         (self.payload/f'{name}.fdt-sha256').write_bytes(hashlib.sha256(dtb).digest())
@@ -53,9 +51,9 @@ class ActivationTests(unittest.TestCase):
     def test_installs_matched_fit_and_requests_reboot(self):
         result=self.run_activation()
         self.assertEqual(result.returncode,0,result.stderr)
-        self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(DTBS['fhd']))
+        self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(DTB))
         self.assertTrue((self.root/'run/reboot-required').exists())
-        self.assertEqual(sorted(p.name for p in self.boot.iterdir()),['boot.sd','kernel.release','video-memory-mode'])
+        self.assertEqual(sorted(p.name for p in self.boot.iterdir()),['boot.sd','kernel.release'])
     def test_bad_source_hash_leaves_boot_untouched(self):
         (self.payload/'pcie.dtb').write_bytes(b'corrupt!')
         self.assertNotEqual(self.run_activation().returncode,0)
@@ -65,74 +63,27 @@ class ActivationTests(unittest.TestCase):
         (self.root/'bin/modinfo').write_text('#!/bin/sh\necho incompatible\n')
         self.assertNotEqual(self.run_activation().returncode,0)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
-    def select(self,mode):
-        (self.root/'etc/kvm/video-memory-mode').write_text(mode+'\n')
-    def selected(self):
-        return (self.root/'etc/kvm/video-memory-mode').read_text()
-    def booted(self,fit):
-        self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(fit))
-        self.assertEqual((self.boot/'video-memory-mode').read_text(),self.selected())
-    def test_resolution_selections_survive_kernel_update(self):
-        for mode in ('qhd','uhd'):
+    def test_every_earlier_mode_boots_the_board_image(self):
+        # Earlier releases selected an image per video memory mode; the
+        # selection files go, and every device boots the board's image.
+        for mode in (None,'fhd','qhd','uhd','cma','fixed','fhd-fixed','../bad'):
             with self.subTest(mode=mode):
-                self.image(mode)
-                self.select(mode)
+                (self.boot/'boot.sd').write_bytes(b'old FIT')
+                (self.dt/'nanokvm,video-memory-mode').write_bytes((mode or 'uhd').encode()+b'\0')
+                if mode:
+                    (self.root/'etc/kvm/video-memory-mode').write_text(mode+'\n')
+                    (self.boot/'video-memory-mode').write_text(mode+'\n')
                 result=self.run_activation()
                 self.assertEqual(result.returncode,0,result.stderr)
-                self.booted(DTBS[mode])
-                self.assertEqual(self.selected(),mode+'\n')
-    def test_explicit_mode_argument_selects_and_saves(self):
-        self.image('qhd')
+                self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(DTB))
+                self.assertFalse((self.root/'etc/kvm/video-memory-mode').exists())
+                self.assertFalse((self.boot/'video-memory-mode').exists())
+    def test_a_mode_argument_of_an_earlier_server_is_ignored(self):
         result=subprocess.run(['sh',str(self.script),'pcie','qhd'],capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
-        self.booted(DTBS['qhd'])
-    def test_default_is_fhd_on_a_new_device(self):
-        result=self.run_activation()
-        self.assertEqual(result.returncode,0,result.stderr)
-        self.assertEqual(self.selected(),'fhd\n')
-    def test_legacy_selection_keeps_its_capability(self):
-        for legacy,mode in {'cma':'qhd','fixed':'qhd','qhd-fixed':'qhd','fhd-fixed':'fhd','uhd':'uhd'}.items():
-            with self.subTest(legacy=legacy):
-                self.image(mode)
-                self.select(legacy)
-                result=self.run_activation()
-                self.assertEqual(result.returncode,0,result.stderr)
-                self.booted(DTBS[mode])
-                self.assertEqual(self.selected(),mode+'\n')
-    def test_no_selection_follows_the_running_image(self):
-        for raw,mode in {'cma':'qhd','fixed':'qhd','qhd-fixed':'qhd','uhd':'uhd','qhd':'qhd','fhd-fixed':'fhd','fhd':'fhd'}.items():
-            with self.subTest(running=raw):
-                (self.root/'etc/kvm/video-memory-mode').unlink(missing_ok=True)
-                self.image(mode)
-                (self.dt/'nanokvm,video-memory-mode').write_bytes(raw.encode()+b'\0')
-                self.assertEqual(self.run_activation().returncode,0)
-                self.booted(DTBS[mode])
-    def test_no_selection_follows_a_running_image_without_the_property(self):
-        ion=self.dt/'reserved-memory/ion'
-        backend=self.dt/'cvitek-ion/heap-carveout/nanokvm,cma-backend'
-        for layout,mode in (('cma','qhd'),('fixed','qhd'),('uhd','uhd')):
-            with self.subTest(layout=layout):
-                (self.root/'etc/kvm/video-memory-mode').unlink(missing_ok=True)
-                self.image(mode)
-                shutil.rmtree(self.dt/'reserved-memory',ignore_errors=True)
-                shutil.rmtree(self.dt/'cvitek-ion',ignore_errors=True)
-                if layout=='cma':
-                    backend.parent.mkdir(parents=True);backend.write_bytes(b'')
-                else:
-                    ion.mkdir(parents=True);(ion/'compatible').write_bytes(b'ion-region\0')
-                    (ion/'size').write_bytes(bytes([8 if layout=='uhd' else 4,0,0,0]))
-                self.assertEqual(self.run_activation().returncode,0)
-                self.booted(DTBS[mode])
-    def test_missing_payload_does_not_silently_switch(self):
-        self.select('qhd')
-        self.assertNotEqual(self.run_activation().returncode,0)
-        self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
-    def test_missing_legacy_mapped_payload_does_not_silently_switch(self):
-        self.select('cma')
-        self.assertNotEqual(self.run_activation().returncode,0)
-        self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
-    def test_invalid_selection_leaves_boot_untouched(self):
-        (self.root/'etc/kvm/video-memory-mode').write_text('../bad\n')
+        self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(DTB))
+    def test_missing_board_image_leaves_boot_untouched(self):
+        (self.payload/'pcie.dtb').unlink()
         self.assertNotEqual(self.run_activation().returncode,0)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
     def test_unknown_board_is_rejected(self):

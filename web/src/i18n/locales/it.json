@@ -569,8 +569,7 @@
       "available": "Disponibile",
       "size": "Capacità",
       "used": "Utilizzato",
-      "algorithm": "Compressione",
-      "videoUnknown": "Sconosciuto"
+      "algorithm": "Compressione"
     },
     "system": {
       "general": "Generale",

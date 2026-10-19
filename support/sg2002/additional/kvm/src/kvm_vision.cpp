@@ -1866,6 +1866,20 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }
+        // The video encoders read limited-range BT.709, JPEG decoders full-range
+        // BT.601: NV21 is JFIF while only MJPEG reads it, BT.709 as soon as a
+        // video read arrives and until video has been quiet for the reader window.
+        // The driver drops the queued frames; skip the one in flight.
+        if (capture_format == nanokvm::nv21_format()) {
+            const bool jfif = _type == VENC_MJPEG && !mjpeg_video_reader_active(capture_now);
+            const int colour = mmf_vi_chn_set_jfif(cam->get_channel(), jfif);
+            if (colour < 0) {
+                pthread_mutex_unlock(&vi_mutex);
+                return IMG_VENC_ERROR;
+            }
+            if (colour > 0 && kvmv_cfg.fresh_frame_count == 0)
+                kvmv_cfg.fresh_frame_count = 1;
+        }
         apply_capture_rate();
         nanokvm::Nv21Frame *img = NULL;
         int native_vi_ch = -1;

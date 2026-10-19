@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstring>
 static bool modern;
+static bool get_attr_error;
 static int csc_calls, csc_fail_at, attr_calls, attr_fail_at, enables, starts, destroys;
 static vpss_grp_csc_cfg last_csc;
 static VPSS_CHN_ATTR_S last_attr;
@@ -28,6 +29,9 @@ CVI_S32 CVI_VPSS_SetChnCrop(VPSS_GRP, VPSS_CHN, const VPSS_CROP_INFO_S *) { retu
 CVI_S32 CVI_VPSS_SetChnAttr(VPSS_GRP, VPSS_CHN, const VPSS_CHN_ATTR_S *a) {
     ++attr_calls;if(attr_calls==attr_fail_at)return -43;last_attr=*a;return CVI_SUCCESS;
 }
+CVI_S32 CVI_VPSS_GetChnAttr(VPSS_GRP, VPSS_CHN, VPSS_CHN_ATTR_S *a) {
+    if (get_attr_error) return -1; *a=last_attr; return CVI_SUCCESS;
+}
 CVI_S32 CVI_VPSS_EnableChn(VPSS_GRP, VPSS_CHN) { ++enables;return CVI_SUCCESS; }
 static int channel(PIXEL_FORMAT_E format) {
     return _mmf_vpss_chn_init(0,0,1920,1080,format,60,2,false,false);
@@ -52,5 +56,18 @@ int main(int argc,char **argv) {
     assert(last_csc.sub[0]==(modern ? 16 : 0));
     assert(channel(PIXEL_FORMAT_NV21)==0);
     assert(last_attr.enVideoFormat==(modern ? VIDEO_FORMAT_LINEAR_BT709 : VIDEO_FORMAT_LINEAR));
+    priv.vi_chn_is_inited[0]=true;
+    int before=attr_calls;
+    assert(mmf_vi_chn_set_jfif(0,1)==(modern ? 1 : 0));
+    assert(last_attr.enVideoFormat==VIDEO_FORMAT_LINEAR);
+    assert(last_attr.u32Width==1920 && last_attr.u32Height==1080 && last_attr.enPixelFormat==PIXEL_FORMAT_NV21);
+    assert(attr_calls==before+(modern ? 1 : 0));
+    assert(mmf_vi_chn_set_jfif(0,1)==0);
+    if (modern) {
+        get_attr_error=true;assert(mmf_vi_chn_set_jfif(0,0)<0);get_attr_error=false;
+        attr_fail_at=attr_calls+1;assert(mmf_vi_chn_set_jfif(0,0)<0);
+        assert(last_attr.enVideoFormat==VIDEO_FORMAT_LINEAR);attr_fail_at=0;
+        assert(mmf_vi_chn_set_jfif(0,0)==1 && last_attr.enVideoFormat==VIDEO_FORMAT_LINEAR_BT709);
+    }
     puts("PASS VPSS input/output colour pairing and restart");
 }

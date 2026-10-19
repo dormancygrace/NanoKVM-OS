@@ -755,7 +755,8 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 	chn_attr.u32Width                    = width;
 	chn_attr.u32Height                   = height;
 	// Only JPEG takes NV16, and JPEG decoders read full-range BT.601
-	// (LINEAR); the video encoders keep the receiver's limited BT.709.
+	// (LINEAR); the video encoders keep the receiver's limited BT.709
+	// (mmf_vi_chn_set_jfif switches NV21 while only MJPEG reads it).
 	chn_attr.enVideoFormat               = format == PIXEL_FORMAT_NV16 || !_mmf_vpss_true_rgb
 		? VIDEO_FORMAT_LINEAR : VIDEO_FORMAT_LINEAR_BT709;
 	chn_attr.enPixelFormat               = format;
@@ -2031,6 +2032,24 @@ int mmf_vpss_set_rate(int src_fps, int dst_fps) {
 		if (CVI_VPSS_SetChnAttr(0, ch, &attr) != CVI_SUCCESS) result = -1;
 	}
 	return result;
+}
+
+// The NV21 output feeds the video encoders (limited-range BT.709) and, with
+// 4:2:0 sampling, frame detection or after the 4:2:2 fallback, MJPEG, which
+// JPEG decoders read as full-range BT.601. libkvm switches it to JFIF while
+// only MJPEG reads it. A new matrix makes the driver drop the frames the
+// channel has queued. 1: switched; 0: nothing to do (already so, NV16, a
+// kernel without the BT.709 output); -1: error.
+int mmf_vi_chn_set_jfif(int ch, int jfif) {
+	if (!_mmf_vpss_true_rgb) return 0;
+	if (ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch]) return -1;
+	VPSS_CHN_ATTR_S attr;
+	if (CVI_VPSS_GetChnAttr(0, ch, &attr) != CVI_SUCCESS) return -1;
+	if (attr.enPixelFormat == PIXEL_FORMAT_NV16) return 0;
+	const VIDEO_FORMAT_E want = jfif ? VIDEO_FORMAT_LINEAR : VIDEO_FORMAT_LINEAR_BT709;
+	if (attr.enVideoFormat == want) return 0;
+	attr.enVideoFormat = want;
+	return CVI_VPSS_SetChnAttr(0, ch, &attr) == CVI_SUCCESS ? 1 : -1;
 }
 
 int mmf_venc_pending_vi(int ch) {

@@ -1,0 +1,12 @@
+{
+  "component": "Patched Pion ice/v4",
+  "current": "4.4.7",
+  "candidate": "4.4.8",
+  "candidate_key": "4.4.8",
+  "status": "pending-review",
+  "upstream": "https://github.com/pion/ice/tags",
+  "source_path": "server/go.mod",
+  "strategy": "review",
+  "evidence": {},
+  "pin_files_updated": []
+}

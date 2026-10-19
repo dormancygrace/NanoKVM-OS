@@ -230,7 +230,7 @@ The language menu includes 25 languages, with partial translations falling back 
 
 ### 🌍 Made welcoming by our translators
 
-Thank you to **[Pavel Borecki](https://hosted.weblate.org/user/pavelbo/)** for Czech, **[Alexander-Ger-Reich](https://github.com/Alexander-Ger-Reich)** for German and English UI maintenance, and **[polyzium](https://github.com/polyzium)** for Russian localization — and to everyone who translates, reviews, and improves the words on screen. See the [translation credits and contribution guide](TRANSLATING.md#translation-credits).
+Thank you to **[Pavel Borecki](https://github.com/p-bo)** for Czech, **[Alexander-Ger-Reich](https://github.com/Alexander-Ger-Reich)** for German and English UI maintenance, and **[polyzium](https://github.com/polyzium)** for Russian localization — and to everyone who translates, reviews, and improves the words on screen. See the [translation credits and contribution guide](TRANSLATING.md#translation-credits).
 
 **[Hosted Weblate](https://hosted.weblate.org/engage/nanokvm-os/)** is our community translation platform. Thank you to the Weblate project for the tools and hosting that let people contribute directly from their browser. [Help translate NanoKVM OS](https://hosted.weblate.org/engage/nanokvm-os/).
 
@@ -242,13 +242,13 @@ Testing, bug reports, translations and code contributions are just as valuable. 
 
 ### 💚 Community-funded hardware
 
-**Thank you, [Pavel Borecki](https://hosted.weblate.org/user/pavelbo/), for generously funding the purchase of a Sipeed NanoKVM Cube!** Alongside his Czech translations, Pavel is helping make hands-on Cube development and regression testing possible. This support will help me reproduce Cube-specific issues and verify fixes on real hardware.
+**Thank you, [Pavel Borecki](https://github.com/p-bo), for generously funding the purchase of a Sipeed NanoKVM Cube!** Alongside his Czech translations, Pavel is helping make hands-on Cube development and regression testing possible. This support will help me reproduce Cube-specific issues and verify fixes on real hardware.
 
 ### 📦 Donate hardware
 
 Help improve NanoKVM OS on supported devices and explore new ports! I’m looking for donated hardware:
 
-- ~~**Sipeed NanoKVM Cube**~~ — 💚 **Funded by [Pavel Borecki](https://hosted.weblate.org/user/pavelbo/). Thank you for your generous donation!**
+- ~~**Sipeed NanoKVM Cube**~~ — 💚 **Funded by [Pavel Borecki](https://github.com/p-bo). Thank you for your generous donation!**
 - **Sipeed NanoKVM-GO**
 - **Sipeed NanoKVM Pro (Desk WiFi)**
 - **Sipeed NanoKVM Pro (ATX+WiFi)**

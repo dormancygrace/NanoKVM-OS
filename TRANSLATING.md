@@ -124,7 +124,7 @@ came through upstream NanoKVM:
 
 | Contributor | Contribution | Attribution |
 | --- | --- | --- |
-| [Pavel Borecki (pavelbo)](https://hosted.weblate.org/user/pavelbo/) | Czech translation | [PR #207](https://github.com/dormancygrace/NanoKVM-OS/pull/207), human co-author in the Weblate commit |
+| [Pavel Borecki (@p-bo)](https://github.com/p-bo) | Czech translation | [PR #207](https://github.com/dormancygrace/NanoKVM-OS/pull/207), human co-author in the Weblate commit |
 | [Alexander-Ger-Reich](https://github.com/Alexander-Ger-Reich) | German and English UI maintenance | Upstream contribution acknowledged in the application Credits |
 | [polyzium](https://github.com/polyzium) | Russian localization | Upstream contribution acknowledged in the application Credits |
 

@@ -35,7 +35,7 @@ export const Credits = () => {
   ];
 
   const translators = [
-    { name: 'Pavel Borecki', language: 'Česky', url: 'https://hosted.weblate.org/user/pavelbo/' },
+    { name: 'Pavel Borecki', language: 'Česky', url: 'https://github.com/p-bo' },
     {
       name: 'Alexander-Ger-Reich',
       language: 'Deutsch · English',
@@ -93,7 +93,7 @@ export const Credits = () => {
               <HeartIcon aria-hidden="true" size={28} className="mx-auto text-[#f43f5e]" />
               <h3 className="text-fg mt-3 text-lg font-semibold">{tr('hardwareSupportTitle')}</h3>
               <a
-                href="https://hosted.weblate.org/user/pavelbo/"
+                href="https://github.com/p-bo"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-info mt-4 inline-block rounded font-medium underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"

@@ -90,6 +90,7 @@ int mmf_vi_input_fps(void);
 // before any scaling. dst_fps <= 0, or within 5% (at least 2 fps) of
 // src_fps, processes every frame.
 int mmf_vpss_set_rate(int src_fps, int dst_fps);
+int mmf_vi_chn_set_jfif(int ch, int jfif);
 // VI channel whose frame VENC channel ch is encoding, or -1.
 int mmf_venc_pending_vi(int ch);
 int mmf_venc_request_idr(int ch);

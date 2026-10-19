@@ -1,6 +1,6 @@
 # NanoKVM ICE changes
 
-Base: github.com/pion/ice/v4 v4.4.7. MIT license and upstream tests retained; compare the named release from the Go module proxy.
+Base: github.com/pion/ice/v4 v4.4.8. MIT license and upstream tests retained; compare the named release from the Go module proxy.
 
 `agent.go` and `path_mtu.go` implement opt-in authenticated datagram path probing. Nomination logic is not replaced. Without `PathMTUObserver`, upstream transport behavior is retained.
 
@@ -14,3 +14,5 @@ port-exhaustion test retains all sockets until cleanup, preventing GC from
 reopening a tested port.
 
 The v4.4.7 refresh preserves pre-created UDP mux connections on initial construction and requests the configured relay address family from TURN. Upstream regression tests are retained alongside the local PMTU/TURN metadata tests.
+
+The v4.4.8 refresh sends the peer-reflexive type preference in Binding-request PRIORITY attributes, including nomination and renomination. Local PMTU probing and TURN endpoint metadata are unchanged; upstream priority regression tests are retained. The upstream hash manifest is regenerated from the complete v4.4.8 module, including entries left stale by the previous refresh.

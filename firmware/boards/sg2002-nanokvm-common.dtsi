@@ -393,6 +393,7 @@
 	nanokvm_hdd_led_cfg: nanokvm-hdd-led-cfg {
 		hdd-led-pins {
 			// PWR_SEQ1 is wired through U46 to the host HDD LED, active low.
+			// U-Boot hands the pad from the RTC to the GPIO (uboot/0008).
 			pinmux = <PINMUX(PIN_PWR_SEQ1, 3)>;
 			power-source = <1800>;
 			bias-disable;

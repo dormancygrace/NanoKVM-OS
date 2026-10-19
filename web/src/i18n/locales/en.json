@@ -1002,7 +1002,7 @@
       "imageVersion": "Installed image",
       "bundledVersion": "Applications bundled with image",
       "title": "About",
-      "description": "Community firmware for NanoKVM.",
+      "description": "Independent community firmware for NanoKVM.",
       "specialThanksTitle": "Special thanks",
       "specialThanksWife": "To my wife — for her patience, support, and for enduring my absence during the most intensive phase of development.",
       "credits": {
@@ -1041,7 +1041,6 @@
       },
       "documentation": "Documentation",
       "reportIssue": "Report an issue",
-      "upstreamCredit": "Built on the original Sipeed NanoKVM project. Thank you to its authors and contributors.",
       "ip": "IP",
       "image": "Image version",
       "hostname": "Hostname",

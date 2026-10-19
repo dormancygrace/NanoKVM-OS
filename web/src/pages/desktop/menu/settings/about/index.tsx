@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRightIcon, HeartIcon } from 'lucide-react';
+import { HeartIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getInfo } from '@/api/vm';
@@ -33,24 +33,14 @@ export const About = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center space-y-3 text-center">
-        <a
-          href="https://github.com/dormancygrace/NanoKVM-OS"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="NanoKVM OS — GitHub"
-          className="group hover:bg-surface-raised relative inline-flex rounded-lg p-2 transition-colors"
-        >
+        <div className="inline-flex p-2">
           <img
             src="/nanokvm-os-connection-full.svg?v=2"
             alt="NanoKVM OS"
             className="h-36 w-60 object-contain"
           />
-          <ArrowUpRightIcon
-            size={16}
-            className="text-fg-muted group-hover:text-fg absolute top-3 right-3 transition-colors"
-          />
-        </a>
-        <div className="space-y-1 text-sm text-fg-muted">
+        </div>
+        <div className="text-fg-muted space-y-1 text-sm">
           <p>
             {t('settings.about.applicationVersion')}:{' '}
             {version ? `v${formatVersion(version.replace(/^v/, ''))}` : '—'}
@@ -66,7 +56,7 @@ export const About = () => {
             </p>
           )}
         </div>
-        <p className="max-w-xl text-sm leading-relaxed text-fg">
+        <p className="text-fg max-w-xl text-sm leading-relaxed">
           {t('settings.about.description')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">

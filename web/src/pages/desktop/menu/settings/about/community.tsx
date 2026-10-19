@@ -31,17 +31,6 @@ export const Community = () => {
           </a>
         ))}
       </div>
-      <div className="border-line text-fg-muted space-y-2 border-t pt-5 text-sm leading-relaxed">
-        <p>{t('settings.about.upstreamCredit')}</p>
-        <a
-          href="https://github.com/sipeed/NanoKVM"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="!text-fg decoration-line inline-block underline underline-offset-4 hover:!text-white"
-        >
-          Sipeed NanoKVM
-        </a>
-      </div>
     </div>
   );
 };

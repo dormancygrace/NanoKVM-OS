@@ -486,7 +486,6 @@
       "reportIssue": "Nahlásit problém",
       "bundledVersion": "Aplikace obsažené v tomto obrazu",
       "description": "Komunitní firmware pro NanoKVM.",
-      "upstreamCredit": "Založeno na původním projektu NanoKVM od Sipeed. Děkujeme jeho autorům a přispěvatelům.",
       "specialThanksWife": "Mé ženě – za její trpělivost, podporu a za to, že snášela mou nepřítomnost během nejintenzivnější fáze vývoje."
     },
     "appearance": {

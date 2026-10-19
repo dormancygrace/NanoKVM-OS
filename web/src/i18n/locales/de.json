@@ -1041,7 +1041,6 @@
       },
       "documentation": "Dokumentation",
       "reportIssue": "Problem melden",
-      "upstreamCredit": "Basiert auf dem ursprünglichen Sipeed-NanoKVM-Projekt. Vielen Dank an dessen Autoren und Mitwirkende.",
       "ip": "IP",
       "image": "Systemabbild-Version",
       "hostname": "Hostname",

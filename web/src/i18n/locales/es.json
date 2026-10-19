@@ -1041,7 +1041,6 @@
       },
       "documentation": "Documentación",
       "reportIssue": "Informar de un problema",
-      "upstreamCredit": "Basado en el proyecto original NanoKVM de Sipeed. Gracias a sus autores y colaboradores.",
       "ip": "IP",
       "image": "Versión de la imagen",
       "hostname": "Nombre del host",

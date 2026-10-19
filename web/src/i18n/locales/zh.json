@@ -1041,7 +1041,6 @@
       },
       "documentation": "文档",
       "reportIssue": "报告问题",
-      "upstreamCredit": "基于 Sipeed 原版 NanoKVM 项目构建。感谢其作者和贡献者。",
       "ip": "IP",
       "image": "镜像版本",
       "hostname": "主机名",

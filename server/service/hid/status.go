@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"NanoKVM-Server/common"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/inputcontrol"
 
@@ -35,6 +34,7 @@ var modeMap = map[string]string{
 	"0x0511": ModeNormal,
 	"0x0623": ModeHidOnly,
 	"0x0624": ModeHidOnly,
+	// The retired Windows pointer profile: a gadget set up before the update.
 	"0x0710": ModeNormal,
 	"0x0711": ModeNormal,
 	"0x0720": ModeHidOnly,
@@ -72,7 +72,6 @@ func InputStatus() gin.H {
 	return gin.H{
 		"available": !keyboard || !relative || !absolute,
 		"keyboard":  !keyboard, "relative": !relative, "absolute": !absolute,
-		"pointerProfile": map[bool]string{false: "default", true: "windows"}[common.WindowsPointerEnabled()],
 	}
 }
 

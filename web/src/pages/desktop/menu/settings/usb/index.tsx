@@ -104,7 +104,7 @@ export const Usb = () => {
     } else {
       const preset = usbPresets.find((item) => item.id === id);
       if (preset && status && fitsBudget(preset.composition, status))
-        setDraft({ ...preset.composition, pointerProfile: draft?.pointerProfile });
+        setDraft({ ...preset.composition });
     }
     setError('');
   }
@@ -330,31 +330,6 @@ export const Usb = () => {
                 }
               ]}
             />
-            {draft?.absolute && (
-              <SettingRow
-                label={t('settings.usb.pointerProfile')}
-                description={t('settings.usb.pointerProfileHelp')}
-                htmlFor="usb-pointer-profile"
-                stacked
-              >
-                <Select
-                  id="usb-pointer-profile"
-                  aria-describedby="usb-pointer-profile-description"
-                  className="w-full"
-                  value={draft.pointerProfile ?? 'default'}
-                  disabled={loading || !status}
-                  options={[
-                    { value: 'default', label: t('settings.usb.pointerProfileDefault') },
-                    {
-                      value: 'windows',
-                      label: 'Windows',
-                      disabled: !status?.windowsPointerSupported
-                    }
-                  ]}
-                  onChange={(value) => setDraft({ ...draft, pointerProfile: value })}
-                />
-              </SettingRow>
-            )}
             {status?.identity && draft && (
               <UsbIdentitySection
                 status={status}

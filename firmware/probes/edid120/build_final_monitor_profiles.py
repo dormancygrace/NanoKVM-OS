@@ -484,8 +484,7 @@ def build_auto_profile(source: bytes) -> tuple[bytes, object]:
     """The static Automatic profile: strict single-rate, like every other
     profile. It advertises no 1080p60 (or any other 1080-or-larger mode)
     beside 1080p90 on purpose. Boards that write the EDID live apply this
-    file at install, on a Windows-pointer USB switch and when a rate profile
-    is missing, and the Windows GPU driver tested here picks a fallback
+    file at install and when a rate profile is missing, and the Windows GPU driver tested here picks a fallback
     (1080p50/60, 2560x1440@50) whenever more than the preferred mode is
     listed at or above the resolution. A 60 Hz fallback would therefore
     make the default Automatic output 60 Hz instead of 90 Hz. While

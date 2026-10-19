@@ -247,6 +247,10 @@ func savedPortraitResolutionLocked() uint16 {
 }
 
 func applyMonitorProfileLocked(path string) error {
+	// Every EDID write passes here.
+	if monitorRestartPending {
+		return ErrMonitorRestartPending
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("monitor profile is unavailable: %w", err)
@@ -254,10 +258,7 @@ func applyMonitorProfileLocked(path string) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("monitor profile is unavailable: %s is not a regular file", path)
 	}
-	// A Cube cannot carry the Windows pointer identity, which needs live EDID
-	// writes; ignore a marker left by an image that identified it as PCIe.
-	pointer := WindowsPointerEnabled() && !MonitorRequiresPowerCycle()
-	if err = applyMonitorPointerProfileLocked(path, pointer); err != nil {
+	if err = GetKvmVision().ApplyMonitorProfile(path); err != nil {
 		return err
 	}
 	recordMonitorProfileLocked(path)

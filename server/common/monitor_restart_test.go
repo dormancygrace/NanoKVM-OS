@@ -47,7 +47,7 @@ func TestSaveMonitorSettingsForRestartDefersTheEDID(t *testing.T) {
 	if _, ok := readMonitorTestFile(t, monitorEDIDHashFile); ok {
 		t.Fatal("the programmed-profile record was kept")
 	}
-	if err := applyMonitorPointerProfileLocked("/nonexistent", false); !errors.Is(err, ErrMonitorRestartPending) {
+	if err := applyMonitorProfileLocked("/nonexistent"); !errors.Is(err, ErrMonitorRestartPending) {
 		t.Fatalf("EDID write during the pending restart: %v", err)
 	}
 	if path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil), poolQHD); err != nil ||

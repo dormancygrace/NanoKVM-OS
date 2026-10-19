@@ -109,11 +109,11 @@ func TestCompositionTransaction(t *testing.T) {
 	}
 }
 
-func TestRemoteAccessUSBDefaultsPreserveOtherFunctionsAndProfile(t *testing.T) {
-	current := usbComposition{mode: hid.ModeNormal, network: true, disk: true, windowsPointer: true}
+func TestRemoteAccessUSBDefaultsPreserveOtherFunctions(t *testing.T) {
+	current := usbComposition{mode: hid.ModeNormal, network: true, disk: true}
 	candidate := current.remoteAccessDefaults(true)
 	if !candidate.keyboard || !candidate.relative || !candidate.absolute || !candidate.audio ||
-		!candidate.network || !candidate.disk || !candidate.windowsPointer {
+		!candidate.network || !candidate.disk {
 		t.Fatalf("required or existing functions lost: %+v", candidate)
 	}
 	if err := candidate.validate(); err != nil {

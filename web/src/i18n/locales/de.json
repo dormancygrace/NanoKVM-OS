@@ -1203,9 +1203,6 @@
       },
       "confirmDisable": "USB ausschalten?",
       "confirmDisableDescription": "Der Computer verliert Tastatur, Maus, Speicher, Audio und USB-Netzwerk des NanoKVM, bis USB hier wieder eingeschaltet wird. Auch die Internetfreigabe über USB wird beendet. RustDesk verliert die Tastatur- und Maussteuerung.",
-      "pointerProfile": "Profil des absoluten Zeigers",
-      "pointerProfileHelp": "Windows bindet den Zeiger an den erfassten Monitor (Windows 10 1903 oder neuer). Das Übernehmen verbindet USB und HDMI neu.",
-      "pointerProfileDefault": "Standard",
       "off": "Aus",
       "title": "USB-Zusammenstellung",
       "enabled": "USB-Geräte",
@@ -1243,7 +1240,7 @@
           "id": "IDs bestehen aus vier Hexadezimalziffern wie 0x1234, nicht 0x0000.",
           "string": "Namen bestehen aus 1 bis 126 druckbaren ASCII-Zeichen ohne führende oder nachgestellte Leerzeichen."
         },
-        "idWarning": "Für eine andere Hersteller- oder Produkt-ID als die werkseitige sind Sie selbst verantwortlich. Linux-Hosts, die mit dem Helfer für die serielle Konsole eingerichtet wurden, erkennen den NanoKVM nicht mehr (seine udev-Regel nennt die IDs); das Windows-Zeigerprofil ist nicht betroffen."
+        "idWarning": "Für eine andere Hersteller- oder Produkt-ID als die werkseitige sind Sie selbst verantwortlich. Linux-Hosts, die mit dem Helfer für die serielle Konsole eingerichtet wurden, erkennen den NanoKVM nicht mehr (seine udev-Regel nennt die IDs)."
       },
       "userDisk": {
         "title": "Benutzerlaufwerk",

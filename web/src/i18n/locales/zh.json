@@ -1203,9 +1203,6 @@
       },
       "confirmDisable": "关闭 USB？",
       "confirmDisableDescription": "在此处重新开启 USB 之前，电脑将失去 NanoKVM 的键盘、鼠标、存储、音频和 USB 网络，USB 网络共享也会停止。RustDesk 将失去键鼠控制。",
-      "pointerProfile": "绝对指针配置",
-      "pointerProfileHelp": "Windows 会将指针绑定到被采集的显示器（Windows 10 1903 或更高版本）。应用后 USB 和 HDMI 会重新连接。",
-      "pointerProfileDefault": "默认",
       "off": "关闭",
       "title": "USB 组合",
       "enabled": "USB 设备",
@@ -1243,7 +1240,7 @@
           "id": "ID 为四位十六进制数字，例如 0x1234，且不能为 0x0000。",
           "string": "名称为 1 到 126 个可打印 ASCII 字符，首尾不能有空格。"
         },
-        "idWarning": "使用非出厂的厂商 ID 或产品 ID 需自行承担责任。已通过串口控制台助手配置的 Linux 主机将无法再匹配 NanoKVM（其 udev 规则指定了这些 ID）；Windows 指针配置不受影响。"
+        "idWarning": "使用非出厂的厂商 ID 或产品 ID 需自行承担责任。已通过串口控制台助手配置的 Linux 主机将无法再匹配 NanoKVM（其 udev 规则指定了这些 ID）。"
       },
       "userDisk": {
         "title": "用户磁盘",

@@ -231,7 +231,7 @@ class MonitorProfilesTest(unittest.TestCase):
         It prefers 1080p90 and deliberately has no 1080p60 fallback: with one
         it, the Windows GPU driver tested here would output the fallback
         instead of 90 Hz on every path that applies this file (install,
-        Windows-pointer USB switch, missing rate profile). A source that
+        missing rate profile). A source that
         cannot drive 90 Hz falls to 720p until a slower profile is chosen
         or the stream rate lowers the runtime-selected profile."""
         data, timing = profiles.build_auto_profile(self.source)

@@ -1203,9 +1203,6 @@
       },
       "confirmDisable": "USB をオフにしますか？",
       "confirmDisableDescription": "ここで USB を再びオンにするまで、コンピューターは NanoKVM のキーボード、マウス、ストレージ、オーディオ、USB ネットワークを使用できなくなります。USB 経由のインターネット共有も停止します。RustDesk のキーボードとマウスの操作もできなくなります。",
-      "pointerProfile": "絶対ポインタープロファイル",
-      "pointerProfileHelp": "Windows でポインターをキャプチャ対象のモニターに関連付けます（Windows 10 1903 以降）。適用すると USB と HDMI が再接続されます。",
-      "pointerProfileDefault": "デフォルト",
       "off": "オフ",
       "title": "USB 構成",
       "enabled": "USB デバイス",
@@ -1243,7 +1240,7 @@
           "id": "ID は 0x1234 のような 4 桁の 16 進数で指定してください（0x0000 は不可）。",
           "string": "名前は 1～126 文字の印字可能な ASCII 文字で、先頭と末尾に空白を含めないでください。"
         },
-        "idWarning": "出荷時以外のベンダー ID やプロダクト ID を使用する場合は自己責任となります。シリアルコンソールヘルパーで設定した Linux ホストは NanoKVM を認識しなくなります（その udev ルールが ID を指定しているため）。Windows のポインタープロファイルには影響しません。"
+        "idWarning": "出荷時以外のベンダー ID やプロダクト ID を使用する場合は自己責任となります。シリアルコンソールヘルパーで設定した Linux ホストは NanoKVM を認識しなくなります（その udev ルールが ID を指定しているため）。"
       },
       "userDisk": {
         "title": "ユーザーディスク",

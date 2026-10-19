@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
-	"NanoKVM-Server/common"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
@@ -43,15 +42,14 @@ var usbEndpointCosts = map[string]proto.USBEndpointCost{
 }
 
 type usbComposition struct {
-	windowsPointer bool
-	mode           string
-	keyboard       bool
-	relative       bool
-	absolute       bool
-	network        bool
-	disk           bool
-	serial         bool
-	audio          bool
+	mode     string
+	keyboard bool
+	relative bool
+	absolute bool
+	network  bool
+	disk     bool
+	serial   bool
+	audio    bool
 	// the zero value is the default identity (usb_identity.go)
 	identity usbIdentity
 	// the writable FAT32 user disk as a third LUN of the virtual storage
@@ -72,13 +70,8 @@ func virtualDeviceState() *proto.GetVirtualDeviceRsp {
 
 func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 	inUsed, outUsed := s.endpointUsage()
-	profile := "default"
-	if s.windowsPointer {
-		profile = "windows"
-	}
 	identity := s.identity.normalized()
 	return &proto.GetVirtualDeviceRsp{
-		PointerProfile: profile, WindowsPointerSupported: common.WindowsPointerSupported(),
 		Keyboard: s.keyboard, Relative: s.relative, Absolute: s.absolute,
 		Network: s.network, Disk: s.disk, Serial: s.serial, Audio: s.audio,
 		UserDisk: s.userDisk,
@@ -96,8 +89,8 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 
 func (s usbComposition) revision() string {
 	identity := s.identity.normalized()
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s:%t",
-		s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio, s.windowsPointer,
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s:%t",
+		s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio,
 		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product, s.userDisk))))
 }
 
@@ -108,7 +101,7 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid composition")
 		return
 	}
-	candidate := usbComposition{windowsPointer: req.PointerProfile == "windows", mode: req.Mode, keyboard: *req.Keyboard, relative: *req.Relative, absolute: *req.Absolute, network: *req.Network, disk: *req.Disk, serial: *req.Serial, audio: *req.Audio}
+	candidate := usbComposition{mode: req.Mode, keyboard: *req.Keyboard, relative: *req.Relative, absolute: *req.Absolute, network: *req.Network, disk: *req.Disk, serial: *req.Serial, audio: *req.Audio}
 	identity, err := identityFromRequest(req.Identity)
 	if err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
@@ -123,9 +116,6 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 	h.Lock()
 	defer h.Unlock()
 	current := getUSBComposition()
-	if req.PointerProfile == "" {
-		candidate.windowsPointer = current.windowsPointer
-	}
 	// An older client sends no identity: it keeps the one in place.
 	if req.Identity == nil {
 		candidate.identity = current.identity
@@ -268,17 +258,16 @@ func getUSBComposition() usbComposition {
 	}
 
 	return usbComposition{
-		windowsPointer: common.WindowsPointerEnabled(),
-		mode:           mode,
-		keyboard:       hidEnabled && !deviceExists("/boot/usb.disable_keyboard"),
-		relative:       hidEnabled && !deviceExists("/boot/usb.disable_relative"),
-		absolute:       hidEnabled && !deviceExists("/boot/usb.disable_absolute"),
-		network:        networkEnabled,
-		disk:           diskEnabled,
-		serial:         deviceExists(virtualSerial),
-		audio:          mode != hid.ModeHidOnly && deviceExists(virtualAudio),
-		identity:       readUSBIdentity("/boot"),
-		userDisk:       diskEnabled && userDiskFlagged("/boot"),
+		mode:     mode,
+		keyboard: hidEnabled && !deviceExists("/boot/usb.disable_keyboard"),
+		relative: hidEnabled && !deviceExists("/boot/usb.disable_relative"),
+		absolute: hidEnabled && !deviceExists("/boot/usb.disable_absolute"),
+		network:  networkEnabled,
+		disk:     diskEnabled,
+		serial:   deviceExists(virtualSerial),
+		audio:    mode != hid.ModeHidOnly && deviceExists(virtualAudio),
+		identity: readUSBIdentity("/boot"),
+		userDisk: diskEnabled && userDiskFlagged("/boot"),
 	}
 }
 

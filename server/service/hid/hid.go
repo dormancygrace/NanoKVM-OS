@@ -17,7 +17,6 @@ type Hid struct {
 	keyboardDisabled       bool
 	relativeDisabled       bool
 	absoluteDisabled       bool
-	windowsPointer         bool
 	g0                     *os.File
 	g0Reader               *os.File
 	g1                     *os.File
@@ -127,8 +126,6 @@ func (h *Hid) devices() []hidDevice {
 func (h *Hid) OpenNoLock() error {
 	h.CloseNoLock()
 	h.keyboardDisabled, h.relativeDisabled, h.absoluteDisabled = disabledHIDFunctions("/boot")
-	descriptor, _ := os.ReadFile("/sys/kernel/config/usb_gadget/g0/functions/hid.GS2/report_desc")
-	h.windowsPointer = len(descriptor) > 1 && descriptor[0] == 5 && descriptor[1] == 0x0d
 
 	var errs []error
 	for _, device := range h.devices() {
@@ -382,17 +379,7 @@ func (h *Hid) writeHID(device hidDevice, data []byte) error {
 		return err
 	}
 
-	reports := [][]byte{data}
-	if device.path == HID2 && h.windowsPointer {
-		reports = windowsPointerReports(data)
-	}
-	var writeErr error
-	for _, report := range reports {
-		if writeErr = writeWithTimeout(writer, report, hidWriteTimeout); writeErr != nil {
-			break
-		}
-	}
-	if err := writeErr; err != nil {
+	if err := writeWithTimeout(writer, data, hidWriteTimeout); err != nil {
 		if device.path == HID0 {
 			h.closeKeyboardLedReaderNoLock()
 		}

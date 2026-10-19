@@ -10,7 +10,6 @@ export const usbDevices = [
 export type UsbDevice = (typeof usbDevices)[number];
 export type UsbComposition = Record<UsbDevice, boolean> & {
   mode: 'normal' | 'hid-only';
-  pointerProfile?: 'default' | 'windows';
   identity?: UsbIdentity;
   // the writable FAT32 user disk, a third LUN of the virtual storage
   userDisk?: boolean;
@@ -26,7 +25,6 @@ export type UsbIdentity = {
 };
 export type UsbStatus = UsbComposition & {
   hid: boolean;
-  windowsPointerSupported?: boolean;
   revision?: string;
   budget: { inUsed: number; outUsed: number; inLimit: number; outLimit: number };
   costs: Record<UsbDevice, EndpointCost>;
@@ -137,7 +135,6 @@ export function setCompatibilityProfile(
 export function sameComposition(a: UsbComposition, b: UsbComposition) {
   return (
     a.mode === b.mode &&
-    (a.pointerProfile ?? 'default') === (b.pointerProfile ?? 'default') &&
     sameIdentity(a.identity, b.identity) &&
     Boolean(a.userDisk) === Boolean(b.userDisk) &&
     usbDevices.every((name) => a[name] === b[name])
@@ -150,7 +147,6 @@ export function matchingPreset(composition: UsbComposition) {
       sameComposition(
         {
           ...preset.composition,
-          pointerProfile: composition.pointerProfile,
           identity: composition.identity,
           userDisk: composition.userDisk
         },

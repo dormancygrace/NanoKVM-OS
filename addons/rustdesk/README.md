@@ -41,7 +41,7 @@ two seconds and expiry ten seconds. Input refusal disables input for that sessio
 while video/audio continue. Absolute scrolling uses the absolute HID interface
 and the app's selected pointer translation. Enabled remote access prepares USB
 keyboard and both mouse interfaces through the existing validated composition;
-unrelated functions and the selected pointer profile are preserved.
+unrelated functions are preserved.
 
 ## Package and settings
 

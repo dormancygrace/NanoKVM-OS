@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"NanoKVM-Server/common"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/service/stream/audio"
@@ -33,7 +32,7 @@ func (s usbComposition) validate() error {
 }
 
 // EnsureRemoteAccessUSB applies the same validated, serialized composition as
-// the USB settings screen. Other enabled functions and pointer profile survive.
+// the USB settings screen. Other enabled functions survive.
 func EnsureRemoteAccessUSB(withAudio bool) error {
 	h := hid.GetHid()
 	h.Lock()
@@ -98,23 +97,9 @@ func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) erro
 		},
 		verify: verifyLiveUSBComposition,
 	}
-	if current.windowsPointer != candidate.windowsPointer {
-		if candidate.windowsPointer && !common.WindowsPointerSupported() {
-			return errors.New("Windows pointer is unavailable: update kernel and check EDID support")
-		}
-		if err := common.ApplyWindowsPointerMonitor(candidate.windowsPointer); err != nil {
-			return err
-		}
-	}
 	h.CloseNoLock()
 	defer h.OpenNoLock()
-	if err := store.apply(current, candidate); err != nil {
-		if current.windowsPointer != candidate.windowsPointer {
-			return errors.Join(err, common.ApplyWindowsPointerMonitor(current.windowsPointer))
-		}
-		return err
-	}
-	return nil
+	return store.apply(current, candidate)
 }
 
 func (s usbComposition) empty() bool {
@@ -148,12 +133,6 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 			return errors.New("the user disk LUN does not match the requested composition")
 		}
 	}
-	if s.windowsPointer {
-		descriptor, err := os.ReadFile(filepath.Join(root, "functions/hid.GS2/report_desc"))
-		if err != nil || len(descriptor) < 2 || descriptor[1] != 0x0d {
-			return errors.New("Windows pointer descriptor was not applied")
-		}
-	}
 	if bound {
 		presented, err := gadgetIdentityAt(root)
 		if err != nil {
@@ -171,7 +150,7 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 // user disk marker carry a value and are absent when not in use.
 var usbCompositionFlags = []string{
 	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "usb.audio", "disable_hid",
-	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute", "usb.pointer_windows",
+	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute",
 	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.userdisk",
 }
 
@@ -315,7 +294,6 @@ func (store usbCompositionStore) apply(current, candidate usbComposition) error 
 		"usb.disable_keyboard": !candidate.keyboard,
 		"usb.disable_relative": !candidate.relative,
 		"usb.disable_absolute": !candidate.absolute,
-		"usb.pointer_windows":  candidate.windowsPointer,
 	}
 	contents := candidate.contentFiles()
 	for _, name := range usbCompositionFlags {

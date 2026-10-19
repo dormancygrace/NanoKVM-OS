@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseUsbInput, availableMouseMode, noUsbInput } from '../src/lib/usb-input.ts';
 import { resolveInputAdapter } from '../src/lib/input-adapter.ts';
-test('disabled keyboard and relative mouse stay unavailable with Windows pointer',()=>{
- const s=parseUsbInput({keyboard:false,relative:false,absolute:true,pointerProfile:'windows'});
- assert.deepEqual(s,{keyboard:false,relative:false,absolute:true,available:true,pointerProfile:'windows'});
+test('disabled keyboard and relative mouse leave the absolute mouse',()=>{
+ const s=parseUsbInput({keyboard:false,relative:false,absolute:true});
+ assert.deepEqual(s,{keyboard:false,relative:false,absolute:true,available:true});
  assert.equal(availableMouseMode('relative',s),'absolute');
 });
 test('all eight compositions only select an enabled mouse',()=>{

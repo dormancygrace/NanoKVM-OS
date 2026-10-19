@@ -3,14 +3,12 @@ type UsbInputStatus = {
   keyboard: boolean;
   relative: boolean;
   absolute: boolean;
-  pointerProfile: 'default' | 'windows';
 };
 export const noUsbInput: UsbInputStatus = {
   available: false,
   keyboard: false,
   relative: false,
-  absolute: false,
-  pointerProfile: 'default'
+  absolute: false
 };
 export function parseUsbInput(value: unknown): UsbInputStatus {
   if (!value || typeof value !== 'object') return noUsbInput;
@@ -22,8 +20,7 @@ export function parseUsbInput(value: unknown): UsbInputStatus {
     available: keyboard || relative || absolute,
     keyboard,
     relative,
-    absolute,
-    pointerProfile: data.pointerProfile === 'windows' ? 'windows' : 'default'
+    absolute
   };
 }
 export function availableMouseMode(preferred: string, status: UsbInputStatus) {

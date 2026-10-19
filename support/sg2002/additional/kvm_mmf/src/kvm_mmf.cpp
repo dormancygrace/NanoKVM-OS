@@ -348,9 +348,9 @@ static bool _vpss_thins(const VPSS_CHN_ATTR_S *attr)
 static int _mmf_vi_direct_set(int ch, bool on)
 {
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN || vi_direct[ch] == on) return CVI_SUCCESS;
-	VI_CHN_ATTR_S vi;
-	if (CVI_VI_GetChnAttr(0, 0, &vi) != CVI_SUCCESS) return CVI_FAILURE;
+	VI_CHN_ATTR_S vi = {};
 	if (on) {
+		if (CVI_VI_GetChnAttr(0, 0, &vi) != CVI_SUCCESS) return CVI_FAILURE;
 		VPSS_CHN_ATTR_S attr;
 		// A VPSS frame leased now stays tagged as such and goes back to VPSS.
 		if (!priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch] || priv.vi_chn_disabled[ch]
@@ -359,11 +359,14 @@ static int _mmf_vi_direct_set(int ch, bool on)
 			|| _vpss_thins(&attr)
 			|| attr.u32Width != vi.stSize.u32Width || attr.u32Height != vi.stSize.u32Height)
 			return CVI_FAILURE;
-		CVI_VPSS_DisableChn(0, ch);
+		const int result = CVI_VPSS_DisableChn(0, ch);
+		if (result != CVI_SUCCESS) return result;
 	} else {
 		// A VI lease still held by an encoder is released by its source tag.
-		if (priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch] && !priv.vi_chn_disabled[ch])
-			CVI_VPSS_EnableChn(0, ch);
+		if (priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch] && !priv.vi_chn_disabled[ch]) {
+			const int result = CVI_VPSS_EnableChn(0, ch);
+			if (result != CVI_SUCCESS) return result;
+		}
 	}
 	vi_direct[ch] = on;
 	fprintf(stderr, "[kvm_mmf] H.265 VI-direct capture %s on output %d (%ux%u)\n",
@@ -377,13 +380,15 @@ static int _mmf_vi_direct_set(int ch, bool on)
 // output stays on VPSS until they have been gone for 2 s.
 static uint64_t vi_shared_reader_us[MMF_VI_MAX_CHN];
 
-static void _mmf_vi_direct_yield(int ch)
+static int _mmf_vi_direct_yield(int ch)
 {
 	vi_shared_reader_us[ch] = venc_now_us();
 	if (vi_direct[ch]) {
-		_mmf_vi_direct_set(ch, false);
+		const int result = _mmf_vi_direct_set(ch, false);
+		if (result != CVI_SUCCESS) return result;
 		vi_direct_venc = -1;
 	}
+	return CVI_SUCCESS;
 }
 
 static void _mmf_vi_direct_for_venc(int venc, const mmf_venc_cfg_t *cfg)
@@ -405,8 +410,12 @@ static void _mmf_vi_direct_for_venc(int venc, const mmf_venc_cfg_t *cfg)
 
 static void _mmf_vi_direct_off_all(void)
 {
-	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) _mmf_vi_direct_set(ch, false);
-	vi_direct_venc = -1;
+	bool active = false;
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
+		_mmf_vi_direct_set(ch, false);
+		active |= vi_direct[ch];
+	}
+	if (!active) vi_direct_venc = -1;
 }
 
 // Follow a changed setting at most once a second. An encoder keeps the input
@@ -477,16 +486,24 @@ static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
 		// The yuv-bypass buffer holds packed UYVY but is labelled NV21.
 		VIDEO_FRAME_S *v = &frame->stVFrame;
 		v->enPixelFormat = PIXEL_FORMAT_UYVY;
-		v->u32Stride[0] = v->u32Width * 2;
+		// The vendor metadata (pitch/length too) describes NV21, not the
+		// packed DMA payload. Match ispblk_dma_yuv_bypass_config's
+		// DEFAULT_ALIGN pitch rather than treating each row as width*2.
+		priv.vi_frame_valid[ch] = true;
+		vi_frame_from_vi[ch] = true;
+		const uint64_t stride = ((uint64_t)v->u32Width * 2 + DEFAULT_ALIGN - 1)
+			/ DEFAULT_ALIGN * DEFAULT_ALIGN;
+		const uint64_t bytes = stride * v->u32Height;
+		if (!v->u64PhyAddr[0] || !v->u32Width || !v->u32Height || bytes > INT32_MAX) {
+			// Keep a failed release owned, so the next read retries it.
+			_mmf_release_vi_frame(ch);
+			return -1;
+		}
+		v->u32Stride[0] = (CVI_U32)stride;
 		v->u32Stride[1] = v->u32Stride[2] = 0;
 		v->u64PhyAddr[1] = v->u64PhyAddr[2] = 0;
 		v->u32Length[0] = v->u32Stride[0] * v->u32Height;
 		v->u32Length[1] = v->u32Length[2] = 0;
-		if (v->u64PhyAddr[0] == 0 || v->u32Width == 0 || v->u32Height == 0) {
-			CVI_VI_ReleaseChnFrame(0, 0, frame);
-			memset(frame, 0, sizeof(*frame));
-			return -1;
-		}
 		priv.vi_frame_valid[ch] = true;
 		priv.vi_frame_mapped[ch] = false;
 		priv.vi_frame_deferred[ch] = false;
@@ -1252,7 +1269,7 @@ int mmf_reset_vi_channel(int ch, int width, int height, int format)
 int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
 {
     if (!view || ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]) return -1;
-    _mmf_vi_direct_yield(ch); // CPU readers need NV21 from VPSS
+    if (_mmf_vi_direct_yield(ch) != CVI_SUCCESS) return -1; // CPU readers need NV21
     int len = 0, width = 0, height = 0, format = 0;
     if (_mmf_acquire_vi_frame(ch, &len, &width, &height, &format) != 0) return -1;
     const VIDEO_FRAME_S *frame = &priv.vi_frame[ch].stVFrame;
@@ -1635,7 +1652,7 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
     if (priv.enc_jpg_running) return CVI_FAILURE;
 	// A JPEG reader on a VI-direct output: hand it back to VPSS. This frame
 	// is packed UYVY and fails below; the next one is NV21 again.
-	_mmf_vi_direct_yield(vi_ch);
+	if (_mmf_vi_direct_yield(vi_ch) != CVI_SUCCESS) return -1;
 
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[vi_ch];
 	int width = frame->stVFrame.u32Width;

@@ -630,6 +630,10 @@ tools() {
         "$e"/monitor-profiles/NanoKVM-cube-monitor-*.bin "$img/tools/edid/"
     cp "$e/monitor-profiles/NanoKVM-monitor-auto.bin" "$img/tools/edid/NanoKVM-final-video-profiles.bin"
     cp "$e/E21_NanoKVM.bin" "$img/tools/edid/NanoKVM-stock.bin"
+    # Last, so the generator chain keeps its pinned inputs: every profile but
+    # the stock one lets the source send full-range RGB.
+    find "$img/tools/edid" -name 'NanoKVM-*.bin' ! -name NanoKVM-stock.bin -print0 |
+        xargs -0 "$py" "$repo/scripts/edid-rgb-range.py"
 
     local cpu_flags
     read -r -a cpu_flags <<< "$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)"

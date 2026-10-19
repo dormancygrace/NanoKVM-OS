@@ -46,7 +46,13 @@ func retireWindowsPointerLocked(hw monitorSettingsBackend) (string, error) {
 	// rate: a PCIe board with an LT6911UXC.
 	if hw.requireHardware() == nil && hw.followsRefresh() {
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
-			path = shippedMonitorProfileLocked(strings.TrimSpace(string(recorded)))
+			hash := strings.TrimSpace(string(recorded))
+			path = shippedMonitorProfileLocked(hash)
+			if path == "" {
+				// Written before the RGB range block: its current version,
+				// so the first start has nothing left to write.
+				path = rgbRangeSuccessorLocked(hash)
+			}
 		}
 		if path == "" {
 			log.Infof("the recorded monitor profile is not shipped; the HDMI receiver keeps the retired Windows pointer block until the next profile change")

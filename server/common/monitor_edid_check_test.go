@@ -135,7 +135,7 @@ func TestEDIDBeyondCubeGeneratedProfiles(t *testing.T) {
 		t.Fatalf("only %d profiles in %s", len(files), dir)
 	}
 	safe := func(name string) bool {
-		for _, prefix := range []string{"NanoKVM-cube-", "NanoKVM-monitor-600", "NanoKVM-monitor-720", "E21_"} {
+		for _, prefix := range []string{"NanoKVM-cube-", "NanoKVM-monitor-600", "NanoKVM-monitor-720", "NanoKVM-stock", "E21_"} {
 			if strings.HasPrefix(name, prefix) {
 				return true
 			}
@@ -150,6 +150,10 @@ func TestEDIDBeyondCubeGeneratedProfiles(t *testing.T) {
 		name := filepath.Base(file)
 		if mode, bad := edidBeyondCube(edid); bad == safe(name) {
 			t.Errorf("%s: beyond Cube = %v (%s)", name, bad, mode)
+		}
+		// scripts/edid-rgb-range.py and its Go inverse agree on every profile.
+		if old := profileWithoutRGBRange(edid); (old == nil) != (name == "NanoKVM-stock.bin") {
+			t.Errorf("%s: RGB range block found = %v", name, old != nil)
 		}
 	}
 }

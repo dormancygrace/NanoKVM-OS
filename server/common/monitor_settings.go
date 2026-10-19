@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -97,8 +98,19 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 			return "", nil
 		}
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
-			if !retiredMonitorProfiles[strings.TrimSpace(string(recorded))] {
-				return "", nil
+			hash := strings.TrimSpace(string(recorded))
+			if !retiredMonitorProfiles[hash] {
+				// A profile written before the profiles declared the RGB range
+				// selectable: the same profile, current version.
+				path := rgbRangeSuccessorLocked(hash)
+				if path == "" {
+					return "", nil
+				}
+				log.Infof("the HDMI receiver holds %s without the RGB range declaration; programming the current one", filepath.Base(path))
+				if err := hw.apply(path); err != nil {
+					return "", err
+				}
+				return path, nil
 			}
 			if err := retireStreamRateLocked(); err != nil {
 				return "", err

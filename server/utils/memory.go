@@ -17,8 +17,11 @@ const GoMemLimitFile = "/etc/kvm/GOMEMLIMIT"
 const minGoMemLimitMiB int64 = 50
 
 // Without a saved setting the server limits the memory the Go runtime manages
-// to a quarter of MemTotal: 26 MiB in the 4K video memory mode, where Linux
-// has about 104 MiB. The whole server process normally has 11 MiB of
+// to a quarter of the memory Linux keeps while video holds its largest buffer
+// set: MemTotal outside a CMA region, plus what 2160p capture (104 MiB) leaves
+// of the shared video region. That is 32 MiB with the 144 MiB region (MemTotal
+// 235 MiB) and 48 MiB with the 40 MiB carveout of earlier images, which Linux
+// never sees. The whole server process normally has 11 MiB of
 // anonymous memory (Go and C together) and peaked at about 22 MiB, so the
 // limit does not make the collector work in normal operation; it makes it
 // collect harder instead of letting the heap grow into the memory that apk and
@@ -40,7 +43,8 @@ type goMemoryLimitStore struct {
 var goMemLimit = goMemoryLimitStore{path: GoMemLimitFile, apply: debug.SetMemoryLimit, memInfo: "/proc/meminfo"}
 
 // defaultLimit is the GOMEMLIMIT environment value the runtime started with,
-// otherwise a quarter of MemTotal, otherwise no limit.
+// otherwise a quarter of the memory Linux keeps under 2160p capture, otherwise
+// no limit.
 func (s *goMemoryLimitStore) defaultLimit() int64 {
 	if current := s.apply(-1); current != math.MaxInt64 {
 		return current
@@ -49,15 +53,31 @@ func (s *goMemoryLimitStore) defaultLimit() int64 {
 	if err != nil {
 		return math.MaxInt64
 	}
+	var total, cma int64
 	for _, line := range strings.Split(string(data), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[0] == "MemTotal:" {
-			if kib, err := strconv.ParseInt(fields[1], 10, 64); err == nil && kib > 0 {
-				return kib * 1024 / defaultGoMemLimitDivisor
+		if len(fields) < 2 {
+			continue
+		}
+		if kib, err := strconv.ParseInt(fields[1], 10, 64); err == nil && kib > 0 {
+			switch fields[0] {
+			case "MemTotal:":
+				total = kib * 1024
+			case "CmaTotal:":
+				cma = kib * 1024
 			}
 		}
 	}
-	return math.MaxInt64
+	if total == 0 {
+		return math.MaxInt64
+	}
+	const video = 104 << 20
+	cma = min(cma, total)
+	linux := total - cma
+	if cma > video {
+		linux += cma - video
+	}
+	return linux / defaultGoMemLimitDivisor
 }
 
 func normalizeGoMemLimit(limit int64) (int64, error) {

@@ -1,0 +1,26 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] sophgo: hand PWR_SEQ1 to its GPIO
+
+With the pinmux on PWR_GPIO[3], the PWR_SEQ1 pad still followed the RTC
+power sequencer: driving the GPIO low left the pad high, so the NanoKVM
+PCIe HDD LED input never changed. Writing 0x11 to RTCSYS_IO 0x78, as
+Sipeed's cvi_board_init() does, gives the pad to the GPIO.
+
+---
+--- a/board/sophgo/licheerv_nano/board.c
++++ b/board/sophgo/licheerv_nano/board.c
+@@ -27,5 +27,12 @@
+ 	writel(0x5649, phy + 0x0c);
+ 	writel(0x0000, wrap + 4); /* Return control to the MAC MDIO bus. */
+ 
++	/* PWR_SEQ1 stays with the RTC power sequencer, whatever its pinmux,
++	 * until this RTCSYS_IO register hands it to PWR_GPIO[3] (Sipeed's
++	 * board init writes the same value). NanoKVM PCIe reads the host
++	 * HDD LED on that GPIO; Linux sets the pinmux.
++	 */
++	writel(0x11, (void __iomem *)0x05027078);
++
+ 	return 0;
+ }
+-- 
+2.43.0

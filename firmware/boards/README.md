@@ -73,8 +73,11 @@ The stock Sipeed `init_beta_pcie_hw()` intentionally uses the same serial
 Full/PCIe wiring for OLED reset A22, Wi-Fi enable A26 and HDMI reset B3. The
 older pre-port DTS's E1/E2 declarations are not evidence of different Cube
 wiring. Common DTS retains the proven modern wiring and leaves the PCIe HDD
-input mux to the PCIe variant. Alpha disables SDIO and uses its separate OLED
-and ATX assignment. Base/Lite retains common video/network support but exposes
+input mux to the PCIe variant. The mux alone does not free that pad:
+PWR_SEQ1 stays with the RTC power sequencer until U-Boot writes 0x11 to
+RTCSYS_IO 0x05027078 (`platform/uboot/0008`, as Sipeed's board init does), so
+the HDD input needs a bootloader with that patch. Alpha disables SDIO and
+uses its separate OLED and ATX assignment. Base/Lite retains common video/network support but exposes
 no ATX GPIO through the server.
 
 Sources:

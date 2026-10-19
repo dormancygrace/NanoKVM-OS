@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Input, message, Modal, Popconfirm, Spin, Tabs } from 'antd';
+import { useAtomValue } from 'jotai';
 import { RefreshCwIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { formatDeviceTime } from '@/lib/date-time.ts';
 import { http } from '@/lib/http';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
 import { Panel } from '@/components/ui/settings.tsx';
 
 import { CommunityRepository } from './community';
@@ -50,7 +53,8 @@ const protectedPackages = new Set([
 const operationActions = new Set(['refresh', 'install', 'remove', 'upgrade']);
 
 export const Software = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const timePreferences = useAtomValue(timePreferencesAtom);
   const [state, setState] = useState<SoftwareState>();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Package[]>([]);
@@ -224,7 +228,7 @@ export const Software = () => {
         showIcon
         message={t('settings.software.indexStale', {
           updated: state.indexes.updatedAt
-            ? new Date(state.indexes.updatedAt * 1000).toLocaleString()
+            ? formatDeviceTime(state.indexes.updatedAt * 1000, timePreferences, i18n.language, true)
             : t('settings.software.indexUnknown')
         })}
       />

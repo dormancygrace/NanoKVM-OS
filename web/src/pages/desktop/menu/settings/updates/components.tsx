@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Alert, message, Spin, Switch, Tag } from 'antd';
+import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { setUpdateNoticeEnabled, type Components, type UpdateNotice } from '@/api/updates.ts';
+import { formatDeviceTime } from '@/lib/date-time.ts';
 import { componentLabel } from '@/lib/update-components.ts';
+import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 // The installed NanoKVM OS packages, with the newer version the last check
@@ -66,6 +69,7 @@ export const UpdateCheck = ({
   onChange: () => Promise<void>;
 }) => {
   const { t, i18n } = useTranslation();
+  const timePreferences = useAtomValue(timePreferencesAtom);
   const tr = (key: string, options?: Record<string, string>) =>
     t(`settings.updates.notice.${key}`, options);
   const [busy, setBusy] = useState(false);
@@ -85,7 +89,7 @@ export const UpdateCheck = ({
   }
 
   const checked = notice?.checkedAt
-    ? new Date(notice.checkedAt * 1000).toLocaleString(i18n.language)
+    ? formatDeviceTime(notice.checkedAt * 1000, timePreferences, i18n.language, true)
     : undefined;
   return (
     <Panel className="space-y-3">

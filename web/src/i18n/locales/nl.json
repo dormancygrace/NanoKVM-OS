@@ -569,8 +569,7 @@
       "available": "Beschikbaar",
       "size": "Capaciteit",
       "used": "Gebruikt",
-      "algorithm": "Compressie",
-      "videoUnknown": "Onbekend"
+      "algorithm": "Compressie"
     },
     "system": {
       "general": "Algemeen",

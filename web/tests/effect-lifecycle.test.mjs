@@ -4,7 +4,6 @@ import test from 'node:test';
 import ts from 'typescript';
 
 import { swapRequestSize } from '../src/lib/swap-request.ts';
-import * as videoMemoryMode from '../src/lib/video-memory-mode.ts';
 
 const deferred = () => {
   let resolve, reject;
@@ -231,7 +230,6 @@ test('memory effect replay and locale changes discard stale reads and keep one p
     pollers = new Set();
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
     '@/lib/swap-request.ts': { swapRequestSize },
-    '@/lib/video-memory-mode.ts': videoMemoryMode,
     '@/lib/theme-tokens.ts': { themeTokens: { info: '#38bdf8' } },
     '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },
     antd: {
@@ -280,11 +278,9 @@ test('memory effect replay and locale changes discard stale reads and keep one p
   await settle();
 });
 
-test('memory card selects a video memory resolution and sends its mode once', async () => {
-  const sent = [];
-  const errors = [];
+test('memory page shows the size of the video memory and whether Linux shares it', async () => {
   const swap = { enabled: false, available: true, sizeMiB: 64, usedBytes: 0 };
-  const status = (selected, modes) => ({
+  const status = (shared, sizeMiB) => ({
     code: 0,
     data: {
       totalBytes: 1,
@@ -294,50 +290,29 @@ test('memory card selects a video memory resolution and sends its mode once', as
       videoBytes: 0,
       zram: swap,
       sd: swap,
-      videoMemory: {
-        active: selected,
-        selected,
-        sizeMiB: 54,
-        modes,
-        available: modes.length > 1,
-        rebootRequired: false
-      }
+      videoMemory: { sizeMiB, shared }
     }
   });
-  const all = ['fhd', 'qhd', 'uhd'];
-  let current = status('qhd', all);
-  let pending;
+  let current = status(true, 144);
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
     '@/lib/swap-request.ts': { swapRequestSize },
-    '@/lib/video-memory-mode.ts': videoMemoryMode,
     '@/lib/theme-tokens.ts': { themeTokens: { info: '#38bdf8' } },
     '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },
     antd: {
       Alert: 'Alert',
-      message: { error: (text) => errors.push(text) },
+      message: { error: noOp },
       Progress: 'Progress',
       Select: 'Select',
       Spin: 'Spin',
       Switch: 'Switch'
     },
     '@/lib/visible-poll.ts': { pollWhileVisible: () => noOp },
-    '@/api/vm.ts': {
-      getMemoryStatus: async () => current,
-      setVideoMemory: (mode) => {
-        sent.push(mode);
-        return new Promise((resolve) => {
-          pending = (response) => {
-            if (response.code === 0) current = response;
-            resolve(response);
-          };
-        });
-      }
-    }
+    '@/api/vm.ts': { getMemoryStatus: async () => current }
   });
-  const byId = (id) => {
+  const line = (key) => {
     const walk = (node) => {
       if (!node || typeof node !== 'object') return;
-      if (node.props?.id === id) return node;
+      if (node.props?.children === key) return node;
       for (const child of [node.props?.children].flat(Infinity)) {
         const found = walk(child);
         if (found) return found;
@@ -345,69 +320,19 @@ test('memory card selects a video memory resolution and sends its mode once', as
     };
     return walk(h.output);
   };
-  const select = () => byId('video-memory-mode');
   h.render();
   await h.flush();
-  assert.equal(select().props.value, 'qhd');
-  assert.equal(select().props.disabled, false);
-  assert.deepEqual(
-    select().props.options.map((option) => [option.value, option.disabled]),
-    [
-      ['fhd', false],
-      ['qhd', false],
-      ['uhd', false]
-    ]
-  );
-  // There is no Fixed choice any more.
-  assert.equal(byId('video-memory-fixed'), undefined);
-  assert.equal(find(h.output, 'Checkbox'), undefined);
+  const shared = line('en:settings.memory.videoMemoryShared');
+  assert.equal(shared.type, 'p');
+  assert.doesNotMatch(shared.props.className, /text-warning/);
+  assert.equal(line('en:settings.memory.videoMemoryReserved'), undefined);
 
-  // The selected resolution sends nothing.
-  select().props.onChange('qhd');
-  await h.flush();
-  assert.deepEqual(sent, []);
-
-  // A change is busy until the server answers; a second one meanwhile is ignored.
-  select().props.onChange('fhd');
-  await h.flush();
-  assert.deepEqual(sent, ['fhd']);
-  assert.equal(select().props.disabled, true);
-  assert.equal(select().props.loading, true);
-  select().props.onChange('uhd');
-  await h.flush();
-  assert.deepEqual(sent, ['fhd']);
-  pending(status('fhd', all));
-  await h.flush();
-  assert.equal(select().props.value, 'fhd');
-  assert.equal(select().props.disabled, false);
-  assert.equal(select().props.loading, false);
-
-  // A refused change keeps the selection and reports the error.
-  select().props.onChange('uhd');
-  await h.flush();
-  pending({ code: -3, msg: 'Lower the monitor setting first' });
-  await h.flush();
-  assert.deepEqual(sent, ['fhd', 'uhd']);
-  assert.equal(select().props.value, 'fhd');
-  assert.equal(errors.length, 1);
-
-  // A resolution without its installed image cannot be chosen; with one
-  // image there is nothing to switch to.
-  current = status('fhd', ['fhd', 'qhd']);
+  // A device updated from a fixed carveout until it restarts: no choice, a hint.
+  current = status(false, 56);
   h.locale('ru');
   await h.flush();
-  assert.deepEqual(
-    select().props.options.map((option) => [option.value, option.disabled]),
-    [
-      ['fhd', false],
-      ['qhd', false],
-      ['uhd', true]
-    ]
-  );
-  current = status('fhd', ['fhd']);
-  h.locale('en');
-  await h.flush();
-  assert.equal(select().props.disabled, true);
+  assert.equal(line('ru:settings.memory.videoMemoryShared'), undefined);
+  assert.match(line('ru:settings.memory.videoMemoryReserved').props.className, /text-warning/);
   h.unmount();
 });
 

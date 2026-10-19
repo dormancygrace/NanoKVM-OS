@@ -47,6 +47,10 @@ func ApplyMonitorSettings(update MonitorSettings) error {
 	})
 }
 
+// A monitor update that a release with the video memory mode switch saved for
+// the boot after the switch: the first start programs it.
+var monitorDeferredFile = "/etc/kvm/monitor_edid_deferred"
+
 // ProgramMonitorProfileOnFirstStart programs the saved monitor profile once
 // after an installation. The HDMI receiver keeps its EDID in its own flash,
 // which survives a reinstall: a receiver that advertised 2560x1440 kept doing

@@ -146,13 +146,9 @@ code = header + function(fdtdec, "static int fdtdec_init_reserved_memory(")
 code += function(fdtdec, "int fdtdec_add_reserved_memory(")
 code += function(uboot / "arch/riscv/lib/fdt_fixup.c", "int riscv_fdt_copy_resv_mem_node(") + body
 dtbs = sorted(a.linux_dtbs.resolve().glob("*.dtb"))
-expected_dtbs = {
-    board + suffix + ".dtb"
-    for board in ("alpha", "beta", "detect", "lite", "pcie")
-    for suffix in ("", "-qhd", "-uhd")
-}
+expected_dtbs = {board + ".dtb" for board in ("alpha", "beta", "detect", "lite", "pcie")}
 assert {dtb.name for dtb in dtbs} == expected_dtbs, (
-    "expected exactly five board variants with FHD, QHD and UHD video memory modes",
+    "expected exactly five board device trees",
     sorted(dtb.name for dtb in dtbs),
 )
 libfdt = uboot / "scripts/dtc/libfdt"

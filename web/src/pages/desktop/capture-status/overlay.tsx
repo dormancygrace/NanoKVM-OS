@@ -1,27 +1,25 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
-import { Button, message, Modal } from 'antd';
+import { Button, message, Popconfirm } from 'antd';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getMemoryStatus, reboot, setVideoMemory } from '@/api/vm';
-import { pickVideoMemoryMode } from '@/lib/video-memory-mode';
+import { reboot } from '@/api/vm';
 
 import { CaptureStatus, getCaptureStatusMessageKey, getVideoMemoryNeed } from './model';
 
 export function CaptureStatusOverlay({ status }: { status: CaptureStatus | null }) {
   const { t } = useTranslation();
   const { account } = useAuth();
-  const [switching, setSwitching] = useState(false);
+  const [restarting, setRestarting] = useState(false);
 
   if (!status || status.ok) {
     return null;
   }
 
   const need = getVideoMemoryNeed(status);
-  const mode = need?.mode.toUpperCase() ?? '';
   const text = need
-    ? t('screen.captureStatus.needsVideoMemory', { size: need.size, mode })
+    ? t('screen.captureStatus.needsVideoMemory', { size: need.size })
     : t(getCaptureStatusMessageKey(status.result));
   const isWarning = status.severity === 'warning';
 
@@ -31,36 +29,19 @@ export function CaptureStatusOverlay({ status }: { status: CaptureStatus | null 
 
   const Icon = isWarning ? AlertTriangle : AlertCircle;
 
-  // The video memory mode applies after a reboot, as in Settings -> Video.
-  function switchVideoMemory() {
-    if (!need) return;
-    Modal.confirm({
-      title: t('screen.captureStatus.switchVideoMemoryTitle', { mode }),
-      content: t('videoSettings.uhdConfirm'),
-      okText: t('screen.captureStatus.switchVideoMemory', { mode }),
-      onOk: async () => {
-        setSwitching(true);
-        try {
-          const memory = await getMemoryStatus();
-          if (memory.code !== 0) throw new Error(memory.msg);
-          const installed = pickVideoMemoryMode(memory.data.videoMemory.modes ?? [], need.mode);
-          if (!installed) {
-            throw new Error(t('screen.captureStatus.videoMemoryUnavailable', { mode }));
-          }
-          const set = await setVideoMemory(installed);
-          if (set.code !== 0) throw new Error(set.msg);
-          const restart = await reboot();
-          if (restart.code !== 0) throw new Error(restart.msg);
-          message.info(t('screen.captureStatus.videoMemoryRebooting', { mode }));
-        } catch (error) {
-          setSwitching(false);
-          message.error(
-            error instanceof Error && error.message ? error.message : t('videoSettings.failed')
-          );
-          throw error;
-        }
-      }
-    });
+  // The booted video memory is the one of the kernel before the update; a
+  // restart boots the installed kernel with the shared video memory.
+  async function restart() {
+    setRestarting(true);
+    try {
+      const rsp = await reboot();
+      if (rsp.code !== 0) throw new Error(rsp.msg);
+    } catch (error) {
+      setRestarting(false);
+      message.error(
+        error instanceof Error && error.message ? error.message : t('videoSettings.failed')
+      );
+    }
   }
 
   return (
@@ -70,15 +51,14 @@ export function CaptureStatusOverlay({ status }: { status: CaptureStatus | null 
       <Icon className="h-5 w-5 shrink-0 animate-pulse" />
       <span className={need ? 'min-w-0' : 'min-w-0 truncate'}>{text}</span>
       {need && account.role === 'admin' && (
-        <Button
-          size="small"
-          type="primary"
-          loading={switching}
-          className="pointer-events-auto"
-          onClick={switchVideoMemory}
+        <Popconfirm
+          title={t('screen.captureStatus.restartConfirm')}
+          onConfirm={() => void restart()}
         >
-          {t('screen.captureStatus.switchVideoMemory', { mode })}
-        </Button>
+          <Button size="small" type="primary" loading={restarting} className="pointer-events-auto">
+            {t('screen.captureStatus.restart')}
+          </Button>
+        </Popconfirm>
       )}
     </div>
   );

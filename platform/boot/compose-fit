@@ -1,10 +1,10 @@
 #!/bin/sh
 # Compose a board boot image from the shared FIT template.
 #   compose-fit PAYLOAD_DIR NAME OUTPUT
-# Every board and video memory mode has the same kernel and initramfs and a
-# device tree padded to one size, so its FIT differs from the template only
-# in the device tree bytes and their SHA-256 in the image hash node
-# (offsets in fit.layout). The result must match NAME.sha256, the hash of the
+# Every board has the same kernel and initramfs and a device tree padded to
+# one size, so its FIT differs from the template only in the device tree
+# bytes and their SHA-256 in the image hash node (offsets in fit.layout).
+# The result must match NAME.sha256, the hash of the
 # image the build made with mkimage; OUTPUT is written only then.
 set -eu
 dir=$1 name=$2 out=$3

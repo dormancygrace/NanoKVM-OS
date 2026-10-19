@@ -161,28 +161,30 @@ test('a rejected request leaves this browser unchanged', async () => {
   assert.equal(calls.reloads, 0);
 });
 
-test('a video memory switch saves the other device settings first and does not reload', async () => {
+test('a resolution change applies in one request, before the encoder, and returns the capabilities', async () => {
   const { apply, deps, calls } = applier();
-  deps.applyVideoSettings = async (body, confirm, fit) => {
-    calls.shared.push([{ ...body }, confirm, fit]);
-    return { code: 0, data: { restart: true, videoMemoryMode: 'qhd' } };
+  const capabilities = { videoMemoryMiB: 144 };
+  deps.applyVideoSettings = async (...args) => {
+    calls.shared.push([{ ...args[0] }, ...args.slice(1)]);
+    return { code: 0, data: capabilities };
   };
   const result = await apply(
     saved,
-    { ...saved, monitor: 1440, transport: 'webrtc', codec: 'h265', frameDetect: true },
+    { ...saved, monitor: 2160, transport: 'webrtc', codec: 'h265', frameDetect: true },
     caps,
-    { admin: true, confirmPowerCycle: false, fitVideoMemory: true },
+    { admin: true, confirmPowerCycle: false },
     deps
   );
+  // No video memory flag: every resolution fits the shared video memory.
   assert.deepEqual(calls.shared, [
-    ['frameDetect', true],
-    [{ transport: 'webrtc', type: 2, monitor: 1440 }, false, true]
+    [{ transport: 'webrtc', type: 2, monitor: 2160 }, false],
+    ['frameDetect', true]
   ]);
   assert.deepEqual(calls.encoder, ['h265']);
-  assert.equal(result.restart, 'qhd');
-  assert.equal(result.capabilities, null);
-  assert.equal(calls.reloads, 0);
-  assert.equal(result.reloading, false);
+  assert.equal(result.capabilities, capabilities);
+  assert.equal(result.monitorRewritten, true);
+  assert.equal(calls.reloads, 1);
+  assert.equal(result.reloading, true);
 });
 
 function renderForm(role, deviceTransport) {

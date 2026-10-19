@@ -25,9 +25,13 @@ func TestVideoPoolGatesMatchTheModes(t *testing.T) {
 		{"fhd", poolFHD, false, false, false},
 		{"qhd", poolQHD, true, true, false},
 		{"uhd", poolUHD, true, true, true},
-		// The CMA images of earlier releases: UHD as CMA failed to get its buffers.
+		// The CMA images of earlier releases, sized to the peak: UHD as CMA
+		// failed to get its buffers.
 		{"qhd as CMA", VideoPool{MiB: 56, Reusable: true}, true, true, false},
 		{"uhd as CMA", VideoPool{MiB: 128, Reusable: true}, true, true, false},
+		// The shared 144 MiB region keeps enough slack for 2160p.
+		{"shared CMA", VideoPool{MiB: 144, Reusable: true}, true, true, true},
+		{"just below shared CMA", VideoPool{MiB: 143, Reusable: true}, true, true, false},
 		{"no node", VideoPool{}, false, false, false},
 		{"just below QHD", VideoPool{MiB: 53}, false, false, false},
 		{"just below UHD", VideoPool{MiB: 103}, true, true, false},
@@ -57,6 +61,13 @@ func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
 	}
 	if !SupportsQHD() || SupportsUHD() {
 		t.Fatal("QHD pool: wrong capabilities")
+	}
+	// The shared region: 144 MiB of reusable CMA captures 2160p.
+	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x09, 0x00, 0x00, 0x00}, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if p := BootedVideoPool(); p != (VideoPool{MiB: 144, Reusable: true}) || !SupportsUHD() {
+		t.Fatalf("shared CMA: %+v", p)
 	}
 	if err := os.Remove(filepath.Join(dir, "reusable")); err != nil {
 		t.Fatal(err)

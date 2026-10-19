@@ -10,12 +10,16 @@ import (
 var ionNodeDir = "/proc/device-tree/reserved-memory/ion"
 
 // VideoPool is the ION video memory of a boot image: its size in whole MiB
-// and whether it is reusable CMA, whose idle pages Linux may borrow (boot
-// images of earlier releases; the current ones are fixed carveouts).
+// and whether it is reusable CMA, whose idle pages Linux may borrow.
 type VideoPool struct {
 	MiB      int
 	Reusable bool
 }
+
+// SharedVideoPool is the video memory of the current boot images: one
+// reusable 144 MiB CMA region for every resolution. A device updated from an
+// earlier release keeps its fixed carveout until it restarts.
+var SharedVideoPool = VideoPool{MiB: 144, Reusable: true}
 
 // BootedVideoPool reads the Device Tree of the running boot image,
 // independently of debugfs being mounted. A missing node is an empty pool.
@@ -41,13 +45,15 @@ func (p VideoPool) QHD() bool { return p.MiB >= 54 }
 // 41.3 MiB); it needs the QHD pool like the other portrait profiles.
 func (p VideoPool) PortraitMax() bool { return p.MiB >= 54 }
 
-// UHD is the 104 MiB video pool that 3840x2160 needs: H.265 holds 102.7 MiB
-// (see uhd_ion_mib in kvm_vision.cpp). Pools of earlier releases (112, 118
-// and 128 MiB) pass too. It must be a fixed carveout: as CMA
-// the encoder's UHD buffers failed on 1 of 3 cold boots under memory
-// pressure (28 cma_alloc failures), when Linux's borrowed pages could not be
-// migrated back.
-func (p VideoPool) UHD() bool { return p.MiB >= 104 && !p.Reusable }
+// UHD is the video pool that 3840x2160 needs: H.265 holds 102.7 MiB (see
+// uhd_ion_mib in kvm_vision.cpp). A fixed carveout of 104 MiB is enough;
+// pools of earlier releases (112, 118 and 128 MiB) pass too. Reusable CMA
+// needs slack: sized to the peak (104 or 128 MiB) the encoder's buffers failed
+// on 1 of 3 cold boots under memory pressure, because a busy page left no
+// other range to allocate from. The 144 MiB region keeps 40 MiB of slack and
+// got the whole 2160p buffer set in every test, also with the region full of
+// page cache and anonymous memory.
+func (p VideoPool) UHD() bool { return p.MiB >= 104 && (!p.Reusable || p.MiB >= 144) }
 
 // MonitorFitsVideoPool reports why the saved HDMI monitor profile cannot be
 // captured with a video pool, or nil when it can: the EDID advertises the

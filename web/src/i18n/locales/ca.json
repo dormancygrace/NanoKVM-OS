@@ -569,8 +569,7 @@
       "available": "Disponible",
       "size": "Capacitat",
       "used": "Utilitzat",
-      "algorithm": "Compressió",
-      "videoUnknown": "Desconegut"
+      "algorithm": "Compressió"
     },
     "system": {
       "general": "General",

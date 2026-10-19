@@ -457,7 +457,7 @@ initramfs() {
 }
 
 boot() {
-    local b=$out/boot profile mode name dtb size
+    local b=$out/boot profile dtb
     rm -rf "$b" "${img:?}/boot" "${img:?}/dtb" "${img:?}/boot-fit"
     mkdir -p "$b" "$img/boot" "$img/dtb" "$img/boot-fit"
     # lz4: U-Boot unpacks it in 0.41 s against 0.79 s for zstd -19; the larger
@@ -468,44 +468,30 @@ boot() {
             -I"$ksrc/arch/riscv/boot/dts/sophgo" -I"$ksrc/include" -I"$ksrc/scripts/dtc/include-prefixes" \
             "$repo/firmware/boards/sg2002-nanokvm-$profile.dts" > "$b/$profile.dts"
         "$host/dtc" -q -I dts -O dtb -o "$b/$profile.dtb" "$b/$profile.dts"
-        # One boot image per video memory mode, named by the mode: fhd (the
-        # default) is NAME.dtb, the others NAME-qhd and NAME-uhd.
-        # activate-kernel, compose-fit, fit-layout.py and the server's status
-        # code use the same names.
-        for mode in fhd qhd uhd; do
-            name=$profile
-            [ "$mode" = fhd ] || name=$profile-$mode
-            dtb=$img/dtb/$name.dtb
-            cp "$b/$profile.dtb" "$dtb"
-            # Same kernel and modules; only the video pool differs: a fixed
-            # carveout of 40 MiB (1920x1080), 56 MiB (2560x1440) or 104 MiB
-            # (3840x2160) that Linux never uses. The device tree template is
-            # the FHD pool.
-            [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = ion-region ]
-            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 2800000 ]
-            case $mode in
-                fhd) size=2800000 ;;
-                qhd) size=3800000 ;;
-                uhd) size=6800000 ;;
-            esac
-            "$host/fdtput" -t x "$dtb" /reserved-memory/ion size "$size"
-            "$host/fdtput" -t s "$dtb" / nanokvm,video-memory-mode "$mode"
-            # One size for every device tree, so the FIT images share a layout.
-            "$host/dtc" -q -I dtb -O dtb -S 32768 -o "$dtb.pad" "$dtb"
-            mv "$dtb.pad" "$dtb"
-            [ "$(stat -c %s "$dtb")" = 32768 ]
-            mkdir "$b/$name"
-            cp "$b/Image.lz4" "$img/initramfs.cpio.zst" "$b/$name/"
-            cp "$dtb" "$b/$name/board.dtb"
-            cp "$here/boot/boot.its" "$b/$name/boot.its"
-            (cd "$b/$name" && SOURCE_DATE_EPOCH=0 "$host/mkimage" -f boot.its boot.sd > /dev/null)
-            [ "$(stat -c %s "$b/$name/boot.sd")" -lt $((16 * 1024 * 1024)) ]
-            cp "$b/$name/boot.sd" "$img/boot-fit/$name.sd"
-        done
+        # One boot image per board, NAME.dtb: one reusable 144 MiB CMA region
+        # holds the video buffers of every resolution, and Linux uses what
+        # video does not. The mode property tells it from the per-resolution
+        # images of earlier releases (activate-kernel, S38memory).
+        dtb=$img/dtb/$profile.dtb
+        cp "$b/$profile.dtb" "$dtb"
+        [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = shared-dma-pool ]
+        [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 9000000 ]
+        "$host/fdtput" -t s "$dtb" / nanokvm,video-memory-mode shared
+        # One size for every device tree, so the FIT images share a layout.
+        "$host/dtc" -q -I dtb -O dtb -S 32768 -o "$dtb.pad" "$dtb"
+        mv "$dtb.pad" "$dtb"
+        [ "$(stat -c %s "$dtb")" = 32768 ]
+        mkdir "$b/$profile"
+        cp "$b/Image.lz4" "$img/initramfs.cpio.zst" "$b/$profile/"
+        cp "$dtb" "$b/$profile/board.dtb"
+        cp "$here/boot/boot.its" "$b/$profile/boot.its"
+        (cd "$b/$profile" && SOURCE_DATE_EPOCH=0 "$host/mkimage" -f boot.its boot.sd > /dev/null)
+        [ "$(stat -c %s "$b/$profile/boot.sd")" -lt $((16 * 1024 * 1024)) ]
+        cp "$b/$profile/boot.sd" "$img/boot-fit/$profile.sd"
     done
-    # The package carries one FIT template and the device trees (about 10 MiB
-    # instead of 25 images of 9 MiB); compose-fit rebuilds an image on the
-    # device and checks it against the hash of the image built here.
+    # The package carries one FIT template and the device trees; compose-fit
+    # rebuilds an image on the device and checks it against the hash of the
+    # image built here.
     python3 "$here/boot/fit-layout.py" "$img/boot-fit" "$img/dtb" "$img/boot"
     install -m 0644 "$here/boot/compose-fit" "$img/boot/compose-fit"
     echo "$release" > "$img/boot/kernel.release"

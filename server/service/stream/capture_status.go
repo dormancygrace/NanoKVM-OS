@@ -3,7 +3,6 @@ package stream
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,11 +25,11 @@ type CaptureStatus struct {
 	Mode      string    `json:"mode"`
 	Severity  string    `json:"severity"`
 	UpdatedAt time.Time `json:"updatedAt"`
-	// With -6, an input refused for the video memory of this boot and the
-	// video memory mode it needs.
-	InputWidth  int    `json:"inputWidth,omitempty"`
-	InputHeight int    `json:"inputHeight,omitempty"`
-	VideoMemory string `json:"videoMemory,omitempty"`
+	// With -6, an input refused for the video memory of this boot, which a
+	// restart into the updated kernel's shared region fixes.
+	InputWidth  int  `json:"inputWidth,omitempty"`
+	InputHeight int  `json:"inputHeight,omitempty"`
+	VideoMemory bool `json:"videoMemory,omitempty"`
 }
 
 // rejectedInput is replaced in tests.
@@ -146,10 +145,10 @@ func newCaptureStatus(mode string, result int, updatedAt time.Time) CaptureStatu
 		UpdatedAt: updatedAt,
 	}
 	if result == -6 {
-		status.InputWidth, status.InputHeight, status.VideoMemory = rejectedInput()
-		if status.VideoMemory != "" {
-			status.Message = fmt.Sprintf("The HDMI input %dx%d needs the %s video memory mode",
-				status.InputWidth, status.InputHeight, strings.ToUpper(status.VideoMemory))
+		status.InputWidth, status.InputHeight = rejectedInput()
+		if status.VideoMemory = status.InputWidth > 0; status.VideoMemory {
+			status.Message = fmt.Sprintf("The HDMI input %dx%d needs more video memory: restart the device to use the updated kernel",
+				status.InputWidth, status.InputHeight)
 		}
 	}
 	return status

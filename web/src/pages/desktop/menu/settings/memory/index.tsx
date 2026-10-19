@@ -6,12 +6,6 @@ import * as api from '@/api/vm.ts';
 import type { MemoryLimit, MemoryStatus, MemorySwap } from '@/api/vm.ts';
 import { swapRequestSize } from '@/lib/swap-request.ts';
 import { themeTokens } from '@/lib/theme-tokens.ts';
-import {
-  parseVideoMemoryMode,
-  pickVideoMemoryMode,
-  videoMemoryResolutions,
-  type VideoMemoryResolution
-} from '@/lib/video-memory-mode.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
@@ -120,7 +114,7 @@ const ServerMemoryLimit = ({ totalBytes }: { totalBytes: number }) => {
 export const Memory = () => {
   const { t } = useTranslation();
   const [data, setData] = useState<MemoryStatus>();
-  const [busy, setBusy] = useState<'zram' | 'sd' | 'video' | ''>('');
+  const [busy, setBusy] = useState<'zram' | 'sd' | ''>('');
   const [loadError, setLoadError] = useState('');
   const mounted = useRef(false);
   const generation = useRef(0);
@@ -206,7 +200,9 @@ export const Memory = () => {
         setLoadError('');
       }
     } catch (err) {
-      if (mounted.current) showChangeError(err);
+      if (mounted.current) {
+        message.error(err instanceof Error ? err.message : t('settings.memory.changeError'));
+      }
     } finally {
       mutating.current = false;
       if (mounted.current) {
@@ -214,81 +210,6 @@ export const Memory = () => {
         void refresh(true);
       }
     }
-  }
-
-  function showChangeError(err: unknown) {
-    message.error(err instanceof Error ? err.message : t('settings.memory.changeError'));
-  }
-
-  async function changeVideo(mode: api.VideoMemoryMode) {
-    if (mutating.current) return;
-    mutating.current = true;
-    generation.current++;
-    setBusy('video');
-    try {
-      const response = await api.setVideoMemory(mode);
-      if (response.code !== 0) throw new Error(response.msg || t('settings.memory.changeError'));
-      if (mounted.current) setData(response.data);
-    } catch (err) {
-      if (mounted.current) showChangeError(err);
-    } finally {
-      mutating.current = false;
-      if (mounted.current) {
-        setBusy('');
-        void refresh(true);
-      }
-    }
-  }
-
-  function videoLabel(mode: string) {
-    const resolution = parseVideoMemoryMode(mode);
-    return resolution
-      ? t(`settings.memory.videoRes_${resolution}`)
-      : t('settings.memory.videoUnknown');
-  }
-
-  function videoMemoryCard(video: MemoryStatus['videoMemory']) {
-    const installed: readonly string[] = video.modes ?? [];
-    const resolution = parseVideoMemoryMode(video.selected) ?? 'fhd';
-    const disabled = !!busy || !video.available;
-    const select = (target: VideoMemoryResolution) => {
-      const mode = pickVideoMemoryMode(installed, target);
-      if (mode && mode !== video.selected) void changeVideo(mode);
-    };
-    return (
-      <Panel className="space-y-4">
-        <SettingRow
-          label={t('settings.memory.videoMode')}
-          description={t('settings.memory.videoModeDescription')}
-          htmlFor="video-memory-mode"
-          stacked
-        >
-          <Select
-            id="video-memory-mode"
-            aria-describedby="video-memory-mode-description"
-            className="w-full"
-            value={resolution}
-            loading={busy === 'video'}
-            disabled={disabled}
-            options={videoMemoryResolutions.map((value) => ({
-              value,
-              label: t(`settings.memory.videoRes_${value}`),
-              disabled: !pickVideoMemoryMode(installed, value)
-            }))}
-            onChange={(value) => select(value)}
-          />
-        </SettingRow>
-        <p className="m-0 text-sm">
-          {t('settings.memory.videoActive')}: {videoLabel(video.active)}
-        </p>
-        {!video.available && (
-          <p className="text-warning m-0 text-sm">{t('settings.memory.videoModeUnavailable')}</p>
-        )}
-        {video.rebootRequired && (
-          <Alert type="info" showIcon message={t('settings.memory.videoReboot')} />
-        )}
-      </Panel>
-    );
   }
 
   function swapCard(kind: 'zram' | 'sd', swap: MemorySwap) {
@@ -404,9 +325,18 @@ export const Memory = () => {
               <span className="text-fg-muted">{t('settings.memory.video')}</span>
               <span className="text-right">{mib(data.videoBytes)}</span>
             </div>
+            {data.videoMemory && (
+              <p className={`mt-3 mb-0 text-sm ${data.videoMemory.shared ? '' : 'text-warning'}`}>
+                {t(
+                  data.videoMemory.shared
+                    ? 'settings.memory.videoMemoryShared'
+                    : 'settings.memory.videoMemoryReserved',
+                  { size: data.videoMemory.sizeMiB }
+                )}
+              </p>
+            )}
             <p className="text-fg-muted mt-3 mb-0 text-xs">{t('settings.memory.ramNote')}</p>
           </Panel>
-          {data.videoMemory && videoMemoryCard(data.videoMemory)}
           {swapCard('zram', data.zram)}
           {swapCard('sd', data.sd)}
           <p className="text-fg-muted m-0 text-xs">{t('settings.memory.priorityNote')}</p>

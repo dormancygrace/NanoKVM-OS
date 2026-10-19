@@ -569,8 +569,7 @@
       "available": "Kullanılabilir",
       "size": "Kapasite",
       "used": "Kullanılan",
-      "algorithm": "Sıkıştırma",
-      "videoUnknown": "Bilinmiyor"
+      "algorithm": "Sıkıştırma"
     },
     "system": {
       "general": "Genel",

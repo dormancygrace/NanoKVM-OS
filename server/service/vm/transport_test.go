@@ -2,6 +2,7 @@ package vm
 
 import (
 	"NanoKVM-Server/authn"
+	"NanoKVM-Server/common"
 	"os"
 	"path/filepath"
 	"testing"
@@ -47,7 +48,7 @@ func TestStreamTransportStorageAndListeners(t *testing.T) {
 
 func TestVideoSettingsStoreTheTransport(t *testing.T) {
 	temporaryTransport(t)
-	newSwitchStand(t, "fhd", 1080)
+	newVideoStand(t, common.SharedVideoPool)
 	if rsp := postVideo(t, `{"transport":"hls"}`); rsp.Code != -1 || StreamTransportSet() {
 		t.Fatalf("unknown transport: %+v", rsp)
 	}

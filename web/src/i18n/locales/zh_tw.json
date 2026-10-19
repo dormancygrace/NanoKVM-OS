@@ -569,8 +569,7 @@
       "available": "可用",
       "size": "容量",
       "used": "已使用",
-      "algorithm": "壓縮",
-      "videoUnknown": "未知"
+      "algorithm": "壓縮"
     },
     "system": {
       "general": "一般",

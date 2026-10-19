@@ -81,7 +81,6 @@ func vmRouter(r *gin.Engine) {
 
 	admin.GET("/vm/memory/status", service.GetMemoryStatus)
 	admin.POST("/vm/memory/swap", service.SetMemorySwap)
-	admin.POST("/vm/memory/video", service.SetVideoMemory)
 
 	admin.GET("/vm/memory/limit", service.GetMemoryLimit)  // get memory limit
 	admin.POST("/vm/memory/limit", service.SetMemoryLimit) // set memory limit

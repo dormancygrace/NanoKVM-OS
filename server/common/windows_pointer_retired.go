@@ -37,10 +37,6 @@ func retireWindowsPointerLocked(hw monitorSettingsBackend) (string, error) {
 	if _, err := os.Stat(retiredWindowsPointerMarker); errors.Is(err, os.ErrNotExist) {
 		return "", nil
 	}
-	// A video memory fit restarts the device first; the next start retires it.
-	if monitorRestartPending {
-		return "", nil
-	}
 	path := ""
 	// The profile carried the block only where EDID follows the stream
 	// rate: a PCIe board with an LT6911UXC.

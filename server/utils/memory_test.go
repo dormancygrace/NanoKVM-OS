@@ -78,6 +78,16 @@ func TestGoMemoryLimitDefaultsToQuarterOfMemTotal(t *testing.T) {
 	}
 }
 
+// With the shared video region MemTotal includes 144 MiB that 2160p capture
+// takes back but for 40 MiB: the default follows what Linux keeps then.
+func TestGoMemoryLimitDefaultLeavesOutTheVideoRegion(t *testing.T) {
+	store, runtime := newDefaultStore(t, "MemTotal:         240992 kB\nMemFree:           98424 kB\nCmaTotal:         147456 kB\n")
+	store.init()
+	if want := int64((240992 - 147456 + 147456 - 106496) * 1024 / 4); runtime.limit != want || toMiB(want) != 32 {
+		t.Fatalf("default limit=%d want %d (%d MiB)", runtime.limit, want, toMiB(want))
+	}
+}
+
 func TestGoMemoryLimitMiB(t *testing.T) {
 	for _, tc := range []struct{ bytes, mib int64 }{
 		{0, 0}, {-1, 0}, {math.MaxInt64, 0}, {1, 0}, {26 * 1024 * 1024, 26}, {27*1024*1024 - 1, 26},

@@ -44,7 +44,7 @@ const optional = {
   'terminal (xterm)': 'xterm-helper-textarea',
   'virtual keyboard': 'hg-theme-default',
   'picoclaw (markdown)': 'gfmFootnote',
-  'Russian locale': 'Выделение видеопамяти'
+  'Russian locale': 'Сначала используется ZRAM'
 };
 
 test('static imports between chunks have no cycles', () => {

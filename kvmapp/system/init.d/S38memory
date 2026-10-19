@@ -10,11 +10,12 @@ if ! flock -n 9; then
     echo 'Another memory operation is in progress.' >&2; exit 1
 fi
 ZRAM_ENABLED=0 ZRAM_SIZE=64 ZRAM_RECOMPRESS=0 SD_ENABLED=0 SD_SIZE=256
-# The UHD video memory mode (104 MiB, 3840x2160) leaves Linux about 130 MiB:
-# default to zram there only. The value is the same in the earlier releases.
-if [ "$(tr -d '\000' < /proc/device-tree/nanokvm,video-memory-mode 2>/dev/null)" = uhd ]; then
-    ZRAM_ENABLED=1 ZRAM_SIZE=auto
-fi
+# While 2160p capture runs, Linux keeps about 130 MiB: with the shared video
+# region of the current boot images, and with the UHD carveout (104 MiB) of
+# earlier ones. Default to zram there.
+case "$(tr -d '\000' < /proc/device-tree/nanokvm,video-memory-mode 2>/dev/null)" in
+    shared|uhd) ZRAM_ENABLED=1 ZRAM_SIZE=auto ;;
+esac
 active() { awk -v path="$1" 'NR > 1 && $1 == path { found=1 } END { exit !found }' /proc/swaps; }
 fail() { echo "$*" >&2; exit 1; }
 if [ -f "$CONFIG" ]; then
@@ -51,8 +52,11 @@ apply_zram() {
     fi
     modprobe zram num_devices=1 || fail 'ZRAM is unavailable in this kernel.'
     if [ "$ZRAM_SIZE" = auto ]; then
-        # Half of the memory Linux manages, in whole MiB.
-        target=$(awk '$1 == "MemTotal:" {print int($2 / 2048) * 1048576}' /proc/meminfo)
+        # Half of the memory Linux keeps while video holds its largest buffer
+        # set, in whole MiB: MemTotal outside a CMA region, plus what 2160p
+        # capture (104 MiB) leaves of the shared video region.
+        target=$(awk '$1 == "MemTotal:" {t = $2} $1 == "CmaTotal:" {c = $2}
+            END {if (c > t) c = t; l = t - c; if (c > 106496) l += c - 106496; print int(l / 2048) * 1048576}' /proc/meminfo)
     else
         target=$((ZRAM_SIZE * 1024 * 1024))
     fi

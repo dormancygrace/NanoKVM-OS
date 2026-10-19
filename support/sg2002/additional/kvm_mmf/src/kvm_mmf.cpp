@@ -1175,6 +1175,16 @@ static CVI_U32 jpeg_stream_buffer(int w, int h)
 	return (bytes + 0x3ff) & ~0x3ffu; // the driver needs a multiple of 1 KiB
 }
 
+// The encoder takes Qfactor 50 as the mark of a custom quantization table
+// and refuses it (Q_TABLE_CUSTOM in cvi_venc.c): a failed frame, which the
+// MJPEG reader took for a broken 4:2:2 path and fell back to 4:2:0 until a
+// restart. The adaptive MJPEG quality passes 50 on its way down; 51 looks
+// the same.
+static int _mmf_jpg_qfactor(int quality)
+{
+	return quality == 50 ? 51 : quality;
+}
+
 static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 {
 	if (priv.enc_jpg_is_init)
@@ -1220,7 +1230,7 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		_mmf_jpg_destroy(ch);
 		return s32Ret;
 	}
-	stJpegParam.u32Qfactor = quality;
+	stJpegParam.u32Qfactor = _mmf_jpg_qfactor(quality);
 	s32Ret = CVI_VENC_SetJpegParam(ch, &stJpegParam);
 	if (s32Ret != CVI_SUCCESS) {
 		printf("CVI_VENC_SetJpegParam failed with %#x\n", s32Ret);
@@ -1251,7 +1261,7 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 	priv.enc_jpg_frame_w = w;
 	priv.enc_jpg_frame_h = h;
 	priv.enc_jpg_frame_fmt = format;
-	priv.enc_jpg_quality = quality;
+	priv.enc_jpg_quality = _mmf_jpg_qfactor(quality);
 	priv.enc_jpg_is_init = 1;
 	priv.enc_jpg_running = 0;
 
@@ -1313,6 +1323,7 @@ static int _mmf_jpg_update_quality(int ch, int quality)
 {
     if (!priv.enc_jpg_is_init || priv.enc_jpg_running || ch < 0 || ch >= MMF_VENC_MAX_CHN
         || quality < 20 || quality > 99) return CVI_FAILURE;
+    quality = _mmf_jpg_qfactor(quality);
     if (priv.enc_jpg_quality == quality) return CVI_SUCCESS;
     VENC_JPEG_PARAM_S params{};
     int ret = CVI_VENC_GetJpegParam(ch, &params);

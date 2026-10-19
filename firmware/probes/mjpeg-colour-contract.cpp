@@ -30,7 +30,8 @@ CVI_S32 CVI_VPSS_SetChnAttr(VPSS_GRP, VPSS_CHN, const VPSS_CHN_ATTR_S *a) {
     ++attr_calls;if(attr_calls==attr_fail_at)return -43;last_attr=*a;return CVI_SUCCESS;
 }
 CVI_S32 CVI_VPSS_GetChnAttr(VPSS_GRP, VPSS_CHN, VPSS_CHN_ATTR_S *a) {
-    if (get_attr_error) return -1; *a=last_attr; return CVI_SUCCESS;
+    if (get_attr_error) return -1;
+    *a=last_attr; return CVI_SUCCESS;
 }
 CVI_S32 CVI_VPSS_EnableChn(VPSS_GRP, VPSS_CHN) { ++enables;return CVI_SUCCESS; }
 static int channel(PIXEL_FORMAT_E format) {

@@ -54,6 +54,9 @@ function harness(path, exportName, modules = {}, globals = {}) {
       if (!slots[i] || !equal(slots[i].deps, deps)) slots[i] = { fn, deps };
       return slots[i].fn;
     },
+    useMemo(fn, deps) {
+      return react.useCallback(fn, deps)();
+    },
     useEffectEvent(fn) {
       const i = cursor++;
       if (!slots[i]) slots[i] = { call: (...args) => slots[i].fn(...args) };
@@ -478,3 +481,187 @@ test('changing the terminal language does not reconnect or dispose its session',
   assert.equal(disposed, 1);
   assert.equal(listeners.size, 0);
 });
+
+function updatesHarness() {
+  const reads = [],
+    writes = [],
+    notices = [];
+  let poll;
+  const setNotice = (value) => notices.push(value);
+  const h = harness('../src/pages/desktop/menu/settings/updates/index.tsx', 'Updates', {
+    antd: { Alert: 'Alert', message: { error: noOp } },
+    jotai: { useSetAtom: () => setNotice },
+    '@/jotai/updates.ts': { updateNoticeAtom: {} },
+    '@/lib/http': {
+      http: {
+        get: () => {
+          const d = deferred();
+          reads.push(d);
+          return d.promise;
+        },
+        post: () => {
+          const d = deferred();
+          writes.push(d);
+          return d.promise;
+        }
+      }
+    },
+    '@/lib/version': { formatVersion: (v) => v },
+    '@/lib/visible-poll.ts': {
+      pollWhileVisible: (fn) => {
+        poll = fn;
+        return noOp;
+      }
+    },
+    '@/components/ui/settings.tsx': { SettingRow: 'Row' },
+    './apk': { APKUpdates: 'APK' },
+    './components': { ComponentList: 'Components', UpdateCheck: 'Check' }
+  });
+  const reply = (notice) => ({ code: 0, data: { installed: { version: '3.3.4' }, notice } });
+  return { h, reads, writes, notices, poll: () => poll(), reply };
+}
+
+test(
+  'Updates skips overlapping poll ticks and ignores a read after unmount',
+  { timeout: 2000 },
+  async () => {
+    const { h, reads, notices, poll, reply } = updatesHarness();
+    h.render();
+    poll();
+    poll();
+    assert.equal(reads.length, 1);
+    h.unmount();
+    reads[0].resolve(reply({ state: 'ok', updates: [] }));
+    await settle();
+    assert.deepEqual(notices, []);
+  }
+);
+
+test(
+  'Updates rejects a stale response when a post-action refresh finishes first',
+  { timeout: 2000 },
+  async () => {
+    const { h, reads, writes, notices, poll, reply } = updatesHarness();
+    h.render();
+    reads[0].resolve(reply({ state: 'never' }));
+    await h.flush();
+    poll(); // Slow read predates the action.
+    const action = find(h.output, 'APK').props.action('apk/check');
+    writes[0].resolve({ code: 0 });
+    await settle();
+    assert.equal(reads.length, 3);
+    reads[2].resolve(reply({ state: 'ok', checkedAt: 200 }));
+    await action;
+    await h.flush();
+    reads[1].resolve(reply({ state: 'checking', checkedAt: 100 }));
+    await h.flush();
+    assert.equal(find(h.output, 'Check').props.notice.checkedAt, 200);
+    assert.equal(notices.at(-1).checkedAt, 200);
+  }
+);
+
+test(
+  'Updates effect replay ignores the first read and remains pollable',
+  { timeout: 2000 },
+  async () => {
+    const { h, reads, notices, poll, reply } = updatesHarness();
+    h.render();
+    h.replay();
+    reads[1].resolve(reply({ state: 'ok', checkedAt: 200 }));
+    await h.flush();
+    reads[0].reject(new Error('old connection'));
+    await h.flush();
+    assert.equal(notices.at(-1).checkedAt, 200);
+    assert.equal(find(h.output, 'Alert'), undefined);
+    poll();
+    assert.equal(reads.length, 3);
+    h.unmount();
+    reads[2].resolve(reply({ state: 'ok' }));
+    await settle();
+  }
+);
+
+test(
+  'Updates action completing after unmount cannot start another status request',
+  { timeout: 2000 },
+  async () => {
+    const { h, reads, writes, reply } = updatesHarness();
+    h.render();
+    reads[0].resolve(reply({ state: 'never' }));
+    await h.flush();
+    const action = find(h.output, 'APK').props.action('apk/check');
+    h.unmount();
+    writes[0].resolve({ code: 0 });
+    await action;
+    assert.equal(reads.length, 1);
+  }
+);
+
+function notificationHarness() {
+  const reads = [];
+  let notice = null,
+    poll;
+  const setNotice = (next) => {
+    notice = typeof next === 'function' ? next(notice) : next;
+  };
+  const api = { info: noOp, destroy: noOp };
+  const h = harness('../src/pages/desktop/update-notification.tsx', 'UpdateNotification', {
+    '@/contexts/auth.ts': { useAuth: () => ({ account: { role: 'admin' } }) },
+    antd: { Button: 'Button', notification: { useNotification: () => [api, null] } },
+    jotai: { useAtom: () => [notice, setNotice], useSetAtom: () => noOp },
+    '@/api/updates.ts': {
+      availableUpdates: (n) => n?.updates ?? [],
+      getUpdateNotice: () => {
+        const d = deferred();
+        reads.push(d);
+        return d.promise;
+      }
+    },
+    '@/lib/update-components.ts': {
+      getSeenUpdates: noOp,
+      setSeenUpdates: noOp,
+      updateSignature: () => ''
+    },
+    '@/lib/visible-poll.ts': {
+      pollWhileVisible: (fn) => {
+        poll = fn;
+        return noOp;
+      }
+    },
+    '@/jotai/settings.ts': { settingsRequestAtom: {} },
+    '@/jotai/updates.ts': { updateNoticeAtom: {} }
+  });
+  return {
+    h,
+    reads,
+    setNotice,
+    poll: () => poll(),
+    get notice() {
+      return notice;
+    }
+  };
+}
+
+test(
+  'notification polling cannot overwrite newer settings state or overlap itself',
+  { timeout: 2000 },
+  async () => {
+    const fixture = notificationHarness();
+    fixture.h.render();
+    fixture.poll();
+    fixture.poll();
+    assert.equal(fixture.reads.length, 1);
+    const newer = { state: 'ok', checkedAt: 200, updates: [] };
+    fixture.setNotice(newer);
+    fixture.reads[0].resolve({ code: 0, data: { state: 'ok', checkedAt: 100, updates: [] } });
+    await fixture.h.flush();
+    assert.equal(fixture.notice, newer);
+    fixture.poll();
+    assert.equal(fixture.reads.length, 2);
+    const latest = { state: 'ok', checkedAt: 300, updates: [] };
+    fixture.reads[1].resolve({ code: 0, data: latest });
+    await fixture.h.flush();
+    assert.equal(fixture.notice, latest);
+    fixture.h.unmount();
+  }
+);

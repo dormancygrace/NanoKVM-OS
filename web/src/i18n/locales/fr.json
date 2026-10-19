@@ -2029,6 +2029,8 @@
     }
   },
   "error": {
+    "retry": "Réessayer",
+    "settingsRecovery": "Essaie de rouvrir cette section. Si le logiciel de l’appareil a été mis à jour pendant que cette page était ouverte, actualise la page pour charger l’interface actuelle.",
     "title": "Nous avons rencontré un problème",
     "refresh": "Actualiser",
     "requestFailed": "La requête a échoué. Vérifiez la connexion et réessayez."

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
 import { Button, notification } from 'antd';
 import { useAtom, useSetAtom } from 'jotai';
@@ -21,18 +21,30 @@ export const UpdateNotification = () => {
   const { account } = useAuth();
   const isAdmin = account.role === 'admin';
   const [notice, setNotice] = useAtom(updateNoticeAtom);
+  const noticeRef = useRef(notice);
+  useEffect(() => {
+    noticeRef.current = notice;
+  }, [notice]);
   const setRequest = useSetAtom(settingsRequestAtom);
   const [api, contextHolder] = notification.useNotification();
 
   useEffect(() => {
     if (!isAdmin) return;
     let active = true;
+    let pending = false;
     const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      const previous = noticeRef.current;
       try {
         const rsp = await getUpdateNotice();
-        if (active && rsp.code === 0) setNotice(rsp.data as UpdateNotice);
+        if (active && rsp.code === 0) {
+          setNotice((current) => (current === previous ? (rsp.data as UpdateNotice) : current));
+        }
       } catch {
         /* Keep the last known state through brief disconnects. */
+      } finally {
+        pending = false;
       }
     };
     void refresh();

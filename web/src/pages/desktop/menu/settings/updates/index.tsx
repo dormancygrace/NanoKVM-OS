@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, message } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
@@ -25,11 +25,18 @@ export const Updates = () => {
   const [state, setState] = useState<State | null>(null);
   const [busy, setBusy] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const mounted = useRef(false);
+  const generation = useRef(0);
+  const pending = useRef(0);
   const setNotice = useSetAtom(updateNoticeAtom);
 
   const refresh = useCallback(async () => {
+    if (!mounted.current) return;
+    const request = ++generation.current;
+    pending.current++;
     try {
       const rsp = await http.get('/api/os/update');
+      if (request !== generation.current) return;
       if (rsp.code === 0) {
         setState(rsp.data);
         // Keep the settings badge in step with what this page shows.
@@ -37,13 +44,23 @@ export const Updates = () => {
         setReconnecting(false);
       }
     } catch {
-      setReconnecting(true);
+      if (request === generation.current) setReconnecting(true);
+    } finally {
+      pending.current--;
     }
   }, [setNotice]);
   useEffect(() => {
+    const requests = generation;
+    mounted.current = true;
     void refresh();
-    const stopPolling = pollWhileVisible(refresh, 3000);
-    return () => stopPolling();
+    const stopPolling = pollWhileVisible(() => {
+      if (pending.current === 0) void refresh();
+    }, 3000);
+    return () => {
+      mounted.current = false;
+      requests.current++;
+      stopPolling();
+    };
   }, [refresh]);
 
   async function action(name: string, data?: unknown) {

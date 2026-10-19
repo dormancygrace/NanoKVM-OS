@@ -2029,6 +2029,8 @@
     }
   },
   "error": {
+    "retry": "Reintentar",
+    "settingsRecovery": "Intenta abrir esta sección de nuevo. Si el software del dispositivo se actualizó mientras esta página estaba abierta, recarga la página para cargar la interfaz actual.",
     "title": "Hemos encontrado un problema",
     "refresh": "Actualizar",
     "requestFailed": "La solicitud falló. Comprueba la conexión y vuelve a intentarlo."

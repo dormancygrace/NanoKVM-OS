@@ -1728,6 +1728,8 @@
     "moreActions": "Další akce"
   },
   "error": {
+    "retry": "Zkusit znovu",
+    "settingsRecovery": "Zkuste tuto sekci otevřít znovu. Pokud byl software zařízení aktualizován, zatímco byla tato stránka otevřená, obnovte stránku a načtěte aktuální rozhraní.",
     "title": "Narazilo se na problém",
     "refresh": "Načíst znovu",
     "requestFailed": "Požadavek se nezdařil. Zkontrolujte připojení a zkuste to znovu."

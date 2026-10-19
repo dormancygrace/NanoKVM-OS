@@ -2028,6 +2028,8 @@
     }
   },
   "error": {
+    "retry": "Try again",
+    "settingsRecovery": "Try opening this section again. If the device software was updated while this page was open, refresh the page to load the current interface.",
     "title": "We've ran into an issue",
     "refresh": "Refresh",
     "requestFailed": "The request failed. Check the connection and try again."

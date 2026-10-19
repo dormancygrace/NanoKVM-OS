@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { retryableLazy } from '../src/lib/retryable-lazy.ts';
 import { releasePointerMenuFocus } from '../src/lib/menu-focus.ts';
 
 for (const detail of [1, 2]) {
@@ -45,6 +46,7 @@ async function renderComponent(path, exportName) {
     if (name === 'react-i18next') return { useTranslation: () => ({ t: key => key }) };
     if (name === 'react-responsive') return { useMediaQuery: () => true };
     if (name === 'clsx') return { __esModule: true, default: () => '' };
+    if (name.includes('retryable-lazy')) return { retryableLazy };
     if (name.includes('menu-focus')) return { releasePointerMenuFocus };
     if (name.includes('useVirtualDisk')) return { useVirtualDisk: () => true };
     if (name.includes('mobile-menu-context')) return { useDismissMobileMenu: () => () => {} };

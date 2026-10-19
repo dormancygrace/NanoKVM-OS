@@ -1,11 +1,11 @@
 import {
   Fragment,
-  lazy,
   Suspense,
   useContext,
   useEffect,
   useRef,
   useState,
+  type ComponentType,
   type ReactNode
 } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
@@ -43,6 +43,7 @@ import { useTranslation } from 'react-i18next';
 import { getAddonInventory, type AddonInventory } from '@/api/addons';
 import { getBluetoothState } from '@/api/vm.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
+import { retryableLazy } from '@/lib/retryable-lazy.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { addonInventoryAtom } from '@/jotai/addons';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
@@ -64,55 +65,70 @@ import {
   type SettingsGroup
 } from './tabs.ts';
 
+const retryPages: (() => void)[] = [];
+function lazyPage<T extends ComponentType<any>>(load: () => Promise<{ default: T }>) {
+  const page = retryableLazy(load);
+  retryPages.push(page.retry);
+  return page.Component;
+}
+
 // Keep the navigation light; only the selected settings page is fetched.
-const About = lazy(() => import('./about').then((module) => ({ default: module.About })));
-const Account = lazy(() => import('./account').then((module) => ({ default: module.Account })));
-const Appearance = lazy(() =>
+const About = lazyPage(() => import('./about').then((module) => ({ default: module.About })));
+const Account = lazyPage(() => import('./account').then((module) => ({ default: module.Account })));
+const Appearance = lazyPage(() =>
   import('./appearance').then((module) => ({ default: module.Appearance }))
 );
-const Dashboard = lazy(() =>
+const Dashboard = lazyPage(() =>
   import('./dashboard').then((module) => ({ default: module.Dashboard }))
 );
-const DateTimeSettings = lazy(() =>
+const DateTimeSettings = lazyPage(() =>
   import('./date-time').then((module) => ({ default: module.DateTimeSettings }))
 );
-const MCP = lazy(() => import('./mcp').then((module) => ({ default: module.MCP })));
-const Memory = lazy(() => import('./memory').then((module) => ({ default: module.Memory })));
-const Netbird = lazy(() => import('./netbird').then((module) => ({ default: module.Netbird })));
-const Tailscale = lazy(() =>
+const MCP = lazyPage(() => import('./mcp').then((module) => ({ default: module.MCP })));
+const Memory = lazyPage(() => import('./memory').then((module) => ({ default: module.Memory })));
+const Netbird = lazyPage(() => import('./netbird').then((module) => ({ default: module.Netbird })));
+const Tailscale = lazyPage(() =>
   import('./tailscale').then((module) => ({ default: module.Tailscale }))
 );
-const Updates = lazy(() => import('./updates').then((module) => ({ default: module.Updates })));
-const Usb = lazy(() => import('./usb').then((module) => ({ default: module.Usb })));
-const VideoSettings = lazy(() =>
+const Updates = lazyPage(() => import('./updates').then((module) => ({ default: module.Updates })));
+const Usb = lazyPage(() => import('./usb').then((module) => ({ default: module.Usb })));
+const VideoSettings = lazyPage(() =>
   import('./video').then((module) => ({ default: module.VideoSettings }))
 );
-const VPNList = lazy(() => import('./vpn/list').then((module) => ({ default: module.VPNList })));
-const WireGuard = lazy(() => import('./vpn').then((module) => ({ default: module.WireGuard })));
-const OpenVPN = lazy(() => import('./vpn/openvpn').then((module) => ({ default: module.OpenVPN })));
-const System = lazy(() => import('./system').then((module) => ({ default: module.System })));
-const Security = lazy(() => import('./security').then((module) => ({ default: module.Security })));
-const Diagnostics = lazy(() =>
+const VPNList = lazyPage(() =>
+  import('./vpn/list').then((module) => ({ default: module.VPNList }))
+);
+const WireGuard = lazyPage(() => import('./vpn').then((module) => ({ default: module.WireGuard })));
+const OpenVPN = lazyPage(() =>
+  import('./vpn/openvpn').then((module) => ({ default: module.OpenVPN }))
+);
+const System = lazyPage(() => import('./system').then((module) => ({ default: module.System })));
+const Security = lazyPage(() =>
+  import('./security').then((module) => ({ default: module.Security }))
+);
+const Diagnostics = lazyPage(() =>
   import('./system/diagnostics').then((module) => ({ default: module.Diagnostics }))
 );
-const Addons = lazy(() =>
+const Addons = lazyPage(() =>
   import('./software/addons').then((module) => ({ default: module.Addons }))
 );
-const RustDeskControls = lazy(() =>
+const RustDeskControls = lazyPage(() =>
   import('./extensions/rustdesk').then((module) => ({ default: module.RustDeskControls }))
 );
-const Software = lazy(() => import('./software').then((module) => ({ default: module.Software })));
-const Network = lazy(() => import('./network').then((module) => ({ default: module.Network })));
-const WifiSettings = lazy(() =>
+const Software = lazyPage(() =>
+  import('./software').then((module) => ({ default: module.Software }))
+);
+const Network = lazyPage(() => import('./network').then((module) => ({ default: module.Network })));
+const WifiSettings = lazyPage(() =>
   import('./network').then((module) => ({ default: module.WifiSettings }))
 );
-const EthernetSettings = lazy(() =>
+const EthernetSettings = lazyPage(() =>
   import('./network').then((module) => ({ default: module.EthernetSettings }))
 );
-const BluetoothSettings = lazy(() =>
+const BluetoothSettings = lazyPage(() =>
   import('./network').then((module) => ({ default: module.BluetoothSettings }))
 );
-const WebRTCSettings = lazy(() =>
+const WebRTCSettings = lazyPage(() =>
   import('./network').then((module) => ({ default: module.WebRTCSettings }))
 );
 
@@ -650,7 +666,31 @@ export const Settings = ({
                   >
                     <ErrorBoundary
                       key={currentTab}
-                      fallback={<Alert type="error" showIcon message={t('error.title')} />}
+                      fallbackRender={({ resetErrorBoundary }) => (
+                        <Alert
+                          type="error"
+                          showIcon
+                          message={t('error.title')}
+                          description={
+                            <div className="space-y-3">
+                              <p>{t('error.settingsRecovery')}</p>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  onClick={() => {
+                                    retryPages.forEach((retry) => retry());
+                                    resetErrorBoundary();
+                                  }}
+                                >
+                                  {t('error.retry')}
+                                </Button>
+                                <Button onClick={() => window.location.reload()}>
+                                  {t('error.refresh')}
+                                </Button>
+                              </div>
+                            </div>
+                          }
+                        />
+                      )}
                     >
                       {!mobile && currentTab !== 'about' && (
                         <>

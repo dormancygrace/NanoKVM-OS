@@ -2028,6 +2028,8 @@
     }
   },
   "error": {
+    "retry": "Erneut versuchen",
+    "settingsRecovery": "Versuche, diesen Bereich erneut zu öffnen. Wenn die Gerätesoftware aktualisiert wurde, während diese Seite geöffnet war, lade die Seite neu, um die aktuelle Oberfläche zu laden.",
     "title": "Wir sind auf ein Problem gestossen",
     "refresh": "Neuladen",
     "requestFailed": "Die Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung und versuchen Sie es erneut."

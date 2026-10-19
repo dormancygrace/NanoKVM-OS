@@ -59,8 +59,7 @@
 /* 3840x2160 H.265 holds 102.7 MiB of ION on a NanoKVM, H.264 no more, the
  * same after bitrate, fps and codec changes: the VI blocks, three NV21 VPSS
  * buffers, the reconstruction frames, an 8 MiB bitstream and codec tables.
- * MJPEG is not available at 2160p. The UHD video memory mode provides
- * 104 MiB as a fixed carveout. */
+ * MJPEG is not available at 2160p. The 144 MiB CMA region holds it. */
 #define uhd_ion_mib             104U
 /* 2560x1440 at 60 Hz H.265 with MJPEG holds 53.9 MiB; the portrait profiles
  * need less (no MJPEG at 1440x2560). The QHD modes provide 54 or 56 MiB. */
@@ -350,10 +349,6 @@ static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
         const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
             : qhd_ion_mib;
         if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return false;
-        // UHD needs a fixed carveout: CMA cannot always return Linux's borrowed
-        // pages for the encoder's reference buffers (video memory mode "uhd").
-        if (required_mib == uhd_ion_mib && access("/proc/device-tree/reserved-memory/ion/reusable", F_OK) == 0)
-            return false;
     }
     return true;
 }

@@ -477,18 +477,11 @@ boot() {
             [ "$mode" = fhd ] || name=$profile-$mode
             dtb=$img/dtb/$name.dtb
             cp "$b/$profile.dtb" "$dtb"
-            # Same kernel and modules; only the video pool differs: a fixed
-            # carveout of 40 MiB (1920x1080), 56 MiB (2560x1440) or 104 MiB
-            # (3840x2160) that Linux never uses. The device tree template is
-            # the FHD pool.
-            [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = ion-region ]
-            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 2800000 ]
-            case $mode in
-                fhd) size=2800000 ;;
-                qhd) size=3800000 ;;
-                uhd) size=6800000 ;;
-            esac
-            "$host/fdtput" -t x "$dtb" /reserved-memory/ion size "$size"
+            # Same kernel, modules and memory: one reusable 144 MiB CMA region
+            # holds the video pool of every resolution. The mode only names
+            # the largest capture the server offers.
+            [ "$("$host/fdtget" -t s "$dtb" /reserved-memory/ion compatible)" = shared-dma-pool ]
+            [ "$("$host/fdtget" -t x "$dtb" /reserved-memory/ion size)" = 9000000 ]
             "$host/fdtput" -t s "$dtb" / nanokvm,video-memory-mode "$mode"
             # One size for every device tree, so the FIT images share a layout.
             "$host/dtc" -q -I dtb -O dtb -S 32768 -o "$dtb.pad" "$dtb"

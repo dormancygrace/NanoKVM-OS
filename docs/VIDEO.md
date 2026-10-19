@@ -10,7 +10,7 @@ The quick video menu shows the measured stream size, frame rate and bitrate. Its
 
 ## Video modes and bitrate
 
-Video modes combine the monitor resolution and stream frame rate. The page separates shared picture settings from this browser's transport and playback settings. Unavailable choices explain the hardware, memory, permission or browser limitation. A resolution that needs another installed video memory mode stays selectable: applying it switches the mode and restarts the device, after a confirmation (see Video memory modes).
+Video modes combine the monitor resolution and stream frame rate. The page separates shared picture settings from this browser's transport and playback settings. Unavailable choices explain the hardware, memory, permission or browser limitation. A resolution that the booted video memory cannot capture (only before the restart that completes a kernel update) says so (see Video memory).
 
 **Auto bitrate** selects a ceiling for motion from the prospective stream dimensions, frame rate and codec: about 0.09 bit per pixel for H.265 and 1.3 times that for H.264, rounded up to an offered value, capped at 20 Mbit/s. H.265 examples: 1280×720@120 selects 10 Mbit/s, 1920×1080@60 selects 12 Mbit/s, and QHD@60 or UHD@30 selects 20 Mbit/s. **Economy** selects 3 Mbit/s. Manual bitrate remains available. A still desktop normally sends much less than the ceiling.
 
@@ -45,41 +45,29 @@ Capture follows the actual HDMI dimensions when the BIOS, bootloader or operatin
 
 ## Stream resolution
 
-**Same as input** uses the actual source dimensions. **Up to 2160p / 1440p / 1080p / 720p / 600p** fits the source within the corresponding bounding box, preserves aspect ratio and never enlarges a smaller image. NV21 dimensions are rounded down to even pixels. 2160p needs the **UHD** video memory mode and 1440p needs **QHD** or UHD; the default FHD mode holds 1080p.
+**Same as input** uses the actual source dimensions. **Up to 2160p / 1440p / 1080p / 720p / 600p** fits the source within the corresponding bounding box, preserves aspect ratio and never enlarges a smaller image. NV21 dimensions are rounded down to even pixels. Every size up to 2160p fits the video memory of the current boot images.
 
-## Video memory modes
+## Video memory
 
-The video settings choose the mode with the resolution: applying a monitor resolution or portrait profile switches to the smallest installed mode that captures it, larger or smaller (a smaller mode leaves Linux more memory), and restarts the device; video stops for about a minute. **Settings → Memory → Video memory allocation** also selects the boot image; that change applies at the next restart.
+Every boot image has the same video memory: one reusable CMA region of 144 MiB. Linux uses the idle part of the region for movable memory (page cache, programs, zram) and migrates it away when video allocates; outside the region about 90 MiB stay for unmovable kernel memory. MemTotal on a NanoKVM PCIe is 235 MiB (with the fixed carveouts of earlier releases it was 194 MiB for FHD, 178 MiB for QHD and 130 MiB for UHD), and every resolution up to 3840 × 2160 fits without a restart. **Settings → Memory** shows the size of the region.
 
-| Mode | Video memory | Largest size | Linux memory |
-|---|---|---|---|
-| FHD (default) | 40 MiB | 1920 × 1080 | 194 MiB |
-| QHD | 56 MiB | 2560 × 1440, portrait | 178 MiB |
-| UHD | 104 MiB | 3840 × 2160 | 130 MiB |
-
-Linux memory is the MemTotal that the kernel reports on a NanoKVM PCIe. The video memory is a fixed carveout: Linux never uses it. Earlier releases also offered it as reusable CMA, whose idle pages Linux could borrow. That is gone: the encoders keep their buffers between viewers, so once video had been watched a CMA pool lent Linux 1–3 MiB, while every start of video had to migrate the borrowed pages back (as CMA the UHD encoder could not always get its buffers on a cold boot).
-
-The pools are sized to the largest use measured on a NanoKVM PCIe, with any codec, transport and order of clients: 39.6 MiB at 1920 × 1080 and 100 Hz with MJPEG running at the same time (39.8 MiB for the 1080 × 1920 portrait), 53.9 MiB at 2560 × 1440 and 60 Hz with MJPEG (the 1440 × 2560 portrait has no MJPEG and takes 41.3 MiB; the QHD pool has 2 MiB more, because a codec change while MJPEG runs could find a 54 MiB carveout too fragmented and fall back to 4:2:0), and 102.7 MiB at 3840 × 2160 (H.265; H.264 takes no more, and MJPEG is not available at 2160p). The encoder runs NormalP only, and the JPEG encoder's bitstream buffer is sized from the picture instead of the driver's 9 MiB default. Each mode passed H.264 and H.265 alone, MJPEG started before and after the video, MJPEG switched on and off under video and bitrate changes.
-
-The pools run near 100 % in use, so a fault does not show as use but as an allocation that fails: the encoder then refuses the frame (it no longer encodes without its buffers), the channel is recreated, the log says "video memory exhausted", and video resumes once memory is free.
-
-The 4K monitor profile, the 2160p stream limit and 3840 × 2160 capture require the UHD mode; elsewhere they are shown as unavailable with the reason. Portrait monitors and the 1440p monitor profile and stream limit need QHD or UHD. In the UHD mode zram defaults to half of the Linux memory (**Half of RAM**, also selectable in the other modes) unless a size was chosen.
-
-The device never advertises a monitor profile that its video memory cannot capture. A mode is refused while the saved monitor resolution or an enabled portrait monitor needs more memory (lower it in the video settings first), and a profile saved under a larger mode is lowered when the server starts. When a resolution switches to a larger mode, its profile is only saved: the receiver keeps the current one until the restart, and the first start in the new mode programs the saved profile. When it switches to a smaller mode, the profile fits the booted mode and is programmed at once. If selecting the new boot image fails, nothing is changed.
-
-Devices upgraded from earlier releases keep the resolution they had: the CMA (128 MiB), Fixed and QHD Fixed modes become QHD, FHD Fixed becomes FHD, and UHD stays UHD.
-
-Examples:
-
-| HDMI input | Stream limit | Encoded output |
+| Video use | Largest size | Measured |
 |---|---|---|
-| 3840×2160 | 1440p | 2560×1440 |
-| 2560×1440 | 1080p | 1920×1080 |
-| 1920×1080 | 720p | 1280×720 |
-| 1024×768 | 720p | 960×720 |
-| 800×600 | 720p | 800×600 |
+| 1920 × 1080 | 1920 × 1080, 100 Hz with MJPEG | 39.8 MiB |
+| 2560 × 1440 | 2560 × 1440, portrait | 53.9 MiB (about 59 MiB with the third VPSS buffer the region allows) |
+| 3840 × 2160 | 3840 × 2160 | 102.7 MiB |
 
-Scaling occurs in VPSS before encoding. Browser scale only changes local presentation. Stream resolution, FPS, bitrate and the active encoder codec are device-wide; transport and playback preferences belong to the viewing browser, and an administrator's transport also sets the device transport. A transport fallback that changes the shared codec requires administrator permission.
+Earlier CMA images sized the region to the video peak: once video had been watched they lent Linux 1–3 MiB, and as CMA the UHD encoder could not always get its buffers on a cold boot, because a busy page left no other range to allocate from. The 144 MiB region keeps at least 40 MiB of slack. The whole 2160p buffer set (about 105 MiB in 8 allocations) was allocated in every test: right after boot (0.25 s), with the region full of page cache (0.1 s) and with page cache plus 100 MiB of anonymous memory (2.4 s, the slowest buffer 0.9 s). Under full load (1080p90 H.265 and 500 MB over Wi-Fi, on a test build that also ran a TPU model and the IVE at 1080p) unmovable kernel memory peaked at 31.4 MiB and at least 32 MiB stayed free outside the region; a 160 MiB region would leave about 16 MiB.
+
+The video peaks were measured on a NanoKVM PCIe, with any codec, transport and order of clients: 39.6 MiB at 1920 × 1080 and 100 Hz with MJPEG running at the same time (39.8 MiB for the 1080 × 1920 portrait), 53.9 MiB at 2560 × 1440 and 60 Hz with MJPEG (the 1440 × 2560 portrait has no MJPEG and takes 41.3 MiB), and 102.7 MiB at 3840 × 2160 (H.265; H.264 takes no more, and MJPEG is not available at 2160p). The encoder runs NormalP only, and the JPEG encoder's bitstream buffer is sized from the picture instead of the driver's 9 MiB default.
+
+A fault does not show as use but as an allocation that fails: the encoder then refuses the frame (it no longer encodes without its buffers), the channel is recreated, the log says "video memory exhausted", and video resumes once memory is free.
+
+The capability follows the booted region: a device that installed a kernel update keeps the fixed carveout of its earlier image (40, 56 or 104 MiB) until it restarts, and until then refuses what that carveout cannot capture; the capture status then asks for the restart. Earlier releases chose the carveout as a video memory mode in **Settings → Memory**; activating the kernel now removes that choice and every device boots its board's image.
+
+zram is on by default with the shared region, as it was with the UHD carveout. **Auto** is half of the memory Linux keeps while 2160p capture holds its buffers: MemTotal outside the region plus what 2160p leaves of the region, 65 MiB on a NanoKVM PCIe. Devices with their own setting in `/etc/kvm/memory.conf` keep it.
+
+The device never advertises a monitor profile that its video memory cannot capture: a profile saved for more memory is lowered when the server starts on an earlier image.
 
 ## Frame rate limits
 
@@ -89,8 +77,8 @@ MJPEG is unavailable while the HDMI input is 3840×2160, whatever the stream lim
 
 ## API
 
-- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport, the device transport (`stream.transport`) and the video memory (`videoMemoryMiB`, and `videoMemory`: the `active` and `selected` modes and every mode with its size and whether it is `installed`). Unavailable entries carry a reason: `video-memory` (3840 × 2160 outside the UHD video memory mode, or 1440p and portrait with too little video memory) or `receiver`.
-- `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`, `fitVideoMemory`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities. With `fitVideoMemory` a request that changes the monitor and needs another installed video memory mode is validated for that mode, selects it and returns `{"restart": true, "videoMemoryMode": "qhd"}`; the server then restarts the device and refuses further video changes until it does.
+- `GET /api/vm/video/capabilities` lists every monitor mode with its refresh rates, the portrait profiles with the codecs and transports they need, the stream limits, the frame-rate table, the input size and rate, the codecs per transport, the device transport (`stream.transport`) and the size of the video memory (`videoMemoryMiB`). Unavailable entries carry a reason: `video-memory` (a size the booted video memory cannot capture: an earlier image before its restart) or `receiver`.
+- `POST /api/vm/video` (administrators) applies several settings together: `type`, `quality` (MJPEG), `bitRate`, `mjpegChroma`, `height`, `fps`, `portraitResolution`, `portrait`, `monitor`, `confirmPowerCycle`. Every setting is validated before any is applied; the EDID is written at most once, last, and follows `fps`. It returns the new capabilities.
 - `GET/POST /api/vm/screen` remain for single settings.
 
 ## Advanced settings

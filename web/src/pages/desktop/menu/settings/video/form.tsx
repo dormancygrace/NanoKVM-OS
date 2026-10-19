@@ -522,6 +522,8 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                   row(
                     t('screen.frameDetect'),
                     <Switch
+                      // row() stacks controls in a flex column, which would stretch it.
+                      className="self-start"
                       aria-label={t('screen.frameDetect')}
                       checked={draft.frameDetect}
                       disabled={busy || !admin}

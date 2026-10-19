@@ -1,0 +1,34 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vi: no error print for a VI frame poll that times out
+
+CVI_VI_GetChnFrame with a short timeout is how the native library waits
+for the next captured frame when H.265 reads the capture buffer directly;
+a timeout there is a normal result. Every other VI ioctl still prints its
+failures.
+
+---
+diff --git a/modules/vi/src/vi_ioctl.c b/modules/vi/src/vi_ioctl.c
+index c08f3ce..33c83ac 100644
+--- a/modules/vi/src/vi_ioctl.c
++++ b/modules/vi/src/vi_ioctl.c
+@@ -314,7 +314,19 @@ int vi_sdk_send_pipe_raw(int fd, int pipe, VIDEO_FRAME_INFO_S *sVideoFrm)
+ 
+ int vi_sdk_get_chn_frame(int fd, int pipe, int chn, VIDEO_FRAME_INFO_S *pstFrameInfo, CVI_S32 s32MilliSec)
+ {
+-	SDK_CTRL_SET_CFG(fd, pstFrameInfo, VI_SDK_GET_CHN_FRAME, -1, pipe, chn, s32MilliSec);
++	/* SDK_CTRL_SET_CFG without its error print: a frame poll that times out
++	 * is a normal result, and capture polls for every frame. */
++	struct vi_ext_control ec1;
++
++	memset(&ec1, 0, sizeof(ec1));
++	ec1.id = VI_IOCTL_SDK_CTRL;
++	ec1.sdk_id = VI_SDK_GET_CHN_FRAME;
++	ec1.sdk_cfg.dev = -1;
++	ec1.sdk_cfg.pipe = pipe;
++	ec1.sdk_cfg.chn = chn;
++	ec1.sdk_cfg.val = s32MilliSec;
++	ec1.sdk_cfg.ptr = (void *)pstFrameInfo;
++	return ioctl(fd, VI_IOC_S_CTRL, &ec1) < 0 ? -1 : 0;
+ }
+ 
+ int vi_sdk_release_chn_frame(int fd, int pipe, int chn, VIDEO_FRAME_INFO_S *pstFrameInfo)

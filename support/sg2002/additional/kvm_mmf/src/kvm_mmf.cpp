@@ -330,6 +330,15 @@ static int _mmf_release_vi_frame(int ch)
  return CVI_SUCCESS;
 }
 
+// A lower stream rate is VPSS frame-rate control on the output
+// (mmf_vpss_set_rate); the VI delivers every frame, so such an output stays
+// on VPSS.
+static bool _vpss_thins(const VPSS_CHN_ATTR_S *attr)
+{
+	return attr->stFrameRate.s32DstFrameRate > 0
+		&& attr->stFrameRate.s32DstFrameRate < attr->stFrameRate.s32SrcFrameRate;
+}
+
 // Turn VI-direct capture on or off for one VPSS output. On: the output must be
 // NV21 at the VI size without mirror or flip (VPSS would have applied them);
 // its VPSS channel is disabled so a full queue there cannot stall the group.
@@ -347,6 +356,7 @@ static int _mmf_vi_direct_set(int ch, bool on)
 		if (!priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch] || priv.vi_chn_disabled[ch]
 			|| CVI_VPSS_GetChnAttr(0, ch, &attr) != CVI_SUCCESS
 			|| attr.enPixelFormat != PIXEL_FORMAT_NV21 || attr.bMirror || attr.bFlip
+			|| _vpss_thins(&attr)
 			|| attr.u32Width != vi.stSize.u32Width || attr.u32Height != vi.stSize.u32Height)
 			return CVI_FAILURE;
 		CVI_VPSS_DisableChn(0, ch);
@@ -408,7 +418,12 @@ static void _mmf_vi_direct_recheck(void)
 	const uint64_t now = venc_now_us();
 	if (now - last_us < 1000000) return;
 	last_us = now;
-	const bool want = _vi_direct_supported();
+	bool want = _vi_direct_supported();
+	for (int ch = 0; want && ch < MMF_VI_MAX_CHN; ++ch) {
+		VPSS_CHN_ATTR_S attr;
+		if (vi_direct[ch] && CVI_VPSS_GetChnAttr(0, ch, &attr) == CVI_SUCCESS && _vpss_thins(&attr))
+			want = false; // a lower stream rate was set meanwhile
+	}
 	if (!want && vi_direct_venc >= 0) {
 		_mmf_vi_direct_off_all();
 		return;
@@ -2148,6 +2163,14 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 	if (vi_direct[vi_ch] && !vi_frame_from_vi[vi_ch] && info->type == 1) {
 		// The VPSS frame leased before VI-direct started. The encoder keeps the
 		// input format of its first frame, so give it the VI frame instead.
+		const int released = _mmf_release_vi_frame(vi_ch);
+		if (released != CVI_SUCCESS) return released;
+		int len = 0, w = 0, h = 0, format = 0;
+		if (_mmf_acquire_vi_frame(vi_ch, &len, &w, &h, &format, 200) != 0) return -1;
+		priv.vi_frame_deferred[vi_ch] = true;
+	} else if (vi_frame_from_vi[vi_ch] && (!vi_direct[vi_ch] || info->type != 1)) {
+		// The reverse: a VI frame leased before VI-direct ended, or for an
+		// encoder without packed input. Take the VPSS frame instead.
 		const int released = _mmf_release_vi_frame(vi_ch);
 		if (released != CVI_SUCCESS) return released;
 		int len = 0, w = 0, h = 0, format = 0;

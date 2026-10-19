@@ -24,6 +24,7 @@
 #include "cvi_isp.h"
 #include "cvi_sns_ctrl.h"
 #include "cvi_sys.h"
+#include <linux/vpss_uapi.h>
 #include "sample_comm.h"
 #include "kvm_mmf.hpp"
 #include "internal/frame_buffer.hpp"
@@ -679,6 +680,63 @@ int mmf_get_vi_unused_channel(void) {
 	return _vi_get_unused_ch();
 }
 
+/*
+ * Colour. The HDMI receivers send limited-range BT.709 YCbCr. VPSS converts
+ * its input to RGB with the group matrix and every YUV channel back with the
+ * channel's: by default full-range BT.601 both ways, so YUV passed through
+ * unchanged, but JPEG, which decoders read as full-range BT.601 (JFIF), came
+ * out pale: black at 16, white at 235. With the receiver's matrix at the
+ * input the group works in true RGB; the video channels convert back to
+ * limited-range BT.709 (VIDEO_FORMAT_LINEAR_BT709, osdrv patch 0010) and
+ * NV16, which only JPEG takes, to JFIF. A kernel without that patch keeps
+ * the default matrices.
+ */
+extern "C" CVI_S32 vpss_set_grp_csc(CVI_S32 fd, const struct vpss_grp_csc_cfg *cfg);
+static bool _mmf_vpss_true_rgb = true;
+
+static CVI_S32 _mmf_vpss_set_source_colour(VPSS_GRP grp, bool bt709)
+{
+	// 10-bit fractions, bit 13 the sign. BT.709 limited: 1.1644 (Y - 16)
+	// + 1.7927 (Cr - 128); - 0.2132 (Cb - 128) - 0.5329 (Cr - 128);
+	// + 2.1124 (Cb - 128). The default, full-range BT.601, is the matrix
+	// the kernel sets when it creates the group.
+	const uint16_t neg = 1 << 13;
+	const uint16_t limited709[3][3] = {{1192, 0, 1836}, {1192, (uint16_t)(neg | 218), (uint16_t)(neg | 546)}, {1192, 2163, 0}};
+	const uint16_t full601[3][3] = {{1024, 0, 1436}, {1024, (uint16_t)(neg | 352), (uint16_t)(neg | 731)}, {1024, 1815, 0}};
+	struct vpss_grp_csc_cfg cfg = {};
+	cfg.VpssGrp = grp;
+	for (int i = 0; i < PROC_AMP_MAX; ++i) cfg.proc_amp[i] = 50; // neutral
+	memcpy(cfg.coef, bt709 ? limited709 : full601, sizeof(cfg.coef));
+	cfg.sub[0] = bt709 ? 16 : 0;
+	cfg.sub[1] = cfg.sub[2] = 128;
+	const CVI_S32 fd = CVI_VPSS_GetChnFd(grp, 0);
+	const CVI_S32 result = fd < 0 ? fd : vpss_set_grp_csc(fd, &cfg);
+	if (result != CVI_SUCCESS)
+		SAMPLE_PRT("VPSS group %d input colour matrix not set\n", grp);
+	return result;
+}
+
+// Whether the kernel knows VIDEO_FORMAT_LINEAR_BT709: its /proc/cvitek/vpss
+// names a channel in it "BT709" (an older one says "UNKNOWN"). Asked once,
+// after a channel has been set to it.
+static bool _mmf_vpss_bt709_supported(void)
+{
+	static int supported = -1;
+	if (supported < 0) {
+		supported = 0;
+		FILE *proc = fopen("/proc/cvitek/vpss", "r");
+		char line[256];
+		while (proc && fgets(line, sizeof(line), proc))
+			if (strstr(line, "BT709")) { supported = 1; break; }
+		if (proc) fclose(proc);
+		if (!supported) {
+			SAMPLE_PRT("kernel without BT.709 VPSS output: default colour matrices\n");
+			_mmf_vpss_true_rgb = false;
+		}
+	}
+	return supported;
+}
+
 // Keeps the aspect ratio and crops the group input to the output's ratio.
 static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width, int height, PIXEL_FORMAT_E format, int fps, int depth, bool mirror, bool flip)
 {
@@ -696,7 +754,10 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 	CVI_FLOAT corp_scale_h = (CVI_FLOAT)stGrpAttr.u32MaxH / height;
 	chn_attr.u32Width                    = width;
 	chn_attr.u32Height                   = height;
-	chn_attr.enVideoFormat               = VIDEO_FORMAT_LINEAR;
+	// Only JPEG takes NV16, and JPEG decoders read full-range BT.601
+	// (LINEAR); the video encoders keep the receiver's limited BT.709.
+	chn_attr.enVideoFormat               = format == PIXEL_FORMAT_NV16 || !_mmf_vpss_true_rgb
+		? VIDEO_FORMAT_LINEAR : VIDEO_FORMAT_LINEAR_BT709;
 	chn_attr.enPixelFormat               = format;
 	chn_attr.stFrameRate.s32SrcFrameRate = fps;
 	chn_attr.stFrameRate.s32DstFrameRate = fps;
@@ -733,6 +794,19 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("CVI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
 		return CVI_FAILURE;
+	}
+	if (chn_attr.enVideoFormat == VIDEO_FORMAT_LINEAR_BT709 && !_mmf_vpss_bt709_supported()) {
+		// A kernel without the BT.709 channel output: back to the default
+		// matrices, so the video keeps its colours.
+		s32Ret = _mmf_vpss_set_source_colour(VpssGrp, false);
+		if (s32Ret != CVI_SUCCESS)
+			return s32Ret;
+		chn_attr.enVideoFormat = VIDEO_FORMAT_LINEAR;
+		s32Ret = CVI_VPSS_SetChnAttr(VpssGrp, VpssChn, &chn_attr);
+		if (s32Ret != CVI_SUCCESS) {
+			SAMPLE_PRT("CVI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
+			return s32Ret;
+		}
 	}
 
 	s32Ret = CVI_VPSS_EnableChn(VpssGrp, VpssChn);
@@ -779,6 +853,11 @@ static CVI_S32 _mmf_vpss_init_new(VPSS_GRP VpssGrp, CVI_U32 width, CVI_U32 heigh
 		SAMPLE_PRT("CVI_VPSS_ResetGrp(grp:%d) failed with %#x!%d\n", VpssGrp, s32Ret, CVI_ERR_VPSS_ILLEGAL_PARAM);
 		CVI_VPSS_DestroyGrp(VpssGrp);
 		return CVI_FAILURE;
+	}
+	s32Ret = _mmf_vpss_set_source_colour(VpssGrp, _mmf_vpss_true_rgb);
+	if (s32Ret != CVI_SUCCESS) {
+		CVI_VPSS_DestroyGrp(VpssGrp);
+		return s32Ret;
 	}
 
 	s32Ret = CVI_VPSS_StartGrp(VpssGrp);
@@ -1104,6 +1183,16 @@ static CVI_U32 jpeg_stream_buffer(int w, int h)
 	return (bytes + 0x3ff) & ~0x3ffu; // the driver needs a multiple of 1 KiB
 }
 
+// The encoder takes Qfactor 50 as the mark of a custom quantization table
+// and refuses it (Q_TABLE_CUSTOM in cvi_venc.c): a failed frame, which the
+// MJPEG reader took for a broken 4:2:2 path and fell back to 4:2:0 until a
+// restart. The adaptive MJPEG quality passes 50 on its way down; 51 looks
+// the same.
+static int _mmf_jpg_qfactor(int quality)
+{
+	return quality == 50 ? 51 : quality;
+}
+
 static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 {
 	if (priv.enc_jpg_is_init)
@@ -1149,7 +1238,7 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 		_mmf_jpg_destroy(ch);
 		return s32Ret;
 	}
-	stJpegParam.u32Qfactor = quality;
+	stJpegParam.u32Qfactor = _mmf_jpg_qfactor(quality);
 	s32Ret = CVI_VENC_SetJpegParam(ch, &stJpegParam);
 	if (s32Ret != CVI_SUCCESS) {
 		printf("CVI_VENC_SetJpegParam failed with %#x\n", s32Ret);
@@ -1180,7 +1269,7 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 	priv.enc_jpg_frame_w = w;
 	priv.enc_jpg_frame_h = h;
 	priv.enc_jpg_frame_fmt = format;
-	priv.enc_jpg_quality = quality;
+	priv.enc_jpg_quality = _mmf_jpg_qfactor(quality);
 	priv.enc_jpg_is_init = 1;
 	priv.enc_jpg_running = 0;
 
@@ -1242,6 +1331,7 @@ static int _mmf_jpg_update_quality(int ch, int quality)
 {
     if (!priv.enc_jpg_is_init || priv.enc_jpg_running || ch < 0 || ch >= MMF_VENC_MAX_CHN
         || quality < 20 || quality > 99) return CVI_FAILURE;
+    quality = _mmf_jpg_qfactor(quality);
     if (priv.enc_jpg_quality == quality) return CVI_SUCCESS;
     VENC_JPEG_PARAM_S params{};
     int ret = CVI_VENC_GetJpegParam(ch, &params);

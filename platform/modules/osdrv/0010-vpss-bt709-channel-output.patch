@@ -1,0 +1,58 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vpss: limited-range BT.709 output for a channel
+
+The VPSS converts its input to RGB and every YUV channel back with one
+fixed matrix, full-range BT.601 (the table calls it "601 LIMIT"). A
+channel whose enVideoFormat is the new VIDEO_FORMAT_LINEAR_BT709 gets
+limited-range BT.709 instead (the table's "709 FULL" entry), so one input
+can feed a JPEG channel in JFIF and a video channel in BT.709 at once.
+/proc/cvitek/vpss names the format.
+
+---
+diff --git a/interdrv/include/common/uapi/linux/cvi_comm_video.h b/interdrv/include/common/uapi/linux/cvi_comm_video.h
+index 102dc82..4b7440f 100644
+--- a/interdrv/include/common/uapi/linux/cvi_comm_video.h
++++ b/interdrv/include/common/uapi/linux/cvi_comm_video.h
+@@ -234,6 +234,9 @@ typedef enum _PIXEL_FORMAT_E {
+ // ++++++++ If you want to change these interfaces, please contact the isp team. ++++++++
+ typedef enum _VIDEO_FORMAT_E {
+ 	VIDEO_FORMAT_LINEAR = 0,
++	/* Linear; a VPSS channel converts to limited-range BT.709 YCbCr
++	 * instead of full-range BT.601 (JFIF). */
++	VIDEO_FORMAT_LINEAR_BT709,
+ 	VIDEO_FORMAT_MAX
+ } VIDEO_FORMAT_E;
+ // -------- If you want to change these interfaces, please contact the isp team. --------
+diff --git a/interdrv/vpss/common/cvi_vip_vpss_proc.c b/interdrv/vpss/common/cvi_vip_vpss_proc.c
+index 093c64a..09cc7d5 100644
+--- a/interdrv/vpss/common/cvi_vip_vpss_proc.c
++++ b/interdrv/vpss/common/cvi_vip_vpss_proc.c
+@@ -341,7 +341,9 @@ static int vpss_ctx_proc_show(struct seq_file *m, void *v)
+ 					pVpssCtx[i]->stChnCfgs[j].stChnAttr.u32Height,
+ 					c,
+ 					(pVpssCtx[i]->stChnCfgs[j].stChnAttr.enVideoFormat
+-						== VIDEO_FORMAT_LINEAR) ? "LINEAR" : "UNKNOWN",
++						== VIDEO_FORMAT_LINEAR) ? "LINEAR" :
++					(pVpssCtx[i]->stChnCfgs[j].stChnAttr.enVideoFormat
++						== VIDEO_FORMAT_LINEAR_BT709) ? "BT709" : "UNKNOWN",
+ 					pVpssCtx[i]->stChnCfgs[j].stChnWorkStatus.PoolId,
+ 					(pVpssCtx[i]->stChnCfgs[j].VbPool == VB_INVALID_POOLID) ? " " : "*",
+ 					pVpssCtx[i]->stChnCfgs[j].stChnWorkStatus.u32SendOk,
+diff --git a/interdrv/vpss/common/vpss.c b/interdrv/vpss/common/vpss.c
+index fce78b9..d98af8e 100644
+--- a/interdrv/vpss/common/vpss.c
++++ b/interdrv/vpss/common/vpss.c
+@@ -1693,8 +1693,11 @@ static void _vpss_chn_hw_cfg_update(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, struct c
+ 			, pstHwCfg->csc_cfg.add[2]);
+ #endif
+ 
+-		// use designer provided table
+-		mtrx = sclr_get_csc_mtrx(SCL_CSC_601_LIMIT_RGB2YUV);
++		// use designer provided table. Its names swap the ranges: the
++		// "601 LIMIT" RGB2YUV entry is full-range BT.601 (JFIF), the
++		// "709 FULL" one limited-range BT.709 (16-235).
++		mtrx = sclr_get_csc_mtrx(stChnCfg->stChnAttr.enVideoFormat == VIDEO_FORMAT_LINEAR_BT709
++			? SCL_CSC_709_FULL_RGB2YUV : SCL_CSC_601_LIMIT_RGB2YUV);
+ 		for (i = 0; i < 3; i++)
+ 			pstHwCfg->csc_cfg.coef[0][i] =
+ 				(mtrx->coef[0][i] * ctx->stChnCfgs[VpssChn].YRatio) / YRATIO_SCALE;

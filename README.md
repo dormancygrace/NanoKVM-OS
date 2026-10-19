@@ -37,21 +37,21 @@ See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS
 
 ### 🎬 Video, from HD to 4K
 
-| Landscape resolution | Selectable frame-rate target |
+| Landscape resolution | Maximum monitor refresh rate |
 | --- | --- |
-| **4K / UHD — 3840 × 2160** | **Up to 30 FPS** |
-| **QHD — 2560 × 1440** | **Up to 60 FPS** |
-| **Full HD — 1920 × 1080** | **Up to 100 FPS** |
-| **HD — 1280 × 720** | **Up to 120 FPS** |
+| **4K / UHD — 3840 × 2160** | **Up to 30 Hz** |
+| **QHD — 2560 × 1440** | **Up to 60 Hz** |
+| **Full HD — 1920 × 1080** | **Up to 90 Hz** |
+| **HD — 1280 × 720** | **Up to 120 Hz** |
 
-These are targets, not guaranteed delivered rates. Available modes depend on the HDMI receiver, video-memory profile, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices.
+These are the highest advertised monitor timings on an LT6911UXC receiver, not guaranteed delivered video rates. LT6911C and LT6911D receivers offer 720p and 1080p at 60 Hz. Available modes also depend on video memory, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices. See [video modes and receiver limits](docs/VIDEO.md).
 
-- **H.264 and H.265 over Direct or WebRTC**, plus **MJPEG**. Each browser chooses its transport and player; viewers share the device’s codec, picture settings and hardware budget.
+- **H.264 and H.265 over Direct or WebRTC**, plus **MJPEG**. New browsers start with the device’s selected transport; existing browser preferences are retained. RustDesk follows the device transport. Viewers share the device’s codec, picture settings and hardware budget.
 - **Hardware video encoding**, automatic/economy/manual bitrate controls, measured bitrate, and Direct playback options for responsiveness or a smoother picture. NormalP keyframes are requested as needed, with a periodic safety interval. Bitrate is an encoder ceiling; actual traffic depends on the image and operating conditions.
 - **Adaptive MJPEG quality and JPEG colour sampling:** quality falls when all viewers lag and recovers up to your selected limit. Choose **4:2:2** (default) or **4:2:0**, with the selection saved across reboots.
-- **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Video modes apply monitor resolution and frame rate together; **Same as input** preserves the input dimensions.
+- **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Resolution and frame rate have separate controls; the monitor timing follows the stream rate where the receiver can be updated live. A resolution that needs another installed video-memory mode offers to switch it and reboot. Cube/Lite EDID changes require a physical power cycle; the interface explains when it is needed. **Same as input** preserves the input dimensions.
 - **Portrait profiles:** 720 × 1280, 1080 × 1920, 1296 × 2304 for H.264, and 1440 × 2560 for H.265, subject to the reported device and browser capabilities.
-- **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder. Direct and WebRTC record the H.264/H.265 stream into MP4 as received, without re-encoding; MJPEG records WebM. Recordings include the USB audio while it plays in the page.
+- **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder. Direct and WebRTC record the H.264/H.265 stream into MP4 as received, without re-encoding; MJPEG records WebM. Recordings include the USB audio while it plays in the page. Recording availability depends on the browser’s recording and encoded-stream APIs.
 - **Playback recovery:** Direct requests fresh keyframes after dropped frames; stalled capture has a bounded recovery path. H.264/H.265 streams carry BT.709 colour information.
 - **HDMI enable/disable and capture idle timeout**, so capture can stop when no viewer is watching.
 
@@ -91,8 +91,9 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 
 ### 🌐 Network and remote access
 
-- **Ethernet and Wi-Fi controls**, hostname, DNS, gateway, IPv6 and mDNS settings. Ethernet shows live link status and the current address; static IPv4 accepts CIDR notation and an optional gateway for direct computer connections.
-- **2.4 / 5 GHz Wi-Fi** on compatible adapters: automatic scanning across both bands, grouped network entries, signal-strength icons, hidden-network setup and a preferred band. **5 GHz is preferred by default**, with fallback to 2.4 GHz.
+- **Ethernet and Wi-Fi controls**, hostname, DNS, gateway, IPv6 and mDNS settings. Ethernet shows live link status and the current address; static IPv4 accepts CIDR notation and an optional gateway for direct computer connections. IPv6 is configurable per interface, with settings retained across reboots.
+- **2.4 / 5 GHz Wi-Fi** on compatible adapters: automatic scanning across both bands, grouped network entries, signal-strength icons, hidden-network setup and a preferred band. **5 GHz is preferred by default**, with fallback to 2.4 GHz. Connection details and a Disconnect action are available in the interface.
+- **Shared STUN/TURN settings** under Network for browser WebRTC video/audio and RustDesk: use the default or custom STUN servers, disable STUN, or configure an authenticated TURN relay.
 - **Bluetooth controller switch** on supported AIC8800 boards, off by default. Enable it under Network without coupling the Bluetooth module to Wi-Fi; this is a controller switch, not a peripheral-pairing interface.
 - A single **VPN overview** for **WireGuard, OpenVPN 2, Tailscale and NetBird**, with installation state, version and connection/profile controls. OpenVPN, Tailscale and NetBird are optional APK installations.
 - **WireGuard `.conf` profiles** with an explicit Route Allowed IPs option; **OpenVPN routed TUN `.ovpn` profiles**, including referenced certificate/key files in the same upload.
@@ -110,7 +111,7 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 | **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install, update or remove the official latest RISC-V release from Software → Add-ons. Configure the model, API key and endpoint for remote-control or general-assistant use. Its navigation entry appears only while installed. |
 | **[acme.sh](https://github.com/acmesh-official/acme.sh)** | Install on demand from Software → Add-ons, then configure HTTPS certificates in Settings → Network. Issue and renew certificates through ACME using HTTP-01 or DNS-01 with supported DNS providers; renewed certificates take effect without restarting the service. |
 
-RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [packages and corresponding sources](https://github.com/dormancygrace/NanoKVM-OS/releases?q=nanokvm-rustdesk) are published separately from the base image.
+RustDesk can forward USB audio; its integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [packages and corresponding sources](https://github.com/dormancygrace/NanoKVM-OS/releases?q=nanokvm-rustdesk) are published independently of OS releases: an installed add-on can be updated without waiting for a new NanoKVM OS version.
 
 PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM APK**. An **MCP endpoint** with enable/disable and API-key controls is also available under System for external AI clients.
 
@@ -118,12 +119,12 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 
 | Area | Controls and information |
 | --- | --- |
-| **Dashboard** | CPU load, RAM, SoC temperature, CPU frequency, storage, network and VPN status |
-| **Memory** | Fixed video-memory modes: **FHD 40 MiB** (default), **QHD 56 MiB**, **UHD 104 MiB**, changed with a reboot; ZRAM with automatic sizing and optional ZSTD recompression; SD swap; application memory-limit setting |
+| **Dashboard** | CPU load, RAM, SoC temperature, CPU frequency, storage, network, VPN and time-synchronization status |
+| **Memory** | Fixed video-memory modes: **FHD 40 MiB** (default), **QHD 56 MiB**, **UHD 104 MiB**, changed with a reboot; ZRAM with automatic sizing and optional ZSTD recompression; SD swap; a configurable Go runtime soft memory limit, defaulting to one quarter of Linux-visible RAM |
 | **CPU** | Frequency control, thermal protection and an explicit Apply at startup option; an incomplete overclocked startup triggers a 1000 MHz fallback on the next boot |
 | **Diagnostics** | Service, USB, firewall and package-operation status, plus system logs in the GUI |
 | **Terminal** | Browser shell and serial sessions, with shell command history |
-| **Scripts** | Shell and Python scripts on the device, run on demand or once at every startup; see [Scripts](docs/SCRIPTS.md) |
+| **Scripts** | Shell and Python scripts on the device, run on demand or once per boot, with startup status and bounded logs. Startup scripts survive application service restarts without running twice; Python is installed separately. See [Scripts](docs/SCRIPTS.md) |
 | **Appearance** | Menu layout/icons, colours, language, web title, bundled branding choices and custom logo/favicon uploads |
 | **Device** | OLED settings, mouse jiggler, date/time and reboot controls |
 
@@ -159,14 +160,15 @@ Already helping with an issue? Add your results there instead of opening a dupli
 
 <a id="install"></a>
 
-## 🚀 Install: Image v1.4
+## 🚀 Install the latest SD image
 
-**Image v1.4 bundles applications v3.2.0.**
+The [latest SD image page](https://dormancygrace.github.io/NanoKVM-OS/latest-image/) always points to the newest published image. An application-only release does not replace it.
 
-1. Download the [full SD image](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.2.0/NanoKVM-OS-Image-v1.4-apps-v3.2.0.img.zip) and [SHA256SUMS](https://github.com/dormancygrace/NanoKVM-OS/releases/download/v3.2.0/SHA256SUMS).
+1. Open that page and download the image ZIP and `SHA256SUMS` from the same image release.
 2. Verify the ZIP checksum, extract the `.img` and flash it to an SD card of at least **2 GB**. Flashing replaces the card's existing installation and data.
 3. Boot NanoKVM, allow automatic board selection and its restart to finish, then open `https://DEVICE-IP/`.
 4. Sign in with **admin / admin** and set a new password when prompted. For the administrator, this also sets the Linux root password used by SSH. SSH is disabled by default.
+5. Open **Settings → System → Updates** to install application and system-package updates published since the image was built.
 
 The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
 
@@ -184,7 +186,7 @@ apk upgrade
 reboot
 ```
 
-Updates retain settings, user data and independently installed packages. The thirteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. The kernel release remains **7.2.10-nanokvm-os-r5**; the updated boot images correct SD/SDIO clocks and need a reboot. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The thirteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. Kernel and bootloader updates need a reboot to take effect. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
@@ -197,14 +199,14 @@ The bootloader package updates fip.bin on existing installations; see [bootloade
 
 ## 💻 Build from the public repository
 
-The repository contains the application, browser UI, native integration, kernel/driver patches and complete image build. It fetches upstream sources at the revisions and hashes recorded in [`platform/sources.lock`](platform/sources.lock). Two builds of the same tree give identical outputs, and CI publishes their hashes for every build of main. Separate private SDK checkouts are not required.
+The repository contains the application, browser UI, native integration, kernel/driver patches and complete image build. It fetches upstream sources at the revisions and hashes recorded in [`platform/sources.lock`](platform/sources.lock). CI publishes output hashes and compares changed components against the main build. Reproducing outputs requires matching build inputs; moving Alpine repositories and release-archive timestamps can still differ between builds. Separate private SDK checkouts are not required.
 
 For a local test build, after installing the [host prerequisites](platform/README.md#build):
 
 ```sh
 git clone https://github.com/dormancygrace/NanoKVM-OS.git
 cd NanoKVM-OS
-git checkout v3.2.0
+git checkout v3.3.3
 platform/build.sh -d
 ```
 
@@ -240,8 +242,9 @@ Testing, bug reports, translations and code contributions are just as valuable. 
 
 ### 📦 Donate hardware
 
-Help bring NanoKVM OS to more devices! I’m looking for donated hardware to explore new ports and keep them tested:
+Help improve NanoKVM OS on supported devices and explore new ports! I’m looking for donated hardware:
 
+- **Sipeed NanoKVM Cube** — already supported; needed for hands-on development and regression testing.
 - **Sipeed NanoKVM-GO**
 - **Sipeed NanoKVM Pro (Desk WiFi)**
 - **Sipeed NanoKVM Pro (ATX+WiFi)**
@@ -249,7 +252,7 @@ Help bring NanoKVM OS to more devices! I’m looking for donated hardware to exp
 
 Working used devices and manufacturer development samples are welcome. If you have one to contribute, please [email me](mailto:dormancygrace@gmail.com) with the model and hardware revision before shipping so we can arrange delivery to Israel.
 
-These are targets for exploration, not a list of currently supported devices. A donated device helps make development possible, but a working port and its timeline depend on the hardware, documentation and available source code. Progress will be shared openly, and hardware contributors will be credited unless they prefer to remain anonymous.
+Cube is part of the [supported SG2002 family](#compatibility). The GO, Pro and USB models above are targets for exploration and cannot use the current image. A donated device helps make development possible, but a new port and its timeline depend on the hardware, documentation and available source code. Progress will be shared openly, and hardware contributors will be credited unless they prefer to remain anonymous.
 
 ## ❤️ Credits and licenses
 

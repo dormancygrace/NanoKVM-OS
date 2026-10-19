@@ -349,6 +349,10 @@ static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
         const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
             : qhd_ion_mib;
         if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return false;
+        // Legacy CMA pools need the same slack as the server capability gate.
+        if (required_mib == uhd_ion_mib && bytes < 144U * 1024U * 1024U
+                && access("/proc/device-tree/reserved-memory/ion/reusable", F_OK) == 0)
+            return false;
     }
     return true;
 }

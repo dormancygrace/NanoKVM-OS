@@ -62,7 +62,6 @@ H.265 requires a browser and platform with a compatible decoder. Direct playback
 - A movable, collapsible toolbar and responsive settings with reachable **Apply** controls.
 - Relative mouse and absolute pointer modes, touchpad gestures, scrolling and IME input. **Hold one finger and tap with another to right-click.**
 - **One-click keyboard sequences:** Ctrl+Alt+Del, Magic SysRq and REISUB, with timing handled by the device.
-- An optional **Windows absolute-pointer profile** for USB/EDID display association on multi-monitor hosts.
 - Multiple viewers with server-enforced input ownership. Additional sessions start with control locked; control can be transferred explicitly, and the sole remaining viewer receives it automatically when the owner disconnects.
 - Controls follow the USB composition: disabled input functions are hidden, and the control lock is shown only when USB input is enabled.
 - User accounts with administrator/user roles, administrator-only shared video settings and a **Logout** action.

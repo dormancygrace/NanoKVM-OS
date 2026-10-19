@@ -83,10 +83,10 @@ export const Mouse = ({ hidden = false }: { hidden?: boolean }) => {
       <Direction />
       <Speed />
       {((isAdmin &&
-        (usbInput.relative || (mode === 'absolute' && usbInput.pointerProfile !== 'windows'))) ||
+        (usbInput.relative || mode === 'absolute')) ||
         (mode === 'relative' && touchpad)) && <Divider style={{ margin: '10px 0' }} />}
 
-      {isAdmin && mode === 'absolute' && usbInput.pointerProfile !== 'windows' && (
+      {isAdmin && mode === 'absolute' && (
         <OriginalResolution />
       )}
       {isAdmin && usbInput.relative && <ResetHid />}

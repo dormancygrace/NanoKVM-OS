@@ -1,6 +1,8 @@
 package hid
 
-// A Windows pen is display-associated; the auxiliary relative collection keeps
+// Compatibility for a gadget configured before the profile was removed.
+// The update restarts the server, but USB is kept alive until reboot/rebind.
+// Never enable the retired profile here. A Windows pen is display-associated; the auxiliary relative collection keeps
 // wheel and middle/back/forward buttons without sending global absolute XY.
 func windowsPointerReports(data []byte) [][]byte {
 	if len(data) != 7 {

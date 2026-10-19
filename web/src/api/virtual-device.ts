@@ -18,7 +18,6 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
     serial,
     audio,
     mode,
-    pointerProfile,
     identity,
     userDisk
   } = composition;
@@ -34,7 +33,6 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
       serial,
       audio,
       mode,
-      pointerProfile,
       revision,
       // omitted keeps the identity and the user disk in place on the server
       ...(identity ? { identity } : {}),

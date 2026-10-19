@@ -1249,7 +1249,7 @@
           "id": "Identifikátor jsou čtyři šestnáctkové číslice jako 0x1234, ne 0x0000."
         },
         "description": "Co počítač uvidí v popisovači zařízení: identifikátory dodavatele a produktu, názvy výrobce a produktu. Pro případ hostitelů, na kterých zásady ohledně USB nebo zabezpečení koncového bodu mají námitky vůči „NanoKVM“.",
-        "idWarning": "Identifikátory dodavatele nebo produktu jiné, než tovární si vymyslete sami. Nastavování linuxových s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo jmenuje identifikátory); Windows profil ukazatele to neovlivní."
+        "idWarning": "Identifikátory dodavatele nebo produktu jiné, než tovární si vymyslete sami. Nastavování linuxových s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo jmenuje identifikátory)."
       },
       "off": "Vypnuto",
       "apply": "Použít",
@@ -1313,7 +1313,6 @@
         "reconnect": "USB zařízení se připojují odznovu, takže počítač na moment tratí (a opět získá) jednotky z NanoKVM.",
         "notice": "Připojení nebo odpojení obrazu CD/disku odpojí a znovu připojí i USB zařízení; počítač poté uživatelský disk znovu uvidí s tím, co bylo zapsáno. Celý obraz je při vytváření umístěn na SD kartě, takže větší velikosti mohou chvíli trvat."
       },
-      "pointerProfileDefault": "Výchozí",
       "presets": {
         "kvm": {
           "title": "KVM",
@@ -1422,7 +1421,6 @@
         "applyHint": "Příkaz pouze hlásí. Přidejte „použít“ pro dělání změn a „zpět“ pro jejich odebrání.",
         "title": "Linuxová konzole bez monitoru"
       },
-      "pointerProfile": "Profil absolutně polohovaného ukazatele",
       "reconnectNotice": "Uplatnění krátce odpojí a opět připojí USB zařízení.",
       "budgetExceeded": "Tento výběr překračuje limit počtu USB koncových bodů.",
       "customDescription": "Níže vyberte USB funkce, které potřebujete.",
@@ -1436,8 +1434,7 @@
         "title": "Kompatibilní profily s pouze HID (USB 1.1)",
         "description": "Starší popisovače pro firmware a hostitele, kteří odmítají složené zařízení: pouze klávesnice a ukazatele, bez sítě, disku, pomocného pro sériovou konzoli nebo zvuk."
       },
-      "updateFailed": "Nepodařilo se zaktualizovat USB složení.",
-      "pointerProfileHelp": "Windows naváže ukazatel na zachycovaný monitor (Windows 10 1903 a novější). Uplatnění odpojí a znovu připojí USB a HDMI."
+      "updateFailed": "Nepodařilo se zaktualizovat USB složení."
     },
     "vpn": {
       "title": "VPN",

@@ -1205,9 +1205,6 @@
       },
       "confirmDisable": "Turn off USB?",
       "confirmDisableDescription": "The computer loses the NanoKVM keyboard, mouse, storage, audio and USB network until USB is turned on again here. Internet sharing over USB stops too. RustDesk loses keyboard and mouse control.",
-      "pointerProfile": "Absolute pointer profile",
-      "pointerProfileHelp": "Windows binds the pointer to the captured monitor (Windows 10 1903 or newer). Applying reconnects USB and HDMI.",
-      "pointerProfileDefault": "Default",
       "off": "Off",
       "title": "USB composition",
       "enabled": "USB devices",
@@ -1245,7 +1242,7 @@
           "id": "IDs are four hexadecimal digits like 0x1234, not 0x0000.",
           "string": "Names are 1 to 126 printable ASCII characters without leading or trailing spaces."
         },
-        "idWarning": "A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs); the Windows pointer profile is unaffected."
+        "idWarning": "A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs)."
       },
       "userDisk": {
         "title": "User disk",

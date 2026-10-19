@@ -122,6 +122,9 @@ func initialize(stopMemory context.CancelFunc) {
 			logrus.Info("lowered the saved monitor profile to the video memory of this boot")
 			restartAfterMonitorFit()
 		}
+		if err := common.RetireWindowsPointer(); err != nil {
+			logrus.Errorf("failed to retire the Windows pointer profile: %v", err)
+		}
 		// After a fit the profile is recorded and this does nothing.
 		if path, err := common.ProgramMonitorProfileOnFirstStart(); err != nil {
 			logrus.Errorf("failed to program the monitor profile on the first start: %v", err)

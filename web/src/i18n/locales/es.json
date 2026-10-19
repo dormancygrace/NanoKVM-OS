@@ -1205,9 +1205,6 @@
       },
       "confirmDisable": "¿Desactivar el USB?",
       "confirmDisableDescription": "El equipo pierde el teclado, el ratón, el almacenamiento, el audio y la red USB del NanoKVM hasta que se vuelva a activar el USB aquí. El uso compartido de Internet por USB también se detiene. RustDesk pierde el control del teclado y el ratón.",
-      "pointerProfile": "Perfil del puntero absoluto",
-      "pointerProfileHelp": "Windows vincula el puntero al monitor capturado (Windows 10 1903 o posterior). Al aplicarlo se reconectan el USB y el HDMI.",
-      "pointerProfileDefault": "Predeterminado",
       "off": "Desactivado",
       "title": "Composición USB",
       "enabled": "Dispositivos USB",
@@ -1245,7 +1242,7 @@
           "id": "Los ID son cuatro dígitos hexadecimales como 0x1234, no 0x0000.",
           "string": "Los nombres tienen de 1 a 126 caracteres ASCII imprimibles, sin espacios al principio ni al final."
         },
-        "idWarning": "Un ID de proveedor o de producto distinto del de fábrica es responsabilidad tuya. Los hosts Linux configurados con el asistente de consola serie dejan de reconocer el NanoKVM (su regla udev indica los ID); el perfil de puntero de Windows no se ve afectado."
+        "idWarning": "Un ID de proveedor o de producto distinto del de fábrica es responsabilidad tuya. Los hosts Linux configurados con el asistente de consola serie dejan de reconocer el NanoKVM (su regla udev indica los ID)."
       },
       "userDisk": {
         "title": "Disco de usuario",

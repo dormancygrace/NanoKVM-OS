@@ -23,6 +23,7 @@ var screenFileMap = map[string]string{
 	"mjpeg_chroma": "/kvmapp/kvm/mjpeg_chroma",
 	"quality":      "/kvmapp/kvm/qlty",
 	"resolution":   "/kvmapp/kvm/res",
+	"hevc_direct":  common.HevcDirectSettingFile,
 }
 
 var screenMonitorRequiresPowerCycle = common.MonitorRequiresPowerCycle
@@ -63,7 +64,8 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"measuredFps":       common.ReadVideoValue("/run/nanokvm/now_fps"),
 		"measuredKbps":      common.ReadVideoValue("/run/nanokvm/now_kbps"),
 		"frameDetect":       common.FrameDetectEnabled(),
-		"effectiveFps":      common.GetCaptureScreen().FPS})
+		"hevcDirect":        common.HevcDirect(), "hevcDirectSupported": common.HevcDirectSupported(),
+		"effectiveFps": common.GetCaptureScreen().FPS})
 }
 
 func (s *Service) SetScreen(c *gin.Context) {
@@ -155,6 +157,10 @@ func validateScreenSettingFor(req proto.SetScreenReq, batch *VideoSettingsReq, p
 	case "mjpeg_chroma":
 		if req.Value != 420 && req.Value != 422 {
 			return settingFailure(-1, "MJPEG chroma must be 420 or 422")
+		}
+	case "hevc_direct":
+		if req.Value != 0 && req.Value != 1 {
+			return settingFailure(-1, "hevc_direct must be 0 or 1")
 		}
 	case "monitor_power_cycle_ack":
 		if !req.ConfirmPowerCycle {
@@ -251,6 +257,12 @@ func applyScreenSetting(req proto.SetScreenReq) (gin.H, *settingError) {
 			return nil, settingFailure(-4, err.Error())
 		}
 		return nil, nil
+	case "hevc_direct":
+		// libkvm follows the file within a second; nothing else holds it.
+		if err = writeScreen(req.Type, strconv.Itoa(req.Value)); err != nil {
+			return nil, settingFailure(-2, "update screen failed")
+		}
+		return gin.H{"hevcDirect": common.HevcDirect()}, nil
 	case "resolution", "fps", "quality":
 		err = writeScreen(req.Type, strconv.Itoa(req.Value))
 	case "type":

@@ -94,9 +94,11 @@ def check_no_gop_setting():
 check_read_img_gates()
 check_no_gop_setting()
 
-for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park']:
+for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
+    if case == 'hevc-direct':
+        sources = [repo / 'firmware/probes/hevc-direct-contract.cpp']
     if case == 'teardown':
         sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']
     if case == 'pacing':
@@ -110,8 +112,12 @@ for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing',
         sources = [repo / 'support/sg2002/additional/kvm/tests/geometry_gate_test.cpp']
     elif case == 'park':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
-    extra = ['-Wl,--wrap=fopen'] if case == 'colour' else []
+    extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct') else []
     subprocess.run(flags + extra + [str(path) for path in sources] + ['-o', str(binary)], check=True)
+    if case == 'hevc-direct':
+        for mode in ['switch', 'stride', 'invalid']:
+            subprocess.run([str(binary), mode], check=True)
+        continue
     if case == 'colour':
         for mode in ['new', 'old', 'input-failure', 'restore-failure', 'attr-failure']:
             subprocess.run([str(binary), mode], check=True)

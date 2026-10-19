@@ -265,6 +265,36 @@ static void venc_stats_frame(const VENC_STREAM_S *stream, const VENC_CHN_STATUS_
 }
 
 /*
+ * H.265 straight from the capture buffer. The VI writes the HDMI receiver's
+ * packed UYVY 4:2:2 frame to DDR, and VPSS only converts it to NV21 for the
+ * encoder. The H.265 core reads packed 4:2:2 itself (cvi_vc_driver with
+ * nk_packed_src), so a video channel at the input size can take its frames
+ * from the VI and skip VPSS: 6 ms less per 1080p frame, 25 ms at 2160p.
+ * Set while an H.265 encoder exists; "0" in /etc/kvm/hevc_vi_direct turns
+ * it off. Callers still see NV21: the frame is UYVY only inside
+ * VIDEO_FRAME_INFO_S, and CPU mappings of it are refused.
+ */
+static bool vi_direct[MMF_VI_MAX_CHN];        // channel acquires from the VI
+static bool vi_frame_from_vi[MMF_VI_MAX_CHN]; // current lease is a VI frame
+static int vi_direct_venc = -1;               // the H.265 encoder that set it
+
+static bool _vi_direct_supported(void)
+{
+	FILE *setting = fopen("/etc/kvm/hevc_vi_direct", "r");
+	if (setting) {
+		const bool off = fgetc(setting) == '0';
+		fclose(setting);
+		if (off) return false;
+	}
+	FILE *f = fopen("/sys/module/cvi_vc_driver/parameters/nk_packed_src", "r");
+	if (!f) return false;
+	int value = 0;
+	const bool ok = fscanf(f, "%d", &value) == 1 && value == 1;
+	fclose(f);
+	return ok;
+}
+
+/*
  * Keep the former zero-copy hook's frame lifetime in the MMF implementation.
  * A frame released by the image path stays leased until VENC has consumed it.
  */
@@ -285,16 +315,135 @@ static int _mmf_release_vi_frame(int ch)
   frame->stVFrame.pu8VirAddr[0] = NULL;
   priv.vi_frame_mapped[ch] = false;
  }
- const int released = CVI_VPSS_ReleaseChnFrame(0, ch, frame);
+ const int released = vi_frame_from_vi[ch] ? CVI_VI_ReleaseChnFrame(0, 0, frame)
+  : CVI_VPSS_ReleaseChnFrame(0, ch, frame);
  if (released != CVI_SUCCESS) {
-  SAMPLE_PRT("CVI_VPSS_ReleaseChnFrame failed for ch %d: %#x\n", ch, released);
+  SAMPLE_PRT("%s failed for ch %d: %#x\n", vi_frame_from_vi[ch]
+   ? "CVI_VI_ReleaseChnFrame" : "CVI_VPSS_ReleaseChnFrame", ch, released);
   return released;
  }
  memset(frame, 0, sizeof(*frame));
+ vi_frame_from_vi[ch] = false;
  priv.vi_frame_valid[ch] = false;
  priv.vi_frame_mapped[ch] = false;
  priv.vi_frame_deferred[ch] = false;
  return CVI_SUCCESS;
+}
+
+// A lower stream rate is VPSS frame-rate control on the output
+// (mmf_vpss_set_rate); the VI delivers every frame, so such an output stays
+// on VPSS.
+static bool _vpss_thins(const VPSS_CHN_ATTR_S *attr)
+{
+	return attr->stFrameRate.s32DstFrameRate > 0
+		&& attr->stFrameRate.s32DstFrameRate < attr->stFrameRate.s32SrcFrameRate;
+}
+
+// Turn VI-direct capture on or off for one VPSS output. On: the output must be
+// NV21 at the VI size without mirror or flip (VPSS would have applied them);
+// its VPSS channel is disabled so a full queue there cannot stall the group.
+// The VI channel attributes stay untouched: CVI_VI_SetChnAttr on a running VI
+// bound to VPSS stops its frames for good (stand, 2026-10-20). With depth 0,
+// CVI_VI_GetChnFrame still returns the next finished frame (base snap job).
+static int _mmf_vi_direct_set(int ch, bool on)
+{
+	if (ch < 0 || ch >= MMF_VI_MAX_CHN || vi_direct[ch] == on) return CVI_SUCCESS;
+	VI_CHN_ATTR_S vi = {};
+	if (on) {
+		if (CVI_VI_GetChnAttr(0, 0, &vi) != CVI_SUCCESS) return CVI_FAILURE;
+		VPSS_CHN_ATTR_S attr;
+		// A VPSS frame leased now stays tagged as such and goes back to VPSS.
+		if (!priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch] || priv.vi_chn_disabled[ch]
+			|| CVI_VPSS_GetChnAttr(0, ch, &attr) != CVI_SUCCESS
+			|| attr.enPixelFormat != PIXEL_FORMAT_NV21 || attr.bMirror || attr.bFlip
+			|| _vpss_thins(&attr)
+			|| attr.u32Width != vi.stSize.u32Width || attr.u32Height != vi.stSize.u32Height)
+			return CVI_FAILURE;
+		const int result = CVI_VPSS_DisableChn(0, ch);
+		if (result != CVI_SUCCESS) return result;
+	} else {
+		// A VI lease still held by an encoder is released by its source tag.
+		if (priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch] && !priv.vi_chn_disabled[ch]) {
+			const int result = CVI_VPSS_EnableChn(0, ch);
+			if (result != CVI_SUCCESS) return result;
+		}
+	}
+	vi_direct[ch] = on;
+	fprintf(stderr, "[kvm_mmf] H.265 VI-direct capture %s on output %d (%ux%u)\n",
+		on ? "enabled" : "disabled", ch, vi.stSize.u32Width, vi.stSize.u32Height);
+	fflush(stderr);
+	return CVI_SUCCESS;
+}
+
+// The last time a JPEG or CPU reader used an output. Above 1920 pixels MJPEG
+// and video share one output, and those readers need its NV21 frames; the
+// output stays on VPSS until they have been gone for 2 s.
+static uint64_t vi_shared_reader_us[MMF_VI_MAX_CHN];
+
+static int _mmf_vi_direct_yield(int ch)
+{
+	vi_shared_reader_us[ch] = venc_now_us();
+	if (vi_direct[ch]) {
+		const int result = _mmf_vi_direct_set(ch, false);
+		if (result != CVI_SUCCESS) return result;
+		vi_direct_venc = -1;
+	}
+	return CVI_SUCCESS;
+}
+
+static void _mmf_vi_direct_for_venc(int venc, const mmf_venc_cfg_t *cfg)
+{
+	if (cfg->type != 1 || !_vi_direct_supported()) return;
+	const uint64_t now = venc_now_us();
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
+		if (!priv.vi_chn_is_inited[ch]) continue;
+		if (vi_shared_reader_us[ch] && now - vi_shared_reader_us[ch] < 2000000) continue;
+		VPSS_CHN_ATTR_S attr;
+		if (CVI_VPSS_GetChnAttr(0, ch, &attr) != CVI_SUCCESS
+			|| (int)attr.u32Width != cfg->w || (int)attr.u32Height != cfg->h) continue;
+		if (_mmf_vi_direct_set(ch, true) == CVI_SUCCESS && vi_direct[ch]) {
+			vi_direct_venc = venc;
+			return;
+		}
+	}
+}
+
+static void _mmf_vi_direct_off_all(void)
+{
+	bool active = false;
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
+		_mmf_vi_direct_set(ch, false);
+		active |= vi_direct[ch];
+	}
+	if (!active) vi_direct_venc = -1;
+}
+
+// Follow a changed setting at most once a second. An encoder keeps the input
+// format of its first frame, so its next frame fails and the caller creates
+// a new encoder, which starts with the other path (one key frame).
+static void _mmf_vi_direct_recheck(void)
+{
+	static uint64_t last_us;
+	const uint64_t now = venc_now_us();
+	if (now - last_us < 1000000) return;
+	last_us = now;
+	bool want = _vi_direct_supported();
+	for (int ch = 0; want && ch < MMF_VI_MAX_CHN; ++ch) {
+		VPSS_CHN_ATTR_S attr;
+		if (vi_direct[ch] && CVI_VPSS_GetChnAttr(0, ch, &attr) == CVI_SUCCESS && _vpss_thins(&attr))
+			want = false; // a lower stream rate was set meanwhile
+	}
+	if (!want && vi_direct_venc >= 0) {
+		_mmf_vi_direct_off_all();
+		return;
+	}
+	if (!want || vi_direct_venc >= 0) return;
+	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
+		if (priv.venc[ch].is_inited && priv.venc[ch].type == 1) {
+			_mmf_vi_direct_for_venc(ch, &priv.venc[ch].cfg);
+			return;
+		}
+	}
 }
 
 static int _mmf_release_all_vi_frames(void)
@@ -330,7 +479,41 @@ static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
 	_mmf_release_vi_frame(ch);
 	if (priv.vi_frame_valid[ch]) return CVI_ERR_VENC_BUSY;
+	_mmf_vi_direct_recheck();
 	memset(frame, 0, sizeof(*frame));
+	if (vi_direct[ch]) {
+		if (CVI_VI_GetChnFrame(0, 0, frame, timeout_ms) != CVI_SUCCESS) return -1;
+		// The yuv-bypass buffer holds packed UYVY but is labelled NV21.
+		VIDEO_FRAME_S *v = &frame->stVFrame;
+		v->enPixelFormat = PIXEL_FORMAT_UYVY;
+		// The vendor metadata (pitch/length too) describes NV21, not the
+		// packed DMA payload. Match ispblk_dma_yuv_bypass_config's
+		// DEFAULT_ALIGN pitch rather than treating each row as width*2.
+		priv.vi_frame_valid[ch] = true;
+		vi_frame_from_vi[ch] = true;
+		const uint64_t stride = ((uint64_t)v->u32Width * 2 + DEFAULT_ALIGN - 1)
+			/ DEFAULT_ALIGN * DEFAULT_ALIGN;
+		const uint64_t bytes = stride * v->u32Height;
+		if (!v->u64PhyAddr[0] || !v->u32Width || !v->u32Height || bytes > INT32_MAX) {
+			// Keep a failed release owned, so the next read retries it.
+			_mmf_release_vi_frame(ch);
+			return -1;
+		}
+		v->u32Stride[0] = (CVI_U32)stride;
+		v->u32Stride[1] = v->u32Stride[2] = 0;
+		v->u64PhyAddr[1] = v->u64PhyAddr[2] = 0;
+		v->u32Length[0] = v->u32Stride[0] * v->u32Height;
+		v->u32Length[1] = v->u32Length[2] = 0;
+		priv.vi_frame_valid[ch] = true;
+		priv.vi_frame_mapped[ch] = false;
+		priv.vi_frame_deferred[ch] = false;
+		vi_frame_from_vi[ch] = true;
+		*len = (int)v->u32Length[0];
+		*width = v->u32Width;
+		*height = v->u32Height;
+		*format = PIXEL_FORMAT_NV21; // what the channel delivers to its callers
+		return 0;
+	}
 	if (CVI_VPSS_GetChnFrame(0, ch, frame, timeout_ms) != CVI_SUCCESS) {
 		return -1;
 	}
@@ -360,6 +543,8 @@ static void *_mmf_map_vi_frame(int ch)
 		return NULL;
 	}
 
+	// A VI-direct frame is packed UYVY; CPU paths expect NV21.
+	if (vi_frame_from_vi[ch]) return NULL;
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
 	if (priv.vi_frame_mapped[ch]) {
 		return frame->stVFrame.pu8VirAddr[0];
@@ -1027,6 +1212,10 @@ int mmf_del_vi_channel(int ch) {
  priv.vi_chn_stopping[ch] = true;
  int result = _mmf_release_vi_frame(ch);
  if (result != CVI_SUCCESS) return result;
+ if (vi_direct[ch]) {
+  vi_direct[ch] = false; // the VPSS channel is torn down below anyway
+  vi_direct_venc = -1;
+ }
  // VI has one source; it stays bound while another VPSS output is open.
  bool another_output = false;
  for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
@@ -1080,6 +1269,7 @@ int mmf_reset_vi_channel(int ch, int width, int height, int format)
 int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
 {
     if (!view || ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]) return -1;
+    if (_mmf_vi_direct_yield(ch) != CVI_SUCCESS) return -1; // CPU readers need NV21
     int len = 0, width = 0, height = 0, format = 0;
     if (_mmf_acquire_vi_frame(ch, &len, &width, &height, &format) != 0) return -1;
     const VIDEO_FRAME_S *frame = &priv.vi_frame[ch].stVFrame;
@@ -1109,6 +1299,7 @@ int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
 
 int mmf_vi_chn_set_enabled(int ch, int enable) {
     if (!mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
+    if (vi_direct[ch]) return CVI_SUCCESS; // its VPSS channel stays off meanwhile
     return enable ? CVI_VPSS_EnableChn(0, ch) : CVI_VPSS_DisableChn(0, ch);
 }
 
@@ -1118,6 +1309,14 @@ int mmf_vi_drop_pending(int ch) {
     // failure: the leasing consumer is mid-frame and releases it itself.
     if (priv.vi_frame_valid[ch]) return MMF_VI_OUTPUT_LEASED;
     VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
+    if (vi_direct[ch]) {
+        if (CVI_VI_GetChnFrame(0, 0, frame, 0) != CVI_SUCCESS) return CVI_SUCCESS;
+        priv.vi_frame_valid[ch] = true;
+        priv.vi_frame_mapped[ch] = false;
+        priv.vi_frame_deferred[ch] = false;
+        vi_frame_from_vi[ch] = true;
+        return _mmf_release_vi_frame(ch);
+    }
     const int result = CVI_VPSS_GetChnFrame(0, ch, frame, 0);
     if (result == CVI_ERR_VPSS_BUF_EMPTY) return CVI_SUCCESS;
     if (result != CVI_SUCCESS) return result;
@@ -1451,6 +1650,9 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 		return -1;
 	}
     if (priv.enc_jpg_running) return CVI_FAILURE;
+	// A JPEG reader on a VI-direct output: hand it back to VPSS. This frame
+	// is packed UYVY and fails below; the next one is NV21 again.
+	if (_mmf_vi_direct_yield(vi_ch) != CVI_SUCCESS) return -1;
 
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[vi_ch];
 	int width = frame->stVFrame.u32Width;
@@ -1773,6 +1975,7 @@ int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg) {
 		stVencChnAttr.stVencAttr.u32BufSize >> 10,
 		cfg->intput_fps, cfg->output_fps);
 	fflush(stderr);
+	_mmf_vi_direct_for_venc(ch, cfg);
 
 	return 0;
 }
@@ -1877,6 +2080,7 @@ int mmf_del_venc_channel(int ch) {
 	memset(info, 0, sizeof(venc_info_t));
 	priv.venc_stream_acquired[ch] = false;
 	priv.venc_input_vi_ch[ch] = -1;
+	if (vi_direct_venc == ch) _mmf_vi_direct_off_all();
 	fprintf(stderr, "[kvm_mmf] VENC channel %d destroyed\n", ch);
 	fflush(stderr);
 
@@ -1973,9 +2177,28 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 
 	venc_info_t *info = (venc_info_t *)&priv.venc[ch];
     if (!info->is_inited || info->is_running) return CVI_FAILURE;
+	if (vi_direct[vi_ch] && !vi_frame_from_vi[vi_ch] && info->type == 1) {
+		// The VPSS frame leased before VI-direct started. The encoder keeps the
+		// input format of its first frame, so give it the VI frame instead.
+		const int released = _mmf_release_vi_frame(vi_ch);
+		if (released != CVI_SUCCESS) return released;
+		int len = 0, w = 0, h = 0, format = 0;
+		if (_mmf_acquire_vi_frame(vi_ch, &len, &w, &h, &format, 200) != 0) return -1;
+		priv.vi_frame_deferred[vi_ch] = true;
+	} else if (vi_frame_from_vi[vi_ch] && (!vi_direct[vi_ch] || info->type != 1)) {
+		// The reverse: a VI frame leased before VI-direct ended, or for an
+		// encoder without packed input. Take the VPSS frame instead.
+		const int released = _mmf_release_vi_frame(vi_ch);
+		if (released != CVI_SUCCESS) return released;
+		int len = 0, w = 0, h = 0, format = 0;
+		if (_mmf_acquire_vi_frame(vi_ch, &len, &w, &h, &format, 200) != 0) return -1;
+		priv.vi_frame_deferred[vi_ch] = true;
+	}
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[vi_ch];
+	// A VI-direct frame (packed UYVY) goes to H.265 only; H.264 has no packed input.
+	const bool packed = frame->stVFrame.enPixelFormat == PIXEL_FORMAT_UYVY && info->type == 1;
 	if ((info->type != 1 && info->type != 2) ||
-		frame->stVFrame.enPixelFormat != PIXEL_FORMAT_NV21) {
+		(frame->stVFrame.enPixelFormat != PIXEL_FORMAT_NV21 && !packed)) {
 		printf("Unsupported native frame. venc_type:%d format:%d\r\n",
 			info->type, frame->stVFrame.enPixelFormat);
 		return -1;
@@ -2043,6 +2266,7 @@ int mmf_vpss_set_rate(int src_fps, int dst_fps) {
 int mmf_vi_chn_set_jfif(int ch, int jfif) {
 	if (!_mmf_vpss_true_rgb) return 0;
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch]) return -1;
+	if (vi_direct[ch]) return 0; // VPSS is bypassed: the encoder gets limited BT.709 as captured
 	VPSS_CHN_ATTR_S attr;
 	if (CVI_VPSS_GetChnAttr(0, ch, &attr) != CVI_SUCCESS) return -1;
 	if (attr.enPixelFormat == PIXEL_FORMAT_NV16) return 0;

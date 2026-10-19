@@ -240,11 +240,15 @@ If NanoKVM OS makes your hardware more useful, consider [sponsoring Gleb Pesin o
 
 Testing, bug reports, translations and code contributions are just as valuable. Thank you for helping improve NanoKVM OS.
 
+### 💚 Community-funded hardware
+
+**Thank you, [Pavel Borecki](https://hosted.weblate.org/user/pavelbo/), for generously funding the purchase of a Sipeed NanoKVM Cube!** Alongside his Czech translations, Pavel is helping make hands-on Cube development and regression testing possible. This support will help me reproduce Cube-specific issues and verify fixes on real hardware.
+
 ### 📦 Donate hardware
 
 Help improve NanoKVM OS on supported devices and explore new ports! I’m looking for donated hardware:
 
-- **Sipeed NanoKVM Cube** — already supported; needed for hands-on development and regression testing.
+- ~~**Sipeed NanoKVM Cube**~~ — 💚 **Funded by [Pavel Borecki](https://hosted.weblate.org/user/pavelbo/). Thank you for your generous donation!**
 - **Sipeed NanoKVM-GO**
 - **Sipeed NanoKVM Pro (Desk WiFi)**
 - **Sipeed NanoKVM Pro (ATX+WiFi)**

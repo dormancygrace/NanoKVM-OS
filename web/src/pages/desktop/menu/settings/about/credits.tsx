@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Modal } from 'antd';
 import clsx from 'clsx';
-import { ClapperboardIcon, LanguagesIcon, PauseIcon, PlayIcon } from 'lucide-react';
+import { ClapperboardIcon, HeartIcon, LanguagesIcon, PauseIcon, PlayIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const Credits = () => {
@@ -88,6 +88,22 @@ export const Credits = () => {
             />
             <h2 className="text-fg mt-5 text-center text-2xl font-semibold">NanoKVM OS</h2>
             <p className="text-fg-muted mt-2 text-center text-sm">{tr('madePossibleBy')}</p>
+
+            <section className="border-line mt-12 rounded-xl border p-5 text-center">
+              <HeartIcon aria-hidden="true" size={28} className="mx-auto text-[#f43f5e]" />
+              <h3 className="text-fg mt-3 text-lg font-semibold">{tr('hardwareSupportTitle')}</h3>
+              <a
+                href="https://hosted.weblate.org/user/pavelbo/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-info mt-4 inline-block rounded font-medium underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"
+              >
+                Pavel Borecki
+              </a>
+              <p className="text-fg-muted mt-2 text-sm leading-relaxed">
+                {tr('pavelHardwareThanks')}
+              </p>
+            </section>
 
             <section className="border-line mt-12 rounded-xl border p-5 text-center">
               <LanguagesIcon aria-hidden="true" size={28} className="text-info mx-auto" />

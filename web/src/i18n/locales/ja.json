@@ -1035,6 +1035,8 @@
         "contributorsTitle": "オープンソースのコントリビューター",
         "contributors": "コード、翻訳、テスト、不具合報告、レビュー、ドキュメント、そして辛抱強いフィードバック。",
         "closing": "NanoKVM OS を実現してくださった皆さまに感謝します。",
+        "hardwareSupportTitle": "ハードウェア支援者",
+        "pavelHardwareThanks": "開発とリグレッションテストのために、Sipeed NanoKVM Cubeの購入資金をご寄付いただきました。Cube実機でのテストを支えてくださり、ありがとうございます！",
         "translationTitle": "翻訳の協力者",
         "translationThanks": "翻訳、校正、文章の改善を通じて NanoKVM OS をより使いやすくしてくださる皆さんに感謝します。",
         "translationPlatform": "コミュニティの貢献をつなぐ翻訳プラットフォームです。NanoKVM OS の翻訳にご参加ください。"

@@ -472,6 +472,8 @@
         "appStack": "Aplikace, rozhraní prohlížeče, zabezpečený transport a základní prvky média v reálném čase.",
         "projects": "Nápady, vyhledávání už existujících řešení, práce na interoperabilitě a inspirace napříč komunitou open KVM.",
         "contributors": "Kód, překlady, testování, hlášení problémů, kontroly, dokumentace a trpělivé poskytování zpětné vazby.",
+        "hardwareSupportTitle": "Podpora vybavení",
+        "pavelHardwareThanks": "Štědrým příspěvkem financoval nákup Sipeed NanoKVM Cube pro vývoj a regresní testování. Děkujeme za pomoc s testováním na skutečném zařízení Cube!",
         "translationTitle": "Přispěvatelé do překladů",
         "translationPlatform": "Námi využívaná platforma pro překládání – spojování příspěvků od komunity. Přidejte se a pomozte překládat NanoKVM OS.",
         "yuziCo": "Potlačování MJPEG duplikátů a backpressure zachytávání, plus získávání všesměrového vysílání a návrhů DHCP volby 121 přizpůsobených z IronKVM."

@@ -3,10 +3,16 @@
   "current": "4.4.7",
   "candidate": "4.4.8",
   "candidate_key": "4.4.8",
-  "status": "pending-review",
+  "status": "integrated",
   "upstream": "https://github.com/pion/ice/tags",
   "source_path": "server/go.mod",
   "strategy": "review",
-  "evidence": {},
-  "pin_files_updated": []
+  "evidence": {
+    "upstream_manifest": "server/third_party/pion-ice/UPSTREAM-SHA256.json",
+    "patch_notes": "server/third_party/pion-ice/NANOKVM-PATCHES.md"
+  },
+  "pin_files_updated": [
+    "server/go.mod",
+    "server/third_party/pion-ice"
+  ]
 }

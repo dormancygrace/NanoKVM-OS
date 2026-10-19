@@ -258,6 +258,8 @@ Cube is part of the [supported SG2002 family](#compatibility). The GO, Pro and U
 
 Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go and [Pion](https://github.com/pion), with thanks to the contributors and hardware testers.
 
+Special thanks to **[iPXE](https://github.com/ipxe/ipxe)** for the network bootloader and official boot images, including UEFI Secure Boot support, and to **[netboot.xyz](https://github.com/netbootxyz/netboot.xyz)** for the network boot menus, operating system installers and recovery tools that make our [Network boot feature](docs/netboot.md) possible.
+
 NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Other components retain their own licenses and notices. See [third-party notices](docs/THIRD-PARTY.md), [distribution status](docs/DISTRIBUTION.md) and the [corresponding-source build](platform/README.md#corresponding-source). Release downloads include the corresponding-source archive; RustDesk has its own source release.
 
 When [reporting an issue](https://github.com/dormancygrace/NanoKVM-OS/issues), include the board/HDMI receiver, application version, browser/client, codec and transport, resolution/FPS target and reproduction steps. Remove credentials and private screen contents from logs.

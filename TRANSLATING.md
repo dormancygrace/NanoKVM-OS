@@ -117,6 +117,35 @@ When a new language starts on Weblate, it creates
 maintainer adds it to `languages.ts`, with `partial: true` while it is
 incomplete.
 
+## Maintainers: preventing synchronization conflicts
+
+Before editing locale files or merging a PR that changes them, check the
+[Weblate component](https://hosted.weblate.org/projects/nanokvm-os/web/) and
+integrate its outstanding translation commits into the current upstream branch.
+For broad key removals or locale restructuring, commit pending Weblate changes
+and temporarily lock the component in **Operations → Repository maintenance**;
+finish the merge, synchronize Weblate, then unlock it.
+
+- Keep existing human translations and JSON key order. Limit code-side locale
+  edits to strings required by the feature; leave unrelated wording to translators.
+- Preserve Weblate commits with a **regular merge**, including when merging a
+  translation PR. Do not squash or cherry-pick a conflict-recovery merge: Weblate
+  must recognize its commits as ancestors of the upstream branch.
+- Resolve JSON conflicts by key. If a feature deliberately removed a key from
+  `en.json`, keep that key removed from translations too. Preserve all other
+  translator changes and run `pnpm test:i18n` in `web/`.
+- After pushing, check that Weblate has synchronized and is unlocked. A new
+  GitHub commit alone does not confirm recovery. Do not reset Weblate or discard
+  pending translations to clear an alert.
+
+The component uses rebase when pulling upstream. A translation of a key removed
+by a concurrent code change can therefore block synchronization, even when all
+other translations merge cleanly. See Weblate's
+[conflict recovery](https://docs.weblate.org/en/latest/faq.html#how-to-fix-merge-conflicts-in-translations)
+and [conflict prevention](https://docs.weblate.org/en/latest/admin/continuous.html#avoiding-merge-conflicts)
+guidance. Synchronizing first reduces conflicts; it cannot eliminate edits made
+concurrently after that check.
+
 ## Translation credits
 
 Thank you to the people behind the words, including contributors whose work

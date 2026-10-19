@@ -11,6 +11,7 @@ It calls these component builders:
 | build-server-existing-libs.py | `NanoKVM-Server`, `nkos-update` and `nkos-apply-updates` |
 | build-busybox-devmem.sh, build-usb-audio.py | `devmem` and `usb-audio-capture` |
 | build-qhd-edid.py, build-monitor-edids.py, build-portrait-edid.py | the EDID profiles |
+| edid-rgb-range.py | lets the source send full-range RGB: the last step of the EDID profiles |
 | build-alpine-packages.sh | the thirteen APK packages, inside the Alpine builder tree |
 | build-alpine-sd-image.py | the SD card image |
 

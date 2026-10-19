@@ -19,6 +19,8 @@ type ScreenStatus = {
   mjpegChroma: number;
   mjpegChromaActive: number;
   mjpegChromaFallback: string;
+  hevcDirect: number;
+  hevcDirectSupported: boolean;
   monitor: number;
   portrait: boolean;
   portraitResolution: number;
@@ -51,6 +53,7 @@ function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
     bitRate: status.bitRate,
     quality: status.quality,
     mjpegChroma: status.mjpegChroma === 422 ? 422 : 420,
+    hevcDirect: status.hevcDirectSupported ? status.hevcDirect !== 0 : null,
     directPlayback: storage.getDirectPlayback(),
     frameDetect: status.frameDetect === true
   };

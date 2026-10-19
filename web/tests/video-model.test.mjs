@@ -107,6 +107,7 @@ const draft = (over = {}) => ({
   bitRate: 3000,
   quality: 80,
   mjpegChroma: 422,
+  hevcDirect: true,
   directPlayback: 'paced',
   frameDetect: false,
   ...over
@@ -278,6 +279,14 @@ test('the request carries changed shared settings only', () => {
     { ...model.settingsRequest({ ...saved, portrait: 1920 }, saved) },
     { portrait: false }
   );
+  // H.265 capture path: 0 through VPSS, 1 direct; never sent without driver support.
+  assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, hevcDirect: false }) }, { hevcDirect: 0 });
+  assert.deepEqual(
+    { ...model.settingsRequest({ ...saved, hevcDirect: false }, saved) },
+    { hevcDirect: 1 }
+  );
+  const unsupported = draft({ hevcDirect: null });
+  assert.deepEqual({ ...model.settingsRequest(unsupported, unsupported) }, {});
 });
 
 test('the measured input rate is shown as its nominal rate', () => {

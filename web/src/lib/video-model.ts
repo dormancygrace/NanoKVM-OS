@@ -90,6 +90,9 @@ export type VideoDraft = {
   bitRate: number; // kbit/s, H.264/H.265
   quality: number; // percent, MJPEG
   mjpegChroma: number;
+  // H.265 straight from the capture buffer instead of through VPSS; null when
+  // the codec driver cannot read capture frames.
+  hevcDirect: boolean | null;
   directPlayback: DirectPlayback;
   frameDetect: boolean;
 };
@@ -459,6 +462,8 @@ export function settingsRequest(saved: VideoDraft, draft: VideoDraft) {
   if (draft.bitRate !== saved.bitRate) body.bitRate = draft.bitRate;
   if (draft.quality !== saved.quality) body.quality = draft.quality;
   if (draft.mjpegChroma !== saved.mjpegChroma) body.mjpegChroma = draft.mjpegChroma;
+  if (draft.hevcDirect !== null && draft.hevcDirect !== saved.hevcDirect)
+    body.hevcDirect = draft.hevcDirect ? 1 : 0;
   if (draft.height !== saved.height) body.height = draft.height;
   if (draft.fps !== saved.fps) body.fps = draft.fps;
   // A portrait profile change rewrites the EDID itself; send the switch only

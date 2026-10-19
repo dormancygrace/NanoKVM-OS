@@ -237,6 +237,8 @@
     "mjpegChroma420": "4:2:0 — fotogramas más pequeños",
     "mjpegChroma422": "4:2:2 — bordes de color más nítidos",
     "mjpegChromaHint": "4:2:2 conserva más detalle de color y puede aumentar el tamaño de los fotogramas. La elección se guarda y se aplica sin reiniciar.",
+    "hevcDirect": "H.265 directo desde la captura",
+    "hevcDirectHint": "El codificador lee la imagen capturada directamente en lugar de una copia convertida: menor latencia (unos 6 ms a 1080p, 25 ms a 4K) y menos tráfico de memoria. Desactívelo para codificar a través del procesador de vídeo como antes. Se aplica en un segundo sin reiniciar.",
     "mjpegChromaFallback_resolution": "MJPEG se limita a 1920 píxeles de ancho para mantener 4:2:2 mientras H.264/H.265 usa una salida más ancha. La resolución seleccionada se restablece cuando termina ese flujo de vídeo.",
     "mjpegChromaFallback_video": "Solo una salida de captura admite anchos superiores a 1920 píxeles. MJPEG usa 4:2:0 mientras ambos flujos son más anchos; 4:2:2 se restablece cuando termina el flujo de vídeo o se reduce alguno de los flujos.",
     "mjpegChromaFallback_frameDetection": "Desactiva la detección de fotogramas para usar 4:2:2.",

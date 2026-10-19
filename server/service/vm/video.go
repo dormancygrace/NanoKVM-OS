@@ -203,6 +203,7 @@ type VideoSettingsReq struct {
 	Quality            *int  `json:"quality"`
 	BitRate            *int  `json:"bitRate"`
 	MjpegChroma        *int  `json:"mjpegChroma"`
+	HevcDirect         *int  `json:"hevcDirect"`
 	Height             *int  `json:"height"`
 	FPS                *int  `json:"fps"`
 	PortraitResolution *int  `json:"portraitResolution"`
@@ -226,6 +227,7 @@ func (r VideoSettingsReq) settings() []proto.SetScreenReq {
 	add("quality", r.Quality)
 	add("quality", r.BitRate)
 	add("mjpeg_chroma", r.MjpegChroma)
+	add("hevc_direct", r.HevcDirect)
 	add("resolution", r.Height)
 	add("fps", r.FPS)
 	add("portrait_resolution", r.PortraitResolution)

@@ -237,6 +237,8 @@
     "mjpegChroma420": "4:2:0 — smaller frames",
     "mjpegChroma422": "4:2:2 — sharper color edges",
     "mjpegChromaHint": "4:2:2 preserves more color detail and can increase frame size. The choice is saved and applies without a restart.",
+    "hevcDirect": "H.265 straight from capture",
+    "hevcDirectHint": "The encoder reads the captured picture itself instead of a converted copy: lower latency (about 6 ms at 1080p, 25 ms at 4K) and less memory traffic. Turn off to encode through the video processor as before. Applies within a second without a restart.",
     "mjpegChromaFallback_resolution": "MJPEG is limited to 1920 pixels in width to preserve 4:2:2 while H.264/H.265 uses a wider output. The selected resolution resumes when that video stream ends.",
     "mjpegChromaFallback_video": "Only one capture output supports widths above 1920 pixels. MJPEG uses 4:2:0 while both streams are wider; 4:2:2 resumes when the video stream ends or either stream is reduced.",
     "mjpegChromaFallback_frameDetection": "Turn off frame detection to use 4:2:2.",

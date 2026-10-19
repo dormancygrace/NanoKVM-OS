@@ -1,0 +1,74 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] venc: packed 4:2:2 source frames for H.265
+
+The H.265 core reads packed 4:2:2 (UYVY/YUYV) source pictures and
+subsamples them itself (W4_CMD_ENC_SRC_FORMAT packed modes), but the
+driver always opened it for planar or semi-planar 4:2:0. A UYVY or YUYV
+frame now switches the instance to the packed layout before it is
+encoded, so the encoder can take the capture buffer of a YUV receiver
+directly, without a VPSS conversion. H.264 (no packed input) is
+unchanged. The read-only module parameter nk_packed_src tells user space
+that the driver has this.
+
+---
+diff --git a/interdrv/cvi_vc_drv/module/src/enc_ctx.c b/interdrv/cvi_vc_drv/module/src/enc_ctx.c
+index e789365..b4b1fda 100644
+--- a/interdrv/cvi_vc_drv/module/src/enc_ctx.c
++++ b/interdrv/cvi_vc_drv/module/src/enc_ctx.c
+@@ -1067,6 +1067,12 @@ static CVI_S32 vidEnc_enc_one_pic(CVI_VOID *ctx,
+ 		pPicCfg->cbcrInterleave = 1;
+ 		pPicCfg->nv21 = 1;
+ 		break;
++	case PIXEL_FORMAT_UYVY:
++	case PIXEL_FORMAT_YUYV:
++		pPicCfg->cbcrInterleave = 0;
++		pPicCfg->nv21 = 0;
++		pPicCfg->packedFormat = pstFrame->stVFrame.enPixelFormat == PIXEL_FORMAT_UYVY ? 2 : 1;
++		break;
+ 	case PIXEL_FORMAT_YUV_PLANAR_420:
+ 	default:
+ 		pPicCfg->cbcrInterleave = 0;
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/cvi_h265_interface.h b/interdrv/cvi_vc_drv/vcodec/sample/cvi_h265_interface.h
+index adff833..39793dd 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/cvi_h265_interface.h
++++ b/interdrv/cvi_vc_drv/vcodec/sample/cvi_h265_interface.h
+@@ -165,6 +165,7 @@ typedef struct _cviEncOnePicCfg_ {
+ 	unsigned char *picMotionMap;
+ 	int picMotionMapSize;
+ 	CVI_U64 u64Pts;
++	int packedFormat; /* 0 planar/semi-planar, 1 YUYV, 2 UYVY */
+ } cviEncOnePicCfg;
+ 
+ typedef struct _cviDispFrameCfg_ {
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+index 9a08392..6cf2fa3 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -2953,6 +2953,10 @@ static int cviVEncStartSb(stTestEncoder *pTestEnc)
+ }
+ 
+ 
++/* Lets user space detect a driver that takes packed 4:2:2 HEVC sources. */
++static int nk_packed_src = 1;
++module_param(nk_packed_src, int, 0444);
++
+ int cviVEncEncOnePic(void *handle, cviEncOnePicCfg *pPicCfg, int s32MilliSec)
+ {
+ 	int ret = 0;
+@@ -3016,6 +3020,16 @@ int cviVEncEncOnePic(void *handle, cviEncOnePicCfg *pPicCfg, int s32MilliSec)
+ 	pTestEnc->srcFrameStride = pPicCfg->stride;
+ 	pEncOP->cbcrInterleave = pPicCfg->cbcrInterleave;
+ 	pEncOP->nv21 = pPicCfg->nv21;
++	if (pPicCfg->packedFormat && pEncOP->bitstreamFormat == STD_HEVC) {
++		EncOpenParam *op = &pCodecInst->CodecInfo->encInfo.openParam;
++		const int packed = pPicCfg->packedFormat == 2 ? PACKED_UYVY : PACKED_YUYV;
++		if (op->packedFormat != packed)
++			pr_info("venc: HEVC packed 4:2:2 source %d, stride %d\n", packed, pPicCfg->stride);
++		pEncOP->packedFormat = op->packedFormat = packed;
++		pEncOP->srcFormat = op->srcFormat = packed == PACKED_UYVY ? FORMAT_UYVY : FORMAT_YUYV;
++		op->cbcrInterleave = 0;
++		op->nv21 = 0;
++	}
+ 	pEncOP->picMotionLevel = pPicCfg->picMotionLevel;
+ 	pEncOP->picDciLv = pPicCfg->picDciLv;
+ 	pEncOP->picMotionMap = pPicCfg->picMotionMap;

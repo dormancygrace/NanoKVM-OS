@@ -452,6 +452,21 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                     ? t('videoSettings.streamSize', { value: size(out.width, out.height) })
                     : undefined
                 )}
+                {!mjpeg &&
+                  draft.codec === 'h265' &&
+                  draft.hevcDirect !== null &&
+                  row(
+                    t('videoSettings.hevcDirect'),
+                    <Switch
+                      // row() stacks controls in a flex column, which would stretch it.
+                      className="self-start"
+                      aria-label={t('videoSettings.hevcDirect')}
+                      checked={draft.hevcDirect}
+                      disabled={busy || !admin}
+                      onChange={(value) => change('hevcDirect', value)}
+                    />,
+                    t('videoSettings.hevcDirectHint')
+                  )}
                 {mjpeg &&
                   row(
                     t('videoSettings.mjpegChroma'),

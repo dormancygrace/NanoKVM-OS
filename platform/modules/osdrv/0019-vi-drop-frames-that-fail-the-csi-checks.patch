@@ -1,0 +1,45 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vi: drop frames that fail the CSI bridge checks
+
+isp_err_chk finds a frame whose line or frame size differs from the
+setting, a CSI bridge FIFO overflow or a DMA error. It counts the error
+and wakes the error handler thread, which resets and restarts the pipe,
+and it returns -1. The interrupt handler ignored that result and went on
+to the frame done handling, which queues the frame as a good one: a
+frame damaged on the receiver's MIPI link reached the encoders.
+
+Sipeed's driver for the same SoC returns from the interrupt handler on
+every isp_err_chk failure (LicheeRV-Nano-Build, osdrv/interdrv/v2/vi/
+chip/mars/vi.c). This returns when the error handler is resetting the
+pipe (the size and FIFO errors wake it), after the CMDQ status is
+cleared; the DMA and over-maximum errors, which wake nothing, go on as
+before so the pipe is not left without a restart. Both trees read and
+clear the interrupt status at the top of the handler.
+
+---
+diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -8552,8 +8552,20 @@
+ 			ctx->isp_pipe_cfg[raw_num].dg_info.bdg_chn_debug[i] = ispblk_csibdg_chn_dbg(ctx, raw_num, i);
+ 	}
+ 
+-	isp_err_chk(vdev, ctx, cbdg_0_sts[0], cbdg_1_sts[0], cbdg_0_sts[1], cbdg_1_sts[1],
+-		cbdg_0_sts[2], cbdg_1_sts[2]);
++	/* A frame that failed the CSI bridge checks while the error handler
++	 * thread is resetting the pipe (isp_err_chk woke it for a short or
++	 * long line or frame or a FIFO overflow) is not passed on: its frame
++	 * done would queue it as a good frame. The thread restarts the pipe.
++	 * Sipeed's driver returns on every isp_err_chk failure; errors that do
++	 * not wake the thread (DMA, frame size over the maximum) go on as
++	 * before here, as nothing would restart the pipe after them. */
++	const u32 frame_err = isp_err_chk(vdev, ctx, cbdg_0_sts[0], cbdg_1_sts[0],
++		cbdg_0_sts[1], cbdg_1_sts[1], cbdg_0_sts[2], cbdg_1_sts[2]);
++
++	if (frame_err == (u32)-1 && atomic_read(&vdev->isp_err_handle_flag)) {
++		_isp_cmdq_done_chk(vdev, top_sts_2.bits.CMDQ_INT);
++		return;
++	}
+ 
+ 	//if (top_sts.bits.INT_DMA_ERR)
+ 	//	vi_pr(VI_ERR, "DMA error\n");

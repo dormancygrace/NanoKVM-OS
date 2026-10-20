@@ -43,7 +43,10 @@ def prepare(root=ROOT):
     entries = [r for r in json.loads(raw)['releases'] if r['version'] == latest]
     if len(entries) != 1:
         raise ValueError('Expected exactly one release entry for ' + latest)
-    released = date.fromisoformat(entries[0]['released']['date'])
+    try:
+        released = date.fromisoformat(entries[0]['released']['isodate'])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError('Missing or invalid kernel.org release date for ' + latest) from error
     directory = 'https://cdn.kernel.org/pub/linux/kernel/v' + latest.split('.')[0] + '.x/'
     archive = 'linux-' + latest + '.tar.xz'
     checksum_url = directory + 'sha256sums.asc'

@@ -35,7 +35,7 @@ class KernelPRTests(unittest.TestCase):
         self.digest = 'a' * 64
 
     def feed(self, *versions):
-        return json.dumps({'releases': [{'version': v, 'released': {'date': '2026-10-14'}}
+        return json.dumps({'releases': [{'version': v, 'released': {'timestamp': 1791936000, 'isodate': '2026-10-14'}}
                                         for v in versions]})
 
     def plan(self, latest=None, hashes=None):
@@ -78,6 +78,16 @@ class KernelPRTests(unittest.TestCase):
                          before['platform/kernel/config'].decode().splitlines()[3:])
         for name, content in before.items():
             self.assertEqual((self.root / name).read_bytes(), content)
+
+    def test_missing_or_invalid_release_date_stops_before_fetching_checksums(self):
+        for released in ({}, {'date': '2026-10-14'}, {'isodate': None},
+                         {'isodate': '2026-02-30'}):
+            feed = json.dumps({'releases': [{'version': self.next, 'released': released}]})
+            with self.subTest(released=released), patch.object(
+                    k.upstream, 'request', return_value=feed) as request:
+                with self.assertRaisesRegex(ValueError, 'release date'):
+                    k.prepare(self.root)
+                self.assertEqual(request.call_count, 1)
 
     def test_new_series_point_release(self):
         plan = self.plan(self.series + '.1')

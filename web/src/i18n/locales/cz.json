@@ -1779,7 +1779,8 @@
       "receiver": "nepodporováno tímto HDMI přijímačem",
       "portrait": "nepodporováno tímto profilem na výšku",
       "mjpeg-4k": "není k dispozici, když vstup HDMI má rozlišení 3840 × 2160 – použijte H.264 nebo H.265",
-      "video-memory": "vyžaduje více videopaměti: aby se použil aktualizovaný systém, zařízení restartujte"
+      "video-memory": "vyžaduje více videopaměti: aby se použil aktualizovaný systém, zařízení restartujte",
+      "h264-4k": "není k dispozici nad 2560 × 1440, použijte H.265 nebo rozlišení proudu 1440p nebo nižší"
     },
     "bitrateAuto": "Automaticky · {{value}} Mbit/s",
     "bitrateEconomy": "Úsporné · {{value}} Mbit/s",
@@ -1829,7 +1830,10 @@
     "description": "Nastavit HDMI monitor nezávisle na videu zasílaném vámi využívanému prohlížeči.",
     "fpsLimited": "Stávající vstup omezuje zachytávání na {{fps}} sním./s. Uložený požadavek je ponechán pro příští režim zdroje.",
     "hevcDirect": "H.265 přímo ze zachytávání",
-    "hevcDirectHint": "Enkodér čte zachycený obraz samotný namísto jeho převedené kopie: nižší prodleva (přibližně 6ms při 1080p, 25 ms při 4K) a nižší provoz v operační paměti. Pokud chcete enkódovat přes videoprocesor (jako dříve), vypněte. Bude uplatněno během sekundy a bez restartu."
+    "hevcDirectHint": "Enkodér čte zachycený obraz samotný namísto jeho převedené kopie: nižší prodleva (přibližně 6ms při 1080p, 25 ms při 4K) a nižší provoz v operační paměti. Pokud chcete enkódovat přes videoprocesor (jako dříve), vypněte. Bude uplatněno během sekundy a bez restartu.",
+    "viDirect": "Video přímo ze zachytávání",
+    "viDirectH264Hint": "H.264 při velikosti a obnovovací frekvenci vstupu čte zachycený snímek samotný: zachytávání přepne na vzorkování barev 4:2:0 (při 1080p o přibližně 6ms nižší prodleva a nižší provoz v operační paměti), a MJPEG mezitím používá také 4:2:0. Při změně tohoto režimu se zachytávání nakrátko restartuje. Pokud chcete enkódovat pomocí videoprocesoru (jako předtím), vypněte.",
+    "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálované) H.264."
   },
   "dashboard": {
     "states": {

@@ -1,0 +1,30 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vpu: a blocking state wait sleeps instead of spinning
+
+In block mode cviVPU_LockAndCheck took the codec lock, found the
+instance in another state, released the lock and called cond_resched in
+a loop: it spun on the CPU, and took and released the lock (sleeping
+and waking the core) on every turn. It now sleeps 200-400 us
+between checks.
+
+---
+diff --git a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+@@ -14,6 +14,7 @@
+ //
+ //--=========================================================================--
+ 
++#include <linux/delay.h>
+ #include "vpuapifunc.h"
+ #include "product.h"
+ #include "main_helper.h"
+@@ -3610,7 +3611,7 @@
+ 			if (pCodecInst->state != targetState) {
+ 				CVI_VC_TRACE("state = %d\n", pCodecInst->state);
+ 				LeaveVcodecLock(pCodecInst->coreIdx);
+-				cond_resched();
++				usleep_range(200, 400);
+ 			} else {
+ 				break;
+ 			}

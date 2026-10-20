@@ -125,9 +125,26 @@ def check_capture_mode_wiring():
     print('capture mode wiring ok')
 
 
+def check_mjpeg_rate_pair():
+    """Next to video the server reads MJPEG below the rate of its VPSS output. A server rate
+    above it made the JPEG reader wait for VPSS frames and halved the video stream (1440p60:
+    server 30 over VPSS 27 gave H.264 22 fps, 25 under 27 gave 45)."""
+    import re
+    go = (repo / 'server/service/stream/mjpeg/streamer.go').read_text()
+    native = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    server = {name: int(re.search(rf'{name}\s*=\s*(\d+)', go).group(1))
+              for name in ('mjpegNextToVideoFPS', 'mjpegNextToWideVideoFPS')}
+    vpss = {name: int(re.search(rf'static constexpr int {name} = (\d+);', native).group(1))
+            for name in ('mjpeg_next_to_video_fps', 'mjpeg_next_to_wide_video_fps')}
+    assert server['mjpegNextToVideoFPS'] < vpss['mjpeg_next_to_video_fps'], (server, vpss)
+    assert server['mjpegNextToWideVideoFPS'] < vpss['mjpeg_next_to_wide_video_fps'], (server, vpss)
+    print('mjpeg rate pair ok')
+
+
 check_read_img_gates()
 check_no_gop_setting()
 check_capture_mode_wiring()
+check_mjpeg_rate_pair()
 
 for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct',
              'vi-yuv420']:

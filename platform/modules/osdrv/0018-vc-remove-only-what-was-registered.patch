@@ -1,0 +1,39 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] jpeg, vcodec: unregister only what was registered
+
+Both drivers register their character device as a class and a device
+number only (no cdev_init, cdev_add or device_create), but their remove
+paths called device_destroy and cdev_del as well. Unloading either
+module put an uninitialized kobject and underflowed a reference count
+("kobject_put ... is not initialized", "refcount_t: underflow;
+use-after-free"). Remove now undoes exactly the registration.
+
+---
+diff --git a/interdrv/jpeg/cvi_jpeg.c b/interdrv/jpeg/cvi_jpeg.c
+--- a/interdrv/jpeg/cvi_jpeg.c
++++ b/interdrv/jpeg/cvi_jpeg.c
+@@ -636,9 +636,8 @@
+ 	struct cvi_jpu_device *jdev = platform_get_drvdata(pdev);
+ 
+ 	if (jdev->s_jpu_major > 0) {
+-		device_destroy(jdev->jpu_class, jdev->cdev_id);
++		/* Registration made the class and the device number only. */
+ 		class_destroy(jdev->jpu_class);
+-		cdev_del(&jdev->cdev);
+ 		unregister_chrdev_region(jdev->cdev_id, 1);
+ 		jdev->s_jpu_major = 0;
+ 	}
+diff --git a/interdrv/vcodec/cvi_vcodec.c b/interdrv/vcodec/cvi_vcodec.c
+--- a/interdrv/vcodec/cvi_vcodec.c
++++ b/interdrv/vcodec/cvi_vcodec.c
+@@ -1602,9 +1602,8 @@
+ 
+ 	if (vdev->s_vpu_major > 0) {
+ 		VCODEC_DBG_INFO("vdev %p vdev->cdev %p\n", vdev, &vdev->cdev);
+-		device_destroy(vdev->vpu_class, vdev->cdev_id);
++		/* Registration made the class and the device number only. */
+ 		class_destroy(vdev->vpu_class);
+-		cdev_del(&vdev->cdev);
+ 		unregister_chrdev_region(vdev->cdev_id, 1);
+ 		vdev->s_vpu_major = 0;
+ 	}

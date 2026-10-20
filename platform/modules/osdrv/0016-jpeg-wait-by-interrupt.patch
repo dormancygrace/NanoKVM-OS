@@ -1,0 +1,166 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] jpeg: wait for the encode by its interrupt
+
+The JPU's end of picture was found by polling MJPEG_PIC_STATUS_REG with
+usleep_range(800, 1200): up to about a millisecond late on every JPEG
+and a CPU wakeup every millisecond while it encodes. The device tree
+gives the JPU its interrupt (PLIC 20), but the driver never requested it
+and jdi_wait_interrupt had the interrupt path disabled.
+
+The driver now requests the interrupt. Its handler masks the JPU
+interrupt (the next picture's software reset unmasks it) and wakes the
+waiter. jdi_wait_interrupt waits for that wakeup and still reads the
+status register, so a late wakeup from an earlier picture is not taken
+for this one; without the interrupt it polls as before.
+
+---
+diff --git a/interdrv/jpeg/cvi_jpeg.c b/interdrv/jpeg/cvi_jpeg.c
+--- a/interdrv/jpeg/cvi_jpeg.c
++++ b/interdrv/jpeg/cvi_jpeg.c
+@@ -90,6 +90,34 @@
+ 	}
+ }
+ 
++/* The end of a JPU picture: mask the interrupt until the next picture's
++ * software reset unmasks it, and wake the waiter. */
++static irqreturn_t jpu_irq_handler(int irq, void *data)
++{
++	struct cvi_jpu_device *jdev = data;
++	void __iomem *regs = (void __iomem *)jdev->jpu_register.virt_addr;
++
++	if (!regs || !readl(regs + MJPEG_PIC_STATUS_REG))
++		return IRQ_NONE;
++	writel(0xFF, regs + MJPEG_INTR_MASK_REG);
++	jdev->interrupt_flag = 1;
++	wake_up(&jdev->interrupt_wait_q);
++	return IRQ_HANDLED;
++}
++
++/* Whether jpu_wait_interrupt has an interrupt to wait for. use_irq=0 polls
++ * the status register as before (for comparison; switchable at runtime). */
++static bool jpu_irq_requested;
++static bool use_irq = true;
++module_param(use_irq, bool, 0644);
++MODULE_PARM_DESC(use_irq, "Wait for the JPU end of picture by its interrupt (0: poll the status)");
++
++bool jpu_has_interrupt(void)
++{
++	return jpu_irq_requested && READ_ONCE(use_irq);
++}
++EXPORT_SYMBOL(jpu_has_interrupt);
++
+ // JDI_IOCTL_WAIT_INTERRUPT
+ int jpu_wait_interrupt(int timeout)
+ {
+@@ -426,16 +454,21 @@
+ 	}
+ 
+ 
+-	if (pdev)
+-		res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+-	// if platform driver is implemented
+-	if (res) {
+-		jdev->jpu_irq = res->start;
+-		JPU_DBG_INFO("jpu irq number irq = %d\n", jdev->jpu_irq);
+-	} else {
+-		JPU_DBG_ERR("jpu irq number irq = %d\n", jdev->jpu_irq);
+-	}
+-/* This SDK uses JDI status polling; no JPEG IRQ is requested here. */
++	/* The device tree gives the interrupt. The vendor read it as an
++	 * IORESOURCE_IRQ resource, which this kernel does not fill in for it,
++	 * and logged "irq = 0" as an error on every probe. */
++	init_waitqueue_head(&jdev->interrupt_wait_q);
++	if (pdev && jdev->jpu_register.virt_addr) {
++		const int irq = platform_get_irq_optional(pdev, 0);
++
++		jdev->interrupt_flag = 0;
++		if (irq > 0 && request_irq(irq, jpu_irq_handler, 0, "jpeg", jdev) == 0) {
++			jdev->jpu_irq = irq;
++			jpu_irq_requested = true;
++		} else {
++			pr_warn("[JPUDRV] : no JPU interrupt, polling the status\n");
++		}
++	}
+ #ifndef USE_VMALLOC_FOR_INSTANCE_POOL_MEMORY
+ 	if (jpu_allocate_memory(jdev, pdev) < 0) {
+ 		pr_err("[JPUDRV] :  fail to remap jpu memory\n");
+@@ -562,6 +595,11 @@
+ 	struct cvi_jpu_device *jdev = platform_get_drvdata(pdev);
+ 
+ 	pr_info("jpu_remove\n");
++
++	if (jpu_irq_requested) {
++		jpu_irq_requested = false;
++		free_irq(jdev->jpu_irq, jdev);
++	}
+ 
+ 	if (jdev->jpu_instance_pool.base) {
+ #ifdef USE_VMALLOC_FOR_INSTANCE_POOL_MEMORY
+diff --git a/interdrv/jpeg/cvi_jpeg.h b/interdrv/jpeg/cvi_jpeg.h
+--- a/interdrv/jpeg/cvi_jpeg.h
++++ b/interdrv/jpeg/cvi_jpeg.h
+@@ -125,6 +125,7 @@
+ 
+ /* In-kernel JPEG hardware API. */
+ int jpu_wait_interrupt(int timeout);
++bool jpu_has_interrupt(void);
+ int jpu_set_clock_gate(int *pEnable);
+ int jpu_get_instance_pool(jpudrv_buffer_t *p_jdb);
+ int jpu_open_instance(unsigned long *pInstIdx);
+diff --git a/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c b/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
+--- a/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
++++ b/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
+@@ -33,6 +33,7 @@
+ #else
+ typedef struct mutex MUTEX_HANDLE;
+ extern int jpu_wait_interrupt(int timeout);
++extern bool jpu_has_interrupt(void);
+ extern int jpu_set_clock_gate(int *pEnable);
+ extern int jpu_get_instance_pool(jpudrv_buffer_t *p_jdb);
+ extern int jpu_open_instance(unsigned long *pInstIdx);
+@@ -1177,19 +1178,23 @@
+ 
+ int jdi_wait_interrupt(int timeout)
+ {
+-#if 0//def SUPPORT_INTERRUPT
+-	int ret;
+-	jdi_info_t *jdi;
+-
+-	jdi = &s_jdi_info[0];
+-	ret = jpu_wait_interrupt(timeout);
+-	if (ret != 0)
+-		ret = -1;
+-
+-	// printf("receive a interrupt ......, ret = %d\n", ret);
+-
+-	return ret;
+-#else
++	if (jpu_has_interrupt()) {
++		/* The status register decides: a wakeup left by an earlier
++		 * picture is not the end of this one. */
++		const unsigned long deadline = jiffies + msecs_to_jiffies(timeout);
++
++		for (;;) {
++			long left;
++
++			if (jdi_read_register(MJPEG_PIC_STATUS_REG))
++				return 0;
++			left = (long)(deadline - jiffies);
++			if (left <= 0)
++				return jdi_read_register(MJPEG_PIC_STATUS_REG) ? 0 : -1;
++			jpu_wait_interrupt(jiffies_to_msecs(left) + 1);
++		}
++	}
++	{
+ 	Int64 elapse, cur;
+ 	struct timespec64 tv;
+ 
+@@ -1217,7 +1222,7 @@
+ 		usleep_range(800, 1200);
+ 	}
+ 	return 0;
+-#endif
++	}
+ }
+ 
+ void jdi_log(int cmd, int step)

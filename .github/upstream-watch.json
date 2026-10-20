@@ -129,9 +129,8 @@
       "name": "miniz",
       "path": "platform/sources.lock",
       "pattern": "^miniz\\s+\\S+\\s+([0-9a-f]{40})",
-      "kind": "github-commit",
+      "kind": "github-release-commit",
       "repo": "richgel999/miniz",
-      "branch": null,
       "lock_entry": "miniz",
       "pull_request": {
         "id": "miniz",
@@ -142,9 +141,8 @@
       "name": "inih",
       "path": "platform/sources.lock",
       "pattern": "^inih\\s+\\S+\\s+([0-9a-f]{40})",
-      "kind": "github-commit",
+      "kind": "github-release-commit",
       "repo": "benhoyt/inih",
-      "branch": null,
       "lock_entry": "inih",
       "pull_request": {
         "id": "inih",

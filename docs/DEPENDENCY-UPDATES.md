@@ -38,6 +38,14 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 - **RustDesk stable protocol reference**, paired with the hbb_common submodule commit from that release (never hbb_common/main).
 - Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
 
+**inih and miniz:** monitor published stable GitHub releases, resolving each
+release tag to its exact commit. Keep the existing post-release pins until a
+stable release contains them: inih `2bbdec4a` includes fixes after r62, and
+miniz `2948eeba` includes fixes after 3.1.2. An older release is reported as
+`pinned ahead` and does not create a PR or roll back fixes. Divergent release
+history produces a review notification without rewriting pins. Branch-tip
+commits and prereleases do not qualify as release updates.
+
 **tinyalsa cadence:** monitor commits on the upstream default branch quarterly, at 05:41 UTC on January 1, April 1, July 1 and October 1. Both reports and draft PR discovery skip tinyalsa in daily runs; the quarterly run checks only tinyalsa. Manual dispatch and CLI runs default to all sources; use --cadence daily or --cadence quarterly to select a group. The existing tinyalsa PR remains available for review. Upstream still publishes releases, but the latest is [v2.0.0 (February 8, 2021)](https://github.com/tinyalsa/tinyalsa/releases/tag/v2.0.0), so commit tracking is retained.
 
 **PicoClaw monitoring is disabled:** neither the report nor the PR publisher queries its release channel. On-demand installation and updates through the application's latest-download URL remain unchanged.

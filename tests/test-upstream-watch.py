@@ -283,6 +283,39 @@ class CoverageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'incomplete'):
                 u.github_tags('org/repo')
 
+    def test_ini_and_miniz_follow_release_ancestry_without_downgrade(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        for name, tag in (('inih', 'r62'), ('miniz', '3.1.2')):
+            source = next(s for s in sources if s['name'] == name)
+            self.assertEqual(source['kind'], 'github-release-commit')
+            self.assertNotIn('branch', source)
+            current = u.current_pin(ROOT, source)
+            for relation, status in [('behind', 'pinned ahead'), ('identical', 'current'),
+                                     ('ahead', 'update available'), ('diverged', 'review branch divergence')]:
+                head = current if relation == 'identical' else 'b' * 40
+                responses = {
+                    'repos/' + source['repo'] + '/releases/latest':
+                        dict(tag_name=tag, html_url='https://example.test/release', draft=False, prerelease=False),
+                    'repos/' + source['repo'] + '/commits/' + tag: dict(sha=head),
+                    'repos/' + source['repo'] + '/compare/' + current + '...' + head: dict(status=relation),
+                }
+                with self.subTest(name=name, relation=relation), patch.object(u, 'github', side_effect=responses.__getitem__) as api:
+                    result = u.check(source)
+                self.assertEqual(result['status'], status, result)
+                self.assertEqual(result['latest'], tag + ' (' + head[:12] + ')')
+                self.assertEqual(api.call_count, 3)
+
+    def test_release_pins_reject_drafts_and_prereleases(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        for name in ('inih', 'miniz'):
+            source = next(s for s in sources if s['name'] == name)
+            for flag in ('draft', 'prerelease'):
+                with self.subTest(name=name, flag=flag), patch.object(u, 'github', return_value={flag: True}) as api:
+                    result = u.check(source)
+                self.assertEqual(result['status'], 'error')
+                self.assertIn('stable release', result['detail'])
+                api.assert_called_once_with('repos/' + source['repo'] + '/releases/latest')
+
     def test_opensbi_release_does_not_suggest_downgrade(self):
         source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources'] if s['name'] == 'OpenSBI')
         with patch.object(u, 'github', side_effect=[{'tag_name': 'v1.8', 'html_url': 'https://example.test'}, {'sha': 'b' * 40}, {'status': 'behind'}]):

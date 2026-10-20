@@ -1,0 +1,160 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] venc: encode only source formats the encoder takes
+
+setSrcInfo maps a frame to the encoder's source description for JPEG and
+H.264/H.265 alike. Three things were wrong:
+
+- YUV 4:0:0 and planar 4:4:4 fell to the default case and were described
+  as planar 4:2:0, with chroma addresses past the frame: the JPU encoded
+  memory it was never given. 4:0:0 is now luma only and planar 4:4:4 has
+  full-size chroma planes, both formats the JPU takes; any other format is
+  refused instead of encoded as 4:2:0.
+- For packed 4:2:2 the crop offset was added in pixels to a byte address:
+  a crop at x would start x/2 pixels early. It is now 2 bytes a pixel.
+  (A crop at x = 0, the only one used, is unchanged.)
+- The JPEG channel opened with a 4:2:0 source and a TODO. The channel
+  attributes carry no pixel format: the format arrives with every frame,
+  which programs it before the encode (and the JPEG header carries its
+  sampling factors per frame anyway). The comment now says so.
+
+---
+diff --git a/interdrv/cvi_vc_drv/module/src/enc_ctx.c b/interdrv/cvi_vc_drv/module/src/enc_ctx.c
+--- a/interdrv/cvi_vc_drv/module/src/enc_ctx.c
++++ b/interdrv/cvi_vc_drv/module/src/enc_ctx.c
+@@ -20,8 +20,8 @@
+ static CVI_S32 jpege_enc_one_pic(CVI_VOID *ctx,
+ 				 const VIDEO_FRAME_INFO_S *pstFrame,
+ 				 int s32MilliSec);
+-static CVI_VOID setSrcInfo(CVIFRAMEBUF *psi, venc_enc_ctx *pEncCtx,
+-			   const VIDEO_FRAME_INFO_S *pstFrame);
++static CVI_S32 setSrcInfo(CVIFRAMEBUF *psi, venc_enc_ctx *pEncCtx,
++			  const VIDEO_FRAME_INFO_S *pstFrame);
+ static CVI_S32 jpege_get_stream(CVI_VOID *ctx, VENC_STREAM_S *pstStream,
+ 				CVI_S32 s32MilliSec);
+ static CVI_S32 jpege_release_stream(CVI_VOID *ctx, VENC_STREAM_S *pstStream);
+@@ -230,7 +230,9 @@
+ 	config.type = CVIJPGCOD_ENC;
+ 	config.u.enc.picWidth = pEncCtx->base.width;
+ 	config.u.enc.picHeight = pEncCtx->base.height;
+-	config.u.enc.sourceFormat = CVI_FORMAT_420; // TODO
++	// A placeholder: the channel attributes carry no pixel format. Each
++	// frame's format is programmed before it is encoded (setSrcInfo).
++	config.u.enc.sourceFormat = CVI_FORMAT_420;
+ 	config.u.enc.chromaInterleave = 0; // CbCr Separated
+ 	config.u.enc.mirDir = 0; // no mirror
+ 	config.u.enc.packedFormat = 0; // planar
+@@ -312,7 +314,9 @@
+ 
+ 	pHandle = pEncCtx->ext.jpeg.handle;
+ 
+-	setSrcInfo(psi, pEncCtx, pstFrame);
++	status = setSrcInfo(psi, pEncCtx, pstFrame);
++	if (status != CVI_SUCCESS)
++		return status;
+ 
+ 	status = CVIJpgSendFrameData(pHandle, (void *)&srcInfo,
+ 				     JPEG_MEM_EXTERNAL, s32MIlliSec);
+@@ -333,8 +337,8 @@
+ 	return status;
+ }
+ 
+-static CVI_VOID setSrcInfo(CVIFRAMEBUF *psi, venc_enc_ctx *pEncCtx,
+-			   const VIDEO_FRAME_INFO_S *pstFrame)
++static CVI_S32 setSrcInfo(CVIFRAMEBUF *psi, venc_enc_ctx *pEncCtx,
++			  const VIDEO_FRAME_INFO_S *pstFrame)
+ {
+ 	venc_enc_ctx_base *pvecb = &pEncCtx->base;
+ 	const VIDEO_FRAME_S *pstVFrame;
+@@ -357,7 +361,27 @@
+ 				      psi->strideC * pvecb->y + pvecb->x / 2;
+ 		break;
+ 
++	case PIXEL_FORMAT_YUV_PLANAR_444:
++		psi->format = CVI_FORMAT_444;
++		psi->packedFormat = CVI_PACKED_FORMAT_NONE;
++		psi->chromaInterleave = CVI_CBCR_SEPARATED;
++		psi->vbCb.phys_addr = pstVFrame->u64PhyAddr[1] +
++				      psi->strideC * pvecb->y + pvecb->x;
++		psi->vbCr.phys_addr = pstVFrame->u64PhyAddr[2] +
++				      psi->strideC * pvecb->y + pvecb->x;
++		break;
++
++	case PIXEL_FORMAT_YUV_400:
++		psi->format = CVI_FORMAT_400;
++		psi->packedFormat = CVI_PACKED_FORMAT_NONE;
++		psi->chromaInterleave = CVI_CBCR_SEPARATED;
++		psi->vbCb.phys_addr = 0;
++		psi->vbCr.phys_addr = 0;
++		break;
++
++	/* Packed 4:2:2: two bytes a pixel, so the crop offset is 2 * x. */
+ 	case PIXEL_FORMAT_YUYV:
++		psi->vbY.phys_addr += pvecb->x;
+ 		psi->format = CVI_FORMAT_422;
+ 		psi->packedFormat = CVI_PACKED_FORMAT_422_YUYV;
+ 		psi->chromaInterleave = CVI_CBCR_SEPARATED;
+@@ -365,6 +389,7 @@
+ 		psi->vbCr.phys_addr = 0;
+ 		break;
+ 	case PIXEL_FORMAT_UYVY:
++		psi->vbY.phys_addr += pvecb->x;
+ 		psi->format = CVI_FORMAT_422;
+ 		psi->packedFormat = CVI_PACKED_FORMAT_422_UYVY;
+ 		psi->chromaInterleave = CVI_CBCR_SEPARATED;
+@@ -372,6 +397,7 @@
+ 		psi->vbCr.phys_addr = 0;
+ 		break;
+ 	case PIXEL_FORMAT_YVYU:
++		psi->vbY.phys_addr += pvecb->x;
+ 		psi->format = CVI_FORMAT_422;
+ 		psi->packedFormat = CVI_PACKED_FORMAT_422_YVYU;
+ 		psi->chromaInterleave = CVI_CBCR_SEPARATED;
+@@ -379,6 +405,7 @@
+ 		psi->vbCr.phys_addr = 0;
+ 		break;
+ 	case PIXEL_FORMAT_VYUY:
++		psi->vbY.phys_addr += pvecb->x;
+ 		psi->format = CVI_FORMAT_422;
+ 		psi->packedFormat = CVI_PACKED_FORMAT_422_VYUY;
+ 		psi->chromaInterleave = CVI_CBCR_SEPARATED;
+@@ -411,7 +438,6 @@
+ 		psi->vbCr.phys_addr = 0;
+ 		break;
+ 	case PIXEL_FORMAT_YUV_PLANAR_420:
+-	default:
+ 		psi->format = CVI_FORMAT_420;
+ 		psi->packedFormat = CVI_PACKED_FORMAT_NONE;
+ 		psi->chromaInterleave = CVI_CBCR_SEPARATED;
+@@ -422,6 +448,11 @@
+ 				      psi->strideC * pvecb->y / 2 +
+ 				      pvecb->x / 2;
+ 		break;
++
++	default:
++		CVI_VENC_ERR("unsupported source pixel format %d\n",
++			     pstVFrame->enPixelFormat);
++		return CVI_ERR_VENC_NOT_SUPPORT;
+ 	}
+ 
+ 	psi->vbY.virt_addr = (void *)pstVFrame->pu8VirAddr[0] +
+@@ -439,6 +470,7 @@
+ 	CVI_VENC_SRC(
+ 		"phyAddrY = 0x%llX, phyAddrCb = 0x%llX, phyAddrCr = 0x%llX\n",
+ 		psi->vbY.phys_addr, psi->vbCb.phys_addr, psi->vbCr.phys_addr);
++	return CVI_SUCCESS;
+ }
+ 
+ static CVI_S32 jpege_get_stream(CVI_VOID *ctx, VENC_STREAM_S *pstStream,
+@@ -1046,7 +1078,11 @@
+ 	}
+ 
+ 	memset(pPicCfg, 0, sizeof(cviEncOnePicCfg));
+-	setSrcInfo(psi, pEncCtx, pstFrame);
++	status = setSrcInfo(psi, pEncCtx, pstFrame);
++	if (status != CVI_SUCCESS) {
++		kfree(mtable);
++		return status;
++	}
+ 
+ 	pPicCfg->addrY = psi->vbY.virt_addr;
+ 	pPicCfg->addrCb = psi->vbCb.virt_addr;

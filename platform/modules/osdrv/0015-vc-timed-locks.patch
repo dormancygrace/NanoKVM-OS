@@ -1,0 +1,67 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vc: timed codec locks that wait in milliseconds
+
+vdi_vcodec_timelock and JpgEnterTimeLock waited for a held lock in steps
+of schedule_timeout(usecs_to_jiffies(1000)) and counted each step as one
+millisecond. With HZ=250 a step is a whole 4 ms tick: a lock released
+just after a step was taken up to 4 ms late, and a timeout ran four
+times as long as asked. They now poll the lock every 100-200 us against a
+deadline in jiffies; a timeout of 0 or less still tries once.
+
+---
+diff --git a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
+--- a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
+@@ -1094,18 +1094,14 @@
+ {
+ 	int ret;
+ 
+-	do {
+-		int wait_cnt_ms = 1;
+-
+-		while (vcodec_is_locked()) {
+-			set_current_state(TASK_INTERRUPTIBLE);
+-			schedule_timeout(usecs_to_jiffies(1000));
+-			if (wait_cnt_ms >= timeout_ms) {
+-				break;
+-			}
+-			wait_cnt_ms++;
+-		}
+-	} while (0);
++	{
++		const unsigned long deadline = jiffies + msecs_to_jiffies(timeout_ms > 0 ? timeout_ms : 0);
++
++		/* Poll the lock against a deadline: a 1 ms sleep is a whole
++		 * tick (4 ms at HZ=250). */
++		while (timeout_ms > 0 && vcodec_is_locked() && time_before(jiffies, deadline))
++			usleep_range(100, 200);
++	}
+ 
+ 	ret = vcodec_trylock();
+ 	// mutex_trylock returns 1 if the mutex has been acquired successfully,
+diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+--- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
++++ b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+@@ -2260,16 +2260,12 @@
+ JpgRet JpgEnterTimeLock(int timeout_ms)
+ {
+ 	int ret = 0;
+-	int wait_cnt_ms = 1;
+-
+-	while (mutex_is_locked(&jpgLock)) {
+-		set_current_state(TASK_INTERRUPTIBLE);
+-		schedule_timeout(usecs_to_jiffies(1000));
+-		if (wait_cnt_ms >= timeout_ms) {
+-			break;
+-		}
+-		wait_cnt_ms++;
+-	}
++	const unsigned long deadline = jiffies + msecs_to_jiffies(timeout_ms > 0 ? timeout_ms : 0);
++
++	/* Poll the lock against a deadline: a 1 ms sleep is a whole tick
++	 * (4 ms at HZ=250). */
++	while (timeout_ms > 0 && mutex_is_locked(&jpgLock) && time_before(jiffies, deadline))
++		usleep_range(100, 200);
+ 
+ 	ret = mutex_trylock(&jpgLock);
+ 	// mutex_trylock returns 1 if the mutex has been acquired successfully,

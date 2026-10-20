@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -164,7 +165,7 @@ func (c *Collector) read(source, boot string, internal bool) (Snapshot, error) {
 	switch source {
 	case "system":
 		directory := c.logDir
-		if _, statErr := os.Stat(directory); errors.Is(statErr, os.ErrNotExist) && c.legacyLogDir != "" {
+		if c.legacyLogDir != "" && !hasSystemLog(directory) {
 			directory = c.legacyLogDir
 		}
 		data, truncated, err = readSystemTail(directory)
@@ -200,6 +201,18 @@ func (c *Collector) read(source, boot string, internal bool) (Snapshot, error) {
 	// storm. No raw OS error (which may contain paths) is exposed.
 	c.remember(key, snapshot, now, rawDigest, truncated, err == nil)
 	return snapshot, nil
+}
+
+// hasSystemLog reports whether syslog writes into directory: one of its
+// files exists, even empty. A directory without them (created before a
+// syslog restart that failed, or for something else) is not the system log.
+func hasSystemLog(directory string) bool {
+	for _, name := range []string{"messages", "messages.0", "messages.1"} {
+		if _, err := os.Stat(filepath.Join(directory, name)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func readSystemTail(directory string) ([]byte, bool, error) {

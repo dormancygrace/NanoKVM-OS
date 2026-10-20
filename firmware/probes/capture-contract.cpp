@@ -90,6 +90,9 @@ int main() {
     drop_result = 0;
     assert(capture.set_resolution(8, 4, nanokvm::nv21_format()) == 0);
     assert(capture.get_channel() == 0 && adds == previous_adds + 1);
+    // A video read keeps an active MJPEG reader's own output (NV16) queued.
+    assert(capture.discard_other_pending(true) == 0 && discarded == 3);
+    assert(capture.discard_other_pending() == 0 && discarded == 4);
     assert(capture.has_format(nanokvm::nv16_format()));
     delete_error = -72;
     assert(capture.close_format(nanokvm::nv16_format()) == delete_error);

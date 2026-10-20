@@ -1240,6 +1240,11 @@ static int mjpeg_chroma_choice = -1; // Legacy environment default until explici
 static uint64_t mjpeg_last_video_ms = 0, mjpeg_last_jpeg_ms = 0;
 static unsigned mjpeg_last_video_width = 0, mjpeg_last_jpeg_width = 0;
 static bool mjpeg_resolution_limited = false;
+// MJPEG's own output next to a video stream: a little above the rate the
+// server reads it at (mjpegNextToVideoFPS 27, next to a stream wider than
+// 1920 mjpegNextToWideVideoFPS 25).
+static constexpr int mjpeg_next_to_video_fps = 30;
+static constexpr int mjpeg_next_to_wide_video_fps = 27;
 static uint64_t mjpeg_monotonic_ms()
 {
     timespec time{};
@@ -1286,7 +1291,7 @@ static nanokvm::StreamSize mjpeg_parallel_size(nanokvm::StreamSize size, uint8_t
 {
     if (codec != VENC_MJPEG) return size;
     mjpeg_resolution_limited = mjpeg_422_requested() && !mjpeg_422_disabled
-        && !frame_detect && !mjpeg_force_copy() && !mmf_vi_yuv420_active() && size.width > 1920
+        && !frame_detect && !mjpeg_force_copy() && size.width > 1920
         && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms);
     return mjpeg_resolution_limited ? nanokvm::limit_stream_width(size, 1920) : size;
 }
@@ -1300,10 +1305,11 @@ static int mjpeg_capture_format(uint8_t codec, bool frame_detect, uint64_t now_m
         mjpeg_last_jpeg_ms = now_ms;
         mjpeg_last_jpeg_width = width;
     }
-    // In 4:2:0 capture (H.264 straight from capture) the VI already wrote
-    // 4:2:0: MJPEG takes it as such, without an error or a retry.
+    // In 4:2:0 capture (H.264 straight from capture) MJPEG keeps its own
+    // output too: full-range BT.601 for JPEG decoders, the VPSS converting
+    // the capture's 4:2:0 (its chroma resolution stays 4:2:0).
     if (!mjpeg_422_requested() || mjpeg_422_disabled || codec != VENC_MJPEG
-        || frame_detect || mjpeg_force_copy() || mmf_vi_yuv420_active()
+        || frame_detect || mjpeg_force_copy()
         || (width > 1920 && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms)))
         return nanokvm::nv21_format();
     return nanokvm::nv16_format();
@@ -1337,36 +1343,41 @@ uint8_t get_mjpeg_chroma_status()
     return state;
 }
 
-static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality)
+// Called with vi_mutex held. On MJPEG's own output (outside_lock) the frame
+// is the JPEG reader's alone: vi_mutex is released after the submit, so the
+// video stream reads on while the JPEG encodes, and the function returns
+// with vi_mutex released. mmf_jpg_hold keeps the encoder and the frame from
+// a teardown meanwhile. Otherwise vi_mutex stays held throughout.
+static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality, bool outside_lock)
 {
+    mmf_jpg_hold();
+    int8_t result = IMG_MJPEG_TYPE;
     int ret = mmf_enc_jpg_push_vi_with_quality(0, vi_ch, quality);
-    if (ret != 0) {
-        mmf_vi_frame_release(vi_ch);
-        return IMG_VENC_ERROR;
-    }
-
+    if (outside_lock) pthread_mutex_unlock(&vi_mutex);
     uint8_t *data = NULL;
     int data_size = 0;
-    ret = mmf_enc_jpg_pop(0, &data, &data_size);
-    if (ret != 0 || data == NULL || data_size <= 0) {
+    if (ret != 0) {
+        result = IMG_VENC_ERROR;
+    } else if ((ret = mmf_enc_jpg_pop(0, &data, &data_size)) != 0 || data == NULL || data_size <= 0) {
         mmf_enc_jpg_deinit(0);
-        mmf_vi_frame_release(vi_ch);
-        return IMG_VENC_ERROR;
-    }
-
-    // The sink copies before the encoder buffer is returned.
-    int copied = video_sink(video_sink_context, data, data_size, 0, data_size);
-    dump_to->img_data_size = data_size;
-    dump_to->img_data_type = VENC_MJPEG;
-    if (mmf_enc_jpg_free(0) != 0) {
-        mmf_enc_jpg_deinit(0);
-        dump_to->img_data_size = 0;
-        dump_to->img_data_type = 0;
-        mmf_vi_frame_release(vi_ch);
-        return IMG_VENC_ERROR;
+        result = IMG_VENC_ERROR;
+    } else {
+        // The sink copies before the encoder buffer is returned.
+        int copied = video_sink(video_sink_context, data, data_size, 0, data_size);
+        dump_to->img_data_size = data_size;
+        dump_to->img_data_type = VENC_MJPEG;
+        if (mmf_enc_jpg_free(0) != 0) {
+            mmf_enc_jpg_deinit(0);
+            dump_to->img_data_size = 0;
+            dump_to->img_data_type = 0;
+            result = IMG_VENC_ERROR;
+        } else if (copied != 0) {
+            result = IMG_BUFFER_FULL;
+        }
     }
     mmf_vi_frame_release(vi_ch);
-    return copied != 0 ? IMG_BUFFER_FULL : IMG_MJPEG_TYPE;
+    mmf_jpg_unhold();
+    return result;
 }
 
 uint8_t kvmvenc_fps = default_h264_fps;
@@ -1717,7 +1728,27 @@ static nanokvm::JpegAdmission admit_capture_step(uint8_t type, const nanokvm::Ge
  * kvmv_read_mjpeg_sink). _qlty is the MJPEG quality (20-99) or the H.264/H.265
  * bitrate (500-20000 Kbit/s). Return codes are listed in kvm_vision.h.
  */
+static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty);
+
+// JPEG readers (the MJPEG stream, screenshots, MCP) take turns: one encodes
+// outside vi_mutex (frame_to_jpeg), and another must not take its output's
+// frame slot meanwhile. Lock order: jpeg_reader_mutex -> vi_mutex -> the JPEG
+// hold (kvm_mmf). Video reads take vi_mutex only.
+static pthread_mutex_t jpeg_reader_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty)
+{
+    if (_type != VENC_MJPEG) return kvmv_read_img_locked(_width, _height, _type, _qlty);
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += 1;
+    if (pthread_mutex_timedlock(&jpeg_reader_mutex, &ts) != 0) return -5;
+    const int result = kvmv_read_img_locked(_width, _height, _type, _qlty);
+    pthread_mutex_unlock(&jpeg_reader_mutex);
+    return result;
+}
+
+static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty)
 {
     if (video_sink == nullptr) return IMG_VENC_ERROR;
     static uint8_t frame_undetact_count = 0;
@@ -1797,7 +1828,7 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
         }
         const bool jpeg_active = mjpeg_jpeg_reader_active(capture_now);
         const bool remove_nv16 = !mjpeg_422_requested() || mjpeg_422_disabled
-            || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy() || mmf_vi_yuv420_active()
+            || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy()
             || (_type == VENC_MJPEG && capture_format == nanokvm::nv21_format())
             || ((_type == VENC_H264 || _type == VENC_H265)
                 && (!jpeg_active || (output.width > 1920 && cam->format_width(nanokvm::nv16_format()) > 1920)));
@@ -1878,7 +1909,7 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
             kvmv_cfg.reinit_flag = 0;
         }
         // A paused consumer must not fill its queue and stall the shared input.
-        if (cam->discard_other_pending() != 0) {
+        if (cam->discard_other_pending(_type != VENC_MJPEG && mjpeg_jpeg_reader_active(capture_now)) != 0) {
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }
@@ -1895,6 +1926,17 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
             }
             if (colour > 0 && kvmv_cfg.fresh_frame_count == 0)
                 kvmv_cfg.fresh_frame_count = 1;
+        }
+        // MJPEG's own output next to a video stream: a little above the rate
+        // the server reads it at, so the VPSS converts few frames that are
+        // dropped. The read waits for its frame outside vi_mutex. Any other
+        // output runs at the capture rate.
+        const bool own_jpeg = _type == VENC_MJPEG && capture_format == nanokvm::nv16_format();
+        if (cam->get_channel() >= 0 && mmf_vpss_set_chn_max_rate(cam->get_channel(),
+                !own_jpeg || !mjpeg_video_reader_active(capture_now) ? 0
+                : mjpeg_last_video_width > 1920 ? mjpeg_next_to_wide_video_fps : mjpeg_next_to_video_fps) != 0) {
+            pthread_mutex_unlock(&vi_mutex);
+            return IMG_VENC_ERROR;
         }
         apply_capture_rate();
         nanokvm::Nv21Frame *img = NULL;
@@ -1929,8 +1971,34 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
         } else if (_type == VENC_H264 || _type == VENC_H265 ||
                 (_type == VENC_MJPEG && kvmv_cfg.frame_detact == 0)) {
             native_vi_ch = cam->get_channel();
-            const int native_result = mmf_vi_frame_pop_native(native_vi_ch, &native_len, &native_width,
-                    &native_height, &native_format);
+            int native_result;
+            if (_type == VENC_MJPEG && capture_format == nanokvm::nv16_format()) {
+                // MJPEG's own output: wait for its frame outside vi_mutex, so
+                // the video stream reads on meanwhile. A teardown waits for
+                // the JPEG hold; one between the hold and vi_mutex again
+                // releases the frame or deletes the output: start again
+                // rather than count it as a failed 4:2:2 read. (A video read
+                // meanwhile switches cam's current format, not this output.)
+                mmf_jpg_hold();
+                pthread_mutex_unlock(&vi_mutex);
+                native_result = mmf_vi_frame_pop_own(native_vi_ch, &native_len, &native_width,
+                        &native_height, &native_format);
+                mmf_jpg_unhold();
+                pthread_mutex_lock(&vi_mutex);
+                if (native_result == 0 ? !mmf_vi_frame_leased(native_vi_ch)
+                        : !cam->has_format(nanokvm::nv16_format())) {
+                    native_vi_ch = -1;
+                    geometry_stale = true;
+                    continue;
+                }
+            } else if (_type == VENC_MJPEG) {
+                // MJPEG leases its own frame where H.264 reads 4:2:0 capture directly.
+                native_result = mmf_vi_frame_pop_jpeg(native_vi_ch, &native_len, &native_width,
+                        &native_height, &native_format);
+            } else {
+                native_result = mmf_vi_frame_pop_native(native_vi_ch, &native_len, &native_width,
+                        &native_height, &native_format);
+            }
             if (native_result != 0 || native_width != kvmv_cfg.vpss_width
                     || native_height != kvmv_cfg.vpss_height || native_format != capture_format) {
                 if (native_result == 0) mmf_vi_frame_release(native_vi_ch);
@@ -2022,9 +2090,11 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
         if(kvmv_cfg.venc_type == VENC_MJPEG){
             kvmv_data_t frame;
             if (native_vi_ch >= 0) {
+                const bool own_output = native_format == nanokvm::nv16_format();
                 int ret = frame_to_jpeg(native_vi_ch, &frame,
-                    maxmin_data(99, 20, (int)_qlty));
-                if (ret < 0 && native_format == nanokvm::nv16_format() && ret == IMG_VENC_ERROR)
+                    maxmin_data(99, 20, (int)_qlty), own_output);
+                if (own_output) pthread_mutex_lock(&vi_mutex);
+                if (ret < 0 && own_output && ret == IMG_VENC_ERROR)
                     disable_mjpeg_422("native JPEG encoding failed");
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;

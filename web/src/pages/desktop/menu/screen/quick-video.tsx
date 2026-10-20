@@ -93,7 +93,9 @@ export const QuickVideo = () => {
     (mjpeg ? status.mjpegOutputHeight : status.videoOutputHeight) || status.outputHeight;
   const summary = [
     width && height ? `${width} × ${height}` : t('videoSettings.sameAsInput'),
-    t('videoSettings.fpsValue', { value: status.measuredFps || 0 }),
+    t('videoSettings.fpsValue', {
+      value: ((mjpeg ? status.mjpegMeasuredFps : undefined) ?? status.measuredFps) || 0
+    }),
     ...(mjpeg
       ? []
       : [

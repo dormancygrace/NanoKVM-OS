@@ -11,6 +11,7 @@
 #include "math.h"
 #include <inttypes.h>
 #include <pthread.h>
+#include <mutex>
 #include <time.h>
 
 #include <fcntl.h>		/* low-level i/o */
@@ -296,7 +297,42 @@ static bool vi_yuv420_wanted;  // mode for the next capture start
 static bool vi_yuv420_running; // mode of the running capture
 static bool vi_yuv420_broken;  // the driver did not take the parameter: no restarts for it
 static bool vi_yuv420_refused; // a VI frame had another layout: VPSS until the next start
+
+/*
+ * A JPEG reader's own lease of a 4:2:0 VI frame. On an output that H.264
+ * reads straight from capture, the JPEG encoder takes the same NV21 frame the
+ * VI wrote, in a lease of its own: it never waits for the frame the video
+ * encoder holds, and the VPSS stays off. The lease lasts one JPEG encode
+ * (pop, push, release in one kvmv_read_img call under vi_mutex).
+ */
+/*
+ * MJPEG on its own output encodes outside the capture lock (kvm_vision
+ * frame_to_jpeg) and holds this from the JPEG submit to the release of its
+ * input frame. Every teardown of the JPEG encoder or of a VI output, which
+ * runs under the capture lock, waits for it; the JPEG reader never takes the
+ * capture lock while it holds this.
+ */
+static std::recursive_mutex jpg_hold_mutex;
+#define MMF_JPG_TEARDOWN std::lock_guard<std::recursive_mutex> jpg_teardown_guard(jpg_hold_mutex)
+void mmf_jpg_hold(void) { jpg_hold_mutex.lock(); }
+void mmf_jpg_unhold(void) { jpg_hold_mutex.unlock(); }
+
+static VIDEO_FRAME_INFO_S vi_jpeg_frame;
+static int vi_jpeg_ch = -1; // the output whose JPEG lease is vi_jpeg_frame
+
+static int _mmf_release_jpeg_lease(void)
+{
+	if (vi_jpeg_ch < 0) return CVI_SUCCESS;
+	const int released = CVI_VI_ReleaseChnFrame(0, 0, &vi_jpeg_frame);
+	if (released != CVI_SUCCESS) return released;
+	memset(&vi_jpeg_frame, 0, sizeof(vi_jpeg_frame));
+	vi_jpeg_ch = -1;
+	return CVI_SUCCESS;
+}
 static bool vpss_rate_thins;   // the last known stream rate is below the input rate
+// A lower rate for one output only (0: none), such as MJPEG's own output
+// next to a video stream. It never counts as thinning the video stream.
+static int vpss_chn_max_fps[MMF_VI_MAX_CHN];
 
 // The setting: absent or anything but "0" is on.
 static bool _vi_direct_setting_on(void)
@@ -528,6 +564,16 @@ static int _mmf_vi_direct_yield(int ch)
 	return CVI_SUCCESS;
 }
 
+// Whether a JPEG reader yields a VI-direct output to VPSS: only in packed
+// capture. In 4:2:0 capture every frame is NV21, from the VI (the JPEG
+// reader's own lease, mmf_vi_frame_pop_jpeg) or from the VPSS while the
+// output is not direct (a video encoder being recreated). A yield then would
+// hold the output off the direct path for as long as MJPEG runs.
+static bool _mmf_jpeg_reader_yields(void)
+{
+	return !vi_yuv420_running || vi_yuv420_refused;
+}
+
 static void _mmf_vi_direct_for_venc(int venc, const mmf_venc_cfg_t *cfg)
 {
 	if (cfg->type != _mmf_vi_direct_type() || !_vi_direct_supported()) return;
@@ -610,6 +656,9 @@ static void _mmf_vi_yuv420_refuse(int ch, const VIDEO_FRAME_S *v)
 
 static int _mmf_release_all_vi_frames(void)
 {
+ MMF_JPG_TEARDOWN;
+ const int jpeg = _mmf_release_jpeg_lease();
+ if (jpeg != CVI_SUCCESS) return jpeg;
  for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
   const int result = _mmf_release_vi_frame(ch);
   if (result != CVI_SUCCESS) return result;
@@ -636,12 +685,12 @@ static int _mmf_find_deferred_vi_frame(int width, int height, int format,
 }
 
 static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
-	int *format, int timeout_ms = 1000)
+	int *format, int timeout_ms = 1000, bool recheck = true)
 {
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
 	_mmf_release_vi_frame(ch);
 	if (priv.vi_frame_valid[ch]) return CVI_ERR_VENC_BUSY;
-	_mmf_vi_direct_recheck();
+	if (recheck) _mmf_vi_direct_recheck();
 	memset(frame, 0, sizeof(*frame));
 	if (vi_direct[ch] && vi_yuv420_running) {
 		if (CVI_VI_GetChnFrame(0, 0, frame, timeout_ms) != CVI_SUCCESS) return -1;
@@ -1002,6 +1051,29 @@ static int _vi_get_unused_ch() {
 	return -1;
 }
 
+/*
+ * The VB driver counts inits and frees its pools only when the count returns
+ * to zero, but CVI_VB_Exit acts only in the process that initialised it. A
+ * process that ended without exiting (stopped or crashed mid-capture) leaves
+ * the count up: every later process then gets that process's pools, its own
+ * configuration is ignored ("vb has already inited, set_config cmd has no
+ * effect"), and a larger capture finds no pool for its frames (2560x1440
+ * after a 1920x1080 start: "No valid pool for size(5529600)") until a
+ * reboot. As the only media process, bring the count to zero before init.
+ */
+extern "C" int get_base_fd(void);
+extern "C" int vb_ioctl_exit(int fd);
+static void _mmf_vb_reset_stale(void)
+{
+	const int fd = get_base_fd();
+	int exits = 0;
+	while (fd >= 0 && exits < 16 && CVI_VB_IsInited() != CVI_FALSE && vb_ioctl_exit(fd) == 0) ++exits;
+	if (exits) {
+		fprintf(stderr, "[kvm_mmf] released %d stale VB reference%s\n", exits, exits == 1 ? "" : "s");
+		fflush(stderr);
+	}
+}
+
 int mmf_init(void)
 {
     if (priv.mmf_used_cnt) {
@@ -1017,6 +1089,7 @@ int mmf_init(void)
 	 * is recreated by _mmf_vpss_init_new.
 	 */
 	SAMPLE_COMM_SYS_Exit();
+	_mmf_vb_reset_stale();
 
     if (_mmf_init() != CVI_SUCCESS) {
         printf("maix multi-media init failed\n");
@@ -1030,6 +1103,7 @@ int mmf_init(void)
 }
 
 int mmf_try_deinit(bool force) {
+	MMF_JPG_TEARDOWN;
 	if (!priv.mmf_used_cnt) {
 		return 0;
 	}
@@ -1395,6 +1469,7 @@ int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int
 }
 
 int mmf_del_vi_channel(int ch) {
+ MMF_JPG_TEARDOWN;
  if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
  if (!priv.vi_chn_is_inited[ch]) return CVI_SUCCESS;
  priv.vi_chn_stopping[ch] = true;
@@ -1404,6 +1479,7 @@ int mmf_del_vi_channel(int ch) {
   vi_direct[ch] = false; // the VPSS channel is torn down below anyway
   vi_direct_venc = -1;
  }
+ vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
  // VI has one source; it stays bound while another VPSS output is open.
  bool another_output = false;
  for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
@@ -1447,6 +1523,7 @@ bool mmf_vi_chn_is_open(int ch) {
 
 int mmf_reset_vi_channel(int ch, int width, int height, int format)
 {
+	MMF_JPG_TEARDOWN;
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
     const int buffers = priv.vi_buffers[ch], depth = priv.vi_queue_depth[ch];
 	const int result = mmf_del_vi_channel(ch);
@@ -1497,14 +1574,11 @@ int mmf_vi_drop_pending(int ch) {
     // failure: the leasing consumer is mid-frame and releases it itself.
     if (priv.vi_frame_valid[ch]) return MMF_VI_OUTPUT_LEASED;
     VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
-    if (vi_direct[ch]) {
-        if (CVI_VI_GetChnFrame(0, 0, frame, 0) != CVI_SUCCESS) return CVI_SUCCESS;
-        priv.vi_frame_valid[ch] = true;
-        priv.vi_frame_mapped[ch] = false;
-        priv.vi_frame_deferred[ch] = false;
-        vi_frame_from_vi[ch] = true;
-        return _mmf_release_vi_frame(ch);
-    }
+    // An output straight from capture queues nothing (VI depth 0: a read
+    // takes the next finished frame). Taking one here only threw away the
+    // video stream's next frame, once per MJPEG read, and an empty read logs
+    // a VI error each time.
+    if (vi_direct[ch]) return CVI_SUCCESS;
     const int result = CVI_VPSS_GetChnFrame(0, ch, frame, 0);
     if (result == CVI_ERR_VPSS_BUF_EMPTY) return CVI_SUCCESS;
     if (result != CVI_SUCCESS) return result;
@@ -1529,6 +1603,48 @@ int mmf_vi_frame_pop_native(int ch, int *len, int *width, int *height, int *form
 	return 0;
 }
 
+int mmf_vi_frame_pop_jpeg(int ch, int *len, int *width, int *height, int *format) {
+	if (ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]
+		|| len == NULL || width == NULL || height == NULL || format == NULL) {
+		return -1;
+	}
+	_mmf_vi_direct_recheck();
+	if (!vi_direct[ch] || !vi_yuv420_running || vi_yuv420_refused)
+		return mmf_vi_frame_pop_native(ch, len, width, height, format);
+	if (_mmf_release_jpeg_lease() != CVI_SUCCESS) return -1;
+	if (CVI_VI_GetChnFrame(0, 0, &vi_jpeg_frame, 1000) != CVI_SUCCESS) {
+		memset(&vi_jpeg_frame, 0, sizeof(vi_jpeg_frame));
+		return -1;
+	}
+	vi_jpeg_ch = ch;
+	const VIDEO_FRAME_S *v = &vi_jpeg_frame.stVFrame;
+	if (!_mmf_vi_nv21_layout_ok(v)) {
+		_mmf_release_jpeg_lease();
+		return -1;
+	}
+	*len = (int)(v->u32Length[0] + v->u32Length[1]);
+	*width = v->u32Width;
+	*height = v->u32Height;
+	*format = PIXEL_FORMAT_NV21;
+	return 0;
+}
+
+int mmf_vi_frame_pop_own(int ch, int *len, int *width, int *height, int *format) {
+	// Outside the capture lock: only this output's frame slot, no shared
+	// direct-path state (the recheck runs on the capture lock's reads).
+	if (ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]
+		|| vi_direct[ch] || len == NULL || width == NULL || height == NULL || format == NULL) {
+		return -1;
+	}
+	if (_mmf_acquire_vi_frame(ch, len, width, height, format, 1000, false) != 0) return -1;
+	priv.vi_frame_deferred[ch] = true;
+	return 0;
+}
+
+int mmf_vi_frame_leased(int ch) {
+	return ch >= 0 && ch < MMF_VI_MAX_CHN && priv.vi_frame_valid[ch] && priv.vi_frame_deferred[ch];
+}
+
 int mmf_vi_frame_try_pop_native(int ch, int timeout_ms, int *len, int *width, int *height, int *format) {
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN || !priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]
 		|| len == NULL || width == NULL || height == NULL || format == NULL) {
@@ -1550,6 +1666,10 @@ void mmf_vi_frame_free(int ch) {
 
 void mmf_vi_frame_release(int ch) {
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN) {
+		return;
+	}
+	if (vi_jpeg_ch == ch) {
+		_mmf_release_jpeg_lease();
 		return;
 	}
 	_mmf_release_vi_frame(ch);
@@ -1666,6 +1786,7 @@ static int mmf_enc_jpg_init(int ch, int w, int h, int format, int quality)
 
 int mmf_enc_jpg_deinit(int ch)
 {
+	MMF_JPG_TEARDOWN;
 	if (!priv.enc_jpg_is_init)
 		return 0;
 
@@ -1832,17 +1953,19 @@ static int _mmf_release_jpg_copy(void) {
 
 int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 {
+	const bool jpeg_lease = vi_ch >= 0 && vi_jpeg_ch == vi_ch;
 	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || vi_ch < 0 || vi_ch >= MMF_VI_MAX_CHN
-		|| !priv.vi_frame_valid[vi_ch] || !priv.vi_frame_deferred[vi_ch]) {
+		|| (!jpeg_lease && (!priv.vi_frame_valid[vi_ch] || !priv.vi_frame_deferred[vi_ch]))) {
 		printf("Invalid native JPEG frame. venc:%d vi:%d\r\n", ch, vi_ch);
 		return -1;
 	}
     if (priv.enc_jpg_running) return CVI_FAILURE;
-	// A JPEG reader on a VI-direct output: hand it back to VPSS. A packed
-	// frame fails below; the next one is a VPSS frame again.
-	if (_mmf_vi_direct_yield(vi_ch) != CVI_SUCCESS) return -1;
+	// A JPEG reader on a packed VI-direct output: hand it back to VPSS. A
+	// packed frame fails below; the next one is a VPSS frame again.
+	if (!jpeg_lease && _mmf_jpeg_reader_yields() && _mmf_vi_direct_yield(vi_ch) != CVI_SUCCESS)
+		return -1;
 
-	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[vi_ch];
+	VIDEO_FRAME_INFO_S *frame = jpeg_lease ? &vi_jpeg_frame : &priv.vi_frame[vi_ch];
 	int width = frame->stVFrame.u32Width;
 	int height = frame->stVFrame.u32Height;
 	int format = frame->stVFrame.enPixelFormat;
@@ -1867,7 +1990,7 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 	if (s32Ret != CVI_SUCCESS) {
         // The stride-aware copied fallback accepts NV21 only. Never treat
         // full-height NV16 chroma as subsampled VU; the caller reverts to NV21.
-        if (format == PIXEL_FORMAT_NV16) return s32Ret;
+        if (format == PIXEL_FORMAT_NV16 || jpeg_lease) return s32Ret;
 		printf("CVI_VENC_SendFrame native JPEG failed with %#x, fallback to copy\n", s32Ret);
 		uint8_t *data = (uint8_t *)_mmf_map_vi_frame(vi_ch);
 		if (data == NULL) {
@@ -2349,6 +2472,7 @@ int mmf_venc_push(int ch, uint8_t *data, int w, int h, int format) {
 }
 
 int mmf_trim_idle_copy_buffers(void) {
+    MMF_JPG_TEARDOWN;
     // Called under the capture owner's serialization when changing codec.
     // Keep encoders alive for mixed clients, but not unused copy reserves.
     for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
@@ -2429,27 +2553,41 @@ int mmf_vi_input_fps(void) {
 	return (int)status.u32FrameRate;
 }
 
+static int vpss_last_src_fps, vpss_last_dst_fps;
+
 int mmf_vpss_set_rate(int src_fps, int dst_fps) {
+	vpss_last_src_fps = src_fps;
+	vpss_last_dst_fps = dst_fps;
 	// The VI measurement reads a 50 Hz input as 50 or 51; never thin a stream
 	// that already matches the input.
 	const int tolerance = src_fps / 20 > 2 ? src_fps / 20 : 2;
 	// The capture mode rule uses the last known verdict: right after a
 	// capture start the VI has not measured the input rate yet.
 	if (src_fps > 0 && dst_fps > 0) vpss_rate_thins = dst_fps < src_fps - tolerance;
-	if (src_fps <= 0 || dst_fps <= 0 || dst_fps >= src_fps - tolerance) src_fps = dst_fps = -1;
 	// Group frame-rate control is not applied to a started group; the
 	// channel control is, and skips the conversion of dropped frames.
 	int result = 0;
 	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
 		if (!priv.vi_chn_is_inited[ch]) continue;
+		int src = src_fps, dst = dst_fps;
+		if (src > 0 && vpss_chn_max_fps[ch] > 0 && (dst <= 0 || dst > vpss_chn_max_fps[ch]))
+			dst = vpss_chn_max_fps[ch];
+		if (src <= 0 || dst <= 0 || dst >= src - tolerance) src = dst = -1;
 		VPSS_CHN_ATTR_S attr;
 		if (CVI_VPSS_GetChnAttr(0, ch, &attr) != CVI_SUCCESS) { result = -1; continue; }
-		if (attr.stFrameRate.s32SrcFrameRate == src_fps && attr.stFrameRate.s32DstFrameRate == dst_fps) continue;
-		attr.stFrameRate.s32SrcFrameRate = src_fps;
-		attr.stFrameRate.s32DstFrameRate = dst_fps;
+		if (attr.stFrameRate.s32SrcFrameRate == src && attr.stFrameRate.s32DstFrameRate == dst) continue;
+		attr.stFrameRate.s32SrcFrameRate = src;
+		attr.stFrameRate.s32DstFrameRate = dst;
 		if (CVI_VPSS_SetChnAttr(0, ch, &attr) != CVI_SUCCESS) result = -1;
 	}
 	return result;
+}
+
+int mmf_vpss_set_chn_max_rate(int ch, int max_fps) {
+	if (ch < 0 || ch >= MMF_VI_MAX_CHN || max_fps < 0) return CVI_FAILURE;
+	if (vpss_chn_max_fps[ch] == max_fps) return CVI_SUCCESS;
+	vpss_chn_max_fps[ch] = max_fps;
+	return mmf_vpss_set_rate(vpss_last_src_fps, vpss_last_dst_fps);
 }
 
 // The NV21 output feeds the video encoders (limited-range BT.709) and, with

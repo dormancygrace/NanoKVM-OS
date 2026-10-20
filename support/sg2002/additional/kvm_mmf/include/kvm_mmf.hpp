@@ -47,6 +47,21 @@ int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view);
 int mmf_vi_frame_pop_native(int ch, int *len, int *width, int *height, int *format);
 // As mmf_vi_frame_pop_native(), but waits at most timeout_ms for a frame.
 int mmf_vi_frame_try_pop_native(int ch, int timeout_ms, int *len, int *width, int *height, int *format);
+// For a JPEG reader: in 4:2:0 capture with H.264 straight from capture, its
+// own lease of the VI frame (released by mmf_vi_frame_release); otherwise as
+// mmf_vi_frame_pop_native().
+int mmf_vi_frame_pop_jpeg(int ch, int *len, int *width, int *height, int *format);
+// Held by a JPEG reader that encodes outside the capture lock, from the
+// JPEG submit to the release of its input frame; teardowns of the JPEG
+// encoder and of VI outputs wait for it. Recursive.
+// MJPEG's own output, read outside the capture lock under mmf_jpg_hold: its
+// frame only, without the direct-path recheck of the other pops.
+int mmf_vi_frame_pop_own(int ch, int *len, int *width, int *height, int *format);
+// Whether a popped frame is still leased (an output torn down meanwhile
+// released it).
+int mmf_vi_frame_leased(int ch);
+void mmf_jpg_hold(void);
+void mmf_jpg_unhold(void);
 void mmf_vi_frame_free(int ch);
 // Release the current VI frame immediately. mmf_vi_frame_free() defers
 // release so the frame can be sent directly to VENC without a second copy.
@@ -90,6 +105,9 @@ int mmf_vi_input_fps(void);
 // before any scaling. dst_fps <= 0, or within 5% (at least 2 fps) of
 // src_fps, processes every frame.
 int mmf_vpss_set_rate(int src_fps, int dst_fps);
+// At most max_fps on one VPSS output (0: no own limit), such as MJPEG's own
+// output next to a video stream; applied with the rate of the others.
+int mmf_vpss_set_chn_max_rate(int ch, int max_fps);
 int mmf_vi_chn_set_jfif(int ch, int jfif);
 // 4:2:0 capture (cv181x_vi nk_yuv420, osdrv patch 0013): the VI writes NV21
 // and H.264 at the input size reads it directly. active: the running capture

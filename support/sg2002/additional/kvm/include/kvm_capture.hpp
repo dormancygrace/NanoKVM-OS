@@ -56,7 +56,8 @@ public:
     int format_width(int format) const;
     bool matches_output(int format, int width, int height) const;
     int close_format(int format);
-    int discard_other_pending();
+    // keep_jpeg: leave MJPEG's own output (NV16) alone, its reader is active.
+    int discard_other_pending(bool keep_jpeg = false);
     // Disabled outputs keep their channels, pools and leases.
     int set_enabled(bool enable);
     // Preserve ownership and report errors until MMF confirms teardown.

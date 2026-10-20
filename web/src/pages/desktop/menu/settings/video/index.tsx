@@ -132,7 +132,7 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
           {line(
             t('videoSettings.output'),
             enabled && status
-              ? `${size(outputWidth || status.outputWidth, outputHeight || status.outputHeight)} · ${[codec, transport].filter(Boolean).join(' ')} · ${t('videoSettings.fpsValue', { value: status.measuredFps })}`
+              ? `${size(outputWidth || status.outputWidth, outputHeight || status.outputHeight)} · ${[codec, transport].filter(Boolean).join(' ')} · ${t('videoSettings.fpsValue', { value: (mjpeg ? status.mjpegMeasuredFps : undefined) ?? status.measuredFps })}`
               : '—'
           )}
           {!mjpeg &&

@@ -69,8 +69,9 @@ def check_read_img_gates():
         assert encode < body.index(step), 'encode lease after ' + step
     # The encode lease belongs to the loop body, so it outlives frame_to_jpeg/to_jpeg.
     assert 'encode_step.lease.release' not in body and 'std::move(encode_step' not in body
-    # Stale: release, start again from a new snapshot, and do not count it as a failed try.
-    assert body.count('geometry_stale = true;') == 2
+    # Stale: release, start again from a new snapshot, and do not count it as a failed try
+    # (the two steps, and MJPEG's own output torn down while its frame was read outside vi_mutex).
+    assert body.count('geometry_stale = true;') == 3
     assert 'while (geometry_stale ? ++stale_passes <= max_stale_passes : check_kvmv(try_num++))' in body
     assert body.count('IMG_MJPEG_INPUT_BLOCKED') == 3   # the early gate and the two steps
     assert 'nanokvm::admit_jpeg_step(vi_geometry, geometry)' in function_body(source, 'static nanokvm::JpegAdmission admit_capture_step')
@@ -106,10 +107,13 @@ def check_capture_mode_wiring():
     venc = function_body(mmf, 'int mmf_add_venc_channel_v2(')
     assert venc.index('_mmf_vi_yuv420_follow(cfg);') < venc.index('_mmf_vi_direct_for_venc(ch, cfg);')
     assert mmf.count('_mmf_vi_yuv420_follow(') == 3
+    # JPEG and CPU readers may read the mode, never change it.
     for reader in ['int mmf_enc_jpg_push_vi_with_quality(', 'int mmf_vi_frame_pop_nv21(',
-                   'static int _mmf_vi_direct_yield(']:
+                   'static int _mmf_vi_direct_yield(', 'int mmf_vi_frame_pop_jpeg(']:
         body = function_body(mmf, reader)
-        assert 'yuv420' not in body, reader
+        for write in ['vi_yuv420_wanted', 'vi_yuv420_running =', '_mmf_vi_yuv420_follow(',
+                      '_mmf_vi_yuv420_start(', 'restart']:
+            assert write not in body, (reader, write)
     vision = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
     video = function_body(vision, 'int8_t frame_to_video(')
     pending = video.index('if (mmf_vi_yuv420_pending()) {')

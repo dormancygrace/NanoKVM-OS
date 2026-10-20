@@ -204,13 +204,44 @@ func (s *Streamer) getClients() []*mjpegClient {
 	return *clients
 }
 
+// While an H.264 or H.265 stream has viewers, MJPEG runs at most at this
+// rate, and a little lower next to a stream wider than 1920 (2560x1440): each
+// JPEG costs the video stream about one frame (1080p90 H.264 alone 91 fps,
+// next to MJPEG at 53 fps only 32 fps). The native library runs MJPEG's own
+// VPSS output a little above these (30 and 27).
+const (
+	mjpegNextToVideoFPS     = 27
+	mjpegNextToWideVideoFPS = 25
+)
+
+// mjpegRate is the MJPEG capture rate for a screen rate.
+func mjpegRate(screenFPS int, videoActive, videoWide bool) int {
+	if screenFPS <= 0 {
+		return 1
+	}
+	limit := mjpegNextToVideoFPS
+	if videoWide {
+		limit = mjpegNextToWideVideoFPS
+	}
+	if videoActive && screenFPS > limit {
+		return limit
+	}
+	return screenFPS
+}
+
+// mjpegVideo reports whether an H.264 or H.265 stream has viewers and whether
+// it is wider than 1920 (the width the native library last encoded).
+func mjpegVideo() (active, wide bool) {
+	_, active = stream.ActiveEncoderConfig()
+	return active, active && common.ReadVideoValue("/run/nanokvm/video_width") > 1920
+}
+
 func (s *Streamer) run() {
 	common.CheckScreen()
 	screen := common.GetCaptureScreen()
-	fps := screen.FPS
-	if fps == 0 {
-		fps = 1
-	}
+	videoActive, videoWide := mjpegVideo()
+	fps := mjpegRate(screen.FPS, videoActive, videoWide)
+	nextVideoCheck := time.Now().Add(time.Second)
 
 	vision := common.GetKvmVision()
 
@@ -230,9 +261,14 @@ func (s *Streamer) run() {
 			continue
 		}
 
-		if screen.FPS != fps && screen.FPS != 0 {
-			fps = screen.FPS
-			ticker.Reset(time.Second / time.Duration(fps))
+		// The video state is checked once a second, not on every frame.
+		if now := time.Now(); now.After(nextVideoCheck) || screen.FPS != 0 && screen.FPS < fps {
+			nextVideoCheck = now.Add(time.Second)
+			videoActive, videoWide = mjpegVideo()
+			if rate := mjpegRate(screen.FPS, videoActive, videoWide); rate != fps && screen.FPS != 0 {
+				fps = rate
+				ticker.Reset(time.Second / time.Duration(fps))
+			}
 		}
 		// Avoid captures nobody can use while browser writers are backed up.
 		busy := !viewersReady(clients)
@@ -258,7 +294,7 @@ func (s *Streamer) run() {
 		}
 
 		if delivery.offer(clients, data, time.Now()) {
-			stream.GetFrameRateCounter().Update()
+			stream.GetMjpegFrameRateCounter().Update()
 		}
 	}
 }

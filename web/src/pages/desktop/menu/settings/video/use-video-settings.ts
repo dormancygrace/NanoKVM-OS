@@ -41,7 +41,10 @@ type ScreenStatus = {
   videoOutputWidth: number;
   videoOutputHeight: number;
   effectiveFps: number;
+  // The main stream: H.264/H.265 while it runs, else MJPEG.
   measuredFps: number;
+  // The MJPEG stream alone (older servers: absent).
+  mjpegMeasuredFps?: number;
   measuredKbps: number;
   // Device-wide MJPEG frame detection, saved by the server.
   frameDetect: boolean;

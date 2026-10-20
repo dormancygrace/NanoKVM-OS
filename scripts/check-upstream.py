@@ -207,6 +207,8 @@ def check(source, root=ROOT):
                                  '; hbb_common commit: ' + reference['hbb_common_commit'])
         elif kind == 'github-release-commit':
             release = github('repos/' + source['repo'] + '/releases/latest')
+            if release.get('draft') or release.get('prerelease'):
+                raise ValueError('Expected a published stable release')
             head = github('repos/' + source['repo'] + '/commits/' + urllib.parse.quote(release['tag_name'], safe=''))['sha']
             data = github('repos/' + source['repo'] + '/compare/' + current + '...' + head)
             result.update(latest=release['tag_name'] + ' (' + head[:12] + ')', link=release['html_url'],

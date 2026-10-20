@@ -84,6 +84,32 @@ class ProposalTests(unittest.TestCase):
         self.assertIsNotNone(updated)
         self.assertNotEqual(updated['branch'], plan['branch'])
 
+    def test_ini_miniz_release_updates_and_divergence(self):
+        for name, tag in (('inih', 'r63'), ('miniz', '3.1.3')):
+            source = self.source(name)
+            result = self.result(source, tag + ' (' + 'a' * 12 + ')')
+            with self.subTest(name=name), patch.object(p.upstream, 'github', return_value={'sha': 'a' * 40}) as api, \
+                    patch.object(p, 'git_paths', return_value={'.': 'b' * 40}):
+                plan = p.proposal(source, result, self.root)
+            api.assert_called_once_with('repos/' + source['repo'] + '/commits/' + tag)
+            line = next(line for line in plan['files']['platform/sources.lock'].splitlines()
+                        if line.startswith(name + ' '))
+            self.assertIn('a' * 40 + ' .=' + 'b' * 40, line)
+            manifest = json.loads(plan['files']['firmware/sources.json'])
+            self.assertEqual(manifest[name]['commit'], 'a' * 40)
+            result['status'] = 'review branch divergence'
+            with patch.object(p, 'pin_changes', side_effect=AssertionError('Must preserve current pins')):
+                plan = p.proposal(source, result, self.root)
+            self.assertEqual(list(plan['files']), ['.github/upstream-candidates/' + name + '.json'])
+
+    def test_ini_miniz_pinned_ahead_releases_do_not_open_prs(self):
+        results = [(self.source(name), dict(self.result(self.source(name), tag), status='pinned ahead'))
+                   for name, tag in (('inih', 'r62'), ('miniz', '3.1.2'))]
+        with patch.object(p, 'collect', return_value=results), patch.object(p, 'proposal') as prepare, \
+                patch.object(sys, 'argv', ['propose-upstream-updates.py']):
+            p.main()
+        prepare.assert_not_called()
+
     def test_archive_updates_hash_and_build_paths_together(self):
         source = self.source('U-Boot')
         result = self.result(source, '2027.01')

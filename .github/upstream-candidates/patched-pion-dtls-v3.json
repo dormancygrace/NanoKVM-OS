@@ -3,10 +3,17 @@
   "current": "3.1.14",
   "candidate": "3.1.15",
   "candidate_key": "3.1.15",
-  "status": "pending-review",
+  "status": "integrated",
   "upstream": "https://github.com/pion/dtls/tags",
   "source_path": "server/go.mod",
   "strategy": "review",
-  "evidence": {},
-  "pin_files_updated": []
+  "evidence": {
+    "upstream_commit": "1293c7e8fe0dfeba4272dbde31d0f86fbee92910",
+    "upstream_manifest": "server/third_party/pion-dtls/UPSTREAM-SHA256.json",
+    "patch_notes": "server/third_party/pion-dtls/NANOKVM-PATCHES.md"
+  },
+  "pin_files_updated": [
+    "server/go.mod",
+    "server/third_party/pion-dtls"
+  ]
 }

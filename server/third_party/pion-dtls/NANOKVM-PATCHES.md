@@ -1,6 +1,6 @@
 # NanoKVM DTLS changes
 
-Base: `github.com/pion/dtls/v3 v3.1.14`. The upstream MIT license and tests are
+Base: `github.com/pion/dtls/v3 v3.1.15`. The upstream MIT license and tests are
 retained. The original module is available through the Go module proxy for comparison.
 
 NanoKVM changes the DTLS 1.2 server's cipher-suite intersection order in
@@ -40,3 +40,11 @@ incomplete serialized state, and unauthenticated post-handshake records.
 The existing end-to-end cipher preference test also detects a missed port at
 the new SNI certificate-filtered intersection. All original NanoKVM patches
 listed above remain; Pion ICE is unchanged.
+
+The v3.1.15 integration adds upstream ECDHE-PSK ChaCha20-Poly1305 support
+and preserves exponential backoff for repeated cookie responses. The new
+suite is opt-in and does not alter NanoKVM's configured certificate suites.
+Upstream's expanded state-restoration warnings are retained; NanoKVM uses
+fresh WebRTC handshakes, not exported DTLS connection snapshots. The local
+server cipher preference, buffered-record EOF handling and Go 1.27 test
+fixtures are unchanged, along with all earlier security regression tests.

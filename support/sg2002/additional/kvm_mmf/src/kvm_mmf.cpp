@@ -904,9 +904,13 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 		DATA_BITWIDTH_8, enCompressMode, DEFAULT_ALIGN);
 	u32BlkSize = MAX(u32BlkSize, u32BlkRotSize);
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
-	// The pipeline serializes encoder leases. Two source surfaces
-	// retain producer/VPSS overlap.
-	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = 2;
+	// Up to 2560x1440 three source surfaces: a video stream straight from
+	// capture holds one in the encoder and one pre-submitted while the VPSS
+	// reads a third for MJPEG's own output (with two, the VI had none to
+	// write and dropped frames). Above that MJPEG is refused and two keep the
+	// producer/VPSS overlap.
+	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt =
+		(CVI_U64)stSize.u32Width * stSize.u32Height > 2560ULL * 1440 ? 2 : 3;
 	stVbConf.astCommPool[MMF_VB_VI_ID].enRemapMode	= VB_REMAP_MODE_CACHED;
 	stVbConf.u32MaxPoolCnt = 1;
 
@@ -1620,6 +1624,10 @@ int mmf_vi_frame_pop_native(int ch, int *len, int *width, int *height, int *form
 	}
 	priv.vi_frame_deferred[ch] = true;
 	return 0;
+}
+
+int mmf_vi_chn_direct(int ch) {
+	return ch >= 0 && ch < MMF_VI_MAX_CHN && vi_direct[ch];
 }
 
 int mmf_vi_frame_pop_jpeg(int ch, int *len, int *width, int *height, int *format) {

@@ -1583,8 +1583,11 @@ static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int widt
  */
 static void submit_next_video_frame(int vi_ch, int width, int height)
 {
+	// MJPEG on its own output (NV16) beside a video output straight from
+	// capture holds no buffer of the video output.
+	const bool jpeg_apart = mmf_vi_chn_direct(vi_ch) && cam->has_format(nanokvm::nv16_format());
 	if (!nanokvm::presubmit_next_video_frame((long)width * height * kvm_venc.kvm_venc_cfg.output_fps,
-			nanokvm::fast_pixel_rate, mjpeg_jpeg_reader_active(mjpeg_monotonic_ms()))) return;
+			nanokvm::fast_pixel_rate, mjpeg_jpeg_reader_active(mjpeg_monotonic_ms()), jpeg_apart)) return;
 	int len = 0, w = 0, h = 0, format = 0;
 	if (mmf_vi_frame_try_pop_native(vi_ch, 5, &len, &w, &h, &format) != 0) return;
 	if (w != width || h != height || format != nanokvm::nv21_format()
@@ -1949,8 +1952,15 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
         // read asks for the same stream; otherwise retire it first.
         bool submitted = false;
         const int pending_vi = kvm_venc.enc_video_init ? mmf_venc_pending_vi(kvm_venc.mmf_venc_chn) : -1;
-        if (pending_vi >= 0) {
-            if ((_type == VENC_H264 || _type == VENC_H265) && _type == kvmv_cfg.venc_type
+        // MJPEG on its own output leaves a video frame pre-submitted on the
+        // video output alone; the next video read collects it. Retiring the
+        // video encoder there on every JPEG read recreated it each time.
+        const bool jpeg_beside_pending = _type == VENC_MJPEG && capture_format == nanokvm::nv16_format()
+            && pending_vi >= 0 && pending_vi != cam->get_channel();
+        if (pending_vi >= 0 && !jpeg_beside_pending) {
+            // The encoder check compares the codec; the last read may have been
+            // MJPEG's, beside this stream.
+            if ((_type == VENC_H264 || _type == VENC_H265)
                     && pending_vi == cam->get_channel() && capture_format == nanokvm::nv21_format()
                     && kvmv_cfg.fresh_frame_count == 0
                     && video_encoder_matches(geometry, output.width, output.height,
@@ -2079,8 +2089,12 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
             geometry_stale = true;
             continue;
         }
-        // Encode
-        if (kvmv_cfg.venc_type != _type && mmf_trim_idle_copy_buffers() != 0) {
+        // Encode. Copy reserves are trimmed when a reader type changes, not
+        // while MJPEG and a video stream take turns: the trim is a teardown
+        // and waits for a JPEG encode outside vi_mutex.
+        const bool other_reader = _type == VENC_MJPEG ? mjpeg_video_reader_active(capture_now)
+                                                      : mjpeg_jpeg_reader_active(capture_now);
+        if (kvmv_cfg.venc_type != _type && !other_reader && mmf_trim_idle_copy_buffers() != 0) {
             if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
             else delete img;
             pthread_mutex_unlock(&vi_mutex);

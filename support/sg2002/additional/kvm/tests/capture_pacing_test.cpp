@@ -19,6 +19,10 @@ int main() {
     assert(presubmit_next_video_frame(fhd100, fast_pixel_rate, false));
     assert(!presubmit_next_video_frame(fhd100, fast_pixel_rate, true));
     assert(!presubmit_next_video_frame(2560L * 1440 * 50, fast_pixel_rate, false)); // Boundary.
+    // A JPEG reader apart from a video output straight from capture.
+    assert(presubmit_next_video_frame(qhd60, fast_pixel_rate, true, true));
+    assert(!presubmit_next_video_frame(qhd60, fast_pixel_rate, true, false));
+    assert(!presubmit_next_video_frame(fhd60, fast_pixel_rate, true, true));
     // The input rate snaps to a common rate; it rises at once and falls after
     // three equal readings.
     assert(InputRateFilter::nominal(0) == 0);

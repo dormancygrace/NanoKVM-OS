@@ -298,3 +298,50 @@ func TestCollectorCurrentDigestCacheTracksTruncation(t *testing.T) {
 		t.Fatalf("truncated state reused stale sanitized output: %+v %v", next, err)
 	}
 }
+
+func TestSystemLogFromRAMOrLegacyDirectory(t *testing.T) {
+	legacy := t.TempDir()
+	if err := os.WriteFile(filepath.Join(legacy, "messages"), []byte("on the card\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	collector := NewCollector()
+	collector.legacyLogDir = legacy
+	// An image whose syslog still writes /var/log has no RAM log directory.
+	collector.logDir = filepath.Join(t.TempDir(), "missing")
+	snapshot, err := collector.ReadBoot("system", "current")
+	if err != nil || !strings.Contains(snapshot.Content, "on the card") {
+		t.Fatalf("legacy system log = %q, %v", snapshot.Content, err)
+	}
+	// A RAM directory without a system log (made before a syslog restart
+	// that failed) does not hide the live legacy log.
+	collector = NewCollector()
+	collector.legacyLogDir = legacy
+	collector.logDir = t.TempDir()
+	snapshot, err = collector.ReadBoot("system", "current")
+	if err != nil || !strings.Contains(snapshot.Content, "on the card") {
+		t.Fatalf("empty RAM directory hid the legacy log: %q, %v", snapshot.Content, err)
+	}
+	// An empty RAM messages file is the system log: syslog writes there.
+	collector = NewCollector()
+	collector.legacyLogDir = legacy
+	collector.logDir = t.TempDir()
+	if err := os.WriteFile(filepath.Join(collector.logDir, "messages"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err = collector.ReadBoot("system", "current")
+	if err != nil || strings.Contains(snapshot.Content, "on the card") {
+		t.Fatalf("empty RAM log fell back to the legacy log: %q, %v", snapshot.Content, err)
+	}
+	// With RAM messages, only they are read.
+	ram := t.TempDir()
+	collector = NewCollector()
+	collector.legacyLogDir = legacy
+	collector.logDir = ram
+	if err := os.WriteFile(filepath.Join(ram, "messages"), []byte("in RAM\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err = collector.ReadBoot("system", "current")
+	if err != nil || !strings.Contains(snapshot.Content, "in RAM") || strings.Contains(snapshot.Content, "on the card") {
+		t.Fatalf("RAM system log = %q, %v", snapshot.Content, err)
+	}
+}

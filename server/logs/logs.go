@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -85,22 +86,26 @@ type cachedLog struct {
 }
 
 type Collector struct {
-	mu          sync.Mutex
-	cache       map[string]cachedLog
-	misses      []time.Time
-	now         func() time.Time
-	logDir      string
-	application *Buffer
-	archive     *Archive
-	kernel      func([]byte) (int, error)
+	mu     sync.Mutex
+	cache  map[string]cachedLog
+	misses []time.Time
+	now    func() time.Time
+	// The system log: in RAM (/run/log, see nanokvm-base's syslog setup);
+	// an image whose syslog still writes /var/log has no /run/log.
+	logDir       string
+	legacyLogDir string
+	application  *Buffer
+	archive      *Archive
+	kernel       func([]byte) (int, error)
 }
 
 func NewCollector() *Collector {
 	return &Collector{
-		cache:       make(map[string]cachedLog),
-		now:         time.Now,
-		logDir:      "/var/log",
-		application: Application,
+		cache:        make(map[string]cachedLog),
+		now:          time.Now,
+		logDir:       "/run/log",
+		legacyLogDir: "/var/log",
+		application:  Application,
 		kernel: func(data []byte) (int, error) {
 			// SYSLOG_ACTION_READ_ALL reads without clearing the kernel ring.
 			return unix.Klogctl(3, data)
@@ -159,7 +164,11 @@ func (c *Collector) read(source, boot string, internal bool) (Snapshot, error) {
 	var err error
 	switch source {
 	case "system":
-		data, truncated, err = readSystemTail(c.logDir)
+		directory := c.logDir
+		if c.legacyLogDir != "" && !hasSystemLog(directory) {
+			directory = c.legacyLogDir
+		}
+		data, truncated, err = readSystemTail(directory)
 	case "application":
 		data, truncated = c.application.tail()
 	case "kernel":
@@ -192,6 +201,18 @@ func (c *Collector) read(source, boot string, internal bool) (Snapshot, error) {
 	// storm. No raw OS error (which may contain paths) is exposed.
 	c.remember(key, snapshot, now, rawDigest, truncated, err == nil)
 	return snapshot, nil
+}
+
+// hasSystemLog reports whether syslog writes into directory: one of its
+// files exists, even empty. A directory without them (created before a
+// syslog restart that failed, or for something else) is not the system log.
+func hasSystemLog(directory string) bool {
+	for _, name := range []string{"messages", "messages.0", "messages.1"} {
+		if _, err := os.Stat(filepath.Join(directory, name)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func readSystemTail(directory string) ([]byte, bool, error) {

@@ -115,6 +115,8 @@ int mmf_vi_chn_set_jfif(int ch, int jfif);
 // is 4:2:0; pending: the video encoder wants the other mode, applied by the
 // next capture start (restart).
 int mmf_vi_yuv420_active(void);
+// Whether a VI output is read straight from capture (its VPSS channel off).
+int mmf_vi_chn_direct(int ch);
 int mmf_vi_yuv420_pending(void);
 // VI channel whose frame VENC channel ch is encoding, or -1.
 int mmf_venc_pending_vi(int ch);

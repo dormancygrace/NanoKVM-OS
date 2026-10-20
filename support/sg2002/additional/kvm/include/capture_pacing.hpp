@@ -11,9 +11,14 @@ inline bool reader_active(uint64_t last_ms, uint64_t now_ms) {
 // every read, and a fully leased output can starve its VPSS pool (a group
 // fails as a whole when one output has no buffer). So pre-submit only while
 // no JPEG reader is active; the cost is the pre-submit pacing of the video
-// stream during that time.
-inline bool presubmit_next_video_frame(long pixel_rate, long fast_pixel_rate, bool jpeg_reader_active) {
-    return pixel_rate > fast_pixel_rate && !jpeg_reader_active;
+// stream during that time. A JPEG reader on its own output while the video
+// output is straight from capture shares neither: the video lease is a VI
+// frame, the JPEG reads its own VPSS output, and pre-submitting stays on.
+// Without it the video read waits for the next VI frame and then for the
+// whole encode, every other frame (2560x1440: 25 instead of 60 fps).
+inline bool presubmit_next_video_frame(long pixel_rate, long fast_pixel_rate, bool jpeg_reader_active,
+                                       bool jpeg_apart = false) {
+    return pixel_rate > fast_pixel_rate && (!jpeg_reader_active || jpeg_apart);
 }
 // The nominal rate of the HDMI input. The VI channel rate reads a few frames
 // either side of it: take the nearest common rate within three (57-63 is 60,

@@ -1,0 +1,26 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vi: no error print for a short VI frame poll above the ioctl
+
+0014 quieted vi_sdk_get_chn_frame, but CVI_VI_GetChnFrame prints the same
+failure again. The native library polls with short timeouts (5 ms when it
+pre-submits the next frame, 200 ms when it switches a capture path): a poll
+that finds no frame yet is normal, and each one went to syslog as
+"vi_sdk_get_chn_frame ioctl failed" (about 8 lines a second on the stand
+with MJPEG next to a 1440p60 H.264 stream). A blocking read or a wait of
+100 ms or more that ends without a frame still prints, as in osdrv 0009.
+
+---
+diff --git a/modules/vi/src/cvi_vi.c b/modules/vi/src/cvi_vi.c
+--- a/modules/vi/src/cvi_vi.c
++++ b/modules/vi/src/cvi_vi.c
+@@ -1617,7 +1617,9 @@
+ 
+ 	s32Ret = vi_sdk_get_chn_frame(fd, ViPipe, ViChn, pstFrameInfo, s32MilliSec);
+ 	if (s32Ret != CVI_SUCCESS) {
+-		CVI_TRACE_VI(CVI_DBG_ERR, "vi_sdk_get_chn_frame ioctl failed\n");
++		/* A short poll (under 100 ms) that finds no frame is a normal result. */
++		if (s32MilliSec < 0 || s32MilliSec >= 100)
++			CVI_TRACE_VI(CVI_DBG_ERR, "vi_sdk_get_chn_frame ioctl failed\n");
+ 		return CVI_ERR_VI_FAILED_NOT_ENABLED;
+ 	}
+ 

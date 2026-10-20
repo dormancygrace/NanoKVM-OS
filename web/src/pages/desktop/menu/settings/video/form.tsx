@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Collapse, InputNumber, message, Modal, Select, Switch } from 'antd';
+import { Alert, Button, Collapse, message, Modal, Select, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -230,6 +230,19 @@ export const VideoForm = ({
   ];
   // The fastest rate of the resolution: the monitor cannot refresh faster.
   const maxFps = Math.min(caps.stream.maxFps, current?.rates[0] ?? caps.stream.maxFps);
+  // Where the monitor follows the stream rate, the rates it offers at this
+  // resolution, fastest first. Where it keeps its own rate (Cube, Lite: an
+  // EDID write needs a power cycle) or the input matches no profile, the
+  // stream rate only limits the encoder: the usual rates up to the monitor's.
+  // A saved rate that is not one of them stays selectable, so it is not lost.
+  const streamRates = [120, 100, 90, 75, 60, 50, 40, 30];
+  const presets = (
+    caps.monitor.followsStreamRate && current?.rates.length ? current.rates : streamRates
+  ).filter((value) => value >= caps.stream.minFps && value <= maxFps);
+  const rateOptions = [
+    ...(draft.fps && !presets.includes(draft.fps) ? [draft.fps] : []),
+    ...presets
+  ].map((value) => ({ value, label: t('videoSettings.fpsValue', { value }) }));
   const target = monitorTarget(draft, caps);
   const delivered = effectiveFps(draft, caps);
   const mjpeg = draft.transport === 'mjpeg';
@@ -266,15 +279,13 @@ export const VideoForm = ({
         )}
         {row(
           t('videoSettings.fpsOverride'),
-          <InputNumber
-            className="w-full!"
+          <Select
+            className="w-full"
             aria-label={t('videoSettings.fpsOverride')}
             value={draft.fps || null}
-            min={caps.stream.minFps}
-            max={maxFps}
-            precision={0}
-            disabled={busy || !admin}
-            onChange={(value) => change('fps', value ?? 0)}
+            options={rateOptions}
+            disabled={busy || !admin || rateOptions.length === 0}
+            onChange={(value: number) => change('fps', value)}
           />,
           delivered < draft.fps
             ? t('videoSettings.fpsDelivered', {

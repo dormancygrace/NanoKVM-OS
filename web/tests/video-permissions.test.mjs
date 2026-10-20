@@ -238,7 +238,7 @@ test('users choose transport and playback; shared settings are read-only', () =>
   assert.equal(control('Select', 'videoSettings.resolution').props.disabled, true);
   assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, true);
   assert.equal(control('Select', 'screen.codec').props.disabled, true);
-  assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, true);
+  assert.equal(control('Select', 'videoSettings.fpsOverride').props.disabled, true);
   assert.equal(control('Select', 'screen.video').props.disabled, false);
   assert.equal(control('Select', 'videoSettings.player').props.disabled, false);
 });
@@ -250,7 +250,20 @@ test('administrators edit the shared picture', () => {
   assert.equal(control('Select', 'videoSettings.resolution').props.disabled, false);
   assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, false);
   assert.equal(control('Select', 'screen.codec').props.disabled, false);
-  assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, false);
+  const rate = control('Select', 'videoSettings.fpsOverride');
+  assert.equal(rate.props.disabled, false);
+  // The presets of the 1920x1080 monitor, fastest first, with the saved 60 fps among them.
+  assert.equal(rate.props.options.map((o) => o.value).join(','), '75,60,30');
+  assert.equal(rate.props.value, 60);
+});
+
+test('a saved frame rate that is not a preset stays in the list', () => {
+  const nodes = renderForm('admin', undefined, undefined, { ...saved, fps: 45 });
+  const rate = nodes.find(
+    (n) => n.type === 'Select' && n.props['aria-label'] === 'videoSettings.fpsOverride'
+  );
+  assert.equal(rate.props.options.map((o) => o.value).join(','), '45,75,60,30');
+  assert.equal(rate.props.value, 45);
 });
 
 test('the straight-from-capture switch follows the codecs the device supports', () => {
@@ -267,6 +280,24 @@ test('the straight-from-capture switch follows the codecs the device supports', 
   assert.equal(toggle(renderForm('admin', undefined, { h264: false, h265: true }, direct)), undefined);
   assert.ok(toggle(renderForm('admin', undefined, { h264: false, h265: true }, { ...direct, codec: 'h265' })));
   assert.equal(toggle(renderForm('admin', undefined, { h264: true, h265: true }, { ...direct, hevcDirect: null })), undefined);
+});
+
+test('a Cube keeps its monitor rate: the list offers stream rates up to it', () => {
+  const monitor = caps.monitor;
+  caps.monitor = {
+    ...monitor,
+    followsStreamRate: false,
+    modes: monitor.modes.map((m) => ({ ...m, rates: [60] }))
+  };
+  try {
+    const rate = renderForm('admin').find(
+      (n) => n.type === 'Select' && n.props['aria-label'] === 'videoSettings.fpsOverride'
+    );
+    assert.equal(rate.props.options.map((o) => o.value).join(','), '60,50,40,30');
+    assert.equal(rate.props.value, 60);
+  } finally {
+    caps.monitor = monitor;
+  }
 });
 
 test('administrators see when the device transport is another one', () => {

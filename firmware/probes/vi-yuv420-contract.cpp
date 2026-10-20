@@ -317,6 +317,28 @@ static void jpeg_output_rate() {
 
 // The JPEG output runs outside vi_mutex while video encoder state changes.
 // Run with ThreadSanitizer too: NV16 release must not read priv.venc[].
+// Simulate a restart/reuse in the gap between JPEG hold and vi_mutex.
+static void replaced_jpeg_lease() {
+    reset();
+    vpss_input.stVFrame.enPixelFormat = PIXEL_FORMAT_NV16;
+    int len, w, h, fmt;
+    assert(mmf_vi_frame_pop_own(0, &len, &w, &h, &fmt) == 0);
+    assert(mmf_vi_frame_leased(0));
+    mmf_vi_frame_release(0);
+    assert(!mmf_vi_frame_leased(0));
+    // A different reader leases a replacement on the same numeric channel.
+    vpss_input.stVFrame.enPixelFormat = PIXEL_FORMAT_NV21;
+    assert(mmf_vi_frame_pop_native(0, &len, &w, &h, &fmt) == 0);
+    assert(priv.vi_frame_valid[0] && priv.vi_frame_deferred[0]);
+    assert(!mmf_vi_frame_leased(0));
+    mmf_vi_frame_release(0);
+    // A fresh JPEG acquisition is recognized, including identical addresses.
+    vpss_input.stVFrame.enPixelFormat = PIXEL_FORMAT_NV16;
+    assert(mmf_vi_frame_pop_own(0, &len, &w, &h, &fmt) == 0);
+    assert(mmf_vi_frame_leased(0));
+    mmf_vi_frame_release(0);
+}
+
 static void concurrent_jpeg_output() {
     reset();
     priv.vi_chn_is_inited[1] = true;
@@ -349,6 +371,7 @@ static void concurrent_jpeg_output() {
 
 int main() {
     const int fd = mkstemp(param_path); assert(fd >= 0); close(fd);
+    replaced_jpeg_lease();
     concurrent_jpeg_output();
     mode_rule();
     restart_and_codec_switch();

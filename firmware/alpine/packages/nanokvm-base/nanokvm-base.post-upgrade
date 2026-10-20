@@ -21,6 +21,39 @@ if [ -e /run/openrc/softlevel ] && ! rc-service loopback status >/dev/null 2>&1;
     rc-service loopback start
 fi
 
+# The live system log stays in RAM: syslogd writes /run/log/messages (up to
+# 512 KiB, one rotated file) and the server archives the new lines to the SD
+# card once a minute (/var/log/nanokvm-boots, docs/LOGS.md). Only the Alpine
+# default or an earlier NanoKVM setting is replaced; any other stays.
+syslog_conf=/etc/conf.d/syslog
+syslog_marker='# NanoKVM: the live system log in RAM'
+syslog_default=no
+if [ ! -e "$syslog_conf" ] || [ "$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$syslog_conf")" = 'SYSLOGD_OPTS="-t"' ]; then
+    syslog_default=yes
+fi
+syslog_changed=no
+if [ "$syslog_default" = yes ] || grep -qxF "$syslog_marker" "$syslog_conf" 2>/dev/null; then
+    syslog_new=$(printf '%s\n%s\n%s\n' "$syslog_marker" 'mkdir -p /run/log' \
+        'SYSLOGD_OPTS="-t -O /run/log/messages -s 512 -b 1"')
+    if [ "$(cat "$syslog_conf" 2>/dev/null)" != "$syslog_new" ]; then
+        mkdir -p /etc/conf.d
+        printf '%s\n' "$syslog_new" > "$syslog_conf"
+        syslog_changed=yes
+    fi
+    unset syslog_new
+fi
+# Move a running syslog to the RAM log, then remove the card copies it wrote.
+if [ "$syslog_changed" = yes ]; then
+    if [ -e /run/openrc/softlevel ] && rc-service syslog status >/dev/null 2>&1; then
+        mkdir -p /run/log
+        rc-service syslog restart >/dev/null 2>&1 || echo "syslog could not restart; it writes the RAM log after the next boot." >&2
+    fi
+    if [ ! -e /run/openrc/softlevel ] || [ -e /run/log/messages ]; then
+        rm -f /var/log/messages /var/log/messages.0 /var/log/messages.1
+    fi
+fi
+unset syslog_conf syslog_marker syslog_default syslog_changed
+
 tmpfs_entry='tmpfs /tmp tmpfs rw,nosuid,nodev,mode=1777,size=64M 0 0'
 if ! grep -qE '^[^#]+[[:space:]]+/tmp[[:space:]]' /etc/fstab 2>/dev/null; then
     printf '%s\n' "$tmpfs_entry" >> /etc/fstab

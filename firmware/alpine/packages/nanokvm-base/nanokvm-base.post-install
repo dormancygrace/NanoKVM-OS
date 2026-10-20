@@ -23,6 +23,30 @@ mkdir -p /etc/kvm
 mkdir -p /etc/conf.d
 printf '%s\n' 'command_args="-f /etc/chrony.conf"' > /etc/conf.d/chronyd
 touch /etc/kvm/ssh_stop
+
+# The live system log stays in RAM: syslogd writes /run/log/messages (up to
+# 512 KiB, one rotated file) and the server archives the new lines to the SD
+# card once a minute (/var/log/nanokvm-boots, docs/LOGS.md). Only the Alpine
+# default or an earlier NanoKVM setting is replaced; any other stays.
+syslog_conf=/etc/conf.d/syslog
+syslog_marker='# NanoKVM: the live system log in RAM'
+syslog_default=no
+if [ ! -e "$syslog_conf" ] || [ "$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$syslog_conf")" = 'SYSLOGD_OPTS="-t"' ]; then
+    syslog_default=yes
+fi
+syslog_changed=no
+if [ "$syslog_default" = yes ] || grep -qxF "$syslog_marker" "$syslog_conf" 2>/dev/null; then
+    syslog_new=$(printf '%s\n%s\n%s\n' "$syslog_marker" 'mkdir -p /run/log' \
+        'SYSLOGD_OPTS="-t -O /run/log/messages -s 512 -b 1"')
+    if [ "$(cat "$syslog_conf" 2>/dev/null)" != "$syslog_new" ]; then
+        mkdir -p /etc/conf.d
+        printf '%s\n' "$syslog_new" > "$syslog_conf"
+        syslog_changed=yes
+    fi
+    unset syslog_new
+fi
+# A fresh image starts syslog with the RAM log; nothing was written to the card.
+unset syslog_conf syslog_marker syslog_default syslog_changed
 mkdir -p /etc/kvm/cron/crontabs
 if [ ! -L /etc/crontabs ]; then
     cp -an /etc/crontabs/. /etc/kvm/cron/crontabs/ 2>/dev/null || true

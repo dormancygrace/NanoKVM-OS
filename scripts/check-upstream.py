@@ -64,6 +64,25 @@ def version(value, separator='.'):
     return parts + (0,) * max(0, 4 - len(parts))
 
 
+def rustdesk_release_reference():
+    """Resolve the stable release first, then its gitlink at an immutable commit."""
+    repo = 'rustdesk/rustdesk'
+    release = github('repos/' + repo + '/releases/latest')
+    tag = release['tag_name']
+    if release.get('draft') or release.get('prerelease') or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', tag):
+        raise ValueError('Expected a published stable RustDesk release')
+    commit = github('repos/' + repo + '/commits/' + tag)['sha']
+    if not re.fullmatch(r'[0-9a-f]{40}', commit):
+        raise ValueError('Invalid RustDesk release commit')
+    submodule = github('repos/' + repo + '/contents/libs/hbb_common?ref=' + commit)
+    # GitHub Contents API also labels submodules as "file" on older API versions.
+    if (submodule.get('type') not in ('submodule', 'file')
+            or submodule.get('submodule_git_url') != 'https://github.com/rustdesk/hbb_common'
+            or not re.fullmatch(r'[0-9a-f]{40}', submodule.get('sha', ''))):
+        raise ValueError('Expected the hbb_common submodule pinned by the RustDesk release')
+    return dict(rustdesk_version=tag, rustdesk_commit=commit, hbb_common_commit=submodule['sha'])
+
+
 def select_sources(sources, cadence='all'):
     """Filter before network requests; manual checks default to all cadences."""
     if cadence not in ('all', 'daily', 'quarterly'):
@@ -170,6 +189,22 @@ def check(source, root=ROOT):
                 raise ValueError('Latest release is missing required asset: ' + source['asset'])
             result.update(current='latest release channel', latest=data['tag_name'], link=data['html_url'],
                           status='repository-managed', detail='Fetched on demand; installed device version is not inspected')
+        elif kind == 'rustdesk-release-reference':
+            reference = rustdesk_release_reference()
+            pinned = json.loads((root / source['path']).read_text())
+            latest = reference['rustdesk_version']
+            a, b = version(current), version(latest)
+            same = all(pinned.get(key) == value for key, value in reference.items())
+            status = ('update available' if b > a else 'pinned ahead' if a > b else
+                      'current' if same else 'review upstream replacement')
+            result.update(latest=latest, status=status,
+                          link='https://github.com/rustdesk/rustdesk/releases/tag/' + latest,
+                          reference=reference, candidate_key=':'.join(reference.values()),
+                          detail='Review RustDesk and its bundled hbb_common together. '
+                                 'These are protocol references, not linked build dependencies; '
+                                 'port and test protocol changes before updating upstream.json. '
+                                 'RustDesk commit: ' + reference['rustdesk_commit'] +
+                                 '; hbb_common commit: ' + reference['hbb_common_commit'])
         elif kind == 'github-release-commit':
             release = github('repos/' + source['repo'] + '/releases/latest')
             head = github('repos/' + source['repo'] + '/commits/' + urllib.parse.quote(release['tag_name'], safe=''))['sha']

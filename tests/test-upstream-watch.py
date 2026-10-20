@@ -18,6 +18,65 @@ spec.loader.exec_module(u)
 
 
 class WatchTests(unittest.TestCase):
+    def rustdesk_fixture(self, tag='1.5.0', commit='a' * 40, hbb='b' * 40):
+        source = next(s for s in json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+                      if s['name'] == 'RustDesk protocol reference')
+        responses = {
+            'repos/rustdesk/rustdesk/releases/latest': dict(tag_name=tag, draft=False, prerelease=False),
+            'repos/rustdesk/rustdesk/commits/' + tag: dict(sha=commit),
+            'repos/rustdesk/rustdesk/contents/libs/hbb_common?ref=' + commit:
+                dict(type='submodule', submodule_git_url='https://github.com/rustdesk/hbb_common', sha=hbb),
+        }
+        return source, responses
+
+    def test_rustdesk_release_resolves_immutable_bundled_submodule(self):
+        source, responses = self.rustdesk_fixture()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pin = root / source['path']
+            pin.parent.mkdir(parents=True)
+            reference = dict(rustdesk_version='1.5.0', rustdesk_commit='a' * 40, hbb_common_commit='b' * 40)
+            pin.write_text(json.dumps(reference))
+            for tag, commit, hbb, status in [
+                ('1.5.0', 'a' * 40, 'b' * 40, 'current'),
+                ('1.6.0', 'c' * 40, 'd' * 40, 'update available'),
+                ('1.4.0', 'c' * 40, 'd' * 40, 'pinned ahead'),
+                ('1.5.0', 'c' * 40, 'd' * 40, 'review upstream replacement'),
+            ]:
+                source, responses = self.rustdesk_fixture(tag, commit, hbb)
+                with self.subTest(tag=tag, commit=commit), patch.object(u, 'github', side_effect=responses.__getitem__) as api:
+                    result = u.check(source, root)
+                self.assertEqual(result['status'], status, result)
+                self.assertEqual(result['reference'], dict(rustdesk_version=tag, rustdesk_commit=commit, hbb_common_commit=hbb))
+                self.assertEqual(result['candidate_key'], ':'.join((tag, commit, hbb)))
+                self.assertEqual(api.call_count, 3)
+                self.assertEqual(json.loads(pin.read_text()), reference)
+                self.assertFalse(any('/main' in call.args[0] or '/tags' in call.args[0] for call in api.call_args_list))
+
+    def test_rustdesk_rejects_prerelease_and_invalid_gitlink(self):
+        cases = [('release', {'prerelease': True}), ('release', {'draft': True}),
+                 ('release', {'tag_name': '1.6.0-rc1'}), ('release', {'tag_name': 'nightly'}),
+                 ('commit', {'sha': 'main'}), ('submodule', {'type': 'dir'}),
+                 ('submodule', {'submodule_git_url': 'https://github.com/other/fork'}),
+                 ('submodule', {'sha': 'main'}), ('submodule', {'submodule_git_url': None})]
+        for target, change in cases:
+            source, responses = self.rustdesk_fixture()
+            key = list(responses)[{'release': 0, 'commit': 1, 'submodule': 2}[target]]
+            responses[key].update(change)
+            with self.subTest(target=target, change=change), patch.object(u, 'github', side_effect=responses.__getitem__):
+                result = u.check(source)
+            self.assertEqual(result['status'], 'error', result)
+            self.assertNotIn('reference', result)
+
+    def test_rustdesk_accepts_github_legacy_file_type_only_with_gitlink_metadata(self):
+        source, responses = self.rustdesk_fixture()
+        list(responses.values())[-1]['type'] = 'file'
+        with patch.object(u, 'github', side_effect=responses.__getitem__):
+            self.assertEqual(u.rustdesk_release_reference()['hbb_common_commit'], 'b' * 40)
+        list(responses.values())[-1].pop('submodule_git_url')
+        with patch.object(u, 'github', side_effect=responses.__getitem__):
+            self.assertEqual(u.check(source)['status'], 'error')
+
     def test_json_c_tracks_stable_release_tags(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
         source = next(s for s in sources if s['name'] == 'json_c')

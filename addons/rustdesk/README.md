@@ -179,6 +179,18 @@ This is a partial protocol endpoint, not a full RustDesk fork.
 `nanokvm-rustdesk --version` prints both versions without starting the service.
 The network version remains the reference version, not the newest client release.
 
+The reference pair follows published stable releases of
+[RustDesk](https://github.com/rustdesk/rustdesk/releases): `rustdesk_commit`
+resolves the release tag, and `hbb_common_commit` is the `libs/hbb_common`
+submodule commit in that exact RustDesk tree. Neither follows a moving branch.
+The upstream watcher opens one review PR with both commits for each new stable
+release; it ignores standalone changes to `hbb_common/main` and prereleases.
+Review and port relevant protocol changes, run the add-on tests, then update
+all three reference fields and NOTICE together. A notification PR does not
+claim that the protocol has already been adapted. Normal builds use our local
+implementation and Cargo.lock; they do not fetch RustDesk or hbb_common.
+
+
 TCP/relay advertises KX v1, which derives independent transmit/receive keys with
 the upstream BLAKE2b transcript. Legacy v0 controllers remain supported; an
 unoffered version fails closed. WebRTC carries the same protobuf messages over

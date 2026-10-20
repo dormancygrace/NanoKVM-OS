@@ -52,11 +52,37 @@ class ProposalTests(unittest.TestCase):
         names = {s['name'] for s in self.sources}
         all_names = {s['name'] for s in json.loads((self.root / '.github/upstream-watch.json').read_text())['sources']}
         self.assertEqual(all_names - names, {'Linux', 'QEMU Ubuntu build helper'})
-        self.assertEqual(len(names), 34)
+        self.assertEqual(len(names), 33)
         self.assertEqual(self.source('aic8800')['repo'], 'radxa-pkg/aic8800')
         for name in ('Go runtime', 'Patched Pion dtls/v3', 'Patched Pion ice/v4',
                      'Patched Pion srtp/v3', 'GCC compiler', 'Alpine stable branch'):
             self.assertEqual(self.source(name)['pull_request']['mode'], 'review')
+
+    def test_rustdesk_release_is_one_review_with_both_commits(self):
+        source = self.source('RustDesk protocol reference')
+        self.assertEqual(source['kind'], 'rustdesk-release-reference')
+        self.assertFalse(any(s.get('repo') == 'rustdesk/hbb_common' for s in self.sources))
+        reference = dict(rustdesk_version='1.6.0', rustdesk_commit='a' * 40, hbb_common_commit='b' * 40)
+        result = dict(current='1.5.0', latest='1.6.0', status='update available', path=source['path'],
+                      link='https://github.com/rustdesk/rustdesk/releases/tag/1.6.0',
+                      reference=reference, candidate_key=':'.join(reference.values()))
+        plan = p.proposal(source, result, self.root)
+        path = '.github/upstream-candidates/rustdesk-protocol-reference.json'
+        self.assertEqual(list(plan['files']), [path])
+        record = json.loads(plan['files'][path])
+        self.assertEqual(record['evidence']['reference'], reference)
+        self.assertEqual(record['candidate_key'], result['candidate_key'])
+        self.assertEqual(record['pin_files_updated'], [])
+        saved = self.root / path
+        saved.parent.mkdir(parents=True)
+        saved.write_text(plan['files'][path])
+        self.assertIsNone(p.proposal(source, result, self.root))
+        # Retagging the same version must not be hidden by the old acknowledgement.
+        result['reference'] = dict(reference, rustdesk_commit='c' * 40)
+        result['candidate_key'] = ':'.join(result['reference'].values())
+        updated = p.proposal(source, result, self.root)
+        self.assertIsNotNone(updated)
+        self.assertNotEqual(updated['branch'], plan['branch'])
 
     def test_archive_updates_hash_and_build_paths_together(self):
         source = self.source('U-Boot')

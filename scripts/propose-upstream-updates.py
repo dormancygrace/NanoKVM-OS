@@ -206,6 +206,8 @@ def proposal(source, result, root=ROOT):
     record = dict(component=source['name'], current=result['current'], candidate=result['latest'],
                   candidate_key=key, status='pending-review', upstream=result['link'],
                   source_path=result['path'], strategy=policy['mode'], evidence=evidence)
+    if result.get('reference'):
+        record['evidence']['reference'] = result['reference']
     if result.get('upstream_commit'):
         record['upstream_commit'] = result['upstream_commit']
     if error:

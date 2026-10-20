@@ -35,7 +35,7 @@ The Go, frontend, script and additional-Go-module CI suites remain mandatory. Ru
 - **All direct frontend dependencies**, including dev dependencies and npm aliases, against registry `latest`, independently of cooldown or whether Dependabot can produce a lockfile update. Indirect frontend packages remain owned by Dependabot/security alerts. Unrecognized version ranges fail visibly instead of being skipped.
 - **Buildroot stable releases only**, including stable point releases. Selected recipes (binutils, musl, initramfs BusyBox, filesystem and host tools) follow that Buildroot release; master snapshots, release candidates and per-recipe development changes are not reported or proposed separately. GCC stable releases retain their independent check.
 - **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and the core BusyBox and APK tools. Stable main/community availability is checked, for the optional VPN packages too. Installed device versions are not inspected.
-- **RustDesk protocol/reference sources** and hbb_common.
+- **RustDesk stable protocol reference**, paired with the hbb_common submodule commit from that release (never hbb_common/main).
 - Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
 
 **tinyalsa cadence:** monitor commits on the upstream default branch quarterly, at 05:41 UTC on January 1, April 1, July 1 and October 1. Both reports and draft PR discovery skip tinyalsa in daily runs; the quarterly run checks only tinyalsa. Manual dispatch and CLI runs default to all sources; use --cadence daily or --cadence quarterly to select a group. The existing tinyalsa PR remains available for review. Upstream still publishes releases, but the latest is [v2.0.0 (February 8, 2021)](https://github.com/tinyalsa/tinyalsa/releases/tag/v2.0.0), so commit tracking is retained.
@@ -70,7 +70,8 @@ The dependency publisher runs daily at 05:23 UTC on main, independently of the r
 | Node.js, pnpm, Alpine minirootfs | Update archive pins; Node stays in the selected major and minirootfs in the selected Alpine branch. |
 | Patched Go runtime, GCC, Alpine branch migrations | Open an integration notification: version guards, local patches and system migrations need deliberate work. |
 | Patched Pion DTLS/ICE/SRTP, CORS wrapper, AES Bridge | Open an integration notification without pretending that a version bump rebases local code or fixes upstream module paths. |
-| RustDesk, hbb_common, Sophgo kernel reference | Open an integration notification for the new reference/release. |
+| RustDesk + hbb_common | One integration notification per stable RustDesk release, recording its exact commit and bundled hbb_common gitlink. No prereleases or standalone hbb_common branch updates; active protocol pins change only after review and testing. |
+| Sophgo kernel reference | Open an integration notification for the new reference. |
 
 **Buildroot policy:** only newer stable release archives create PRs, for example 2026.08.1 or 2026.11. RCs, snapshots, master commits and individual recipe diffs are excluded from both reports and PR creation. Selected recipes inherit the Buildroot pin and are reviewed with the release upgrade. The offline inventory still checks that all selected recipes are accounted for; this policy does not disable that coverage check. GCC remains independently monitored for stable releases.
 

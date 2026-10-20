@@ -101,9 +101,9 @@ the allowance globally or hardcode a discovered thread ID in a boot script.
 Run from the repository root, replacing paths with explicit local locations:
 
 ```sh
-python3 firmware/cpu/sysmon-runtime/prepare.py --base /path/to/go1.27.2 --output /new/path/to/go-nanokvm
+python3 firmware/cpu/sysmon-runtime/prepare.py --base /path/to/go1.27.3 --output /new/path/to/go-nanokvm
 for smoke in thread-policy-smoke sysmon-floor-smoke; do
-  GOROOT=/new/path/to/go-nanokvm GOTOOLCHAIN=local GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 /path/to/go1.27.2/bin/go build -trimpath -o /tmp/$smoke firmware/cpu/sysmon-runtime/$smoke.go
+  GOROOT=/new/path/to/go-nanokvm GOTOOLCHAIN=local GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 /path/to/go1.27.3/bin/go build -trimpath -o /tmp/$smoke firmware/cpu/sysmon-runtime/$smoke.go
 done
 ```
 

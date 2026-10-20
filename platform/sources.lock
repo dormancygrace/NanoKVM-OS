@@ -40,7 +40,7 @@ exfatprogs https://github.com/exfatprogs/exfatprogs/releases/download/1.4.3/exfa
 i2c-tools  https://www.kernel.org/pub/software/utils/i2c-tools/i2c-tools-4.4.tar.gz  04d1e3b0cd88df8fb96e7709f374dd0b3561191b4c0363eaf873a074b8b7cb22
 busybox    https://busybox.net/downloads/busybox-1.38.0.tar.bz2                34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2
 regdb      https://mirrors.edge.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-2026.09.03.tar.xz  b22e0901227b820cd1c280abe681a15b773a5103a5e10dc442e94ebb34cbf58d
-go         https://go.dev/dl/go1.27.2.linux-amd64.tar.gz                       ecbadb99091a3f46e31f5f934b068b1864eafa7995211b39eaddf76996045fe5
+go         https://go.dev/dl/go1.27.3.linux-amd64.tar.gz                       65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
 node https://nodejs.org/dist/v24.22.0/node-v24.22.0-linux-x64.tar.xz cc2f601cee82d9a5a233302fe307abc600727035fd7d2c3a3571755989e95008
 pnpm       https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.8.1.tgz  8178a5581db169d9913fd6f918933b141cd6a760aab75a3c1f25e36a3ff1b5d8
 

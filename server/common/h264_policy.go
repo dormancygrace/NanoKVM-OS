@@ -4,19 +4,20 @@ package common
 // corrupted blocks into the bitstream (H.265 of the same picture is clean),
 // and the vendor documents 2880x1620 as its largest frame. H.264 therefore
 // runs only when the encoded picture has a long side of at most 2560 and a
-// height of at most 2304: 2560x1440, and 1296x2304 in portrait. Larger
-// pictures need H.265 or a stream resolution of 1440 or lower.
+// height of at most 1920: 2560x1440, and 1080x1920 in portrait. Larger
+// pictures need H.265 or a stream resolution of 1440 or lower (1080 or lower
+// for the 1440x2560 portrait, which it fits into 1080x1920).
 //
 // The native guard uses the same numbers (h264_max_long_side and
 // h264_max_height in support/sg2002/additional/kvm/include/stream_size.hpp);
 // a test compares them.
 const (
 	H264MaxLongSide = 2560
-	H264MaxHeight   = 2304
+	H264MaxHeight   = 1920
 )
 
 // H264BlockedMessage tells the user the rule and the way out.
-const H264BlockedMessage = "H.264 takes at most 2560x1440 (1296x2304 in portrait): use H.265 or a stream resolution of 1440 or lower"
+const H264BlockedMessage = "H.264 takes at most 2560x1440 (1080x1920 in portrait): use H.265 or a stream resolution of 1440 or lower (1080 or lower in portrait)"
 
 // H264OutputAllowed reports whether H.264 may encode a picture of this size.
 func H264OutputAllowed(width, height int) bool {
@@ -47,7 +48,7 @@ func h264OutputSize(inputWidth, inputHeight int, streamHeight uint16) (width, he
 
 func portraitProfileInput(width, height int) bool {
 	switch [2]int{width, height} {
-	case [2]int{720, 1280}, [2]int{1080, 1920}, [2]int{1088, 1920}, [2]int{1296, 2304}, [2]int{1440, 2560}:
+	case [2]int{720, 1280}, [2]int{1080, 1920}, [2]int{1088, 1920}, [2]int{1440, 2560}:
 		return true
 	}
 	return false

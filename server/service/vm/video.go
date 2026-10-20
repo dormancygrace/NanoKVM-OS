@@ -163,9 +163,8 @@ func videoCapabilities() gin.H {
 	portraitProfiles := []portraitCapability{
 		portraitProfile(1280, 720, 120, all, allTransports, portraitSupported),
 		portraitProfile(1920, 1080, 90, all, allTransports, portraitSupported),
-		// H.264 encodes at most 2304 lines: 1296x2304 is the tallest portrait
+		// H.264 encodes at most 1920 lines: 1080x1920 is the tallest portrait
 		// for browsers without H.265, 1440x2560 needs H.265.
-		portraitProfile(2304, 1296, 60, []string{"h264"}, []string{"direct", "webrtc"}, portraitSupported),
 		portraitProfile(2560, 1440, 60, []string{"h265"}, []string{"direct", "webrtc"}, portraitMax),
 	}
 

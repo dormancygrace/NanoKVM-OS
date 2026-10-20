@@ -91,7 +91,7 @@ function caps({
       minFps: 10,
       maxFps: 120,
       ...(mjpegMaxSide ? { mjpeg: { available: true, maxSide: mjpegMaxSide } } : {}),
-      ...(h264 ? { h264: { available: true, maxLongSide: 2560, maxHeight: 2304 } } : {})
+      ...(h264 ? { h264: { available: true, maxLongSide: 2560, maxHeight: 1920 } } : {})
     },
     transports: { direct: ['h264', 'h265'], webrtc: ['h264', 'h265'], mjpeg: ['mjpeg'] },
     videoMemoryMiB: uhd ? 144 : 56
@@ -519,7 +519,7 @@ test('a transport at 4K is offered with H.265 only', () => {
   );
 });
 
-test('portrait H.264 is unchanged', () => {
+test('portrait H.264 runs up to 1080x1920', () => {
   const c = caps();
   assert.equal(
     model.draftIssues(draft({ portrait: 2560, codec: 'h264' }), c, everything).codec,
@@ -534,6 +534,38 @@ test('portrait H.264 is unchanged', () => {
   const tall = caps({ input: [1440, 2560], programmable: false });
   assert.equal(model.h264Blocked(draft({ codec: 'h264' }), tall), true);
   assert.equal(model.h264Blocked(draft({ codec: 'h264', height: 1080 }), tall), false);
-  const avc = caps({ input: [1296, 2304], programmable: false });
-  assert.equal(model.h264Blocked(draft({ codec: 'h264' }), avc), false);
+  assert.equal(model.h264Blocked(draft({ codec: 'h264', height: 1440 }), tall), true);
+  // A blocked portrait picture carries the portrait reason, not the 4K one.
+  assert.equal(model.draftIssues(draft({ codec: 'h264' }), tall, everything).codec, 'portrait');
+  const fhd = caps({ input: [1080, 1920], programmable: false });
+  assert.equal(model.h264Blocked(draft({ codec: 'h264' }), fhd), false);
+});
+
+test('the 1440x2560 portrait profile switches H.264 to H.265', () => {
+  const c = caps();
+  for (const height of [0, 1440]) {
+    assert.equal(
+      model.draftIssues(draft({ portrait: 2560, codec: 'h264', height }), c, everything).codec,
+      'portrait'
+    );
+  }
+  const choice = model.resolutionChoices(c).find((x) => x.key === 'p2560');
+  const next = model.withResolution(draft({ codec: 'h264' }), choice, c);
+  assert.deepEqual([next.portrait, next.codec], [2560, 'h265']);
+  assert.deepEqual({ ...model.draftIssues(next, c, everything) }, {});
+  assert.equal(
+    model.transportChoice(draft({ portrait: 2560, codec: 'h264', transport: 'mjpeg' }), 'webrtc', c, everything, true)
+      .codec,
+    'h265'
+  );
+  // Without the profile's own list (an older server), the picture size decides.
+  c.monitor.portrait.profiles = c.monitor.portrait.profiles.map((p) => ({
+    ...p,
+    codecs: ['mjpeg', 'h264', 'h265']
+  }));
+  assert.equal(
+    model.draftIssues(draft({ portrait: 2560, codec: 'h264' }), c, everything).codec,
+    'portrait'
+  );
+  assert.equal(model.h264Blocked(draft({ portrait: 2560, codec: 'h264', height: 1080 }), c), false);
 });

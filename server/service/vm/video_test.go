@@ -169,7 +169,7 @@ func TestVideoCapabilitiesMarkH264UnavailableAt4K(t *testing.T) {
 		return videoCapabilities()["stream"].(gin.H)["h264"].(h264Capability)
 	}
 	fakeCapture(t, 3840, 2160, 0)
-	if got := h264(); got.Available || got.Reason != "h264-4k" || got.MaxLongSide != 2560 || got.MaxHeight != 2304 {
+	if got := h264(); got.Available || got.Reason != "h264-4k" || got.MaxLongSide != 2560 || got.MaxHeight != 1920 {
 		t.Fatalf("4K: %+v", got)
 	}
 	common.SetScreen("resolution", 1440)

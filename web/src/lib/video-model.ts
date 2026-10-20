@@ -248,17 +248,25 @@ function h264Input(draft: VideoDraft, caps: VideoCapabilities) {
   return caps.input;
 }
 
-// Whether H.264 cannot encode a draft: the picture it streams (its input
-// within the stream limit) is larger than the server allows, 2560x1440 or
-// 1296x2304 in portrait. A 3840x2160 input needs H.265 or a stream limit of
-// 1440 or lower. Mirrors the server, which refuses it.
-export function h264Blocked(draft: VideoDraft, caps: VideoCapabilities) {
+// Why H.264 cannot encode a draft, undefined when it can: the picture it
+// streams (its input within the stream limit) is larger than the server
+// allows, 2560x1440 or 1080x1920 in portrait. A 3840x2160 input needs H.265
+// or a stream limit of 1440 or lower ('h264-4k'); a taller portrait, such as
+// 1440x2560, H.265 or a limit of 1080 or lower ('portrait'). Mirrors the
+// server, which refuses it.
+export function h264BlockReason(draft: VideoDraft, caps: VideoCapabilities): Reason | undefined {
   const h264 = caps.stream.h264;
-  if (!h264?.maxLongSide || !h264.maxHeight) return false;
+  if (!h264?.maxLongSide || !h264.maxHeight) return undefined;
   const input = h264Input(draft, caps);
-  if (!input.width || !input.height) return false;
+  if (!input.width || !input.height) return undefined;
   const out = streamSize(draft, { ...caps, input: { ...caps.input, ...input } });
-  return Math.max(out.width, out.height) > h264.maxLongSide || out.height > h264.maxHeight;
+  if (Math.max(out.width, out.height) <= h264.maxLongSide && out.height <= h264.maxHeight)
+    return undefined;
+  return out.height > out.width ? 'portrait' : 'h264-4k';
+}
+
+export function h264Blocked(draft: VideoDraft, caps: VideoCapabilities) {
+  return h264BlockReason(draft, caps) !== undefined;
 }
 
 export function codecPlayable(browser: BrowserSupport, transport: Transport, codec: Codec) {
@@ -308,7 +316,8 @@ export function draftIssues(
   }
   if (!issues.codec && draft.transport !== 'mjpeg') {
     if (!caps.transports[draft.transport]?.includes(draft.codec)) issues.codec = 'transport';
-    else if (draft.codec === 'h264' && h264Blocked(draft, caps)) issues.codec = 'h264-4k';
+    else if (draft.codec === 'h264' && h264Blocked(draft, caps))
+      issues.codec = h264BlockReason(draft, caps);
     else if (!codecPlayable(browser, draft.transport, draft.codec)) issues.codec = 'browser';
   }
   return issues;

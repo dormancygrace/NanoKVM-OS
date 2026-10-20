@@ -343,7 +343,7 @@ func TestActiveEncoderConfigExcludesDrainingCapture(t *testing.T) {
 	}
 }
 
-// H.264 runs up to 2560x1440 of encoded picture (1296x2304 in portrait); the
+// H.264 runs up to 2560x1440 of encoded picture (1080x1920 in portrait); the
 // stream limit counts, H.265 is never refused.
 func TestH264CodecPolicy(t *testing.T) {
 	for _, c := range []struct {
@@ -364,13 +364,12 @@ func TestH264CodecPolicy(t *testing.T) {
 		{2160, 1920, 1080, false},
 		{0, 3440, 1440, true},
 		{1440, 3440, 1440, false},
-		// Portrait, unchanged: the tallest profile needs a limit below 1440.
+		// Portrait: above 1080x1920 it needs a limit of 1080 or lower.
 		{0, 1440, 2560, true},
 		{2160, 1440, 2560, true},
 		{1440, 1440, 2560, true},
 		{1080, 1440, 2560, false},
 		{720, 1440, 2560, false},
-		{0, 1296, 2304, false},
 		{0, 1088, 1920, false},
 		{0, 1080, 1920, false},
 		{0, 720, 1280, false},

@@ -536,8 +536,9 @@ func (s *VideoSubscription) send(frame VideoFrame) bool {
 	}
 }
 
-// H.264 runs up to 2560x1440 (1296x2304 in portrait) of encoded picture: a
-// 3840x2160 input needs H.265 or a stream limit of 1440 or lower.
+// H.264 runs up to 2560x1440 (1080x1920 in portrait) of encoded picture: a
+// 3840x2160 input needs H.265 or a stream limit of 1440 or lower, the
+// 1440x2560 portrait H.265 or a limit of 1080 or lower.
 func h264Blocked(codec VideoCodec, streamHeight uint16, width, height int) bool {
 	return codec == VideoCodecH264 && !common.H264AllowedFor(width, height, streamHeight)
 }

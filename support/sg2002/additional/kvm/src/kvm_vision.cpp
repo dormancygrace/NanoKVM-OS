@@ -306,7 +306,6 @@ uint16_t hdmi_res_list[][2] = {
     {720, 1280},
     {1080, 1920},
     {1088, 1920},
-    {1296, 2304},
     {1440, 2560},
     {1600, 900},
     {1440, 1080},
@@ -533,7 +532,6 @@ int get_manual_resolution(void)
         nanokvm::write_small_uint(vi_height_path, tmp_height);
     }
     const bool portrait = (tmp_width == 720 && tmp_height == 1280)
-        || (tmp_width == 1296 && tmp_height == 2304)
         || (tmp_width == 1080 && tmp_height == 1920)
         || (tmp_width == 1088 && tmp_height == 1920)
         || (tmp_width == 1440 && tmp_height == 2560);
@@ -1760,7 +1758,7 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
         const uint64_t capture_now = mjpeg_monotonic_ms();
         const auto requested_output = nanokvm::stream_size(geometry.width, geometry.height, _width, _height);
         const auto output = mjpeg_parallel_size(requested_output, _type, kvmv_cfg.frame_detact != 0, capture_now);
-        // H.264 encodes up to 2560x1440 (1296x2304 in portrait): above that
+        // H.264 encodes up to 2560x1440 (1080x1920 in portrait): above that
         // the encoder corrupts the picture or rejects it. Refuse before any
         // channel is set up; larger pictures need H.265.
         if (_type == VENC_H264 && !nanokvm::h264_output_allowed(output)) {

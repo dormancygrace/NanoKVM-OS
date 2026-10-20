@@ -178,7 +178,8 @@ func TestVideoSettingsRefuseH264ByTheResultingPicture(t *testing.T) {
 		{"ultrawide, 1440 limit", 3440, 1440, 1440, `{"type":1}`, true},
 		{"portrait 1440x2560", 1440, 2560, 0, `{"type":1}`, false},
 		{"portrait 1440x2560, 1080 limit", 1440, 2560, 1080, `{"type":1}`, true},
-		{"portrait 1296x2304", 1296, 2304, 0, `{"type":1}`, true},
+		{"portrait 1440x2560, 1440 limit", 1440, 2560, 1440, `{"type":1}`, false},
+		{"portrait 1080x1920", 1080, 1920, 0, `{"type":1}`, true},
 		{"no signal", 0, 0, 0, `{"type":1}`, true},
 		{"H.265 at 4K", 3840, 2160, 0, `{"type":2}`, true},
 	} {

@@ -138,7 +138,7 @@ func mjpegSelectionFailure(batch *VideoSettingsReq) *settingError {
 }
 
 // h264SelectionFailure refuses H.264 when the picture it would encode is
-// larger than 2560x1440 (1296x2304 in portrait). Inside a batch the stream
+// larger than 2560x1440 (1080x1920 in portrait). Inside a batch the stream
 // limit and the monitor it also sets decide, as they change the picture.
 func h264SelectionFailure(batch *VideoSettingsReq) *settingError {
 	limit := common.GetScreen().Height
@@ -219,7 +219,7 @@ func validateScreenSettingFor(req proto.SetScreenReq, batch *VideoSettingsReq, p
 			return settingFailure(-1, "portrait must be 0 or 1")
 		}
 	case "portrait_resolution":
-		if req.Value != 2304 && req.Value != 1280 && req.Value != 1920 && req.Value != 2560 {
+		if req.Value != 1280 && req.Value != 1920 && req.Value != 2560 {
 			return settingFailure(-1, "unsupported portrait monitor resolution")
 		}
 		if req.Value == 2560 && !common.PortraitMaxSupportedFor(pool) {

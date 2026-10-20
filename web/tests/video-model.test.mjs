@@ -291,6 +291,48 @@ test('the request carries changed shared settings only', () => {
   assert.deepEqual({ ...model.settingsRequest(unsupported, unsupported) }, {});
 });
 
+test('the straight-from-capture switch shows for the codecs the device supports', () => {
+  const both = { h264: true, h265: true };
+  const hevcOnly = { h264: false, h265: true };
+  const h264Only = { h264: true, h265: false };
+  for (const transport of ['direct', 'webrtc']) {
+    const h265 = draft({ transport, codec: 'h265' });
+    const h264 = draft({ transport, codec: 'h264' });
+    assert.equal(model.directCaptureApplies(h265, both), true);
+    assert.equal(model.directCaptureApplies(h264, both), true);
+    assert.equal(model.directCaptureApplies(h265, hevcOnly), true);
+    assert.equal(model.directCaptureApplies(h264, hevcOnly), false);
+    assert.equal(model.directCaptureApplies(h265, h264Only), false);
+    assert.equal(model.directCaptureApplies(h264, h264Only), true);
+    // Off is still a setting: the switch stays to turn it on again.
+    assert.equal(model.directCaptureApplies({ ...h264, hevcDirect: false }, h264Only), true);
+  }
+  assert.equal(model.directCaptureApplies(draft({ transport: 'mjpeg' }), both), false);
+  assert.equal(model.directCaptureApplies(draft({ hevcDirect: null }), both), false);
+  // One setting for both codecs, under its original API name.
+  const saved = draft({ codec: 'h264' });
+  assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, hevcDirect: false }) }, { hevcDirect: 0 });
+});
+
+test('the straight-from-capture switch is labelled for both codecs', () => {
+  const en = JSON.parse(
+    readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')
+  ).videoSettings;
+  const form = readFileSync(
+    new URL('../src/pages/desktop/menu/settings/video/form.tsx', import.meta.url),
+    'utf8'
+  );
+  assert.equal(en.viDirect, 'Video straight from capture');
+  assert.match(en.viDirectH264Hint, /4:2:0/);
+  assert.match(en.viDirectH264Hint, /MJPEG/);
+  assert.match(en.mjpegChromaFallback_h264Capture, /4:2:0/);
+  // Label and accessible name; the hint names what H.264 changes.
+  assert.equal(form.match(/t\('videoSettings\.viDirect'\)/g)?.length, 2);
+  assert.match(form, /'videoSettings\.viDirectH264Hint'/);
+  assert.match(form, /directCaptureApplies\(draft, directCapture\)/);
+  assert.doesNotMatch(form, /t\('videoSettings\.hevcDirect'\)/);
+});
+
 test('the measured input rate is shown as its nominal rate', () => {
   assert.equal(model.nominalRate(51), 50);
   assert.equal(model.nominalRate(29), 30);

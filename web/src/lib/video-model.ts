@@ -104,8 +104,8 @@ export type VideoDraft = {
   bitRate: number; // kbit/s, H.264/H.265
   quality: number; // percent, MJPEG
   mjpegChroma: number;
-  // H.265 straight from the capture buffer instead of through VPSS; null when
-  // the codec driver cannot read capture frames.
+  // Video straight from the capture buffer instead of through VPSS (API name
+  // hevcDirect); null when neither H.265 nor H.264 can read capture frames.
   hevcDirect: boolean | null;
   directPlayback: DirectPlayback;
   frameDetect: boolean;
@@ -140,6 +140,19 @@ export const QUALITY_CHOICES = [100, 80, 60, 50];
 // Server stream type: what the device encodes for this draft.
 export function streamType(draft: Pick<VideoDraft, 'transport' | 'codec'>) {
   return draft.transport === 'mjpeg' ? 0 : draft.codec === 'h265' ? 2 : 1;
+}
+
+// The codecs that can read the capture buffer directly on this device: H.265
+// with the codec driver's packed input, H.264 with the VI 4:2:0 capture.
+export type DirectCapture = { h264: boolean; h265: boolean };
+
+// Whether the "straight from capture" switch applies to the draft's stream.
+export function directCaptureApplies(
+  draft: Pick<VideoDraft, 'transport' | 'codec' | 'hevcDirect'>,
+  direct: DirectCapture
+) {
+  if (draft.transport === 'mjpeg' || draft.hevcDirect === null) return false;
+  return draft.codec === 'h265' ? direct.h265 : direct.h264;
 }
 
 // VI measures a 50 Hz input as 50 or 51 fps; show the nominal rate.

@@ -382,6 +382,9 @@ func GetMjpegChromaStatus() (uint16, string) {
 	}
 	reason := ""
 	switch {
+	case state&uint8(C.MJPEG_CHROMA_CAPTURE_420) != 0:
+		// H.264 straight from capture: the capture itself is 4:2:0.
+		reason = "h264Capture"
 	case state&uint8(C.MJPEG_CHROMA_FALLBACK_ERROR) != 0:
 		reason = "hardware"
 	case state&uint8(C.MJPEG_CHROMA_LIMIT_WIDTH) != 0 && active == 422:

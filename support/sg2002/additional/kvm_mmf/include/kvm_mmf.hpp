@@ -91,6 +91,12 @@ int mmf_vi_input_fps(void);
 // src_fps, processes every frame.
 int mmf_vpss_set_rate(int src_fps, int dst_fps);
 int mmf_vi_chn_set_jfif(int ch, int jfif);
+// 4:2:0 capture (cv181x_vi nk_yuv420, osdrv patch 0013): the VI writes NV21
+// and H.264 at the input size reads it directly. active: the running capture
+// is 4:2:0; pending: the video encoder wants the other mode, applied by the
+// next capture start (restart).
+int mmf_vi_yuv420_active(void);
+int mmf_vi_yuv420_pending(void);
 // VI channel whose frame VENC channel ch is encoding, or -1.
 int mmf_venc_pending_vi(int ch);
 int mmf_venc_request_idr(int ch);

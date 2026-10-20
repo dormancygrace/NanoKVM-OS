@@ -265,33 +265,169 @@ static void venc_stats_frame(const VENC_STREAM_S *stream, const VENC_CHN_STATUS_
 }
 
 /*
- * H.265 straight from the capture buffer. The VI writes the HDMI receiver's
+ * Video straight from the capture buffer. The VI writes the HDMI receiver's
  * packed UYVY 4:2:2 frame to DDR, and VPSS only converts it to NV21 for the
  * encoder. The H.265 core reads packed 4:2:2 itself (cvi_vc_driver with
  * nk_packed_src), so a video channel at the input size can take its frames
  * from the VI and skip VPSS: 6 ms less per 1080p frame, 25 ms at 2160p.
- * Set while an H.265 encoder exists; "0" in /etc/kvm/hevc_vi_direct turns
- * it off. Callers still see NV21: the frame is UYVY only inside
- * VIDEO_FRAME_INFO_S, and CPU mappings of it are refused.
+ * H.264 takes only 4:2:0: it gets the VI frame when the VI itself writes NV21
+ * (4:2:0 capture below). Set while an encoder of the codec that the capture
+ * mode serves exists; "0" in /etc/kvm/hevc_vi_direct turns it off. Callers
+ * still see NV21: a packed frame is UYVY only inside VIDEO_FRAME_INFO_S, and
+ * CPU mappings of VI frames are refused.
  */
 static bool vi_direct[MMF_VI_MAX_CHN];        // channel acquires from the VI
 static bool vi_frame_from_vi[MMF_VI_MAX_CHN]; // current lease is a VI frame
-static int vi_direct_venc = -1;               // the H.265 encoder that set it
+static int vi_direct_venc = -1;               // the encoder that set it
+
+/*
+ * 4:2:0 capture for H.264 (osdrv patch 0013). The CSI bridge has a 4:2:2 to
+ * 4:2:0 DMA writer; cv181x_vi.ko enables it for the receiver when its
+ * parameter nk_yuv420 is Y as the VI starts. The VI frame is then genuine
+ * NV21, so H.264 at the input size takes it directly (1080p30: 8.3 instead of
+ * 14.6 ms from the end of a captured frame to the encoded frame, 414 instead
+ * of 668 MB/s of DDR traffic), the VPSS group reads NV21 and MJPEG gets 4:2:0
+ * chroma. The VI cannot change the mode while it runs: the wanted mode follows
+ * the video encoder (_mmf_vi_yuv420_rule), and libkvm restarts the capture
+ * when it differs from the running one (mmf_vi_yuv420_pending).
+ */
+static const char vi_yuv420_param[] = "/sys/module/cv181x_vi/parameters/nk_yuv420";
+static bool vi_yuv420_wanted;  // mode for the next capture start
+static bool vi_yuv420_running; // mode of the running capture
+static bool vi_yuv420_broken;  // the driver did not take the parameter: no restarts for it
+static bool vi_yuv420_refused; // a VI frame had another layout: VPSS until the next start
+static bool vpss_rate_thins;   // the last known stream rate is below the input rate
+
+// The setting: absent or anything but "0" is on.
+static bool _vi_direct_setting_on(void)
+{
+	FILE *setting = fopen("/etc/kvm/hevc_vi_direct", "r");
+	if (!setting) return true;
+	const bool off = fgetc(setting) == '0';
+	fclose(setting);
+	return !off;
+}
+
+static bool _mmf_vi_yuv420_supported(void)
+{
+	FILE *f = fopen(vi_yuv420_param, "r");
+	if (!f) return false;
+	fclose(f);
+	return true;
+}
+
+// The codec that takes VI frames in the running mode: H.264 (2) in 4:2:0
+// capture, H.265 (1) otherwise.
+static int _mmf_vi_direct_type(void)
+{
+	return vi_yuv420_running ? 2 : 1;
+}
 
 static bool _vi_direct_supported(void)
 {
-	FILE *setting = fopen("/etc/kvm/hevc_vi_direct", "r");
-	if (setting) {
-		const bool off = fgetc(setting) == '0';
-		fclose(setting);
-		if (off) return false;
-	}
+	if (!_vi_direct_setting_on()) return false;
+	if (vi_yuv420_running) return !vi_yuv420_refused;
 	FILE *f = fopen("/sys/module/cvi_vc_driver/parameters/nk_packed_src", "r");
 	if (!f) return false;
 	int value = 0;
 	const bool ok = fscanf(f, "%d", &value) == 1 && value == 1;
 	fclose(f);
 	return ok;
+}
+
+/*
+ * The mode rule, the only place that decides it. 4:2:0 capture while an
+ * H.264 encoder takes the whole input at the input rate from an NV21 output
+ * without mirror or flip and the setting allows direct capture. Evaluated when a video encoder is created and
+ * once a second while one exists (setting, rate), never for a JPEG or CPU
+ * reader: with no video encoder the mode stays. Applied at the next capture
+ * start (_mmf_vi_yuv420_start), which also checks the new input width.
+ */
+static bool _mmf_vi_yuv420_rule(const mmf_venc_cfg_t *cfg)
+{
+	if (cfg->type != 2 || vi_yuv420_broken || vpss_rate_thins) return false;
+	const SIZE_S vi = priv.vi_size;
+	if ((int)vi.u32Width != cfg->w || (int)vi.u32Height != cfg->h) return false;
+	bool output = false;
+	for (int ch = 0; ch < MMF_VI_MAX_CHN && !output; ++ch) {
+		VPSS_CHN_ATTR_S attr;
+		output = priv.vi_chn_is_inited[ch] && CVI_VPSS_GetChnAttr(0, ch, &attr) == CVI_SUCCESS
+			&& attr.enPixelFormat == PIXEL_FORMAT_NV21 && !attr.bMirror && !attr.bFlip
+			&& attr.u32Width == vi.u32Width && attr.u32Height == vi.u32Height;
+	}
+	return output && _vi_direct_setting_on() && _mmf_vi_yuv420_supported();
+}
+
+static void _mmf_vi_yuv420_follow(const mmf_venc_cfg_t *cfg)
+{
+	const bool want = _mmf_vi_yuv420_rule(cfg);
+	if (want != vi_yuv420_wanted) {
+		fprintf(stderr, "[kvm_mmf] VI capture mode for codec %d at %dx%d: %s\n",
+			cfg->type, cfg->w, cfg->h, want ? "4:2:0" : "4:2:2");
+		fflush(stderr);
+	}
+	vi_yuv420_wanted = want;
+}
+
+// At every capture start, before the VI starts streaming: write the wanted
+// mode to the driver and read back what the VI will do.
+static void _mmf_vi_yuv420_start(SIZE_S size)
+{
+	vi_yuv420_running = false;
+	vi_yuv420_refused = false;
+	if (!_mmf_vi_yuv420_supported()) {
+		vi_yuv420_wanted = false;
+		return;
+	}
+	const bool on = vi_yuv420_wanted && !vi_yuv420_broken && _vi_direct_setting_on();
+	FILE *f = fopen(vi_yuv420_param, "w");
+	bool written = f && fputs(on ? "Y" : "N", f) >= 0;
+	if (f && fclose(f) != 0) written = false;
+	int value = EOF;
+	f = fopen(vi_yuv420_param, "r");
+	if (f) {
+		value = fgetc(f);
+		fclose(f);
+	}
+	vi_yuv420_running = value == 'Y';
+	if (!written || vi_yuv420_running != on) {
+		fprintf(stderr, "[kvm_mmf] VI 4:2:0 parameter not applied (wanted %s, reads %c): "
+			"capture mode stays as the driver has it\n", on ? "Y" : "N", value == EOF ? '?' : value);
+		vi_yuv420_broken = true;
+	}
+	vi_yuv420_wanted = vi_yuv420_running;
+	fprintf(stderr, "[kvm_mmf] VI capture %s (%ux%u)\n",
+		vi_yuv420_running ? "4:2:0 (NV21)" : "4:2:2 (packed UYVY)", size.u32Width, size.u32Height);
+	fflush(stderr);
+}
+
+/*
+ * The 4:2:0 frame as the VI reports it: base_get_frame_info lays out its NV21
+ * channel with DEFAULT_ALIGN (64): the Y plane at a pitch of the width rounded
+ * up to 64, the VU plane at the same pitch right after the Y plane's length.
+ * VI patch 0013 makes the writer use that pitch too (1088 for a 1080 wide
+ * portrait). Anything else is refused (_mmf_vi_yuv420_refuse).
+ */
+static bool _mmf_vi_nv21_layout_ok(const VIDEO_FRAME_S *v)
+{
+	return v->enPixelFormat == PIXEL_FORMAT_NV21 && v->u64PhyAddr[0]
+		&& v->u32Width && v->u32Height && v->u32Width % 2 == 0 && v->u32Height % 2 == 0
+		&& v->u32Stride[0] == (v->u32Width + DEFAULT_ALIGN - 1) / DEFAULT_ALIGN * DEFAULT_ALIGN
+		&& v->u32Stride[1] == v->u32Stride[0]
+		&& (uint64_t)v->u32Stride[0] * v->u32Height <= v->u32Length[0]
+		&& (uint64_t)v->u32Stride[1] * (v->u32Height / 2) <= v->u32Length[1]
+		&& v->u64PhyAddr[1] == v->u64PhyAddr[0] + v->u32Length[0]
+		&& (uint64_t)v->u32Length[0] + v->u32Length[1] <= INT32_MAX;
+}
+
+int mmf_vi_yuv420_active(void)
+{
+	return vi_yuv420_running;
+}
+
+int mmf_vi_yuv420_pending(void)
+{
+	return !vi_yuv420_broken && vi_yuv420_wanted != vi_yuv420_running;
 }
 
 /*
@@ -369,8 +505,9 @@ static int _mmf_vi_direct_set(int ch, bool on)
 		}
 	}
 	vi_direct[ch] = on;
-	fprintf(stderr, "[kvm_mmf] H.265 VI-direct capture %s on output %d (%ux%u)\n",
-		on ? "enabled" : "disabled", ch, vi.stSize.u32Width, vi.stSize.u32Height);
+	fprintf(stderr, "[kvm_mmf] %s VI-direct capture %s on output %d (%ux%u)\n",
+		vi_yuv420_running ? "H.264" : "H.265", on ? "enabled" : "disabled", ch,
+		vi.stSize.u32Width, vi.stSize.u32Height);
 	fflush(stderr);
 	return CVI_SUCCESS;
 }
@@ -393,7 +530,7 @@ static int _mmf_vi_direct_yield(int ch)
 
 static void _mmf_vi_direct_for_venc(int venc, const mmf_venc_cfg_t *cfg)
 {
-	if (cfg->type != 1 || !_vi_direct_supported()) return;
+	if (cfg->type != _mmf_vi_direct_type() || !_vi_direct_supported()) return;
 	const uint64_t now = venc_now_us();
 	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
 		if (!priv.vi_chn_is_inited[ch]) continue;
@@ -420,13 +557,20 @@ static void _mmf_vi_direct_off_all(void)
 
 // Follow a changed setting at most once a second. An encoder keeps the input
 // format of its first frame, so its next frame fails and the caller creates
-// a new encoder, which starts with the other path (one key frame).
+// a new encoder, which starts with the other path (one key frame). The
+// capture mode follows the video encoder too (setting, stream rate).
 static void _mmf_vi_direct_recheck(void)
 {
 	static uint64_t last_us;
 	const uint64_t now = venc_now_us();
 	if (now - last_us < 1000000) return;
 	last_us = now;
+	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
+		if (priv.venc[ch].is_inited && (priv.venc[ch].type == 1 || priv.venc[ch].type == 2)) {
+			_mmf_vi_yuv420_follow(&priv.venc[ch].cfg);
+			break;
+		}
+	}
 	bool want = _vi_direct_supported();
 	for (int ch = 0; want && ch < MMF_VI_MAX_CHN; ++ch) {
 		VPSS_CHN_ATTR_S attr;
@@ -439,11 +583,29 @@ static void _mmf_vi_direct_recheck(void)
 	}
 	if (!want || vi_direct_venc >= 0) return;
 	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
-		if (priv.venc[ch].is_inited && priv.venc[ch].type == 1) {
+		if (priv.venc[ch].is_inited && priv.venc[ch].type == _mmf_vi_direct_type()) {
 			_mmf_vi_direct_for_venc(ch, &priv.venc[ch].cfg);
 			return;
 		}
 	}
+}
+
+// A 4:2:0 frame with another layout than expected: log it once per capture
+// start, give the frame back and keep the output on the VPSS (which reads the
+// same NV21) until the capture restarts.
+static void _mmf_vi_yuv420_refuse(int ch, const VIDEO_FRAME_S *v)
+{
+	if (!vi_yuv420_refused) {
+		fprintf(stderr, "[kvm_mmf] VI 4:2:0 frame layout not usable (format %d, %ux%u, pitch %u/%u, "
+			"planes %#llx/%#llx, lengths %u/%u): H.264 reads the VPSS output\n",
+			v->enPixelFormat, v->u32Width, v->u32Height, v->u32Stride[0], v->u32Stride[1],
+			(unsigned long long)v->u64PhyAddr[0], (unsigned long long)v->u64PhyAddr[1],
+			v->u32Length[0], v->u32Length[1]);
+		fflush(stderr);
+	}
+	vi_yuv420_refused = true;
+	_mmf_release_vi_frame(ch);
+	if (_mmf_vi_direct_set(ch, false) == CVI_SUCCESS) vi_direct_venc = -1;
 }
 
 static int _mmf_release_all_vi_frames(void)
@@ -481,6 +643,27 @@ static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
 	if (priv.vi_frame_valid[ch]) return CVI_ERR_VENC_BUSY;
 	_mmf_vi_direct_recheck();
 	memset(frame, 0, sizeof(*frame));
+	if (vi_direct[ch] && vi_yuv420_running) {
+		if (CVI_VI_GetChnFrame(0, 0, frame, timeout_ms) != CVI_SUCCESS) return -1;
+		// 4:2:0 capture: genuine NV21, passed on as the VI describes it.
+		VIDEO_FRAME_S *v = &frame->stVFrame;
+		priv.vi_frame_valid[ch] = true;
+		priv.vi_frame_mapped[ch] = false;
+		priv.vi_frame_deferred[ch] = false;
+		vi_frame_from_vi[ch] = true;
+		if (_mmf_vi_nv21_layout_ok(v)) {
+			*len = (int)(v->u32Length[0] + v->u32Length[1]);
+			*width = v->u32Width;
+			*height = v->u32Height;
+			*format = PIXEL_FORMAT_NV21;
+			return 0;
+		}
+		_mmf_vi_yuv420_refuse(ch, v);
+		// Keep a failed release owned, so the next read retries it; the same
+		// for a VPSS channel that could not be enabled again.
+		if (priv.vi_frame_valid[ch] || vi_direct[ch]) return -1;
+		memset(frame, 0, sizeof(*frame));
+	}
 	if (vi_direct[ch]) {
 		if (CVI_VI_GetChnFrame(0, 0, frame, timeout_ms) != CVI_SUCCESS) return -1;
 		// The yuv-bypass buffer holds packed UYVY but is labelled NV21.
@@ -543,7 +726,8 @@ static void *_mmf_map_vi_frame(int ch)
 		return NULL;
 	}
 
-	// A VI-direct frame is packed UYVY; CPU paths expect NV21.
+	// A VI-direct frame is packed UYVY, or NV21 that the VI owns; CPU paths
+	// read the VPSS output (they yield VI-direct first).
 	if (vi_frame_from_vi[ch]) return NULL;
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
 	if (priv.vi_frame_mapped[ch]) {
@@ -753,6 +937,8 @@ static CVI_S32 _mmf_init(void)
 		goto _need_exit_sys_and_deinit_vi;
 	}
 
+	// The VI reads its capture mode when it starts streaming.
+	_mmf_vi_yuv420_start(stSize);
 	s32Ret = SAMPLE_PLAT_VI_INIT(&stViConfig);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("vi init failed. s32Ret: 0x%x !\n", s32Ret);
@@ -1063,7 +1249,9 @@ int mmf_vi_init(void)
 	}
 
 	CVI_S32 s32Ret = CVI_SUCCESS;
-	s32Ret = _mmf_vpss_init_new(0, priv.vi_size.u32Width, priv.vi_size.u32Height, PIXEL_FORMAT_UYVY);		// PIXEL_FORMAT_UYVY  PIXEL_FORMAT_NV21
+	// The group reads what the VI writes: packed UYVY, or NV21 in 4:2:0 capture.
+	s32Ret = _mmf_vpss_init_new(0, priv.vi_size.u32Width, priv.vi_size.u32Height,
+		vi_yuv420_running ? PIXEL_FORMAT_NV21 : PIXEL_FORMAT_UYVY);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("_mmf_vpss_init_new failed. s32Ret: 0x%x !\n", s32Ret);
 		priv.vi_is_inited = false;
@@ -1650,8 +1838,8 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 		return -1;
 	}
     if (priv.enc_jpg_running) return CVI_FAILURE;
-	// A JPEG reader on a VI-direct output: hand it back to VPSS. This frame
-	// is packed UYVY and fails below; the next one is NV21 again.
+	// A JPEG reader on a VI-direct output: hand it back to VPSS. A packed
+	// frame fails below; the next one is a VPSS frame again.
 	if (_mmf_vi_direct_yield(vi_ch) != CVI_SUCCESS) return -1;
 
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[vi_ch];
@@ -1975,6 +2163,8 @@ int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg) {
 		stVencChnAttr.stVencAttr.u32BufSize >> 10,
 		cfg->intput_fps, cfg->output_fps);
 	fflush(stderr);
+	// A different capture mode is applied by the caller's capture restart.
+	_mmf_vi_yuv420_follow(cfg);
 	_mmf_vi_direct_for_venc(ch, cfg);
 
 	return 0;
@@ -2177,7 +2367,8 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 
 	venc_info_t *info = (venc_info_t *)&priv.venc[ch];
     if (!info->is_inited || info->is_running) return CVI_FAILURE;
-	if (vi_direct[vi_ch] && !vi_frame_from_vi[vi_ch] && info->type == 1) {
+	const int direct_type = _mmf_vi_direct_type();
+	if (vi_direct[vi_ch] && !vi_frame_from_vi[vi_ch] && info->type == direct_type) {
 		// The VPSS frame leased before VI-direct started. The encoder keeps the
 		// input format of its first frame, so give it the VI frame instead.
 		const int released = _mmf_release_vi_frame(vi_ch);
@@ -2185,9 +2376,9 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 		int len = 0, w = 0, h = 0, format = 0;
 		if (_mmf_acquire_vi_frame(vi_ch, &len, &w, &h, &format, 200) != 0) return -1;
 		priv.vi_frame_deferred[vi_ch] = true;
-	} else if (vi_frame_from_vi[vi_ch] && (!vi_direct[vi_ch] || info->type != 1)) {
+	} else if (vi_frame_from_vi[vi_ch] && (!vi_direct[vi_ch] || info->type != direct_type)) {
 		// The reverse: a VI frame leased before VI-direct ended, or for an
-		// encoder without packed input. Take the VPSS frame instead.
+		// encoder of the other codec. Take the VPSS frame instead.
 		const int released = _mmf_release_vi_frame(vi_ch);
 		if (released != CVI_SUCCESS) return released;
 		int len = 0, w = 0, h = 0, format = 0;
@@ -2195,7 +2386,8 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 		priv.vi_frame_deferred[vi_ch] = true;
 	}
 	VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[vi_ch];
-	// A VI-direct frame (packed UYVY) goes to H.265 only; H.264 has no packed input.
+	// A packed VI-direct frame (UYVY) goes to H.265 only; H.264 has no packed
+	// input. A 4:2:0 VI frame is NV21.
 	const bool packed = frame->stVFrame.enPixelFormat == PIXEL_FORMAT_UYVY && info->type == 1;
 	if ((info->type != 1 && info->type != 2) ||
 		(frame->stVFrame.enPixelFormat != PIXEL_FORMAT_NV21 && !packed)) {
@@ -2241,6 +2433,9 @@ int mmf_vpss_set_rate(int src_fps, int dst_fps) {
 	// The VI measurement reads a 50 Hz input as 50 or 51; never thin a stream
 	// that already matches the input.
 	const int tolerance = src_fps / 20 > 2 ? src_fps / 20 : 2;
+	// The capture mode rule uses the last known verdict: right after a
+	// capture start the VI has not measured the input rate yet.
+	if (src_fps > 0 && dst_fps > 0) vpss_rate_thins = dst_fps < src_fps - tolerance;
 	if (src_fps <= 0 || dst_fps <= 0 || dst_fps >= src_fps - tolerance) src_fps = dst_fps = -1;
 	// Group frame-rate control is not applied to a started group; the
 	// channel control is, and skips the conversion of dropped frames.

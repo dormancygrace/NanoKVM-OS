@@ -5,7 +5,13 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { getScreen, getVideoCapabilities } from '@/api/vm';
 import { getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder';
 import * as storage from '@/lib/localstorage';
-import type { BrowserSupport, Transport, VideoCapabilities, VideoDraft } from '@/lib/video-model';
+import type {
+  BrowserSupport,
+  DirectCapture,
+  Transport,
+  VideoCapabilities,
+  VideoDraft
+} from '@/lib/video-model';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { resolutionAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
 
@@ -19,8 +25,10 @@ type ScreenStatus = {
   mjpegChroma: number;
   mjpegChromaActive: number;
   mjpegChromaFallback: string;
+  // The straight-from-capture setting (both codecs) and the codecs it applies to.
   hevcDirect: number;
   hevcDirectSupported: boolean;
+  viDirectH264Supported?: boolean;
   monitor: number;
   portrait: boolean;
   portraitResolution: number;
@@ -42,6 +50,11 @@ type ScreenStatus = {
 const transportOf = (mode: string): Transport =>
   mode === 'h264' ? 'webrtc' : mode === 'mjpeg' ? 'mjpeg' : 'direct';
 
+// The codecs that "straight from capture" applies to on this device.
+function directCaptureOf(status: ScreenStatus): DirectCapture {
+  return { h264: status.viDirectH264Supported === true, h265: status.hevcDirectSupported === true };
+}
+
 function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
   return {
     monitor: status.monitor,
@@ -53,7 +66,10 @@ function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
     bitRate: status.bitRate,
     quality: status.quality,
     mjpegChroma: status.mjpegChroma === 422 ? 422 : 420,
-    hevcDirect: status.hevcDirectSupported ? status.hevcDirect !== 0 : null,
+    hevcDirect:
+      status.hevcDirectSupported || status.viDirectH264Supported === true
+        ? status.hevcDirect !== 0
+        : null,
     directPlayback: storage.getDirectPlayback(),
     frameDetect: status.frameDetect === true
   };
@@ -107,7 +123,17 @@ export function useVideoSettings(pollMs = 3000) {
   }, [refresh, pollMs]);
 
   const saved = useMemo(() => (status ? savedDraft(status, mode) : undefined), [status, mode]);
-  return { admin: account.role === 'admin', status, caps, browser, saved, failed, refresh };
+  const directCapture = useMemo(() => (status ? directCaptureOf(status) : undefined), [status]);
+  return {
+    admin: account.role === 'admin',
+    status,
+    caps,
+    browser,
+    saved,
+    directCapture,
+    failed,
+    refresh
+  };
 }
 
 // Publish applied shared settings to the page: mouse mapping follows the

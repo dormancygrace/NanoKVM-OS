@@ -16,7 +16,8 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
   const { t } = useTranslation();
   const [retryingChroma, setRetryingChroma] = useState(false);
   const enabled = useAtomValue(isHdmiEnabledAtom);
-  const { admin, status, caps, browser, saved, failed, refresh } = useVideoSettings();
+  const { admin, status, caps, browser, saved, directCapture, failed, refresh } =
+    useVideoSettings();
 
   const size = (w?: number, h?: number) => (w && h ? `${w} × ${h}` : '—');
   const transport = saved
@@ -156,11 +157,12 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
           )}
         </Panel>
       </div>
-      {caps && browser && saved && (
+      {caps && browser && saved && directCapture && (
         <VideoForm
           caps={caps}
           browser={browser}
           saved={saved}
+          directCapture={directCapture}
           admin={admin}
           refresh={refresh}
           setIsLocked={setIsLocked}

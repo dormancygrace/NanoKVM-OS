@@ -30,6 +30,10 @@ var screenMonitorRequiresPowerCycle = common.MonitorRequiresPowerCycle
 
 var mjpegChromaMutex sync.Mutex
 var readMjpegChromaStatus = common.GetMjpegChromaStatus
+
+// Which codecs "straight from capture" (hevc_direct) applies to; seams for tests.
+var hevcDirectSupported = common.HevcDirectSupported
+var viDirectH264Supported = common.ViDirectH264Supported
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
 
 // maxQualityValue covers MJPEG quality (1-100) and H.26x bitrate in kbit/s.
@@ -64,8 +68,9 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"measuredFps":       common.ReadVideoValue("/run/nanokvm/now_fps"),
 		"measuredKbps":      common.ReadVideoValue("/run/nanokvm/now_kbps"),
 		"frameDetect":       common.FrameDetectEnabled(),
-		"hevcDirect":        common.HevcDirect(), "hevcDirectSupported": common.HevcDirectSupported(),
-		"effectiveFps": common.GetCaptureScreen().FPS})
+		"hevcDirect":        common.HevcDirect(), "hevcDirectSupported": hevcDirectSupported(),
+		"viDirectH264Supported": viDirectH264Supported(),
+		"effectiveFps":          common.GetCaptureScreen().FPS})
 }
 
 func (s *Service) SetScreen(c *gin.Context) {

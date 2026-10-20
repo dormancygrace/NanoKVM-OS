@@ -20,8 +20,6 @@ const (
 	portraitMonitorEDID              = "/usr/share/nanokvm/edid/NanoKVM-portrait-1080x1920.bin"
 	portraitMaxMonitorEDID           = "/usr/share/nanokvm/edid/NanoKVM-portrait-1440x2560.bin"
 	portraitHDMonitorEDID            = "/usr/share/nanokvm/edid/NanoKVM-portrait-720x1280.bin"
-	portraitAVCMonitorEDID           = "/usr/share/nanokvm/edid/NanoKVM-portrait-1296x2304.bin"
-	portraitResolutionAVC     uint16 = 2304
 	portraitResolutionHD      uint16 = 1280
 	portraitResolutionDefault uint16 = 1920
 	portraitResolutionMax     uint16 = 2560
@@ -121,9 +119,6 @@ func cubeMonitorProfilePath(height uint16) string {
 }
 
 func portraitMonitorEDIDPath(resolution uint16) string {
-	if resolution == portraitResolutionAVC {
-		return portraitAVCMonitorEDID
-	}
 	if resolution == portraitResolutionMax {
 		return portraitMaxMonitorEDID
 	}
@@ -190,9 +185,6 @@ func portraitResolutionSupportedLocked(resolution uint16) bool {
 
 func portraitResolutionSupportedForPoolLocked(resolution uint16, p VideoPool) bool {
 	switch resolution {
-	case portraitResolutionAVC:
-		info, err := os.Stat(portraitAVCMonitorEDID)
-		return portraitSupportedForPoolLocked(p) && err == nil && info.Mode().IsRegular()
 	case portraitResolutionHD:
 		info, err := os.Stat(portraitHDMonitorEDID)
 		return portraitSupportedForPoolLocked(p) && err == nil && info.Mode().IsRegular()
@@ -206,7 +198,7 @@ func portraitResolutionSupportedForPoolLocked(resolution uint16, p VideoPool) bo
 }
 
 func validPortraitResolution(resolution uint16) bool {
-	return resolution == portraitResolutionAVC || resolution == portraitResolutionHD || resolution == portraitResolutionDefault || resolution == portraitResolutionMax
+	return resolution == portraitResolutionHD || resolution == portraitResolutionDefault || resolution == portraitResolutionMax
 }
 
 func monitorPortraitEnabledLocked() bool {
@@ -240,6 +232,10 @@ func savedPortraitResolutionLocked() uint16 {
 		return portraitResolutionDefault
 	}
 	resolution := uint16(value)
+	if resolution == retiredPortraitResolution {
+		// Until MigrateRetiredPortraitResolution has rewritten the file.
+		return retiredPortraitReplacement()
+	}
 	if !validPortraitResolution(resolution) {
 		return portraitResolutionDefault
 	}

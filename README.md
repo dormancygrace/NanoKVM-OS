@@ -39,23 +39,23 @@ See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS
 
 | Landscape resolution | Maximum monitor refresh rate |
 | --- | --- |
-| **4K / UHD — 3840 × 2160** | **Up to 30 Hz** |
+| **4K / UHD — 3840 × 2160** | **Up to 30 Hz** (H.265) |
 | **QHD — 2560 × 1440** | **Up to 60 Hz** |
 | **Full HD — 1920 × 1080** | **Up to 90 Hz** |
 | **HD — 1280 × 720** | **Up to 120 Hz** |
 
 These are the highest advertised monitor timings on an LT6911UXC receiver, not guaranteed delivered video rates. LT6911C and LT6911D receivers offer 720p and 1080p at 60 Hz. Available modes also depend on video memory, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices. See [video modes and receiver limits](docs/VIDEO.md).
 
-- **H.264 and H.265 over Direct or WebRTC**, plus **MJPEG**. New browsers start with the device’s selected transport; existing browser preferences are retained. RustDesk follows the device transport. Viewers share the device’s codec, picture settings and hardware budget.
+- **H.264 up to 2560 × 1440 and H.265 up to 4K, over Direct or WebRTC**, plus **MJPEG**. New browsers start with the device’s selected transport; existing browser preferences are retained. RustDesk follows the device transport. Viewers share the device’s codec, picture settings and hardware budget.
 - **Hardware video encoding**, automatic/economy/manual bitrate controls, measured bitrate, and Direct playback options for responsiveness or a smoother picture. NormalP keyframes are requested as needed, with a periodic safety interval. Bitrate is an encoder ceiling; actual traffic depends on the image and operating conditions.
 - **Adaptive MJPEG quality and JPEG colour sampling:** quality falls when all viewers lag and recovers up to your selected limit. Choose **4:2:2** (default) or **4:2:0**, with the selection saved across reboots. MJPEG and screenshots carry the screen's true colours (full-range JPEG); with 4:2:0 or frame detection, while no H.264/H.265 viewer shares the video output. The monitor profiles let the PC send full-range RGB, so black stays black in every codec.
 - **Virtual monitor / EDID controls:** choose the resolution, refresh and orientation seen by the managed computer independently from the stream-size limit. Resolution and frame rate have separate controls; the monitor timing follows the stream rate where the receiver can be updated live. A resolution that needs another installed video-memory mode offers to switch it and reboot. Cube/Lite EDID changes require a physical power cycle; the interface explains when it is needed. **Same as input** preserves the input dimensions.
-- **Portrait profiles:** 720 × 1280, 1080 × 1920, 1296 × 2304 for H.264, and 1440 × 2560 for H.265, subject to the reported device and browser capabilities.
+- **Portrait profiles:** 720 × 1280 and 1080 × 1920 with H.264 or H.265, 1440 × 2560 with H.265 (H.264 only with a stream resolution of 1080p or lower), subject to the reported device and browser capabilities.
 - **PNG screenshots and browser-side recording**, plus USB audio playback in the browser through a shared Opus encoder. Direct and WebRTC record the H.264/H.265 stream into MP4 as received, without re-encoding; MJPEG records WebM. Recordings include the USB audio while it plays in the page. Recording availability depends on the browser’s recording and encoded-stream APIs.
 - **Playback recovery:** Direct requests fresh keyframes after dropped frames; stalled capture has a bounded recovery path. H.264/H.265 streams carry BT.709 colour information.
 - **HDMI enable/disable and capture idle timeout**, so capture can stop when no viewer is watching.
 
-H.265 requires a browser and platform with a compatible decoder. Direct playback uses WebCodecs in a secure context. The device does not transcode a shared H.265 stream separately for a browser that only supports H.264. MJPEG and JPEG-based screenshots are unavailable with a 4K HDMI input; concurrent MJPEG and H.264/H.265 viewers share capture resources and can reduce delivered FPS.
+H.265 requires a browser and platform with a compatible decoder. Direct playback uses WebCodecs in a secure context. The device does not transcode a shared H.265 stream separately for a browser that only supports H.264. The H.264 encoder corrupts 3840 × 2160 pictures, so 4K needs H.265; with H.264, choose a stream resolution of 1440p or lower. MJPEG and JPEG-based screenshots are unavailable with a 4K HDMI input; concurrent MJPEG and H.264/H.265 viewers share capture resources and can reduce delivered FPS.
 
 ### 📱 Control from a desktop or phone
 

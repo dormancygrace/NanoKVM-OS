@@ -231,7 +231,8 @@
       "transport": "mit dieser Übertragung nicht verfügbar",
       "portrait": "von diesem Hochformatprofil nicht unterstützt",
       "range": "außerhalb des Bereichs",
-      "mjpeg-4k": "nicht verfügbar, solange der HDMI-Eingang 3840 × 2160 ist, verwenden Sie H.264 oder H.265"
+      "mjpeg-4k": "nicht verfügbar, solange der HDMI-Eingang 3840 × 2160 ist, verwenden Sie H.264 oder H.265",
+      "h264-4k": "über 2560 × 1440 nicht verfügbar, verwenden Sie H.265 oder eine Stream-Auflösung von höchstens 1440p"
     },
     "mjpegChroma": "JPEG-Farbabtastung",
     "mjpegChroma420": "4:2:0 — kleinere Frames",

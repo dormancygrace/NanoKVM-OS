@@ -141,3 +141,43 @@ func TestVideoSettingsBatchesMonitorChanges(t *testing.T) {
 		t.Fatalf("monitor calls = %d, want 1", calls)
 	}
 }
+
+func TestVideoCapabilitiesListModeCodecs(t *testing.T) {
+	modes := videoCapabilities()["monitor"].(gin.H)["modes"].([]monitorModeCapability)
+	for _, m := range modes {
+		want := []string{"h264", "h265"}
+		if m.Height == 2160 || (m.Height == 0 && m.EffectiveHeight == 2160) {
+			want = []string{"h265"}
+		}
+		if len(m.Codecs) != len(want) || m.Codecs[0] != want[0] {
+			t.Errorf("mode %d (Auto %d): codecs %v, want %v", m.Height, m.EffectiveHeight, m.Codecs, want)
+		}
+	}
+	if got := modeCodecs(3840, 2160); len(got) != 1 || got[0] != "h265" {
+		t.Errorf("3840x2160 codecs %v", got)
+	}
+	if got := modeCodecs(2560, 1440); len(got) != 2 {
+		t.Errorf("2560x1440 codecs %v", got)
+	}
+	if got := modeCodecs(0, 0); len(got) != 2 {
+		t.Errorf("stock Auto codecs %v", got)
+	}
+}
+
+func TestVideoCapabilitiesMarkH264UnavailableAt4K(t *testing.T) {
+	h264 := func() h264Capability {
+		return videoCapabilities()["stream"].(gin.H)["h264"].(h264Capability)
+	}
+	fakeCapture(t, 3840, 2160, 0)
+	if got := h264(); got.Available || got.Reason != "h264-4k" || got.MaxLongSide != 2560 || got.MaxHeight != 1920 {
+		t.Fatalf("4K: %+v", got)
+	}
+	common.SetScreen("resolution", 1440)
+	if got := h264(); !got.Available || got.Reason != "" {
+		t.Fatalf("4K limited to 1440p: %+v", got)
+	}
+	fakeCapture(t, 2560, 1440, 0)
+	if got := h264(); !got.Available {
+		t.Fatalf("1440p: %+v", got)
+	}
+}

@@ -12,7 +12,6 @@ inline unsigned portrait_fps_limit(unsigned w, unsigned h) {
     if (w == 720 && h == 1280) return 120;
     if (w == 1080 && h == 1920) return 75;
     if (w == 1088 && h == 1920) return 75;
-    if (w == 1296 && h == 2304) return 50;
     if (w == 1440 && h == 2560) return 50;
     return 0;
 }
@@ -26,7 +25,7 @@ inline StreamSize stream_size(uint16_t iw, uint16_t ih, uint16_t mw, uint16_t mh
     uint32_t w = iw, h = ih;
     if (!w || !h) return {0, 0};
     if (((iw == 720 && ih == 1280) || (iw == 1080 && ih == 1920) ||
-         (iw == 1088 && ih == 1920) || (iw == 1296 && ih == 2304) || (iw == 1440 && ih == 2560)) && mw && mh) {
+         (iw == 1088 && ih == 1920) || (iw == 1440 && ih == 2560)) && mw && mh) {
         // Stream presets are expressed in landscape coordinates. Keep the
         // qualified full portrait at FHD or larger; smaller presets fit it
         // without MMF silently widening/cropping an unaligned VPSS channel.
@@ -48,5 +47,14 @@ inline StreamSize stream_size(uint16_t iw, uint16_t ih, uint16_t mw, uint16_t mh
     }
     // NV21 chroma requires even dimensions.
     return {uint16_t(w & ~1u), uint16_t(h & ~1u)};
+}
+// The H.264 encoder (CODA980) writes corrupted blocks at 3840x2160; H.264 runs
+// up to 2560x1440, and 1080x1920 in portrait. The server uses the same limits
+// (server/common/h264_policy.go; a test compares them).
+inline constexpr unsigned h264_max_long_side = 2560;
+inline constexpr unsigned h264_max_height = 1920;
+inline bool h264_output_allowed(StreamSize size) {
+    const unsigned longer = size.width > size.height ? size.width : size.height;
+    return longer <= h264_max_long_side && size.height <= h264_max_height;
 }
 }

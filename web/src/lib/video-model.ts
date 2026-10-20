@@ -12,7 +12,8 @@ export type Reason =
   | 'transport'
   | 'portrait'
   | 'range'
-  | 'mjpeg-4k';
+  | 'mjpeg-4k'
+  | 'h264-4k';
 
 export type MonitorMode = {
   height: number;
@@ -21,6 +22,9 @@ export type MonitorMode = {
   effectiveWidth?: number;
   effectiveHeight?: number;
   rates: number[];
+  // The codecs this monitor can be encoded with at the Auto stream limit;
+  // absent on older servers.
+  codecs?: string[];
   available: boolean;
   reason?: Reason;
 };
@@ -40,6 +44,15 @@ export type StreamLimit = { height: number; width: number; available: boolean; r
 // MJPEG for the current capture; maxSide is the longest input side it can run
 // with. Absent on a server that does not restrict it.
 export type MjpegCapability = { available: boolean; reason?: Reason; maxSide: number };
+// H.264 for the current capture and stream limit: it encodes pictures up to
+// maxLongSide wide and maxHeight high. Absent on a server that does not
+// restrict it.
+export type H264Capability = {
+  available: boolean;
+  reason?: Reason;
+  maxLongSide: number;
+  maxHeight: number;
+};
 export type RateTier = { longSide: number; shortSide: number; fps: number };
 
 export type VideoCapabilities = {
@@ -61,6 +74,7 @@ export type VideoCapabilities = {
     minFps: number;
     maxFps: number;
     mjpeg?: MjpegCapability;
+    h264?: H264Capability;
     // The device transport; absent on older servers.
     transport?: Transport;
   };
@@ -154,16 +168,23 @@ export function monitorMode(caps: VideoCapabilities, height: number) {
   return caps.monitor.modes.find((m) => m.height === height);
 }
 
-// The size the encoder produces: the input, or the stream limit when smaller.
+// The size the encoder produces: the input fitted into the stream limit (a
+// landscape box, upright for a portrait input), never enlarged.
 export function streamSize(draft: VideoDraft, caps: VideoCapabilities) {
   const { width, height } = caps.input;
   const limit = caps.stream.limits.find((l) => l.height === draft.height);
   if (!width || !height) return { width: limit?.width ?? 0, height: draft.height };
-  if (!draft.height || !limit || Math.min(width, height) <= draft.height) return { width, height };
+  if (!draft.height || !limit) return { width, height };
   const portrait = height > width;
-  return portrait
-    ? { width: draft.height, height: limit.width }
-    : { width: limit.width, height: draft.height };
+  const [boxWidth, boxHeight] = portrait
+    ? [draft.height, limit.width]
+    : [limit.width, draft.height];
+  if (width <= boxWidth && height <= boxHeight) return { width, height };
+  // Even sizes, as the encoder takes them.
+  const even = (value: number) => Math.floor(value) & ~1;
+  return boxWidth * height <= boxHeight * width
+    ? { width: boxWidth, height: even((height * boxWidth) / width) }
+    : { width: even((width * boxHeight) / height), height: boxHeight };
 }
 
 // The frame rate the device delivers for a draft: the request within the
@@ -212,6 +233,51 @@ export function mjpegBlocked(draft: VideoDraft, caps: VideoCapabilities) {
   return Math.max(input.width, input.height) > maxSide;
 }
 
+// The input H.264 would encode for a draft: the portrait profile or monitor
+// the draft writes, else the current input.
+function h264Input(draft: VideoDraft, caps: VideoCapabilities) {
+  const { monitor } = caps;
+  if (!monitor.programmable) return caps.input;
+  if (draft.portrait) {
+    if (monitor.portrait.enabled && monitor.portrait.resolution === draft.portrait)
+      return caps.input;
+    return { width: portraitProfile(caps, draft.portrait)?.width ?? 0, height: draft.portrait };
+  }
+  if (monitor.portrait.enabled || draft.monitor !== monitor.selected)
+    return monitorSize(monitorMode(caps, draft.monitor));
+  return caps.input;
+}
+
+// Why H.264 cannot encode a draft, undefined when it can: the picture it
+// streams (its input within the stream limit) is larger than the server
+// allows, 2560x1440 or 1080x1920 in portrait. A 3840x2160 input needs H.265
+// or a stream limit of 1440 or lower ('h264-4k'); a taller portrait, such as
+// 1440x2560, H.265 or a limit of 1080 or lower ('portrait'). Mirrors the
+// server, which refuses it.
+export function h264BlockReason(draft: VideoDraft, caps: VideoCapabilities): Reason | undefined {
+  const h264 = caps.stream.h264;
+  if (!h264?.maxLongSide || !h264.maxHeight) return undefined;
+  const input = h264Input(draft, caps);
+  if (!input.width || !input.height) return undefined;
+  const out = streamSize(draft, { ...caps, input: { ...caps.input, ...input } });
+  if (Math.max(out.width, out.height) <= h264.maxLongSide && out.height <= h264.maxHeight)
+    return undefined;
+  return out.height > out.width ? 'portrait' : 'h264-4k';
+}
+
+export function h264Blocked(draft: VideoDraft, caps: VideoCapabilities) {
+  return h264BlockReason(draft, caps) !== undefined;
+}
+
+// A profile's codec list describes its unscaled picture. New servers also
+// report H.264 output limits, so a lower stream size can make it playable.
+function portraitCodecAllowed(draft: VideoDraft, caps: VideoCapabilities, profile: PortraitProfile) {
+  return (
+    profile.codecs.includes(draft.codec) ||
+    (draft.codec === 'h264' && !!caps.stream.h264 && !h264Blocked(draft, caps))
+  );
+}
+
 export function codecPlayable(browser: BrowserSupport, transport: Transport, codec: Codec) {
   if (transport === 'mjpeg' || codec === 'h264') return true;
   return transport === 'direct' ? browser.directH265 : browser.webrtcH265;
@@ -236,7 +302,7 @@ export function draftIssues(
     const profile = portraitProfile(caps, draft.portrait);
     if (!profile || !profile.available) issues.portrait = profile?.reason ?? 'receiver';
     else if (!profile.transports.includes(draft.transport)) issues.transport = 'portrait';
-    else if (draft.transport !== 'mjpeg' && !profile.codecs.includes(draft.codec))
+    else if (draft.transport !== 'mjpeg' && !portraitCodecAllowed(draft, caps, profile))
       issues.codec = 'portrait';
   } else {
     const mode = monitorMode(caps, draft.monitor);
@@ -259,6 +325,8 @@ export function draftIssues(
   }
   if (!issues.codec && draft.transport !== 'mjpeg') {
     if (!caps.transports[draft.transport]?.includes(draft.codec)) issues.codec = 'transport';
+    else if (draft.codec === 'h264' && h264Blocked(draft, caps))
+      issues.codec = h264BlockReason(draft, caps);
     else if (!codecPlayable(browser, draft.transport, draft.codec)) issues.codec = 'browser';
   }
   return issues;
@@ -383,7 +451,8 @@ export function recommendedResolution(caps: VideoCapabilities) {
 
 // The draft with a resolution applied, at its fastest rate: the receiver's
 // limit for that size, which the user may lower. A portrait profile only plays
-// some transports and codecs; the draft keeps its own where they fit.
+// some transports and codecs, and H.264 only pictures up to 2560x1440; the
+// draft keeps its own where they fit, else switches to H.265.
 export function withResolution(
   draft: VideoDraft,
   choice: ResolutionChoice,
@@ -394,10 +463,12 @@ export function withResolution(
   const profile = choice.portrait ? portraitProfile(caps, choice.portrait) : undefined;
   if (profile) {
     if (!profile.transports.includes(next.transport)) next.transport = 'direct';
-    if (next.transport !== 'mjpeg' && !profile.codecs.includes(next.codec)) {
+    if (next.transport !== 'mjpeg' && !portraitCodecAllowed(next, caps, profile)) {
       next.codec = profile.codecs.includes('h265') ? 'h265' : 'h264';
     }
   }
+  if (next.transport !== 'mjpeg' && next.codec === 'h264' && h264Blocked(next, caps))
+    next.codec = 'h265';
   return next;
 }
 

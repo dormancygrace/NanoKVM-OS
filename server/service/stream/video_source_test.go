@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"NanoKVM-Server/common"
 	"errors"
 	"runtime"
 	"sync"
@@ -342,25 +343,122 @@ func TestActiveEncoderConfigExcludesDrainingCapture(t *testing.T) {
 	}
 }
 
-func TestMaximumPortraitCodecPolicy(t *testing.T) {
+// H.264 runs up to 2560x1440 of encoded picture (1080x1920 in portrait); the
+// stream limit counts, H.265 is never refused.
+func TestH264CodecPolicy(t *testing.T) {
 	for _, c := range []struct {
-		codec              VideoCodec
-		height             uint16
-		width, inputHeight int
-		blocked            bool
+		limit         uint16
+		width, height int
+		blocked       bool
 	}{
-		{VideoCodecH264, 0, 1440, 2560, true},
-		{VideoCodecH264, 1440, 1440, 2560, true},
-		{VideoCodecH264, 1080, 1440, 2560, false},
-		{VideoCodecH265, 0, 1440, 2560, false},
-		{VideoCodecH264, 0, 1088, 1920, false},
-		{VideoCodecH264, 0, 1296, 2304, false},
-		{VideoCodecH264, 0, 2560, 1440, false},
+		{0, 3840, 2160, true},
+		{2160, 3840, 2160, true},
+		{1440, 3840, 2160, false},
+		{1080, 3840, 2160, false},
+		{720, 3840, 2160, false},
+		{600, 3840, 2160, false},
+		{0, 2560, 1440, false},
+		{2160, 2560, 1440, false},
+		{1440, 2560, 1440, false},
+		{0, 1920, 1080, false},
+		{2160, 1920, 1080, false},
+		{0, 3440, 1440, true},
+		{1440, 3440, 1440, false},
+		// Portrait: above 1080x1920 it needs a limit of 1080 or lower.
+		{0, 1440, 2560, true},
+		{2160, 1440, 2560, true},
+		{1440, 1440, 2560, true},
+		{1080, 1440, 2560, false},
+		{720, 1440, 2560, false},
+		{0, 1088, 1920, false},
+		{0, 1080, 1920, false},
+		{0, 720, 1280, false},
+		// No signal: nothing is encoded yet.
+		{0, 0, 0, false},
 	} {
-		if got := portraitCodecBlocked(c.codec, c.height, c.width, c.inputHeight); got != c.blocked {
-			t.Fatalf("portrait codec policy %+v = %v", c, got)
+		if got := h264Blocked(VideoCodecH264, c.limit, c.width, c.height); got != c.blocked {
+			t.Errorf("H.264 at %dx%d, limit %d: blocked %v, want %v", c.width, c.height, c.limit, got, c.blocked)
+		}
+		if h264Blocked(VideoCodecH265, c.limit, c.width, c.height) {
+			t.Errorf("H.265 at %dx%d, limit %d blocked", c.width, c.height, c.limit)
 		}
 	}
+}
+
+func TestSubscribeRefusesH264At4K(t *testing.T) {
+	previousInput, previousLimit := captureInput, common.GetScreen().Height
+	t.Cleanup(func() { captureInput = previousInput; common.SetScreen("resolution", int(previousLimit)) })
+	captureInput = func() (int, int) { return 3840, 2160 }
+	common.SetScreen("resolution", 0)
+	if err := validateVideoConfig(EncoderConfig{Codec: VideoCodecH264}); err == nil || err.Error() != common.H264BlockedMessage {
+		t.Fatalf("H.264 at 3840x2160: %v", err)
+	}
+	if err := validateVideoConfig(EncoderConfig{Codec: VideoCodecH265}); err != nil {
+		t.Fatalf("H.265 at 3840x2160: %v", err)
+	}
+	common.SetScreen("resolution", 1440)
+	if err := validateVideoConfig(EncoderConfig{Codec: VideoCodecH264}); err != nil {
+		t.Fatalf("H.264 at 3840x2160 limited to 1440: %v", err)
+	}
+}
+
+func TestSelectedH264FallsBackToH265At4K(t *testing.T) {
+	previousInput, previousLimit := captureInput, common.GetScreen().Height
+	t.Cleanup(func() { captureInput = previousInput; common.SetScreen("resolution", int(previousLimit)) })
+	input := [2]int{3840, 2160}
+	captureInput = func() (int, int) { return input[0], input[1] }
+	common.SetScreen("resolution", 0)
+
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+	source.selectConfig(LegacyEncoderConfig())
+	if config, selected := source.selectedConfig(); !selected || config != DefaultEncoderConfig() {
+		t.Fatalf("selected H.264 at 3840x2160 reports %+v", config)
+	}
+	viewer, err := source.subscribeValidated(EncoderConfig{}, validateVideoConfig)
+	if err != nil || viewer.Config() != DefaultEncoderConfig() {
+		t.Fatalf("automatic join at 3840x2160: %+v %v", viewer, err)
+	}
+	if _, err := source.subscribeValidated(LegacyEncoderConfig(), validateVideoConfig); err == nil {
+		t.Fatal("explicit H.264 joined at 3840x2160")
+	}
+
+	// The input shrinks to QHD: the running H.265 session keeps its viewers
+	// and new ones join it; the next session uses the selected H.264.
+	input = [2]int{2560, 1440}
+	second, err := source.subscribeValidated(EncoderConfig{}, validateVideoConfig)
+	if err != nil || second.Config() != DefaultEncoderConfig() {
+		t.Fatalf("join during the H.265 fallback session: %+v %v", second, err)
+	}
+	viewer.Close()
+	second.Close()
+	<-viewer.session.done
+	next, err := source.subscribeValidated(EncoderConfig{}, validateVideoConfig)
+	if err != nil || next.Config() != LegacyEncoderConfig() {
+		t.Fatalf("selected H.264 at 2560x1440: %+v %v", next, err)
+	}
+	next.Close()
+}
+
+func TestH264SessionEndsWhenThePictureGrowsPastQHD(t *testing.T) {
+	previousInput, previousLimit := captureInput, common.GetScreen().Height
+	t.Cleanup(func() { captureInput = previousInput; common.SetScreen("resolution", int(previousLimit)) })
+	var input atomic.Int64
+	input.Store(2560<<16 | 1440)
+	captureInput = func() (int, int) { v := input.Load(); return int(v >> 16), int(v & 0xffff) }
+	common.SetScreen("resolution", 0)
+
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, -1 })
+	viewer, err := source.subscribeValidated(LegacyEncoderConfig(), validateVideoConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.Store(3840<<16 | 2160)
+	select {
+	case <-viewer.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("H.264 viewer kept a session that cannot encode 3840x2160")
+	}
+	<-viewer.session.done
 }
 
 func TestVideoSourceSnapshotRemainsImmutableAcrossMembershipChanges(t *testing.T) {

@@ -114,6 +114,11 @@ func initialize(stopMemory context.CancelFunc) {
 		if recovering {
 			return
 		}
+		if migrated, err := common.MigrateRetiredPortraitResolution(); err != nil {
+			logrus.Errorf("failed to migrate the retired portrait profile: %v", err)
+		} else if migrated {
+			logrus.Info("replaced the retired 1296x2304 portrait profile")
+		}
 		changed, err := common.FitMonitorToVideoMemory()
 		if err != nil {
 			logrus.Errorf("failed to fit the monitor profile to the video memory: %v", err)

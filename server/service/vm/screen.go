@@ -137,6 +137,56 @@ func mjpegSelectionFailure(batch *VideoSettingsReq) *settingError {
 	return nil
 }
 
+// h264SelectionFailure refuses H.264 when the picture it would encode is
+// larger than 2560x1440 (1080x1920 in portrait). Inside a batch the stream
+// limit and the monitor it also sets decide, as they change the picture.
+func h264SelectionFailure(batch *VideoSettingsReq) *settingError {
+	limit := common.GetScreen().Height
+	if batch != nil && batch.Height != nil && *batch.Height >= 0 && *batch.Height <= math.MaxUint16 {
+		limit = uint16(*batch.Height)
+	}
+	if width, height, ok := batchMonitorInput(batch); ok {
+		if !common.H264AllowedFor(width, height, limit) {
+			return settingFailure(-3, common.H264BlockedMessage)
+		}
+		return nil
+	}
+	width, height := captureInput()
+	if !common.H264SelectionAllowed(width, height, limit) {
+		return settingFailure(-3, common.H264BlockedMessage)
+	}
+	return nil
+}
+
+// Seam for tests of partial monitor updates.
+var videoMonitorStateAfter = common.MonitorStateAfter
+
+// batchMonitorInput uses the same final state as ApplyMonitorSettings:
+// omitted fields retain their saved values. A stream-only batch still checks
+// the current capture instead of a possibly stale saved monitor.
+func batchMonitorInput(batch *VideoSettingsReq) (width, height int, ok bool) {
+	if batch == nil || (batch.Portrait == nil && batch.PortraitResolution == nil && batch.Monitor == nil) {
+		return 0, 0, false
+	}
+	for _, value := range []*int{batch.PortraitResolution, batch.Monitor} {
+		if value != nil && (*value < 0 || *value > math.MaxUint16) {
+			return 0, 0, false
+		}
+	}
+	state := videoMonitorStateAfter(batch.monitor())
+	if state.Portrait {
+		return int(common.PortraitWidth(state.PortraitResolution)), int(state.PortraitResolution), true
+	}
+	monitor := state.Resolution
+	if monitor == 0 {
+		monitor = common.AutoMonitorHeight()
+	}
+	if monitor == 0 {
+		return 0, 0, false
+	}
+	return int(common.ResolutionMap[monitor]), int(monitor), true
+}
+
 // validateScreenSettingIn is validateScreenSetting for a setting that is part
 // of a batch (nil for a single one).
 func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *settingError {
@@ -171,7 +221,7 @@ func validateScreenSettingFor(req proto.SetScreenReq, batch *VideoSettingsReq, p
 			return settingFailure(-1, "portrait must be 0 or 1")
 		}
 	case "portrait_resolution":
-		if req.Value != 2304 && req.Value != 1280 && req.Value != 1920 && req.Value != 2560 {
+		if req.Value != 1280 && req.Value != 1920 && req.Value != 2560 {
 			return settingFailure(-1, "unsupported portrait monitor resolution")
 		}
 		if req.Value == 2560 && !common.PortraitMaxSupportedFor(pool) {
@@ -207,6 +257,9 @@ func validateScreenSettingFor(req proto.SetScreenReq, batch *VideoSettingsReq, p
 		}
 		if req.Value == 0 {
 			return mjpegSelectionFailure(batch)
+		}
+		if req.Value == 1 {
+			return h264SelectionFailure(batch)
 		}
 	case "quality":
 		if req.Value < 1 || req.Value > maxQualityValue {

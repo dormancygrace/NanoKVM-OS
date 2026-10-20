@@ -231,7 +231,8 @@
       "transport": "not available with this transport",
       "portrait": "not supported by this portrait profile",
       "range": "out of range",
-      "mjpeg-4k": "not available while the HDMI input is 3840 × 2160, use H.264 or H.265"
+      "mjpeg-4k": "not available while the HDMI input is 3840 × 2160, use H.264 or H.265",
+      "h264-4k": "not available above 2560 × 1440, use H.265 or a stream resolution of 1440p or lower"
     },
     "mjpegChroma": "JPEG color sampling",
     "mjpegChroma420": "4:2:0 — smaller frames",

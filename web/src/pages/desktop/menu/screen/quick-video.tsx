@@ -138,29 +138,46 @@ export const QuickVideo = () => {
   const recommended = recommendedResolution(caps);
   const auto = draftAutoBitrate(saved, caps);
   const autoBitrate = saved.bitRate === auto;
+  const codecNames: Record<Codec, string> = { h264: 'H.264', h265: 'H.265' };
+  // The codec a resolution switches to, when it is not the current one.
+  const modeCodec = (choice: ReturnType<typeof resolutionChoices>[number]) => {
+    const codec = withResolution(saved, choice, caps).codec;
+    return mjpeg || codec === saved.codec ? undefined : codec;
+  };
   // A resolution applies at its fastest rate; Settings lowers it.
   const modeItems: Item[] = resolutionChoices(caps)
     .filter((c) => c.key === current?.key || (c.available && !c.portrait))
-    .map((choice) => ({
-      key: choice.key,
-      checked: choice.key === current?.key,
-      disabled: busy || caps.monitor.requiresPowerCycle,
-      label: (
-        <>
-          {`${choice.width} × ${choice.height} · ${t('videoSettings.fpsValue', { value: choice.key === current?.key ? saved.fps : (choice.rates[0] ?? saved.fps) })}`}
-          {choice.key === recommended?.key && (
-            <span className="text-neutral-500"> · {t('videoSettings.modeRecommended')}</span>
-          )}
-        </>
-      ),
-      pick: () => {
-        if (choice.key === current?.key) return;
-        const draft = withResolution(saved, choice, caps);
-        // An automatic bitrate follows the mode.
-        if (autoBitrate) draft.bitRate = draftAutoBitrate(draft, caps);
-        void apply(draft);
-      }
-    }));
+    .map((choice) => {
+      const switchedCodec = choice.key === current?.key ? undefined : modeCodec(choice);
+      return {
+        key: choice.key,
+        checked: choice.key === current?.key,
+        disabled: busy || caps.monitor.requiresPowerCycle,
+        label: (
+          <>
+            {`${choice.width} × ${choice.height} · ${t('videoSettings.fpsValue', { value: choice.key === current?.key ? saved.fps : (choice.rates[0] ?? saved.fps) })}`}
+            {/* A resolution H.264 cannot encode switches to H.265, named here. */}
+            {switchedCodec && (
+              <span
+                title={switchedCodec === 'h265' ? t('videoSettings.reason.h264-4k') : undefined}
+              >
+                {` · ${codecNames[switchedCodec]}`}
+              </span>
+            )}
+            {choice.key === recommended?.key && (
+              <span className="text-neutral-500"> · {t('videoSettings.modeRecommended')}</span>
+            )}
+          </>
+        ),
+        pick: () => {
+          if (choice.key === current?.key) return;
+          const draft = withResolution(saved, choice, caps);
+          // An automatic bitrate follows the mode.
+          if (autoBitrate) draft.bitRate = draftAutoBitrate(draft, caps);
+          void apply(draft);
+        }
+      };
+    });
   const modeValue = current
     ? `${current.width} × ${current.height} · ${saved.fps}`
     : `${width} × ${height} · ${saved.fps}`;
@@ -205,7 +222,6 @@ export const QuickVideo = () => {
         : mbps(saved.bitRate);
 
   const names: Record<Transport, string> = { direct: 'Direct', webrtc: 'WebRTC', mjpeg: 'MJPEG' };
-  const codecNames: Record<Codec, string> = { h264: 'H.264', h265: 'H.265' };
   // Each transport with a codec it plays here and in the monitor profile: the
   // current codec where it can, else the other one, named in the item.
   const transportItems: Item[] = (['direct', 'webrtc', 'mjpeg'] as const).map((transport) => {

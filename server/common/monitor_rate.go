@@ -25,14 +25,16 @@ var monitorRates = map[uint16][]int{
 var portraitRates = map[uint16][]int{
 	portraitResolutionHD:      {120, 60, 30},
 	portraitResolutionDefault: {90, 75, 60, 30},
-	portraitResolutionAVC:     {60, 50, 30},
 	portraitResolutionMax:     {60, 50, 30},
 }
 
 var portraitWidths = map[uint16]uint16{
 	portraitResolutionHD: 720, portraitResolutionDefault: 1080,
-	portraitResolutionAVC: 1296, portraitResolutionMax: 1440,
+	portraitResolutionMax: 1440,
 }
+
+// PortraitWidth is the width of a portrait profile, 0 for an unknown one.
+func PortraitWidth(resolution uint16) uint16 { return portraitWidths[resolution] }
 
 // PortraitRates returns the refresh rates of a portrait profile, fastest first.
 func PortraitRates(resolution uint16) []int {

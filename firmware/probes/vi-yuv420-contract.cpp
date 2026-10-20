@@ -3,6 +3,8 @@
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
 #include <cassert>
 #include <string>
+#include <thread>
+#include <atomic>
 
 // A fake /sys and /etc: the VI parameter is a real temporary file.
 static bool param_present = true, param_ignores_writes, packed_src = true;
@@ -312,8 +314,42 @@ static void jpeg_output_rate() {
     puts("jpeg output rate ok");
 }
 
+
+// The JPEG output runs outside vi_mutex while video encoder state changes.
+// Run with ThreadSanitizer too: NV16 release must not read priv.venc[].
+static void concurrent_jpeg_output() {
+    reset();
+    priv.vi_chn_is_inited[1] = true;
+    vpss_input.stVFrame.enPixelFormat = PIXEL_FORMAT_NV16;
+    std::atomic<bool> started{false}, done{false};
+    std::thread jpeg([&] {
+        mmf_jpg_hold();
+        started = true;
+        while (!done.load()) std::this_thread::yield();
+        for (int i = 0; i < 10000; ++i) {
+            int len, w, h, fmt;
+            assert(mmf_vi_frame_pop_own(1, &len, &w, &h, &fmt) == 0);
+            assert(fmt == PIXEL_FORMAT_NV16);
+            mmf_vi_frame_release(1);
+        }
+        mmf_jpg_unhold();
+    });
+    while (!started.load()) std::this_thread::yield();
+    // An inactive-reader timeout must not inspect the concurrently owned slot.
+    assert(mmf_vi_drop_pending(1) == MMF_VI_OUTPUT_LEASED);
+    done = true;
+    for (int i = 0; i < 10000; ++i) {
+        priv.venc[1].is_running = i & 1;
+        priv.venc_input_vi_ch[1] = i & 1 ? 0 : -1;
+    }
+    jpeg.join();
+    assert(vpss_gets == 10000 && vpss_releases == 10000);
+    puts("concurrent JPEG output ok");
+}
+
 int main() {
     const int fd = mkstemp(param_path); assert(fd >= 0); close(fd);
+    concurrent_jpeg_output();
     mode_rule();
     restart_and_codec_switch();
     h264_direct();

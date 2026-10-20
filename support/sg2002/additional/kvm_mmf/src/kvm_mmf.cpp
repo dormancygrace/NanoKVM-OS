@@ -474,9 +474,14 @@ static int _mmf_release_vi_frame(int ch)
 {
  if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
  if (!priv.vi_frame_valid[ch]) return CVI_SUCCESS;
- for (int encoder = 0; encoder < MMF_VENC_MAX_CHN; ++encoder) {
-  if (priv.venc[encoder].is_running && priv.venc_input_vi_ch[encoder] == ch)
-   return CVI_ERR_VENC_BUSY;
+ // NV16 is exclusively JPEG-owned. Its reader may release outside vi_mutex
+ // under jpg_hold_mutex; video encoder state belongs to vi_mutex, so do not
+ // inspect it here. NV21/packed leases retain the encoder ownership guard.
+ if (priv.vi_frame[ch].stVFrame.enPixelFormat != PIXEL_FORMAT_NV16) {
+  for (int encoder = 0; encoder < MMF_VENC_MAX_CHN; ++encoder) {
+   if (priv.venc[encoder].is_running && priv.venc_input_vi_ch[encoder] == ch)
+    return CVI_ERR_VENC_BUSY;
+  }
  }
  VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
  if (priv.vi_frame_mapped[ch] && frame->stVFrame.pu8VirAddr[0]) {
@@ -1569,6 +1574,10 @@ int mmf_vi_chn_set_enabled(int ch, int enable) {
 }
 
 int mmf_vi_drop_pending(int ch) {
+    // A JPEG reader can own a frame slot outside vi_mutex. Do not inspect or
+    // drain that slot concurrently, and do not stall video waiting for JPEG.
+    std::unique_lock<std::recursive_mutex> jpeg(jpg_hold_mutex, std::try_to_lock);
+    if (!jpeg.owns_lock()) return MMF_VI_OUTPUT_LEASED;
     if (ch < 0 || ch >= MMF_VI_MAX_CHN || !mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
     // Never replace a DMA lease still referenced by an encoder. That is not a
     // failure: the leasing consumer is mid-frame and releases it itself.

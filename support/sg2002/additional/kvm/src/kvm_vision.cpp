@@ -1999,8 +1999,10 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
                 native_result = mmf_vi_frame_pop_native(native_vi_ch, &native_len, &native_width,
                         &native_height, &native_format);
             }
-            if (native_result != 0 || native_width != kvmv_cfg.vpss_width
-                    || native_height != kvmv_cfg.vpss_height || native_format != capture_format) {
+            // Another reader can select a different output while MJPEG waits
+            // outside vi_mutex. Validate against this pass, not that selection.
+            if (native_result != 0 || native_width != output.width
+                    || native_height != output.height || native_format != capture_format) {
                 if (native_result == 0) mmf_vi_frame_release(native_vi_ch);
                 native_vi_ch = -1;
                 if (capture_format == nanokvm::nv16_format()) {

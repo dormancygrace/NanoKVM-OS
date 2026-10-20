@@ -23,5 +23,22 @@ int main(){
  }
  assert(nanokvm::capture_stream_rate_limit(1440,2560,720,1280)==50);
  assert(nanokvm::capture_stream_rate_limit(1080,1920,720,1280)==75);
+ // H.264 runs up to 2560x1440 (1296x2304 in portrait), judged on the encoded size.
+ struct H264Case { uint16_t iw,ih,mw,mh; bool allowed; };
+ const H264Case h264[] = {
+  {3840,2160,0,0,false}, {3840,2160,3840,2160,false}, {3840,2160,2560,1440,true},
+  {3840,2160,1920,1080,true}, {3840,2160,1280,720,true}, {3840,2160,800,600,true},
+  {2560,1440,0,0,true}, {2560,1440,3840,2160,true}, {1920,1080,0,0,true},
+  {3440,1440,0,0,false}, {3440,1440,2560,1440,true},
+  {1440,2560,0,0,false}, {1440,2560,3840,2160,false}, {1440,2560,2560,1440,false},
+  {1440,2560,1920,1080,true}, {1440,2560,1280,720,true},
+  {1296,2304,0,0,true}, {1296,2304,2560,1440,true},
+  {1088,1920,0,0,true}, {1080,1920,0,0,true}, {720,1280,0,0,true},
+ };
+ for (const auto &c : h264)
+  assert(nanokvm::h264_output_allowed(nanokvm::stream_size(c.iw,c.ih,c.mw,c.mh))==c.allowed);
+ s=nanokvm::stream_size(3440,1440,2560,1440);assert(s.width==2560&&s.height==1070);
+ assert(nanokvm::h264_output_allowed({2560,1440}) && nanokvm::h264_output_allowed({1296,2304}));
+ assert(!nanokvm::h264_output_allowed({2562,1440}) && !nanokvm::h264_output_allowed({1296,2306}));
 
 }

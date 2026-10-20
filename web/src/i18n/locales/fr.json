@@ -231,7 +231,8 @@
       "transport": "non disponible avec ce transport",
       "portrait": "non pris en charge par ce profil portrait",
       "range": "hors plage",
-      "mjpeg-4k": "non disponible tant que l'entrée HDMI est en 3840 × 2160, utilisez H.264 ou H.265"
+      "mjpeg-4k": "non disponible tant que l'entrée HDMI est en 3840 × 2160, utilisez H.264 ou H.265",
+      "h264-4k": "non disponible au-delà de 2560 × 1440, utilisez H.265 ou une résolution du flux de 1440p au maximum"
     },
     "mjpegChroma": "Sous-échantillonnage des couleurs JPEG",
     "mjpegChroma420": "4:2:0 — images plus légères",

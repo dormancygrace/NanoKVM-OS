@@ -34,6 +34,9 @@ var portraitWidths = map[uint16]uint16{
 	portraitResolutionAVC: 1296, portraitResolutionMax: 1440,
 }
 
+// PortraitWidth is the width of a portrait profile, 0 for an unknown one.
+func PortraitWidth(resolution uint16) uint16 { return portraitWidths[resolution] }
+
 // PortraitRates returns the refresh rates of a portrait profile, fastest first.
 func PortraitRates(resolution uint16) []int {
 	return append([]int(nil), portraitRates[resolution]...)

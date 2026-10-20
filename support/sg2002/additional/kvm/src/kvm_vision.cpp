@@ -1760,10 +1760,10 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
         const uint64_t capture_now = mjpeg_monotonic_ms();
         const auto requested_output = nanokvm::stream_size(geometry.width, geometry.height, _width, _height);
         const auto output = mjpeg_parallel_size(requested_output, _type, kvmv_cfg.frame_detact != 0, capture_now);
-        // The H.264 hardware rejects the tall maximum portrait. Do not
-        // repeatedly initialize a channel the device cannot encode.
-        if (geometry.width == 1440 && geometry.height == 2560
-                && _type == VENC_H264 && output.height > 2304) {
+        // H.264 encodes up to 2560x1440 (1296x2304 in portrait): above that
+        // the encoder corrupts the picture or rejects it. Refuse before any
+        // channel is set up; larger pictures need H.265.
+        if (_type == VENC_H264 && !nanokvm::h264_output_allowed(output)) {
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }

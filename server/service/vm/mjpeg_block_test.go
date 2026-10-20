@@ -63,10 +63,8 @@ func TestScreenRefusesMjpegAt4K(t *testing.T) {
 	if _, err := os.Stat(screenFileMap["type"]); !os.IsNotExist(err) {
 		t.Fatal("a refused type was saved")
 	}
-	for _, codec := range []int{1, 2} {
-		if code, msg := setStreamType(t, codec); code != 0 {
-			t.Fatalf("codec %d refused: %d %q", codec, code, msg)
-		}
+	if code, msg := setStreamType(t, 2); code != 0 {
+		t.Fatalf("H.265 refused: %d %q", code, msg)
 	}
 
 	// The stream limit does not help: a limited 4K input produces no JPEG frames.
@@ -132,5 +130,69 @@ func TestVideoCapabilitiesMarkMjpegUnavailableAt4K(t *testing.T) {
 	fakeCapture(t, 2560, 1440, 0)
 	if got := mjpeg(); !got.Available || got.Reason != "" {
 		t.Fatalf("1440p: %+v", got)
+	}
+}
+
+func TestScreenRefusesH264At4K(t *testing.T) {
+	fakeCapture(t, 3840, 2160, 0)
+	if code, msg := setStreamType(t, 1); code == 0 || msg != common.H264BlockedMessage {
+		t.Fatalf("H.264 at 3840x2160: code %d, %q", code, msg)
+	}
+	if _, err := os.Stat(screenFileMap["type"]); !os.IsNotExist(err) {
+		t.Fatal("a refused type was saved")
+	}
+	if code, msg := setStreamType(t, 2); code != 0 {
+		t.Fatalf("H.265 at 3840x2160: %d %q", code, msg)
+	}
+	// A stream limit of 1440 or lower brings the picture within H.264.
+	common.SetScreen("resolution", 1440)
+	if code, msg := setStreamType(t, 1); code != 0 {
+		t.Fatalf("H.264 at 3840x2160 limited to 1440: %d %q", code, msg)
+	}
+	fakeCapture(t, 2560, 1440, 0)
+	if code, msg := setStreamType(t, 1); code != 0 {
+		t.Fatalf("H.264 at 2560x1440: %d %q", code, msg)
+	}
+}
+
+func TestVideoSettingsRefuseH264ByTheResultingPicture(t *testing.T) {
+	oldPool := bootedVideoPool
+	bootedVideoPool = func() common.VideoPool { return common.SharedVideoPool }
+	t.Cleanup(func() { bootedVideoPool = oldPool })
+	for _, tc := range []struct {
+		name                 string
+		width, height, limit int
+		body                 string
+		allowed              bool
+	}{
+		{"4K input", 3840, 2160, 0, `{"type":1}`, false},
+		{"4K input, 2160 limit", 3840, 2160, 2160, `{"type":1}`, false},
+		{"4K input, 1440 limit", 3840, 2160, 1440, `{"type":1}`, true},
+		{"limit set with it", 3840, 2160, 0, `{"type":1,"height":1080}`, true},
+		{"limit lifted with it", 3840, 2160, 1440, `{"type":1,"height":0}`, false},
+		{"4K monitor set with it", 1920, 1080, 0, `{"type":1,"monitor":2160}`, false},
+		{"4K monitor set with it, limited", 1920, 1080, 0, `{"type":1,"monitor":2160,"height":1440}`, true},
+		{"1440p monitor set with it", 3840, 2160, 0, `{"type":1,"monitor":1440}`, true},
+		{"1440p", 2560, 1440, 0, `{"type":1}`, true},
+		{"ultrawide", 3440, 1440, 0, `{"type":1}`, false},
+		{"ultrawide, 1440 limit", 3440, 1440, 1440, `{"type":1}`, true},
+		{"portrait 1440x2560", 1440, 2560, 0, `{"type":1}`, false},
+		{"portrait 1440x2560, 1080 limit", 1440, 2560, 1080, `{"type":1}`, true},
+		{"portrait 1296x2304", 1296, 2304, 0, `{"type":1}`, true},
+		{"no signal", 0, 0, 0, `{"type":1}`, true},
+		{"H.265 at 4K", 3840, 2160, 0, `{"type":2}`, true},
+	} {
+		fakeCapture(t, tc.width, tc.height, tc.limit)
+		code, raw := setVideoAs(t, tc.body, authn.RoleAdmin)
+		if (code == 0) != tc.allowed {
+			t.Errorf("%s: %s: code %d, allowed %v: %s", tc.name, tc.body, code, tc.allowed, raw)
+		}
+		if !tc.allowed {
+			for _, key := range []string{"type", "resolution"} {
+				if _, err := os.Stat(screenFileMap[key]); !os.IsNotExist(err) {
+					t.Errorf("%s: a refused request wrote %s", tc.name, key)
+				}
+			}
+		}
 	}
 }

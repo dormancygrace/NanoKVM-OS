@@ -3,6 +3,7 @@ package stream
 import (
 	"NanoKVM-Server/common"
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -35,8 +36,12 @@ type VideoSubscription struct {
 
 type videoSession struct {
 	config EncoderConfig
-	stop   chan struct{}
-	done   chan struct{}
+	// h265Fallback marks a session that runs H.265 because the selected H.264
+	// could not encode the picture. It keeps H.265 until it ends, also when
+	// the picture becomes small enough for H.264 meanwhile.
+	h265Fallback bool
+	stop         chan struct{}
+	done         chan struct{}
 }
 
 type VideoSource struct {
@@ -107,7 +112,25 @@ func (s *VideoSource) selectedConfig() (EncoderConfig, bool) {
 	if s.selected == nil {
 		return EncoderConfig{}, false
 	}
-	return *s.selected, true
+	return s.effectiveSelectionLocked(), true
+}
+
+// effectiveSelectionLocked is the selected encoder, with H.265 in place of a
+// selected H.264 that cannot encode the current picture: a device that saved
+// H.264 keeps showing video when its input grows to 3840x2160.
+func (s *VideoSource) effectiveSelectionLocked() EncoderConfig {
+	selected := *s.selected
+	if selected.Codec != VideoCodecH264 {
+		return selected
+	}
+	if s.session != nil && s.session.h265Fallback {
+		return s.session.config
+	}
+	width, height := captureInput()
+	if h264Blocked(selected.Codec, common.GetScreen().Height, width, height) {
+		return EncoderConfig{Codec: VideoCodecH265}
+	}
+	return selected
 }
 
 func (s *VideoSource) selectConfig(config EncoderConfig) {
@@ -134,11 +157,13 @@ func SubscribeCurrentVideo() (*VideoSubscription, error) {
 	return defaultVideoSource.subscribeValidated(EncoderConfig{}, validateVideoConfig)
 }
 
+// captureInput is a seam for tests.
+var captureInput = common.CaptureInputSize
+
 func validateVideoConfig(config EncoderConfig) error {
-	screen := common.GetScreen()
-	if portraitCodecBlocked(config.Codec, screen.Height,
-		common.ReadVideoValue("/run/nanokvm/width"), common.ReadVideoValue("/run/nanokvm/height")) {
-		return fmt.Errorf("maximum portrait output requires H.265 Direct or a smaller stream resolution")
+	width, height := captureInput()
+	if h264Blocked(config.Codec, common.GetScreen().Height, width, height) {
+		return errors.New(common.H264BlockedMessage)
 	}
 	return nil
 }
@@ -147,18 +172,23 @@ func (s *VideoSource) subscribeValidated(requested EncoderConfig, validate func(
 	for {
 		s.mutex.Lock()
 		config := requested
+		var selected *EncoderConfig
+		if s.selected != nil {
+			effective := s.effectiveSelectionLocked()
+			selected = &effective
+		}
 		if config.Codec == "" {
 			config = DefaultEncoderConfig()
-			if s.selected != nil {
-				config = *s.selected
+			if selected != nil {
+				config = *selected
 			} else if s.session != nil && len(s.subscribers) > 0 {
 				config = s.session.config
 			}
 		}
-		if s.selected != nil && *s.selected != config {
-			selected := *s.selected
+		if selected != nil && *selected != config {
+			active := *selected
 			s.mutex.Unlock()
-			return nil, &EncoderConfigConflictError{Active: selected, Requested: config}
+			return nil, &EncoderConfigConflictError{Active: active, Requested: config}
 		}
 		if s.session != nil && len(s.subscribers) == 0 {
 			// The last subscriber has gone, but its capture goroutine may still
@@ -184,9 +214,10 @@ func (s *VideoSource) subscribeValidated(requested EncoderConfig, validate func(
 		start := s.session == nil
 		if start {
 			s.session = &videoSession{
-				config: config,
-				stop:   make(chan struct{}),
-				done:   make(chan struct{}),
+				config:       config,
+				h265Fallback: s.selected != nil && s.selected.Codec == VideoCodecH264 && config.Codec == VideoCodecH265,
+				stop:         make(chan struct{}),
+				done:         make(chan struct{}),
 			}
 		}
 		session := s.session
@@ -306,11 +337,31 @@ func (s *VideoSource) runStream(session *videoSession) bool {
 		}
 		if next := common.GetScreen(); next != current || now.Sub(refreshed) >= captureParamsRefresh {
 			current, refreshed = next, now
+			if s.endBlockedH264(session) {
+				continue
+			}
 			params = videoCaptureParams(session.config, common.GetCaptureScreen())
 			stream.Update(params)
 		}
 		s.publish(session, storage, data, result, time.Second/time.Duration(params.FPS), now.Sub(startTime))
 	}
+}
+
+// endBlockedH264 ends an H.264 session whose picture has grown past what
+// H.264 encodes (a larger stream limit or input): its viewers are closed,
+// reconnect, and join the codec that can encode the picture.
+func (s *VideoSource) endBlockedH264(session *videoSession) bool {
+	if session.config.Codec != VideoCodecH264 {
+		return false
+	}
+	width, height := captureInput()
+	if !h264Blocked(session.config.Codec, common.GetScreen().Height, width, height) {
+		return false
+	}
+	for _, subscription := range s.snapshot(session) {
+		subscription.Close()
+	}
+	return true
 }
 
 func videoCaptureParams(config EncoderConfig, screen *common.Screen) common.VideoCaptureParams {
@@ -396,6 +447,9 @@ func (s *VideoSource) runPaced(session *videoSession) {
 		// boundary so CGO return/callback traffic cannot starve queued input on
 		// the single Go processor used by the device runtime.
 		runtime.Gosched()
+		if result < 0 && s.endBlockedH264(session) {
+			continue
+		}
 		s.publish(session, storage, data, result, time.Second/time.Duration(fps), time.Since(startTime))
 	}
 }
@@ -482,11 +536,10 @@ func (s *VideoSubscription) send(frame VideoFrame) bool {
 	}
 }
 
-// Smaller stream presets fit the maximum portrait inside the H.264 height
-// limit. Auto and the QHD preset retain a height the hardware rejects.
-func portraitCodecBlocked(codec VideoCodec, streamHeight uint16, width, height int) bool {
-	return codec == VideoCodecH264 && width == 1440 && height == 2560 &&
-		(streamHeight == 0 || streamHeight >= 1440)
+// H.264 runs up to 2560x1440 (1296x2304 in portrait) of encoded picture: a
+// 3840x2160 input needs H.265 or a stream limit of 1440 or lower.
+func h264Blocked(codec VideoCodec, streamHeight uint16, width, height int) bool {
+	return codec == VideoCodecH264 && !common.H264AllowedFor(width, height, streamHeight)
 }
 
 // Retain phase after a short delay, but discard stale cadence after a stall.

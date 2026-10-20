@@ -2,6 +2,7 @@ package stream
 
 import (
 	"NanoKVM-Server/authn"
+	"NanoKVM-Server/common"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"net/http"
@@ -67,6 +68,14 @@ func SetEncoderState(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil || (req.Codec != VideoCodecH264 && req.Codec != VideoCodecH265) {
 		rsp.ErrRsp(c, -1, "codec must be h264 or h265")
 		return
+	}
+	// The device codec must be one its viewers can subscribe to.
+	if req.Codec == VideoCodecH264 {
+		width, height := captureInput()
+		if !common.H264SelectionAllowed(width, height, common.GetScreen().Height) {
+			rsp.ErrRsp(c, -3, common.H264BlockedMessage)
+			return
+		}
 	}
 	encoderSelectionMutex.Lock()
 	defer encoderSelectionMutex.Unlock()

@@ -10,6 +10,7 @@ import {
   draftSize,
   ECONOMY_BITRATE,
   effectiveFps,
+  h264Blocked,
   mjpegBlocked,
   monitorTarget,
   QUALITY_CHOICES,
@@ -330,13 +331,21 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                 const playable =
                   value === 'h264' ||
                   (draft.transport === 'direct' ? browser.directH265 : browser.webrtcH265);
+                // H.264 encodes up to 2560x1440: not with this draft's picture.
+                const tooLarge = value === 'h264' && h264Blocked({ ...draft, codec: value }, caps);
                 return {
                   value,
                   label: withReason(
                     value === 'h265' ? 'H.265 / HEVC' : 'H.264 / AVC',
-                    playable ? (value === draft.codec ? issues.codec : undefined) : 'browser'
+                    !playable
+                      ? 'browser'
+                      : tooLarge
+                        ? 'h264-4k'
+                        : value === draft.codec
+                          ? issues.codec
+                          : undefined
                   ),
-                  disabled: !playable
+                  disabled: !playable || tooLarge
                 };
               })}
             />,

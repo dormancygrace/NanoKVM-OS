@@ -137,6 +137,54 @@ func mjpegSelectionFailure(batch *VideoSettingsReq) *settingError {
 	return nil
 }
 
+// h264SelectionFailure refuses H.264 when the picture it would encode is
+// larger than 2560x1440 (1296x2304 in portrait). Inside a batch the stream
+// limit and the monitor it also sets decide, as they change the picture.
+func h264SelectionFailure(batch *VideoSettingsReq) *settingError {
+	limit := common.GetScreen().Height
+	if batch != nil && batch.Height != nil && *batch.Height >= 0 && *batch.Height <= math.MaxUint16 {
+		limit = uint16(*batch.Height)
+	}
+	if width, height, ok := batchMonitorInput(batch); ok {
+		if !common.H264AllowedFor(width, height, limit) {
+			return settingFailure(-3, common.H264BlockedMessage)
+		}
+		return nil
+	}
+	width, height := captureInput()
+	if !common.H264SelectionAllowed(width, height, limit) {
+		return settingFailure(-3, common.H264BlockedMessage)
+	}
+	return nil
+}
+
+// batchMonitorInput is the input a batch asks the source for: the portrait
+// profile it turns on, else the landscape monitor it sets (Auto: the size it
+// stands for); ok is false when the batch leaves the monitor as it is.
+func batchMonitorInput(batch *VideoSettingsReq) (width, height int, ok bool) {
+	if batch == nil {
+		return 0, 0, false
+	}
+	if batch.Portrait != nil && *batch.Portrait {
+		resolution := common.PortraitResolution()
+		if batch.PortraitResolution != nil && *batch.PortraitResolution > 0 && *batch.PortraitResolution <= math.MaxUint16 {
+			resolution = uint16(*batch.PortraitResolution)
+		}
+		return int(common.PortraitWidth(resolution)), int(resolution), true
+	}
+	if batch.Monitor == nil || *batch.Monitor < 0 || *batch.Monitor > math.MaxUint16 {
+		return 0, 0, false
+	}
+	monitor := uint16(*batch.Monitor)
+	if monitor == 0 {
+		monitor = common.AutoMonitorHeight()
+	}
+	if monitor == 0 {
+		return 0, 0, false
+	}
+	return int(common.ResolutionMap[monitor]), int(monitor), true
+}
+
 // validateScreenSettingIn is validateScreenSetting for a setting that is part
 // of a batch (nil for a single one).
 func validateScreenSettingIn(req proto.SetScreenReq, batch *VideoSettingsReq) *settingError {
@@ -207,6 +255,9 @@ func validateScreenSettingFor(req proto.SetScreenReq, batch *VideoSettingsReq, p
 		}
 		if req.Value == 0 {
 			return mjpegSelectionFailure(batch)
+		}
+		if req.Value == 1 {
+			return h264SelectionFailure(batch)
 		}
 	case "quality":
 		if req.Value < 1 || req.Value > maxQualityValue {

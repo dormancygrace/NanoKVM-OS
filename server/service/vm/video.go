@@ -19,6 +19,7 @@ const (
 	reasonVideoMemory = "video-memory"
 	reasonReceiver    = "receiver"
 	reasonMjpeg4K     = "mjpeg-4k"
+	reasonH2644K      = "h264-4k"
 )
 
 var captureInput = common.CaptureInputSize
@@ -30,8 +31,11 @@ type monitorModeCapability struct {
 	EffectiveWidth  uint16 `json:"effectiveWidth,omitempty"`
 	EffectiveHeight uint16 `json:"effectiveHeight,omitempty"`
 	Rates           []int  `json:"rates"`
-	Available       bool   `json:"available"`
-	Reason          string `json:"reason,omitempty"`
+	// The codecs this monitor can be encoded with at the Auto stream limit:
+	// 3840x2160 needs H.265 (H.264 runs up to 2560x1440).
+	Codecs    []string `json:"codecs"`
+	Available bool     `json:"available"`
+	Reason    string   `json:"reason,omitempty"`
 }
 
 type portraitCapability struct {
@@ -58,6 +62,32 @@ type mjpegCapability struct {
 	Available bool   `json:"available"`
 	Reason    string `json:"reason,omitempty"`
 	MaxSide   int    `json:"maxSide"`
+}
+
+// h264Capability is H.264 availability for the current capture and stream
+// limit; H.264 encodes pictures up to MaxLongSide wide and MaxHeight high.
+type h264Capability struct {
+	Available   bool   `json:"available"`
+	Reason      string `json:"reason,omitempty"`
+	MaxLongSide int    `json:"maxLongSide"`
+	MaxHeight   int    `json:"maxHeight"`
+}
+
+func h264Capabilities(inputWidth, inputHeight int, streamHeight uint16) h264Capability {
+	h := h264Capability{Available: true, MaxLongSide: common.H264MaxLongSide, MaxHeight: common.H264MaxHeight}
+	if !common.H264AllowedFor(inputWidth, inputHeight, streamHeight) {
+		h.Available, h.Reason = false, reasonH2644K
+	}
+	return h
+}
+
+// modeCodecs lists the codecs a monitor size can be encoded with at the Auto
+// stream limit; an unknown size (the stock Auto profile) takes both.
+func modeCodecs(width, height uint16) []string {
+	if common.H264AllowedFor(int(width), int(height), 0) {
+		return []string{"h264", "h265"}
+	}
+	return []string{"h265"}
 }
 
 func mjpegCapabilities(inputWidth, inputHeight int) mjpegCapability {
@@ -91,6 +121,9 @@ func videoCapabilities() gin.H {
 		if height == 0 {
 			m.EffectiveHeight = common.AutoMonitorHeight()
 			m.EffectiveWidth = common.ResolutionMap[m.EffectiveHeight]
+			m.Codecs = modeCodecs(m.EffectiveWidth, m.EffectiveHeight)
+		} else {
+			m.Codecs = modeCodecs(m.Width, m.Height)
 		}
 		switch {
 		case !programmable || (needsLive && !live):
@@ -130,8 +163,8 @@ func videoCapabilities() gin.H {
 	portraitProfiles := []portraitCapability{
 		portraitProfile(1280, 720, 120, all, allTransports, portraitSupported),
 		portraitProfile(1920, 1080, 90, all, allTransports, portraitSupported),
-		// The H.264 encoder takes at most 4096x2304: 1296x2304 is the tallest
-		// portrait for browsers without H.265, 1440x2560 needs H.265.
+		// H.264 encodes at most 2304 lines: 1296x2304 is the tallest portrait
+		// for browsers without H.265, 1440x2560 needs H.265.
 		portraitProfile(2304, 1296, 60, []string{"h264"}, []string{"direct", "webrtc"}, portraitSupported),
 		portraitProfile(2560, 1440, 60, []string{"h265"}, []string{"direct", "webrtc"}, portraitMax),
 	}
@@ -173,6 +206,7 @@ func videoCapabilities() gin.H {
 			"minFps":    10,
 			"maxFps":    120,
 			"mjpeg":     mjpegCapabilities(inputWidth, inputHeight),
+			"h264":      h264Capabilities(inputWidth, inputHeight, common.GetScreen().Height),
 			// The device transport: browsers without a choice of their own
 			// start with it, and RustDesk follows it.
 			"transport": StreamTransport(),

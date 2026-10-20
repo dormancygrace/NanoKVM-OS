@@ -27,7 +27,8 @@ function caps({
   input = [2560, 1440],
   follows = true,
   programmable = true,
-  mjpegMaxSide = 2560
+  mjpegMaxSide = 2560,
+  h264 = true
 } = {}) {
   const mode = (height, width, rates, available = true, reason) => ({
     height,
@@ -89,7 +90,8 @@ function caps({
       rateTiers: tiers,
       minFps: 10,
       maxFps: 120,
-      ...(mjpegMaxSide ? { mjpeg: { available: true, maxSide: mjpegMaxSide } } : {})
+      ...(mjpegMaxSide ? { mjpeg: { available: true, maxSide: mjpegMaxSide } } : {}),
+      ...(h264 ? { h264: { available: true, maxLongSide: 2560, maxHeight: 2304 } } : {})
     },
     transports: { direct: ['h264', 'h265'], webrtc: ['h264', 'h265'], mjpeg: ['mjpeg'] },
     videoMemoryMiB: uhd ? 144 : 56
@@ -436,4 +438,102 @@ test('what the booted video memory cannot capture is blocked without a restart',
       ['p2560', 'video-memory']
     ]
   );
+});
+
+test('H.264 encodes at most 2560x1440: 4K needs H.265 or a lower stream limit', () => {
+  const issue = (draftOver, capsOver) =>
+    model.draftIssues(draft({ codec: 'h264', ...draftOver }), caps(capsOver), everything).codec;
+  const uhd = { input: [3840, 2160] };
+  assert.equal(issue({}, uhd), 'h264-4k');
+  assert.equal(issue({ height: 2160 }, uhd), 'h264-4k');
+  assert.equal(issue({ transport: 'webrtc' }, uhd), 'h264-4k');
+  for (const height of [1440, 1080, 720, 600]) assert.equal(issue({ height }, uhd), undefined);
+  assert.equal(issue({}, { input: [2560, 1440] }), undefined);
+  assert.equal(issue({ height: 2160 }, { input: [1920, 1080] }), undefined);
+  assert.equal(issue({}, { input: [0, 0] }), undefined);
+  // H.265 and MJPEG are not affected; an older server that reports nothing never blocks.
+  assert.equal(model.draftIssues(draft(), caps(uhd), everything).codec, undefined);
+  assert.equal(
+    model.draftIssues(
+      draft({ codec: 'h264', transport: 'mjpeg' }),
+      caps({ input: [2560, 1440] }),
+      everything
+    ).codec,
+    undefined
+  );
+  assert.equal(issue({}, { ...uhd, h264: false }), undefined);
+});
+
+test('H.264 follows the picture the draft streams', () => {
+  const c = caps({ input: [1920, 1080] });
+  // The monitor the draft writes is the input.
+  assert.equal(model.h264Blocked(draft({ codec: 'h264', monitor: 2160 }), c), true);
+  assert.equal(model.h264Blocked(draft({ codec: 'h264', monitor: 2160, height: 1440 }), c), false);
+  assert.equal(model.h264Blocked(draft({ codec: 'h264', monitor: 1440 }), c), false);
+  const fourK = caps({ input: [3840, 2160] });
+  assert.equal(model.h264Blocked(draft({ codec: 'h264', monitor: 1440 }), fourK), false);
+  // Ultrawide: fitted into the 1440 limit it is 2560 wide.
+  const wide = caps({ input: [3440, 1440], programmable: false });
+  assert.equal(model.h264Blocked(draft({ codec: 'h264' }), wide), true);
+  assert.equal(model.h264Blocked(draft({ codec: 'h264', height: 1440 }), wide), false);
+  assert.deepEqual(
+    { ...model.streamSize(draft({ height: 1440 }), wide) },
+    { width: 2560, height: 1070 }
+  );
+});
+
+test('a 4K resolution switches H.264 to H.265, a limited one keeps it', () => {
+  const c = caps();
+  const choice = (key) => model.resolutionChoices(c).find((x) => x.key === key);
+  const uhd = model.withResolution(draft({ codec: 'h264' }), choice('m2160'), c);
+  assert.deepEqual([uhd.monitor, uhd.codec], [2160, 'h265']);
+  assert.deepEqual({ ...model.draftIssues(uhd, c, everything) }, {});
+  const limited = model.withResolution(draft({ codec: 'h264', height: 1440 }), choice('m2160'), c);
+  assert.equal(limited.codec, 'h264');
+  assert.equal(model.withResolution(draft({ codec: 'h264' }), choice('m1440'), c).codec, 'h264');
+  assert.equal(
+    model.withResolution(draft({ codec: 'h264', transport: 'mjpeg' }), choice('m2160'), c).codec,
+    'h264'
+  );
+});
+
+test('a transport at 4K is offered with H.265 only', () => {
+  const c = caps({ input: [3840, 2160] });
+  const noWebrtcH265 = { ...everything, webrtcH265: false };
+  // An administrator gets H.265 instead of H.264; without H.265 nothing plays.
+  assert.equal(
+    model.transportChoice(
+      draft({ codec: 'h264', transport: 'mjpeg' }),
+      'webrtc',
+      c,
+      everything,
+      true
+    ).codec,
+    'h265'
+  );
+  assert.equal(model.transportChoice(draft(), 'webrtc', c, noWebrtcH265, true), undefined);
+  // Limited to 1440, H.264 still plays.
+  assert.equal(
+    model.transportChoice(draft({ height: 1440 }), 'webrtc', c, noWebrtcH265, true).codec,
+    'h264'
+  );
+});
+
+test('portrait H.264 is unchanged', () => {
+  const c = caps();
+  assert.equal(
+    model.draftIssues(draft({ portrait: 2560, codec: 'h264' }), c, everything).codec,
+    'portrait'
+  );
+  assert.equal(model.h264Blocked(draft({ portrait: 2560, codec: 'h264', height: 1080 }), c), false);
+  assert.equal(model.h264Blocked(draft({ portrait: 2560, codec: 'h264', height: 1440 }), c), true);
+  assert.deepEqual(
+    { ...model.draftIssues(draft({ portrait: 1920, codec: 'h264' }), c, everything) },
+    {}
+  );
+  const tall = caps({ input: [1440, 2560], programmable: false });
+  assert.equal(model.h264Blocked(draft({ codec: 'h264' }), tall), true);
+  assert.equal(model.h264Blocked(draft({ codec: 'h264', height: 1080 }), tall), false);
+  const avc = caps({ input: [1296, 2304], programmable: false });
+  assert.equal(model.h264Blocked(draft({ codec: 'h264' }), avc), false);
 });

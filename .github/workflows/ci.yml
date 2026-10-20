@@ -115,8 +115,9 @@ jobs:
       - name: APK application split migration
         run: |
           docker run --rm --volume "$PWD:/src:ro" --workdir /src alpine:3.24 sh -ec '
-            apk add --no-cache python3
+            apk add --no-cache python3 openssl
             python3 tests/test-split-app-packages.py --apk /sbin/apk
+            python3 tests/test-release-channels-apk.py --apk /sbin/apk
           '
       - name: Script tests
         run: |

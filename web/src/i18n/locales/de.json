@@ -829,6 +829,17 @@
         "failed": "Die letzte Prüfung ist fehlgeschlagen: {{message}}",
         "unavailable": "Kein NanoKVM-OS-Repository konfiguriert.",
         "upToDate": "NanoKVM OS ist aktuell"
+      },
+      "channel": {
+        "title": "Update-Kanal",
+        "stable": "Stabil",
+        "beta": "Beta",
+        "custom": "Eigenes Repository",
+        "description": "Stable für reguläre Versionen, Beta für Vorabversionen. Der Wechsel installiert nichts; nach der Rückkehr zu Stable lässt sich eine neuere Beta zurücksetzen.",
+        "warning": "Beta-Versionen können unfertige Funktionen oder Fehler enthalten.",
+        "rollback": "Stabile Version installieren",
+        "rollbackDescription": "Eine Beta ist installiert. Die aktuelle stabile Firmware kann auch mit älteren Paketversionen wiederhergestellt werden.",
+        "rollbackConfirm": "Beta durch die aktuelle stabile Firmware ersetzen? Einstellungen und Daten bleiben erhalten. Dienste werden neu gestartet; ein Neustart kann nötig sein."
       }
     },
     "memory": {

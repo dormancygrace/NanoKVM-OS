@@ -83,6 +83,32 @@ class AssembleTests(unittest.TestCase):
     def repo(self):
         return self.out / 'alpine/v3.24/riscv64'
 
+    def test_beta_cannot_replace_stable_indexes_or_image(self):
+        self.fake.release('v3.3.4', '2026-10-01', [('nanokvm', '3.3.4-r0')],
+                          extra={'NanoKVM-OS-Image-v1.5-apps-v3.3.4.img.zip': b'image'})
+        self.fake.release('v3.4.0-beta.10', '2026-10-03', [('nanokvm', '3.4.0_beta10-r0')],
+                          extra={'NanoKVM-OS-Image-v1.6-beta.10-apps-v3.4.0-beta.10.img.zip': b'beta'})
+        self.fake.list[-1]['prerelease'] = True
+        self.fake.release('v3.4.0-beta.2', '2026-10-04', [('nanokvm', '3.4.0_beta2-r0')])
+        # Even a forgotten GitHub prerelease flag must not leak a beta tag.
+        stable = a.releases('o/r', self.fake.fetch)
+        self.assertEqual(stable[0]['tag_name'], 'v3.3.4')
+        both = a.releases('o/r', self.fake.fetch, channel='beta')
+        self.assertEqual(both[0]['tag_name'], 'v3.4.0-beta.10')
+        a.assemble(self.out, both, 2, '3.24', self.keys, self.fake.fetch)
+        a.assemble(self.out / 'beta', both, 2, '3.24', self.keys, self.fake.fetch, channel='beta')
+        self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v3.3.4')
+        self.assertEqual((self.out / 'beta/alpine/v3.24/riscv64/Packages.adb').read_bytes(), b'adb v3.4.0-beta.10')
+        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v1.5')
+        self.assertEqual(json.loads((self.out / 'beta/latest-image/badge.json').read_text())['message'], 'v1.6-beta.10')
+        self.fake.release('v3.4.0', '2026-10-05', [('nanokvm', '3.4.0-r0')])
+        self.assertEqual(a.releases('o/r', self.fake.fetch, channel='beta')[0]['tag_name'], 'v3.4.0')
+
+    def test_empty_beta_channel_uses_stable_release(self):
+        stable = a.releases('o/r', self.fake.fetch)
+        beta = a.releases('o/r', self.fake.fetch, channel='beta')
+        self.assertEqual(stable, beta)
+
     def test_newest_indexes_and_packages_of_the_kept_releases(self):
         tag, names = self.run_assemble(keep=2)
         self.assertEqual(tag, 'v3')

@@ -14,7 +14,7 @@ case $state in
         ;;
     missing)
         flags=(--draft)
-        case $NANOKVM_VERSION in *-*) flags+=(--prerelease) ;; esac
+        case $NANOKVM_VERSION in *-*) flags+=(--prerelease --latest=false) ;; esac
         [ -z "$PREVIOUS" ] || flags+=(--notes-start-tag "$PREVIOUS")
         gh release create "$NANOKVM_VERSION" --target "$SHA" "${flags[@]}" \
             --title "$title" --generate-notes "$OUT"/assets/*

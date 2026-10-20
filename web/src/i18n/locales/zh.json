@@ -829,6 +829,17 @@
         "failed": "上次检查失败：{{message}}",
         "unavailable": "未配置 NanoKVM OS 软件仓库。",
         "upToDate": "NanoKVM OS 已是最新"
+      },
+      "channel": {
+        "title": "更新通道",
+        "stable": "稳定版",
+        "beta": "测试版",
+        "custom": "自定义软件源",
+        "description": "Stable 提供稳定版本，Beta 提供预览版本。切换频道不会安装软件包；返回 Stable 后可以回退较新的测试版。",
+        "warning": "测试版本可能包含未完成的功能或回归问题。",
+        "rollback": "安装稳定版本",
+        "rollbackDescription": "当前安装的是测试版。可以立即返回当前稳定固件，包括较旧的软件包版本。",
+        "rollbackConfirm": "将测试版替换为当前稳定固件？设置和数据将保留。服务将重启，设备可能需要重新启动。"
       }
     },
     "memory": {

@@ -157,6 +157,24 @@ class ReleaseExecutionTests(unittest.TestCase):
                         self.assertEqual(values['previous'], 'v3.2.0')
                         self.assertEqual(values['draft'], 'false')
 
+            (root / 'output').write_text('')
+            result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,
+                                    env={**env, 'CHANNEL': 'beta'}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values = dict(line.split('=', 1) for line in (root / 'output').read_text().splitlines())
+            self.assertEqual(values['channel'], 'beta')
+            self.assertEqual(values['version'], 'v3.3.1-beta.1')
+            self.assertEqual(values['apk_version'], '3.3.1_beta1')
+            self.assertEqual(values['image_version'], 'v1.6-beta.1')
+
+    def test_both_channels_compare_against_latest_tested_packages(self):
+        for name in ('sign', 'dry-run'):
+            section = job(RELEASE, name)
+            self.assertIn("NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}", section)
+            self.assertIn("NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/", section)
+        pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
+        self.assertEqual(pages.count('for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do'), 2)
+
     def test_publication_and_retries(self):
         # Execute the production publisher with a stateful GitHub CLI fixture.
         # No real release, upload or workflow dispatch is performed.
@@ -221,6 +239,12 @@ else:
             create = state['calls'][1]
             self.assertEqual(create[create.index('--target') + 1], env['SHA'])
             self.assertEqual(create[create.index('--notes-start-tag') + 1], env['PREVIOUS'])
+            reset()
+            result, state = invoke(NANOKVM_VERSION='v3.4.0-beta.1')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('--prerelease', state['calls'][1])
+            self.assertIn('--latest=false', state['calls'][1])
+            self.assertEqual(state['release'], 'false')
             reset()
             result, state = invoke(DRAFT='true', IMAGE='true')
             self.assertEqual(result.returncode, 0, result.stderr)

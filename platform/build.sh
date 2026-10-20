@@ -1103,7 +1103,12 @@ rootfs() {
     # GitHub Pages (nanokvm-keys moves older devices there) and Alpine main. Community is
     # off until the Software page or a Tailscale or NetBird install turns it on
     # (server/osupdate/community.go).
-    printf '%s\n' https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
+    case ${NANOKVM_CHANNEL:-stable} in
+        stable) channel_path= ;;
+        beta) channel_path=beta/ ;;
+        *) echo 'Unknown NanoKVM release channel' >&2; exit 1 ;;
+    esac
+    printf '%s\n' "https://dormancygrace.github.io/NanoKVM-OS/${channel_path}alpine/v3.24/riscv64/Packages.adb" https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
         > "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.

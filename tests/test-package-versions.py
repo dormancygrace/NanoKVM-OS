@@ -56,6 +56,19 @@ class PackageVersionTests(unittest.TestCase):
                 with self.subTest(package=name):
                     self.assertIn(f'{name}>={version}-r0', deps)
 
+    def test_stable_promotes_beta_packages_including_a_reverted_change(self):
+        self.publish('3.3.4')
+        web = self.payloads / 'web/usr/file'
+        original = web.read_text()
+        web.write_text('experimental change')
+        self.publish('3.4.0_beta1')
+        web.write_text(original)
+        self.publish('3.4.0_beta2')
+        chosen = self.publish('3.4.0')
+        self.assertEqual(self.versions(chosen), {'nanokvm-web': '3.4.0', 'nanokvm-release': '3.4.0'})
+        self.assertEqual(chosen['nanokvm']['version'], '3.3.4')
+        self.assertTrue(all('_beta' not in p['version'] for p in chosen.values()))
+
     def test_first_release_changes_everything(self):
         chosen = self.publish('3.3.0')
         self.assertTrue(all(p['changed'] and p['version'] == '3.3.0' for p in chosen.values()))

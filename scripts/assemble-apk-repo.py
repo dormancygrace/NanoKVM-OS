@@ -2,7 +2,8 @@
 """Assemble the NanoKVM OS APK repository that GitHub Pages serves, from the
 packages and indexes attached to the GitHub releases.
 
-The newest published OS release supplies the core packages and legacy index.
+The newest eligible published OS release supplies each channel's core packages
+and legacy index. Stable excludes prereleases; beta includes stable and beta.
 Independent stable add-on releases augment the v3 index, which Pages signs
 separately; they do not change the OS version or the latest SD image.
 Newest means the highest vX.Y.Z (releases with other tags, from before that
@@ -16,6 +17,7 @@ release's SHA256SUMS and the size its index records.
 The result, below OUTPUT:
   alpine/vX.Y/riscv64/   *.apk, APKINDEX.tar.gz (v2 index), Packages.adb (v3),
                          packages.json (the version and content of each package)
+  beta/                  the same layout for the opt-in beta channel
   keys/                  the public release keys (firmware/alpine/keys)
   index.html             the repository lines
   latest-image/          automatic README badge and redirect to its image release
@@ -41,7 +43,7 @@ import addon_packages
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
-VERSION = re.compile(r'v(\d+)\.(\d+)\.(\d+)')
+VERSION = re.compile(r'v(\d+)\.(\d+)\.(\d+)(?:-beta\.([1-9][0-9]*))?')
 INDEXES = ('APKINDEX.tar.gz', 'Packages.adb')
 MARKER = '.nanokvm-apk-repository'
 MARKER_CONTENT = 'NanoKVM APK repository assembler v1\n'
@@ -70,13 +72,16 @@ def fetch(url, accept='application/octet-stream', sleep=time.sleep):
         sleep(delay)
 
 
-def releases(repository, fetch=fetch):
+def releases(repository, fetch=fetch, channel='stable'):
     """Published releases with a v3 index, newest first."""
+    if channel not in ('stable', 'beta'):
+        raise ValueError('Unknown release channel')
     found, page = [], 1
     while True:
         batch = json.loads(fetch(f'https://api.github.com/repos/{repository}/releases?per_page=100&page={page}',
                                  'application/vnd.github+json'))
         found += [r for r in batch if not r['draft'] and r.get('published_at')
+                  and (channel == 'beta' or not is_beta(r))
                   and {a['name'] for a in r['assets']} >= {*INDEXES, 'SHA256SUMS'}]
         if len(batch) < 100:
             return sorted(found, key=order, reverse=True)
@@ -119,9 +124,17 @@ def independent_addons(repository, keep=6, fetch=fetch):
     return entries
 
 
+def is_beta(release):
+    match = VERSION.fullmatch(release['tag_name'])
+    return bool(release.get('prerelease') or (match and match[4]))
+
+
 def order(release):
     match = VERSION.fullmatch(release['tag_name'])
-    return (1, tuple(map(int, match.groups())), '') if match else (0, (), release['published_at'])
+    if match:
+        # Stable X.Y.Z supersedes every X.Y.Z-beta.N, as it does in APK.
+        return (1, tuple(map(int, match.groups()[:3])), not bool(match[4]), int(match[4] or 0))
+    return (0, (), False, release['published_at'])
 
 
 def asset(release, name, fetch=fetch):
@@ -184,12 +197,12 @@ def install_link(published):
     return ''
 
 
-def image_badge(output, published):
+def image_badge(output, published, include_beta=False):
     """Keep the README image version and destination together across hotfixes."""
     message, color = 'not available', 'lightgrey'
     target = f'https://github.com/{REPOSITORY}/releases'
     for release in published:
-        if release.get('prerelease'):
+        if is_beta(release) and not include_beta:
             continue
         image = next((a for a in release['assets'] if re.fullmatch(
             r'NanoKVM-OS-Image-(v.+)-apps-v.+\.img\.zip', a['name'])), None)
@@ -211,7 +224,8 @@ def image_badge(output, published):
 ''')
 
 
-def assemble(output, published, keep, branch, keys, fetch=fetch, independent=None):
+def assemble(output, published, keep, branch, keys, fetch=fetch, independent=None, channel='stable'):
+    published = [r for r in published if channel == 'beta' or not is_beta(r)]
     if not published:
         raise ValueError('No published release carries Packages.adb')
     output = Path(output)
@@ -267,7 +281,8 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, independent=Non
     for key in sorted(Path(keys).glob('*.pub')):
         shutil.copy(key, output / 'keys' / key.name)
         key_links.append(f'<li><a href="keys/{escape(key.name)}">{escape(key.name)}</a></li>')
-    line = f'{PAGES_URL}/alpine/v{branch}/riscv64/Packages.adb'
+    prefix = 'beta/' if channel == 'beta' else ''
+    line = f'{PAGES_URL}/{prefix}alpine/v{branch}/riscv64/Packages.adb'
     (output / 'index.html').write_text(f'''<!doctype html>
 <meta charset="utf-8">
 <title>NanoKVM OS packages</title>
@@ -277,7 +292,7 @@ Devices use the line <code><a href="{line}">{line}</a></code> in
 <code>/etc/apk/repositories</code>; the <code>nanokvm-keys</code> package installs the signing keys.</p>
 <ul>{"".join(key_links)}</ul>{install_link(published)}
 ''')
-    image_badge(output, published)
+    image_badge(output, published, include_beta=channel == 'beta')
     (output / '.nojekyll').write_text('')
     (output / MARKER).write_text(MARKER_CONTENT)
     return newest['tag_name'], sorted(wanted)
@@ -291,12 +306,13 @@ def main():
     args = parser.parse_args()
     if args.keep < 1:
         parser.error('--keep must be at least 1')
-    tag, names = assemble(args.output, releases(args.repository), args.keep, alpine_branch(),
-                          ROOT / 'firmware/alpine/keys',
-                          independent=independent_addons(args.repository, args.keep))
-    print(f'{args.output}: indexes of {tag}, {len(names)} packages')
-    for name in names:
-        print('  ' + name)
+    published = releases(args.repository, channel='beta')
+    addons = independent_addons(args.repository, args.keep)
+    for channel, output in [('stable', args.output), ('beta', args.output / 'beta')]:
+        tag, names = assemble(output, published, args.keep, alpine_branch(),
+                              ROOT / 'firmware/alpine/keys', independent=addons, channel=channel)
+        print(f'{channel}: indexes of {tag}, {len(names)} packages')
+
 
 
 if __name__ == '__main__':

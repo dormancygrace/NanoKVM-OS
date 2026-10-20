@@ -3,6 +3,7 @@ package osupdate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,5 +41,66 @@ func TestNativeAPKWorker(t *testing.T) {
 	}
 	if e := StartAPK("invalid"); e == nil {
 		t.Fatal("unrecognized action accepted")
+	}
+}
+
+func TestRollbackWorkerUsesCompleteCoreSetAndFailsClosed(t *testing.T) {
+	dir := communityFixture(t, communityOff)
+	oldDir, oldExec, oldDB, oldWorld := apkStateDir, apkExecutable, installedDBPath, worldPath
+	t.Cleanup(func() { apkStateDir, apkExecutable, installedDBPath, worldPath = oldDir, oldExec, oldDB, oldWorld })
+	apkStateDir, apkExecutable = dir, filepath.Join(dir, "apk")
+	installedDBPath, worldPath = filepath.Join(dir, "installed"), filepath.Join(dir, "world")
+	os.WriteFile(installedDBPath, []byte("P:nanokvm\nV:3.4.0_beta1-r0\n\n"), 0600)
+	os.WriteFile(worldPath, []byte("nanokvm-release\naddon\n"), 0600)
+	var packages []string
+	for _, name := range corePackages {
+		packages = append(packages, name+"-3.3.4-r0")
+	}
+	calls := filepath.Join(dir, "calls")
+	install := func(output string, failSimulation bool) {
+		t.Helper()
+		script := "#!/bin/sh\necho \"$*\" >> '" + calls + "'\ncase \"$*\" in\nupdate) exit 0;;\n*search*) cat <<'PACKAGES'\n" + output + "\nPACKAGES\n;;\ndel*) exit 0;;\nadd*) "
+		if failSimulation {
+			script += "exit 9"
+		} else {
+			script += "exit 0"
+		}
+		script += ";;\n*) exit 99;;\nesac\n"
+		if err := os.WriteFile(apkExecutable, []byte(script), 0700); err != nil {
+			t.Fatal(err)
+		}
+		os.Remove(calls)
+	}
+	install(strings.Join(packages, "\n"), false)
+	if err := RunAPK("rollback"); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(calls)
+	var targets []string
+	for _, name := range corePackages {
+		targets = append(targets, name+"=3.3.4-r0")
+	}
+	expected := "add --virtual " + rollbackConstraint + " " + strings.Join(targets, " ")
+	if !strings.Contains(string(data), expected+" --simulate\n"+expected+"\n") {
+		t.Fatal(string(data))
+	}
+	if s := GetAPKStatus(); s.State != "installed" {
+		t.Fatal(s)
+	}
+	install(strings.Join(packages[1:], "\n"), false)
+	if RunAPK("rollback") == nil {
+		t.Fatal("incomplete stable set accepted")
+	}
+	data, _ = os.ReadFile(calls)
+	if strings.Contains(string(data), "add --virtual") {
+		t.Fatal("installed incomplete set")
+	}
+	install(strings.Join(packages, "\n"), true)
+	if RunAPK("rollback") == nil {
+		t.Fatal("dependency failure ignored")
+	}
+	data, _ = os.ReadFile(calls)
+	if strings.Count(string(data), "add --virtual") != 1 {
+		t.Fatal("installed after failed simulation")
 	}
 }

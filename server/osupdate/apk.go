@@ -62,7 +62,7 @@ func saveAPKStatus(s APKStatus) error {
 	return os.Rename(tmp, apkStateDir+"/state.json")
 }
 func StartAPK(action string) error {
-	if action != "check" && action != "install" && action != "reboot" {
+	if action != "check" && action != "install" && action != "rollback" && action != "reboot" {
 		return errors.New("invalid package operation")
 	}
 	if _, e := os.Stat("/etc/alpine-release"); e != nil {
@@ -73,7 +73,7 @@ func StartAPK(action string) error {
 		return e
 	}
 	defer lock.Close()
-	state := map[string]string{"check": "checking", "install": "installing", "reboot": "rebooting"}[action]
+	state := map[string]string{"check": "checking", "install": "installing", "rollback": "installing", "reboot": "rebooting"}[action]
 	if e = saveAPKStatus(APKStatus{State: state}); e != nil {
 		return e
 	}
@@ -106,8 +106,13 @@ func RunAPK(action string) (result error) {
 		time.Sleep(time.Second)
 		return exec.Command("/sbin/reboot").Run()
 	}
-	if action != "check" && action != "install" {
+	if action != "check" && action != "install" && action != "rollback" {
 		return errors.New("invalid package operation")
+	}
+	if action == "rollback" {
+		if status := GetChannel(); !status.Available || status.Channel != "stable" || !status.RollbackAvailable {
+			return errors.New("select Stable with a prerelease installed before rolling back")
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
@@ -124,6 +129,11 @@ func RunAPK(action string) (result error) {
 			_ = CheckUpdates(ctx, true)
 		}
 		return fmt.Errorf("APK index refresh failed: %w", e)
+	}
+	if rollbackConstraintInstalled() {
+		if err := run("del", rollbackConstraint); err != nil {
+			return fmt.Errorf("cannot clear interrupted rollback constraint: %w", err)
+		}
 	}
 	if action == "check" {
 		b, e := apkrun.Command(ctx, apkExecutable, "version", "--limit", "<").CombinedOutput()
@@ -143,8 +153,49 @@ func RunAPK(action string) (result error) {
 		_ = CheckUpdates(ctx, true)
 		return saveAPKStatus(APKStatus{State: state, Upgrades: upgrades})
 	}
-	if e := run("upgrade"); e != nil {
-		return fmt.Errorf("APK upgrade failed: %w", e)
+	args := []string{"upgrade"}
+	if action == "rollback" {
+		data, err := os.ReadFile(repositoriesPath)
+		if err != nil {
+			return err
+		}
+		i, _, status := channelLine(string(data))
+		if !status.Available || status.Channel != "stable" {
+			return errors.New("stable repository changed")
+		}
+		repo := strings.TrimSpace(strings.Split(string(data), "\n")[i])
+		query := append([]string{"--repositories-file=/dev/null", "--repository=" + repo, "--no-network", "search", "--exact"}, corePackages...)
+		output, err := apkrun.Command(ctx, apkExecutable, query...).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("cannot read stable packages: %s", strings.TrimSpace(string(output)))
+		}
+		targets, err := stablePackageTargets(string(output))
+		if err != nil {
+			return err
+		}
+		args = append([]string{"add", "--virtual", rollbackConstraint}, targets...)
+		// APK checks the complete dependency graph before installing anything.
+		if err = run(append(append([]string{}, args...), "--simulate")...); err != nil {
+			return fmt.Errorf("stable rollback dependency check failed: %w", err)
+		}
+	}
+	if action == "rollback" {
+		// Also remove the hold if a package script fails after APK installed it.
+		defer func() {
+			if rollbackConstraintInstalled() {
+				if err := run("del", rollbackConstraint); err != nil && result == nil {
+					result = fmt.Errorf("stable installed but temporary constraint cleanup failed; retry the update check: %w", err)
+				}
+			}
+		}()
+	}
+	if e := run(args...); e != nil {
+		return fmt.Errorf("APK package transaction failed: %w", e)
+	}
+	if action == "rollback" {
+		if err := run("del", rollbackConstraint); err != nil {
+			return fmt.Errorf("stable constraint cleanup failed: %w", err)
+		}
 	}
 	_ = CheckUpdates(ctx, false)
 	return saveAPKStatus(APKStatus{State: "installed"})

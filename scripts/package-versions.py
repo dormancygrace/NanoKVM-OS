@@ -16,6 +16,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import stat
 import sys
 from pathlib import Path
@@ -81,7 +82,12 @@ def select(payloads, recipes, version, previous):
     for name in PACKAGES:
         digest = content(payloads, recipes, name)
         old = published.get(name)
-        changed = name in ALWAYS or old is None or old.get('content_sha256') != digest
+        # A stable release must replace prerelease packages even if content
+        # is identical (or reverted to the last stable payload). The beta feed
+        # supplies the last tested manifest; stable packages can still be reused.
+        promote = old is not None and not re.search(r'_(alpha|beta|pre|rc)', version) and bool(
+            re.search(r'_(alpha|beta|pre|rc)', old['version']))
+        changed = promote or name in ALWAYS or old is None or old.get('content_sha256') != digest
         chosen[name] = {'version': version if changed else old['version'], 'content_sha256': digest, 'changed': changed}
     for group in GROUPS:
         if any(chosen[name]['changed'] for name in group):

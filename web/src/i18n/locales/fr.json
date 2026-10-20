@@ -829,6 +829,17 @@
         "failed": "La dernière vérification a échoué : {{message}}",
         "unavailable": "Aucun dépôt NanoKVM OS n’est configuré.",
         "upToDate": "NanoKVM OS est à jour"
+      },
+      "channel": {
+        "title": "Canal de mise à jour",
+        "stable": "Stable",
+        "beta": "Bêta",
+        "custom": "Dépôt personnalisé",
+        "description": "Stable propose les versions stables, Beta les préversions. Changer de canal ne lance aucune installation ; le retour à Stable permet de remplacer une bêta plus récente.",
+        "warning": "Les versions bêta peuvent contenir des fonctions inachevées ou des régressions.",
+        "rollback": "Installer la version stable",
+        "rollbackDescription": "Une bêta est installée. Vous pouvez revenir au micrologiciel stable actuel, y compris à des versions de paquets antérieures.",
+        "rollbackConfirm": "Remplacer la bêta par le micrologiciel stable actuel ? Les réglages et données sont conservés. Les services redémarreront ; un redémarrage peut être nécessaire."
       }
     },
     "memory": {

@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-const usage = "usage: nkos-update apk-inherited ACTION | software-inherited ACTION PACKAGE | refresh-indexes"
+const usage = "usage: nkos-update apk ACTION | apk-inherited ACTION | software-inherited ACTION PACKAGE | refresh-indexes"
 
 func main() {
 	if os.Geteuid() != 0 {
@@ -21,6 +21,15 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		return
+	}
+	// SSH recovery uses the same detached worker and lock as the web UI.
+	if len(os.Args) == 3 && os.Args[1] == "apk" {
+		if err := osupdate.StartAPK(os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("Started; see /run/nanokvm-apk-ui/operation.log")
 		return
 	}
 	apk := len(os.Args) == 3 && os.Args[1] == "apk-inherited"

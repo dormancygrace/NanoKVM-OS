@@ -21,6 +21,28 @@ RELEASES = [release('v3.2.0', 'v1.4'), release('v3.1.0', 'v1.3'), release('v3.0-
 
 
 class NextReleaseTests(unittest.TestCase):
+    def test_beta_series_and_stable_are_independent(self):
+        first = n.next_release(RELEASES, 'minor', 'main', True, 'beta')
+        self.assertEqual(first, dict(version='v3.3.0-beta.1', apk_version='3.3.0_beta1',
+                                    image_version='v1.5-beta.1', previous='v3.2.0'))
+        history = RELEASES + [release('v3.3.0-beta.1', 'v1.5-beta.1'),
+                              release('v3.3.0-beta.2', 'v1.5-beta.2', draft=True)]
+        result = n.next_release(history, 'minor', 'main', True, 'beta')
+        self.assertEqual(result['version'], 'v3.3.0-beta.3')
+        self.assertEqual(result['previous'], 'v3.3.0-beta.1')
+        self.assertEqual(result['image_version'], 'v1.5-beta.3')
+        stable = n.next_release(history, 'minor', 'main', True)
+        self.assertEqual(stable['version'], 'v3.3.0')
+        self.assertEqual(stable['image_version'], 'v1.5')
+        self.assertEqual(n.next_release(history, 'patch', 'main', False)['version'], 'v3.2.1')
+        history.append(release('v3.3.0', 'v1.5'))
+        self.assertEqual(n.next_release(history, 'minor', 'main', False, 'beta')['version'], 'v3.4.0-beta.1')
+
+    def test_beta_cannot_publish_below_active_beta_line(self):
+        history = RELEASES + [release('v3.3.0-beta.1')]
+        with self.assertRaisesRegex(ValueError, 'newer beta target'):
+            n.next_release(history, 'patch', 'main', False, 'beta')
+
     def test_patch_and_minor_from_main(self):
         self.assertEqual(n.next_release(RELEASES, 'patch', 'main', False),
                          {'version': 'v3.2.1', 'apk_version': '3.2.1', 'image_version': 'v1.4', 'previous': 'v3.2.0'})

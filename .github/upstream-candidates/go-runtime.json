@@ -1,0 +1,12 @@
+{
+  "component": "Go runtime",
+  "current": "1.27.2",
+  "candidate": "1.27.3",
+  "candidate_key": "1.27.3",
+  "status": "pending-review",
+  "upstream": "https://go.dev/dl/?mode=json",
+  "source_path": "firmware/cpu/sysmon-runtime/go-source-pin.json",
+  "strategy": "review",
+  "evidence": {},
+  "pin_files_updated": []
+}

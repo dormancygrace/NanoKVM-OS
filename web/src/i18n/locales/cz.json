@@ -1827,7 +1827,9 @@
     "powerCycleAckConfirm": "Potvrďte, že jste fyzicky odpojili veškeré zdroje napájení od NanoKVM (a připojili je pak nazpět). Toto pouze zavře připomínku, nikoli restartuje zařízení.",
     "directSmoothHint": "Přizpůsobivé vyrovnávací paměti pro vyhlazení nerovnoměrného doručování (přidává ale drobnou prodlevu).",
     "description": "Nastavit HDMI monitor nezávisle na videu zasílaném vámi využívanému prohlížeči.",
-    "fpsLimited": "Stávající vstup omezuje zachytávání na {{fps}} sním./s. Uložený požadavek je ponechán pro příští režim zdroje."
+    "fpsLimited": "Stávající vstup omezuje zachytávání na {{fps}} sním./s. Uložený požadavek je ponechán pro příští režim zdroje.",
+    "hevcDirect": "H.265 přímo ze zachytávání",
+    "hevcDirectHint": "Enkodér čte zachycený obraz samotný namísto jeho převedené kopie: nižší prodleva (přibližně 6ms při 1080p, 25 ms při 4K) a nižší provoz v operační paměti. Pokud chcete enkódovat přes videoprocesor (jako dříve), vypněte. Bude uplatněno během sekundy a bez restartu."
   },
   "dashboard": {
     "states": {

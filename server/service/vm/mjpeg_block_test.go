@@ -197,3 +197,39 @@ func TestVideoSettingsRefuseH264ByTheResultingPicture(t *testing.T) {
 		}
 	}
 }
+
+func TestH264BatchUsesResolvedMonitorState(t *testing.T) {
+	previous := videoMonitorStateAfter
+	t.Cleanup(func() { videoMonitorStateAfter = previous })
+	for _, tc := range []struct {
+		body    string
+		initial common.MonitorState
+		allowed bool
+	}{
+		{`{"type":1,"portraitResolution":2560}`, common.MonitorState{Resolution: 1080, Portrait: true, PortraitResolution: 1920}, false},
+		{`{"type":1,"portrait":false}`, common.MonitorState{Resolution: 1080, Portrait: true, PortraitResolution: 2560}, true},
+		{`{"type":1,"monitor":1080}`, common.MonitorState{Resolution: 2160, Portrait: true, PortraitResolution: 2560}, false},
+	} {
+		fakeCapture(t, 1440, 2560, 0)
+		videoMonitorStateAfter = func(update common.MonitorSettings) common.MonitorState {
+			state := tc.initial
+			if update.Resolution != nil {
+				state.Resolution = *update.Resolution
+			}
+			if update.Portrait != nil {
+				state.Portrait = *update.Portrait
+			}
+			if update.PortraitResolution != nil {
+				state.PortraitResolution = *update.PortraitResolution
+			}
+			return state
+		}
+		var req VideoSettingsReq
+		if err := json.Unmarshal([]byte(tc.body), &req); err != nil {
+			t.Fatal(err)
+		}
+		if failure := h264SelectionFailure(&req); (failure == nil) != tc.allowed {
+			t.Errorf("%s: allowed %v, failure %v", tc.body, tc.allowed, failure)
+		}
+	}
+}

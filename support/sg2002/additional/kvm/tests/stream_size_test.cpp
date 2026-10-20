@@ -14,13 +14,13 @@ int main(){
  assert(nanokvm::portrait_fps_limit(1296,2304)==0);
  assert(nanokvm::portrait_fps_limit(1440,2560)==50);
  assert(nanokvm::portrait_fps_limit(1920,1080)==0);
- const int tiers[][3] = {{1280,720,120},{1920,1080,75},{1920,1088,75},{2560,1440,50},{2304,1296,50}};
+ const int tiers[][3] = {{1280,720,120},{1920,1080,100},{1920,1088,100},{2560,1440,60},{2304,1296,60},{3840,2160,30}};
  for (const auto &tier : tiers) {
   assert(nanokvm::capture_rate_limit(tier[0],tier[1])==tier[2]);
   assert(nanokvm::capture_rate_limit(tier[1],tier[0])==tier[2]);
  }
- assert(nanokvm::capture_stream_rate_limit(1440,2560,720,1280)==50);
- assert(nanokvm::capture_stream_rate_limit(1080,1920,720,1280)==75);
+ assert(nanokvm::capture_stream_rate_limit(1440,2560,720,1280)==60);
+ assert(nanokvm::capture_stream_rate_limit(1080,1920,720,1280)==100);
  // H.264 runs up to 2560x1440 (1080x1920 in portrait), judged on the encoded size.
  struct H264Case { uint16_t iw,ih,mw,mh; bool allowed; };
  const H264Case h264[] = {

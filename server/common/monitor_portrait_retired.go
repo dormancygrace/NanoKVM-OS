@@ -49,16 +49,18 @@ func MigrateRetiredPortraitResolution() (bool, error) {
 	if ReadVideoValue(monitorPortraitResolutionFile) != int(retiredPortraitResolution) {
 		return false, nil
 	}
+	// Record the request first. If either write fails or the process stops,
+	// the old resolution still identifies a migration that must be retried.
+	if monitorPortraitEnabledLocked() {
+		if err := atomicWriteMonitorFile(monitorDeferredFile, []byte("1\n"), ".monitor_edid_deferred-*"); err != nil {
+			return false, fmt.Errorf("requesting the portrait profile: %w", err)
+		}
+	}
 	replacement := retiredPortraitReplacement()
 	if err := persistMonitorPortraitResolutionLocked(replacement); err != nil {
 		return false, fmt.Errorf("saving the portrait profile: %w", err)
 	}
 	log.Infof("the 1296x2304 portrait profile is retired; the portrait profile is now %dx%d",
 		portraitWidths[replacement], replacement)
-	if monitorPortraitEnabledLocked() {
-		if err := atomicWriteMonitorFile(monitorDeferredFile, []byte("1\n"), ".monitor_edid_deferred-*"); err != nil {
-			return true, fmt.Errorf("requesting the portrait profile: %w", err)
-		}
-	}
 	return true, nil
 }

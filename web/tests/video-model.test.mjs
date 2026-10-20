@@ -569,3 +569,17 @@ test('the 1440x2560 portrait profile switches H.264 to H.265', () => {
   );
   assert.equal(model.h264Blocked(draft({ portrait: 2560, codec: 'h264', height: 1080 }), c), false);
 });
+
+
+test('a limited maximum portrait keeps H.264 through validation and resolution selection', () => {
+  const c = caps();
+  const limited = draft({ portrait: 2560, codec: 'h264', height: 1080 });
+  assert.deepEqual({ ...model.draftIssues(limited, c, everything) }, {});
+  const choice = model.resolutionChoices(c).find((x) => x.key === 'p2560');
+  const next = model.withResolution(draft({ codec: 'h264', height: 1080 }), choice, c);
+  assert.equal(next.codec, 'h264');
+  assert.deepEqual({ ...model.draftIssues(next, c, everything) }, {});
+  // Older servers have no size-based policy; retain their explicit restrictions.
+  delete c.stream.h264;
+  assert.equal(model.draftIssues(limited, c, everything).codec, 'portrait');
+});

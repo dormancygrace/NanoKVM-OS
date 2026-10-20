@@ -158,24 +158,26 @@ func h264SelectionFailure(batch *VideoSettingsReq) *settingError {
 	return nil
 }
 
-// batchMonitorInput is the input a batch asks the source for: the portrait
-// profile it turns on, else the landscape monitor it sets (Auto: the size it
-// stands for); ok is false when the batch leaves the monitor as it is.
+// Seam for tests of partial monitor updates.
+var videoMonitorStateAfter = common.MonitorStateAfter
+
+// batchMonitorInput uses the same final state as ApplyMonitorSettings:
+// omitted fields retain their saved values. A stream-only batch still checks
+// the current capture instead of a possibly stale saved monitor.
 func batchMonitorInput(batch *VideoSettingsReq) (width, height int, ok bool) {
-	if batch == nil {
+	if batch == nil || (batch.Portrait == nil && batch.PortraitResolution == nil && batch.Monitor == nil) {
 		return 0, 0, false
 	}
-	if batch.Portrait != nil && *batch.Portrait {
-		resolution := common.PortraitResolution()
-		if batch.PortraitResolution != nil && *batch.PortraitResolution > 0 && *batch.PortraitResolution <= math.MaxUint16 {
-			resolution = uint16(*batch.PortraitResolution)
+	for _, value := range []*int{batch.PortraitResolution, batch.Monitor} {
+		if value != nil && (*value < 0 || *value > math.MaxUint16) {
+			return 0, 0, false
 		}
-		return int(common.PortraitWidth(resolution)), int(resolution), true
 	}
-	if batch.Monitor == nil || *batch.Monitor < 0 || *batch.Monitor > math.MaxUint16 {
-		return 0, 0, false
+	state := videoMonitorStateAfter(batch.monitor())
+	if state.Portrait {
+		return int(common.PortraitWidth(state.PortraitResolution)), int(state.PortraitResolution), true
 	}
-	monitor := uint16(*batch.Monitor)
+	monitor := state.Resolution
 	if monitor == 0 {
 		monitor = common.AutoMonitorHeight()
 	}

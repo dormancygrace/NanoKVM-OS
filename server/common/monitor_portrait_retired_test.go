@@ -103,3 +103,31 @@ func TestOtherPortraitResolutionsAreNotMigrated(t *testing.T) {
 		t.Error("the 1296x2304 portrait profile is still offered")
 	}
 }
+
+func TestRetiredPortraitRetriesAfterDeferredWriteFailure(t *testing.T) {
+	monitorState(t, 1080, true, 2304)
+	codecFiles(t, "h264", "")
+	// A directory at the destination makes the atomic rename fail.
+	if err := os.Mkdir(monitorDeferredFile, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := MigrateRetiredPortraitResolution(); changed || err == nil {
+		t.Fatalf("failed request: changed %v, error %v", changed, err)
+	}
+	if got := ReadVideoValue(monitorPortraitResolutionFile); got != 2304 {
+		t.Fatalf("lost retry marker: saved %d", got)
+	}
+	if err := os.Remove(monitorDeferredFile); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := MigrateRetiredPortraitResolution(); !changed || err != nil {
+		t.Fatalf("retry: changed %v, error %v", changed, err)
+	}
+	var applied []string
+	if _, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, false, &applied, nil), poolUHD); err != nil {
+		t.Fatal(err)
+	}
+	if len(applied) != 1 || applied[0] != portraitProfilePathAt(1920, GetScreen().FPS) {
+		t.Fatalf("applied %v", applied)
+	}
+}

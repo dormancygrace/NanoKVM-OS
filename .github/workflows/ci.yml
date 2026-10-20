@@ -82,6 +82,11 @@ jobs:
             fi
           done > "$RUNNER_TEMP/shell-scripts"
           xargs -0 shellcheck -S error < "$RUNNER_TEMP/shell-scripts"
+      - name: Native stream geometry and codec policy
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Isupport/sg2002/additional/kvm/include \
+            support/sg2002/additional/kvm/tests/stream_size_test.cpp -o "$RUNNER_TEMP/stream-size-test"
+          "$RUNNER_TEMP/stream-size-test"
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
       # The C906 vector kernels are generated with .4byte/WORD encodings; each

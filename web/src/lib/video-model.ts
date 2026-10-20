@@ -269,6 +269,15 @@ export function h264Blocked(draft: VideoDraft, caps: VideoCapabilities) {
   return h264BlockReason(draft, caps) !== undefined;
 }
 
+// A profile's codec list describes its unscaled picture. New servers also
+// report H.264 output limits, so a lower stream size can make it playable.
+function portraitCodecAllowed(draft: VideoDraft, caps: VideoCapabilities, profile: PortraitProfile) {
+  return (
+    profile.codecs.includes(draft.codec) ||
+    (draft.codec === 'h264' && !!caps.stream.h264 && !h264Blocked(draft, caps))
+  );
+}
+
 export function codecPlayable(browser: BrowserSupport, transport: Transport, codec: Codec) {
   if (transport === 'mjpeg' || codec === 'h264') return true;
   return transport === 'direct' ? browser.directH265 : browser.webrtcH265;
@@ -293,7 +302,7 @@ export function draftIssues(
     const profile = portraitProfile(caps, draft.portrait);
     if (!profile || !profile.available) issues.portrait = profile?.reason ?? 'receiver';
     else if (!profile.transports.includes(draft.transport)) issues.transport = 'portrait';
-    else if (draft.transport !== 'mjpeg' && !profile.codecs.includes(draft.codec))
+    else if (draft.transport !== 'mjpeg' && !portraitCodecAllowed(draft, caps, profile))
       issues.codec = 'portrait';
   } else {
     const mode = monitorMode(caps, draft.monitor);
@@ -454,7 +463,7 @@ export function withResolution(
   const profile = choice.portrait ? portraitProfile(caps, choice.portrait) : undefined;
   if (profile) {
     if (!profile.transports.includes(next.transport)) next.transport = 'direct';
-    if (next.transport !== 'mjpeg' && !profile.codecs.includes(next.codec)) {
+    if (next.transport !== 'mjpeg' && !portraitCodecAllowed(next, caps, profile)) {
       next.codec = profile.codecs.includes('h265') ? 'h265' : 'h264';
     }
   }

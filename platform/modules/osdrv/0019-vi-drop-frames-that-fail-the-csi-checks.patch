@@ -1,45 +1,101 @@
 From: Gleb Pesin <dormancygrace@gmail.com>
-Subject: [PATCH] vi: drop frames that fail the CSI bridge checks
+Subject: [PATCH] vi: do not publish frames that fail the CSI bridge checks
 
 isp_err_chk finds a frame whose line or frame size differs from the
-setting, a CSI bridge FIFO overflow or a DMA error. It counts the error
-and wakes the error handler thread, which resets and restarts the pipe,
-and it returns -1. The interrupt handler ignored that result and went on
-to the frame done handling, which queues the frame as a good one: a
-frame damaged on the receiver's MIPI link reached the encoders.
+setting, or a CSI bridge FIFO overflow. It counts the error and wakes the
+error handler thread, which resets and restarts the pipe. The interrupt
+handler ignored that, and the frame's end queued the frame as a good one:
+a frame damaged on the receiver's MIPI link reached the encoders.
+
+Each such wake now marks the pipe's frame as damaged. The YUV bypass
+frame end, in the same interrupt or a later one, does all its bookkeeping
+(idle state, the next DMA trigger) but does not publish the buffer; the
+buffer stays first in the ready queue and takes the next frame. The error
+handler clears the mark after its reset, for a frame the reset aborted.
+DMA and over-maximum errors, which wake nothing, are unchanged. The YUV
+online and RAW paths are unchanged (NanoKVM captures YUV bypass offline).
 
 Sipeed's driver for the same SoC returns from the interrupt handler on
-every isp_err_chk failure (LicheeRV-Nano-Build, osdrv/interdrv/v2/vi/
-chip/mars/vi.c). This returns when the error handler is resetting the
-pipe (the size and FIFO errors wake it), after the CMDQ status is
-cleared; the DMA and over-maximum errors, which wake nothing, go on as
-before so the pipe is not left without a restart. Both trees read and
-clear the interrupt status at the top of the handler.
+any isp_err_chk failure, which also skips that interrupt's bookkeeping and
+misses an error and a frame end that arrive in separate interrupts.
 
 ---
 diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
 --- a/interdrv/vi/chip/cv181x/vi.c
 +++ b/interdrv/vi/chip/cv181x/vi.c
-@@ -8552,8 +8552,20 @@
- 			ctx->isp_pipe_cfg[raw_num].dg_info.bdg_chn_debug[i] = ispblk_csibdg_chn_dbg(ctx, raw_num, i);
- 	}
- 
--	isp_err_chk(vdev, ctx, cbdg_0_sts[0], cbdg_1_sts[0], cbdg_0_sts[1], cbdg_1_sts[1],
--		cbdg_0_sts[2], cbdg_1_sts[2]);
-+	/* A frame that failed the CSI bridge checks while the error handler
-+	 * thread is resetting the pipe (isp_err_chk woke it for a short or
-+	 * long line or frame or a FIFO overflow) is not passed on: its frame
-+	 * done would queue it as a good frame. The thread restarts the pipe.
-+	 * Sipeed's driver returns on every isp_err_chk failure; errors that do
-+	 * not wake the thread (DMA, frame size over the maximum) go on as
-+	 * before here, as nothing would restart the pipe after them. */
-+	const u32 frame_err = isp_err_chk(vdev, ctx, cbdg_0_sts[0], cbdg_1_sts[0],
-+		cbdg_0_sts[1], cbdg_1_sts[1], cbdg_0_sts[2], cbdg_1_sts[2]);
+@@ -313,6 +313,16 @@
+ 	list_add_tail(&n->list, &q->list);
+ 	spin_unlock_irqrestore(&raw_num_lock, flags);
+ }
 +
-+	if (frame_err == (u32)-1 && atomic_read(&vdev->isp_err_handle_flag)) {
-+		_isp_cmdq_done_chk(vdev, top_sts_2.bits.CMDQ_INT);
-+		return;
++/*
++ * A frame that failed the CSI bridge checks (a short or long line or frame,
++ * a FIFO overflow): isp_err_chk wakes the error handler for it. The frame's
++ * end, in the same interrupt or a later one, does all its bookkeeping but
++ * does not publish the buffer, which takes the next frame instead. The
++ * error handler clears the mark after its reset, for a frame it aborted,
++ * and stream off clears it for the next stream.
++ */
++static atomic_t nk_frame_damaged[ISP_PRERAW_MAX];
+ 
+ static void cvi_isp_buf_queue(struct cvi_vi_dev *vdev, struct cvi_isp_buf *b)
+ {
+@@ -3263,6 +3273,8 @@
+ 		INIT_LIST_HEAD(&vdev->qbuf_list[i]);
+ 		spin_unlock_irqrestore(&vdev->qbuf_lock, flags);
+ 	}
++	for (i = 0; i < ISP_PRERAW_MAX; i++)
++		atomic_set(&nk_frame_damaged[i], 0);
+ 
+ 	spin_lock_irqsave(&dq_lock, flags);
+ 	while (!list_empty(&dqbuf_q.list)) {
+@@ -7190,6 +7202,7 @@
+ 		return;
+ 
+ 	//step 7 : reset sw state to idle
++	atomic_set(&nk_frame_damaged[err_raw_num], 0);
+ 	if (_is_be_post_online(ctx)) {
+ 		atomic_set(&vdev->pre_fe_state[err_raw_num][ISP_FE_CH0], ISP_PRERAW_IDLE);
+ 		atomic_set(&vdev->pre_fe_state[err_raw_num][ISP_FE_CH1], ISP_PRERAW_IDLE);
+@@ -7271,6 +7284,7 @@
+ 
+ static inline void vi_err_wake_up_th(struct cvi_vi_dev *vdev, enum cvi_isp_raw err_raw)
+ {
++	atomic_set(&nk_frame_damaged[err_raw], 1);
+ 	if (atomic_read(&vdev->isp_err_handle_flag) == 1) {
+ 		vi_pr(VI_WARN, "work on err_handler\n");
+ 		if (vdev->vi_th[E_VI_TH_ERR_HANDLER].flag != err_raw + 1) {
+@@ -7845,13 +7859,26 @@
+ 
+ 	atomic_set(&vdev->pre_fe_state[raw_num][hw_chn_num], ISP_PRERAW_IDLE);
+ 
+-	cvi_isp_rdy_buf_remove(vdev, buf_chn);
+-
+-	cvi_isp_dqbuf_list(vdev, vdev->pre_fe_frm_num[raw_num][hw_chn_num], raw_num, buf_chn);
+-
+-	vdev->vi_th[E_VI_TH_EVENT_HANDLER].flag = raw_num + 1;
+-
+-	wake_up(&vdev->vi_th[E_VI_TH_EVENT_HANDLER].wq);
++	if (atomic_xchg(&nk_frame_damaged[raw_num], 0)) {
++		unsigned long flags;
++
++		/* Failed the CSI checks: the buffer stays first in the ready
++		 * queue and takes the next frame. Its trigger counted it out
++		 * of qbuf_num, and the trigger below counts it again: give
++		 * that count back, as _vi_err_retrig_preraw does. */
++		spin_lock_irqsave(&vdev->qbuf_lock, flags);
++		vdev->qbuf_num[buf_chn]++;
++		spin_unlock_irqrestore(&vdev->qbuf_lock, flags);
++		vi_pr(VI_DBG, "fe_%d chn_num_%d damaged frame not published\n", raw_num, buf_chn);
++	} else {
++		cvi_isp_rdy_buf_remove(vdev, buf_chn);
++
++		cvi_isp_dqbuf_list(vdev, vdev->pre_fe_frm_num[raw_num][hw_chn_num], raw_num, buf_chn);
++
++		vdev->vi_th[E_VI_TH_EVENT_HANDLER].flag = raw_num + 1;
++
++		wake_up(&vdev->vi_th[E_VI_TH_EVENT_HANDLER].wq);
 +	}
  
- 	//if (top_sts.bits.INT_DMA_ERR)
- 	//	vi_pr(VI_ERR, "DMA error\n");
+ 	if (cvi_isp_rdy_buf_empty(vdev, buf_chn))
+ 		vi_pr(VI_INFO, "fe_%d chn_num_%d yuv bypass outbuf is empty\n", raw_num, buf_chn);

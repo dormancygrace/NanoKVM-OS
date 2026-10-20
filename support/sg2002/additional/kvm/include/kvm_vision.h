@@ -75,6 +75,8 @@ int set_mjpeg_chroma(uint8_t enable_422);
 #define MJPEG_CHROMA_FORCE_COPY 8
 #define MJPEG_CHROMA_FALLBACK_ERROR 16
 #define MJPEG_CHROMA_LIMIT_WIDTH 32
+// 4:2:0 capture for H.264 straight from capture: MJPEG is 4:2:0 meanwhile.
+#define MJPEG_CHROMA_CAPTURE_420 64
 uint8_t get_mjpeg_chroma_status(void);
 // JPEG callback runs before ReleaseStream/VI release; it must copy synchronously.
 int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,

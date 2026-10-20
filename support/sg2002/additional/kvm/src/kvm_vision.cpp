@@ -1286,7 +1286,7 @@ static nanokvm::StreamSize mjpeg_parallel_size(nanokvm::StreamSize size, uint8_t
 {
     if (codec != VENC_MJPEG) return size;
     mjpeg_resolution_limited = mjpeg_422_requested() && !mjpeg_422_disabled
-        && !frame_detect && !mjpeg_force_copy() && size.width > 1920
+        && !frame_detect && !mjpeg_force_copy() && !mmf_vi_yuv420_active() && size.width > 1920
         && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms);
     return mjpeg_resolution_limited ? nanokvm::limit_stream_width(size, 1920) : size;
 }
@@ -1300,8 +1300,10 @@ static int mjpeg_capture_format(uint8_t codec, bool frame_detect, uint64_t now_m
         mjpeg_last_jpeg_ms = now_ms;
         mjpeg_last_jpeg_width = width;
     }
+    // In 4:2:0 capture (H.264 straight from capture) the VI already wrote
+    // 4:2:0: MJPEG takes it as such, without an error or a retry.
     if (!mjpeg_422_requested() || mjpeg_422_disabled || codec != VENC_MJPEG
-        || frame_detect || mjpeg_force_copy()
+        || frame_detect || mjpeg_force_copy() || mmf_vi_yuv420_active()
         || (width > 1920 && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms)))
         return nanokvm::nv21_format();
     return nanokvm::nv16_format();
@@ -1320,8 +1322,10 @@ uint8_t get_mjpeg_chroma_status()
 {
     pthread_mutex_lock(&vi_mutex);
     uint8_t state = 0;
-    if (cam->has_format(nanokvm::nv16_format()) && mjpeg_422_requested()
+    const bool capture_420 = mmf_vi_yuv420_active() != 0;
+    if (cam->has_format(nanokvm::nv16_format()) && mjpeg_422_requested() && !capture_420
         && !mjpeg_422_disabled && kvmv_cfg.frame_detact == 0) state |= MJPEG_CHROMA_ACTIVE_422;
+    if (capture_420) state |= MJPEG_CHROMA_CAPTURE_420;
     if (mjpeg_422_disabled) state |= MJPEG_CHROMA_FALLBACK_ERROR;
     if (mjpeg_resolution_limited && mjpeg_video_reader_active(mjpeg_monotonic_ms()))
         state |= MJPEG_CHROMA_LIMIT_WIDTH;
@@ -1577,6 +1581,9 @@ static void submit_next_video_frame(int vi_ch, int width, int height)
 		mmf_vi_frame_release(vi_ch);
 }
 
+// frame_to_video restarted the capture for another capture mode; no frame.
+static constexpr int8_t IMG_CAPTURE_RESTARTED = -100;
+
 int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int width, int height,
 	int format, int vi_ch, kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec,
 	uint8_t fps, bool submitted = false)
@@ -1590,6 +1597,17 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 		if (init_venc_video(width, height, bitrate, codec, fps) != 0) {
 			return -1;
 		}
+	}
+
+	// The capture mode follows the video encoder (4:2:0 for H.264 straight
+	// from capture, see kvm_mmf). The VI takes it only when it starts, so a
+	// change restarts the capture; the caller then reads again.
+	if (mmf_vi_yuv420_pending()) {
+		if (vi_ch >= 0 && !submitted) mmf_vi_frame_release(vi_ch);
+		debug("[kvmv]capture restart for the %s capture mode\n",
+			mmf_vi_yuv420_active() ? "4:2:2" : "4:2:0");
+		restart_capture_locked();
+		return IMG_CAPTURE_RESTARTED;
 	}
 
  if (requested_keyframe.exchange(false, std::memory_order_relaxed)) {
@@ -1779,7 +1797,7 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
         }
         const bool jpeg_active = mjpeg_jpeg_reader_active(capture_now);
         const bool remove_nv16 = !mjpeg_422_requested() || mjpeg_422_disabled
-            || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy()
+            || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy() || mmf_vi_yuv420_active()
             || (_type == VENC_MJPEG && capture_format == nanokvm::nv21_format())
             || ((_type == VENC_H264 || _type == VENC_H265)
                 && (!jpeg_active || (output.width > 1920 && cam->format_width(nanokvm::nv16_format()) > 1920)));
@@ -2034,6 +2052,8 @@ static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint1
 				native_vi_ch, &frame, maxmin_data(20000, 500, (int)_qlty),
 				kvmv_cfg.venc_type, kvmvenc_fps, submitted);
 			delete img;
+            // A new capture in the other mode: read from it.
+            if (ret == IMG_CAPTURE_RESTARTED) continue;
             if(ret < 0){
                 if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
                 if (cam->has_format(nanokvm::nv16_format()) && !mjpeg_422_disabled) {

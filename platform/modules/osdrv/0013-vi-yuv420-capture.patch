@@ -1,0 +1,130 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vi: 4:2:0 capture of a single YUV receiver
+
+The HDMI receiver sends packed 4:2:2 and the VI dumps it as it comes;
+the VPSS then converts it to NV21 for H.264, whose encoder core takes
+only 4:2:0. The CSI bridge has a 4:2:2 to 4:2:0 DMA writer (Y plane and
+VU plane, averaged chroma), which the vendor enables only for a second
+or third YUV sensor. The module parameter nk_yuv420, read when VI starts
+streaming, enables it for the single YUV sensor when its channel is
+NV21: H.264 can then take the capture buffer directly.
+
+The writer needs the CIF U/V swap only with the LT6911 receivers; the
+vendor's Y/C plus U/V swap gives a broken picture. The vendor never
+clears the 420 write enables, the averaging mode or the CIF swap, so
+after the mode was used once a 4:2:2 capture kept writing NV21 until a
+reboot. The 4:2:2 path now clears all three.
+
+---
+diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
+index 1baeee6..d9fd516 100644
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -65,6 +65,17 @@ module_param(stop_stream_en, int, 0644);
+ bool ctrl_flow = false;
+ module_param(ctrl_flow, bool, 0644);
+ 
++/*
++ * A single YUV receiver (HDMI bridge) normally dumps its packed 4:2:2 frame,
++ * which the VPSS converts for the encoders. With nk_yuv420 the CSI bridge's
++ * 4:2:2 to 4:2:0 DMA writer stores it as NV21 instead (Y plane, VU plane), as
++ * the vendor does only for a second or third YUV sensor; the VI channel must be
++ * NV21. Read when VI starts streaming.
++ */
++static bool nk_yuv420;
++module_param(nk_yuv420, bool, 0644);
++MODULE_PARM_DESC(nk_yuv420, "Single YUV sensor: write NV21 with the CSI bridge 4:2:0 writer");
++
+ VI_DEV_ATTR_S tmp_dev_attr;
+ VI_PIPE_ATTR_S tmp_pipe_attr;
+ VI_CHN_ATTR_S tmp_chn_attr;
+@@ -2465,12 +2476,17 @@ static void _vi_pre_fe_ctrl_setup(enum cvi_isp_raw raw_num, struct cvi_vi_dev *v
+ 	struct cif_yuv_swap_s swap = {0};
+ 
+ 	if (ictx->isp_pipe_cfg[raw_num].is_yuv_bypass_path) {//YUV sensor
+-		if (ictx->isp_pipe_cfg[raw_num].is_422_to_420) {//uyvy to yuyv to 420
+-			swap.devno = raw_num;
+-			swap.yc_swap = 1;
+-			swap.uv_swap = 1;
+-			_vi_call_cb(E_MODULE_CIF, CVI_MIPI_SET_YUV_SWAP, &swap);
+-		}
++		/*
++		 * The 420 writer needs the CIF byte order swapped. The vendor's Y/C
++		 * and U/V swap gives a broken picture with the LT6911 receivers and no
++		 * swap gives red and blue exchanged: their UYVY needs the U/V swap
++		 * only. The CIF keeps a swap after the VI stops, so the 4:2:2 dump
++		 * clears it.
++		 */
++		swap.devno = raw_num;
++		swap.yc_swap = 0;
++		swap.uv_swap = ictx->isp_pipe_cfg[raw_num].is_422_to_420 ? 1 : 0;
++		_vi_call_cb(E_MODULE_CIF, CVI_MIPI_SET_YUV_SWAP, &swap);
+ 
+ 		ispblk_csibdg_yuv_bypass_config(ictx, raw_num);
+ 
+@@ -2764,7 +2780,10 @@ static void _vi_scene_ctrl(struct cvi_vi_dev *vdev, enum cvi_isp_raw *raw_max)
+ 		//Currently don't support single yuv sensor online to scaler or on-the-fly
+ 		if (ctx->isp_pipe_cfg[ISP_PRERAW_A].is_yuv_bypass_path) {
+ 			ctx->isp_pipe_cfg[ISP_PRERAW_A].is_offline_scaler = true;
+-			ctx->isp_pipe_cfg[ISP_PRERAW_A].is_422_to_420 = false;
++			// if 422to420, chnAttr must be NV21 (as for a second YUV sensor)
++			ctx->isp_pipe_cfg[ISP_PRERAW_A].is_422_to_420 = nk_yuv420 &&
++				ctx->isp_pipe_cfg[ISP_PRERAW_A].muxMode == VI_WORK_MODE_1Multiplex &&
++				gViCtx->chnAttr[0].enPixelFormat == PIXEL_FORMAT_NV21;
+ 			ctx->is_slice_buf_on = false;
+ 		}
+ 
+diff --git a/interdrv/vi/chip/cv181x/vip/vi_drv.c b/interdrv/vi/chip/cv181x/vip/vi_drv.c
+index fca454c..4a775e9 100644
+--- a/interdrv/vi/chip/cv181x/vip/vi_drv.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_drv.c
+@@ -881,8 +881,7 @@ void ispblk_dma_set_sw_mode(struct isp_ctx *ctx, uint32_t dmaid, bool is_sw_mode
+ 			raw = ISP_PRERAW_C; break;
+ 		default: break;
+ 		}
+-		if (raw >= 0 && ctx->isp_pipe_cfg[raw].is_yuv_bypass_path
+-			&& !ctx->isp_pipe_cfg[raw].is_422_to_420)
++		if (raw >= 0 && ctx->isp_pipe_cfg[raw].is_yuv_bypass_path)
+ 			sys_ctrl.bits.STRIDE_SEL = 1;
+ 	}
+ #endif
+@@ -2099,8 +2098,11 @@ u32 ispblk_dma_yuv_bypass_config(struct isp_ctx *ctx, uint32_t dmaid, uint64_t b
+ 
+ 	len = VI_ALIGN(len);
+ 	/* VI buffers advertise DEFAULT_ALIGN byte pitches to VPSS. Keep the
+-	 * payload length separate, but write rows at that same pitch. */
+-	if (!ctx->isp_pipe_cfg[raw_num].is_422_to_420)
++	 * payload length separate, but write rows at that same pitch. The 4:2:0
++	 * writer's Y and VU rows hold one byte per pixel. */
++	if (ctx->isp_pipe_cfg[raw_num].is_422_to_420)
++		stride = ALIGN(ctx->isp_pipe_cfg[raw_num].csibdg_width, DEFAULT_ALIGN);
++	else
+ 		stride = ALIGN(stride, DEFAULT_ALIGN);
+ 
+ 	ISP_WR_REG(dmab, REG_ISP_DMA_CTL_T, DMA_SEGLEN, len);
+@@ -2108,8 +2110,7 @@ u32 ispblk_dma_yuv_bypass_config(struct isp_ctx *ctx, uint32_t dmaid, uint64_t b
+ 	ISP_WR_REG(dmab, REG_ISP_DMA_CTL_T, DMA_SEGNUM, num);
+ 	/* Automatic stride is tightly packed and ignores DMA_STRIDE. Override
+ 	 * only pitch; payload length and line count keep their existing modes. */
+-	if (!ctx->isp_pipe_cfg[raw_num].is_422_to_420)
+-		ISP_WR_BITS(dmab, REG_ISP_DMA_CTL_T, SYS_CONTROL, STRIDE_SEL, 1);
++	ISP_WR_BITS(dmab, REG_ISP_DMA_CTL_T, SYS_CONTROL, STRIDE_SEL, 1);
+ 
+ 	if (buf_addr)
+ 		ispblk_dma_setaddr(ctx, dmaid, buf_addr);
+diff --git a/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c b/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c
+index d16f33d..a08bf44 100644
+--- a/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c
+@@ -464,6 +464,11 @@ void ispblk_csibdg_yuv_bypass_config(struct isp_ctx *ctx, const enum cvi_isp_raw
+ 									(chn_num > 0) ? true : false);
+ 		//only chn0 support avg mode
+ 		ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CSI_BDG_DMA_DPCM_MODE, AVG_MODE, true);
++	} else {
++		/* The 420 writer stays on across VI restarts: the 4:2:2 dump turns it off. */
++		ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CSI_BDG_TOP_CTRL, CH0_DMA_420_WR_ENABLE, false);
++		ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CSI_BDG_TOP_CTRL, CH1_DMA_420_WR_ENABLE, false);
++		ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CSI_BDG_DMA_DPCM_MODE, AVG_MODE, false);
+ 	}
+ 
+ 	ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CH0_SIZE, CH0_FRAME_WIDTHM1,

@@ -91,14 +91,48 @@ def check_no_gop_setting():
     print('no gop setting ok')
 
 
+def check_capture_mode_wiring():
+    """The 4:2:0 capture mode: one rule, applied only at a capture start, followed by video encoders and never by JPEG or CPU readers; kvmv_read_img restarts the capture for it and reads again."""
+    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    assert mmf.count('static bool _mmf_vi_yuv420_rule(') == 1 and mmf.count('_mmf_vi_yuv420_rule(') == 2
+    # The wanted mode is written by the rule's follower and by the capture start only.
+    assert mmf.count('vi_yuv420_wanted = ') == 3
+    assert mmf.count('vi_yuv420_running = ') == 2
+    assert 'vi_yuv420_wanted = want;' in function_body(mmf, 'static void _mmf_vi_yuv420_follow(')
+    init = function_body(mmf, 'static CVI_S32 _mmf_init(void)')
+    assert init.index('_mmf_vi_yuv420_start(stSize);') < init.index('SAMPLE_PLAT_VI_INIT(&stViConfig)')
+    assert 'vi_yuv420_running ? PIXEL_FORMAT_NV21 : PIXEL_FORMAT_UYVY' in function_body(mmf, 'int mmf_vi_init(void)')
+    # Followed by video encoders: their creation and the once-a-second recheck.
+    venc = function_body(mmf, 'int mmf_add_venc_channel_v2(')
+    assert venc.index('_mmf_vi_yuv420_follow(cfg);') < venc.index('_mmf_vi_direct_for_venc(ch, cfg);')
+    assert mmf.count('_mmf_vi_yuv420_follow(') == 3
+    for reader in ['int mmf_enc_jpg_push_vi_with_quality(', 'int mmf_vi_frame_pop_nv21(',
+                   'static int _mmf_vi_direct_yield(']:
+        body = function_body(mmf, reader)
+        assert 'yuv420' not in body, reader
+    vision = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    video = function_body(vision, 'int8_t frame_to_video(')
+    pending = video.index('if (mmf_vi_yuv420_pending()) {')
+    assert pending < video.index('mmf_venc_push_vi(') and video.index('init_venc_video(') < pending
+    assert 'restart_capture_locked();' in video[pending:] and 'return IMG_CAPTURE_RESTARTED;' in video
+    read = vision[vision.index('static int kvmv_read_img('):vision.index('static int kvmv_read_video(')]
+    assert 'if (ret == IMG_CAPTURE_RESTARTED) continue;' in read
+    assert vision.count('mmf_vi_yuv420_pending()') == 1
+    print('capture mode wiring ok')
+
+
 check_read_img_gates()
 check_no_gop_setting()
+check_capture_mode_wiring()
 
-for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct']:
+for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct',
+             'vi-yuv420']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
     if case == 'hevc-direct':
         sources = [repo / 'firmware/probes/hevc-direct-contract.cpp']
+    if case == 'vi-yuv420':
+        sources = [repo / 'firmware/probes/vi-yuv420-contract.cpp']
     if case == 'teardown':
         sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']
     if case == 'pacing':
@@ -112,7 +146,7 @@ for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing',
         sources = [repo / 'support/sg2002/additional/kvm/tests/geometry_gate_test.cpp']
     elif case == 'park':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
-    extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct') else []
+    extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct', 'vi-yuv420') else []
     subprocess.run(flags + extra + [str(path) for path in sources] + ['-o', str(binary)], check=True)
     if case == 'hevc-direct':
         for mode in ['switch', 'stride', 'invalid']:

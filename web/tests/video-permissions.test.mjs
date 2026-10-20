@@ -187,7 +187,12 @@ test('a resolution change applies in one request, before the encoder, and return
   assert.equal(result.reloading, true);
 });
 
-function renderForm(role, deviceTransport) {
+function renderForm(
+  role,
+  deviceTransport,
+  directCapture = { h264: false, h265: false },
+  draft = saved
+) {
   let stateIndex = 0;
   const element = (type, props) => ({ type, props: props ?? {} });
   const components = Object.fromEntries(
@@ -216,7 +221,8 @@ function renderForm(role, deviceTransport) {
   const tree = form.VideoForm({
     caps: deviceTransport ? { ...caps, stream: { ...caps.stream, transport: deviceTransport } } : caps,
     browser,
-    saved,
+    saved: draft,
+    directCapture,
     admin: role === 'admin',
     refresh: async () => {},
     setIsLocked: () => {}
@@ -245,6 +251,22 @@ test('administrators edit the shared picture', () => {
   assert.equal(control('Select', 'videoSettings.bitrate').props.disabled, false);
   assert.equal(control('Select', 'screen.codec').props.disabled, false);
   assert.equal(control('InputNumber', 'videoSettings.fpsOverride').props.disabled, false);
+});
+
+test('the straight-from-capture switch follows the codecs the device supports', () => {
+  const direct = { ...saved, hevcDirect: true };
+  const toggle = (nodes) =>
+    nodes.find((n) => n.type === 'Switch' && n.props['aria-label'] === 'videoSettings.viDirect');
+  const h264 = { h264: true, h265: false };
+  assert.equal(toggle(renderForm('admin', undefined, h264, direct)).props.disabled, false);
+  assert.equal(toggle(renderForm('admin', undefined, h264, direct)).props.checked, true);
+  assert.equal(toggle(renderForm('user', undefined, h264, direct)).props.disabled, true);
+  const off = { ...direct, hevcDirect: false };
+  assert.equal(toggle(renderForm('admin', undefined, h264, off)).props.checked, false);
+  // H.264 without the VI driver support: no switch; H.265 has its own.
+  assert.equal(toggle(renderForm('admin', undefined, { h264: false, h265: true }, direct)), undefined);
+  assert.ok(toggle(renderForm('admin', undefined, { h264: false, h265: true }, { ...direct, codec: 'h265' })));
+  assert.equal(toggle(renderForm('admin', undefined, { h264: true, h265: true }, { ...direct, hevcDirect: null })), undefined);
 });
 
 test('administrators see when the device transport is another one', () => {

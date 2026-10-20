@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
   BITRATE_CHOICES,
+  directCaptureApplies,
   draftAutoBitrate,
   draftChanges,
   draftIssues,
@@ -19,6 +20,7 @@ import {
   resolutionOf,
   withResolution,
   type BrowserSupport,
+  type DirectCapture,
   type Reason,
   type VideoCapabilities,
   type VideoDraft
@@ -32,6 +34,7 @@ type Props = {
   caps: VideoCapabilities;
   browser: BrowserSupport;
   saved: VideoDraft;
+  directCapture: DirectCapture;
   admin: boolean;
   refresh: () => Promise<void>;
   setIsLocked: (locked: boolean) => void;
@@ -50,7 +53,15 @@ function bitrateChoice(draft: VideoDraft, caps: VideoCapabilities): BitrateChoic
  * player are this browser's own. A mode is the monitor the computer renders
  * and the stream rate, the only choice most users need.
  */
-export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }: Props) => {
+export const VideoForm = ({
+  caps,
+  browser,
+  saved,
+  directCapture,
+  admin,
+  refresh,
+  setIsLocked
+}: Props) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<VideoDraft>(saved);
   const [bitrate, setBitrate] = useState<BitrateChoice>(() => bitrateChoice(saved, caps));
@@ -460,19 +471,22 @@ export const VideoForm = ({ caps, browser, saved, admin, refresh, setIsLocked }:
                     : undefined
                 )}
                 {!mjpeg &&
-                  draft.codec === 'h265' &&
-                  draft.hevcDirect !== null &&
+                  directCaptureApplies(draft, directCapture) &&
                   row(
-                    t('videoSettings.hevcDirect'),
+                    t('videoSettings.viDirect'),
                     <Switch
                       // row() stacks controls in a flex column, which would stretch it.
                       className="self-start"
-                      aria-label={t('videoSettings.hevcDirect')}
-                      checked={draft.hevcDirect}
+                      aria-label={t('videoSettings.viDirect')}
+                      checked={draft.hevcDirect === true}
                       disabled={busy || !admin}
                       onChange={(value) => change('hevcDirect', value)}
                     />,
-                    t('videoSettings.hevcDirectHint')
+                    t(
+                      draft.codec === 'h265'
+                        ? 'videoSettings.hevcDirectHint'
+                        : 'videoSettings.viDirectH264Hint'
+                    )
                   )}
                 {mjpeg &&
                   row(

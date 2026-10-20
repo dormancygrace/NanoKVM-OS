@@ -19,6 +19,10 @@ int mmf_enc_jpg_free(int ch) {
     encoded[2]=0x99; return free_error;
 }
 int mmf_enc_jpg_deinit(int ch) {assert(ch==0);++deinit_count;active=false;return 0;}
+static int capture_420; // 4:2:0 capture for H.264 straight from capture
+int mmf_vi_yuv420_active() { return capture_420; }
+static bool has_nv16;
+bool nanokvm::Capture::has_format(int format) const { return format==nanokvm::nv16_format() && has_nv16; }
 void mmf_vi_frame_release(int ch) {assert(ch==0 && !active);++released;}
 nanokvm::JpegBuffer::~JpegBuffer() {free(bytes_);}
 int nanokvm::nv21_format() { return PIXEL_FORMAT_NV21; }
@@ -76,6 +80,26 @@ int main() {
     assert(set_mjpeg_chroma(0) == 0);
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12008, 2560) == nanokvm::nv21_format());
     assert(set_mjpeg_chroma(2) == -1 && mjpeg_chroma_choice == 0);
+    // 4:2:0 capture: a 4:2:2 choice degrades to 4:2:0 without an error, the
+    // status says why, and 4:2:2 returns with 4:2:2 capture.
+    assert(set_mjpeg_chroma(1) == 0);
+    mjpeg_last_video_ms = 0; has_nv16 = true;
+    assert(get_mjpeg_chroma_status() == MJPEG_CHROMA_ACTIVE_422);
+    capture_420 = 1;
+    assert(mjpeg_capture_format(VENC_MJPEG, false, 13000, 1920) == nanokvm::nv21_format());
+    assert(mjpeg_capture_format(VENC_MJPEG, false, 13001, 2560) == nanokvm::nv21_format());
+    assert(!mjpeg_422_disabled && mjpeg_422_frame_failures == 0);
+    assert(get_mjpeg_chroma_status() == MJPEG_CHROMA_CAPTURE_420);
+    // No width limit to preserve 4:2:2 that capture does not have.
+    mjpeg_last_video_ms = 12999; mjpeg_last_video_width = 2560;
+    assert(mjpeg_parallel_size({2560,1440},VENC_MJPEG,false,13002).width == 2560 && !mjpeg_resolution_limited);
+    capture_420 = 0;
+    assert(mjpeg_parallel_size({2560,1440},VENC_MJPEG,false,13003).width == 1920 && mjpeg_resolution_limited);
+    mjpeg_last_video_ms = 0; mjpeg_resolution_limited = false;
+    assert(mjpeg_capture_format(VENC_MJPEG, false, 13004, 1920) == nanokvm::nv16_format());
+    assert(get_mjpeg_chroma_status() == MJPEG_CHROMA_ACTIVE_422);
+    has_nv16 = false; mjpeg_last_jpeg_width = 0;
+    assert(set_mjpeg_chroma(0) == 0);
     mjpeg_last_video_ms = 0;
     unsetenv("NANOKVM_MJPEG_422"); env_changed();
     kvmv_data_t frame{};

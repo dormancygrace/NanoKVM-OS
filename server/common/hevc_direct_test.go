@@ -35,3 +35,23 @@ func TestHevcDirectSetting(t *testing.T) {
 		t.Fatal("nk_packed_src=1 must mean supported")
 	}
 }
+
+func TestViDirectH264Supported(t *testing.T) {
+	dir := t.TempDir()
+	saved := viYuv420DriverParam
+	t.Cleanup(func() { viYuv420DriverParam = saved })
+	viYuv420DriverParam = filepath.Join(dir, "nk_yuv420")
+
+	if ViDirectH264Supported() {
+		t.Fatal("no VI parameter must mean unsupported")
+	}
+	// The parameter's value is the capture mode libkvm chose, not the capability.
+	for _, value := range []string{"N\n", "Y\n"} {
+		if err := os.WriteFile(viYuv420DriverParam, []byte(value), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if !ViDirectH264Supported() {
+			t.Fatalf("nk_yuv420=%q must mean supported", value)
+		}
+	}
+}

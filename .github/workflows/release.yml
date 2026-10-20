@@ -137,8 +137,12 @@ jobs:
               printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=true\n' \
                 "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
             *)
-              printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=false\n' \
-                "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
+              # release.env is an image baseline and can lag published packages.
+              # Exercise reuse with a prospective release, as dispatch does.
+              gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . |
+                python3 scripts/next-release.py --channel "$channel" --kind patch --ref main --image > "$RUNNER_TEMP/next"
+              cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
+              printf 'image=true\ndraft=true\npublish=false\n' >> "$GITHUB_OUTPUT" ;;
           esac
 
       - uses: ./.github/actions/prepare-build

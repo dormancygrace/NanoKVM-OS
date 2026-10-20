@@ -3,6 +3,8 @@
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
 #include <cassert>
 #include <string>
+#include <thread>
+#include <atomic>
 
 // A fake /sys and /etc: the VI parameter is a real temporary file.
 static bool param_present = true, param_ignores_writes, packed_src = true;
@@ -243,27 +245,119 @@ static void stride_guard() {
     puts("stride guard ok");
 }
 
-// A JPEG or CPU reader yields the output to VPSS exactly as with H.265; the mode stays.
-static void yield_unchanged() {
+// 4:2:0: a JPEG reader leases its own VI frame next to the video lease; the
+// direct output, the VPSS (off) and the mode stay. A CPU reader still yields.
+static void jpeg_lease() {
     reset(); mmf_venc_cfg_t h264 = video(2);
     _mmf_vi_yuv420_follow(&h264); start();
-    _mmf_vi_direct_for_venc(1, &h264); assert(vi_direct[0]);
-    assert(_mmf_vi_direct_yield(0) == 0 && !vi_direct[0] && vi_direct_venc == -1 && vi_shared_reader_us[0]);
-    _mmf_vi_direct_for_venc(1, &h264); assert(!vi_direct[0]); // within 2 s of the reader
+    _mmf_vi_direct_for_venc(1, &h264); assert(vi_direct[0] && vi_direct_venc == 1);
+    int len = 0, w = 0, h = 0, fmt = 0;
+    assert(_mmf_acquire_vi_frame(0, &len, &w, &h, &fmt, 0) == 0 && vi_frame_from_vi[0]);
+    const int gets = vi_gets, releases = vi_releases;
+    assert(mmf_vi_frame_pop_jpeg(0, &len, &w, &h, &fmt) == 0);
+    assert(vi_gets == gets + 1 && vi_jpeg_ch == 0 && fmt == PIXEL_FORMAT_NV21 && w == 1920 && h == 1080);
+    assert(priv.vi_frame_valid[0] && vpss_gets == 0 && enables == 0);
+    mmf_vi_frame_release(0);
+    assert(vi_releases == releases + 1 && vi_jpeg_ch == -1 && priv.vi_frame_valid[0]);
     assert(mmf_vi_yuv420_active() && !mmf_vi_yuv420_pending());
+    // A JPEG frame of another layout is given back; nothing is leased.
+    vi_input = nv21_frame(1920, 1080, 1984);
+    assert(mmf_vi_frame_pop_jpeg(0, &len, &w, &h, &fmt) != 0 && vi_jpeg_ch == -1);
+    // A teardown releases a JPEG lease too.
+    vi_input = nv21_frame();
+    assert(mmf_vi_frame_pop_jpeg(0, &len, &w, &h, &fmt) == 0 && vi_jpeg_ch == 0);
+    priv.venc[1] = {};
+    assert(_mmf_release_all_vi_frames() == 0 && vi_jpeg_ch == -1 && !priv.vi_frame_valid[0]);
+    // A CPU reader (frame detection) still returns the output to the VPSS.
+    assert(_mmf_vi_direct_yield(0) == 0 && !vi_direct[0] && vi_direct_venc == -1 && vi_shared_reader_us[0]);
+    assert(mmf_vi_yuv420_active());
+    // While the output is not direct (the video encoder is recreated when
+    // MJPEG joins), MJPEG reads the VPSS frame and does not yield: the new
+    // encoder takes the direct output again (stand, 2026-10-20).
+    vi_shared_reader_us[0] = 0;
+    assert(mmf_vi_frame_pop_jpeg(0, &len, &w, &h, &fmt) == 0 && vi_jpeg_ch == -1 && vpss_gets == 1);
+    assert(!_mmf_jpeg_reader_yields());
+    mmf_vi_frame_release(0);
+    _mmf_vi_direct_for_venc(1, &h264); assert(vi_direct[0] && vi_direct_venc == 1);
+    vi_yuv420_refused = true; assert(_mmf_jpeg_reader_yields()); vi_yuv420_refused = false;
+    puts("jpeg lease ok");
+}
+
+// Packed capture (H.265): a JPEG or CPU reader still yields the output to VPSS.
+static void packed_yield_unchanged() {
+    reset(); mmf_venc_cfg_t h265 = video(1);
+    start(); assert(!mmf_vi_yuv420_active() && _mmf_jpeg_reader_yields());
+    _mmf_vi_direct_for_venc(1, &h265); assert(vi_direct[0]);
+    assert(_mmf_vi_direct_yield(0) == 0 && !vi_direct[0] && vi_direct_venc == -1 && vi_shared_reader_us[0]);
+    _mmf_vi_direct_for_venc(1, &h265); assert(!vi_direct[0]); // within 2 s of the reader
     vi_shared_reader_us[0] -= 2000001;
-    _mmf_vi_direct_for_venc(1, &h264); assert(vi_direct[0]);
-    puts("yield unchanged ok");
+    _mmf_vi_direct_for_venc(1, &h265); assert(vi_direct[0]);
+    // mmf_vi_frame_pop_jpeg is the ordinary pop here (VPSS frame).
+    vi_direct[0] = false; int len = 0, w = 0, h = 0, fmt = 0;
+    assert(mmf_vi_frame_pop_jpeg(0, &len, &w, &h, &fmt) == 0 && vi_jpeg_ch == -1 && vpss_gets == 1);
+    puts("packed yield unchanged ok");
+}
+
+// MJPEG's own output at 30 next to a 90 Hz video stream: only that output is
+// thinned; the video stream does not count as thinned and keeps 4:2:0.
+static void jpeg_output_rate() {
+    reset(); mmf_venc_cfg_t h264 = video(2);
+    assert(mmf_vpss_set_rate(90, 90) == 0 && output.stFrameRate.s32DstFrameRate == -1);
+    assert(mmf_vpss_set_chn_max_rate(0, 30) == 0);
+    assert(output.stFrameRate.s32SrcFrameRate == 90 && output.stFrameRate.s32DstFrameRate == 30);
+    assert(!vpss_rate_thins && _mmf_vi_yuv420_rule(&h264));
+    assert(mmf_vpss_set_rate(90, 90) == 0 && output.stFrameRate.s32DstFrameRate == 30);
+    assert(mmf_vpss_set_rate(90, 20) == 0 && output.stFrameRate.s32DstFrameRate == 20 && vpss_rate_thins);
+    assert(mmf_vpss_set_rate(90, 90) == 0 && mmf_vpss_set_chn_max_rate(0, 0) == 0);
+    assert(output.stFrameRate.s32DstFrameRate == -1);
+    assert(mmf_vpss_set_chn_max_rate(2, 30) != 0 && mmf_vpss_set_chn_max_rate(0, -1) != 0);
+    puts("jpeg output rate ok");
+}
+
+
+// The JPEG output runs outside vi_mutex while video encoder state changes.
+// Run with ThreadSanitizer too: NV16 release must not read priv.venc[].
+static void concurrent_jpeg_output() {
+    reset();
+    priv.vi_chn_is_inited[1] = true;
+    vpss_input.stVFrame.enPixelFormat = PIXEL_FORMAT_NV16;
+    std::atomic<bool> started{false}, done{false};
+    std::thread jpeg([&] {
+        mmf_jpg_hold();
+        started = true;
+        while (!done.load()) std::this_thread::yield();
+        for (int i = 0; i < 10000; ++i) {
+            int len, w, h, fmt;
+            assert(mmf_vi_frame_pop_own(1, &len, &w, &h, &fmt) == 0);
+            assert(fmt == PIXEL_FORMAT_NV16);
+            mmf_vi_frame_release(1);
+        }
+        mmf_jpg_unhold();
+    });
+    while (!started.load()) std::this_thread::yield();
+    // An inactive-reader timeout must not inspect the concurrently owned slot.
+    assert(mmf_vi_drop_pending(1) == MMF_VI_OUTPUT_LEASED);
+    done = true;
+    for (int i = 0; i < 10000; ++i) {
+        priv.venc[1].is_running = i & 1;
+        priv.venc_input_vi_ch[1] = i & 1 ? 0 : -1;
+    }
+    jpeg.join();
+    assert(vpss_gets == 10000 && vpss_releases == 10000);
+    puts("concurrent JPEG output ok");
 }
 
 int main() {
     const int fd = mkstemp(param_path); assert(fd >= 0); close(fd);
+    concurrent_jpeg_output();
     mode_rule();
     restart_and_codec_switch();
     h264_direct();
     hevc_unchanged();
     stride_guard();
-    yield_unchanged();
+    jpeg_lease();
+    packed_yield_unchanged();
+    jpeg_output_rate();
     unlink(param_path);
-    puts("PASS real 4:2:0 capture mode: rule, restart, codec switch, no relabel, stride guard, yield");
+    puts("PASS real 4:2:0 capture mode: rule, restart, codec switch, no relabel, stride guard, JPEG lease in 4:2:0, CPU readers yield, own JPEG output rate");
 }

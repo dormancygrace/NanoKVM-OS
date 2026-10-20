@@ -19,6 +19,9 @@ int mmf_enc_jpg_free(int ch) {
     encoded[2]=0x99; return free_error;
 }
 int mmf_enc_jpg_deinit(int ch) {assert(ch==0);++deinit_count;active=false;return 0;}
+static int holds = 0;
+void mmf_jpg_hold() { ++holds; }
+void mmf_jpg_unhold() { assert(holds > 0); --holds; }
 static int capture_420; // 4:2:0 capture for H.264 straight from capture
 int mmf_vi_yuv420_active() { return capture_420; }
 static bool has_nv16;
@@ -80,19 +83,20 @@ int main() {
     assert(set_mjpeg_chroma(0) == 0);
     assert(mjpeg_capture_format(VENC_MJPEG, false, 12008, 2560) == nanokvm::nv21_format());
     assert(set_mjpeg_chroma(2) == -1 && mjpeg_chroma_choice == 0);
-    // 4:2:0 capture: a 4:2:2 choice degrades to 4:2:0 without an error, the
-    // status says why, and 4:2:2 returns with 4:2:2 capture.
+    // 4:2:0 capture: with the 4:2:2 choice MJPEG keeps its own output (NV16,
+    // full-range BT.601, chroma at the capture's 4:2:0 resolution), and the
+    // status says the capture is 4:2:0. Next to wide video it is limited to
+    // 1920 as with 4:2:2 capture.
     assert(set_mjpeg_chroma(1) == 0);
     mjpeg_last_video_ms = 0; has_nv16 = true;
     assert(get_mjpeg_chroma_status() == MJPEG_CHROMA_ACTIVE_422);
     capture_420 = 1;
-    assert(mjpeg_capture_format(VENC_MJPEG, false, 13000, 1920) == nanokvm::nv21_format());
-    assert(mjpeg_capture_format(VENC_MJPEG, false, 13001, 2560) == nanokvm::nv21_format());
+    assert(mjpeg_capture_format(VENC_MJPEG, false, 13000, 1920) == nanokvm::nv16_format());
+    assert(mjpeg_capture_format(VENC_MJPEG, false, 13001, 2560) == nanokvm::nv16_format());
     assert(!mjpeg_422_disabled && mjpeg_422_frame_failures == 0);
     assert(get_mjpeg_chroma_status() == MJPEG_CHROMA_CAPTURE_420);
-    // No width limit to preserve 4:2:2 that capture does not have.
     mjpeg_last_video_ms = 12999; mjpeg_last_video_width = 2560;
-    assert(mjpeg_parallel_size({2560,1440},VENC_MJPEG,false,13002).width == 2560 && !mjpeg_resolution_limited);
+    assert(mjpeg_parallel_size({2560,1440},VENC_MJPEG,false,13002).width == 1920 && mjpeg_resolution_limited);
     capture_420 = 0;
     assert(mjpeg_parallel_size({2560,1440},VENC_MJPEG,false,13003).width == 1920 && mjpeg_resolution_limited);
     mjpeg_last_video_ms = 0; mjpeg_resolution_limited = false;
@@ -104,25 +108,39 @@ int main() {
     unsetenv("NANOKVM_MJPEG_422"); env_changed();
     kvmv_data_t frame{};
     reset();video_sink=sink;video_sink_context=123;
-    assert(frame_to_jpeg(0,&frame,80)==IMG_MJPEG_TYPE);
+    assert(frame_to_jpeg(0,&frame,80,false)==IMG_MJPEG_TYPE);
     assert(copied[2]==0x11 && encoded[2]==0x99 && frees==1 && released==1);
     assert(frame.img_data_type==VENC_MJPEG && frame.img_data_size==sizeof(encoded));
 
     reset();video_sink=sink;video_sink_context=123;sink_error=-1;
-    assert(frame_to_jpeg(0,&frame,80)==IMG_BUFFER_FULL);
+    assert(frame_to_jpeg(0,&frame,80,false)==IMG_BUFFER_FULL);
     assert(frees==1 && released==1);
 
     reset();video_sink=sink;video_sink_context=123;free_error=-2;
-    assert(frame_to_jpeg(0,&frame,80)==IMG_VENC_ERROR);
+    assert(frame_to_jpeg(0,&frame,80,false)==IMG_VENC_ERROR);
     assert(deinit_count==1 && released==1 && frame.img_data_size==0);
 
     reset();video_sink=sink;video_sink_context=123;pop_error=-2;
-    assert(frame_to_jpeg(0,&frame,80)==IMG_VENC_ERROR);
+    assert(frame_to_jpeg(0,&frame,80,false)==IMG_VENC_ERROR);
     assert(copied.empty() && deinit_count==1 && released==1);
 
     reset();video_sink=sink;video_sink_context=123;push_error=-2;
-    assert(frame_to_jpeg(0,&frame,80)==IMG_VENC_ERROR);
+    assert(frame_to_jpeg(0,&frame,80,false)==IMG_VENC_ERROR);
     assert(pops==0 && frees==0 && released==1);
+    assert(holds == 0);
+
+    // MJPEG's own output encodes outside vi_mutex: released after the submit
+    // and on return; the JPEG hold covers submit to frame release.
+    reset();video_sink=sink;video_sink_context=123;
+    pthread_mutex_lock(&vi_mutex);
+    assert(frame_to_jpeg(0,&frame,80,true)==IMG_MJPEG_TYPE);
+    assert(pthread_mutex_trylock(&vi_mutex) == 0); pthread_mutex_unlock(&vi_mutex);
+    assert(holds == 0 && frees==1 && released==1);
+    reset();video_sink=sink;video_sink_context=123;push_error=-2;
+    pthread_mutex_lock(&vi_mutex);
+    assert(frame_to_jpeg(0,&frame,80,true)==IMG_VENC_ERROR);
+    assert(pthread_mutex_trylock(&vi_mutex) == 0); pthread_mutex_unlock(&vi_mutex);
+    assert(holds == 0 && released==1);
 
     // Frame-detect/copied capture also bypasses the second native JPEG copy.
     reset();video_sink=owned_sink;video_sink_context=123;
@@ -131,5 +149,5 @@ int main() {
     assert(jpg_dump(&frame,&jpg) && copied[2]==0x11);
     sink_error=-1;assert(!jpg_dump(&frame,&jpg));
     reset();assert(!jpg_dump(&frame,&jpg));
-    puts("PASS real JPEG sink: callback before release, owned bytes, sink required, callback/encoder failures, frame-detect path.");
+    puts("PASS real JPEG sink: callback before release, owned bytes, sink required, callback/encoder failures, encode outside the capture lock, frame-detect path.");
 }

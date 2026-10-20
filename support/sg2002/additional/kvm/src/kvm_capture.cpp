@@ -89,8 +89,11 @@ int Capture::close_format(int format) {
     output = Output{};
     return 0;
 }
-int Capture::discard_other_pending() {
+int Capture::discard_other_pending(bool keep_jpeg) {
     for (const auto &output : outputs_) {
+        // An active MJPEG reader takes its next frame soon; dropping it on
+        // every video read made each JPEG read wait for a new one.
+        if (keep_jpeg && &output == &outputs_[1]) continue;
         if (output.channel >= 0 && output.channel != channel_) {
             const int result = mmf_vi_drop_pending(output.channel);
             // A leased output has a consumer mid-frame: wide video pre-submits

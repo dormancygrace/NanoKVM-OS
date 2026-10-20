@@ -228,3 +228,20 @@ func TestWriteFrameClearsDeadlineAfterFlush(t *testing.T) {
 		t.Fatal("deadline remained active while waiting for another image")
 	}
 }
+
+func TestMjpegRateNextToVideo(t *testing.T) {
+	for _, c := range []struct {
+		screen int
+		video  bool
+		wide   bool
+		want   int
+	}{
+		{90, false, false, 90}, {90, true, false, 27}, {60, true, false, 27}, {27, true, false, 27},
+		{25, true, false, 25}, {60, true, true, 25}, {25, true, true, 25}, {20, true, true, 20},
+		{60, false, true, 60}, {0, true, false, 1}, {0, false, false, 1},
+	} {
+		if got := mjpegRate(c.screen, c.video, c.wide); got != c.want {
+			t.Errorf("mjpegRate(%d, %v, %v) = %d, want %d", c.screen, c.video, c.wide, got, c.want)
+		}
+	}
+}

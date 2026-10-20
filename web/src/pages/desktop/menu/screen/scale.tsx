@@ -37,7 +37,7 @@ export const Scale = (): ReactElement => {
       {ScaleList.map((scale) => (
         <div
           key={scale.value}
-          className="flex h-[30px] cursor-pointer select-none items-center rounded pl-1 pr-5 hover:bg-neutral-700/70"
+          className="flex h-[30px] cursor-pointer items-center rounded pr-5 pl-1 select-none hover:bg-neutral-700/70"
           onClick={() => update(scale.value)}
         >
           <div className="flex h-[14px] w-[20px] items-end text-blue-500">
@@ -58,11 +58,15 @@ export const Scale = (): ReactElement => {
       content={content}
       popoverProps={{ placement: 'rightTop', arrow: false, align: { offset: [13, 0] } }}
     >
-      <div className="flex h-[30px] cursor-pointer items-center space-x-1 rounded px-3 text-neutral-300 hover:bg-neutral-700/50">
+      <div className="flex h-[30px] cursor-pointer items-center gap-1 rounded px-3 text-neutral-300 hover:bg-neutral-700/50">
         <div className="flex h-[14px] w-[20px] items-end">
           <ScalingIcon size={16} />
         </div>
         <span>{t('screen.scale')}</span>
+        {/* The current value, as in the video rows above. */}
+        <span className="ml-auto pl-4 whitespace-nowrap text-neutral-500">
+          {Math.round(videoScale * 100)}%
+        </span>
       </div>
     </MenuSubmenu>
   );

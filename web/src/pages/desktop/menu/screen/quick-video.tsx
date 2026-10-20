@@ -1,11 +1,12 @@
 import { ReactNode, useState } from 'react';
 import { message } from 'antd';
-import { CheckIcon, GaugeIcon, MonitorIcon, RadioTowerIcon } from 'lucide-react';
+import { CheckIcon, FilmIcon, GaugeIcon, MonitorIcon, RadioTowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
   BITRATE_CHOICES,
   draftAutoBitrate,
+  draftIssues,
   draftPlayable,
   ECONOMY_BITRATE,
   QUALITY_CHOICES,
@@ -79,7 +80,7 @@ const Row = ({
 );
 
 // The toolbar's video controls: what is streamed now, measured, and the mode,
-// bitrate and transport. Everything else is in Settings → Video.
+// codec, bitrate and transport. Everything else is in Settings → Video.
 export const QuickVideo = () => {
   const { t } = useTranslation();
   const { admin, caps, browser, saved, status, refresh } = useVideoSettings(3000);
@@ -223,6 +224,25 @@ export const QuickVideo = () => {
         ? t('videoSettings.bitrateEconomy', { value: saved.bitRate / 1000 })
         : mbps(saved.bitRate);
 
+  // Codec: either one where the current picture, transport and browser take
+  // it; an unavailable one says why. An automatic bitrate follows the codec.
+  const codecItems: Item[] = (['h265', 'h264'] as const).map((codec) => {
+    const draft = { ...saved, codec };
+    if (autoBitrate) draft.bitRate = draftAutoBitrate(draft, caps);
+    const reason = codec === saved.codec ? undefined : draftIssues(draft, caps, browser).codec;
+    return {
+      key: codec,
+      checked: saved.codec === codec,
+      disabled: busy || !!reason,
+      label: reason ? (
+        <span title={t(`videoSettings.reason.${reason}`)}>{codecNames[codec]}</span>
+      ) : (
+        codecNames[codec]
+      ),
+      pick: () => void apply(draft)
+    };
+  });
+
   const names: Record<Transport, string> = { direct: 'Direct', webrtc: 'WebRTC', mjpeg: 'MJPEG' };
   // Each transport with a codec it plays here and in the monitor profile: the
   // current codec where it can, else the other one, named in the item.
@@ -249,6 +269,14 @@ export const QuickVideo = () => {
           title={t('videoSettings.mode')}
           value={modeValue}
           items={modeItems}
+        />
+      )}
+      {admin && !mjpeg && (
+        <Row
+          icon={<FilmIcon size={16} />}
+          title={t('screen.codec')}
+          value={codecNames[saved.codec]}
+          items={codecItems}
         />
       )}
       {admin && (

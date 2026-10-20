@@ -6,6 +6,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"NanoKVM-Server/internal/apkrollback"
 )
 
 // The repository line is the persistent source of truth, including on images.
@@ -117,10 +119,7 @@ func SetChannel(channel string) error {
 
 // Keep in step with scripts/package-versions.py. Add-ons are independent and
 // must never be included in a core firmware rollback.
-var corePackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release",
-	"nanokvm-base", "nanokvm-keys", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002",
-	"nanokvm-firmware-sg2002", "nanokvm-bootloader-sg2002", "nanokvm-zlib",
-	"nanokvm-exfatprogs", "nanokvm-i2c-tools"}
+var corePackages = apkrollback.CorePackages
 var prereleasePackage = regexp.MustCompile(`_(alpha|beta|pre|rc)[0-9]*`)
 
 func isCorePackage(name string) bool {
@@ -135,7 +134,7 @@ func isCorePackage(name string) bool {
 // A temporary solver constraint pins the whole core set for one transaction.
 // Unlike upgrade --available, it does not broadly downgrade packages or clear
 // the operator's world holds. A retry removes a leftover constraint first.
-const rollbackConstraint = ".nanokvm-stable-rollback"
+const rollbackConstraint = apkrollback.Constraint
 
 func rollbackConstraintInstalled() bool {
 	data, err := os.ReadFile(installedDBPath)

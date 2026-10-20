@@ -835,7 +835,7 @@
         "stable": "Estable",
         "beta": "Beta",
         "custom": "Repositorio personalizado",
-        "description": "Stable ofrece versiones estables y Beta versiones de prueba. Cambiar de canal no instala paquetes; al volver a Stable se puede revertir una beta más reciente.",
+        "description": "Estable ofrece versiones estables y Beta versiones de prueba. Cambiar de canal no instala paquetes; al volver a Estable se puede revertir una beta más reciente.",
         "warning": "Las versiones beta pueden contener funciones incompletas o errores.",
         "rollback": "Instalar versión estable",
         "rollbackDescription": "Hay una beta instalada. Puedes volver al firmware estable actual, incluso a versiones anteriores de paquetes.",

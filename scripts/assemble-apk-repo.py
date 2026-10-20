@@ -312,7 +312,8 @@ def main():
         tag, names = assemble(output, published, args.keep, alpine_branch(),
                               ROOT / 'firmware/alpine/keys', independent=addons, channel=channel)
         print(f'{channel}: indexes of {tag}, {len(names)} packages')
-
+        for name in names:
+            print(f'  {name}')
 
 
 if __name__ == '__main__':

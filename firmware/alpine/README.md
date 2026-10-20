@@ -216,7 +216,10 @@ Release assembly compares package contents against the newest tested manifest
 from the beta feed, which includes Stable. Unchanged stable packages retain
 their versions; a stable build always rebuilds a package previously versioned
 as a prerelease. This also replaces an experimental change that was reverted
-before release. Missing first-use feed metadata causes a full package build.
+before release. If the beta manifest is not published yet (HTTP 404), assembly
+falls back to the stable manifest and fetches reused APKs from that same feed.
+Network failures and other HTTP errors stop the build; they do not silently
+trigger a full rebuild.
 
 The UI changes only the official NanoKVM line in `/etc/apk/repositories`, keeps
 Alpine and unrelated repositories, and refuses ambiguous/custom NanoKVM feeds.
@@ -227,8 +230,12 @@ through the detached update helper. APK refreshes and verifies the official
 stable index, requires the complete core set, simulates dependency resolution,
 then installs a temporary `.nanokvm-stable-rollback` virtual package requiring
 exact versions of the thirteen core packages. The helper removes this constraint
-after the transaction (and clears an interrupted leftover on the next update
-check/install). Independent add-ons and Alpine packages are not rollback targets;
+after the transaction. Before installing, it durably registers a small OpenRC
+boot service under `/etc/init.d/nanokvm-rollback-recovery`. After an interrupted
+rollback this service removes the constraint offline, even if the restored
+stable updater predates channels; it removes itself only after success. Normal
+completion removes the service immediately. The new updater also attempts
+cleanup before a periodic notice check (without interrupting active updates). Independent add-ons and Alpine packages are not rollback targets;
 APK preserves their versions unless dependencies require a change. Existing
 world holds remain intact; conflicting holds make the solver refuse the rollback. Normal package scripts
 retain protected settings/user data and mark kernel/bootloader changes for

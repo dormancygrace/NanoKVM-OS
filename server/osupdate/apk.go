@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"NanoKVM-Server/internal/apkrollback"
 	"NanoKVM-Server/internal/apkrun"
 )
 
@@ -164,7 +165,7 @@ func RunAPK(action string) (result error) {
 			return errors.New("stable repository changed")
 		}
 		repo := strings.TrimSpace(strings.Split(string(data), "\n")[i])
-		query := append([]string{"--repositories-file=/dev/null", "--repository=" + repo, "--no-network", "search", "--exact"}, corePackages...)
+		query := apkrollback.Query(repo)
 		output, err := apkrun.Command(ctx, apkExecutable, query...).CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("cannot read stable packages: %s", strings.TrimSpace(string(output)))
@@ -173,18 +174,21 @@ func RunAPK(action string) (result error) {
 		if err != nil {
 			return err
 		}
-		args = append([]string{"add", "--virtual", rollbackConstraint}, targets...)
+		args = apkrollback.Install(targets)
 		// APK checks the complete dependency graph before installing anything.
 		if err = run(append(append([]string{}, args...), "--simulate")...); err != nil {
 			return fmt.Errorf("stable rollback dependency check failed: %w", err)
 		}
 	}
 	if action == "rollback" {
+		if err := installRollbackRecovery(); err != nil {
+			return fmt.Errorf("cannot prepare persistent rollback recovery: %w", err)
+		}
 		// Also remove the hold if a package script fails after APK installed it.
 		defer func() {
 			if rollbackConstraintInstalled() {
 				if err := run("del", rollbackConstraint); err != nil && result == nil {
-					result = fmt.Errorf("stable installed but temporary constraint cleanup failed; retry the update check: %w", err)
+					result = fmt.Errorf("stable installed but temporary constraint cleanup failed; reboot to recover: %w", err)
 				}
 			}
 		}()
@@ -194,7 +198,10 @@ func RunAPK(action string) (result error) {
 	}
 	if action == "rollback" {
 		if err := run("del", rollbackConstraint); err != nil {
-			return fmt.Errorf("stable constraint cleanup failed: %w", err)
+			return fmt.Errorf("stable constraint cleanup failed; reboot to recover: %w", err)
+		}
+		if err := removeRollbackRecovery(); err != nil {
+			return err
 		}
 	}
 	_ = CheckUpdates(ctx, false)

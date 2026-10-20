@@ -112,12 +112,19 @@ jobs:
         run: sudo python3 tests/test-dhcp-gateway.py
       - name: IPv6 policy and interface restart tests
         run: sudo python3 tests/test-ipv6-policy.py
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+          cache-dependency-path: server/go.sum
+      - name: Export production rollback commands
+        working-directory: server
+        run: NKOS_ROLLBACK_COMMANDS="$RUNNER_TEMP/rollback-commands.json" go test ./internal/apkrollback -run TestExportIntegrationCommands -count=1
       - name: APK application split migration
         run: |
-          docker run --rm --volume "$PWD:/src:ro" --workdir /src alpine:3.24 sh -ec '
+          docker run --rm --volume "$PWD:/src:ro" --volume "$RUNNER_TEMP/rollback-commands.json:/rollback-commands.json:ro" --workdir /src alpine:3.24 sh -ec '
             apk add --no-cache python3 openssl
             python3 tests/test-split-app-packages.py --apk /sbin/apk
-            python3 tests/test-release-channels-apk.py --apk /sbin/apk
+            python3 tests/test-release-channels-apk.py --apk /sbin/apk --commands /rollback-commands.json
           '
       - name: Script tests
         run: |

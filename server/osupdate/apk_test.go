@@ -46,6 +46,9 @@ func TestNativeAPKWorker(t *testing.T) {
 
 func TestRollbackWorkerUsesCompleteCoreSetAndFailsClosed(t *testing.T) {
 	dir := communityFixture(t, communityOff)
+	oldRecovery := rollbackRecoveryRoot
+	rollbackRecoveryRoot = dir
+	t.Cleanup(func() { rollbackRecoveryRoot = oldRecovery })
 	oldDir, oldExec, oldDB, oldWorld := apkStateDir, apkExecutable, installedDBPath, worldPath
 	t.Cleanup(func() { apkStateDir, apkExecutable, installedDBPath, worldPath = oldDir, oldExec, oldDB, oldWorld })
 	apkStateDir, apkExecutable = dir, filepath.Join(dir, "apk")
@@ -63,7 +66,7 @@ func TestRollbackWorkerUsesCompleteCoreSetAndFailsClosed(t *testing.T) {
 		if failSimulation {
 			script += "exit 9"
 		} else {
-			script += "exit 0"
+			script += "case \"$*\" in *--simulate*) exit 0;; *) test -f '" + filepath.Join(dir, "etc/init.d/nanokvm-rollback-recovery") + "' && test -L '" + filepath.Join(dir, "etc/runlevels/boot/nanokvm-rollback-recovery") + "';; esac"
 		}
 		script += ";;\n*) exit 99;;\nesac\n"
 		if err := os.WriteFile(apkExecutable, []byte(script), 0700); err != nil {

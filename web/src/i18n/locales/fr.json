@@ -835,7 +835,7 @@
         "stable": "Stable",
         "beta": "Bêta",
         "custom": "Dépôt personnalisé",
-        "description": "Stable propose les versions stables, Beta les préversions. Changer de canal ne lance aucune installation ; le retour à Stable permet de remplacer une bêta plus récente.",
+        "description": "Stable propose les versions stables, Bêta les préversions. Changer de canal ne lance aucune installation ; le retour à Stable permet de remplacer une bêta plus récente.",
         "warning": "Les versions bêta peuvent contenir des fonctions inachevées ou des régressions.",
         "rollback": "Installer la version stable",
         "rollbackDescription": "Une bêta est installée. Vous pouvez revenir au micrologiciel stable actuel, y compris à des versions de paquets antérieures.",

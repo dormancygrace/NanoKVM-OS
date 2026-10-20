@@ -319,6 +319,11 @@ void mmf_jpg_unhold(void) { jpg_hold_mutex.unlock(); }
 
 static VIDEO_FRAME_INFO_S vi_jpeg_frame;
 static int vi_jpeg_ch = -1; // the output whose JPEG lease is vi_jpeg_frame
+// A channel number may be recycled during the JPEG hold -> vi_mutex handoff.
+// Generations belong to their frame slots and never reset on capture restart.
+static uint64_t vi_frame_generation[MMF_VI_MAX_CHN];
+static thread_local uint64_t own_jpeg_generation;
+static thread_local int own_jpeg_channel = -1;
 
 static int _mmf_release_jpeg_lease(void)
 {
@@ -702,6 +707,7 @@ static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
 		// 4:2:0 capture: genuine NV21, passed on as the VI describes it.
 		VIDEO_FRAME_S *v = &frame->stVFrame;
 		priv.vi_frame_valid[ch] = true;
+		++vi_frame_generation[ch];
 		priv.vi_frame_mapped[ch] = false;
 		priv.vi_frame_deferred[ch] = false;
 		vi_frame_from_vi[ch] = true;
@@ -727,6 +733,7 @@ static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
 		// packed DMA payload. Match ispblk_dma_yuv_bypass_config's
 		// DEFAULT_ALIGN pitch rather than treating each row as width*2.
 		priv.vi_frame_valid[ch] = true;
+		++vi_frame_generation[ch];
 		vi_frame_from_vi[ch] = true;
 		const uint64_t stride = ((uint64_t)v->u32Width * 2 + DEFAULT_ALIGN - 1)
 			/ DEFAULT_ALIGN * DEFAULT_ALIGN;
@@ -742,6 +749,7 @@ static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
 		v->u32Length[0] = v->u32Stride[0] * v->u32Height;
 		v->u32Length[1] = v->u32Length[2] = 0;
 		priv.vi_frame_valid[ch] = true;
+		++vi_frame_generation[ch];
 		priv.vi_frame_mapped[ch] = false;
 		priv.vi_frame_deferred[ch] = false;
 		vi_frame_from_vi[ch] = true;
@@ -765,6 +773,7 @@ static int _mmf_acquire_vi_frame(int ch, int *len, int *width, int *height,
 	}
 
 	priv.vi_frame_valid[ch] = true;
+	++vi_frame_generation[ch];
 	priv.vi_frame_mapped[ch] = false;
 	priv.vi_frame_deferred[ch] = false;
 	*len = (int)image_bytes;
@@ -1592,6 +1601,7 @@ int mmf_vi_drop_pending(int ch) {
     if (result == CVI_ERR_VPSS_BUF_EMPTY) return CVI_SUCCESS;
     if (result != CVI_SUCCESS) return result;
     priv.vi_frame_valid[ch] = true;
+    ++vi_frame_generation[ch];
     priv.vi_frame_mapped[ch] = false;
     priv.vi_frame_deferred[ch] = false;
     return _mmf_release_vi_frame(ch);
@@ -1647,11 +1657,15 @@ int mmf_vi_frame_pop_own(int ch, int *len, int *width, int *height, int *format)
 	}
 	if (_mmf_acquire_vi_frame(ch, len, width, height, format, 1000, false) != 0) return -1;
 	priv.vi_frame_deferred[ch] = true;
+	own_jpeg_channel = ch;
+	own_jpeg_generation = vi_frame_generation[ch];
 	return 0;
 }
 
 int mmf_vi_frame_leased(int ch) {
-	return ch >= 0 && ch < MMF_VI_MAX_CHN && priv.vi_frame_valid[ch] && priv.vi_frame_deferred[ch];
+	return ch >= 0 && ch < MMF_VI_MAX_CHN && ch == own_jpeg_channel
+		&& vi_frame_generation[ch] == own_jpeg_generation
+		&& priv.vi_frame_valid[ch] && priv.vi_frame_deferred[ch];
 }
 
 int mmf_vi_frame_try_pop_native(int ch, int timeout_ms, int *len, int *width, int *height, int *format) {

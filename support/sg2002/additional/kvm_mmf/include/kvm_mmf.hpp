@@ -59,6 +59,7 @@ int mmf_vi_frame_pop_jpeg(int ch, int *len, int *width, int *height, int *format
 int mmf_vi_frame_pop_own(int ch, int *len, int *width, int *height, int *format);
 // Whether a popped frame is still leased (an output torn down meanwhile
 // released it).
+// Same thread as pop_own: true only while that exact frame lease survives.
 int mmf_vi_frame_leased(int ch);
 void mmf_jpg_hold(void);
 void mmf_jpg_unhold(void);

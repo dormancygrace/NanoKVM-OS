@@ -1,10 +1,15 @@
 # USB composition and endpoint budget
 
 NanoKVM exposes several independent USB functions through the SG2002 DWC2
-device controller. The **Settings > USB Composition** page reports the active
-functions and edits a draft against the measured controller budget. Selecting
-a preset or changing an individual switch does not reconnect USB. **Apply**
-sends the complete composition; **Discard changes** restores the active values.
+device controller. The **Settings > USB Gadget > Composition** page (and the
+toolbar's USB Gadget quick menu, which opens the same panel) reports the
+active functions and edits a draft against the measured controller budget.
+Selecting a preset or changing an individual switch does not reconnect USB.
+**Apply** sends the complete composition; **Discard changes** restores the
+active values. Turning the USB switch on proposes the last composition (or the
+fresh-install preset when it no longer fits) as a draft, and USB turns on with
+Apply. Turning it off, or applying a draft without any function, asks first
+and then disconnects every function.
 
 ## Presets and manual selection
 
@@ -29,7 +34,7 @@ compatibility profile (USB 1.1)** switch: older descriptors for firmware and
 hosts that reject the composite device, without network, storage or audio
 (turning one of those on leaves the profile again). Budget usage follows the
 draft. Only additions that exceed either limit are disabled; already-selected
-functions can always be removed. Empty or over-budget drafts cannot be applied.
+functions can always be removed. Over-budget drafts cannot be applied.
 
 USB network and serial are **not mutually exclusive**. For example, keyboard +
 network + storage + serial uses 6 IN / 4 OUT. The interface no longer tells the
@@ -37,7 +42,8 @@ user to disable USB network as a prerequisite for serial.
 
 ### USB identity
 
-Below the manual section, **USB identity** is what the computer reads from the
+The **Settings > USB Gadget > Identity (VID/PID)** page holds what the
+computer reads from the
 device descriptor: vendor ID, product ID, manufacturer and product strings
 and the serial number.
 Hosts with a USB allow-list, or endpoint security that objects to a device
@@ -90,11 +96,14 @@ The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
 fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET; an
 optional `userDisk` boolean turns the user disk on or off (omitted keeps it; on
 needs the virtual disk and an existing image); an optional `identity` object (`vendorId`, `productId`, `manufacturer`,
-`product`; an empty field is the factory value) sets the identity, and a
-request without it keeps the one in place. IDs are `0x0001`–`0xffff`, names
-1–126 printable ASCII characters. GET reports the identity with the serial
-number and whether it is the factory one.
-Missing fields, invalid budgets, empty drafts and stale revisions are rejected
+`product`, `serialNumber`; an empty field is the factory value, the chip UID
+for the serial number) sets the identity, and a request without it keeps the
+one in place. IDs are `0x0001`–`0xffff`, names 1–126 printable ASCII
+characters, a serial number 1–126 letters, digits, dots, dashes or
+underscores. GET reports the identity with the set `serialNumber` (empty for
+the chip UID), the `chipSerialNumber` and whether it is the factory one.
+Missing fields, invalid budgets and stale revisions are rejected (a
+composition without any function turns USB off)
 before changing flags. Revision comparison and application hold both HID locks.
 The legacy POST toggle endpoint remains available for older clients.
 

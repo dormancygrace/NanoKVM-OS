@@ -57,7 +57,7 @@ function owner(options = {}) {
 test('transform pipeline errors notify the owner instead of silently freezing video', async () => {
   const messages = [],
     self = { postMessage: (m) => messages.push(m) };
-  vm.runInNewContext(workerCode, { self, TransformStream });
+  vm.runInNewContext(workerCode, { self, TransformStream, performance });
   self.onmessage({ data: { recording: 1 } });
   const frame = {
     type: 'key',
@@ -86,7 +86,7 @@ test('the always-on transform forwards frames unchanged and only copies while re
     forwarded = [],
     self = { postMessage: (m) => messages.push(m) };
   let input;
-  vm.runInNewContext(workerCode, { self, TransformStream });
+  vm.runInNewContext(workerCode, { self, TransformStream, performance });
   self.onrtctransform({
     transformer: {
       sendKeyFrameRequest: async () => {},

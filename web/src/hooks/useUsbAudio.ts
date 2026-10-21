@@ -6,6 +6,7 @@ import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
 import { publishUsbAudioStream } from '@/lib/usb-audio-stream.ts';
 import { getVideoAudio, watchVideoAudio, type VideoAudioChannel } from '@/lib/video-audio.ts';
+import { recordAudioReceiver } from '@/lib/webrtc-audio-recording.ts';
 
 type Playback = {
   context: AudioContext;
@@ -14,6 +15,7 @@ type Playback = {
   renderer?: HTMLAudioElement;
   statsTimer?: number;
   peer?: RTCPeerConnection;
+  recordingAudio?: ReturnType<typeof recordAudioReceiver>;
   socket?: WebSocket;
   // Set when listening through the WebRTC video connection.
   channel?: VideoAudioChannel;
@@ -79,6 +81,7 @@ export const useUsbAudio = () => {
     old?.channel?.stop();
     old?.socket?.close();
     old?.peer?.close();
+    old?.recordingAudio?.close();
     old?.source?.disconnect();
     // Keep the authorized output alive while the transport reconnects.
     setPlaying(false);
@@ -248,7 +251,10 @@ export const useUsbAudio = () => {
                 active.source = context.createMediaStreamSource(stream);
                 active.source.connect(gain);
               };
-              peer.addTransceiver('audio', { direction: 'recvonly' });
+              const audioReceiver = peer.addTransceiver('audio', {
+                direction: 'recvonly'
+              }).receiver;
+              active.recordingAudio = recordAudioReceiver(audioReceiver, () => fail('connection'));
               const offer = await peer.createOffer();
               if (playback.current !== active) return;
               offer.sdp = stereoOffer(offer.sdp ?? '');

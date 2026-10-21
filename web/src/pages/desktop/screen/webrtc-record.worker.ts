@@ -6,6 +6,7 @@ export type ReceivedFrame = {
   recording: number;
   key: boolean;
   rtpTimestamp: number;
+  receivedAt: number;
   width: number;
   height: number;
   data: ArrayBuffer;
@@ -38,6 +39,7 @@ self.onrtctransform = (event: RTCTransformEvent) => {
             const data = frame.data.slice(0);
             const copy: ReceivedFrame = {
               recording,
+              receivedAt: performance.timeOrigin + performance.now(),
               key: frame.type === 'key',
               rtpTimestamp: metadata.rtpTimestamp ?? frame.timestamp,
               width: metadata.width ?? 0,

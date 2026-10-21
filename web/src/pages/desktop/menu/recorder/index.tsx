@@ -10,6 +10,8 @@ import {
   withRecordingAudio,
   type RecordingWriter
 } from '@/lib/recording';
+import { getRecordingAudio } from '@/lib/recording-audio.ts';
+import type { RecordingResult } from '@/lib/recording-result.ts';
 import { getRecordingSource, watchRecordingSource } from '@/lib/recording-source.ts';
 import { getUsbAudioStream, watchUsbAudioStream } from '@/lib/usb-audio-stream.ts';
 import { isHdmiEnabledAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
@@ -93,7 +95,8 @@ export const Recorder = () => {
     setState('choosing');
     let writer: RecordingWriter | undefined;
     let source: ReturnType<typeof captureRecordingSource> | undefined;
-    let session: { stop: () => void; done: Promise<void> } | undefined;
+    let unwatchAudio = () => {};
+    let session: { stop: () => void; done: Promise<RecordingResult> } | undefined;
     try {
       const receivedSource = passthroughMode ? getRecordingSource() : null;
       if (receivedSource) {
@@ -118,15 +121,18 @@ export const Recorder = () => {
           writer = undefined;
           return;
         }
+        const audioStream = getUsbAudioStream();
         const sound =
-          getUsbAudioStream()
+          audioStream
             ?.getAudioTracks()
             .find((track) => track.readyState === 'live')
             ?.clone() ?? null;
         const passthroughSession = await recordPassthrough(
           receivedSource,
           writer as unknown as FileSystemWritableFileStream,
-          sound
+          sound,
+          undefined,
+          getRecordingAudio(audioStream)
         );
         session = passthroughSession;
         if (!currentAttempt()) {
@@ -134,6 +140,10 @@ export const Recorder = () => {
           await passthroughSession.done.catch(() => {});
           return;
         }
+        unwatchAudio = watchUsbAudioStream(() => {
+          if (getUsbAudioStream() !== audioStream) passthroughSession.stopAudio();
+        });
+        if (getUsbAudioStream() !== audioStream) passthroughSession.stopAudio();
         recording.current = passthroughSession;
         setElapsed(0);
         setState('waiting');
@@ -143,8 +153,11 @@ export const Recorder = () => {
             setState('recording');
           }
         });
-        await passthroughSession.done;
-        if (active.current) message.success(t('recorder.saved'));
+        const result = await passthroughSession.done;
+        if (active.current) {
+          if (result.reason) message.warning(t('recorder.interrupted'));
+          else message.success(t('recorder.saved'));
+        }
         return;
       }
       const extension = mime!.includes('mp4') ? '.mp4' : '.webm';
@@ -170,8 +183,11 @@ export const Recorder = () => {
       recording.current = session;
       setElapsed(0);
       setState('recording');
-      await session.done;
-      if (active.current) message.success(t('recorder.saved'));
+      const result = await session.done;
+      if (active.current) {
+        if (result.reason) message.warning(t('recorder.interrupted'));
+        else message.success(t('recorder.saved'));
+      }
     } catch (error) {
       if (!session) await writer?.abort().catch(() => {});
       if (active.current && !(error instanceof DOMException && error.name === 'AbortError')) {
@@ -184,6 +200,7 @@ export const Recorder = () => {
         );
       }
     } finally {
+      unwatchAudio();
       source?.dispose();
       recording.current = null;
       busy.current = false;

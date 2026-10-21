@@ -77,20 +77,22 @@ test('write failure aborts the file and releases recording tracks', async () => 
   assert.equal(aborted, true);
   assert.equal(f.track.stopped, true);
 });
-test('slow storage cannot create an unbounded pending queue', async () => {
+test('buffer limit stops capture but drains accepted and final chunks', async () => {
+  const saved = [];
   let aborted = false;
   const f = fixture({
-    write: async () => {},
-    close: async () => assert.fail(),
+    write: async (blob) => saved.push(await blob.text()),
+    close: async () => {},
     abort: async () => {
       aborted = true;
     }
   });
   const s = recordStream(f.stream, f.writer, 'video/webm', 8);
-  const rejection = assert.rejects(s.done, /recording-backpressure/);
+  const done = s.done;
   FakeRecorder.last.chunk('too much data');
-  await rejection;
-  assert.equal(aborted, true);
+  assert.equal((await done).reason, 'buffer-limit');
+  assert.equal(aborted, false);
+  assert.deepEqual(saved, ['too much data', 'last']);
 });
 test('source ending finishes file and repeated stop is harmless', async () => {
   let closed = 0;

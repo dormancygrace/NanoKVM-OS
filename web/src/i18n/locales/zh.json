@@ -64,6 +64,7 @@
     "stop": "停止录制",
     "saving": "正在保存…",
     "saved": "录制已保存",
+    "interrupted": "录制不完整，已有内容已保存。",
     "unsupported": "录制需要 HTTPS 及支持文件保存的浏览器，例如 Chrome 或 Edge",
     "captureDisabled": "请启用视频采集",
     "noVideo": "请等待视频后再录制",

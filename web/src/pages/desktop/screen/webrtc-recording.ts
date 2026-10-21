@@ -61,6 +61,7 @@ export function receiverRecording(
     }
     current.onPacket({
       key: frame.key,
+      receivedAt: frame.receivedAt,
       timestamp: current.clock.microseconds(frame.rtpTimestamp),
       width: current.width,
       height: current.height,

@@ -62,6 +62,23 @@ func waitForStatus(t *testing.T, name, want string) string {
 	}
 }
 
+// Script exit and pipe draining are independent: a short script can publish
+// its exit status before head has copied the log. Wait for the bytes separately.
+func waitForAutostartLog(t *testing.T, name, want string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		data, err := os.ReadFile(autostartBase(name) + ".log")
+		if err == nil && string(data) == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s log = %q, %v; want %q", name, data, err, want)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func TestRunAutostartOncePerBootWithLogAndStatus(t *testing.T) {
 	root := temporaryAutostart(t)
 	counter := filepath.Join(t.TempDir(), "count")
@@ -91,12 +108,8 @@ func TestRunAutostartOncePerBootWithLogAndStatus(t *testing.T) {
 	if data, _ := os.ReadFile(counter); string(data) != "started\n" {
 		t.Fatalf("ran %q times", string(data))
 	}
-	if data, _ := os.ReadFile(autostartBase("ok.sh") + ".log"); strings.TrimSpace(string(data)) != root {
-		t.Fatalf("ok.sh log %q, want its directory", string(data))
-	}
-	if info, err := os.Stat(autostartBase("loud.sh") + ".log"); err != nil || info.Size() != autostartLogLimit {
-		t.Fatalf("loud.sh log size %v, %v", info, err)
-	}
+	waitForAutostartLog(t, "ok.sh", root+"\n")
+	waitForAutostartLog(t, "loud.sh", strings.Repeat("x", autostartLogLimit))
 	status := autostartStatus([]string{"ok.sh", "loud.sh", "never.sh"})
 	if status["ok.sh"] != "exited 3" || status["loud.sh"] != "exited 0" || status["never.sh"] != "" {
 		t.Fatalf("status %v", status)
@@ -148,10 +161,7 @@ func TestAutostartPreservesNamesAndSeparateLogs(t *testing.T) {
 		if got := waitForStatus(t, name, "exited"); got != "exited 0" {
 			t.Fatalf("%s: %s", name, got)
 		}
-		data, err := os.ReadFile(autostartBase(name) + ".log")
-		if err != nil || string(data) != name+"\n" {
-			t.Errorf("%s log = %q, %v", name, data, err)
-		}
+		waitForAutostartLog(t, name, name+"\n")
 	}
 }
 

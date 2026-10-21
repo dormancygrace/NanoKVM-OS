@@ -190,11 +190,15 @@ func TestVideoCaptureStopInterruptsAndCloseWaitsForRead(t *testing.T) {
 	// The aborted read's slot was dropped; a new stream starts clean.
 	fakeCaptureReset(true)
 	next2 := worker.start(testCaptureParams, nil)
-	defer next2.Close()
+	defer func() {
+		fakeCaptureUnblock()
+		next2.Close()
+	}()
 	fakeCapturePush([][]byte{{9}}, 3, 0, 0)
 	if _, data, result, ok := next2.Next(0); !ok || result != 3 || !bytes.Equal(data, []byte{9}) {
 		t.Fatalf("restart: result %d data %x", result, data)
 	}
+	waitUntil(t, "restarted native read", readerWaiting)
 }
 
 func TestVideoCapturePauseExcludesReads(t *testing.T) {

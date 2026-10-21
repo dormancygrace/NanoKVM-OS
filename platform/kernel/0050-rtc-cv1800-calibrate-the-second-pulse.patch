@@ -4,8 +4,9 @@ Subject: [PATCH] rtc: cv1800: calibrate the second pulse to the 32K clock
 Without a 32K crystal the RTC counts the 32K RC oscillator, which runs near
 21 kHz on the SG2002, while the internal second pulse counts 32768 cycles:
 the RTC kept 0.65 of real time. Measure the clock against the 25 MHz crystal
-and set the second pulse to it, after probe and every 30 minutes, since the
-oscillator drifts some 200 ppm as the SoC warms up.
+and set the second pulse to it, after probe and every 30 minutes: the RC
+oscillator does not hold its rate (some 70 ppm within a run, more between
+boots).
 
 Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
 ---
@@ -47,7 +48,7 @@ diff --git a/drivers/rtc/rtc-cv1800.c b/drivers/rtc/rtc-cv1800.c
 +/* 32K cycles per measurement: about 0.2 s; the 24-bit count holds 0.67 s */
 +#define CALIB_PERIOD           4096
 +#define CALIB_REF_HZ           25000000ULL
-+/* The oscillator drifts some 200 ppm while the SoC warms up */
++/* The RC oscillator does not hold its rate: measure it again */
 +#define CALIB_INTERVAL         (30 * 60 * HZ)
  
  struct cv1800_rtc_priv {

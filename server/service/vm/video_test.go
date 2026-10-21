@@ -4,11 +4,14 @@ import (
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/proto"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -106,13 +109,25 @@ func TestVideoCapabilitiesListEveryChoice(t *testing.T) {
 	caps := videoCapabilities()
 	monitor := caps["monitor"].(gin.H)
 	modes := monitor["modes"].([]monitorModeCapability)
-	if len(modes) != 5 || modes[0].Height != 0 || modes[1].Height != 2160 {
+	if len(modes) != 9 || modes[0].Height != 0 || modes[1].Height != 2160 {
 		t.Fatalf("modes %+v", modes)
 	}
 	for _, m := range modes {
 		if !m.Available && m.Reason == "" {
 			t.Fatalf("unavailable mode without a reason: %+v", m)
 		}
+	}
+	// 16:10 and 21:9: a 21:9 id is its width, its height that of a 16:9 profile.
+	want := map[uint16][3]string{1600: {"2560", "1600", "16:10"}, 1200: {"1920", "1200", "16:10"},
+		3440: {"3440", "1440", "21:9"}, 2560: {"2560", "1080", "21:9"}}
+	for _, m := range modes[5:] {
+		w, ok := want[m.ID]
+		if !ok || fmt.Sprint(m.Width) != w[0] || fmt.Sprint(m.Height) != w[1] || m.Aspect != w[2] {
+			t.Errorf("wider mode %+v", m)
+		}
+	}
+	if aspects := monitor["aspects"].([]string); len(aspects) != 3 || aspects[0] != "16:9" {
+		t.Errorf("aspects %v", aspects)
 	}
 	tiers := caps["stream"].(gin.H)["rateTiers"].([]common.CaptureRateTier)
 	if tiers[len(tiers)-1].FPS != 30 {
@@ -146,7 +161,8 @@ func TestVideoCapabilitiesListModeCodecs(t *testing.T) {
 	modes := videoCapabilities()["monitor"].(gin.H)["modes"].([]monitorModeCapability)
 	for _, m := range modes {
 		want := []string{"h264", "h265"}
-		if m.Height == 2160 || (m.Height == 0 && m.EffectiveHeight == 2160) {
+		// H.264 encodes up to 2560 wide: 3840x2160 and 3440x1440 need H.265.
+		if m.Width > 2560 || (m.Height == 0 && m.EffectiveHeight == 2160) {
 			want = []string{"h265"}
 		}
 		if len(m.Codecs) != len(want) || m.Codecs[0] != want[0] {
@@ -179,5 +195,30 @@ func TestVideoCapabilitiesMarkH264UnavailableAt4K(t *testing.T) {
 	fakeCapture(t, 2560, 1440, 0)
 	if got := h264(); !got.Available {
 		t.Fatalf("1440p: %+v", got)
+	}
+}
+
+// The "monitor" setting takes the 16:10 and 21:9 ids, checks their video
+// memory by pixels, and needs an LT6911UXC for them.
+func TestMonitorSettingValidatesWiderProfiles(t *testing.T) {
+	qhd := common.VideoPool{MiB: 56}
+	for value, want := range map[int]int{1200: -3, 2560: -3, 1600: -3, 3440: -3, 600: -1, 1920: -1} {
+		err := validateScreenSettingFor(proto.SetScreenReq{Type: "monitor", Value: value}, nil, qhd)
+		if err == nil || err.code != want {
+			t.Errorf("%d: %+v, want code %d", value, err, want)
+		}
+	}
+	// Pixels above 2560x1440 need the UHD pool, whatever the receiver.
+	err := validateScreenSettingFor(proto.SetScreenReq{Type: "monitor", Value: 1600}, nil, qhd)
+	if err == nil || !strings.Contains(err.msg, "2560x1600 requires the UHD video memory") {
+		t.Errorf("1600 on QHD: %+v", err)
+	}
+	// 2560x1080 fits QHD; without an LT6911UXC it is refused for the receiver.
+	err = validateScreenSettingFor(proto.SetScreenReq{Type: "monitor", Value: 2560}, nil, qhd)
+	if err == nil || !strings.Contains(err.msg, "LT6911UXC") {
+		t.Errorf("2560 without UXC: %+v", err)
+	}
+	if err := validateScreenSettingFor(proto.SetScreenReq{Type: "monitor", Value: 1440}, nil, qhd); err != nil {
+		t.Errorf("1440 on QHD: %+v", err)
 	}
 }

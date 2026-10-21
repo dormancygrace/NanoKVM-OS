@@ -84,7 +84,8 @@ func MonitorTargetSize() (width, height int) {
 	if monitor == 0 {
 		monitor = AutoMonitorHeight()
 	}
-	return int(ResolutionMap[monitor]), int(monitor)
+	w, h := MonitorSize(monitor)
+	return int(w), int(h)
 }
 
 // H264SelectionAllowed reports whether H.264 may become the device codec with

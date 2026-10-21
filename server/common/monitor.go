@@ -98,6 +98,11 @@ func monitorProfilePath(height uint16) string {
 		// The LT6911C and LT6911D: the 720p and 1080p profiles at 60 Hz.
 		return cubeMonitorProfilePath(height)
 	}
+	if rates := widerMonitorRates[height]; len(rates) > 0 {
+		// The 16:10 and 21:9 profiles exist per rate only; the fastest stands
+		// for the profile.
+		return monitorRateProfilePath(height, rates[0])
+	}
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)
 	if height == 0 {
 		profile = "NanoKVM-stock.bin"
@@ -220,7 +225,12 @@ func savedMonitorResolutionLocked() uint16 {
 		return 0
 	}
 	height := uint16(value)
-	if _, ok := ResolutionMap[height]; !ok {
+	if _, ok := ResolutionMap[height]; !ok && !widerMonitorProfile(height) {
+		return 0
+	}
+	// A 16:10 or 21:9 id saved with an LT6911UXC means Auto under another
+	// receiver (a moved card): none of its files exists for that receiver.
+	if widerMonitorProfile(height) && !MonitorHighRefreshSupported() {
 		return 0
 	}
 	return height

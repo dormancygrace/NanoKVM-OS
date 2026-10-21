@@ -226,7 +226,7 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 	resolution := savedPortraitResolutionLocked()
 	if update.Resolution != nil {
 		height = *update.Resolution
-		if _, ok := ResolutionMap[height]; !ok {
+		if _, ok := ResolutionMap[height]; !ok && !widerMonitorProfile(height) {
 			return fmt.Errorf("unsupported monitor resolution")
 		}
 		if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 {

@@ -192,6 +192,7 @@
     "imageHint": "Común a todos los espectadores.",
     "mode": "Modo",
     "resolution": "Resolución",
+    "aspect": "Relación de aspecto",
     "frameRateHint": "El monitor NanoKVM se actualiza a esta frecuencia, así que el ordenador la renderiza. Una nueva resolución empieza en su máximo, {{value}} fps; bájela para ahorrar tráfico.",
     "frameRateFixedHint": "El receptor mantiene su propia frecuencia de actualización; la transmisión lleva como máximo {{value}} fps.",
     "modeCustom": "Personalizado: {{value}}",

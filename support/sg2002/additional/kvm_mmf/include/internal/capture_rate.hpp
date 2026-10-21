@@ -13,10 +13,15 @@ struct CaptureRateTier {
 // and UHD at 30 fps; 1080p gets 100 of the about 109 fps it reaches, which
 // leaves room for the per-frame overhead. 1088 is the legacy aligned FHD
 // width, not an additional resolution tier.
+// 2560x1600 runs at 50 (at 60 the capture delivered about 50 and H.265 fell
+// to 15 fps), 3440x1440 at 40 (at 50 one frame takes the encoder a whole
+// frame period and every second one is lost).
 inline constexpr CaptureRateTier capture_rate_tiers[] = {
     {1280, 720, 120},
     {1920, 1088, 100},
     {2560, 1440, 60},
+    {2560, 1600, 50},
+    {3440, 1440, 40},
     {0, 0, 30},
 };
 // Above QHD at 50 fps one frame takes the encoder about a whole frame period.

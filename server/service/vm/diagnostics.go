@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -566,6 +567,11 @@ func monitorProfile() string {
 	}
 	if value == "720" || value == "1080" || value == "1440" || value == "2160" {
 		return value
+	}
+	// 16:10 and 21:9 profiles by their size (a 21:9 id is its width).
+	if id, err := strconv.Atoi(value); err == nil && common.ValidMonitorProfile(id) {
+		width, height := common.MonitorSize(uint16(id))
+		return fmt.Sprintf("%dx%d", width, height)
 	}
 	return ""
 }

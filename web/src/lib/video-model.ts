@@ -16,8 +16,13 @@ export type Reason =
   | 'h264-4k';
 
 export type MonitorMode = {
+  // The value of the monitor setting: the height of a 16:9 or 16:10 profile,
+  // the width of a 21:9 one; absent on older servers (then the height).
+  id?: number;
   height: number;
   width: number;
+  // 16:9, 16:10 or 21:9; absent on older servers (16:9).
+  aspect?: string;
   // Auto (height 0): the size it stands for, 0 when it is the stock profile.
   effectiveWidth?: number;
   effectiveHeight?: number;
@@ -66,6 +71,8 @@ export type VideoCapabilities = {
     selected: number;
     refreshHz: number;
     modes: MonitorMode[];
+    // Absent on older servers, which offer 16:9 only.
+    aspects?: string[];
     portrait: { enabled: boolean; resolution: number; profiles: PortraitProfile[] };
   };
   stream: {
@@ -177,8 +184,20 @@ export function portraitProfile(caps: VideoCapabilities, resolution: number) {
   return caps.monitor.portrait.profiles.find((p) => p.resolution === resolution);
 }
 
-export function monitorMode(caps: VideoCapabilities, height: number) {
-  return caps.monitor.modes.find((m) => m.height === height);
+export const DEFAULT_ASPECT = '16:9';
+
+// The monitor setting of a mode (see MonitorMode.id).
+export function modeId(mode: MonitorMode) {
+  return mode.id ?? mode.height;
+}
+
+export function monitorMode(caps: VideoCapabilities, id: number) {
+  return caps.monitor.modes.find((m) => modeId(m) === id);
+}
+
+// The aspect ratios the monitor offers, 16:9 first.
+export function monitorAspects(caps: VideoCapabilities) {
+  return caps.monitor.aspects?.length ? caps.monitor.aspects : [DEFAULT_ASPECT];
 }
 
 // The size the encoder produces: the input fitted into the stream limit (a
@@ -228,7 +247,7 @@ export function monitorTarget(draft: VideoDraft, caps: VideoCapabilities) {
   }
   return draft.portrait
     ? { width: profile?.width ?? 0, height: draft.portrait, refresh }
-    : { width: mode?.width ?? 0, height: draft.monitor, refresh };
+    : { width: mode?.width ?? 0, height: mode?.height || draft.monitor, refresh };
 }
 
 // Whether MJPEG cannot run for a draft: its input (the monitor the draft
@@ -240,9 +259,7 @@ export function mjpegBlocked(draft: VideoDraft, caps: VideoCapabilities) {
   const changesMonitor =
     !draft.portrait && caps.monitor.programmable && draft.monitor !== caps.monitor.selected;
   const input =
-    changesMonitor && draft.monitor
-      ? { width: monitorMode(caps, draft.monitor)?.width ?? 0, height: draft.monitor }
-      : caps.input;
+    changesMonitor && draft.monitor ? monitorSize(monitorMode(caps, draft.monitor)) : caps.input;
   return Math.max(input.width, input.height) > maxSide;
 }
 
@@ -385,6 +402,8 @@ export type ResolutionChoice = {
   key: string;
   monitor: number; // the draft's monitor setting; ignored for portrait choices
   portrait: number;
+  // The monitor's aspect ratio; '' for portrait and fixed-receiver choices.
+  aspect: string;
   width: number;
   height: number;
   rates: number[];
@@ -405,6 +424,7 @@ export function resolutionChoices(caps: VideoCapabilities): ResolutionChoice[] {
         key: resolutionKey('i', height),
         monitor: caps.monitor.selected,
         portrait: 0,
+        aspect: '',
         width,
         height,
         rates: FPS_CHOICES.filter((fps) => fps <= ceiling && fps >= caps.stream.minFps),
@@ -414,11 +434,12 @@ export function resolutionChoices(caps: VideoCapabilities): ResolutionChoice[] {
   }
   const choices: ResolutionChoice[] = [];
   for (const mode of caps.monitor.modes) {
-    if (!mode.height) continue; // Auto stands for one of the sizes listed
+    if (!modeId(mode)) continue; // Auto stands for one of the sizes listed
     choices.push({
-      key: resolutionKey('m', mode.height),
-      monitor: mode.height,
+      key: resolutionKey('m', modeId(mode)),
+      monitor: modeId(mode),
       portrait: 0,
+      aspect: mode.aspect ?? DEFAULT_ASPECT,
       width: mode.width,
       height: mode.height,
       rates: [...mode.rates],
@@ -431,6 +452,7 @@ export function resolutionChoices(caps: VideoCapabilities): ResolutionChoice[] {
       key: resolutionKey('p', profile.resolution),
       monitor: caps.monitor.selected,
       portrait: profile.resolution,
+      aspect: '',
       width: profile.width,
       height: profile.resolution,
       rates: [...(profile.rates ?? [profile.rate])],

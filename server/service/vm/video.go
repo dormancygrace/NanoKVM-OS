@@ -25,8 +25,12 @@ const (
 var captureInput = common.CaptureInputSize
 
 type monitorModeCapability struct {
+	// ID is the value of the "monitor" setting: the height of a 16:9 or 16:10
+	// profile, the width of a 21:9 one (common.MonitorSize).
+	ID     uint16 `json:"id"`
 	Height uint16 `json:"height"`
 	Width  uint16 `json:"width"`
+	Aspect string `json:"aspect"`
 	// Auto (height 0): the size it stands for; 0 for the stock profile.
 	EffectiveWidth  uint16 `json:"effectiveWidth,omitempty"`
 	EffectiveHeight uint16 `json:"effectiveHeight,omitempty"`
@@ -112,15 +116,15 @@ func videoCapabilities() gin.H {
 	portrait, portraitSupported := common.MonitorPortraitStatus()
 	portraitMax := common.PortraitMaxSupported()
 
-	mode := func(height uint16, needsLive bool, memoryOK bool) monitorModeCapability {
-		m := monitorModeCapability{Height: height, Width: common.ResolutionMap[height],
-			Rates: common.MonitorRates(height), Available: programmable}
+	mode := func(id uint16, needsLive bool, memoryOK bool) monitorModeCapability {
+		width, height := common.MonitorSize(id)
+		m := monitorModeCapability{ID: id, Height: height, Width: width, Aspect: common.MonitorAspect(id),
+			Rates: common.MonitorRates(id), Available: programmable}
 		if m.Rates == nil {
 			m.Rates = []int{}
 		}
-		if height == 0 {
-			m.EffectiveHeight = common.AutoMonitorHeight()
-			m.EffectiveWidth = common.ResolutionMap[m.EffectiveHeight]
+		if id == 0 {
+			m.EffectiveWidth, m.EffectiveHeight = common.MonitorSize(common.AutoMonitorHeight())
 			m.Codecs = modeCodecs(m.EffectiveWidth, m.EffectiveHeight)
 		} else {
 			m.Codecs = modeCodecs(m.Width, m.Height)
@@ -133,12 +137,19 @@ func videoCapabilities() gin.H {
 		}
 		return m
 	}
+	pool := common.BootedVideoPool()
+	fits := func(id uint16) bool { return common.MonitorState{Resolution: id}.FitsVideoPool(pool) == nil }
 	monitorModes := []monitorModeCapability{
 		mode(0, false, true),
 		mode(2160, true, uhd),
 		mode(1440, true, qhd),
 		mode(1080, false, true),
 		mode(720, false, true),
+		// 16:10 and 21:9: live EDID writes only (an LT6911UXC outside a Cube).
+		mode(1600, true, fits(1600)),
+		mode(1200, true, fits(1200)),
+		mode(3440, true, fits(3440)),
+		mode(2560, true, fits(2560)),
 	}
 
 	portraitProfile := func(resolution, width uint16, rate int, codecs, transports []string, ok bool) portraitCapability {
@@ -194,6 +205,7 @@ func videoCapabilities() gin.H {
 			"selected":           common.ReadVideoValue("/etc/kvm/monitor_resolution"),
 			"refreshHz":          common.MonitorRefreshHz(),
 			"modes":              monitorModes,
+			"aspects":            common.MonitorAspects,
 			"portrait": gin.H{
 				"enabled": portrait, "resolution": common.PortraitResolution(),
 				"profiles": portraitProfiles,

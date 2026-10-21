@@ -135,7 +135,7 @@ jobs:
                    alpine-recovery-password alpine-recovery-settings alpine-firstboot-storage-errors alpine-service-deps board-selection usb-state capture-restart \
                    s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start \
                    mmf-light-link native-bundle-abi capture-colour-switch capture-output-snapshot monitor-edids edid-rgb-range video-pool-native nanokvm-service-stop net-probe server-supervisor oled-detect oled-ip-window platform-build compare-outputs release-build release-workflow next-release next-rustdesk-revision assemble-apk-repo package-versions \
-                   portrait-edid serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \
+                   portrait-edid wide-monitor-edids serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \
                    app-trigger keys-repository resource-trim rustdesk-c906-config stock-profile dhcp-options cache-cleanup; do
             echo "::group::tests/test-$t.py"; python3 "tests/test-$t.py"; echo "::endgroup::"
           done

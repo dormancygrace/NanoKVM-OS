@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
   BITRATE_CHOICES,
+  DEFAULT_ASPECT,
   directCaptureApplies,
   draftAutoBitrate,
   draftChanges,
@@ -13,6 +14,7 @@ import {
   effectiveFps,
   h264BlockReason,
   mjpegBlocked,
+  monitorAspects,
   monitorTarget,
   QUALITY_CHOICES,
   resolutionChoices,
@@ -205,7 +207,17 @@ export const VideoForm = ({
       disabled: !c.available
     };
   };
-  const landscape = choices.filter((c) => !c.portrait);
+  // The aspect ratio of the landscape monitor: the current resolution's, 16:9
+  // in portrait or for a size no profile matches. Picking another one moves the
+  // draft to that ratio's first available size.
+  const aspects = monitorAspects(caps);
+  const aspect = current?.aspect || DEFAULT_ASPECT;
+  const aspectOptions = aspects.map((value) => ({
+    value,
+    label: value,
+    disabled: !choices.some((c) => !c.portrait && c.aspect === value && c.available)
+  }));
+  const landscape = choices.filter((c) => !c.portrait && (!c.aspect || c.aspect === aspect));
   const portrait = choices.filter((c) => c.portrait);
   const out = draftSize(draft, caps);
   const resolutionOptions = [
@@ -253,6 +265,24 @@ export const VideoForm = ({
             {t(admin ? 'videoSettings.imageHint' : 'videoSettings.userHint')}
           </p>
         </div>
+        {caps.monitor.programmable &&
+          aspects.length > 1 &&
+          row(
+            t('videoSettings.aspect'),
+            <Select
+              className="w-full"
+              aria-label={t('videoSettings.aspect')}
+              value={aspect}
+              options={aspectOptions}
+              disabled={busy || !admin}
+              onChange={(value: string) => {
+                const choice = choices.find(
+                  (c) => !c.portrait && c.aspect === value && c.available
+                );
+                if (choice) setDraft((d) => withResolution(d, choice, caps));
+              }}
+            />
+          )}
         {row(
           t('videoSettings.resolution'),
           <Select

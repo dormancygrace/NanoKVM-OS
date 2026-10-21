@@ -85,6 +85,9 @@ func MonitorRates(height uint16) []int {
 	if height == 0 {
 		height = autoMonitorHeight()
 	}
+	if rates, ok := widerMonitorRates[height]; ok {
+		return append([]int(nil), rates...)
+	}
 	return append([]int(nil), monitorRates[height]...)
 }
 
@@ -133,7 +136,7 @@ func monitorProfilePathAt(height uint16, fps int) string {
 			effective = autoMonitorHeight()
 		}
 		if rate := MonitorRefreshFor(height, profileRate(fps)); rate > 0 {
-			path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-monitor-%d-%d.bin", effective, rate))
+			path := monitorRateProfilePath(effective, rate)
 			if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
 				return path
 			}
@@ -164,7 +167,7 @@ func MonitorRefreshHz() int {
 		if effective == 0 {
 			effective = autoMonitorHeight()
 		}
-		path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-monitor-%d-%d.bin", effective, rate))
+		path := monitorRateProfilePath(effective, rate)
 		if programmedMonitorProfileLocked(path, height) {
 			return rate
 		}

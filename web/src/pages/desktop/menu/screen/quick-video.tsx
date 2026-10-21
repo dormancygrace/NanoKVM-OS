@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
   BITRATE_CHOICES,
+  DEFAULT_ASPECT,
   draftAutoBitrate,
   draftIssues,
   draftPlayable,
@@ -145,9 +146,11 @@ export const QuickVideo = () => {
     const codec = withResolution(saved, choice, caps).codec;
     return mjpeg || codec === saved.codec ? undefined : codec;
   };
-  // A resolution applies at its fastest rate; Settings lowers it.
+  // A resolution applies at its fastest rate; Settings lowers it. The menu
+  // keeps to the current aspect ratio; Settings changes it.
+  const aspect = current?.aspect || DEFAULT_ASPECT;
   const modeItems: Item[] = resolutionChoices(caps)
-    .filter((c) => c.key === current?.key || (c.available && !c.portrait))
+    .filter((c) => c.key === current?.key || (c.available && !c.portrait && c.aspect === aspect))
     .map((choice) => {
       const switchedCodec = choice.key === current?.key ? undefined : modeCodec(choice);
       return {

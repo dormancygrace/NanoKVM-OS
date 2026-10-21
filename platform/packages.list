@@ -60,6 +60,7 @@ base  file  /usr/libexec/nanokvm/console-policy            0755  firmware/alpine
 base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
 base  file  /usr/libexec/nanokvm/firstboot-storage        0755  firmware/alpine/compat/nanokvm-firstboot-storage
 base  file  /usr/libexec/nanokvm/check-volume             0755  firmware/alpine/compat/nanokvm-check-volume
+base  file  /usr/libexec/nanokvm/usb-flags-migrate        0755  firmware/alpine/compat/nanokvm-usb-flags-migrate
 base  file  /usr/libexec/nanokvm/wpa-passphrase-compat    0755  firmware/alpine/compat/wpa-passphrase-compat
 # The Buildroot-era init scripts live once below legacy/; /etc/init.d links to them.
 base  dir   /usr/libexec/nanokvm/legacy                   0700

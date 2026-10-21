@@ -38,6 +38,13 @@ if [ -e /etc/runlevels/default/dbus ] && [ -x /etc/init.d/nanokvm-mdns ] &&
     rc-update del dbus default
 fi
 
+# The USB flags move from the FAT /boot to /etc/kvm/usb on the root file
+# system; the running gadget keeps its configuration until it restarts.
+if [ -x /usr/libexec/nanokvm/usb-flags-migrate ]; then
+    /usr/libexec/nanokvm/usb-flags-migrate ||
+        echo "Could not move the USB flags from /boot; nanokvm-usb retries at start." >&2
+fi
+
 # fstab /boot noauto: nanokvm-storage mounts the boot and data partitions
 # itself, checking a volume left dirty by a power loss; localmount would mount
 # them before that. Only the two NanoKVM entries change.

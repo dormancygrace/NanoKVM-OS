@@ -9,6 +9,8 @@ depend() {
 
 start() {
     ebegin "Starting NanoKVM USB gadget"
+    # Flags an older release left on /boot move to /etc/kvm/usb first.
+    /usr/libexec/nanokvm/usb-flags-migrate || ewarn "Could not move the USB flags from /boot"
     /usr/libexec/nanokvm/legacy/S03usbdev start || return 1
     /usr/libexec/nanokvm/legacy/S30usbnet start
     eend $?

@@ -10,7 +10,10 @@ import (
 	"NanoKVM-Server/service/hid"
 )
 
-var imageBootMarkers = []string{"/boot/usb.disk0", "/boot/usb.userdisk"}
+var imageBootMarkers = []string{
+	filepath.Join(hid.USBFlagsDir, "usb.disk0"),
+	filepath.Join(hid.USBFlagsDir, "usb.userdisk"),
+}
 
 // Image mutations and gadget composition changes share the HID lock. The
 // check and rename/remove must be one operation, including on case-insensitive

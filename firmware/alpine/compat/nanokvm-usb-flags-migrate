@@ -1,0 +1,72 @@
+#!/bin/sh
+# Move the USB gadget flags from the FAT boot partition to /etc/kvm/usb on the
+# F2FS root, where a rename survives a power cut.
+#
+# Releases before this one kept them on /boot, and an older release that a
+# channel rollback installs writes them there again: whenever /boot holds any
+# of them, they are the newest complete set and replace /etc/kvm/usb.
+#
+# A power cut at any point leaves a state the next run finishes:
+# 1. the set is copied to usb.new; usb.new/.complete, written last and
+#    synced, lists the names it took from /boot;
+# 2. those names are removed from /boot, so a partial cleanup can never pass
+#    for a set an older release wrote;
+# 3. usb is moved to usb.old and usb.new to usb; .complete and usb.old go last.
+#
+# Run by nanokvm-usb before the gadget starts and by the nanokvm-base upgrade.
+set -u
+
+boot=${NANOKVM_USB_FLAGS_BOOT:-/boot}
+dir=${NANOKVM_USB_FLAGS_DIR:-/etc/kvm/usb}
+new=$dir.new
+old=$dir.old
+names='usb.dev usb.disk0 usb.disk0.ro usb.userdisk usb.rndis0 usb.ncm usb.acm
+usb.audio disable_hid usb.disable_keyboard usb.disable_relative
+usb.disable_absolute usb.vid usb.pid usb.manufacturer usb.product
+usb.serialnumber usb.notwakeup usb.internet rndis.nodhcpd rndis.ipv4_prefix'
+
+# The boot partition is the source of every step but the last; without the
+# mount there is nothing to read and nothing to clean.
+boot_ready() {
+    [ -n "${NANOKVM_USB_FLAGS_BOOT:-}" ] || mountpoint -q "$boot"
+}
+
+# Steps 2 and 3 for a complete usb.new.
+finish() {
+    for name in $(cat "$new/.complete"); do
+        rm -f "$boot/$name" || return 1
+    done
+    sync || return 1
+    rm -rf "$old" || return 1
+    if [ -d "$dir" ]; then
+        mv "$dir" "$old" || return 1
+    fi
+    mv "$new" "$dir" && sync || return 1
+    rm -f "$dir/.complete" && rm -rf "$old" && sync
+}
+
+# Leftovers of a run cut short after the last rename.
+rm -f "$dir/.complete" && rm -rf "$old" || exit 1
+# A complete usb.new waits for the mount too: finishing it without step 2
+# would leave the recorded names on /boot.
+boot_ready || exit 0
+if [ -e "$new/.complete" ]; then
+    finish || exit 1
+fi
+
+present=
+for name in $names; do
+    [ -f "$boot/$name" ] && present="$present $name"
+done
+[ -n "$present" ] || exit 0
+
+rm -rf "$new" && mkdir -p "$new" || exit 1
+for name in $present; do
+    # Values matter (the image path in usb.disk0, the identity strings);
+    # FAT permissions do not.
+    cp "$boot/$name" "$new/$name" && chmod 0644 "$new/$name" || exit 1
+done
+sync || exit 1
+printf '%s\n' $present > "$new/.complete" && sync || exit 1
+finish || exit 1
+echo "Moved the USB flags from $boot to $dir:$present"

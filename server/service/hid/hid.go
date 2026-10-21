@@ -126,7 +126,7 @@ func (h *Hid) devices() []hidDevice {
 
 func (h *Hid) OpenNoLock() error {
 	h.CloseNoLock()
-	h.keyboardDisabled, h.relativeDisabled, h.absoluteDisabled = disabledHIDFunctions("/boot")
+	h.keyboardDisabled, h.relativeDisabled, h.absoluteDisabled = disabledHIDFunctions(USBFlagsDir)
 	descriptor, _ := os.ReadFile("/sys/kernel/config/usb_gadget/g0/functions/hid.GS2/report_desc")
 	h.windowsPointer = len(descriptor) > 1 && descriptor[0] == 5 && descriptor[1] == 0x0d
 
@@ -411,9 +411,9 @@ func (h *Hid) writeHID(device hidDevice, data []byte) error {
 	return nil
 }
 
-func disabledHIDFunctions(bootDir string) (keyboard, relative, absolute bool) {
+func disabledHIDFunctions(flagsDir string) (keyboard, relative, absolute bool) {
 	exists := func(name string) bool {
-		_, err := os.Stat(filepath.Join(bootDir, name))
+		_, err := os.Stat(filepath.Join(flagsDir, name))
 		return err == nil
 	}
 	all := exists("disable_hid")

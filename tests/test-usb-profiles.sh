@@ -29,7 +29,7 @@ if grep -Eq 'functions/(ncm|rndis|mass_storage)\.' "$hid_profile"; then
     fail "HID + ACM profile must not allocate USB network or mass-storage endpoints"
 fi
 
-grep -q '/boot/usb.acm' "$hid_profile" || fail "ACM function must be opt-in"
+grep -q '$conf/usb.acm' "$hid_profile" || fail "ACM function must be opt-in"
 grep -q '0x0624 > bcdDevice' "$hid_profile" ||
     fail "ACM profile must have a distinct USB descriptor revision"
 
@@ -46,6 +46,6 @@ acm_out=1
 # The full profile has six IN endpoints before ACM: three HID, two NCM/RNDIS
 # and one mass-storage. The server-side composition validator must therefore
 # prevent enabling ACM until enough optional functions have been disabled.
-grep -q '/boot/usb.acm' "$full_profile" || fail "full profile ACM must be opt-in"
+grep -q '$conf/usb.acm' "$full_profile" || fail "full profile ACM must be opt-in"
 
 echo "USB profile checks passed"

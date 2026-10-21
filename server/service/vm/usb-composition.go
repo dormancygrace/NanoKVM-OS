@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/service/stream/audio"
@@ -87,7 +88,7 @@ func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) erro
 		}
 	}
 	store := usbCompositionStore{
-		bootDir: "/boot", scriptPath: hid.USBDevScript,
+		bootDir: hid.USBFlagsDir, scriptPath: hid.USBDevScript,
 		install: hid.InstallModeScript,
 		run: func(action string) error {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -204,12 +205,18 @@ func snapshotUSBFile(path string) (usbFileSnapshot, error) {
 	return usbFileSnapshot{exists: true, mode: info.Mode().Perm(), data: data}, err
 }
 
+// writeUSBFile replaces or removes a flag file; the rename or removal is
+// durable once it returns (the flags are on F2FS with fsync_mode=posix, where
+// that takes a sync of the directory).
 func writeUSBFile(path string, snapshot usbFileSnapshot) error {
 	if !snapshot.exists {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(path); err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
 			return err
 		}
-		return nil
+		return atomicfile.SyncDir(filepath.Dir(path))
 	}
 	f, err := os.CreateTemp(filepath.Dir(path), ".usb-composition-")
 	if err != nil {
@@ -229,7 +236,10 @@ func writeUSBFile(path string, snapshot usbFileSnapshot) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	return os.Rename(f.Name(), path)
+	if err := os.Rename(f.Name(), path); err != nil {
+		return err
+	}
+	return atomicfile.SyncDir(filepath.Dir(path))
 }
 
 // Apply a whole draft with one stop/start. Runtime failures restore the exact
@@ -241,6 +251,11 @@ func (store usbCompositionStore) apply(current, candidate usbComposition) error 
 	}
 	if current == candidate {
 		return nil
+	}
+	// The flags directory comes with the root file system and with the
+	// migration from /boot; a root without it gets one here.
+	if err := os.MkdirAll(store.bootDir, 0o755); err != nil {
+		return err
 	}
 
 	// Alpine exposes the legacy script through a compatibility symlink. Snapshot

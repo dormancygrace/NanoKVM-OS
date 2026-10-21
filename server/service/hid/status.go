@@ -29,6 +29,13 @@ const (
 	USBDevScript = "/etc/init.d/S03usbdev"
 )
 
+// USBFlagsDir holds the USB gadget settings (usb.*, disable_hid, rndis.*):
+// the composition, identity, user disk and USB internet flags that S03usbdev,
+// S03usbhid and S30usbnet read at start. It is on the F2FS root, where a
+// rename survives a power cut; they were on the FAT /boot partition before
+// (usb-flags-migrate moves them).
+var USBFlagsDir = "/etc/kvm/usb"
+
 var modeMap = map[string]string{
 	"0x0510": ModeNormal,
 	"0x0511": ModeNormal,
@@ -68,7 +75,7 @@ func InputStatus() gin.H {
 	h := GetHid()
 	h.Lock()
 	defer h.Unlock()
-	keyboard, relative, absolute := disabledHIDFunctions("/boot")
+	keyboard, relative, absolute := disabledHIDFunctions(USBFlagsDir)
 	return gin.H{
 		"available": !keyboard || !relative || !absolute,
 		"keyboard":  !keyboard, "relative": !relative, "absolute": !absolute,

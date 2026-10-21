@@ -2,7 +2,7 @@
 # USB network service for the active NCM gadget composition.
 set -eu
 
-: "${NANOKVM_USB_NET_BOOT:=/boot}"
+: "${NANOKVM_USB_NET_BOOT:=/etc/kvm/usb}"
 : "${NANOKVM_USB_NET_RUN:=/run/nanokvm-usbnet}"
 : "${NANOKVM_USB_NET_CONFIG:=/sys/kernel/config/usb_gadget/g0/configs/c.1}"
 : "${NANOKVM_USB_NET_UID:=/sys/class/cvi-base/base_uid}"

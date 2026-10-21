@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/hid"
 )
 
 // The user disk: a writable FAT32 image on the data partition that the
@@ -26,7 +28,7 @@ var (
 	userDiskDir   = "/data/.nanokvm"
 	userDiskImage = "/data/.nanokvm/user-disk.img"
 	userDiskLun   = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.2/file"
-	userDiskFlag  = "/boot/usb.userdisk"
+	userDiskFlag  = filepath.Join(hid.USBFlagsDir, "usb.userdisk")
 	// BusyBox mkfs.vfat on the device makes FAT32 whatever the size and
 	// accepts -F and -s without minding them; dosfstools (the build hosts)
 	// needs them to make FAT32 with enough clusters at the small sizes.

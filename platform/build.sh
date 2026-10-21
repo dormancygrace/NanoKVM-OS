@@ -8,6 +8,7 @@
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08: cross toolchain, host tools, initramfs userland
 #   kernel     Linux 7.3 with kernel/*.patch and kernel/config
+#              (NANOKVM_KERNEL_PROFILE=debug adds kernel/config-debug.fragment)
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
 #   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
@@ -40,7 +41,10 @@
 # and with KEY. Both public keys must be in firmware/alpine/keys: the image
 # trusts those, and nanokvm-keys owns them. For local tests -d uses test keys
 # in OUTPUT/keys instead, created on the first run; such an image also trusts
-# them, so never publish it. With NANOKVM_PREVIOUS (the URL or directory of the
+# them, so never publish it. NANOKVM_KERNEL_PROFILE=debug builds the kernel and
+# its modules with perf, frame pointers and trace events (release
+# 7.3.0-nanokvm-os-rN-debug) for a debug boot.sd; no package step takes it.
+# With NANOKVM_PREVIOUS (the URL or directory of the
 # published repository's riscv64/ with packages.json) a package whose content
 # is unchanged keeps its published version and file (scripts/package-versions.py).
 set -euo pipefail
@@ -53,7 +57,7 @@ jobs=$(nproc)
 key=
 eckey=
 devkey=
-usage() { sed -n '2,45p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,49p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 while getopts o:j:k:e:dh opt; do
     case $opt in
         o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; e) eckey=$(realpath "$OPTARG") ;;
@@ -68,6 +72,18 @@ out=$(realpath -m "$out")
 steps=("$@")
 [ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
     native system tools server web firmware hashes payloads packages rootfs image)
+kernel_profile=${NANOKVM_KERNEL_PROFILE:-release}
+case "$kernel_profile" in
+    release) ;;
+    debug)
+        # A debug kernel goes onto a test card by hand, never into a package.
+        case " ${steps[*]} " in
+            *" payloads "* | *" packages "* | *" rootfs "* | *" image "*)
+                echo "NANOKVM_KERNEL_PROFILE=debug builds no packages or images; use kernel modules initramfs boot" >&2
+                exit 2 ;;
+        esac ;;
+    *) echo "NANOKVM_KERNEL_PROFILE: release or debug" >&2; exit 2 ;;
+esac
 # Fail before a long build, not at the signing steps.
 case " ${steps[*]} " in
     *" packages "* | *" rootfs "*)
@@ -105,6 +121,7 @@ version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alp
 image_version=${NANOKVM_IMAGE_VERSION:-$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")}
 profile=stock
 release=7.3.0-nanokvm-os-r2
+[ "$kernel_profile" = release ] || release=$release-debug
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
 # is the upstream Linux 7.3 release date (00:00 UTC).
 kernel_timestamp='Sun Oct 18 00:00:00 UTC 2026'
@@ -273,12 +290,21 @@ kernel() {
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"
+    # Kconfig takes the last assignment of an option.
+    [ "$kernel_profile" = release ] || cat "$here/kernel/config-debug.fragment" >> "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
     local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" LOCALVERSION= "KCFLAGS=$isa"
                 PAHOLE=nkos-no-pahole RUSTC=nkos-no-rustc BINDGEN=nkos-no-bindgen)
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
         KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" olddefconfig
-    cmp "$here/kernel/config" "$kbuild/.config"
+    if [ "$kernel_profile" = release ]; then
+        cmp "$here/kernel/config" "$kbuild/.config"
+    else
+        # Each debug option survives olddefconfig, or the fragment is stale.
+        grep '^CONFIG_' "$here/kernel/config-debug.fragment" | while read -r option; do
+            grep -qxF "$option" "$kbuild/.config" || { echo "debug kernel lacks $option" >&2; exit 1; }
+        done
+    fi
     grep -qx "CONFIG_LTO_NONE=y" "$kbuild/.config"
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
         KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" -j"$jobs" Image modules
@@ -453,7 +479,10 @@ initramfs() {
         done
     done
     "$kbuild/usr/gen_init_cpio" -t 0 "$i/initramfs.list" > "$i/initramfs.cpio"
-    "$host/zstd" -q -f -19 -T1 "$i/initramfs.cpio" -o "$img/initramfs.cpio.zst"
+    # lz4 legacy format, the one Linux unpacks: 0.24 s against 0.49 s for zstd
+    # -19 on the stand, though /init starts only 0.08 s sooner because the
+    # unpacking overlaps driver probing; the larger file costs U-Boot 16 ms.
+    "$host/lz4" -q -f -l -12 "$i/initramfs.cpio" "$img/initramfs.cpio.lz4"
     # Their licenses, from the toolchain step; nanokvm-kernel-sg2002 installs them.
     rm -rf "${img:?}/licenses/initramfs"
     mkdir -p "$img/licenses"
@@ -486,7 +515,7 @@ boot() {
         mv "$dtb.pad" "$dtb"
         [ "$(stat -c %s "$dtb")" = 32768 ]
         mkdir "$b/$profile"
-        cp "$b/Image.lz4" "$img/initramfs.cpio.zst" "$b/$profile/"
+        cp "$b/Image.lz4" "$img/initramfs.cpio.lz4" "$b/$profile/"
         cp "$dtb" "$b/$profile/board.dtb"
         cp "$here/boot/boot.its" "$b/$profile/boot.its"
         (cd "$b/$profile" && SOURCE_DATE_EPOCH=0 "$host/mkimage" -f boot.its boot.sd > /dev/null)

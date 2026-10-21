@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
+import { createAudioOutput } from '@/lib/audio-output.ts';
 import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
 import { publishUsbAudioStream } from '@/lib/usb-audio-stream.ts';
@@ -54,6 +55,11 @@ export const useUsbAudio = () => {
     }
   }, [wanted, volume]);
   const playback = useRef<Playback | undefined>(undefined);
+  const output = useRef<ReturnType<typeof createAudioOutput> | undefined>(undefined);
+  const closeOutput = useCallback(() => {
+    output.current?.close();
+    output.current = undefined;
+  }, []);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
   const wantedRef = useRef(wanted);
@@ -74,8 +80,7 @@ export const useUsbAudio = () => {
     old?.socket?.close();
     old?.peer?.close();
     old?.source?.disconnect();
-    old?.gain.disconnect();
-    if (old) void old.context.close();
+    // Keep the authorized output alive while the transport reconnects.
     setPlaying(false);
     setBusy(false);
   }, []);
@@ -97,8 +102,9 @@ export const useUsbAudio = () => {
       window.removeEventListener(usbCompositionChangedEvent, refresh);
       window.removeEventListener('nanokvm:usb-updated', refresh);
       disconnect();
+      closeOutput();
     };
-  }, [disconnect]);
+  }, [disconnect, closeOutput]);
 
   // Prefer the video connection: when it publishes an audio channel while
   // audio plays over the standalone connection, reconnect through it (the
@@ -114,11 +120,13 @@ export const useUsbAudio = () => {
   );
 
   const stop = useCallback(() => {
+    wantedRef.current = false;
     setWanted(false);
     setBlocked(false);
     setError('');
     disconnect();
-  }, [disconnect]);
+    closeOutput();
+  }, [disconnect, closeOutput]);
 
   useEffect(() => {
     if (!wanted || !available || blocked || error === 'session') return;
@@ -132,22 +140,22 @@ export const useUsbAudio = () => {
 
   async function start(automatic = false) {
     if (!automatic) {
+      wantedRef.current = true;
       setWanted(true);
       setBlocked(false);
     }
     if (playback.current) {
-      if (!automatic) void playback.current.context.resume();
+      if (!automatic) void output.current?.resume().catch(() => {});
       return;
     }
     setBusy(true);
     setError('');
     let current: Playback | undefined;
     try {
-      // Restore listening when autoplay permits; otherwise require an explicit resume gesture.
-      const context = new AudioContext({ latencyHint: 'interactive' });
-      const gain = context.createGain();
+      if (!output.current) output.current = createAudioOutput(setBlocked);
+      const sink = output.current;
+      const { context, gain } = sink;
       gain.gain.value = volumeRef.current / 100;
-      gain.connect(context.destination);
       current = { context, gain };
       playback.current = current;
       const active = current;
@@ -157,15 +165,14 @@ export const useUsbAudio = () => {
           disconnect();
         }
       };
-      active.timer = window.setTimeout(() => fail('timeout'), 30000);
-      const resumed = context.resume();
-      if (automatic && context.state !== 'running') {
-        setBlocked(true);
-        setBusy(false);
-      }
+      const resumed = sink.resume();
+      if (context.state !== 'running') setBusy(false);
       await resumed;
-      setBlocked(false);
       if (playback.current !== active) return;
+      setBusy(true);
+      // Autoplay may wait indefinitely for a gesture. Only time the connection
+      // once audio is authorized, so a delayed first click still restores it.
+      active.timer = window.setTimeout(() => fail('timeout'), 30000);
       const channel = getVideoAudio();
       if (channel) {
         listenThroughVideo(active, channel, fail);

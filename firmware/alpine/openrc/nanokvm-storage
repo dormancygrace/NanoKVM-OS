@@ -100,9 +100,21 @@ start() {
 
 # At shutdown the services using /data have stopped (they depend on this one):
 # release it and check it when the boot found it dirty.
+# The kernel sets the clock from the RTC at boot and writes it back only every
+# 11 minutes, and the RTC drifts in between: keep the time of a synchronised
+# clock for the next boot. An unsynchronised clock is left alone.
+save_rtc() {
+    local status
+    [ -e /dev/rtc0 ] || return 0
+    status=$(adjtimex 2>/dev/null | awk '$1 == "status:" { print $2 }')
+    [ -n "$status" ] && [ $((status & 64)) -eq 0 ] || return 0
+    hwclock -w -u 2>/dev/null || ewarn "Could not save the time to the RTC"
+}
+
 stop() {
     local dev
     yesno "$RC_GOINGDOWN" || return 0
+    save_rtc
     [ -s "$data_check" ] || return 0
     dev=$(cat "$data_check")
     ebegin "Checking $dev, left dirty by a power loss"

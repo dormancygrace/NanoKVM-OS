@@ -7,6 +7,7 @@ description="NanoKVM Ethernet and Wi-Fi setup"
 : "${NANOKVM_NETWORK_LEGACY_DIR:=/usr/libexec/nanokvm/legacy}"
 : "${NANOKVM_ETH_DISABLED:=/boot/eth.disabled}"
 : "${NANOKVM_WIFI_ETC_DIR:=/etc/kvm}"
+: "${NANOKVM_NETWORK_PENDING:=/run/nanokvm-network.pending}"
 
 depend() {
     # /boot holds the interface settings. The board service only applies the
@@ -15,7 +16,7 @@ depend() {
     need localmount
     use nanokvm-board
     provide net
-    before sshd nanokvm-app
+    before sshd
 }
 
 run_legacy() {
@@ -41,9 +42,8 @@ sdio_device_present() {
     return 1
 }
 
-start() {
+start_interfaces() {
     local started=0
-    ebegin "Starting NanoKVM network"
     export NANOKVM_WPA_PASSPHRASE=/usr/libexec/nanokvm/wpa-passphrase-compat
 
     # Ethernet and Wi-Fi are independent. A failed optional interface must not
@@ -73,15 +73,38 @@ start() {
         fi
     fi
 
-    if [ "$started" -eq 0 ]; then
-        eend 1 "No NanoKVM network interface started"
-        return 1
-    fi
+    [ "$started" -ne 0 ]
+}
+
+# The interfaces come up in the background: the services after this one, the
+# application among them, do not wait for the Ethernet link, its duplicate
+# address probe and Wi-Fi (about 5 s at boot). A failure goes to the log.
+start() {
+    ebegin "Starting NanoKVM network"
+    : > "$NANOKVM_NETWORK_PENDING" || { eend 1; return 1; }
+    (
+        start_interfaces >/dev/null 2>&1 ||
+            logger -t nanokvm-network "No NanoKVM network interface started"
+        rm -f "$NANOKVM_NETWORK_PENDING"
+    ) </dev/null >/dev/null 2>&1 &
     eend 0
 }
 
 stop() {
+    local n=0
     ebegin "Stopping NanoKVM network"
+    # A start still running in the background finishes first (at most 15 s).
+    while [ -e "$NANOKVM_NETWORK_PENDING" ] && [ "$n" -lt 150 ]; do
+        sleep 0.1
+        n=$((n + 1))
+    done
+    # Never race a slow start (e.g. several duplicate static addresses).
+    # Leave the marker with its worker and let OpenRC report a failed stop;
+    # restart must not launch another worker over the first one.
+    if [ -e "$NANOKVM_NETWORK_PENDING" ]; then
+        eend 1 "Network setup is still running; retry stopping it later"
+        return 1
+    fi
     stop_legacy S30wifi || true
     stop_legacy S30eth || true
     eend 0

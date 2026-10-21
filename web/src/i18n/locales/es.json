@@ -1349,7 +1349,7 @@
         },
         "headless": {
           "title": "Servidor sin monitor",
-          "description": "La consola serie y el disco virtual con su disco auxiliar, que contiene el script que configura el inicio de sesión serie, así que el servidor no necesita red. No aparece teclado ni ratón en el equipo; el escritorio remoto vuelve a añadir teclado, ratones y audio cuando está activado."
+          "description": "La consola serie y el disco virtual con su disco auxiliar, que contiene el script que configura el inicio de sesión serie, así que el servidor no necesita red. No aparece teclado ni ratón en el equipo. Al activar RustDesk, USB cambia a su configuración y se desconecta la consola serie."
         },
         "remote": {
           "title": "RustDesk",

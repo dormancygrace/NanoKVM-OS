@@ -46,10 +46,9 @@ func EnsureRemoteAccessUSB(withAudio bool) error {
 	if current == candidate {
 		return verifyLiveUSBComposition(candidate)
 	}
-	if err := applyLiveUSBComposition(h, current, candidate); err != nil {
-		return err
-	}
-	return followRemoteAccessMarker(remoteAccessMarkerPath, current, candidate)
+	return followRemoteAccessMarker(remoteAccessMarkerPath, current, candidate, func(next usbComposition) error {
+		return applyLiveUSBComposition(h, current, next)
+	})
 }
 
 func (s usbComposition) remoteAccessDefaults(withAudio bool) usbComposition {

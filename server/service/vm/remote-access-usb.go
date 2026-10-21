@@ -2,6 +2,8 @@ package vm
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 
 	"NanoKVM-Server/service/hid"
@@ -79,22 +81,38 @@ func enableRemoteAccessUSB(path string, current usbComposition, withAudio bool, 
 	if !ok || flagsOf(current) != marker.Applied {
 		marker.Before = flagsOf(current)
 	}
-	if err := apply(candidate); err != nil {
-		return err
-	}
 	marker.Applied = flagsOf(candidate)
-	return writeRemoteAccessMarker(path, marker)
+	return applyWithRemoteAccessMarker(path, marker, candidate, apply)
 }
 
 // followRemoteAccessMarker records a change RustDesk itself made while on
 // (its sound turned on), so turning it off still restores.
-func followRemoteAccessMarker(path string, current, candidate usbComposition) error {
+func followRemoteAccessMarker(path string, current, candidate usbComposition, apply func(usbComposition) error) error {
 	marker, ok := readRemoteAccessMarker(path)
 	if !ok || flagsOf(current) != marker.Applied {
-		return nil
+		return apply(candidate)
 	}
 	marker.Applied = flagsOf(candidate)
-	return writeRemoteAccessMarker(path, marker)
+	return applyWithRemoteAccessMarker(path, marker, candidate, apply)
+}
+
+// Persist recovery data before touching the gadget. If the USB transaction
+// fails (it rolls itself back), restore the exact prior marker too.
+func applyWithRemoteAccessMarker(path string, marker remoteAccessMarker, candidate usbComposition, apply func(usbComposition) error) error {
+	previous, err := snapshotUSBFile(path)
+	if err != nil {
+		return err
+	}
+	if err := writeRemoteAccessMarker(path, marker); err != nil {
+		return err
+	}
+	if err := apply(candidate); err != nil {
+		if restoreErr := writeUSBFile(path, previous); restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("restore RustDesk USB marker: %w", restoreErr))
+		}
+		return err
+	}
+	return nil
 }
 
 func restoreRemoteAccessUSB(path string, current usbComposition, apply func(usbComposition) error) error {

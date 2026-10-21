@@ -1349,7 +1349,7 @@
         },
         "headless": {
           "title": "Serveur sans écran",
-          "description": "La console série et le disque virtuel avec son disque d'assistance, qui contient le script configurant la connexion série : le serveur n'a besoin d'aucun réseau. Aucun clavier ni souris n'apparaît sur l'ordinateur ; le bureau à distance rajoute le clavier, les souris et l'audio lorsqu'il est activé."
+          "description": "La console série et le disque virtuel avec son disque d'assistance, qui contient le script configurant la connexion série : le serveur n'a besoin d'aucun réseau. Aucun clavier ni souris n'apparaît sur l'ordinateur. Activer RustDesk applique sa configuration USB et déconnecte la console série."
         },
         "remote": {
           "title": "RustDesk",

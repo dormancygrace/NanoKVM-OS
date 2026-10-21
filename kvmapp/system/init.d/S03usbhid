@@ -103,6 +103,9 @@ start_usb_dev(){
             _serial=$(head -n 1 /boot/usb.serialnumber)
         fi
         echo "$_serial" > strings/0x409/serialnumber
+    else
+        # g0 survives stop/start; remove a previously configured serial too.
+        echo "" > strings/0x409/serialnumber
     fi
     # The identity files are written by the USB settings page; a missing
     # file is the factory value.

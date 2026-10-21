@@ -2,6 +2,7 @@ package vm
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -187,4 +188,54 @@ func TestVerifyChecksTheGadgetIdentity(t *testing.T) {
 	if err := verifyUSBCompositionAt(root, s); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestHIDOnlySerialOverrideCanBeCleared(t *testing.T) {
+	data, err := os.ReadFile("../../../kvmapp/system/init.d/S03usbhid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(data)
+	start := strings.Index(script, "    if [ -e /boot/usb.acm ] ||")
+	end := strings.Index(script, "    # The identity files")
+	if start < 0 || end < start {
+		t.Fatal("serial initialization block not found")
+	}
+	dir := t.TempDir()
+	for _, name := range []string{"boot", "strings/0x409"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	block := strings.ReplaceAll(script[start:end], "/boot/", dir+"/boot/")
+	block = strings.ReplaceAll(block, "/sys/class/cvi-base/base_uid", dir+"/base_uid")
+	serialFile := filepath.Join(dir, "boot/usb.serialnumber")
+	if err := os.WriteFile(serialFile, []byte("KVM-0001"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run := func(want string) {
+		t.Helper()
+		cmd := exec.Command("sh", "-ec", block)
+		cmd.Dir = dir
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", err, output)
+		}
+		got, err := os.ReadFile(filepath.Join(dir, "strings/0x409/serialnumber"))
+		if err != nil || strings.TrimSpace(string(got)) != want {
+			t.Fatalf("serial=%q want=%q err=%v", got, want, err)
+		}
+	}
+	run("KVM-0001")
+	if err := os.Remove(serialFile); err != nil {
+		t.Fatal(err)
+	}
+	run("")
+	// ACM still gets the chip UID when the override is cleared.
+	if err := os.WriteFile(filepath.Join(dir, "boot/usb.acm"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "base_uid"), []byte("UID: d19506b3_1359c372"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("d19506b31359c372")
 }

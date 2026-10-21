@@ -1317,7 +1317,7 @@
         },
         "headless": {
           "title": "Server bez videovýstupu",
-          "description": "Sériová konzole a virtuální disk s pomocným diskem, na kterém je skript pro nastavení přihlašování přes sériovou konzoli, takže server nepotřebuje síť. Na počítači se neobjeví klávesnice ani myš; po zapnutí vzdálené plochy bude zpět přidána klávesnice, myš a zvuk."
+          "description": "Sériová konzole a virtuální disk s pomocným diskem, na kterém je skript pro nastavení přihlašování přes sériovou konzoli, takže server nepotřebuje síť. Na počítači se neobjeví klávesnice ani myš. Zapnutí RustDesk přepne USB na jeho předvolbu a odpojí sériovou konzoli."
         },
         "console": {
           "title": "KVM + sériová konzole",

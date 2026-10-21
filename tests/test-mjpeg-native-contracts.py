@@ -141,10 +141,29 @@ def check_mjpeg_rate_pair():
     print('mjpeg rate pair ok')
 
 
+def check_mjpeg_422_survives_path_switch():
+    """MJPEG keeps 4:2:2 through the VI-direct path switch. An encoder keeps the input format of
+    its first frame, so its first frame on the other path fails once by design (kvm_mmf). A
+    single video failure gave up 4:2:2 until a GUI retry: MJPEG then read the video's QHD 4:2:0
+    output (pale, and H.265 next to it fell from 45 to 32 fps)."""
+    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    assert 'static void _mmf_vi_direct_recheck(void)' in mmf
+    vision = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    read = vision[vision.index('static int kvmv_read_img('):vision.index('static int kvmv_read_video(')]
+    give_up = read.index('disable_mjpeg_422("video encoder failed with separate outputs");')
+    guard = read.rindex('if (', 0, give_up)
+    assert '++mjpeg_422_video_failures >= 3' in read[guard:give_up]
+    assert read.count('mjpeg_422_video_failures = 0;') == 1
+    assert read.index('mjpeg_422_video_failures = 0;') > give_up, 'reset after a video frame'
+    assert 'mjpeg_422_video_failures = 0;' in function_body(vision, 'int set_mjpeg_chroma(')
+    print('mjpeg 4:2:2 path switch ok')
+
+
 check_read_img_gates()
 check_no_gop_setting()
 check_capture_mode_wiring()
 check_mjpeg_rate_pair()
+check_mjpeg_422_survives_path_switch()
 
 for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct',
              'vi-yuv420']:

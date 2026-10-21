@@ -19,6 +19,19 @@ upstream = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(upstream)
 
 
+def kernel_version(pin):
+    """The version the kernel reports for a kernel.org release: the first one
+    of a series is published as X.Y (linux-X.Y.tar.xz) and builds as X.Y.0."""
+    return pin if pin.count('.') == 2 else pin + '.0'
+
+
+def replace_version(text, current, latest):
+    """Replace the kernel version (X.Y.Z) and the release name, which is X.Y
+    for a series' first release, as whole versions: 7.3 in 7.3.0 stays."""
+    text = text.replace(kernel_version(current), kernel_version(latest))
+    return re.sub(r'(?<![0-9.])' + re.escape(current) + r'(?![0-9]|\.[0-9])', latest, text)
+
+
 def replace_once(text, pattern, replacement):
     text, count = re.subn(pattern, lambda _: replacement, text, flags=re.MULTILINE)
     if count != 1:
@@ -33,6 +46,10 @@ def prepare(root=ROOT):
     raw = upstream.request(source['url'])
     candidates = re.findall(source['upstream_pattern'], raw)
     if not candidates:
+        # The pin may be a series' first release (X.Y), which the point
+        # release pattern leaves out: then there is simply nothing newer.
+        if current in re.findall(r'"version"\s*:\s*"([^"]+)"', raw):
+            return None
         raise ValueError('No eligible Linux point releases in kernel.org feed')
     latest = max(candidates, key=upstream.version)
     if upstream.version(latest) <= upstream.version(current):
@@ -72,11 +89,11 @@ def prepare(root=ROOT):
     files[name] = json.dumps(manifest, indent=2) + '\n'
     name = 'platform/build.sh'
     build = (root / name).read_text()
-    for required in ('release=' + current + '-nanokvm-os-',
+    for required in ('release=' + kernel_version(current) + '-nanokvm-os-',
                      'linux-' + current + '.tar.xz', 'linux-' + current + '"'):
         if required not in build:
             raise ValueError('Kernel build pin changed: ' + required)
-    build = build.replace(current, latest)
+    build = replace_version(build, current, latest)
     build = build.replace('release time.', 'release date (00:00 UTC).')
     timestamp = released.strftime('%a %b %d 00:00:00 UTC %Y')
     files[name] = replace_once(build, r"^kernel_timestamp='[^']*'$",
@@ -85,13 +102,13 @@ def prepare(root=ROOT):
     # Only update the generated config's version heading here.
     name = 'platform/kernel/config'
     config = (root / name).read_text()
-    files[name] = replace_once(config, r'^# Linux/riscv ' + re.escape(current) + r' Kernel Configuration$',
-                              '# Linux/riscv ' + latest + ' Kernel Configuration')
+    files[name] = replace_once(config, r'^# Linux/riscv ' + re.escape(kernel_version(current)) + r' Kernel Configuration$',
+                              '# Linux/riscv ' + kernel_version(latest) + ' Kernel Configuration')
     for name in ('README.md', 'platform/README.md'):
         text = (root / name).read_text()
         if current not in text:
             raise ValueError('Missing documented kernel version in ' + name)
-        files[name] = text.replace(current, latest)
+        files[name] = replace_version(text, current, latest)
     return dict(current=current, latest=latest, files=files, sha256=checksum,
                 checksum_url=checksum_url, url=url, changelog=directory + 'ChangeLog-' + latest)
 

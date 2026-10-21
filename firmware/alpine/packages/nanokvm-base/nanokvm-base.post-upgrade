@@ -11,6 +11,12 @@ if [ -x /usr/libexec/nanokvm/console-policy ]; then
 fi
 # Alpine's standard loopback service is needed by local applications.
 rc-update add loopback boot
+# D-Bus serves only avahi, which starts it when mDNS is on (nanokvm-mdns).
+# A running D-Bus keeps running until the next boot.
+if [ -e /etc/runlevels/default/dbus ] && [ -x /etc/init.d/nanokvm-mdns ] &&
+    ! grep -q 'need dbus' /etc/init.d/nanokvm-mdns; then
+    rc-update del dbus default
+fi
 
 # fstab /boot noauto: nanokvm-storage mounts the boot and data partitions
 # itself, checking a volume left dirty by a power loss; localmount would mount

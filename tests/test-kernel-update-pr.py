@@ -3,6 +3,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -29,7 +30,8 @@ class KernelPRTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, path)
         self.current = json.loads((self.root / 'firmware/sources.json').read_text())['linux']['version']
-        major, minor, point = map(int, self.current.split('.'))
+        # A series' first release is pinned as X.Y and builds as X.Y.0.
+        major, minor, point = (list(map(int, self.current.split('.'))) + [0])[:3]
         self.next = f'{major}.{minor}.{point + 1}'
         self.series = f'{major}.{minor + 1}'
         self.digest = 'a' * 64
@@ -72,7 +74,12 @@ class KernelPRTests(unittest.TestCase):
         self.assertIn('release=' + self.next + '-nanokvm-os-', build)
         self.assertIn('linux-' + self.next + '.tar.xz', build)
         self.assertIn("kernel_timestamp='Wed Oct 14 00:00:00 UTC 2026'", build)
-        self.assertNotIn(self.current, build)
+        self.assertNotRegex(build, r'(?<![0-9.])' + re.escape(self.current) + r'(?![0-9]|\.[0-9])')
+        self.assertNotIn(k.kernel_version(self.current) + '-nanokvm-os-', build)
+        for name in ('README.md', 'platform/README.md'):
+            self.assertNotIn(k.kernel_version(self.current) + '-nanokvm-os-', plan['files'][name])
+            self.assertNotIn(self.next + '.0', plan['files'][name])
+        self.assertIn('# Linux/riscv ' + self.next + ' Kernel Configuration', plan['files']['platform/kernel/config'])
         subprocess.run(['bash', '-n'], input=build, text=True, check=True)
         self.assertEqual(plan['files']['platform/kernel/config'].splitlines()[3:],
                          before['platform/kernel/config'].decode().splitlines()[3:])
@@ -88,6 +95,19 @@ class KernelPRTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'release date'):
                     k.prepare(self.root)
                 self.assertEqual(request.call_count, 1)
+
+    def test_point_release_after_a_point_release(self):
+        """X.Y -> X.Y.1 -> X.Y.2: the release name and kernel version agree
+        once the pin has three parts."""
+        first = self.plan()
+        for name, text in first['files'].items():
+            (self.root / name).write_text(text)
+        self.current, later = self.next, self.next.rsplit('.', 1)[0] + '.' + str(int(self.next.rsplit('.', 1)[1]) + 1)
+        plan = self.plan(later)
+        build = plan['files']['platform/build.sh']
+        self.assertIn('release=' + later + '-nanokvm-os-', build)
+        self.assertIn('linux-' + later + '.tar.xz', build)
+        self.assertNotIn(self.current, build)
 
     def test_new_series_point_release(self):
         plan = self.plan(self.series + '.1')

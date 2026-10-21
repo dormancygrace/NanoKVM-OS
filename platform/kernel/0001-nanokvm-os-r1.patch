@@ -1,5 +1,5 @@
 diff --git a/Documentation/ABI/testing/configfs-usb-gadget-hid b/Documentation/ABI/testing/configfs-usb-gadget-hid
-index 748705c4c..f5f39d5dc 100644
+index 748705c4c..0189f027a 100644
 --- a/Documentation/ABI/testing/configfs-usb-gadget-hid
 +++ b/Documentation/ABI/testing/configfs-usb-gadget-hid
 @@ -11,3 +11,12 @@ Description:
@@ -17,7 +17,7 @@ index 748705c4c..f5f39d5dc 100644
 +		before linking the function; linked changes return EBUSY.
 diff --git a/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
 new file mode 100644
-index 000000000..ffd7a0972
+index 000000000..ef25022ce
 --- /dev/null
 +++ b/Documentation/ABI/testing/sysfs-platform-nanokvm-hdmi-reset
 @@ -0,0 +1,30 @@
@@ -53,7 +53,7 @@ index 000000000..ffd7a0972
 +                capture before assertion and allow bridge startup after release.
 diff --git a/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml b/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml
 new file mode 100644
-index 000000000..78d79f118
+index 000000000..1fa2cd92e
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/misc/sipeed,nanokvm-hdmi-reset.yaml
 @@ -0,0 +1,32 @@
@@ -553,7 +553,7 @@ index 77a2b2d74..1b084bcf3 100644
  				   -D__NO_FORTIFY \
  				   -ffreestanding \
 diff --git a/drivers/hwmon/Kconfig b/drivers/hwmon/Kconfig
-index 2bfbcc033..ee0ddac0e 100644
+index fecff8610..f9c0a3de5 100644
 --- a/drivers/hwmon/Kconfig
 +++ b/drivers/hwmon/Kconfig
 @@ -25,6 +25,13 @@ menuconfig HWMON
@@ -571,10 +571,10 @@ index 2bfbcc033..ee0ddac0e 100644
  	tristate
  
 diff --git a/drivers/hwmon/Makefile b/drivers/hwmon/Makefile
-index 63effc0ab..d9a1f23c9 100644
+index 1229b6b39..b593fbf9b 100644
 --- a/drivers/hwmon/Makefile
 +++ b/drivers/hwmon/Makefile
-@@ -256,3 +256,5 @@ obj-$(CONFIG_SENSORS_PECI)	+= peci/
+@@ -260,3 +260,5 @@ obj-$(CONFIG_SENSORS_PECI)	+= peci/
  obj-$(CONFIG_PMBUS)		+= pmbus/
  
  ccflags-$(CONFIG_HWMON_DEBUG_CHIP) := -DDEBUG
@@ -766,12 +766,12 @@ index 000000000..34ff925a6
 +MODULE_DESCRIPTION("SG2002 SoC temperature telemetry");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 390256ed9..b6149db8f 100644
+index 7364931da..42b7d057a 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
-@@ -652,3 +652,17 @@ source "drivers/misc/keba/Kconfig"
- source "drivers/misc/amd-sbi/Kconfig"
+@@ -587,3 +587,17 @@ source "drivers/misc/amd-sbi/Kconfig"
  source "drivers/misc/rp1/Kconfig"
+ source "drivers/misc/issei/Kconfig"
  endmenu
 +
 +config NANOKVM_EFUSE
@@ -788,13 +788,13 @@ index 390256ed9..b6149db8f 100644
 +	  Own the board HDMI reset line, initially deasserted, and provide a
 +	  serialized 100ms reset pulse for the privileged EDID maintenance tool.
 diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
-index fed47c767..c1ab303c2 100644
+index e8d8d5d88..caf255d32 100644
 --- a/drivers/misc/Makefile
 +++ b/drivers/misc/Makefile
-@@ -74,3 +74,5 @@ obj-$(CONFIG_MCHP_LAN966X_PCI)	+= lan966x-pci.o
- obj-y				+= keba/
+@@ -71,3 +71,5 @@ obj-y				+= keba/
  obj-y				+= amd-sbi/
  obj-$(CONFIG_MISC_RP1)		+= rp1/
+ obj-$(CONFIG_INTEL_SSEI)	+= issei/
 +obj-$(CONFIG_NANOKVM_EFUSE) += nanokvm-efuse.o
 +obj-$(CONFIG_NANOKVM_HDMI_RESET) += nanokvm-hdmi-reset.o
 diff --git a/drivers/misc/nanokvm-efuse.c b/drivers/misc/nanokvm-efuse.c
@@ -1214,7 +1214,7 @@ index 000000000..3d81fa733
 +MODULE_DESCRIPTION("NanoKVM PCIe HDMI maintenance reset");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/mmc/host/sdhci-of-dwcmshc.c b/drivers/mmc/host/sdhci-of-dwcmshc.c
-index c688f3eaf..b6306f19e 100644
+index 1baa2379c..49d8dffa7 100644
 --- a/drivers/mmc/host/sdhci-of-dwcmshc.c
 +++ b/drivers/mmc/host/sdhci-of-dwcmshc.c
 @@ -71,6 +71,7 @@
@@ -1237,10 +1237,10 @@ index c688f3eaf..b6306f19e 100644
  
  	val = sdhci_readl(host, priv->vendor_specific_area1 + CV18XX_SDHCI_PHY_CONFIG);
 diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 099f25dce..655c89e2f 100644
+index b4ef927fd..204bbe0bc 100644
 --- a/drivers/net/phy/Kconfig
 +++ b/drivers/net/phy/Kconfig
-@@ -477,3 +477,9 @@ config XILINX_GMII2RGMII
+@@ -492,3 +492,9 @@ config XILINX_GMII2RGMII
  	  Ethernet physical media devices and the Gigabit Ethernet controller.
  
  endif # PHYLIB
@@ -1251,10 +1251,10 @@ index 099f25dce..655c89e2f 100644
 +	help
 +	  Apply the Sophgo CV181X analog calibration for SG2002 Ethernet.
 diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index de660ae94..2cbf9dfc2 100644
+index 25c4a3c24..e1159e249 100644
 --- a/drivers/net/phy/Makefile
 +++ b/drivers/net/phy/Makefile
-@@ -100,3 +100,4 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+@@ -102,3 +102,4 @@ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
  obj-$(CONFIG_TERANETICS_PHY)	+= teranetics.o
  obj-$(CONFIG_VITESSE_PHY)	+= vitesse.o
  obj-$(CONFIG_XILINX_GMII2RGMII) += xilinx_gmii2rgmii.o
@@ -6284,10 +6284,10 @@ index 3c6b43d06..f5cf5c1a9 100644
  	hidg->interval = opts->interval;
  	hidg->interval_user_set = opts->interval_user_set;
 diff --git a/drivers/usb/gadget/function/f_mass_storage.c b/drivers/usb/gadget/function/f_mass_storage.c
-index 8a6ae944d..7bfa5a3c5 100644
+index fc4818fb2..c73e39564 100644
 --- a/drivers/usb/gadget/function/f_mass_storage.c
 +++ b/drivers/usb/gadget/function/f_mass_storage.c
-@@ -1186,6 +1186,16 @@ static int do_read_header(struct fsg_common *common, struct fsg_buffhd *bh)
+@@ -1185,6 +1185,16 @@ static int do_read_header(struct fsg_common *common, struct fsg_buffhd *bh)
  	u32		lba = get_unaligned_be32(&common->cmnd[2]);
  	u8		*buf = (u8 *)bh->buf;
  
@@ -6304,7 +6304,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  	if (common->cmnd[1] & ~0x02) {		/* Mask away MSF */
  		curlun->sense_data = SS_INVALID_FIELD_IN_CDB;
  		return -EINVAL;
-@@ -1240,7 +1250,19 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
+@@ -1239,7 +1249,19 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
  
  		buf[13] = 0x16;		/* Lead-out track is data */
  		buf[14] = 0xAA;		/* Lead-out track number */
@@ -6325,7 +6325,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  		return len;
  
  	case 2:
-@@ -1265,7 +1287,12 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
+@@ -1264,7 +1286,12 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
  		buf -= 11;		/* go back to A2 descriptor */
  
  		/* For A2, 7, 8, 9, 10 - zero, Pmin, Psec, Pframe of Lead out */
@@ -6339,7 +6339,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  		return len;
  
  	default:
-@@ -1286,6 +1313,23 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
+@@ -1285,6 +1312,23 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
  	int		valid_page = 0;
  	int		len, limit;
  
@@ -6363,7 +6363,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  	if ((common->cmnd[1] & ~0x08) != 0) {	/* Mask away DBD */
  		curlun->sense_data = SS_INVALID_FIELD_IN_CDB;
  		return -EINVAL;
-@@ -1318,10 +1362,9 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
+@@ -1317,10 +1361,9 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
  
  	/* No block descriptors */
  
@@ -6377,7 +6377,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  	if (page_code == 0x08 || all_pages) {
  		valid_page = 1;
  		buf[0] = 0x08;		/* Page code */
-@@ -1343,6 +1386,24 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
+@@ -1342,6 +1385,24 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
  		buf += 12;
  	}
  
@@ -6402,7 +6402,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  	/*
  	 * Check that a valid page was requested and the mode data length
  	 * isn't too long.
-@@ -1462,6 +1523,249 @@ static int do_mode_select(struct fsg_common *common, struct fsg_buffhd *bh)
+@@ -1461,6 +1522,249 @@ static int do_mode_select(struct fsg_common *common, struct fsg_buffhd *bh)
  	return -EINVAL;
  }
  
@@ -6652,7 +6652,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  
  /*-------------------------------------------------------------------------*/
  
-@@ -1890,6 +2194,63 @@ static int do_scsi_command(struct fsg_common *common)
+@@ -1889,6 +2193,63 @@ static int do_scsi_command(struct fsg_common *common)
  	down_read(&common->filesem);	/* We're using the backing file */
  	switch (common->cmnd[0]) {
  
@@ -6716,7 +6716,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  	case INQUIRY:
  		common->data_size_from_cmnd = common->cmnd[4];
  		reply = check_command(common, 6, DATA_DIR_TO_HOST,
-@@ -2017,7 +2378,8 @@ static int do_scsi_command(struct fsg_common *common)
+@@ -2016,7 +2377,8 @@ static int do_scsi_command(struct fsg_common *common)
  		common->data_size_from_cmnd =
  			get_unaligned_be16(&common->cmnd[7]);
  		reply = check_command(common, 10, DATA_DIR_TO_HOST,
@@ -6726,7 +6726,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  				      "READ TOC");
  		if (reply == 0)
  			reply = do_read_toc(common, bh);
-@@ -3234,6 +3596,21 @@ static ssize_t fsg_lun_opts_cdrom_store(struct config_item *item,
+@@ -3233,6 +3595,21 @@ static ssize_t fsg_lun_opts_cdrom_store(struct config_item *item,
  
  CONFIGFS_ATTR(fsg_lun_opts_, cdrom);
  
@@ -6748,7 +6748,7 @@ index 8a6ae944d..7bfa5a3c5 100644
  static ssize_t fsg_lun_opts_nofua_show(struct config_item *item, char *page)
  {
  	return fsg_show_nofua(to_fsg_lun_opts(item)->lun, page);
-@@ -3278,6 +3655,7 @@ static struct configfs_attribute *fsg_lun_attrs[] = {
+@@ -3277,6 +3654,7 @@ static struct configfs_attribute *fsg_lun_attrs[] = {
  	&fsg_lun_opts_attr_ro,
  	&fsg_lun_opts_attr_removable,
  	&fsg_lun_opts_attr_cdrom,

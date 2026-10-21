@@ -1,0 +1,79 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] rtl8733bs: Linux 7.3 cfg80211 cookies
+
+From Linux 7.3 cfg80211 assigns the cookie of remain_on_channel and
+mgmt_tx before calling the driver and passes it by value; the driver
+reports that value back. Up to 7.2 the driver chose it and returned it
+through a pointer. The nkos wrappers take the new signatures and hand
+the driver functions a pointer to the cookie, which they no longer
+overwrite on 7.3.
+
+diff --git a/os_dep/linux/ioctl_cfg80211.c b/os_dep/linux/ioctl_cfg80211.c
+index 56441d0..a11fec6 100755
+--- a/os_dep/linux/ioctl_cfg80211.c
++++ b/os_dep/linux/ioctl_cfg80211.c
+@@ -7704,7 +7704,11 @@ static s32 cfg80211_rtw_remain_on_channel(struct wiphy *wiphy,
+ #endif
+ #endif
+ 
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(7, 3, 0))
+ 	*cookie = ATOMIC_INC_RETURN(&prochinfo->ro_ch_cookie_gen);
++#endif
++	/* From 7.3 cfg80211 assigns the cookie before the call, and the driver
++	 * reports that value back (cfg80211_ready_on_channel and _expired). */
+ 
+ 	RTW_INFO(FUNC_ADPT_FMT"%s ch:%u duration:%d, cookie:0x%llx\n"
+ 		, FUNC_ADPT_ARG(padapter), wdev == wiphy_to_pd_wdev(wiphy) ? " PD" : ""
+@@ -8322,8 +8326,10 @@ static int cfg80211_rtw_mgmt_tx(struct wiphy *wiphy,
+ 	dvobj = adapter_to_dvobj(padapter);
+ 	pwdev_priv = adapter_wdev_data(padapter);
+ 
+-	/* cookie generation */
++	/* cookie generation; from 7.3 cfg80211 assigns it before the call */
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(7, 3, 0))
+ 	*cookie = pwdev_priv->mgmt_tx_cookie++;
++#endif
+ 
+ #ifdef CONFIG_DEBUG_CFG80211
+ 	RTW_INFO(FUNC_ADPT_FMT"%s len=%zu, ch=%d"
+@@ -10827,12 +10833,28 @@ static int nkos_get_channel(struct wiphy *wiphy, struct wireless_dev *wdev, unsi
+ 	return cfg80211_rtw_get_channel(wiphy, wdev, chandef);
+ }
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 3, 0))
++/* 7.3 passes the cookie cfg80211 assigned by value; the driver's functions
++ * take it by pointer and, from 7.3 on, only read it. */
++static int nkos_remain_on_channel(struct wiphy *wiphy, struct wireless_dev *wdev, struct ieee80211_channel *chan, unsigned int duration, u64 cookie, const u8 *src_addr)
++{
++	if (src_addr != NULL)
++		return -EOPNOTSUPP;
++	return cfg80211_rtw_remain_on_channel(wiphy, wdev, chan, duration, &cookie);
++}
++
++static int nkos_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev, struct cfg80211_mgmt_tx_params *params, u64 cookie)
++{
++	return cfg80211_rtw_mgmt_tx(wiphy, wdev, params, &cookie);
++}
++#else
+ static int nkos_remain_on_channel(struct wiphy *wiphy, struct wireless_dev *wdev, struct ieee80211_channel *chan, unsigned int duration, u64 *cookie, const u8 *src_addr)
+ {
+ 	if (src_addr != NULL)
+ 		return -EOPNOTSUPP;
+ 	return cfg80211_rtw_remain_on_channel(wiphy, wdev, chan, duration, cookie);
+ }
++#endif
+ 
+ static struct cfg80211_ops rtw_cfg80211_ops = {
+ 	.change_virtual_intf = cfg80211_rtw_change_iface,
+@@ -10936,7 +10958,11 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
+ #endif
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 3, 0))
++	.mgmt_tx = nkos_mgmt_tx,
++#else
+ 	.mgmt_tx = cfg80211_rtw_mgmt_tx,
++#endif
+ #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
+ 	.mgmt_frame_register = cfg80211_rtw_mgmt_frame_register,
+ #else

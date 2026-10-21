@@ -71,13 +71,13 @@ The identity is part of the composition: Apply writes it with the rest and
 reconnects USB, and it is in the `revision`. It can be changed while USB is
 off too: Apply then only writes the files, and USB presents the identity when
 it is turned on. `S03usbdev` and `S03usbhid` read
-`/boot/usb.vid`, `/boot/usb.pid`, `/boot/usb.manufacturer`,
-`/boot/usb.product` and `/boot/usb.serialnumber` at every start (a missing
-file is the factory value). The recovery init (inside the initramfs, so
-changed only with a platform build) reads the same manufacturer, product and
-serial number files, but takes the IDs from its own
-`usb.idVendor` / `usb.idProduct`: a recovery boot presents the factory IDs
-unless those two files are set by hand. A vendor or product ID
+`usb.vid`, `usb.pid`, `usb.manufacturer`, `usb.product` and `usb.serialnumber`
+in `/etc/kvm/usb` at every start (a missing file is the factory value; see
+[Where the flags live](#where-the-flags-live)). The recovery init (inside the
+initramfs, which cannot rely on the root file system) reads only files on
+`/boot`: `usb.manufacturer`, `usb.product`, `usb.serialnumber` and its own
+`usb.idVendor` / `usb.idProduct`. A recovery boot therefore presents the
+factory identity unless those files are put on `/boot` by hand. A vendor or product ID
 other than the factory one stops the serial console helper's udev rule on
 Linux hosts from matching (it names the IDs).
 
@@ -91,7 +91,7 @@ files, profiles and logs. Create it at one of the offered sizes (64 MiB to
 is exFAT; BusyBox `mkfs.vfat -F 32 -s 1|8` lays it out as FAT32 with one
 512-byte sector per cluster up to 256 MiB and 4 KiB clusters from 512 MiB,
 checked on the device at 64, 256, 512 and 1024 MiB), then turn it on: that is a composition change
-(`/boot/usb.userdisk` names the image, `S03usbdev` adds `lun.2`, removable,
+(`usb.userdisk` names the image, `S03usbdev` adds `lun.2`, removable,
 writable, inquiry string "NanoKVM User Disk"), so the USB devices reconnect.
 Formatting anew and deleting are refused while the disk is on. It needs the
 virtual disk function (it is another LUN of the same function, so it costs
@@ -126,9 +126,9 @@ do not rebind. This is runtime failure recovery, not a power-loss-atomic
 transaction across multiple files. A lost HTTP response is read back rather than
 blindly replaying the mutation.
 
-Individual HID disable flags are `/boot/usb.disable_keyboard`,
-`/boot/usb.disable_relative` and `/boot/usb.disable_absolute`; the legacy
-`/boot/disable_hid` still disables all three. Both scripts create HID function
+Individual HID disable flags are `usb.disable_keyboard`,
+`usb.disable_relative` and `usb.disable_absolute`; the legacy `disable_hid`
+still disables all three. Both scripts create HID function
 objects in keyboard/relative/absolute order even when some are not linked. Linux
 allocates HID minors when the objects are created, so absolute-only remains
 `/dev/hidg2`. Disabled input functions are skipped without device-open retries.
@@ -303,3 +303,21 @@ to the touch input adapter, selected automatically for touch devices.
 Toolbar and input handlers follow the applied per-function USB status. A disabled keyboard has no toolbar button, virtual keyboard or key interception. The active mouse mode falls back to an enabled USB function without overwriting the browser preference. The mode chooser appears only when both mice are enabled. Pointer Lock and the relative touchpad guide appear only where applicable. USB composition is the place to change gadget functions; the old HID-only toggle is no longer duplicated in the mouse menu.
 
 When the controlling browser disconnects and exactly one viewer remains, that viewer automatically receives control unless it explicitly selected view-only. With several remaining viewers, none is chosen automatically; the same rule is applied as viewers leave. A visible View only / Take control action supplements the lock icon on touch screens.
+
+## Where the flags live
+
+The USB flags are files in `/etc/kvm/usb` on the F2FS root partition:
+
+- the composition: `usb.disk0`, `usb.ncm`, `usb.acm`, `usb.audio`, `disable_hid`, `usb.disable_*`, and others;
+- the identity, the user disk marker and the USB internet settings (`usb.internet`, `rndis.*`).
+
+`S03usbdev`, `S03usbhid`, `S30usbnet` and the server read them there. Each write is a rename followed by a sync of the directory, so a power cut leaves either the old file or the new one. Recovery with preserved settings keeps them with the rest of `/etc/kvm`.
+
+Releases before this one kept them on the FAT boot partition, which has no journal. `/usr/libexec/nanokvm/usb-flags-migrate` moves them:
+- **When:** at the package upgrade, and again whenever `nanokvm-usb` starts.
+- **Which set wins:** whenever `/boot` holds any of them, that set replaces `/etc/kvm/usb`.
+- **Power cuts:** the new set is complete before `/boot` is cleaned, and `/boot` is clean before the new set takes the old one's place. A run interrupted at any point is finished by the next one.
+
+**Rollback.** A channel rollback to an older release finds no flags on `/boot`. That release's gadget comes up with keyboard and mice only, and the composition can be set again in its USB settings. After a later upgrade, the flags that release wrote on `/boot` move over again.
+
+**Card reader.** The flags can no longer be edited on the card from a computer: they are on the Linux partition.

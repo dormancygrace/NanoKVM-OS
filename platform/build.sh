@@ -1157,6 +1157,11 @@ rootfs() {
     # The license each Alpine package declares (its SPDX expression).
     awk '/^P:/ { p = substr($0, 3) } /^V:/ { v = substr($0, 3) } /^L:/ { print p "=" v "\t" substr($0, 3) }' \
         "$r/lib/apk/db/installed" | LC_ALL=C sort > "$rel/installed-licenses.txt"
+    # The USB flags of a new root (S03usbdev, hid.USBFlagsDir): the fresh-install
+    # composition, usb.dev and an empty usb.disk0. The first preset reads them.
+    mkdir -p "$r/etc/kvm/usb"
+    : > "$r/etc/kvm/usb/usb.dev"
+    : > "$r/etc/kvm/usb/usb.disk0"
     # A new root starts with mDNS off: the SD image and a recovery that keeps
     # no settings both unpack this archive. No package owns the marker, so APK
     # install and upgrade hooks never change an existing installation's choice.

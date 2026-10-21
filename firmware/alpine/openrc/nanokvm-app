@@ -13,24 +13,43 @@ depend() {
     before chronyd crond
 }
 
-# Whether NanoKVM-Server has a listening TCP socket, on whatever port.
+: "${NANOKVM_SERVER_CONFIG:=/etc/kvm/server.yaml}"
+: "${NANOKVM_PROC_NET:=/proc/net}"
+
+# The server's HTTP and HTTPS ports as /proc/net/tcp writes them (hex).
+server_ports() {
+    local http https
+    http=$(sed -n '/^port:/,/^[^ ]/s/^ *http: *\([0-9][0-9]*\).*/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    https=$(sed -n '/^port:/,/^[^ ]/s/^ *https: *\([0-9][0-9]*\).*/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    printf '%04X %04X\n' "${http:-80}" "${https:-443}"
+}
+
+# Whether a TCP socket listens on either server port. Shell builtins only: the
+# check runs every 0.2 s while the server starts on the one core.
 server_listening() {
-    local pid inodes
-    pid=$(pidof NanoKVM-Server) || return 1
-    inodes=$(ls -l "/proc/${pid%% *}/fd" 2>/dev/null | sed -n 's/.*socket:\[\([0-9]*\)\]$/\1/p')
-    [ -n "$inodes" ] || return 1
-    awk -v list=" $(echo $inodes) " '$4 == "0A" && index(list, " " $10 " ") { found = 1 }
-        END { exit !found }' /proc/net/tcp /proc/net/tcp6 2>/dev/null
+    local file sl addr rest
+    for file in "$NANOKVM_PROC_NET/tcp" "$NANOKVM_PROC_NET/tcp6"; do
+        [ -r "$file" ] || continue
+        while read -r sl addr rest; do
+            # rest starts with the remote address, then the state (0A: listen).
+            case "$addr ${rest#* }" in
+                *:"$1 0A "* | *:"$2 0A "*) return 0 ;;
+            esac
+        done < "$file"
+    done
+    return 1
 }
 
 start() {
-    local n=0
+    local n=0 ports
     ebegin "Starting NanoKVM application"
+    ports=$(server_ports)
     /kvmapp/system/init.d/S95nanokvm start || { eend 1; return 1; }
     # The services after this one start once the server listens (at most
     # 15 s): on one core they would slow its start, and with it the first
     # video frame.
-    while [ "$n" -lt 75 ] && ! server_listening; do
+    # shellcheck disable=SC2086 # two port words
+    while [ "$n" -lt 75 ] && ! server_listening $ports; do
         sleep 0.2
         n=$((n + 1))
     done

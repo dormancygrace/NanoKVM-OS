@@ -88,9 +88,10 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 	}
 }
 
+// Quote string fields so printable separators cannot alias distinct identities.
 func (s usbComposition) revision() string {
 	identity := s.identity.normalized()
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s:%t:%s",
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%q:%t:%t:%t:%t:%t:%t:%t:%q:%q:%q:%q:%t:%q",
 		s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio,
 		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product, s.userDisk,
 		identity.SerialNumber))))

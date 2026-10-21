@@ -296,6 +296,7 @@ modules() {
     unpack_git cryptodev . "$src/cryptodev"
     cp -r "$here/modules/sg2002-aes" "$src/aes"
     cp -r "$here/modules/cv181x-aximon" "$src/aximon"
+    cp -r "$here/modules/cv181x-trng" "$src/trng"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
     apply_patches "$src/osdrv" "$here/modules/osdrv"
     apply_patches "$src/wifi" "$here/modules/aic8800"
@@ -318,6 +319,7 @@ modules() {
     build "$src/wifi" CONFIG_PLATFORM_UBUNTU=n CONFIG_SDIO_BT=y CONFIG_AIC8800_BTLPM_SUPPORT=n CONFIG_USE_FW_REQUEST=y
     build "$src/aes"
     build "$src/aximon"
+    build "$src/trng"
     build "$src/cryptodev"
     # Vendor diagnostics use __DATE__ and __TIME__.
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder SOURCE_DATE_EPOCH=$rtl8733bs_epoch \
@@ -336,7 +338,7 @@ modules() {
         [ ! -e "$target" ] || { echo "Duplicate module name: $target" >&2; exit 1; }
         cp "$module" "$target"
         "${cross}strip" --strip-debug "$target"
-    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/aximon" "$src/cryptodev" "$m/rtl8733bs" -name '*.ko' -print0)
+    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/aximon" "$src/trng" "$src/cryptodev" "$m/rtl8733bs" -name '*.ko' -print0)
     # Name every module in sorted order; a directory scan would make the
     # order of the modules.* indexes depend on the file system.
     local mods=$img/lib/modules/$release list

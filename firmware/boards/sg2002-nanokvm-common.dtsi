@@ -220,6 +220,16 @@
 		reg = <0x8008000 0x1000 0x800a000 0x1000 >;
 	};
 
+	/* True random number generator (platform/modules/cv181x-trng). It sits
+	 * behind the efuse clock gates: while they are off, a register access
+	 * hangs the bus. Polled, so no interrupt. */
+	rng@2070000 {
+		compatible = "nanokvm,cv181x-trng";
+		reg = <0x2070000 0x1000>;
+		clocks = <&clk CLK_EFUSE>, <&clk CLK_APB_EFUSE>;
+		clock-names = "efuse", "apb_efuse";
+	};
+
 	vo@a080000 {
 		compatible = "cvitek,vo";
 		reg = <0xa080000 0x10000 0xa0c8000 0xa0 0xa0d1000 0x100 >;

@@ -7,9 +7,38 @@ depend() {
     before nanokvm-modules
 }
 
+# The device /etc/fstab mounts at a mount point.
+fstab_device() {
+    awk -v point="$1" '$1 !~ /^#/ && $2 == point { print $1; exit }' /etc/fstab
+}
+
+# /boot, left dirty by a power loss, is checked before it is mounted: it is
+# small. /data is mounted at once, because a check takes up to a minute with
+# many small files; it is checked at the next shutdown, once it is free.
+data_check=/run/nanokvm/check-data
+
+check_boot() {
+    local dev
+    dev=$(fstab_device /boot)
+    [ -n "$dev" ] || return 0
+    /usr/libexec/nanokvm/check-volume "$dev" ||
+        ewarn "/boot has errors the check could not repair"
+}
+
+note_dirty_data() {
+    local dev
+    dev=$(fstab_device /data)
+    [ -n "$dev" ] && /usr/libexec/nanokvm/check-volume --dirty "$dev" || return 0
+    mkdir -p "${data_check%/*}" && printf '%s\n' "$dev" > "$data_check"
+    ewarn "/data was not unmounted cleanly; it is checked at the next shutdown"
+}
+
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
+    # First: the board identity and USB settings live on /boot, and the data
+    # steps below may give up.
+    mountpoint -q /boot || { check_boot; mount /boot; }
     # A previous failed start may have installed the read-only placeholder.
     if grep -q '^nanokvm-data-unavailable /data tmpfs ' /proc/mounts; then
         umount /data || { eend 1 "Cannot release unavailable data placeholder"; return 1; }
@@ -17,7 +46,7 @@ start() {
     # Keep booting on failure, but do not expose data still due for formatting.
     data_ready=0
     if /usr/libexec/nanokvm/firstboot-storage; then
-        if mountpoint -q /data || mount /data; then
+        if mountpoint -q /data || { note_dirty_data; mount /data; }; then
             data_ready=1
         fi
     else
@@ -36,7 +65,6 @@ start() {
         compatibility_data=/run/nanokvm/board-data
         mkdir -p "$compatibility_data" || { eend 1; return 1; }
     fi
-    mountpoint -q /boot || mount /boot
     mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
     # f2fs background GC compacts the root partition whenever the device is
     # idle, and wrote the SD card by megabytes per minute on an idle stand.
@@ -68,4 +96,20 @@ start() {
     rm -rf /mnt/system/ko
     ln -s "/lib/modules/$(uname -r)/extra" /mnt/system/ko
     eend $?
+}
+
+# At shutdown the services using /data have stopped (they depend on this one):
+# release it and check it when the boot found it dirty.
+stop() {
+    local dev
+    yesno "$RC_GOINGDOWN" || return 0
+    [ -s "$data_check" ] || return 0
+    dev=$(cat "$data_check")
+    ebegin "Checking $dev, left dirty by a power loss"
+    if mountpoint -q /data && ! umount /data; then
+        eend 0 "/data is busy; checked at a later shutdown"
+        return 0
+    fi
+    /usr/libexec/nanokvm/check-volume "$dev" && rm -f "$data_check"
+    eend 0
 }

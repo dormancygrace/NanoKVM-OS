@@ -1,0 +1,67 @@
+#!/bin/sh
+# Check a FAT or exFAT volume that was not unmounted cleanly, while unmounted.
+#
+#   nanokvm-check-volume DEVICE          check it if it is dirty
+#   nanokvm-check-volume --dirty DEVICE  exit 0 if it is dirty, 1 if not
+#
+# Linux keeps the dirty flag of a FAT or exFAT volume found dirty at mount:
+# every later mount reports "not properly unmounted" until a check clears it,
+# and nothing repairs what the power loss broke. A clean volume costs two
+# short reads. A check never stops the caller: exit status 1 only reports
+# errors it could not repair.
+set -u
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+only_flag=0
+if [ "${1:-}" = --dirty ]; then
+    only_flag=1
+    shift
+fi
+dev=${1:?usage: nanokvm-check-volume [--dirty] DEVICE}
+# A missing device or a UUID=/LABEL= spec is left to mount.
+if [ ! -b "$dev" ] && [ ! -f "$dev" ]; then
+    [ "$only_flag" = 1 ] && exit 1
+    exit 0
+fi
+
+text() { dd if="$dev" bs=1 skip="$1" count="$2" 2>/dev/null; }
+number() { dd if="$dev" bs=1 skip="$1" count="$2" 2>/dev/null | od -An -tu"$2" | tr -d ' \n'; }
+log() {
+    echo "nanokvm-check-volume: $*" >&2
+    logger -t nanokvm-check-volume "$*" 2>/dev/null || true
+}
+
+# Boot sector fields: exFAT VolumeFlags bit 1, FAT12/16 and FAT32 state bit 0
+# (the flag Linux sets while mounted).
+dirty=0
+if [ "$(text 3 8)" = 'EXFAT   ' ]; then
+    flags=$(number 106 2)
+    [ $(( ${flags:-0} & 2 )) -eq 0 ] || dirty=1
+    set -- fsck.exfat -p "$dev"
+elif [ "$(text 82 5)" = FAT32 ]; then
+    flags=$(number 65 1)
+    [ $(( ${flags:-0} & 1 )) -eq 0 ] || dirty=1
+    set -- fsck.fat -a -w "$dev"
+elif [ "$(text 54 4)" = FAT1 ]; then
+    flags=$(number 37 1)
+    [ $(( ${flags:-0} & 1 )) -eq 0 ] || dirty=1
+    set -- fsck.fat -a -w "$dev"
+fi
+if [ "$only_flag" = 1 ]; then
+    [ "$dirty" = 1 ]
+    exit
+fi
+[ "$dirty" = 1 ] || exit 0
+
+if ! command -v "$1" >/dev/null 2>&1; then
+    log "$dev was not unmounted cleanly, and $1 is missing"
+    exit 1
+fi
+log "$dev was not unmounted cleanly; checking it with $1"
+"$@" >&2
+status=$?
+# 0: clean; 1: errors corrected (fsck.fat and fsck.exfat alike).
+case "$status" in
+    0|1) log "$dev checked" ;;
+    *) log "$dev: $1 exited with $status; it stays as it is"; exit 1 ;;
+esac
+exit 0

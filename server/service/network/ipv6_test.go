@@ -49,6 +49,7 @@ func ipv6Fixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("NANOKVM_IPV6_RUN", run)
+	t.Setenv("NANOKVM_DHCPV6_RUN", run)
 	t.Setenv("NANOKVM_IP", stubCommand(t, root, "ip"))
 	t.Setenv("NANOKVM_DHCPV6", stubCommand(t, root, "dhcpv6"))
 	for _, name := range ipv6FixtureNames {
@@ -475,5 +476,54 @@ func TestIPv6RunsTheDHCPv6ClientWhileOn(t *testing.T) {
 	}
 	if calls := takeCalls(t, log); calls != "start eth0" {
 		t.Fatalf("client calls %q", calls)
+	}
+}
+
+// udhcpc6 removes its PID on SIGTERM, but without -R leaves the lease and
+// DNS behind. IPv6-off initialization must still run the cleanup script.
+func TestIPv6OffCleansLeaseWithoutClientPID(t *testing.T) {
+	for _, name := range ipv6Interfaces {
+		t.Run(name, func(t *testing.T) {
+			ipv6Fixture(t)
+			run := os.Getenv("NANOKVM_DHCPV6_RUN")
+			record := filepath.Join(run, "udhcpc6."+name+".addr")
+			if err := os.WriteFile(record, []byte("2001:db8::10/128\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if done, err := applyIPv6Off(); done || err != nil {
+				t.Fatalf("lease left without PID: %v %v", done, err)
+			}
+			bin := t.TempDir()
+			stubCommand(t, bin, "ip")
+			resolver := stubCommand(t, bin, "resolvconf")
+			t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+			helper, err := os.ReadFile("scripts/nanokvm-dhcpv6")
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(bin, "dhcpv6")
+			if err := os.WriteFile(path, helper, 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("NANOKVM_DHCPV6", path)
+			if err := applyIPv6(ipv6Policy{}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(record); !os.IsNotExist(err) {
+				t.Fatalf("lease record remains: %v", err)
+			}
+			data, err := os.ReadFile(resolver + ".log")
+			if err != nil || !strings.Contains(string(data), "-d nkos.dhcpv6."+name+" -f") {
+				t.Fatalf("DNS cleanup: %q %v", data, err)
+			}
+			data, err = os.ReadFile(filepath.Join(bin, "ip.log"))
+			if err != nil || !strings.Contains(string(data), "-6 addr del 2001:db8::10/128 dev "+name) {
+				t.Fatalf("address cleanup: %q %v", data, err)
+			}
+			assertIPv6(t, false, false)
+			if done, err := applyIPv6Off(); !done || err != nil {
+				t.Fatalf("cleaned state: %v %v", done, err)
+			}
+		})
 	}
 }

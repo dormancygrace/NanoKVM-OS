@@ -323,6 +323,8 @@ func applyIPv6Off() (bool, error) {
 	for _, name := range ipv6Interfaces {
 		for _, path := range []string{
 			filepath.Join(runDir("NANOKVM_DHCPV6_RUN"), "udhcpc6."+name+".pid"),
+			// A stopped client can leave its address and DNS without a PID.
+			filepath.Join(runDir("NANOKVM_DHCPV6_RUN"), "udhcpc6."+name+".addr"),
 			filepath.Join(runDir("NANOKVM_IPV6_RUN"), "ipv6-static."+name),
 		} {
 			if _, err := os.Lstat(path); !os.IsNotExist(err) {

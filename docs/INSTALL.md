@@ -28,6 +28,15 @@ instead.
 | 2 | 768 MiB | F2FS | Alpine Linux system root |
 | 3 | remaining space | exFAT | user data, created on first boot |
 
+After a power loss, partitions 1 and 3 are checked (`fsck.fat`,
+`fsck.exfat`); Linux would otherwise keep reporting them as not properly
+unmounted and repair nothing. A clean card is not checked. Partition 1 is
+small and is checked before it is mounted. Partition 3 is mounted at once and
+checked at the next shutdown or restart, after the services using it have
+stopped: the check reads metadata only, so its time grows with the number of
+files, not with the data. A card of disk images takes a fraction of a second,
+tens of thousands of small files take tens of seconds.
+
 ## Versions
 
 Full images and applications are versioned independently. **About** keeps the

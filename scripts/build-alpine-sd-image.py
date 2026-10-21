@@ -57,7 +57,9 @@ for name in ['boot','data','dev','proc','sys','run','tmp']:
 fstab=root/'etc/fstab';lines=[]
 for line in fstab.read_text().splitlines():
     fields=line.split()
-    if len(fields)>3 and fields[1]=='/data':
+    # nanokvm-storage mounts both after checking a dirty volume; localmount
+    # would mount /boot first.
+    if len(fields)>3 and fields[1] in ('/boot','/data') and 'noauto' not in fields[3].split(','):
         fields[3]='noauto,'+fields[3];line=' '.join(fields)
     lines.append(line)
 fstab.write_text('\n'.join(lines)+'\n')

@@ -57,6 +57,7 @@ base  file  /usr/libexec/nanokvm/dhcpv6-event              0755  server/service/
 base  file  /usr/libexec/nanokvm/console-policy            0755  firmware/alpine/compat/nanokvm-console-policy
 base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
 base  file  /usr/libexec/nanokvm/firstboot-storage        0755  firmware/alpine/compat/nanokvm-firstboot-storage
+base  file  /usr/libexec/nanokvm/check-volume             0755  firmware/alpine/compat/nanokvm-check-volume
 base  file  /usr/libexec/nanokvm/wpa-passphrase-compat    0755  firmware/alpine/compat/wpa-passphrase-compat
 # The Buildroot-era init scripts live once below legacy/; /etc/init.d links to them.
 base  dir   /usr/libexec/nanokvm/legacy                   0700

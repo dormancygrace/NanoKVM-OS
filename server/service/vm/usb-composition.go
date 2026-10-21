@@ -138,8 +138,15 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 		if err != nil {
 			return fmt.Errorf("read the USB identity: %w", err)
 		}
-		if presented != s.identity.normalized() {
+		want := s.identity.normalized()
+		serial := want.SerialNumber
+		want.SerialNumber = ""
+		if presented != want {
 			return errors.New("USB identity does not match the requested one")
+		}
+		// the chip UID is checked by no one: hid-only without serial has none
+		if serial != "" && gadgetSerialNumberAt(root) != serial {
+			return errors.New("USB serial number does not match the requested one")
 		}
 	}
 	return nil
@@ -151,7 +158,7 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 var usbCompositionFlags = []string{
 	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "usb.audio", "disable_hid",
 	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute",
-	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.userdisk",
+	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.serialnumber", "usb.userdisk",
 }
 
 // contentFiles is what the value-bearing boot files should hold for a

@@ -1242,13 +1242,15 @@
           "productId": "Produkt-ID",
           "manufacturer": "Hersteller",
           "product": "Produkt",
-          "serialNumber": "Seriennummer (Chip-UID, fest)"
+          "serialNumber": "Seriennummer"
         },
         "invalid": {
           "id": "IDs bestehen aus vier Hexadezimalziffern wie 0x1234, nicht 0x0000.",
-          "string": "Namen bestehen aus 1 bis 126 druckbaren ASCII-Zeichen ohne führende oder nachgestellte Leerzeichen."
+          "string": "Namen bestehen aus 1 bis 126 druckbaren ASCII-Zeichen ohne führende oder nachgestellte Leerzeichen.",
+          "serial": "Eine Seriennummer besteht aus 1 bis 126 Buchstaben, Ziffern, Punkten, Bindestrichen oder Unterstrichen."
         },
-        "idWarning": "Für eine andere Hersteller- oder Produkt-ID als die werkseitige sind Sie selbst verantwortlich. Linux-Hosts, die mit dem Helfer für die serielle Konsole eingerichtet wurden, erkennen den NanoKVM nicht mehr (seine udev-Regel nennt die IDs)."
+        "idWarning": "Für eine andere Hersteller- oder Produkt-ID als die werkseitige sind Sie selbst verantwortlich. Linux-Hosts, die mit dem Helfer für die serielle Konsole eingerichtet wurden, erkennen den NanoKVM nicht mehr (seine udev-Regel nennt die IDs).",
+        "serialHint": "Leer: die Chip-UID. Buchstaben, Ziffern, Punkte, Bindestriche und Unterstriche. Linux-Hosts mit dem Serial-Console-Helfer erkennen das Gerät daran: Führen Sie nach einer Änderung dessen apply erneut aus."
       },
       "userDisk": {
         "title": "Benutzerlaufwerk",

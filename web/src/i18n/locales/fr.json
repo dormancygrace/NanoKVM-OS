@@ -1242,13 +1242,15 @@
           "productId": "ID du produit",
           "manufacturer": "Fabricant",
           "product": "Produit",
-          "serialNumber": "Numéro de série (UID de la puce, fixe)"
+          "serialNumber": "Numéro de série"
         },
         "invalid": {
           "id": "Les ID comportent quatre chiffres hexadécimaux, comme 0x1234, et ne peuvent pas valoir 0x0000.",
-          "string": "Les noms comportent de 1 à 126 caractères ASCII imprimables, sans espace au début ni à la fin."
+          "string": "Les noms comportent de 1 à 126 caractères ASCII imprimables, sans espace au début ni à la fin.",
+          "serial": "Un numéro de série compte 1 à 126 lettres, chiffres, points, tirets ou soulignés."
         },
-        "idWarning": "Un ID de fabricant ou de produit différent de celui d'usine relève de votre responsabilité. Les hôtes Linux configurés avec l'assistant de console série ne reconnaissent plus le NanoKVM (sa règle udev indique les ID)."
+        "idWarning": "Un ID de fabricant ou de produit différent de celui d'usine relève de votre responsabilité. Les hôtes Linux configurés avec l'assistant de console série ne reconnaissent plus le NanoKVM (sa règle udev indique les ID).",
+        "serialHint": "Vide : l'UID de la puce. Lettres, chiffres, points, tirets et soulignés. Les hôtes Linux configurés avec l'assistant de console série s'en servent : relancez son apply après un changement."
       },
       "userDisk": {
         "title": "Disque utilisateur",

@@ -15,20 +15,21 @@ export type UsbComposition = Record<UsbDevice, boolean> & {
   userDisk?: boolean;
 };
 export type EndpointCost = { in: number; out: number };
-// What the connected computer sees in the device descriptor. The serial number
-// is the chip UID and cannot be changed.
+// What the connected computer sees in the device descriptor. An empty or
+// missing serial number is the chip UID.
 export type UsbIdentity = {
   vendorId: string;
   productId: string;
   manufacturer: string;
   product: string;
+  serialNumber?: string;
 };
 export type UsbStatus = UsbComposition & {
   hid: boolean;
   revision?: string;
   budget: { inUsed: number; outUsed: number; inLimit: number; outLimit: number };
   costs: Record<UsbDevice, EndpointCost>;
-  identity?: UsbIdentity & { serialNumber?: string; default?: boolean };
+  identity?: UsbIdentity & { chipSerialNumber?: string; default?: boolean };
 };
 
 export const defaultUsbIdentity: UsbIdentity = {
@@ -61,18 +62,23 @@ export function sameIdentity(a?: UsbIdentity, b?: UsbIdentity) {
     normalizeUsbId(x.vendorId) === normalizeUsbId(y.vendorId) &&
     normalizeUsbId(x.productId) === normalizeUsbId(y.productId) &&
     x.manufacturer === y.manufacturer &&
-    x.product === y.product
+    x.product === y.product &&
+    (x.serialNumber ?? '') === (y.serialNumber ?? '')
   );
 }
 
+// Presets leave the serial number alone, so it does not decide the match.
 export function matchingIdentityPreset(identity?: UsbIdentity) {
   return (
-    usbIdentityPresets.find((preset) => sameIdentity(preset.identity, identity))?.id ?? 'custom'
+    usbIdentityPresets.find((preset) =>
+      sameIdentity(preset.identity, { ...defaultUsbIdentity, ...identity, serialNumber: '' })
+    )?.id ?? 'custom'
   );
 }
 
-// Mirrors the server: 0x0001–0xffff, printable ASCII strings of 1–126 characters.
-export function identityProblem(identity: UsbIdentity): 'id' | 'string' | undefined {
+// Mirrors the server: 0x0001–0xffff, printable ASCII strings of 1–126
+// characters, a serial number of letters, digits, dots, dashes, underscores.
+export function identityProblem(identity: UsbIdentity): 'id' | 'string' | 'serial' | undefined {
   for (const id of [identity.vendorId, identity.productId]) {
     const normalized = normalizeUsbId(id);
     if (!/^0x[0-9a-f]{4}$/.test(normalized) || normalized === '0x0000') return 'id';
@@ -84,6 +90,9 @@ export function identityProblem(identity: UsbIdentity): 'id' | 'string' | undefi
       !/^[\x21-\x7e][\x20-\x7e]*[\x21-\x7e]$|^[\x21-\x7e]$/.test(s)
     )
       return 'string';
+  }
+  if (identity.serialNumber && !/^[0-9A-Za-z._-]{1,126}$/.test(identity.serialNumber)) {
+    return 'serial';
   }
   return undefined;
 }

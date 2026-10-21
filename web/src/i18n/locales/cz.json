@@ -1232,15 +1232,17 @@
           "manufacturer": "Výrobce",
           "productId": "Identif. produktu",
           "vendorId": "Identif. výrobce",
-          "serialNumber": "Sériové číslo (UID čipu, neměnné)"
+          "serialNumber": "Sériové číslo"
         },
         "title": "USB identita",
         "invalid": {
           "string": "Názvy jsou dlouhé 1 až 126 znaků (ty „tisknutelné“ z ASCII tabulky), bez mezer na začátku či konci.",
+          "serial": "Sériové číslo má 1 až 126 písmen, číslic, teček, pomlček nebo podtržítek.",
           "id": "Identifikátor jsou čtyři šestnáctkové číslice jako 0x1234, ne 0x0000."
         },
         "description": "Co počítač uvidí v popisovači zařízení: identifikátory dodavatele a produktu, názvy výrobce a produktu. Pro případ hostitelů, na kterých zásady ohledně USB nebo zabezpečení koncového bodu mají námitky vůči „NanoKVM“.",
-        "idWarning": "Identifikátory dodavatele nebo produktu jiné, než tovární si vymyslete sami. Nastavování linuxových s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo jmenuje identifikátory)."
+        "idWarning": "Identifikátory dodavatele nebo produktu jiné, než tovární si vymyslete sami. Nastavování linuxových s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo jmenuje identifikátory).",
+        "serialHint": "Prázdné: UID čipu. Písmena, číslice, tečky, pomlčky a podtržítka. Linuxové počítače nastavené pomocníkem sériové konzole se podle něj řídí: po změně znovu spusťte jeho apply."
       },
       "off": "Vypnuto",
       "apply": "Použít",

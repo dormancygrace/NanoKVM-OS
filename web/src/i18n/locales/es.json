@@ -1242,13 +1242,15 @@
           "productId": "ID de producto",
           "manufacturer": "Fabricante",
           "product": "Producto",
-          "serialNumber": "Número de serie (UID del chip, fijo)"
+          "serialNumber": "Número de serie"
         },
         "invalid": {
           "id": "Los ID son cuatro dígitos hexadecimales como 0x1234, no 0x0000.",
-          "string": "Los nombres tienen de 1 a 126 caracteres ASCII imprimibles, sin espacios al principio ni al final."
+          "string": "Los nombres tienen de 1 a 126 caracteres ASCII imprimibles, sin espacios al principio ni al final.",
+          "serial": "Un número de serie tiene de 1 a 126 letras, dígitos, puntos, guiones o guiones bajos."
         },
-        "idWarning": "Un ID de proveedor o de producto distinto del de fábrica es responsabilidad tuya. Los hosts Linux configurados con el asistente de consola serie dejan de reconocer el NanoKVM (su regla udev indica los ID)."
+        "idWarning": "Un ID de proveedor o de producto distinto del de fábrica es responsabilidad tuya. Los hosts Linux configurados con el asistente de consola serie dejan de reconocer el NanoKVM (su regla udev indica los ID).",
+        "serialHint": "Vacío: el UID del chip. Letras, dígitos, puntos, guiones y guiones bajos. Los hosts Linux configurados con el asistente de consola serie lo usan: vuelva a ejecutar su apply tras cambiarlo."
       },
       "userDisk": {
         "title": "Disco de usuario",

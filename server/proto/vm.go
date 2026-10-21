@@ -88,23 +88,26 @@ type GetVirtualDeviceRsp struct {
 }
 
 // USBIdentity is what the connected computer sees in the device descriptor.
-// The serial number is the chip UID and read-only; Default says whether the
-// four writable fields are the factory ones.
+// An empty serial number is the chip UID, ChipSerialNumber; Default says
+// whether all five fields are the factory ones.
 type USBIdentity struct {
-	VendorID     string `json:"vendorId"`
-	ProductID    string `json:"productId"`
-	Manufacturer string `json:"manufacturer"`
-	Product      string `json:"product"`
-	SerialNumber string `json:"serialNumber,omitempty"`
-	Default      bool   `json:"default"`
+	VendorID         string `json:"vendorId"`
+	ProductID        string `json:"productId"`
+	Manufacturer     string `json:"manufacturer"`
+	Product          string `json:"product"`
+	SerialNumber     string `json:"serialNumber"`
+	ChipSerialNumber string `json:"chipSerialNumber"`
+	Default          bool   `json:"default"`
 }
 
-// USBIdentityReq sets the identity; an empty field keeps the factory value.
+// USBIdentityReq sets the identity; an empty field keeps the factory value
+// (the chip UID for the serial number).
 type USBIdentityReq struct {
 	VendorID     string `json:"vendorId"`
 	ProductID    string `json:"productId"`
 	Manufacturer string `json:"manufacturer"`
 	Product      string `json:"product"`
+	SerialNumber string `json:"serialNumber"`
 }
 
 // SerialConsoleRsp describes the headless-Linux console helper: the USB

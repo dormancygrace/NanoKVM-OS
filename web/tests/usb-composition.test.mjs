@@ -55,6 +55,20 @@ test('the identity is part of the composition and has its own presets', () => {
   assert.equal(identityProblem({ ...generic, manufacturer: 'x'.repeat(127) }), 'string');
 });
 
+test('the serial number is part of the identity, but not of its presets', () => {
+  const generic = usbIdentityPresets.find((item) => item.id === 'generic').identity;
+  const serial = { ...generic, serialNumber: 'KVM-0001' };
+  // empty and missing are both the chip UID
+  assert.equal(sameIdentity(generic, { ...generic, serialNumber: '' }), true);
+  assert.equal(sameIdentity(generic, serial), false);
+  assert.equal(matchingIdentityPreset(serial), 'generic');
+  assert.equal(matchingIdentityPreset({ ...defaultUsbIdentity, serialNumber: 'x' }), 'nanokvm');
+  assert.equal(identityProblem(serial), undefined);
+  assert.equal(identityProblem({ ...generic, serialNumber: '' }), undefined);
+  for (const bad of ['has space', 'quo"te', '$(id)', 'x'.repeat(127)])
+    assert.equal(identityProblem({ ...generic, serialNumber: bad }), 'serial', bad);
+});
+
 const status = {
   budget: { inLimit: 6, outLimit: 7 },
   costs: {

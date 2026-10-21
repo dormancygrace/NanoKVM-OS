@@ -38,23 +38,29 @@ user to disable USB network as a prerequisite for serial.
 ### USB identity
 
 Below the manual section, **USB identity** is what the computer reads from the
-device descriptor: vendor ID, product ID, manufacturer and product strings.
+device descriptor: vendor ID, product ID, manufacturer and product strings
+and the serial number.
 Hosts with a USB allow-list, or endpoint security that objects to a device
 called "NanoKVM", need something else there. Two presets, **NanoKVM (factory)**
 (`0x3346:0x1009`, `sipeed` / `NanoKVM`) and **Generic composite device**
 (the factory IDs with the names `Generic` / `USB Composite Device`), and a
-**Custom** choice with the four fields by hand. No preset carries another
+**Custom** choice with the fields by hand. No preset carries another
 vendor's ID: a custom vendor or product ID is the user's own, and the page says
-so. The serial number stays the chip UID and is shown read-only, because the
-Linux console helper's udev rule is bound to it; `bcdDevice` stays the mode
-flag the server reads.
+so. The serial number is the chip UID while its field is empty (the field
+shows the UID as its placeholder); a set one is 1 to 126 letters, digits,
+dots, dashes or underscores, because the serial console page puts it into a
+shell command and the Linux helper into a udev rule. Presets leave it as it
+is. The Linux console helper's udev rule is bound to it: after a change, run
+the helper's `apply` again on the host. `bcdDevice` stays the mode flag the
+server reads.
 
 The identity is part of the composition: Apply writes it with the rest and
 reconnects USB, and it is in the `revision`. `S03usbdev` and `S03usbhid` read
-`/boot/usb.vid`, `/boot/usb.pid`, `/boot/usb.manufacturer` and
-`/boot/usb.product` at every start (a missing file is the factory value). The
-recovery init (inside the initramfs, so changed only with a platform build)
-reads the same manufacturer and product files, but takes the IDs from its own
+`/boot/usb.vid`, `/boot/usb.pid`, `/boot/usb.manufacturer`,
+`/boot/usb.product` and `/boot/usb.serialnumber` at every start (a missing
+file is the factory value). The recovery init (inside the initramfs, so
+changed only with a platform build) reads the same manufacturer, product and
+serial number files, but takes the IDs from its own
 `usb.idVendor` / `usb.idProduct`: a recovery boot presents the factory IDs
 unless those two files are set by hand. A vendor or product ID
 other than the factory one stops the serial console helper's udev rule on

@@ -1242,13 +1242,15 @@
           "productId": "Product ID",
           "manufacturer": "Manufacturer",
           "product": "Product",
-          "serialNumber": "Serial number (chip UID, fixed)"
+          "serialNumber": "Serial number"
         },
         "invalid": {
           "id": "IDs are four hexadecimal digits like 0x1234, not 0x0000.",
-          "string": "Names are 1 to 126 printable ASCII characters without leading or trailing spaces."
+          "string": "Names are 1 to 126 printable ASCII characters without leading or trailing spaces.",
+          "serial": "A serial number is 1 to 126 letters, digits, dots, dashes or underscores."
         },
-        "idWarning": "A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs)."
+        "idWarning": "A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs).",
+        "serialHint": "Empty: the chip UID. Letters, digits, dots, dashes and underscores. Linux hosts set up with the serial console helper match it: run its apply again after a change."
       },
       "userDisk": {
         "title": "User disk",

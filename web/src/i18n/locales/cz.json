@@ -100,7 +100,7 @@
       "changingResolution": "Přepínání rozlišení…",
       "updateFailed": "Obraz se teď nemůže aktualizovat",
       "videoError": "Chyba zobrazení videa",
-      "noHdmi": "Nebyl zjištěn signál HDMI",
+      "noHdmi": "Nezjištěn žádný HDMI signál",
       "unavailable": "Obraz teď nelze zobrazit",
       "mjpeg4k": "MJPEG není k dispozici když je HDMI vstup 3840 × 2160. Použijte H.264 nebo H.265 v Nastavení → Video",
       "needsVideoMemory": "HDMI vstup {{size}} vyžaduje více videopaměti. Aby se použil aktualizovaný systém, zařízení restartujte.",
@@ -220,7 +220,7 @@
     "default": "Výchozí kurzor",
     "cell": "Kurzor buňky",
     "text": "Textový kurzor",
-    "grab": "Chytnout kurzor",
+    "grab": "Kurzor úchopu",
     "hide": "Skrýt kurzor",
     "mode": "Režim myši",
     "absolute": "Absolutní režim",
@@ -254,13 +254,13 @@
     "resetHid": "Resetovat HID"
   },
   "image": {
-    "title": "Obrázky",
+    "title": "Obrazy",
     "loading": "Načítání…",
     "empty": "Nic nenalezeno",
     "mountMode": "Režim připojení",
     "mountFailed": "Připojení se nezdařilo",
     "mountDesc": "V některých systémech je nutné před připojením obrazu vysunout virtuální disk na vzdáleném hostiteli.",
-    "unmountFailed": "Odpojení se nezdařilo",
+    "unmountFailed": "Odpojení (unmount) se nezdařilo",
     "unmountDesc": "Na některých systémech je třeba před odpojením obrazu ručně vysunout ze vzdáleného hostitele.",
     "attention": "Pozor",
     "deleteConfirm": "Opravdu chcete tento obraz smazat?",
@@ -448,12 +448,12 @@
         "title": "Zásluhy",
         "contributorsTitle": "Přispěvatelé do open-source",
         "madePossibleBy": "Možné jen díky",
-        "closing": "Děkujeme, že NanoKVM OS vzniká i Vaší zásluhou.",
+        "closing": "Děkujeme, že NanoKVM OS vzniká i vaší zásluhou.",
         "polyzium": "Překlad do ruštiny, obecná 104 klávesová virtuální klávesnice, chování přizpůsobit oknu a opravy překladů v uživatelském rozhraní.",
         "gxcreator": "Podrobná hlášení o problémech a průběžná zpětná vazba, která odhalila regrese a přímo utvářela opravy.",
         "translationThanks": "Uživatelsky přívětivější díky lidem, kteří překládají, kontrolují a vylepšují texty v rozhraní. Děkujeme.",
         "projectLead": "Koncept, architektura, vývoj NanoKVM OS, systémová integrace, ověřování zařízení a řízení vydávání.",
-        "wenjie": "Správcovství původní aplikace NanoKVM; přímé H.264, opravy spouštění a síťování v Tailscale; a začlenění lokalizace do uživatelského rozhraní.",
+        "wenjie": "Správcovství původní aplikace NanoKVM; Direct H.264, opravy spouštění a síťování v Tailscale; a začlenění lokalizace do uživatelského rozhraní.",
         "z2zGuGu": "Nativní komponenty KVM, MMF a vidění; nástroje pro sestavování, resetátor, nástroje pro práci s EDID a USB PID/VID; a základy pro přizpůsobování si zařízení.",
         "alexanderGerReich": "Toky aplikací, aktualizací a stahování; vylepšení HID, vkládání a virtuální klávesnice; a údržba textů uživatelského rozhraní v němčině a angličtině.",
         "andrewMoryakov": "Začlenění NetBird klienta a nastavení, posílené zabezpečení životního cyklu VPN a obsluha zotavování, ověřování artefaktů a regresní CI.",
@@ -535,7 +535,7 @@
       "buttonColor": {
         "save": "Použít",
         "title": "Barva tlačítka",
-        "preview": "Tlačítko náhledu",
+        "preview": "Náhled tlačítka",
         "accentTitle": "Hlavní tlačítka",
         "customActive": "Uživatelsky určená barva",
         "restoreDefault": "Obnovit výchozí",
@@ -1317,7 +1317,7 @@
         },
         "headless": {
           "title": "Server bez videovýstupu",
-          "description": "Sériová konzole a virtuální disk s pomocným diskem, na kterém je skript pro nastavení přihlašování přes sériovou konzoli, takže server nepotřebuje síť. Na počítači se neobjeví klávesnice ani myš. Zapnutí RustDesk přepne USB na jeho předvolbu a odpojí sériovou konzoli."
+          "description": "Sériová konzole a virtuální disk s pomocným diskem, na kterém je skript pro nastavení přihlašování přes sériovou konzoli, takže server nepotřebuje síť. Na počítači se neobjeví klávesnice ani myš. Zapnutí RustDesk přepne na svá přednastavení a odpojí sériovou konzoli."
         },
         "console": {
           "title": "KVM + sériová konzole",
@@ -1550,6 +1550,17 @@
         "unavailable": "Není nastavený žádný repozitář pro NanoKVM OS.",
         "upToDate": "NanoKVM OS je aktuální",
         "autoDescription": "Jednou denně se podívat se do repozitáře NanoKVM OS pokud je k dispozici novější verze, zobrazit upozornění. Nic není instalováno automaticky."
+      },
+      "channel": {
+        "title": "Kanál aktualizací",
+        "stable": "Stabilní",
+        "beta": "Testovací",
+        "custom": "Uživatelsky určený repozitář",
+        "description": "Zvolte Stabilní pro běžná vydání nebo Testovací pro náhledy novinek. Přepnutí nenainstaluje balíčky; po návratu ke Stabilnímu je možné přejít z novější testovací verze na aktuální stabilní.",
+        "warning": "Může se stávat, že Testovací vydání budou obsahovat nedokončené funkce nebo že bude rozbité to, co už fungovalo.",
+        "rollback": "Nainstalovat stabilní verzi",
+        "rollbackDescription": "Je nainstalovaná testovací verze. Je možné nainstalovat aktuální stabilní vydání, včetně starších verzí balíčků (bez toho, aby bylo třeba čekat na další vydání).",
+        "rollbackConfirm": "Nahradit testovací firmware tím aktuálním stabilním? Nastavení a data jsou ponechána. Služby budou restartovány, může být zapotřebí restart systému zařízení."
       }
     },
     "extensions": {
@@ -1738,8 +1749,8 @@
     "title": "Video",
     "transport": "Transport",
     "resolution": "Rozlišení",
-    "frameRateHint": "Monitor NanoKVM se obnovuje touto frekvencí, takže ji počítač vykresluje. Nové rozlišení začíná na svém maximu, {{value}} sním./s. Pokud chcete snížit objem přenášených dat, frekvenci snižte..",
-    "frameRateFixedHint": "Přijímač si ponechává vlastní obnovovací frekvenci; proud přenáší nejvýše {{value}} sním./s.",
+    "frameRateHint": "Monitor NanoKVM se obnovuje touto frekvencí, takže ji počítač vykresluje. Nové rozlišení začíná na svém maximu, {{value}} snímků/s. Pokud chcete snížit objem přenášených dat, frekvenci snižte.",
+    "frameRateFixedHint": "Přijímač si ponechává vlastní obnovovací frekvenci; proud přenáší nejvýše {{value}} snímků/s.",
     "player": "Přehrávač",
     "image": "Obrázek",
     "retry": "Zkusit znovu",
@@ -1752,7 +1763,7 @@
     "input": "HDMI vstup",
     "captureOn": "Zachytávání povoleno",
     "output": "Enkódovaný proud",
-    "fpsValue": "{{value}} snímků/s",
+    "fpsValue": "{{value}} sním./s",
     "open": "Nastavení videa…",
     "current": "Stávající video",
     "directImmediate": "Nejnižší prodleva",
@@ -1785,8 +1796,8 @@
       "video-memory": "vyžaduje více videopaměti: aby se použil aktualizovaný systém, zařízení restartujte",
       "h264-4k": "není k dispozici nad 2560 × 1440, použijte H.265 nebo rozlišení proudu 1440p nebo nižší"
     },
-    "bitrateAuto": "Automaticky · {{value}} Mbit/s",
-    "bitrateEconomy": "Úsporné · {{value}} Mbit/s",
+    "bitrateAuto": "Automatická · {{value}} Mbit/s",
+    "bitrateEconomy": "Úsporná · {{value}} Mbit/s",
     "mjpegChroma420": "4:2:0 – méně objemné snímky",
     "powerCycleTitle": "Je zapotřebí fyzicky odpojit od napájení a poté znovu připojit",
     "invalid": "Některé z vybraných předvoleb nejsou k dispozici",
@@ -1817,7 +1828,7 @@
     "deviceTransportHint": "Pro správce je to zároveň transport zařízení: prohlížeče bez vlastní volby začínají s ním a RustDesk přijímá WebRTC jen při WebRTC.",
     "deviceTransport": "Transport zařízení je {{transport}}: prohlížeče bez vlastní volby začínají s ním a RustDesk se jím řídí.",
     "deviceTransportUse": "Použít {{transport}} pro zařízení",
-    "fpsDelivered": "Doručováno: až {{fps}} sním./s při {{size}}",
+    "fpsDelivered": "Doručováno: až {{fps}} snímků/s při {{size}}",
     "mjpegChromaFallback_video": "Pouze jeden výstup zachytávání podporuje šířky větší než 1920 pixelů. MJPEG používá 4:2:0 zatímco oba proudy jsou širší; 4:2:2 bude navráceno po skončení proudu videa nebo pokud se zmenší alespoň jeden z proudů.",
     "mjpegChromaFallback_diagnostic": "Ve stávajícím režimu zachytávání není 4:2:2 k dispozici.",
     "mjpegChromaFallback_hardware": "Po chybě zachytávání náhradně používá 4:2:0. Pokud je signál stabilní, zkuste znovu 4:2:2.",
@@ -1831,12 +1842,13 @@
     "powerCycleAckConfirm": "Potvrďte, že jste fyzicky odpojili veškeré zdroje napájení od NanoKVM (a připojili je pak nazpět). Toto pouze zavře připomínku, nikoli restartuje zařízení.",
     "directSmoothHint": "Přizpůsobivé vyrovnávací paměti pro vyhlazení nerovnoměrného doručování (přidává ale drobnou prodlevu).",
     "description": "Nastavit HDMI monitor nezávisle na videu zasílaném vámi využívanému prohlížeči.",
-    "fpsLimited": "Stávající vstup omezuje zachytávání na {{fps}} sním./s. Uložený požadavek je ponechán pro příští režim zdroje.",
+    "fpsLimited": "Stávající vstup omezuje zachytávání na {{fps}} snímků/s. Uložený požadavek je ponechán pro příští režim zdroje.",
     "hevcDirect": "H.265 přímo ze zachytávání",
     "hevcDirectHint": "Enkodér čte zachycený obraz samotný namísto jeho převedené kopie: nižší prodleva (přibližně 6ms při 1080p, 25 ms při 4K) a nižší provoz v operační paměti. Pokud chcete enkódovat přes videoprocesor (jako dříve), vypněte. Bude uplatněno během sekundy a bez restartu.",
     "viDirect": "Video přímo ze zachytávání",
     "viDirectH264Hint": "H.264 při velikosti a obnovovací frekvenci vstupu čte zachycený snímek samotný: zachytávání přepne na vzorkování barev 4:2:0 (při 1080p o přibližně 6ms nižší prodleva a nižší provoz v operační paměti), a MJPEG mezitím používá také 4:2:0. Při změně tohoto režimu se zachytávání nakrátko restartuje. Pokud chcete enkódovat pomocí videoprocesoru (jako předtím), vypněte.",
-    "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálované) H.264."
+    "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálované) H.264.",
+    "aspect": "Poměr stran"
   },
   "dashboard": {
     "states": {
@@ -2006,7 +2018,8 @@
     "captureDisabled": "Aby bylo možné nahrávat video, povolte zachytávání",
     "noVideo": "Před zahájením nahrávání čekat na video",
     "unsupported": "Nahrávání vyžaduje HTTPS a prohlížeč s podporou ukládání souborů, jako například Chrome nebo Edge",
-    "failed": "Nahrávku nebylo možné uložit. Zkontrolujte volný prostor na disku a podporu v prohlížeči."
+    "failed": "Nahrávku nebylo možné uložit. Zkontrolujte volný prostor na disku a podporu v prohlížeči.",
+    "interrupted": "Nahrávka je neúplná. Byla uložena jen ta část, která byla k dispozici."
   },
   "capture": {
     "off": "Zachytávání zakázáno",

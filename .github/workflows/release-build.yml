@@ -64,6 +64,9 @@ jobs:
       - name: Check VDI poll deadlines
         run: python3 tests/test-vdi-poll.py --source "$OUT/modules/sources/osdrv/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c"
 
+      - name: Check VI damaged frames and error recovery
+        run: python3 tests/test-vi-damaged-frames.py "$OUT/modules/sources/osdrv"
+
       - name: Check exfat output
         run: python3 tests/test-exfatprogs-output.py --images "$OUT/images"
 

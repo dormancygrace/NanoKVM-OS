@@ -37,7 +37,7 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   - `test-usb-internet-netns.py`;
   - `test-pmtu-netns.sh`.
 - **Built or prepared sources, passed as arguments or environment:**
-  - the native contract tests (`test-mjpeg-native-contracts.py`, `test-venc-*.py`, `test-vi-yuv-stride.py`, …);
+  - the native contract tests (`test-mjpeg-native-contracts.py`, `test-venc-*.py`, `test-vi-yuv-stride.py`, `test-vi-damaged-frames.py`, …);
   - `test-nanokvm-fip.py` and `test-opensbi-reservations.py` (platform images);
   - `test-addon-apk-upgrade.py` and `test-rustdesk-apk.py` (APKs).
   - `test-aic8800-command.py` and `test-aic8800-timeout.py`. Their `--driver`

@@ -117,3 +117,46 @@ run_case("background start without interfaces", background=True, success=False,
          expected_calls=())
 run_case("background start, ethernet failure alone", eth=True, fail="S30eth",
          background=True, success=False, expected_calls=("S30eth start",))
+
+
+def stop_during_start():
+    """The timeout must not stop interfaces underneath the background worker."""
+    with tempfile.TemporaryDirectory(prefix="nkos-openrc-net-stop-") as directory:
+        root = Path(directory)
+        calls = root / "calls"
+        env = dict(os.environ, SERVICE=str(SERVICE), CALLS=str(calls),
+                   NANOKVM_NETWORK_PENDING=str(root / "pending"),
+                   RELEASE=str(root / "release"), READY=str(root / "ready"))
+        result = subprocess.run(["sh", "-c", r'''
+            . "$SERVICE"
+            ebegin() { :; }
+            eend() { return "$1"; }
+            logger() { :; }
+            # Accelerate only the service's 150 polling sleeps.
+            sleep() { :; }
+            start_interfaces() {
+                : > "$READY"
+                while [ ! -e "$RELEASE" ]; do command sleep 0.01; done
+                echo started >> "$CALLS"
+            }
+            stop_legacy() { echo "$1 stop" >> "$CALLS"; }
+            start || exit 10
+            while [ ! -e "$READY" ]; do command sleep 0.01; done
+            stop
+            status=$?
+            [ "$status" -ne 0 ] && [ -e "$NANOKVM_NETWORK_PENDING" ] &&
+                [ ! -e "$CALLS" ]
+            safe=$?
+            : > "$RELEASE"
+            wait
+            [ "$safe" -eq 0 ] || exit 11
+            [ ! -e "$NANOKVM_NETWORK_PENDING" ] || exit 12
+            stop || exit 13
+        '''], env=env, capture_output=True, text=True, timeout=10)
+        assert result.returncode == 0, result
+        assert calls.read_text().splitlines() == [
+            "started", "S30wifi stop", "S30eth stop"], calls.read_text()
+        print("stop timeout preserves worker; retry stops interfaces in order: pass")
+
+
+stop_during_start()

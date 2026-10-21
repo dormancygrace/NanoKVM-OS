@@ -81,7 +81,7 @@ start_interfaces() {
 # address probe and Wi-Fi (about 5 s at boot). A failure goes to the log.
 start() {
     ebegin "Starting NanoKVM network"
-    : > "$NANOKVM_NETWORK_PENDING"
+    : > "$NANOKVM_NETWORK_PENDING" || { eend 1; return 1; }
     (
         start_interfaces >/dev/null 2>&1 ||
             logger -t nanokvm-network "No NanoKVM network interface started"
@@ -98,7 +98,13 @@ stop() {
         sleep 0.1
         n=$((n + 1))
     done
-    rm -f "$NANOKVM_NETWORK_PENDING"
+    # Never race a slow start (e.g. several duplicate static addresses).
+    # Leave the marker with its worker and let OpenRC report a failed stop;
+    # restart must not launch another worker over the first one.
+    if [ -e "$NANOKVM_NETWORK_PENDING" ]; then
+        eend 1 "Network setup is still running; retry stopping it later"
+        return 1
+    fi
     stop_legacy S30wifi || true
     stop_legacy S30eth || true
     eend 0

@@ -35,6 +35,7 @@ class SdImageBootTests(unittest.TestCase):
             (root/'kvmapp/version').write_text('2.5-a1\n')
             (root/'etc/kvm').mkdir(parents=True)
             (root/'etc/kvm/ssh_stop').write_text('')
+            (root/'etc/kvm/mdns_disabled').write_text('1\n')
             (root/'etc/fstab').write_text('/dev/mmcblk0p2 / f2fs rw 0 1\n')
             archive = tmp/'rootfs.tar.gz'
             with tarfile.open(archive, 'w:gz') as tar:
@@ -51,6 +52,7 @@ class SdImageBootTests(unittest.TestCase):
             result = subprocess.run(['python3', str(BUILDER), '--rootfs-archive', str(archive), '--fip', str(fip),
                             '--f2fs-tools', str(f2fs), '--output', str(out), '--version', 'v2.5-a1', '--image-version', 'v1.0-a1'], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr[-1500:])
+            self.assertEqual((out/'root/etc/kvm/mdns_disabled').read_text(), '1\n')
             self.assertTrue((out/'boot-files/boot.sd').exists(), result.stderr[-1500:])
             self.assertEqual((out/'boot-files/boot.sd').read_bytes(), COMPOSED)
             self.assertIn('compose-fit', (out/'assembly.log').read_text())

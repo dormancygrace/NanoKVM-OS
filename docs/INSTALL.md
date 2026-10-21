@@ -19,6 +19,10 @@ instead.
    Until then, the web interface only allows the password change. For the
    administrator this also sets the Linux root password used by SSH.
    SSH is disabled by default; enable it in settings if needed.
+   mDNS is also disabled on fresh cards, and after a recovery that keeps no
+   settings; enable it in Settings → Network if needed. Package updates and
+   recovery with preserved settings keep the existing mDNS preference,
+   whether enabled or disabled.
 
 ## Card layout
 

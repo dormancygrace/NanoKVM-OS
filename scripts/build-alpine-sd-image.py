@@ -47,6 +47,8 @@ if bundled_version.removeprefix('v') != a.version.removeprefix('v'):
     p.error('Application version does not match the rootfs bundle')
 assert (root/'lib/modules'/release).is_dir()
 assert (root/'etc/kvm/ssh_stop').is_file()
+# mDNS off on a new root comes with the rootfs archive (platform/build.sh).
+assert (root/'etc/kvm/mdns_disabled').is_file()
 assert not list((root/'root').glob('.ssh/*'))
 assert not list((root/'etc/ssh').glob('ssh_host_*'))
 for name in ['server.key','server.crt','pwd','wifi.pass','wifi.ssid','.jwt_secret']:

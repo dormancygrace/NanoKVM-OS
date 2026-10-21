@@ -15,7 +15,13 @@ import {
 } from 'mediabunny';
 
 import { DIRECT_H264_CODEC, DIRECT_H265_CODEC } from '@/lib/encoder.ts';
-import { AudioTimeline, type RecordingAudioSource } from '@/lib/recording-audio.ts';
+import {
+  AUDIO_RESYNC_SECONDS,
+  AudioTimeline,
+  OPUS_FRAME_SECONDS,
+  OPUS_SILENCE,
+  type RecordingAudioSource
+} from '@/lib/recording-audio.ts';
 import type { RecordingResult } from '@/lib/recording-result.ts';
 import {
   PacketTimeline,
@@ -36,6 +42,10 @@ export type PassthroughRecording = {
 // last is this old. The byte limit also bounds retention if the sender does
 // not answer a keyframe request. This is not a disk durability guarantee.
 const KEYFRAME_INTERVAL = 5;
+// Received audio this far behind the video is filled with silence. Longer
+// than the re-anchoring threshold, so audio resuming after the gap lands after
+// the silence and is kept.
+export const SILENCE_LAG = AUDIO_RESYNC_SECONDS + 1;
 
 export async function recordPassthrough(
   source: RecordingSource,
@@ -64,6 +74,9 @@ export async function recordPassthrough(
   let stopAudio = () => {};
   let audioTimeline: AudioTimeline | undefined;
   let firstAudio = true;
+  // Set at once when received audio ends; closing the track is queued, and a
+  // packet added after it would fail the whole file.
+  let audioStopped = false;
   let reason: RecordingResult['reason'];
   let audioEnded = false;
   const endAudio = () => {
@@ -181,7 +194,7 @@ export async function recordPassthrough(
         );
         stopAudio = encodedAudio.start(
           (audioPacket) => {
-            if (finished || !audioTimeline) return;
+            if (finished || audioStopped || !audioTimeline) return;
             const seconds = audioTimeline.push(audioPacket);
             if (seconds === null) return;
             if (retainedBytes + audioPacket.data.byteLength > maxPendingBytes) {
@@ -189,20 +202,11 @@ export async function recordPassthrough(
               finish();
               return;
             }
-            retainedBytes += audioPacket.data.byteLength;
-            const meta = firstAudio
-              ? { decoderConfig: { codec: 'opus', sampleRate: 48000, numberOfChannels: 2 } }
-              : undefined;
-            firstAudio = false;
-            enqueue(() =>
-              (sound as EncodedAudioPacketSource).add(
-                new EncodedPacket(audioPacket.data, 'key', seconds, 0.02),
-                meta
-              )
-            );
+            addAudio(audioPacket.data, seconds);
           },
           (endReason) => {
             if (endReason === 'stream-error' || endReason === 'closed') reason ??= 'audio-error';
+            audioStopped = true;
             // Queue closing after previously accepted audio packets.
             enqueue(async () => endAudio());
           }
@@ -211,6 +215,10 @@ export async function recordPassthrough(
       }
     }
     if (!result) return;
+    if (audioTimeline && !audioStopped) {
+      for (const seconds of audioTimeline.silence(result.seconds - SILENCE_LAG))
+        addAudio(OPUS_SILENCE, seconds);
+    }
     if (result.key) lastKeyframe = result.seconds;
     else if (
       result.seconds - lastKeyframe >= KEYFRAME_INTERVAL &&
@@ -221,6 +229,20 @@ export async function recordPassthrough(
     }
     enqueue(() => add(result));
   };
+  function addAudio(data: Uint8Array, seconds: number) {
+    retainedBytes += data.byteLength;
+    const meta = firstAudio
+      ? { decoderConfig: { codec: 'opus', sampleRate: 48000, numberOfChannels: 2 } }
+      : undefined;
+    firstAudio = false;
+    enqueue(() =>
+      (sound as EncodedAudioPacketSource).add(
+        new EncodedPacket(data, 'key', seconds, OPUS_FRAME_SECONDS),
+        meta
+      )
+    );
+  }
+
   // A disposed source may end synchronously during subscription.
   let stopSource = () => {};
   try {
@@ -273,6 +295,7 @@ export async function recordPassthrough(
     stop: finish,
     stopAudio: () => {
       stopAudio();
+      audioStopped = true;
       enqueue(async () => endAudio());
     },
     started: startedPromise,

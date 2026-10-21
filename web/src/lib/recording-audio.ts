@@ -44,21 +44,45 @@ export function getRecordingAudio(stream: MediaStream | null): RecordingAudioSou
   };
 }
 
+// The device sends one 20 ms Opus frame per packet; this one is stereo silence.
+export const OPUS_FRAME_SECONDS = 0.02;
+export const OPUS_SILENCE = new Uint8Array([0xfc, 0xff, 0xfe]);
+// The sender's RTP clock only advances with the audio it sends: while the
+// computer plays nothing, no packets come and the clock stands still. A packet
+// arriving this much later than its RTP time starts a new anchor.
+export const AUDIO_RESYNC_SECONDS = 0.5;
+
 // Both RTP clocks start at arbitrary values. Anchor the first audio packet to
-// the video arrival clock, then use the 48 kHz RTP clock to preserve packet gaps.
+// the video arrival clock, then use the 48 kHz RTP clock to preserve packet gaps,
+// re-anchoring after the sender paused.
 export class AudioTimeline {
   private base: number | null = null;
   private offset = 0;
   private last = -1;
   constructor(private readonly videoReceivedAt: number) {}
   push(packet: AudioPacket): number | null {
-    if (this.base === null) {
+    const arrival = (packet.receivedAt - this.videoReceivedAt) / 1000;
+    let seconds = this.base === null ? arrival : this.offset + (packet.timestamp - this.base) / 1e6;
+    if (this.base === null || arrival - seconds > AUDIO_RESYNC_SECONDS) {
       this.base = packet.timestamp;
-      this.offset = (packet.receivedAt - this.videoReceivedAt) / 1000;
+      this.offset = arrival;
+      seconds = arrival;
     }
-    const seconds = this.offset + (packet.timestamp - this.base) / 1e6;
     if (seconds < 0 || seconds <= this.last) return null;
     this.last = seconds;
     return seconds;
+  }
+  // Silence frames for the time without packets, up to `until`. The MP4
+  // interleaver waits for every open track: without them, a computer playing
+  // nothing would hold the video back until the buffer limit ends the file.
+  silence(until: number): number[] {
+    const frames: number[] = [];
+    let next = this.last < 0 ? 0 : this.last + OPUS_FRAME_SECONDS;
+    while (next <= until) {
+      frames.push(next);
+      this.last = next;
+      next += OPUS_FRAME_SECONDS;
+    }
+    return frames;
   }
 }

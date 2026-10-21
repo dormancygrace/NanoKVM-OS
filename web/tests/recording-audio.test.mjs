@@ -5,8 +5,11 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 import {
+  AUDIO_RESYNC_SECONDS,
   AudioTimeline,
   getRecordingAudio,
+  OPUS_FRAME_SECONDS,
+  OPUS_SILENCE,
   registerRecordingAudio
 } from '../src/lib/recording-audio.ts';
 import { PacketTimeline, RtpClock } from '../src/lib/recording-source.ts';
@@ -188,6 +191,9 @@ test('fallback audio survives temporary mute and closes on an actual end', async
     Promise,
     PacketTimeline,
     AudioTimeline,
+    AUDIO_RESYNC_SECONDS,
+    OPUS_FRAME_SECONDS,
+    OPUS_SILENCE,
     DIRECT_H264_CODEC: 'avc1.4d0029',
     DIRECT_H265_CODEC: 'hev1.1.6.L150.B0',
     canEncodeAudio: async () => true,
@@ -225,4 +231,19 @@ test('fallback audio survives temporary mute and closes on an actual end', async
   assert.equal(closes, 1);
   session.stop();
   await session.done;
+});
+
+test('audio timeline re-anchors when the sender paused and fills silence up to a time', () => {
+  const timeline = new AudioTimeline(1000);
+  assert.equal(timeline.push({ timestamp: 0, receivedAt: 1000 }), 0);
+  assert.deepEqual(
+    timeline.silence(0.05).map((s) => Math.round(s * 1000)),
+    [20, 40]
+  );
+  // late by less than the threshold: RTP time is kept, inside the silence
+  assert.equal(timeline.push({ timestamp: 20000, receivedAt: 1300 }), null);
+  // the sender paused for 5 s: arrival time wins
+  assert.equal(timeline.push({ timestamp: 40000, receivedAt: 6000 }), 5);
+  assert.ok(Math.abs(timeline.push({ timestamp: 60000, receivedAt: 6020 }) - 5.02) < 1e-9);
+  assert.deepEqual(timeline.silence(5.02), []);
 });

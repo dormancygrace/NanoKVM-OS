@@ -3,6 +3,9 @@
 # The USB gadget settings: on the root file system since the flags left the
 # FAT boot partition (usb-flags-migrate).
 conf=/etc/kvm/usb
+# During a live package transaction the old server still uses /boot. Its
+# replacement activates the new directory after the old process has stopped.
+[ -e "$conf/.layout-v1" ] || conf=/boot
 
 # Vendor kernels expose a role procfs control; mainline uses the DT device role.
 set_usb_role() {

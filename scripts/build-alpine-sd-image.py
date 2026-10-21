@@ -85,6 +85,7 @@ image_metadata={'image_version':a.image_version,'bundled_application_version':a.
 (files/'image.json').write_text(json.dumps(image_metadata,indent=2)+'\n')
 (files/'ver').write_text('NanoKVM OS Image '+a.image_version+'\n')
 # The fresh-install USB flags come with the rootfs (etc/kvm/usb).
+assert (root/'etc/kvm/usb/.layout-v1').is_file()
 assert (root/'etc/kvm/usb/usb.dev').is_file() and (root/'etc/kvm/usb/usb.disk0').is_file()
 for name in ['wifi.sta','gt9xx']:(files/name).touch()
 for file in sorted(files.iterdir()):run(tool('mcopy'),'-i',bootimage,file,'::/'+file.name)

@@ -123,6 +123,7 @@ base  link  /usr/sbin/watchdog                            -     /sbin/watchdog
 base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox-LICENSE
 
 # nanokvm: server, native libraries and the board service (app payload)
+app   file  /usr/share/nanokvm/usb-flags-layout            0644  kvmapp/system/usb-flags-layout
 app   file  /kvmapp/build-manifest.json                   0644  %build-manifest.json
 # Video defaults of a new installation; protected from upgrades by base.
 app   file  /kvmapp/kvm/fps                               0644  %kvm/fps

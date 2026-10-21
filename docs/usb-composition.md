@@ -314,9 +314,9 @@ The USB flags are files in `/etc/kvm/usb` on the F2FS root partition:
 `S03usbdev`, `S03usbhid`, `S30usbnet` and the server read them there. Each write is a rename followed by a sync of the directory, so a power cut leaves either the old file or the new one. Recovery with preserved settings keeps them with the rest of `/etc/kvm`.
 
 Releases before this one kept them on the FAT boot partition, which has no journal. `/usr/libexec/nanokvm/usb-flags-migrate` moves them:
-- **When:** at the package upgrade, and again whenever `nanokvm-usb` starts.
+- **When:** before USB startup and before the replacement application starts. During a live package update, migration waits until the old server stops writing `/boot`. A base-only update leaves the old layout in use; the new application requires a base package that supports migration. A migration error prevents startup instead of selecting default USB settings.
 - **Which set wins:** whenever `/boot` holds any of them, that set replaces `/etc/kvm/usb`.
-- **Power cuts:** the new set is complete before `/boot` is cleaned, and `/boot` is clean before the new set takes the old one's place. A run interrupted at any point is finished by the next one.
+- **Power cuts:** the new set and its atomically published manifest are complete before `/boot` is cleaned, and `/boot` is clean before the new set takes the old one's place. A run interrupted at any point is finished by the next one.
 
 **Rollback.** A channel rollback to an older release finds no flags on `/boot`. That release's gadget comes up with keyboard and mice only, and the composition can be set again in its USB settings. After a later upgrade, the flags that release wrote on `/boot` move over again.
 

@@ -13,11 +13,25 @@
 #    for a set an older release wrote;
 # 3. usb is moved to usb.old and usb.new to usb; .complete and usb.old go last.
 #
-# Run by nanokvm-usb before the gadget starts and by the nanokvm-base upgrade.
+# Run before the gadget starts and before starting the application.
 set -u
 
 boot=${NANOKVM_USB_FLAGS_BOOT:-/boot}
 dir=${NANOKVM_USB_FLAGS_DIR:-/etc/kvm/usb}
+layout=${NANOKVM_USB_FLAGS_LAYOUT:-/usr/share/nanokvm/usb-flags-layout}
+# A base-only upgrade must leave the old application's flags on /boot.
+[ -f "$layout" ] || exit 0
+# The old server can still write /boot during a live APK transaction. Defer
+# until S95 starts its replacement; the USB scripts retain the legacy path
+# until .layout-v1 is installed. Never copy a concurrently changing flag set.
+pidof_cmd=${NANOKVM_USB_FLAGS_PIDOF:-pidof}
+if "$pidof_cmd" NanoKVM-Server >/dev/null 2>&1; then
+    exit 0
+fi
+mkdir -p "$(dirname "$dir")" || exit 1
+exec 9>"$dir.lock" || exit 1
+flock 9 || exit 1
+
 new=$dir.new
 old=$dir.old
 names='usb.dev usb.disk0 usb.disk0.ro usb.userdisk usb.rndis0 usb.ncm usb.acm
@@ -33,7 +47,23 @@ boot_ready() {
 
 # Steps 2 and 3 for a complete usb.new.
 finish() {
-    for name in $(cat "$new/.complete"); do
+    manifest=$(cat "$new/.complete") || return 1
+    [ -n "$manifest" ] || return 1
+    for name in $manifest; do
+        case " $(printf '%s' "$names" | tr '\n' ' ') " in
+            *" $name "*) ;;
+            *) return 1 ;;
+        esac
+        [ -f "$new/$name" ] || return 1
+    done
+    # Reject a truncated manifest before removing any source file.
+    for name in $names; do
+        [ ! -f "$new/$name" ] || case " $(printf '%s' "$manifest" | tr '\n' ' ') " in
+            *" $name "*) ;;
+            *) return 1 ;;
+        esac
+    done
+    for name in $manifest; do
         rm -f "$boot/$name" || return 1
     done
     sync || return 1
@@ -41,24 +71,39 @@ finish() {
     if [ -d "$dir" ]; then
         mv "$dir" "$old" || return 1
     fi
+    : > "$new/.layout-v1" && sync || return 1
     mv "$new" "$dir" && sync || return 1
     rm -f "$dir/.complete" && rm -rf "$old" && sync
 }
 
-# Leftovers of a run cut short after the last rename.
-rm -f "$dir/.complete" && rm -rf "$old" || exit 1
 # A complete usb.new waits for the mount too: finishing it without step 2
 # would leave the recorded names on /boot.
-boot_ready || exit 0
+boot_ready || {
+    echo "USB flags migration needs the mounted boot partition" >&2
+    exit 1
+}
 if [ -e "$new/.complete" ]; then
     finish || exit 1
+elif [ -d "$dir" ]; then
+    # Leftovers after the final rename; a valid destination is already present.
+    rm -f "$dir/.complete" && rm -rf "$old" || exit 1
+elif [ -d "$old" ]; then
+    echo "USB flags migration has no complete replacement; preserving usb.old" >&2
+    exit 1
 fi
 
 present=
 for name in $names; do
     [ -f "$boot/$name" ] && present="$present $name"
 done
-[ -n "$present" ] || exit 0
+if [ -z "$present" ]; then
+    # Empty legacy sets are valid too. Mark activation only after confirming
+    # /boot is mounted, so a missing mount never enables default USB.
+    if [ ! -e "$dir/.layout-v1" ]; then
+        mkdir -p "$dir" && : > "$dir/.layout-v1" && sync || exit 1
+    fi
+    exit 0
+fi
 
 rm -rf "$new" && mkdir -p "$new" || exit 1
 for name in $present; do
@@ -67,6 +112,7 @@ for name in $present; do
     cp "$boot/$name" "$new/$name" && chmod 0644 "$new/$name" || exit 1
 done
 sync || exit 1
-printf '%s\n' $present > "$new/.complete" && sync || exit 1
+printf '%s\n' $present > "$new/.complete.tmp" && sync || exit 1
+mv "$new/.complete.tmp" "$new/.complete" && sync || exit 1
 finish || exit 1
 echo "Moved the USB flags from $boot to $dir:$present"

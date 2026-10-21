@@ -1160,6 +1160,7 @@ rootfs() {
     # The USB flags of a new root (S03usbdev, hid.USBFlagsDir): the fresh-install
     # composition, usb.dev and an empty usb.disk0. The first preset reads them.
     mkdir -p "$r/etc/kvm/usb"
+    : > "$r/etc/kvm/usb/.layout-v1"
     : > "$r/etc/kvm/usb/usb.dev"
     : > "$r/etc/kvm/usb/usb.disk0"
     # A new root starts with mDNS off: the SD image and a recovery that keeps

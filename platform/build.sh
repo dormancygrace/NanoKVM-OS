@@ -1157,6 +1157,11 @@ rootfs() {
     # The license each Alpine package declares (its SPDX expression).
     awk '/^P:/ { p = substr($0, 3) } /^V:/ { v = substr($0, 3) } /^L:/ { print p "=" v "\t" substr($0, 3) }' \
         "$r/lib/apk/db/installed" | LC_ALL=C sort > "$rel/installed-licenses.txt"
+    # A new root starts with mDNS off: the SD image and a recovery that keeps
+    # no settings both unpack this archive. No package owns the marker, so APK
+    # install and upgrade hooks never change an existing installation's choice.
+    printf '1\n' > "$r/etc/kvm/mdns_disabled"
+    chmod 0600 "$r/etc/kvm/mdns_disabled"
     tar --numeric-owner -czf "$rel/alpine-rootfs.tar.gz" --exclude='./boot/*' --exclude='./data/*' \
         --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' --exclude='./run/*' --exclude='./tmp/*' \
         -C "$r" .

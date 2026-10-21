@@ -91,6 +91,9 @@ def check(name, files, directories=(), damage=None, no_archive=False):
         if (old / 'etc/kvm').is_dir():
             # Restoring enabled mDNS must remove the fresh image's marker.
             assert (root / 'etc/kvm/mdns_disabled').exists() == ('etc/kvm/mdns_disabled' in files), name
+        elif no_archive:
+            # Nothing preserved: the new root keeps the rootfs default, mDNS off.
+            assert (root / 'etc/kvm/mdns_disabled').exists(), name
         print('PASS:', name)
 
 check('empty client directory', {}, ('root/.ssh',))

@@ -35,6 +35,7 @@ class SdImageBootTests(unittest.TestCase):
             (root/'kvmapp/version').write_text('2.5-a1\n')
             (root/'etc/kvm').mkdir(parents=True)
             (root/'etc/kvm/ssh_stop').write_text('')
+            (root/'etc/kvm/mdns_disabled').write_text('1\n')
             (root/'etc/fstab').write_text('/dev/mmcblk0p2 / f2fs rw 0 1\n')
             archive = tmp/'rootfs.tar.gz'
             with tarfile.open(archive, 'w:gz') as tar:

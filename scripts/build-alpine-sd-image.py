@@ -47,6 +47,8 @@ if bundled_version.removeprefix('v') != a.version.removeprefix('v'):
     p.error('Application version does not match the rootfs bundle')
 assert (root/'lib/modules'/release).is_dir()
 assert (root/'etc/kvm/ssh_stop').is_file()
+# mDNS off on a new root comes with the rootfs archive (platform/build.sh).
+assert (root/'etc/kvm/mdns_disabled').is_file()
 assert not list((root/'root').glob('.ssh/*'))
 assert not list((root/'etc/ssh').glob('ssh_host_*'))
 for name in ['server.key','server.crt','pwd','wifi.pass','wifi.ssid','.jwt_secret']:
@@ -54,9 +56,6 @@ for name in ['server.key','server.crt','pwd','wifi.pass','wifi.ssid','.jwt_secre
 for name in ['boot','data','dev','proc','sys','run','tmp']:
     (root/name).mkdir(exist_ok=True)
 (root/'etc/nanokvm-firstboot-storage').touch()
-# Fresh cards start with mDNS off. Keep this out of APK install/upgrade hooks:
-# existing users express enabled mDNS by the absence of this marker.
-(root/'etc/kvm/mdns_disabled').write_text('1\n')
 fstab=root/'etc/fstab';lines=[]
 for line in fstab.read_text().splitlines():
     fields=line.split()

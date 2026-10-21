@@ -89,6 +89,9 @@ run_case("wifi appears after module load", sdio=True, appears_after_load=True,
          expected_calls=("S25wifimod start", "S30wifi start"))
 run_case("no interfaces", success=False,
          expected_calls=())
+run_case("wifi disabled: driver still loads for the web switch", sdio=True,
+         wifi_disabled=True, appears_after_load=True, success=False,
+         expected_calls=("S25wifimod start", "S30wifi start"))
 run_case("sdio without wlan0", sdio=True, success=False,
          expected_calls=("S25wifimod start",))
 run_case("ethernet disabled without wifi", eth=True, eth_disabled=True,

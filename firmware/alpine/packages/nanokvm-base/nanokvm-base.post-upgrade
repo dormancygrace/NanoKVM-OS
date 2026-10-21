@@ -11,6 +11,22 @@ if [ -x /usr/libexec/nanokvm/console-policy ]; then
 fi
 # Alpine's standard loopback service is needed by local applications.
 rc-update add loopback boot
+# udev coldplug loads the drivers; the kernel set the clock from the RTC.
+rc-update del hwdrivers boot >/dev/null 2>&1 || true
+[ ! -x /etc/init.d/osclock ] || rc-update add osclock boot
+
+# Boot time settings of Alpine services (NanoKVM boot order):
+# - sshd's depend() runs `sshd -G`, which waits for the kernel's random pool
+#   while OpenRC builds its dependency tree at every boot; nanokvm-ssh starts
+#   sshd, and the config binds no single address, so it needs nothing more.
+# - bootmisc's copy of the kernel log on the SD card at every boot duplicates
+#   the boot log archive.
+if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd; then
+    printf '%s\n' '# NanoKVM: no `sshd -G` while OpenRC builds its dependency tree' 'rc_need=""' >> /etc/conf.d/sshd
+fi
+if [ -f /etc/conf.d/bootmisc ]; then
+    sed -i 's/^log_dmesg="YES"$/log_dmesg="NO"/' /etc/conf.d/bootmisc
+fi
 # D-Bus serves only avahi, which starts it when mDNS is on (nanokvm-mdns).
 # A running D-Bus keeps running until the next boot.
 if [ -e /etc/runlevels/default/dbus ] && [ -x /etc/init.d/nanokvm-mdns ] &&

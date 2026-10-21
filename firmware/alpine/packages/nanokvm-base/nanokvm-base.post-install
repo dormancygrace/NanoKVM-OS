@@ -8,7 +8,9 @@ fi
 for service in devfs dmesg procfs sysfs; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" sysinit
 done
-for service in loopback bootmisc hostname hwdrivers localmount modules sysctl udev udev-trigger; do
+# udev coldplug loads the drivers (hwdrivers would do it again); the kernel
+# set the clock from the RTC (osclock provides "clock" instead of hwclock).
+for service in loopback bootmisc hostname localmount modules osclock sysctl udev udev-trigger; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" boot
 done
 for service in nanokvm-storage nanokvm-modules nanokvm-board \
@@ -16,6 +18,19 @@ for service in nanokvm-storage nanokvm-modules nanokvm-board \
 	[ ! -x "/etc/init.d/$service" ] || rc-update add "$service" default
 done
 [ ! -x /etc/init.d/mount-ro ] || rc-update add mount-ro shutdown
+
+# Boot time settings of Alpine services (NanoKVM boot order):
+# - sshd's depend() runs `sshd -G`, which waits for the kernel's random pool
+#   while OpenRC builds its dependency tree at every boot; nanokvm-ssh starts
+#   sshd, and the config binds no single address, so it needs nothing more.
+# - bootmisc's copy of the kernel log on the SD card at every boot duplicates
+#   the boot log archive.
+if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd; then
+    printf '%s\n' '# NanoKVM: no `sshd -G` while OpenRC builds its dependency tree' 'rc_need=""' >> /etc/conf.d/sshd
+fi
+if [ -f /etc/conf.d/bootmisc ]; then
+    sed -i 's/^log_dmesg="YES"$/log_dmesg="NO"/' /etc/conf.d/bootmisc
+fi
 
 # Fresh images are closed to SSH until the user enables it. Recovery restores
 # the complete old /etc/kvm directory, including the absence of this marker.

@@ -11,7 +11,7 @@ SERVICE = Path(__file__).resolve().parents[1] / "firmware/alpine/openrc/nanokvm-
 
 def run_case(name, *, eth=False, wifi=False, sdio=False, eth_disabled=False,
              wifi_disabled=False, appears_after_load=False, fail=None,
-             expected_calls=(), success=True, missing=None):
+             expected_calls=(), success=True, missing=None, background=False):
     with tempfile.TemporaryDirectory(prefix="nkos-openrc-net-") as directory:
         root = Path(directory)
         interfaces = root / "net"
@@ -55,14 +55,26 @@ def run_case(name, *, eth=False, wifi=False, sdio=False, eth_disabled=False,
                    NANOKVM_NETWORK_SDIO_DEVICES_DIR=str(sdio_devices),
                    NANOKVM_NETWORK_LEGACY_DIR=str(scripts),
                    NANOKVM_ETH_DISABLED=str(eth_disabled_file),
-                   NANOKVM_WIFI_ETC_DIR=str(wifi_config))
+                   NANOKVM_WIFI_ETC_DIR=str(wifi_config),
+                   NANOKVM_NETWORK_PENDING=str(root / "pending"),
+                   LOGGED=str(root / "logged"))
+        # The service's start runs the interfaces in the background and always
+        # succeeds; the background step is waited for here.
+        command = "start; status=$?; wait; exit $status" if background else "start_interfaces"
         result = subprocess.run(
             ["sh", "-c", '. "$SERVICE"; ebegin() { :; }; '
-             'eend() { return "$1"; }; ewarn() { printf "%s\\n" "$*" >&2; }; start'],
+             'eend() { return "$1"; }; ewarn() { printf "%s\\n" "$*" >&2; }; '
+             'logger() { printf "%s\\n" "$*" >> "$LOGGED"; }; ' + command],
             env=env, capture_output=True, text=True,
         )
         actual = calls.read_text().splitlines() if calls.exists() else []
-        assert (result.returncode == 0) == success, (name, result)
+        logged = (root / "logged").read_text() if (root / "logged").exists() else ""
+        if background:
+            assert result.returncode == 0, (name, result)
+            assert not (root / "pending").exists(), name
+            assert ("No NanoKVM network interface started" in logged) == (not success), (name, logged)
+        else:
+            assert (result.returncode == 0) == success, (name, result)
         assert actual == list(expected_calls), (name, actual, expected_calls)
         print(f"{name}: pass")
 
@@ -99,3 +111,9 @@ run_case("ethernet failure alone", eth=True, fail="S30eth", success=False,
          expected_calls=("S30eth start",))
 run_case("missing wifi script", wifi=True, missing="S30wifi", success=False,
          expected_calls=())
+run_case("background start", eth=True, wifi=True, background=True,
+         expected_calls=("S30eth start", "S30wifi start"))
+run_case("background start without interfaces", background=True, success=False,
+         expected_calls=())
+run_case("background start, ethernet failure alone", eth=True, fail="S30eth",
+         background=True, success=False, expected_calls=("S30eth start",))

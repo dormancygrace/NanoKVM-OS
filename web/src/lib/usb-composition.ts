@@ -196,14 +196,6 @@ export function hasUsbDevice(composition: UsbComposition) {
   return usbDevices.some((name) => composition[name]);
 }
 
-// What turning USB on proposes as the draft to apply: the composition it last
-// had, when it still fits the endpoint budget, else the fresh-install preset.
-export function enableDraft(previous: UsbComposition | undefined, status: UsbStatus) {
-  if (previous && hasUsbDevice(previous) && fitsBudget(previous, status)) return { ...previous };
-  const fresh = usbPresets[0].composition;
-  return fitsBudget(fresh, status) ? { ...fresh } : undefined;
-}
-
 export function canToggleDevice(composition: UsbComposition, name: UsbDevice, status: UsbStatus) {
   return composition[name] || fitsBudget(toggleDevice(composition, name), status);
 }

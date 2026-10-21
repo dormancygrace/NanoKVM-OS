@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/virtual-device.ts';
 import {
   canToggleDevice,
-  enableDraft,
   endpointUsage,
   fitsBudget,
   hasUsbDevice,
@@ -28,24 +27,6 @@ import { UsbInternet } from './internet';
 import { SerialConsole } from './serial-console';
 import { UserDisk } from './user-disk';
 
-const previousCompositionKey = 'nanokvm.usb.previous-composition';
-function readPreviousComposition(): UsbComposition | undefined {
-  try {
-    const value = JSON.parse(localStorage.getItem(previousCompositionKey) ?? 'null');
-    if (
-      !value ||
-      !['normal', 'hid-only'].includes(value.mode) ||
-      !usbDevices.every((name) => typeof value[name] === 'boolean') ||
-      !usbDevices.some((name) => value[name]) ||
-      (value.mode === 'hid-only' && (value.network || value.disk || value.audio))
-    )
-      return;
-    return value;
-  } catch {
-    return;
-  }
-}
-
 // Which part a panel shows: the composition (the toolbar's quick menu and
 // Settings > USB Gadget > Composition) or the identity (its other page).
 export type UsbPart = 'composition' | 'identity';
@@ -60,24 +41,11 @@ export const Usb = ({ part }: { part: UsbPart }) => {
   const busy = useRef(false);
   const [error, setError] = useState('');
   const [loadFailed, setLoadFailed] = useState(false);
-  // USB is off and the switch was turned on: the panel shows a draft, and USB
-  // turns on only when it is applied.
-  const [enabling, setEnabling] = useState(false);
-  const previousComposition = useRef<UsbComposition | undefined>(readPreviousComposition());
 
   const adopt = useCallback((next: UsbStatus) => {
     setLoadFailed(false);
-    setEnabling(false);
     setStatus(next);
     setDraft(next);
-    if (usbDevices.some((name) => next[name])) {
-      previousComposition.current = { ...next };
-      try {
-        localStorage.setItem(previousCompositionKey, JSON.stringify(next));
-      } catch {
-        /* Keep the session copy when storage is unavailable. */
-      }
-    }
     const preset = matchingPreset(next);
     setSelection(preset);
     if (preset === 'custom') setManualOpen(true);
@@ -126,56 +94,20 @@ export const Usb = ({ part }: { part: UsbPart }) => {
     setError('');
   }
 
-  async function toggleUsb(on: boolean) {
-    if (!status?.revision || busy.current) return;
-    if (on) {
-      // Propose the last composition; Apply turns USB on.
-      const next = enableDraft(previousComposition.current, status);
-      if (!next) return;
-      setDraft(next);
-      const preset = matchingPreset(next);
-      setSelection(preset);
-      if (preset === 'custom') setManualOpen(true);
-      setEnabling(true);
-      setError('');
-      return;
-    }
-    if (!enabled) {
-      // Turned off again before Apply: nothing was sent.
-      adopt(status);
-      setError('');
-      return;
-    }
-    await turnOff({
-      mode: 'normal',
-      keyboard: false,
-      relative: false,
-      absolute: false,
-      network: false,
-      disk: false,
-      serial: false,
-      audio: false
-    });
-  }
-
-  // Turning USB off, by the switch or by applying a composition without any
-  // function, asks first and remembers what was on.
-  async function turnOff(empty: UsbComposition) {
-    if (!status) return;
-    const confirmed = await confirmAction({
-      title: t('settings.usb.confirmDisable'),
-      content: t('settings.usb.confirmDisableDescription'),
-      danger: true
-    });
-    if (!confirmed) return;
-    previousComposition.current = { ...status };
-    await saveComposition(empty);
-  }
-
+  // Applying a composition without any function turns USB off, and asks
+  // first while it is on. While it is off, such a draft only changes the
+  // identity, which the next start presents.
   async function apply() {
     if (!draft) return;
-    if (hasUsbDevice(draft)) await saveComposition(draft);
-    else await turnOff(draft);
+    if (enabled && !hasUsbDevice(draft)) {
+      const confirmed = await confirmAction({
+        title: t('settings.usb.confirmDisable'),
+        content: t('settings.usb.confirmDisableDescription'),
+        danger: true
+      });
+      if (!confirmed) return;
+    }
+    await saveComposition(draft);
   }
 
   async function saveComposition(requested: UsbComposition) {
@@ -236,8 +168,8 @@ export const Usb = ({ part }: { part: UsbPart }) => {
   const used = draft && status ? endpointUsage(draft, status.costs) : undefined;
   const dirty = Boolean(draft && status && !sameComposition(draft, status));
   const enabled = Boolean(status && hasUsbDevice(status));
-  const shown = enabled || enabling;
-  const empty = Boolean(draft && !hasUsbDevice(draft));
+  // the draft turns USB off
+  const turningOff = Boolean(enabled && draft && !hasUsbDevice(draft));
   const withinBudget = Boolean(draft && status && fitsBudget(draft, status));
   const identityOk = !draft?.identity || !identityProblem(draft.identity);
   const showComposition = part === 'composition';
@@ -246,24 +178,8 @@ export const Usb = ({ part }: { part: UsbPart }) => {
   return (
     <div className="space-y-6">
       {loadFailed && <Alert type="error" showIcon message={t('settings.usb.loadFailed')} />}
-      {showComposition && (
-        <>
-          <SettingRow label={t('settings.usb.enabled')} htmlFor="usb-enabled">
-            <Switch
-              id="usb-enabled"
-              checked={shown}
-              disabled={!status?.revision || loading}
-              loading={loading || (!status && !error)}
-              onChange={(next) => void toggleUsb(next)}
-            />
-          </SettingRow>
-          <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />
-        </>
-      )}
-      {part === 'identity' && status && !enabled && (
-        <div className="text-fg-muted text-sm">{t('settings.usb.identityOff')}</div>
-      )}
-      {shown && (showComposition || enabled) && (
+      {showComposition && <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />}
+      {
         <>
           <div className="space-y-4">
             {showComposition && (
@@ -388,7 +304,7 @@ export const Usb = ({ part }: { part: UsbPart }) => {
                 }}
               />
             )}
-            {showComposition && empty && (
+            {showComposition && turningOff && (
               <div className="text-fg-muted text-sm">{t('settings.usb.empty')}</div>
             )}
             {status && !status.revision && (
@@ -432,7 +348,7 @@ export const Usb = ({ part }: { part: UsbPart }) => {
           )}
           {showComposition && enabled && (status?.relative || status?.absolute) && <MouseJiggler />}
         </>
-      )}
+      }
     </div>
   );
 };

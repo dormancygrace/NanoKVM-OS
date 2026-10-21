@@ -1312,8 +1312,8 @@
           "description": "Klávesnice, oba režimy myši a virtuální disk: s čím nové zařízení bude spouštěno. Na počítači se neobjeví žádný síťový adaptér."
         },
         "remote": {
-          "title": "Vzdálená plocha",
-          "description": "Klávesnice, oba režimy myši, virtuální disk a USB zvuk: co RustDesk používá. Počítač dostane druhý reproduktor."
+          "title": "RustDesk",
+          "description": "Klávesnice, oba režimy myši, virtuální disk a USB zvuk: na toto složení přepne zapnutí RustDesku a vypnutí vrátí předchozí. Počítač získá druhý reproduktor."
         },
         "headless": {
           "title": "Server bez videovýstupu",
@@ -1389,9 +1389,7 @@
       "gadget": "USB Gadget",
       "compositionMenu": "Složení",
       "identityMenu": "Identita (VID/PID)",
-      "identityOff": "USB je vypnuté. Zapněte ho v části Složení, chcete-li změnit identitu.",
       "cancel": "Zahodit změny",
-      "enabled": "USB zařízení",
       "confirmDisable": "Vypnout USB?",
       "serialConsole": {
         "test": "Vyzkoušet konzoli",
@@ -1490,7 +1488,7 @@
       "temporaryHint": "Nasdílejte tento identifikátor a heslo. Heslo se změní při každém spuštění RustDesk, nebo na vaše vyžádání.",
       "audioEnabled": "USB zvuk je zapnutý. Na připojeném počítači vyberte jako zvukový výstup NanoKVM. Zvuk je možné ztlumit v RustDesk klientovi.",
       "audioDisabled": "Pro proudové vysílání zvuku z počítače zapněte USB zvuk v nastavení zařízení ohledně USB a na počítači vyberte NanoKVM jako zvukový výstup.",
-      "inputDefaults": "Povolení vzdáleného výstupu automaticky povolí USB klávesnici a absolutní/relativní myš.",
+      "inputDefaults": "Zapnutí vzdáleného přístupu přepne USB na složení RustDesk (klávesnice, oba režimy myši, virtuální disk a se zvukem i USB zvuk); vypnutí vrátí předchozí, pokud se mezitím nezměnilo.",
       "audioHint": "Povoluje USB zvuk automaticky. Na připojeném počítači vyberte NanoKVM jako zvukový výstup.",
       "explain": "Pro zobrazení HDMI a ovládání USB klávesnice a myši připojte RustDesk klienta k tomuto identifikátoru.",
       "video": "Video automaticky použije kodek vybraný v nastaveních videa v NanoKVM. H.265 vyžaduje podporu na straně klienta. Po změně kodeku zařízení se znovu připojte. Převzetí z webového prohlížeče uvolní vstup z RustDesk.",

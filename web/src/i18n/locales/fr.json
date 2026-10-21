@@ -1212,8 +1212,6 @@
       "gadget": "Gadget USB",
       "compositionMenu": "Composition",
       "identityMenu": "Identité (VID/PID)",
-      "identityOff": "L'USB est désactivé. Activez-le dans Composition pour modifier son identité.",
-      "enabled": "Périphériques USB",
       "budgetTitle": "Budget d'endpoints",
       "budgetExceeded": "Cette sélection dépasse le budget d'endpoints USB.",
       "presetLabel": "Composition",
@@ -1354,8 +1352,8 @@
           "description": "La console série et le disque virtuel avec son disque d'assistance, qui contient le script configurant la connexion série : le serveur n'a besoin d'aucun réseau. Aucun clavier ni souris n'apparaît sur l'ordinateur ; le bureau à distance rajoute le clavier, les souris et l'audio lorsqu'il est activé."
         },
         "remote": {
-          "title": "Bureau à distance",
-          "description": "Clavier, les deux modes de souris, disque virtuel et audio USB : ce qu'utilise RustDesk. L'ordinateur obtient un second haut-parleur."
+          "title": "RustDesk",
+          "description": "Clavier, les deux modes de souris, disque virtuel et audio USB : c'est ce qu'active RustDesk à son démarrage ; à son arrêt, la composition précédente revient. L'ordinateur obtient un second haut-parleur."
         },
         "control": {
           "title": "Clavier et souris uniquement",
@@ -1809,7 +1807,7 @@
       "open": "Ouvrir la gestion",
       "settings": "RustDesk",
       "keepPassword": "Laissez vide pour conserver le mot de passe actuel",
-      "inputDefaults": "L'activation de l'accès à distance active automatiquement le clavier USB et la souris absolue/relative.",
+      "inputDefaults": "Activer l'accès à distance bascule l'USB sur la composition RustDesk (clavier, les deux modes de souris, disque virtuel et, avec le son, audio USB) ; le désactiver rétablit la précédente, sauf si elle a été modifiée entre-temps.",
       "transmitAudio": "Transmettre le son",
       "audioHint": "Active automatiquement l'audio USB. Sélectionnez NanoKVM comme sortie son sur l'ordinateur connecté.",
       "audioMuted": "La transmission du son via RustDesk est désactivée.",

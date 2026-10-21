@@ -31,8 +31,9 @@ func (s usbComposition) validate() error {
 	return s.identity.validate()
 }
 
-// EnsureRemoteAccessUSB applies the same validated, serialized composition as
-// the USB settings screen. Other enabled functions survive.
+// EnsureRemoteAccessUSB adds what RustDesk needs to the composition when its
+// sound is turned on while it runs, through the same validated, serialized
+// apply as the USB settings screen. Other enabled functions survive.
 func EnsureRemoteAccessUSB(withAudio bool) error {
 	h := hid.GetHid()
 	h.Lock()
@@ -45,7 +46,10 @@ func EnsureRemoteAccessUSB(withAudio bool) error {
 	if current == candidate {
 		return verifyLiveUSBComposition(candidate)
 	}
-	return applyLiveUSBComposition(h, current, candidate)
+	if err := applyLiveUSBComposition(h, current, candidate); err != nil {
+		return err
+	}
+	return followRemoteAccessMarker(remoteAccessMarkerPath, current, candidate)
 }
 
 func (s usbComposition) remoteAccessDefaults(withAudio bool) usbComposition {

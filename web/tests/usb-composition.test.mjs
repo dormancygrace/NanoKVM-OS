@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
   canToggleDevice,
   defaultUsbIdentity,
-  enableDraft,
   endpointUsage,
   fitsBudget,
   hasUsbDevice,
@@ -203,21 +202,4 @@ test('an empty composition turns USB off', () => {
   assert.equal(hasUsbDevice({ ...off, mode: 'normal' }), false);
   assert.equal(hasUsbDevice({ ...off, serial: true, mode: 'normal' }), true);
   for (const { composition } of usbPresets) assert.equal(hasUsbDevice(composition), true);
-});
-
-test('turning USB on proposes the last composition, or the fresh-install preset', () => {
-  const last = { ...preset('console'), audio: true };
-  const draft = enableDraft(last, status);
-  assert.deepEqual(draft, last);
-  assert.notEqual(draft, last); // a copy: editing the draft keeps the remembered one
-  assert.deepEqual(enableDraft(undefined, status), preset('kvm'));
-  const off = Object.fromEntries(usbDevices.map((name) => [name, false]));
-  assert.deepEqual(enableDraft({ ...off, mode: 'normal' }, status), preset('kvm'));
-  // the last composition no longer fits a smaller budget: the fresh-install preset, if it does
-  const small = { ...status, budget: { inLimit: 4, outLimit: 4 } };
-  assert.deepEqual(enableDraft(preset('standard'), small), preset('kvm'));
-  assert.equal(
-    enableDraft(preset('standard'), { ...status, budget: { inLimit: 0, outLimit: 0 } }),
-    undefined
-  );
 });

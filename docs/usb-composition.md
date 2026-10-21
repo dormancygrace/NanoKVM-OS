@@ -6,10 +6,9 @@ toolbar's USB Gadget quick menu, which opens the same panel) reports the
 active functions and edits a draft against the measured controller budget.
 Selecting a preset or changing an individual switch does not reconnect USB.
 **Apply** sends the complete composition; **Discard changes** restores the
-active values. Turning the USB switch on proposes the last composition (or the
-fresh-install preset when it no longer fits) as a draft, and USB turns on with
-Apply. Turning it off, or applying a draft without any function, asks first
-and then disconnects every function.
+active values. There is no separate USB switch: applying a composition
+without any function turns USB off (it asks first) and applying one with a
+function turns it on again.
 
 ## Presets and manual selection
 
@@ -18,15 +17,23 @@ and then disconnects every function.
 | KVM (a new device starts here) | Three HID functions, storage | 4 / 4 | no network adapter on the computer |
 | KVM + network | Three HID functions, network, storage | 6 / 5 | the serial console |
 | KVM + serial console | Three HID functions, ACM, storage (with the helper disk) | 6 / 5 | the USB network |
-| Headless server | ACM, storage (with the helper disk) | 3 / 2 | keyboard and mouse: the console and the helper disk with its script, so the server needs no network (RustDesk adds HID and audio back: 6 / 6) |
-| Remote desktop | Three HID functions, storage, audio | 4 / 5 | what RustDesk enables; a second speaker on the computer |
+| Headless server | ACM, storage (with the helper disk) | 3 / 2 | keyboard and mouse: the console and the helper disk with its script, so the server needs no network |
+| RustDesk | Three HID functions, storage, audio | 4 / 5 | what turning RustDesk on switches to; a second speaker on the computer |
 | Keyboard and mouse only | Three HID functions | 3 / 3 | everything else |
 
 The budget is 6 IN / 7 OUT, so everything at once (HID + network + storage +
 ACM, 8 IN) does not fit: every preset gives something up, and its description
 says what. A fresh install (`usb.dev` and an empty `usb.disk0`) runs the first
-preset. RustDesk adds the three HID functions and audio to the composition,
-which from the first preset is the remote desktop one.
+preset.
+
+Turning RustDesk's remote access on switches USB to the RustDesk preset
+(audio only when RustDesk sends sound) and keeps the composition it replaced
+in `/etc/kvm/usb-before-rustdesk.json`, with the one it applied. Turning
+remote access off puts the replaced composition back, a composition without
+any function included, unless the composition was changed in the meantime:
+then it stays and the file goes. Turning RustDesk's sound on while it runs
+adds audio and still counts as RustDesk's own change. The identity is not
+part of this: it stays what it is.
 
 The expandable manual section controls keyboard, relative mouse, absolute
 pointer, network, storage, ACM and audio individually, and the **HID-only
@@ -61,7 +68,9 @@ the helper's `apply` again on the host. `bcdDevice` stays the mode flag the
 server reads.
 
 The identity is part of the composition: Apply writes it with the rest and
-reconnects USB, and it is in the `revision`. `S03usbdev` and `S03usbhid` read
+reconnects USB, and it is in the `revision`. It can be changed while USB is
+off too: Apply then only writes the files, and USB presents the identity when
+it is turned on. `S03usbdev` and `S03usbhid` read
 `/boot/usb.vid`, `/boot/usb.pid`, `/boot/usb.manufacturer`,
 `/boot/usb.product` and `/boot/usb.serialnumber` at every start (a missing
 file is the factory value). The recovery init (inside the initramfs, so

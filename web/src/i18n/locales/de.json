@@ -1212,8 +1212,6 @@
       "gadget": "USB-Gadget",
       "compositionMenu": "Zusammenstellung",
       "identityMenu": "Identität (VID/PID)",
-      "identityOff": "USB ist aus. Schalten Sie es unter „Zusammenstellung“ ein, um die Identität zu ändern.",
-      "enabled": "USB-Geräte",
       "budgetTitle": "Endpunkt-Budget",
       "budgetExceeded": "Diese Auswahl überschreitet das USB-Endpunkt-Budget.",
       "presetLabel": "Zusammenstellung",
@@ -1354,8 +1352,8 @@
           "description": "Die serielle Konsole und das virtuelle Laufwerk mit seinem Hilfslaufwerk, das das Skript zum Einrichten der seriellen Anmeldung enthält, sodass der Server kein Netzwerk braucht. Auf dem Computer erscheinen weder Tastatur noch Maus; der Remote-Desktop fügt Tastatur, Mäuse und Audio wieder hinzu, wenn er aktiviert ist."
         },
         "remote": {
-          "title": "Remote-Desktop",
-          "description": "Tastatur, beide Mausmodi, virtuelle Festplatte und USB-Audio: das, was RustDesk verwendet. Der Computer erhält einen zweiten Lautsprecher."
+          "title": "RustDesk",
+          "description": "Tastatur, beide Mausmodi, virtueller Datenträger und USB-Audio: Darauf schaltet das Einschalten von RustDesk um, das Ausschalten stellt die vorherige Zusammenstellung wieder her. Der Computer erhält einen zweiten Lautsprecher."
         },
         "control": {
           "title": "Nur Tastatur und Maus",
@@ -1809,7 +1807,7 @@
       "open": "Verwaltung öffnen",
       "settings": "RustDesk",
       "keepPassword": "Leer lassen, um das aktuelle Passwort beizubehalten",
-      "inputDefaults": "Das Aktivieren des Fernzugriffs aktiviert automatisch die USB-Tastatur und die absolute/relative Maus.",
+      "inputDefaults": "Das Einschalten des Fernzugriffs schaltet USB auf die RustDesk-Zusammenstellung um (Tastatur, beide Mausmodi, virtueller Datenträger und, mit Ton, USB-Audio); das Ausschalten stellt die vorherige wieder her, sofern sie in der Zwischenzeit nicht geändert wurde.",
       "transmitAudio": "Ton übertragen",
       "audioHint": "Aktiviert USB-Audio automatisch. Wählen Sie auf dem angeschlossenen Computer NanoKVM als Tonausgabe.",
       "audioMuted": "Die Tonübertragung über RustDesk ist deaktiviert.",

@@ -10,8 +10,9 @@ depend() {
 start() {
     ebegin "Loading NanoKVM media modules"
     local module
-    # No snsr_i2c (the receivers are driven from user space over /dev/i2c),
-    # cv181x_dwa (dewarp) or cv181x_rgn (overlays): they are not built.
+    # No snsr_i2c: the receivers are driven from user space over /dev/i2c.
+    # The accelerators (IVE, TPU, DWA, RGN, AXI monitors) are built but
+    # load only when something uses them: /etc/modprobe.d/nanokvm-accelerators.conf.
     for module in \
         cv181x_sys cv181x_base cvi_mipi_rx cv181x_vi \
         cv181x_vpss cv181x_vcodec cv181x_jpeg

@@ -1,0 +1,29 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] ive: reset the engine after a failed operation
+
+An IVE operation that never completes (an unsupported image size, for
+example) leaves the block stuck. Later two-input operations (SAD, Sub,
+frame difference) then read their second image from a stale address and
+return wrong results without any error, until the board restarts;
+reloading the module does not help. Single-input operations are not
+affected.
+
+After a timeout, reset the IVE through its VIP reset bit, as the
+reset ioctl already does, so the next operation starts clean.
+
+diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+--- a/interdrv/ive/hal/cv181x/cvi_ive_platform.c
++++ b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+@@ -1875,6 +1875,12 @@ inline CVI_S32 cvi_ive_go(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 		if (leavetime <= 0)
+ 			ret = CVI_FAILURE;
+ 	}
++	/* An operation that never finishes (an unsupported size, for example)
++	 * leaves the engine stuck: every later two-input operation then reads
++	 * its second image from a stale address. Reset the block so the next
++	 * operation starts clean. */
++	if (ret != CVI_SUCCESS)
++		cvi_ive_reset(ndev, 0);
+ 	if (ndev->tile_num == ndev->total_tile) {
+ 		complete(&ndev->op_done);
+ 	}

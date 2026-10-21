@@ -13,7 +13,7 @@ export const Recorder = ({ recordMode, recordedKeys }: RecorderProps) => {
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-top-4 pointer-events-none fixed right-5 top-5 z-9999 flex min-w-[150px] flex-col gap-2 rounded-xl border border-white/10 bg-black/60 p-4 shadow-2xl backdrop-blur-md transition-all duration-200">
+    <div className="animate-in fade-in slide-in-from-top-4 pointer-events-none fixed top-5 right-5 z-9999 flex min-w-[150px] flex-col gap-2 rounded-xl border border-white/10 bg-black/60 p-4 shadow-2xl backdrop-blur-md transition-all duration-200">
       {recordedKeys.length === 0 ? (
         <>
           <div className="flex items-center gap-2">
@@ -27,7 +27,7 @@ export const Recorder = ({ recordMode, recordedKeys }: RecorderProps) => {
           </div>
 
           <div className="flex flex-wrap gap-2 pt-1">
-            <span className="text-sm italic text-white/50">
+            <span className="text-sm text-white/50 italic">
               {t('keyboard.leaderKey.recorder.input')}
             </span>
           </div>

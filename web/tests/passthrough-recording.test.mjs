@@ -37,7 +37,15 @@ function fixture(options = {}) {
   });
   const send = (timestamp, bytes = data) =>
     packet({ key: true, timestamp, width: 160, height: 90, data: bytes });
-  return { source, writable, events, chunks, send, packet: (p) => packet(p), end: () => end('closed') };
+  return {
+    source,
+    writable,
+    events,
+    chunks,
+    send,
+    packet: (p) => packet(p),
+    end: () => end('closed')
+  };
 }
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 test('MP4 commits only after successful finalization', async () => {

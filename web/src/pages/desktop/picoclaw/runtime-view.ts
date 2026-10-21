@@ -201,8 +201,8 @@ export function derivePicoclawControlViewModel({
     false;
   const isTransitioning = isReleasingControl || backendTransitioning;
   const runtimeCanDeviceWrite = runtimeStatus
-    ? runtimeStatus.control?.can_control ??
-      (runtimeStatus.control_mode === 'picoclaw' && runtimeStatus.transitioning !== true)
+    ? (runtimeStatus.control?.can_control ??
+      (runtimeStatus.control_mode === 'picoclaw' && runtimeStatus.transitioning !== true))
     : undefined;
   const canDeviceWrite =
     !isReleasingControl && (runtimeCanDeviceWrite ?? aiControlStatus?.canControlPicoclaw ?? false);

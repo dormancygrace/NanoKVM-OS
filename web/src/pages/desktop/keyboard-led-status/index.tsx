@@ -20,7 +20,7 @@ function LockIndicator({ labelKey, active, known, disabled }: LockIndicatorProps
   return (
     <Tooltip title={indicatorLabel} placement="bottom" mouseEnterDelay={0.6}>
       <div
-        className="flex h-[8px] items-center gap-1 px-1 text-[8px] font-medium leading-[8px] text-neutral-400"
+        className="flex h-[8px] items-center gap-1 px-1 text-[8px] leading-[8px] font-medium text-neutral-400"
         aria-label={indicatorLabel}
         role="img"
       >

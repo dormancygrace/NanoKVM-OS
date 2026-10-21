@@ -41,7 +41,7 @@ export const Reset = () => {
             className={clsx({ 'animate-spin text-blue-500': isResetting })}
             size={18}
           />
-          <span className="select-none text-sm">{t('screen.resetHdmi')}</span>
+          <span className="text-sm select-none">{t('screen.resetHdmi')}</span>
         </div>
       )}
     </>

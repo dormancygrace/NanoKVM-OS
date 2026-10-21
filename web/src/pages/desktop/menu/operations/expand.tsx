@@ -9,7 +9,7 @@ export const Expand = ({ toggleMenu }: ExpandProps) => {
   return (
     <div className="flex items-center rounded-lg bg-neutral-800/50 p-1">
       <strong>
-        <div className="flex size-[26px] cursor-move select-none items-center justify-center text-neutral-500">
+        <div className="flex size-[26px] cursor-move items-center justify-center text-neutral-500 select-none">
           <GripVerticalIcon size={18} />
         </div>
       </strong>

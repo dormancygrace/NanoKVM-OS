@@ -1,1 +1,6 @@
 *.hbs
+
+# Generated build output and files owned by their generators.
+dist/
+pnpm-lock.yaml
+msw/mockServiceWorker.js

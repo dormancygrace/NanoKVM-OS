@@ -339,7 +339,7 @@ export const OriginalResolution = () => {
       >
         <div className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70">
           <ScanSearchIcon size={18} />
-          <span className="select-none text-sm">{t('screen.controlRegion.title')}</span>
+          <span className="text-sm select-none">{t('screen.controlRegion.title')}</span>
         </div>
       </Popover>
       <Modal

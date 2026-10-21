@@ -246,7 +246,10 @@ test('the monitor refresh follows a lower rate of the resolution', () => {
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 100 }), c).refresh, 100);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), c).refresh, 60);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), caps({ follows: false })).refresh, 100);
+  assert.equal(
+    model.monitorTarget(draft({ monitor: 1080, fps: 60 }), caps({ follows: false })).refresh,
+    100
+  );
 });
 
 test('a slower stream rate rewrites the monitor only when it follows the rate', () => {
@@ -268,7 +271,10 @@ test('the request carries changed shared settings only', () => {
   );
   assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, codec: 'h264' }) }, { type: 1 });
   // The transport is also the device transport: WebRTC carries the same codec.
-  assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, transport: 'webrtc' }) }, { transport: 'webrtc' });
+  assert.deepEqual(
+    { ...model.settingsRequest(saved, { ...saved, transport: 'webrtc' }) },
+    { transport: 'webrtc' }
+  );
   assert.deepEqual(
     { ...model.settingsRequest(saved, { ...saved, portrait: 2560 }) },
     { portraitResolution: 2560, portrait: true }
@@ -282,7 +288,10 @@ test('the request carries changed shared settings only', () => {
     { portrait: false }
   );
   // H.265 capture path: 0 through VPSS, 1 direct; never sent without driver support.
-  assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, hevcDirect: false }) }, { hevcDirect: 0 });
+  assert.deepEqual(
+    { ...model.settingsRequest(saved, { ...saved, hevcDirect: false }) },
+    { hevcDirect: 0 }
+  );
   assert.deepEqual(
     { ...model.settingsRequest({ ...saved, hevcDirect: false }, saved) },
     { hevcDirect: 1 }
@@ -311,7 +320,10 @@ test('the straight-from-capture switch shows for the codecs the device supports'
   assert.equal(model.directCaptureApplies(draft({ hevcDirect: null }), both), false);
   // One setting for both codecs, under its original API name.
   const saved = draft({ codec: 'h264' });
-  assert.deepEqual({ ...model.settingsRequest(saved, { ...saved, hevcDirect: false }) }, { hevcDirect: 0 });
+  assert.deepEqual(
+    { ...model.settingsRequest(saved, { ...saved, hevcDirect: false }) },
+    { hevcDirect: 0 }
+  );
 });
 
 test('the straight-from-capture switch is labelled for both codecs', () => {
@@ -596,8 +608,13 @@ test('the 1440x2560 portrait profile switches H.264 to H.265', () => {
   assert.deepEqual([next.portrait, next.codec], [2560, 'h265']);
   assert.deepEqual({ ...model.draftIssues(next, c, everything) }, {});
   assert.equal(
-    model.transportChoice(draft({ portrait: 2560, codec: 'h264', transport: 'mjpeg' }), 'webrtc', c, everything, true)
-      .codec,
+    model.transportChoice(
+      draft({ portrait: 2560, codec: 'h264', transport: 'mjpeg' }),
+      'webrtc',
+      c,
+      everything,
+      true
+    ).codec,
     'h265'
   );
   // Without the profile's own list (an older server), the picture size decides.
@@ -611,7 +628,6 @@ test('the 1440x2560 portrait profile switches H.264 to H.265', () => {
   );
   assert.equal(model.h264Blocked(draft({ portrait: 2560, codec: 'h264', height: 1080 }), c), false);
 });
-
 
 test('a limited maximum portrait keeps H.264 through validation and resolution selection', () => {
   const c = caps();

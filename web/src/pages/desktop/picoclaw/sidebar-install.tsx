@@ -20,7 +20,7 @@ export const SidebarInstall = ({
   const { t } = useTranslation();
 
   return (
-    <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pb-10 pt-10">
+    <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pt-10 pb-10">
       {/* Icon */}
       <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
         <DownloadIcon className="text-sky-400" size={22} />

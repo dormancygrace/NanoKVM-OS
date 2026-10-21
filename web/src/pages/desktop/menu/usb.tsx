@@ -85,7 +85,7 @@ export const UsbMenu = () => {
           className={clsx(
             'p-1',
             mobilePlacement
-              ? 'min-w-0 w-full box-border'
+              ? 'box-border w-full min-w-0'
               : 'max-h-[75dvh] w-[min(440px,85vw)] overflow-y-auto'
           )}
         >

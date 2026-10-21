@@ -4,22 +4,58 @@ import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-const source = ts.transpileModule(readFileSync(new URL('../src/lib/encoder.ts', import.meta.url), 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
-}).outputText;
-function browser({ stored, supported = true, decoder = true, secure = true, reject = false, hang = false, rtc = false } = {}) {
-  const writes = [], probes = [];
+const source = ts.transpileModule(
+  readFileSync(new URL('../src/lib/encoder.ts', import.meta.url), 'utf8'),
+  {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }
+).outputText;
+function browser({
+  stored,
+  supported = true,
+  decoder = true,
+  secure = true,
+  reject = false,
+  hang = false,
+  rtc = false
+} = {}) {
+  const writes = [],
+    probes = [];
   const exports = {};
-  const context = vm.createContext({ exports, Promise,
-    setTimeout: hang ? (cb) => { queueMicrotask(cb); return 0; } : setTimeout,
+  const context = vm.createContext({
+    exports,
+    Promise,
+    setTimeout: hang
+      ? (cb) => {
+          queueMicrotask(cb);
+          return 0;
+        }
+      : setTimeout,
     clearTimeout: hang ? () => {} : clearTimeout,
-    localStorage: { getItem: () => stored ?? null, setItem: (k, v) => { stored = v; writes.push(v); } },
-    window: { isSecureContext: secure,
-      VideoDecoder: decoder ? { isConfigSupported: (config) => {
-        probes.push(config);
-        return hang ? new Promise(() => {}) : reject ? Promise.reject(new Error('unsupported')) : Promise.resolve({ supported });
-      }} : undefined,
-      RTCRtpReceiver: { getCapabilities: () => ({ codecs: rtc ? [{ mimeType: 'video/H265' }] : [] }) }
+    localStorage: {
+      getItem: () => stored ?? null,
+      setItem: (k, v) => {
+        stored = v;
+        writes.push(v);
+      }
+    },
+    window: {
+      isSecureContext: secure,
+      VideoDecoder: decoder
+        ? {
+            isConfigSupported: (config) => {
+              probes.push(config);
+              return hang
+                ? new Promise(() => {})
+                : reject
+                  ? Promise.reject(new Error('unsupported'))
+                  : Promise.resolve({ supported });
+            }
+          }
+        : undefined,
+      RTCRtpReceiver: {
+        getCapabilities: () => ({ codecs: rtc ? [{ mimeType: 'video/H265' }] : [] })
+      }
     }
   });
   vm.runInContext(source, context);
@@ -35,7 +71,13 @@ test('fresh browser chooses HEVC only after matching WebCodecs probe', async () 
   assert.equal(probes[0].hardwareAcceleration, 'prefer-hardware');
   assert.deepEqual(writes, []);
 });
-for (const options of [{ supported: false }, { decoder: false }, { secure: false }, { reject: true }, { hang: true }]) {
+for (const options of [
+  { supported: false },
+  { decoder: false },
+  { secure: false },
+  { reject: true },
+  { hang: true }
+]) {
   test(`unsupported or unavailable HEVC falls back: ${JSON.stringify(options)}`, async () => {
     const { api, writes } = browser(options);
     assert.equal(await api.initializeEncoderCodec('direct'), 'h264');
@@ -72,7 +114,10 @@ test('WebRTC capability is independent of Direct HEVC support', async () => {
   assert.equal(probes.length, 0);
 });
 
-for (const [active, stored] of [['h264', 'h265'], ['h265', 'h264']]) {
+for (const [active, stored] of [
+  ['h264', 'h265'],
+  ['h265', 'h264']
+]) {
   test(`joining viewer adopts active ${active}, preserving saved ${stored}`, async () => {
     const { api, writes } = browser({ stored });
     assert.equal(await api.initializeEncoderCodec('direct', active), active);

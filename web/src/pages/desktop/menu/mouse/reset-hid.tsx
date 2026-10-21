@@ -29,7 +29,7 @@ export const ResetHid = () => {
 
   return (
     <div
-      className="flex h-[30px] cursor-pointer select-none items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70"
+      className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 select-none hover:bg-neutral-700/70"
       onClick={resetHid}
     >
       <RefreshCwIcon className={clsx({ 'animate-spin text-blue-500': isResetting })} size={18} />

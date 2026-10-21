@@ -205,7 +205,7 @@ export const Paste = () => {
     <>
       <div
         className={clsx(
-          'flex cursor-pointer select-none items-center space-x-2 rounded py-1 pl-2 pr-5 hover:bg-neutral-700/70'
+          'flex cursor-pointer items-center space-x-2 rounded py-1 pr-5 pl-2 select-none hover:bg-neutral-700/70'
         )}
         onClick={() => setIsModalOpen(true)}
       >

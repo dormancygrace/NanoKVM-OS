@@ -2,14 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 
 import { client } from '@/lib/websocket.ts';
 
-import { createCaptureStatusGate } from './status-gate';
-
 import {
   CAPTURE_STATUS_EVENT,
   CaptureStatus,
   parseCaptureStatusMessage,
   shouldAcceptCaptureStatus
 } from './model';
+import { createCaptureStatusGate } from './status-gate';
 
 export function useCaptureStatus(activeVideoMode: string) {
   const [captureStatus, setCaptureStatus] = useState<CaptureStatus | null>(null);

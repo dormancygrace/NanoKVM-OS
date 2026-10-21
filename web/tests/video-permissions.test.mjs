@@ -122,7 +122,13 @@ for (const [name, change, expected] of [
 ]) {
   test(`user applies ${name} without calling shared-setting APIs`, async () => {
     const { apply, deps, calls } = applier();
-    const result = await apply(saved, { ...saved, ...change }, caps, { admin: false, confirmPowerCycle: false }, deps);
+    const result = await apply(
+      saved,
+      { ...saved, ...change },
+      caps,
+      { admin: false, confirmPowerCycle: false },
+      deps
+    );
     assert.deepEqual(calls.shared, []);
     assert.deepEqual(calls.encoder, []);
     assert.ok(calls.local.some((e) => e[0] === expected[0] && e[1] === expected[1]));
@@ -133,7 +139,13 @@ for (const [name, change, expected] of [
 
 test('administrator transport changes select the shared encoder', async () => {
   const { apply, deps, calls } = applier();
-  await apply(saved, { ...saved, transport: 'webrtc' }, caps, { admin: true, confirmPowerCycle: false }, deps);
+  await apply(
+    saved,
+    { ...saved, transport: 'webrtc' },
+    caps,
+    { admin: true, confirmPowerCycle: false },
+    deps
+  );
   assert.deepEqual(calls.encoder, ['h264']);
   // An administrator's transport is the device transport too.
   assert.deepEqual(calls.shared, [[{ transport: 'webrtc' }, false]]);
@@ -142,7 +154,13 @@ test('administrator transport changes select the shared encoder', async () => {
 
 test('administrator applies shared settings in one request', async () => {
   const { apply, deps, calls } = applier();
-  const result = await apply(saved, { ...saved, fps: 30, bitRate: 5000 }, caps, { admin: true, confirmPowerCycle: false }, deps);
+  const result = await apply(
+    saved,
+    { ...saved, fps: 30, bitRate: 5000 },
+    caps,
+    { admin: true, confirmPowerCycle: false },
+    deps
+  );
   assert.deepEqual(calls.shared, [[{ bitRate: 5000, fps: 30 }, false]]);
   assert.deepEqual(calls.encoder, []);
   assert.equal(calls.reloads, 0);
@@ -154,7 +172,13 @@ test('a rejected request leaves this browser unchanged', async () => {
   const { apply, deps, calls } = applier();
   deps.applyVideoSettings = async () => ({ code: -3, msg: 'needs video memory' });
   await assert.rejects(
-    apply(saved, { ...saved, transport: 'webrtc', fps: 30 }, caps, { admin: true, confirmPowerCycle: false }, deps),
+    apply(
+      saved,
+      { ...saved, transport: 'webrtc', fps: 30 },
+      caps,
+      { admin: true, confirmPowerCycle: false },
+      deps
+    ),
     /needs video memory/
   );
   assert.deepEqual(calls.local, []);
@@ -219,7 +243,9 @@ function renderForm(
   );
   void stateIndex;
   const tree = form.VideoForm({
-    caps: deviceTransport ? { ...caps, stream: { ...caps.stream, transport: deviceTransport } } : caps,
+    caps: deviceTransport
+      ? { ...caps, stream: { ...caps.stream, transport: deviceTransport } }
+      : caps,
     browser,
     saved: draft,
     directCapture,
@@ -277,9 +303,21 @@ test('the straight-from-capture switch follows the codecs the device supports', 
   const off = { ...direct, hevcDirect: false };
   assert.equal(toggle(renderForm('admin', undefined, h264, off)).props.checked, false);
   // H.264 without the VI driver support: no switch; H.265 has its own.
-  assert.equal(toggle(renderForm('admin', undefined, { h264: false, h265: true }, direct)), undefined);
-  assert.ok(toggle(renderForm('admin', undefined, { h264: false, h265: true }, { ...direct, codec: 'h265' })));
-  assert.equal(toggle(renderForm('admin', undefined, { h264: true, h265: true }, { ...direct, hevcDirect: null })), undefined);
+  assert.equal(
+    toggle(renderForm('admin', undefined, { h264: false, h265: true }, direct)),
+    undefined
+  );
+  assert.ok(
+    toggle(
+      renderForm('admin', undefined, { h264: false, h265: true }, { ...direct, codec: 'h265' })
+    )
+  );
+  assert.equal(
+    toggle(
+      renderForm('admin', undefined, { h264: true, h265: true }, { ...direct, hevcDirect: null })
+    ),
+    undefined
+  );
 });
 
 test('a Cube keeps its monitor rate: the list offers stream rates up to it', () => {
@@ -301,7 +339,8 @@ test('a Cube keeps its monitor rate: the list offers stream rates up to it', () 
 });
 
 test('administrators see when the device transport is another one', () => {
-  const note = (nodes) => nodes.find((n) => n.type === 'Alert' && n.props.title === 'videoSettings.deviceTransport');
+  const note = (nodes) =>
+    nodes.find((n) => n.type === 'Alert' && n.props.title === 'videoSettings.deviceTransport');
   assert.ok(note(renderForm('admin', 'webrtc')));
   assert.equal(note(renderForm('admin', 'direct')), undefined);
   assert.equal(note(renderForm('user', 'webrtc')), undefined);
@@ -317,7 +356,12 @@ function renderQuickVideo(role, session) {
       'react/jsx-runtime': { jsx: element, jsxs: element, Fragment: 'Fragment' },
       'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
       antd: { message: { success: () => {}, error: () => {}, info: () => {} } },
-      'lucide-react': { CheckIcon: 'CheckIcon', GaugeIcon: 'GaugeIcon', MonitorIcon: 'MonitorIcon', RadioTowerIcon: 'RadioTowerIcon' },
+      'lucide-react': {
+        CheckIcon: 'CheckIcon',
+        GaugeIcon: 'GaugeIcon',
+        MonitorIcon: 'MonitorIcon',
+        RadioTowerIcon: 'RadioTowerIcon'
+      },
       '@/lib/video-model': model,
       '@/components/menu-item.tsx': { MenuSubmenu: 'MenuSubmenu' },
       '../settings/video/apply': {

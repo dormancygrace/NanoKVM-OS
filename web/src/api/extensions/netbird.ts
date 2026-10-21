@@ -1,4 +1,4 @@
-import { http } from "@/lib/http.ts";
+import { http } from '@/lib/http.ts';
 
 // NanoKVM's RISC-V NetBird CLI can take a while to produce a login URL or stop
 // a daemon. Keep a transport budget larger than the server's bounded command
@@ -12,53 +12,53 @@ const SLOW_CALL_TIMEOUT = 180 * 1000;
 const DOWNLOAD_TIMEOUT = 10 * 60 * 1000;
 
 export function install() {
-  return http.post("/api/extensions/netbird/install", undefined, {
-    timeout: DOWNLOAD_TIMEOUT,
+  return http.post('/api/extensions/netbird/install', undefined, {
+    timeout: DOWNLOAD_TIMEOUT
   });
 }
 
 export function uninstall() {
-  return http.post("/api/extensions/netbird/uninstall", undefined, {
-    timeout: SLOW_CALL_TIMEOUT,
+  return http.post('/api/extensions/netbird/uninstall', undefined, {
+    timeout: SLOW_CALL_TIMEOUT
   });
 }
 
 export function getStatus() {
   return http.request({
-    method: "get",
-    url: "/api/extensions/netbird/status",
-    timeout: SLOW_CALL_TIMEOUT,
+    method: 'get',
+    url: '/api/extensions/netbird/status',
+    timeout: SLOW_CALL_TIMEOUT
   });
 }
 
 export function login() {
-  return http.post("/api/extensions/netbird/login", undefined, {
-    timeout: SLOW_CALL_TIMEOUT,
+  return http.post('/api/extensions/netbird/login', undefined, {
+    timeout: SLOW_CALL_TIMEOUT
   });
 }
 
 export function start() {
-  return http.post("/api/extensions/netbird/start", undefined, {
-    timeout: SLOW_CALL_TIMEOUT,
+  return http.post('/api/extensions/netbird/start', undefined, {
+    timeout: SLOW_CALL_TIMEOUT
   });
 }
 
 export function restart() {
-  return http.post("/api/extensions/netbird/restart", undefined, {
-    timeout: SLOW_CALL_TIMEOUT,
+  return http.post('/api/extensions/netbird/restart', undefined, {
+    timeout: SLOW_CALL_TIMEOUT
   });
 }
 
 export function stop() {
-  return http.post("/api/extensions/netbird/stop", undefined, {
-    timeout: SLOW_CALL_TIMEOUT,
+  return http.post('/api/extensions/netbird/stop', undefined, {
+    timeout: SLOW_CALL_TIMEOUT
   });
 }
 
 export function down() {
   // Do not let Http's shared 60s default turn a slow device response into an
   // ambiguous client-side failure.
-  return http.post("/api/extensions/netbird/down", undefined, {
-    timeout: SLOW_CALL_TIMEOUT,
+  return http.post('/api/extensions/netbird/down', undefined, {
+    timeout: SLOW_CALL_TIMEOUT
   });
 }

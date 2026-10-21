@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { retryableLazy } from '../src/lib/retryable-lazy.ts';
+
 import { releasePointerMenuFocus } from '../src/lib/menu-focus.ts';
+import { retryableLazy } from '../src/lib/retryable-lazy.ts';
 
 for (const detail of [1, 2]) {
   test('pointer activation releases trigger before dialog remembers focus: ' + detail, () => {
     const body = {};
     const document = { activeElement: null };
-    const trigger = { blur() { if (document.activeElement === this) document.activeElement = body; } };
+    const trigger = {
+      blur() {
+        if (document.activeElement === this) document.activeElement = body;
+      }
+    };
     document.activeElement = trigger;
     releasePointerMenuFocus({ detail, currentTarget: trigger });
     // The dialog snapshots the current focus when opening and restores it on
@@ -21,7 +26,14 @@ for (const detail of [1, 2]) {
 
 test('keyboard/assistive activation retains the trigger as the focus return target', () => {
   let blurred = false;
-  releasePointerMenuFocus({ detail: 0, currentTarget: { blur() { blurred = true; } } });
+  releasePointerMenuFocus({
+    detail: 0,
+    currentTarget: {
+      blur() {
+        blurred = true;
+      }
+    }
+  });
   assert.equal(blurred, false);
 });
 
@@ -33,17 +45,26 @@ async function renderComponent(path, exportName) {
   const js = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }
   }).outputText;
-  new Function('exports', 'require', js)(exports, name => {
-    if (name === 'react') return {
-      useState: value => [value, () => {}], useRef: value => ({ current: value }),
-      useCallback: fn => fn, useEffect() {}, useContext: () => ({}),
-      useMemo: fn => fn(), useId: () => 'test', lazy: () => () => null
-    };
+  new Function('exports', 'require', js)(exports, (name) => {
+    if (name === 'react')
+      return {
+        useState: (value) => [value, () => {}],
+        useRef: (value) => ({ current: value }),
+        useCallback: (fn) => fn,
+        useEffect() {},
+        useContext: () => ({}),
+        useMemo: (fn) => fn(),
+        useId: () => 'test',
+        lazy: () => () => null
+      };
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
-    if (name === 'jotai') return {
-      useAtom: () => [undefined, () => {}], useAtomValue: () => 0, useSetAtom: () => () => {}
-    };
-    if (name === 'react-i18next') return { useTranslation: () => ({ t: key => key }) };
+    if (name === 'jotai')
+      return {
+        useAtom: () => [undefined, () => {}],
+        useAtomValue: () => 0,
+        useSetAtom: () => () => {}
+      };
+    if (name === 'react-i18next') return { useTranslation: () => ({ t: (key) => key }) };
     if (name === 'react-responsive') return { useMediaQuery: () => true };
     if (name === 'clsx') return { __esModule: true, default: () => '' };
     if (name.includes('retryable-lazy')) return { retryableLazy };
@@ -79,7 +100,11 @@ for (const [path, component, label] of [
     const trigger = findTrigger(tree, label);
     assert.ok(trigger, 'accessible menu trigger exists');
     let blurs = 0;
-    const currentTarget = { blur() { blurs++; } };
+    const currentTarget = {
+      blur() {
+        blurs++;
+      }
+    };
     trigger.props.onClick({ detail: 1, currentTarget });
     assert.equal(blurs, 1);
     trigger.props.onClick({ detail: 0, currentTarget });

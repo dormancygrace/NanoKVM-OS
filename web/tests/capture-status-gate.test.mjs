@@ -1,18 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { createCaptureStatusGate } from '../src/pages/desktop/capture-status/status-gate.ts';
 
-const status = result => ({ ok: result >= 0, result, mode: 'direct', message: '', severity: result < 0 ? 'error' : '', updatedAt: '' });
+const status = (result) => ({
+  ok: result >= 0,
+  result,
+  mode: 'direct',
+  message: '',
+  severity: result < 0 ? 'error' : '',
+  updatedAt: ''
+});
 function harness() {
   const output = [];
   const timers = new Map();
   let id = 0;
-  const gate = createCaptureStatusGate(s => output.push(s), (cb, delay) => {
-    assert.equal(delay, 500);
-    timers.set(++id, cb);
-    return id;
-  }, token => timers.delete(token));
-  const fire = () => { const callbacks = [...timers.values()]; timers.clear(); callbacks.forEach(cb => cb()); };
+  const gate = createCaptureStatusGate(
+    (s) => output.push(s),
+    (cb, delay) => {
+      assert.equal(delay, 500);
+      timers.set(++id, cb);
+      return id;
+    },
+    (token) => timers.delete(token)
+  );
+  const fire = () => {
+    const callbacks = [...timers.values()];
+    timers.clear();
+    callbacks.forEach((cb) => cb());
+  };
   return { gate, output, timers, fire };
 }
 test('a recovered single-frame encode error never flashes', () => {

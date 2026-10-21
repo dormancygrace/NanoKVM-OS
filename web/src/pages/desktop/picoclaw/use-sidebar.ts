@@ -25,10 +25,7 @@ import {
   getPicoclawSidebarStatusColor,
   isPicoclawRuntimeInstalling
 } from './runtime-view.ts';
-import {
-  createPicoclawSidebarActions,
-  type PicoclawMutation
-} from './sidebar-actions.ts';
+import { createPicoclawSidebarActions, type PicoclawMutation } from './sidebar-actions.ts';
 import {
   usePicoclawGatewayAutoConnect,
   usePicoclawGatewayEvents,

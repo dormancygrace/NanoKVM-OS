@@ -136,7 +136,11 @@ test('sound that ends leaves the recording running; the video ends it', async ()
   audio.stop = () => {
     audio.stopped = true;
   };
-  const writer = { write: async () => {}, close: async () => closed.push('close'), abort: async () => {} };
+  const writer = {
+    write: async () => {},
+    close: async () => closed.push('close'),
+    abort: async () => {}
+  };
   const s = recordStream({ getTracks: () => [video, audio] }, writer, 'video/webm');
   audio.dispatchEvent(new Event('ended'));
   await new Promise((ok) => setTimeout(ok, 5));

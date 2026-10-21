@@ -47,12 +47,7 @@ export type PicoclawRuntimeStatus = {
 };
 
 export type PicoclawMessageKind =
-  | 'user'
-  | 'assistant'
-  | 'status'
-  | 'tool_action'
-  | 'observation'
-  | 'error';
+  'user' | 'assistant' | 'status' | 'tool_action' | 'observation' | 'error';
 
 export type PicoclawChatMessage = {
   id: string;

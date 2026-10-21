@@ -284,7 +284,11 @@ export function h264Blocked(draft: VideoDraft, caps: VideoCapabilities) {
 
 // A profile's codec list describes its unscaled picture. New servers also
 // report H.264 output limits, so a lower stream size can make it playable.
-function portraitCodecAllowed(draft: VideoDraft, caps: VideoCapabilities, profile: PortraitProfile) {
+function portraitCodecAllowed(
+  draft: VideoDraft,
+  caps: VideoCapabilities,
+  profile: PortraitProfile
+) {
   return (
     profile.codecs.includes(draft.codec) ||
     (draft.codec === 'h264' && !!caps.stream.h264 && !h264Blocked(draft, caps))

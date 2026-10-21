@@ -243,13 +243,11 @@ export const InputRegionOverlay = () => {
       return;
     }
 
-    if (
-      !(
-        screen instanceof HTMLVideoElement ||
-        screen instanceof HTMLImageElement ||
-        screen instanceof HTMLCanvasElement
-      )
-    ) {
+    if (!(
+      screen instanceof HTMLVideoElement ||
+      screen instanceof HTMLImageElement ||
+      screen instanceof HTMLCanvasElement
+    )) {
       return;
     }
 
@@ -721,7 +719,7 @@ export const InputRegionOverlay = () => {
       >
         <div
           ref={promptRef}
-          className="fixed left-1/2 top-5 z-1120 max-w-[calc(100%-1rem)]"
+          className="fixed top-5 left-1/2 z-1120 max-w-[calc(100%-1rem)]"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <Card

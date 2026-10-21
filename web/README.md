@@ -8,9 +8,14 @@ and `nvm use` from that directory before entering `web/`:
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm format:check
 pnpm lint
 pnpm build
 ```
+
+Run `pnpm format` to format all maintained web source, tests, scripts and configuration.
+CI runs `pnpm format:check`. Generated `dist/`, the pnpm lockfile and the MSW
+Service Worker are excluded because their generators own their format.
 
 `dist/` is the build output. Use the matched application staging and signed-update workflow in [BUILD.md](../docs/BUILD.md). A frontend copied onto an unrelated server is not a validated release.
 

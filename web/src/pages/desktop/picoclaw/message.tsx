@@ -116,8 +116,8 @@ export const Message = ({ message }: MessageProps) => {
     }
 
     return (
-      <div className="border-white/8 rounded-xl border bg-white/[0.03] px-3 py-2 text-xs text-neutral-300">
-        <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wide text-neutral-500">
+      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-xs text-neutral-300">
+        <div className="mb-1 flex items-center gap-2 text-[11px] tracking-wide text-neutral-500 uppercase">
           <SparklesIcon size={14} />
           <span>{t('picoclaw.message.toolAction')}</span>
         </div>
@@ -134,7 +134,7 @@ export const Message = ({ message }: MessageProps) => {
 
     return (
       <div className="rounded-lg border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-sm text-sky-50">
-        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-sky-200">
+        <div className="mb-2 flex items-center gap-2 text-xs tracking-wide text-sky-200 uppercase">
           <ImageIcon size={14} />
           <span>{t('picoclaw.message.observation')}</span>
         </div>
@@ -159,7 +159,7 @@ export const Message = ({ message }: MessageProps) => {
     }
 
     return (
-      <div className="border-white/5 rounded-xl border bg-white/[0.02] px-3 py-2 text-xs text-neutral-400">
+      <div className="rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-xs text-neutral-400">
         <MarkdownContent content={thoughtText} className="wrap-break-word" />
       </div>
     );

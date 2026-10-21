@@ -37,14 +37,14 @@ export const Reset = ({ showConfirm, isLoading, setIsLoading }: ResetProps) => {
           onConfirm={reset}
           color="#404040"
         >
-          <div className="flex cursor-pointer select-none items-center space-x-2 rounded px-3 py-1.5 hover:bg-neutral-700/70">
+          <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
             <RotateCcwIcon size={16} />
             <span>{t('power.reset')}</span>
           </div>
         </Popconfirm>
       ) : (
         <div
-          className="flex cursor-pointer select-none items-center space-x-2 rounded px-3 py-1.5 hover:bg-neutral-700/70"
+          className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70"
           onClick={reset}
         >
           <RotateCcwIcon size={16} />

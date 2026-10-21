@@ -141,7 +141,7 @@ export const Shortcuts = () => {
       }}
       onBeforeLeave={() => !isRecording}
     >
-      <div className="flex cursor-pointer select-none items-center space-x-2 rounded py-1 pl-2 pr-5 hover:bg-neutral-700/70">
+      <div className="flex cursor-pointer items-center space-x-2 rounded py-1 pr-5 pl-2 select-none hover:bg-neutral-700/70">
         <CommandIcon size={18} />
         <span>{t('keyboard.shortcut.title')}</span>
       </div>

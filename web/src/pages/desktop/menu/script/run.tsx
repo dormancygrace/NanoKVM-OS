@@ -64,7 +64,7 @@ export const Run = ({ script, setIsRunning }: RunProps) => {
           <Spin indicator={<LoadingOutlined spin />} size="large" />
         </div>
       ) : (
-        <Card className="h-[600px] overflow-auto whitespace-pre-line font-mono">{log}</Card>
+        <Card className="h-[600px] overflow-auto font-mono whitespace-pre-line">{log}</Card>
       )}
 
       <div className="mt-5 flex justify-center">

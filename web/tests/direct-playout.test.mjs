@@ -117,7 +117,6 @@ test('adaptive playout does not chase one long network outage', () => {
   q.reset();
 });
 
-
 test('recurring tail bursts are covered without abrupt deadline jumps', () => {
   const q = new DirectPlayout('adaptive');
   let previous = q.delayMs;

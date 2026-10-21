@@ -1,8 +1,8 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 
 import { getKeyboardLedStatus } from '@/api/hid.ts';
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { client } from '@/lib/websocket.ts';
 
 import {

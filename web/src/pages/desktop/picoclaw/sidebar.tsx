@@ -331,7 +331,7 @@ export const Sidebar = () => {
         ) : (
           <>
             {!runtimeStatus?.ready ? (
-              <div className="flex flex-1 flex-col items-center px-6 pb-6 pt-10 text-center">
+              <div className="flex flex-1 flex-col items-center px-6 pt-10 pb-6 text-center">
                 <div className="flex flex-col items-center gap-4">
                   <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
                     <PlayIcon className="text-sky-400" size={22} />
@@ -347,7 +347,7 @@ export const Sidebar = () => {
                       <p className="mt-2 text-xs text-neutral-400">{connectionLabel}</p>
                     )}
                     {(runtimeError || runtimeStatus?.runtime_intent?.last_error) && (
-                      <p className="mt-2 max-w-[280px] wrap-break-word text-xs leading-5 text-red-400">
+                      <p className="mt-2 max-w-[280px] text-xs leading-5 wrap-break-word text-red-400">
                         {runtimeError || runtimeStatus?.runtime_intent?.last_error}
                       </p>
                     )}
@@ -364,7 +364,7 @@ export const Sidebar = () => {
                 </div>
               </div>
             ) : !canUseGateway ? (
-              <div className="flex flex-1 flex-col items-center px-6 pb-6 pt-10 text-center">
+              <div className="flex flex-1 flex-col items-center px-6 pt-10 pb-6 text-center">
                 <div className="flex flex-col items-center gap-4">
                   <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
                     <ShieldOffIcon className="text-amber-400" size={22} />
@@ -386,7 +386,7 @@ export const Sidebar = () => {
                 </div>
               </div>
             ) : !isGatewayConnected ? (
-              <div className="flex flex-1 flex-col items-center px-6 pb-6 pt-10 text-center">
+              <div className="flex flex-1 flex-col items-center px-6 pt-10 pb-6 text-center">
                 <div className="flex flex-col items-center gap-4">
                   <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
                     {isGatewayConnecting ? (
@@ -415,7 +415,7 @@ export const Sidebar = () => {
             ) : (
               <>
                 <MessageList messages={messages} runState={runState} />
-                <div className="border-t border-white/[0.06] px-3 pb-3 pt-3">
+                <div className="border-t border-white/[0.06] px-3 pt-3 pb-3">
                   <MessageInput
                     transportState={transportState}
                     disabled={actionBusy}

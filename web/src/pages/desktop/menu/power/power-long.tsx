@@ -43,7 +43,7 @@ export const PowerLong = ({ showConfirm, isLoading, setIsLoading }: PowerLongPro
           onConfirm={power}
           color="#404040"
         >
-          <div className="flex cursor-pointer select-none items-center space-x-2 rounded px-3 py-1.5 hover:bg-neutral-700/70">
+          <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
             <CirclePowerIcon size={16} />
             <span>{t('power.powerLong')}</span>
             <div className="flex h-full items-start text-xs text-neutral-500">{`${duration}s`}</div>
@@ -51,7 +51,7 @@ export const PowerLong = ({ showConfirm, isLoading, setIsLoading }: PowerLongPro
         </Popconfirm>
       ) : (
         <div
-          className="flex cursor-pointer select-none items-center space-x-2 rounded px-3 py-1.5 hover:bg-neutral-700/70"
+          className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70"
           onClick={power}
         >
           <CirclePowerIcon size={16} />

@@ -24,7 +24,7 @@ const TouchpadArea = ({ children }: { children: JSX.Element }) => {
   return (
     <div className="relative h-[96px] overflow-hidden rounded border border-neutral-700 bg-neutral-950">
       <div className="absolute inset-3 rounded border border-dashed border-neutral-700/80" />
-      <div className="absolute left-3 top-2 text-[10px] uppercase tracking-wide text-neutral-500">
+      <div className="absolute top-2 left-3 text-[10px] tracking-wide text-neutral-500 uppercase">
         {t('mouse.touchpadGuide.screen')}
       </div>
       {children}
@@ -35,26 +35,26 @@ const TouchpadArea = ({ children }: { children: JSX.Element }) => {
 const SwipeDiagram = () => (
   <TouchpadArea>
     <>
-      <div className="absolute left-[30px] top-[50px] h-0.5 w-[74px] bg-sky-500" />
-      <div className="absolute left-[94px] top-[44px] h-3 w-3 rotate-45 border-r-2 border-t-2 border-sky-500" />
-      <div className="absolute left-[26px] top-[43px] h-4 w-4 rounded-full border-2 border-sky-400 bg-neutral-900" />
-      <div className="absolute left-[100px] top-[43px] h-4 w-4 rounded-full bg-sky-500" />
+      <div className="absolute top-[50px] left-[30px] h-0.5 w-[74px] bg-sky-500" />
+      <div className="absolute top-[44px] left-[94px] h-3 w-3 rotate-45 border-t-2 border-r-2 border-sky-500" />
+      <div className="absolute top-[43px] left-[26px] h-4 w-4 rounded-full border-2 border-sky-400 bg-neutral-900" />
+      <div className="absolute top-[43px] left-[100px] h-4 w-4 rounded-full bg-sky-500" />
     </>
   </TouchpadArea>
 );
 const TapDiagram = () => (
   <TouchpadArea>
     <>
-      <div className="absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-400/60 bg-emerald-500/10" />
-      <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400" />
+      <div className="absolute top-1/2 left-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border border-emerald-400/60 bg-emerald-500/10" />
+      <div className="absolute top-1/2 left-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400" />
     </>
   </TouchpadArea>
 );
 const HoldDiagram = () => (
   <TouchpadArea>
     <>
-      <div className="absolute left-1/2 top-[46px] h-5 w-5 -translate-x-1/2 rounded-full bg-amber-400" />
-      <div className="absolute left-1/2 top-[41px] h-8 w-8 -translate-x-1/2 rounded-full border border-amber-300/70" />
+      <div className="absolute top-[46px] left-1/2 h-5 w-5 -translate-x-1/2 rounded-full bg-amber-400" />
+      <div className="absolute top-[41px] left-1/2 h-8 w-8 -translate-x-1/2 rounded-full border border-amber-300/70" />
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-neutral-800 px-2 py-0.5 text-xs text-amber-200">
         1s
       </div>
@@ -64,10 +64,10 @@ const HoldDiagram = () => (
 const DragDiagram = () => (
   <TouchpadArea>
     <>
-      <div className="absolute left-[34px] top-[50px] h-0.5 w-[68px] bg-blue-500" />
-      <div className="absolute left-[92px] top-[44px] h-3 w-3 rotate-45 border-r-2 border-t-2 border-blue-500" />
-      <div className="absolute left-[28px] top-[42px] h-5 w-5 rounded-full bg-blue-500" />
-      <div className="absolute left-[88px] top-[38px] rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-blue-200">
+      <div className="absolute top-[50px] left-[34px] h-0.5 w-[68px] bg-blue-500" />
+      <div className="absolute top-[44px] left-[92px] h-3 w-3 rotate-45 border-t-2 border-r-2 border-blue-500" />
+      <div className="absolute top-[42px] left-[28px] h-5 w-5 rounded-full bg-blue-500" />
+      <div className="absolute top-[38px] left-[88px] rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-blue-200">
         L
       </div>
     </>
@@ -111,7 +111,7 @@ export const TouchpadGuide = () => {
   return (
     <>
       <div
-        className="flex h-[30px] cursor-pointer select-none items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70"
+        className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 select-none hover:bg-neutral-700/70"
         onClick={() => setIsModalOpen(true)}
       >
         <HelpCircleIcon size={18} />
@@ -144,7 +144,7 @@ export const TouchpadGuide = () => {
                   <div className="text-sm font-medium">{item.title}</div>
                 </div>
                 {item.diagram}
-                <p className="mb-0 mt-2 text-sm leading-5 text-neutral-400">{item.desc}</p>
+                <p className="mt-2 mb-0 text-sm leading-5 text-neutral-400">{item.desc}</p>
               </div>
             ))}
           </div>

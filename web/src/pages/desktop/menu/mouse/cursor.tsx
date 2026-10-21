@@ -31,7 +31,7 @@ export const Cursor = () => {
         <div
           key={style.value}
           className={clsx(
-            'flex cursor-pointer select-none items-center space-x-1 rounded py-1.5 pl-3 pr-6 hover:bg-neutral-700/70',
+            'flex cursor-pointer items-center space-x-1 rounded py-1.5 pr-6 pl-3 select-none hover:bg-neutral-700/70',
             style.value === mouseStyle && 'text-green-500'
           )}
           onClick={() => updateMouseStyle(style.value)}

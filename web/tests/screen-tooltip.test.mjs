@@ -12,22 +12,35 @@ function render(path, name, { sessions = null, props = {} } = {}) {
   const js = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }
   }).outputText;
-  new Function('exports', 'require', js)(exports, module => {
+  new Function('exports', 'require', js)(exports, (module) => {
     if (module === 'react/jsx-runtime') return { jsx, jsxs: jsx };
-    if (module === 'react') return {
-      useState: value => [value, () => {}], useRef: value => ({ current: value }),
-      useCallback: fn => fn, useEffect() {}, useContext: () => ({}),
-      useMemo: fn => fn(), useId: () => 'test'
-    };
+    if (module === 'react')
+      return {
+        useState: (value) => [value, () => {}],
+        useRef: (value) => ({ current: value }),
+        useCallback: (fn) => fn,
+        useEffect() {},
+        useContext: () => ({}),
+        useMemo: (fn) => fn(),
+        useId: () => 'test'
+      };
     if (module === 'antd') return { Tooltip: 'Tooltip', Popover: 'Popover', Button: 'Button' };
-    if (module === 'jotai') return {
-      useAtomValue: atom => atom === 'sessions' ? sessions : 0,
-      useSetAtom: () => () => {}
-    };
-    if (module === 'react-i18next') return { useTranslation: () => ({
-      t: (key, values) => key === 'screen.sessions'
-        ? 'Active video sessions: ' + values.count : key === 'screen.title' ? 'Screen' : key
-    }) };
+    if (module === 'jotai')
+      return {
+        useAtomValue: (atom) => (atom === 'sessions' ? sessions : 0),
+        useSetAtom: () => () => {}
+      };
+    if (module === 'react-i18next')
+      return {
+        useTranslation: () => ({
+          t: (key, values) =>
+            key === 'screen.sessions'
+              ? 'Active video sessions: ' + values.count
+              : key === 'screen.title'
+                ? 'Screen'
+                : key
+        })
+      };
     if (module === 'react-responsive') return { useMediaQuery: () => true };
     if (module === 'clsx') return { __esModule: true, default: () => '' };
     if (module.includes('jotai/screen')) return { videoSessionCountAtom: 'sessions' };
@@ -51,13 +64,21 @@ function find(node, predicate) {
 
 for (const count of [0, 2, 123]) {
   test('Screen tooltip and button name explain the full session count: ' + count, () => {
-    const screen = render('../src/pages/desktop/menu/screen/index.tsx', 'Screen', { sessions: count });
+    const screen = render('../src/pages/desktop/menu/screen/index.tsx', 'Screen', {
+      sessions: count
+    });
     assert.match(screen.props.title, /Screen/);
     assert.ok(screen.props.title.includes('Active video sessions: ' + count));
     const menu = render('../src/components/menu-item.tsx', 'MenuItem', { props: screen.props });
-    assert.equal(find(menu, node => node.type === 'Tooltip').props.title, screen.props.title);
-    assert.equal(find(menu, node => node.props?.role === 'button').props['aria-label'], screen.props.title);
-    const badge = find(screen.props.icon, node => node.props?.children === (count > 99 ? '99+' : count));
+    assert.equal(find(menu, (node) => node.type === 'Tooltip').props.title, screen.props.title);
+    assert.equal(
+      find(menu, (node) => node.props?.role === 'button').props['aria-label'],
+      screen.props.title
+    );
+    const badge = find(
+      screen.props.icon,
+      (node) => node.props?.children === (count > 99 ? '99+' : count)
+    );
     assert.ok(badge, 'badge still caps only its visual count');
     assert.equal(badge.props['aria-hidden'], 'true');
   });
@@ -69,10 +90,14 @@ test('unknown session count keeps the Screen label without inventing a count', (
 });
 
 test('shared tooltip supports hover and keyboard focus; menu still opens on click', () => {
-  const menu = render('../src/components/menu-item.tsx', 'MenuItem', { props: {
-    title: 'Screen', icon: null, content: null
-  } });
-  const tooltip = find(menu, node => node.type === 'Tooltip');
+  const menu = render('../src/components/menu-item.tsx', 'MenuItem', {
+    props: {
+      title: 'Screen',
+      icon: null,
+      content: null
+    }
+  });
+  const tooltip = find(menu, (node) => node.type === 'Tooltip');
   assert.ok((tooltip.props.trigger ?? ['hover']).includes('hover'));
   assert.ok(tooltip.props.trigger?.includes('focus'), 'keyboard focus opens the tooltip');
   assert.equal(menu.type, 'Popover');

@@ -93,14 +93,14 @@ export const MessageInput = ({
             void submit();
           }
         }}
-        className="w-full resize-none rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 pr-12 text-sm text-neutral-100 placeholder-neutral-600 outline-none transition-colors focus:border-white/[0.15] focus:bg-white/[0.06] disabled:opacity-40"
+        className="w-full resize-none rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 pr-12 text-sm text-neutral-100 placeholder-neutral-600 transition-colors outline-none focus:border-white/[0.15] focus:bg-white/[0.06] disabled:opacity-40"
       />
       <Button
         type="text"
         icon={<PlusIcon size={14} />}
         onClick={() => void onNewConversation()}
         disabled={disabled || disableNewConversation}
-        className="absolute bottom-2.5 right-11 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg border! !border-white/[0.08]"
+        className="absolute right-11 bottom-2.5 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg border! !border-white/[0.08]"
         aria-label={t('picoclaw.newConversation')}
         title={t('picoclaw.newConversation')}
       />
@@ -109,7 +109,7 @@ export const MessageInput = ({
         icon={<SendIcon size={14} />}
         onClick={() => void submit()}
         disabled={!canSubmit || !value.trim()}
-        className="absolute bottom-2.5 right-2.5 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg"
+        className="absolute right-2.5 bottom-2.5 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg"
         aria-label={t('picoclaw.send')}
         title={t('picoclaw.send')}
       />

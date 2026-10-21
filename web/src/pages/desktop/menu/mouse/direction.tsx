@@ -28,7 +28,7 @@ export const Direction = () => {
       {directions.map((direction) => (
         <div
           key={direction.value}
-          className="flex cursor-pointer items-center space-x-1 rounded py-1.5 pl-2 pr-5 hover:bg-neutral-700/70"
+          className="flex cursor-pointer items-center space-x-1 rounded py-1.5 pr-5 pl-2 hover:bg-neutral-700/70"
           onClick={() => update(direction.value)}
         >
           <div className="flex h-[16px] w-[16px] items-end text-blue-500">

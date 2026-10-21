@@ -1,10 +1,10 @@
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/storage.ts';
 import { getBaseUrl } from '@/lib/service.ts';
+import { pollWhileVisible } from '@/lib/visible-poll.ts';
 
 type Props = { isOpen: boolean; onConnected: (value: boolean) => void };
 type Status = { connected: boolean; mounted?: boolean; name?: string; readBytes?: number };

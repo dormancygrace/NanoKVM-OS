@@ -399,10 +399,11 @@ test('batched ACKs remain held until decoder backpressure is released', () => {
 
 test('healthy Direct ACKs batch four frames, flush at 40 ms and cancel on stop', () => {
   const h = harness();
-  const acks = () => h.sockets[0].sent
-    .map((data) => new Uint8Array(data))
-    .filter((bytes) => bytes[0] === 2)
-    .map((bytes) => Number(new DataView(bytes.buffer).getBigUint64(1, true)));
+  const acks = () =>
+    h.sockets[0].sent
+      .map((data) => new Uint8Array(data))
+      .filter((bytes) => bytes[0] === 2)
+      .map((bytes) => Number(new DataView(bytes.buffer).getBigUint64(1, true)));
   h.send(0, true);
   for (const timestamp of [17000, 34000, 51000]) h.send(timestamp);
   assert.deepEqual(acks(), [0], 'three deltas wait for the batch threshold');
@@ -437,7 +438,10 @@ test('Edge frames with a halved visible rectangle are drawn and reported at full
   const size = h.reports.find((r) => r.type === 'frame-size');
   assert.deepEqual([size.width, size.height], [2560, 1440]);
   const wrapper = h.frames.find((f) => f.wraps);
-  assert.equal(JSON.stringify(wrapper.visibleRect), JSON.stringify({ x: 0, y: 0, width: 2560, height: 1440 }));
+  assert.equal(
+    JSON.stringify(wrapper.visibleRect),
+    JSON.stringify({ x: 0, y: 0, width: 2560, height: 1440 })
+  );
   assert.equal(wrapper.closed, 1);
   assert.equal(wrapper.wraps.closed, 1);
 });

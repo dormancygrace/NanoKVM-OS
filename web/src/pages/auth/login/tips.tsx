@@ -58,7 +58,7 @@ export const Tips = () => {
           </div>
         </Card>
 
-        <div className="flex justify-center pb-3 pt-10">
+        <div className="flex justify-center pt-10 pb-3">
           <Button type="primary" className="w-24" onClick={hideModal}>
             {t('auth.ok')}
           </Button>

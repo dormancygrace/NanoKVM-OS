@@ -10,7 +10,7 @@ export const Nanokvm = () => {
 
   return (
     <div
-      className="flex h-[28px] cursor-pointer select-none items-center space-x-1 rounded px-2 py-1 hover:bg-neutral-700/70"
+      className="flex h-[28px] cursor-pointer items-center space-x-1 rounded px-2 py-1 select-none hover:bg-neutral-700/70"
       onClick={openTerminal}
     >
       <SquareTerminalIcon size={14} />

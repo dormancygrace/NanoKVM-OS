@@ -13,24 +13,64 @@ depend() {
     before chronyd crond
 }
 
-# Whether NanoKVM-Server has a listening TCP socket, on whatever port.
+: "${NANOKVM_SERVER_CONFIG:=/etc/kvm/server.yaml}"
+: "${NANOKVM_PROC_ROOT:=/proc}"
+: "${NANOKVM_PROC_NET:=$NANOKVM_PROC_ROOT/net}"
+
+# Fast path for the numeric block emitted by the server. Other valid YAML
+# (quoted numbers, flow mappings, aliases, etc.) uses the process socket probe;
+# do not mistake an unrecognised configuration for the default ports.
+server_ports() {
+    local http https
+    if [ ! -e "$NANOKVM_SERVER_CONFIG" ]; then
+        printf '0050 01BB\n'
+        return 0
+    fi
+    http=$(sed -n '/^port: *$/,/^[^ ]/s/^ *http: *\([1-9][0-9]*\) *\(#.*\)\{0,1\}$/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    https=$(sed -n '/^port: *$/,/^[^ ]/s/^ *https: *\([1-9][0-9]*\) *\(#.*\)\{0,1\}$/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    [ "$http" -gt 0 ] 2>/dev/null && [ "$http" -le 65535 ] 2>/dev/null &&
+        [ "$https" -gt 0 ] 2>/dev/null && [ "$https" -le 65535 ] 2>/dev/null || return 1
+    printf '%04X %04X\n' "$http" "$https"
+}
+
+# With known ports the polling path uses shell builtins only. If YAML parsing
+# was inconclusive, retain the previous process/inode check for any server port.
 server_listening() {
-    local pid inodes
-    pid=$(pidof NanoKVM-Server) || return 1
-    inodes=$(ls -l "/proc/${pid%% *}/fd" 2>/dev/null | sed -n 's/.*socket:\[\([0-9]*\)\]$/\1/p')
-    [ -n "$inodes" ] || return 1
-    awk -v list=" $(echo $inodes) " '$4 == "0A" && index(list, " " $10 " ") { found = 1 }
-        END { exit !found }' /proc/net/tcp /proc/net/tcp6 2>/dev/null
+    local file sl addr remote state queues timer retrans uid timeout inode rest
+    local pid sockets
+    if [ "$#" -eq 0 ]; then
+        pid=$(pidof NanoKVM-Server) || return 1
+        sockets=$(ls -l "$NANOKVM_PROC_ROOT/${pid%% *}/fd" 2>/dev/null)
+        [ -n "$sockets" ] || return 1
+    fi
+    for file in "$NANOKVM_PROC_NET/tcp" "$NANOKVM_PROC_NET/tcp6"; do
+        [ -r "$file" ] || continue
+        while read -r sl addr remote state queues timer retrans uid timeout inode rest; do
+            [ "$state" = "0A" ] || continue
+            if [ "$#" -gt 0 ]; then
+                case "$addr" in
+                    *:"$1" | *:"$2") return 0 ;;
+                esac
+            else
+                case "$sockets" in
+                    *"socket:[$inode]"*) return 0 ;;
+                esac
+            fi
+        done < "$file"
+    done
+    return 1
 }
 
 start() {
-    local n=0
+    local n=0 ports
     ebegin "Starting NanoKVM application"
+    ports=$(server_ports) || ports=
     /kvmapp/system/init.d/S95nanokvm start || { eend 1; return 1; }
     # The services after this one start once the server listens (at most
     # 15 s): on one core they would slow its start, and with it the first
     # video frame.
-    while [ "$n" -lt 75 ] && ! server_listening; do
+    # shellcheck disable=SC2086 # two port words
+    while [ "$n" -lt 75 ] && ! server_listening $ports; do
         sleep 0.2
         n=$((n + 1))
     done

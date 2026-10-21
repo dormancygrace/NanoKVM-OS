@@ -58,6 +58,7 @@ test-wifi-modules:
 test-alpine-network:
 	@python3 tests/test-alpine-network.py
 	@python3 tests/test-alpine-service-deps.py
+	@python3 tests/test-alpine-app-wait.py
 
 test-wifi-runtime:
 	@sh tests/test-s30wifi-runtime.sh

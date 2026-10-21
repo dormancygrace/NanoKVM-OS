@@ -55,6 +55,9 @@ type VideoSource struct {
 	// session; captureFrame then serves the Go-paced loop.
 	startStream       func(common.VideoCaptureParams) common.VideoStream
 	keyframeRequested atomic.Bool
+	// holdCapture keeps the HDMI capture from parking while a session runs
+	// and returns its release (see SetCaptureDemand).
+	holdCapture atomic.Pointer[func() func()]
 }
 
 type EncoderConfigConflictError struct {
@@ -81,6 +84,13 @@ const captureParamsRefresh = 500 * time.Millisecond
 
 // Feedback from all viewers is coalesced by the single capture owner.
 func RequestKeyframe() { defaultVideoSource.keyframeRequested.Store(true) }
+
+// SetCaptureDemand makes every video session hold the HDMI capture while it
+// runs. The direct and WebRTC streamers report their viewers themselves;
+// other subscribers, such as RustDesk, do not: capture parked without viewers
+// resumed on their reads but did not park again after them. main passes
+// vm.AcquireHdmiCaptureLease.
+func SetCaptureDemand(acquire func() func()) { defaultVideoSource.holdCapture.Store(&acquire) }
 
 func newVideoSource(captureFrame func(EncoderConfig) ([]byte, []byte, int)) *VideoSource {
 	return &VideoSource{
@@ -287,6 +297,10 @@ func (s *VideoSource) run(session *videoSession) {
 		close(session.done)
 		s.mutex.Unlock()
 	}()
+	if hold := s.holdCapture.Load(); hold != nil {
+		release := (*hold)()
+		defer release()
+	}
 
 	common.CheckScreen()
 	if s.startStream != nil && s.runStream(session) {

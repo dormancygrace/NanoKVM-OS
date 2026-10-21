@@ -21,6 +21,7 @@ import (
 	"NanoKVM-Server/service/extensions/acme"
 	"NanoKVM-Server/service/failsafe"
 	"NanoKVM-Server/service/network"
+	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
 	"NanoKVM-Server/service/vm/jiggler"
 	"NanoKVM-Server/utils"
@@ -100,6 +101,8 @@ func initialize(stopMemory context.CancelFunc) {
 		vm.EnableHdmiCapture()
 	}
 	vm.SetHdmiViewerCount(0)
+	// Every video subscriber keeps capture from parking, not only counted viewers.
+	stream.SetCaptureDemand(vm.AcquireHdmiCaptureLease)
 	if !recovering {
 		if err := failsafe.VideoPhase("ready"); err != nil {
 			logrus.Warnf("video phase: %v", err)

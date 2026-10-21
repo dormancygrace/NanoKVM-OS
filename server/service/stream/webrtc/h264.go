@@ -96,6 +96,8 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 
 	// create client
 	client := NewClient(wsConn, videoConn, encoderConfig)
+	// A page may disappear without audio-stop; own every client resource here.
+	defer client.Close()
 	client.pathMTU = pathBudget
 	if err := client.AddTrack(); err != nil {
 		log.Errorf("failed to add track: %s", err)

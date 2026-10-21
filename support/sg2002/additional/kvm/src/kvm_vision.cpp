@@ -572,11 +572,13 @@ uint8_t auto_try_res()
             return 1;
             break;
         case 2:
-            // HDMI not detected or resolution not supported; interval checks will continue
-            printf("[kvmv] Cannot obtain HDMI input\n");
-            auto_trying_times--;
-            nanokvm::sleep_ms(1000);
-            break;
+            // Nothing readable on the port: no resolution in the list can
+            // help. Decrementing the index here undid the loop's increment,
+            // so the walk never ended while the input stayed dead, and the
+            // detection thread never saw try_exit_thread. Return; the thread
+            // looks again after its own pause.
+            debug("[kvmv] Cannot obtain HDMI input\n");
+            return 2;
         case 3: // width too small
         case 4: // width too large
         case 5: // height too small
@@ -1136,7 +1138,10 @@ void* vi_subsystem_detection(void *)
                     }
                 } else if (try_res == 2) {
                     kvmv_cfg.hdmi_try_rounds = 0;
-                    // Cannot obtain HDMI input / No signal on HDMI
+                    // Cannot obtain HDMI input / No signal on HDMI. Keep the
+                    // one-second pause auto_try_res used to take, instead of
+                    // probing again after the 10 ms active poll.
+                    nanokvm::sleep_ms(1000);
                 }
             } else if (kvmv_cfg.vi_detect_state == 2){
                 // Low-frequency detection of HDMI status, no log output

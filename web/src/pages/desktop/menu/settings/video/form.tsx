@@ -15,7 +15,6 @@ import {
   mjpegBlocked,
   monitorTarget,
   QUALITY_CHOICES,
-  recommendedResolution,
   resolutionChoices,
   resolutionOf,
   withResolution,
@@ -199,12 +198,10 @@ export const VideoForm = ({
 
   const choices = resolutionChoices(caps);
   const current = resolutionOf(draft, caps);
-  const recommended = recommendedResolution(caps);
   const choiceOption = (c: (typeof choices)[number]) => {
-    const label = `${size(c.width, c.height)}${c.key === recommended?.key ? ` · ${t('videoSettings.modeRecommended')}` : ''}`;
     return {
       value: c.key,
-      label: withReason(label, c.available ? undefined : c.reason),
+      label: withReason(size(c.width, c.height), c.available ? undefined : c.reason),
       disabled: !c.available
     };
   };

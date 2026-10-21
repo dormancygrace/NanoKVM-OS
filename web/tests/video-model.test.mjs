@@ -196,15 +196,6 @@ test('a fixed receiver offers the input size at the stream rates', () => {
   assert.equal(model.resolutionOf(draft({ fps: 50 }), fixed).key, 'i1440');
 });
 
-test('the recommended resolution is 1440p, else 1080p', () => {
-  assert.equal(model.recommendedResolution(caps()).key, 'm1440');
-  const noQhd = caps();
-  noQhd.monitor.modes = noQhd.monitor.modes.map((m) =>
-    m.height === 1440 ? { ...m, available: false, reason: 'video-memory' } : m
-  );
-  assert.equal(model.recommendedResolution(noQhd).key, 'm1080');
-});
-
 test('a draft is in the resolution of its monitor, whatever its rate', () => {
   const c = caps();
   assert.equal(model.resolutionOf(draft({ monitor: 1440, fps: 60 }), c).key, 'm1440');

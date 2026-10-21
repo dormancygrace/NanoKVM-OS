@@ -10,7 +10,6 @@ import {
   draftPlayable,
   ECONOMY_BITRATE,
   QUALITY_CHOICES,
-  recommendedResolution,
   resolutionChoices,
   resolutionOf,
   transportChoice,
@@ -138,7 +137,6 @@ export const QuickVideo = () => {
   // A Cube receiver applies a monitor change only after a power cycle, which
   // Settings → Video confirms first.
   const current = resolutionOf(saved, caps);
-  const recommended = recommendedResolution(caps);
   const auto = draftAutoBitrate(saved, caps);
   const autoBitrate = saved.bitRate === auto;
   const codecNames: Record<Codec, string> = { h264: 'H.264', h265: 'H.265' };
@@ -166,9 +164,6 @@ export const QuickVideo = () => {
               >
                 {` · ${codecNames[switchedCodec]}`}
               </span>
-            )}
-            {choice.key === recommended?.key && (
-              <span className="text-neutral-500"> · {t('videoSettings.modeRecommended')}</span>
             )}
           </>
         ),

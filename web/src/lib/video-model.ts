@@ -449,19 +449,6 @@ export function resolutionOf(draft: VideoDraft, caps: VideoCapabilities) {
   return resolutionChoices(caps).find((c) => c.key === key);
 }
 
-// The resolution to suggest: 2560x1440, else 1920x1080.
-export function recommendedResolution(caps: VideoCapabilities) {
-  const choices = resolutionChoices(caps).filter((c) => c.available && !c.portrait);
-  for (const [width, height] of [
-    [2560, 1440],
-    [1920, 1080]
-  ]) {
-    const choice = choices.find((c) => c.width === width && c.height === height);
-    if (choice) return choice;
-  }
-  return choices[0];
-}
-
 // The draft with a resolution applied, at its fastest rate: the receiver's
 // limit for that size, which the user may lower. A portrait profile only plays
 // some transports and codecs, and H.264 only pictures up to 2560x1440; the

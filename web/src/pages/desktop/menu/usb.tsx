@@ -1,23 +1,31 @@
 import { useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
-import { UsbIcon } from 'lucide-react';
+import { FingerprintIcon, LayersIcon, UsbIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getVirtualDevice, usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { normalizeUsbStatus, usbDevices } from '@/lib/usb-composition.ts';
 import { client } from '@/lib/websocket.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
-import { MenuItem } from '@/components/menu-item.tsx';
+import { MenuItem, MenuSubmenu } from '@/components/menu-item.tsx';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context';
 
 import { Usb } from './settings/usb';
+
+// The USB Gadget menu: the composition, and the identity the computer sees.
+const submenus = [
+  { part: 'composition', icon: <LayersIcon size={18} />, title: 'settings.usb.compositionMenu' },
+  { part: 'identity', icon: <FingerprintIcon size={18} />, title: 'settings.usb.identityMenu' }
+] as const;
 
 export const UsbMenu = () => {
   const { t } = useTranslation();
   const { mobilePlacement } = useContext(MobileMenuItemContext);
   const lock = useSetAtom(keyboardLockAtom);
   const [open, setOpen] = useState(false);
+  // The open submenu; its panel mounts on opening and reads the USB state then.
+  const [submenu, setSubmenu] = useState<(typeof submenus)[number]['part'] | null>(null);
   const [usbEnabled, setUsbEnabled] = useState<boolean | null>(null);
   const status = useSyncExternalStore(client.subscribeConnectionStatus, client.getConnectionStatus);
   useEffect(() => {
@@ -41,13 +49,13 @@ export const UsbMenu = () => {
       active = false;
       window.removeEventListener(usbCompositionChangedEvent, refresh);
     };
-  }, [status, open]);
+  }, [status, open, submenu]);
   const usbOff = usbEnabled === false;
   const warning = status === 'disconnected' || status === 'reconnecting';
   const statusText = t(`inputConnection.${status}`);
   const color =
     status === 'disconnected' ? '#ef4444' : status === 'reconnecting' ? '#f59e0b' : undefined;
-  const title = `${t('settings.usb.title')}${usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
+  const title = `${t('settings.usb.gadget')}${usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
   useEffect(() => () => lock({ source: 'usb-popover', locked: false }), [lock]);
   return (
     <MenuItem
@@ -78,23 +86,50 @@ export const UsbMenu = () => {
       fresh
       onOpenChange={(value) => {
         setOpen(value);
+        if (!value) setSubmenu(null);
         lock({ source: 'usb-popover', locked: value });
       }}
       content={
-        <div
-          className={clsx(
-            'p-1',
-            mobilePlacement
-              ? 'box-border w-full min-w-0'
-              : 'max-h-[75dvh] w-[min(440px,85vw)] overflow-y-auto'
-          )}
-        >
+        <div className="flex flex-col space-y-1">
           {warning && (
-            <div role="status" className="mb-2 px-2 text-sm" style={{ color }}>
+            <div role="status" className="mb-1 px-2 text-sm" style={{ color }}>
               {statusText}
             </div>
           )}
-          {open && <Usb />}
+          {submenus.map((item) => (
+            <MenuSubmenu
+              key={item.part}
+              title={t(item.title)}
+              content={
+                submenu === item.part && (
+                  <div
+                    className={clsx(
+                      'p-1',
+                      mobilePlacement
+                        ? 'box-border w-full min-w-0'
+                        : 'max-h-[75dvh] w-[min(440px,85vw)] overflow-y-auto'
+                    )}
+                  >
+                    <Usb part={item.part} />
+                  </div>
+                )
+              }
+              popoverProps={{
+                placement: 'rightTop',
+                arrow: false,
+                align: { offset: [14, 0] },
+                // a form: it stays open while the pointer leaves it
+                trigger: 'click',
+                open: submenu === item.part,
+                onOpenChange: (value) => setSubmenu(value ? item.part : null)
+              }}
+            >
+              <div className="flex h-[30px] cursor-pointer items-center space-x-2 rounded px-3 text-neutral-300 hover:bg-neutral-700/70">
+                {item.icon}
+                <span>{t(item.title)}</span>
+              </div>
+            </MenuSubmenu>
+          ))}
         </div>
       }
     />

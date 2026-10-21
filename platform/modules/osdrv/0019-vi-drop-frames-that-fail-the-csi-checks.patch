@@ -38,6 +38,9 @@ bypass pipe exactly once:
   not there and triggered the DMA into the last published buffer. The
   driver now notes a buffer given to the DMA, and the retrigger counts
   back only that one.
+- The trigger itself did not check for a ready buffer, and a retried
+  tasklet trigger could arm the DMA with the last published one. It is
+  now refused with the state left idle.
 
 A wake that finds the handler flag set (VI_CB_RESET_ISP sets it before
 waking, so it starts no handler) holds nothing back. The retrigger still
@@ -101,7 +104,21 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	vi_pr(VI_DBG, "update yuv bypass outbuf: 0x%llx raw_%d chn_num(%d)\n",
  			b->buf.planes[0].addr, raw_num, buf_chn);
-@@ -3263,6 +3293,16 @@
+@@ -2442,6 +2472,13 @@
+ 			return -1;
+ 		}
+ 		buf_chn = (raw_num == ISP_PRERAW_A) ? hw_chn_num : vdev->ctx.rawb_chnstr_num + hw_chn_num;
++		/* No ready buffer: the DMA would write into the one it had last,
++		 * which the application may hold (a retried tasklet trigger). */
++		if (cvi_isp_rdy_buf_empty(vdev, buf_chn)) {
++			atomic_set(&vdev->pre_fe_state[raw_num][hw_chn_num], ISP_PRERAW_IDLE);
++			vi_pr(VI_DBG, "fe_%d chn_num_%d no ready buffer\n", raw_num, hw_chn_num);
++			return -1;
++		}
+ 
+ 		_isp_yuv_bypass_buf_enq(vdev, raw_num, buf_chn);
+ 		isp_pre_trig(ctx, raw_num, hw_chn_num);
+@@ -3263,6 +3300,16 @@
  		INIT_LIST_HEAD(&vdev->qbuf_list[i]);
  		spin_unlock_irqrestore(&vdev->qbuf_lock, flags);
  	}
@@ -118,7 +135,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	spin_lock_irqsave(&dq_lock, flags);
  	while (!list_empty(&dqbuf_q.list)) {
-@@ -7026,6 +7066,51 @@
+@@ -7026,6 +7073,51 @@
  	gOverflowInfo = NULL;
  }
  
@@ -170,7 +187,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  static void _vi_err_retrig_preraw(struct cvi_vi_dev *vdev, const enum cvi_isp_raw err_raw_num)
  {
  	struct isp_ctx *ctx = &vdev->ctx;
-@@ -7053,7 +7138,8 @@
+@@ -7053,7 +7145,8 @@
  			for (fe_chn = ISP_FE_CH0; fe_chn < fe_max; fe_chn++) {
  				u8 buf_chn = (wait_fe == ISP_PRERAW_A) ? fe_chn : vdev->ctx.rawb_chnstr_num + fe_chn;
  
@@ -180,7 +197,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  					vdev->qbuf_num[buf_chn]++;
  
  				if (cvi_isp_rdy_buf_empty(vdev, buf_chn)) {
-@@ -7160,12 +7246,15 @@
+@@ -7160,12 +7253,15 @@
  		} else {
  			vi_pr(VI_ERR, "isp status post(%d)\n", atomic_read(&vdev->postraw_state));
  		}
@@ -197,7 +214,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	//step 4 : isp sw reset and vip reset pull up
  	isp_frm_err_handler(ctx, err_raw_num, 4);
-@@ -7186,8 +7275,11 @@
+@@ -7186,8 +7282,11 @@
  	isp_frm_err_handler(ctx, err_raw_num, 5);
  
  	//step 6 : wait ISP idle
@@ -210,7 +227,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	//step 7 : reset sw state to idle
  	if (_is_be_post_online(ctx)) {
-@@ -7228,6 +7320,11 @@
+@@ -7228,6 +7327,11 @@
  	//step 10 : show overflow info
  	_vi_show_debug_info();
  
@@ -222,7 +239,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	//Let postraw trigger go
  	atomic_set(&vdev->isp_err_handle_flag, 0);
  
-@@ -7271,6 +7368,7 @@
+@@ -7271,6 +7375,7 @@
  
  static inline void vi_err_wake_up_th(struct cvi_vi_dev *vdev, enum cvi_isp_raw err_raw)
  {
@@ -230,7 +247,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	if (atomic_read(&vdev->isp_err_handle_flag) == 1) {
  		vi_pr(VI_WARN, "work on err_handler\n");
  		if (vdev->vi_th[E_VI_TH_ERR_HANDLER].flag != err_raw + 1) {
-@@ -7283,6 +7381,7 @@
+@@ -7283,6 +7388,7 @@
  	//Stop pre/postraw trigger go
  	atomic_set(&vdev->isp_err_handle_flag, 1);
  
@@ -238,7 +255,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	vdev->vi_th[E_VI_TH_ERR_HANDLER].flag = err_raw + 1;
  
  	wake_up(&vdev->vi_th[E_VI_TH_ERR_HANDLER].wq);
-@@ -7845,13 +7944,37 @@
+@@ -7845,13 +7951,37 @@
  
  	atomic_set(&vdev->pre_fe_state[raw_num][hw_chn_num], ISP_PRERAW_IDLE);
  

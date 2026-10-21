@@ -336,9 +336,13 @@ int main(void)
 	assert(published() == 3 && listed() == 0 && !hw_armed);
 	csi_error(); err_thread();
 	invariant(); assert(!hw_armed && d.qbuf_num[0] == 0);
+	/* A trigger on the drained queue (a retried tasklet trigger) is refused
+	 * and leaves the state idle. */
+	assert(_isp_yuv_bypass_trigger(&d, ISP_PRERAW_A, 0) == -1);
+	invariant(); assert(!hw_armed && d.qbuf_num[0] == 0);
 	for (int i = 0; i < 3; i++)
 		give_back();
-	_isp_yuv_bypass_trigger(&d, ISP_PRERAW_A, 0);
+	assert(_isp_yuv_bypass_trigger(&d, ISP_PRERAW_A, 0) == 0);
 	invariant(); good();
 	/* Repeated errors with the thread running behind: no count drifts. */
 	for (int i = 0; i < 40; i++) {

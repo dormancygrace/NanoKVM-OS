@@ -64,6 +64,7 @@
     "stop": "Aufzeichnung stoppen",
     "saving": "Aufzeichnung wird gespeichert…",
     "saved": "Aufzeichnung gespeichert",
+    "interrupted": "Die Aufnahme ist unvollständig. Der verfügbare Teil wurde gespeichert.",
     "unsupported": "Die Aufzeichnung erfordert HTTPS und einen Browser mit Unterstützung zum Speichern von Dateien, z. B. Chrome oder Edge",
     "captureDisabled": "Aktivieren Sie die Aufnahme, um Video aufzuzeichnen",
     "noVideo": "Warten Sie vor der Aufzeichnung auf das Video",

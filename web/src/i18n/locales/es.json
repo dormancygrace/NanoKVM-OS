@@ -64,6 +64,7 @@
     "stop": "Detener grabación",
     "saving": "Guardando grabación…",
     "saved": "Grabación guardada",
+    "interrupted": "La grabación está incompleta. Se ha guardado la parte disponible.",
     "unsupported": "La grabación requiere HTTPS y un navegador que permita guardar archivos, como Chrome o Edge",
     "captureDisabled": "Activa la captura para grabar vídeo",
     "noVideo": "Espera a que haya vídeo antes de grabar",

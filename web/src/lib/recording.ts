@@ -1,3 +1,5 @@
+import type { RecordingResult } from './recording-result.ts';
+
 // Browser-side recording inspired by sipeed/NanoKVM#682.
 // Serialize file writes and wait for the final MediaRecorder chunk before closing.
 export interface RecordingWriter {
@@ -12,14 +14,15 @@ export function recordStream(
   mimeType: string,
   maxPendingBytes = 16 * 1024 * 1024
 ) {
-  const recorder = new MediaRecorder(stream, { mimeType });
+  const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 192_000 });
   let pendingBytes = 0;
   let writes = Promise.resolve();
   let failure: Error | undefined;
   let stopped = false;
-  let resolve!: () => void;
+  let limited = false;
+  let resolve!: (result: RecordingResult) => void;
   let reject!: (error: Error) => void;
-  const done = new Promise<void>((ok, fail) => {
+  const done = new Promise<RecordingResult>((ok, fail) => {
     resolve = ok;
     reject = fail;
   });
@@ -36,9 +39,9 @@ export function recordStream(
   recorder.ondataavailable = (event) => {
     if (!event.data.size || failure) return;
     pendingBytes += event.data.size;
-    if (pendingBytes > maxPendingBytes) {
-      stop(new Error('recording-backpressure'));
-      return;
+    if (pendingBytes > maxPendingBytes && !limited) {
+      limited = true;
+      stop();
     }
     writes = writes
       .then(async () => {
@@ -64,7 +67,7 @@ export function recordStream(
         reject(failure);
       } else {
         await writer.close();
-        resolve();
+        resolve({ reason: limited ? 'buffer-limit' : undefined });
       }
     } catch (error) {
       // A rejected close must not leave an open file transaction.

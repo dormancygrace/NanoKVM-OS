@@ -64,6 +64,7 @@
     "stop": "Arrêter l'enregistrement",
     "saving": "Enregistrement du fichier…",
     "saved": "Enregistrement sauvegardé",
+    "interrupted": "L’enregistrement est incomplet. La partie disponible a été sauvegardée.",
     "unsupported": "L'enregistrement nécessite HTTPS et un navigateur prenant en charge l'enregistrement de fichiers, comme Chrome ou Edge",
     "captureDisabled": "Activez la capture pour enregistrer la vidéo",
     "noVideo": "Attendez la vidéo avant d'enregistrer",

@@ -646,6 +646,7 @@ function postRecordedFrame(isKeyFrame: boolean, timestamp: number, data: Uint8Ar
       packet: {
         key: isKeyFrame,
         timestamp,
+        receivedAt: performance.timeOrigin + performance.now(),
         width: reportedFrameWidth,
         height: reportedFrameHeight,
         data: copy

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ALL_FORMATS, BufferSource, EncodedPacketSink, Input } from 'mediabunny';
 
 import { recordPassthrough } from '../src/lib/passthrough-recording.ts';
 
@@ -44,7 +45,7 @@ function fixture(options = {}) {
     chunks,
     send,
     packet: (p) => packet(p),
-    end: () => end('closed')
+    end: (reason = 'closed') => end(reason)
   };
 }
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -103,7 +104,7 @@ test('waiting for a keyframe can be canceled without creating a file', async () 
 test('packets retained inside a long MP4 fragment count towards the memory limit', async () => {
   const f = fixture();
   const s = await recordPassthrough(f.source, f.writable, null, 1000);
-  const rejected = assert.rejects(s.done, /recording-backpressure/);
+  const result = s.done;
   f.send(0);
   await s.started;
   for (let i = 1; i < 40; i++) {
@@ -111,9 +112,13 @@ test('packets retained inside a long MP4 fragment count towards the memory limit
     await tick();
   }
   s.stop();
-  await rejected;
-  assert.ok(f.events.includes('abort'));
-  assert.ok(!f.events.includes('commit'));
+  assert.equal((await result).reason, 'buffer-limit');
+  assert.ok(!f.events.includes('abort'));
+  assert.ok(f.events.includes('commit'));
+  const input = fileInput(f);
+  const track = await input.getPrimaryVideoTrack();
+  assert.ok(await new EncodedPacketSink(track).getFirstPacket());
+  input.dispose();
 });
 test('a recording asks for a keyframe when the last one is 5 s old', async () => {
   const f = fixture();
@@ -131,4 +136,70 @@ test('a recording asks for a keyframe when the last one is 5 s old', async () =>
   assert.equal(requests, 2);
   s.stop();
   await s.done;
+});
+
+function fileInput(f) {
+  let size = 0;
+  for (const c of f.chunks) size = Math.max(size, c.position + c.data.byteLength);
+  const bytes = new Uint8Array(size);
+  for (const c of f.chunks)
+    bytes.set(
+      new Uint8Array(c.data.buffer ?? c.data, c.data.byteOffset ?? 0, c.data.byteLength),
+      c.position
+    );
+  return new Input({ source: new BufferSource(bytes), formats: ALL_FORMATS });
+}
+test('source failure saves a playable prefix and reports interruption', async () => {
+  const f = fixture();
+  const s = await recordPassthrough(f.source, f.writable, null);
+  f.send(0);
+  await s.started;
+  f.send(40000);
+  f.end('stream-error');
+  assert.equal((await s.done).reason, 'stream-error');
+  assert.ok(f.events.includes('commit'));
+  assert.ok(!f.events.includes('abort'));
+  const input = fileInput(f);
+  const track = await input.getPrimaryVideoTrack();
+  assert.ok(await new EncodedPacketSink(track).getFirstPacket());
+  input.dispose();
+});
+test('received Opus packets reach MP4 unchanged, with arrival offset and RTP gaps', async () => {
+  const f = fixture();
+  let packet, end;
+  let stopped = false;
+  const raw = {
+    start(p, e) {
+      packet = p;
+      end = e;
+      return () => {
+        stopped = true;
+      };
+    }
+  };
+  const s = await recordPassthrough(f.source, f.writable, null, undefined, raw);
+  f.packet({ key: true, timestamp: 0, receivedAt: 1000, width: 160, height: 90, data });
+  await s.started;
+  const opus = new Uint8Array([0xfc, 0xff, 0xfe]);
+  packet({ data: opus, timestamp: 0, receivedAt: 1040 });
+  packet({ data: opus, timestamp: 20000, receivedAt: 1060 });
+  // Temporary packet loss is a gap, not an irreversible close or time compression.
+  packet({ data: opus, timestamp: 220000, receivedAt: 1260 });
+  f.send(300000);
+  await tick();
+  end('stopped');
+  s.stop();
+  assert.equal((await s.done).reason, undefined);
+  assert.ok(stopped);
+  const input = fileInput(f);
+  const track = await input.getPrimaryAudioTrack();
+  assert.equal(track.codec, 'opus');
+  assert.equal(await track.getNumberOfChannels(), 2);
+  const packets = [];
+  for await (const p of new EncodedPacketSink(track).packets()) packets.push(p);
+  assert.equal(packets.length, 3);
+  for (const p of packets) assert.deepEqual(p.data, opus);
+  for (const [i, seconds] of [0.04, 0.06, 0.26].entries())
+    assert.ok(Math.abs(packets[i].timestamp - seconds) < 0.0001, String(packets[i].timestamp));
+  input.dispose();
 });

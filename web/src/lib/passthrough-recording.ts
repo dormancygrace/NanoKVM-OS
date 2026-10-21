@@ -1,9 +1,11 @@
 // Records the Direct or WebRTC stream into MP4 without re-encoding: the H.264/H.265
 // frames go into the file as received, the USB audio (if any) is encoded to
-// Opus. Mediabunny writes a fragmented MP4, so a file cut short stays
-// playable up to its last fragment. Loaded on demand.
+// Opus only when encoded receiver packets are unavailable. MP4 fragmentation
+// bounds muxer memory; the browser file transaction still commits only on close.
+// Loaded on demand.
 import {
   canEncodeAudio,
+  EncodedAudioPacketSource,
   EncodedPacket,
   EncodedVideoPacketSource,
   MediaStreamAudioTrackSource,
@@ -13,6 +15,8 @@ import {
 } from 'mediabunny';
 
 import { DIRECT_H264_CODEC, DIRECT_H265_CODEC } from '@/lib/encoder.ts';
+import { AudioTimeline, type RecordingAudioSource } from '@/lib/recording-audio.ts';
+import type { RecordingResult } from '@/lib/recording-result.ts';
 import {
   PacketTimeline,
   type RecordingPacket,
@@ -22,21 +26,23 @@ import {
 
 export type PassthroughRecording = {
   stop: () => void;
+  stopAudio: () => void;
   // Resolves when the first keyframe has started the file.
   started: Promise<void>;
-  done: Promise<void>;
+  done: Promise<RecordingResult>;
 };
 
 // Fragments start at keyframes only, so the recording asks for one when the
-// last is this old: a fragment holds this much video in memory at most, and a
-// file cut short loses at most this much.
+// last is this old. The byte limit also bounds retention if the sender does
+// not answer a keyframe request. This is not a disk durability guarantee.
 const KEYFRAME_INTERVAL = 5;
 
 export async function recordPassthrough(
   source: RecordingSource,
   writable: FileSystemWritableFileStream,
   audio: MediaStreamTrack | null,
-  maxPendingBytes = 32 * 1024 * 1024
+  maxPendingBytes = 32 * 1024 * 1024,
+  encodedAudio: RecordingAudioSource | null = null
 ): Promise<PassthroughRecording> {
   // Mediabunny closes its target even on cancel. Only this session may commit
   // the actual file transaction; closing the bridge must not commit a bad file.
@@ -54,17 +60,24 @@ export async function recordPassthrough(
   });
   const video = new EncodedVideoPacketSource(source.codec === 'h265' ? 'hevc' : 'avc');
   output.addVideoTrack(video);
-  let sound: MediaStreamAudioTrackSource | undefined;
+  let sound: MediaStreamAudioTrackSource | EncodedAudioPacketSource | undefined;
+  let stopAudio = () => {};
+  let audioTimeline: AudioTimeline | undefined;
+  let firstAudio = true;
+  let reason: RecordingResult['reason'];
   let audioEnded = false;
   const endAudio = () => {
     audioEnded = true;
     if (output.state === 'started') sound?.close();
   };
   try {
-    if (audio?.readyState === 'live' && (await canEncodeAudio('opus'))) {
+    if (encodedAudio) {
+      sound = new EncodedAudioPacketSource('opus');
+      output.addAudioTrack(sound);
+    } else if (audio?.readyState === 'live' && (await canEncodeAudio('opus'))) {
       sound = new MediaStreamAudioTrackSource(audio as MediaStreamAudioTrack, {
         codec: 'opus',
-        bitrate: 128_000,
+        bitrate: 192_000,
         onEncodedPacket: (packet) => {
           retainedBytes += packet.data.byteLength;
           checkBuffer();
@@ -72,10 +85,14 @@ export async function recordPassthrough(
       });
       output.addAudioTrack(sound);
       // Closing the source tells the interleaver not to wait for more audio.
-      void sound.errorPromise.catch(endAudio);
+      void sound.errorPromise.catch(() => {
+        reason ??= 'audio-error';
+        endAudio();
+      });
       audio.addEventListener('ended', endAudio);
-      audio.addEventListener('mute', endAudio);
-      audioEnded = audio.readyState !== 'live' || audio.muted;
+      audioEnded = audio.readyState !== 'live';
+    } else if (audio) {
+      reason = 'audio-error';
     }
   } catch (error) {
     await output.cancel().catch(() => {});
@@ -98,9 +115,9 @@ export async function recordPassthrough(
   const startedPromise = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
-  let resolveDone!: () => void;
+  let resolveDone!: (result: RecordingResult) => void;
   let rejectDone!: (error: Error) => void;
-  const done = new Promise<void>((resolve, reject) => {
+  const done = new Promise<RecordingResult>((resolve, reject) => {
     resolveDone = resolve;
     rejectDone = reject;
   });
@@ -129,9 +146,17 @@ export async function recordPassthrough(
   };
   const onPacket = (packet: RecordingPacket) => {
     if (finished) return;
+    // Refuse the next packet before changing the timeline. Accepted packets
+    // can still be drained and finalized into a playable partial recording.
+    if (timeline.started && retainedBytes + packet.data.byteLength > maxPendingBytes) {
+      reason ??= 'buffer-limit';
+      finish();
+      return;
+    }
     const dropped = timeline.dropped;
     const result = timeline.push(packet);
     if (result === 'size-changed') {
+      reason ??= 'source-changed';
       finish();
       return;
     }
@@ -143,12 +168,47 @@ export async function recordPassthrough(
     }
     if (timeline.started && !started) {
       started = true;
-      // Audio capture starts here too, so both tracks begin at this frame.
       enqueue(async () => {
         await output.start();
         if (audioEnded) endAudio();
         markStarted();
       });
+      // Use a shared receiver arrival clock for the initial A/V offset, then
+      // keep each RTP clock (including gaps) instead of timing every packet by JS.
+      if (encodedAudio) {
+        audioTimeline = new AudioTimeline(
+          packet.receivedAt ?? performance.timeOrigin + performance.now()
+        );
+        stopAudio = encodedAudio.start(
+          (audioPacket) => {
+            if (finished || !audioTimeline) return;
+            const seconds = audioTimeline.push(audioPacket);
+            if (seconds === null) return;
+            if (retainedBytes + audioPacket.data.byteLength > maxPendingBytes) {
+              reason ??= 'buffer-limit';
+              finish();
+              return;
+            }
+            retainedBytes += audioPacket.data.byteLength;
+            const meta = firstAudio
+              ? { decoderConfig: { codec: 'opus', sampleRate: 48000, numberOfChannels: 2 } }
+              : undefined;
+            firstAudio = false;
+            enqueue(() =>
+              (sound as EncodedAudioPacketSource).add(
+                new EncodedPacket(audioPacket.data, 'key', seconds, 0.02),
+                meta
+              )
+            );
+          },
+          (endReason) => {
+            if (endReason === 'stream-error' || endReason === 'closed') reason ??= 'audio-error';
+            // Queue closing after previously accepted audio packets.
+            enqueue(async () => endAudio());
+          }
+        );
+        if (finished) stopAudio();
+      }
     }
     if (!result) return;
     if (result.key) lastKeyframe = result.seconds;
@@ -164,7 +224,10 @@ export async function recordPassthrough(
   // A disposed source may end synchronously during subscription.
   let stopSource = () => {};
   try {
-    stopSource = source.start(onPacket, () => finish());
+    stopSource = source.start(onPacket, (endReason) => {
+      if (endReason !== 'stopped') reason ??= 'stream-error';
+      finish();
+    });
     if (finished) stopSource();
   } catch (error) {
     failure = error instanceof Error ? error : new Error(String(error));
@@ -173,7 +236,7 @@ export async function recordPassthrough(
 
   function checkBuffer() {
     if (retainedBytes <= maxPendingBytes) return true;
-    failure ??= new Error('recording-backpressure');
+    reason ??= 'buffer-limit';
     finish();
     return false;
   }
@@ -182,8 +245,8 @@ export async function recordPassthrough(
     if (finished) return;
     finished = true;
     stopSource();
+    stopAudio();
     audio?.removeEventListener('ended', endAudio);
-    audio?.removeEventListener('mute', endAudio);
     chain = chain
       .then(async () => {
         if (!started) failure ??= new Error('recording-no-video');
@@ -202,9 +265,17 @@ export async function recordPassthrough(
         audio?.stop();
         fileWriter.releaseLock();
         if (failure) rejectDone(failure);
-        else resolveDone();
+        else resolveDone({ reason });
       });
   }
 
-  return { stop: finish, started: startedPromise, done };
+  return {
+    stop: finish,
+    stopAudio: () => {
+      stopAudio();
+      enqueue(async () => endAudio());
+    },
+    started: startedPromise,
+    done
+  };
 }

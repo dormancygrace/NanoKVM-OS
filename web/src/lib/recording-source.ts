@@ -7,6 +7,7 @@
 export type RecordingPacket = {
   key: boolean;
   timestamp: number;
+  receivedAt?: number;
   width: number;
   height: number;
   data: Uint8Array;
@@ -52,11 +53,13 @@ export class RtpClock {
   private last: number | null = null;
   private ticks = 0;
 
+  constructor(private readonly rate = 90000) {}
+
   microseconds(rtpTimestamp: number): number {
     const rtp = rtpTimestamp >>> 0;
     if (this.last !== null) this.ticks += (rtp - this.last) | 0;
     this.last = rtp;
-    return Math.round((this.ticks * 100) / 9);
+    return Math.round((this.ticks * 1e6) / this.rate);
   }
 }
 

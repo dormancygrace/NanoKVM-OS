@@ -10,6 +10,7 @@ import { publishRecordingSource } from '@/lib/recording-source.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { createVideoAudioChannel, getVideoAudio, publishVideoAudio } from '@/lib/video-audio.ts';
+import { recordAudioReceiver } from '@/lib/webrtc-audio-recording.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
 import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
@@ -78,6 +79,7 @@ export const H264Webrtc = ({
     // USB audio rides on this connection; see lib/video-audio.ts.
     let audioChannel: ReturnType<typeof createVideoAudioChannel> | null = null;
     let audioTransceiver: RTCRtpTransceiver | null = null;
+    let recordingAudio: ReturnType<typeof recordAudioReceiver> = null;
     const closeAudioChannel = () => {
       if (!audioChannel) return;
       if (getVideoAudio() === audioChannel) publishVideoAudio(null);
@@ -89,6 +91,8 @@ export const H264Webrtc = ({
     // Closed after the connection.
     let recording: ReturnType<typeof receiverRecording> | null = null;
     const closeRecording = () => {
+      recordingAudio?.close();
+      recordingAudio = null;
       if (!recording) return;
       publishRecordingSource(null);
       recording.close();
@@ -237,6 +241,9 @@ export const H264Webrtc = ({
       // the server sends nothing until audio-start.
       audioChannel = createVideoAudioChannel(peer, (event) => sendMsg(event, ''));
       audioTransceiver = peer.addTransceiver('audio', { direction: 'recvonly' });
+      recordingAudio = recordAudioReceiver(audioTransceiver.receiver, () => {
+        if (!disposed) setConnectionAttempt((attempt) => attempt + 1);
+      });
     };
 
     const handleVideoAnswer = (data: RTCSessionDescriptionInit) => {

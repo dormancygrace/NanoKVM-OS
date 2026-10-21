@@ -64,6 +64,7 @@
     "stop": "Stop recording",
     "saving": "Saving recording…",
     "saved": "Recording saved",
+    "interrupted": "Recording is incomplete. The available portion was saved.",
     "unsupported": "Recording requires HTTPS and a browser with file saving support, such as Chrome or Edge",
     "captureDisabled": "Enable capture to record video",
     "noVideo": "Wait for video before recording",

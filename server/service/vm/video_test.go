@@ -274,3 +274,32 @@ func TestScreenAPIsReportTheMonitorInEffect(t *testing.T) {
 		}
 	}
 }
+
+// Values accepted by the public endpoint must survive the check performed
+// when a video session starts, and the MJPEG session must not change bitrate.
+func TestAcceptedVideoValuesSurviveCapturePreparation(t *testing.T) {
+	previous := *common.GetScreen()
+	oldPath := screenFileMap["quality"]
+	screenFileMap["quality"] = filepath.Join(t.TempDir(), "qlty")
+	t.Cleanup(func() {
+		screenFileMap["quality"] = oldPath
+		common.SetScreen("quality", int(previous.Quality))
+		common.SetScreen("quality", int(previous.BitRate))
+	})
+	for _, tc := range []struct {
+		body             string
+		bitrate, quality uint16
+	}{
+		{`{"bitRate":7500}`, 7500, previous.Quality},
+		{`{"quality":70}`, 7500, 70},
+	} {
+		if code, raw := setVideoAs(t, tc.body, authn.RoleAdmin); code != 0 {
+			t.Fatalf("rejected %s: %s", tc.body, raw)
+		}
+		common.CheckScreen()
+		actual := common.GetScreen()
+		if actual.BitRate != tc.bitrate || actual.Quality != tc.quality {
+			t.Fatalf("accepted %s, but capture preparation changed bitrate/quality to %d/%d, want %d/%d", tc.body, actual.BitRate, actual.Quality, tc.bitrate, tc.quality)
+		}
+	}
+}

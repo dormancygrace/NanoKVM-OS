@@ -632,3 +632,45 @@ test('a limited maximum portrait keeps H.264 through validation and resolution s
   delete c.stream.h264;
   assert.equal(model.draftIssues(limited, c, everything).codec, 'portrait');
 });
+
+// 16:10 and 21:9: a mode's id is the monitor setting (a 21:9 id is its width).
+function widerCaps() {
+  const c = caps();
+  c.monitor.aspects = ['16:9', '16:10', '21:9'];
+  for (const m of c.monitor.modes) Object.assign(m, { id: m.height, aspect: '16:9' });
+  c.monitor.modes.push(
+    { id: 1600, height: 1600, width: 2560, aspect: '16:10', rates: [50, 30], available: true },
+    { id: 1200, height: 1200, width: 1920, aspect: '16:10', rates: [60, 50, 30], available: true },
+    { id: 3440, height: 1440, width: 3440, aspect: '21:9', rates: [40, 30], available: true },
+    { id: 2560, height: 1080, width: 2560, aspect: '21:9', rates: [60, 50, 30], available: true }
+  );
+  return c;
+}
+
+test('wider monitor profiles are keyed by their id and carry their aspect ratio', () => {
+  const c = widerCaps();
+  const byKey = Object.fromEntries(model.resolutionChoices(c).map((r) => [r.key, r]));
+  assert.deepEqual(
+    [byKey.m2560.width, byKey.m2560.height, byKey.m2560.aspect, byKey.m2560.monitor],
+    [2560, 1080, '21:9', 2560]
+  );
+  assert.equal(byKey.m1440.aspect, '16:9');
+  assert.equal(byKey.m1600.aspect, '16:10');
+  assert.equal(byKey.p1920.aspect, '');
+  assert.equal(model.resolutionOf(draft({ monitor: 3440 }), c).key, 'm3440');
+  assert.deepEqual([...model.monitorAspects(c)], ['16:9', '16:10', '21:9']);
+  assert.deepEqual([...model.monitorAspects(caps())], ['16:9']); // older server
+});
+
+test('a 21:9 monitor reports its own size to the stream checks', () => {
+  const c = widerCaps();
+  const target = model.monitorTarget(draft({ monitor: 3440, fps: 40 }), c);
+  assert.deepEqual({ ...target }, { width: 3440, height: 1440, refresh: 40 });
+  // MJPEG and H.264 stop at 2560 pixels wide: 3440x1440 is H.265 only.
+  assert.equal(model.mjpegBlocked(draft({ monitor: 3440 }), c), true);
+  assert.equal(model.mjpegBlocked(draft({ monitor: 2560 }), c), false);
+  const wide = model.resolutionChoices(c).find((r) => r.key === 'm3440');
+  assert.equal(model.withResolution(draft({ codec: 'h264' }), wide, c).codec, 'h265');
+  const ultra = model.resolutionChoices(c).find((r) => r.key === 'm2560');
+  assert.equal(model.withResolution(draft({ codec: 'h264' }), ultra, c).codec, 'h264');
+});

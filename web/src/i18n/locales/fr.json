@@ -192,6 +192,7 @@
     "imageHint": "Partagé par tous les spectateurs.",
     "mode": "Mode",
     "resolution": "Résolution",
+    "aspect": "Format d'image",
     "frameRateHint": "Le moniteur NanoKVM se rafraîchit à cette fréquence, l’ordinateur la rend donc. Une nouvelle résolution démarre à son maximum, {{value}} fps ; baissez-la pour économiser du trafic.",
     "frameRateFixedHint": "Le récepteur garde sa propre fréquence de rafraîchissement ; le flux transporte au plus {{value}} fps.",
     "modeCustom": "Personnalisé : {{value}}",

@@ -97,7 +97,7 @@ func TestMonitorSettingsProgramsOnlyFinalProfile(t *testing.T) {
 func TestMonitorSettingsReceiverLimits(t *testing.T) {
 	for _, board := range []string{"alpha", "beta", "pcie"} {
 		for _, chip := range []string{"ux", "c", "d"} {
-			for _, height := range []uint16{0, 720, 1080, 1440, 2160} {
+			for _, height := range []uint16{0, 720, 1080, 1440, 2160, 1200, 2560} {
 				t.Run(board+"/"+chip+"/"+fmt.Sprint(height), func(t *testing.T) {
 					monitorState(t, 1080, false, 1920)
 					selectBoard(t, board, chip)
@@ -105,6 +105,11 @@ func TestMonitorSettingsReceiverLimits(t *testing.T) {
 					hw := firstStartBackend(true, MonitorRequiresPowerCycle(), &paths, nil)
 					hw.requireHardware = requireMonitorHardwareLocked
 					wantOK := MonitorProfileSupported() && (chip == "ux" || height == 0 || height == 720 || height == 1080)
+					// 1920x1200 and 2560x1080 with every receiver, at slower rates
+					// with an LT6911C or LT6911D.
+					if widerMonitorProfile(height) {
+						wantOK = MonitorProfileSupported()
+					}
 					err := applyMonitorSettingsLocked(MonitorSettings{Resolution: &height}, hw)
 					if (err == nil) != wantOK {
 						t.Fatalf("apply error = %v; want success %v", err, wantOK)

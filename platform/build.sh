@@ -611,8 +611,9 @@ tools() {
     "$py" "$repo/scripts/build-portrait-edid.py" --profile hd --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-720x1280.bin"
     "$py" "$repo/scripts/build-portrait-edid.py" --profile max --input "$e/E21_NanoKVM.bin" --output "$e/NanoKVM-portrait-1440x2560.bin"
     "$py" "$repo/scripts/build-portrait-edid.py" --rates --input "$e/E21_NanoKVM.bin" --output "$e/portrait-rates"
+    "$py" "$repo/scripts/build-wide-monitor-edids.py" --input "$e/E21_NanoKVM.bin" --output "$e/wide-rates"
     cp "$e/NanoKVM-QHD30.bin" "$e"/NanoKVM-portrait-*.bin "$e"/portrait-rates/NanoKVM-portrait-*.bin "$e"/monitor-profiles/NanoKVM-monitor-*.bin \
-        "$e"/monitor-profiles/NanoKVM-cube-monitor-*.bin "$img/tools/edid/"
+        "$e"/monitor-profiles/NanoKVM-cube-monitor-*.bin "$e"/wide-rates/NanoKVM-monitor-*.bin "$img/tools/edid/"
     cp "$e/monitor-profiles/NanoKVM-monitor-auto.bin" "$img/tools/edid/NanoKVM-final-video-profiles.bin"
     cp "$e/E21_NanoKVM.bin" "$img/tools/edid/NanoKVM-stock.bin"
     # Last, so the generator chain keeps its pinned inputs: every profile but

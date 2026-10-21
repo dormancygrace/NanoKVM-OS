@@ -76,14 +76,18 @@ var (
 // (0 is Auto), fastest first; nil when the refresh rate is fixed.
 func MonitorRates(height uint16) []int {
 	if MonitorProfileSupported() && !MonitorHighRefreshSupported() {
-		// The LT6911C and LT6911D keep their single 60 Hz profiles.
+		// The LT6911C and LT6911D keep their single 60 Hz profiles, and take
+		// the slower 16:10 and 21:9 ones.
 		if height == 0 || height == 720 || height == 1080 {
 			return []int{60}
 		}
-		return nil
+		return append([]int(nil), widerMonitorRatesFor(height)...)
 	}
 	if height == 0 {
 		height = autoMonitorHeight()
+	}
+	if rates, ok := widerMonitorRates[height]; ok {
+		return append([]int(nil), rates...)
 	}
 	return append([]int(nil), monitorRates[height]...)
 }
@@ -133,7 +137,7 @@ func monitorProfilePathAt(height uint16, fps int) string {
 			effective = autoMonitorHeight()
 		}
 		if rate := MonitorRefreshFor(height, profileRate(fps)); rate > 0 {
-			path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-monitor-%d-%d.bin", effective, rate))
+			path := monitorRateProfilePath(effective, rate)
 			if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
 				return path
 			}
@@ -164,7 +168,7 @@ func MonitorRefreshHz() int {
 		if effective == 0 {
 			effective = autoMonitorHeight()
 		}
-		path := filepath.Join(monitorEDIDDir, fmt.Sprintf("NanoKVM-monitor-%d-%d.bin", effective, rate))
+		path := monitorRateProfilePath(effective, rate)
 		if programmedMonitorProfileLocked(path, height) {
 			return rate
 		}

@@ -303,6 +303,10 @@ uint16_t hdmi_res_list[][2] = {
     {1920, 1080},
     {3840, 2160},
     {2560, 1440},
+    {1920, 1200},
+    {2560, 1600},
+    {2560, 1080},
+    {3440, 1440},
     {720, 1280},
     {1080, 1920},
     {1088, 1920},
@@ -345,8 +349,10 @@ static bool res_fits_video_memory(uint16_t _width, uint16_t _height)
         if (ion) fclose(ion);
         uint32_t bytes = ((uint32_t)ion_size[0] << 24) | ((uint32_t)ion_size[1] << 16)
             | ((uint32_t)ion_size[2] << 8) | ion_size[3];
-        const uint32_t required_mib = (_width > 2560 || _height > 2560) ? uhd_ion_mib
-            : qhd_ion_mib;
+        // More pixels than 2560x1440, or a side over 2560, need the UHD pool.
+        const bool above_qhd = (uint32_t)_width * _height > 2560U * 1440U
+            || _width > 2560 || _height > 2560;
+        const uint32_t required_mib = above_qhd ? uhd_ion_mib : qhd_ion_mib;
         if (count != sizeof(ion_size) || bytes < required_mib * 1024U * 1024U) return false;
         // Legacy CMA pools need the same slack as the server capability gate.
         if (required_mib == uhd_ion_mib && bytes < 144U * 1024U * 1024U

@@ -192,6 +192,7 @@
     "imageHint": "Shared by every viewer.",
     "mode": "Mode",
     "resolution": "Resolution",
+    "aspect": "Aspect ratio",
     "frameRateHint": "The NanoKVM monitor refreshes at this rate, so the computer renders it. A new resolution starts at its maximum, {{value}} fps; lower it to save traffic.",
     "frameRateFixedHint": "The receiver keeps its own refresh rate; the stream carries at most {{value}} fps.",
     "modeCustom": "Custom: {{value}}",

@@ -192,6 +192,7 @@
     "imageHint": "すべての閲覧者に共通です。",
     "mode": "モード",
     "resolution": "解像度",
+    "aspect": "アスペクト比",
     "frameRateHint": "NanoKVM モニターはこのレートでリフレッシュされ、コンピューターも同じレートで描画します。新しい解像度は最大値（{{value}} fps）から始まります。通信量を減らすには下げてください。",
     "frameRateFixedHint": "レシーバーは独自のリフレッシュレートを保ちます。ストリームは最大 {{value}} fps です。",
     "modeCustom": "カスタム：{{value}}",

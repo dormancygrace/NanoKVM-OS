@@ -192,6 +192,7 @@
     "imageHint": "Gilt für alle Zuschauer.",
     "mode": "Modus",
     "resolution": "Auflösung",
+    "aspect": "Seitenverhältnis",
     "frameRateHint": "Der NanoKVM-Monitor aktualisiert mit dieser Rate, also rendert der Computer sie. Eine neue Auflösung beginnt mit ihrem Maximum, {{value}} fps; senken Sie sie, um Datenverkehr zu sparen.",
     "frameRateFixedHint": "Der Empfänger behält seine eigene Bildwiederholrate; der Stream überträgt höchstens {{value}} fps.",
     "modeCustom": "Benutzerdefiniert: {{value}}",

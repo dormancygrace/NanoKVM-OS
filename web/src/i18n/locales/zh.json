@@ -192,6 +192,7 @@
     "imageHint": "所有观看者共用。",
     "mode": "模式",
     "resolution": "分辨率",
+    "aspect": "宽高比",
     "frameRateHint": "NanoKVM 显示器以此帧率刷新，电脑也按此帧率渲染。新分辨率从其最大值（{{value}} fps）开始；降低它可节省流量。",
     "frameRateFixedHint": "接收器保持自身的刷新率；视频流最多 {{value}} fps。",
     "modeCustom": "自定义：{{value}}",

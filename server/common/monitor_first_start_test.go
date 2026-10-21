@@ -275,6 +275,23 @@ func TestCubeFirstStartIgnoresProfileRecordedAsPCIe(t *testing.T) {
 	}
 }
 
+// A 16:10 or 21:9 profile an LT6911C takes stays saved when the first start
+// finds the receiver EDID beyond 1080p60: its own (fastest) file is written.
+func TestCubeFirstStartKeepsAWiderProfile(t *testing.T) {
+	monitorState(t, 1200, false, 1920)
+	selectBoard(t, "alpha", "c")
+	var applied []string
+	hw := firstStartBackend(true, true, &applied, nil)
+	hw.read = func() ([]byte, error) { return testEDID(1920, 720, 1080, 45, 29700), nil }
+	path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
+	if err != nil || filepath.Base(path) != "NanoKVM-monitor-1920x1200-50.bin" || len(applied) != 1 {
+		t.Fatalf("error %v, path %q, applied %v", err, path, applied)
+	}
+	if got := savedMonitorResolutionLocked(); got != 1200 {
+		t.Fatalf("saved %d, want 1200", got)
+	}
+}
+
 func TestCubeFirstStartRetriesIncompleteEDID(t *testing.T) {
 	monitorState(t, 1080, false, 1920)
 	var applied []string

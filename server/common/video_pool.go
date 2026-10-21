@@ -109,14 +109,15 @@ func monitorStateAfterLocked(update MonitorSettings) MonitorState {
 // FitsVideoPool reports why a video pool cannot capture the profile, or nil
 // when it can. The landscape resolution counts even while portrait is on.
 func (s MonitorState) FitsVideoPool(p VideoPool) error {
-	switch s.Resolution {
-	case 2160:
+	width, height := MonitorSize(s.Resolution)
+	switch monitorPoolNeed(s.Resolution) {
+	case "uhd":
 		if !p.UHD() {
-			return fmt.Errorf("the monitor resolution 3840x2160 needs the UHD video memory mode")
+			return fmt.Errorf("the monitor resolution %dx%d needs the UHD video memory mode", width, height)
 		}
-	case 1440:
+	case "qhd":
 		if !p.QHD() {
-			return fmt.Errorf("the monitor resolution 2560x1440 needs the QHD or UHD video memory mode")
+			return fmt.Errorf("the monitor resolution %dx%d needs the QHD or UHD video memory mode", width, height)
 		}
 	}
 	if s.Portrait {
@@ -126,8 +127,9 @@ func (s MonitorState) FitsVideoPool(p VideoPool) error {
 }
 
 // FitMonitorToVideoMemory lowers a saved monitor profile that the booted
-// video memory cannot capture, so that the device never advertises it: 2160p
-// falls back to 1440p, or to 1080p without QHD, 1440p to 1080p, and an
+// video memory cannot capture, so that the device never advertises it: a
+// profile above 2560x1440 pixels (2160p, 2560x1600, 3440x1440) falls back to
+// 1440p, or to 1080p without QHD, one above 1920x1088 to 1080p, and an
 // unsupported portrait monitor is turned off. The video memory mode is chosen
 // at boot, so this finds profiles saved under a larger mode. It reports
 // whether the EDID was reprogrammed.
@@ -144,10 +146,10 @@ func FitMonitorToVideoMemory() (bool, error) {
 
 func fitMonitorToVideoPoolLocked(p VideoPool, hw monitorSettingsBackend) (bool, error) {
 	var update MonitorSettings
-	height := savedMonitorResolutionLocked()
-	if (height == 2160 && !p.UHD()) || (height == 1440 && !p.QHD()) {
+	need := monitorPoolNeed(savedMonitorResolutionLocked())
+	if (need == "uhd" && !p.UHD()) || (need == "qhd" && !p.QHD()) {
 		fallback := uint16(1080)
-		if height == 2160 && p.QHD() {
+		if need == "uhd" && p.QHD() {
 			fallback = 1440
 		}
 		update.Resolution = &fallback

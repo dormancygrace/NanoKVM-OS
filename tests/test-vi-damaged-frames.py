@@ -29,12 +29,13 @@ def block(marker):
 
 # What the model of the rest of the driver relies on.
 enq = block('static void _isp_yuv_bypass_buf_enq(')
-assert re.search(r'cvi_isp_rdy_buf_pop\(vdev, buf_chn\);\s*b = _cvi_isp_next_buf\(vdev, buf_chn\);', enq)
+assert re.search(r'cvi_isp_rdy_buf_pop\(vdev, buf_chn\);\s*b = _cvi_isp_next_buf\(vdev, buf_chn\);\s*'
+                 r'if \(b == NULL\) \{[^}]*\}\s*atomic_set\(&nk_buf_out\[raw_num\]\[hw_chn_num\], 1\);', enq)
 stop = block('int vi_stop_streaming(') if 'int vi_stop_streaming(' in source else block('static int vi_stop_streaming(')
-assert 'atomic_set(&nk_err_recovering[i], 0);' in stop and 'atomic_set(&nk_eof_held[i][j], 0);' in stop
+assert all(f'atomic_set(&{v}, 0);' in stop for v in ('nk_frame_damaged[i]', 'nk_err_recovering[i]', 'nk_eof_held[i][j]', 'nk_buf_out[i][j]'))
 assert '_vi_err_handler(vdev, err_raw_num);' in block('static int _vi_err_handler_thread(')
 declarations = '\n'.join(re.findall(r'static atomic_t nk_\w+(?:\[\w+\])+;', source))
-assert declarations.count('static atomic_t') == 3, declarations
+assert declarations.count('static atomic_t') == 4, declarations
 
 code = r'''
 #include <assert.h>
@@ -109,21 +110,23 @@ struct cvi_vi_dev {
 static u32 _is_fe_be_online(struct isp_ctx *ctx) { return !ctx->is_offline_be && ctx->is_offline_postraw; }
 static u32 _is_be_post_online(struct isp_ctx *ctx) { return ctx->is_offline_be && !ctx->is_offline_postraw; }
 static void ispblk_dma_set_sw_mode(struct isp_ctx *c, int id, bool on) { (void)c; (void)id; (void)on; }
-static void _vi_show_debug_info(void) {}
+static void _vi_show_debug_info(void);
 static void _postraw_clear_inbuf(struct cvi_vi_dev *vdev) { (void)vdev; }
 static void _pre_hw_enque(struct cvi_vi_dev *vdev, int raw, int chn) { (void)vdev; (void)raw; (void)chn; assert(!"RGB path"); }
 struct _isp_dqbuf_n { u8 raw_id; u8 chn_id; u32 frm_num; struct timespec64 timestamp; struct list_head list; };
 static struct { struct list_head list; } dqbuf_q;
 static spinlock_t dq_lock;
+''' + declarations + r'''
 /* The device: whether the DMA holds an armed buffer, and triggers since the
- * last reset. The real _isp_yuv_bypass_buf_enq pops the count and takes the
- * list head (checked in the source). */
+ * last reset. The real _isp_yuv_bypass_buf_enq pops the count, takes the
+ * list head and, with a buffer, marks it given out (checked in the source). */
 static struct cvi_isp_buf *armed;
 static int hw_armed, triggers_since_reset, no_buffer;
 static void isp_pre_trig(struct isp_ctx *c, int raw, int chn)
 {
 	(void)c; (void)raw; (void)chn;
 	assert(!hw_armed); /* a trigger over a running DMA */
+	assert(armed); /* a DMA into whatever buffer it last had */
 	hw_armed = 1; triggers_since_reset++;
 }
 struct cvi_isp_buf *_cvi_isp_next_buf(struct cvi_vi_dev *vdev, const u8 chn_num);
@@ -133,12 +136,15 @@ static void _isp_yuv_bypass_buf_enq(struct cvi_vi_dev *vdev, const enum cvi_isp_
 	(void)raw_num;
 	cvi_isp_rdy_buf_pop(vdev, buf_chn);
 	armed = _cvi_isp_next_buf(vdev, buf_chn);
-	if (!armed)
+	if (!armed) {
 		no_buffer++;
+		return;
+	}
+	atomic_set(&nk_buf_out[raw_num][buf_chn], 1);
 }
 static int isp_frm_err_handler(struct isp_ctx *ctx, const enum cvi_isp_raw err_raw_num, const u8 step);
 static void usleep_range(long a, long b);
-''' + declarations + '\n' + '\n'.join(block(m) for m in (
+''' + '\n'.join(block(m) for m in (
     'static void cvi_isp_buf_queue(', 'struct cvi_isp_buf *_cvi_isp_next_buf(', 'static int cvi_isp_rdy_buf_empty(',
     'static void cvi_isp_rdy_buf_pop(', 'static void cvi_isp_rdy_buf_remove(', 'static void cvi_isp_dqbuf_list(',
     'static int _isp_yuv_bypass_trigger(', 'static void nk_err_recovery_clear(', 'static void nk_err_recovery_abandon(',
@@ -180,7 +186,7 @@ static void eof_irq(void)
 	d.isp_err_times[0] = 0;
 	_isp_yuv_bypass_handler(&d, ISP_PRERAW_A, 0);
 }
-static int eof_step = -1, fail_step = -1, wait_eof;
+static int eof_step = -1, fail_step = -1, wait_mode, late_eof, latched;
 /* The handler's hardware steps: a frame end can arrive during any of them
  * while the DMA runs; step 4 resets the ISP, which drops the armed DMA. */
 static int isp_frm_err_handler(struct isp_ctx *ctx, const enum cvi_isp_raw err_raw_num, const u8 step)
@@ -191,21 +197,35 @@ static int isp_frm_err_handler(struct isp_ctx *ctx, const enum cvi_isp_raw err_r
 	if (step == fail_step)
 		return -1;
 	if (step == 4) {
+		/* The DMA's frame end raised just before the reset, serviced late. */
+		if (late_eof && hw_armed)
+			latched = 1;
 		hw_armed = 0;
 		triggers_since_reset = 0;
 	}
 	return 0;
 }
-/* The handler's step 2 wait for the post stage: a frame end can arrive
- * while it sleeps. wait_eof 1: the post stage then goes idle; 2: it never
- * does and the handler gives up. */
+/* The handler's step 2 wait for the post stage. wait_mode 1: a frame end
+ * arrives while it sleeps, then the post stage goes idle; 2: a frame end
+ * arrives and the stage never goes idle, so the handler gives up; 3: no
+ * frame end and it gives up. */
 static void usleep_range(long a, long b)
 {
 	(void)a; (void)b;
-	if (wait_eof && hw_armed)
+	if ((wait_mode == 1 || wait_mode == 2) && hw_armed)
 		eof_irq();
-	if (wait_eof == 1)
+	if (wait_mode == 1)
 		atomic_set(&d.postraw_state, ISP_POSTRAW_IDLE);
+}
+/* Step 10, after step 7: the CPU services a frame end latched before the
+ * reset. */
+static void _vi_show_debug_info(void)
+{
+	if (!latched)
+		return;
+	latched = late_eof = 0;
+	d.pre_fe_frm_num[0][0]++;
+	_isp_yuv_bypass_handler(&d, ISP_PRERAW_A, 0);
 }
 static void frame_end(void) { eof_irq(); invariant(); }
 #define csi_error() (line = __LINE__ - LINE0, vi_err_wake_up_th(&d, ISP_PRERAW_A))
@@ -261,39 +281,65 @@ int main(void)
 		assert(published() == 0);
 		recovered(); good();
 	}
-	csi_error(); wait_eof = 1; atomic_set(&d.postraw_state, ISP_POSTRAW_RUNNING);
-	err_thread(); wait_eof = 0; recovered(); good();
-	/* The handler gives up before its reset (the step 2 wait timed out, an
-	 * abort or idle wait failed), after a held frame end: the held channel
-	 * restarts. */
-	int fails[][2] = { { 2, 0 }, { 3, 1 }, { 6, 1 }, { 6, 3 }, { 6, 4 } };
-	for (int i = 0; i < 5; i++) {
+	csi_error(); wait_mode = 1; atomic_set(&d.postraw_state, ISP_POSTRAW_RUNNING);
+	err_thread(); wait_mode = 0; recovered(); good();
+	/* A frame end the device raised before the reset and the CPU serviced
+	 * after step 7: still held back, one restart. */
+	csi_error(); late_eof = 1; err_thread(); assert(!late_eof && published() == 0);
+	recovered(); good();
+	/* The idle wait after the reset fails: the reset dropped the DMA, so the
+	 * handler restarts anyway, with or without a held frame end. */
+	for (int s = 0; s <= 4; s++) {
+		csi_error(); eof_step = s; fail_step = 6; err_thread(); eof_step = fail_step = -1;
+		assert(published() == 0);
+		recovered(); good();
+	}
+	/* The handler gives up before its reset: the step 2 wait times out
+	 * (after a frame end, or without one) or the abort fails (after a frame
+	 * end at step 1, or without one). A held frame end restarts its channel;
+	 * a channel still running ends its frame, dropped by the mark. The
+	 * handler flag is cleared, so the next error runs the handler again. */
+	for (int i = 0; i < 4; i++) {
+		int held = i == 0 || i == 2;
+
 		csi_error();
-		if (fails[i][0] == 2) {
-			wait_eof = 2; atomic_set(&d.postraw_state, ISP_POSTRAW_RUNNING);
+		if (i < 2) {
+			wait_mode = i == 0 ? 2 : 3;
+			atomic_set(&d.postraw_state, ISP_POSTRAW_RUNNING);
 		} else {
-			eof_step = fails[i][1]; fail_step = fails[i][0];
+			eof_step = i == 2 ? 1 : -1;
+			fail_step = 3;
 		}
 		err_thread();
-		eof_step = fail_step = -1; wait_eof = 0; atomic_set(&d.postraw_state, ISP_POSTRAW_IDLE);
-		assert(published() == 0 && !atomic_read(&nk_err_recovering[0]));
-		invariant(); assert(hw_armed);
-		/* The handler left its flag set; the mark drops one more frame. */
-		frame_end(); assert(published() == 0);
+		eof_step = fail_step = -1; wait_mode = 0; atomic_set(&d.postraw_state, ISP_POSTRAW_IDLE);
+		assert(published() == 0 && !atomic_read(&d.isp_err_handle_flag) && !atomic_read(&nk_err_recovering[0]));
+		if (held) {
+			invariant(); assert(hw_armed);
+		} else {
+			frame_end(); assert(published() == 0);
+		}
 		good();
-		/* A stuck flag wakes no handler (as VI_CB_RESET_ISP leaves it):
-		 * errors only drop their frame and capture continues. */
-		csi_error(); assert(!d.vi_th[E_VI_TH_ERR_HANDLER].flag && !atomic_read(&nk_err_recovering[0]));
-		frame_end(); assert(published() == 0);
-		good();
-		atomic_set(&d.isp_err_handle_flag, 0);
+		csi_error(); assert(d.vi_th[E_VI_TH_ERR_HANDLER].flag);
+		err_thread(); recovered(); good();
 	}
-	/* Gives up at step 3 with the DMA still running: its frame end is
-	 * dropped by the mark and restarts capture as before. */
-	csi_error(); fail_step = 3; err_thread(); fail_step = -1;
+	/* A handler flag set with no handler woken (VI_CB_RESET_ISP): an error
+	 * only drops its frame and capture continues. */
+	atomic_set(&d.isp_err_handle_flag, 1);
+	csi_error(); assert(!d.vi_th[E_VI_TH_ERR_HANDLER].flag && !atomic_read(&nk_err_recovering[0]));
 	frame_end(); assert(published() == 0);
 	good();
 	atomic_set(&d.isp_err_handle_flag, 0);
+	/* An error while every buffer is with the application: the handler
+	 * counts nothing back and triggers nothing; capture restarts when a
+	 * buffer returns (the queue path triggers then). */
+	frame_end(); frame_end(); frame_end();
+	assert(published() == 3 && listed() == 0 && !hw_armed);
+	csi_error(); err_thread();
+	invariant(); assert(!hw_armed && d.qbuf_num[0] == 0);
+	for (int i = 0; i < 3; i++)
+		give_back();
+	_isp_yuv_bypass_trigger(&d, ISP_PRERAW_A, 0);
+	invariant(); good();
 	/* Repeated errors with the thread running behind: no count drifts. */
 	for (int i = 0; i < 40; i++) {
 		csi_error();
@@ -309,7 +355,7 @@ int main(void)
 	for (int i = 0; i < 10; i++)
 		good();
 	assert(listed() == 3);
-	puts("PASS: damaged frames unpublished, frame ends during recovery restart once; ready count exact");
+	puts("PASS: damaged frames unpublished, every recovery restarts once, ready count exact");
 	return 0;
 }
 '''

@@ -34,6 +34,13 @@ var readMjpegChromaStatus = common.GetMjpegChromaStatus
 // Which codecs "straight from capture" (hevc_direct) applies to; seams for tests.
 var hevcDirectSupported = common.HevcDirectSupported
 var viDirectH264Supported = common.ViDirectH264Supported
+
+// What the receiver and board allow, and the saved monitor in effect; seams
+// for tests.
+var monitorProgrammable = common.MonitorProfileSupported
+var monitorHighRefresh = common.MonitorHighRefreshSupported
+var widerMonitorProfileOffered = common.WiderMonitorProfileOffered
+var selectedMonitorResolution = common.SelectedMonitorResolution
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }
 
 // maxQualityValue covers MJPEG quality (1-100) and H.26x bitrate in kbit/s.
@@ -50,7 +57,7 @@ func (s *Service) GetScreen(c *gin.Context) {
 	rsp.OkRspWithData(c, gin.H{"width": current.Width, "height": current.Height, "fps": current.FPS,
 		"quality": current.Quality, "bitRate": current.BitRate,
 		"mjpegChroma": current.MjpegChroma, "mjpegChromaActive": activeChroma, "mjpegChromaFallback": chromaFallback,
-		"monitor":                     common.ReadVideoValue("/etc/kvm/monitor_resolution"),
+		"monitor":                     selectedMonitorResolution(),
 		"monitorRequiresPowerCycle":   common.MonitorRequiresPowerCycle(),
 		"monitorPowerCyclePending":    common.MonitorPowerCyclePending(),
 		"monitorHighRefreshSupported": common.MonitorHighRefreshSupported(),
@@ -250,8 +257,8 @@ func validateScreenSettingFor(req proto.SetScreenReq, batch *VideoSettingsReq, p
 			}
 			return settingFailure(-3, fmt.Sprintf("%dx%d requires %s video memory mode (Settings > Memory)", width, height, memory))
 		}
-		if common.WiderMonitorProfile(uint16(req.Value)) && !common.MonitorHighRefreshSupported() {
-			return settingFailure(-3, "16:10 and 21:9 monitor profiles need an LT6911UXC receiver")
+		if common.WiderMonitorProfile(uint16(req.Value)) && !widerMonitorProfileOffered(uint16(req.Value)) {
+			return settingFailure(-3, "this HDMI receiver does not take that 16:10 or 21:9 monitor profile")
 		}
 	case "resolution":
 		if req.Value < 0 || req.Value > 2160 || (req.Value > 1440 && !pool.UHD()) {

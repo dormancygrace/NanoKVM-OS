@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -83,14 +84,72 @@ func TestSavedWiderMonitorNeedsTheUXCReceiver(t *testing.T) {
 	if got := savedMonitorResolutionLocked(); got != 3440 {
 		t.Fatalf("UXC: %d", got)
 	}
+	if got := SelectedMonitorResolution(); got != 3440 {
+		t.Fatalf("UXC, public getter: %d", got)
+	}
 	selectBoard(t, "alpha", "c")
 	if got := savedMonitorResolutionLocked(); got != 0 {
 		t.Fatalf("LT6911C: %d, want Auto", got)
+	}
+	if got := SelectedMonitorResolution(); got != 0 {
+		t.Fatalf("LT6911C, public getter: %d, want Auto", got)
+	}
+	// A Cube or Lite with an LT6911UXC takes every wider profile (with a
+	// power cycle); an LT6911C or LT6911D takes 1920x1200 and 2560x1080.
+	selectBoard(t, "alpha", "ux")
+	if got := savedMonitorResolutionLocked(); got != 3440 {
+		t.Fatalf("Cube with UXC: %d", got)
+	}
+	if err := os.WriteFile(monitorResolutionFile, []byte("1200"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	selectBoard(t, "alpha", "c")
+	if got := savedMonitorResolutionLocked(); got != 1200 {
+		t.Fatalf("1920x1200 under LT6911C: %d", got)
 	}
 	if err := os.WriteFile(monitorResolutionFile, []byte("1080"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if got := savedMonitorResolutionLocked(); got != 1080 {
 		t.Fatalf("16:9 under LT6911C: %d", got)
+	}
+}
+
+// Which receiver takes which 16:10 and 21:9 profile, at which rates, and the
+// file it writes (the fastest rate unless the monitor follows the stream).
+func TestWiderMonitorProfilesPerReceiver(t *testing.T) {
+	all := map[uint16][]int{1200: {60, 50, 30}, 1600: {50, 30}, 2560: {60, 50, 30}, 3440: {40, 30}}
+	slow := map[uint16][]int{1200: {50, 30}, 2560: {30}}
+	for _, tc := range []struct {
+		board, chip string
+		want        map[uint16][]int
+	}{
+		{"pcie", "ux", all}, {"alpha", "ux", all}, {"beta", "ux", all},
+		{"pcie", "d", slow}, {"alpha", "c", slow}, {"beta", "d", slow},
+		{"", "ux", nil}, {"pcie", "c", nil},
+	} {
+		selectBoard(t, tc.board, tc.chip)
+		for _, id := range []uint16{1200, 1600, 2560, 3440} {
+			rates, offered := tc.want[id]
+			if WiderMonitorProfileOffered(id) != offered {
+				t.Errorf("%s/%s %d: offered %v", tc.board, tc.chip, id, !offered)
+				continue
+			}
+			if !offered {
+				continue
+			}
+			if got := MonitorRates(id); fmt.Sprint(got) != fmt.Sprint(rates) {
+				t.Errorf("%s/%s %d: rates %v, want %v", tc.board, tc.chip, id, got, rates)
+			}
+			want := monitorRateProfilePath(id, rates[0])
+			if got := monitorProfilePath(id); got != want {
+				t.Errorf("%s/%s %d: profile %s, want %s", tc.board, tc.chip, id, got, want)
+			}
+		}
+		for _, id := range []uint16{0, 720, 1080} {
+			if WiderMonitorProfileOffered(id) {
+				t.Errorf("16:9 %d reported as a wider profile", id)
+			}
+		}
 	}
 }

@@ -17,6 +17,8 @@ def load(name, path):
 
 
 g = load("wide_edids", ROOT / "scripts/build-wide-monitor-edids.py")
+# The validator of the 16:9 profiles: every advertised mode, not only the DTDs.
+final = load("final_monitor_profiles", ROOT / "firmware/probes/edid120/build_final_monitor_profiles.py")
 rgb = load("edid_rgb_range", ROOT / "scripts/edid-rgb-range.py")
 SOURCE = (ROOT / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
 
@@ -50,6 +52,34 @@ class WideMonitorEdidTests(unittest.TestCase):
                     with_range = rgb.with_rgb_range(data)
                     self.assertEqual([sum(with_range[i:i + 128]) % 256 for i in (0, 128)], [0, 0])
 
+    def test_no_mode_at_or_above_the_preferred_timing(self):
+        for (width, height), (vsync, rates) in g.PROFILES.items():
+            for rate in rates:
+                with self.subTest(size=(width, height), rate=rate):
+                    data = g.profile(SOURCE, width, height, rate, vsync)
+                    self.assertEqual(final.modes_above_preferred(data), [])
+                    modes = {(m["width"], m["height"]) for m in final.list_modes(data)}
+                    self.assertIn((800, 600), modes)  # the legacy fallback stays
+
+    def test_slow_receiver_rates_fit_the_1080p60_clock(self):
+        go = (ROOT / "server/common/monitor_profiles.go").read_text()
+        table = go.split("var slowWiderMonitorRates")[1].split("}\n")[0]
+        slow = {int(i): [int(r) for r in rs.split(", ")] for i, rs in re.findall(r"(\d+): \{([\d, ]+)\}", table)}
+        sizes = {int(i): (int(w), int(h)) for i, w, h in
+                 re.findall(r"(\d+): \{(\d+), (\d+), MonitorAspect", go)}
+        self.assertEqual(slow, {1200: [50, 30], 2560: [30]})
+        for profile_id, rates in slow.items():
+            width, height = sizes[profile_id]
+            vsync, all_rates = g.PROFILES[(width, height)]
+            for rate in rates:
+                self.assertIn(rate, all_rates)
+                clock_khz = g.cvt_rb(width, height, rate, vsync)[2]
+                self.assertLessEqual(clock_khz, g.SLOW_RECEIVER_CLOCK_MHZ * 1000, (width, height, rate))
+            # The next faster rate would not fit: the table is complete.
+            faster = [r for r in all_rates if r > rates[0]]
+            if faster:
+                self.assertGreater(g.cvt_rb(width, height, min(faster), vsync)[2], g.SLOW_RECEIVER_CLOCK_MHZ * 1000)
+
     def test_screen_size_follows_the_aspect_ratio(self):
         data = g.profile(SOURCE, 3440, 1440, 40, 10)
         self.assertEqual(data[21:23], bytes((60, 25)))
@@ -58,8 +88,9 @@ class WideMonitorEdidTests(unittest.TestCase):
         go = (ROOT / "server/common/monitor_profiles.go").read_text()
         sizes = {int(i): (int(w), int(h)) for i, w, h in
                  re.findall(r"(\d+): \{(\d+), (\d+), MonitorAspect", go)}
+        table = go.split("var widerMonitorRates")[1].split("}\n")[0]
         rates = {int(i): tuple(int(r) for r in rs.split(", ")) for i, rs in
-                 re.findall(r"(\d+): \{([\d, ]+)\},", go)}
+                 re.findall(r"(\d+): \{([\d, ]+)\},", table)}
         self.assertEqual({sizes[i]: rates[i] for i in sizes},
                          {size: r for size, (_, r) in g.PROFILES.items()})
 

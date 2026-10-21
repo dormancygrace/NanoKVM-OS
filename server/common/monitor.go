@@ -94,14 +94,14 @@ func ApplyPortraitResolution(resolution uint16) error {
 }
 
 func monitorProfilePath(height uint16) string {
+	if rates := widerMonitorRatesFor(height); len(rates) > 0 {
+		// The 16:10 and 21:9 profiles exist per rate only; the fastest the
+		// receiver takes stands for the profile.
+		return monitorRateProfilePath(height, rates[0])
+	}
 	if MonitorProfileSupported() && !MonitorHighRefreshSupported() {
 		// The LT6911C and LT6911D: the 720p and 1080p profiles at 60 Hz.
 		return cubeMonitorProfilePath(height)
-	}
-	if rates := widerMonitorRates[height]; len(rates) > 0 {
-		// The 16:10 and 21:9 profiles exist per rate only; the fastest stands
-		// for the profile.
-		return monitorRateProfilePath(height, rates[0])
 	}
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)
 	if height == 0 {
@@ -228,12 +228,19 @@ func savedMonitorResolutionLocked() uint16 {
 	if _, ok := ResolutionMap[height]; !ok && !widerMonitorProfile(height) {
 		return 0
 	}
-	// A 16:10 or 21:9 id saved with an LT6911UXC means Auto under another
-	// receiver (a moved card): none of its files exists for that receiver.
-	if widerMonitorProfile(height) && !MonitorHighRefreshSupported() {
+	// A 16:10 or 21:9 id the receiver does not take means Auto (a moved card).
+	if widerMonitorProfile(height) && !WiderMonitorProfileOffered(height) {
 		return 0
 	}
 	return height
+}
+
+// SelectedMonitorResolution is the saved monitor profile id in effect: a
+// 16:10 or 21:9 id this device does not offer reads as Auto (0).
+func SelectedMonitorResolution() uint16 {
+	monitorMutex.Lock()
+	defer monitorMutex.Unlock()
+	return savedMonitorResolutionLocked()
 }
 
 func savedPortraitResolutionLocked() uint16 {

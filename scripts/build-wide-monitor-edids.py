@@ -3,8 +3,9 @@
 
 One file per size and refresh rate, NanoKVM-monitor-<w>x<h>-<hz>.bin
 (server/common/monitor_profiles.go): a single preferred detailed timing in
-CVT reduced blanking (v1), the 800x600 legacy fallback, the source's HDMI
-identity and audio blocks. platform/build.sh adds the RGB range declaration
+CVT reduced blanking (v1), the 800x600 legacy fallback, the source's
+established and standard timings smaller than the profile in both
+directions, the source's HDMI identity and audio blocks. platform/build.sh adds the RGB range declaration
 to every profile afterwards (scripts/edid-rgb-range.py).
 """
 import argparse
@@ -32,7 +33,43 @@ PROFILES = {
 # The highest pixel clock any of them may use (MHz), the LT6911UXC input limit
 # the 16:9 profiles also respect.
 MAX_CLOCK_MHZ = 270
+# The pixel clock of 1080p60 (MHz): the LT6911C and LT6911D take the profiles
+# at or below it (slowWiderMonitorRates in server/common/monitor_profiles.go).
+SLOW_RECEIVER_CLOCK_MHZ = 148.5
 WIDTH_MM = 600
+
+# EDID 1.3 established timings, (byte, bit, width, height), and the aspect
+# ratios of the standard timings.
+ESTABLISHED = [
+    (35, 0x80, 720, 400), (35, 0x40, 720, 400), (35, 0x20, 640, 480),
+    (35, 0x10, 640, 480), (35, 0x08, 640, 480), (35, 0x04, 640, 480),
+    (35, 0x02, 800, 600), (35, 0x01, 800, 600), (36, 0x80, 800, 600),
+    (36, 0x40, 800, 600), (36, 0x20, 832, 624), (36, 0x10, 1024, 768),
+    (36, 0x08, 1024, 768), (36, 0x04, 1024, 768), (36, 0x02, 1024, 768),
+    (36, 0x01, 1280, 1024), (37, 0x80, 1152, 870),
+]
+STD_ASPECT = {0: (16, 10), 1: (4, 3), 2: (5, 4), 3: (16, 9)}
+
+
+def prune_legacy_timings(data, width, height):
+    """Clear the established and standard timings that are as wide or as tall
+    as the profile: a GPU outputs such a mode (1920x1080 next to 1920x1200)
+    instead of the preferred timing. Smaller ones stay as fallbacks, as in the
+    16:9 profiles (firmware/probes/edid120/build_final_monitor_profiles.py)."""
+    def above(w, h):
+        return w >= width or h >= height
+
+    for byte, bit, w, h in ESTABLISHED:
+        if above(w, h):
+            data[byte] &= ~bit & 0xFF
+    for pos in range(38, 54, 2):
+        a, b = data[pos], data[pos + 1]
+        if (a, b) == (1, 1):
+            continue
+        w = (a + 31) * 8
+        num, den = STD_ASPECT[b >> 6]
+        if above(w, w * den // num):
+            data[pos:pos + 2] = b"\x01\x01"
 
 
 def cvt_rb(width, height, rate, vsync):
@@ -58,6 +95,7 @@ def profile(source, width, height, rate, vsync):
     if mode[2] > MAX_CLOCK_MHZ * 1000:
         raise ValueError(f"{width}x{height}@{rate}: {mode[2] / 1000} MHz is above {MAX_CLOCK_MHZ} MHz")
     data = bytearray(builder.profile(source, mode))
+    prune_legacy_timings(data, width, height)
     # The screen size follows the aspect ratio, 600 mm wide.
     height_mm = WIDTH_MM * height // width
     data[21:23] = bytes((WIDTH_MM // 10, height_mm // 10))

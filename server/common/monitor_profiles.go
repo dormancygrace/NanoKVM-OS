@@ -6,7 +6,7 @@ import (
 )
 
 // Monitor aspect ratios. A 16:9 profile is the default; the others are
-// explicit choices of an LT6911UXC with live EDID writes.
+// explicit choices.
 const (
 	MonitorAspect169  = "16:9"
 	MonitorAspect1610 = "16:10"
@@ -40,6 +40,15 @@ var widerMonitorRates = map[uint16][]int{
 	1600: {50, 30},
 	2560: {60, 50, 30},
 	3440: {40, 30},
+}
+
+// slowWiderMonitorRates lists the 16:10 and 21:9 rates of the LT6911C and
+// LT6911D, which are measured up to 1080p60 only: the profiles whose pixel
+// clock stays within its 148.5 MHz (scripts/build-wide-monitor-edids.py). Not
+// yet tried on those receivers.
+var slowWiderMonitorRates = map[uint16][]int{
+	1200: {50, 30},
+	2560: {30},
 }
 
 // MonitorProfileIDs lists every landscape profile id with its size, Auto
@@ -80,8 +89,7 @@ func MonitorAspect(id uint16) string {
 	return MonitorAspect169
 }
 
-// widerMonitorProfile reports whether id is a 16:10 or 21:9 profile, which
-// only an LT6911UXC with live EDID writes advertises.
+// widerMonitorProfile reports whether id is a 16:10 or 21:9 profile.
 func widerMonitorProfile(id uint16) bool {
 	_, ok := widerMonitorProfiles[id]
 	return ok
@@ -89,6 +97,24 @@ func widerMonitorProfile(id uint16) bool {
 
 // WiderMonitorProfile is widerMonitorProfile for the API.
 func WiderMonitorProfile(id uint16) bool { return widerMonitorProfile(id) }
+
+// widerMonitorRatesFor lists the rates of a 16:10 or 21:9 profile this
+// receiver takes, fastest first; nil when it takes none (or id is 16:9). A
+// Cube or Lite takes them too, with a power cycle after the write, as it does
+// the 16:9 profiles.
+func widerMonitorRatesFor(id uint16) []int {
+	switch {
+	case !MonitorProfileSupported():
+		return nil
+	case MonitorHighRefreshSupported():
+		return widerMonitorRates[id]
+	}
+	return slowWiderMonitorRates[id]
+}
+
+// WiderMonitorProfileOffered reports whether id is a 16:10 or 21:9 profile
+// this device offers.
+func WiderMonitorProfileOffered(id uint16) bool { return len(widerMonitorRatesFor(id)) > 0 }
 
 // MonitorNeedsUHD reports whether a monitor size needs the UHD video memory.
 func MonitorNeedsUHD(id uint16) bool { return monitorPoolNeed(id) == "uhd" }

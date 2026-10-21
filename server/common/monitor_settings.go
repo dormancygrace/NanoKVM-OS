@@ -192,10 +192,14 @@ func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (string, error) {
 		return "", markMonitorEDIDCheckedLocked()
 	}
 	height := savedMonitorResolutionLocked()
-	if height != 720 && height != 1080 {
+	if height != 720 && height != 1080 && !widerMonitorProfile(height) {
 		height = 0 // Auto: the Cube's 1080p profile
 	}
 	path := cubeMonitorProfilePath(height)
+	if widerMonitorProfile(height) {
+		// A 16:10 or 21:9 profile the receiver takes (saved only then) stays.
+		path = monitorProfilePath(height)
+	}
 	log.Warnf("the HDMI receiver EDID advertises %s, beyond the Cube's 720p/1080p at 60 Hz; programming %s", mode, path)
 	if err := hw.apply(path); err != nil {
 		return "", err
@@ -229,7 +233,11 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 		if _, ok := ResolutionMap[height]; !ok && !widerMonitorProfile(height) {
 			return fmt.Errorf("unsupported monitor resolution")
 		}
-		if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 {
+		if widerMonitorProfile(height) {
+			if !WiderMonitorProfileOffered(height) {
+				return fmt.Errorf("this HDMI receiver does not take that 16:10 or 21:9 monitor profile")
+			}
+		} else if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 {
 			return fmt.Errorf("HDMI receiver EDID profiles are limited to 720p/1080p at 60 Hz")
 		}
 	}

@@ -199,7 +199,7 @@ func TestVideoCapabilitiesMarkH264UnavailableAt4K(t *testing.T) {
 }
 
 // The "monitor" setting takes the 16:10 and 21:9 ids, checks their video
-// memory by pixels, and needs an LT6911UXC for them.
+// memory by pixels, and needs a receiver that takes them.
 func TestMonitorSettingValidatesWiderProfiles(t *testing.T) {
 	qhd := common.VideoPool{MiB: 56}
 	for value, want := range map[int]int{1200: -3, 2560: -3, 1600: -3, 3440: -3, 600: -1, 1920: -1} {
@@ -213,12 +213,64 @@ func TestMonitorSettingValidatesWiderProfiles(t *testing.T) {
 	if err == nil || !strings.Contains(err.msg, "2560x1600 requires the UHD video memory") {
 		t.Errorf("1600 on QHD: %+v", err)
 	}
-	// 2560x1080 fits QHD; without an LT6911UXC it is refused for the receiver.
+	// 2560x1080 fits QHD; without a receiver that takes it, it is refused.
 	err = validateScreenSettingFor(proto.SetScreenReq{Type: "monitor", Value: 2560}, nil, qhd)
-	if err == nil || !strings.Contains(err.msg, "LT6911UXC") {
+	if err == nil || !strings.Contains(err.msg, "HDMI receiver does not take") {
 		t.Errorf("2560 without UXC: %+v", err)
 	}
 	if err := validateScreenSettingFor(proto.SetScreenReq{Type: "monitor", Value: 1440}, nil, qhd); err != nil {
 		t.Errorf("1440 on QHD: %+v", err)
+	}
+}
+
+// The 16:10 and 21:9 modes are offered by receiver, the 16:9 set unchanged:
+// an LT6911C or LT6911D takes 1920x1200 and 2560x1080 only, and the monitor
+// setting is validated the same way.
+func TestVideoCapabilitiesWiderProfilesPerReceiver(t *testing.T) {
+	oldProg, oldLive, oldOffered := monitorProgrammable, monitorHighRefresh, widerMonitorProfileOffered
+	t.Cleanup(func() {
+		monitorProgrammable, monitorHighRefresh, widerMonitorProfileOffered = oldProg, oldLive, oldOffered
+	})
+	monitorProgrammable = func() bool { return true }
+	for _, uxc := range []bool{true, false} {
+		monitorHighRefresh = func() bool { return uxc }
+		widerMonitorProfileOffered = func(id uint16) bool { return uxc || id == 1200 || id == 2560 }
+		for _, m := range videoCapabilities()["monitor"].(gin.H)["modes"].([]monitorModeCapability) {
+			if !common.WiderMonitorProfile(m.ID) {
+				continue
+			}
+			offered := uxc || m.ID == 1200 || m.ID == 2560
+			if offered == (m.Reason == reasonReceiver) {
+				t.Errorf("uxc=%v: %d %+v", uxc, m.ID, m)
+			}
+			err := validateScreenSettingFor(proto.SetScreenReq{Type: "monitor", Value: int(m.ID)}, nil, common.VideoPool{MiB: 144})
+			if offered != (err == nil) {
+				t.Errorf("uxc=%v: monitor %d validation %+v", uxc, m.ID, err)
+			}
+		}
+	}
+}
+
+// Both screen APIs report the saved monitor in effect, which reads a 16:10 or
+// 21:9 profile of a moved card as Auto, not the raw saved id.
+func TestScreenAPIsReportTheMonitorInEffect(t *testing.T) {
+	old := selectedMonitorResolution
+	t.Cleanup(func() { selectedMonitorResolution = old })
+	for _, want := range []uint16{0, 1200} {
+		selectedMonitorResolution = func() uint16 { return want }
+		if got := videoCapabilities()["monitor"].(gin.H)["selected"]; got != want {
+			t.Errorf("capabilities selected %v, want %d", got, want)
+		}
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		(&Service{}).GetScreen(c)
+		var screen struct {
+			Data struct {
+				Monitor uint16 `json:"monitor"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &screen); err != nil || screen.Data.Monitor != want {
+			t.Errorf("GET screen monitor %d (%v), want %d", screen.Data.Monitor, err, want)
+		}
 	}
 }

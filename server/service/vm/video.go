@@ -111,8 +111,8 @@ func (s *Service) GetVideoCapabilities(c *gin.Context) {
 
 func videoCapabilities() gin.H {
 	qhd, uhd := common.SupportsQHD(), common.SupportsUHD()
-	programmable := common.MonitorProfileSupported()
-	live := common.MonitorHighRefreshSupported()
+	programmable := monitorProgrammable()
+	live := monitorHighRefresh()
 	portrait, portraitSupported := common.MonitorPortraitStatus()
 	portraitMax := common.PortraitMaxSupported()
 
@@ -130,7 +130,7 @@ func videoCapabilities() gin.H {
 			m.Codecs = modeCodecs(m.Width, m.Height)
 		}
 		switch {
-		case !programmable || (needsLive && !live):
+		case !programmable || (needsLive && !live) || (common.WiderMonitorProfile(id) && !widerMonitorProfileOffered(id)):
 			m.Available, m.Reason = false, reasonReceiver
 		case !memoryOK:
 			m.Available, m.Reason = false, reasonVideoMemory
@@ -145,11 +145,12 @@ func videoCapabilities() gin.H {
 		mode(1440, true, qhd),
 		mode(1080, false, true),
 		mode(720, false, true),
-		// 16:10 and 21:9: live EDID writes only (an LT6911UXC outside a Cube).
-		mode(1600, true, fits(1600)),
-		mode(1200, true, fits(1200)),
-		mode(3440, true, fits(3440)),
-		mode(2560, true, fits(2560)),
+		// 16:10 and 21:9: every size with an LT6911UXC, 1920x1200 and
+		// 2560x1080 at the 1080p60 pixel clock with an LT6911C or LT6911D.
+		mode(1600, false, fits(1600)),
+		mode(1200, false, fits(1200)),
+		mode(3440, false, fits(3440)),
+		mode(2560, false, fits(2560)),
 	}
 
 	portraitProfile := func(resolution, width uint16, rate int, codecs, transports []string, ok bool) portraitCapability {
@@ -202,7 +203,7 @@ func videoCapabilities() gin.H {
 			"requiresPowerCycle": common.MonitorRequiresPowerCycle(),
 			"powerCyclePending":  common.MonitorPowerCyclePending(),
 			"followsStreamRate":  common.MonitorRefreshFollowsStream(),
-			"selected":           common.ReadVideoValue("/etc/kvm/monitor_resolution"),
+			"selected":           selectedMonitorResolution(),
 			"refreshHz":          common.MonitorRefreshHz(),
 			"modes":              monitorModes,
 			"aspects":            common.MonitorAspects,

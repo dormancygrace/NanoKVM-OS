@@ -146,11 +146,13 @@ func (s *Service) UploadTlsCertificate(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "cannot store the certificate")
 		return
 	}
-	conf.Cert = config.Cert{Crt: customCertPath, Key: customKeyPath}
-	if err := updateTLS(conf.Proto, conf.Cert); err != nil {
-		// The reply says nothing was installed: put the previous files back,
-		// or a configuration that already names the custom pair would serve
-		// the refused one after a restart.
+	nextCert := config.Cert{Crt: customCertPath, Key: customKeyPath}
+	if err := updateTLS(conf.Proto, nextCert); err != nil {
+		// A directory-sync error can follow a committed configuration rename.
+		// Restore its previous selection before removing/restoring the pair.
+		if configErr := updateTLS(conf.Proto, conf.Cert); configErr != nil {
+			err = errors.Join(err, fmt.Errorf("restore previous TLS configuration: %w", configErr))
+		}
 		if restoreErr := restore(); restoreErr != nil {
 			err = errors.Join(err, restoreErr)
 		}
@@ -158,6 +160,7 @@ func (s *Service) UploadTlsCertificate(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "cannot update the configuration")
 		return
 	}
+	conf.Cert = nextCert
 	if conf.Proto == "https" {
 		if err := serverCertificate.Load(customCertPath, customKeyPath); err != nil {
 			log.Errorf("failed to activate the custom TLS certificate: %v", err)

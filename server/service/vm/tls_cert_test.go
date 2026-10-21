@@ -482,3 +482,74 @@ func TestTLSFailedFirstUploadRemovesNewPrivateKey(t *testing.T) {
 		t.Fatal("failed first upload changed the active certificate")
 	}
 }
+
+// An atomic config write can fail at directory sync after replacing server.yaml.
+// Rolling back only the custom files would leave the rejected paths selected.
+func TestTLSConfigurationPostCommitFailureRestoresSelection(t *testing.T) {
+	for _, source := range []string{"generated", "custom", "acme"} {
+		t.Run(source, func(t *testing.T) {
+			f := newTLSFixture(t, "https")
+			if source != "generated" {
+				cert, key := tlsTestPair(t, "old.example", time.Now().Add(-time.Hour))
+				if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != 0 {
+					t.Fatal(rsp)
+				}
+			}
+			if source == "acme" {
+				cert, key := tlsTestPair(t, "acme.example", time.Now().Add(-time.Hour))
+				paths := config.Cert{Crt: filepath.Join(f.dir, "acme.crt"), Key: filepath.Join(f.dir, "acme.key")}
+				if err := os.WriteFile(paths.Crt, cert, 0644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(paths.Key, key, 0600); err != nil {
+					t.Fatal(err)
+				}
+				f.conf.Cert = paths
+				if err := serverCertificate.Load(paths.Crt, paths.Key); err != nil {
+					t.Fatal(err)
+				}
+			}
+			previous, served := f.conf.Cert, f.servedName()
+			update := updateTLS
+			t.Cleanup(func() { updateTLS = update })
+			failed := false
+			updateTLS = func(proto string, cert config.Cert) error {
+				if err := update(proto, cert); err != nil {
+					return err
+				}
+				if !failed {
+					failed = true
+					return syscall.EIO
+				}
+				return nil
+			}
+			cert, key := tlsTestPair(t, "refused.example", time.Now().Add(-time.Hour))
+			if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != -2 {
+				t.Fatal(rsp)
+			}
+			if f.conf.Cert != previous {
+				t.Errorf("failed upload changed configured pair: %+v, want %+v", f.conf.Cert, previous)
+			}
+			selected := f.conf.Cert.WithDefaults()
+			loaded, err := utils.LoadCertificatePair(selected.Crt, selected.Key)
+			if err != nil {
+				t.Fatalf("configured pair cannot reload: %v", err)
+			}
+			if loaded.Leaf.Subject.CommonName != served || f.servedName() != served {
+				t.Fatal("failed upload changed certificate identity")
+			}
+			if source == "generated" {
+				for _, path := range []string{customCertPath, customKeyPath} {
+					if _, err := os.Stat(path); !os.IsNotExist(err) {
+						t.Fatalf("refused first upload left %s: %v", path, err)
+					}
+				}
+			} else {
+				old, err := utils.LoadCertificatePair(customCertPath, customKeyPath)
+				if err != nil || old.Leaf.Subject.CommonName != "old.example" {
+					t.Fatalf("previous custom pair lost: %v", err)
+				}
+			}
+		})
+	}
+}

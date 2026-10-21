@@ -10,27 +10,63 @@ function render(channel, operation = 'idle') {
   const jsx = (type, props) => ({ type, props });
   const modules = {
     react: {
-      useState: () => [stateIndex++ === 0 ? { channel, installed: { version: 'v3.4.0-beta.1' }, apk: { state: operation } } : false, () => {}],
-      useRef: (current) => ({ current }), useEffect: () => {}, useCallback: (fn) => fn
+      useState: () => [
+        stateIndex++ === 0
+          ? { channel, installed: { version: 'v3.4.0-beta.1' }, apk: { state: operation } }
+          : false,
+        () => {}
+      ],
+      useRef: (current) => ({ current }),
+      useEffect: () => {},
+      useCallback: (fn) => fn
     },
     'react/jsx-runtime': { jsx, jsxs: jsx },
-    antd: { Alert: 'Alert', Button: 'Button', Select: 'Select', Popconfirm: 'Popconfirm', message: { error: assert.fail } },
+    antd: {
+      Alert: 'Alert',
+      Button: 'Button',
+      Select: 'Select',
+      Popconfirm: 'Popconfirm',
+      message: { error: assert.fail }
+    },
     jotai: { useSetAtom: () => () => {} },
     'react-i18next': { useTranslation: () => ({ t: (key) => key }) },
-    '@/lib/http': { http: { post: async (...args) => { calls.push(args); return { code: 0 }; } } },
+    '@/lib/http': {
+      http: {
+        post: async (...args) => {
+          calls.push(args);
+          return { code: 0 };
+        }
+      }
+    },
     '@/lib/version': { formatVersion: (value) => value },
-    '@/lib/visible-poll.ts': {}, '@/jotai/updates.ts': {},
+    '@/lib/visible-poll.ts': {},
+    '@/jotai/updates.ts': {},
     '@/components/ui/settings.tsx': { SettingRow: 'SettingRow' },
-    './apk': { APKUpdates: 'APKUpdates' }, './components': { ComponentList: 'ComponentList', UpdateCheck: 'UpdateCheck' }
+    './apk': { APKUpdates: 'APKUpdates' },
+    './components': { ComponentList: 'ComponentList', UpdateCheck: 'UpdateCheck' }
   };
   const exports = {};
-  const source = readFileSync(new URL('../src/pages/desktop/menu/settings/updates/index.tsx', import.meta.url), 'utf8');
-  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  vm.runInNewContext(code, { exports, require: (name) => { assert.ok(name in modules, name); return modules[name]; } });
+  const source = readFileSync(
+    new URL('../src/pages/desktop/menu/settings/updates/index.tsx', import.meta.url),
+    'utf8'
+  );
+  const code = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }
+  }).outputText;
+  vm.runInNewContext(code, {
+    exports,
+    require: (name) => {
+      assert.ok(name in modules, name);
+      return modules[name];
+    }
+  });
   const nodes = [];
   function visit(node) {
     if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
     nodes.push(node);
     visit(node.props?.children);
     visit(node.props?.action);

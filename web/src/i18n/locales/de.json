@@ -1342,7 +1342,7 @@
           "description": "Tastatur, beide Mausmodi und die virtuelle Festplatte: die Ausstattung eines neuen Geräts. Auf dem Computer erscheint kein Netzwerkadapter."
         },
         "standard": {
-          "title": "KVM + USB-Netzwerk",
+          "title": "KVM + Netzwerk",
           "description": "Tastatur, beide Mausmodi, virtuelle Festplatte und der USB-Netzwerkadapter. Lässt keinen Platz für die serielle Konsole."
         },
         "console": {

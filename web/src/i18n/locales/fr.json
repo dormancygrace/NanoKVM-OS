@@ -1342,7 +1342,7 @@
           "description": "Clavier, les deux modes de souris et le disque virtuel : la configuration de départ d'un nouvel appareil. Aucun adaptateur réseau n'apparaît sur l'ordinateur."
         },
         "standard": {
-          "title": "KVM + réseau USB",
+          "title": "KVM + réseau",
           "description": "Clavier, les deux modes de souris, disque virtuel et adaptateur réseau USB. Ne laisse pas de place pour la console série."
         },
         "console": {

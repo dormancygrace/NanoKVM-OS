@@ -1342,7 +1342,7 @@
           "description": "Teclado, ambos modos de ratón y el disco virtual: lo que trae un dispositivo nuevo. No aparece ningún adaptador de red en el equipo."
         },
         "standard": {
-          "title": "KVM + red USB",
+          "title": "KVM + red",
           "description": "Teclado, ambos modos de ratón, disco virtual y el adaptador de red USB. No deja espacio para la consola serie."
         },
         "console": {

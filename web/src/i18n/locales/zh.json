@@ -1342,7 +1342,7 @@
           "description": "键盘、两种鼠标模式和虚拟硬盘：新设备的默认配置。电脑上不会出现网络适配器。"
         },
         "standard": {
-          "title": "KVM + USB 网络",
+          "title": "KVM + 网络",
           "description": "键盘、两种鼠标模式、虚拟硬盘和 USB 网络适配器。没有余量容纳串口控制台。"
         },
         "console": {

@@ -1329,7 +1329,7 @@
         },
         "standard": {
           "description": "Klávesnice, oba režimy myši, virtuální disk a USB síťový adaptér. Neponechává žádný prostor pro sériovou konzoli.",
-          "title": "KVM + USB síť"
+          "title": "KVM + síť"
         }
       },
       "devices": {

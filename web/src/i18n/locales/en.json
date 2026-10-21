@@ -1342,7 +1342,7 @@
           "description": "Keyboard, both mouse modes and the virtual disk: what a new device starts with. No network adapter appears on the computer."
         },
         "standard": {
-          "title": "KVM + USB network",
+          "title": "KVM + network",
           "description": "Keyboard, both mouse modes, virtual disk and the USB network adapter. Leaves no room for the serial console."
         },
         "console": {

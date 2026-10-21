@@ -34,8 +34,8 @@ assert re.search(r'cvi_isp_rdy_buf_pop\(vdev, buf_chn\);\s*b = _cvi_isp_next_buf
 stop = block('int vi_stop_streaming(') if 'int vi_stop_streaming(' in source else block('static int vi_stop_streaming(')
 assert all(f'atomic_set(&{v}, 0);' in stop for v in ('nk_frame_damaged[i]', 'nk_err_recovering[i]', 'nk_eof_held[i][j]', 'nk_buf_out[i][j]'))
 assert '_vi_err_handler(vdev, err_raw_num);' in block('static int _vi_err_handler_thread(')
-declarations = '\n'.join(re.findall(r'static atomic_t nk_\w+(?:\[\w+\])+;', source))
-assert declarations.count('static atomic_t') == 4, declarations
+declarations = '\n'.join(re.findall(r'static atomic_t nk_\w+(?:\[\w+\])*;', source))
+assert declarations.count('static atomic_t') == 5, declarations
 
 code = r'''
 #include <assert.h>
@@ -44,18 +44,28 @@ code = r'''
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-typedef uint8_t u8; typedef uint32_t u32; typedef uint64_t u64;
+typedef int8_t s8; typedef uint8_t u8; typedef uint32_t u32; typedef uint64_t u64;
 #define VI_DBG 1
 #define VI_INFO 2
 #define VI_WARN 4
 #define VI_ERR 8
-#define vi_pr(level, ...) ((void)(level))
+/* Log calls are a hook: the retrigger's warning marks where it starts. */
+static void vi_pr_hook(int level);
+#define vi_pr(level, ...) vi_pr_hook(level)
 #define unlikely(x) (x)
 typedef struct { int counter; } atomic_t;
 static void atomic_set(atomic_t *v, int i) { v->counter = i; }
 static int atomic_read(const atomic_t *v) { return v->counter; }
 static int atomic_xchg(atomic_t *v, int i) { int o = v->counter; v->counter = i; return o; }
 static int atomic_cmpxchg(atomic_t *v, int o, int n) { int c = v->counter; if (c == o) v->counter = n; return c; }
+static int atomic_inc_return(atomic_t *v) { return ++v->counter; }
+/* One CPU: with bottom halves off no tasklet runs, and the test runs the
+ * tasklet only where the kernel could. */
+#define local_bh_disable() ((void)0)
+#define local_bh_enable() ((void)0)
+struct tasklet_struct { int scheduled; };
+static int tasklet_pending;
+#define tasklet_hi_schedule(t) ((void)(t), tasklet_pending = 1)
 typedef int spinlock_t;
 static int locked;
 #define spin_lock_irqsave(l, f) do { (void)(l); assert(!locked); locked = 1; (f) = 0; } while (0)
@@ -106,7 +116,15 @@ struct cvi_vi_dev {
 	atomic_t pre_fe_state[ISP_PRERAW_VIRT_MAX][ISP_FE_CHN_MAX]; u32 pre_fe_frm_num[ISP_PRERAW_VIRT_MAX][ISP_FE_CHN_MAX];
 	atomic_t postraw_state, pre_be_state[2]; u32 isp_err_times[ISP_PRERAW_VIRT_MAX];
 	struct vi_th vi_th[E_VI_TH_MAX]; atomic_t isp_streamoff, isp_err_handle_flag;
+	struct tasklet_struct job_work; bool is_yuv_trigger;
+	bool isp_triggered[ISP_PRERAW_VIRT_MAX][ISP_FE_CHN_MAX]; u32 pre_fe_trig_cnt[ISP_PRERAW_VIRT_MAX][ISP_FE_CHN_MAX];
+	u32 postraw_frame_number[ISP_PRERAW_VIRT_MAX];
 };
+/* One device with one channel, as the queue wrapper reads it. */
+struct vi_dev_attr { u8 chn_num; };
+static struct { u8 total_dev_num; struct vi_dev_attr devAttr[ISP_PRERAW_MAX]; } vi_ctx = { 1, { { 1 } } }, *gViCtx = &vi_ctx;
+static u32 _is_all_online(struct isp_ctx *ctx) { (void)ctx; return 0; }
+static void _post_hw_enque(struct cvi_vi_dev *vdev) { (void)vdev; }
 static u32 _is_fe_be_online(struct isp_ctx *ctx) { return !ctx->is_offline_be && ctx->is_offline_postraw; }
 static u32 _is_be_post_online(struct isp_ctx *ctx) { return ctx->is_offline_be && !ctx->is_offline_postraw; }
 static void ispblk_dma_set_sw_mode(struct isp_ctx *c, int id, bool on) { (void)c; (void)id; (void)on; }
@@ -122,12 +140,15 @@ static spinlock_t dq_lock;
  * list head and, with a buffer, marks it given out (checked in the source). */
 static struct cvi_isp_buf *armed;
 static int hw_armed, triggers_since_reset, no_buffer;
+static void (*trigger_hook)(void);
 static void isp_pre_trig(struct isp_ctx *c, int raw, int chn)
 {
 	(void)c; (void)raw; (void)chn;
 	assert(!hw_armed); /* a trigger over a running DMA */
 	assert(armed); /* a DMA into whatever buffer it last had */
 	hw_armed = 1; triggers_since_reset++;
+	if (trigger_hook)
+		trigger_hook();
 }
 struct cvi_isp_buf *_cvi_isp_next_buf(struct cvi_vi_dev *vdev, const u8 chn_num);
 static void cvi_isp_rdy_buf_pop(struct cvi_vi_dev *vdev, const u8 chn_num);
@@ -145,9 +166,12 @@ static void _isp_yuv_bypass_buf_enq(struct cvi_vi_dev *vdev, const enum cvi_isp_
 static int isp_frm_err_handler(struct isp_ctx *ctx, const enum cvi_isp_raw err_raw_num, const u8 step);
 static void usleep_range(long a, long b);
 ''' + '\n'.join(block(m) for m in (
-    'static void cvi_isp_buf_queue(', 'struct cvi_isp_buf *_cvi_isp_next_buf(', 'static int cvi_isp_rdy_buf_empty(',
+    'static int nk_err_next_generation(',
+    'static void cvi_isp_buf_queue(', 'void cvi_isp_buf_queue_wrap(', 'struct cvi_isp_buf *_cvi_isp_next_buf(',
+    'static int cvi_isp_rdy_buf_empty(',
     'static void cvi_isp_rdy_buf_pop(', 'static void cvi_isp_rdy_buf_remove(', 'static void cvi_isp_dqbuf_list(',
-    'static int _isp_yuv_bypass_trigger(', 'static void nk_err_recovery_clear(', 'static void nk_err_recovery_abandon(',
+    'static int __isp_yuv_bypass_trigger(', 'static int _isp_yuv_bypass_trigger(', 'void isp_post_tasklet(',
+    'static void nk_err_recovery_clear(', 'static void nk_err_recovery_release(', 'static void nk_err_recovery_abandon(',
     'static void _vi_err_retrig_preraw(', 'static void _vi_err_handler(', 'static void _isp_yuv_bypass_handler(',
     'static inline void vi_err_wake_up_th(')) + r'''
 
@@ -186,7 +210,8 @@ static void eof_irq(void)
 	d.isp_err_times[0] = 0;
 	_isp_yuv_bypass_handler(&d, ISP_PRERAW_A, 0);
 }
-static int eof_step = -1, fail_step = -1, wait_mode, late_eof, latched;
+static int eof_step = -1, fail_step = -1, wait_mode, late_eof, latched, return_step = -1;
+static void return_buffer(void);
 /* The handler's hardware steps: a frame end can arrive during any of them
  * while the DMA runs; step 4 resets the ISP, which drops the armed DMA. */
 static int isp_frm_err_handler(struct isp_ctx *ctx, const enum cvi_isp_raw err_raw_num, const u8 step)
@@ -194,6 +219,10 @@ static int isp_frm_err_handler(struct isp_ctx *ctx, const enum cvi_isp_raw err_r
 	(void)ctx; (void)err_raw_num;
 	if (step == eof_step && hw_armed)
 		eof_irq();
+	if (step == return_step) {
+		return_step = -1;
+		return_buffer();
+	}
 	if (step == fail_step)
 		return -1;
 	if (step == 4) {
@@ -228,6 +257,44 @@ static void _vi_show_debug_info(void)
 	_isp_yuv_bypass_handler(&d, ISP_PRERAW_A, 0);
 }
 static void frame_end(void) { eof_irq(); invariant(); }
+/* The queue's tasklet, where the kernel would run it. */
+static void run_tasklet(void)
+{
+	if (tasklet_pending) {
+		tasklet_pending = 0;
+		isp_post_tasklet((unsigned long)&d);
+	}
+}
+/* The application returns a buffer through the real queue wrapper, which
+ * schedules the tasklet when the queue was empty; the tasklet runs at once. */
+static void return_buffer(void)
+{
+	struct cvi_isp_buf *b = calloc(1, sizeof(*b));
+	b->buf.index = 0;
+	cvi_isp_buf_queue_wrap(&d, b);
+	run_tasklet();
+}
+/* A tasklet retry left pending from before runs as the retrigger starts
+ * (its first warning in this configuration). */
+static int tasklet_at_retrig;
+static void vi_pr_hook(int level)
+{
+	if (level != VI_WARN || !tasklet_at_retrig)
+		return;
+	tasklet_at_retrig = 0;
+	d.isp_triggered[0][0] = d.is_yuv_trigger = true;
+	tasklet_pending = 1;
+	run_tasklet();
+}
+/* An error while a trigger runs, once the handler flag is clear. */
+static int trigger_error;
+static void error_at_trigger(void)
+{
+	if (trigger_error && !atomic_read(&d.isp_err_handle_flag)) {
+		trigger_error = 0;
+		vi_err_wake_up_th(&d, ISP_PRERAW_A);
+	}
+}
 #define csi_error() (line = __LINE__ - LINE0, vi_err_wake_up_th(&d, ISP_PRERAW_A))
 /* The error handler thread, as _vi_err_handler_thread runs it. */
 static void err_thread(void)
@@ -344,6 +411,34 @@ int main(void)
 		give_back();
 	assert(_isp_yuv_bypass_trigger(&d, ISP_PRERAW_A, 0) == 0);
 	invariant(); good();
+	/* The application returns a buffer to a drained queue while the handler
+	 * recovers (at step 3): the tasklet's trigger is refused and stays
+	 * pending, the retrigger restarts once, and the handler reschedules the
+	 * tasklet when it gives the pipe back. */
+	frame_end(); frame_end(); frame_end();
+	assert(published() == 3 && listed() == 0 && !hw_armed);
+	csi_error(); return_step = 3; err_thread();
+	assert(return_step == -1 && listed() == 1);
+	recovered();
+	assert(tasklet_pending);
+	run_tasklet(); invariant(); assert(triggers_since_reset == 1);
+	give_back(); give_back(); good();
+	/* A pending tasklet trigger runs while the retrigger works: refused, so
+	 * the retrigger alone counts the buffer back and restarts. */
+	csi_error(); tasklet_at_retrig = 1; err_thread();
+	assert(!tasklet_at_retrig);
+	recovered(); run_tasklet(); invariant(); assert(triggers_since_reset == 1);
+	d.isp_triggered[0][0] = d.is_yuv_trigger = false;
+	good();
+	/* A new error while the retrigger arms the DMA (the flag is already
+	 * clear): the first handler leaves the pipe to the next one, the frame
+	 * end in between is held, and that recovery restarts once. */
+	trigger_hook = error_at_trigger;
+	csi_error(); trigger_error = 1; err_thread();
+	assert(!trigger_error && atomic_read(&nk_err_recovering[0]) && d.vi_th[E_VI_TH_ERR_HANDLER].flag);
+	eof_irq(); assert(published() == 0);
+	err_thread(); recovered(); good();
+	trigger_hook = NULL;
 	/* Repeated errors with the thread running behind: no count drifts. */
 	for (int i = 0; i < 40; i++) {
 		csi_error();

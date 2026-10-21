@@ -21,6 +21,7 @@ const maxPacketBytes = 1275
 type packet struct {
 	data  []byte
 	index uint64
+	at    time.Time
 }
 type listener struct {
 	frames chan packet
@@ -55,10 +56,12 @@ const SampleRate = 48000
 const Channels = 2
 
 // Packet is an immutable, already encoded 20 ms stereo Opus packet. All browser
-// and add-on subscribers share the same capture and encoder.
+// and add-on subscribers share the same capture and encoder. At is when the
+// capture delivered it.
 type Packet struct {
 	Data  []byte
 	Index uint64
+	At    time.Time
 }
 type Subscription struct {
 	hub    *hub
@@ -100,7 +103,7 @@ func (s *Subscription) Read(ctx context.Context) (Packet, error) {
 			return Packet{}, io.EOF
 		default:
 		}
-		return Packet{Data: p.data, Index: p.index}, nil
+		return Packet{Data: p.data, Index: p.index, At: p.at}, nil
 	}
 }
 func (s *Subscription) Close() {
@@ -203,7 +206,7 @@ func (h *hub) capture(ctx context.Context, run *captureRun) {
 						}
 						h.mu.Lock()
 						if ctx.Err() == nil {
-							h.publish(packet{data: frame, index: index})
+							h.publish(packet{data: frame, index: index, at: time.Now()})
 							index++
 						}
 						h.mu.Unlock()

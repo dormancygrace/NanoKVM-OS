@@ -59,6 +59,54 @@ func (f *fakeCapture) Close() {}
 // After audio-stop and audio-start the track keeps its SSRC and sequence,
 // and its RTP clock covers the muted interval, whether the capture went on
 // (higher index) or restarted (index from 1).
+// Within one listening period, a pause of the capture moves the RTP clock
+// by the time between the two packets, with consecutive sequence numbers;
+// capture jitter does not.
+func TestAudioTimelineCoversCapturePause(t *testing.T) {
+	writer := &recordingWriter{sent: make(chan sentPacket, 16)}
+	track, err := webrtc.NewTrackLocalStaticSample(opusCapability(), "audio", mediaStreamID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := track.Bind(trackBinding{writer: writer}); err != nil {
+		t.Fatal(err)
+	}
+	capture := &fakeCapture{packets: make(chan audio.Packet, 4)}
+	old := subscribeAudio
+	subscribeAudio = func() (packetSource, error) { return capture, nil }
+	t.Cleanup(func() { subscribeAudio = old })
+	client := &Client{}
+	client.audio.track = track
+	if err := client.startAudio(); err != nil {
+		t.Fatal(err)
+	}
+	defer client.stopAudio()
+	start := time.Now()
+	send := func(index uint64, at time.Duration) sentPacket {
+		t.Helper()
+		capture.packets <- audio.Packet{Data: []byte{0xfc, 0xff, 0xfe}, Index: index, At: start.Add(at)}
+		select {
+		case p := <-writer.sent:
+			return p
+		case <-time.After(2 * time.Second):
+			t.Fatal("no packet sent")
+			return sentPacket{}
+		}
+	}
+	a := send(1, 0)
+	b := send(2, 100*time.Millisecond)
+	c := send(3, 5100*time.Millisecond)
+	if b.seq != a.seq+1 || c.seq != b.seq+1 {
+		t.Fatalf("sequence %d %d %d, want consecutive", a.seq, b.seq, c.seq)
+	}
+	if got := b.timestamp - a.timestamp; got != 960 {
+		t.Fatalf("jitter moved the clock: %d ticks, want 960", got)
+	}
+	if got := c.timestamp - b.timestamp; got != 5*48000 {
+		t.Fatalf("a 5 s pause moved the clock %d ticks, want %d", got, 5*48000)
+	}
+}
+
 func TestAudioTimelineSurvivesStopStart(t *testing.T) {
 	writer := &recordingWriter{sent: make(chan sentPacket, 16)}
 	track, err := webrtc.NewTrackLocalStaticSample(opusCapability(), "audio", mediaStreamID)

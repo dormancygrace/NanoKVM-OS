@@ -1242,9 +1242,9 @@ static uint64_t mjpeg_last_video_ms = 0, mjpeg_last_jpeg_ms = 0;
 static unsigned mjpeg_last_video_width = 0, mjpeg_last_jpeg_width = 0;
 static bool mjpeg_resolution_limited = false;
 // MJPEG's own output next to a video stream: a little above the rate the
-// server reads it at (mjpegNextToVideoFPS 27, next to a stream wider than
+// server reads it at (mjpegNextToVideoFPS 30, next to a stream wider than
 // 1920 mjpegNextToWideVideoFPS 25).
-static constexpr int mjpeg_next_to_video_fps = 30;
+static constexpr int mjpeg_next_to_video_fps = 33;
 static constexpr int mjpeg_next_to_wide_video_fps = 27;
 static uint64_t mjpeg_monotonic_ms()
 {

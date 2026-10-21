@@ -205,12 +205,14 @@ func (s *Streamer) getClients() []*mjpegClient {
 }
 
 // While an H.264 or H.265 stream has viewers, MJPEG runs at most at this
-// rate, and a little lower next to a stream wider than 1920 (2560x1440): each
-// JPEG costs the video stream about one frame (1080p90 H.264 alone 91 fps,
-// next to MJPEG at 53 fps only 32 fps). The native library runs MJPEG's own
-// VPSS output a little above these (30 and 27).
+// rate, and lower next to a stream wider than 1920 (2560x1440): each JPEG
+// costs the video stream about one frame (1080p90 H.264 alone 91 fps, next
+// to MJPEG at 53 fps only 32 fps). Up to 1920 wide 30 cost nothing measurable
+// against 27 (H.265 1080p90 80-85, 1080p60 57-60, 720p120 107-116); at
+// 2560x1440 30 over 33 was worse than 25 over 27. The native library runs
+// MJPEG's own VPSS output a little above these (33 and 27).
 const (
-	mjpegNextToVideoFPS     = 27
+	mjpegNextToVideoFPS     = 30
 	mjpegNextToWideVideoFPS = 25
 )
 

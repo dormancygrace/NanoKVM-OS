@@ -300,7 +300,86 @@ func InitializeIPv6() error {
 			return err
 		}
 	}
+	if !policy.any() {
+		if done, err := applyIPv6Off(); done || err != nil {
+			return err
+		}
+	}
 	return applyIPv6(policy)
+}
+
+// applyIPv6Off does what S02ipv6 start does for a policy with IPv6 off when
+// there is nothing to undo, no DHCPv6 client and no static address: only
+// sysctl values. The script costs about a second of the SG2002 on every
+// server start, before the server listens. It reports false when the script
+// must run.
+func applyIPv6Off() (bool, error) {
+	runDir := func(env string) string {
+		if dir := os.Getenv(env); dir != "" {
+			return dir
+		}
+		return "/run"
+	}
+	for _, name := range ipv6Interfaces {
+		for _, path := range []string{
+			filepath.Join(runDir("NANOKVM_DHCPV6_RUN"), "udhcpc6."+name+".pid"),
+			// A stopped client can leave its address and DNS without a PID.
+			filepath.Join(runDir("NANOKVM_DHCPV6_RUN"), "udhcpc6."+name+".addr"),
+			filepath.Join(runDir("NANOKVM_IPV6_RUN"), "ipv6-static."+name),
+		} {
+			if _, err := os.Lstat(path); !os.IsNotExist(err) {
+				return false, nil
+			}
+		}
+	}
+	entries, err := os.ReadDir(ipv6SysctlRoot)
+	if os.IsNotExist(err) {
+		// A kernel without IPv6 already satisfies a policy with IPv6 off.
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	// As in the script: only an existing value, and only when it differs.
+	set := func(name, key, value string) error {
+		path := filepath.Join(ipv6SysctlRoot, name, key)
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		if err != nil || strings.TrimSpace(string(data)) == value {
+			return err
+		}
+		return os.WriteFile(path, []byte(value+"\n"), 0o644)
+	}
+	// "all" rewrites every interface, so it comes first.
+	for _, name := range []string{"all", "default"} {
+		if err := set(name, "disable_ipv6", "1"); err != nil {
+			return true, err
+		}
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || name == "all" || name == "default" {
+			continue
+		}
+		value := "1"
+		if name == "lo" {
+			value = "0" // keep ::1
+		}
+		if err := set(name, "disable_ipv6", value); err != nil {
+			return true, err
+		}
+		if slices.Contains(ipv6Interfaces, name) {
+			if err := set(name, "keep_addr_on_down", "0"); err != nil {
+				return true, err
+			}
+			if err := set(name, "autoconf", "1"); err != nil {
+				return true, err
+			}
+		}
+	}
+	return true, nil
 }
 
 func getIPv6Status() (ipv6Status, error) {

@@ -49,6 +49,7 @@ func ipv6Fixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("NANOKVM_IPV6_RUN", run)
+	t.Setenv("NANOKVM_DHCPV6_RUN", run)
 	t.Setenv("NANOKVM_IP", stubCommand(t, root, "ip"))
 	t.Setenv("NANOKVM_DHCPV6", stubCommand(t, root, "dhcpv6"))
 	for _, name := range ipv6FixtureNames {
@@ -115,6 +116,74 @@ func TestIPv6DefaultsAndPersistentTransitions(t *testing.T) {
 			t.Fatal(err)
 		}
 		assertIPv6(t, step.eth0, step.wlan0)
+	}
+}
+
+// With IPv6 off and nothing to undo, the server sets the values itself; the
+// result is the script's, byte for byte, from any starting state.
+func TestIPv6OffWithoutTheScriptMatchesTheScript(t *testing.T) {
+	snapshot := func() map[string]string {
+		out := map[string]string{}
+		_ = filepath.WalkDir(ipv6SysctlRoot, func(path string, d os.DirEntry, err error) error {
+			if err == nil && !d.IsDir() {
+				data, _ := os.ReadFile(path)
+				out[strings.TrimPrefix(path, ipv6SysctlRoot)] = string(data)
+			}
+			return nil
+		})
+		return out
+	}
+	prepare := func(start string) {
+		for _, name := range ipv6FixtureNames {
+			for _, key := range []string{"disable_ipv6", "autoconf", "keep_addr_on_down"} {
+				if err := os.WriteFile(filepath.Join(ipv6SysctlRoot, name, key), []byte(start+"\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	for _, start := range []string{"0", "1"} {
+		ipv6Fixture(t)
+		prepare(start)
+		runIPv6Script(t, "start")
+		want := snapshot()
+
+		ipv6Fixture(t)
+		prepare(start)
+		done, err := applyIPv6Off()
+		if err != nil || !done {
+			t.Fatalf("fast path: %v %v", done, err)
+		}
+		if got := snapshot(); len(got) != len(want) {
+			t.Fatalf("start %s: %v, script %v", start, got, want)
+		} else {
+			for k, v := range want {
+				if got[k] != v {
+					t.Fatalf("start %s: %s = %q, script %q", start, k, got[k], v)
+				}
+			}
+		}
+		assertIPv6(t, false, false)
+	}
+
+	// Something to undo: the script runs.
+	ipv6Fixture(t)
+	run := os.Getenv("NANOKVM_IPV6_RUN")
+	if err := os.WriteFile(filepath.Join(run, "ipv6-static.eth0"), []byte("2001:db8::10/64 2001:db8::1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if done, err := applyIPv6Off(); done || err != nil {
+		t.Fatalf("static address left: %v %v", done, err)
+	}
+	t.Setenv("NANOKVM_DHCPV6_RUN", run)
+	if err := os.Remove(filepath.Join(run, "ipv6-static.eth0")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(run, "udhcpc6.wlan0.pid"), []byte("1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if done, err := applyIPv6Off(); done || err != nil {
+		t.Fatalf("DHCPv6 client left: %v %v", done, err)
 	}
 }
 
@@ -407,5 +476,54 @@ func TestIPv6RunsTheDHCPv6ClientWhileOn(t *testing.T) {
 	}
 	if calls := takeCalls(t, log); calls != "start eth0" {
 		t.Fatalf("client calls %q", calls)
+	}
+}
+
+// udhcpc6 removes its PID on SIGTERM, but without -R leaves the lease and
+// DNS behind. IPv6-off initialization must still run the cleanup script.
+func TestIPv6OffCleansLeaseWithoutClientPID(t *testing.T) {
+	for _, name := range ipv6Interfaces {
+		t.Run(name, func(t *testing.T) {
+			ipv6Fixture(t)
+			run := os.Getenv("NANOKVM_DHCPV6_RUN")
+			record := filepath.Join(run, "udhcpc6."+name+".addr")
+			if err := os.WriteFile(record, []byte("2001:db8::10/128\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if done, err := applyIPv6Off(); done || err != nil {
+				t.Fatalf("lease left without PID: %v %v", done, err)
+			}
+			bin := t.TempDir()
+			stubCommand(t, bin, "ip")
+			resolver := stubCommand(t, bin, "resolvconf")
+			t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+			helper, err := os.ReadFile("scripts/nanokvm-dhcpv6")
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(bin, "dhcpv6")
+			if err := os.WriteFile(path, helper, 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("NANOKVM_DHCPV6", path)
+			if err := applyIPv6(ipv6Policy{}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(record); !os.IsNotExist(err) {
+				t.Fatalf("lease record remains: %v", err)
+			}
+			data, err := os.ReadFile(resolver + ".log")
+			if err != nil || !strings.Contains(string(data), "-d nkos.dhcpv6."+name+" -f") {
+				t.Fatalf("DNS cleanup: %q %v", data, err)
+			}
+			data, err = os.ReadFile(filepath.Join(bin, "ip.log"))
+			if err != nil || !strings.Contains(string(data), "-6 addr del 2001:db8::10/128 dev "+name) {
+				t.Fatalf("address cleanup: %q %v", data, err)
+			}
+			assertIPv6(t, false, false)
+			if done, err := applyIPv6Off(); !done || err != nil {
+				t.Fatalf("cleaned state: %v %v", done, err)
+			}
+		})
 	}
 }

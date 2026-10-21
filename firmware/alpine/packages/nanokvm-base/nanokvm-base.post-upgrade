@@ -14,6 +14,10 @@ rc-update add loopback boot
 # udev coldplug loads the drivers; the kernel set the clock from the RTC.
 rc-update del hwdrivers boot >/dev/null 2>&1 || true
 [ ! -x /etc/init.d/osclock ] || rc-update add osclock boot
+# OpenRC builds its dependency tree from all init scripts at every boot (about
+# 2 s) unless savecache kept it at shutdown; it rebuilds the tree by itself
+# when a script or a setting changed since.
+[ ! -x /etc/init.d/savecache ] || rc-update add savecache shutdown
 
 # Boot time settings of Alpine services (NanoKVM boot order):
 # - sshd's depend() runs `sshd -G`, which waits for the kernel's random pool

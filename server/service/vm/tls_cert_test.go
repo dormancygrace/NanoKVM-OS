@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -345,5 +346,98 @@ func TestTlsStatusReportsAFallback(t *testing.T) {
 	}
 	if status.Data.Pending {
 		t.Fatal("pending without a readable configured pair")
+	}
+}
+
+// A full filesystem can accept staging the new key, then reject the certificate.
+// The reported failure must leave the old on-disk pair usable after restart.
+func TestTLSStorageFailurePreservesExistingPair(t *testing.T) {
+	f := newTLSFixture(t, "https")
+	oldCert, oldKey := tlsTestPair(t, "old.example", time.Now().Add(-time.Hour))
+	if rsp := f.upload(map[string][]byte{"cert": oldCert, "key": oldKey}); rsp.Code != 0 {
+		t.Fatalf("initial upload: %+v", rsp)
+	}
+	writer := stageCustomTLSFile
+	t.Cleanup(func() { stageCustomTLSFile = writer })
+	stageCustomTLSFile = func(path string, data []byte, mode os.FileMode) (string, error) {
+		if path == customCertPath {
+			return "", syscall.ENOSPC
+		}
+		return writer(path, data, mode)
+	}
+	cert, key := tlsTestPair(t, "new.example", time.Now().Add(-time.Hour))
+	if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != -2 {
+		t.Fatalf("storage failure was accepted: %+v", rsp)
+	}
+	pair, err := utils.LoadCertificatePair(customCertPath, customKeyPath)
+	if err != nil {
+		t.Fatalf("failed upload broke the previously installed pair: %v", err)
+	}
+	if pair.Leaf.Subject.CommonName != "old.example" {
+		t.Fatalf("failed upload changed certificate: %s", pair.Leaf.Subject.CommonName)
+	}
+	if f.servedName() != "old.example" {
+		t.Fatalf("served %q", f.servedName())
+	}
+}
+
+// Even an atomic write can report a directory-sync failure after the rename.
+// Restoring only writes that returned success would retain a mismatched pair.
+func TestTLSStorageFailureAfterRenameRestoresPreviousPair(t *testing.T) {
+	for _, failedFile := range []string{"key", "certificate"} {
+		t.Run(failedFile, func(t *testing.T) {
+			f := newTLSFixture(t, "https")
+			cert, key := tlsTestPair(t, "old.example", time.Now().Add(-time.Hour))
+			if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != 0 {
+				t.Fatal(rsp)
+			}
+			commit := commitCustomTLSFile
+			t.Cleanup(func() { commitCustomTLSFile = commit })
+			target := customKeyPath
+			if failedFile == "certificate" {
+				target = customCertPath
+			}
+			failed := false
+			commitCustomTLSFile = func(staged, path string) error {
+				err := commit(staged, path)
+				if err == nil && path == target && !failed {
+					failed = true
+					return syscall.EIO
+				}
+				return err
+			}
+			cert, key = tlsTestPair(t, "new.example", time.Now().Add(-time.Hour))
+			if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != -2 {
+				t.Fatal(rsp)
+			}
+			old, err := utils.LoadCertificatePair(customCertPath, customKeyPath)
+			if err != nil || old.Leaf.Subject.CommonName != "old.example" {
+				t.Fatalf("committed %s failure lost the previous pair: %v", failedFile, err)
+			}
+		})
+	}
+}
+
+func TestTLSFailedFirstUploadRemovesNewPrivateKey(t *testing.T) {
+	f := newTLSFixture(t, "https")
+	writer := stageCustomTLSFile
+	t.Cleanup(func() { stageCustomTLSFile = writer })
+	stageCustomTLSFile = func(path string, data []byte, mode os.FileMode) (string, error) {
+		if path == customCertPath {
+			return "", syscall.ENOSPC
+		}
+		return writer(path, data, mode)
+	}
+	cert, key := tlsTestPair(t, "new.example", time.Now().Add(-time.Hour))
+	if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != -2 {
+		t.Fatal(rsp)
+	}
+	for _, path := range []string{customKeyPath, customCertPath} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("failed first upload left %s: %v", path, err)
+		}
+	}
+	if f.servedName() != "localhost" || len(f.updates) != 0 {
+		t.Fatal("failed first upload changed the active certificate")
 	}
 }

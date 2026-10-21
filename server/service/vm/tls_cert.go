@@ -24,7 +24,14 @@ import (
 const maxCertificateUpload = 256 * 1024
 
 var (
-	tlsCertMu sync.Mutex
+	tlsCertMu           sync.Mutex
+	stageCustomTLSFile  = prepareCustomTLSFile
+	commitCustomTLSFile = func(staged, path string) error {
+		if err := os.Rename(staged, path); err != nil {
+			return err
+		}
+		return atomicfile.SyncDir(filepath.Dir(path))
+	}
 
 	// The uploaded pair; the configuration points here while a custom
 	// certificate is in use, the generated pair stays for the way back.
@@ -133,17 +140,27 @@ func (s *Service) UploadTlsCertificate(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "cannot read the configuration")
 		return
 	}
-	if err := storeCustomPair(certOut, keyOut); err != nil {
+	restore, err := storeCustomPair(certOut, keyOut)
+	if err != nil {
 		log.Errorf("failed to store the custom TLS certificate: %v", err)
 		rsp.ErrRsp(c, -2, "cannot store the certificate")
 		return
 	}
-	conf.Cert = config.Cert{Crt: customCertPath, Key: customKeyPath}
-	if err := updateTLS(conf.Proto, conf.Cert); err != nil {
+	nextCert := config.Cert{Crt: customCertPath, Key: customKeyPath}
+	if err := updateTLS(conf.Proto, nextCert); err != nil {
+		// A directory-sync error can follow a committed configuration rename.
+		// Restore its previous selection before removing/restoring the pair.
+		if configErr := updateTLS(conf.Proto, conf.Cert); configErr != nil {
+			err = errors.Join(err, fmt.Errorf("restore previous TLS configuration: %w", configErr))
+		}
+		if restoreErr := restore(); restoreErr != nil {
+			err = errors.Join(err, restoreErr)
+		}
 		log.Errorf("failed to point the configuration at the custom TLS certificate: %v", err)
 		rsp.ErrRsp(c, -2, "cannot update the configuration")
 		return
 	}
+	conf.Cert = nextCert
 	if conf.Proto == "https" {
 		if err := serverCertificate.Load(customCertPath, customKeyPath); err != nil {
 			log.Errorf("failed to activate the custom TLS certificate: %v", err)
@@ -155,16 +172,99 @@ func (s *Service) UploadTlsCertificate(c *gin.Context) {
 	rsp.OkRspWithData(c, tlsStatus(conf))
 }
 
-// storeCustomPair writes the key before the certificate, each atomically; the
-// certificate file never holds the key.
-func storeCustomPair(certPEM, keyPEM []byte) error {
+// storeCustomPair stages and syncs both files before replacing either one: a
+// full filesystem must not leave an old certificate paired with a new key.
+// Keep the previous bytes in memory for best-effort recovery of a commit error.
+// This handles reported I/O failures; two renames are not a power-loss transaction.
+// On success it returns restore, which puts the previous files back when a
+// later step of the upload fails.
+func storeCustomPair(certPEM, keyPEM []byte) (restore func() error, err error) {
 	if err := os.MkdirAll(filepath.Dir(customKeyPath), 0o700); err != nil {
-		return err
+		return nil, err
 	}
-	if err := atomicfile.Write(customKeyPath, keyPEM, 0o600); err != nil {
-		return err
+	files := []struct {
+		path, staged   string
+		data, previous []byte
+		mode           os.FileMode
+		existed        bool
+	}{
+		{path: customKeyPath, data: keyPEM, mode: 0o600},
+		{path: customCertPath, data: certPEM, mode: 0o644},
 	}
-	return atomicfile.Write(customCertPath, certPEM, 0o644)
+	defer func() {
+		for _, file := range files {
+			if file.staged != "" {
+				_ = os.Remove(file.staged)
+			}
+		}
+	}()
+	for i := range files {
+		old, err := os.ReadFile(files[i].path)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("read previous TLS file %s: %w", files[i].path, err)
+		}
+		files[i].previous, files[i].existed = old, err == nil
+	}
+	// restoreUpTo puts back the previous bytes (or absence) of files[0..last].
+	restoreUpTo := func(last int) error {
+		var errs []error
+		for j := last; j >= 0; j-- {
+			old := files[j]
+			var restoreErr error
+			if old.existed {
+				restoreErr = atomicfile.Write(old.path, old.previous, old.mode)
+			} else {
+				restoreErr = os.Remove(old.path)
+				if os.IsNotExist(restoreErr) {
+					restoreErr = nil
+				}
+			}
+			if restoreErr != nil {
+				errs = append(errs, fmt.Errorf("restore previous TLS file %s: %w", old.path, restoreErr))
+			}
+		}
+		return errors.Join(errs...)
+	}
+	for i := range files {
+		staged, err := stageCustomTLSFile(files[i].path, files[i].data, files[i].mode)
+		if err != nil {
+			return nil, fmt.Errorf("stage TLS file %s: %w", files[i].path, err)
+		}
+		files[i].staged = staged
+	}
+	for i, file := range files {
+		if err := commitCustomTLSFile(file.staged, file.path); err != nil {
+			// A directory-sync failure may be reported after rename committed:
+			// restore the failed write as well as every earlier replacement.
+			return nil, errors.Join(fmt.Errorf("write TLS file %s: %w", file.path, err), restoreUpTo(i))
+		}
+	}
+	return func() error { return restoreUpTo(len(files) - 1) }, nil
+}
+
+// prepareCustomTLSFile leaves a complete, synced replacement beside its target.
+// The caller removes it after commit or failure; it is not a retained backup.
+func prepareCustomTLSFile(path string, data []byte, mode os.FileMode) (name string, err error) {
+	file, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".pending-")
+	if err != nil {
+		return "", err
+	}
+	name = file.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(name)
+		}
+	}()
+	if err = file.Chmod(mode); err == nil {
+		_, err = file.Write(data)
+	}
+	if err == nil {
+		err = file.Sync()
+	}
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	return name, err
 }
 
 // DeleteTlsCertificate returns to the generated pair and removes the

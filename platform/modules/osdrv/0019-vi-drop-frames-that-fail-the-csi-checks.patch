@@ -48,10 +48,16 @@ bypass pipe exactly once:
   tasklet trigger could arm the DMA with the last published one. It is
   now refused with the state left idle.
 
+- After 30 recoveries without a good frame in between, the retrigger
+  stopped for good: no frame then came, so no error woke the handler
+  again, and capture stayed stopped until the stream restarted. A source
+  switching its resolution gives 30 errors in half a second; with only
+  MJPEG viewed nothing restarted the stream. The handler now waits
+  before the retrigger, 1, 2, 4, then 8 s, and restarts; a stream
+  stopped meanwhile is no longer its recovery.
+
 A wake that finds the handler flag set (VI_CB_RESET_ISP sets it before
-waking, so it starts no handler) holds nothing back. The retrigger still
-gives up after 30 recoveries without a good frame in between, as the
-vendor's; stream off and on starts again.
+waking, so it starts no handler) holds nothing back.
 
 DMA and over-maximum errors, which wake nothing, are unchanged. The YUV
 online and RAW paths are unchanged (NanoKVM captures YUV bypass offline).
@@ -186,7 +192,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	spin_lock_irqsave(&dq_lock, flags);
  	while (!list_empty(&dqbuf_q.list)) {
-@@ -7026,6 +7102,66 @@
+@@ -7026,6 +7102,68 @@
  	gOverflowInfo = NULL;
  }
  
@@ -240,20 +246,36 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
 +
 +/*
 + * The handler returns before its reset (the wait for the other stages timed
-+ * out, or the bridge abort did not finish): the device was not reset. Give
-+ * the pipe back, then clear the handler flag, which the vendor left set: with
-+ * it set, no later error would wake a handler again.
++ * out, or the bridge abort did not finish): the device was not reset. Clear
++ * the handler flag, which the vendor left set (with it set, no later error
++ * would wake a handler again), then give the pipe back.
 + */
 +static void nk_err_recovery_abandon(struct cvi_vi_dev *vdev, const enum cvi_isp_raw raw_num, int generation)
 +{
-+	nk_err_recovery_release(vdev, raw_num, generation);
++	/* The flag first: an error from here on wakes the next handler, which
++	 * takes the pipe over from this release. */
 +	atomic_set(&vdev->isp_err_handle_flag, 0);
++	nk_err_recovery_release(vdev, raw_num, generation);
 +}
 +
  static void _vi_err_retrig_preraw(struct cvi_vi_dev *vdev, const enum cvi_isp_raw err_raw_num)
  {
  	struct isp_ctx *ctx = &vdev->ctx;
-@@ -7053,7 +7189,8 @@
+@@ -7039,10 +7177,9 @@
+ 		if (!ctx->isp_pipe_enable[wait_fe])
+ 			continue;
+ 
+-		if (vdev->isp_err_times[wait_fe]++ > 30) {
+-			vi_pr(VI_ERR, "raw_%d too much errors happened\n", wait_fe);
+-			continue;
+-		}
++		/* The vendor stopped retriggering here for good past 30 errors;
++		 * _vi_err_handler backs off before the retrigger instead. */
++		vdev->isp_err_times[wait_fe]++;
+ 
+ 		vi_pr(VI_WARN, "fe_%d isp_pre_trig retry %d times\n", wait_fe, vdev->isp_err_times[wait_fe]);
+ 
+@@ -7053,7 +7190,8 @@
  			for (fe_chn = ISP_FE_CH0; fe_chn < fe_max; fe_chn++) {
  				u8 buf_chn = (wait_fe == ISP_PRERAW_A) ? fe_chn : vdev->ctx.rawb_chnstr_num + fe_chn;
  
@@ -263,7 +285,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  					vdev->qbuf_num[buf_chn]++;
  
  				if (cvi_isp_rdy_buf_empty(vdev, buf_chn)) {
-@@ -7061,7 +7198,7 @@
+@@ -7061,7 +7199,7 @@
  					continue;
  				}
  
@@ -272,7 +294,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  			}
  		} else { //rgb sensor
  			wait_fe = (ctx->isp_pipe_cfg[wait_fe].is_mux
-@@ -7082,6 +7219,8 @@
+@@ -7082,6 +7220,8 @@
  	struct isp_ctx *ctx = &vdev->ctx;
  	uintptr_t tnr = ctx->phys_regs[ISP_BLK_ID_TNR];
  	u8 wait_fe = ISP_PRERAW_A, count = 10;
@@ -281,7 +303,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	//Stop pre/postraw trigger go
  	atomic_set(&vdev->isp_err_handle_flag, 1);
-@@ -7160,12 +7299,15 @@
+@@ -7160,12 +7300,15 @@
  		} else {
  			vi_pr(VI_ERR, "isp status post(%d)\n", atomic_read(&vdev->postraw_state));
  		}
@@ -298,7 +320,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	//step 4 : isp sw reset and vip reset pull up
  	isp_frm_err_handler(ctx, err_raw_num, 4);
-@@ -7186,8 +7328,11 @@
+@@ -7186,8 +7329,11 @@
  	isp_frm_err_handler(ctx, err_raw_num, 5);
  
  	//step 6 : wait ISP idle
@@ -311,7 +333,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  
  	//step 7 : reset sw state to idle
  	if (_is_be_post_online(ctx)) {
-@@ -7228,6 +7373,10 @@
+@@ -7228,6 +7374,10 @@
  	//step 10 : show overflow info
  	_vi_show_debug_info();
  
@@ -322,8 +344,28 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	//Let postraw trigger go
  	atomic_set(&vdev->isp_err_handle_flag, 0);
  
-@@ -7237,6 +7386,8 @@
+@@ -7235,8 +7385,28 @@
+ 		_postraw_clear_inbuf(vdev);
+ 	}
  
++	/* Past 30 recoveries without a good frame in between the vendor's
++	 * retrigger gave up for good: no frame then came, so no error woke a
++	 * handler again, and capture stayed stopped until the stream restarted
++	 * (a source switching its resolution gives 30 errors in half a second).
++	 * Wait instead, still owning the pipe: 1, 2, 4, then 8 s, so a source
++	 * that stays wrong logs its errors a few times a minute at most. A
++	 * stream stopped (and perhaps started again) meanwhile is no longer
++	 * this recovery's. */
++	if (vdev->isp_err_times[err_raw_num] > 30) {
++		u32 backoff = min_t(u32, vdev->isp_err_times[err_raw_num] - 31, 3);
++
++		if (backoff == 0)
++			vi_pr(VI_ERR, "raw_%d too much errors happened, retrying at up to 8 s\n", err_raw_num);
++		msleep(1000 << backoff);
++		if (atomic_read(&nk_err_recovering[err_raw_num]) != nk_generation)
++			return;
++	}
++
  	//Let preraw trgger, err_handler we stop all dev
  	_vi_err_retrig_preraw(vdev, err_raw_num);
 +
@@ -331,7 +373,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  }
  
  static int _vi_err_handler_thread(void *arg)
-@@ -7271,6 +7422,7 @@
+@@ -7271,6 +7441,7 @@
  
  static inline void vi_err_wake_up_th(struct cvi_vi_dev *vdev, enum cvi_isp_raw err_raw)
  {
@@ -339,7 +381,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	if (atomic_read(&vdev->isp_err_handle_flag) == 1) {
  		vi_pr(VI_WARN, "work on err_handler\n");
  		if (vdev->vi_th[E_VI_TH_ERR_HANDLER].flag != err_raw + 1) {
-@@ -7283,6 +7435,7 @@
+@@ -7283,6 +7454,7 @@
  	//Stop pre/postraw trigger go
  	atomic_set(&vdev->isp_err_handle_flag, 1);
  
@@ -347,7 +389,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	vdev->vi_th[E_VI_TH_ERR_HANDLER].flag = err_raw + 1;
  
  	wake_up(&vdev->vi_th[E_VI_TH_ERR_HANDLER].wq);
-@@ -7845,13 +7998,37 @@
+@@ -7845,13 +8017,37 @@
  
  	atomic_set(&vdev->pre_fe_state[raw_num][hw_chn_num], ISP_PRERAW_IDLE);
  
@@ -360,10 +402,12 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
 +		vi_pr(VI_DBG, "fe_%d chn_num_%d frame end during error recovery\n", raw_num, buf_chn);
 +		return;
 +	}
-+
+ 
+-	cvi_isp_dqbuf_list(vdev, vdev->pre_fe_frm_num[raw_num][hw_chn_num], raw_num, buf_chn);
 +	if (atomic_xchg(&nk_frame_damaged[raw_num], 0)) {
 +		unsigned long flags;
-+
+ 
+-	vdev->vi_th[E_VI_TH_EVENT_HANDLER].flag = raw_num + 1;
 +		/* Failed the CSI checks: the buffer stays first in the ready
 +		 * queue and takes the next frame. Its trigger counted it out
 +		 * of qbuf_num, and the trigger below counts it again: give
@@ -376,14 +420,12 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
 +	} else {
 +		atomic_set(&nk_buf_out[raw_num][hw_chn_num], 0);
 +		cvi_isp_rdy_buf_remove(vdev, buf_chn);
- 
--	cvi_isp_dqbuf_list(vdev, vdev->pre_fe_frm_num[raw_num][hw_chn_num], raw_num, buf_chn);
++
 +		cvi_isp_dqbuf_list(vdev, vdev->pre_fe_frm_num[raw_num][hw_chn_num], raw_num, buf_chn);
  
--	vdev->vi_th[E_VI_TH_EVENT_HANDLER].flag = raw_num + 1;
-+		vdev->vi_th[E_VI_TH_EVENT_HANDLER].flag = raw_num + 1;
- 
 -	wake_up(&vdev->vi_th[E_VI_TH_EVENT_HANDLER].wq);
++		vdev->vi_th[E_VI_TH_EVENT_HANDLER].flag = raw_num + 1;
++
 +		wake_up(&vdev->vi_th[E_VI_TH_EVENT_HANDLER].wq);
 +	}
  

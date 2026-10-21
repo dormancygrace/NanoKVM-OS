@@ -53,6 +53,7 @@ typedef int8_t s8; typedef uint8_t u8; typedef uint32_t u32; typedef uint64_t u6
 static void vi_pr_hook(int level);
 #define vi_pr(level, ...) vi_pr_hook(level)
 #define unlikely(x) (x)
+#define min_t(t, a, b) ((t)(a) < (t)(b) ? (t)(a) : (t)(b))
 typedef struct { int counter; } atomic_t;
 static void atomic_set(atomic_t *v, int i) { v->counter = i; }
 static int atomic_read(const atomic_t *v) { return v->counter; }
@@ -129,6 +130,20 @@ static u32 _is_fe_be_online(struct isp_ctx *ctx) { return !ctx->is_offline_be &&
 static u32 _is_be_post_online(struct isp_ctx *ctx) { return ctx->is_offline_be && !ctx->is_offline_postraw; }
 static void ispblk_dma_set_sw_mode(struct isp_ctx *c, int id, bool on) { (void)c; (void)id; (void)on; }
 static void _vi_show_debug_info(void);
+/* The handler's back-off: counted, not slept; it can model the stream
+ * stopping and starting meanwhile. */
+static int sleeps, restart_in_sleep;
+static void restart_stream(void);
+static unsigned int slept_ms;
+static void msleep(unsigned int ms)
+{
+	slept_ms += ms;
+	sleeps++;
+	if (restart_in_sleep) {
+		restart_in_sleep = 0;
+		restart_stream();
+	}
+}
 static void _postraw_clear_inbuf(struct cvi_vi_dev *vdev) { (void)vdev; }
 static void _pre_hw_enque(struct cvi_vi_dev *vdev, int raw, int chn) { (void)vdev; (void)raw; (void)chn; assert(!"RGB path"); }
 struct _isp_dqbuf_n { u8 raw_id; u8 chn_id; u32 frm_num; struct timespec64 timestamp; struct list_head list; };
@@ -286,6 +301,27 @@ static void vi_pr_hook(int level)
 	tasklet_pending = 1;
 	run_tasklet();
 }
+static void give_back(void);
+/* vi_stop_streaming (its queue and nk_ state reset, checked in the source)
+ * and a start with the three buffers. */
+static void restart_stream(void)
+{
+	while (!list_empty(&d.qbuf_list[0])) {
+		struct cvi_isp_buf *b = list_first_entry(&d.qbuf_list[0], struct cvi_isp_buf, list);
+		list_del_init(&b->list); free(b);
+	}
+	d.qbuf_num[0] = 0;
+	atomic_set(&nk_frame_damaged[0], 0);
+	atomic_set(&nk_err_recovering[0], 0);
+	atomic_set(&nk_eof_held[0][0], 0);
+	atomic_set(&nk_buf_out[0][0], 0);
+	atomic_set(&d.pre_fe_state[0][0], ISP_PRERAW_IDLE);
+	hw_armed = 0;
+	assert(published() == 0);
+	for (int i = 0; i < 3; i++)
+		give_back();
+	assert(_isp_yuv_bypass_trigger(&d, ISP_PRERAW_A, 0) == 0);
+}
 /* An error while a trigger runs, once the handler flag is clear. */
 static int trigger_error;
 static void error_at_trigger(void)
@@ -439,6 +475,19 @@ int main(void)
 	eof_irq(); assert(published() == 0);
 	err_thread(); recovered(); good();
 	trigger_hook = NULL;
+	/* Errors without a good frame in between (a source changing its
+	 * resolution): past 30 in a row the retrigger waits, and still restarts. */
+	sleeps = 0; slept_ms = 0;
+	for (int i = 0; i < 35; i++) {
+		csi_error(); err_thread(); recovered();
+	}
+	assert(sleeps == 4 && slept_ms == 1000 + 2000 + 4000 + 8000);
+	/* The stream stops and starts while the handler waits: the new stream's
+	 * buffer is not counted back, and its own trigger is the only one. */
+	csi_error(); restart_in_sleep = 1; err_thread();
+	assert(sleeps == 5 && !restart_in_sleep);
+	invariant(); assert(hw_armed && triggers_since_reset == 1);
+	good();
 	/* Repeated errors with the thread running behind: no count drifts. */
 	for (int i = 0; i < 40; i++) {
 		csi_error();

@@ -138,7 +138,7 @@ func TestRemoteAccessPreparationFailurePreservesSettingsAndRunningService(t *tes
 		return nil, nil
 	}
 	called := false
-	s.ensureUSB = func(audio bool) error {
+	s.enableUSB = func(audio bool) error {
 		called = true
 		if !audio {
 			t.Error("sound must default to enabled")
@@ -177,7 +177,9 @@ func TestRestartsAndUnrelatedSavesKeepUserUSBComposition(t *testing.T) {
 	s := NewService(b)
 	s.run = func(context.Context, string, ...string) ([]byte, error) { return nil, nil }
 	calls := 0
+	s.enableUSB = func(bool) error { calls++; return nil }
 	s.ensureUSB = func(bool) error { calls++; return nil }
+	s.restoreUSB = func() error { calls++; return nil }
 
 	// The daemon asks on every start, e.g. after boot or a package upgrade.
 	_ = s.PrepareUSB()
@@ -188,6 +190,73 @@ func TestRestartsAndUnrelatedSavesKeepUserUSBComposition(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("USB composition changed %d times without turning RustDesk on", calls)
+	}
+}
+
+// Turning RustDesk on switches USB to its preset, turning its sound on
+// while it runs adds audio, and turning it off restores; each once.
+func TestTurningRustDeskOnAndOffSwitchesUSB(t *testing.T) {
+	temporaryConfig(t)
+	current := defaultConfig()
+	current.Password = "stored-pass"
+	if err := writeConfig(current); err != nil {
+		t.Fatal(err)
+	}
+	media, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer media.Close()
+	b := NewBridge()
+	b.media = media
+	s := NewService(b)
+	s.upstreamFile = filepath.Join(t.TempDir(), "upstream.json")
+	if err := os.WriteFile(s.upstreamFile, []byte(`{"features":{"audio_settings":true}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name == "rc-update" && args[0] == "show" {
+			return []byte(Package + " | default\n"), nil
+		}
+		return nil, nil
+	}
+	var calls []string
+	s.enableUSB = func(audio bool) error { calls = append(calls, fmt.Sprintf("enable %t", audio)); return nil }
+	s.ensureUSB = func(audio bool) error { calls = append(calls, fmt.Sprintf("ensure %t", audio)); return nil }
+	s.restoreUSB = func() error { calls = append(calls, "restore"); return nil }
+
+	off := false
+	on := current
+	on.Enabled, on.AudioEnabled = true, &off
+	if err := s.Configure(on); err != nil {
+		t.Fatal(err)
+	}
+	withSound := on
+	sound := true
+	withSound.AudioEnabled = &sound
+	if err := s.Configure(withSound); err != nil {
+		t.Fatal(err)
+	}
+	disabled := withSound
+	disabled.Enabled = false
+	if err := s.Configure(disabled); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(calls, ", ") != "enable false, ensure true, restore" {
+		t.Fatalf("USB calls: %v", calls)
+	}
+
+	// a failed restore leaves RustDesk off and says so
+	if err := s.Configure(on); err != nil {
+		t.Fatal(err)
+	}
+	s.restoreUSB = func() error { return errors.New("injected") }
+	err = s.Configure(disabled)
+	if err == nil || !strings.Contains(err.Error(), "RustDesk is off") {
+		t.Fatalf("restore error: %v", err)
+	}
+	if got, _ := readConfig(); got.Enabled {
+		t.Fatal("a failed USB restore kept RustDesk on")
 	}
 }
 

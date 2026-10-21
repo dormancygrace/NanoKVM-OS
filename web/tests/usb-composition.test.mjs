@@ -6,6 +6,7 @@ import {
   defaultUsbIdentity,
   endpointUsage,
   fitsBudget,
+  hasUsbDevice,
   identityProblem,
   matchingIdentityPreset,
   matchingPreset,
@@ -51,6 +52,20 @@ test('the identity is part of the composition and has its own presets', () => {
   assert.equal(identityProblem({ ...generic, product: ' padded' }), 'string');
   assert.equal(identityProblem({ ...generic, manufacturer: 'ünïcode' }), 'string');
   assert.equal(identityProblem({ ...generic, manufacturer: 'x'.repeat(127) }), 'string');
+});
+
+test('the serial number is part of the identity, but not of its presets', () => {
+  const generic = usbIdentityPresets.find((item) => item.id === 'generic').identity;
+  const serial = { ...generic, serialNumber: 'KVM-0001' };
+  // empty and missing are both the chip UID
+  assert.equal(sameIdentity(generic, { ...generic, serialNumber: '' }), true);
+  assert.equal(sameIdentity(generic, serial), false);
+  assert.equal(matchingIdentityPreset(serial), 'generic');
+  assert.equal(matchingIdentityPreset({ ...defaultUsbIdentity, serialNumber: 'x' }), 'nanokvm');
+  assert.equal(identityProblem(serial), undefined);
+  assert.equal(identityProblem({ ...generic, serialNumber: '' }), undefined);
+  for (const bad of ['has space', 'quo"te', '$(id)', 'x'.repeat(127)])
+    assert.equal(identityProblem({ ...generic, serialNumber: bad }), 'serial', bad);
 });
 
 const status = {
@@ -180,4 +195,11 @@ test('the compatibility profile is a switch: it drops network, disk and audio, a
     assert.equal(toggleDevice(compatibility, name).mode, 'normal');
   assert.equal(toggleDevice(compatibility, 'serial').mode, 'hid-only');
   assert.equal(matchingPreset(setCompatibilityProfile(compatibility, false)), 'control');
+});
+
+test('an empty composition turns USB off', () => {
+  const off = Object.fromEntries(usbDevices.map((name) => [name, false]));
+  assert.equal(hasUsbDevice({ ...off, mode: 'normal' }), false);
+  assert.equal(hasUsbDevice({ ...off, serial: true, mode: 'normal' }), true);
+  for (const { composition } of usbPresets) assert.equal(hasUsbDevice(composition), true);
 });

@@ -72,7 +72,11 @@ type Service struct {
 	upstreamFile string
 	sourceFile   string
 	startedFile  string
-	ensureUSB    func(bool) error
+	// USB for RustDesk: its preset when it turns on, audio added when its
+	// sound turns on while it runs, the previous composition when it turns off
+	enableUSB  func(bool) error
+	ensureUSB  func(bool) error
+	restoreUSB func() error
 
 	// Package facts only change with the apk database, world or indexes, so
 	// status polling reuses them until apkStamp changes or a package action runs.
@@ -124,7 +128,7 @@ var apkStatePaths = []string{
 }
 
 func NewService(b *Bridge) *Service {
-	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", startedFile: "/run/openrc/started/" + Package, ensureUSB: vm.EnsureRemoteAccessUSB,
+	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", startedFile: "/run/openrc/started/" + Package, enableUSB: vm.EnableRemoteAccessUSB, ensureUSB: vm.EnsureRemoteAccessUSB, restoreUSB: vm.RestoreUSBAfterRemoteAccess,
 		apkStamp: func() string { return apkStamp(apkStatePaths) }, repositoryWait: 250 * time.Millisecond}
 	b.mu.Lock()
 	b.prepareUSB = s.PrepareUSB
@@ -136,8 +140,8 @@ func audioRequested(c Config) bool { return c.AudioEnabled == nil || *c.AudioEna
 
 // Called once by the enabled daemon before it accepts remote connections,
 // including after cold boot, package upgrade and service restarts. It leaves
-// the USB composition alone: USB functions are enabled when the user turns
-// RustDesk or its sound on (Configure), and a later choice in USB settings,
+// the USB composition alone: USB changes when the user turns RustDesk or its
+// sound on or RustDesk off (Configure), and a later choice in USB settings,
 // such as turning USB off, must survive restarts.
 func (s *Service) PrepareUSB() error {
 	c, err := readConfig()
@@ -749,13 +753,21 @@ func (s *Service) configureLocked(candidate Config) error {
 	if candidate.AudioEnabled != nil && !s.supportsAudioSettings() {
 		return errors.New("update the RustDesk add-on before configuring sound transmission")
 	}
-	// Only turning RustDesk or its sound on changes USB; saving other settings
-	// keeps what the user chose in USB settings.
-	turningOn := candidate.Enabled && (!current.Enabled || audioRequested(candidate) && !audioRequested(current))
-	if turningOn {
-		if err = s.ensureUSB(audioRequested(candidate)); err != nil {
-			return fmt.Errorf("prepare USB for RustDesk: %w", err)
-		}
+	// Only turning RustDesk on or off, or its sound on, changes USB; saving
+	// other settings keeps what the user chose in USB settings. Turning on
+	// switches to the RustDesk preset and turning off puts back what it
+	// replaced.
+	turningOn := candidate.Enabled && !current.Enabled
+	soundOn := candidate.Enabled && current.Enabled && audioRequested(candidate) && !audioRequested(current)
+	turningOff := !candidate.Enabled && current.Enabled
+	switch {
+	case turningOn:
+		err = s.enableUSB(audioRequested(candidate))
+	case soundOn:
+		err = s.ensureUSB(true)
+	}
+	if err != nil {
+		return fmt.Errorf("prepare USB for RustDesk: %w", err)
 	}
 	if _, err = s.command("rc-service", Package, "status"); err == nil {
 		if _, err = s.command("rc-service", Package, "stop"); err != nil {
@@ -783,6 +795,12 @@ func (s *Service) configureLocked(candidate Config) error {
 			if field == Package {
 				_, err = s.command("rc-update", "del", Package, "default")
 				break
+			}
+		}
+		// RustDesk is off whatever happens to USB
+		if err == nil && turningOff {
+			if restoreErr := s.restoreUSB(); restoreErr != nil {
+				err = fmt.Errorf("RustDesk is off; restore USB: %w", restoreErr)
 			}
 		}
 	}

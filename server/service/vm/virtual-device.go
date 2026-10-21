@@ -82,16 +82,18 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 		Identity: proto.USBIdentity{
 			VendorID: identity.VendorID, ProductID: identity.ProductID,
 			Manufacturer: identity.Manufacturer, Product: identity.Product,
-			SerialNumber: gadgetSerialNumberAt(gadgetRoot), Default: s.identity.isDefault(),
+			SerialNumber: identity.SerialNumber, ChipSerialNumber: chipSerialNumber(),
+			Default: s.identity.isDefault(),
 		},
 	}
 }
 
 func (s usbComposition) revision() string {
 	identity := s.identity.normalized()
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s:%t",
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s:%t:%t:%t:%t:%t:%t:%t:%s:%s:%s:%s:%t:%s",
 		s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio,
-		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product, s.userDisk))))
+		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product, s.userDisk,
+		identity.SerialNumber))))
 }
 
 func (s *Service) SetUSBComposition(c *gin.Context) {

@@ -1209,7 +1209,9 @@
       "confirmDisableDescription": "The computer loses the NanoKVM keyboard, mouse, storage, audio and USB network until USB is turned on again here. Internet sharing over USB stops too. RustDesk loses keyboard and mouse control.",
       "off": "Off",
       "title": "USB composition",
-      "enabled": "USB devices",
+      "gadget": "USB Gadget",
+      "compositionMenu": "Composition",
+      "identityMenu": "Identity (VID/PID)",
       "budgetTitle": "Endpoint budget",
       "budgetExceeded": "This selection exceeds the USB endpoint budget.",
       "presetLabel": "Composition",
@@ -1238,13 +1240,15 @@
           "productId": "Product ID",
           "manufacturer": "Manufacturer",
           "product": "Product",
-          "serialNumber": "Serial number (chip UID, fixed)"
+          "serialNumber": "Serial number"
         },
         "invalid": {
           "id": "IDs are four hexadecimal digits like 0x1234, not 0x0000.",
-          "string": "Names are 1 to 126 printable ASCII characters without leading or trailing spaces."
+          "string": "Names are 1 to 126 printable ASCII characters without leading or trailing spaces.",
+          "serial": "A serial number is 1 to 126 letters, digits, dots, dashes or underscores."
         },
-        "idWarning": "A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs)."
+        "idWarning": "A vendor or product ID other than the factory one is yours to answer for. Linux hosts set up with the serial console helper no longer match the NanoKVM (its udev rule names the IDs).",
+        "serialHint": "Empty: the chip UID. Letters, digits, dots, dashes and underscores. Linux hosts set up with the serial console helper match it: run its apply again after a change."
       },
       "userDisk": {
         "title": "User disk",
@@ -1336,7 +1340,7 @@
           "description": "Keyboard, both mouse modes and the virtual disk: what a new device starts with. No network adapter appears on the computer."
         },
         "standard": {
-          "title": "KVM + USB network",
+          "title": "KVM + network",
           "description": "Keyboard, both mouse modes, virtual disk and the USB network adapter. Leaves no room for the serial console."
         },
         "console": {
@@ -1345,11 +1349,11 @@
         },
         "headless": {
           "title": "Headless server",
-          "description": "The serial console and the virtual disk with its helper disk, which carries the script that sets up the serial login, so the server needs no network. No keyboard or mouse appears on the computer; the remote desktop adds keyboard, mice and audio back when it is enabled."
+          "description": "The serial console and the virtual disk with its helper disk, which carries the script that sets up the serial login, so the server needs no network. No keyboard or mouse appears on the computer. Enabling RustDesk switches to its preset and disconnects the serial console."
         },
         "remote": {
-          "title": "Remote desktop",
-          "description": "Keyboard, both mouse modes, virtual disk and USB audio: what RustDesk uses. The computer gets a second speaker."
+          "title": "RustDesk",
+          "description": "Keyboard, both mouse modes, virtual disk and USB audio: what turning RustDesk on switches to, and turning it off goes back from. The computer gets a second speaker."
         },
         "control": {
           "title": "Keyboard and mouse only",
@@ -1803,7 +1807,7 @@
       "open": "Open management",
       "settings": "RustDesk",
       "keepPassword": "Leave empty to keep the current password",
-      "inputDefaults": "Enabling remote access automatically enables USB keyboard and absolute/relative mouse.",
+      "inputDefaults": "Turning remote access on switches USB to the RustDesk composition (keyboard, both mouse modes, virtual disk and, with sound, USB audio); turning it off restores the previous one, unless it was changed in the meantime.",
       "transmitAudio": "Transmit sound",
       "audioHint": "Enables USB audio automatically. Select NanoKVM as the sound output on the connected computer.",
       "audioMuted": "Sound transmission through RustDesk is disabled.",

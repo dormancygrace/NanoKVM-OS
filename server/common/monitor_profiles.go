@@ -43,9 +43,9 @@ var widerMonitorRates = map[uint16][]int{
 }
 
 // slowWiderMonitorRates lists the 16:10 and 21:9 rates of the LT6911C and
-// LT6911D, which are measured up to 1080p60 only: the profiles whose pixel
-// clock stays within its 148.5 MHz (scripts/build-wide-monitor-edids.py). Not
-// yet tried on those receivers.
+// LT6911D, which are measured up to 1080p60 only: the two sizes near
+// 1920x1080 at the rates within its 148.5 MHz pixel clock
+// (scripts/build-wide-monitor-edids.py). Not yet tried on those receivers.
 var slowWiderMonitorRates = map[uint16][]int{
 	1200: {50, 30},
 	2560: {30},

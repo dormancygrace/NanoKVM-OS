@@ -33,8 +33,9 @@ PROFILES = {
 # The highest pixel clock any of them may use (MHz), the LT6911UXC input limit
 # the 16:9 profiles also respect.
 MAX_CLOCK_MHZ = 270
-# The pixel clock of 1080p60 (MHz): the LT6911C and LT6911D take the profiles
-# at or below it (slowWiderMonitorRates in server/common/monitor_profiles.go).
+# The pixel clock of 1080p60 (MHz): the LT6911C and LT6911D take the sizes
+# near 1920x1080 at the rates within it (slowWiderMonitorRates in
+# server/common/monitor_profiles.go).
 SLOW_RECEIVER_CLOCK_MHZ = 148.5
 WIDTH_MM = 600
 

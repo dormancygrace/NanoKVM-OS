@@ -2544,7 +2544,16 @@ func TestAcceptAggressiveNomination(t *testing.T) { //nolint:cyclop
 			}()
 			require.NoError(t, bAgent.OnConnectionStateChange(bNotifier))
 
-			connect(t, aAgent, bAgent)
+			gatherAndExchangeCandidates(t, aAgent, bAgent)
+			// AddRemoteCandidate queues work asynchronously. Finish signaling
+			// before Dial, otherwise an early check can create a prflx pair
+			// whose preserved priority ignores the candidate edits below.
+			require.Eventually(t, func() bool {
+				aRemote, aErr := aAgent.GetRemoteCandidates()
+				bRemote, bErr := bAgent.GetRemoteCandidates()
+				return aErr == nil && bErr == nil && len(aRemote) == 3 && len(bRemote) == 1
+			}, time.Second, time.Millisecond)
+			connectWithGatheredCandidates(t, aAgent, bAgent)
 
 			// Ensure pair selected
 			// Note: this assumes ConnectionStateConnected is thrown after selecting the final pair
@@ -2569,45 +2578,63 @@ func TestAcceptAggressiveNomination(t *testing.T) { //nolint:cyclop
 			bcandidates, err = bAgent.GetLocalCandidates()
 			require.NoError(t, err)
 
-			for _, cand := range bcandidates {
-				if cand != bAgent.getSelectedPair().Local { //nolint:nestif
-					if expectNewSelectedCandidate == nil {
-					expected_change_priority:
-						for _, candidates := range aAgent.remoteCandidates {
-							for _, candidate := range candidates {
-								if candidate.Equal(cand) {
-									if tc.useHigherPriority {
-										candidate.(*CandidateHost).priorityOverride += 1000 //nolint:forcetypeassert
-									} else {
-										candidate.(*CandidateHost).priorityOverride -= 1000 //nolint:forcetypeassert
-									}
+			require.NoError(t, aAgent.loop.Run(aAgent.loop, func(context.Context) {
+				for _, cand := range bcandidates {
+					if cand != bAgent.getSelectedPair().Local { //nolint:nestif
+						if expectNewSelectedCandidate == nil {
+						expected_change_priority:
+							for _, candidates := range aAgent.remoteCandidates {
+								for _, candidate := range candidates {
+									if candidate.Equal(cand) {
+										if tc.useHigherPriority {
+											candidate.(*CandidateHost).priorityOverride += 1000 //nolint:forcetypeassert
+										} else {
+											candidate.(*CandidateHost).priorityOverride -= 1000 //nolint:forcetypeassert
+										}
 
-									break expected_change_priority
+										break expected_change_priority
+									}
 								}
 							}
-						}
-						if tc.isExpectedToSwitch {
-							expectNewSelectedCandidate = cand
+							if tc.isExpectedToSwitch {
+								expectNewSelectedCandidate = cand
+							} else {
+								expectNewSelectedCandidate = aAgent.getSelectedPair().Remote
+							}
 						} else {
-							expectNewSelectedCandidate = aAgent.getSelectedPair().Remote
-						}
-					} else {
-						// a smaller change for other candidates other the new expected one
-					change_priority:
-						for _, candidates := range aAgent.remoteCandidates {
-							for _, candidate := range candidates {
-								if candidate.Equal(cand) {
-									if tc.useHigherPriority {
-										candidate.(*CandidateHost).priorityOverride += 500 //nolint:forcetypeassert
-									} else {
-										candidate.(*CandidateHost).priorityOverride -= 500 //nolint:forcetypeassert
-									}
+							// a smaller change for other candidates other the new expected one
+						change_priority:
+							for _, candidates := range aAgent.remoteCandidates {
+								for _, candidate := range candidates {
+									if candidate.Equal(cand) {
+										if tc.useHigherPriority {
+											candidate.(*CandidateHost).priorityOverride += 500 //nolint:forcetypeassert
+										} else {
+											candidate.(*CandidateHost).priorityOverride -= 500 //nolint:forcetypeassert
+										}
 
-									break change_priority
+										break change_priority
+									}
 								}
 							}
 						}
+
 					}
+				}
+
+				selected := aAgent.getSelectedPair()
+				for _, pair := range aAgent.checklist {
+					if pair == selected {
+						continue
+					}
+					got, baseline := pair.priority(), selected.priority()
+					if (tc.useHigherPriority && got <= baseline) || (!tc.useHigherPriority && got >= baseline) {
+						t.Errorf("invalid test priorities: alternative=%d selected=%d higher=%v", got, baseline, tc.useHigherPriority)
+					}
+				}
+			}))
+			for _, cand := range bcandidates {
+				if cand != bAgent.getSelectedPair().Local {
 					_, err = cand.writeTo(buildMsg(stun.ClassRequest, aAgent.localUfrag+":"+aAgent.remoteUfrag, aAgent.localPwd, cand.Priority()).Raw, bAgent.getSelectedPair().Remote)
 					require.NoError(t, err)
 				}

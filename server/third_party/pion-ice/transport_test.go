@@ -236,6 +236,12 @@ func connect(tb testing.TB, aAgent, bAgent *Agent) (*Conn, *Conn) {
 	tb.Helper()
 	gatherAndExchangeCandidates(tb, aAgent, bAgent)
 
+	return connectWithGatheredCandidates(tb, aAgent, bAgent)
+}
+
+func connectWithGatheredCandidates(tb testing.TB, aAgent, bAgent *Agent) (*Conn, *Conn) {
+	tb.Helper()
+
 	accepted := make(chan struct{})
 	var aConn *Conn
 

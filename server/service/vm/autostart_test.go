@@ -109,9 +109,7 @@ func TestRunAutostartOncePerBootWithLogAndStatus(t *testing.T) {
 		t.Fatalf("ran %q times", string(data))
 	}
 	waitForAutostartLog(t, "ok.sh", root+"\n")
-	if info, err := os.Stat(autostartBase("loud.sh") + ".log"); err != nil || info.Size() != autostartLogLimit {
-		t.Fatalf("loud.sh log size %v, %v", info, err)
-	}
+	waitForAutostartLog(t, "loud.sh", strings.Repeat("x", autostartLogLimit))
 	status := autostartStatus([]string{"ok.sh", "loud.sh", "never.sh"})
 	if status["ok.sh"] != "exited 3" || status["loud.sh"] != "exited 0" || status["never.sh"] != "" {
 		t.Fatalf("status %v", status)

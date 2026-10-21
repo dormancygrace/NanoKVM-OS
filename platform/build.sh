@@ -7,7 +7,7 @@
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08: cross toolchain, host tools, initramfs userland
-#   kernel     Linux 7.2.10 with kernel/*.patch and kernel/config
+#   kernel     Linux 7.2.12 with kernel/*.patch and kernel/config
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
 #   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
@@ -104,10 +104,10 @@ version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alp
 # Official Alpine packages.
 image_version=${NANOKVM_IMAGE_VERSION:-$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")}
 profile=stock
-release=7.2.10-nanokvm-os-r5
+release=7.2.12-nanokvm-os-r5
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
-# is the upstream Linux 7.2.10 release time.
-kernel_timestamp='Sun Oct 11 13:27:50 UTC 2026'
+# is the upstream Linux 7.2.12 release date (00:00 UTC).
+kernel_timestamp='Wed Oct 21 00:00:00 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
 isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
@@ -268,8 +268,8 @@ toolchain() {
 kernel() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
-    tar -xf "$dl/linux-7.2.10.tar.xz" -C "$out/kernel"
-    mv "$out/kernel/linux-7.2.10" "$ksrc"
+    tar -xf "$dl/linux-7.2.12.tar.xz" -C "$out/kernel"
+    mv "$out/kernel/linux-7.2.12" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"

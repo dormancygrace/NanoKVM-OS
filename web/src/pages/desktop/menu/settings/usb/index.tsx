@@ -46,11 +46,11 @@ function readPreviousComposition(): UsbComposition | undefined {
   }
 }
 
-// Which part a panel shows: all of it (Settings), or the composition or the
-// identity (the two submenus of the toolbar's USB Gadget menu).
-export type UsbPart = 'all' | 'composition' | 'identity';
+// Which part a panel shows: the composition (the toolbar's quick menu and
+// Settings > USB Gadget > Composition) or the identity (its other page).
+export type UsbPart = 'composition' | 'identity';
 
-export const Usb = ({ part = 'all' }: { part?: UsbPart }) => {
+export const Usb = ({ part }: { part: UsbPart }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useState<UsbStatus>();
   const [draft, setDraft] = useState<UsbComposition>();
@@ -240,8 +240,8 @@ export const Usb = ({ part = 'all' }: { part?: UsbPart }) => {
   const empty = Boolean(draft && !hasUsbDevice(draft));
   const withinBudget = Boolean(draft && status && fitsBudget(draft, status));
   const identityOk = !draft?.identity || !identityProblem(draft.identity);
-  const showComposition = part !== 'identity';
-  const showIdentity = part !== 'composition';
+  const showComposition = part === 'composition';
+  const showIdentity = part === 'identity';
 
   return (
     <div className="space-y-6">

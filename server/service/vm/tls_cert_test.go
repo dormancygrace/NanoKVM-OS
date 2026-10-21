@@ -418,6 +418,47 @@ func TestTLSStorageFailureAfterRenameRestoresPreviousPair(t *testing.T) {
 	}
 }
 
+// The pair is on disk, then the configuration cannot be written: the reply
+// says nothing was installed, so the files must be what they were. Otherwise
+// a configuration that already names the custom pair serves the refused one
+// after a restart, and a first upload leaves its private key behind.
+func TestTLSConfigurationFailureRestoresPreviousFiles(t *testing.T) {
+	for _, replacing := range []bool{true, false} {
+		t.Run(map[bool]string{true: "replacement", false: "first upload"}[replacing], func(t *testing.T) {
+			f := newTLSFixture(t, "https")
+			if replacing {
+				cert, key := tlsTestPair(t, "old.example", time.Now().Add(-time.Hour))
+				if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != 0 {
+					t.Fatal(rsp)
+				}
+			}
+			served := f.servedName()
+			update := updateTLS
+			t.Cleanup(func() { updateTLS = update })
+			updateTLS = func(string, config.Cert) error { return syscall.ENOSPC }
+			cert, key := tlsTestPair(t, "new.example", time.Now().Add(-time.Hour))
+			if rsp := f.upload(map[string][]byte{"cert": cert, "key": key}); rsp.Code != -2 {
+				t.Fatalf("configuration failure was accepted: %+v", rsp)
+			}
+			if f.servedName() != served {
+				t.Fatalf("served %q, want %q", f.servedName(), served)
+			}
+			if replacing {
+				old, err := utils.LoadCertificatePair(customCertPath, customKeyPath)
+				if err != nil || old.Leaf.Subject.CommonName != "old.example" {
+					t.Fatalf("the refused upload replaced the installed pair: %v", err)
+				}
+				return
+			}
+			for _, path := range []string{customKeyPath, customCertPath} {
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("refused first upload left %s: %v", path, err)
+				}
+			}
+		})
+	}
+}
+
 func TestTLSFailedFirstUploadRemovesNewPrivateKey(t *testing.T) {
 	f := newTLSFixture(t, "https")
 	writer := stageCustomTLSFile

@@ -58,7 +58,7 @@ print("all services start: pass")
 assert "nanokvm-app" not in DEPS["nanokvm-watchdog"]["need"], DEPS["nanokvm-watchdog"]
 print("watchdog survives application restart: pass")
 # The application starts without waiting for the network interfaces.
-assert "net" not in DEPS["nanokvm-app"]["use"] | DEPS["nanokvm-app"]["need"], DEPS["nanokvm-app"]
+assert "nanokvm-network" not in DEPS["nanokvm-app"]["use"] | DEPS["nanokvm-app"]["need"], DEPS["nanokvm-app"]
 print("application does not wait for the network: pass")
 for failed in ({"nanokvm-storage"}, {"nanokvm-modules"}, {"nanokvm-board"},
                {"nanokvm-modules", "nanokvm-board"}):

@@ -54,6 +54,9 @@ for name in ['server.key','server.crt','pwd','wifi.pass','wifi.ssid','.jwt_secre
 for name in ['boot','data','dev','proc','sys','run','tmp']:
     (root/name).mkdir(exist_ok=True)
 (root/'etc/nanokvm-firstboot-storage').touch()
+# Fresh cards start with mDNS off. Keep this out of APK install/upgrade hooks:
+# existing users express enabled mDNS by the absence of this marker.
+(root/'etc/kvm/mdns_disabled').write_text('1\n')
 fstab=root/'etc/fstab';lines=[]
 for line in fstab.read_text().splitlines():
     fields=line.split()

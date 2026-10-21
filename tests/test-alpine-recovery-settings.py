@@ -35,9 +35,11 @@ def check(name, files, directories=(), damage=None, no_archive=False):
         (root / 'etc/ssh').mkdir(parents=True)
         (root / 'etc/ssh/ssh_host_ed25519_key').write_text('IMAGE HOST KEY')
         (root / 'etc/ssh/sshd_config').write_text('image config')
+        (root / 'etc/kvm').mkdir(parents=True)
+        (root / 'etc/kvm/mdns_disabled').write_text('1\n')
         archive = t / 'settings.tar'
         if not no_archive:
-            paths = [p for p in ('root/.ssh', 'etc/ssh', 'etc/hosts') if (old / p).exists()]
+            paths = [p for p in ('root/.ssh', 'etc/ssh', 'etc/hosts', 'etc/kvm') if (old / p).exists()]
             subprocess.run([busybox, 'tar', '--numeric-owner', '-cf', str(archive), '-C', str(old), *paths], check=True)
         recovery_busybox = busybox
         if damage == 'hash-failure':
@@ -86,6 +88,9 @@ def check(name, files, directories=(), damage=None, no_archive=False):
         for path in ('root/.ssh/authorized_keys', 'etc/ssh/ssh_host_ed25519_key'):
             if path not in files:
                 assert not (root / path).exists(), (name, 'inherited image credentials', path)
+        if (old / 'etc/kvm').is_dir():
+            # Restoring enabled mDNS must remove the fresh image's marker.
+            assert (root / 'etc/kvm/mdns_disabled').exists() == ('etc/kvm/mdns_disabled' in files), name
         print('PASS:', name)
 
 check('empty client directory', {}, ('root/.ssh',))
@@ -98,6 +103,8 @@ complete = {'root/.ssh/authorized_keys': 'operator key\n', 'etc/ssh/ssh_host_ed2
 check('complete identity', complete)
 check('no optional SSH paths', {'etc/hosts': '127.0.0.1 localhost\n'})
 check('no archive', {}, no_archive=True)
+check('mDNS enabled survives new image default', {}, ('etc/kvm',))
+check('mDNS disabled stays disabled', {'etc/kvm/mdns_disabled': '1\n'})
 check('missing expected restored file', complete, damage='missing-file')
 check('archive changed after validation', complete, damage='archive-changed')
 check('invalid archive before formatting', complete, damage='corrupt-before')

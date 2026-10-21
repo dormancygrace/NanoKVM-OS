@@ -96,7 +96,16 @@ export const useUsbAudio = () => {
       if (!live) return;
       const enabled = Boolean(live.audio.audio);
       setAvailable(enabled);
-      if (!enabled) disconnect();
+      if (!enabled) {
+        // Without USB audio (RustDesk switches the composition, for one)
+        // nothing feeds the output: release the audio device. The next start
+        // makes a new output; after any interaction with the page it needs no
+        // new gesture. Its blocked state goes with it, or the retry would wait
+        // for a resume that no listener performs any more.
+        disconnect();
+        closeOutput();
+        setBlocked(false);
+      }
     });
     window.addEventListener(usbCompositionChangedEvent, refresh);
     window.addEventListener('nanokvm:usb-updated', refresh);

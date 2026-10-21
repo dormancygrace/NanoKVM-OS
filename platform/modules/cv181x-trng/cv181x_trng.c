@@ -128,6 +128,12 @@ static int cv181x_trng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 	size_t done = 0, n;
 	int ret = 0, i;
 
+	/* Generating output (and reseeding) requires sleepable command polls.
+	 * With no driver-side queue, let hw_random return -EAGAIN when its
+	 * own buffer is empty instead of blocking an O_NONBLOCK reader. */
+	if (!wait)
+		return 0;
+
 	while (done < max) {
 		if (!trng->seeded || trng->generated >= RESEED_INTERVAL) {
 			ret = trng_seed(trng);

@@ -107,7 +107,8 @@ Measured at 1920 × 1080, 90 Hz:
 The TRNG of the security subsystem (SG2002 TRM, section 22.2) seeds a DRBG from its noise source and returns 128 bits per command. `cv181x_trng`, a small driver of our own, registers it with the kernel's hw_random core as `/dev/hwrng`:
 
 - it seeds on load, then again after every 1024 outputs (16 KiB), and zeroizes the generator when it is unloaded;
-- `/sys/class/misc/hw_random/rng_current` names `cv181x-trng` while it is loaded.
+- `/sys/class/misc/hw_random/rng_current` names `cv181x-trng` while it is loaded;
+- use blocking reads for fresh output. An `O_NONBLOCK` read uses only bytes already buffered by hw_random, or returns `EAGAIN`; it does not wait for generation or reseeding.
 
 The registers are those of the Synopsys NIST TRNG core, which the TRM documents only in part. A second seed on a running generator is an illegal command sequence for that core: it raises an alarm, and the core then ignores every command. Each seed therefore clears the alarms, zeroizes the core and instantiates it from fresh noise.
 

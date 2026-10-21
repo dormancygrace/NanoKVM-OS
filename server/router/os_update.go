@@ -26,7 +26,7 @@ func osUpdateRouter(r *gin.Engine) {
 		// Pages up to 3.1 read alpine.enabled without a check; this one keeps
 		// such a page working while an update replaces it.
 		updateReply(c, gin.H{"installed": gin.H{"version": osupdate.InstalledVersion()}, "apk": osupdate.GetAPKStatus(),
-			"components": osupdate.GetComponents(), "notice": osupdate.GetNotice(),
+			"components": osupdate.GetComponents(), "notice": osupdate.GetNotice(), "channel": osupdate.GetChannel(),
 			"alpine": gin.H{"enabled": false}}, nil)
 	})
 	// The menu polls this for its update badge: a file read, no apk run.
@@ -46,6 +46,20 @@ func osUpdateRouter(r *gin.Engine) {
 	api.POST("/notice/check", func(c *gin.Context) {
 		go func() { _ = osupdate.CheckUpdates(context.Background(), true) }()
 		updateReply(c, nil, nil)
+	})
+	api.POST("/channel", func(c *gin.Context) {
+		var req struct {
+			Channel string `json:"channel"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			updateReply(c, nil, err)
+			return
+		}
+		err := osupdate.SetChannel(req.Channel)
+		if err == nil {
+			go func() { _ = osupdate.CheckUpdates(context.Background(), true) }()
+		}
+		updateReply(c, osupdate.GetChannel(), err)
 	})
 	api.POST("/apk/:action", func(c *gin.Context) {
 		updateReply(c, nil, osupdate.StartAPK(c.Param("action")))

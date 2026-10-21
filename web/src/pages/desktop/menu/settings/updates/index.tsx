@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, message } from 'antd';
+import { Alert, Button, message, Popconfirm, Select } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +18,7 @@ type State = {
   installed: { version: string };
   components?: Components;
   notice?: UpdateNotice;
+  channel?: { channel: string; available: boolean; rollbackAvailable?: boolean };
 };
 
 export const Updates = () => {
@@ -81,6 +82,58 @@ export const Updates = () => {
       <SettingRow label={t('settings.updates.installed')}>
         <span>{state?.installed.version ? formatVersion(state.installed.version) : '—'}</span>
       </SettingRow>
+      {state?.channel && (
+        <SettingRow
+          label={t('settings.updates.channel.title')}
+          description={t('settings.updates.channel.description')}
+        >
+          <Select
+            aria-label={t('settings.updates.channel.title')}
+            value={state.channel.channel}
+            disabled={
+              !state.channel.available ||
+              busy ||
+              ['checking', 'installing', 'rebooting'].includes(state.apk?.state || '')
+            }
+            options={
+              state.channel.available
+                ? [
+                    { value: 'stable', label: t('settings.updates.channel.stable') },
+                    { value: 'beta', label: t('settings.updates.channel.beta') }
+                  ]
+                : [{ value: 'custom', label: t('settings.updates.channel.custom') }]
+            }
+            onChange={(channel) => action('channel', { channel })}
+            className="min-w-36"
+          />
+        </SettingRow>
+      )}
+      {state?.channel?.channel === 'beta' && (
+        <Alert type="warning" message={t('settings.updates.channel.warning')} />
+      )}
+      {state?.channel?.rollbackAvailable && (
+        <Alert
+          type="warning"
+          message={t('settings.updates.channel.rollbackDescription')}
+          action={
+            <Popconfirm
+              title={t('settings.updates.channel.rollbackConfirm')}
+              onConfirm={() => action('apk/rollback')}
+              disabled={
+                busy || ['checking', 'installing', 'rebooting'].includes(state.apk?.state || '')
+              }
+            >
+              <Button
+                disabled={
+                  busy || ['checking', 'installing', 'rebooting'].includes(state.apk?.state || '')
+                }
+              >
+                {t('settings.updates.channel.rollback')}
+              </Button>
+            </Popconfirm>
+          }
+        />
+      )}
       {state && <ComponentList components={state.components} />}
       {state && <UpdateCheck notice={state.notice} onChange={refresh} />}
       {state && (

@@ -195,6 +195,11 @@ func lockNotice(ctx context.Context, wait bool) (*os.File, error) {
 func CheckUpdates(ctx context.Context, network bool) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*noticeTimeout+10*time.Second)
 	defer cancel()
+	if network {
+		if err := recoverInterruptedRollback(ctx); err != nil {
+			return err
+		}
+	}
 	lock, err := lockNotice(ctx, !network)
 	if err != nil || lock == nil {
 		return err

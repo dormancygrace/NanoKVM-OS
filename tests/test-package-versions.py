@@ -15,6 +15,61 @@ pv = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pv)
 
 
+class PreviousRepositoryTests(unittest.TestCase):
+    def fixture(self, codes, filename='packages.json', fetch_apk=False):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        curl = root / 'curl'
+        curl.write_text("#!/usr/bin/env python3\nimport os,sys,pathlib\na=sys.argv[1:]\nu=a[-1]\n"
+                        "with open(os.environ['CALLS'],'a') as f: f.write(u+'\\n')\n"
+                        "key=('beta' if '/beta/' in u else 'stable')+('_apk' if u.endswith('.apk') else '')\n"
+                        "code=os.environ.get(key,'404')\npathlib.Path(a[a.index('-o')+1]).write_text(code)\nprint(code,end='')\n")
+        curl.chmod(0o755)
+        build = (ROOT / 'platform/build.sh').read_text()
+        function = build[build.index('previous_file() {'):build.index('# The version of each package')]
+        script = function + '\nprevious_file "$FILE" "$OUTPUT" || exit $?\n'
+        if fetch_apk:
+            script += 'previous_file sample.apk "$OUTPUT" || exit $?\n'
+        script += 'printf "%s" "$NANOKVM_PREVIOUS"\n'
+        env = {**os.environ, **codes, 'PATH': str(root) + ':' + os.environ['PATH'],
+               'NANOKVM_PREVIOUS': 'https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64',
+               'FILE': filename, 'OUTPUT': str(root / 'output'), 'CALLS': str(root / 'calls')}
+        result = subprocess.run(['bash', '-e', '-c', script], env=env, capture_output=True, text=True)
+        return result, (root / 'calls').read_text().splitlines()
+
+    def test_initial_beta_404_falls_back_and_reuses_same_feed(self):
+        result, calls = self.fixture({'beta': '404', 'stable': '200', 'stable_apk': '200'}, fetch_apk=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(calls), 3)
+        self.assertIn('/beta/', calls[0])
+        self.assertNotIn('/beta/', calls[1])
+        self.assertNotIn('/beta/', calls[2])
+        self.assertNotIn('/beta/', result.stdout)
+
+    def test_existing_beta_does_not_fall_back(self):
+        result, calls = self.fixture({'beta': '200'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(calls), 1)
+        self.assertIn('/beta/', result.stdout)
+
+    def test_server_failure_does_not_silently_rebuild_everything(self):
+        result, calls = self.fixture({'beta': '503', 'stable': '200'})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('HTTP 503', result.stderr)
+        self.assertEqual(len(calls), 1)
+
+    def test_missing_apk_does_not_mix_feeds(self):
+        result, calls = self.fixture({'beta_apk': '404', 'stable_apk': '200'}, filename='sample.apk')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(calls), 1)
+
+    def test_no_prior_releases_is_still_a_first_build(self):
+        result, calls = self.fixture({'beta': '404', 'stable': '404'})
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(len(calls), 2)
+
+
 class PackageVersionTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -55,6 +110,19 @@ class PackageVersionTests(unittest.TestCase):
             if name != 'nanokvm-release':
                 with self.subTest(package=name):
                     self.assertIn(f'{name}>={version}-r0', deps)
+
+    def test_stable_promotes_beta_packages_including_a_reverted_change(self):
+        self.publish('3.3.4')
+        web = self.payloads / 'web/usr/file'
+        original = web.read_text()
+        web.write_text('experimental change')
+        self.publish('3.4.0_beta1')
+        web.write_text(original)
+        self.publish('3.4.0_beta2')
+        chosen = self.publish('3.4.0')
+        self.assertEqual(self.versions(chosen), {'nanokvm-web': '3.4.0', 'nanokvm-release': '3.4.0'})
+        self.assertEqual(chosen['nanokvm']['version'], '3.3.4')
+        self.assertTrue(all('_beta' not in p['version'] for p in chosen.values()))
 
     def test_first_release_changes_everything(self):
         chosen = self.publish('3.3.0')

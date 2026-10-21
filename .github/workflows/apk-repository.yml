@@ -50,29 +50,30 @@ jobs:
           branch=$(ls site/alpine)
           docker run --rm -v "$PWD/site:/site" -v "$PWD/firmware/alpine/keys:/keys:ro" -v "$PWD/scripts:/scripts:ro" -e "branch=$branch" \
             alpine:3.24 sh -euc '
-              repo=/site/alpine/$branch/riscv64
-              for key in /keys/*.pub; do
-                dir=$(mktemp -d); cp "$key" "$dir/"
-                apk --keys-dir "$dir" verify "$repo/Packages.adb"
-              done
               apk add --no-cache python3 openssl > /dev/null
-              python3 /scripts/index-apk-repo.py --repo "$repo" --keys /keys
-              # Only a disposable test key is available in the assembly job.
-              testkeys=$(mktemp -d)
-              openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$testkeys/test.key"
-              openssl pkey -in "$testkeys/test.key" -pubout -out "$testkeys/test.pub"
-              apk --allow-untrusted --sign-key "$testkeys/test.key" adbsign --reset-signatures "$repo/Packages.pending.adb"
-              apk --keys-dir "$testkeys" verify "$repo/Packages.pending.adb"
-              root=$(mktemp -d)
-              mkdir -p "$root/etc/apk/keys"
-              cp /keys/*.pub "$testkeys/test.pub" "$root/etc/apk/keys/"
-              echo "$repo/Packages.pending.adb" > "$root/etc/apk/repositories"
-              apk --root "$root" --arch riscv64 add --initdb --no-scripts
-              apk --root "$root" --arch riscv64 update
-              apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
-              if apk --root "$root" --arch riscv64 search -e nanokvm-rustdesk | grep -q "^nanokvm-rustdesk-"; then
-                apk --root "$root" --arch riscv64 fetch --stdout nanokvm-rustdesk > /dev/null
-              fi'
+              for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do
+                for key in /keys/*.pub; do
+                  dir=$(mktemp -d); cp "$key" "$dir/"
+                  apk --keys-dir "$dir" verify "$repo/Packages.adb"
+                done
+                python3 /scripts/index-apk-repo.py --repo "$repo" --keys /keys
+                # Only a disposable test key is available in the assembly job.
+                testkeys=$(mktemp -d)
+                openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$testkeys/test.key"
+                openssl pkey -in "$testkeys/test.key" -pubout -out "$testkeys/test.pub"
+                apk --allow-untrusted --sign-key "$testkeys/test.key" adbsign --reset-signatures "$repo/Packages.pending.adb"
+                apk --keys-dir "$testkeys" verify "$repo/Packages.pending.adb"
+                root=$(mktemp -d)
+                mkdir -p "$root/etc/apk/keys"
+                cp /keys/*.pub "$testkeys/test.pub" "$root/etc/apk/keys/"
+                echo "$repo/Packages.pending.adb" > "$root/etc/apk/repositories"
+                apk --root "$root" --arch riscv64 add --initdb --no-scripts
+                apk --root "$root" --arch riscv64 update
+                apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
+                if apk --root "$root" --arch riscv64 search -e nanokvm-rustdesk | grep -q "^nanokvm-rustdesk-"; then
+                  apk --root "$root" --arch riscv64 fetch --stdout nanokvm-rustdesk > /dev/null
+                fi
+              done'
 
       - uses: actions/upload-artifact@v7
         with:
@@ -109,14 +110,15 @@ jobs:
           branch=$(ls site/alpine)
           docker run --rm -v "$PWD/site:/site" -v "$k:/signing:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -e "branch=$branch" \
             alpine:3.24 sh -euc '
-              repo=/site/alpine/$branch/riscv64
-              apk --allow-untrusted --sign-key /signing/release.rsa --sign-key /signing/release.key \
-                adbsign --reset-signatures "$repo/Packages.pending.adb"
-              for key in /keys/*.pub; do
-                dir=$(mktemp -d); cp "$key" "$dir/"
-                apk --keys-dir "$dir" verify "$repo/Packages.pending.adb"
-              done
-              mv "$repo/Packages.pending.adb" "$repo/Packages.adb"'
+              for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do
+                apk --allow-untrusted --sign-key /signing/release.rsa --sign-key /signing/release.key \
+                  adbsign --reset-signatures "$repo/Packages.pending.adb"
+                for key in /keys/*.pub; do
+                  dir=$(mktemp -d); cp "$key" "$dir/"
+                  apk --keys-dir "$dir" verify "$repo/Packages.pending.adb"
+                done
+                mv "$repo/Packages.pending.adb" "$repo/Packages.adb"
+              done'
       - name: Remove signing keys
         if: always()
         run: rm -rf "$RUNNER_TEMP/index-keys"

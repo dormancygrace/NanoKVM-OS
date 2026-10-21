@@ -976,7 +976,7 @@ signing_key() {
 # Copy $1 of the published repository NANOKVM_PREVIOUS (an URL or a
 # directory) to $2. Returns 1 when it does not have $1.
 previous_file() {
-    local code
+    local code fallback
     case $NANOKVM_PREVIOUS in
         http://*|https://*)
             code=$(curl -sS -L -o "$2" -w '%{http_code}' "$NANOKVM_PREVIOUS/$1") || {
@@ -984,6 +984,19 @@ previous_file() {
             [ "$code" != 200 ] || return 0
             rm -f "$2"
             [ "$code" = 404 ] || { echo "$NANOKVM_PREVIOUS/$1: HTTP $code" >&2; exit 1; }
+            # The first channel-enabled build may precede beta Pages deployment.
+            # Only absence of the official beta manifest permits stable fallback;
+            # network/server errors and missing APKs must still fail visibly.
+            if [ "$1" = packages.json ]; then
+                case $NANOKVM_PREVIOUS in
+                    https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/*)
+                        fallback=${NANOKVM_PREVIOUS/\/beta\/alpine\//\/alpine\/}
+                        echo "Beta manifest not published; reusing stable packages from $fallback" >&2
+                        NANOKVM_PREVIOUS=$fallback
+                        previous_file "$1" "$2"
+                        return $? ;;
+                esac
+            fi
             return 1 ;;
         *)
             [ -f "$NANOKVM_PREVIOUS/$1" ] || return 1
@@ -1103,7 +1116,12 @@ rootfs() {
     # GitHub Pages (nanokvm-keys moves older devices there) and Alpine main. Community is
     # off until the Software page or a Tailscale or NetBird install turns it on
     # (server/osupdate/community.go).
-    printf '%s\n' https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
+    case ${NANOKVM_CHANNEL:-stable} in
+        stable) channel_path= ;;
+        beta) channel_path=beta/ ;;
+        *) echo 'Unknown NanoKVM release channel' >&2; exit 1 ;;
+    esac
+    printf '%s\n' "https://dormancygrace.github.io/NanoKVM-OS/${channel_path}alpine/v3.24/riscv64/Packages.adb" https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
         > "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.

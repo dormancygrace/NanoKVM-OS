@@ -829,6 +829,17 @@
         "failed": "The last check failed: {{message}}",
         "unavailable": "No NanoKVM OS repository is configured.",
         "upToDate": "NanoKVM OS is up to date"
+      },
+      "channel": {
+        "title": "Update channel",
+        "stable": "Stable",
+        "beta": "Beta",
+        "custom": "Custom repository",
+        "description": "Choose Stable for regular releases or Beta for previews. Switching does not install packages; after returning to Stable, you can roll back a newer beta.",
+        "warning": "Beta releases may contain unfinished features or regressions.",
+        "rollback": "Install stable version",
+        "rollbackDescription": "A beta is installed. You can install the current stable firmware, including older package versions, without waiting for another release.",
+        "rollbackConfirm": "Replace the beta with the current stable firmware? Settings and data are kept. Services will restart; a reboot may be required."
       }
     },
     "memory": {

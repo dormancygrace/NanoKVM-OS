@@ -19,6 +19,11 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      channel:
+        description: 'stable: production releases; beta: opt-in prereleases'
+        type: choice
+        options: [stable, beta]
+        default: stable
       kind:
         description: 'patch: fixes (v3.4.1); minor: a new feature release (v3.5.0)'
         type: choice
@@ -66,6 +71,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 330
     outputs:
+      channel: ${{ steps.version.outputs.channel }}
       version: ${{ steps.version.outputs.version }}
       apk_version: ${{ steps.version.outputs.apk_version }}
       image_version: ${{ steps.version.outputs.image_version }}
@@ -95,17 +101,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           KIND: ${{ inputs.kind }}
+          CHANNEL: ${{ inputs.channel }}
           REF: ${{ github.ref_name }}
           IMAGE: ${{ inputs.image }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           . firmware/alpine/release.env
+          channel=${CHANNEL:-stable}
+          if [ "$EVENT" != workflow_dispatch ]; then
+            case $NANOKVM_VERSION in *-beta.*) channel=beta ;; esac
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
           case $EVENT in
             workflow_dispatch)
               image=()
               [ "$IMAGE" != true ] || image=(--image)
               gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . |
-                python3 scripts/next-release.py --kind "$KIND" --ref "$REF" "${image[@]}" > "$RUNNER_TEMP/next"
+                python3 scripts/next-release.py --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" "${image[@]}" > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
               [ "$KIND" = minor ] && echo draft=true >> "$GITHUB_OUTPUT" || echo draft=false >> "$GITHUB_OUTPUT"
@@ -125,8 +137,12 @@ jobs:
               printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=true\n' \
                 "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
             *)
-              printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=false\n' \
-                "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
+              # release.env is an image baseline and can lag published packages.
+              # Exercise reuse with a prospective release, as dispatch does.
+              gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . |
+                python3 scripts/next-release.py --channel "$channel" --kind patch --ref main --image > "$RUNNER_TEMP/next"
+              cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
+              printf 'image=true\ndraft=true\npublish=false\n' >> "$GITHUB_OUTPUT" ;;
           esac
 
       - uses: ./.github/actions/prepare-build
@@ -169,6 +185,10 @@ jobs:
       # triggers no workflow by itself.
       actions: write
     env:
+      NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}
+      # Compare with the newest tested set, including betas; package-versions.py
+      # rebuilds every prerelease package when producing a stable release.
+      NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64
       NANOKVM_VERSION: ${{ needs.build.outputs.version }}
       NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
       NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
@@ -223,6 +243,10 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     env:
+      NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}
+      # Compare with the newest tested set, including betas; package-versions.py
+      # rebuilds every prerelease package when producing a stable release.
+      NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64
       NANOKVM_VERSION: ${{ needs.build.outputs.version }}
       NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
       NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}

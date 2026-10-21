@@ -185,6 +185,15 @@ apk upgrade
 reboot
 ```
 
+**Release channel:** Settings → System → Updates offers **Stable** (default)
+and **Beta** (opt-in previews, which may have regressions). Switching selects
+where future updates come from; it installs nothing by itself. After returning to
+Stable, **Install stable version** restores the current stable firmware even
+when its packages are older. Confirm the rollback; settings and data are kept,
+and a kernel or bootloader change requires a reboot.
+Existing installations stay on Stable. Independent stable add-on releases are
+available in both channels.
+
 Updates retain settings, user data and independently installed packages. The thirteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. Kernel and bootloader updates need a reboot to take effect. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).

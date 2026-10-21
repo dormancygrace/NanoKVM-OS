@@ -46,7 +46,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("if: needs.build.outputs.publish != 'true' && needs.build.outputs.skip != 'true'", job(RELEASE, 'dry-run'))
         # Only a hand-started run or a pushed tag publishes; a pull request never does.
         build = job(RELEASE, 'build')
-        self.assertRegex(build, r"\*\)\n\s+printf .*\\npublish=false\\n")
+        pr_case = build.split('            *)', 1)[1].split(';;', 1)[0]
+        self.assertIn('publish=false', pr_case)
+        self.assertNotIn('publish=true', pr_case)
         self.assertIn('[ "$DRY_RUN" = true ] && echo publish=false', build)
 
     def test_unchanged_packages_come_from_the_published_repository(self):
@@ -131,7 +133,7 @@ class ReleaseExecutionTests(unittest.TestCase):
                 {'tag_name': 'v3.2.0', 'draft': False, 'assets': [
                     {'name': 'NanoKVM-OS-Image-v1.4-apps-v3.2.0.img.zip'}]},
             ]
-            (root / 'gh').write_text('#!/bin/sh\ncat "$RELEASES"\n')
+            (root / 'gh').write_text('#!/bin/sh\n[ "$FAIL_API" != 1 ] || exit 17\ncat "$RELEASES"\n')
             (root / 'gh').chmod(0o755)
             (root / 'releases').write_text('\n'.join(json.dumps(r) for r in releases))
             env = {**os.environ, 'PATH': str(root) + ':' + os.environ['PATH'],
@@ -150,12 +152,38 @@ class ReleaseExecutionTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stderr)
                     values = dict(line.split('=', 1) for line in (root / 'output').read_text().splitlines())
                     self.assertEqual(values['publish'], publish)
-                    if event == 'workflow_dispatch':
+                    if event in ('workflow_dispatch', 'pull_request'):
                         self.assertEqual(values['version'], 'v3.3.1')
                         self.assertEqual(values['apk_version'], '3.3.1')
                         self.assertEqual(values['image_version'], 'v1.6')
                         self.assertEqual(values['previous'], 'v3.2.0')
-                        self.assertEqual(values['draft'], 'false')
+                        self.assertEqual(values['draft'], 'false' if event == 'workflow_dispatch' else 'true')
+
+            # A failed release lookup must not fall back to stale release.env.
+            (root / 'output').write_text('')
+            failed = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,
+                                    env={**env, 'EVENT': 'pull_request', 'FAIL_API': '1'},
+                                    capture_output=True, text=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertNotIn('version=', (root / 'output').read_text())
+
+            (root / 'output').write_text('')
+            result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,
+                                    env={**env, 'CHANNEL': 'beta'}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values = dict(line.split('=', 1) for line in (root / 'output').read_text().splitlines())
+            self.assertEqual(values['channel'], 'beta')
+            self.assertEqual(values['version'], 'v3.3.1-beta.1')
+            self.assertEqual(values['apk_version'], '3.3.1_beta1')
+            self.assertEqual(values['image_version'], 'v1.6-beta.1')
+
+    def test_both_channels_compare_against_latest_tested_packages(self):
+        for name in ('sign', 'dry-run'):
+            section = job(RELEASE, name)
+            self.assertIn("NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}", section)
+            self.assertIn("NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/", section)
+        pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
+        self.assertEqual(pages.count('for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do'), 2)
 
     def test_publication_and_retries(self):
         # Execute the production publisher with a stateful GitHub CLI fixture.
@@ -221,6 +249,12 @@ else:
             create = state['calls'][1]
             self.assertEqual(create[create.index('--target') + 1], env['SHA'])
             self.assertEqual(create[create.index('--notes-start-tag') + 1], env['PREVIOUS'])
+            reset()
+            result, state = invoke(NANOKVM_VERSION='v3.4.0-beta.1')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('--prerelease', state['calls'][1])
+            self.assertIn('--latest=false', state['calls'][1])
+            self.assertEqual(state['release'], 'false')
             reset()
             result, state = invoke(DRAFT='true', IMAGE='true')
             self.assertEqual(result.returncode, 0, result.stderr)

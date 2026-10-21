@@ -1,0 +1,19 @@
+#!/sbin/openrc-run
+# Installed and synced before rollback. Not package-owned: survives restoring
+# an older updater that does not know about release channels or this constraint.
+description="Clear an interrupted NanoKVM rollback constraint"
+depend() {
+    need localmount
+    before networking nanokvm-app
+}
+start() {
+    # APK serializes database writes itself. No index refresh or network needed.
+    # Keep the service registered on failure so the next boot retries.
+    [ -r /lib/apk/db/installed ] && [ -r /etc/apk/world ] || return 1
+    if grep -q '^P:\.nanokvm-stable-rollback$' /lib/apk/db/installed ||
+       grep -qE '^\.nanokvm-stable-rollback([=<>~].*)?$' /etc/apk/world; then
+        /sbin/apk --no-network --wait 30 del .nanokvm-stable-rollback || return 1
+    fi
+    rm -f /etc/runlevels/boot/nanokvm-rollback-recovery || return 1
+    rm -f /etc/init.d/nanokvm-rollback-recovery || return 1
+}

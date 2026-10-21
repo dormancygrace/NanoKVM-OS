@@ -2,6 +2,7 @@
 """nanokvm-keys moves only the official NanoKVM line, to the GitHub Pages repository."""
 from pathlib import Path
 import re
+import os
 import subprocess
 import tempfile
 import unittest
@@ -59,6 +60,11 @@ class RepositorySwitchTests(unittest.TestCase):
         text, _ = self.run_script(NEW + "\n" + ALPINE)
         self.assertEqual(text, NEW + "\n" + ALPINE)
 
+    def test_beta_selection_survives_key_package_upgrades(self):
+        original = NEW.replace('OS/alpine', 'OS/beta/alpine') + "\n" + ALPINE
+        text, _ = self.run_script(original)
+        self.assertEqual(text, original)
+
     def test_missing_file(self):
         text, files = self.run_script(None)
         self.assertIsNone(text)
@@ -72,7 +78,22 @@ class RepositorySwitchTests(unittest.TestCase):
     def test_one_repository_url_everywhere(self):
         self.assertIn(f"new={NEW}\n", SCRIPT.read_text())
         build = (ROOT / "platform/build.sh").read_text()
-        self.assertIn(f"printf '%s\\n' {NEW} https://dl-cdn.alpinelinux.org/alpine/v3.24/main", build)
+        block = build[build.index('    case ${NANOKVM_CHANNEL:-stable} in'):]
+        block = block[:block.index('    rm -f "$r/etc/resolv.conf"')]
+        for channel in ('', 'stable', 'beta', 'invalid'):
+            with self.subTest(channel=channel), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'etc/apk').mkdir(parents=True)
+                result = subprocess.run(['bash', '-eu', '-c', block], capture_output=True, text=True,
+                                        env={**os.environ, 'r': directory, 'NANOKVM_CHANNEL': channel})
+                if channel == 'invalid':
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse((root / 'etc/apk/repositories').exists())
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    target = NEW.replace('OS/alpine', 'OS/beta/alpine') if channel == 'beta' else NEW
+                    self.assertEqual((root / 'etc/apk/repositories').read_text(),
+                                     target + '\nhttps://dl-cdn.alpinelinux.org/alpine/v3.24/main\n')
         pages = re.search(r"^PAGES_URL = '([^']+)'", (ROOT / "scripts/assemble-apk-repo.py").read_text(), re.M)[1]
         self.assertTrue(NEW.startswith(pages + "/alpine/v3.24/riscv64/"))
         release = (ROOT / ".github/workflows/release.yml").read_text()

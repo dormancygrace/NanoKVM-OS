@@ -185,11 +185,79 @@ changes before publication:
   It also needs a tag that contains this release workflow (from the first
   release made with it on), since older trees ignore the computed version.
 
+#### Stable and beta channels
+
+The workflow's **channel** selector is independent of its source branch:
+`stable` (default) publishes normal releases, while `beta` publishes opt-in
+previews. Keep developing on `main`; `release/X.Y` remains an optional source
+branch for fixes. Separate Git branches named stable and beta are not needed.
+
+For example, after v3.3.4, select `kind: minor`, `channel: beta` to build
+**v3.4.0-beta.1** (APK **3.4.0_beta1-r0**); repeat for beta.2. Select the same
+kind with `channel: stable` to build **v3.4.0**. Drafts reserve beta numbers;
+betas do not advance the next stable version. Beta releases are GitHub
+prereleases and never replace Latest. Patch/minor draft behavior and signing
+approval are the same in both channels. A beta for an older target than the
+existing beta series is refused.
+
+Pages publishes two independently indexed and signed feeds:
+
+- Stable: `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`
+- Beta: `https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64/Packages.adb`
+
+Stable excludes every prerelease (and beta tags even if mislabelled on GitHub).
+Beta selects the highest stable or beta version; the final release outranks its
+betas. Before the first beta it mirrors Stable. Each feed retains packages
+referenced by its six newest eligible releases. Both include independently
+published stable add-ons. The root latest-image badge stays stable; the
+`beta/latest-image/` page can also point to beta images.
+
+Release assembly compares package contents against the newest tested manifest
+from the beta feed, which includes Stable. Unchanged stable packages retain
+their versions; a stable build always rebuilds a package previously versioned
+as a prerelease. This also replaces an experimental change that was reverted
+before release. If the beta manifest is not published yet (HTTP 404), assembly
+falls back to the stable manifest and fetches reused APKs from that same feed.
+Network failures and other HTTP errors stop the build; they do not silently
+trigger a full rebuild.
+
+The UI changes only the official NanoKVM line in `/etc/apk/repositories`, keeps
+Alpine and unrelated repositories, and refuses ambiguous/custom NanoKVM feeds.
+It clears old offers and refreshes the new channel. Active updates, APK
+transactions and notice checks prevent a concurrent switch. Switching alone does not install packages. After selecting Stable with a
+prerelease installed, **Install stable version** performs a confirmed rollback
+through the detached update helper. APK refreshes and verifies the official
+stable index, requires the complete core set, simulates dependency resolution,
+then installs a temporary `.nanokvm-stable-rollback` virtual package requiring
+exact versions of the thirteen core packages. The helper removes this constraint
+after the transaction. Before installing, it durably registers a small OpenRC
+boot service under `/etc/init.d/nanokvm-rollback-recovery`. After an interrupted
+rollback this service removes the constraint offline, even if the restored
+stable updater predates channels; it removes itself only after success. Normal
+completion removes the service immediately. The new updater also attempts
+cleanup before a periodic notice check (without interrupting active updates). Independent add-ons and Alpine packages are not rollback targets;
+APK preserves their versions unless dependencies require a change. Existing
+world holds remain intact; conflicting holds make the solver refuse the rollback. Normal package scripts
+retain protected settings/user data and mark kernel/bootloader changes for
+reboot. This is a package rollback, not a disk snapshot: future incompatible
+configuration/data migrations must provide a backward migration before a beta
+is published. If the web UI is unusable, select the stable repository in
+`/etc/apk/repositories` over SSH, then run `nkos-update apk rollback`.
+
+Deploy `apk-repository.yml` from the new main **before publishing the first OS
+release with this selector** so the beta URL already exists. This deployment
+needs the usual signing approval; it does not release a new OS. Then run the
+Release workflow with `channel: beta`, `dry_run: true` to check the candidate
+before a real beta publication. A new beta image receives e.g. `v1.6-beta.1`
+and defaults to the beta feed; stable images and existing installations default
+to stable. For local builds, set `NANOKVM_CHANNEL=beta` together with matching
+`NANOKVM_VERSION`/`NANOKVM_APK_VERSION` and image versions.
+
 Use **Use workflow from** to select the source branch; there is no separate
 checkout ref. Every job uses the same commit selected when the run starts.
 
 The workflow (`.github/workflows/release.yml`) takes the next version after the
-newest release (`scripts/next-release.py`; drafts count), builds everything on
+newest eligible release (`scripts/next-release.py`; drafts count), builds everything on
 a GitHub runner without the signing keys, and then waits in the `release`
 environment until a maintainer approves the sign job. That job signs the
 packages that changed and both indexes with the release keys (the environment
@@ -226,11 +294,11 @@ The APK repository workflow deploys the same repository to GitHub Pages, at
 whenever a GitHub release that carries the packages, both indexes and
 `SHA256SUMS` is published. The workflow
 (`.github/workflows/apk-repository.yml`, `scripts/assemble-apk-repo.py`) takes
-the indexes of the newest such release (the highest version) and the packages that the indexes of
+the indexes of the newest eligible release in each channel (the highest version) and the packages that the indexes of
 the newest six releases name, checks each file against its release's
 `SHA256SUMS` and the index, and verifies the result with Alpine's apk before it
 deploys. The page `https://dormancygrace.github.io/NanoKVM-OS/` lists the
-repository line and the public keys.
+stable repository line and the public keys; `/beta/` lists the beta feed.
 
 ### Moving to the ECDSA key alone
 

@@ -10,10 +10,16 @@ a frame damaged on the receiver's MIPI link reached the encoders.
 Each such wake now marks the pipe's frame as damaged. The YUV bypass
 frame end, in the same interrupt or a later one, does all its bookkeeping
 (idle state, the next DMA trigger) but does not publish the buffer; the
-buffer stays first in the ready queue and takes the next frame. The error
-handler clears the mark after its reset, for a frame the reset aborted.
+buffer stays first in the ready queue and takes the next frame. Its
+trigger counted it out of qbuf_num and the next trigger counts it again,
+so the frame end gives that count back, as _vi_err_retrig_preraw does.
+The error handler clears the mark after its reset, for a frame the reset
+aborted, and stream off clears it for the next stream.
+
 DMA and over-maximum errors, which wake nothing, are unchanged. The YUV
 online and RAW paths are unchanged (NanoKVM captures YUV bypass offline).
+The mark is per pipe: with two muxed channels on one pipe only the first
+frame end after the error is held back (NanoKVM captures one channel).
 
 Sipeed's driver for the same SoC returns from the interrupt handler on
 any isp_err_chk failure, which also skips that interrupt's bookkeeping and

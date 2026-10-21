@@ -118,6 +118,74 @@ func TestIPv6DefaultsAndPersistentTransitions(t *testing.T) {
 	}
 }
 
+// With IPv6 off and nothing to undo, the server sets the values itself; the
+// result is the script's, byte for byte, from any starting state.
+func TestIPv6OffWithoutTheScriptMatchesTheScript(t *testing.T) {
+	snapshot := func() map[string]string {
+		out := map[string]string{}
+		_ = filepath.WalkDir(ipv6SysctlRoot, func(path string, d os.DirEntry, err error) error {
+			if err == nil && !d.IsDir() {
+				data, _ := os.ReadFile(path)
+				out[strings.TrimPrefix(path, ipv6SysctlRoot)] = string(data)
+			}
+			return nil
+		})
+		return out
+	}
+	prepare := func(start string) {
+		for _, name := range ipv6FixtureNames {
+			for _, key := range []string{"disable_ipv6", "autoconf", "keep_addr_on_down"} {
+				if err := os.WriteFile(filepath.Join(ipv6SysctlRoot, name, key), []byte(start+"\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	for _, start := range []string{"0", "1"} {
+		ipv6Fixture(t)
+		prepare(start)
+		runIPv6Script(t, "start")
+		want := snapshot()
+
+		ipv6Fixture(t)
+		prepare(start)
+		done, err := applyIPv6Off()
+		if err != nil || !done {
+			t.Fatalf("fast path: %v %v", done, err)
+		}
+		if got := snapshot(); len(got) != len(want) {
+			t.Fatalf("start %s: %v, script %v", start, got, want)
+		} else {
+			for k, v := range want {
+				if got[k] != v {
+					t.Fatalf("start %s: %s = %q, script %q", start, k, got[k], v)
+				}
+			}
+		}
+		assertIPv6(t, false, false)
+	}
+
+	// Something to undo: the script runs.
+	ipv6Fixture(t)
+	run := os.Getenv("NANOKVM_IPV6_RUN")
+	if err := os.WriteFile(filepath.Join(run, "ipv6-static.eth0"), []byte("2001:db8::10/64 2001:db8::1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if done, err := applyIPv6Off(); done || err != nil {
+		t.Fatalf("static address left: %v %v", done, err)
+	}
+	t.Setenv("NANOKVM_DHCPV6_RUN", run)
+	if err := os.Remove(filepath.Join(run, "ipv6-static.eth0")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(run, "udhcpc6.wlan0.pid"), []byte("1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if done, err := applyIPv6Off(); done || err != nil {
+		t.Fatalf("DHCPv6 client left: %v %v", done, err)
+	}
+}
+
 func TestIPv6ReadsTheSettingFromBeforeInterfaces(t *testing.T) {
 	ipv6Fixture(t)
 	if err := os.MkdirAll(filepath.Dir(ipv6ConfigFile), 0755); err != nil {

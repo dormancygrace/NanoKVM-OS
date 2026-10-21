@@ -10,19 +10,32 @@ int main() {
     assert(reader_active(1000, 2999));
     assert(!reader_active(1000, 3000));
     assert(!reader_active(1000, 999));          // Clock never goes backwards; be safe.
-    // Pre-submit needs a high pixel rate and no JPEG reader.
+    // Pre-submit, three cases: no JPEG reader, a JPEG reader on its own output
+    // beside a video output straight from capture (apart), one on the video
+    // output (shared).
     const long qhd60 = 2560L * 1440 * 60, fhd60 = 1920L * 1080 * 60, fhd100 = 1920L * 1080 * 100;
-    assert(presubmit_next_video_frame(qhd60, fast_pixel_rate, false));
-    assert(!presubmit_next_video_frame(qhd60, fast_pixel_rate, true));
-    assert(!presubmit_next_video_frame(fhd60, fast_pixel_rate, false));
-    assert(!presubmit_next_video_frame(fhd60, fast_pixel_rate, true));
-    assert(presubmit_next_video_frame(fhd100, fast_pixel_rate, false));
-    assert(!presubmit_next_video_frame(fhd100, fast_pixel_rate, true));
-    assert(!presubmit_next_video_frame(2560L * 1440 * 50, fast_pixel_rate, false)); // Boundary.
-    // A JPEG reader apart from a video output straight from capture.
-    assert(presubmit_next_video_frame(qhd60, fast_pixel_rate, true, true));
-    assert(!presubmit_next_video_frame(qhd60, fast_pixel_rate, true, false));
-    assert(!presubmit_next_video_frame(fhd60, fast_pixel_rate, true, true));
+    const long qhd30 = 2560L * 1440 * 30, qhd50 = 2560L * 1440 * 50, hd120 = 1280L * 720 * 120;
+    const long fast = fast_pixel_rate;
+    // No JPEG reader: the pixel rate alone (2560x1440 at 50 is the boundary).
+    assert(presubmit_next_video_frame(qhd60, fast, 60, false));
+    assert(presubmit_next_video_frame(fhd100, fast, 100, false));
+    assert(!presubmit_next_video_frame(fhd60, fast, 60, false));
+    assert(!presubmit_next_video_frame(qhd50, fast, 50, false));
+    assert(!presubmit_next_video_frame(hd120, fast, 120, false));
+    assert(!presubmit_next_video_frame(fhd60, fast, 60, false, true));
+    // Apart: also below the pixel rate above 30 fps, not at 30.
+    assert(presubmit_next_video_frame(qhd60, fast, 60, true, true));
+    assert(presubmit_next_video_frame(fhd60, fast, 60, true, true));
+    assert(presubmit_next_video_frame(2560L * 1080 * 60, fast, 60, true, true));
+    assert(presubmit_next_video_frame(hd120, fast, 120, true, true));
+    assert(!presubmit_next_video_frame(qhd30, fast, 30, true, true));
+    assert(presubmit_next_video_frame(qhd50, fast, 50, true, true));
+    assert(presubmit_next_video_frame(2560L * 1440 * 40, fast, 40, true, true));
+    assert(!presubmit_next_video_frame(1920L * 1080 * 30, fast, 30, true, true));
+    // Shared: never.
+    assert(!presubmit_next_video_frame(qhd60, fast, 60, true, false));
+    assert(!presubmit_next_video_frame(fhd100, fast, 100, true, false));
+    assert(!presubmit_next_video_frame(fhd60, fast, 60, true, false));
     // The input rate snaps to a common rate; it rises at once and falls after
     // three equal readings.
     assert(InputRateFilter::nominal(0) == 0);

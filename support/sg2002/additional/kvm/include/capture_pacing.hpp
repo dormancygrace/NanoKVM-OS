@@ -16,9 +16,16 @@ inline bool reader_active(uint64_t last_ms, uint64_t now_ms) {
 // frame, the JPEG reads its own VPSS output, and pre-submitting stays on.
 // Without it the video read waits for the next VI frame and then for the
 // whole encode, every other frame (2560x1440: 25 instead of 60 fps).
-inline bool presubmit_next_video_frame(long pixel_rate, long fast_pixel_rate, bool jpeg_reader_active,
-                                       bool jpeg_apart = false) {
-    return pixel_rate > fast_pixel_rate && (!jpeg_reader_active || jpeg_apart);
+//
+// Below the fast pixel rate a video read alone keeps up, but one next to such
+// a JPEG reader waits for the JPEG encode too, so it pre-submits there as well
+// above 30 fps. Next to MJPEG at 25 fps, 2560x1440 gave 25 serially and 33
+// with it at 40 fps, 24 and 47 at 50, and 2560x1080 at 60 gave 34 and 58;
+// at 30 fps pre-submitting lost frames (24 serially, 15 with it).
+inline bool presubmit_next_video_frame(long pixel_rate, long fast_pixel_rate, int fps,
+                                       bool jpeg_reader_active, bool jpeg_apart = false) {
+    if (jpeg_reader_active && !jpeg_apart) return false;
+    return pixel_rate > fast_pixel_rate || (jpeg_reader_active && fps > 30);
 }
 // The nominal rate of the HDMI input. The VI channel rate reads a few frames
 // either side of it: take the nearest common rate within three (57-63 is 60,

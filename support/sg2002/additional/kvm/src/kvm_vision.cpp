@@ -1574,22 +1574,25 @@ static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int widt
 }
 
 /*
- * At a high pixel rate one frame takes the encoder about a whole frame
- * period (3840x2160@30, 2560x1440@60, 1920x1080@120). After the
- * stream of frame N is out, submit the newest queued VPSS frame right away so
- * the hardware encodes it while frame N is copied and delivered; the next read
- * collects it (see kvmv_read_img). Wait briefly for a frame that VPSS is about
- * to finish, so it does not wait for the caller instead; otherwise the next
- * read acquires one as usual. Not while a JPEG reader is active: the lease
- * would block its reads (see nanokvm::presubmit_next_video_frame).
+ * After the stream of frame N is out, submit the newest queued frame right
+ * away so the hardware encodes it while frame N is copied and delivered; the
+ * next read collects it (see kvmv_read_img). Wait briefly for a frame that is
+ * about to finish, so it does not wait for the caller instead; otherwise the
+ * next read acquires one as usual. nanokvm::presubmit_next_video_frame decides
+ * when: without a JPEG reader at a high pixel rate, where one frame takes the
+ * encoder about a whole frame period (3840x2160@30, 2560x1440@60,
+ * 1920x1080@120); with a JPEG reader on its own output beside a video output
+ * straight from capture also above 30 fps; with a JPEG reader on the
+ * video output never, as the lease would block its reads.
  */
 static void submit_next_video_frame(int vi_ch, int width, int height)
 {
 	// MJPEG on its own output (NV16) beside a video output straight from
 	// capture holds no buffer of the video output.
 	const bool jpeg_apart = mmf_vi_chn_direct(vi_ch) && cam->has_format(nanokvm::nv16_format());
-	if (!nanokvm::presubmit_next_video_frame((long)width * height * kvm_venc.kvm_venc_cfg.output_fps,
-			nanokvm::fast_pixel_rate, mjpeg_jpeg_reader_active(mjpeg_monotonic_ms()), jpeg_apart)) return;
+	const int fps = kvm_venc.kvm_venc_cfg.output_fps;
+	if (!nanokvm::presubmit_next_video_frame((long)width * height * fps, nanokvm::fast_pixel_rate, fps,
+			mjpeg_jpeg_reader_active(mjpeg_monotonic_ms()), jpeg_apart)) return;
 	int len = 0, w = 0, h = 0, format = 0;
 	if (mmf_vi_frame_try_pop_native(vi_ch, 5, &len, &w, &h, &format) != 0) return;
 	if (w != width || h != height || format != nanokvm::nv21_format()

@@ -7,7 +7,9 @@ error handler thread, which resets and restarts the pipe. The interrupt
 handler ignored that, and the frame's end queued the frame as a good one:
 a frame damaged on the receiver's MIPI link reached the encoders.
 
-Each such wake now marks the pipe's frame as damaged. The YUV bypass
+Each wake of the error handler now marks the pipe's frame as damaged:
+these errors, and an ISP reset another module asks for (VI_CB_RESET_ISP),
+which aborts the frame as well. The YUV bypass
 frame end, in the same interrupt or a later one, does all its bookkeeping
 (idle state, the next DMA trigger) but does not publish the buffer; the
 buffer stays first in the ready queue and takes the next frame. Its
@@ -29,33 +31,34 @@ misses an error and a frame end that arrive in separate interrupts.
 diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
 --- a/interdrv/vi/chip/cv181x/vi.c
 +++ b/interdrv/vi/chip/cv181x/vi.c
-@@ -313,6 +313,16 @@
+@@ -313,6 +313,17 @@
  	list_add_tail(&n->list, &q->list);
  	spin_unlock_irqrestore(&raw_num_lock, flags);
  }
 +
 +/*
-+ * A frame that failed the CSI bridge checks (a short or long line or frame,
-+ * a FIFO overflow): isp_err_chk wakes the error handler for it. The frame's
-+ * end, in the same interrupt or a later one, does all its bookkeeping but
-+ * does not publish the buffer, which takes the next frame instead. The
-+ * error handler clears the mark after its reset, for a frame it aborted,
-+ * and stream off clears it for the next stream.
++ * A frame the error handler is woken for: it failed the CSI bridge checks
++ * (a short or long line or frame, a FIFO overflow; isp_err_chk) or another
++ * module asked for an ISP reset (VI_CB_RESET_ISP). The frame's end, in the
++ * same interrupt or a later one, does all its bookkeeping but does not
++ * publish the buffer, which takes the next frame instead. The error handler
++ * clears the mark after its reset, for a frame it aborted, and stream off
++ * clears it for the next stream. Indexed like pre_fe_frm_num.
 + */
-+static atomic_t nk_frame_damaged[ISP_PRERAW_MAX];
++static atomic_t nk_frame_damaged[ISP_PRERAW_VIRT_MAX];
  
  static void cvi_isp_buf_queue(struct cvi_vi_dev *vdev, struct cvi_isp_buf *b)
  {
-@@ -3263,6 +3273,8 @@
+@@ -3263,6 +3274,8 @@
  		INIT_LIST_HEAD(&vdev->qbuf_list[i]);
  		spin_unlock_irqrestore(&vdev->qbuf_lock, flags);
  	}
-+	for (i = 0; i < ISP_PRERAW_MAX; i++)
++	for (i = 0; i < ISP_PRERAW_VIRT_MAX; i++)
 +		atomic_set(&nk_frame_damaged[i], 0);
  
  	spin_lock_irqsave(&dq_lock, flags);
  	while (!list_empty(&dqbuf_q.list)) {
-@@ -7190,6 +7202,7 @@
+@@ -7190,6 +7203,7 @@
  		return;
  
  	//step 7 : reset sw state to idle
@@ -63,7 +66,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	if (_is_be_post_online(ctx)) {
  		atomic_set(&vdev->pre_fe_state[err_raw_num][ISP_FE_CH0], ISP_PRERAW_IDLE);
  		atomic_set(&vdev->pre_fe_state[err_raw_num][ISP_FE_CH1], ISP_PRERAW_IDLE);
-@@ -7271,6 +7284,7 @@
+@@ -7271,6 +7285,7 @@
  
  static inline void vi_err_wake_up_th(struct cvi_vi_dev *vdev, enum cvi_isp_raw err_raw)
  {
@@ -71,7 +74,7 @@ diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
  	if (atomic_read(&vdev->isp_err_handle_flag) == 1) {
  		vi_pr(VI_WARN, "work on err_handler\n");
  		if (vdev->vi_th[E_VI_TH_ERR_HANDLER].flag != err_raw + 1) {
-@@ -7845,13 +7859,26 @@
+@@ -7845,13 +7860,26 @@
  
  	atomic_set(&vdev->pre_fe_state[raw_num][hw_chn_num], ISP_PRERAW_IDLE);
  

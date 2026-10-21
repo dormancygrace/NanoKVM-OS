@@ -73,7 +73,8 @@ static long ktime_get(void) { return 0; }
 static struct timespec64 ktime_to_timespec64(long t) { struct timespec64 s = { 0, t }; return s; }
 static int wakes;
 #define wake_up(q) ((void)(q), wakes++)
-enum cvi_isp_raw { ISP_PRERAW_A, ISP_PRERAW_B, ISP_PRERAW_C, ISP_PRERAW_MAX };
+enum cvi_isp_raw { ISP_PRERAW_A, ISP_PRERAW_B, ISP_PRERAW_C, ISP_PRERAW_MAX,
+	ISP_PRERAW_VIRT_A = ISP_PRERAW_MAX, ISP_PRERAW_VIRT_B, ISP_PRERAW_VIRT_MAX };
 enum { ISP_FE_CH0, ISP_FE_CH1 };
 enum { ISP_PRERAW_IDLE, ISP_PRERAW_RUNNING };
 enum { E_VI_TH_EVENT_HANDLER, E_VI_TH_ERR_HANDLER, E_VI_TH_MAX };
@@ -105,7 +106,7 @@ static void _isp_yuv_bypass_buf_enq(struct cvi_vi_dev *vdev, const enum cvi_isp_
 	if (!armed)
 		no_buffer++;
 }
-''' + re.search(r'static atomic_t nk_frame_damaged\[ISP_PRERAW_MAX\];', source)[0] + '\n' + '\n'.join(block(m) for m in (
+''' + re.search(r'static atomic_t nk_frame_damaged\[ISP_PRERAW_VIRT_MAX\];', source)[0] + '\n' + '\n'.join(block(m) for m in (
     'static void cvi_isp_buf_queue(', 'struct cvi_isp_buf *_cvi_isp_next_buf(', 'static int cvi_isp_rdy_buf_empty(',
     'static void cvi_isp_rdy_buf_pop(', 'static void cvi_isp_rdy_buf_remove(', 'static void cvi_isp_dqbuf_list(',
     'static int _isp_yuv_bypass_trigger(', 'static void _isp_yuv_bypass_handler(',

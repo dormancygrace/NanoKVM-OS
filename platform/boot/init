@@ -124,11 +124,13 @@ then
 	msc
 fi
 
+# The User Key held down across half a second exports the card over USB. Only
+# a key already down at the first look is worth the wait.
 flashkey0=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
-sleep 0.5
-flashkey1=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
 if [ "${flashkey0}" -ne 0 ]
 then
+	sleep 0.5
+	flashkey1=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
 	if [ "${flashkey1}" -ne 0 ]
 	then
 		msc

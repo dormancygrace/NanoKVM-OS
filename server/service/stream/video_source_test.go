@@ -166,6 +166,49 @@ func TestVideoSourceDoesNotLeakFramesAcrossSessions(t *testing.T) {
 	}
 }
 
+// A RustDesk session is not a counted viewer; its session must hold the
+// capture from start to end, or capture parked without viewers stays resumed.
+func TestVideoSessionHoldsCaptureWhileItRuns(t *testing.T) {
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+	var held, released atomic.Int32
+	hold := func() func() {
+		held.Add(1)
+		return func() { released.Add(1) }
+	}
+	source.holdCapture.Store(&hold)
+
+	first, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := first.session
+	waitFor(t, func() bool { return held.Load() == 1 })
+	first.Close()
+	if released.Load() != 0 {
+		t.Fatal("capture released while a subscriber remains")
+	}
+	second.Close()
+	<-session.done
+	if held.Load() != 1 || released.Load() != 1 {
+		t.Fatalf("held %d, released %d; want one hold for the session", held.Load(), released.Load())
+	}
+}
+
+func waitFor(t *testing.T, ok func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for !ok() {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestVideoSourceWaitsForPreviousCaptureBeforeStartingNewProfile(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})

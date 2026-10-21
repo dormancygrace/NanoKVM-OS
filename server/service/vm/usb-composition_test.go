@@ -221,7 +221,7 @@ func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
 	}
 	base := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, disk: true}
 	custom := base
-	custom.identity = usbIdentity{VendorID: "0X46D", Manufacturer: "Generic", Product: "USB Composite Device"}
+	custom.identity = usbIdentity{VendorID: "0X46D", Manufacturer: "Generic", Product: "USB Composite Device", SerialNumber: "KVM-0001"}
 	if err := noop.apply(base, custom); err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
 		}
 		return string(data)
 	}
-	if read("usb.vid") != "0x046d\n" || read("usb.pid") != "<absent>" || read("usb.manufacturer") != "Generic\n" || read("usb.product") != "USB Composite Device\n" {
+	if read("usb.vid") != "0x046d\n" || read("usb.pid") != "<absent>" || read("usb.manufacturer") != "Generic\n" || read("usb.product") != "USB Composite Device\n" || read("usb.serialnumber") != "KVM-0001\n" {
 		t.Fatalf("identity files: %q %q %q %q", read("usb.vid"), read("usb.pid"), read("usb.manufacturer"), read("usb.product"))
 	}
 	// the flags of the composition itself are untouched
@@ -254,7 +254,7 @@ func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
 	if err := noop.apply(custom, base); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"usb.vid", "usb.pid", "usb.manufacturer", "usb.product"} {
+	for _, name := range []string{"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.serialnumber"} {
 		if read(name) != "<absent>" {
 			t.Fatalf("%s is still there", name)
 		}

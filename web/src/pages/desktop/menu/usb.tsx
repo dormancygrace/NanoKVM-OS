@@ -47,7 +47,7 @@ export const UsbMenu = () => {
   const statusText = t(`inputConnection.${status}`);
   const color =
     status === 'disconnected' ? '#ef4444' : status === 'reconnecting' ? '#f59e0b' : undefined;
-  const title = `${t('settings.usb.title')}${usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
+  const title = `${t('settings.usb.gadget')}${usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
   useEffect(() => () => lock({ source: 'usb-popover', locked: false }), [lock]);
   return (
     <MenuItem
@@ -94,7 +94,7 @@ export const UsbMenu = () => {
               {statusText}
             </div>
           )}
-          {open && <Usb />}
+          {open && <Usb part="composition" />}
         </div>
       }
     />

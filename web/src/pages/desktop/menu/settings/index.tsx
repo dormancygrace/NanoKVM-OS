@@ -20,8 +20,10 @@ import {
   ClockIcon,
   DownloadIcon,
   EthernetPortIcon,
+  FingerprintIcon,
   GlobeLockIcon,
   InfoIcon,
+  LayersIcon,
   LayoutDashboardIcon,
   LockIcon,
   MemoryStickIcon,
@@ -58,6 +60,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 import styles from './sidebar.module.css';
 import {
+  isSettingsGroup,
   resolveSettingsTab,
   settingsCollectionOf,
   settingsGroupOf,
@@ -205,7 +208,17 @@ export const Settings = ({
     },
     ...(isAdmin
       ? [
-          { id: 'usb', icon: <UsbIcon size={16} />, component: <Usb /> },
+          { id: 'usb', icon: <UsbIcon size={16} />, component: null },
+          {
+            id: 'usb-composition',
+            icon: <LayersIcon size={16} />,
+            component: <Usb part="composition" />
+          },
+          {
+            id: 'usb-identity',
+            icon: <FingerprintIcon size={16} />,
+            component: <Usb part="identity" />
+          },
           { id: 'network', icon: <NetworkIcon size={16} />, component: null },
           { id: 'network-general', icon: <SettingsIcon size={16} />, component: <Network /> },
           { id: 'network-wifi', icon: <WifiIcon size={16} />, component: <WifiSettings /> },
@@ -406,7 +419,7 @@ export const Settings = ({
       return;
     }
 
-    if (tab === 'network' || tab === 'system' || tab === 'software') {
+    if (isSettingsGroup(tab)) {
       toggleGroup(tab);
       return;
     }
@@ -447,6 +460,9 @@ export const Settings = ({
   function tabTitle(id: string) {
     if (id === 'dashboard') return t('dashboard.title');
     if (id === 'video') return t('videoSettings.title');
+    if (id === 'usb') return t('settings.usb.gadget');
+    if (id === 'usb-composition') return t('settings.usb.compositionMenu');
+    if (id === 'usb-identity') return t('settings.usb.identityMenu');
     if (id === 'network') return t('settings.network.title');
     if (id === 'network-general') return t('settings.network.general');
     if (id === 'network-wifi') return t('settings.network.wifi.title');
@@ -576,10 +592,7 @@ export const Settings = ({
               )
               .map((tab) => {
                 const child = settingsGroupOf(tab.id) !== undefined;
-                const expanded =
-                  tab.id === 'network' || tab.id === 'system' || tab.id === 'software'
-                    ? expandedGroups.has(tab.id)
-                    : undefined;
+                const expanded = isSettingsGroup(tab.id) ? expandedGroups.has(tab.id) : undefined;
                 const label = tabTitle(tab.id);
                 return (
                   <Fragment key={tab.id}>

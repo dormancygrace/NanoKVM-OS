@@ -1210,7 +1210,9 @@
       "confirmDisableDescription": "在此处重新开启 USB 之前，电脑将失去 NanoKVM 的键盘、鼠标、存储、音频和 USB 网络，USB 网络共享也会停止。RustDesk 将失去键鼠控制。",
       "off": "关闭",
       "title": "USB 组合",
-      "enabled": "USB 设备",
+      "gadget": "USB Gadget",
+      "compositionMenu": "组成",
+      "identityMenu": "身份 (VID/PID)",
       "budgetTitle": "端点配额",
       "budgetExceeded": "当前选择超出了 USB 端点配额。",
       "presetLabel": "组合",
@@ -1239,13 +1241,15 @@
           "productId": "产品 ID",
           "manufacturer": "制造商",
           "product": "产品",
-          "serialNumber": "序列号（芯片 UID，固定）"
+          "serialNumber": "序列号"
         },
         "invalid": {
           "id": "ID 为四位十六进制数字，例如 0x1234，且不能为 0x0000。",
-          "string": "名称为 1 到 126 个可打印 ASCII 字符，首尾不能有空格。"
+          "string": "名称为 1 到 126 个可打印 ASCII 字符，首尾不能有空格。",
+          "serial": "序列号为 1 到 126 个字母、数字、点、短横线或下划线。"
         },
-        "idWarning": "使用非出厂的厂商 ID 或产品 ID 需自行承担责任。已通过串口控制台助手配置的 Linux 主机将无法再匹配 NanoKVM（其 udev 规则指定了这些 ID）。"
+        "idWarning": "使用非出厂的厂商 ID 或产品 ID 需自行承担责任。已通过串口控制台助手配置的 Linux 主机将无法再匹配 NanoKVM（其 udev 规则指定了这些 ID）。",
+        "serialHint": "留空即芯片 UID。可用字母、数字、点、短横线和下划线。配置了串口控制台助手的 Linux 主机按它匹配：修改后请重新运行其 apply。"
       },
       "userDisk": {
         "title": "用户磁盘",
@@ -1337,7 +1341,7 @@
           "description": "键盘、两种鼠标模式和虚拟硬盘：新设备的默认配置。电脑上不会出现网络适配器。"
         },
         "standard": {
-          "title": "KVM + USB 网络",
+          "title": "KVM + 网络",
           "description": "键盘、两种鼠标模式、虚拟硬盘和 USB 网络适配器。没有余量容纳串口控制台。"
         },
         "console": {
@@ -1346,11 +1350,11 @@
         },
         "headless": {
           "title": "无显示器服务器",
-          "description": "串口控制台和带助手磁盘的虚拟磁盘：助手磁盘中有配置串口登录的脚本，服务器无需网络。电脑上不会出现键盘或鼠标；启用远程桌面时会重新添加键盘、鼠标和音频。"
+          "description": "串口控制台和带助手磁盘的虚拟磁盘：助手磁盘中有配置串口登录的脚本，服务器无需网络。电脑上不会出现键盘或鼠标。启用 RustDesk 会切换到其 USB 配置并断开串口控制台。"
         },
         "remote": {
-          "title": "远程桌面",
-          "description": "键盘、两种鼠标模式、虚拟硬盘和 USB 音频：RustDesk 所需的配置。电脑上会多出一个扬声器。"
+          "title": "RustDesk",
+          "description": "键盘、两种鼠标模式、虚拟磁盘和 USB 音频：开启 RustDesk 时切换到此组成，关闭时恢复之前的组成。电脑上会多出一个扬声器。"
         },
         "control": {
           "title": "仅键盘和鼠标",
@@ -1804,7 +1808,7 @@
       "open": "打开管理",
       "settings": "RustDesk",
       "keepPassword": "留空则保留当前密码",
-      "inputDefaults": "启用远程访问会自动启用 USB 键盘和绝对/相对鼠标。",
+      "inputDefaults": "开启远程访问会将 USB 切换为 RustDesk 组成（键盘、两种鼠标模式、虚拟磁盘，开启声音时还有 USB 音频）；关闭后会恢复之前的组成，除非期间已被更改。",
       "transmitAudio": "传输声音",
       "audioHint": "自动启用 USB 音频。请在所连接的电脑上选择 NanoKVM 作为声音输出。",
       "audioMuted": "已禁用通过 RustDesk 传输声音。",

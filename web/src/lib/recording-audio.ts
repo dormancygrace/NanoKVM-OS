@@ -47,9 +47,9 @@ export function getRecordingAudio(stream: MediaStream | null): RecordingAudioSou
 // The device sends one 20 ms Opus frame per packet; this one is stereo silence.
 export const OPUS_FRAME_SECONDS = 0.02;
 export const OPUS_SILENCE = new Uint8Array([0xfc, 0xff, 0xfe]);
-// The sender's RTP clock only advances with the audio it sends: while the
-// computer plays nothing, no packets come and the clock stands still. A packet
-// arriving this much later than its RTP time starts a new anchor.
+// Current servers advance RTP time across capture pauses. Keep this fallback
+// for older senders and accumulated shorter gaps: a packet arriving this much
+// later than its RTP time starts a new anchor.
 export const AUDIO_RESYNC_SECONDS = 0.5;
 
 // Both RTP clocks start at arbitrary values. Anchor the first audio packet to

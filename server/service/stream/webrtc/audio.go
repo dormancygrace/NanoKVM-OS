@@ -58,7 +58,9 @@ var (
 // The RTP clock of the track must keep pace with real time across pauses
 // (RFC 3550 5.1): receivers and RTCP sender reports map it to wall-clock
 // time for lip sync. lastSent records when the last packet was written, and
-// the next listening period first advances the clock by the muted interval.
+// the next listening period first advances the clock by the muted interval;
+// within a period, a pause of the capture (the computer plays nothing)
+// advances it by the time between the two packets.
 type peerAudio struct {
 	mu       sync.Mutex
 	track    *webrtc.TrackLocalStaticSample
@@ -177,21 +179,6 @@ type timedPacket struct {
 	packet audio.Packet
 }
 
-// advanceTimeline moves the RTP clock of track over a muted interval without
-// sending anything: for an empty payload Pion's packetizer only skips the
-// samples, and no sequence numbers are used, so receivers see no loss. Steps
-// of an hour keep each skip far inside the 32-bit timestamp.
-func advanceTimeline(track *webrtc.TrackLocalStaticSample, gap time.Duration) error {
-	for gap > 0 {
-		step := min(gap, time.Hour)
-		if err := track.WriteSample(media.Sample{Duration: step}); err != nil {
-			return err
-		}
-		gap -= step
-	}
-	return nil
-}
-
 func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.TrackLocalStaticSample, done chan struct{}) {
 	defer close(done)
 	defer audio.ReleaseSession()
@@ -216,6 +203,7 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 		}
 	}()
 	var last uint64
+	var lastAt time.Time
 	haveLast := false
 	first := true
 	for tp := range packets {
@@ -236,7 +224,7 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 			prev := c.audio.lastSent
 			c.audio.mu.Unlock()
 			if !prev.IsZero() {
-				if err := advanceTimeline(track, time.Since(prev)-audioFrame); err != nil {
+				if err := audio.AdvanceTimeline(track, time.Since(prev)-audioFrame); err != nil {
 					log.Debugf("audio timeline: %v", err)
 					break
 				}
@@ -246,6 +234,12 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 		if haveLast && tp.packet.Index > last+1 {
 			dropped = min(tp.packet.Index-last-1, 65535)
 		}
+		if haveLast {
+			if err := audio.AdvanceTimeline(track, audio.PauseGap(tp.packet.At.Sub(lastAt), dropped)); err != nil {
+				log.Debugf("audio timeline: %v", err)
+				break
+			}
+		}
 		if err := track.WriteSample(media.Sample{Data: tp.packet.Data, Duration: audioFrame,
 			PrevDroppedPackets: uint16(dropped)}); err != nil {
 			log.Debugf("audio track write: %v", err)
@@ -254,7 +248,7 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 		c.audio.mu.Lock()
 		c.audio.lastSent = time.Now()
 		c.audio.mu.Unlock()
-		last, haveLast = tp.packet.Index, true
+		last, lastAt, haveLast = tp.packet.Index, tp.packet.At, true
 	}
 	if ctx.Err() == nil {
 		// Capture ended (USB audio disabled or rebound) or the track failed.

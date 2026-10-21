@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  isSettingsGroup,
   resolveSettingsTab,
   settingsCollectionOf,
   settingsGroupOf,
@@ -17,6 +18,7 @@ test('old settings ids open the pages that replaced them', () => {
   assert.equal(resolveSettingsTab('extensions-rustdesk'), 'software-rustdesk');
   assert.equal(resolveSettingsTab('date-time'), 'system-date-time');
   assert.equal(resolveSettingsTab('video'), 'video');
+  assert.equal(resolveSettingsTab('usb'), 'usb-composition');
 });
 
 test('pages belong to the group named by their prefix', () => {
@@ -24,6 +26,9 @@ test('pages belong to the group named by their prefix', () => {
   assert.equal(settingsGroupOf('system-memory'), 'system');
   assert.equal(settingsGroupOf('software-rustdesk'), 'software');
   assert.equal(settingsGroupOf('video'), undefined);
+  assert.equal(settingsGroupOf('usb-identity'), 'usb');
+  assert.equal(isSettingsGroup('usb'), true);
+  assert.equal(isSettingsGroup('usb-composition'), false);
 });
 
 test('VPN providers are items of the VPN collection, not menu entries', () => {

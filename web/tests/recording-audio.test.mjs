@@ -247,3 +247,28 @@ test('audio timeline re-anchors when the sender paused and fills silence up to a
   assert.ok(Math.abs(timeline.push({ timestamp: 60000, receivedAt: 6020 }) - 5.02) < 1e-9);
   assert.deepEqual(timeline.silence(5.02), []);
 });
+
+// RTP offsets emitted by the server pause-gap path: repeated capture pauses,
+// three dropped packets, then a reset capture index. Network delay varies but
+// stays below the fallback re-anchor threshold.
+test('server-corrected RTP gaps survive silence fill without a second time jump', () => {
+  const clock = new RtpClock(48000);
+  const timeline = new AudioTimeline(1000);
+  const base = 2 ** 32 - 960;
+  for (const [seconds, delay] of [
+    [0, 0],
+    [0.02, 0],
+    [5.02, 0.2],
+    [5.1, 0.1],
+    [8.1, 0.2],
+    [10.1, 0.1]
+  ]) {
+    timeline.silence(seconds - 1.5);
+    const actual = timeline.push({
+      timestamp: clock.microseconds((base + Math.round(seconds * 48000)) >>> 0),
+      receivedAt: 1000 + (seconds + delay) * 1000
+    });
+    assert.notEqual(actual, null, 'resumed audio must not be discarded as synthesized silence');
+    assert.ok(Math.abs(actual - seconds) < 1e-6, `${actual} instead of ${seconds}`);
+  }
+});

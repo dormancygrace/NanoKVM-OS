@@ -11,7 +11,7 @@ import {
 import type { UsbIdentity, UsbStatus } from '@/lib/usb-composition.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
-// The device descriptor the connected computer sees: a preset, or the four
+// The device descriptor the connected computer sees: a preset, or the
 // fields by hand. Part of the composition draft; Apply writes it with the
 // rest and reconnects USB.
 export const UsbIdentitySection = ({
@@ -34,10 +34,11 @@ export const UsbIdentitySection = ({
 
   function choose(id: string) {
     const chosen = usbIdentityPresets.find((item) => item.id === id);
-    if (chosen) onChange({ ...chosen.identity });
+    // a preset keeps the serial number
+    if (chosen) onChange({ ...chosen.identity, serialNumber: identity.serialNumber });
   }
 
-  const field = (name: keyof UsbIdentity, mono = false) => (
+  const field = (name: Exclude<keyof UsbIdentity, 'serialNumber'>, mono = false) => (
     <SettingRow label={t(`settings.usb.identity.fields.${name}`)} htmlFor={`usb-identity-${name}`}>
       <Input
         id={`usb-identity-${name}`}
@@ -77,10 +78,21 @@ export const UsbIdentitySection = ({
       {field('productId', true)}
       {field('manufacturer')}
       {field('product')}
-      <SettingRow label={t('settings.usb.identity.fields.serialNumber')}>
-        <span className="text-fg-muted font-mono text-xs">
-          {status.identity?.serialNumber || '–'}
-        </span>
+      <SettingRow
+        label={t('settings.usb.identity.fields.serialNumber')}
+        description={t('settings.usb.identity.serialHint')}
+        htmlFor="usb-identity-serialNumber"
+      >
+        <Input
+          id="usb-identity-serialNumber"
+          className="w-64 font-mono"
+          value={identity.serialNumber ?? ''}
+          placeholder={status.identity?.chipSerialNumber}
+          maxLength={126}
+          allowClear
+          disabled={disabled}
+          onChange={(event) => onChange({ ...identity, serialNumber: event.target.value })}
+        />
       </SettingRow>
       {problem && (
         <div className="text-warning text-sm">{t(`settings.usb.identity.invalid.${problem}`)}</div>

@@ -7,6 +7,7 @@ import {
   canToggleDevice,
   endpointUsage,
   fitsBudget,
+  hasUsbDevice,
   identityProblem,
   matchingPreset,
   normalizeUsbStatus,
@@ -26,25 +27,11 @@ import { UsbInternet } from './internet';
 import { SerialConsole } from './serial-console';
 import { UserDisk } from './user-disk';
 
-const previousCompositionKey = 'nanokvm.usb.previous-composition';
-function readPreviousComposition(): UsbComposition | undefined {
-  try {
-    const value = JSON.parse(localStorage.getItem(previousCompositionKey) ?? 'null');
-    if (
-      !value ||
-      !['normal', 'hid-only'].includes(value.mode) ||
-      !usbDevices.every((name) => typeof value[name] === 'boolean') ||
-      !usbDevices.some((name) => value[name]) ||
-      (value.mode === 'hid-only' && (value.network || value.disk || value.audio))
-    )
-      return;
-    return value;
-  } catch {
-    return;
-  }
-}
+// Which part a panel shows: the composition (the toolbar's quick menu and
+// Settings > USB Gadget > Composition) or the identity (its other page).
+export type UsbPart = 'composition' | 'identity';
 
-export const Usb = () => {
+export const Usb = ({ part }: { part: UsbPart }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useState<UsbStatus>();
   const [draft, setDraft] = useState<UsbComposition>();
@@ -54,20 +41,11 @@ export const Usb = () => {
   const busy = useRef(false);
   const [error, setError] = useState('');
   const [loadFailed, setLoadFailed] = useState(false);
-  const previousComposition = useRef<UsbComposition | undefined>(readPreviousComposition());
 
   const adopt = useCallback((next: UsbStatus) => {
     setLoadFailed(false);
     setStatus(next);
     setDraft(next);
-    if (usbDevices.some((name) => next[name])) {
-      previousComposition.current = { ...next };
-      try {
-        localStorage.setItem(previousCompositionKey, JSON.stringify(next));
-      } catch {
-        /* Keep the session copy when storage is unavailable. */
-      }
-    }
     const preset = matchingPreset(next);
     setSelection(preset);
     if (preset === 'custom') setManualOpen(true);
@@ -116,36 +94,20 @@ export const Usb = () => {
     setError('');
   }
 
-  async function toggleUsb(enabled: boolean) {
-    if (!status?.revision || busy.current) return;
-    let next: UsbComposition;
-    if (enabled) {
-      next = { ...(previousComposition.current ?? usbPresets[0].composition) };
-      if (!fitsBudget(next, status)) return;
-    } else {
+  // Applying a composition without any function turns USB off, and asks
+  // first while it is on. While it is off, such a draft only changes the
+  // identity, which the next start presents.
+  async function apply() {
+    if (!draft) return;
+    if (enabled && !hasUsbDevice(draft)) {
       const confirmed = await confirmAction({
         title: t('settings.usb.confirmDisable'),
         content: t('settings.usb.confirmDisableDescription'),
         danger: true
       });
       if (!confirmed) return;
-      previousComposition.current = { ...status };
-      next = {
-        mode: 'normal',
-        keyboard: false,
-        relative: false,
-        absolute: false,
-        network: false,
-        disk: false,
-        serial: false,
-        audio: false
-      };
     }
-    await saveComposition(next);
-  }
-
-  async function apply() {
-    if (draft) await saveComposition(draft);
+    await saveComposition(draft);
   }
 
   async function saveComposition(requested: UsbComposition) {
@@ -205,132 +167,132 @@ export const Usb = () => {
 
   const used = draft && status ? endpointUsage(draft, status.costs) : undefined;
   const dirty = Boolean(draft && status && !sameComposition(draft, status));
-  const enabled = Boolean(status && usbDevices.some((name) => status[name]));
-  const empty = Boolean(draft && !usbDevices.some((name) => draft[name]));
+  const enabled = Boolean(status && hasUsbDevice(status));
+  // the draft turns USB off
+  const turningOff = Boolean(enabled && draft && !hasUsbDevice(draft));
   const withinBudget = Boolean(draft && status && fitsBudget(draft, status));
   const identityOk = !draft?.identity || !identityProblem(draft.identity);
+  const showComposition = part === 'composition';
+  const showIdentity = part === 'identity';
 
   return (
     <div className="space-y-6">
       {loadFailed && <Alert type="error" showIcon message={t('settings.usb.loadFailed')} />}
-      <SettingRow label={t('settings.usb.enabled')} htmlFor="usb-enabled">
-        <Switch
-          id="usb-enabled"
-          checked={enabled}
-          disabled={!status?.revision || loading}
-          loading={loading || (!status && !error)}
-          onChange={(next) => void toggleUsb(next)}
-        />
-      </SettingRow>
-      <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />
-      {enabled && (
+      {showComposition && <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />}
+      {
         <>
           <div className="space-y-4">
-            <SettingRow
-              label={t('settings.usb.presetLabel')}
-              description={
-                selection === 'custom'
-                  ? t('settings.usb.customDescription')
-                  : t(`settings.usb.presets.${selection}.description`)
-              }
-              htmlFor="usb-preset"
-              stacked
-            >
-              <Select
-                id="usb-preset"
-                aria-describedby="usb-preset-description"
-                className="w-full"
-                value={selection}
-                loading={!status && !error}
-                disabled={!status || loading}
-                onChange={choosePreset}
-                options={[
-                  ...usbPresets.map((preset) => ({
-                    value: preset.id,
-                    label: t(`settings.usb.presets.${preset.id}.title`),
-                    disabled: !status || !fitsBudget(preset.composition, status)
-                  })),
-                  { value: 'custom', label: t('settings.usb.custom') }
-                ]}
-              />
-            </SettingRow>
-            <Collapse
-              ghost
-              activeKey={manualOpen ? ['manual'] : []}
-              onChange={(keys) => setManualOpen(keys.includes('manual'))}
-              items={[
-                {
-                  key: 'manual',
-                  label: t('settings.usb.manual'),
-                  children: (
-                    <div className="space-y-4">
-                      <Panel className="flex items-center justify-between gap-3 text-xs">
-                        <span className="text-fg-muted">{t('settings.usb.budgetTitle')}</span>
-                        <span className={`font-mono ${withinBudget ? 'text-fg' : 'text-warning'}`}>
-                          IN {used?.in ?? '–'}/{status?.budget.inLimit ?? '–'} · OUT{' '}
-                          {used?.out ?? '–'}/{status?.budget.outLimit ?? '–'}
-                        </span>
-                      </Panel>
-                      {usbDevices.map((name) => {
-                        const blocked = Boolean(
-                          draft && status && !canToggleDevice(draft, name, status)
-                        );
-                        return (
+            {showComposition && (
+              <>
+                <SettingRow
+                  label={t('settings.usb.presetLabel')}
+                  description={
+                    selection === 'custom'
+                      ? t('settings.usb.customDescription')
+                      : t(`settings.usb.presets.${selection}.description`)
+                  }
+                  htmlFor="usb-preset"
+                  stacked
+                >
+                  <Select
+                    id="usb-preset"
+                    aria-describedby="usb-preset-description"
+                    className="w-full"
+                    value={selection}
+                    loading={!status && !error}
+                    disabled={!status || loading}
+                    onChange={choosePreset}
+                    options={[
+                      ...usbPresets.map((preset) => ({
+                        value: preset.id,
+                        label: t(`settings.usb.presets.${preset.id}.title`),
+                        disabled: !status || !fitsBudget(preset.composition, status)
+                      })),
+                      { value: 'custom', label: t('settings.usb.custom') }
+                    ]}
+                  />
+                </SettingRow>
+                <Collapse
+                  ghost
+                  activeKey={manualOpen ? ['manual'] : []}
+                  onChange={(keys) => setManualOpen(keys.includes('manual'))}
+                  items={[
+                    {
+                      key: 'manual',
+                      label: t('settings.usb.manual'),
+                      children: (
+                        <div className="space-y-4">
+                          <Panel className="flex items-center justify-between gap-3 text-xs">
+                            <span className="text-fg-muted">{t('settings.usb.budgetTitle')}</span>
+                            <span
+                              className={`font-mono ${withinBudget ? 'text-fg' : 'text-warning'}`}
+                            >
+                              IN {used?.in ?? '–'}/{status?.budget.inLimit ?? '–'} · OUT{' '}
+                              {used?.out ?? '–'}/{status?.budget.outLimit ?? '–'}
+                            </span>
+                          </Panel>
+                          {usbDevices.map((name) => {
+                            const blocked = Boolean(
+                              draft && status && !canToggleDevice(draft, name, status)
+                            );
+                            return (
+                              <SettingRow
+                                key={name}
+                                label={
+                                  <span className={blocked ? 'text-fg-muted' : undefined}>
+                                    {t(`settings.usb.devices.${name}.title`)}
+                                  </span>
+                                }
+                                description={t(`settings.usb.devices.${name}.description`)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Tag
+                                    bordered={false}
+                                    className="text-fg-muted m-0 font-mono text-[10px]"
+                                  >
+                                    {status?.costs[name].in ?? '–'} IN ·{' '}
+                                    {status?.costs[name].out ?? '–'} OUT
+                                  </Tag>
+                                  <Tooltip
+                                    title={blocked ? t('settings.usb.budgetExceeded') : undefined}
+                                  >
+                                    <span>
+                                      <Switch
+                                        aria-label={t(`settings.usb.devices.${name}.title`)}
+                                        checked={Boolean(draft?.[name])}
+                                        disabled={!status || loading || blocked}
+                                        onChange={() => toggle(name)}
+                                      />
+                                    </span>
+                                  </Tooltip>
+                                </div>
+                              </SettingRow>
+                            );
+                          })}
                           <SettingRow
-                            key={name}
-                            label={
-                              <span className={blocked ? 'text-fg-muted' : undefined}>
-                                {t(`settings.usb.devices.${name}.title`)}
-                              </span>
-                            }
-                            description={t(`settings.usb.devices.${name}.description`)}
+                            label={t('settings.usb.compatibilityProfile.title')}
+                            description={t('settings.usb.compatibilityProfile.description')}
                           >
-                            <div className="flex items-center gap-2">
-                              <Tag
-                                bordered={false}
-                                className="text-fg-muted m-0 font-mono text-[10px]"
-                              >
-                                {status?.costs[name].in ?? '–'} IN ·{' '}
-                                {status?.costs[name].out ?? '–'} OUT
-                              </Tag>
-                              <Tooltip
-                                title={blocked ? t('settings.usb.budgetExceeded') : undefined}
-                              >
-                                <span>
-                                  <Switch
-                                    aria-label={t(`settings.usb.devices.${name}.title`)}
-                                    checked={Boolean(draft?.[name])}
-                                    disabled={!status || loading || blocked}
-                                    onChange={() => toggle(name)}
-                                  />
-                                </span>
-                              </Tooltip>
-                            </div>
+                            <Switch
+                              aria-label={t('settings.usb.compatibilityProfile.title')}
+                              checked={draft?.mode === 'hid-only'}
+                              disabled={!status || loading}
+                              onChange={(enabled) => {
+                                if (!draft || busy.current) return;
+                                setDraft(setCompatibilityProfile(draft, enabled));
+                                setSelection('custom');
+                                setError('');
+                              }}
+                            />
                           </SettingRow>
-                        );
-                      })}
-                      <SettingRow
-                        label={t('settings.usb.compatibilityProfile.title')}
-                        description={t('settings.usb.compatibilityProfile.description')}
-                      >
-                        <Switch
-                          aria-label={t('settings.usb.compatibilityProfile.title')}
-                          checked={draft?.mode === 'hid-only'}
-                          disabled={!status || loading}
-                          onChange={(enabled) => {
-                            if (!draft || busy.current) return;
-                            setDraft(setCompatibilityProfile(draft, enabled));
-                            setSelection('custom');
-                            setError('');
-                          }}
-                        />
-                      </SettingRow>
-                    </div>
-                  )
-                }
-              ]}
-            />
-            {status?.identity && draft && (
+                        </div>
+                      )
+                    }
+                  ]}
+                />
+              </>
+            )}
+            {showIdentity && status?.identity && draft && (
               <UsbIdentitySection
                 status={status}
                 identity={draft.identity ?? status.identity}
@@ -342,7 +304,9 @@ export const Usb = () => {
                 }}
               />
             )}
-            {empty && <div className="text-fg-muted text-sm">{t('settings.usb.empty')}</div>}
+            {showComposition && turningOff && (
+              <div className="text-fg-muted text-sm">{t('settings.usb.empty')}</div>
+            )}
             {status && !status.revision && (
               <div className="text-warning text-sm">{t('settings.usb.serverUpdateRequired')}</div>
             )}
@@ -371,7 +335,7 @@ export const Usb = () => {
             </div>
             <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
           </div>
-          {status && (
+          {showComposition && status && enabled && (
             <UserDisk
               disk={Boolean(status.disk)}
               enabled={Boolean(status.userDisk)}
@@ -379,10 +343,12 @@ export const Usb = () => {
               onToggle={(next) => saveComposition({ ...status, userDisk: next })}
             />
           )}
-          <SerialConsole serial={Boolean(status?.serial)} disk={Boolean(status?.disk)} />
-          {(status?.relative || status?.absolute) && <MouseJiggler />}
+          {showComposition && enabled && (
+            <SerialConsole serial={Boolean(status?.serial)} disk={Boolean(status?.disk)} />
+          )}
+          {showComposition && enabled && (status?.relative || status?.absolute) && <MouseJiggler />}
         </>
-      )}
+      }
     </div>
   );
 };

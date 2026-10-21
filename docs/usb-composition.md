@@ -1,27 +1,39 @@
 # USB composition and endpoint budget
 
 NanoKVM exposes several independent USB functions through the SG2002 DWC2
-device controller. The **Settings > USB Composition** page reports the active
-functions and edits a draft against the measured controller budget. Selecting
-a preset or changing an individual switch does not reconnect USB. **Apply**
-sends the complete composition; **Discard changes** restores the active values.
+device controller. The **Settings > USB Gadget > Composition** page (and the
+toolbar's USB Gadget quick menu, which opens the same panel) reports the
+active functions and edits a draft against the measured controller budget.
+Selecting a preset or changing an individual switch does not reconnect USB.
+**Apply** sends the complete composition; **Discard changes** restores the
+active values. There is no separate USB switch: applying a composition
+without any function turns USB off (it asks first) and applying one with a
+function turns it on again.
 
 ## Presets and manual selection
 
 | Preset | Functions | IN / OUT | Gives up |
 | --- | --- | --- | --- |
 | KVM (a new device starts here) | Three HID functions, storage | 4 / 4 | no network adapter on the computer |
-| KVM + USB network | Three HID functions, network, storage | 6 / 5 | the serial console |
+| KVM + network | Three HID functions, network, storage | 6 / 5 | the serial console |
 | KVM + serial console | Three HID functions, ACM, storage (with the helper disk) | 6 / 5 | the USB network |
-| Headless server | ACM, storage (with the helper disk) | 3 / 2 | keyboard and mouse: the console and the helper disk with its script, so the server needs no network (RustDesk adds HID and audio back: 6 / 6) |
-| Remote desktop | Three HID functions, storage, audio | 4 / 5 | what RustDesk enables; a second speaker on the computer |
+| Headless server | ACM, storage (with the helper disk) | 3 / 2 | keyboard and mouse: the console and the helper disk with its script, so the server needs no network |
+| RustDesk | Three HID functions, storage, audio | 4 / 5 | what turning RustDesk on switches to; a second speaker on the computer |
 | Keyboard and mouse only | Three HID functions | 3 / 3 | everything else |
 
 The budget is 6 IN / 7 OUT, so everything at once (HID + network + storage +
 ACM, 8 IN) does not fit: every preset gives something up, and its description
 says what. A fresh install (`usb.dev` and an empty `usb.disk0`) runs the first
-preset. RustDesk adds the three HID functions and audio to the composition,
-which from the first preset is the remote desktop one.
+preset.
+
+Turning RustDesk's remote access on switches USB to the RustDesk preset
+(audio only when RustDesk sends sound) and keeps the composition it replaced
+in `/etc/kvm/usb-before-rustdesk.json`, with the one it applied. Turning
+remote access off puts the replaced composition back, a composition without
+any function included, unless the composition was changed in the meantime:
+then it stays and the file goes. Turning RustDesk's sound on while it runs
+adds audio and still counts as RustDesk's own change. The identity is not
+part of this: it stays what it is.
 
 The expandable manual section controls keyboard, relative mouse, absolute
 pointer, network, storage, ACM and audio individually, and the **HID-only
@@ -29,7 +41,7 @@ compatibility profile (USB 1.1)** switch: older descriptors for firmware and
 hosts that reject the composite device, without network, storage or audio
 (turning one of those on leaves the profile again). Budget usage follows the
 draft. Only additions that exceed either limit are disabled; already-selected
-functions can always be removed. Empty or over-budget drafts cannot be applied.
+functions can always be removed. Over-budget drafts cannot be applied.
 
 USB network and serial are **not mutually exclusive**. For example, keyboard +
 network + storage + serial uses 6 IN / 4 OUT. The interface no longer tells the
@@ -37,24 +49,33 @@ user to disable USB network as a prerequisite for serial.
 
 ### USB identity
 
-Below the manual section, **USB identity** is what the computer reads from the
-device descriptor: vendor ID, product ID, manufacturer and product strings.
+The **Settings > USB Gadget > Identity (VID/PID)** page holds what the
+computer reads from the
+device descriptor: vendor ID, product ID, manufacturer and product strings
+and the serial number.
 Hosts with a USB allow-list, or endpoint security that objects to a device
 called "NanoKVM", need something else there. Two presets, **NanoKVM (factory)**
 (`0x3346:0x1009`, `sipeed` / `NanoKVM`) and **Generic composite device**
 (the factory IDs with the names `Generic` / `USB Composite Device`), and a
-**Custom** choice with the four fields by hand. No preset carries another
+**Custom** choice with the fields by hand. No preset carries another
 vendor's ID: a custom vendor or product ID is the user's own, and the page says
-so. The serial number stays the chip UID and is shown read-only, because the
-Linux console helper's udev rule is bound to it; `bcdDevice` stays the mode
-flag the server reads.
+so. The serial number is the chip UID while its field is empty (the field
+shows the UID as its placeholder); a set one is 1 to 126 letters, digits,
+dots, dashes or underscores, because the serial console page puts it into a
+shell command and the Linux helper into a udev rule. Presets leave it as it
+is. The Linux console helper's udev rule is bound to it: after a change, run
+the helper's `apply` again on the host. `bcdDevice` stays the mode flag the
+server reads.
 
 The identity is part of the composition: Apply writes it with the rest and
-reconnects USB, and it is in the `revision`. `S03usbdev` and `S03usbhid` read
-`/boot/usb.vid`, `/boot/usb.pid`, `/boot/usb.manufacturer` and
-`/boot/usb.product` at every start (a missing file is the factory value). The
-recovery init (inside the initramfs, so changed only with a platform build)
-reads the same manufacturer and product files, but takes the IDs from its own
+reconnects USB, and it is in the `revision`. It can be changed while USB is
+off too: Apply then only writes the files, and USB presents the identity when
+it is turned on. `S03usbdev` and `S03usbhid` read
+`/boot/usb.vid`, `/boot/usb.pid`, `/boot/usb.manufacturer`,
+`/boot/usb.product` and `/boot/usb.serialnumber` at every start (a missing
+file is the factory value). The recovery init (inside the initramfs, so
+changed only with a platform build) reads the same manufacturer, product and
+serial number files, but takes the IDs from its own
 `usb.idVendor` / `usb.idProduct`: a recovery boot presents the factory IDs
 unless those two files are set by hand. A vendor or product ID
 other than the factory one stops the serial console helper's udev rule on
@@ -84,11 +105,14 @@ The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
 fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET; an
 optional `userDisk` boolean turns the user disk on or off (omitted keeps it; on
 needs the virtual disk and an existing image); an optional `identity` object (`vendorId`, `productId`, `manufacturer`,
-`product`; an empty field is the factory value) sets the identity, and a
-request without it keeps the one in place. IDs are `0x0001`–`0xffff`, names
-1–126 printable ASCII characters. GET reports the identity with the serial
-number and whether it is the factory one.
-Missing fields, invalid budgets, empty drafts and stale revisions are rejected
+`product`, `serialNumber`; an empty field is the factory value, the chip UID
+for the serial number) sets the identity, and a request without it keeps the
+one in place. IDs are `0x0001`–`0xffff`, names 1–126 printable ASCII
+characters, a serial number 1–126 letters, digits, dots, dashes or
+underscores. GET reports the identity with the set `serialNumber` (empty for
+the chip UID), the `chipSerialNumber` and whether it is the factory one.
+Missing fields, invalid budgets and stale revisions are rejected (a
+composition without any function turns USB off)
 before changing flags. Revision comparison and application hold both HID locks.
 The legacy POST toggle endpoint remains available for older clients.
 

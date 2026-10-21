@@ -12,20 +12,21 @@ import (
 )
 
 // The gadget's identity as the connected computer sees it: vendor and
-// product IDs and the manufacturer and product strings. Hosts with USB
-// allow-lists or endpoint security that flags "NanoKVM" need to see
-// something else. The serial number stays the chip UID (the Linux console
-// helper binds its udev rule to it), and bcdDevice stays the mode flag that
-// hid.GetMode reads, so neither is part of the identity.
+// product IDs, the manufacturer and product strings and the serial number.
+// Hosts with USB allow-lists or endpoint security that flags "NanoKVM" need
+// to see something else. An empty serial number is the chip UID; bcdDevice
+// stays the mode flag that hid.GetMode reads, so it is not part of the
+// identity.
 //
-// S03usbdev and S03usbhid read the four files below from /boot at every
+// S03usbdev and S03usbhid read the five files below from /boot at every
 // start; a missing file means the default. The recovery init reads the same
-// manufacturer and product files.
+// manufacturer, product and serial number files.
 type usbIdentity struct {
 	VendorID     string // 0x3346
 	ProductID    string // 0x1009
 	Manufacturer string
 	Product      string
+	SerialNumber string // "" is the chip UID
 }
 
 var defaultUSBIdentity = usbIdentity{VendorID: "0x3346", ProductID: "0x1009", Manufacturer: "sipeed", Product: "NanoKVM"}
@@ -38,7 +39,7 @@ func identityFromRequest(req *proto.USBIdentityReq) (usbIdentity, error) {
 	if req == nil {
 		return usbIdentity{}, nil
 	}
-	raw := usbIdentity{VendorID: req.VendorID, ProductID: req.ProductID, Manufacturer: req.Manufacturer, Product: req.Product}
+	raw := usbIdentity{VendorID: req.VendorID, ProductID: req.ProductID, Manufacturer: req.Manufacturer, Product: req.Product, SerialNumber: req.SerialNumber}
 	if err := raw.validate(); err != nil {
 		return usbIdentity{}, err
 	}
@@ -52,6 +53,34 @@ const (
 )
 
 var usbIDPattern = regexp.MustCompile(`^0[xX][0-9a-fA-F]{1,4}$`)
+
+// A serial number is letters, digits, dots, dashes and underscores: the
+// serial console page puts it into a shell command and the helper into a
+// udev rule, unquoted.
+var usbSerialPattern = regexp.MustCompile(`^[0-9A-Za-z._-]{1,126}$`)
+
+// chipUIDPath and the fallback are what S03usbdev reads when no serial
+// number is set.
+var chipUIDPath = "/sys/class/cvi-base/base_uid"
+
+const fallbackSerialNumber = "0123456789ABCDEF"
+
+// chipSerialNumber is the serial number the gadget has when none is set:
+// the chip UID without its underscores, as the scripts take it.
+func chipSerialNumber() string {
+	data, err := os.ReadFile(chipUIDPath)
+	if err != nil {
+		return fallbackSerialNumber
+	}
+	fields := strings.Fields(string(data))
+	if len(fields) < 2 {
+		return fallbackSerialNumber
+	}
+	if uid := strings.ReplaceAll(fields[1], "_", ""); len(uid) >= 12 {
+		return uid
+	}
+	return fallbackSerialNumber
+}
 
 // normalizeUSBID returns the canonical 0xNNNN form, or an error.
 func normalizeUSBID(value string) (string, error) {
@@ -100,6 +129,7 @@ func (i usbIdentity) normalized() usbIdentity {
 	if i.Product != "" {
 		out.Product = i.Product
 	}
+	out.SerialNumber = i.SerialNumber
 	return out
 }
 
@@ -121,6 +151,9 @@ func (i usbIdentity) validate() error {
 			}
 		}
 	}
+	if i.SerialNumber != "" && !usbSerialPattern.MatchString(i.SerialNumber) {
+		return errors.New("a USB serial number is 1 to 126 letters, digits, dots, dashes or underscores")
+	}
 	return nil
 }
 
@@ -132,7 +165,7 @@ func (i usbIdentity) isDefault() bool {
 // that differs from the default, nil for the files to remove.
 func (i usbIdentity) files() map[string]*string {
 	n := i.normalized()
-	out := make(map[string]*string, 4)
+	out := make(map[string]*string, 5)
 	set := func(name, value, fallback string) {
 		if value == fallback {
 			out[name] = nil
@@ -144,6 +177,7 @@ func (i usbIdentity) files() map[string]*string {
 	set("usb.pid", n.ProductID, defaultUSBIdentity.ProductID)
 	set("usb.manufacturer", n.Manufacturer, defaultUSBIdentity.Manufacturer)
 	set("usb.product", n.Product, defaultUSBIdentity.Product)
+	set("usb.serialnumber", n.SerialNumber, "")
 	return out
 }
 
@@ -160,7 +194,7 @@ func readUSBIdentity(bootDir string) usbIdentity {
 		}
 		return strings.TrimSpace(string(data))
 	}
-	i := usbIdentity{VendorID: read("usb.vid"), ProductID: read("usb.pid"), Manufacturer: read("usb.manufacturer"), Product: read("usb.product")}
+	i := usbIdentity{VendorID: read("usb.vid"), ProductID: read("usb.pid"), Manufacturer: read("usb.manufacturer"), Product: read("usb.product"), SerialNumber: read("usb.serialnumber")}
 	if _, err := normalizeUSBID(i.VendorID); err != nil {
 		i.VendorID = ""
 	}
@@ -173,10 +207,14 @@ func readUSBIdentity(bootDir string) usbIdentity {
 	if validUSBString(i.Product) != nil {
 		i.Product = ""
 	}
+	if !usbSerialPattern.MatchString(i.SerialNumber) {
+		i.SerialNumber = ""
+	}
 	return i.normalized()
 }
 
-// gadgetIdentityAt reads what the gadget presents now, from configfs.
+// gadgetIdentityAt reads what the gadget presents now, from configfs,
+// without the serial number (see gadgetSerialNumberAt).
 func gadgetIdentityAt(root string) (usbIdentity, error) {
 	read := func(rel string) (string, error) {
 		data, err := os.ReadFile(filepath.Join(root, rel))

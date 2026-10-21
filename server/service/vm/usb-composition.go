@@ -31,8 +31,9 @@ func (s usbComposition) validate() error {
 	return s.identity.validate()
 }
 
-// EnsureRemoteAccessUSB applies the same validated, serialized composition as
-// the USB settings screen. Other enabled functions survive.
+// EnsureRemoteAccessUSB adds what RustDesk needs to the composition when its
+// sound is turned on while it runs, through the same validated, serialized
+// apply as the USB settings screen. Other enabled functions survive.
 func EnsureRemoteAccessUSB(withAudio bool) error {
 	h := hid.GetHid()
 	h.Lock()
@@ -45,7 +46,9 @@ func EnsureRemoteAccessUSB(withAudio bool) error {
 	if current == candidate {
 		return verifyLiveUSBComposition(candidate)
 	}
-	return applyLiveUSBComposition(h, current, candidate)
+	return followRemoteAccessMarker(remoteAccessMarkerPath, current, candidate, func(next usbComposition) error {
+		return applyLiveUSBComposition(h, current, next)
+	})
 }
 
 func (s usbComposition) remoteAccessDefaults(withAudio bool) usbComposition {
@@ -138,8 +141,15 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 		if err != nil {
 			return fmt.Errorf("read the USB identity: %w", err)
 		}
-		if presented != s.identity.normalized() {
+		want := s.identity.normalized()
+		serial := want.SerialNumber
+		want.SerialNumber = ""
+		if presented != want {
 			return errors.New("USB identity does not match the requested one")
+		}
+		// the chip UID is checked by no one: hid-only without serial has none
+		if serial != "" && gadgetSerialNumberAt(root) != serial {
+			return errors.New("USB serial number does not match the requested one")
 		}
 	}
 	return nil
@@ -151,7 +161,7 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 var usbCompositionFlags = []string{
 	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "usb.audio", "disable_hid",
 	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute",
-	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.userdisk",
+	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.serialnumber", "usb.userdisk",
 }
 
 // contentFiles is what the value-bearing boot files should hold for a

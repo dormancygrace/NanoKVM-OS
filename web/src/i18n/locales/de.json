@@ -1210,7 +1210,9 @@
       "confirmDisableDescription": "Der Computer verliert Tastatur, Maus, Speicher, Audio und USB-Netzwerk des NanoKVM, bis USB hier wieder eingeschaltet wird. Auch die Internetfreigabe über USB wird beendet. RustDesk verliert die Tastatur- und Maussteuerung.",
       "off": "Aus",
       "title": "USB-Zusammenstellung",
-      "enabled": "USB-Geräte",
+      "gadget": "USB-Gadget",
+      "compositionMenu": "Zusammenstellung",
+      "identityMenu": "Identität (VID/PID)",
       "budgetTitle": "Endpunkt-Budget",
       "budgetExceeded": "Diese Auswahl überschreitet das USB-Endpunkt-Budget.",
       "presetLabel": "Zusammenstellung",
@@ -1239,13 +1241,15 @@
           "productId": "Produkt-ID",
           "manufacturer": "Hersteller",
           "product": "Produkt",
-          "serialNumber": "Seriennummer (Chip-UID, fest)"
+          "serialNumber": "Seriennummer"
         },
         "invalid": {
           "id": "IDs bestehen aus vier Hexadezimalziffern wie 0x1234, nicht 0x0000.",
-          "string": "Namen bestehen aus 1 bis 126 druckbaren ASCII-Zeichen ohne führende oder nachgestellte Leerzeichen."
+          "string": "Namen bestehen aus 1 bis 126 druckbaren ASCII-Zeichen ohne führende oder nachgestellte Leerzeichen.",
+          "serial": "Eine Seriennummer besteht aus 1 bis 126 Buchstaben, Ziffern, Punkten, Bindestrichen oder Unterstrichen."
         },
-        "idWarning": "Für eine andere Hersteller- oder Produkt-ID als die werkseitige sind Sie selbst verantwortlich. Linux-Hosts, die mit dem Helfer für die serielle Konsole eingerichtet wurden, erkennen den NanoKVM nicht mehr (seine udev-Regel nennt die IDs)."
+        "idWarning": "Für eine andere Hersteller- oder Produkt-ID als die werkseitige sind Sie selbst verantwortlich. Linux-Hosts, die mit dem Helfer für die serielle Konsole eingerichtet wurden, erkennen den NanoKVM nicht mehr (seine udev-Regel nennt die IDs).",
+        "serialHint": "Leer: die Chip-UID. Buchstaben, Ziffern, Punkte, Bindestriche und Unterstriche. Linux-Hosts mit dem Serial-Console-Helfer erkennen das Gerät daran: Führen Sie nach einer Änderung dessen apply erneut aus."
       },
       "userDisk": {
         "title": "Benutzerlaufwerk",
@@ -1337,7 +1341,7 @@
           "description": "Tastatur, beide Mausmodi und die virtuelle Festplatte: die Ausstattung eines neuen Geräts. Auf dem Computer erscheint kein Netzwerkadapter."
         },
         "standard": {
-          "title": "KVM + USB-Netzwerk",
+          "title": "KVM + Netzwerk",
           "description": "Tastatur, beide Mausmodi, virtuelle Festplatte und der USB-Netzwerkadapter. Lässt keinen Platz für die serielle Konsole."
         },
         "console": {
@@ -1346,11 +1350,11 @@
         },
         "headless": {
           "title": "Headless-Server",
-          "description": "Die serielle Konsole und das virtuelle Laufwerk mit seinem Hilfslaufwerk, das das Skript zum Einrichten der seriellen Anmeldung enthält, sodass der Server kein Netzwerk braucht. Auf dem Computer erscheinen weder Tastatur noch Maus; der Remote-Desktop fügt Tastatur, Mäuse und Audio wieder hinzu, wenn er aktiviert ist."
+          "description": "Die serielle Konsole und das virtuelle Laufwerk mit seinem Hilfslaufwerk, das das Skript zum Einrichten der seriellen Anmeldung enthält, sodass der Server kein Netzwerk braucht. Auf dem Computer erscheinen weder Tastatur noch Maus. Beim Aktivieren wechselt RustDesk zu seiner USB-Konfiguration und trennt die serielle Konsole."
         },
         "remote": {
-          "title": "Remote-Desktop",
-          "description": "Tastatur, beide Mausmodi, virtuelle Festplatte und USB-Audio: das, was RustDesk verwendet. Der Computer erhält einen zweiten Lautsprecher."
+          "title": "RustDesk",
+          "description": "Tastatur, beide Mausmodi, virtueller Datenträger und USB-Audio: Darauf schaltet das Einschalten von RustDesk um, das Ausschalten stellt die vorherige Zusammenstellung wieder her. Der Computer erhält einen zweiten Lautsprecher."
         },
         "control": {
           "title": "Nur Tastatur und Maus",
@@ -1804,7 +1808,7 @@
       "open": "Verwaltung öffnen",
       "settings": "RustDesk",
       "keepPassword": "Leer lassen, um das aktuelle Passwort beizubehalten",
-      "inputDefaults": "Das Aktivieren des Fernzugriffs aktiviert automatisch die USB-Tastatur und die absolute/relative Maus.",
+      "inputDefaults": "Das Einschalten des Fernzugriffs schaltet USB auf die RustDesk-Zusammenstellung um (Tastatur, beide Mausmodi, virtueller Datenträger und, mit Ton, USB-Audio); das Ausschalten stellt die vorherige wieder her, sofern sie in der Zwischenzeit nicht geändert wurde.",
       "transmitAudio": "Ton übertragen",
       "audioHint": "Aktiviert USB-Audio automatisch. Wählen Sie auf dem angeschlossenen Computer NanoKVM als Tonausgabe.",
       "audioMuted": "Die Tonübertragung über RustDesk ist deaktiviert.",

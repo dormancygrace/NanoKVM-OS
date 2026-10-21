@@ -154,6 +154,7 @@ func Connect(c *gin.Context) {
 	var frames <-chan packet
 	var captureDone <-chan struct{}
 	var last uint64
+	var lastAt time.Time
 	haveLast := false
 	offered := false
 	started := time.Now()
@@ -233,10 +234,14 @@ func Connect(c *gin.Context) {
 			if dropped > 65535 {
 				dropped = 65535
 			}
-			if track.WriteSample(media.Sample{Data: frame.data, Duration: 20 * time.Millisecond, PrevDroppedPackets: uint16(dropped)}) != nil {
+			// The capture paused: the RTP clock covers the time without sound.
+			if haveLast && AdvanceTimeline(track, PauseGap(frame.at.Sub(lastAt), dropped)) != nil {
 				return
 			}
-			last = frame.index
+			if track.WriteSample(media.Sample{Data: frame.data, Duration: FrameDuration, PrevDroppedPackets: uint16(dropped)}) != nil {
+				return
+			}
+			last, lastAt = frame.index, frame.at
 			haveLast = true
 		}
 	}

@@ -1210,7 +1210,9 @@
       "confirmDisableDescription": "El equipo pierde el teclado, el ratón, el almacenamiento, el audio y la red USB del NanoKVM hasta que se vuelva a activar el USB aquí. El uso compartido de Internet por USB también se detiene. RustDesk pierde el control del teclado y el ratón.",
       "off": "Desactivado",
       "title": "Composición USB",
-      "enabled": "Dispositivos USB",
+      "gadget": "Gadget USB",
+      "compositionMenu": "Composición",
+      "identityMenu": "Identidad (VID/PID)",
       "budgetTitle": "Presupuesto de endpoints",
       "budgetExceeded": "Esta selección supera el presupuesto de endpoints USB.",
       "presetLabel": "Composición",
@@ -1239,13 +1241,15 @@
           "productId": "ID de producto",
           "manufacturer": "Fabricante",
           "product": "Producto",
-          "serialNumber": "Número de serie (UID del chip, fijo)"
+          "serialNumber": "Número de serie"
         },
         "invalid": {
           "id": "Los ID son cuatro dígitos hexadecimales como 0x1234, no 0x0000.",
-          "string": "Los nombres tienen de 1 a 126 caracteres ASCII imprimibles, sin espacios al principio ni al final."
+          "string": "Los nombres tienen de 1 a 126 caracteres ASCII imprimibles, sin espacios al principio ni al final.",
+          "serial": "Un número de serie tiene de 1 a 126 letras, dígitos, puntos, guiones o guiones bajos."
         },
-        "idWarning": "Un ID de proveedor o de producto distinto del de fábrica es responsabilidad tuya. Los hosts Linux configurados con el asistente de consola serie dejan de reconocer el NanoKVM (su regla udev indica los ID)."
+        "idWarning": "Un ID de proveedor o de producto distinto del de fábrica es responsabilidad tuya. Los hosts Linux configurados con el asistente de consola serie dejan de reconocer el NanoKVM (su regla udev indica los ID).",
+        "serialHint": "Vacío: el UID del chip. Letras, dígitos, puntos, guiones y guiones bajos. Los hosts Linux configurados con el asistente de consola serie lo usan: vuelva a ejecutar su apply tras cambiarlo."
       },
       "userDisk": {
         "title": "Disco de usuario",
@@ -1337,7 +1341,7 @@
           "description": "Teclado, ambos modos de ratón y el disco virtual: lo que trae un dispositivo nuevo. No aparece ningún adaptador de red en el equipo."
         },
         "standard": {
-          "title": "KVM + red USB",
+          "title": "KVM + red",
           "description": "Teclado, ambos modos de ratón, disco virtual y el adaptador de red USB. No deja espacio para la consola serie."
         },
         "console": {
@@ -1346,11 +1350,11 @@
         },
         "headless": {
           "title": "Servidor sin monitor",
-          "description": "La consola serie y el disco virtual con su disco auxiliar, que contiene el script que configura el inicio de sesión serie, así que el servidor no necesita red. No aparece teclado ni ratón en el equipo; el escritorio remoto vuelve a añadir teclado, ratones y audio cuando está activado."
+          "description": "La consola serie y el disco virtual con su disco auxiliar, que contiene el script que configura el inicio de sesión serie, así que el servidor no necesita red. No aparece teclado ni ratón en el equipo. Al activar RustDesk, USB cambia a su configuración y se desconecta la consola serie."
         },
         "remote": {
-          "title": "Escritorio remoto",
-          "description": "Teclado, ambos modos de ratón, disco virtual y audio USB: lo que usa RustDesk. El equipo obtiene un segundo altavoz."
+          "title": "RustDesk",
+          "description": "Teclado, ambos modos de ratón, disco virtual y audio USB: a esto cambia al activar RustDesk, y al desactivarlo vuelve la composición anterior. El ordenador obtiene un segundo altavoz."
         },
         "control": {
           "title": "Solo teclado y ratón",
@@ -1804,7 +1808,7 @@
       "open": "Abrir administración",
       "settings": "RustDesk",
       "keepPassword": "Déjalo vacío para mantener la contraseña actual",
-      "inputDefaults": "Al activar el acceso remoto se activan automáticamente el teclado USB y el ratón absoluto/relativo.",
+      "inputDefaults": "Activar el acceso remoto cambia el USB a la composición de RustDesk (teclado, ambos modos de ratón, disco virtual y, con sonido, audio USB); desactivarlo restaura la anterior, salvo que se haya cambiado mientras tanto.",
       "transmitAudio": "Transmitir sonido",
       "audioHint": "Activa el audio USB automáticamente. Selecciona NanoKVM como salida de sonido en el equipo conectado.",
       "audioMuted": "La transmisión de sonido a través de RustDesk está desactivada.",

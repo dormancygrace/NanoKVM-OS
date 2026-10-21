@@ -1236,6 +1236,7 @@ bool jpg_dump(kvmv_data_t* dump_to, nanokvm::JpegBuffer *raw)
 // the HTTP thread. Wide video keeps channel 1; native MJPEG fits channel 0.
 static bool mjpeg_422_disabled = false;
 static unsigned mjpeg_422_frame_failures = 0;
+static unsigned mjpeg_422_video_failures = 0; // video encoder failures in a row
 static int mjpeg_chroma_choice = -1; // Legacy environment default until explicitly selected.
 static uint64_t mjpeg_last_video_ms = 0, mjpeg_last_jpeg_ms = 0;
 static unsigned mjpeg_last_video_width = 0, mjpeg_last_jpeg_width = 0;
@@ -1321,6 +1322,7 @@ int set_mjpeg_chroma(uint8_t enable_422)
     mjpeg_chroma_choice = enable_422;
     mjpeg_422_disabled = false; // An explicit GUI retry can recover without a reboot.
     mjpeg_422_frame_failures = 0;
+    mjpeg_422_video_failures = 0;
     pthread_mutex_unlock(&vi_mutex);
     return 0;
 }
@@ -2142,7 +2144,13 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
             if (ret == IMG_CAPTURE_RESTARTED) continue;
             if(ret < 0){
                 if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
-                if (cam->has_format(nanokvm::nv16_format()) && !mjpeg_422_disabled) {
+                // One failure is the VI-direct path switch: an encoder keeps
+                // the input format of its first frame, so its first frame on
+                // the other path fails and the next read creates a new one
+                // (kvm_mmf, _mmf_vi_direct_recheck). Only failures in a row
+                // point at the separate outputs.
+                if (cam->has_format(nanokvm::nv16_format()) && !mjpeg_422_disabled
+                        && ++mjpeg_422_video_failures >= 3) {
                     disable_mjpeg_422("video encoder failed with separate outputs");
                     // Retry through the existing NV21 output on the next read.
                     // Never close a producer until its JPEG lease is retired.
@@ -2151,6 +2159,7 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;
             }
+            mjpeg_422_video_failures = 0;
             pthread_mutex_unlock(&vi_mutex);
             return ret;
         }

@@ -104,7 +104,7 @@ version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alp
 # Official Alpine packages.
 image_version=${NANOKVM_IMAGE_VERSION:-$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")}
 profile=stock
-release=7.2.10-nanokvm-os-r5
+release=7.2.10-nanokvm-os-r6
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
 # is the upstream Linux 7.2.10 release time.
 kernel_timestamp='Sun Oct 11 13:27:50 UTC 2026'
@@ -295,6 +295,7 @@ modules() {
     unpack_git aic8800 src/SDIO/driver_fw/driver/aic8800 "$src/wifi"
     unpack_git cryptodev . "$src/cryptodev"
     cp -r "$here/modules/sg2002-aes" "$src/aes"
+    cp -r "$here/modules/cv181x-aximon" "$src/aximon"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
     apply_patches "$src/osdrv" "$here/modules/osdrv"
     apply_patches "$src/wifi" "$here/modules/aic8800"
@@ -308,14 +309,15 @@ modules() {
         (cd "$dir" && PWD=$dir make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" \
             "KCFLAGS=$isa $maps" M="$dir" "$@" -j"$jobs" modules)
     }
-    # Not dwa (dewarp), rgn (overlays) or snsr_i2c: NanoKVM uses none of them.
-    for name in sys base cif vi vpss vcodec jpeg cvi_vc_drv; do
+    # Not snsr_i2c: the HDMI receivers are driven from user space over /dev/i2c.
+    for name in sys base cif vi vpss ive vcodec jpeg cvi_vc_drv dwa rgn; do
         module=$src/osdrv/interdrv/$name
         build "$module" CVIARCH=CV181X CVIARCH_L=cv181x "KBUILD_EXTRA_SYMBOLS=${symbols[*]}"
         symbols+=("$module/Module.symvers")
     done
     build "$src/wifi" CONFIG_PLATFORM_UBUNTU=n CONFIG_SDIO_BT=y CONFIG_AIC8800_BTLPM_SUPPORT=n CONFIG_USE_FW_REQUEST=y
     build "$src/aes"
+    build "$src/aximon"
     build "$src/cryptodev"
     # Vendor diagnostics use __DATE__ and __TIME__.
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder SOURCE_DATE_EPOCH=$rtl8733bs_epoch \
@@ -334,7 +336,7 @@ modules() {
         [ ! -e "$target" ] || { echo "Duplicate module name: $target" >&2; exit 1; }
         cp "$module" "$target"
         "${cross}strip" --strip-debug "$target"
-    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/cryptodev" "$m/rtl8733bs" -name '*.ko' -print0)
+    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/aximon" "$src/cryptodev" "$m/rtl8733bs" -name '*.ko' -print0)
     # Name every module in sorted order; a directory scan would make the
     # order of the modules.* indexes depend on the file system.
     local mods=$img/lib/modules/$release list

@@ -213,6 +213,13 @@
 		interrupt-parent = <&plic>;
 	};
 
+	/* DDR bandwidth by AXI port (platform/modules/cv181x-aximon): the
+	 * monitors, then ddr_top for their clock gate. */
+	ddr-monitor@8008000 {
+		compatible = "nanokvm,cv181x-aximon";
+		reg = <0x8008000 0x1000 0x800a000 0x1000 >;
+	};
+
 	vo@a080000 {
 		compatible = "cvitek,vo";
 		reg = <0xa080000 0x10000 0xa0c8000 0xa0 0xa0d1000 0x100 >;

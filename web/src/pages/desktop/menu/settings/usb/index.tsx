@@ -5,8 +5,10 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/virtual-device.ts';
 import {
   canToggleDevice,
+  enableDraft,
   endpointUsage,
   fitsBudget,
+  hasUsbDevice,
   identityProblem,
   matchingPreset,
   normalizeUsbStatus,
@@ -54,10 +56,14 @@ export const Usb = () => {
   const busy = useRef(false);
   const [error, setError] = useState('');
   const [loadFailed, setLoadFailed] = useState(false);
+  // USB is off and the switch was turned on: the panel shows a draft, and USB
+  // turns on only when it is applied.
+  const [enabling, setEnabling] = useState(false);
   const previousComposition = useRef<UsbComposition | undefined>(readPreviousComposition());
 
   const adopt = useCallback((next: UsbStatus) => {
     setLoadFailed(false);
+    setEnabling(false);
     setStatus(next);
     setDraft(next);
     if (usbDevices.some((name) => next[name])) {
@@ -116,36 +122,56 @@ export const Usb = () => {
     setError('');
   }
 
-  async function toggleUsb(enabled: boolean) {
+  async function toggleUsb(on: boolean) {
     if (!status?.revision || busy.current) return;
-    let next: UsbComposition;
-    if (enabled) {
-      next = { ...(previousComposition.current ?? usbPresets[0].composition) };
-      if (!fitsBudget(next, status)) return;
-    } else {
-      const confirmed = await confirmAction({
-        title: t('settings.usb.confirmDisable'),
-        content: t('settings.usb.confirmDisableDescription'),
-        danger: true
-      });
-      if (!confirmed) return;
-      previousComposition.current = { ...status };
-      next = {
-        mode: 'normal',
-        keyboard: false,
-        relative: false,
-        absolute: false,
-        network: false,
-        disk: false,
-        serial: false,
-        audio: false
-      };
+    if (on) {
+      // Propose the last composition; Apply turns USB on.
+      const next = enableDraft(previousComposition.current, status);
+      if (!next) return;
+      setDraft(next);
+      const preset = matchingPreset(next);
+      setSelection(preset);
+      if (preset === 'custom') setManualOpen(true);
+      setEnabling(true);
+      setError('');
+      return;
     }
-    await saveComposition(next);
+    if (!enabled) {
+      // Turned off again before Apply: nothing was sent.
+      adopt(status);
+      setError('');
+      return;
+    }
+    await turnOff({
+      mode: 'normal',
+      keyboard: false,
+      relative: false,
+      absolute: false,
+      network: false,
+      disk: false,
+      serial: false,
+      audio: false
+    });
+  }
+
+  // Turning USB off, by the switch or by applying a composition without any
+  // function, asks first and remembers what was on.
+  async function turnOff(empty: UsbComposition) {
+    if (!status) return;
+    const confirmed = await confirmAction({
+      title: t('settings.usb.confirmDisable'),
+      content: t('settings.usb.confirmDisableDescription'),
+      danger: true
+    });
+    if (!confirmed) return;
+    previousComposition.current = { ...status };
+    await saveComposition(empty);
   }
 
   async function apply() {
-    if (draft) await saveComposition(draft);
+    if (!draft) return;
+    if (hasUsbDevice(draft)) await saveComposition(draft);
+    else await turnOff(draft);
   }
 
   async function saveComposition(requested: UsbComposition) {
@@ -205,8 +231,9 @@ export const Usb = () => {
 
   const used = draft && status ? endpointUsage(draft, status.costs) : undefined;
   const dirty = Boolean(draft && status && !sameComposition(draft, status));
-  const enabled = Boolean(status && usbDevices.some((name) => status[name]));
-  const empty = Boolean(draft && !usbDevices.some((name) => draft[name]));
+  const enabled = Boolean(status && hasUsbDevice(status));
+  const shown = enabled || enabling;
+  const empty = Boolean(draft && !hasUsbDevice(draft));
   const withinBudget = Boolean(draft && status && fitsBudget(draft, status));
   const identityOk = !draft?.identity || !identityProblem(draft.identity);
 
@@ -216,14 +243,14 @@ export const Usb = () => {
       <SettingRow label={t('settings.usb.enabled')} htmlFor="usb-enabled">
         <Switch
           id="usb-enabled"
-          checked={enabled}
+          checked={shown}
           disabled={!status?.revision || loading}
           loading={loading || (!status && !error)}
           onChange={(next) => void toggleUsb(next)}
         />
       </SettingRow>
       <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />
-      {enabled && (
+      {shown && (
         <>
           <div className="space-y-4">
             <SettingRow
@@ -371,7 +398,7 @@ export const Usb = () => {
             </div>
             <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
           </div>
-          {status && (
+          {status && enabled && (
             <UserDisk
               disk={Boolean(status.disk)}
               enabled={Boolean(status.userDisk)}
@@ -379,8 +406,10 @@ export const Usb = () => {
               onToggle={(next) => saveComposition({ ...status, userDisk: next })}
             />
           )}
-          <SerialConsole serial={Boolean(status?.serial)} disk={Boolean(status?.disk)} />
-          {(status?.relative || status?.absolute) && <MouseJiggler />}
+          {enabled && (
+            <SerialConsole serial={Boolean(status?.serial)} disk={Boolean(status?.disk)} />
+          )}
+          {enabled && (status?.relative || status?.absolute) && <MouseJiggler />}
         </>
       )}
     </div>

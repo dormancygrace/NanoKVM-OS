@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	virtualNetwork = "/boot/usb.rndis0"
-	virtualNCM     = "/boot/usb.ncm"
-	virtualDisk    = "/boot/usb.disk0"
-	virtualSerial  = "/boot/usb.acm"
-	virtualAudio   = "/boot/usb.audio"
-	disableHID     = "/boot/disable_hid"
+	virtualNetwork = "usb.rndis0"
+	virtualNCM     = "usb.ncm"
+	virtualDisk    = "usb.disk0"
+	virtualSerial  = "usb.acm"
+	virtualAudio   = "usb.audio"
+	disableHID     = "disable_hid"
 	inittabPath    = "/etc/inittab"
 
 	usbInEndpointLimit  = 6
@@ -252,9 +252,9 @@ func getUSBComposition() usbComposition {
 		mode = hid.ModeNormal
 	}
 
-	hidEnabled := !deviceExists(disableHID)
-	networkEnabled := deviceExists(virtualNetwork) || deviceExists(virtualNCM)
-	diskEnabled := deviceExists(virtualDisk)
+	hidEnabled := !deviceExists(usbFlag(disableHID))
+	networkEnabled := deviceExists(usbFlag(virtualNetwork)) || deviceExists(usbFlag(virtualNCM))
+	diskEnabled := deviceExists(usbFlag(virtualDisk))
 	if mode == hid.ModeHidOnly {
 		networkEnabled = false
 		diskEnabled = false
@@ -262,21 +262,21 @@ func getUSBComposition() usbComposition {
 
 	return usbComposition{
 		mode:     mode,
-		keyboard: hidEnabled && !deviceExists("/boot/usb.disable_keyboard"),
-		relative: hidEnabled && !deviceExists("/boot/usb.disable_relative"),
-		absolute: hidEnabled && !deviceExists("/boot/usb.disable_absolute"),
+		keyboard: hidEnabled && !deviceExists(usbFlag("usb.disable_keyboard")),
+		relative: hidEnabled && !deviceExists(usbFlag("usb.disable_relative")),
+		absolute: hidEnabled && !deviceExists(usbFlag("usb.disable_absolute")),
 		network:  networkEnabled,
 		disk:     diskEnabled,
-		serial:   deviceExists(virtualSerial),
-		audio:    mode != hid.ModeHidOnly && deviceExists(virtualAudio),
-		identity: readUSBIdentity("/boot"),
-		userDisk: diskEnabled && userDiskFlagged("/boot"),
+		serial:   deviceExists(usbFlag(virtualSerial)),
+		audio:    mode != hid.ModeHidOnly && deviceExists(usbFlag(virtualAudio)),
+		identity: readUSBIdentity(hid.USBFlagsDir),
+		userDisk: diskEnabled && userDiskFlagged(hid.USBFlagsDir),
 	}
 }
 
-// userDiskFlagged says whether /boot/usb.userdisk names the user disk image.
-func userDiskFlagged(bootDir string) bool {
-	data, err := os.ReadFile(filepath.Join(bootDir, "usb.userdisk"))
+// userDiskFlagged says whether usb.userdisk names the user disk image.
+func userDiskFlagged(flagsDir string) bool {
+	data, err := os.ReadFile(filepath.Join(flagsDir, "usb.userdisk"))
 	return err == nil && strings.TrimSpace(string(data)) == storage.UserDiskImagePath()
 }
 
@@ -331,6 +331,9 @@ func (s usbComposition) with(device string, enabled bool) usbComposition {
 	}
 	return s
 }
+
+// usbFlag is the path of a USB flag file in hid.USBFlagsDir.
+func usbFlag(name string) string { return filepath.Join(hid.USBFlagsDir, name) }
 
 func deviceExists(device string) bool {
 	_, err := os.Stat(device)

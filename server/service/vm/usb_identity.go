@@ -18,9 +18,9 @@ import (
 // stays the mode flag that hid.GetMode reads, so it is not part of the
 // identity.
 //
-// S03usbdev and S03usbhid read the five files below from /boot at every
-// start; a missing file means the default. The recovery init reads the same
-// manufacturer, product and serial number files.
+// S03usbdev and S03usbhid read the five files below from /etc/kvm/usb at every
+// start; a missing file means the default. Recovery uses separate identity
+// overrides on /boot because it does not mount the normal root partition.
 type usbIdentity struct {
 	VendorID     string // 0x3346
 	ProductID    string // 0x1009
@@ -161,7 +161,7 @@ func (i usbIdentity) isDefault() bool {
 	return i.normalized() == defaultUSBIdentity
 }
 
-// files is what /boot should hold for this identity: a value for each file
+// files is what the USB flags directory should hold for this identity: a value for each file
 // that differs from the default, nil for the files to remove.
 func (i usbIdentity) files() map[string]*string {
 	n := i.normalized()

@@ -2,7 +2,12 @@
 # USB network service for the active NCM gadget composition.
 set -eu
 
-: "${NANOKVM_USB_NET_BOOT:=/boot}"
+# A base-only update must keep serving the older application's settings.
+if [ -f /usr/share/nanokvm/usb-flags-layout ] && [ -e /etc/kvm/usb/.layout-v1 ]; then
+    : "${NANOKVM_USB_NET_BOOT:=/etc/kvm/usb}"
+else
+    : "${NANOKVM_USB_NET_BOOT:=/boot}"
+fi
 : "${NANOKVM_USB_NET_RUN:=/run/nanokvm-usbnet}"
 : "${NANOKVM_USB_NET_CONFIG:=/sys/kernel/config/usb_gadget/g0/configs/c.1}"
 : "${NANOKVM_USB_NET_UID:=/sys/class/cvi-base/base_uid}"

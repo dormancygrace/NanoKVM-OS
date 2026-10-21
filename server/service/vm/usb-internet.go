@@ -3,6 +3,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
@@ -58,6 +59,9 @@ func (s *Service) SetUSBInternet(c *gin.Context) {
 // failures roll back the flag and reapply local access without a gadget rebind.
 func saveUSBInternet(boot string, enabled bool, apply func() error) error {
 	path := filepath.Join(boot, "usb.internet")
+	if err := os.MkdirAll(boot, 0o755); err != nil {
+		return err
+	}
 	before, err := snapshotUSBFile(path)
 	if err != nil {
 		return err

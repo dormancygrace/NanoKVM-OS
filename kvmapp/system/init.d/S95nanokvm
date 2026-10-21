@@ -123,6 +123,11 @@ prepare_hdmi_receiver() {
 }
 
 start_services() {
+    # Migrate only after the old server has stopped writing the legacy flags.
+    # Refuse to start a server that would interpret an incomplete set.
+    if ! pidof NanoKVM-Server >/dev/null 2>&1; then
+        /usr/libexec/nanokvm/usb-flags-migrate || return 1
+    fi
     # Runtime telemetry is regenerated on every boot. Keep the high-frequency
     # state off the persistent application filesystem and recreate its tmpfs
     # directory on every normal start.
@@ -180,7 +185,7 @@ case "$1" in
 
   restart)
     stop_services || exit 1
-    start_services
+    start_services || exit 1
 
     sync
     echo "OK"

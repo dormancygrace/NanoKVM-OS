@@ -29,7 +29,7 @@ options until renewing.
 
 ## System ownership and behavior
 
-- `/boot/usb.internet` persists the independent preference. Only the admin
+- `/etc/kvm/usb/usb.internet` persists the independent preference. Only the admin
   API can change it. Missing NCM/uplink is a saved waiting state, not an error.
 - Existing S03usbdev still owns the sole gadget implementation. Its existing
   S30usbnet start/stop hooks call the new Alpine helper under the existing lock.

@@ -196,7 +196,7 @@ func TestHIDOnlySerialOverrideCanBeCleared(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := string(data)
-	start := strings.Index(script, "    if [ -e /boot/usb.acm ] ||")
+	start := strings.Index(script, "    if [ -e $conf/usb.acm ] ||")
 	end := strings.Index(script, "    # The identity files")
 	if start < 0 || end < start {
 		t.Fatal("serial initialization block not found")
@@ -207,7 +207,7 @@ func TestHIDOnlySerialOverrideCanBeCleared(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	block := strings.ReplaceAll(script[start:end], "/boot/", dir+"/boot/")
+	block := "conf=" + dir + "/boot\n" + script[start:end]
 	block = strings.ReplaceAll(block, "/sys/class/cvi-base/base_uid", dir+"/base_uid")
 	serialFile := filepath.Join(dir, "boot/usb.serialnumber")
 	if err := os.WriteFile(serialFile, []byte("KVM-0001"), 0644); err != nil {

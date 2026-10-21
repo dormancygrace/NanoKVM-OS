@@ -78,6 +78,12 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
         versions[name] = version
         package(name, version, files, depends, provides, replaces)
     index()
+    # A new reader cannot be installed with a base lacking the layout helper.
+    rejected = run(*base, "add", "--no-scripts", "nanokvm", ok=False)
+    assert (root / binary).read_text() == "old server"
+    _, _, base_provides, _ = metadata("nanokvm-base")
+    package("layout-base-fixture", "1-r0", {}, provides=base_provides)
+    index()
     run(*base, "upgrade", "--no-scripts")
     assert run(*base, "info", "-e", "-v", "nanokvm-app").strip() == "nanokvm-app-" + versions["nanokvm-app"]
     assert run(*base, "info", "-e", "rustdesk-fixture")

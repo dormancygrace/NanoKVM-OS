@@ -1,0 +1,118 @@
+#!/bin/sh
+# Move the USB gadget flags from the FAT boot partition to /etc/kvm/usb on the
+# F2FS root, where a rename survives a power cut.
+#
+# Releases before this one kept them on /boot, and an older release that a
+# channel rollback installs writes them there again: whenever /boot holds any
+# of them, they are the newest complete set and replace /etc/kvm/usb.
+#
+# A power cut at any point leaves a state the next run finishes:
+# 1. the set is copied to usb.new; usb.new/.complete, written last and
+#    synced, lists the names it took from /boot;
+# 2. those names are removed from /boot, so a partial cleanup can never pass
+#    for a set an older release wrote;
+# 3. usb is moved to usb.old and usb.new to usb; .complete and usb.old go last.
+#
+# Run before the gadget starts and before starting the application.
+set -u
+
+boot=${NANOKVM_USB_FLAGS_BOOT:-/boot}
+dir=${NANOKVM_USB_FLAGS_DIR:-/etc/kvm/usb}
+layout=${NANOKVM_USB_FLAGS_LAYOUT:-/usr/share/nanokvm/usb-flags-layout}
+# A base-only upgrade must leave the old application's flags on /boot.
+[ -f "$layout" ] || exit 0
+# The old server can still write /boot during a live APK transaction. Defer
+# until S95 starts its replacement; the USB scripts retain the legacy path
+# until .layout-v1 is installed. Never copy a concurrently changing flag set.
+pidof_cmd=${NANOKVM_USB_FLAGS_PIDOF:-pidof}
+if "$pidof_cmd" NanoKVM-Server >/dev/null 2>&1; then
+    exit 0
+fi
+mkdir -p "$(dirname "$dir")" || exit 1
+exec 9>"$dir.lock" || exit 1
+flock 9 || exit 1
+
+new=$dir.new
+old=$dir.old
+names='usb.dev usb.disk0 usb.disk0.ro usb.userdisk usb.rndis0 usb.ncm usb.acm
+usb.audio disable_hid usb.disable_keyboard usb.disable_relative
+usb.disable_absolute usb.vid usb.pid usb.manufacturer usb.product
+usb.serialnumber usb.notwakeup usb.internet rndis.nodhcpd rndis.ipv4_prefix'
+
+# The boot partition is the source of every step but the last; without the
+# mount there is nothing to read and nothing to clean.
+boot_ready() {
+    [ -n "${NANOKVM_USB_FLAGS_BOOT:-}" ] || mountpoint -q "$boot"
+}
+
+# Steps 2 and 3 for a complete usb.new.
+finish() {
+    manifest=$(cat "$new/.complete") || return 1
+    [ -n "$manifest" ] || return 1
+    for name in $manifest; do
+        case " $(printf '%s' "$names" | tr '\n' ' ') " in
+            *" $name "*) ;;
+            *) return 1 ;;
+        esac
+        [ -f "$new/$name" ] || return 1
+    done
+    # Reject a truncated manifest before removing any source file.
+    for name in $names; do
+        [ ! -f "$new/$name" ] || case " $(printf '%s' "$manifest" | tr '\n' ' ') " in
+            *" $name "*) ;;
+            *) return 1 ;;
+        esac
+    done
+    for name in $manifest; do
+        rm -f "$boot/$name" || return 1
+    done
+    sync || return 1
+    rm -rf "$old" || return 1
+    if [ -d "$dir" ]; then
+        mv "$dir" "$old" || return 1
+    fi
+    : > "$new/.layout-v1" && sync || return 1
+    mv "$new" "$dir" && sync || return 1
+    rm -f "$dir/.complete" && rm -rf "$old" && sync
+}
+
+# A complete usb.new waits for the mount too: finishing it without step 2
+# would leave the recorded names on /boot.
+boot_ready || {
+    echo "USB flags migration needs the mounted boot partition" >&2
+    exit 1
+}
+if [ -e "$new/.complete" ]; then
+    finish || exit 1
+elif [ -d "$dir" ]; then
+    # Leftovers after the final rename; a valid destination is already present.
+    rm -f "$dir/.complete" && rm -rf "$old" || exit 1
+elif [ -d "$old" ]; then
+    echo "USB flags migration has no complete replacement; preserving usb.old" >&2
+    exit 1
+fi
+
+present=
+for name in $names; do
+    [ -f "$boot/$name" ] && present="$present $name"
+done
+if [ -z "$present" ]; then
+    # Empty legacy sets are valid too. Mark activation only after confirming
+    # /boot is mounted, so a missing mount never enables default USB.
+    if [ ! -e "$dir/.layout-v1" ]; then
+        mkdir -p "$dir" && : > "$dir/.layout-v1" && sync || exit 1
+    fi
+    exit 0
+fi
+
+rm -rf "$new" && mkdir -p "$new" || exit 1
+for name in $present; do
+    # Values matter (the image path in usb.disk0, the identity strings);
+    # FAT permissions do not.
+    cp "$boot/$name" "$new/$name" && chmod 0644 "$new/$name" || exit 1
+done
+sync || exit 1
+printf '%s\n' $present > "$new/.complete.tmp" && sync || exit 1
+mv "$new/.complete.tmp" "$new/.complete" && sync || exit 1
+finish || exit 1
+echo "Moved the USB flags from $boot to $dir:$present"

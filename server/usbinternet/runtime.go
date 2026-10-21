@@ -15,11 +15,26 @@ import (
 	"time"
 )
 
+// Boot is the directory of the USB flags (usb.internet, rndis.*): hid.USBFlagsDir,
+// which this small package does not import.
 type Runtime struct{ Boot, Run, Gadget, Net, Proc, Resolv string }
 
 func DefaultRuntime() Runtime {
-	return Runtime{Boot: env("NANOKVM_USB_NET_BOOT", "/boot"), Run: env("NANOKVM_USB_NET_RUN", "/run/nanokvm-usbnet"), Gadget: env("NANOKVM_USB_NET_GADGET", "/sys/kernel/config/usb_gadget/g0"), Net: env("NANOKVM_USB_NET_CLASS", "/sys/class/net"), Proc: env("NANOKVM_USB_NET_PROC", "/proc"), Resolv: env("NANOKVM_USB_NET_RESOLV", "/etc/resolv.conf")}
+	flags := usbFlagsPath("/usr/share/nanokvm/usb-flags-layout", "/etc/kvm/usb/.layout-v1")
+	return Runtime{Boot: env("NANOKVM_USB_NET_BOOT", flags), Run: env("NANOKVM_USB_NET_RUN", "/run/nanokvm-usbnet"), Gadget: env("NANOKVM_USB_NET_GADGET", "/sys/kernel/config/usb_gadget/g0"), Net: env("NANOKVM_USB_NET_CLASS", "/sys/class/net"), Proc: env("NANOKVM_USB_NET_PROC", "/proc"), Resolv: env("NANOKVM_USB_NET_RESOLV", "/etc/resolv.conf")}
 }
+
+// Base helpers can be upgraded before the application that understands the
+// new layout. Activation is published only after its legacy writer stops.
+func usbFlagsPath(appMarker, activeMarker string) string {
+	if _, err := os.Stat(appMarker); err == nil {
+		if _, err := os.Stat(activeMarker); err == nil {
+			return "/etc/kvm/usb"
+		}
+	}
+	return "/boot"
+}
+
 func env(k, v string) string {
 	if s := os.Getenv(k); s != "" {
 		return s

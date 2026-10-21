@@ -36,7 +36,8 @@ note_dirty_data() {
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
-    # First: the board identity and USB settings live on /boot, and the data
+    # First: the board identity lives on /boot, the USB flags an older release
+    # left there move from it (nanokvm-usb), and the data
     # steps below may give up.
     mountpoint -q /boot || { check_boot; mount /boot; }
     # A previous failed start may have installed the read-only placeholder.

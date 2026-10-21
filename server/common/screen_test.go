@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestCheckScreenAcceptsKnownVideoBitRates(t *testing.T) {
-	for _, bitRate := range []uint16{1000, 2000, 3000, 5000, 8000, 10000, 12000, 15000, 20000} {
+func TestCheckScreenAcceptsValidVideoBitRates(t *testing.T) {
+	for _, bitRate := range []uint16{101, 500, 1000, 2000, 3000, 5000, 7500, 8000, 10000, 10001, 12000, 15000, 20000} {
 		screen := &Screen{Height: 1080, Quality: 80, BitRate: bitRate}
 		checkScreen(screen)
 		if screen.BitRate != bitRate {
@@ -15,12 +15,12 @@ func TestCheckScreenAcceptsKnownVideoBitRates(t *testing.T) {
 	}
 }
 
-func TestCheckScreenRejectsUnknownVideoBitRate(t *testing.T) {
-	for _, bitRate := range []uint16{0, 500, 7500, 10001, 20001} {
+func TestCheckScreenRejectsOutOfRangeVideoBitRate(t *testing.T) {
+	for _, bitRate := range []uint16{0, 100, 20001, 65535} {
 		screen := &Screen{Height: 1080, Quality: 80, BitRate: bitRate}
 		checkScreen(screen)
 		if screen.BitRate != 12000 {
-			t.Fatalf("bit rate = %d; want 12000 for unknown input %d", screen.BitRate, bitRate)
+			t.Fatalf("bit rate = %d; want 12000 for out-of-range input %d", screen.BitRate, bitRate)
 		}
 	}
 }
@@ -53,7 +53,7 @@ func TestLoadScreenReadsPersistedSettings(t *testing.T) {
 
 func TestLoadScreenKeepsDefaultsForMissingOrInvalidSettings(t *testing.T) {
 	files := map[string][]byte{
-		"/kvmapp/kvm/qlty": []byte("9999"),
+		"/kvmapp/kvm/qlty": []byte("20001"),
 		"/kvmapp/kvm/res":  []byte("invalid"),
 	}
 
@@ -183,5 +183,24 @@ func TestSetScreenValueReturnsToSameAsInput(t *testing.T) {
 	setScreenValue(&got, "resolution", 720)
 	if got.Width != 1280 || got.Height != 720 {
 		t.Fatalf("fixed resolution after same-as-input = %dx%d, want 1280x720", got.Width, got.Height)
+	}
+}
+
+func TestLoadScreenPreservesAcceptedQualityAndBitrate(t *testing.T) {
+	for _, tc := range []struct {
+		saved            string
+		quality, bitrate uint16
+	}{
+		{"70", 70, 12000}, {"7500", 80, 7500},
+	} {
+		got := loadScreen(func(path string) ([]byte, error) {
+			if path == screenFileMap["quality"] {
+				return []byte(tc.saved), nil
+			}
+			return nil, errors.New("not found")
+		})
+		if got.Quality != tc.quality || got.BitRate != tc.bitrate {
+			t.Fatalf("loading accepted value %s gives quality/bitrate %d/%d, want %d/%d", tc.saved, got.Quality, got.BitRate, tc.quality, tc.bitrate)
+		}
 	}
 }

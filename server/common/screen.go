@@ -45,25 +45,6 @@ var ResolutionMap = map[uint16]uint16{
 	0:    0,
 }
 
-var QualityMap = map[uint16]bool{
-	100: true,
-	80:  true,
-	60:  true,
-	50:  true,
-}
-
-var BitRateMap = map[uint16]bool{
-	20000: true,
-	15000: true,
-	12000: true,
-	10000: true,
-	8000:  true,
-	5000:  true,
-	3000:  true,
-	2000:  true,
-	1000:  true,
-}
-
 // GetScreen returns an immutable snapshot. Call SetScreen to publish changes.
 func GetScreen() *Screen {
 	screenOnce.Do(func() {
@@ -156,11 +137,11 @@ func checkScreen(target *Screen) {
 		target.Height = 1080
 	}
 
-	if _, ok := QualityMap[target.Quality]; !ok {
+	if target.Quality < 1 || target.Quality > 100 {
 		target.Quality = 80
 	}
 
-	if _, ok := BitRateMap[target.BitRate]; !ok {
+	if target.BitRate <= 100 || target.BitRate > MaxQualityValue {
 		target.BitRate = 12000
 	}
 

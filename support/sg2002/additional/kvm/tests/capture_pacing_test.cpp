@@ -23,7 +23,7 @@ int main() {
     assert(!presubmit_next_video_frame(qhd50, fast, 50, false));
     assert(!presubmit_next_video_frame(hd120, fast, 120, false));
     assert(!presubmit_next_video_frame(fhd60, fast, 60, false, true));
-    // Apart: also below the pixel rate above 30 fps, not at 30.
+    // Apart: also below the pixel rate above 30 fps and half of it.
     assert(presubmit_next_video_frame(qhd60, fast, 60, true, true));
     assert(presubmit_next_video_frame(fhd60, fast, 60, true, true));
     assert(presubmit_next_video_frame(2560L * 1080 * 60, fast, 60, true, true));
@@ -32,6 +32,7 @@ int main() {
     assert(presubmit_next_video_frame(qhd50, fast, 50, true, true));
     assert(presubmit_next_video_frame(2560L * 1440 * 40, fast, 40, true, true));
     assert(!presubmit_next_video_frame(1920L * 1080 * 30, fast, 30, true, true));
+    assert(!presubmit_next_video_frame(1280L * 720 * 60, fast, 60, true, true));
     // Shared: never.
     assert(!presubmit_next_video_frame(qhd60, fast, 60, true, false));
     assert(!presubmit_next_video_frame(fhd100, fast, 100, true, false));

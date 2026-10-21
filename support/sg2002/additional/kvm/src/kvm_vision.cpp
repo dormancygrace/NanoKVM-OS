@@ -1582,8 +1582,8 @@ static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int widt
  * when: without a JPEG reader at a high pixel rate, where one frame takes the
  * encoder about a whole frame period (3840x2160@30, 2560x1440@60,
  * 1920x1080@120); with a JPEG reader on its own output beside a video output
- * straight from capture also above 30 fps; with a JPEG reader on the
- * video output never, as the lease would block its reads.
+ * straight from capture also above 30 fps and half that pixel rate; with a
+ * JPEG reader on the video output never, as the lease would block its reads.
  */
 static void submit_next_video_frame(int vi_ch, int width, int height)
 {

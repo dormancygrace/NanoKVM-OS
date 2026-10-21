@@ -14,27 +14,48 @@ depend() {
 }
 
 : "${NANOKVM_SERVER_CONFIG:=/etc/kvm/server.yaml}"
-: "${NANOKVM_PROC_NET:=/proc/net}"
+: "${NANOKVM_PROC_ROOT:=/proc}"
+: "${NANOKVM_PROC_NET:=$NANOKVM_PROC_ROOT/net}"
 
-# The server's HTTP and HTTPS ports as /proc/net/tcp writes them (hex).
+# Fast path for the numeric block emitted by the server. Other valid YAML
+# (quoted numbers, flow mappings, aliases, etc.) uses the process socket probe;
+# do not mistake an unrecognised configuration for the default ports.
 server_ports() {
     local http https
-    http=$(sed -n '/^port:/,/^[^ ]/s/^ *http: *\([0-9][0-9]*\).*/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
-    https=$(sed -n '/^port:/,/^[^ ]/s/^ *https: *\([0-9][0-9]*\).*/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
-    printf '%04X %04X\n' "${http:-80}" "${https:-443}"
+    if [ ! -e "$NANOKVM_SERVER_CONFIG" ]; then
+        printf '0050 01BB\n'
+        return 0
+    fi
+    http=$(sed -n '/^port: *$/,/^[^ ]/s/^ *http: *\([1-9][0-9]*\) *\(#.*\)\{0,1\}$/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    https=$(sed -n '/^port: *$/,/^[^ ]/s/^ *https: *\([1-9][0-9]*\) *\(#.*\)\{0,1\}$/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    [ "$http" -gt 0 ] 2>/dev/null && [ "$http" -le 65535 ] 2>/dev/null &&
+        [ "$https" -gt 0 ] 2>/dev/null && [ "$https" -le 65535 ] 2>/dev/null || return 1
+    printf '%04X %04X\n' "$http" "$https"
 }
 
-# Whether a TCP socket listens on either server port. Shell builtins only: the
-# check runs every 0.2 s while the server starts on the one core.
+# With known ports the polling path uses shell builtins only. If YAML parsing
+# was inconclusive, retain the previous process/inode check for any server port.
 server_listening() {
-    local file sl addr rest
+    local file sl addr remote state queues timer retrans uid timeout inode rest
+    local pid sockets
+    if [ "$#" -eq 0 ]; then
+        pid=$(pidof NanoKVM-Server) || return 1
+        sockets=$(ls -l "$NANOKVM_PROC_ROOT/${pid%% *}/fd" 2>/dev/null)
+        [ -n "$sockets" ] || return 1
+    fi
     for file in "$NANOKVM_PROC_NET/tcp" "$NANOKVM_PROC_NET/tcp6"; do
         [ -r "$file" ] || continue
-        while read -r sl addr rest; do
-            # rest starts with the remote address, then the state (0A: listen).
-            case "$addr ${rest#* }" in
-                *:"$1 0A "* | *:"$2 0A "*) return 0 ;;
-            esac
+        while read -r sl addr remote state queues timer retrans uid timeout inode rest; do
+            [ "$state" = "0A" ] || continue
+            if [ "$#" -gt 0 ]; then
+                case "$addr" in
+                    *:"$1" | *:"$2") return 0 ;;
+                esac
+            else
+                case "$sockets" in
+                    *"socket:[$inode]"*) return 0 ;;
+                esac
+            fi
         done < "$file"
     done
     return 1
@@ -43,7 +64,7 @@ server_listening() {
 start() {
     local n=0 ports
     ebegin "Starting NanoKVM application"
-    ports=$(server_ports)
+    ports=$(server_ports) || ports=
     /kvmapp/system/init.d/S95nanokvm start || { eend 1; return 1; }
     # The services after this one start once the server listens (at most
     # 15 s): on one core they would slow its start, and with it the first

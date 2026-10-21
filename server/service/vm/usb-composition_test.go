@@ -406,3 +406,22 @@ func TestApplyRefusesTheUserDiskWhileTheImageIsBeingMade(t *testing.T) {
 		}
 	}
 }
+
+// Printable USB strings may contain colons. Revision serialization must
+// distinguish moving a colon-delimited segment between the two strings.
+func TestUSBRevisionDistinguishesIdentityFieldBoundaries(t *testing.T) {
+	first := usbComposition{mode: hid.ModeNormal, keyboard: true,
+		identity: usbIdentity{Manufacturer: "Acme:Console", Product: "Bridge"}}
+	second := first
+	second.identity.Manufacturer = "Acme"
+	second.identity.Product = "Console:Bridge"
+	if err := first.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if first.revision() == second.revision() {
+		t.Fatal("different valid identities share a revision; stale clients can overwrite a concurrent identity change")
+	}
+}

@@ -52,7 +52,7 @@ Measured: SAD in 16 × 16 blocks, bit-exact against the CPU.
 
 The TPU runs neural networks: about 0.5 TOPS INT8, and BF16 too.
 
-**Driver.** `cv181x-tpu` (`/dev/cvi-tpu0`) is part of the kernel since r6. It is Armbian's mainline port of the vendor driver (kernel patches 0047 and 0048, from armbian/build#10760). The TPU has no IOMMU. The driver takes dma-buf buffers and gives the runtime their bus address, and its character-device interface is that of the vendor runtime.
+**Driver.** `cv181x-tpu` (`/dev/cvi-tpu0`) is part of the kernel since r6. It is Armbian's mainline port of the vendor driver (kernel patches 0047 and 0048, from armbian/build#10760), with patch 0049 retaining DMA mappings until queued jobs finish and checking device initialization failures. The TPU has no IOMMU. The driver takes dma-buf buffers and gives the runtime their bus address, and its character-device interface is that of the vendor runtime.
 
 **Runtime.** The runtime that loads models (Sophgo cviruntime) is not part of the image, because Sophgo publishes it without a licence.
 

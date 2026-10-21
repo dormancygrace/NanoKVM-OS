@@ -95,11 +95,12 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		return
 	}
 
-	// Delay the restart so the API response is sent before its own network path is replaced.
-	go restartEthernetAfterResponse()
 	_ = exec.Command("sync").Run()
 
+	// Finish persistence and flush the reply before replacing its network path.
 	rsp.OkRsp(c)
+	c.Writer.Flush()
+	go restartEthernetAfterResponse()
 	log.Infof("set ethernet config: enabled=%t mode=%s address=%s gateway=%s", config.Enabled, config.Mode, config.Address, config.Gateway)
 }
 
@@ -381,7 +382,7 @@ func ipv4Broadcast(prefix netip.Prefix) netip.Addr {
 	return netip.AddrFrom4(broadcast)
 }
 
-func restartEthernetAfterResponse() {
+var restartEthernetAfterResponse = func() {
 	time.Sleep(time.Second)
 	if err := exec.Command(ethernetInitScript, "restart").Run(); err != nil {
 		log.Errorf("failed to restart ethernet: %s", err)

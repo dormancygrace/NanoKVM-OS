@@ -18,7 +18,7 @@ type ATXState struct {
 	HDD     bool `json:"hdd"`
 }
 
-// ATXPress is the body of POST ATXPath.
+// ATXPress is a single button press sent to POST ATXPath.
 type ATXPress struct {
 	Button     string `json:"button"` // "power" or "reset"
 	DurationMs int    `json:"durationMs"`
@@ -26,3 +26,10 @@ type ATXPress struct {
 
 // PressMs is a short press, as the web page's power and reset buttons.
 const PressMs = 800
+
+// ATXAction asks the server to execute a complete BMC operation. The daemon
+// must not split a cycle into independent pulses: Redfish shares this guard.
+type ATXAction struct {
+	Action      string `json:"action"`
+	HoldSeconds int    `json:"holdSeconds"`
+}

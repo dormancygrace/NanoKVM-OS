@@ -214,3 +214,19 @@ func TestInstallAndUninstallIPMI(t *testing.T) {
 		t.Fatal("IPMI still on after removal")
 	}
 }
+
+func TestRedfishWithoutAddOnPreservesCustomPort(t *testing.T) {
+	s, _ := newTestService(t, false)
+	config := bmc.Default()
+	config.IPMIPort = 1623
+	if err := bmc.Save(s.configPath, config); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Configure(Settings{Redfish: true, Username: "admin", Password: "secret-123"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := bmc.Load(s.configPath)
+	if err != nil || got.IPMIPort != 1623 {
+		t.Fatalf("port=%d err=%v", got.IPMIPort, err)
+	}
+}

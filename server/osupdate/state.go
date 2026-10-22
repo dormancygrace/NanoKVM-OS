@@ -97,6 +97,20 @@ func HashFile(name string) (string, error) {
 // Lock takes the exclusive, non-blocking update lock shared by every package
 // and image operation. The caller releases it by closing the returned file.
 func Lock() (*os.File, error) {
+	f, err := RecoveryLock()
+	if err != nil {
+		return nil, err
+	}
+	if _, err = os.Lstat("/var/lib/nanokvm-recovery/pending.json"); !errors.Is(err, os.ErrNotExist) {
+		f.Close()
+		return nil, errors.New("settings recovery pending; reboot before changing packages")
+	}
+	return f, nil
+}
+
+// RecoveryLock shares the normal update lock but permits the early-boot worker
+// to finish an already queued operation. No normal package caller uses it.
+func RecoveryLock() (*os.File, error) {
 	if err := os.MkdirAll(Base, 0700); err != nil {
 		return nil, err
 	}

@@ -132,6 +132,7 @@ jobs:
           docker run --rm --volume "$PWD:/src:ro" --volume "$RUNNER_TEMP/rollback-commands.json:/rollback-commands.json:ro" --workdir /src alpine:3.24 sh -ec '
             apk add --no-cache python3 openssl
             python3 tests/test-split-app-packages.py --apk /sbin/apk
+            python3 tests/test-settings-recovery-apk.py --apk /sbin/apk
             python3 tests/test-release-channels-apk.py --apk /sbin/apk --commands /rollback-commands.json
           '
       - name: Script tests
@@ -146,6 +147,7 @@ jobs:
             echo "::group::tests/test-$t.py"; python3 "tests/test-$t.py"; echo "::endgroup::"
           done
           python3 tests/test-udev-coldplug-default.py
+          python3 tests/test-settings-recovery-boot.py
           for t in firmware/services/test_serial_bridge.py firmware/services/test_serial_console.py; do
             echo "::group::$t"; python3 "$t"; echo "::endgroup::"
           done

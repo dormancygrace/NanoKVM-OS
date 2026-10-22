@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -32,6 +34,7 @@ type Client struct {
 	// Timeout of one request beyond a press: the server answers a press
 	// only when the button is released, so a press gets its hold on top.
 	Timeout time.Duration
+	Hold    time.Duration // configured forced-off hold; zero uses the default
 }
 
 // NewClient finds the server's plain-HTTP port in server.yaml (80 when
@@ -46,35 +49,22 @@ func NewClient() *Client {
 	return &Client{Addr: "127.0.0.1:" + strconv.Itoa(port), TokenFile: internalTokenFile, Timeout: 10 * time.Second}
 }
 
-// httpPort reads port.http from the YAML block the server writes:
-//
-//	port:
-//	  http: 80
+// httpPort reads the server's YAML, including comments, flow mappings and
+// aliases. Accept numeric strings too, as the server's Viper loader does.
 func httpPort(data []byte) int {
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	inPort := false
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
-			continue
-		}
-		if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
-			inPort = strings.TrimSpace(line) == "port:"
-			continue
-		}
-		if !inPort {
-			continue
-		}
-		key, value, ok := strings.Cut(strings.TrimSpace(line), ":")
-		if !ok || key != "http" {
-			continue
-		}
-		value, _, _ = strings.Cut(value, "#")
-		if p, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && p > 0 && p < 65536 {
-			return p
-		}
+	var config struct {
+		Port struct {
+			HTTP any `yaml:"http"`
+		} `yaml:"port"`
 	}
-	return 0
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return 0
+	}
+	port, err := strconv.Atoi(fmt.Sprint(config.Port.HTTP))
+	if err != nil || port < 1 || port > 65535 {
+		return 0
+	}
+	return port
 }
 
 // request sends one request on its own connection and returns the status
@@ -187,3 +177,50 @@ func (c *Client) Press(ctx context.Context, button string, durationMs int) error
 		return fmt.Errorf("ATX %s: HTTP %d", button, code)
 	}
 }
+
+// Status and Available are the read-only part of the IPMI power interface.
+func (c *Client) Status(ctx context.Context) (on, known bool, err error) {
+	state, err := c.State(ctx)
+	return state.PowerOn, state.PowerLED, err
+}
+func (c *Client) Available(ctx context.Context) (power, reset bool, err error) {
+	state, err := c.State(ctx)
+	return state.PowerButton, state.ResetButton, err
+}
+
+// action executes the entire operation on the server so its guard also covers
+// Redfish, including the LED polling and settle interval of a power cycle.
+func (c *Client) action(ctx context.Context, action string) error {
+	body, err := json.Marshal(ATXAction{Action: action, HoldSeconds: int(c.Hold / time.Second)})
+	if err != nil {
+		return err
+	}
+	hold := c.Hold
+	if hold <= 0 {
+		hold = DefaultHoldSeconds * time.Second
+	}
+	budget := hold + 10*time.Second + 2*time.Second + PressMs*time.Millisecond
+	code, _, err := c.request(ctx, "POST", body, budget)
+	if err != nil {
+		return err
+	}
+	switch code {
+	case 200, 204:
+		return nil
+	case 503:
+		return ErrActionBusy
+	case 501:
+		if action == "ForceRestart" {
+			return ErrNoReset
+		}
+		return ErrNoATX
+	default:
+		return fmt.Errorf("ATX %s: HTTP %d", action, code)
+	}
+}
+func (c *Client) On(ctx context.Context) error       { return c.action(ctx, "On") }
+func (c *Client) ForceOff(ctx context.Context) error { return c.action(ctx, "ForceOff") }
+func (c *Client) Soft(ctx context.Context) error     { return c.action(ctx, "GracefulShutdown") }
+func (c *Client) Push(ctx context.Context) error     { return c.action(ctx, "PushPowerButton") }
+func (c *Client) Reset(ctx context.Context) error    { return c.action(ctx, "ForceRestart") }
+func (c *Client) Cycle(ctx context.Context) error    { return c.action(ctx, "PowerCycle") }

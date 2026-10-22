@@ -1902,6 +1902,40 @@
       "ipmiInstall": "安装 IPMI 扩展",
       "ipmiAddonDescription": "用于主机电源控制的 IPMI over LAN（ipmitool、fence_ipmilan）。设置位于“系统 > Redfish 与 IPMI”。",
       "holdDefault": "5（电源菜单）"
+    },
+    "recovery": {
+      "title": "备份与重置",
+      "scope": "备份 NanoKVM OS 管理的设置及受支持附加组件的设置。不包括系统文件、已安装程序、磁盘镜像和个人文件。其他 APK 软件的自定义配置不会重置。",
+      "password": "当前管理员密码",
+      "export": "导出设置",
+      "encryption": "备份包含密码和私钥，并使用备份密码（12–256 字节）加密。请妥善保管文件和密码；遗失的密码无法恢复。",
+      "archivePassword": "备份密码（也用于打开备份）",
+      "download": "下载加密备份",
+      "restoreReset": "恢复或重置",
+      "restore": "恢复设置",
+      "reset": "恢复出厂设置",
+      "updateBase": "请更新 nanokvm-base 以启用恢复和重置功能。",
+      "file": "设置备份文件（.nkos）",
+      "fileLimit": "请选择不超过 4 MiB 的设置备份。",
+      "migrate": "迁移到另一台设备（推荐）",
+      "device": "恢复此设备，包括访问和网络设置",
+      "migrationHint": "迁移会保留目标设备的用户、身份、网络、VPN、证书和硬件设置。不会恢复程序；请通过 Software 安装缺少的软件包。",
+      "keepUsers": "保留用户、密码和已授权的 SSH 密钥",
+      "keepApps": "保留所有已安装应用，包括 APK 软件包",
+      "resetHint": "即使保留应用，应用设置仍会重置。已安装的系统版本和个人文件保留。网络设置会重置：之后请通过以太网/DHCP 连接。",
+      "resetUsers": "如果不保留用户，网页登录将恢复为 admin / admin，并要求修改密码。root 密码登录将被锁定，SSH 将被禁用。",
+      "preview": "预览更改",
+      "cancel": "取消",
+      "apply": "应用并重启",
+      "disconnect": "设备将重启并断开连接。恢复网络或访问设置可能会更改地址和登录信息。请先导出备份。",
+      "source": "备份版本",
+      "changed": "将替换或删除的设置",
+      "skipped": "迁移时排除的内容",
+      "removePackages": "将移除的可选 APK 软件包（也可能移除不再使用的依赖项）",
+      "inventory": "备份记录的软件包（不会自动安装）",
+      "confirm": "我已检查更改，并能在重启后重新连接设备。",
+      "reboot": "重启以完成恢复",
+      "rebooting": "恢复已排队。设备正在重启；请稍后重新连接。"
     }
   },
   "picoclaw": {
@@ -2078,5 +2112,16 @@
   "menu": {
     "collapse": "收起",
     "expand": "展开"
+  },
+  "sshKeys": {
+    "title": "SSH 公钥",
+    "description": "添加用于以 root 身份通过 SSH 登录的密钥。现有密钥将保留。",
+    "import": "导入密钥",
+    "help": "选择公钥文件或粘贴 OpenSSH 公钥，每行一个（最多 32 KiB）。支持 Ed25519、RSA（至少 2048 位）、ECDSA 和安全密钥。不接受私钥、证书或密钥选项。不会自动启用 SSH。",
+    "file": "公钥文件",
+    "text": "公钥文本",
+    "invalid": "请仅输入有效的 OpenSSH 公钥（最多 32 KiB）；不要上传私钥、证书或密钥选项。",
+    "failed": "无法导入 SSH 密钥。",
+    "result": "已添加：{{added}}。已存在：{{skipped}}。"
   }
 }

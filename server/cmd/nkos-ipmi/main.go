@@ -37,10 +37,12 @@ func main() {
 		log.Fatalf("IPMI: %v", err)
 	}
 	major, minor := versionBytes(firmwareVersion())
+	power := bmc.NewClient()
+	power.Hold = time.Duration(config.HoldSeconds) * time.Second
 	server := &ipmi.Server{
 		Username: config.Username, Password: config.Password, GUID: deviceGUID(),
 		FirmwareMajor: major, FirmwareMinor: minor, Log: log.Printf,
-		Power: &bmc.Power{ATX: bmc.NewClient(), Hold: time.Duration(config.HoldSeconds) * time.Second},
+		Power: power,
 	}
 	errs := make(chan error, 1)
 	go func() { errs <- server.Serve(conn) }()

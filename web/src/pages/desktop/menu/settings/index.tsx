@@ -94,6 +94,9 @@ const Netbird = lazyPage(() => import('./netbird').then((module) => ({ default: 
 const Tailscale = lazyPage(() =>
   import('./tailscale').then((module) => ({ default: module.Tailscale }))
 );
+const Recovery = lazyPage(() =>
+  import('./recovery').then((module) => ({ default: module.Recovery }))
+);
 const Updates = lazyPage(() => import('./updates').then((module) => ({ default: module.Updates })));
 const Usb = lazyPage(() => import('./usb').then((module) => ({ default: module.Usb })));
 const VideoSettings = lazyPage(() =>
@@ -276,6 +279,7 @@ export const Settings = ({
             icon: <ClockIcon size={16} />,
             component: <DateTimeSettings />
           },
+          { id: 'system-recovery', icon: <DownloadIcon size={16} />, component: <Recovery /> },
           { id: 'system-updates', icon: <DownloadIcon size={16} />, component: <Updates /> },
           { id: 'system-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
           { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
@@ -485,6 +489,7 @@ export const Settings = ({
     if (id === 'system-users') return t('settings.account.title');
     if (id === 'system-security') return t('settings.security.title');
     if (id === 'system-date-time') return t('dateTime.title');
+    if (id === 'system-recovery') return t('settings.recovery.title');
     if (id === 'system-updates') return t('settings.updates.title');
     if (id === 'system-mcp') return t('settings.mcp.title');
     if (id === 'system-memory') return t('settings.memory.title');

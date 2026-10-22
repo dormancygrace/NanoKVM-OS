@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -79,19 +80,42 @@ func (s *Service) GetATXInternal(c *gin.Context) {
 	c.JSON(http.StatusOK, state)
 }
 
-// PressATXInternal presses a button for the IPMI add-on (bmc.ATXPath).
+// PressATXInternal executes a power action or single press (bmc.ATXPath).
 func (s *Service) PressATXInternal(c *gin.Context) {
-	var press bmc.ATXPress
+	pressATXInternal(c, ATX{})
+}
+
+func pressATXInternal(c *gin.Context, atx bmc.ATX) {
+	var press struct {
+		bmc.ATXPress
+		bmc.ATXAction
+	}
 	if err := c.ShouldBindJSON(&press); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	switch err := (ATX{}).Press(c.Request.Context(), press.Button, press.DurationMs); err {
-	case nil:
+	var err error
+	if press.Action != "" {
+		if press.Button != "" || press.DurationMs != 0 || press.HoldSeconds < 0 || press.HoldSeconds > 30 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid power action"})
+			return
+		}
+		// As with Redfish, finish an accepted action even if the daemon exits.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), time.Minute)
+		defer cancel()
+		power := bmc.Power{ATX: atx, Hold: time.Duration(press.HoldSeconds) * time.Second}
+		err = power.Do(ctx, press.Action)
+	} else {
+		err = atx.Press(c.Request.Context(), press.Button, press.DurationMs)
+	}
+	switch {
+	case err == nil:
 		c.Status(http.StatusNoContent)
-	case errUnknownButton, errPressDuration:
+	case err == errUnknownButton || err == errPressDuration || errors.Is(err, bmc.ErrUnknownAction):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	case bmc.ErrNoATX, bmc.ErrNoReset:
+	case errors.Is(err, bmc.ErrActionBusy):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+	case errors.Is(err, bmc.ErrNoATX), errors.Is(err, bmc.ErrNoReset):
 		c.JSON(http.StatusNotImplemented, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "the button press failed"})

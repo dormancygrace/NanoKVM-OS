@@ -111,7 +111,7 @@ video_settings() {
     [ -s /kvmapp/kvm/res ] || printf '0' > /kvmapp/kvm/res
     [ -s /kvmapp/kvm/type ] || printf 'h265' > /kvmapp/kvm/type
     for leftover in /kvmapp/kvm/*.apk-new; do
-        [ ! -e "$leftover" ] || rm -f "$leftover"
+        { [ ! -e "$leftover" ] && [ ! -L "$leftover" ]; } || rm -f "$leftover"
     done
 }
 

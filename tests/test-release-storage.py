@@ -121,15 +121,36 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertEqual({a['name'] for a in state['releases']['v3.3.1']['assets']},
                          {'SHA256SUMS', 'NanoKVM-OS-v3.3.1-source.tar.xz'})
 
+    def resign_local_assembly(self):
+        # A rerun of sign assembles and signs again. Both APKs/indexes and the
+        # image built from them can change, despite using the same source SHA.
+        for name in ('nanokvm-3.3.1-r0.apk', 'Packages.adb', 'APKINDEX.tar.gz'):
+            (self.directory / 'packages' / name).write_text('new signature: ' + name)
+        manifest = self.directory / 'packages/packages.json'
+        data = json.loads(manifest.read_text())
+        data['packages']['nanokvm']['apk_sha256'] = assets.digest(self.directory / 'packages/nanokvm-3.3.1-r0.apk')
+        manifest.write_text(json.dumps(data))
+        (self.directory / 'public/NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip').write_text('rebuilt image')
+        for name in ('public', 'packages'):
+            sums = self.directory / name / 'SHA256SUMS'
+            sums.write_text(''.join(f'{assets.digest(f)}  {f.name}\n'
+                                   for f in sorted(sums.parent.iterdir()) if f != sums))
+
     def test_failure_after_storage_is_published_can_resume(self):
         assets.split(self.directory)
         result, state = self.invoke(FAIL_PUBLISH='v3.3.1')
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(state['releases']['os-packages-v3.3.1']['draft'])
         self.assertTrue(state['releases']['v3.3.1']['draft'])
+        original = json.loads(json.dumps(state['releases']))
+        count = len(state['calls'])
+        self.resign_local_assembly()
         result, state = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(state['releases']['v3.3.1']['draft'])
+        for tag in original:
+            self.assertEqual(state['releases'][tag]['assets'], original[tag]['assets'])
+        self.assertFalse(any(c[:2] == ['release', 'upload'] for c in state['calls'][count:]))
 
     def test_unknown_assets_fail_before_moving_anything(self):
         (self.directory / 'surprise.txt').write_text('unknown')
@@ -162,13 +183,10 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertFalse(state['releases']['os-packages-v3.3.1']['draft'])
         self.assertFalse(any(c[0] == 'workflow' for c in state['calls']))
         state['releases']['v3.3.1']['body'] = 'My edited release notes!\n' + assets.marker('v3.3.1')
-        # Old-format assets left in a draft must not leak into the public release.
-        state['releases']['v3.3.1']['assets'].append({'name': 'old.apk', 'data': 'stale'})
         self.state.write_text(json.dumps(state))
         result, state = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(state['releases']['v3.3.1']['body'], 'My edited release notes!\n' + assets.marker('v3.3.1'))
-        self.assertNotIn('old.apk', {a['name'] for a in state['releases']['v3.3.1']['assets']})
 
     def test_failed_upload_and_publication_are_retriable(self):
         assets.split(self.directory)
@@ -241,19 +259,58 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(state['calls'][-1][:2], ['workflow', 'run'])
 
-    def test_changed_published_storage_stops_before_overwriting_public_draft(self):
+    def test_remote_pair_resume_works_without_any_local_build(self):
         assets.split(self.directory)
         result, state = self.invoke(DRAFT='true')
         self.assertEqual(result.returncode, 0, result.stderr)
-        (self.directory / 'packages/nanokvm-3.3.1-r0.apk').write_text('different build')
-        sums = self.directory / 'packages/SHA256SUMS'
-        sums.write_text(''.join(f'{assets.digest(f)}  {f.name}\n' for f in sorted(sums.parent.iterdir()) if f != sums))
+        result, state = self.invoke(OUT=str(self.root / 'no-build'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state['releases']['v3.3.1']['draft'])
+
+    def test_recut_with_deleted_os_draft_fails_without_touching_published_storage(self):
+        assets.split(self.directory)
+        result, state = self.invoke(DRAFT='true')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        del state['releases']['v3.3.1']
+        self.state.write_text(json.dumps(state))
         count = len(state['calls'])
+        self.resign_local_assembly()
         result, state = self.invoke()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('different assets', result.stderr)
-        self.assertFalse(any(c[:2] == ['release', 'upload'] for c in state['calls'][count:]))
-        self.assertTrue(state['releases']['v3.3.1']['draft'])
+        self.assertIn('OS draft is missing', result.stderr)
+        self.assertEqual([c[0] for c in state['calls'][count:]], ['api', 'api'])
+
+    def test_resume_rejects_corrupt_original_storage_or_public_downloads(self):
+        assets.split(self.directory)
+        result, state = self.invoke(DRAFT='true')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        snapshot = json.dumps(state)
+        for tag, name in [('os-packages-v3.3.1', 'nanokvm-3.3.1-r0.apk'),
+                          ('v3.3.1', 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip')]:
+            for corruption in ('bytes', 'missing'):
+                with self.subTest(tag=tag, corruption=corruption):
+                    state = json.loads(snapshot)
+                    if corruption == 'bytes':
+                        next(a for a in state['releases'][tag]['assets'] if a['name'] == name)['data'] = 'corrupt'
+                    else:
+                        state['releases'][tag]['assets'] = [a for a in state['releases'][tag]['assets'] if a['name'] != name]
+                    self.state.write_text(json.dumps(state))
+                    count = len(state['calls'])
+                    result, state = self.invoke()
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertTrue(state['releases']['v3.3.1']['draft'])
+                    self.assertFalse(any(c[0] == 'workflow' or c[:2] in (['release', 'edit'], ['release', 'upload'])
+                                         for c in state['calls'][count:]))
+
+    def test_old_format_draft_assets_are_removed_before_storage_publication(self):
+        assets.split(self.directory)
+        result, state = self.invoke(FAIL_PUBLISH='os-packages-v3.3.1')
+        self.assertNotEqual(result.returncode, 0)
+        state['releases']['v3.3.1']['assets'].append({'name': 'old.apk', 'data': 'stale'})
+        self.state.write_text(json.dumps(state))
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('old.apk', {a['name'] for a in state['releases']['v3.3.1']['assets']})
 
     def test_dispatch_retry_does_not_touch_published_assets(self):
         assets.split(self.directory)

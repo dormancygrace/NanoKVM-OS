@@ -344,10 +344,15 @@ APK from **any older eligible release**, including old technical storage.
 window.** Independent add-on releases remain independent and continue to
 augment both channels.
 
-Uploads only replace draft assets. Once storage is published, a retry must
-use the original package assets: different checksums stop publication before
-the public draft is changed. Preserve the original assembly if retrying a
-partially completed publication; rebuilding archives can change timestamps.
+Uploads only replace draft assets while storage is unpublished. A rerun of the
+`sign` job reassembles and re-signs packages and indexes; randomized ECDSA
+signatures can change their bytes. The image is also rebuilt from those packages.
+Once storage is published, the publisher resumes from the **original remote
+pair**: it verifies the storage inventory, hashes and package manifest, then the
+public draft's image/source inventory and hashes, and finishes publication
+without uploading freshly assembled files. A retry needs neither a saved local
+assembly nor an artifact of the signed output. Corrupt or incomplete original
+assets stop publication; a new build is never silently mixed with old storage.
 If a maintainer publishes the OS draft before the storage publication completes,
 rerunning the publisher verifies every uploaded storage file against its
 SHA256SUMS and checks the changed APK set against `packages.json`, then publishes

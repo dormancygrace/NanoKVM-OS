@@ -4,6 +4,7 @@ A technical release alone never changes Pages: the public OS release is the gate
 """
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -44,17 +45,9 @@ def notes(tag, body):
 
 
 def stage(tag, current, directory, sha, title, flags):
-    files = validate(directory)
     if current and not current['draft']:
-        # A rerun may produce different archive timestamps/signatures. Never
-        # silently pair those with already published package bytes.
-        with tempfile.TemporaryDirectory() as temporary:
-            gh('release', 'download', tag, '--pattern', 'SHA256SUMS', '--dir', temporary)
-            if (Path(temporary) / 'SHA256SUMS').read_bytes() != files['SHA256SUMS'].read_bytes():
-                raise ValueError(f'{tag} is published with different assets; reuse the original build')
-        if {a['name'] for a in current['assets']} != set(files):
-            raise ValueError(f'{tag} has an incomplete published asset set')
-        return
+        raise ValueError(f'Refusing to stage published release: {tag}')
+    files = validate(directory)
     if current is None:
         # Create without assets first; a failed upload remains a private draft.
         gh('release', 'create', tag, '--target', sha, '--draft', '--title', title, *flags)
@@ -67,8 +60,8 @@ def stage(tag, current, directory, sha, title, flags):
                 gh('release', 'delete-asset', tag, asset['name'], '--yes')
 
 
-def recover_storage(version, current, storage):
-    """Finish a storage draft after the OS draft was published manually early.
+def recover_storage(version, current, storage, verify_published=False):
+    """Verify the original storage and finish an unpublished storage draft.
 
     Trust the already uploaded bytes, not a fresh (possibly different) build.
     Published OS/storage assets are never uploaded again on this path.
@@ -86,7 +79,7 @@ def recover_storage(version, current, storage):
             or any(Path(n).name != n or (n not in TECHNICAL | {'SHA256SUMS'}
                                         and not n.endswith('.apk')) for n in names)):
         raise ValueError(f'Incomplete or unexpected package storage assets: {tag}')
-    if not storage['draft']:
+    if not storage['draft'] and not verify_published:
         return
     with tempfile.TemporaryDirectory() as temporary:
         gh('release', 'download', tag, '--pattern', '*', '--dir', temporary)
@@ -106,7 +99,28 @@ def recover_storage(version, current, storage):
                     raise ValueError(f'package fingerprint mismatch: {item["apk"]}')
         except (ValueError, KeyError, OSError, TypeError) as error:
             raise ValueError(f'Cannot publish package storage {tag}: {error}') from error
-    gh('release', 'edit', tag, '--draft=false', '--prerelease', '--latest=false')
+    if storage['draft']:
+        gh('release', 'edit', tag, '--draft=false', '--prerelease', '--latest=false')
+
+
+def verify_public_downloads(version, current):
+    # The image is assembled AFTER signing too, not restored from release-build.
+    # Once storage is published, retain its original public download set rather
+    # than pairing it with a freshly rebuilt image containing different APKs.
+    names = [a['name'] for a in current['assets']]
+    required = {'SHA256SUMS', f'NanoKVM-OS-{version}-source.tar.xz'}
+    images = [n for n in names if re.fullmatch(
+        r'NanoKVM-OS-Image-.+-apps-' + re.escape(version) + r'\.img\.zip', n)]
+    if (len(names) != len(set(names)) or any(Path(n).name != n for n in names)
+            or len(images) > 1 or set(names) != required | set(images)):
+        raise ValueError(f'{version}: original public download set is incomplete or unexpected')
+    with tempfile.TemporaryDirectory() as temporary:
+        gh('release', 'download', version, '--pattern', '*', '--dir', temporary)
+        try:
+            if set(validate(Path(temporary))) != set(names):
+                raise ValueError('downloaded asset inventory differs from GitHub')
+        except (ValueError, KeyError, OSError, TypeError) as error:
+            raise ValueError(f'{version}: cannot verify original public downloads: {error}') from error
 
 
 def main():
@@ -119,10 +133,22 @@ def main():
         recover_storage(version, current, release(repository, tag))
         gh('workflow', 'run', 'apk-repository.yml', '--ref', env['DEFAULT_BRANCH'])
         return
+    storage = release(repository, tag)
+    if storage and not storage['draft']:
+        if current is None:
+            raise ValueError(f'{tag} is already published but the OS draft is missing; '
+                             'restore the original draft or follow the documented never-published re-cut procedure')
+        # A rerun of the sign job creates different ECDSA signatures. Resume
+        # from the original remote pair, never from the new local assembly.
+        recover_storage(version, current, storage, verify_published=True)
+        verify_public_downloads(version, current)
+        if env['DRAFT'] != 'true':
+            gh('release', 'edit', version, '--draft=false')
+            gh('workflow', 'run', 'apk-repository.yml', '--ref', env['DEFAULT_BRANCH'])
+        return
     directory = Path(env['OUT']) / 'assets'
     validate(directory / 'public')
     validate(directory / 'packages')
-    storage = release(repository, tag)
     title = f'NanoKVM OS {version}'
     if env['IMAGE'] == 'true':
         title += ' · Image ' + env['NANOKVM_IMAGE_VERSION']

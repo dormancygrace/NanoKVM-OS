@@ -11,16 +11,19 @@ import { Robot } from '@/components/icons/robot.tsx';
 
 import { AcmeAddon } from './acme';
 import { AddonCard } from './addon-card';
+import { IpmiAddon } from './ipmi';
 import { RustDeskAddon } from './rustdesk';
 
 export const Addons = ({
   onOpen,
   onOpenRustDesk,
-  onOpenAcme
+  onOpenAcme,
+  onOpenBmc
 }: {
   onOpen: () => void;
   onOpenRustDesk: () => void;
   onOpenAcme: () => void;
+  onOpenBmc: () => void;
 }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useAtom(picoclawRuntimeStatusAtom);
@@ -134,6 +137,7 @@ export const Addons = ({
       </AddonCard>
       <RustDeskAddon onOpen={onOpenRustDesk} />
       <AcmeAddon onOpen={onOpenAcme} />
+      <IpmiAddon onOpen={onOpenBmc} />
     </div>
   );
 };

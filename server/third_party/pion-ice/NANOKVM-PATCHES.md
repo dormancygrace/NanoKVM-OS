@@ -16,3 +16,8 @@ reopening a tested port.
 The v4.4.7 refresh preserves pre-created UDP mux connections on initial construction and requests the configured relay address family from TURN. Upstream regression tests are retained alongside the local PMTU/TURN metadata tests.
 
 The v4.4.8 refresh sends the peer-reflexive type preference in Binding-request PRIORITY attributes, including nomination and renomination. Local PMTU probing and TURN endpoint metadata are unchanged; upstream priority regression tests are retained. The upstream hash manifest is regenerated from the complete v4.4.8 module, including entries left stale by the previous refresh.
+
+TCP framing rejects payloads above the RFC 4571 16-bit length limit before
+allocating or writing a packet. The boundary test covers 0, 1, 65535 and 65536
+bytes and checks that rejection writes nothing. This also bounds the allocation
+size flagged by CodeQL in tcp_mux.go.

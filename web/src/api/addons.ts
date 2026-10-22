@@ -3,6 +3,7 @@ import { http } from '@/lib/http';
 export type AddonInventory = {
   rustdesk: { installed: boolean };
   picoclaw: { installed: boolean };
+  ipmi: { installed: boolean };
 };
 
 export const getAddonInventory = () =>

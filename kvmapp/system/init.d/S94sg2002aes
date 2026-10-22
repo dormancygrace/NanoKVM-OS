@@ -10,7 +10,7 @@ case "$1" in
         fi
         ;;
     stop)
-        # Active sessions or uncertain DMA ownership may pin either module.
+        # Active sessions or uncertain DMA ownership may pin the module.
         # Shutdown must never force-unload the shared owner.
         ;;
     *)

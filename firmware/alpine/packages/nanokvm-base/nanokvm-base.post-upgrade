@@ -11,7 +11,7 @@ if [ -x /usr/libexec/nanokvm/console-policy ]; then
 fi
 # Alpine's standard loopback service is needed by local applications.
 rc-update add loopback boot
-# udev coldplug loads the drivers; the kernel set the clock from the RTC.
+# NanoKVM services load their drivers; the kernel set the clock from the RTC.
 rc-update del hwdrivers boot >/dev/null 2>&1 || true
 [ ! -x /etc/init.d/osclock ] || rc-update add osclock boot
 # OpenRC builds its dependency tree from all init scripts at every boot (about
@@ -25,12 +25,27 @@ rc-update del hwdrivers boot >/dev/null 2>&1 || true
 #   sshd, and the config binds no single address, so it needs nothing more.
 # - bootmisc's copy of the kernel log on the SD card at every boot duplicates
 #   the boot log archive.
+# - udev-trigger replays the add event of every device at boot, about 530 on
+#   the SG2002. Without coldplug it replays those with a /dev node and the
+#   network interfaces: the same nodes, permissions and links, and the same
+#   modules, since the NanoKVM services load theirs (the SD Wi-Fi drivers are
+#   kept from udev anyway). On the stand the server started 1 s sooner. An
+#   rc_coldplug the user set stays.
 if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd; then
     printf '%s\n' '# NanoKVM: no `sshd -G` while OpenRC builds its dependency tree' 'rc_need=""' >> /etc/conf.d/sshd
 fi
 if [ -f /etc/conf.d/bootmisc ]; then
     sed -i 's/^log_dmesg="YES"$/log_dmesg="NO"/' /etc/conf.d/bootmisc
 fi
+# NanoKVM udev coldplug default: evaluated when OpenRC sources the config.
+# Preserve service-local, exported, global and legacy-uppercase preferences.
+udev_trigger=/etc/conf.d/udev-trigger
+udev_default=': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"'
+if [ -f "$udev_trigger" ] && ! grep -Fqx "$udev_default" "$udev_trigger"; then
+    printf '\n%s\n%s\n' '# NanoKVM: default to device-node and network replay' "$udev_default" >> "$udev_trigger"
+fi
+unset udev_trigger udev_default
+# End NanoKVM udev coldplug default
 # D-Bus serves only avahi, which starts it when mDNS is on (nanokvm-mdns).
 # A running D-Bus keeps running until the next boot.
 if [ -e /etc/runlevels/default/dbus ] && [ -x /etc/init.d/nanokvm-mdns ] &&

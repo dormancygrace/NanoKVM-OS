@@ -138,7 +138,12 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     for step in ("payloads", "packages", "rootfs", "image"):
         result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(root / "debug"), step],
                                 env=debug_env, capture_output=True, text=True)
-        expect(result, False, f"debug forbids {step}", "debug builds no packages or images")
+        expect(result, False, f"debug {step} needs test keys", "need -d (test keys)")
+    # -k/-e already exclude -d, so a debug package can only carry test keys.
+    result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(root / "debug"),
+                             "-k", __file__, "-e", __file__, "-d", "packages"],
+                            env=debug_env, capture_output=True, text=True)
+    expect(result, False, "debug packages refuse release keys", "-k and -e exclude -d")
 
     app = out / "payloads/app/kvmapp"
     assert {path.name for path in (app / "system/init.d").iterdir()} == {
@@ -197,6 +202,16 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     expect(subprocess.run([str(supervisor), "wait"], capture_output=True, text=True,
                           env={**os.environ, "NANOKVM_RECOVERY_DIR": str(root / "recovery")},
                           timeout=5), True, "packaged supervisor is executable")
+
+    # The debug profile must also have a working positive path with test keys.
+    # Use the existing payload fixture with matching debug boot metadata.
+    marker.unlink()
+    release_metadata.write_text("7.3.0-nanokvm-os-r2-debug\n")
+    result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out),
+                             "-d", "payloads"], env=debug_env, capture_output=True, text=True)
+    expect(result, True, "debug payloads accept test keys")
+    assert marker.read_text() == "debug\n"
+    assert (out / "payloads/kernel-sg2002/usr/lib/nanokvm/boot/kernel.release").read_bytes() == release_metadata.read_bytes()
 
 # Exercise the real startup/mapping synchronization without creating namespaces.
 source = (REPO / "platform/build.sh").read_text()

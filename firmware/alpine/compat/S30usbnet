@@ -9,7 +9,9 @@ else
     : "${NANOKVM_USB_NET_BOOT:=/boot}"
 fi
 : "${NANOKVM_USB_NET_RUN:=/run/nanokvm-usbnet}"
-: "${NANOKVM_USB_NET_CONFIG:=/sys/kernel/config/usb_gadget/g0/configs/c.1}"
+# The same gadget the helper reads (NANOKVM_USB_NET_GADGET).
+: "${NANOKVM_USB_NET_GADGET:=/sys/kernel/config/usb_gadget/g0}"
+: "${NANOKVM_USB_NET_CONFIG:=$NANOKVM_USB_NET_GADGET/configs/c.1}"
 : "${NANOKVM_USB_NET_UID:=/sys/class/cvi-base/base_uid}"
 : "${NANOKVM_USB_NET_PID:=/run/udhcpd.usb0.pid}"
 : "${NANOKVM_USB_INTERNET_HELPER:=/usr/sbin/nkos-usb-internet}"
@@ -45,8 +47,25 @@ stop_legacy() {
     fi
 }
 
+# The Go helper costs about 0.3 s per call on this CPU, and boot calls this
+# script several times. With no USB network function bound and nothing
+# applied (no applied.json, or the empty one the helper writes when idle) it
+# has nothing to set up or undo. The empty form is pinned by a Go test.
+idle_applied='{"FlowUnsupported":false,"AddressOwned":false,"Prefix":"","Address":"","Uplink":"","Config":"","Rules":"","Routing":"","Forward":{}}'
+helper_idle() {
+    [ ! -L "$NANOKVM_USB_NET_CONFIG/ncm.usb0" ] && [ ! -L "$NANOKVM_USB_NET_CONFIG/rndis.usb0" ] || return 1
+    # ReadStatus keeps cleanup errors visible until a successful retry. An
+    # empty/missing applied state alone does not prove the last call succeeded.
+    if [ -e "$NANOKVM_USB_NET_RUN/status.json" ]; then
+        status=$(cat "$NANOKVM_USB_NET_RUN/status.json") || return 1
+        case "$status" in *'"state":"error"'*) return 1 ;; esac
+    fi
+    [ -e "$NANOKVM_USB_NET_RUN/applied.json" ] || return 0
+    [ "$(cat "$NANOKVM_USB_NET_RUN/applied.json")" = "$idle_applied" ]
+}
+
 stop() {
-    if [ -x "$NANOKVM_USB_INTERNET_HELPER" ]; then
+    if [ -x "$NANOKVM_USB_INTERNET_HELPER" ] && ! helper_idle; then
         "$NANOKVM_USB_INTERNET_HELPER" stop || return 1
     fi
     stop_legacy
@@ -79,6 +98,7 @@ start() {
         # Migrate the existing usb0 DHCP owner before the Alpine helper starts.
         # Repeated starts leave the helper's address and daemon untouched.
         stop_legacy || return 1
+        helper_idle && return 0
         ipv4_prefix=$(prefix) || return 1
         "$NANOKVM_USB_INTERNET_HELPER" apply "$ipv4_prefix"
         return

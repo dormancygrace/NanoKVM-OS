@@ -23,29 +23,35 @@ if [ ! -b "$dev" ] && [ ! -f "$dev" ]; then
     exit 0
 fi
 
-text() { dd if="$dev" bs=1 skip="$1" count="$2" 2>/dev/null; }
-number() { dd if="$dev" bs=1 skip="$1" count="$2" 2>/dev/null | od -An -tu"$2" | tr -d ' \n'; }
 log() {
     echo "nanokvm-check-volume: $*" >&2
     logger -t nanokvm-check-volume "$*" 2>/dev/null || true
 }
 
 # Boot sector fields: exFAT VolumeFlags bit 1, FAT12/16 and FAT32 state bit 0
-# (the flag Linux sets while mounted).
+# (the flag Linux sets while mounted). One read of the first 112 bytes as
+# decimal values, byte N in parameter N+1: each extra dd or od costs some
+# 50 ms at boot.
+# shellcheck disable=SC2046 # one word per byte
+set -- $(od -An -v -tu1 -N112 "$dev" 2>/dev/null)
 dirty=0
-if [ "$(text 3 8)" = 'EXFAT   ' ]; then
-    flags=$(number 106 2)
-    [ $(( ${flags:-0} & 2 )) -eq 0 ] || dirty=1
-    set -- fsck.exfat -p "$dev"
-elif [ "$(text 82 5)" = FAT32 ]; then
-    flags=$(number 65 1)
-    [ $(( ${flags:-0} & 1 )) -eq 0 ] || dirty=1
-    set -- fsck.fat -a -w "$dev"
-elif [ "$(text 54 4)" = FAT1 ]; then
-    flags=$(number 37 1)
-    [ $(( ${flags:-0} & 1 )) -eq 0 ] || dirty=1
-    set -- fsck.fat -a -w "$dev"
+cmd=
+if [ "$#" -ge 112 ]; then
+    if [ "$4 $5 $6 $7 $8 $9 ${10} ${11}" = '69 88 70 65 84 32 32 32' ]; then # 'EXFAT   ' at 3
+        [ $(( ${107} & 2 )) -eq 0 ] || dirty=1 # VolumeFlags, 106
+        cmd=fsck.exfat
+    elif [ "${83} ${84} ${85} ${86} ${87}" = '70 65 84 51 50' ]; then # 'FAT32' at 82
+        [ $(( ${66} & 1 )) -eq 0 ] || dirty=1 # state, 65
+        cmd=fsck.fat
+    elif [ "${55} ${56} ${57} ${58}" = '70 65 84 49' ]; then # 'FAT1' at 54
+        [ $(( ${38} & 1 )) -eq 0 ] || dirty=1 # state, 37
+        cmd=fsck.fat
+    fi
 fi
+case "$cmd" in
+    fsck.exfat) set -- fsck.exfat -p "$dev" ;;
+    fsck.fat) set -- fsck.fat -a -w "$dev" ;;
+esac
 if [ "$only_flag" = 1 ]; then
     [ "$dirty" = 1 ]
     exit

@@ -37,7 +37,11 @@ stop() {
 }
 
 reload() {
-    if ! "$command" watch-needed; then
+    # The watcher serves a bound NCM or RNDIS function only. Without one,
+    # skip the Go helper's own check (about 0.3 s at every boot).
+    local config="${NANOKVM_USB_NET_CONFIG:-${NANOKVM_USB_NET_GADGET:-/sys/kernel/config/usb_gadget/g0}/configs/c.1}"
+    if { [ ! -L "$config/ncm.usb0" ] && [ ! -L "$config/rndis.usb0" ]; } ||
+        ! "$command" watch-needed; then
         stop
         return
     fi

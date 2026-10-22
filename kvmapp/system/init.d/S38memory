@@ -86,8 +86,12 @@ apply_zram() {
 # 130 MiB held under a live stream refaulted 3.5-4.8 times fewer file pages.
 # With SD swap the kernel defaults stay: swapping more would wear the card.
 VM_SYSCTL=${NANOKVM_VM_SYSCTL:-/proc/sys/vm}
+SWAPS=${NANOKVM_PROC_SWAPS:-/proc/swaps}
 apply_reclaim() {
-    if [ "$SD_ENABLED" = 0 ] && active /dev/zram0; then
+    # Foreign swap is deliberately left untouched by this service. Inspect
+    # the active set, not memory.conf, before selecting the ZRAM-only policy.
+    if awk 'NR > 1 { if ($1 == "/dev/zram0") zram=1; else other=1 }
+        END { exit !(zram && !other) }' "$SWAPS" 2>/dev/null; then
         swappiness=100 page_cluster=0
     else
         swappiness=60 page_cluster=3
@@ -147,7 +151,7 @@ recompress_once() {
 case "${1:-}" in
     recompress) recompress_once ;;
     start) apply_zram; apply_sd; apply_reclaim ;;
-    stop) disable_device /swapfile; disable_device /dev/zram0 ;;
+    stop) disable_device /swapfile; disable_device /dev/zram0; apply_reclaim ;;
     configure)
         [ "$#" = 4 ] || [ "$#" = 5 ] || fail 'Expected: configure zram|sd 0|1 SIZE_MIB [RECOMPRESS_0_OR_1]'
         if [ "$#" = 5 ]; then

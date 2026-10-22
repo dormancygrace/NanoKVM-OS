@@ -113,7 +113,33 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     host_python = out / "buildroot-output/host/bin/python3"
     host_python.parent.mkdir(parents=True, exist_ok=True)
     host_python.symlink_to(sys.executable)
+    # A previous debug invocation must not become a release package merely
+    # because the next shell omitted NANOKVM_KERNEL_PROFILE.
+    release_metadata = images / "boot/kernel.release"
+    saved_metadata = release_metadata.read_bytes() if release_metadata.exists() else None
+    release_metadata.write_text("7.3.0-nanokvm-os-r2-debug\n")
+    expect(build(tree, out, "payloads"), False, "debug artifacts reject release payloads", "Output kernel profile is debug")
+    assert not (out / "payloads").exists(), "profile mismatch mutated payloads"
+    if saved_metadata is None:
+        release_metadata.unlink()
+    else:
+        release_metadata.write_bytes(saved_metadata)
+    marker = out / ".kernel-profile"
+    marker.write_text("debug\n")
+    for step in ("kernel", "modules", "initramfs", "boot", "payloads"):
+        expect(build(tree, out, step), False, f"persisted debug profile rejects release {step}", "Output kernel profile is debug")
+    marker.unlink()
     expect(build(tree, out, "payloads"), True, "primary package payload assembly")
+    assert marker.read_text() == "release\n"
+    debug_env = dict(os.environ, NANOKVM_KERNEL_PROFILE="debug")
+    result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out), "kernel"],
+                            env=debug_env, capture_output=True, text=True)
+    expect(result, False, "release artifacts reject debug rebuild", "Output kernel profile is release")
+    for step in ("payloads", "packages", "rootfs", "image"):
+        result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(root / "debug"), step],
+                                env=debug_env, capture_output=True, text=True)
+        expect(result, False, f"debug forbids {step}", "debug builds no packages or images")
+
     app = out / "payloads/app/kvmapp"
     assert {path.name for path in (app / "system/init.d").iterdir()} == {
         "S03usbdev", "S03usbhid", "S15kvmhwd",

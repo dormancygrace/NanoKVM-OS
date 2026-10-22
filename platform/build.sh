@@ -1252,6 +1252,39 @@ source_archive() {
     (cd "$out" && sha256sum "$name.tar.xz")
 }
 
+
+# Kernel artifacts and package stages may be built in separate invocations.
+# An omitted environment variable must not relabel debug output as release.
+check_output_kernel_profile() {
+    local stamp=$out/.kernel-profile metadata actual
+    if [ -f "$stamp" ]; then
+        actual=$(cat "$stamp")
+        [ "$actual" = "$kernel_profile" ] || {
+            echo "Output kernel profile is $actual, requested $kernel_profile; use a separate -o directory" >&2
+            return 1
+        }
+    fi
+    # Also recognize output made before profile stamps were introduced.
+    for metadata in "$kbuild/include/config/kernel.release" "$img/boot/kernel.release"; do
+        [ -f "$metadata" ] || continue
+        case "$(cat "$metadata")" in
+            *-debug) actual=debug ;;
+            *) actual=release ;;
+        esac
+        [ "$actual" = "$kernel_profile" ] || {
+            echo "Output kernel profile is $actual ($metadata), requested $kernel_profile; use a separate -o directory" >&2
+            return 1
+        }
+    done
+    mkdir -p "$out"
+    printf '%s\n' "$kernel_profile" > "$stamp.tmp"
+    mv "$stamp.tmp" "$stamp"
+}
+case " ${steps[*]} " in
+    *" kernel "* | *" modules "* | *" initramfs "* | *" boot "* | *" payloads "* | *" packages "* | *" rootfs "* | *" image "*)
+        check_output_kernel_profile ;;
+esac
+
 for step in "${steps[@]}"; do
     case $step in
         fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|hashes|payloads)

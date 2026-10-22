@@ -79,6 +79,24 @@ apply_zram() {
     swapon -p 100 /dev/zram0 || fail 'Could not activate ZRAM.'
 }
 
+# Reclaim for the swap set up here. With ZRAM alone, a swapped page comes back
+# by decompression in RAM, while an evicted file page, the server's own code
+# among them, comes back from the SD card at about 22 MB/s: prefer swapping,
+# and read one page per fault, since ZRAM has no seek to save. On the stand,
+# 130 MiB held under a live stream refaulted 3.5-4.8 times fewer file pages.
+# With SD swap the kernel defaults stay: swapping more would wear the card.
+VM_SYSCTL=${NANOKVM_VM_SYSCTL:-/proc/sys/vm}
+apply_reclaim() {
+    if [ "$SD_ENABLED" = 0 ] && active /dev/zram0; then
+        swappiness=100 page_cluster=0
+    else
+        swappiness=60 page_cluster=3
+    fi
+    # A policy the kernel refuses must not fail the swap setup itself.
+    { echo "$swappiness" > "$VM_SYSCTL/swappiness"; } 2>/dev/null || true
+    { echo "$page_cluster" > "$VM_SYSCTL/page-cluster"; } 2>/dev/null || true
+}
+
 apply_sd() {
     [ ! -L /swapfile ] || fail '/swapfile must not be a symbolic link.'
     if [ "$SD_ENABLED" = 0 ]; then
@@ -128,7 +146,7 @@ recompress_once() {
 
 case "${1:-}" in
     recompress) recompress_once ;;
-    start) apply_zram; apply_sd ;;
+    start) apply_zram; apply_sd; apply_reclaim ;;
     stop) disable_device /swapfile; disable_device /dev/zram0 ;;
     configure)
         [ "$#" = 4 ] || [ "$#" = 5 ] || fail 'Expected: configure zram|sd 0|1 SIZE_MIB [RECOMPRESS_0_OR_1]'
@@ -145,6 +163,7 @@ case "${1:-}" in
                 SD_ENABLED=$3 SD_SIZE=$4; apply_sd ;;
             *) fail 'Invalid swap type, state or size.' ;;
         esac
+        apply_reclaim
         save_settings
         ;;
     *) fail 'Usage: S38memory start|stop|recompress|configure zram|sd 0|1 SIZE_MIB [RECOMPRESS_0_OR_1]' ;;

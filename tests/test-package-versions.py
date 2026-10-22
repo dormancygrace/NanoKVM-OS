@@ -107,7 +107,7 @@ class PackageVersionTests(unittest.TestCase):
             env=env, capture_output=True, text=True, check=True)
         deps = result.stdout.split()
         for name, version in versions.items():
-            if name != 'nanokvm-release' and name not in pv.OPTIONAL:
+            if name != 'nanokvm-release':
                 with self.subTest(package=name):
                     self.assertIn(f'{name}>={version}-r0', deps)
 
@@ -179,7 +179,7 @@ class PackageVersionTests(unittest.TestCase):
         with redirect_stdout(printed):
             pv.main(['reused', '--versions', str(out / 'versions.json'), '--previous', str(previous)])
         lines = printed.getvalue().splitlines()
-        self.assertEqual(len(lines), len(pv.PACKAGES) - 1)  # all but nanokvm-release
+        self.assertEqual(len(lines), 12)
         self.assertIn('nanokvm-web-3.3.0-r0.apk ' + 'f' * 64, lines)
 
     def test_manifest_records_each_file_and_its_hash(self):

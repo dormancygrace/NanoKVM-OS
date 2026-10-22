@@ -16,7 +16,7 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
 | Off | `ForceOff` | `off` | power button held, unless the host is off |
 | Shut down | `GracefulShutdown` | `soft` | short press, unless the host is off |
 | Reset | `ForceRestart` | `reset` | reset button |
-| Power cycle | `PowerCycle` | `cycle` | hold, wait for the LED to go out (≤10 s), 2 s, short press |
+| Power cycle | `PowerCycle` | `cycle` | hold, wait for the LED to go out (≤10 s), 2 s, short press; an error without the short press if the LED stays lit |
 | Power button | `PushPowerButton` | — | short press |
 
 - **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.
@@ -53,7 +53,7 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
   - A power action is answered at once and then carried out, since a forced power-off holds the button for longer than `ipmitool` waits.
 - **The buttons and LEDs are the web page's:** the same GPIO lines, pulse lock and LED monitor.
 
-Removing the add-on keeps `/etc/kvm/bmc` and Redfish. NanoKVM Lite has no ATX lines: power requests fail there, and Redfish omits `PowerState`.
+The add-on has a version of its own and is released apart from NanoKVM OS: its updates reach devices through the package repository, without an OS release. Removing the add-on keeps `/etc/kvm/bmc` and Redfish. NanoKVM Lite has no ATX lines: power requests fail there, and Redfish omits `PowerState`.
 
 ## Trying it
 

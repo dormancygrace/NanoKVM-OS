@@ -1,5 +1,4 @@
-# Contents of the nanokvm-* APK packages (firmware/alpine/packages): the
-# thirteen core packages and the optional add-on nanokvm-ipmi.
+# Contents of the thirteen nanokvm-* APK packages (firmware/alpine/packages).
 #
 #   package  type  path  mode  source
 #
@@ -201,8 +200,3 @@ i2c-tools file /usr/sbin/i2cdump                           0755  @tools/i2c-tool
 i2c-tools file /usr/sbin/i2ctransfer                       0755  @tools/i2c-tools/i2ctransfer
 i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING 0644 @tools/i2c-tools/COPYING
 i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING.LGPL 0644 @tools/i2c-tools/COPYING.LGPL
-
-# nanokvm-ipmi: optional add-on, IPMI power control (docs/BMC.md);
-# published with the core packages, required by none of them
-ipmi  file  /usr/sbin/nkos-ipmi                            0755  @server/nkos-ipmi
-ipmi  file  /etc/init.d/nanokvm-ipmi                       0755  firmware/alpine/packages/nanokvm-ipmi/nanokvm-ipmi.initd

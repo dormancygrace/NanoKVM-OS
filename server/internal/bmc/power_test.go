@@ -65,6 +65,63 @@ func TestPowerActions(t *testing.T) {
 	}
 }
 
+// stuckATX is a host whose power LED goes out only after offAfter state reads
+// following the long press (never when offAfter < 0); readErr fails the reads
+// after the press.
+type stuckATX struct {
+	fakeATX
+	offAfter int
+	readErr  error
+	pressed  bool
+	reads    int
+}
+
+func (s *stuckATX) State(ctx context.Context) (ATXState, error) {
+	if !s.pressed {
+		return s.state, nil
+	}
+	if s.readErr != nil {
+		return ATXState{}, s.readErr
+	}
+	s.reads++
+	if s.offAfter >= 0 && s.reads > s.offAfter {
+		s.state.PowerOn = false
+	}
+	return s.state, nil
+}
+
+func (s *stuckATX) Press(_ context.Context, button string, ms int) error {
+	s.pressed = true
+	s.presses = append(s.presses, fmt.Sprintf("%s %d", button, ms))
+	return nil
+}
+
+func TestCycleNeedsTheLEDToGoOut(t *testing.T) {
+	noSleep := func(context.Context, time.Duration) error { return nil }
+	readErr := errors.New("state read failed")
+	cases := []struct {
+		name     string
+		offAfter int
+		readErr  error
+		wantErr  error
+		want     []string
+	}{
+		{"stays on", -1, nil, ErrStillOn, []string{"power 5000"}},
+		{"goes out late", 10, nil, nil, []string{"power 5000", "power 800"}},
+		{"state read fails", 0, readErr, readErr, []string{"power 5000"}},
+	}
+	for _, c := range cases {
+		atx := &stuckATX{fakeATX: *atxBoard(true), offAfter: c.offAfter, readErr: c.readErr}
+		p := &Power{ATX: atx, sleep: noSleep}
+		if err := p.Cycle(context.Background()); !errors.Is(err, c.wantErr) {
+			t.Errorf("%s: error %v, want %v", c.name, err, c.wantErr)
+		}
+		if !reflect.DeepEqual(atx.presses, c.want) {
+			t.Errorf("%s: presses %v, want %v", c.name, atx.presses, c.want)
+		}
+	}
+}
+
 func TestPowerWithoutLEDPressesBlindly(t *testing.T) {
 	atx := &fakeATX{state: ATXState{PowerButton: true}}
 	p := &Power{ATX: atx, Hold: 5 * time.Second, sleep: func(context.Context, time.Duration) error { return nil }}

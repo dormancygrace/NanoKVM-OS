@@ -2,6 +2,7 @@ package bmc
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,7 +20,42 @@ func (fakeATX) State(context.Context) (bmc.ATXState, error) {
 }
 func (fakeATX) Press(context.Context, string, int) error { return nil }
 
-func newTestService(t *testing.T, ipmiInstalled bool) (*Service, *[]string) {
+// openrc plays OpenRC for the IPMI service: its state, its runlevel link,
+// and a stop that can fail.
+type openrc struct {
+	link      string
+	running   bool
+	stopFails bool
+	calls     []string
+}
+
+func (o *openrc) run(name string, args ...string) error {
+	call := strings.Join(append([]string{name}, args...), " ")
+	if status := " " + bmc.IPMIService + " status"; strings.HasSuffix(call, status) {
+		// Status is not a change: leave it out of the calls.
+		if o.running {
+			return nil
+		}
+		return errors.New("stopped")
+	}
+	o.calls = append(o.calls, call)
+	switch {
+	case strings.HasSuffix(call, " restart"):
+		o.running = true
+	case strings.HasSuffix(call, " stop"):
+		if o.stopFails {
+			return errors.New("stop failed")
+		}
+		o.running = false
+	case strings.HasPrefix(call, "rc-update add"):
+		return os.WriteFile(o.link, nil, 0o644)
+	case strings.HasPrefix(call, "rc-update del"):
+		return os.Remove(o.link)
+	}
+	return nil
+}
+
+func newTestService(t *testing.T, ipmiInstalled bool) (*Service, *openrc) {
 	t.Helper()
 	dir := t.TempDir()
 	daemon := filepath.Join(dir, "nkos-ipmi")
@@ -28,19 +64,17 @@ func newTestService(t *testing.T, ipmiInstalled bool) (*Service, *[]string) {
 			t.Fatal(err)
 		}
 	}
-	var calls []string
+	rc := &openrc{link: filepath.Join(dir, "runlevel-link")}
 	s := &Service{
-		configPath: filepath.Join(dir, "bmc/config.json"),
-		daemonPath: daemon,
-		atx:        fakeATX{},
-		run: func(name string, args ...string) error {
-			calls = append(calls, strings.Join(append([]string{name}, args...), " "))
-			return nil
-		},
-		install: func() error { calls = append(calls, "apk add"); return nil },
-		remove:  func() error { calls = append(calls, "apk del"); return nil },
+		configPath:   filepath.Join(dir, "bmc/config.json"),
+		daemonPath:   daemon,
+		runlevelLink: rc.link,
+		atx:          fakeATX{},
+		run:          rc.run,
+		install:      func() error { rc.calls = append(rc.calls, "apk add"); return nil },
+		remove:       func() error { rc.calls = append(rc.calls, "apk del"); return nil },
 	}
-	return s, &calls
+	return s, rc
 }
 
 func redfishCode(s *Service, user, password string) int {
@@ -52,7 +86,7 @@ func redfishCode(s *Service, user, password string) int {
 }
 
 func TestRedfishFollowsTheSettings(t *testing.T) {
-	s, calls := newTestService(t, false)
+	s, rc := newTestService(t, false)
 	if code := redfishCode(s, "admin", "secret-123"); code != http.StatusNotFound {
 		t.Fatalf("Redfish off answered %d", code)
 	}
@@ -63,8 +97,8 @@ func TestRedfishFollowsTheSettings(t *testing.T) {
 	if code := redfishCode(s, "admin", "secret-123"); code != http.StatusOK {
 		t.Fatalf("Redfish on answered %d", code)
 	}
-	if len(*calls) != 0 {
-		t.Fatalf("Redfish alone touched a service: %v", *calls)
+	if len(rc.calls) != 0 {
+		t.Fatalf("Redfish alone touched a service: %v", rc.calls)
 	}
 	// An empty password keeps the stored one.
 	settings.Password = ""
@@ -87,56 +121,93 @@ func TestRedfishFollowsTheSettings(t *testing.T) {
 	}
 }
 
+// Without the add-on the page has no port field and sends no port.
+func TestRedfishWithoutTheAddOnKeepsThePort(t *testing.T) {
+	s, _ := newTestService(t, false)
+	if err := s.Configure(Settings{Redfish: true, Username: "admin", Password: "secret-123"}); err != nil {
+		t.Fatal(err)
+	}
+	if config, _ := bmc.Load(s.configPath); config.IPMIPort != bmc.DefaultIPMIPort {
+		t.Fatalf("port %d", config.IPMIPort)
+	}
+}
+
 func TestIPMIStartsAndStops(t *testing.T) {
-	s, calls := newTestService(t, false)
+	s, _ := newTestService(t, false)
 	settings := Settings{IPMI: true, Username: "admin", Password: "secret-123", IPMIPort: 623, HoldSeconds: 5}
 	if err := s.Configure(settings); err == nil {
 		t.Fatal("IPMI turned on without the add-on")
 	}
-	s, calls = newTestService(t, true)
+	s, rc := newTestService(t, true)
 	if err := s.Configure(settings); err != nil {
 		t.Fatal(err)
 	}
-	joined := strings.Join(*calls, "\n")
+	joined := strings.Join(rc.calls, "\n")
 	if !strings.Contains(joined, "rc-update add nanokvm-ipmi default") || !strings.Contains(joined, "nanokvm-ipmi restart") {
-		t.Fatalf("not started: %v", *calls)
+		t.Fatalf("not started: %v", rc.calls)
 	}
 	status, _ := s.Status()
-	if !status.PasswordSet || !status.IPMIInstalled || !status.IPMI {
+	if !status.PasswordSet || !status.IPMIInstalled || !status.IPMI || !status.IPMIRunning {
 		t.Fatalf("status %+v", status)
 	}
-	*calls = nil
+	rc.calls = nil
 	settings.IPMI = false
 	if err := s.Configure(settings); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(*calls, "\n") != "rc-service nanokvm-ipmi stop\nrc-update del nanokvm-ipmi default" {
-		t.Fatalf("not stopped: %v", *calls)
+	if strings.Join(rc.calls, "\n") != "rc-service nanokvm-ipmi stop\nrc-update del nanokvm-ipmi default" {
+		t.Fatalf("not stopped: %v", rc.calls)
+	}
+	// Off again: already stopped and out of the runlevel, nothing fails.
+	if err := s.Configure(settings); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The daemon keeps its startup settings: a failed stop leaves IPMI serving,
+// and saying it is off would be wrong.
+func TestAFailedStopIsReported(t *testing.T) {
+	s, rc := newTestService(t, true)
+	settings := Settings{IPMI: true, Username: "admin", Password: "secret-123", IPMIPort: 623}
+	if err := s.Configure(settings); err != nil {
+		t.Fatal(err)
+	}
+	rc.stopFails = true
+	settings.IPMI = false
+	if err := s.Configure(settings); err == nil {
+		t.Fatal("a failed stop reported success")
+	}
+	if status, _ := s.Status(); !status.IPMIRunning {
+		t.Fatalf("status %+v", status)
+	}
+	rc.calls = nil
+	if err := s.UninstallIPMI(); err == nil || strings.Contains(strings.Join(rc.calls, ","), "apk del") {
+		t.Fatalf("removed a running daemon's package: %v %v", err, rc.calls)
 	}
 }
 
 func TestAPasswordIsNeeded(t *testing.T) {
-	s, calls := newTestService(t, true)
+	s, rc := newTestService(t, true)
 	if err := s.Configure(Settings{Redfish: true, Username: "admin", IPMIPort: 623, HoldSeconds: 5}); err == nil {
 		t.Fatal("enabled without a password")
 	}
-	if len(*calls) != 0 || s.redfish.Load() != nil {
-		t.Fatalf("applied an invalid configuration: %v", *calls)
+	if len(rc.calls) != 0 || s.redfish.Load() != nil {
+		t.Fatalf("applied an invalid configuration: %v", rc.calls)
 	}
 }
 
 func TestInstallAndUninstallIPMI(t *testing.T) {
-	s, calls := newTestService(t, false)
-	if err := s.InstallIPMI(); err != nil || strings.Join(*calls, ",") != "apk add" {
-		t.Fatalf("install: %v %v", err, *calls)
+	s, rc := newTestService(t, false)
+	if err := s.InstallIPMI(); err != nil || strings.Join(rc.calls, ",") != "apk add" {
+		t.Fatalf("install: %v %v", err, rc.calls)
 	}
-	s, calls = newTestService(t, true)
+	s, rc = newTestService(t, true)
 	_ = s.Configure(Settings{IPMI: true, Username: "admin", Password: "secret-123", IPMIPort: 623, HoldSeconds: 5})
-	*calls = nil
+	rc.calls = nil
 	if err := s.UninstallIPMI(); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(*calls, ","); got != "rc-service nanokvm-ipmi stop,rc-update del nanokvm-ipmi default,apk del" {
+	if got := strings.Join(rc.calls, ","); got != "rc-service nanokvm-ipmi stop,rc-update del nanokvm-ipmi default,apk del" {
 		t.Fatalf("uninstall: %v", got)
 	}
 	if config, _ := bmc.Load(s.configPath); config.IPMI {

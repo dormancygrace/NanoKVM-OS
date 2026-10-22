@@ -59,6 +59,8 @@ export const BmcSettingsPage = () => {
       const response = await configureBmc({
         ...values,
         ipmi: Boolean(values.ipmi),
+        // The port field exists only with the add-on installed.
+        ipmiPort: values.ipmiPort ?? status?.ipmiPort ?? 0,
         // Empty: the power menu's long press.
         holdSeconds: values.holdSeconds || 0,
         password: values.password ?? ''

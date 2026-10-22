@@ -48,11 +48,13 @@ type Service struct {
 	mu         sync.Mutex
 	configPath string
 	daemonPath string
-	atx        bmc.ATX
-	info       redfish.Info
-	run        func(name string, args ...string) error
-	install    func() error
-	remove     func() error
+	// The service's link in the default runlevel, set by rc-update add.
+	runlevelLink string
+	atx          bmc.ATX
+	info         redfish.Info
+	run          func(name string, args ...string) error
+	install      func() error
+	remove       func() error
 
 	// The Redfish handler of the current settings; nil while Redfish is off.
 	redfish atomic.Pointer[redfish.Handler]
@@ -60,10 +62,11 @@ type Service struct {
 
 func NewService(atx bmc.ATX) *Service {
 	s := &Service{
-		configPath: bmc.ConfigPath,
-		daemonPath: bmc.IPMIDaemonPath,
-		atx:        atx,
-		info:       redfish.Info{UUID: deviceUUID(), FirmwareVersion: firmwareVersion()},
+		configPath:   bmc.ConfigPath,
+		daemonPath:   bmc.IPMIDaemonPath,
+		runlevelLink: "/etc/runlevels/default/" + bmc.IPMIService,
+		atx:          atx,
+		info:         redfish.Info{UUID: deviceUUID(), FirmwareVersion: firmwareVersion()},
 		run: func(name string, args ...string) error {
 			return exec.Command(name, args...).Run()
 		},
@@ -139,7 +142,11 @@ func (s *Service) Configure(settings Settings) error {
 	if settings.Password != "" {
 		config.Password = settings.Password
 	}
-	config.IPMIPort, config.HoldSeconds = settings.IPMIPort, settings.HoldSeconds
+	// Without the add-on the page has no port field: keep the stored port.
+	if settings.IPMIPort != 0 {
+		config.IPMIPort = settings.IPMIPort
+	}
+	config.HoldSeconds = settings.HoldSeconds
 	if err = bmc.Save(s.configPath, config); err != nil {
 		return err
 	}
@@ -152,9 +159,7 @@ func (s *Service) applyIPMI(config bmc.Config) error {
 		return nil
 	}
 	if !config.IPMI {
-		_ = s.run("rc-service", bmc.IPMIService, "stop")
-		_ = s.run("rc-update", "del", bmc.IPMIService, "default")
-		return nil
+		return s.stopIPMI()
 	}
 	if err := s.run("rc-update", "add", bmc.IPMIService, "default"); err != nil {
 		return errors.New("cannot enable the IPMI service at boot")
@@ -163,6 +168,22 @@ func (s *Service) applyIPMI(config bmc.Config) error {
 	argv := oomscore.Unprotected("rc-service", bmc.IPMIService, "restart")
 	if err := s.run(argv[0], argv[1:]...); err != nil {
 		return errors.New("the IPMI service did not start; see the application log")
+	}
+	return nil
+}
+
+// stopIPMI stops the daemon and takes it out of the default runlevel. The
+// daemon does not reread its settings: IPMI is off only once its status says
+// it is not running, whatever the stop command returned.
+func (s *Service) stopIPMI() error {
+	_ = s.run("rc-service", bmc.IPMIService, "stop")
+	if s.run("rc-service", bmc.IPMIService, "status") == nil {
+		return errors.New("the IPMI service did not stop; see the application log")
+	}
+	if _, err := os.Lstat(s.runlevelLink); err == nil {
+		if err = s.run("rc-update", "del", bmc.IPMIService, "default"); err != nil {
+			return errors.New("cannot disable the IPMI service at boot")
+		}
 	}
 	return nil
 }
@@ -184,8 +205,9 @@ func (s *Service) UninstallIPMI() error {
 	if !s.ipmiInstalled() {
 		return nil
 	}
-	_ = s.run("rc-service", bmc.IPMIService, "stop")
-	_ = s.run("rc-update", "del", bmc.IPMIService, "default")
+	if err := s.stopIPMI(); err != nil {
+		return err
+	}
 	if err := s.remove(); err != nil {
 		return err
 	}

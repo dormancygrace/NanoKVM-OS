@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakePower struct {
@@ -148,5 +149,29 @@ func TestForgedForwardedForDoesNotResetTheLimit(t *testing.T) {
 	}
 	if rec := do(h, "GET", "/redfish/v1/Systems/1", "", map[string]string{"basic": "admin:correct-horse", "X-Forwarded-For": "203.0.113.99"}); rec.Code != 429 {
 		t.Fatalf("a new X-Forwarded-For escaped the limit: %d", rec.Code)
+	}
+}
+
+func TestFailedLoginTableIsBounded(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	now := time.Unix(1_800_000_000, 0)
+	h.now = func() time.Time { return now }
+	guess := func(addr string) {
+		req := httptest.NewRequest("GET", "/redfish/v1/Systems/1", nil)
+		req.RemoteAddr = addr
+		req.SetBasicAuth("admin", "guess")
+		h.ServeHTTP(httptest.NewRecorder(), req)
+	}
+	for i := 0; i < 2*maxTracked; i++ {
+		guess(fmt.Sprintf("[2001:db8::%x]:50000", i))
+	}
+	if len(h.failed) > maxTracked {
+		t.Fatalf("%d counters kept, at most %d", len(h.failed), maxTracked)
+	}
+	// Peers that never come back expire when another one fails.
+	now = now.Add(24 * time.Hour)
+	guess("192.0.2.9:50000")
+	if len(h.failed) != 1 {
+		t.Fatalf("%d counters a day later, want 1", len(h.failed))
 	}
 }

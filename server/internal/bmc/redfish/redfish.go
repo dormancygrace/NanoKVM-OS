@@ -139,10 +139,35 @@ func (h *Handler) recordFailure(addr string) {
 	defer h.mu.Unlock()
 	f := h.failed[addr]
 	if f == nil || h.now().Sub(f.since) > failWindow {
+		h.expire()
 		f = &failures{since: h.now()}
 		h.failed[addr] = f
 	}
 	f.count++
+}
+
+// maxTracked bounds the login counters: a client that never comes back
+// leaves its entry, and IPv6 gives a client many addresses.
+const maxTracked = 1024
+
+// expire drops the expired counters, then the oldest ones beyond room for a
+// new one. h.mu is held.
+func (h *Handler) expire() {
+	for addr, f := range h.failed {
+		if h.now().Sub(f.since) > failWindow {
+			delete(h.failed, addr)
+		}
+	}
+	for len(h.failed) >= maxTracked {
+		var oldest string
+		var since time.Time
+		for addr, f := range h.failed {
+			if oldest == "" || f.since.Before(since) {
+				oldest, since = addr, f.since
+			}
+		}
+		delete(h.failed, oldest)
+	}
 }
 
 func (h *Handler) credentialsMatch(user, password string) bool {

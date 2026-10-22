@@ -17,6 +17,8 @@ var (
 	ErrNoATX = errors.New("this board has no ATX power control")
 	// ErrNoReset: the board has no reset button line.
 	ErrNoReset = errors.New("this board has no reset line")
+	// ErrStillOn: the power LED stayed lit after the power button was held.
+	ErrStillOn = errors.New("the host did not switch off")
 )
 
 // Power maps BMC power requests to button presses. Both protocols use it.
@@ -138,7 +140,8 @@ func (p *Power) Reset(ctx context.Context) error {
 
 // Cycle switches the host off and on again; a host known to be off is only
 // switched on. With a power LED it waits for the LED to go out (at most
-// 10 s) before the second press, then 2 s for the power supply.
+// 10 s) before the second press, then 2 s for the power supply. If the LED
+// stays lit, it returns ErrStillOn without the second press.
 func (p *Power) Cycle(ctx context.Context) error {
 	state, err := p.state(ctx)
 	if err != nil {
@@ -151,16 +154,22 @@ func (p *Power) Cycle(ctx context.Context) error {
 		return err
 	}
 	if state.PowerLED {
-		for i := 0; i < 40; i++ {
+		// A host that stays on was not cycled; a short press now would only
+		// ask its operating system to shut down.
+		off := false
+		for i := 0; i < 40 && !off; i++ {
+			if i > 0 {
+				if err = p.wait(ctx, 250*time.Millisecond); err != nil {
+					return err
+				}
+			}
 			if state, err = p.ATX.State(ctx); err != nil {
 				return err
 			}
-			if !state.PowerOn {
-				break
-			}
-			if err = p.wait(ctx, 250*time.Millisecond); err != nil {
-				return err
-			}
+			off = !state.PowerOn
+		}
+		if !off {
+			return ErrStillOn
 		}
 	}
 	if err = p.wait(ctx, 2*time.Second); err != nil {

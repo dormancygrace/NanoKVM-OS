@@ -29,8 +29,8 @@ const (
 type Client struct {
 	Addr      string // 127.0.0.1:<port>
 	TokenFile string
-	// Timeout of one request: a ForceOff holds the button up to 15 s before
-	// the server answers.
+	// Timeout of one request beyond a press: the server answers a press
+	// only when the button is released, so a press gets its hold on top.
 	Timeout time.Duration
 }
 
@@ -43,7 +43,7 @@ func NewClient() *Client {
 			port = p
 		}
 	}
-	return &Client{Addr: "127.0.0.1:" + strconv.Itoa(port), TokenFile: internalTokenFile, Timeout: 30 * time.Second}
+	return &Client{Addr: "127.0.0.1:" + strconv.Itoa(port), TokenFile: internalTokenFile, Timeout: 10 * time.Second}
 }
 
 // httpPort reads port.http from the YAML block the server writes:
@@ -78,13 +78,14 @@ func httpPort(data []byte) int {
 }
 
 // request sends one request on its own connection and returns the status
-// code and body.
-func (c *Client) request(ctx context.Context, method string, body []byte) (int, []byte, error) {
+// code and body. hold is how long the server holds a button before it
+// answers.
+func (c *Client) request(ctx context.Context, method string, body []byte, hold time.Duration) (int, []byte, error) {
 	token, err := os.ReadFile(c.TokenFile)
 	if err != nil {
 		return 0, nil, fmt.Errorf("read the internal token: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, c.Timeout+hold)
 	defer cancel()
 	var dialer net.Dialer
 	conn, err := dialer.DialContext(ctx, "tcp", c.Addr)
@@ -154,7 +155,7 @@ func readResponse(r *bufio.Reader) (int, []byte, error) {
 
 func (c *Client) State(ctx context.Context) (ATXState, error) {
 	var state ATXState
-	code, body, err := c.request(ctx, "GET", nil)
+	code, body, err := c.request(ctx, "GET", nil, 0)
 	if err != nil {
 		return state, err
 	}
@@ -170,7 +171,7 @@ func (c *Client) Press(ctx context.Context, button string, durationMs int) error
 	if err != nil {
 		return err
 	}
-	code, _, err := c.request(ctx, "POST", body)
+	code, _, err := c.request(ctx, "POST", body, time.Duration(durationMs)*time.Millisecond)
 	if err != nil {
 		return err
 	}

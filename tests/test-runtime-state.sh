@@ -32,4 +32,18 @@ grep -F "printf '1920' > /run/nanokvm/width" "$START_SCRIPT" >/dev/null \
 grep -F "printf '1080' > /run/nanokvm/height" "$START_SCRIPT" >/dev/null \
         || fail 'runtime HDMI height is not initialized'
 
+grep -F "[ -s /kvmapp/kvm/fps ] || printf '90' > /kvmapp/kvm/fps" "$START_SCRIPT" >/dev/null \
+        || fail 'a missing FPS setting gets no default'
+grep -F "[ -s /kvmapp/kvm/qlty ] || printf '15000' > /kvmapp/kvm/qlty" "$START_SCRIPT" >/dev/null \
+        || fail 'a missing quality setting gets no default'
+grep -F "[ -s /kvmapp/kvm/res ] || printf '0' > /kvmapp/kvm/res" "$START_SCRIPT" >/dev/null \
+        || fail 'a missing resolution setting gets no default'
+grep -F "[ -s /kvmapp/kvm/type ] || printf 'h265' > /kvmapp/kvm/type" "$START_SCRIPT" >/dev/null \
+        || fail 'a missing codec setting gets no default'
+grep -F 'rm -f /kvmapp/kvm/*.apk-new' "$START_SCRIPT" >/dev/null \
+        || fail 'stale .apk-new copies of the video settings are kept'
+if grep -E '^app +file +/kvmapp/kvm/' "$ROOT/platform/packages.list" >/dev/null; then
+        fail 'a package owns a video setting again'
+fi
+
 echo 'Runtime-state path checks passed'

@@ -97,6 +97,19 @@ remove_legacy_links() {
     rm -rf /tmp/kvm_system /tmp/server
 }
 
+# The video settings are the device's, not a package's. Write the defaults of
+# a new installation where a setting is missing: a fresh image, or an update
+# from a release whose package owned them and so removed the unchanged ones.
+# The .apk-new copies those releases left beside changed settings go too.
+video_settings() {
+    mkdir -p /kvmapp/kvm
+    [ -s /kvmapp/kvm/fps ] || printf '90' > /kvmapp/kvm/fps
+    [ -s /kvmapp/kvm/qlty ] || printf '15000' > /kvmapp/kvm/qlty
+    [ -s /kvmapp/kvm/res ] || printf '0' > /kvmapp/kvm/res
+    [ -s /kvmapp/kvm/type ] || printf 'h265' > /kvmapp/kvm/type
+    rm -f /kvmapp/kvm/*.apk-new
+}
+
 prepare_hdmi_receiver() {
     # A stopped/idle capture leaves the driver-owned receiver reset asserted.
     # Release it before kvm_system probes I2C and the server initializes VI/MMF.
@@ -145,6 +158,7 @@ start_services() {
         prepare_hdmi_receiver || return 1
     fi
 
+    video_settings
     remove_legacy_links
     start_background "$hardware_daemon"
 

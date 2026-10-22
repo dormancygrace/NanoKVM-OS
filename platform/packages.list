@@ -125,11 +125,9 @@ base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox
 # nanokvm: server, native libraries and the board service (app payload)
 app   file  /usr/share/nanokvm/usb-flags-layout            0644  kvmapp/system/usb-flags-layout
 app   file  /kvmapp/build-manifest.json                   0644  %build-manifest.json
-# Video defaults of a new installation; protected from upgrades by base.
-app   file  /kvmapp/kvm/fps                               0644  %kvm/fps
-app   file  /kvmapp/kvm/qlty                              0644  %kvm/qlty
-app   file  /kvmapp/kvm/res                               0644  %kvm/res
-app   file  /kvmapp/kvm/type                              0644  %kvm/type
+# The video settings in /kvmapp/kvm belong to the device: S95nanokvm writes
+# the missing defaults. A package-owned default left an .apk-new beside each
+# changed setting whenever a release changed it.
 app   link  /kvmapp/kvm/height                            -     /run/nanokvm/height
 app   link  /kvmapp/kvm/now_fps                           -     /run/nanokvm/now_fps
 app   link  /kvmapp/kvm/state                             -     /run/nanokvm/state

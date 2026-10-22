@@ -41,16 +41,28 @@ See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS
 
 **More room for your desktop: 16:10 and ultrawide 21:9, alongside classic 16:9 and portrait modes.** Choose the aspect ratio in **Settings → Video → Aspect ratio**, then pick the resolution.
 
-| Landscape resolution | Maximum monitor refresh rate |
+#### 🖥️ 16:9 — Classic widescreen
+
+| Resolution | Maximum monitor refresh rate |
 | --- | --- |
 | **4K / UHD — 3840 × 2160** | **Up to 30 Hz** (H.265) |
 | **QHD — 2560 × 1440** | **Up to 60 Hz** |
 | **Full HD — 1920 × 1080** | **Up to 90 Hz** |
 | **HD — 1280 × 720** | **Up to 120 Hz** |
-| **16:10 — 2560 × 1600** | **Up to 50 Hz** |
-| **16:10 — 1920 × 1200** | **Up to 60 Hz** |
-| **Ultrawide 21:9 — 3440 × 1440** | **Up to 40 Hz** (H.265) |
-| **Ultrawide 21:9 — 2560 × 1080** | **Up to 60 Hz** |
+
+#### 📐 16:10 — More vertical space
+
+| Resolution | Maximum monitor refresh rate |
+| --- | --- |
+| **2560 × 1600** | **Up to 50 Hz** |
+| **1920 × 1200** | **Up to 60 Hz** |
+
+#### 🌄 21:9 — Ultrawide
+
+| Resolution | Maximum monitor refresh rate |
+| --- | --- |
+| **3440 × 1440** | **Up to 40 Hz** (H.265) |
+| **2560 × 1080** | **Up to 60 Hz** |
 
 These are the highest advertised monitor timings on an LT6911UXC receiver, not guaranteed delivered video rates. LT6911C and LT6911D receivers offer 720p and 1080p at 60 Hz; their additional 1920 × 1200 profiles (up to 50 Hz) and 2560 × 1080 profile (30 Hz) still need hardware validation. Available modes also depend on video memory, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices. See [video modes and receiver limits](docs/VIDEO.md).
 

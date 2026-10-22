@@ -117,7 +117,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     # because the next shell omitted NANOKVM_KERNEL_PROFILE.
     release_metadata = images / "boot/kernel.release"
     saved_metadata = release_metadata.read_bytes() if release_metadata.exists() else None
-    release_metadata.write_text("7.3.0-nanokvm-os-r2-debug\n")
+    release_metadata.write_text("7.3.0-nanokvm-os-r3-debug\n")
     expect(build(tree, out, "payloads"), False, "debug artifacts reject release payloads", "Output kernel profile is debug")
     assert not (out / "payloads").exists(), "profile mismatch mutated payloads"
     if saved_metadata is None:
@@ -206,7 +206,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     # The debug profile must also have a working positive path with test keys.
     # Use the existing payload fixture with matching debug boot metadata.
     marker.unlink()
-    release_metadata.write_text("7.3.0-nanokvm-os-r2-debug\n")
+    release_metadata.write_text("7.3.0-nanokvm-os-r3-debug\n")
     result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out),
                              "-d", "payloads"], env=debug_env, capture_output=True, text=True)
     expect(result, True, "debug payloads accept test keys")

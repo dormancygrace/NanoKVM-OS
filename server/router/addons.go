@@ -2,6 +2,7 @@ package router
 
 import (
 	"NanoKVM-Server/authn"
+	"NanoKVM-Server/internal/bmc"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/picoclaw"
@@ -20,6 +21,11 @@ func addonsRouter(r *gin.Engine) {
 			response.ErrRsp(c, -1, "cannot read installed extensions")
 			return
 		}
+		ipmiInstalled, err := installedBinary(bmc.IPMIDaemonPath)
+		if err != nil {
+			response.ErrRsp(c, -1, "cannot read installed extensions")
+			return
+		}
 		pico, err := picoclaw.Installed()
 		if err != nil {
 			response.ErrRsp(c, -1, "cannot read installed extensions")
@@ -28,6 +34,7 @@ func addonsRouter(r *gin.Engine) {
 		response.OkRspWithData(c, gin.H{
 			"rustdesk": gin.H{"installed": rustdesk},
 			"picoclaw": gin.H{"installed": pico},
+			"ipmi":     gin.H{"installed": ipmiInstalled},
 		})
 	})
 }

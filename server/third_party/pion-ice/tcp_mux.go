@@ -475,7 +475,7 @@ func readStreamingPacket(conn net.Conn, buf []byte) (int, error) {
 var errStreamingPacketTooLarge = errors.New("packet too large for an RFC 4571 frame")
 
 func writeStreamingPacket(conn net.Conn, buf []byte) (int, error) {
-	// A truncated length would desynchronise the stream for every later packet.
+	// Bound the RFC 4571 length before allocation and uint16 conversion.
 	if len(buf) > math.MaxUint16 {
 		return 0, errStreamingPacketTooLarge
 	}

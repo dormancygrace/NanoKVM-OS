@@ -2079,5 +2079,16 @@
   "menu": {
     "collapse": "Colapsar menú",
     "expand": "Expandir menú"
+  },
+  "sshKeys": {
+    "title": "Claves públicas SSH",
+    "description": "Añade claves para iniciar sesión SSH como root. Se conservan las claves existentes.",
+    "import": "Importar claves",
+    "help": "Selecciona un archivo de clave pública o pega claves públicas OpenSSH, una por línea (hasta 32 KiB). Se admiten Ed25519, RSA (2048 bits o más), ECDSA y llaves de seguridad. No se aceptan claves privadas, certificados ni opciones de clave. SSH no se activa automáticamente.",
+    "file": "Archivo de clave pública",
+    "text": "Texto de clave pública",
+    "invalid": "Introduce solo claves públicas OpenSSH válidas (hasta 32 KiB); no subas claves privadas, certificados ni opciones de clave.",
+    "failed": "No se pudieron importar las claves SSH.",
+    "result": "Añadidas: {{added}}. Ya existentes: {{skipped}}."
   }
 }

@@ -7,6 +7,8 @@ import { encrypt } from '@/lib/encrypt.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
+import { SshKeys } from './ssh-keys.tsx';
+
 type PasswordForm = { password: string; confirmation: string };
 
 export const Ssh = () => {
@@ -72,6 +74,7 @@ export const Ssh = () => {
           onChange={(next) => (next ? setPasswordOpen(true) : void disable())}
         />
       </SettingRow>
+      <SshKeys />
       <Modal
         open={passwordOpen}
         title={t('settings.system.ssh.passwordTitle')}

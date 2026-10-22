@@ -2079,5 +2079,16 @@
   "menu": {
     "collapse": "Réduire le menu",
     "expand": "Développer le menu"
+  },
+  "sshKeys": {
+    "title": "Clés publiques SSH",
+    "description": "Ajoutez des clés pour la connexion SSH en tant que root. Les clés existantes sont conservées.",
+    "import": "Importer des clés",
+    "help": "Choisissez un fichier de clé publique ou collez des clés publiques OpenSSH, une par ligne (32 Kio maximum). Ed25519, RSA (2048 bits minimum), ECDSA et les clés de sécurité sont pris en charge. Les clés privées, certificats et options de clé ne sont pas acceptés. SSH ne sera pas activé automatiquement.",
+    "file": "Fichier de clé publique",
+    "text": "Texte de clé publique",
+    "invalid": "Saisissez uniquement des clés publiques OpenSSH valides (32 Kio maximum) ; ne téléversez pas de clés privées, certificats ou options de clé.",
+    "failed": "Impossible d’importer les clés SSH.",
+    "result": "Ajoutées : {{added}}. Déjà présentes : {{skipped}}."
   }
 }

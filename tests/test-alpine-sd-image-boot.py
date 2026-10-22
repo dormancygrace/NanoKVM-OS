@@ -40,6 +40,8 @@ class SdImageBootTests(unittest.TestCase):
             (root/'etc/kvm/usb/usb.dev').write_text('')
             (root/'etc/kvm/usb/usb.disk0').write_text('')
             (root/'etc/kvm/mdns_disabled').write_text('1\n')
+            (root/'etc/conf.d').mkdir()
+            (root/'etc/conf.d/udev-trigger').write_text(': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"\n')
             (root/'etc/fstab').write_text('/dev/mmcblk0p2 / f2fs rw 0 1\n')
             archive = tmp/'rootfs.tar.gz'
             with tarfile.open(archive, 'w:gz') as tar:

@@ -8,8 +8,8 @@ fi
 for service in devfs dmesg procfs sysfs; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" sysinit
 done
-# udev coldplug loads the drivers (hwdrivers would do it again); the kernel
-# set the clock from the RTC (osclock provides "clock" instead of hwclock).
+# NanoKVM services load their drivers explicitly; the kernel set the clock
+# from the RTC (osclock provides "clock" instead of hwclock).
 for service in loopback bootmisc hostname localmount modules osclock sysctl udev udev-trigger; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" boot
 done
@@ -41,9 +41,15 @@ fi
 if [ -f /etc/conf.d/bootmisc ]; then
     sed -i 's/^log_dmesg="YES"$/log_dmesg="NO"/' /etc/conf.d/bootmisc
 fi
-if [ -f /etc/conf.d/udev-trigger ] && ! grep -q '^[[:space:]]*rc_coldplug=' /etc/conf.d/udev-trigger; then
-    printf '%s\n' '# NanoKVM: only devices with a /dev node and network interfaces at boot' 'rc_coldplug="NO"' >> /etc/conf.d/udev-trigger
+# NanoKVM udev coldplug default: evaluated when OpenRC sources the config.
+# Preserve service-local, exported, global and legacy-uppercase preferences.
+udev_trigger=/etc/conf.d/udev-trigger
+udev_default=': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"'
+if [ -f "$udev_trigger" ] && ! grep -Fqx "$udev_default" "$udev_trigger"; then
+    printf '\n%s\n%s\n' '# NanoKVM: default to device-node and network replay' "$udev_default" >> "$udev_trigger"
 fi
+unset udev_trigger udev_default
+# End NanoKVM udev coldplug default
 
 # Fresh images are closed to SSH until the user enables it. Recovery restores
 # the complete old /etc/kvm directory, including the absence of this marker.

@@ -51,7 +51,7 @@ assert (root/'etc/kvm/ssh_stop').is_file()
 assert (root/'etc/kvm/mdns_disabled').is_file()
 assert not (root/'etc/runlevels/default/nanokvm-mdns').is_symlink()
 udev_trigger = root/'etc/conf.d/udev-trigger'
-assert udev_trigger.is_file() and 'rc_coldplug="NO"' in udev_trigger.read_text(), 'udev coldplug not limited'
+assert udev_trigger.is_file() and ': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"' in udev_trigger.read_text(), 'udev coldplug not limited'
 assert not list((root/'root').glob('.ssh/*'))
 assert not list((root/'etc/ssh').glob('ssh_host_*'))
 for name in ['server.key','server.crt','pwd','wifi.pass','wifi.ssid','.jwt_secret']:

@@ -13,7 +13,7 @@
 #
 # This script only creates source archives and calls abuild. It does not install
 # packages, change a device, or contact a NanoKVM. Build on Alpine with abuild
-# and a configured signing key.
+# and PACKAGER_PRIVKEY/PACKAGER_PUBKEY pointing to an ECDSA key pair.
 set -eu
 
 usage() {
@@ -26,6 +26,7 @@ Environment:
   SRCDEST       source archive cache (default: work/alpine/distfiles)
   ABUILD        abuild command (default: abuild)
   ABUILD_FLAGS  optional abuild flags (for example -F in an isolated chroot)
+  PACKAGER_PRIVKEY / PACKAGER_PUBKEY  ECDSA private/public key paths
   PKGVER        package version (default: firmware/alpine/release.env)
   PKGVERSIONS   optional file of "NAME VERSION CHANGED" lines
                 (scripts/package-versions.py). A package with CHANGED 0 keeps
@@ -168,15 +169,20 @@ for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 n
 	export "V_$(echo "$pkg" | tr - _)=$(pkg_version "$pkg")"
 done
 
-# abuild signs each package and the index with abuild-sign and no type, which
-# means RSA: RSA with SHA-1. abuild has no setting for the type, so a wrapper
-# first in PATH asks for RSA256, RSA with SHA-256 (apk-tools 2.12 and later).
-real_abuild_sign=$(command -v abuild-sign) || {
-	echo "build-alpine-packages: abuild-sign is required" >&2
-	exit 1
-}
+# APK v2's historical RSA256 marker selects SHA-256 in apk-tools; OpenSSL
+# selects the signature algorithm from the PEM key. With our validated EC key
+# the signature is ECDSA/SHA-256, NOT RSA. Keep v2 for abuild's metadata/scripts.
+# Both the packages and APKINDEX.tar.gz are independently verifiable with EC.
+: "${PACKAGER_PRIVKEY:?set the ECDSA private key}"
+: "${PACKAGER_PUBKEY:?set its public key}"
+"$ROOT/scripts/check-ec-key.sh" "$PACKAGER_PRIVKEY" "$PACKAGER_PUBKEY"
+ABUILD_SIGN_REAL=$(command -v abuild-sign)
+export ABUILD_SIGN_REAL PACKAGER_PRIVKEY PACKAGER_PUBKEY
 mkdir -p "$WORK/bin"
-printf '#!/bin/sh\nexec %s -t RSA256 "$@"\n' "$real_abuild_sign" > "$WORK/bin/abuild-sign"
+cat > "$WORK/bin/abuild-sign" <<'SIGN'
+#!/bin/sh
+exec "$ABUILD_SIGN_REAL" -t RSA256 -k "$PACKAGER_PRIVKEY" -p "$PACKAGER_PUBKEY" "$@"
+SIGN
 chmod 0755 "$WORK/bin/abuild-sign"
 PATH=$WORK/bin:$PATH
 export PATH
@@ -237,6 +243,10 @@ for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 n
 		PKGVER=$version
 		export PKGVER
 		run_abuild -r
+		verify_keys=$WORK/verify-keys
+		mkdir -p "$verify_keys"
+		cp "$PACKAGER_PUBKEY" "$verify_keys/"
+		apk --keys-dir "$verify_keys" verify "$REPODEST/recipes/$CARCH/$pkg-$version-r0.apk"
 	)
 done
 
@@ -250,9 +260,13 @@ tar -tzf "$index" >/dev/null || {
 	exit 1
 }
 tar -tzf "$index" | grep -qE '(^|/)\.SIGN\.RSA256\.' || {
-	echo "build-alpine-packages: APKINDEX.tar.gz has no RSA256 signature: $index" >&2
+	echo "build-alpine-packages: APKINDEX.tar.gz has no SHA-256 signature: $index" >&2
 	exit 1
 }
+verify_keys=$WORK/verify-keys
+mkdir -p "$verify_keys"
+cp "$PACKAGER_PUBKEY" "$verify_keys/"
+apk --keys-dir "$verify_keys" verify "$index"
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
 [ "$apk_count" -ge 13 ] || {
 	echo "build-alpine-packages: expected at least thirteen APKs, found $apk_count" >&2
@@ -260,7 +274,7 @@ apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do
 	if ! tar -tzf "$apk" | grep -qE '(^|/)\.SIGN\.RSA256\.'; then
-		echo "build-alpine-packages: APK without an RSA256 signature: $apk" >&2
+		echo "build-alpine-packages: APK without a SHA-256 signature: $apk" >&2
 		exit 1
 	fi
 done

@@ -25,15 +25,13 @@ def job(text, name):
 
 class ReleaseWorkflowTests(unittest.TestCase):
     def test_key_names_are_the_published_keys(self):
-        rsa = re.search(r'^  RSA_KEY_NAME: (\S+)$', RELEASE, re.M)[1]
         ec = re.search(r'^  EC_KEY_NAME: (\S+)$', RELEASE, re.M)[1]
-        self.assertTrue((KEYS / f'{rsa}.rsa.pub').is_file(), rsa)
         self.assertTrue((KEYS / f'{ec}.pub').is_file(), ec)
 
     def test_only_the_approved_job_on_a_tag_sees_the_keys(self):
-        self.assertEqual(RELEASE.count('${{ secrets.'), 2)
+        self.assertEqual(RELEASE.count('${{ secrets.'), 1)
         sign = job(RELEASE, 'sign')
-        self.assertIn('secrets.APK_RSA_KEY', sign)
+        self.assertNotIn('APK_RSA_KEY', RELEASE)
         self.assertIn('secrets.APK_EC_KEY', sign)
         self.assertIn("if: needs.build.outputs.publish == 'true'", sign)
         self.assertIn('environment: release', sign)
@@ -50,6 +48,17 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('publish=false', pr_case)
         self.assertNotIn('publish=true', pr_case)
         self.assertIn('[ "$DRY_RUN" = true ] && echo publish=false', build)
+
+    def test_pages_uses_only_ec_signing_but_keeps_historical_trust(self):
+        pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
+        self.assertNotIn('APK_RSA_KEY', pages)
+        self.assertEqual(pages.count('${{ secrets.'), 1)
+        self.assertIn('scripts/check-ec-key.sh', pages)
+        self.assertIn('--sign-key /signing/release.key', pages)
+        self.assertIn('adbsign --reset-signatures', pages)
+        self.assertIn('--keys-dir /signing verify', pages)
+        self.assertIn('--keys-dir /keys verify', pages)
+        self.assertTrue((KEYS / 'dgrace-6aaddbb6.rsa.pub').is_file())
 
     def test_unchanged_packages_come_from_the_published_repository(self):
         previous = re.search(r'^  NANOKVM_PREVIOUS: (\S+)$', RELEASE, re.M)[1]

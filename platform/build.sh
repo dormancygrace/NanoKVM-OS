@@ -2,7 +2,7 @@
 # NanoKVM OS build: everything in the SD card image, from the inputs pinned in
 # sources.lock.
 #
-#   platform/build.sh [-o OUTPUT] [-j JOBS] [-k KEY -e ECKEY | -d] [STEP...]
+#   platform/build.sh [-o OUTPUT] [-j JOBS] [-e ECKEY | -d] [STEP...]
 #
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
@@ -35,14 +35,12 @@
 #
 # Outputs are in OUTPUT/images (default: build/platform/images), the
 # APK repository and the SD card image in OUTPUT/release. The packages step
-# signs the packages and APKINDEX.tar.gz (RSA256) with -k KEY, an abuild .rsa
-# private key with its .rsa.pub next to it, and the apk v3 index Packages.adb
-# with -e ECKEY, an ECDSA P-256 private key NAME.key with NAME.pub next to it,
-# and with KEY. Both public keys must be in firmware/alpine/keys: the image
-# trusts those, and nanokvm-keys owns them. For local tests -d uses test keys
-# in OUTPUT/keys instead, created on the first run; such an image also trusts
-# them, so never publish it. NANOKVM_KERNEL_PROFILE=debug builds the kernel and
-# its modules with kernel/config-debug.fragment (release 7.3.0-nanokvm-os-rN-debug)
+# signs packages and both indexes with -e ECKEY, an ECDSA P-256/P-384 private
+# key NAME.key with NAME.pub next to it. The public key must already be in
+# firmware/alpine/keys; old public keys remain trusted for historical packages.
+# For local tests -d creates an EC test key in OUTPUT/keys. Such an image also
+# trusts that test key: never publish it. NANOKVM_KERNEL_PROFILE=debug builds
+# the kernel and its modules with kernel/config-debug.fragment (release 7.3.0-nanokvm-os-rN-debug)
 # and, with -d only, packages and an image that add platform/debug-packages.
 # With NANOKVM_PREVIOUS (the URL or directory of the
 # published repository's riscv64/ with packages.json) a package whose content
@@ -54,17 +52,16 @@ here=$(cd "$(dirname "$0")" && pwd)
 repo=$(dirname "$here")
 out=${NANOKVM_PLATFORM_OUT:-$repo/build/platform}
 jobs=$(nproc)
-key=
 eckey=
 devkey=
-usage() { sed -n '2,49p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
-while getopts o:j:k:e:dh opt; do
+usage() { sed -n '2,/^set -euo pipefail/{ /^#/s/^# \{0,1\}//p; }' "$0" >&2; exit 2; }
+while getopts o:j:e:dh opt; do
     case $opt in
-        o) out=$OPTARG ;; j) jobs=$OPTARG ;; k) key=$(realpath "$OPTARG") ;; e) eckey=$(realpath "$OPTARG") ;;
+        o) out=$OPTARG ;; j) jobs=$OPTARG ;; e) eckey=$(realpath "$OPTARG") ;;
         d) devkey=1 ;; *) usage ;;
     esac
 done
-[ -z "$key$eckey" ] || [ -z "$devkey" ] || { echo "-k and -e exclude -d" >&2; exit 2; }
+[ -z "$eckey" ] || [ -z "$devkey" ] || { echo "-e excludes -d" >&2; exit 2; }
 # The public half of the EC key: NAME.pub next to NAME.key.
 ec_public() { echo "${1%.key}.pub"; }
 shift $((OPTIND - 1))
@@ -90,27 +87,26 @@ esac
 # Fail before a long build, not at the signing steps.
 case " ${steps[*]} " in
     *" packages "* | *" rootfs "*)
-        [ -n "$devkey" ] || { [ -n "$key" ] && [ -n "$eckey" ]; } || {
-            echo "APK signing keys required: -k path/to/key.rsa -e path/to/key.key, or -d for local test keys" >&2
+        [ -n "$devkey" ] || [ -n "$eckey" ] || {
+            echo "APK signing key required: -e path/to/key.key, or -d for a local EC test key" >&2
             exit 2
         }
         # Devices trust the keys of nanokvm-keys; a release key must be one of them.
-        [ -z "$key" ] || cmp -s "$key.pub" "$repo/firmware/alpine/keys/$(basename "$key" .rsa).rsa.pub" || {
-            echo "$key.pub is not in firmware/alpine/keys under the same name; add it there," >&2
-            echo "and publish it in nanokvm-keys before signing with it (firmware/alpine/README.md)" >&2
-            exit 2
-        }
         if [ -n "$eckey" ]; then
-            openssl pkey -pubin -in "$(ec_public "$eckey")" -noout -text 2> /dev/null |
-                grep -qxE 'ASN1 OID: (prime256v1|secp384r1)' || {
-                echo "-e: $(ec_public "$eckey") is missing or not an ECDSA P-256 or P-384 public key" >&2; exit 2; }
+            "$repo/scripts/check-ec-key.sh" "$eckey" "$(ec_public "$eckey")"
             for pub in "$repo"/firmware/alpine/keys/*.pub ""; do
                 [ -n "$pub" ] || {
                     echo "$(ec_public "$eckey") is not in firmware/alpine/keys; add it there," >&2
                     echo "and publish it in nanokvm-keys before signing with it (firmware/alpine/README.md)" >&2
                     exit 2
                 }
-                ! cmp -s "$(ec_public "$eckey")" "$pub" || break
+                if cmp -s "$(ec_public "$eckey")" "$pub"; then
+                    [ "$(basename "$(ec_public "$eckey")")" = "$(basename "$pub")" ] || {
+                        echo "EC public key filename must match the published filename for APK v2 verification" >&2
+                        exit 2
+                    }
+                    break
+                fi
             done
         fi ;;
 esac
@@ -885,7 +881,7 @@ in_userns() (
     exec {mapped_fd}<>"$sync/mapped"
     unshare --user --mount --pid --fork --kill-child \
         bash -c 'echo > "$1/ready"; read -r _ < "$1/mapped"; shift; exec "$@"' sh "$sync" \
-        env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${key:+-k "$key"} ${eckey:+-e "$eckey"} ${devkey:+-d} "$1" &
+        env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${eckey:+-e "$eckey"} ${devkey:+-d} "$1" &
     pid=$!
     deadline=$((SECONDS + 30))
     until read -r -t 0.1 -u "$ready_fd" _; do
@@ -968,35 +964,23 @@ in_chroot() (
     QEMU_CPU=$qemu_cpu chroot "$root" "$@"
 )
 
-# The APK signing keys: -k KEY and -e ECKEY, or with -d local test keys created
+# The ECDSA signing key: -e ECKEY, or with -d a local test key created
 # on the first run. Never a key nobody chose: an image trusts it for every
 # repository.
 signing_key() {
     local tmp
-    if [ -n "$key" ] && [ -n "$eckey" ]; then
-        keyfile=$key
+    if [ -n "$eckey" ]; then
         ecfile=$eckey
     elif [ -z "$devkey" ]; then
-        echo "APK signing keys required: -k path/to/key.rsa -e path/to/key.key, or -d for local test keys" >&2
+        echo "APK signing key required: -e path/to/key.key, or -d for a local EC test key" >&2
         exit 2
     else
-        echo "Signing with local test keys: do not publish these packages or this image" >&2
-        # Only keys this option created; never another key left in OUTPUT/keys.
-        keyfile= ecfile=
+        echo "Signing with a local EC test key: do not publish these packages or this image" >&2
+        ecfile=
         if [ -d "$out/keys" ]; then
-            keyfile=$(find "$out/keys" -name 'nanokvm-test-*.rsa' | LC_ALL=C sort | head -n 1)
             ecfile=$(find "$out/keys" -name 'nanokvm-test-ec-*.key' | LC_ALL=C sort | head -n 1)
         fi
         mkdir -p "$out/keys"
-        if [ -z "$keyfile" ]; then
-            tmp=$out/keys/new.rsa
-            openssl genrsa -out "$tmp" 4096 2> /dev/null
-            openssl rsa -in "$tmp" -pubout -out "$tmp.pub" 2> /dev/null
-            keyfile=$out/keys/nanokvm-test-$(sha256sum < "$tmp.pub" | cut -c1-8).rsa
-            mv "$tmp" "$keyfile"
-            mv "$tmp.pub" "$keyfile.pub"
-            echo "Created APK signing key $keyfile"
-        fi
         if [ -z "$ecfile" ]; then
             tmp=$out/keys/new-ec
             openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$tmp.key" 2> /dev/null
@@ -1004,13 +988,11 @@ signing_key() {
             ecfile=$out/keys/nanokvm-test-ec-$(openssl pkey -pubin -in "$tmp.pub" -outform DER | sha256sum | cut -c1-8).key
             mv "$tmp.key" "$ecfile"
             mv "$tmp.pub" "$(ec_public "$ecfile")"
-            echo "Created APK index signing key $ecfile"
+            echo "Created APK signing key $ecfile"
         fi
     fi
-    [ -f "$keyfile.pub" ] || { echo "APK signing key: $keyfile.pub is missing" >&2; exit 1; }
     ecpub=$(ec_public "$ecfile")
-    [ -f "$ecpub" ] || { echo "APK index signing key: $ecpub is missing" >&2; exit 1; }
-    keyname=$(basename "$keyfile" .rsa)
+    "$repo/scripts/check-ec-key.sh" "$ecfile" "$ecpub"
 }
 
 # Copy $1 of the published repository NANOKVM_PREVIOUS (an URL or a
@@ -1075,25 +1057,25 @@ packages() (
     alpine_tree "$b"
     in_chroot "$b" /sbin/apk --no-cache add alpine-sdk coreutils musl-utils
     mkdir -p "$b/build/src/scripts" "$b/build/src/firmware/alpine" "$b/root/.abuild"
-    cp "$repo/scripts/build-alpine-packages.sh" "$b/build/src/scripts/"
+    cp "$repo/scripts/build-alpine-packages.sh" "$repo/scripts/check-ec-key.sh" "$b/build/src/scripts/"
     cp -r "$repo/firmware/alpine/packages" "$repo/firmware/alpine/release.env" "$b/build/src/firmware/alpine/"
     cp -a "$out/payloads" "$b/build/payloads"
     # A test image trusts the test keys too; nanokvm-keys owns them there.
     if [ -n "$devkey" ]; then
-        install -D -m 0644 "$keyfile.pub" "$b/build/payloads/keys/etc/apk/keys/$keyname.rsa.pub"
         install -m 0644 "$ecpub" "$b/build/payloads/keys/etc/apk/keys/"
     fi
-    trap 'rm -f "$b/root/.abuild/$keyname.rsa" "$b/root/.abuild/index-ec.key"' EXIT
-    install -m 0600 "$keyfile" "$b/root/.abuild/$keyname.rsa"
-    install -m 0644 "$keyfile.pub" "$b/root/.abuild/$keyname.rsa.pub"
-    install -m 0644 "$keyfile.pub" "$b/etc/apk/keys/$keyname.rsa.pub"
+    trap 'rm -f "$b/root/.abuild/release.key"' EXIT
+    install -m 0600 "$ecfile" "$b/root/.abuild/release.key"
+    install -m 0644 "$ecpub" "$b/root/.abuild/$(basename "$ecpub")"
+    install -m 0644 "$ecpub" "$b/etc/apk/keys/"
     # Reused packages carry the release signature, also with -d.
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$b/etc/apk/keys/"; done
     package_versions
-    printf 'PACKAGER="NanoKVM OS"\nPACKAGER_PRIVKEY="/root/.abuild/%s.rsa"\n' "$keyname" > "$b/root/.abuild/abuild.conf"
+    printf 'PACKAGER="NanoKVM OS"\n' > "$b/root/.abuild/abuild.conf"
     # -F: abuild runs as root of the namespace. -d: the packages compile
     # nothing, so their dependencies are not installed in the builder.
     in_chroot "$b" /usr/bin/env -i HOME=/root PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+        PACKAGER_PRIVKEY=/root/.abuild/release.key PACKAGER_PUBKEY="/root/.abuild/$(basename "$ecpub")" \
         SOURCE_DATE_EPOCH="$(git -C "$repo" log -1 --format=%ct)" PAYLOAD_ROOT=/build/payloads \
         REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' PKGVERSIONS=/build/versions/versions.txt \
         /bin/sh /build/src/scripts/build-alpine-packages.sh stock
@@ -1105,27 +1087,21 @@ packages() (
     # They remain optional and are never installed into the SD image.
     python3 "$repo/scripts/addon_packages.py" --manifest "$repo/firmware/alpine/addons.json" \
         --output "$b/build/repo/stock/recipes/riscv64"
-    # The apk v3 index next to APKINDEX.tar.gz, signed with the EC key and,
-    # while 2.0 devices that trust only the RSA key may read it, the RSA key.
-    # Core signatures were checked above; add-on bytes match addons.json.
-    install -m 0600 "$ecfile" "$b/root/.abuild/index-ec.key"
+    # New indexes have one ECDSA signature. Core signatures were checked above;
+    # optional add-on bytes were checked against their pinned checksums.
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 &&
-        /sbin/apk --sign-key "$1" --sign-key /root/.abuild/index-ec.key --allow-untrusted mkndx \
-            --description "$2" --output Packages.adb ./*.apk' \
-        sh "/root/.abuild/$keyname.rsa" "NanoKVM OS $version"
-    rm -f "$b/root/.abuild/$keyname.rsa" "$b/root/.abuild/index-ec.key"
-    # Each key alone must verify the v3 index.
+        /sbin/apk --sign-key /root/.abuild/release.key --allow-untrusted mkndx \
+            --description "$1" --output Packages.adb ./*.apk' sh "NanoKVM OS $version"
+    rm -f "$b/root/.abuild/release.key"
+    # Neither the RSA key nor Alpine keys can satisfy these checks.
     rm -rf "$b/build/verify"
-    mkdir -p "$b/build/verify/rsa" "$b/build/verify/ec"
-    install -m 0644 "$keyfile.pub" "$b/build/verify/rsa/$keyname.rsa.pub"
+    mkdir -p "$b/build/verify/ec"
     install -m 0644 "$ecpub" "$b/build/verify/ec/"
-    for pub in rsa ec; do
-        in_chroot "$b" /sbin/apk --keys-dir "/build/verify/$pub" verify /build/repo/stock/recipes/riscv64/Packages.adb
-    done
+    in_chroot "$b" /sbin/apk --keys-dir /build/verify/ec verify \
+        /build/repo/stock/recipes/riscv64/APKINDEX.tar.gz /build/repo/stock/recipes/riscv64/Packages.adb
     rm -rf "${rel:?}/apk"
     mkdir -p "$rel/apk"
     cp -a "$b/build/repo/stock/." "$rel/apk/"
-    cp "$keyfile.pub" "$rel/apk/$keyname.rsa.pub"
     cp "$ecpub" "$rel/apk/"
     cp "$repo/firmware/alpine/addons.json" "$rel/apk/recipes/riscv64/"
     "$host/python3" "$repo/scripts/package-versions.py" manifest \
@@ -1142,7 +1118,6 @@ rootfs() {
     alpine_tree "$r"
     # apk must trust the keys before it can install nanokvm-keys; it then takes
     # over these identical files (/etc/apk is not a protected path).
-    install -m 0644 "$keyfile.pub" "$r/etc/apk/keys/$keyname.rsa.pub"
     [ -z "$devkey" ] || install -m 0644 "$ecpub" "$r/etc/apk/keys/"
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
     # The v3 index, as on the device.

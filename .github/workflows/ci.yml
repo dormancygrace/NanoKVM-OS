@@ -104,6 +104,12 @@ jobs:
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
+      - name: ECDSA package signing and upgrade
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src alpine:3.24 sh -ec '
+            apk add --no-cache alpine-sdk python3 openssl coreutils > /dev/null
+            python3 tests/test-ecdsa-packages.py'
+
       - name: RustDesk package version transitions
         run: python3 tests/test-rustdesk-builder.py
       - name: Platform Buildroot configuration

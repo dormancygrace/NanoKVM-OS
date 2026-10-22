@@ -128,8 +128,8 @@ not tie a key to a repository. The NanoKVM release keys are in `keys/`:
 
 | Key | Type | Signs |
 |---|---|---|
-| `dgrace-6aaddbb6.rsa.pub` | RSA 4096 | the packages and `APKINDEX.tar.gz` (RSA256, RSA with SHA-256); `Packages.adb` during the transition |
-| `nkos-release-ec-b8e89b66.pub` | ECDSA P-256 | `Packages.adb` |
+| `dgrace-6aaddbb6.rsa.pub` | RSA 4096 | Verification of historical packages and indexes only |
+| `nkos-release-ec-b8e89b66.pub` | ECDSA P-256 | All new core packages, `APKINDEX.tar.gz` and `Packages.adb` from v3.4.0 |
 
 The package `nanokvm-keys` installs them in `/etc/apk/keys` and owns them, as
 `alpine-keys` does for Alpine's keys; `nanokvm-base` depends on it. Because a
@@ -148,11 +148,17 @@ scratch root on the device.)
 
 The repository has two indexes of the same abuild packages in `riscv64/`:
 
-- `APKINDEX.tar.gz`, the v2 index, signed with the RSA key. Devices up to 2.0
-  use the repository line `https://nkos.pesin.pro/repos/nanokvm`, read this
-  index and trust only the RSA key.
-- `Packages.adb`, the apk-tools v3 index, signed with the ECDSA key and, during
-  the transition, the RSA key; apk accepts it if it trusts either key.
+- `APKINDEX.tar.gz`, the v2 index, contains the core abuild packages.
+- `Packages.adb`, the apk-tools v3 index, also includes independent add-ons.
+
+From v3.4.0 both indexes and every newly built core APK are signed only with
+ECDSA. APK v2 retains the historical `.SIGN.RSA256.<public-key-name>` marker:
+in apk-tools this selects SHA-256; OpenSSL selects ECDSA from the EC public key.
+It is **not an RSA signature**. The build rejects non-EC or mismatched signing
+keys and verifies new files using the EC public key alone. The integration test
+also verifies the signatures directly with OpenSSL, rejects tampered files and
+checks upgrades through both index formats. Keeping abuild preserves its
+package metadata, dependencies, install scripts and triggers.
 
 Releases up to 3.2 were published on `nkos.pesin.pro`; images from 2.5 on read
 `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`. From 3.3 on the
@@ -162,8 +168,9 @@ are in place; Alpine's lines and any other line stay as they are. 3.3 is also
 published on `nkos.pesin.pro`, so that devices still reading it find the
 release that moves them.
 
-apk checks a package from an index against the package hash in that index, so
-the packages need no ECDSA signature.
+apk also checks a downloaded package against the hash in its trusted index.
+Independent add-ons may be unsigned; their checked bytes are authenticated by
+the ECDSA-signed v3 repository index. They do not require an OS release.
 
 ### Publishing a release
 
@@ -260,9 +267,9 @@ The workflow (`.github/workflows/release.yml`) takes the next version after the
 newest eligible release (`scripts/next-release.py`; drafts count), builds everything on
 a GitHub runner without the signing keys, and then waits in the `release`
 environment until a maintainer approves the sign job. That job signs the
-packages that changed and both indexes with the release keys (the environment
-secrets `APK_RSA_KEY` and `APK_EC_KEY`: unencrypted PEM private keys of
-`dgrace-6aaddbb6.rsa.pub` and `nkos-release-ec-b8e89b66.pub`) and attaches
+packages that changed and both indexes with the ECDSA release key (environment
+secret `APK_EC_KEY`: the unencrypted PEM private key matching
+`nkos-release-ec-b8e89b66.pub`) and attaches
 them with `packages.json`, the source archive and `SHA256SUMS`. An unchanged
 package keeps its version and stays in the release that first carried it
 ([package versions](packages/README.md#package-versions)).
@@ -286,8 +293,7 @@ cached index.
 
 A pull request that changes the release process, or a run with `dry_run`,
 builds the same release with local test keys and keeps it as an artifact. A local build signs the same way with
-`platform/build.sh -o OUTPUT -k KEY.rsa -e KEY.key`, each private key next to
-its public key.
+`platform/build.sh -o OUTPUT -e KEY.key`, with `KEY.pub` next to it.
 
 The APK repository workflow deploys the same repository to GitHub Pages, at
 `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`,
@@ -300,32 +306,33 @@ the newest six releases name, checks each file against its release's
 deploys. The page `https://dormancygrace.github.io/NanoKVM-OS/` lists the
 stable repository line and the public keys; `/beta/` lists the beta feed.
 
-### Moving to the ECDSA key alone
+### ECDSA-only signing from v3.4.0
 
-- While devices on 2.0 or earlier may still update, keep publishing
-  `APKINDEX.tar.gz` signed with the RSA key, and keep the RSA signature on
-  `Packages.adb`. Such a device can update from the v2 index; that update
-  installs `nanokvm-keys` and moves it to the v3 index.
-- Once those devices have updated, a later release may sign `Packages.adb` with
-  the ECDSA key alone (remove the RSA `--sign-key` from the packages step of
-  `platform/build.sh`). A device that still reads only the v2 index then keeps
-  working as long as `APKINDEX.tar.gz` is published; after that it needs the
-  ECDSA key and the new repository line by hand.
-- The packages themselves stay signed with the RSA key, which `apk verify` and
-  `apk add ./file.apk` check. Keep `dgrace-6aaddbb6.rsa.pub` in `keys/` while
-  packages are signed with it.
+The release and repository workflows no longer read `APK_RSA_KEY`. The signing
+policy is part of each core package's content fingerprint, so v3.4.0 rebuilds
+all thirteen core packages once; a previous RSA-signed package cannot be reused
+as the current release's package. Later releases resume ordinary content reuse.
+Historical RSA-signed files and their public key are retained for verification
+and rollback; no new RSA signature is created.
+
+Devices on 3.3.x already have the EC key and the Pages repository URL. They
+update normally. Devices that still trust **only RSA** must first install a
+historical transition release (2.5 through 3.3.x), or install the published EC
+public key and current repository URL manually. New indexes cannot be verified
+with the RSA key alone; keeping a v2 index does not change this requirement.
 
 ### Replacing a key
 
 1. Create the new key on the signing machine, add its public key to `keys/`,
    and publish a release signed with the old key. `nanokvm-keys` ships the new
    key; devices that install the release trust both keys. `platform/build.sh`
-   refuses `-k` or `-e` keys whose public key is not in `keys/`, so a key
+   refuses `-e` keys whose public key is not in `keys/`, so a key
    cannot be used before it is shipped.
 2. Sign the following releases with the new key. During a transition, sign each
    index with both keys, so that a device that skipped step 1 can still update:
    `Packages.adb` with two `--sign-key` options, and `APKINDEX.tar.gz` with a
-   second signature in front, `abuild-sign -t RSA256 -k old.rsa APKINDEX.tar.gz`.
+   second signature in front, `abuild-sign -t RSA256 -k old.key -p old.pub APKINDEX.tar.gz`
+   with an ECDSA key.
    apk-tools 3.0.8 accepts an index with two signatures if it trusts either key.
 3. In a later release, remove the old key from `keys/`; updating `nanokvm-keys`
    removes it from devices.

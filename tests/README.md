@@ -92,3 +92,12 @@ installation, independent web upgrades and rejection of an incompatible API.
 External Alpine libraries are represented by a fixture provider; service restart
 behavior is tested separately in `server/cmd/nkos-apply-updates`. CI runs the
 APK migration test inside an Alpine container.
+
+### ECDSA release signing
+
+`test-ecdsa-packages.py` runs in the Alpine 3.24 CI container with `alpine-sdk`,
+Python 3, OpenSSL and coreutils. It builds all thirteen APK recipes with small
+synthetic payloads and temporary keys, verifies signatures directly and through
+apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
+index formats. No production key or device is used; package scripts are retained
+but not executed in the temporary installation root.

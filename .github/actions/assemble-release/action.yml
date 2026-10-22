@@ -9,7 +9,7 @@ inputs:
     description: platform/build.sh OUTPUT, prepared by the prepare-build action
     required: true
   keys:
-    description: 'platform/build.sh key options: -k KEY -e ECKEY, or -d for local test keys'
+    description: 'platform/build.sh key options: -e ECKEY, or -d for a local EC test key'
     required: true
   image:
     description: attach the SD image (it is always built, as a check that the packages install)

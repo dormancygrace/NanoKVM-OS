@@ -71,7 +71,7 @@ def content(payloads, recipes, name):
     recipe = Path(recipes) / name
     if not (recipe / 'APKBUILD').is_file():
         raise ValueError(f'missing recipe {recipe}/APKBUILD')
-    return hashlib.sha256(('payload ' + tree_digest(payload and Path(payloads) / payload)
+    return hashlib.sha256(('signing ecdsa-sha256-v1 payload ' + tree_digest(payload and Path(payloads) / payload)
                            + ' recipe ' + tree_digest(recipe)).encode()).hexdigest()
 
 

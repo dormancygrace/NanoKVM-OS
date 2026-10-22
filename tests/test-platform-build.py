@@ -139,11 +139,11 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
         result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(root / "debug"), step],
                                 env=debug_env, capture_output=True, text=True)
         expect(result, False, f"debug {step} needs test keys", "need -d (test keys)")
-    # -k/-e already exclude -d, so a debug package can only carry test keys.
+    # -e already excludes -d, so a debug package can only carry test keys.
     result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(root / "debug"),
-                             "-k", __file__, "-e", __file__, "-d", "packages"],
+                             "-e", __file__, "-d", "packages"],
                             env=debug_env, capture_output=True, text=True)
-    expect(result, False, "debug packages refuse release keys", "-k and -e exclude -d")
+    expect(result, False, "debug packages refuse release keys", "-e excludes -d")
 
     app = out / "payloads/app/kvmapp"
     assert {path.name for path in (app / "system/init.d").iterdir()} == {

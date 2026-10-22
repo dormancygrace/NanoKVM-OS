@@ -1,51 +1,83 @@
-name: Bug report
-description: Something does not work as expected on NanoKVM OS
-labels: [bug]
+name: 🐛 Bug report
+description: Report something that is not working in NanoKVM OS.
+labels:
+  - bug
 body:
   - type: markdown
     attributes:
-      value: |
-        For security problems, use **Security → Report a vulnerability** instead of a public issue.
-        Remove passwords, tokens and private screen contents from logs and screenshots.
+      value: |-
+        Thanks for reporting a problem! Please search [existing issues](https://github.com/dormancygrace/NanoKVM-OS/issues?q=is%3Aissue) first.
+
+        For security problems, [report a vulnerability privately](https://github.com/dormancygrace/NanoKVM-OS/security/advisories/new).
+
+        Remove passwords, API tokens, private keys, personal addresses and private screen contents from anything you attach.
   - type: input
     id: version
     attributes:
-      label: NanoKVM OS version
-      description: Settings → About, for example 2.0-b7
+      label: Application version
+      description: Copy the Applications version from Settings → About. If the device cannot boot, enter the release you installed or “unknown”.
+      placeholder: e.g. v3.4.0
     validations:
       required: true
   - type: dropdown
     id: board
     attributes:
-      label: Board
+      label: Device
       options:
-        - NanoKVM PCIe
-        - NanoKVM Cube (Full)
-        - NanoKVM Cube (Alpha)
-        - NanoKVM Lite
-        - Other / unsure
+        - Sipeed NanoKVM Cube
+        - Sipeed NanoKVM Lite
+        - Sipeed NanoKVM PCIe
+        - Other / not sure
     validations:
       required: true
   - type: input
-    id: video
+    id: image
     attributes:
-      label: Video path
-      description: Codec and transport (MJPEG, H.264/H.265 Direct or WebRTC), resolution and FPS target
-  - type: input
-    id: browser
+      label: Installed image version
+      description: Copy the Installed image version from Settings → About, if available. It can differ from the application version.
+      placeholder: e.g. v1.6, or unknown
+  - type: dropdown
+    id: channel
     attributes:
-      label: Browser and OS
-      description: For example Chrome 140 on Windows 11
+      label: Update channel
+      options:
+        - Stable
+        - Beta
+        - Custom build / not sure
   - type: textarea
     id: steps
     attributes:
-      label: Steps to reproduce
-      description: What you did, what you expected and what happened instead
+      label: What happened, and how can it be reproduced?
+      description: Include what you expected, what actually happened, and whether the problem is repeatable.
+      placeholder: |-
+        Steps to reproduce:
+        1. ...
+
+        Expected behavior:
+        ...
+
+        Actual behavior:
+        ...
     validations:
       required: true
   - type: textarea
+    id: setup
+    attributes:
+      label: Relevant setup
+      description: Browser and OS; Wi-Fi or Ethernet; for video issues, include codec, Direct/WebRTC/MJPEG, resolution, FPS and HDMI source. Mention board revision or receiver chip if known.
+  - type: input
+    id: regression
+    attributes:
+      label: Did this work before?
+      description: If known, give the last working version and anything that changed before the problem appeared.
+  - type: textarea
     id: logs
     attributes:
-      label: Logs
-      description: Relevant lines from Settings → System → Diagnostics → Logs
+      label: Relevant logs
+      description: 'Optional: copy relevant lines from Settings → System → Diagnostics → Logs. Review them for secrets before posting.'
       render: text
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots or additional context
+      description: 'Optional: attach screenshots or short recordings here after checking them for private content.'

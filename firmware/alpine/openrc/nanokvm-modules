@@ -20,5 +20,13 @@ start() {
     modprobe -a cv181x_sys cv181x_base cvi_mipi_rx cv181x_vi \
         cv181x_vpss cv181x_vcodec cv181x_jpeg cvi_vc_driver || return 1
     modprobe -a sg2002-temp sg2002-cpufreq 2>/dev/null || true
+    # The server's executable is 24 MB, and the server read it from the SD
+    # card page by page as it started: about 2 s of its 3.6 s from start to
+    # listening, at 22 MB/s while other services read the card too. Read it
+    # now in the background, once the modules are in, so that the server and
+    # the hardware daemon start from the page cache.
+    (
+        cat /kvmapp/server/NanoKVM-Server /kvmapp/kvm_system/kvm_system             /kvmapp/server/dl_lib/*.so
+    ) </dev/null >/dev/null 2>&1 &
     eend 0
 }

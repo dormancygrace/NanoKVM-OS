@@ -1,0 +1,43 @@
+name: ✨ Feature request
+description: Propose a specific improvement or new capability.
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |-
+        Have an early idea? You can also share it in the [community wishlist](https://github.com/dormancygrace/NanoKVM-OS/issues/406). Search [existing issues](https://github.com/dormancygrace/NanoKVM-OS/issues?q=is%3Aissue) before opening a new request, and keep one proposal per issue.
+
+        Requests help guide development, but do not guarantee implementation or a delivery date.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to accomplish?
+      description: Describe the task, limitation or inconvenience. You do not need to know how to implement the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How should it work?
+      description: Describe the desired behavior or result.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: 'Optional: what do you do today, or what other approaches would help?'
+  - type: textarea
+    id: context
+    attributes:
+      label: Devices, examples and additional context
+      description: 'Optional: mention relevant hardware, add mockups or links, or link the original wishlist comment.'
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you like to help?
+      description: Optional — all suggestions are welcome.
+      options:
+        - label: I can help test this feature.
+        - label: I would like to contribute an implementation or documentation.

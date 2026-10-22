@@ -78,7 +78,10 @@ start_background() {
         export LD_LIBRARY_PATH
     fi
     if [ "$executable" = "$server" ]; then
-        nohup /kvmapp/system/init.d/nanokvm-server-supervisor run "$executable" </dev/null >/dev/null 2>&1 &
+        # The server raises itself to nice -10 until the first viewer
+        # (startpriority), but only once its runtime has started; starting
+        # it there covers that start too. Restarts keep it as well.
+        nohup nice -n -10 /kvmapp/system/init.d/nanokvm-server-supervisor run "$executable" </dev/null >/dev/null 2>&1 &
     else
         nohup "$executable" </dev/null >/dev/null 2>&1 &
     fi

@@ -63,6 +63,31 @@ class Fake:
         return self.files[url]
 
 
+    def split_release(self, tag):
+        """Model publication using separate public and technical asset URLs."""
+        release = next(r for r in self.list if r['tag_name'] == tag)
+        storage = {**release, 'tag_name': 'os-packages-' + tag, 'prerelease': True}
+        technical, public = [], []
+        for item in release['assets']:
+            name = item['name']
+            if name.endswith('.img.zip') or name.endswith('-source.tar.xz'):
+                public.append(item)
+            elif name != 'SHA256SUMS':
+                url = f'https://dl.test/os-packages-{tag}/{name}'
+                self.files[url] = self.files[item['browser_download_url']]
+                technical.append({'name': name, 'browser_download_url': url})
+        for group, prefix in [(public, tag), (technical, 'os-packages-' + tag)]:
+            url = f'https://dl.test/{prefix}/SHA256SUMS'
+            self.files[url] = ''.join(f'{hashlib.sha256(self.files[x["browser_download_url"]]).hexdigest()}  {x["name"]}\n'
+                                      for x in group).encode()
+            group.append({'name': 'SHA256SUMS', 'browser_download_url': url})
+        release['assets'] = public
+        release['body'] = f'Human edited notes\n<!-- nanokvm-package-storage: os-packages-{tag} -->'
+        storage['assets'] = technical
+        self.list.append(storage)
+        return release, storage
+
+
 class AssembleTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -103,6 +128,111 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual(json.loads((self.out / 'beta/latest-image/badge.json').read_text())['message'], 'v1.6-beta.10')
         self.fake.release('v3.4.0', '2026-10-05', [('nanokvm', '3.4.0-r0')])
         self.assertEqual(a.releases('o/r', self.fake.fetch, channel='beta')[0]['tag_name'], 'v3.4.0')
+
+    def split_fixture(self, tag='v4.0.0', version='4.0.0-r0'):
+        self.fake.release(tag, '2026-10-22', [('nanokvm', version), ('nanokvm-web', '1-r0')], extra={
+            'packages.json': json.dumps({'version': version}).encode(),
+            'addons.json': b'{"packages": {}}',
+            f'NanoKVM-OS-{tag}-source.tar.xz': b'sources',
+            f'NanoKVM-OS-Image-v1.7-apps-{tag}.img.zip': b'image',
+        })
+        return self.fake.split_release(tag)
+
+    def test_split_storage_mixed_with_legacy_releases_and_reused_packages(self):
+        public, storage = self.split_fixture()
+        # Reuse an unchanged package from a legacy release outside the kept
+        # index window; do not upload that APK in the new technical release.
+        storage['assets'] = [x for x in storage['assets'] if x['name'] != 'nanokvm-web-1-r0.apk']
+        tag, names = self.run_assemble(keep=1)
+        self.assertEqual(tag, 'v4.0.0')
+        self.assertIn('nanokvm-web-1-r0.apk', names)
+        self.assertEqual((self.repo() / 'nanokvm-web-1-r0.apk').read_bytes(), b'nanokvm-web 1-r0')
+        self.assertEqual(json.loads((self.repo() / 'packages.json').read_bytes())['version'], '4.0.0-r0')
+        html = (self.out / 'index.html').read_text()
+        self.assertIn('https://dl.test/v4.0.0/SHA256SUMS', html)
+        self.assertNotIn('os-packages-', html)
+        self.assertIn('/tag/v4.0.0', (self.out / 'latest-image/index.html').read_text())
+
+    def test_reuse_from_older_technical_storage_outside_index_window(self):
+        self.split_fixture('v4.0.0', '4.0.0-r0')
+        _, storage = self.split_fixture('v4.0.1', '4.0.1-r0')
+        storage['assets'] = [x for x in storage['assets'] if x['name'] != 'nanokvm-web-1-r0.apk']
+        # Only the older technical release can supply this unchanged APK.
+        for r in self.fake.list:
+            if r['tag_name'] in ('v1', 'v2', 'v3'):
+                r['assets'] = [x for x in r['assets'] if x['name'] != 'nanokvm-web-1-r0.apk']
+        self.assertEqual(self.run_assemble(keep=1)[0], 'v4.0.1')
+        self.assertTrue((self.repo() / 'nanokvm-web-1-r0.apk').is_file())
+
+    def test_public_and_storage_on_different_api_pages(self):
+        public, storage = self.split_fixture()
+        padding = [dict(tag_name=f'ignored-{i}', draft=True, assets=[]) for i in range(99)]
+        def fetch(url, accept=None):
+            if url.startswith('https://api.github.com/'):
+                page = int(url.rsplit('page=', 1)[1])
+                return json.dumps([public, *padding] if page == 1 else [storage]).encode()
+            return self.fake.fetch(url, accept)
+        published = a.releases('o/r', fetch)
+        self.assertEqual([r['tag_name'] for r in published], ['v4.0.0'])
+        a.assemble(self.out, published, 1, '3.24', self.keys, fetch)
+        self.assertTrue((self.repo() / 'nanokvm-4.0.0-r0.apk').is_file())
+
+    def test_orphan_storage_and_public_drafts_never_advance_channels(self):
+        public, storage = self.split_fixture()
+        public['draft'] = True
+        self.assertEqual(a.releases('o/r', self.fake.fetch, channel='beta')[0]['tag_name'], 'v3')
+        self.fake.list.remove(public)
+        self.assertEqual(a.releases('o/r', self.fake.fetch, channel='beta')[0]['tag_name'], 'v3')
+
+    def test_missing_or_incomplete_storage_fails_instead_of_silently_publishing_old_feed(self):
+        public, storage = self.split_fixture()
+        for failure in ('draft', 'index', 'missing'):
+            with self.subTest(failure=failure):
+                original = list(storage['assets'])
+                if failure == 'draft':
+                    storage['draft'] = True
+                elif failure == 'index':
+                    storage['assets'] = [x for x in original if x['name'] != 'Packages.adb']
+                else:
+                    self.fake.list.remove(storage)
+                with self.assertRaisesRegex(ValueError, 'Missing or incomplete package storage'):
+                    a.releases('o/r', self.fake.fetch)
+                storage['draft'] = False
+                storage['assets'] = original
+
+    def test_storage_association_cannot_point_to_another_release(self):
+        public, _ = self.split_fixture()
+        public['body'] = '<!-- nanokvm-package-storage: os-packages-v3.0.0 -->'
+        with self.assertRaisesRegex(ValueError, 'Invalid package storage association'):
+            a.releases('o/r', self.fake.fetch)
+
+    def test_deterministic_pair_survives_manually_edited_notes(self):
+        public, _ = self.split_fixture()
+        public['body'] = 'Replaced notes without the hidden marker'
+        self.assertEqual(self.run_assemble()[0], 'v4.0.0')
+
+    def test_storage_checksum_failure_stops_assembly(self):
+        self.split_fixture()
+        self.fake.files['https://dl.test/os-packages-v4.0.0/nanokvm-4.0.0-r0.apk'] = b'corrupt'
+        with self.assertRaisesRegex(ValueError, 'SHA256SUMS'):
+            self.run_assemble()
+
+    def test_split_stable_beta_and_downgrade_packages_remain_separate(self):
+        self.split_fixture('v4.0.0', '4.0.0-r0')
+        public, _ = self.split_fixture('v4.1.0-beta.1', '4.1.0_beta1-r0')
+        public['prerelease'] = True
+        published = a.releases('o/r', self.fake.fetch, channel='beta')
+        self.assertEqual(len(published), 5)  # two OS releases + three legacy, no storage releases
+        a.assemble(self.out, published, 1, '3.24', self.keys, self.fake.fetch)
+        a.assemble(self.out / 'beta', published, 1, '3.24', self.keys, self.fake.fetch, channel='beta')
+        self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v4.0.0')
+        beta = self.out / 'beta/alpine/v3.24/riscv64'
+        self.assertEqual((beta / 'Packages.adb').read_bytes(), b'adb v4.1.0-beta.1')
+        # The downgrade target still resolves every stable APK, regardless of
+        # the newest beta package and storage prerelease flags.
+        self.assertTrue((self.repo() / 'nanokvm-4.0.0-r0.apk').is_file())
+        self.assertFalse((self.repo() / 'nanokvm-4.1.0_beta1-r0.apk').exists())
+        self.assertTrue((beta / 'nanokvm-4.1.0_beta1-r0.apk').is_file())
 
     def test_empty_beta_channel_uses_stable_release(self):
         stable = a.releases('o/r', self.fake.fetch)

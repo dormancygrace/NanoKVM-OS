@@ -2,8 +2,8 @@ name: Assemble a release
 description: >
   The packages, root file system and SD image from the outputs of a release
   build (the release-build artifact), and the release assets with their
-  SHA256SUMS in OUTPUT/assets. Of the packages, the assets hold those that
-  changed; the others stay in the release that first carried them.
+  SHA256SUMS in OUTPUT/assets/public and OUTPUT/assets/packages. Only changed
+  packages are uploaded; the others stay in the release that first carried them.
 inputs:
   out:
     description: platform/build.sh OUTPUT, prepared by the prepare-build action
@@ -66,6 +66,6 @@ runs:
         [ "$IMAGE" != true ] || cp "$OUT"/release/image/*.img.zip "$OUT/release/image/build-manifest.json" "$a/"
         cp "$OUT/release/installed-packages.txt" "$OUT/release/installed-licenses.txt" "$a/"
         cp "$OUT"/NanoKVM-OS-*-source.tar.xz "$a/"
-        (cd "$a" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS" && mv "$RUNNER_TEMP/SHA256SUMS" .)
-        ls -la "$a"
-        cat "$a/SHA256SUMS"
+        python3 scripts/release_assets.py "$a"
+        ls -la "$a/public" "$a/packages"
+        cat "$a/public/SHA256SUMS" "$a/packages/SHA256SUMS"

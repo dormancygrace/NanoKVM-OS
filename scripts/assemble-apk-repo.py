@@ -40,6 +40,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import addon_packages
+from release_assets import STORAGE_PREFIX, STORAGE_MARKER, storage_tag
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
@@ -76,16 +77,38 @@ def releases(repository, fetch=fetch, channel='stable'):
     """Published releases with a v3 index, newest first."""
     if channel not in ('stable', 'beta'):
         raise ValueError('Unknown release channel')
-    found, page = [], 1
+    inventory, page = [], 1
     while True:
         batch = json.loads(fetch(f'https://api.github.com/repos/{repository}/releases?per_page=100&page={page}',
                                  'application/vnd.github+json'))
-        found += [r for r in batch if not r['draft'] and r.get('published_at')
-                  and (channel == 'beta' or not is_beta(r))
-                  and {a['name'] for a in r['assets']} >= {*INDEXES, 'SHA256SUMS'}]
+        inventory.extend(batch)
         if len(batch) < 100:
-            return sorted(found, key=order, reverse=True)
+            break
         page += 1
+    by_tag = {r['tag_name']: r for r in inventory}
+    found = []
+    for release in inventory:
+        if (release['tag_name'].startswith(STORAGE_PREFIX) or release['draft']
+                or not release.get('published_at') or (channel == 'stable' and is_beta(release))):
+            continue
+        matches = STORAGE_MARKER.findall(release.get('body') or '')
+        if matches or STORAGE_PREFIX + release['tag_name'] in by_tag:
+            expected = storage_tag(release['tag_name'])
+            if matches and matches != [expected]:
+                raise ValueError(f'Invalid package storage association: {release["tag_name"]}')
+            storage = by_tag.get(expected)
+            required = {*INDEXES, 'SHA256SUMS', 'packages.json', 'addons.json'}
+            if (not storage or storage['draft'] or not storage.get('published_at')
+                    or not required <= {a['name'] for a in storage['assets']}):
+                raise ValueError(f'Missing or incomplete package storage: {expected}')
+            # OS metadata determines channel and version. Package checksums and
+            # files come from storage; image links retain the public checksums.
+            release = {**release, '_public_assets': release['assets'],
+                       'assets': storage['assets'] + [a for a in release['assets']
+                                                     if a['name'] != 'SHA256SUMS']}
+        if {a['name'] for a in release['assets']} >= {*INDEXES, 'SHA256SUMS'}:
+            found.append(release)
+    return sorted(found, key=order, reverse=True)
 
 
 # Explicitly supported add-on release channels. Add future APK add-ons here;
@@ -188,9 +211,10 @@ def alpine_branch(root=ROOT):
 def install_link(published):
     """The newest image, for new cards: not every release carries one."""
     for release in published:
-        image = next((a for a in release['assets'] if a['name'].endswith('.img.zip')), None)
+        public_assets = release.get('_public_assets', release['assets'])
+        image = next((a for a in public_assets if a['name'].endswith('.img.zip')), None)
         if image:
-            sums = next(a for a in release['assets'] if a['name'] == 'SHA256SUMS')
+            sums = next(a for a in public_assets if a['name'] == 'SHA256SUMS')
             return (f'\n<p>To install on a new SD card: <a href="{escape(image["browser_download_url"])}">'
                     f'{escape(image["name"])}</a> (<a href="{escape(sums["browser_download_url"])}">SHA256SUMS</a>), '
                     f'from release {escape(release["tag_name"])}. It updates itself to the current release.</p>')

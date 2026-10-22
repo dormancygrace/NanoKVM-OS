@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""Execute the production asset splitter/publisher against an offline GitHub CLI."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
+import release_assets as assets
+
+STUB = r"""#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+p = Path(os.environ['STATE'])
+state = json.loads(p.read_text())
+a = sys.argv[1:]
+state['calls'].append(a)
+def save():
+    p.write_text(json.dumps(state))
+save()
+if a[0] == 'api':
+    assert '--paginate' in a and '--slurp' in a
+    if os.environ.get('FAIL_API'):
+        print('gh: Forbidden (HTTP 403)', file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps([list(state['releases'].values())]))
+    sys.exit()
+if a[:2] == ['workflow', 'run']:
+    assert any(not r['draft'] and r['tag_name'].startswith('v') for r in state['releases'].values())
+    sys.exit(1 if os.environ.get('FAIL_DISPATCH') else 0)
+assert a[0] == 'release', a
+cmd, tag = a[1:3]
+if os.environ.get('FAIL') == cmd + ':' + tag:
+    sys.exit(1)
+r = state['releases'].get(tag)
+if cmd == 'create':
+    assert r is None and '--draft' in a
+    state['releases'][tag] = dict(tag_name=tag, draft=True, assets=[],
+        body=a[a.index('--notes')+1] if '--notes' in a else 'Generated notes',
+        prerelease='--prerelease' in a, latest='--latest=false' not in a)
+elif cmd == 'upload':
+    assert r['draft']
+    for path in a[4:]:
+        f = Path(path)
+        r['assets'] = [x for x in r['assets'] if x['name'] != f.name]
+        r['assets'].append(dict(name=f.name, data=f.read_text()))
+elif cmd == 'delete-asset':
+    assert r['draft']
+    r['assets'] = [x for x in r['assets'] if x['name'] != a[3]]
+elif cmd == 'download':
+    for item in r['assets']:
+        if item['name'] == a[a.index('--pattern')+1]:
+            (Path(a[a.index('--dir')+1]) / item['name']).write_text(item['data'])
+elif cmd == 'edit':
+    assert r['draft']
+    if '--draft=false' in a and os.environ.get('FAIL_PUBLISH') == tag:
+        sys.exit(1)
+    if '--notes-file' in a:
+        r['body'] = Path(a[a.index('--notes-file')+1]).read_text()
+    if '--draft=false' in a:
+        if tag.startswith('v'):
+            assert not state['releases']['os-packages-' + tag]['draft']
+        r['draft'] = False
+else:
+    raise AssertionError(a)
+save()
+"""
+
+
+class ReleaseStorageTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        (self.root / 'gh').write_text(STUB)
+        (self.root / 'gh').chmod(0o755)
+        self.directory = self.root / 'assets'
+        self.directory.mkdir()
+        for name in assets.REQUIRED | {'nanokvm-3.3.1-r0.apk', 'build-manifest.json',
+                                      'NanoKVM-OS-v3.3.1-source.tar.xz',
+                                      'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip'}:
+            (self.directory / name).write_text('content of ' + name)
+        self.state = self.root / 'state.json'
+        self.state.write_text(json.dumps({'calls': [], 'releases': {}}))
+        self.env = {**os.environ, 'PATH': str(self.root) + ':' + os.environ['PATH'],
+                    'STATE': str(self.state), 'OUT': str(self.root), 'NANOKVM_VERSION': 'v3.3.1',
+                    'NANOKVM_IMAGE_VERSION': 'v1.5', 'GITHUB_REPOSITORY': 'example/test',
+                    'IMAGE': 'true', 'DRAFT': 'false', 'PREVIOUS': 'v3.3.0',
+                    'SHA': 'a' * 40, 'DEFAULT_BRANCH': 'main'}
+
+    def invoke(self, **overrides):
+        result = subprocess.run(['bash', str(ROOT / 'scripts/publish-release.sh')],
+                                env={**self.env, **overrides}, capture_output=True, text=True)
+        return result, json.loads(self.state.read_text())
+
+    def test_split_public_downloads_and_separate_hashes(self):
+        assets.split(self.directory)
+        self.assertEqual({p.name for p in (self.directory / 'public').iterdir()}, {
+            'NanoKVM-OS-v3.3.1-source.tar.xz', 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip', 'SHA256SUMS'})
+        for part in ('public', 'packages'):
+            result = subprocess.run(['sha256sum', '-c', 'SHA256SUMS'], cwd=self.directory / part,
+                                    capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('.apk', (self.directory / 'public/SHA256SUMS').read_text())
+        self.assertNotIn('.img.zip', (self.directory / 'packages/SHA256SUMS').read_text())
+
+    def test_patch_without_image_contains_only_source_and_checksums(self):
+        (self.directory / 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip').unlink()
+        (self.directory / 'build-manifest.json').unlink()
+        assets.split(self.directory)
+        result, state = self.invoke(IMAGE='false')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual({a['name'] for a in state['releases']['v3.3.1']['assets']},
+                         {'SHA256SUMS', 'NanoKVM-OS-v3.3.1-source.tar.xz'})
+
+    def test_failure_after_storage_is_published_can_resume(self):
+        assets.split(self.directory)
+        result, state = self.invoke(FAIL_PUBLISH='v3.3.1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(state['releases']['os-packages-v3.3.1']['draft'])
+        self.assertTrue(state['releases']['v3.3.1']['draft'])
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state['releases']['v3.3.1']['draft'])
+
+    def test_unknown_assets_fail_before_moving_anything(self):
+        (self.directory / 'surprise.txt').write_text('unknown')
+        with self.assertRaisesRegex(ValueError, 'Unclassified'):
+            assets.split(self.directory)
+        self.assertFalse((self.directory / 'public').exists())
+
+    def test_publish_orders_storage_before_os_and_dispatches_last(self):
+        assets.split(self.directory)
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        public, storage = state['releases']['v3.3.1'], state['releases']['os-packages-v3.3.1']
+        self.assertFalse(public['draft'])
+        self.assertFalse(storage['draft'])
+        self.assertTrue(storage['prerelease'])
+        self.assertFalse(storage['latest'])
+        self.assertIn(assets.marker('v3.3.1'), public['body'])
+        self.assertEqual({a['name'] for a in public['assets']}, {
+            'SHA256SUMS', 'NanoKVM-OS-v3.3.1-source.tar.xz', 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip'})
+        self.assertEqual(state['calls'][-1], ['workflow', 'run', 'apk-repository.yml', '--ref', 'main'])
+        create = next(c for c in state['calls'] if c[:3] == ['release', 'create', 'v3.3.1'])
+        self.assertIn(self.env['SHA'], create)
+        self.assertIn(self.env['PREVIOUS'], create)
+
+    def test_minor_draft_ready_for_manual_publication_and_notes_preserved(self):
+        assets.split(self.directory)
+        result, state = self.invoke(DRAFT='true')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(state['releases']['v3.3.1']['draft'])
+        self.assertFalse(state['releases']['os-packages-v3.3.1']['draft'])
+        self.assertFalse(any(c[0] == 'workflow' for c in state['calls']))
+        state['releases']['v3.3.1']['body'] = 'My edited release notes!\n' + assets.marker('v3.3.1')
+        # Old-format assets left in a draft must not leak into the public release.
+        state['releases']['v3.3.1']['assets'].append({'name': 'old.apk', 'data': 'stale'})
+        self.state.write_text(json.dumps(state))
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state['releases']['v3.3.1']['body'], 'My edited release notes!\n' + assets.marker('v3.3.1'))
+        self.assertNotIn('old.apk', {a['name'] for a in state['releases']['v3.3.1']['assets']})
+
+    def test_failed_upload_and_publication_are_retriable(self):
+        assets.split(self.directory)
+        for failure in ('upload:os-packages-v3.3.1', 'upload:v3.3.1',
+                        'edit:os-packages-v3.3.1', 'edit:v3.3.1'):
+            with self.subTest(failure=failure):
+                self.state.write_text(json.dumps({'calls': [], 'releases': {}}))
+                result, state = self.invoke(FAIL=failure)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(state['releases'].get('v3.3.1', {'draft': True})['draft'])
+                self.assertFalse(any(c[0] == 'workflow' for c in state['calls']))
+                result, state = self.invoke()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(state['releases']['v3.3.1']['draft'])
+
+    def test_changed_published_storage_stops_before_overwriting_public_draft(self):
+        assets.split(self.directory)
+        result, state = self.invoke(DRAFT='true')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        (self.directory / 'packages/nanokvm-3.3.1-r0.apk').write_text('different build')
+        sums = self.directory / 'packages/SHA256SUMS'
+        sums.write_text(''.join(f'{assets.digest(f)}  {f.name}\n' for f in sorted(sums.parent.iterdir()) if f != sums))
+        count = len(state['calls'])
+        result, state = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('different assets', result.stderr)
+        self.assertFalse(any(c[:2] == ['release', 'upload'] for c in state['calls'][count:]))
+        self.assertTrue(state['releases']['v3.3.1']['draft'])
+
+    def test_dispatch_retry_does_not_touch_published_assets(self):
+        assets.split(self.directory)
+        result, state = self.invoke(FAIL_DISPATCH='1')
+        self.assertNotEqual(result.returncode, 0)
+        count = len(state['calls'])
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([c[0] for c in state['calls'][count:]], ['api', 'workflow'])
+
+    def test_beta_never_becomes_latest(self):
+        assets.split(self.directory)
+        result, state = self.invoke(NANOKVM_VERSION='v3.4.0-beta.1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for release in state['releases'].values():
+            self.assertFalse(release['latest'])
+            self.assertTrue(release['prerelease'])
+
+    def test_api_error_is_not_a_missing_release(self):
+        assets.split(self.directory)
+        result, state = self.invoke(FAIL_API='1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(state['releases'], {})
+        self.assertEqual(len(state['calls']), 1)
+
+
+if __name__ == '__main__':
+    unittest.main()

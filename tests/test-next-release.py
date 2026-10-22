@@ -43,6 +43,12 @@ class NextReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'newer beta target'):
             n.next_release(history, 'patch', 'main', False, 'beta')
 
+    def test_technical_storage_does_not_reserve_an_os_version(self):
+        history = RELEASES + [release('os-packages-v99.0.0'), release('os-packages-v4.0.0-beta.1')]
+        for channel in ('stable', 'beta'):
+            self.assertEqual(n.next_release(history, 'minor', 'main', True, channel),
+                             n.next_release(RELEASES, 'minor', 'main', True, channel))
+
     def test_patch_and_minor_from_main(self):
         self.assertEqual(n.next_release(RELEASES, 'patch', 'main', False),
                          {'version': 'v3.2.1', 'apk_version': '3.2.1', 'image_version': 'v1.4', 'previous': 'v3.2.0'})

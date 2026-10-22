@@ -85,8 +85,18 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertRegex(RELEASE, rf'\n      {name}:\n')
         # A patch release is published at once, and so are its packages.
         sign = job(RELEASE, 'sign')
-        self.assertIn('gh workflow run apk-repository.yml', (ROOT / 'scripts/publish-release.sh').read_text())
+        self.assertIn("gh('workflow', 'run', 'apk-repository.yml'", (ROOT / 'scripts/publish-release.py').read_text())
         self.assertIn('actions: write', sign)
+
+    def test_release_events_dispatch_pages_on_main_without_signing_on_the_tag(self):
+        pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
+        dispatch = job(pages, 'dispatch')
+        self.assertIn("if: github.event_name == 'release'", dispatch)
+        self.assertIn('actions: write', dispatch)
+        self.assertIn('--repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH"', dispatch)
+        self.assertIn("if: github.event_name != 'release'", job(pages, 'assemble'))
+        self.assertIn('needs: assemble', job(pages, 'sign'))
+        self.assertIn("github.event_name == 'release' && github.run_id", pages)
 
     def test_the_tag_must_match_release_env(self):
         build = job(RELEASE, 'build')
@@ -194,103 +204,6 @@ class ReleaseExecutionTests(unittest.TestCase):
         pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
         self.assertEqual(pages.count('for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do'), 2)
 
-    def test_publication_and_retries(self):
-        # Execute the production publisher with a stateful GitHub CLI fixture.
-        # No real release, upload or workflow dispatch is performed.
-        stub = """#!/usr/bin/env python3
-import json, os, sys
-from pathlib import Path
-p = Path(os.environ['STATE'])
-state = json.loads(p.read_text())
-args = sys.argv[1:]
-state['calls'].append(args)
-p.write_text(json.dumps(state))
-cmd = args[:2]
-if cmd == ['release', 'view']:
-    if state['release'] == 'missing':
-        sys.exit(1)
-    print(state['release'])
-elif cmd == ['release', 'create']:
-    assert state['release'] == 'missing'
-    assert '--draft' in args
-    state['release'] = 'true'
-    p.write_text(json.dumps(state))
-    if os.environ.get('FAIL_UPLOAD') == '1':
-        sys.exit(1)
-elif cmd == ['release', 'upload']:
-    assert state['release'] == 'true'
-    if os.environ.get('FAIL_UPLOAD') == '1':
-        sys.exit(1)
-elif cmd == ['release', 'edit']:
-    assert state['release'] == 'true'
-    assert '--draft=false' in args
-    state['release'] = 'false'
-    p.write_text(json.dumps(state))
-elif args[:3] == ['workflow', 'run', 'apk-repository.yml']:
-    assert state['release'] == 'false'
-    if os.environ.get('FAIL_DISPATCH') == '1':
-        sys.exit(1)
-else:
-    raise AssertionError(args)
-"""
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / 'gh').write_text(stub)
-            (root / 'gh').chmod(0o755)
-            (root / 'assets').mkdir()
-            (root / 'assets/SHA256SUMS').write_text('fixture')
-            path = root / 'state.json'
-            env = {**os.environ, 'PATH': str(root) + ':' + os.environ['PATH'],
-                   'STATE': str(path), 'OUT': str(root), 'NANOKVM_VERSION': 'v3.3.1',
-                   'NANOKVM_IMAGE_VERSION': 'v1.5', 'IMAGE': 'false', 'DRAFT': 'false',
-                   'PREVIOUS': 'v3.2.0', 'SHA': 'a' * 40, 'DEFAULT_BRANCH': 'main'}
-            def reset(release='missing'):
-                path.write_text(json.dumps({'release': release, 'calls': []}))
-            def invoke(**overrides):
-                result = subprocess.run(['bash', str(ROOT / 'scripts/publish-release.sh')],
-                                        env={**env, **overrides}, capture_output=True, text=True)
-                return result, json.loads(path.read_text())
-            reset()
-            result, state = invoke()
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual([c[:2] for c in state['calls']],
-                             [['release', 'view'], ['release', 'create'], ['release', 'edit'], ['workflow', 'run']])
-            create = state['calls'][1]
-            self.assertEqual(create[create.index('--target') + 1], env['SHA'])
-            self.assertEqual(create[create.index('--notes-start-tag') + 1], env['PREVIOUS'])
-            reset()
-            result, state = invoke(NANOKVM_VERSION='v3.4.0-beta.1')
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('--prerelease', state['calls'][1])
-            self.assertIn('--latest=false', state['calls'][1])
-            self.assertEqual(state['release'], 'false')
-            reset()
-            result, state = invoke(DRAFT='true', IMAGE='true')
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(state['release'], 'true')
-            self.assertEqual(len(state['calls']), 2)
-            self.assertIn('NanoKVM OS v3.3.1 · Image v1.5', state['calls'][1])
-            # An incomplete upload remains private, and rerunning completes it.
-            reset()
-            result, state = invoke(FAIL_UPLOAD='1')
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(state['release'], 'true')
-            self.assertFalse(any(c[:2] == ['release', 'edit'] for c in state['calls']))
-            result, state = invoke()
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(state['release'], 'false')
-            self.assertEqual(state['calls'][-3][:2], ['release', 'upload'])
-            # A failed Pages dispatch after publication can be retried without
-            # recreating the release or overwriting public assets.
-            reset()
-            result, state = invoke(FAIL_DISPATCH='1')
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(state['release'], 'false')
-            count = len(state['calls'])
-            result, state = invoke()
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual([c[:2] for c in state['calls'][count:]],
-                             [['release', 'view'], ['workflow', 'run']])
 
 
 

@@ -4,9 +4,12 @@ package main
 
 import (
 	"NanoKVM-Server/osupdate"
+	"NanoKVM-Server/recovery"
 	"fmt"
 	"os"
+	"os/exec"
 	"syscall"
+	"time"
 )
 
 const usage = "usage: nkos-update apk ACTION | apk-inherited ACTION | software-inherited ACTION PACKAGE | refresh-indexes"
@@ -15,6 +18,21 @@ func main() {
 	if os.Geteuid() != 0 {
 		fmt.Fprintln(os.Stderr, "root required")
 		os.Exit(1)
+	}
+	if len(os.Args) == 2 && os.Args[1] == "recovery-resume" {
+		if err := recovery.Boot(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) == 2 && os.Args[1] == "recovery-reboot" {
+		time.Sleep(2 * time.Second)
+		if err := exec.Command("/sbin/reboot").Run(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
 	}
 	if len(os.Args) == 2 && os.Args[1] == "refresh-indexes" {
 		if err := osupdate.RunScheduledIndexRefresh(); err != nil {

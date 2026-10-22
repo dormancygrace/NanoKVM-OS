@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/recovery"
 	"NanoKVM-Server/service/controlmode"
 	"NanoKVM-Server/service/picoclaw"
 
@@ -16,6 +17,8 @@ import (
 
 // ownBodyLimitRoutes stream their uploads or set their own MaxBytesReader.
 var ownBodyLimitRoutes = []string{
+	"/api/system/recovery/preview",
+	"/api/system/recovery/apply",
 	"/api/download/file",
 	"/api/storage/user-disk/files/upload",
 	"/api/branding/logo",
@@ -30,6 +33,13 @@ var ownBodyLimitRoutes = []string{
 }
 
 func Init(r *gin.Engine) {
+	r.Use(func(c *gin.Context) {
+		if c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" && (recovery.Engine{Root: "/"}).Pending() && c.Request.URL.Path != "/api/system/recovery/reboot" && c.Request.URL.Path != "/api/auth/login" && c.Request.URL.Path != "/api/auth/logout" {
+			c.AbortWithStatusJSON(409, gin.H{"code": -1, "msg": "Settings recovery pending; reboot before changing settings."})
+			return
+		}
+		c.Next()
+	})
 	r.Use(middleware.LimitRequestBody(ownBodyLimitRoutes...))
 	web(r)
 	server(r)
@@ -81,6 +91,7 @@ func server(r *gin.Engine) {
 	addonsRouter(r)
 	rustdeskRouter(r)
 	osUpdateRouter(r)
+	recoveryRouter(r)
 }
 
 func LoopbackHTTPAllowedPaths() []string {

@@ -203,6 +203,16 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
                           env={**os.environ, "NANOKVM_RECOVERY_DIR": str(root / "recovery")},
                           timeout=5), True, "packaged supervisor is executable")
 
+    # The debug profile must also have a working positive path with test keys.
+    # Use the existing payload fixture with matching debug boot metadata.
+    marker.unlink()
+    release_metadata.write_text("7.3.0-nanokvm-os-r2-debug\n")
+    result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out),
+                             "-d", "payloads"], env=debug_env, capture_output=True, text=True)
+    expect(result, True, "debug payloads accept test keys")
+    assert marker.read_text() == "debug\n"
+    assert (out / "payloads/kernel-sg2002/usr/lib/nanokvm/boot/kernel.release").read_bytes() == release_metadata.read_bytes()
+
 # Exercise the real startup/mapping synchronization without creating namespaces.
 source = (REPO / "platform/build.sh").read_text()
 userns = source[source.index("in_userns() ("):source.index("\nqemu=")]

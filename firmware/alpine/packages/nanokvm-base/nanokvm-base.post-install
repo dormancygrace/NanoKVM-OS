@@ -29,11 +29,20 @@ done
 #   sshd, and the config binds no single address, so it needs nothing more.
 # - bootmisc's copy of the kernel log on the SD card at every boot duplicates
 #   the boot log archive.
+# - udev-trigger replays the add event of every device at boot, about 530 on
+#   the SG2002. Without coldplug it replays those with a /dev node and the
+#   network interfaces: the same nodes, permissions and links, and the same
+#   modules, since the NanoKVM services load theirs (the SD Wi-Fi drivers are
+#   kept from udev anyway). On the stand the server started 1 s sooner. An
+#   rc_coldplug the user set stays.
 if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd; then
     printf '%s\n' '# NanoKVM: no `sshd -G` while OpenRC builds its dependency tree' 'rc_need=""' >> /etc/conf.d/sshd
 fi
 if [ -f /etc/conf.d/bootmisc ]; then
     sed -i 's/^log_dmesg="YES"$/log_dmesg="NO"/' /etc/conf.d/bootmisc
+fi
+if [ -f /etc/conf.d/udev-trigger ] && ! grep -q '^[[:space:]]*rc_coldplug=' /etc/conf.d/udev-trigger; then
+    printf '%s\n' '# NanoKVM: only devices with a /dev node and network interfaces at boot' 'rc_coldplug="NO"' >> /etc/conf.d/udev-trigger
 fi
 
 # Fresh images are closed to SSH until the user enables it. Recovery restores

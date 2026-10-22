@@ -80,6 +80,9 @@ start_interfaces() {
 # application among them, do not wait for the Ethernet link, its duplicate
 # address probe and Wi-Fi (about 5 s at boot). A failure goes to the log.
 start() {
+    if [ -e /var/lib/nanokvm-recovery/pending.json ]; then
+        ewarn "Settings recovery is incomplete; starting networking for remote repair"
+    fi
     ebegin "Starting NanoKVM network"
     : > "$NANOKVM_NETWORK_PENDING" || { eend 1; return 1; }
     (

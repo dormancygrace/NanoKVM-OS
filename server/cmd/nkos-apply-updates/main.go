@@ -524,6 +524,12 @@ func main() {
 	}
 }
 func mainErr() error {
+	// Early-boot factory reset may remove optional packages. Do not start
+	// application services from the APK commit hook before settings are applied.
+	if _, err := os.Lstat("/var/lib/nanokvm-recovery/pending.json"); err == nil {
+		return nil
+	}
+
 	if len(os.Args) != 2 {
 		return fmt.Errorf("usage: nkos-apply-updates pre-commit|post-commit|apply|status")
 	}

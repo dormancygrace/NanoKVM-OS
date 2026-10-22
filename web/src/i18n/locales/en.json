@@ -1902,6 +1902,40 @@
       "ipmiInstall": "Install the IPMI add-on",
       "ipmiAddonDescription": "IPMI over LAN for power control of the host (ipmitool, fence_ipmilan). Its settings are in System > Redfish and IPMI.",
       "holdDefault": "5 (power menu)"
+    },
+    "recovery": {
+      "title": "Backup & reset",
+      "scope": "Back up managed NanoKVM OS settings and supported add-on settings. OS files, installed binaries, disk images and personal files are excluded. Custom configuration of other APK software is not reset.",
+      "password": "Current administrator password",
+      "export": "Export settings",
+      "encryption": "The archive contains passwords and private keys. It is encrypted with your backup password (12–256 bytes). Keep the file and password somewhere safe; a lost password cannot be recovered.",
+      "archivePassword": "Backup password (also used to open an archive)",
+      "download": "Download encrypted backup",
+      "restoreReset": "Restore or reset",
+      "restore": "Restore settings",
+      "reset": "Factory reset settings",
+      "updateBase": "Update nanokvm-base to enable restore and reset.",
+      "file": "Settings archive (.nkos)",
+      "fileLimit": "Choose a settings archive up to 4 MiB.",
+      "migrate": "Migrate to another device (recommended)",
+      "device": "Restore this device, including access and network settings",
+      "migrationHint": "Migration keeps the destination’s users, identity, network, VPN, certificates and hardware settings. App binaries are not restored; install missing packages from Software.",
+      "keepUsers": "Keep users, passwords and authorized SSH keys",
+      "keepApps": "Keep all installed apps, including APK packages",
+      "resetHint": "App settings are reset even when apps are kept. The installed OS version and personal files remain. Network settings are reset: connect by Ethernet/DHCP afterwards.",
+      "resetUsers": "Without Keep users, web login returns to admin / admin with a required password change. Root password login is locked and SSH is disabled.",
+      "preview": "Preview changes",
+      "cancel": "Cancel",
+      "apply": "Apply and reboot",
+      "disconnect": "The device will reboot and disconnect. Restoring network or access settings may change its address and login. Export a backup first.",
+      "source": "Backup version",
+      "changed": "Settings to replace or remove",
+      "skipped": "Excluded from migration",
+      "removePackages": "Optional APK roots to remove (unused dependencies may also be removed)",
+      "inventory": "Packages recorded in the backup (not installed automatically)",
+      "confirm": "I reviewed the changes and can reconnect to the device after reboot.",
+      "reboot": "Reboot to finish recovery",
+      "rebooting": "Recovery queued. The device is rebooting; reconnect afterwards."
     }
   },
   "picoclaw": {
@@ -2079,5 +2113,16 @@
   "menu": {
     "collapse": "Collapse menu",
     "expand": "Expand menu"
+  },
+  "sshKeys": {
+    "title": "SSH public keys",
+    "description": "Add keys for SSH login as root. Existing keys are kept.",
+    "import": "Import keys",
+    "help": "Choose a public key file or paste OpenSSH public keys, one per line (up to 32 KiB). Ed25519, RSA (2048 bits or more), ECDSA and security keys are supported. Private keys, certificates and key options are not accepted. SSH is not enabled automatically.",
+    "file": "Public key file",
+    "text": "Public key text",
+    "invalid": "Enter valid OpenSSH public keys only (up to 32 KiB); do not upload private keys, certificates or key options.",
+    "failed": "Could not import SSH keys.",
+    "result": "Added: {{added}}. Already present: {{skipped}}."
   }
 }

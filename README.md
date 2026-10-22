@@ -116,7 +116,7 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 - **Bluetooth controller switch** on supported AIC8800 boards, off by default. Enable it under Network without coupling the Bluetooth module to Wi-Fi; this is a controller switch, not a peripheral-pairing interface.
 - A single **VPN overview** for **WireGuard, OpenVPN 2, Tailscale and NetBird**, with installation state, version and connection/profile controls. OpenVPN, Tailscale and NetBird are optional APK installations.
 - **WireGuard `.conf` profiles** with an explicit Route Allowed IPs option; **OpenVPN routed TUN `.ovpn` profiles**, including referenced certificate/key files in the same upload.
-- **HTTPS from first boot** with a unique device certificate and HTTP redirect. Newly generated certificates use ECDSA P-256; existing certificates are preserved. A **custom certificate** (your own CA or a public one) can be uploaded in Settings → Network and takes effect for new connections without a restart; a custom pair that cannot be loaded never blocks start-up (the generated one stands in). **Let's Encrypt / ZeroSSL / Buypass / Google** certificates through **acme.sh**, installed from its latest release on demand: HTTP-01 on port 80 or DNS-01 with every DNS provider acme.sh ships, renewed from the server and served without a restart. SSH can be enabled from settings.
+- **HTTPS from first boot** with a unique device certificate and HTTP redirect. Newly generated certificates use ECDSA P-256; existing certificates are preserved. A **custom certificate** (your own CA or a public one) can be uploaded in Settings → Network and takes effect for new connections without a restart; a custom pair that cannot be loaded never blocks start-up (the generated one stands in). **Let's Encrypt / ZeroSSL / Buypass / Google** certificates through **acme.sh**, installed from its latest release on demand: HTTP-01 on port 80 or DNS-01 with every DNS provider acme.sh ships, renewed from the server and served without a restart. SSH can be enabled from settings; administrators can [import public SSH keys](docs/ssh-keys.md) from a file or pasted text.
 
 ### 🧩 Software and add-ons
 
@@ -135,6 +135,9 @@ RustDesk can forward USB audio; its integration does not include clipboard, file
 PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM APK**. An **MCP endpoint** with enable/disable and API-key controls is also available under System for external AI clients.
 
 ### ⚙️ System controls and everyday tools
+
+- **[Settings backup, migration and reset](docs/settings-recovery.md)**: encrypted exports, a preview before restore, safe migration exclusions, and factory reset with independent **Keep users** and **Keep apps** options. Keep apps retains APK-installed software while managed app settings reset.
+
 
 | Area | Controls and information |
 | --- | --- |

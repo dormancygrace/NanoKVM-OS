@@ -96,7 +96,9 @@ if custom_runtime_expected and not custom_runtime_present:
     raise SystemExit('Requested NanoKVM runtime hooks are missing from the built server')
 (out/'build-info.txt').write_text(info)
 shutil.copyfile(out/'NanoKVM-Server', out/'NanoKVM-Server.stripped')
-subprocess.run([cross+'strip', '--strip-debug', str(out/'NanoKVM-Server.stripped')], check=True)
+# The symbol table too: 3 MB the server reads from the SD card as it starts.
+# Go needs none of it; stack traces and profiles use its own tables.
+subprocess.run([cross+'strip', '--strip-all', str(out/'NanoKVM-Server.stripped')], check=True)
 (out/'NanoKVM-Server.stripped').chmod(0o755)
 helper_env = dict(env, CGO_ENABLED='0')
 subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',

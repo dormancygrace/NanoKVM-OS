@@ -12,7 +12,8 @@ with tempfile.TemporaryDirectory() as directory:
     directory = Path(directory)
     output = directory / "environment"
     fixture = definitions
-    fixture += '\nnohup() { printf "%s" "$NANOKVM_SRTP_AES" > "' + str(output) + '"; }\n'
+    command = directory / "command"
+    fixture += '\nnohup() { printf "%s" "$NANOKVM_SRTP_AES" > "' + str(output) + '"; printf "%s" "$*" > "' + str(command) + '"; }\n'
     fixture += "start_background /kvmapp/server/NanoKVM-Server\nwait\n"
     for requested, expected in [(None, "hardware"), ("", "hardware"), ("software", "software"), ("hardware", "hardware")]:
         env = os.environ.copy()
@@ -22,3 +23,7 @@ with tempfile.TemporaryDirectory() as directory:
         subprocess.run(["sh"], input=fixture, text=True, env=env, check=True)
         assert output.read_text() == expected, requested
         print(f"PASS AES request={requested!r}: {expected}")
+    # The server starts at the priority it raises itself to.
+    started = command.read_text()
+    assert started.startswith("nice -n -10 /kvmapp/system/init.d/nanokvm-server-supervisor run "), started
+    print("PASS server starts at nice -10")

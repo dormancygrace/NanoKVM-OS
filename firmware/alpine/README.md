@@ -269,8 +269,9 @@ a GitHub runner without the signing keys, and then waits in the `release`
 environment until a maintainer approves the sign job. That job signs the
 packages that changed and both indexes with the ECDSA release key (environment
 secret `APK_EC_KEY`: the unencrypted PEM private key matching
-`nkos-release-ec-b8e89b66.pub`) and attaches
-them with `packages.json`, the source archive and `SHA256SUMS`. An unchanged
+`nkos-release-ec-b8e89b66.pub`). Public OS releases contain the corresponding-source
+archive, `SHA256SUMS`, and the SD image when requested. Packages and metadata go
+to a separate technical release in this same repository (see below). An unchanged
 package keeps its version and stays in the release that first carried it
 ([package versions](packages/README.md#package-versions)).
 
@@ -279,9 +280,10 @@ scratch, but attached only with `image` checked: when first boot, the card
 layout or installation changes, since a new card runs the image's code until
 its first update. The bootloader needs no image; its package updates it.
 New image numbers also reserve those held by drafts. Release notes start
-from a published tag, never an unpublished draft. Publication uploads all
-assets to a draft first; retrying an already published release only restarts
-the repository update and does not replace public assets.
+from a published tag, never an unpublished draft. Publication stages both asset
+sets as drafts, publishes package storage first, and only then publishes the OS
+release (or leaves its draft ready for review). Retrying an already published
+OS release only restarts the repository update and does not replace public assets.
 The page of the APK repository links the newest image for new cards.
 
 A pushed `vX.Y.Z` tag releases with the versions of
@@ -297,14 +299,94 @@ builds the same release with local test keys and keeps it as an artifact. A loca
 
 The APK repository workflow deploys the same repository to GitHub Pages, at
 `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`,
-whenever a GitHub release that carries the packages, both indexes and
-`SHA256SUMS` is published. The workflow
+when an OS or supported independent add-on release is published. The release
+publisher also dispatches this workflow from main because events created with
+`GITHUB_TOKEN` do not start another workflow. Manual release events also
+dispatch assembly from main, so deployment satisfies the `github-pages`
+environment branch policy instead of attempting to deploy from a tag. The workflow
 (`.github/workflows/apk-repository.yml`, `scripts/assemble-apk-repo.py`) takes
 the indexes of the newest eligible release in each channel (the highest version) and the packages that the indexes of
 the newest six releases name, checks each file against its release's
 `SHA256SUMS` and the index, and verifies the result with Alpine's apk before it
 deploys. The page `https://dormancygrace.github.io/NanoKVM-OS/` lists the
 stable repository line and the public keys; `/beta/` lists the beta feed.
+
+### Public downloads and technical package storage
+
+New OS releases separate their files into two releases in **NanoKVM-OS**:
+
+| Release | Attached files |
+| --- | --- |
+| `vX.Y.Z` (or `vX.Y.Z-beta.N`) | Corresponding-source archive, optional SD image ZIP, and `SHA256SUMS` covering only those downloads |
+| `os-packages-vX.Y.Z` (or `os-packages-vX.Y.Z-beta.N`) | Changed APKs, both indexes, `packages.json`, `addons.json`, installed package/license lists, image build manifest when applicable, and its own `SHA256SUMS` |
+
+GitHub also provides its automatic source ZIP/tarball on each tag. Those do not
+replace the complete corresponding-source archive. Technical releases are
+labelled **Package storage**, marked as prereleases and explicitly excluded
+from Latest. They still appear in GitHub's releases list; this is storage in
+the same repository, not a hidden asset service.
+
+The assembly artifact has `assets/public/` and `assets/packages/` directories,
+including in dry runs. The publisher preserves edited OS release notes and
+appends a hidden `nanokvm-package-storage` comment. Pages pairs releases by the
+exact `os-packages-` tag convention; the comment also makes missing storage an
+error instead of silently serving an older version. Keep the comment when
+editing notes. A published storage release without its published OS release
+is ignored. A minor OS draft can therefore be published manually after review:
+its technical files are already complete. The OS tag and prerelease flag, not
+the storage release's flag, decide Stable/Beta membership.
+
+Old all-in-one releases remain readable and are not moved. Device repository
+URLs, keys, package names and update/rollback commands do not change. Pages
+retains each channel's six newest package sets and can retrieve an unchanged
+APK from **any older eligible release**, including old technical storage.
+**Keep old technical releases and their tags even outside the six-release
+window.** Independent add-on releases remain independent and continue to
+augment both channels.
+
+Uploads only replace draft assets while storage is unpublished. A rerun of the
+`sign` job reassembles and re-signs packages and indexes; randomized ECDSA
+signatures can change their bytes. The image is also rebuilt from those packages.
+Once storage is published, the publisher resumes from the **original remote
+pair**: it verifies the storage inventory, hashes and package manifest, then the
+public draft's image/source inventory and hashes, and finishes publication
+without uploading freshly assembled files. A retry needs neither a saved local
+assembly nor an artifact of the signed output. Corrupt or incomplete original
+assets stop publication; a new build is never silently mixed with old storage.
+If a maintainer publishes the OS draft before the storage publication completes,
+rerunning the publisher verifies every uploaded storage file against its
+SHA256SUMS and checks the changed APK set against `packages.json`, then publishes
+the complete storage draft before dispatching Pages. It uses the original remote
+assets; local build output is not needed on this recovery path. Missing or
+corrupt storage stops with its tag in the error; restore its original files
+before retrying. The public OS release is not modified.
+
+To discard and rebuild an **OS version that has never been published**, discard
+both its OS draft and its `os-packages-<version>` release, plus both associated
+tags if present. Check that no published OS version used this storage first.
+Removing only the OS draft is insufficient: the allocator proposes the same
+version again, while the surviving published storage rejects a rebuilt set of
+bytes. This is a deliberate manual cleanup, never an automatic deletion by the
+publisher. Do not apply this procedure to a version that has ever been published;
+issue a new patch/beta version instead, retaining its existing files for clients.
+
+If only the Pages dispatch failed after OS publication, rerunning the publisher
+or dispatching `apk-repository.yml` from main is sufficient. Existing published
+releases are never overwritten by this publisher.
+
+Merge the assembler and publisher together before the first split release;
+release branches must carry both changes. Make the first split publication a
+**beta** and verify the real GitHub asset pairing before a stable release:
+confirm that the technical release is published, both feed manifests and APKs
+verify, the beta feed selects the new version, Stable stays on its previous
+version, and the image/checksum links point to the public beta release. CI's
+current live-inventory check covers only legacy releases until the first split
+release exists; fixture tests do not replace this rollout check. Both channels
+are deployed together, so a pairing failure blocks the entire new Pages
+deployment while preserving the previously deployed Stable and Beta feeds.
+A failure to resolve or verify a
+published release's storage stops Pages assembly before deployment, leaving
+the currently deployed repository in place.
 
 ### ECDSA-only signing from v3.4.0
 

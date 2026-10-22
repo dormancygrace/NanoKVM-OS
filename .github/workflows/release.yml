@@ -9,9 +9,9 @@ name: Release
 # The build job has no secrets. The sign job runs in the protected `release`
 # environment, so the signing keys are used only after a maintainer approves
 # the run. It signs the packages that changed and both indexes, and attaches
-# them with packages.json, the source archive and SHA256SUMS to the release;
-# the SD image only when asked. A patch release is published at once, which
-# publishes its packages (apk-repository.yml); a minor release and a pushed tag
+# them to immutable os-packages-v* technical releases. Public OS releases
+# contain corresponding source, checksums and the SD image only when asked.
+# A patch release is published at once, which publishes its packages (apk-repository.yml); a minor release and a pushed tag
 # stay drafts for their notes.
 #
 # Pull requests that change the release process, and dry runs, build the same
@@ -45,6 +45,10 @@ on:
       - .github/actions/**
       - scripts/next-release.py
       - scripts/publish-release.sh
+      - scripts/publish-release.py
+      - scripts/release_assets.py
+      - tests/test-release-storage.py
+      - tests/test-release-workflow.py
 
 permissions:
   contents: read

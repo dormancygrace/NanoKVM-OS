@@ -24,7 +24,7 @@
 
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) for what’s new, or get the [latest SD image](https://dormancygrace.github.io/NanoKVM-OS/latest-image/) for a fresh installation. Applications and images have separate version numbers; package-only updates keep the previous image available.
+See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) for what’s new, or get the [latest SD image](https://dormancygrace.github.io/NanoKVM-OS/latest-image/) for a fresh installation. Applications and images have separate version numbers; package-only updates keep the previous image available. New release downloads contain the image (when included), corresponding sources and checksums. APKs and build metadata live in [technical package storage](firmware/alpine/README.md#public-downloads-and-technical-package-storage) in this repository; devices continue to update through the signed APK repository.
 
 > [!IMPORTANT]
 > **Help wanted — NanoKVM Cube, Lite and PCIe testers!**
@@ -218,7 +218,7 @@ git checkout v3.3.3
 platform/build.sh -d
 ```
 
-`-d` generates **local test signing keys**. Official release builds require the maintainer's RSA and ECDSA keys; test-signed packages are not official updates. See [build and signing instructions](platform/README.md).
+`-d` generates **local test signing keys**. Official release builds require the maintainer's ECDSA key; test-signed packages are not official updates. See [build and signing instructions](platform/README.md).
 
 The platform uses **Linux 7.3**, **U-Boot 2026.10**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. Web builds use **Node.js 24 LTS**. Most ordinary userspace, including OpenSSL, comes from official Alpine repositories; exfatprogs, i2c-tools and the zlib-compatible zlib-ng library are maintained in NanoKVM packages; the optional C906 package profile is retained for experiments.
 

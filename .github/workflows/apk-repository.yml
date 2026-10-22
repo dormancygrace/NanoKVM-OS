@@ -12,6 +12,7 @@ on:
     paths:
       - .github/workflows/apk-repository.yml
       - scripts/assemble-apk-repo.py
+      - scripts/release_assets.py
       - scripts/addon_packages.py
       - scripts/index-apk-repo.py
       - scripts/check-ec-key.sh
@@ -24,12 +25,28 @@ permissions:
 
 # One deployment at a time; a newer release waits instead of being cancelled.
 concurrency:
-  group: apk-repository-${{ github.event_name == 'pull_request' && github.ref || 'pages' }}
+  group: apk-repository-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'release' && github.run_id || 'pages' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  dispatch:
+    name: Schedule repository update on main
+    if: github.event_name == 'release'
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: write
+    steps:
+      # Release events run on a tag; github-pages permits deployment from main.
+      # Use the current assembler and the same branch as explicit publication.
+      - name: Dispatch Pages assembly
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: gh workflow run apk-repository.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH"
+
   assemble:
     name: Assemble and check
+    if: github.event_name != 'release'
     runs-on: ubuntu-26.04
     steps:
       - name: Validate publication branch

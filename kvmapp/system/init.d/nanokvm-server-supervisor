@@ -2,10 +2,13 @@
 # One sleeping shell waits for the server; no periodic health poll.
 state=${NANOKVM_RECOVERY_DIR:-/run/nanokvm/recovery}
 umask 077
-mkdir -p "$state" || exit 1
+# The shell tests and reads what it can itself: at boot every process started
+# here comes before the server's.
+[ -d "$state" ] || mkdir -p "$state" || exit 1
 
 owner_alive() {
-    owner=$(cat "$state/supervisor.pid" 2>/dev/null) || return 1
+    owner=
+    [ -r "$state/supervisor.pid" ] && read -r owner < "$state/supervisor.pid" || return 1
     case "$owner" in ''|*[!0-9]*) return 1 ;; esac
     kill -0 "$owner" 2>/dev/null || return 1
     # A stale PID must never signal a different service after PID reuse.
@@ -40,7 +43,7 @@ if ! mkdir "$state/lock" 2>/dev/null; then
     mkdir "$state/lock" || exit 1
 fi
 printf '%s\n' "$$" > "$state/supervisor.pid"
-rm -f "$state/stop"
+[ ! -e "$state/stop" ] || rm -f "$state/stop"
 child=
 stopping=0
 stop_child() {
@@ -54,7 +57,7 @@ slot=0
 delay=1
 while [ "$stopping" = 0 ] && [ ! -e "$state/stop" ]; do
     : > "$state/crash.txt"
-    rm -f "$state/video-phase"
+    [ ! -e "$state/video-phase" ] || rm -f "$state/video-phase"
     "$2" &
     child=$!
     # A stop can arrive between the loop condition and the fork.

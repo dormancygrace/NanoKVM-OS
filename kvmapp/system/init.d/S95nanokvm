@@ -105,12 +105,14 @@ remove_legacy_links() {
 # from a release whose package owned them and so removed the unchanged ones.
 # The .apk-new copies those releases left beside changed settings go too.
 video_settings() {
-    mkdir -p /kvmapp/kvm
+    [ -d /kvmapp/kvm ] || mkdir -p /kvmapp/kvm
     [ -s /kvmapp/kvm/fps ] || printf '90' > /kvmapp/kvm/fps
     [ -s /kvmapp/kvm/qlty ] || printf '15000' > /kvmapp/kvm/qlty
     [ -s /kvmapp/kvm/res ] || printf '0' > /kvmapp/kvm/res
     [ -s /kvmapp/kvm/type ] || printf 'h265' > /kvmapp/kvm/type
-    rm -f /kvmapp/kvm/*.apk-new
+    for leftover in /kvmapp/kvm/*.apk-new; do
+        { [ ! -e "$leftover" ] && [ ! -L "$leftover" ]; } || rm -f "$leftover"
+    done
 }
 
 prepare_hdmi_receiver() {
@@ -120,7 +122,9 @@ prepare_hdmi_receiver() {
     # clients; this does not enable streaming or change the user's preference.
     reset_state=/sys/bus/platform/devices/hdmi-reset/asserted
     [ -e "$reset_state" ] || return 0
-    if ! receiver_reset=$(cat "$reset_state"); then
+    receiver_reset=
+    # read fails at a missing final newline, with the value read.
+    if ! { read -r receiver_reset < "$reset_state" || [ -n "$receiver_reset" ]; }; then
         echo 'Cannot read HDMI receiver reset state' >&2
         return 1
     fi
@@ -139,9 +143,13 @@ prepare_hdmi_receiver() {
 }
 
 start_services() {
+    # One look for a running server: every process started here comes before
+    # the server's, at boot as well.
+    server_running=0
+    pidof NanoKVM-Server >/dev/null 2>&1 && server_running=1
     # Migrate only after the old server has stopped writing the legacy flags.
     # Refuse to start a server that would interpret an incomplete set.
-    if ! pidof NanoKVM-Server >/dev/null 2>&1; then
+    if [ "$server_running" = 0 ]; then
         /usr/libexec/nanokvm/usb-flags-migrate || return 1
     fi
     # Runtime telemetry is regenerated on every boot. Keep the high-frequency
@@ -157,7 +165,7 @@ start_services() {
     printf '1920' > /run/nanokvm/width
     printf '1080' > /run/nanokvm/height
 
-    if ! pidof NanoKVM-Server >/dev/null 2>&1; then
+    if [ "$server_running" = 0 ]; then
         prepare_hdmi_receiver || return 1
     fi
 
@@ -165,14 +173,18 @@ start_services() {
     remove_legacy_links
     start_background "$hardware_daemon"
 
-    if ! pidof NanoKVM-Server >/dev/null 2>&1; then
+    if [ "$server_running" = 0 ]; then
         start_background "$server"
     fi
 }
 
 case "$1" in
   start)
-    [ "$(cat /boot/hostname.prefix 2>/dev/null)" = kvm ] || printf kvm > /boot/hostname.prefix
+    # Here and below the shell reads the small files itself: each process
+    # started at boot comes before the server's.
+    prefix=
+    [ ! -r /boot/hostname.prefix ] || read -r prefix < /boot/hostname.prefix || true
+    [ "$prefix" = kvm ] || printf kvm > /boot/hostname.prefix
 
     # Copy sensor config if the file exists
     if [ -f /mnt/data/sensor_cfg.ini.LT ] &&
@@ -180,13 +192,17 @@ case "$1" in
         cp /mnt/data/sensor_cfg.ini.LT /mnt/data/sensor_cfg.ini || exit 1
     fi
 
-    # Generate unique device key
+    # Generate unique device key: the two fields of "UID: <first>_<second>"
+    # joined, as cut took them, read by the shell itself.
     if [ -f /sys/class/cvi-base/base_uid ]; then
-        str_value=$(awk '{print $2}' /sys/class/cvi-base/base_uid)
-        first_uint=$(echo "$str_value" | cut -d'_' -f1)
-        second_uint=$(echo "$str_value" | cut -d'_' -f2)
+        read -r _ str_value _ < /sys/class/cvi-base/base_uid
+        first_uint=${str_value%%_*}
+        second_uint=${str_value#*_}
+        second_uint=${second_uint%%_*}
         device_key="$first_uint$second_uint"
-        [ "$(cat /device_key 2>/dev/null)" = "$device_key" ] || printf '%s\n' "$device_key" > /device_key
+        current_key=
+        [ ! -r /device_key ] || read -r current_key < /device_key || true
+        [ "$current_key" = "$device_key" ] || printf '%s\n' "$device_key" > /device_key
     fi
 
     # Firewall policy is configured separately; app startup adds no rules.

@@ -21,16 +21,6 @@ dir=${NANOKVM_USB_FLAGS_DIR:-/etc/kvm/usb}
 layout=${NANOKVM_USB_FLAGS_LAYOUT:-/usr/share/nanokvm/usb-flags-layout}
 # A base-only upgrade must leave the old application's flags on /boot.
 [ -f "$layout" ] || exit 0
-# The old server can still write /boot during a live APK transaction. Defer
-# until S95 starts its replacement; the USB scripts retain the legacy path
-# until .layout-v1 is installed. Never copy a concurrently changing flag set.
-pidof_cmd=${NANOKVM_USB_FLAGS_PIDOF:-pidof}
-if "$pidof_cmd" NanoKVM-Server >/dev/null 2>&1; then
-    exit 0
-fi
-mkdir -p "$(dirname "$dir")" || exit 1
-exec 9>"$dir.lock" || exit 1
-flock 9 || exit 1
 
 new=$dir.new
 old=$dir.old
@@ -38,6 +28,38 @@ names='usb.dev usb.disk0 usb.disk0.ro usb.userdisk usb.rndis0 usb.ncm usb.acm
 usb.audio disable_hid usb.disable_keyboard usb.disable_relative
 usb.disable_absolute usb.vid usb.pid usb.manufacturer usb.product
 usb.serialnumber usb.notwakeup usb.internet rndis.nodhcpd rndis.ipv4_prefix'
+
+# Even a settled layout must be checked under the migration lock: a writer
+# can create usb.new and remove the boot flags between these checks. The
+# common path still skips pidof, mountpoint and cleanup subprocesses.
+parent=${dir%/*}
+[ "$parent" != "$dir" ] || parent=.
+: "${parent:=/}"
+[ -d "$parent" ] || mkdir -p "$parent" || exit 1
+exec 9>"$dir.lock" || exit 1
+flock 9 || exit 1
+settled() {
+    [ -e "$dir/.layout-v1" ] && [ ! -e "$dir/.complete" ] &&
+        [ ! -e "$new" ] && [ ! -e "$old" ] || return 1
+    if [ -z "${NANOKVM_USB_FLAGS_BOOT:-}" ]; then
+        mounted=
+        while read -r _ point _; do
+            [ "$point" != "$boot" ] || mounted=1
+        done < /proc/mounts
+        [ -n "$mounted" ] || return 1
+    fi
+    for name in $names; do
+        [ ! -e "$boot/$name" ] || return 1
+    done
+}
+settled && exit 0
+# The old server can still write /boot during a live APK transaction. Defer
+# until S95 starts its replacement; the USB scripts retain the legacy path
+# until .layout-v1 is installed. Never copy a concurrently changing flag set.
+pidof_cmd=${NANOKVM_USB_FLAGS_PIDOF:-pidof}
+if "$pidof_cmd" NanoKVM-Server >/dev/null 2>&1; then
+    exit 0
+fi
 
 # The boot partition is the source of every step but the last; without the
 # mount there is nothing to read and nothing to clean.

@@ -22,6 +22,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
 )
@@ -133,7 +134,8 @@ func command(timeout time.Duration, name string, args ...string) ([]byte, error)
 func commandInput(timeout time.Duration, input io.Reader, name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
+	argv := oomscore.Unprotected(name, args...)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Stdin = input
 	cmd.Env = append(os.Environ(), "WG_ENDPOINT_RESOLUTION_RETRIES=2")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

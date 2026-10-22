@@ -1185,6 +1185,9 @@ rootfs() {
     # install and upgrade hooks never change an existing installation's choice.
     printf '1\n' > "$r/etc/kvm/mdns_disabled"
     chmod 0600 "$r/etc/kvm/mdns_disabled"
+    # With mDNS off its service stays out of the boot; the server adds it back
+    # when mDNS is turned on (service/vm/mdns.go).
+    rm -f "$r/etc/runlevels/default/nanokvm-mdns"
     tar --numeric-owner -czf "$rel/alpine-rootfs.tar.gz" --exclude='./boot/*' --exclude='./data/*' \
         --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' --exclude='./run/*' --exclude='./tmp/*' \
         -C "$r" .

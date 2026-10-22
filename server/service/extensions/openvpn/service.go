@@ -229,14 +229,16 @@ func (s *Service) start(p Profile) error {
 	}
 	_ = os.Remove(s.runtime(p.ID, ".log"))
 	_ = os.Remove(s.runtime(p.ID, ".pid"))
-	cmd := exec.Command("openvpn", args...)
+	program, err := exec.LookPath("openvpn")
+	if err != nil {
+		return fmt.Errorf("OpenVPN could not start")
+	}
+	argv := oomscore.Unprotected(program, args...)
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if e = cmd.Start(); e != nil {
 		return fmt.Errorf("OpenVPN could not start")
 	}
-	// openvpn runs in the foreground without scripts, so resetting the
-	// adjustment it inherited from the server right after start is enough.
-	_ = oomscore.Set(cmd.Process.Pid, oomscore.Normal)
 	go func() { _ = cmd.Wait() }()
 	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
 		_ = cmd.Process.Kill()

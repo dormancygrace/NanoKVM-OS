@@ -29,12 +29,13 @@ const (
 
 var procRoot = "/proc"
 
-// ResetPrefix resets the adjustment of a sh -c script before it runs.
-const ResetPrefix = "echo 0 >/proc/self/oom_score_adj; "
+// ResetPrefix resets OOM protection and inherited startup CPU priority before
+// a sh -c script runs. A daemon must not retain the server's temporary boost.
+const ResetPrefix = "echo 0 >/proc/self/oom_score_adj; renice 0 \"$$\" >/dev/null; "
 
 // Unprotected returns the command line that runs name with args at the
-// normal adjustment. A protected process uses it for daemons it starts (for
-// example through rc-service): the shell resets its own value and then
+// normal OOM adjustment and nice value. A protected process uses it for
+// daemons (for example through rc-service): the shell resets its own values and then
 // becomes the program, so nothing the program starts inherits the protection.
 func Unprotected(name string, args ...string) []string {
 	return append([]string{"/bin/sh", "-c", ResetPrefix + `exec "$0" "$@"`, name}, args...)

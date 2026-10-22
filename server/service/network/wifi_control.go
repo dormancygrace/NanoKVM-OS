@@ -17,6 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -67,7 +68,8 @@ func (c *bandCache) get(phy string, now time.Time, read func() map[string][]stri
 func runRadioCommand(name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
+	argv := oomscore.Unprotected(name, args...)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.WaitDelay = 2 * time.Second
 	out, err := cmd.Output()
 	return string(out), err

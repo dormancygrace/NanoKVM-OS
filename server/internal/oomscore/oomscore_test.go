@@ -56,3 +56,21 @@ func get(pid int) (int, error) {
 	}
 	return strconv.Atoi(strings.TrimSpace(string(data)))
 }
+
+func TestUnprotectedResetsInheritedNice(t *testing.T) {
+	argv := Unprotected("sh", "-c", `ps -o ni= -p $$`)
+	// Only the short-lived child gets boosted. Ordinary host tests skip when
+	// CAP_SYS_NICE is unavailable; this also runs in the privileged host check.
+	script := `[ "$(ps -o ni= -p $$ | tr -d ' ')" = -10 ] || exit 77; exec "$@"`
+	args := append([]string{"-n", "-10", "/bin/sh", "-c", script, "sh"}, argv...)
+	out, err := exec.Command("nice", args...).Output()
+	if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 77 {
+		t.Skip("CAP_SYS_NICE unavailable")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(out)); got != "0" {
+		t.Fatalf("daemon inherited nice %q, want 0", got)
+	}
+}

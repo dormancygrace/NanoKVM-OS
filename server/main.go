@@ -13,6 +13,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/internal/oomscore"
+	"NanoKVM-Server/internal/startpriority"
 	"NanoKVM-Server/logger"
 	"NanoKVM-Server/logs"
 	"NanoKVM-Server/middleware"
@@ -32,6 +33,8 @@ import (
 )
 
 func main() {
+	// Ahead of the other boot services until the first viewer is served.
+	startpriority.Raise()
 	ctx, stopMemory := context.WithCancel(context.Background())
 	defer stopMemory()
 	initialize(stopMemory)
@@ -41,6 +44,7 @@ func main() {
 	go acme.RunRenewal(ctx)
 	go osupdate.RunNoticeSchedule(ctx)
 	go osupdate.RunRepositoryMigrations(ctx)
+	go vm.ReconcileMdnsAfterBoot(ctx)
 	defer func() { stopMemory(); dispose() }()
 
 	run()

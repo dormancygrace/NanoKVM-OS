@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 
 	"github.com/gin-gonic/gin"
@@ -384,7 +385,8 @@ func ipv4Broadcast(prefix netip.Prefix) netip.Addr {
 
 var restartEthernetAfterResponse = func() {
 	time.Sleep(time.Second)
-	if err := exec.Command(ethernetInitScript, "restart").Run(); err != nil {
+	argv := oomscore.Unprotected(ethernetInitScript, "restart")
+	if err := exec.Command(argv[0], argv[1:]...).Run(); err != nil {
 		log.Errorf("failed to restart ethernet: %s", err)
 	}
 }

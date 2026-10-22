@@ -53,7 +53,7 @@ elif cmd == 'delete-asset':
     r['assets'] = [x for x in r['assets'] if x['name'] != a[3]]
 elif cmd == 'download':
     for item in r['assets']:
-        if item['name'] == a[a.index('--pattern')+1]:
+        if a[a.index('--pattern')+1] in ('*', item['name']):
             (Path(a[a.index('--dir')+1]) / item['name']).write_text(item['data'])
 elif cmd == 'edit':
     assert r['draft']
@@ -84,6 +84,10 @@ class ReleaseStorageTests(unittest.TestCase):
                                       'NanoKVM-OS-v3.3.1-source.tar.xz',
                                       'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip'}:
             (self.directory / name).write_text('content of ' + name)
+        apk = self.directory / 'nanokvm-3.3.1-r0.apk'
+        (self.directory / 'packages.json').write_text(json.dumps({
+            'release': '3.3.1', 'packages': {'nanokvm': {
+                'changed': True, 'apk': apk.name, 'apk_sha256': assets.digest(apk)}}}))
         self.state = self.root / 'state.json'
         self.state.write_text(json.dumps({'calls': [], 'releases': {}}))
         self.env = {**os.environ, 'PATH': str(self.root) + ':' + os.environ['PATH'],
@@ -180,6 +184,63 @@ class ReleaseStorageTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertFalse(state['releases']['v3.3.1']['draft'])
 
+    def manually_publish_os_after_failed_storage(self):
+        assets.split(self.directory)
+        result, state = self.invoke(DRAFT='true', FAIL_PUBLISH='os-packages-v3.3.1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(state['releases']['os-packages-v3.3.1']['draft'])
+        state['releases']['v3.3.1']['draft'] = False
+        self.state.write_text(json.dumps(state))
+        return state
+
+    def test_manual_os_publication_recovers_verified_storage_without_local_build(self):
+        state = self.manually_publish_os_after_failed_storage()
+        count = len(state['calls'])
+        public = state['releases']['v3.3.1'].copy()
+        # Recovery must use original remote bytes, even with no local build.
+        result, state = self.invoke(OUT=str(self.root / 'no-build'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state['releases']['os-packages-v3.3.1']['draft'])
+        self.assertEqual(public, state['releases']['v3.3.1'])
+        calls = state['calls'][count:]
+        self.assertFalse(any(c[:2] in (['release', 'upload'], ['release', 'create']) for c in calls))
+        self.assertEqual(calls[-2][:3], ['release', 'edit', 'os-packages-v3.3.1'])
+        self.assertEqual(calls[-1][:2], ['workflow', 'run'])
+
+    def test_manual_publication_refuses_missing_incomplete_or_corrupt_storage(self):
+        state = self.manually_publish_os_after_failed_storage()
+        snapshot = json.dumps(state)
+        for problem in ('missing', 'missing-index', 'published-missing-index', 'bad-hash', 'missing-apk-with-valid-checksums'):
+            with self.subTest(problem=problem):
+                state = json.loads(snapshot)
+                storage = state['releases']['os-packages-v3.3.1']
+                if problem == 'missing':
+                    del state['releases']['os-packages-v3.3.1']
+                elif problem in ('missing-index', 'published-missing-index'):
+                    storage['draft'] = problem != 'published-missing-index'
+                    storage['assets'] = [a for a in storage['assets'] if a['name'] != 'Packages.adb']
+                elif problem == 'bad-hash':
+                    next(a for a in storage['assets'] if a['name'].endswith('.apk'))['data'] = 'corrupt'
+                else:
+                    storage['assets'] = [a for a in storage['assets'] if not a['name'].endswith('.apk')]
+                    sums = next(a for a in storage['assets'] if a['name'] == 'SHA256SUMS')
+                    sums['data'] = ''.join(line + '\n' for line in sums['data'].splitlines()
+                                           if not line.endswith('.apk'))
+                count = len(state['calls'])
+                self.state.write_text(json.dumps(state))
+                result, after = self.invoke()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('os-packages-v3.3.1', result.stderr)
+                self.assertFalse(any(c[0] == 'workflow' or c[:2] == ['release', 'edit']
+                                     for c in after['calls'][count:]))
+
+    def test_published_legacy_release_still_dispatches_without_storage(self):
+        self.state.write_text(json.dumps({'calls': [], 'releases': {
+            'v3.3.1': {'tag_name': 'v3.3.1', 'draft': False, 'body': 'Legacy', 'assets': []}}}))
+        result, state = self.invoke(OUT=str(self.root / 'no-build'))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state['calls'][-1][:2], ['workflow', 'run'])
+
     def test_changed_published_storage_stops_before_overwriting_public_draft(self):
         assets.split(self.directory)
         result, state = self.invoke(DRAFT='true')
@@ -201,7 +262,7 @@ class ReleaseStorageTests(unittest.TestCase):
         count = len(state['calls'])
         result, state = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual([c[0] for c in state['calls'][count:]], ['api', 'workflow'])
+        self.assertEqual([c[0] for c in state['calls'][count:]], ['api', 'api', 'workflow'])
 
     def test_beta_never_becomes_latest(self):
         assets.split(self.directory)

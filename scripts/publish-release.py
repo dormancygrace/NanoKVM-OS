@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from release_assets import marker, storage_tag, digest, STORAGE_MARKER
+from release_assets import marker, storage_tag, digest, STORAGE_MARKER, REQUIRED, TECHNICAL
 
 
 def gh(*args):
@@ -67,13 +67,56 @@ def stage(tag, current, directory, sha, title, flags):
                 gh('release', 'delete-asset', tag, asset['name'], '--yes')
 
 
+def recover_storage(version, current, storage):
+    """Finish a storage draft after the OS draft was published manually early.
+
+    Trust the already uploaded bytes, not a fresh (possibly different) build.
+    Published OS/storage assets are never uploaded again on this path.
+    """
+    tag = storage_tag(version)
+    associations = STORAGE_MARKER.findall(current.get('body') or '')
+    if associations and associations != [tag]:
+        raise ValueError(f'Unexpected storage association in {version}: expected {tag}')
+    if storage is None:
+        if associations:
+            raise ValueError(f'Missing package storage: {tag}; restore the original uploaded assets')
+        return  # Existing all-in-one release: only retry the Pages dispatch.
+    names = [a['name'] for a in storage['assets']]
+    if (len(names) != len(set(names)) or not REQUIRED | {'SHA256SUMS'} <= set(names)
+            or any(Path(n).name != n or (n not in TECHNICAL | {'SHA256SUMS'}
+                                        and not n.endswith('.apk')) for n in names)):
+        raise ValueError(f'Incomplete or unexpected package storage assets: {tag}')
+    if not storage['draft']:
+        return
+    with tempfile.TemporaryDirectory() as temporary:
+        gh('release', 'download', tag, '--pattern', '*', '--dir', temporary)
+        try:
+            files = validate(Path(temporary))
+            if set(files) != set(names):
+                raise ValueError('downloaded asset inventory differs from GitHub')
+            manifest = json.loads(files['packages.json'].read_text())
+            expected_version = version.removeprefix('v').replace('-beta.', '_beta')
+            if manifest['release'] != expected_version or not manifest['packages']:
+                raise ValueError('package manifest belongs to a different or empty release')
+            changed = {item['apk'] for item in manifest['packages'].values() if item['changed']}
+            if {n for n in files if n.endswith('.apk')} != changed:
+                raise ValueError('changed APK set does not match packages.json')
+            for item in manifest['packages'].values():
+                if item['changed'] and digest(files[item['apk']]) != item['apk_sha256']:
+                    raise ValueError(f'package fingerprint mismatch: {item["apk"]}')
+        except (ValueError, KeyError, OSError, TypeError) as error:
+            raise ValueError(f'Cannot publish package storage {tag}: {error}') from error
+    gh('release', 'edit', tag, '--draft=false', '--prerelease', '--latest=false')
+
+
 def main():
     env = os.environ
     version, repository = env['NANOKVM_VERSION'], env['GITHUB_REPOSITORY']
     tag = storage_tag(version)
     current = release(repository, version)
     if current and not current['draft']:
-        # Publication succeeded but dispatch may have failed. Do not overwrite.
+        # A maintainer may have published the OS draft before storage was ready.
+        recover_storage(version, current, release(repository, tag))
         gh('workflow', 'run', 'apk-repository.yml', '--ref', env['DEFAULT_BRANCH'])
         return
     directory = Path(env['OUT']) / 'assets'

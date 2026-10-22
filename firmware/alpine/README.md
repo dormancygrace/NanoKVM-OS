@@ -348,12 +348,38 @@ Uploads only replace draft assets. Once storage is published, a retry must
 use the original package assets: different checksums stop publication before
 the public draft is changed. Preserve the original assembly if retrying a
 partially completed publication; rebuilding archives can change timestamps.
+If a maintainer publishes the OS draft before the storage publication completes,
+rerunning the publisher verifies every uploaded storage file against its
+SHA256SUMS and checks the changed APK set against `packages.json`, then publishes
+the complete storage draft before dispatching Pages. It uses the original remote
+assets; local build output is not needed on this recovery path. Missing or
+corrupt storage stops with its tag in the error; restore its original files
+before retrying. The public OS release is not modified.
+
+To discard and rebuild an **OS version that has never been published**, discard
+both its OS draft and its `os-packages-<version>` release, plus both associated
+tags if present. Check that no published OS version used this storage first.
+Removing only the OS draft is insufficient: the allocator proposes the same
+version again, while the surviving published storage rejects a rebuilt set of
+bytes. This is a deliberate manual cleanup, never an automatic deletion by the
+publisher. Do not apply this procedure to a version that has ever been published;
+issue a new patch/beta version instead, retaining its existing files for clients.
+
 If only the Pages dispatch failed after OS publication, rerunning the publisher
 or dispatching `apk-repository.yml` from main is sufficient. Existing published
 releases are never overwritten by this publisher.
 
 Merge the assembler and publisher together before the first split release;
-release branches must carry both changes. A failure to resolve or verify a
+release branches must carry both changes. Make the first split publication a
+**beta** and verify the real GitHub asset pairing before a stable release:
+confirm that the technical release is published, both feed manifests and APKs
+verify, the beta feed selects the new version, Stable stays on its previous
+version, and the image/checksum links point to the public beta release. CI's
+current live-inventory check covers only legacy releases until the first split
+release exists; fixture tests do not replace this rollout check. Both channels
+are deployed together, so a pairing failure blocks the entire new Pages
+deployment while preserving the previously deployed Stable and Beta feeds.
+A failure to resolve or verify a
 published release's storage stops Pages assembly before deployment, leaving
 the currently deployed repository in place.
 

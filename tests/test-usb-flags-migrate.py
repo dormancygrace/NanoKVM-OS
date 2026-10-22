@@ -3,6 +3,8 @@
 when a power cut interrupted an earlier run or a rollback wrote /boot again."""
 from pathlib import Path
 import os
+import fcntl
+import shutil
 import atexit
 import subprocess
 import tempfile
@@ -233,8 +235,7 @@ result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output
 assert result.returncode != 0 and not (flags / '.layout-v1').exists()
 print('PASS: absent boot mount refuses activation')
 
-# A settled layout, the usual boot, is checked by the shell alone; a flag on
-# /boot again (a rollback) takes the full run.
+# A settled layout skips pidof/cleanup after locking; a rollback takes the full run.
 boot, flags = fixture()
 flags.mkdir()
 (flags / '.layout-v1').write_text('')
@@ -247,4 +248,39 @@ assert not (boot.parent / 'pidof-called').exists()
 (boot / 'usb.ncm').write_text('')
 assert 'Moved the USB flags' in run(boot, flags, NANOKVM_USB_FLAGS_PIDOF=str(probe))
 assert (boot.parent / 'pidof-called').exists() and tree(flags) == {'usb.ncm': ''}, tree(flags)
-print('PASS: a settled layout needs no process')
+print('PASS: a settled layout skips pidof and full migration')
+
+
+# A settled-looking reader must wait for an in-flight writer, then recheck the
+# flags rather than launching a gadget/server against the previous selection.
+for shell in [['sh']] + ([['busybox', 'sh']] if shutil.which('busybox') else []):
+    boot, flags = fixture()
+    flags.mkdir()
+    (flags / '.layout-v1').touch()
+    (flags / 'usb.ncm').touch()
+    env = dict(os.environ, NANOKVM_USB_FLAGS_BOOT=str(boot),
+               NANOKVM_USB_FLAGS_DIR=str(flags),
+               NANOKVM_USB_FLAGS_LAYOUT=str(boot.parent / 'layout'),
+               NANOKVM_USB_FLAGS_PIDOF='false')
+    with flags.with_suffix('.lock').open('w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        reader = subprocess.Popen(shell + [str(script)], env=env,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            try:
+                reader.communicate(timeout=.3)
+            except subprocess.TimeoutExpired:
+                pass
+            else:
+                raise AssertionError('settled reader returned while migration was locked')
+            # The writer has removed /boot but not yet published usb.new.
+            new = flags.with_suffix('.new')
+            new.mkdir()
+            (new / 'disable_hid').touch()
+            (new / '.complete').write_text('disable_hid\n')
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+            out, err = reader.communicate(timeout=15)
+        assert reader.returncode == 0, err
+        assert tree(flags) == {'disable_hid': ''}, tree(flags)
+    print('PASS: settled reader serializes and rechecks:', shell)

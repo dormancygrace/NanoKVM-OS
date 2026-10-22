@@ -29,11 +29,14 @@ usb.audio disable_hid usb.disable_keyboard usb.disable_relative
 usb.disable_absolute usb.vid usb.pid usb.manufacturer usb.product
 usb.serialnumber usb.notwakeup usb.internet rndis.nodhcpd rndis.ipv4_prefix'
 
-# Every boot: the flags moved, nothing left of an earlier run, and none on the
-# mounted boot partition. The shell checks it alone, without the processes of
-# the full run below, which come before the gadget and the server. No lock:
-# a full run in progress always leaves usb.new, usb.old or .complete, so a
-# concurrent check falls through to the locked path.
+# Even a settled layout must be checked under the migration lock: a writer
+# can create usb.new and remove the boot flags between these checks. The
+# common path still skips pidof, mountpoint and cleanup subprocesses.
+parent=${dir%/*}
+[ "$parent" != "$dir" ] || parent=.
+[ -d "$parent" ] || mkdir -p "$parent" || exit 1
+exec 9>"$dir.lock" || exit 1
+flock 9 || exit 1
 settled() {
     [ -e "$dir/.layout-v1" ] && [ ! -e "$dir/.complete" ] &&
         [ ! -e "$new" ] && [ ! -e "$old" ] || return 1
@@ -56,9 +59,6 @@ pidof_cmd=${NANOKVM_USB_FLAGS_PIDOF:-pidof}
 if "$pidof_cmd" NanoKVM-Server >/dev/null 2>&1; then
     exit 0
 fi
-mkdir -p "$(dirname "$dir")" || exit 1
-exec 9>"$dir.lock" || exit 1
-flock 9 || exit 1
 
 # The boot partition is the source of every step but the last; without the
 # mount there is nothing to read and nothing to clean.

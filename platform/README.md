@@ -76,12 +76,21 @@ omitted on a later invocation. Existing kernel/boot release metadata is checked
 as well. Do not remove the stamp to reuse mixed artifacts.
 
 ```sh
-NANOKVM_KERNEL_PROFILE=debug platform/build.sh -o /path/to/debug-output fetch toolchain kernel modules initramfs boot
+NANOKVM_KERNEL_PROFILE=debug platform/build.sh -o /path/to/debug-output -d
 ```
 
-The debug kernel has a `-debug` release suffix and enables perf, frame pointers
-and trace events. Its FIT can be used for a manual debug boot; package and image
-steps are disabled for this profile. Use the normal release output for packages.
+The debug kernel has a `-debug` release suffix and adds `kernel/config-debug.fragment`:
+perf and the CPU counters, frame pointers, function, syscall and block I/O
+tracing, kprobes, SysRq, hung-task and lockup detectors, dynamic debug,
+`/proc/config.gz` and per-task accounting, plus DWARF for `vmlinux` on the
+build host (its installed modules are stripped). It costs time on every call
+and interrupt, so it is not for measuring release behaviour.
+
+Its packages and SD image need the test keys (`-d`): nothing built with the
+debug kernel can reach a published repository. The image, named
+`NanoKVM-OS-Image-VERSION-debug-…`, adds the tools of `debug-packages` from
+Alpine main and community, and keeps community in its repositories. A kernel
+from the published repository replaces the debug kernel on `apk upgrade`.
 
 ## Signing key
 

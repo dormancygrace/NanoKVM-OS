@@ -42,8 +42,8 @@
 # trusts those, and nanokvm-keys owns them. For local tests -d uses test keys
 # in OUTPUT/keys instead, created on the first run; such an image also trusts
 # them, so never publish it. NANOKVM_KERNEL_PROFILE=debug builds the kernel and
-# its modules with perf, frame pointers and trace events (release
-# 7.3.0-nanokvm-os-rN-debug) for a debug boot.sd; no package step takes it.
+# its modules with kernel/config-debug.fragment (release 7.3.0-nanokvm-os-rN-debug)
+# and, with -d only, packages and an image that add platform/debug-packages.
 # With NANOKVM_PREVIOUS (the URL or directory of the
 # published repository's riscv64/ with packages.json) a package whose content
 # is unchanged keeps its published version and file (scripts/package-versions.py).
@@ -76,11 +76,14 @@ kernel_profile=${NANOKVM_KERNEL_PROFILE:-release}
 case "$kernel_profile" in
     release) ;;
     debug)
-        # A debug kernel goes onto a test card by hand, never into a package.
+        # Debug packages and images are for test cards: test keys only, so
+        # nothing built with the debug kernel can reach a published repository.
         case " ${steps[*]} " in
             *" payloads "* | *" packages "* | *" rootfs "* | *" image "*)
-                echo "NANOKVM_KERNEL_PROFILE=debug builds no packages or images; use kernel modules initramfs boot" >&2
-                exit 2 ;;
+                [ -n "$devkey" ] || {
+                    echo "NANOKVM_KERNEL_PROFILE=debug packages and images need -d (test keys)" >&2
+                    exit 2
+                } ;;
         esac ;;
     *) echo "NANOKVM_KERNEL_PROFILE: release or debug" >&2; exit 2 ;;
 esac
@@ -356,7 +359,10 @@ modules() {
         -j"$jobs" modules
 
     # Staged like the package: in-tree modules as built, extra modules stripped.
-    make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" INSTALL_MOD_PATH="$img" DEPMOD=true modules_install
+    # The debug kernel builds DWARF for vmlinux; its installed modules drop it.
+    local strip=()
+    [ "$kernel_profile" = release ] || strip=(INSTALL_MOD_STRIP=1)
+    make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" INSTALL_MOD_PATH="$img" DEPMOD=true "${strip[@]}" modules_install
     rm -f "$img/lib/modules/$release/build" "$img/lib/modules/$release/source"
     mkdir -p "$img/lib/modules/$release/extra"
     while IFS= read -r -d '' module; do
@@ -1145,6 +1151,13 @@ rootfs() {
     # --preserve-env keeps QEMU_CPU for the package scripts and triggers, which
     # load the new libz.so.1 (kmod's depmod, for one).
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release
+    if [ "$kernel_profile" = debug ]; then
+        # The debug tools of platform/debug-packages, from main and community.
+        echo https://dl-cdn.alpinelinux.org/alpine/v3.24/community >> "$r/etc/apk/repositories"
+        # shellcheck disable=SC2046 # one package name per word
+        BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add \
+            $(sed 's/#.*//' "$here/debug-packages")
+    fi
     rmdir "$r/mnt/nanokvm-apk"
     # The repositories of the device: the v3 index of NanoKVM OS releases on
     # GitHub Pages (nanokvm-keys moves older devices there) and Alpine main. Community is
@@ -1157,6 +1170,8 @@ rootfs() {
     esac
     printf '%s\n' "https://dormancygrace.github.io/NanoKVM-OS/${channel_path}alpine/v3.24/riscv64/Packages.adb" https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
         > "$r/etc/apk/repositories"
+    # A debug image keeps community: some of its tools come from there.
+    [ "$kernel_profile" = release ] || echo https://dl-cdn.alpinelinux.org/alpine/v3.24/community >> "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
@@ -1209,10 +1224,13 @@ clean() {
 # The SD card image: boot partition with fip.bin and the detect boot.sd,
 # F2FS root partition from the rootfs step.
 image() {
+    local name_version=$image_version
+    # A debug image says so in its file name.
+    [ "$kernel_profile" = release ] || name_version=$image_version-debug
     rm -rf "${rel:?}/image"
     PATH=$bo/host/sbin:$host:$PATH "$host/python3" "$repo/scripts/build-alpine-sd-image.py" \
         --rootfs-archive "$rel/alpine-rootfs.tar.gz" --fip "$img/fip.bin" --f2fs-tools "$bo/host/sbin" \
-        --output "$rel/image" --version "$version" --image-version "$image_version"
+        --output "$rel/image" --version "$version" --image-version "$name_version"
 }
 
 # The hash of every output. CI publishes them for each build of main and

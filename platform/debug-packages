@@ -1,0 +1,38 @@
+# Alpine packages a debug image adds (NANOKVM_KERNEL_PROFILE=debug), from main
+# and community. Not bpftrace or bcc: they bring LLVM, over 100 MB.
+
+# Profiling, tracing, debugging (perf needs the debug kernel).
+perf
+strace
+gdb
+musl-dbg
+binutils
+sysstat
+stress-ng
+
+# Network.
+ethtool
+tcpdump
+ngrep
+iperf3
+mtr
+iftop
+nmap
+socat
+bind-tools
+conntrack-tools
+
+# Processes, devices, files.
+htop
+lsof
+procps-ng
+psmisc
+usbutils
+evtest
+mmc-utils
+file
+less
+ncdu
+pv
+rsync
+tmux

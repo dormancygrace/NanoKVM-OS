@@ -34,6 +34,7 @@ usb.serialnumber usb.notwakeup usb.internet rndis.nodhcpd rndis.ipv4_prefix'
 # common path still skips pidof, mountpoint and cleanup subprocesses.
 parent=${dir%/*}
 [ "$parent" != "$dir" ] || parent=.
+: "${parent:=/}"
 [ -d "$parent" ] || mkdir -p "$parent" || exit 1
 exec 9>"$dir.lock" || exit 1
 flock 9 || exit 1

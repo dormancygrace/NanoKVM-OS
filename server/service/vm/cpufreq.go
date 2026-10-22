@@ -148,13 +148,6 @@ func setCPUFreqRuntime(mhz int) error {
 	if value, err := readCPUFreq("cpuinfo_min_freq"); err == nil && value == "600000" {
 		minimum = value
 	}
-	// The initramfs already applies the stock target. Avoid rewriting and
-	// verifying an already matching policy before the listener starts.
-	// A matching hardware clock alone is insufficient: keep reconciling a
-	// different governor, bounds or userspace target, including thermal clamps.
-	if cpuFrequencyAlreadyApplied(mhz, minimum) {
-		return nil
-	}
 	ceiling := max(1000, mhz)
 	settings := [][2]string{{"scaling_governor", "userspace"}, {"scaling_min_freq", minimum}, {"scaling_max_freq", strconv.Itoa(ceiling * 1000)}, {"scaling_setspeed", strconv.Itoa(mhz * 1000)}, {"scaling_max_freq", strconv.Itoa(mhz * 1000)}}
 	for _, s := range settings {
@@ -185,24 +178,6 @@ func setCPUFreqRuntime(mhz int) error {
 		return fmt.Errorf("CPU clock readback is %d MHz, requested %d", state.Running, mhz)
 	}
 	return nil
-}
-
-func cpuFrequencyAlreadyApplied(mhz int, minimum string) bool {
-	target := strconv.Itoa(mhz * 1000)
-	for _, setting := range [][2]string{
-		{"scaling_governor", "userspace"},
-		{"scaling_min_freq", minimum},
-		{"scaling_max_freq", target},
-		{"scaling_setspeed", target},
-		{"cpuinfo_cur_freq", target},
-	} {
-		value, err := readCPUFreq(setting[0])
-		if err != nil || value != setting[1] {
-			return false
-		}
-	}
-	// A thermal cap can hide a different underlying user limit.
-	return !cpuThermalLimited()
 }
 
 func persistCPUFreq(mhz int, applyAtBoot bool) error {

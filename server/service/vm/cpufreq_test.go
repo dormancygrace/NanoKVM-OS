@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -330,120 +329,5 @@ func TestCPUFrequencyExpandedCoolingTable(t *testing.T) {
 	}
 	if s := cpuFrequencyState(); !s.Throttled || s.Target != 1125 || s.Running != 850 {
 		t.Fatalf("state=%+v", s)
-	}
-}
-
-// Model the policy left by initramfs, including the userspace target. Matching
-// only the current hardware frequency would miss a governor or limit change.
-func appliedCPUFixture(t *testing.T, target int) {
-	t.Helper()
-	cpuFixture(t)
-	for name, value := range map[string]string{
-		"scaling_governor": "userspace",
-		"cpuinfo_min_freq": "600000",
-		"scaling_min_freq": "600000",
-		"scaling_max_freq": strconv.Itoa(target * 1000),
-		"scaling_setspeed": strconv.Itoa(target * 1000),
-		"cpuinfo_cur_freq": strconv.Itoa(target * 1000),
-	} {
-		if err := os.WriteFile(filepath.Join(cpuFreqPolicy, name), []byte(value), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-func TestCPUFrequencyKeepsAlreadyAppliedBootPolicy(t *testing.T) {
-	appliedCPUFixture(t, 1000)
-	cpuFreqWrite = func(path string, _ []byte, _ os.FileMode) error {
-		t.Errorf("rewrote boot policy: %s", path)
-		return errors.New("unexpected sysfs write")
-	}
-	ApplySavedCPUFrequency()
-	state := cpuFrequencyState()
-	if !state.Supported || state.Running != 1000 || state.Target != 1000 {
-		t.Fatalf("state=%+v", state)
-	}
-	if data, err := os.ReadFile(cpuFreqRuntimePreference); err != nil || string(data) != "1000\n" {
-		t.Fatalf("runtime target=%q err=%v", data, err)
-	}
-}
-
-func TestCPUFrequencyReconcilesPartialPolicy(t *testing.T) {
-	for _, test := range []struct{ name, value string }{
-		{"scaling_governor", "performance"},
-		{"scaling_min_freq", "850000"},
-		{"scaling_max_freq", "1150000"},
-		{"scaling_setspeed", "850000"},
-		{"cpuinfo_cur_freq", "850000"},
-		{"scaling_setspeed", ""},
-	} {
-		t.Run(test.name+"="+test.value, func(t *testing.T) {
-			appliedCPUFixture(t, 1000)
-			path := filepath.Join(cpuFreqPolicy, test.name)
-			if test.value == "" {
-				if err := os.Remove(path); err != nil {
-					t.Fatal(err)
-				}
-			} else if err := os.WriteFile(path, []byte(test.value), 0600); err != nil {
-				t.Fatal(err)
-			}
-			writes := 0
-			baseWrite := cpuFreqWrite
-			cpuFreqWrite = func(path string, data []byte, mode os.FileMode) error {
-				writes++
-				return baseWrite(path, data, mode)
-			}
-			if err := applyCPUFreq(1000, false, false); err != nil {
-				t.Fatal(err)
-			}
-			if writes == 0 {
-				t.Fatal("skipped incomplete policy")
-			}
-		})
-	}
-}
-
-func TestCPUFrequencyDoesNotSkipThermalUserLimitUpdate(t *testing.T) {
-	appliedCPUFixture(t, 850)
-	zone := filepath.Join(cpuThermalRoot, "thermal_zone0")
-	cooling := filepath.Join(zone, "cdev0")
-	if err := os.MkdirAll(cooling, 0700); err != nil {
-		t.Fatal(err)
-	}
-	for path, value := range map[string]string{
-		filepath.Join(zone, "type"):         "sg2002-cpu",
-		filepath.Join(cooling, "type"):      "cpufreq-cpu0",
-		filepath.Join(cooling, "cur_state"): "1",
-	} {
-		if err := os.WriteFile(path, []byte(value), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// Effective max/current/setspeed can all read 850 while the user's QoS
-	// request is still 1000. Selecting 850 must replace that hidden request.
-	var requestedMax string
-	baseWrite := cpuFreqWrite
-	cpuFreqWrite = func(path string, data []byte, mode os.FileMode) error {
-		if filepath.Base(path) == "scaling_max_freq" {
-			requestedMax = string(data)
-			return os.WriteFile(path, []byte("850000"), mode)
-		}
-		return baseWrite(path, data, mode)
-	}
-	if err := applyCPUFreq(850, true, false); err != nil {
-		t.Fatal(err)
-	}
-	if requestedMax != "850000" {
-		t.Fatalf("user max=%q, want 850000", requestedMax)
-	}
-}
-
-func TestCPUFrequencyMatchingPolicyStillRequiresDriver(t *testing.T) {
-	appliedCPUFixture(t, 1000)
-	if err := os.Remove(filepath.Join(cpuFreqPolicy, "scaling_driver")); err != nil {
-		t.Fatal(err)
-	}
-	if err := applyCPUFreq(1000, false, false); err == nil {
-		t.Fatal("accepted missing driver")
 	}
 }

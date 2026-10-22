@@ -2043,5 +2043,16 @@
   "menu": {
     "collapse": "收起",
     "expand": "展开"
+  },
+  "sshKeys": {
+    "title": "SSH 公钥",
+    "description": "添加用于以 root 身份通过 SSH 登录的密钥。现有密钥将保留。",
+    "import": "导入密钥",
+    "help": "选择公钥文件或粘贴 OpenSSH 公钥，每行一个（最多 32 KiB）。支持 Ed25519、RSA（至少 2048 位）、ECDSA 和安全密钥。不接受私钥、证书或密钥选项。不会自动启用 SSH。",
+    "file": "公钥文件",
+    "text": "公钥文本",
+    "invalid": "请仅输入有效的 OpenSSH 公钥（最多 32 KiB）；不要上传私钥、证书或密钥选项。",
+    "failed": "无法导入 SSH 密钥。",
+    "result": "已添加：{{added}}。已存在：{{skipped}}。"
   }
 }

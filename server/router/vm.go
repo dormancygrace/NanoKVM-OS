@@ -98,9 +98,10 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/hdmi/disable", service.DisableHdmi)                        // disable hdmi
 	admin.POST("/vm/hdmi/timeout", service.SetHdmiIdleTimeout)
 
-	admin.GET("/vm/ssh", service.GetSSHState)         // get SSH state
-	admin.POST("/vm/ssh/enable", service.EnableSSH)   // enable SSH
-	admin.POST("/vm/ssh/disable", service.DisableSSH) // disable SSH
+	admin.POST("/vm/ssh/keys/import", service.ImportSSHKeys) // append root public keys
+	admin.GET("/vm/ssh", service.GetSSHState)                // get SSH state
+	admin.POST("/vm/ssh/enable", service.EnableSSH)          // enable SSH
+	admin.POST("/vm/ssh/disable", service.DisableSSH)        // disable SSH
 
 	admin.GET("/vm/swap", service.GetSwap)  // get swap file size
 	admin.POST("/vm/swap", service.SetSwap) // set swap file size

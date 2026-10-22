@@ -2044,5 +2044,16 @@
   "menu": {
     "collapse": "Collapse menu",
     "expand": "Expand menu"
+  },
+  "sshKeys": {
+    "title": "SSH public keys",
+    "description": "Add keys for SSH login as root. Existing keys are kept.",
+    "import": "Import keys",
+    "help": "Choose a public key file or paste OpenSSH public keys, one per line (up to 32 KiB). Ed25519, RSA (2048 bits or more), ECDSA and security keys are supported. Private keys, certificates and key options are not accepted. SSH is not enabled automatically.",
+    "file": "Public key file",
+    "text": "Public key text",
+    "invalid": "Enter valid OpenSSH public keys only (up to 32 KiB); do not upload private keys, certificates or key options.",
+    "failed": "Could not import SSH keys.",
+    "result": "Added: {{added}}. Already present: {{skipped}}."
   }
 }

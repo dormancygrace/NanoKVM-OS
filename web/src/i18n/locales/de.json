@@ -2044,5 +2044,16 @@
   "menu": {
     "collapse": "Menu einblenden",
     "expand": "Menu verbergen"
+  },
+  "sshKeys": {
+    "title": "Öffentliche SSH-Schlüssel",
+    "description": "Schlüssel für die SSH-Anmeldung als root hinzufügen. Vorhandene Schlüssel bleiben erhalten.",
+    "import": "Schlüssel importieren",
+    "help": "Eine öffentliche Schlüsseldatei auswählen oder öffentliche OpenSSH-Schlüssel einfügen, einen pro Zeile (bis zu 32 KiB). Unterstützt werden Ed25519, RSA (ab 2048 Bit), ECDSA und Sicherheitsschlüssel. Private Schlüssel, Zertifikate und Schlüsseloptionen werden nicht akzeptiert. SSH wird nicht automatisch aktiviert.",
+    "file": "Öffentliche Schlüsseldatei",
+    "text": "Öffentlicher Schlüsseltext",
+    "invalid": "Nur gültige öffentliche OpenSSH-Schlüssel eingeben (bis zu 32 KiB); keine privaten Schlüssel, Zertifikate oder Schlüsseloptionen hochladen.",
+    "failed": "SSH-Schlüssel konnten nicht importiert werden.",
+    "result": "Hinzugefügt: {{added}}. Bereits vorhanden: {{skipped}}."
   }
 }

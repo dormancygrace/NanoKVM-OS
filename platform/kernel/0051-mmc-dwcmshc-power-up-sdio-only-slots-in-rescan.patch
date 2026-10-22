@@ -1,0 +1,31 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] mmc: sdhci-of-dwcmshc: power up SDIO-only slots in the rescan work
+
+mmc_start_host() powers the card up during probe unless the host sets
+MMC_CAP2_NO_PRESCAN_POWERUP. For the NanoKVM Wi-Fi slot that runs the
+mmc-pwrseq-simple post-power-on delay (200 ms) inside the asynchronous
+probe, and kernel_init() waits for all asynchronous probes before it
+starts /init. An SDIO-only slot (no-sd and no-mmc) is now powered up by
+the rescan work instead, which no initcall waits for.
+
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+diff --git a/drivers/mmc/host/sdhci-of-dwcmshc.c b/drivers/mmc/host/sdhci-of-dwcmshc.c
+--- a/drivers/mmc/host/sdhci-of-dwcmshc.c
++++ b/drivers/mmc/host/sdhci-of-dwcmshc.c
+@@ -2450,6 +2450,15 @@
+ 	if (err)
+ 		goto err_bus_clk;
+ 
++	/*
++	 * An SDIO-only slot powers its card up in the rescan work, not here:
++	 * its power sequence may wait (200 ms for the NanoKVM Wi-Fi module),
++	 * and the kernel holds /init until every probe has returned.
++	 */
++	if ((host->mmc->caps2 & (MMC_CAP2_NO_SD | MMC_CAP2_NO_MMC)) ==
++	    (MMC_CAP2_NO_SD | MMC_CAP2_NO_MMC))
++		host->mmc->caps2 |= MMC_CAP2_NO_PRESCAN_POWERUP;
++
+ 	sdhci_get_of_property(pdev);
+ 
+ 	priv->vendor_specific_area1 =

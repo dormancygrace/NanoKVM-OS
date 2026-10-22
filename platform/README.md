@@ -11,9 +11,9 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | Output | Shipped in |
 |---|---|
 | `images/Image` (Linux `7.3.0-nanokvm-os-r2`) | every `boot.sd` |
-| `images/lib/modules/7.3.0-nanokvm-os-r2/` (65 in-tree and 18 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
+| `images/lib/modules/7.3.0-nanokvm-os-r2/` (76 in-tree and 19 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (one per board, `NAME.dtb`, each with the 144 MiB CMA video region) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
-| `images/dtb/*.dtb`, `images/initramfs.cpio.zst` | inside the `boot.sd` images |
+| `images/dtb/*.dtb`, `images/initramfs.cpio.lz4` | inside the `boot.sd` images |
 | `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel-sg2002`, `/usr/share/licenses/nanokvm-kernel-sg2002/initramfs` |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
@@ -67,7 +67,23 @@ The first run downloads about 2 GB and needs about 25 GB of disk space. Building
 
 Go modules, npm packages and Alpine packages are downloaded during the build and checked against `server/go.sum`, `web/pnpm-lock.yaml` and the signed Alpine indexes. Alpine updates its 3.24 packages with security fixes, so a later build installs their newer versions; `release/installed-packages.txt` lists the versions in the image.
 
-### Signing key
+### Debug kernel
+
+Use a separate output directory for each kernel profile. The builder records
+its profile in `OUTPUT/.kernel-profile` and rejects a different profile before
+changing kernel or package artifacts, even when the environment variable was
+omitted on a later invocation. Existing kernel/boot release metadata is checked
+as well. Do not remove the stamp to reuse mixed artifacts.
+
+```sh
+NANOKVM_KERNEL_PROFILE=debug platform/build.sh -o /path/to/debug-output fetch toolchain kernel modules initramfs boot
+```
+
+The debug kernel has a `-debug` release suffix and enables perf, frame pointers
+and trace events. Its FIT can be used for a manual debug boot; package and image
+steps are disabled for this profile. Use the normal release output for packages.
+
+## Signing key
 
 The APK packages and indexes are signed, and the packages and rootfs steps need keys. Release builds pass both maintainer keys: `-k path/to/dgrace-6aaddbb6.rsa` (RSA, with its `.rsa.pub` next to it) and `-e path/to/nkos-release-ec-b8e89b66.key` (ECDSA P-256, with `nkos-release-ec-b8e89b66.pub` next to it). Both public keys must be in `firmware/alpine/keys`, or `build.sh` stops before the first step. Local test builds pass `-d` instead: the first run creates the test keys `OUTPUT/keys/nanokvm-test-*.rsa` and `nanokvm-test-ec-*.key`, and the image trusts them, so never publish those packages or images. apk does not tie a key to a repository: a device trusts every key in `/etc/apk/keys` for every repository it uses.
 

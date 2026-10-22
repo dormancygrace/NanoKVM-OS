@@ -21,11 +21,11 @@
         };
         ramdisk-1 {
             description = "NanoKVM OS initramfs";
-            data = /incbin/("initramfs.cpio.zst");
+            data = /incbin/("initramfs.cpio.lz4");
             type = "ramdisk";
             arch = "riscv";
             os = "linux";
-            // Linux unpacks the zstd cpio; U-Boot passes these bytes unchanged.
+            // Linux unpacks the lz4 cpio; U-Boot passes these bytes unchanged.
             compression = "none";
             hash-1 { algo = "crc32"; };
         };

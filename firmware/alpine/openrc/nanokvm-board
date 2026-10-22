@@ -22,6 +22,11 @@ run_legacy() {
 start() {
     local script failed=
     ebegin "Configuring NanoKVM board"
+    # Apply queued settings before identity, networking or the application.
+    # An ordinary failure rolls back; an incomplete rollback fails closed.
+    if [ -e /var/lib/nanokvm-recovery/pending.json ]; then
+        /usr/sbin/nkos-update recovery-resume || { eend 1 "Settings recovery failed"; return 1; }
+    fi
     # Run every step. A missing sensor configuration or an unidentified HDMI
     # receiver must not skip the device identity used by the network.
     for script in S02config S10uuid S15kvmhwd; do

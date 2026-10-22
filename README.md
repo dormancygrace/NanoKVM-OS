@@ -136,6 +136,9 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 
 ### ⚙️ System controls and everyday tools
 
+- **[Settings backup, migration and reset](docs/settings-recovery.md)**: encrypted exports, a preview before restore, safe migration exclusions, and factory reset with independent **Keep users** and **Keep apps** options. Keep apps retains APK-installed software while managed app settings reset.
+
+
 | Area | Controls and information |
 | --- | --- |
 | **Dashboard** | CPU load, RAM, SoC temperature, CPU frequency, storage, network, VPN and time-synchronization status |

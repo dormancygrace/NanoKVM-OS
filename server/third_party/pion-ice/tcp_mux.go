@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"strings"
 	"sync"
@@ -469,14 +470,17 @@ func readStreamingPacket(conn net.Conn, buf []byte) (int, error) {
 	return bytesRead, nil
 }
 
+// errStreamingPacketTooLarge: the 2-byte length header of RFC 4571 cannot
+// describe a longer packet.
+var errStreamingPacketTooLarge = errors.New("packet too large for an RFC 4571 frame")
+
 func writeStreamingPacket(conn net.Conn, buf []byte) (int, error) {
-	// RFC 4571 has a 16-bit length. Check before allocation and conversion,
-	// so an oversized frame cannot wrap its header or the allocation size.
-	if len(buf) > 65535 {
-		return 0, errors.New("TCP frame exceeds the 16-bit length limit")
+	// Bound the RFC 4571 length before allocation and uint16 conversion.
+	if len(buf) > math.MaxUint16 {
+		return 0, errStreamingPacketTooLarge
 	}
 	bufCopy := make([]byte, streamingPacketHeaderLen+len(buf))
-	binary.BigEndian.PutUint16(bufCopy, uint16(len(buf))) //nolint:gosec // G115
+	binary.BigEndian.PutUint16(bufCopy, uint16(len(buf)))
 	copy(bufCopy[2:], buf)
 
 	n, err := conn.Write(bufCopy)

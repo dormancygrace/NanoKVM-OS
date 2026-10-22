@@ -146,6 +146,28 @@ is not the release source bundle. The historical
 `firmware/sources/busybox-1.36.1.tar.bz2` is retained for the devmem executable
 shipped with v2.0-b4 and is not an input to new builds.
 
+## Add-ons released on their own
+
+An add-on has a version of its own and releases of its own, `NAME-VERSION-rN`,
+apart from the OS releases. The APK repository workflow indexes every such
+release of the add-ons in `ADDONS` (`scripts/addon_packages.py`), so devices
+install and update an add-on without an OS release. An add-on is never built
+with the OS packages: there it would get the release's version, above all of
+its own later versions.
+
+- RustDesk: `addons/rustdesk`, built and released by the RustDesk add-on
+  workflow (`.github/workflows/rustdesk.yml`).
+- A Go program of `server/` (IPMI): a recipe `NAME/addon.json` here (version,
+  metadata, the program, files, lifecycle scripts, licenses), built by
+  `scripts/build-addon.py` and released by the add-on release workflow
+  (`.github/workflows/addon.yml`; Actions → Add-on release → Run workflow).
+
+A new add-on goes into `ADDONS`, gets a recipe and a choice in `addon.yml`.
+To release a change, raise the recipe's version and run the workflow from
+main; each run of the same version gets the next revision. The workflow opens
+a pin PR for `firmware/alpine/addons.json` (below), which replaces that
+add-on's pin only.
+
 ## Optional add-ons in the release repository
 
 `firmware/alpine/addons.json` pins already-signed optional APKs from their

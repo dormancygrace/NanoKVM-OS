@@ -23,7 +23,7 @@ on:
     paths:
       - .github/workflows/rustdesk.yml
       - scripts/build-rustdesk-addon.py
-      - scripts/next-rustdesk-revision.py
+      - scripts/next-addon-revision.py
 
 permissions:
   contents: read
@@ -84,7 +84,7 @@ jobs:
           # The request must succeed: a failure inside $(...) would count no
           # tags and reuse a revision.
           gh api --paginate "repos/$GITHUB_REPOSITORY/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/tags"
-          revision=$(python3 scripts/next-rustdesk-revision.py "$version" < "$RUNNER_TEMP/tags")
+          revision=$(python3 scripts/next-addon-revision.py nanokvm-rustdesk "$version" < "$RUNNER_TEMP/tags")
           tag=nanokvm-rustdesk-$version-r$revision
           {
             echo "version=$version"
@@ -206,14 +206,8 @@ jobs:
           branch=rustdesk/pin-$VERSION-r$REVISION
           git switch -c "$branch"
           cp "$a/APKBUILD" firmware/alpine/packages/nanokvm-rustdesk/APKBUILD
-          python3 - "$a/$apk" "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$apk" <<'PY'
-          import hashlib, json, sys
-          from pathlib import Path
-          apk, url = Path(sys.argv[1]), sys.argv[2]
-          data = apk.read_bytes()
-          entry = {'url': url, 'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)}
-          Path('firmware/alpine/addons.json').write_text(json.dumps({'packages': {apk.name: entry}}, indent=2) + '\n')
-          PY
+          # Replaces the RustDesk pin only; other add-ons keep theirs.
+          python3 scripts/pin-addon.py "$a/$apk"
           git add firmware/alpine/addons.json firmware/alpine/packages/nanokvm-rustdesk/APKBUILD
           git -c user.name='Gleb Pesin' -c user.email=dormancygrace@gmail.com \
             commit -q -m "addons: pin the RustDesk add-on $VERSION-r$REVISION" \

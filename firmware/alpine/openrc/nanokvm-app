@@ -74,7 +74,8 @@ start() {
         sleep 0.2
         n=$((n + 1))
     done
-    # Only crond, which starts after this service, reads the crontabs.
+    # The link from crontab's default spool to the persistent crontabs, which
+    # crond reads as /etc/crontabs. Nothing at boot uses it before this.
     cron=/usr/libexec/nanokvm/legacy/S49persistent-cron
     [ ! -x "$cron" ] || "$cron" start || ewarn "Could not apply S49persistent-cron"
     eend 0

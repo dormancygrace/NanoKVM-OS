@@ -1,0 +1,41 @@
+{
+  "component": "Alpine minirootfs",
+  "current": "3.24.2",
+  "candidate": "3.24.3",
+  "candidate_key": "3.24.3",
+  "status": "qualified",
+  "upstream": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/",
+  "source_path": "platform/sources.lock",
+  "strategy": "archive-pin",
+  "evidence": {
+    "archive": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.3-riscv64.tar.gz",
+    "sha256": "9714553757e7bf645eff5dcc52bdd206f358a7bed77874842567852e8326a51d"
+  },
+  "pin_files_updated": [
+    "platform/build.sh",
+    "platform/sources.lock"
+  ],
+  "verification": {
+    "official_archive_sha256_verified": true,
+    "architecture": "riscv64",
+    "production_rootfs_step": "passed with QEMU and signed NanoKVM 3.4.0 packages",
+    "nanokvm_packages_installed": 13,
+    "total_packages_installed": 167,
+    "package_scripts_and_triggers": "passed",
+    "kernel_release": "7.3.0-nanokvm-os-r2",
+    "nanokvm_zlib_replacement": "passed",
+    "trusted_key_ownership": "passed",
+    "mdns_disabled_default": true,
+    "release_community_repository_enabled": false,
+    "local_tests": [
+      "platform-build",
+      "stock-profile",
+      "keys-repository",
+      "alpine-sd-image-boot",
+      "upstream-update-prs",
+      "alpine-recovery-settings",
+      "release-build"
+    ],
+    "device_boot_tested": false
+  }
+}

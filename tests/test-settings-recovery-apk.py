@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Real APK 3 solver: optional removal leaves the OS dependency closure intact."""
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -8,6 +9,7 @@ import tempfile
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--apk", type=Path, required=True)
 apk = str(parser.parse_args().apk.resolve())
+usermode = [] if os.geteuid() == 0 else ["--usermode"]
 def run(*args):
     r = subprocess.run([apk, *map(str, args)], capture_output=True, text=True)
     if r.returncode:
@@ -26,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-recovery-apk-") as tmp:
     (root / "etc/apk").mkdir(parents=True)
     (root / "etc/apk/repositories").write_text(str(work / "Packages.adb") + "\n")
     base = ["--root", root, "--arch", "riscv64", "--allow-untrusted"]
-    run(*base, "add", "--initdb", "--usermode", "--no-scripts", "nanokvm-release=1-r0", "curl", "htop", "nanokvm-rustdesk")
+    run(*base, "add", "--initdb", *usermode, "--no-scripts", "nanokvm-release=1-r0", "curl", "htop", "nanokvm-rustdesk")
     # This is the exact deletion policy: no --recursive or --force. curl is an
     # optional world root but required by the release, so its binary must stay.
     run(*base, "del", "--no-network", "--no-progress", "--no-scripts", "curl", "htop", "nanokvm-rustdesk")

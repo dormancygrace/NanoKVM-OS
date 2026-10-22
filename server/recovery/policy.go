@@ -30,13 +30,13 @@ var settings = strings.Fields(`
  boot/hostname.prefix boot/eth.mac boot/eth.disabled boot/eth.nodhcp boot/eth.vlan boot/hostname
  boot/wifi.ssid boot/wifi.pass boot/wifi.disabled boot/resolv.conf
  boot/resolv.conf.manual.bak boot/sshd_config
- etc/crontabs/root etc/kvm/cache/wol etc/hostname etc/hosts etc/timezone etc/localtime etc/chrony.conf etc/kvm/date-time.json
+ etc/kvm/cron/crontabs/root etc/kvm/cache/wol etc/hostname etc/hosts etc/timezone etc/localtime etc/chrony.conf etc/kvm/date-time.json
  root/.ssh/authorized_keys
  root/.picoclaw/config.json root/.picoclaw/.security.yml
  etc/ssh/ssh_host_ed25519_key etc/ssh/ssh_host_ed25519_key.pub
  etc/ssh/ssh_host_rsa_key etc/ssh/ssh_host_rsa_key.pub
  etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub
- etc/kvm/server.crt etc/kvm/server.key
+ etc/kvm/server.crt etc/kvm/server.key etc/kvm/bmc/config.json
  etc/kvm/acme/settings.json var/lib/tailscale/tailscaled.state etc/netbird/config.json
 `)
 var trees = []string{"etc/kvm/network", "etc/kvm/usb", "etc/kvm/branding", "etc/kvm/scripts", "etc/kvm/wireguard", "etc/kvm/openvpn", "etc/kvm/tls", "etc/kvm/acme/data", "etc/nanokvm-rustdesk"}
@@ -71,7 +71,7 @@ func portable(p string) bool {
 		}
 	}
 	switch p {
-	case "etc/crontabs/root", "etc/kvm/cache/wol", "etc/netbird/config.json", "var/lib/tailscale/tailscaled.state", "etc/kvm/acme/settings.json", "etc/kvm/server.yaml", "etc/kvm/server.crt", "etc/kvm/server.key", "etc/hostname", "etc/hosts", "etc/kvm/ssh_stop", "etc/kvm/usb-before-rustdesk.json", "etc/kvm/mcp.json", "etc/kvm/autostart.list", "etc/kvm/picoclaw-runtime.json":
+	case "etc/kvm/bmc/config.json", "etc/kvm/cron/crontabs/root", "etc/kvm/cache/wol", "etc/netbird/config.json", "var/lib/tailscale/tailscaled.state", "etc/kvm/acme/settings.json", "etc/kvm/server.yaml", "etc/kvm/server.crt", "etc/kvm/server.key", "etc/hostname", "etc/hosts", "etc/kvm/ssh_stop", "etc/kvm/usb-before-rustdesk.json", "etc/kvm/mcp.json", "etc/kvm/autostart.list", "etc/kvm/picoclaw-runtime.json":
 		return false
 	}
 	return !strings.HasPrefix(p, "etc/kvm/scripts/")

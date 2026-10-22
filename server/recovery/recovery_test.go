@@ -29,6 +29,12 @@ func fixture(t *testing.T) Engine {
 			t.Fatal(err)
 		}
 	}
+	if err := write(e.Root, "etc/kvm/cron/crontabs/root", &File{Data: []byte("# nanokvm-apk-index-refresh x\n0 * * * * /usr/sbin/nkos-update refresh-indexes\n* * * * * true\n"), Mode: 0600}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("kvm/cron/crontabs", e.Root+"/etc/crontabs"); err != nil {
+		t.Fatal(err)
+	}
 	return e
 }
 func contents(t *testing.T, e Engine, name string) string {
@@ -387,7 +393,7 @@ func TestEverySettingsFailureRollsBack(t *testing.T) {
 }
 func TestCorruptJournalDoesNotTouchSettings(t *testing.T) {
 	e := fixture(t)
-	write(e.Root, PendingPath, &File{Data: []byte(`{"options":{"action":"reset","keepUsers":true,"keepApps":true},"changes":[{"path":"etc/passwd"}]}`), Mode: 0600})
+	write(e.Root, PendingPath, &File{Data: []byte(`{"started":true,"options":{"action":"reset","keepUsers":true,"keepApps":true},"changes":[{"path":"etc/passwd"}]}`), Mode: 0600})
 	if e.Resume(func([]string) error { t.Fatal("package operation on invalid journal"); return nil }) == nil {
 		t.Fatal("corrupt journal accepted")
 	}
@@ -458,5 +464,98 @@ func TestShutdownFlushIsResetAndRollbackKeepsFinalState(t *testing.T) {
 	}
 	if contents(t, e, "etc/nanokvm-rustdesk/late.json") != "" {
 		t.Fatal("shutdown settings survived reset")
+	}
+}
+
+func TestPreflightFailuresAllowNormalBoot(t *testing.T) {
+	for _, kind := range []string{"world-missing", "world-changed", "bad-plan", "inventory-alias"} {
+		t.Run(kind, func(t *testing.T) {
+			e := fixture(t)
+			p, _, err := e.Prepare(nil, Options{Action: "reset", KeepUsers: true, KeepApps: false})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = e.Stage(p); err != nil {
+				t.Fatal(err)
+			}
+			switch kind {
+			case "world-missing":
+				os.Remove(e.Root + "/etc/apk/world")
+			case "world-changed":
+				write(e.Root, "etc/apk/world", &File{Data: []byte("nanokvm-release\nnew-package\n"), Mode: 0600})
+			case "bad-plan":
+				p.Changes[0].Path = "etc/passwd"
+				data, _ := json.Marshal(p)
+				write(e.Root, PendingPath, &File{Data: data, Mode: 0600})
+			case "inventory-alias":
+				os.Symlink("/tmp", e.Root+"/etc/kvm/network")
+			}
+			if err = e.Resume(func([]string) error { t.Fatal("preflight removed packages"); return nil }); err != nil {
+				t.Fatal(err)
+			}
+			if e.Pending() || e.Status().State != "failed" || contents(t, e, "etc/kvm/web-title") != "custom" {
+				t.Fatal("preflight did not safely cancel")
+			}
+			if _, err = os.Stat(e.Root + "/var/lib/nanokvm-recovery/failed.json"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+func TestInterruptedRollbackDoesNotReplayReset(t *testing.T) {
+	e := fixture(t)
+	before, err := inventory(e.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _, err := e.Prepare(nil, Options{Action: "reset", KeepUsers: false, KeepApps: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Stage(p); err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	e.writeFile = func(name string, f *File) error {
+		count++
+		if count == 3 || count == 4 {
+			return errors.New("disk failure")
+		}
+		return write(e.Root, name, f)
+	}
+	if e.Resume(func([]string) error { return nil }) == nil || !e.Pending() {
+		t.Fatal("partial rollback must remain pending")
+	}
+	f, err := read(e.Root, PendingPath, 2*MaxArchive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pending Plan
+	if err = json.Unmarshal(f.Data, &pending); err != nil || !pending.RollingBack {
+		t.Fatal("rollback phase not durable", err)
+	}
+	e.writeFile = nil
+	if err = e.Resume(func([]string) error { t.Fatal("rollback removed packages"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	after, err := inventory(e.Root)
+	if err != nil || !reflect.DeepEqual(before, after) || e.Pending() || e.Status().State != "failed" {
+		t.Fatal("rollback was not resumed", err)
+	}
+}
+func TestOptionalNanokvmPackagesAreRemovable(t *testing.T) {
+	names, err := removable([]byte("nanokvm-release\nnanokvm-base\nnanokvm-ipmi\nnanokvm-future-addon\n"))
+	if err != nil || !reflect.DeepEqual(names, []string{"nanokvm-future-addon", "nanokvm-ipmi"}) {
+		t.Fatal(names, err)
+	}
+	if portable("etc/kvm/bmc/config.json") {
+		t.Fatal("BMC credentials portable")
+	}
+}
+func TestMalformedJournalRetainsRepairEvidence(t *testing.T) {
+	e := fixture(t)
+	write(e.Root, PendingPath, &File{Data: []byte("{truncated"), Mode: 0600})
+	if e.Resume(func([]string) error { t.Fatal("unexpected removal"); return nil }) == nil || !e.Pending() {
+		t.Fatal("unknown partial state discarded")
 	}
 }

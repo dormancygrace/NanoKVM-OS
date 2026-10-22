@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"NanoKVM-Server/internal/apkrollback"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,6 +32,7 @@ type Change struct {
 	After  *File  `json:"after"`
 }
 type Plan struct {
+	RollingBack    bool     `json:"rollingBack,omitempty"`
 	Started        bool     `json:"started"`
 	Options        Options  `json:"options"`
 	Changes        []Change `json:"changes"`
@@ -209,7 +211,7 @@ func (e Engine) Prepare(a *Archive, o Options) (Plan, Preview, error) {
 	}
 	if o.Action == "reset" {
 		// Keep unrelated cron jobs; disable only our automatic index refresh.
-		cron, err := read(e.Root, "etc/crontabs/root", MaxFile)
+		cron, err := read(e.Root, "etc/kvm/cron/crontabs/root", MaxFile)
 		if err != nil {
 			return p, v, err
 		}
@@ -222,7 +224,7 @@ func (e Engine) Prepare(a *Archive, o Options) (Plan, Preview, error) {
 				}
 				lines = append(lines, line)
 			}
-			put("etc/crontabs/root", strings.Join(lines, "\n"), 0600)
+			put("etc/kvm/cron/crontabs/root", strings.Join(lines, "\n"), 0600)
 		}
 		// S10uuid needs these files to exist before it applies the chip hostname.
 		put("etc/hostname", "nanokvm\n", 0644)
@@ -312,6 +314,9 @@ func removable(world []byte) ([]string, error) {
 	// nanokvm-release keeps the complete OS dependency closure installed. Never
 	// use --recursive: removing optional world roots must not remove dependents.
 	protected := map[string]bool{"nanokvm-release": true, "alpine-base": true, "alpine-baselayout": true, "alpine-keys": true, "apk-tools": true, "busybox": true, "libc-utils": true}
+	for _, name := range apkrollback.CorePackages {
+		protected[name] = true
+	}
 	result := []string{}
 	release := false
 	for _, line := range strings.Fields(string(world)) {
@@ -323,7 +328,7 @@ func removable(world []byte) ([]string, error) {
 		if name == "nanokvm-release" {
 			release = true
 		}
-		if protected[name] || (strings.HasPrefix(name, "nanokvm") && !strings.HasPrefix(name, "nanokvm-rustdesk")) {
+		if protected[name] {
 			continue
 		}
 		result = append(result, name)
@@ -380,7 +385,7 @@ func (e Engine) Stage(p Plan) error {
 	return write(e.Root, PendingPath, &File{Data: data, Mode: 0600})
 }
 func validatePlan(p Plan) error {
-	if p.Options.Action != "restore" && p.Options.Action != "reset" {
+	if (p.Options.Action != "restore" && p.Options.Action != "reset") || (p.RollingBack && !p.Started) {
 		return errors.New("invalid recovery journal")
 	}
 	if len(p.Changes) > MaxFiles+8 {
@@ -424,7 +429,19 @@ func validatePlan(p Plan) error {
 // Resume is called only during early boot, with services stopped. A power loss
 // leaves the durable plan for replay. An ordinary write failure restores all
 // previous settings before allowing normal startup. APK removals are not undone.
-func (e Engine) Resume(remove func([]string) error) error {
+func (e Engine) Resume(remove func([]string) error) (result error) {
+	// Only a fully decoded, unstarted journal proves that settings are untouched.
+	// Corrupt/started journals remain pending; networking still permits repair.
+	safeToAbandon := false
+	defer func() {
+		if result != nil && safeToAbandon {
+			if err := e.abandon(result); err == nil {
+				result = nil
+			} else {
+				result = errors.Join(result, err)
+			}
+		}
+	}()
 	f, err := read(e.Root, PendingPath, 2*MaxArchive)
 	if err != nil {
 		return err
@@ -436,6 +453,7 @@ func (e Engine) Resume(remove func([]string) error) error {
 	if err = json.Unmarshal(f.Data, &p); err != nil {
 		return err
 	}
+	safeToAbandon = !p.Started && !p.RollingBack
 	if err = validatePlan(p); err != nil {
 		return err
 	}
@@ -471,6 +489,18 @@ func (e Engine) Resume(remove func([]string) error) error {
 				p.Changes = append(p.Changes, Change{Path: f.Path, Before: &f})
 			}
 		}
+		if p.Options.Action == "reset" && !p.Options.KeepApps {
+			world, err := read(e.Root, "etc/apk/world", MaxFile)
+			if err != nil {
+				return err
+			}
+			if world == nil {
+				return errors.New("APK world missing during recovery")
+			}
+			if !bytes.Equal(world.Data, p.World) {
+				return errors.New("APK world changed after recovery was queued")
+			}
+		}
 		p.Started = true
 		if err = validatePlan(p); err != nil {
 			return err
@@ -483,8 +513,12 @@ func (e Engine) Resume(remove func([]string) error) error {
 			return err
 		}
 	}
+	safeToAbandon = false
 	var operationErr error
-	if p.Options.Action == "reset" && !p.Options.KeepApps {
+	if p.RollingBack {
+		operationErr = errors.New("resuming interrupted rollback")
+	}
+	if !p.RollingBack && p.Options.Action == "reset" && !p.Options.KeepApps {
 		world, err := read(e.Root, "etc/apk/world", MaxFile)
 		if err != nil {
 			return err
@@ -510,6 +544,16 @@ func (e Engine) Resume(remove func([]string) error) error {
 		}
 	}
 	if operationErr != nil {
+		if !p.RollingBack {
+			p.RollingBack = true
+			data, err := json.Marshal(p)
+			if err != nil {
+				return err
+			}
+			if err = write(e.Root, PendingPath, &File{Data: data, Mode: 0600}); err != nil {
+				return err
+			}
+		}
 		for _, c := range p.Changes {
 			if err = e.applyFile(c.Path, c.Before); err != nil {
 				return fmt.Errorf("recovery and rollback failed at %s: %w", c.Path, err)
@@ -575,4 +619,17 @@ func remainingRemovals(original, current []byte, approved []string) ([]string, e
 		}
 	}
 	return result, nil
+}
+
+// A bounded failed journal replaces the previous one; it is never replayed.
+func (e Engine) abandon(cause error) error {
+	message := "Recovery cancelled before settings were changed: " + cause.Error()
+	if len(message) > 3000 {
+		message = message[:3000]
+	}
+	data, _ := json.Marshal(Status{State: "failed", Message: message})
+	if err := write(e.Root, statusPath, &File{Data: data, Mode: 0600}); err != nil {
+		return err
+	}
+	return retirePending(e.Root)
 }

@@ -252,3 +252,15 @@ func inventory(root string) ([]File, error) {
 	}
 	return files, nil
 }
+
+func retirePending(root string) error {
+	fd, base, err := parent(root, PendingPath, false)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(fd)
+	if err = unix.Renameat(fd, base, fd, "failed.json"); err != nil {
+		return err
+	}
+	return unix.Fsync(fd)
+}

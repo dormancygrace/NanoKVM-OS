@@ -72,10 +72,19 @@ A power loss leaves the journal for idempotent replay at the next boot. An ordin
 file error restores the old managed settings; optional packages already removed
 are **not reinstalled**. The result is shown on the Backup & reset page. The journal
 and its temporary copies of credentials are removed after completion/rollback.
-If rollback itself fails, networking and apps remain stopped rather than using
+If rollback itself fails, the application remains stopped rather than using
 partially replaced access settings. Repair storage via the physical console or
 recovery image before retrying; `nkos-update recovery-resume` is an early-boot
 operation and refuses to run while NanoKVM-Server is active.
 
 This is a settings-recovery feature, not a complete filesystem snapshot or secure
 erasure of a card. Exported archives and a physical recovery path remain important.
+
+An error in a fully decoded, unstarted plan cancels recovery before any settings
+are changed: a failure status and one private `failed.json` replace the pending
+operation, and normal boot continues. Corrupt or already started journals stay
+pending because their state cannot safely be discarded. Networking still starts
+for remote repair; existing SSH enablement and authentication policies are not
+relaxed. SSH access requires working network settings and credentials. A partial
+rollback is durably marked and subsequent boots retry rollback, not the original
+reset/restore. Inspect the journal via SSH where available; otherwise use UART.

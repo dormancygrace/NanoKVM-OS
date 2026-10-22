@@ -23,9 +23,24 @@ with tempfile.TemporaryDirectory() as temp:
     # probe is supported by the device's OpenRC (there is no --status option).
     service = ROOT / "firmware/alpine/openrc/nanokvm-usb-internet"
     helper = d / "helper"
-    helper.write_text('#!/bin/sh\n[ -e "$NEEDED" ]\n')
+    helper.write_text('#!/bin/sh\necho call >> "$CALLS"\n[ -e "$NEEDED" ]\n')
     helper.chmod(0o755)
-    env = dict(os.environ, NEEDED=str(d/"needed"), HELPER=str(helper), SERVICE=str(service))
+    config = d / "c.1"
+    config.mkdir()
+    env = dict(os.environ, NEEDED=str(d/"needed"), HELPER=str(helper), SERVICE=str(service),
+               NANOKVM_USB_NET_CONFIG=str(config), CALLS=str(d/"calls"))
+    # Without a bound NCM or RNDIS function the helper is not even asked.
+    subprocess.run(["bash", "-eu", "-c", r'''
+        . "$SERVICE"
+        command=$HELPER
+        RC_SVCNAME=fixture
+        supervise-daemon() { [ "$2" = --signal ] && return 1; exit 90; }
+        touch "$NEEDED"
+        reload
+        [ ! -e "$CALLS" ]
+        rm "$NEEDED"
+    '''], env=env, check=True)
+    (config / "ncm.usb0").symlink_to("../../functions/ncm.usb0")
     subprocess.run(["bash", "-eu", "-c", r'''
         . "$SERVICE"
         command=$HELPER

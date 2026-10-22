@@ -111,9 +111,10 @@ def releases(repository, fetch=fetch, channel='stable'):
     return sorted(found, key=order, reverse=True)
 
 
-# Explicitly supported add-on release channels. Add future APK add-ons here;
-# PicoClaw/acme.sh retain their own upstream/Alpine update mechanisms.
-ADDON_TAG = re.compile(r'(nanokvm-rustdesk)-(\d+\.\d+\.\d+)-r(\d+)')
+# The add-on release tags, NAME-VERSION-rN for the add-ons of
+# addon_packages.ADDONS; PicoClaw/acme.sh retain their own upstream/Alpine
+# update mechanisms.
+ADDON_TAG = addon_packages.TAG
 
 
 def independent_addons(repository, keep=6, fetch=fetch):

@@ -85,9 +85,13 @@ jobs:
                 apk --root "$root" --arch riscv64 add --initdb --no-scripts
                 apk --root "$root" --arch riscv64 update
                 apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
-                if apk --root "$root" --arch riscv64 search -e nanokvm-rustdesk | grep -q "^nanokvm-rustdesk-"; then
-                  apk --root "$root" --arch riscv64 fetch --stdout nanokvm-rustdesk > /dev/null
-                fi
+                # On a line of its own: a failure inside a for list would not stop the check.
+                addons=$(cd /scripts && python3 -c "import addon_packages; print(*addon_packages.ADDONS)")
+                for addon in $addons; do
+                  if apk --root "$root" --arch riscv64 search -e "$addon" | grep -q "^$addon-"; then
+                    apk --root "$root" --arch riscv64 fetch --stdout "$addon" > /dev/null
+                  fi
+                done
               done'
 
       - uses: actions/upload-artifact@v7

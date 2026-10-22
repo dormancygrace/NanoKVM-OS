@@ -1,0 +1,209 @@
+name: Add-on release
+
+# Builds an optional add-on from its recipe (firmware/alpine/packages/NAME/
+# addon.json, scripts/build-addon.py) and publishes it as a release of its
+# own, NAME-VERSION-rN: the APK and SHA256SUMS. Run it by hand (Actions →
+# Add-on release → Run workflow) after merging a change to the add-on. The APK
+# repository workflow then indexes it on Pages: devices get it without an OS
+# release. Nothing is signed here; devices trust the APK through the signed
+# repository index. The pin PR records it for the snapshot of future OS
+# builds; devices do not wait for it. RustDesk has a workflow of its own.
+#
+# Pull requests that change an add-on or this build, and dry runs, build and
+# check without publishing and keep the result as an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      addon:
+        description: 'Add-on'
+        type: choice
+        options: [nanokvm-ipmi]
+      dry_run:
+        description: 'Build and check only; publish nothing'
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - .github/workflows/addon.yml
+      - scripts/build-addon.py
+      - scripts/addon_packages.py
+      - scripts/next-addon-revision.py
+      - scripts/pin-addon.py
+      - firmware/alpine/packages/nanokvm-ipmi/**
+      - firmware/cpu/sysmon-runtime/**
+      - server/cmd/nkos-ipmi/**
+      - server/internal/bmc/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: addon-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  ADDON: ${{ inputs.addon || 'nanokvm-ipmi' }}
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Validate the branch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo 'Run the add-on release from main' >&2; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      # The OS build's Go: the pinned official toolchain (platform/sources.lock)
+      # with the NanoKVM runtime (firmware/cpu/sysmon-runtime).
+      - name: Go
+        run: |
+          set -euo pipefail
+          read -r _ url sum < <(awk '$1 == "go" { print $1, $2, $3 }' platform/sources.lock)
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/go.tar.gz" "$url"
+          echo "$sum  $RUNNER_TEMP/go.tar.gz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/go-base"
+          tar -xzf "$RUNNER_TEMP/go.tar.gz" -C "$RUNNER_TEMP/go-base"
+          python3 firmware/cpu/sysmon-runtime/prepare.py --base "$RUNNER_TEMP/go-base/go" --output "$RUNNER_TEMP/goroot" > /dev/null
+          "$RUNNER_TEMP/goroot/bin/go" version
+
+      - name: Version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(python3 scripts/build-addon.py --addon "$ADDON" --version-only)
+          # The request must succeed: a failure inside $(...) would count no
+          # tags and reuse a revision.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/tags"
+          revision=$(python3 scripts/next-addon-revision.py "$ADDON" "$version" < "$RUNNER_TEMP/tags")
+          tag=$ADDON-$version-r$revision
+          {
+            echo "revision=$revision"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+          echo "$tag"
+
+      # apk mkpkg records the owner of every payload file, which must be
+      # root:root. The builder runs under fakeroot, and apk runs in an Alpine
+      # container as real root (fakeroot cannot reach the container): it gives
+      # the payload to root for mkpkg and back to the runner afterwards.
+      - name: Host apk
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fakeroot
+          cat > "$RUNNER_TEMP/apk" <<'EOF'
+          #!/bin/sh
+          files=
+          output=
+          prev=
+          for arg; do
+            [ "$prev" = --files ] && files=$arg
+            [ "$prev" = --output ] && output=$arg
+            prev=$arg
+          done
+          exec docker run --rm -v "$HOME:$HOME" -v "$RUNNER_TEMP:$RUNNER_TEMP" -v /tmp:/tmp -w "$PWD" \
+            -e FILES="$files" -e OUTPUT="$output" -e OWNER="$HOST_OWNER" alpine:3.24 sh -euc '
+              [ -z "$FILES" ] || chown -R 0:0 "$FILES"
+              status=0; apk "$@" || status=$?
+              [ -z "$FILES" ] || chown -R "$OWNER" "$FILES"
+              [ ! -e "$OUTPUT" ] || chown "$OWNER" "$OUTPUT"
+              exit $status' apk "$@"
+          EOF
+          chmod 0755 "$RUNNER_TEMP/apk"
+          echo "HOST_OWNER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          REVISION: ${{ steps.version.outputs.revision }}
+          TAG: ${{ steps.version.outputs.tag }}
+          GOFLAGS: -mod=readonly
+        run: |
+          set -euo pipefail
+          fakeroot python3 scripts/build-addon.py --addon "$ADDON" --go "$RUNNER_TEMP/goroot/bin/go" \
+            --apk "$RUNNER_TEMP/apk" --output "$RUNNER_TEMP/addon" --revision "$REVISION" \
+            --commit "$GITHUB_SHA" --source-url "https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA"
+          (cd "$RUNNER_TEMP/addon" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS" && mv "$RUNNER_TEMP/SHA256SUMS" .)
+          ls -la "$RUNNER_TEMP/addon"
+          cat "$RUNNER_TEMP/addon/SHA256SUMS"
+
+      # What devices get: the version, a static riscv64 program, the files and
+      # scripts of the recipe, and the source record.
+      - name: Check the package
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          a=$RUNNER_TEMP/addon
+          docker run --rm -v "$a:$a" -v "$PWD:/src:ro" -e TAG -e ADDON -e GITHUB_SHA alpine:3.24 sh -euc '
+            apk add --no-cache file python3 > /dev/null
+            apk=$1/$TAG.apk
+            apk adbdump "$apk" | grep -qx "  version: ${TAG#"$ADDON"-}"
+            d=$(mktemp -d)
+            apk extract --allow-untrusted --destination "$d" "$apk"
+            python3 - "$d" /src/firmware/alpine/packages/$ADDON/addon.json <<"PY"
+          import json, os, subprocess, sys
+          root, recipe = sys.argv[1], json.load(open(sys.argv[2]))
+          program = root + recipe["go"]["path"]
+          out = subprocess.check_output(["file", program], text=True)
+          assert "RISC-V" in out and "statically linked" in out, out
+          for path, item in recipe["files"].items():
+              assert os.stat(root + path).st_mode & 0o777 == int(item["mode"], 8), path
+          record = json.load(open(root + "/usr/share/" + recipe["name"] + "/source.json"))
+          assert record["commit"] == os.environ["GITHUB_SHA"], record
+          PY
+            echo "package checked"' sh "$a"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: addon
+          path: ${{ runner.temp }}/addon
+          retention-days: 14
+
+  publish:
+    name: Release and pin
+    if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: addon
+          path: ${{ runner.temp }}/addon
+
+      # If a run fails after the release exists, finish the pin by hand: a rerun
+      # would count that release and build the next revision.
+      - name: Release and pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          a=$RUNNER_TEMP/addon
+          # Not the repository's latest release: that is NanoKVM OS.
+          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
+            --title "Add-on $TAG" \
+            --notes "Optional NanoKVM OS add-on $TAG, built from $GITHUB_SHA. Devices can install or update it independently of OS releases once the APK repository index has been signed and deployed." \
+            "$a"/*
+          # GITHUB_TOKEN release events do not start another workflow.
+          gh workflow run apk-repository.yml --ref main
+          branch=addons/pin-$TAG
+          git switch -c "$branch"
+          python3 scripts/pin-addon.py "$a/$TAG.apk"
+          git add firmware/alpine/addons.json
+          git -c user.name='Gleb Pesin' -c user.email=dormancygrace@gmail.com \
+            commit -q -m "addons: pin $TAG" -m "Built from $GITHUB_SHA by the add-on release workflow."
+          git push -q origin "$branch"
+          gh pr create --base main --head "$branch" --title "addons: pin $TAG" \
+            --body "Pins [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG), built from $GITHUB_SHA by the add-on release workflow. The pin keeps the snapshot of reproducible OS builds. Devices get the add-on from the APK repository without waiting for this PR or an OS release."

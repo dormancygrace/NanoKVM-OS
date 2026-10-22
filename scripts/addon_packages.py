@@ -15,10 +15,34 @@ import urllib.request
 from pathlib import Path
 
 
-# Add-on releases: this repository's nanokvm-rustdesk-* releases (the RustDesk
-# add-on workflow). No published release pins one from the archived
-# NanoKVM-OS-packages repository.
-SOURCES = ('https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-',)
+# The add-ons released apart from NanoKVM OS, each as releases of its own,
+# NAME-VERSION-rN, of this repository: RustDesk by the RustDesk add-on
+# workflow, the others by the add-on workflow (addon.yml). Pages indexes
+# them without an OS release. No published release pins one from the
+# archived NanoKVM-OS-packages repository.
+ADDONS = ('nanokvm-rustdesk', 'nanokvm-ipmi')
+RELEASES = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/'
+SOURCES = tuple(RELEASES + name + '-' for name in ADDONS)
+# A release tag, which is also the APK's name without .apk.
+TAG = re.compile('(' + '|'.join(map(re.escape, ADDONS)) + r')-(\d+\.\d+\.\d+)-r(\d+)')
+
+
+def addon(filename):
+    """The add-on name of an add-on APK file name, or None."""
+    match = TAG.fullmatch(filename.removesuffix('.apk'))
+    return match[1] if match and filename.endswith('.apk') else None
+
+
+def pin(data, filename, entry):
+    """addons.json with entry for filename, in place of that add-on's earlier
+    pin; the pins of the other add-ons stay."""
+    name = addon(filename)
+    if name is None:
+        raise ValueError(f'Not an add-on APK: {filename}')
+    packages = {k: v for k, v in manifest(data).items() if addon(k) != name}
+    packages[filename] = entry
+    manifest(json.dumps({'packages': packages}))
+    return json.dumps({'packages': dict(sorted(packages.items()))}, indent=2) + '\n'
 
 
 def manifest(data):

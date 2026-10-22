@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""The add-on builder's recipes, payload and mkpkg call; no Go or apk."""
+import importlib.util
+import json
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('build_addon', ROOT / 'scripts/build-addon.py')
+b = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(b)
+
+
+class RecipeTests(unittest.TestCase):
+    def test_every_built_add_on_has_a_valid_recipe(self):
+        recipes = [d.name for d in b.PACKAGES.iterdir() if (d / 'addon.json').is_file()]
+        self.assertIn('nanokvm-ipmi', recipes)
+        for name in recipes:
+            r = b.recipe(name)
+            self.assertEqual(r['name'], name)
+            self.assertIn(name, b.addon_packages.ADDONS)
+
+    def test_the_ipmi_add_on_has_its_own_version(self):
+        r = b.recipe('nanokvm-ipmi')
+        self.assertNotIn('PKGVER', json.dumps({k: v for k, v in r.items() if k != 'directory'}))
+        self.assertEqual(r['go']['path'], '/usr/sbin/nkos-ipmi')
+        self.assertEqual(set(r['scripts']), {'pre-upgrade', 'post-upgrade', 'pre-deinstall'})
+
+    def test_bad_recipes_are_refused(self):
+        with self.assertRaises(ValueError):
+            b.recipe('nanokvm-web')
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            good = json.loads((b.PACKAGES / 'nanokvm-ipmi/addon.json').read_text())
+            (d / 'nanokvm-ipmi').mkdir()
+            for name in ['nanokvm-ipmi.initd', 'nanokvm-ipmi.pre-upgrade', 'nanokvm-ipmi.post-upgrade',
+                         'nanokvm-ipmi.pre-deinstall']:
+                (d / 'nanokvm-ipmi' / name).write_text('#!/bin/sh\n')
+            for bad in [{'version': '3.4'}, {'name': 'nanokvm-web'},
+                        {'files': {'/etc/../x': {'source': 'nanokvm-ipmi.initd', 'mode': '0755'}}},
+                        {'scripts': {'trigger': 'nanokvm-ipmi.initd'}}, {'licenses': ['NO-SUCH-LICENSE']}]:
+                with self.subTest(bad=bad):
+                    (d / 'nanokvm-ipmi/addon.json').write_text(json.dumps({**good, **bad}))
+                    with self.assertRaises(ValueError):
+                        b.recipe('nanokvm-ipmi', d)
+
+
+class PackageTests(unittest.TestCase):
+    def test_payload_and_mkpkg(self):
+        r = b.recipe('nanokvm-ipmi')
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            program = d / 'nkos-ipmi'
+            program.write_bytes(b'\x7fELF')
+            root = d / 'payload'
+            b.payload(r, program, root, {'commit': 'abc'})
+            self.assertEqual(os.stat(root / 'usr/sbin/nkos-ipmi').st_mode & 0o777, 0o755)
+            self.assertEqual(os.stat(root / 'etc/init.d/nanokvm-ipmi').st_mode & 0o777, 0o755)
+            self.assertTrue((root / 'usr/share/licenses/nanokvm-ipmi/LICENSE').is_file())
+            self.assertEqual(json.loads((root / 'usr/share/nanokvm-ipmi/source.json').read_text()), {'commit': 'abc'})
+            command = b.mkpkg(r, Path('/apk'), root, d / 'out.apk', '0.1.0-r2')
+            self.assertEqual(command[:6], ['/apk', 'mkpkg', '--files', str(root), '--output', str(d / 'out.apk')])
+            self.assertIn('version:0.1.0-r2', command)
+            self.assertIn('name:nanokvm-ipmi', command)
+            scripts = [command[i + 1] for i, v in enumerate(command) if v == '--script']
+            self.assertEqual([s.split(':', 1)[0] for s in scripts], ['post-upgrade', 'pre-deinstall', 'pre-upgrade'])
+
+
+if __name__ == '__main__':
+    unittest.main()

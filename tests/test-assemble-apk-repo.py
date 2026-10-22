@@ -279,8 +279,8 @@ class AssembleTests(unittest.TestCase):
             'APKINDEX.tar.gz': apkindex([('nanokvm', '4-r0', len('nanokvm 4-r0'))])})
         return name, item, data
 
-    def independent_release(self, version='0.6.0', revision=0, **flags):
-        tag = f'nanokvm-rustdesk-{version}-r{revision}'
+    def independent_release(self, version='0.6.0', revision=0, name='nanokvm-rustdesk', **flags):
+        tag = f'{name}-{version}-r{revision}'
         filename = tag + '.apk'
         data = tag.encode()
         url = f'https://github.com/dormancygrace/NanoKVM-OS/releases/download/{tag}/{filename}'
@@ -311,6 +311,13 @@ class AssembleTests(unittest.TestCase):
         self.independent_release('0.10.0', revision=3, draft=True)
         self.independent_release('1.0.0', prerelease=True)
         self.assertEqual(list(a.independent_addons('dormancygrace/NanoKVM-OS', 1, self.fake.fetch)), [wanted])
+
+    def test_every_registered_addon_is_released_independently(self):
+        rustdesk, _ = self.independent_release('0.6.0')
+        ipmi, _ = self.independent_release('0.1.0', name='nanokvm-ipmi')
+        self.independent_release('0.1.0', name='nanokvm-unregistered')
+        entries = a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
+        self.assertEqual(sorted(entries), [ipmi, rustdesk])
 
     def test_independent_addon_corruption_stops_assembly(self):
         name, url = self.independent_release()

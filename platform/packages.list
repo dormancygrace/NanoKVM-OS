@@ -34,6 +34,7 @@ base  file  /usr/sbin/nkos-usb-internet                  0755  @server/nkos-usb-
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
 base  file  /etc/chrony.conf                              0644  firmware/alpine/etc/chrony.conf
+base  file  /etc/sysctl.d/10-nanokvm-qdisc.conf          0644  firmware/alpine/etc/sysctl.d/10-nanokvm-qdisc.conf
 base  file  /etc/nanokvm-buildroot                        0644  %nanokvm-buildroot
 # /etc/profile.d/nanokvm-banner.sh is added by the nanokvm-base APKBUILD.
 base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/openrc/nanokvm-app

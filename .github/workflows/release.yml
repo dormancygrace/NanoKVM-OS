@@ -61,7 +61,6 @@ env:
   # version and file from there (scripts/package-versions.py).
   NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64
   # The release keys, under their names in firmware/alpine/keys.
-  RSA_KEY_NAME: dgrace-6aaddbb6
   EC_KEY_NAME: nkos-release-ec-b8e89b66
 
 jobs:
@@ -205,21 +204,19 @@ jobs:
       # platform/build.sh pairs them; it refuses keys that are not there.
       - name: Signing keys
         env:
-          RSA_KEY: ${{ secrets.APK_RSA_KEY }}
           EC_KEY: ${{ secrets.APK_EC_KEY }}
         run: |
-          [ -n "$RSA_KEY" ] && [ -n "$EC_KEY" ] || { echo 'APK_RSA_KEY and APK_EC_KEY are not set' >&2; exit 1; }
+          [ -n "$EC_KEY" ] || { echo 'APK_EC_KEY is not set' >&2; exit 1; }
           k=$RUNNER_TEMP/keys
           install -d -m 0700 "$k"
           (umask 077
-           printf '%s\n' "$RSA_KEY" > "$k/$RSA_KEY_NAME.rsa"
            printf '%s\n' "$EC_KEY" > "$k/$EC_KEY_NAME.key")
-          cp "firmware/alpine/keys/$RSA_KEY_NAME.rsa.pub" "firmware/alpine/keys/$EC_KEY_NAME.pub" "$k/"
+          cp "firmware/alpine/keys/$EC_KEY_NAME.pub" "$k/"
 
       - uses: ./.github/actions/assemble-release
         with:
           out: ${{ env.OUT }}
-          keys: -k ${{ runner.temp }}/keys/${{ env.RSA_KEY_NAME }}.rsa -e ${{ runner.temp }}/keys/${{ env.EC_KEY_NAME }}.key
+          keys: -e ${{ runner.temp }}/keys/${{ env.EC_KEY_NAME }}.key
           image: ${{ needs.build.outputs.image }}
 
       - name: Remove the keys

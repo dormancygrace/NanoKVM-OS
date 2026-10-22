@@ -68,10 +68,11 @@ upgrading it moves the official NanoKVM repository from the earlier URLs on
 https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 ```
 
-The v3 index is signed with both RSA and ECDSA P-256 during the transition.
-The RSA-signed `APKINDEX.tar.gz` remains published for older installations,
-allowing them to obtain the update and keys through their existing repository.
-No manual key download or repository edit is required for the official URL.
+From v3.4.0, new core packages and both indexes are signed only with ECDSA P-256.
+Devices on 3.3.x already trust this key and update normally. Devices that trust
+only the old RSA key must first install a transition release (2.5 through 3.3.x)
+or install the published EC key and current repository URL manually. The old
+RSA public key remains installed for historical packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
 The legacy index includes the thirteen core packages. The v3 index also

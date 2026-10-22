@@ -14,6 +14,7 @@ on:
       - scripts/assemble-apk-repo.py
       - scripts/addon_packages.py
       - scripts/index-apk-repo.py
+      - scripts/check-ec-key.sh
       - tests/test-index-apk-repo.py
       - firmware/alpine/addons.json
       - tests/test-assemble-apk-repo.py
@@ -42,7 +43,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/assemble-apk-repo.py --output site
 
-      # As a device sees it: each release key alone verifies the v3 index,
+      # As a device sees it: published keys verify current or historical indexes,
       # core packages carry trusted signatures; pinned add-ons are authenticated
       # through the signed index, and apk reads/fetches them as a device does.
       - name: Check with apk
@@ -52,10 +53,7 @@ jobs:
             alpine:3.24 sh -euc '
               apk add --no-cache python3 openssl > /dev/null
               for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do
-                for key in /keys/*.pub; do
-                  dir=$(mktemp -d); cp "$key" "$dir/"
-                  apk --keys-dir "$dir" verify "$repo/Packages.adb"
-                done
+                apk --keys-dir /keys verify "$repo/Packages.adb"
                 python3 /scripts/index-apk-repo.py --repo "$repo" --keys /keys
                 # Only a disposable test key is available in the assembly job.
                 testkeys=$(mktemp -d)
@@ -96,27 +94,24 @@ jobs:
           path: site
       - name: Sign and verify the index
         env:
-          RSA_KEY: ${{ secrets.APK_RSA_KEY }}
           EC_KEY: ${{ secrets.APK_EC_KEY }}
         run: |
           set -euo pipefail
-          [ -n "$RSA_KEY" ] && [ -n "$EC_KEY" ]
+          [ -n "$EC_KEY" ]
           k=$RUNNER_TEMP/index-keys
           install -d -m 0700 "$k"
           trap 'rm -rf "$k"' EXIT
           (umask 077
-           printf '%s\n' "$RSA_KEY" > "$k/release.rsa"
            printf '%s\n' "$EC_KEY" > "$k/release.key")
+          cp firmware/alpine/keys/nkos-release-ec-b8e89b66.pub "$k/"
+          scripts/check-ec-key.sh "$k/release.key" "$k/nkos-release-ec-b8e89b66.pub"
           branch=$(ls site/alpine)
           docker run --rm -v "$PWD/site:/site" -v "$k:/signing:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -e "branch=$branch" \
             alpine:3.24 sh -euc '
               for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do
-                apk --allow-untrusted --sign-key /signing/release.rsa --sign-key /signing/release.key \
+                apk --allow-untrusted --sign-key /signing/release.key \
                   adbsign --reset-signatures "$repo/Packages.pending.adb"
-                for key in /keys/*.pub; do
-                  dir=$(mktemp -d); cp "$key" "$dir/"
-                  apk --keys-dir "$dir" verify "$repo/Packages.pending.adb"
-                done
+                apk --keys-dir /signing verify "$repo/Packages.pending.adb"
                 mv "$repo/Packages.pending.adb" "$repo/Packages.adb"
               done'
       - name: Remove signing keys

@@ -201,5 +201,26 @@ class PackageVersionTests(unittest.TestCase):
             pv.main(['manifest', '--versions', str(out / 'versions.json'), '--repo', str(repo)])
 
 
+class SigningTransitionTests(unittest.TestCase):
+    def test_legacy_rsa_packages_are_rebuilt_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payloads, recipes = root / 'payloads', root / 'recipes'
+            previous = {'packages': {}}
+            for name, payload in pv.PACKAGES.items():
+                if payload:
+                    (payloads / payload).mkdir(parents=True, exist_ok=True)
+                recipe = recipes / name
+                recipe.mkdir(parents=True)
+                (recipe / 'APKBUILD').write_text('fixture')
+                legacy = hashlib.sha256(('payload ' + pv.tree_digest(payload and payloads / payload)
+                                         + ' recipe ' + pv.tree_digest(recipe)).encode()).hexdigest()
+                previous['packages'][name] = {'version': '3.3.4', 'content_sha256': legacy}
+            selected = pv.select(payloads, recipes, '3.4.0', previous)
+            self.assertTrue(all(p['changed'] and p['version'] == '3.4.0' for p in selected.values()))
+            again = pv.select(payloads, recipes, '3.4.1', {'packages': selected})
+            self.assertEqual({n for n, p in again.items() if p['changed']}, pv.ALWAYS)
+
+
 if __name__ == '__main__':
     unittest.main()

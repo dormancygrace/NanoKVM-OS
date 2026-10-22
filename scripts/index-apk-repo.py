@@ -3,7 +3,7 @@
 
 Only current OS packages and retained optional add-ons enter the index. Old
 core files stay downloadable for cached indexes, but cannot be selected anew.
-The signing job adds both production signatures after this read-only-key job.
+The signing job adds the ECDSA production signature after this read-only-key job.
 """
 import argparse
 import importlib.util

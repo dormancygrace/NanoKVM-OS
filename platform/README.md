@@ -59,7 +59,7 @@ platform/build.sh -d
 ```
 
 This creates a local test image signed with generated test keys. For official
-release signing, supply both keys as described [below](#signing-key).
+release signing, supply the ECDSA key as described [below](#signing-key).
 
 The build needs no root. The packages, rootfs and image steps run as root of a user namespace: it maps the subordinate IDs, so that the root file system gets its real owners, and starts riscv64 programs through qemu in the namespace's own `binfmt_misc`. Files in `OUTPUT/apk-builder` and `OUTPUT/rootfs` then belong to subordinate IDs; `build.sh clean` deletes them.
 
@@ -94,9 +94,19 @@ from the published repository replaces the debug kernel on `apk upgrade`.
 
 ## Signing key
 
-The APK packages and indexes are signed, and the packages and rootfs steps need keys. Release builds pass both maintainer keys: `-k path/to/dgrace-6aaddbb6.rsa` (RSA, with its `.rsa.pub` next to it) and `-e path/to/nkos-release-ec-b8e89b66.key` (ECDSA P-256, with `nkos-release-ec-b8e89b66.pub` next to it). Both public keys must be in `firmware/alpine/keys`, or `build.sh` stops before the first step. Local test builds pass `-d` instead: the first run creates the test keys `OUTPUT/keys/nanokvm-test-*.rsa` and `nanokvm-test-ec-*.key`, and the image trusts them, so never publish those packages or images. apk does not tie a key to a repository: a device trusts every key in `/etc/apk/keys` for every repository it uses.
+From v3.4.0, the packages and both indexes are signed only with ECDSA.
+Release builds pass `-e path/to/nkos-release-ec-b8e89b66.key`, with the matching
+`nkos-release-ec-b8e89b66.pub` next to it. The public key must already be in
+`firmware/alpine/keys`. The build rejects RSA keys, encrypted keys and mismatched
+pairs before building. `-k` is no longer accepted. Local builds use `-d` to
+create/reuse `OUTPUT/keys/nanokvm-test-ec-*.key`; never publish these packages or
+images. apk trusts each key in `/etc/apk/keys` for every repository it uses.
 
-The packages step signs the packages and the v2 index `APKINDEX.tar.gz` with the RSA key (RSA256: RSA with SHA-256), and writes the apk-tools v3 index `Packages.adb` next to it, signed with the ECDSA key and the RSA key; it checks that each key alone verifies `Packages.adb`. Devices up to 2.0 read the v2 index; images from 2.5 on read `https://nkos.pesin.pro/repos/nanokvm/riscv64/Packages.adb`.
+The v2 packages and `APKINDEX.tar.gz` use ECDSA/SHA-256 with apk-tools' historical
+`RSA256` digest marker, while `Packages.adb` uses native v3 ECDSA signing. All
+new core packages are checked with the EC key alone; historical RSA public keys
+remain installed for old package verification and rollback. See the
+[signing policy and migration](../firmware/alpine/README.md#ecdsa-only-signing-from-v340).
 
 The package `nanokvm-keys` installs the public keys of `firmware/alpine/keys` (with `-d`, also the test keys) in `/etc/apk/keys` and owns them, so a later release can add or remove a key; on an older device it also moves the NanoKVM repository line to the v3 index. The rootfs step copies the keys into the root before it installs `nanokvm-release`, and apk takes over the identical files; the step fails if a key in `/etc/apk/keys` has no owner. Publishing a release, moving to the ECDSA key and replacing a key are described in [firmware/alpine/README.md](../firmware/alpine/README.md#signing-keys).
 

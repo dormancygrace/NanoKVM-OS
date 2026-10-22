@@ -34,8 +34,10 @@ payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
 
 Each package has its own version: the release in which its content last
 changed. The content is the payload tree (paths, modes, links and file
-contents) and the recipe directory. `scripts/package-versions.py` compares
-both with the `packages.json` of the previous release:
+contents), the recipe directory and the signing-policy identifier.
+`scripts/package-versions.py` compares their combined fingerprint with
+`packages.json` from the previous release. The ECDSA transition in v3.4.0
+changes that identifier once, rebuilding every core package:
 
 - an unchanged package keeps its published version, and the release reuses its
   published file instead of rebuilding it;
@@ -101,6 +103,8 @@ On an Alpine riscv64 or x86_64 builder with `abuild` configured:
 ```sh
 PAYLOAD_ROOT=/path/to/payloads \
   REPODEST=/path/to/repo \
+  PACKAGER_PRIVKEY=/path/to/release.key \
+  PACKAGER_PUBKEY=/path/to/release.pub \
   ./scripts/build-alpine-packages.sh stock
 ```
 
@@ -115,8 +119,10 @@ The helper copies each recipe to a temporary build directory and runs
 `abuild checksum` there before `abuild -r`. This keeps checksums out of the
 working tree while retaining normal APKBUILD checksum verification. The final
 repository check requires a valid `APKINDEX.tar.gz` and one APK per recipe;
-package and index signing are performed by the configured abuild key, with
-RSA256 signatures (RSA with SHA-256) instead of abuild's default RSA with SHA-1.
+package and index signing use the validated ECDSA key and SHA-256. The v2
+archive marker remains `RSA256` because apk-tools uses it to select SHA-256;
+the actual algorithm is ECDSA, determined by the EC key. New files are verified
+with the EC public key alone. See the [signing policy](../README.md#signing-keys).
 
 The kernel APK stages all board FITs and their hashes below
 `/usr/lib/nanokvm/boot` and has an exact dependency on the matching module APK.

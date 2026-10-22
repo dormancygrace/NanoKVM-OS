@@ -129,7 +129,8 @@ CONFIG_TICK_CPU_ACCOUNTING=y
 # CONFIG_IRQ_TIME_ACCOUNTING is not set
 # CONFIG_BSD_PROCESS_ACCT is not set
 # CONFIG_TASKSTATS is not set
-# CONFIG_PSI is not set
+CONFIG_PSI=y
+CONFIG_PSI_DEFAULT_DISABLED=y
 # end of CPU/Task time and stats accounting
 
 #

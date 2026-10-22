@@ -452,10 +452,9 @@ void kvm_update_stream_type(void)
 
 	// type
 	fp = fopen("/kvmapp/kvm/type", "r");
-    fseek(fp, 0, SEEK_END);
-    file_size = ftell(fp); 
-    fseek(fp, 0, SEEK_SET);
-    fread(RW_Data, sizeof(char), file_size, fp);
+	// Absent until S95nanokvm writes the default: keep the last value.
+	if (fp == NULL) return;
+	file_size = fread(RW_Data, sizeof(char), sizeof(RW_Data), fp);
 	fclose(fp);
 	if (file_size >= 5 && !memcmp(RW_Data, "mjpeg", 5))
 		kvm_sys_state.type = KVM_TYPE_MJPG;
@@ -476,10 +475,9 @@ void kvm_update_stream_qlty(void)
 
 	// QLTY
 	fp = fopen("/kvmapp/kvm/qlty", "r");
-    fseek(fp, 0, SEEK_END);
-    file_size = ftell(fp); 
-    fseek(fp, 0, SEEK_SET);
-    fread(RW_Data, sizeof(char), file_size, fp);
+	// Absent until S95nanokvm writes the default: keep the last value.
+	if (fp == NULL) return;
+	file_size = fread(RW_Data, sizeof(char), sizeof(RW_Data) - 1, fp);
 	fclose(fp);
 	RW_Data[file_size] = 0;
 	tmp16 = atoi((char*)RW_Data);

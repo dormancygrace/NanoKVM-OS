@@ -53,8 +53,9 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     asset = "kvmapp/server/web/index.html"
     library = "kvmapp/server/dl_lib/libkvm.so"
     config = "kvmapp/kvm/fps"
+    default = "kvmapp/kvm/qlty"
     package("nanokvm-app", "3.0_alpha1-r1",
-            {binary: "old server", asset: "old web", library: "old lib", config: "60"},
+            {binary: "old server", asset: "old web", library: "old lib", config: "60", default: "15000"},
             provides="nanokvm-rustdesk-bridge=1")
     package("runtime-fixture", "1-r0", {}, provides="libgcc=99 libstdc++=99 nanokvm-base=3.0_alpha1-r1")
     package("rustdesk-fixture", "1-r0", {}, depends="nanokvm-rustdesk-bridge=1")
@@ -70,7 +71,8 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     (root / config).write_text("75")
     versions = {}
     for name, files in [
-        ("nanokvm", {binary: "new server", library: "new lib", config: "60"}),
+        # No package owns the video settings any more (S95nanokvm writes them).
+        ("nanokvm", {binary: "new server", library: "new lib"}),
         ("nanokvm-web", {asset: "new web"}),
         ("nanokvm-app", {})
     ]:
@@ -90,7 +92,10 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     assert (root / binary).read_text() == "new server"
     assert (root / asset).read_text() == "new web"
     assert (root / library).read_text() == "new lib"
-    assert (root / config).read_text() == "75", "user configuration must survive ownership transfer"
+    assert (root / config).read_text() == "75", "a changed setting must survive losing its owner"
+    # apk removes the unchanged default it no longer owns; S95nanokvm writes it again.
+    assert not (root / default).exists()
+    assert "nanokvm" not in run(*base, "info", "--who-owns", "/" + config, ok=False)
     for path, owner in [(binary, "nanokvm-" + versions["nanokvm"]), (asset, "nanokvm-web-" + versions["nanokvm-web"])]:
         assert owner in run(*base, "info", "--who-owns", "/" + path)
     # A compatible web revision must not upgrade or overwrite the backend.

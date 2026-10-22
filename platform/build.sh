@@ -787,20 +787,18 @@ payloads() {
     rm -rf "$p"
     gen=$out/payloads-gen
     rm -rf "$gen"
-    mkdir -p "$gen/kvm"
+    mkdir -p "$gen"
     # Written below once the application payload is complete.
     : > "$gen/build-manifest.json"
     : > "$gen/web-build-manifest.json"
+    # No package owns the video settings now; the path stays protected so that
+    # an update from a release that did keeps the settings a user changed.
     printf '+kvmapp/kvm\n' > "$gen/protected-paths"
     # No longer read by this tree. Applications up to v2.6-a3 check it to pick
     # the GPIO ABI v2, HDMI reset driver and runtime defaults; drop it once
     # those applications are out of support.
     printf 'Alpine 3.24; SG2002/C906; flavour=%s\n' enhanced > "$gen/nanokvm-buildroot"
     printf '%s\n' "${version#v}" > "$gen/version"
-    printf '%s' 90 > "$gen/kvm/fps"
-    printf '%s' 15000 > "$gen/kvm/qlty"
-    printf '%s' 0 > "$gen/kvm/res"
-    printf '%s' h265 > "$gen/kvm/type"
     # The release version and source commit live only in nanokvm-release, so
     # that a component package changes only when its files do.
     commit=$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)

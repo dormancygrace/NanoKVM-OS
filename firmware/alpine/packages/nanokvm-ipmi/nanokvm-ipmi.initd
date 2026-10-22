@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+
+description="NanoKVM IPMI: IPMI over LAN power control of the host"
+
+command=/usr/sbin/nkos-ipmi
+command_background=true
+pidfile=/run/nanokvm-ipmi.pid
+output_logger="logger -t nkos-ipmi"
+error_logger="logger -t nkos-ipmi"
+
+depend() {
+    # The daemon reaches the buttons through the server's loopback API.
+    after nanokvm-app
+    use net
+}

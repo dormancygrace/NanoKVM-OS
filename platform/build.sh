@@ -23,8 +23,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the thirteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the thirteen packages
+#   payloads   contents of the NanoKVM packages, from packages.list
+#   packages   signed APK repository of the thirteen core packages and nanokvm-ipmi
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -585,7 +585,7 @@ server() {
         "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
         --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out"
     cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
-    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$img/server/"
+    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-ipmi" "$img/server/"
 }
 
 # Web UI. npm packages are checked against pnpm-lock.yaml.
@@ -781,7 +781,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the thirteen package payloads from packages.list.
+# Assemble the package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -1047,7 +1047,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the thirteen packages with abuild in an Alpine riscv64 tree.
+# Build the packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu

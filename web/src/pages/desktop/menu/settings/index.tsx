@@ -31,6 +31,7 @@ import {
   PackageIcon,
   PaletteIcon,
   RadioTowerIcon,
+  ServerIcon,
   SettingsIcon,
   ShieldIcon,
   StethoscopeIcon,
@@ -117,6 +118,9 @@ const Addons = lazyPage(() =>
 );
 const RustDeskControls = lazyPage(() =>
   import('./extensions/rustdesk').then((module) => ({ default: module.RustDeskControls }))
+);
+const BmcSettingsPage = lazyPage(() =>
+  import('./system/bmc').then((module) => ({ default: module.BmcSettingsPage }))
 );
 const Software = lazyPage(() =>
   import('./software').then((module) => ({ default: module.Software }))
@@ -266,6 +270,7 @@ export const Settings = ({
           { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
           { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
           { id: 'system-security', icon: <LockIcon size={16} />, component: <Security /> },
+          { id: 'system-bmc', icon: <ServerIcon size={16} />, component: <BmcSettingsPage /> },
           {
             id: 'system-date-time',
             icon: <ClockIcon size={16} />,
@@ -286,6 +291,7 @@ export const Settings = ({
             component: (
               <Addons
                 onOpenRustDesk={() => changeTab('software-rustdesk')}
+                onOpenBmc={() => changeTab('system-bmc')}
                 onOpenAcme={() => changeTab('system-security')}
                 onOpen={() => {
                   closeModal();
@@ -487,6 +493,7 @@ export const Settings = ({
     if (id === 'software-addons') return t('settings.software.addons.title');
     if (id === 'software-packages') return t('settings.software.addons.packages');
     if (id === 'software-rustdesk') return 'RustDesk';
+    if (id === 'system-bmc') return t('settings.bmc.title');
     if (id === 'account') return t('settings.account.title');
     return t(`settings.${id}.title`);
   }

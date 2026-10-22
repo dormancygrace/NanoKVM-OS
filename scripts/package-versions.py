@@ -35,10 +35,13 @@ PACKAGES = {
     'nanokvm-zlib': 'zlib',
     'nanokvm-exfatprogs': 'exfatprogs',
     'nanokvm-i2c-tools': 'i2c-tools',
+    'nanokvm-ipmi': 'ipmi',
     'nanokvm-release': 'release',
 }
 GROUPS = [{'nanokvm-kernel-sg2002', 'nanokvm-kmod-sg2002'}]
 ALWAYS = {'nanokvm-release'}
+# Published with the release, required by no package (installed on request).
+OPTIONAL = {'nanokvm-ipmi'}
 PKGREL = 'r0'
 
 

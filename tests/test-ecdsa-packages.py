@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory() as directory:
     run(validate, work / 'p384.key', work / 'p384.pub')
     payloads = work / 'payloads'
     for name in ('base', 'kernel-sg2002', 'kmod-sg2002', 'firmware-sg2002',
-                 'bootloader-sg2002', 'app', 'web', 'zlib', 'exfatprogs', 'i2c-tools'):
+                 'bootloader-sg2002', 'app', 'web', 'zlib', 'exfatprogs', 'i2c-tools', 'ipmi'):
         path = payloads / name / 'usr/share/ec-test'
         path.mkdir(parents=True)
         (path / name).write_text(name)
@@ -95,7 +95,7 @@ with tempfile.TemporaryDirectory() as directory:
     run('sh', fixture / 'scripts/build-alpine-packages.sh', 'stock', env=env)
     repo = work / 'repo/stock/recipes/riscv64'
     packages = sorted(repo.glob('*.apk'))
-    assert len(packages) == 13
+    assert len(packages) == 14
     for path in packages + [repo / 'APKINDEX.tar.gz']:
         run('apk', '--keys-dir', ec, 'verify', path)
         run('apk', '--keys-dir', rsa, 'verify', path, ok=False)

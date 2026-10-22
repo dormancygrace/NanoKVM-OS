@@ -79,6 +79,7 @@ func server(r *gin.Engine) {
 	downloadRouter(r)
 	extensionsRouter(r)
 	addonsRouter(r)
+	bmcRouter(r)
 	rustdeskRouter(r)
 	osUpdateRouter(r)
 }
@@ -86,5 +87,6 @@ func server(r *gin.Engine) {
 func LoopbackHTTPAllowedPaths() []string {
 	paths := PicoclawLoopbackHTTPAllowedPaths()
 	paths = append(paths, HIDLoopbackHTTPAllowedPaths()...)
+	paths = append(paths, BMCLoopbackHTTPAllowedPaths()...)
 	return paths
 }

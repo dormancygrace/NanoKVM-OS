@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/startpriority"
 	"NanoKVM-Server/proto"
 	hdmistate "NanoKVM-Server/service/vm/hdmi_state"
 	"NanoKVM-Server/utils"
@@ -189,6 +190,9 @@ func updateHdmiViewerSnapshotLocked(source string, count int, version uint64) {
 
 	if !hdmiDemand.UpdateViewer(source, count, version) {
 		return
+	}
+	if count > 0 {
+		startpriority.ViewerConnected()
 	}
 	reconcileHdmiCaptureDemandLocked()
 }

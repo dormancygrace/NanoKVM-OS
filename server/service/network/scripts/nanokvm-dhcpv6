@@ -34,7 +34,9 @@ case "$action" in
         # S02ipv6 stops it at every apply with IPv6 off, and resolvconf alone
         # costs about half a second.
         [ -e "$started" ] || [ -e "$pid" ] || [ -e "$record" ] || exit 0
-        rm -f "$started"
+        # Retain retry evidence even for an older PID-only client. A failed
+        # resolvconf cleanup must not make the next stop look like an idle boot.
+        : > "$started"
         if running; then kill "$(cat "$pid")" 2>/dev/null || true; fi
         rm -f "$pid"
         # The event script records the address; remove it here instead of
@@ -43,7 +45,9 @@ case "$action" in
             ip -6 addr del "$(cat "$record")" dev "$iface" 2>/dev/null || true
             rm -f "$record"
         fi
-        resolvconf -d "nkos.dhcpv6.$iface" -f 2>/dev/null || true
+        if resolvconf -d "nkos.dhcpv6.$iface" -f 2>/dev/null; then
+            rm -f "$started"
+        fi
         ;;
     *) exit 2 ;;
 esac

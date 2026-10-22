@@ -54,6 +54,12 @@ stop_legacy() {
 idle_applied='{"FlowUnsupported":false,"AddressOwned":false,"Prefix":"","Address":"","Uplink":"","Config":"","Rules":"","Routing":"","Forward":{}}'
 helper_idle() {
     [ ! -L "$NANOKVM_USB_NET_CONFIG/ncm.usb0" ] && [ ! -L "$NANOKVM_USB_NET_CONFIG/rndis.usb0" ] || return 1
+    # ReadStatus keeps cleanup errors visible until a successful retry. An
+    # empty/missing applied state alone does not prove the last call succeeded.
+    if [ -e "$NANOKVM_USB_NET_RUN/status.json" ]; then
+        status=$(cat "$NANOKVM_USB_NET_RUN/status.json") || return 1
+        case "$status" in *'"state":"error"'*) return 1 ;; esac
+    fi
     [ -e "$NANOKVM_USB_NET_RUN/applied.json" ] || return 0
     [ "$(cat "$NANOKVM_USB_NET_RUN/applied.json")" = "$idle_applied" ]
 }

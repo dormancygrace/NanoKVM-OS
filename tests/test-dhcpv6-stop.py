@@ -35,4 +35,15 @@ with tempfile.TemporaryDirectory() as tmp:
     calls.unlink()
     (run / 'udhcpc6.eth0.pid').write_text('999999\n')
     assert stop(), 'a client from an older script was not cleaned up'
-print('PASS: idle stop, started client, older client')
+    # A transient resolvconf failure must not turn later stops into no-ops.
+    for evidence in ('started', 'pid'):
+        calls.unlink(missing_ok=True)
+        (run / f'udhcpc6.eth0.{evidence}').write_text('999999\n')
+        (stubs / 'resolvconf').write_text(f'#!/bin/sh\necho failed >> {calls}\nexit 1\n')
+        stop()
+        (stubs / 'resolvconf').write_text(f'#!/bin/sh\necho retried >> {calls}\n')
+        stop()
+        assert 'retried' in calls.read_text().splitlines(), 'failed DNS cleanup was never retried'
+        calls.unlink()
+        assert stop() == [], 'successful cleanup did not restore the idle shortcut'
+print('PASS: idle stop, started/older client, DNS cleanup retry')

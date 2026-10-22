@@ -1,0 +1,18 @@
+{
+  "component": "Alpine minirootfs",
+  "current": "3.24.2",
+  "candidate": "3.24.3",
+  "candidate_key": "3.24.3",
+  "status": "pending-review",
+  "upstream": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/",
+  "source_path": "platform/sources.lock",
+  "strategy": "archive-pin",
+  "evidence": {
+    "archive": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.3-riscv64.tar.gz",
+    "sha256": "9714553757e7bf645eff5dcc52bdd206f358a7bed77874842567852e8326a51d"
+  },
+  "pin_files_updated": [
+    "platform/build.sh",
+    "platform/sources.lock"
+  ]
+}

@@ -941,7 +941,7 @@ register_qemu() {
 alpine_tree() {
     rm -rf "$1"
     mkdir -p "$1"
-    tar --numeric-owner -xzf "$dl/alpine-minirootfs-3.24.2-riscv64.tar.gz" -C "$1"
+    tar --numeric-owner -xzf "$dl/alpine-minirootfs-3.24.3-riscv64.tar.gz" -C "$1"
 }
 
 # Run a command in the Alpine tree $1 with /dev, /proc, /sys, the host DNS

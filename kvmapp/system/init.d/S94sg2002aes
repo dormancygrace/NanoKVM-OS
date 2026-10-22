@@ -1,14 +1,12 @@
 #!/bin/sh
-# Optional shared CryptoDMA owner and standard userspace Crypto API.
+# Optional shared CryptoDMA owner. cryptodev (/dev/crypto) stays installed
+# but is not loaded: nothing in the system uses it (`modprobe cryptodev`).
 case "$1" in
     start|restart)
         if [ ! -e /etc/kvm/disable_hardware_aes ] && [ ! -d /sys/module/sg2002_aes_probe ]; then
             if [ -f "/lib/modules/$(uname -r)/extra/sg2002_aes_probe.ko" ]; then
                 modprobe sg2002_aes_probe || echo 'SG2002 CryptoDMA unavailable; application fallback remains available' >&2
             fi
-        fi
-        if [ -f "/lib/modules/$(uname -r)/extra/cryptodev.ko" ]; then
-            modprobe cryptodev || echo 'cryptodev unavailable' >&2
         fi
         ;;
     stop)

@@ -121,3 +121,9 @@ Checked on the stand (Linux 7.3):
 - 256 KiB does not compress (gzip -9 output is larger than its input);
 - three unloads and loads in a row, each followed by new output;
 - the efuse clocks are on only while the module is loaded.
+
+## /dev/crypto
+
+The CryptoDMA engine (AES, SM4, DES, SHA) is driven by `sg2002_aes_probe`, which loads at boot unless `/etc/kvm/disable_hardware_aes` exists. Kernel users of these algorithms, such as IPsec or OpenVPN data channel offload with AES-GCM, reach it through the kernel Crypto API; the server's SRTP uses the driver's own device.
+
+`cryptodev` exposes the kernel Crypto API to programs as `/dev/crypto`. It is installed but not loaded, since nothing in NanoKVM OS uses it and Alpine's OpenSSL has no devcrypto engine; `modprobe cryptodev` loads it. Each request costs an `ioctl`, so it is faster than the CPU only for large blocks: on the stand AES-256-CBC took 1 KiB at 14 MB/s and 8 KiB at 47 MB/s against about 8 MB/s in software, and blocks of 16–256 bytes were 7–25 times slower than software.

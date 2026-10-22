@@ -202,3 +202,37 @@ func TestHTTPPort(t *testing.T) {
 		t.Fatalf("port %d without a block", p)
 	}
 }
+
+// Unlike fakeATX, a short press while on can ask the OS to shut down.
+type toggleATX struct{ fakeATX }
+
+func (f *toggleATX) Press(_ context.Context, button string, ms int) error {
+	f.presses = append(f.presses, fmt.Sprintf("%s %d", button, ms))
+	if button == "power" {
+		if ms >= 4000 {
+			f.state.PowerOn = false
+		} else {
+			f.state.PowerOn = !f.state.PowerOn
+		}
+	}
+	return nil
+}
+
+func TestCycleRejectsAnotherControllerDuringSettle(t *testing.T) {
+	atx := &toggleATX{*atxBoard(true)}
+	other := &Power{ATX: atx}
+	p := &Power{ATX: atx, sleep: func(ctx context.Context, d time.Duration) error {
+		if d == 2*time.Second {
+			if err := other.On(ctx); err == nil {
+				t.Error("another controller turned on the host inside an unfinished cycle")
+			}
+		}
+		return nil
+	}}
+	if err := p.Cycle(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !atx.state.PowerOn || len(atx.presses) != 2 {
+		t.Fatalf("cycle ended on=%v, presses=%v", atx.state.PowerOn, atx.presses)
+	}
+}

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"NanoKVM-Server/internal/bmc"
 )
 
 type fakePower struct {
@@ -173,5 +175,16 @@ func TestFailedLoginTableIsBounded(t *testing.T) {
 	guess("192.0.2.9:50000")
 	if len(h.failed) != 1 {
 		t.Fatalf("%d counters a day later, want 1", len(h.failed))
+	}
+}
+
+type busyPower struct{ fakePower }
+
+func (*busyPower) On(context.Context) error { return bmc.ErrActionBusy }
+func TestBusyActionReturnsRetryableError(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &busyPower{})
+	rec := do(h, "POST", resetActionPath, "{}", admin)
+	if rec.Code != 503 || rec.Header().Get("Retry-After") != "1" {
+		t.Fatalf("busy action: %d %v %s", rec.Code, rec.Header(), rec.Body)
 	}
 }

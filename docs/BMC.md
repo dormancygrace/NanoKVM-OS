@@ -49,8 +49,9 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
 - **IPMI** runs in the add-on's daemon `nkos-ipmi` (OpenRC service `nanokvm-ipmi`, about 1 MiB of its own memory).
   - It is apart from the server so that a fault in parsing untrusted UDP packets cannot stop the server and its video.
   - It listens on UDP 623 (configurable).
-  - It reaches the buttons through the server's loopback-only `/api/internal/atx`, which takes the internal token. It never opens a GPIO line itself.
+  - It reaches the buttons through the server's loopback-only `/api/internal/atx`, which takes the internal token. It submits complete power operations, including a cycle’s wait and second press, and never opens a GPIO line itself.
   - A power action is answered at once and then carried out, since a forced power-off holds the button for longer than `ipmitool` waits.
+- **BMC operations are exclusive:** Redfish and IPMI share a server-side guard for the whole operation. An overlapping BMC action fails as busy; Redfish returns HTTP 503. IPMI acknowledges queued commands before execution, so execution failures appear in the application log.
 - **The buttons and LEDs are the web page's:** the same GPIO lines, pulse lock and LED monitor.
 
 The add-on has a version of its own and is released apart from NanoKVM OS: its updates reach devices through the package repository, without an OS release. Removing the add-on keeps `/etc/kvm/bmc` and Redfish. NanoKVM Lite has no ATX lines: power requests fail there, and Redfish omits `PowerState`.

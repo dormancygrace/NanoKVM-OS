@@ -421,6 +421,9 @@ func (h *Handler) reset(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), time.Minute)
 	defer cancel()
 	switch err := action(ctx); {
+	case errors.Is(err, bmc.ErrActionBusy):
+		w.Header().Set("Retry-After", "1")
+		writeError(w, http.StatusServiceUnavailable, "ServiceTemporarilyUnavailable", err.Error())
 	case errors.Is(err, bmc.ErrNoATX), errors.Is(err, bmc.ErrNoReset):
 		writeError(w, http.StatusBadRequest, "ActionNotSupported", err.Error())
 	case err != nil:

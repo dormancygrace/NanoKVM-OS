@@ -3,6 +3,7 @@ package bmc
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -18,7 +19,9 @@ var (
 	// ErrNoReset: the board has no reset button line.
 	ErrNoReset = errors.New("this board has no reset line")
 	// ErrStillOn: the power LED stayed lit after the power button was held.
-	ErrStillOn = errors.New("the host did not switch off")
+	ErrStillOn       = errors.New("the host did not switch off")
+	ErrActionBusy    = errors.New("another BMC power action is in progress")
+	ErrUnknownAction = errors.New("unknown BMC power action")
 )
 
 // Power maps BMC power requests to button presses. Both protocols use it.
@@ -82,7 +85,7 @@ func (p *Power) Available(ctx context.Context) (power, reset bool, err error) {
 }
 
 // On presses the power button unless the host is known to be on.
-func (p *Power) On(ctx context.Context) error {
+func (p *Power) on(ctx context.Context) error {
 	state, err := p.state(ctx)
 	if err != nil {
 		return err
@@ -94,7 +97,7 @@ func (p *Power) On(ctx context.Context) error {
 }
 
 // ForceOff holds the power button unless the host is known to be off.
-func (p *Power) ForceOff(ctx context.Context) error {
+func (p *Power) forceOff(ctx context.Context) error {
 	state, err := p.state(ctx)
 	if err != nil {
 		return err
@@ -107,7 +110,7 @@ func (p *Power) ForceOff(ctx context.Context) error {
 
 // Soft presses the power button briefly, so the host's operating system shuts
 // down, unless the host is known to be off.
-func (p *Power) Soft(ctx context.Context) error {
+func (p *Power) soft(ctx context.Context) error {
 	state, err := p.state(ctx)
 	if err != nil {
 		return err
@@ -119,7 +122,7 @@ func (p *Power) Soft(ctx context.Context) error {
 }
 
 // Push presses the power button briefly, whatever the host's state.
-func (p *Power) Push(ctx context.Context) error {
+func (p *Power) push(ctx context.Context) error {
 	if _, err := p.state(ctx); err != nil {
 		return err
 	}
@@ -127,7 +130,7 @@ func (p *Power) Push(ctx context.Context) error {
 }
 
 // Reset presses the reset button.
-func (p *Power) Reset(ctx context.Context) error {
+func (p *Power) reset(ctx context.Context) error {
 	state, err := p.ATX.State(ctx)
 	if err != nil {
 		return err
@@ -142,7 +145,7 @@ func (p *Power) Reset(ctx context.Context) error {
 // switched on. With a power LED it waits for the LED to go out (at most
 // 10 s) before the second press, then 2 s for the power supply. If the LED
 // stays lit, it returns ErrStillOn without the second press.
-func (p *Power) Cycle(ctx context.Context) error {
+func (p *Power) cycle(ctx context.Context) error {
 	state, err := p.state(ctx)
 	if err != nil {
 		return err
@@ -177,3 +180,33 @@ func (p *Power) Cycle(ctx context.Context) error {
 	}
 	return p.ATX.Press(ctx, "power", PressMs)
 }
+
+// One physical host, including handlers replaced after a settings update.
+// Reject overlapping operations rather than queuing a surprising later press.
+var actionMu sync.Mutex
+
+// Do runs one complete BMC action, or rejects it if another is in progress.
+func (p *Power) Do(ctx context.Context, action string) error {
+	actions := map[string]func(context.Context) error{
+		"On": p.on, "ForceOff": p.forceOff, "GracefulShutdown": p.soft,
+		"PushPowerButton": p.push, "ForceRestart": p.reset, "PowerCycle": p.cycle,
+	}
+	run := actions[action]
+	if run == nil {
+		return ErrUnknownAction
+	}
+	if !actionMu.TryLock() {
+		return ErrActionBusy
+	}
+	defer actionMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return run(ctx)
+}
+func (p *Power) On(ctx context.Context) error       { return p.Do(ctx, "On") }
+func (p *Power) ForceOff(ctx context.Context) error { return p.Do(ctx, "ForceOff") }
+func (p *Power) Soft(ctx context.Context) error     { return p.Do(ctx, "GracefulShutdown") }
+func (p *Power) Push(ctx context.Context) error     { return p.Do(ctx, "PushPowerButton") }
+func (p *Power) Reset(ctx context.Context) error    { return p.Do(ctx, "ForceRestart") }
+func (p *Power) Cycle(ctx context.Context) error    { return p.Do(ctx, "PowerCycle") }

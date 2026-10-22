@@ -1,0 +1,67 @@
+name: 🔌 Hardware compatibility
+description: Share a hardware test result or request support for another device.
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |-
+        NanoKVM OS supports the SG2002-based Sipeed NanoKVM Cube, Lite and PCIe. Other products may use a different platform and need a separate port; a request does not mean the current image is compatible. Check [supported devices](https://github.com/dormancygrace/NanoKVM-OS#-compatible-devices) before flashing.
+
+        For a reproducible software bug, use the bug report form instead. Remove passwords, API tokens, private keys, personal addresses and private screen contents from anything you attach.
+  - type: dropdown
+    id: report_type
+    attributes:
+      label: Report type
+      options:
+        - Compatibility test result
+        - Request support for another device
+        - Hardware identification / compatibility question
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Exact device model
+      description: Include the manufacturer and model, plus the board revision if known.
+      placeholder: e.g. Sipeed NanoKVM Cube, serial-production board
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Software and image versions
+      description: For a tested device, copy Applications and Installed image from Settings → About. For a port request, say which firmware is currently installed.
+  - type: textarea
+    id: results
+    attributes:
+      label: Test results or requested support
+      description: 'For a test report: list what works, what fails, and how you tested it. For a port request: describe the hardware and what support you would like.'
+      placeholder: |-
+        Works:
+        ...
+
+        Does not work / not tested:
+        ...
+
+        Setup or requested support:
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware details and references
+      description: 'Optional: HDMI receiver, connectivity, power supply, product page, hardware documentation or board photos. Do not post serial numbers or other identifying data unless needed.'
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: 'Optional: include only relevant output and remove secrets and private content.'
+  - type: checkboxes
+    id: testing
+    attributes:
+      label: Testing availability
+      description: Optional.
+      options:
+        - label: I have access to this device and can help test changes.

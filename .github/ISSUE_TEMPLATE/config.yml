@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: 💡 Feature ideas & community wishlist
+    url: https://github.com/dormancygrace/NanoKVM-OS/issues/406
+    about: Share early ideas, browse suggestions and support them with a 👍 reaction.
   - name: Report a security vulnerability
     url: https://github.com/dormancygrace/NanoKVM-OS/security/advisories/new
     about: Please report security problems privately, not as a public issue.

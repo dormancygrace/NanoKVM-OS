@@ -9,19 +9,16 @@ depend() {
 
 start() {
     ebegin "Loading NanoKVM media modules"
-    local module
     # No snsr_i2c: the receivers are driven from user space over /dev/i2c.
     # The accelerators (IVE, TPU, DWA, RGN, AXI monitors) are built but
     # load only when something uses them: /etc/modprobe.d/nanokvm-accelerators.conf.
-    for module in \
-        cv181x_sys cv181x_base cvi_mipi_rx cv181x_vi \
-        cv181x_vpss cv181x_vcodec cv181x_jpeg
-    do
-        modprobe "$module" || return 1
-    done
-    # Options in /etc/modprobe.d/nanokvm-media.conf: udev may load it first.
-    modprobe cvi_vc_driver || return 1
-    modprobe sg2002-temp 2>/dev/null || true
-    modprobe sg2002-cpufreq 2>/dev/null || true
+    # One modprobe loads them in this order, the dependencies first; it loads
+    # every module it can and fails if any is missing. Each run reads the
+    # module indexes again (about 50 ms on the C906).
+    # Options of cvi_vc_driver in /etc/modprobe.d/nanokvm-media.conf: udev may
+    # load it first.
+    modprobe -a cv181x_sys cv181x_base cvi_mipi_rx cv181x_vi \
+        cv181x_vpss cv181x_vcodec cv181x_jpeg cvi_vc_driver || return 1
+    modprobe -a sg2002-temp sg2002-cpufreq 2>/dev/null || true
     eend 0
 }

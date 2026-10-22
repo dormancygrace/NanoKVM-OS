@@ -74,7 +74,12 @@ func TestAPIKeyMiddleware(t *testing.T) {
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.GET("/api/mcp", APIKeyMiddleware(control), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	created := 0
+	handler := lazyMCPHandler(func() http.Handler {
+		created++
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	})
+	router.Any("/api/mcp", APIKeyMiddleware(control), gin.WrapH(http.NewCrossOriginProtection().Handler(handler)))
 
 	writeConfig := func(cfg Config) {
 		if _, err := updateConfig(func(Config) (Config, error) { return cfg, nil }); err != nil {
@@ -103,8 +108,22 @@ func TestAPIKeyMiddleware(t *testing.T) {
 			t.Fatalf("header %q status = %d", header, got)
 		}
 	}
+	blocked := httptest.NewRecorder()
+	crossOrigin := httptest.NewRequest(http.MethodPost, "http://nanokvm.local/api/mcp", nil)
+	crossOrigin.Header.Set("Authorization", "Bearer secret")
+	crossOrigin.Header.Set("Origin", "https://evil.example")
+	router.ServeHTTP(blocked, crossOrigin)
+	if blocked.Code != http.StatusForbidden {
+		t.Fatalf("cross-origin status=%d", blocked.Code)
+	}
+	if created != 0 {
+		t.Fatal("disabled/unauthenticated/cross-origin MCP initialized handler")
+	}
 	if got := request("Bearer secret").Code; got != http.StatusNoContent {
 		t.Fatalf("valid key status = %d", got)
+	}
+	if created != 1 {
+		t.Fatalf("initialized %d times", created)
 	}
 	writeConfig(Config{APIKey: "rotated"})
 	if got := request("Bearer secret").Code; got != http.StatusUnauthorized {

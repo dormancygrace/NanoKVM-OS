@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"NanoKVM-Server/service/controlmode"
@@ -91,7 +92,19 @@ type toolExecutor struct {
 }
 
 func NewMCPHandler(control *controlmode.Manager, snapshotter Snapshotter) http.Handler {
-	return newMCPHandler(control, inputcontrol.GetCoordinator(), NewRemote(), snapshotter)
+	// Registering typed tools builds their JSON schema validators. The router
+	// authenticates and checks the control mode before reaching this handler,
+	// so an unused MCP endpoint does no work on the path to the first frame.
+	return lazyMCPHandler(func() http.Handler {
+		return newMCPHandler(control, inputcontrol.GetCoordinator(), NewRemote(), snapshotter)
+	})
+}
+
+func lazyMCPHandler(create func() http.Handler) http.Handler {
+	handler := sync.OnceValue(create)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler().ServeHTTP(w, r)
+	})
 }
 
 func newMCPHandler(control *controlmode.Manager, coordinator *inputcontrol.Coordinator, remote *Remote, snapshotter Snapshotter) http.Handler {

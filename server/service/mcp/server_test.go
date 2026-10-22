@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,9 +92,11 @@ func TestMoveMouseHandlerDoesNotRateLimitRapidMoves(t *testing.T) {
 func TestMCPInitializeAndToolsList(t *testing.T) {
 	hid := &recordingHID{}
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	handler := newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(hid), fakeSnapshotter{snapshot: Snapshot{
-		OK: true, Width: 800, Height: 600, JPEG: []byte{0xff, 0xd8, 0xff},
-	}})
+	handler := lazyMCPHandler(func() http.Handler {
+		return newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(hid), fakeSnapshotter{snapshot: Snapshot{
+			OK: true, Width: 800, Height: 600, JPEG: []byte{0xff, 0xd8, 0xff},
+		}})
+	})
 
 	request := func(method string, body string, sessionID string) *httptest.ResponseRecorder {
 		recorder := httptest.NewRecorder()
@@ -397,4 +401,54 @@ func TestManualInputCancelsActiveMCPToolAndKeepsModeEnabled(t *testing.T) {
 	if len(hid.keyboard) < 2 || string(hid.keyboard[len(hid.keyboard)-1]) != string(keyUpReport) {
 		t.Fatalf("keyboard was not released before manual takeover: %v", hid.keyboard)
 	}
+}
+
+func TestLazyMCPHandlerInitializesOnceOnConcurrentRequests(t *testing.T) {
+	var created atomic.Int32
+	var served atomic.Int32
+	handler := lazyMCPHandler(func() http.Handler {
+		created.Add(1)
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			served.Add(1)
+			w.WriteHeader(http.StatusNoContent)
+		})
+	})
+	if created.Load() != 0 {
+		t.Fatal("MCP initialized before a request")
+	}
+	var requests sync.WaitGroup
+	start := make(chan struct{})
+	for range 32 {
+		requests.Go(func() {
+			<-start
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
+			if response.Code != http.StatusNoContent {
+				t.Errorf("response status=%d", response.Code)
+			}
+		})
+	}
+	close(start)
+	requests.Wait()
+	if created.Load() != 1 || served.Load() != 32 {
+		t.Fatalf("created=%d served=%d", created.Load(), served.Load())
+	}
+}
+
+var benchmarkMCPHandler http.Handler
+
+func BenchmarkMCPConstruction(b *testing.B) {
+	control := controlmode.NewManager(filepath.Join(b.TempDir(), "mode"), controlmode.ModeOff)
+	b.Run("eager", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			benchmarkMCPHandler = newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil)
+		}
+	})
+	b.Run("deferred", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			benchmarkMCPHandler = NewMCPHandler(control, nil)
+		}
+	})
 }

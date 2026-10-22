@@ -43,6 +43,23 @@ reset_usb_config_links(){
 }
 
 start_usb_dev(){
+    # At cold boot an empty composition needs no descriptors or identity.
+    # Keep the mode readable and reserve HID minors in the usual order;
+    # a later enable fills the existing objects through the normal path.
+    if [ ! -d /sys/kernel/config/usb_gadget/g0 ] &&
+        { [ -e "$conf/disable_hid" ] ||
+          { [ -e "$conf/usb.disable_keyboard" ] &&
+            [ -e "$conf/usb.disable_relative" ] &&
+            [ -e "$conf/usb.disable_absolute" ]; }; } &&
+        [ ! -e "$conf/usb.acm" ]; then
+        mkdir -p /sys/kernel/config/usb_gadget/g0/configs/c.1 \
+            /sys/kernel/config/usb_gadget/g0/functions/hid.GS0 \
+            /sys/kernel/config/usb_gadget/g0/functions/hid.GS1 \
+            /sys/kernel/config/usb_gadget/g0/functions/hid.GS2 || return 1
+        echo 0x0623 > /sys/kernel/config/usb_gadget/g0/bcdDevice || return 1
+        echo "USB functions disabled"
+        return 0
+    fi
     . /etc/profile
     reset_usb_config_links /sys/kernel/config/usb_gadget/g0 || return 1
     # HID-only has no network function; release unused netdev instances too.

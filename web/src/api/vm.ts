@@ -356,6 +356,6 @@ export function setMemoryLimit(enabled: boolean, limit: number) {
   return http.post('/api/vm/memory/limit', { enabled, limit });
 }
 
-export function importSSHKeys(keys: string) {
-  return http.post('/api/vm/ssh/keys/import', { keys });
+export function importSSHKeys(keys: string, password: string) {
+  return http.post('/api/vm/ssh/keys/import', { keys, password });
 }

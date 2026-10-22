@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -156,7 +155,7 @@ func Import(home, input string) (Result, error) {
 	if len(payload) > maxFile {
 		return Result{}, errors.New("authorized_keys is too large")
 	}
-	name := fmt.Sprintf(".authorized_keys-%x", rand.Text())
+	name := ".authorized_keys-" + rand.Text()
 	tmp, err := unix.Openat(d, name, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
 	if err != nil {
 		return Result{}, err

@@ -2,7 +2,7 @@
 
 An administrator can open **Settings → System → Security → SSH public keys**,
 choose a public key file or paste OpenSSH public keys, one per line, then select
-**Import keys**. The result shows the number added/skipped and SHA256 fingerprints
+**Import keys**, then confirm with the current web administrator password. The result shows the number added/skipped and SHA256 fingerprints
 of newly added keys. Files are read locally and shown in the text area before
 submission. The maximum input is 32 KiB / 100 non-comment key lines.
 
@@ -22,5 +22,8 @@ New entries are appended with an atomic replacement, directory mode 0700 and fil
 mode 0600. Imports are serialized and symlink/non-regular targets are refused.
 The GUI does not remove keys or replace the existing list.
 
-The backup/reset feature in PR #411 already includes this same authorized-keys
+[Settings backup and reset](settings-recovery.md) includes this same authorized-keys
 file in its users category: **Keep users** retains it, independently of **Keep apps**.
+
+Imports are logged with the administrator, connection address and added key
+fingerprints. Passwords and full public-key text are not logged.

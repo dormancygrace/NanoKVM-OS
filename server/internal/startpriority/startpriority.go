@@ -18,6 +18,7 @@
 package startpriority
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -50,6 +51,7 @@ var (
 	shortened bool
 	released  bool
 	timer     *time.Timer
+	deadline  time.Time
 )
 
 // Raise gives every thread of the process the boost and schedules its end
@@ -62,12 +64,13 @@ func Raise() {
 	if raised {
 		return
 	}
+	deadline = time.Now().Add(Limit)
 	// Even after a partial failure: Release resets only boosted threads.
 	if err := setAll(Boost, nil); err != nil {
 		log.Warnf("start priority: %v", err)
 	}
 	raised = true
-	timer = time.AfterFunc(Limit, Release)
+	timer = time.AfterFunc(time.Until(deadline), Release)
 }
 
 // ViewerConnected ends the boost AfterViewer after the first viewer. Later
@@ -80,7 +83,7 @@ func ViewerConnected() {
 		return
 	}
 	shortened = true
-	if timer.Stop() {
+	if time.Until(deadline) > AfterViewer && timer.Stop() {
 		timer = time.AfterFunc(AfterViewer, Release)
 	}
 }
@@ -93,12 +96,13 @@ func Release() {
 	if !raised || released {
 		return
 	}
-	released = true
 	timer.Stop()
 	if err := setAll(Normal, func(tid int) bool { return niceOf(tid) == Boost }); err != nil {
-		log.Warnf("start priority: %v", err)
+		log.Warnf("start priority release: %v; retrying", err)
+		timer = time.AfterFunc(time.Second, Release)
 		return
 	}
+	released = true
 	log.Info("start priority released")
 }
 
@@ -127,25 +131,32 @@ func niceOf(tid int) int {
 }
 
 // setAll sets value on every thread that wants it (all when want is nil). A
-// thread created during the pass inherits the old value from its creator, so
-// a second pass catches it.
+// thread created during a pass can inherit the old value. Keep scanning until
+// a pass changes nothing. Bound work under mu; Release retries if creation
+// continues across all passes or a syscall fails.
 func setAll(value int, want func(tid int) bool) error {
 	var last error
-	for pass := 0; pass < 2; pass++ {
+	for pass := 0; pass < 8; pass++ {
+		changed := false
 		entries, err := os.ReadDir(taskDir)
 		if err != nil {
 			return err
 		}
 		for _, entry := range entries {
 			tid, err := strconv.Atoi(entry.Name())
-			if err != nil || want != nil && !want(tid) {
+			if err != nil || niceOf(tid) == value || want != nil && !want(tid) {
 				continue
 			}
 			// A thread may exit between the listing and the call.
-			if err := setPriority(tid, value); err != nil && err != unix.ESRCH {
+			if err := setPriority(tid, value); err == nil {
+				changed = true
+			} else if err != unix.ESRCH {
 				last = err
 			}
 		}
+		if last != nil || !changed {
+			return last
+		}
 	}
-	return last
+	return fmt.Errorf("threads still changing priority after 8 passes")
 }

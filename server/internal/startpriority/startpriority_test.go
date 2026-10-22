@@ -160,3 +160,86 @@ func TestExitedThreadIsNotAnError(t *testing.T) {
 		t.Fatal("a real error was hidden")
 	}
 }
+
+func TestLateViewerDoesNotExtendLimit(t *testing.T) {
+	setup(t, 100)
+	AfterViewer = 2 * Limit
+	Raise()
+	mu.Lock()
+	original := timer
+	mu.Unlock()
+	ViewerConnected()
+	mu.Lock()
+	unchanged := timer == original
+	mu.Unlock()
+	if !unchanged {
+		t.Fatal("viewer extended the original limit")
+	}
+}
+
+func TestReleaseCatchesThreadsBornDuringEachPass(t *testing.T) {
+	rec := setup(t, 100)
+	Raise()
+	setPriority = func(tid, value int) error {
+		if value == Normal && tid < 103 {
+			child := tid + 1
+			if err := os.Mkdir(filepath.Join(rec.dir, strconv.Itoa(child)), 0o755); err != nil {
+				return err
+			}
+			rec.write(child, Boost)
+		}
+		return rec.set(tid, value)
+	}
+	Release()
+	for _, tid := range []int{100, 101, 102, 103} {
+		if niceOf(tid) != Normal {
+			t.Fatalf("thread %d retained boost after release", tid)
+		}
+	}
+}
+
+func TestFailedReleaseCanRetry(t *testing.T) {
+	rec := setup(t, 100)
+	Raise()
+	rec.fail = unix.EPERM
+	Release()
+	mu.Lock()
+	done := released
+	mu.Unlock()
+	if done {
+		t.Fatal("failed release marked complete")
+	}
+	rec.fail = nil
+	Release()
+	if niceOf(100) != Normal {
+		t.Fatal("retry left thread boosted")
+	}
+}
+
+func TestReleaseBoundsEachAttemptAndRetriesThreadChurn(t *testing.T) {
+	rec := setup(t, 100)
+	Raise()
+	setPriority = func(tid, value int) error {
+		if value == Normal && tid < 110 {
+			child := tid + 1
+			if err := os.Mkdir(filepath.Join(rec.dir, strconv.Itoa(child)), 0o755); err != nil {
+				return err
+			}
+			rec.write(child, Boost)
+		}
+		return rec.set(tid, value)
+	}
+	Release()
+	mu.Lock()
+	done := released
+	mu.Unlock()
+	if done {
+		t.Fatal("incomplete release marked complete")
+	}
+	Release()
+	for tid := 100; tid <= 110; tid++ {
+		if niceOf(tid) != Normal {
+			t.Fatalf("thread %d still boosted", tid)
+		}
+	}
+}

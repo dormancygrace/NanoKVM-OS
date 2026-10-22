@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 )
 
@@ -183,6 +184,12 @@ func executeScript(path, runType string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	program, err := exec.LookPath(cmd.Path)
+	if err != nil {
+		return nil, err
+	}
+	argv := oomscore.Unprotected(program, cmd.Args[1:]...)
+	cmd = exec.Command(argv[0], argv[1:]...)
 	switch runType {
 	case "foreground":
 		return cmd.CombinedOutput()

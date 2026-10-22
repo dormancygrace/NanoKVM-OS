@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -48,6 +49,7 @@ func getAvahiDaemonPid() string {
 }
 
 var (
+	mdnsMu       sync.Mutex
 	mdnsMarker   = "/etc/kvm/mdns_disabled"
 	mdnsRunlevel = "/etc/runlevels/default/nanokvm-mdns"
 	mdnsRun      = func(argv ...string) error { return exec.Command(argv[0], argv[1:]...).Run() }
@@ -55,6 +57,8 @@ var (
 
 // Keep persistent policy separate from APK-owned OpenRC service files.
 func setMdns(c *gin.Context, enabled bool) {
+	mdnsMu.Lock()
+	defer mdnsMu.Unlock()
 	var rsp proto.Response
 	action := "stop"
 	var err error
@@ -85,6 +89,9 @@ func setMdns(c *gin.Context, enabled bool) {
 // the cost of an OpenRC service start at every boot.
 func syncMdnsRunlevel(enabled bool) error {
 	_, err := os.Lstat(mdnsRunlevel)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	present := err == nil
 	switch {
 	case enabled && !present:
@@ -110,6 +117,8 @@ func ReconcileMdnsAfterBoot(ctx context.Context) {
 // service in the runlevel whatever the setting: with mDNS on and the service
 // missing, it also starts mDNS now rather than at the next boot.
 func ReconcileMdns() {
+	mdnsMu.Lock()
+	defer mdnsMu.Unlock()
 	_, err := os.Stat(mdnsMarker)
 	enabled := os.IsNotExist(err)
 	if err != nil && !enabled {
@@ -117,13 +126,17 @@ func ReconcileMdns() {
 		return
 	}
 	_, err = os.Lstat(mdnsRunlevel)
-	missing := err != nil
+	if err != nil && !os.IsNotExist(err) {
+		log.Warnf("mDNS runlevel unreadable: %v", err)
+		return
+	}
+	missing := os.IsNotExist(err)
 	if err := syncMdnsRunlevel(enabled); err != nil {
 		log.Warnf("failed to update the mDNS service runlevel: %v", err)
 		return
 	}
 	if enabled && missing && getAvahiDaemonPid() == "" {
-		if err := mdnsRun(oomscore.Unprotected("rc-service", "nanokvm-mdns", "start")...); err != nil {
+		if err := mdnsRun(oomscore.Unprotected("rc-service", "avahi-daemon", "start")...); err != nil {
 			log.Warnf("failed to start mDNS: %v", err)
 		}
 	}

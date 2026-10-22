@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"NanoKVM-Server/internal/oomscore"
 )
 
 func (s *Service) startRuntime() (string, string, *PicoclawError) {
@@ -90,7 +92,7 @@ func (s *Service) startRuntimeContext(ctx context.Context) (string, string, *Pic
 	startCtx, cancel := context.WithTimeout(ctx, picoclawStartTimeout)
 	defer cancel()
 
-	output, execErr := exec.CommandContext(startCtx, "sh", "-c", command).CombinedOutput()
+	output, execErr := exec.CommandContext(startCtx, "sh", "-c", oomscore.ResetPrefix+command).CombinedOutput()
 	trimmedOutput := strings.TrimSpace(string(output))
 	if execErr != nil {
 		if lifecycleErr := runtimeLifecycleOperationError(ctx); lifecycleErr != nil {

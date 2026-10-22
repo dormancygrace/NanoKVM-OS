@@ -17,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/internal/atomicfile"
+	"NanoKVM-Server/internal/oomscore"
 )
 
 // Scripts marked "run at startup" (Scripts window) run once per boot, after
@@ -165,7 +166,7 @@ func startAutostart(root, name string) error {
 	if err = os.WriteFile(base+".status", []byte("running\n"), 0o600); err != nil {
 		return err
 	}
-	args := append([]string{"-c", fmt.Sprintf(autostartWrapper, autostartLogLimit), "nanokvm-autostart",
+	args := append([]string{"-c", oomscore.ResetPrefix + fmt.Sprintf(autostartWrapper, autostartLogLimit), "nanokvm-autostart",
 		base + ".status", base + ".log"}, script.Args...)
 	cmd := exec.Command("/bin/sh", args...)
 	cmd.Dir = filepath.Dir(path)

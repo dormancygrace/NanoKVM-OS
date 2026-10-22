@@ -1,11 +1,14 @@
 package vm
 
 import (
+	"github.com/gin-gonic/gin"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func mdnsFixture(t *testing.T, disabled, inRunlevel bool) *[]string {
@@ -47,7 +50,7 @@ func TestReconcileMdns(t *testing.T) {
 		{"off and already out", true, false, nil},
 		{"on and already in", false, true, nil},
 		// A recovery restored the setting but not the runlevel.
-		{"on but missing", false, false, []string{"rc-update add nanokvm-mdns default", "rc-service nanokvm-mdns start"}},
+		{"on but missing", false, false, []string{"rc-update add nanokvm-mdns default", "rc-service avahi-daemon start"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := mdnsFixture(t, tc.disabled, tc.inRunlevel)
@@ -74,5 +77,65 @@ func TestMdnsSwitchMovesTheService(t *testing.T) {
 	}
 	if want := []string{"rc-update add nanokvm-mdns default"}; !reflect.DeepEqual(*calls, want) {
 		t.Fatalf("calls %q, want %q", *calls, want)
+	}
+}
+
+func TestMdnsDisableWinsAgainstInFlightReconciliation(t *testing.T) {
+	mdnsFixture(t, false, false)
+	adding := make(chan struct{})
+	resume := make(chan struct{})
+	mdnsRun = func(argv ...string) error {
+		if argv[0] == "/bin/sh" {
+			argv = argv[3:]
+		}
+		if argv[0] == "rc-update" {
+			if argv[1] == "add" {
+				close(adding)
+				<-resume
+				return os.Symlink("/etc/init.d/nanokvm-mdns", mdnsRunlevel)
+			}
+			err := os.Remove(mdnsRunlevel)
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		return nil
+	}
+	reconciled := make(chan struct{})
+	go func() { defer close(reconciled); ReconcileMdns() }()
+	<-adding
+	disabled := make(chan struct{})
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	go func() { defer close(disabled); setMdns(c, false) }()
+	// Without serialization, disabling finishes while the stale add is paused.
+	select {
+	case <-disabled:
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(resume)
+	<-reconciled
+	<-disabled
+	if _, err := os.Stat(mdnsMarker); err != nil {
+		t.Fatalf("disabled setting lost: %v", err)
+	}
+	if _, err := os.Lstat(mdnsRunlevel); !os.IsNotExist(err) {
+		t.Fatalf("disabled service remains in runlevel: %v", err)
+	}
+}
+
+func TestMdnsRunlevelReadErrorIsNotMissing(t *testing.T) {
+	calls := mdnsFixture(t, true, false)
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mdnsRunlevel = filepath.Join(file, "not-a-directory")
+	if err := syncMdnsRunlevel(false); err == nil {
+		t.Fatal("runlevel read error hidden")
+	}
+	ReconcileMdns()
+	if len(*calls) != 0 {
+		t.Fatalf("commands on unreadable runlevel: %v", *calls)
 	}
 }

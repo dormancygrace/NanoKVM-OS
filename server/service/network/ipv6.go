@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
 )
@@ -250,7 +251,8 @@ func applyIPv6(policy ipv6Policy) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-s", "--", "start")
+	argv := oomscore.Unprotected("/bin/sh", "-s", "--", "start")
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Stdin = strings.NewReader(ipv6BootScript)
 	cmd.Env = append(os.Environ(), "NANOKVM_IPV6_SYSCTL="+ipv6SysctlRoot, "NANOKVM_IPV6_CONF="+file.Name())
 	if output, err := cmd.CombinedOutput(); err != nil {

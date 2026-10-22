@@ -16,7 +16,8 @@ script = Path(__file__).resolve().parents[1] / 'firmware/alpine/compat/nanokvm-u
 def run(boot, flags, ok=True, **extra):
     env = dict(os.environ, NANOKVM_USB_FLAGS_BOOT=str(boot), NANOKVM_USB_FLAGS_DIR=str(flags),
                NANOKVM_USB_FLAGS_LAYOUT=str(boot.parent / "layout"),
-               NANOKVM_USB_FLAGS_PIDOF="false", **extra)
+               NANOKVM_USB_FLAGS_PIDOF="false")
+    env.update(extra)
     result = subprocess.run(['sh', str(script)], env=env, capture_output=True, text=True)
     assert (result.returncode == 0) == ok, (result.returncode, result.stderr)
     return result.stdout
@@ -231,3 +232,19 @@ source = script.read_text().replace('mountpoint -q "$boot"', 'false')
 result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output=True)
 assert result.returncode != 0 and not (flags / '.layout-v1').exists()
 print('PASS: absent boot mount refuses activation')
+
+# A settled layout, the usual boot, is checked by the shell alone; a flag on
+# /boot again (a rollback) takes the full run.
+boot, flags = fixture()
+flags.mkdir()
+(flags / '.layout-v1').write_text('')
+(flags / 'usb.dev').write_text('')
+probe = boot.parent / 'pidof'
+probe.write_text(f'#!/bin/sh\n: > "{boot.parent}/pidof-called"\nexit 1\n')
+probe.chmod(0o755)
+assert run(boot, flags, NANOKVM_USB_FLAGS_PIDOF=str(probe)) == ''
+assert not (boot.parent / 'pidof-called').exists()
+(boot / 'usb.ncm').write_text('')
+assert 'Moved the USB flags' in run(boot, flags, NANOKVM_USB_FLAGS_PIDOF=str(probe))
+assert (boot.parent / 'pidof-called').exists() and tree(flags) == {'usb.ncm': ''}, tree(flags)
+print('PASS: a settled layout needs no process')

@@ -20,6 +20,7 @@ package startpriority
 import (
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,42 +45,48 @@ var (
 	taskDir     = "/proc/self/task"
 	setPriority = func(tid, value int) error { return unix.Setpriority(unix.PRIO_PROCESS, tid, value) }
 
-	mu       sync.Mutex
-	raised   bool
-	released bool
-	timer    *time.Timer
+	mu        sync.Mutex
+	raised    bool
+	shortened bool
+	released  bool
+	timer     *time.Timer
 )
 
 // Raise gives every thread of the process the boost and schedules its end
 // after Limit. Raising requires CAP_SYS_NICE; without it the server runs at
-// the normal priority.
+// the normal priority. Every start of the server raises it, not only the
+// boot.
 func Raise() {
 	mu.Lock()
 	defer mu.Unlock()
 	if raised {
 		return
 	}
-	if err := setAll(Boost); err != nil {
+	// Even after a partial failure: Release resets only boosted threads.
+	if err := setAll(Boost, nil); err != nil {
 		log.Warnf("start priority: %v", err)
-		return
 	}
 	raised = true
 	timer = time.AfterFunc(Limit, Release)
 }
 
-// ViewerConnected ends the boost AfterViewer from now, unless it ends sooner.
+// ViewerConnected ends the boost AfterViewer after the first viewer. Later
+// viewers change nothing, so a client that reconnects again and again cannot
+// keep the boost beyond that.
 func ViewerConnected() {
 	mu.Lock()
 	defer mu.Unlock()
-	if !raised || released || timer == nil {
+	if !raised || released || shortened {
 		return
 	}
+	shortened = true
 	if timer.Stop() {
 		timer = time.AfterFunc(AfterViewer, Release)
 	}
 }
 
-// Release returns every thread to the normal priority. Later calls do nothing.
+// Release returns the boosted threads to the normal priority, leaving any
+// other value alone. Later calls do nothing.
 func Release() {
 	mu.Lock()
 	defer mu.Unlock()
@@ -87,19 +94,42 @@ func Release() {
 		return
 	}
 	released = true
-	if timer != nil {
-		timer.Stop()
-	}
-	if err := setAll(Normal); err != nil {
+	timer.Stop()
+	if err := setAll(Normal, func(tid int) bool { return niceOf(tid) == Boost }); err != nil {
 		log.Warnf("start priority: %v", err)
 		return
 	}
 	log.Info("start priority released")
 }
 
-// setAll sets value on every thread. A thread created during the pass
-// inherits the old value from its creator, so a second pass catches it.
-func setAll(value int) error {
+// niceOf reads a thread's nice value (field 19 of its stat line); it is
+// Normal when the thread is gone or the line unreadable.
+func niceOf(tid int) int {
+	data, err := os.ReadFile(taskDir + "/" + strconv.Itoa(tid) + "/stat")
+	if err != nil {
+		return Normal
+	}
+	// The command name in parentheses may contain spaces.
+	line := string(data)
+	if i := strings.LastIndexByte(line, ')'); i >= 0 {
+		line = line[i+1:]
+	}
+	fields := strings.Fields(line)
+	// After the name: state(3) ... nice(19), the 17th field here.
+	if len(fields) < 17 {
+		return Normal
+	}
+	nice, err := strconv.Atoi(fields[16])
+	if err != nil {
+		return Normal
+	}
+	return nice
+}
+
+// setAll sets value on every thread that wants it (all when want is nil). A
+// thread created during the pass inherits the old value from its creator, so
+// a second pass catches it.
+func setAll(value int, want func(tid int) bool) error {
 	var last error
 	for pass := 0; pass < 2; pass++ {
 		entries, err := os.ReadDir(taskDir)
@@ -108,7 +138,7 @@ func setAll(value int) error {
 		}
 		for _, entry := range entries {
 			tid, err := strconv.Atoi(entry.Name())
-			if err != nil {
+			if err != nil || want != nil && !want(tid) {
 				continue
 			}
 			// A thread may exit between the listing and the call.

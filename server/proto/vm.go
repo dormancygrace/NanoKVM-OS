@@ -117,10 +117,14 @@ type USBIdentityReq struct {
 // SerialConsoleRsp describes the headless-Linux console helper: the USB
 // serial number the host matches, the script URL and the helper disk image.
 type SerialConsoleRsp struct {
-	SerialNumber string            `json:"serialNumber"`
-	Port         string            `json:"port"`
-	Script       SerialConsoleFile `json:"script"`
-	Disk         SerialConsoleDisk `json:"disk"`
+	SerialNumber string `json:"serialNumber"`
+	// VendorID and ProductID are the gadget's as the host's sysfs shows them
+	// (4 hex digits, "" when unknown), for the script's --vid and --pid.
+	VendorID  string            `json:"vendorId"`
+	ProductID string            `json:"productId"`
+	Port      string            `json:"port"`
+	Script    SerialConsoleFile `json:"script"`
+	Disk      SerialConsoleDisk `json:"disk"`
 }
 
 type SerialConsoleFile struct {

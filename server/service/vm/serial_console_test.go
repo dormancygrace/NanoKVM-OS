@@ -227,7 +227,10 @@ func setupSerialConsoleFiles(t *testing.T, script, disk bool) {
 	serial := filepath.Join(t.TempDir(), "serialnumber")
 	gadgetSerialNumberPath = serial
 	serialConsoleLunFile = filepath.Join(t.TempDir(), "file")
+	gadgetIDDir = t.TempDir()
 	os.WriteFile(serial, []byte("d19506b31359c372\n"), 0o644)
+	os.WriteFile(filepath.Join(gadgetIDDir, "idVendor"), []byte("0x046D\n"), 0o644)
+	os.WriteFile(filepath.Join(gadgetIDDir, "idProduct"), []byte("0x1009\n"), 0o644)
 	if script {
 		os.WriteFile(filepath.Join(share, serialConsoleScriptName), []byte("#!/bin/sh\necho helper\n"), 0o755)
 	}
@@ -241,6 +244,10 @@ func TestSerialConsoleState(t *testing.T) {
 	state := serialConsoleState()
 	if state.SerialNumber != "d19506b31359c372" || state.Port != "/dev/ttyGS0" || state.Script.Path != "/nanokvm-serial-console.sh" {
 		t.Fatalf("%+v", state)
+	}
+	// the IDs as the host's sysfs writes them, for --vid and --pid
+	if state.VendorID != "046d" || state.ProductID != "1009" {
+		t.Fatalf("ids: %q %q", state.VendorID, state.ProductID)
 	}
 	if !state.Script.Available || state.Script.Size != 22 || len(state.Script.Sha256) != 64 {
 		t.Fatalf("script: %+v", state.Script)

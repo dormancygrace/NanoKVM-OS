@@ -3,10 +3,17 @@ import { Alert, Button, message, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/virtual-device.ts';
+import {
+  fetchCommands,
+  scriptArgs,
+  serialConsoleScript as scriptName
+} from '@/lib/serial-console-commands.ts';
 import { Panel } from '@/components/ui/settings.tsx';
 
 type SerialConsoleStatus = {
   serialNumber: string;
+  vendorId?: string;
+  productId?: string;
   port: string;
   script: { path: string; available: boolean; sha256?: string; size?: number };
   disk: { file: string; available: boolean; attached: boolean; stale: boolean };
@@ -14,27 +21,7 @@ type SerialConsoleStatus = {
 
 type TestResult = { ok: boolean; state: string; response?: string };
 
-const scriptName = 'nanokvm-serial-console.sh';
 const diskCommand = 'mount -o ro /dev/disk/by-label/NANOKVM /mnt && sh /mnt/setup.sh';
-
-// How the managed computer fetches the script from this NanoKVM: from the
-// address the browser uses, or from the NanoKVM's USB network address when
-// the computer has no other network. The certificate is self-signed (-k).
-function fetchCommands(usbAddress: string | undefined, serialArg: string) {
-  const https = window.location.protocol === 'https:';
-  const run = `sh ${scriptName}${serialArg}`;
-  const curl = (origin: string) =>
-    `curl -fsS${https ? ' -k' : ''} ${origin}/${scriptName} -o ${scriptName} && ${run}`;
-  const wget = (origin: string) =>
-    `wget -q${https ? ' --no-check-certificate' : ''} ${origin}/${scriptName} -O ${scriptName} && ${run}`;
-  const browserOrigin = window.location.origin;
-  const usbOrigin = usbAddress ? `${https ? 'https' : 'http'}://${usbAddress}` : undefined;
-  return {
-    network: curl(browserOrigin),
-    usb: usbOrigin ? curl(usbOrigin) : undefined,
-    wget: wget(usbOrigin ?? browserOrigin)
-  };
-}
 
 /*
  * The headless-Linux console helper: shown while USB serial is enabled.
@@ -88,8 +75,16 @@ export const SerialConsole = ({ serial, disk }: { serial: boolean; disk: boolean
   }
 
   if (!serial) return null;
-  const serialArg = status?.serialNumber ? ` --serial ${status.serialNumber}` : '';
-  const commands = fetchCommands(usbAddress, serialArg);
+  const serialArg = scriptArgs(status);
+  const sha256 = status?.script.available ? status.script.sha256 : undefined;
+  const commands = sha256
+    ? fetchCommands(
+        { https: window.location.protocol === 'https:', browser: window.location.origin },
+        usbAddress,
+        sha256,
+        serialArg
+      )
+    : undefined;
   const command = (label: string, text: string) => (
     <div className="space-y-1">
       <div className="text-fg-muted text-xs">{label}</div>
@@ -104,13 +99,13 @@ export const SerialConsole = ({ serial, disk }: { serial: boolean; disk: boolean
         <div className="font-medium">{t('settings.usb.serialConsole.title')}</div>
         <p className="text-fg-muted m-0 text-xs">{t('settings.usb.serialConsole.description')}</p>
       </div>
-      {command(t('settings.usb.serialConsole.fromNetwork'), commands.network)}
-      {commands.usb && command(t('settings.usb.serialConsole.fromUsbNetwork'), commands.usb)}
-      {command(t('settings.usb.serialConsole.withWget'), commands.wget)}
-      {status?.script.sha256 && (
-        <div className="text-fg-muted font-mono text-[10px] break-all">
-          sha256 {status.script.sha256}
-        </div>
+      {commands && (
+        <>
+          {command(t('settings.usb.serialConsole.fromNetwork'), commands.network)}
+          {commands.usb && command(t('settings.usb.serialConsole.fromUsbNetwork'), commands.usb)}
+          {command(t('settings.usb.serialConsole.withWget'), commands.wget)}
+          <div className="text-fg-muted font-mono text-[10px] break-all">sha256 {sha256}</div>
+        </>
       )}
       {status?.disk.attached ? (
         <>

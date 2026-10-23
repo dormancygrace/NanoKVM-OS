@@ -218,7 +218,12 @@ and runs it, the NanoKVM's USB serial number, and a **Test the console**
 button. The host gets the script in one of two ways:
 
 - over the network, from the NanoKVM's web server (`https://<nanokvm>/nanokvm-serial-console.sh`,
-  public, `-k` for the self-signed certificate; the page shows its SHA-256), or
+  public, `-k` for the self-signed certificate). The copied command checks the
+  file with `sha256sum -c` against the SHA-256 the page received over the
+  browser's connection before it runs it, so a machine on the path between the
+  host and the NanoKVM cannot substitute another script. (A compromised
+  NanoKVM serves both and is out of this check's reach.) The page shows the
+  commands once it knows the hash. Or
 - from the **helper disk**: with USB serial and the virtual disk enabled,
   `S03usbdev` attaches a second, read-only LUN to the virtual drive, a 1440 KiB
   FAT image labelled `NANOKVM` ("NanoKVM Setup Disk") with the script as
@@ -231,6 +236,10 @@ The script, in POSIX sh (dash, busybox ash):
   the init system, the kernel's `cdc_acm` driver, the getty, and the NanoKVM
   on the USB bus (by `3346:1009`, with its serial number and `ttyACM` name),
   and print what `apply` would change.
+- The serial number goes into a root udev rule, so the script accepts only
+  what a NanoKVM can have (letters, digits, `.`, `_`, `-`; up to 126). A
+  connected device that reports anything else, or such a `--serial`, ends
+  every action with exit code 2 before anything is written.
 - `apply` writes `/etc/udev/rules.d/90-nanokvm-serial-console.rules` on
   systemd hosts: a rule that matches the vendor, product **and serial number**,
   marks the port for ModemManager to ignore, and starts
@@ -238,14 +247,17 @@ The script, in POSIX sh (dash, busybox ash):
   only while it is present. On sysvinit and busybox init (Alpine) it appends
   one respawn line to `/etc/inittab`. Every change goes into a manifest with
   backups under `/var/backups/nanokvm-serial-console/`, a second `apply`
-  changes nothing, and `undo` reverts the last change.
+  changes nothing, and `undo` reverts the last change (from `/etc/inittab` it
+  removes only its own line, keeping later edits).
 - It refuses, and prints the manual steps, in a container, on an immutable or
   read-only system (OSTree, NixOS), without a `cdc_acm` driver or a getty,
   and on init systems it does not handle (runit, OpenRC as PID 1).
 - The bootloader's `console=` is out of its scope: CDC ACM cannot carry early
   boot output anyway.
 - `--serial SERIAL` binds the rule when the NanoKVM is not plugged in yet; the
-  USB page's command includes it.
+  USB page's command includes it. `--vid VID --pid PID` (or `NANOKVM_VID`,
+  `NANOKVM_PID`) give the USB identity when it was changed from `3346:1009`;
+  the page adds them then.
 
 Hosts without the script: configure a login service on the managed host, not
 another getty on NanoKVM's `/dev/ttyGS0`, for example the rule above's

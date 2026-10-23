@@ -146,9 +146,12 @@ jobs:
             apk adbdump "$apk" | grep -qx "  version: ${TAG#"$ADDON"-}"
             d=$(mktemp -d)
             apk extract --allow-untrusted --destination "$d" "$apk"
-            python3 - "$d" /src/firmware/alpine/packages/$ADDON/addon.json <<"PY"
+            python3 - "$d" /src/firmware/alpine/packages/$ADDON/addon.json "$apk" <<"PY"
           import json, os, subprocess, sys
           root, recipe = sys.argv[1], json.load(open(sys.argv[2]))
+          # The minimum OS release is a dependency of the package.
+          dump = subprocess.check_output(["apk", "adbdump", sys.argv[3]], text=True)
+          assert "nanokvm-os>=" + recipe["os"] in dump.split(), recipe["os"]
           program = root + recipe["go"]["path"]
           out = subprocess.check_output(["file", program], text=True)
           assert "RISC-V" in out and "statically linked" in out, out

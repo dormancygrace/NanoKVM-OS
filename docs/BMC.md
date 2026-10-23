@@ -56,7 +56,7 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
 - **BMC operations are exclusive:** Redfish and IPMI share a server-side guard for the whole operation. An overlapping BMC action fails as busy; Redfish returns HTTP 503. IPMI acknowledges queued commands before execution, so execution failures appear in the application log.
 - **The buttons and LEDs are the web page's:** the same GPIO lines, pulse lock and LED monitor.
 
-The add-on has a version of its own and is released apart from NanoKVM OS: its updates reach devices through the package repository, without an OS release. Removing the add-on keeps `/etc/kvm/bmc` and Redfish. NanoKVM Lite has no ATX lines: power requests fail there, and Redfish omits `PowerState`.
+The add-on has a version of its own and is released apart from NanoKVM OS: its updates reach devices through the package repository, without an OS release. It needs NanoKVM OS 3.5.0 or later (the package depends on `nanokvm-os>=3.5.0`). Removing the add-on keeps `/etc/kvm/bmc` and Redfish. NanoKVM Lite has no ATX lines: power requests fail there, and Redfish omits `PowerState`.
 
 ## Trying it
 

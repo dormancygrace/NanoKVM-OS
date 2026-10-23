@@ -10,6 +10,7 @@ No device access, signing or publication.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,10 @@ def recipe(name, packages=PACKAGES):
     r = json.loads((directory / 'addon.json').read_text())
     if r['name'] != name or not addon_packages.TAG.fullmatch(f"{name}-{r['version']}-r0"):
         raise ValueError(f'{name}: bad name or version in addon.json')
+    # The first NanoKVM OS release with what the add-on needs of it: a stable
+    # APK version, or a beta's (3.5.0_beta1), which the stable release satisfies.
+    if not re.fullmatch(r'\d+\.\d+\.\d+(_beta[1-9][0-9]*)?', r.get('os', '')) or 'nanokvm-os' in r['depends']:
+        raise ValueError(f'{name}: addon.json needs "os", the minimum NanoKVM OS release')
     for path, item in r['files'].items():
         if not path.startswith('/') or '..' in Path(path).parts or not (directory / item['source']).is_file():
             raise ValueError(f'{name}: bad file {path}')
@@ -77,10 +82,16 @@ def payload(r, binary, root, source):
     record.chmod(0o644)
 
 
+def depends(r):
+    """The APK dependencies: the recipe's and the minimum OS release, which
+    nanokvm-release provides as nanokvm-os=VERSION."""
+    return f"{r['depends']} nanokvm-os>={r['os']}".strip()
+
+
 def mkpkg(r, apk, files, output, version):
     command = [str(apk), 'mkpkg', '--files', str(files), '--output', str(output)]
     for value in [f"name:{r['name']}", f'version:{version}', 'arch:riscv64', f"license:{r['license']}",
-                  f"description:{r['description']}", f"depends:{r['depends']}", f"url:{r['url']}"]:
+                  f"description:{r['description']}", f"depends:{depends(r)}", f"url:{r['url']}"]:
         command += ['--info', value]
     for action, script in sorted(r['scripts'].items()):
         command += ['--script', f"{action}:{r['directory'] / script}"]

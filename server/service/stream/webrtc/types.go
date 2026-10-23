@@ -23,6 +23,7 @@ type WebRTCManager struct {
 type Client struct {
 	videoWriteMutex sync.Mutex
 	pathMTU         *peerPathMTU
+	sendErrors      sendErrorLog
 	packetizer      *adaptiveVideoPacketizer
 	ws              *websocket.Conn
 	video           *webrtc.PeerConnection

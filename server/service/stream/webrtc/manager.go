@@ -94,17 +94,7 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 		if w.isClosed() {
 			return nil
 		}
-		packets := client.packetizer.packetize(sample.Data, sample.Timestamp, client.pathMTU.size())
-		if len(packets) == 0 {
-			return errVideoBudget
-		}
-		client.pathMTU.beginFrame()
-		writeErr := client.track.writeVideoPackets(packets)
-		batchErr := client.pathMTU.endFrame()
-		if writeErr != nil {
-			return writeErr
-		}
-		return batchErr
+		return client.writeFrame(sample)
 	}, func(err error) {
 		log.Errorf("failed to write video to client: %s", err)
 		if m.removeClient(ws, w) {

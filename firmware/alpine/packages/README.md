@@ -173,6 +173,16 @@ the stable release satisfies it too. RustDesk states its needs
 as capabilities of `nanokvm` instead (`nanokvm-rustdesk-bridge=1`, ...), which
 3.4.0 already provides.
 
+Devices find add-ons in the index, without a list of their own: an add-on is
+any `nanokvm-*` package of a NanoKVM repository (an `/etc/apk/repositories`
+line whose URL contains "nanokvm") outside `nanokvm-release` and its
+dependencies. The update check stores them from the NanoKVM index it has
+just fetched, so a published add-on appears on Software > Add-ons with the
+next daily check (or Check now there), without an OS release. Before an
+install the server refuses an add-on whose minimum release is above the
+installed OS, and any transaction that `apk add --simulate` shows would
+change an OS package: apk would meet the minimum by upgrading the whole OS.
+
 A new add-on goes into `ADDONS`, gets a recipe and a choice in `addon.yml`.
 To release a change, raise the recipe's version and run the workflow from
 main; each run of the same version gets the next revision. The workflow opens

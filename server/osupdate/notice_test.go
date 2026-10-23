@@ -67,6 +67,8 @@ func TestCheckUpdates(t *testing.T) {
 			return "OK", nil
 		case "<":
 			return versions, nil
+		case "nanokvm-*":
+			return addonIndexFixture, nil
 		}
 		return "", errors.New("unexpected")
 	}
@@ -87,11 +89,17 @@ func TestCheckUpdates(t *testing.T) {
 	repo := "--repository=https://dormancygrace.github.io/NanoKVM-OS/repo/riscv64/Packages.adb"
 	wantUpdate := []string{"--repositories-file=/dev/null", "--cache-dir=" + noticeCacheDir, repo, "update"}
 	wantVersion := []string{"--repositories-file=/dev/null", "--cache-dir=" + noticeCacheDir, repo, "--no-network", "version", "-l", "<"}
-	if !reflect.DeepEqual(*calls, [][]string{wantUpdate, wantVersion}) {
+	wantQuery := []string{"--repositories-file=/dev/null", "--cache-dir=" + noticeCacheDir, repo, "--no-network", "query",
+		"--format=json", "--fields=name,version,description,url,license,depends", "--from=repositories", "nanokvm-*"}
+	if !reflect.DeepEqual(*calls, [][]string{wantUpdate, wantVersion, wantQuery}) {
 		t.Fatalf("calls=%q", *calls)
 	}
 	if _, err := os.Stat(noticeCacheDir); err != nil {
 		t.Fatal("no cache directory for apk")
+	}
+	// The same check stored the add-ons of the index.
+	if stored, ok := readCatalog(); !ok || stored.CheckedAt != now.Unix() || len(stored.Addons) != 2 {
+		t.Fatalf("add-on list: %+v", stored)
 	}
 
 	// After an upgrade, the offline comparison clears the notice.
@@ -99,7 +107,7 @@ func TestCheckUpdates(t *testing.T) {
 	if err := CheckUpdates(context.Background(), false); err != nil {
 		t.Fatal(err)
 	}
-	if n = GetNotice(); len(n.Updates) != 0 || n.CheckedAt != now.Unix() || !reflect.DeepEqual(*calls, [][]string{wantVersion}) {
+	if n = GetNotice(); len(n.Updates) != 0 || n.CheckedAt != now.Unix() || !reflect.DeepEqual(*calls, [][]string{wantVersion, wantQuery}) {
 		t.Fatalf("offline: notice=%+v calls=%q", n, *calls)
 	}
 
@@ -241,7 +249,8 @@ func TestNoticeLockAcrossProcesses(t *testing.T) {
 	if err := CheckUpdates(context.Background(), false); err != nil {
 		t.Fatal(err)
 	}
-	if len(*calls) != 1 {
+	// The comparison and the add-on list of the cached index.
+	if len(*calls) != 2 {
 		t.Fatalf("comparison after lock release: %q", *calls)
 	}
 }

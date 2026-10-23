@@ -4,6 +4,7 @@ import { useAtom } from 'jotai';
 import { DownloadIcon, ExternalLinkIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { checkAddonCatalog, getAddonCatalog, type AddonCatalog } from '@/api/addons.ts';
 import { getRuntimeStatus, installRuntime, uninstallRuntime } from '@/api/picoclaw.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
@@ -11,6 +12,7 @@ import { Robot } from '@/components/icons/robot.tsx';
 
 import { AcmeAddon } from './acme';
 import { AddonCard } from './addon-card';
+import { CatalogAddonCard, CatalogStatus } from './catalog-addon';
 import { IpmiAddon } from './ipmi';
 import { RustDeskAddon } from './rustdesk';
 
@@ -32,6 +34,36 @@ export const Addons = ({
   const pending = useRef(false);
   const generation = useRef(0);
   const [modal, contextHolder] = Modal.useModal();
+  // The add-ons of the NanoKVM repository, from the daily update check: a new
+  // one appears here without an OS release.
+  const [catalog, setCatalog] = useState<AddonCatalog>();
+  const [checking, setChecking] = useState(false);
+  const loadCatalog = useCallback(async () => {
+    try {
+      const response = await getAddonCatalog();
+      if (response.code === 0) setCatalog(response.data as AddonCatalog);
+    } catch {
+      // The cards below work without the list; the next poll retries.
+    }
+  }, []);
+  useEffect(() => {
+    void loadCatalog();
+    return pollWhileVisible(() => void loadCatalog(), 5000);
+  }, [loadCatalog]);
+  const checkCatalog = async () => {
+    setChecking(true);
+    try {
+      await checkAddonCatalog();
+      await loadCatalog();
+    } finally {
+      setChecking(false);
+    }
+  };
+  // Add-ons with a page of their own keep their card.
+  const ipmiEntry = catalog?.addons.find((addon) => addon.name === 'nanokvm-ipmi');
+  const others =
+    catalog?.addons.filter((addon) => !['nanokvm-rustdesk', 'nanokvm-ipmi'].includes(addon.name)) ??
+    [];
   const refresh = useCallback(async () => {
     if (pending.current) return;
     pending.current = true;
@@ -137,7 +169,17 @@ export const Addons = ({
       </AddonCard>
       <RustDeskAddon onOpen={onOpenRustDesk} />
       <AcmeAddon onOpen={onOpenAcme} />
-      <IpmiAddon onOpen={onOpenBmc} />
+      {ipmiEntry && <IpmiAddon onOpen={onOpenBmc} entry={ipmiEntry} os={catalog?.os} />}
+      {others.map((addon) => (
+        <CatalogAddonCard
+          key={addon.name}
+          addon={addon}
+          os={catalog?.os}
+          listed={!!catalog?.checkedAt}
+          onChanged={(next) => (next ? setCatalog(next) : void loadCatalog())}
+        />
+      ))}
+      <CatalogStatus catalog={catalog} checking={checking} onCheck={() => void checkCatalog()} />
     </div>
   );
 };

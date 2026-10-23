@@ -34,8 +34,12 @@ def alive(pid):
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
-    # A killed worker stays a zombie until its parent is gone.
-    return Path(f'/proc/{pid}/stat').read_text().split()[2] != 'Z'
+    # A killed worker stays a zombie until its parent is gone; it may also
+    # be gone between the two checks.
+    try:
+        return Path(f'/proc/{pid}/stat').read_text().split()[2] != 'Z'
+    except (FileNotFoundError, ProcessLookupError):
+        return False
 
 
 def wait_dead(pid):
@@ -62,6 +66,19 @@ class RescueTests(unittest.TestCase):
                          f'[ ! -e /proc/$$/fd/9 ] || echo "fd 9 open in {name}" >> "$CALLS"\n'
                          f'[ -z "${{{var}:-}}" ]\n')
             f.chmod(0o755)
+        # With BARRIER set, `rc-service sshd start` stays in progress until
+        # that file exists, as a slow sshd start would.
+        (self.bin / 'rc-service').write_text(
+            '#!/bin/sh\n'
+            'if [ -n "${BARRIER:-}" ] && [ "$*" = "sshd start" ]; then\n'
+            '    echo start-begin >> "$CALLS"\n'
+            '    while [ ! -e "$BARRIER" ]; do sleep 0.05; done\n'
+            '    echo start-completed >> "$CALLS"\n'
+            '    exit 0\n'
+            'fi\n'
+            'echo "rc-service $*" >> "$CALLS"\n'
+            '[ ! -e /proc/$$/fd/9 ] || echo "fd 9 open in rc-service" >> "$CALLS"\n'
+            '[ -z "${FAIL_rc_service:-}" ]\n')
         (self.bin / 'pidof').write_text(PIDOF)
         (self.bin / 'pidof').chmod(0o755)
         # The server (pid 100) owns socket 4242, listening on port 80.
@@ -242,6 +259,46 @@ class RescueTests(unittest.TestCase):
         time.sleep(0.2)
         self.assertIsNone(other.poll())
         self.assertFalse((self.run_dir / 'ssh-rescue.pid').exists())
+
+    def test_retiring_the_worker_waits_for_an_sshd_start_in_progress(self):
+        # The old worker is starting sshd when the service stops (or
+        # restarts) and the user then turns SSH off: the start must be over
+        # before the choice is applied, so SSH ends up stopped.
+        for retire, extra in (('stop', {}), ('start', {'LISTENING': '1', 'NANOKVM_RESCUE_WAIT': '20'})):
+            with self.subTest(retire):
+                barrier = self.root / f'barrier-{retire}'
+                self.calls.unlink(missing_ok=True)
+                (self.root / 'count').unlink(missing_ok=True)
+                (self.run_dir / 'ssh-decided').unlink(missing_ok=True)
+                env = self.environment(BARRIER=str(barrier), NANOKVM_RESCUE_WAIT='1')
+                subprocess.run(['sh', '-c', self.script('start'), 'nanokvm-rescue'], check=True, env=env,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                deadline = time.time() + 5
+                while 'start-begin' not in self.calls_made() and time.time() < deadline:
+                    time.sleep(0.05)
+                self.assertIn('start-begin', self.calls_made())
+                retiring = subprocess.Popen(['sh', '-c', self.script(retire), 'nanokvm-rescue'],
+                                            env=self.environment(BARRIER=str(barrier), **extra),
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                turning_off = subprocess.Popen(['sh', str(S50SSHD), 'permanent_off'], env=env,
+                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                time.sleep(0.5)
+                # Both wait for the start in progress.
+                self.assertIsNone(retiring.poll())
+                self.assertIsNone(turning_off.poll())
+                barrier.touch()
+                self.assertEqual(retiring.wait(5), 0)
+                self.assertEqual(turning_off.wait(5), 0)
+                calls = self.calls_made()
+                self.assertEqual(calls[-1], 'rc-service sshd stop', calls)
+                self.assertLess(calls.index('start-completed'), calls.index('rc-service sshd stop'), calls)
+                self.assertTrue(self.stop.exists())
+                self.assertTrue((self.run_dir / 'ssh-decided').exists())
+                # A restarted worker found the server up and started nothing.
+                if retire == 'start':
+                    pid = int((self.run_dir / 'ssh-rescue.pid').read_text())
+                    self.assertTrue(wait_dead(pid))
+                    self.assertEqual(self.calls_made(), calls)
 
     def test_failures_are_logged_and_the_marker_needs_sshd(self):
         result = self.run_service('rescue', FAIL_ssh_keygen='1')

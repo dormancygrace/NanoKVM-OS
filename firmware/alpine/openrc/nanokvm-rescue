@@ -79,17 +79,21 @@ rescue() {
     fi
 }
 
-# Retire the worker of an earlier start. A worker that found the server up
-# has exited, and its PID may belong to another program by now.
-stop_worker() {
-    local pid
-    pid=$(cat "$NANOKVM_RUN/ssh-rescue.pid" 2> /dev/null) || return 0
+# Retire the worker of an earlier start. Under the rescue's lock: a worker
+# that is starting sshd holds it until the start is over, so nothing it began
+# can act after this returns. A worker that found the server up has exited,
+# and its PID may belong to another program by now.
+stop_worker() (
+    mkdir -p "$NANOKVM_RUN"
+    exec 9> "$NANOKVM_RUN/ssh-rescue.lock"
+    flock -x 9
+    pid=$(cat "$NANOKVM_RUN/ssh-rescue.pid" 2> /dev/null) || exit 0
     rm -f "$NANOKVM_RUN/ssh-rescue.pid"
-    case "$pid" in '' | *[!0-9]*) return 0 ;; esac
+    case "$pid" in '' | *[!0-9]*) exit 0 ;; esac
     case "$(tr '\0' ' ' < "/proc/$pid/cmdline" 2> /dev/null)" in
         *nanokvm-rescue*) kill "$pid" 2> /dev/null || true ;;
     esac
-}
+)
 
 start() {
     stop_worker

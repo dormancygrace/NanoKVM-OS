@@ -235,6 +235,22 @@ result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output
 assert result.returncode != 0 and not (flags / '.layout-v1').exists()
 print('PASS: absent boot mount refuses activation')
 
+# Already migrated: a boot partition that does not mount must not stop the
+# gadget or the application.
+boot, flags = fixture()
+flags.mkdir()
+(flags / '.layout-v1').write_text('')
+(flags / 'usb.ncm').write_text('')
+env = dict(env, NANOKVM_USB_FLAGS_DIR=str(flags), NANOKVM_USB_FLAGS_LAYOUT=str(boot.parent / 'layout'))
+result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output=True)
+assert result.returncode == 0 and 'not mounted' in result.stderr, result
+assert tree(flags) == {'usb.ncm': ''}, tree(flags)
+# A migration still in progress keeps waiting for the mount.
+(flags.parent / (flags.name + '.new')).mkdir()
+result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output=True)
+assert result.returncode != 0, result
+print('PASS: a settled layout starts without the boot mount')
+
 # A settled layout skips pidof/cleanup after locking; a rollback takes the full run.
 boot, flags = fixture()
 flags.mkdir()

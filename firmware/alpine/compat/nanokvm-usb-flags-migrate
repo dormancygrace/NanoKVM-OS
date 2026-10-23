@@ -47,7 +47,13 @@ settled() {
         while read -r _ point _; do
             [ "$point" != "$boot" ] || mounted=1
         done < /proc/mounts
-        [ -n "$mounted" ] || return 1
+        # Migrated before: an unmounted /boot has nothing to read, and the set
+        # here is complete. A boot partition Linux cannot mount must not keep
+        # HID and the application down.
+        [ -n "$mounted" ] || {
+            echo "USB flags: $boot is not mounted; using the migrated set in $dir" >&2
+            return 0
+        }
     fi
     for name in $names; do
         [ ! -e "$boot/$name" ] || return 1

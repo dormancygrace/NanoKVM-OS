@@ -85,30 +85,37 @@ class BootloaderActivationTests(unittest.TestCase):
         result = self.run_activation()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.boot / 'fip.bin').read_bytes(), OLD)
-        self.assertIn('previous fip.bin restored', result.stderr)
+        self.assertIn('fip.bin is the previous one', result.stderr)
         self.assertFalse((self.root / 'run/reboot-required').exists())
 
     def test_bad_final_readback_restores_previous(self):
         result = self.run_activation(CORRUPT='fip.bin')
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.files(), {'fip.bin': OLD})
-        self.assertIn('previous fip.bin restored', result.stderr)
+        self.assertIn('fip.bin is the previous one', result.stderr)
         self.assertFalse((self.root / 'run/reboot-required').exists())
 
     def test_failed_rollback_keeps_previous_and_reports_recovery(self):
-        self.stub('mv', '[ "$(basename "$1")" = fip.bin ] || exit 1; exec /bin/mv "$@"')
-        result = self.run_activation()
+        # The new file went in but reads back wrong, and putting the previous
+        # one back fails too.
+        self.stub('mv', '[ "$(basename "$1")" = fip.prev ] && exit 1; exec /bin/mv "$@"')
+        result = self.run_activation(CORRUPT='fip.bin')
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.boot / 'fip.prev').read_bytes(), OLD)
         self.assertIn('do not reboot', result.stderr)
         self.assertFalse((self.root / 'run/reboot-required').exists())
 
-    def test_sync_failure_after_old_rename_restores_previous(self):
+    def test_sync_failure_of_the_previous_copy_changes_nothing(self):
         self.stub('sync', '[ -f "' + str(self.boot / 'fip.prev') + '" ] && exit 1; exit 0')
         result = self.run_activation()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.boot / 'fip.bin').read_bytes(), OLD)
-        self.assertIn('previous fip.bin restored', result.stderr)
+
+    def test_bad_previous_copy_changes_nothing(self):
+        result = self.run_activation(CORRUPT='fip.prev')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('fip.bin is unchanged', result.stderr)
+        self.assertEqual(self.files(), {'fip.bin': OLD})
 
     def test_recovery_refuses(self):
         (self.boot / 'rec').write_text('')
@@ -129,12 +136,18 @@ class BootloaderActivationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.files(), {'fip.bin': OLD})
 
-    def test_no_rename_replaces_an_existing_file(self):
-        # Two renames, each to a free name: fip.bin -> fip.prev, fip.new -> fip.bin.
+    def test_fip_bin_is_never_without_a_complete_file(self):
+        # fip.bin is never renamed away or removed: the previous one is copied,
+        # and the new one renamed over it while the old one is held open, so
+        # its clusters stay allocated until the new entry is synced.
         text = SOURCE.read_text()
-        self.assertNotIn('mv -f', text)
-        self.assertLess(text.index('rm -f /boot/fip.prev'), text.index('mv /boot/fip.bin /boot/fip.prev'))
-        self.assertLess(text.index('mv /boot/fip.bin /boot/fip.prev'), text.index('mv /boot/fip.new /boot/fip.bin'))
+        body = text[text.index('rm -f /boot/fip.new\ncp'):]
+        self.assertNotIn('mv /boot/fip.bin', body)
+        self.assertNotIn('rm -f /boot/fip.bin', text)
+        order = ['cp /boot/fip.bin /boot/fip.prev', 'exec 8< /boot/fip.bin', 'mv /boot/fip.new /boot/fip.bin',
+                 'sync /boot\nexec 8<&-']
+        positions = [text.index(step) for step in order]
+        self.assertEqual(positions, sorted(positions))
 
 
 if __name__ == '__main__':

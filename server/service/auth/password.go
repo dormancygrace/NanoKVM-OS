@@ -35,10 +35,28 @@ func (s *Service) ChangePassword(c *gin.Context) {
 		rsp.ErrRsp(c, -3, "current password is required")
 		return
 	}
+	// The current password is a password check like a login: one at a time
+	// per address, failures counted, the lockout applied. Otherwise any
+	// session could run bcrypt back to back (about a second each on the
+	// device's one core) and guess its own account's password.
+	clientIP := GetClientIP(c)
+	release, admitted, code, msg := BeginLoginAttempt(clientIP)
+	if !admitted {
+		time.Sleep(3 * time.Second)
+		rsp.ErrRsp(c, code, msg)
+		return
+	}
+	defer release()
 	if _, authenticated, authErr := authn.DefaultStore.Authenticate(principal.Username, currentPassword); authErr != nil {
 		rsp.ErrRsp(c, -4, "authentication unavailable")
 		return
 	} else if !authenticated {
+		locked, code, msg := RecordLoginFailureFor(clientIP, principal.Username)
+		time.Sleep(2 * time.Second)
+		if locked {
+			rsp.ErrRsp(c, code, msg)
+			return
+		}
 		rsp.ErrRsp(c, -3, "current password is incorrect")
 		return
 	}

@@ -20,6 +20,9 @@ import (
 // browser login response from exposing its HttpOnly cookie value to JavaScript.
 const ReturnTokenHeader = "X-NanoKVM-Return-Token"
 
+// loginBodyTimeout bounds how long a login request may take to send its body.
+var loginBodyTimeout = 15 * time.Second
+
 func (s *Service) Login(c *gin.Context) {
 	var req proto.LoginReq
 	var rsp proto.Response
@@ -42,6 +45,10 @@ func (s *Service) Login(c *gin.Context) {
 		rsp.ErrRsp(c, code, msg)
 		return
 	}
+	// The server sets no global read deadline (uploads and streams need
+	// none), so bound this unauthenticated body: a client that sends it
+	// slowly must not hold the connection and its buffers indefinitely.
+	_ = http.NewResponseController(c.Writer).SetReadDeadline(time.Now().Add(loginBodyTimeout))
 	if err := proto.ParseFormRequest(c, &req); err != nil {
 		time.Sleep(3 * time.Second)
 		rsp.ErrRsp(c, -1, "invalid parameters")
@@ -69,11 +76,11 @@ func (s *Service) Login(c *gin.Context) {
 		return
 	}
 	if !ok {
-		s.loginFailed(c, clientIP, &rsp)
+		s.loginFailedFor(c, clientIP, req.Username, &rsp)
 		return
 	}
 
-	ClearLoginAttempt(clientIP)
+	ClearLoginAttempt(clientIP, req.Username)
 	token, err := middleware.GenerateJWT(user.Username, user.TokenVersion)
 	if err != nil {
 		time.Sleep(time.Second)
@@ -92,7 +99,12 @@ func (s *Service) Login(c *gin.Context) {
 // loginFailed records the failure before the delay, so the lockout counts it
 // at once; the caller still holds the address's attempt slot during the delay.
 func (s *Service) loginFailed(c *gin.Context, clientIP string, rsp *proto.Response) {
-	locked, code, msg := RecordLoginFailure(clientIP)
+	s.loginFailedFor(c, clientIP, "", rsp)
+}
+
+// loginFailedFor is loginFailed for a known user name.
+func (s *Service) loginFailedFor(c *gin.Context, clientIP, username string, rsp *proto.Response) {
+	locked, code, msg := RecordLoginFailureFor(clientIP, username)
 	time.Sleep(2 * time.Second)
 	if locked {
 		rsp.ErrRsp(c, code, msg)

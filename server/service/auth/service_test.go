@@ -406,6 +406,8 @@ func TestNormalUserPasswordNeverChangesSystemPassword(t *testing.T) {
 
 func TestSelfPasswordChangeRequiresCurrentPassword(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	useLoginProtectionConfig(t)
+	useLoginAttemptRecords(t, make(map[string]*loginAttempt))
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
 	restore := useTestStore(store)
 	defer restore()
@@ -436,6 +438,13 @@ func TestSelfPasswordChangeRequiresCurrentPassword(t *testing.T) {
 	}
 	if _, ok, err := store.Authenticate("alice", "new-password"); err != nil || ok {
 		t.Fatalf("password changed without current credential: ok=%v err=%v", ok, err)
+	}
+	// A wrong current password counts toward the login lockout.
+	loginMutex.Lock()
+	attempt := loginAttempts["192.0.2.1"]
+	loginMutex.Unlock()
+	if attempt == nil || attempt.failures != 1 || attempt.failedUser != "alice" {
+		t.Fatalf("wrong current password not counted: %+v", attempt)
 	}
 
 	requestJSON(router, http.MethodPost, "/password", map[string]any{

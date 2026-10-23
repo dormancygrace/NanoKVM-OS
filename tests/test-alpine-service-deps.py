@@ -65,9 +65,18 @@ for failed in ({"nanokvm-storage"}, {"nanokvm-modules"}, {"nanokvm-board"},
     running = started(failed)
     missing = [service for service in REACHABLE if service not in running]
     assert not missing, (failed, missing)
-    # The application and its watchdog keep requiring complete hardware setup.
-    assert "nanokvm-app" not in running and "nanokvm-watchdog" not in running, (failed, running)
-    print(f"{' + '.join(sorted(failed))} failed: network, SSH and mDNS start; app stays stopped")
+    print(f"{' + '.join(sorted(failed))} failed: network, SSH and mDNS start: pass")
+# Without the board or media module setup the application, USB HID, the
+# runtime policy and the watchdog still start (the server without video): one
+# transient failure at boot used to lock a remote device out.
+for failed in ({"nanokvm-modules"}, {"nanokvm-board"}, {"nanokvm-modules", "nanokvm-board"}):
+    running = started(failed)
+    for service in ("nanokvm-app", "nanokvm-usb", "nanokvm-policy", "nanokvm-watchdog"):
+        assert service in running, (failed, service, running)
+    print(f"{' + '.join(sorted(failed))} failed: app, USB, policy and watchdog start: pass")
+# Without the storage setup the application has no settings: it stays stopped.
+assert "nanokvm-app" not in started({"nanokvm-storage"})
+print("nanokvm-storage failed: app stays stopped: pass")
 
 # A media module failure must not skip the identity (hostname, Ethernet MAC).
 assert "nanokvm-board" in started({"nanokvm-modules"})

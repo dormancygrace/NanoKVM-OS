@@ -92,7 +92,25 @@ case "${1:-}" in
     start|re-init|re-detect)
         check_board
         detect_board
-        detect_hdmi
+        # The receiver model is fixed hardware. At boot, a receiver that does
+        # not answer once (busy, a bus glitch) keeps the model identified on an
+        # earlier boot; an explicit re-detect or re-init still fails. The board
+        # itself was checked and detected above either way. ue is accepted as
+        # get_hdmi_version accepts it (earlier releases); start never writes it.
+        if [ "$1" = start ] && ! detected=$(detect_hdmi && printf '%s' "$hdmi"); then
+            cached=$(cat /etc/kvm/hdmi_version 2>/dev/null || true)
+            case "$cached" in
+                c|ux|d|ue) ;;
+                *) exit 1 ;;
+            esac
+            echo "S15kvmhwd: HDMI receiver not identified; keeping the model $cached of an earlier boot" >&2
+            logger -t nanokvm-board "HDMI receiver not identified; keeping the model $cached of an earlier boot" 2>/dev/null || true
+            detected=$cached
+        elif [ "$1" != start ]; then
+            detect_hdmi
+            detected=$hdmi
+        fi
+        hdmi=$detected
         publish hw "$board"
         if [ "$profiled" = 1 ]; then publish board-profile "$declared_board"; fi
         publish hdmi_version "$hdmi"

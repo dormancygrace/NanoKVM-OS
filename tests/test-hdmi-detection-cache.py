@@ -56,15 +56,33 @@ publish() {{ printf '%s\\n' "$2" > "{fallback}/$1"; }}
     assert (fallback / "hdmi_version").read_text().strip() == "ux"
 
     failed = root / "failed-probe"
+    failed.mkdir()
     mocks = f'''check_board() {{ declared_board=pcie; }}
 detect_board() {{ board=pcie; }}
 i2cdetect() {{ return 7; }}
-publish() {{ touch "{failed}"; }}
+logger() {{ :; }}
+publish() {{ printf '%s\\n' "$2" > "{failed}/$1"; }}
 '''
     script.write_text(source[:position] + mocks + source[position:])
-    failed_run = subprocess.run(["sh", str(script), "start"])
+    cache = root / "hdmi_version"
+    # No model from an earlier boot: an I2C command failure is never taken
+    # for a missing receiver, and nothing is published.
+    cache.unlink(missing_ok=True)
+    failed_run = subprocess.run(["sh", str(script), "start"], capture_output=True, text=True)
     assert failed_run.returncode != 0, "I2C command failure was accepted"
-    assert not failed.exists(), "failed I2C probe published a profile"
+    assert not list(failed.iterdir()), "failed I2C probe published a profile"
+    # A model from an earlier boot is kept at start (fixed hardware), with a
+    # warning; an explicit re-detect still fails.
+    cache.write_text("d\n")
+    kept = subprocess.run(["sh", str(script), "start"], capture_output=True, text=True)
+    assert kept.returncode == 0, kept.stderr
+    assert "keeping the model d" in kept.stderr, kept.stderr
+    assert (failed / "hdmi_version").read_text().strip() == "d"
+    assert (failed / "hw").read_text().strip() == "pcie"
+    for command in ("re-detect", "re-init"):
+        assert subprocess.run(["sh", str(script), command], capture_output=True).returncode != 0, command
+    cache.write_text("garbage\n")
+    assert subprocess.run(["sh", str(script), "start"], capture_output=True).returncode != 0
 
     # OLED probes are advisory for the declared PCIe profile.  In particular,
     # an I2C1 command error must not prevent the available I2C5 path from

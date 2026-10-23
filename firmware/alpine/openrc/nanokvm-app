@@ -6,7 +6,12 @@ description="NanoKVM hardware daemon and web server"
 # after an app-only update and silently loses the runtime defaults from the app.
 
 depend() {
-    need nanokvm-board nanokvm-storage nanokvm-modules nanokvm-policy
+    need nanokvm-storage
+    # Without the board, module or policy setup the server still starts,
+    # without video if need be: settings, updates, ATX power and USB HID stay
+    # reachable. A failed step used to keep a remote device locked out.
+    use nanokvm-board nanokvm-modules nanokvm-policy
+    after nanokvm-board nanokvm-modules nanokvm-policy
     # Not after the network: the server listens on every address and serves
     # each interface as it comes up.
     after nanokvm-usb

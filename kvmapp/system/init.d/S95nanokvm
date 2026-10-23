@@ -170,7 +170,8 @@ start_services() {
     printf '1080' > /run/nanokvm/height
 
     if [ "$server_running" = 0 ]; then
-        prepare_hdmi_receiver || return 1
+        # Without a usable receiver reset the server still starts, without video.
+        prepare_hdmi_receiver || echo 'Starting without video: the HDMI receiver reset is not usable' >&2
     fi
 
     video_settings

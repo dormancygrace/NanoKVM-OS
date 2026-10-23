@@ -48,6 +48,11 @@ on:
       - scripts/publish-release.py
       - scripts/release_assets.py
       - scripts/release_build_tar.py
+      - scripts/sign-release.sh
+      - scripts/apk_resign.py
+      - scripts/check-release-key.sh
+      - scripts/alpine-signer.sh
+      - tests/test-apk-resign.py
       - tests/test-release-build-tar.py
       - tests/test-release-storage.py
       - tests/test-release-workflow.py
@@ -169,8 +174,39 @@ jobs:
           # The Go build cache (about 1 GB) is not reused within a run.
           rm -rf "$OUT/server/gocache"
           platform/build.sh -o "$OUT" web firmware hashes source
+
+      # The packages, root file system and SD image (always built, as a check
+      # that the packages install), signed with a throwaway key: this job runs
+      # third-party build code and never holds the release key. The sign job
+      # gives the repository the release signature (scripts/sign-release.sh).
+      # These steps run as root of a user namespace with subordinate IDs
+      # (platform/README.md). Ubuntu lets AppArmor deny unprivileged user
+      # namespaces by default.
+      - name: User namespaces
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          user=$(id -un)
+          for file in /etc/subuid /etc/subgid; do
+            grep -q "^$user:" "$file" 2>/dev/null || echo "$user:100000:65536" | sudo tee -a "$file"
+          done
+          ! sysctl -n kernel.apparmor_restrict_unprivileged_userns > /dev/null 2>&1 ||
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Packages, root file system and image
+        if: steps.version.outputs.skip != 'true'
+        env:
+          NANOKVM_CHANNEL: ${{ steps.version.outputs.channel }}
+          # Compare with the newest tested set, including betas; package-versions.py
+          # rebuilds every prerelease package when producing a stable release.
+          NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64
+          NANOKVM_VERSION: ${{ steps.version.outputs.version }}
+          NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
+          NANOKVM_IMAGE_VERSION: ${{ steps.version.outputs.image_version }}
+        run: |
+          platform/build.sh -o "$OUT" -u payloads packages rootfs image
           # A tar keeps the file modes, which an artifact drops.
-          tar -C "$OUT" -cf "$RUNNER_TEMP/release-build.tar" images "NanoKVM-OS-$NANOKVM_VERSION-source.tar.xz"
+          tar -C "$OUT" -cf "$RUNNER_TEMP/release-build.tar" release/apk release/image \
+            release/installed-packages.txt release/installed-licenses.txt "NanoKVM-OS-$NANOKVM_VERSION-source.tar.xz"
 
       - uses: actions/upload-artifact@v7
         if: steps.version.outputs.skip != 'true'
@@ -193,9 +229,6 @@ jobs:
       actions: write
     env:
       NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}
-      # Compare with the newest tested set, including betas; package-versions.py
-      # rebuilds every prerelease package when producing a stable release.
-      NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64
       NANOKVM_VERSION: ${{ needs.build.outputs.version }}
       NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
       NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
@@ -206,10 +239,6 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-
-      - uses: ./.github/actions/prepare-build
-        with:
-          out: ${{ env.OUT }}
 
       # Each private key next to its public key from firmware/alpine/keys, as
       # platform/build.sh pairs them; it refuses keys that are not there.
@@ -252,9 +281,6 @@ jobs:
     timeout-minutes: 120
     env:
       NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}
-      # Compare with the newest tested set, including betas; package-versions.py
-      # rebuilds every prerelease package when producing a stable release.
-      NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64
       NANOKVM_VERSION: ${{ needs.build.outputs.version }}
       NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
       NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
@@ -262,10 +288,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-
-      - uses: ./.github/actions/prepare-build
-        with:
-          out: ${{ env.OUT }}
 
       - uses: ./.github/actions/assemble-release
         with:

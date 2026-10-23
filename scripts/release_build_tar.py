@@ -3,11 +3,11 @@
 
 The build job runs third-party build code (npm packages, Go modules,
 Buildroot) and hands its outputs over as one tar. The signing job unpacks it
-into its build tree, then runs that tree's toolchain with the release key on
-disk. So the tar may hold only what the build job packs: the images and the
-source archive, as directories and regular files. A member such as
-buildroot-output/host/bin/python3, or a link, is refused before anything is
-written. The same parser that checks the members unpacks them.
+and signs the repository in it with the release key. So the tar may hold
+only what the build job packs: the APK repository, the SD image and the
+package lists of release/, and the source archive, as directories and
+regular files. Anything else, a link included, is refused before anything
+is written. The same parser that checks the members unpacks them.
 """
 import argparse
 from pathlib import Path, PurePosixPath
@@ -15,13 +15,17 @@ import re
 import tarfile
 
 SOURCE = re.compile(r'NanoKVM-OS-[0-9A-Za-z.+~-]+-source\.tar\.xz')
+TREES = ('release/apk', 'release/image')
+FILES = ('release/installed-packages.txt', 'release/installed-licenses.txt')
 
 
 def check(member):
     parts = PurePosixPath(member.name).parts
     if not parts or member.name.startswith('/') or '..' in parts:
         raise ValueError(f'Unsafe member name: {member.name!r}')
-    if not (parts[0] == 'images' or (len(parts) == 1 and SOURCE.fullmatch(parts[0]))):
+    name = '/'.join(parts)
+    if not (name == 'release' or name in FILES or name.startswith(tuple(t + '/' for t in TREES))
+            or name in TREES or (len(parts) == 1 and SOURCE.fullmatch(name))):
         raise ValueError(f'Unexpected member: {member.name}')
     if not (member.isreg() or member.isdir()):
         raise ValueError(f'Not a file or directory: {member.name}')

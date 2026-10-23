@@ -2,7 +2,7 @@
 # NanoKVM OS build: everything in the SD card image, from the inputs pinned in
 # sources.lock.
 #
-#   platform/build.sh [-o OUTPUT] [-j JOBS] [-e ECKEY | -d] [STEP...]
+#   platform/build.sh [-o OUTPUT] [-j JOBS] [-e ECKEY | -d | -u] [STEP...]
 #
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
@@ -39,7 +39,10 @@
 # key NAME.key with NAME.pub next to it. The public key must already be in
 # firmware/alpine/keys; old public keys remain trusted for historical packages.
 # For local tests -d creates an EC test key in OUTPUT/keys. Such an image also
-# trusts that test key: never publish it. NANOKVM_KERNEL_PROFILE=debug builds
+# trusts that test key: never publish it. -u, for the Release workflow, signs
+# with a throwaway key made in OUTPUT/keys/build; the image trusts only the
+# published keys, and scripts/sign-release.sh then signs the repository with
+# the release key, outside the build. NANOKVM_KERNEL_PROFILE=debug builds
 # the kernel and its modules with kernel/config-debug.fragment (release 7.3.0-nanokvm-os-rN-debug)
 # and, with -d only, packages and an image that add platform/debug-packages.
 # With NANOKVM_PREVIOUS (the URL or directory of the
@@ -54,14 +57,15 @@ out=${NANOKVM_PLATFORM_OUT:-$repo/build/platform}
 jobs=$(nproc)
 eckey=
 devkey=
+laterkey=
 usage() { sed -n '2,/^set -euo pipefail/{ /^#/s/^# \{0,1\}//p; }' "$0" >&2; exit 2; }
-while getopts o:j:e:dh opt; do
+while getopts o:j:e:duh opt; do
     case $opt in
         o) out=$OPTARG ;; j) jobs=$OPTARG ;; e) eckey=$(realpath "$OPTARG") ;;
-        d) devkey=1 ;; *) usage ;;
+        d) devkey=1 ;; u) laterkey=1 ;; *) usage ;;
     esac
 done
-[ -z "$eckey" ] || [ -z "$devkey" ] || { echo "-e excludes -d" >&2; exit 2; }
+[ "$(( ${eckey:+1} + ${devkey:+1} + ${laterkey:+1} + 0 ))" -le 1 ] || { echo "-e, -d and -u exclude each other" >&2; exit 2; }
 # The public half of the EC key: NAME.pub next to NAME.key.
 ec_public() { echo "${1%.key}.pub"; }
 shift $((OPTIND - 1))
@@ -87,28 +91,12 @@ esac
 # Fail before a long build, not at the signing steps.
 case " ${steps[*]} " in
     *" packages "* | *" rootfs "*)
-        [ -n "$devkey" ] || [ -n "$eckey" ] || {
-            echo "APK signing key required: -e path/to/key.key, or -d for a local EC test key" >&2
+        [ -n "$devkey$eckey$laterkey" ] || {
+            echo "APK signing key required: -e path/to/key.key, -d for a local EC test key, or -u" >&2
             exit 2
         }
         # Devices trust the keys of nanokvm-keys; a release key must be one of them.
-        if [ -n "$eckey" ]; then
-            "$repo/scripts/check-ec-key.sh" "$eckey" "$(ec_public "$eckey")"
-            for pub in "$repo"/firmware/alpine/keys/*.pub ""; do
-                [ -n "$pub" ] || {
-                    echo "$(ec_public "$eckey") is not in firmware/alpine/keys; add it there," >&2
-                    echo "and publish it in nanokvm-keys before signing with it (firmware/alpine/README.md)" >&2
-                    exit 2
-                }
-                if cmp -s "$(ec_public "$eckey")" "$pub"; then
-                    [ "$(basename "$(ec_public "$eckey")")" = "$(basename "$pub")" ] || {
-                        echo "EC public key filename must match the published filename for APK v2 verification" >&2
-                        exit 2
-                    }
-                    break
-                fi
-            done
-        fi ;;
+        [ -z "$eckey" ] || "$repo/scripts/check-release-key.sh" "$eckey" || exit 2 ;;
 esac
 # Keep builds inside OUTPUT from finding an enclosing Git checkout.
 export GIT_CEILING_DIRECTORIES=$out
@@ -970,6 +958,18 @@ signing_key() {
     local tmp
     if [ -n "$eckey" ]; then
         ecfile=$eckey
+    elif [ -n "$laterkey" ]; then
+        # One key for all steps of this OUTPUT, never a published or test key.
+        mkdir -p "$out/keys/build"
+        ecfile=$(find "$out/keys/build" -name 'nanokvm-build-ec-*.key' | LC_ALL=C sort | head -n 1)
+        if [ -z "$ecfile" ]; then
+            tmp=$out/keys/build/new-ec
+            openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$tmp.key" 2> /dev/null
+            openssl pkey -in "$tmp.key" -pubout -out "$tmp.pub" 2> /dev/null
+            ecfile=$out/keys/build/nanokvm-build-ec-$(openssl pkey -pubin -in "$tmp.pub" -outform DER | sha256sum | cut -c1-8).key
+            mv "$tmp.key" "$ecfile"
+            mv "$tmp.pub" "$(ec_public "$ecfile")"
+        fi
     elif [ -z "$devkey" ]; then
         echo "APK signing key required: -e path/to/key.key, or -d for a local EC test key" >&2
         exit 2
@@ -1124,8 +1124,9 @@ rootfs() {
     rm -rf "$out/rootfs"
     alpine_tree "$r"
     # apk must trust the keys before it can install nanokvm-keys; it then takes
-    # over these identical files (/etc/apk is not a protected path).
-    [ -z "$devkey" ] || install -m 0644 "$ecpub" "$r/etc/apk/keys/"
+    # over these identical files (/etc/apk is not a protected path). The -u
+    # build key is trusted only for the installation below.
+    [ -z "$devkey$laterkey" ] || install -m 0644 "$ecpub" "$r/etc/apk/keys/"
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
     # The v3 index, as on the device.
     printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
@@ -1141,6 +1142,7 @@ rootfs() {
             $(sed 's/#.*//' "$here/debug-packages")
     fi
     rmdir "$r/mnt/nanokvm-apk"
+    [ -z "$laterkey" ] || rm "$r/etc/apk/keys/${ecpub##*/}"
     # The repositories of the device: the v3 index of NanoKVM OS releases on
     # GitHub Pages (nanokvm-keys moves older devices there) and Alpine main. Community is
     # off until the Software page or a Tailscale or NetBird install turns it on

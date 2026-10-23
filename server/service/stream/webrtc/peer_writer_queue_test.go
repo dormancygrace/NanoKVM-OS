@@ -57,7 +57,9 @@ func TestPeerWriterByteBudgetDrainsAndResumesAtIDR(t *testing.T) {
 	}
 	<-entered
 	delta := stream.VideoFrame{Result: 4, Timestamp: 2, Storage: make([]byte, 700000)}
-	if !w.offer(delta) || !w.offer(delta) {
+	// Two frames on purpose: both fit in the byte budget.
+	first, second := w.offer(delta), w.offer(delta)
+	if !first || !second {
 		t.Fatal("frames below byte budget were rejected")
 	}
 	if w.offer(delta) {

@@ -24,7 +24,7 @@ func (f *formatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 	now := entry.Time.Format("2006-01-02 15:04:05.000")
 
-	if entry.HasCaller() {
+	if entry.Caller != nil {
 		fileName := filepath.Base(entry.Caller.File)
 		text = fmt.Sprintf(
 			"[%s] [%s] [%s:%d] %s\n",

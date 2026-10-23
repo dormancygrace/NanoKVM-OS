@@ -44,4 +44,9 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-hdmi-session-') as name:
                     str(root / 'tests/test-hdmi-i2c.cpp'), '-o', str(tmp / 'transport')],
                    check=True)
     subprocess.run([str(tmp / 'transport')], check=True, timeout=10)
+    # Compile the on-device wrapper too: it must forward transport selection.
+    subprocess.run(['g++', '-std=c++17', *flags, '-fsyntax-only',
+                    '-I' + str(root / 'support/sg2002/additional/kvm/include'),
+                    str(root / 'firmware/probes/hdmi-receiver-runtime.cpp')],
+                   check=True)
 print('PASS: native receiver/maintenance and production EDID I2C helpers')

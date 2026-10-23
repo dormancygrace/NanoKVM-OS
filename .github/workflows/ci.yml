@@ -102,6 +102,8 @@ jobs:
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+      - name: LT6911C pinmux fault injection with sanitizers
+        run: NANOKVM_SANITIZE=1 python3 tests/test-lt6911c-pinmux.py
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade
@@ -146,7 +148,7 @@ jobs:
           set -e
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-bootloader-activation alpine-sd-image-boot alpine-network alpine-app-wait \
                    alpine-recovery-password alpine-recovery-settings alpine-firstboot-storage-errors alpine-check-volume alpine-service-deps board-selection usb-state capture-restart \
-                   s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start hdmi-sessions \
+                   s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start hdmi-sessions lt6911c-pinmux \
                    mmf-light-link native-bundle-abi capture-colour-switch capture-output-snapshot monitor-edids edid-rgb-range video-pool-native nanokvm-service-stop net-probe server-supervisor oled-detect oled-ip-window wifi-ap-key platform-build kernel-panic-policy compare-outputs release-build release-build-tar apk-resign release-workflow release-storage next-release next-addon-revision pin-addon build-addon assemble-apk-repo package-versions \
                    portrait-edid wide-monitor-edids serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \
                    app-trigger keys-repository resource-trim rustdesk-c906-config stock-profile dhcp-options dhcpv6-stop s95-start-prelude ssh-rescue cache-cleanup tpu-lifetime trng usb-flags-migrate usb-layout-start memory-reclaim; do

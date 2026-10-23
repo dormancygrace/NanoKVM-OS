@@ -10,11 +10,11 @@ using Clock = std::chrono::steady_clock;
 struct CountedBus {
     nanokvm::I2c bus{4};
     unsigned calls = 0;
-    bool read_register(int a, uint8_t b, uint8_t r, uint8_t *p, size_t n) {
-        ++calls; return bus.read_register(a, b, r, p, n);
+    bool read_register(int a, uint8_t b, uint8_t r, uint8_t *p, size_t n, bool combined) {
+        ++calls; return bus.read_register(a, b, r, p, n, combined);
     }
-    bool write_register(int a, uint8_t b, uint8_t r, const uint8_t *p, size_t n) {
-        ++calls; return bus.write_register(a, b, r, p, n);
+    bool write_register(int a, uint8_t b, uint8_t r, const uint8_t *p, size_t n, bool combined) {
+        ++calls; return bus.write_register(a, b, r, p, n, combined);
     }
 };
 static bool reset(bool asserted) {

@@ -12,15 +12,16 @@ import (
 )
 
 type fakePower struct {
-	mu    sync.Mutex
-	on    bool
-	calls []string
+	mu      sync.Mutex
+	on      bool
+	unknown bool // no trusted power LED
+	calls   []string
 }
 
 func (f *fakePower) Status(context.Context) (bool, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.on, true, nil
+	return f.on, !f.unknown, nil
 }
 func (f *fakePower) Available(context.Context) (bool, bool, error) { return true, true, nil }
 func (f *fakePower) record(name string) error {
@@ -296,5 +297,19 @@ func TestEncryptRoundTrip(t *testing.T) {
 		if err != nil || !bytes.Equal(got, plain) {
 			t.Fatalf("length %d: %v", n, err)
 		}
+	}
+}
+
+// Without a trusted power LED IPMI has no state to report: it answers with
+// an error, never "off" (a fence agent would take that as done) and never
+// "on" (it would skip a power-on).
+func TestUnknownPowerStateIsAnError(t *testing.T) {
+	s := newServer(&fakePower{unknown: true})
+	c := &console{t: t, s: s, su: suites[0], user: "admin", password: "correct-horse"}
+	if status := c.login(); status != statusOK {
+		t.Fatalf("login status %#x", status)
+	}
+	if cc, data := c.command(netFnChassis, 0x01); cc != ccNotInThisState {
+		t.Fatalf("chassis status %#x %v, want not in this state", cc, data)
 	}
 }

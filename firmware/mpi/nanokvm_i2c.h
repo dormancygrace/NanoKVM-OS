@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 
@@ -52,4 +53,36 @@ static inline int nanokvm_i2c_write(int fd, uint8_t address, uint8_t bank,
         {address, 0, (uint16_t)(len + 1), payload}
     };
     return nanokvm_i2c_transfer(fd, msgs, 2);
+}
+
+/* C/D and unidentified sensor probes retain STOP-delimited transfers until
+ * repeated-START is qualified on those receivers. Full-session flock ownership
+ * still prevents another cooperating client from changing the selected bank.
+ * Select the bank each time; stage reads and never replay a failed operation. */
+static inline int nanokvm_i2c_exact(ssize_t result, size_t expected)
+{
+    if (result == (ssize_t)expected) return 0;
+    if (result >= 0) errno = EIO;
+    return -1;
+}
+static inline int nanokvm_i2c_read_legacy(int fd, uint8_t bank,
+    uint8_t reg, uint8_t *data, size_t len)
+{
+    if (!data || !len || len > 256) { errno = EINVAL; return -1; }
+    uint8_t page[2] = {0xff, bank}, result[256];
+    if (nanokvm_i2c_exact(write(fd, page, sizeof(page)), sizeof(page)) < 0 ||
+        nanokvm_i2c_exact(write(fd, &reg, 1), 1) < 0 ||
+        nanokvm_i2c_exact(read(fd, result, len), len) < 0) return -1;
+    memcpy(data, result, len);
+    return 0;
+}
+static inline int nanokvm_i2c_write_legacy(int fd, uint8_t bank,
+    uint8_t reg, const uint8_t *data, size_t len)
+{
+    if (!data || !len || len > 256) { errno = EINVAL; return -1; }
+    uint8_t page[2] = {0xff, bank}, payload[257];
+    payload[0] = reg;
+    memcpy(payload + 1, data, len);
+    if (nanokvm_i2c_exact(write(fd, page, sizeof(page)), sizeof(page)) < 0) return -1;
+    return nanokvm_i2c_exact(write(fd, payload, len + 1), len + 1);
 }

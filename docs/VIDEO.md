@@ -20,10 +20,13 @@ The encoder applies rate-control limits before capture starts and uses NormalP, 
 
 The HDMI detector publishes a receiver sample only after its register-access session has completed, including cleanup. A transient I2C error keeps the last valid geometry; three consecutive failed or incomplete polls withdraw the signal without replacing that geometry. A confirmed disconnect is immediate. Failed reads are retried once per second even when the kernel supplies edge events. LT6911D requires both active dimensions to be nonzero. The detector, sensor probes and EDID tool share receiver ownership; reset and EDID maintenance drain the active detector session with a bounded wait. Receiver errors and failed cleanup are recorded in the application log. Reset and the standalone EDID tool wait up to two seconds for a short competing register session; detector admission remains nonblocking. Resuming maintenance starts a fresh consecutive-failure allowance even if no detector poll observed the pause.
 
-Bank selection, register pointer and read data now travel in one Linux
+For physically qualified UXC receivers, bank selection, register pointer and read data travel in one Linux
 [`I2C_RDWR` transaction](https://docs.kernel.org/i2c/dev-interface.html); register writes combine the bank and payload in the same
-way. This applies to the detector, the sensor probe and the EDID programmer.
-The adapter must report `I2C_FUNC_I2C`; an unsupported adapter or a short
+way in the detector and EDID programmer. C/D retain separate STOP-delimited
+bank/register transfers. Sensor probes also retain that framing because they
+run before the receiver variant has been identified. Full-session ownership
+protects both transports from cooperating clients.
+For combined transfers the adapter must report `I2C_FUNC_I2C`; an unsupported adapter or a short
 message count is an error. Failed transfers are not replayed, and failed reads
 do not publish partial bytes. Every operation carries its own bank, so the
 EDID programmer no longer needs a bank cache.
@@ -35,14 +38,16 @@ programmer also waits 250 ms after a successful reset pulse before register
 access. This is a minimum quiet window, not a promise that HDMI has locked:
 normal readiness checks and bounded retries still apply. On the PCIe UXC
 stand, first access was about 251 ms after release and a stable sample about
-1.77 s after release in each of three cycles. C/D reset timing and combined transfers
-still need physical qualification.
+1.77 s after release in each of three cycles. C/D reset timing still needs physical
+qualification; combined transfers are disabled for those variants.
 
 UXC diagnostic sessions read firmware revision, CSI lane count, HDMI active
 size, totals, sync/porch lengths, polarity, input-format bits and raw TMDS-clock
 registers, with CSI output size kept separately. They run at receiver/mode
-transitions (including IRQs with unchanged CSI size) and after reset/maintenance; unavailable or invalid results retry
-at most every five seconds while the state is unchanged. Only changed
+transitions (including IRQs with unchanged CSI size) and after reset/maintenance.
+A failed receiver snapshot skips optional diagnostics. Diagnostic I2C failures
+retry at most every five seconds; invalid or unavailable data waits for a
+transition, IRQ or reset instead of repeatedly reading a disconnected receiver. Only changed
 diagnostic text is logged. A diagnostic failure cannot replace capture
 geometry or withdraw an otherwise valid signal. Timing totals/porches and
 stable status are checked before marking telemetry valid. C/D firmware/lane

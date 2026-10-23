@@ -1892,6 +1892,8 @@
       "passwordKeep": "Leave empty to keep the current password.",
       "ipmiPort": "IPMI UDP port",
       "holdSeconds": "Forced power-off: hold the power button (s)",
+      "powerLed": "Power LED connected to the host",
+      "powerLedHint": "Off: the power LED header is not wired, so Redfish and IPMI do not know the power state, and every request presses the button.",
       "holdHint": "Empty: as long as the power menu's long press (5 s).",
       "save": "Save",
       "saved": "Saved",

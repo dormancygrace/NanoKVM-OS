@@ -183,7 +183,8 @@ public:
         return true;
     }
     void completed(const ReceiverDiagnostics &d, std::chrono::steady_clock::time_point now) {
-        retry_ = d.state == DiagnosticState::IoError || d.state == DiagnosticState::Invalid;
+        // Invalid data is sampled again on a state/size transition or IRQ.
+        retry_ = d.state == DiagnosticState::IoError;
         next_ = now + std::chrono::seconds(5);
     }
 };

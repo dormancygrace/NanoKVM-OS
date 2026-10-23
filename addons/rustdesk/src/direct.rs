@@ -138,6 +138,15 @@ async fn establish(
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "ID resolution timed out"))??
         .find(|a| a.is_ipv4() == peer.is_ipv4())
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no matching ID address family"))?;
+    // The peer address comes from the ID server's message. An ID server on
+    // the Internet sees controllers there; only one on a private network
+    // has peers there too.
+    if !request.lan && !rendezvous::is_public(peer.ip()) && rendezvous::is_public(remote.ip()) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "refusing a direct peer off the Internet",
+        ));
+    }
     let initial = if remote.is_ipv4() {
         SocketAddr::from(([0, 0, 0, 0], 0))
     } else {

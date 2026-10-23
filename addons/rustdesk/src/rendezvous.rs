@@ -2,7 +2,7 @@
 use std::{
     io,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -95,6 +95,7 @@ async fn run_once(
         .await?
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "ID server did not resolve"))?;
+    note_rendezvous(&config, remote);
     let bind = if remote.is_ipv4() {
         "0.0.0.0:0"
     } else {
@@ -109,6 +110,7 @@ async fn run_once(
     let mut timer = time::interval(RETRY_INTERVAL);
     timer.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
     let mut receive_buffer = vec![0_u8; 64 * 1024];
+    let mut malformed_logged = false;
 
     loop {
         tokio::select! {
@@ -138,8 +140,15 @@ async fn run_once(
             }
             received = socket.recv(&mut receive_buffer) => {
                 let length = received?;
-                let message = RendezvousMessage::decode(&receive_buffer[..length])
-                    .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+                // A datagram that does not decode, spoofed or damaged, is
+                // dropped; it must not end the registration.
+                let Ok(message) = RendezvousMessage::decode(&receive_buffer[..length]) else {
+                    if !malformed_logged {
+                        eprintln!("RustDesk ID server {hbbs}: ignoring a malformed message");
+                        malformed_logged = true;
+                    }
+                    continue;
+                };
                 match message.union {
                     Some(rendezvous_message::Union::RegisterPkResponse(response)) => {
                         match RegisterPkResult::try_from(response.result) {
@@ -370,10 +379,20 @@ async fn connect_relay(
     shutdown: watch::Receiver<bool>,
     limits: server::ClientLimits,
 ) -> io::Result<()> {
+    if !valid_uuid(&uuid) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "relay request has an invalid session ID",
+        ));
+    }
     let pending_permit = limits
         .try_pending()
         .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "too many pending handshakes"))?;
-    let mut stream = time::timeout(CONNECT_TIMEOUT, TcpStream::connect(&relay))
+    let target = time::timeout(CONNECT_TIMEOUT, relay_target(&config, &relay))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "relay lookup timed out"))??;
+    // Each address in turn, as for a name, within one timeout.
+    let mut stream = time::timeout(CONNECT_TIMEOUT, TcpStream::connect(target.as_slice()))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "relay connect timed out"))??;
     write_message(
@@ -406,6 +425,127 @@ async fn connect_relay(
         pending_permit,
     )
     .await
+}
+
+// The relay and session ID come from the ID server's message, which only
+// relays what a controller asked for. Without checks, anyone who knows the
+// device ID could make it connect to any host and port, also on its LAN or
+// to itself, and send a chosen session ID there.
+fn valid_uuid(uuid: &str) -> bool {
+    !uuid.is_empty()
+        && uuid.len() <= 64
+        && uuid
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn address_host(address: &str) -> &str {
+    let host = address
+        .rsplit_once(':')
+        .filter(|(host, port)| !host.is_empty() && port.parse::<u16>().is_ok())
+        .map_or(address, |(host, _)| host);
+    host.trim_start_matches('[').trim_end_matches(']')
+}
+
+// Not reachable on the Internet: this host, private and shared networks,
+// link-local, documentation, benchmark, multicast and reserved ranges.
+pub(crate) fn is_public(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ip) => {
+            let [a, b, c, _] = ip.octets();
+            !(ip.is_unspecified()
+                || ip.is_loopback()
+                || ip.is_private()
+                || ip.is_link_local()
+                || ip.is_broadcast()
+                || ip.is_multicast()
+                || ip.is_documentation()
+                || a == 0
+                || a >= 240
+                || (a == 100 && (64..128).contains(&b))
+                || (a == 192 && b == 0 && c == 0)
+                || (a == 198 && (18..20).contains(&b)))
+        }
+        IpAddr::V6(ip) => {
+            if let Some(ip) = ip.to_ipv4_mapped() {
+                return is_public(IpAddr::V4(ip));
+            }
+            let first = ip.segments()[0];
+            !(ip.is_unspecified()
+                || ip.is_loopback()
+                || ip.is_multicast()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+                || (first & 0xffc0) == 0xfec0
+                || (first == 0x2001 && ip.segments()[1] == 0x0db8)
+                || first == 0x0064)
+        }
+    }
+}
+
+// The names the configuration gives, and an ID server that is itself on a
+// private network, may lead anywhere; any other relay must be on the
+// Internet. The checked addresses are the ones connected to, in order.
+async fn relay_target(config: &Config, relay: &str) -> io::Result<Vec<SocketAddr>> {
+    let addresses: Vec<SocketAddr> = lookup_host(relay).await?.collect();
+    check_relay(config, relay, addresses).await
+}
+
+async fn check_relay(
+    config: &Config,
+    relay: &str,
+    addresses: Vec<SocketAddr>,
+) -> io::Result<Vec<SocketAddr>> {
+    if addresses.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "relay did not resolve"));
+    }
+    let host = address_host(relay);
+    let configured = [config.relay_server.trim(), config.rendezvous_server.trim()]
+        .into_iter()
+        .filter(|value| !value.is_empty())
+        .filter_map(|value| server_address(value, RENDEZVOUS_PORT).ok())
+        .any(|value| address_host(&value).eq_ignore_ascii_case(host));
+    if configured || addresses.iter().all(|address| is_public(address.ip())) {
+        return Ok(addresses);
+    }
+    if rendezvous_is_private(config).await {
+        return Ok(addresses);
+    }
+    Err(io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        format!("refusing relay {relay}: not on the Internet"),
+    ))
+}
+
+// Whether the ID server is on a private network, as its registration last
+// resolved it: refused relays must not cost a DNS query each.
+static RENDEZVOUS_PRIVATE: Mutex<Option<(String, bool)>> = Mutex::new(None);
+
+fn note_rendezvous(config: &Config, remote: SocketAddr) {
+    *RENDEZVOUS_PRIVATE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+        Some((config.rendezvous_server.clone(), !is_public(remote.ip())));
+}
+
+async fn rendezvous_is_private(config: &Config) -> bool {
+    if let Some((server, private)) = RENDEZVOUS_PRIVATE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .as_ref()
+    {
+        if *server == config.rendezvous_server {
+            return *private;
+        }
+    }
+    let Ok(hbbs) = server_address(&config.rendezvous_server, RENDEZVOUS_PORT) else {
+        return false;
+    };
+    let Ok(Some(remote)) = lookup_host(hbbs).await.map(|mut addresses| addresses.next()) else {
+        return false;
+    };
+    note_rendezvous(config, remote);
+    !is_public(remote.ip())
 }
 
 pub(crate) fn relay_address(config: &Config, offered: &str) -> String {
@@ -756,5 +896,197 @@ mod tests {
         let signature = Signature::from_slice(&signed[..64]).unwrap();
         key.verify(&signed[64..], &signature).unwrap();
         signed[64..].to_vec()
+    }
+
+    #[test]
+    fn only_internet_addresses_are_public() {
+        for private in [
+            "0.0.0.0", "127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.1", "169.254.1.1",
+            "100.64.0.1", "192.0.0.8", "192.0.2.1", "198.18.0.1", "224.0.0.1", "240.0.0.1",
+            "255.255.255.255", "::", "::1", "fc00::1", "fd12::1", "fe80::1", "fec0::1",
+            "2001:db8::1", "ff02::1", "::ffff:127.0.0.1", "::ffff:10.0.0.1", "64:ff9b::1",
+        ] {
+            assert!(!super::is_public(private.parse().unwrap()), "{private}");
+        }
+        for public in ["1.1.1.1", "8.8.8.8", "100.128.0.1", "2606:4700::1111", "::ffff:8.8.8.8"] {
+            assert!(super::is_public(public.parse().unwrap()), "{public}");
+        }
+    }
+
+    #[test]
+    fn relay_session_ids_are_short_tokens() {
+        assert!(super::valid_uuid("8d1f3c1e-0d8b-4c5e-9f3b-1b2c3d4e5f60"));
+        assert!(super::valid_uuid(&"a".repeat(64)));
+        for invalid in ["", "\r\nCONFIG SET dir /tmp\r\n", "a b", "../x"] {
+            assert!(!super::valid_uuid(invalid), "{invalid:?}");
+        }
+        assert!(!super::valid_uuid(&"a".repeat(65)));
+    }
+
+    #[tokio::test]
+    async fn an_offered_relay_off_the_internet_is_refused() {
+        let official = crate::config::Config {
+            rendezvous_server: "1.1.1.1".into(),
+            ..Default::default()
+        };
+        for refused in ["192.168.1.1:6379", "127.0.0.1:6379", "[::1]:11211", "10.0.0.5:21117"] {
+            let relay = super::relay_address(&official, refused);
+            let error = super::relay_target(&official, &relay).await.unwrap_err();
+            assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied, "{refused}");
+        }
+        for allowed in ["8.8.8.8:21117", "1.1.1.1:21117", "1.1.1.1"] {
+            let relay = super::relay_address(&official, allowed);
+            assert!(super::relay_target(&official, &relay).await.is_ok(), "{allowed}");
+        }
+        // A configured relay, and an ID server on the LAN, may be private.
+        let configured = crate::config::Config {
+            rendezvous_server: "1.1.1.1".into(),
+            relay_server: "10.0.0.2".into(),
+            ..Default::default()
+        };
+        let relay = super::relay_address(&configured, "192.168.1.1:6379");
+        assert_eq!(
+            super::relay_target(&configured, &relay).await.unwrap(),
+            vec!["10.0.0.2:21117".parse::<SocketAddr>().unwrap()]
+        );
+        let lan = crate::config::Config {
+            rendezvous_server: "192.168.1.10".into(),
+            ..Default::default()
+        };
+        let relay = super::relay_address(&lan, "192.168.1.11:21117");
+        assert!(super::relay_target(&lan, &relay).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_malformed_datagram_does_not_end_the_registration() {
+        let hbbs = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let directory = std::env::temp_dir().join(format!(
+            "nanokvm-rendezvous-{}-{}",
+            std::process::id(),
+            rand::random::<u64>()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let config = std::sync::Arc::new(crate::config::Config {
+            rendezvous_server: hbbs.local_addr().unwrap().to_string(),
+            ..Default::default()
+        });
+        let identity = std::sync::Arc::new(crate::nanokvm::Identity {
+            extension_id: "rustdesk".to_owned(),
+            token: "a".repeat(64),
+        });
+        let rustdesk_identity =
+            std::sync::Arc::new(RustDeskIdentity::load_from(&directory.join("state")).unwrap());
+        let (shutdown_sender, shutdown) = tokio::sync::watch::channel(false);
+        let device = tokio::spawn(super::run_once(
+            config,
+            identity,
+            rustdesk_identity,
+            shutdown,
+            crate::server::ClientLimits::new(1),
+            crate::webrtc::Manager::default(),
+        ));
+        let mut buffer = [0_u8; 2048];
+        let (_, device_address) = time::timeout(Duration::from_secs(5), hbbs.recv_from(&mut buffer))
+            .await
+            .unwrap()
+            .unwrap();
+        // A length-delimited field whose length runs past the datagram.
+        hbbs.send_to(&[0x0a, 0xff], device_address).await.unwrap();
+        time::sleep(Duration::from_millis(300)).await;
+        assert!(!device.is_finished());
+        shutdown_sender.send(true).unwrap();
+        time::timeout(Duration::from_secs(5), device)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_relay_session_id_that_is_not_a_token_is_never_sent() {
+        let relay = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = relay.local_addr().unwrap().to_string();
+        let directory = std::env::temp_dir().join(format!(
+            "nanokvm-relay-uuid-{}-{}",
+            std::process::id(),
+            rand::random::<u64>()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let config = std::sync::Arc::new(crate::config::Config {
+            rendezvous_server: address.clone(),
+            ..Default::default()
+        });
+        let (_shutdown_sender, shutdown) = tokio::sync::watch::channel(false);
+        let result = time::timeout(
+            Duration::from_secs(2),
+            super::connect_relay(
+                address,
+                "x\r\nFLUSHALL\r\n".to_owned(),
+                "127.0.0.1:1".parse().unwrap(),
+                false,
+                config,
+                std::sync::Arc::new(crate::nanokvm::Identity {
+                    extension_id: "rustdesk".to_owned(),
+                    token: "a".repeat(64),
+                }),
+                std::sync::Arc::new(RustDeskIdentity::load_from(&directory.join("state")).unwrap()),
+                shutdown,
+                crate::server::ClientLimits::new(1),
+            ),
+        )
+        .await
+        .expect("an invalid session ID must fail at once");
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        assert!(time::timeout(Duration::from_millis(100), relay.accept()).await.is_err());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_relay_name_keeps_all_its_checked_addresses() {
+        let official = crate::config::Config {
+            rendezvous_server: "1.1.1.1".into(),
+            ..Default::default()
+        };
+        let addresses = |list: &[&str]| -> Vec<SocketAddr> {
+            list.iter().map(|address| address.parse().unwrap()).collect()
+        };
+        let both = addresses(&["8.8.8.8:21117", "[2606:4700::1111]:21117"]);
+        assert_eq!(
+            super::check_relay(&official, "relay.example:21117", both.clone())
+                .await
+                .unwrap(),
+            both
+        );
+        // One private answer among public ones refuses the name.
+        let mixed = addresses(&["8.8.8.8:21117", "192.168.1.1:21117"]);
+        let error = super::check_relay(&official, "relay.example:21117", mixed)
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            super::check_relay(&official, "relay.example:21117", Vec::new())
+                .await
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::NotFound
+        );
+    }
+
+    #[tokio::test]
+    async fn the_next_checked_address_is_tried_when_one_refuses() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        // Nothing listens on 127.0.0.2 at that port.
+        let target: Vec<SocketAddr> = vec![
+            format!("127.0.0.2:{port}").parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        ];
+        let (connected, accepted) = tokio::join!(
+            tokio::net::TcpStream::connect(target.as_slice()),
+            listener.accept()
+        );
+        assert_eq!(connected.unwrap().peer_addr().unwrap(), target[1]);
+        accepted.unwrap();
     }
 }

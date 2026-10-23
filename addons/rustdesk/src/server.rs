@@ -25,7 +25,7 @@ use crate::{
     config::Config,
     framing::{
         read_message_within, write_message, FrameReader, FrameWriter, SessionKey,
-        MAX_LOGIN_PACKET_LENGTH, MAX_PACKET_LENGTH,
+        MAX_LOGIN_PACKET_LENGTH,
     },
     identity::RustDeskIdentity,
     input::InputState,
@@ -41,7 +41,13 @@ use crate::{
 use prost::Message as _;
 
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(60);
+// A controller answers the signed ID as soon as it reaches the relay, which
+// may lag behind the device on a slow link. Only the password dialog needs
+// the login timeout.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_PASSWORD_ATTEMPTS: usize = 5;
+const MAX_EMPTY_PROBES: usize = 3;
+const EMPTY_PROBE_DELAY: Duration = Duration::from_millis(300);
 const MEDIA_TIMEOUT: Duration = Duration::from_secs(5);
 const INPUT_FLUSH_INTERVAL: Duration = Duration::from_millis(16);
 // A connected viewer keeps its temporary-password reconnect grace alive;
@@ -102,7 +108,7 @@ impl Drop for SessionPermit {
 }
 
 impl ClientLimits {
-    fn new(max_clients: usize) -> Self {
+    pub(crate) fn new(max_clients: usize) -> Self {
         Self {
             input_allowed: true,
             audio_allowed: true,
@@ -461,6 +467,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 
     let login_deadline = time::Instant::now() + LOGIN_TIMEOUT;
     let mut password_attempts = 0;
+    let mut empty_probes = 0;
     let (login, _session_permit) = loop {
         let login: Message = tokio::select! {
             result = time::timeout_at(login_deadline, reader.read()) => {
@@ -491,6 +498,12 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             send_error(&mut writer, "Unsupported session type").await?;
             return Ok(());
         }
+        // The official client first sends an empty password to ask the server
+        // whether authentication is required. Keep the connection and hash
+        // challenge alive so the password dialog can submit another request.
+        // Empty probes do not consume an attempt or slow down the answer, but
+        // a connection gets only a few, and the overall deadline still
+        // prevents them from holding a pending slot indefinitely.
         let admission = {
             let mut credentials = limits.credentials.lock().unwrap_or_else(|p| p.into_inner());
             let credentials =
@@ -499,29 +512,34 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 match limits.try_session(viewer_key(peer, is_relay, &login.my_id)) {
                     Some(permit) => {
                         credentials.admitted(&login, verified)?;
-                        Some(Ok(permit))
+                        Ok(permit)
                     }
-                    None => Some(Err(())),
+                    None => Err(None),
                 }
+            } else if login.password.is_empty() {
+                Err(Some(EMPTY_PROBE_DELAY))
             } else {
-                None
+                Err(Some(credentials.failed()))
             }
         };
-        match admission {
-            Some(Ok(permit)) => break (login, permit),
-            Some(Err(())) => {
+        let delay = match admission {
+            Ok(permit) => break (login, permit),
+            Err(None) => {
                 send_error(&mut writer, "Maximum viewers reached").await?;
                 return Ok(());
             }
-            None => {}
-        }
-
-        // The official client first sends an empty password to ask the server
-        // whether authentication is required. Keep the connection and hash
-        // challenge alive so the password dialog can submit another request.
-        // Empty probes do not consume an attempt, but the overall deadline
-        // still prevents them from holding a pending slot indefinitely.
-        if !login.password.is_empty() {
+            Err(Some(delay)) => delay,
+        };
+        if login.password.is_empty() {
+            empty_probes += 1;
+            if empty_probes > MAX_EMPTY_PROBES {
+                eprintln!(
+                    "rejecting RustDesk client {peer} (id {:?}): too many empty password probes",
+                    login.my_id
+                );
+                return Ok(());
+            }
+        } else {
             password_attempts += 1;
         }
         let authentication_error = if login.password.is_empty() {
@@ -534,7 +552,20 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             login.my_id,
             login.password.len()
         );
-        time::sleep(Duration::from_millis(300)).await;
+        // The wait ends at the login deadline at the latest: it must not
+        // extend how long the connection holds its pending permit.
+        tokio::select! {
+            _ = time::sleep_until((time::Instant::now() + delay).min(login_deadline)) => {}
+            result = shutdown.changed() => {
+                let _ = result;
+                return Ok(());
+            }
+        }
+        // The pending permit was held throughout; a delay past the login
+        // deadline ends the connection.
+        if time::Instant::now() >= login_deadline {
+            return Ok(());
+        }
         send_error(&mut writer, authentication_error).await?;
         if password_attempts >= MAX_PASSWORD_ATTEMPTS {
             eprintln!(
@@ -544,7 +575,10 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             return Ok(());
         }
     };
-    reader.set_max_length(MAX_PACKET_LENGTH);
+    // A controller sends only input, options and pings; nothing it sends
+    // comes near the login limit. A larger packet of repeated empty fields
+    // would decode into far more memory than its size.
+    reader.set_max_length(MAX_LOGIN_PACKET_LENGTH);
 
     let video_info = time::timeout(
         MEDIA_TIMEOUT,
@@ -1173,7 +1207,7 @@ async fn identity_handshake<S: AsyncRead + AsyncWrite + Unpin>(
     .await?;
 
     let response: Message = time::timeout(
-        LOGIN_TIMEOUT,
+        HANDSHAKE_TIMEOUT,
         read_message_within(stream, MAX_LOGIN_PACKET_LENGTH),
     )
         .await
@@ -2518,6 +2552,209 @@ mod tests {
         writer_task.abort();
         let _ = writer_task.await;
         assert_eq!(frames, 120);
+    }
+
+    fn login_error(message: Message) -> Option<String> {
+        match message.union {
+            Some(message::Union::LoginResponse(LoginResponse {
+                union: Some(login_response::Union::Error(error)),
+                ..
+            })) => Some(error),
+            _ => None,
+        }
+    }
+
+    // A connection to serve() without media; the login is all it gets to.
+    async fn login_connection(
+        config: &Arc<Config>,
+        limits: &ClientLimits,
+        rustdesk_identity: &Arc<RustDeskIdentity>,
+        shutdown: watch::Receiver<bool>,
+    ) -> (TcpStream, Hash, tokio::task::JoinHandle<std::io::Result<()>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let client = tokio::spawn(TcpStream::connect(listener.local_addr().unwrap()));
+        let (server_stream, peer) = listener.accept().await.unwrap();
+        let mut client = client.await.unwrap().unwrap();
+        let pending = limits.try_pending().unwrap();
+        let server = tokio::spawn(serve(
+            server_stream,
+            peer,
+            Arc::clone(config),
+            Arc::new(Identity {
+                extension_id: "rustdesk".to_owned(),
+                token: "a".repeat(64),
+            }),
+            Arc::clone(rustdesk_identity),
+            false,
+            shutdown,
+            limits.clone(),
+            pending,
+        ));
+        let challenge: Message = read_message(&mut client).await.unwrap();
+        let Some(message::Union::Hash(hash)) = challenge.union else {
+            panic!("server did not send a hash challenge");
+        };
+        (client, hash, server)
+    }
+
+    async fn send_login(client: &mut TcpStream, password: Vec<u8>) {
+        let login = LoginRequest {
+            password,
+            my_id: "test-client".to_owned(),
+            my_name: "NanoKVM test".to_owned(),
+            version: crate::upstream::version().to_owned(),
+            ..Default::default()
+        };
+        write_message(
+            client,
+            &Message {
+                union: Some(message::Union::LoginRequest(login)),
+            },
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn wrong_passwords_wait_while_a_correct_one_is_admitted_at_once() {
+        let directory = temporary_directory();
+        std::fs::create_dir_all(&directory).unwrap();
+        let config = Arc::new(Config {
+            password: "rustdesk-test".to_owned(),
+            media_socket: directory.join("absent.sock").to_string_lossy().into_owned(),
+            ..Config::default()
+        });
+        let rustdesk_identity =
+            Arc::new(RustDeskIdentity::load_from(&directory.join("rustdesk-state")).unwrap());
+        let (shutdown_sender, shutdown) = watch::channel(false);
+        let limits = ClientLimits::new(1);
+        let seed = |limits: &ClientLimits| {
+            let mut credentials = crate::auth::Credentials::new(&config);
+            for _ in 0..20 {
+                credentials.failed();
+            }
+            *limits.credentials.lock().unwrap() = Some(credentials);
+        };
+
+        // After many failures the owner's password still gets in at once:
+        // the next step, the video query, is what answers.
+        seed(&limits);
+        let (mut client, hash, server) =
+            login_connection(&config, &limits, &rustdesk_identity, shutdown.clone()).await;
+        send_login(&mut client, password_hash("rustdesk-test", &hash)).await;
+        let response = time::timeout(Duration::from_secs(5), read_message::<_, Message>(&mut client))
+            .await
+            .expect("a correct password must not wait")
+            .unwrap();
+        assert!(login_error(response).unwrap().starts_with("NanoKVM video unavailable"));
+        server.await.unwrap().unwrap();
+
+        // A wrong one waits, holding its pending permit, until shutdown.
+        seed(&limits);
+        let (mut client, _, server) =
+            login_connection(&config, &limits, &rustdesk_identity, shutdown.clone()).await;
+        send_login(&mut client, vec![0; 32]).await;
+        assert!(
+            time::timeout(Duration::from_secs(1), read_message::<_, Message>(&mut client))
+                .await
+                .is_err()
+        );
+        assert_eq!(limits.pending.available_permits(), 3);
+        shutdown_sender.send(true).unwrap();
+        time::timeout(Duration::from_secs(5), server)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(limits.pending.available_permits(), 4);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_failure_delay_ends_at_the_login_deadline() {
+        let directory = temporary_directory();
+        std::fs::create_dir_all(&directory).unwrap();
+        let config = Arc::new(Config {
+            password: "rustdesk-test".to_owned(),
+            ..Config::default()
+        });
+        let rustdesk_identity =
+            Arc::new(RustDeskIdentity::load_from(&directory.join("rustdesk-state")).unwrap());
+        let (_shutdown_sender, shutdown) = watch::channel(false);
+        let limits = ClientLimits::new(1);
+        let mut credentials = crate::auth::Credentials::new(&config);
+        for _ in 0..20 {
+            credentials.failed();
+        }
+        *limits.credentials.lock().unwrap() = Some(credentials);
+        let (mut client, server_stream) = tokio::io::duplex(64 << 10);
+        let started = time::Instant::now();
+        let pending = limits.try_pending().unwrap();
+        let server = tokio::spawn(super::serve_io(
+            server_stream,
+            "127.0.0.1:1".parse().unwrap(),
+            Arc::clone(&config),
+            Arc::new(Identity {
+                extension_id: "rustdesk".to_owned(),
+                token: "a".repeat(64),
+            }),
+            Arc::clone(&rustdesk_identity),
+            None,
+            shutdown,
+            limits.clone(),
+            pending,
+        ));
+        let challenge: Message = read_message(&mut client).await.unwrap();
+        assert!(matches!(challenge.union, Some(message::Union::Hash(_))));
+        // A wrong password a second before the deadline, with the delay at
+        // its cap of a minute.
+        time::sleep_until(started + super::LOGIN_TIMEOUT - Duration::from_secs(1)).await;
+        let login = LoginRequest {
+            password: vec![0; 32],
+            my_id: "test-client".to_owned(),
+            ..Default::default()
+        };
+        write_message(
+            &mut client,
+            &Message {
+                union: Some(message::Union::LoginRequest(login)),
+            },
+        )
+        .await
+        .unwrap();
+        time::timeout_at(started + super::LOGIN_TIMEOUT + Duration::from_millis(100), server)
+            .await
+            .expect("the wait outlived the login deadline")
+            .unwrap()
+            .unwrap();
+        assert_eq!(limits.pending.available_permits(), 4);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_connection_gets_only_a_few_empty_password_probes() {
+        let directory = temporary_directory();
+        std::fs::create_dir_all(&directory).unwrap();
+        let config = Arc::new(Config {
+            password: "rustdesk-test".to_owned(),
+            ..Config::default()
+        });
+        let rustdesk_identity =
+            Arc::new(RustDeskIdentity::load_from(&directory.join("rustdesk-state")).unwrap());
+        let (_shutdown_sender, shutdown) = watch::channel(false);
+        let limits = ClientLimits::new(1);
+        let (mut client, _, server) =
+            login_connection(&config, &limits, &rustdesk_identity, shutdown).await;
+        for _ in 0..super::MAX_EMPTY_PROBES {
+            send_login(&mut client, Vec::new()).await;
+            let response: Message = read_message(&mut client).await.unwrap();
+            assert_eq!(login_error(response).as_deref(), Some("Empty Password"));
+        }
+        send_login(&mut client, Vec::new()).await;
+        assert!(read_message::<_, Message>(&mut client).await.is_err());
+        server.await.unwrap().unwrap();
+        assert_eq!(limits.pending.available_permits(), 4);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     fn password_hash(password: &str, hash: &Hash) -> Vec<u8> {

@@ -15,12 +15,15 @@ import (
 func noticeFixture(t *testing.T, repositories string) *[][]string {
 	t.Helper()
 	oldDir, oldRepos, oldCache, oldDisabled, oldApk, oldNow := apkStateDir, repositoriesPath, noticeCacheDir, noticeDisabledPath, noticeApk, noticeNow
+	oldLists := repositoriesDir
 	t.Cleanup(func() {
 		apkStateDir, repositoriesPath, noticeCacheDir, noticeDisabledPath, noticeApk, noticeNow = oldDir, oldRepos, oldCache, oldDisabled, oldApk, oldNow
+		repositoriesDir = oldLists
 	})
 	dir := t.TempDir()
 	apkStateDir = filepath.Join(dir, "state")
 	repositoriesPath = filepath.Join(dir, "repositories")
+	repositoriesDir = filepath.Join(dir, "repositories.d")
 	noticeCacheDir = filepath.Join(dir, "cache")
 	noticeDisabledPath = filepath.Join(dir, "update-check.disabled")
 	if err := os.WriteFile(repositoriesPath, []byte(repositories), 0644); err != nil {
@@ -48,6 +51,23 @@ func TestNanokvmRepositories(t *testing.T) {
 	want := []string{"https://dormancygrace.github.io/NanoKVM-OS/repo/riscv64/Packages.adb"}
 	if err != nil || !reflect.DeepEqual(repos, want) {
 		t.Fatalf("repos=%q err=%v", repos, err)
+	}
+	// The add-on repository comes from a list file of nanokvm-base; a file
+	// that does not end in .list is not read.
+	if err := os.MkdirAll(repositoriesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	addons := "https://dormancygrace.github.io/NanoKVM-OS/addons/v3.24/riscv64/Packages.adb"
+	for name, data := range map[string]string{"nanokvm-addons.list": addons + "\n",
+		"alpine.list": "https://dl-cdn.alpinelinux.org/alpine/v3.24/community",
+		"old.list.apk-new": "https://example.test/nanokvm-ignored"} {
+		if err := os.WriteFile(filepath.Join(repositoriesDir, name), []byte(data), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	repos, err = nanokvmRepositories()
+	if want = append(want, addons); err != nil || !reflect.DeepEqual(repos, want) {
+		t.Fatalf("with lists: repos=%q err=%v", repos, err)
 	}
 }
 

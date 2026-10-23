@@ -33,6 +33,9 @@ base  file  /etc/init.d/nanokvm-usb-internet            0755  firmware/alpine/op
 base  file  /usr/sbin/nkos-usb-internet                  0755  @server/nkos-usb-internet
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
+# The add-on repository, apart from the OS line in /etc/apk/repositories that
+# the update channel switches (firmware/alpine/README.md).
+base  file  /etc/apk/repositories.d/nanokvm-addons.list   0644  firmware/alpine/etc/apk/repositories.d/nanokvm-addons.list
 base  file  /etc/chrony.conf                              0644  firmware/alpine/etc/chrony.conf
 base  file  /etc/sysctl.d/10-nanokvm-qdisc.conf          0644  firmware/alpine/etc/sysctl.d/10-nanokvm-qdisc.conf
 base  file  /etc/sysctl.d/20-nanokvm-tcp.conf            0644  firmware/alpine/etc/sysctl.d/20-nanokvm-tcp.conf

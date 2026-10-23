@@ -23,9 +23,10 @@ import (
 // several MiB that every apk run then parses for 15-18 s of CPU, are left to
 // the Software page and its schedule.
 //
-// A NanoKVM repository is an untagged line of /etc/apk/repositories whose URL
-// contains "nanokvm" in any case: the official repository wherever it is
-// hosted, and not the C906 overlay.
+// A NanoKVM repository is an untagged line of /etc/apk/repositories or of a
+// /etc/apk/repositories.d/*.list file whose URL contains "nanokvm" in any
+// case: the official OS and add-on repositories wherever they are hosted, and
+// not the C906 overlay.
 const (
 	noticeFirstDelay = 2 * time.Minute
 	noticeTick       = 10 * time.Minute
@@ -41,6 +42,7 @@ var (
 	noticeDisabledPath = "/etc/kvm/update-check.disabled"
 	noticeCacheDir     = "/run/nanokvm-update-check"
 	repositoriesPath   = "/etc/apk/repositories"
+	repositoriesDir    = "/etc/apk/repositories.d"
 	installedDBPath    = "/lib/apk/db/installed"
 	noticeNow          = time.Now
 	noticeApk          = runNoticeAPK
@@ -110,6 +112,7 @@ func nanokvmRepositories() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = append(append(data, '\n'), repositoryLists()...)
 	var repos []string
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
@@ -121,6 +124,21 @@ func nanokvmRepositories() ([]string, error) {
 		}
 	}
 	return repos, nil
+}
+
+// repositoryLists: the *.list files of /etc/apk/repositories.d, which apk
+// reads after /etc/apk/repositories in name order; the add-on repository is
+// one (nanokvm-base).
+func repositoryLists() []byte {
+	lists, _ := filepath.Glob(filepath.Join(repositoriesDir, "*.list"))
+	sort.Strings(lists)
+	var data []byte
+	for _, list := range lists {
+		if more, err := os.ReadFile(list); err == nil {
+			data = append(append(data, more...), '\n')
+		}
+	}
+	return data
 }
 
 // The NanoKVM repositories alone, with their own cache, in the --opt=value

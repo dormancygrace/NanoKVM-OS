@@ -211,6 +211,7 @@ func parseSoftwareUpdates(output string) []SoftwareUpdate {
 func GetSoftwareIndexStatus() SoftwareIndexStatus {
 	status := SoftwareIndexStatus{State: "missing"}
 	if repositories, err := os.ReadFile(repositoriesPath); err == nil {
+		repositories = append(append(repositories, '\n'), repositoryLists()...)
 		for _, line := range strings.Split(string(repositories), "\n") {
 			line = strings.TrimSpace(line)
 			if line != "" && !strings.HasPrefix(line, "#") {

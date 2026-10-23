@@ -221,9 +221,11 @@ class ReleaseExecutionTests(unittest.TestCase):
         for name in ('sign', 'dry-run'):
             self.assertNotIn('NANOKVM_PREVIOUS', job(RELEASE, name))
         pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
-        # Both channels are indexed and signed.
+        # Both channels and the add-on repository are indexed and signed.
         self.assertEqual(pages.count('for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do'), 1)
-        self.assertEqual(pages.count('for repo in site/alpine/$branch/riscv64 site/beta/alpine/$branch/riscv64; do'), 1)
+        self.assertIn('index-apk-repo.py --repo "$addonrepo" --keys /keys --addons', pages)
+        self.assertEqual(pages.count('for repo in site/alpine/$branch/riscv64 site/beta/alpine/$branch/riscv64 '
+                                     'site/addons/$branch/riscv64; do'), 1)
 
 
 

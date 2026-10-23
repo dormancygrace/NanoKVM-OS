@@ -1,9 +1,11 @@
 name: APK repository
 
-# Serves the NanoKVM OS APK repository on GitHub Pages. It is assembled from
-# published OS and independent add-on releases. The v3 index is regenerated
-# and signed in the protected release environment; the OS version and legacy
-# index are unchanged by add-on updates. PRs use test keys and never deploy.
+# Serves the NanoKVM OS APK repositories on GitHub Pages: the OS (stable and
+# beta), from published OS releases, and the add-ons, one repository for both
+# channels, from independent add-on releases. The v3 indexes are regenerated
+# and signed in the protected release environment; the OS indexes, version
+# and legacy index are unchanged by add-on updates. PRs use test keys and
+# never deploy.
 on:
   release:
     types: [published]
@@ -62,33 +64,46 @@ jobs:
         run: python3 scripts/assemble-apk-repo.py --output site
 
       # As a device sees it: published keys verify current or historical indexes,
-      # core packages carry trusted signatures; pinned add-ons are authenticated
-      # through the signed index, and apk reads/fetches them as a device does.
+      # core packages carry trusted signatures; add-ons are authenticated
+      # through the signed add-on index, and apk reads/fetches them as a device
+      # does, with the OS line in repositories and the add-on line in
+      # repositories.d (nanokvm-base).
       - name: Check with apk
         run: |
           branch=$(ls site/alpine)
           docker run --rm -v "$PWD/site:/site" -v "$PWD/firmware/alpine/keys:/keys:ro" -v "$PWD/scripts:/scripts:ro" -e "branch=$branch" \
             alpine:3.24 sh -euc '
               apk add --no-cache python3 openssl > /dev/null
+              # Only a disposable test key is available in the assembly job.
+              testkeys=$(mktemp -d)
+              openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$testkeys/test.key"
+              openssl pkey -in "$testkeys/test.key" -pubout -out "$testkeys/test.pub"
+              addonrepo=/site/addons/$branch/riscv64
+              python3 /scripts/index-apk-repo.py --repo "$addonrepo" --keys /keys --addons
+              apk --allow-untrusted --sign-key "$testkeys/test.key" adbsign --reset-signatures "$addonrepo/Packages.pending.adb"
+              apk --keys-dir "$testkeys" verify "$addonrepo/Packages.pending.adb"
               for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do
                 apk --keys-dir /keys verify "$repo/Packages.adb"
                 python3 /scripts/index-apk-repo.py --repo "$repo" --keys /keys
-                # Only a disposable test key is available in the assembly job.
-                testkeys=$(mktemp -d)
-                openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$testkeys/test.key"
-                openssl pkey -in "$testkeys/test.key" -pubout -out "$testkeys/test.pub"
                 apk --allow-untrusted --sign-key "$testkeys/test.key" adbsign --reset-signatures "$repo/Packages.pending.adb"
                 apk --keys-dir "$testkeys" verify "$repo/Packages.pending.adb"
                 root=$(mktemp -d)
-                mkdir -p "$root/etc/apk/keys"
+                mkdir -p "$root/etc/apk/keys" "$root/etc/apk/repositories.d"
                 cp /keys/*.pub "$testkeys/test.pub" "$root/etc/apk/keys/"
                 echo "$repo/Packages.pending.adb" > "$root/etc/apk/repositories"
+                echo "$addonrepo/Packages.pending.adb" > "$root/etc/apk/repositories.d/nanokvm-addons.list"
                 apk --root "$root" --arch riscv64 add --initdb --no-scripts
                 apk --root "$root" --arch riscv64 update
                 apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
                 # On a line of its own: a failure inside a for list would not stop the check.
                 addons=$(cd /scripts && python3 -c "import addon_packages; print(*addon_packages.ADDONS)")
                 for addon in $addons; do
+                  # The OS index offers no add-on.
+                  if apk --root "$root" --arch riscv64 --repositories-file=/dev/null --repository="$repo/Packages.pending.adb" \
+                      search -e "$addon" | grep -q "^$addon-"; then
+                    echo "the OS index offers $addon" >&2
+                    exit 1
+                  fi
                   if apk --root "$root" --arch riscv64 search -e "$addon" | grep -q "^$addon-"; then
                     apk --root "$root" --arch riscv64 fetch --stdout "$addon" > /dev/null
                   fi
@@ -139,7 +154,7 @@ jobs:
           sudo install -d -m 0700 "$s/signing"
           sudo install -m 0600 "$k/release.key" "$s/signing/"
           sudo install -m 0644 "$k/nkos-release-ec-b8e89b66.pub" "$s/signing/"
-          for repo in site/alpine/$branch/riscv64 site/beta/alpine/$branch/riscv64; do
+          for repo in site/alpine/$branch/riscv64 site/beta/alpine/$branch/riscv64 site/addons/$branch/riscv64; do
             sudo install -m 0644 "$repo/Packages.pending.adb" "$s/Packages.adb"
             sudo chroot "$s" /sbin/apk --allow-untrusted --sign-key /signing/release.key \
               adbsign --reset-signatures /Packages.adb

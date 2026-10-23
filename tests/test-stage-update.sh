@@ -78,6 +78,38 @@ NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
 	"$STAGER" --activate "$DATA/nanokvm-update"
 test "$(cat "$BOOT/boot.before-recovery")" = "next image"
 
+# Recovery B activated over an activated recovery A, cut before or after
+# boot.sd changes: the image that ran before A stays the one to go back to.
+rm -f "$BOOT"/boot.before-recovery*
+printf 'normal image\n' >"$BOOT/boot.sd"
+NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT "$STAGER" --activate "$DATA/nanokvm-update"
+recovery_a=$(sha256sum "$BOOT/boot.sd" | cut -d ' ' -f 1)
+other=$ROOT/other
+make_bundle "$other"
+printf 'recovery B\n' >"$other/boot-alpine-recovery.sd"
+(cd "$other" && sha256sum alpine-rootfs.tar.gz boot-alpine.sd boot-alpine-recovery.sd >SHA256SUMS)
+NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT "$STAGER" "$other"
+shim=$ROOT/shim
+mkdir -p "$shim"
+printf '#!/bin/sh\ncase "$*" in *.boot.sd.tmp.*boot.sd) exit 1 ;; esac\nexec /bin/mv "$@"\n' >"$shim/mv"
+chmod +x "$shim/mv"
+if PATH=$shim:$PATH NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
+	"$STAGER" --activate "$DATA/nanokvm-update" 2>/dev/null; then
+	echo "activation with a failing rename unexpectedly succeeded" >&2
+	exit 1
+fi
+test "$(sha256sum "$BOOT/boot.sd" | cut -d ' ' -f 1)" = "$recovery_a"
+test "$(cat "$BOOT/boot.before-recovery")" = "normal image"
+grep -qxF "$recovery_a" "$BOOT/boot.before-recovery.for"
+# The retry completes; recovery B's way back is still the normal image.
+NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT "$STAGER" --activate "$DATA/nanokvm-update"
+test "$(cat "$BOOT/boot.sd")" = "recovery B"
+test "$(cat "$BOOT/boot.before-recovery")" = "normal image"
+grep -qxF "$(sha256sum "$BOOT/boot.sd" | cut -d ' ' -f 1)" "$BOOT/boot.before-recovery.for"
+# Activated again after the rename (a cut before its own output): same.
+NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT "$STAGER" --activate "$DATA/nanokvm-update"
+test "$(cat "$BOOT/boot.before-recovery")" = "normal image"
+
 # A device recovery cannot run on is refused before boot.sd changes.
 printf 'running image\n' >"$BOOT/boot.sd"
 refused() {

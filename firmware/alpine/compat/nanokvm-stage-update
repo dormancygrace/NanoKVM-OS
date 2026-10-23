@@ -171,15 +171,15 @@ check_recovery_layout() {
 }
 
 # The image recovery goes back to if it stops before formatting, with its
-# hash; .for holds the hash of the recovery FIT activated over it. A copy is
-# reused only while boot.sd is still that FIT: the earlier activation never
-# completed and the copy is the image that ran. Anything else in boot.sd,
-# such as what a recovery installed before its cleanup was cut short, is the
-# image to keep now.
+# hash; .for lists the hashes of the recovery FITs activated over it, one
+# per line. A copy is reused only while boot.sd is one of them: an earlier
+# activation never completed and the copy is the image that ran. Anything
+# else in boot.sd, such as what a recovery installed before its cleanup was
+# cut short, is the image to keep now.
 keep_previous_image() {
 	before=$BOOT_ROOT/boot.before-recovery
 	if [ -f "$BOOT_ROOT/boot.sd" ] && [ -f "$before" ] && [ -f "$before.sha256" ] && [ -f "$before.for" ] &&
-		[ "$(sha256sum "$BOOT_ROOT/boot.sd" | cut -d ' ' -f 1)" = "$(cat "$before.for")" ] &&
+		grep -qxF "$(sha256sum "$BOOT_ROOT/boot.sd" | cut -d ' ' -f 1)" "$before.for" &&
 		[ "$(sha256sum "$before" | cut -d ' ' -f 1)" = "$(cat "$before.sha256")" ]; then
 		return 0
 	fi
@@ -206,10 +206,12 @@ if [ "$ACTIVATE" -eq 1 ]; then
 		die "cannot stage recovery FIT on boot volume"
 	sync
 	if [ -f "$BOOT_ROOT/boot.before-recovery" ]; then
-		# Recorded before boot.sd changes: a cut here leaves boot.sd unlike
-		# .for, and the next activation keeps a fresh copy.
-		if ! sha256sum "$boot_tmp" | cut -d ' ' -f 1 >"$BOOT_ROOT/boot.before-recovery.for.tmp" ||
-			! mv -f "$BOOT_ROOT/boot.before-recovery.for.tmp" "$BOOT_ROOT/boot.before-recovery.for"; then
+		# Added before boot.sd changes, keeping the FITs already listed: a
+		# cut before or after the rename leaves boot.sd in the list, so a
+		# retry and recovery both still go back to the kept image.
+		for_file=$BOOT_ROOT/boot.before-recovery.for
+		if ! { if [ -f "$for_file" ]; then cat "$for_file"; fi; sha256sum "$boot_tmp" | cut -d ' ' -f 1; } >"$for_file.tmp" ||
+			! mv -f "$for_file.tmp" "$for_file"; then
 			die "cannot record the recovery FIT"
 		fi
 		sync

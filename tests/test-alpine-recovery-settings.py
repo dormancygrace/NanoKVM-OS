@@ -234,7 +234,8 @@ def check_return(name, formatting, damage=None):
         (boot / 'boot.before-recovery.sha256').write_text(digest + '\n')
         running = subprocess.run([busybox, 'sha256sum', str(boot / 'boot.sd')],
                                  capture_output=True, text=True, check=True).stdout.split()[0]
-        (boot / 'boot.before-recovery.for').write_text(running + '\n')
+        # The FITs activated over it: an earlier one, then this one.
+        (boot / 'boot.before-recovery.for').write_text('1' * 64 + '\n' + running + '\n')
         if damage == 'changed':
             (boot / 'boot.before-recovery').write_text('previous image, damaged')
         elif damage == 'other-fit':

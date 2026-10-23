@@ -15,7 +15,7 @@ FORMAT_MARKER=$UPDATE_DIR/recovery-formatting
 SHADOW_SAVED=$UPDATE_DIR/root-shadow.saved
 
 # The image that ran before recovery was activated (nanokvm-stage-update),
-# its hash, and the hash of the recovery FIT activated over it (.for). Until
+# its hash, and the hashes of the recovery FITs activated over it (.for). Until
 # p2 is formatted nothing is lost, and a recovery that stops goes back to it
 # and restarts, rather than waiting at a console nobody may reach.
 BOOT_BEFORE=boot.before-recovery
@@ -32,11 +32,10 @@ return_to_previous_image() {
 		[ -f "/oldboot/$BOOT_BEFORE.for" ]; then
 		wanted=$(/busybox cat "/oldboot/$BOOT_BEFORE.sha256")
 		actual=$(/busybox sha256sum "/oldboot/$BOOT_BEFORE")
-		recovery=$(/busybox cat "/oldboot/$BOOT_BEFORE.for")
 		running=$(/busybox sha256sum /oldboot/boot.sd)
 		# Only the copy kept for this recovery FIT: one left by an earlier
 		# recovery whose cleanup was cut short is older than boot.sd's root.
-		if [ "${actual%% *}" = "$wanted" ] && [ "${running%% *}" = "$recovery" ] &&
+		if [ "${actual%% *}" = "$wanted" ] && /busybox grep -qxF "${running%% *}" "/oldboot/$BOOT_BEFORE.for" &&
 			/busybox cp "/oldboot/$BOOT_BEFORE" /oldboot/.boot.sd.back &&
 			sync && /busybox mv -f /oldboot/.boot.sd.back /oldboot/boot.sd && sync; then
 			/busybox rm -f "/oldboot/$BOOT_BEFORE" "/oldboot/$BOOT_BEFORE.sha256" "/oldboot/$BOOT_BEFORE.for"

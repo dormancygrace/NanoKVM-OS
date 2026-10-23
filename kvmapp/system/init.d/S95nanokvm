@@ -135,8 +135,12 @@ prepare_hdmi_receiver() {
                 echo 'Cannot release HDMI receiver reset' >&2
                 return 1
             fi
-            # Match the existing one-second HDMI warmup before capture reads.
-            sleep 1
+            # Finish the quiet window before either service can probe I2C.
+            # Keep UXC's existing startup warmup; C/D load firmware more slowly.
+            case "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" in
+                ux) sleep 1 ;;
+                *) sleep 2.5 ;;
+            esac
             ;;
         *) echo 'Invalid HDMI receiver reset state' >&2; return 1 ;;
     esac

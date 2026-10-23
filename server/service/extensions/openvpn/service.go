@@ -49,6 +49,12 @@ type Service struct {
 	mu       sync.Mutex
 	dir, run string
 	links    map[string]linkKind // DCO kind by interface name
+	// startProfile replaces startAttempt in supervise (tests).
+	startProfile func(Profile, int, uint64) error
+	// generation numbers the retry chain of each profile: a manual start or
+	// a stop begins a new one, and a timer of an older chain does nothing.
+	// Guarded by mu.
+	generation map[string]uint64
 }
 type linkKind struct {
 	index int
@@ -174,6 +180,81 @@ func (s *Service) credentials(p Profile) bool {
 	return true
 }
 func (s *Service) start(p Profile) error {
+	return s.startAttempt(p, 0, s.nextGeneration(p.ID))
+}
+
+// nextGeneration ends the profile's current retry chain and numbers a new
+// one. The caller holds s.mu.
+func (s *Service) nextGeneration(id string) uint64 {
+	if s.generation == nil {
+		s.generation = map[string]uint64{}
+	}
+	s.generation[id]++
+	return s.generation[id]
+}
+
+// restartDelay is the wait before restart n (n ≥ 1) of a tunnel that exited
+// by itself: 5 s, doubling up to 5 min.
+func restartDelay(n int) time.Duration {
+	delay := 5 * time.Second
+	for i := 1; i < n && delay < 5*time.Minute; i++ {
+		delay *= 2
+	}
+	return min(delay, 5*time.Minute)
+}
+
+var restartSleep = time.Sleep // test seam
+
+// supervise restarts the profile after its OpenVPN exits by itself (a
+// network failure, ping-exit), for as long as it is the enabled profile. A
+// start that fails before OpenVPN runs (resolvconf, a transient error) is
+// retried here too; a started OpenVPN gets a supervisor of its own. It
+// stops when the profile is disabled (the active marker goes before the
+// stop, so a stop requested by the user is never undone), when another
+// start already runs it, or for a terminal condition: wrong credentials
+// (retrying would only hammer the provider, and some lock the account), no
+// stored credentials, or a deleted profile.
+func (s *Service) supervise(id string, generation uint64, attempt int, ran time.Duration) {
+	if ran > 5*time.Minute {
+		attempt = 0
+	}
+	start := s.startProfile
+	if start == nil {
+		start = s.startAttempt
+	}
+	for {
+		attempt++
+		restartSleep(restartDelay(attempt))
+		if !s.restartOnce(id, generation, attempt, start) {
+			return
+		}
+	}
+}
+
+// restartOnce makes one restart attempt; it reports whether to try again.
+func (s *Service) restartOnce(id string, generation uint64, attempt int, start func(Profile, int, uint64) error) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// A manual start, stop or delete since this chain began owns the profile now.
+	if s.generation[id] != generation || s.desired() != id || s.pid(id) != 0 {
+		return false
+	}
+	if strings.Contains(runtimeLog(s.runtime(id, ".log")), "AUTH_FAILED") {
+		return false
+	}
+	ps, _ := s.profiles()
+	for _, p := range ps {
+		if p.ID == id {
+			if !s.credentials(p) {
+				return false
+			}
+			return start(p, attempt, generation) != nil
+		}
+	}
+	return false
+}
+
+func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error {
 	if !s.credentials(p) {
 		return fmt.Errorf("credentials are required")
 	}
@@ -239,15 +320,25 @@ func (s *Service) start(p Profile) error {
 	if e = cmd.Start(); e != nil {
 		return fmt.Errorf("OpenVPN could not start")
 	}
-	go func() { _ = cmd.Wait() }()
+	started := time.Now()
 	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
 		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
 		return e
 	}
+	// Only a fully registered child takes over the retry chain. On a PID
+	// write failure the caller retries the start; a waiter must not create
+	// a second supervisor for the child we just killed.
+	go func() {
+		_ = cmd.Wait()
+		s.supervise(p.ID, generation, attempt, time.Since(started))
+	}()
 	return nil
 }
 
 func (s *Service) stop(id string) (result error) {
+	// No retry chain may restart what is being stopped.
+	s.nextGeneration(id)
 	defer func() { result = errors.Join(result, s.clearDNS(id)) }()
 	pid := s.pid(id)
 	if pid == 0 {
@@ -312,12 +403,21 @@ func firstIPv4(addrs []net.Addr) string {
 	return ""
 }
 
+// runtimeLog is the last 256 KiB of the log. Only that part is read: the
+// log grows for as long as the tunnel runs, and status polls come every 5 s.
 func runtimeLog(path string) string {
-	b, _ := os.ReadFile(path)
-	const limit = 256 * 1024
-	if len(b) > limit {
-		b = b[len(b)-limit:]
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
 	}
+	defer f.Close()
+	const limit = 256 * 1024
+	if info, err := f.Stat(); err == nil && info.Size() > limit {
+		if _, err = f.Seek(info.Size()-limit, io.SeekStart); err != nil {
+			return ""
+		}
+	}
+	b, _ := io.ReadAll(io.LimitReader(f, limit))
 	return string(b)
 }
 

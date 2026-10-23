@@ -202,19 +202,35 @@ func (s *Service) quick(action, id string) error {
 	return nil
 }
 func (s *Service) restore() {
-	// Network/DNS can become ready after the application starts. Limit retries;
-	// never resurrect a profile the user disabled while waiting.
-	for attempt := 0; attempt < 3; attempt++ {
+	s.restoreWith(func(id string) error { return s.quick("up", id) }, time.Sleep, existsInterface)
+}
+
+// restoreDelay is the wait before boot restore attempt n (n ≥ 1): 15 s,
+// doubling up to 5 min. After a power cut the router can take minutes to
+// bring the WAN up, and an Endpoint given by name resolves only then.
+func restoreDelay(attempt int) time.Duration {
+	delay := 15 * time.Second
+	for i := 1; i < attempt && delay < 5*time.Minute; i++ {
+		delay *= 2
+	}
+	return min(delay, 5*time.Minute)
+}
+
+// restoreWith brings the enabled profile up after boot, retrying until it
+// is up, the user disables it, or another path has brought it up. It never
+// resurrects a profile the user disabled while waiting.
+func (s *Service) restoreWith(up func(id string) error, sleep func(time.Duration), exists func(id string) bool) {
+	for attempt := 0; ; attempt++ {
 		if attempt > 0 {
-			time.Sleep(15 * time.Second)
+			sleep(restoreDelay(attempt))
 		}
 		s.mu.Lock()
 		id := s.desired()
-		if id == "" || existsInterface(id) {
+		if id == "" || exists(id) {
 			s.mu.Unlock()
 			return
 		}
-		e := s.quick("up", id)
+		e := up(id)
 		if e == nil {
 			delete(s.failures, id)
 			s.mu.Unlock()

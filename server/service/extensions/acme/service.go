@@ -272,7 +272,7 @@ func (s *Service) Renew(c *gin.Context) {
 	}
 	opMu.Lock()
 	defer opMu.Unlock()
-	steps := []step{{args: []string{"--renew", "-d", settings.primary(), "--ecc", "--force"}}}
+	steps := []step{renewStep(settings, true)}
 	err = startJob("renew", nil, nil, steps, func(j *Job) error {
 		if !j.OK {
 			return nil

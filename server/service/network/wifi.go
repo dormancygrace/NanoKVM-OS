@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/utils"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -34,16 +35,24 @@ func (s *Service) GetWifi(c *gin.Context) {
 }
 
 // The two routes without a login act only during AP provisioning, only for
-// a client of the device's own access point (wlan0), and only with the AP
-// key the OLED shows. That key is also the access point's WPA passphrase;
+// a client of the device's own access point (a connection that arrived on
+// wlan0, whatever address it was sent to), and only with the AP key the
+// OLED shows. That key is also the access point's WPA passphrase;
 // failures are counted per key, and after apKeyMaxFailures the routes stay
 // shut until kvm_system starts provisioning again with a new key.
 const apKeyMaxFailures = 10
 
 var (
-	apPenalty   = 2 * time.Second
+	apPenalty = 2 * time.Second
+	apMode    = func() bool { return isSupported() && isAPMode() }
+	// An address check alone lets a host on Ethernet route the AP subnet
+	// through the device; the ingress interface is what the kernel saw.
 	apAvailable = func(c *gin.Context) bool {
-		return isSupported() && isAPMode() && requestOnInterface(c, "wlan0")
+		if !apMode() {
+			return false
+		}
+		ingress, err := utils.IngressInterface(c.Request)
+		return err == nil && ingress == "wlan0"
 	}
 	apPassword = getApPassword
 	apGuard    apKeyGuard

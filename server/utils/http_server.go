@@ -13,5 +13,6 @@ func NewHTTPServer(addr string, handler http.Handler, http2 bool) *http.Server {
 	protocols := new(http.Protocols)
 	protocols.SetHTTP1(true)
 	protocols.SetHTTP2(http2)
-	return &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 15 * time.Second, IdleTimeout: 2 * time.Minute, Protocols: protocols}
+	return &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 15 * time.Second, IdleTimeout: 2 * time.Minute, Protocols: protocols,
+		ConnContext: rememberConn}
 }

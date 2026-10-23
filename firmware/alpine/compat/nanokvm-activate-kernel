@@ -41,7 +41,7 @@ awk '$1 == "/dev/mmcblk0p1" && $2 == "/boot" && $3 == "vfat" { found=1 } END { e
 want=$(cut -d ' ' -f 1 "$payload/$name.sha256")
 # The card's own bytes, not the page cache.
 oncard() { dd if="$1" bs=64k iflag=direct 2>/dev/null | sha256sum | cut -d ' ' -f 1; }
-rm -f /boot/boot.new
+rm -f /boot/boot.new /boot/boot.new.compose.*
 if [ ! -f /boot/boot.sd ] || [ "$(oncard /boot/boot.sd)" != "$want" ]; then
     # compose-fit writes only an image matching the build's hash.
     sh "$payload/compose-fit" "$payload" "$name" /boot/boot.new

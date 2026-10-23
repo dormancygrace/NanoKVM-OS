@@ -12,6 +12,20 @@ import (
 // experiment can extend this to 32 or 64 while retaining recovery semantics.
 var errVideoBudget = errors.New("video PMTU cannot carry a frame")
 
+// A writer waiting for a keyframe asks the encoder for one. The GOP is 10 s
+// because every viewer is expected to ask when it needs a keyframe; after a
+// dropped queue the browser sees no RTP gap and sends no PLI, so the picture
+// stayed frozen until its own timeout or the periodic IDR. The first request
+// goes at once; a writer that keeps waiting asks again after 1, 2, 4 and
+// then every 8 s, so a peer that stays stalled cannot make every viewer of
+// the shared encoder pay for an IDR each second.
+const (
+	keyframeRequestInterval    = time.Second
+	keyframeRequestMaxInterval = 8 * time.Second
+)
+
+var requestVideoKeyframe = stream.RequestKeyframe
+
 // Independently implemented from the bounded-slot/recovery design in IronKVM
 // (yuzi-co / Vadim), e324cdae and 488712da. Packetization stays per peer so PMTU
 // changes never constrain another viewer. Pending frames remain in capture order.
@@ -28,6 +42,11 @@ type peerVideoWriter struct {
 	repairing   bool
 	queuedBytes int
 	diagnostics *peerWriterDiagnostics
+	// lastKeyframeRequest and keyframeWait, under mu; now is time.Now except
+	// in tests.
+	lastKeyframeRequest time.Time
+	keyframeWait        time.Duration
+	now                 func() time.Time
 }
 
 func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error)) *peerVideoWriter {
@@ -36,6 +55,7 @@ func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error))
 		done:        make(chan struct{}),
 		repairing:   true,
 		diagnostics: newPeerWriterDiagnostics(),
+		now:         time.Now,
 	}
 	go func() {
 		defer close(w.done)
@@ -100,9 +120,13 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 		if w.diagnostics != nil {
 			w.diagnostics.recordDrop(frame, peerWriterDropRepairing)
 		}
+		w.requestKeyframeLocked()
 		return false
 	}
 	if w.tryEnqueueLocked(frame) {
+		if frame.IsKeyframe() {
+			w.keyframeWait = 0
+		}
 		w.repairing = false
 		return true
 	}
@@ -118,6 +142,7 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 		// The queue is empty after drainLocked. This also permits one native
 		// frame larger than the byte budget, but never a second queued frame.
 		if w.tryEnqueueLocked(frame) {
+			w.keyframeWait = 0
 			w.repairing = false
 			return true
 		}
@@ -125,7 +150,24 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 	if w.diagnostics != nil {
 		w.diagnostics.recordDrop(frame, peerWriterDropRepairing)
 	}
+	w.requestKeyframeLocked()
 	return false
+}
+
+// requestKeyframeLocked asks for a keyframe unless this writer asked less
+// than keyframeWait ago, and doubles the wait for the next time.
+func (w *peerVideoWriter) requestKeyframeLocked() {
+	now := w.now()
+	if w.keyframeWait > 0 && now.Sub(w.lastKeyframeRequest) < w.keyframeWait {
+		return
+	}
+	w.lastKeyframeRequest = now
+	if w.keyframeWait == 0 {
+		w.keyframeWait = keyframeRequestInterval
+	} else {
+		w.keyframeWait = min(2*w.keyframeWait, keyframeRequestMaxInterval)
+	}
+	requestVideoKeyframe()
 }
 
 func (w *peerVideoWriter) tryEnqueueLocked(frame stream.VideoFrame) bool {

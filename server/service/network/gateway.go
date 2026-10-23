@@ -169,6 +169,32 @@ func setGatewayRoute(route proto.GatewayRoute, metric int) error {
 	return err
 }
 
+// addGatewayRoute fails when any default route holds the metric already.
+func addGatewayRoute(route proto.GatewayRoute, metric int) error {
+	_, err := gatewayRouteCommand("-4", "route", "add", "default", "via", route.Gateway, "dev", route.Interface, "proto", "dhcp", "metric", strconv.Itoa(metric))
+	return err
+}
+
+// The metrics of every default route in the main table, also those of
+// interfaces this does not manage, such as a VPN or USB networking.
+var occupiedMetrics = func() map[int]bool {
+	metrics := map[int]bool{}
+	table, err := os.ReadFile(gatewayRouteTable)
+	if err != nil {
+		return metrics
+	}
+	for _, line := range strings.Split(string(table), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 8 || fields[1] != "00000000" || fields[7] != "00000000" {
+			continue
+		}
+		if metric, err := strconv.Atoi(fields[6]); err == nil {
+			metrics[metric] = true
+		}
+	}
+	return metrics
+}
+
 func deleteGatewayRoute(route proto.GatewayRoute, metric int) error {
 	_, err := gatewayRouteCommand("-4", "route", "del", "default", "via", route.Gateway, "dev", route.Interface, "metric", strconv.Itoa(metric))
 	return err
@@ -190,14 +216,29 @@ func applyGatewayPreference(preferred string, entries []proto.GatewayRoute) erro
 		}
 		return routes[a].Gateway < routes[b].Gateway
 	})
-	used := map[int]bool{}
+	// Routes of other interfaces keep their metrics: a preferred metric one
+	// of them holds moves to the next free one.
+	managed := map[int]bool{}
 	for _, entry := range entries {
-		used[entry.Metric] = true
+		managed[entry.Metric] = true
+	}
+	used := map[int]bool{}
+	for metric := range occupiedMetrics() {
+		used[metric] = true
+	}
+	for metric := range managed {
+		used[metric] = true
 	}
 	desired := make([]int, len(routes))
+	taken := map[int]bool{}
 	for index, route := range routes {
-		desired[index] = preferenceMetric(preferred, route.Interface, index)
-		used[desired[index]] = true
+		metric := preferenceMetric(preferred, route.Interface, index)
+		for taken[metric] || (used[metric] && !managed[metric]) {
+			metric++
+		}
+		desired[index] = metric
+		taken[metric] = true
+		used[metric] = true
 	}
 	metricsOf := func(route proto.GatewayRoute) []int {
 		var metrics []int
@@ -216,11 +257,18 @@ func applyGatewayPreference(preferred string, entries []proto.GatewayRoute) erro
 			current[index] = desired[index]
 			continue
 		}
-		for used[next] {
-			next++
+		// add, not replace: it fails rather than take a metric someone holds.
+		var err error
+		for attempt := 0; attempt < 16; attempt++ {
+			for used[next] {
+				next++
+			}
+			used[next] = true
+			if err = addGatewayRoute(route, next); err == nil {
+				break
+			}
 		}
-		used[next] = true
-		if err := setGatewayRoute(route, next); err != nil {
+		if err != nil {
 			return fmt.Errorf("apply route for %s: %w", route.Interface, err)
 		}
 		current[index] = next

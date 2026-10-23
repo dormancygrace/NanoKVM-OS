@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	"NanoKVM-Server/proto"
@@ -58,6 +59,11 @@ func (k kernelRoutes) run(args ...string) ([]byte, error) {
 	gateway, iface, metric := args[5], args[7], 0
 	metric, _ = strconv.Atoi(args[len(args)-1])
 	switch args[2] {
+	case "add":
+		if _, ok := k[metric]; ok {
+			return nil, fmt.Errorf("RTNETLINK answers: File exists")
+		}
+		k[metric] = proto.GatewayRoute{Interface: iface, Gateway: gateway, Metric: metric}
 	case "replace":
 		k[metric] = proto.GatewayRoute{Interface: iface, Gateway: gateway, Metric: metric}
 	case "del":
@@ -78,20 +84,37 @@ func (k kernelRoutes) entries() []proto.GatewayRoute {
 	sort.Ints(metrics)
 	var entries []proto.GatewayRoute
 	for _, metric := range metrics {
-		entries = append(entries, k[metric])
+		if isGatewayInterface(k[metric].Interface) {
+			entries = append(entries, k[metric])
+		}
 	}
 	return entries
 }
 
+func (k kernelRoutes) metrics() map[int]bool {
+	metrics := map[int]bool{}
+	for metric := range k {
+		metrics[metric] = true
+	}
+	return metrics
+}
+
+// useModel routes the commands and the table's metrics through table.
+func useModel(t *testing.T, table kernelRoutes, run func(args ...string) ([]byte, error)) {
+	t.Helper()
+	previous, previousMetrics := gatewayRouteCommand, occupiedMetrics
+	t.Cleanup(func() { gatewayRouteCommand, occupiedMetrics = previous, previousMetrics })
+	gatewayRouteCommand = run
+	occupiedMetrics = table.metrics
+}
+
 func TestPreferenceChangesKeepOneRoutePerGatewayThroughout(t *testing.T) {
-	previous := gatewayRouteCommand
-	defer func() { gatewayRouteCommand = previous }()
 	table := kernelRoutes{
 		202: {Interface: "eth0", Gateway: "192.168.1.1", Metric: 202},
 		303: {Interface: "wlan0", Gateway: "192.168.4.1", Metric: 303},
 	}
 	gateways := map[string]bool{"192.168.1.1": true, "192.168.4.1": true}
-	gatewayRouteCommand = func(args ...string) ([]byte, error) {
+	useModel(t, table, func(args ...string) ([]byte, error) {
 		out, err := table.run(args...)
 		// After every step each gateway still has a route.
 		have := map[string]bool{}
@@ -104,7 +127,7 @@ func TestPreferenceChangesKeepOneRoutePerGatewayThroughout(t *testing.T) {
 			}
 		}
 		return out, err
-	}
+	})
 	for _, preferred := range []string{"ethernet", "wifi", "ethernet", "auto", "wifi", "wifi", "ethernet"} {
 		if err := applyGatewayPreference(preferred, table.entries()); err != nil {
 			t.Fatalf("%s: %v", preferred, err)
@@ -121,14 +144,12 @@ func TestPreferenceChangesKeepOneRoutePerGatewayThroughout(t *testing.T) {
 }
 
 func TestAGatewayWithSeveralMetricsEndsWithOne(t *testing.T) {
-	previous := gatewayRouteCommand
-	defer func() { gatewayRouteCommand = previous }()
 	table := kernelRoutes{
 		10:  {Interface: "wlan0", Gateway: "192.168.4.1", Metric: 10},
 		202: {Interface: "eth0", Gateway: "192.168.1.1", Metric: 202},
 		303: {Interface: "wlan0", Gateway: "192.168.4.1", Metric: 303},
 	}
-	gatewayRouteCommand = table.run
+	useModel(t, table, table.run)
 	if err := applyGatewayPreference("ethernet", table.entries()); err != nil {
 		t.Fatal(err)
 	}
@@ -142,15 +163,13 @@ func TestAGatewayWithSeveralMetricsEndsWithOne(t *testing.T) {
 }
 
 func TestAFailedReplaceKeepsTheOldRoute(t *testing.T) {
-	previous := gatewayRouteCommand
-	defer func() { gatewayRouteCommand = previous }()
 	table := kernelRoutes{202: {Interface: "eth0", Gateway: "192.168.1.1", Metric: 202}}
-	gatewayRouteCommand = func(args ...string) ([]byte, error) {
-		if args[2] == "replace" {
+	useModel(t, table, func(args ...string) ([]byte, error) {
+		if args[2] == "replace" || args[2] == "add" {
 			return nil, fmt.Errorf("RTNETLINK answers: Network is unreachable")
 		}
 		return table.run(args...)
-	}
+	})
 	if err := applyGatewayPreference("ethernet", table.entries()); err == nil {
 		t.Fatal("a failed replace was reported as applied")
 	}
@@ -179,19 +198,59 @@ func TestPreferenceChangesInANetworkNamespace(t *testing.T) {
 	ip("addr", "add", "192.168.4.128/24", "dev", "wlan0")
 	ip("route", "add", "default", "via", "192.168.1.1", "dev", "eth0", "metric", "202")
 	ip("route", "add", "default", "via", "192.168.4.1", "dev", "wlan0", "metric", "303")
+	// A VPN at the first interim metric, which must survive.
+	ip("link", "add", "tun0", "type", "dummy")
+	ip("link", "set", "tun0", "up")
+	ip("addr", "add", "198.51.100.2/24", "dev", "tun0")
+	ip("route", "add", "default", "via", "198.51.100.1", "dev", "tun0", "metric", "1000")
+	// USB networking at the metric Ethernet would prefer.
+	ip("link", "add", "usb0", "type", "dummy")
+	ip("link", "set", "usb0", "up")
+	ip("addr", "add", "10.0.0.2/24", "dev", "usb0")
+	ip("route", "add", "default", "via", "10.0.0.1", "dev", "usb0", "metric", "10")
 	for _, preferred := range []string{"ethernet", "wifi", "ethernet", "auto", "wifi", "wifi", "ethernet", "auto"} {
 		if err := applyGatewayPreference(preferred, defaultGatewayEntries()); err != nil {
 			t.Fatalf("%s: %v", preferred, err)
 		}
 		entries := defaultGatewayEntries()
-		if len(entries) != 2 {
-			t.Fatalf("%s: %+v", preferred, entries)
+		out, _ := exec.Command("ip", "-4", "route", "show", "default").CombinedOutput()
+		table := string(out)
+		if len(entries) != 2 || !strings.Contains(table, "via 198.51.100.1 dev tun0 metric 1000") ||
+			!strings.Contains(table, "via 10.0.0.1 dev usb0 metric 10") {
+			t.Fatalf("%s: %+v\n%s", preferred, entries, table)
 		}
 		for _, route := range entries {
 			want := preferenceMetric(preferred, route.Interface, map[string]int{"eth0": 0, "wlan0": 1}[route.Interface])
+			// usb0 holds the 10 Ethernet would prefer: the next free one.
+			if want == 10 {
+				want = 11
+			}
 			if route.Metric != want {
 				t.Fatalf("%s: %+v", preferred, entries)
 			}
 		}
+	}
+}
+
+func TestRoutesOfOtherInterfacesKeepTheirMetrics(t *testing.T) {
+	// A VPN at the first interim metric and USB networking at the metric
+	// Ethernet would prefer.
+	table := kernelRoutes{
+		10:   {Interface: "usb0", Gateway: "10.0.0.1", Metric: 10},
+		202:  {Interface: "eth0", Gateway: "192.168.1.1", Metric: 202},
+		303:  {Interface: "wlan0", Gateway: "192.168.4.1", Metric: 303},
+		1000: {Interface: "tun0", Gateway: "198.51.100.1", Metric: 1000},
+	}
+	useModel(t, table, table.run)
+	for _, preferred := range []string{"ethernet", "wifi", "ethernet", "auto"} {
+		if err := applyGatewayPreference(preferred, table.entries()); err != nil {
+			t.Fatalf("%s: %v", preferred, err)
+		}
+		if table[10].Interface != "usb0" || table[1000].Interface != "tun0" || len(table) != 4 {
+			t.Fatalf("%s: %+v", preferred, table)
+		}
+	}
+	if table[11].Interface != "eth0" && table[100].Interface != "eth0" {
+		t.Fatalf("%+v", table)
 	}
 }

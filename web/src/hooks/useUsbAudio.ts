@@ -4,6 +4,7 @@ import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { createAudioOutput } from '@/lib/audio-output.ts';
 import { stereoOffer } from '@/lib/audio-sdp.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
+import { ReconnectGate } from '@/lib/reconnect-delay.ts';
 import { publishUsbAudioStream } from '@/lib/usb-audio-stream.ts';
 import { getVideoAudio, watchVideoAudio, type VideoAudioChannel } from '@/lib/video-audio.ts';
 import { recordAudioReceiver } from '@/lib/webrtc-audio-recording.ts';
@@ -66,6 +67,9 @@ export const useUsbAudio = () => {
   volumeRef.current = volume;
   const wantedRef = useRef(wanted);
   wantedRef.current = wanted;
+  // Each failure sets the error, which re-runs the retry effect: without the
+  // gate it reconnected at once, a new WebSocket and WebRTC setup each time.
+  const gate = useRef(new ReconnectGate());
   const disconnect = useCallback(() => {
     const old = playback.current;
     playback.current = undefined;
@@ -105,6 +109,8 @@ export const useUsbAudio = () => {
         disconnect();
         closeOutput();
         setBlocked(false);
+        // Audio coming back with the composition is a fresh start.
+        gate.current.connected();
       }
     });
     window.addEventListener(usbCompositionChangedEvent, refresh);
@@ -143,10 +149,11 @@ export const useUsbAudio = () => {
   useEffect(() => {
     if (!wanted || !available || blocked || error === 'session') return;
     const attempt = () => {
-      if (!playback.current) void startRef.current?.(true);
+      if (!playback.current && gate.current.allows(performance.now()))
+        void startRef.current?.(true);
     };
     attempt();
-    const retry = window.setInterval(attempt, 2000);
+    const retry = window.setInterval(attempt, 1000);
     return () => window.clearInterval(retry);
   }, [wanted, available, blocked, error]);
 
@@ -155,6 +162,7 @@ export const useUsbAudio = () => {
       wantedRef.current = true;
       setWanted(true);
       setBlocked(false);
+      gate.current.connected();
     }
     if (playback.current) {
       if (!automatic) void output.current?.resume().catch(() => {});
@@ -173,6 +181,7 @@ export const useUsbAudio = () => {
       const active = current;
       const fail = (reason = 'connection') => {
         if (playback.current === active) {
+          gate.current.failed(performance.now());
           setError(reason);
           disconnect();
         }
@@ -220,6 +229,7 @@ export const useUsbAudio = () => {
                 if (playback.current !== active) return;
                 if (peer.connectionState === 'connected') {
                   window.clearTimeout(active.timer);
+                  gate.current.connected();
                   setPlaying(true);
                   setBusy(false);
                 } else if (peer.connectionState === 'failed' || peer.connectionState === 'closed')
@@ -288,6 +298,7 @@ export const useUsbAudio = () => {
       socket.onclose = ({ code }) => fail(code === 4401 ? 'session' : 'closed');
     } catch {
       if (!current || playback.current === current) {
+        gate.current.failed(performance.now());
         setError('playback');
         disconnect();
       }
@@ -304,6 +315,7 @@ export const useUsbAudio = () => {
       if (playback.current !== active) return;
       if (event === 'started') {
         window.clearTimeout(active.timer);
+        gate.current.connected();
         setPlaying(true);
         setBusy(false);
       } else fail(event === 'closed' ? 'closed' : 'capture');

@@ -26,11 +26,11 @@
     "@xterm/addon-attach": "0.12.0",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
-    "antd": "6.6.6",
+    "antd": "6.6.7",
     "axios": "1.20.0",
     "clsx": "2.1.1",
     "crypto-js": "4.2.0",
-    "i18next": "26.5.2",
+    "i18next": "26.5.3",
     "jotai": "3.0.1",
     "lucide-react": "1.59.0",
     "mediabunny": "1.61.6",
@@ -43,7 +43,7 @@
     "react-markdown": "10.1.0",
     "react-responsive": "10.0.1",
     "react-router-dom": "7.18.4",
-    "react-simple-keyboard": "3.8.282",
+    "react-simple-keyboard": "3.8.283",
     "remark-gfm": "4.0.1",
     "vaul": "1.1.2",
     "yocto-queue": "1.2.2"
@@ -71,7 +71,7 @@
     "tailwindcss": "4.3.3",
     "tsx": "4.23.15",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.71.2",
+    "typescript-eslint": "8.72.0",
     "vite": "8.3.4"
   },
   "msw": {

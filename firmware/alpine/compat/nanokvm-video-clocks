@@ -1,0 +1,23 @@
+#!/bin/sh
+# Called with both video services stopped. UXC and UE retain their DT clocks.
+set -eu
+model=$(cat /etc/kvm/hdmi_version 2>/dev/null || true)
+case "$model" in
+    c|d) ;;
+    ux|ue) exit 0 ;;
+    *) echo 'video-clocks: receiver model unavailable; cannot select clock policy' >&2; exit 1 ;;
+esac
+parameters=/sys/module/sg2002_video_clocks/parameters
+if [ ! -d "$parameters" ]; then
+    if pidof NanoKVM-Server kvm_system >/dev/null 2>&1; then
+        echo 'video-clocks: stop both video services before applying the C/D profile' >&2
+        exit 1
+    fi
+    modprobe sg2002-video-clocks receiver="$model"
+fi
+[ "$(cat "$parameters/receiver")" = "$model" ] &&
+    [ "$(cat "$parameters/ready")" = Y ] &&
+    [ "$(cat "$parameters/rates")" = '396000000 360000000 300000000' ] || {
+    echo 'video-clocks: LT6911C/D stock profile verification failed' >&2
+    exit 1
+}

@@ -2,6 +2,7 @@
 mod audio;
 mod auth;
 mod config;
+mod connlog;
 mod direct;
 mod framing;
 mod frame_crypto;

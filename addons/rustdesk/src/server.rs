@@ -56,6 +56,10 @@ const SESSION_TOUCH_INTERVAL: Duration = Duration::from_secs(1);
 const MOUSE_TYPE_MASK: i32 = 0x07;
 const MOUSE_TYPE_MOVE: i32 = 0;
 const MOUSE_TYPE_MOVE_RELATIVE: i32 = 5;
+// Relative movement of one flush window, per axis: 32000 points a second,
+// at most five HID reports. A larger value, such as i32::MAX from a broken or hostile
+// client, would otherwise become millions of HID reports.
+const MAX_RELATIVE_MOVE: i64 = 512;
 
 fn is_peer_disconnect(error: &io::Error) -> bool {
     matches!(
@@ -175,8 +179,8 @@ impl PendingPointerMove {
         match event.mask & MOUSE_TYPE_MASK {
             MOUSE_TYPE_MOVE => Ok(Self::Absolute(event)),
             MOUSE_TYPE_MOVE_RELATIVE => Ok(Self::Relative {
-                x: i64::from(event.x),
-                y: i64::from(event.y),
+                x: i64::from(event.x).clamp(-MAX_RELATIVE_MOVE, MAX_RELATIVE_MOVE),
+                y: i64::from(event.y).clamp(-MAX_RELATIVE_MOVE, MAX_RELATIVE_MOVE),
                 template: event,
             }),
             _ => Err(event),
@@ -190,8 +194,12 @@ impl PendingPointerMove {
                 Ok(())
             }
             (Self::Relative { x, y, template }, MOUSE_TYPE_MOVE_RELATIVE) => {
-                *x = x.saturating_add(i64::from(event.x));
-                *y = y.saturating_add(i64::from(event.y));
+                *x = x
+                    .saturating_add(i64::from(event.x))
+                    .clamp(-MAX_RELATIVE_MOVE, MAX_RELATIVE_MOVE);
+                *y = y
+                    .saturating_add(i64::from(event.y))
+                    .clamp(-MAX_RELATIVE_MOVE, MAX_RELATIVE_MOVE);
                 *template = event;
                 Ok(())
             }
@@ -311,6 +319,7 @@ pub async fn run(
     loop {
         tokio::select! {
             _ = status_tick.tick() => {
+                crate::connlog::flush();
                 let count = limits.sessions.lock().unwrap_or_else(|p| p.into_inner()).clients.len();
                 match crate::status::write(&rustdesk_identity.id, count) {
                     Ok(()) => {
@@ -332,7 +341,7 @@ pub async fn run(
             accepted = listener.accept() => {
                 let (stream, peer) = accepted?;
                 let Some(pending_permit) = limits.try_pending() else {
-                    eprintln!("rejecting RustDesk client {peer}: too many pending handshakes");
+                    crate::connlog::connection_log!("rejecting RustDesk client {peer}: too many pending handshakes");
                     drop(stream);
                     continue;
                 };
@@ -344,7 +353,7 @@ pub async fn run(
                 sessions.spawn(async move {
                     if let Err(error) = serve(stream, peer, config, identity, rustdesk_identity, false, shutdown, limits, pending_permit).await {
                         if !is_peer_disconnect(&error) {
-                            eprintln!("RustDesk client {peer}: {error}");
+                            crate::connlog::connection_log!("RustDesk client {peer}: {error}");
                         }
                     }
                     Ok(())
@@ -468,7 +477,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let login_deadline = time::Instant::now() + LOGIN_TIMEOUT;
     let mut password_attempts = 0;
     let mut empty_probes = 0;
-    let (login, _session_permit) = loop {
+    let (login, session_permit) = loop {
         let login: Message = tokio::select! {
             result = time::timeout_at(login_deadline, reader.read()) => {
                 result.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "login timed out"))??
@@ -479,7 +488,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             }
         };
         let Some(message::Union::LoginRequest(login)) = login.union else {
-            eprintln!("rejecting RustDesk client {peer}: expected LoginRequest");
+            crate::connlog::connection_log!("rejecting RustDesk client {peer}: expected LoginRequest");
             send_error(&mut writer, "Expected LoginRequest").await?;
             return Ok(());
         };
@@ -491,7 +500,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 Some(crate::protocol::login_request::Union::Terminal(_)) => "terminal",
                 None => "desktop",
             };
-            eprintln!(
+            crate::connlog::connection_log!(
                 "rejecting RustDesk client {peer} (id {:?}): unsupported {session_type} session",
                 login.my_id
             );
@@ -533,7 +542,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         if login.password.is_empty() {
             empty_probes += 1;
             if empty_probes > MAX_EMPTY_PROBES {
-                eprintln!(
+                crate::connlog::connection_log!(
                     "rejecting RustDesk client {peer} (id {:?}): too many empty password probes",
                     login.my_id
                 );
@@ -547,7 +556,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         } else {
             "Wrong Password"
         };
-        eprintln!(
+        crate::connlog::connection_log!(
             "RustDesk client {peer} (id {:?}) needs password authentication ({} bytes)",
             login.my_id,
             login.password.len()
@@ -649,7 +658,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         "RustDesk client {peer} login accepted (id {:?}, secure {is_relay})",
         login.my_id
     );
-    let mut media = time::timeout(
+    let media = time::timeout(
         MEDIA_TIMEOUT,
         MediaSubscriber::connect(
             &config.media_socket,
@@ -808,15 +817,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // header whenever a client input message won the race. Keep the media read
     // in its own task and pass only complete frames to the session loop.
     let (media_sender, mut media_receiver) = mpsc::channel(1);
-    let media_task = tokio::spawn(async move {
-        loop {
-            let frame = media.read_frame().await;
-            let failed = frame.is_err();
-            if media_sender.send(frame).await.is_err() || failed {
-                break;
-            }
-        }
-    });
+    let media_task = tokio::spawn(forward_media(media, media_sender));
     // FrameReader::read also uses read_exact internally and has the same
     // cancellation constraint. Keep it alive across media sends so a partial
     // RustDesk packet cannot be mistaken for the next packet.
@@ -1022,8 +1023,64 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     audio_task.abort();
     let _ = audio_task.await;
     let _ = input_shutdown_sender.send(true);
-    let _ = input_task.await;
+    retire_input(input_task, session_permit).await;
     result
+}
+
+// The session, and with it its viewer slot, ends only once the input task
+// has: that task releases held keys and buttons and closes the HID lease
+// last, and a viewer admitted before would find the lease still held and
+// lose its input. Waiting here keeps the cleanup in the session, which the
+// daemon's shutdown drains (for at most 3 s). The task is never aborted
+// here, which could strand held reports; each HID request has its own
+// timeout, and the clamped pointer movement bounds how many remain.
+async fn retire_input(input_task: tokio::task::JoinHandle<()>, permit: SessionPermit) {
+    let _ = input_task.await;
+    drop(permit);
+}
+
+// The bridge drops a subscriber that stops reading for 2 s, which ended the
+// session of any viewer slower than the encoder. A frame the session writer
+// is not ready for within MEDIA_GRACE is dropped here instead, and so are
+// the frames after it until a keyframe, so the bridge socket keeps being
+// drained. A keyframe is requested when that starts, and again every
+// second while it lasts, in case the requested one was dropped too.
+const MEDIA_GRACE: Duration = Duration::from_millis(250);
+const KEYFRAME_REQUEST_INTERVAL: Duration = Duration::from_secs(1);
+
+async fn forward_media(
+    mut media: MediaSubscriber,
+    sender: mpsc::Sender<io::Result<MediaFrame>>,
+) {
+    let mut dropping = false;
+    let mut requested: Option<time::Instant> = None;
+    loop {
+        let frame = match media.read_frame().await {
+            Ok(frame) => frame,
+            Err(error) => {
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
+        };
+        if !dropping || frame.keyframe {
+            match sender.send_timeout(Ok(frame), MEDIA_GRACE).await {
+                Ok(()) => {
+                    dropping = false;
+                    requested = None;
+                    continue;
+                }
+                Err(mpsc::error::SendTimeoutError::Timeout(_)) => dropping = true,
+                Err(mpsc::error::SendTimeoutError::Closed(_)) => return,
+            }
+        }
+        if requested.is_none_or(|at| at.elapsed() >= KEYFRAME_REQUEST_INTERVAL) {
+            requested = Some(time::Instant::now());
+            if let Err(error) = media.request_key_frame().await {
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
+        }
+    }
 }
 
 fn viewer_key(peer: std::net::SocketAddr, secure: bool, client_id: &str) -> String {
@@ -1463,6 +1520,35 @@ mod tests {
         assert!(limits.try_session("id:client-b".to_owned()).is_some());
     }
 
+    #[tokio::test]
+    async fn the_viewer_slot_waits_for_the_input_cleanup() {
+        let limits = ClientLimits::new(1);
+        let permit = limits.try_session("id:old".to_owned()).unwrap();
+        let (release, released) = oneshot::channel::<()>();
+        // The old session's input task, still closing its HID lease.
+        let input_task = tokio::spawn(async move {
+            let _ = released.await;
+        });
+        tokio::spawn(super::retire_input(input_task, permit));
+        time::sleep(Duration::from_millis(50)).await;
+        assert!(
+            limits.try_session("id:new".to_owned()).is_none(),
+            "a new viewer was admitted while the old one still held HID"
+        );
+        release.send(()).unwrap();
+        let deadline = time::Instant::now() + Duration::from_secs(2);
+        let admitted = loop {
+            if let Some(permit) = limits.try_session("id:new".to_owned()) {
+                break Some(permit);
+            }
+            if time::Instant::now() > deadline {
+                break None;
+            }
+            time::sleep(Duration::from_millis(10)).await;
+        };
+        assert!(admitted.is_some(), "the slot was not freed after the cleanup");
+    }
+
     #[tokio::test(start_paused = true)]
     async fn pointer_flush_stays_due_after_competing_work() {
         let grid = time::Instant::now();
@@ -1561,6 +1647,30 @@ mod tests {
                 .fold((0, 0), |sum, chunk| (sum.0 + chunk.0, sum.1 + chunk.1)),
             (190, -180)
         );
+    }
+
+    #[test]
+    fn pointer_limiter_bounds_relative_displacement() {
+        let event = |x, y| MouseEvent {
+            mask: 5,
+            x,
+            y,
+            modifiers: Vec::new(),
+        };
+        let mut pending = PendingPointerMove::new(event(i32::MAX, i32::MIN)).unwrap();
+        for _ in 0..4 {
+            pending.merge(event(i32::MAX, i32::MIN)).unwrap();
+        }
+        let PendingPointerMove::Relative { mut x, mut y, .. } = pending else {
+            panic!("relative movement changed pointer mode");
+        };
+        assert_eq!((x, y), (super::MAX_RELATIVE_MOVE, -super::MAX_RELATIVE_MOVE));
+        let mut chunks = 0;
+        while x != 0 || y != 0 {
+            take_relative_chunk(&mut x, &mut y);
+            chunks += 1;
+        }
+        assert_eq!(chunks, 5);
     }
 
     #[test]
@@ -2765,6 +2875,85 @@ mod tests {
         second.update(first.finalize());
         second.update(hash.challenge.as_bytes());
         second.finalize().to_vec()
+    }
+
+    #[tokio::test]
+    async fn a_slow_viewer_drops_frames_until_a_keyframe_instead_of_stalling() {
+        let directory = temporary_directory();
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("media.sock");
+        let listener = UnixListener::bind(&path).unwrap();
+        let identity = Identity {
+            extension_id: "rustdesk".to_owned(),
+            token: "a".repeat(64),
+        };
+        let profile = crate::nanokvm::VideoProfile { codec: Codec::H264 };
+        let (subscriber, accepted) = tokio::join!(
+            crate::nanokvm::MediaSubscriber::connect(path.to_str().unwrap(), &identity, "encoded", Some(&profile)),
+            listener.accept()
+        );
+        let (mut bridge, _) = accepted.unwrap();
+        read_subscription(&mut bridge).await;
+        let (sender, mut receiver) = mpsc::channel(1);
+        let forwarder = tokio::spawn(super::forward_media(subscriber.unwrap(), sender));
+        let frame = |marker: u8| [0, 0, 0, 1, 0x65, marker];
+        async fn keyframe_request(bridge: &mut tokio::net::UnixStream, wait: Duration) -> bool {
+            let mut line = Vec::new();
+            let read = time::timeout(wait, async {
+                loop {
+                    let byte = bridge.read_u8().await.unwrap();
+                    line.push(byte);
+                    if byte == b'\n' {
+                        break;
+                    }
+                }
+            })
+            .await;
+            if read.is_err() {
+                return false;
+            }
+            assert_eq!(line, b"{\"request\":\"keyframe\"}\n");
+            true
+        }
+
+        // Nobody reads: the first frame waits, the rest are dropped while
+        // the bridge keeps being drained, with one keyframe request. A
+        // keyframe dropped right after it asks for no other yet.
+        write_media_frame(&mut bridge, &frame(1), true).await;
+        for marker in 2..40 {
+            write_media_frame(&mut bridge, &frame(marker), marker == 20).await;
+        }
+        assert!(keyframe_request(&mut bridge, Duration::from_secs(5)).await);
+        assert!(!keyframe_request(&mut bridge, Duration::from_millis(200)).await);
+        // Past the grace of the last waiting keyframe.
+        time::sleep(super::MEDIA_GRACE * 2).await;
+        let first = receiver.recv().await.unwrap().unwrap();
+        assert_eq!(first.payload[5], 1);
+        // Caught up: frames resume at the next keyframe.
+        write_media_frame(&mut bridge, &frame(40), false).await;
+        write_media_frame(&mut bridge, &frame(41), true).await;
+        let resumed = receiver.recv().await.unwrap().unwrap();
+        assert!(resumed.keyframe);
+        assert_eq!(resumed.payload[5], 41);
+        write_media_frame(&mut bridge, &frame(42), false).await;
+        assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 42);
+        // A requested keyframe that never comes is asked for again a second
+        // later, while deltas keep being dropped.
+        while keyframe_request(&mut bridge, Duration::from_millis(50)).await {}
+        write_media_frame(&mut bridge, &frame(50), true).await;
+        write_media_frame(&mut bridge, &frame(51), false).await;
+        assert!(keyframe_request(&mut bridge, Duration::from_secs(5)).await);
+        write_media_frame(&mut bridge, &frame(52), false).await;
+        assert!(!keyframe_request(&mut bridge, Duration::from_millis(200)).await);
+        time::sleep(super::KEYFRAME_REQUEST_INTERVAL).await;
+        write_media_frame(&mut bridge, &frame(53), false).await;
+        assert!(keyframe_request(&mut bridge, Duration::from_secs(5)).await);
+        assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 50);
+        // A closed bridge still reaches the session as an error.
+        drop(bridge);
+        assert!(receiver.recv().await.unwrap().is_err());
+        forwarder.await.unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     async fn read_subscription(stream: &mut tokio::net::UnixStream) {

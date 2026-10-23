@@ -9,6 +9,10 @@ depends="alpine-base busybox-extras tzdata busybox-openrc !openvpn3 !openssl4-li
 source="$pkgname-$pkgver.tar.gz"
 # /kvmapp/version moved here from nanokvm (3.3.0).
 replaces="nanokvm"
+# The installed OS release, for the minimum release of an add-on
+# (addon.json "os"): an add-on depends on nanokvm-os>=VERSION. This package is
+# rebuilt with the release version every release (scripts/package-versions.py).
+provides="nanokvm-os=$pkgver"
 options="!check !strip !tracedeps"
 
 build() {

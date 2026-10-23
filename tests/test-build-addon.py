@@ -29,6 +29,12 @@ class RecipeTests(unittest.TestCase):
         self.assertEqual(r['go']['path'], '/usr/sbin/nkos-ipmi')
         self.assertEqual(set(r['scripts']), {'pre-upgrade', 'post-upgrade', 'pre-deinstall'})
 
+    def test_the_ipmi_add_on_needs_nanokvm_os_3_5_0(self):
+        # /api/internal/atx and the BMC settings arrived in 3.5.0.
+        self.assertEqual(b.recipe('nanokvm-ipmi')['os'], '3.5.0')
+        self.assertEqual(b.depends(b.recipe('nanokvm-ipmi')), 'openrc nanokvm-os>=3.5.0')
+        self.assertEqual(b.depends({'depends': 'openrc', 'os': '3.6.0_beta2'}), 'openrc nanokvm-os>=3.6.0_beta2')
+
     def test_bad_recipes_are_refused(self):
         with self.assertRaises(ValueError):
             b.recipe('nanokvm-web')
@@ -41,7 +47,9 @@ class RecipeTests(unittest.TestCase):
                 (d / 'nanokvm-ipmi' / name).write_text('#!/bin/sh\n')
             for bad in [{'version': '3.4'}, {'name': 'nanokvm-web'},
                         {'files': {'/etc/../x': {'source': 'nanokvm-ipmi.initd', 'mode': '0755'}}},
-                        {'scripts': {'trigger': 'nanokvm-ipmi.initd'}}, {'licenses': ['NO-SUCH-LICENSE']}]:
+                        {'scripts': {'trigger': 'nanokvm-ipmi.initd'}}, {'licenses': ['NO-SUCH-LICENSE']},
+                        {'os': ''}, {'os': '3.5'}, {'os': 'v3.5.0'}, {'os': '3.5.0-beta.1'},
+                        {'depends': 'openrc nanokvm-os>=3.4.0'}]:
                 with self.subTest(bad=bad):
                     (d / 'nanokvm-ipmi/addon.json').write_text(json.dumps({**good, **bad}))
                     with self.assertRaises(ValueError):
@@ -65,6 +73,7 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(command[:6], ['/apk', 'mkpkg', '--files', str(root), '--output', str(d / 'out.apk')])
             self.assertIn('version:0.1.0-r2', command)
             self.assertIn('name:nanokvm-ipmi', command)
+            self.assertIn('depends:openrc nanokvm-os>=3.5.0', command)
             scripts = [command[i + 1] for i, v in enumerate(command) if v == '--script']
             self.assertEqual([s.split(':', 1)[0] for s in scripts], ['post-upgrade', 'pre-deinstall', 'pre-upgrade'])
 

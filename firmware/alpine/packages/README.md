@@ -158,9 +158,20 @@ its own later versions.
 - RustDesk: `addons/rustdesk`, built and released by the RustDesk add-on
   workflow (`.github/workflows/rustdesk.yml`).
 - A Go program of `server/` (IPMI): a recipe `NAME/addon.json` here (version,
-  metadata, the program, files, lifecycle scripts, licenses), built by
+  minimum OS release, metadata, the program, files, lifecycle scripts,
+  licenses), built by
   `scripts/build-addon.py` and released by the add-on release workflow
   (`.github/workflows/addon.yml`; Actions → Add-on release → Run workflow).
+
+An add-on states the first NanoKVM OS release it works with: `"os": "3.5.0"`
+in its recipe becomes the dependency `nanokvm-os>=3.5.0`, which
+`nanokvm-release` provides as `nanokvm-os=VERSION` from 3.5.0 on. Raise it when
+the add-on starts to use something newer of the OS. A beta has the APK version
+`3.5.0_beta1`, below 3.5.0: a minimum of `3.5.0` excludes the betas of 3.5.0;
+name the first beta (`3.5.0_beta1`) when the add-on already works there, and
+the stable release satisfies it too. RustDesk states its needs
+as capabilities of `nanokvm` instead (`nanokvm-rustdesk-bridge=1`, ...), which
+3.4.0 already provides.
 
 A new add-on goes into `ADDONS`, gets a recipe and a choice in `addon.yml`.
 To release a change, raise the recipe's version and run the workflow from

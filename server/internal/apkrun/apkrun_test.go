@@ -336,3 +336,31 @@ func TestCancelledRunEndsAndFreesTheLock(t *testing.T) {
 		t.Fatalf("the lock stayed taken: %q %v", output, err)
 	}
 }
+
+// A transaction whose context ends keeps the lock until everything it
+// started has finished: a package script that is still running must not
+// overlap the next transaction.
+func TestCancelledTransactionKeepsTheLockUntilItsScriptsEnd(t *testing.T) {
+	f := newFixture(t, `echo "start $2" >> "$DIR/runs"
+case "$2" in first) (sleep 6; echo "end $2" >> "$DIR/runs") & ;; esac
+[ "$2" = first ] && exec sleep 30
+echo "end $2" >> "$DIR/runs"`)
+	ctx, cancel := context.WithCancel(context.Background())
+	first := make(chan error, 1)
+	go func() {
+		_, err := Command(ctx, f.apk, "add", "first").CombinedOutput()
+		first <- err
+	}()
+	time.Sleep(300 * time.Millisecond)
+	cancel()
+	second := Command(context.Background(), f.apk, "add", "second")
+	if output, err := second.CombinedOutput(); err != nil {
+		t.Fatalf("second transaction: %q %v", output, err)
+	}
+	<-first
+	runs := f.lines("runs")
+	want := []string{"start first", "end first", "start second", "end second"}
+	if strings.Join(runs, "|") != strings.Join(want, "|") {
+		t.Fatalf("transactions overlapped: %q", runs)
+	}
+}

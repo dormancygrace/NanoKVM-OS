@@ -196,9 +196,15 @@ func (c *Cmd) run() error {
 	}
 	cmd := exec.CommandContext(ctx, c.Path, c.Args...)
 	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
-	// A cancelled run returns, and frees the lock, even if something apk
-	// started still holds its output open.
-	cmd.WaitDelay = 5 * time.Second
+	if kind != transaction {
+		// A read-only run that is given up on (a newer search, a closed
+		// page) ends with everything it started, and frees the lock. A
+		// transaction is never cut short this way: its package scripts must
+		// finish before the lock goes to the next run.
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+		cmd.WaitDelay = 5 * time.Second
+	}
 	if err := cmd.Start(); err != nil {
 		return err
 	}

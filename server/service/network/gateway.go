@@ -48,7 +48,7 @@ func (s *Service) SetGatewayPreference(c *gin.Context) {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
-	if err := applyGatewayPreference(req.Preferred, defaultGatewayRoutes()); err != nil {
+	if err := applyGatewayPreference(req.Preferred, defaultGatewayEntries()); err != nil {
 		rsp.ErrRsp(c, -3, err.Error())
 		return
 	}
@@ -90,18 +90,27 @@ func writeGatewayPreference(preferred string) error {
 var gatewayRouteTable = "/proc/net/route"
 
 func defaultGatewayRoutes() []proto.GatewayRoute {
+	return uniqueGatewayRoutes(defaultGatewayEntries())
+}
+
+func defaultGatewayEntries() []proto.GatewayRoute {
 	table, err := os.ReadFile(gatewayRouteTable)
 	if err != nil {
 		return []proto.GatewayRoute{}
 	}
-	return parseDefaultGatewayRoutes(string(table))
+	return parseDefaultGatewayEntries(string(table))
 }
 
-// parseDefaultGatewayRoutes reads /proc/net/route: Iface, Destination,
-// Gateway, Flags, RefCnt, Use, Metric, Mask, ... with addresses in hex.
+// parseDefaultGatewayRoutes lists each gateway of an interface once.
 func parseDefaultGatewayRoutes(table string) []proto.GatewayRoute {
+	return uniqueGatewayRoutes(parseDefaultGatewayEntries(table))
+}
+
+// parseDefaultGatewayEntries reads /proc/net/route: Iface, Destination,
+// Gateway, Flags, RefCnt, Use, Metric, Mask, ... with addresses in hex. The
+// same gateway can be there more than once, with different metrics.
+func parseDefaultGatewayEntries(table string) []proto.GatewayRoute {
 	routes := []proto.GatewayRoute{}
-	seen := map[string]bool{}
 	for _, line := range strings.Split(table, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 8 || fields[1] != "00000000" || fields[7] != "00000000" {
@@ -112,10 +121,19 @@ func parseDefaultGatewayRoutes(table string) []proto.GatewayRoute {
 		if gateway == "" || !isGatewayInterface(iface) {
 			continue
 		}
-		key := iface + "\x00" + gateway
+		routes = append(routes, proto.GatewayRoute{Interface: iface, Gateway: gateway, Metric: metric})
+	}
+	return routes
+}
+
+func uniqueGatewayRoutes(entries []proto.GatewayRoute) []proto.GatewayRoute {
+	routes := []proto.GatewayRoute{}
+	seen := map[string]bool{}
+	for _, route := range entries {
+		key := route.Interface + "\x00" + route.Gateway
 		if !seen[key] {
 			seen[key] = true
-			routes = append(routes, proto.GatewayRoute{Interface: iface, Gateway: gateway, Metric: metric})
+			routes = append(routes, route)
 		}
 	}
 	return routes
@@ -135,8 +153,11 @@ func gatewayKind(iface string) string {
 	return ""
 }
 
-func applyGatewayPreference(preferred string, routes []proto.GatewayRoute) error {
-	for index, route := range routes {
+// applyGatewayPreference gives each gateway the metric of the preference.
+// The metric is part of a route's identity, so replace adds a route next to
+// one with another metric: those are deleted after the new one is in.
+func applyGatewayPreference(preferred string, entries []proto.GatewayRoute) error {
+	for index, route := range uniqueGatewayRoutes(entries) {
 		metric := 100 + index
 		if preferred != "auto" {
 			if gatewayKind(route.Interface) == preferred {
@@ -147,6 +168,14 @@ func applyGatewayPreference(preferred string, routes []proto.GatewayRoute) error
 		}
 		if _, err := gatewayRouteCommand("-4", "route", "replace", "default", "via", route.Gateway, "dev", route.Interface, "proto", "dhcp", "metric", strconv.Itoa(metric)); err != nil {
 			return fmt.Errorf("apply route for %s: %w", route.Interface, err)
+		}
+		for _, old := range entries {
+			if old.Interface != route.Interface || old.Gateway != route.Gateway || old.Metric == metric {
+				continue
+			}
+			if _, err := gatewayRouteCommand("-4", "route", "del", "default", "via", old.Gateway, "dev", old.Interface, "metric", strconv.Itoa(old.Metric)); err != nil {
+				return fmt.Errorf("remove the old route for %s: %w", route.Interface, err)
+			}
 		}
 	}
 	return nil

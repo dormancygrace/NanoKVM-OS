@@ -3,6 +3,8 @@ package network
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -39,5 +41,33 @@ func TestDefaultGatewayRoutesReadsTheRouteTable(t *testing.T) {
 	routes := defaultGatewayRoutes()
 	if len(routes) != 1 || routes[0].Interface != "wlan0" || routes[0].Gateway != "192.168.4.1" || routes[0].Metric != 303 {
 		t.Fatalf("%+v", routes)
+	}
+}
+
+func TestAGatewayKeepsOneDefaultRouteWithThePreferredMetric(t *testing.T) {
+	previous := gatewayRouteCommand
+	defer func() { gatewayRouteCommand = previous }()
+	var commands []string
+	gatewayRouteCommand = func(args ...string) ([]byte, error) {
+		commands = append(commands, strings.Join(args, " "))
+		return nil, nil
+	}
+	// eth0 from udhcpc, Wi-Fi twice: from udhcpc and from an earlier preference.
+	entries := parseDefaultGatewayEntries(routeTableHeader +
+		"eth0\t00000000\t0101A8C0\t0003\t0\t0\t202\t00000000\t0\t0\t0\n" +
+		"wlan0\t00000000\t0104A8C0\t0003\t0\t0\t303\t00000000\t0\t0\t0\n" +
+		"wlan0\t00000000\t0104A8C0\t0003\t0\t0\t10\t00000000\t0\t0\t0\n")
+	if err := applyGatewayPreference("ethernet", entries); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"-4 route replace default via 192.168.1.1 dev eth0 proto dhcp metric 10",
+		"-4 route del default via 192.168.1.1 dev eth0 metric 202",
+		"-4 route replace default via 192.168.4.1 dev wlan0 proto dhcp metric 201",
+		"-4 route del default via 192.168.4.1 dev wlan0 metric 303",
+		"-4 route del default via 192.168.4.1 dev wlan0 metric 10",
+	}
+	if !reflect.DeepEqual(commands, want) {
+		t.Fatalf("commands:\n%s", strings.Join(commands, "\n"))
 	}
 }

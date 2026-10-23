@@ -582,11 +582,12 @@ do_undo() {
 			# whole file before apply is kept in the backup.
 			# The copy keeps the file's mode; mv replaces it in one step.
 			if cp -p "$ROOT$path" "$ROOT$path.nanokvm-new" &&
-				grep -vF "$INITTAB_TAG" "$ROOT$path" >"$ROOT$path.nanokvm-new" &&
+				awk -v tag="$INITTAB_TAG" 'index($0, tag) == 0' "$ROOT$path" >"$ROOT$path.nanokvm-new" &&
 				mv "$ROOT$path.nanokvm-new" "$ROOT$path"; then
 				ok "removed the console line from $path"
 			else
-				warn "could not edit $path; the copy before apply is $last/$(basename "$path").before"
+				rm -f "$ROOT$path.nanokvm-new"
+				fail "could not edit $path; undo can be retried; the copy before apply is $last/$(basename "$path").before"
 			fi
 			rm -f "$ROOT$path.nanokvm-new"
 			[ "$path" = /etc/inittab ] && [ -z "$ROOT" ] && reread_inittab

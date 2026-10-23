@@ -452,6 +452,46 @@ class ScriptTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual((h.root / 'etc/inittab').read_text(), before + later)
 
+    def test_undo_can_remove_the_last_inittab_line(self):
+        for shell in SHELLS:
+            with self.subTest(shell=shell[0]):
+                h = self.host(init='init', inittab=True)
+                inittab = h.root / 'etc/inittab'
+                inittab.write_text('')
+                inittab.chmod(0o640)
+                applied = h.run(shell, 'apply', '--yes')
+                self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
+                self.assertIn('# nanokvm-serial-console', inittab.read_text())
+                undone = h.run(shell, 'undo')
+                self.assertEqual(undone.returncode, 0, undone.stdout + undone.stderr)
+                self.assertEqual(inittab.read_text(), '')
+                self.assertEqual(inittab.stat().st_mode & 0o777, 0o640)
+
+    def test_failed_inittab_undo_keeps_manifest_for_retry(self):
+        for shell in SHELLS:
+            with self.subTest(shell=shell[0]):
+                h = self.host(init='init', inittab=True)
+                inittab = h.root / 'etc/inittab'
+                before = inittab.read_text()
+                applied = h.run(shell, 'apply', '--yes')
+                self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
+                after = inittab.read_text()
+                manifest = next((h.root / 'var/backups/nanokvm-serial-console').glob('*/manifest'))
+                # A directory at the output-file path forces a real write
+                # failure in every shell, including BusyBox's internal applets.
+                obstruction = h.root / 'etc/inittab.nanokvm-new'
+                obstruction.mkdir()
+                failed = h.run(shell, 'undo')
+                self.assertNotEqual(failed.returncode, 0, failed.stdout + failed.stderr)
+                self.assertEqual(inittab.read_text(), after)
+                self.assertTrue(manifest.exists(), 'failed undo must remain retryable')
+                self.assertTrue(obstruction.is_dir())
+                shutil.rmtree(obstruction)
+                retried = h.run(shell, 'undo')
+                self.assertEqual(retried.returncode, 0, retried.stdout + retried.stderr)
+                self.assertEqual(inittab.read_text(), before)
+                self.assertFalse(manifest.exists())
+
     def test_help_and_bad_argument(self):
         r = self.host().run(SHELLS[0], '--help')
         self.assertEqual(r.returncode, 0)

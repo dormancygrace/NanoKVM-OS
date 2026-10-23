@@ -26,6 +26,18 @@ def expect(result, success, name, text=None):
     print(f"{name}: pass")
 
 
+# Compile the actual copied EDID tool, outside the source tree, as tools() does.
+# Only substitute native CPU flags; preserve its include paths and make command.
+with tempfile.TemporaryDirectory(prefix="nkos-edid-build-") as directory:
+    script = (REPO / "platform/build.sh").read_text()
+    start = script.index("    e=$t/edid\n")
+    end = script.index('    "${cross}strip"', start)
+    command = "python3() { printf '%s\\n' '-O2'; };\n" + script[start:end]
+    result = subprocess.run(["bash", "-euc", command], capture_output=True, text=True,
+                            env={**os.environ, "repo": str(REPO), "t": directory, "cross": ""})
+    expect(result, True, "EDID tool builds outside the source tree")
+    assert (Path(directory) / "edid/nanokvm_update_edid").is_file()
+
 with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     root = Path(directory)
     # A minimal checkout: build.sh and its lists, the release name and a

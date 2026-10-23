@@ -1,0 +1,76 @@
+#%SCHEMA: 676B6370
+# ADB block, size: 2152, compat: 0, ver: 0
+info:
+  name: nanokvm-rustdesk
+  version: 0.5.5-r0
+  hashes: e6e2e0ccc79042522fe01e6896cfa76ac2292bbb
+  description: RustDesk HDMI and USB HID endpoint for NanoKVM OS
+  arch: riscv64
+  license: AGPL-3.0-only
+  url: https://github.com/dormancygrace/NanoKVM-OS/tree/main/addons/rustdesk
+  installed-size: 1485174
+  depends: # 6 items
+    - nanokvm-rustdesk-audio=1
+    - nanokvm-rustdesk-auto-codec=1
+    - nanokvm-rustdesk-bridge=1
+    - nanokvm-rustdesk-usb-defaults=1
+    - nanokvm-rustdesk-webrtc=1
+    - openrc
+paths: # 9 items
+  - acl:
+      mode: 0755
+      user: root
+      group: root
+  - name: etc
+    acl:
+      mode: 0755
+      user: root
+      group: root
+  - name: etc/init.d
+    acl:
+      mode: 0755
+      user: root
+      group: root
+    files: # 1 items
+      - name: nanokvm-rustdesk
+        acl:
+          mode: 0755
+          user: root
+          group: root
+        size: 1133
+        mtime: 1792355278
+        hash: d225a4ca24352683ba8726ee5c5b7910fcf0b09434fb808145b35c202a7fee0b
+scripts:
+  pre-deinstall: |
+    #!/bin/sh
+    set -eu
+    [ -f /run/openrc/softlevel ] || exit 0
+    if rc-service nanokvm-rustdesk status >/dev/null 2>&1; then
+        rc-service nanokvm-rustdesk stop
+    fi
+    rc-update del nanokvm-rustdesk default >/dev/null 2>&1 || true
+    # /etc/nanokvm-rustdesk is user state and is preserved by apk del.
+  pre-upgrade: |
+    #!/bin/sh
+    set -eu
+    [ -f /run/openrc/softlevel ] || exit 0
+    if rc-service nanokvm-rustdesk status >/dev/null 2>&1; then
+        mkdir -p /run/nanokvm-rustdesk
+        touch /run/nanokvm-rustdesk/restart-after-upgrade
+        rc-service nanokvm-rustdesk stop
+    fi
+  post-upgrade: |
+    #!/bin/sh
+    set -eu
+    [ -f /run/openrc/softlevel ] || exit 0
+    if [ -f /run/nanokvm-rustdesk/restart-after-upgrade ]; then
+        rm -f /run/nanokvm-rustdesk/restart-after-upgrade
+        rc-service nanokvm-rustdesk start
+    fi
+# data block, size: 1141
+# data block, size: 1446608
+# data block, size: 34531
+# data block, size: 1310
+# data block, size: 773
+# data block, size: 387
+# data block, size: 480

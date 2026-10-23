@@ -321,14 +321,18 @@ func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error 
 		return fmt.Errorf("OpenVPN could not start")
 	}
 	started := time.Now()
+	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return e
+	}
+	// Only a fully registered child takes over the retry chain. On a PID
+	// write failure the caller retries the start; a waiter must not create
+	// a second supervisor for the child we just killed.
 	go func() {
 		_ = cmd.Wait()
 		s.supervise(p.ID, generation, attempt, time.Since(started))
 	}()
-	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
-		_ = cmd.Process.Kill()
-		return e
-	}
 	return nil
 }
 

@@ -7,28 +7,28 @@ diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lo
  #include <sys/types.h>
  #include <sys/stat.h>
  #include <sys/ioctl.h>
-@@ -188,11 +189,67 @@
+@@ -188,11 +189,68 @@
  	return low < 0 ? CVI_FAILURE : (high << 8) | low;
  }
  
-+static int lt6911_is_d_board(void)
++static int lt6911_board_variant(void)
 +{
 +	FILE *version = fopen("/etc/kvm/hdmi_version", "r");
 +	if (version == NULL)
 +		return 0;
 +	int variant = fgetc(version);
 +	fclose(version);
-+	return variant == 'd';
++	return variant;
 +}
 +
-+static int lt6911_d_pinmux(void)
++static int lt6911_cd_pinmux(void)
 +{
-+	/* Match the SG200x NanoKVM LT6911 setup, only on boards identified as D. */
++	/* Match the SG200x NanoKVM LT6911 setup, on C/D at probe, after StartMIPI. */
 +	for (unsigned int addr = 0x0300116c; addr <= 0x03001190; addr += 4) {
 +		char command[64];
 +		snprintf(command, sizeof(command), "/usr/sbin/devmem 0x%08x 32 0x3", addr);
 +		if (system(command) != 0) {
-+			CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911D pinmux write failed at 0x%08x\n", addr);
++			CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911C/D pinmux write failed at 0x%08x\n", addr);
 +			return CVI_FAILURE;
 +		}
 +	}
@@ -60,8 +60,9 @@ diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lo
 +
  int lt6911_probe(VI_PIPE ViPipe)
  {
-+	int is_d = lt6911_is_d_board();
-+	if (is_d && lt6911_d_pinmux() != CVI_SUCCESS)
++	int variant = lt6911_board_variant();
++	int is_d = variant == 'd';
++	if ((variant == 'c' || is_d) && lt6911_cd_pinmux() != CVI_SUCCESS)
 +		return CVI_FAILURE;
  	usleep(50);
  	if (lt6911_i2c_init(ViPipe) != CVI_SUCCESS)

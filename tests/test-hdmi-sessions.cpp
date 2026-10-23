@@ -13,7 +13,8 @@ using nanokvm::ReceiverKind;
 using nanokvm::ReceiverState;
 struct Bus {
     unsigned calls = 0, fail_at = 0, second_fail_at = 0, cleanup_attempts = 0;
-    uint8_t bank = 0, pointer = 0;
+    int final_status = -1;
+    bool expected_combined = false;
     std::map<unsigned, uint8_t> registers;
     bool fail() {
         ++calls;
@@ -23,19 +24,20 @@ struct Bus {
         }
         return false;
     }
-    bool writeto(int addr, const uint8_t *p, size_t n) {
-        assert(addr == 0x2b && p && n);
-        if (n == 2 && p[0] == 0xee && p[1] == 0) ++cleanup_attempts;
+    bool write_register(int addr, uint8_t page, uint8_t reg, const uint8_t *p, size_t n, bool combined) {
+        assert(combined == expected_combined);
+        assert(addr == 0x2b && p && n == 1);
+        if (reg == 0xee && p[0] == 0) ++cleanup_attempts;
         if (fail()) return false;
-        if (n == 2 && p[0] == 0xff) bank = p[1];
-        else if (n == 1) pointer = p[0];
-        else { assert(n == 2); registers[(bank << 8) | p[0]] = p[1]; }
+        registers[(page << 8) | reg] = p[0];
         return true;
     }
-    bool readfrom(int addr, uint8_t *p, size_t n) {
-        assert(addr == 0x2b && n);
+    bool read_register(int addr, uint8_t page, uint8_t reg, uint8_t *p, size_t n, bool combined) {
+        assert(combined == expected_combined);
+        assert(addr == 0x2b && p && n);
         if (fail()) return false;
-        for (size_t i = 0; i < n; ++i) p[i] = registers[(bank << 8) | (pointer + i)];
+        for (size_t i = 0; i < n; ++i) p[i] = registers[(page << 8) | (reg + i)];
+        if (page == 0x86 && reg == 0xa3 && n == 1 && final_status >= 0) p[0] = final_status;
         return true;
     }
     void pair(unsigned reg, uint16_t value) {
@@ -43,8 +45,17 @@ struct Bus {
     }
     static Bus fixture(ReceiverKind kind) {
         Bus io;
+        io.expected_combined = kind == ReceiverKind::UXC;
         if (kind == ReceiverKind::UXC) {
             io.registers[0x86a3] = 0x55; io.pair(0x85ea, 1920); io.pair(0x85f0, 1080);
+            io.registers[0x86a2] = 4; io.registers[0x86a9] = 3;
+            io.registers[0x8670] = 3; io.registers[0x8671] = 5;
+            io.pair(0x8672, 16); io.registers[0x8674] = 33; io.registers[0x8675] = 3;
+            io.pair(0x8676, 40); io.pair(0x8678, 24);
+            io.pair(0x867a, 1481); io.pair(0x867c, 1360);
+            io.pair(0x867e, 1440); io.pair(0x8680, 1280);
+            io.registers[0x8750] = 0x33; io.registers[0x8751] = 0x46;
+            io.registers[0x8752] = 0x8c;
         } else if (kind == ReceiverKind::C) {
             io.pair(0xd28b, 960); io.pair(0xd296, 1080);
             io.pair(0xc238, 1920); io.pair(0xc206, 1080);
@@ -158,8 +169,11 @@ static void admission() {
 }
 
 // Production poll helper is inserted by the runner; no register logic copied.
-static nanokvm::ReceiverAccess receiver_access;
+static auto fake_now = std::chrono::steady_clock::time_point{};
+static auto test_now() { return fake_now; }
+static nanokvm::ReceiverAccess receiver_access(NANOKVM_RECEIVER_LOCK_PATH, test_now);
 static std::atomic<bool> receiver_retry_pending{false};
+static std::atomic<bool> receiver_diagnostics_pending{true};
 static Bus LT6911_i2c = Bus::fixture(ReceiverKind::UXC);
 static nanokvm::HdmiReceiver<Bus> hdmi_receiver(LT6911_i2c);
 static struct {
@@ -193,6 +207,7 @@ static uint8_t detect_csi_res(const nanokvm::ReceiverSnapshot &sample) {
 }
 static void set_hdmi_mode(int value) { assert(value == 1); ++mode_switches; }
 // PRODUCTION_CONTROL
+// PRODUCTION_DIAGNOSTICS
 // PRODUCTION_POLL
 
 static void controls() {
@@ -210,6 +225,8 @@ static void controls() {
     { auto refused = receiver_access.read(); assert(refused.state == ReceiverState::Paused); }
     assert(kvmv_edid_maintenance(1) == -1 && errno == EBUSY);
     assert(kvmv_edid_maintenance(0) == 0 && hdmi_capture_enabled == 1);
+    { auto held = receiver_access.read(); assert(held.state == ReceiverState::Settling); }
+    fake_now += std::chrono::milliseconds(250);
     assert(kvmv_edid_maintenance(0) == -1 && errno == EINVAL);
     {
         nanokvm::ReceiverFileLock external; assert(external);
@@ -227,6 +244,14 @@ static void controls() {
     { auto refused = receiver_access.read(); assert(refused.state == ReceiverState::Paused); }
     reset_error = false;
     assert(kvmv_hdmi_control(1) == 0 && !reset_asserted && hdmi_capture_enabled);
+    { auto held = receiver_access.read(); assert(held.state == ReceiverState::Settling); }
+    auto i2c_calls = LT6911_i2c.calls;
+    auto published = publications;
+    for (int n = 0; n < 5; ++n) assert(!poll_hdmi_receiver(false));
+    assert(LT6911_i2c.calls == i2c_calls && publications == published);
+    fake_now += std::chrono::milliseconds(249);
+    { auto held = receiver_access.read(); assert(held.state == ReceiverState::Settling); }
+    fake_now += std::chrono::milliseconds(1);
     { auto resumed = receiver_access.read(); assert(resumed); }
     // A stuck detector must time out without asserting reset or changing the
     // previously enabled capture. Keep the owner on another thread.
@@ -256,6 +281,7 @@ static void controls() {
     sensor_release.set_value(); sensor.join();
     assert(waiting_reset.get() == 0 && reset_asserted && !hdmi_capture_enabled);
     assert(kvmv_hdmi_control(1) == 0 && !reset_asserted && hdmi_capture_enabled);
+    fake_now += std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS);
     signal_active = 1;
     puts("PASS production maintenance/reset: active read drained, nested pause refused, state restored, external ownership respected, reset failure retained pause and stuck reader timed out");
 }
@@ -266,22 +292,97 @@ static void publication() {
     auto baseline = LT6911_i2c;
     for (int n = 1; n <= 3; ++n) {
         LT6911_i2c.fail_at = LT6911_i2c.calls + 1;
+        auto calls = LT6911_i2c.calls;
         assert(!poll_hdmi_receiver(true));
+        // Failed enable plus its required cleanup, no optional telemetry.
+        assert(LT6911_i2c.calls == calls + 2);
         assert(publications == 1 && mode_switches == 0 && receiver_retry_pending.load());
         assert(signal_active == (n < 3));
     }
     LT6911_i2c = baseline; LT6911_i2c.fail_at = 0;
     assert(!poll_hdmi_receiver(false));
     assert(signal_active && publications == 2 && !receiver_retry_pending.load());
+    // A real IRQ must refresh timing telemetry even with unchanged CSI size.
+    LT6911_i2c.registers[0x8752] = 0x8d;
+    auto before_irq = LT6911_i2c.calls;
+    assert(!poll_hdmi_receiver(false, false, true));
+    assert(signal_active && publications == 3);
+    auto with_diag = LT6911_i2c.calls - before_irq;
+    before_irq = LT6911_i2c.calls;
+    assert(!poll_hdmi_receiver(false));
+    assert(signal_active && publications == 4 && LT6911_i2c.calls - before_irq < with_diag);
+    // Optional telemetry fails after a good sample: geometry/signal survive.
+    auto fixture = Bus::fixture(ReceiverKind::UXC);
+    nanokvm::HdmiReceiver<Bus> measured(fixture);
+    assert(measured.snapshot(ReceiverKind::UXC).state == ReceiverState::Ready);
+    LT6911_i2c.fail_at = LT6911_i2c.calls + fixture.calls + 1;
+    receiver_diagnostics_pending = true;
+    assert(!poll_hdmi_receiver(false));
+    assert(signal_active && publications == 5);
+    LT6911_i2c.fail_at = 0;
     LT6911_i2c.registers[0x86a3] = 0x88;
     assert(!poll_hdmi_receiver(false));
-    assert(!signal_active && publications == 2);
+    assert(!signal_active && publications == 5);
     { auto control = receiver_access.control(); assert(control); control.pause(); }
     auto calls = LT6911_i2c.calls;
     assert(!poll_hdmi_receiver(true));
-    assert(LT6911_i2c.calls == calls && publications == 2);
+    assert(LT6911_i2c.calls == calls && publications == 5);
     { auto control = receiver_access.control(); assert(control); control.resume(); }
     puts("PASS production poll: transient IO preserves geometry/signal, repeated IO withdraws signal, recovery and pause perform no stale publication");
+}
+
+static void diagnostics() {
+    auto io = Bus::fixture(ReceiverKind::UXC);
+    nanokvm::HdmiReceiver<Bus> receiver(io);
+    auto good = receiver.diagnostics(ReceiverKind::UXC);
+    using nanokvm::DiagnosticState;
+    assert(good.state == DiagnosticState::Ready && good.firmware == 0x300 && good.lanes == 4);
+    assert(good.width == 2560 && good.height == 1440);
+    assert(good.htotal == 2720 && good.vtotal == 1481);
+    assert(good.hsync == 32 && good.hfront == 48 && good.hback == 80);
+    assert(good.vsync == 5 && good.vfront == 3 && good.vback == 33);
+    assert(good.csi_width == 1920 && good.csi_height == 1080 && good.tmds_raw == 0x33468c);
+    auto text = nanokvm::format_receiver_diagnostics(good);
+    assert(text.find("HDMI=2560x1440") != std::string::npos);
+    assert(text.find("CSI=1920x1080") != std::string::npos);
+    auto operations = io.calls;
+    for (unsigned op = 1; op <= operations; ++op) {
+        auto broken = Bus::fixture(ReceiverKind::UXC); broken.fail_at = op;
+        nanokvm::HdmiReceiver<Bus> probe(broken);
+        auto d = probe.diagnostics(ReceiverKind::UXC);
+        assert(d.state == DiagnosticState::IoError && d.error == ENXIO);
+        assert(!d.firmware && !d.width && !d.csi_width);
+        assert(broken.cleanup_attempts > 0);
+    }
+    for (auto reg : {0x86a2, 0x86a3, 0x867c, 0x867a, 0x8673, 0x86a9}) {
+        auto invalid = Bus::fixture(ReceiverKind::UXC); invalid.registers[reg] = 0;
+        nanokvm::HdmiReceiver<Bus> probe(invalid);
+        assert(probe.diagnostics(ReceiverKind::UXC).state == DiagnosticState::Invalid);
+    }
+    auto changed = Bus::fixture(ReceiverKind::UXC); changed.final_status = 0x88;
+    nanokvm::HdmiReceiver<Bus> changing(changed);
+    assert(changing.diagnostics(ReceiverKind::UXC).state == DiagnosticState::Invalid);
+    for (auto kind : {ReceiverKind::C, ReceiverKind::D}) {
+        auto before = io.calls;
+        assert(receiver.diagnostics(kind).state == DiagnosticState::Unsupported && io.calls == before);
+    }
+    nanokvm::DiagnosticSchedule schedule;
+    auto now = std::chrono::steady_clock::time_point{};
+    assert(schedule.due(1, now)); schedule.completed(good, now);
+    assert(!schedule.due(1, now + std::chrono::hours(1))); // stable: no periodic IO
+    assert(schedule.due(2, now)); auto failed = good; failed.state = DiagnosticState::IoError;
+    schedule.completed(failed, now);
+    assert(!schedule.due(2, now + std::chrono::milliseconds(4999)));
+    assert(schedule.due(2, now + std::chrono::seconds(5)));
+    schedule.completed(good, now + std::chrono::seconds(5));
+    schedule.reset(); assert(schedule.due(2, now)); // reset/maintenance generation
+    auto invalid = good; invalid.state = DiagnosticState::Invalid;
+    schedule.completed(invalid, now);
+    assert(!schedule.due(2, now + std::chrono::hours(1)));
+    assert(schedule.due(3, now)); // transition still refreshes invalid/no-signal
+    schedule.completed(invalid, now);
+    schedule.reset(); assert(schedule.due(3, now)); // same-size real IRQ
+    puts("PASS UXC diagnostics: firmware/lanes/HDMI vs CSI, every IO/cleanup fault, timing rejection, unsupported C/D, event/retry scheduling");
 }
 
 static void failure_generations() {
@@ -305,6 +406,7 @@ static void failure_generations() {
             assert(kvmv_edid_maintenance(1) == 0);
             assert(kvmv_edid_maintenance(0) == 0);
         }
+        fake_now += std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS);
         set_hdmi_detection_state(1); // another health publisher may report VI
         fail_poll(); assert(signal_active);
         fail_poll(); assert(signal_active);
@@ -342,4 +444,4 @@ static void publication_during_lease() {
     puts("PASS real GeometryGate: publish/reset complete while frame lease remains held; visibility changes after release");
 }
 
-int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); }
+int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); }

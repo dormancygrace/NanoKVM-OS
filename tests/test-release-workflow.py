@@ -77,6 +77,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertLess(packages.index('scripts/addon_packages.py'), packages.index('/sbin/apk --sign-key'))
         self.assertLess(packages.index('/sbin/apk verify ./*.apk'), packages.index('scripts/addon_packages.py'))
         self.assertIn('--allow-untrusted mkndx', packages)
+        # Each fetched add-on's metadata is checked before the key signs an index of it.
+        self.assertLess(packages.index('--output "$b/build/repo/stock/recipes/riscv64"'),
+                        packages.index('addon_packages.py" --check'))
+        self.assertLess(packages.index('addon_packages.py" --check'), packages.index('/sbin/apk --sign-key'))
 
     def test_only_version_tags_and_the_button_release(self):
         self.assertRegex(RELEASE, r"push:\n    tags: \['v\*'\]\n")

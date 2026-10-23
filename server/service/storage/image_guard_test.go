@@ -29,7 +29,7 @@ func guardFixture(t *testing.T) (image, lun, marker string) {
 	if err := os.MkdirAll(imageDirectory, 0700); err != nil {
 		t.Fatal(err)
 	}
-	mountDevice, imageBootMarkers = lun, []string{marker}
+	mountDevice, imageBootMarkers = lun, func() []string { return []string{marker} }
 	image = filepath.Join(imageDirectory, "setup.iso")
 	writeGuardFile(t, image, "old image")
 	writeGuardFile(t, lun, "")

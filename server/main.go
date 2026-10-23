@@ -28,7 +28,6 @@ import (
 	"NanoKVM-Server/utils"
 
 	"github.com/gin-gonic/gin"
-	cors "github.com/rs/cors/wrapper/gin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -167,7 +166,11 @@ func run() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	if conf.Authentication == "disable" {
-		r.Use(cors.AllowAll())
+		// Every request is the administrator: other sites must not read
+		// the API or post to the device from the user's browser. Only the
+		// origins in security.allowedOrigins (a development web server)
+		// get cross-origin access.
+		r.Use(middleware.AllowedOriginCORS(), middleware.RejectCrossOriginWrites())
 	}
 
 	router.Init(r)

@@ -10,9 +10,13 @@ import (
 	"NanoKVM-Server/service/hid"
 )
 
-var imageBootMarkers = []string{
-	filepath.Join(hid.USBFlagsDir, "usb.disk0"),
-	filepath.Join(hid.USBFlagsDir, "usb.userdisk"),
+// imageBootMarkers follows hid.USBFlagsDir at call time, so that tests of
+// any package can move the flags into a temporary directory.
+var imageBootMarkers = func() []string {
+	return []string{
+		filepath.Join(hid.USBFlagsDir, "usb.disk0"),
+		filepath.Join(hid.USBFlagsDir, "usb.userdisk"),
+	}
 }
 
 // Image mutations and gadget composition changes share the HID lock. The
@@ -57,7 +61,7 @@ func imageUnused(path string) error {
 			return err
 		}
 	}
-	for _, marker := range imageBootMarkers {
+	for _, marker := range imageBootMarkers() {
 		data, err := os.ReadFile(marker)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("read USB configuration: %w", err)

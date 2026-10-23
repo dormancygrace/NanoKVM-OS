@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""The signing job unpacks only the images and the source archive."""
+"""The signing job receives only finished release outputs, with their modes."""
 import importlib.util
 import io
+import os
+import re
 from pathlib import Path
 import subprocess
 import tarfile
 import tempfile
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,9 +27,25 @@ class UnpackTests(unittest.TestCase):
         self.out = self.root / 'out'
         self.out.mkdir()
 
+    def pack(self, build, *, check=True):
+        # Execute the actual workflow, skipping only the expensive build.
+        workflow = (ROOT / '.github/workflows/release.yml').read_text()
+        step = re.search(r'^      - name: Packages, root file system and image\n'
+                         r'(.*?)(?=^      - |\Z)', workflow, re.M | re.S)[1]
+        run = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        build_command, packing = run.split('\n', 1)
+        self.assertTrue(build_command.startswith('platform/build.sh '))
+        result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', packing], cwd=ROOT,
+                              env={**os.environ, 'OUT': str(build), 'RUNNER_TEMP': str(self.root),
+                                   'NANOKVM_VERSION': 'v3.5.0', 'LC_ALL': 'C'},
+                              capture_output=True, text=True)
+        if check:
+            self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
     def build_tar(self):
         """What the build job packs (release.yml)."""
-        build = Path(tempfile.mkdtemp(dir=self.root))
+        build = Path(tempfile.mkdtemp(prefix="build outputs ", dir=self.root))
         (build / 'release/apk/recipes/riscv64').mkdir(parents=True)
         (build / 'release/image').mkdir()
         (build / 'release/apk/recipes/riscv64/nanokvm-3.5.0-r0.apk').write_bytes(b'apk')
@@ -34,13 +53,22 @@ class UnpackTests(unittest.TestCase):
         (build / 'release/image/NanoKVM-OS.img.zip').chmod(0o755)
         for name in FILES:
             (build / name).write_bytes(b'list')
+        (build / 'release/image/build-manifest.json').write_bytes(b'{}')
+        # The real image builder leaves an extracted root with private runtime
+        # paths, symlinks and raw filesystem images. None belongs in the handoff.
+        stage = build / 'release/image/root'
+        stage.mkdir()
+        (stage / 'private').write_bytes(b'private')
+        (stage / 'link').symlink_to('private')
+        stage.chmod(0)
+        self.addCleanup(stage.chmod, 0o700)
+        for name in ('rootfs.f2fs', 'boot-partition.img', 'NanoKVM-OS.img', 'SHA256SUMS'):
+            (build / 'release/image' / name).write_bytes(b'intermediate')
         # Built, but not handed over.
         (build / 'release/alpine-rootfs.tar.gz').write_bytes(b'rootfs')
         (build / SOURCE).write_bytes(b'source')
-        archive = build.with_suffix('.tar')
-        subprocess.run(['tar', '-C', str(build), '-cf', str(archive), 'release/apk', 'release/image', *FILES, SOURCE],
-                       check=True)
-        return archive
+        self.pack(build)
+        return self.root / 'release-build.tar'
 
     def with_member(self, archive, info, data=b''):
         with tarfile.open(archive, 'a:') as tar:
@@ -49,10 +77,30 @@ class UnpackTests(unittest.TestCase):
 
     def test_build_outputs_are_unpacked_with_their_modes(self):
         names = m.unpack(self.build_tar(), self.out)
-        self.assertIn(SOURCE, names)
+        self.assertEqual(set(n.rstrip('/') for n in names), {
+            'release/apk', 'release/apk/recipes', 'release/apk/recipes/riscv64',
+            'release/apk/recipes/riscv64/nanokvm-3.5.0-r0.apk',
+            'release/image/NanoKVM-OS.img.zip', 'release/image/build-manifest.json',
+            *FILES, SOURCE,
+        })
         self.assertEqual((self.out / 'release/apk/recipes/riscv64/nanokvm-3.5.0-r0.apk').read_bytes(), b'apk')
         self.assertEqual((self.out / 'release/image/NanoKVM-OS.img.zip').stat().st_mode & 0o777, 0o755)
         self.assertTrue((self.out / FILES[0]).is_file())
+
+    def test_missing_finished_image_or_manifest_fails_the_build(self):
+        self.build_tar()
+        build = next(p for p in self.root.iterdir()
+                     if p.is_dir() and p.name.startswith('build outputs '))
+        for name in ('NanoKVM-OS.img.zip', 'build-manifest.json'):
+            path = build / 'release/image' / name
+            data = path.read_bytes()
+            path.unlink()
+            try:
+                result = self.pack(build, check=False)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn('Cannot stat', result.stderr)
+            finally:
+                path.write_bytes(data)
 
     def refused(self, info, what, data=b''):
         archive = self.with_member(self.build_tar(), info, data)

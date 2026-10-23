@@ -14,23 +14,32 @@ SETTINGS_BACKUP=$UPDATE_DIR/etc-kvm-backup.tar
 FORMAT_MARKER=$UPDATE_DIR/recovery-formatting
 SHADOW_SAVED=$UPDATE_DIR/root-shadow.saved
 
-# The image that ran before recovery was activated (nanokvm-stage-update).
-# Until p2 is formatted nothing is lost, and a recovery that stops goes back
-# to it and restarts, rather than waiting at a console nobody may reach.
+# The image that ran before recovery was activated (nanokvm-stage-update),
+# its hash, and the hash of the recovery FIT activated over it (.for). Until
+# p2 is formatted nothing is lost, and a recovery that stops goes back to it
+# and restarts, rather than waiting at a console nobody may reach.
 BOOT_BEFORE=boot.before-recovery
-FORMATTING=0
+# Whether p2 may already be formatted. Unknown until the data partition is
+# read, so a failure that early stays at the console; cleared only once no
+# record of an interrupted run is found.
+FORMATTING=1
 
 return_to_previous_image() {
 	[ "$FORMATTING" = 0 ] || return 0
 	mkdir -p /oldboot || return 0
 	mount -t vfat /dev/mmcblk0p1 /oldboot 2>/dev/null || return 0
-	if [ -f "/oldboot/$BOOT_BEFORE" ] && [ -f "/oldboot/$BOOT_BEFORE.sha256" ]; then
+	if [ -f "/oldboot/$BOOT_BEFORE" ] && [ -f "/oldboot/$BOOT_BEFORE.sha256" ] &&
+		[ -f "/oldboot/$BOOT_BEFORE.for" ]; then
 		wanted=$(/busybox cat "/oldboot/$BOOT_BEFORE.sha256")
 		actual=$(/busybox sha256sum "/oldboot/$BOOT_BEFORE")
-		if [ "${actual%% *}" = "$wanted" ] &&
+		recovery=$(/busybox cat "/oldboot/$BOOT_BEFORE.for")
+		running=$(/busybox sha256sum /oldboot/boot.sd)
+		# Only the copy kept for this recovery FIT: one left by an earlier
+		# recovery whose cleanup was cut short is older than boot.sd's root.
+		if [ "${actual%% *}" = "$wanted" ] && [ "${running%% *}" = "$recovery" ] &&
 			/busybox cp "/oldboot/$BOOT_BEFORE" /oldboot/.boot.sd.back &&
 			sync && /busybox mv -f /oldboot/.boot.sd.back /oldboot/boot.sd && sync; then
-			/busybox rm -f "/oldboot/$BOOT_BEFORE" "/oldboot/$BOOT_BEFORE.sha256"
+			/busybox rm -f "/oldboot/$BOOT_BEFORE" "/oldboot/$BOOT_BEFORE.sha256" "/oldboot/$BOOT_BEFORE.for"
 			sync
 			umount /oldboot
 			echo "Alpine recovery went back to the previous image; restarting" >&2
@@ -91,10 +100,13 @@ verify_sha256() {
 	[ "$actual" = "$expected" ] || fail "$label SHA256 mismatch"
 }
 
-mount_payloads() {
+mount_data() {
 	mkdir -p /data
 	mount -t exfat -o ro /dev/mmcblk0p3 /data ||
 		fail "cannot mount exFAT data read-only"
+}
+
+wait_for_payloads() {
 	ROOTFS_TAR=/data/nanokvm-update/alpine-rootfs.tar.gz
 	BOOT_FIT=/data/nanokvm-update/boot-alpine.sd
 	# The update directory is populated before this manual FIT is selected.
@@ -294,13 +306,16 @@ validate_root() {
 
 mount_initial_filesystems
 wait_for_partitions || fail "MMC partitions unavailable"
+mount_data
+# Without the record no run of this recovery has formatted p2 yet, and a
+# failure in the checks below can still go back.
+[ -f "$FORMAT_MARKER" ] || FORMATTING=0
 validate_layout
-mount_payloads
+wait_for_payloads
 verify_sha256 "$ROOTFS_SHA256" "$ROOTFS_TAR" alpine-rootfs.tar.gz
 verify_sha256 "$BOOT_SHA256" "$BOOT_FIT" boot-alpine.sd
 if [ -f "$FORMAT_MARKER" ]; then
 	# p2 may already be formatted: there is no going back.
-	FORMATTING=1
 	echo "Resuming an interrupted recovery with the settings it preserved"
 	resume_settings
 else
@@ -352,7 +367,8 @@ mv -f "$state_tmp" /realroot/data/.nanokvm-alpine/state.json ||
 # boot.sd is the new image: nothing is left to resume or go back to.
 /busybox rm -f "/realroot$FORMAT_MARKER" "/realroot$SHADOW_SAVED" ||
 	fail "cannot remove the recovery marker"
-/busybox rm -f "/realroot/boot/$BOOT_BEFORE" "/realroot/boot/$BOOT_BEFORE.sha256" ||
+/busybox rm -f "/realroot/boot/$BOOT_BEFORE" "/realroot/boot/$BOOT_BEFORE.sha256" \
+	"/realroot/boot/$BOOT_BEFORE.for" ||
 	fail "cannot remove the previous image"
 sync
 mount -t proc proc /realroot/proc || fail "cannot mount new root proc"

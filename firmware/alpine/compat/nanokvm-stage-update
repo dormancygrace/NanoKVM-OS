@@ -170,15 +170,20 @@ check_recovery_layout() {
 	esac
 }
 
-# The image recovery goes back to if it stops before formatting. A copy
-# left by an earlier activation that never completed is that image already;
-# the boot.sd it replaced is then a recovery FIT itself.
+# The image recovery goes back to if it stops before formatting, with its
+# hash; .for holds the hash of the recovery FIT activated over it. A copy is
+# reused only while boot.sd is still that FIT: the earlier activation never
+# completed and the copy is the image that ran. Anything else in boot.sd,
+# such as what a recovery installed before its cleanup was cut short, is the
+# image to keep now.
 keep_previous_image() {
 	before=$BOOT_ROOT/boot.before-recovery
-	if [ -f "$before" ] && [ -f "$before.sha256" ] &&
+	if [ -f "$BOOT_ROOT/boot.sd" ] && [ -f "$before" ] && [ -f "$before.sha256" ] && [ -f "$before.for" ] &&
+		[ "$(sha256sum "$BOOT_ROOT/boot.sd" | cut -d ' ' -f 1)" = "$(cat "$before.for")" ] &&
 		[ "$(sha256sum "$before" | cut -d ' ' -f 1)" = "$(cat "$before.sha256")" ]; then
 		return 0
 	fi
+	rm -f "$before.for" "$before" "$before.sha256" || die "cannot remove a stale boot image copy"
 	[ -f "$BOOT_ROOT/boot.sd" ] || return 0
 	cp "$BOOT_ROOT/boot.sd" "$before.tmp" || die "cannot keep the current boot image"
 	sync
@@ -200,6 +205,15 @@ if [ "$ACTIVATE" -eq 1 ]; then
 	cp "$DESTINATION/boot-alpine-recovery.sd" "$boot_tmp" ||
 		die "cannot stage recovery FIT on boot volume"
 	sync
+	if [ -f "$BOOT_ROOT/boot.before-recovery" ]; then
+		# Recorded before boot.sd changes: a cut here leaves boot.sd unlike
+		# .for, and the next activation keeps a fresh copy.
+		if ! sha256sum "$boot_tmp" | cut -d ' ' -f 1 >"$BOOT_ROOT/boot.before-recovery.for.tmp" ||
+			! mv -f "$BOOT_ROOT/boot.before-recovery.for.tmp" "$BOOT_ROOT/boot.before-recovery.for"; then
+			die "cannot record the recovery FIT"
+		fi
+		sync
+	fi
 	mv -f "$boot_tmp" "$BOOT_ROOT/boot.sd" || die "cannot activate recovery FIT"
 	sync
 	echo "recovery FIT installed at $BOOT_ROOT/boot.sd; reboot required"

@@ -59,10 +59,24 @@ test ! -e "$DATA/nanokvm-update/root-shadow.saved"
 # The image that ran is kept for recovery to go back to, with its hash.
 test "$(cat "$BOOT/boot.before-recovery")" = "running image"
 test "$(cat "$BOOT/boot.before-recovery.sha256")" = "$(sha256sum "$BOOT/boot.before-recovery" | cut -d ' ' -f 1)"
+test "$(cat "$BOOT/boot.before-recovery.for")" = "$(sha256sum "$BOOT/boot.sd" | cut -d ' ' -f 1)"
 # Activating again keeps that image, not the recovery FIT now in boot.sd.
 NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
 	"$STAGER" --activate "$DATA/nanokvm-update"
 test "$(cat "$BOOT/boot.before-recovery")" = "running image"
+# A recovery installed its image but its cleanup was cut short: the copy
+# left behind is older than boot.sd, and the next activation keeps boot.sd.
+printf 'installed image\n' >"$BOOT/boot.sd"
+NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
+	"$STAGER" --activate "$DATA/nanokvm-update"
+test "$(cat "$BOOT/boot.before-recovery")" = "installed image"
+test "$(cat "$BOOT/boot.before-recovery.sha256")" = "$(sha256sum "$BOOT/boot.before-recovery" | cut -d ' ' -f 1)"
+# Without .for (cut before it was written) a copy is never trusted either.
+printf 'next image\n' >"$BOOT/boot.sd"
+rm "$BOOT/boot.before-recovery.for"
+NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
+	"$STAGER" --activate "$DATA/nanokvm-update"
+test "$(cat "$BOOT/boot.before-recovery")" = "next image"
 
 # A device recovery cannot run on is refused before boot.sd changes.
 printf 'running image\n' >"$BOOT/boot.sd"

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
 
 	"github.com/gin-gonic/gin"
@@ -215,6 +216,12 @@ func RecordLoginFailureFor(clientIP, username string) (bool, int, string) {
 		attempt.failedUser, attempt.otherFailures = "", false
 	}
 
+	// The login request accepts unknown names too. Retain only bounded,
+	// valid account names; arbitrary request strings must not live in the
+	// address table after the request finishes. Invalid names still count.
+	if authn.ValidateUsername(username) != nil {
+		username = ""
+	}
 	switch {
 	case username == "":
 		attempt.otherFailures = true

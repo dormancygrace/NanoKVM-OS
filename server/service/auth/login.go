@@ -24,6 +24,10 @@ const ReturnTokenHeader = "X-NanoKVM-Return-Token"
 var loginBodyTimeout = 15 * time.Second
 
 func (s *Service) Login(c *gin.Context) {
+	// Cover early replies too: HTTP/1 may drain an unread request body
+	// before writing a response, including a lockout or auth-disabled reply.
+	_ = http.NewResponseController(c.Writer).SetReadDeadline(time.Now().Add(loginBodyTimeout))
+
 	var req proto.LoginReq
 	var rsp proto.Response
 	// A successful automation login can carry a bearer credential, and browser
@@ -45,10 +49,6 @@ func (s *Service) Login(c *gin.Context) {
 		rsp.ErrRsp(c, code, msg)
 		return
 	}
-	// The server sets no global read deadline (uploads and streams need
-	// none), so bound this unauthenticated body: a client that sends it
-	// slowly must not hold the connection and its buffers indefinitely.
-	_ = http.NewResponseController(c.Writer).SetReadDeadline(time.Now().Add(loginBodyTimeout))
 	if err := proto.ParseFormRequest(c, &req); err != nil {
 		time.Sleep(3 * time.Second)
 		rsp.ErrRsp(c, -1, "invalid parameters")

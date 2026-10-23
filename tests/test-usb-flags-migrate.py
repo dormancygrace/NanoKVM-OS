@@ -242,6 +242,10 @@ flags.mkdir()
 (flags / '.layout-v1').write_text('')
 (flags / 'usb.ncm').write_text('')
 env = dict(env, NANOKVM_USB_FLAGS_DIR=str(flags), NANOKVM_USB_FLAGS_LAYOUT=str(boot.parent / 'layout'))
+# An empty mount table, whatever the machine running the test mounts.
+no_mounts = boot.parent / 'mounts'
+no_mounts.write_text('')
+source = source.replace('/proc/mounts', str(no_mounts))
 result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output=True)
 assert result.returncode == 0 and 'not mounted' in result.stderr, result
 assert tree(flags) == {'usb.ncm': ''}, tree(flags)

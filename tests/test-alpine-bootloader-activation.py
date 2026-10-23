@@ -136,6 +136,25 @@ class BootloaderActivationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.files(), {'fip.bin': OLD})
 
+    def test_failed_sync_after_install_restores_previous(self):
+        # The third sync is the one after fip.new took the name fip.bin.
+        count = self.root / 'syncs'
+        self.stub('sync', f'n=$(cat "{count}" 2>/dev/null || echo 0); n=$((n + 1)); echo $n > "{count}"; [ $n != 3 ]')
+        result = self.run_activation()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.boot / 'fip.bin').read_bytes(), OLD)
+        self.assertIn('fip.bin is the previous one', result.stderr)
+
+    def test_the_rollback_holds_what_it_replaces(self):
+        text = SOURCE.read_text()
+        rollback = text[text.index('cleanup() {'):text.index('trap cleanup EXIT')]
+        order = ['exec 7< /boot/fip.bin', 'mv /boot/fip.prev /boot/fip.bin', 'sync /boot &&',
+                 'exec 7<&- && sync /boot', 'exec 7<&- 8<&-']
+        positions = [rollback.index(step) for step in order]
+        self.assertEqual(positions, sorted(positions))
+        # The original is not let go before the rollback is on the card.
+        self.assertNotIn('exec 8<&-\n        if', rollback)
+
     def test_fip_bin_is_never_without_a_complete_file(self):
         # fip.bin is never renamed away or removed: the previous one is copied,
         # and the new one renamed over it while the old one is held open, so

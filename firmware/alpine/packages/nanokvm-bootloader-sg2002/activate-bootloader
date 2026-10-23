@@ -38,13 +38,18 @@ cleanup() {
     # A detected I/O failure is recoverable while Linux is still running.
     # Keep a nonzero status even if restoring the previous FIP succeeds.
     if [ "$result" != 0 ] && [ "$previous_saved" = 1 ]; then
-        exec 8<&-
+        # The same way back as forward: the file being replaced is held
+        # until the entry naming the previous one is on the card. The
+        # original stays held (fd 8) until then too.
         if [ "$(oncard /boot/fip.bin)" = "$previous" ] ||
-            { mv /boot/fip.prev /boot/fip.bin && sync /boot; }; then
+            { exec 7< /boot/fip.bin && mv /boot/fip.prev /boot/fip.bin && sync /boot &&
+                exec 7<&- && sync /boot; }; then
             echo 'Bootloader update failed; fip.bin is the previous one.' >&2
         else
             echo 'Bootloader rollback failed; do not reboot before repairing /boot/fip.bin.' >&2
         fi
+        exec 7<&- 8<&-
+        sync /boot || true
     fi
     if [ "$mounted" = 1 ]; then
         umount /boot || result=1

@@ -112,7 +112,7 @@ static int maintenance_lock(void)
     return nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS); /* Whole operation. */
 }
 
-int NanoKVM_PCIe_HDMI_Reset(void)
+int NanoKVM_PCIe_HDMI_Reset(chip_version_t chip)
 {
     /* The nanokvm-hdmi-reset driver owns the line; no global GPIO fallback. */
     int fd = open("/sys/bus/platform/devices/hdmi-reset/pulse", O_WRONLY | O_CLOEXEC);
@@ -123,7 +123,8 @@ int NanoKVM_PCIe_HDMI_Reset(void)
     if (ret) { errno = saved; return ret; }
     // The pulse driver's own release delay is not a firmware-ready guarantee.
     // Programming is already blocking; wait before its first register access.
-    return nanokvm_receiver_wait_ready();
+    return nanokvm_receiver_wait_ready_for(chip == CHIP_LT6911UXC ? 'u' :
+        chip == CHIP_LT6911D ? 'd' : 'c');
 }
 
 // =======================================================================================================
@@ -853,9 +854,9 @@ int main(int argc, char *argv[]) {
         int lock_fd = maintenance_lock();
         if (lock_fd < 0) { perror("EDID maintenance lock"); return 1; }
         uint8_t edid[EDID_BUFFER_SIZE] = {0};
-        if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset() < 0) { perror("HDMI reset failed"); return 1; }
+        if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset(chip_version) < 0) { perror("HDMI reset failed"); return 1; }
         int ret = lt6911_edid_dump(chip_version, edid);
-        if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset() < 0) { perror("HDMI reset failed"); return 1; }
+        if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset(chip_version) < 0) { perror("HDMI reset failed"); return 1; }
         if (ret != 0) { fprintf(stderr, "Cannot read the receiver EDID\n"); return 1; }
         FILE *out = fopen(argv[2], "wb");
         if (out == NULL || fwrite(edid, 1, sizeof(edid), out) != sizeof(edid)) {
@@ -880,7 +881,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "HDMI reset is available only for PCIe hardware\n");
             return 1;
         }
-        if (NanoKVM_PCIe_HDMI_Reset() < 0) { perror("HDMI reset failed"); return 1; }
+        if (NanoKVM_PCIe_HDMI_Reset(chip_version) < 0) { perror("HDMI reset failed"); return 1; }
         puts("HDMI reset completed; EDID was not written");
         return 0;
     }
@@ -910,7 +911,7 @@ int main(int argc, char *argv[]) {
     }
     fprintf(stdout, "EDID data loaded successfully from %s\n", argv[1]);
 
-    if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset() < 0) {
+    if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset(chip_version) < 0) {
         perror("HDMI reset failed");
         return EXIT_FAILURE;
     }
@@ -921,7 +922,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset() < 0) {
+    if (product_version == PRODUCT_PCIE_A && NanoKVM_PCIe_HDMI_Reset(chip_version) < 0) {
         perror("HDMI reset failed");
         return EXIT_FAILURE;
     }

@@ -31,35 +31,76 @@ message count is an error. Failed transfers are not replayed, and failed reads
 do not publish partial bytes. Every operation carries its own bank, so the
 EDID programmer no longer needs a bank cache.
 
-After a successful PCIe reset release or EDID-maintenance resume, detector
-admission returns `settling` without I2C for at least 250 ms, using a monotonic
-deadline rather than sleeping on the frame path. The standalone EDID
-programmer also waits 250 ms after a successful reset pulse before register
-access. This is a minimum quiet window, not a promise that HDMI has locked:
-normal readiness checks and bounded retries still apply. On the PCIe UXC
-stand, first access was about 251 ms after release and a stable sample about
-1.77 s after release in each of three cycles. C/D reset timing still needs physical
-qualification; combined transfers are disabled for those variants.
+After a successful PCIe reset release, detector admission returns `settling`
+without I2C until a monotonic deadline: LT6911C 2500 ms, LT6911D 2500 ms,
+LT6911UXC 250 ms. Cube/Lite EDID maintenance does not reset the receiver:
+resuming it retains the previous 250 ms post-access gap for every model,
+without shortening an already pending reset deadline. C and D have independent policy
+constants even though their initial values match. The standalone EDID tool
+uses the same model-specific delay after each successful reset pulse, with
+normalized seconds/nanoseconds and interrupted sleeps resumed. Service startup
+also waits 2.5 seconds for C/D after releasing an asserted receiver reset,
+before either service can probe; UXC keeps its existing one-second startup
+warmup. A missing model marker uses the longer startup window.
 
-UXC diagnostic sessions read firmware revision, CSI lane count, HDMI active
-size, totals, sync/porch lengths, polarity, input-format bits and raw TMDS-clock
-registers, with CSI output size kept separately. They run at receiver/mode
-transitions (including IRQs with unchanged CSI size) and after reset/maintenance.
-A failed receiver snapshot skips optional diagnostics. Diagnostic I2C failures
-retry at most every five seconds; invalid or unavailable data waits for a
-transition, IRQ or reset instead of repeatedly reading a disconnected receiver. Only changed
-diagnostic text is logged. A diagnostic failure cannot replace capture
-geometry or withdraw an otherwise valid signal. Timing totals/porches and
-stable status are checked before marking telemetry valid. C/D firmware/lane
-maps are not inferred from UXC and are reported unavailable.
+These are minimum quiet windows, not promises of HDMI lock. UXC first access
+was about 251 ms after release and a stable sample about 1.77 seconds after
+release on the PCIe stand. The 2.5-second C/D starting values come from
+[Comet C measurements](https://github.com/macpit/glkvm-rm1pe-kernel/blob/d38a0af2fee3ae49542c21149e896a45a271096a/patches/0004-lt6911c-hdmi-capture-and-cold-lock.patch)
+and [ESP-KVM D measurements](https://github.com/espkvm/espkvm/blob/7b61f7c1196824a5bc3f37bf0bc426a38afa9dd9/docs/HARDWARE-NOTES.md),
+not NanoKVM C/D hardware qualification. Normal readiness checks and bounded
+retries still apply.
 
-Register addresses and units follow [Rockchip UXC](https://github.com/rockchip-linux/kernel/blob/470f9dccbdc42e7b8a824d0a5c5640a10e9457d2/drivers/media/i2c/lt6911uxc.h)
-and [ZHAW](https://github.com/InES-HPMM/Lontium_lt6911uxc/blob/c6a314423d1209df82a7c669f45ae7a765601715/source/lt6911uxc_regs_zhaw.h). These diagnostic reads do not write interrupt acknowledgments,
-select a frequency meter, change lane configuration or change color policy.
-The TMDS value stays raw: the Rockchip kHz/FPS formula does not match the
-NanoKVM stand's UXC firmware `0x00000300`, so no unqualified clock or refresh
-rate is published.
+The cached board model selects a register protocol. Diagnostics identify the
+silicon separately: C reads A000/A001 (normalized ID 0516), UXC reads
+8100/8101 (normalized ID 0417; wire bytes 17 04). D's E100/E101 ID 2102 is
+read only by the exclusive stopped-capture probe, once per reset generation;
+normal D diagnostics report the cached board-model hint and
+`chip_id=exclusive-probe-only`, and perform no register writes. An unexpected ID is reported as
+unknown together with the board-model hint; it does not switch capture
+protocols. Firmware bytes never decide the model. Every internal-ID session
+attempts to close its register window, including failed enable/read paths.
+The exclusive D probe caches both successful and failed ID attempts until a
+new reset generation. An ID/cleanup failure aborts that probe before further
+telemetry; it cannot enter normal capture as a disposable diagnostic error.
 
+Diagnostic fields are model-specific:
+
+| Receiver | Available diagnostic data | Explicitly unavailable |
+| --- | --- | --- |
+| C | Hardware ID; five raw firmware bytes D20C..D210; HDMI active size, totals, sync and porches from D2; separate CSI size from C2 | Lane count and qualified clock units |
+| D | Hardware ID in exclusive probe only; four raw firmware bytes E080..E083; active size and totals; lane count, format, event, stream control and byte-clock registers | Independently measured HDMI/CSI sizes, sync/porches and qualified clock/FPS |
+| UXC | Firmware revision, CSI lanes, HDMI active size/totals/sync/porches/polarity/format bits and raw TMDS; separate CSI size | Qualified clock/FPS on NanoKVM firmware 00000300 |
+
+C measurements enable D283=11 and wait 5 ms, matching the existing sampling
+sequence. Horizontal measurement fields use half-pixel units. C firmware
+registers were measured on GL.iNet firmware; other revisions may return
+unavailable bytes. D's E084 is an event code, not live cable presence, and
+E080..E083 are kept raw rather than decoded as a date or pixel clock. Normal D diagnostics are read-only. The exclusive probe alone may open the
+internal ID window. No D stream toggle, flash command, frequency-meter
+selection or color/lane configuration is performed. Zero/all-FF firmware bytes are marked unavailable
+without rejecting a known hardware ID.
+
+Telemetry runs on receiver/mode transitions (including same-size IRQs) and
+after reset/maintenance. Only I2C failures retry periodically, at most every
+five seconds while state is unchanged; invalid measurements wait for a
+transition or IRQ. Only changed diagnostic text is logged. C/D re-read timing
+fields to reject mixed mode changes; invalid/FFFF dimensions, D width overflow
+and inconsistent C timing sums are rejected. Optional diagnostics never
+replace capture geometry or withdraw an otherwise valid signal.
+
+Register addresses and units follow
+[Rockchip C](https://github.com/rockchip-linux/kernel/blob/e81982d9e242815c9ce1b1e3f2db2ce7450c94d4/drivers/media/i2c/lt6911c.c),
+[Comet C firmware measurements](https://github.com/macpit/glkvm-rm1pe-kernel/blob/d38a0af2fee3ae49542c21149e896a45a271096a/patches/0004-lt6911c-hdmi-capture-and-cold-lock.patch),
+[Espressif D](https://github.com/espressif/esp-video-components/blob/b413578f9186a814f7df2bd04442e796c978fae3/esp_cam_sensor/sensors/lt6911/lt6911.c),
+[Rockchip UXC](https://github.com/rockchip-linux/kernel/blob/470f9dccbdc42e7b8a824d0a5c5640a10e9457d2/drivers/media/i2c/lt6911uxc.h)
+and [ZHAW](https://github.com/InES-HPMM/Lontium_lt6911uxc/blob/c6a314423d1209df82a7c669f45ae7a765601715/source/lt6911uxc_regs_zhaw.h).
+New C/D telemetry reads use individual register accesses, matching the donors
+rather than assuming long auto-increment bursts. C/D keep STOP-delimited
+transfers; repeated-START, timing and telemetry still
+require physical qualification on those NanoKVM receivers. The exclusive
+`hdmi-receiver-runtime` probe accepts `diagnostics c|d|ux` or
+`reset-ready c|d|ux` for that later bench work.
 
 
 The monitor profile advertises preferred and fallback modes through EDID. **Automatic** is 1920×1080 at up to 90 Hz wherever the EDID can be written live (the stock receiver profile elsewhere); 2560×1440 and 3840×2160 are explicit choices. The landscape profiles prefer 3840×2160, 2560×1440, 1920×1080 or 1280×720; the portrait profiles 720×1280, 1080×1920 and 1440×2560 are in the same list. 1080×1920 is the tallest portrait H.264 encodes (see H.264 below); 1440×2560 needs H.265, over Direct or WebRTC. The 1296×2304 portrait of earlier releases, the tallest H.264 portrait before H.264 stopped at 1080×1920, is retired: a device that had it selected gets 1440×2560 (1080×1920 when its device codec is H.264) and programs that profile on the first start after the update. A source may choose another supported resolution; applying the profile does not require the source to adopt its preferred timing. The profiles are single-rate: each advertises no mode at or above its own resolution other than its preferred timing (1920×1080 at 75 Hz lists no other 1080p, 1080i or 1440p timing), because the Windows GPU driver tested here does not honour the preferred timing and otherwise outputs a fallback such as 1080p50 or 2560×1440 at 50 Hz. Lower-resolution fallbacks (VGA, 800×600, 720p, and 1024×768 or 1280×1024 where lower than the profile) stay, so a source that cannot drive the chosen timing falls back to a lower resolution (choose a slower profile to restore the larger one). Changing a profile briefly reconnects HDMI. Which profiles a device offers depends on its HDMI receiver, and how a new profile takes effect on its board. The LT6911UXC takes every profile; the LT6911C and the LT6911D take the 720p and 1080p profiles at 60 Hz until they are measured beyond that. PCIe boards apply a profile at once (they reset the receiver); Cube and Lite boards need a physical power cycle after each write. This does not affect automatic source detection.

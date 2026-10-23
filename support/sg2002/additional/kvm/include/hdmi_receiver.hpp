@@ -2,6 +2,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -10,7 +11,6 @@
 #include "../../../../../firmware/mpi/nanokvm_receiver_lock.h"
 
 namespace nanokvm {
-enum class ReceiverKind { C, UXC, D };
 enum class ReceiverState { Ready, NoSignal, Settling, IoError, Busy, Paused };
 struct ReceiverSnapshot {
     ReceiverState state = ReceiverState::IoError;
@@ -76,9 +76,11 @@ public:
               ready_at_(ready_at), now_(now) {}
         explicit operator bool() const { return lock_.owns_lock(); }
         void pause() { *paused_ = true; }
-        void resume(std::chrono::milliseconds settle = std::chrono::milliseconds(0)) {
+        void resume(std::chrono::milliseconds settle = std::chrono::milliseconds(0),
+            bool preserve_deadline = false) {
             ++*generation_; // a fresh attempt even if no poll observed the pause
-            *ready_at_ = now_() + settle;
+            const auto deadline = now_() + settle;
+            if (!preserve_deadline || deadline > *ready_at_) *ready_at_ = deadline;
             *paused_ = false;
         }
     };
@@ -107,6 +109,9 @@ public:
 template<class Transport> class HdmiReceiver {
     Transport &io_;
     bool combined_ = false;
+    bool exclusive_d_identified_ = false;
+    uint64_t exclusive_d_generation_ = 0;
+    ReceiverIdentity exclusive_d_identity_;
     int error_ = 0;
     static constexpr int address = 0x2b;
     bool failed() { error_ = errno ? errno : EIO; return false; }
@@ -118,11 +123,74 @@ template<class Transport> class HdmiReceiver {
         errno = 0;
         return io_.read_register(address, page, reg, bytes, count, combined_) || failed();
     }
+    bool read_individual(uint8_t page, uint8_t reg, uint8_t *bytes, size_t count) {
+        // The C/D donor drivers read telemetry one register at a time. Avoid
+        // assuming a new long auto-increment burst on unqualified firmware.
+        for (size_t i = 0; i < count; ++i)
+            if (!read(page, uint8_t(reg + i), bytes + i, 1)) return false;
+        return true;
+    }
     bool read16(uint8_t page, uint8_t reg, uint16_t &value) {
         uint8_t bytes[2];
         if (!read(page, reg, bytes, sizeof(bytes))) return false;
         value = (static_cast<uint16_t>(bytes[0]) << 8) | bytes[1];
         return true;
+    }
+    bool read_c_timing(uint8_t bytes[26]) {
+        static constexpr uint8_t offsets[] = {0, 1, 2, 3, 4, 5, 6, 14, 15,
+            16, 17, 18, 19, 22, 23, 24, 25};
+        for (auto i : offsets)
+            if (!read(0xd2, 0x86 + i, bytes + i, 1)) return false;
+        return true;
+    }
+    bool read_d_telemetry(uint8_t bytes[23]) {
+        static constexpr uint8_t offsets[] = {0, 1, 2, 3, 4, 8, 9, 10, 11,
+            12, 13, 14, 15, 18, 19, 20, 21, 22};
+        for (auto i : offsets)
+            if (!read(0xe0, 0x80 + i, bytes + i, 1)) return false;
+        return true;
+    }
+    ReceiverDiagnostics c_diagnostics() {
+        ReceiverDiagnostics result;
+        uint8_t firmware[5]{}, timing[26]{}, after[26]{};
+        uint16_t csi_width = 0, csi_height = 0;
+        bool ok = write8(0x80, 0xee, 1) && read_individual(0xd2, 0x0c, firmware, sizeof(firmware)) &&
+            write8(0xd2, 0x83, 0x11);
+        if (ok) {
+            struct timespec delay = {0, 5000000};
+            while (nanosleep(&delay, &delay) < 0)
+                if (errno != EINTR) { ok = failed(); break; }
+        }
+        ok = ok && read_c_timing(timing) &&
+            read16(0xc2, 0x38, csi_width) && read16(0xc2, 0x06, csi_height) &&
+            read_c_timing(after);
+        const int primary = error_;
+        if (!write8(0x80, 0xee, 0)) result.cleanup_error = error_;
+        if (!ok || result.cleanup_error) {
+            result.state = DiagnosticState::IoError;
+            result.error = primary ? primary : result.cleanup_error;
+            return result;
+        }
+        result = decode_c_diagnostics(timing, firmware, csi_width, csi_height);
+        if (memcmp(timing, after, sizeof(after)) != 0)
+            result.state = DiagnosticState::Invalid;
+        return result;
+    }
+    ReceiverDiagnostics d_diagnostics() {
+        ReceiverDiagnostics result;
+        uint8_t data[23]{}, after[8]{}, stream = 0;
+        // E0 telemetry is firmware-owned. Do not open/hold the internal bus
+        // or toggle E0B0 to "repair" a stream during diagnostic reads.
+        if (!read_d_telemetry(data) || !read(0xe0, 0xb0, &stream, 1) ||
+            !read_individual(0xe0, 0x88, after, sizeof(after))) {
+            result.state = DiagnosticState::IoError;
+            result.error = error_;
+            return result;
+        }
+        result = decode_d_diagnostics(data, stream);
+        if (memcmp(data + 8, after, sizeof(after)) != 0)
+            result.state = DiagnosticState::Invalid;
+        return result;
     }
     ReceiverSnapshot dimensions(ReceiverKind kind) {
         ReceiverSnapshot sample;
@@ -134,6 +202,9 @@ template<class Transport> class HdmiReceiver {
         const uint8_t vreg = kind == ReceiverKind::C ? 0x06 :
             kind == ReceiverKind::UXC ? 0xf0 : 0x8e;
         if (!read16(page, vreg, height) || !read16(page, hreg, width)) return sample;
+        if (width == UINT16_MAX || height == UINT16_MAX) {
+            sample.state = ReceiverState::Settling; return sample;
+        }
         if (kind == ReceiverKind::D) {
             if (width > UINT16_MAX / 2) { sample.state = ReceiverState::Settling; return sample; }
             width *= 2;
@@ -159,35 +230,116 @@ template<class Transport> class HdmiReceiver {
             nanosleep(&delay, nullptr);
             if (!read16(0xd2, 0x96, height) || !read16(0xd2, 0x8b, width)) return result;
             if (!width && !height) { result.state = ReceiverState::NoSignal; return result; }
-            if (!width || !height) { result.state = ReceiverState::Settling; return result; }
+            if (!width || !height || width == UINT16_MAX || height == UINT16_MAX) {
+                result.state = ReceiverState::Settling; return result; }
         }
         return dimensions(kind);
     }
 public:
     explicit HdmiReceiver(Transport &io) : io_(io) {}
+    ReceiverIdentity identify(ReceiverKind kind) {
+        combined_ = kind == ReceiverKind::UXC;
+        ReceiverIdentity result;
+        if (kind == ReceiverKind::Unknown) { result.error = EINVAL; return result; }
+        error_ = 0;
+        const uint8_t control = kind == ReceiverKind::D ? 0xe0 : 0x80;
+        const uint8_t bank = kind == ReceiverKind::C ? 0xa0 :
+            kind == ReceiverKind::UXC ? 0x81 : 0xe1;
+        uint8_t bytes[2]{};
+        const bool ok = write8(control, 0xee, 1) && read_individual(bank, 0x00, bytes, sizeof(bytes));
+        const int primary = error_;
+        // D's ID window also stalls its MCU: always release E0EE, including
+        // failed enable/read paths. Firmware E080..83 is never an ID.
+        if (!write8(control, 0xee, 0)) result.cleanup_error = error_;
+        result.error = primary ? primary : result.cleanup_error;
+        if (ok && !result.cleanup_error) {
+            result.chip_id = receiver_chip_id(kind, bytes);
+            result.model = identify_receiver(kind, result.chip_id);
+        }
+        return result;
+    }
     ReceiverDiagnostics diagnostics(ReceiverKind kind) {
         ReceiverDiagnostics result;
-        if (kind != ReceiverKind::UXC) return result; // no verified C/D map
-        combined_ = true; // diagnostics has a verified UXC-only register map
-        error_ = 0;
-        uint8_t identity[9]{}, timing[18]{}, clock[3]{}, version = 0, color = 0, status = 0;
-        uint16_t csi_width = 0, csi_height = 0;
-        bool ok = write8(0x80, 0xee, 1) && write8(0x80, 0x10, 0) &&
-            read(0x86, 0xa2, identity, sizeof(identity)) &&
-            read(0x86, 0x70, timing, sizeof(timing)) &&
-            read(0x87, 0x50, clock, sizeof(clock)) &&
-            read(0xb0, 0xa2, &version, 1) && read(0xb0, 0x92, &color, 1) &&
-            read16(0x85, 0xea, csi_width) && read16(0x85, 0xf0, csi_height) &&
-            read(0x86, 0xa3, &status, 1);
-        const int primary = error_;
-        if (!write8(0x80, 0xee, 0)) result.cleanup_error = error_;
-        if (!ok || result.cleanup_error) {
-            result.state = DiagnosticState::IoError;
-            result.error = primary ? primary : result.cleanup_error;
+        result.expected_model = kind;
+        if (kind == ReceiverKind::Unknown) return result;
+        if (kind == ReceiverKind::D) {
+            // Live D telemetry must stay read-only. Internal E1 identity is
+            // reserved for the exclusive probe until its lifecycle is qualified.
+            combined_ = false;
+            error_ = 0;
+            result = d_diagnostics();
+            result.expected_model = kind;
             return result;
         }
-        return decode_uxc_diagnostics(identity, timing, clock, version, color,
-            status, csi_width, csi_height);
+        const auto id = identify(kind);
+        result.chip_id = id.chip_id;
+        if (id.error) {
+            result.state = DiagnosticState::IoError;
+            result.error = id.error;
+            result.cleanup_error = id.cleanup_error;
+            return result;
+        }
+        if (id.model != kind || id.model == ReceiverKind::Unknown) {
+            result.state = DiagnosticState::Invalid;
+            return result;
+        }
+        error_ = 0;
+        if (kind == ReceiverKind::C) result = c_diagnostics();
+        else {
+            uint8_t identity[9]{}, timing[18]{}, clock[3]{}, version = 0, color = 0, status = 0;
+            uint16_t csi_width = 0, csi_height = 0;
+            bool ok = write8(0x80, 0xee, 1) && write8(0x80, 0x10, 0) &&
+                read(0x86, 0xa2, identity, sizeof(identity)) &&
+                read(0x86, 0x70, timing, sizeof(timing)) &&
+                read(0x87, 0x50, clock, sizeof(clock)) &&
+                read(0xb0, 0xa2, &version, 1) && read(0xb0, 0x92, &color, 1) &&
+                read16(0x85, 0xea, csi_width) && read16(0x85, 0xf0, csi_height) &&
+                read(0x86, 0xa3, &status, 1);
+            const int primary = error_;
+            if (!write8(0x80, 0xee, 0)) result.cleanup_error = error_;
+            if (!ok || result.cleanup_error) {
+                result.state = DiagnosticState::IoError;
+                result.error = primary ? primary : result.cleanup_error;
+            } else {
+                result = decode_uxc_diagnostics(identity, timing, clock, version, color,
+                    status, csi_width, csi_height);
+            }
+        }
+        result.model = id.model;
+        result.expected_model = kind;
+        result.chip_id = id.chip_id;
+        result.identity_checked = true;
+        return result;
+    }
+    /* Caller must stop capture and hold exclusive receiver ownership. D's
+     * internal window is opened once per reset generation, including failed
+     * attempts; a failed close must abort the probe, never become live telemetry. */
+    ReceiverDiagnostics exclusive_diagnostics(ReceiverKind kind, uint64_t generation) {
+        if (kind != ReceiverKind::D) return diagnostics(kind);
+        if (!exclusive_d_identified_ || exclusive_d_generation_ != generation) {
+            exclusive_d_identity_ = identify(kind);
+            exclusive_d_generation_ = generation;
+            exclusive_d_identified_ = true;
+        }
+        const auto &id = exclusive_d_identity_;
+        ReceiverDiagnostics result;
+        result.expected_model = kind;
+        result.chip_id = id.chip_id;
+        if (id.error) {
+            result.state = DiagnosticState::IoError;
+            result.error = id.error;
+            result.cleanup_error = id.cleanup_error;
+            return result;
+        }
+        result.identity_checked = true;
+        if (id.model != kind) {
+            result.state = DiagnosticState::Invalid;
+            return result;
+        }
+        result = diagnostics(kind);
+        result.chip_id = id.chip_id;
+        result.identity_checked = true;
+        return result;
     }
     ReceiverSnapshot snapshot(ReceiverKind kind) {
         combined_ = kind == ReceiverKind::UXC;

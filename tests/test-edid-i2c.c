@@ -16,6 +16,7 @@ static unsigned calls, fail_at, closes, capability_queries, combined_transfers, 
 static int short_count = -1, reset_failure;
 static unsigned sleeps;
 static int sleep_mode;
+static unsigned expected_sleep_ms = 250;
 static int test_open(const char *path, int flags, ...);
 static ssize_t test_write(int fd, const void *data, size_t len);
 static ssize_t test_read(int fd, void *data, size_t len);
@@ -98,14 +99,15 @@ static off_t test_lseek(int fd, off_t offset, int whence) {
 static int test_nanosleep(const struct timespec *delay, struct timespec *remaining) {
     if (delay->tv_sec == 0 && delay->tv_nsec == 2000000L)
         return nanosleep(delay, remaining); // real lock polling, not reset holdoff
-    assert(delay->tv_sec == 0);
+    assert(delay->tv_nsec >= 0 && delay->tv_nsec < 1000000000L);
     ++sleeps;
     if (sleep_mode == 1 && sleeps == 1) {
-        assert(delay->tv_nsec == 250000000L);
+        assert(delay->tv_sec * 1000 + delay->tv_nsec / 1000000 == expected_sleep_ms);
         remaining->tv_sec = 0; remaining->tv_nsec = 100000000L;
         errno = EINTR; return -1;
     }
-    assert(delay->tv_nsec == (sleep_mode == 1 ? 100000000L : 250000000L));
+    assert(delay->tv_sec * 1000 + delay->tv_nsec / 1000000 ==
+        (sleep_mode == 1 ? 100U : expected_sleep_ms));
     if (sleep_mode == 2) { errno = EINVAL; return -1; }
     return 0;
 }
@@ -216,13 +218,23 @@ int main(void) {
     }
     puts("PASS actual EDID C/D selection: legacy IO, no combined/capability calls, every short/failing stage, staged output");
     reset(); sleeps = 0;
-    assert(NanoKVM_PCIe_HDMI_Reset() == 0 && sleeps == 1 && calls == 0);
+    assert(NanoKVM_PCIe_HDMI_Reset(CHIP_LT6911UXC) == 0 && sleeps == 1 && calls == 0);
     reset_failure = 1;
-    assert(NanoKVM_PCIe_HDMI_Reset() == -1 && errno == EREMOTEIO && sleeps == 1);
+    assert(NanoKVM_PCIe_HDMI_Reset(CHIP_LT6911UXC) == -1 && errno == EREMOTEIO && sleeps == 1);
     reset_failure = 0; sleeps = 0; sleep_mode = 1;
-    assert(NanoKVM_PCIe_HDMI_Reset() == 0 && sleeps == 2 && calls == 0);
+    assert(NanoKVM_PCIe_HDMI_Reset(CHIP_LT6911UXC) == 0 && sleeps == 2 && calls == 0);
     sleep_mode = 2;
-    assert(NanoKVM_PCIe_HDMI_Reset() == -1 && errno == EINVAL);
-    puts("PASS EDID reset: post-success readiness wait, no wait after failed reset");
+    assert(NanoKVM_PCIe_HDMI_Reset(CHIP_LT6911UXC) == -1 && errno == EINVAL);
+    for (chip_version_t chip = CHIP_LT6911UXC; chip <= CHIP_LT6911D; ++chip) {
+        expected_sleep_ms = chip == CHIP_LT6911UXC ? 250 : 2500;
+        for (sleep_mode = 0; sleep_mode < 3; ++sleep_mode) {
+            sleeps = 0; reset_failure = 0;
+            assert(NanoKVM_PCIe_HDMI_Reset(chip) == (sleep_mode == 2 ? -1 : 0));
+            assert(sleeps == (sleep_mode == 1 ? 2U : 1U));
+            sleeps = 0; reset_failure = 1;
+            assert(NanoKVM_PCIe_HDMI_Reset(chip) == -1 && errno == EREMOTEIO && sleeps == 0);
+        }
+    }
+    puts("PASS EDID reset: per-model normalized waits, EINTR resume, sleep error and no wait after reset failure");
     puts("PASS four real EDID helpers: one banked ioctl each, every short count, negative errors, unchanged failed read, cleanup propagation, enable refusal");
 }

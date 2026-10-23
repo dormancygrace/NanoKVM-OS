@@ -708,8 +708,7 @@ static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false,
         failed_polls = 0;
         observed_generation = access.generation;
     }
-    const auto kind = kvmv_cfg.hdmi_version == 1 ? nanokvm::ReceiverKind::UXC :
-        kvmv_cfg.hdmi_version == 3 ? nanokvm::ReceiverKind::D : nanokvm::ReceiverKind::C;
+    const auto kind = nanokvm::receiver_kind(kvmv_cfg.hdmi_version);
     const auto sample = access ? hdmi_receiver.snapshot(kind) :
         nanokvm::ReceiverSnapshot{nanokvm::ReceiverState::IoError, 0, 0, access.error, 0};
     if (access && sample.state != nanokvm::ReceiverState::IoError)
@@ -2040,7 +2039,9 @@ int kvmv_edid_maintenance(uint8_t pause)
     } else {
         if (!active) { errno = EINVAL; return -1; }
         kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
-        control.resume(std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS));
+        // This Cube/Lite maintenance does not reset the receiver. Keep the
+        // short post-access gap, without shortening a pending reset deadline.
+        control.resume(std::chrono::milliseconds(NANOKVM_RECEIVER_MAINTENANCE_MS), true);
         receiver_diagnostics_pending = true;
         receiver_retry_pending.store(true, std::memory_order_relaxed);
         set_hdmi_capture_enabled(previous_capture);
@@ -2086,10 +2087,11 @@ int kvmv_hdmi_control(uint8_t _en)
     }
     if (set_owned_hdmi_reset(false) != 0) return -1;
     // Readiness is a monotonic admission deadline, not a sleep on the frame
-    // path. 250 ms is the initial conservative UXC/PCIe qualification value.
+    // path. Each model has its own minimum quiet window.
     // Keep the existing VI channel and consume queued frames after idle.
     kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
-    control.resume(std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS));
+    control.resume(std::chrono::milliseconds(nanokvm::receiver_settle_ms(
+            nanokvm::receiver_kind(kvmv_cfg.hdmi_version))));
     receiver_diagnostics_pending = true;
     receiver_retry_pending.store(true, std::memory_order_relaxed);
     set_hdmi_capture_enabled(1);

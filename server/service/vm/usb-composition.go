@@ -12,6 +12,7 @@ import (
 
 	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/internal/storageidentity"
+	"NanoKVM-Server/remotemedia"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/service/stream/audio"
@@ -378,6 +379,13 @@ func verifyStorageIdentityAt(root string, identity storageidentity.Identity) err
 			}
 			if strings.TrimSpace(string(cdrom)) == "1" {
 				kind = "cdrom"
+				backing, err := os.ReadFile(filepath.Join(lun, "file"))
+				if err != nil {
+					return err
+				}
+				if strings.TrimSpace(string(backing)) == remotemedia.DevicePath {
+					kind = "remote"
+				}
 			}
 		}
 		got, err := os.ReadFile(filepath.Join(lun, "inquiry_string"))

@@ -26,6 +26,7 @@ export const BmcSettingsPage = () => {
   const dirty = useRef(false);
   const mounted = useRef(false);
   const ipmi = Form.useWatch('ipmi', form);
+  const redfish = Form.useWatch('redfish', form);
 
   const refresh = useCallback(async () => {
     if (!mounted.current) return;
@@ -94,6 +95,9 @@ export const BmcSettingsPage = () => {
   };
 
   if (!status) return error ? <Alert type="error" title={error} showIcon /> : <Spin />;
+  // The account and the power options serve Redfish and IPMI: without
+  // either they configure nothing. Hidden, not unmounted, so a save keeps them.
+  const shared = Boolean(redfish) || status.ipmiInstalled;
 
   return (
     <div className="space-y-6">
@@ -149,39 +153,45 @@ export const BmcSettingsPage = () => {
             </>
           )}
         </SettingsSection>
-        <SettingsSection title={t('account')} description={t('accountHint')}>
-          <Form.Item
-            name="username"
-            label={t('username')}
-            rules={[
-              { required: true, pattern: /^[A-Za-z0-9._-]{1,16}$/, message: t('usernameRule') }
-            ]}
+        {!shared && <p className="text-fg-muted m-0 text-sm">{t('sharedOff')}</p>}
+        <div hidden={!shared}>
+          <SettingsSection
+            title={t('account')}
+            description={status.ipmiInstalled ? t('accountHint') : t('accountHintRedfish')}
           >
-            <Input autoComplete="off" maxLength={16} />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label={t('password')}
-            extra={status.passwordSet ? t('passwordKeep') : t('passwordRule')}
-            rules={[
-              { min: 8, message: t('passwordRule') },
-              { max: 20, message: t('passwordRule') }
-            ]}
-          >
-            <Input.Password autoComplete="new-password" maxLength={20} />
-          </Form.Item>
-          <Form.Item name="holdSeconds" label={t('holdSeconds')} extra={t('holdHint')}>
-            <InputNumber min={1} max={30} placeholder={t('holdDefault')} />
-          </Form.Item>
-          <Form.Item
-            name="powerLedConnected"
-            label={t('powerLed')}
-            valuePropName="checked"
-            extra={t('powerLedHint')}
-          >
-            <Switch />
-          </Form.Item>
-        </SettingsSection>
+            <Form.Item
+              name="username"
+              label={t('username')}
+              rules={[
+                { required: true, pattern: /^[A-Za-z0-9._-]{1,16}$/, message: t('usernameRule') }
+              ]}
+            >
+              <Input autoComplete="off" maxLength={16} />
+            </Form.Item>
+            <Form.Item
+              name="password"
+              label={t('password')}
+              extra={status.passwordSet ? t('passwordKeep') : t('passwordRule')}
+              rules={[
+                { min: 8, message: t('passwordRule') },
+                { max: 20, message: t('passwordRule') }
+              ]}
+            >
+              <Input.Password autoComplete="new-password" maxLength={20} />
+            </Form.Item>
+            <Form.Item name="holdSeconds" label={t('holdSeconds')} extra={t('holdHint')}>
+              <InputNumber min={1} max={30} placeholder={t('holdDefault')} />
+            </Form.Item>
+            <Form.Item
+              name="powerLedConnected"
+              label={t('powerLed')}
+              valuePropName="checked"
+              extra={t('powerLedHint')}
+            >
+              <Switch />
+            </Form.Item>
+          </SettingsSection>
+        </div>
         <Button type="primary" htmlType="submit" loading={busy}>
           {t('save')}
         </Button>

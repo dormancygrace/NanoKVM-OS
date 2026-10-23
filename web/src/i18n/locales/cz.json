@@ -1656,6 +1656,8 @@
       "usernameRule": "1-16 písmen, číslic, „.“, „_“ nebo „-“",
       "username": "Uživatelské jméno",
       "accountHint": "Oddělené od účtů do webového rozhraní; používané oběma protokoly.",
+      "accountHintRedfish": "Oddělené od účtů do webového rozhraní; používá ho Redfish a po instalaci doplňku i IPMI.",
+      "sharedOff": "Účet BMC a možnosti napájení se zobrazí, když je zapnutý Redfish nebo je nainstalovaný doplněk IPMI.",
       "account": "Účet do BMC",
       "ipmiWarning": "IPMI ukládá heslo v čitelné podobě a kdokoli, komu je dosažitelný IPMI port, může získat jeho otisk pro offline uhádnutí. Používejte dlouhá hesla, která nepoužíváte jinde a port otevřete pouze do důvěryhodných sítí.",
       "ipmiHint": "ipmitool -I lanplus; sady šifer 3 a 17.",

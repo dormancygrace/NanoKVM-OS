@@ -1926,6 +1926,8 @@
       "ipmiWarning": "IPMI keeps the password as written, and anyone who can reach the IPMI port can obtain a hash of it to guess offline. Use a long password that you use nowhere else, and open the port only to trusted networks.",
       "account": "BMC account",
       "accountHint": "Separate from the web accounts; used by both protocols.",
+      "accountHintRedfish": "Separate from the web accounts; used by Redfish, and by IPMI once its add-on is installed.",
+      "sharedOff": "The BMC account and the power options appear when Redfish is on or the IPMI add-on is installed.",
       "username": "User name",
       "usernameRule": "1-16 letters, digits, '.', '_' or '-'",
       "password": "Password",

@@ -1926,6 +1926,8 @@
       "ipmiWarning": "IPMI conserve le mot de passe tel quel, et quiconque atteint le port IPMI peut en obtenir un hachage pour le deviner hors ligne. Utilisez un mot de passe long que vous n'utilisez nulle part ailleurs et n'ouvrez le port qu'aux réseaux de confiance.",
       "account": "Compte BMC",
       "accountHint": "Distinct des comptes web ; utilisé par les deux protocoles.",
+      "accountHintRedfish": "Distinct des comptes web ; utilisé par Redfish, et par IPMI une fois son module installé.",
+      "sharedOff": "Le compte BMC et les options d'alimentation apparaissent quand Redfish est activé ou que le module IPMI est installé.",
       "username": "Nom d'utilisateur",
       "usernameRule": "1 à 16 lettres, chiffres, '.', '_' ou '-'",
       "password": "Mot de passe",

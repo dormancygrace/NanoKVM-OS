@@ -105,9 +105,6 @@ export const IpmiAddon = ({ onOpen }: { onOpen: () => void }) => {
           >
             {t('install')}
           </Button>
-          <Button disabled={busy} onClick={onOpen}>
-            {t('open')}
-          </Button>
         </div>
       )}
     </AddonCard>

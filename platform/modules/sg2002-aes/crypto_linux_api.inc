@@ -8,12 +8,49 @@
 #include <linux/unaligned.h>
 
 static struct workqueue_struct *crypto_api_wq;
+
+/* Requests from atomic context wait on one ordered workqueue. Bound them: a
+ * flood (ovpn decrypts every received packet in softirq) must not queue
+ * without end. A caller that allows a backlog waits for its completion and
+ * is not refused; the others get -ENOSPC and drop the request.
+ */
+#define SG2_ASYNC_MAX 64
+static atomic_t sg2_async_queued = ATOMIC_INIT(0);
+static int sg2_async_enter(u32 flags)
+{
+ if (atomic_inc_return(&sg2_async_queued) > SG2_ASYNC_MAX && !(flags & CRYPTO_TFM_REQ_MAY_BACKLOG)) {
+  atomic_dec(&sg2_async_queued);
+  return -ENOSPC;
+ }
+ return 0;
+}
+static void sg2_async_leave(void) { atomic_dec(&sg2_async_queued); }
+
+/* After the poison latch (crypto_finish_locked) the engine is never used
+ * again. Requests then go to the synchronous software implementation of the
+ * same algorithm, where one is built (not DES, 3DES or SM4): new and queued
+ * requests work again; only the request that met the failure fails. The
+ * algorithms here are marked NEED_FALLBACK, so that a fallback never finds
+ * them, nor a template built for one (gcm over ctr(aes)).
+ */
+static bool sg2_use_fallback(const void *fallback) { return fallback && READ_ONCE(poisoned); }
+
 struct sg2_cipher_alg {
  struct skcipher_alg alg;
  u32 hardware, mode, block;
 };
-struct sg2_cipher_ctx { u8 key[32]; u32 keylen; const struct sg2_cipher_alg *alg; };
-struct sg2_cipher_req { struct work_struct work; struct skcipher_request *req; bool encrypt; };
+struct sg2_cipher_ctx { u8 key[32]; u32 keylen; const struct sg2_cipher_alg *alg; struct crypto_skcipher *fallback; };
+/* fallback_req is last: the fallback's own request context follows it. */
+struct sg2_cipher_req { struct work_struct work; struct skcipher_request *req; bool encrypt; struct skcipher_request fallback_req; };
+static int sg2_cipher_fallback(struct skcipher_request *req, bool encrypt)
+{
+ struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
+ struct skcipher_request *sub = &((struct sg2_cipher_req *)skcipher_request_ctx(req))->fallback_req;
+ skcipher_request_set_tfm(sub, ctx->fallback);
+ skcipher_request_set_callback(sub, req->base.flags, NULL, NULL);
+ skcipher_request_set_crypt(sub, req->src, req->dst, req->cryptlen, req->iv);
+ return encrypt ? crypto_skcipher_encrypt(sub) : crypto_skcipher_decrypt(sub);
+}
 static void sg2_inc_counter(u8 *v, unsigned int bytes, unsigned int blocks)
 {
  while (blocks--) { unsigned int i = bytes; while (i && !++v[--i]); }
@@ -58,16 +95,23 @@ static void sg2_cipher_work(struct work_struct *work)
 {
  struct sg2_cipher_req *r = container_of(work, struct sg2_cipher_req, work);
  struct skcipher_request *req = r->req;
- int err = sg2_cipher_process(req, r->encrypt);
+ struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
+ int err = sg2_use_fallback(ctx->fallback) ? sg2_cipher_fallback(req, r->encrypt) :
+  sg2_cipher_process(req, r->encrypt);
+ sg2_async_leave();
  skcipher_request_complete(req, err);
 }
 static int sg2_cipher_submit(struct skcipher_request *req, bool encrypt)
 {
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
  struct sg2_cipher_req *r = skcipher_request_ctx(req);
+ int err;
  if (!ctx->keylen || (ctx->alg->mode != SG2002_MODE_CTR && req->cryptlen % ctx->alg->block)) return -EINVAL;
  if (!req->cryptlen) return 0;
+ if (sg2_use_fallback(ctx->fallback)) return sg2_cipher_fallback(req, encrypt);
  if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_cipher_process(req, encrypt);
+ err = sg2_async_enter(req->base.flags);
+ if (err) return err;
  r->req = req; r->encrypt = encrypt; INIT_WORK(&r->work, sg2_cipher_work);
  queue_work(crypto_api_wq, &r->work);
  return -EINPROGRESS;
@@ -96,23 +140,40 @@ static int sg2_cipher_setkey(struct crypto_skcipher *tfm, const u8 *key, unsigne
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(tfm);
  bool valid = ctx->alg->hardware == SG2002_ALG_AES ? (len == 16 || len == 24 || len == 32) :
   ctx->alg->hardware == SG2002_ALG_DES ? len == 8 : ctx->alg->hardware == SG2002_ALG_TDES ? len == 24 : len == 16;
+ int err;
  memzero_explicit(ctx->key, sizeof(ctx->key)); ctx->keylen = 0;
  if (!valid) return -EINVAL;
  if (ctx->alg->hardware == SG2002_ALG_DES && sg2_verify_des_key(tfm, key)) return -EINVAL;
  if (ctx->alg->hardware == SG2002_ALG_TDES && verify_skcipher_des3_key(tfm, key)) return -EINVAL;
+ if (ctx->fallback) {
+  crypto_skcipher_clear_flags(ctx->fallback, CRYPTO_TFM_REQ_MASK);
+  crypto_skcipher_set_flags(ctx->fallback, crypto_skcipher_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
+  err = crypto_skcipher_setkey(ctx->fallback, key, len);
+  if (err) return err;
+ }
  memcpy(ctx->key, key, len); ctx->keylen = len; return 0;
 }
 static int sg2_cipher_init(struct crypto_skcipher *tfm)
 {
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(tfm);
  ctx->alg = container_of(crypto_skcipher_alg(tfm), struct sg2_cipher_alg, alg);
- crypto_skcipher_set_reqsize(tfm, sizeof(struct sg2_cipher_req)); return 0;
+ ctx->fallback = crypto_alloc_skcipher(crypto_tfm_alg_name(crypto_skcipher_tfm(tfm)), 0,
+  CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
+ if (IS_ERR(ctx->fallback)) ctx->fallback = NULL;	/* no software version: the engine only */
+ crypto_skcipher_set_reqsize(tfm, sizeof(struct sg2_cipher_req) +
+  (ctx->fallback ? crypto_skcipher_reqsize(ctx->fallback) : 0));
+ return 0;
 }
-static void sg2_cipher_exit(struct crypto_skcipher *tfm) { memzero_explicit(crypto_skcipher_ctx(tfm), sizeof(struct sg2_cipher_ctx)); }
+static void sg2_cipher_exit(struct crypto_skcipher *tfm)
+{
+ struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(tfm);
+ if (ctx->fallback) crypto_free_skcipher(ctx->fallback);
+ memzero_explicit(ctx, sizeof(*ctx));
+}
 #define SG2_CIPHER(mode_name, cipher_name, id, mode_id, bs, min_key, max_key) \
  { .hardware = id, .mode = mode_id, .block = bs, .alg = { \
  .base = { .cra_name = mode_name "(" cipher_name ")", .cra_driver_name = "sg2002-" cipher_name "-" mode_name, \
- .cra_priority = 300, .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY, \
+ .cra_priority = 300, .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NEED_FALLBACK, \
  .cra_blocksize = mode_id == SG2002_MODE_CTR ? 1 : bs, .cra_ctxsize = sizeof(struct sg2_cipher_ctx), .cra_module = THIS_MODULE }, \
  .min_keysize = min_key, .max_keysize = max_key, .ivsize = mode_id ? bs : 0, .chunksize = bs, \
  .setkey = sg2_cipher_setkey, .encrypt = sg2_cipher_encrypt, .decrypt = sg2_cipher_decrypt, .init = sg2_cipher_init, .exit = sg2_cipher_exit } }
@@ -212,12 +273,16 @@ static void sg2_hash_work(struct work_struct *work)
  /* 0=update, 1=finup, 2=final without consuming req->nbytes. */
  bool consume = ctx->final != 2;
  int err = sg2_hash_process(req, ctx->final, consume);
+ sg2_async_leave();
  ahash_request_complete(req, err);
 }
 static int sg2_hash_submit(struct ahash_request *req, unsigned int operation)
 {
  struct sg2_hash_req *ctx = ahash_request_ctx(req);
+ int err;
  if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_hash_process(req, operation != 0, operation != 2);
+ err = sg2_async_enter(req->base.flags);
+ if (err) return err;
  ctx->req = req; ctx->final = operation; INIT_WORK(&ctx->work, sg2_hash_work);
  queue_work(crypto_api_wq, &ctx->work); return -EINPROGRESS;
 }

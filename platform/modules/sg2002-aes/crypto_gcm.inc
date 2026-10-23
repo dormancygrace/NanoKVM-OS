@@ -24,8 +24,21 @@
 #include <crypto/scatterwalk.h>
 #include <crypto/utils.h>
 
-struct sg2_gcm_ctx { u8 key[32]; u32 keylen; struct ghash_key ghash; };
-struct sg2_gcm_req { struct work_struct work; struct aead_request *req; bool encrypt; };
+struct sg2_gcm_ctx { u8 key[32]; u32 keylen; struct ghash_key ghash; struct crypto_aead *fallback; };
+/* fallback_req is last: the fallback's own request context follows it. */
+struct sg2_gcm_req { struct work_struct work; struct aead_request *req; bool encrypt; struct aead_request fallback_req; };
+
+/* The software gcm(aes) after the poison latch (crypto_linux_api.inc). */
+static int sg2_gcm_fallback(struct aead_request *req, bool encrypt)
+{
+ struct sg2_gcm_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
+ struct aead_request *sub = &((struct sg2_gcm_req *)aead_request_ctx(req))->fallback_req;
+ aead_request_set_tfm(sub, ctx->fallback);
+ aead_request_set_callback(sub, req->base.flags, NULL, NULL);
+ aead_request_set_crypt(sub, req->src, req->dst, req->cryptlen, req->iv);
+ aead_request_set_ad(sub, req->assoclen);
+ return encrypt ? crypto_aead_encrypt(sub) : crypto_aead_decrypt(sub);
+}
 
 /* GHASH over len bytes of sg from offset off. */
 static void sg2_ghash_sg(struct ghash_ctx *g, struct scatterlist *sg, unsigned int off, unsigned int len)
@@ -134,7 +147,10 @@ static void sg2_gcm_work(struct work_struct *work)
 {
  struct sg2_gcm_req *r = container_of(work, struct sg2_gcm_req, work);
  struct aead_request *req = r->req;
- int err = sg2_gcm_process(req, r->encrypt);
+ struct sg2_gcm_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
+ int err = sg2_use_fallback(ctx->fallback) ? sg2_gcm_fallback(req, r->encrypt) :
+  sg2_gcm_process(req, r->encrypt);
+ sg2_async_leave();
  aead_request_complete(req, err);
 }
 
@@ -143,9 +159,13 @@ static int sg2_gcm_submit(struct aead_request *req, bool encrypt)
  struct crypto_aead *tfm = crypto_aead_reqtfm(req);
  struct sg2_gcm_ctx *ctx = crypto_aead_ctx(tfm);
  struct sg2_gcm_req *r = aead_request_ctx(req);
+ int err;
  if (!ctx->keylen) return -ENOKEY;
  if (!encrypt && req->cryptlen < crypto_aead_authsize(tfm)) return -EINVAL;
+ if (sg2_use_fallback(ctx->fallback)) return sg2_gcm_fallback(req, encrypt);
  if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_gcm_process(req, encrypt);
+ err = sg2_async_enter(req->base.flags);
+ if (err) return err;
  r->req = req; r->encrypt = encrypt; INIT_WORK(&r->work, sg2_gcm_work);
  queue_work(crypto_api_wq, &r->work);
  return -EINPROGRESS;
@@ -158,10 +178,17 @@ static int sg2_gcm_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int l
  struct sg2_gcm_ctx *ctx = crypto_aead_ctx(tfm);
  struct sg2002_crypto_request r = { .version = 1, .algorithm = SG2002_ALG_AES,
   .mode = SG2002_MODE_ECB, .encrypt = 1, .key_length = len, .length = 16, .output_length = 16 };
+ struct crypto_aead *fallback = ctx->fallback;
  u8 h[GHASH_BLOCK_SIZE];
  int err;
  memzero_explicit(ctx, sizeof(*ctx));
+ ctx->fallback = fallback;
  if (len != 16 && len != 24 && len != 32) return -EINVAL;
+ if (fallback) {
+  err = crypto_aead_setkey(fallback, key, len);
+  if (err) return err;
+  if (READ_ONCE(poisoned)) { memcpy(ctx->key, key, len); ctx->keylen = len; return 0; }
+ }
  memcpy(r.key, key, len);
  /* H = AES_K(0^128), on the engine. */
  mutex_lock(&lock);
@@ -176,19 +203,35 @@ unlock:
  if (!err) {
   ghash_preparekey(&ctx->ghash, h);
   memcpy(ctx->key, key, len); ctx->keylen = len;
+ } else if (sg2_use_fallback(fallback)) {
+  /* The engine failed on this key: the requests go to the software one. */
+  memcpy(ctx->key, key, len); ctx->keylen = len; err = 0;
  }
  memzero_explicit(h, sizeof(h)); memzero_explicit(&r, sizeof(r));
  return err;
 }
 static int sg2_gcm_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
 {
- return crypto_gcm_check_authsize(authsize);
+ struct sg2_gcm_ctx *ctx = crypto_aead_ctx(tfm);
+ int err = crypto_gcm_check_authsize(authsize);
+ if (!err && ctx->fallback) err = crypto_aead_setauthsize(ctx->fallback, authsize);
+ return err;
 }
 static int sg2_gcm_init(struct crypto_aead *tfm)
 {
- crypto_aead_set_reqsize(tfm, sizeof(struct sg2_gcm_req)); return 0;
+ struct sg2_gcm_ctx *ctx = crypto_aead_ctx(tfm);
+ ctx->fallback = crypto_alloc_aead("gcm(aes)", 0, CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
+ if (IS_ERR(ctx->fallback)) ctx->fallback = NULL;	/* no software gcm: the engine only */
+ crypto_aead_set_reqsize(tfm, sizeof(struct sg2_gcm_req) +
+  (ctx->fallback ? crypto_aead_reqsize(ctx->fallback) : 0));
+ return 0;
 }
-static void sg2_gcm_exit(struct crypto_aead *tfm) { memzero_explicit(crypto_aead_ctx(tfm), sizeof(struct sg2_gcm_ctx)); }
+static void sg2_gcm_exit(struct crypto_aead *tfm)
+{
+ struct sg2_gcm_ctx *ctx = crypto_aead_ctx(tfm);
+ if (ctx->fallback) crypto_free_aead(ctx->fallback);
+ memzero_explicit(ctx, sizeof(*ctx));
+}
 
 /* Above the gcm template over sg2002-aes-ctr (300), so rfc4106(gcm(aes)) and
  * other users of gcm(aes) get the overlapped version. */
@@ -198,6 +241,6 @@ static struct aead_alg sg2_gcm_alg = {
  .init = sg2_gcm_init, .exit = sg2_gcm_exit,
  .ivsize = GCM_AES_IV_SIZE, .maxauthsize = 16, .chunksize = 16,
  .base = { .cra_name = "gcm(aes)", .cra_driver_name = "sg2002-gcm-aes", .cra_priority = 400,
-  .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY, .cra_blocksize = 1,
+  .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NEED_FALLBACK, .cra_blocksize = 1,
   .cra_ctxsize = sizeof(struct sg2_gcm_ctx), .cra_module = THIS_MODULE },
 };

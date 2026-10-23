@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"testing"
@@ -94,6 +95,52 @@ func TestNativeStderrReaderStopsOnReadError(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != "a" || got[1] != "partial" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+// A crash prints every goroutine to descriptor 2 after the runtime has
+// stopped the goroutine that reads the capture pipe. The process must still
+// exit (so that the supervisor restarts it), not block on the full pipe:
+// the test fails if the child has not exited within 20 s.
+func TestCrashWithCapturedStderrExits(t *testing.T) {
+	if os.Getenv("NANOKVM_STDERR_CRASH_CHILD") != "" {
+		if err := CaptureNativeStderr(io.Discard); err != nil {
+			os.Exit(3)
+		}
+		debug.SetTraceback("all")
+		block := make(chan struct{})
+		var deep func(int)
+		deep = func(n int) {
+			if n == 0 {
+				<-block
+				return
+			}
+			deep(n - 1)
+		}
+		// Well over the 64 KiB a pipe holds once every goroutine is printed.
+		for i := 0; i < 400; i++ {
+			go deep(8)
+		}
+		time.Sleep(100 * time.Millisecond)
+		panic("crash with stderr captured")
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCrashWithCapturedStderrExits$")
+	cmd.Env = append(os.Environ(), "NANOKVM_STDERR_CRASH_CHILD=1")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		// The timeout is the assertion; any failing exit is a crash.
+		if err == nil {
+			t.Fatal("the crashing child exited successfully")
+		}
+	case <-time.After(20 * time.Second):
+		_ = cmd.Process.Kill()
+		<-done
+		t.Fatal("the crashing process hung on the full stderr pipe")
 	}
 }
 

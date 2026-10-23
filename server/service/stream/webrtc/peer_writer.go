@@ -32,6 +32,8 @@ var requestVideoKeyframe = stream.RequestKeyframe
 type queuedVideoFrame struct {
 	frame    stream.VideoFrame
 	queuedAt time.Time
+	// The repair episode the frame was queued in (see repairGeneration).
+	generation uint64
 }
 
 type peerVideoWriter struct {
@@ -43,19 +45,22 @@ type peerVideoWriter struct {
 	queuedBytes int
 	diagnostics *peerWriterDiagnostics
 	// lastKeyframeRequest and keyframeWait, under mu; now is time.Now except
-	// in tests.
+	// in tests. repairGeneration counts the waits for a keyframe, so that
+	// only a keyframe queued in the current one ends its backoff.
 	lastKeyframeRequest time.Time
 	keyframeWait        time.Duration
+	repairGeneration    uint64
 	now                 func() time.Time
 }
 
 func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error)) *peerVideoWriter {
 	w := &peerVideoWriter{
-		frames:      make(chan queuedVideoFrame, peerWriterQueueCapacity()),
-		done:        make(chan struct{}),
-		repairing:   true,
-		diagnostics: newPeerWriterDiagnostics(),
-		now:         time.Now,
+		frames:           make(chan queuedVideoFrame, peerWriterQueueCapacity()),
+		done:             make(chan struct{}),
+		repairing:        true,
+		repairGeneration: 1,
+		diagnostics:      newPeerWriterDiagnostics(),
+		now:              time.Now,
 	}
 	go func() {
 		defer close(w.done)
@@ -92,7 +97,7 @@ func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error))
 					}
 					w.mu.Lock()
 					w.drainLocked()
-					w.repairing = true
+					w.startRepairLocked()
 					w.mu.Unlock()
 					continue
 				}
@@ -100,11 +105,13 @@ func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error))
 				return
 			}
 			if frame.IsKeyframe() {
-				// Recovered only once a keyframe has gone out and the writer
-				// has not started waiting again meanwhile: one queued, then
-				// dropped or rejected by the path MTU, keeps the backoff.
+				// Recovered only once a keyframe of the current wait has gone
+				// out: one dropped or rejected by the path MTU keeps the
+				// backoff, and so does an older one still in flight when a
+				// newer wait began, even if that wait has its own keyframe
+				// queued already.
 				w.mu.Lock()
-				if !w.repairing {
+				if !w.repairing && queued.generation == w.repairGeneration {
 					w.keyframeWait = 0
 				}
 				w.mu.Unlock()
@@ -144,7 +151,7 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 		w.diagnostics.recordOverflow()
 	}
 	w.drainLocked()
-	w.repairing = true
+	w.startRepairLocked()
 	if frame.IsKeyframe() {
 		// The queue is empty after drainLocked. This also permits one native
 		// frame larger than the byte budget, but never a second queued frame.
@@ -158,6 +165,12 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 	}
 	w.requestKeyframeLocked()
 	return false
+}
+
+// startRepairLocked begins a new wait for a keyframe.
+func (w *peerVideoWriter) startRepairLocked() {
+	w.repairing = true
+	w.repairGeneration++
 }
 
 // requestKeyframeLocked asks for a keyframe unless this writer asked less
@@ -189,7 +202,7 @@ func (w *peerVideoWriter) tryEnqueueLocked(frame stream.VideoFrame) bool {
 	if len(w.frames) != 0 && (bytes > peerVideoQueueBytes || w.queuedBytes+bytes > peerVideoQueueBytes) {
 		return false
 	}
-	queued := queuedVideoFrame{frame: frame}
+	queued := queuedVideoFrame{frame: frame, generation: w.repairGeneration}
 	if w.diagnostics != nil {
 		queued.queuedAt = time.Now()
 	}

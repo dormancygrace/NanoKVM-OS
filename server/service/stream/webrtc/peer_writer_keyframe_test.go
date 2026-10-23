@@ -229,3 +229,51 @@ func TestBackoffSurvivesADrainedKeyframe(t *testing.T) {
 		t.Fatalf("asked at %v, want %v", asked, want)
 	}
 }
+
+// An older keyframe that completes after a newer wait began must not end
+// that wait's backoff, even when the newer wait's keyframe is queued.
+func TestAStaleKeyframeDoesNotResetANewerWait(t *testing.T) {
+	useDefaultPeerWriterQueue(t)
+	requests := countKeyframeRequests(t)
+	release := make(chan struct{})
+	entered := make(chan stream.VideoFrame, 4)
+	w := newPeerVideoWriter(func(f stream.VideoFrame) error {
+		entered <- f
+		<-release
+		return nil
+	}, func(error) {})
+	defer w.close()
+	clock := time.Unix(1000, 0)
+	w.now = func() time.Time { return clock }
+	keyA := stream.VideoFrame{Result: 3, Timestamp: 1}
+	keyB := stream.VideoFrame{Result: 3, Timestamp: 2}
+	delta := stream.VideoFrame{Result: 4, Timestamp: 3}
+	w.offer(keyA)
+	<-entered // A blocks in write
+	for i := 0; i <= peerVideoQueueCapacity; i++ {
+		w.offer(delta) // overflow: a new wait, one request
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("%d requests after the overflow, want 1", got)
+	}
+	if !w.offer(keyB) {
+		t.Fatal("keyframe B refused")
+	}
+	release <- struct{}{} // A completes; B is next and blocks
+	<-entered
+	time.Sleep(20 * time.Millisecond)
+	w.mu.Lock()
+	wait := w.keyframeWait
+	w.mu.Unlock()
+	if wait != keyframeRequestInterval {
+		t.Fatalf("the stale keyframe reset the wait to %v", wait)
+	}
+	clock = clock.Add(100 * time.Millisecond)
+	for i := 0; i <= peerVideoQueueCapacity; i++ {
+		w.offer(delta)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("%d requests 100 ms later, want still 1", got)
+	}
+	close(release)
+}

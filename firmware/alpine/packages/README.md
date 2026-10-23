@@ -149,9 +149,10 @@ shipped with v2.0-b4 and is not an input to new builds.
 ## Add-ons released on their own
 
 An add-on has a version of its own and releases of its own, `NAME-VERSION-rN`,
-apart from the OS releases. The APK repository workflow indexes every such
-release of the add-ons in `ADDONS` (`scripts/addon_packages.py`), so devices
-install and update an add-on without an OS release. An add-on is never built
+apart from the OS releases. The APK repository workflow puts every such
+release of the add-ons in `ADDONS` (`scripts/addon_packages.py`) into the
+add-on repository on Pages (firmware/alpine/README.md), so devices install and
+update an add-on without an OS release. An add-on is never built
 with the OS packages: there it would get the release's version, above all of
 its own later versions.
 
@@ -193,13 +194,13 @@ add-on's pin only.
 
 `firmware/alpine/addons.json` pins already-signed optional APKs from their
 separate releases by URL, SHA-256 and size. The package step downloads them
-after generating the core v2 index and before generating the v3 index; APK
-verifies their release signatures. Native APK v3 add-ons cannot be represented
-in the legacy v2 index.
+after generating the core v2 index and before generating the v3 index of an
+OS build's own repository; APK verifies their release signatures. Native APK
+v3 add-ons cannot be represented in the legacy v2 index.
 They are not dependencies of `nanokvm-release` and are not installed in images.
 
-CI attaches `addons.json`, not the add-on APK, to the OS release. Pages checks
-this manifest against the release's `SHA256SUMS`, fetches each indexed add-on
-from its own release and checks its hash and index size. When releasing a new
-add-on revision, update this pin before the next OS repository publication.
-Keep old add-on release assets available for cached indexes.
+CI attaches `addons.json`, not the add-on APK, to the OS release. Pages does
+not use these pins: it builds the add-on repository from the add-on releases
+themselves, each checked against its own `SHA256SUMS`, and indexes the OS
+repositories without add-ons. Keep old add-on release assets available for
+cached indexes.

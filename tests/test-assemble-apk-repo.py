@@ -293,17 +293,38 @@ class AssembleTests(unittest.TestCase):
                                          {'name': 'SHA256SUMS', 'browser_download_url': sums_url}]})
         return filename, url
 
-    def test_addon_update_without_os_release_or_pin_change(self):
+    def addon_repo(self):
+        return self.out / 'addons/v3.24/riscv64'
+
+    def test_addons_are_a_repository_of_their_own(self):
         old, _, _ = self.external_addon()
         new, _ = self.independent_release()
         entries = a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
-        tag, files = a.assemble(self.out, a.releases('o/r', self.fake.fetch), 1, '3.24',
-                               self.keys, self.fake.fetch, independent=entries)
+        tag, files = a.assemble(self.out, a.releases('o/r', self.fake.fetch), 1, '3.24', self.keys, self.fake.fetch)
         self.assertEqual(tag, 'v4')
-        self.assertIn(old, files)
-        self.assertIn(new, files)
+        # The OS repository: the OS packages and indexes, no add-on, no pin;
+        # an OS release's own add-on pins no longer matter.
+        self.assertNotIn(old, files)
+        self.assertNotIn(new, files)
+        self.assertFalse(list(self.repo().glob('nanokvm-rustdesk-*')))
+        self.assertEqual(json.loads((self.repo() / 'addons.json').read_text()), {'packages': {}})
         self.assertEqual((self.repo() / 'APKINDEX.tar.gz').read_bytes(), self.fake.files['https://dl.test/v4/APKINDEX.tar.gz'])
-        self.assertIn(new, json.loads((self.repo() / 'addons.json').read_text())['packages'])
+        # The add-on repository: the independent releases, with their pins.
+        self.assertEqual(a.assemble_addons(self.out, '3.24', entries, self.fake.fetch), [new])
+        self.assertEqual((self.addon_repo() / new).read_bytes(), new.removesuffix('.apk').encode())
+        self.assertEqual(list(json.loads((self.addon_repo() / 'addons.json').read_text())['packages']), [new])
+        self.assertFalse((self.addon_repo() / old).exists())
+        self.assertIn('https://dormancygrace.github.io/NanoKVM-OS/addons/v3.24/riscv64/Packages.adb',
+                      (self.out / 'index.html').read_text())
+
+    def test_addon_repository_after_the_os_repository_only(self):
+        self.run_assemble()
+        a.assemble_addons(self.out, '3.24', {}, self.fake.fetch)
+        with self.assertRaisesRegex(ValueError, 'assemble the OS repository first'):
+            a.assemble_addons(self.out, '3.24', {}, self.fake.fetch)
+        # The next run replaces the whole site, add-ons included.
+        self.run_assemble()
+        self.assertFalse((self.out / 'addons').exists())
 
     def test_addon_versions_are_numeric_and_draft_prerelease_ignored(self):
         self.independent_release('0.9.0', revision=12)
@@ -323,9 +344,9 @@ class AssembleTests(unittest.TestCase):
         name, url = self.independent_release()
         entries = a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
         self.fake.files[url] += b'tampered'
+        self.run_assemble()
         with self.assertRaisesRegex(ValueError, 'pinned size or SHA256'):
-            a.assemble(self.out, a.releases('o/r', self.fake.fetch), 1, '3.24',
-                       self.keys, self.fake.fetch, independent=entries)
+            a.assemble_addons(self.out, '3.24', entries, self.fake.fetch)
 
     def test_independent_addon_url_cannot_escape_repository(self):
         self.independent_release()
@@ -333,37 +354,22 @@ class AssembleTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'asset URL'):
             a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
 
-    def test_republished_addon_cannot_override_existing_os_pin(self):
-        name, item, _ = self.external_addon()
-        with self.assertRaisesRegex(ValueError, 'conflicts with an OS pin'):
-            a.assemble(self.out, a.releases('o/r', self.fake.fetch), 1, '3.24',
-                       self.keys, self.fake.fetch, independent={name: {**item, 'sha256': 'a' * 64}})
-
-
-    def test_optional_addon_from_separate_release_is_available(self):
-        name, _, data = self.external_addon()
-        self.run_assemble(keep=1)
-        self.assertEqual((self.repo() / name).read_bytes(), data)
-        self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v4')
-        self.assertNotIn(name, [a['name'] for a in self.fake.list[-1]['assets']])
-        self.assertNotIn(name, a.index_packages((self.repo() / 'APKINDEX.tar.gz').read_bytes()))
-
     def test_repository_verification_only_relaxes_exact_pinned_addons(self):
-        name, item, data = self.external_addon()
-        self.run_assemble(keep=1)
-        self.assertEqual(json.loads((self.repo() / 'addons.json').read_text()),
-                         {'packages': {name: item}})
+        name, _ = self.independent_release()
+        entries = a.independent_addons('dormancygrace/NanoKVM-OS', fetch=self.fake.fetch)
+        self.run_assemble()
+        a.assemble_addons(self.out, '3.24', entries, self.fake.fetch)
         with mock.patch.object(a.addon_packages.subprocess, 'run') as run:
-            a.addon_packages.verify_repository(self.repo(), 'apk', self.keys)
+            a.addon_packages.verify_repository(self.addon_repo(), 'apk', self.keys)
         calls = [c.args[0] for c in run.call_args_list]
-        self.assertEqual(len(calls), 2)
-        for command in calls:
-            self.assertEqual('--allow-untrusted' in command, command[-1].endswith(name))
+        self.assertEqual(len(calls), 1)
+        self.assertIn('--allow-untrusted', calls[0])
+        self.assertTrue(calls[0][-1].endswith(name))
         # A modified add-on cannot reach the relaxed apk invocation.
-        (self.repo() / name).write_bytes(data + b'tamper')
+        (self.addon_repo() / name).write_bytes(b'tamper')
         with mock.patch.object(a.addon_packages.subprocess, 'run') as run:
             with self.assertRaisesRegex(ValueError, 'pinned size or SHA256'):
-                a.addon_packages.verify_repository(self.repo())
+                a.addon_packages.verify_repository(self.addon_repo())
             run.assert_not_called()
 
     def test_repository_verification_rejects_unsigned_unpinned_package(self):
@@ -379,23 +385,11 @@ class AssembleTests(unittest.TestCase):
             with self.assertRaises(a.addon_packages.subprocess.CalledProcessError):
                 a.addon_packages.verify_repository(self.repo())
 
-    def test_optional_addon_corruption_is_rejected(self):
-        _, item, _ = self.external_addon()
-        self.fake.files[item['url']] = b'tampered'
-        with self.assertRaisesRegex(ValueError, 'pinned size or SHA256'):
-            self.run_assemble(keep=1)
-
     def test_optional_addon_index_size_must_match(self):
         name, item, _ = self.external_addon()
         item['size'] += 1
         with self.assertRaisesRegex(ValueError, 'size differs from its index'):
             a.addon_packages.checked(name, item, self.fake.fetch, size=item['size'] - 1)
-
-    def test_optional_addon_manifest_must_match_release_checksums(self):
-        self.external_addon()
-        self.fake.files['https://dl.test/v4/addons.json'] = b'{}'
-        with self.assertRaisesRegex(ValueError, 'SHA256SUMS'):
-            self.run_assemble(keep=1)
 
     def test_optional_addon_manifest_rejects_unsafe_names_and_sources(self):
         name, item, _ = self.external_addon()
@@ -518,6 +512,12 @@ class AssembleTests(unittest.TestCase):
 
     def test_branch_comes_from_the_package_builder(self):
         self.assertRegex(a.alpine_branch(), r'^\d+\.\d+$')
+
+    def test_devices_read_the_addon_repository_that_pages_serves(self):
+        # nanokvm-base ships the line; it must follow the Alpine branch.
+        line = (ROOT / 'firmware/alpine/etc/apk/repositories.d/nanokvm-addons.list').read_text()
+        self.assertEqual(line, a.addon_repository(a.alpine_branch()) + '\n')
+        self.assertIn('/etc/apk/repositories.d/nanokvm-addons.list', (ROOT / 'platform/packages.list').read_text())
 
 
 class Fetch(unittest.TestCase):

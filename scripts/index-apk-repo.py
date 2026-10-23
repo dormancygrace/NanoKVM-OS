@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Validate assembled packages and create the unsigned Pages v3 index.
 
-Only current OS packages and retained optional add-ons enter the index. Old
-core files stay downloadable for cached indexes, but cannot be selected anew.
+Only current OS packages enter an OS index, only the pinned add-ons the
+add-on index (--addons). Old core files stay downloadable for cached indexes,
+but cannot be selected anew.
 The signing job adds the ECDSA production signature after this read-only-key job.
 """
 import argparse
@@ -19,15 +20,18 @@ assembler = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(assembler)
 
 
-def build_index(repo, keys, apk='apk'):
+def build_index(repo, keys, apk='apk', addons_only=False):
     repo, keys = Path(repo).resolve(), Path(keys).resolve()
     def run(*args):
         return subprocess.check_output([apk, '--keys-dir', str(keys), *args], text=True)
-    # Check the OS release's original indexes before replacing the v3 index.
-    for name in assembler.INDEXES:
-        run('verify', str(repo / name))
+    core = {}
+    if not addons_only:
+        # Check the OS release's original indexes before replacing the v3 index.
+        for name in assembler.INDEXES:
+            run('verify', str(repo / name))
     addon_packages.verify_repository(repo, apk, keys)
-    core = assembler.index_packages((repo / 'APKINDEX.tar.gz').read_bytes())
+    if not addons_only:
+        core = assembler.index_packages((repo / 'APKINDEX.tar.gz').read_bytes())
     addons = addon_packages.manifest((repo / 'addons.json').read_bytes())
     for filename in addons:
         match = assembler.ADDON_TAG.fullmatch(filename.removesuffix('.apk'))
@@ -36,7 +40,8 @@ def build_index(repo, keys, apk='apk'):
         addon_packages.metadata(run('--allow-untrusted', 'adbdump', str(repo / filename)), filename)
     selected = sorted(set(core) | set(addons))
     pending = repo / 'Packages.pending.adb'
-    run('--allow-untrusted', 'mkndx', '--description', 'NanoKVM OS packages and independent add-ons',
+    description = 'NanoKVM OS add-ons' if addons_only else 'NanoKVM OS packages'
+    run('--allow-untrusted', 'mkndx', '--description', description,
         '--output', str(pending), *[str(repo / name) for name in selected])
     # A missing/injected package must not silently enter the resulting index.
     dump = run('--allow-untrusted', 'adbdump', str(pending))
@@ -51,8 +56,9 @@ def main():
     parser.add_argument('--repo', type=Path, required=True)
     parser.add_argument('--keys', type=Path, required=True)
     parser.add_argument('--apk', default='apk')
+    parser.add_argument('--addons', action='store_true', help='the add-on repository: no OS packages')
     args = parser.parse_args()
-    print(json.dumps(build_index(args.repo, args.keys, args.apk)))
+    print(json.dumps(build_index(args.repo, args.keys, args.apk, args.addons)))
 
 
 if __name__ == '__main__':

@@ -4,8 +4,9 @@ packages and indexes attached to the GitHub releases.
 
 The newest eligible published OS release supplies each channel's core packages
 and legacy index. Stable excludes prereleases; beta includes stable and beta.
-Independent stable add-on releases augment the v3 index, which Pages signs
-separately; they do not change the OS version or the latest SD image.
+Independent stable add-on releases form a repository of their own, one for
+both channels, whose v3 index Pages signs; they do not change the OS indexes,
+the OS version or the latest SD image.
 Newest means the highest vX.Y.Z (releases with other tags, from before that
 scheme, rank below, by publication time): a minor release published from its
 draft after a patch release must not replace the patch's indexes.
@@ -18,6 +19,8 @@ The result, below OUTPUT:
   alpine/vX.Y/riscv64/   *.apk, APKINDEX.tar.gz (v2 index), Packages.adb (v3),
                          packages.json (the version and content of each package)
   beta/                  the same layout for the opt-in beta channel
+  addons/vX.Y/riscv64/   the add-on APKs and addons.json (their pins); devices
+                         read it from /etc/apk/repositories.d/nanokvm-addons.list
   keys/                  the public release keys (firmware/alpine/keys)
   index.html             the repository lines
   latest-image/          automatic README badge and redirect to its image release
@@ -49,6 +52,7 @@ INDEXES = ('APKINDEX.tar.gz', 'Packages.adb')
 MARKER = '.nanokvm-apk-repository'
 MARKER_CONTENT = 'NanoKVM APK repository assembler v1\n'
 PAGES_URL = 'https://dormancygrace.github.io/NanoKVM-OS'
+ADDON_DIR = 'addons'
 
 
 RETRY_DELAYS = (5, 10, 20, 30, 60)
@@ -249,7 +253,7 @@ def image_badge(output, published, include_beta=False):
 ''')
 
 
-def assemble(output, published, keep, branch, keys, fetch=fetch, independent=None, channel='stable'):
+def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable'):
     published = [r for r in published if channel == 'beta' or not is_beta(r)]
     if not published:
         raise ValueError('No published release carries Packages.adb')
@@ -263,15 +267,6 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, independent=Non
     repo = output / 'alpine' / ('v' + branch) / 'riscv64'
     repo.mkdir(parents=True)
     sums = {r['tag_name']: checksums(asset(r, 'SHA256SUMS', fetch).decode()) for r in published}
-    addons = {}
-    for release in reversed(published):
-        if 'addons.json' in {a['name'] for a in release['assets']}:
-            data = checked(release, 'addons.json', sums[release['tag_name']], fetch)
-            addons.update(addon_packages.manifest(data))
-    for name, item in (independent or {}).items():
-        if name in addons and addons[name] != item:
-            raise ValueError(f"Published add-on conflicts with an OS pin: {name}")
-        addons[name] = item
     newest = published[0]
     for name in INDEXES:
         (repo / name).write_bytes(checked(newest, name, sums[newest['tag_name']], fetch))
@@ -283,24 +278,13 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, independent=Non
     for release in reversed(published[:keep]):
         index = checked(release, 'APKINDEX.tar.gz', sums[release['tag_name']], fetch)
         wanted.update(index_packages(index))
-        # Native APK v3 add-ons occur only in Packages.adb, not the v2 index.
-        if 'addons.json' in {a['name'] for a in release['assets']}:
-            data = checked(release, 'addons.json', sums[release['tag_name']], fetch)
-            wanted.update({name: item['size'] for name, item in addon_packages.manifest(data).items()})
-    wanted.update({name: item["size"] for name, item in (independent or {}).items()})
     for name, size in sorted(wanted.items()):
         source = next((r for r in published if name in {a['name'] for a in r['assets']}), None)
-        if source is not None:
-            data = checked(source, name, sums[source['tag_name']], fetch, size)
-        elif name in addons:
-            data = addon_packages.checked(name, addons[name], fetch, size)
-        else:
+        if source is None:
             raise ValueError(f'No release carries {name}')
-        (repo / name).write_bytes(data)
-    # Preserve the verified pins of retained add-ons for the package check.
-    (repo / 'addons.json').write_text(json.dumps({'packages': {
-        name: addons[name] for name in sorted(wanted) if name in addons
-    }}, indent=2) + '\n')
+        (repo / name).write_bytes(checked(source, name, sums[source['tag_name']], fetch, size))
+    # The OS repository pins no add-on: they are in the add-on repository.
+    (repo / 'addons.json').write_text(json.dumps({'packages': {}}, indent=2) + '\n')
     (output / 'keys').mkdir()
     key_links = []
     for key in sorted(Path(keys).glob('*.pub')):
@@ -308,6 +292,7 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, independent=Non
         key_links.append(f'<li><a href="keys/{escape(key.name)}">{escape(key.name)}</a></li>')
     prefix = 'beta/' if channel == 'beta' else ''
     line = f'{PAGES_URL}/{prefix}alpine/v{branch}/riscv64/Packages.adb'
+    addon_line = addon_repository(branch)
     (output / 'index.html').write_text(f'''<!doctype html>
 <meta charset="utf-8">
 <title>NanoKVM OS packages</title>
@@ -315,12 +300,32 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, independent=Non
 <p>APK repository of <a href="https://github.com/{REPOSITORY}">NanoKVM OS</a>, release {escape(newest['tag_name'])}.
 Devices use the line <code><a href="{line}">{line}</a></code> in
 <code>/etc/apk/repositories</code>; the <code>nanokvm-keys</code> package installs the signing keys.</p>
+<p>Add-ons have a repository of their own, for every channel: <code><a href="{addon_line}">{addon_line}</a></code>,
+in <code>/etc/apk/repositories.d/nanokvm-addons.list</code> (the <code>nanokvm-base</code> package).</p>
 <ul>{"".join(key_links)}</ul>{install_link(published)}
 ''')
     image_badge(output, published, include_beta=channel == 'beta')
     (output / '.nojekyll').write_text('')
     (output / MARKER).write_text(MARKER_CONTENT)
     return newest['tag_name'], sorted(wanted)
+
+
+def addon_repository(branch):
+    return f'{PAGES_URL}/{ADDON_DIR}/v{branch}/riscv64/Packages.adb'
+
+
+def assemble_addons(output, branch, independent, fetch=fetch):
+    """The add-on repository below OUTPUT, an assembled site: the APKs of the
+    independent add-on releases, checked against their pins, which addons.json
+    keeps for the package check. Its index is made and signed as the OS ones."""
+    repo = Path(output) / ADDON_DIR / ('v' + branch) / 'riscv64'
+    if repo.exists():
+        raise ValueError(f'{repo} exists: assemble the OS repository first')
+    repo.mkdir(parents=True)
+    for name, item in sorted(independent.items()):
+        (repo / name).write_bytes(addon_packages.checked(name, item, fetch, item['size']))
+    (repo / 'addons.json').write_text(json.dumps({'packages': dict(sorted(independent.items()))}, indent=2) + '\n')
+    return sorted(independent)
 
 
 def main():
@@ -335,10 +340,14 @@ def main():
     addons = independent_addons(args.repository, args.keep)
     for channel, output in [('stable', args.output), ('beta', args.output / 'beta')]:
         tag, names = assemble(output, published, args.keep, alpine_branch(),
-                              ROOT / 'firmware/alpine/keys', independent=addons, channel=channel)
+                              ROOT / 'firmware/alpine/keys', channel=channel)
         print(f'{channel}: indexes of {tag}, {len(names)} packages')
         for name in names:
             print(f'  {name}')
+    names = assemble_addons(args.output, alpine_branch(), addons)
+    print(f'add-ons: {len(names)} packages')
+    for name in names:
+        print(f'  {name}')
 
 
 if __name__ == '__main__':

@@ -153,7 +153,9 @@ scratch root on the device.)
 The repository has two indexes of the same abuild packages in `riscv64/`:
 
 - `APKINDEX.tar.gz`, the v2 index, contains the core abuild packages.
-- `Packages.adb`, the apk-tools v3 index, also includes independent add-ons.
+- `Packages.adb`, the apk-tools v3 index, the same core packages on Pages.
+
+Add-ons have a repository of their own (below), not these indexes.
 
 From v3.4.0 both indexes and every newly built core APK are signed only with
 ECDSA. APK v2 retains the historical `.SIGN.RSA256.<public-key-name>` marker:
@@ -174,7 +176,21 @@ release that moves them.
 
 apk also checks a downloaded package against the hash in its trusted index.
 Independent add-ons may be unsigned; their checked bytes are authenticated by
-the ECDSA-signed v3 repository index. They do not require an OS release.
+the ECDSA-signed v3 index of the add-on repository. They do not require an OS
+release.
+
+### The add-on repository
+
+Add-ons are in a repository of their own, one for both channels:
+`https://dormancygrace.github.io/NanoKVM-OS/addons/v3.24/riscv64/Packages.adb`.
+Devices read it from `/etc/apk/repositories.d/nanokvm-addons.list`, a file of
+`nanokvm-base` (from 3.5.0), so the update channel, which rewrites the OS line
+of `/etc/apk/repositories`, leaves it alone. It holds the newest six releases
+of each add-on in `ADDONS` (`scripts/addon_packages.py`) and only a v3 index;
+the OS indexes hold no add-on. An add-on states the first OS release it works
+with as `nanokvm-os>=VERSION` (firmware/alpine/packages/README.md). Devices
+below 3.5.0 have no add-on line: they get add-on updates after updating the
+OS.
 
 ### Publishing a release
 
@@ -219,8 +235,8 @@ Pages publishes two independently indexed and signed feeds:
 Stable excludes every prerelease (and beta tags even if mislabelled on GitHub).
 Beta selects the highest stable or beta version; the final release outranks its
 betas. Before the first beta it mirrors Stable. Each feed retains packages
-referenced by its six newest eligible releases. Both include independently
-published stable add-ons. The root latest-image badge stays stable; the
+referenced by its six newest eligible releases. Neither includes add-ons:
+both channels read the one add-on repository. The root latest-image badge stays stable; the
 `beta/latest-image/` page can also point to beta images.
 
 Release assembly compares package contents against the newest tested manifest
@@ -311,7 +327,8 @@ builds the same release with local test keys and keeps it as an artifact. A loca
 
 The APK repository workflow deploys the same repository to GitHub Pages, at
 `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`,
-when an OS or supported independent add-on release is published. The release
+with the add-on repository beside it, when an OS or supported independent
+add-on release is published. The release
 publisher also dispatches this workflow from main because events created with
 `GITHUB_TOKEN` do not start another workflow. Manual release events also
 dispatch assembly from main, so deployment satisfies the `github-pages`

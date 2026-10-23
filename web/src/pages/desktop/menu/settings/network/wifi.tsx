@@ -293,6 +293,15 @@ export const Wifi = () => {
 
   async function connect() {
     if (locked || !valid) return;
+    if (state?.thisConnection && state.connected && profile.ssid !== state.ssid) {
+      const confirmed = await confirmAction({
+        title: t('settings.network.wifi.joinConfirm', { ssid: profile.ssid }),
+        content: <Alert type="warning" showIcon message={tr('joinOverWifi')} />,
+        okText: tr('confirmBtn'),
+        danger: true
+      });
+      if (!confirmed) return;
+    }
     setBusy(true);
     try {
       const rsp = await api.configureWifi({ ...profile, preferredBand: state?.preferredBand });

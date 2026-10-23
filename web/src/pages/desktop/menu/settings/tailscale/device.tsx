@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Button, Popconfirm, Switch } from 'antd';
+import { Alert, Button, Popconfirm, Switch } from 'antd';
 import { LogOutIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/extensions/tailscale.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
 import { SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 import { Status } from './types.ts';
@@ -27,6 +28,26 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
 
   async function update() {
     if (isUpdating) return;
+    // Off stays off across restarts, and whoever reaches NanoKVM through
+    // Tailscale, possibly this page, loses it.
+    if (isRunning) {
+      const overTailscale = !!status.ip && window.location.hostname === status.ip;
+      const confirmed = await confirmAction({
+        title: t('settings.tailscale.downConfirm'),
+        content: (
+          <div className="space-y-2">
+            <p>{t('settings.tailscale.downDescription')}</p>
+            {overTailscale && (
+              <Alert type="warning" showIcon message={t('settings.tailscale.downOverTailscale')} />
+            )}
+          </div>
+        ),
+        okText: t('settings.tailscale.okBtn'),
+        cancelText: t('settings.tailscale.cancelBtn'),
+        danger: true
+      });
+      if (!confirmed) return;
+    }
     setIsUpdating(true);
 
     try {
@@ -37,6 +58,8 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
       }
 
       setIsRunning(!isRunning);
+    } catch (err) {
+      showRequestError(err);
     } finally {
       setIsUpdating(false);
     }

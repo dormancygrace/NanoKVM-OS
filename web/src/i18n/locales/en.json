@@ -126,7 +126,13 @@
       "connected": "Connected",
       "idle": "Idle",
       "error": "Error"
-    }
+    },
+    "downConfirm": "Turn {{name}} off?",
+    "downDescription": "Connections that reach NanoKVM through this tunnel end, possibly this page.",
+    "routeConfirm": "Turn {{name}} on with its routes?",
+    "routeDescription": "Traffic to the tunnel's allowed IPs goes through it. If they include the network this page comes from, this page loses its connection.",
+    "openvpnUpConfirm": "Turn {{name}} on?",
+    "openvpnUpDescription": "An OpenVPN profile can send all traffic through the tunnel (redirect-gateway). If it does, this page may lose its connection."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1407,7 +1413,9 @@
         "user": "User Disk name",
         "automatic": "Automatic (disk or CD/DVD)",
         "invalid": "Use printable ASCII, without surrounding spaces: manufacturer up to 8 characters, disk names up to 16."
-      }
+      },
+      "confirmNetworkRemoval": "Remove the USB network?",
+      "confirmNetworkRemovalDescription": "The connected computer loses its network link to NanoKVM, and with it any page or SSH session that uses it, possibly this one."
     },
     "network": {
       "title": "Network",
@@ -1469,7 +1477,9 @@
           "channel": "channel {{channel}}",
           "speed": "{{speed}} Mbit/s",
           "ip": "IP {{ip}}"
-        }
+        },
+        "joinConfirm": "Join {{ssid}}?",
+        "joinOverWifi": "This page uses Wi-Fi. Joining another network ends its connection; the device then answers on the new network, at the address that network gives it."
       },
       "tls": {
         "confirmEnable": "Turn on HTTPS?",
@@ -1724,7 +1734,10 @@
       "cancelBtn": "No",
       "startFailed": "Could not start Tailscale",
       "loginFailed": "Sign-in failed",
-      "logoutFailed": "Sign-out failed"
+      "logoutFailed": "Sign-out failed",
+      "downConfirm": "Turn Tailscale off?",
+      "downDescription": "It stays off, also after a restart. Whoever reaches NanoKVM through Tailscale loses access until it is turned on here again.",
+      "downOverTailscale": "This page uses Tailscale and loses its connection."
     },
     "netbird": {
       "title": "NetBird",

@@ -360,6 +360,7 @@
       "authTitle": "Authentification requise",
       "authDescription": "Veuillez saisir le mot de passe AP pour continuer",
       "authFailed": "Mot de passe AP invalide",
+      "locked": "Trop de mots de passe AP erronés. Relancez la configuration Wi-Fi sur l'appareil pour en obtenir un nouveau.",
       "passPlaceholder": "AP mot de passe",
       "verifyBtn": "Vérifier"
     }

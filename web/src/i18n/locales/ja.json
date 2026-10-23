@@ -360,6 +360,7 @@
       "authTitle": "認証が必要です",
       "authDescription": "続行するには、AP パスワードを入力してください",
       "authFailed": "無効な AP パスワード",
+      "locked": "誤った AP パスワードが多すぎます。新しいパスワードを得るには、デバイスで Wi-Fi 設定をもう一度開始してください。",
       "passPlaceholder": "AP パスワード",
       "verifyBtn": "確認する"
     }

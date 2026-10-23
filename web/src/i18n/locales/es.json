@@ -360,6 +360,7 @@
       "authTitle": "Autenticación requerida",
       "authDescription": "Por favor ingrese la contraseña AP para continuar",
       "authFailed": "Contraseña AP no válida",
+      "locked": "Demasiadas contraseñas AP incorrectas. Inicie de nuevo la configuración Wi-Fi en el dispositivo para obtener una nueva.",
       "passPlaceholder": "AP contraseña",
       "verifyBtn": "Verificar"
     }

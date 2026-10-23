@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"NanoKVM-Server/proto"
@@ -32,23 +33,79 @@ func (s *Service) GetWifi(c *gin.Context) {
 	rsp.OkRspWithData(c, status)
 }
 
+// The two routes without a login act only during AP provisioning, only for
+// a client of the device's own access point (wlan0), and only with the AP
+// key the OLED shows. That key is also the access point's WPA passphrase;
+// failures are counted per key, and after apKeyMaxFailures the routes stay
+// shut until kvm_system starts provisioning again with a new key.
+const apKeyMaxFailures = 10
+
+var (
+	apPenalty   = 2 * time.Second
+	apAvailable = func(c *gin.Context) bool {
+		return isSupported() && isAPMode() && requestOnInterface(c, "wlan0")
+	}
+	apPassword = getApPassword
+	apGuard    apKeyGuard
+)
+
+type apKeyGuard struct {
+	mu       sync.Mutex
+	key      string
+	failures int
+}
+
+// allow compares given with the current key under the lock, so parallel
+// guesses are counted, not raced.
+func (g *apKeyGuard) allow(given, current string) (ok, locked bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if current != g.key {
+		g.key, g.failures = current, 0
+	}
+	if g.failures >= apKeyMaxFailures {
+		return false, true
+	}
+	if given != "" && current != "" && subtle.ConstantTimeCompare([]byte(given), []byte(current)) == 1 {
+		return true, false
+	}
+	g.failures++
+	if g.failures < apKeyMaxFailures {
+		return false, false
+	}
+	// Once per key: refused requests after this are not logged.
+	log.Warnf("Wi-Fi provisioning: %d wrong AP keys; refused until provisioning restarts", apKeyMaxFailures)
+	return false, true
+}
+
+// checkApRequest answers a request that may not act and reports whether it
+// may.
+func checkApRequest(c *gin.Context) bool {
+	var rsp proto.Response
+	if !apAvailable(c) {
+		time.Sleep(apPenalty)
+		rsp.ErrRsp(c, -1, "invalid mode")
+		return false
+	}
+	ok, locked := apGuard.allow(c.GetHeader("X-AP-Key"), apPassword())
+	if locked {
+		time.Sleep(apPenalty)
+		rsp.ErrRsp(c, -5, "too many attempts: restart Wi-Fi provisioning on the device")
+		return false
+	}
+	if !ok {
+		time.Sleep(apPenalty)
+		rsp.ErrRsp(c, -4, "unauthorized")
+		return false
+	}
+	return true
+}
+
 func (s *Service) ConnectWifiNoAuth(c *gin.Context) {
 	var req proto.ConnectWifiReq
 	var rsp proto.Response
 
-	// Check Wi-Fi configuration mode
-	if !isSupported() || !isAPMode() {
-		time.Sleep(2 * time.Second)
-		rsp.ErrRsp(c, -1, "invalid mode")
-		return
-	}
-
-	// Verify AP Password
-	apKey := c.GetHeader("X-AP-Key")
-	expectedPass := getApPassword()
-	if apKey == "" || expectedPass == "" || subtle.ConstantTimeCompare([]byte(apKey), []byte(expectedPass)) != 1 {
-		time.Sleep(2 * time.Second)
-		rsp.ErrRsp(c, -4, "unauthorized")
+	if !checkApRequest(c) {
 		return
 	}
 
@@ -58,6 +115,10 @@ func (s *Service) ConnectWifiNoAuth(c *gin.Context) {
 		return
 	}
 
+	if legacyProfile(req.Ssid, req.Password).validate() != nil {
+		rsp.ErrRsp(c, -2, "invalid parameters")
+		return
+	}
 	if !reserveWifi() {
 		rsp.ErrRsp(c, -2, "Wi-Fi busy")
 		return
@@ -77,17 +138,7 @@ func (s *Service) ConnectWifiNoAuth(c *gin.Context) {
 func (s *Service) VerifyApLogin(c *gin.Context) {
 	var rsp proto.Response
 
-	if !isSupported() || !isAPMode() {
-		time.Sleep(2 * time.Second)
-		rsp.ErrRsp(c, -1, "invalid mode")
-		return
-	}
-
-	apKey := c.GetHeader("X-AP-Key")
-	expectedPass := getApPassword()
-	if apKey == "" || expectedPass == "" || subtle.ConstantTimeCompare([]byte(apKey), []byte(expectedPass)) != 1 {
-		time.Sleep(2 * time.Second)
-		rsp.ErrRsp(c, -4, "unauthorized")
+	if !checkApRequest(c) {
 		return
 	}
 
@@ -98,7 +149,7 @@ func (s *Service) ConnectWifi(c *gin.Context) {
 	var req proto.ConnectWifiReq
 	var rsp proto.Response
 
-	if err := proto.ParseFormRequest(c, &req); err != nil {
+	if err := proto.ParseFormRequest(c, &req); err != nil || legacyProfile(req.Ssid, req.Password).validate() != nil {
 		rsp.ErrRsp(c, -1, "invalid parameters")
 		return
 	}
@@ -131,6 +182,13 @@ func (s *Service) ConnectWifi(c *gin.Context) {
 	}
 
 	rsp.ErrRsp(c, -3, "failed to get wifi status")
+}
+
+// legacyProfile is what the two legacy connect routes save: a personal
+// network, which S30wifi cannot start with a password wpa_passphrase
+// rejects (under 8 or over 63 characters, a line break).
+func legacyProfile(ssid, password string) wifiProfile {
+	return wifiProfile{Ssid: ssid, Password: password, Security: "personal"}
 }
 
 func connect(ssid string, password string) error {

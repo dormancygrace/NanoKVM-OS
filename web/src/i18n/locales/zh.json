@@ -360,6 +360,7 @@
       "authTitle": "身份验证",
       "authDescription": "请输入 AP 密码以继续",
       "authFailed": "密码错误",
+      "locked": "错误的 AP 密码次数过多。请在设备上重新开始 Wi-Fi 配置以获取新密码。",
       "passPlaceholder": "AP 密码",
       "verifyBtn": "验证"
     }

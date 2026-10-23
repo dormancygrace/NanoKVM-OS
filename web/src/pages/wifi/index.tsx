@@ -8,8 +8,8 @@ import { useSearchParams } from 'react-router-dom';
 import * as api from '@/api/network.ts';
 import { Head } from '@/components/head.tsx';
 
-type State = '' | 'loading' | 'success' | 'pending' | 'failed' | 'denied';
-type VerifyState = '' | 'failed' | 'denied';
+type State = '' | 'loading' | 'success' | 'pending' | 'failed' | 'denied' | 'locked';
+type VerifyState = '' | 'failed' | 'denied' | 'locked';
 
 export const Wifi = () => {
   const { t } = useTranslation();
@@ -35,7 +35,8 @@ export const Wifi = () => {
         setApPassword(password);
         setIsAuthenticated(true);
       } else {
-        setVerifyState(rsp?.code === -1 ? 'denied' : 'failed');
+        // -5: too many wrong keys; the device needs a new provisioning run.
+        setVerifyState(rsp?.code === -1 ? 'denied' : rsp?.code === -5 ? 'locked' : 'failed');
       }
     } catch (err) {
       console.error(err);
@@ -70,6 +71,9 @@ export const Wifi = () => {
         case -1:
         case -4:
           setState('denied');
+          return;
+        case -5:
+          setState('locked');
           return;
       }
       setState('failed');
@@ -111,6 +115,9 @@ export const Wifi = () => {
           <div className="flex max-w-[500px] justify-center px-5 pt-3 md:px-10">
             {verifyState === 'failed' && (
               <span className="text-sm text-red-500">{t('wifi.ap.authFailed')}</span>
+            )}
+            {verifyState === 'locked' && (
+              <span className="text-sm text-red-500">{t('wifi.ap.locked')}</span>
             )}
             {verifyState === 'denied' && (
               <span className="text-sm text-red-500">{t('wifi.invalidMode')}</span>
@@ -166,6 +173,9 @@ export const Wifi = () => {
           )}
 
           {state === 'failed' && <span className="text-sm text-red-500">{t('wifi.failed')} </span>}
+          {state === 'locked' && (
+            <span className="text-sm text-red-500">{t('wifi.ap.locked')}</span>
+          )}
           {state === 'denied' && (
             <div className="flex flex-col items-center space-y-5">
               <span className="text-sm text-red-500">{t('wifi.invalidMode')} </span>

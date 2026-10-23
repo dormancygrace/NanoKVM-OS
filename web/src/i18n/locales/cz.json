@@ -51,6 +51,7 @@
       "authTitle": "Vyžadováno ověření",
       "authDescription": "Pokračujte zadáním hesla k přístupovému bodu",
       "authFailed": "Neplatné heslo k přístupovému bodu",
+      "locked": "Příliš mnoho chybných hesel AP. Pro nové heslo spusťte nastavení Wi-Fi na zařízení znovu.",
       "passPlaceholder": "Heslo k přístupovému bodu",
       "verifyBtn": "Ověřit"
     },

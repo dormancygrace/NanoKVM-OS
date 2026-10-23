@@ -16,9 +16,9 @@ import (
 )
 
 // ownBodyLimitRoutes stream their uploads or set their own MaxBytesReader.
+// Entries are route patterns (gin's FullPath), not request paths.
 var ownBodyLimitRoutes = []string{
-	"/api/system/recovery/preview",
-	"/api/system/recovery/apply",
+	"/api/system/recovery/:action", // preview and apply carry the archive
 	"/api/download/file",
 	"/api/storage/user-disk/files/upload",
 	"/api/branding/logo",

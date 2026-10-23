@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,11 @@ type loginAttempt struct {
 	failures   int
 	lastFailed time.Time
 	lockoutEnd time.Time
+	// failedUser is the one user name the failures were for; otherFailures
+	// is set once they were for more than one name, or for none that could
+	// be read. Only then may a successful login keep the record.
+	failedUser    string
+	otherFailures bool
 }
 
 const (
@@ -156,6 +162,7 @@ func CheckLoginAttempt(clientIP string) (bool, int, string) {
 		if !attempt.lockoutEnd.IsZero() {
 			attempt.failures = 0
 			attempt.lockoutEnd = time.Time{}
+			attempt.failedUser, attempt.otherFailures = "", false
 		}
 	} else if len(loginAttempts) >= maxLoginAttemptsRecords && !hasReclaimableRecordLocked(time.Now()) {
 		// Preserve every active lockout. A new address cannot be checked safely
@@ -166,8 +173,15 @@ func CheckLoginAttempt(clientIP string) (bool, int, string) {
 	return false, 0, ""
 }
 
-// RecordLoginFailure records a failed login attempt for the given IP address.
+// RecordLoginFailure records a failed login attempt for the given IP address
+// whose user name is unknown.
 func RecordLoginFailure(clientIP string) (bool, int, string) {
+	return RecordLoginFailureFor(clientIP, "")
+}
+
+// RecordLoginFailureFor records a failed login attempt of username ("" when
+// unknown) from the given IP address.
+func RecordLoginFailureFor(clientIP, username string) (bool, int, string) {
 	conf := config.GetInstance()
 	if conf.Security.LoginLockoutDuration <= 0 {
 		return false, 0, ""
@@ -199,8 +213,23 @@ func RecordLoginFailure(clientIP string) (bool, int, string) {
 	// (e.g., beyond the lockoutDuration window), reset the failure count
 	if !attempt.lastFailed.IsZero() && now.Sub(attempt.lastFailed) > time.Duration(conf.Security.LoginLockoutDuration)*time.Second {
 		attempt.failures = 0
+		attempt.failedUser, attempt.otherFailures = "", false
 	}
 
+	// The login request accepts unknown names too. Retain only bounded,
+	// valid account names; arbitrary request strings must not live in the
+	// address table after the request finishes. Invalid names still count.
+	if authn.ValidateUsername(username) != nil {
+		username = ""
+	}
+	switch {
+	case username == "":
+		attempt.otherFailures = true
+	case attempt.failures == 0:
+		attempt.failedUser = username
+	case username != attempt.failedUser:
+		attempt.otherFailures = true
+	}
 	attempt.failures++
 	attempt.lastFailed = now
 
@@ -267,8 +296,11 @@ func isExpiredLocked(attempt *loginAttempt, now time.Time) bool {
 	return now.Sub(attempt.lastFailed) > staleRecordWindow
 }
 
-// ClearLoginAttempt clears the failed login attempt record for an IP upon successful login.
-func ClearLoginAttempt(clientIP string) {
+// ClearLoginAttempt clears the failed login attempt record of an IP after a
+// successful login of username, but only if every failure was for that
+// user. Otherwise a user who can log in from the same address could reset
+// the count between guesses at another account's password.
+func ClearLoginAttempt(clientIP, username string) {
 	conf := config.GetInstance()
 	if conf.Security.LoginLockoutDuration <= 0 {
 		return
@@ -277,5 +309,8 @@ func ClearLoginAttempt(clientIP string) {
 	loginMutex.Lock()
 	defer loginMutex.Unlock()
 
+	if attempt, exists := loginAttempts[clientIP]; exists && (attempt.otherFailures || (attempt.failures > 0 && attempt.failedUser != username)) {
+		return
+	}
 	delete(loginAttempts, clientIP)
 }

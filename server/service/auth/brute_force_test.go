@@ -203,13 +203,13 @@ func TestLoginAttemptAtCapacityKeepsTrackedUnlockedAddressUsable(t *testing.T) {
 	useLoginProtectionConfig(t)
 	now := time.Now()
 	records := fullActiveLockoutRecords(now)
-	unlocked := &loginAttempt{failures: 2, lastFailed: now}
+	unlocked := &loginAttempt{failures: 2, lastFailed: now, failedUser: "owner"}
 	records["locked-0"] = unlocked
 	useLoginAttemptRecords(t, records)
 	if blocked, _, _ := CheckLoginAttempt("locked-0"); blocked {
 		t.Fatal("tracked unlocked address was denied at capacity")
 	}
-	if blocked, _, _ := RecordLoginFailure("locked-0"); blocked {
+	if blocked, _, _ := RecordLoginFailureFor("locked-0", "owner"); blocked {
 		t.Fatal("tracked unlocked address could not record a failure")
 	}
 	loginMutex.Lock()
@@ -218,7 +218,7 @@ func TestLoginAttemptAtCapacityKeepsTrackedUnlockedAddressUsable(t *testing.T) {
 		t.Fatal("existing count changed or another record was evicted")
 	}
 	loginMutex.Unlock()
-	ClearLoginAttempt("locked-0")
+	ClearLoginAttempt("locked-0", "owner")
 	if blocked, _, _ := CheckLoginAttempt("192.0.2.10"); blocked {
 		t.Fatal("successful login did not release capacity")
 	}
@@ -249,8 +249,8 @@ func TestLoginAttemptNormalFailureLockoutAndRecovery(t *testing.T) {
 		t.Fatal("expired lockout did not reset failure count")
 	}
 	loginMutex.Unlock()
-	RecordLoginFailure(ip)
-	ClearLoginAttempt(ip)
+	RecordLoginFailureFor(ip, "owner")
+	ClearLoginAttempt(ip, "owner")
 	loginMutex.Lock()
 	defer loginMutex.Unlock()
 	if len(loginAttempts) != 0 {
@@ -267,5 +267,41 @@ func TestLoginAttemptDisabledProtectionDoesNotDenySaturation(t *testing.T) {
 	}
 	if blocked, _, _ := RecordLoginFailure("192.0.2.10"); blocked {
 		t.Fatal("disabled protection denied failed login")
+	}
+}
+
+// A user who can log in must not reset the count of failures at another
+// account's password from the same address.
+func TestSuccessfulLoginClearsOnlyItsOwnFailures(t *testing.T) {
+	useLoginProtectionConfig(t)
+	useLoginAttemptRecords(t, make(map[string]*loginAttempt))
+	const ip = "192.0.2.20"
+	for _, name := range []string{"admin", "admin"} {
+		RecordLoginFailureFor(ip, name)
+	}
+	ClearLoginAttempt(ip, "viewer")
+	loginMutex.Lock()
+	kept := loginAttempts[ip]
+	loginMutex.Unlock()
+	if kept == nil || kept.failures != 2 {
+		t.Fatal("another user's login cleared the failures at admin")
+	}
+	ClearLoginAttempt(ip, "admin")
+	loginMutex.Lock()
+	_, exists := loginAttempts[ip]
+	loginMutex.Unlock()
+	if exists {
+		t.Fatal("admin's own login did not clear its failures")
+	}
+
+	// Mixed or unreadable failures stay until they expire or lock out.
+	RecordLoginFailureFor(ip, "viewer")
+	RecordLoginFailure(ip)
+	ClearLoginAttempt(ip, "viewer")
+	loginMutex.Lock()
+	kept = loginAttempts[ip]
+	loginMutex.Unlock()
+	if kept == nil || kept.failures != 2 {
+		t.Fatal("a login cleared failures that were not all its own")
 	}
 }

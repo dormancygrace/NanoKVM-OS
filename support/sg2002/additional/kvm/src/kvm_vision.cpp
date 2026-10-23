@@ -994,13 +994,16 @@ void* vi_subsystem_detection(void *)
             bool hdmi_poll_fallback;
             hdmi_poll_fallback = false;
             if (hdmi_edge_counter) {
-                fp = fopen(hdmi_state_path, "r+");
+                fp = fopen(hdmi_state_path, "r");
                 if (fp != NULL) {
                     char events[3] = {0};
                     fread(events, 1, sizeof(events) - 1, fp);
-                    tmp8 = static_cast<uint8_t>(atoi(events));
-                    if (tmp8 != 0) fputs("0", fp);
                     fclose(fp);
+                    tmp8 = static_cast<uint8_t>(atoi(events));
+                    // Reset through a fresh open, as on insertion above: a
+                    // write after a read on one stream needs a seek, which
+                    // a proc file need not support.
+                    if (tmp8 != 0) nanokvm::write_small_uint(hdmi_state_path, 0);
                 }
             } else {
                 // Without the edge counter, re-read bridge geometry at a

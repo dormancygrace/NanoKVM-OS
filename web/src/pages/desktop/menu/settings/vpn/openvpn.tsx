@@ -3,6 +3,7 @@ import { Alert, Button, Input, message, Modal, Popconfirm, Switch } from 'antd';
 import { FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { DOWNLOAD_TIMEOUT, SLOW_CALL_TIMEOUT } from '@/api/extensions/timeouts.ts';
 import { http } from '@/lib/http.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
@@ -120,10 +121,14 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
     void run(() => http.post('/api/extensions/openvpn/import', data));
   }
   function install() {
-    void run(() => http.post('/api/extensions/openvpn/install'));
+    void run(() =>
+      http.post('/api/extensions/openvpn/install', undefined, { timeout: DOWNLOAD_TIMEOUT })
+    );
   }
   function uninstall() {
-    void run(() => http.post('/api/extensions/openvpn/uninstall'));
+    void run(() =>
+      http.post('/api/extensions/openvpn/uninstall', undefined, { timeout: SLOW_CALL_TIMEOUT })
+    );
   }
   async function saveCredentials() {
     if (!editing) return;

@@ -1,15 +1,11 @@
 import { http } from '@/lib/http.ts';
 
-// NanoKVM's RISC-V NetBird CLI can take a while to produce a login URL or stop
-// a daemon. Keep a transport budget larger than the server's bounded command
-// deadline; a transport timeout is treated by the UI as an unknown result, not
-// as proof that the operation failed or succeeded. `http.get` takes no
-// per-request config, so status goes through `http.request`.
-const SLOW_CALL_TIMEOUT = 180 * 1000;
+import { DOWNLOAD_TIMEOUT, SLOW_CALL_TIMEOUT } from './timeouts.ts';
 
-// Install downloads the client (~14 MB compressed) over whatever uplink the
-// device has, so it gets a far larger budget than the CLI calls.
-const DOWNLOAD_TIMEOUT = 10 * 60 * 1000;
+// NanoKVM's RISC-V NetBird CLI can take a while to produce a login URL or stop
+// a daemon; install downloads the client (~14 MB compressed). A transport
+// timeout is treated by the UI as an unknown result. `http.get` takes no
+// per-request config, so status goes through `http.request`.
 
 export function install() {
   return http.post('/api/extensions/netbird/install', undefined, {

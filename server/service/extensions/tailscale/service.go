@@ -3,6 +3,7 @@ package tailscale
 import (
 	"net"
 	"sync"
+	"sync/atomic"
 
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
@@ -16,8 +17,13 @@ const TailscalePath = "/usr/bin/tailscale"
 
 var operationMutex sync.Mutex
 
+// operationActive mirrors operationMutex for the status route, which must
+// not take the lock itself: a poll holding it would refuse a click.
+var operationActive atomic.Bool
+
 func beginOperation(c *gin.Context, rsp *proto.Response) bool {
 	if operationMutex.TryLock() {
+		operationActive.Store(true)
 		return true
 	}
 	rsp.ErrRsp(c, -1, "another Tailscale operation is in progress")
@@ -38,7 +44,7 @@ func (s *Service) Install(c *gin.Context) {
 	if !beginOperation(c, &rsp) {
 		return
 	}
-	defer operationMutex.Unlock()
+	defer endOperation()
 	if !isInstalled() {
 		if err := apkpkg.InstallCommunity("tailscale", "tailscale-openrc"); err != nil {
 			rsp.ErrRsp(c, -1, "Tailscale installation failed: "+err.Error())
@@ -57,7 +63,7 @@ func (s *Service) Uninstall(c *gin.Context) {
 	if !beginOperation(c, &rsp) {
 		return
 	}
-	defer operationMutex.Unlock()
+	defer endOperation()
 	if !isInstalled() {
 		rsp.OkRsp(c)
 		return
@@ -82,7 +88,7 @@ func (s *Service) Start(c *gin.Context) {
 	if !beginOperation(c, &rsp) {
 		return
 	}
-	defer operationMutex.Unlock()
+	defer endOperation()
 	if err := NewCli().Start(); err != nil {
 		rsp.ErrRsp(c, -1, "start failed: "+err.Error())
 		return
@@ -95,7 +101,7 @@ func (s *Service) Restart(c *gin.Context) {
 	if !beginOperation(c, &rsp) {
 		return
 	}
-	defer operationMutex.Unlock()
+	defer endOperation()
 	if err := NewCli().Restart(); err != nil {
 		rsp.ErrRsp(c, -1, "restart failed: "+err.Error())
 		return
@@ -108,7 +114,7 @@ func (s *Service) Stop(c *gin.Context) {
 	if !beginOperation(c, &rsp) {
 		return
 	}
-	defer operationMutex.Unlock()
+	defer endOperation()
 	if err := NewCli().Stop(); err != nil {
 		rsp.ErrRsp(c, -1, "stop failed: "+err.Error())
 		return
@@ -169,15 +175,24 @@ func (s *Service) Logout(c *gin.Context) {
 	rsp.OkRsp(c)
 }
 
+func endOperation() {
+	operationActive.Store(false)
+	operationMutex.Unlock()
+}
+
+// operationRunning reports whether an operation holds operationMutex.
+func operationRunning() bool { return operationActive.Load() }
+
 func (s *Service) GetStatus(c *gin.Context) {
 	var rsp proto.Response
+	busy := operationRunning()
 	if !isInstalled() {
-		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: proto.TailscaleNotInstall})
+		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: proto.TailscaleNotInstall, Busy: busy})
 		return
 	}
 	status, err := NewCli().Status()
 	if err != nil {
-		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: proto.TailscaleNotRunning})
+		rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: proto.TailscaleNotRunning, Busy: busy})
 		return
 	}
 	state, ok := StateMap[status.BackendState]
@@ -191,5 +206,5 @@ func (s *Service) GetStatus(c *gin.Context) {
 			ipv4 = ip.String()
 		}
 	}
-	rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: state, IP: ipv4, Name: status.Self.HostName, Account: status.CurrentTailnet.Name})
+	rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: state, Busy: busy, IP: ipv4, Name: status.Self.HostName, Account: status.CurrentTailnet.Name})
 }

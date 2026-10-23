@@ -17,6 +17,9 @@
 : "${NANOKVM_IP:=ip}"
 : "${NANOKVM_IPV6_INIT:=/etc/init.d/S02ipv6}"
 : "${NANOKVM_KILLALL:=killall}"
+: "${NANOKVM_PIDOF:=pidof}"
+: "${NANOKVM_WPA_CTRL_DIR:=/var/run/wpa_supplicant}"
+: "${NANOKVM_HOSTAPD_CTRL_DIR:=/var/run/hostapd}"
 : "${NANOKVM_CHOWN:=chown}"
 : "${NANOKVM_IW:=iw}"
 : "${NANOKVM_WIFI_PHY_LINK:=/sys/class/net/wlan0/phy80211}"
@@ -340,6 +343,29 @@ ap_start() {
     touch "$NANOKVM_WIFI_AP_FLAG"
 }
 
+# wpa_supplicant and hostapd deauthenticate through the SDIO driver before
+# they exit, which can take a few seconds. One started meanwhile finds the
+# control socket in use and fails, and Wi-Fi stays down. Wait for the old
+# one, up to 5 s, then kill it, and only then remove its socket.
+wait_for_exit() {
+    name=$1
+    socket=$2
+    tries=0
+    while "$NANOKVM_PIDOF" "$name" >/dev/null 2>&1; do
+        tries=$((tries + 1))
+        if [ "$tries" -gt 50 ]; then
+            echo "$name did not exit; killing it" >&2
+            "$NANOKVM_KILLALL" -9 "$name" 2>/dev/null || true
+            sleep 0.2
+            break
+        fi
+        sleep 0.1
+    done
+    if ! "$NANOKVM_PIDOF" "$name" >/dev/null 2>&1; then
+        rm -f "$socket"
+    fi
+}
+
 stop() {
     if [ -x "$NANOKVM_IPV6_INIT" ]; then
         "$NANOKVM_IPV6_INIT" down wlan0 || return 1
@@ -360,6 +386,8 @@ stop() {
         esac
     fi
     "$NANOKVM_KILLALL" wpa_supplicant 2>/dev/null || true
+    wait_for_exit wpa_supplicant "$NANOKVM_WPA_CTRL_DIR/wlan0"
+    wait_for_exit hostapd "$NANOKVM_HOSTAPD_CTRL_DIR/wlan0"
 
     if [ -e "$WLAN_DHCP_PID" ]; then
         pid=$(cat "$WLAN_DHCP_PID")

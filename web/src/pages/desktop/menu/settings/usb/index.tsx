@@ -112,6 +112,15 @@ export const Usb = ({ part }: { part: UsbPart }) => {
         danger: true
       });
       if (!confirmed) return;
+    } else if (enabled && status?.network && !draft.network) {
+      // The connected computer loses its link, and with it any page or SSH
+      // session that uses it, possibly this one.
+      const confirmed = await confirmAction({
+        title: t('settings.usb.confirmNetworkRemoval'),
+        content: t('settings.usb.confirmNetworkRemovalDescription'),
+        danger: true
+      });
+      if (!confirmed) return;
     }
     await saveComposition(draft);
   }

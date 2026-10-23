@@ -126,7 +126,13 @@
       "connected": "已连接",
       "idle": "空闲",
       "error": "错误"
-    }
+    },
+    "downConfirm": "关闭 {{name}}？",
+    "downDescription": "通过此隧道访问 NanoKVM 的连接将断开，可能包括本页面。",
+    "routeConfirm": "启用 {{name}} 及其路由？",
+    "routeDescription": "发往隧道允许 IP 的流量将经过隧道。如果其中包括本页面所在的网络，本页面将失去连接。",
+    "openvpnUpConfirm": "启用 {{name}}？",
+    "openvpnUpDescription": "OpenVPN 配置文件可能将所有流量经由隧道发送（redirect-gateway）。若如此，本页面可能失去连接。"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -1407,7 +1413,9 @@
         "user": "User Disk 名称",
         "automatic": "自动（磁盘或 CD/DVD）",
         "invalid": "请使用可打印的 ASCII 字符，首尾不留空格：制造商最多 8 个字符，磁盘名称最多 16 个。"
-      }
+      },
+      "confirmNetworkRemoval": "移除 USB 网络？",
+      "confirmNetworkRemovalDescription": "已连接的电脑将失去与 NanoKVM 的网络连接，以及使用该连接的页面或 SSH 会话，可能包括本页面。"
     },
     "network": {
       "title": "网络",
@@ -1469,7 +1477,9 @@
           "channel": "信道 {{channel}}",
           "speed": "{{speed}} Mbps",
           "ip": "IP {{ip}}"
-        }
+        },
+        "joinConfirm": "加入 {{ssid}}？",
+        "joinOverWifi": "此页面通过 Wi-Fi 访问。加入其他网络会断开此连接；之后设备将在新网络中、以新网络分配的地址响应。"
       },
       "tls": {
         "confirmEnable": "开启 HTTPS？",
@@ -1724,7 +1734,10 @@
       "cancelBtn": "取消",
       "startFailed": "无法启动 Tailscale",
       "loginFailed": "登录失败",
-      "logoutFailed": "退出失败"
+      "logoutFailed": "退出失败",
+      "downConfirm": "关闭 Tailscale？",
+      "downDescription": "它将保持关闭，重启后也是如此。通过 Tailscale 访问 NanoKVM 的用户将失去访问权限，直到在此处重新开启。",
+      "downOverTailscale": "此页面通过 Tailscale 访问，将失去连接。"
     },
     "netbird": {
       "title": "NetBird",

@@ -126,7 +126,13 @@
       "connected": "Conectado",
       "idle": "Inactivo",
       "error": "Error"
-    }
+    },
+    "downConfirm": "¿Desactivar {{name}}?",
+    "downDescription": "Las conexiones que llegan a NanoKVM por este túnel se cortan, quizá esta página.",
+    "routeConfirm": "¿Activar {{name}} con sus rutas?",
+    "routeDescription": "El tráfico a las IP permitidas del túnel pasa por él. Si incluyen la red desde la que se abre esta página, esta pierde su conexión.",
+    "openvpnUpConfirm": "¿Activar {{name}}?",
+    "openvpnUpDescription": "Un perfil de OpenVPN puede enviar todo el tráfico por el túnel (redirect-gateway). En ese caso, esta página puede perder su conexión."
   },
   "dashboard": {
     "title": "Panel",
@@ -1407,7 +1413,9 @@
         "user": "Nombre del User Disk",
         "automatic": "Automático (disco o CD/DVD)",
         "invalid": "Usa ASCII imprimible sin espacios al principio ni al final: hasta 8 caracteres para el fabricante y 16 para los discos."
-      }
+      },
+      "confirmNetworkRemoval": "¿Quitar la red USB?",
+      "confirmNetworkRemovalDescription": "El ordenador conectado pierde su enlace de red con NanoKVM y, con él, cualquier página o sesión SSH que lo use, quizá esta."
     },
     "network": {
       "title": "Red",
@@ -1469,7 +1477,9 @@
           "channel": "canal {{channel}}",
           "speed": "{{speed}} Mbit/s",
           "ip": "IP {{ip}}"
-        }
+        },
+        "joinConfirm": "¿Conectar a {{ssid}}?",
+        "joinOverWifi": "Esta página usa Wi-Fi. Conectarse a otra red corta su conexión; después el dispositivo responde en la nueva red, en la dirección que esa red le dé."
       },
       "tls": {
         "confirmEnable": "¿Activar HTTPS?",
@@ -1724,7 +1734,10 @@
       "cancelBtn": "No",
       "startFailed": "No se pudo iniciar Tailscale",
       "loginFailed": "Error al iniciar sesión",
-      "logoutFailed": "Error al cerrar sesión"
+      "logoutFailed": "Error al cerrar sesión",
+      "downConfirm": "¿Desactivar Tailscale?",
+      "downDescription": "Queda desactivado, también tras reiniciar. Quien acceda a NanoKVM por Tailscale pierde el acceso hasta que se vuelva a activar aquí.",
+      "downOverTailscale": "Esta página usa Tailscale y pierde su conexión."
     },
     "netbird": {
       "title": "NetBird",

@@ -7,6 +7,7 @@ import { http } from '@/lib/http.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { HandshakeAge } from '@/components/handshake-age';
+import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { profileTone } from './profile-tone.ts';
@@ -86,7 +87,19 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
       setIsLocked(false);
     }
   }
-  function change(profile: Profile, action: string) {
+  async function change(profile: Profile, action: string) {
+    if (action === 'down' || (action === 'up' && profile.routeAllowedIPs)) {
+      const confirmed = await confirmAction({
+        title: t(action === 'down' ? 'vpn.downConfirm' : 'vpn.routeConfirm', {
+          name: profile.name
+        }),
+        content: t(action === 'down' ? 'vpn.downDescription' : 'vpn.routeDescription'),
+        okText: t('vpn.confirm'),
+        cancelText: t('vpn.cancel'),
+        danger: true
+      });
+      if (!confirmed) return;
+    }
     void run(() => http.post('/api/extensions/wireguard/profile', { id: profile.id, action }));
   }
   function upload(files: FileList | null) {
@@ -191,7 +204,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
                           aria-label={`${t('vpn.enable')} ${p.name}`}
                           checked={on}
                           disabled={busy || !available || (!on && otherOn)}
-                          onChange={(value) => change(p, value ? 'up' : 'down')}
+                          onChange={(value) => void change(p, value ? 'up' : 'down')}
                         />
                         <Popconfirm
                           title={t('vpn.deleteConfirm')}

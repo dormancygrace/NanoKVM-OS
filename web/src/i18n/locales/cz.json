@@ -45,7 +45,7 @@
     "description": "Nastavit Wi-Fi pro NanoKVM",
     "success": "Přejděte k zařízení a zkontrolujte stav sítě NanoKVM.",
     "failed": "Operace se nezdařila, zkuste to znovu.",
-    "invalidMode": "Stávající režim nepodporuje nastavování sítě. Přejděte ke svého zařízení a povolte konfigurační režim Wi-Fi.",
+    "invalidMode": "Stávající režim nepodporuje nastavování sítě. Přejděte ke svému zařízení a povolte konfigurační režim Wi-Fi.",
     "confirmBtn": "OK",
     "ap": {
       "authTitle": "Vyžadováno ověření",
@@ -612,7 +612,7 @@
         "confirmBoot": "Použít frekvenci procesoru při každém spuštění?",
         "unavailable": "V případě tohoto jádra systému není ovládání frekvence k dispozici",
         "descriptionAtBoot": "Uplatněno okamžitě a znovu po každém spuštění, včetně přetaktování. Zkontrolujte teplotu SoC čipu v Přehledu.",
-        "bootWarning": "Nebezpečné ve spojené s přetaktováním: pokud NanoKVM není schopné při takové frekvenci fungovat, může se stát, že systém přestane startovat a bude ho třeba znovu nahrát externě (flash). Pokud spouštění zamrzne v prvních 2 minutách, pak při tom příštím bude náhradně nastavena frekvence 1000 MHz a tato volba vypnuta.",
+        "bootWarning": "Nebezpečné ve spojení s přetaktováním: pokud NanoKVM není schopné při takové frekvenci fungovat, může se stát, že systém přestane startovat a bude ho třeba znovu nahrát externě (flash). Pokud spouštění zamrzne v prvních 2 minutách, pak při tom příštím bude náhradně nastavena frekvence 1000 MHz a tato volba vypnuta.",
         "bootFallback": "Minulé spuštění s provedeným přetaktováním se nepodařilo dokončit, takže NanoKVM bylo spuštěno na 1000 MHz a přestalo (uživatelsky určenou) frekvenci uplatňovat při startu.",
         "warning": "Přetaktování může způsobovat záseky, restarty, ztráty dat nebo poškození hardwaru. Stabilita není zaručená na žádné přetaktované frekvenci. Teplotní ochrana při dosažení 75°omezí na 850 MHz.",
         "throttled": "Teplotní limit aktivní. Používání vámi vybrané frekvence bude navráceno po zchlazení.",
@@ -855,7 +855,7 @@
         "removeConfirm": "Obnovování se zastaví a certifikát a klíč budou vymazány ze zařízení. HTTPS se vrátí k (v zařízení) vytvořenému certifikátu. acme.sh a účet zůstane.",
         "domainsHint": "Názvy pro které je certifikát určen; první z nich je hlavním. Zástupné znaky (*.example.org) vyžaduje DNS výzvu.",
         "emailHint": "Pro účet u cert. autority: upozornění na skončení platnosti. ZeroSSL to vyžaduje.",
-        "challengeHttpHint": "Cert. autorita získává token z http://<doména>/.well-known/acme-challenge/ na tomto zařízení: je třeba, aby port 80 byl na takovém názvu dosažitelný z Internetu.",
+        "challengeHttpHint": "Cert. autorita získává token z http://<domain>/.well-known/acme-challenge/ na tomto zařízení: je třeba, aby port 80 byl na takovém názvu dosažitelný z Internetu.",
         "challengeDnsHint": "acme.sh přidá TXT záznam prostřednictvím API poskytovatele. Přihlašovací údaje jsou ukládány acme.sh pro účely obnovování (práva 0600) a už nejsou nikdy zobrazována.",
         "issueConfirmHttp": "acme.sh požádá cert. autoritu aby si stáhla token přes port 80. Výsledek se objeví za necelou minutu; certifikát je použit pro HTTPS okamžitě, bez restartu. Opětovné vydání pro stejné názvy je počítáno vůči limitům četnosti u dané cert. autority (Let's Encrypt: 5 za týden).",
         "issueConfirmDns": "acme.sh přidá TXT záznam u poskytovatele a počká na něj. Výsledek se objeví níže během pár minut; certifikát je použit pro HTTPS okamžitě, bez restartu. Opětovné vydání pro stejné názvy je počítáno vůči limitům četnosti u dané cert. autority (Let's Encrypt: 5 za týden)."
@@ -888,7 +888,7 @@
         "addressPlaceholder": "Adresa/délka předpony",
         "gateway": "Brána",
         "gatewayPlaceholder": "Volitelné",
-        "invalid": "Zadejte IPv6 adresu s délkou přepony; je třeba, aby brána byla také IPv6 adresa.",
+        "invalid": "Zadejte IPv6 adresu s délkou prefixu; je třeba, aby brána byla také IPv6 adresa.",
         "save": "Uložit",
         "cancel": "Zrušit",
         "linkLocal": "Pouze local link"
@@ -1241,7 +1241,7 @@
           "id": "Identifikátory jsou čtyři šestnáctkové číslice jako 0x1234, ne 0x0000."
         },
         "description": "Co počítač uvidí v popisovači zařízení: identifikátory dodavatele a produktu, názvy výrobce a produktu. Pro případ hostitelů, na kterých zásady ohledně USB nebo zabezpečení koncového bodu mají námitky vůči „NanoKVM“.",
-        "idWarning": "Identifikátory dodavatele nebo produktu jiné, než tovární si vymyslete sami. Nastavování linuxových hostitelů s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo se odkazuje na identifikátory).",
+        "idWarning": "Za použití jiných než továrních identifikátorů dodavatele nebo produktu odpovídáte vy. Nastavování linuxových hostitelů s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo se odkazuje na identifikátory).",
         "serialHint": "Nevyplněné: UID čipu. Písmena, číslice, tečky, pomlčky a podtržítka. Linuxoví hostitelé nastavení pomocníkem sériové konzole se podle něj řídí: po změně znovu proveďte jeho použití."
       },
       "off": "Vypnuto",
@@ -1377,7 +1377,7 @@
         "title": "Internet přes USB",
         "noOffload": "Je aktivní standardní přeposílání – softwarové předávání zpracování toku není k dispozici nebo je omezeno zásadou sítě.",
         "description": "Nasdílet ethernetové nebo Wi-Fi připojení NanoKVM spravovanému počítači přes USB NCM. Pouze pro IPv4. USB síť je třeba povolit zvlášť.",
-        "renew": "Po změně tohoto nastavení nebo USB podsítě, znovupřipojte USB nebo obnovte DHCP zápůjčku počítače. Krátká zápůjčka také obnoví automaticky.",
+        "renew": "Po změně tohoto nastavení nebo USB podsítě, znovupřipojte USB nebo obnovte DHCP zápůjčku počítače. Krátká zápůjčka se také obnoví automaticky.",
         "updateFailed": "Nebylo možné uplatnit sdílení Internetu přes USB. Načtěte znovu a zkontrolujte stav zařízení.",
         "offload": "Softwarové předávání zpracovávání toku zapnuto pro příslušná TCP/UDP spojení."
       },
@@ -1429,7 +1429,7 @@
         "title": "Kompatibilní profily s pouze HID (USB 1.1)",
         "description": "Starší popisovače pro firmware a hostitele, kteří odmítají složené zařízení: pouze klávesnice a ukazatele, bez sítě, disku, pomocného pro sériovou konzoli nebo zvuk."
       },
-      "updateFailed": "USB složení se nepodařilo se zaktualizovat."
+      "updateFailed": "USB složení se nepodařilo zaktualizovat."
     },
     "vpn": {
       "title": "VPN",
@@ -1571,7 +1571,7 @@
       "rebooting": "Zotavení zařazeno do fronty. Zařízení se restartuje; následně se připojte.",
       "reboot": "Pro dokončení zotavení restartujte",
       "confirm": "Zkontroloval/a jsem změny a po restartu se k zařízení dokážu připojit.",
-      "inventory": "Balíčky zaznamenané v záloze (nainstalované automaticky)",
+      "inventory": "Balíčky zaznamenané v záloze (neinstalují se automaticky)",
       "removePackages": "Volitelné kořeny APK k odebrání (je možné, že nepoužívané závislosti budou také odebrány)",
       "skipped": "Vynecháno ze stěhování",
       "changed": "Nastavení k nahrazení nebo odebrání",
@@ -1597,7 +1597,7 @@
       "encryption": "Archiv obsahuje hesla a soukromé klíče. Je šifrován vámi zadaným heslem zálohy (12-256 bajtů). Tento soubor a heslo uchovávejte někde bezpečně; zapomenuté heslo není možné obnovit.",
       "export": "Exportovat nastavení",
       "password": "Stávající heslo správce",
-      "scope": "Zazálohovat spravovaná nastavení NanoKVM OS a podporovaných doplňků. Soubory operačního systému, nainstalované binárky, obrazy disků a uživatelské soubory nejsou zahrnuty. Uživatelsky určená nastavení a ostatní APK software resetovány nejsou.",
+      "scope": "Zazálohovat spravovaná nastavení NanoKVM OS a podporovaných doplňků. Soubory operačního systému, nainstalované binárky, obrazy disků a uživatelské soubory nejsou zahrnuty. Vlastní konfigurace ostatního softwaru nainstalovaného přes APK se neresetuje.",
       "title": "Záloha a resetování"
     },
     "bmc": {
@@ -1620,7 +1620,7 @@
       "username": "Uživatelské jméno",
       "accountHint": "Oddělené od účtů do webového rozhraní; používané oběma protokoly.",
       "account": "Účet do BMC",
-      "ipmiWarning": "IPMI ponechá heslo tak, jak bylo napsané a kdokoli, komu je dosažitelný IPMI port může získat jeho otisk pro offline uhádnutí. Používejte dlouhá hesla, která nepoužíváte jinde a port otevřete pouze do důvěryhodných sítí.",
+      "ipmiWarning": "IPMI ukládá heslo v čitelné podobě a kdokoli, komu je dosažitelný IPMI port, může získat jeho otisk pro offline uhádnutí. Používejte dlouhá hesla, která nepoužíváte jinde a port otevřete pouze do důvěryhodných sítí.",
       "ipmiHint": "ipmitool -I lanplus; sady šifer 3 a 17.",
       "ipmi": "IPMI přes LAN",
       "redfishHint": "Na https://{{host}}/redfish/v1, s níže uvedeným účtem do BMC.",
@@ -2031,7 +2031,7 @@
     "loadFailed": "Stav VPN nebylo možné načíst.",
     "routingDisableFirst": "Před měněním směrování tento profil zakažte.",
     "uploadLimit": "Nejvýše 16 profilů (64 KiB na soubor).",
-    "openvpnDescription": "Naimportujte .ovpn profily. V rámci stejného nahrání zároveň vyberte i jakékoli soubory s klíči a certifikát, na které se profil odkazuje.",
+    "openvpnDescription": "Naimportujte .ovpn profily. V rámci stejného nahrání zároveň vyberte i jakékoli soubory s klíči a certifikáty, na které se profil odkazuje.",
     "openvpnUninstallWarning": "OpenVPN bude zastaveno a odebráno. Stávající profily a nastavení i tak v zařízení zůstanou.",
     "openvpnLimit": "Nejvýše 16 profilů (256 KiB na soubor a kombinovaný profil).",
     "openvpnInstallDescription": "Nainstalujte OpenVPN v případě potřeby. Existující profily jsou zachovány.",
@@ -2121,7 +2121,7 @@
     "invalid": "Zadávejte pouze platné OpenSSH veřejné klíče (až 32 KiB); nenahrávejte soukromé klíče, certifikáty nebo předvolby pro klíče.",
     "text": "Text veřejného klíče",
     "file": "Soubor s veřejným klíčem",
-    "help": "Vyberte soubor s veřejným klíčem nebo vložte OpenSSH veřejné klíče, každý na zvlášť řádek (až 32 KiB). Podporované jsou Ed25519, RSA (2048 bitů a více), ECDSA a bezpečnostní klíče. Soukromé klíče, certifikáty a předvolbypro klíče nejsou přijímány. SSH není povoleno automaticky.",
+    "help": "Vyberte soubor s veřejným klíčem nebo vložte OpenSSH veřejné klíče, každý na samostatný řádek (až 32 KiB). Podporované jsou Ed25519, RSA (2048 bitů a více), ECDSA a bezpečnostní klíče. Soukromé klíče, certifikáty a předvolby pro klíče nejsou přijímány. SSH není povoleno automaticky.",
     "import": "Naimportovat klíče",
     "description": "Přidat klíče pro SSH přihlášení jako root. Existující klíče jsou zachovány.",
     "title": "SSH veřejné klíče"

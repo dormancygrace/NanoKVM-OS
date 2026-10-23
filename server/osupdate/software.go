@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -258,7 +259,11 @@ func GetSoftwareIndexStatus() SoftwareIndexStatus {
 const softwareLockWait = 12 * time.Second
 
 func runAPKOutput(timeout time.Duration, args ...string) (string, error) {
-	cmd := apkrun.Command(context.Background(), apkExecutable, args...)
+	return runAPKOutputContext(context.Background(), timeout, args...)
+}
+
+func runAPKOutputContext(ctx context.Context, timeout time.Duration, args ...string) (string, error) {
+	cmd := apkrun.Command(ctx, apkExecutable, args...)
 	cmd.LockWait, cmd.Timeout = softwareLockWait, timeout
 	b, err := cmd.CombinedOutput()
 	if len(b) > softwareLogLimit {
@@ -280,7 +285,23 @@ func ListInstalledSoftware() ([]SoftwarePackage, error) {
 	return parsePackages(output, 512), nil
 }
 
-func SearchSoftware(query string) ([]SoftwarePackage, error) {
+// One package search at a time, the newest: each is a 45 s apk scan of every
+// index that holds the apk lock, and the page searches on every typing
+// pause. A new search, or the request going away, ends the one before
+// instead of leaving it to make the current one wait for the lock and fail.
+var (
+	searchMu         sync.Mutex
+	searchGeneration uint64
+	searchCancel     context.CancelCauseFunc
+	searchAPK        = func(ctx context.Context, query string) (string, error) {
+		return runAPKOutputContext(ctx, 45*time.Second, "search", "--all", "--verbose", "*"+query+"*")
+	}
+)
+
+// ErrSearchSuperseded means a newer search ended this one.
+var ErrSearchSuperseded = errors.New("a newer package search replaced this one")
+
+func SearchSoftware(ctx context.Context, query string) ([]SoftwarePackage, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	if err := validPackageName(query); err != nil {
 		return nil, errors.New("enter a package name using letters, digits, +, _, . or -")
@@ -291,13 +312,43 @@ func SearchSoftware(query string) ([]SoftwarePackage, error) {
 	// Package catalogue scans run on the NanoKVM's low-power CPU and can take
 	// longer than the lightweight installed-package query. Keep this below the
 	// browser request timeout while allowing APK to finish a normal search.
-	output, err := runAPKOutput(45*time.Second, "search", "--all", "--verbose", "*"+query+"*")
+	output, err := newestSearch(ctx, query)
+	if errors.Is(err, ErrSearchSuperseded) {
+		return nil, err
+	}
 	if err != nil {
 		return nil, fmt.Errorf("package search failed: %s", strings.TrimSpace(output))
 	}
 	// apk also matches package descriptions. Filter its output by package name
 	// so a search for "mc" starts with mc, mcabber, and similar packages.
 	return parseMatchingPackages(output, query, 50), nil
+}
+
+// newestSearch runs searchAPK after ending the search before it, if that one
+// still runs.
+func newestSearch(ctx context.Context, query string) (string, error) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	searchMu.Lock()
+	if searchCancel != nil {
+		searchCancel(ErrSearchSuperseded)
+	}
+	searchGeneration++
+	mine := searchGeneration
+	searchCancel = cancel
+	searchMu.Unlock()
+	defer func() {
+		searchMu.Lock()
+		if searchGeneration == mine {
+			searchCancel = nil
+		}
+		searchMu.Unlock()
+	}()
+	output, err := searchAPK(ctx, query)
+	if errors.Is(context.Cause(ctx), ErrSearchSuperseded) {
+		return "", ErrSearchSuperseded
+	}
+	return output, err
 }
 
 func ListSoftwareUpdates() ([]SoftwareUpdate, error) {

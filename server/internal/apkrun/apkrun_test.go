@@ -305,3 +305,62 @@ func TestRunReportsApkFailure(t *testing.T) {
 		t.Fatalf("%q %v", output, err)
 	}
 }
+
+// A search the caller gives up on (a newer one, a closed page) ends at once
+// and leaves the lock to the next run.
+func TestCancelledRunEndsAndFreesTheLock(t *testing.T) {
+	f := newFixture(t, `sleep 30`)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := Command(ctx, f.apk, "search", "slow").CombinedOutput()
+		done <- err
+	}()
+	time.Sleep(200 * time.Millisecond)
+	start := time.Now()
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the cancelled run kept going")
+	}
+	if elapsed := time.Since(start); elapsed > 7*time.Second {
+		t.Fatalf("the cancelled run took %v to return", elapsed)
+	}
+	next := Command(context.Background(), f.apk, "search", "next")
+	next.LockWait = 100 * time.Millisecond
+	f2 := newFixture(t, "")
+	next.Path = f2.apk
+	LockPath = filepath.Join(f.dir, "apk.lock") // the lock the cancelled run held
+	if output, err := next.CombinedOutput(); err != nil {
+		t.Fatalf("the lock stayed taken: %q %v", output, err)
+	}
+}
+
+// A transaction whose context ends keeps the lock until everything it
+// started has finished: a package script that is still running must not
+// overlap the next transaction.
+func TestCancelledTransactionKeepsTheLockUntilItsScriptsEnd(t *testing.T) {
+	f := newFixture(t, `echo "start $2" >> "$DIR/runs"
+case "$2" in first) (sleep 6; echo "end $2" >> "$DIR/runs") & ;; esac
+[ "$2" = first ] && exec sleep 30
+echo "end $2" >> "$DIR/runs"`)
+	ctx, cancel := context.WithCancel(context.Background())
+	first := make(chan error, 1)
+	go func() {
+		_, err := Command(ctx, f.apk, "add", "first").CombinedOutput()
+		first <- err
+	}()
+	time.Sleep(300 * time.Millisecond)
+	cancel()
+	second := Command(context.Background(), f.apk, "add", "second")
+	if output, err := second.CombinedOutput(); err != nil {
+		t.Fatalf("second transaction: %q %v", output, err)
+	}
+	<-first
+	runs := f.lines("runs")
+	want := []string{"start first", "end first", "start second", "end second"}
+	if strings.Join(runs, "|") != strings.Join(want, "|") {
+		t.Fatalf("transactions overlapped: %q", runs)
+	}
+}

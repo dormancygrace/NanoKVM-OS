@@ -137,12 +137,23 @@ export const Software = () => {
     }
   };
 
+  // The request of the search in flight: a newer search cancels it, and the
+  // server then ends its apk scan instead of holding the apk lock.
+  const searchRequest = useRef<AbortController | undefined>(undefined);
   const search = useCallback(
     async (term: string, generation: number) => {
       if (generation !== searchGeneration.current) return;
+      searchRequest.current?.abort();
+      const request = new AbortController();
+      searchRequest.current = request;
       setSearching(true);
       try {
-        const rsp = await http.get('/api/os/update/software/search', { query: term });
+        const rsp = await http.request({
+          method: 'get',
+          url: '/api/os/update/software/search',
+          params: { query: term },
+          signal: request.signal
+        });
         if (generation !== searchGeneration.current) return;
         if (rsp.code === 0) {
           setResults(rsp.data.packages || []);
@@ -150,10 +161,12 @@ export const Software = () => {
           setSearchError('');
         } else setSearchError(rsp.msg);
       } catch {
+        // Cancelled by a newer search or by leaving the page: nothing to show.
+        if (request.signal.aborted) return;
         if (generation === searchGeneration.current)
           setSearchError(t('settings.software.requestFailed'));
       } finally {
-        if (generation === searchGeneration.current) setSearching(false);
+        if (!request.signal.aborted && generation === searchGeneration.current) setSearching(false);
       }
     },
     [t]
@@ -185,6 +198,7 @@ export const Software = () => {
     const timer = window.setTimeout(() => void search(term, generation), 700);
     return () => window.clearTimeout(timer);
   }, [query, search]);
+  useEffect(() => () => searchRequest.current?.abort(), []);
 
   const previewRemoval = async (name: string) => {
     try {

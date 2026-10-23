@@ -99,7 +99,7 @@ func osUpdateRouter(r *gin.Engine) {
 		updateReply(c, change, err)
 	})
 	api.GET("/software/search", func(c *gin.Context) {
-		packages, err := osupdate.SearchSoftware(c.Query("query"))
+		packages, err := osupdate.SearchSoftware(c.Request.Context(), c.Query("query"))
 		updateReply(c, gin.H{"packages": packages}, err)
 	})
 	api.GET("/software/updates", func(c *gin.Context) {

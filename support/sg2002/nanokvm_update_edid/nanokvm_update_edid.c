@@ -16,11 +16,12 @@
 
 #include "nanokvm_update_edid.h"
 #include "../../../firmware/mpi/nanokvm_receiver_lock.h"
+#include "../../../firmware/mpi/nanokvm_i2c.h"
+#include "../../../firmware/mpi/nanokvm_receiver_timing.h"
 
 
 int client = -1;
-// old offset set to 0xff first
-static uint8_t old_offset = 0xff;
+// Every combined transfer selects its own bank; no cached bank can go stale.
 
 // =======================================================================================================
 
@@ -112,158 +113,31 @@ int NanoKVM_PCIe_HDMI_Reset(void)
     int ret = reset_write(fd, "1");
     int saved = ret ? errno : 0;
     if (close(fd) < 0 && !ret) { ret = -1; saved = errno; }
-    if (ret) errno = saved;
-    return ret;
+    if (ret) { errno = saved; return ret; }
+    // The pulse driver's own release delay is not a firmware-ready guarantee.
+    // Programming is already blocking; wait before its first register access.
+    return nanokvm_receiver_wait_ready();
 }
 
 // =======================================================================================================
 
-// I2C write function
+// One ioctl owns bank selection plus the whole register operation. Do not
+// replay failed writes: even a short result may already have affected flash.
 int i2c_write_byte(uint8_t offset, uint8_t reg, uint8_t data)
 {
-    // reg buffer
-    uint8_t reg_buf[2] = {0};
-
-    // if offset is changed, write it first
-    if (offset != old_offset) {
-        reg_buf[0] = LT6911_REG_OFFSET; // Set the offset register
-        reg_buf[1] = offset;    // Set the register to read
-        if (write(client, reg_buf, 2) != 2) {
-            old_offset = 0xff;
-            perror("Failed to write offset to the i2c bus");
-            return -1;
-        }
-        old_offset = offset;
-    }
-
-    // write the data to the i2c bus
-    reg_buf[0] = reg; // Set the register to write
-    reg_buf[1] = data; // Set the data to write
-    if (write(client, reg_buf, 2) != 2) {
-        old_offset = 0xff;
-        perror("Failed to write to the i2c bus");
-        return -1;
-    }
-    return 0;
+    return nanokvm_i2c_write(client, I2C_ADDRESS, offset, reg, &data, 1);
 }
-
 int i2c_write_bytes(uint8_t offset, uint8_t reg, const uint8_t *data, size_t len)
 {
-    if (!len || len > EDID_BUFFER_SIZE) { errno = EINVAL; return -1; }
-
-    // check len
-    if (len == 0) {
-        fprintf(stderr, "Data length must be greater than 0.\n");
-        return -1;
-    }
-
-    // reg buffer
-    uint8_t reg_buf[1 + len];
-
-    // if offset is changed, write it first
-    if (offset != old_offset) {
-        reg_buf[0] = LT6911_REG_OFFSET; // Set the offset register
-        reg_buf[1] = offset;    // Set the register to read
-        if (write(client, reg_buf, 2) != 2) {
-            old_offset = 0xff;
-            perror("Failed to write offset to the i2c bus");
-            return -1;
-        }
-        old_offset = offset;
-    }
-
-    // write the data to the i2c bus
-    reg_buf[0] = reg;
-    for (size_t i = 0; i < len; i++) {
-        reg_buf[i + 1] = data[i];
-    }
-
-    // write to the I2C bus
-    if (write(client, reg_buf, 1 + len) != (ssize_t)(1 + len)) {
-        old_offset = 0xff;
-        perror("Failed to write to the i2c bus");
-        return -1;
-    }
-
-    return 0;
+    return nanokvm_i2c_write(client, I2C_ADDRESS, offset, reg, data, len);
 }
-
-// I2C read function
 int i2c_read_byte(uint8_t offset, uint8_t reg, uint8_t *data)
 {
-    // reg buffer
-    uint8_t reg_buf[2] = {0};
-
-    // if offset is changed, write it first
-    if (offset != old_offset) {
-        reg_buf[0] = LT6911_REG_OFFSET; // Set the offset register
-        reg_buf[1] = offset;    // Set the register to read
-        if (write(client, reg_buf, 2) != 2) {
-            old_offset = 0xff;
-            perror("Failed to write offset to the i2c bus");
-            return -1;
-        }
-        old_offset = offset;
-    }
-
-    // write the register address to read
-    reg_buf[0] = reg; // Set the register to read
-    if (write(client, reg_buf, 1) != 1) {
-        old_offset = 0xff;
-        perror("Failed to write register address to the i2c bus");
-        return -1;
-    }
-
-    // read the data from the i2c bus
-    if (read(client, data, 1) != 1 ) {
-        old_offset = 0xff;
-        perror("Failed to read from the i2c bus");
-        return -1;
-    }
-
-    return 0;
+    return nanokvm_i2c_read(client, I2C_ADDRESS, offset, reg, data, 1);
 }
-
 int i2c_read_bytes(uint8_t offset, uint8_t reg, uint8_t *data, size_t len)
 {
-    if (!len || len > EDID_BUFFER_SIZE) { errno = EINVAL; return -1; }
-
-    // 检查数据长度
-    if (len == 0) {
-        fprintf(stderr, "Data length must be greater than 0.\n");
-        return -1;
-    }
-
-    uint8_t reg_buf[2]; // 创建寄存器缓冲区
-
-    // 如果偏移量改变，先写入偏移量
-    if (offset != old_offset) {
-        reg_buf[0] = LT6911_REG_OFFSET; // 设置偏移寄存器
-        reg_buf[1] = offset; // 设置偏移值
-        if (write(client, reg_buf, 2) != 2) {
-            old_offset = 0xff;
-            perror("Failed to write offset to the i2c bus");
-            return -1;
-        }
-        old_offset = offset;
-    }
-
-    // 写入要读取的寄存器地址
-    reg_buf[0] = reg; // 设置要读取的寄存器
-    if (write(client, reg_buf, 1) != 1) {
-        old_offset = 0xff;
-        perror("Failed to write register address to the i2c bus");
-        return -1;
-    }
-
-    // 从 I2C 总线读取数据
-    if (read(client, data, len) != (ssize_t)len) {
-        old_offset = 0xff;
-        perror("Failed to read from the i2c bus");
-        return -1;
-    }
-
-    return 0;
+    return nanokvm_i2c_read(client, I2C_ADDRESS, offset, reg, data, len);
 }
 
 // =======================================================================================================
@@ -683,7 +557,6 @@ static int finish_receiver(chip_version_t chip, int result)
     }
     if (close(client) != 0) result = -1;
     client = -1;
-    old_offset = 0xff;
     if (primary) errno = primary;
     return result;
 }
@@ -703,7 +576,7 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
     }
 
     // // set the lt6911uxc address
-    if (ioctl(client, I2C_SLAVE, I2C_ADDRESS) < 0) {
+    if (nanokvm_i2c_capable(client) < 0 || ioctl(client, I2C_SLAVE, I2C_ADDRESS) < 0) {
         perror("Failed to acquire bus access and/or talk to slave");
         close(client);
         return -1;
@@ -808,7 +681,7 @@ static int lt6911_edid_dump(chip_version_t chip_version, uint8_t *edid_data)
         perror("Failed to open the i2c bus");
         return -1;
     }
-    if (ioctl(client, I2C_SLAVE, I2C_ADDRESS) < 0) {
+    if (nanokvm_i2c_capable(client) < 0 || ioctl(client, I2C_SLAVE, I2C_ADDRESS) < 0) {
         perror("Failed to acquire bus access and/or talk to slave");
         close(client);
         return -1;

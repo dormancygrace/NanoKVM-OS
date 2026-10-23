@@ -22,7 +22,8 @@ Most tests run with no arguments from the repository root:
     sh tests/test-usb-profiles.sh
 
 The receiver session tests use fake I2C transfers and deterministic thread
-ordering, including the production maintenance/reset and EDID helpers:
+ordering, including the production maintenance/reset and EDID helpers, the real
+I2c transport with mocked Linux ioctls, readiness deadlines and UXC telemetry:
 
     python3 tests/test-hdmi-sessions.py
     NANOKVM_SANITIZE=1 python3 tests/test-hdmi-sessions.py
@@ -114,3 +115,12 @@ synthetic payloads and temporary keys, verifies signatures directly and through
 apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
 index formats. No production key or device is used; package scripts are retained
 but not executed in the temporary installation root.
+
+
+The second receiver probe, `firmware/probes/hdmi-receiver-runtime.cpp`, links
+with `support/sg2002/additional/kvm/src/kvm_i2c.cpp`. It also requires exclusive
+ownership with nanokvm-app stopped. `diagnostics` prints a checked UXC register
+snapshot; `reset-ready` performs three real reset cycles, counts rejected
+admissions before the 250 ms deadline and measures first access and stable
+readiness. A failure exits nonzero. It does not change EDID or save device
+files. Physical C/D qualification is separate.

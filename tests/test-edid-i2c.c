@@ -2,17 +2,31 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
-static unsigned calls, fail_at, bank_writes, closes;
-static int short_transfer;
-static uint8_t hardware_bank = 0x85;
+#include <fcntl.h>
+#include <time.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
+static unsigned calls, fail_at, closes;
+static int short_count = -1, reset_failure;
+static unsigned sleeps;
+static int sleep_mode;
+static int test_open(const char *path, int flags, ...);
 static ssize_t test_write(int fd, const void *data, size_t len);
-static ssize_t test_read(int fd, void *data, size_t len);
+static off_t test_lseek(int fd, off_t offset, int whence);
+static int test_nanosleep(const struct timespec *delay, struct timespec *remaining);
+static int test_ioctl(int fd, unsigned long request, ...);
 static int test_close(int fd);
 static void test_perror(const char *text) { (void)text; }
+#define open test_open
 #define write test_write
-#define read test_read
+#define lseek test_lseek
+#define nanosleep test_nanosleep
+#define ioctl test_ioctl
 #define close test_close
 #define perror test_perror
 #define main edid_program_main
@@ -20,33 +34,58 @@ static void test_perror(const char *text) { (void)text; }
 #undef main
 #undef perror
 #undef close
-#undef read
+#undef ioctl
+#undef open
 #undef write
-
-static int failure(size_t len, ssize_t *result) {
+#undef lseek
+#undef nanosleep
+static int test_ioctl(int fd, unsigned long request, ...) {
+    (void)fd;
+    va_list args; va_start(args, request);
+    assert(request == I2C_RDWR);
+    struct i2c_rdwr_ioctl_data *t = va_arg(args, struct i2c_rdwr_ioctl_data *);
+    va_end(args);
+    assert(t->nmsgs == 2 || t->nmsgs == 3);
+    assert(t->msgs[0].addr == I2C_ADDRESS && t->msgs[0].flags == 0 &&
+        t->msgs[0].len == 2 && t->msgs[0].buf[0] == 0xff);
+    if (t->nmsgs == 3) {
+        assert(t->msgs[1].len == 1 && t->msgs[1].flags == 0 && t->msgs[2].flags == I2C_M_RD);
+        memset(t->msgs[2].buf, 0x55, t->msgs[2].len);
+    }
     ++calls;
-    if (calls != fail_at) return 0;
-    errno = ENXIO;
-    *result = short_transfer ? (ssize_t)len - 1 : -1;
-    return 1;
-}
-static ssize_t test_write(int fd, const void *data, size_t len) {
-    (void)fd;
-    const uint8_t *bytes = data;
-    ssize_t ret;
-    if (len == 2 && bytes[0] == 0xff) ++bank_writes;
-    if (failure(len, &ret)) return ret;
-    if (len == 2 && bytes[0] == 0xff) hardware_bank = bytes[1];
-    return (ssize_t)len;
-}
-static ssize_t test_read(int fd, void *data, size_t len) {
-    (void)fd;
-    ssize_t ret;
-    if (failure(len, &ret)) return ret;
-    memset(data, 0x55, len);
-    return (ssize_t)len;
+    if (calls == fail_at) {
+        errno = ENXIO;
+        return short_count < 0 ? -1 : short_count;
+    }
+    return t->nmsgs;
 }
 static int test_close(int fd) { (void)fd; ++closes; return 0; }
+static int test_open(const char *path, int flags, ...) {
+    (void)flags;
+    assert(strcmp(path, "/sys/bus/platform/devices/hdmi-reset/pulse") == 0);
+    return 8;
+}
+static ssize_t test_write(int fd, const void *data, size_t len) {
+    assert(fd == 8 && len == 1 && *(const char *)data == '1');
+    if (reset_failure) { errno = EREMOTEIO; return -1; }
+    return 1;
+}
+static off_t test_lseek(int fd, off_t offset, int whence) {
+    assert(fd == 8 && offset == 0 && whence == SEEK_SET); return 0;
+}
+static int test_nanosleep(const struct timespec *delay, struct timespec *remaining) {
+    assert(delay->tv_sec == 0);
+    ++sleeps;
+    if (sleep_mode == 1 && sleeps == 1) {
+        assert(delay->tv_nsec == 250000000L);
+        remaining->tv_sec = 0; remaining->tv_nsec = 100000000L;
+        errno = EINTR; return -1;
+    }
+    assert(delay->tv_nsec == (sleep_mode == 1 ? 100000000L : 250000000L));
+    if (sleep_mode == 2) { errno = EINVAL; return -1; }
+    return 0;
+}
+
 static int invoke(int which) {
     uint8_t data[8] = {0};
     switch (which) {
@@ -56,41 +95,50 @@ static int invoke(int which) {
     default: return i2c_read_bytes(0x80, 0x30, data, sizeof(data));
     }
 }
-static void reset(void) {
-    calls = fail_at = bank_writes = closes = 0;
-    old_offset = 0xff; hardware_bank = 0x85; client = 9; short_transfer = 0;
-}
+static void reset(void) { calls = fail_at = closes = 0; client = 9; short_count = -1; }
 int main(void) {
     for (int which = 0; which < 4; ++which) {
-        reset(); assert(invoke(which) == 0);
-        assert(old_offset == 0x80 && hardware_bank == 0x80 && bank_writes == 1);
-        unsigned operations = calls;
-        assert(invoke(which) == 0 && bank_writes == 1);
-        for (unsigned op = 1; op <= operations; ++op) {
-            for (int partial = 0; partial < 2; ++partial) {
-                reset(); fail_at = op; short_transfer = partial;
-                assert(invoke(which) == -1);
-                assert(old_offset == 0xff);
-                unsigned selects = bank_writes;
-                fail_at = 0;
-                assert(invoke(which) == 0 && bank_writes == selects + 1);
-                assert(old_offset == 0x80 && hardware_bank == 0x80);
-            }
+        reset(); assert(invoke(which) == 0 && calls == 1);
+        assert(invoke(which) == 0 && calls == 2); // every ioctl includes bank
+        int messages = which < 2 ? 2 : 3;
+        for (int partial = -1; partial < messages; ++partial) {
+            reset(); fail_at = 1; short_count = partial;
+            assert(invoke(which) == -1 && calls == 1);
+            assert(errno == (partial < 0 ? ENXIO : EIO));
+            fail_at = 0; assert(invoke(which) == 0 && calls == 2);
         }
     }
     reset();
-    assert(finish_receiver(CHIP_LT6911UXC, 0) == 0);
-    assert(closes == 1 && client == -1 && old_offset == 0xff);
-    reset(); fail_at = 2;
-    assert(finish_receiver(CHIP_LT6911UXC, 0) == -1);
-    assert(closes == 1 && client == -1 && old_offset == 0xff);
-    reset(); fail_at = 2; errno = EREMOTEIO;
-    assert(finish_receiver(CHIP_LT6911UXC, -1) == -1 && errno == EREMOTEIO);
-    assert(closes == 1);
-    // Each UXC read first selects bank, then enables external control. A failed
-    // enable must stop before any flash-controller/FIFO operation.
-    reset(); fail_at = 3;
+    uint8_t whole[256] = {0};
+    assert(i2c_write_bytes(0x80, 0x30, whole, sizeof(whole)) == 0);
+    assert(i2c_read_bytes(0x80, 0x30, whole, sizeof(whole)) == 0);
+    assert(whole[0] == 0x55 && whole[255] == 0x55);
+    unsigned before_invalid = calls;
+    assert(i2c_read_bytes(0x80, 0x30, whole, 257) == -1 && errno == EINVAL);
+    assert(i2c_write_bytes(0x80, 0x30, whole, 257) == -1 && errno == EINVAL);
+    assert(i2c_write_bytes(0x80, 0x30, NULL, 1) == -1 && errno == EINVAL);
+    assert(i2c_read_bytes(0x80, 0x30, whole, 0) == -1 && errno == EINVAL);
+    assert(calls == before_invalid);
+    reset(); fail_at = 1;
+    uint8_t out[8]; memset(out, 0xa5, sizeof(out));
+    assert(i2c_read_bytes(0x80, 0x30, out, sizeof(out)) == -1);
+    for (unsigned i = 0; i < sizeof(out); ++i) assert(out[i] == 0xa5);
+    reset(); assert(finish_receiver(CHIP_LT6911UXC, 0) == 0 && closes == 1 && client == -1);
+    reset(); fail_at = 1;
+    assert(finish_receiver(CHIP_LT6911UXC, 0) == -1 && closes == 1 && client == -1);
+    reset(); fail_at = 1; errno = EREMOTEIO;
+    assert(finish_receiver(CHIP_LT6911UXC, -1) == -1 && errno == EREMOTEIO && closes == 1);
+    reset(); fail_at = 1;
     uint8_t edid[EDID_BUFFER_SIZE];
-    assert(lt6911uxc_edid_read(edid, sizeof(edid)) == -1 && calls == 3);
-    puts("PASS all four EDID helpers: complete/short/negative transfers, cache invalidation and reselect; cleanup failure propagation and enable refusal");
+    assert(lt6911uxc_edid_read(edid, sizeof(edid)) == -1 && calls == 1);
+    reset(); sleeps = 0;
+    assert(NanoKVM_PCIe_HDMI_Reset() == 0 && sleeps == 1 && calls == 0);
+    reset_failure = 1;
+    assert(NanoKVM_PCIe_HDMI_Reset() == -1 && errno == EREMOTEIO && sleeps == 1);
+    reset_failure = 0; sleeps = 0; sleep_mode = 1;
+    assert(NanoKVM_PCIe_HDMI_Reset() == 0 && sleeps == 2 && calls == 0);
+    sleep_mode = 2;
+    assert(NanoKVM_PCIe_HDMI_Reset() == -1 && errno == EINVAL);
+    puts("PASS EDID reset: post-success readiness wait, no wait after failed reset");
+    puts("PASS four real EDID helpers: one banked ioctl each, every short count, negative errors, unchanged failed read, cleanup propagation, enable refusal");
 }

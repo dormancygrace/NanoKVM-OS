@@ -20,6 +20,42 @@ The encoder applies rate-control limits before capture starts and uses NormalP, 
 
 The HDMI detector publishes a receiver sample only after its register-access session has completed, including cleanup. A transient I2C error keeps the last valid geometry; three consecutive failed or incomplete polls withdraw the signal without replacing that geometry. A confirmed disconnect is immediate. Failed reads are retried once per second even when the kernel supplies edge events. LT6911D requires both active dimensions to be nonzero. The detector, sensor probes and EDID tool share receiver ownership; reset and EDID maintenance drain the active detector session with a bounded wait. Receiver errors and failed cleanup are recorded in the application log.
 
+Bank selection, register pointer and read data now travel in one Linux
+[`I2C_RDWR` transaction](https://docs.kernel.org/i2c/dev-interface.html); register writes combine the bank and payload in the same
+way. This applies to the detector, the sensor probe and the EDID programmer.
+The adapter must report `I2C_FUNC_I2C`; an unsupported adapter or a short
+message count is an error. Failed transfers are not replayed, and failed reads
+do not publish partial bytes. Every operation carries its own bank, so the
+EDID programmer no longer needs a bank cache.
+
+After a successful PCIe reset release or EDID-maintenance resume, detector
+admission returns `settling` without I2C for at least 250 ms, using a monotonic
+deadline rather than sleeping on the frame path. The standalone EDID
+programmer also waits 250 ms after a successful reset pulse before register
+access. This is a minimum quiet window, not a promise that HDMI has locked:
+normal readiness checks and bounded retries still apply. On the PCIe UXC
+stand, first access was about 251 ms after release and a stable sample about
+1.77 s after release in each of three cycles. C/D reset timing and combined transfers
+still need physical qualification.
+
+UXC diagnostic sessions read firmware revision, CSI lane count, HDMI active
+size, totals, sync/porch lengths, polarity, input-format bits and raw TMDS-clock
+registers, with CSI output size kept separately. They run at receiver/mode
+transitions (including IRQs with unchanged CSI size) and after reset/maintenance; unavailable or invalid results retry
+at most every five seconds while the state is unchanged. Only changed
+diagnostic text is logged. A diagnostic failure cannot replace capture
+geometry or withdraw an otherwise valid signal. Timing totals/porches and
+stable status are checked before marking telemetry valid. C/D firmware/lane
+maps are not inferred from UXC and are reported unavailable.
+
+Register addresses and units follow [Rockchip UXC](https://github.com/rockchip-linux/kernel/blob/470f9dccbdc42e7b8a824d0a5c5640a10e9457d2/drivers/media/i2c/lt6911uxc.h)
+and [ZHAW](https://github.com/InES-HPMM/Lontium_lt6911uxc/blob/c6a314423d1209df82a7c669f45ae7a765601715/source/lt6911uxc_regs_zhaw.h). These diagnostic reads do not write interrupt acknowledgments,
+select a frequency meter, change lane configuration or change color policy.
+The TMDS value stays raw: the Rockchip kHz/FPS formula does not match the
+NanoKVM stand's UXC firmware `0x00000300`, so no unqualified clock or refresh
+rate is published.
+
+
 
 The monitor profile advertises preferred and fallback modes through EDID. **Automatic** is 1920×1080 at up to 90 Hz wherever the EDID can be written live (the stock receiver profile elsewhere); 2560×1440 and 3840×2160 are explicit choices. The landscape profiles prefer 3840×2160, 2560×1440, 1920×1080 or 1280×720; the portrait profiles 720×1280, 1080×1920 and 1440×2560 are in the same list. 1080×1920 is the tallest portrait H.264 encodes (see H.264 below); 1440×2560 needs H.265, over Direct or WebRTC. The 1296×2304 portrait of earlier releases, the tallest H.264 portrait before H.264 stopped at 1080×1920, is retired: a device that had it selected gets 1440×2560 (1080×1920 when its device codec is H.264) and programs that profile on the first start after the update. A source may choose another supported resolution; applying the profile does not require the source to adopt its preferred timing. The profiles are single-rate: each advertises no mode at or above its own resolution other than its preferred timing (1920×1080 at 75 Hz lists no other 1080p, 1080i or 1440p timing), because the Windows GPU driver tested here does not honour the preferred timing and otherwise outputs a fallback such as 1080p50 or 2560×1440 at 50 Hz. Lower-resolution fallbacks (VGA, 800×600, 720p, and 1024×768 or 1280×1024 where lower than the profile) stay, so a source that cannot drive the chosen timing falls back to a lower resolution (choose a slower profile to restore the larger one). Changing a profile briefly reconnects HDMI. Which profiles a device offers depends on its HDMI receiver, and how a new profile takes effect on its board. The LT6911UXC takes every profile; the LT6911C and the LT6911D take the 720p and 1080p profiles at 60 Hz until they are measured beyond that. PCIe boards apply a profile at once (they reset the receiver); Cube and Lite boards need a physical power cycle after each write. This does not affect automatic source detection.
 

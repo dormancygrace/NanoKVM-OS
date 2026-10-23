@@ -1,0 +1,74 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] lt6911: combine banked transfers on NanoKVM
+
+--- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
++++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
+@@ -13,6 +13,7 @@
+ #include "lt6911_cmos_ex.h"
+ #ifdef NANOKVM_OS
+ #include "nanokvm_receiver_lock.h"
++#include "nanokvm_i2c.h"
+ #endif
+ 
+ extern ISP_SNS_COMMBUS_U g_aunLt6911_BusInfo[VI_MAX_PIPE_NUM];
+@@ -45,6 +46,13 @@
+ 		return CVI_FAILURE;
+ 	}
+ 
++#ifdef NANOKVM_OS
++    if (nanokvm_i2c_capable(g_fd[ViPipe]) < 0) {
++        close(g_fd[ViPipe]);
++        g_fd[ViPipe] = -1;
++        return CVI_FAILURE;
++    }
++#endif
+ 	ret = ioctl(g_fd[ViPipe], I2C_SLAVE_FORCE, lt6911_i2c_addr);
+ 	if (ret < 0) {
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "I2C_SLAVE_FORCE error!\n");
+@@ -146,9 +154,15 @@
+ 	uint8_t bank = RegAddr >> 8;
+ 	uint8_t addr = RegAddr & 0xff;
+ 
++#ifdef NANOKVM_OS
++    uint8_t value;
++    return nanokvm_i2c_read(g_fd[ViPipe], lt6911_i2c_addr, bank, addr, &value, 1) == 0
++        ? value : CVI_FAILURE;
++#else
+ 	if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, bank) != CVI_SUCCESS)
+ 		return CVI_FAILURE;
+ 	return lt6911_read_register(ViPipe, addr);
++#endif
+ }
+ 
+ static int lt6911_i2c_write(VI_PIPE ViPipe, int RegAddr, int data)
+@@ -156,9 +170,15 @@
+ 	uint8_t bank = RegAddr >> 8;
+ 	uint8_t addr = RegAddr & 0xff;
+ 
++#ifdef NANOKVM_OS
++    uint8_t value = data;
++    return nanokvm_i2c_write(g_fd[ViPipe], lt6911_i2c_addr, bank, addr, &value, 1) == 0
++        ? CVI_SUCCESS : CVI_FAILURE;
++#else
+ 	if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, bank) != CVI_SUCCESS)
+ 		return CVI_FAILURE;
+ 	return lt6911_write_register(ViPipe, addr, data);
++#endif
+ }
+ 
+ int lt6911_read(VI_PIPE ViPipe, int addr)
+@@ -236,9 +256,14 @@
+     if (ownership < 0) return CVI_FAILURE;
+ #endif
+     int ret = CVI_FAILURE;
++#ifdef NANOKVM_OS
++    if (nanokvm_i2c_read(g_fd[ViPipe], lt6911_i2c_addr, 0xe0, reg, values, 2) == 0)
++        ret = CVI_SUCCESS;
++#else
+     if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, 0xe0) == CVI_SUCCESS &&
+         write(g_fd[ViPipe], &reg, 1) == 1 && read(g_fd[ViPipe], values, 2) == 2)
+         ret = CVI_SUCCESS;
++#endif
+ #ifdef NANOKVM_OS
+     nanokvm_receiver_unlock(ownership);
+ #endif

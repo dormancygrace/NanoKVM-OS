@@ -76,6 +76,7 @@ static uint8_t vi_detection_thread_started = 0;
 static nanokvm::I2c LT6911_i2c(4);
 static nanokvm::ReceiverAccess receiver_access;
 static std::atomic<bool> receiver_retry_pending{false};
+static std::atomic<bool> receiver_diagnostics_pending{true};
 static nanokvm::HdmiReceiver<nanokvm::I2c> hdmi_receiver(LT6911_i2c);
 
 struct kvmv_cfg_t {
@@ -667,10 +668,35 @@ static uint8_t detect_csi_res(const nanokvm::ReceiverSnapshot &snapshot)
     return res_type;
 }
 
+/* Optional telemetry is sampled on receiver/mode transitions. Unavailable or
+ * invalid telemetry never changes the detector's result or CSI geometry. */
+static void log_receiver_diagnostics(const nanokvm::ReceiverSnapshot &sample,
+    nanokvm::ReceiverKind kind)
+{
+    static nanokvm::DiagnosticSchedule schedule;
+    static std::string previous;
+    const auto now = std::chrono::steady_clock::now();
+    if (receiver_diagnostics_pending.exchange(false, std::memory_order_relaxed)) schedule.reset();
+    const uint64_t key = (uint64_t(kind) << 40) | (uint64_t(sample.state) << 32) |
+        (uint64_t(sample.width) << 16) | sample.height;
+    if (!schedule.due(key, now)) return;
+    const auto diagnostic = hdmi_receiver.diagnostics(kind);
+    schedule.completed(diagnostic, now);
+    const auto text = nanokvm::format_receiver_diagnostics(diagnostic);
+    if (text != previous) {
+        fprintf(stderr, "%s\n", text.c_str());
+        previous = text;
+    }
+}
+
 /* A transient bus error is not a cable event. Three unsuccessful polls
  * withdraw the signal, retaining the last valid geometry for recovery. */
-static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false)
+static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false,
+    bool receiver_event = false)
 {
+    // IRQs can represent a refresh-rate change without changing CSI dimensions.
+    // Preserve the request across paused/settling admission as well.
+    if (receiver_event) receiver_diagnostics_pending.store(true, std::memory_order_relaxed);
     auto access = receiver_access.read();
     if (!access && access.state != nanokvm::ReceiverState::IoError) {
         receiver_retry_pending.store(true, std::memory_order_relaxed);
@@ -680,6 +706,7 @@ static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false)
         kvmv_cfg.hdmi_version == 3 ? nanokvm::ReceiverKind::D : nanokvm::ReceiverKind::C;
     const auto sample = access ? hdmi_receiver.snapshot(kind) :
         nanokvm::ReceiverSnapshot{nanokvm::ReceiverState::IoError, 0, 0, access.error, 0};
+    if (access) log_receiver_diagnostics(sample, kind);
     // Geometry publication can wait for a frame lease. Drop only the device
     // flock first: an MMF sensor probe may need it while retiring that frame.
     // The admission lock still prevents maintenance/reset until publication.
@@ -814,6 +841,7 @@ void* vi_subsystem_detection(void *)
                     if (tmp8 != 0) nanokvm::write_small_uint(hdmi_state_path, 0);
                 }
             }
+            const bool receiver_event = tmp8 != 0;
             // A failed edge-triggered read also needs a bounded retry: a
             // stable source need not generate another interrupt.
             const uint64_t now = vi_state_shared::monotonic_ms();
@@ -832,7 +860,7 @@ void* vi_subsystem_detection(void *)
                         rising_times != 0 : falling_times != 0;
                     if (event_applies) {
                         last_hdmi_poll_ms = now;
-                        if (poll_hdmi_receiver(!hdmi_poll_fallback))
+                        if (poll_hdmi_receiver(!hdmi_poll_fallback, false, receiver_event))
                             auto_change_mode = 1;
                     }
                 }
@@ -2006,7 +2034,9 @@ int kvmv_edid_maintenance(uint8_t pause)
     } else {
         if (!active) { errno = EINVAL; return -1; }
         kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
-        control.resume();
+        control.resume(std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS));
+        receiver_diagnostics_pending = true;
+        receiver_retry_pending.store(true, std::memory_order_relaxed);
         set_hdmi_capture_enabled(previous_capture);
         active = false;
     }
@@ -2049,9 +2079,13 @@ int kvmv_hdmi_control(uint8_t _en)
         return set_owned_hdmi_reset(true);
     }
     if (set_owned_hdmi_reset(false) != 0) return -1;
+    // Readiness is a monotonic admission deadline, not a sleep on the frame
+    // path. 250 ms is the initial conservative UXC/PCIe qualification value.
     // Keep the existing VI channel and consume queued frames after idle.
     kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
-    control.resume();
+    control.resume(std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS));
+    receiver_diagnostics_pending = true;
+    receiver_retry_pending.store(true, std::memory_order_relaxed);
     set_hdmi_capture_enabled(1);
     return 0;
 }

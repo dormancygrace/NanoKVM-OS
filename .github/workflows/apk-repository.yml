@@ -16,6 +16,7 @@ on:
       - scripts/addon_packages.py
       - scripts/index-apk-repo.py
       - scripts/check-ec-key.sh
+      - scripts/alpine-signer.sh
       - tests/test-index-apk-repo.py
       - firmware/alpine/addons.json
       - tests/test-assemble-apk-repo.py
@@ -108,7 +109,10 @@ jobs:
     runs-on: ubuntu-26.04
     environment: release
     steps:
+      # The key is in this job: no token in .git/config.
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: apk-repository-candidate
@@ -127,14 +131,22 @@ jobs:
           cp firmware/alpine/keys/nkos-release-ec-b8e89b66.pub "$k/"
           scripts/check-ec-key.sh "$k/release.key" "$k/nkos-release-ec-b8e89b66.pub"
           branch=$(ls site/alpine)
-          docker run --rm -v "$PWD/site:/site" -v "$k:/signing:ro" -v "$PWD/firmware/alpine/keys:/keys:ro" -e "branch=$branch" \
-            alpine:3.24 sh -euc '
-              for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do
-                apk --allow-untrusted --sign-key /signing/release.key \
-                  adbsign --reset-signatures "$repo/Packages.pending.adb"
-                apk --keys-dir /signing verify "$repo/Packages.pending.adb"
-                mv "$repo/Packages.pending.adb" "$repo/Packages.adb"
-              done'
+          # apk from the minirootfs pinned in platform/sources.lock, not a
+          # Docker image: the key goes into it.
+          s=$RUNNER_TEMP/signer
+          trap 'rm -rf "$k"; sudo rm -rf --one-file-system "$s"' EXIT
+          scripts/alpine-signer.sh "$s"
+          sudo install -d -m 0700 "$s/signing"
+          sudo install -m 0600 "$k/release.key" "$s/signing/"
+          sudo install -m 0644 "$k/nkos-release-ec-b8e89b66.pub" "$s/signing/"
+          for repo in site/alpine/$branch/riscv64 site/beta/alpine/$branch/riscv64; do
+            sudo install -m 0644 "$repo/Packages.pending.adb" "$s/Packages.adb"
+            sudo chroot "$s" /sbin/apk --allow-untrusted --sign-key /signing/release.key \
+              adbsign --reset-signatures /Packages.adb
+            sudo chroot "$s" /sbin/apk --keys-dir /signing verify /Packages.adb
+            sudo cat "$s/Packages.adb" > "$repo/Packages.adb"
+            rm "$repo/Packages.pending.adb"
+          done
       - name: Remove signing keys
         if: always()
         run: rm -rf "$RUNNER_TEMP/index-keys"

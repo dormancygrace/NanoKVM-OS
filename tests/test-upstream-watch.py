@@ -142,6 +142,28 @@ class WatchTests(unittest.TestCase):
                     self.assertEqual(result['latest'], latest)
                     self.assertEqual(result['status'], status)
 
+    def test_alpine_rootfs_uses_each_pinned_architecture(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        for lock_entry, arch in [('alpine', 'riscv64'), ('alpine-signer', 'x86_64')]:
+            source = next(s for s in sources if s.get('lock_entry') == lock_entry)
+            with self.subTest(arch=arch), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'platform').mkdir()
+                (root / source['path']).write_text(
+                    lock_entry + ' https://example.test/alpine-minirootfs-3.24.3-' + arch + '.tar.gz hash\\n')
+                for listing, expected in [
+                    ('alpine-minirootfs-3.24.4-' + arch, 'update available'),
+                    ('alpine-minirootfs-3.24.3-' + arch, 'current'),
+                    ('alpine-minirootfs-3.24.2-' + arch, 'pinned ahead'),
+                    ('alpine-minirootfs-3.24.9-other', 'error'),
+                ]:
+                    with patch.object(u, 'request', return_value=listing) as request:
+                        result = u.check(source, root)
+                    self.assertEqual(result['current'], '3.24.3', result)
+                    self.assertEqual(result['status'], expected, result)
+                    request.assert_called_once_with(
+                        'https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/' + arch + '/')
+
     def test_inventory_matches_sources(self):
         import json
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']

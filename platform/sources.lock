@@ -48,3 +48,6 @@ pnpm       https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.8.1
 # scripts on the build host.
 alpine https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.3-riscv64.tar.gz 9714553757e7bf645eff5dcc52bdd206f358a7bed77874842567852e8326a51d
 qemu       https://launchpad.net/ubuntu/+archive/primary/+files/qemu-user-static_8.2.2+ds-0ubuntu1.19_amd64.deb  ec80ee896fe8f57f7420f4d4076164cb0fa613df6848568cdf5d1a2dbe2347cb
+# The release signer (scripts/sign-release.sh): apk-tools and abuild-sign on the
+# x86_64 CI host. dl-cdn publishes a .sha256 for it, no signature.
+alpine-signer https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.3-x86_64.tar.gz f8e1cafba9b1b283b5d30d06f9885c8d2bc161ffe9083ade8e2e157813a53407

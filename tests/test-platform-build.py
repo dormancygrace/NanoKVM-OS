@@ -155,7 +155,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(root / "debug"),
                              "-e", __file__, "-d", "packages"],
                             env=debug_env, capture_output=True, text=True)
-    expect(result, False, "debug packages refuse release keys", "-e excludes -d")
+    expect(result, False, "debug packages refuse release keys", "-e, -d and -u exclude each other")
 
     app = out / "payloads/app/kvmapp"
     assert {path.name for path in (app / "system/init.d").iterdir()} == {
@@ -229,7 +229,8 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
 source = (REPO / "platform/build.sh").read_text()
 userns = source[source.index("in_userns() ("):source.index("\nqemu=")]
 for mode, code in (("startup-fails", 17), ("uidmap-fails", 23),
-                   ("gidmap-fails", 24), ("child-fails", 29), ("success", 0)):
+                   ("gidmap-fails", 24), ("child-fails", 29), ("success", 0),
+                   ("unsigned", 0), ("dev-key", 0), ("release-key", 0)):
     with tempfile.TemporaryDirectory(prefix="nkos-userns-") as directory:
         root = Path(directory)
         script = root / "test.sh"
@@ -237,11 +238,17 @@ for mode, code in (("startup-fails", 17), ("uidmap-fails", 23),
 set -euo pipefail
 mode=$1
 export TMPDIR=$2
-here=$2 out=$2 jobs=1 key=
+here=$2 out=$2 jobs=1 eckey= devkey= laterkey=
+case $mode in
+    unsigned) laterkey=1 ;;
+    dev-key) devkey=1 ;;
+    release-key) eckey="$2/release key.key" ;;
+esac
 awk() { echo 100000; }
 newuidmap() { [ "$mode" != uidmap-fails ] || return 23; }
 newgidmap() { [ "$mode" != gidmap-fails ] || return 24; }
 unshare() {
+    printf '%s\\n' "$@" > "$TMPDIR/namespace-argv"
     [ "$mode" != startup-fails ] || return 17
     echo "$BASHPID" > "$TMPDIR/child.pid"
     echo > "$sync/ready"
@@ -252,6 +259,13 @@ unshare() {
         result = subprocess.run(["bash", str(script), mode, directory],
                                 capture_output=True, text=True, timeout=5)
         assert result.returncode == code, (mode, result.returncode, result.stderr)
+        if code == 0:
+            args = (root / "namespace-argv").read_text().splitlines()
+            child = args[args.index("NANOKVM_USERNS=1") + 1:]
+            flags = {"unsigned": ["-u"], "dev-key": ["-d"],
+                     "release-key": ["-e", str(root / "release key.key")]}.get(mode, [])
+            assert child == ["bash", str(root / "build.sh"), "-o", directory,
+                             "-j", "1", *flags, "packages"], (mode, child)
         assert not list(root.glob("tmp.*")), (mode, "synchronization files left behind")
         child = root / "child.pid"
         if child.exists():

@@ -111,11 +111,13 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_the_tag_of_a_published_draft_releases_nothing_again(self):
         build = job(RELEASE, 'build')
         self.assertIn('gh release view "$GITHUB_REF_NAME"', build)
-        self.assertEqual(build.count("if: steps.version.outputs.skip != 'true'"), 3)
+        self.assertEqual(build.count("if: steps.version.outputs.skip != 'true'"), 5)
 
     def test_both_workflows_prepare_the_build_alike(self):
         self.assertIn('uses: ./.github/actions/prepare-build', BUILD)
-        self.assertEqual(RELEASE.count('uses: ./.github/actions/prepare-build'), 3)
+        # Only the build job: the jobs that sign restore nothing from a cache.
+        self.assertEqual(RELEASE.count('uses: ./.github/actions/prepare-build'), 1)
+        self.assertIn('uses: ./.github/actions/prepare-build', job(RELEASE, 'build'))
         # Only builds of main and pull requests save caches; a tag's would serve no one.
         self.assertIn("save-caches: 'true'", BUILD)
         self.assertNotIn('save-caches', RELEASE)
@@ -209,12 +211,19 @@ class ReleaseExecutionTests(unittest.TestCase):
             self.assertEqual(values['image_version'], 'v1.6-beta.1')
 
     def test_both_channels_compare_against_latest_tested_packages(self):
+        # The packages are built, and compared with the published ones, in the
+        # build job; the jobs that sign only sign.
+        packages = run_step('Packages, root file system and image')
+        step = RELEASE.split('      - name: Packages, root file system and image', 1)[1].split('      - uses:', 1)[0]
+        self.assertIn("NANOKVM_CHANNEL: ${{ steps.version.outputs.channel }}", step)
+        self.assertIn("NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/", step)
+        self.assertIn('platform/build.sh -o "$OUT" -u payloads packages rootfs image', packages)
         for name in ('sign', 'dry-run'):
-            section = job(RELEASE, name)
-            self.assertIn("NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}", section)
-            self.assertIn("NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/", section)
+            self.assertNotIn('NANOKVM_PREVIOUS', job(RELEASE, name))
         pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
-        self.assertEqual(pages.count('for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do'), 2)
+        # Both channels are indexed and signed.
+        self.assertEqual(pages.count('for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do'), 1)
+        self.assertEqual(pages.count('for repo in site/alpine/$branch/riscv64 site/beta/alpine/$branch/riscv64; do'), 1)
 
 
 

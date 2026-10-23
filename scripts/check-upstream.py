@@ -231,8 +231,9 @@ def check(source, root=ROOT):
                           detail='Published amd64 versions in the selected Ubuntu series; compare with dpkg before repinning')
         elif kind == 'alpine-rootfs':
             branch = '.'.join(current.split('.')[:2])
-            url = 'https://dl-cdn.alpinelinux.org/alpine/v' + branch + '/releases/riscv64/'
-            values = re.findall(r'alpine-minirootfs-([0-9]+\.[0-9]+\.[0-9]+)-riscv64', request(url))
+            arch = source.get('arch', 'riscv64')
+            url = 'https://dl-cdn.alpinelinux.org/alpine/v' + branch + '/releases/' + arch + '/'
+            values = re.findall(r'alpine-minirootfs-([0-9]+\.[0-9]+\.[0-9]+)-' + re.escape(arch), request(url))
             latest = max(values, key=version)
             result.update(latest=latest, link=url, status='update available' if version(latest) > version(current) else ('current' if latest == current else 'pinned ahead'))
         elif kind == 'github-reference':

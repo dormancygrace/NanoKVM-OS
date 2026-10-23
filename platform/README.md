@@ -59,7 +59,10 @@ platform/build.sh -d
 ```
 
 This creates a local test image signed with generated test keys. For official
-release signing, supply the ECDSA key as described [below](#signing-key).
+release signing, supply the ECDSA key as described [below](#signing-key). The
+Release workflow builds with `-u` instead: a throwaway key that the image does
+not trust signs the packages and indexes, and `scripts/sign-release.sh` then
+signs the repository with the release key, outside the build.
 
 The build needs no root. The packages, rootfs and image steps run as root of a user namespace: it maps the subordinate IDs, so that the root file system gets its real owners, and starts riscv64 programs through qemu in the namespace's own `binfmt_misc`. Files in `OUTPUT/apk-builder` and `OUTPUT/rootfs` then belong to subordinate IDs; `build.sh clean` deletes them.
 

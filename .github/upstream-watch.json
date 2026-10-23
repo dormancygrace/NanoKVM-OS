@@ -376,6 +376,18 @@
       }
     },
     {
+      "name": "Alpine signing minirootfs",
+      "lock_entry": "alpine-signer",
+      "path": "platform/sources.lock",
+      "pattern": "(?m)^alpine-signer\\s+\\S*/alpine-minirootfs-([0-9.]+)-x86_64",
+      "kind": "alpine-rootfs",
+      "pull_request": {
+        "id": "alpine-signing-minirootfs",
+        "mode": "archive-pin"
+      },
+      "arch": "x86_64"
+    },
+    {
       "name": "QEMU Ubuntu build helper",
       "lock_entry": "qemu",
       "path": "platform/sources.lock",

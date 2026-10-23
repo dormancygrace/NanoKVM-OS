@@ -1,15 +1,16 @@
 name: Assemble a release
 description: >
-  The packages, root file system and SD image from the outputs of a release
-  build (the release-build artifact), and the release assets with their
-  SHA256SUMS in OUTPUT/assets/public and OUTPUT/assets/packages. Only changed
-  packages are uploaded; the others stay in the release that first carried them.
+  The APK repository of a release build (the release-build artifact, built
+  with platform/build.sh -u) signed with the release key, and the release
+  assets with their SHA256SUMS in OUTPUT/assets/public and
+  OUTPUT/assets/packages. Only changed packages are uploaded; the others stay
+  in the release that first carried them.
 inputs:
   out:
-    description: platform/build.sh OUTPUT, prepared by the prepare-build action
+    description: an empty directory for the release outputs
     required: true
   keys:
-    description: 'platform/build.sh key options: -e ECKEY, or -d for a local EC test key'
+    description: 'scripts/sign-release.sh key options: -e ECKEY, or -d for a local EC test key'
     required: true
   image:
     description: attach the SD image (it is always built, as a check that the packages install)
@@ -17,37 +18,26 @@ inputs:
 runs:
   using: composite
   steps:
-    # The packages, rootfs and image steps run as root of a user namespace
-    # with subordinate IDs (platform/README.md). Ubuntu lets AppArmor deny
-    # unprivileged user namespaces by default.
-    - name: User namespaces
-      shell: bash
-      run: |
-        user=$(id -un)
-        for file in /etc/subuid /etc/subgid; do
-          grep -q "^$user:" "$file" 2>/dev/null || echo "$user:100000:65536" | sudo tee -a "$file"
-        done
-        ! sysctl -n kernel.apparmor_restrict_unprivileged_userns > /dev/null 2>&1 ||
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
     - name: Download the build
       uses: actions/download-artifact@v8
       with:
         name: release-build
         path: ${{ runner.temp }}
 
-    - name: Packages, root file system and image
+    # The release outputs of the build job and the source archive only,
+    # checked before anything is written: that job ran third-party build code.
+    # Then the repository gets the release signature (scripts/sign-release.sh).
+    # Nothing here runs a build tool or anything restored from a cache.
+    - name: Sign the repository
       shell: bash
       env:
         OUT: ${{ inputs.out }}
         KEYS: ${{ inputs.keys }}
       run: |
-        # Only the images and the source archive, checked before anything is
-        # written: the build job ran third-party build code.
         python3 scripts/release_build_tar.py "$RUNNER_TEMP/release-build.tar" "$OUT"
-        # The key options are words: -k FILE -e FILE, or -d.
+        # The key options are words: -e FILE, or -d.
         # shellcheck disable=SC2086
-        platform/build.sh -o "$OUT" $KEYS payloads packages rootfs image
+        scripts/sign-release.sh -o "$OUT" $KEYS
 
     - name: Assets
       shell: bash

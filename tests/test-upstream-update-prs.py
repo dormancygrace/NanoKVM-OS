@@ -4,7 +4,6 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -52,7 +51,7 @@ class ProposalTests(unittest.TestCase):
         names = {s['name'] for s in self.sources}
         all_names = {s['name'] for s in json.loads((self.root / '.github/upstream-watch.json').read_text())['sources']}
         self.assertEqual(all_names - names, {'Linux', 'QEMU Ubuntu build helper'})
-        self.assertEqual(len(names), 33)
+        self.assertEqual(len(names), 34)
         self.assertEqual(self.source('aic8800')['repo'], 'radxa-pkg/aic8800')
         for name in ('Go runtime', 'Patched Pion dtls/v3', 'Patched Pion ice/v4',
                      'Patched Pion srtp/v3', 'GCC compiler', 'Alpine stable branch'):
@@ -120,6 +119,21 @@ class ProposalTests(unittest.TestCase):
         self.assertIn('v2027.01.tar.gz ' + 'a' * 64, plan['files']['platform/sources.lock'])
         self.assertIn('$u/u-boot-2027.01', plan['files']['platform/build.sh'])
         self.assertIn('U-Boot 2027.01', plan['files']['README.md'])
+        self.assertEqual(before, (self.root / 'platform/sources.lock').read_text())
+
+    def test_signer_archive_updates_only_x86_pin(self):
+        source = self.source('Alpine signing minirootfs')
+        before = (self.root / 'platform/sources.lock').read_text()
+        with patch.object(p, 'archive_hash', return_value='a' * 64) as download:
+            plan = p.proposal(source, self.result(source, '3.24.4'), self.root)
+        url = 'https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.4-x86_64.tar.gz'
+        download.assert_called_once_with(url)
+        after = plan['files']['platform/sources.lock']
+        self.assertIn('alpine-signer ' + url + ' ' + 'a' * 64, after)
+        self.assertEqual(
+            [line for line in before.splitlines() if not line.startswith('alpine-signer ')],
+            [line for line in after.splitlines() if not line.startswith('alpine-signer ')])
+        self.assertNotIn('platform/build.sh', plan['files'])
         self.assertEqual(before, (self.root / 'platform/sources.lock').read_text())
 
     def test_archive_failure_generates_review_without_partial_pin_changes(self):

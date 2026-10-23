@@ -266,10 +266,18 @@ checkout ref. Every job uses the same commit selected when the run starts.
 The workflow (`.github/workflows/release.yml`) takes the next version after the
 newest eligible release (`scripts/next-release.py`; drafts count), builds everything on
 a GitHub runner without the signing keys, and then waits in the `release`
-environment until a maintainer approves the sign job. That job signs the
-packages that changed and both indexes with the ECDSA release key (environment
-secret `APK_EC_KEY`: the unencrypted PEM private key matching
-`nkos-release-ec-b8e89b66.pub`). Public OS releases contain the corresponding-source
+environment until a maintainer approves the sign job. The build job also
+builds the packages, root file system and SD image, signed with a throwaway
+key (`platform/build.sh -u`). The sign job runs no build tool and restores
+nothing from a cache. In an Alpine x86_64 minirootfs pinned in
+`platform/sources.lock` (`scripts/sign-release.sh`), it gives the packages that
+changed the signature of the ECDSA release key (environment secret
+`APK_EC_KEY`: the unencrypted PEM private key matching
+`nkos-release-ec-b8e89b66.pub`) in place of the throwaway one, and makes and
+signs both indexes anew. Only the signature of a package changes, not its
+identity, so an image built in the build job installs updates as usual. The
+dry run takes the same path with a test key; its image does not trust that
+key. Public OS releases contain the corresponding-source
 archive, `SHA256SUMS`, and the SD image when requested. Packages and metadata go
 to a separate technical release in this same repository (see below). An unchanged
 package keeps its version and stays in the release that first carried it

@@ -261,11 +261,25 @@ func (s *Service) SendSequence(c *gin.Context) {
 	if req.Sequence == "reisub" {
 		owns = func() bool { return true }
 	}
+	pressed := false
 	write := func(report []byte) error {
 		return reservation.Execute(func() error {
-			if !isKeyboardRelease(report) && !owns() {
+			if isKeyboardRelease(report) {
+				// Control may change before our first press. Releasing then
+				// would clear keys held only by the new owner.
+				if !pressed {
+					return nil
+				}
+				if err := s.hid.WriteKeyboardReport(report); err != nil {
+					return err
+				}
+				pressed = false
+				return nil
+			}
+			if !owns() {
 				return ErrInputOwnerChanged
 			}
+			pressed = true
 			return s.hid.WriteKeyboardReport(report)
 		})
 	}

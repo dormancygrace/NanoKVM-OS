@@ -45,6 +45,7 @@ func newKeyboardRecorder(t *testing.T) *keyboardRecorder {
 		file: file,
 	}
 	go func() {
+		defer reader.Close()
 		defer close(r.done)
 		report := make([]byte, 8)
 		for {
@@ -136,5 +137,38 @@ func TestSequenceStopsWhenAnotherSessionTakesControl(t *testing.T) {
 	}
 	if len(reports) != 3 || pressedIn(reports[2]) {
 		t.Fatalf("want Alt, Alt+SysRq, then the release: %v", reports)
+	}
+}
+
+func TestSequenceLostControlBeforeFirstPressKeepsNewOwnersKey(t *testing.T) {
+	for _, sequence := range []string{"sysrq", "ctrl-alt-del"} {
+		t.Run(sequence, func(t *testing.T) {
+			r := newKeyboardRecorder(t)
+			// The new owner pressed X after router admission, before our
+			// first sequence step. This request must not release that key.
+			if err := r.service.hid.WriteKeyboardReport(keyboardReport(0, 0x1b)); err != nil {
+				t.Fatal(err)
+			}
+			code, reports := call(t, r, r.service.SendSequence,
+				url.Values{"sequence": {sequence}, "key": {"s"}}, 0)
+			if code != InputOwnerCode {
+				t.Fatalf("code = %d, want %d", code, InputOwnerCode)
+			}
+			if len(reports) != 1 || reports[0][2] != 0x1b {
+				t.Fatalf("request pressed nothing but changed the new owner's key: %v", reports)
+			}
+		})
+	}
+}
+
+func TestSequenceWithControlReleasesOnlyOnce(t *testing.T) {
+	r := newKeyboardRecorder(t)
+	code, reports := call(t, r, r.service.SendSequence,
+		url.Values{"sequence": {"ctrl-alt-del"}}, 1000)
+	if code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	if len(reports) != 2 || !pressedIn(reports[0]) || pressedIn(reports[1]) {
+		t.Fatalf("want one press and its release: %v", reports)
 	}
 }

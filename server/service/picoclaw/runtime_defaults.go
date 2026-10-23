@@ -24,15 +24,10 @@ type picoclawConfigDefault struct {
 }
 
 var picoclawNanoKVMDefaults = []picoclawConfigDefault{
-	{path: []string{"agents", "defaults", "restrict_to_workspace"}, value: false},
-	{path: []string{"agents", "defaults", "allow_read_outside_workspace"}, value: true},
 	{path: []string{"agents", "defaults", "tool_feedback", "enabled"}, value: true},
 	{path: []string{"gateway", "host"}, value: defaultPicoclawGatewayHost},
 	{path: []string{"gateway", "port"}, value: defaultPicoclawGatewayPort},
 	{path: []string{"gateway", "hot_reload"}, value: false},
-	{path: []string{"tools", "cron", "allow_command"}, value: true},
-	{path: []string{"tools", "exec", "allow_remote"}, value: true},
-	{path: []string{"tools", "exec", "enable_deny_patterns"}, value: false},
 	{path: []string{"channel_list", "pico", "type"}, value: "pico"},
 	{path: []string{"channel_list", "pico", "settings", "allow_token_query"}, value: false},
 	{path: []string{"channel_list", "pico", "settings", "ping_interval"}, value: defaultPicoclawPingSec},
@@ -40,6 +35,33 @@ var picoclawNanoKVMDefaults = []picoclawConfigDefault{
 	{path: []string{"channel_list", "pico", "settings", "write_timeout"}, value: defaultPicoclawWriteSec},
 	{path: []string{"channel_list", "pico", "settings", "max_connections"}, value: defaultPicoclawMaxConns},
 	{path: []string{"tools", "mcp", "enabled"}, value: true},
+}
+
+// picoclawHostToolDefaults are the agent's tools on the NanoKVM itself. The
+// agent reads screenshots of the host, which is only semi-trusted: text on
+// its screen could steer the model into running commands, as root here. So
+// the shell, file writes and scheduled commands are off and the agent is
+// kept in its workspace, unless the administrator turns host tools on (the
+// earlier NanoKVM defaults). The KVM tools come over MCP and stay on.
+func picoclawHostToolDefaults(enabled bool) []picoclawConfigDefault {
+	return []picoclawConfigDefault{
+		{path: []string{"agents", "defaults", "restrict_to_workspace"}, value: !enabled},
+		{path: []string{"agents", "defaults", "allow_read_outside_workspace"}, value: enabled},
+		{path: []string{"tools", "exec", "enabled"}, value: enabled},
+		{path: []string{"tools", "exec", "allow_remote"}, value: enabled},
+		{path: []string{"tools", "exec", "enable_deny_patterns"}, value: !enabled},
+		{path: []string{"tools", "write_file", "enabled"}, value: enabled},
+		{path: []string{"tools", "edit_file", "enabled"}, value: enabled},
+		{path: []string{"tools", "append_file", "enabled"}, value: enabled},
+		{path: []string{"tools", "cron", "allow_command"}, value: enabled},
+	}
+}
+
+// picoclawHostToolsEnabled is the administrator's choice (off when unknown).
+// In production this is the same store as Service.runtimeIntent.
+var picoclawHostToolsEnabled = func() bool {
+	intent, err := getRuntimeIntentStore().Load()
+	return err == nil && intent.HostTools
 }
 
 func ensurePicoclawStartupDefaults() error {
@@ -92,7 +114,7 @@ func ensurePicoclawPicoChannelEnabled(doc *picoclawConfigDocument) error {
 
 func applyPicoclawStartupDefaults(editor *picoclawConfigEditor) error {
 	editor.setValue(currentPicoclawConfigVersion, "version")
-	for _, entry := range picoclawNanoKVMDefaults {
+	for _, entry := range append(picoclawNanoKVMDefaults, picoclawHostToolDefaults(picoclawHostToolsEnabled())...) {
 		editor.setValue(entry.value, entry.path...)
 	}
 	server, err := defaultPicoclawMCPServer()
@@ -120,7 +142,9 @@ func forceEnablePicoclawPicoChannel(doc *picoclawConfigDocument, editor *picocla
 	doc.config.Channels["pico"] = pico
 }
 
-func defaultPicoclawMCPServer() (map[string]any, error) {
+// defaultPicoclawMCPServer is a variable for tests: the internal token lives
+// in /etc/kvm.
+var defaultPicoclawMCPServer = func() (map[string]any, error) {
 	internalToken, err := serverConfig.GetPicoclawInternalToken()
 	if err != nil {
 		return nil, err

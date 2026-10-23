@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -168,69 +169,153 @@ func (s *Service) UpdateModelConfig(c *gin.Context) {
 		return
 	}
 
-	currentStatus := s.runtime.Get()
-	shouldRestart := currentStatus.Ready || currentStatus.Status == "ready"
-	var releaseControl func()
-	if shouldRestart {
-		// Restart follows StartRuntime's lock order: stable PicoClaw control
-		// lease first, then the runtime lifecycle lock around config write and
-		// stop/start.
-		var controlErr *PicoclawError
-		releaseControl, controlErr = s.acquireControlMode()
-		if controlErr != nil {
-			writePicoclawErrorWithData(c, controlErr, gin.H{"status": s.runtimeStatus()})
-			return
+	var modelName string
+	applied := s.applyConfigChange(c, "model config", "model_config", false, func() *PicoclawError {
+		var err error
+		modelName, err = updatePicoclawModelConfig(
+			strings.TrimSpace(req.APIBase),
+			strings.TrimSpace(req.APIKey),
+			strings.TrimSpace(req.Model),
+		)
+		if err != nil {
+			return newPicoclawError(CodeRuntimeUnavailable, err.Error())
 		}
-		defer releaseControl()
-	}
-
-	unlockLifecycle := s.lockRuntimeLifecycle()
-	defer unlockLifecycle()
-	currentStatus = s.runtime.Get()
-	if !shouldRestart && (currentStatus.Ready || currentStatus.Status == "ready") {
-		var controlErr *PicoclawError
-		releaseControl, controlErr = s.acquireControlMode()
-		if controlErr != nil {
-			writePicoclawErrorWithData(c, controlErr, gin.H{"status": s.runtimeStatus()})
-			return
+		if err := ensurePicoclawStartupDefaults(); err != nil {
+			return newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to persist picoclaw defaults: "+err.Error())
 		}
-		defer releaseControl()
-		shouldRestart = true
-	}
-
-	modelName, err := updatePicoclawModelConfig(
-		strings.TrimSpace(req.APIBase),
-		strings.TrimSpace(req.APIKey),
-		strings.TrimSpace(req.Model),
-	)
-	if err != nil {
-		writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, err.Error()))
+		return nil
+	})
+	if !applied {
 		return
-	}
-	if err := ensurePicoclawStartupDefaults(); err != nil {
-		writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to persist picoclaw defaults: "+err.Error()))
-		return
-	}
-
-	if shouldRestart {
-		if _, _, stopErr := s.stopRuntime(); stopErr != nil {
-			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to restart picoclaw runtime: "+stopErr.Message))
-			return
-		}
-		if _, _, startErr := s.startRuntime(); startErr != nil {
-			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to restart picoclaw runtime: "+startErr.Message))
-			return
-		}
-		s.setRuntimeIntentDesired(true, "model_config")
-	} else {
-		_ = s.syncConfigFromPicoclaw()
-		_ = s.ensureRuntimeReadyForLifecycle()
 	}
 
 	writeSuccess(c, gin.H{
 		"model_name": modelName,
 		"status":     s.runtimeStatus(),
 	})
+}
+
+// applyConfigChange runs change under the runtime lifecycle lock and restarts
+// a running PicoClaw afterwards, so that it reads the new config. what names
+// the change in restart errors. It writes the error response itself and
+// reports whether the change was applied.
+//
+// A gateway keeps the tools of the config it started with (hot_reload is
+// off). With revoke, the change takes privileges away: any live gateway,
+// ready or not, is stopped and checked to be gone before success, also
+// without the control lease (it is then not restarted) and also when change
+// fails.
+func (s *Service) applyConfigChange(c *gin.Context, what string, source string, revoke bool, change func() *PicoclawError) bool {
+	ready := func(status RuntimeStatus) bool { return status.Ready || status.Status == "ready" }
+	shouldRestart := ready(s.runtime.Get())
+	var releaseControl func()
+	defer func() {
+		if releaseControl != nil {
+			releaseControl()
+		}
+	}()
+	acquire := func() bool {
+		release, controlErr := s.acquireControlMode()
+		if controlErr == nil {
+			releaseControl = release
+			return true
+		}
+		if revoke {
+			shouldRestart = false
+			return true
+		}
+		writePicoclawErrorWithData(c, controlErr, gin.H{"status": s.runtimeStatus()})
+		return false
+	}
+	// Restart follows StartRuntime's lock order: stable PicoClaw control
+	// lease first, then the runtime lifecycle lock around config write and
+	// stop/start.
+	if shouldRestart && !acquire() {
+		return false
+	}
+
+	unlockLifecycle := s.lockRuntimeLifecycle()
+	defer unlockLifecycle()
+	if releaseControl == nil && ready(s.runtime.Get()) {
+		shouldRestart = true
+		if !acquire() {
+			return false
+		}
+	}
+
+	if err := change(); err != nil {
+		if revoke {
+			if stopErr := s.stopLiveGateway(); stopErr != nil {
+				err = newPicoclawError(err.Code, err.Message+"; the running picoclaw gateway could not be stopped: "+stopErr.Message)
+			}
+		}
+		writePicoclawError(c, err)
+		return false
+	}
+
+	if shouldRestart {
+		if stopErr := s.stopGatewayAndCheck(); stopErr != nil {
+			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, what+" saved, but failed to restart picoclaw runtime: "+stopErr.Message))
+			return false
+		}
+		if _, _, startErr := s.startRuntime(); startErr != nil {
+			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, what+" saved, but failed to restart picoclaw runtime: "+startErr.Message))
+			return false
+		}
+		s.setRuntimeIntentDesired(true, source)
+		return true
+	}
+	if revoke {
+		if stopErr := s.stopLiveGateway(); stopErr != nil {
+			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, what+" saved, but the running picoclaw gateway could not be stopped: "+stopErr.Message))
+			return false
+		}
+	}
+	_ = s.syncConfigFromPicoclaw()
+	_ = s.ensureRuntimeReadyForLifecycle()
+	return true
+}
+
+// stopPicoclawGateway stops the gateway; a variable for tests.
+var stopPicoclawGateway = func(s *Service) *PicoclawError {
+	_, _, err := s.stopRuntime()
+	return err
+}
+
+// gatewayExitWait bounds the wait for a stopped gateway to leave /proc: the
+// stop script waits for TERM, but returns right after a KILL.
+const gatewayExitWait = 3 * time.Second
+
+// stopGatewayAndCheck stops the gateway and checks that no gateway process
+// is left.
+func (s *Service) stopGatewayAndCheck() *PicoclawError {
+	if err := stopPicoclawGateway(s); err != nil {
+		return err
+	}
+	for deadline := time.Now().Add(gatewayExitWait); ; time.Sleep(50 * time.Millisecond) {
+		running, err := isRuntimeRunning()
+		if err != nil {
+			return newPicoclawError(CodeRuntimeUnavailable, "check picoclaw gateway process: "+err.Error())
+		}
+		if !running {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return newPicoclawError(CodeRuntimeUnavailable, "the picoclaw gateway is still running")
+		}
+	}
+}
+
+// stopLiveGateway stops a gateway process if one runs, ready or not.
+func (s *Service) stopLiveGateway() *PicoclawError {
+	running, err := isRuntimeRunning()
+	if err != nil {
+		return newPicoclawError(CodeRuntimeUnavailable, "check picoclaw gateway process: "+err.Error())
+	}
+	if !running {
+		return nil
+	}
+	return s.stopGatewayAndCheck()
 }
 
 func updatePicoclawModelConfig(apiBase string, apiKey string, model string) (string, error) {

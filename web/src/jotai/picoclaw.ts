@@ -24,6 +24,7 @@ export type PicoclawRuntimeStatus = {
   restoring?: boolean;
   runtime_intent?: {
     desired_running: boolean;
+    host_tools?: boolean;
     updated_at?: string;
     updated_by?: string;
     last_started_at?: string;

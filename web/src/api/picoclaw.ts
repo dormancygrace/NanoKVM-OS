@@ -23,6 +23,11 @@ export function setPicoclawModelConfig(data: ModelConfigRequest) {
   return http.post('/api/picoclaw/model/config', data);
 }
 
+// The agent's shell, file write and command scheduling tools on the NanoKVM.
+export function setPicoclawHostTools(enabled: boolean) {
+  return http.post('/api/picoclaw/host-tools', { enabled });
+}
+
 export function setPicoclawAgentProfile(data: AgentProfileRequest) {
   return http.post('/api/picoclaw/agent/profile', data);
 }

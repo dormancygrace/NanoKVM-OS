@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Button, Input } from 'antd';
+import { Alert, Button, Input, Switch } from 'antd';
 import { useSetAtom } from 'jotai';
 import {
   BookOpenIcon,
@@ -23,6 +23,11 @@ type SidebarModelConfigProps = {
   isSaving: boolean;
   modelIdentifier: string;
   modelName?: string;
+  // The agent's tools on the NanoKVM itself, as stored. The switch saves
+  // on its own, without the API key.
+  hostTools: boolean;
+  isSavingHostTools: boolean;
+  onHostToolsChange: (enabled: boolean) => void | Promise<void>;
   onApiBaseChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
   onModelIdentifierChange: (value: string) => void;
@@ -38,6 +43,9 @@ export const SidebarModelConfig = ({
   isSaving,
   modelIdentifier,
   modelName,
+  hostTools,
+  isSavingHostTools,
+  onHostToolsChange,
   onApiBaseChange,
   onApiKeyChange,
   onModelIdentifierChange,
@@ -131,6 +139,29 @@ export const SidebarModelConfig = ({
             value={apiBase}
             onChange={(e) => onApiBaseChange(e.target.value)}
           />
+        </div>
+        <div>
+          <label className="mb-1.5 flex items-center justify-between text-xs text-neutral-500">
+            {t('picoclaw.model.hostTools')}
+            <Switch
+              size="small"
+              checked={hostTools}
+              loading={isSavingHostTools}
+              disabled={disabled}
+              onChange={(checked) => void onHostToolsChange(checked)}
+            />
+          </label>
+          <div className="text-xs leading-5 text-neutral-500">
+            {t('picoclaw.model.hostToolsHint')}
+          </div>
+          {hostTools && (
+            <Alert
+              className="mt-2"
+              type="warning"
+              showIcon
+              title={t('picoclaw.model.hostToolsWarning')}
+            />
+          )}
         </div>
       </div>
 

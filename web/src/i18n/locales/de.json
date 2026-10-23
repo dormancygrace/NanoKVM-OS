@@ -2064,7 +2064,12 @@
       "saved": "Modellkonfiguration gespeichert",
       "saveFailed": "Modellkonfiguration konnte nicht gespeichert werden",
       "invalidNoKey": "Modellkennung und API Base URL sind erforderlich",
-      "invalid": "Modellkennung, API Base URL und API-Schlüssel sind erforderlich"
+      "invalid": "Modellkennung, API Base URL und API-Schlüssel sind erforderlich",
+      "hostTools": "Werkzeuge auf dem NanoKVM",
+      "hostToolsHint": "Befehle, Dateischreibzugriffe und geplante Befehle auf dem NanoKVM selbst. Die KVM-Werkzeuge (Bildschirm, Tastatur, Maus) funktionieren auch ohne sie.",
+      "hostToolsWarning": "Der Agent liest den Bildschirm des Hosts. Dort angezeigter Text kann ihn dazu bringen, Befehle als root auf dem NanoKVM auszuführen. Nur für vertrauenswürdige Hosts und Aufgaben einschalten.",
+      "hostToolsEnable": "Einschalten",
+      "hostToolsFailed": "Die Werkzeugeinstellung konnte nicht geändert werden"
     },
     "uninstall": {
       "menuLabel": "Deinstallieren",

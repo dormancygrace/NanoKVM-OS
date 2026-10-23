@@ -243,6 +243,7 @@ export const useSidebar = () => {
       setIsModelConfigOpen(true);
     },
     handleSaveModelConfig: actions.handleSaveModelConfig,
+    handleHostToolsChange: actions.handleHostToolsChange,
     handleSelectHistorySession: sessionActions.handleSelectHistorySession,
     historySessions,
     isDeletingSession,

@@ -5,9 +5,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -137,5 +141,138 @@ func TestUpdateHostToolsRewritesTheConfig(t *testing.T) {
 	service.UpdateHostTools(c)
 	if strings.Contains(recorder.Body.String(), `"code":0`) {
 		t.Fatalf("accepted a request without enabled: %s", recorder.Body.String())
+	}
+}
+
+// liveGateway starts a process that runtimeGatewayPID recognizes as the
+// gateway (argv "picoclaw gateway") and records it in the PID file.
+func liveGateway(t *testing.T, home string) *exec.Cmd {
+	return liveGatewayScript(t, home, "while :; do sleep 0.05; done\n")
+}
+
+func liveGatewayScript(t *testing.T, home, script string) *exec.Cmd {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "gateway"), []byte(script), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := &exec.Cmd{Path: "/bin/sh", Args: []string{"picoclaw", "gateway"}, Dir: dir}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
+	t.Cleanup(func() { _ = cmd.Process.Kill(); <-done })
+	if err := os.WriteFile(filepath.Join(home, picoclawPIDFileName), []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if running, err := isRuntimeRunning(); err != nil || !running {
+		t.Fatalf("fake gateway not recognized: %v %v", running, err)
+	}
+	return cmd
+}
+
+func hostToolsRequest(service *Service, enabled bool) string {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/picoclaw/host-tools", strings.NewReader(fmt.Sprintf(`{"enabled":%v}`, enabled)))
+	c.Request.Header.Set("Content-Type", "application/json")
+	service.UpdateHostTools(c)
+	return recorder.Body.String()
+}
+
+// A gateway that runs but is not ready keeps the tools it started with
+// (hot_reload is off): turning them off must stop it, or fail.
+func TestTurningHostToolsOffStopsALiveUnreadyGateway(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	home := t.TempDir()
+	t.Setenv("PICOCLAW_HOME", home)
+	config := filepath.Join(home, "config.json")
+	if err := os.WriteFile(config, []byte(`{"agents":{"defaults":{}},"model_list":[],"channel_list":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := NewRuntimeIntentStore(filepath.Join(t.TempDir(), "picoclaw-runtime.json"))
+	previous, previousMCP, previousStop := picoclawHostToolsEnabled, defaultPicoclawMCPServer, stopPicoclawGateway
+	picoclawHostToolsEnabled = func() bool {
+		intent, err := store.Load()
+		return err == nil && intent.HostTools
+	}
+	defaultPicoclawMCPServer = func() (map[string]any, error) { return map[string]any{"enabled": true}, nil }
+	t.Cleanup(func() {
+		picoclawHostToolsEnabled, defaultPicoclawMCPServer, stopPicoclawGateway = previous, previousMCP, previousStop
+	})
+	service := &Service{
+		runtime:       &RuntimeStore{status: RuntimeStatus{Status: "unavailable"}},
+		runtimeIntent: store,
+	}
+
+	// The stop works: success, and no gateway is left.
+	gateway := liveGateway(t, home)
+	stops := 0
+	stopPicoclawGateway = func(*Service) *PicoclawError {
+		stops++
+		_ = gateway.Process.Kill()
+		for i := 0; i < 100; i++ {
+			if running, _ := isRuntimeRunning(); !running {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		return nil
+	}
+	if body := hostToolsRequest(service, false); !strings.Contains(body, `"code":0`) || stops != 1 {
+		t.Fatalf("stops %d: %s", stops, body)
+	}
+	if running, _ := isRuntimeRunning(); running {
+		t.Fatal("the old gateway still runs after the tools were turned off")
+	}
+
+	// A gateway that takes a moment to exit after TERM is waited for.
+	gateway = liveGatewayScript(t, home, "trap 'sleep 0.3; exit 0' TERM\nwhile :; do sleep 0.05; done\n")
+	stopPicoclawGateway = func(*Service) *PicoclawError {
+		_ = gateway.Process.Signal(syscall.SIGTERM)
+		return nil
+	}
+	if body := hostToolsRequest(service, false); !strings.Contains(body, `"code":0`) {
+		t.Fatalf("a slow exit was reported as a failure: %s", body)
+	}
+
+	// The stop leaves the process running: an error, not success.
+	liveGateway(t, home)
+	stopPicoclawGateway = func(*Service) *PicoclawError { return nil }
+	if body := hostToolsRequest(service, false); strings.Contains(body, `"code":0`) || !strings.Contains(body, "still running") {
+		t.Fatalf("reported success with the gateway alive: %s", body)
+	}
+
+	// The config cannot be written: the gateway is stopped anyway, and the
+	// request fails.
+	gateway = liveGateway(t, home)
+	stops = 0
+	stopPicoclawGateway = func(*Service) *PicoclawError {
+		stops++
+		_ = gateway.Process.Kill()
+		for i := 0; i < 100; i++ {
+			if running, _ := isRuntimeRunning(); !running {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		return nil
+	}
+	if err := os.WriteFile(config, []byte(`{not json`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if body := hostToolsRequest(service, false); strings.Contains(body, `"code":0`) || stops != 1 {
+		t.Fatalf("stops %d: %s", stops, body)
+	}
+
+	// Turning them on does not stop an unready gateway.
+	liveGateway(t, home)
+	if err := os.WriteFile(config, []byte(`{"agents":{"defaults":{}},"model_list":[],"channel_list":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stops = 0
+	if body := hostToolsRequest(service, true); !strings.Contains(body, `"code":0`) || stops != 0 {
+		t.Fatalf("stops %d: %s", stops, body)
 	}
 }

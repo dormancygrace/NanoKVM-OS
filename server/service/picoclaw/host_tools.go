@@ -22,7 +22,8 @@ func (s *Service) UpdateHostTools(c *gin.Context) {
 		return
 	}
 
-	applied := s.applyConfigChange(c, "host tools setting", "host_tools", func() *PicoclawError {
+	// Turning the tools off must reach a gateway that is running already.
+	applied := s.applyConfigChange(c, "host tools setting", "host_tools", !*req.Enabled, func() *PicoclawError {
 		if err := s.runtimeIntent.SetHostTools(*req.Enabled, "host_tools"); err != nil {
 			return newPicoclawError(CodeRuntimeUnavailable, "failed to store the host tools setting: "+err.Error())
 		}

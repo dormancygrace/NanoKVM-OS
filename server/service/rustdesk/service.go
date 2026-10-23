@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -19,6 +20,7 @@ import (
 
 	"NanoKVM-Server/internal/apkrun"
 	"NanoKVM-Server/internal/oomscore"
+	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/service/vm"
 
 	log "github.com/sirupsen/logrus"
@@ -351,13 +353,23 @@ func (s *Service) daemonRunning() bool {
 	return err == nil
 }
 
+// updateLock is the device-wide lock of every package and image operation.
+// Without it an add-on action could change apk between the steps of an OS
+// update or rollback, or while a settings recovery is pending.
+var updateLock = func() (io.Closer, error) { return osupdate.Lock() }
+
 // packageCommand holds the index lock so that a status query never loads the
 // indexes alongside an apk transaction.
 func (s *Service) packageCommand(args ...string) error {
+	lock, err := updateLock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
 	s.apkMu.Lock()
 	defer s.apkMu.Unlock()
 	defer s.forgetPackageFacts()
-	_, err := s.command("apk", args...)
+	_, err = s.command("apk", args...)
 	return err
 }
 
@@ -366,6 +378,11 @@ func (s *Service) packageCommand(args ...string) error {
 // changing anything. apk add --upgrade unpins this add-on in the transaction
 // while preserving the other world constraints.
 func (s *Service) upgradePackage() error {
+	lock, lockErr := updateLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer lock.Close()
 	s.apkMu.Lock()
 	defer s.apkMu.Unlock()
 	defer s.forgetPackageFacts()

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,6 +16,34 @@ import (
 
 	"NanoKVM-Server/service/vm"
 )
+
+type nopCloser struct{}
+
+func (nopCloser) Close() error { return nil }
+
+// The real update lock lives under /kvmapp; package tests hold a stand-in.
+func TestMain(m *testing.M) {
+	updateLock = func() (io.Closer, error) { return nopCloser{}, nil }
+	os.Exit(m.Run())
+}
+
+func TestPackageActionsTakeTheUpdateLock(t *testing.T) {
+	old := updateLock
+	t.Cleanup(func() { updateLock = old })
+	updateLock = func() (io.Closer, error) {
+		return nil, errors.New("settings recovery pending; reboot before changing packages")
+	}
+	s := NewService(NewBridge())
+	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		t.Fatalf("ran %s %v without the update lock", name, args)
+		return nil, nil
+	}
+	for _, action := range []string{"check", "install", "upgrade", "remove"} {
+		if err := s.Action(action); err == nil || !strings.Contains(err.Error(), "recovery pending") {
+			t.Fatalf("%s: %v", action, err)
+		}
+	}
+}
 
 func temporaryConfig(t *testing.T) {
 	t.Helper()

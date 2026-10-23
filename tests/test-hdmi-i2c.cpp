@@ -13,7 +13,7 @@
 #include <linux/i2c-dev.h>
 static unsigned opens, closes, transfers, queries;
 static int result = -2, failure = 0;
-static bool capable = true, query_failure = false;
+static bool capable = true, query_failure = false, address_busy = false;
 static int test_open(const char *path, int flags, ...) {
     assert(strcmp(path, "/dev/i2c-4") == 0 && (flags & O_CLOEXEC)); ++opens; return 42;
 }
@@ -25,6 +25,11 @@ static int test_ioctl(int fd, unsigned long request, ...) {
         if (query_failure) { errno = ENOTTY; va_end(args); return -1; }
         *va_arg(args, unsigned long *) = capable ? I2C_FUNC_I2C : 0;
         ++queries; va_end(args); return 0;
+    }
+    if (request == I2C_SLAVE) {
+        assert(va_arg(args, int) == 0x2b); va_end(args);
+        if (address_busy) { errno = EBUSY; return -1; }
+        return 0;
     }
     assert(request == I2C_RDWR);
     auto *t = va_arg(args, i2c_rdwr_ioctl_data *);
@@ -101,6 +106,14 @@ int main() {
         nanokvm::I2c io(4);
         assert(!io.read_register(0x2b, 0x85, 0xea, bytes, 2) && errno == ENOTTY);
         assert(closes == 4);
+    }
+    query_failure = false; address_busy = true;
+    {
+        nanokvm::I2c io(4); auto before = transfers;
+        assert(!io.read_register(0x2b, 0x85, 0xea, bytes, 2) && errno == EBUSY);
+        assert(transfers == before);
+        address_busy = false;
+        assert(io.read_register(0x2b, 0x85, 0xea, bytes, 2));
     }
     puts("PASS real I2c/shared helper: atomic message layout, lazy capability query, short/negative/EINTR no replay, unchanged failed output, validation and unsupported adapter");
 }

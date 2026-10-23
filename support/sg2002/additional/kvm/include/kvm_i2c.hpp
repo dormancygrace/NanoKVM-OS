@@ -13,7 +13,8 @@ public:
     bool read_register(int address, uint8_t bank, uint8_t reg, uint8_t *bytes, size_t length);
     bool write_register(int address, uint8_t bank, uint8_t reg, const uint8_t *bytes, size_t length);
 private:
-    bool open_bus();
+    bool select(int address);
     int bus_, fd_ = -1;
+    int selected_ = -1; // retain I2C_SLAVE busy-address protection per fd
 };
 }

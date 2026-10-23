@@ -133,7 +133,7 @@ func client(r *http.Request) string {
 // compared, in the same critical section as the check, so parallel requests
 // cannot all pass the check before the first failure is recorded. A
 // successful login hands the attempt back with loginSucceeded.
-func (h *Handler) beginLogin(addr string) bool {
+func (h *Handler) beginLogin(addr string) *failures {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	f := h.failed[addr]
@@ -142,7 +142,7 @@ func (h *Handler) beginLogin(addr string) bool {
 		f = nil
 	}
 	if f != nil && f.count >= maxFailures {
-		return false
+		return nil
 	}
 	if f == nil {
 		h.expire()
@@ -150,13 +150,15 @@ func (h *Handler) beginLogin(addr string) bool {
 		h.failed[addr] = f
 	}
 	f.count++
-	return true
+	return f
 }
 
-func (h *Handler) loginSucceeded(addr string) {
+func (h *Handler) loginSucceeded(addr string, reservation *failures) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if f := h.failed[addr]; f != nil {
+	// A delayed success must not refund a newer window or a replacement
+	// record after eviction. Only return the attempt that we reserved.
+	if f := h.failed[addr]; f != nil && f == reservation {
 		// A counter left at zero would take a slot of the bounded table.
 		if f.count--; f.count <= 0 {
 			delete(h.failed, addr)
@@ -226,12 +228,13 @@ func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request) bool {
 			return true
 		}
 	} else if user, password, ok := r.BasicAuth(); ok {
-		if !h.beginLogin(addr) {
+		reservation := h.beginLogin(addr)
+		if reservation == nil {
 			writeError(w, http.StatusTooManyRequests, "GeneralError", "Too many failed logins; try again later.")
 			return false
 		}
 		if h.credentialsMatch(user, password) {
-			h.loginSucceeded(addr)
+			h.loginSucceeded(addr, reservation)
 			return true
 		}
 	}
@@ -532,7 +535,8 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "MalformedJSON", "The request body is not valid JSON.")
 		return
 	}
-	if !h.beginLogin(addr) {
+	reservation := h.beginLogin(addr)
+	if reservation == nil {
 		writeError(w, http.StatusTooManyRequests, "GeneralError", "Too many failed logins; try again later.")
 		return
 	}
@@ -540,7 +544,7 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "NoValidSession", "Invalid user name or password.")
 		return
 	}
-	h.loginSucceeded(addr)
+	h.loginSucceeded(addr, reservation)
 	s := &session{id: randomHex(8), token: randomHex(24), lastUsed: h.now()}
 	h.mu.Lock()
 	for token, old := range h.sessions {

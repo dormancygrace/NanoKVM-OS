@@ -19,7 +19,8 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
 | Power cycle | `PowerCycle` | `cycle` | hold, wait for the LED to go out (≤10 s), 2 s, short press; an error without the short press if the LED stays lit |
 | Power button | `PushPowerButton` | — | short press |
 
-- **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.- **The hold of a forced power-off** is the power menu's long press, 5 s, unless the settings page sets its own.
+- **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.
+- **The hold of a forced power-off** is the power menu's long press, 5 s, unless the settings page sets its own.
 - **Redfish** serves `/redfish/v1/` (no login), `Systems/1`, `Chassis/1`, `Managers/1` and `SessionService`.
   - It accepts HTTP Basic and `X-Auth-Token` sessions (`POST /redfish/v1/SessionService/Sessions`).
   - With Redfish off, `/redfish/` answers 404.

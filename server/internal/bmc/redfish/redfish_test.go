@@ -196,28 +196,99 @@ func TestBusyActionReturnsRetryableError(t *testing.T) {
 // Parallel logins must not all pass the lockout check before the first
 // failure is counted: the attempt is reserved with the check.
 func TestParallelLoginsMeetTheLimit(t *testing.T) {
-	h := New("admin", "correct-horse", Info{}, &fakePower{})
-	start := make(chan struct{})
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	unauthorized := 0
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			<-start
-			rec := do(h, "POST", "/redfish/v1/SessionService/Sessions", `{"UserName":"admin","Password":"guess"}`, nil)
-			if rec.Code == 401 {
-				mu.Lock()
-				unauthorized++
-				mu.Unlock()
+	for _, basic := range []bool{false, true} {
+		t.Run(fmt.Sprintf("basic=%t", basic), func(t *testing.T) {
+			h := New("admin", "correct-horse", Info{}, &fakePower{})
+			start := make(chan struct{})
+			var wg sync.WaitGroup
+			codes := make(chan int, 50)
+			for i := 0; i < cap(codes); i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					<-start
+					var rec *httptest.ResponseRecorder
+					if basic {
+						rec = do(h, "GET", systemPath, "", map[string]string{"basic": "admin:guess"})
+					} else {
+						rec = do(h, "POST", sessionsPath, "{\"UserName\":\"admin\",\"Password\":\"guess\"}", nil)
+					}
+					codes <- rec.Code
+				}()
 			}
-		}()
+			close(start)
+			wg.Wait()
+			close(codes)
+			unauthorized := 0
+			for code := range codes {
+				switch code {
+				case http.StatusUnauthorized:
+					unauthorized++
+				case http.StatusTooManyRequests:
+				default:
+					t.Errorf("unexpected status %d", code)
+				}
+			}
+			if unauthorized != maxFailures {
+				t.Fatalf("%d guesses were checked, want exactly %d", unauthorized, maxFailures)
+			}
+		})
 	}
-	close(start)
-	wg.Wait()
-	if unauthorized > maxFailures {
-		t.Fatalf("%d guesses were checked, at most %d", unauthorized, maxFailures)
+}
+
+// Refunds belong to the original reservation, even if the table has since
+// replaced its record after expiry or eviction.
+func TestOldSuccessDoesNotRefundReplacement(t *testing.T) {
+	for _, cause := range []string{"expiry", "eviction"} {
+		t.Run(cause, func(t *testing.T) {
+			h := New("admin", "correct-horse", Info{}, &fakePower{})
+			now := time.Unix(1800000000, 0)
+			h.now = func() time.Time { return now }
+			const addr = "192.0.2.7"
+			old := h.beginLogin(addr)
+			if old == nil {
+				t.Fatal("initial reservation refused")
+			}
+			if cause == "expiry" {
+				now = now.Add(failWindow + time.Nanosecond)
+			} else {
+				now = now.Add(time.Millisecond)
+				for i := 0; i < maxTracked; i++ {
+					if h.beginLogin(fmt.Sprintf("2001:db8:%x::/64", i)) == nil {
+						t.Fatal("new peer refused")
+					}
+				}
+				if h.failed[addr] != nil {
+					t.Fatal("oldest reservation was not evicted")
+				}
+			}
+			for i := 0; i < maxFailures; i++ {
+				if h.beginLogin(addr) == nil {
+					t.Fatal("new window reservation refused")
+				}
+			}
+			h.loginSucceeded(addr, old)
+			if !h.lockedOut(addr) || h.beginLogin(addr) != nil {
+				t.Fatal("an old successful login refunded a failure from its replacement")
+			}
+		})
+	}
+}
+
+func TestSuccessfulLoginOnlyRefundsItsAttempt(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	for i := 0; i < 2*maxFailures; i++ {
+		if rec := do(h, "GET", systemPath, "", admin); rec.Code != http.StatusOK {
+			t.Fatalf("successful status poll %d: %d", i, rec.Code)
+		}
+	}
+	if len(h.failed) != 0 {
+		t.Fatal("successful status polling retained a failure record")
+	}
+	do(h, "GET", systemPath, "", map[string]string{"basic": "admin:guess"})
+	do(h, "GET", systemPath, "", admin)
+	if f := h.failed["192.0.2.7"]; f == nil || f.count != 1 {
+		t.Fatalf("success did not preserve an earlier failed guess: %+v", f)
 	}
 }
 

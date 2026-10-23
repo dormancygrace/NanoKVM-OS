@@ -118,6 +118,9 @@ export const VirtualKeyboard = () => {
     setKeyboardLayout('default');
   }, [keyboardSystem, keyboardLanguage]);
 
+  // The host repeats held HID keys. Library timers can re-press a key after blur.
+  const disableButtonHold = true;
+
   // Press key
   function onKeyPress(key: string) {
     if (modifierKeys.includes(key)) {
@@ -311,6 +314,7 @@ export const VirtualKeyboard = () => {
               onKeyReleased={onKeyReleased}
               layoutName={keyboardLayout}
               {...keyboardOptions}
+              disableButtonHold={disableButtonHold}
             />
 
             {/* control keyboard */}
@@ -320,12 +324,14 @@ export const VirtualKeyboard = () => {
                   onKeyPress={onKeyPress}
                   onKeyReleased={onKeyReleased}
                   {...keyboardControlPadOptions}
+                  disableButtonHold={disableButtonHold}
                 />
 
                 <Keyboard
                   onKeyPress={onKeyPress}
                   onKeyReleased={onKeyReleased}
                   {...keyboardArrowsOptions}
+                  disableButtonHold={disableButtonHold}
                 />
               </div>
             )}

@@ -36,12 +36,15 @@ body:
     id: results
     attributes:
       label: Test results or requested support
-      description: 'For a test report: list what works, what fails, and how you tested it. For a port request: describe the hardware and what support you would like.'
+      description: 'For a test report: name the specific features you tried, describe how you tested them, and separate working, failing and untested features. For a port request: describe the hardware and what support you would like.'
       placeholder: |-
         Works:
         ...
 
-        Does not work / not tested:
+        Fails (include steps to reproduce):
+        ...
+
+        Not tested:
         ...
 
         Setup or requested support:

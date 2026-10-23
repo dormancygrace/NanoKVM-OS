@@ -16,13 +16,15 @@ import (
 
 func TestEthernetRestartWaitsForFlushedResponse(t *testing.T) {
 	dir := t.TempDir()
-	originalConfig, originalDisabled := ethernetConfigFile, ethernetDisabledFile
-	originalRestart := restartEthernetAfterResponse
+	originalConfig, originalDisabled, originalVLAN := ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile
+	originalRestart := restartEthernet
 	ethernetConfigFile = filepath.Join(dir, "eth.nodhcp")
 	ethernetDisabledFile = filepath.Join(dir, "eth.disabled")
+	ethernetVLANFile = filepath.Join(dir, "eth.vlan")
 	t.Cleanup(func() {
-		ethernetConfigFile, ethernetDisabledFile = originalConfig, originalDisabled
-		restartEthernetAfterResponse = originalRestart
+		endTrialForTest()
+		ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile = originalConfig, originalDisabled, originalVLAN
+		restartEthernet = originalRestart
 	})
 
 	// A slow SD sync must not race the restart against delivery of the reply.
@@ -44,7 +46,7 @@ while [ ! -e "$NK_TEST_SYNC_RELEASE" ]; do sleep 0.01; done
 	recorder := httptest.NewRecorder()
 	done := make(chan struct{})
 	restarted := make(chan bool, 1)
-	restartEthernetAfterResponse = func() {
+	restartEthernet = func() error {
 		// The fixed handler cannot start this hook until after Flush. A channel
 		// proves that ordering without racing reads of ResponseRecorder.
 		select {
@@ -53,6 +55,7 @@ while [ ! -e "$NK_TEST_SYNC_RELEASE" ]; do sleep 0.01; done
 		default:
 			restarted <- false
 		}
+		return nil
 	}
 	router := gin.New()
 	router.POST("/ethernet", func(c *gin.Context) {

@@ -4,7 +4,12 @@ import { CheckIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
-import type { EthernetConfig, EthernetMode } from '@/api/network.ts';
+import type { EthernetConfig, EthernetMode, NetworkTrial } from '@/api/network.ts';
+import {
+  networkTrialDone,
+  startNetworkTrial,
+  type NetworkTrialResult
+} from '@/lib/network-trial.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
@@ -53,6 +58,7 @@ export const Ethernet = () => {
 
   const getEthernet = useCallback(async () => {
     setIsLoading(true);
+    setLoadError('');
     try {
       const rsp = await api.getEthernet();
       if (rsp.code !== 0) {
@@ -113,7 +119,9 @@ export const Ethernet = () => {
     'vlanEnabled',
     'vlanId'
   ] as const;
-  const hasChanges = !original || editableFields.some((key) => config[key] !== original[key]);
+  // Without the current settings there is nothing to change: Save would
+  // send the defaults (DHCP, no VLAN) and could cut the device off.
+  const hasChanges = !!original && editableFields.some((key) => config[key] !== original[key]);
   const cidr = config.mode === 'static' ? parseCIDR(config.address) : null;
   const invalidAddress = !isIPv4(config.address) && !cidr;
   // No gateway: a link without a router, such as a cable straight to a computer.
@@ -144,13 +152,31 @@ export const Ethernet = () => {
       const saved = cidr ? { ...config, ...cidr } : config;
       setConfig(saved);
       setOriginal(saved);
-      setMessage(t('settings.network.ethernet.saved'));
+      // The device undoes the change unless the dialog reaches it.
+      const pending = (rsp.data as { trial?: NetworkTrial } | null)?.trial;
+      if (pending) startNetworkTrial(pending);
+      else setMessage(t('settings.network.ethernet.saved'));
     } catch (err) {
       showRequestError(err, 'settings.network.ethernet.saveFailed');
     } finally {
       setIsSaving(false);
     }
   }
+
+  // The check of a change on trial runs app-wide (NetworkTrialHost).
+  useEffect(() => {
+    const done = (event: Event) => {
+      if ((event as CustomEvent<NetworkTrialResult>).detail === 'kept') {
+        setMessage(t('settings.network.ethernet.saved'));
+      } else {
+        // The previous settings may be back: show what is in effect.
+        setMessage('');
+        void getEthernet();
+      }
+    };
+    window.addEventListener(networkTrialDone, done);
+    return () => window.removeEventListener(networkTrialDone, done);
+  }, [getEthernet, t]);
 
   const linkState = !config.enabled ? (
     <StatusBadge tone="neutral">{t('settings.network.ethernet.disabled')}</StatusBadge>
@@ -168,7 +194,18 @@ export const Ethernet = () => {
 
   return (
     <div className="space-y-6">
-      {loadError && <Alert type="error" showIcon message={loadError} />}
+      {loadError && (
+        <Alert
+          type="error"
+          showIcon
+          message={loadError}
+          action={
+            <Button size="small" loading={isLoading} onClick={() => void getEthernet()}>
+              {t('settings.network.ethernet.retry')}
+            </Button>
+          }
+        />
+      )}
 
       <SettingsSection>
         <SettingRow
@@ -182,7 +219,7 @@ export const Ethernet = () => {
             aria-describedby="ethernet-enabled-description"
             checked={config.enabled}
             loading={isSaving}
-            disabled={isLoading || isSaving}
+            disabled={isLoading || isSaving || !original}
             onChange={(enabled) => update({ enabled })}
           />
         </SettingRow>
@@ -293,7 +330,7 @@ export const Ethernet = () => {
             type={hasChanges ? 'primary' : 'default'}
             icon={message ? <CheckIcon size={14} /> : undefined}
             loading={isSaving}
-            disabled={isLoading || !hasChanges || invalidStatic || invalidVLAN}
+            disabled={isLoading || !original || !hasChanges || invalidStatic || invalidVLAN}
             onClick={save}
           >
             {t('settings.network.ethernet.save')}

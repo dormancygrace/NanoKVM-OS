@@ -14,6 +14,11 @@ func networkRouter(r *gin.Engine) {
 
 	r.POST("/api/network/wifi", service.ConnectWifiNoAuth)    // connect Wi-Fi without auth (only available in ap mode)
 	r.POST("/api/network/wifi/verify", service.VerifyApLogin) // verify ap login
+	// A network change on trial: found and kept from a page on any address,
+	// which may have no session there yet (service/network/trial.go).
+	r.GET("/api/network/trial/probe", service.ProbeTrial)
+	r.POST("/api/network/trial/confirm", service.ConfirmTrial)
+	network.RestorePendingTrial()
 
 	api := r.Group("/api").Use(middleware.CheckToken())
 

@@ -52,6 +52,14 @@ export const router = createHashRouter([
     ]
   },
   {
+    // Without a session: the device was just found at this address.
+    path: '/network/confirm',
+    lazy: async () => {
+      const { NetworkConfirm } = await import('./pages/network-confirm');
+      return { Component: NetworkConfirm };
+    }
+  },
+  {
     path: '/wifi',
     caseSensitive: false,
     lazy: async () => {

@@ -9,6 +9,16 @@ STAGER=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)/firmware/alpine/compat/
 DATA=$ROOT/data
 BOOT=$ROOT/boot
 mkdir -p "$DATA" "$BOOT"
+# The device recovery runs on: p1 vfat on the boot directory, p3 exFAT on
+# the data directory, and the partition layout recovery/init checks.
+SYS=$ROOT/sys
+for field in mmcblk0p2/start:131073 mmcblk0p2/size:1572864 mmcblk0p3/start:1705984; do
+	mkdir -p "$SYS/${field%%/*}"
+	printf '%s\n' "${field#*:}" >"$SYS/${field%%:*}"
+done
+printf '/dev/mmcblk0p1 %s vfat rw 0 0\n/dev/mmcblk0p3 %s exfat rw 0 0\n' "$BOOT" "$DATA" >"$ROOT/mounts"
+export NANOKVM_PROC_MOUNTS="$ROOT/mounts" NANOKVM_SYS_BLOCK="$SYS"
+printf 'running image\n' >"$BOOT/boot.sd"
 
 make_bundle() {
 	directory=$1
@@ -46,6 +56,32 @@ NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
 cmp "$DATA/nanokvm-update/boot-alpine-recovery.sd" "$BOOT/boot.sd"
 test ! -e "$DATA/nanokvm-update/recovery-formatting"
 test ! -e "$DATA/nanokvm-update/root-shadow.saved"
+# The image that ran is kept for recovery to go back to, with its hash.
+test "$(cat "$BOOT/boot.before-recovery")" = "running image"
+test "$(cat "$BOOT/boot.before-recovery.sha256")" = "$(sha256sum "$BOOT/boot.before-recovery" | cut -d ' ' -f 1)"
+# Activating again keeps that image, not the recovery FIT now in boot.sd.
+NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
+	"$STAGER" --activate "$DATA/nanokvm-update"
+test "$(cat "$BOOT/boot.before-recovery")" = "running image"
+
+# A device recovery cannot run on is refused before boot.sd changes.
+printf 'running image\n' >"$BOOT/boot.sd"
+refused() {
+	if NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT "$STAGER" --activate "$DATA/nanokvm-update" 2>/dev/null; then
+		echo "activation unexpectedly accepted: $1" >&2
+		exit 1
+	fi
+	test "$(cat "$BOOT/boot.sd")" = "running image"
+}
+printf '/dev/mmcblk0p1 %s vfat rw 0 0\n/dev/mmcblk0p3 %s vfat rw 0 0\n' "$BOOT" "$DATA" >"$ROOT/mounts"
+refused "data is not exFAT"
+printf '/dev/mmcblk0p1 %s vfat rw 0 0\n/dev/mmcblk0p3 %s exfat rw 0 0\n' "$BOOT" "$DATA" >"$ROOT/mounts"
+printf '2000000\n' >"$SYS/mmcblk0p3/start"
+refused "unexpected data partition start"
+printf '1705984\n' >"$SYS/mmcblk0p3/start"
+printf '1000000\n' >"$SYS/mmcblk0p2/size"
+refused "unexpected root partition size"
+printf '1572864\n' >"$SYS/mmcblk0p2/size"
 
 # A damaged input must be rejected before replacing the staged bundle.
 bad=$ROOT/bad
@@ -55,6 +91,6 @@ if NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT "$STAGER" "$bad"; then
 	echo "damaged bundle unexpectedly accepted" >&2
 	exit 1
 fi
-cmp "$DATA/nanokvm-update/boot-alpine-recovery.sd" "$BOOT/boot.sd"
+test "$(cat "$BOOT/boot.sd")" = "running image"
 
 echo "nanokvm-stage-update tests passed"

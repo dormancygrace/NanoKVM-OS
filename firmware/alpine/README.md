@@ -63,6 +63,10 @@ partition. `nanokvm-stage-update` verifies a complete bundle and free space
 before publishing it below `/data/nanokvm-update`; `--activate` installs the
 matching recovery FIT but leaves reboot explicit.
 
+- **Checks before activating.** `--activate` first checks what recovery needs: `/boot` is p1 (vfat), the data directory is p3 (exFAT), and p2/p3 start and size are the ones recovery expects.
+- **The way back.** It keeps the running image as `/boot/boot.before-recovery`, with its SHA-256. A recovery that stops before it formats p2 puts that image back and restarts. One that stops later stays at the console, since the old root is gone by then.
+- **Power loss.** Recovery records the preserved settings and the root password on `/data` before formatting, so a run after a power cut resumes with them. A successful run removes both records.
+
 `nanokvm-kernel-sg2002` owns the board FITs and metadata below
 `/usr/lib/nanokvm/boot` and depends on the matching module package. Its APK
 trigger activates the selected board image in `/boot/boot.sd` and requests a

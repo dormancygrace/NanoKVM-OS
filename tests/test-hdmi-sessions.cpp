@@ -666,6 +666,36 @@ static void firmware_diagnostics() {
     const auto full = full_units.diagnostics(ReceiverKind::D);
     assert(full.state == DiagnosticState::Ready && full.width == 1920 && full.htotal == 2200);
     assert(full.hsync == 44 && full.hfront == 88 && full.hback == 148);
+    // Producer 74ff shifts EACH horizontal word independently, losing its
+    // low bit. All 16 parity combinations of active/sync/front/back are valid.
+    for (unsigned parity = 0; parity < 16; ++parity) {
+        const unsigned active = 1366 + ((parity >> 0) & 1);
+        const unsigned sync = 142 + ((parity >> 1) & 1);
+        const unsigned front = 70 + ((parity >> 2) & 1);
+        const unsigned back = 212 + ((parity >> 3) & 1);
+        auto rounded = Bus::fixture(ReceiverKind::D);
+        rounded.pair(0xe088, (active + sync + front + back) / 2);
+        rounded.pair(0xe08c, active / 2);
+        rounded.pair(0xe098, sync / 2);
+        rounded.pair(0xe09a, front / 2);
+        rounded.pair(0xe09c, back / 2);
+        nanokvm::HdmiReceiver<Bus> probe(rounded);
+        const auto decoded = probe.diagnostics(ReceiverKind::D);
+        assert(decoded.state == DiagnosticState::Ready && decoded.tx_timing_available);
+        assert(decoded.width == active / 2 * 2 && decoded.hsync == sync / 2 * 2);
+    }
+    // Quantization allows at most two raw horizontal units of deficit;
+    // it cannot explain an excess, a larger deficit or any vertical error.
+    for (unsigned total : {1099U, 1103U}) {
+        auto invalid = Bus::fixture(ReceiverKind::D); invalid.pair(0xe088, total);
+        nanokvm::HdmiReceiver<Bus> probe(invalid);
+        assert(probe.diagnostics(ReceiverKind::D).state == DiagnosticState::Invalid);
+    }
+    for (unsigned total : {2199U, 2201U, 2204U}) {
+        auto invalid = yuv420; invalid.pair(0xe088, total);
+        nanokvm::HdmiReceiver<Bus> probe(invalid);
+        assert(probe.diagnostics(ReceiverKind::D).state == DiagnosticState::Invalid);
+    }
     // Added diagnostic decoding cannot change the existing capture path.
     assert(full_units.snapshot(ReceiverKind::D).width == 3840);
     for (unsigned reg : {0xe098, 0xe09a, 0xe09c, 0xe09e, 0xe0a1, 0xe0a3}) {

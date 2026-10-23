@@ -76,6 +76,11 @@ At 3452, format 0A selects direct horizontal-word copies through helper
 74F8. Other formats use helper 74FF, which shifts the 16-bit word right by
 one before publication. Diagnostic horizontal scaling is therefore one
 for format 0A and two for other formats, for this firmware version only.
+Each horizontal word loses its low bit independently in the half-unit
+branch. The decoded total can therefore exceed the sum of active, sync,
+front and back by 0, 2 or 4 pixels without indicating an incoherent sample.
+The sum check allows only that bounded deficit; full-unit and vertical
+timings still require exact equality.
 The existing capture-size path is not changed by this diagnostic work.
 
 The host gates extra reads on all four version bytes, validates timing

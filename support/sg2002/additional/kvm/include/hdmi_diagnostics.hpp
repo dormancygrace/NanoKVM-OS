@@ -132,7 +132,12 @@ inline ReceiverDiagnostics decode_d_diagnostics(const uint8_t data[23], uint8_t 
         bool invalid_word = false;
         for (unsigned i : {3U, 5U, 7U, 9U, 11U, 13U})
             invalid_word |= word(i) == UINT16_MAX;
-        if (invalid_word || d.htotal != d.width + d.hsync + d.hfront + d.hback ||
+        // The half-unit producer truncates all four components separately.
+        // floor(sum / 2) - sum(floor(component / 2)) is 0..2 raw units.
+        // Full-unit format 0x0a and vertical timings must still match exactly.
+        const uint32_t hsum = d.width + d.hsync + d.hfront + d.hback;
+        const uint32_t rounding = scale == 2 ? 4 : 0;
+        if (invalid_word || d.htotal < hsum || d.htotal - hsum > rounding ||
             d.vtotal != d.height + d.vsync + d.vfront + d.vback)
             d.state = DiagnosticState::Invalid;
     }

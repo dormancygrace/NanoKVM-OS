@@ -167,8 +167,23 @@ def check_resume(name, case):
         first = subprocess.run(['sh', '-c', 'set -eu\nfail() { echo "$*" >&2; exit 17; }\n' + func + setup +
                                 'validate_settings\nprintf "%s\\n" "${SETTINGS_SHA256:-none}"'],
                                text=True, capture_output=True, check=True)
-        marker.write_text(first.stdout)
-        shadow.write_text('root:SAVED:1::::::\n')
+        saved = 'root:SAVED:19000:0:99999:7:::\n'
+        shadow.write_text(saved)
+        digest = subprocess.run([busybox, 'sha256sum', str(shadow)], capture_output=True, text=True,
+                                check=True).stdout.split()[0]
+        marker.write_text(first.stdout + digest + '\n')
+        if case == 'shadow-empty':
+            shadow.write_text('')
+        elif case == 'shadow-truncated':
+            shadow.write_text('root:$6$trunc')
+        elif case == 'shadow-changed':
+            shadow.write_text('root:OTHER:19000:0:99999:7:::\n')
+        elif case == 'shadow-malformed':
+            # A well-formed digest of a malformed entry, as a careless writer could leave.
+            shadow.write_text('root:x\nbin:x\n')
+            digest = subprocess.run([busybox, 'sha256sum', str(shadow)], capture_output=True, text=True,
+                                    check=True).stdout.split()[0]
+            marker.write_text(first.stdout + digest + '\n')
         if case == 'changed':
             archive.write_bytes(archive.read_bytes() + b'x')
         elif case == 'missing-archive':
@@ -176,7 +191,7 @@ def check_resume(name, case):
         elif case == 'missing-shadow':
             shadow.unlink()
         elif case in ('none', 'none-but-archive'):
-            marker.write_text('none\n')
+            marker.write_text('none\n' + digest + '\n')
             if case == 'none':
                 archive.unlink()
         script = ('set -eu\nfail() { echo "$*" >&2; exit 17; }\n' + func + setup +
@@ -184,7 +199,7 @@ def check_resume(name, case):
         result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, timeout=20)
         if case in ('ok', 'none'):
             assert result.returncode == 0, (name, result)
-            assert (root / 'etc/shadow').read_text().splitlines()[0] == 'root:SAVED:1::::::', name
+            assert (root / 'etc/shadow').read_text().splitlines()[0] == saved.strip(), name
             if case == 'ok':
                 assert (root / 'etc/kvm/server.yaml').read_text() == 'user settings\n', name
             print('PASS:', name)
@@ -200,6 +215,10 @@ check_resume('resume refuses a changed archive', 'changed')
 check_resume('resume refuses a missing archive', 'missing-archive')
 check_resume('resume refuses a missing password record', 'missing-shadow')
 check_resume('resume refuses an archive that appeared later', 'none-but-archive')
+check_resume('resume refuses an emptied password record', 'shadow-empty')
+check_resume('resume refuses a truncated password record', 'shadow-truncated')
+check_resume('resume refuses a changed password record', 'shadow-changed')
+check_resume('resume refuses a malformed password record', 'shadow-malformed')
 
 
 def check_return(name, formatting, damage=None):

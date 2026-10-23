@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -73,6 +74,63 @@ def fetch(url):
         return response.read()
 
 
+# What an add-on package may declare: its files, dependencies and lifecycle
+# scripts. Everything else is refused. install-if would install it on devices
+# that never chose it, provides or replaces would let it stand in for a core
+# package, and triggers would run on changes of other packages.
+SECTIONS = {'info', 'paths', 'scripts'}
+INFO_FIELDS = {'name', 'version', 'hashes', 'description', 'arch', 'license', 'origin', 'maintainer',
+               'url', 'repo-commit', 'build-time', 'installed-size', 'file-size', 'depends'}
+SCRIPTS = {'pre-install', 'post-install', 'pre-upgrade', 'post-upgrade', 'pre-deinstall', 'post-deinstall'}
+
+
+def metadata(dump, filename):
+    """The info fields of the add-on APK filename, from its `apk adbdump`,
+    after checking that its name, version and arch are those of its file name
+    and that it declares nothing else (see SECTIONS)."""
+    match = TAG.fullmatch(filename.removesuffix('.apk'))
+    if not match or not filename.endswith('.apk'):
+        raise ValueError(f'Not an add-on APK: {filename}')
+    def refuse(what):
+        raise ValueError(f'Add-on {filename} declares {what}')
+    section = field = None
+    info = {}
+    for line in dump.splitlines():
+        if not line.strip() or line.startswith('#'):
+            continue
+        top = re.fullmatch(r'([a-z-]+):.*', line)
+        if top:
+            section = top[1]
+            if section not in SECTIONS:
+                refuse(section)
+            continue
+        if section == 'info':
+            entry = re.fullmatch(r'  ([a-z-]+):(?: (.*))?', line)
+            if entry:
+                field = entry[1]
+                if field not in INFO_FIELDS:
+                    refuse(field)
+                info[field] = '' if field == 'depends' else entry[2] or ''
+                continue
+            item = re.fullmatch(r"    - '?([^']+)'?", line)
+            if field != 'depends' or not item:
+                refuse(f'an unexpected info line: {line.strip()}')
+            # A conflict could make an upgrade remove a core package.
+            if item[1].startswith('!'):
+                refuse(f'a conflict with {item[1][1:]}')
+            info['depends'] = (info['depends'] + ' ' + item[1]).strip()
+        elif section == 'scripts':
+            script = re.fullmatch(r'  ([a-z-]+):.*', line)
+            if script and script[1] not in SCRIPTS:
+                refuse(f'the script {script[1]}')
+        elif section is None:
+            refuse(f'an unexpected line: {line.strip()}')
+    fields = {key: info[key] for key in ('name', 'version', 'arch') if key in info}
+    if fields != {'name': match[1], 'version': match[2] + '-r' + match[3], 'arch': 'riscv64'}:
+        raise ValueError(f'Add-on metadata mismatch: {filename}: {fields}')
+    return info
+
+
 def verify_repository(output, apk='apk', keys=None):
     """Verify signatures except for explicitly pinned, byte-verified add-ons."""
     entries = manifest((output / 'addons.json').read_bytes())
@@ -93,8 +151,14 @@ def main():
     parser.add_argument('--verify', action='store_true', help='verify an assembled repository')
     parser.add_argument('--apk', default='apk')
     parser.add_argument('--keys', type=Path)
-    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--output', type=Path)
+    parser.add_argument('--check', metavar='APK', help='check the add-on APK by its `apk adbdump` on stdin')
     args = parser.parse_args()
+    if args.check:
+        metadata(sys.stdin.read(), args.check)
+        return
+    if args.output is None:
+        parser.error('--output is required')
     if args.verify:
         verify_repository(args.output, args.apk, args.keys)
         return

@@ -1085,6 +1085,14 @@ packages() (
     # They remain optional and are never installed into the SD image.
     python3 "$repo/scripts/addon_packages.py" --manifest "$repo/firmware/alpine/addons.json" \
         --output "$b/build/repo/stock/recipes/riscv64"
+    # The index signed below selects packages for every device: an add-on
+    # may declare only its own files, dependencies and lifecycle scripts.
+    local addon
+    for addon in $(python3 -c 'import json, sys; print(*json.load(open(sys.argv[1]))["packages"])' \
+            "$repo/firmware/alpine/addons.json"); do
+        in_chroot "$b" /sbin/apk --allow-untrusted adbdump "/build/repo/stock/recipes/riscv64/$addon" |
+            python3 "$repo/scripts/addon_packages.py" --check "$addon"
+    done
     # New indexes have one ECDSA signature. Core signatures were checked above;
     # optional add-on bytes were checked against their pinned checksums.
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 &&

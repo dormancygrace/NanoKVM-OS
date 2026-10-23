@@ -21,6 +21,9 @@ export const Script = () => {
   const [isTogglingAutostart, setIsTogglingAutostart] = useState(false);
   const [currentScript, setCurrentScript] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  // The script the Run dialog shows: a click in the dialog closes the menu,
+  // which clears currentScript, and must not start another run.
+  const [runningScript, setRunningScript] = useState('');
 
   const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<any>(null);
@@ -73,6 +76,7 @@ export const Script = () => {
     if (!currentScript) return;
 
     if (type === 'foreground') {
+      setRunningScript(currentScript);
       setIsRunning(true);
     } else {
       api
@@ -259,7 +263,7 @@ export const Script = () => {
         onOpenChange={handleOpenChange}
       />
 
-      {isRunning && <Run script={currentScript} setIsRunning={setIsRunning} />}
+      {isRunning && <Run script={runningScript} setIsRunning={setIsRunning} />}
     </>
   );
 };

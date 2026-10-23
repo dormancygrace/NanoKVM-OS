@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
+import { virtualDiskFromLive } from '@/lib/virtual-disk-state.ts';
 
 // Read the applied composition, never an unapplied draft from the settings panel.
 // The live status carries it for administrators only; others get null.
@@ -11,8 +12,7 @@ export function useVirtualDisk() {
     let changedAt = -Infinity;
     const unsubscribe = subscribeLiveStatus((live, startedAt) => {
       if (startedAt < changedAt) return;
-      const usb = live?.usb;
-      setEnabled(typeof usb?.disk === 'boolean' ? usb.disk && usb.mode !== 'hid-only' : null);
+      setEnabled((previous) => virtualDiskFromLive(previous, live));
     });
     const refresh = () => void refreshLiveStatus({ force: true });
     function compositionChanged() {

@@ -1626,7 +1626,8 @@
         "save": "Save",
         "unsaved": "Unsaved changes",
         "saveFailed": "Failed to save Ethernet settings",
-        "loadFailed": "Failed to load Ethernet settings"
+        "loadFailed": "Failed to load Ethernet settings",
+        "retry": "Retry"
       },
       "dns": {
         "title": "DNS",
@@ -1688,6 +1689,20 @@
         "tip": "NanoKVM has no Bluetooth features yet: turning it on only loads the drivers. The setting applies at once and at every boot.",
         "version": "Bluetooth version",
         "unavailable": "This device has no Bluetooth that NanoKVM OS supports."
+      },
+      "trial": {
+        "title": "Checking the connection",
+        "waiting": "Looking for the device with its new settings. Unless it is reached, the previous settings come back in {{seconds}} s.",
+        "manual": "If this page does not move on by itself, open the device in a new tab at one of these addresses:",
+        "https": "This page uses HTTPS: it can look for the device at another address only if that address's certificate is trusted. With a self-signed certificate, open the address above and accept the certificate there.",
+        "moving": "Found at {{host}}. Opening it…",
+        "kept": "The device is reachable. The new settings are kept.",
+        "reverted": "The device was not reached from this page in time. Unless the settings were kept from another tab, the previous settings are back, and the device answers at its previous address again in a few seconds.",
+        "close": "Close",
+        "confirmedHere": "The device is reachable here. The new network settings are kept.",
+        "confirmFailed": "There is no network change waiting for confirmation here: it may already be kept or undone.",
+        "open": "Open NanoKVM",
+        "ended": "The change is no longer waiting for confirmation: it was kept, or undone early because the interface did not restart. The settings show which."
       }
     },
     "tailscale": {

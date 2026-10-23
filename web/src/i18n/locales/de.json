@@ -1626,7 +1626,8 @@
         "save": "Speichern",
         "unsaved": "Ungespeicherte Änderungen",
         "saveFailed": "Konfiguration konnte nicht gespeichert werden.",
-        "loadFailed": "Konfiguration konnte nicht geladen werden."
+        "loadFailed": "Konfiguration konnte nicht geladen werden.",
+        "retry": "Erneut versuchen"
       },
       "dns": {
         "title": "DNS",
@@ -1688,6 +1689,20 @@
         "tip": "NanoKVM hat noch keine Bluetooth-Funktionen: Einschalten lädt nur die Treiber. Die Einstellung gilt sofort und bei jedem Start.",
         "version": "Bluetooth-Version",
         "unavailable": "Dieses Gerät hat kein von NanoKVM OS unterstütztes Bluetooth."
+      },
+      "trial": {
+        "title": "Verbindung wird geprüft",
+        "waiting": "Das Gerät wird mit den neuen Einstellungen gesucht. Wird es nicht erreicht, gelten in {{seconds}} s wieder die vorherigen Einstellungen.",
+        "manual": "Wenn diese Seite nicht von selbst weitergeht, öffnen Sie das Gerät in einem neuen Tab unter einer dieser Adressen:",
+        "https": "Diese Seite nutzt HTTPS: Sie kann das Gerät unter einer anderen Adresse nur finden, wenn deren Zertifikat vertrauenswürdig ist. Bei einem selbstsignierten Zertifikat öffnen Sie die Adresse oben und akzeptieren es dort.",
+        "moving": "Unter {{host}} gefunden. Wird geöffnet…",
+        "kept": "Das Gerät ist erreichbar. Die neuen Einstellungen bleiben.",
+        "reverted": "Das Gerät wurde von dieser Seite nicht rechtzeitig erreicht. Wurden die Einstellungen nicht in einem anderen Tab bestätigt, gelten wieder die vorherigen, und das Gerät antwortet in wenigen Sekunden wieder unter der vorherigen Adresse.",
+        "close": "Schließen",
+        "confirmedHere": "Das Gerät ist hier erreichbar. Die neuen Netzwerkeinstellungen bleiben.",
+        "confirmFailed": "Hier wartet keine Netzwerkänderung auf Bestätigung: Sie wurde vielleicht schon übernommen oder rückgängig gemacht.",
+        "open": "NanoKVM öffnen",
+        "ended": "Die Änderung wartet nicht mehr auf Bestätigung: Sie wurde übernommen oder vorzeitig rückgängig gemacht, weil die Schnittstelle nicht neu startete. Die Einstellungen zeigen, was davon."
       }
     },
     "tailscale": {

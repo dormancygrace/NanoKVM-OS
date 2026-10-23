@@ -1626,7 +1626,8 @@
         "save": "Guardar",
         "unsaved": "Cambios sin guardar",
         "saveFailed": "No se pudo guardar la configuración.",
-        "loadFailed": "No se pudo cargar la configuración."
+        "loadFailed": "No se pudo cargar la configuración.",
+        "retry": "Reintentar"
       },
       "dns": {
         "title": "DNS",
@@ -1688,6 +1689,20 @@
         "tip": "NanoKVM aún no tiene funciones Bluetooth: activarlo solo carga los controladores. El ajuste se aplica al momento y en cada arranque.",
         "version": "Versión de Bluetooth",
         "unavailable": "Este dispositivo no tiene un Bluetooth compatible con NanoKVM OS."
+      },
+      "trial": {
+        "title": "Comprobando la conexión",
+        "waiting": "Buscando el dispositivo con la nueva configuración. Si no se alcanza, la configuración anterior vuelve en {{seconds}} s.",
+        "manual": "Si esta página no avanza sola, abra el dispositivo en una pestaña nueva en una de estas direcciones:",
+        "https": "Esta página usa HTTPS: solo puede buscar el dispositivo en otra dirección si el certificado de esa dirección es de confianza. Con un certificado autofirmado, abra la dirección de arriba y acepte allí el certificado.",
+        "moving": "Encontrado en {{host}}. Abriendo…",
+        "kept": "El dispositivo es accesible. Se mantiene la nueva configuración.",
+        "reverted": "No se alcanzó el dispositivo desde esta página a tiempo. Salvo que se mantuviera la configuración desde otra pestaña, vuelve la anterior, y en unos segundos el dispositivo responde de nuevo en su dirección anterior.",
+        "close": "Cerrar",
+        "confirmedHere": "El dispositivo es accesible aquí. Se mantiene la nueva configuración de red.",
+        "confirmFailed": "Aquí no hay ningún cambio de red pendiente de confirmación: quizá ya se mantuvo o se deshizo.",
+        "open": "Abrir NanoKVM",
+        "ended": "El cambio ya no espera confirmación: se mantuvo, o se deshizo antes porque la interfaz no se reinició. La configuración muestra cuál."
       }
     },
     "tailscale": {

@@ -740,7 +740,8 @@
         "interfaceDown": "Povoleno v nastavení · rozhraní je nyní shozené",
         "disconnectWarning": "Uložení okamžitě ukončí spojení využívající ethernet. Zajistěte, aby bylo k dispozici jiné připojení pro správu.",
         "vlanDescription": "Použít zvolené nastavení DHCP nebo statické IPv4 na eth0.<ID>",
-        "vlanWarning": "Změna VLAN může vést k odpojení této relace přes ethernet. Ujistěte se, že port na přepínači umožňuje zvolenou tagovanou VLAN."
+        "vlanWarning": "Změna VLAN může vést k odpojení této relace přes ethernet. Ujistěte se, že port na přepínači umožňuje zvolenou tagovanou VLAN.",
+        "retry": "Zkusit znovu"
       },
       "dns": {
         "title": "DNS",
@@ -899,6 +900,20 @@
         "tip": "NanoKVM prozatím ještě nemá žádné funkce ohledně Bluetooth: zapnutí pouze načte ovladače. Nastavení jsou uplatněna jednorázově a pak při každém zavedení systému.",
         "version": "Verze Bluetooth",
         "unavailable": "Toto zařízení nedisponuje Bluetooth (hardware), který je NanoKVM OS podporován."
+      },
+      "trial": {
+        "title": "Kontrola připojení",
+        "waiting": "Hledáme zařízení s novým nastavením. Pokud nebude dosažitelné, za {{seconds}} s se vrátí předchozí nastavení.",
+        "manual": "Pokud tato stránka nepřejde sama, otevřete zařízení v nové kartě na jedné z těchto adres:",
+        "https": "Tato stránka používá HTTPS: zařízení na jiné adrese najde jen tehdy, je-li certifikát té adresy důvěryhodný. S certifikátem podepsaným sám sebou otevřete adresu výše a přijměte certifikát tam.",
+        "moving": "Nalezeno na {{host}}. Otevírá se…",
+        "kept": "Zařízení je dosažitelné. Nové nastavení zůstává.",
+        "reverted": "Zařízení nebylo z této stránky včas dosaženo. Pokud nastavení nebylo ponecháno z jiné karty, vrátilo se předchozí a za několik sekund zařízení opět odpoví na předchozí adrese.",
+        "close": "Zavřít",
+        "confirmedHere": "Zařízení je zde dosažitelné. Nové síťové nastavení zůstává.",
+        "confirmFailed": "Zde nečeká na potvrzení žádná změna sítě: možná již byla ponechána nebo vrácena.",
+        "open": "Otevřít NanoKVM",
+        "ended": "Změna už nečeká na potvrzení: byla ponechána, nebo dříve vrácena, protože se rozhraní nerestartovalo. Nastavení ukazuje, co z toho."
       }
     },
     "tailscale": {

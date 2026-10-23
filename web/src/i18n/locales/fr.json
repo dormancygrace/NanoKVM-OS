@@ -1626,7 +1626,8 @@
         "save": "Enregistrer",
         "unsaved": "Modifications non enregistrées",
         "saveFailed": "Impossible d'enregistrer la configuration.",
-        "loadFailed": "Impossible de charger la configuration."
+        "loadFailed": "Impossible de charger la configuration.",
+        "retry": "Réessayer"
       },
       "dns": {
         "title": "DNS",
@@ -1688,6 +1689,20 @@
         "tip": "NanoKVM n’a pas encore de fonctions Bluetooth : l’activer charge seulement les pilotes. Le réglage s’applique immédiatement et à chaque démarrage.",
         "version": "Version Bluetooth",
         "unavailable": "Cet appareil n’a pas de Bluetooth pris en charge par NanoKVM OS."
+      },
+      "trial": {
+        "title": "Vérification de la connexion",
+        "waiting": "Recherche de l'appareil avec ses nouveaux paramètres. S'il n'est pas joint, les paramètres précédents reviennent dans {{seconds}} s.",
+        "manual": "Si cette page n'avance pas d'elle-même, ouvrez l'appareil dans un nouvel onglet à l'une de ces adresses :",
+        "https": "Cette page utilise HTTPS : elle ne peut chercher l'appareil à une autre adresse que si le certificat de cette adresse est approuvé. Avec un certificat auto-signé, ouvrez l'adresse ci-dessus et acceptez-y le certificat.",
+        "moving": "Trouvé à {{host}}. Ouverture…",
+        "kept": "L'appareil est joignable. Les nouveaux paramètres sont conservés.",
+        "reverted": "L'appareil n'a pas été joint à temps depuis cette page. Sauf si les paramètres ont été conservés depuis un autre onglet, les précédents sont revenus, et l'appareil répond à nouveau à son adresse précédente dans quelques secondes.",
+        "close": "Fermer",
+        "confirmedHere": "L'appareil est joignable ici. Les nouveaux paramètres réseau sont conservés.",
+        "confirmFailed": "Aucun changement réseau n'attend de confirmation ici : il a peut-être déjà été conservé ou annulé.",
+        "open": "Ouvrir NanoKVM",
+        "ended": "La modification n'attend plus de confirmation : elle a été conservée, ou annulée plus tôt parce que l'interface n'a pas redémarré. Les paramètres indiquent lequel."
       }
     },
     "tailscale": {

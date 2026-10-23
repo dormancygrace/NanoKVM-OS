@@ -78,31 +78,46 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		}
 	}
 
-	if err := writeEthernetConfig(config); err != nil {
-		log.Errorf("failed to write ethernet config: %s", err)
-		rsp.ErrRsp(c, -2, err.Error())
+	// The change can cut the device off: it runs on trial (trial.go).
+	trial, err := beginTrial("ethernet", []string{ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile})
+	if err != nil {
+		rsp.ErrRsp(c, -3, err.Error())
 		return
 	}
-	if req.VLANEnabled != nil {
-		if err := writeEthernetVLAN(config.VLANEnabled, config.VLANID); err != nil {
-			log.Errorf("failed to write ethernet VLAN: %s", err)
-			rsp.ErrRsp(c, -2, err.Error())
-			return
-		}
-	}
-	if err := writeEthernetEnabled(config.Enabled); err != nil {
-		log.Errorf("failed to write ethernet enabled state: %s", err)
+	if err := writeEthernet(config, req.VLANEnabled != nil); err != nil {
+		log.Errorf("failed to write ethernet config: %s", err)
+		trial.abandon()
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
 
 	_ = exec.Command("sync").Run()
+	trial.start()
 
 	// Finish persistence and flush the reply before replacing its network path.
-	rsp.OkRsp(c)
+	newAddress := ""
+	if config.Enabled && config.Mode == ethernetModeStatic {
+		newAddress = config.Address
+	}
+	rsp.OkRspWithData(c, gin.H{"trial": trial.info(trialHosts(newAddress, c.Request.Host))})
 	c.Writer.Flush()
-	go restartEthernetAfterResponse()
-	log.Infof("set ethernet config: enabled=%t mode=%s address=%s gateway=%s", config.Enabled, config.Mode, config.Address, config.Gateway)
+	go func() {
+		time.Sleep(restartDelay)
+		trial.restarted(restartEthernet())
+	}()
+	log.Infof("set ethernet config on trial: enabled=%t mode=%s address=%s gateway=%s", config.Enabled, config.Mode, config.Address, config.Gateway)
+}
+
+func writeEthernet(config proto.EthernetConfig, vlan bool) error {
+	if err := writeEthernetConfig(config); err != nil {
+		return err
+	}
+	if vlan {
+		if err := writeEthernetVLAN(config.VLANEnabled, config.VLANID); err != nil {
+			return err
+		}
+	}
+	return writeEthernetEnabled(config.Enabled)
 }
 
 func readEthernetConfig() (proto.EthernetConfig, error) {
@@ -383,10 +398,14 @@ func ipv4Broadcast(prefix netip.Prefix) netip.Addr {
 	return netip.AddrFrom4(broadcast)
 }
 
-var restartEthernetAfterResponse = func() {
-	time.Sleep(time.Second)
+// The reply is flushed before the interface it travels on restarts.
+var restartDelay = time.Second
+
+var restartEthernet = func() error {
 	argv := oomscore.Unprotected(ethernetInitScript, "restart")
-	if err := exec.Command(argv[0], argv[1:]...).Run(); err != nil {
-		log.Errorf("failed to restart ethernet: %s", err)
+	if output, err := exec.Command(argv[0], argv[1:]...).CombinedOutput(); err != nil {
+		log.Errorf("failed to restart ethernet: %s: %s", err, strings.TrimSpace(string(output)))
+		return err
 	}
+	return nil
 }

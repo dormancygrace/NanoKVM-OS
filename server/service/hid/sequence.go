@@ -2,6 +2,7 @@ package hid
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -252,10 +253,19 @@ func (s *Service) SendSequence(c *gin.Context) {
 		rsp.ErrRsp(c, -3, "HID control is busy")
 		return
 	}
-	// The reservation, not the session, so a report after another tab has
-	// taken control is refused rather than dropped on the floor.
+	// Ctrl+Alt+Del and SysRq stop at the next press once another session
+	// takes input control; their release still goes out. REISUB does not:
+	// stopped after E or I the host is left with nothing synced or
+	// rebooted, the reason it runs detached.
+	owns := inputOwner(c)
+	if req.Sequence == "reisub" {
+		owns = func() bool { return true }
+	}
 	write := func(report []byte) error {
 		return reservation.Execute(func() error {
+			if !isKeyboardRelease(report) && !owns() {
+				return ErrInputOwnerChanged
+			}
 			return s.hid.WriteKeyboardReport(report)
 		})
 	}
@@ -264,7 +274,9 @@ func (s *Service) SendSequence(c *gin.Context) {
 		err := runSequence(ctx, steps, write)
 		reservation.Complete(err == nil)
 		sequences.end(err)
-		if err != nil {
+		if errors.Is(err, ErrInputOwnerChanged) {
+			log.Infof("key sequence %s stopped: %v", req.Sequence, err)
+		} else if err != nil {
 			log.Errorf("key sequence %s failed: %v", req.Sequence, err)
 		} else {
 			log.Debugf("key sequence %s sent in %v", req.Sequence, duration)
@@ -282,6 +294,10 @@ func (s *Service) SendSequence(c *gin.Context) {
 		return
 	}
 	if err := run(c.Request.Context()); err != nil {
+		if errors.Is(err, ErrInputOwnerChanged) {
+			rsp.ErrRsp(c, InputOwnerCode, "another session holds input control")
+			return
+		}
 		rsp.ErrRsp(c, -3, "key sequence failed")
 		return
 	}

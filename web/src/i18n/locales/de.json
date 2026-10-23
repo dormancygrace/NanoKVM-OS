@@ -126,7 +126,13 @@
       "connected": "Verbunden",
       "idle": "Leerlauf",
       "error": "Fehler"
-    }
+    },
+    "downConfirm": "{{name}} ausschalten?",
+    "downDescription": "Verbindungen, die NanoKVM über diesen Tunnel erreichen, enden, vielleicht auch diese Seite.",
+    "routeConfirm": "{{name}} mit seinen Routen einschalten?",
+    "routeDescription": "Verkehr zu den erlaubten IPs des Tunnels läuft durch ihn. Gehört das Netz dieser Seite dazu, verliert sie ihre Verbindung.",
+    "openvpnUpConfirm": "{{name}} einschalten?",
+    "openvpnUpDescription": "Ein OpenVPN-Profil kann den gesamten Verkehr durch den Tunnel leiten (redirect-gateway). Dann kann diese Seite ihre Verbindung verlieren."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1407,7 +1413,9 @@
         "user": "Name des User Disk",
         "automatic": "Automatisch (Laufwerk oder CD/DVD)",
         "invalid": "Druckbare ASCII-Zeichen ohne äußere Leerzeichen: Hersteller bis zu 8, Laufwerksnamen bis zu 16."
-      }
+      },
+      "confirmNetworkRemoval": "USB-Netzwerk entfernen?",
+      "confirmNetworkRemovalDescription": "Der angeschlossene Computer verliert seine Netzwerkverbindung zu NanoKVM und damit jede Seite oder SSH-Sitzung darüber, vielleicht auch diese."
     },
     "network": {
       "title": "Netzwerk",
@@ -1469,7 +1477,9 @@
           "channel": "Kanal {{channel}}",
           "speed": "{{speed}} Mbit/s",
           "ip": "IP {{ip}}"
-        }
+        },
+        "joinConfirm": "Mit {{ssid}} verbinden?",
+        "joinOverWifi": "Diese Seite nutzt WLAN. Ein anderes Netz beendet ihre Verbindung; das Gerät antwortet dann im neuen Netz unter der Adresse, die es dort erhält."
       },
       "tls": {
         "confirmEnable": "HTTPS einschalten?",
@@ -1626,7 +1636,8 @@
         "save": "Speichern",
         "unsaved": "Ungespeicherte Änderungen",
         "saveFailed": "Konfiguration konnte nicht gespeichert werden.",
-        "loadFailed": "Konfiguration konnte nicht geladen werden."
+        "loadFailed": "Konfiguration konnte nicht geladen werden.",
+        "retry": "Erneut versuchen"
       },
       "dns": {
         "title": "DNS",
@@ -1688,6 +1699,20 @@
         "tip": "NanoKVM hat noch keine Bluetooth-Funktionen: Einschalten lädt nur die Treiber. Die Einstellung gilt sofort und bei jedem Start.",
         "version": "Bluetooth-Version",
         "unavailable": "Dieses Gerät hat kein von NanoKVM OS unterstütztes Bluetooth."
+      },
+      "trial": {
+        "title": "Verbindung wird geprüft",
+        "waiting": "Das Gerät wird mit den neuen Einstellungen gesucht. Wird es nicht erreicht, gelten in {{seconds}} s wieder die vorherigen Einstellungen.",
+        "manual": "Wenn diese Seite nicht von selbst weitergeht, öffnen Sie das Gerät in einem neuen Tab unter einer dieser Adressen:",
+        "https": "Diese Seite nutzt HTTPS: Sie kann das Gerät unter einer anderen Adresse nur finden, wenn deren Zertifikat vertrauenswürdig ist. Bei einem selbstsignierten Zertifikat öffnen Sie die Adresse oben und akzeptieren es dort.",
+        "moving": "Unter {{host}} gefunden. Wird geöffnet…",
+        "kept": "Das Gerät ist erreichbar. Die neuen Einstellungen bleiben.",
+        "reverted": "Das Gerät wurde von dieser Seite nicht rechtzeitig erreicht. Wurden die Einstellungen nicht in einem anderen Tab bestätigt, gelten wieder die vorherigen, und das Gerät antwortet in wenigen Sekunden wieder unter der vorherigen Adresse.",
+        "close": "Schließen",
+        "confirmedHere": "Das Gerät ist hier erreichbar. Die neuen Netzwerkeinstellungen bleiben.",
+        "confirmFailed": "Hier wartet keine Netzwerkänderung auf Bestätigung: Sie wurde vielleicht schon übernommen oder rückgängig gemacht.",
+        "open": "NanoKVM öffnen",
+        "ended": "Die Änderung wartet nicht mehr auf Bestätigung: Sie wurde übernommen oder vorzeitig rückgängig gemacht, weil die Schnittstelle nicht neu startete. Die Einstellungen zeigen, was davon."
       }
     },
     "tailscale": {
@@ -1724,7 +1749,10 @@
       "cancelBtn": "Nein",
       "startFailed": "Tailscale konnte nicht gestartet werden",
       "loginFailed": "Anmeldung fehlgeschlagen",
-      "logoutFailed": "Abmeldung fehlgeschlagen"
+      "logoutFailed": "Abmeldung fehlgeschlagen",
+      "downConfirm": "Tailscale ausschalten?",
+      "downDescription": "Es bleibt aus, auch nach einem Neustart. Wer NanoKVM über Tailscale erreicht, verliert den Zugang, bis es hier wieder eingeschaltet wird.",
+      "downOverTailscale": "Diese Seite nutzt Tailscale und verliert ihre Verbindung."
     },
     "netbird": {
       "title": "NetBird",

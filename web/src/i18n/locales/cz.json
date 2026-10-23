@@ -670,7 +670,9 @@
         },
         "passwordHint": "8-63 bajtů (pro heslo v ASCII alespoň 8 znaků).",
         "preferredBandHint": "Uplatněno na stávající spojení (pokud podporováno); přepínání pásem ho může nakrátko přerušit. Ostatní pásma zůstávají k dispozici jako náhradní.",
-        "connectionTimeout": "Připojení nebylo potvrzeno. Zkontrolujte síť a v případě, že adresa zařízení byla změněna, znovu se k němu připojte."
+        "connectionTimeout": "Připojení nebylo potvrzeno. Zkontrolujte síť a v případě, že adresa zařízení byla změněna, znovu se k němu připojte.",
+        "joinConfirm": "Připojit k {{ssid}}?",
+        "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu ta síť přidělí."
       },
       "tls": {
         "description": "Povolit protokol HTTPS",
@@ -740,7 +742,8 @@
         "interfaceDown": "Povoleno v nastavení · rozhraní je nyní shozené",
         "disconnectWarning": "Uložení okamžitě ukončí spojení využívající ethernet. Zajistěte, aby bylo k dispozici jiné připojení pro správu.",
         "vlanDescription": "Použít zvolené nastavení DHCP nebo statické IPv4 na eth0.<ID>",
-        "vlanWarning": "Změna VLAN může vést k odpojení této relace přes ethernet. Ujistěte se, že port na přepínači umožňuje zvolenou tagovanou VLAN."
+        "vlanWarning": "Změna VLAN může vést k odpojení této relace přes ethernet. Ujistěte se, že port na přepínači umožňuje zvolenou tagovanou VLAN.",
+        "retry": "Zkusit znovu"
       },
       "dns": {
         "title": "DNS",
@@ -899,6 +902,20 @@
         "tip": "NanoKVM prozatím ještě nemá žádné funkce ohledně Bluetooth: zapnutí pouze načte ovladače. Nastavení jsou uplatněna jednorázově a pak při každém zavedení systému.",
         "version": "Verze Bluetooth",
         "unavailable": "Toto zařízení nedisponuje Bluetooth (hardware), který je NanoKVM OS podporován."
+      },
+      "trial": {
+        "title": "Kontrola připojení",
+        "waiting": "Hledáme zařízení s novým nastavením. Pokud nebude dosažitelné, za {{seconds}} s se vrátí předchozí nastavení.",
+        "manual": "Pokud tato stránka nepřejde sama, otevřete zařízení v nové kartě na jedné z těchto adres:",
+        "https": "Tato stránka používá HTTPS: zařízení na jiné adrese najde jen tehdy, je-li certifikát té adresy důvěryhodný. S certifikátem podepsaným sám sebou otevřete adresu výše a přijměte certifikát tam.",
+        "moving": "Nalezeno na {{host}}. Otevírá se…",
+        "kept": "Zařízení je dosažitelné. Nové nastavení zůstává.",
+        "reverted": "Zařízení nebylo z této stránky včas dosaženo. Pokud nastavení nebylo ponecháno z jiné karty, vrátilo se předchozí a za několik sekund zařízení opět odpoví na předchozí adrese.",
+        "close": "Zavřít",
+        "confirmedHere": "Zařízení je zde dosažitelné. Nové síťové nastavení zůstává.",
+        "confirmFailed": "Zde nečeká na potvrzení žádná změna sítě: možná již byla ponechána nebo vrácena.",
+        "open": "Otevřít NanoKVM",
+        "ended": "Změna už nečeká na potvrzení: byla ponechána, nebo dříve vrácena, protože se rozhraní nerestartovalo. Nastavení ukazuje, co z toho."
       }
     },
     "tailscale": {
@@ -935,7 +952,10 @@
       "logoutFailed": "Odhlášení se nezdařilo",
       "startFailed": "Tailscale se nepodařilo spustit",
       "statusFailed": "Nebylo možné získat stav Tailscale",
-      "installDescription": "V případě potřeby Tailscale nainstalujte. Existující nastavení jsou zachována."
+      "installDescription": "V případě potřeby Tailscale nainstalujte. Existující nastavení jsou zachována.",
+      "downConfirm": "Vypnout Tailscale?",
+      "downDescription": "Zůstane vypnutý, i po restartu. Kdo se k NanoKVM připojuje přes Tailscale, ztratí přístup, dokud se zde znovu nezapne.",
+      "downOverTailscale": "Tato stránka používá Tailscale a ztratí spojení."
     },
     "account": {
       "title": "Uživatelé",
@@ -1441,7 +1461,9 @@
         "user": "Název uživatelského disku",
         "automatic": "Automatické (disk nebo CD/DVD)",
         "invalid": "Použijte tisknutelné ASCII, bez mezer okolo: výrobce až 8 znaků, názvy disků až 16."
-      }
+      },
+      "confirmNetworkRemoval": "Odebrat síť USB?",
+      "confirmNetworkRemovalDescription": "Připojený počítač ztratí síťové spojení s NanoKVM a s ním i stránky a relace SSH, které ho používají, možná i tuto."
     },
     "vpn": {
       "title": "VPN",
@@ -2061,7 +2083,13 @@
     "routeAllowedIPs": "Směrovat povolené IP adresy",
     "routingHelp": "Přidat trasy z AllowedIPs adres, včetně výchozí trasy pro 0.0.0.0/0 nebo ::/0.",
     "openvpnNote": "Povolený může být vždy jen jeden profil pro OpenVPN. Povolené profily se po restartu znovu připojí. Jsou podporovány směrované TUN profily (TAP, skripty a interaktivní SSO/MFA ověřování nejsou). Po dobu trvání (vpn) připojení je nastavení DNS z (vpn) serveru uplatňováno v rámci veškerého fungování zařízení.",
-    "note": "Povolený může být vždy jen jeden profil pro WireGuard. Po naimportování není provedeno automatické připojení. Pro nastavení DNS je možné použít IP adresy; „executable hooks“ a SaveConfig nejsou podporovány. Nečinnost znamená, že tunel nemá žádné nedávné ustavení spojení, nikoli nezbytně že spojení spadlo."
+    "note": "Povolený může být vždy jen jeden profil pro WireGuard. Po naimportování není provedeno automatické připojení. Pro nastavení DNS je možné použít IP adresy; „executable hooks“ a SaveConfig nejsou podporovány. Nečinnost znamená, že tunel nemá žádné nedávné ustavení spojení, nikoli nezbytně že spojení spadlo.",
+    "downConfirm": "Vypnout {{name}}?",
+    "downDescription": "Spojení, která k NanoKVM vedou tímto tunelem, skončí, možná i tato stránka.",
+    "routeConfirm": "Zapnout {{name}} s jeho trasami?",
+    "routeDescription": "Provoz na povolené IP tunelu půjde přes něj. Pokud mezi nimi je síť této stránky, ztratí spojení.",
+    "openvpnUpConfirm": "Zapnout {{name}}?",
+    "openvpnUpDescription": "Profil OpenVPN může posílat veškerý provoz tunelem (redirect-gateway). Pak tato stránka může ztratit spojení."
   },
   "dateTime": {
     "save": "Uložit",

@@ -75,6 +75,12 @@ export const Keyboard = () => {
       const code = normalizeKeyCode(event, os);
       if (!code || pressedKeys.current.has(code)) return;
 
+      if (code === 'CapsLock' && os === 'macOS') {
+        sendKeyEvent('keydown', code);
+        sendKeyEvent('keyup', code);
+        return;
+      }
+
       // Handle leader key
       const leaderHandled = leaderKeyRef.current.handleKeyDown(code);
       if (leaderHandled) {
@@ -98,6 +104,12 @@ export const Keyboard = () => {
 
       event.preventDefault();
       event.stopPropagation();
+
+      if (code === 'CapsLock' && os === 'macOS') {
+        sendKeyEvent('keydown', code);
+        sendKeyEvent('keyup', code);
+        return;
+      }
 
       // Handle leader key release
       const leaderHandled = leaderKeyRef.current.handleKeyUp(code);

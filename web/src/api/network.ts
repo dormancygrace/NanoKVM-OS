@@ -122,6 +122,20 @@ export function setEthernet(config: Omit<EthernetConfig, 'interface' | 'adminUp'
   return http.post('/api/network/ethernet', config);
 }
 
+// A network change on trial: the device undoes it unless it is confirmed
+// within expiresIn seconds from an address it can be reached at. hosts are
+// where to look for it, the most likely first.
+export type NetworkTrial = {
+  id: string;
+  token: string;
+  expiresIn: number;
+  hosts: string[];
+};
+
+export function confirmNetworkTrial(token: string, timeout?: number) {
+  return http.post('/api/network/trial/confirm', { token }, timeout ? { timeout } : undefined);
+}
+
 export type GatewayPreference = 'auto' | 'ethernet' | 'wifi';
 export type GatewayRoute = {
   interface: string;

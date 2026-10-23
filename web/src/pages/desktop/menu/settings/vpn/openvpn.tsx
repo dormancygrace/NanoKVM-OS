@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { http } from '@/lib/http.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { ExtensionInstallResult } from './extension-install-result.tsx';
@@ -91,10 +92,20 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
     setPassword('');
     setPassphrase('');
   }
-  function change(p: Profile, action: string) {
+  async function change(p: Profile, action: string) {
     if (action === 'up' && !p.credentialsSaved) {
       setEditing(p);
       return;
+    }
+    if (action === 'down' || action === 'up') {
+      const confirmed = await confirmAction({
+        title: t(action === 'down' ? 'vpn.downConfirm' : 'vpn.openvpnUpConfirm', { name: p.name }),
+        content: t(action === 'down' ? 'vpn.downDescription' : 'vpn.openvpnUpDescription'),
+        okText: t('vpn.confirm'),
+        cancelText: t('vpn.cancel'),
+        danger: true
+      });
+      if (!confirmed) return;
     }
     void run(() => http.post('/api/extensions/openvpn/profile', { id: p.id, action }));
   }
@@ -212,7 +223,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
                           aria-label={`${t('vpn.enable')} ${p.name}`}
                           checked={on}
                           disabled={busy || available !== true || (!on && otherOn)}
-                          onChange={(v) => change(p, v ? 'up' : 'down')}
+                          onChange={(v) => void change(p, v ? 'up' : 'down')}
                         />
                         {(p.needsAuth || p.needsPassphrase) && (
                           <Button

@@ -126,7 +126,13 @@
       "connected": "接続済み",
       "idle": "アイドル",
       "error": "エラー"
-    }
+    },
+    "downConfirm": "{{name}} をオフにしますか?",
+    "downDescription": "このトンネル経由の NanoKVM への接続(このページを含む可能性あり)が切れます。",
+    "routeConfirm": "{{name}} をルート付きでオンにしますか?",
+    "routeDescription": "トンネルの許可 IP 宛ての通信はトンネルを通ります。このページの接続元ネットワークが含まれる場合、このページの接続は切れます。",
+    "openvpnUpConfirm": "{{name}} をオンにしますか?",
+    "openvpnUpDescription": "OpenVPN プロファイルはすべての通信をトンネルに送ることがあります(redirect-gateway)。その場合、このページの接続が切れる可能性があります。"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -1407,7 +1413,9 @@
         "user": "User Diskの名前",
         "automatic": "自動（ディスクまたはCD/DVD）",
         "invalid": "先頭と末尾に空白のない印字可能なASCII文字を使用してください。メーカーは8文字まで、ディスク名は16文字までです。"
-      }
+      },
+      "confirmNetworkRemoval": "USB ネットワークを外しますか?",
+      "confirmNetworkRemovalDescription": "接続中のコンピューターは NanoKVM とのネットワーク接続を失い、それを使うページや SSH セッション(このページも含む可能性あり)も切れます。"
     },
     "network": {
       "title": "ネットワーク",
@@ -1469,7 +1477,9 @@
           "channel": "チャンネル {{channel}}",
           "speed": "{{speed}} Mbps",
           "ip": "IP {{ip}}"
-        }
+        },
+        "joinConfirm": "{{ssid}} に接続しますか?",
+        "joinOverWifi": "このページは Wi-Fi 経由です。別のネットワークに接続するとこの接続は切れ、デバイスは新しいネットワークで割り当てられたアドレスで応答します。"
       },
       "tls": {
         "confirmEnable": "HTTPS をオンにしますか？",
@@ -1626,7 +1636,8 @@
         "save": "保存",
         "unsaved": "未保存の変更",
         "saveFailed": "設定を保存できませんでした。",
-        "loadFailed": "設定を読み込めませんでした。"
+        "loadFailed": "設定を読み込めませんでした。",
+        "retry": "再試行"
       },
       "dns": {
         "title": "DNS",
@@ -1688,6 +1699,20 @@
         "tip": "NanoKVM にはまだ Bluetooth の機能がありません。オンにしてもドライバーを読み込むだけです。設定はすぐに、また起動のたびに適用されます。",
         "version": "Bluetooth バージョン",
         "unavailable": "このデバイスには NanoKVM OS が対応する Bluetooth がありません。"
+      },
+      "trial": {
+        "title": "接続を確認しています",
+        "waiting": "新しい設定でデバイスを探しています。接続できない場合、{{seconds}} 秒後に以前の設定に戻ります。",
+        "manual": "このページが自動で移動しない場合は、次のいずれかのアドレスで新しいタブにデバイスを開いてください:",
+        "https": "このページは HTTPS を使用しています。別のアドレスでデバイスを探せるのは、そのアドレスの証明書が信頼されている場合だけです。自己署名証明書の場合は、上のアドレスを開いてそこで証明書を承認してください。",
+        "moving": "{{host}} で見つかりました。開いています…",
+        "kept": "デバイスに接続できます。新しい設定を保持します。",
+        "reverted": "このページから時間内にデバイスに接続できませんでした。別のタブで設定を保持していない限り以前の設定に戻り、数秒後に以前のアドレスで再び応答します。",
+        "close": "閉じる",
+        "confirmedHere": "このアドレスでデバイスに接続できます。新しいネットワーク設定を保持します。",
+        "confirmFailed": "ここには確認待ちのネットワーク変更はありません。すでに保持または取り消された可能性があります。",
+        "open": "NanoKVM を開く",
+        "ended": "この変更はもう確認を待っていません。保持されたか、インターフェイスが再起動しなかったため早めに取り消されました。どちらかは設定で確認できます。"
       }
     },
     "tailscale": {
@@ -1724,7 +1749,10 @@
       "cancelBtn": "いいえ",
       "startFailed": "Tailscale を起動できませんでした",
       "loginFailed": "ログインに失敗しました",
-      "logoutFailed": "ログアウトに失敗しました"
+      "logoutFailed": "ログアウトに失敗しました",
+      "downConfirm": "Tailscale をオフにしますか?",
+      "downDescription": "再起動後もオフのままです。Tailscale 経由で NanoKVM にアクセスしている人は、ここで再びオンにするまでアクセスできなくなります。",
+      "downOverTailscale": "このページは Tailscale 経由のため、接続が切れます。"
     },
     "netbird": {
       "title": "NetBird",

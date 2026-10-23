@@ -75,6 +75,10 @@ export const Absolute = () => {
     target.addEventListener('wheel', handleWheel);
     target.addEventListener('click', disableEvent);
     target.addEventListener('contextmenu', disableEvent);
+    window.addEventListener('mouseup', handleMouseUpOutside, true);
+    window.addEventListener('blur', releasePressedButtons);
+    window.addEventListener('pagehide', releasePressedButtons);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const touchOptions: AddEventListenerOptions = { passive: false };
     if (enableTouchInput) {
@@ -147,6 +151,25 @@ export const Absolute = () => {
       flushMouseMove();
       pressedMouseButtons.delete(e.button);
       handleMouseEvent({ type: 'mouseup', button: e.button });
+    }
+
+    // A button released over the menu, a panel or outside the browser.
+    function handleMouseUpOutside(e: MouseEvent) {
+      if (target.contains(e.target as Node) || !pressedMouseButtons.has(e.button)) return;
+      flushMouseMove();
+      pressedMouseButtons.delete(e.button);
+      handleMouseEvent({ type: 'mouseup', button: e.button });
+    }
+
+    // Focus or the page lost while a button is down: its release never comes.
+    function releasePressedButtons() {
+      if (pressedMouseButtons.size === 0) return;
+      pressedMouseButtons.clear();
+      sendReport(mouse.reset(lastPosRef.current.x, lastPosRef.current.y));
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') releasePressedButtons();
     }
 
     // Mouse move event
@@ -570,6 +593,10 @@ export const Absolute = () => {
       target.removeEventListener('wheel', handleWheel);
       target.removeEventListener('click', disableEvent);
       target.removeEventListener('contextmenu', disableEvent);
+      window.removeEventListener('mouseup', handleMouseUpOutside, true);
+      window.removeEventListener('blur', releasePressedButtons);
+      window.removeEventListener('pagehide', releasePressedButtons);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (enableTouchInput) {
         target.style.touchAction = previousTouchAction;
         target.removeEventListener('touchstart', handleTouchStart, touchOptions.capture);

@@ -42,7 +42,9 @@ runs:
         OUT: ${{ inputs.out }}
         KEYS: ${{ inputs.keys }}
       run: |
-        tar -C "$OUT" -xf "$RUNNER_TEMP/release-build.tar"
+        # Only the images and the source archive, checked before anything is
+        # written: the build job ran third-party build code.
+        python3 scripts/release_build_tar.py "$RUNNER_TEMP/release-build.tar" "$OUT"
         # The key options are words: -k FILE -e FILE, or -d.
         # shellcheck disable=SC2086
         platform/build.sh -o "$OUT" $KEYS payloads packages rootfs image

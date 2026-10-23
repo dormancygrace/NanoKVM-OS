@@ -61,6 +61,24 @@ func (s *RuntimeIntentStore) SetDesiredRunning(desired bool, updatedBy string) e
 	return s.saveLocked(intent)
 }
 
+// SetHostTools records whether the agent may use the NanoKVM's shell, file
+// write and command scheduling tools.
+func (s *RuntimeIntentStore) SetHostTools(enabled bool, updatedBy string) error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	intent, err := s.loadLocked()
+	if err != nil {
+		return err
+	}
+	intent.HostTools = enabled
+	intent.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	intent.UpdatedBy = updatedBy
+	return s.saveLocked(intent)
+}
+
 func (s *RuntimeIntentStore) SetLastError(message string) error {
 	if s == nil {
 		return nil

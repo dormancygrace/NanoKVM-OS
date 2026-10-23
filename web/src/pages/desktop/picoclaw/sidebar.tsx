@@ -42,6 +42,7 @@ export const Sidebar = () => {
     handleOpenModelConfig,
     handleReconnectGateway,
     handleSaveModelConfig,
+    handleHostToolsChange,
     handleSelectHistorySession,
     historySessions,
     aiControlStatus,
@@ -64,6 +65,7 @@ export const Sidebar = () => {
     modelApiKey,
     modelIdentifier,
     isModelConfigOpen,
+    picoclawMutation,
     runState,
     transportState,
     isTogglingRuntime,
@@ -311,6 +313,9 @@ export const Sidebar = () => {
             isSaving={isSavingModelConfig}
             modelIdentifier={modelIdentifier}
             modelName={runtimeStatus?.model_name}
+            hostTools={runtimeStatus?.runtime_intent?.host_tools === true}
+            isSavingHostTools={picoclawMutation === 'host_tools'}
+            onHostToolsChange={handleHostToolsChange}
             onApiBaseChange={handleModelApiBaseChange}
             onApiKeyChange={handleModelApiKeyChange}
             onModelIdentifierChange={handleModelIdentifierChange}

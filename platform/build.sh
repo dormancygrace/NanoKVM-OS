@@ -628,7 +628,8 @@ tools() {
     # As Buildroot builds a target package: TARGET_CFLAGS, then its strip.
     e=$t/edid
     cp -r "$repo/support/sg2002/nanokvm_update_edid" "$e"
-    make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext \
+    # Resolve shared receiver headers from the original source directory.
+    make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext CPPFLAGS="-I$repo/support/sg2002/nanokvm_update_edid" \
         CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace) -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -g0 -Wall -Wextra -Werror"
     "${cross}strip" --remove-section=.comment --remove-section=.note \
         -o "$img/tools/nanokvm_update_edid" "$e/nanokvm_update_edid"
@@ -1085,6 +1086,14 @@ packages() (
     # They remain optional and are never installed into the SD image.
     python3 "$repo/scripts/addon_packages.py" --manifest "$repo/firmware/alpine/addons.json" \
         --output "$b/build/repo/stock/recipes/riscv64"
+    # The index signed below selects packages for every device: an add-on
+    # may declare only its own files, dependencies and lifecycle scripts.
+    local addon
+    for addon in $(python3 -c 'import json, sys; print(*json.load(open(sys.argv[1]))["packages"])' \
+            "$repo/firmware/alpine/addons.json"); do
+        in_chroot "$b" /sbin/apk --allow-untrusted adbdump "/build/repo/stock/recipes/riscv64/$addon" |
+            python3 "$repo/scripts/addon_packages.py" --check "$addon"
+    done
     # New indexes have one ECDSA signature. Core signatures were checked above;
     # optional add-on bytes were checked against their pinned checksums.
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 &&

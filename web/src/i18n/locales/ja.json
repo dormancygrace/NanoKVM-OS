@@ -2064,7 +2064,12 @@
       "saved": "モデル構成が保存されました",
       "saveFailed": "モデル構成の保存に失敗しました",
       "invalidNoKey": "モデル識別子と API Base URL は必須です",
-      "invalid": "モデル識別子、API Base URL、API キーは必須です"
+      "invalid": "モデル識別子、API Base URL、API キーは必須です",
+      "hostTools": "NanoKVM 上のツール",
+      "hostToolsHint": "NanoKVM 自体でのコマンド実行、ファイル書き込み、スケジュールされたコマンド。KVM ツール（画面、キーボード、マウス）はこれらなしで動作します。",
+      "hostToolsWarning": "エージェントはホストの画面を読み取ります。画面上のテキストによって、NanoKVM 上で root としてコマンドを実行させられる可能性があります。信頼できるホストと作業でのみ有効にしてください。",
+      "hostToolsEnable": "有効にする",
+      "hostToolsFailed": "ツールの設定を変更できませんでした"
     },
     "uninstall": {
       "menuLabel": "アンインストール",

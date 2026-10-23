@@ -11,6 +11,7 @@ import (
 const (
 	picoclawBasePath             = "/api/picoclaw"
 	picoclawModelConfigPath      = "/model/config"
+	picoclawHostToolsPath        = "/host-tools"
 	picoclawAgentProfilePath     = "/agent/profile"
 	picoclawSessionsPath         = "/sessions"
 	picoclawSessionByIDPath      = "/sessions/:id"
@@ -53,6 +54,7 @@ func picoclawRouter(r *gin.Engine, service *picoclaw.Service) {
 	localAPI.GET(picoclawRuntimeSessionPath, service.GetRuntimeSession)
 
 	frontendAPI.POST(picoclawModelConfigPath, service.UpdateModelConfig)
+	frontendAPI.POST(picoclawHostToolsPath, service.UpdateHostTools)
 	frontendAPI.POST(picoclawAgentProfilePath, service.UpdateAgentProfile)
 	frontendAPI.GET(picoclawSessionsPath, service.ListSessions)
 	frontendAPI.GET(picoclawSessionByIDPath, service.GetSession)

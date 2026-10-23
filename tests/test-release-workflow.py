@@ -77,6 +77,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertLess(packages.index('scripts/addon_packages.py'), packages.index('/sbin/apk --sign-key'))
         self.assertLess(packages.index('/sbin/apk verify ./*.apk'), packages.index('scripts/addon_packages.py'))
         self.assertIn('--allow-untrusted mkndx', packages)
+        # Each fetched add-on's metadata is checked before the key signs an index of it.
+        self.assertLess(packages.index('--output "$b/build/repo/stock/recipes/riscv64"'),
+                        packages.index('addon_packages.py" --check'))
+        self.assertLess(packages.index('addon_packages.py" --check'), packages.index('/sbin/apk --sign-key'))
 
     def test_only_version_tags_and_the_button_release(self):
         self.assertRegex(RELEASE, r"push:\n    tags: \['v\*'\]\n")
@@ -152,7 +156,8 @@ class ReleaseExecutionTests(unittest.TestCase):
                 {'tag_name': 'v3.2.0', 'draft': False, 'assets': [
                     {'name': 'NanoKVM-OS-Image-v1.4-apps-v3.2.0.img.zip'}]},
             ]
-            (root / 'gh').write_text('#!/bin/sh\n[ "$FAIL_API" != 1 ] || exit 17\ncat "$RELEASES"\n')
+            (root / 'gh').write_text('#!/bin/sh\n[ "$FAIL_API" != 1 ] || exit 17\ncat "$RELEASES"\n'
+                                     '[ "$FAIL_API" != partial ] || exit 17\n')
             (root / 'gh').chmod(0o755)
             (root / 'releases').write_text('\n'.join(json.dumps(r) for r in releases))
             env = {**os.environ, 'PATH': str(root) + ':' + os.environ['PATH'],
@@ -183,6 +188,13 @@ class ReleaseExecutionTests(unittest.TestCase):
             failed = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,
                                     env={**env, 'EVENT': 'pull_request', 'FAIL_API': '1'},
                                     capture_output=True, text=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertNotIn('version=', (root / 'output').read_text())
+            # A later page failing after the first was printed. GitHub runs
+            # steps with bash -e, without pipefail.
+            (root / 'output').write_text('')
+            failed = subprocess.run(['bash', '-e', '-c', script], cwd=ROOT,
+                                    env={**env, 'FAIL_API': 'partial'}, capture_output=True, text=True)
             self.assertNotEqual(failed.returncode, 0)
             self.assertNotIn('version=', (root / 'output').read_text())
 

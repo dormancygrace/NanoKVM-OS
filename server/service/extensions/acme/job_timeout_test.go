@@ -65,8 +65,12 @@ func TestEarlyExitEndsTheRestOfTheGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
-	if pid <= 1 || !waitGone(pid, 2*time.Second) {
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || pid <= 1 {
+		// Never signal 0, 1 or a negative value: that is a process group.
+		t.Fatalf("invalid child PID %q", data)
+	}
+	if !waitGone(pid, 2*time.Second) {
 		_ = syscall.Kill(pid, syscall.SIGKILL)
 		t.Fatalf("child %d of acme.sh still runs after the step", pid)
 	}

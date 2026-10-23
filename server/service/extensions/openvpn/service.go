@@ -50,7 +50,11 @@ type Service struct {
 	dir, run string
 	links    map[string]linkKind // DCO kind by interface name
 	// startProfile replaces startAttempt in supervise (tests).
-	startProfile func(Profile, int) error
+	startProfile func(Profile, int, uint64) error
+	// generation numbers the retry chain of each profile: a manual start or
+	// a stop begins a new one, and a timer of an older chain does nothing.
+	// Guarded by mu.
+	generation map[string]uint64
 }
 type linkKind struct {
 	index int
@@ -176,7 +180,17 @@ func (s *Service) credentials(p Profile) bool {
 	return true
 }
 func (s *Service) start(p Profile) error {
-	return s.startAttempt(p, 0)
+	return s.startAttempt(p, 0, s.nextGeneration(p.ID))
+}
+
+// nextGeneration ends the profile's current retry chain and numbers a new
+// one. The caller holds s.mu.
+func (s *Service) nextGeneration(id string) uint64 {
+	if s.generation == nil {
+		s.generation = map[string]uint64{}
+	}
+	s.generation[id]++
+	return s.generation[id]
 }
 
 // restartDelay is the wait before restart n (n ≥ 1) of a tunnel that exited
@@ -200,7 +214,7 @@ var restartSleep = time.Sleep // test seam
 // start already runs it, or for a terminal condition: wrong credentials
 // (retrying would only hammer the provider, and some lock the account), no
 // stored credentials, or a deleted profile.
-func (s *Service) supervise(id string, attempt int, ran time.Duration) {
+func (s *Service) supervise(id string, generation uint64, attempt int, ran time.Duration) {
 	if ran > 5*time.Minute {
 		attempt = 0
 	}
@@ -211,17 +225,18 @@ func (s *Service) supervise(id string, attempt int, ran time.Duration) {
 	for {
 		attempt++
 		restartSleep(restartDelay(attempt))
-		if !s.restartOnce(id, attempt, start) {
+		if !s.restartOnce(id, generation, attempt, start) {
 			return
 		}
 	}
 }
 
 // restartOnce makes one restart attempt; it reports whether to try again.
-func (s *Service) restartOnce(id string, attempt int, start func(Profile, int) error) bool {
+func (s *Service) restartOnce(id string, generation uint64, attempt int, start func(Profile, int, uint64) error) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.desired() != id || s.pid(id) != 0 {
+	// A manual start, stop or delete since this chain began owns the profile now.
+	if s.generation[id] != generation || s.desired() != id || s.pid(id) != 0 {
 		return false
 	}
 	if strings.Contains(runtimeLog(s.runtime(id, ".log")), "AUTH_FAILED") {
@@ -233,13 +248,13 @@ func (s *Service) restartOnce(id string, attempt int, start func(Profile, int) e
 			if !s.credentials(p) {
 				return false
 			}
-			return start(p, attempt) != nil
+			return start(p, attempt, generation) != nil
 		}
 	}
 	return false
 }
 
-func (s *Service) startAttempt(p Profile, attempt int) error {
+func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error {
 	if !s.credentials(p) {
 		return fmt.Errorf("credentials are required")
 	}
@@ -308,7 +323,7 @@ func (s *Service) startAttempt(p Profile, attempt int) error {
 	started := time.Now()
 	go func() {
 		_ = cmd.Wait()
-		s.supervise(p.ID, attempt, time.Since(started))
+		s.supervise(p.ID, generation, attempt, time.Since(started))
 	}()
 	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
 		_ = cmd.Process.Kill()
@@ -318,6 +333,8 @@ func (s *Service) startAttempt(p Profile, attempt int) error {
 }
 
 func (s *Service) stop(id string) (result error) {
+	// No retry chain may restart what is being stopped.
+	s.nextGeneration(id)
 	defer func() { result = errors.Join(result, s.clearDNS(id)) }()
 	pid := s.pid(id)
 	if pid == 0 {

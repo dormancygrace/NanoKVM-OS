@@ -318,16 +318,19 @@ start_usb_dev(){
                     echo 1 > functions/mass_storage.disk0/lun.0/ro
                     echo 0 > functions/mass_storage.disk0/lun.0/cdrom
             fi
-            _image_name="USB Mass Storage"
-            if [ "$(cat functions/mass_storage.disk0/lun.0/cdrom)" = 1 ]; then
-                    _image_name="USB CD/DVD-ROM"
-            fi
-            storage_inquiry image "$_image_name" > functions/mass_storage.disk0/lun.0/inquiry_string || return 1
             disk=$(cat $conf/usb.disk0)
             if [ -n "${disk}" ]
             then
                     cat $conf/usb.disk0 > functions/mass_storage.disk0/lun.0/file
             fi
+            _image_name="USB Mass Storage"
+            if [ "$(cat functions/mass_storage.disk0/lun.0/cdrom)" = 1 ]; then
+                    _image_name="USB CD/DVD-ROM"
+                    if [ "$(cat functions/mass_storage.disk0/lun.0/file)" = /dev/nbd0 ]; then
+                            _image_name="Remote ISO"
+                    fi
+            fi
+            storage_inquiry image "$_image_name" > functions/mass_storage.disk0/lun.0/inquiry_string || return 1
             # When usb.disk0 is empty, no backing file is set. The device
             # reports "no media" (removable=1). Previously this defaulted to
             # /dev/mmcblk0p3, exposing the NanoKVM's raw eMMC partition as a

@@ -114,7 +114,7 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 	}
 	candidate.identity = identity
 	if req.StorageIdentity != nil {
-		candidate.storageIdentity = *req.StorageIdentity
+		candidate.storageIdentity = req.StorageIdentity.Normalized()
 	}
 	if err := candidate.validate(); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())

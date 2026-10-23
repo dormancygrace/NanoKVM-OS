@@ -31,6 +31,23 @@ device booted from). A damaged `boot.sd` therefore never replaces a good
 keeps the previous kernel, whose modules the update may have removed: booted
 from it, the system starts, but without the drivers that need them.
 
+## Start without video
+
+The application (`nanokvm-app`), USB HID (`nanokvm-usb`) and the runtime
+policy need the storage setup and `nanokvm-board`, which fails only when the
+settings recovery it runs first fails (docs/settings-recovery.md): then the
+restored configuration cannot be used and they stay stopped. The board's
+hardware steps (configuration, identity, receiver detection) and the media
+modules no longer stop them: if one fails, the board warns and the server
+still starts, without video if need be, so settings, updates, ATX power and
+the keyboard and mouse stay reachable. Before, one failed step at boot, for
+example a receiver that did not answer once, left a remote device with
+nothing listening (SSH is off by default). At boot a receiver that does not
+answer keeps the model of an earlier boot (`/etc/kvm/hdmi_version`, with a
+warning); `S15kvmhwd re-detect` still fails. The hardware watchdog needs only
+the storage setup: its daemon feeds it on its own timer, so a failed
+application does not turn into a reboot loop.
+
 ## What the ROM does
 
 Observed on a NanoKVM PCIe, 2026-10-17, from its UART log:

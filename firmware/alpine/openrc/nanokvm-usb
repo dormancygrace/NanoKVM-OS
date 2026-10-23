@@ -3,7 +3,7 @@
 description="NanoKVM USB HID and optional NCM gadget"
 
 depend() {
-    need nanokvm-board
+    need nanokvm-storage nanokvm-board
     before nanokvm-app
 }
 

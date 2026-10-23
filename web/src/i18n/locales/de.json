@@ -1892,6 +1892,8 @@
       "passwordKeep": "Leer lassen, um das aktuelle Passwort zu behalten.",
       "ipmiPort": "IPMI-UDP-Port",
       "holdSeconds": "Erzwungenes Ausschalten: Netztaste halten (s)",
+      "powerLed": "Betriebs-LED mit dem Host verbunden",
+      "powerLedHint": "Aus: Der Anschluss der Betriebs-LED ist nicht verkabelt; Redfish und IPMI kennen den Einschaltzustand dann nicht, und jede Anfrage drückt die Taste.",
       "holdHint": "Leer: so lange wie das lange Drücken im Strommenü (5 s).",
       "save": "Speichern",
       "saved": "Gespeichert",

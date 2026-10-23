@@ -33,11 +33,7 @@ def build_index(repo, keys, apk='apk'):
         match = assembler.ADDON_TAG.fullmatch(filename.removesuffix('.apk'))
         if not match:
             raise ValueError(f'Unsupported add-on package: {filename}')
-        dump = run('--allow-untrusted', 'adbdump', str(repo / filename))
-        fields = dict(re.findall(r'^  (name|version|arch): (.+)$', dump, re.M))
-        expected = {'name': match[1], 'version': match[2] + '-r' + match[3], 'arch': 'riscv64'}
-        if fields != expected:
-            raise ValueError(f'Add-on metadata mismatch: {filename}: {fields}')
+        addon_packages.metadata(run('--allow-untrusted', 'adbdump', str(repo / filename)), filename)
     selected = sorted(set(core) | set(addons))
     pending = repo / 'Packages.pending.adb'
     run('--allow-untrusted', 'mkndx', '--description', 'NanoKVM OS packages and independent add-ons',

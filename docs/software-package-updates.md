@@ -14,6 +14,8 @@ The root-only `nkos-update refresh-indexes` helper checks the setting, takes the
 
 RustDesk remains a separate optional `nanokvm-rustdesk` APK. It is absent from the standard image and the core release archive. Software > Add-ons can refresh repository indexes with **Check for updates**, display the available package revision, and install the update on request. The package repository must publish the newer APK and its signed index; changing the application version alone does not update an installed add-on.
 
+Before the repository index is signed, every add-on is checked: it may declare only its own files, dependencies and lifecycle scripts. An add-on that has install-if, provides, replaces, triggers or a conflicting dependency is refused. So an add-on can neither install itself on devices that did not choose it nor take the place of a core package.
+
 The acme.sh card in Software > Add-ons uses the same optional installer as Network settings. Its settings shortcut opens the existing HTTPS/ACME controls; it does not install anything or change certificates by itself.
 
 ## Explicit RustDesk upgrades

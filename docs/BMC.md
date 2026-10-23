@@ -20,6 +20,7 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
 | Power button | `PushPowerButton` | — | short press |
 
 - **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.
+- **Power LED connected** (on by default): turn it off when the NanoKVM's power LED header is not wired to the host. An unwired LED line reads "off" whatever the host does, so a forced power-off would be reported done without a press, and fencing would believe a running host is off. With the setting off, Redfish omits `PowerState`, IPMI answers Get Chassis Status with an error ("not in this state"; IPMI has no "unknown", and "on" would make a fence agent skip a power-on), and every power request presses; a forced power-off of a host that is already off holds the button, which leaves it off. Fence agents (`fence_redfish`, `fence_ipmilan`) read the state before acting, so with the setting off they refuse rather than act blindly; direct requests (`ipmitool chassis power off`, a Redfish `Reset`) press.
 - **The hold of a forced power-off** is the power menu's long press, 5 s, unless the settings page sets its own.
 - **Redfish** serves `/redfish/v1/` (no login), `Systems/1`, `Chassis/1`, `Managers/1` and `SessionService`.
   - It accepts HTTP Basic and `X-Auth-Token` sessions (`POST /redfish/v1/SessionService/Sessions`).

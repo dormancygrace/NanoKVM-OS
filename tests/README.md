@@ -21,6 +21,22 @@ Most tests run with no arguments from the repository root:
     python3 tests/test-platform-build.py
     sh tests/test-usb-profiles.sh
 
+The receiver session tests use fake I2C transfers and deterministic thread
+ordering, including the production maintenance/reset and EDID helpers, the real
+I2c transport with mocked Linux ioctls, readiness deadlines and UXC telemetry.
+They cover short-owner draining, bounded contention, fresh failure history after
+maintenance and publication while a real frame lease stays held:
+
+    python3 tests/test-hdmi-sessions.py
+    NANOKVM_SANITIZE=1 python3 tests/test-hdmi-sessions.py
+
+They need a C/C++ compiler and no device. The separate
+firmware/probes/hdmi-session-runtime.cpp requires exclusive device capture:
+stop nanokvm-app before running it. Its capture h264|h265 mode writes
+Annex-B video on fd 3; reset checks three recovery cycles; edid TOOL PROFILE
+pauses the detector around the programmer and verifies recovered frames.
+Keep the original EDID on the host and restore it after a mode-change trial.
+
 The Makefile groups some of them, for example `make test-wifi-modules test-alpine-network`.
 CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no arguments and no root.
 
@@ -101,3 +117,12 @@ synthetic payloads and temporary keys, verifies signatures directly and through
 apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
 index formats. No production key or device is used; package scripts are retained
 but not executed in the temporary installation root.
+
+
+The second receiver probe, `firmware/probes/hdmi-receiver-runtime.cpp`, links
+with `support/sg2002/additional/kvm/src/kvm_i2c.cpp`. It also requires exclusive
+ownership with nanokvm-app stopped. `diagnostics` prints a checked UXC register
+snapshot; `reset-ready` performs three real reset cycles, counts rejected
+admissions before the 250 ms deadline and measures first access and stable
+readiness. A failure exits nonzero. It does not change EDID or save device
+files. Physical C/D qualification is separate.

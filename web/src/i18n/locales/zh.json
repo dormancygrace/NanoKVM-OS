@@ -1892,6 +1892,8 @@
       "passwordKeep": "留空则保留当前密码。",
       "ipmiPort": "IPMI UDP 端口",
       "holdSeconds": "强制关机：按住电源键（秒）",
+      "powerLed": "电源 LED 已连接到主机",
+      "powerLedHint": "关闭：电源 LED 插针未接线，Redfish 和 IPMI 无法得知电源状态，每个请求都会按下按钮。",
       "holdHint": "留空：与电源菜单的长按相同（5 秒）。",
       "save": "保存",
       "saved": "已保存",

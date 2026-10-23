@@ -1612,6 +1612,8 @@
       "saved": "Uloženo",
       "save": "Uložit",
       "holdSeconds": "Vynucené vypnutí: podržet tlačítko napájení (s)",
+      "powerLed": "LED napájení připojena k hostiteli",
+      "powerLedHint": "Vypnuto: konektor LED napájení není zapojen, takže Redfish a IPMI neznají stav napájení a každý požadavek stiskne tlačítko.",
       "ipmiPort": "UDP port pro IPMI",
       "passwordKeep": "Pro ponechání stávajícího hesla nevyplňujte.",
       "passwordRule": "8-20 znaků",

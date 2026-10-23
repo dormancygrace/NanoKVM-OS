@@ -123,4 +123,10 @@ class ActivationTests(unittest.TestCase):
         (self.dt/'sipeed,board-revision').write_text('unknown')
         self.assertNotEqual(self.run_activation().returncode,0)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
+class UBootFallbackTests(unittest.TestCase):
+    def test_uboot_boots_the_replaced_image_and_never_stops_at_its_prompt(self):
+        config=(ROOT/'platform/uboot/defconfig').read_text()
+        command=re.search(r'^CONFIG_BOOTCOMMAND="(.*)"$',config,re.M)[1]
+        self.assertIn('for image in boot.sd boot.prev; do if fatload mmc 0:1 0x85000000 ${image}; then bootm',command)
+        self.assertTrue(command.endswith('; done; reset'))
 if __name__=='__main__': unittest.main()

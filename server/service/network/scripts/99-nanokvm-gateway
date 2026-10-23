@@ -41,7 +41,17 @@ else
     gateways="$router"
 fi
 
+# The metric is part of a route's identity: replace adds this route next to
+# the one udhcpc installed with its own metric, which then goes.
 for gateway in $gateways; do
-    ip -4 route replace default via "$gateway" dev "$interface" proto dhcp metric "$metric"
+    # Without the new route, keep the old one: the device must stay reachable.
+    if ! ip -4 route replace default via "$gateway" dev "$interface" proto dhcp metric "$metric"; then
+        metric=$((metric + 1))
+        continue
+    fi
+    ip -4 route show default via "$gateway" dev "$interface" | while read -r line; do
+        old=$(printf '%s\n' "$line" | sed -n 's/.* metric \([0-9][0-9]*\).*/\1/p')
+        [ "${old:-0}" = "$metric" ] || ip -4 route del default via "$gateway" dev "$interface" metric "${old:-0}"
+    done
     metric=$((metric + 1))
 done

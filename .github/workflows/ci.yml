@@ -124,6 +124,12 @@ jobs:
         with:
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
+      - name: Gateway preference against kernel routes
+        # A disposable network namespace, as for the DHCP gateway test above.
+        working-directory: server
+        run: |
+          go test -tags teststub,nomsgpack -c -o "$RUNNER_TEMP/network.test" ./service/network
+          sudo unshare -n env NANOKVM_NETNS_TEST=1 "$RUNNER_TEMP/network.test" -test.run InANetworkNamespace -test.v
       - name: Export production rollback commands
         working-directory: server
         run: NKOS_ROLLBACK_COMMANDS="$RUNNER_TEMP/rollback-commands.json" go test ./internal/apkrollback -run TestExportIntegrationCommands -count=1

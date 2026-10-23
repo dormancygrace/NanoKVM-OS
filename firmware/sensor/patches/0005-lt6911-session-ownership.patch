@@ -1,0 +1,89 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] lt6911: coordinate register sessions and always attempt cleanup
+
+--- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
++++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
+@@ -11,6 +11,9 @@
+ #include <linux/cvi_comm_video.h>
+ #include "cvi_sns_ctrl.h"
+ #include "lt6911_cmos_ex.h"
++#ifdef NANOKVM_OS
++#include "nanokvm_receiver_lock.h"
++#endif
+ 
+ extern ISP_SNS_COMMBUS_U g_aunLt6911_BusInfo[VI_MAX_PIPE_NUM];
+ #define LT6911_I2C_BANK_ADDR 0xff
+@@ -160,22 +163,37 @@
+ 
+ int lt6911_read(VI_PIPE ViPipe, int addr)
+ {
+-	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x01) != CVI_SUCCESS)
+-		return CVI_FAILURE;
+-	int data = lt6911_i2c_read(ViPipe, addr);
+-	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x00) != CVI_SUCCESS)
+-		return CVI_FAILURE;
+-	return data;
++#ifdef NANOKVM_OS
++    int ownership = nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
++    if (ownership < 0) return CVI_FAILURE;
++#endif
++    int data = CVI_FAILURE;
++    if (lt6911_i2c_write(ViPipe, 0x80ee, 0x01) == CVI_SUCCESS)
++        data = lt6911_i2c_read(ViPipe, addr);
++    /* A failed enable can still have reached the chip. Attempt cleanup. */
++    if (lt6911_i2c_write(ViPipe, 0x80ee, 0x00) != CVI_SUCCESS)
++        data = CVI_FAILURE;
++#ifdef NANOKVM_OS
++    nanokvm_receiver_unlock(ownership);
++#endif
++    return data;
+ }
+ 
+ int lt6911_write(VI_PIPE ViPipe, int addr, int data)
+ {
+-	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x01) != CVI_SUCCESS)
+-		return CVI_FAILURE;
+-	int ret = lt6911_i2c_write(ViPipe, addr, data);
+-	if (lt6911_i2c_write(ViPipe, 0x80ee, 0x00) != CVI_SUCCESS)
+-		return CVI_FAILURE;
+-	return ret;
++#ifdef NANOKVM_OS
++    int ownership = nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
++    if (ownership < 0) return CVI_FAILURE;
++#endif
++    int ret = CVI_FAILURE;
++    if (lt6911_i2c_write(ViPipe, 0x80ee, 0x01) == CVI_SUCCESS)
++        ret = lt6911_i2c_write(ViPipe, addr, data);
++    if (lt6911_i2c_write(ViPipe, 0x80ee, 0x00) != CVI_SUCCESS)
++        ret = CVI_FAILURE;
++#ifdef NANOKVM_OS
++    nanokvm_receiver_unlock(ownership);
++#endif
++    return ret;
+ }
+ 
+ static int lt6911_read_id(VI_PIPE ViPipe, int base)
+@@ -213,11 +231,18 @@
+ 
+ static int lt6911_d_read_pair(VI_PIPE ViPipe, unsigned char reg, unsigned char values[2])
+ {
+-	if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, 0xe0) != CVI_SUCCESS)
+-		return CVI_FAILURE;
+-	if (write(g_fd[ViPipe], &reg, 1) != 1 || read(g_fd[ViPipe], values, 2) != 2)
+-		return CVI_FAILURE;
+-	return CVI_SUCCESS;
++#ifdef NANOKVM_OS
++    int ownership = nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
++    if (ownership < 0) return CVI_FAILURE;
++#endif
++    int ret = CVI_FAILURE;
++    if (lt6911_write_register(ViPipe, LT6911_I2C_BANK_ADDR, 0xe0) == CVI_SUCCESS &&
++        write(g_fd[ViPipe], &reg, 1) == 1 && read(g_fd[ViPipe], values, 2) == 2)
++        ret = CVI_SUCCESS;
++#ifdef NANOKVM_OS
++    nanokvm_receiver_unlock(ownership);
++#endif
++    return ret;
+ }
+ 
+ static int lt6911_probe_d(VI_PIPE ViPipe)

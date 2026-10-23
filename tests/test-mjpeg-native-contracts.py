@@ -44,12 +44,12 @@ def check_read_img_gates():
     assert 'mjpeg_input_blocked(' not in source, 'the live-size helper is gone'
     # The detector publishes only through the gate: lt6911_get_csi_res fills locals in
     # detect_csi_res, and the three publish sites are the detector-side writers.
-    assert source.count('lt6911_get_csi_res(&') == 1
+    assert source.count('lt6911_get_csi_res(snapshot.width, snapshot.height, &') == 1
     assert source.count('vi_geometry.publish(') == 3
-    assert 'vi_geometry.publish(width, height)' in function_body(source, 'static uint8_t detect_csi_res()')
+    assert 'vi_geometry.publish(width, height)' in function_body(source, 'static uint8_t detect_csi_res(')
     # The detector never takes vi_mutex (the gate is a leaf lock; vi_mutex is held for a whole read).
     assert 'vi_mutex' not in function_body(source, 'void* vi_subsystem_detection(void *)')
-    assert 'vi_mutex' not in function_body(source, 'static uint8_t detect_csi_res()')
+    assert 'vi_mutex' not in function_body(source, 'static uint8_t detect_csi_res(')
 
     start = source.index('int kvmv_read_img(uint16_t _width')
     body = source[start:source.index('int kvmv_read_video(', start)]

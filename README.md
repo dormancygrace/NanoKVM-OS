@@ -16,6 +16,13 @@
 
 </div>
 
+> [!IMPORTANT]
+> **🧪 Help wanted: real hardware, real-world testing**
+>
+> NanoKVM OS has grown far beyond basic video and keyboard control, and I need your help testing its features on real Cube, Lite and PCIe devices. Different computers, browsers and everyday workflows help uncover problems my development setup cannot reproduce.
+>
+> **Pick a few features you use and tell me what works — successful tests matter too. No coding required.** [See what to test and share your results →](#help-test)
+
 ---
 
 ## ✨ What is NanoKVM OS?
@@ -25,10 +32,6 @@
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
 See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) for what’s new, or get the [latest SD image](https://dormancygrace.github.io/NanoKVM-OS/latest-image/) for a fresh installation. Applications and images have separate version numbers; package-only updates keep the previous image available. New release downloads contain the image (when included), corresponding sources and checksums. APKs and build metadata live in [technical package storage](firmware/alpine/README.md#public-downloads-and-technical-package-storage) in this repository; devices continue to update through the signed APK repository.
-
-> [!IMPORTANT]
-> **Help wanted — NanoKVM Cube, Lite and PCIe testers!**
-> More real devices make NanoKVM OS better. We need owners to try releases and report what works, as well as what does not. **No coding required.** Even a short “works on my board” report helps us confirm support and catch regressions. [Help test your NanoKVM →](#help-test)
 
 **💡 Help shape what comes next.** [Share your ideas and feature requests](https://github.com/dormancygrace/NanoKVM-OS/issues/406), browse community suggestions, and add a **👍 reaction** to the ones you would use. One idea per comment makes it easy for others to find it and vote.
 
@@ -176,7 +179,9 @@ Receiver-specific features, including higher resolutions and programmable EDID, 
 
 1. Try the [current release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) using the [installation](#install) or [update](#updates) instructions.
 2. Check what you normally use: boot and network access, video and audio, keyboard/mouse, USB media, and OLED or ATX controls where your board has them. A desktop or phone session and reconnecting after a reboot are useful checks. **You do not need to test every feature.**
-3. [Share a test report](https://github.com/dormancygrace/NanoKVM-OS/issues/new?title=Hardware%20test%20report%3A%20) — a successful test is worth reporting too. Include your **board/revision**, HDMI receiver if known, **application and image versions** from About, fresh install or upgrade, browser/OS, and the resolution/FPS, codec and transport you tried. Say what worked and what failed; for a failure, add reproduction steps and relevant GUI logs.
+3. [Share a test report](https://github.com/dormancygrace/NanoKVM-OS/issues/new?template=hardware_compatibility.yml&title=Hardware%20test%20report%3A%20) — a successful test is worth reporting too. Include your **board/revision**, HDMI receiver if known, **application and image versions** from About, fresh install or upgrade, browser/OS, and the resolution/FPS, codec and transport you tried. Name the specific features you tried and separate **Works**, **Fails** and **Not tested**; for a failure, add reproduction steps and relevant GUI logs.
+
+Report the exact versions you tested, rather than “latest”. Features in unreleased PRs should be tested only with the specific build and instructions provided for that PR.
 
 Already helping with an issue? Add your results there instead of opening a duplicate. Please remove passwords, tokens and private screen contents from reports. **Thank you — each real-device report helps us fix regressions and make the compatibility table more useful.**
 

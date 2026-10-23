@@ -196,6 +196,9 @@ func (c *Cmd) run() error {
 	}
 	cmd := exec.CommandContext(ctx, c.Path, c.Args...)
 	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
+	// A cancelled run returns, and frees the lock, even if something apk
+	// started still holds its output open.
+	cmd.WaitDelay = 5 * time.Second
 	if err := cmd.Start(); err != nil {
 		return err
 	}

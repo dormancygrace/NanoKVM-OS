@@ -3,7 +3,7 @@
 Data centre tools can switch the host on and off through the NanoKVM's ATX connection, as they would a server's BMC:
 
 - **Redfish** is part of NanoKVM OS (`fence_redfish`, Ansible's `community.general.redfish_*`).
-- **IPMI over LAN** comes with the optional `nanokvm-ipmi` add-on (`ipmitool -I lanplus`, `fence_ipmilan`). Install it from Software > Add-ons or from the settings page.
+- **IPMI over LAN** comes with the optional `nanokvm-ipmi` add-on (`ipmitool -I lanplus`, `fence_ipmilan`). Install it from Software > Add-ons or from the settings page; its card there appears once the package repository offers the add-on.
 
 Both are off by default. They are set up in System > Redfish and IPMI, each on its own switch, with one BMC account for both.
 

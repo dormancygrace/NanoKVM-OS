@@ -75,7 +75,7 @@ func NewService(atx bmc.ATX) *Service {
 		run: func(name string, args ...string) error {
 			return exec.Command(name, args...).Run()
 		},
-		install: func() error { return apkpkg.Install(bmc.IPMIPackage) },
+		install: func() error { return apkpkg.InstallAddon(bmc.IPMIPackage) },
 		remove:  func() error { return apkpkg.Run("remove", bmc.IPMIPackage) },
 	}
 	if config, err := bmc.Load(s.configPath); err != nil {

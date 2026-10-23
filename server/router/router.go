@@ -89,6 +89,7 @@ func server(r *gin.Engine) {
 	downloadRouter(r)
 	extensionsRouter(r)
 	addonsRouter(r)
+	addonCatalogRouter(r)
 	bmcRouter(r)
 	rustdeskRouter(r)
 	osUpdateRouter(r)

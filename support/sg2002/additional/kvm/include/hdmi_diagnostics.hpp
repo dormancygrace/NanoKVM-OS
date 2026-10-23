@@ -11,6 +11,7 @@ struct ReceiverDiagnostics {
     DiagnosticState state = DiagnosticState::Unsupported;
     ReceiverKind model = ReceiverKind::Unknown, expected_model = ReceiverKind::Unknown;
     uint16_t chip_id = 0;
+    bool identity_checked = false;
     uint8_t firmware_raw[5]{}, firmware_size = 0, stream = 0;
     uint32_t byte_clock_raw = 0;
     uint32_t firmware = 0, tmds_raw = 0;
@@ -144,13 +145,15 @@ inline std::string format_receiver_diagnostics(const ReceiverDiagnostics &d)
             d.width, d.height, d.htotal, d.vtotal, d.hsync, d.hfront, d.hback,
             d.vsync, d.vfront, d.vback, d.csi_width, d.csi_height);
     } else if (d.model == ReceiverKind::D) {
+        char chip[24] = "exclusive-probe-only";
+        if (d.identity_checked) snprintf(chip, sizeof(chip), "0x%04x", d.chip_id);
         snprintf(text, sizeof(text),
-            "[hdmi] diagnostics %s model=%s chip_id=0x%04x fw_raw=%s lanes=%u "
+            "[hdmi] diagnostics %s board_model=%s chip_id=%s fw_raw=%s lanes=%u "
             "active=%ux%u total=%ux%u event_raw=0x%02x format_raw=0x%02x "
             "stream_raw=0x%02x byte_clock_raw=0x%06x HDMI_CSI_independent=unavailable "
             "sync_porches=unavailable",
             d.state == DiagnosticState::Ready ? "ready" : "invalid/incoherent",
-            receiver_name(d.model), d.chip_id, format_firmware_raw(d).c_str(),
+            receiver_name(d.model), chip, format_firmware_raw(d).c_str(),
             d.lanes, d.width, d.height, d.htotal, d.vtotal, d.status, d.color,
             d.stream, d.byte_clock_raw);
     } else {

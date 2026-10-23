@@ -138,7 +138,7 @@ prepare_hdmi_receiver() {
             # Finish the quiet window before either service can probe I2C.
             # Keep UXC's existing startup warmup; C/D load firmware more slowly.
             case "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" in
-                ux|ue) sleep 1 ;;
+                ux) sleep 1 ;;
                 *) sleep 2.5 ;;
             esac
             ;;

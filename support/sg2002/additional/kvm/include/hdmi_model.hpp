@@ -25,16 +25,16 @@ inline unsigned receiver_settle_ms(ReceiverKind kind)
 }
 /* IDs come from each model's hardware-ID bank, never firmware/date bytes.
  * C's A000 low byte is first; normalize the legacy 16 05 wire pair to 0516.
- * UXC's 8100 and D's E100 have the high byte first. */
+ * UXC's 8100 is also the low byte (17 04 wire -> 0417). D's E100 is high. */
 inline uint16_t receiver_chip_id(ReceiverKind bank, const uint8_t bytes[2])
 {
-    return bank == ReceiverKind::C ? (uint16_t(bytes[1]) << 8) | bytes[0] :
+    return bank == ReceiverKind::C || bank == ReceiverKind::UXC ? (uint16_t(bytes[1]) << 8) | bytes[0] :
         (uint16_t(bytes[0]) << 8) | bytes[1];
 }
 inline ReceiverKind identify_receiver(ReceiverKind bank, uint16_t id)
 {
     if (bank == ReceiverKind::C && id == 0x0516) return ReceiverKind::C;
-    if (bank == ReceiverKind::UXC && id == 0x1704) return ReceiverKind::UXC;
+    if (bank == ReceiverKind::UXC && id == 0x0417) return ReceiverKind::UXC;
     if (bank == ReceiverKind::D && id == 0x2102) return ReceiverKind::D;
     return ReceiverKind::Unknown;
 }

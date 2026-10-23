@@ -2039,8 +2039,9 @@ int kvmv_edid_maintenance(uint8_t pause)
     } else {
         if (!active) { errno = EINVAL; return -1; }
         kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
-        control.resume(std::chrono::milliseconds(nanokvm::receiver_settle_ms(
-            nanokvm::receiver_kind(kvmv_cfg.hdmi_version))));
+        // This Cube/Lite maintenance does not reset the receiver. Keep the
+        // short post-access gap, without shortening a pending reset deadline.
+        control.resume(std::chrono::milliseconds(NANOKVM_RECEIVER_MAINTENANCE_MS), true);
         receiver_diagnostics_pending = true;
         receiver_retry_pending.store(true, std::memory_order_relaxed);
         set_hdmi_capture_enabled(previous_capture);

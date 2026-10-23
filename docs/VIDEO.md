@@ -31,9 +31,11 @@ message count is an error. Failed transfers are not replayed, and failed reads
 do not publish partial bytes. Every operation carries its own bank, so the
 EDID programmer no longer needs a bank cache.
 
-After a successful PCIe reset release or EDID-maintenance resume, detector
-admission returns `settling` without I2C until a monotonic deadline: LT6911C
-2500 ms, LT6911D 2500 ms, LT6911UXC 250 ms. C and D have independent policy
+After a successful PCIe reset release, detector admission returns `settling`
+without I2C until a monotonic deadline: LT6911C 2500 ms, LT6911D 2500 ms,
+LT6911UXC 250 ms. Cube/Lite EDID maintenance does not reset the receiver:
+resuming it retains the previous 250 ms post-access gap for every model,
+without shortening an already pending reset deadline. C and D have independent policy
 constants even though their initial values match. The standalone EDID tool
 uses the same model-specific delay after each successful reset pulse, with
 normalized seconds/nanoseconds and interrupted sleeps resumed. Service startup
@@ -51,27 +53,32 @@ retries still apply.
 
 The cached board model selects a register protocol. Diagnostics identify the
 silicon separately: C reads A000/A001 (normalized ID 0516), UXC reads
-8100/8101 (1704), D reads E100/E101 (2102). An unexpected ID is reported as
+8100/8101 (normalized ID 0417; wire bytes 17 04). D's E100/E101 ID 2102 is
+read only by the exclusive stopped-capture probe, once per reset generation;
+normal D diagnostics report the cached board-model hint and
+`chip_id=exclusive-probe-only`, and perform no register writes. An unexpected ID is reported as
 unknown together with the board-model hint; it does not switch capture
 protocols. Firmware bytes never decide the model. Every internal-ID session
-closes its register window, including failed enable/read paths; D closes E0EE
-before accessing firmware-owned telemetry.
+attempts to close its register window, including failed enable/read paths.
+The exclusive D probe caches both successful and failed ID attempts until a
+new reset generation. An ID/cleanup failure aborts that probe before further
+telemetry; it cannot enter normal capture as a disposable diagnostic error.
 
 Diagnostic fields are model-specific:
 
 | Receiver | Available diagnostic data | Explicitly unavailable |
 | --- | --- | --- |
 | C | Hardware ID; five raw firmware bytes D20C..D210; HDMI active size, totals, sync and porches from D2; separate CSI size from C2 | Lane count and qualified clock units |
-| D | Hardware ID; four raw firmware bytes E080..E083; active size and totals; lane count, format, event, stream control and byte-clock registers | Independently measured HDMI/CSI sizes, sync/porches and qualified clock/FPS |
+| D | Hardware ID in exclusive probe only; four raw firmware bytes E080..E083; active size and totals; lane count, format, event, stream control and byte-clock registers | Independently measured HDMI/CSI sizes, sync/porches and qualified clock/FPS |
 | UXC | Firmware revision, CSI lanes, HDMI active size/totals/sync/porches/polarity/format bits and raw TMDS; separate CSI size | Qualified clock/FPS on NanoKVM firmware 00000300 |
 
 C measurements enable D283=11 and wait 5 ms, matching the existing sampling
 sequence. Horizontal measurement fields use half-pixel units. C firmware
 registers were measured on GL.iNet firmware; other revisions may return
 unavailable bytes. D's E084 is an event code, not live cable presence, and
-E080..E083 are kept raw rather than decoded as a date or pixel clock. No D
-stream toggle, flash command, frequency-meter selection or color/lane
-configuration is performed. Zero/all-FF firmware bytes are marked unavailable
+E080..E083 are kept raw rather than decoded as a date or pixel clock. Normal D diagnostics are read-only. The exclusive probe alone may open the
+internal ID window. No D stream toggle, flash command, frequency-meter
+selection or color/lane configuration is performed. Zero/all-FF firmware bytes are marked unavailable
 without rejecting a known hardware ID.
 
 Telemetry runs on receiver/mode transitions (including same-size IRQs) and

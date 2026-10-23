@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     {
         auto lease = access.read();
         if (!lease) return 1;
-        auto d = receiver.diagnostics(kind);
+        auto d = receiver.exclusive_diagnostics(kind, lease.generation);
         puts(nanokvm::format_receiver_diagnostics(d).c_str());
         ok = d.state == nanokvm::DiagnosticState::Ready && d.model == kind &&
             d.width && d.height;
@@ -76,7 +76,11 @@ int main(int argc, char **argv) {
                 ++attempts;
                 auto sample = receiver.snapshot(kind);
                 if (sample.state == nanokvm::ReceiverState::Ready) {
-                    auto d = receiver.diagnostics(kind);
+                    auto d = receiver.exclusive_diagnostics(kind, lease.generation);
+                    if (d.cleanup_error || d.state == nanokvm::DiagnosticState::IoError) {
+                        puts(nanokvm::format_receiver_diagnostics(d).c_str());
+                        return 1; // retain stopped capture; do not retry an unsafe ID window
+                    }
                     if (d.state == nanokvm::DiagnosticState::Ready) {
                         ready = ms(released);
                         puts(nanokvm::format_receiver_diagnostics(d).c_str());

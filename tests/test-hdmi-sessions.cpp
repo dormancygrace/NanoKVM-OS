@@ -16,7 +16,8 @@ struct Bus {
     int final_status = -1;
     unsigned change_on_read = 0, change_on_match = 1, matched_reads = 0;
     std::vector<unsigned> writes;
-    bool expected_combined = false;
+    bool expected_combined = false, forbid_writes = false;
+    std::vector<unsigned> reads;
     std::map<unsigned, uint8_t> registers;
     bool fail() {
         ++calls;
@@ -28,6 +29,7 @@ struct Bus {
     }
     bool write_register(int addr, uint8_t page, uint8_t reg, const uint8_t *p, size_t n, bool combined) {
         assert(combined == expected_combined);
+        assert(!forbid_writes); // live D must never open the MCU register window
         assert(addr == 0x2b && p && n == 1);
         if (reg == 0xee && p[0] == 0) ++cleanup_attempts;
         writes.push_back((unsigned(page) << 16) | (unsigned(reg) << 8) | p[0]);
@@ -38,6 +40,7 @@ struct Bus {
     bool read_register(int addr, uint8_t page, uint8_t reg, uint8_t *p, size_t n, bool combined) {
         assert(combined == expected_combined);
         assert(addr == 0x2b && p && n);
+        reads.push_back((unsigned(page) << 8) | reg);
         if (fail()) return false;
         for (size_t i = 0; i < n; ++i) p[i] = registers[(page << 8) | (reg + i)];
         if (((unsigned(page) << 8) | reg) == change_on_read &&
@@ -357,7 +360,8 @@ static void diagnostics() {
     nanokvm::HdmiReceiver<Bus> receiver(io);
     auto good = receiver.diagnostics(ReceiverKind::UXC);
     using nanokvm::DiagnosticState;
-    assert(good.state == DiagnosticState::Ready && good.firmware == 0x300 && good.lanes == 4);
+    assert(good.state == DiagnosticState::Ready && good.firmware == 0x300 && good.lanes == 4 &&
+        good.chip_id == 0x0417 && good.identity_checked);
     assert(good.width == 2560 && good.height == 1440);
     assert(good.htotal == 2720 && good.vtotal == 1481);
     assert(good.hsync == 32 && good.hfront == 48 && good.hback == 80);
@@ -472,8 +476,11 @@ static void cd_diagnostics() {
         auto id = receiver.identify(kind);
         assert(id.model == kind && !id.error && !id.cleanup_error);
         assert(id.chip_id == (kind == ReceiverKind::C ? 0x0516 : 0x2102));
+        io.writes.clear();
+        io.forbid_writes = kind == ReceiverKind::D;
         auto good = receiver.diagnostics(kind);
         assert(good.state == DiagnosticState::Ready && good.model == kind);
+        assert(good.identity_checked == (kind == ReceiverKind::C));
         assert(good.width == 1920 && good.height == 1080);
         assert(good.htotal == 2200 && good.vtotal == 1125);
         assert(good.firmware_size == (kind == ReceiverKind::C ? 5 : 4));
@@ -496,8 +503,8 @@ static void cd_diagnostics() {
                 io.registers[0xe084] = event; // event is not cable status
                 assert(receiver.diagnostics(kind).state == DiagnosticState::Ready);
             }
-            for (unsigned op : io.writes)
-                assert((op >> 8) == 0xe0ee); // only ID enable/cleanup; never B0/flash
+            assert(io.writes.empty());
+            assert(text.find("chip_id=exclusive-probe-only") != std::string::npos);
         }
         auto clean = Bus::fixture(kind);
         nanokvm::HdmiReceiver<Bus> count(clean);
@@ -508,7 +515,8 @@ static void cd_diagnostics() {
             auto failed = probe.diagnostics(kind);
             assert(failed.state == DiagnosticState::IoError && failed.error == ENXIO);
             assert(!failed.width && !failed.firmware_size && !failed.csi_width);
-            assert(broken.cleanup_attempts);
+            if (kind == ReceiverKind::C) assert(broken.cleanup_attempts);
+            else assert(broken.cleanup_attempts == 0 && broken.writes.empty());
         }
         auto broken = Bus::fixture(kind); broken.fail_at = 2; broken.second_fail_at = 3;
         nanokvm::HdmiReceiver<Bus> double_fault(broken);
@@ -527,7 +535,8 @@ static void cd_diagnostics() {
         auto unknown = Bus::fixture(kind);
         unknown.pair(kind == ReceiverKind::C ? 0xa000 : 0xe100, 0x1234);
         nanokvm::HdmiReceiver<Bus> unknown_id(unknown);
-        auto d = unknown_id.diagnostics(kind);
+        auto d = kind == ReceiverKind::D ? unknown_id.exclusive_diagnostics(kind, 1) :
+            unknown_id.diagnostics(kind);
         assert(d.model == ReceiverKind::Unknown && d.state == DiagnosticState::Invalid);
         assert(unknown.calls == 4 && !d.firmware_size); // no timing-map guesses
         assert(nanokvm::format_receiver_diagnostics(d).find("model=unknown") != std::string::npos);
@@ -579,13 +588,16 @@ static void cd_diagnostics() {
 static void model_windows() {
     for (auto kind : {ReceiverKind::C, ReceiverKind::D, ReceiverKind::UXC}) {
         kvmv_cfg.hdmi_version = kind == ReceiverKind::C ? 0 : kind == ReceiverKind::D ? 3 : 1;
-        const auto expected = kind == ReceiverKind::UXC ? 250U : 2500U;
-        assert(nanokvm::receiver_settle_ms(kind) == expected);
+        const auto reset_window = kind == ReceiverKind::UXC ? 250U : 2500U;
+        assert(nanokvm::receiver_settle_ms(kind) == reset_window);
         for (bool reset : {true, false}) {
+            const auto expected = reset ? reset_window : 250U;
             if (reset) {
                 assert(kvmv_hdmi_control(0) == 0 && kvmv_hdmi_control(1) == 0);
             } else {
+                const auto resets = reset_calls;
                 assert(kvmv_edid_maintenance(1) == 0 && kvmv_edid_maintenance(0) == 0);
+                assert(reset_calls == resets); // no reset in the Cube/Lite maintenance API
             }
             LT6911_i2c = Bus::fixture(kind);
             auto before = publications;
@@ -598,7 +610,85 @@ static void model_windows() {
             assert(signal_active && LT6911_i2c.calls && publications == before + 1);
         }
     }
-    puts("PASS production C/D/UXC reset and maintenance: exact 2500/2500/250ms windows; no I2C, telemetry or publication before deadline; deferred IRQ sampled on admission");
+    for (auto kind : {ReceiverKind::C, ReceiverKind::D}) {
+        kvmv_cfg.hdmi_version = kind == ReceiverKind::C ? 0 : 3;
+        assert(kvmv_hdmi_control(0) == 0 && kvmv_hdmi_control(1) == 0);
+        fake_now += std::chrono::milliseconds(100);
+        assert(kvmv_edid_maintenance(1) == 0 && kvmv_edid_maintenance(0) == 0);
+        LT6911_i2c = Bus::fixture(kind);
+        for (unsigned ms = 100; ms < 2500; ++ms) {
+            assert(!poll_hdmi_receiver(false));
+            assert(!LT6911_i2c.calls);
+            fake_now += std::chrono::milliseconds(1);
+        }
+        assert(!poll_hdmi_receiver(false) && signal_active && LT6911_i2c.calls);
+    }
+    puts("PASS reset2500/2500/250ms; no-reset maintenance250ms; overlapping maintenance preserves reset deadline; no early I2C/publication and IRQ retained");
 }
 
-int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); model_windows(); }
+static void d_read_only_production() {
+    fake_now += std::chrono::seconds(3);
+    kvmv_cfg.hdmi_version = 3;
+    LT6911_i2c = Bus::fixture(ReceiverKind::D);
+    LT6911_i2c.forbid_writes = true;
+    LT6911_i2c.registers[0xe0ee] = 0;
+    // Reproduce the reviewed operation-6 fault after the same two snapshot
+    // reads. In the old path this failed E0EE close and left MCU ownership open.
+    LT6911_i2c.fail_at = 6;
+    receiver_diagnostics_pending = true;
+    auto before = publications;
+    assert(!poll_hdmi_receiver(false));
+    assert(signal_active && publications == before + 1);
+    assert(LT6911_i2c.registers[0xe0ee] == 0 && LT6911_i2c.writes.empty());
+    LT6911_i2c.fail_at = 0;
+    for (int poll = 0; poll < 100; ++poll) {
+        assert(!poll_hdmi_receiver(false)); // no further HDMI IRQ
+        assert(signal_active && publications == before + poll + 2);
+        assert(LT6911_i2c.registers[0xe0ee] == 0 && LT6911_i2c.writes.empty());
+    }
+    for (unsigned irq = 0; irq < 4; ++irq)
+        assert(!poll_hdmi_receiver(false, false, true));
+    assert(kvmv_edid_maintenance(1) == 0 && kvmv_edid_maintenance(0) == 0);
+    fake_now += std::chrono::milliseconds(250);
+    assert(!poll_hdmi_receiver(false));
+    assert(kvmv_hdmi_control(0) == 0 && kvmv_hdmi_control(1) == 0);
+    fake_now += std::chrono::milliseconds(2500);
+    assert(!poll_hdmi_receiver(false));
+    assert(LT6911_i2c.registers[0xe0ee] == 0 && LT6911_i2c.writes.empty());
+    for (auto reg : LT6911_i2c.reads) assert((reg >> 8) == 0xe0); // no internal E1 ID reads
+    kvmv_cfg.hdmi_version = 1;
+    puts("PASS real D poll: old close-fault6,100 stale healthy no-IRQ polls,IRQ,resume/reset all keep E0EE closed with zero writes/internal-ID reads");
+}
+
+static void exclusive_d_identity() {
+    using nanokvm::DiagnosticState;
+    auto io = Bus::fixture(ReceiverKind::D);
+    nanokvm::HdmiReceiver<Bus> receiver(io);
+    auto first = receiver.exclusive_diagnostics(ReceiverKind::D, 7);
+    assert(first.state == DiagnosticState::Ready && first.identity_checked && first.chip_id == 0x2102);
+    assert(io.writes.size() == 2 && io.registers[0xe0ee] == 0);
+    assert(nanokvm::format_receiver_diagnostics(first).find("chip_id=0x2102") != std::string::npos);
+    for (unsigned i = 0; i < 5; ++i)
+        assert(receiver.exclusive_diagnostics(ReceiverKind::D, 7).state == DiagnosticState::Ready);
+    assert(io.writes.size() == 2); // cached once per successful reset generation
+    assert(receiver.exclusive_diagnostics(ReceiverKind::D, 8).state == DiagnosticState::Ready);
+    assert(io.writes.size() == 4 && io.cleanup_attempts == 2);
+    for (unsigned failure = 1; failure <= 4; ++failure) {
+        auto broken = Bus::fixture(ReceiverKind::D); broken.fail_at = failure;
+        nanokvm::HdmiReceiver<Bus> probe(broken);
+        auto d = probe.exclusive_diagnostics(ReceiverKind::D, 1);
+        assert(d.state == DiagnosticState::IoError && d.error == ENXIO && !d.firmware_size);
+        assert(broken.cleanup_attempts == 1);
+        auto calls = broken.calls;
+        broken.fail_at = 0;
+        auto repeated = probe.exclusive_diagnostics(ReceiverKind::D, 1);
+        assert(repeated.state == DiagnosticState::IoError && broken.calls == calls);
+        if (failure == 4) assert(d.cleanup_error == ENXIO);
+        // Only a newly completed reset permits another internal-ID attempt.
+        assert(probe.exclusive_diagnostics(ReceiverKind::D, 2).state == DiagnosticState::Ready);
+        assert(broken.registers[0xe0ee] == 0);
+    }
+    puts("PASS exclusive D probe: hardware ID cached per reset generation; each ID/cleanup fault aborts and is not retried or followed by telemetry");
+}
+
+int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); model_windows(); d_read_only_production(); exclusive_d_identity(); }

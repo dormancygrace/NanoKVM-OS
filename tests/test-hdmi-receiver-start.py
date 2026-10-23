@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as directory:
         assert (calls.read_text() if calls.exists() else "") == ("1\n" if wait else "")
         print(f"PASS reset={state!r}, exit={status}, warmup={wait}")
     for variant, wait in [("c", "2.5"), ("d", "2.5"), ("ux", "1"),
-                          ("ue", "1"), ("unknown", "2.5"), (None, "2.5")]:
+                          ("ue", "2.5"), ("unknown", "2.5"), (None, "2.5")]:
         reset.write_text("1")
         calls.unlink(missing_ok=True)
         if variant is None:

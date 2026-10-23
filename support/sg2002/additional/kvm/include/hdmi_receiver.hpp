@@ -76,9 +76,11 @@ public:
               ready_at_(ready_at), now_(now) {}
         explicit operator bool() const { return lock_.owns_lock(); }
         void pause() { *paused_ = true; }
-        void resume(std::chrono::milliseconds settle = std::chrono::milliseconds(0)) {
+        void resume(std::chrono::milliseconds settle = std::chrono::milliseconds(0),
+            bool preserve_deadline = false) {
             ++*generation_; // a fresh attempt even if no poll observed the pause
-            *ready_at_ = now_() + settle;
+            const auto deadline = now_() + settle;
+            if (!preserve_deadline || deadline > *ready_at_) *ready_at_ = deadline;
             *paused_ = false;
         }
     };
@@ -107,6 +109,9 @@ public:
 template<class Transport> class HdmiReceiver {
     Transport &io_;
     bool combined_ = false;
+    bool exclusive_d_identified_ = false;
+    uint64_t exclusive_d_generation_ = 0;
+    ReceiverIdentity exclusive_d_identity_;
     int error_ = 0;
     static constexpr int address = 0x2b;
     bool failed() { error_ = errno ? errno : EIO; return false; }
@@ -257,6 +262,15 @@ public:
         ReceiverDiagnostics result;
         result.expected_model = kind;
         if (kind == ReceiverKind::Unknown) return result;
+        if (kind == ReceiverKind::D) {
+            // Live D telemetry must stay read-only. Internal E1 identity is
+            // reserved for the exclusive probe until its lifecycle is qualified.
+            combined_ = false;
+            error_ = 0;
+            result = d_diagnostics();
+            result.expected_model = kind;
+            return result;
+        }
         const auto id = identify(kind);
         result.chip_id = id.chip_id;
         if (id.error) {
@@ -271,7 +285,6 @@ public:
         }
         error_ = 0;
         if (kind == ReceiverKind::C) result = c_diagnostics();
-        else if (kind == ReceiverKind::D) result = d_diagnostics();
         else {
             uint8_t identity[9]{}, timing[18]{}, clock[3]{}, version = 0, color = 0, status = 0;
             uint16_t csi_width = 0, csi_height = 0;
@@ -295,6 +308,37 @@ public:
         result.model = id.model;
         result.expected_model = kind;
         result.chip_id = id.chip_id;
+        result.identity_checked = true;
+        return result;
+    }
+    /* Caller must stop capture and hold exclusive receiver ownership. D's
+     * internal window is opened once per reset generation, including failed
+     * attempts; a failed close must abort the probe, never become live telemetry. */
+    ReceiverDiagnostics exclusive_diagnostics(ReceiverKind kind, uint64_t generation) {
+        if (kind != ReceiverKind::D) return diagnostics(kind);
+        if (!exclusive_d_identified_ || exclusive_d_generation_ != generation) {
+            exclusive_d_identity_ = identify(kind);
+            exclusive_d_generation_ = generation;
+            exclusive_d_identified_ = true;
+        }
+        const auto &id = exclusive_d_identity_;
+        ReceiverDiagnostics result;
+        result.expected_model = kind;
+        result.chip_id = id.chip_id;
+        if (id.error) {
+            result.state = DiagnosticState::IoError;
+            result.error = id.error;
+            result.cleanup_error = id.cleanup_error;
+            return result;
+        }
+        result.identity_checked = true;
+        if (id.model != kind) {
+            result.state = DiagnosticState::Invalid;
+            return result;
+        }
+        result = diagnostics(kind);
+        result.chip_id = id.chip_id;
+        result.identity_checked = true;
         return result;
     }
     ReceiverSnapshot snapshot(ReceiverKind kind) {

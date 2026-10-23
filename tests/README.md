@@ -122,7 +122,9 @@ but not executed in the temporary installation root.
 The second receiver probe, `firmware/probes/hdmi-receiver-runtime.cpp`, links
 only the I2C transport. Stop nanokvm-app and acquire exclusive device ownership
 before running it. `diagnostics c|d|ux` checks the selected model's hardware ID
-and prints its available telemetry. `reset-ready c|d|ux` runs three reset cycles,
+and prints its available telemetry. D internal identity is available only in
+this exclusive probe and is cached once per reset generation, including failed
+attempts. A failed ID/cleanup aborts the probe without retrying live control. `reset-ready c|d|ux` runs three reset cycles,
 checking that no receiver I2C happens before that model's minimum quiet window.
 Omitting the model retains the earlier UXC command syntax. C/D physical
 qualification is pending; host tests and a successful cross-build are not a
@@ -130,8 +132,15 @@ substitute.
 
 `test-hdmi-sessions.py` exercises the actual production poll/reset/maintenance
 functions using a fake clock and controlled transport faults. It covers the
-2500/2500/250 ms C/D/UXC deadlines, separate silicon ID versus firmware bytes,
+2500/2500/250 ms C/D/UXC reset deadlines, the 250 ms maintenance gap without
+shortening pending reset readiness, separate silicon ID versus firmware bytes,
 C HDMI/CSI and D telemetry, mixed timing rejection, every session IO/cleanup
 failure, and capture isolation from optional diagnostics. The EDID C harness
 also checks normalized model-specific sleeps, EINTR and reset failures.
 `test-hdmi-receiver-start.py` verifies the startup delay before service probes.
+
+The D live-poll regression injects the reviewed operation-6 failure, then runs
+100 healthy stale-dimension polls without an IRQ, plus IRQ/resume/reset
+transitions. It requires zero D writes and no internal E1 identity reads.
+Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
+fault, including no further IO after a failed attempt in the same generation.

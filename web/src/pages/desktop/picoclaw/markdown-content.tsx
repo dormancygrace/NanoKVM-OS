@@ -16,6 +16,10 @@ export const MarkdownContent = ({ content, className }: MarkdownContentProps) =>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          // Model and tool output can be steered by text on the host's
+          // screen; an image would be fetched at once, with no click, and
+          // carry whatever the URL holds. Show its description instead.
+          img: ({ alt }) => (alt ? <span className="text-neutral-400">[{alt}]</span> : null),
           p: ({ children }) => (
             <p className="my-2 leading-6 wrap-break-word whitespace-pre-wrap first:mt-0 last:mb-0">
               {children}

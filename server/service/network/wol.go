@@ -8,9 +8,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -28,6 +30,44 @@ const maxWolHistory = 100
 // wolMacMutex serialises every read-modify-write of WolMacFile; concurrent
 // wakes, renames and deletes used to overwrite each other's changes.
 var wolMacMutex sync.Mutex
+
+// Any user may wake, and every wake runs ether-wake and broadcasts on the
+// LAN: one a second on average, five at once.
+var wolLimiter = &wakeLimiter{burst: 5, every: time.Second}
+
+// Wakes add new addresses to the history in memory, and the file is
+// rewritten at most once per wolFlushInterval: a loop of wakes with fresh
+// addresses would otherwise be a stream of fsync'd SD card writes. An
+// administrator's rename or delete writes them at once.
+var (
+	wolFlushInterval = time.Minute
+	wolPending       []string // under wolMacMutex
+	wolFlushTimer    *time.Timer
+)
+
+type wakeLimiter struct {
+	mu     sync.Mutex
+	burst  float64
+	every  time.Duration
+	tokens float64
+	last   time.Time
+}
+
+func (l *wakeLimiter) allow(now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.last.IsZero() {
+		l.tokens = l.burst
+	} else {
+		l.tokens = min(l.burst, l.tokens+float64(now.Sub(l.last))/float64(l.every))
+	}
+	l.last = now
+	if l.tokens < 1 {
+		return false
+	}
+	l.tokens--
+	return true
+}
 
 var systemNetworkInterfaces = net.Interfaces
 var wolSysClassNet = "/sys/class/net"
@@ -68,6 +108,11 @@ func (s *Service) WakeOnLAN(c *gin.Context) {
 	interfaceName, err := selectWolInterface(req.Interface)
 	if err != nil {
 		rsp.ErrRsp(c, -2, "invalid network interface")
+		return
+	}
+
+	if !wolLimiter.allow(time.Now()) {
+		rsp.ErrRsp(c, -4, "too many wake requests, try again in a second")
 		return
 	}
 
@@ -150,13 +195,17 @@ func wolCommand(interfaceName, mac string) *exec.Cmd {
 func (s *Service) GetMac(c *gin.Context) {
 	var rsp proto.Response
 
+	wolMacMutex.Lock()
 	macs, err := readWolMacs()
+	if errors.Is(err, os.ErrNotExist) {
+		macs, err = []string{}, nil
+	}
+	if err == nil {
+		// The addresses not written yet are history too.
+		macs = boundWolHistory(append(macs, wolPending...))
+	}
+	wolMacMutex.Unlock()
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			rsp.OkRspWithData(c, &proto.GetMacRsp{Macs: []string{}})
-			return
-		}
-
 		rsp.ErrRsp(c, -2, "open file error")
 		return
 	}
@@ -191,6 +240,7 @@ func (s *Service) SetMacName(c *gin.Context) {
 
 	wolMacMutex.Lock()
 	defer wolMacMutex.Unlock()
+	flushWolPendingLocked()
 	macs, err := readWolMacs()
 	if err != nil {
 		log.Errorf("failed to open %s: %s", WolMacFile, err)
@@ -253,6 +303,7 @@ func (s *Service) DeleteMac(c *gin.Context) {
 
 	wolMacMutex.Lock()
 	defer wolMacMutex.Unlock()
+	flushWolPendingLocked()
 	macs, err := readWolMacs()
 	if err != nil {
 		log.Errorf("failed to open %s: %s", WolMacFile, err)
@@ -317,9 +368,31 @@ func saveMac(mac string) {
 	wolMacMutex.Lock()
 	defer wolMacMutex.Unlock()
 
-	if isMacExist(mac) {
+	if isMacExist(mac) || slices.Contains(wolPending, mac) {
 		return
 	}
+	wolPending = append(wolPending, mac)
+	if wolFlushTimer == nil {
+		wolFlushTimer = time.AfterFunc(wolFlushInterval, func() {
+			wolMacMutex.Lock()
+			defer wolMacMutex.Unlock()
+			flushWolPendingLocked()
+		})
+	}
+}
+
+// flushWolPendingLocked writes the addresses wakes added since the last
+// write, in one rewrite of the file.
+func flushWolPendingLocked() {
+	if wolFlushTimer != nil {
+		wolFlushTimer.Stop()
+		wolFlushTimer = nil
+	}
+	if len(wolPending) == 0 {
+		return
+	}
+	pending := wolPending
+	wolPending = nil
 
 	err := os.MkdirAll(filepath.Dir(WolMacFile), 0o755)
 	if err != nil {
@@ -332,9 +405,14 @@ func saveMac(mac string) {
 		log.Errorf("failed to read %s: %s", WolMacFile, err)
 		return
 	}
-	macs = append(macs, mac)
-	// Any user can trigger a wake; bound the history by dropping the oldest
-	// unnamed entry (or the oldest entry when all of them are named).
+	if err = writeWolMacs(boundWolHistory(append(macs, pending...))); err != nil {
+		log.Errorf("failed to write %s: %s", WolMacFile, err)
+	}
+}
+
+// boundWolHistory drops the oldest unnamed entry (or the oldest entry when
+// all of them are named) until maxWolHistory remain: any user can wake.
+func boundWolHistory(macs []string) []string {
 	for len(macs) > maxWolHistory {
 		drop := 0
 		for i, line := range macs {
@@ -345,9 +423,7 @@ func saveMac(mac string) {
 		}
 		macs = append(macs[:drop], macs[drop+1:]...)
 	}
-	if err = writeWolMacs(macs); err != nil {
-		log.Errorf("failed to write %s: %s", WolMacFile, err)
-	}
+	return macs
 }
 
 func isMacExist(mac string) bool {

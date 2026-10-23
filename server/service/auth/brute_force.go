@@ -7,6 +7,7 @@ import (
 
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
+	"NanoKVM-Server/middleware"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -117,10 +118,12 @@ func startCleanupRoutine() {
 	}()
 }
 
-// GetClientIP returns the brute-force key for a request: the peer address,
-// with IPv6 peers grouped by their /64 so one host cannot rotate addresses.
+// GetClientIP returns the brute-force key for a request: the client address
+// (behind a trusted reverse proxy, the one the proxy forwarded, so its
+// clients do not share one lockout), with IPv6 clients grouped by their /64
+// so one host cannot rotate addresses.
 func GetClientIP(c *gin.Context) string {
-	ip := c.RemoteIP()
+	ip := middleware.ClientAddress(c.Request)
 	if ip == "" {
 		ip = c.ClientIP()
 	}

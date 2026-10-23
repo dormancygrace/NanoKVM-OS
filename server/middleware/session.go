@@ -230,6 +230,38 @@ func singleForwardedValue(value string) string {
 	return strings.TrimSpace(value)
 }
 
+// ClientAddress is the client a request comes from: the peer, or behind a
+// trusted reverse proxy the right-most X-Forwarded-For entry that is not a
+// trusted proxy itself. That entry is the one the proxy added; the ones to
+// its left come from the client and may be anything. A malformed entry
+// stops the walk and the proxy's own address is used.
+func ClientAddress(request *http.Request) string {
+	host, _, err := net.SplitHostPort(request.RemoteAddr)
+	if err != nil {
+		host = request.RemoteAddr
+	}
+	peer := strings.Trim(host, "[]")
+	trusted := config.GetInstance().Security.TrustedProxies
+	if !isTrustedProxy(request.RemoteAddr, trusted) {
+		return peer
+	}
+	var entries []string
+	for _, value := range request.Header.Values("X-Forwarded-For") {
+		entries = append(entries, strings.Split(value, ",")...)
+	}
+	for i := len(entries) - 1; i >= 0; i-- {
+		address, err := netip.ParseAddr(strings.TrimSpace(entries[i]))
+		if err != nil {
+			return peer
+		}
+		address = address.Unmap()
+		if !isTrustedProxy(address.String(), trusted) {
+			return address.String()
+		}
+	}
+	return peer
+}
+
 func isTrustedProxy(remoteAddr string, trustedProxies []string) bool {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {

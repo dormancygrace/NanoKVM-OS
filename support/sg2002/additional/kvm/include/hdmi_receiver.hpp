@@ -150,11 +150,20 @@ template<class Transport> class HdmiReceiver {
             if (!read(0xe0, 0x80 + i, bytes + i, 1)) return false;
         return true;
     }
+    bool read_d_tx_telemetry(uint8_t bytes[17]) {
+        // Only the 25.05.13.01 producer is verified. E0A0 is not published.
+        return read_individual(0xe0, 0x85, bytes, 3) &&
+            read_individual(0xe0, 0x98, bytes + 3, 8) &&
+            read_individual(0xe0, 0xa1, bytes + 11, 6);
+    }
     ReceiverDiagnostics c_diagnostics() {
         ReceiverDiagnostics result;
         uint8_t firmware[5]{}, timing[26]{}, after[26]{};
+        uint8_t status = 0, final_status = 0, lane_config[2]{};
         uint16_t csi_width = 0, csi_height = 0;
         bool ok = write8(0x80, 0xee, 1) && read_individual(0xd2, 0x0c, firmware, sizeof(firmware)) &&
+            read(0xb8, 0xb0, &status, 1) &&
+            read(0xc2, 0x01, lane_config, 1) && read(0xc2, 0x56, lane_config + 1, 1) &&
             write8(0xd2, 0x83, 0x11);
         if (ok) {
             struct timespec delay = {0, 5000000};
@@ -163,7 +172,7 @@ template<class Transport> class HdmiReceiver {
         }
         ok = ok && read_c_timing(timing) &&
             read16(0xc2, 0x38, csi_width) && read16(0xc2, 0x06, csi_height) &&
-            read_c_timing(after);
+            read_c_timing(after) && read(0xb8, 0xb0, &final_status, 1);
         const int primary = error_;
         if (!write8(0x80, 0xee, 0)) result.cleanup_error = error_;
         if (!ok || result.cleanup_error) {
@@ -172,24 +181,44 @@ template<class Transport> class HdmiReceiver {
             return result;
         }
         result = decode_c_diagnostics(timing, firmware, csi_width, csi_height);
-        if (memcmp(timing, after, sizeof(after)) != 0)
+        result.rx_status_raw = status;
+        result.c_status_available = status != 0xff;
+        result.lane_config_raw[0] = lane_config[0];
+        result.lane_config_raw[1] = lane_config[1];
+        // Bit 6's lock polarity disagrees between the C pseudocode and dump;
+        // report the bit, not a guessed 'locked' predicate. No training writes.
+        if (memcmp(timing, after, sizeof(after)) != 0 || ((status ^ final_status) & 0x41))
             result.state = DiagnosticState::Invalid;
         return result;
     }
     ReceiverDiagnostics d_diagnostics() {
         ReceiverDiagnostics result;
-        uint8_t data[23]{}, after[8]{}, stream = 0;
+        uint8_t data[23]{}, after[23]{}, tx[17]{}, tx_after[17]{}, stream = 0, stream_after = 0;
         // E0 telemetry is firmware-owned. Do not open/hold the internal bus
         // or toggle E0B0 to "repair" a stream during diagnostic reads.
-        if (!read_d_telemetry(data) || !read(0xe0, 0xb0, &stream, 1) ||
-            !read_individual(0xe0, 0x88, after, sizeof(after))) {
+        bool ok = read_d_telemetry(data) && read(0xe0, 0xb0, &stream, 1);
+        const bool extended = ok && d_has_25051301_layout(data);
+        if (extended) {
+            ok = read_d_tx_telemetry(tx) && read_d_telemetry(after) &&
+                read(0xe0, 0xb0, &stream_after, 1) && read_d_tx_telemetry(tx_after);
+        } else {
+            ok = ok && read_individual(0xe0, 0x88, after + 8, 8);
+        }
+        if (!ok) {
             result.state = DiagnosticState::IoError;
             result.error = error_;
             return result;
         }
-        result = decode_d_diagnostics(data, stream);
-        if (memcmp(data + 8, after, sizeof(after)) != 0)
-            result.state = DiagnosticState::Invalid;
+        result = decode_d_diagnostics(data, stream, extended ? tx : nullptr);
+        bool coherent = memcmp(data + 8, after + 8, 8) == 0;
+        if (extended) {
+            // The event is written BEFORE its payload. Recheck metadata and
+            // all timing fields; free-running clock counters may jitter.
+            coherent = coherent && memcmp(data, after, 5) == 0 &&
+                data[21] == after[21] && data[22] == after[22] && stream == stream_after &&
+                memcmp(tx + 3, tx_after + 3, sizeof(tx) - 3) == 0;
+        }
+        if (!coherent) result.state = DiagnosticState::Invalid;
         return result;
     }
     ReceiverSnapshot dimensions(ReceiverKind kind) {

@@ -68,8 +68,8 @@ Diagnostic fields are model-specific:
 
 | Receiver | Available diagnostic data | Explicitly unavailable |
 | --- | --- | --- |
-| C | Hardware ID; five raw firmware bytes D20C..D210; HDMI active size, totals, sync and porches from D2; separate CSI size from C2 | Lane count and qualified clock units |
-| D | Hardware ID in exclusive probe only; four raw firmware bytes E080..E083; active size and totals; lane count, format, event, stream control and byte-clock registers | Independently measured HDMI/CSI sizes, sync/porches and qualified clock/FPS |
+| C | Hardware ID; five raw firmware bytes D20C..D210; HDMI active size, totals, sync and porches from D2; separate CSI size from C2; raw RX status bits and TX lane configuration | Decoded lane count, PLL-lock polarity and qualified clock units |
+| D | Hardware ID in exclusive probe only; four raw firmware bytes E080..E083; active size and totals; lane count, format, event, stream control and byte-clock registers; version-matched MIPI TX sync/porches/polarity and raw TX clock | Independently measured HDMI/CSI sizes and qualified clock/FPS; extra timing fields on other firmware |
 | UXC | Firmware revision, CSI lanes, HDMI active size/totals/sync/porches/polarity/format bits and raw TMDS; separate CSI size | Qualified clock/FPS on NanoKVM firmware 00000300 |
 
 C measurements enable D283=11 and wait 5 ms, matching the existing sampling
@@ -80,6 +80,27 @@ E080..E083 are kept raw rather than decoded as a date or pixel clock. Normal D d
 internal ID window. No D stream toggle, flash command, frequency-meter
 selection or color/lane configuration is performed. Zero/all-FF firmware bytes are marked unavailable
 without rejecting a known hardware ID.
+
+Additional C/D fields follow the [firmware analysis](LT6911-FIRMWARE.md).
+C reads B8B0 and C201/C256 inside the existing checked session. B8B0's bit 0
+is the reversed firmware's clock-detect predicate; bit 6 is reported without
+assuming lock polarity because the pseudocode and dump disagree. Lane bytes
+stay raw. No PLL training or lane configuration is performed.
+
+D firmware 25.05.13.01 publishes additional **MIPI TX** timings, not an
+independent HDMI measurement. Only this version enables the extra E085..87,
+E098..9F and E0A1..A6 reads. E0A0 is not read. Its format 0A uses full
+horizontal units; the other branch uses half units. This scaling applies to
+diagnostics only, not capture sizing. The additional clock remains raw.
+Unknown firmware keeps the baseline reads/decoding and reports the extra
+fields unavailable. Version matching selects a known layout; it does not
+authenticate the entire installed image. Matching versions on other boards
+still need physical qualification.
+
+Known D timings and C status are checked again to reject an update during
+the sample. D's producer publishes the event before the payload, so the
+event alone cannot prove coherence. Two matching reads reduce torn samples;
+they do not make the MCU update atomic. Clock counter jitter is permitted.
 
 Telemetry runs on receiver/mode transitions (including same-size IRQs) and
 after reset/maintenance. Only I2C failures retry periodically, at most every

@@ -60,9 +60,6 @@ const MOUSE_TYPE_MOVE_RELATIVE: i32 = 5;
 // at most five HID reports. A larger value, such as i32::MAX from a broken or hostile
 // client, would otherwise become millions of HID reports.
 const MAX_RELATIVE_MOVE: i64 = 512;
-// The session waits this long for its input task to end; the task then
-// finishes releasing keys and buttons on its own.
-const INPUT_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 fn is_peer_disconnect(error: &io::Error) -> bool {
     matches!(
@@ -480,7 +477,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let login_deadline = time::Instant::now() + LOGIN_TIMEOUT;
     let mut password_attempts = 0;
     let mut empty_probes = 0;
-    let (login, _session_permit) = loop {
+    let (login, session_permit) = loop {
         let login: Message = tokio::select! {
             result = time::timeout_at(login_deadline, reader.read()) => {
                 result.map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "login timed out"))??
@@ -1026,11 +1023,21 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     audio_task.abort();
     let _ = audio_task.await;
     let _ = input_shutdown_sender.send(true);
-    // A viewer slot is released only after this; a HID request that hangs
-    // must not keep it. The task is not aborted: it releases held keys and
-    // buttons last, and each HID request has its own timeout.
-    let _ = time::timeout(INPUT_SHUTDOWN_TIMEOUT, input_task).await;
+    retire_input(input_task, session_permit);
     result
+}
+
+// The session ends at once, but its viewer slot stays taken until the input
+// task has ended: that task releases held keys and buttons and closes the
+// HID lease last, and a viewer admitted before would find the lease still
+// held and lose its input. The task is never aborted, which could strand
+// held reports; each HID request has its own timeout, and the clamped
+// pointer movement bounds how many remain.
+fn retire_input(input_task: tokio::task::JoinHandle<()>, permit: SessionPermit) {
+    tokio::spawn(async move {
+        let _ = input_task.await;
+        drop(permit);
+    });
 }
 
 // The bridge drops a subscriber that stops reading for 2 s, which ended the
@@ -1512,6 +1519,35 @@ mod tests {
         assert!(limits.try_session("id:client-b".to_owned()).is_none());
         drop(second_path);
         assert!(limits.try_session("id:client-b".to_owned()).is_some());
+    }
+
+    #[tokio::test]
+    async fn the_viewer_slot_waits_for_the_input_cleanup() {
+        let limits = ClientLimits::new(1);
+        let permit = limits.try_session("id:old".to_owned()).unwrap();
+        let (release, released) = oneshot::channel::<()>();
+        // The old session's input task, still closing its HID lease.
+        let input_task = tokio::spawn(async move {
+            let _ = released.await;
+        });
+        super::retire_input(input_task, permit);
+        time::sleep(Duration::from_millis(50)).await;
+        assert!(
+            limits.try_session("id:new".to_owned()).is_none(),
+            "a new viewer was admitted while the old one still held HID"
+        );
+        release.send(()).unwrap();
+        let deadline = time::Instant::now() + Duration::from_secs(2);
+        let admitted = loop {
+            if let Some(permit) = limits.try_session("id:new".to_owned()) {
+                break Some(permit);
+            }
+            if time::Instant::now() > deadline {
+                break None;
+            }
+            time::sleep(Duration::from_millis(10)).await;
+        };
+        assert!(admitted.is_some(), "the slot was not freed after the cleanup");
     }
 
     #[tokio::test(start_paused = true)]

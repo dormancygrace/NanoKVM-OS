@@ -81,6 +81,28 @@ factory identity unless those files are put on `/boot` by hand. A vendor or prod
 other than the factory one stops the serial console helper's udev rule on
 Linux hosts from matching (it names the IDs).
 
+### Disk names
+
+Settings → USB Gadget → Identity also configures the SCSI names of virtual
+storage: a shared manufacturer (up to 8 printable ASCII characters), and
+separate names for mounted images / remote media, the Setup Disk and User Disk
+(up to 16 characters each). These are device names presented to the connected
+computer, not filesystem labels; changing them does not format a disk.
+
+Clear a field to restore its default. An empty image name follows the media
+mode (USB Mass Storage, USB CD/DVD-ROM or Remote ISO). Custom names survive
+media changes, reboot and RustDesk preset changes. Apply reconnects USB with
+the other identity settings. Some hosts cache names until the device is
+rediscovered. The settings remain editable while storage is disabled.
+
+The API uses optional `storageIdentity: {vendor, image, setup, user}` in the
+composition request; omitting it preserves existing names. GET returns all
+four fields. Values reject control characters, non-ASCII, excessive length
+and leading/trailing spaces. Configuration is stored in `usb.storage.vendor`,
+`usb.storage.image`, `usb.storage.setup` and `usb.storage.user` under the active
+USB flags directory, and participates in the same revision check, snapshot,
+rollback and settings recovery as the rest of USB identity.
+
 ### User disk
 
 **User disk**, a card below the composition: a writable FAT32 image on the
@@ -116,7 +138,7 @@ composition without any function turns USB off)
 before changing flags. Revision comparison and application hold both HID locks.
 The legacy POST toggle endpoint remains available for older clients.
 
-Application snapshots the ten boot flags, the four identity files, the user
+Application snapshots the ten boot flags, the USB and storage identity files, the user
 disk marker and the installed profile, performs one stop/start, checks the
 bound controller, the selected configfs links, the third LUN and the identity
 the gadget presents, and restores the previous files and composition on

@@ -11,6 +11,7 @@ export type UsbDevice = (typeof usbDevices)[number];
 export type UsbComposition = Record<UsbDevice, boolean> & {
   mode: 'normal' | 'hid-only';
   identity?: UsbIdentity;
+  storageIdentity?: StorageIdentity;
   // the writable FAT32 user disk, a third LUN of the virtual storage
   userDisk?: boolean;
 };
@@ -145,6 +146,7 @@ export function sameComposition(a: UsbComposition, b: UsbComposition) {
   return (
     a.mode === b.mode &&
     sameIdentity(a.identity, b.identity) &&
+    sameStorageIdentity(a.storageIdentity, b.storageIdentity) &&
     Boolean(a.userDisk) === Boolean(b.userDisk) &&
     usbDevices.every((name) => a[name] === b[name])
   );
@@ -157,6 +159,7 @@ export function matchingPreset(composition: UsbComposition) {
         {
           ...preset.composition,
           identity: composition.identity,
+          storageIdentity: composition.storageIdentity,
           userDisk: composition.userDisk
         },
         composition
@@ -216,4 +219,26 @@ export function normalizeUsbStatus(status: UsbStatus): UsbStatus {
       absolute: status.costs.absolute ?? { in: 1, out: 1 }
     }
   };
+}
+
+// SCSI INQUIRY fields; an empty image name follows the mounted media type.
+export type StorageIdentity = { vendor: string; image: string; setup: string; user: string };
+export const defaultStorageIdentity: StorageIdentity = {
+  vendor: 'NanoKVM',
+  image: '',
+  setup: 'Setup Disk',
+  user: 'User Disk'
+};
+export function storageIdentityProblem(identity: StorageIdentity) {
+  return Object.entries(identity).some(
+    ([key, value]) =>
+      value.length > (key === 'vendor' ? 8 : 16) ||
+      value !== value.trim() ||
+      /[^\x20-\x7e]/.test(value)
+  );
+}
+export function sameStorageIdentity(a?: StorageIdentity, b?: StorageIdentity) {
+  return (Object.keys(defaultStorageIdentity) as (keyof StorageIdentity)[]).every(
+    (key) => (a?.[key] || defaultStorageIdentity[key]) === (b?.[key] || defaultStorageIdentity[key])
+  );
 }

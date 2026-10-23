@@ -1395,6 +1395,16 @@
           "title": "USB serial console",
           "description": "CDC ACM serial port for the connected computer"
         }
+      },
+      "storageIdentity": {
+        "title": "Disk names",
+        "description": "Names shown to the connected computer for USB storage devices (SCSI), not filesystem labels. Use up to 8 ASCII characters for the manufacturer and 16 for each disk, without surrounding spaces. Clear a field to restore its default. The image name follows the media type when empty. Apply reconnects USB. Some computers cache device names.",
+        "vendor": "Disk manufacturer",
+        "image": "Mounted image / remote media",
+        "setup": "Setup Disk name",
+        "user": "User Disk name",
+        "automatic": "Automatic (disk or CD/DVD)",
+        "invalid": "Use printable ASCII, without surrounding spaces: manufacturer up to 8 characters, disk names up to 16."
       }
     },
     "network": {

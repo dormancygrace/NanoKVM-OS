@@ -26,6 +26,8 @@ esac
 SOURCE=$1
 DATA_ROOT=${NANOKVM_DATA_DIR:-/data}
 BOOT_ROOT=${NANOKVM_BOOT_DIR:-/boot}
+PROC_MOUNTS=${NANOKVM_PROC_MOUNTS:-/proc/mounts}
+SYS_BLOCK=${NANOKVM_SYS_BLOCK:-/sys/class/block}
 DESTINATION=$DATA_ROOT/nanokvm-update
 STAGING=$DATA_ROOT/.nanokvm-update.new.$$
 PREVIOUS=$DATA_ROOT/.nanokvm-update.old.$$
@@ -142,11 +144,78 @@ rm -f "$DESTINATION/recovery-formatting" "$DESTINATION/root-shadow.saved" ||
 	die "cannot clear the state of an earlier recovery"
 
 echo "verified update staged at $DESTINATION"
+
+# What recovery/init requires; a recovery that cannot run would otherwise
+# stop at a console on every start.
+mounted_as() {
+	awk -v device="$1" -v point="$2" -v type="$3" '
+		$1 == device && $2 == point && $3 == type { found = 1 }
+		END { exit !found }
+	' "$PROC_MOUNTS"
+}
+sector_field() {
+	value=$(cat "$SYS_BLOCK/$1/$2" 2>/dev/null) || return 1
+	printf '%s\n' "$value"
+}
+check_recovery_layout() {
+	mounted_as /dev/mmcblk0p1 "$BOOT_ROOT" vfat ||
+		die "$BOOT_ROOT is not the boot partition (mmcblk0p1, vfat)"
+	mounted_as /dev/mmcblk0p3 "$DATA_ROOT" exfat ||
+		die "$DATA_ROOT is not the exFAT data partition (mmcblk0p3) that recovery reads"
+	[ "$(sector_field mmcblk0p2 start)" = 131073 ] && [ "$(sector_field mmcblk0p2 size)" = 1572864 ] ||
+		die "the root partition is not where recovery expects it"
+	case "$(sector_field mmcblk0p3 start)" in
+		1705984|3180544) ;;
+		*) die "the data partition is not where recovery expects it" ;;
+	esac
+}
+
+# The image recovery goes back to if it stops before formatting, with its
+# hash; .for lists the hashes of the recovery FITs activated over it, one
+# per line. A copy is reused only while boot.sd is one of them: an earlier
+# activation never completed and the copy is the image that ran. Anything
+# else in boot.sd, such as what a recovery installed before its cleanup was
+# cut short, is the image to keep now.
+keep_previous_image() {
+	before=$BOOT_ROOT/boot.before-recovery
+	if [ -f "$BOOT_ROOT/boot.sd" ] && [ -f "$before" ] && [ -f "$before.sha256" ] && [ -f "$before.for" ] &&
+		grep -qxF "$(sha256sum "$BOOT_ROOT/boot.sd" | cut -d ' ' -f 1)" "$before.for" &&
+		[ "$(sha256sum "$before" | cut -d ' ' -f 1)" = "$(cat "$before.sha256")" ]; then
+		return 0
+	fi
+	rm -f "$before.for" "$before" "$before.sha256" || die "cannot remove a stale boot image copy"
+	[ -f "$BOOT_ROOT/boot.sd" ] || return 0
+	cp "$BOOT_ROOT/boot.sd" "$before.tmp" || die "cannot keep the current boot image"
+	sync
+	sum=$(sha256sum "$BOOT_ROOT/boot.sd" | cut -d ' ' -f 1)
+	[ "$(sha256sum "$before.tmp" | cut -d ' ' -f 1)" = "$sum" ] ||
+		die "the copy of the current boot image does not match"
+	if ! printf '%s\n' "$sum" > "$before.sha256.tmp" ||
+		! mv -f "$before.tmp" "$before" ||
+		! mv -f "$before.sha256.tmp" "$before.sha256"; then
+		die "cannot keep the current boot image"
+	fi
+	sync
+}
+
 if [ "$ACTIVATE" -eq 1 ]; then
+	check_recovery_layout
+	keep_previous_image
 	boot_tmp=$BOOT_ROOT/.boot.sd.tmp.$$
 	cp "$DESTINATION/boot-alpine-recovery.sd" "$boot_tmp" ||
 		die "cannot stage recovery FIT on boot volume"
 	sync
+	if [ -f "$BOOT_ROOT/boot.before-recovery" ]; then
+		# Added before boot.sd changes, keeping the FITs already listed: a
+		# cut before or after the rename leaves boot.sd in the list, so a
+		# retry and recovery both still go back to the kept image.
+		for_file=$BOOT_ROOT/boot.before-recovery.for
+		if ! { if [ -f "$for_file" ]; then cat "$for_file"; fi; sha256sum "$boot_tmp" | cut -d ' ' -f 1; } >"$for_file.tmp" ||
+			! mv -f "$for_file.tmp" "$for_file"; then
+			die "cannot record the recovery FIT"
+		fi
+		sync
+	fi
 	mv -f "$boot_tmp" "$BOOT_ROOT/boot.sd" || die "cannot activate recovery FIT"
 	sync
 	echo "recovery FIT installed at $BOOT_ROOT/boot.sd; reboot required"

@@ -9,7 +9,7 @@ import tempfile
 
 repo = Path(__file__).resolve().parents[1]
 source = (repo / 'firmware/alpine/recovery/init').read_text()
-functions = source[source.index('verify_sha256() {'):source.index('mount_payloads() {')]
+functions = source[source.index('verify_sha256() {'):source.index("mount_data() {")]
 functions += source[source.index('validate_settings() {'):source.index('validate_root() {')]
 # Preserved and recorded before the format, or resumed from the record.
 main = source[source.index('\nmount_initial_filesystems\n'):]
@@ -219,3 +219,53 @@ check_resume('resume refuses an emptied password record', 'shadow-empty')
 check_resume('resume refuses a truncated password record', 'shadow-truncated')
 check_resume('resume refuses a changed password record', 'shadow-changed')
 check_resume('resume refuses a malformed password record', 'shadow-malformed')
+
+
+def check_return(name, formatting, damage=None):
+    """A recovery that stops before formatting goes back to the previous image."""
+    with tempfile.TemporaryDirectory(prefix='recovery-return-') as tmp:
+        t = Path(tmp)
+        boot = t / 'oldboot'
+        boot.mkdir()
+        (boot / 'boot.sd').write_text('recovery FIT')
+        (boot / 'boot.before-recovery').write_text('previous image')
+        digest = subprocess.run([busybox, 'sha256sum', str(boot / 'boot.before-recovery')],
+                                capture_output=True, text=True, check=True).stdout.split()[0]
+        (boot / 'boot.before-recovery.sha256').write_text(digest + '\n')
+        running = subprocess.run([busybox, 'sha256sum', str(boot / 'boot.sd')],
+                                 capture_output=True, text=True, check=True).stdout.split()[0]
+        # The FITs activated over it: an earlier one, then this one.
+        (boot / 'boot.before-recovery.for').write_text('1' * 64 + '\n' + running + '\n')
+        if damage == 'changed':
+            (boot / 'boot.before-recovery').write_text('previous image, damaged')
+        elif damage == 'other-fit':
+            # Left by an earlier recovery whose cleanup was cut short.
+            (boot / 'boot.before-recovery.for').write_text('0' * 64 + '\n')
+        func = source[source.index('BOOT_BEFORE=boot.before-recovery'):source.index('mount_initial_filesystems() {')]
+        func = func.replace('/oldboot', str(boot)).replace('/busybox reboot -f', 'echo REBOOTED; exit 0')
+        func = func.replace('/busybox', shlex.quote(busybox)).replace('exec /sh </dev/console >/dev/console 2>&1', 'exit 17')
+        script = 'mount() { :; }\numount() { :; }\n' + func + f'FORMATTING={formatting}\nfail "test"\n'
+        result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, timeout=20)
+        if formatting == 0 and not damage:
+            assert result.returncode == 0 and 'REBOOTED' in result.stdout, (name, result)
+            assert (boot / 'boot.sd').read_text() == 'previous image', name
+            assert not (boot / 'boot.before-recovery').exists(), name
+            assert not (boot / 'boot.before-recovery.for').exists(), name
+        else:
+            assert result.returncode == 17 and 'REBOOTED' not in result.stdout, (name, result)
+            assert (boot / 'boot.sd').read_text() == 'recovery FIT', name
+        print('PASS:', name)
+
+
+check_return('stopped before formatting goes back and restarts', 0)
+check_return('stopped after formatting began stays at the console', 1)
+check_return('a changed previous image is not used', 0, 'changed')
+check_return('a copy kept for another recovery FIT is not used', 0, 'other-fit')
+main = source[source.index('\nmount_initial_filesystems\n'):]
+# Unsafe until the record is looked for, which happens before any check that can fail.
+assert 'FORMATTING=1\n' in source[:source.index('return_to_previous_image() {')]
+assert main.index('\nmount_data\n') < main.index('[ -f "$FORMAT_MARKER" ] || FORMATTING=0')
+for check in ('\nvalidate_layout\n', '\nwait_for_payloads\n', '\nverify_sha256 '):
+    assert main.index('[ -f "$FORMAT_MARKER" ] || FORMATTING=0') < main.index(check), check
+assert main.index('\tmark_formatting\n\tFORMATTING=1\n') < main.index('\nmkfs.f2fs ')
+assert main.index('boot.sd || fail') < main.index('rm -f "/realroot/boot/$BOOT_BEFORE"')

@@ -22,7 +22,7 @@ const languages = [
   { key: 'hu', name: 'Magyar', partial: true },
   { key: 'vi', name: 'Tiếng Việt', partial: true },
   { key: 'ja', name: '日本語' },
-  { key: 'cz', name: 'Česky', partial: true },
+  { key: 'cz', name: 'Česky' },
   { key: 'uk', name: 'Українська', partial: true },
   { key: 'nb', name: 'Norsk, bokmål', partial: true },
   { key: 'th', name: 'ภาษาไทย', partial: true },

@@ -1,0 +1,177 @@
+#pragma once
+#include <cerrno>
+#include <chrono>
+#include <cstdint>
+#include <mutex>
+#include <string>
+#include <utility>
+#include "../../../../../firmware/mpi/nanokvm_receiver_lock.h"
+
+namespace nanokvm {
+enum class ReceiverKind { C, UXC, D };
+enum class ReceiverState { Ready, NoSignal, Settling, IoError, Busy, Paused };
+struct ReceiverSnapshot {
+    ReceiverState state = ReceiverState::IoError;
+    uint16_t width = 0, height = 0;
+    int error = 0, cleanup_error = 0;
+};
+
+class ReceiverFileLock {
+    int fd_;
+public:
+    explicit ReceiverFileLock(unsigned timeout_ms = 0,
+        const char *path = NANOKVM_RECEIVER_LOCK_PATH)
+        : fd_(nanokvm_receiver_lock_at(path, timeout_ms)) {}
+    ~ReceiverFileLock() { nanokvm_receiver_unlock(fd_); }
+    ReceiverFileLock(const ReceiverFileLock &) = delete;
+    ReceiverFileLock &operator=(const ReceiverFileLock &) = delete;
+    explicit operator bool() const { return fd_ >= 0; }
+};
+
+/* The detector never takes vi_mutex. Admission, pause and reset instead share
+ * this leaf lock. Holding it through publication prevents a paused detector
+ * from publishing a sample taken before maintenance. */
+class ReceiverAccess {
+    std::timed_mutex mutex_;
+    bool paused_ = false;
+    std::string path_;
+public:
+    explicit ReceiverAccess(const char *path = NANOKVM_RECEIVER_LOCK_PATH) : path_(path) {}
+    class Read {
+        std::unique_lock<std::timed_mutex> lock_;
+        int fd_;
+    public:
+        const ReceiverState state;
+        const int error;
+        Read(std::unique_lock<std::timed_mutex> lock, int fd, ReceiverState status, int err)
+            : lock_(std::move(lock)), fd_(fd), state(status), error(err) {}
+        Read(Read &&other) noexcept : lock_(std::move(other.lock_)),
+            fd_(std::exchange(other.fd_, -1)), state(other.state), error(other.error) {}
+        Read(const Read &) = delete;
+        ~Read() { nanokvm_receiver_unlock(fd_); }
+        void release_device() {
+            nanokvm_receiver_unlock(std::exchange(fd_, -1));
+        }
+        explicit operator bool() const { return state == ReceiverState::Ready; }
+    };
+    class Control {
+        std::unique_lock<std::timed_mutex> lock_;
+        bool *paused_;
+    public:
+        Control(std::unique_lock<std::timed_mutex> lock, bool *paused)
+            : lock_(std::move(lock)), paused_(paused) {}
+        explicit operator bool() const { return lock_.owns_lock(); }
+        void pause() { *paused_ = true; }
+        void resume() { *paused_ = false; }
+    };
+    Read read() {
+        std::unique_lock<std::timed_mutex> lock(mutex_, std::try_to_lock);
+        if (!lock.owns_lock()) return Read(std::move(lock), -1, ReceiverState::Busy, 0);
+        if (paused_) return Read(std::move(lock), -1, ReceiverState::Paused, 0);
+        int fd = nanokvm_receiver_lock_at(path_.c_str(), 0);
+        int err = fd < 0 ? errno : 0;
+        return Read(std::move(lock), fd, fd >= 0 ? ReceiverState::Ready :
+            err == EBUSY ? ReceiverState::Busy : ReceiverState::IoError, err);
+    }
+    Control control(std::chrono::milliseconds timeout = std::chrono::milliseconds(2000)) {
+        std::unique_lock<std::timed_mutex> lock(mutex_, std::defer_lock);
+        (void)lock.try_lock_for(timeout); // Control exposes owns_lock().
+        return Control(std::move(lock), &paused_);
+    }
+};
+
+/* Transport is the existing write/read API, so no controller or repeated-START
+ * behavior changes here. Every sample, including cleanup, is one session. */
+template<class Transport> class HdmiReceiver {
+    Transport &io_;
+    int bank_ = -1;
+    int error_ = 0;
+    static constexpr int address = 0x2b;
+    bool failed() { error_ = errno ? errno : EIO; bank_ = -1; return false; }
+    bool write(const uint8_t *bytes, size_t count) {
+        errno = 0;
+        return io_.writeto(address, bytes, count) || failed();
+    }
+    bool bank(uint8_t value) {
+        if (bank_ == value) return true;
+        const uint8_t data[] = {0xff, value};
+        if (!write(data, sizeof(data))) return false;
+        bank_ = value;
+        return true;
+    }
+    bool write8(uint8_t page, uint8_t reg, uint8_t value) {
+        const uint8_t data[] = {reg, value};
+        return bank(page) && write(data, sizeof(data));
+    }
+    bool read(uint8_t page, uint8_t reg, uint8_t *bytes, size_t count) {
+        if (!bank(page) || !write(&reg, 1)) return false;
+        errno = 0;
+        return io_.readfrom(address, bytes, count) || failed();
+    }
+    bool read16(uint8_t page, uint8_t reg, uint16_t &value) {
+        uint8_t bytes[2];
+        if (!read(page, reg, bytes, sizeof(bytes))) return false;
+        value = (static_cast<uint16_t>(bytes[0]) << 8) | bytes[1];
+        return true;
+    }
+    ReceiverSnapshot dimensions(ReceiverKind kind) {
+        ReceiverSnapshot sample;
+        uint16_t width = 0, height = 0;
+        const uint8_t page = kind == ReceiverKind::C ? 0xc2 :
+            kind == ReceiverKind::UXC ? 0x85 : 0xe0;
+        const uint8_t hreg = kind == ReceiverKind::C ? 0x38 :
+            kind == ReceiverKind::UXC ? 0xea : 0x8c;
+        const uint8_t vreg = kind == ReceiverKind::C ? 0x06 :
+            kind == ReceiverKind::UXC ? 0xf0 : 0x8e;
+        if (!read16(page, vreg, height) || !read16(page, hreg, width)) return sample;
+        if (kind == ReceiverKind::D) {
+            if (width > UINT16_MAX / 2) { sample.state = ReceiverState::Settling; return sample; }
+            width *= 2;
+        }
+        sample.width = width; sample.height = height;
+        sample.state = width && height ? ReceiverState::Ready : ReceiverState::Settling;
+        if (kind == ReceiverKind::D && !width && !height) sample.state = ReceiverState::NoSignal;
+        return sample;
+    }
+    ReceiverSnapshot sample(ReceiverKind kind) {
+        ReceiverSnapshot result;
+        if (kind == ReceiverKind::D) return dimensions(kind);
+        if (kind == ReceiverKind::UXC) {
+            uint8_t signal;
+            if (!read(0x86, 0xa3, &signal, 1)) return result;
+            if (signal == 0x88) { result.state = ReceiverState::NoSignal; return result; }
+            if (signal != 0x55) { result.state = ReceiverState::Settling; return result; }
+        } else {
+            uint16_t width, height;
+            if (!write8(0xd2, 0x83, 0x11)) return result;
+            /* Existing C measurement needs 5 ms before reading active sizes. */
+            const struct timespec delay = {0, 5000000};
+            nanosleep(&delay, nullptr);
+            if (!read16(0xd2, 0x96, height) || !read16(0xd2, 0x8b, width)) return result;
+            if (!width && !height) { result.state = ReceiverState::NoSignal; return result; }
+            if (!width || !height) { result.state = ReceiverState::Settling; return result; }
+        }
+        return dimensions(kind);
+    }
+public:
+    explicit HdmiReceiver(Transport &io) : io_(io) {}
+    ReceiverSnapshot snapshot(ReceiverKind kind) {
+        bank_ = -1; error_ = 0;
+        ReceiverSnapshot result;
+        const bool external_control = kind != ReceiverKind::D;
+        const bool enabled = !external_control || (write8(0x80, 0xee, 1) &&
+            (kind != ReceiverKind::UXC || write8(0x80, 0x10, 0)));
+        if (enabled) result = sample(kind);
+        const int primary = error_;
+        /* Even a failed enable may have reached the chip. Always try release;
+         * no dimension/state may escape as valid if release failed. */
+        if (external_control && !write8(0x80, 0xee, 0)) {
+            result.cleanup_error = error_;
+            result.state = ReceiverState::IoError;
+        }
+        result.error = primary ? primary : result.cleanup_error;
+        if (result.state == ReceiverState::IoError && !result.error) result.error = EIO;
+        return result;
+    }
+};
+} // namespace nanokvm

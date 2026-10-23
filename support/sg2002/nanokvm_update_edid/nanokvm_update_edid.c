@@ -15,9 +15,10 @@
 #include <sys/stat.h>
 
 #include "nanokvm_update_edid.h"
+#include "../../../firmware/mpi/nanokvm_receiver_lock.h"
 
 
-int client;
+int client = -1;
 // old offset set to 0xff first
 static uint8_t old_offset = 0xff;
 
@@ -100,12 +101,7 @@ static int reset_write(int fd, const char *value)
 
 static int maintenance_lock(void)
 {
-    int fd = open("/run/nanokvm-edid.lock", O_CREAT | O_RDWR | O_CLOEXEC, 0600);
-    if (fd < 0) return -1;
-    if (flock(fd, LOCK_EX | LOCK_NB) < 0) {
-        int saved = errno; close(fd); errno = saved; return -1;
-    }
-    return fd; /* Held until process exit, including both resets and programming. */
+    return nanokvm_receiver_lock(0); /* Held for reset, programming and readback. */
 }
 
 int NanoKVM_PCIe_HDMI_Reset(void)
@@ -130,19 +126,21 @@ int i2c_write_byte(uint8_t offset, uint8_t reg, uint8_t data)
 
     // if offset is changed, write it first
     if (offset != old_offset) {
-        old_offset = offset;
         reg_buf[0] = LT6911_REG_OFFSET; // Set the offset register
         reg_buf[1] = offset;    // Set the register to read
         if (write(client, reg_buf, 2) != 2) {
+            old_offset = 0xff;
             perror("Failed to write offset to the i2c bus");
             return -1;
         }
+        old_offset = offset;
     }
 
     // write the data to the i2c bus
     reg_buf[0] = reg; // Set the register to write
     reg_buf[1] = data; // Set the data to write
     if (write(client, reg_buf, 2) != 2) {
+        old_offset = 0xff;
         perror("Failed to write to the i2c bus");
         return -1;
     }
@@ -164,13 +162,14 @@ int i2c_write_bytes(uint8_t offset, uint8_t reg, const uint8_t *data, size_t len
 
     // if offset is changed, write it first
     if (offset != old_offset) {
-        old_offset = offset;
         reg_buf[0] = LT6911_REG_OFFSET; // Set the offset register
         reg_buf[1] = offset;    // Set the register to read
         if (write(client, reg_buf, 2) != 2) {
+            old_offset = 0xff;
             perror("Failed to write offset to the i2c bus");
             return -1;
         }
+        old_offset = offset;
     }
 
     // write the data to the i2c bus
@@ -181,6 +180,7 @@ int i2c_write_bytes(uint8_t offset, uint8_t reg, const uint8_t *data, size_t len
 
     // write to the I2C bus
     if (write(client, reg_buf, 1 + len) != (ssize_t)(1 + len)) {
+        old_offset = 0xff;
         perror("Failed to write to the i2c bus");
         return -1;
     }
@@ -196,24 +196,27 @@ int i2c_read_byte(uint8_t offset, uint8_t reg, uint8_t *data)
 
     // if offset is changed, write it first
     if (offset != old_offset) {
-        old_offset = offset;
         reg_buf[0] = LT6911_REG_OFFSET; // Set the offset register
         reg_buf[1] = offset;    // Set the register to read
         if (write(client, reg_buf, 2) != 2) {
+            old_offset = 0xff;
             perror("Failed to write offset to the i2c bus");
             return -1;
         }
+        old_offset = offset;
     }
 
     // write the register address to read
     reg_buf[0] = reg; // Set the register to read
     if (write(client, reg_buf, 1) != 1) {
+        old_offset = 0xff;
         perror("Failed to write register address to the i2c bus");
         return -1;
     }
 
     // read the data from the i2c bus
     if (read(client, data, 1) != 1 ) {
+        old_offset = 0xff;
         perror("Failed to read from the i2c bus");
         return -1;
     }
@@ -235,24 +238,27 @@ int i2c_read_bytes(uint8_t offset, uint8_t reg, uint8_t *data, size_t len)
 
     // 如果偏移量改变，先写入偏移量
     if (offset != old_offset) {
-        old_offset = offset;
         reg_buf[0] = LT6911_REG_OFFSET; // 设置偏移寄存器
         reg_buf[1] = offset; // 设置偏移值
         if (write(client, reg_buf, 2) != 2) {
+            old_offset = 0xff;
             perror("Failed to write offset to the i2c bus");
             return -1;
         }
+        old_offset = offset;
     }
 
     // 写入要读取的寄存器地址
     reg_buf[0] = reg; // 设置要读取的寄存器
     if (write(client, reg_buf, 1) != 1) {
+        old_offset = 0xff;
         perror("Failed to write register address to the i2c bus");
         return -1;
     }
 
     // 从 I2C 总线读取数据
     if (read(client, data, len) != (ssize_t)len) {
+        old_offset = 0xff;
         perror("Failed to read from the i2c bus");
         return -1;
     }
@@ -293,7 +299,7 @@ int lt6911uxc_edid_write(uint8_t *edid_data, uint16_t edid_size)
 
     // Start
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5E, 0xDF) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x58, 0x00) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x59, 0x51) != 0) return -1;
@@ -301,7 +307,7 @@ int lt6911uxc_edid_write(uint8_t *edid_data, uint16_t edid_size)
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x00) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x58, 0x21) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x80) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x84) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x80) != 0) return -1;
@@ -322,7 +328,7 @@ int lt6911uxc_edid_write(uint8_t *edid_data, uint16_t edid_size)
     if (i2c_write_byte(LT6911_SYS3_OFFSET, 0x08, 0xEE) != 0) return -1;
     // Write
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x84) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x80) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x84) != 0) return -1;
@@ -374,7 +380,7 @@ int lt6911uxc_edid_read(uint8_t *edid_data, uint16_t edid_size)
     fprintf(stdout, "Reading EDID...\n");
     // Read
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x84) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x80) != 0) return -1;
     for (i = 0; i < wr_count; i++) {
@@ -402,27 +408,27 @@ int lt6911c_edid_write(uint8_t *edid_data, uint16_t edid_size)
     fprintf(stdout, "Writing EDID....\n");
 
     // Start
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_read_bytes(LT6911_SYS4_OFFSET, 0x00, chip_data, 2) != 0) return -1;
     if (chip_data[0] != 0x16 || chip_data[1] != 0x05) {
         fprintf(stderr, "Unsupported chip version\n");
         return -1;
     }
-    lt6911_disable();
+    if (lt6911_disable() != 0) return -1;
 
     usleep(100000);
 
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_read_bytes(LT6911_SYS4_OFFSET, 0x00, chip_data, 2) != 0) return -1;
     if (chip_data[0] != 0x16 || chip_data[1] != 0x05) {
         fprintf(stderr, "Unsupported chip version\n");
         return -1;
     }
-    lt6911_disable();
+    if (lt6911_disable() != 0) return -1;
 
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x82) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5E, 0xC0) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x58, 0x00) != 0) return -1;
@@ -431,7 +437,7 @@ int lt6911c_edid_write(uint8_t *edid_data, uint16_t edid_size)
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x82) != 0) return -1;
 
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x82) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x86) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x82) != 0) return -1;
@@ -451,7 +457,7 @@ int lt6911c_edid_write(uint8_t *edid_data, uint16_t edid_size)
     if (i2c_write_byte(LT6911_SYS2_OFFSET, 0x02, 0xDF) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS2_OFFSET, 0x02, 0xFF) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x86) != 0) return -1;
 
     for (i = 0; i < wr_count; i++) {
@@ -492,7 +498,7 @@ int lt6911c_edid_read(uint8_t *edid_data, uint16_t edid_size)
     // Read
 
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xFF, 0x80) != 0) return -1;
-    lt6911_enable();
+    if (lt6911_enable() != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x86) != 0) return -1;
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0x5A, 0x82) != 0) return -1;
 
@@ -666,6 +672,22 @@ int lt6911d_edid_read(uint8_t *edid_data, uint16_t edid_size)
 
 // =======================================================================================================
 
+/* Called while maintenance owns the receiver, before closing its I2C fd. */
+static int finish_receiver(chip_version_t chip, int result)
+{
+    int primary = result != 0 ? errno : 0;
+    uint8_t page = chip == CHIP_LT6911D ? LT6911D_MANAGE_OFFSET : LT6911_SYS_OFFSET;
+    if (i2c_write_byte(page, 0xee, 0) != 0) {
+        fprintf(stderr, "Failed to release receiver register access\n");
+        result = -1;
+    }
+    if (close(client) != 0) result = -1;
+    client = -1;
+    old_offset = 0xff;
+    if (primary) errno = primary;
+    return result;
+}
+
 int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t edid_size)
 {
     if (chip_version == CHIP_UNKNOWN)
@@ -699,38 +721,32 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
         read_ret = lt6911d_edid_read(current_edid, EDID_BUFFER_SIZE);
     if (read_ret != 0) {
         fprintf(stderr, "Cannot read existing EDID; refusing to program\n");
-        close(client);
-        return -1;
+        return finish_receiver(chip_version, -1);
     }
     if (memcmp(current_edid, edid_data, EDID_BUFFER_SIZE) == 0) {
         puts("Requested EDID already installed; flash write skipped");
-        close(client);
-        return 0;
+        return finish_receiver(chip_version, 0);
     }
 
     // edid write
     if (chip_version == CHIP_LT6911UXC) {
         if (lt6911uxc_edid_write(edid_data, edid_size) != 0) {
             fprintf(stderr, "Failed to write EDID data to LT6911UXC\n");
-            close(client);
-            return -1;
+            return finish_receiver(chip_version, -1);
         }
     } else if (chip_version == CHIP_LT6911C) {
         if (lt6911c_edid_write(edid_data, edid_size) != 0) {
             fprintf(stderr, "Failed to write EDID data to LT6911C\n");
-            close(client);
-            return -1;
+            return finish_receiver(chip_version, -1);
         }
     } else if (chip_version == CHIP_LT6911D) {
         if (lt6911d_edid_write(edid_data, edid_size) != 0) {
             fprintf(stderr, "Failed to write EDID data to LT6911D\n");
-            close(client);
-            return -1;
+            return finish_receiver(chip_version, -1);
         }
     } else {
         fprintf(stderr, "Unknown chip version\n");
-        close(client);
-        return -1;
+        return finish_receiver(chip_version, -1);
     }
     // sleep 1s
     sleep(1);
@@ -740,25 +756,21 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
     if (chip_version == CHIP_LT6911UXC) {
         if (lt6911uxc_edid_read(edid_read_data, EDID_BUFFER_SIZE) != 0) {
             fprintf(stderr, "Failed to read EDID data from LT6911UXC\n");
-            close(client);
-            return -1;
+            return finish_receiver(chip_version, -1);
         }
     } else if (chip_version == CHIP_LT6911C) {
         if (lt6911c_edid_read(edid_read_data, EDID_BUFFER_SIZE) != 0) {
             fprintf(stderr, "Failed to read EDID data from LT6911C\n");
-            close(client);
-            return -1;
+            return finish_receiver(chip_version, -1);
         }
     } else if (chip_version == CHIP_LT6911D) {
         if (lt6911d_edid_read(edid_read_data, EDID_BUFFER_SIZE) != 0) {
             fprintf(stderr, "Failed to read EDID data from LT6911D\n");
-            close(client);
-            return -1;
+            return finish_receiver(chip_version, -1);
         }
     } else {
         fprintf(stderr, "Unknown chip version\n");
-        close(client);
-        return -1;
+        return finish_receiver(chip_version, -1);
     }
 
     // check if the read data matches the written data
@@ -779,15 +791,13 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
                 fprintf(stderr, "\n");
             }
         }
-        close(client);
-        return -1;
+        return finish_receiver(chip_version, -1);
     } else {
         fprintf(stdout, "EDID data verified successfully\n");
     }
 
     // close client
-    close(client);
-    return 0;
+    return finish_receiver(chip_version, 0);
 }
 
 // Copies the receiver's EDID without writing it, with the same register
@@ -810,8 +820,7 @@ static int lt6911_edid_dump(chip_version_t chip_version, uint8_t *edid_data)
         ret = lt6911c_edid_read(edid_data, EDID_BUFFER_SIZE);
     else if (chip_version == CHIP_LT6911D)
         ret = lt6911d_edid_read(edid_data, EDID_BUFFER_SIZE);
-    close(client);
-    return ret;
+    return finish_receiver(chip_version, ret);
 }
 
 // =======================================================================================================

@@ -49,6 +49,8 @@ type Service struct {
 	mu       sync.Mutex
 	dir, run string
 	links    map[string]linkKind // DCO kind by interface name
+	// startProfile replaces startAttempt in supervise (tests).
+	startProfile func(Profile, int) error
 }
 type linkKind struct {
 	index int
@@ -189,32 +191,52 @@ func restartDelay(n int) time.Duration {
 
 var restartSleep = time.Sleep // test seam
 
-// supervise restarts the profile after its OpenVPN exits by itself (an
-// auth or network failure, ping-exit), for as long as it is the enabled
-// profile. Disabling removes the active marker before stopping, so a stop
-// requested by the user is never undone.
+// supervise restarts the profile after its OpenVPN exits by itself (a
+// network failure, ping-exit), for as long as it is the enabled profile. A
+// start that fails before OpenVPN runs (resolvconf, a transient error) is
+// retried here too; a started OpenVPN gets a supervisor of its own. It
+// stops when the profile is disabled (the active marker goes before the
+// stop, so a stop requested by the user is never undone), when another
+// start already runs it, or for a terminal condition: wrong credentials
+// (retrying would only hammer the provider, and some lock the account), no
+// stored credentials, or a deleted profile.
 func (s *Service) supervise(id string, attempt int, ran time.Duration) {
 	if ran > 5*time.Minute {
 		attempt = 0
 	}
-	attempt++
-	restartSleep(restartDelay(attempt))
+	start := s.startProfile
+	if start == nil {
+		start = s.startAttempt
+	}
+	for {
+		attempt++
+		restartSleep(restartDelay(attempt))
+		if !s.restartOnce(id, attempt, start) {
+			return
+		}
+	}
+}
+
+// restartOnce makes one restart attempt; it reports whether to try again.
+func (s *Service) restartOnce(id string, attempt int, start func(Profile, int) error) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.desired() != id || s.pid(id) != 0 {
-		return
+		return false
 	}
-	// Wrong credentials stay wrong: retrying would only hammer the provider
-	// (some lock the account). The page shows the failure from the log.
 	if strings.Contains(runtimeLog(s.runtime(id, ".log")), "AUTH_FAILED") {
-		return
+		return false
 	}
 	ps, _ := s.profiles()
 	for _, p := range ps {
 		if p.ID == id {
-			_ = s.startAttempt(p, attempt)
+			if !s.credentials(p) {
+				return false
+			}
+			return start(p, attempt) != nil
 		}
 	}
+	return false
 }
 
 func (s *Service) startAttempt(p Profile, attempt int) error {

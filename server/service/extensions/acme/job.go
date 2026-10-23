@@ -30,7 +30,9 @@ type Job struct {
 }
 
 const (
-	jobTimeout  = 20 * time.Minute
+	jobTimeout = 20 * time.Minute
+	// maxDNSSleep is the longest DNS wait the settings accept, in seconds.
+	maxDNSSleep = 3600
 	outputLimit = 64 * 1024
 	renewSkip   = 2
 )
@@ -123,6 +125,9 @@ type step struct {
 	args []string
 	// okCodes are exit codes that end the step without failing the job.
 	okCodes []int
+	// dnsSleep is the DNS wait acme.sh spends in this step without a
+	// --dnssleep argument: a renewal reloads the wait saved at issue.
+	dnsSleep int
 }
 
 // startJob runs the steps in the background, one job at a time, then calls
@@ -199,7 +204,7 @@ func runStep(ctx context.Context, out *tailBuffer, env []string, st step) (int, 
 	}
 	cmd := command(ctx, env, append(baseArgs(), st.args...)...)
 	cmd.Stdout, cmd.Stderr = out, out
-	err := cmd.Run()
+	err := runGroup(cmd)
 	if err == nil {
 		return 0, nil
 	}
@@ -263,21 +268,37 @@ func runSync(env []string, args ...string) (string, error) {
 	cmd := command(ctx, env, append(baseArgs(), args...)...)
 	out := &tailBuffer{}
 	cmd.Stdout, cmd.Stderr = out, out
-	err := cmd.Run()
+	err := runGroup(cmd)
 	return out.String(), err
 }
 
-// stepsTimeout is jobTimeout plus the DNS wait the steps ask for (up to an
-// hour), which acme.sh spends sleeping inside a step.
+// runGroup runs cmd and then ends what is left of its process group, on
+// every outcome: acme.sh can exit (or be killed) while a hook or curl it
+// started still runs, and that must not outlive the job and its lock.
+func runGroup(cmd *exec.Cmd) error {
+	err := cmd.Run()
+	if cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	return err
+}
+
+// stepsTimeout is jobTimeout plus the DNS waits of the steps (up to an hour
+// each), which acme.sh spends sleeping inside a step: an explicit
+// --dnssleep, or the saved wait a renewal reloads.
 func stepsTimeout(steps []step) time.Duration {
 	timeout := jobTimeout
 	for _, st := range steps {
+		wait := st.dnsSleep
 		for i, arg := range st.args {
 			if arg == "--dnssleep" && i+1 < len(st.args) {
-				if seconds, err := strconv.Atoi(st.args[i+1]); err == nil && seconds > 0 {
-					timeout += time.Duration(seconds) * time.Second
+				if seconds, err := strconv.Atoi(st.args[i+1]); err == nil && seconds > wait {
+					wait = seconds
 				}
 			}
+		}
+		if wait > 0 {
+			timeout += time.Duration(min(wait, maxDNSSleep)) * time.Second
 		}
 	}
 	return timeout

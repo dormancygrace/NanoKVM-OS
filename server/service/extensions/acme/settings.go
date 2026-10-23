@@ -88,7 +88,7 @@ func (s *Settings) normalize() error {
 		if !hookName.MatchString(s.DNSProvider) {
 			return errors.New("choose a DNS provider")
 		}
-		if s.DNSSleep < 0 || s.DNSSleep > 3600 {
+		if s.DNSSleep < 0 || s.DNSSleep > maxDNSSleep {
 			return errors.New("the DNS wait must be 0 to 3600 seconds")
 		}
 	default:

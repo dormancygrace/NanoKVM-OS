@@ -19,19 +19,28 @@ import (
 // input control: like a hardware BMC, it works whoever holds the keyboard.
 type ATX struct{}
 
+// bmcConfigPath holds the "power LED connected" setting (tests move it).
+var bmcConfigPath = bmc.ConfigPath
+
 func (ATX) State(ctx context.Context) (bmc.ATXState, error) {
 	hardware := config.GetInstance().Hardware
+	ledLine := hardware.GPIOPowerLED != ""
 	state := bmc.ATXState{
 		PowerButton: hardware.GPIOPower != "",
 		ResetButton: hardware.GPIOReset != "",
-		PowerLED:    hardware.GPIOPowerLED != "",
+		// A LED header that is not wired to the host reads "off" always:
+		// with the setting off, the state is unknown and requests press.
+		PowerLED: ledLine && bmc.PowerLEDConnected(bmcConfigPath),
 	}
-	if state.PowerLED {
+	if ledLine {
 		status, err := monitoredGPIOInputs.Current(ctx)
 		if err != nil {
 			return state, err
 		}
-		state.PowerOn, state.HDD = status.Power, status.HDD
+		state.HDD = status.HDD
+		if state.PowerLED {
+			state.PowerOn = status.Power
+		}
 	}
 	return state, nil
 }

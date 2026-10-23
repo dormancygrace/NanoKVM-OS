@@ -1892,6 +1892,8 @@
       "passwordKeep": "Laissez vide pour conserver le mot de passe actuel.",
       "ipmiPort": "Port UDP IPMI",
       "holdSeconds": "Arrêt forcé : maintenir le bouton d'alimentation (s)",
+      "powerLed": "Voyant d'alimentation relié à l'hôte",
+      "powerLedHint": "Désactivé : le connecteur du voyant d'alimentation n'est pas câblé ; Redfish et IPMI ne connaissent donc pas l'état d'alimentation et chaque requête appuie sur le bouton.",
       "holdHint": "Vide : comme l'appui long du menu d'alimentation (5 s).",
       "save": "Enregistrer",
       "saved": "Enregistré",

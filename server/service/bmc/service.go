@@ -31,6 +31,9 @@ type Status struct {
 	PasswordSet   bool   `json:"passwordSet"`
 	IPMIPort      int    `json:"ipmiPort"`
 	HoldSeconds   int    `json:"holdSeconds"`
+	// PowerLEDConnected: the power LED header is wired to the host, so its
+	// state counts.
+	PowerLEDConnected bool `json:"powerLedConnected"`
 }
 
 // Settings is a change from the settings page; an empty password keeps the
@@ -42,6 +45,8 @@ type Settings struct {
 	Password    string `json:"password"`
 	IPMIPort    int    `json:"ipmiPort"`
 	HoldSeconds int    `json:"holdSeconds"`
+	// PowerLEDConnected, when sent, changes the setting; absent keeps it.
+	PowerLEDConnected *bool `json:"powerLedConnected,omitempty"`
 }
 
 type Service struct {
@@ -114,14 +119,15 @@ func (s *Service) Status() (Status, error) {
 	}
 	installed := s.ipmiInstalled()
 	return Status{
-		Redfish:       config.Redfish,
-		IPMI:          config.IPMI,
-		IPMIInstalled: installed,
-		IPMIRunning:   installed && s.run("rc-service", bmc.IPMIService, "status") == nil,
-		Username:      config.Username,
-		PasswordSet:   config.Password != "",
-		IPMIPort:      config.IPMIPort,
-		HoldSeconds:   config.HoldSeconds,
+		Redfish:           config.Redfish,
+		IPMI:              config.IPMI,
+		IPMIInstalled:     installed,
+		IPMIRunning:       installed && s.run("rc-service", bmc.IPMIService, "status") == nil,
+		Username:          config.Username,
+		PasswordSet:       config.Password != "",
+		IPMIPort:          config.IPMIPort,
+		HoldSeconds:       config.HoldSeconds,
+		PowerLEDConnected: !config.PowerLEDDisconnected,
 	}, nil
 }
 
@@ -147,6 +153,9 @@ func (s *Service) Configure(settings Settings) error {
 		config.IPMIPort = settings.IPMIPort
 	}
 	config.HoldSeconds = settings.HoldSeconds
+	if settings.PowerLEDConnected != nil {
+		config.PowerLEDDisconnected = !*settings.PowerLEDConnected
+	}
 	if err = bmc.Save(s.configPath, config); err != nil {
 		return err
 	}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Switch } from 'antd';
+import { Alert, Button, Form, Input, Modal, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
@@ -15,6 +15,8 @@ export const Ssh = () => {
   const { t } = useTranslation();
   const [form] = Form.useForm<PasswordForm>();
   const [isEnabled, setIsEnabled] = useState(false);
+  // SSH runs for repair although it is off: the server did not start at boot.
+  const [isRescue, setIsRescue] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
@@ -22,7 +24,10 @@ export const Ssh = () => {
     setIsLoading(true);
     api
       .getSSHState()
-      .then((rsp) => setIsEnabled(!!rsp.data?.enabled))
+      .then((rsp) => {
+        setIsEnabled(!!rsp.data?.enabled);
+        setIsRescue(!!rsp.data?.rescue);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -30,7 +35,10 @@ export const Ssh = () => {
     setIsLoading(true);
     try {
       const rsp = await api.disableSSH();
-      if (rsp.code === 0) setIsEnabled(false);
+      if (rsp.code === 0) {
+        setIsEnabled(false);
+        setIsRescue(false);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -49,6 +57,7 @@ export const Ssh = () => {
         return;
       }
       setIsEnabled(true);
+      setIsRescue(false);
       setPasswordOpen(false);
       form.resetFields();
     } catch (err) {
@@ -74,6 +83,19 @@ export const Ssh = () => {
           onChange={(next) => (next ? setPasswordOpen(true) : void disable())}
         />
       </SettingRow>
+      {isRescue && (
+        <Alert
+          className="mb-4"
+          type="warning"
+          showIcon
+          title={t('settings.system.ssh.rescue')}
+          action={
+            <Button size="small" loading={isLoading} onClick={() => void disable()}>
+              {t('settings.system.ssh.rescueStop')}
+            </Button>
+          }
+        />
+      )}
       <SshKeys />
       <Modal
         open={passwordOpen}

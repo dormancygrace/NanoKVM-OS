@@ -1,0 +1,63 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034,SC3043
+description="SSH for repair when the NanoKVM server does not start"
+
+# SSH is off by default and the web UI is the way to turn it on. A device
+# whose server never starts would have nothing a user can reach, so SSH then
+# starts anyway, also with the default root password: an image can fail on
+# some board before anyone logged in to change it. It is logged, marked in
+# NANOKVM_RESCUE_MARKER (the SSH settings show it) and lasts until a restart.
+: "${NANOKVM_RESCUE_WAIT:=180}"
+: "${NANOKVM_APP_SERVICE:=/etc/init.d/nanokvm-app}"
+: "${NANOKVM_SSH_STOP:=/etc/kvm/ssh_stop}"
+: "${NANOKVM_RESCUE_MARKER:=/run/nanokvm/ssh-rescue}"
+: "${NANOKVM_KMSG:=/dev/kmsg}"
+
+depend() {
+    need localmount
+    use net nanokvm-app
+    after nanokvm-app nanokvm-ssh nanokvm-network
+}
+
+# Whether the server listens on its ports, as nanokvm-app checks it.
+server_up() (
+    # shellcheck source=/dev/null
+    . "$NANOKVM_APP_SERVICE" > /dev/null 2>&1
+    ports=$(server_ports) || ports=
+    # shellcheck disable=SC2086 # two port words
+    server_listening $ports
+)
+
+rescue() {
+    local n=0 up=0
+    while [ "$n" -lt "$NANOKVM_RESCUE_WAIT" ]; do
+        if server_up; then
+            # Five checks in a row: a server that its supervisor keeps
+            # restarting answers only now and then.
+            up=$((up + 1))
+            [ "$up" -lt 5 ] || return 0
+        else
+            up=0
+        fi
+        sleep 1
+        n=$((n + 1))
+    done
+    message="The NanoKVM server did not start within $NANOKVM_RESCUE_WAIT s; starting SSH for repair"
+    logger -p daemon.warning -t nanokvm-rescue "$message"
+    # Also in the kernel log, which the boot log archive keeps.
+    echo "nanokvm-rescue: $message" > "$NANOKVM_KMSG" 2> /dev/null || true
+    mkdir -p "${NANOKVM_RESCUE_MARKER%/*}"
+    date > "$NANOKVM_RESCUE_MARKER"
+    # Recovery may preserve a configuration without host keys (nanokvm-ssh).
+    ssh-keygen -A || true
+    rc-service sshd start
+}
+
+start() {
+    # SSH that is on needs no rescue.
+    [ -e "$NANOKVM_SSH_STOP" ] || return 0
+    ebegin "Watching the NanoKVM server start"
+    # Not holding the boot: the server may take a while on a first boot.
+    (rescue) < /dev/null > /dev/null 2>&1 &
+    eend 0
+}

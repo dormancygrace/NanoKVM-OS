@@ -974,7 +974,9 @@
         "confirmation": "Confirmar contraseña root",
         "rootForbidden": "La contraseña no puede ser «root».",
         "enable": "Establecer contraseña y activar SSH",
-        "failed": "No se pudo establecer la contraseña root ni activar SSH."
+        "failed": "No se pudo establecer la contraseña root ni activar SSH.",
+        "rescue": "SSH se inició para reparar el equipo porque el servidor de NanoKVM no arrancó. La contraseña de root puede seguir siendo la predeterminada: active SSH para definir una nueva o detenga SSH.",
+        "rescueStop": "Detener SSH"
       }
     },
     "title": "Ajustes",

@@ -50,6 +50,7 @@ base  file  /usr/lib/modules-load.d/nanokvm-trng.conf     0644  firmware/alpine/
 base  file  /etc/init.d/nanokvm-network                   0755  firmware/alpine/openrc/nanokvm-network
 base  file  /etc/init.d/nanokvm-policy                    0755  firmware/alpine/openrc/nanokvm-policy
 base  file  /etc/init.d/nanokvm-ssh                       0755  firmware/alpine/openrc/nanokvm-ssh
+base  file  /etc/init.d/nanokvm-rescue                    0755  firmware/alpine/openrc/nanokvm-rescue
 base  file  /etc/init.d/nanokvm-storage                   0755  firmware/alpine/openrc/nanokvm-storage
 base  file  /etc/init.d/nanokvm-usb                       0755  firmware/alpine/openrc/nanokvm-usb
 base  file  /etc/init.d/nanokvm-watchdog                  0755  firmware/alpine/openrc/nanokvm-watchdog

@@ -11,6 +11,8 @@ if [ -x /usr/libexec/nanokvm/console-policy ]; then
 fi
 # Alpine's standard loopback service is needed by local applications.
 rc-update add loopback boot
+# SSH for repair when the server does not start (added after release 3.4.0).
+[ ! -x /etc/init.d/nanokvm-rescue ] || rc-update add nanokvm-rescue default
 # NanoKVM services load their drivers; the kernel set the clock from the RTC.
 rc-update del hwdrivers boot >/dev/null 2>&1 || true
 [ ! -x /etc/init.d/osclock ] || rc-update add osclock boot

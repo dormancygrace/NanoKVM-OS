@@ -974,7 +974,9 @@
         "confirmation": "root-Passwort bestätigen",
         "rootForbidden": "Das Passwort darf nicht „root“ lauten.",
         "enable": "Passwort festlegen und SSH aktivieren",
-        "failed": "Das root-Passwort konnte nicht festgelegt oder SSH nicht aktiviert werden."
+        "failed": "Das root-Passwort konnte nicht festgelegt oder SSH nicht aktiviert werden.",
+        "rescue": "SSH wurde zur Reparatur gestartet, weil der NanoKVM-Server beim Start nicht gestartet ist. Das root-Passwort kann noch das Standardpasswort sein: SSH einschalten, um ein neues Passwort festzulegen, oder SSH beenden.",
+        "rescueStop": "SSH beenden"
       }
     },
     "title": "Einstellungen",

@@ -20,14 +20,19 @@ import (
 const (
 	SSHScript   = "/etc/init.d/S50sshd"
 	SSHStopFlag = "/etc/kvm/ssh_stop"
+	// Where nanokvm-rescue records that it started SSH because the server did
+	// not start at boot.
+	SSHRescueMarker = "/run/nanokvm/ssh-rescue"
 )
 
 func (s *Service) GetSSHState(c *gin.Context) {
 	var rsp proto.Response
 
 	enabled := isSSHEnabled()
+	_, err := os.Stat(SSHRescueMarker)
 	rsp.OkRspWithData(c, &proto.GetSSHStateRsp{
 		Enabled: enabled,
+		Rescue:  !enabled && err == nil,
 	})
 }
 
@@ -62,6 +67,8 @@ func (s *Service) EnableSSH(c *gin.Context) {
 		return
 	}
 
+	// The settings decide from now on.
+	_ = os.Remove(SSHRescueMarker)
 	rsp.OkRsp(c)
 	log.Debugf("SSH enabled")
 }
@@ -100,6 +107,7 @@ func (s *Service) DisableSSH(c *gin.Context) {
 		return
 	}
 
+	_ = os.Remove(SSHRescueMarker)
 	rsp.OkRsp(c)
 	log.Debugf("SSH disabled")
 }

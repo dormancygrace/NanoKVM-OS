@@ -222,6 +222,9 @@ type SetHdmiIdleTimeoutReq struct {
 
 type GetSSHStateRsp struct {
 	Enabled bool `json:"enabled"`
+	// SSH is off in the settings, but runs for repair: the server did not
+	// start at boot (nanokvm-rescue).
+	Rescue bool `json:"rescue"`
 }
 
 type EnableSSHReq struct {

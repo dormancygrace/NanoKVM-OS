@@ -11,7 +11,7 @@ OPENRC = ROOT / "firmware/alpine/openrc"
 # Services the base package adds to the default runlevel. Alpine services
 # outside this repository (localmount, dbus, sshd, ...) are assumed to start.
 DEFAULT = ("nanokvm-storage nanokvm-modules nanokvm-board nanokvm-network "
-           "nanokvm-usb nanokvm-usb-internet nanokvm-policy nanokvm-ssh nanokvm-app "
+           "nanokvm-usb nanokvm-usb-internet nanokvm-policy nanokvm-ssh nanokvm-app nanokvm-rescue "
            "nanokvm-watchdog nanokvm-mdns").split()
 PROVIDES = {"net": "nanokvm-network"}
 REACHABLE = ("nanokvm-network", "nanokvm-ssh", "nanokvm-mdns")
@@ -69,6 +69,9 @@ for failed in ({"nanokvm-storage"}, {"nanokvm-modules"}, {"nanokvm-board"},
     assert "nanokvm-app" not in running and "nanokvm-watchdog" not in running, (failed, running)
     print(f"{' + '.join(sorted(failed))} failed: network, SSH and mDNS start; app stays stopped")
 
+# The SSH rescue starts when the application failed (it checks the server).
+assert "nanokvm-rescue" in started({"nanokvm-app"}) and "nanokvm-rescue" in started({"nanokvm-storage"})
+print("nanokvm-app failed: SSH rescue starts: pass")
 # A media module failure must not skip the identity (hostname, Ethernet MAC).
 assert "nanokvm-board" in started({"nanokvm-modules"})
 print("nanokvm-modules failed: board identity still applied: pass")

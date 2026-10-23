@@ -673,7 +673,7 @@
         "preferredBandHint": "Uplatněno na stávající spojení (pokud podporováno); přepínání pásem ho může nakrátko přerušit. Ostatní pásma zůstávají k dispozici jako náhradní.",
         "connectionTimeout": "Připojení nebylo potvrzeno. Zkontrolujte síť a v případě, že adresa zařízení byla změněna, znovu se k němu připojte.",
         "joinConfirm": "Připojit k {{ssid}}?",
-        "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu ta síť přidělí."
+        "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu daná síť přidělí."
       },
       "tls": {
         "description": "Povolit protokol HTTPS",
@@ -906,17 +906,17 @@
       },
       "trial": {
         "title": "Kontrola připojení",
-        "waiting": "Hledáme zařízení s novým nastavením. Pokud nebude dosažitelné, za {{seconds}} s se vrátí předchozí nastavení.",
+        "waiting": "Probíhá hledání zařízení pod jeho novými nastaveními. Pokud nebude dosažitelné, za {{seconds}} s se vrátí předchozí nastavení.",
         "manual": "Pokud tato stránka nepřejde sama, otevřete zařízení v nové kartě na jedné z těchto adres:",
-        "https": "Tato stránka používá HTTPS: zařízení na jiné adrese najde jen tehdy, je-li certifikát té adresy důvěryhodný. S certifikátem podepsaným sám sebou otevřete adresu výše a přijměte certifikát tam.",
+        "https": "Tato stránka používá HTTPS: zařízení na jiné adrese najde jen tehdy, pokud je certifikát té adresy důvěryhodný. S certifikátem podepsaným sám sebou otevřete výše uvedenou adresu a přijměte certifikát tam.",
         "moving": "Nalezeno na {{host}}. Otevírá se…",
-        "kept": "Zařízení je dosažitelné. Nové nastavení zůstává.",
-        "reverted": "Zařízení nebylo z této stránky včas dosaženo. Pokud nastavení nebylo ponecháno z jiné karty, vrátilo se předchozí a za několik sekund zařízení opět odpoví na předchozí adrese.",
+        "kept": "Zařízení je dosažitelné. Nová nastavení jsou ponechána.",
+        "reverted": "Zařízení nebylo z této stránky dosaženo do časového limitu. Pokud nastavení nebylo ponecháno z jiného panelu prohlížeče, vrátilo se to předchozí a za několik sekund zařízení opět odpoví na předchozí adrese.",
         "close": "Zavřít",
-        "confirmedHere": "Zařízení je zde dosažitelné. Nové síťové nastavení zůstává.",
-        "confirmFailed": "Zde nečeká na potvrzení žádná změna sítě: možná již byla ponechána nebo vrácena.",
+        "confirmedHere": "Zařízení je zde dosažitelné. Nová nastavení pro síť jsou ponechána.",
+        "confirmFailed": "Není tu žádná změna sítě, čekající na potvrzení: možná už byla ponechána nebo vrácena.",
         "open": "Otevřít NanoKVM",
-        "ended": "Změna už nečeká na potvrzení: byla ponechána, nebo dříve vrácena, protože se rozhraní nerestartovalo. Nastavení ukazuje, co z toho."
+        "ended": "Změna už nečeká na potvrzení: byla ponechána, nebo vrácena dříve, protože se rozhraní nerestartovalo. Nastavení ukazuje, co z toho."
       }
     },
     "tailscale": {
@@ -955,7 +955,7 @@
       "statusFailed": "Nebylo možné získat stav Tailscale",
       "installDescription": "V případě potřeby Tailscale nainstalujte. Existující nastavení jsou zachována.",
       "downConfirm": "Vypnout Tailscale?",
-      "downDescription": "Zůstane vypnutý, i po restartu. Kdo se k NanoKVM připojuje přes Tailscale, ztratí přístup, dokud se zde znovu nezapne.",
+      "downDescription": "Zůstane vypnutý (i po restartu). Kdo se k NanoKVM připojuje přes Tailscale, ztratí přístup, dokud zde nebude znovu zapnuto.",
       "downOverTailscale": "Tato stránka používá Tailscale a ztratí spojení."
     },
     "account": {
@@ -1094,7 +1094,7 @@
         "passwordDescription": "Než budete zapínat SSH, nastavte odolné heslo pro linuxový účet root. Ten je používán pro přihlašování se přes SSH.",
         "enable": "Nastavit heslo a povolit SSH",
         "failed": "Nebylo možné nastavit heslo pro root nebo povolit SSH.",
-        "rescue": "SSH bylo spuštěno kvůli opravě, protože se server NanoKVM při startu nespustil. Heslo uživatele root může být stále výchozí: zapněte SSH a nastavte nové heslo, nebo SSH zastavte.",
+        "rescue": "SSH bylo spuštěno kvůli opravě, protože se při startu systému nespustil NanoKVM server. Je možné, že heslo uživatele root je pořád ještě to výchozí: zapněte SSH a nastavte nové heslo, nebo SSH zastavte.",
         "rescueStop": "Zastavit SSH"
       }
     },
@@ -1463,8 +1463,8 @@
         "automatic": "Automatické (disk nebo CD/DVD)",
         "invalid": "Použijte tisknutelné ASCII, bez mezer okolo: výrobce až 8 znaků, názvy disků až 16."
       },
-      "confirmNetworkRemoval": "Odebrat síť USB?",
-      "confirmNetworkRemovalDescription": "Připojený počítač ztratí síťové spojení s NanoKVM a s ním i stránky a relace SSH, které ho používají, možná i tuto."
+      "confirmNetworkRemoval": "Odebrat USB síť?",
+      "confirmNetworkRemovalDescription": "Připojený počítač ztratí síťové spojení s NanoKVM a s ním i stránky a relace SSH, které ho používají – možná i tuto."
     },
     "vpn": {
       "title": "VPN",
@@ -2086,11 +2086,11 @@
     "openvpnNote": "Povolený může být vždy jen jeden profil pro OpenVPN. Povolené profily se po restartu znovu připojí. Jsou podporovány směrované TUN profily (TAP, skripty a interaktivní SSO/MFA ověřování nejsou). Po dobu trvání (vpn) připojení je nastavení DNS z (vpn) serveru uplatňováno v rámci veškerého fungování zařízení.",
     "note": "Povolený může být vždy jen jeden profil pro WireGuard. Po naimportování není provedeno automatické připojení. Pro nastavení DNS je možné použít IP adresy; „executable hooks“ a SaveConfig nejsou podporovány. Nečinnost znamená, že tunel nemá žádné nedávné ustavení spojení, nikoli nezbytně že spojení spadlo.",
     "downConfirm": "Vypnout {{name}}?",
-    "downDescription": "Spojení, která k NanoKVM vedou tímto tunelem, skončí, možná i tato stránka.",
+    "downDescription": "Spojení, která k NanoKVM vedou tímto tunelem, skončí – možná i tato stránka.",
     "routeConfirm": "Zapnout {{name}} s jeho trasami?",
-    "routeDescription": "Provoz na povolené IP tunelu půjde přes něj. Pokud mezi nimi je síť této stránky, ztratí spojení.",
+    "routeDescription": "Provoz na povolené IP adresy tunelu půjde přes něj. Pokud mezi nimi je síť této stránky, ztratí spojení.",
     "openvpnUpConfirm": "Zapnout {{name}}?",
-    "openvpnUpDescription": "Profil OpenVPN může posílat veškerý provoz tunelem (redirect-gateway). Pak tato stránka může ztratit spojení."
+    "openvpnUpDescription": "Profil OpenVPN může posílat veškerý provoz tunelem (redirect-gateway). V takovém případě se může stát, že tato stránka ztratí spojení."
   },
   "dateTime": {
     "save": "Uložit",

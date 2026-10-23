@@ -34,7 +34,12 @@ class ActivationTests(unittest.TestCase):
         (self.root/'mounts').write_text('/dev/mmcblk0p1 '+str(self.boot)+' vfat rw 0 0\n')
         for name,body in {'mountpoint':'exit 0','depmod':'exit 0','modinfo':"echo '7.2.5-nanokvm-os-r4 SMP'"}.items():
             f=self.root/'bin'/name;f.write_text('#!/bin/sh\n'+body+'\n');f.chmod(0o755)
-        source=SOURCE.read_text().replace('/usr/lib/nanokvm/boot',str(self.payload))
+        # Reads "from the card"; CORRUPT names a file to read back wrong.
+        f=self.root/'bin'/'readcard';f.write_text('#!/bin/sh\n[ "$(basename "$1")" = "${CORRUPT:-}" ] && { echo garbage; exit 0; }; cat "$1"\n');f.chmod(0o755)
+        source=SOURCE.read_text()
+        self.assertIn('dd if="$1" bs=64k iflag=direct 2>/dev/null',source)
+        source=source.replace('dd if="$1" bs=64k iflag=direct 2>/dev/null','readcard "$1"')
+        source=source.replace('/usr/lib/nanokvm/boot',str(self.payload))
         source=source.replace('/lib/modules',str(self.root/'modules'))
         source=re.sub(r'/boot(?=/|\s|;|"|$)',str(self.boot),source)
         source=source.replace('/sys/firmware/devicetree/base',str(self.dt))
@@ -46,14 +51,42 @@ class ActivationTests(unittest.TestCase):
         (self.payload/f'{name}.dtb').write_bytes(dtb)
         (self.payload/f'{name}.fdt-sha256').write_bytes(hashlib.sha256(dtb).digest())
         (self.payload/f'{name}.sha256').write_text(hashlib.sha256(composed(dtb)).hexdigest()+f'  {name}.sd\n')
-    def run_activation(self):
-        return subprocess.run(['sh',str(self.script)],capture_output=True,text=True)
+    def run_activation(self,**env):
+        return subprocess.run(['sh',str(self.script)],capture_output=True,text=True,env={**os.environ,**env})
+    def files(self):
+        return {p.name:p.read_bytes() for p in self.boot.iterdir() if p.name!='kernel.release'}
     def test_installs_matched_fit_and_requests_reboot(self):
         result=self.run_activation()
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(DTB))
         self.assertTrue((self.root/'run/reboot-required').exists())
-        self.assertEqual(sorted(p.name for p in self.boot.iterdir()),['boot.sd','kernel.release'])
+        # The image it replaces is U-Boot's fallback.
+        self.assertEqual(self.files(),{'boot.sd':composed(DTB),'boot.prev':b'old FIT'})
+    def test_an_image_already_on_the_card_is_not_rewritten(self):
+        (self.boot/'boot.sd').write_bytes(composed(DTB))
+        (self.boot/'boot.prev').write_bytes(b'older FIT')
+        (self.boot/'boot.new').write_bytes(b'leftover')
+        before=(self.boot/'boot.sd').stat().st_mtime_ns
+        result=self.run_activation()
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(self.files(),{'boot.sd':composed(DTB),'boot.prev':b'older FIT'})
+        self.assertEqual((self.boot/'boot.sd').stat().st_mtime_ns,before)
+    def test_a_new_image_read_back_wrong_is_not_installed(self):
+        (self.boot/'boot.prev').write_bytes(b'older FIT')
+        result=self.run_activation(CORRUPT='boot.new')
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('boot.sd is unchanged',result.stderr)
+        self.assertEqual(self.files(),{'boot.sd':b'old FIT','boot.prev':b'older FIT'})
+    def test_an_installed_image_read_back_wrong_restores_the_previous_one(self):
+        result=self.run_activation(CORRUPT='boot.sd')
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('previous boot.sd is restored',result.stderr)
+        self.assertEqual(self.files(),{'boot.sd':b'old FIT'})
+    def test_first_image_without_a_boot_sd(self):
+        (self.boot/'boot.sd').unlink()
+        result=self.run_activation()
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(self.files(),{'boot.sd':composed(DTB)})
     def test_bad_source_hash_leaves_boot_untouched(self):
         (self.payload/'pcie.dtb').write_bytes(b'corrupt!')
         self.assertNotEqual(self.run_activation().returncode,0)

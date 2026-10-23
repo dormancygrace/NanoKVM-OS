@@ -33,12 +33,44 @@ cleanup() { [ "$mounted" = 0 ] || umount /boot; }
 trap cleanup EXIT
 awk '$1 == "/dev/mmcblk0p1" && $2 == "/boot" && $3 == "vfat" { found=1 } END { exit !found }' /proc/mounts
 [ ! -e /boot/rec ] || { echo 'Recovery is active; kernel activation refused' >&2; exit 1; }
-# Deliberately no backup, rollback, whole-root replacement or post-write readback.
-# compose-fit replaces boot.sd only with an image matching the build's hash.
-sh "$payload/compose-fit" "$payload" "$name" /boot/boot.sd
+# The card always holds an image U-Boot can boot: U-Boot tries boot.sd, then
+# boot.prev (docs/BOOT.md). The new image is written beside boot.sd and
+# checked on the card; boot.sd is then renamed to boot.prev and the new image
+# to boot.sd. No rename replaces an existing file, and nothing is written
+# when the card already holds the image (a kmod-only transaction).
+want=$(cut -d ' ' -f 1 "$payload/$name.sha256")
+# The card's own bytes, not the page cache.
+oncard() { dd if="$1" bs=64k iflag=direct 2>/dev/null | sha256sum | cut -d ' ' -f 1; }
+rm -f /boot/boot.new
+if [ ! -f /boot/boot.sd ] || [ "$(oncard /boot/boot.sd)" != "$want" ]; then
+    # compose-fit writes only an image matching the build's hash.
+    sh "$payload/compose-fit" "$payload" "$name" /boot/boot.new
+    sync /boot/boot.new
+    if [ "$(oncard /boot/boot.new)" != "$want" ]; then
+        rm -f /boot/boot.new
+        echo 'The boot image written to /boot does not match the build; boot.sd is unchanged.' >&2
+        exit 1
+    fi
+    if [ -f /boot/boot.sd ]; then
+        rm -f /boot/boot.prev
+        sync /boot
+        mv /boot/boot.sd /boot/boot.prev
+        sync /boot
+    fi
+    mv /boot/boot.new /boot/boot.sd
+    sync /boot
+    if [ "$(oncard /boot/boot.sd)" != "$want" ]; then
+        if [ -f /boot/boot.prev ] && rm -f /boot/boot.sd && mv /boot/boot.prev /boot/boot.sd && sync /boot; then
+            echo 'The installed boot image does not match the build; the previous boot.sd is restored.' >&2
+        else
+            echo 'The installed boot image does not match the build; do not reboot before repairing /boot/boot.sd.' >&2
+        fi
+        exit 1
+    fi
+fi
 printf '%s\n' "$release" > /boot/kernel.release
 rm -f /etc/kvm/video-memory-mode /boot/video-memory-mode
-sync /boot/boot.sd /boot/kernel.release
+sync /boot
 mkdir -p /run
 printf '%s\n' 'Kernel updated; reboot to use the installed kernel.' > /run/reboot-required
 printf '%s\n' nanokvm-kernel-sg2002 >> /run/reboot-required.pkgs

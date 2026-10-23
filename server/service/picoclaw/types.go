@@ -98,6 +98,10 @@ type RuntimeIntentStatus struct {
 	LastStartedAt  string `json:"last_started_at,omitempty"`
 	LastStoppedAt  string `json:"last_stopped_at,omitempty"`
 	LastError      string `json:"last_error,omitempty"`
+	// HostTools lets the agent run commands, write files and schedule
+	// commands on the NanoKVM. Off by default: the agent reads the host's
+	// screen, so text there could steer it into running code as root.
+	HostTools bool `json:"host_tools,omitempty"`
 }
 
 type ControlStatus struct {

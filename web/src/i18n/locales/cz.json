@@ -1759,7 +1759,12 @@
       "saveFailed": "Nastavení pro model se nepodařilo uložit",
       "invalid": "Identifikátor modelu, základ URL API rozhraní a klíč k API je třeba vyplnit",
       "apiKeyOptionalPlaceholder": "Volitelné pro tohoto lokálního poskytovatele",
-      "invalidNoKey": "Identifikátor modelu a základ URL API rozhraní je třeba vyplnit"
+      "invalidNoKey": "Identifikátor modelu a základ URL API rozhraní je třeba vyplnit",
+      "hostTools": "Nástroje na NanoKVM",
+      "hostToolsHint": "Příkazy, zápis souborů a naplánované příkazy na samotném NanoKVM. Nástroje KVM (obrazovka, klávesnice, myš) fungují i bez nich.",
+      "hostToolsWarning": "Agent čte obrazovku hostitele. Text zobrazený na ní ho může přimět spustit příkazy jako root na NanoKVM. Zapněte jen pro důvěryhodné hostitele a úlohy.",
+      "hostToolsEnable": "Zapnout",
+      "hostToolsFailed": "Nastavení nástrojů se nepodařilo změnit"
     },
     "uninstall": {
       "menuLabel": "Odinstalovat",

@@ -2062,7 +2062,12 @@
       "saved": "Configuración del modelo guardada",
       "saveFailed": "No se pudo guardar la configuración del modelo",
       "invalidNoKey": "Se requieren el identificador del modelo y la API Base URL",
-      "invalid": "Se requieren el identificador del modelo, API Base URL y la clave API"
+      "invalid": "Se requieren el identificador del modelo, API Base URL y la clave API",
+      "hostTools": "Herramientas en el NanoKVM",
+      "hostToolsHint": "Comandos, escritura de archivos y comandos programados en el propio NanoKVM. Las herramientas KVM (pantalla, teclado, ratón) funcionan sin ellas.",
+      "hostToolsWarning": "El agente lee la pantalla del equipo. El texto que aparece en ella puede llevarlo a ejecutar comandos como root en el NanoKVM. Actívelo solo para equipos y tareas de confianza.",
+      "hostToolsEnable": "Activar",
+      "hostToolsFailed": "No se pudo cambiar el ajuste de herramientas"
     },
     "uninstall": {
       "menuLabel": "Desinstalar",

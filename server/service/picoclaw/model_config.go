@@ -168,6 +168,37 @@ func (s *Service) UpdateModelConfig(c *gin.Context) {
 		return
 	}
 
+	var modelName string
+	applied := s.applyConfigChange(c, "model config", "model_config", func() *PicoclawError {
+		var err error
+		modelName, err = updatePicoclawModelConfig(
+			strings.TrimSpace(req.APIBase),
+			strings.TrimSpace(req.APIKey),
+			strings.TrimSpace(req.Model),
+		)
+		if err != nil {
+			return newPicoclawError(CodeRuntimeUnavailable, err.Error())
+		}
+		if err := ensurePicoclawStartupDefaults(); err != nil {
+			return newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to persist picoclaw defaults: "+err.Error())
+		}
+		return nil
+	})
+	if !applied {
+		return
+	}
+
+	writeSuccess(c, gin.H{
+		"model_name": modelName,
+		"status":     s.runtimeStatus(),
+	})
+}
+
+// applyConfigChange runs change under the runtime lifecycle lock and restarts
+// a running PicoClaw afterwards, so that it reads the new config. what names
+// the change in restart errors. It writes the error response itself and
+// reports whether the change was applied.
+func (s *Service) applyConfigChange(c *gin.Context, what string, source string, change func() *PicoclawError) bool {
 	currentStatus := s.runtime.Get()
 	shouldRestart := currentStatus.Ready || currentStatus.Status == "ready"
 	var releaseControl func()
@@ -179,7 +210,7 @@ func (s *Service) UpdateModelConfig(c *gin.Context) {
 		releaseControl, controlErr = s.acquireControlMode()
 		if controlErr != nil {
 			writePicoclawErrorWithData(c, controlErr, gin.H{"status": s.runtimeStatus()})
-			return
+			return false
 		}
 		defer releaseControl()
 	}
@@ -192,45 +223,32 @@ func (s *Service) UpdateModelConfig(c *gin.Context) {
 		releaseControl, controlErr = s.acquireControlMode()
 		if controlErr != nil {
 			writePicoclawErrorWithData(c, controlErr, gin.H{"status": s.runtimeStatus()})
-			return
+			return false
 		}
 		defer releaseControl()
 		shouldRestart = true
 	}
 
-	modelName, err := updatePicoclawModelConfig(
-		strings.TrimSpace(req.APIBase),
-		strings.TrimSpace(req.APIKey),
-		strings.TrimSpace(req.Model),
-	)
-	if err != nil {
-		writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, err.Error()))
-		return
-	}
-	if err := ensurePicoclawStartupDefaults(); err != nil {
-		writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to persist picoclaw defaults: "+err.Error()))
-		return
+	if err := change(); err != nil {
+		writePicoclawError(c, err)
+		return false
 	}
 
 	if shouldRestart {
 		if _, _, stopErr := s.stopRuntime(); stopErr != nil {
-			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to restart picoclaw runtime: "+stopErr.Message))
-			return
+			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, what+" saved, but failed to restart picoclaw runtime: "+stopErr.Message))
+			return false
 		}
 		if _, _, startErr := s.startRuntime(); startErr != nil {
-			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, "model config saved, but failed to restart picoclaw runtime: "+startErr.Message))
-			return
+			writePicoclawError(c, newPicoclawError(CodeRuntimeUnavailable, what+" saved, but failed to restart picoclaw runtime: "+startErr.Message))
+			return false
 		}
-		s.setRuntimeIntentDesired(true, "model_config")
+		s.setRuntimeIntentDesired(true, source)
 	} else {
 		_ = s.syncConfigFromPicoclaw()
 		_ = s.ensureRuntimeReadyForLifecycle()
 	}
-
-	writeSuccess(c, gin.H{
-		"model_name": modelName,
-		"status":     s.runtimeStatus(),
-	})
+	return true
 }
 
 func updatePicoclawModelConfig(apiBase string, apiKey string, model string) (string, error) {

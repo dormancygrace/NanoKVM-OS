@@ -2062,7 +2062,12 @@
       "saved": "Model configuration saved",
       "saveFailed": "Failed to save model configuration",
       "invalidNoKey": "Model identifier and API base URL are required",
-      "invalid": "Model identifier, API base URL, and API key are required"
+      "invalid": "Model identifier, API base URL, and API key are required",
+      "hostTools": "Tools on the NanoKVM",
+      "hostToolsHint": "Commands, file writes and scheduled commands on the NanoKVM itself. The KVM tools (screen, keyboard, mouse) work without them.",
+      "hostToolsWarning": "The agent reads the host's screen. Text shown there can steer it into running commands as root on the NanoKVM. Turn this on only for hosts and tasks you trust.",
+      "hostToolsEnable": "Turn on",
+      "hostToolsFailed": "Could not change the tools setting"
     },
     "uninstall": {
       "menuLabel": "Uninstall",

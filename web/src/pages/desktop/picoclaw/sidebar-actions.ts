@@ -7,6 +7,7 @@ import {
   installRuntime,
   setAIControlMode,
   setPicoclawAgentProfile,
+  setPicoclawHostTools,
   setPicoclawModelConfig,
   startRuntime,
   stopRuntime,
@@ -27,6 +28,7 @@ import type {
   PicoclawTakeoverState,
   PicoclawTransportState
 } from '@/jotai/picoclaw.ts';
+import { confirmAction } from '@/components/ui/confirm.ts';
 
 import { PICOCLAW_INPUT_KEYBOARD_LOCK_SOURCE, releasePicoclawInputFocus } from './keyboard-lock.ts';
 import { createErrorMessage, createStatusMessage, HIDDEN_OVERLAY } from './message-utils.ts';
@@ -47,6 +49,7 @@ export type PicoclawMutation =
   | 'runtime_uninstall'
   | 'agent_switch'
   | 'model_save'
+  | 'host_tools'
   | 'session_switch';
 
 export type PicoclawRefreshOptions = {
@@ -833,6 +836,60 @@ export function createPicoclawSidebarActions(options: PicoclawSidebarActionOptio
     }
   }
 
+  async function handleHostToolsChange(enabled: boolean) {
+    if (enabled) {
+      const confirmed = await confirmAction({
+        title: t('picoclaw.model.hostTools'),
+        content: t('picoclaw.model.hostToolsWarning'),
+        okText: t('picoclaw.model.hostToolsEnable'),
+        cancelText: t('picoclaw.cancel'),
+        danger: true
+      });
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (!beginMutation('host_tools')) {
+      return;
+    }
+
+    try {
+      const response = await setPicoclawHostTools(enabled);
+      if (response.code === 0) {
+        syncRuntimeStatus(response.data.status, 'host_tools');
+        await refreshState({ force: true, allowDuringMutation: true });
+        return;
+      }
+
+      const errorMessage =
+        (response as { message?: string; msg?: string }).message ||
+        (response as { message?: string; msg?: string }).msg ||
+        t('picoclaw.model.hostToolsFailed');
+      setMessages((current) => [
+        ...current,
+        createErrorMessage({
+          code: 'HOST_TOOLS_SAVE_FAILED',
+          message: errorMessage,
+          raw: response
+        })
+      ]);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : t('picoclaw.model.hostToolsFailed');
+      setMessages((current) => [
+        ...current,
+        createErrorMessage({
+          code: 'HOST_TOOLS_SAVE_FAILED',
+          message: errorMessage,
+          raw: error
+        })
+      ]);
+    } finally {
+      endMutation('host_tools');
+    }
+  }
+
   async function handleAgentProfileChange(profile: string) {
     if (!profile || profile === runtimeStatus?.agent_profile) {
       return;
@@ -945,6 +1002,7 @@ export function createPicoclawSidebarActions(options: PicoclawSidebarActionOptio
     handleGrantControl,
     handleReleaseControl,
     handleSaveModelConfig,
+    handleHostToolsChange,
     handleAgentProfileChange,
     handleUninstallRuntime
   };

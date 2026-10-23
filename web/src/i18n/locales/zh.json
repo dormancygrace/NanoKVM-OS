@@ -2062,7 +2062,12 @@
       "saved": "模型配置已保存",
       "saveFailed": "保存模型配置失败",
       "invalidNoKey": "模型标识和 API Base URL 不能为空",
-      "invalid": "模型标识、API Base URL 和 API Key 不能为空"
+      "invalid": "模型标识、API Base URL 和 API Key 不能为空",
+      "hostTools": "NanoKVM 上的工具",
+      "hostToolsHint": "在 NanoKVM 本身执行命令、写入文件和计划命令。KVM 工具（屏幕、键盘、鼠标）无需它们即可工作。",
+      "hostToolsWarning": "智能体会读取主机屏幕。屏幕上显示的文本可能诱使它在 NanoKVM 上以 root 身份执行命令。仅对可信的主机和任务启用。",
+      "hostToolsEnable": "启用",
+      "hostToolsFailed": "无法更改工具设置"
     },
     "uninstall": {
       "menuLabel": "卸载",

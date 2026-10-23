@@ -94,7 +94,7 @@ func TestLoginWithoutAURLGivesUp(t *testing.T) {
 }
 
 func TestCommandsHaveALimitAndRunOneAtATime(t *testing.T) {
-	log := fakeTailscale(t, `sleep 60`)
+	log := fakeTailscale(t, `sleep 60 & echo $! >> "$0.children"; wait`)
 	previous := commandTimeout
 	commandTimeout = 300 * time.Millisecond
 	defer func() { commandTimeout = previous }()
@@ -105,6 +105,14 @@ func TestCommandsHaveALimitAndRunOneAtATime(t *testing.T) {
 	}
 	if time.Since(start) > 5*time.Second {
 		t.Fatal("down waited past its limit")
+	}
+	// Its children went with it, as rc-service's do.
+	children, _ := os.ReadFile(tailscaleBinary + ".children")
+	time.Sleep(200 * time.Millisecond)
+	for _, pid := range strings.Fields(string(children)) {
+		if alive(pid) {
+			t.Fatalf("child %s of a timed-out command still runs", pid)
+		}
 	}
 
 	_ = os.Remove(log)

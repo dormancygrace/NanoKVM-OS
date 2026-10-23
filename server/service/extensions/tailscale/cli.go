@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"NanoKVM-Server/internal/oomscore"
@@ -57,6 +58,11 @@ func command(timeout time.Duration, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
+	// rc-service runs openrc-run and start-stop-daemon below it: end the
+	// whole group at the limit, not only rc-service. tailscaled is
+	// daemonized into a session of its own and is not in it.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
 	if ctx.Err() != nil {

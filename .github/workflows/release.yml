@@ -47,6 +47,8 @@ on:
       - scripts/publish-release.sh
       - scripts/publish-release.py
       - scripts/release_assets.py
+      - scripts/release_build_tar.py
+      - tests/test-release-build-tar.py
       - tests/test-release-storage.py
       - tests/test-release-workflow.py
 
@@ -119,7 +121,8 @@ jobs:
             workflow_dispatch)
               image=()
               [ "$IMAGE" != true ] || image=(--image)
-              gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . |
+              gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' > "$RUNNER_TEMP/release-list"
+              jq -s . "$RUNNER_TEMP/release-list" |
                 python3 scripts/next-release.py --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" "${image[@]}" > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
@@ -142,7 +145,8 @@ jobs:
             *)
               # release.env is an image baseline and can lag published packages.
               # Exercise reuse with a prospective release, as dispatch does.
-              gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s . |
+              gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' > "$RUNNER_TEMP/release-list"
+              jq -s . "$RUNNER_TEMP/release-list" |
                 python3 scripts/next-release.py --channel "$channel" --kind patch --ref main --image > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               printf 'image=true\ndraft=true\npublish=false\n' >> "$GITHUB_OUTPUT" ;;
@@ -196,9 +200,12 @@ jobs:
       NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
       NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
     steps:
+      # The job holds the signing key and a write token: keep the token out
+      # of .git/config, where the build tools it runs could read it.
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
 
       - uses: ./.github/actions/prepare-build
         with:

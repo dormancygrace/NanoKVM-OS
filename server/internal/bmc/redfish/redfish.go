@@ -13,6 +13,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -112,12 +113,57 @@ func writeError(w http.ResponseWriter, status int, id, message string) {
 
 // client is the requester's address, from the connection: the web server is
 // the edge, and an X-Forwarded-For header is the client's own claim.
+// IPv6 clients count per /64, as for the web login: one host has a whole
+// prefix to rotate through.
 func client(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	if addr, err := netip.ParseAddr(host); err == nil && addr.Is6() && !addr.Is4In6() {
+		if prefix, err := addr.Prefix(64); err == nil {
+			return prefix.String()
+		}
 	}
 	return host
+}
+
+// beginLogin reserves one login attempt of addr. It refuses while addr is
+// locked out; otherwise it counts the attempt before the credentials are
+// compared, in the same critical section as the check, so parallel requests
+// cannot all pass the check before the first failure is recorded. A
+// successful login hands the attempt back with loginSucceeded.
+func (h *Handler) beginLogin(addr string) *failures {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	f := h.failed[addr]
+	if f != nil && h.now().Sub(f.since) > failWindow {
+		delete(h.failed, addr)
+		f = nil
+	}
+	if f != nil && f.count >= maxFailures {
+		return nil
+	}
+	if f == nil {
+		h.expire()
+		f = &failures{since: h.now()}
+		h.failed[addr] = f
+	}
+	f.count++
+	return f
+}
+
+func (h *Handler) loginSucceeded(addr string, reservation *failures) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	// A delayed success must not refund a newer window or a replacement
+	// record after eviction. Only return the attempt that we reserved.
+	if f := h.failed[addr]; f != nil && f == reservation {
+		// A counter left at zero would take a slot of the bounded table.
+		if f.count--; f.count <= 0 {
+			delete(h.failed, addr)
+		}
+	}
 }
 
 func (h *Handler) lockedOut(addr string) bool {
@@ -132,18 +178,6 @@ func (h *Handler) lockedOut(addr string) bool {
 		return false
 	}
 	return f.count >= maxFailures
-}
-
-func (h *Handler) recordFailure(addr string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	f := h.failed[addr]
-	if f == nil || h.now().Sub(f.since) > failWindow {
-		h.expire()
-		f = &failures{since: h.now()}
-		h.failed[addr] = f
-	}
-	f.count++
 }
 
 // maxTracked bounds the login counters: a client that never comes back
@@ -194,21 +228,50 @@ func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request) bool {
 			return true
 		}
 	} else if user, password, ok := r.BasicAuth(); ok {
-		if h.lockedOut(addr) {
+		reservation := h.beginLogin(addr)
+		if reservation == nil {
 			writeError(w, http.StatusTooManyRequests, "GeneralError", "Too many failed logins; try again later.")
 			return false
 		}
 		if h.credentialsMatch(user, password) {
+			h.loginSucceeded(addr, reservation)
 			return true
 		}
-		h.recordFailure(addr)
 	}
 	w.Header().Set("WWW-Authenticate", `Basic realm="NanoKVM BMC"`)
 	writeError(w, http.StatusUnauthorized, "NoValidSession", "Authentication is required.")
 	return false
 }
 
+// refuseWrite answers state-changing requests that a browser could send
+// from another site with credentials it has cached for the device (Basic
+// auth): 403 when the browser marks the request cross-site, 415 for a POST
+// or PATCH without a JSON body, which a cross-origin form can send without a
+// CORS preflight. Redfish clients (fence_redfish, Ansible, gophercloud) send
+// JSON. It reports whether it answered.
+func refuseWrite(w http.ResponseWriter, r *http.Request) bool {
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")), "cross-site") {
+		writeError(w, http.StatusForbidden, "InsufficientPrivilege", "Requests from another site are refused.")
+		return true
+	}
+	if r.Method != http.MethodPost && r.Method != http.MethodPatch {
+		return false
+	}
+	if media, _, _ := strings.Cut(r.Header.Get("Content-Type"), ";"); !strings.EqualFold(strings.TrimSpace(media), "application/json") {
+		writeError(w, http.StatusUnsupportedMediaType, "GeneralError", "The request body must be application/json.")
+		return true
+	}
+	return false
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if refuseWrite(w, r) {
+		return
+	}
 	path := strings.TrimSuffix(r.URL.Path, "/")
 	switch path {
 	case "/redfish":
@@ -472,11 +535,16 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "MalformedJSON", "The request body is not valid JSON.")
 		return
 	}
+	reservation := h.beginLogin(addr)
+	if reservation == nil {
+		writeError(w, http.StatusTooManyRequests, "GeneralError", "Too many failed logins; try again later.")
+		return
+	}
 	if !h.credentialsMatch(body.UserName, body.Password) {
-		h.recordFailure(addr)
 		writeError(w, http.StatusUnauthorized, "NoValidSession", "Invalid user name or password.")
 		return
 	}
+	h.loginSucceeded(addr, reservation)
 	s := &session{id: randomHex(8), token: randomHex(24), lastUsed: h.now()}
 	h.mu.Lock()
 	for token, old := range h.sessions {

@@ -42,6 +42,18 @@ type Config struct {
 	// HoldSeconds is how long a forced power-off holds the power button; 0,
 	// the default, is the power menu's long press.
 	HoldSeconds int `json:"holdSeconds"`
+	// PowerLEDDisconnected: the power LED header is not wired to the host.
+	// Its line then reads "off" whatever the host does, so the power state
+	// is unknown and every request presses. Kept negative so that settings
+	// written before it existed mean "connected".
+	PowerLEDDisconnected bool `json:"powerLedDisconnected,omitempty"`
+}
+
+// PowerLEDConnected reports whether the settings at path trust the power
+// LED; unreadable settings do, as before the setting existed.
+func PowerLEDConnected(path string) bool {
+	c, err := Load(path)
+	return err != nil || !c.PowerLEDDisconnected
 }
 
 // Default is the configuration of a new installation: both protocols off.

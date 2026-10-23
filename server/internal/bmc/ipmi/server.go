@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 )
@@ -117,12 +118,15 @@ type Server struct {
 	Power                        Power
 	Log                          func(format string, args ...any)
 
-	now      func() time.Time
-	mu       sync.Mutex
-	sessions map[uint32]*session
-	failed   map[string]*failures
-	actions  chan func(context.Context) error
-	start    sync.Once
+	now func() time.Time
+	mu  sync.Mutex
+	// lastExpire is the last expiry scan: at most one a second, not one
+	// per packet (an unauthenticated sender chooses the packet rate).
+	lastExpire time.Time
+	sessions   map[uint32]*session
+	failed     map[string]*failures
+	actions    chan func(context.Context) error
+	start      sync.Once
 }
 
 func (s *Server) init() {
@@ -276,8 +280,20 @@ func cipherSuites(data []byte) (byte, []byte) {
 	return ccOK, append([]byte{0x01}, records[start:end]...)
 }
 
-func (s *Server) lockedOut(addr string) bool {
+// clientKey is the login counter of a packet's source: its host, and for
+// IPv6 its /64, so that one host cannot rotate through its prefix.
+func clientKey(addr string) string {
 	host, _, _ := net.SplitHostPort(addr)
+	if ip, err := netip.ParseAddr(host); err == nil && ip.Is6() && !ip.Is4In6() {
+		if prefix, err := ip.Prefix(64); err == nil {
+			return prefix.String()
+		}
+	}
+	return host
+}
+
+func (s *Server) lockedOut(addr string) bool {
+	host := clientKey(addr)
 	f := s.failed[host]
 	if f == nil {
 		return false
@@ -290,9 +306,12 @@ func (s *Server) lockedOut(addr string) bool {
 }
 
 func (s *Server) recordFailure(addr string) {
-	host, _, _ := net.SplitHostPort(addr)
+	host := clientKey(addr)
 	f := s.failed[host]
 	if f == nil || s.now().Sub(f.since) > failWindow {
+		if f == nil && len(s.failed) >= maxTracked {
+			s.evictOldestFailure()
+		}
 		f = &failures{since: s.now()}
 		s.failed[host] = f
 	}
@@ -303,28 +322,42 @@ func (s *Server) recordFailure(addr string) {
 // forge, so a spray could otherwise grow the table without limit.
 const maxTracked = 1024
 
-func (s *Server) expire() {
+// evictOldestFailure makes room for one more login counter.
+func (s *Server) evictOldestFailure() {
+	var oldest string
+	var since time.Time
 	for host, f := range s.failed {
-		if s.now().Sub(f.since) > failWindow {
+		if oldest == "" || f.since.Before(since) {
+			oldest, since = host, f.since
+		}
+	}
+	delete(s.failed, oldest)
+}
+
+// expireEvery runs expire at most once per interval.
+func (s *Server) expireEvery(interval time.Duration) {
+	if now := s.now(); now.Sub(s.lastExpire) >= interval || now.Before(s.lastExpire) {
+		s.lastExpire = now
+		s.expire()
+	}
+}
+
+func (s *Server) expire() {
+	now := s.now()
+	for host, f := range s.failed {
+		if now.Sub(f.since) > failWindow {
 			delete(s.failed, host)
 		}
 	}
 	for len(s.failed) > maxTracked {
-		var oldest string
-		var since time.Time
-		for host, f := range s.failed {
-			if oldest == "" || f.since.Before(since) {
-				oldest, since = host, f.since
-			}
-		}
-		delete(s.failed, oldest)
+		s.evictOldestFailure()
 	}
 	for id, se := range s.sessions {
 		limit := sessionTimeout
 		if !se.active {
 			limit = pendingTimeout
 		}
-		if s.now().Sub(se.lastUsed) > limit {
+		if now.Sub(se.lastUsed) > limit {
 			delete(s.sessions, id)
 		}
 	}
@@ -356,7 +389,7 @@ func (s *Server) v20(p []byte, addr string) []byte {
 	payload := p[12 : 12+length]
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.expire()
+	s.expireEvery(time.Second)
 	switch ptype {
 	case payloadOpenRequest:
 		return s.openSession(payload, addr)

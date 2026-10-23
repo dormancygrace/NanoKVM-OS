@@ -230,3 +230,31 @@ func TestRedfishWithoutAddOnPreservesCustomPort(t *testing.T) {
 		t.Fatalf("port=%d err=%v", got.IPMIPort, err)
 	}
 }
+
+// The power LED setting is stored when sent, kept when absent (an older
+// page), and shown in the status.
+func TestPowerLEDSetting(t *testing.T) {
+	s, _ := newTestService(t, false)
+	settings := Settings{Redfish: true, Username: "admin", Password: "secret-123", IPMIPort: 623}
+	if err := s.Configure(settings); err != nil {
+		t.Fatal(err)
+	}
+	if status, _ := s.Status(); !status.PowerLEDConnected {
+		t.Fatal("the LED is not connected by default")
+	}
+	disconnected := false
+	settings.PowerLEDConnected = &disconnected
+	if err := s.Configure(settings); err != nil {
+		t.Fatal(err)
+	}
+	settings.PowerLEDConnected = nil
+	if err := s.Configure(settings); err != nil {
+		t.Fatal(err)
+	}
+	if status, _ := s.Status(); status.PowerLEDConnected {
+		t.Fatal("a request without the field changed the setting")
+	}
+	if bmc.PowerLEDConnected(s.configPath) {
+		t.Fatal("the ATX state would still trust the LED")
+	}
+}

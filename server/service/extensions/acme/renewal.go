@@ -47,7 +47,7 @@ func renewDue() {
 	if err != nil {
 		return
 	}
-	steps := []step{{args: []string{"--renew", "-d", settings.primary(), "--ecc"}, okCodes: []int{renewSkip}}}
+	steps := []step{renewStep(settings, false)}
 	err = startJob("cron", nil, nil, steps, func(j *Job) error {
 		if !j.OK || j.NotDue {
 			return nil
@@ -57,4 +57,17 @@ func renewDue() {
 	if err != nil {
 		log.Debugf("acme.sh renewal skipped: %v", err)
 	}
+}
+
+// renewStep renews the issued certificate (force: also before it is due).
+// acme.sh reloads the DNS wait saved at issue, so the step carries it for
+// the job timeout.
+func renewStep(settings *Settings, force bool) step {
+	st := step{args: []string{"--renew", "-d", settings.primary(), "--ecc"}, dnsSleep: settings.DNSSleep}
+	if force {
+		st.args = append(st.args, "--force")
+	} else {
+		st.okCodes = []int{renewSkip}
+	}
+	return st
 }

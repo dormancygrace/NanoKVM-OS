@@ -22,6 +22,7 @@ export const BmcSettingsPage = () => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [form] = Form.useForm<BmcSettings>();
   const dirty = useRef(false);
   const mounted = useRef(false);
@@ -69,6 +70,7 @@ export const BmcSettingsPage = () => {
       });
       if (response.code !== 0) throw new Error(response.msg);
       dirty.current = false;
+      setShowValidationErrors(false);
       form.setFieldValue('password', '');
       void message.success(t('saved'));
       setError('');
@@ -110,6 +112,7 @@ export const BmcSettingsPage = () => {
           dirty.current = true;
         }}
         onFinish={(values) => void save(values)}
+        onFinishFailed={() => setShowValidationErrors(true)}
       >
         <SettingsSection title={t('redfish')}>
           <Form.Item
@@ -153,8 +156,11 @@ export const BmcSettingsPage = () => {
             </>
           )}
         </SettingsSection>
-        {!shared && <p className="text-fg-muted m-0 text-sm">{t('sharedOff')}</p>}
-        <div hidden={!shared}>
+        {!shared && !showValidationErrors && (
+          <p className="text-fg-muted m-0 text-sm">{t('sharedOff')}</p>
+        )}
+        {/* A rejected draft must stay editable even after Redfish is switched off. */}
+        <div hidden={!shared && !showValidationErrors}>
           <SettingsSection
             title={t('account')}
             description={status.ipmiInstalled ? t('accountHint') : t('accountHintRedfish')}

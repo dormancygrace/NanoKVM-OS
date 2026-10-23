@@ -164,27 +164,44 @@ data_read_only() {
 		fail "cannot remount exFAT data read-only"
 }
 
-# What survives the format, recorded beside the archive: its hash ("none"
-# without one) and the root password entry, which otherwise lives only in
-# this initramfs.
+# What survives the format, recorded beside the archive: the root password
+# entry, which otherwise lives only in this initramfs, and then the record
+# with both hashes, the archive's ("none" without one) and the entry's. The
+# record is committed last, once both are on the card.
 mark_formatting() {
 	data_writable
-	/busybox cp /root-shadow.saved "$SHADOW_SAVED" ||
+	if ! /busybox cp /root-shadow.saved "$SHADOW_SAVED" || ! sync; then
 		fail "cannot save the root password for a resumed recovery"
-	if ! printf '%s\n' "${SETTINGS_SHA256:-none}" > "$FORMAT_MARKER.tmp" ||
+	fi
+	shadow_sha256=$(/busybox sha256sum "$SHADOW_SAVED") || fail "cannot hash the saved root password"
+	if ! printf '%s\n%s\n' "${SETTINGS_SHA256:-none}" "${shadow_sha256%% *}" > "$FORMAT_MARKER.tmp" ||
 		! /busybox mv -f "$FORMAT_MARKER.tmp" "$FORMAT_MARKER"; then
 		fail "cannot record the preserved settings"
 	fi
 	data_read_only
 }
 
+# An empty entry (the old root had none) or exactly one well-formed root line.
+valid_shadow_entry() {
+	[ ! -s "$1" ] && return 0
+	/busybox awk -F: 'NR == 1 && $1 == "root" && NF == 9 { ok = 1 } END { exit !(ok && NR == 1) }' "$1"
+}
+
 # A resumed run takes the settings preserved by the interrupted one, and
 # only if the archive is still the one recorded.
 resume_settings() {
-	expected=$(/busybox cat "$FORMAT_MARKER") || fail "cannot read the recovery marker"
+	expected=$(/busybox sed -n 1p "$FORMAT_MARKER") || fail "cannot read the recovery marker"
+	shadow_expected=$(/busybox sed -n 2p "$FORMAT_MARKER") || fail "cannot read the recovery marker"
+	if [ -z "$expected" ] || [ -z "$shadow_expected" ]; then
+		fail "the recovery marker is incomplete"
+	fi
 	umask 077
 	/busybox cp "$SHADOW_SAVED" /root-shadow.saved ||
 		fail "cannot read the root password saved before formatting"
+	shadow_sha256=$(/busybox sha256sum /root-shadow.saved) || fail "cannot hash the saved root password"
+	[ "${shadow_sha256%% *}" = "$shadow_expected" ] ||
+		fail "the root password saved before formatting changed"
+	valid_shadow_entry /root-shadow.saved || fail "the saved root password entry is malformed"
 	if [ "$expected" = none ]; then
 		[ ! -e "$SETTINGS_BACKUP" ] || fail "a settings archive appeared after formatting began"
 		return 0

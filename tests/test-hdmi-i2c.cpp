@@ -12,6 +12,26 @@
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 static unsigned opens, closes, transfers, queries;
+static unsigned legacy_calls, legacy_fail_at;
+static bool legacy_short;
+static ssize_t legacy_result(size_t len) {
+    ++legacy_calls;
+    if (legacy_calls != legacy_fail_at) return len;
+    if (legacy_short) return len - 1;
+    errno = EREMOTEIO; return -1;
+}
+static ssize_t test_write(int fd, const void *data, size_t len) {
+    assert(fd == 42 && data && len);
+    const auto *bytes = static_cast<const uint8_t *>(data);
+    if (legacy_calls == 0) assert(len == 2 && bytes[0] == 0xff && bytes[1] == 0x85);
+    else assert(legacy_calls == 1 && (len == 1 || len == 3) && bytes[0] == 0xea);
+    return legacy_result(len);
+}
+static ssize_t test_read(int fd, void *data, size_t len) {
+    assert(fd == 42 && data && len == 2 && legacy_calls == 2);
+    memset(data, 0xa5, len);
+    return legacy_result(len);
+}
 static int result = -2, failure = 0;
 static bool capable = true, query_failure = false, address_busy = false;
 static int test_open(const char *path, int flags, ...) {
@@ -48,10 +68,14 @@ static int test_ioctl(int fd, unsigned long request, ...) {
     if (failure) { errno = failure; return -1; }
     return result == -2 ? int(t->nmsgs) : result;
 }
+#define read test_read
+#define write test_write
 #define open test_open
 #define close test_close
 #define ioctl test_ioctl
 #include "../support/sg2002/additional/kvm/src/kvm_i2c.cpp"
+#undef read
+#undef write
 #undef open
 #undef close
 #undef ioctl
@@ -115,5 +139,31 @@ int main() {
         address_busy = false;
         assert(io.read_register(0x2b, 0x85, 0xea, bytes, 2));
     }
+    capable = false;
+    {
+        nanokvm::I2c io(4);
+        const auto before = transfers, before_queries = queries;
+        for (bool reading : {false, true}) {
+            auto invoke = [&] { return reading
+                ? io.read_register(0x2b, 0x85, 0xea, bytes, 2, false)
+                : io.write_register(0x2b, 0x85, 0xea, bytes, 2, false); };
+            legacy_calls = legacy_fail_at = 0;
+            assert(invoke() && legacy_calls == (reading ? 3U : 2U));
+            for (unsigned step = 1; step <= (reading ? 3U : 2U); ++step) {
+                for (bool partial : {false, true}) {
+                    legacy_calls = 0; legacy_fail_at = step; legacy_short = partial;
+                    bytes[0] = bytes[1] = 0x5a;
+                    assert(!invoke() && errno == (partial ? EIO : EREMOTEIO));
+                    assert(legacy_calls == step); // no replay or continuation
+                    if (reading) assert(bytes[0] == 0x5a && bytes[1] == 0x5a);
+                }
+            }
+            legacy_fail_at = 0;
+        }
+        assert(transfers == before && queries == before_queries);
+        // A later UXC call on the same fd must still query capability.
+        assert(!io.read_register(0x2b, 0x85, 0xea, bytes, 2, true) && errno == EOPNOTSUPP);
+    }
+    puts("PASS legacy C/D framing: no combined ioctl/capability dependency, staged reads, every short/failing stage");
     puts("PASS real I2c/shared helper: atomic message layout, lazy capability query, short/negative/EINTR no replay, unchanged failed output, validation and unsupported adapter");
 }

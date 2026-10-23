@@ -14,6 +14,7 @@ using nanokvm::ReceiverState;
 struct Bus {
     unsigned calls = 0, fail_at = 0, second_fail_at = 0, cleanup_attempts = 0;
     int final_status = -1;
+    bool expected_combined = false;
     std::map<unsigned, uint8_t> registers;
     bool fail() {
         ++calls;
@@ -23,14 +24,16 @@ struct Bus {
         }
         return false;
     }
-    bool write_register(int addr, uint8_t page, uint8_t reg, const uint8_t *p, size_t n) {
+    bool write_register(int addr, uint8_t page, uint8_t reg, const uint8_t *p, size_t n, bool combined) {
+        assert(combined == expected_combined);
         assert(addr == 0x2b && p && n == 1);
         if (reg == 0xee && p[0] == 0) ++cleanup_attempts;
         if (fail()) return false;
         registers[(page << 8) | reg] = p[0];
         return true;
     }
-    bool read_register(int addr, uint8_t page, uint8_t reg, uint8_t *p, size_t n) {
+    bool read_register(int addr, uint8_t page, uint8_t reg, uint8_t *p, size_t n, bool combined) {
+        assert(combined == expected_combined);
         assert(addr == 0x2b && p && n);
         if (fail()) return false;
         for (size_t i = 0; i < n; ++i) p[i] = registers[(page << 8) | (reg + i)];
@@ -42,6 +45,7 @@ struct Bus {
     }
     static Bus fixture(ReceiverKind kind) {
         Bus io;
+        io.expected_combined = kind == ReceiverKind::UXC;
         if (kind == ReceiverKind::UXC) {
             io.registers[0x86a3] = 0x55; io.pair(0x85ea, 1920); io.pair(0x85f0, 1080);
             io.registers[0x86a2] = 4; io.registers[0x86a9] = 3;
@@ -288,7 +292,10 @@ static void publication() {
     auto baseline = LT6911_i2c;
     for (int n = 1; n <= 3; ++n) {
         LT6911_i2c.fail_at = LT6911_i2c.calls + 1;
+        auto calls = LT6911_i2c.calls;
         assert(!poll_hdmi_receiver(true));
+        // Failed enable plus its required cleanup, no optional telemetry.
+        assert(LT6911_i2c.calls == calls + 2);
         assert(publications == 1 && mode_switches == 0 && receiver_retry_pending.load());
         assert(signal_active == (n < 3));
     }
@@ -369,6 +376,12 @@ static void diagnostics() {
     assert(schedule.due(2, now + std::chrono::seconds(5)));
     schedule.completed(good, now + std::chrono::seconds(5));
     schedule.reset(); assert(schedule.due(2, now)); // reset/maintenance generation
+    auto invalid = good; invalid.state = DiagnosticState::Invalid;
+    schedule.completed(invalid, now);
+    assert(!schedule.due(2, now + std::chrono::hours(1)));
+    assert(schedule.due(3, now)); // transition still refreshes invalid/no-signal
+    schedule.completed(invalid, now);
+    schedule.reset(); assert(schedule.due(3, now)); // same-size real IRQ
     puts("PASS UXC diagnostics: firmware/lanes/HDMI vs CSI, every IO/cleanup fault, timing rejection, unsupported C/D, event/retry scheduling");
 }
 

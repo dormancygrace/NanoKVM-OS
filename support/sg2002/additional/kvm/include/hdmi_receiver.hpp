@@ -102,20 +102,21 @@ public:
     }
 };
 
-/* Each register operation is one combined bank/pointer/data transfer.
+/* UXC register operations use combined bank/pointer/data transfers.
  * Session admission still covers enable, the complete sample and cleanup. */
 template<class Transport> class HdmiReceiver {
     Transport &io_;
+    bool combined_ = false;
     int error_ = 0;
     static constexpr int address = 0x2b;
     bool failed() { error_ = errno ? errno : EIO; return false; }
     bool write8(uint8_t page, uint8_t reg, uint8_t value) {
         errno = 0;
-        return io_.write_register(address, page, reg, &value, 1) || failed();
+        return io_.write_register(address, page, reg, &value, 1, combined_) || failed();
     }
     bool read(uint8_t page, uint8_t reg, uint8_t *bytes, size_t count) {
         errno = 0;
-        return io_.read_register(address, page, reg, bytes, count) || failed();
+        return io_.read_register(address, page, reg, bytes, count, combined_) || failed();
     }
     bool read16(uint8_t page, uint8_t reg, uint16_t &value) {
         uint8_t bytes[2];
@@ -167,6 +168,7 @@ public:
     ReceiverDiagnostics diagnostics(ReceiverKind kind) {
         ReceiverDiagnostics result;
         if (kind != ReceiverKind::UXC) return result; // no verified C/D map
+        combined_ = true; // diagnostics has a verified UXC-only register map
         error_ = 0;
         uint8_t identity[9]{}, timing[18]{}, clock[3]{}, version = 0, color = 0, status = 0;
         uint16_t csi_width = 0, csi_height = 0;
@@ -188,6 +190,7 @@ public:
             status, csi_width, csi_height);
     }
     ReceiverSnapshot snapshot(ReceiverKind kind) {
+        combined_ = kind == ReceiverKind::UXC;
         error_ = 0;
         ReceiverSnapshot result;
         const bool external_control = kind != ReceiverKind::D;

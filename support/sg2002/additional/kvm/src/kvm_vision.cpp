@@ -712,7 +712,8 @@ static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false,
         kvmv_cfg.hdmi_version == 3 ? nanokvm::ReceiverKind::D : nanokvm::ReceiverKind::C;
     const auto sample = access ? hdmi_receiver.snapshot(kind) :
         nanokvm::ReceiverSnapshot{nanokvm::ReceiverState::IoError, 0, 0, access.error, 0};
-    if (access) log_receiver_diagnostics(sample, kind);
+    if (access && sample.state != nanokvm::ReceiverState::IoError)
+        log_receiver_diagnostics(sample, kind);
     // Publish records pending geometry without waiting for frame leases.
     // Release the device first so an MMF probe may proceed independently;
     // admission still orders this sample's publication before maintenance.

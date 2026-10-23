@@ -12,18 +12,20 @@
 #include <sys/wait.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
-static unsigned calls, fail_at, closes;
+static unsigned calls, fail_at, closes, capability_queries, combined_transfers, legacy_calls;
 static int short_count = -1, reset_failure;
 static unsigned sleeps;
 static int sleep_mode;
 static int test_open(const char *path, int flags, ...);
 static ssize_t test_write(int fd, const void *data, size_t len);
+static ssize_t test_read(int fd, void *data, size_t len);
 static off_t test_lseek(int fd, off_t offset, int whence);
 static int test_nanosleep(const struct timespec *delay, struct timespec *remaining);
 static int test_ioctl(int fd, unsigned long request, ...);
 static int test_close(int fd);
 static void test_perror(const char *text) { (void)text; }
 #define open test_open
+#define read test_read
 #define write test_write
 #define lseek test_lseek
 #define nanosleep test_nanosleep
@@ -37,13 +39,21 @@ static void test_perror(const char *text) { (void)text; }
 #undef close
 #undef ioctl
 #undef open
+#undef read
 #undef write
 #undef lseek
 #undef nanosleep
 static int test_ioctl(int fd, unsigned long request, ...) {
     (void)fd;
     va_list args; va_start(args, request);
-    assert(request == I2C_RDWR);
+    if (request == I2C_FUNCS) {
+        *va_arg(args, unsigned long *) = I2C_FUNC_I2C;
+        ++capability_queries; va_end(args); return 0;
+    }
+    if (request == I2C_SLAVE) {
+        assert(va_arg(args, int) == I2C_ADDRESS); va_end(args); return 0;
+    }
+    assert(request == I2C_RDWR); ++combined_transfers;
     struct i2c_rdwr_ioctl_data *t = va_arg(args, struct i2c_rdwr_ioctl_data *);
     va_end(args);
     assert(t->nmsgs == 2 || t->nmsgs == 3);
@@ -67,9 +77,20 @@ static int test_open(const char *path, int flags, ...) {
     return open(path, flags, 0600); // real lock-file IO in contention tests
 }
 static ssize_t test_write(int fd, const void *data, size_t len) {
+    if (fd == 9) {
+        assert(data && len); ++legacy_calls; ++calls;
+        if (calls == fail_at) { errno = ENXIO; return short_count < 0 ? -1 : (ssize_t)len - 1; }
+        return len;
+    }
     assert(fd == 8 && len == 1 && *(const char *)data == '1');
     if (reset_failure) { errno = EREMOTEIO; return -1; }
     return 1;
+}
+static ssize_t test_read(int fd, void *data, size_t len) {
+    assert(fd == 9 && data && len); ++legacy_calls; ++calls;
+    memset(data, 0x55, len);
+    if (calls == fail_at) { errno = ENXIO; return short_count < 0 ? -1 : (ssize_t)len - 1; }
+    return len;
 }
 static off_t test_lseek(int fd, off_t offset, int whence) {
     assert(fd == 8 && offset == 0 && whence == SEEK_SET); return 0;
@@ -98,7 +119,7 @@ static int invoke(int which) {
     default: return i2c_read_bytes(0x80, 0x30, data, sizeof(data));
     }
 }
-static void reset(void) { calls = fail_at = closes = 0; client = 9; short_count = -1; }
+static void reset(void) { calls = fail_at = closes = 0; client = 9; short_count = -1; assert(select_receiver(CHIP_LT6911UXC) == 0); }
 static long elapsed_ms(const struct timespec *start) {
     struct timespec now; assert(clock_gettime(CLOCK_MONOTONIC, &now) == 0);
     return (now.tv_sec - start->tv_sec) * 1000 + (now.tv_nsec - start->tv_nsec) / 1000000;
@@ -170,6 +191,30 @@ int main(void) {
     reset(); fail_at = 1;
     uint8_t edid[EDID_BUFFER_SIZE];
     assert(lt6911uxc_edid_read(edid, sizeof(edid)) == -1 && calls == 1);
+    for (chip_version_t chip = CHIP_LT6911C; chip <= CHIP_LT6911D; ++chip) {
+        if (chip == CHIP_LT6911UXC) continue;
+        reset();
+        unsigned before_combined = combined_transfers, before_queries = capability_queries;
+        assert(select_receiver(chip) == 0 && !combined_i2c);
+        for (int which = 0; which < 4; ++which) {
+            unsigned operations = which < 2 ? 2 : 3;
+            calls = fail_at = legacy_calls = 0;
+            assert(invoke(which) == 0 && calls == operations && legacy_calls == operations);
+            for (unsigned op = 1; op <= operations; ++op) {
+                for (int partial = -1; partial <= 0; ++partial) {
+                    calls = 0; fail_at = op; short_count = partial;
+                    assert(invoke(which) == -1 && calls == op);
+                    assert(errno == (partial < 0 ? ENXIO : EIO));
+                }
+            }
+        }
+        assert(combined_transfers == before_combined && capability_queries == before_queries);
+        calls = 0; fail_at = 3; short_count = 0;
+        memset(out, 0xa5, sizeof(out));
+        assert(i2c_read_bytes(0x80, 0x30, out, sizeof(out)) == -1);
+        for (unsigned i = 0; i < sizeof(out); ++i) assert(out[i] == 0xa5);
+    }
+    puts("PASS actual EDID C/D selection: legacy IO, no combined/capability calls, every short/failing stage, staged output");
     reset(); sleeps = 0;
     assert(NanoKVM_PCIe_HDMI_Reset() == 0 && sleeps == 1 && calls == 0);
     reset_failure = 1;

@@ -21,7 +21,14 @@
 
 
 int client = -1;
-// Every combined transfer selects its own bank; no cached bank can go stale.
+// UXC is physically qualified for repeated-START; C/D keep their framing.
+static int combined_i2c;
+static int select_receiver(chip_version_t chip)
+{
+    combined_i2c = chip == CHIP_LT6911UXC;
+    if (combined_i2c && nanokvm_i2c_capable(client) < 0) return -1;
+    return ioctl(client, I2C_SLAVE, I2C_ADDRESS);
+}
 
 // =======================================================================================================
 
@@ -121,23 +128,27 @@ int NanoKVM_PCIe_HDMI_Reset(void)
 
 // =======================================================================================================
 
-// One ioctl owns bank selection plus the whole register operation. Do not
+// Qualified UXC uses one ioctl; C/D retain separate bank/register IO. Do not
 // replay failed writes: even a short result may already have affected flash.
 int i2c_write_byte(uint8_t offset, uint8_t reg, uint8_t data)
 {
-    return nanokvm_i2c_write(client, I2C_ADDRESS, offset, reg, &data, 1);
+    return combined_i2c ? nanokvm_i2c_write(client, I2C_ADDRESS, offset, reg, &data, 1)
+        : nanokvm_i2c_write_legacy(client, offset, reg, &data, 1);
 }
 int i2c_write_bytes(uint8_t offset, uint8_t reg, const uint8_t *data, size_t len)
 {
-    return nanokvm_i2c_write(client, I2C_ADDRESS, offset, reg, data, len);
+    return combined_i2c ? nanokvm_i2c_write(client, I2C_ADDRESS, offset, reg, data, len)
+        : nanokvm_i2c_write_legacy(client, offset, reg, data, len);
 }
 int i2c_read_byte(uint8_t offset, uint8_t reg, uint8_t *data)
 {
-    return nanokvm_i2c_read(client, I2C_ADDRESS, offset, reg, data, 1);
+    return combined_i2c ? nanokvm_i2c_read(client, I2C_ADDRESS, offset, reg, data, 1)
+        : nanokvm_i2c_read_legacy(client, offset, reg, data, 1);
 }
 int i2c_read_bytes(uint8_t offset, uint8_t reg, uint8_t *data, size_t len)
 {
-    return nanokvm_i2c_read(client, I2C_ADDRESS, offset, reg, data, len);
+    return combined_i2c ? nanokvm_i2c_read(client, I2C_ADDRESS, offset, reg, data, len)
+        : nanokvm_i2c_read_legacy(client, offset, reg, data, len);
 }
 
 // =======================================================================================================
@@ -576,7 +587,7 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
     }
 
     // // set the lt6911uxc address
-    if (nanokvm_i2c_capable(client) < 0 || ioctl(client, I2C_SLAVE, I2C_ADDRESS) < 0) {
+    if (select_receiver(chip_version) < 0) {
         perror("Failed to acquire bus access and/or talk to slave");
         close(client);
         return -1;
@@ -681,7 +692,7 @@ static int lt6911_edid_dump(chip_version_t chip_version, uint8_t *edid_data)
         perror("Failed to open the i2c bus");
         return -1;
     }
-    if (nanokvm_i2c_capable(client) < 0 || ioctl(client, I2C_SLAVE, I2C_ADDRESS) < 0) {
+    if (select_receiver(chip_version) < 0) {
         perror("Failed to acquire bus access and/or talk to slave");
         close(client);
         return -1;

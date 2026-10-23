@@ -118,26 +118,47 @@ template<class Transport> class HdmiReceiver {
         errno = 0;
         return io_.read_register(address, page, reg, bytes, count, combined_) || failed();
     }
+    bool read_individual(uint8_t page, uint8_t reg, uint8_t *bytes, size_t count) {
+        // The C/D donor drivers read telemetry one register at a time. Avoid
+        // assuming a new long auto-increment burst on unqualified firmware.
+        for (size_t i = 0; i < count; ++i)
+            if (!read(page, uint8_t(reg + i), bytes + i, 1)) return false;
+        return true;
+    }
     bool read16(uint8_t page, uint8_t reg, uint16_t &value) {
         uint8_t bytes[2];
         if (!read(page, reg, bytes, sizeof(bytes))) return false;
         value = (static_cast<uint16_t>(bytes[0]) << 8) | bytes[1];
         return true;
     }
+    bool read_c_timing(uint8_t bytes[26]) {
+        static constexpr uint8_t offsets[] = {0, 1, 2, 3, 4, 5, 6, 14, 15,
+            16, 17, 18, 19, 22, 23, 24, 25};
+        for (auto i : offsets)
+            if (!read(0xd2, 0x86 + i, bytes + i, 1)) return false;
+        return true;
+    }
+    bool read_d_telemetry(uint8_t bytes[23]) {
+        static constexpr uint8_t offsets[] = {0, 1, 2, 3, 4, 8, 9, 10, 11,
+            12, 13, 14, 15, 18, 19, 20, 21, 22};
+        for (auto i : offsets)
+            if (!read(0xe0, 0x80 + i, bytes + i, 1)) return false;
+        return true;
+    }
     ReceiverDiagnostics c_diagnostics() {
         ReceiverDiagnostics result;
-        uint8_t firmware[5]{}, timing[26]{};
-        uint16_t csi_width = 0, csi_height = 0, width_after = 0, height_after = 0;
-        bool ok = write8(0x80, 0xee, 1) && read(0xd2, 0x0c, firmware, sizeof(firmware)) &&
+        uint8_t firmware[5]{}, timing[26]{}, after[26]{};
+        uint16_t csi_width = 0, csi_height = 0;
+        bool ok = write8(0x80, 0xee, 1) && read_individual(0xd2, 0x0c, firmware, sizeof(firmware)) &&
             write8(0xd2, 0x83, 0x11);
         if (ok) {
             struct timespec delay = {0, 5000000};
             while (nanosleep(&delay, &delay) < 0)
                 if (errno != EINTR) { ok = failed(); break; }
         }
-        ok = ok && read(0xd2, 0x86, timing, sizeof(timing)) &&
+        ok = ok && read_c_timing(timing) &&
             read16(0xc2, 0x38, csi_width) && read16(0xc2, 0x06, csi_height) &&
-            read16(0xd2, 0x8b, width_after) && read16(0xd2, 0x96, height_after);
+            read_c_timing(after);
         const int primary = error_;
         if (!write8(0x80, 0xee, 0)) result.cleanup_error = error_;
         if (!ok || result.cleanup_error) {
@@ -146,7 +167,7 @@ template<class Transport> class HdmiReceiver {
             return result;
         }
         result = decode_c_diagnostics(timing, firmware, csi_width, csi_height);
-        if (result.width != uint32_t(width_after) * 2 || result.height != height_after)
+        if (memcmp(timing, after, sizeof(after)) != 0)
             result.state = DiagnosticState::Invalid;
         return result;
     }
@@ -155,8 +176,8 @@ template<class Transport> class HdmiReceiver {
         uint8_t data[23]{}, after[8]{}, stream = 0;
         // E0 telemetry is firmware-owned. Do not open/hold the internal bus
         // or toggle E0B0 to "repair" a stream during diagnostic reads.
-        if (!read(0xe0, 0x80, data, sizeof(data)) || !read(0xe0, 0xb0, &stream, 1) ||
-            !read(0xe0, 0x88, after, sizeof(after))) {
+        if (!read_d_telemetry(data) || !read(0xe0, 0xb0, &stream, 1) ||
+            !read_individual(0xe0, 0x88, after, sizeof(after))) {
             result.state = DiagnosticState::IoError;
             result.error = error_;
             return result;
@@ -220,7 +241,7 @@ public:
         const uint8_t bank = kind == ReceiverKind::C ? 0xa0 :
             kind == ReceiverKind::UXC ? 0x81 : 0xe1;
         uint8_t bytes[2]{};
-        const bool ok = write8(control, 0xee, 1) && read(bank, 0x00, bytes, sizeof(bytes));
+        const bool ok = write8(control, 0xee, 1) && read_individual(bank, 0x00, bytes, sizeof(bytes));
         const int primary = error_;
         // D's ID window also stalls its MCU: always release E0EE, including
         // failed enable/read paths. Firmware E080..83 is never an ID.

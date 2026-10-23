@@ -32,65 +32,68 @@ do not publish partial bytes. Every operation carries its own bank, so the
 EDID programmer no longer needs a bank cache.
 
 After a successful PCIe reset release or EDID-maintenance resume, detector
-admission returns `settling` without I2C for at least 250 ms, using a monotonic
-deadline rather than sleeping on the frame path. The standalone EDID
-programmer also waits 250 ms after a successful reset pulse before register
-access. This is a minimum quiet window, not a promise that HDMI has locked:
-normal readiness checks and bounded retries still apply. On the PCIe UXC
-stand, first access was about 251 ms after release and a stable sample about
-1.77 s after release in each of three cycles. C/D reset timing still needs physical
-qualification; combined transfers are disabled for those variants.
+admission returns `settling` without I2C until a monotonic deadline: LT6911C
+2500 ms, LT6911D 2500 ms, LT6911UXC 250 ms. C and D have independent policy
+constants even though their initial values match. The standalone EDID tool
+uses the same model-specific delay after each successful reset pulse, with
+normalized seconds/nanoseconds and interrupted sleeps resumed. Service startup
+also waits 2.5 seconds for C/D after releasing an asserted receiver reset,
+before either service can probe; UXC keeps its existing one-second startup
+warmup. A missing model marker uses the longer startup window.
 
-UXC diagnostic sessions read firmware revision, CSI lane count, HDMI active
-size, totals, sync/porch lengths, polarity, input-format bits and raw TMDS-clock
-registers, with CSI output size kept separately. They run at receiver/mode
-transitions (including IRQs with unchanged CSI size) and after reset/maintenance.
-A failed receiver snapshot skips optional diagnostics. Diagnostic I2C failures
-retry at most every five seconds; invalid or unavailable data waits for a
-transition, IRQ or reset instead of repeatedly reading a disconnected receiver. Only changed
-diagnostic text is logged. A diagnostic failure cannot replace capture
-geometry or withdraw an otherwise valid signal. Timing totals/porches and
-stable status are checked before marking telemetry valid. C/D firmware/lane
-maps are not inferred from UXC and are reported unavailable.
+These are minimum quiet windows, not promises of HDMI lock. UXC first access
+was about 251 ms after release and a stable sample about 1.77 seconds after
+release on the PCIe stand. The 2.5-second C/D starting values come from
+[Comet C measurements](https://github.com/macpit/glkvm-rm1pe-kernel/blob/d38a0af2fee3ae49542c21149e896a45a271096a/patches/0004-lt6911c-hdmi-capture-and-cold-lock.patch)
+and [ESP-KVM D measurements](https://github.com/espkvm/espkvm/blob/7b61f7c1196824a5bc3f37bf0bc426a38afa9dd9/docs/HARDWARE-NOTES.md),
+not NanoKVM C/D hardware qualification. Normal readiness checks and bounded
+retries still apply.
 
-Register addresses and units follow [Rockchip UXC](https://github.com/rockchip-linux/kernel/blob/470f9dccbdc42e7b8a824d0a5c5640a10e9457d2/drivers/media/i2c/lt6911uxc.h)
-and [ZHAW](https://github.com/InES-HPMM/Lontium_lt6911uxc/blob/c6a314423d1209df82a7c669f45ae7a765601715/source/lt6911uxc_regs_zhaw.h). These diagnostic reads do not write interrupt acknowledgments,
-select a frequency meter, change lane configuration or change color policy.
-The TMDS value stays raw: the Rockchip kHz/FPS formula does not match the
-NanoKVM stand's UXC firmware `0x00000300`, so no unqualified clock or refresh
-rate is published.
+The cached board model selects a register protocol. Diagnostics identify the
+silicon separately: C reads A000/A001 (normalized ID 0516), UXC reads
+8100/8101 (1704), D reads E100/E101 (2102). An unexpected ID is reported as
+unknown together with the board-model hint; it does not switch capture
+protocols. Firmware bytes never decide the model. Every internal-ID session
+closes its register window, including failed enable/read paths; D closes E0EE
+before accessing firmware-owned telemetry.
 
+Diagnostic fields are model-specific:
 
+| Receiver | Available diagnostic data | Explicitly unavailable |
+| --- | --- | --- |
+| C | Hardware ID; five raw firmware bytes D20C..D210; HDMI active size, totals, sync and porches from D2; separate CSI size from C2 | Lane count and qualified clock units |
+| D | Hardware ID; four raw firmware bytes E080..E083; active size and totals; lane count, format, event, stream control and byte-clock registers | Independently measured HDMI/CSI sizes, sync/porches and qualified clock/FPS |
+| UXC | Firmware revision, CSI lanes, HDMI active size/totals/sync/porches/polarity/format bits and raw TMDS; separate CSI size | Qualified clock/FPS on NanoKVM firmware 00000300 |
 
-The monitor profile advertises preferred and fallback modes through EDID. **Automatic** is 1920×1080 at up to 90 Hz wherever the EDID can be written live (the stock receiver profile elsewhere); 2560×1440 and 3840×2160 are explicit choices. The landscape profiles prefer 3840×2160, 2560×1440, 1920×1080 or 1280×720; the portrait profiles 720×1280, 1080×1920 and 1440×2560 are in the same list. 1080×1920 is the tallest portrait H.264 encodes (see H.264 below); 1440×2560 needs H.265, over Direct or WebRTC. The 1296×2304 portrait of earlier releases, the tallest H.264 portrait before H.264 stopped at 1080×1920, is retired: a device that had it selected gets 1440×2560 (1080×1920 when its device codec is H.264) and programs that profile on the first start after the update. A source may choose another supported resolution; applying the profile does not require the source to adopt its preferred timing. The profiles are single-rate: each advertises no mode at or above its own resolution other than its preferred timing (1920×1080 at 75 Hz lists no other 1080p, 1080i or 1440p timing), because the Windows GPU driver tested here does not honour the preferred timing and otherwise outputs a fallback such as 1080p50 or 2560×1440 at 50 Hz. Lower-resolution fallbacks (VGA, 800×600, 720p, and 1024×768 or 1280×1024 where lower than the profile) stay, so a source that cannot drive the chosen timing falls back to a lower resolution (choose a slower profile to restore the larger one). Changing a profile briefly reconnects HDMI. Which profiles a device offers depends on its HDMI receiver, and how a new profile takes effect on its board. The LT6911UXC takes every profile; the LT6911C and the LT6911D take the 720p and 1080p profiles at 60 Hz until they are measured beyond that. PCIe boards apply a profile at once (they reset the receiver); Cube and Lite boards need a physical power cycle after each write. This does not affect automatic source detection.
+C measurements enable D283=11 and wait 5 ms, matching the existing sampling
+sequence. Horizontal measurement fields use half-pixel units. C firmware
+registers were measured on GL.iNet firmware; other revisions may return
+unavailable bytes. D's E084 is an event code, not live cable presence, and
+E080..E083 are kept raw rather than decoded as a date or pixel clock. No D
+stream toggle, flash command, frequency-meter selection or color/lane
+configuration is performed. Zero/all-FF firmware bytes are marked unavailable
+without rejecting a known hardware ID.
 
-**16:10 and 21:9.** An LT6911UXC also offers 1920×1200 and 2560×1600 (16:10) and 2560×1080 and 3440×1440 (21:9); in a Cube or Lite like every profile there, with a power cycle after the write and at the fastest rate of the size. An LT6911C or LT6911D, measured up to 1080p60 only, offers the two sizes near 1920×1080 at the rates within its 148.5 MHz pixel clock: 1920×1200 at 50 and 30 Hz and 2560×1080 at 30 Hz, not yet tried on those receivers (`slowWiderMonitorRates`). **Settings → Video → Aspect ratio** picks the ratio, then **Resolution** the size; the default stays 16:9 and the quick video menu lists the sizes of the current ratio. Each profile is CVT reduced blanking with the 800×600 legacy fallback, and of the stock EDID's established and standard timings only those smaller than the profile in both directions: a GPU outputs a mode as wide or as tall (1920×1080 next to 1920×1200) instead of the preferred one (`scripts/build-wide-monitor-edids.py`). A saved 16:10 or 21:9 profile the receiver does not take reads as Auto in both screen APIs. The `monitor` setting (`/etc/kvm/monitor_resolution`, the API's `monitor`) holds a profile id: the height of a 16:9 or 16:10 profile, the width of a 21:9 one, whose height is that of a 16:9 profile (2560 is 2560×1080, 3440 is 3440×1440); `/api/vm/video/capabilities` lists each mode's `id`, size and `aspect`. Measured on a NanoKVM PCIe with an LT6911UXC, H.265 VI-direct: 1920×1200 and 2560×1080 at 60 Hz; 2560×1600 at 50 Hz (at 60 the capture delivered about 50 frames and H.265 fell to 15 fps); 3440×1440 at 40 Hz (at 50 one frame takes the encoder a whole frame period and H.265 delivered 25 fps). 3440×1440 is H.265 only: H.264 and MJPEG stop at 2560 pixels wide. H.264 encoded 2560×1600 at 50 fps through the 4:2:0 capture.
+Telemetry runs on receiver/mode transitions (including same-size IRQs) and
+after reset/maintenance. Only I2C failures retry periodically, at most every
+five seconds while state is unchanged; invalid measurements wait for a
+transition or IRQ. Only changed diagnostic text is logged. C/D re-read timing
+fields to reject mixed mode changes; invalid/FFFF dimensions, D width overflow
+and inconsistent C timing sums are rejected. Optional diagnostics never
+replace capture geometry or withdraw an otherwise valid signal.
 
-**The monitor refresh follows the frame rate.** When video settings are applied, the monitor uses the slowest refresh rate of its profile that is not below the stream frame rate:
-
-| Profile | Refresh rates (Hz) |
-|---|---|
-| 1280×720, 720×1280 | 120, 60, 30 |
-| 1920×1080, 1080×1920 | 90, 75, 60, 30 |
-| 2560×1440 | 60, 50, 40, 30 |
-| 1440×2560 | 60, 50, 30 |
-| 3840×2160 | 30 |
-| 1920×1200, 2560×1080 | 60, 50, 30 |
-| 2560×1600 | 50, 30 |
-| 3440×1440 | 40, 30 |
-
-A 30 fps stream therefore makes the computer render and send 30 frames per second instead of 90. These profiles leave out the faster modes of their resolution, because a source otherwise picks the fastest one. On Cube/Lite boards the monitor does not follow the stream rate, because every EDID write needs a power cycle: it keeps the fastest rate of the chosen resolution (an LT6911UXC) or the single 60 Hz profile (an LT6911C or LT6911D), and the stream rate only limits the encoder. A Cube receiver keeps its EDID in flash across reinstalls, so on the first start of a Cube with an LT6911C or LT6911D the server reads it once and, if it advertises a mode beyond 720p/1080p at 60 Hz (for example 1920×1080 at 100 Hz left by another system), programs the saved 60 Hz profile and asks for a power cycle. An LT6911D on a PCIe board is programmed only when the user applies a profile. A profile explicitly deferred by a video-memory switch is applied after the new pool boots, including on Cube/Lite; a failed write is retried on the next server start, and Cube/Lite still requires a physical power cycle afterwards. Changing FPS through the single-setting API now resynchronizes the EDID too, but only when a different monitor timing is selected.
-
-**Automatic has two parts, and both are strict.**
-
-- *The generated static profile* is `NanoKVM-monitor-auto.bin`, installed as `NanoKVM-final-video-profiles.bin`; it is byte for byte `NanoKVM-monitor-1080-90.bin`. 1920×1080 at 90 Hz (CVT reduced blanking, 89.90 Hz) is the only mode at or above 1080 lines or 1920 pixels (no 1080p60, 1080p50 or 1440p timing); 720p, VGA and the other lower modes stay. Where the EDID can be written live, this file is what an install programs and what the server uses when a rate profile file is missing. The stock receiver profile (other receivers) and the single 60 Hz Cube/Lite profiles are separate files.
-- *The runtime selection* applies when video settings are applied with a stream frame rate, or when the monitor setting changes. Automatic then uses the same files as an explicit 1920×1080 setting: `NanoKVM-monitor-1080-<hz>.bin` with the slowest rate not below the stream rate. That is 90 Hz for 76 fps and up (including 100 and 120), 75 Hz for 61 to 75 fps, 60 Hz for 31 to 60 fps and 30 Hz up to 30 fps. So Automatic is not always the static 1080p90 file: at 60 fps the computer is offered 1080p60 alone.
-
-A computer that cannot drive the offered timing (a 60 Hz-only source at the default 90 fps, or a source limited below the selected rate) falls to a lower resolution such as 720p, because nothing else at 1080 is listed. Lower the stream frame rate in the video settings so that Automatic selects a slower profile (60 fps gives 1080p60), or choose a slower explicit profile. The static file deliberately has no 1080p60 fallback, and neither does the runtime profile: the Windows GPU driver tested here ignores the preferred timing and outputs a listed fallback (1080p50, 1080p60 or 2560×1440 at 50 Hz were measured) whenever more than the preferred mode is listed at or above the resolution, so a 60 Hz entry would make Automatic output 60 Hz instead of 90 Hz on that computer. This is a trade-off: the compatibility fallback that a 60 Hz-only source would have had is given up for a predictable timing. Automatic follows no feedback from the source. The single-setting FPS API and the full video-settings path both resynchronize the offered rate.
-
-When the input is still faster than the stream (an unchanged monitor, or a source that ignores the preferred mode), VPSS drops the surplus input frames before converting them.
-
-Capture follows the actual HDMI dimensions when the BIOS, bootloader or operating system changes modes. No EDID rewrite is needed for each source transition. The page shows the input size and its measured refresh rate, the encoded size and the measured server frame rate (not browser presentation FPS), and the monitor profile with its refresh rate.
+Register addresses and units follow
+[Rockchip C](https://github.com/rockchip-linux/kernel/blob/e81982d9e242815c9ce1b1e3f2db2ce7450c94d4/drivers/media/i2c/lt6911c.c),
+[Comet C firmware measurements](https://github.com/macpit/glkvm-rm1pe-kernel/blob/d38a0af2fee3ae49542c21149e896a45a271096a/patches/0004-lt6911c-hdmi-capture-and-cold-lock.patch),
+[Espressif D](https://github.com/espressif/esp-video-components/blob/b413578f9186a814f7df2bd04442e796c978fae3/esp_cam_sensor/sensors/lt6911/lt6911.c),
+[Rockchip UXC](https://github.com/rockchip-linux/kernel/blob/470f9dccbdc42e7b8a824d0a5c5640a10e9457d2/drivers/media/i2c/lt6911uxc.h)
+and [ZHAW](https://github.com/InES-HPMM/Lontium_lt6911uxc/blob/c6a314423d1209df82a7c669f45ae7a765601715/source/lt6911uxc_regs_zhaw.h).
+New C/D telemetry reads use individual register accesses, matching the donors
+rather than assuming long auto-increment bursts. C/D keep STOP-delimited
+transfers; repeated-START, timing and telemetry still
+require physical qualification on those NanoKVM receivers. The exclusive
+`hdmi-receiver-runtime` probe accepts `diagnostics c|d|ux` or
+`reset-ready c|d|ux` for that later bench work.
 
 ## Stream resolution
 

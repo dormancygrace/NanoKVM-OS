@@ -14,7 +14,7 @@ using nanokvm::ReceiverState;
 struct Bus {
     unsigned calls = 0, fail_at = 0, second_fail_at = 0, cleanup_attempts = 0;
     int final_status = -1;
-    unsigned change_on_read = 0;
+    unsigned change_on_read = 0, change_on_match = 1, matched_reads = 0;
     std::vector<unsigned> writes;
     bool expected_combined = false;
     std::map<unsigned, uint8_t> registers;
@@ -40,7 +40,8 @@ struct Bus {
         assert(addr == 0x2b && p && n);
         if (fail()) return false;
         for (size_t i = 0; i < n; ++i) p[i] = registers[(page << 8) | (reg + i)];
-        if (((unsigned(page) << 8) | reg) == change_on_read) p[0] ^= 1;
+        if (((unsigned(page) << 8) | reg) == change_on_read &&
+            ++matched_reads >= change_on_match) p[0] ^= 1;
         if (page == 0x86 && reg == 0xa3 && n == 1 && final_status >= 0) p[0] = final_status;
         return true;
     }
@@ -528,10 +529,11 @@ static void cd_diagnostics() {
         nanokvm::HdmiReceiver<Bus> unknown_id(unknown);
         auto d = unknown_id.diagnostics(kind);
         assert(d.model == ReceiverKind::Unknown && d.state == DiagnosticState::Invalid);
-        assert(unknown.calls == 3 && !d.firmware_size); // no timing-map guesses
+        assert(unknown.calls == 4 && !d.firmware_size); // no timing-map guesses
         assert(nanokvm::format_receiver_diagnostics(d).find("model=unknown") != std::string::npos);
         auto changed = Bus::fixture(kind);
-        changed.change_on_read = kind == ReceiverKind::C ? 0xd28b : 0xe088;
+        changed.change_on_read = kind == ReceiverKind::C ? 0xd286 : 0xe088;
+        changed.change_on_match = 2;
         nanokvm::HdmiReceiver<Bus> incoherent(changed);
         assert(incoherent.diagnostics(kind).state == DiagnosticState::Invalid);
         for (unsigned reg : kind == ReceiverKind::C ?
@@ -539,6 +541,24 @@ static void cd_diagnostics() {
             std::vector<unsigned>{0xe088, 0xe08a, 0xe08c, 0xe08e}) {
             auto invalid = Bus::fixture(kind); invalid.pair(reg, UINT16_MAX);
             nanokvm::HdmiReceiver<Bus> probe(invalid);
+            assert(probe.diagnostics(kind).state == DiagnosticState::Invalid);
+        }
+        for (unsigned reg : kind == ReceiverKind::C ?
+            std::vector<unsigned>{0xd289, 0xd28b, 0xd296, 0xd29e} :
+            std::vector<unsigned>{0xe088, 0xe08a, 0xe08c, 0xe08e}) {
+            auto invalid = Bus::fixture(kind); invalid.pair(reg, 0);
+            nanokvm::HdmiReceiver<Bus> probe(invalid);
+            assert(probe.diagnostics(kind).state == DiagnosticState::Invalid);
+        }
+        if (kind == ReceiverKind::D) {
+            for (auto fault : {std::pair<unsigned,unsigned>{0xe095, 3},
+                {0xe095, 0}, {0xe096, 13}, {0xe0b0, 0}}) {
+                auto invalid = Bus::fixture(kind); invalid.registers[fault.first] = fault.second;
+                nanokvm::HdmiReceiver<Bus> probe(invalid);
+                assert(probe.diagnostics(kind).state == DiagnosticState::Invalid);
+            }
+            auto overflow = Bus::fixture(kind); overflow.pair(0xe08c, 32768);
+            nanokvm::HdmiReceiver<Bus> probe(overflow);
             assert(probe.diagnostics(kind).state == DiagnosticState::Invalid);
         }
         // A valid capture sample survives failed or incoherent optional telemetry.

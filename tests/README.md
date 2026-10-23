@@ -120,9 +120,18 @@ but not executed in the temporary installation root.
 
 
 The second receiver probe, `firmware/probes/hdmi-receiver-runtime.cpp`, links
-with `support/sg2002/additional/kvm/src/kvm_i2c.cpp`. It also requires exclusive
-ownership with nanokvm-app stopped. `diagnostics` prints a checked UXC register
-snapshot; `reset-ready` performs three real reset cycles, counts rejected
-admissions before the 250 ms deadline and measures first access and stable
-readiness. A failure exits nonzero. It does not change EDID or save device
-files. Physical C/D qualification is separate.
+only the I2C transport. Stop nanokvm-app and acquire exclusive device ownership
+before running it. `diagnostics c|d|ux` checks the selected model's hardware ID
+and prints its available telemetry. `reset-ready c|d|ux` runs three reset cycles,
+checking that no receiver I2C happens before that model's minimum quiet window.
+Omitting the model retains the earlier UXC command syntax. C/D physical
+qualification is pending; host tests and a successful cross-build are not a
+substitute.
+
+`test-hdmi-sessions.py` exercises the actual production poll/reset/maintenance
+functions using a fake clock and controlled transport faults. It covers the
+2500/2500/250 ms C/D/UXC deadlines, separate silicon ID versus firmware bytes,
+C HDMI/CSI and D telemetry, mixed timing rejection, every session IO/cleanup
+failure, and capture isolation from optional diagnostics. The EDID C harness
+also checks normalized model-specific sleeps, EINTR and reset failures.
+`test-hdmi-receiver-start.py` verifies the startup delay before service probes.

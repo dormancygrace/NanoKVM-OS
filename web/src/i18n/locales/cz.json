@@ -17,7 +17,7 @@
     "globalLocked": "Systém je chráněn, zkuste to znovu později",
     "error": "Neočekávaná chyba",
     "changePassword": "Změnit heslo",
-    "changePasswordDesc": "Pro zabezpečení vašeho zařízení prosím změňte heslo!",
+    "changePasswordDesc": "Pro zabezpečení svého zařízení prosím změňte heslo!",
     "differentPassword": "Hesla se neshodují",
     "illegalUsername": "Uživatelské jméno obsahuje nepovolené znaky",
     "forgetPassword": "Zapomenuté heslo",
@@ -29,9 +29,9 @@
       "reset2": "Podrobné kroky naleznete v tomto dokumentu:",
       "reset3": "Výchozí účet pro webové rozhraní:",
       "reset4": "Výchozí účet pro SSH:",
-      "change1": "Upozorňujeme, že tato akce změní následující hesla:",
-      "change2": "Heslo pro webové přihlášení",
-      "change3": "Heslo systémového uživatele root (heslo pro přihlášení SSH)",
+      "change1": "Pro vestavěný účet správce (admin) tato akce změní následující hesla:",
+      "change2": "Heslo pro přihlašování do webového rozhraní",
+      "change3": "Heslo systémového uživatele root (heslo pro přihlášení přes SSH)",
       "change4": "Pokud chcete hesla resetovat, podržte tlačítko BOOT na NanoKVM."
     },
     "placeholderCurrentPassword": "Stávající heslo",
@@ -45,13 +45,13 @@
     "description": "Nastavit Wi-Fi pro NanoKVM",
     "success": "Přejděte k zařízení a zkontrolujte stav sítě NanoKVM.",
     "failed": "Operace se nezdařila, zkuste to znovu.",
-    "invalidMode": "Stávající režim nepodporuje nastavení sítě. Přejděte do svého zařízení a povolte konfigurační režim Wi-Fi.",
+    "invalidMode": "Stávající režim nepodporuje nastavování sítě. Přejděte ke svého zařízení a povolte konfigurační režim Wi-Fi.",
     "confirmBtn": "OK",
     "ap": {
       "authTitle": "Vyžadováno ověření",
       "authDescription": "Pokračujte zadáním hesla k přístupovému bodu",
-      "authFailed": "Neplatné heslo přístupového bodu",
-      "passPlaceholder": "Heslo přístupového bodu",
+      "authFailed": "Neplatné heslo k přístupovému bodu",
+      "passPlaceholder": "Heslo k přístupovému bodu",
       "verifyBtn": "Ověřit"
     },
     "pending": "Připojování k síti. Může se stát, že se NanoKVM hotspot odpojí – zkontrolujte stav sítě na zařízení."
@@ -86,8 +86,8 @@
       "cancel": "Zrušit"
     },
     "quality": "Kvalita",
-    "frameDetect": "Detekce snímků",
-    "frameDetectTip": "Vypočítá rozdíl mezi snímky. Přenos proudu videa se zastaví, pokud nejsou zjištěny změny na obrazovce vzdáleného hostitele.",
+    "frameDetect": "Zjišťování snímků",
+    "frameDetectTip": "Vypočítávat rozdíl mezi snímky. Pozastavovat přenos proudu videa, pokud nejsou zjištěny žádné změny na obrazovce vzdáleného hostitele.",
     "resetHdmi": "Resetovat HDMI",
     "webrtcConnectionFailed": {
       "title": "Připojení WebRTC se nezdařilo",
@@ -103,7 +103,7 @@
       "noHdmi": "Nezjištěn žádný HDMI signál",
       "unavailable": "Obraz teď nelze zobrazit",
       "mjpeg4k": "MJPEG není k dispozici když je HDMI vstup 3840 × 2160. Použijte H.264 nebo H.265 v Nastavení → Video",
-      "needsVideoMemory": "HDMI vstup {{size}} vyžaduje více videopaměti. Aby se použil aktualizovaný systém, zařízení restartujte.",
+      "needsVideoMemory": "HDMI vstup {{size}} vyžaduje více videopaměti. Aby byl použit aktualizovaný systém, zařízení restartujte.",
       "restart": "Restartovat zařízení",
       "restartConfirm": "Restartovat zařízení nyní? Obraz a vzdálený vstup se na cca minutu zastaví."
     },
@@ -121,12 +121,12 @@
     "encoderUnsupported": "V tomto režimu není zvolený kodek tímto prohlížečem podporován.",
     "activeEncoderUnsupported": "{{codec}} je využíván jiným prohlížečem, což znamená, že tento prohlížeč nemůže přehrávat ve zvoleném režimu. Zkuste jiný videorežim nebo kompatibilní prohlížeč.",
     "encoderStateFailed": "Nebylo možné načíst nastavení aktivního proudu. Zkuste se znovu připojit.",
-    "mjpegFallback": "MJPEG není k dispozici když je HDMI vstup 3840 × 2160, takže je namísto toho zobrazen videoproud."
+    "mjpegFallback": "MJPEG není k dispozici když je HDMI vstup 3840 × 2160, takže je namísto toho zobrazen proud videa."
   },
   "keyboard": {
     "title": "Klávesnice",
     "paste": "Vložit",
-    "tips": "Podporovány jsou pouze standardní písmena a symboly klávesnice",
+    "tips": "Podporovány jsou pouze písmena a symboly, které se standardně nacházejí na klávesnici",
     "placeholder": "Zadejte text",
     "submit": "Odeslat",
     "virtual": "Klávesnice",
@@ -158,8 +158,8 @@
       },
       "sequential": {
         "title": "Sekvenční režim",
-        "desc1": "Stiskněte klávesu Leader → postupně stiskněte zkratku → znovu stiskněte klávesu Leader.",
-        "desc2": "Vyžaduje více kroků, ale zcela se vyhne systémovým konfliktům."
+        "desc1": "Stiskněte klávesu Leader → postupně stiskněte jednotlivé klávesy zkratky → znovu stiskněte klávesu Leader.",
+        "desc2": "Vyžaduje více kroků, ale zcela se vyhne kolizím se systémovými zkratkami."
       },
       "enable": "Povolit klávesu Leader",
       "tip": "Když je tato klávesa nastavena jako klávesa Leader, slouží pouze jako spouštěč zkratek a ztrácí své výchozí chování.",
@@ -178,10 +178,10 @@
       "sent": "Odesláno",
       "send": "Odeslat",
       "reisub": {
-        "delay": "Pozastavit",
+        "delay": "Přestávka",
         "send": "Restartovat hostitele",
         "running": "Spuštěné, zbývá {{seconds}} s",
-        "confirmTitle": "Restartovat hostitele s REISUB?",
+        "confirmTitle": "Restartovat hostitele pomocí REISUB?",
         "title": "REISUB: kultivovaný restart zaseknutého linuxového hostitele",
         "desc": "Alt + SysRq + R, E, I, S, U, B s přestávkami po každém kroku (zabere přibližně 5 přestávek).",
         "confirm": "Každý proces obdrží SIGTERM, poté SIGKILL. Souborové systémy jsou synchronizovány a přepřipojeny pouze pro čtení, poté je hostitel restartován. {{seconds}} s mezi jednotlivými kroky."
@@ -191,23 +191,23 @@
           "b": "ihned restartovat",
           "m": "zpráva o paměti",
           "o": "vypnout",
-          "t": "seznam úloh",
+          "t": "vypsat úlohy",
           "s": "synchronizace všech souborových systémů",
           "u": "přepřipojit všechny souborové systémy jako pouze pro čtení",
-          "w": "seznam blokovaných úloh",
+          "w": "vypsat blokované úlohy",
           "l": "backtrace každého z jader procesoru",
           "c": "pád: zpanikaření jádra systému (výpis pádu)",
           "e": "zaslat SIGTERM všem procesům kromě init",
           "i": "zaslat SIGKILL všem procesům kromě init",
-          "h": "help: vypsat příkazy na konzoli",
+          "h": "nápověda: vypsat příkazy na konzoli",
           "f": "jednorázově spustit nástroj pro nouzové uvolnění paměti (OOM killer)",
           "r": "holé: převzít klávesnici nazpět od X",
-          "k": "secure attention key: vynutit ukončení programů na konzoli"
+          "k": "klávesa pozornosti zabezpečení: vynutit ukončení programů na konzoli"
         },
-        "desc": "Alt + SysRq + klávesa na linuxovém hostiteli (je třeba, aby kernel.sysrq příkaz povolovalo).",
+        "desc": "Alt + SysRq + klávesa na linuxovém hostiteli (je třeba, aby kernel.sysrq příkaz umožňovalo).",
         "title": "Magic SysRq"
       },
-      "title": "Klávesové sekvence",
+      "title": "Posloupnosti kláves",
       "tips": "Stisknuto NanoKVM s pevným časováním – je třeba, aby tento panel (prohlížeče) měl v držení ovládání vstupu.",
       "failed": "Odeslání posloupnosti kláves se nezdařilo",
       "notController": "Ovládání vstupu má v držení jiná relace",
@@ -259,23 +259,23 @@
     "empty": "Nic nenalezeno",
     "mountMode": "Režim připojení",
     "mountFailed": "Připojení se nezdařilo",
-    "mountDesc": "V některých systémech je nutné před připojením obrazu vysunout virtuální disk na vzdáleném hostiteli.",
+    "mountDesc": "V některých systémech je třeba před připojením obrazu vysunout virtuální disk ze vzdáleného hostitele.",
     "unmountFailed": "Odpojení (unmount) se nezdařilo",
-    "unmountDesc": "Na některých systémech je třeba před odpojením obrazu ručně vysunout ze vzdáleného hostitele.",
+    "unmountDesc": "V některých systémech je třeba před odpojením obrazu ručně vysunout ze vzdáleného hostitele.",
     "attention": "Pozor",
     "deleteConfirm": "Opravdu chcete tento obraz smazat?",
     "okBtn": "Ano",
     "cancelBtn": "Ne",
     "tips": {
       "title": "Jak nahrát",
-      "usb1": "Připojte NanoKVM k vašemu počítači přes USB.",
-      "usb2": "Ujistěte se, že je virtuální disk připojen (Nastavení - Virtuální disk).",
-      "usb3": "Otevřete virtuální disk na vašem počítači a zkopírujte soubor s obrazem do kořenového adresáře virtuálního disku.",
-      "scp1": "Ujistěte se, že jsou NanoKVM a váš počítač ve stejné místní síti.",
-      "scp2": "Otevřete terminál na vašem počítači a použijte příkaz SCP pro nahrání souboru s obrazem do adresáře /data na zařízení NanoKVM.",
+      "usb1": "Připojte NanoKVM ke svému počítači přes USB.",
+      "usb2": "Zajistěte, aby byl virtuální disk připojen (Nastavení → Virtuální disk).",
+      "usb3": "Otevřete virtuální disk na svém počítači a zkopírujte soubor s obrazem do kořenového adresáře virtuálního disku.",
+      "scp1": "Ujistěte se, že NanoKVM a váš počítač jsou ve stejné místní síti.",
+      "scp2": "Na svém počítači otevřete terminál a pomocí příkazu SCP nahrajte soubor s obrazem do adresáře /data na zařízení NanoKVM.",
       "scp3": "Příklad: scp popis-umístění-obrazu root@ip-nanokvm:/data",
       "tfCard": "SD Karta",
-      "tf1": "Tato metoda je podporována na linuxových systémech",
+      "tf1": "(Tato metoda je podporována jen na linuxových systémech)",
       "tf2": "Vyjměte SD kartu z NanoKVM (v případě verze FULL je třeba rozebrat krabičku).",
       "tf3": "Vložte SD kartu do čtečky karet a připojte ji ke svému počítači.",
       "tf4": "Zkopírujte soubor s obrazem do adresáře /data na SD kartě.",
@@ -290,8 +290,8 @@
       "mounted": "Připojeno · Pouze pro čtení",
       "select": "Vyberte soubor ISO",
       "browser": "Z tohoto počítače",
-      "disconnectFailed": "Nebylo možné odpojit ISO. Zkuste to znovu.",
-      "hint": "Připojit ISO z tohoto počítače jako CD/DVD (pouze pro čtení). Přenášeny jsou pouze skutečně čtené bloky. Po dobu používání obrazu tento panel nezavírejte.",
+      "disconnectFailed": "ISO nebylo možné odpojit. Zkuste to znovu.",
+      "hint": "Připojit ISO z tohoto počítače jako CD/DVD (pouze pro čtení). Přenášeny jsou pouze skutečně čtené bloky. Po dobu používání obrazu tento panel (prohlížeče) nezavírejte.",
       "readFailed": "Zvolené ISO nebylo možné číst. Připojte soubor znovu a zopakujte pokus.",
       "connectFailed": "ISO nebylo možné připojit. Zkontrolujte připojení k zařízení a zkuste to znovu."
     },
@@ -301,7 +301,7 @@
     "forceEjectDesc": "Tento obraz je pořád ještě využíván vzdáleným hostitelem. Vynucení vysunutí může přerušit čekající čtení nebo zápisy. Pokračovat?",
     "netboot": {
       "tab": "Zavedení ze sítě",
-      "hint": "Zavést systém tohoto počítače z nabídek netboot.xyz: instalátory, systémy spouštěné bez instalace a nástroje jsou načítány z Internetu prostřednictvím NanoKVM. Na něm je uložen pouze iPXE obraz.",
+      "hint": "Zavést systém vzdáleného počítače z nabídek netboot.xyz: instalátory, systémy spouštěné bez instalace a nástroje jsou načítány z Internetu prostřednictvím NanoKVM. Na něm je uložen pouze iPXE obraz.",
       "versions": "iPXE {{ipxe}} · netboot.xyz {{netbootxyz}}",
       "notDownloaded": "Zatím ještě nestaženo. Zapnutí zavádění ze sítě povede ke stažení nejnovějšího iPXE (přibližně 13 MB) a výběru nejnovějšího vydání netboot.xyz.",
       "checked": "Zkontrolováno {{date}}",
@@ -363,7 +363,7 @@
     "disconnected": "Spojení zavřeno. Pro opětovné připojení stiskněte Enter."
   },
   "wol": {
-    "title": "Wake-on-LAN",
+    "title": "Probouzení po síti (WoL)",
     "sending": "Odesílání příkazu…",
     "sent": "Probouzecí paket odeslán. Může se stát, že cíl i tak může zůstat vypnutý nebo nedostupný.",
     "input": "Zadejte MAC adresu",
@@ -398,7 +398,7 @@
   },
   "power": {
     "title": "Napájení",
-    "showConfirm": "Potvrzení",
+    "showConfirm": "Potvrzování",
     "showConfirmTip": "Operace s napájením vyžaduje výslovné potvrzení",
     "reset": "Resetovat",
     "powerShort": "Napájení (krátký stisk)",
@@ -436,15 +436,15 @@
     },
     "about": {
       "title": "O NanoKVM",
-      "ip": "IP",
-      "image": "Verze obrazu",
+      "ip": "IP adresa",
+      "image": "Verze obrazu (prvotní instalace)",
       "hostname": "Název hostitele",
-      "hostnameUpdated": "Název hostitele byl aktualizován. Pro použití restartujte.",
+      "hostnameUpdated": "Název hostitele aktualizován. Pro použití restartujte.",
       "credits": {
         "close": "Zavřít",
         "pause": "Pozastavit",
         "button": "Zásluhy",
-        "resume": "Navázat v chodu",
+        "resume": "Pokračovat",
         "title": "Zásluhy",
         "contributorsTitle": "Přispěvatelé do open-source",
         "madePossibleBy": "Možné jen díky",
@@ -453,28 +453,28 @@
         "gxcreator": "Podrobná hlášení o problémech a průběžná zpětná vazba, která odhalila regrese a přímo utvářela opravy.",
         "translationThanks": "Uživatelsky přívětivější díky lidem, kteří překládají, kontrolují a vylepšují texty v rozhraní. Děkujeme.",
         "projectLead": "Koncept, architektura, vývoj NanoKVM OS, systémová integrace, ověřování zařízení a řízení vydávání.",
-        "wenjie": "Správcovství původní aplikace NanoKVM; Direct H.264, opravy spouštění a síťování v Tailscale; a začlenění lokalizace do uživatelského rozhraní.",
-        "z2zGuGu": "Nativní komponenty KVM, MMF a vidění; nástroje pro sestavování, resetátor, nástroje pro práci s EDID a USB PID/VID; a základy pro přizpůsobování si zařízení.",
-        "alexanderGerReich": "Toky aplikací, aktualizací a stahování; vylepšení HID, vkládání a virtuální klávesnice; a údržba textů uživatelského rozhraní v němčině a angličtině.",
+        "wenjie": "Správcovství původní aplikace NanoKVM; Direct H.264, opravy spouštění a síťování v Tailscale; začlenění lokalizace do uživatelského rozhraní.",
+        "z2zGuGu": "Nativní komponenty KVM, MMF a vision; nástroje pro sestavování, resetátor, nástroje pro práci s EDID a USB PID/VID; základy pro přizpůsobování si zařízení.",
+        "alexanderGerReich": "Logika aplikací, aktualizací a stahování; vylepšení HID, vkládání a virtuální klávesnice; údržba textů uživatelského rozhraní v němčině a angličtině.",
         "andrewMoryakov": "Začlenění NetBird klienta a nastavení, posílené zabezpečení životního cyklu VPN a obsluha zotavování, ověřování artefaktů a regresní CI.",
         "watermeko": "Ověřovaná a zrušitelná stahování a OTA aktualizace, práce na nízkých latencích a zero-copy pro H.264, nastavitelné oblasti vstupu a opravy myši.",
-        "scpcom": "Virtuální médium, spolehlivost stahování a ukládání; uzamykání HID; opravy názvu hostitele a sítě; a pročištění nativního MMF.",
+        "scpcom": "Virtuální médium, spolehlivost stahování a ukládání; uzamykání HID; opravy názvu hostitele a sítě; pročištění nativního MMF.",
         "lingkongSky": "Automatizované hýbání myší, upravování názvu hostitele a titulku webu, pojmenované položky v rámci probouzení po síti (WoL), potvrzování napájení a ovládání stránkování paměti.",
-        "yuryPekishev": "Ruské rozložení virtuální klávesnice a převádění z ruštiny do angličtiny pro vkládaný vstup z klávesnice.",
+        "yuryPekishev": "Ruské rozložení virtuální klávesnice a převádění z ruštiny do angličtiny pro vkládaný (paste) vstup z klávesnice.",
         "thomasPressnell": "Podpora pro trvalé povolení či zakázání HDMI a rozdělení ovládacích prvků pro USB gadget, datové připojení a virtuální médium.",
         "s33g": "Logo a text na přihlašovací obrazovce, popisky nástrojů v jejich pruhu, lokalizovatelná chybová hlášení a vývojářské makety.",
         "rockymtngeek": "Testování hardwaru LT6911D, podrobné diagnostické záznamy událostí a potvrzení funkčnosti opravy zachytávání.",
         "sipeed": "Původní hardwarová platforma NanoKVM a základy upstream aplikace.",
-        "silicon": "Platforma média SG2002, základy SDK a nízkoúrovňová podpora hardwaru.",
-        "systemStack": "Operační systém, infrastruktura pro sestavování, správa balíčků a bezpočet oprav v upstream.",
+        "silicon": "Multimediální platforma SG2002, základy SDK a nízkoúrovňová podpora hardwaru.",
+        "systemStack": "Operační systém, infrastruktura pro sestavování, správa balíčků a nespočet oprav v upstreamu.",
         "appStack": "Aplikace, rozhraní prohlížeče, zabezpečený transport a základní prvky média v reálném čase.",
         "projects": "Nápady, vyhledávání už existujících řešení, práce na interoperabilitě a inspirace napříč komunitou open KVM.",
         "contributors": "Kód, překlady, testování, hlášení problémů, kontroly, dokumentace a trpělivé poskytování zpětné vazby.",
-        "hardwareSupportTitle": "Podpora vybavení",
-        "pavelHardwareThanks": "Štědrým příspěvkem financoval nákup Sipeed NanoKVM Cube pro vývoj a regresní testování. Děkujeme za pomoc s testováním na skutečném zařízení Cube!",
+        "hardwareSupportTitle": "Podpořili poskytnutím vybavení",
+        "pavelHardwareThanks": "Štědrým příspěvkem financoval nákup Sipeed NanoKVM Cube pro vývoj a regresní testování. Děkujeme za pomoc se získáním možnosti přímého testování i na této verzi zařízení!",
         "translationTitle": "Přispěvatelé do překladů",
         "translationPlatform": "Námi využívaná platforma pro překládání – spojování příspěvků od komunity. Přidejte se a pomozte překládat NanoKVM OS.",
-        "yuziCo": "Potlačování MJPEG duplikátů a backpressure zachytávání, plus získávání všesměrového vysílání a návrhů DHCP volby 121 přizpůsobených z IronKVM."
+        "yuziCo": "Návrhy řešení pro potlačování MJPEG duplikátů a řízení toku (backpressure) zachytávání, plus pro příjem všesměrového vysílání a podporu DHCP volby 121 (přizpůsobeno z projektu IronKVM)."
       },
       "applicationVersion": "Aplikace",
       "documentation": "Dokumentace",
@@ -482,9 +482,9 @@
       "hostnameEdit": "Upravit název hostitele",
       "hostnameCancel": "Zrušit upravování",
       "hostnameSave": "Uložit název hostitele",
-      "imageVersion": "Nainstalovaný obraz",
+      "imageVersion": "Prvotně nainstalováno obrazem",
       "reportIssue": "Nahlásit problém",
-      "bundledVersion": "Aplikace obsažené v tomto obrazu",
+      "bundledVersion": "Aplikace, které byly obsažené v tomto obrazu",
       "description": "Nezávislý komunitní firmware pro NanoKVM.",
       "specialThanksWife": "Mé ženě – za její trpělivost, podporu a za to, že snášela mou nepřítomnost během nejintenzivnější fáze vývoje."
     },
@@ -495,41 +495,41 @@
       "languageDesc": "Vyberte jazyk rozhraní",
       "helpTranslate": "Pomoci s překladem",
       "webTitle": "Název webu",
-      "webTitleDesc": "Přizpůsobte název webové stránky",
+      "webTitleDesc": "Přizpůsobit si titulek webové stránky",
       "menuBar": {
         "title": "Panel nabídek",
         "mode": "Režim zobrazení",
-        "modeDesc": "Zobrazení panelu nabídek na obrazovce",
-        "modeAuto": "Automatické skrytí",
-        "modeAlways": "Vždy viditelné",
+        "modeDesc": "Zobrazování panelu nabídek na obrazovce",
+        "modeAuto": "Automaticky skrývat",
+        "modeAlways": "Vždy viditelný",
         "keyboardLedStatus": "Indikátory zámku klávesnice",
-        "keyboardLedStatusDesc": "Zobrazit stav Num Lock, Caps Lock a Scroll Lock vzdáleného počítače",
-        "icons": "Ikony podnabídky",
-        "iconsDesc": "Zobrazení ikon podnabídky na liště nabídek"
+        "keyboardLedStatusDesc": "Zobrazovat stav Num Lock, Caps Lock a Scroll Lock vzdáleného počítače",
+        "icons": "Ikony podnabídek",
+        "iconsDesc": "Zobrazování ikon podnabídek v pruhu nabídek"
       },
       "branding": {
         "title": "Opatření vlastní značkou",
         "faviconTitle": "Ikona webu",
         "logoTitle": "Logo na přihlašovací obrazovce",
         "restoreDefault": "Obnovit výchozí",
-        "customActive": "Uživatelsky určený obraz",
+        "customActive": "Uživatelsky určený obrázek",
         "faviconUpload": "Nahrát ikonu webu",
         "defaultActive": "Vestavěný výchozí",
         "faviconPreview": "Náhled ikony webu",
         "logoPreview": "Náhled loga na přihlašovací obrazovce",
         "logoUpload": "Nahrát logo na přihlašovací obrazovku",
-        "failed": "Opatření vlastním logem nebylo možné uložit.",
-        "description": "Nezávisle si přizpůsobit logo na přihlašovací obrazovce a ikonu webu. Vestavěné obrázky zůstávají k dispozici jako výchozí.",
+        "failed": "Opatření vlastní značkou nebylo možné uložit.",
+        "description": "Logo na přihlašovací obrazovce a ikona webu spolu nejsou nijak propojené – je možné si je přizpůsobit každé zvlášť. Vestavěné obrázky zůstávají k dispozici jako výchozí.",
         "logoDescription": "Hlavní logo zobrazované nad přihlašovacím formulářem.",
         "faviconDescription": "Malá ikona zobrazovaná na panelu prohlížeče.",
-        "formats": "PNG nebo JPEG (až 2 MiB a 1024 x 1024 pixelů). Čtvercové PNG s průhledností zafunguje nejlépe."
+        "formats": "PNG nebo JPEG (až 2 MiB a 1024 x 1024 pixelů). Nejlépe bude fungovat čtvercové PNG s průhledností."
       },
       "customize": "Přizpůsobit",
       "bannerStyle": {
-        "rainbow": "Duha",
+        "rainbow": "Duhový",
         "default": "Výchozí",
         "description": "Zvolte uvítací pruh zobrazovaný při spouštění nové interaktivní SSH relace.",
-        "failed": "Nebylo možné uložit styl SSH banneru.",
+        "failed": "Styl SSH uvítacího pruhu nebylo možné uložit.",
         "title": "SSH banner"
       },
       "buttonColor": {
@@ -540,12 +540,12 @@
         "customActive": "Uživatelsky určená barva",
         "restoreDefault": "Obnovit výchozí",
         "inputLabel": "Barva tlačítka v šestnáctkovém (hex) formátu",
-        "failed": "Nebylo možné uložit barvu tlačítka.",
+        "failed": "Barvu pro tlačítka nebylo možné uložit.",
         "description": "Zvolte barvu zvýraznění používanou hlavními tlačítky napříč rozhraním.",
         "defaultActive": "Zelená vestavěného loga (#45E9A0)",
-        "accentDescription": "Najeďte ukazatelem a předseedované stavy jsou vytvořeny automaticky."
+        "accentDescription": "Stavy „Najetí ukazatelem“ a „Stisknuto“ jsou vytvořeny automaticky."
       },
-      "languagePartial": "částečné",
+      "languagePartial": "neúplné",
       "languagePartialHint": "Částečně přeloženo. Kde chybí překlady, jsou texty zobrazovány v angličtině."
     },
     "keyboardLedStatus": {
@@ -574,10 +574,10 @@
         "600": "10 min",
         "1800": "30 min",
         "3600": "1 hodina",
-        "title": "OLED",
-        "description": "Vypnout OLED obrazovku po uplynutí",
+        "title": "Vestavěný informační displej",
+        "description": "Šetřit OLED zobrazovač vypnutím po uplynutí (po jakékoli aktivaci)",
         "-1": "Displej vypnut",
-        "failed": "Nebylo možné zaktualizovat nastavení OLED"
+        "failed": "Nastavení informačního displeje nebylo možné zaktualizovat"
       },
       "mouseJiggler": {
         "title": "Samočinné hýbání myší",
@@ -588,7 +588,7 @@
       },
       "mdns": {
         "description": "Povolit službu mDNS objevování",
-        "tip": "Vypnutí, pokud to není potřeba"
+        "tip": "Pokud toto není potřeba, vypněte"
       },
       "hdmi": {
         "description": "Povolit výstup HDMI/monitor",
@@ -612,10 +612,10 @@
         "confirmBoot": "Použít frekvenci procesoru při každém spuštění?",
         "unavailable": "V případě tohoto jádra systému není ovládání frekvence k dispozici",
         "descriptionAtBoot": "Uplatněno okamžitě a znovu po každém spuštění, včetně přetaktování. Zkontrolujte teplotu SoC čipu v Přehledu.",
-        "bootWarning": "Nebezpečí spojení s přetaktováním: pokud NanoKVM není schopné při takové frekvenci fungovat, může se stát, že systém bude třeba znovu nahrát externě (flash). Pokud spouštění zamrzne v prvních 2 minutách, pak při tom příštím bude náhradně nastavena frekvence 1000 MHz a tato volba vypnuta.",
+        "bootWarning": "Nebezpečné ve spojené s přetaktováním: pokud NanoKVM není schopné při takové frekvenci fungovat, může se stát, že systém přestane startovat a bude ho třeba znovu nahrát externě (flash). Pokud spouštění zamrzne v prvních 2 minutách, pak při tom příštím bude náhradně nastavena frekvence 1000 MHz a tato volba vypnuta.",
         "bootFallback": "Minulé spuštění s provedeným přetaktováním se nepodařilo dokončit, takže NanoKVM bylo spuštěno na 1000 MHz a přestalo (uživatelsky určenou) frekvenci uplatňovat při startu.",
         "warning": "Přetaktování může způsobovat záseky, restarty, ztráty dat nebo poškození hardwaru. Stabilita není zaručená na žádné přetaktované frekvenci. Teplotní ochrana při dosažení 75°omezí na 850 MHz.",
-        "throttled": "Teplotní limit aktivní. Používání vámi vybrané frekvence bude navráceno po schlazení.",
+        "throttled": "Teplotní limit aktivní. Používání vámi vybrané frekvence bude navráceno po zchlazení.",
         "running": "Provozováno na: {{mhz}} MHz",
         "description": "Uplatněno okamžitě. Standardní a energii šetřící nastavení jsou uložena; přetaktování přetrvá do příštího restartu zařízení. Zkontrolujte teplotu SoC čipu na Přehledu."
       }
@@ -625,8 +625,8 @@
       "wifi": {
         "title": "Wi-Fi",
         "description": "Nastavit Wi-Fi",
-        "apMode": "Režim AP je povolen, připojte se k Wi-Fi naskenováním QR kódu",
-        "connect": "Připojit Wi-Fi",
+        "apMode": "Režim přístupového bodu je povolen, připojte se k Wi-Fi naskenováním QR kódu",
+        "connect": "Připojit k Wi-Fi",
         "connectDesc1": "Zadejte SSID sítě a heslo",
         "connectDesc2": "Zadejte heslo pro připojení k této síti",
         "disconnect": "Opravdu chcete síť odpojit?",
@@ -674,7 +674,7 @@
       },
       "tls": {
         "description": "Povolit protokol HTTPS",
-        "tip": "Upozornění: Použití HTTPS může zvýšit latenci, zejména v režimu videa MJPEG.",
+        "tip": "Upozornění: Použití HTTPS může zvýšit latenci, zejména v MJPEG režimu videa.",
         "certificate": {
           "names": "Názvy",
           "validity": "Platné",
@@ -701,7 +701,7 @@
           "details": "Podrobnosti certifikátu",
           "description": "Certifikát, který zařízení prezentuje přes HTTPS. Nějaký z vaší vlastní cert. autority nebo z veřejné odebere varování prohlížeče.",
           "uploadHint": "PEM soubory: certifikát s jeho řetězem důvěry a nešifrovaným soukromým klíčem (v podobě jednoho nebo dvou souborů). Nová připojení ho okamžitě použijí (HTTPS se nerestartuje).",
-          "uploadConfirm": "Nová spojení ho hned dostanu. Pokud prohlížeč certifikátu nedůvěřuje, příští načtení stránky zobrazí varování; vytvořený certifikát je možné obnovit zde."
+          "uploadConfirm": "Nová spojení ho dostanou hned. Pokud prohlížeč certifikátu nedůvěřuje, příští načtení stránky zobrazí varování; vytvořený certifikát je možné obnovit zde."
         },
         "confirmDisable": "Vypnout HTTPS?",
         "confirmEnable": "Zapnout HTTPS?",
@@ -709,13 +709,13 @@
         "confirmRestart": "Webový server se restartuje a tato stránka bude znovunačtena na nové adrese. Ostatní právě otevřené relace budou odpojeny."
       },
       "ethernet": {
-        "title": "Ethernet IPv4",
+        "title": "IPv4 ethernetu",
         "description": "Zvolte DHCP nebo nastavte statickou IPv4 adresu",
         "dhcp": "DHCP",
         "static": "Statická",
         "ipv4": "Nastavení pro IPv4",
         "dhcpDescription": "IP adresa a brána jsou obdrženy automaticky z DHCP",
-        "staticDescription": "Nastavení jsou uplatněna okamžitě a zachováno i po restartu",
+        "staticDescription": "Nastavení jsou uplatněna okamžitě a zachována i po restartu",
         "ipAddress": "IP adresa",
         "addressPlaceholder": "192.168.10.32/24",
         "subnetMask": "Maska podsítě",
@@ -740,7 +740,7 @@
         "interfaceDown": "Povoleno v nastavení · rozhraní je nyní shozené",
         "disconnectWarning": "Uložení okamžitě ukončí spojení využívající ethernet. Zajistěte, aby bylo k dispozici jiné připojení pro správu.",
         "vlanDescription": "Použít zvolené nastavení DHCP nebo statické IPv4 na eth0.<ID>",
-        "vlanWarning": "Změna VLAN může vést k odpojení této relace přes ethernet. Zajistěte, aby port na přepínači umožňoval zvolenou taggovanou VLAN."
+        "vlanWarning": "Změna VLAN může vést k odpojení této relace přes ethernet. Ujistěte se, že port na přepínači umožňuje zvolenou tagovanou VLAN."
       },
       "dns": {
         "title": "DNS",
@@ -798,7 +798,7 @@
       },
       "acme": {
         "run": {
-          "issue": "Vydání certifikátu",
+          "issue": "Vydání",
           "ok": "dokončeno",
           "failed": "nezdařilo se",
           "running": "spuštěné",
@@ -842,20 +842,20 @@
         "issued": "Vydáno, ale nepoužíváno",
         "removeTitle": "Odebrat ACME certifikát?",
         "removed": "ACME certifikát byl odebrán",
-        "reissue": "vydat znovu s jinými nastaveními",
+        "reissue": "Vydat znovu s jinými nastaveními",
         "upToDate": "acme.sh je aktuální ({{version}})",
         "issueHint": "Běží na pozadí; stránka zobrazuje výsledek.",
         "providerDocs": "Jak získat přihlašovací údaje pro {{name}}",
         "installHint": "Stáhne nejnovější stabilní vydání z portálu GitHub (přibližně 1 MB).",
         "wildcardNeedsDns": "Název využívající zástupný znak vyžaduje DNS výzvu.",
-        "dnsSleepHint": "Nevyplněné: acme.sh záznam zkontroluje samo. Vyplňte pokud poskytovateli trvá dlouhá zveřejňování.",
+        "dnsSleepHint": "Nevyplněné: acme.sh záznam zkontroluje samo. Vyplňte pokud poskytovateli trvá dlouho zveřejňování.",
         "uninstallConfirm": "acme.sh, účet u cert. autority, vydaný certifikát a nastavení jsou smazány. HTTPS se vrátí k (na zařízení) vytvořenému certifikátu.",
         "description": "Certifikát od veřejné certifikační autority, vydaný a obnovovaný pomocí acme.sh na zařízení.",
         "installConfirm": "Nejnovější stabilní vydání jsou stahována z github.com/acmesh-official/acme.sh. účet a vydaný certifikát jsou zachovány.",
-        "removeConfirm": "Obnovování bude zastaveno a certifikát a klíč jsou vymazány ze zařízení. HTTPS se vrátí k (v zařízení) vytvořenému certifikátu. acme.sh a účet zůstane.",
+        "removeConfirm": "Obnovování se zastaví a certifikát a klíč budou vymazány ze zařízení. HTTPS se vrátí k (v zařízení) vytvořenému certifikátu. acme.sh a účet zůstane.",
         "domainsHint": "Názvy pro které je certifikát určen; první z nich je hlavním. Zástupné znaky (*.example.org) vyžaduje DNS výzvu.",
         "emailHint": "Pro účet u cert. autority: upozornění na skončení platnosti. ZeroSSL to vyžaduje.",
-        "challengeHttpHint": "Cert. autorita získá token z http://<doména>/.well-known/acme-challenge/ na tomto zařízení: je třeba, aby port 80 byl na takovém názvu dosažitelný z Internetu.",
+        "challengeHttpHint": "Cert. autorita získává token z http://<doména>/.well-known/acme-challenge/ na tomto zařízení: je třeba, aby port 80 byl na takovém názvu dosažitelný z Internetu.",
         "challengeDnsHint": "acme.sh přidá TXT záznam prostřednictvím API poskytovatele. Přihlašovací údaje jsou ukládány acme.sh pro účely obnovování (práva 0600) a už nejsou nikdy zobrazována.",
         "issueConfirmHttp": "acme.sh požádá cert. autoritu aby si stáhla token přes port 80. Výsledek se objeví za necelou minutu; certifikát je použit pro HTTPS okamžitě, bez restartu. Opětovné vydání pro stejné názvy je počítáno vůči limitům četnosti u dané cert. autority (Let's Encrypt: 5 za týden).",
         "issueConfirmDns": "acme.sh přidá TXT záznam u poskytovatele a počká na něj. Výsledek se objeví níže během pár minut; certifikát je použit pro HTTPS okamžitě, bez restartu. Opětovné vydání pro stejné názvy je počítáno vůči limitům četnosti u dané cert. autority (Let's Encrypt: 5 za týden)."
@@ -868,7 +868,7 @@
         "saveFailed": "Nebylo možné uložit upřednostňovanou bránu.",
         "loadFailed": "Nebylo možné načíst trasy brány.",
         "none": "Aby bylo možné zvolit upřednostňovanou bránu připojte k ethernetu nebo Wi-Fi.",
-        "description": "Pokud má jak ethernet, tak Wi-Fi bránu do Internetu, zvolte které připojení NanoKVM použije jako výchozí."
+        "description": "Pokud jak ethernet, tak Wi-Fi (obojí) má bránu do Internetu, zvolte které připojení NanoKVM použije jako výchozí."
       },
       "ipv6": {
         "global": "Globální adresa",
@@ -888,7 +888,7 @@
         "addressPlaceholder": "Adresa/délka předpony",
         "gateway": "Brána",
         "gatewayPlaceholder": "Volitelné",
-        "invalid": "Zadejte adresu IPv6 s délkou přepony; je třeba, aby brána byla IPv6 adresa.",
+        "invalid": "Zadejte IPv6 adresu s délkou přepony; je třeba, aby brána byla také IPv6 adresa.",
         "save": "Uložit",
         "cancel": "Zrušit",
         "linkLocal": "Pouze local link"
@@ -933,13 +933,13 @@
       "stopAction": "Zastavit Tailscale",
       "moreActions": "Další akce",
       "logoutFailed": "Odhlášení se nezdařilo",
-      "startFailed": "Nepodařilo se spustit Tailscale",
+      "startFailed": "Tailscale se nepodařilo spustit",
       "statusFailed": "Nebylo možné získat stav Tailscale",
-      "installDescription": "Nainstalovat Tailscale v případě potřeby. Existující nastavení jsou zachována."
+      "installDescription": "V případě potřeby Tailscale nainstalujte. Existující nastavení jsou zachována."
     },
     "account": {
       "title": "Uživatelé",
-      "webAccount": "Název webového účtu",
+      "webAccount": "Název účtu do webového rozhraní",
       "password": "Heslo",
       "updateBtn": "Změnit",
       "logoutBtn": "Odhlásit",
@@ -1005,12 +1005,12 @@
         "application": "Aplikace",
         "output": "Výstup",
         "overview": "Stav",
-        "capture": "Zachytit",
-        "image": "Obraz",
+        "capture": "Zachytávání",
+        "image": "Obraz (prvotní instalace)",
         "firewall": "nftables",
         "collected": "Shromážděno: {{time}}",
         "kernel": "Spuštěné jádro systému",
-        "boot": "Součástí zavádění systému",
+        "boot": "Součásti zavádění systému",
         "systemBase": "Základ systému",
         "modules": "Moduly jádra systému",
         "download": "Stáhnout si hlášení",
@@ -1092,7 +1092,7 @@
         "time": "Denně v",
         "timezone": "Časové pásmo zařízení: {{timezone}}",
         "saved": "Plán znovunačítání rejstříku uložen",
-        "enabled": "Aktualizovat rejstříky balíčků každý den",
+        "enabled": "Aktualizovat rejstříky balíčků automaticky každý den",
         "hint": "Je pouze znovu načten seznam balíčků, které jsou k dispozici. Instalace a aktualizace vyžadují akci z vaší strany. Je třeba, aby zařízení v daném okamžiku bylo zapnuté.",
         "failed": "Nebylo možné načíst nebo uložit plán znovunačítání rejstříku"
       },
@@ -1116,16 +1116,16 @@
         "upgrade": "Přechod všech balíčků na novější verze…"
       },
       "upToDate": "Všechny nainstalované balíčky jsou aktuální.",
-      "searchHint": "Hledání bude zahájeno automaticky, jakmile přestanete psát.",
+      "searchHint": "Hledání bude zahájeno automaticky, jakmile na chvilku přestanete psát.",
       "description": "Spravovat balíčky z nastavených repozitářů distribuce Alpine. Změny balíčků používají stejnou databázi APK a služby, jako SSH.",
       "upgradeConfirm": "Přejít na novější verzi u všech nainstalovaných balíčků? Může se stát, že video a ovládání bude nakrátko odpojeno.",
       "indexMissing": "Nejsou k dispozici žádné rejstříky balíčků. Než se budete pokoušet vyhledávat či instalovat, nechte tyto rejstříky načíst znovu.",
       "indexStale": "Je možné, že rejstříky balíčků jsou zastaralé (naposledy znovunačteno {{updated}}). Než budete provádět instalace, nechte rejstříky načíst znovu.",
-      "removeDescription": "APK provede toto odebrání (a změny jeho závislostí) přesně tak, jak zobrazeno níže. Tuto akci pak nelze vzít nějak automaticky zpět.",
-      "requestFailed": "Požadavek softwaru se nezdařil. Zkontrolujte připojení zařízení a zkuste znovu.",
+      "removeDescription": "APK provede toto odebrání (a změny jeho závislostí) přesně tak, jak zobrazeno níže. Tuto akci pak nelze vzít nijak automaticky zpět.",
+      "requestFailed": "Požadavek na software se nezdařil. Zkontrolujte připojení zařízení a zkuste znovu.",
       "community": {
         "label": "Alpine komunitní repozitář",
-        "hint": "Balíčky (jako ty pro Tailscale a NetBird) jsou spravovány komunitou kolem distribuce Alpine. Používání je ve výchozím stavu vypnuto: NanoKVM OS odsud nic nepotřebuje a v případě zapnutí používání by každá operace s balíčky načítala i restřík komunitního repozitáře. Instalace Tailscale nebo NetBird používání tohoto repozitáře zapne.",
+        "hint": "Balíčky (jako ty pro Tailscale a NetBird) spravované komunitou kolem distribuce Alpine. Používání je ve výchozím stavu vypnuto: NanoKVM OS odsud nic nepotřebuje a v případě zapnutí používání by každá operace s balíčky načítala i rejstřík komunitního repozitáře. Instalace Tailscale nebo NetBird používání tohoto repozitáře zapne.",
         "unavailable": "Není nastavený žádný hlavní repozitář Alpine, takže není možné přidat ani komunitní repozitář.",
         "needed": "Pořád ještě potřebné pro nainstalované balíčky: {{packages}}. Pokud chcete používání repozitáře vypnout, nejprve je odeberte.",
         "enabled": "Používání komunitního repozitáře zapnuto; znovunačítají se rejstříky",
@@ -1183,7 +1183,7 @@
       "uninstallDesc": "Opravdu chcete NetBird odinstalovat?",
       "loginSuccess": "Přihlásil/a jsem se",
       "urlPeriod": "Toto url je platná po dobu 10 minut",
-      "installDescription": "Nainstalovat NetBird v případě potřeby. Existující nastavení jsou zachována.",
+      "installDescription": "V případě potřeby NetBird nainstalujte. Existující nastavení jsou zachována.",
       "notLogin": "Zařízení ještě nebylo navázáno. Přihlaste se a spojte toto zařízení se svým účtem."
     },
     "memory": {
@@ -1209,7 +1209,7 @@
       "limitApply": "Použít",
       "limitCurrent": "Uplatňováno: {{current}} MiB.",
       "limitNone": "Uplatňováno: bez limitu.",
-      "limitError": "Limit paměti se nepodařilo změnit",
+      "limitError": "Limit paměti nebylo možné změnit",
       "recompressNotReady": "Uložený režim není aktivní. Znovu ho použijte až bude k dispozici dostatek operační paměti.",
       "applicationTitle": "Snížit využití operační paměti aplikacemi",
       "ramNote": "Paměť, která je k dispozici, zahrnuje i mezipaměť, kterou lze uvolnit.",
@@ -1231,18 +1231,18 @@
           "product": "Produkt",
           "manufacturer": "Výrobce",
           "productId": "Identif. produktu",
-          "vendorId": "Identif. výrobce",
+          "vendorId": "Identif. dodavatele",
           "serialNumber": "Sériové číslo"
         },
         "title": "USB identita",
         "invalid": {
           "string": "Názvy jsou dlouhé 1 až 126 znaků (ty „tisknutelné“ z ASCII tabulky), bez mezer na začátku či konci.",
           "serial": "Sériové číslo má 1 až 126 písmen, číslic, teček, pomlček nebo podtržítek.",
-          "id": "Identifikátor jsou čtyři šestnáctkové číslice jako 0x1234, ne 0x0000."
+          "id": "Identifikátory jsou čtyři šestnáctkové číslice jako 0x1234, ne 0x0000."
         },
         "description": "Co počítač uvidí v popisovači zařízení: identifikátory dodavatele a produktu, názvy výrobce a produktu. Pro případ hostitelů, na kterých zásady ohledně USB nebo zabezpečení koncového bodu mají námitky vůči „NanoKVM“.",
-        "idWarning": "Identifikátory dodavatele nebo produktu jiné, než tovární si vymyslete sami. Nastavování linuxových s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo jmenuje identifikátory).",
-        "serialHint": "Prázdné: UID čipu. Písmena, číslice, tečky, pomlčky a podtržítka. Linuxové počítače nastavené pomocníkem sériové konzole se podle něj řídí: po změně znovu spusťte jeho apply."
+        "idWarning": "Identifikátory dodavatele nebo produktu jiné, než tovární si vymyslete sami. Nastavování linuxových hostitelů s pomocníkem pro sériovou konzoli ale už nebude odpovídat NanoKVM (jeho udev pravidlo se odkazuje na identifikátory).",
+        "serialHint": "Nevyplněné: UID čipu. Písmena, číslice, tečky, pomlčky a podtržítka. Linuxoví hostitelé nastavení pomocníkem sériové konzole se podle něj řídí: po změně znovu proveďte jeho použití."
       },
       "off": "Vypnuto",
       "apply": "Použít",
@@ -1288,7 +1288,7 @@
           "deleteConfirm": "Smazat {{name}}? Mazat lze pouze prázdné složky.",
           "errors": {
             "host": "Disk je v tuto chvíli vlastněn počítačem. Vysuňte a vypněte ho výše.",
-            "busy": "Disk je vytížený operací. Vyčkejte na dokončení stávající operace a zkuste znovu.",
+            "busy": "Disk je zaneprázdněný. Vyčkejte na dokončení stávající operace a zkuste znovu.",
             "path": "Neplatný název souboru nebo složky.",
             "exists": "Takto nazvaný soubor nebo složka už zde existuje.",
             "missing": "Disk, soubor nebo složka už neexistuje. Načtěte znovu nebo přejděte o úroveň výše.",
@@ -1301,9 +1301,9 @@
           "title": "Soubory na uživatelském disku",
           "up": "O úroveň výš"
         },
-        "description": "Zapisovatelná FAT32 jednotka, kterou počítač uvidí vedle virtuálního CD/disku: soubory s aktualizacemi BIOS, profily, záznamy událostí. Ukládáno na SD kartu.",
+        "description": "Zapisovatelná FAT32 jednotka, kterou počítač uvidí vedle virtuálního CD/disku: pro soubory s aktualizacemi BIOS, profily, záznamy událostí, atd. Ukládáno na SD kartu.",
         "needsDisk": "Pro získání uživatelského disku povolte virtuální disk; jedná se o třetí jednotku stejného USB zařízení.",
-        "reconnect": "USB zařízení se připojují odznovu, takže počítač na moment tratí (a opět získá) jednotky z NanoKVM.",
+        "reconnect": "USB zařízení se připojují odznovu, takže počítač na okamžik ztratí (a opět získá) jednotky z NanoKVM.",
         "notice": "Připojení nebo odpojení obrazu CD/disku odpojí a znovu připojí i USB zařízení; počítač poté uživatelský disk znovu uvidí s tím, co bylo zapsáno. Celý obraz je při vytváření umístěn na SD kartě, takže větší velikosti mohou chvíli trvat."
       },
       "presets": {
@@ -1366,7 +1366,7 @@
         "states": {
           "loading": "Načítání…",
           "disabled": "Vypnuto · Přístup pouze přes lokální USB",
-          "active": "Sdílení přes {{uplink}} · USB brána {{address}}. Dostupnost internetu závisí na uplinku.",
+          "active": "Sdílení přes {{uplink}} · USB brána {{address}}. Dostupnost Internetu závisí na nadřazeném připojení.",
           "error": "USB síť nebylo možné použít. Zkontrolujte záznamy událostí služby na zařízení.",
           "unavailable": "Služba USB sítě není k dispozici. Zkontrolujte Alpine základní balíček a službu.",
           "subnet-conflict": "USB podsíť koliduje s jinou sítí. Sdílení Internetu je pozastaveno.",
@@ -1376,10 +1376,10 @@
         },
         "title": "Internet přes USB",
         "noOffload": "Je aktivní standardní přeposílání – softwarové předávání zpracování toku není k dispozici nebo je omezeno zásadou sítě.",
-        "description": "Nasdílejte ethernetové nebo Wi-Fi připojení NanoKVM spravovanému počítači přes USB NCM. Pouze pro IPv4. USB síť je třeba povolit zvlášť.",
-        "renew": "Po změněn tohoto nastavení nebo USB podsítě, znovupřipojte USB nebo obnovte DHCP zápůjčku počítače. Krátká zápůjčka také obnoví automaticky.",
+        "description": "Nasdílet ethernetové nebo Wi-Fi připojení NanoKVM spravovanému počítači přes USB NCM. Pouze pro IPv4. USB síť je třeba povolit zvlášť.",
+        "renew": "Po změně tohoto nastavení nebo USB podsítě, znovupřipojte USB nebo obnovte DHCP zápůjčku počítače. Krátká zápůjčka také obnoví automaticky.",
         "updateFailed": "Nebylo možné uplatnit sdílení Internetu přes USB. Načtěte znovu a zkontrolujte stav zařízení.",
-        "offload": "Softwarové předávání zpracovávání toku zapnuto pro TCP/UDP spojení, pro která je příslušné."
+        "offload": "Softwarové předávání zpracovávání toku zapnuto pro příslušná TCP/UDP spojení."
       },
       "manual": "Nastavit ručně",
       "budgetTitle": "Limit počtu koncových bodů",
@@ -1403,12 +1403,12 @@
           "unavailable": "USB sériový port není na tomto NanoKVM zapnutý.",
           "text": "Počítač něco poslal, ale nejedná se o výzvu k přihlášení.",
           "shell": "Na sériovém portu je otevřena relace shellu.",
-          "login": "Výzva k přihlášení odpovídá na sériovém portu.",
+          "login": "Na sériovém portu odpovídá výzva k přihlášení.",
           "silent": "Žádná odpověď v rámci 5 sekund: počítač zatím ještě nemá přihlašování na sériovém portu, nebo USB sériový port není připojen."
         },
         "fromUsbNetwork": "Přes USB síť, když počítač nemá žádnou jinou síť:",
         "fromNetwork": "Přes síť, v shellu na počítači, jako root:",
-        "description": "Skript na tomto NanoKVM nastaví na připojeném počítači přihlašování přes USB sériový port. Nejprve zkontroluje systém a odmítne provést změny, pokud je nelze provést bezpečně. Uchovává zálohy a umožňuje vrátit provedené změny.",
+        "description": "Skript na tomto NanoKVM nastaví na připojeném počítači přihlašování přes USB sériový port. Nejprve zkontroluje systém a odmítne provést změny, pokud je nelze provést bezpečně. Uchovává zálohy a umožňuje vrácení provedených změn nazpět.",
         "diskAttached": "Pomocný disk „NanoKVM Setup Disk“ je připojený k počítači jako jednotka pouze pro čtení. Bez sítě:",
         "diskPending": "Pomocný disk se na počítači objeví, jakmile se USB zařízení znovu připojí.",
         "diskStale": "Pomocný disk byl zaktualizován – počítač nový uvidí, jakmile se USB zařízení znovu připojí.",
@@ -1419,7 +1419,7 @@
       "reconnectNotice": "Uplatnění krátce odpojí a opět připojí USB zařízení.",
       "budgetExceeded": "Tento výběr překračuje limit počtu USB koncových bodů.",
       "customDescription": "Níže vyberte USB funkce, které potřebujete.",
-      "reconnectFailed": "Spojení přerušeno. Připojte se ke NanoKVM znovu a znovu načtěte jeho stav.",
+      "reconnectFailed": "Spojení přerušeno. Znovu se připojte ke NanoKVM a znovu načtěte jeho stav.",
       "loadFailed": "Nebylo možné načíst USB složení.",
       "empty": "Od připojeného počítače budou odpojeny všechny USB funkce.",
       "confirmDisableDescription": "Dokud zde USB opět nezapnete, počítač ztratí NanoKVM klávesnici, myš, úložiště, zvuk a USB síť. Sdílení Internetu přes USB se také zastaví. RustDesk ztratí ovládání klávesnice a myši.",
@@ -1429,7 +1429,7 @@
         "title": "Kompatibilní profily s pouze HID (USB 1.1)",
         "description": "Starší popisovače pro firmware a hostitele, kteří odmítají složené zařízení: pouze klávesnice a ukazatele, bez sítě, disku, pomocného pro sériovou konzoli nebo zvuk."
       },
-      "updateFailed": "Nepodařilo se zaktualizovat USB složení."
+      "updateFailed": "USB složení se nepodařilo se zaktualizovat."
     },
     "vpn": {
       "title": "VPN",
@@ -1493,7 +1493,7 @@
       "explain": "Pro zobrazení HDMI a ovládání USB klávesnice a myši připojte RustDesk klienta k tomuto identifikátoru.",
       "video": "Video automaticky použije kodek vybraný v nastaveních videa v NanoKVM. H.265 vyžaduje podporu na straně klienta. Po změně kodeku zařízení se znovu připojte. Převzetí z webového prohlížeče uvolní vstup z RustDesk.",
       "rotatingTemporaryHint": "Nasdílejte tento identifikátor a stávající heslo. Každé nové úspěšné přihlášení povede k vytvoření nového hesla (bez zavření aktivních relací). RustDesk ho také nahradí při spouštění nebo když si nové sami vyžádáte.",
-      "transportHint": "Řídí se transportem v Nastavení > Video: s WebRTC RustDesk přijímá připojení WebRTC, s Direct a MJPEG zůstávají TCP a relay. WebRTC používá servery STUN a TURN videostreamu a může na NanoKVM snížit snímkovou frekvenci. Klient RustDesk 1.5 v kole s nabídkou WebRTC nezkouší TCP: pro připojení přes ID po TCP vypněte WebRTC i v klientovi.",
+      "transportHint": "Řídí se transportem v Nastavení → Video: s WebRTC RustDesk přijímá připojení WebRTC, s Direct a MJPEG zůstávají TCP a relay. WebRTC používá servery STUN a TURN proudu videa a může na NanoKVM snížit snímkovou frekvenci. Klient RustDesk 1.5 v kole s nabídkou WebRTC nezkouší TCP: pro připojení přes ID po TCP vypněte WebRTC i v klientovi.",
       "idServer": "Server pro identifikátory / randezvous"
     },
     "updates": {
@@ -1510,18 +1510,18 @@
         "rebootConfirm": "Restartovat zařízení nyní?",
         "current": "Všechny nainstalované balíčky jsou aktuální",
         "rebootRequired": "Aktualizace jsou nainstalované. Aby začalo být používáno nové jádro nebo součásti systému, zařízení restartujte.",
-        "description": "Zaktualizovat nainstalované balíčky z nastavených repozitářů. Nastavení jsou zachována. Služby jsou automaticky zrestartovány, ale aktualizace jádra systému vyžadují restart.",
+        "description": "Zaktualizovat nainstalované balíčky z nastavených repozitářů. Nastavení jsou zachována. Služby jsou automaticky zrestartovány, ale aktualizace jádra vyžadují restart celého systému.",
         "confirm": "Nainstalovat tyto aktualizace balíčků? Může se stát, že video a ovládání se nakrátko odpojí."
       },
       "reconnecting": "Čeká se na opětovné připojení zařízení…",
-      "description": "Zaktualizovat NanoKVM OS (použitím podepsaných balíčků). Aktualizace systému zařízení povede k restartu zařízení, aktualizace aplikací jen k krátkému odpojení videa a ovládání.",
+      "description": "Zaktualizovat NanoKVM OS (použitím podepsaných balíčků). Aktualizace systému zařízení povede k restartu zařízení, aktualizace aplikací jen ke krátkému odpojení videa a ovládání.",
       "requestFailed": "Požadavek na aktualizaci se nezdařil. Zkontrolujte konektivitu zařízení a zkuste znovu.",
       "components": {
         "title": "Součásti",
-        "description": "Nainstalované balíčky NanoKVM OS. Novější verze, nalezená při poslední kontrole je zobrazena vedle té nainstalované.",
+        "description": "Nainstalované balíčky NanoKVM OS. Novější verze, nalezená při poslední kontrole, je zobrazena vedle té nainstalované.",
         "available": "{{version}} k dispozici",
         "alpine": "Alpine Linux",
-        "kernel": "Právě provozované jádro systému",
+        "kernel": "Nyní provozované jádro systému",
         "kernelNext": "{{version}} po restartu",
         "names": {
           "system": "NanoKVM OS",
@@ -1536,8 +1536,8 @@
           "rustdesk": "RustDesk",
           "bootloader": "Zavaděč systému",
           "zlib": "Knihovna komprese",
-          "exfatprogs": "Nástroje exFAT",
-          "i2ctools": "Nástroje I2C"
+          "exfatprogs": "Nástroje pro exFAT",
+          "i2ctools": "Nástroje pro I2C"
         }
       },
       "notice": {
@@ -1549,7 +1549,7 @@
         "failed": "Poslední kontrola se nezdařila: {{message}}",
         "unavailable": "Není nastavený žádný repozitář pro NanoKVM OS.",
         "upToDate": "NanoKVM OS je aktuální",
-        "autoDescription": "Jednou denně se podívat se do repozitáře NanoKVM OS pokud je k dispozici novější verze, zobrazit upozornění. Nic není instalováno automaticky."
+        "autoDescription": "Jednou denně se podívat do repozitáře NanoKVM OS a pokud je k dispozici novější verze, zobrazit upozornění. Nic není instalováno automaticky."
       },
       "channel": {
         "title": "Kanál aktualizací",
@@ -1557,7 +1557,7 @@
         "beta": "Testovací",
         "custom": "Uživatelsky určený repozitář",
         "description": "Zvolte Stabilní pro běžná vydání nebo Testovací pro náhledy novinek. Přepnutí nenainstaluje balíčky; po návratu ke Stabilnímu je možné přejít z novější testovací verze na aktuální stabilní.",
-        "warning": "Může se stávat, že Testovací vydání budou obsahovat nedokončené funkce nebo že bude rozbité to, co už fungovalo.",
+        "warning": "Může se stávat, že Testovací vydání budou obsahovat nedokončené funkce nebo že bude rozbité něco, co už fungovalo.",
         "rollback": "Nainstalovat stabilní verzi",
         "rollbackDescription": "Je nainstalovaná testovací verze. Je možné nainstalovat aktuální stabilní vydání, včetně starších verzí balíčků (bez toho, aby bylo třeba čekat na další vydání).",
         "rollbackConfirm": "Nahradit testovací firmware tím aktuálním stabilním? Nastavení a data jsou ponechána. Služby budou restartovány, může být zapotřebí restart systému zařízení."
@@ -1565,6 +1565,75 @@
     },
     "extensions": {
       "title": "Rozšíření"
+    },
+    "recovery": {
+      "reset": "Vrátit nastavení do výchozího stavu",
+      "rebooting": "Zotavení zařazeno do fronty. Zařízení se restartuje; následně se připojte.",
+      "reboot": "Pro dokončení zotavení restartujte",
+      "confirm": "Zkontroloval/a jsem změny a po restartu se k zařízení dokážu připojit.",
+      "inventory": "Balíčky zaznamenané v záloze (nainstalované automaticky)",
+      "removePackages": "Volitelné kořeny APK k odebrání (je možné, že nepoužívané závislosti budou také odebrány)",
+      "skipped": "Vynecháno ze stěhování",
+      "changed": "Nastavení k nahrazení nebo odebrání",
+      "source": "Verze zálohy",
+      "disconnect": "Zařízení se restartuje a odpojí. Obnovení nastavení sítě nebo přístupů může změnit jeho adresu a přihlašovací údaje. Nejprve exportujte zálohu.",
+      "apply": "Použít a restartovat",
+      "cancel": "Zrušit",
+      "preview": "Zobrazit náhled změn",
+      "resetUsers": "Bez „Ponechat uživatele“ se přihlašování do webového rozhraní vrátí k admin / admin (a bude požadovat změnu hesla). Přihlašování heslem jako root je uzamčeno a SSH zakázáno.",
+      "resetHint": "Nastavení aplikací jsou resetována, i když jsou aplikace ponechány. Nainstalovaná verze operačního systému a uživatelské soubory zůstanou. Nastavení sítě jsou resetována: následně se připojte pomocí ethernetu/DHCP.",
+      "keepApps": "Ponechat všechny nainstalované aplikace, včetně APK balíčků",
+      "keepUsers": "Ponechat uživatele, hesla a pověřené SSH klíče",
+      "migrationHint": "Stěhování ponechá v cíli uživatele, identitu, síť, VPN, certifikáty a nastavení hardwaru. Binárky aplikací nejsou obnoveny; nainstalujte chybějící balíčky ze Software.",
+      "device": "Obnovit toto zařízení, včetně nastavení přístupů a sítě",
+      "migrate": "Přestěhovat na jiné zařízení (doporučeno)",
+      "fileLimit": "Vyberte archiv s nastaveními (až 4 MiB).",
+      "file": "Archiv s nastaveními (.nkos)",
+      "updateBase": "Pro povolení obnovy a resetu zaktualizujte nanokvm-base.",
+      "restore": "Obnovit nastavení",
+      "restoreReset": "Obnovit nebo resetovat",
+      "download": "Stáhnout si šifrovanou zálohu",
+      "archivePassword": "Heslo pro zálohu (slouží také pro otevírání archivu)",
+      "encryption": "Archiv obsahuje hesla a soukromé klíče. Je šifrován vámi zadaným heslem zálohy (12-256 bajtů). Tento soubor a heslo uchovávejte někde bezpečně; zapomenuté heslo není možné obnovit.",
+      "export": "Exportovat nastavení",
+      "password": "Stávající heslo správce",
+      "scope": "Zazálohovat spravovaná nastavení NanoKVM OS a podporovaných doplňků. Soubory operačního systému, nainstalované binárky, obrazy disků a uživatelské soubory nejsou zahrnuty. Uživatelsky určená nastavení a ostatní APK software resetovány nejsou.",
+      "title": "Záloha a resetování"
+    },
+    "bmc": {
+      "holdHint": "Nevyplněno: tak dlouho, jako je nastaveno v dlouhém stisku v nabídce napájení (5 s).",
+      "holdDefault": "5 (nabídka napájení)",
+      "ipmiAddonDescription": "IPMI přes LAN pro ovládání napájení hostitele (ipmitool, fence_ipmilan). Jeho nastavení jsou v Systém → Redfish a IPMI.",
+      "ipmiInstall": "Nainstalovat doplněk pro IPMI",
+      "ipmiNotInstalled": "IPMI je součástí doplňku IPMI, který není nainstalovaný.",
+      "ipmiEnable": "Povolit IPMI",
+      "redfishEnable": "Povolit Redfish",
+      "failed": "Požadavek se nezdařil.",
+      "saved": "Uloženo",
+      "save": "Uložit",
+      "holdSeconds": "Vynucené vypnutí: podržet tlačítko napájení (s)",
+      "ipmiPort": "UDP port pro IPMI",
+      "passwordKeep": "Pro ponechání stávajícího hesla nevyplňujte.",
+      "passwordRule": "8-20 znaků",
+      "password": "Heslo",
+      "usernameRule": "1-16 písmen, číslic, „.“, „_“ nebo „-“",
+      "username": "Uživatelské jméno",
+      "accountHint": "Oddělené od účtů do webového rozhraní; používané oběma protokoly.",
+      "account": "Účet do BMC",
+      "ipmiWarning": "IPMI ponechá heslo tak, jak bylo napsané a kdokoli, komu je dosažitelný IPMI port může získat jeho otisk pro offline uhádnutí. Používejte dlouhá hesla, která nepoužíváte jinde a port otevřete pouze do důvěryhodných sítí.",
+      "ipmiHint": "ipmitool -I lanplus; sady šifer 3 a 17.",
+      "ipmi": "IPMI přes LAN",
+      "redfishHint": "Na https://{{host}}/redfish/v1, s níže uvedeným účtem do BMC.",
+      "redfish": "Redfish",
+      "stopped": "Zastaveno",
+      "running": "Spuštěné",
+      "removeConfirm": "IPMI se zastaví. Redfish a nastavení zůstanou.",
+      "open": "Nastavení",
+      "remove": "Odebrat",
+      "install": "Nainstalovat",
+      "description": "Ovládání napájení hostitele pro nástroje pro datová centra, prostřednictvím ATX připojení: Redfish (fence_redfish, Ansible) je součástí NanoKVM OS, IPMI přes LAN (ipmitool, fence_ipmilan) je součástí doplňku.",
+      "title": "Redfish a IPMI",
+      "removeTitle": "Odebrat doplněk IPMI?"
     }
   },
   "picoclaw": {
@@ -1749,7 +1818,7 @@
     "title": "Video",
     "transport": "Transport",
     "resolution": "Rozlišení",
-    "frameRateHint": "Monitor NanoKVM se obnovuje touto frekvencí, takže ji počítač vykresluje. Nové rozlišení začíná na svém maximu, {{value}} snímků/s. Pokud chcete snížit objem přenášených dat, frekvenci snižte.",
+    "frameRateHint": "Monitor NanoKVM se obnovuje touto frekvencí, takže ji počítač vykresluje. Nové rozlišení začíná na svém maximu, {{value}} snímků/s. Pokud potřebujete šetřit objemem přenášených dat, frekvenci snižte.",
     "frameRateFixedHint": "Přijímač si ponechává vlastní obnovovací frekvenci; proud přenáší nejvýše {{value}} snímků/s.",
     "player": "Přehrávač",
     "image": "Obrázek",
@@ -1759,7 +1828,7 @@
     "bitrate": "Bitová rychlost",
     "discard": "Zahodit změny",
     "captureOff": "Zachytávání zakázáno",
-    "receiver": "Čip zachytávání",
+    "receiver": "Zachytávací čip",
     "input": "HDMI vstup",
     "captureOn": "Zachytávání povoleno",
     "output": "Enkódovaný proud",
@@ -1793,7 +1862,7 @@
       "receiver": "nepodporováno tímto HDMI přijímačem",
       "portrait": "nepodporováno tímto profilem na výšku",
       "mjpeg-4k": "není k dispozici, když vstup HDMI má rozlišení 3840 × 2160 – použijte H.264 nebo H.265",
-      "video-memory": "vyžaduje více videopaměti: aby se použil aktualizovaný systém, zařízení restartujte",
+      "video-memory": "vyžaduje více videopaměti: aby byl použit aktualizovaný systém, zařízení restartujte",
       "h264-4k": "není k dispozici nad 2560 × 1440, použijte H.265 nebo rozlišení proudu 1440p nebo nižší"
     },
     "bitrateAuto": "Automatická · {{value}} Mbit/s",
@@ -1806,12 +1875,12 @@
     "statusFailed": "Nebylo možné znovu načíst stav videa.",
     "changeReload": "Pro přepnutí přehrávače se stránka znovu načte.",
     "mjpegChromaFallback_frameDetection": "Pro použití 4:2:2 vypněte zjišťování snímků.",
-    "directImmediateHint": "Zobrazuje snímky, jakmile jsou dekódovány. Nepravidelné doručování (dat) může způsobovat vnímatelné záseky.",
+    "directImmediateHint": "Zobrazuje snímky, jakmile jsou dekódovány. Nepravidelnosti v jejich doručování ale mohou způsobovat chvilková zadrhávání obrazu.",
     "monitorUnavailable": "Měnění profilu virtuálního monitoru není na tomto zařízení k dispozici. Zjišťování vstupu zůstává automatické.",
     "transportHint": {
       "direct": "H.264/H.265 přes HTTPS, dekódováno prohlížečem. Nejkratší prodlevy.",
       "webrtc": "Funguje ve většině prohlížečů a napříč sítěmi; šifrováno pomocí SRTP.",
-      "mjpeg": "Každý snímek jako JPEG obrázek: nejkompatibilnější, ale největší objem přenášených dat."
+      "mjpeg": "Každý snímek jako JPEG obrázek: nejkompatibilnější, zároveň ale také největší objem přenášených dat."
     },
     "streamSize": "Enkódováno na {{value}}",
     "userHint": "Nastavení pro video je pro všechny stejné, tak jak ho provedl správce. Je ale možné si zvolit, jak video přijímá a přehrává tento prohlížeč.",
@@ -1823,8 +1892,8 @@
     "modeHint": "Rozlišení a obnovovací frekvence, kterými počítač vykresluje, propagované NanoKVM monitorem (proud nese stejnou frekvenci). Při provedení změny nakrátko odpojí a znovu připojí HDMI.",
     "bitrateCeiling": "Horní hranice pro pohyb (video, posouvání) – nehybný obraz posílá mnohem méně. „Automaticky“ se řídí režimem, „Úsporné“ se hodí pro připojení na dálku nebo přes mobilní síť.",
     "bitrateLimit": "omezit na {{value}} Mbit/s",
-    "codecHint": "Pro ten stejný obraz, H.265 vytváří o cca třetinu nižší objem datového toku, H.264 ale umí přehrávat vícero prohlížečů.",
-    "browserSectionHint": "Uloženo v tomto prohlížeči (ostatním prohlížejícím zůstane jejich).",
+    "codecHint": "Pro ten stejný obraz vytváří H.265 o přibližně třetinu nižší objem datového toku. U H.264 je zase vyšší pravděpodobnost, že ho prohlížeč umí přehrávat.",
+    "browserSectionHint": "Uloženo v tomto prohlížeči (ostatní prohlížející si ponechají svá).",
     "deviceTransportHint": "Pro správce je to zároveň transport zařízení: prohlížeče bez vlastní volby začínají s ním a RustDesk přijímá WebRTC jen při WebRTC.",
     "deviceTransport": "Transport zařízení je {{transport}}: prohlížeče bez vlastní volby začínají s ním a RustDesk se jím řídí.",
     "deviceTransportUse": "Použít {{transport}} pro zařízení",
@@ -1833,21 +1902,21 @@
     "mjpegChromaFallback_diagnostic": "Ve stávajícím režimu zachytávání není 4:2:2 k dispozici.",
     "mjpegChromaFallback_hardware": "Po chybě zachytávání náhradně používá 4:2:0. Pokud je signál stabilní, zkuste znovu 4:2:2.",
     "mjpegChromaFallback_pending": "4:2:2 bude použito pro příští zachycený snímek.",
-    "cubeMonitorHint": "Cube/Lite: zapíše a ověří EDID. Pro použití fyzicky odpojte všechny zdroje napájení a znovu je připojte; softwarový restart nestačí. Monitor ponechá nejvyšší obnovovací frekvenci zvoleného rozlišení a snímková frekvence omezuje pouze stream.",
+    "cubeMonitorHint": "Cube/Lite: zapíše a ověří EDID. Pro použití fyzicky odpojte všechny zdroje napájení a znovu je připojte; softwarový restart nestačí. Monitor ponechá nejvyšší obnovovací frekvenci zvoleného rozlišení a snímková frekvence omezuje pouze proud.",
     "powerCycleConfirm": "Pokračujte pouze pokud po zapsání máte možnost fyzicky odpojit veškeré zdroje napájení od NanoKVM. Je možné, že do doby, než provedete operaci s napájením, bude přenos obrazu přerušen. Tuto změnu v nastavení není možné uplatnit softwarovým restartováním.",
-    "powerCycleWritten": "EDID zapsáno a ověřeno. Odpojte NanoKVM od napájení (a pak připojte do něho nazpět).",
+    "powerCycleWritten": "EDID zapsáno a ověřeno. Odpojte NanoKVM od napájení (a připojte ho pak nazpět).",
     "powerCyclePending": "Údržba EDID: je zapotřebí úplné vypnutí/zapnutí",
-    "powerCyclePendingHint": "Proveden pokus o zápis EDID. Odpojte veškeré zdroje napájení od NanoKVM (a pak je připojte k němu nazpět). Tato připomínka přetrvá napříč softwarovými restarty, zavřete ji pouze poté, až provedete úplné fyzické vypnutí a zapnutí zařízení.",
+    "powerCyclePendingHint": "Proveden pokus o zápis EDID. Odpojte veškeré zdroje napájení od NanoKVM (a připojte je pak nazpět). Tato připomínka přetrvá napříč softwarovými restarty, zavřete ji teprve poté, až provedete úplné fyzické vypnutí a zapnutí zařízení.",
     "powerCycleAck": "Provedl/a jsem úplné fyzické vypnutí a zapnutí zařízení",
     "powerCycleAckConfirm": "Potvrďte, že jste fyzicky odpojili veškeré zdroje napájení od NanoKVM (a připojili je pak nazpět). Toto pouze zavře připomínku, nikoli restartuje zařízení.",
-    "directSmoothHint": "Přizpůsobivé vyrovnávací paměti pro vyhlazení nerovnoměrného doručování (přidává ale drobnou prodlevu).",
+    "directSmoothHint": "Přizpůsobivě ukládá snímky do vyrovnávací paměti a kompenzuje tím nepravidelnosti v jejich doručování (to ale přidává drobnou prodlevu).",
     "description": "Nastavit HDMI monitor nezávisle na videu zasílaném vámi využívanému prohlížeči.",
     "fpsLimited": "Stávající vstup omezuje zachytávání na {{fps}} snímků/s. Uložený požadavek je ponechán pro příští režim zdroje.",
     "hevcDirect": "H.265 přímo ze zachytávání",
     "hevcDirectHint": "Enkodér čte zachycený obraz samotný namísto jeho převedené kopie: nižší prodleva (přibližně 6ms při 1080p, 25 ms při 4K) a nižší provoz v operační paměti. Pokud chcete enkódovat přes videoprocesor (jako dříve), vypněte. Bude uplatněno během sekundy a bez restartu.",
     "viDirect": "Video přímo ze zachytávání",
-    "viDirectH264Hint": "H.264 při velikosti a obnovovací frekvenci vstupu čte zachycený snímek samotný: zachytávání přepne na vzorkování barev 4:2:0 (při 1080p o přibližně 6ms nižší prodleva a nižší provoz v operační paměti), a MJPEG mezitím používá také 4:2:0. Při změně tohoto režimu se zachytávání nakrátko restartuje. Pokud chcete enkódovat pomocí videoprocesoru (jako předtím), vypněte.",
-    "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálované) H.264.",
+    "viDirectH264Hint": "H.264 při velikosti a obnovovací frekvenci vstupu čte zachycený snímek samotný: zachytávání přepne na vzorkování barev 4:2:0 (při 1080p o přibližně 6ms nižší prodleva a nižší provoz v operační paměti), a MJPEG mezitím používá také 4:2:0. Při změně tohoto režimu se zachytávání nakrátko restartuje. Pokud chcete enkódovat pomocí videoprocesoru (jako dříve), vypněte.",
+    "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálovaného) H.264.",
     "aspect": "Poměr stran"
   },
   "dashboard": {
@@ -1865,7 +1934,7 @@
       "auth": "Je vyžadováno ověření se",
       "notLogin": "Nepřihlášeni"
     },
-    "capture": "Zachytit",
+    "capture": "Zachytávání",
     "connected": "Připojeno",
     "synchronized": "Synchronizováno",
     "memory": "Paměť",
@@ -1887,7 +1956,7 @@
     "of": "z {{total}}",
     "deviceTime": "Čas v zařízení",
     "sessions": "Videorelace",
-    "timeService": "Služba času",
+    "timeService": "Služba správy času",
     "handshake": "Poslední ustavení spojení",
     "noProfiles": "Žádné profily",
     "available": "Operační paměť k dispozici",
@@ -1903,7 +1972,7 @@
     "stale": "Některé údaje nebylo možné načíst znovu. Jsou zobrazovány poslední dostupné hodnoty.",
     "load": "Průměrné vytížení · 1 / 5 / 15 min",
     "fps": "Výstup / požadováno",
-    "sdSwap": "stránkování na SD kartu",
+    "sdSwap": "Stránkování na SD kartu",
     "bootStorage": "Zavádění systému",
     "disconnected": "Bez připojení"
   },
@@ -1920,7 +1989,7 @@
       "timeout": "Překročen časový limit při snaze o spojení se zvukem. Zkontrolujte síť a zkuste znovu.",
       "playback": "Prohlížeči se nepodařilo spustit přehrávání zvuku. Klepněte na Poslouchat pro opakování pokusu.",
       "signaling": "Nebylo možné dojednat spojení se zvukem. Načtěte stránku znovu a zopakujte pokus.",
-      "capture": "Zachytávání z USB zvukového rozhraní se zastavilo. Pokud chcete opět spojit, povolte Poslouchat.",
+      "capture": "Zachytávání z USB zvukového rozhraní se zastavilo. Pokud chcete zkusit znovu, povolte Poslouchat.",
       "closed": "Spojení se zvukem bylo zavřeno. Pro opětovné připojení povolte Poslouchat."
     },
     "failed": "Zvuk není k dispozici. Zkontrolujte připojení USB a zkuste znovu."
@@ -1939,7 +2008,7 @@
     },
     "confirm": "Ano",
     "username": "Uživatelské jméno",
-    "handshake": "Navázání spojení",
+    "handshake": "Ustavování spojení",
     "delete": "Smazat",
     "rename": "Přejmenovat",
     "credentials": "Přihlašovací údaje",
@@ -1962,10 +2031,10 @@
     "loadFailed": "Stav VPN nebylo možné načíst.",
     "routingDisableFirst": "Před měněním směrování tento profil zakažte.",
     "uploadLimit": "Nejvýše 16 profilů (64 KiB na soubor).",
-    "openvpnDescription": "Importovat .ovpn profily. Vyberte libovolný odkazovaný certifikát a soubory s klíči ve stejném nahrání.",
+    "openvpnDescription": "Naimportujte .ovpn profily. V rámci stejného nahrání zároveň vyberte i jakékoli soubory s klíči a certifikát, na které se profil odkazuje.",
     "openvpnUninstallWarning": "OpenVPN bude zastaveno a odebráno. Stávající profily a nastavení i tak v zařízení zůstanou.",
     "openvpnLimit": "Nejvýše 16 profilů (256 KiB na soubor a kombinovaný profil).",
-    "openvpnInstallDescription": "Nainstalovat OpenVPN v případě potřeby. Existující profily jsou zachovány.",
+    "openvpnInstallDescription": "Nainstalujte OpenVPN v případě potřeby. Existující profily jsou zachovány.",
     "description": "Naimportujte WireGuard profily a povolte ten, který potřebujete. Zapnutý profil se znovu připojí i po restartu.",
     "requestFailed": "Spojení přerušeno. Než budete zkoušet znovu, připojte se k NanoKVM znovu a zkontrolujte stav tunelu.",
     "systemRequired": "Systémové nástroje pro WireGuard chybí. Nainstalujte obraz systému obsahující podporu pro WireGuard.",
@@ -2016,7 +2085,7 @@
     "stop": "Zastavit nahrávání",
     "title": "Záznam videa",
     "captureDisabled": "Aby bylo možné nahrávat video, povolte zachytávání",
-    "noVideo": "Před zahájením nahrávání čekat na video",
+    "noVideo": "Před zahájením nahrávání vyčkejte na video",
     "unsupported": "Nahrávání vyžaduje HTTPS a prohlížeč s podporou ukládání souborů, jako například Chrome nebo Edge",
     "failed": "Nahrávku nebylo možné uložit. Zkontrolujte volný prostor na disku a podporu v prohlížeči.",
     "interrupted": "Nahrávka je neúplná. Byla uložena jen ta část, která byla k dispozici."
@@ -2029,7 +2098,7 @@
     "downloadStatusFailed": "Nebylo možné znovunačíst stav stahování. Opětovné připojování…",
     "failed": "Nebylo možné změnit zachytávání. Zkuste to znovu.",
     "storageCheckFailed": "Nebylo možné zkontrolovat úložiště obrazu. Zkuste znovu po opětovném připojení.",
-    "storageUnavailable": "Do úložiště obrazu nebylo možné zapisovat. Zkontrolujte zda je k dispozici volné místo a stav úložiště."
+    "storageUnavailable": "Do úložiště obrazu nebylo možné zapisovat. Zkontrolujte zda je k dispozici volné místo a také stav úložiště."
   },
   "screenshot": {
     "take": "Pořídit snímek obrazovky",
@@ -2037,7 +2106,7 @@
     "saved": "Snímek obrazovky uložen ({{width}}×{{height}})",
     "failed": "Snímek obrazovky nebylo možné uložit",
     "captureDisabled": "Aby bylo možné pořídit snímek obrazovky, zapněte zachytávání",
-    "noVideo": "Před pořízením snímku obrazovky počkat na videosnímek"
+    "noVideo": "Před pořízením snímku obrazovky vyčkejte na videosnímek"
   },
   "inputConnection": {
     "connecting": "Připojování k řídícímu kanálu",
@@ -2045,5 +2114,16 @@
     "idle": "Řídící kanál nečinný",
     "connected": "Řídící kanál připojen",
     "disconnected": "Ovládání není k dispozici. Zkouší se opětovné připojení… Je možné, že přenos obrazu nadále funguje."
+  },
+  "sshKeys": {
+    "result": "Přidáno: {{added}}. Už přítomné: {{skipped}}.",
+    "failed": "SSH klíče nebylo možné naimportovat.",
+    "invalid": "Zadávejte pouze platné OpenSSH veřejné klíče (až 32 KiB); nenahrávejte soukromé klíče, certifikáty nebo předvolby pro klíče.",
+    "text": "Text veřejného klíče",
+    "file": "Soubor s veřejným klíčem",
+    "help": "Vyberte soubor s veřejným klíčem nebo vložte OpenSSH veřejné klíče, každý na zvlášť řádek (až 32 KiB). Podporované jsou Ed25519, RSA (2048 bitů a více), ECDSA a bezpečnostní klíče. Soukromé klíče, certifikáty a předvolbypro klíče nejsou přijímány. SSH není povoleno automaticky.",
+    "import": "Naimportovat klíče",
+    "description": "Přidat klíče pro SSH přihlášení jako root. Existující klíče jsou zachovány.",
+    "title": "SSH veřejné klíče"
   }
 }

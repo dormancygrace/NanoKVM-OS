@@ -1023,21 +1023,20 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     audio_task.abort();
     let _ = audio_task.await;
     let _ = input_shutdown_sender.send(true);
-    retire_input(input_task, session_permit);
+    retire_input(input_task, session_permit).await;
     result
 }
 
-// The session ends at once, but its viewer slot stays taken until the input
-// task has ended: that task releases held keys and buttons and closes the
-// HID lease last, and a viewer admitted before would find the lease still
-// held and lose its input. The task is never aborted, which could strand
-// held reports; each HID request has its own timeout, and the clamped
-// pointer movement bounds how many remain.
-fn retire_input(input_task: tokio::task::JoinHandle<()>, permit: SessionPermit) {
-    tokio::spawn(async move {
-        let _ = input_task.await;
-        drop(permit);
-    });
+// The session, and with it its viewer slot, ends only once the input task
+// has: that task releases held keys and buttons and closes the HID lease
+// last, and a viewer admitted before would find the lease still held and
+// lose its input. Waiting here keeps the cleanup in the session, which the
+// daemon's shutdown drains (for at most 3 s). The task is never aborted
+// here, which could strand held reports; each HID request has its own
+// timeout, and the clamped pointer movement bounds how many remain.
+async fn retire_input(input_task: tokio::task::JoinHandle<()>, permit: SessionPermit) {
+    let _ = input_task.await;
+    drop(permit);
 }
 
 // The bridge drops a subscriber that stops reading for 2 s, which ended the
@@ -1530,7 +1529,7 @@ mod tests {
         let input_task = tokio::spawn(async move {
             let _ = released.await;
         });
-        super::retire_input(input_task, permit);
+        tokio::spawn(super::retire_input(input_task, permit));
         time::sleep(Duration::from_millis(50)).await;
         assert!(
             limits.try_session("id:new".to_owned()).is_none(),

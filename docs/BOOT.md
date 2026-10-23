@@ -111,11 +111,14 @@ damage the filesystem, so these steps cannot guarantee power-loss safety.
 ## Recovery
 
 **SSH when the server does not start:** SSH is off by default, and the web UI
-is where it is turned on. If the server does not listen steadily within 3
-minutes after the application service started, `nanokvm-rescue` starts SSH anyway, also with the default root password,
+is where it is turned on. If the server does not listen steadily on its own
+ports within 3 minutes after the application service started,
+`nanokvm-rescue` starts SSH anyway, also with the default root password,
 since an image can fail on some board before anyone logged in. It logs this
-(also to the kernel log), marks it in `/run/nanokvm/ssh-rescue`, and the SSH
-settings show it with a button to stop SSH. It lasts until the next restart.
+(also to the kernel log), marks it in `/run/nanokvm/ssh-rescue` once sshd
+runs, and the SSH settings show it with a button to stop SSH. It lasts until
+the next restart. Turning SSH on or off during the boot ends a rescue that is
+still waiting.
 
 **With a card reader:** remove the card, copy a good `fip.bin` to its FAT boot
 partition, verify the hash.

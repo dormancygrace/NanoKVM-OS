@@ -6,11 +6,12 @@ description="SSH for repair when the NanoKVM server does not start"
 # whose server never starts would have nothing a user can reach, so SSH then
 # starts anyway, also with the default root password: an image can fail on
 # some board before anyone logged in to change it. It is logged, marked in
-# NANOKVM_RESCUE_MARKER (the SSH settings show it) and lasts until a restart.
+# $NANOKVM_RUN/ssh-rescue (the SSH settings show it) and lasts until a
+# restart. Turning SSH on or off (S50sshd) during this boot ends it.
 : "${NANOKVM_RESCUE_WAIT:=180}"
 : "${NANOKVM_APP_SERVICE:=/etc/init.d/nanokvm-app}"
 : "${NANOKVM_SSH_STOP:=/etc/kvm/ssh_stop}"
-: "${NANOKVM_RESCUE_MARKER:=/run/nanokvm/ssh-rescue}"
+: "${NANOKVM_RUN:=/run/nanokvm}"
 : "${NANOKVM_KMSG:=/dev/kmsg}"
 
 depend() {
@@ -19,14 +20,33 @@ depend() {
     after nanokvm-app nanokvm-ssh nanokvm-network
 }
 
-# Whether the server listens on its ports, as nanokvm-app checks it.
+# Whether NanoKVM-Server itself listens on one of its configured ports: an
+# unrelated program on the port must not count.
 server_up() (
     # shellcheck source=/dev/null
     . "$NANOKVM_APP_SERVICE" > /dev/null 2>&1
     ports=$(server_ports) || ports=
-    # shellcheck disable=SC2086 # two port words
-    server_listening $ports
+    pid=$(pidof NanoKVM-Server) || exit 1
+    sockets=$(ls -l "$NANOKVM_PROC_ROOT/${pid%% *}/fd" 2> /dev/null)
+    [ -n "$sockets" ] || exit 1
+    for file in "$NANOKVM_PROC_NET/tcp" "$NANOKVM_PROC_NET/tcp6"; do
+        [ -r "$file" ] || continue
+        while read -r sl addr remote state queues timer retrans uid timeout inode rest; do
+            [ "$state" = 0A ] || continue
+            case "$sockets" in *"socket:[$inode]"*) ;; *) continue ;; esac
+            # Unknown ports (an unusual server.yaml): any listener of the server.
+            [ -n "$ports" ] || exit 0
+            case "$addr" in *:"${ports% *}" | *:"${ports#* }") exit 0 ;; esac
+        done < "$file"
+    done
+    exit 1
 )
+
+say() {
+    logger -p daemon.warning -t nanokvm-rescue "$1" 9>&-
+    # Also in the kernel log, which the boot log archive keeps.
+    echo "nanokvm-rescue: $1" > "$NANOKVM_KMSG" 2> /dev/null || true
+}
 
 rescue() {
     local n=0 up=0
@@ -42,22 +62,48 @@ rescue() {
         sleep 1
         n=$((n + 1))
     done
-    message="The NanoKVM server did not start within $NANOKVM_RESCUE_WAIT s; starting SSH for repair"
-    logger -p daemon.warning -t nanokvm-rescue "$message"
-    # Also in the kernel log, which the boot log archive keeps.
-    echo "nanokvm-rescue: $message" > "$NANOKVM_KMSG" 2> /dev/null || true
-    mkdir -p "${NANOKVM_RESCUE_MARKER%/*}"
-    date > "$NANOKVM_RESCUE_MARKER"
+    # Under the lock of S50sshd: an explicit choice made meanwhile wins.
+    mkdir -p "$NANOKVM_RUN"
+    exec 9> "$NANOKVM_RUN/ssh-rescue.lock"
+    flock -x 9
+    [ ! -e "$NANOKVM_RUN/ssh-decided" ] && [ -e "$NANOKVM_SSH_STOP" ] || return 0
+    say "The NanoKVM server did not start within $NANOKVM_RESCUE_WAIT s; starting SSH for repair"
     # Recovery may preserve a configuration without host keys (nanokvm-ssh).
-    ssh-keygen -A || true
-    rc-service sshd start
+    # The lock covers the start, but sshd must not keep it.
+    ssh-keygen -A 9>&- || say "ssh-keygen -A failed"
+    rm -f "$NANOKVM_RUN/ssh-rescue"
+    if rc-service sshd start 9>&-; then
+        date > "$NANOKVM_RUN/ssh-rescue"
+    else
+        say "SSH for repair did not start"
+    fi
+}
+
+# Retire the worker of an earlier start. A worker that found the server up
+# has exited, and its PID may belong to another program by now.
+stop_worker() {
+    local pid
+    pid=$(cat "$NANOKVM_RUN/ssh-rescue.pid" 2> /dev/null) || return 0
+    rm -f "$NANOKVM_RUN/ssh-rescue.pid"
+    case "$pid" in '' | *[!0-9]*) return 0 ;; esac
+    case "$(tr '\0' ' ' < "/proc/$pid/cmdline" 2> /dev/null)" in
+        *nanokvm-rescue*) kill "$pid" 2> /dev/null || true ;;
+    esac
 }
 
 start() {
+    stop_worker
     # SSH that is on needs no rescue.
     [ -e "$NANOKVM_SSH_STOP" ] || return 0
     ebegin "Watching the NanoKVM server start"
+    mkdir -p "$NANOKVM_RUN"
     # Not holding the boot: the server may take a while on a first boot.
     (rescue) < /dev/null > /dev/null 2>&1 &
+    echo $! > "$NANOKVM_RUN/ssh-rescue.pid"
     eend 0
+}
+
+stop() {
+    stop_worker
+    return 0
 }

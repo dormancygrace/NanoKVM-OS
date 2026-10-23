@@ -3,9 +3,7 @@
 description="NanoKVM USB HID and optional NCM gadget"
 
 depend() {
-    # Keyboard and mouse also without a complete board setup.
-    use nanokvm-board
-    after nanokvm-board
+    need nanokvm-storage nanokvm-board
     before nanokvm-app
 }
 

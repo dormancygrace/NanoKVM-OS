@@ -28,13 +28,15 @@ start() {
         /usr/sbin/nkos-update recovery-resume || { eend 1 "Settings recovery failed"; return 1; }
     fi
     # Run every step. A missing sensor configuration or an unidentified HDMI
-    # receiver must not skip the device identity used by the network.
+    # receiver must not skip the device identity used by the network. Nor do
+    # they stop the board: its consumers start without video then, and only a
+    # failed settings recovery above keeps them stopped (docs/BOOT.md).
     for script in S02config S10uuid S15kvmhwd; do
         run_legacy "$script" || failed="$failed $script"
     done
     if [ -n "$failed" ]; then
-        eend 1 "NanoKVM board setup failed:$failed"
-        return 1
+        ewarn "NanoKVM board setup incomplete:$failed; starting without it"
+        logger -t nanokvm-board "board setup incomplete:$failed" 2>/dev/null || true
     fi
     eend 0
 }

@@ -66,17 +66,27 @@ for failed in ({"nanokvm-storage"}, {"nanokvm-modules"}, {"nanokvm-board"},
     missing = [service for service in REACHABLE if service not in running]
     assert not missing, (failed, missing)
     print(f"{' + '.join(sorted(failed))} failed: network, SSH and mDNS start: pass")
-# Without the board or media module setup the application, USB HID, the
-# runtime policy and the watchdog still start (the server without video): one
-# transient failure at boot used to lock a remote device out.
-for failed in ({"nanokvm-modules"}, {"nanokvm-board"}, {"nanokvm-modules", "nanokvm-board"}):
-    running = started(failed)
-    for service in ("nanokvm-app", "nanokvm-usb", "nanokvm-policy", "nanokvm-watchdog"):
-        assert service in running, (failed, service, running)
-    print(f"{' + '.join(sorted(failed))} failed: app, USB, policy and watchdog start: pass")
-# Without the storage setup the application has no settings: it stays stopped.
-assert "nanokvm-app" not in started({"nanokvm-storage"})
-print("nanokvm-storage failed: app stays stopped: pass")
+CONSUMERS = ("nanokvm-app", "nanokvm-usb", "nanokvm-policy")
+# Without the media modules the application, USB HID, the runtime policy and
+# the watchdog still start (the server without video): one failed module
+# used to lock a remote device out. The board's hardware steps do not fail
+# the board (run_board below).
+running = started({"nanokvm-modules"})
+for service in CONSUMERS + ("nanokvm-watchdog",):
+    assert service in running, (service, running)
+print("nanokvm-modules failed: app, USB, policy and watchdog start: pass")
+# nanokvm-board fails only when settings recovery failed: the consumers of
+# the restored configuration stay stopped. The watchdog reads none of it.
+running = started({"nanokvm-board"})
+assert not set(CONSUMERS) & running, running
+assert "nanokvm-watchdog" in running, running
+print("nanokvm-board (settings recovery) failed: app, USB and policy stay stopped: pass")
+# Without the storage setup nothing that uses the configuration starts.
+running = started({"nanokvm-storage"})
+assert not (set(CONSUMERS) | {"nanokvm-watchdog"}) & running, running
+print("nanokvm-storage failed: app, USB, policy and watchdog stay stopped: pass")
+for service in CONSUMERS:
+    assert {"nanokvm-storage", "nanokvm-board"} <= DEPS[service]["need"], (service, DEPS[service])
 
 # A media module failure must not skip the identity (hostname, Ethernet MAC).
 assert "nanokvm-board" in started({"nanokvm-modules"})
@@ -96,7 +106,7 @@ def run_board(fail=(), missing=()):
                             + ("exit 1\n" if script in fail else "exit 0\n"))
             mock.chmod(0o755)
         result = subprocess.run(
-            ["sh", "-c", '. "$SERVICE"; ebegin() { :; }; '
+            ["sh", "-c", '. "$SERVICE"; ebegin() { :; }; ewarn() { printf "%s\\n" "$*" >&2; }; logger() { :; }; '
              'eend() { [ "$1" -eq 0 ] || printf "%s\\n" "$2" >&2; return "$1"; }; start'],
             env=dict(os.environ, SERVICE=str(OPENRC / "nanokvm-board"), CALLS=str(calls),
                      NANOKVM_BOARD_LEGACY_DIR=str(legacy)),
@@ -111,9 +121,10 @@ assert result.returncode == 0 and calls == ALL, (result, calls)
 print("board setup succeeds: pass")
 for fail in ("S02config", "S10uuid", "S15kvmhwd"):
     result, calls = run_board(fail=(fail,))
-    assert result.returncode != 0 and calls == ALL, (fail, result, calls)
+    # A hardware step only warns: the board's consumers start without it.
+    assert result.returncode == 0 and calls == ALL, (fail, result, calls)
     assert fail in result.stderr, (fail, result.stderr)
-    print(f"{fail} fails: remaining steps run, board reports failure: pass")
+    print(f"{fail} fails: remaining steps run, board warns and starts: pass")
 result, calls = run_board(missing=("S02config",))
 assert result.returncode == 0 and calls == ALL[1:], (result, calls)
 print("missing optional step is skipped: pass")

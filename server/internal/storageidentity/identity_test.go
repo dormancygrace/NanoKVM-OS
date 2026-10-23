@@ -48,7 +48,7 @@ func TestReadAndBootParity(t *testing.T) {
 	if _, err := exec.LookPath("busybox"); err == nil {
 		shells = append(shells, []string{"busybox", "sh"})
 	}
-	for _, value := range []string{"", "Generic", "Generic\n", "Generic\n\n", "01234567890123456", " padded", "tail ", "bad\tname", "é", "%s $(id)"} {
+	for _, value := range []string{"", "Generic", "Generic\n", "Generic\n\n", "01234567890123456", " padded", "tail ", "bad\tname", "Ge\x00neric", "\x00Generic", "Generic\x00\n", "é", "%s $(id)"} {
 		for _, name := range Files {
 			if err := os.WriteFile(filepath.Join(dir, name), []byte(value), 0644); err != nil {
 				t.Fatal(err)

@@ -48,7 +48,8 @@ reset_usb_config_links(){
 storage_value() (
     LC_ALL=C
     export LC_ALL
-    value=$(head -c "$(( $2 + 2 ))" "$conf/usb.storage.$1" 2>/dev/null; printf '.')
+    # Shell substitutions discard NUL; map it to another invalid byte first.
+    value=$(head -c "$(( $2 + 2 ))" "$conf/usb.storage.$1" 2>/dev/null | tr '\000' '\177'; printf '.')
     value=${value%.}
     value=${value%'
 '}

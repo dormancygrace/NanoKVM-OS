@@ -5,13 +5,14 @@ import (
 
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/controlmode"
+	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/picoclaw"
 	"NanoKVM-Server/service/ws"
 )
 
 // inputOwnerRequiredCode is returned when a request that acts on the managed
 // host does not come from the browser tab that holds input control.
-const inputOwnerRequiredCode = -4
+const inputOwnerRequiredCode = hid.InputOwnerCode
 
 // InputLeaseHeader carries the input lease the controlling WebSocket received
 // with its control status.
@@ -22,14 +23,20 @@ const InputLeaseHeader = "X-NanoKVM-Input-Lease"
 // The lease belongs to one socket, so another tab, another login of the same
 // user or a view-only viewer cannot satisfy it. With no controller at all
 // (for example API automation without an open browser) requests proceed.
+// The check is repeated before every key press of a paste or sequence: one
+// admitted without a lease stops too once a browser that connects becomes
+// the controller, or an add-on takes the input.
 func requireInputOwner() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !ws.GetManager().AllowsInputLease(c.GetHeader(InputLeaseHeader)) {
+		lease := c.GetHeader(InputLeaseHeader)
+		if !ws.GetManager().AllowsInputLease(lease) {
 			var rsp proto.Response
 			rsp.ErrRsp(c, inputOwnerRequiredCode, "another session holds input control")
 			c.Abort()
 			return
 		}
+		// Asked again by long requests: a paste must stop at a takeover.
+		hid.SetInputOwner(c, func() bool { return ws.GetManager().AllowsInputLease(lease) })
 		c.Next()
 	}
 }

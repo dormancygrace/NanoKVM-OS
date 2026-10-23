@@ -2,6 +2,7 @@ package hid
 
 import (
 	"context"
+	"errors"
 	"time"
 	"unicode/utf8"
 
@@ -223,8 +224,27 @@ func (s *Service) Paste(c *gin.Context) {
 		return
 	}
 
+	// A key goes down only while this request still holds input control. A
+	// key it pressed is always let go; an all-up report goes out only then,
+	// not once more at the end after a takeover.
+	owns := inputOwner(c)
+	pressed := false
 	writeKeyboardReport := func(report []byte) error {
 		return manual.Execute(func() error {
+			if isKeyboardRelease(report) {
+				if !pressed {
+					return nil
+				}
+				if err := s.hid.WriteKeyboardReport(report); err != nil {
+					return err
+				}
+				pressed = false
+				return nil
+			}
+			if !owns() {
+				return ErrInputOwnerChanged
+			}
+			pressed = true
 			return s.hid.WriteKeyboardReport(report)
 		})
 	}
@@ -267,6 +287,11 @@ func (s *Service) Paste(c *gin.Context) {
 	}
 	_ = writeKeyboardReport(keyUp)
 	reservation.Complete(err == nil)
+	if errors.Is(err, ErrInputOwnerChanged) {
+		log.Infof("hid paste stopped: %v", err)
+		rsp.ErrRsp(c, InputOwnerCode, "another session holds input control")
+		return
+	}
 	if err != nil {
 		log.Errorf("hid paste failed: %v", err)
 		rsp.ErrRsp(c, -3, "HID paste failed")

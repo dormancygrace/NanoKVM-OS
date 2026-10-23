@@ -1,4 +1,10 @@
 #include "system_ctrl.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <string.h>
+#include <sys/random.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 
 extern kvm_sys_state_t kvm_sys_state;
@@ -34,15 +40,64 @@ void gen_dnsmasq_conf()
 	fclose(fp);
 }
 
+// The AP key is the access point's WPA2 passphrase and the X-AP-Key of the
+// server's provisioning routes. 8 characters fit the OLED's 64-pixel line;
+// from 31 symbols that cannot be confused (no 0/o, 1/l/i) they carry about
+// 40 bits, from the kernel's generator. A failure leaves out empty.
+static const char wifi_ap_key_symbols[] = "23456789abcdefghjkmnpqrstuvwxyz";
+
+bool gen_wifi_ap_key(char *out, size_t size)
+{
+	const size_t symbols = sizeof(wifi_ap_key_symbols) - 1;
+	// Bytes at or above the largest multiple of 31 are drawn again, so every
+	// symbol is equally likely.
+	const unsigned limit = 256 - 256 % symbols;
+	size_t n = 0;
+	if (size == 0) return false;
+	out[0] = '\0';
+	while (n + 1 < size) {
+		unsigned char bytes[16];
+		ssize_t got = getrandom(bytes, sizeof(bytes), 0);
+		if (got < 0) {
+			if (errno == EINTR) continue;
+			out[0] = '\0';
+			return false;
+		}
+		for (ssize_t i = 0; i < got && n + 1 < size; i++) {
+			if (bytes[i] < limit) out[n++] = wifi_ap_key_symbols[bytes[i] % symbols];
+		}
+	}
+	out[n] = '\0';
+	return true;
+}
+
+// Writes text and a newline to path, readable by root only.
+bool write_private_file(const char *path, const char *text)
+{
+	int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+	if (fd < 0) return false;
+	// open keeps the mode of a file an older release created 0644.
+	bool ok = fchmod(fd, 0600) == 0;
+	const size_t length = strlen(text);
+	ok = ok && write(fd, text, length) == (ssize_t)length && write(fd, "\n", 1) == 1;
+	return close(fd) == 0 && ok;
+}
+
+// The first line a command prints, "" when it fails or prints nothing.
+static void first_output_line(const char *command, char *line, size_t size)
+{
+	line[0] = '\0';
+	FILE *fp = popen(command, "r");
+	if (fp == NULL) return;
+	if (fgets(line, (int)size, fp) == NULL) line[0] = '\0';
+	pclose(fp);
+}
+
 uint8_t sta_connect_ap(void)
 {
-	uint8_t RW_Data[10];	
-	FILE *fp;
-	fp = popen("hostapd_cli all sta | grep aid", "r");
-	fgets((char*)RW_Data, 2, fp);
-	pclose(fp);
-	if(RW_Data[0] == 'a') return 1;
-	else return 0;
+	char line[16];
+	first_output_line("hostapd_cli all sta | grep aid", line, sizeof(line));
+	return line[0] == 'a';
 }
 
 uint8_t ssid_pass_ok(void)
@@ -53,15 +108,17 @@ uint8_t ssid_pass_ok(void)
 
 uint8_t wifi_connected(void)
 {
-	uint8_t RW_Data[20];	
-	FILE *fp;
-	fp = popen("wpa_cli -i wlan0 status | grep \"wpa_state\"", "r");
-	fgets((char*)RW_Data, 15, fp);
-	pclose(fp);
-	if(RW_Data[10] == 'S') return 0;
-	else if(RW_Data[10] == 'C') return 1;
-	else return 0;
+	char line[32];
+	first_output_line("wpa_cli -i wlan0 status | grep \"wpa_state\"", line, sizeof(line));
+	return strncmp(line, "wpa_state=COMPLETED", 19) == 0;
 }
+
+// A new key for each provisioning the user starts; a join that fails brings
+// the access point back with the same key, so the QR code and the URL the
+// user holds stay valid.
+static bool wifi_ap_new_key = true;
+// When the join being tried started; it gets WIFI_JOIN_TIMEOUT to complete.
+static uint64_t wifi_join_started_ms = 0;
 
 void kvm_start_wifi_config_process(void)
 {
@@ -69,53 +126,40 @@ void kvm_start_wifi_config_process(void)
 		// printf("[kvmw]开始配置wifi\n");
 		kvm_sys_state.wifi_config_process = 0;
 		kvm_sys_state.sub_page = 0;
+		wifi_ap_new_key = true;
 	}
 }
 
+// The admin's legacy Wi-Fi connect on the main page. It never enters
+// provisioning: whatever the join does, the state stays -1, so the next
+// button press starts provisioning (and a new key) from the beginning.
 void kvm_wifi_web_config_process()
 {
 	if(ssid_pass_ok()){
 		system("rm /kvmapp/kvm/wifi_try_connect");
 		system("/etc/init.d/S30wifi restart");
-		kvm_sys_state.wifi_config_process = 3;
-		// 尝试连接wifi
-		if(kvm_sys_state.wifi_config_process == 3){
-			// kvms::sleep_ms(WIFI_CONNECTION_DELAY);
-			if(wifi_connected()){
-				// 连上了
-				kvm_sys_state.wifi_config_process = -1;
-			} else {
-				// 没连上
-				kvm_sys_state.wifi_config_process = 0;
-			}
-		}
+		kvm_sys_state.wifi_config_process = -1;
 	}
 }
 
 void kvm_wifi_config_process()
 {	
-	int temp;
-	char ran_num;
-	static char cmd[70];
 	switch(kvm_sys_state.wifi_config_process){
 		case -1:
 			// printf("[kvms]Not in the process of configuring WiFi\n");
 			break;
 		case 0: // 启动wifi
-			srand((unsigned)kvms::time_ms());
-			for(temp = 0; temp < 4; temp++){
-				do{
-					ran_num = (char)rand()%10 + '0';
-					if(temp == 0) break;
-				} while (ran_num == kvm_sys_state.wifi_ap_pass[(temp-1)*2]);
-				kvm_sys_state.wifi_ap_pass[temp*2] = ran_num;
-				kvm_sys_state.wifi_ap_pass[temp*2+1] = ran_num;
+			if (wifi_ap_new_key || kvm_sys_state.wifi_ap_pass[0] == '\0') {
+				if (!gen_wifi_ap_key(kvm_sys_state.wifi_ap_pass, sizeof(kvm_sys_state.wifi_ap_pass))) {
+					// No key, no access point: try again on the next round.
+					break;
+				}
+				wifi_ap_new_key = false;
 			}
-			kvm_sys_state.wifi_ap_pass[8] = '\0';
-
-			sprintf(cmd, "echo %s > /kvmapp/kvm/ap.pass", kvm_sys_state.wifi_ap_pass);
-			system("echo NanoKVM > /kvmapp/kvm/ap.ssid");
-			system(cmd);
+			if (!write_private_file("/kvmapp/kvm/ap.ssid", "NanoKVM") ||
+				!write_private_file("/kvmapp/kvm/ap.pass", kvm_sys_state.wifi_ap_pass)) {
+				break;
+			}
 			system("/etc/init.d/S30wifi ap");
 
 			kvm_sys_state.wifi_config_process = 1;
@@ -133,16 +177,19 @@ void kvm_wifi_config_process()
 				system("/etc/init.d/S30wifi restart");
 				kvm_sys_state.wifi_config_process = 3;
 				kvm_sys_state.sub_page = 5;
+				wifi_join_started_ms = kvms::ticks_ms();
 			}
 			break;
 		case 3: // 尝试连接wifi
-			kvms::sleep_ms(WIFI_CONNECTION_DELAY);
+			// S30wifi starts wpa_supplicant in the background; SAE and DFS
+			// channels often take longer than a few seconds. Check on every
+			// round until the join completes or WIFI_JOIN_TIMEOUT passes.
 			if(wifi_connected()){
 				// 连上了
 				kvm_sys_state.wifi_config_process = -1;
 				kvm_sys_state.page = 0;
 				kvm_sys_state.sub_page = 0;
-			} else {
+			} else if (kvms::ticks_ms() - wifi_join_started_ms >= WIFI_JOIN_TIMEOUT) {
 				// 没连上
 				kvm_sys_state.wifi_config_process = 0;
 				kvm_sys_state.sub_page = 0;

@@ -20,6 +20,7 @@ int chack_net_state(ip_addr_t use_ip_type);
 int get_ping_allow_state(void);
 void patch_eth_wifi(void);
 int kvm_wifi_exist(void);
+bool wifi_presence_due(uint64_t& last_look_ms, uint64_t now_ms);
 void kvm_update_usb_state(void);
 void kvm_update_hdmi_state(void);
 void kvm_update_stream_fps(void);

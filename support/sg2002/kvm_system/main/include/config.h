@@ -28,7 +28,10 @@
 #define KEY_DELAY 					100
 #define KEY_LONG_PRESS 				1500
 #define KEY_LONGLONG_PRESS 			9000
-#define WIFI_CONNECTION_DELAY 		5000
+// How long a join from provisioning may take before the access point returns.
+#define WIFI_JOIN_TIMEOUT 			30000
+// How often a missing wlan0 is looked for again: the driver loads later.
+#define WIFI_PRESENCE_INTERVAL 		5000
 #define OLED_SLEEP_DELAY_MIN 		10
 #define OLED_SLEEP_DELAY_DEFAULT 	30
 

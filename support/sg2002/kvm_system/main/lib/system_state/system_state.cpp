@@ -544,21 +544,48 @@ void kvm_update_eth_state(void)
 	}
 }
 
+// /etc/kvm/wifi_exist follows presence; it is written only when it changes.
+static void mark_wifi_exist(bool present)
+{
+	const bool marked = access("/etc/kvm/wifi_exist", F_OK) == 0;
+	if (present && !marked) {
+		const int fd = open("/etc/kvm/wifi_exist", O_WRONLY | O_CREAT | O_CLOEXEC, 0644);
+		if (fd >= 0) close(fd);
+	} else if (!present && marked) {
+		unlink("/etc/kvm/wifi_exist");
+	}
+}
+
+// -2, no wlan0, is not final: the driver loads in the network service's
+// background worker, often after this first look. Look again every
+// WIFI_PRESENCE_INTERVAL until it appears.
+bool wifi_presence_due(uint64_t& last_look_ms, uint64_t now_ms)
+{
+	if (last_look_ms != 0U && now_ms - last_look_ms < WIFI_PRESENCE_INTERVAL) return false;
+	last_look_ms = now_ms;
+	return true;
+}
+
 void kvm_update_wifi_state(void)
-{	
+{
 	static uint64_t last_probe_ms = 0;
+	static uint64_t last_look_ms = 0;
 	// No WiFi module (check for existence?) -> Module exists & not connected (check if connected) ->
-	if(kvm_sys_state.wifi_state == -2) return;
+	if(kvm_sys_state.wifi_state == -2) {
+		if (!wifi_presence_due(last_look_ms, monotonic_ms()) || !kvm_wifi_exist()) return;
+		kvm_sys_state.wifi_state = -1;
+	}
 	switch (kvm_sys_state.wifi_state){
 		case -1:
 		// Initial default value.
 			if (kvm_wifi_exist()) {
 				kvm_sys_state.wifi_state = 0;
-				system("touch /etc/kvm/wifi_exist");
+				mark_wifi_exist(true);
 			}
 			else {
-				kvm_sys_state.wifi_state = -2; // WiFi module does not exist, exiting directly.
-				system("rm /etc/kvm/wifi_exist");
+				kvm_sys_state.wifi_state = -2; // no wlan0 yet; looked for again
+				last_look_ms = monotonic_ms();
+				mark_wifi_exist(false);
 				return;
 			}
 			[[fallthrough]];	// Start checking the connection directly.

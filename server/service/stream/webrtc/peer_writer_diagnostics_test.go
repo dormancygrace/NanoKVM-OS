@@ -55,6 +55,12 @@ func TestPeerWriterDiagnosticsCountersAndUniqueIDs(t *testing.T) {
 	}
 	<-written
 	<-written
+	// The callback signals before recordWrite updates the counters. Join the
+	// writers so every diagnostic field is final before asserting it.
+	first.close()
+	second.close()
+	<-first.done
+	<-second.done
 	d := first.diagnostics
 	if d.offers.Load() != 2 || d.accepted.Load() != 2 || d.written.Load() != 2 {
 		t.Fatalf("frame counters: offers=%d accepted=%d written=%d", d.offers.Load(), d.accepted.Load(), d.written.Load())
@@ -71,10 +77,6 @@ func TestPeerWriterDiagnosticsCountersAndUniqueIDs(t *testing.T) {
 	if d.queueHighWater.Load() == 0 {
 		t.Fatal("queue high water was not recorded")
 	}
-	first.close()
-	second.close()
-	<-first.done
-	<-second.done
 	if !d.logged.Load() {
 		t.Fatal("close did not emit the diagnostic snapshot")
 	}

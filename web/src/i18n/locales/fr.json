@@ -974,7 +974,9 @@
         "confirmation": "Confirmer le mot de passe root",
         "rootForbidden": "Le mot de passe ne peut pas être « root ».",
         "enable": "Définir le mot de passe et activer SSH",
-        "failed": "Impossible de définir le mot de passe root ou d'activer SSH."
+        "failed": "Impossible de définir le mot de passe root ou d'activer SSH.",
+        "rescue": "SSH a été démarré pour la réparation, car le serveur NanoKVM n'a pas démarré. Le mot de passe root est peut-être encore celui par défaut : activez SSH pour en définir un nouveau, ou arrêtez SSH.",
+        "rescueStop": "Arrêter SSH"
       }
     },
     "title": "Paramètres",

@@ -974,7 +974,9 @@
         "confirmation": "确认 root 密码",
         "rootForbidden": "密码不能为“root”。",
         "enable": "设置密码并启用 SSH",
-        "failed": "无法设置 root 密码或启用 SSH。"
+        "failed": "无法设置 root 密码或启用 SSH。",
+        "rescue": "由于 NanoKVM 服务器在启动时未能启动，已为修复启动 SSH。root 密码可能仍是默认密码：请启用 SSH 以设置新密码，或停止 SSH。",
+        "rescueStop": "停止 SSH"
       }
     },
     "title": "设置",

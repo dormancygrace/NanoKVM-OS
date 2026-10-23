@@ -974,7 +974,9 @@
         "confirmation": "root パスワードの確認",
         "rootForbidden": "パスワードに「root」は使用できません。",
         "enable": "パスワードを設定して SSH を有効にする",
-        "failed": "root パスワードの設定または SSH の有効化ができませんでした。"
+        "failed": "root パスワードの設定または SSH の有効化ができませんでした。",
+        "rescue": "起動時に NanoKVM サーバーが起動しなかったため、修復用に SSH を開始しました。root のパスワードが初期値のままの可能性があります。SSH を有効にして新しいパスワードを設定するか、SSH を停止してください。",
+        "rescueStop": "SSH を停止"
       }
     },
     "title": "設定",

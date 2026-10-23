@@ -1072,7 +1072,9 @@
         "tip": "SSH bude povoleno teprve až nastavíte nové heslo pro účet root (v Linuxu).",
         "passwordDescription": "Než budete zapínat SSH, nastavte odolné heslo pro linuxový účet root. Ten je používán pro přihlašování se přes SSH.",
         "enable": "Nastavit heslo a povolit SSH",
-        "failed": "Nebylo možné nastavit heslo pro root nebo povolit SSH."
+        "failed": "Nebylo možné nastavit heslo pro root nebo povolit SSH.",
+        "rescue": "SSH bylo spuštěno kvůli opravě, protože se server NanoKVM při startu nespustil. Heslo uživatele root může být stále výchozí: zapněte SSH a nastavte nové heslo, nebo SSH zastavte.",
+        "rescueStop": "Zastavit SSH"
       }
     },
     "software": {

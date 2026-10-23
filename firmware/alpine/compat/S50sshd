@@ -1,8 +1,20 @@
 #!/bin/sh
 set -eu
+: "${NANOKVM_RUN:=/run/nanokvm}"
+: "${NANOKVM_SSH_STOP:=/etc/kvm/ssh_stop}"
+# An explicit choice ends this boot's SSH rescue (nanokvm-rescue). It is made
+# under the rescue's lock, so that a rescue still waiting can never start SSH
+# after it.
+decide() (
+    mkdir -p "$NANOKVM_RUN"
+    exec 9> "$NANOKVM_RUN/ssh-rescue.lock"
+    flock -x 9
+    touch "$NANOKVM_RUN/ssh-decided"
+    rm -f "$NANOKVM_RUN/ssh-rescue"
+)
 case "${1:-}" in
-    permanent_on) rm -f /etc/kvm/ssh_stop; rc-service sshd start ;;
-    permanent_off) mkdir -p /etc/kvm; touch /etc/kvm/ssh_stop; rc-service sshd stop ;;
+    permanent_on) decide; rm -f "$NANOKVM_SSH_STOP"; rc-service sshd start ;;
+    permanent_off) decide; mkdir -p "${NANOKVM_SSH_STOP%/*}"; touch "$NANOKVM_SSH_STOP"; rc-service sshd stop ;;
     start) rc-service nanokvm-ssh start ;;
     stop) rc-service sshd stop ;;
     restart|reload) rc-service sshd stop; rc-service nanokvm-ssh restart ;;

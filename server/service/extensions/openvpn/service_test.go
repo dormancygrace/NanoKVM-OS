@@ -70,7 +70,9 @@ func TestDCOKindIsReadOncePerInterface(t *testing.T) {
 	}
 	s := &Service{}
 	tunnel := &net.Interface{Name: "nv0123456789", Index: 7}
-	if !s.dcoInterface(tunnel) || !s.dcoInterface(tunnel) || runs != 1 {
+	// Two calls on purpose: the second must come from the cache.
+	first, second := s.dcoInterface(tunnel), s.dcoInterface(tunnel)
+	if !first || !second || runs != 1 {
 		t.Fatalf("DCO link read %d times", runs)
 	}
 	// A restarted tunnel is a new interface, whatever its kind now.
@@ -79,7 +81,9 @@ func TestDCOKindIsReadOncePerInterface(t *testing.T) {
 		t.Fatalf("new interface index not read again (%d runs)", runs)
 	}
 	failure = errors.New("ip failed")
-	if s.dcoInterface(&net.Interface{Name: tunnel.Name, Index: 9}) || s.dcoInterface(&net.Interface{Name: tunnel.Name, Index: 9}) || runs != 4 {
+	failed := &net.Interface{Name: tunnel.Name, Index: 9}
+	first, second = s.dcoInterface(failed), s.dcoInterface(failed)
+	if first || second || runs != 4 {
 		t.Fatalf("a failed read was kept (%d runs)", runs)
 	}
 }

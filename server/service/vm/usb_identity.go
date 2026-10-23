@@ -47,7 +47,6 @@ func identityFromRequest(req *proto.USBIdentityReq) (usbIdentity, error) {
 }
 
 const (
-	gadgetRoot = "/sys/kernel/config/usb_gadget/g0"
 	// a USB string descriptor holds 126 UTF-16 units; ASCII keeps it simple
 	maxUSBStringLength = 126
 )

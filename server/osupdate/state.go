@@ -2,7 +2,6 @@ package osupdate
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -22,14 +21,6 @@ const Base = "/kvmapp/.os-update"
 const Helper = "/usr/sbin/nkos-update"
 
 const versionFile = "/kvmapp/version"
-
-func writeJSON(name string, v any) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	return writeAtomic(name, b, 0600)
-}
 
 func writeAtomic(name string, b []byte, mode os.FileMode) error {
 	f, err := os.CreateTemp(filepath.Dir(name), ".write-")
@@ -64,14 +55,6 @@ func syncDir(name string) error {
 	}
 	defer f.Close()
 	return f.Sync()
-}
-
-func readJSON(name string, v any) error {
-	b, err := os.ReadFile(name)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(b, v)
 }
 
 // InstalledVersion reports the application release recorded by nanokvm.

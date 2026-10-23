@@ -34,6 +34,7 @@ public:
 class ReceiverAccess {
     std::timed_mutex mutex_;
     bool paused_ = false;
+    uint64_t generation_ = 0;
     std::string path_;
 public:
     explicit ReceiverAccess(const char *path = NANOKVM_RECEIVER_LOCK_PATH) : path_(path) {}
@@ -43,10 +44,12 @@ public:
     public:
         const ReceiverState state;
         const int error;
-        Read(std::unique_lock<std::timed_mutex> lock, int fd, ReceiverState status, int err)
-            : lock_(std::move(lock)), fd_(fd), state(status), error(err) {}
+        const uint64_t generation;
+        Read(std::unique_lock<std::timed_mutex> lock, int fd, ReceiverState status,
+            int err, uint64_t current_generation)
+            : lock_(std::move(lock)), fd_(fd), state(status), error(err), generation(current_generation) {}
         Read(Read &&other) noexcept : lock_(std::move(other.lock_)),
-            fd_(std::exchange(other.fd_, -1)), state(other.state), error(other.error) {}
+            fd_(std::exchange(other.fd_, -1)), state(other.state), error(other.error), generation(other.generation) {}
         Read(const Read &) = delete;
         ~Read() { nanokvm_receiver_unlock(fd_); }
         void release_device() {
@@ -57,26 +60,30 @@ public:
     class Control {
         std::unique_lock<std::timed_mutex> lock_;
         bool *paused_;
+        uint64_t *generation_;
     public:
-        Control(std::unique_lock<std::timed_mutex> lock, bool *paused)
-            : lock_(std::move(lock)), paused_(paused) {}
+        Control(std::unique_lock<std::timed_mutex> lock, bool *paused, uint64_t *generation)
+            : lock_(std::move(lock)), paused_(paused), generation_(generation) {}
         explicit operator bool() const { return lock_.owns_lock(); }
         void pause() { *paused_ = true; }
-        void resume() { *paused_ = false; }
+        void resume() {
+            ++*generation_; // a fresh attempt even if no poll observed the pause
+            *paused_ = false;
+        }
     };
     Read read() {
         std::unique_lock<std::timed_mutex> lock(mutex_, std::try_to_lock);
-        if (!lock.owns_lock()) return Read(std::move(lock), -1, ReceiverState::Busy, 0);
-        if (paused_) return Read(std::move(lock), -1, ReceiverState::Paused, 0);
+        if (!lock.owns_lock()) return Read(std::move(lock), -1, ReceiverState::Busy, 0, 0);
+        if (paused_) return Read(std::move(lock), -1, ReceiverState::Paused, 0, generation_);
         int fd = nanokvm_receiver_lock_at(path_.c_str(), 0);
         int err = fd < 0 ? errno : 0;
         return Read(std::move(lock), fd, fd >= 0 ? ReceiverState::Ready :
-            err == EBUSY ? ReceiverState::Busy : ReceiverState::IoError, err);
+            err == EBUSY ? ReceiverState::Busy : ReceiverState::IoError, err, generation_);
     }
-    Control control(std::chrono::milliseconds timeout = std::chrono::milliseconds(2000)) {
+    Control control(std::chrono::milliseconds timeout = std::chrono::milliseconds(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS)) {
         std::unique_lock<std::timed_mutex> lock(mutex_, std::defer_lock);
         (void)lock.try_lock_for(timeout); // Control exposes owns_lock().
-        return Control(std::move(lock), &paused_);
+        return Control(std::move(lock), &paused_, &generation_);
     }
 };
 

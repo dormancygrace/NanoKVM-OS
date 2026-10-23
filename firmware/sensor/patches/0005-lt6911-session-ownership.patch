@@ -24,7 +24,7 @@ Subject: [PATCH] lt6911: coordinate register sessions and always attempt cleanup
 -		return CVI_FAILURE;
 -	return data;
 +#ifdef NANOKVM_OS
-+    int ownership = nanokvm_receiver_lock(2000);
++    int ownership = nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
 +    if (ownership < 0) return CVI_FAILURE;
 +#endif
 +    int data = CVI_FAILURE;
@@ -48,7 +48,7 @@ Subject: [PATCH] lt6911: coordinate register sessions and always attempt cleanup
 -		return CVI_FAILURE;
 -	return ret;
 +#ifdef NANOKVM_OS
-+    int ownership = nanokvm_receiver_lock(2000);
++    int ownership = nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
 +    if (ownership < 0) return CVI_FAILURE;
 +#endif
 +    int ret = CVI_FAILURE;
@@ -73,7 +73,7 @@ Subject: [PATCH] lt6911: coordinate register sessions and always attempt cleanup
 -		return CVI_FAILURE;
 -	return CVI_SUCCESS;
 +#ifdef NANOKVM_OS
-+    int ownership = nanokvm_receiver_lock(2000);
++    int ownership = nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
 +    if (ownership < 0) return CVI_FAILURE;
 +#endif
 +    int ret = CVI_FAILURE;

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <time.h>
 static unsigned calls, fail_at, bank_writes, closes;
 static int short_transfer;
 static uint8_t hardware_bank = 0x85;
@@ -60,7 +62,43 @@ static void reset(void) {
     calls = fail_at = bank_writes = closes = 0;
     old_offset = 0xff; hardware_bank = 0x85; client = 9; short_transfer = 0;
 }
+static long elapsed_ms(const struct timespec *start) {
+    struct timespec now; assert(clock_gettime(CLOCK_MONOTONIC, &now) == 0);
+    return (now.tv_sec - start->tv_sec) * 1000 + (now.tv_nsec - start->tv_nsec) / 1000000;
+}
+static void maintenance_waits(void) {
+    int owner = nanokvm_receiver_lock(0); assert(owner >= 0);
+    int ready[2]; assert(pipe(ready) == 0);
+    pid_t child = fork(); assert(child >= 0);
+    if (child == 0) {
+        close(owner); close(ready[0]);
+        assert(write(ready[1], "R", 1) == 1);
+        struct timespec start; assert(clock_gettime(CLOCK_MONOTONIC, &start) == 0);
+        int fd = maintenance_lock();
+        _exit(fd >= 0 && elapsed_ms(&start) >= 20 && elapsed_ms(&start) < 1800 ? 0 : 1);
+    }
+    close(ready[1]); char marker;
+    assert(read(ready[0], &marker, 1) == 1); close(ready[0]);
+    usleep(50000);
+    nanokvm_receiver_unlock(owner); close(owner);
+    int status; assert(waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    owner = nanokvm_receiver_lock(0); assert(owner >= 0);
+    child = fork(); assert(child >= 0);
+    if (child == 0) {
+        close(owner);
+        struct timespec start; assert(clock_gettime(CLOCK_MONOTONIC, &start) == 0);
+        int fd = maintenance_lock();
+        long waited = elapsed_ms(&start);
+        _exit(fd < 0 && errno == EBUSY && waited >= 1800 && waited < 4000 ? 0 : 1);
+    }
+    assert(waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    nanokvm_receiver_unlock(owner); close(owner);
+    puts("PASS production EDID maintenance lock: short owner drains, long owner times out within2s");
+}
 int main(void) {
+    maintenance_waits();
     for (int which = 0; which < 4; ++which) {
         reset(); assert(invoke(which) == 0);
         assert(old_offset == 0x80 && hardware_bank == 0x80 && bank_writes == 1);

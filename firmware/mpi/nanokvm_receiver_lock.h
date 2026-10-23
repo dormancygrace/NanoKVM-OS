@@ -10,6 +10,10 @@
 #include <time.h>
 #include <unistd.h>
 
+/* Control/programming may wait for a short detector or sensor session.
+ * Detector admission itself remains nonblocking. */
+#define NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS 2000U
+
 #ifndef NANOKVM_RECEIVER_LOCK_PATH
 #define NANOKVM_RECEIVER_LOCK_PATH "/run/nanokvm-edid.lock"
 #endif

@@ -676,15 +676,20 @@ static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false)
         receiver_retry_pending.store(true, std::memory_order_relaxed);
         return false;
     }
+    static unsigned failed_polls = 0;
+    static uint64_t observed_generation = 0;
+    if (observed_generation != access.generation) {
+        failed_polls = 0;
+        observed_generation = access.generation;
+    }
     const auto kind = kvmv_cfg.hdmi_version == 1 ? nanokvm::ReceiverKind::UXC :
         kvmv_cfg.hdmi_version == 3 ? nanokvm::ReceiverKind::D : nanokvm::ReceiverKind::C;
     const auto sample = access ? hdmi_receiver.snapshot(kind) :
         nanokvm::ReceiverSnapshot{nanokvm::ReceiverState::IoError, 0, 0, access.error, 0};
-    // Geometry publication can wait for a frame lease. Drop only the device
-    // flock first: an MMF sensor probe may need it while retiring that frame.
-    // The admission lock still prevents maintenance/reset until publication.
+    // Publish records pending geometry without waiting for frame leases.
+    // Release the device first so an MMF probe may proceed independently;
+    // admission still orders this sample's publication before maintenance.
     access.release_device();
-    static unsigned failed_polls = 0;
     if (sample.state == nanokvm::ReceiverState::IoError ||
         sample.state == nanokvm::ReceiverState::Settling) {
         if (failed_polls == 0 || failed_polls == 2)
@@ -2041,7 +2046,7 @@ int kvmv_hdmi_control(uint8_t _en)
     auto control = receiver_access.control();
     if (!control) { errno = ETIMEDOUT; return -1; }
     // A raw EDID client may also own the receiver. Never reset underneath it.
-    nanokvm::ReceiverFileLock ownership;
+    nanokvm::ReceiverFileLock ownership(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
     if (!ownership) return -1;
     if (_en == 0) {
         control.pause();

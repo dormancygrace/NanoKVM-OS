@@ -1892,6 +1892,8 @@
       "passwordKeep": "Déjelo vacío para conservar la contraseña actual.",
       "ipmiPort": "Puerto UDP de IPMI",
       "holdSeconds": "Apagado forzado: mantener pulsado el botón de encendido (s)",
+      "powerLed": "LED de encendido conectado al equipo",
+      "powerLedHint": "Desactivado: el conector del LED de encendido no está cableado, así que Redfish e IPMI no conocen el estado de energía y cada petición pulsa el botón.",
       "holdHint": "Vacío: lo mismo que la pulsación larga del menú de energía (5 s).",
       "save": "Guardar",
       "saved": "Guardado",

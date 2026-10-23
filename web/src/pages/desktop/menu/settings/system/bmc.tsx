@@ -63,6 +63,7 @@ export const BmcSettingsPage = () => {
         ipmiPort: values.ipmiPort ?? status?.ipmiPort ?? 0,
         // Empty: the power menu's long press.
         holdSeconds: values.holdSeconds || 0,
+        powerLedConnected: values.powerLedConnected !== false,
         password: values.password ?? ''
       });
       if (response.code !== 0) throw new Error(response.msg);
@@ -171,6 +172,14 @@ export const BmcSettingsPage = () => {
           </Form.Item>
           <Form.Item name="holdSeconds" label={t('holdSeconds')} extra={t('holdHint')}>
             <InputNumber min={1} max={30} placeholder={t('holdDefault')} />
+          </Form.Item>
+          <Form.Item
+            name="powerLedConnected"
+            label={t('powerLed')}
+            valuePropName="checked"
+            extra={t('powerLedHint')}
+          >
+            <Switch />
           </Form.Item>
         </SettingsSection>
         <Button type="primary" htmlType="submit" loading={busy}>

@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -28,7 +30,9 @@ type Job struct {
 }
 
 const (
-	jobTimeout  = 20 * time.Minute
+	jobTimeout = 20 * time.Minute
+	// maxDNSSleep is the longest DNS wait the settings accept, in seconds.
+	maxDNSSleep = 3600
 	outputLimit = 64 * 1024
 	renewSkip   = 2
 )
@@ -101,6 +105,11 @@ func baseArgs() []string {
 // and acme.sh makes account.conf and the keys 0600 itself.
 func command(ctx context.Context, env []string, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, script(), args...)
+	// acme.sh runs curl, openssl and the DNS hooks: on a timeout the whole
+	// process group goes, or its children would keep Wait from returning.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = 5 * time.Second
 	cmd.Dir = dataDir()
 	cmd.Env = append([]string{
 		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -116,6 +125,9 @@ type step struct {
 	args []string
 	// okCodes are exit codes that end the step without failing the job.
 	okCodes []int
+	// dnsSleep is the DNS wait acme.sh spends in this step without a
+	// --dnssleep argument: a renewal reloads the wait saved at issue.
+	dnsSleep int
 }
 
 // startJob runs the steps in the background, one job at a time, then calls
@@ -154,8 +166,12 @@ func startJob(action string, env, secrets []string, steps []step, after func(j *
 }
 
 func runSteps(job *Job, env, secrets []string, steps []step) *Job {
-	ctx, cancel := context.WithTimeout(context.Background(), jobTimeout)
+	timeout := stepsTimeout(steps)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	// The log holds the last run only: the renewal check runs twice a day,
+	// and appending would grow the file on the SD card forever.
+	removeLog()
 	out := &tailBuffer{}
 	result := *job
 	for _, st := range steps {
@@ -168,7 +184,7 @@ func runSteps(job *Job, env, secrets []string, steps []step) *Job {
 		}
 		result.Error = err.Error()
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			result.Error = "acme.sh did not finish within " + jobTimeout.String()
+			result.Error = "acme.sh did not finish within " + timeout.String()
 		}
 		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 		result.Output = scrub(out.String(), secrets)
@@ -188,7 +204,7 @@ func runStep(ctx context.Context, out *tailBuffer, env []string, st step) (int, 
 	}
 	cmd := command(ctx, env, append(baseArgs(), st.args...)...)
 	cmd.Stdout, cmd.Stderr = out, out
-	err := cmd.Run()
+	err := runGroup(cmd)
 	if err == nil {
 		return 0, nil
 	}
@@ -252,8 +268,40 @@ func runSync(env []string, args ...string) (string, error) {
 	cmd := command(ctx, env, append(baseArgs(), args...)...)
 	out := &tailBuffer{}
 	cmd.Stdout, cmd.Stderr = out, out
-	err := cmd.Run()
+	err := runGroup(cmd)
 	return out.String(), err
+}
+
+// runGroup runs cmd and then ends what is left of its process group, on
+// every outcome: acme.sh can exit (or be killed) while a hook or curl it
+// started still runs, and that must not outlive the job and its lock.
+func runGroup(cmd *exec.Cmd) error {
+	err := cmd.Run()
+	if cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	return err
+}
+
+// stepsTimeout is jobTimeout plus the DNS waits of the steps (up to an hour
+// each), which acme.sh spends sleeping inside a step: an explicit
+// --dnssleep, or the saved wait a renewal reloads.
+func stepsTimeout(steps []step) time.Duration {
+	timeout := jobTimeout
+	for _, st := range steps {
+		wait := st.dnsSleep
+		for i, arg := range st.args {
+			if arg == "--dnssleep" && i+1 < len(st.args) {
+				if seconds, err := strconv.Atoi(st.args[i+1]); err == nil && seconds > wait {
+					wait = seconds
+				}
+			}
+		}
+		if wait > 0 {
+			timeout += time.Duration(min(wait, maxDNSSleep)) * time.Second
+		}
+	}
+	return timeout
 }
 
 // removeLog deletes the acme.sh log, which can hold a lot after many runs.

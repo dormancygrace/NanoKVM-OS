@@ -1,6 +1,7 @@
 #include "hdmi_receiver.hpp"
 #include "geometry_gate.hpp"
 #include <atomic>
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <future>
@@ -14,7 +15,7 @@ using nanokvm::ReceiverState;
 struct Bus {
     unsigned calls = 0, fail_at = 0, second_fail_at = 0, cleanup_attempts = 0;
     int final_status = -1;
-    unsigned change_on_read = 0, change_on_match = 1, matched_reads = 0;
+    unsigned change_on_read = 0, change_on_match = 1, matched_reads = 0, change_mask = 1;
     std::vector<unsigned> writes;
     bool expected_combined = false, forbid_writes = false;
     std::vector<unsigned> reads;
@@ -44,7 +45,7 @@ struct Bus {
         if (fail()) return false;
         for (size_t i = 0; i < n; ++i) p[i] = registers[(page << 8) | (reg + i)];
         if (((unsigned(page) << 8) | reg) == change_on_read &&
-            ++matched_reads >= change_on_match) p[0] ^= 1;
+            ++matched_reads >= change_on_match) p[0] ^= change_mask;
         if (page == 0x86 && reg == 0xa3 && n == 1 && final_status >= 0) p[0] = final_status;
         return true;
     }
@@ -67,6 +68,8 @@ struct Bus {
             io.registers[0x8752] = 0x8c;
         } else if (kind == ReceiverKind::C) {
             io.pair(0xa000, 0x1605);
+            io.registers[0xb8b0] = 0x41;
+            io.registers[0xc201] = 0x28; io.registers[0xc256] = 0x28;
             io.pair(0xd28b, 960); io.pair(0xd296, 1080);
             io.pair(0xc238, 1920); io.pair(0xc206, 1080);
             io.pair(0xd289, 1100); io.pair(0xd29e, 1125);
@@ -82,6 +85,10 @@ struct Bus {
             io.registers[0xe082] = 0x13; io.registers[0xe083] = 1;
             io.registers[0xe084] = 1; io.registers[0xe095] = 4;
             io.registers[0xe096] = 7; io.registers[0xe0b0] = 1;
+            io.registers[0xe085] = 2; io.registers[0xe086] = 0x44; io.registers[0xe087] = 0x28;
+            io.pair(0xe098, 22); io.pair(0xe09a, 44); io.pair(0xe09c, 74);
+            io.pair(0xe09e, 5); io.pair(0xe0a1, 4); io.pair(0xe0a3, 36);
+            io.registers[0xe0a5] = 1; io.registers[0xe0a6] = 0;
             io.registers[0xe092] = 1; io.registers[0xe093] = 2; io.registers[0xe094] = 3;
         }
         return io;
@@ -497,7 +504,7 @@ static void cd_diagnostics() {
                 scaled.csi_width == 1280 && scaled.csi_height == 720);
         } else {
             assert(good.lanes == 4 && good.color == 7 && good.byte_clock_raw == 0x010203);
-            assert(!good.csi_width && !good.hsync);
+            assert(!good.csi_width && good.hsync == 44 && good.tx_timing_available);
             assert(text.find("HDMI_CSI_independent=unavailable") != std::string::npos);
             for (unsigned event : {0U, 2U, 3U, 255U}) {
                 io.registers[0xe084] = event; // event is not cable status
@@ -515,6 +522,8 @@ static void cd_diagnostics() {
             auto failed = probe.diagnostics(kind);
             assert(failed.state == DiagnosticState::IoError && failed.error == ENXIO);
             assert(!failed.width && !failed.firmware_size && !failed.csi_width);
+            assert(!failed.tx_timing_available && !failed.tx_clock_raw && !failed.c_status_available);
+            assert(!failed.rx_status_raw && !failed.lane_config_raw[0] && !failed.lane_config_raw[1]);
             if (kind == ReceiverKind::C) assert(broken.cleanup_attempts);
             else assert(broken.cleanup_attempts == 0 && broken.writes.empty());
         }
@@ -583,6 +592,119 @@ static void cd_diagnostics() {
     }
     kvmv_cfg.hdmi_version = 1;
     puts("PASS C/D: separate hardware ID/firmware, raw unknown firmware, checked timings/lanes, no stream writes, every IO/cleanup fault and optional telemetry isolation");
+}
+
+static void firmware_diagnostics() {
+    using nanokvm::DiagnosticState;
+    // The reversed C routine and machine dump disagree on bit 6's polarity.
+    // Report masks/bytes without inventing a PLL-lock predicate or lane count.
+    for (unsigned status : {0U, 1U, 0x40U, 0x41U, 0xffU}) {
+        auto io = Bus::fixture(ReceiverKind::C);
+        io.registers[0xb8b0] = status;
+        nanokvm::HdmiReceiver<Bus> receiver(io);
+        const auto d = receiver.diagnostics(ReceiverKind::C);
+        assert(d.state == DiagnosticState::Ready && d.rx_status_raw == status);
+        assert(d.c_status_available == (status != 0xff));
+        assert(d.lane_config_raw[0] == 0x28 && d.lane_config_raw[1] == 0x28 && !d.lanes);
+        const auto text = nanokvm::format_receiver_diagnostics(d);
+        assert(text.find("pll_locked") == std::string::npos);
+        assert(text.find("lanes=unavailable") != std::string::npos);
+        assert(text.find("lane_config_raw=0x28/0x28") != std::string::npos);
+        if (status == 0xff) {
+            assert(text.find("clock_detect_bit0=unavailable") != std::string::npos);
+            assert(text.find("pll_status_bit6=unavailable") != std::string::npos);
+        } else {
+            assert(text.find(std::string("clock_detect_bit0=") + (status & 1 ? "1" : "0")) != std::string::npos);
+            assert(text.find(std::string("pll_status_bit6=") + (status & 0x40 ? "1" : "0")) != std::string::npos);
+        }
+        // Apart from the pre-existing enable/measure/cleanup, reads add no
+        // PLL training, TX configuration, flash or reset commands.
+        for (auto wr : io.writes)
+            assert(wr == 0x80ee01 || wr == 0x80ee00 || wr == 0xd28311);
+    }
+    for (unsigned change : {1U, 0x40U}) {
+        auto io = Bus::fixture(ReceiverKind::C);
+        io.change_on_read = 0xb8b0; io.change_on_match = 2;
+        io.change_mask = change;
+        nanokvm::HdmiReceiver<Bus> receiver(io);
+        assert(receiver.diagnostics(ReceiverKind::C).state == DiagnosticState::Invalid);
+    }
+    auto io = Bus::fixture(ReceiverKind::D); io.forbid_writes = true;
+    nanokvm::HdmiReceiver<Bus> receiver(io);
+    const auto d = receiver.diagnostics(ReceiverKind::D);
+    assert(d.state == DiagnosticState::Ready && d.tx_timing_available);
+    assert(d.firmware_raw[0] == 0x25 && d.tx_clock_raw == 0x024428);
+    assert(d.hsync == 44 && d.hfront == 88 && d.hback == 148);
+    assert(d.vsync == 5 && d.vfront == 4 && d.vback == 36);
+    assert(d.hpol_raw == 1 && d.vpol_raw == 0 && !d.csi_width);
+    const auto text = nanokvm::format_receiver_diagnostics(d);
+    assert(text.find("timing_profile=esp-25051301") != std::string::npos);
+    assert(text.find("MIPI_TX_H(sync/front/back)=44/88/148") != std::string::npos);
+    assert(text.find("MIPI_TX_V(sync/front/back)=5/4/36") != std::string::npos);
+    assert(text.find("clock_units=unavailable") != std::string::npos);
+    assert(text.find("MHz") == std::string::npos && io.writes.empty());
+    assert(std::find(io.reads.begin(), io.reads.end(), 0xe0a0) == io.reads.end());
+
+    for (unsigned byte = 0; byte < 4; ++byte) {
+        auto unknown = Bus::fixture(ReceiverKind::D); unknown.forbid_writes = true;
+        unknown.registers[0xe080 + byte] ^= 1;
+        unknown.registers[0xe096] = 0x0a;
+        nanokvm::HdmiReceiver<Bus> fallback(unknown);
+        const auto raw = fallback.diagnostics(ReceiverKind::D);
+        assert(raw.state == DiagnosticState::Ready && !raw.tx_timing_available && !raw.hsync);
+        assert(raw.width == 1920 && raw.htotal == 2200); // unchanged baseline scale
+        assert(nanokvm::format_receiver_diagnostics(raw).find("sync_porches=unavailable") != std::string::npos);
+        for (auto reg : unknown.reads)
+            assert(!(reg >= 0xe098 && reg <= 0xe0a6) && !(reg >= 0xe085 && reg <= 0xe087));
+    }
+
+    auto yuv420 = Bus::fixture(ReceiverKind::D); yuv420.forbid_writes = true;
+    yuv420.registers[0xe096] = 0x0a;
+    yuv420.pair(0xe088, 2200); yuv420.pair(0xe08c, 1920);
+    yuv420.pair(0xe098, 44); yuv420.pair(0xe09a, 88); yuv420.pair(0xe09c, 148);
+    nanokvm::HdmiReceiver<Bus> full_units(yuv420);
+    const auto full = full_units.diagnostics(ReceiverKind::D);
+    assert(full.state == DiagnosticState::Ready && full.width == 1920 && full.htotal == 2200);
+    assert(full.hsync == 44 && full.hfront == 88 && full.hback == 148);
+    // Added diagnostic decoding cannot change the existing capture path.
+    assert(full_units.snapshot(ReceiverKind::D).width == 3840);
+    for (unsigned reg : {0xe098, 0xe09a, 0xe09c, 0xe09e, 0xe0a1, 0xe0a3}) {
+        for (unsigned value : {0U, unsigned(UINT16_MAX)}) {
+            auto invalid = Bus::fixture(ReceiverKind::D); invalid.pair(reg, value);
+            nanokvm::HdmiReceiver<Bus> probe(invalid);
+            assert(probe.diagnostics(ReceiverKind::D).state == DiagnosticState::Invalid);
+        }
+    }
+    for (unsigned reg : {0xe080, 0xe084, 0xe088, 0xe095, 0xe096, 0xe098, 0xe09e, 0xe0a1, 0xe0a5, 0xe0a6, 0xe0b0}) {
+        auto changing = Bus::fixture(ReceiverKind::D);
+        changing.forbid_writes = true;
+        changing.change_on_read = reg; changing.change_on_match = 2;
+        nanokvm::HdmiReceiver<Bus> probe(changing);
+        assert(probe.diagnostics(ReceiverKind::D).state == DiagnosticState::Invalid);
+    }
+    for (unsigned reg : {0xe085, 0xe086, 0xe087, 0xe092, 0xe093, 0xe094}) {
+        auto jitter = Bus::fixture(ReceiverKind::D);
+        jitter.forbid_writes = true; jitter.change_on_read = reg; jitter.change_on_match = 2;
+        nanokvm::HdmiReceiver<Bus> probe(jitter);
+        assert(probe.diagnostics(ReceiverKind::D).state == DiagnosticState::Ready);
+    }
+    for (auto kind : {ReceiverKind::C, ReceiverKind::D}) {
+        auto count_io = Bus::fixture(kind);
+        nanokvm::HdmiReceiver<Bus> count(count_io);
+        assert(count.diagnostics(kind).state == DiagnosticState::Ready);
+        auto sample_io = Bus::fixture(kind);
+        nanokvm::HdmiReceiver<Bus> sample_count(sample_io);
+        assert(sample_count.snapshot(kind).state == ReceiverState::Ready);
+        kvmv_cfg.hdmi_version = kind == ReceiverKind::C ? 0 : 3;
+        LT6911_i2c = Bus::fixture(kind);
+        // Fail near the end of the enlarged optional sample, not its ID.
+        LT6911_i2c.fail_at = sample_io.calls + count_io.calls - 1;
+        receiver_diagnostics_pending = true;
+        const auto before = publications;
+        assert(!poll_hdmi_receiver(false) && signal_active && publications == before + 1);
+    }
+    kvmv_cfg.hdmi_version = 1;
+    puts("PASS firmware diagnostics: C raw status/config without guessed lock polarity; D revision-gated MIPI TX timing, YUV420 units, coherence, read-only unknown fallback");
 }
 
 static void model_windows() {
@@ -691,4 +813,4 @@ static void exclusive_d_identity() {
     puts("PASS exclusive D probe: hardware ID cached per reset generation; each ID/cleanup fault aborts and is not retried or followed by telemetry");
 }
 
-int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); model_windows(); d_read_only_production(); exclusive_d_identity(); }
+int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); firmware_diagnostics(); model_windows(); d_read_only_production(); exclusive_d_identity(); }

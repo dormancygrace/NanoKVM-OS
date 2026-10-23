@@ -13,7 +13,9 @@ struct ReceiverDiagnostics {
     uint16_t chip_id = 0;
     bool identity_checked = false;
     uint8_t firmware_raw[5]{}, firmware_size = 0, stream = 0;
-    uint32_t byte_clock_raw = 0;
+    uint32_t byte_clock_raw = 0, tx_clock_raw = 0;
+    uint8_t rx_status_raw = 0, lane_config_raw[2]{}, hpol_raw = 0, vpol_raw = 0;
+    bool c_status_available = false, tx_timing_available = false;
     uint32_t firmware = 0, tmds_raw = 0;
     uint32_t width = 0, height = 0, htotal = 0, vtotal = 0;
     uint32_t hsync = 0, hfront = 0, hback = 0, vsync = 0, vfront = 0, vback = 0;
@@ -57,7 +59,7 @@ inline ReceiverDiagnostics decode_uxc_diagnostics(const uint8_t identity[9],
     return d;
 }
 /* Rockchip C's D2 measurement registers use half-pixel horizontal units.
- * Firmware and CSI data are separate reads; C's lane/clock map is not inferred. */
+ * Firmware and CSI data are separate reads; lane count and clock units are not inferred. */
 inline ReceiverDiagnostics decode_c_diagnostics(const uint8_t timing[26],
     const uint8_t firmware[5], uint16_t csi_width, uint16_t csi_height)
 {
@@ -83,10 +85,19 @@ inline ReceiverDiagnostics decode_c_diagnostics(const uint8_t timing[26],
         d.state = DiagnosticState::Ready;
     return d;
 }
+/* This revision's producer is verified in the Espressif MCU image, not merely
+ * guessed from the silicon ID. Unknown revisions keep the baseline map. */
+inline bool d_has_25051301_layout(const uint8_t firmware[4])
+{
+    return firmware[0] == 0x25 && firmware[1] == 0x05 &&
+        firmware[2] == 0x13 && firmware[3] == 0x01;
+}
 /* D firmware telemetry from E080..E096 (Espressif). This map does not expose
- * independently verified HDMI/CSI geometries or sync/porch lengths. E084 is
- * an event type, not a live cable-presence bit; byte clock stays raw. */
-inline ReceiverDiagnostics decode_d_diagnostics(const uint8_t data[23], uint8_t stream)
+ * independently verified HDMI/CSI geometries. Only 25.05.13.01's additional
+ * MIPI TX sync/porch fields are confirmed by its producer. E084 is an event
+ * type, not a live cable-presence bit; clock units stay raw. */
+inline ReceiverDiagnostics decode_d_diagnostics(const uint8_t data[23], uint8_t stream,
+    const uint8_t *tx = nullptr)
 {
     ReceiverDiagnostics d;
     d.model = ReceiverKind::D;
@@ -94,18 +105,37 @@ inline ReceiverDiagnostics decode_d_diagnostics(const uint8_t data[23], uint8_t 
     d.firmware_size = 4;
     for (unsigned i = 0; i < 4; ++i) d.firmware_raw[i] = data[i];
     auto pair = [&](unsigned i) { return (uint32_t(data[i]) << 8) | data[i + 1]; };
-    d.htotal = pair(8) * 2; d.vtotal = pair(10);
-    d.width = pair(12) * 2; d.height = pair(14);
+    // Producer 0x3452 copies full horizontal values for format 0x0a (YUV420
+    // 8-bit); its other branch halves them. This is diagnostic scaling only.
+    const unsigned scale = d_has_25051301_layout(data) && data[22] == 0x0a ? 1 : 2;
+    d.htotal = pair(8) * scale; d.vtotal = pair(10);
+    d.width = pair(12) * scale; d.height = pair(14);
     d.lanes = data[21] & 0x0f; d.color = data[22]; d.status = data[4];
     d.stream = stream;
     d.byte_clock_raw = (uint32_t(data[18]) << 16) | (uint32_t(data[19]) << 8) | data[20];
     if (pair(8) != UINT16_MAX && pair(10) != UINT16_MAX &&
-        pair(12) && pair(12) <= UINT16_MAX / 2 &&
+        pair(12) && pair(12) != UINT16_MAX && pair(12) <= UINT16_MAX / scale &&
         pair(14) && pair(14) != UINT16_MAX &&
         d.htotal > d.width && d.vtotal > d.height &&
         (d.lanes == 1 || d.lanes == 2 || d.lanes == 4 || d.lanes == 8) &&
         d.color <= 0x0c && stream == 1)
         d.state = DiagnosticState::Ready;
+    if (d_has_25051301_layout(data) && tx) {
+        // MCU 0x33ed..0x35ff, labelled MIPI TX by its own debug strings.
+        // No claim that these are independently measured HDMI timings.
+        d.tx_timing_available = true;
+        d.tx_clock_raw = (uint32_t(tx[0]) << 16) | (uint32_t(tx[1]) << 8) | tx[2];
+        auto word = [&](unsigned i) { return (uint32_t(tx[i]) << 8) | tx[i + 1]; };
+        d.hsync = word(3) * scale; d.hfront = word(5) * scale; d.hback = word(7) * scale;
+        d.vsync = word(9); d.vfront = word(11); d.vback = word(13);
+        d.hpol_raw = tx[15]; d.vpol_raw = tx[16];
+        bool invalid_word = false;
+        for (unsigned i : {3U, 5U, 7U, 9U, 11U, 13U})
+            invalid_word |= word(i) == UINT16_MAX;
+        if (invalid_word || d.htotal != d.width + d.hsync + d.hfront + d.hback ||
+            d.vtotal != d.height + d.vsync + d.vfront + d.vback)
+            d.state = DiagnosticState::Invalid;
+    }
     return d;
 }
 inline std::string format_firmware_raw(const ReceiverDiagnostics &d)
@@ -125,7 +155,7 @@ inline std::string format_firmware_raw(const ReceiverDiagnostics &d)
 }
 inline std::string format_receiver_diagnostics(const ReceiverDiagnostics &d)
 {
-    char text[640];
+    char text[768];
     if (d.state == DiagnosticState::Unsupported)
         return "[hdmi] diagnostics unavailable: receiver model unknown";
     if (d.state == DiagnosticState::IoError) {
@@ -139,11 +169,16 @@ inline std::string format_receiver_diagnostics(const ReceiverDiagnostics &d)
         snprintf(text, sizeof(text),
             "[hdmi] diagnostics %s model=%s chip_id=0x%04x fw_raw=%s lanes=unavailable "
             "HDMI=%ux%u total=%ux%u H(sync/front/back)=%u/%u/%u "
-            "V(sync/front/back)=%u/%u/%u CSI=%ux%u clock=unavailable",
+            "V(sync/front/back)=%u/%u/%u CSI=%ux%u clock=unavailable "
+            "rx_status_raw=0x%02x clock_detect_bit0=%s pll_status_bit6=%s "
+            "lane_config_raw=0x%02x/0x%02x",
             d.state == DiagnosticState::Ready ? "ready" : "invalid/incoherent",
             receiver_name(d.model), d.chip_id, format_firmware_raw(d).c_str(),
             d.width, d.height, d.htotal, d.vtotal, d.hsync, d.hfront, d.hback,
-            d.vsync, d.vfront, d.vback, d.csi_width, d.csi_height);
+            d.vsync, d.vfront, d.vback, d.csi_width, d.csi_height, d.rx_status_raw,
+            !d.c_status_available ? "unavailable" : d.rx_status_raw & 1 ? "1" : "0",
+            !d.c_status_available ? "unavailable" : d.rx_status_raw & 0x40 ? "1" : "0",
+            d.lane_config_raw[0], d.lane_config_raw[1]);
     } else if (d.model == ReceiverKind::D) {
         char chip[24] = "exclusive-probe-only";
         if (d.identity_checked) snprintf(chip, sizeof(chip), "0x%04x", d.chip_id);
@@ -151,11 +186,21 @@ inline std::string format_receiver_diagnostics(const ReceiverDiagnostics &d)
             "[hdmi] diagnostics %s board_model=%s chip_id=%s fw_raw=%s lanes=%u "
             "active=%ux%u total=%ux%u event_raw=0x%02x format_raw=0x%02x "
             "stream_raw=0x%02x byte_clock_raw=0x%06x HDMI_CSI_independent=unavailable "
-            "sync_porches=unavailable",
+            "%s",
             d.state == DiagnosticState::Ready ? "ready" : "invalid/incoherent",
             receiver_name(d.model), chip, format_firmware_raw(d).c_str(),
             d.lanes, d.width, d.height, d.htotal, d.vtotal, d.status, d.color,
-            d.stream, d.byte_clock_raw);
+            d.stream, d.byte_clock_raw,
+            d.tx_timing_available ? "timing_profile=esp-25051301" : "sync_porches=unavailable");
+        if (d.tx_timing_available) {
+            char tx[256];
+            snprintf(tx, sizeof(tx),
+                " MIPI_TX_H(sync/front/back)=%u/%u/%u MIPI_TX_V(sync/front/back)=%u/%u/%u "
+                "polarity_raw=0x%02x/0x%02x tx_clock_raw=0x%06x clock_units=unavailable",
+                d.hsync, d.hfront, d.hback, d.vsync, d.vfront, d.vback,
+                d.hpol_raw, d.vpol_raw, d.tx_clock_raw);
+            return std::string(text) + tx;
+        }
     } else {
         snprintf(text, sizeof(text),
             "[hdmi] diagnostics %s fw=0x%08x lanes=%u status=0x%02x "

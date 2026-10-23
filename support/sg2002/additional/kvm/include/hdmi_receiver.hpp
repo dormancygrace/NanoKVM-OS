@@ -5,6 +5,8 @@
 #include <mutex>
 #include <string>
 #include <utility>
+#include "hdmi_diagnostics.hpp"
+#include "../../../../../firmware/mpi/nanokvm_receiver_timing.h"
 #include "../../../../../firmware/mpi/nanokvm_receiver_lock.h"
 
 namespace nanokvm {
@@ -35,9 +37,13 @@ class ReceiverAccess {
     std::timed_mutex mutex_;
     bool paused_ = false;
     uint64_t generation_ = 0;
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point ready_at_{};
+    Clock::time_point (*now_)();
     std::string path_;
 public:
-    explicit ReceiverAccess(const char *path = NANOKVM_RECEIVER_LOCK_PATH) : path_(path) {}
+    explicit ReceiverAccess(const char *path = NANOKVM_RECEIVER_LOCK_PATH,
+        Clock::time_point (*now)() = Clock::now) : now_(now), path_(path) {}
     class Read {
         std::unique_lock<std::timed_mutex> lock_;
         int fd_;
@@ -61,13 +67,18 @@ public:
         std::unique_lock<std::timed_mutex> lock_;
         bool *paused_;
         uint64_t *generation_;
+        Clock::time_point *ready_at_;
+        Clock::time_point (*now_)();
     public:
-        Control(std::unique_lock<std::timed_mutex> lock, bool *paused, uint64_t *generation)
-            : lock_(std::move(lock)), paused_(paused), generation_(generation) {}
+        Control(std::unique_lock<std::timed_mutex> lock, bool *paused, uint64_t *generation,
+            Clock::time_point *ready_at, Clock::time_point (*now)())
+            : lock_(std::move(lock)), paused_(paused), generation_(generation),
+              ready_at_(ready_at), now_(now) {}
         explicit operator bool() const { return lock_.owns_lock(); }
         void pause() { *paused_ = true; }
-        void resume() {
+        void resume(std::chrono::milliseconds settle = std::chrono::milliseconds(0)) {
             ++*generation_; // a fresh attempt even if no poll observed the pause
+            *ready_at_ = now_() + settle;
             *paused_ = false;
         }
     };
@@ -75,6 +86,10 @@ public:
         std::unique_lock<std::timed_mutex> lock(mutex_, std::try_to_lock);
         if (!lock.owns_lock()) return Read(std::move(lock), -1, ReceiverState::Busy, 0, 0);
         if (paused_) return Read(std::move(lock), -1, ReceiverState::Paused, 0, generation_);
+        // No device ownership or I2C before the post-reset deadline. A planned
+        // holdoff is not an unsuccessful poll and must not consume IO retries.
+        if (now_() < ready_at_)
+            return Read(std::move(lock), -1, ReceiverState::Settling, 0, generation_);
         int fd = nanokvm_receiver_lock_at(path_.c_str(), 0);
         int err = fd < 0 ? errno : 0;
         return Read(std::move(lock), fd, fd >= 0 ? ReceiverState::Ready :
@@ -83,37 +98,25 @@ public:
     Control control(std::chrono::milliseconds timeout = std::chrono::milliseconds(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS)) {
         std::unique_lock<std::timed_mutex> lock(mutex_, std::defer_lock);
         (void)lock.try_lock_for(timeout); // Control exposes owns_lock().
-        return Control(std::move(lock), &paused_, &generation_);
+        return Control(std::move(lock), &paused_, &generation_, &ready_at_, now_);
     }
 };
 
-/* Transport is the existing write/read API, so no controller or repeated-START
- * behavior changes here. Every sample, including cleanup, is one session. */
+/* UXC register operations use combined bank/pointer/data transfers.
+ * Session admission still covers enable, the complete sample and cleanup. */
 template<class Transport> class HdmiReceiver {
     Transport &io_;
-    int bank_ = -1;
+    bool combined_ = false;
     int error_ = 0;
     static constexpr int address = 0x2b;
-    bool failed() { error_ = errno ? errno : EIO; bank_ = -1; return false; }
-    bool write(const uint8_t *bytes, size_t count) {
-        errno = 0;
-        return io_.writeto(address, bytes, count) || failed();
-    }
-    bool bank(uint8_t value) {
-        if (bank_ == value) return true;
-        const uint8_t data[] = {0xff, value};
-        if (!write(data, sizeof(data))) return false;
-        bank_ = value;
-        return true;
-    }
+    bool failed() { error_ = errno ? errno : EIO; return false; }
     bool write8(uint8_t page, uint8_t reg, uint8_t value) {
-        const uint8_t data[] = {reg, value};
-        return bank(page) && write(data, sizeof(data));
+        errno = 0;
+        return io_.write_register(address, page, reg, &value, 1, combined_) || failed();
     }
     bool read(uint8_t page, uint8_t reg, uint8_t *bytes, size_t count) {
-        if (!bank(page) || !write(&reg, 1)) return false;
         errno = 0;
-        return io_.readfrom(address, bytes, count) || failed();
+        return io_.read_register(address, page, reg, bytes, count, combined_) || failed();
     }
     bool read16(uint8_t page, uint8_t reg, uint16_t &value) {
         uint8_t bytes[2];
@@ -162,8 +165,33 @@ template<class Transport> class HdmiReceiver {
     }
 public:
     explicit HdmiReceiver(Transport &io) : io_(io) {}
+    ReceiverDiagnostics diagnostics(ReceiverKind kind) {
+        ReceiverDiagnostics result;
+        if (kind != ReceiverKind::UXC) return result; // no verified C/D map
+        combined_ = true; // diagnostics has a verified UXC-only register map
+        error_ = 0;
+        uint8_t identity[9]{}, timing[18]{}, clock[3]{}, version = 0, color = 0, status = 0;
+        uint16_t csi_width = 0, csi_height = 0;
+        bool ok = write8(0x80, 0xee, 1) && write8(0x80, 0x10, 0) &&
+            read(0x86, 0xa2, identity, sizeof(identity)) &&
+            read(0x86, 0x70, timing, sizeof(timing)) &&
+            read(0x87, 0x50, clock, sizeof(clock)) &&
+            read(0xb0, 0xa2, &version, 1) && read(0xb0, 0x92, &color, 1) &&
+            read16(0x85, 0xea, csi_width) && read16(0x85, 0xf0, csi_height) &&
+            read(0x86, 0xa3, &status, 1);
+        const int primary = error_;
+        if (!write8(0x80, 0xee, 0)) result.cleanup_error = error_;
+        if (!ok || result.cleanup_error) {
+            result.state = DiagnosticState::IoError;
+            result.error = primary ? primary : result.cleanup_error;
+            return result;
+        }
+        return decode_uxc_diagnostics(identity, timing, clock, version, color,
+            status, csi_width, csi_height);
+    }
     ReceiverSnapshot snapshot(ReceiverKind kind) {
-        bank_ = -1; error_ = 0;
+        combined_ = kind == ReceiverKind::UXC;
+        error_ = 0;
         ReceiverSnapshot result;
         const bool external_control = kind != ReceiverKind::D;
         const bool enabled = !external_control || (write8(0x80, 0xee, 1) &&

@@ -1,5 +1,7 @@
 import { http } from '@/lib/http.ts';
 
+import { SLOW_CALL_TIMEOUT } from './timeouts.ts';
+
 // Install downloads the acme.sh release from GitHub over whatever uplink the
 // device has; the call lasts as long as the download.
 const DOWNLOAD_TIMEOUT = 5 * 60 * 1000;
@@ -22,7 +24,7 @@ export function checkUpdate() {
 }
 
 export function uninstall() {
-  return http.post('/api/extensions/acme/uninstall');
+  return http.post('/api/extensions/acme/uninstall', undefined, { timeout: SLOW_CALL_TIMEOUT });
 }
 
 type IssueRequest = {

@@ -11,7 +11,12 @@ repo = Path(__file__).resolve().parents[1]
 source = (repo / 'firmware/alpine/recovery/init').read_text()
 functions = source[source.index('verify_sha256() {'):source.index('mount_payloads() {')]
 functions += source[source.index('validate_settings() {'):source.index('validate_root() {')]
-assert source.index('\nvalidate_settings\n') < source.index('\nmkfs.f2fs ')
+# Preserved and recorded before the format, or resumed from the record.
+main = source[source.index('\nmount_initial_filesystems\n'):]
+assert main.index('\tvalidate_settings\n\tmark_formatting\n') < main.index('\nmkfs.f2fs ')
+assert main.index('if [ -f "$FORMAT_MARKER" ]') < main.index('backup_settings') < main.index('\nmkfs.f2fs ')
+# The record goes only after boot.sd is the new image.
+assert main.index('boot.sd || fail') < main.index('rm -f "/realroot$FORMAT_MARKER"')
 busybox = shutil.which('busybox')
 assert busybox, 'BusyBox is required'
 
@@ -138,3 +143,60 @@ with tempfile.TemporaryDirectory(prefix='recovery-keygen-') as tmp:
     (t / 'bin/ssh-keygen').write_text('#!/bin/sh\nexit 99\n')
     subprocess.run(['sh', '-c', script.replace('\nstart\n', '\nrc_service() { exit 99; }; start\n')], env=env, check=True)
 print('PASS: unique first-start host keys, preserved existing identity and disabled SSH')
+
+
+def check_resume(name, case):
+    """A run after a power cut during the format takes the recorded settings."""
+    with tempfile.TemporaryDirectory(prefix='recovery-resume-') as tmp:
+        t = Path(tmp)
+        old = t / 'old'
+        (old / 'etc/kvm').mkdir(parents=True)
+        (old / 'etc/kvm/server.yaml').write_text('user settings\n')
+        root = t / 'realroot'
+        (root / 'etc').mkdir(parents=True)
+        (root / 'etc/shadow').write_text('root:IMAGE:1::::::\nnobody:!:1::::::\n')
+        archive = t / 'settings.tar'
+        marker = t / 'recovery-formatting'
+        shadow = t / "data-root-shadow.saved"
+        subprocess.run([busybox, 'tar', '--numeric-owner', '-cf', str(archive), '-C', str(old), 'etc/kvm'], check=True)
+        func = functions.replace('/busybox', shlex.quote(busybox))
+        for path in ('/realroot', '/root-shadow.saved', '/settings-check', '/settings.paths', '/settings.sha256'):
+            func = func.replace(path, str(t) + path)
+        setup = (f"SETTINGS_BACKUP='{archive}'\nFORMAT_MARKER='{marker}'\nSHADOW_SAVED='{shadow}'\n")
+        # The interrupted run: validated and recorded (mark_formatting's content).
+        first = subprocess.run(['sh', '-c', 'set -eu\nfail() { echo "$*" >&2; exit 17; }\n' + func + setup +
+                                'validate_settings\nprintf "%s\\n" "${SETTINGS_SHA256:-none}"'],
+                               text=True, capture_output=True, check=True)
+        marker.write_text(first.stdout)
+        shadow.write_text('root:SAVED:1::::::\n')
+        if case == 'changed':
+            archive.write_bytes(archive.read_bytes() + b'x')
+        elif case == 'missing-archive':
+            archive.unlink()
+        elif case == 'missing-shadow':
+            shadow.unlink()
+        elif case in ('none', 'none-but-archive'):
+            marker.write_text('none\n')
+            if case == 'none':
+                archive.unlink()
+        script = ('set -eu\nfail() { echo "$*" >&2; exit 17; }\n' + func + setup +
+                  'resume_settings\nrestore_settings\n')
+        result = subprocess.run(['sh', '-c', script], text=True, capture_output=True, timeout=20)
+        if case in ('ok', 'none'):
+            assert result.returncode == 0, (name, result)
+            assert (root / 'etc/shadow').read_text().splitlines()[0] == 'root:SAVED:1::::::', name
+            if case == 'ok':
+                assert (root / 'etc/kvm/server.yaml').read_text() == 'user settings\n', name
+            print('PASS:', name)
+        else:
+            assert result.returncode == 17, (name, result)
+            assert (root / 'etc/shadow').read_text().startswith('root:IMAGE'), name
+            print('PASS:', name, '(refused)')
+
+
+check_resume('resume restores the recorded settings and password', 'ok')
+check_resume('resume without preserved settings', 'none')
+check_resume('resume refuses a changed archive', 'changed')
+check_resume('resume refuses a missing archive', 'missing-archive')
+check_resume('resume refuses a missing password record', 'missing-shadow')
+check_resume('resume refuses an archive that appeared later', 'none-but-archive')

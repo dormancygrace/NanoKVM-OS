@@ -6,6 +6,13 @@
 export PATH=/
 ROOTFS_SHA256="@ROOTFS_SHA256@"
 BOOT_SHA256="@BOOT_SHA256@"
+UPDATE_DIR=/data/nanokvm-update
+SETTINGS_BACKUP=$UPDATE_DIR/etc-kvm-backup.tar
+# Written before p2 is formatted, removed once boot.sd is the new image: a
+# run that finds it resumes a recovery a power cut interrupted. The old root
+# is gone or half written then, and must not be preserved again.
+FORMAT_MARKER=$UPDATE_DIR/recovery-formatting
+SHADOW_SAVED=$UPDATE_DIR/root-shadow.saved
 
 fail() {
 	echo "Alpine recovery stopped: $*" >&2
@@ -90,7 +97,6 @@ backup_settings() {
 	umount /data || fail "cannot remount data for settings backup"
 	mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /data ||
 		fail "cannot mount exFAT data read-write for settings backup"
-	SETTINGS_BACKUP=/data/nanokvm-update/etc-kvm-backup.tar
 	/busybox rm -f "$SETTINGS_BACKUP" || fail "cannot remove old settings backup"
 	PRESERVE_PATHS=
 	for path in kvmapp/kvm etc/kvm etc/ssh etc/hosts root/.ssh etc/localtime etc/timezone etc/chrony.conf etc/hostname etc/wireguard var/lib/tailscale root/.picoclaw; do
@@ -143,6 +149,50 @@ validate_settings() {
 	SETTINGS_SHA256=$(/busybox sha256sum "$SETTINGS_BACKUP") || fail "cannot hash settings archive"
 	SETTINGS_SHA256=${SETTINGS_SHA256%% *}
 	/busybox rm -rf /settings-check || fail "cannot release settings validation tree"
+}
+
+data_writable() {
+	umount /data || fail "cannot remount data"
+	mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /data ||
+		fail "cannot mount exFAT data read-write"
+}
+
+data_read_only() {
+	sync
+	umount /data || fail "cannot release data"
+	mount -t exfat -o ro /dev/mmcblk0p3 /data ||
+		fail "cannot remount exFAT data read-only"
+}
+
+# What survives the format, recorded beside the archive: its hash ("none"
+# without one) and the root password entry, which otherwise lives only in
+# this initramfs.
+mark_formatting() {
+	data_writable
+	/busybox cp /root-shadow.saved "$SHADOW_SAVED" ||
+		fail "cannot save the root password for a resumed recovery"
+	if ! printf '%s\n' "${SETTINGS_SHA256:-none}" > "$FORMAT_MARKER.tmp" ||
+		! /busybox mv -f "$FORMAT_MARKER.tmp" "$FORMAT_MARKER"; then
+		fail "cannot record the preserved settings"
+	fi
+	data_read_only
+}
+
+# A resumed run takes the settings preserved by the interrupted one, and
+# only if the archive is still the one recorded.
+resume_settings() {
+	expected=$(/busybox cat "$FORMAT_MARKER") || fail "cannot read the recovery marker"
+	umask 077
+	/busybox cp "$SHADOW_SAVED" /root-shadow.saved ||
+		fail "cannot read the root password saved before formatting"
+	if [ "$expected" = none ]; then
+		[ ! -e "$SETTINGS_BACKUP" ] || fail "a settings archive appeared after formatting began"
+		return 0
+	fi
+	[ -f "$SETTINGS_BACKUP" ] || fail "the settings archive saved before formatting is missing"
+	validate_settings
+	[ "$SETTINGS_SHA256" = "$expected" ] ||
+		fail "the settings archive changed after formatting began"
 }
 
 restore_settings() {
@@ -204,8 +254,14 @@ validate_layout
 mount_payloads
 verify_sha256 "$ROOTFS_SHA256" "$ROOTFS_TAR" alpine-rootfs.tar.gz
 verify_sha256 "$BOOT_SHA256" "$BOOT_FIT" boot-alpine.sd
-backup_settings
-validate_settings
+if [ -f "$FORMAT_MARKER" ]; then
+	echo "Resuming an interrupted recovery with the settings it preserved"
+	resume_settings
+else
+	backup_settings
+	validate_settings
+	mark_formatting
+fi
 
 mkdir -p /realroot
 # This is the only block device formatted by recovery. p3 remains exFAT and
@@ -246,6 +302,9 @@ printf '%s\n' '{"state":"installed","message":"Alpine image installed; settings 
 	fail "cannot write completed update state"
 mv -f "$state_tmp" /realroot/data/.nanokvm-alpine/state.json ||
 	fail "cannot publish completed update state"
+# boot.sd is the new image: nothing is left to resume.
+/busybox rm -f "/realroot$FORMAT_MARKER" "/realroot$SHADOW_SAVED" ||
+	fail "cannot remove the recovery marker"
 sync
 mount -t proc proc /realroot/proc || fail "cannot mount new root proc"
 mount -t sysfs sysfs /realroot/sys || fail "cannot mount new root sys"

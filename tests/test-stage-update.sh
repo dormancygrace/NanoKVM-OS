@@ -2,7 +2,8 @@
 set -eu
 
 ROOT=$(mktemp -d)
-trap 'rm -rf "$ROOT"' EXIT INT TERM HUP
+# Keep the status: under set -e a failing check must fail the test.
+trap 'status=$?; rm -rf "$ROOT"; exit "$status"' EXIT INT TERM HUP
 
 STAGER=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)/firmware/alpine/compat/nanokvm-stage-update
 DATA=$ROOT/data
@@ -36,10 +37,15 @@ NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT "$STAGER" "$on_data"
 test ! -e "$on_data"
 test -f "$DATA/nanokvm-update/alpine-rootfs.tar.gz"
 
-# Activating the published directory must not restage it.
+# Activating the published directory must not restage it. What an earlier,
+# interrupted recovery recorded there is not resumed by the new one.
+printf 'stale\n' >"$DATA/nanokvm-update/recovery-formatting"
+printf 'root:OLD:1::::::\n' >"$DATA/nanokvm-update/root-shadow.saved"
 NANOKVM_DATA_DIR=$DATA NANOKVM_BOOT_DIR=$BOOT \
 	"$STAGER" --activate "$DATA/nanokvm-update"
 cmp "$DATA/nanokvm-update/boot-alpine-recovery.sd" "$BOOT/boot.sd"
+test ! -e "$DATA/nanokvm-update/recovery-formatting"
+test ! -e "$DATA/nanokvm-update/root-shadow.saved"
 
 # A damaged input must be rejected before replacing the staged bundle.
 bad=$ROOT/bad

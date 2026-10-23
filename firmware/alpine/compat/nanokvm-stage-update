@@ -136,6 +136,10 @@ if [ "$SOURCE" != "$DESTINATION" ]; then
 	rm -rf "$PREVIOUS"
 fi
 trap - EXIT INT TERM HUP
+# A new bundle starts a new recovery: what an earlier, interrupted one
+# recorded (recovery/init) must not be resumed with it.
+rm -f "$DESTINATION/recovery-formatting" "$DESTINATION/root-shadow.saved" ||
+	die "cannot clear the state of an earlier recovery"
 
 echo "verified update staged at $DESTINATION"
 if [ "$ACTIVATE" -eq 1 ]; then

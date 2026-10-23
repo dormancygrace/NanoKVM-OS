@@ -391,7 +391,8 @@ async fn connect_relay(
     let target = time::timeout(CONNECT_TIMEOUT, relay_target(&config, &relay))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "relay lookup timed out"))??;
-    let mut stream = time::timeout(CONNECT_TIMEOUT, TcpStream::connect(target))
+    // Each address in turn, as for a name, within one timeout.
+    let mut stream = time::timeout(CONNECT_TIMEOUT, TcpStream::connect(target.as_slice()))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "relay connect timed out"))??;
     write_message(
@@ -484,12 +485,20 @@ pub(crate) fn is_public(ip: IpAddr) -> bool {
 
 // The names the configuration gives, and an ID server that is itself on a
 // private network, may lead anywhere; any other relay must be on the
-// Internet. The checked address is the one connected to.
-async fn relay_target(config: &Config, relay: &str) -> io::Result<SocketAddr> {
+// Internet. The checked addresses are the ones connected to, in order.
+async fn relay_target(config: &Config, relay: &str) -> io::Result<Vec<SocketAddr>> {
     let addresses: Vec<SocketAddr> = lookup_host(relay).await?.collect();
-    let first = *addresses
-        .first()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "relay did not resolve"))?;
+    check_relay(config, relay, addresses).await
+}
+
+async fn check_relay(
+    config: &Config,
+    relay: &str,
+    addresses: Vec<SocketAddr>,
+) -> io::Result<Vec<SocketAddr>> {
+    if addresses.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "relay did not resolve"));
+    }
     let host = address_host(relay);
     let configured = [config.relay_server.trim(), config.rendezvous_server.trim()]
         .into_iter()
@@ -497,10 +506,10 @@ async fn relay_target(config: &Config, relay: &str) -> io::Result<SocketAddr> {
         .filter_map(|value| server_address(value, RENDEZVOUS_PORT).ok())
         .any(|value| address_host(&value).eq_ignore_ascii_case(host));
     if configured || addresses.iter().all(|address| is_public(address.ip())) {
-        return Ok(first);
+        return Ok(addresses);
     }
     if rendezvous_is_private(config).await {
-        return Ok(first);
+        return Ok(addresses);
     }
     Err(io::Error::new(
         io::ErrorKind::PermissionDenied,
@@ -938,7 +947,7 @@ mod tests {
         let relay = super::relay_address(&configured, "192.168.1.1:6379");
         assert_eq!(
             super::relay_target(&configured, &relay).await.unwrap(),
-            "10.0.0.2:21117".parse::<SocketAddr>().unwrap()
+            vec!["10.0.0.2:21117".parse::<SocketAddr>().unwrap()]
         );
         let lan = crate::config::Config {
             rendezvous_server: "192.168.1.10".into(),
@@ -1031,5 +1040,53 @@ mod tests {
         assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
         assert!(time::timeout(Duration::from_millis(100), relay.accept()).await.is_err());
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_relay_name_keeps_all_its_checked_addresses() {
+        let official = crate::config::Config {
+            rendezvous_server: "1.1.1.1".into(),
+            ..Default::default()
+        };
+        let addresses = |list: &[&str]| -> Vec<SocketAddr> {
+            list.iter().map(|address| address.parse().unwrap()).collect()
+        };
+        let both = addresses(&["8.8.8.8:21117", "[2606:4700::1111]:21117"]);
+        assert_eq!(
+            super::check_relay(&official, "relay.example:21117", both.clone())
+                .await
+                .unwrap(),
+            both
+        );
+        // One private answer among public ones refuses the name.
+        let mixed = addresses(&["8.8.8.8:21117", "192.168.1.1:21117"]);
+        let error = super::check_relay(&official, "relay.example:21117", mixed)
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            super::check_relay(&official, "relay.example:21117", Vec::new())
+                .await
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::NotFound
+        );
+    }
+
+    #[tokio::test]
+    async fn the_next_checked_address_is_tried_when_one_refuses() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        // Nothing listens on 127.0.0.2 at that port.
+        let target: Vec<SocketAddr> = vec![
+            format!("127.0.0.2:{port}").parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        ];
+        let (connected, accepted) = tokio::join!(
+            tokio::net::TcpStream::connect(target.as_slice()),
+            listener.accept()
+        );
+        assert_eq!(connected.unwrap().peer_addr().unwrap(), target[1]);
+        accepted.unwrap();
     }
 }

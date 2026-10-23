@@ -564,8 +564,10 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             login.my_id,
             login.password.len()
         );
+        // The wait ends at the login deadline at the latest: it must not
+        // extend how long the connection holds its pending permit.
         tokio::select! {
-            _ = time::sleep(delay) => {}
+            _ = time::sleep_until((time::Instant::now() + delay).min(login_deadline)) => {}
             result = shutdown.changed() => {
                 let _ = result;
                 return Ok(());
@@ -2737,6 +2739,67 @@ mod tests {
         time::timeout(Duration::from_secs(5), server)
             .await
             .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(limits.pending.available_permits(), 4);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_failure_delay_ends_at_the_login_deadline() {
+        let directory = temporary_directory();
+        std::fs::create_dir_all(&directory).unwrap();
+        let config = Arc::new(Config {
+            password: "rustdesk-test".to_owned(),
+            ..Config::default()
+        });
+        let rustdesk_identity =
+            Arc::new(RustDeskIdentity::load_from(&directory.join("rustdesk-state")).unwrap());
+        let (_shutdown_sender, shutdown) = watch::channel(false);
+        let limits = ClientLimits::new(1);
+        let mut credentials = crate::auth::Credentials::new(&config);
+        for _ in 0..20 {
+            credentials.failed();
+        }
+        *limits.credentials.lock().unwrap() = Some(credentials);
+        let (mut client, server_stream) = tokio::io::duplex(64 << 10);
+        let started = time::Instant::now();
+        let pending = limits.try_pending().unwrap();
+        let server = tokio::spawn(super::serve_io(
+            server_stream,
+            "127.0.0.1:1".parse().unwrap(),
+            Arc::clone(&config),
+            Arc::new(Identity {
+                extension_id: "rustdesk".to_owned(),
+                token: "a".repeat(64),
+            }),
+            Arc::clone(&rustdesk_identity),
+            None,
+            shutdown,
+            limits.clone(),
+            pending,
+        ));
+        let challenge: Message = read_message(&mut client).await.unwrap();
+        assert!(matches!(challenge.union, Some(message::Union::Hash(_))));
+        // A wrong password a second before the deadline, with the delay at
+        // its cap of a minute.
+        time::sleep_until(started + super::LOGIN_TIMEOUT - Duration::from_secs(1)).await;
+        let login = LoginRequest {
+            password: vec![0; 32],
+            my_id: "test-client".to_owned(),
+            ..Default::default()
+        };
+        write_message(
+            &mut client,
+            &Message {
+                union: Some(message::Union::LoginRequest(login)),
+            },
+        )
+        .await
+        .unwrap();
+        time::timeout_at(started + super::LOGIN_TIMEOUT + Duration::from_millis(100), server)
+            .await
+            .expect("the wait outlived the login deadline")
             .unwrap()
             .unwrap();
         assert_eq!(limits.pending.available_permits(), 4);

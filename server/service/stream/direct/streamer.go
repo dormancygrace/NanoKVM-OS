@@ -20,6 +20,23 @@ type Streamer struct {
 	viewerVersion  uint64
 }
 
+// Seams for tests: starting, telling ended and closing a subscription, and
+// telling the clients of an ended one.
+var (
+	subscribeVideo     = stream.SubscribeVideo
+	subscriptionEnded  = (*stream.VideoSubscription).Closed
+	closeSubscription  = (*stream.VideoSubscription).Close
+	notifyEndedClients = func(clients []*client) {
+		for _, client := range clients {
+			go func() {
+				_ = client.conn.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "encoder-reconfigured"), time.Now().Add(time.Second))
+				client.close()
+			}()
+		}
+	}
+)
+
 func newStreamer() *Streamer {
 	s := &Streamer{
 		clients: make(map[*client]struct{}),
@@ -31,6 +48,17 @@ func newStreamer() *Streamer {
 
 func (s *Streamer) addClient(client *client, config stream.EncoderConfig) error {
 	s.mutex.Lock()
+	// An ended subscription (a codec change, H.264 blocked) whose loop has not
+	// detached it yet: detach it now, so this client starts a new one instead
+	// of a dead stream or a conflict with the old configuration.
+	endedSubscription, ended, endedVersion := s.detachEndedLocked()
+	defer func() {
+		if endedSubscription != nil {
+			closeSubscription(endedSubscription)
+			vm.UpdateHdmiViewerSnapshot("direct", 0, endedVersion)
+			notifyEndedClients(ended)
+		}
+	}()
 	if len(s.clients) > 0 && s.config != config {
 		active := s.config
 		s.mutex.Unlock()
@@ -40,7 +68,7 @@ func (s *Streamer) addClient(client *client, config stream.EncoderConfig) error 
 	var subscription *stream.VideoSubscription
 	if len(s.clients) == 0 {
 		var err error
-		subscription, err = stream.SubscribeVideo(config)
+		subscription, err = subscribeVideo(config)
 		if err != nil {
 			s.mutex.Unlock()
 			return err
@@ -91,6 +119,36 @@ func (s *Streamer) removeClient(client *client) {
 	log.Debugf("h264 websocket disconnected, remaining clients: %d", count)
 }
 
+// detachEndedLocked detaches the current subscription if it has ended.
+func (s *Streamer) detachEndedLocked() (*stream.VideoSubscription, []*client, uint64) {
+	if s.subscription == nil || !subscriptionEnded(s.subscription) {
+		return nil, nil, 0
+	}
+	subscription := s.subscription
+	clients := s.endSubscriptionLocked(subscription)
+	return subscription, clients, s.viewerVersion
+}
+
+// endSubscriptionLocked detaches an ended subscription with every client on
+// it (the map, not a snapshot, so a client that joined meanwhile goes too)
+// and resets the streamer. The caller closes the subscription and tells the
+// clients, outside the lock.
+func (s *Streamer) endSubscriptionLocked(subscription *stream.VideoSubscription) []*client {
+	if subscription == nil || s.subscription != subscription {
+		return nil
+	}
+	clients := make([]*client, 0, len(s.clients))
+	for client := range s.clients {
+		delete(s.clients, client)
+		clients = append(clients, client)
+	}
+	s.subscription = nil
+	s.config = stream.EncoderConfig{}
+	s.updateClientSnapshotLocked()
+	s.viewerVersion++
+	return clients
+}
+
 func (s *Streamer) updateClientSnapshotLocked() int {
 	clients := make([]*client, 0, len(s.clients))
 	for client := range s.clients {
@@ -119,10 +177,14 @@ func (s *Streamer) run(subscription *stream.VideoSubscription) {
 	for {
 		frame, ok := subscription.Next()
 		if !ok {
-			for _, client := range s.getClientsFor(subscription) {
-				_ = client.conn.WriteControl(websocket.CloseMessage,
-					websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "encoder-reconfigured"), time.Now().Add(time.Second))
-				s.removeClient(client)
+			s.mutex.Lock()
+			clients := s.endSubscriptionLocked(subscription)
+			version := s.viewerVersion
+			s.mutex.Unlock()
+			if clients != nil {
+				closeSubscription(subscription)
+				vm.UpdateHdmiViewerSnapshot("direct", 0, version)
+				notifyEndedClients(clients)
 			}
 			return
 		}

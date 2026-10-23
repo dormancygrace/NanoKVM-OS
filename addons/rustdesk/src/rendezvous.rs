@@ -295,7 +295,7 @@ fn spawn_requested_relay(
         }
         .await;
         if let Err(error) = result {
-            eprintln!("RustDesk requested relay failed: {error}");
+            crate::connlog::connection_log!("RustDesk requested relay failed: {error}");
         }
     });
 }
@@ -362,7 +362,7 @@ pub(crate) fn spawn_fallback_relay(
         }
         .await;
         if let Err(error) = result {
-            eprintln!("RustDesk fallback relay failed: {error}");
+            crate::connlog::connection_log!("RustDesk fallback relay failed: {error}");
         }
     });
 }
@@ -411,7 +411,7 @@ async fn connect_relay(
         },
     )
     .await?;
-    eprintln!("RustDesk client {peer} connected through relay {relay}");
+    crate::connlog::connection_log!("RustDesk client {peer} connected through relay {relay}");
     server::serve(
         stream,
         peer,

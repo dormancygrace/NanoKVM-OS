@@ -90,7 +90,9 @@ Existing configurations retain permanent mode on upgrade. Switching to temporary
 mode preserves the permanent credential, but accepts only the temporary password.
 An empty GUI field in permanent mode preserves the stored password; permanent
 passwords need 8-64 UTF-8 bytes. The daemon publishes settings-output.json for the ID and a runtime status
-file showing sessions and recent registration acknowledgements.
+file showing sessions and recent registration acknowledgements. Its log goes
+to syslog with the tag `nanokvm-rustdesk`; messages about connections are
+limited to 20 lines a minute plus a count of the rest.
 
 Example config.json (automatic temporary password):
 {
@@ -248,6 +250,10 @@ The normal RustDesk mute option detaches its audio subscription; video continues
 Unmute and USB rebind reconnect to the current capture. There is no microphone
 or bidirectional voice-call support. No extra codec process runs per viewer.
 A slow connection keeps only recent sound instead of accumulating a backlog.
+Video does the same: a frame the connection is not ready for within 250 ms is
+dropped, and so are the frames after it until the next keyframe, which is
+requested then and every second until it arrives. A slow viewer sees fewer
+frames instead of losing the session.
 
 The fourth root-only socket, audio.sock, uses bounded OKAF v1 headers. Requests
 for info query the USB function without starting ALSA capture. The bridge and

@@ -6,11 +6,14 @@ supervisor="supervise-daemon"
 respawn_delay=5
 respawn_max=5
 respawn_period=60
-output_log="/var/log/nanokvm-rustdesk.log"
-error_log="/var/log/nanokvm-rustdesk.log"
+# To syslog, which keeps its live log in RAM (docs/LOGS.md): a file on the
+# SD card grew without limit, also from connections anyone can open.
+output_logger="logger -t nanokvm-rustdesk"
+error_logger="logger -t nanokvm-rustdesk"
 
 depend() {
     need net nanokvm-app
+    use logger
     after nanokvm-usb
 }
 

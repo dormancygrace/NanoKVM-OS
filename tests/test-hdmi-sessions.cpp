@@ -1,4 +1,5 @@
 #include "hdmi_receiver.hpp"
+#include "geometry_gate.hpp"
 #include <atomic>
 #include <cassert>
 #include <cstdio>
@@ -176,6 +177,7 @@ static struct {
     uint8_t hw_version = 'p', fresh_frame_count = 0;
 } kvmv_cfg;
 static int signal_active = 1, publications = 0, mode_switches = 0;
+static nanokvm::GeometryGate test_geometry(1920, 1080);
 static uint8_t hdmi_capture_enabled = 1;
 static constexpr uint8_t fresh_frame_discard_count = 5;
 static bool reset_asserted = false, reset_error = false;
@@ -196,6 +198,7 @@ static uint8_t detect_csi_res(const nanokvm::ReceiverSnapshot &sample) {
     assert(sample.state == ReceiverState::Ready && sample.width && sample.height);
     nanokvm::ReceiverFileLock sensor_probe;
     assert(sensor_probe); // publication must not retain the device flock
+    test_geometry.publish(sample.width, sample.height);
     ++publications; return NEW_RES;
 }
 static void set_hdmi_mode(int value) { assert(value == 1); ++mode_switches; }
@@ -224,7 +227,10 @@ static void controls() {
     {
         nanokvm::ReceiverFileLock external; assert(external);
         auto calls = reset_calls;
+        const auto started = std::chrono::steady_clock::now();
         assert(kvmv_hdmi_control(0) == -1 && errno == EBUSY);
+        const auto waited = std::chrono::steady_clock::now() - started;
+        assert(waited >= std::chrono::milliseconds(1800) && waited < std::chrono::seconds(4));
         assert(reset_calls == calls && hdmi_capture_enabled == 1);
     }
     assert(kvmv_hdmi_control(0) == 0 && reset_asserted && !hdmi_capture_enabled);
@@ -258,6 +264,20 @@ static void controls() {
     assert(std::chrono::steady_clock::now() - start < std::chrono::seconds(4));
     assert(reset_calls == calls && hdmi_capture_enabled == 1);
     unstuck.set_value(); stuck.join();
+    // A short sensor session must delay reset, rather than reject it.
+    std::promise<void> sensor_entered, sensor_release;
+    auto sensor_done = sensor_release.get_future();
+    std::thread sensor([&] {
+        nanokvm::ReceiverFileLock owner; assert(owner);
+        sensor_entered.set_value(); sensor_done.wait();
+    });
+    sensor_entered.get_future().wait();
+    auto waiting_reset = std::async(std::launch::async, [] { return kvmv_hdmi_control(0); });
+    assert(waiting_reset.wait_for(std::chrono::milliseconds(30)) == std::future_status::timeout);
+    sensor_release.set_value(); sensor.join();
+    assert(waiting_reset.get() == 0 && reset_asserted && !hdmi_capture_enabled);
+    assert(kvmv_hdmi_control(1) == 0 && !reset_asserted && hdmi_capture_enabled);
+    fake_now += std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS);
     signal_active = 1;
     puts("PASS production maintenance/reset: active read drained, nested pause refused, state restored, external ownership respected, reset failure retained pause and stuck reader timed out");
 }
@@ -352,4 +372,63 @@ static void diagnostics() {
     puts("PASS UXC diagnostics: firmware/lanes/HDMI vs CSI, every IO/cleanup fault, timing rejection, unsupported C/D, event/retry scheduling");
 }
 
-int main() { snapshots(); admission(); controls(); publication(); diagnostics(); }
+static void failure_generations() {
+    auto fail_poll = [] {
+        LT6911_i2c.fail_at = LT6911_i2c.calls + 1;
+        assert(!poll_hdmi_receiver(false));
+    };
+    auto healthy = [&] {
+        LT6911_i2c = Bus::fixture(ReceiverKind::UXC);
+        assert(!poll_hdmi_receiver(false) && signal_active);
+    };
+    for (bool reset : {false, true}) {
+        healthy();
+        fail_poll(); fail_poll(); assert(signal_active);
+        // No poll observes the paused state: only lifecycle generation can
+        // distinguish the fresh read sequence from the pre-maintenance one.
+        if (reset) {
+            assert(kvmv_hdmi_control(0) == 0);
+            assert(kvmv_hdmi_control(1) == 0);
+        } else {
+            assert(kvmv_edid_maintenance(1) == 0);
+            assert(kvmv_edid_maintenance(0) == 0);
+        }
+        fake_now += std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS);
+        set_hdmi_detection_state(1); // another health publisher may report VI
+        fail_poll(); assert(signal_active);
+        fail_poll(); assert(signal_active);
+        fail_poll(); assert(!signal_active);
+    }
+    healthy();
+    fail_poll(); fail_poll(); assert(signal_active);
+    {
+        nanokvm::ReceiverFileLock owner; assert(owner);
+        const auto calls = LT6911_i2c.calls;
+        assert(!poll_hdmi_receiver(false) && LT6911_i2c.calls == calls);
+    }
+    // Mere contention does not forgive actual failed samples.
+    fail_poll(); assert(!signal_active);
+    healthy();
+    puts("PASS failure lifecycle: fresh three-poll allowance after unobserved EDID/reset pause; contention does not erase real errors");
+}
+
+static void publication_during_lease() {
+    LT6911_i2c = Bus::fixture(ReceiverKind::UXC);
+    auto before = test_geometry.snapshot();
+    auto lease = test_geometry.lease(before); assert(lease);
+    LT6911_i2c.pair(0x85ea, 1280); LT6911_i2c.pair(0x85f0, 720);
+    auto publisher = std::async(std::launch::async, [] { return poll_hdmi_receiver(false); });
+    assert(publisher.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
+    assert(!publisher.get());
+    assert(test_geometry.snapshot().width == before.width);
+    // The admission mutex was released even though frame visibility is pending.
+    auto reset = std::async(std::launch::async, [] { return kvmv_hdmi_control(0); });
+    assert(reset.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
+    assert(reset.get() == 0);
+    lease.release();
+    assert(test_geometry.snapshot().width == 1280 && test_geometry.snapshot().height == 720);
+    assert(kvmv_hdmi_control(1) == 0);
+    puts("PASS real GeometryGate: publish/reset complete while frame lease remains held; visibility changes after release");
+}
+
+int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); }

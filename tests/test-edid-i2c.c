@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <sys/wait.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 static unsigned calls, fail_at, closes;
@@ -62,8 +63,8 @@ static int test_ioctl(int fd, unsigned long request, ...) {
 static int test_close(int fd) { (void)fd; ++closes; return 0; }
 static int test_open(const char *path, int flags, ...) {
     (void)flags;
-    assert(strcmp(path, "/sys/bus/platform/devices/hdmi-reset/pulse") == 0);
-    return 8;
+    if (strcmp(path, "/sys/bus/platform/devices/hdmi-reset/pulse") == 0) return 8;
+    return open(path, flags, 0600); // real lock-file IO in contention tests
 }
 static ssize_t test_write(int fd, const void *data, size_t len) {
     assert(fd == 8 && len == 1 && *(const char *)data == '1');
@@ -74,6 +75,8 @@ static off_t test_lseek(int fd, off_t offset, int whence) {
     assert(fd == 8 && offset == 0 && whence == SEEK_SET); return 0;
 }
 static int test_nanosleep(const struct timespec *delay, struct timespec *remaining) {
+    if (delay->tv_sec == 0 && delay->tv_nsec == 2000000L)
+        return nanosleep(delay, remaining); // real lock polling, not reset holdoff
     assert(delay->tv_sec == 0);
     ++sleeps;
     if (sleep_mode == 1 && sleeps == 1) {
@@ -96,7 +99,43 @@ static int invoke(int which) {
     }
 }
 static void reset(void) { calls = fail_at = closes = 0; client = 9; short_count = -1; }
+static long elapsed_ms(const struct timespec *start) {
+    struct timespec now; assert(clock_gettime(CLOCK_MONOTONIC, &now) == 0);
+    return (now.tv_sec - start->tv_sec) * 1000 + (now.tv_nsec - start->tv_nsec) / 1000000;
+}
+static void maintenance_waits(void) {
+    int owner = nanokvm_receiver_lock(0); assert(owner >= 0);
+    int ready[2]; assert(pipe(ready) == 0);
+    pid_t child = fork(); assert(child >= 0);
+    if (child == 0) {
+        close(owner); close(ready[0]);
+        assert(write(ready[1], "R", 1) == 1);
+        struct timespec start; assert(clock_gettime(CLOCK_MONOTONIC, &start) == 0);
+        int fd = maintenance_lock();
+        _exit(fd >= 0 && elapsed_ms(&start) >= 20 && elapsed_ms(&start) < 1800 ? 0 : 1);
+    }
+    close(ready[1]); char marker;
+    assert(read(ready[0], &marker, 1) == 1); close(ready[0]);
+    usleep(50000);
+    nanokvm_receiver_unlock(owner); close(owner);
+    int status; assert(waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    owner = nanokvm_receiver_lock(0); assert(owner >= 0);
+    child = fork(); assert(child >= 0);
+    if (child == 0) {
+        close(owner);
+        struct timespec start; assert(clock_gettime(CLOCK_MONOTONIC, &start) == 0);
+        int fd = maintenance_lock();
+        long waited = elapsed_ms(&start);
+        _exit(fd < 0 && errno == EBUSY && waited >= 1800 && waited < 4000 ? 0 : 1);
+    }
+    assert(waitpid(child, &status, 0) == child);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+    nanokvm_receiver_unlock(owner); close(owner);
+    puts("PASS production EDID maintenance lock: short owner drains, long owner times out within2s");
+}
 int main(void) {
+    maintenance_waits();
     for (int which = 0; which < 4; ++which) {
         reset(); assert(invoke(which) == 0 && calls == 1);
         assert(invoke(which) == 0 && calls == 2); // every ioctl includes bank

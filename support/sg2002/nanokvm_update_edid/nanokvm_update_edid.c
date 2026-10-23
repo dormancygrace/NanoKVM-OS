@@ -102,7 +102,7 @@ static int reset_write(int fd, const char *value)
 
 static int maintenance_lock(void)
 {
-    return nanokvm_receiver_lock(0); /* Held for reset, programming and readback. */
+    return nanokvm_receiver_lock(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS); /* Whole operation. */
 }
 
 int NanoKVM_PCIe_HDMI_Reset(void)

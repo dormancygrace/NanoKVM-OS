@@ -23,7 +23,9 @@ Most tests run with no arguments from the repository root:
 
 The receiver session tests use fake I2C transfers and deterministic thread
 ordering, including the production maintenance/reset and EDID helpers, the real
-I2c transport with mocked Linux ioctls, readiness deadlines and UXC telemetry:
+I2c transport with mocked Linux ioctls, readiness deadlines and UXC telemetry.
+They cover short-owner draining, bounded contention, fresh failure history after
+maintenance and publication while a real frame lease stays held:
 
     python3 tests/test-hdmi-sessions.py
     NANOKVM_SANITIZE=1 python3 tests/test-hdmi-sessions.py

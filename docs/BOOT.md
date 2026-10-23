@@ -9,14 +9,27 @@
 3. **OpenSBI** (M-mode, see `platform/opensbi/README.md`). It boots without
    a banner (`FW_OPTIONS=0x1`); Linux logs the SBI version.
 4. **U-Boot** (S-mode). It reads `uEnv.txt`, loads `boot.sd` from the boot
-   partition, checks its hashes and boots it.
+   partition, checks its hashes and boots it. If `boot.sd` cannot be read or
+   fails its hash check, it tries `boot.prev`, the image the last kernel
+   update replaced; if that fails too, it resets the board, so the ROM's UART
+   window comes back every few seconds (see Recovery).
 5. **Linux** from `boot.sd` (a FIT: lz4 kernel, initramfs, board device tree),
    then the root file system on `mmcblk0p2`.
 
 `nanokvm-bootloader-sg2002` carries `fip.bin`; its trigger puts it on the boot
 partition (`activate-bootloader`), so devices get a new bootloader with an
 ordinary update. The kernel package rewrites `boot.sd`
-(`nanokvm-activate-kernel`).
+(`nanokvm-activate-kernel`). The new image is written as `boot.new`, read
+back from the card and renamed over `boot.sd`, so `boot.sd` is always there,
+also for a U-Boot older than the fallback; the result is read back again.
+Before that, the image being replaced is copied to `boot.prev`, but only when
+it is known to be good: its hash, recorded in `boot.sd.sha256` when it was
+installed, matches the card (a `boot.sd` with no records is the image the
+device booted from). A damaged `boot.sd` therefore never replaces a good
+`boot.prev`, and a wrong installed image is replaced by a copy of
+`boot.prev`. A transaction that leaves the image unchanged writes nothing. `boot.prev`
+keeps the previous kernel, whose modules the update may have removed: booted
+from it, the system starts, but without the drivers that need them.
 
 ## What the ROM does
 

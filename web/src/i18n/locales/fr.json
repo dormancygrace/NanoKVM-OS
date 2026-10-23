@@ -1395,6 +1395,16 @@
           "title": "Console série USB",
           "description": "Port série CDC ACM pour l'ordinateur connecté"
         }
+      },
+      "storageIdentity": {
+        "title": "Noms des disques",
+        "description": "Noms des périphériques de stockage USB (SCSI) vus par l’ordinateur connecté, pas les étiquettes des systèmes de fichiers. Fabricant : 8 caractères ASCII maximum ; disque : 16, sans espaces au début ni à la fin. Videz un champ pour restaurer sa valeur par défaut. Un nom d’image vide suit le type de support. Appliquer reconnecte l’USB. Certains ordinateurs mettent les noms en cache.",
+        "vendor": "Fabricant des disques",
+        "image": "Image montée / support distant",
+        "setup": "Nom du Setup Disk",
+        "user": "Nom du User Disk",
+        "automatic": "Automatique (disque ou CD/DVD)",
+        "invalid": "Utilisez des caractères ASCII imprimables sans espaces aux extrémités : 8 maximum pour le fabricant, 16 pour les disques."
       }
     },
     "network": {

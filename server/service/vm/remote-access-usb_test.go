@@ -6,20 +6,21 @@ import (
 	"path/filepath"
 	"testing"
 
+	"NanoKVM-Server/internal/storageidentity"
 	"NanoKVM-Server/service/hid"
 )
 
 func TestRustDeskPresetAndRestore(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "usb-before-rustdesk.json")
 	identity := usbIdentity{Product: "USB Composite Device"}
-	headless := usbComposition{mode: hid.ModeNormal, disk: true, serial: true, identity: identity}
+	headless := usbComposition{mode: hid.ModeNormal, disk: true, serial: true, identity: identity, storageIdentity: storageidentity.Identity{Vendor: "Generic", Image: "Rescue"}}
 	var applied []usbComposition
 	apply := func(c usbComposition) error { applied = append(applied, c); return nil }
 
 	if err := enableRemoteAccessUSB(path, headless, true, apply); err != nil {
 		t.Fatal(err)
 	}
-	preset := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, disk: true, audio: true, identity: identity}
+	preset := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, disk: true, audio: true, identity: identity, storageIdentity: storageidentity.Identity{Vendor: "Generic", Image: "Rescue"}}
 	if len(applied) != 1 || applied[0] != preset {
 		t.Fatalf("applied %+v", applied)
 	}
@@ -27,11 +28,13 @@ func TestRustDeskPresetAndRestore(t *testing.T) {
 	identity2 := usbIdentity{Product: "Other"}
 	now := preset
 	now.identity = identity2
+	now.storageIdentity.Image = "New name"
 	if err := restoreRemoteAccessUSB(path, now, apply); err != nil {
 		t.Fatal(err)
 	}
 	want := headless
 	want.identity = identity2
+	want.storageIdentity = now.storageIdentity
 	if len(applied) != 2 || applied[1] != want {
 		t.Fatalf("restored %+v", applied)
 	}

@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"NanoKVM-Server/internal/storageidentity"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/remotemedia"
@@ -199,7 +200,7 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	s.mu.Lock()
 	h := hid.GetHid()
 	h.Lock()
-	for _, item := range []struct{ path, value string }{{roFlag, "1"}, {cdromFlag, "1"}, {inquiryString, fmt.Sprintf("%-8s%-16s%04x", "NanoKVM", "Remote ISO", 0x0520)}, {mountDevice, remotemedia.DevicePath}} {
+	for _, item := range []struct{ path, value string }{{roFlag, "1"}, {cdromFlag, "1"}, {inquiryString, storageidentity.Read(hid.USBFlagsDir).Inquiry("remote")}, {mountDevice, remotemedia.DevicePath}} {
 		if err = os.WriteFile(item.path, []byte(item.value), 0600); err != nil {
 			break
 		}

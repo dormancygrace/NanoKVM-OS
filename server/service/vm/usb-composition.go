@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"NanoKVM-Server/internal/atomicfile"
+	"NanoKVM-Server/internal/storageidentity"
+	"NanoKVM-Server/remotemedia"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/service/stream/audio"
@@ -28,6 +30,9 @@ func (s usbComposition) validate() error {
 	}
 	if s.userDisk && !s.disk {
 		return errors.New("the user disk needs the virtual disk")
+	}
+	if err := s.storageIdentity.Validate(); err != nil {
+		return err
 	}
 	return s.identity.validate()
 }
@@ -131,6 +136,9 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 		return errors.New("USB functions do not match the requested composition")
 	}
 	if s.disk {
+		if err := verifyStorageIdentityAt(root, s.storageIdentity); err != nil {
+			return err
+		}
 		// the user disk is the third LUN of the storage function
 		_, err := os.Stat(filepath.Join(root, "functions/mass_storage.disk0/lun.2"))
 		if (err == nil) != s.userDisk {
@@ -159,16 +167,19 @@ func verifyUSBCompositionAt(root string, s usbComposition) error {
 // The boot files one apply may change, snapshotted and restored together.
 // The first ten are flags (present or absent); the identity files and the
 // user disk marker carry a value and are absent when not in use.
-var usbCompositionFlags = []string{
+var usbCompositionFlags = append([]string{
 	"usb.rndis0", "usb.ncm", "usb.disk0", "usb.acm", "usb.audio", "disable_hid",
 	"usb.disable_keyboard", "usb.disable_relative", "usb.disable_absolute",
 	"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.serialnumber", "usb.userdisk",
-}
+}, storageidentity.Files...)
 
 // contentFiles is what the value-bearing boot files should hold for a
 // composition: the identity files, and the user disk marker naming the image.
 func (s usbComposition) contentFiles() map[string]*string {
 	files := s.identity.files()
+	for k, v := range s.storageIdentity.FileValues() {
+		files[k] = v
+	}
 	files["usb.userdisk"] = nil
 	if s.userDisk {
 		image := storage.UserDiskImagePath()
@@ -350,6 +361,40 @@ func (store usbCompositionStore) apply(current, candidate usbComposition) error 
 	}
 	if err := store.verify(candidate); err != nil {
 		return rollback(err)
+	}
+	return nil
+}
+
+// Verify each existing LUN after the script restarts, before accepting Apply.
+func verifyStorageIdentityAt(root string, identity storageidentity.Identity) error {
+	for n, kind := range []string{"disk", "setup", "user"} {
+		lun := filepath.Join(root, "functions/mass_storage.disk0", fmt.Sprintf("lun.%d", n))
+		if _, err := os.Stat(lun); n > 0 && os.IsNotExist(err) {
+			continue
+		}
+		if n == 0 {
+			cdrom, err := os.ReadFile(filepath.Join(lun, "cdrom"))
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(string(cdrom)) == "1" {
+				kind = "cdrom"
+				backing, err := os.ReadFile(filepath.Join(lun, "file"))
+				if err != nil {
+					return err
+				}
+				if strings.TrimSpace(string(backing)) == remotemedia.DevicePath {
+					kind = "remote"
+				}
+			}
+		}
+		got, err := os.ReadFile(filepath.Join(lun, "inquiry_string"))
+		if err != nil {
+			return err
+		}
+		if strings.TrimSuffix(string(got), "\n") != identity.Inquiry(kind) {
+			return fmt.Errorf("storage identity does not match on LUN %d", n)
+		}
 	}
 	return nil
 }

@@ -1,6 +1,9 @@
 package proto
 
-import "NanoKVM-Server/utils"
+import (
+	"NanoKVM-Server/internal/storageidentity"
+	"NanoKVM-Server/utils"
+)
 
 type IP struct {
 	Name    string `json:"name"`
@@ -69,20 +72,21 @@ type DeleteScriptReq struct {
 }
 
 type GetVirtualDeviceRsp struct {
-	Keyboard bool                       `json:"keyboard"`
-	Relative bool                       `json:"relative"`
-	Absolute bool                       `json:"absolute"`
-	Revision string                     `json:"revision"`
-	Network  bool                       `json:"network"`
-	Media    bool                       `json:"media"`
-	Disk     bool                       `json:"disk"`
-	Serial   bool                       `json:"serial"`
-	Audio    bool                       `json:"audio"`
-	HID      bool                       `json:"hid"`
-	Mode     string                     `json:"mode"`
-	Budget   USBEndpointBudget          `json:"budget"`
-	Costs    map[string]USBEndpointCost `json:"costs"`
-	Identity USBIdentity                `json:"identity"`
+	Keyboard        bool                       `json:"keyboard"`
+	Relative        bool                       `json:"relative"`
+	Absolute        bool                       `json:"absolute"`
+	Revision        string                     `json:"revision"`
+	Network         bool                       `json:"network"`
+	Media           bool                       `json:"media"`
+	Disk            bool                       `json:"disk"`
+	Serial          bool                       `json:"serial"`
+	Audio           bool                       `json:"audio"`
+	HID             bool                       `json:"hid"`
+	Mode            string                     `json:"mode"`
+	Budget          USBEndpointBudget          `json:"budget"`
+	Costs           map[string]USBEndpointCost `json:"costs"`
+	StorageIdentity storageidentity.Identity   `json:"storageIdentity"`
+	Identity        USBIdentity                `json:"identity"`
 	// the writable FAT32 user disk, a third LUN of the virtual storage
 	UserDisk bool `json:"userDisk"`
 }
@@ -171,7 +175,8 @@ type SetUSBCompositionReq struct {
 	Mode     string `json:"mode" validate:"required,oneof=normal hid-only"`
 	Revision string `json:"revision" validate:"required"`
 	// nil keeps the identity in place (older clients send none)
-	Identity *USBIdentityReq `json:"identity"`
+	Identity        *USBIdentityReq           `json:"identity"`
+	StorageIdentity *storageidentity.Identity `json:"storageIdentity"`
 	// nil keeps the user disk as it is; true needs the disk function and an image
 	UserDisk *bool `json:"userDisk"`
 }

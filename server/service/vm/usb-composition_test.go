@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"NanoKVM-Server/internal/storageidentity"
+	"NanoKVM-Server/remotemedia"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
 )
@@ -221,6 +223,7 @@ func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
 	}
 	base := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, disk: true}
 	custom := base
+	custom.storageIdentity = storageidentity.Identity{Vendor: "Generic", Image: "Installer", Setup: "Helper", User: "Files"}
 	custom.identity = usbIdentity{VendorID: "0X46D", Manufacturer: "Generic", Product: "USB Composite Device", SerialNumber: "KVM-0001"}
 	if err := noop.apply(base, custom); err != nil {
 		t.Fatal(err)
@@ -234,6 +237,9 @@ func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
 	}
 	if read("usb.vid") != "0x046d\n" || read("usb.pid") != "<absent>" || read("usb.manufacturer") != "Generic\n" || read("usb.product") != "USB Composite Device\n" || read("usb.serialnumber") != "KVM-0001\n" {
 		t.Fatalf("identity files: %q %q %q %q", read("usb.vid"), read("usb.pid"), read("usb.manufacturer"), read("usb.product"))
+	}
+	if storageidentity.Read(dir) != custom.storageIdentity {
+		t.Fatal("storage names not persisted")
 	}
 	// the flags of the composition itself are untouched
 	if _, err := os.Stat(filepath.Join(dir, "usb.disk0")); err != nil {
@@ -250,11 +256,14 @@ func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
 		t.Fatal("rollback lost the identity files")
 	}
 
+	if storageidentity.Read(dir) != custom.storageIdentity {
+		t.Fatal("rollback lost storage names")
+	}
 	// back to the default removes them
 	if err := noop.apply(custom, base); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.serialnumber"} {
+	for _, name := range append([]string{"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.serialnumber"}, storageidentity.Files...) {
 		if read(name) != "<absent>" {
 			t.Fatalf("%s is still there", name)
 		}
@@ -310,6 +319,7 @@ func TestCompositionUserDiskMarkerAndLun(t *testing.T) {
 	os.Symlink("../../functions/hid.GS0", filepath.Join(root, "configs/c.1/hid.GS0"))
 	os.Symlink("../../functions/mass_storage.disk0", filepath.Join(root, "configs/c.1/mass_storage.disk0"))
 	writeGadgetIdentity(t, root, defaultUSBIdentity)
+	writeStorageLUN(t, root, 0, "disk", storageidentity.Defaults)
 	if err := verifyUSBCompositionAt(root, base); err != nil {
 		t.Fatal(err)
 	}
@@ -317,6 +327,7 @@ func TestCompositionUserDiskMarkerAndLun(t *testing.T) {
 		t.Fatal("no lun.2, yet the user disk verified")
 	}
 	os.MkdirAll(filepath.Join(root, "functions/mass_storage.disk0/lun.2"), 0755)
+	writeStorageLUN(t, root, 2, "user", storageidentity.Defaults)
 	if err := verifyUSBCompositionAt(root, withDisk); err != nil {
 		t.Fatal(err)
 	}
@@ -423,5 +434,102 @@ func TestUSBRevisionDistinguishesIdentityFieldBoundaries(t *testing.T) {
 	}
 	if first.revision() == second.revision() {
 		t.Fatal("different valid identities share a revision; stale clients can overwrite a concurrent identity change")
+	}
+}
+
+func writeStorageLUN(t *testing.T, root string, n int, kind string, identity storageidentity.Identity) {
+	t.Helper()
+	dir := filepath.Join(root, "functions/mass_storage.disk0", fmt.Sprintf("lun.%d", n))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cdrom := "0"
+	if kind == "cdrom" {
+		cdrom = "1"
+	}
+	for name, value := range map[string]string{"cdrom": cdrom, "file": "", "inquiry_string": identity.Inquiry(kind)} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(value+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+func TestStorageNamesRevisionProfileAndVerification(t *testing.T) {
+	base := usbComposition{mode: hid.ModeNormal, disk: true}
+	custom := base
+	custom.storageIdentity = storageidentity.Identity{Vendor: "Generic", Image: "Rescue", Setup: "Tools", User: "Files"}
+	if base.revision() == custom.revision() {
+		t.Fatal("names missing from revision")
+	}
+	if custom.remoteAccessProfile(true).storageIdentity != custom.storageIdentity {
+		t.Fatal("RustDesk lost names")
+	}
+	root := t.TempDir()
+	for n, kind := range []string{"cdrom", "setup", "user"} {
+		writeStorageLUN(t, root, n, kind, custom.storageIdentity)
+	}
+	if err := verifyStorageIdentityAt(root, custom.storageIdentity); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyStorageIdentityAt(root, storageidentity.Defaults); err == nil {
+		t.Fatal("wrong names accepted")
+	}
+	custom.storageIdentity.Image = "too long for SCSI name"
+	if custom.validate() == nil {
+		t.Fatal("invalid name accepted")
+	}
+}
+
+// The no-change RustDesk path verifies the current gadget, including a browser
+// ISO whose default product is Remote ISO rather than USB CD/DVD-ROM.
+func TestRemoteMediaStorageIdentityVerification(t *testing.T) {
+	for _, identity := range []storageidentity.Identity{storageidentity.Defaults, {Vendor: "Generic", Image: "Rescue", Setup: "Tools", User: "Files"}} {
+		t.Run(identity.Image, func(t *testing.T) {
+			root := t.TempDir()
+			writeStorageLUN(t, root, 0, "cdrom", identity)
+			lun := filepath.Join(root, "functions/mass_storage.disk0/lun.0")
+			write := func(name, value string) {
+				t.Helper()
+				if err := os.WriteFile(filepath.Join(lun, name), []byte(value+"\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write("file", remotemedia.DevicePath)
+			write("inquiry_string", identity.Inquiry("remote"))
+			s := usbComposition{mode: hid.ModeNormal, disk: true, keyboard: true, relative: true, absolute: true, storageIdentity: identity}
+			if err := os.MkdirAll(filepath.Join(root, "configs/c.1"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"mass_storage.disk0", "hid.GS0", "hid.GS1", "hid.GS2"} {
+				if err := os.Symlink("../../functions/"+name, filepath.Join(root, "configs/c.1", name)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(root, "UDC"), []byte("controller\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			writeGadgetIdentity(t, root, defaultUSBIdentity)
+			if err := verifyUSBCompositionAt(root, s.remoteAccessDefaults(false)); err != nil {
+				t.Fatal(err)
+			}
+			// Same mode but a local ISO must still match the local default.
+			write("file", "/data/local.iso")
+			if identity.Image == "" && verifyStorageIdentityAt(root, identity) == nil {
+				t.Fatal("remote default accepted for local ISO")
+			}
+			write("inquiry_string", identity.Inquiry("cdrom"))
+			if err := verifyStorageIdentityAt(root, identity); err != nil {
+				t.Fatal(err)
+			}
+			write("inquiry_string", "wrong identity")
+			if verifyStorageIdentityAt(root, identity) == nil {
+				t.Fatal("wrong name accepted")
+			}
+			if err := os.Remove(filepath.Join(lun, "file")); err != nil {
+				t.Fatal(err)
+			}
+			if verifyStorageIdentityAt(root, identity) == nil {
+				t.Fatal("unreadable backing file accepted")
+			}
+		})
 	}
 }

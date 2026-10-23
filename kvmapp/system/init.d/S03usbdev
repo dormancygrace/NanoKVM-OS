@@ -43,6 +43,29 @@ reset_usb_config_links(){
     done
 }
 
+# SCSI identity is independent of the USB device descriptor and volume labels.
+# Read a bounded value, retaining newlines so damaged files cannot be accepted.
+storage_value() (
+    LC_ALL=C
+    export LC_ALL
+    # Shell substitutions discard NUL; map it to another invalid byte first.
+    value=$(head -c "$(( $2 + 2 ))" "$conf/usb.storage.$1" 2>/dev/null | tr '\000' '\177'; printf '.')
+    value=${value%.}
+    value=${value%'
+'}
+    case "$value" in
+        ''|*[!\ -~]*|' '*|*' ') value=$3 ;;
+        *) [ "${#value}" -le "$2" ] || value=$3 ;;
+    esac
+    printf '%s' "$value"
+)
+
+storage_inquiry() {
+    _storage_vendor=$(storage_value vendor 8 NanoKVM)
+    _storage_product=$(storage_value "$1" 16 "$2")
+    printf '%-8s%-16s0520\n' "$_storage_vendor" "$_storage_product"
+}
+
 start_usb_dev(){
     # At cold boot an empty composition needs no descriptors or identity.
     # Keep the mode readable and reserve HID minors in the usual order;
@@ -278,7 +301,7 @@ start_usb_dev(){
                     echo 1 > functions/mass_storage.disk0/lun.2/removable
                     echo 0 > functions/mass_storage.disk0/lun.2/ro
                     echo 0 > functions/mass_storage.disk0/lun.2/cdrom
-                    echo "NanoKVM User Disk" > functions/mass_storage.disk0/lun.2/inquiry_string
+                    storage_inquiry user "User Disk" > functions/mass_storage.disk0/lun.2/inquiry_string || return 1
                     echo "$_userdisk" > functions/mass_storage.disk0/lun.2/file
             fi
             if [ -d functions/mass_storage.disk0/lun.1 ]
@@ -287,7 +310,7 @@ start_usb_dev(){
                     echo 1 > functions/mass_storage.disk0/lun.1/removable
                     echo 1 > functions/mass_storage.disk0/lun.1/ro
                     echo 0 > functions/mass_storage.disk0/lun.1/cdrom
-                    echo "NanoKVM Setup Disk" > functions/mass_storage.disk0/lun.1/inquiry_string
+                    storage_inquiry setup "Setup Disk" > functions/mass_storage.disk0/lun.1/inquiry_string || return 1
                     echo "$_helper" > functions/mass_storage.disk0/lun.1/file
             fi
             echo 1 > functions/mass_storage.disk0/lun.0/removable
@@ -296,12 +319,19 @@ start_usb_dev(){
                     echo 1 > functions/mass_storage.disk0/lun.0/ro
                     echo 0 > functions/mass_storage.disk0/lun.0/cdrom
             fi
-            echo "NanoKVM USB Mass Storage0520" > functions/mass_storage.disk0/lun.0/inquiry_string
             disk=$(cat $conf/usb.disk0)
             if [ -n "${disk}" ]
             then
                     cat $conf/usb.disk0 > functions/mass_storage.disk0/lun.0/file
             fi
+            _image_name="USB Mass Storage"
+            if [ "$(cat functions/mass_storage.disk0/lun.0/cdrom)" = 1 ]; then
+                    _image_name="USB CD/DVD-ROM"
+                    if [ "$(cat functions/mass_storage.disk0/lun.0/file)" = /dev/nbd0 ]; then
+                            _image_name="Remote ISO"
+                    fi
+            fi
+            storage_inquiry image "$_image_name" > functions/mass_storage.disk0/lun.0/inquiry_string || return 1
             # When usb.disk0 is empty, no backing file is set. The device
             # reports "no media" (removable=1). Previously this defaulted to
             # /dev/mmcblk0p3, exposing the NanoKVM's raw eMMC partition as a

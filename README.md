@@ -90,7 +90,7 @@ Viewers share the device's encoder and video settings. Multiple sessions do not 
 
 ### 🔌 One USB connection, several jobs
 
-Configure the USB gadget through presets (KVM, with USB network, with the serial console, a headless server, remote desktop, keyboard and mouse only) or individual switches for the keyboard, relative mouse, absolute pointer, network, virtual storage, serial console and audio. The interface checks the controller's endpoint budget before applying a combination and says what each preset gives up. USB can also be disabled entirely. You can also configure the USB device identity (VID, PID and identifying strings).
+Configure the USB gadget through presets (KVM, with USB network, with the serial console, a headless server, remote desktop, keyboard and mouse only) or individual switches for the keyboard, relative mouse, absolute pointer, network, virtual storage, serial console and audio. The interface checks the controller's endpoint budget before applying a combination and says what each preset gives up. USB can also be disabled entirely. You can also configure the USB device identity (VID, PID and identifying strings), plus separate names for mounted images, the Setup Disk and User Disk.
 
 | Function | What it provides |
 | --- | --- |

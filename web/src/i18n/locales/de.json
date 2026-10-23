@@ -1395,6 +1395,16 @@
           "title": "Serielle USB-Konsole",
           "description": "Serieller CDC-ACM-Port für den angeschlossenen Computer"
         }
+      },
+      "storageIdentity": {
+        "title": "Laufwerksnamen",
+        "description": "Namen der USB-Speichergeräte (SCSI) auf dem angeschlossenen Computer, keine Dateisystembezeichnungen. Hersteller: bis zu 8 ASCII-Zeichen, Laufwerk: bis zu 16, ohne äußere Leerzeichen. Leere Felder verwenden den Standard. Ein leerer Abbildname folgt dem Medientyp. Anwenden verbindet USB neu. Computer können Namen zwischenspeichern.",
+        "vendor": "Laufwerkshersteller",
+        "image": "Eingebundenes Abbild / Remote-Medium",
+        "setup": "Name des Setup Disk",
+        "user": "Name des User Disk",
+        "automatic": "Automatisch (Laufwerk oder CD/DVD)",
+        "invalid": "Druckbare ASCII-Zeichen ohne äußere Leerzeichen: Hersteller bis zu 8, Laufwerksnamen bis zu 16."
       }
     },
     "network": {

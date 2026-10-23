@@ -43,6 +43,18 @@ func CaptureNativeStderr(w io.Writer) error {
 		_ = pipe.Close()
 		return err
 	}
+	// A full pipe must drop writes, not block them: the reader is a
+	// goroutine, and a crashing runtime stops every goroutine before it
+	// writes its traceback to descriptor 2. A blocking write there would
+	// hang the process instead of letting it exit and be restarted.
+	// (pipe.Fd above made the descriptor blocking.)
+	if err := syscall.SetNonblock(2, true); err != nil {
+		_ = syscall.Dup3(original, 2, 0)
+		_ = syscall.Close(original)
+		_ = r.Close()
+		_ = pipe.Close()
+		return err
+	}
 	originalStderr = original
 	// Descriptor 2 now holds the pipe; this copy is not needed.
 	_ = pipe.Close()

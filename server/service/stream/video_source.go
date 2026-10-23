@@ -270,6 +270,10 @@ func (s *VideoSubscription) NextContext(ctx context.Context) (VideoFrame, bool) 
 	}
 }
 
+// Closed reports whether the subscription has ended: closed by its owner or
+// by the source (an encoder reconfiguration).
+func (s *VideoSubscription) Closed() bool { return s.closed.Load() }
+
 func (s *VideoSubscription) Close() {
 	s.once.Do(func() {
 		s.closed.Store(true)

@@ -3,6 +3,7 @@ package webrtc
 import (
 	"NanoKVM-Server/service/stream"
 	"encoding/json"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/rtcp"
@@ -59,6 +60,24 @@ func (c *Client) WriteMessage(event string, data string) error {
 
 	log.Debugf("sent message %s", event)
 	return nil
+}
+
+// writeMessageWithin is WriteMessage with a write deadline.
+func (c *Client) writeMessageWithin(event string, data string, timeout time.Duration) error {
+	if c.ws == nil {
+		return nil
+	}
+	deadline := time.Now().Add(timeout)
+	// This is the final notification before teardown. Include waiting for
+	// an earlier WriteMessage in the budget: a concurrent socket Close
+	// unblocks that write so it can release the mutex.
+	timer := time.AfterFunc(timeout, func() { _ = c.ws.Close() })
+	defer timer.Stop()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	_ = c.ws.SetWriteDeadline(deadline)
+	defer func() { _ = c.ws.SetWriteDeadline(time.Time{}) }()
+	return c.ws.WriteJSON(&Message{Event: event, Data: data})
 }
 
 func (c *Client) ReadMessage() (*Message, error) {

@@ -1,6 +1,8 @@
 package webrtc
 
 import (
+	"time"
+
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
 
@@ -12,6 +14,24 @@ import (
 // (40), this produces at most 1280 bytes, matching Tailscale's IPv6 MTU.
 // Preserve this budget when adding RTP extensions or changing packetization.
 const videoRTPMTU = 1216
+
+// Seams for tests: starting, telling ended and closing a subscription, and
+// telling the clients of an ended one.
+var (
+	subscribeVideo     = stream.SubscribeVideo
+	subscriptionEnded  = (*stream.VideoSubscription).Closed
+	closeSubscription  = (*stream.VideoSubscription).Close
+	notifyEndedClients = func(clients []*Client) {
+		for _, client := range clients {
+			go func() {
+				// A deadline: a client that does not read its socket must not
+				// hold anything up.
+				_ = client.writeMessageWithin("video-error", "encoder-reconfigured", 2*time.Second)
+				client.Close()
+			}()
+		}
+	}
+)
 
 func NewWebRTCManager() *WebRTCManager {
 	m := &WebRTCManager{
@@ -30,6 +50,25 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 		m.mutex.Unlock()
 		return nil
 	}
+	// A subscription that has ended (a codec change, H.264 blocked) but whose
+	// stream loop has not detached it yet: detach it here, so this client
+	// starts a new one instead of joining a dead stream or meeting its old
+	// configuration as a conflict.
+	var ended []*Client
+	var endedSubscription *stream.VideoSubscription
+	var endedVersion uint64
+	if m.subscription != nil && subscriptionEnded(m.subscription) {
+		endedSubscription = m.subscription
+		ended = m.endSubscriptionLocked(endedSubscription)
+		endedVersion = m.viewerVersion
+	}
+	defer func() {
+		if endedSubscription != nil {
+			closeSubscription(endedSubscription)
+			vm.UpdateHdmiViewerSnapshot("webrtc", 0, endedVersion)
+			notifyEndedClients(ended)
+		}
+	}()
 	if len(m.clients) > 0 && m.config != client.config {
 		active := m.config
 		m.mutex.Unlock()
@@ -37,7 +76,7 @@ func (m *WebRTCManager) AddClient(ws *websocket.Conn, client *Client) error {
 	}
 
 	if len(m.clients) == 0 {
-		subscription, err := stream.SubscribeVideo(client.config)
+		subscription, err := subscribeVideo(client.config)
 		if err != nil {
 			m.mutex.Unlock()
 			return err
@@ -120,6 +159,31 @@ func (m *WebRTCManager) removeClient(ws *websocket.Conn, expected *peerVideoWrit
 	return true
 }
 
+// endSubscriptionLocked detaches an ended subscription together with every
+// client on it (the map, not a snapshot, so a client that joined meanwhile
+// goes too) and resets the manager, so the next client subscribes anew. The
+// caller closes the subscription and tells the clients, outside the lock.
+func (m *WebRTCManager) endSubscriptionLocked(subscription *stream.VideoSubscription) []*Client {
+	if subscription == nil || m.subscription != subscription {
+		return nil
+	}
+	clients := make([]*Client, 0, len(m.clients))
+	for ws, client := range m.clients {
+		if writer := m.writers[client]; writer != nil {
+			writer.close()
+			delete(m.writers, client)
+		}
+		delete(m.clients, ws)
+		clients = append(clients, client)
+	}
+	m.subscription = nil
+	m.config = stream.EncoderConfig{}
+	m.videoSending = false
+	m.updateClientSnapshotLocked()
+	m.viewerVersion++
+	return clients
+}
+
 func (m *WebRTCManager) updateClientSnapshotLocked() int {
 	clients := make([]*Client, 0, len(m.clients))
 	for _, client := range m.clients {
@@ -128,20 +192,6 @@ func (m *WebRTCManager) updateClientSnapshotLocked() int {
 	m.clientSnapshot.Store(&clients)
 
 	return len(clients)
-}
-
-func (m *WebRTCManager) getClientsFor(subscription *stream.VideoSubscription) []*Client {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	if m.subscription != subscription {
-		return nil
-	}
-
-	clients := m.clientSnapshot.Load()
-	if clients == nil {
-		return nil
-	}
-	return *clients
 }
 
 func (m *WebRTCManager) StartVideoStream() {
@@ -163,10 +213,14 @@ func (m *WebRTCManager) sendVideoStream(subscription *stream.VideoSubscription) 
 	for {
 		frame, ok := subscription.Next()
 		if !ok {
-			for _, client := range m.getClientsFor(subscription) {
-				_ = client.WriteMessage("video-error", "encoder-reconfigured")
-				m.RemoveClient(client.ws)
-				client.Close()
+			m.mutex.Lock()
+			clients := m.endSubscriptionLocked(subscription)
+			version := m.viewerVersion
+			m.mutex.Unlock()
+			if clients != nil {
+				closeSubscription(subscription)
+				vm.UpdateHdmiViewerSnapshot("webrtc", 0, version)
+				notifyEndedClients(clients)
 			}
 			return
 		}

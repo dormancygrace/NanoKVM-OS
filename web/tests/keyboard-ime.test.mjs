@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 
-function keyboardHarness() {
+function keyboardHarness(os = 'Windows') {
   const effects = [],
     sent = [],
     handlers = new Map(),
@@ -68,7 +68,7 @@ function keyboardHarness() {
         };
       if (name === 'react/jsx-runtime') return { jsx() {}, jsxs() {}, Fragment() {} };
       if (name === 'jotai') return { useAtomValue: (atom) => (atom === 'enabled' ? true : state) };
-      if (name.includes('browser')) return { getOperatingSystem: () => 'Windows' };
+      if (name.includes('browser')) return { getOperatingSystem: () => os };
       if (name === '@/lib/keyboard.ts') return { KeyboardReport: Report };
       if (name.includes('keymap')) return { isModifier: (k) => k.startsWith('Meta') };
       if (name.includes('websocket'))
@@ -137,3 +137,26 @@ for (const release of ['blur', 'hidden', 'takeover'])
     assert.ok(h.sent.some((e) => e[0] === 'reset'));
     h.cleanup();
   });
+test('macOS CapsLock: each of its events is one toggle on the host', () => {
+  const h = keyboardHarness('macOS');
+  // macOS reports down when it turns on and up only when it turns off.
+  h.emit('keydown', 'CapsLock');
+  h.emit('keyup', 'CapsLock');
+  assert.deepEqual(h.sent, [
+    ['down', 'CapsLock'],
+    ['up', 'CapsLock'],
+    ['down', 'CapsLock'],
+    ['up', 'CapsLock']
+  ]);
+  h.cleanup();
+});
+test('other systems keep CapsLock as an ordinary key', () => {
+  const h = keyboardHarness('Windows');
+  h.emit('keydown', 'CapsLock');
+  h.emit('keyup', 'CapsLock');
+  assert.deepEqual(h.sent, [
+    ['down', 'CapsLock'],
+    ['up', 'CapsLock']
+  ]);
+  h.cleanup();
+});

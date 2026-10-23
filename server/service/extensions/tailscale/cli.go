@@ -42,6 +42,8 @@ func NewCli() *Cli { return &Cli{} }
 // run one at a time, each with a limit, and one login process at most.
 var (
 	tailscaleBinary = TailscalePath
+	rcServiceBinary = "rc-service"
+	pidofBinary     = "pidof"
 	cliMu           sync.Mutex
 	loginProcess    *exec.Cmd // under cliMu
 
@@ -66,9 +68,34 @@ func command(timeout time.Duration, name string, args ...string) error {
 	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
 	if ctx.Err() != nil {
-		return fmt.Errorf("%s %s: no answer in %v", name, strings.Join(args, " "), timeout)
+		return fmt.Errorf("%s %s: %w in %v", name, strings.Join(args, " "), errNoAnswer, timeout)
 	}
 	return err
+}
+
+var errNoAnswer = errors.New("no answer")
+
+// probe runs a status check: true when it exits 0, false when it exits with
+// a status (not running), and an error when it gave no answer or could not
+// run at all. A probe that timed out says nothing about the state.
+func probe(name string, args ...string) (bool, error) {
+	err := command(commandTimeout, name, args...)
+	if err == nil {
+		return true, nil
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return false, nil
+	}
+	return false, err
+}
+
+func tailscaledRunning() (bool, error) {
+	running, err := probe(pidofBinary, "tailscaled")
+	if err != nil {
+		return false, fmt.Errorf("cannot tell whether tailscaled runs: %w", err)
+	}
+	return running, nil
 }
 
 // stopLoginLocked ends a login a previous click left waiting.
@@ -91,8 +118,9 @@ func (c *Cli) Start() error {
 	if err := command(commandTimeout, "rc-update", "add", "tailscale", "default"); err != nil {
 		return err
 	}
-	if c.IsRunning() {
-		return nil
+	running, err := tailscaledRunning()
+	if err != nil || running {
+		return err
 	}
 	return startDaemon("start")
 }
@@ -109,7 +137,11 @@ func (c *Cli) Restart() error {
 	if err := command(commandTimeout, "rc-update", "add", "tailscale", "default"); err != nil {
 		return err
 	}
-	if !c.IsRunning() {
+	running, err := tailscaledRunning()
+	if err != nil {
+		return err
+	}
+	if !running {
 		return startDaemon("start")
 	}
 	return startDaemon("restart")
@@ -119,8 +151,14 @@ func (c *Cli) Stop() error {
 	cliMu.Lock()
 	defer cliMu.Unlock()
 	stopLoginLocked()
-	if c.IsRunning() {
-		if err := command(serviceTimeout, "rc-service", "tailscale", "stop"); err != nil {
+	// Uninstall removes the packages once Stop succeeds: a probe that gave
+	// no answer must not pass for "not running".
+	running, err := tailscaledRunning()
+	if err != nil {
+		return err
+	}
+	if running {
+		if err := command(serviceTimeout, rcServiceBinary, "tailscale", "stop"); err != nil {
 			return err
 		}
 	}
@@ -244,7 +282,11 @@ func (c *Cli) Logout() error {
 	return command(commandTimeout, tailscaleBinary, "logout")
 }
 
-func (c *Cli) IsRunning() bool { return command(commandTimeout, "pidof", "tailscaled") == nil }
+// IsRunning is true only when tailscaled is known to run.
+func (c *Cli) IsRunning() bool {
+	running, err := tailscaledRunning()
+	return err == nil && running
+}
 
 func isInstalled() bool {
 	client, clientErr := os.Stat(TailscalePath)
@@ -252,8 +294,14 @@ func isInstalled() bool {
 	return clientErr == nil && daemonErr == nil && client.Mode().IsRegular() && daemon.Mode().IsRegular() && client.Mode()&0111 != 0 && daemon.Mode()&0111 != 0
 }
 
+// ensureNetbirdStopped lets Tailscale start only when NetBird is known to be
+// stopped: rc-service answered with "not running". No answer is not that.
 func ensureNetbirdStopped() error {
-	if command(commandTimeout, "rc-service", "netbird", "status") == nil {
+	running, err := probe(rcServiceBinary, "netbird", "status")
+	if err != nil {
+		return fmt.Errorf("cannot tell whether NetBird runs: %w", err)
+	}
+	if running {
 		return fmt.Errorf("stop NetBird before starting Tailscale")
 	}
 	return nil

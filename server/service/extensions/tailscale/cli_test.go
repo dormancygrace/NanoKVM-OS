@@ -19,15 +19,27 @@ func fakeTailscale(t *testing.T, script string) (log string) {
 	if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	previous := tailscaleBinary
+	// NetBird and tailscaled are not running unless a test says otherwise.
+	previous, previousRC, previousPidof := tailscaleBinary, rcServiceBinary, pidofBinary
 	tailscaleBinary = path
+	rcServiceBinary = fakeScript(t, dir, "rc-service", `echo "rc-service $*" >> `+log+`.rc; exit 1`)
+	pidofBinary = fakeScript(t, dir, "pidof", `exit 1`)
 	t.Cleanup(func() {
 		cliMu.Lock()
 		stopLoginLocked()
 		cliMu.Unlock()
-		tailscaleBinary = previous
+		tailscaleBinary, rcServiceBinary, pidofBinary = previous, previousRC, previousPidof
 	})
 	return log
+}
+
+func fakeScript(t *testing.T, dir, name, body string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func alive(pid string) bool {
@@ -136,10 +148,49 @@ func TestCommandsHaveALimitAndRunOneAtATime(t *testing.T) {
 func TestUpWaitsForALoginAtMostItsOwnTimeout(t *testing.T) {
 	log := fakeTailscale(t, `exit 0`)
 	if err := NewCli().Up(); err != nil {
-		t.Skipf("up did not run here: %v", err) // a running NetBird on the test host
+		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(log)
 	if !strings.Contains(string(data), "up --accept-dns=false --timeout=") {
 		t.Fatalf("up without its own timeout: %q", data)
+	}
+}
+
+// A probe that gives no answer is not "stopped": NetBird may still run, and
+// tailscaled may still run when Uninstall would remove its packages.
+func TestAProbeWithoutAnAnswerStopsTheAction(t *testing.T) {
+	log := fakeTailscale(t, `exit 0`)
+	previous := commandTimeout
+	commandTimeout = 300 * time.Millisecond
+	defer func() { commandTimeout = previous }()
+	dir := filepath.Dir(tailscaleBinary)
+
+	rcServiceBinary = fakeScript(t, dir, "rc-service-hang", `sleep 60`)
+	if err := NewCli().Up(); err == nil || !strings.Contains(err.Error(), "NetBird") {
+		t.Fatalf("up with a hanging NetBird check: %v", err)
+	}
+	if data, _ := os.ReadFile(log); strings.Contains(string(data), " up ") {
+		t.Fatalf("tailscale up ran: %q", data)
+	}
+	if _, err := NewCli().Login(); err == nil {
+		t.Fatal("login with a hanging NetBird check succeeded")
+	}
+
+	rcServiceBinary = fakeScript(t, dir, "rc-service-ok", `echo "rc-service $*" >> `+log+`.rc; exit 1`)
+	pidofBinary = fakeScript(t, dir, "pidof-hang", `sleep 60`)
+	if err := NewCli().Stop(); err == nil || !strings.Contains(err.Error(), "tailscaled") {
+		t.Fatalf("stop with a hanging pidof: %v", err)
+	}
+	if err := NewCli().Start(); err == nil {
+		t.Fatal("start with a hanging pidof succeeded")
+	}
+
+	// A normal "not running" answer still lets them through.
+	pidofBinary = fakeScript(t, dir, "pidof-no", `exit 1`)
+	if err := NewCli().Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewCli().Up(); err != nil {
+		t.Fatal(err)
 	}
 }

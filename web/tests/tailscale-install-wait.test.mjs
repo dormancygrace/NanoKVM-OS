@@ -6,7 +6,7 @@ import ts from 'typescript';
 
 // The Tailscale install panel with a stateful render; the API is a stub and
 // the 3 s status poll runs at once.
-function harness({ install, statuses }) {
+function harness({ install, statuses, onStatus }) {
   const state = [];
   const cleanups = [];
   let slot = 0;
@@ -49,6 +49,7 @@ function harness({ install, statuses }) {
       install,
       getStatus: async () => {
         calls.status++;
+        onStatus?.();
         return { code: 0, data: statuses.shift() ?? { state: 'notInstall' } };
       }
     },
@@ -131,14 +132,16 @@ test('an answer from the server is taken as it is', async () => {
 });
 
 test('closing the panel ends the wait', async () => {
-  const statuses = Array.from({ length: 50 }, () => ({ state: 'notInstall', busy: true }));
-  const h = harness({ install: timeout, statuses });
+  const h = harness({
+    install: timeout,
+    statuses: [{ state: 'notInstall', busy: true }],
+    // Close during the first status request. Accelerated polls must not
+    // exhaust a finite response list before a wall-clock timer fires.
+    onStatus: () => h.unmount()
+  });
   h.render().props.onInstall();
-  await new Promise((resolve) => setTimeout(resolve, 5));
-  h.unmount();
-  const polled = h.calls.status;
   await settle();
-  assert.ok(h.calls.status <= polled + 1, `kept polling: ${polled} then ${h.calls.status}`);
+  assert.equal(h.calls.status, 1, 'polling stops after the in-flight request');
   assert.equal(h.calls.success, 0);
   assert.notEqual(h.state[0], 'failed', 'no state written after unmount');
 });

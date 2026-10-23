@@ -99,6 +99,16 @@ func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error))
 				failed(err)
 				return
 			}
+			if frame.IsKeyframe() {
+				// Recovered only once a keyframe has gone out and the writer
+				// has not started waiting again meanwhile: one queued, then
+				// dropped or rejected by the path MTU, keeps the backoff.
+				w.mu.Lock()
+				if !w.repairing {
+					w.keyframeWait = 0
+				}
+				w.mu.Unlock()
+			}
 		}
 	}()
 	return w
@@ -124,9 +134,6 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 		return false
 	}
 	if w.tryEnqueueLocked(frame) {
-		if frame.IsKeyframe() {
-			w.keyframeWait = 0
-		}
 		w.repairing = false
 		return true
 	}
@@ -142,7 +149,6 @@ func (w *peerVideoWriter) offer(frame stream.VideoFrame) bool {
 		// The queue is empty after drainLocked. This also permits one native
 		// frame larger than the byte budget, but never a second queued frame.
 		if w.tryEnqueueLocked(frame) {
-			w.keyframeWait = 0
 			w.repairing = false
 			return true
 		}

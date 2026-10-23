@@ -8,6 +8,23 @@ import (
 	"time"
 )
 
+// waitForWrites waits until the writer has taken every queued frame.
+func waitForWrites(t *testing.T, w *peerVideoWriter) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		w.mu.Lock()
+		idle := len(w.frames) == 0 && w.queuedBytes == 0
+		w.mu.Unlock()
+		if idle {
+			time.Sleep(20 * time.Millisecond)
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("writer did not drain")
+}
+
 func countKeyframeRequests(t *testing.T) *atomic.Int32 {
 	t.Helper()
 	var requests atomic.Int32
@@ -59,6 +76,7 @@ func TestANewWriterAsksForAKeyframe(t *testing.T) {
 	if !w.offer(stream.VideoFrame{Result: 3, Timestamp: 2}) {
 		t.Fatal("keyframe refused")
 	}
+	waitForWrites(t, w)
 	clock = clock.Add(5 * time.Second)
 	for range 5 {
 		if !w.offer(delta) {
@@ -133,5 +151,81 @@ func TestABudgetErrorAsksForAKeyframe(t *testing.T) {
 	}
 	if requests.Load() == 0 {
 		t.Fatal("a budget error did not lead to a keyframe request")
+	}
+}
+
+// A keyframe that is queued but then rejected by the path MTU is no
+// recovery: the backoff keeps growing.
+func TestBackoffSurvivesARejectedKeyframe(t *testing.T) {
+	useDefaultPeerWriterQueue(t)
+	requests := countKeyframeRequests(t)
+	var asked []time.Duration
+	clock := time.Unix(1000, 0)
+	start := clock
+	written := make(chan struct{}, 64)
+	w := newPeerVideoWriter(func(f stream.VideoFrame) error {
+		written <- struct{}{}
+		return errVideoBudget // every frame, keyframes too
+	}, func(error) {})
+	defer w.close()
+	w.now = func() time.Time { return clock }
+	delta := stream.VideoFrame{Result: 4, Timestamp: 1}
+	key := stream.VideoFrame{Result: 3, Timestamp: 2}
+	for range 8 {
+		before := requests.Load()
+		w.offer(delta)
+		if requests.Load() > before {
+			asked = append(asked, clock.Sub(start))
+		}
+		if w.offer(key) {
+			<-written
+			waitForWrites(t, w)
+		}
+		clock = clock.Add(500 * time.Millisecond)
+	}
+	want := []time.Duration{0, time.Second, 3 * time.Second}
+	if len(asked) != len(want) || asked[0] != want[0] || asked[1] != want[1] || asked[2] != want[2] {
+		t.Fatalf("asked at %v, want %v", asked, want)
+	}
+}
+
+// A keyframe drained by an overflow behind a blocked write is no recovery.
+func TestBackoffSurvivesADrainedKeyframe(t *testing.T) {
+	useDefaultPeerWriterQueue(t)
+	requests := countKeyframeRequests(t)
+	unblock := make(chan struct{})
+	entered := make(chan struct{}, 1)
+	w := newPeerVideoWriter(func(stream.VideoFrame) error {
+		select {
+		case entered <- struct{}{}:
+		default:
+		}
+		<-unblock
+		return nil
+	}, func(error) {})
+	defer w.close()
+	defer close(unblock)
+	clock := time.Unix(1000, 0)
+	start := clock
+	w.now = func() time.Time { return clock }
+	key := stream.VideoFrame{Result: 3, Timestamp: 1}
+	delta := stream.VideoFrame{Result: 4, Timestamp: 2}
+	w.offer(key)
+	<-entered // this write stays blocked
+	var asked []time.Duration
+	for range 8 {
+		before := requests.Load()
+		for i := 0; i <= peerVideoQueueCapacity; i++ {
+			w.offer(delta) // fills the queue, then overflows and drains
+		}
+		w.offer(key) // queued, drained by the next round
+		if requests.Load() > before {
+			asked = append(asked, clock.Sub(start))
+		}
+		clock = clock.Add(500 * time.Millisecond)
+	}
+	want := []time.Duration{0, time.Second, 3 * time.Second}
+	if len(asked) != len(want) || asked[0] != want[0] || asked[1] != want[1] || asked[2] != want[2] {
+		t.Fatalf("asked at %v, want %v", asked, want)
 	}
 }

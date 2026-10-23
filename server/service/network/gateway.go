@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -153,29 +154,91 @@ func gatewayKind(iface string) string {
 	return ""
 }
 
-// applyGatewayPreference gives each gateway the metric of the preference.
-// The metric is part of a route's identity, so replace adds a route next to
-// one with another metric: those are deleted after the new one is in.
+func preferenceMetric(preferred string, iface string, index int) int {
+	if preferred == "auto" {
+		return 100 + index
+	}
+	if gatewayKind(iface) == preferred {
+		return 10 + index
+	}
+	return 200 + index
+}
+
+func setGatewayRoute(route proto.GatewayRoute, metric int) error {
+	_, err := gatewayRouteCommand("-4", "route", "replace", "default", "via", route.Gateway, "dev", route.Interface, "proto", "dhcp", "metric", strconv.Itoa(metric))
+	return err
+}
+
+func deleteGatewayRoute(route proto.GatewayRoute, metric int) error {
+	_, err := gatewayRouteCommand("-4", "route", "del", "default", "via", route.Gateway, "dev", route.Interface, "metric", strconv.Itoa(metric))
+	return err
+}
+
+// applyGatewayPreference gives each gateway the metric of the preference,
+// one route each. The kernel keys a default route by its metric, not by its
+// gateway or device: a replace at a metric another gateway holds would
+// replace that gateway's route. So each gateway first moves to a metric
+// nobody uses, then to its preferred one, which is free by then; a route is
+// deleted only after the one replacing it is in, so every gateway keeps a
+// route throughout.
 func applyGatewayPreference(preferred string, entries []proto.GatewayRoute) error {
-	for index, route := range uniqueGatewayRoutes(entries) {
-		metric := 100 + index
-		if preferred != "auto" {
-			if gatewayKind(route.Interface) == preferred {
-				metric = 10 + index
-			} else {
-				metric = 200 + index
+	// A stable order: the table lists routes by metric, which this changes.
+	routes := uniqueGatewayRoutes(entries)
+	sort.Slice(routes, func(a, b int) bool {
+		if routes[a].Interface != routes[b].Interface {
+			return routes[a].Interface < routes[b].Interface
+		}
+		return routes[a].Gateway < routes[b].Gateway
+	})
+	used := map[int]bool{}
+	for _, entry := range entries {
+		used[entry.Metric] = true
+	}
+	desired := make([]int, len(routes))
+	for index, route := range routes {
+		desired[index] = preferenceMetric(preferred, route.Interface, index)
+		used[desired[index]] = true
+	}
+	metricsOf := func(route proto.GatewayRoute) []int {
+		var metrics []int
+		for _, entry := range entries {
+			if entry.Interface == route.Interface && entry.Gateway == route.Gateway {
+				metrics = append(metrics, entry.Metric)
 			}
 		}
-		if _, err := gatewayRouteCommand("-4", "route", "replace", "default", "via", route.Gateway, "dev", route.Interface, "proto", "dhcp", "metric", strconv.Itoa(metric)); err != nil {
+		return metrics
+	}
+	current := make([]int, len(routes))
+	next := 1000
+	for index, route := range routes {
+		old := metricsOf(route)
+		if len(old) == 1 && old[0] == desired[index] {
+			current[index] = desired[index]
+			continue
+		}
+		for used[next] {
+			next++
+		}
+		used[next] = true
+		if err := setGatewayRoute(route, next); err != nil {
 			return fmt.Errorf("apply route for %s: %w", route.Interface, err)
 		}
-		for _, old := range entries {
-			if old.Interface != route.Interface || old.Gateway != route.Gateway || old.Metric == metric {
-				continue
-			}
-			if _, err := gatewayRouteCommand("-4", "route", "del", "default", "via", old.Gateway, "dev", old.Interface, "metric", strconv.Itoa(old.Metric)); err != nil {
+		current[index] = next
+		for _, metric := range old {
+			if err := deleteGatewayRoute(route, metric); err != nil {
 				return fmt.Errorf("remove the old route for %s: %w", route.Interface, err)
 			}
+		}
+	}
+	for index, route := range routes {
+		if current[index] == desired[index] {
+			continue
+		}
+		if err := setGatewayRoute(route, desired[index]); err != nil {
+			return fmt.Errorf("apply route for %s: %w", route.Interface, err)
+		}
+		if err := deleteGatewayRoute(route, current[index]); err != nil {
+			return fmt.Errorf("remove the interim route for %s: %w", route.Interface, err)
 		}
 	}
 	return nil

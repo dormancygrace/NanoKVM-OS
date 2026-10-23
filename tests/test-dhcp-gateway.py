@@ -87,6 +87,18 @@ class GatewayHookTest(unittest.TestCase):
             self.assertEqual([(r.get("gateway"), r.get("metric")) for r in routes],
                              [("192.0.2.1", 10)], routes)
 
+    def test_failed_replace_keeps_the_lease_route(self):
+        # Without the preferred route, the one udhcpc installed must stay.
+        for event in ("bound", "renew"):
+            hook = self.config / ("post-" + event) / "99-nanokvm-gateway"
+            text = hook.read_text()
+            self.assertIn("ip -4 route replace default", text)
+            hook.write_text(text.replace("ip -4 route replace default", "false ip -4 route replace default"))
+        self.lease()
+        routes = self.defaults()
+        self.assertEqual([(r.get("gateway"), r.get("metric")) for r in routes],
+                         [("192.0.2.1", 202)], routes)
+
     def test_wifi_preference(self):
         ip("link", "add", "wlan0", "type", "dummy")
         self.addCleanup(ip, "link", "del", "wlan0")

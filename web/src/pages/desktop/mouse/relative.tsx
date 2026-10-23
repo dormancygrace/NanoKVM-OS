@@ -117,6 +117,11 @@ export const Relative = () => {
     target.addEventListener('wheel', handleMouseWheel, { passive: false });
     target.addEventListener('contextmenu', disableEvent);
     document.addEventListener('pointerlockchange', handlePointerLockChange);
+    window.addEventListener('mouseup', handleMouseUpOutside, true);
+    window.addEventListener('blur', releasePressedButtons);
+    window.addEventListener('pagehide', releasePressedButtons);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const pressedButtons = new Set<number>();
 
     const touchOptions: AddEventListenerOptions = { passive: false };
     if (useTouchpad) {
@@ -149,13 +154,34 @@ export const Relative = () => {
     // Mouse down event
     function handleMouseDown(e: MouseEvent) {
       disableEvent(e);
+      pressedButtons.add(e.button);
       handleMouseEvent({ type: 'mousedown', button: e.button });
     }
 
     // Mouse up event
     function handleMouseUp(e: MouseEvent) {
       disableEvent(e);
+      pressedButtons.delete(e.button);
       handleMouseEvent({ type: 'mouseup', button: e.button });
+    }
+
+    // Without the pointer lock a button can go up outside the screen.
+    function handleMouseUpOutside(e: MouseEvent) {
+      if (target.contains(e.target as Node) || !pressedButtons.has(e.button)) return;
+      pressedButtons.delete(e.button);
+      handleMouseEvent({ type: 'mouseup', button: e.button });
+    }
+
+    // Escape, Alt-Tab or a hidden page while a button is down: its release
+    // never reaches the screen.
+    function releasePressedButtons() {
+      if (pressedButtons.size === 0) return;
+      pressedButtons.clear();
+      client.send(new Uint8Array([MessageEvent.Mouse, ...mouse.reset()]));
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') releasePressedButtons();
     }
 
     // Mouse move event
@@ -331,7 +357,9 @@ export const Relative = () => {
     }
 
     function handlePointerLockChange() {
-      isLockedRef.current = document.pointerLockElement === target;
+      const locked = document.pointerLockElement === target;
+      if (isLockedRef.current && !locked) releasePressedButtons();
+      isLockedRef.current = locked;
     }
 
     function releaseTouchpadState() {
@@ -352,6 +380,10 @@ export const Relative = () => {
       target.removeEventListener('wheel', handleMouseWheel);
       target.removeEventListener('contextmenu', disableEvent);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
+      window.removeEventListener('mouseup', handleMouseUpOutside, true);
+      window.removeEventListener('blur', releasePressedButtons);
+      window.removeEventListener('pagehide', releasePressedButtons);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (useTouchpad) {
         target.style.touchAction = previousTouchAction;
         target.removeEventListener('touchstart', handleTouchStart, touchOptions.capture);

@@ -9,11 +9,14 @@ import { createTouchChord } from '../src/pages/desktop/mouse/touch-chord.ts';
 
 function harness() {
   const events = new Map(),
+    windowEvents = new Map(),
+    documentEvents = new Map(),
     timers = new Map(),
     reports = [];
   const screen = {
     style: {},
     parentElement: null,
+    contains: (node) => node === screen,
     addEventListener: (name, fn) => events.set(name, fn),
     removeEventListener: (name) => events.delete(name),
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 1000 })
@@ -63,8 +66,21 @@ function harness() {
       assert.ok(modules[name], name);
       return modules[name];
     },
-    document: { getElementById: () => screen },
-    window: { addEventListener() {}, removeEventListener() {} },
+    document: {
+      visibilityState: 'visible',
+      getElementById: () => screen,
+      addEventListener: (name, fn) => documentEvents.set(name, fn),
+      removeEventListener: (name) => documentEvents.delete(name)
+    },
+    window: {
+      addEventListener: (name, fn) =>
+        windowEvents.set(name, [...(windowEvents.get(name) ?? []), fn]),
+      removeEventListener: (name, fn) =>
+        windowEvents.set(
+          name,
+          (windowEvents.get(name) ?? []).filter((f) => f !== fn)
+        )
+    },
     navigator: {},
     Date: { now: () => time },
     setTimeout: (fn) => {
@@ -81,6 +97,14 @@ function harness() {
     event(name, touches, changedTouches = []) {
       time += 50;
       events.get(name)({ touches, changedTouches, preventDefault() {}, stopPropagation() {} });
+    },
+    mouse(name, button, inside = true) {
+      const e = { button, clientX: 100, clientY: 100, target: inside ? screen : {} };
+      const handlers = inside ? [events.get(name)] : windowEvents.get(name);
+      for (const handler of handlers) handler({ ...e, preventDefault() {}, stopPropagation() {} });
+    },
+    windowEvent(name) {
+      for (const handler of windowEvents.get(name)) handler({});
     },
     longPress() {
       for (const fn of timers.values()) fn();
@@ -151,4 +175,29 @@ test('double-tap drag still presses left, moves and releases', () => {
   assert.deepEqual(buttons(h), [1, 1, 1]);
   assert.equal(h.reports.at(-1)[0], 0);
   h.close();
+});
+
+test('a mouse button released outside the screen is released on the host', () => {
+  const h = harness();
+  h.mouse('mousedown', 0);
+  assert.equal(h.reports.at(-1)[0], 1);
+  h.mouse('mouseup', 0, false);
+  assert.equal(h.reports.at(-1)[0], 0);
+  // A release over the screen afterwards adds nothing.
+  const count = h.reports.length;
+  h.mouse('mouseup', 2, false);
+  assert.equal(h.reports.length, count);
+  h.close();
+});
+test('losing focus with a button down releases it', () => {
+  for (const name of ['blur', 'pagehide']) {
+    const h = harness();
+    h.mouse('mousedown', 0);
+    h.windowEvent(name);
+    assert.equal(h.reports.at(-1)[0], 0, name);
+    const count = h.reports.length;
+    h.windowEvent(name);
+    assert.equal(h.reports.length, count, 'nothing to release twice');
+    h.close();
+  }
 });

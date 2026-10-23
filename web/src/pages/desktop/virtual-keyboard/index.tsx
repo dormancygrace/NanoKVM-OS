@@ -48,6 +48,35 @@ export const VirtualKeyboard = () => {
   const [activeModifierKeys, setActiveModifierKeys] = useState<string[]>([]);
 
   const keyboardRef = useRef<any>(null);
+  // A non-modifier key reported down: simple-keyboard only reports the
+  // release when the pointer goes up on the same button.
+  const keyHeld = useRef(false);
+  const releaseHeld = useRef(() => {});
+  releaseHeld.current = () => {
+    if (!keyHeld.current) return;
+    keyHeld.current = false;
+    sendKeyup();
+  };
+
+  useEffect(() => {
+    const release = () => releaseHeld.current();
+    const hidden = () => {
+      if (document.visibilityState === 'hidden') release();
+    };
+    document.addEventListener('pointerup', release);
+    document.addEventListener('pointercancel', release);
+    window.addEventListener('blur', release);
+    window.addEventListener('pagehide', release);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      document.removeEventListener('pointerup', release);
+      document.removeEventListener('pointercancel', release);
+      window.removeEventListener('blur', release);
+      window.removeEventListener('pagehide', release);
+      document.removeEventListener('visibilitychange', hidden);
+      release();
+    };
+  }, []);
 
   const systems = [
     { value: 'win', icon: <WindowsOutlined /> },
@@ -110,7 +139,7 @@ export const VirtualKeyboard = () => {
       return;
     }
 
-    sendKeyup();
+    releaseHeld.current();
   }
 
   // Send all keys
@@ -124,6 +153,7 @@ export const VirtualKeyboard = () => {
     const modifier = sendModifierKeyDown();
 
     send(modifier, code);
+    keyHeld.current = true;
   }
 
   function getKeyboardCode(key: string) {

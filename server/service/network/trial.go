@@ -34,6 +34,10 @@ import (
 var trialDuration = 2 * time.Minute
 var trialFile = "/boot/net-trial.json"
 
+// A restore that fails is tried again this often; until it succeeds, no
+// other change starts, and the record stays the way back.
+var trialRetry = 30 * time.Second
+
 // The record of a trial: the previous contents of each settings file, null
 // for a file that did not exist, and what restarts their service.
 type trialRecord struct {
@@ -50,8 +54,10 @@ type trial struct {
 	// device still answers with its previous settings, and reaching it
 	// proves nothing.
 	isApplied bool
-	// Set while the previous settings are being written back.
+	// Set while the previous settings are being written back, also while a
+	// failed restore waits for its retry.
 	reverting bool
+	retry     *time.Timer
 }
 
 var (
@@ -139,6 +145,10 @@ func beginTrial(service string, paths []string) (*trial, error) {
 	if active != nil {
 		return nil, errors.New("a network change is waiting for confirmation; confirm it or wait for it to be undone")
 	}
+	// A record nobody owns is the only way back to the confirmed settings.
+	if _, err := os.Lstat(trialFile); !errors.Is(err, os.ErrNotExist) {
+		return nil, errors.New("an earlier network change is still being undone; try again later")
+	}
 	files, err := snapshotFiles(paths)
 	if err != nil {
 		return nil, fmt.Errorf("cannot record the current network settings: %w", err)
@@ -195,7 +205,22 @@ func revertTrial(t *trial, reason string, restart bool) {
 		t.timer.Stop()
 	}
 	trialMu.Unlock()
-	restoreRecord(t.record, reason, restart)
+	finishRevert(t, reason, restart)
+}
+
+// finishRevert ends a trial once its previous settings are back and its
+// record is gone. Until then the trial keeps blocking other changes, and the
+// restore is tried again.
+func finishRevert(t *trial, reason string, restart bool) {
+	if err := restoreRecord(t.record, reason, restart); err != nil {
+		log.Errorf("failed to restore the previous network settings, trying again in %s: %s", trialRetry, err)
+		trialMu.Lock()
+		if active == t {
+			t.retry = time.AfterFunc(trialRetry, func() { finishRevert(t, "a retry", true) })
+		}
+		trialMu.Unlock()
+		return
+	}
 	trialMu.Lock()
 	if active == t {
 		active = nil
@@ -203,42 +228,50 @@ func revertTrial(t *trial, reason string, restart bool) {
 	trialMu.Unlock()
 }
 
-// restoreRecord writes back the previous settings. The record goes only once
-// they are back: a failed restore is tried again at the next start.
-func restoreRecord(record trialRecord, reason string, restart bool) {
+// restoreRecord writes back the previous settings and then removes the
+// record: only once both are on the card is the revert done.
+func restoreRecord(record trialRecord, reason string, restart bool) error {
 	log.Warnf("network change undone (%s): restoring the previous %s settings", reason, record.Service)
 	if err := restoreFiles(record.Files); err != nil {
-		log.Errorf("failed to restore the previous network settings, keeping the record for the next start: %s", err)
-	} else if err = os.Remove(trialFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		log.Errorf("failed to remove the network trial record: %s", err)
+		return err
 	}
 	syncFiles()
-	if !restart {
-		return
-	}
-	if restartService := trialRestarts[record.Service]; restartService != nil {
-		if err := restartService(); err != nil {
-			log.Errorf("failed to restart %s with the previous settings: %s", record.Service, err)
+	if restart {
+		if restartService := trialRestarts[record.Service]; restartService != nil {
+			if err := restartService(); err != nil {
+				log.Errorf("failed to restart %s with the previous settings: %s", record.Service, err)
+			}
 		}
 	}
+	if err := os.Remove(trialFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove the trial record: %w", err)
+	}
+	syncFiles()
+	return nil
 }
 
-func confirmTrial(token string) bool {
+var errNoTrial = errors.New("no network change is waiting for this confirmation")
+
+// confirmTrial keeps a change. Its record goes first: while it is there, a
+// restart would still undo the change, so the trial and its token stay live
+// until the record is gone.
+func confirmTrial(token string) error {
 	trialMu.Lock()
 	defer trialMu.Unlock()
 	t := active
 	if t == nil || t.timer == nil || !t.isApplied || t.reverting ||
 		subtle.ConstantTimeCompare([]byte(token), []byte(t.token)) != 1 {
-		return false
+		return errNoTrial
 	}
-	t.timer.Stop()
-	active = nil
 	if err := os.Remove(trialFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Errorf("failed to remove the network trial record: %s", err)
+		return fmt.Errorf("cannot keep the change: %w", err)
 	}
 	syncFiles()
+	t.timer.Stop()
+	active = nil
 	log.Infof("network change confirmed")
-	return true
+	return nil
 }
 
 // RestorePendingTrial undoes a change that was still on trial when the
@@ -275,14 +308,7 @@ func RestorePendingTrial() {
 	trialMu.Lock()
 	active = t
 	trialMu.Unlock()
-	go func() {
-		restoreRecord(record, "the device restarted before it was confirmed", true)
-		trialMu.Lock()
-		if active == t {
-			active = nil
-		}
-		trialMu.Unlock()
-	}()
+	go finishRevert(t, "the device restarted before it was confirmed", true)
 }
 
 // Only the settings files a trial can cover are ever restored.
@@ -385,8 +411,11 @@ func (s *Service) ConfirmTrial(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
-	if !confirmTrial(req.Token) {
-		rsp.ErrRsp(c, -2, "no network change is waiting for this confirmation")
+	if err := confirmTrial(req.Token); errors.Is(err, errNoTrial) {
+		rsp.ErrRsp(c, -2, err.Error())
+		return
+	} else if err != nil {
+		rsp.ErrRsp(c, -4, err.Error())
 		return
 	}
 	rsp.OkRsp(c)

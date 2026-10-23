@@ -36,6 +36,9 @@ func endTrialForTest() {
 	if active != nil && active.timer != nil {
 		active.timer.Stop()
 	}
+	if active != nil && active.retry != nil {
+		active.retry.Stop()
+	}
 	active = nil
 	_ = os.Remove(trialFile)
 }
@@ -57,6 +60,9 @@ func newTrialFixture(t *testing.T) *trialFixture {
 	oldDelay := restartDelay
 	restartDelay = 0
 	t.Cleanup(func() { restartDelay = oldDelay })
+	oldRetry := trialRetry
+	trialRetry = 100 * time.Millisecond
+	t.Cleanup(func() { trialRetry = oldRetry })
 	trialDuration = 200 * time.Millisecond
 	interfaceAddrs = func() ([]net.Addr, error) {
 		return []net.Addr{
@@ -382,9 +388,15 @@ func TestARestoreThatFailsKeepsTheRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	RestorePendingTrial()
-	waitFor(t, "the restart", func() bool { return f.restarted.Load() == 1 })
+	time.Sleep(3 * trialRetry)
 	if f.read(t, trialFile) == "<absent>" {
 		t.Fatal("the record was removed although the restore failed")
+	}
+	if f.restarted.Load() != 0 {
+		t.Fatal("restarted although the previous settings are not back")
+	}
+	if _, response := postJSON((&Service{}).SetEthernet, newStatic); response.Code != -3 {
+		t.Fatalf("a change replaced the only record: %+v", response)
 	}
 }
 
@@ -400,5 +412,80 @@ func TestAnUnusableRecordIsKeptAsideLoudly(t *testing.T) {
 	_ = os.Remove(trialFile + ".bad")
 	if f.restarted.Load() != 0 {
 		t.Fatal("a torn record restarted the interface")
+	}
+}
+
+func TestAConfirmationIsOnlyAcknowledgedOnceTheRecordIsGone(t *testing.T) {
+	f := newTrialFixture(t)
+	trialDuration = 10 * time.Second
+	info := setEthernetOnTrial(t, newStatic)
+	waitApplied(t)
+	dir := filepath.Dir(trialFile)
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	_, response := postJSON((&Service{}).ConfirmTrial, `{"token":"`+info.Token+`"}`)
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code == 0 {
+		t.Fatal("confirmed while the record could not be removed")
+	}
+	// The change still waits, with the same token, and a restart would still
+	// undo it: nothing claimed it was kept.
+	if _, response = postJSON((&Service{}).ConfirmTrial, `{"token":"`+info.Token+`"}`); response.Code != 0 {
+		t.Fatalf("confirm after the record became removable: %+v", response)
+	}
+	RestorePendingTrial()
+	time.Sleep(50 * time.Millisecond)
+	if got := f.read(t, ethernetConfigFile); got != "10.20.0.5/16 10.20.0.1\n" {
+		t.Fatalf("a confirmed change was undone at start: %q", got)
+	}
+}
+
+func TestAFailedRestoreKeepsBlockingUntilItSucceeds(t *testing.T) {
+	f := newTrialFixture(t)
+	setEthernetOnTrial(t, newStatic)
+	waitApplied(t)
+	// The settings cannot be written back for a while.
+	if err := os.Chmod(f.dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the revert to start", func() bool {
+		trialMu.Lock()
+		defer trialMu.Unlock()
+		return active != nil && active.reverting
+	})
+	time.Sleep(3 * trialRetry)
+	if _, response := postJSON((&Service{}).SetEthernet, `{"enabled":false,"mode":"dhcp"}`); response.Code != -3 {
+		t.Fatalf("a change started while the previous settings were not back: %+v", response)
+	}
+	if err := os.Chmod(f.dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the retry to restore", func() bool { return f.read(t, trialFile) == "<absent>" })
+	if got := f.read(t, ethernetConfigFile); got != "192.168.1.50/24 192.168.1.1\n" {
+		t.Fatalf("config not restored by the retry: %q", got)
+	}
+	waitFor(t, "the trial to end", func() bool {
+		trialMu.Lock()
+		defer trialMu.Unlock()
+		return active == nil
+	})
+	setEthernetOnTrial(t, `{"enabled":false,"mode":"dhcp"}`)
+}
+
+func TestARecordNobodyOwnsIsNeverReplaced(t *testing.T) {
+	f := newTrialFixture(t)
+	previous := "192.168.7.7/24 none\n"
+	record, _ := json.Marshal(trialRecord{Service: "ethernet", Files: map[string]*string{ethernetConfigFile: &previous}})
+	if err := os.WriteFile(trialFile, record, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, response := postJSON((&Service{}).SetEthernet, newStatic); response.Code != -3 {
+		t.Fatalf("a change replaced an unresolved record: %+v", response)
+	}
+	if got := f.read(t, trialFile); got != string(record) {
+		t.Fatalf("record changed: %q", got)
 	}
 }

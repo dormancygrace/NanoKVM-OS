@@ -11,6 +11,7 @@
 #include "kvm_mmf.hpp"
 #include "kvm_capture.hpp"
 #include "kvm_i2c.hpp"
+#include "hdmi_receiver.hpp"
 #include "kvm_frame_sampler.hpp"
 #include <cstdarg>
 #include "vi_state_shared.hpp"
@@ -73,6 +74,9 @@ static pthread_t vi_detection_thread;
 static uint8_t vi_detection_thread_started = 0;
 
 static nanokvm::I2c LT6911_i2c(4);
+static nanokvm::ReceiverAccess receiver_access;
+static std::atomic<bool> receiver_retry_pending{false};
+static nanokvm::HdmiReceiver<nanokvm::I2c> hdmi_receiver(LT6911_i2c);
 
 struct kvmv_cfg_t {
 	// The detected input size is not here: it is owned by vi_geometry (geometry_gate.hpp).
@@ -88,8 +92,6 @@ struct kvmv_cfg_t {
     uint8_t thread_is_running = 0;
     uint8_t hdmi_version = 0;
     uint8_t hw_version = 0;
-    uint8_t hdmi_stop_flag = 0;
-    uint8_t hdmi_reading_flag = 0;
     uint8_t hdmi_mode = 0;
     std::atomic<uint8_t> hdmi_res_type{0};     // written by detection, read by kvmv_read_img
     std::atomic<uint8_t> hdmi_res_err{0};
@@ -607,251 +609,12 @@ uint8_t auto_try_res()
     return 0;
 }
 
-void lt6911_enable()
+/* Publish only a complete sample whose external-control cleanup succeeded. */
+static uint8_t lt6911_get_csi_res(uint16_t Hactive, uint16_t Vactive,
+    uint16_t *p_width, uint16_t *p_height)
 {
-	uint8_t buf[2];
-
-    if(kvmv_cfg.hdmi_version == 3){
-        return;
-    }
-
-	buf[0] = 0xff;
-	buf[1] = 0x80;
-	if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return ;
-
-	buf[0] = 0xee;
-	buf[1] = 0x01;
-	if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return ;
-
-    if(kvmv_cfg.hdmi_version == 1){
-        // disable watchdog
-        buf[0] = 0x10;
-        buf[1] = 0x00;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return ;
-    }
-}
-
-void lt6911_disable()
-{
-	uint8_t buf[2];
-
-    if(kvmv_cfg.hdmi_version == 3){
-        return;
-    }
-
-	buf[0] = 0xff;
-	buf[1] = 0x80;
-	if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return ;
-
-	buf[0] = 0xee;
-	buf[1] = 0x00;
-	if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return ;
-}
-
-uint8_t lt6911_get_hdmi_res()
-{
-	uint8_t buf[2];
-	uint8_t revbuf[4];
-	uint16_t Vactive;
-	uint16_t Hactive;
-
-
-    if(kvmv_cfg.hdmi_version == 0){
-        // LT6911C
-        buf[0] = 0xff;
-        buf[1] = 0xd2;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return 0;
-
-        buf[0] = 0x83;
-        buf[1] = 0x11;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return 0;
-
-        nanokvm::sleep_ms(5);
-
-        // Vactive
-        buf[0] = 0x96;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return 0;
-        uint8_t dat0[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat0, sizeof(dat0))) return 0;
-
-        // Hactive
-        buf[0] = 0x8b;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return 0;
-        uint8_t dat1[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat1, sizeof(dat1))) return 0;
-
-        revbuf[0] = (uint8_t)dat0[0];
-        revbuf[1] = (uint8_t)dat0[1];
-        revbuf[2] = (uint8_t)dat1[0];
-        revbuf[3] = (uint8_t)dat1[1];
-
-        Vactive = (revbuf[0] << 8)|revbuf[1];
-        Hactive = (revbuf[2] << 8)|revbuf[3];
-        Hactive *= 2;
-
-        debug("[hdmi]HDMI res modification event\n");
-        debug("[hdmi]new res: %d * %d\n", Hactive, Vactive);
-
-
-        if (Vactive != 0 && Hactive != 0){
-            return 1;
-        } else {
-            return 0;
-        }
-    } else if (kvmv_cfg.hdmi_version == 1){
-        // LT6911UXC
-        buf[0] = 0xff;
-        buf[1] = 0x86;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return 0;
-
-        buf[0] = 0xff;
-        buf[1] = 0x86;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return 0;
-
-        // HDMI signal disappear/stable
-        buf[0] = 0xA3;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return 0;
-        uint8_t dat0[1];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat0, sizeof(dat0))) return 0;
-
-        revbuf[0] = (uint8_t)dat0[0];
-
-        debug("[hdmi]HDMI-UXC res modification event\n");
-
-        if(revbuf[0] == 0x55)       return 1;
-        else if(revbuf[0] == 0x88)  return 0;
-        else return 0;
-    } else if (kvmv_cfg.hdmi_version == 3){
-        // LT6911D
-        buf[0] = 0xff;
-        buf[1] = 0xe0;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return 0;
-
-        // Hactive
-        buf[0] = 0x8c;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return 0;
-        uint8_t dat0[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat0, sizeof(dat0))) return 0;
-
-        // Vactive
-        buf[0] = 0x8e;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return 0;
-        uint8_t dat1[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat1, sizeof(dat1))) return 0;
-
-        revbuf[0] = (uint8_t)dat0[0];
-        revbuf[1] = (uint8_t)dat0[1];
-        revbuf[2] = (uint8_t)dat1[0];
-        revbuf[3] = (uint8_t)dat1[1];
-
-        Hactive = ((revbuf[0] << 8)|revbuf[1]) * 2;
-        Vactive = (revbuf[2] << 8)|revbuf[3];
-
-        debug("[hdmi]HDMI-D res modification event\n");
-        debug("[hdmi]new res: %d * %d\n", Hactive, Vactive);
-
-
-        if(Hactive != 0 || Vactive != 0) return 1;
-        else return 0;
-    } else {
-        return 0;
-    }
-}
-
-uint8_t lt6911_get_csi_res(uint16_t *p_width, uint16_t *p_height)
-{
-	uint8_t buf[2];
-	uint8_t revbuf[4];
     uint8_t res_type;
-	static uint16_t old_Vactive;
-	static uint16_t old_Hactive;
-	uint16_t Vactive;
-	uint16_t Hactive;
-
-    if(kvmv_cfg.hdmi_version == 0){
-        // LT6911C
-        buf[0] = 0xff;
-        buf[1] = 0xc2;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return UNKNOWN_RES;
-
-        // Vactive
-        buf[0] = 0x06;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return UNKNOWN_RES;
-        uint8_t dat0[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat0, sizeof(dat0))) return UNKNOWN_RES;
-
-        // Hactive
-        buf[0] = 0x38;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return UNKNOWN_RES;
-        uint8_t dat1[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat1, sizeof(dat1))) return UNKNOWN_RES;
-
-        revbuf[0] = (uint8_t)dat0[0];
-        revbuf[1] = (uint8_t)dat0[1];
-        revbuf[2] = (uint8_t)dat1[0];
-        revbuf[3] = (uint8_t)dat1[1];
-
-
-        Vactive = (revbuf[0] << 8)|revbuf[1];
-        Hactive = (revbuf[2] << 8)|revbuf[3];
-    } else if(kvmv_cfg.hdmi_version == 1) {
-        // LT6911UXC
-        debug("[hdmi]UXC get csi res\n");
-        buf[0] = 0xff;
-        buf[1] = 0x85;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return UNKNOWN_RES;
-
-        // Vactive
-        buf[0] = 0xF0;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return UNKNOWN_RES;
-        uint8_t dat0[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat0, sizeof(dat0))) return UNKNOWN_RES;
-
-        // Hactive
-        buf[0] = 0xEA;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return UNKNOWN_RES;
-        uint8_t dat1[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat1, sizeof(dat1))) return UNKNOWN_RES;
-
-        revbuf[0] = (uint8_t)dat0[0];
-        revbuf[1] = (uint8_t)dat0[1];
-        revbuf[2] = (uint8_t)dat1[0];
-        revbuf[3] = (uint8_t)dat1[1];
-
-
-        Vactive = (revbuf[0] << 8)|revbuf[1];
-        Hactive = (revbuf[2] << 8)|revbuf[3];
-    } else if(kvmv_cfg.hdmi_version == 3) {
-        // LT6911D
-        debug("[hdmi]D get csi res\n");
-        buf[0] = 0xff;
-        buf[1] = 0xe0;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 2)) return UNKNOWN_RES;
-
-        // Vactive
-        buf[0] = 0x8e;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return UNKNOWN_RES;
-        uint8_t dat0[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat0, sizeof(dat0))) return UNKNOWN_RES;
-
-        // Hactive
-        buf[0] = 0x8c;
-        if (!LT6911_i2c.writeto(LT6911_ADDR, buf, 1)) return UNKNOWN_RES;
-        uint8_t dat1[2];
-        if (!LT6911_i2c.readfrom(LT6911_ADDR, dat1, sizeof(dat1))) return UNKNOWN_RES;
-
-        revbuf[0] = (uint8_t)dat0[0];
-        revbuf[1] = (uint8_t)dat0[1];
-        revbuf[2] = (uint8_t)dat1[0];
-        revbuf[3] = (uint8_t)dat1[1];
-
-
-        Vactive = (revbuf[0] << 8)|revbuf[1];
-        Hactive = ((revbuf[2] << 8)|revbuf[3]) * 2;
-    } else {
-        return UNKNOWN_RES;
-    }
-
+    static uint16_t old_Vactive, old_Hactive;
     res_type = check_res(Hactive, Vactive);
     if(res_type == NORMAL_RES)
     {
@@ -895,13 +658,63 @@ uint8_t lt6911_get_csi_res(uint16_t *p_width, uint16_t *p_height)
    read into locals and published through the gate; the size files are already
    written when lt6911_get_csi_res returns. Called by the detection thread, and
    by kvmv_init before that thread exists. */
-static uint8_t detect_csi_res()
+static uint8_t detect_csi_res(const nanokvm::ReceiverSnapshot &snapshot)
 {
     uint16_t width = 0, height = 0;
-    const uint8_t res_type = lt6911_get_csi_res(&width, &height);
+    const uint8_t res_type = lt6911_get_csi_res(snapshot.width, snapshot.height, &width, &height);
     if (res_type == NEW_RES) vi_geometry.publish(width, height);
     kvmv_cfg.hdmi_res_type = res_type;
     return res_type;
+}
+
+/* A transient bus error is not a cable event. Three unsuccessful polls
+ * withdraw the signal, retaining the last valid geometry for recovery. */
+static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false)
+{
+    auto access = receiver_access.read();
+    if (!access && access.state != nanokvm::ReceiverState::IoError) {
+        receiver_retry_pending.store(true, std::memory_order_relaxed);
+        return false;
+    }
+    static unsigned failed_polls = 0;
+    static uint64_t observed_generation = 0;
+    if (observed_generation != access.generation) {
+        failed_polls = 0;
+        observed_generation = access.generation;
+    }
+    const auto kind = kvmv_cfg.hdmi_version == 1 ? nanokvm::ReceiverKind::UXC :
+        kvmv_cfg.hdmi_version == 3 ? nanokvm::ReceiverKind::D : nanokvm::ReceiverKind::C;
+    const auto sample = access ? hdmi_receiver.snapshot(kind) :
+        nanokvm::ReceiverSnapshot{nanokvm::ReceiverState::IoError, 0, 0, access.error, 0};
+    // Publish records pending geometry without waiting for frame leases.
+    // Release the device first so an MMF probe may proceed independently;
+    // admission still orders this sample's publication before maintenance.
+    access.release_device();
+    if (sample.state == nanokvm::ReceiverState::IoError ||
+        sample.state == nanokvm::ReceiverState::Settling) {
+        if (failed_polls == 0 || failed_polls == 2)
+            fprintf(stderr, "[hdmi] receiver %s (error=%d cleanup=%d); retaining geometry\n",
+                sample.state == nanokvm::ReceiverState::IoError ? "I2C failure" : "not ready",
+                sample.error, sample.cleanup_error);
+        receiver_retry_pending.store(true, std::memory_order_relaxed);
+        if (failed_polls < 3) ++failed_polls;
+        if (failed_polls >= 3) set_hdmi_detection_state(0);
+        return false;
+    }
+    failed_polls = 0;
+    receiver_retry_pending.store(false, std::memory_order_relaxed);
+    if (sample.state == nanokvm::ReceiverState::NoSignal) {
+        set_hdmi_detection_state(0);
+        return false;
+    }
+    const uint8_t type = detect_csi_res(sample);
+    set_hdmi_detection_state(1);
+    if (!initial && type == NEW_RES) kvmv_cfg.reopen_cam_flag = 1;
+    if (!initial && type == UNKNOWN_RES && allow_auto_mode) {
+        set_hdmi_mode(1);
+        return true;
+    }
+    return false;
 }
 
 // ==============================================================
@@ -977,7 +790,7 @@ void* vi_subsystem_detection(void *)
         }
 
         switch (kvmv_cfg.hdmi_mode){
-        case 0:
+        case 0: {
             // Switching to Mode 0 requires restarting HDMI (effective only for PCIe version)
             // Handling of automatic detection situations
             if(get_new_hdmi_mode == 1){
@@ -1005,16 +818,14 @@ void* vi_subsystem_detection(void *)
                     // a proc file need not support.
                     if (tmp8 != 0) nanokvm::write_small_uint(hdmi_state_path, 0);
                 }
-            } else {
-                // Without the edge counter, re-read bridge geometry at a
-                // bounded rate; the existing NEW_RES path requests capture
-                // reconfiguration.
-                uint64_t now = vi_state_shared::monotonic_ms();
-                if (now - last_hdmi_poll_ms >= 1000U) {
-                    last_hdmi_poll_ms = now;
-                    hdmi_poll_fallback = true;
-                    tmp8 = 11; // Check both C rising and UXC/D falling paths.
-                }
+            }
+            // A failed edge-triggered read also needs a bounded retry: a
+            // stable source need not generate another interrupt.
+            const uint64_t now = vi_state_shared::monotonic_ms();
+            if ((!hdmi_edge_counter || receiver_retry_pending.load(std::memory_order_relaxed)) &&
+                now - last_hdmi_poll_ms >= 1000U) {
+                hdmi_poll_fallback = true;
+                tmp8 = 11; // Check both C rising and UXC/D falling paths.
             }
             {
                 if(tmp8 != 0){
@@ -1022,89 +833,17 @@ void* vi_subsystem_detection(void *)
                     rising_times = tmp8%10;   // RISING times
                     falling_times = tmp8/10;   // FALLING times
 
-                    if(kvmv_cfg.hdmi_stop_flag != 1){
-                        kvmv_cfg.hdmi_reading_flag = 1;
-                        if(kvmv_cfg.hdmi_version == 0){
-                            // LT6911C
-                            if(rising_times != 0){
-                                lt6911_enable();
-                                if(lt6911_get_hdmi_res()){
-                                    // hdmi get res
-                                    debug("[hdmi] C HDMI cable insertion!\n");
-                                    set_hdmi_detection_state(1);
-                                    detect_csi_res();
-                                    if (kvmv_cfg.hdmi_res_type == NEW_RES) kvmv_cfg.reopen_cam_flag = 1;
-                                    else if (kvmv_cfg.hdmi_res_type == UNKNOWN_RES && !hdmi_poll_fallback){
-                                        /* Move HDMI resolution modification directly
-                                            to mode1 to solve deadlock problem */
-                                        auto_change_mode = 1;
-                                        set_hdmi_mode(1);
-                                    }
-                                } else {
-                                    // HDMI res = 0*0/x*0
-                                    debug("[hdmi] C HDMI cable unplugged!\n");
-                                    set_hdmi_detection_state(0);
-                                }
-                                lt6911_disable();
-                            }
-                        } else if (kvmv_cfg.hdmi_version == 1){
-                            // LT6911UXC
-                                debug("[hdmi] UXC int\n");
-                            if(falling_times != 0){
-                                debug("[hdmi] UXC int && \n");
-                                lt6911_enable();
-                                if(lt6911_get_hdmi_res()){
-                                    // hdmi get res
-                                    debug("[hdmi] UXC HDMI cable insertion!\n");
-                                    set_hdmi_detection_state(1);
-                                    detect_csi_res();
-                                    if (kvmv_cfg.hdmi_res_type == NEW_RES) kvmv_cfg.reopen_cam_flag = 1;
-                                    else if (kvmv_cfg.hdmi_res_type == UNKNOWN_RES && !hdmi_poll_fallback){
-                                        /* Move HDMI resolution modification directly
-                                            to mode1 to solve deadlock problem */
-                                        auto_change_mode = 1;
-                                        set_hdmi_mode(1);
-                                    }
-                                } else {
-                                    // HDMI res = 0*0/x*0
-                                    debug("[hdmi] UXC HDMI cable unplugged!\n");
-                                    set_hdmi_detection_state(0);
-                                }
-                                lt6911_disable();
-                            }
-                        } else if (kvmv_cfg.hdmi_version == 3){
-                            // LT6911D
-                                debug("[hdmi] D int\n");
-                            if(falling_times != 0){
-                                debug("[hdmi] D int && \n");
-                                lt6911_enable();
-                                if(lt6911_get_hdmi_res()){
-                                    // hdmi get res
-                                    debug("[hdmi] D HDMI cable insertion!\n");
-                                    set_hdmi_detection_state(1);
-                                    detect_csi_res();
-                                    if (kvmv_cfg.hdmi_res_type == NEW_RES) kvmv_cfg.reopen_cam_flag = 1;
-                                    else if (kvmv_cfg.hdmi_res_type == UNKNOWN_RES && !hdmi_poll_fallback){
-                                        /* Move HDMI resolution modification directly
-                                            to mode1 to solve deadlock problem */
-                                        auto_change_mode = 1;
-                                        set_hdmi_mode(1);
-                                    }
-                                } else {
-                                    // HDMI res = 0*0/x*0
-                                    debug("[hdmi] D HDMI cable unplugged!\n");
-                                    set_hdmi_detection_state(0);
-                                }
-                                lt6911_disable();
-                            }
-                        } else {
-                            debug("[hdmi] Chip not supported for reading \n");
-                        }
-                        kvmv_cfg.hdmi_reading_flag = 0;
+                    const bool event_applies = kvmv_cfg.hdmi_version == 0 ?
+                        rising_times != 0 : falling_times != 0;
+                    if (event_applies) {
+                        last_hdmi_poll_ms = now;
+                        if (poll_hdmi_receiver(!hdmi_poll_fallback))
+                            auto_change_mode = 1;
                     }
                 }
             }
             break;
+        }
         /* Mode 1 & 2 will disable API access to the image during detection,
            and will output -4: Modifying image resolution, please wait.*/
         case 1: // Automatically trying common resolutions
@@ -1687,12 +1426,7 @@ void kvmv_init(uint8_t _debug_info_en)
     // The later detection thread still handles hot-plug/resolution changes.
     get_hdmi_version();
     if (kvmv_cfg.hdmi_version == 1) {
-        lt6911_enable();
-        if (lt6911_get_hdmi_res()) {
-            detect_csi_res();
-            set_hdmi_detection_state(1);
-        }
-        lt6911_disable();
+        poll_hdmi_receiver(false, true);
     }
 
     cam->hmirror(1);
@@ -2264,34 +1998,28 @@ static int set_owned_hdmi_reset(bool asserted)
 // Called under the server maintenance/capture mutex for Cube EDID writes.
 int kvmv_edid_maintenance(uint8_t pause)
 {
+    auto control = receiver_access.control();
+    if (!control) { errno = ETIMEDOUT; return -1; }
     static uint8_t previous_capture = 0;
+    static bool active = false;
     if (pause) {
+        if (active) { errno = EBUSY; return -1; }
         previous_capture = __atomic_load_n(&hdmi_capture_enabled, __ATOMIC_ACQUIRE);
+        control.pause();
         set_hdmi_capture_enabled(0);
-        kvmv_cfg.hdmi_stop_flag = 1;
-        const uint64_t deadline = vi_state_shared::monotonic_ms() + 2000;
-        while (kvmv_cfg.hdmi_reading_flag == 1) {
-            if (vi_state_shared::monotonic_ms() >= deadline) {
-                kvmv_cfg.hdmi_stop_flag = 0;
-                set_hdmi_capture_enabled(previous_capture);
-                return -1;
-            }
-            nanokvm::sleep_ms(10);
-        }
+        active = true;
     } else {
-        kvmv_cfg.hdmi_stop_flag = 0;
+        if (!active) { errno = EINVAL; return -1; }
         kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
+        control.resume();
         set_hdmi_capture_enabled(previous_capture);
+        active = false;
     }
     return 0;
 }
 
 int kvmv_hdmi_control(uint8_t _en)
 {
-    if(_en == 0){
-        set_hdmi_capture_enabled(0);
-    }
-
     if(kvmv_cfg.hw_version == 0){
 
         FILE *fp;
@@ -2312,29 +2040,25 @@ int kvmv_hdmi_control(uint8_t _en)
         }
     }
     if(kvmv_cfg.hw_version != 'p'){
-        debug("[kvmv]Hardware not support!\n");
-        if(_en != 0){
-            set_hdmi_capture_enabled(1);
-        }
+        set_hdmi_capture_enabled(_en != 0);
         return -1;
     }
-    if(_en == 0){
-        kvmv_cfg.hdmi_stop_flag = 1;
-        while(kvmv_cfg.hdmi_reading_flag == 1) nanokvm::sleep_ms(10);
-        if (set_owned_hdmi_reset(true) != 0) return -1;
-        return 0;
-    } else {
-        if (set_owned_hdmi_reset(false) != 0) return -1;
-        kvmv_cfg.hdmi_stop_flag = 0;
-
-        // Keep the existing VI channel and consume queued frames after idle.
-        // Reopening it here or from kvmv_read_img can exhaust the carveout
-        // heap while the HDMI detector is transitioning.
-        kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
-        set_hdmi_capture_enabled(1);
-        return 0;
+    auto control = receiver_access.control();
+    if (!control) { errno = ETIMEDOUT; return -1; }
+    // A raw EDID client may also own the receiver. Never reset underneath it.
+    nanokvm::ReceiverFileLock ownership(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
+    if (!ownership) return -1;
+    if (_en == 0) {
+        control.pause();
+        set_hdmi_capture_enabled(0);
+        return set_owned_hdmi_reset(true);
     }
-    return -1;
+    if (set_owned_hdmi_reset(false) != 0) return -1;
+    // Keep the existing VI channel and consume queued frames after idle.
+    kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
+    control.resume();
+    set_hdmi_capture_enabled(1);
+    return 0;
 }
 
 /* Caller holds vi_mutex. Parking deletes the video and JPEG encoder

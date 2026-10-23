@@ -868,7 +868,7 @@ in_userns() (
     exec {mapped_fd}<>"$sync/mapped"
     unshare --user --mount --pid --fork --kill-child \
         bash -c 'echo > "$1/ready"; read -r _ < "$1/mapped"; shift; exec "$@"' sh "$sync" \
-        env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${eckey:+-e "$eckey"} ${devkey:+-d} "$1" &
+        env NANOKVM_USERNS=1 bash "$here/build.sh" -o "$out" -j "$jobs" ${eckey:+-e "$eckey"} ${devkey:+-d} ${laterkey:+-u} "$1" &
     pid=$!
     deadline=$((SECONDS + 30))
     until read -r -t 0.1 -u "$ready_fd" _; do

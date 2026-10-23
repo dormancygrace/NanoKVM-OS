@@ -89,7 +89,8 @@ cleanup() { as_root rm -rf --one-file-system "$root"; }
 trap cleanup EXIT
 cleanup
 "$here/alpine-signer.sh" "$root" abuild
-signer() { as_root chroot "$root" "$@"; }
+# Host TMPDIR may be outside this root; abuild-sign creates temporary files.
+signer() { as_root chroot "$root" /usr/bin/env TMPDIR=/tmp "$@"; }
 as_root install -d -m 0700 "$root/work/keys"
 as_root install -m 0600 "$eckey" "$root/work/keys/release.key"
 as_root install -d "$root/work/published" "$root/work/release" "$root/work/repo" "$root/work/resign"

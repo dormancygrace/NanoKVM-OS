@@ -21,4 +21,4 @@ echo "$pin  $tarball" | sha256sum -c --quiet
 as_root mkdir -p "$root"
 as_root tar --numeric-owner -xzf "$tarball" -C "$root"
 as_root cp -L /etc/resolv.conf "$root/etc/resolv.conf"
-[ "$#" -eq 0 ] || as_root chroot "$root" /sbin/apk add --no-cache --quiet "$@"
+[ "$#" -eq 0 ] || as_root chroot "$root" /usr/bin/env TMPDIR=/tmp /sbin/apk add --no-cache --quiet "$@"

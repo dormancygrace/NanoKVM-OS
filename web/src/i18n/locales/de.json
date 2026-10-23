@@ -360,6 +360,7 @@
       "authTitle": "Authentifizierung erforderlich",
       "authDescription": "Bitte geben Sie das Passwort AP ein, um fortzufahren",
       "authFailed": "Ungültiges AP Passwort",
+      "locked": "Zu viele falsche AP-Passwörter. Starten Sie die WLAN-Einrichtung am Gerät erneut, um ein neues zu erhalten.",
       "passPlaceholder": "AP Passwort",
       "verifyBtn": "Überprüfen"
     }

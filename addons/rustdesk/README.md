@@ -22,6 +22,14 @@ sessions attempt encrypted direct TCP by ID using LAN address exchange and NAT
 punching, then fall back to encrypted relay. IPv6-only direct-by-ID currently
 uses relay. The explicit IP listener remains loopback by default.
 
+The ID server only passes on the relay and peer addresses a controller asks
+for, so the daemon checks them before it connects. A relay must be the
+configured relay or ID server host, or have only Internet addresses, and the
+daemon connects to the address it checked; a punched peer must be on the
+Internet. Private addresses are accepted when the ID server itself is on a
+private network. Relay session IDs are at most 64 letters, digits, `-` or `_`.
+After login, a controller's packets may be up to 64 KiB.
+
 WebRTC follows the NanoKVM video transport (Settings > Video): the daemon
 accepts WebRTC exactly when that transport is WebRTC. It uses ICE/DTLS/SCTP through
 the existing Go/Pion stack without decode/re-encode. SDP and ICE use authenticated
@@ -68,7 +76,14 @@ characters from OS randomness on each start and after a successful new login.
 An authenticated peer may reconnect with its previous credential for thirty
 seconds since its last received message, using the same peer ID, name and
 nonzero session ID. The cache is bounded to 32 peers; wrong identities and new
-sessions require the current password. Ten nonempty wrong attempts rotate it. Only the admin status API exposes
+sessions require the current password. Wrong passwords never rotate or lock
+it: their answer waits 300 ms, and after five recent ones twice as long each
+time, up to a minute. All sources count together, since relayed peers share
+the relay's address. The count resets after a correct password or 15 quiet
+minutes, and a correct password is always admitted at once; the runtime
+status shows the recent count and the time of the last one. A connection gets
+five password attempts and three empty probes, the client's "is a password
+needed" question. Only the admin status API exposes
 this password while the service runs; its runtime file has mode 0600 and is removed
 on stop. The "New password" action restarts RustDesk and disconnects its sessions.
 Existing configurations retain permanent mode on upgrade. Switching to temporary

@@ -13,13 +13,26 @@ use std::{
 
 const RECONNECT_GRACE: Duration = Duration::from_secs(30);
 const MAX_RECENT_SESSIONS: usize = 32;
+// Wrong passwords from every source count together: relayed viewers all
+// share the relay's address. The answer to a wrong password waits longer
+// after each one, which bounds guessing by the pending-handshake permits
+// held meanwhile, while a correct password is admitted at once. A rotation
+// or lockout instead would let anyone who knows the ID lock the owner out.
+const FAILURE_DELAY: Duration = Duration::from_millis(300);
+const FREE_FAILURES: u32 = 5;
+// No longer than the login timeout: a connection that waits for its answer
+// holds a pending permit, and an attacker should not get to hold them all
+// for longer per wrong password than before.
+const MAX_FAILURE_DELAY: Duration = Duration::from_secs(60);
+const FAILURE_RESET: Duration = Duration::from_secs(15 * 60);
 pub(crate) type Session = (String, String, u64);
 
 pub(crate) struct Credentials {
     current: String,
     temporary: bool,
     path: PathBuf,
-    failures: usize,
+    failures: u32,
+    last_failure: Option<Instant>,
     recent: HashMap<Session, (String, Instant)>,
 }
 pub(crate) struct Verified {
@@ -34,6 +47,7 @@ impl Credentials {
             temporary: config.password_mode == PasswordMode::Temporary,
             path: PathBuf::from(temporary_password::PATH),
             failures: 0,
+            last_failure: None,
             recent: HashMap::new(),
         }
     }
@@ -65,25 +79,38 @@ impl Credentials {
         }
         if crate::server::verify_password(&self.current, hash, login) {
             self.failures = 0;
+            self.last_failure = None;
+            crate::status::password_failures(0);
             return Ok(Some(Verified {
                 password: self.current.clone(),
                 fresh: self.temporary,
             }));
         }
-        // Empty password probes are normal before the client's password dialog.
-        if self.temporary && !login.password.is_empty() {
-            self.failures += 1;
-            if self.failures >= 10 {
-                self.rotate()?;
-            }
-        }
         Ok(None)
+    }
+    // Records a wrong password and says how long its answer waits.
+    pub fn failed(&mut self) -> Duration {
+        self.failed_at(Instant::now())
+    }
+    fn failed_at(&mut self, now: Instant) -> Duration {
+        if self
+            .last_failure
+            .is_some_and(|last| now.saturating_duration_since(last) >= FAILURE_RESET)
+        {
+            self.failures = 0;
+        }
+        self.failures = self.failures.saturating_add(1);
+        self.last_failure = Some(now);
+        crate::status::password_failures(self.failures);
+        let doublings = self.failures.saturating_sub(FREE_FAILURES).min(16);
+        FAILURE_DELAY
+            .saturating_mul(1 << doublings)
+            .min(MAX_FAILURE_DELAY)
     }
     fn rotate(&mut self) -> io::Result<()> {
         let next = temporary_password::generate()?;
         temporary_password::replace(&self.path, &next)?;
         self.current = next;
-        self.failures = 0;
         Ok(())
     }
     pub fn admitted(&mut self, login: &LoginRequest, verified: Verified) -> io::Result<()> {
@@ -177,6 +204,49 @@ mod tests {
             .unwrap()
             .is_some());
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn wrong_passwords_slow_down_but_never_rotate_or_lock_out() {
+        let config = Config {
+            password: "ORIGINALPASS".into(),
+            password_mode: PasswordMode::Temporary,
+            ..Default::default()
+        };
+        let mut state = Credentials::new(&config);
+        state.path = std::env::temp_dir().join(format!(
+            "nanokvm-auth-never-written-{}",
+            std::process::id()
+        ));
+        let hash = Hash {
+            salt: "salt".into(),
+            challenge: "challenge".into(),
+        };
+        let start = Instant::now();
+        let mut delays = Vec::new();
+        for _ in 0..40 {
+            assert!(state
+                .verify(&hash, &login("WRONG", &hash, "attacker", 1))
+                .unwrap()
+                .is_none());
+            delays.push(state.failed_at(start));
+        }
+        assert!(delays[..5].iter().all(|delay| *delay == FAILURE_DELAY));
+        assert_eq!(delays[5], FAILURE_DELAY * 2);
+        assert!(delays.windows(2).all(|pair| pair[0] <= pair[1]));
+        assert_eq!(delays[39], MAX_FAILURE_DELAY);
+        // The password the owner reads stays valid and is admitted at once.
+        assert_eq!(state.current, "ORIGINALPASS");
+        assert!(!state.path.exists());
+        assert!(state
+            .verify(&hash, &login("ORIGINALPASS", &hash, "owner", 2))
+            .unwrap()
+            .is_some());
+        assert_eq!(state.failed_at(start), FAILURE_DELAY);
+        // A quiet period forgets earlier failures too.
+        for _ in 0..20 {
+            state.failed_at(start);
+        }
+        assert_eq!(state.failed_at(start + FAILURE_RESET), FAILURE_DELAY);
     }
     #[test]
     fn permanent_credentials_do_not_rotate_or_create_reconnect_exceptions() {

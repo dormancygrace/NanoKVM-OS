@@ -1926,6 +1926,8 @@
       "ipmiWarning": "IPMI 以原文保存密码，任何能访问 IPMI 端口的人都可以获取其哈希并离线猜测。请使用一个不在别处使用的长密码，并且只向可信网络开放该端口。",
       "account": "BMC 账户",
       "accountHint": "独立于网页账户；两种协议共用。",
+      "accountHintRedfish": "独立于网页账户；由 Redfish 使用，安装 IPMI 附加组件后 IPMI 也会使用。",
+      "sharedOff": "开启 Redfish 或安装 IPMI 附加组件后，才会显示 BMC 账户和电源选项。",
       "username": "用户名",
       "usernameRule": "1–16 个字母、数字、'.'、'_' 或 '-'",
       "password": "密码",

@@ -1926,6 +1926,8 @@
       "ipmiWarning": "IPMI guarda la contraseña tal cual, y cualquiera que alcance el puerto IPMI puede obtener un hash de ella para adivinarla sin conexión. Use una contraseña larga que no use en ningún otro sitio y abra el puerto solo a redes de confianza.",
       "account": "Cuenta BMC",
       "accountHint": "Independiente de las cuentas web; la usan ambos protocolos.",
+      "accountHintRedfish": "Independiente de las cuentas web; la usa Redfish, e IPMI cuando su complemento esté instalado.",
+      "sharedOff": "La cuenta BMC y las opciones de energía aparecen cuando Redfish está activado o el complemento IPMI está instalado.",
       "username": "Nombre de usuario",
       "usernameRule": "1-16 letras, dígitos, '.', '_' o '-'",
       "password": "Contraseña",

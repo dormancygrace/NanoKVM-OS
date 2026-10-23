@@ -1431,7 +1431,17 @@
         "title": "Kompatibilní profily s pouze HID (USB 1.1)",
         "description": "Starší popisovače pro firmware a hostitele, kteří odmítají složené zařízení: pouze klávesnice a ukazatele, bez sítě, disku, pomocného pro sériovou konzoli nebo zvuk."
       },
-      "updateFailed": "USB složení se nepodařilo zaktualizovat."
+      "updateFailed": "USB složení se nepodařilo zaktualizovat.",
+      "storageIdentity": {
+        "description": "Názvy zobrazované připojenému počítači pro USB úložná zařízení (SCSI), nikoli jmenovky souborového systému. Použijte až 8 ASCII znaků pro výrobce a 16 pro každý z disků (bez mezer na začátku/konci). Pokud chcete v kolonce obnovit výchozí hodnotu, vymažte ji. Pokud není vyplněno, název obrazu se řídí typem média. Použití odpojí/připojí USB. Některé počítače si názvy zařízení ukládají do mezipaměti.",
+        "title": "Názvy disků",
+        "vendor": "Výrobce disku",
+        "image": "Připojený obraz / vzdálené médium",
+        "setup": "Název nastavovacího disku",
+        "user": "Název uživatelského disku",
+        "automatic": "Automatické (disk nebo CD/DVD)",
+        "invalid": "Použijte tisknutelné ASCII, bez mezer okolo: výrobce až 8 znaků, názvy disků až 16."
+      }
     },
     "vpn": {
       "title": "VPN",

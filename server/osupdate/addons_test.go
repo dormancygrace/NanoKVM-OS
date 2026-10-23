@@ -65,7 +65,7 @@ func TestAddonCatalog(t *testing.T) {
 		c.Addons[0].Name != "nanokvm-gone" || c.Addons[1].Name != "nanokvm-rustdesk" || c.Addons[1].Version != "" {
 		t.Fatalf("catalog before a check=%+v", c)
 	}
-	if err := CheckAddon("nanokvm-rustdesk"); err == nil {
+	if _, err := AddonInstallSpec("nanokvm-rustdesk"); err == nil {
 		t.Fatal("installed an add-on missing from the list")
 	}
 	// knownCore may lack an OS package of a later release: before the first
@@ -93,16 +93,16 @@ func TestAddonCatalog(t *testing.T) {
 	if gone.Name != "nanokvm-gone" || gone.Version != "" || gone.Installed != "1.0-r0" {
 		t.Fatalf("gone=%+v", gone)
 	}
-	if err := CheckAddon("nanokvm-ipmi"); err == nil || !strings.Contains(err.Error(), "3.6.0_beta1") {
+	if _, err := AddonInstallSpec("nanokvm-ipmi"); err == nil || !strings.Contains(err.Error(), "3.6.0_beta1") {
 		t.Fatalf("minimum release not enforced: %v", err)
 	}
 	for _, name := range []string{"nanokvm-gone", "nanokvm-web", "zlib"} {
-		if err := CheckAddon(name); err == nil {
-			t.Errorf("CheckAddon(%s) passed", name)
+		if _, err := AddonInstallSpec(name); err == nil {
+			t.Errorf("AddonInstallSpec(%s) passed", name)
 		}
 	}
-	if err := CheckAddon("nanokvm-rustdesk"); err != nil {
-		t.Fatal(err)
+	if spec, err := AddonInstallSpec("nanokvm-rustdesk"); err != nil || spec != "nanokvm-rustdesk>=0.5.5-r0" {
+		t.Fatalf("install spec=%q, error=%v", spec, err)
 	}
 	if !IsInstalledAddon("nanokvm-gone") || !IsInstalledAddon("nanokvm-rustdesk") || IsInstalledAddon("nanokvm-ipmi") ||
 		IsInstalledAddon("nanokvm-web") || IsInstalledAddon("nanokvm-release") {
@@ -111,7 +111,7 @@ func TestAddonCatalog(t *testing.T) {
 	// The stable release satisfies a beta minimum.
 	addonFixture(t, "P:nanokvm-release\nV:3.6.0-r0\n\n")
 	writeStored(t, stored)
-	if err := CheckAddon("nanokvm-ipmi"); err != nil {
+	if _, err := AddonInstallSpec("nanokvm-ipmi"); err != nil {
 		t.Fatal(err)
 	}
 }

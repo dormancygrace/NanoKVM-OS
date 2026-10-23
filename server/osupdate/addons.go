@@ -210,27 +210,29 @@ func GetAddonCatalog() AddonCatalog {
 	return c
 }
 
-// CheckAddon is the guard of an add-on install: name is an add-on of the
+// AddonInstallSpec validates an add-on and selects at least its catalog version.
+// A lower bound updates the add-on without recursively upgrading dependencies
+// as apk add -u does, or pinning it against future updates. The name is in the
 // stored list and the installed OS is at least its minimum release. apk would
 // meet an unmet minimum by upgrading nanokvm-release, that is the whole OS.
-func CheckAddon(name string) error {
+func AddonInstallSpec(name string) (string, error) {
 	c := GetAddonCatalog()
 	if c.CheckedAt == 0 {
-		return errors.New("the add-on list has not been loaded since the device started; check the repository first")
+		return "", errors.New("the add-on list has not been loaded since the device started; check the repository first")
 	}
 	for _, a := range c.Addons {
 		if a.Name != name {
 			continue
 		}
 		if a.Version == "" {
-			return errors.New("the repository no longer offers this add-on")
+			return "", errors.New("the repository no longer offers this add-on")
 		}
 		if !a.Compatible {
-			return fmt.Errorf("%s needs NanoKVM OS %s or later; update NanoKVM OS first", name, a.MinOS)
+			return "", fmt.Errorf("%s needs NanoKVM OS %s or later; update NanoKVM OS first", name, a.MinOS)
 		}
-		return nil
+		return name + ">=" + a.Version, nil
 	}
-	return errors.New("not an add-on of the NanoKVM repository")
+	return "", errors.New("not an add-on of the NanoKVM repository")
 }
 
 // IsInstalledAddon: name is installed and is not part of the OS. Before the

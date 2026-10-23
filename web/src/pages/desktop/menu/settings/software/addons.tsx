@@ -53,8 +53,11 @@ export const Addons = ({
   const checkCatalog = async () => {
     setChecking(true);
     try {
-      await checkAddonCatalog();
+      const response = await checkAddonCatalog();
+      if (response.code !== 0) throw new Error(response.msg);
       await loadCatalog();
+    } catch (err) {
+      void message.error(err instanceof Error ? err.message : t('settings.software.addons.failed'));
     } finally {
       setChecking(false);
     }

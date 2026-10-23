@@ -86,11 +86,12 @@ func InstallAddon(name string) error {
 	if output, runErr := apkrun.Command(ctx, "/sbin/apk", "update").CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk update failed: %s", tail(output))
 	}
-	if err = osupdate.CheckAddon(name); err != nil {
+	spec, err := osupdate.AddonInstallSpec(name)
+	if err != nil {
 		return err
 	}
-	// -u: an installed add-on goes to the repository's version.
-	output, runErr := apkrun.Command(ctx, "/sbin/apk", "add", "-u", "--simulate", "--", name).CombinedOutput()
+	// Select the catalog version without upgrading already satisfied OS dependencies.
+	output, runErr := apkrun.Command(ctx, "/sbin/apk", "add", "--simulate", "--", spec).CombinedOutput()
 	if runErr != nil {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
@@ -98,7 +99,7 @@ func InstallAddon(name string) error {
 		return fmt.Errorf("installing %s would change NanoKVM OS packages (%s); update NanoKVM OS first",
 			name, strings.Join(changed, ", "))
 	}
-	if output, runErr = apkrun.Command(ctx, "/sbin/apk", "add", "-u", "--", name).CombinedOutput(); runErr != nil {
+	if output, runErr = apkrun.Command(ctx, "/sbin/apk", "add", "--", spec).CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
 	return nil

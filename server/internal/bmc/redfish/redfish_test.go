@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,6 +33,9 @@ func (f *fakePower) Cycle(context.Context) error                   { return f.re
 func do(h http.Handler, method, path, body string, header map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.RemoteAddr = "192.0.2.7:50000"
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	for k, v := range header {
 		req.Header.Set(k, v)
 	}
@@ -165,7 +169,7 @@ func TestFailedLoginTableIsBounded(t *testing.T) {
 		h.ServeHTTP(httptest.NewRecorder(), req)
 	}
 	for i := 0; i < 2*maxTracked; i++ {
-		guess(fmt.Sprintf("[2001:db8::%x]:50000", i))
+		guess(fmt.Sprintf("[2001:db8:%x::1]:50000", i))
 	}
 	if len(h.failed) > maxTracked {
 		t.Fatalf("%d counters kept, at most %d", len(h.failed), maxTracked)
@@ -186,5 +190,84 @@ func TestBusyActionReturnsRetryableError(t *testing.T) {
 	rec := do(h, "POST", resetActionPath, "{}", admin)
 	if rec.Code != 503 || rec.Header().Get("Retry-After") != "1" {
 		t.Fatalf("busy action: %d %v %s", rec.Code, rec.Header(), rec.Body)
+	}
+}
+
+// Parallel logins must not all pass the lockout check before the first
+// failure is counted: the attempt is reserved with the check.
+func TestParallelLoginsMeetTheLimit(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	unauthorized := 0
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			rec := do(h, "POST", "/redfish/v1/SessionService/Sessions", `{"UserName":"admin","Password":"guess"}`, nil)
+			if rec.Code == 401 {
+				mu.Lock()
+				unauthorized++
+				mu.Unlock()
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	if unauthorized > maxFailures {
+		t.Fatalf("%d guesses were checked, at most %d", unauthorized, maxFailures)
+	}
+}
+
+// One IPv6 host must not rotate through its /64 to get more guesses.
+func TestIPv6ClientsCountPerPrefix(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	guess := func(addr, password string) int {
+		req := httptest.NewRequest("GET", "/redfish/v1/Systems/1", nil)
+		req.RemoteAddr = addr
+		req.SetBasicAuth("admin", password)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	for i := 0; i < maxFailures; i++ {
+		guess(fmt.Sprintf("[2001:db8:1:2::%x]:5000", i+1), "guess")
+	}
+	if code := guess("[2001:db8:1:2::ffff]:5000", "correct-horse"); code != 429 {
+		t.Fatalf("another address of the same /64 got %d, want 429", code)
+	}
+	if code := guess("[2001:db8:1:3::1]:5000", "correct-horse"); code != 200 {
+		t.Fatalf("another /64 got %d, want 200", code)
+	}
+}
+
+// A cross-site form cannot drive power actions with cached Basic credentials.
+func TestCrossSiteWritesAreRefused(t *testing.T) {
+	power := &fakePower{reset: true}
+	h := New("admin", "correct-horse", Info{}, power)
+	form := func(header map[string]string) int {
+		req := httptest.NewRequest("POST", resetActionPath, strings.NewReader(`{"ResetType":"ForceOff"}`))
+		req.RemoteAddr = "192.0.2.7:50000"
+		req.SetBasicAuth("admin", "correct-horse")
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if code := form(map[string]string{"Content-Type": "text/plain"}); code != 415 {
+		t.Fatalf("text/plain POST got %d", code)
+	}
+	if code := form(map[string]string{"Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"}); code != 403 {
+		t.Fatalf("cross-site POST got %d", code)
+	}
+	if len(power.calls) != 0 {
+		t.Fatalf("refused requests pressed buttons: %v", power.calls)
+	}
+	if code := form(map[string]string{"Content-Type": "application/json; charset=utf-8"}); code != 204 {
+		t.Fatalf("JSON POST got %d", code)
 	}
 }

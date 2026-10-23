@@ -19,8 +19,7 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
 | Power cycle | `PowerCycle` | `cycle` | hold, wait for the LED to go out (≤10 s), 2 s, short press; an error without the short press if the LED stays lit |
 | Power button | `PushPowerButton` | — | short press |
 
-- **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.
-- **The hold of a forced power-off** is the power menu's long press, 5 s, unless the settings page sets its own.
+- **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.- **The hold of a forced power-off** is the power menu's long press, 5 s, unless the settings page sets its own.
 - **Redfish** serves `/redfish/v1/` (no login), `Systems/1`, `Chassis/1`, `Managers/1` and `SessionService`.
   - It accepts HTTP Basic and `X-Auth-Token` sessions (`POST /redfish/v1/SessionService/Sessions`).
   - With Redfish off, `/redfish/` answers 404.
@@ -39,7 +38,8 @@ Both are off by default. They are set up in System > Redfish and IPMI, each on i
 - **RMCP+ gives out a password hash.** It sends a hash of the password to anyone who starts a login (RAKP message 2), so an attacker who can reach UDP 623 can guess the password offline. Hence IPMI is an add-on, and off until turned on. Use a long password used nowhere else, and open the port only to trusted networks.
 - **IPMI answers are larger than the requests.** The ASF pong and RAKP message 2 are 2–3 times the size of their requests, which can be abused for reflection from forged addresses. This is inherent to the protocol.
 - **Login limits.**
-  - Redfish refuses a client for a minute after 5 failed logins. The client is the connection's address; an `X-Forwarded-For` header is ignored. Behind a reverse proxy of your own (nginx, Tailscale Serve), all clients share the proxy's address and its limit.
+  - Redfish refuses a client for a minute after 5 failed logins. The client is the connection's address (for IPv6, its /64); an `X-Forwarded-For` header is ignored. Each attempt is counted before the password is compared, so parallel requests cannot get more guesses. Behind a reverse proxy of your own (nginx, Tailscale Serve), all clients share the proxy's address and its limit.
+  - Redfish refuses state-changing requests that are not JSON (`Content-Type: application/json`) or that a browser marks as cross-site, so another web page cannot use credentials the browser has cached.
   - IPMI refuses a client for a minute after 20 logins in a minute, failed or not. A wrong password shows only on the client's side, and each login hands out a hash. The table of clients is bounded, since UDP addresses can be forged.
 - **Power control does not wait for the browser's input control.** A fence agent must be able to switch the host off whoever holds the keyboard.
 
@@ -60,5 +60,7 @@ The add-on has a version of its own and is released apart from NanoKVM OS: its u
 
 ```
 curl -k -u 'admin:<password>' https://<device>/redfish/v1/Systems/1
+curl -k -u 'admin:<password>' -H 'Content-Type: application/json' -d '{"ResetType":"PowerCycle"}' \
+  https://<device>/redfish/v1/Systems/1/Actions/ComputerSystem.Reset
 ipmitool -I lanplus -H <device> -U admin -P '<password>' chassis power status
 ```

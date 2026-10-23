@@ -25,6 +25,9 @@ type Playback = {
 };
 
 const preferenceKey = 'nanokvm.usb-audio';
+// Stats readings (one a second) with audio arriving before a connection
+// counts as recovered and the reconnect delay starts over.
+const healthyTicks = 3;
 function readPreference(): { enabled: boolean; volume: number } {
   try {
     const value = JSON.parse(localStorage.getItem(preferenceKey) ?? '{}');
@@ -69,6 +72,9 @@ export const useUsbAudio = () => {
   wantedRef.current = wanted;
   // Each failure sets the error, which re-runs the retry effect: without the
   // gate it reconnected at once, a new WebSocket and WebRTC setup each time.
+  // A connected peer is not recovered audio (capture starts after it and can
+  // fail at once), so the gate opens again only once audio has kept arriving
+  // for healthyTicks stats readings in a row.
   const gate = useRef(new ReconnectGate());
   const disconnect = useCallback(() => {
     const old = playback.current;
@@ -229,13 +235,13 @@ export const useUsbAudio = () => {
                 if (playback.current !== active) return;
                 if (peer.connectionState === 'connected') {
                   window.clearTimeout(active.timer);
-                  gate.current.connected();
                   setPlaying(true);
                   setBusy(false);
                 } else if (peer.connectionState === 'failed' || peer.connectionState === 'closed')
                   fail('connection');
               };
               let lastPackets = 0;
+              let healthy = 0;
               active.statsTimer = window.setInterval(() => {
                 void peer
                   .getStats()
@@ -250,6 +256,8 @@ export const useUsbAudio = () => {
                       )
                         packets += report.packetsReceived;
                     });
+                    healthy = packets > lastPackets ? healthy + 1 : 0;
+                    if (healthy === healthyTicks) gate.current.connected();
                     setReceiving(packets > lastPackets);
                     lastPackets = packets;
                   })
@@ -315,12 +323,12 @@ export const useUsbAudio = () => {
       if (playback.current !== active) return;
       if (event === 'started') {
         window.clearTimeout(active.timer);
-        gate.current.connected();
         setPlaying(true);
         setBusy(false);
       } else fail(event === 'closed' ? 'closed' : 'capture');
     });
     let lastPackets = 0;
+    let healthy = 0;
     active.statsTimer = window.setInterval(() => {
       void channel.peer
         .getStats()
@@ -335,6 +343,8 @@ export const useUsbAudio = () => {
             )
               packets += report.packetsReceived;
           });
+          healthy = packets > lastPackets ? healthy + 1 : 0;
+          if (healthy === healthyTicks) gate.current.connected();
           setReceiving(packets > lastPackets);
           lastPackets = packets;
         })

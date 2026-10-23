@@ -50,6 +50,6 @@ test('the USB audio hook goes through the gate', () => {
   assert.match(retry, /gate\.current\.allows\(performance\.now\(\)\)/);
   const fail = hook.slice(hook.indexOf('const fail = ('), hook.indexOf('const resumed ='));
   assert.match(fail, /gate\.current\.failed\(/);
-  // Both ways of being connected, a click on the switch and the composition.
+  // Recovered audio on both paths, a click on the switch and the composition.
   assert.ok((hook.match(/gate\.current\.connected\(\)/g) ?? []).length >= 4);
 });

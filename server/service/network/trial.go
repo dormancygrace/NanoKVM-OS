@@ -134,7 +134,7 @@ func writeFileAtomic(path string, data []byte) error {
 	return os.Rename(tmp, path)
 }
 
-func syncFiles() { _ = exec.Command("sync").Run() }
+func syncFiles() error { return exec.Command("sync").Run() }
 
 // beginTrial records the current contents of the files a change is about to
 // write. Only one change runs on trial at a time, and none while an earlier
@@ -158,10 +158,14 @@ func beginTrial(service string, paths []string) (*trial, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = writeFileAtomic(trialFile, data); err != nil {
+	if err = writeFileAtomic(trialFile, data); err == nil {
+		err = syncFiles()
+	}
+	if err != nil {
+		// Nothing has changed yet: no record is better than one not on the card.
+		_ = os.Remove(trialFile)
 		return nil, fmt.Errorf("cannot record the current network settings: %w", err)
 	}
-	syncFiles()
 	active = t
 	return t, nil
 }
@@ -235,18 +239,23 @@ func restoreRecord(record trialRecord, reason string, restart bool) error {
 	if err := restoreFiles(record.Files); err != nil {
 		return err
 	}
-	syncFiles()
+	if err := syncFiles(); err != nil {
+		return fmt.Errorf("sync the previous settings: %w", err)
+	}
+	// The running network must have them too before the record goes.
 	if restart {
 		if restartService := trialRestarts[record.Service]; restartService != nil {
 			if err := restartService(); err != nil {
-				log.Errorf("failed to restart %s with the previous settings: %s", record.Service, err)
+				return fmt.Errorf("restart %s with the previous settings: %w", record.Service, err)
 			}
 		}
 	}
 	if err := os.Remove(trialFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove the trial record: %w", err)
 	}
-	syncFiles()
+	if err := syncFiles(); err != nil {
+		return fmt.Errorf("sync the removal of the trial record: %w", err)
+	}
 	return nil
 }
 
@@ -267,7 +276,15 @@ func confirmTrial(token string) error {
 		log.Errorf("failed to remove the network trial record: %s", err)
 		return fmt.Errorf("cannot keep the change: %w", err)
 	}
-	syncFiles()
+	if err := syncFiles(); err != nil {
+		// The removal may not be on the card: put the record back, so that
+		// a restart and the timer still agree with what was reported.
+		if data, marshalErr := json.Marshal(t.record); marshalErr == nil {
+			_ = writeFileAtomic(trialFile, data)
+		}
+		log.Errorf("failed to sync the confirmation: %s", err)
+		return fmt.Errorf("cannot keep the change: %w", err)
+	}
 	t.timer.Stop()
 	active = nil
 	log.Infof("network change confirmed")
@@ -301,7 +318,7 @@ func RestorePendingTrial() {
 		// Kept aside for a look: the unconfirmed change stays in effect.
 		log.Errorf("NETWORK CHANGE NOT UNDONE: the trial record %s is unusable (%v); moved to %s.bad", trialFile, err, trialFile)
 		_ = os.Rename(trialFile, trialFile+".bad")
-		syncFiles()
+		_ = syncFiles()
 		return
 	}
 	t := &trial{record: record, reverting: true}

@@ -489,3 +489,72 @@ func TestARecordNobodyOwnsIsNeverReplaced(t *testing.T) {
 		t.Fatalf("record changed: %q", got)
 	}
 }
+
+// A sync stub that fails while the file named by fail exists.
+func failingSync(t *testing.T, dir, fail string) {
+	t.Helper()
+	script := "#!/bin/sh\n[ ! -e \"" + fail + "\" ]\n"
+	if err := os.WriteFile(filepath.Join(dir, "sync"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAConfirmationThatIsNotOnTheCardIsNotAcknowledged(t *testing.T) {
+	f := newTrialFixture(t)
+	trialDuration = 10 * time.Second
+	info := setEthernetOnTrial(t, newStatic)
+	waitApplied(t)
+	broken := filepath.Join(f.dir, "sync-broken")
+	failingSync(t, f.dir, broken)
+	if err := os.WriteFile(broken, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, response := postJSON((&Service{}).ConfirmTrial, `{"token":"`+info.Token+`"}`); response.Code == 0 {
+		t.Fatal("confirmed although the confirmation was not synced")
+	}
+	if f.read(t, trialFile) == "<absent>" {
+		t.Fatal("the record went although the change was not kept")
+	}
+	trialMu.Lock()
+	live := active != nil
+	trialMu.Unlock()
+	if !live {
+		t.Fatal("the trial ended although the change was not kept")
+	}
+	_ = os.Remove(broken)
+	if _, response := postJSON((&Service{}).ConfirmTrial, `{"token":"`+info.Token+`"}`); response.Code != 0 {
+		t.Fatalf("confirm once sync works: %+v", response)
+	}
+}
+
+func TestAFailedRestartDuringTheRevertKeepsTheRecordAndRetries(t *testing.T) {
+	f := newTrialFixture(t)
+	// The change's restart passes; the revert's first restart fails.
+	var calls atomic.Int32
+	restartEthernet = func() error {
+		f.restarted.Add(1)
+		if calls.Add(1) == 2 {
+			return errors.New("S30eth failed")
+		}
+		return nil
+	}
+	setEthernetOnTrial(t, newStatic)
+	waitApplied(t)
+	waitFor(t, "the revert to start", func() bool {
+		trialMu.Lock()
+		defer trialMu.Unlock()
+		return active != nil && active.reverting
+	})
+	if _, response := postJSON((&Service{}).SetEthernet, `{"enabled":false,"mode":"dhcp"}`); response.Code != -3 {
+		t.Fatalf("a change started before the network was back: %+v", response)
+	}
+	waitFor(t, "the retried restart", func() bool { return f.read(t, trialFile) == "<absent>" })
+	if calls.Load() < 3 {
+		t.Fatalf("restarts: %d", calls.Load())
+	}
+	waitFor(t, "the trial to end", func() bool {
+		trialMu.Lock()
+		defer trialMu.Unlock()
+		return active == nil
+	})
+}

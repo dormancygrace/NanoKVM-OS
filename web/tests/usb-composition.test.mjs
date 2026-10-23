@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   canToggleDevice,
+  defaultStorageIdentity,
   defaultUsbIdentity,
   endpointUsage,
   fitsBudget,
@@ -13,7 +14,9 @@ import {
   normalizeUsbId,
   sameComposition,
   sameIdentity,
+  sameStorageIdentity,
   setCompatibilityProfile,
+  storageIdentityProblem,
   toggleDevice,
   usbDevices,
   usbIdentityPresets,
@@ -202,4 +205,30 @@ test('an empty composition turns USB off', () => {
   assert.equal(hasUsbDevice({ ...off, mode: 'normal' }), false);
   assert.equal(hasUsbDevice({ ...off, serial: true, mode: 'normal' }), true);
   for (const { composition } of usbPresets) assert.equal(hasUsbDevice(composition), true);
+});
+
+test('storage names affect dirty state but preserve composition presets', () => {
+  const base = usbPresets[0].composition;
+  const storageIdentity = { ...defaultStorageIdentity, image: 'Rescue' };
+  assert.equal(sameComposition(base, { ...base, storageIdentity }), false);
+  assert.equal(matchingPreset({ ...base, storageIdentity }), 'kvm');
+  assert.equal(sameStorageIdentity(undefined, defaultStorageIdentity), true);
+  assert.equal(
+    sameStorageIdentity({ vendor: '', image: '', setup: '', user: '' }, defaultStorageIdentity),
+    true
+  );
+  assert.equal(storageIdentityProblem(storageIdentity), false);
+  for (const bad of [
+    { vendor: '123456789' },
+    { image: '12345678901234567' },
+    { setup: ' leading' },
+    { user: 'a\nb' },
+    { image: 'é' }
+  ]) {
+    assert.equal(storageIdentityProblem({ ...defaultStorageIdentity, ...bad }), true);
+  }
+  assert.deepEqual(
+    setCompatibilityProfile({ ...base, storageIdentity }, true).storageIdentity,
+    storageIdentity
+  );
 });

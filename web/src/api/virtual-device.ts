@@ -9,8 +9,19 @@ export function getVirtualDevice() {
 }
 
 export async function setUsbComposition(composition: UsbComposition, revision: string) {
-  const { keyboard, relative, absolute, network, disk, serial, audio, mode, identity, userDisk } =
-    composition;
+  const {
+    keyboard,
+    relative,
+    absolute,
+    network,
+    disk,
+    serial,
+    audio,
+    mode,
+    identity,
+    storageIdentity,
+    userDisk
+  } = composition;
   const response = await http.request({
     method: 'put',
     url: '/api/vm/device/virtual',
@@ -26,6 +37,7 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
       revision,
       // omitted keeps the identity and the user disk in place on the server
       ...(identity ? { identity } : {}),
+      ...(storageIdentity ? { storageIdentity } : {}),
       ...(userDisk === undefined ? {} : { userDisk })
     }
   });

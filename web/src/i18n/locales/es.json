@@ -1395,6 +1395,16 @@
           "title": "Consola serie USB",
           "description": "Puerto serie CDC ACM para el equipo conectado"
         }
+      },
+      "storageIdentity": {
+        "title": "Nombres de discos",
+        "description": "Nombres de los dispositivos de almacenamiento USB (SCSI) que ve el equipo conectado, no etiquetas del sistema de archivos. Fabricante: hasta 8 caracteres ASCII; disco: hasta 16, sin espacios al principio ni al final. Vacía un campo para restaurar su valor predeterminado. Un nombre de imagen vacío sigue el tipo de medio. Aplicar reconecta el USB. Algunos equipos guardan los nombres en caché.",
+        "vendor": "Fabricante de discos",
+        "image": "Imagen montada / medio remoto",
+        "setup": "Nombre del Setup Disk",
+        "user": "Nombre del User Disk",
+        "automatic": "Automático (disco o CD/DVD)",
+        "invalid": "Usa ASCII imprimible sin espacios al principio ni al final: hasta 8 caracteres para el fabricante y 16 para los discos."
       }
     },
     "network": {

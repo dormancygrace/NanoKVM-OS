@@ -27,6 +27,7 @@ old=$dir.old
 names='usb.dev usb.disk0 usb.disk0.ro usb.userdisk usb.rndis0 usb.ncm usb.acm
 usb.audio disable_hid usb.disable_keyboard usb.disable_relative
 usb.disable_absolute usb.vid usb.pid usb.manufacturer usb.product
+usb.storage.vendor usb.storage.image usb.storage.setup usb.storage.user
 usb.serialnumber usb.notwakeup usb.internet rndis.nodhcpd rndis.ipv4_prefix'
 
 # Even a settled layout must be checked under the migration lock: a writer

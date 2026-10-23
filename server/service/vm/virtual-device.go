@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/internal/storageidentity"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
@@ -51,7 +52,8 @@ type usbComposition struct {
 	serial   bool
 	audio    bool
 	// the zero value is the default identity (usb_identity.go)
-	identity usbIdentity
+	identity        usbIdentity
+	storageIdentity storageidentity.Identity
 	// the writable FAT32 user disk as a third LUN of the virtual storage
 	userDisk bool
 }
@@ -74,8 +76,8 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 	return &proto.GetVirtualDeviceRsp{
 		Keyboard: s.keyboard, Relative: s.relative, Absolute: s.absolute,
 		Network: s.network, Disk: s.disk, Serial: s.serial, Audio: s.audio,
-		UserDisk: s.userDisk,
-		HID:      s.keyboard || s.relative || s.absolute, Mode: s.mode,
+		UserDisk: s.userDisk, StorageIdentity: s.storageIdentity.Normalized(),
+		HID: s.keyboard || s.relative || s.absolute, Mode: s.mode,
 		Revision: s.revision(),
 		Budget:   proto.USBEndpointBudget{InUsed: inUsed, OutUsed: outUsed, InLimit: usbInEndpointLimit, OutLimit: usbOutEndpointLimit},
 		Costs:    usbEndpointCosts,
@@ -94,7 +96,7 @@ func (s usbComposition) revision() string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%q:%t:%t:%t:%t:%t:%t:%t:%q:%q:%q:%q:%t:%q",
 		s.mode, s.keyboard, s.relative, s.absolute, s.network, s.disk, s.serial, s.audio,
 		identity.VendorID, identity.ProductID, identity.Manufacturer, identity.Product, s.userDisk,
-		identity.SerialNumber))))
+		identity.SerialNumber)+fmt.Sprintf(":%q", s.storageIdentity.Normalized()))))
 }
 
 func (s *Service) SetUSBComposition(c *gin.Context) {
@@ -111,6 +113,9 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 		return
 	}
 	candidate.identity = identity
+	if req.StorageIdentity != nil {
+		candidate.storageIdentity = *req.StorageIdentity
+	}
 	if err := candidate.validate(); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
@@ -122,6 +127,9 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 	// An older client sends no identity: it keeps the one in place.
 	if req.Identity == nil {
 		candidate.identity = current.identity
+	}
+	if req.StorageIdentity == nil {
+		candidate.storageIdentity = current.storageIdentity
 	}
 	// The same for the user disk; it needs the disk function and an image.
 	candidate.userDisk = current.userDisk
@@ -261,16 +269,17 @@ func getUSBComposition() usbComposition {
 	}
 
 	return usbComposition{
-		mode:     mode,
-		keyboard: hidEnabled && !deviceExists(usbFlag("usb.disable_keyboard")),
-		relative: hidEnabled && !deviceExists(usbFlag("usb.disable_relative")),
-		absolute: hidEnabled && !deviceExists(usbFlag("usb.disable_absolute")),
-		network:  networkEnabled,
-		disk:     diskEnabled,
-		serial:   deviceExists(usbFlag(virtualSerial)),
-		audio:    mode != hid.ModeHidOnly && deviceExists(usbFlag(virtualAudio)),
-		identity: readUSBIdentity(hid.USBFlagsDir),
-		userDisk: diskEnabled && userDiskFlagged(hid.USBFlagsDir),
+		mode:            mode,
+		keyboard:        hidEnabled && !deviceExists(usbFlag("usb.disable_keyboard")),
+		relative:        hidEnabled && !deviceExists(usbFlag("usb.disable_relative")),
+		absolute:        hidEnabled && !deviceExists(usbFlag("usb.disable_absolute")),
+		network:         networkEnabled,
+		disk:            diskEnabled,
+		serial:          deviceExists(usbFlag(virtualSerial)),
+		audio:           mode != hid.ModeHidOnly && deviceExists(usbFlag(virtualAudio)),
+		identity:        readUSBIdentity(hid.USBFlagsDir),
+		storageIdentity: storageidentity.Read(hid.USBFlagsDir),
+		userDisk:        diskEnabled && userDiskFlagged(hid.USBFlagsDir),
 	}
 }
 

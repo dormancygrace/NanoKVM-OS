@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"NanoKVM-Server/internal/storageidentity"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/remotemedia"
 	"NanoKVM-Server/service/hid"
@@ -173,13 +174,11 @@ func mountLocalImage(file string, cdrom, force bool) error {
 		return &imageMountError{-2, "set cdrom flag failed"}
 	}
 
-	inquiryVen := "NanoKVM"
-	inquiryPrd := "USB Mass Storage"
-	inquiryVer := 0x0520
-	if cdrom {
-		inquiryPrd = "USB CD/DVD-ROM"
+	kind := "disk"
+	if flag == "1" {
+		kind = "cdrom"
 	}
-	inquiryData := fmt.Sprintf("%-8s%-16s%04x", inquiryVen, inquiryPrd, inquiryVer)
+	inquiryData := storageidentity.Read(hid.USBFlagsDir).Inquiry(kind)
 
 	if err := os.WriteFile(inquiryString, []byte(inquiryData), 0o666); err != nil {
 		log.Errorf("set inquiry %s failed: %s", inquiryData, err)

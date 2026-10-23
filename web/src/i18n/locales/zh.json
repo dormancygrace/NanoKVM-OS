@@ -1395,6 +1395,16 @@
           "title": "USB 串口控制台",
           "description": "为所连接电脑提供的 CDC ACM 串口"
         }
+      },
+      "storageIdentity": {
+        "title": "磁盘名称",
+        "description": "连接的计算机看到的 USB 存储设备（SCSI）名称，而非文件系统卷标。制造商最多 8 个 ASCII 字符，磁盘名称最多 16 个，首尾不能有空格。清空字段可恢复默认值。映像名称为空时按介质类型自动命名。应用会重新连接 USB。某些计算机会缓存设备名称。",
+        "vendor": "磁盘制造商",
+        "image": "已挂载映像 / 远程介质",
+        "setup": "Setup Disk 名称",
+        "user": "User Disk 名称",
+        "automatic": "自动（磁盘或 CD/DVD）",
+        "invalid": "请使用可打印的 ASCII 字符，首尾不留空格：制造商最多 8 个字符，磁盘名称最多 16 个。"
       }
     },
     "network": {

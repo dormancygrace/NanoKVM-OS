@@ -13,6 +13,7 @@ import {
   normalizeUsbStatus,
   sameComposition,
   setCompatibilityProfile,
+  storageIdentityProblem,
   toggleDevice,
   usbDevices,
   usbPresets
@@ -25,6 +26,7 @@ import { MouseJiggler } from '../device/mouse-jiggler';
 import { UsbIdentitySection } from './identity';
 import { UsbInternet } from './internet';
 import { SerialConsole } from './serial-console';
+import { StorageIdentitySection } from './storage-identity';
 import { UserDisk } from './user-disk';
 
 // Which part a panel shows: the composition (the toolbar's quick menu and
@@ -82,7 +84,11 @@ export const Usb = ({ part }: { part: UsbPart }) => {
     } else {
       const preset = usbPresets.find((item) => item.id === id);
       if (preset && status && fitsBudget(preset.composition, status))
-        setDraft({ ...preset.composition });
+        setDraft({
+          ...preset.composition,
+          identity: draft?.identity,
+          storageIdentity: draft?.storageIdentity
+        });
     }
     setError('');
   }
@@ -171,7 +177,9 @@ export const Usb = ({ part }: { part: UsbPart }) => {
   // the draft turns USB off
   const turningOff = Boolean(enabled && draft && !hasUsbDevice(draft));
   const withinBudget = Boolean(draft && status && fitsBudget(draft, status));
-  const identityOk = !draft?.identity || !identityProblem(draft.identity);
+  const identityOk =
+    (!draft?.identity || !identityProblem(draft.identity)) &&
+    (!draft?.storageIdentity || !storageIdentityProblem(draft.storageIdentity));
   const showComposition = part === 'composition';
   const showIdentity = part === 'identity';
 
@@ -300,6 +308,17 @@ export const Usb = ({ part }: { part: UsbPart }) => {
                 onChange={(identity) => {
                   if (busy.current) return;
                   setDraft({ ...draft, identity });
+                  setError('');
+                }}
+              />
+            )}
+            {showIdentity && status?.storageIdentity && draft && (
+              <StorageIdentitySection
+                identity={draft.storageIdentity ?? status.storageIdentity}
+                disabled={loading}
+                onChange={(storageIdentity) => {
+                  if (busy.current) return;
+                  setDraft({ ...draft, storageIdentity });
                   setError('');
                 }}
               />

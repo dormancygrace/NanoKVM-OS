@@ -67,7 +67,7 @@ func writeRemoteAccessMarker(path string, m remoteAccessMarker) error {
 // user disk carry over.
 func (s usbComposition) remoteAccessProfile(withAudio bool) usbComposition {
 	return usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true,
-		disk: true, audio: withAudio, identity: s.identity, userDisk: s.disk && s.userDisk}
+		disk: true, audio: withAudio, identity: s.identity, storageIdentity: s.storageIdentity, userDisk: s.disk && s.userDisk}
 }
 
 func enableRemoteAccessUSB(path string, current usbComposition, withAudio bool, apply func(usbComposition) error) error {
@@ -125,6 +125,7 @@ func restoreRemoteAccessUSB(path string, current usbComposition, apply func(usbC
 	}
 	if flagsOf(current) == marker.Applied {
 		before := marker.Before.with(current.identity)
+		before.storageIdentity = current.storageIdentity
 		if err := before.validate(); err != nil {
 			return err
 		}

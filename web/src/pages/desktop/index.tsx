@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Spin, Splitter } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from 'react-responsive';
 
@@ -117,6 +118,21 @@ export const Desktop = () => {
   // Load the device time format once for every displayed device time.
   useDeviceTime();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
+  // The PicoClaw sidebar renders once, into a node of its own that the side
+  // panel or the full-screen overlay adopts. Moving between them (a resize
+  // across the breakpoint) or the video area remounting (a host resolution
+  // change) would otherwise unmount it, which closes its gateway and session.
+  const [picoclawHost] = useState(() => {
+    const host = document.createElement('div');
+    host.className = 'h-full w-full';
+    return host;
+  });
+  const adoptPicoclaw = useCallback(
+    (slot: HTMLDivElement | null) => {
+      if (slot && picoclawHost.parentNode !== slot) slot.appendChild(picoclawHost);
+    },
+    [picoclawHost]
+  );
   const [activeVideoMode, setActiveVideoMode] = useState(getVideoMode);
   // Without a choice of its own, this browser waits for the device transport.
   const [videoModeKnown, setVideoModeKnown] = useState(() => storage.getVideoMode() !== null);
@@ -434,9 +450,7 @@ export const Desktop = () => {
                 resizable={isBigScreen && isPicoclawChatOpen}
               >
                 {isBigScreen && isPicoclawChatOpen ? (
-                  <Suspense fallback={<PicoclawLoading />}>
-                    <PicoclawSidebar />
-                  </Suspense>
+                  <div ref={adoptPicoclaw} className="h-full w-full" />
                 ) : null}
               </Splitter.Panel>
             </Splitter>
@@ -455,12 +469,20 @@ export const Desktop = () => {
       )}
 
       {!isBigScreen && isPicoclawChatOpen ? (
-        <div className="fixed inset-x-0 top-14 bottom-0 z-980 overflow-hidden bg-[#0d0d0f] shadow-2xl">
+        <div
+          ref={adoptPicoclaw}
+          className="fixed inset-x-0 top-14 bottom-0 z-980 overflow-hidden bg-[#0d0d0f] shadow-2xl"
+        />
+      ) : null}
+      {/* After both slots: their refs adopt the host before the sidebar's
+          layout effects run, so it never measures a detached node. */}
+      {isPicoclawChatOpen &&
+        createPortal(
           <Suspense fallback={<PicoclawLoading />}>
             <PicoclawSidebar />
-          </Suspense>
-        </div>
-      ) : null}
+          </Suspense>,
+          picoclawHost
+        )}
 
       {captureEnabled && usbInput.keyboard && <LazyVirtualKeyboard />}
     </div>

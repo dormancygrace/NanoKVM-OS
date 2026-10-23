@@ -287,7 +287,9 @@ export const Menu = () => {
             onRequestMobileMenuDismiss={dismissMenus}
           >
             <div className="w-[38px] overflow-hidden rounded-[19px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
-              {isMobileRailCollapsed ? (
+              {/* Collapsing hides the items but keeps them mounted: a browser ISO,
+                  a recording or an open dialog belongs to its item. */}
+              {isMobileRailCollapsed && (
                 <div className="flex flex-col items-center p-1">
                   <strong>
                     <div className="flex size-[28px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
@@ -302,31 +304,35 @@ export const Menu = () => {
                     icon={<ChevronDownIcon size={18} aria-hidden="true" />}
                   />
                 </div>
-              ) : (
-                <div className="flex max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto p-1 *:shrink-0 [&::-webkit-scrollbar]:hidden">
-                  <strong>
-                    <div className="flex size-[30px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
-                      <GripVerticalIcon size={18} />
-                    </div>
-                  </strong>
-
-                  {renderDivider('mobile', 'divider-handle')}
-                  {renderMenuItems('mobile')}
-
-                  {isEnabled('collapse') && (
-                    <>
-                      {renderDivider('mobile', 'divider-collapse')}
-                      <Button
-                        type="text"
-                        className={clsx(mobileRailToggleButtonClass, 'shrink-0 rounded')}
-                        onClick={() => setIsMobileRailCollapsed(true)}
-                        aria-label={t('menu.collapse')}
-                        icon={<ChevronUpIcon size={18} aria-hidden="true" />}
-                      />
-                    </>
-                  )}
-                </div>
               )}
+              <div
+                className={clsx(
+                  'max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto p-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
+                  isMobileRailCollapsed ? 'hidden' : 'flex'
+                )}
+              >
+                <strong>
+                  <div className="flex size-[30px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
+                    <GripVerticalIcon size={18} />
+                  </div>
+                </strong>
+
+                {renderDivider('mobile', 'divider-handle')}
+                {renderMenuItems('mobile')}
+
+                {isEnabled('collapse') && (
+                  <>
+                    {renderDivider('mobile', 'divider-collapse')}
+                    <Button
+                      type="text"
+                      className={clsx(mobileRailToggleButtonClass, 'shrink-0 rounded')}
+                      onClick={() => setIsMobileRailCollapsed(true)}
+                      aria-label={t('menu.collapse')}
+                      icon={<ChevronUpIcon size={18} aria-hidden="true" />}
+                    />
+                  </>
+                )}
+              </div>
             </div>
           </MobileMenuItemProvider>
         </div>

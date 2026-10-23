@@ -13,6 +13,8 @@
 #
 # Options: --serial SERIAL  the NanoKVM's USB serial number (the web UI shows
 #                           it; needed when the device is not plugged in now)
+#          --vid VID --pid PID  its USB vendor and product ID (4 hex digits),
+#                           when they were changed from 3346:1009
 #          --yes            apply without the confirmation prompt
 #
 # plan and status only read. apply writes new files and appends to inittab
@@ -25,10 +27,12 @@
 # NANOKVM_ROOT prefixes every path, and the commands below come from PATH.
 
 set -u
+# Byte-wise patterns: the serial check below is the server's ASCII rule.
+export LC_ALL=C
 
 VERSION=1
-VID=3346
-PID=1009
+VID=${NANOKVM_VID:-3346}
+PID=${NANOKVM_PID:-1009}
 ROOT=${NANOKVM_ROOT:-}
 RULE_FILE=/etc/udev/rules.d/90-nanokvm-serial-console.rules
 BACKUP_DIR=/var/backups/nanokvm-serial-console
@@ -41,7 +45,7 @@ serial=
 assume_yes=0
 
 usage() {
-	sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
 	exit "${1:-0}"
 }
 
@@ -54,6 +58,13 @@ while [ $# -gt 0 ]; do
 		shift
 		;;
 	--serial=*) serial=${1#--serial=} ;;
+	--vid | --pid)
+		[ $# -ge 2 ] || usage 1
+		if [ "$1" = --vid ]; then VID=$2; else PID=$2; fi
+		shift
+		;;
+	--vid=*) VID=${1#--vid=} ;;
+	--pid=*) PID=${1#--pid=} ;;
 	--yes | -y) assume_yes=1 ;;
 	-h | --help) usage 0 ;;
 	*)
@@ -84,6 +95,31 @@ fail() {
 }
 
 # ------------------------------------------------------------ small helpers
+# The serial number and the IDs go into a root udev rule: only what the
+# NanoKVM itself accepts (server/service/vm/usb_identity.go), never quotes,
+# commas or line breaks that would end the match and start a new key.
+valid_serial() {
+	case $1 in '' | *[!0-9A-Za-z._-]*) return 1 ;; esac
+	[ "${#1}" -le 126 ]
+}
+valid_id() {
+	case $1 in [0-9a-f][0-9a-f][0-9a-f][0-9a-f]) return 0 ;; *) return 1 ;; esac
+}
+# A value from the device or the command line, safe to print.
+shown() { printf '%s' "$1" | tr -c '0-9A-Za-z._-' '?'; }
+
+VID=$(printf '%s' "$VID" | tr 'A-F' 'a-f')
+PID=$(printf '%s' "$PID" | tr 'A-F' 'a-f')
+VID=${VID#0x}
+PID=${PID#0x}
+if ! valid_id "$VID" || ! valid_id "$PID"; then
+	say "error:   --vid and --pid take 4 hexadecimal digits, such as 3346 and 1009" >&2
+	exit 1
+fi
+if [ -n "$serial" ] && ! valid_serial "$serial"; then
+	say "refuse:  --serial \"$(shown "$serial")\" is not a NanoKVM serial number (letters, digits, '.', '_', '-'; up to 126)"
+	exit 2
+fi
 readfile() { [ -r "$ROOT$1" ] && cat "$ROOT$1" 2>/dev/null; }
 exists() { [ -e "$ROOT$1" ]; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -190,6 +226,12 @@ for d in "$ROOT"/sys/bus/usb/devices/*; do
 	if [ "$(cat "$d/idVendor" 2>/dev/null)" = "$VID" ] && [ "$(cat "$d/idProduct" 2>/dev/null)" = "$PID" ]; then
 		dev_path=${d#"$ROOT"}
 		dev_serial=$(cat "$d/serial" 2>/dev/null)
+		# Whatever enumerates as this VID:PID decides this string. One
+		# that a NanoKVM cannot have is refused, not replaced by --serial.
+		if [ -n "$dev_serial" ] && ! valid_serial "$dev_serial"; then
+			say "refuse:  the USB device $VID:$PID at ${d#"$ROOT"} reports the serial number \"$(shown "$dev_serial")\", which no NanoKVM has; nothing is written for it"
+			exit 2
+		fi
 		for t in "$d"/*/tty/ttyACM*; do
 			[ -e "$t" ] && dev_tty=${t##*/} && break
 		done
@@ -531,12 +573,23 @@ do_undo() {
 			rm -f "$ROOT$path" && ok "removed $path"
 			case $path in /etc/udev/*) changed_udev=yes ;; esac
 			;;
-		replaced | appended)
+		replaced)
 			cp -p "$last/$(basename "$path").before" "$ROOT$path" && ok "restored $path"
-			case $path in
-			/etc/udev/*) changed_udev=yes ;;
-			/etc/inittab) [ -z "$ROOT" ] && reread_inittab ;;
-			esac
+			case $path in /etc/udev/*) changed_udev=yes ;; esac
+			;;
+		appended)
+			# Only the line apply added goes: edits made since then stay. The
+			# whole file before apply is kept in the backup.
+			# The copy keeps the file's mode; mv replaces it in one step.
+			if cp -p "$ROOT$path" "$ROOT$path.nanokvm-new" &&
+				grep -vF "$INITTAB_TAG" "$ROOT$path" >"$ROOT$path.nanokvm-new" &&
+				mv "$ROOT$path.nanokvm-new" "$ROOT$path"; then
+				ok "removed the console line from $path"
+			else
+				warn "could not edit $path; the copy before apply is $last/$(basename "$path").before"
+			fi
+			rm -f "$ROOT$path.nanokvm-new"
+			[ "$path" = /etc/inittab ] && [ -z "$ROOT" ] && reread_inittab
 			;;
 		esac
 	done <"$last/manifest"

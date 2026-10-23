@@ -20,6 +20,8 @@
 # Unattended via environment:
 #   NANOKVM_SERIAL  the NanoKVM's USB serial number (Settings > USB on the
 #                   NanoKVM), for a NanoKVM that is not plugged in yet
+#   NANOKVM_VID, NANOKVM_PID  its USB vendor and product ID (4 hex digits),
+#                   when they were changed from 3346:1009
 
 source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/core/core.func")
 source <(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}/lib/tools.func")
@@ -35,11 +37,18 @@ declare -f init_tool_telemetry &>/dev/null && init_tool_telemetry "nanokvm-seria
 # ==============================================================================
 APP="NanoKVM Serial Console"
 APP_TYPE="tools"
-VID=3346
-PID=1009
+VID=${NANOKVM_VID:-3346}
+PID=${NANOKVM_PID:-1009}
+VID=${VID,,} PID=${PID,,}
+VID=${VID#0x} PID=${PID#0x}
 RULE_FILE=/etc/udev/rules.d/90-nanokvm-serial-console.rules
 BACKUP_DIR=/var/backups/nanokvm-serial-console
 SERIAL="${NANOKVM_SERIAL:-}"
+
+if [[ ! $VID =~ ^[0-9a-f]{4}$ || ! $PID =~ ^[0-9a-f]{4}$ ]]; then
+  echo "NANOKVM_VID and NANOKVM_PID take 4 hexadecimal digits, such as 3346 and 1009" >&2
+  exit 1
+fi
 
 # ==============================================================================
 # HELPERS
@@ -79,6 +88,12 @@ look() {
   fi
   if [[ -n $dev_serial ]]; then
     SERIAL=$dev_serial
+  fi
+  # The serial goes into a root udev rule: only what a NanoKVM accepts, never
+  # a quote, comma or line break from whatever enumerated as this VID:PID.
+  if [[ -n $SERIAL && ! $SERIAL =~ ^[0-9A-Za-z._-]{1,126}$ ]]; then
+    msg_error "The serial number ${SERIAL@Q} is not one a NanoKVM has (letters, digits, '.', '_', '-'); nothing is written for it."
+    exit 2
   fi
 
   if [[ -d /sys/bus/usb/drivers/cdc_acm || -d /sys/module/cdc_acm ]]; then

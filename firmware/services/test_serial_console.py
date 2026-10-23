@@ -393,6 +393,65 @@ class ScriptTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0)
         self.assertIn('Debian GNU/Linux 8', r.stdout)
 
+    def test_hostile_device_serial_is_refused(self):
+        # The serial is whatever enumerated as 3346:1009 says; it goes into a
+        # root udev rule, so anything a NanoKVM cannot have is refused.
+        hostile = ('x", RUN+="/bin/sh -c id", ATTR{serial}=="x',
+                   'a\nACTION=="add", RUN+="/bin/id"',
+                   'a,b')
+        for bad in hostile:
+            for shell in SHELLS:
+                with self.subTest(serial=bad, shell=shell[0]):
+                    h = self.host()
+                    (h.root / 'sys/bus/usb/devices/1-1/serial').write_text(bad + '\n')
+                    before = tree_digest(h.root)
+                    r = h.run(shell, 'apply', '--yes', '--serial', SERIAL)
+                    self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                    self.assertIn('which no NanoKVM has', r.stdout)
+                    self.assertNotIn('RUN+=', r.stdout)
+                    self.assertEqual(tree_digest(h.root), before)
+                    self.assertEqual(h.calls(), [])
+
+    def test_hostile_serial_option_is_refused(self):
+        for shell in SHELLS:
+            with self.subTest(shell=shell[0]):
+                h = self.host(device=False)
+                before = tree_digest(h.root)
+                r = h.run(shell, 'apply', '--yes', '--serial', 'x", RUN+="/bin/id')
+                self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+                self.assertIn('is not a NanoKVM serial number', r.stdout)
+                self.assertEqual(tree_digest(h.root), before)
+
+    def test_changed_usb_identity(self):
+        h = self.host()
+        (h.root / 'sys/bus/usb/devices/1-1/idVendor').write_text('046d\n')
+        r = h.run(SHELLS[0])
+        self.assertIn('NanoKVM is not connected now', r.stdout)
+        for shell in SHELLS:
+            with self.subTest(shell=shell[0]):
+                h = self.host()
+                (h.root / 'sys/bus/usb/devices/1-1/idVendor').write_text('046d\n')
+                r = h.run(shell, 'apply', '--yes', '--vid', '0x046D', '--pid', '1009')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertIn('NanoKVM 046d:1009 is connected as /dev/ttyACM0', r.stdout)
+                rule = (h.root / 'etc/udev/rules.d/90-nanokvm-serial-console.rules').read_text()
+                self.assertIn('ATTRS{idVendor}=="046d", ATTRS{idProduct}=="1009", ATTRS{serial}=="%s"' % SERIAL, rule)
+        r = self.host().run(SHELLS[0], '--vid', '33x6')
+        self.assertEqual(r.returncode, 1)
+        self.assertIn('4 hexadecimal digits', r.stderr)
+
+    def test_undo_keeps_later_inittab_edits(self):
+        h = self.host(init='init', inittab=True)
+        before = (h.root / 'etc/inittab').read_text()
+        r = h.run(SHELLS[0], 'apply', '--yes')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        later = 'tty2::respawn:/sbin/getty 38400 tty2\n'
+        with open(h.root / 'etc/inittab', 'a') as f:
+            f.write(later)
+        r = h.run(SHELLS[0], 'undo')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual((h.root / 'etc/inittab').read_text(), before + later)
+
     def test_help_and_bad_argument(self):
         r = self.host().run(SHELLS[0], '--help')
         self.assertEqual(r.returncode, 0)

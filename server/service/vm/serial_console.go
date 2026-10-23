@@ -40,6 +40,7 @@ const (
 var (
 	serialConsoleShareDir  = "/kvmapp/system/share/serial-console"
 	gadgetSerialNumberPath = "/sys/kernel/config/usb_gadget/g0/strings/0x409/serialnumber"
+	gadgetIDDir            = "/sys/kernel/config/usb_gadget/g0"
 	// The helper LUN's backing file, as S03usbdev sets it.
 	serialConsoleLunFile = "/sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.1/file"
 	serialConsoleProbe   = probeSerialConsole
@@ -74,8 +75,23 @@ func gadgetSerialNumber() string {
 	return strings.TrimSpace(string(data))
 }
 
+// gadgetID is the gadget's idVendor or idProduct as sysfs on the host shows
+// it: 4 lowercase hex digits without 0x, "" when unknown.
+func gadgetID(name string) string {
+	data, err := os.ReadFile(filepath.Join(gadgetIDDir, name))
+	if err != nil {
+		return ""
+	}
+	id, err := normalizeUSBID(string(data))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(id, "0x")
+}
+
 func serialConsoleState() *proto.SerialConsoleRsp {
 	rsp := &proto.SerialConsoleRsp{SerialNumber: gadgetSerialNumber(), Port: serialConsoleDevice,
+		VendorID: gadgetID("idVendor"), ProductID: gadgetID("idProduct"),
 		Script: proto.SerialConsoleFile{Path: SerialConsoleScriptPath},
 		Disk:   proto.SerialConsoleDisk{File: serialConsoleDiskFile()}}
 	if sum, size, err := fileSha256(serialConsoleScriptFile()); err == nil {

@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -101,6 +103,11 @@ func baseArgs() []string {
 // and acme.sh makes account.conf and the keys 0600 itself.
 func command(ctx context.Context, env []string, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, script(), args...)
+	// acme.sh runs curl, openssl and the DNS hooks: on a timeout the whole
+	// process group goes, or its children would keep Wait from returning.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = 5 * time.Second
 	cmd.Dir = dataDir()
 	cmd.Env = append([]string{
 		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -154,8 +161,12 @@ func startJob(action string, env, secrets []string, steps []step, after func(j *
 }
 
 func runSteps(job *Job, env, secrets []string, steps []step) *Job {
-	ctx, cancel := context.WithTimeout(context.Background(), jobTimeout)
+	timeout := stepsTimeout(steps)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	// The log holds the last run only: the renewal check runs twice a day,
+	// and appending would grow the file on the SD card forever.
+	removeLog()
 	out := &tailBuffer{}
 	result := *job
 	for _, st := range steps {
@@ -168,7 +179,7 @@ func runSteps(job *Job, env, secrets []string, steps []step) *Job {
 		}
 		result.Error = err.Error()
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			result.Error = "acme.sh did not finish within " + jobTimeout.String()
+			result.Error = "acme.sh did not finish within " + timeout.String()
 		}
 		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 		result.Output = scrub(out.String(), secrets)
@@ -254,6 +265,22 @@ func runSync(env []string, args ...string) (string, error) {
 	cmd.Stdout, cmd.Stderr = out, out
 	err := cmd.Run()
 	return out.String(), err
+}
+
+// stepsTimeout is jobTimeout plus the DNS wait the steps ask for (up to an
+// hour), which acme.sh spends sleeping inside a step.
+func stepsTimeout(steps []step) time.Duration {
+	timeout := jobTimeout
+	for _, st := range steps {
+		for i, arg := range st.args {
+			if arg == "--dnssleep" && i+1 < len(st.args) {
+				if seconds, err := strconv.Atoi(st.args[i+1]); err == nil && seconds > 0 {
+					timeout += time.Duration(seconds) * time.Second
+				}
+			}
+		}
+	}
+	return timeout
 }
 
 // removeLog deletes the acme.sh log, which can hold a lot after many runs.

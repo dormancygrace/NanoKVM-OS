@@ -174,6 +174,50 @@ func (s *Service) credentials(p Profile) bool {
 	return true
 }
 func (s *Service) start(p Profile) error {
+	return s.startAttempt(p, 0)
+}
+
+// restartDelay is the wait before restart n (n ≥ 1) of a tunnel that exited
+// by itself: 5 s, doubling up to 5 min.
+func restartDelay(n int) time.Duration {
+	delay := 5 * time.Second
+	for i := 1; i < n && delay < 5*time.Minute; i++ {
+		delay *= 2
+	}
+	return min(delay, 5*time.Minute)
+}
+
+var restartSleep = time.Sleep // test seam
+
+// supervise restarts the profile after its OpenVPN exits by itself (an
+// auth or network failure, ping-exit), for as long as it is the enabled
+// profile. Disabling removes the active marker before stopping, so a stop
+// requested by the user is never undone.
+func (s *Service) supervise(id string, attempt int, ran time.Duration) {
+	if ran > 5*time.Minute {
+		attempt = 0
+	}
+	attempt++
+	restartSleep(restartDelay(attempt))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.desired() != id || s.pid(id) != 0 {
+		return
+	}
+	// Wrong credentials stay wrong: retrying would only hammer the provider
+	// (some lock the account). The page shows the failure from the log.
+	if strings.Contains(runtimeLog(s.runtime(id, ".log")), "AUTH_FAILED") {
+		return
+	}
+	ps, _ := s.profiles()
+	for _, p := range ps {
+		if p.ID == id {
+			_ = s.startAttempt(p, attempt)
+		}
+	}
+}
+
+func (s *Service) startAttempt(p Profile, attempt int) error {
 	if !s.credentials(p) {
 		return fmt.Errorf("credentials are required")
 	}
@@ -239,7 +283,11 @@ func (s *Service) start(p Profile) error {
 	if e = cmd.Start(); e != nil {
 		return fmt.Errorf("OpenVPN could not start")
 	}
-	go func() { _ = cmd.Wait() }()
+	started := time.Now()
+	go func() {
+		_ = cmd.Wait()
+		s.supervise(p.ID, attempt, time.Since(started))
+	}()
 	if e = writePrivate(s.runtime(p.ID, ".pid"), []byte(strconv.Itoa(cmd.Process.Pid)+"\n")); e != nil {
 		_ = cmd.Process.Kill()
 		return e
@@ -312,12 +360,21 @@ func firstIPv4(addrs []net.Addr) string {
 	return ""
 }
 
+// runtimeLog is the last 256 KiB of the log. Only that part is read: the
+// log grows for as long as the tunnel runs, and status polls come every 5 s.
 func runtimeLog(path string) string {
-	b, _ := os.ReadFile(path)
-	const limit = 256 * 1024
-	if len(b) > limit {
-		b = b[len(b)-limit:]
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
 	}
+	defer f.Close()
+	const limit = 256 * 1024
+	if info, err := f.Stat(); err == nil && info.Size() > limit {
+		if _, err = f.Seek(info.Size()-limit, io.SeekStart); err != nil {
+			return ""
+		}
+	}
+	b, _ := io.ReadAll(io.LimitReader(f, limit))
 	return string(b)
 }
 

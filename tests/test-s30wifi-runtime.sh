@@ -70,6 +70,18 @@ printf '%s\n' 'network={' "    ssid=\"$1\"" "    #psk=\"$password\"" \
     '    psk=0123456789abcdef' '}'
 EOF
 
+    # pidof: a process stays alive for $ALIVE_CHECKS more looks (counted in
+    # a file), or for ever with ALIVE_CHECKS=forever.
+    cat > "$BIN_DIR/pidof" <<'EOF'
+#!/bin/sh
+printf 'pidof args=%s\n' "$*" >> "$CALL_LOG"
+[ "${ALIVE_CHECKS:-0}" = forever ] && exit 0
+count=$(cat "$CALL_LOG.alive" 2>/dev/null || echo 0)
+[ "$count" -lt "${ALIVE_CHECKS:-0}" ] || exit 1
+echo $((count + 1)) > "$CALL_LOG.alive"
+exit 0
+EOF
+    chmod +x "$BIN_DIR/pidof"
     for command in wpa_supplicant udhcpc hostapd udhcpd ifconfig ip killall chown
     do
         cat > "$BIN_DIR/$command" <<EOF
@@ -90,7 +102,10 @@ EOF
 
 run_action() (
     action=$1
-    export CALL_LOG WPA_FAIL
+    export CALL_LOG WPA_FAIL ALIVE_CHECKS
+    export NANOKVM_PIDOF="$BIN_DIR/pidof"
+    export NANOKVM_WPA_CTRL_DIR="$CASE_DIR/wpa_ctrl"
+    export NANOKVM_HOSTAPD_CTRL_DIR="$CASE_DIR/hostapd_ctrl"
     export NANOKVM_WIFI_BOOT_DIR="$BOOT_DIR"
     export NANOKVM_WIFI_ETC_DIR="$ETC_DIR"
     export NANOKVM_WIFI_KVM_DIR="$KVM_DIR"
@@ -114,6 +129,9 @@ run_action() (
 
 # With no credentials, boot must not launch idle WPA/DHCP processes or create
 # persistent/runtime configuration.
+WPA_FAIL=0
+ALIVE_CHECKS=0
+
 new_case no_credentials
 run_action start
 assert_contains 'ip args=link set dev wlan0 up' "$CALL_LOG"
@@ -315,3 +333,31 @@ do
     esac
 done
 echo 'S30wifi runtime-state tests passed'
+
+# restart waits for the old wpa_supplicant before starting the new one, and
+# removes its control socket only once it has gone.
+new_case restart_waits
+printf 'Home\n' > "$ETC_DIR/wifi.ssid"
+printf 'secretpass\n' > "$ETC_DIR/wifi.pass"
+mkdir -p "$CASE_DIR/wpa_ctrl"
+: > "$CASE_DIR/wpa_ctrl/wlan0"
+ALIVE_CHECKS=3 run_action restart
+killed=$(grep -n 'killall args=wpa_supplicant' "$CALL_LOG" | head -n 1 | cut -d: -f1)
+started=$(grep -n 'wpa_supplicant args=-B' "$CALL_LOG" | head -n 1 | cut -d: -f1)
+last_look=$(grep -n 'pidof args=wpa_supplicant' "$CALL_LOG" | tail -n 1 | cut -d: -f1)
+[ -n "$killed" ] && [ -n "$started" ] && [ -n "$last_look" ] || fail "restart did not stop and start wpa_supplicant"
+[ "$(grep -c 'pidof args=wpa_supplicant' "$CALL_LOG")" -ge 4 ] || fail "stop did not wait for wpa_supplicant"
+[ "$last_look" -lt "$started" ] || fail "the new wpa_supplicant started before the old one was gone"
+assert_absent "$CASE_DIR/wpa_ctrl/wlan0"
+assert_not_contains 'killall args=-9' "$CALL_LOG"
+
+# One that never exits is killed, and its socket is left while it lives.
+new_case restart_stuck
+mkdir -p "$CASE_DIR/wpa_ctrl"
+: > "$CASE_DIR/wpa_ctrl/wlan0"
+ALIVE_CHECKS=forever run_action stop 2>/dev/null
+assert_contains 'killall args=-9 wpa_supplicant' "$CALL_LOG"
+assert_file "$CASE_DIR/wpa_ctrl/wlan0"
+ALIVE_CHECKS=0
+echo "S30wifi restart wait tests passed"
+

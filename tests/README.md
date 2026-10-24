@@ -37,6 +37,15 @@ Annex-B video on fd 3; reset checks three recovery cycles; edid TOOL PROFILE
 pauses the detector around the programmer and verifies recovered frames.
 Keep the original EDID on the host and restore it after a mode-change trial.
 
+The GPIO event tests execute the production transport and detector service
+with fault injection for all three receiver models:
+
+    python3 tests/test-hdmi-events.py
+    NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
+
+See [LT6911 GPIO events](../docs/LT6911-GPIO.md) for event polarity, fallback
+and exclusive runtime qualification with hdmi-events-runtime.cpp.
+
 The Makefile groups some of them, for example `make test-wifi-modules test-alpine-network`.
 CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no arguments and no root.
 

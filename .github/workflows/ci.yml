@@ -91,6 +91,10 @@ jobs:
           "$RUNNER_TEMP/stream-size-test"
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
+      - name: HDMI GPIO event fault injection
+        run: |
+          python3 tests/test-hdmi-events.py
+          NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
       # The C906 vector kernels are generated with .4byte/WORD encodings; each
       # generator checks its output against GNU as/objdump for XTheadVector.
       # The GHASH generator also runs its output against a bit-serial GHASH.

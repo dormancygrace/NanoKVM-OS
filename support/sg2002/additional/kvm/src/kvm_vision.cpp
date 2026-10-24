@@ -1,4 +1,3 @@
-#include "video_clock_policy.hpp"
 #include "internal/capture_rate.hpp"
 #include <utility>
 #include <atomic>
@@ -166,11 +165,6 @@ static int set_capture_parked_locked(bool parked);
 
 static bool restart_capture_now()
 {
-    if (!nanokvm::video_clocks_ready(kvmv_cfg.hdmi_version)) {
-        kvmv_cfg.reopen_cam_flag = 1;
-        debug("[kvmv]LT6911C/D clock profile unavailable; capture remains stopped\n");
-        return false;
-    }
     // A pipelined frame leases a VPSS buffer; retire it before the restart.
     if (kvm_venc.enc_video_init && mmf_venc_pending_vi(kvm_venc.mmf_venc_chn) >= 0)
         mmf_del_venc_channel(kvm_venc.mmf_venc_chn);

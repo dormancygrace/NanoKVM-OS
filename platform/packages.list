@@ -40,7 +40,6 @@ base  file  /etc/chrony.conf                              0644  firmware/alpine/
 base  file  /etc/sysctl.d/10-nanokvm-qdisc.conf          0644  firmware/alpine/etc/sysctl.d/10-nanokvm-qdisc.conf
 base  file  /etc/sysctl.d/20-nanokvm-tcp.conf            0644  firmware/alpine/etc/sysctl.d/20-nanokvm-tcp.conf
 base  file  /etc/sysctl.d/30-nanokvm-panic.conf          0644  firmware/alpine/etc/sysctl.d/30-nanokvm-panic.conf
-base  file  /etc/nanokvm-buildroot                        0644  %nanokvm-buildroot
 # /etc/profile.d/nanokvm-banner.sh is added by the nanokvm-base APKBUILD.
 base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/openrc/nanokvm-app
 base  file  /etc/init.d/nanokvm-board                     0755  firmware/alpine/openrc/nanokvm-board

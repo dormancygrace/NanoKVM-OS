@@ -786,10 +786,6 @@ payloads() {
     # No package owns the video settings now; the path stays protected so that
     # an update from a release that did keeps the settings a user changed.
     printf '+kvmapp/kvm\n' > "$gen/protected-paths"
-    # No longer read by this tree. Applications up to v2.6-a3 check it to pick
-    # the GPIO ABI v2, HDMI reset driver and runtime defaults; drop it once
-    # those applications are out of support.
-    printf 'Alpine 3.24; SG2002/C906; flavour=%s\n' enhanced > "$gen/nanokvm-buildroot"
     printf '%s\n' "${version#v}" > "$gen/version"
     # The release version and source commit live only in nanokvm-release, so
     # that a component package changes only when its files do.

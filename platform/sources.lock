@@ -10,7 +10,7 @@
 #   Only the listed paths are fetched; each is checked by its Git tree or
 #   blob id, so the content is verified however it is transported.
 
-buildroot  https://buildroot.org/downloads/buildroot-2026.08.tar.xz        87aaca4164ea9d5c8085854953018263f7963f07c22e73a2a2185cc98c581c34
+buildroot https://buildroot.org/downloads/buildroot-2026.08.1.tar.xz 34fb7bea8a213ffde39cc02e61703391560f26e0850f03138c722d0b09880f2b
 linux      https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.3.tar.xz     87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953
 u-boot     https://github.com/u-boot/u-boot/archive/refs/tags/v2026.10.tar.gz  f943a88389c8fd70a6b0d061a88267465e143c7ca6ea2b75837ab20f5b60c739
 

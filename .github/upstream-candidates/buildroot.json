@@ -1,0 +1,19 @@
+{
+  "component": "Buildroot",
+  "current": "2026.08",
+  "candidate": "2026.08.1",
+  "candidate_key": "2026.08.1",
+  "status": "pending-review",
+  "upstream": "https://buildroot.org/downloads/",
+  "source_path": "platform/sources.lock",
+  "strategy": "archive-pin",
+  "evidence": {
+    "archive": "https://buildroot.org/downloads/buildroot-2026.08.1.tar.xz",
+    "sha256": "34fb7bea8a213ffde39cc02e61703391560f26e0850f03138c722d0b09880f2b"
+  },
+  "pin_files_updated": [
+    "firmware/sources.json",
+    "platform/build.sh",
+    "platform/sources.lock"
+  ]
+}

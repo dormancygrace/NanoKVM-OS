@@ -159,11 +159,15 @@ def pin_changes(source, result, root=ROOT):
         old_archive = urllib.parse.urlparse(old_url).path.rsplit('/', 1)[1]
         new_archive = urllib.parse.urlparse(url).path.rsplit('/', 1)[1]
         build_path = 'platform/build.sh'
-        build = (root / build_path).read_text().replace(old_archive, new_archive)
+        build = (root / build_path).read_text()
         for suffix in ('.tar.gz', '.tar.xz', '.tar.bz2', '.tgz'):
             if old_archive.endswith(suffix):
+                # The stem also matches the archive. Replace it once: the old
+                # version may prefix the new one (2026.08 -> 2026.08.1).
                 build = build.replace(old_archive[:-len(suffix)], new_archive[:-len(suffix)])
                 break
+        else:
+            build = build.replace(old_archive, new_archive)
         if name == 'u-boot':
             build = build.replace('u-boot-' + current, 'u-boot-' + latest)
         label = {'u-boot': 'U-Boot', 'buildroot': 'Buildroot'}.get(name)

@@ -241,7 +241,7 @@ toolchain() {
     else
         rm -rf "$br" "$bo"
         mkdir -p "$br"
-        tar -xf "$dl/buildroot-2026.08.1.1.tar.xz" -C "$br" --strip-components=1
+        tar -xf "$dl/buildroot-2026.08.1.tar.xz" -C "$br" --strip-components=1
         for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
         echo "$id" > "$br/.platform-patched"
     fi

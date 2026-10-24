@@ -6,8 +6,8 @@ name: Add-on release
 # Add-on release → Run workflow) after merging a change to the add-on. The APK
 # repository workflow then indexes it on Pages: devices get it without an OS
 # release. Nothing is signed here; devices trust the APK through the signed
-# repository index. The pin PR records it for the snapshot of future OS
-# builds; devices do not wait for it. RustDesk has a workflow of its own.
+# repository index. OS builds do not fetch or pin add-ons. RustDesk has a
+# workflow of its own.
 #
 # Pull requests that change an add-on or this build, and dry runs, build and
 # check without publishing and keep the result as an artifact.
@@ -28,7 +28,6 @@ on:
       - scripts/build-addon.py
       - scripts/addon_packages.py
       - scripts/next-addon-revision.py
-      - scripts/pin-addon.py
       - firmware/alpine/packages/nanokvm-ipmi/**
       - firmware/cpu/sysmon-runtime/**
       - server/cmd/nkos-ipmi/**
@@ -169,13 +168,12 @@ jobs:
           retention-days: 14
 
   publish:
-    name: Release and pin
+    name: Publish release
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
     needs: build
     runs-on: ubuntu-26.04
     permissions:
       contents: write
-      pull-requests: write
       actions: write
     steps:
       - uses: actions/checkout@v7
@@ -185,9 +183,9 @@ jobs:
           name: addon
           path: ${{ runner.temp }}/addon
 
-      # If a run fails after the release exists, finish the pin by hand: a rerun
+      # If a run fails after the release exists, dispatch Pages separately: a rerun
       # would count that release and build the next revision.
-      - name: Release and pin
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.build.outputs.tag }}
@@ -201,12 +199,3 @@ jobs:
             "$a"/*
           # GITHUB_TOKEN release events do not start another workflow.
           gh workflow run apk-repository.yml --ref main
-          branch=addons/pin-$TAG
-          git switch -c "$branch"
-          python3 scripts/pin-addon.py "$a/$TAG.apk"
-          git add firmware/alpine/addons.json
-          git -c user.name='Gleb Pesin' -c user.email=dormancygrace@gmail.com \
-            commit -q -m "addons: pin $TAG" -m "Built from $GITHUB_SHA by the add-on release workflow."
-          git push -q origin "$branch"
-          gh pr create --base main --head "$branch" --title "addons: pin $TAG" \
-            --body "Pins [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG), built from $GITHUB_SHA by the add-on release workflow. The pin keeps the snapshot of reproducible OS builds. Devices get the add-on from the APK repository without waiting for this PR or an OS release."

@@ -288,17 +288,15 @@ or `apk info -v nanokvm nanokvm-web nanokvm-app`.
 
 ### Independent add-on updates
 
-APK add-ons have their own releases and update through the same signed Pages
-repository as the OS. The APK repository workflow discovers stable releases
-of the add-ons in `ADDONS` of `scripts/addon_packages.py` (RustDesk and IPMI),
-tagged NAME-VERSION-rN by the RustDesk and add-on release workflows, verifies the published
-checksums and package metadata, then signs the combined v3 index in the protected
-`release` environment. This does not change `packages.json`, the OS version,
-the legacy v2 index or the latest SD-image link. Six add-on revisions per channel
-are retained in addition to versions referenced by retained OS snapshots.
+APK add-ons have their own releases and a common signed Pages repository,
+separate from both stable and beta OS repositories. The APK repository workflow
+discovers stable releases of the add-ons in `ADDONS` of `scripts/addon_packages.py`
+(RustDesk and IPMI), tagged NAME-VERSION-rN by the add-on workflows. It verifies
+published checksums and package metadata, then signs the add-on v3 index in the
+protected `release` environment. It retains six releases per add-on.
 
-An OS build uses its committed `firmware/alpine/addons.json` snapshot. Pages also
-includes independently published add-ons, so an older snapshot cannot downgrade
-the repository. Add-ons declare capability dependencies; a version requiring a
-newer runtime cannot be installed on an incompatible OS. PicoClaw and acme.sh
-continue to use their existing upstream and Alpine update mechanisms.
+OS builds do not download or pin add-ons, and add-on publication does not change
+`packages.json`, the OS version, OS indexes or the latest SD-image link. Add-ons
+declare capability dependencies; a version requiring a newer runtime cannot be
+installed on an incompatible OS. PicoClaw and acme.sh continue to use their
+existing upstream and Alpine update mechanisms.

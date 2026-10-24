@@ -101,11 +101,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('adbsign --reset-signatures', signing)
         self.assertIn('needs: sign', text.split('  deploy:',1)[1])
         self.assertNotIn('secrets.',text.split('  sign:',1)[0])
-    def test_addon_publication_dispatches_pages_without_waiting_for_pin(self):
+    def test_addon_publication_dispatches_pages_without_pin_pr(self):
         text=(ROOT/'.github/workflows/rustdesk.yml').read_text()
         publish=text.split('  publish:',1)[1]
         self.assertIn('actions: write',publish)
         self.assertLess(publish.index('gh release create'),publish.index('gh workflow run apk-repository.yml'))
-        self.assertLess(publish.index('gh workflow run apk-repository.yml'),publish.index('gh pr create'))
+        self.assertIn('gh workflow run apk-repository.yml', publish)
+        self.assertNotIn('gh pr create', publish)
 
 if __name__ == '__main__': unittest.main()

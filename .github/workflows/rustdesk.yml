@@ -6,9 +6,9 @@ name: RustDesk add-on
 # Run it by hand (Actions → RustDesk add-on → Run workflow) after merging a
 # change to the add-on. Nothing is signed here: the APK is an apk-tools 3
 # package that devices trust through the signed APK repository index. Pages
-# verifies each add-on release by its published checksum and signs a combined
-# repository index independently of OS releases. The pin PR records the source
-# snapshot for future OS builds; devices do not wait for it to merge.
+# verifies each add-on release by its published checksum and signs the common
+# add-on repository index independently of OS releases. OS builds do not fetch
+# or pin add-ons.
 #
 # Pull requests that change the add-on's build, and dry runs, build and test
 # without publishing and keep the result as an artifact.
@@ -169,13 +169,12 @@ jobs:
           retention-days: 14
 
   publish:
-    name: Release and pin
+    name: Publish release
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
     needs: build
     runs-on: ubuntu-26.04
     permissions:
       contents: write
-      pull-requests: write
       actions: write
     steps:
       - uses: actions/checkout@v7
@@ -185,9 +184,9 @@ jobs:
           name: rustdesk-addon
           path: ${{ runner.temp }}/addon
 
-      # If a run fails after the release exists, finish the pin by hand: a rerun
+      # If a run fails after the release exists, dispatch Pages separately: a rerun
       # would count that release and build the next revision.
-      - name: Release and pin
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.build.outputs.tag }}
@@ -195,7 +194,6 @@ jobs:
           REVISION: ${{ needs.build.outputs.revision }}
         run: |
           a=$RUNNER_TEMP/addon
-          apk=nanokvm-rustdesk-$VERSION-r$REVISION.apk
           # Not the repository's latest release: that is NanoKVM OS.
           gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
             --title "RustDesk add-on $VERSION-r$REVISION" \
@@ -203,15 +201,3 @@ jobs:
             "$a"/*
           # GITHUB_TOKEN release events do not start another workflow.
           gh workflow run apk-repository.yml --ref main
-          branch=rustdesk/pin-$VERSION-r$REVISION
-          git switch -c "$branch"
-          cp "$a/APKBUILD" firmware/alpine/packages/nanokvm-rustdesk/APKBUILD
-          # Replaces the RustDesk pin only; other add-ons keep theirs.
-          python3 scripts/pin-addon.py "$a/$apk"
-          git add firmware/alpine/addons.json firmware/alpine/packages/nanokvm-rustdesk/APKBUILD
-          git -c user.name='Gleb Pesin' -c user.email=dormancygrace@gmail.com \
-            commit -q -m "addons: pin the RustDesk add-on $VERSION-r$REVISION" \
-            -m "Built from $GITHUB_SHA by the RustDesk add-on workflow; the release is $TAG."
-          git push -q origin "$branch"
-          gh pr create --base main --head "$branch" --title "addons: pin the RustDesk add-on $VERSION-r$REVISION" \
-            --body "Pins [$TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG), built from $GITHUB_SHA by the RustDesk add-on workflow. This pin preserves the snapshot for reproducible OS builds. Independent add-on updates are published by the APK repository workflow and do not wait for this PR or an OS release."

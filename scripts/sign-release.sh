@@ -11,8 +11,6 @@
 #   - The changed ones get the release signature in place of the build key's.
 #     Only the first gzip stream, the signature, changes, so their identity
 #     (the control hash) stays; their size does not.
-#   - The add-ons must match the committed firmware/alpine/addons.json and
-#     declare nothing but their files (scripts/addon_packages.py).
 #   - Both indexes are made anew from the final files and signed.
 # apk and abuild-sign come from Alpine's x86_64 minirootfs, checked against
 # platform/sources.lock, and Alpine's signed repository. -d signs with an EC
@@ -58,30 +56,17 @@ fi
 ecpub=${eckey%.key}.pub
 pubname=${ecpub##*/}
 
-# The packages: exactly the core packages of packages.json and the add-ons
-# of the committed addons.json.
-cmp -s "$dir/addons.json" "$repo/firmware/alpine/addons.json" || {
-    echo "$dir/addons.json differs from firmware/alpine/addons.json" >&2; exit 1; }
+# The repository must contain exactly the OS packages listed in packages.json.
 mapfile -t reused < <(python3 -c 'import json, sys
 for p in json.load(open(sys.argv[1]))["packages"].values():
     p["changed"] or print(p["apk"])' "$dir/packages.json")
 mapfile -t changed < <(python3 -c 'import json, sys
 for p in json.load(open(sys.argv[1]))["packages"].values():
     p["changed"] and print(p["apk"])' "$dir/packages.json")
-mapfile -t addons < <(python3 -c 'import json, sys
-print(*json.load(open(sys.argv[1]))["packages"], sep="\n")' "$repo/firmware/alpine/addons.json")
 core=("${reused[@]}" "${changed[@]}")
 [ "$(cd "$dir" && find . -maxdepth 1 -name '*.apk' | sed 's|^\./||' | LC_ALL=C sort)" = \
-  "$(printf '%s\n' "${core[@]}" "${addons[@]}" | LC_ALL=C sort)" ] || {
-    echo "$dir has other packages than packages.json and addons.json" >&2; exit 1; }
-PYTHONPATH=$here python3 -c 'import sys
-from pathlib import Path
-import addon_packages
-d = Path(sys.argv[1])
-for name, item in addon_packages.manifest(Path(sys.argv[2]).read_bytes()).items():
-    addon_packages.checked(name, item, lambda url: (d / name).read_bytes(), item["size"])' \
-    "$dir" "$repo/firmware/alpine/addons.json"
-
+  "$(printf '%s\n' "${core[@]}" | LC_ALL=C sort)" ] || {
+    echo "$dir has other packages than packages.json" >&2; exit 1; }
 # The signer: Alpine's x86_64 minirootfs with abuild, without mounts, so
 # that its removal can never reach the host's /dev or /proc.
 root=$out/signer
@@ -115,12 +100,8 @@ for apk in "${changed[@]}"; do
     rm -f "$w"/*
 done
 [ "${#changed[@]}" -eq 0 ] || signer /sbin/apk --keys-dir /work/release verify "${changed[@]/#//work/repo/}"
-for addon in "${addons[@]}"; do
-    signer /sbin/apk --allow-untrusted adbdump "/work/repo/$addon" | python3 "$here/addon_packages.py" --check "$addon"
-done
-
 # The indexes, from the final files: the v2 index of the core packages as
-# abuild makes it, the v3 index of everything. Every signature was checked above.
+# abuild makes it, the v3 index of the same OS packages. Every signature was checked above.
 signer /bin/sh -euc 'cd /work/repo
 /sbin/apk index --no-warnings --quiet --allow-untrusted --rewrite-arch riscv64 --description "recipes " \
     --output APKINDEX.tar.gz "$@"' sh "${core[@]}"
@@ -128,7 +109,7 @@ signer abuild-sign -q -t RSA256 -k /work/keys/release.key -p "$pubname" /work/re
 signer /bin/sh -euc 'cd /work/repo
 version=$1; shift
 /sbin/apk --sign-key /work/keys/release.key --allow-untrusted mkndx \
-    --description "NanoKVM OS $version" --output Packages.adb "$@"' sh "$version" "${core[@]}" "${addons[@]}"
+    --description "NanoKVM OS $version" --output Packages.adb "$@"' sh "$version" "${core[@]}"
 as_root rm -rf "$root/work/keys"
 signer /sbin/apk --keys-dir /work/release verify /work/repo/APKINDEX.tar.gz /work/repo/Packages.adb
 
@@ -142,4 +123,4 @@ cp "$dir/packages.json" "$out/release/packages.json.build"
 python3 "$here/package-versions.py" manifest --versions "$out/release/packages.json.build" --repo "$dir"
 rm -f "$out/release/packages.json.build" "$out/release/apk"/*.pub
 cp "$ecpub" "$out/release/apk/"
-echo "Signed $dir with $pubname: ${#changed[@]} packages re-signed, ${#reused[@]} reused, ${#addons[@]} add-ons"
+echo "Signed $dir with $pubname: ${#changed[@]} packages re-signed, ${#reused[@]} reused"

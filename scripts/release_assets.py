@@ -7,7 +7,8 @@ STORAGE_PREFIX = 'os-packages-'
 STORAGE_MARKER = re.compile(r'<!-- nanokvm-package-storage: ([^\s]+) -->')
 TECHNICAL = {'APKINDEX.tar.gz', 'Packages.adb', 'packages.json', 'addons.json',
              'build-manifest.json', 'installed-packages.txt', 'installed-licenses.txt'}
-REQUIRED = TECHNICAL - {'build-manifest.json'}
+# addons.json is accepted for old builds, not produced by current OS releases.
+REQUIRED = TECHNICAL - {'build-manifest.json', 'addons.json'}
 
 
 def storage_tag(version):

@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
-"""Fetch checksum-pinned optional APKs, without installing or bundling them.
+"""Validate independent add-ons while assembling the signed Pages repository.
 
-The release carries addons.json; the APKs remain in their own source releases.
-Both release signing and Pages assembly use the same manifest and checks.
-Core APK signatures are verified separately. Checksum-pinned unsigned add-ons
-are authenticated on devices by the signed APK v3 index.
+Pages discovers add-on releases and verifies bytes against their published
+checksums. Its generated addons.json records those checks for index signing;
+OS builds neither consume nor produce an add-on version snapshot.
 """
-import argparse
 import hashlib
 import json
 import re
 import subprocess
-import sys
-import urllib.request
-from pathlib import Path
 
 
 # The add-ons released apart from NanoKVM OS, each as releases of its own,
@@ -32,18 +27,6 @@ def addon(filename):
     """The add-on name of an add-on APK file name, or None."""
     match = TAG.fullmatch(filename.removesuffix('.apk'))
     return match[1] if match and filename.endswith('.apk') else None
-
-
-def pin(data, filename, entry):
-    """addons.json with entry for filename, in place of that add-on's earlier
-    pin; the pins of the other add-ons stay."""
-    name = addon(filename)
-    if name is None:
-        raise ValueError(f'Not an add-on APK: {filename}')
-    packages = {k: v for k, v in manifest(data).items() if addon(k) != name}
-    packages[filename] = entry
-    manifest(json.dumps({'packages': packages}))
-    return json.dumps({'packages': dict(sorted(packages.items()))}, indent=2) + '\n'
 
 
 def manifest(data):
@@ -67,11 +50,6 @@ def checked(name, item, fetch, size=None):
     if len(data) != item['size'] or hashlib.sha256(data).hexdigest() != item['sha256']:
         raise ValueError(f'{name}: add-on differs from its pinned size or SHA256')
     return data
-
-
-def fetch(url):
-    with urllib.request.urlopen(url, timeout=120) as response:
-        return response.read()
 
 
 # What an add-on package may declare: its files, dependencies and lifecycle
@@ -143,33 +121,3 @@ def verify_repository(output, apk='apk', keys=None):
         if package.name in entries:
             command += ['--allow-untrusted']
         subprocess.run(command + ['verify', str(package)], check=True)
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--manifest', type=Path)
-    parser.add_argument('--verify', action='store_true', help='verify an assembled repository')
-    parser.add_argument('--apk', default='apk')
-    parser.add_argument('--keys', type=Path)
-    parser.add_argument('--output', type=Path)
-    parser.add_argument('--check', metavar='APK', help='check the add-on APK by its `apk adbdump` on stdin')
-    args = parser.parse_args()
-    if args.check:
-        metadata(sys.stdin.read(), args.check)
-        return
-    if args.output is None:
-        parser.error('--output is required')
-    if args.verify:
-        verify_repository(args.output, args.apk, args.keys)
-        return
-    if args.manifest is None:
-        parser.error('--manifest is required for downloading')
-    packages = manifest(args.manifest.read_bytes())
-    args.output.mkdir(parents=True, exist_ok=True)
-    for name, item in packages.items():
-        (args.output / name).write_bytes(checked(name, item, fetch))
-        print(f'Verified optional add-on: {name}')
-
-
-if __name__ == '__main__':
-    main()

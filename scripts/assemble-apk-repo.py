@@ -101,7 +101,7 @@ def releases(repository, fetch=fetch, channel='stable'):
             if matches and matches != [expected]:
                 raise ValueError(f'Invalid package storage association: {release["tag_name"]}')
             storage = by_tag.get(expected)
-            required = {*INDEXES, 'SHA256SUMS', 'packages.json', 'addons.json'}
+            required = {*INDEXES, 'SHA256SUMS', 'packages.json'}
             if (not storage or storage['draft'] or not storage.get('published_at')
                     or not required <= {a['name'] for a in storage['assets']}):
                 raise ValueError(f'Missing or incomplete package storage: {expected}')

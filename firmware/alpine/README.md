@@ -347,7 +347,7 @@ New OS releases separate their files into two releases in **NanoKVM-OS**:
 | Release | Attached files |
 | --- | --- |
 | `vX.Y.Z` (or `vX.Y.Z-beta.N`) | Corresponding-source archive, optional SD image ZIP, and `SHA256SUMS` covering only those downloads |
-| `os-packages-vX.Y.Z` (or `os-packages-vX.Y.Z-beta.N`) | Changed APKs, both indexes, `packages.json`, `addons.json`, installed package/license lists, image build manifest when applicable, and its own `SHA256SUMS` |
+| `os-packages-vX.Y.Z` (or `os-packages-vX.Y.Z-beta.N`) | Changed APKs, both indexes, `packages.json`, installed package/license lists, image build manifest when applicable, and its own `SHA256SUMS` |
 
 GitHub also provides its automatic source ZIP/tarball on each tag. Those do not
 replace the complete corresponding-source archive. Technical releases are

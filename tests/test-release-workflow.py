@@ -67,20 +67,37 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('p["changed"] and print(p["apk"])', action)
         self.assertIn('"$repo/packages.json" "$a/"', action)
 
-    def test_v3_addons_are_fetched_after_the_legacy_index_is_built(self):
+    def test_os_build_is_independent_of_add_on_releases(self):
         build = (ROOT / 'platform/build.sh').read_text()
-        start = build.index('packages() (')
-        stop = build.index('rootfs() {', start)
-        packages = build[start:stop]
-        self.assertLess(packages.index('/bin/sh /build/src/scripts/build-alpine-packages.sh stock'),
-                        packages.index('scripts/addon_packages.py'))
-        self.assertLess(packages.index('scripts/addon_packages.py'), packages.index('/sbin/apk --sign-key'))
-        self.assertLess(packages.index('/sbin/apk verify ./*.apk'), packages.index('scripts/addon_packages.py'))
+        packages = build[build.index('packages() ('):build.index('rootfs() {')]
+        self.assertNotIn('addon_packages.py', packages)
+        self.assertNotIn('addons.json', packages)
+        self.assertLess(packages.index('/sbin/apk verify ./*.apk'), packages.index('/sbin/apk --sign-key'))
         self.assertIn('--allow-untrusted mkndx', packages)
-        # Each fetched add-on's metadata is checked before the key signs an index of it.
-        self.assertLess(packages.index('--output "$b/build/repo/stock/recipes/riscv64"'),
-                        packages.index('addon_packages.py" --check'))
-        self.assertLess(packages.index('addon_packages.py" --check'), packages.index('/sbin/apk --sign-key'))
+        self.assertNotIn('addons.json', (ROOT / '.github/actions/assemble-release/action.yml').read_text())
+        for workflow in ('addon.yml', 'rustdesk.yml'):
+            publish = job((ROOT / '.github/workflows' / workflow).read_text(), 'publish')
+            self.assertIn('gh release create', publish)
+            self.assertIn('gh workflow run apk-repository.yml --ref main', publish)
+            self.assertNotIn('gh pr create', publish)
+            self.assertNotIn('git push', publish)
+            self.assertNotIn('pull-requests: write', publish)
+
+    def test_signer_rejects_unlisted_add_on_before_signing(self):
+        # Execute the real signer with a test key. An extra APK must be rejected
+        # by the inventory gate, before it downloads tools or signs anything.
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp) / 'release/apk/recipes/riscv64'
+            directory.mkdir(parents=True)
+            (directory / 'packages.json').write_text(json.dumps({'packages': {
+                'nanokvm': {'apk': 'nanokvm-3.5.0-r0.apk', 'changed': True}}}))
+            (directory / 'nanokvm-3.5.0-r0.apk').write_bytes(b'core')
+            (directory / 'nanokvm-ipmi-0.1.0-r0.apk').write_bytes(b'extraneous')
+            result = subprocess.run(['bash', str(ROOT / 'scripts/sign-release.sh'), '-o', tmp, '-d'],
+                                    capture_output=True, text=True, timeout=15)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('has other packages than packages.json', result.stderr)
+            self.assertFalse((Path(tmp) / 'signer').exists())
 
     def test_only_version_tags_and_the_button_release(self):
         self.assertRegex(RELEASE, r"push:\n    tags: \['v\*'\]\n")

@@ -138,6 +138,13 @@ class AssembleTests(unittest.TestCase):
         })
         return self.fake.split_release(tag)
 
+    def test_storage_without_os_add_on_snapshot(self):
+        _, storage = self.split_fixture()
+        storage['assets'] = [x for x in storage['assets'] if x['name'] != 'addons.json']
+        self.assertEqual(self.run_assemble(keep=1)[0], 'v4.0.0')
+        self.assertTrue((self.repo() / 'nanokvm-4.0.0-r0.apk').is_file())
+        self.assertEqual(json.loads((self.repo() / 'addons.json').read_text()), {'packages': {}})
+
     def test_split_storage_mixed_with_legacy_releases_and_reused_packages(self):
         public, storage = self.split_fixture()
         # Reuse an unchanged package from a legacy release outside the kept

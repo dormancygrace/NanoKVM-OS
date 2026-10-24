@@ -33,6 +33,24 @@ note_dirty_data() {
     ewarn "/data was not unmounted cleanly; it is checked at the next shutdown"
 }
 
+# Apply to the mounted filesystems, including older installations whose fstab
+# predates this policy. Do not remount the read-only unavailable-data tmpfs.
+# noatime includes directory access times. Keep discard and barriers unchanged.
+apply_mount_policy() {
+    awk '
+        $2 == "/" && $3 == "f2fs" {
+            opts = "," $4 ","
+            if (opts !~ /,noatime,/ || opts !~ /,background_gc=off,/)
+                print $2, "noatime,background_gc=off"
+        }
+        ($2 == "/boot" && $3 == "vfat") || ($2 == "/data" && $3 == "exfat") {
+            if ("," $4 "," !~ /,noatime,/) print $2, "noatime"
+        }
+    ' /proc/mounts | while read -r point options; do
+        mount -o "remount,$options" "$point" || ewarn "Cannot apply storage mount policy to $point"
+    done
+}
+
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
@@ -72,9 +90,7 @@ start() {
     # Foreground GC still reclaims space when free sections run low. Root is
     # mounted from the kernel command line, and OpenRC's root service is
     # not enabled, so an /etc/fstab entry would not apply.
-    if grep -q '^[^ ]* / f2fs .*background_gc=on' /proc/mounts; then
-        mount -o remount,background_gc=off / || ewarn "f2fs background GC stays on"
-    fi
+    apply_mount_policy
 
     # APK index cache in RAM: every index refresh rewrote about 4.5 MB of the
     # SD card. apk fetches missing indexes again on first use after a boot.

@@ -53,7 +53,7 @@ def run_case(partitions=FRESH, card=CARD, marker=True, sfdisk_rc=0, mkfs_rc=0,
         stub(bin_dir, 'sfdisk', f'{log}\ncat >/dev/null\n'
              f'[ "${{SFDISK_RC:-0}}" = 0 ] || exit "$SFDISK_RC"\n'
              f'mkdir -p {sys_block}/mmcblk0p3\necho {created_start} > {sys_block}/mmcblk0p3/start\n'
-             f'echo $(({card} - 1705984)) > {sys_block}/mmcblk0p3/size\n'
+             f'echo $(({card} - {created_start})) > {sys_block}/mmcblk0p3/size\n'
              + (f'touch {dev}/mmcblk0p3' if p3_appears else ':'))
         stub(bin_dir, 'partx', log)
         stub(bin_dir, 'mkfs.exfat', f'{log}\nexit "${{MKFS_RC:-0}}"')
@@ -93,6 +93,19 @@ def check(name, condition, detail=''):
 # Fresh image: partition 3 is created and formatted once.
 results, marker, calls = run_case()
 check('fresh card', results == [(0, '')] and not marker and 'sfdisk' in calls and 'mkfs.exfat' in calls, (results, calls))
+
+# Aligned images and foreign/mixed geometry; preserve the legacy path.
+ALIGNED = {'mmcblk0p1': (8192, 131072), 'mmcblk0p2': (139264, 1572864)}
+results, marker, calls = run_case(partitions=ALIGNED, card=CARD, created_start=1712128)
+check('aligned card', results == [(0, '')] and not marker and 'mkfs.exfat' in calls, (results, calls))
+results, marker, calls = run_case(partitions=ALIGNED, p3=(1705984, 100000))
+check('aligned card with legacy p3 is not formatted', results[0][0] == 0 and not marker and 'mkfs.exfat' not in calls, (results, calls))
+results, marker, calls = run_case(partitions={'mmcblk0p1': (1, 131072), 'mmcblk0p2': (139264, 1572864)})
+check('mixed boot/root layout is not formatted', results[0][0] == 0 and not marker and 'sfdisk' not in calls and 'mkfs.exfat' not in calls, (results, calls))
+results, marker, calls = run_case(partitions=ALIGNED, card=1712128 + 262143)
+check('less than 128 MiB data refused', results[0][0] == 0 and not marker and 'sfdisk' not in calls, (results, calls))
+results, marker, calls = run_case(partitions=ALIGNED, card=1712128 + 262144, created_start=1712128)
+check('128 MiB data accepted', results == [(0, '')] and not marker and 'mkfs.exfat' in calls, (results, calls))
 
 # No marker: nothing to do.
 results, marker, calls = run_case(marker=False)

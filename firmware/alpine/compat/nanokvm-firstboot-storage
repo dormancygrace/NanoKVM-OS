@@ -37,13 +37,19 @@ geometry_is() {
     [ "$(cat "$1/$2" 2>/dev/null)" = "$3" ]
 }
 
-geometry_is /sys/class/block/mmcblk0p1 start 1 && geometry_is /sys/class/block/mmcblk0p1 size 131072 &&
-    geometry_is /sys/class/block/mmcblk0p2 start 131073 && geometry_is /sys/class/block/mmcblk0p2 size 1572864 ||
+# Recognize whole layouts, not independent offsets: a partially moved card
+# must never be mistaken for a fresh image and formatted.
+geometry_is /sys/class/block/mmcblk0p1 size 131072 &&
+    geometry_is /sys/class/block/mmcblk0p2 size 1572864 ||
     leave_card "partitions 1 and 2 are not the fresh image layout"
+case "$(cat /sys/class/block/mmcblk0p1/start):$(cat /sys/class/block/mmcblk0p2/start)" in
+    1:131073) start=1705984 ;;       # legacy image
+    8192:139264) start=1712128 ;;    # 4 MiB aligned image
+    *) leave_card "partitions 1 and 2 are not the fresh image layout" ;;
+esac
 
 created=0
 if [ ! -b /dev/mmcblk0p3 ]; then
-    start=1705984
     total=$(cat /sys/class/block/mmcblk0/size 2>/dev/null) ||
         retry_later "cannot read the card size"
     size=$((total - start))
@@ -63,7 +69,7 @@ fi
 # A p3 somewhere else was made by someone else: never format it. One just
 # created here that does not read back as written is a retry, not a foreign
 # layout.
-if ! geometry_is /sys/class/block/mmcblk0p3 start 1705984; then
+if ! geometry_is /sys/class/block/mmcblk0p3 start "$start"; then
     [ "$created" = 1 ] && retry_later "the new partition 3 does not read back at its start"
     leave_card "partition 3 is not where the image puts it"
 fi

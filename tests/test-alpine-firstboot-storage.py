@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess,tempfile,json,shlex
 import argparse
 p=argparse.ArgumentParser(description='Root-only firstboot test on a disposable loop disk. The source image is read-only.')
+p.add_argument('--legacy', action='store_true', help='Exercise the older unaligned layout')
 p.add_argument('--image',type=Path,help='SD image whose partition table is used; without it, the fresh image table is written with sfdisk')
 p.add_argument('--mkfs-exfat', type=Path, help='Path to mkfs.exfat or a wrapper for the image version')
 a=p.parse_args()
@@ -14,7 +15,8 @@ with tempfile.TemporaryDirectory(prefix='nkos-firstboot-') as temp:
   if a.image: f.write(a.image.open('rb').read(512))
   f.truncate(2*1024**3)
  if not a.image:
-  table='label: dos\nstart=1, size=131072, type=e\nstart=131073, size=1572864, type=83\n'
+  boot_start, root_start = (1, 131073) if a.legacy else (8192, 139264)
+  table=f'label: dos\nstart={boot_start}, size=131072, type=e\nstart={root_start}, size=1572864, type=83\n'
   subprocess.run(['sfdisk','--no-reread','--no-tell-kernel',str(img)],input=table,text=True,check=True,capture_output=True)
  loop=run('losetup','--find','--show','--partscan',str(img)).strip()
  try:
@@ -30,7 +32,8 @@ with tempfile.TemporaryDirectory(prefix='nkos-firstboot-') as temp:
   run('sh',str(script))
   assert (data/'preserve-test').read_text()=='user data'
   table=json.loads(run('sfdisk','--json',loop))['partitiontable']['partitions']
-  assert table[2]['start']==1705984 and table[2]['size']==4194304-1705984
+  expected_start = 1705984 if table[1]['start'] == 131073 else 1712128
+  assert table[2]['start']==expected_start and table[2]['size']==4194304-expected_start
   # Reflashing p1+p2 removes p3 from the table but leaves its old exFAT
   # signature in the remaining card space. Recreate that real failure case.
   run('umount',str(data))

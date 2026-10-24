@@ -130,6 +130,18 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('gh release view "$GITHUB_REF_NAME"', build)
         self.assertEqual(build.count("if: steps.version.outputs.skip != 'true'"), 5)
 
+    def test_compiler_cache_stays_out_of_signing_and_prs_do_not_save(self):
+        self.assertNotIn('compiler-cache', job(RELEASE, 'sign'))
+        finish = (ROOT / '.github/actions/save-compiler-cache/action.yml').read_text()
+        self.assertIn("github.ref == 'refs/heads/main'", finish)
+        self.assertIn('actions/cache/save@', finish)
+        prepare = (ROOT / '.github/actions/prepare-build/action.yml').read_text()
+        self.assertIn('tests/test-compiler-cache.py --toolchain', prepare)
+        self.assertIn('CCACHE_NAMESPACE=nkos-$id', prepare)
+        for workflow in (RELEASE, BUILD, (ROOT / '.github/workflows/rustdesk.yml').read_text()):
+            self.assertIn('uses: ./.github/actions/save-compiler-cache', job(workflow, 'build'))
+            self.assertIn("if: always() && steps.prepare.outputs.ccache-key != ''", job(workflow, 'build'))
+
     def test_both_workflows_prepare_the_build_alike(self):
         self.assertIn('uses: ./.github/actions/prepare-build', BUILD)
         # Only the build job: the jobs that sign restore nothing from a cache.

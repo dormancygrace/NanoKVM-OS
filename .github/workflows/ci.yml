@@ -116,6 +116,10 @@ jobs:
 
       - name: RustDesk package version transitions
         run: python3 tests/test-rustdesk-builder.py
+      - name: Compiler cache cold/warm correctness
+        run: |
+          sudo apt-get install -y ccache
+          python3 tests/test-compiler-cache.py
       - name: Platform Buildroot configuration
         run: python3 tests/test-platform-config.py
       - name: Alpine DHCP gateway integration

@@ -57,6 +57,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: ./.github/actions/prepare-build
+        id: prepare
         with:
           out: ${{ env.OUT }}
 
@@ -167,6 +168,13 @@ jobs:
           name: rustdesk-addon
           path: ${{ runner.temp }}/addon
           retention-days: 14
+
+      - name: Save compiler cache
+        uses: ./.github/actions/save-compiler-cache
+        if: always() && steps.prepare.outputs.ccache-key != ''
+        with:
+          out: ${{ env.OUT }}
+          key: ${{ steps.prepare.outputs.ccache-key }}
 
   publish:
     name: Publish release

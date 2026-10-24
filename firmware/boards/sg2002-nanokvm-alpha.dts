@@ -7,7 +7,7 @@
 &oled_i2c { status = "disabled"; };
 &porta { /delete-node/ oled-reset-hog; };
 &i2c1 { pinctrl-names = "default"; pinctrl-0 = <&nanokvm_alpha_i2c_cfg>; clock-frequency = <100000>; status = "okay"; };
-&gpio4 { pinctrl-names = "default"; pinctrl-0 = <&nanokvm_alpha_reset_cfg>; };
+&gpio4 { pinctrl-names = "default"; pinctrl-0 = <&nanokvm_alpha_reset_cfg &nanokvm_hdmi_int_cfg>; };
 &porte { alpha-oled-reset { gpio-hog; gpios = <19 GPIO_ACTIVE_HIGH>; output-high; line-name = "nanokvm-alpha-oled-reset"; }; };
 &pinctrl {
     nanokvm_alpha_i2c_cfg: nanokvm-alpha-i2c-cfg {

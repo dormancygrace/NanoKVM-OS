@@ -12,6 +12,7 @@
 #include "kvm_capture.hpp"
 #include "kvm_i2c.hpp"
 #include "hdmi_receiver.hpp"
+#include "hdmi_events.hpp"
 #include "kvm_frame_sampler.hpp"
 #include <cstdarg>
 #include "vi_state_shared.hpp"
@@ -51,7 +52,6 @@
 #define rejected_input_path     "/run/nanokvm/rejected_input"
 #define rejected_input_tmp_path "/run/nanokvm/rejected_input.tmp"
 #define hdmi_mode_path          "/etc/kvm/hdmi_mode"
-#define hdmi_state_path         "/proc/lt_int"
 #define hdmi_signal_file_path   "/run/nanokvm/state"
 #define vi_state_publish_interval_ms 10000U
 #define vi_detection_active_poll_ms 10U
@@ -774,29 +774,57 @@ void get_hdmi_version()
     }
 }
 
+// A real edge retains permission for automatic mode detection across a paused
+// or failed read; a fallback read only updates the checked receiver snapshot.
+template<class Events>
+static bool service_hdmi_events(Events &events, uint64_t now,
+    bool vi_refreshed = false, uint8_t vi_state = 0)
+{
+    if (vi_refreshed && !capture_park.parked()) events.observe_vi(vi_state);
+    const auto request = events.next(now, receiver_retry_pending.load(std::memory_order_relaxed));
+    if (!request) return false;
+    static const bool trace = [] {
+        const char *value = std::getenv("NANOKVM_HDMI_IRQ_TRACE");
+        return value && !std::strcmp(value, "1");
+    }();
+    if (trace) std::fprintf(stderr, "[hdmi] receiver sample reason=%s edge=%u resync=%u vi=%u fresh=%u\n",
+        nanokvm::hdmi_poll_reason(request.reason), unsigned(request.edge), unsigned(request.resync),
+        unsigned(vi_state), unsigned(vi_refreshed));
+    const bool changed = poll_hdmi_receiver(request.edge, false, request.edge || request.resync);
+    events.completed(!receiver_retry_pending.load(std::memory_order_relaxed));
+    return changed;
+}
+
 void* vi_subsystem_detection(void *)
 {
-	FILE *fp;
-    uint8_t tmp8;
-    uint8_t rising_times = 0;
-    uint8_t falling_times = 0;
     uint8_t auto_change_mode = 0;
     kvmv_cfg.thread_is_running = 1;
-    // The vendor kernel's LT6911 edge counter. Mainline kernels have none and
-    // nothing creates it later, so look once and otherwise poll the receiver.
-    const bool hdmi_edge_counter = access(hdmi_state_path, F_OK) == 0;
-    if (!hdmi_edge_counter) debug("[hdmi]%s absent, polling the receiver\n", hdmi_state_path);
-
     get_hdmi_version();
+    const auto receiver_kind = nanokvm::receiver_kind(kvmv_cfg.hdmi_version);
+    nanokvm::HdmiEvents<> events;
+    bool gpio_announced = false, previous_gpio_active = false;
+    int previous_gpio_error = 0;
 
     // Refresh on elapsed time, not loop iterations whose work varies widely.
     last_vi_state_refresh_ms = vi_state_shared::monotonic_ms() - vi_state_publish_interval_ms;
-    uint64_t last_hdmi_poll_ms = vi_state_shared::monotonic_ms() - 1000U;
     while(true)
     {
         if(__atomic_load_n(&kvmv_cfg.try_exit_thread, __ATOMIC_ACQUIRE) == 1)
             break;
 
+        const uint64_t now = vi_state_shared::monotonic_ms();
+        // Drain all edges, also during manual modes. The schedule latches the
+        // applicable edge until a successful receiver read consumes it.
+        events.observe(receiver_kind, now);
+        if (!gpio_announced || previous_gpio_active != events.active() ||
+            previous_gpio_error != events.error()) {
+            std::fprintf(stderr, "[hdmi] INT 5021000.gpio:1 %s edge=%s error=%d\n",
+                events.active() ? "GPIO-v2" : "unavailable; polling every 1s",
+                receiver_kind == nanokvm::ReceiverKind::C ? "rising" : "falling", events.error());
+            gpio_announced = true;
+            previous_gpio_active = events.active();
+            previous_gpio_error = events.error();
+        }
         uint8_t get_new_hdmi_mode = get_hdmi_mode();
         uint8_t try_res;
         uint8_t err_code;
@@ -822,54 +850,12 @@ void* vi_subsystem_detection(void *)
             // Handling of automatic detection situations
             if(get_new_hdmi_mode == 1){
                 kvmv_cfg.vi_detect_state = 0;
-                // reset hdmi_state
-                if (hdmi_edge_counter) nanokvm::write_small_uint(hdmi_state_path, 0);
                 // reset hdmi
                 kvmv_hdmi_control(0);
                 nanokvm::sleep_ms(10);
                 kvmv_hdmi_control(1);
             }
-            // Initialize VI with I2C information after HDMI insertion
-            tmp8 = 0;
-            bool hdmi_poll_fallback;
-            hdmi_poll_fallback = false;
-            if (hdmi_edge_counter) {
-                fp = fopen(hdmi_state_path, "r");
-                if (fp != NULL) {
-                    char events[3] = {0};
-                    fread(events, 1, sizeof(events) - 1, fp);
-                    fclose(fp);
-                    tmp8 = static_cast<uint8_t>(atoi(events));
-                    // Reset through a fresh open, as on insertion above: a
-                    // write after a read on one stream needs a seek, which
-                    // a proc file need not support.
-                    if (tmp8 != 0) nanokvm::write_small_uint(hdmi_state_path, 0);
-                }
-            }
-            const bool receiver_event = tmp8 != 0;
-            // A failed edge-triggered read also needs a bounded retry: a
-            // stable source need not generate another interrupt.
-            const uint64_t now = vi_state_shared::monotonic_ms();
-            if ((!hdmi_edge_counter || receiver_retry_pending.load(std::memory_order_relaxed)) &&
-                now - last_hdmi_poll_ms >= 1000U) {
-                hdmi_poll_fallback = true;
-                tmp8 = 11; // Check both C rising and UXC/D falling paths.
-            }
-            {
-                if(tmp8 != 0){
-                    // count edge ints
-                    rising_times = tmp8%10;   // RISING times
-                    falling_times = tmp8/10;   // FALLING times
-
-                    const bool event_applies = kvmv_cfg.hdmi_version == 0 ?
-                        rising_times != 0 : falling_times != 0;
-                    if (event_applies) {
-                        last_hdmi_poll_ms = now;
-                        if (poll_hdmi_receiver(!hdmi_poll_fallback, false, receiver_event))
-                            auto_change_mode = 1;
-                    }
-                }
-            }
+            if (service_hdmi_events(events, now, vi_state_refreshed, last_vi_state_code)) auto_change_mode = 1;
             break;
         }
         /* Mode 1 & 2 will disable API access to the image during detection,

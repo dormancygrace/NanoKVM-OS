@@ -481,6 +481,9 @@ initramfs() {
 
 boot() {
     local b=$out/boot profile dtb
+    # Reuse the prepared kernel tree; release CI must also inspect resolved
+    # variant pinctrl ownership, not only compile DTS syntax.
+    PATH="$host:$PATH" python3 "$repo/tests/test-hdmi-events-dt.py" --kernel-source "$ksrc"
     rm -rf "$b" "${img:?}/boot" "${img:?}/dtb" "${img:?}/boot-fit"
     mkdir -p "$b" "$img/boot" "$img/dtb" "$img/boot-fit"
     # lz4: U-Boot unpacks it in 0.41 s against 0.79 s for zstd -19; the larger

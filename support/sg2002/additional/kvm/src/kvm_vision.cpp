@@ -777,16 +777,19 @@ void get_hdmi_version()
 // A real edge retains permission for automatic mode detection across a paused
 // or failed read; a fallback read only updates the checked receiver snapshot.
 template<class Events>
-static bool service_hdmi_events(Events &events, uint64_t now)
+static bool service_hdmi_events(Events &events, uint64_t now,
+    bool vi_refreshed = false, uint8_t vi_state = 0)
 {
+    if (vi_refreshed) events.observe_vi(vi_state);
     const auto request = events.next(now, receiver_retry_pending.load(std::memory_order_relaxed));
     if (!request) return false;
     static const bool trace = [] {
         const char *value = std::getenv("NANOKVM_HDMI_IRQ_TRACE");
         return value && !std::strcmp(value, "1");
     }();
-    if (trace) std::fprintf(stderr, "[hdmi] receiver sample reason=%s edge=%u resync=%u\n",
-        nanokvm::hdmi_poll_reason(request.reason), unsigned(request.edge), unsigned(request.resync));
+    if (trace) std::fprintf(stderr, "[hdmi] receiver sample reason=%s edge=%u resync=%u vi=%u fresh=%u\n",
+        nanokvm::hdmi_poll_reason(request.reason), unsigned(request.edge), unsigned(request.resync),
+        unsigned(vi_state), unsigned(vi_refreshed));
     const bool changed = poll_hdmi_receiver(request.edge, false, request.edge || request.resync);
     events.completed(!receiver_retry_pending.load(std::memory_order_relaxed));
     return changed;
@@ -852,7 +855,7 @@ void* vi_subsystem_detection(void *)
                 nanokvm::sleep_ms(10);
                 kvmv_hdmi_control(1);
             }
-            if (service_hdmi_events(events, now)) auto_change_mode = 1;
+            if (service_hdmi_events(events, now, vi_state_refreshed, last_vi_state_code)) auto_change_mode = 1;
             break;
         }
         /* Mode 1 & 2 will disable API access to the image during detection,

@@ -16,7 +16,8 @@ Both edges are queued by the kernel; the detector selects the stock polarity:
 With a working event source, a successful snapshot and no pending recovery,
 there are **no periodic receiver reads**, including on C. Reading GPIO events
 does not access the receiver over I2C. The existing VI state monitoring and
-manual detection modes continue independently.
+manual detection modes continue independently. A fresh abnormal VI report in
+normal mode requests recovery even if an open GPIO descriptor delivered no edge.
 
 ## Admission and recovery
 
@@ -31,11 +32,20 @@ manual detection modes continue independently.
 - If GPIO is missing, busy, unsupported or fails, log the error and use the
   existing one-second I2C fallback. Retry GPIO acquisition every five seconds.
   After reconnecting, take another snapshot before returning to event-only reads.
+- Use fresh VI reports (the existing ten-second cadence) as a second recovery
+  source. Codes 2–7 (no input frames, CSI size mismatch or unknown CSI failure)
+  request one resync snapshot; healthy code 1 and unavailable/uninitialized code
+  0 do not. Never replay a stale VI fault every detector iteration. Failed I2C
+  recovery retains its normal one-second retry.
 - Drain events during manual modes and retain pending work until normal mode.
   Only a confirmed applicable edge permits automatic mode switching.
 
-The request sets input and both-edge flags only, with no output, bias,
-active-low or pad-mux programming. The detector owns the descriptor and closes
+The common Device Tree selects PWR_GPIO1 function 0 (GPIOE1) at GPIO-controller
+probe, using a 1.8 V power domain. Alpha, detect and PCIe retain this group in
+their controller pinctrl lists alongside their existing reset/HDD pins; beta
+and Lite inherit the common default. This does not hog the GPIO line or set an
+output value. The userspace request sets input and both-edge flags only, with
+no output, bias, active-low or pad-mux programming. The detector owns the descriptor and closes
 it on exit or a transport failure. Reads are nonblocking and bounded even
 during an interrupt storm.
 
@@ -44,6 +54,16 @@ The stock counter is in Sipeed's customized
 Disassembly of that binary shows a rising/falling counter exposed through
 `/proc/lt_int`; the application reads and clears it. GPIO v2 supplies queued
 events and sequence numbers without that read-clear interface.
+
+The mux value is specified by the SDK's
+[PWR_GPIO1 pin definition](https://github.com/milkv-duo/duo-buildroot-sdk-v2/blob/6f8962c394dd0a05729abb089f0feb7d5cc4aa5e/freertos/cvitek/hal/cv181x/config/cv181x_pinlist_swconfig.h#L193).
+The existing U-Boot PWR_SEQ1/HDD ownership handoff remains unchanged; it concerns
+a different pad. Cube/Lite boot paths have not been physically qualified here.
+
+The VI safety net detects failures visible to VI. A missed edge whose change
+leaves VI healthy can still leave optional receiver timing diagnostics stale.
+There is no blanket 60-second receiver timer: UXC snapshots also perform
+register-service writes, and all three models retain event-only healthy reads.
 
 ## Verification and remaining qualification
 
@@ -57,7 +77,14 @@ NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
 They cover C/D/UXC polarity, zero healthy periodic reads, coalescing, retained
 edges, reset/I2C retries, missing/busy GPIO, reconnects, syscall failures,
 descriptor zero, cleanup, sequence gaps and wrap, and bounded interrupt storms.
-The Python harness also checks the runtime probe's C++ syntax.
+The Python harness also checks the runtime probe's C++ syntax and executes
+silent-INT VI recovery cases for all models, including fresh versus stale
+reports and retained resync after failed/coalesced reads.
+
+With a prepared patched Linux source and cpp/dtc/fdtget on PATH, compile and
+inspect every board DT, including variant overrides and free input ownership:
+
+    python3 tests/test-hdmi-events-dt.py --kernel-source /path/to/patched-linux
 
 The UXC/PCIe stand (mainline 7.3.0-nanokvm-os-r3) was exercised on 2026-10-24
 with a RAM-only test library and `firmware/probes/hdmi-events-runtime.cpp`.
@@ -68,9 +95,15 @@ Installed services were stopped during exclusive capture and restored afterward.
   It produced 5718 encoded frames, one transient capture retry during a
   transition, and no stalls. Quiet periods after GPIO acquisition had no
   receiver-sample trace entries.
-- A 15-second run of the final build produced 893 encoded frames, one startup
+- A 15-second run of the initial PR build produced 893 encoded frames, one startup
   retry and no stalls; signal became active and only the initial detector
   snapshot was logged.
+- Review recovery test: a test-only preload discarded all eight queued GPIO
+  events while the GPIO descriptor stayed active. Both real HDMI transitions
+  recovered through fresh VI faults (codes 4 and 3), with no edge-triggered
+  samples: 65 seconds, 3493 frames, two capture retries and no stalls.
+  The new pinctrl DTBs were compiled/inspected for all five profiles; they
+  were not booted on the stand.
 - The original source mode, installed application and library hash were
   restored/verified. The GPIO request was released and RAM artifacts removed.
 
@@ -92,4 +125,5 @@ The probe enables normal capture admission, never asserts receiver reset,
 discards H.265 output, and reports frame/byte/error/stall counts and input size.
 It does not flash receiver firmware or write EDID. With tracing enabled,
 `reason=initial|edge|resync|retry|fallback` identifies detector snapshots;
-normal operation logs only event-source availability changes.
+the optional vi/fresh fields identify a fresh VI report behind a snapshot.
+Normal operation logs only event-source availability changes.

@@ -26,5 +26,5 @@ with tempfile.TemporaryDirectory(prefix="nanokvm-hdmi-events-") as directory:
 # The production loop observes events even while manual mode bypasses service.
 detector = vision[vision.index("void* vi_subsystem_detection"):vision.index("uint8_t frame_changed")]
 assert detector.index("events.observe(") < detector.index("switch (kvmv_cfg.hdmi_mode)")
-assert "service_hdmi_events(events, now)" in detector
+assert "service_hdmi_events(events, now, vi_state_refreshed, last_vi_state_code)" in detector
 assert "/proc/lt_int" not in vision

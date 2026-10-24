@@ -24,30 +24,33 @@ inline const char *hdmi_poll_reason(HdmiPollReason reason) {
 // A successful initial/resync read closes the subscribe/snapshot race.
 // Pending edges survive failed/paused/settling reads. No healthy timer reads.
 class HdmiPollSchedule {
-    bool available_ = false, initial_ = true, edge_ = false, lost_ = false;
+    bool available_ = false, initial_ = true, edge_ = false, resync_ = false;
     bool attempted_ = false, failed_ = false;
     uint64_t last_ = 0;
 public:
     void observe(ReceiverKind kind, bool available, const GpioEdgeBatch &batch) {
-        if (available != available_) lost_ = true;
+        if (available != available_) resync_ = true;
         available_ = available;
         edge_ |= kind == ReceiverKind::C ? batch.rising : batch.falling;
-        lost_ |= batch.lost;
+        resync_ |= batch.lost;
     }
+    // Called only for a fresh VI report in normal detection mode. Recover
+    // a silent/missed INT without probing a healthy input on a timer.
+    void observe_vi(uint8_t code) { resync_ |= code >= 2 && code <= 7; }
     HdmiPollRequest next(uint64_t now, bool retry) {
         const bool recovery = failed_ || retry;
         if (attempted_ && now - last_ < (recovery || !available_ ? 1000U : 100U))
             return {};
-        if (!initial_ && !edge_ && !lost_ && !recovery && available_) return {};
+        if (!initial_ && !edge_ && !resync_ && !recovery && available_) return {};
         const auto reason = initial_ ? HdmiPollReason::Initial :
-            edge_ ? HdmiPollReason::Edge : lost_ ? HdmiPollReason::Resync :
+            edge_ ? HdmiPollReason::Edge : resync_ ? HdmiPollReason::Resync :
             recovery ? HdmiPollReason::Retry : HdmiPollReason::Fallback;
         attempted_ = true; last_ = now;
-        return {reason, edge_, lost_ || initial_};
+        return {reason, edge_, resync_ || initial_};
     }
     void completed(bool success) {
         failed_ = !success;
-        if (success) initial_ = edge_ = lost_ = false;
+        if (success) initial_ = edge_ = resync_ = false;
     }
 };
 
@@ -71,6 +74,7 @@ public:
         if (before && !source_.active()) last_connect_ = now;
         schedule_.observe(kind, source_.active(), batch);
     }
+    void observe_vi(uint8_t code) { schedule_.observe_vi(code); }
     HdmiPollRequest next(uint64_t now, bool retry) { return schedule_.next(now, retry); }
     void completed(bool success) { schedule_.completed(success); }
 };

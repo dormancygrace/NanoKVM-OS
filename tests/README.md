@@ -46,6 +46,12 @@ with fault injection for all three receiver models:
 See [LT6911 GPIO events](../docs/LT6911-GPIO.md) for event polarity, fallback
 and exclusive runtime qualification with hdmi-events-runtime.cpp.
 
+With a prepared patched Linux source and cpp/dtc/fdtget, the DT qualification
+compiles all five board profiles and checks the INT mux/voltage, variant pin
+ownership and absence of an INT GPIO hog:
+
+    python3 tests/test-hdmi-events-dt.py --kernel-source /path/to/patched-linux
+
 The Makefile groups some of them, for example `make test-wifi-modules test-alpine-network`.
 CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no arguments and no root.
 

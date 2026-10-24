@@ -264,4 +264,55 @@ static void schedule_tests() {
     }
     puts("PASS production service: C rising, UXC/D falling, quiet stable input, coalescing, retained edges, retries, loss, fallback and reacquisition");
 }
-int main() { transport_tests(); schedule_tests(); }
+static void vi_recovery_tests() {
+    for (auto kind : {ReceiverKind::C, ReceiverKind::UXC, ReceiverKind::D}) {
+        FakeOps::reset(); calls.clear(); fail_poll = change_mode = false;
+        receiver_retry_pending = false;
+        Events events;
+        events.observe(kind, 0); service_hdmi_events(events, 0);
+        assert(events.active() && calls.size() == 1);
+        // Healthy, unavailable/uninitialized and invalid VI reports do not
+        // turn the independent 10s VI publication into receiver polling.
+        uint64_t now = 10000;
+        for (uint8_t code : {0, 1, 8, 255}) {
+            service_hdmi_events(events, now, true, code); now += 10000;
+        }
+        assert(calls.size() == 1 && FakeOps::input.empty());
+        // A stale mismatch must not be replayed every detector iteration.
+        service_hdmi_events(events, now, false, 3);
+        assert(calls.size() == 1);
+        // Active GPIO, no edges, but fresh VI mismatch/no frames: resnapshot
+        // once, update checked geometry, then return to quiet operation.
+        for (uint8_t code = 2; code <= 7; ++code) {
+            const auto before = calls.size();
+            service_hdmi_events(events, now, true, code);
+            assert(calls.size() == before + 1 && calls.back().event &&
+                   !calls.back().automatic && !receiver_retry_pending);
+            for (unsigned delta : {100U, 1000U, 9999U}) {
+                events.observe(kind, now + delta);
+                service_hdmi_events(events, now + delta, false, code);
+            }
+            assert(calls.size() == before + 1 && events.active());
+            now += 10000;
+        }
+        // A fault resync is retained across the healthy 100ms coalescing gap.
+        service_hdmi_events(events, now, true, 3);
+        const auto before = calls.size();
+        service_hdmi_events(events, now + 50, true, 4);
+        assert(calls.size() == before);
+        fail_poll = true;
+        now += 100;
+        service_hdmi_events(events, now);
+        assert(calls.size() == before + 1 && receiver_retry_pending);
+        service_hdmi_events(events, now + 999);
+        assert(calls.size() == before + 1);
+        fail_poll = false;
+        service_hdmi_events(events, now + 1000);
+        assert(calls.size() == before + 2 && calls.back().event &&
+               !receiver_retry_pending);
+        service_hdmi_events(events, now + 10000, true, 1);
+        assert(calls.size() == before + 2);
+    }
+    puts("PASS silent INT: fresh VI faults recover all models, healthy/stale reports stay quiet, resync survives coalescing and I2C failure");
+}
+int main() { transport_tests(); schedule_tests(); vi_recovery_tests(); }

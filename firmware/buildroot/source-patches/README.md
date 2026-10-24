@@ -22,4 +22,5 @@ qualification.
 
 Buildroot 2026.08.1 already supplies Python 3.14.8 and the libtool 2.6
 support patch. The local refresh retains its 2.6.2 adjustments by modifying
-that patch and extending version matching, rather than adding it again.
+that patch rather than adding it again. The upstream libtool hook already
+normalizes 2.6.2 to 2.6, so its version selection is unchanged.

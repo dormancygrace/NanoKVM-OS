@@ -427,18 +427,6 @@ index c583b228..bd002562 100644
  PATCHELF_SITE = \
  	https://github.com/NixOS/patchelf/releases/download/$(PATCHELF_VERSION)
  PATCHELF_SOURCE = patchelf-$(PATCHELF_VERSION).tar.bz2
-diff --git a/package/pkg-autotools.mk b/package/pkg-autotools.mk
---- a/package/pkg-autotools.mk
-+++ b/package/pkg-autotools.mk
-@@ -76,7 +76,7 @@
- 			fi \
- 		elif test $${ltmain_version} = "2.5"; then\
- 			patch -i support/libtool/buildroot-libtool-v2.4.4.patch $${i}; \
--		elif test $${ltmain_version} = "2.6"; then\
-+		elif echo "$${ltmain_version}" | grep -qE '^2\.6(\.|$)'; then\
- 			patch -i support/libtool/buildroot-libtool-v2.6.patch $${i}; \
- 		fi \
- 	done
 diff --git a/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch b/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch
 index 986058d4..530502d5 100644
 --- a/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch

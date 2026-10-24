@@ -1065,6 +1065,7 @@
         "contributors": "Código, traducciones, pruebas, informes de problemas, revisiones, documentación y comentarios pacientes.",
         "closing": "Gracias por hacer posible NanoKVM OS.",
         "hardwareSupportTitle": "Apoyo con hardware",
+        "neverberlerfellerer": "Pruebas pacientes en un Cube, diagnósticos detallados y la comparación entre los modos HDMI manual y automático que ayudó a identificar la causa de los fallos de imagen del LT6911C (issue #63).",
         "pavelHardwareThanks": "Financió generosamente un Sipeed NanoKVM Cube para el desarrollo y las pruebas de regresión. ¡Gracias por hacer posibles las pruebas en un Cube real!",
         "translationTitle": "Colaboradores de traducción",
         "translationThanks": "Gracias a quienes traducen, revisan y mejoran nuestros textos para que NanoKVM OS sea más accesible.",

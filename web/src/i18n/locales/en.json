@@ -1065,6 +1065,7 @@
         "contributors": "Code, translations, testing, issue reports, reviews, documentation, and patient feedback.",
         "closing": "Thank you for making NanoKVM OS possible.",
         "hardwareSupportTitle": "Hardware supporters",
+        "neverberlerfellerer": "Patient Cube testing, detailed diagnostics, and the manual/automatic HDMI comparison that helped identify the cause of LT6911C video glitches (issue #63).",
         "pavelHardwareThanks": "Generously funded a Sipeed NanoKVM Cube for development and regression testing. Thank you for helping make hands-on Cube testing possible!",
         "translationTitle": "Translation contributors",
         "translationThanks": "Made welcoming by people who translate, review, and improve our words. Thank you.",

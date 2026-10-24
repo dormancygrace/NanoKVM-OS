@@ -12,6 +12,11 @@ export const Credits = () => {
 
   const entries = [
     { name: 'dormancygrace', contribution: tr('projectLead') },
+    {
+      name: 'neVERberleRfellerER',
+      contribution: tr('neverberlerfellerer'),
+      url: 'https://github.com/neVERberleRfellerER'
+    },
     { name: 'wenjie', contribution: tr('wenjie') },
     { name: 'Z2Z-GuGu', contribution: tr('z2zGuGu') },
     { name: 'Alexander-Ger-Reich', contribution: tr('alexanderGerReich') },
@@ -144,7 +149,20 @@ export const Credits = () => {
             <div className="mt-14 space-y-12">
               {entries.map((entry) => (
                 <section key={entry.name} className="space-y-2 text-center">
-                  <h3 className="text-fg text-lg font-medium">{entry.name}</h3>
+                  <h3 className="text-fg text-lg font-medium">
+                    {entry.url ? (
+                      <a
+                        href={entry.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-info rounded underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2"
+                      >
+                        {entry.name}
+                      </a>
+                    ) : (
+                      entry.name
+                    )}
+                  </h3>
                   <p className="text-fg-muted mx-auto max-w-md text-sm leading-relaxed">
                     {entry.contribution}
                   </p>

@@ -472,6 +472,7 @@
         "projects": "Nápady, vyhledávání už existujících řešení, práce na interoperabilitě a inspirace napříč komunitou open KVM.",
         "contributors": "Kód, překlady, testování, hlášení problémů, kontroly, dokumentace a trpělivé poskytování zpětné vazby.",
         "hardwareSupportTitle": "Podpořili poskytnutím vybavení",
+        "neverberlerfellerer": "Trpělivé testování na zařízení Cube, podrobná diagnostika a porovnání ručního a automatického režimu HDMI, které pomohlo odhalit příčinu obrazových artefaktů LT6911C (issue #63).",
         "pavelHardwareThanks": "Štědrým příspěvkem financoval nákup Sipeed NanoKVM Cube pro vývoj a regresní testování. Děkujeme za pomoc se získáním možnosti přímého testování i na této verzi zařízení!",
         "translationTitle": "Přispěvatelé do překladů",
         "translationPlatform": "Námi využívaná platforma pro překládání – spojování příspěvků od komunity. Přidejte se a pomozte překládat NanoKVM OS.",

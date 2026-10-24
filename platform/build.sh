@@ -6,7 +6,7 @@
 #
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
-#   toolchain  Buildroot 2026.08: cross toolchain, host tools, initramfs userland
+#   toolchain  Buildroot 2026.08.1: cross toolchain, host tools, initramfs userland
 #   kernel     Linux 7.3 with kernel/*.patch and kernel/config
 #              (NANOKVM_KERNEL_PROFILE=debug adds kernel/config-debug.fragment)
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
@@ -241,7 +241,7 @@ toolchain() {
     else
         rm -rf "$br" "$bo"
         mkdir -p "$br"
-        tar -xf "$dl/buildroot-2026.08.tar.xz" -C "$br" --strip-components=1
+        tar -xf "$dl/buildroot-2026.08.1.tar.xz" -C "$br" --strip-components=1
         for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
         echo "$id" > "$br/.platform-patched"
     fi

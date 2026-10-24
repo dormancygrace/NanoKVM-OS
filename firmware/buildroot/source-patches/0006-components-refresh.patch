@@ -427,19 +427,6 @@ index c583b228..bd002562 100644
  PATCHELF_SITE = \
  	https://github.com/NixOS/patchelf/releases/download/$(PATCHELF_VERSION)
  PATCHELF_SOURCE = patchelf-$(PATCHELF_VERSION).tar.bz2
-diff --git a/package/pkg-autotools.mk b/package/pkg-autotools.mk
-index 16b21acb..98e65c42 100644
---- a/package/pkg-autotools.mk
-+++ b/package/pkg-autotools.mk
-@@ -74,6 +74,8 @@ define LIBTOOL_PATCH_HOOK
- 			else \
- 				patch -i support/libtool/buildroot-libtool-v2.4.patch $${i}; \
- 			fi \
-+		elif test $${ltmain_version} = "2.6"; then\
-+			patch -i support/libtool/buildroot-libtool-v2.6.patch $${i}; \
- 		elif test $${ltmain_version} = "2.5"; then\
- 			patch -i support/libtool/buildroot-libtool-v2.4.4.patch $${i}; \
- 		fi \
 diff --git a/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch b/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch
 index 986058d4..530502d5 100644
 --- a/package/pkgconf/0001-Only-prefix-with-the-sysroot-a-subset-of-variables.patch
@@ -1176,104 +1163,94 @@ index cfcd738b..74eb13d5 100644
  UTIL_LINUX_SITE = $(BR2_KERNEL_MIRROR)/linux/utils/util-linux/v$(UTIL_LINUX_VERSION_MAJOR)
  
 diff --git a/support/libtool/buildroot-libtool-v2.6.patch b/support/libtool/buildroot-libtool-v2.6.patch
-new file mode 100644
-index 00000000..55667c3c
---- /dev/null
+--- a/support/libtool/buildroot-libtool-v2.6.patch
 +++ b/support/libtool/buildroot-libtool-v2.6.patch
-@@ -0,0 +1,96 @@
-+Libtool cross-compilation fixes rebased onto 2.6.2.
+@@ -3,9 +3,11 @@
+ 
+ Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+ 
++NanoKVM: retain the local 2.6.2 rebase and quoting correction.
 +
-+Preserve Buildroot staging, dependency and static-link behavior.
-+The new --static and -Bstatic spellings retain upstream behavior.
-+
-+--- a/ltmain.sh
-++++ b/ltmain.sh
+ --- a/ltmain.sh
+ +++ b/ltmain.sh
+-@@ -3008,9 +3008,8 @@
 +@@ -3015,9 +3015,8 @@
-+ 	# was found and let the user know that the "--tag" command
-+ 	# line option must be used.
-+ 	if test -z "$tagname"; then
-+-	  func_echo "unable to infer tagged configuration with compiler."
-+-	  func_echo "Possible use of unsupported compiler."
-+-	  func_fatal_error "specify a tag with '--tag'. For more information, try '$progname --help'."
-++	  func_echo "defaulting to \`CC'"
+  	# was found and let the user know that the "--tag" command
+  	# line option must be used.
+  	if test -z "$tagname"; then
+@@ -13,11 +15,11 @@
+ -	  func_echo "Possible use of unsupported compiler."
+ -	  func_fatal_error "specify a tag with '--tag'. For more information, try '$progname --help'."
+ +	  func_echo "defaulting to \`CC'"
+-+	  func_echo "if this is not correct, specify a tag with \`--tag'"
 ++	  func_echo "if this is not correct, specify a tag with '--tag'"
-+ #	else
-+ #	  func_verbose "using $tagname tagged configuration"
-+ 	fi
+  #	else
+  #	  func_verbose "using $tagname tagged configuration"
+  	fi
+-@@ -4746,8 +4745,12 @@
 +@@ -4753,8 +4752,12 @@
-+ 	  # At present, this check doesn't affect windows .dll's that
-+ 	  # are installed into $libdir/../bin (currently, that works fine)
-+ 	  # but it's something to keep an eye on.
-+-	  test "$inst_prefix_dir" = "$destdir" && \
-+-	    func_fatal_error "error: cannot install '$file' to a directory not ending in $libdir"
-++
-++	  #
-++	  # This breaks install into our staging area.  -PB
-++	  #
-++	  #test "$inst_prefix_dir" = "$destdir" && \
-++	  #  func_fatal_error "error: cannot install '$file' to a directory not ending in $libdir"
-+ 
-+ 	  if test -n "$inst_prefix_dir"; then
-+ 	    # Stick the inst_prefix_dir data into the link command.
+  	  # At present, this check doesn't affect windows .dll's that
+  	  # are installed into $libdir/../bin (currently, that works fine)
+  	  # but it's something to keep an eye on.
+@@ -32,7 +34,7 @@
+  
+  	  if test -n "$inst_prefix_dir"; then
+  	    # Stick the inst_prefix_dir data into the link command.
+-@@ -7063,7 +7066,8 @@
 +@@ -7070,7 +7073,8 @@
-+ 	;;
-+       -all-static | -static | -static-libtool-libs | --static | -Bstatic)
-+ 	case $arg in
-+-	-all-static)
-++	# Make -static behave like -all-static -GZ
-++	-all-static | -static)
-+ 	  if test yes = "$build_libtool_libs" && test -z "$link_static_flag"; then
-+ 	    func_warning "complete static linking is impossible in this configuration"
-+ 	  fi
+  	;;
+        -all-static | -static | -static-libtool-libs | --static | -Bstatic)
+  	case $arg in
+@@ -42,20 +44,20 @@
+  	  if test yes = "$build_libtool_libs" && test -z "$link_static_flag"; then
+  	    func_warning "complete static linking is impossible in this configuration"
+  	  fi
+-@@ -7072,12 +7076,6 @@
 +@@ -7078,12 +7082,6 @@
 + 	    dlopen_self=$dlopen_self_static
-+ 	  fi
-+ 	  prefer_static_libs=yes
+  	  fi
+  	  prefer_static_libs=yes
+- 	  ;;
 +-	  ;;
-+-	-static)
-+-	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
-+-	    dlopen_self=$dlopen_self_static
-+-	  fi
-+-	  prefer_static_libs=built
+ -	-static)
+ -	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
+ -	    dlopen_self=$dlopen_self_static
+ -	  fi
+ -	  prefer_static_libs=built
+--	  ;;
 + 	  ;;
-+ 	-static-libtool-libs | --static | -Bstatic)
-+ 	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
+  	-static-libtool-libs | --static | -Bstatic)
+  	  if test -z "$pic_flag" && test -n "$link_static_flag"; then
+- 	    dlopen_self=$dlopen_self_static
+-@@ -7393,7 +7391,8 @@
 +@@ -7400,7 +7398,8 @@
-+       prevarg=$arg
-+ 
-+       case $arg in
-+-      -all-static)
-++      # Make -static behave like -all-static -GZ
-++      -all-static | -static)
-+ 	if test -n "$link_static_flag"; then
-+ 	  # See comment for -static flag below, for more details.
-+ 	  func_append compile_command " $link_static_flag"
+        prevarg=$arg
+  
+        case $arg in
+@@ -65,7 +67,7 @@
+  	if test -n "$link_static_flag"; then
+  	  # See comment for -static flag below, for more details.
+  	  func_append compile_command " $link_static_flag"
+-@@ -7695,7 +7694,7 @@
 +@@ -7702,7 +7701,7 @@
-+ 	continue
-+ 	;;
-+ 
-+-      -static | -static-libtool-libs)
-++      -static-libtool-libs)
-+ 	# The effects of -static are defined in a previous loop.
-+ 	# We used to do the same as -all-static on platforms that
-+ 	# didn't have a PIC flag, but the assumption that the effects
+  	continue
+  	;;
+  
+@@ -74,7 +76,7 @@
+  	# The effects of -static are defined in a previous loop.
+  	# We used to do the same as -all-static on platforms that
+  	# didn't have a PIC flag, but the assumption that the effects
+-@@ -8755,7 +8754,7 @@
 +@@ -8759,7 +8758,7 @@
-+ 	  *)
-+ 	    if test no = "$installed"; then
-+ 	      func_append notinst_deplibs " $lib"
-+-	      need_relink=yes
-++	      need_relink=no
-+ 	    fi
-+ 	    ;;
-+ 	  esac
+  	  *)
+  	    if test no = "$installed"; then
+  	      func_append notinst_deplibs " $lib"
+@@ -83,7 +85,7 @@
+  	    fi
+  	    ;;
+  	  esac
+-@@ -11296,6 +11295,10 @@
 +@@ -11297,6 +11296,10 @@
-+ 	    # Replace all uninstalled libtool libraries with the installed ones
-+ 	    newdependency_libs=
-+ 	    for deplib in $dependency_libs; do
-++	      # Replacing uninstalled with installed can easily break crosscompilation,
-++	      # since the installed path is generally the wrong architecture.  -CL
-++	      newdependency_libs="$newdependency_libs $deplib"
-++	      continue
-+ 	      case $deplib in
-+ 	      *.la)
-+ 		func_basename "$deplib"
+  	    # Replace all uninstalled libtool libraries with the installed ones
+  	    newdependency_libs=
+  	    for deplib in $dependency_libs; do

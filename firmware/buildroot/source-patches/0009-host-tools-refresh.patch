@@ -1,7 +1,7 @@
 From: Gleb Pesin <dormancygrace@gmail.com>
 Subject: [PATCH] Refresh selected host tools from upstream releases
 
-CMake/Python hashes follow Buildroot a2142664e94e87a2aa90c70ebe14a932b4e357bc.
+CMake hashes follow Buildroot a2142664e94e87a2aa90c70ebe14a932b4e357bc.
 U-Boot tools use the same official tag archive as the platform bootloader.
 
 --- a/package/cmake/cmake.mk
@@ -25,26 +25,6 @@ U-Boot tools use the same official tag archive as the platform bootloader.
  
  # Locally calculated
  sha256  4382e7c1879ac90e3f101a395d23846fa4dbcaa1eed7265b43681e348754825d  LICENSE.rst
---- a/package/python3/python3.mk
-+++ b/package/python3/python3.mk
-@@ -5,7 +5,7 @@
- ################################################################################
- 
- PYTHON3_VERSION_MAJOR = 3.14
--PYTHON3_VERSION = $(PYTHON3_VERSION_MAJOR).7
-+PYTHON3_VERSION = $(PYTHON3_VERSION_MAJOR).8
- PYTHON3_SOURCE = Python-$(PYTHON3_VERSION).tar.xz
- PYTHON3_SITE = https://python.org/ftp/python/$(PYTHON3_VERSION)
- PYTHON3_LICENSE = Python-2.0, others
---- a/package/python3/python3.hash
-+++ b/package/python3/python3.hash
-@@ -1,4 +1,4 @@
--# From https://www.python.org/downloads/release/python-3147/
--sha256  3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81  Python-3.14.7.tar.xz
-+# From https://www.python.org/downloads/release/python-3148/
-+sha256  c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73  Python-3.14.8.tar.xz
- # Locally computed
- sha256  b0e25a78cffb43f4d92de8b61ccfa1f1f98ecbc22330b54b5251e7b6ba010231  LICENSE
 --- a/package/uboot-tools/uboot-tools.mk
 +++ b/package/uboot-tools/uboot-tools.mk
 @@ -4,9 +4,9 @@

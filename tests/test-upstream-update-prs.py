@@ -121,6 +121,21 @@ class ProposalTests(unittest.TestCase):
         self.assertIn('U-Boot 2027.01', plan['files']['README.md'])
         self.assertEqual(before, (self.root / 'platform/sources.lock').read_text())
 
+    def test_archive_patch_release_does_not_replace_new_version_twice(self):
+        for name, label in (('Buildroot', 'buildroot'), ('U-Boot', 'u-boot')):
+            source = self.source(name)
+            current = p.upstream.current_pin(self.root, source)
+            latest = current + '.1'
+            with self.subTest(name=name), patch.object(p, 'archive_hash', return_value='a' * 64):
+                plan = p.proposal(source, self.result(source, latest), self.root)
+            build = plan['files']['platform/build.sh']
+            archive = f'buildroot-{latest}.tar.xz' if label == 'buildroot' else f'v{latest}.tar.gz'
+            self.assertIn(archive, build)
+            self.assertNotIn(latest + '.1', build)
+            if label == 'u-boot':
+                self.assertIn('$u/u-boot-' + latest, build)
+            self.assertIn(name + ' ' + latest, build)
+
     def test_signer_archive_updates_only_x86_pin(self):
         source = self.source('Alpine signing minirootfs')
         before = (self.root / 'platform/sources.lock').read_text()

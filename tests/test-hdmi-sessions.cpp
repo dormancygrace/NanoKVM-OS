@@ -843,4 +843,32 @@ static void exclusive_d_identity() {
     puts("PASS exclusive D probe: hardware ID cached per reset generation; each ID/cleanup fault aborts and is not retried or followed by telemetry");
 }
 
-int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); firmware_diagnostics(); model_windows(); d_read_only_production(); exclusive_d_identity(); }
+static void c_recovery_diagnostics() {
+    kvmv_cfg.hdmi_version = 0;
+    LT6911_i2c = Bus::fixture(ReceiverKind::C);
+    { auto owner = receiver_access.control(); assert(owner); owner.resume(); }
+    fake_now += std::chrono::seconds(3);
+    receiver_diagnostics_pending = true;
+    assert(!poll_hdmi_receiver(false));
+    const auto measurements = [] {
+        return std::count(LT6911_i2c.writes.begin(), LT6911_i2c.writes.end(), 0xd28311U);
+    };
+    for (bool no_signal : {false, true}) {
+        if (no_signal) {
+            LT6911_i2c.pair(0xd28b, 0); LT6911_i2c.pair(0xd296, 0);
+            assert(!poll_hdmi_receiver(false)); // changed state/key may diagnose once
+        }
+        for (unsigned i = 0; i < 8; ++i) {
+            LT6911_i2c.writes.clear();
+            assert(!poll_hdmi_receiver(false, false, false));
+            assert(measurements() == 1); // the C snapshot alone, no second diagnostic window
+        }
+        LT6911_i2c.writes.clear();
+        assert(!poll_hdmi_receiver(false, false, true));
+        assert(measurements() == 2); // a real event still refreshes optional diagnostics
+    }
+    kvmv_cfg.hdmi_version = 1;
+    puts("PASS C VI recovery: one measurement per unchanged ready/no-signal sample; real events keep full diagnostics");
+}
+
+int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); firmware_diagnostics(); model_windows(); d_read_only_production(); exclusive_d_identity(); c_recovery_diagnostics(); }

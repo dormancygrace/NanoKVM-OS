@@ -258,6 +258,8 @@
 	gpio4: gpio@5021000 {
 		compatible = "snps,dw-apb-gpio";
 		reg = <0x05021000 0x1000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&nanokvm_hdmi_int_cfg>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		porte: gpio-controller@0 {
@@ -414,6 +416,13 @@
 			pinmux = <PINMUX(PIN_PWR_SEQ1, 3)>;
 			power-source = <1800>;
 			bias-disable;
+		};
+	};
+	nanokvm_hdmi_int_cfg: nanokvm-hdmi-int-cfg {
+		hdmi-int-pins {
+			// PWR_GPIO1 function 0 is GPIOE1, not the PWR_SEQ1 pad.
+			pinmux = <PINMUX(PIN_PWR_GPIO1, 0)>;
+			power-source = <1800>;
 		};
 	};
 	nanokvm_hdmi_reset_cfg: nanokvm-hdmi-reset-cfg {

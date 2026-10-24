@@ -82,6 +82,12 @@ as well. Do not remove the stamp to reuse mixed artifacts.
 NANOKVM_KERNEL_PROFILE=debug platform/build.sh -o /path/to/debug-output -d
 ```
 
+The kernel build fills `CONFIG_CC_VERSION_TEXT` from the selected compiler before
+`olddefconfig`. This descriptive banner follows Buildroot updates automatically;
+the complete resulting configuration is still compared with the expected file.
+Numeric compiler versions, capability probes and kernel options remain pinned.
+A mismatch prints a unified diff and stops the build.
+
 The debug kernel has a `-debug` release suffix and adds `kernel/config-debug.fragment`:
 perf and the CPU counters, frame pointers, function, syscall and block I/O
 tracing, kprobes, SysRq, hung-task and lockup detectors, dynamic debug,

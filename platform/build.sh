@@ -277,6 +277,15 @@ kernel() {
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"
+    # This descriptive banner changes with Buildroot's patch releases even
+    # when GCC and its capabilities do not. Resolve it before olddefconfig;
+    # all numeric compiler versions, capability probes and kernel options
+    # remain pinned and must survive the strict comparison below.
+    local cc_version
+    cc_version=$("${cross}gcc" --version | sed -n '1p')
+    [ -n "$cc_version" ] || { echo "empty kernel compiler identity" >&2; return 1; }
+    "$ksrc/scripts/config" --file "$kbuild/.config" --set-str CC_VERSION_TEXT "$cc_version"
+    cp "$kbuild/.config" "$out/kernel/expected.config"
     # Kconfig takes the last assignment of an option.
     [ "$kernel_profile" = release ] || cat "$here/kernel/config-debug.fragment" >> "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
@@ -285,7 +294,7 @@ kernel() {
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
         KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" olddefconfig
     if [ "$kernel_profile" = release ]; then
-        cmp "$here/kernel/config" "$kbuild/.config"
+        diff -u "$out/kernel/expected.config" "$kbuild/.config"
     else
         # Each debug option survives olddefconfig, or the fragment is stale.
         grep '^CONFIG_' "$here/kernel/config-debug.fragment" | while read -r option; do

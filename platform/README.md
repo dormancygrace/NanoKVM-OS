@@ -223,6 +223,46 @@ Alpine publishes the build recipes ([aports](https://gitlab.alpinelinux.org/alpi
 
 For three years after we last distribute a NanoKVM OS v2 release, we will give anyone, on request, a complete machine-readable copy of the corresponding source of the GPL-licensed components in that release, for no more than the cost of physically performing the distribution. To request it, open an issue in this repository and name the release.
 
+## Compiler cache
+
+Buildroot and the external platform steps use Buildroot's ccache-enabled SDK
+wrapper. This covers C/C++ compilation for the kernel, modules, U-Boot,
+OpenSBI and native code. Go, Rust compilation, linking and image packaging
+are not cached by ccache. The existing complete-toolchain and download caches
+remain in use.
+
+The compiler cache defaults to `OUTPUT/ccache` with a **5 GB** size limit and
+least-recently-used cleanup. It survives removal of component build trees.
+For local builds, use a shared directory outside disposable task outputs:
+
+```sh
+export NANOKVM_CCACHE_DIR=/home/dgrace/build/nanokvm-os/cache/ccache
+export NANOKVM_CCACHE_MAXSIZE=5G
+platform/build.sh -o /home/dgrace/build/nanokvm-os/current kernel modules
+platform/build.sh -o /home/dgrace/build/nanokvm-os/current cache-stats
+```
+
+`NANOKVM_CCACHE=0` bypasses both Buildroot and SDK compiler caching for a
+comparison build. Enabling support changes the toolchain fingerprint, so the
+first build needs a new toolchain; do not relabel an older toolchain cache.
+No relaxed timestamp/header checks or path rewriting are enabled. Different
+build paths may therefore miss the cache, retaining original debug paths.
+
+CI restores compiler entries separately from the toolchain archive. Snapshot
+keys include the runner image, toolchain identity and run. A toolchain change
+starts a new cache family; local shared caches likewise use a namespace for
+each toolchain fingerprint. ccache also checks source, headers and flags.
+Only jobs on `main` save shared snapshots; PRs consume them. The signing job
+never restores or uses a compiler cache. Each build reports cache size, hits,
+misses and cleanup statistics in its job summary. The 5 GB limit applies to
+each compiler cache; retained GitHub snapshots also consume repository cache
+storage and are subject to GitHub's cache eviction policy.
+
+`tests/test-compiler-cache.py` checks cold/warm/bypassed object equality and
+header/flag invalidation. CI additionally runs it against the real RISC-V SDK
+wrapper after preparing the toolchain. These small checks establish cache
+correctness; they do not measure the speedup of a full firmware build.
+
 ## Buildroot scope
 
 The platform profile builds no installed OS rootfs and includes no private addon

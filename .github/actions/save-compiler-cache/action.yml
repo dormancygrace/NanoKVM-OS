@@ -1,0 +1,37 @@
+name: Save compiler cache
+description: Report and bound the cache; only main writes shared CI snapshots.
+inputs:
+  out:
+    description: Platform build output directory
+    required: true
+  key:
+    description: Snapshot key from prepare-build
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Compiler cache statistics
+      id: stats
+      shell: bash
+      env:
+        OUT: ${{ inputs.out }}
+      run: |
+        source platform/compiler-cache.sh
+        configure_compiler_cache "$OUT"
+        cache=$OUT/buildroot-output/host/bin/ccache
+        if [ -x "$cache" ] && [ -d "$BR_CACHE_DIR" ]; then
+          "$cache" --cleanup
+          {
+            echo '### Compiler cache'
+            echo '```text'
+            "$cache" --show-stats --verbose
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo ready=true >> "$GITHUB_OUTPUT"
+        fi
+
+    - uses: actions/cache/save@v6
+      if: github.ref == 'refs/heads/main' && steps.stats.outputs.ready == 'true' && inputs.key != ''
+      with:
+        path: ${{ inputs.out }}/ccache
+        key: ${{ inputs.key }}

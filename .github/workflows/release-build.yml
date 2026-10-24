@@ -45,6 +45,7 @@ jobs:
 
       # Builds of main save the caches that every other ref restores.
       - uses: ./.github/actions/prepare-build
+        id: prepare
         with:
           out: ${{ env.OUT }}
           save-caches: 'true'
@@ -134,3 +135,10 @@ jobs:
           else
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" > /dev/null
           fi
+
+      - name: Save compiler cache
+        uses: ./.github/actions/save-compiler-cache
+        if: always() && steps.prepare.outputs.ccache-key != ''
+        with:
+          out: ${{ env.OUT }}
+          key: ${{ steps.prepare.outputs.ccache-key }}

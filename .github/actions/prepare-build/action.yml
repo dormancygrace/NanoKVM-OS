@@ -10,6 +10,10 @@ inputs:
   save-caches:
     description: save a newly built toolchain and new downloads
     default: 'false'
+outputs:
+  ccache-key:
+    description: Unique immutable compiler cache snapshot key
+    value: ${{ steps.keys.outputs.ccache-key }}
 runs:
   using: composite
   steps:
@@ -44,10 +48,18 @@ runs:
       env:
         OUT: ${{ inputs.out }}
       run: |
+        source platform/compiler-cache.sh
+        configure_compiler_cache "$OUT"
+        for name in BR2_USE_CCACHE BR_CACHE_DIR CCACHE_DIR CCACHE_MAXSIZE; do
+          printf '%s=%s\n' "$name" "${!name}" >> "$GITHUB_ENV"
+        done
         id=$(platform/build.sh -o "$OUT" toolchain-id)
         [ ${#id} = 64 ]
+        echo "CCACHE_NAMESPACE=nkos-$id" >> "$GITHUB_ENV"
         # Its host programs link the runner's C library: one cache per runner image.
         echo "toolchain=toolchain-$ImageOS-$id" >> "$GITHUB_OUTPUT"
+        echo "ccache-prefix=ccache-v1-$ImageOS-$id-" >> "$GITHUB_OUTPUT"
+        echo "ccache-key=ccache-v1-$ImageOS-$id-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
         echo "downloads=downloads-${{ hashFiles('platform/sources.lock', 'firmware/buildroot/**') }}" >> "$GITHUB_OUTPUT"
 
     - name: Restore downloads
@@ -57,6 +69,15 @@ runs:
         path: ${{ inputs.out }}/downloads
         key: ${{ steps.keys.outputs.downloads }}
         restore-keys: downloads-
+
+    # Kept outside the toolchain archive: object entries grow during later
+    # kernel/native builds. Only main jobs save shared snapshots at job end.
+    - name: Restore compiler cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ inputs.out }}/ccache
+        key: ${{ steps.keys.outputs.ccache-key }}
+        restore-keys: ${{ steps.keys.outputs.ccache-prefix }}
 
     - name: Restore toolchain
       id: toolchain
@@ -80,6 +101,12 @@ runs:
         rm -rf "$OUT/buildroot-output/build" "$OUT/buildroot"
         du -sh "$OUT/buildroot-output"
         df -h /
+
+    - name: Check compiler cache
+      shell: bash
+      env:
+        OUT: ${{ inputs.out }}
+      run: python3 tests/test-compiler-cache.py --toolchain "$OUT/buildroot-output/host"
 
     # Saved as soon as they exist, so a later failure does not lose them.
     - name: Save toolchain

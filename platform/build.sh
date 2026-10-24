@@ -32,6 +32,7 @@
 #   clean      delete OUTPUT/apk-builder and OUTPUT/rootfs, whose files belong
 #              to subordinate IDs (see packages)
 #   toolchain-id  print the identity of the toolchain inputs (a cache key)
+#   cache-stats   show compiler-cache statistics for this output
 #
 # Outputs are in OUTPUT/images (default: build/platform/images), the
 # APK repository and the SD card image in OUTPUT/release. The packages step
@@ -70,6 +71,8 @@ done
 ec_public() { echo "${1%.key}.pub"; }
 shift $((OPTIND - 1))
 out=$(realpath -m "$out")
+source "$here/compiler-cache.sh"
+configure_compiler_cache "$out"
 steps=("$@")
 [ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
     native system tools server web firmware hashes payloads packages rootfs image)
@@ -245,7 +248,7 @@ toolchain() {
         for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
         echo "$id" > "$br/.platform-patched"
     fi
-    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot" BR2_JLEVEL="$jobs")
+    local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot" BR2_JLEVEL="$jobs" BR2_CCACHE_DIR="$BR_CACHE_DIR")
     if [ ! -e "$bo/.config" ]; then
         "${make[@]}" nanokvm_platform_defconfig
         "${make[@]}" olddefconfig
@@ -1283,6 +1286,10 @@ case " ${steps[*]} " in
         check_output_kernel_profile ;;
 esac
 
+# Buildroot requires invalidation when the SDK configuration changes. A
+# namespace isolates entries even when local builds share a cache directory.
+export CCACHE_NAMESPACE="nkos-$(toolchain_id)"
+
 for step in "${steps[@]}"; do
     case $step in
         fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|hashes|payloads)
@@ -1291,6 +1298,7 @@ for step in "${steps[@]}"; do
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;
         source) log source; source_archive ;;
         toolchain-id) toolchain_id ;;
+        cache-stats) "$host/ccache" --show-stats ;;
         *) usage ;;
     esac
 done

@@ -175,12 +175,10 @@ start_services() {
     fi
 
     if [ "$server_running" = 0 ]; then
-        case "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" in
-            c|d)
-                /usr/libexec/nanokvm/video-clocks ||
-                    echo "Starting without video: LT6911C/D stock clocks are unavailable" >&2
-                ;;
-        esac
+        # The helper owns model selection and an explicit unknown/deferred
+        # handoff. Run it even when S15 could not identify the receiver yet.
+        /usr/libexec/nanokvm/video-clocks ||
+            echo "Video clock setup failed; C/D capture requires a verified profile" >&2
     fi
 
     video_settings

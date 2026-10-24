@@ -22,10 +22,11 @@ static const unsigned int clock_ids[] = {
 static const unsigned int parent_ids[] = {
     CLK_DISPPLL, CLK_CAM1PLL, CLK_MIPIMPLL,
 };
-static unsigned int held_parents, held_clocks;
+static unsigned int held_parents;
 
 static int rates_get(char *buffer, const struct kernel_param *kp)
 {
+    (void)kp;
     return sysfs_emit(buffer, "%lu %lu %lu\n",
                       clk_get_rate(clocks[0].clock),
                       clk_get_rate(clocks[1].clock),
@@ -41,13 +42,16 @@ static struct clk *provider_clock(struct device_node *node, unsigned int id)
     return of_clk_get_from_provider(&args);
 }
 
+static void release_parents(void)
+{
+    while (held_parents)
+        clk_rate_exclusive_put(clocks[--held_parents].parent);
+}
+
 static void release_clocks(void)
 {
     unsigned int i;
-    while (held_clocks)
-        clk_rate_exclusive_put(clocks[--held_clocks].clock);
-    while (held_parents)
-        clk_rate_exclusive_put(clocks[--held_parents].parent);
+    release_parents();
     for (i = 0; i < ARRAY_SIZE(clocks); i++) {
         if (!IS_ERR_OR_NULL(clocks[i].clock))
             clk_put(clocks[i].clock);
@@ -88,12 +92,11 @@ static int __init video_clocks_init(void)
     ret = apply_cd_stock(clocks, ARRAY_SIZE(clocks));
     if (ret)
         goto fail;
-    for (i = 0; i < ARRAY_SIZE(clocks); i++) {
-        ret = clk_rate_exclusive_get(clocks[i].clock);
-        if (ret)
-            goto fail;
-        held_clocks++;
-    }
+    /* Guard only the stopped-service transition. Child exclusivity would
+     * recursively pin these PLLs too, interfering with unrelated consumers.
+     * Native admission verifies the live child rates again before capture.
+     */
+    release_parents();
     ready = true;
     pr_info("sg2002-video-clocks: LT6911%s stock: 396/360/300 MHz\n", receiver);
     return 0;

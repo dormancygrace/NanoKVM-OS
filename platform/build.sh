@@ -310,7 +310,6 @@ modules() {
     cp -r "$here/modules/sg2002-aes" "$src/aes"
     cp -r "$here/modules/cv181x-aximon" "$src/aximon"
     cp -r "$here/modules/cv181x-trng" "$src/trng"
-    cp -r "$here/modules/sg2002-video-clocks" "$src/video-clocks"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
     apply_patches "$src/osdrv" "$here/modules/osdrv"
     apply_patches "$src/wifi" "$here/modules/aic8800"
@@ -334,7 +333,6 @@ modules() {
     build "$src/aes"
     build "$src/aximon"
     build "$src/trng"
-    build "$src/video-clocks"
     build "$src/cryptodev"
     # Vendor diagnostics use __DATE__ and __TIME__.
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder SOURCE_DATE_EPOCH=$rtl8733bs_epoch \
@@ -356,7 +354,7 @@ modules() {
         [ ! -e "$target" ] || { echo "Duplicate module name: $target" >&2; exit 1; }
         cp "$module" "$target"
         "${cross}strip" --strip-debug "$target"
-    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/aximon" "$src/trng" "$src/video-clocks" "$src/cryptodev" "$m/rtl8733bs" -name '*.ko' -print0)
+    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/aximon" "$src/trng" "$src/cryptodev" "$m/rtl8733bs" -name '*.ko' -print0)
     # Name every module in sorted order; a directory scan would make the
     # order of the modules.* indexes depend on the file system.
     local mods=$img/lib/modules/$release list
@@ -483,6 +481,9 @@ initramfs() {
 
 boot() {
     local b=$out/boot profile dtb
+    # Reuse the prepared kernel tree; release CI must also inspect resolved
+    # variant pinctrl ownership, not only compile DTS syntax.
+    PATH="$host:$PATH" python3 "$repo/tests/test-hdmi-events-dt.py" --kernel-source "$ksrc"
     rm -rf "$b" "${img:?}/boot" "${img:?}/dtb" "${img:?}/boot-fit"
     mkdir -p "$b" "$img/boot" "$img/dtb" "$img/boot-fit"
     # lz4: U-Boot unpacks it in 0.41 s against 0.79 s for zstd -19; the larger
@@ -1080,24 +1081,10 @@ packages() (
         SOURCE_DATE_EPOCH="$(git -C "$repo" log -1 --format=%ct)" PAYLOAD_ROOT=/build/payloads \
         REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' PKGVERSIONS=/build/versions/versions.txt \
         /bin/sh /build/src/scripts/build-alpine-packages.sh stock
-    # Verify every core/reused package before accepting checksum-pinned add-ons.
-    # The optional APKs may be unsigned; their trust comes from the signed index.
+    # OS repositories contain only core/reused packages. Optional add-ons are
+    # published independently to their own Pages repository.
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 && /sbin/apk verify ./*.apk'
-    # APK v3 add-ons cannot be indexed by abuild's legacy apk index applet.
-    # Fetch only after the core v2 index is complete; mkndx below includes them.
-    # They remain optional and are never installed into the SD image.
-    python3 "$repo/scripts/addon_packages.py" --manifest "$repo/firmware/alpine/addons.json" \
-        --output "$b/build/repo/stock/recipes/riscv64"
-    # The index signed below selects packages for every device: an add-on
-    # may declare only its own files, dependencies and lifecycle scripts.
-    local addon
-    for addon in $(python3 -c 'import json, sys; print(*json.load(open(sys.argv[1]))["packages"])' \
-            "$repo/firmware/alpine/addons.json"); do
-        in_chroot "$b" /sbin/apk --allow-untrusted adbdump "/build/repo/stock/recipes/riscv64/$addon" |
-            python3 "$repo/scripts/addon_packages.py" --check "$addon"
-    done
-    # New indexes have one ECDSA signature. Core signatures were checked above;
-    # optional add-on bytes were checked against their pinned checksums.
+    # Every package signature was verified before signing the new ECDSA index.
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 &&
         /sbin/apk --sign-key /root/.abuild/release.key --allow-untrusted mkndx \
             --description "$1" --output Packages.adb ./*.apk' sh "NanoKVM OS $version"
@@ -1112,7 +1099,6 @@ packages() (
     mkdir -p "$rel/apk"
     cp -a "$b/build/repo/stock/." "$rel/apk/"
     cp "$ecpub" "$rel/apk/"
-    cp "$repo/firmware/alpine/addons.json" "$rel/apk/recipes/riscv64/"
     "$host/python3" "$repo/scripts/package-versions.py" manifest \
         --versions "$b/build/versions/versions.json" --repo "$rel/apk/recipes/riscv64"
 )

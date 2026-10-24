@@ -32,8 +32,8 @@ pkg=root/"firmware/alpine/packages/nanokvm-rustdesk"
 recipe=(pkg/"APKBUILD").read_text()
 pkgver=re.search(r"^pkgver=(\S+)$",recipe,re.M).group(1)
 revision=re.search(r"^pkgrel=([0-9]+)$",recipe,re.M).group(1)
-# The checked-in recipe pins the last published archive. A new source version
-# must build before the release-and-pin workflow can replace that recipe.
+# The checked-in recipe is a packaging template. Each build writes its own
+# version, source URL and checksum into the APKBUILD published with the add-on.
 if pkgver != version:
     revision="0"
 if args.package_revision is not None:

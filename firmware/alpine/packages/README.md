@@ -186,21 +186,12 @@ change an OS package: apk would meet the minimum by upgrading the whole OS.
 
 A new add-on goes into `ADDONS`, gets a recipe and a choice in `addon.yml`.
 To release a change, raise the recipe's version and run the workflow from
-main; each run of the same version gets the next revision. The workflow opens
-a pin PR for `firmware/alpine/addons.json` (below), which replaces that
-add-on's pin only.
+main; each run of the same version gets the next revision. Publication starts
+the Pages workflow to verify the package and sign the common add-on index.
+It does not open a pin PR or change the OS source tree.
 
-## Optional add-ons in the release repository
-
-`firmware/alpine/addons.json` pins already-signed optional APKs from their
-separate releases by URL, SHA-256 and size. The package step downloads them
-after generating the core v2 index and before generating the v3 index of an
-OS build's own repository; APK verifies their release signatures. Native APK
-v3 add-ons cannot be represented in the legacy v2 index.
-They are not dependencies of `nanokvm-release` and are not installed in images.
-
-CI attaches `addons.json`, not the add-on APK, to the OS release. Pages does
-not use these pins: it builds the add-on repository from the add-on releases
-themselves, each checked against its own `SHA256SUMS`, and indexes the OS
-repositories without add-ons. Keep old add-on release assets available for
-cached indexes.
+OS builds, signing and release storage contain only OS packages. Optional
+add-ons are neither dependencies of `nanokvm-release` nor installed in images.
+Pages discovers them from their own releases and verifies each APK against
+that release's `SHA256SUMS`, then validates its metadata before signing the
+index. Keep old add-on release assets available for cached indexes and rollback.

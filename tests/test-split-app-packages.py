@@ -86,12 +86,6 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     _, _, base_provides, _ = metadata("nanokvm-base")
     package("layout-base-fixture", "1-r0", {}, provides=base_provides)
     index()
-    # The app also needs the actual C clock module, not only its shell helper.
-    run(*base, "add", "--no-scripts", "nanokvm", ok=False)
-    assert (root / binary).read_text() == "old server"
-    _, _, module_provides, _ = metadata("nanokvm-kmod-sg2002")
-    package("video-clocks-module-fixture", "1-r0", {}, provides=module_provides)
-    index()
     run(*base, "upgrade", "--no-scripts")
     assert run(*base, "info", "-e", "-v", "nanokvm-app").strip() == "nanokvm-app-" + versions["nanokvm-app"]
     assert run(*base, "info", "-e", "rustdesk-fixture")

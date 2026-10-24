@@ -20,7 +20,6 @@ on:
       - scripts/check-ec-key.sh
       - scripts/alpine-signer.sh
       - tests/test-index-apk-repo.py
-      - firmware/alpine/addons.json
       - tests/test-assemble-apk-repo.py
 
 permissions:

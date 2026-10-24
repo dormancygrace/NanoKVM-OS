@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory(prefix="nanokvm-hdmi-events-") as directory:
     tmp = Path(directory)
     cpp, binary = tmp / "events.cpp", tmp / "events"
     cpp.write_text(source)
-    flags = ["-std=c++17", "-Wall", "-Wextra", "-Werror", "-g"]
+    flags = ["-std=c++17", "-Wall", "-Wextra", "-Werror", "-pthread", "-g"]
     if os.getenv("NANOKVM_SANITIZE"):
         flags += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
     subprocess.run(["g++", *flags, "-I" + str(root / "support/sg2002/additional/kvm/include"),

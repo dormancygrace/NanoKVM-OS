@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cinttypes>
 #include <cstdlib>
+#include <cstring>
 
 static volatile sig_atomic_t stopped;
 static void stop(int) { stopped = 1; }
@@ -27,9 +28,11 @@ static int discard(uintptr_t context, const uint8_t *data, uint32_t size,
     return 0;
 }
 int main(int argc, char **argv) {
-    if (argc != 2) return 2;
+    if (argc != 2 && argc != 3) return 2;
+    const bool park_trial = argc == 3 && !std::strcmp(argv[2], "park");
+    if (argc == 3 && !park_trial) return 2;
     unsigned seconds = std::strtoul(argv[1], nullptr, 10);
-    if (seconds < 10 || seconds > 180) return 2;
+    if (seconds < 10 || seconds > 180 || (park_trial && seconds < 40)) return 2;
     setvbuf(stdout, nullptr, _IOLBF, 0);
     std::signal(SIGTERM, stop); std::signal(SIGINT, stop);
     kvmv_init(0);
@@ -39,14 +42,25 @@ int main(int argc, char **argv) {
     uint64_t last_report = began, last_frame = began, bytes = 0, frames = 0, errors = 0;
     uint64_t previous_frames = 0;
     unsigned stalls = 0;
+    bool parked = false;
     std::printf("READY duration_s=%u mono_ms=%" PRIu64 "\n", seconds, began);
     while (!stopped && now_ms() - began < uint64_t(seconds) * 1000) {
+        const uint64_t elapsed = now_ms() - began;
+        const bool should_park = park_trial && elapsed >= 5000 && elapsed < 30000;
+        if (parked != should_park) {
+            if (kvmv_set_capture_parked(should_park) != 0) { ++stalls; break; }
+            parked = should_park;
+            std::printf("PARK elapsed_ms=%" PRIu64 " parked=%u\n", elapsed, unsigned(parked));
+        }
         const uint64_t before = bytes;
-        const int result = kvmv_read_video_sink_v2(1280, 720, 2, 2500, 30, discard,
-                                                  reinterpret_cast<uintptr_t>(&bytes));
+        int result = 0;
+        if (parked) usleep(10000);
+        else result = kvmv_read_video_sink_v2(1280, 720, 2, 2500, 30, discard,
+                                             reinterpret_cast<uintptr_t>(&bytes));
         const uint64_t now = now_ms();
+        if (parked) last_frame = now;
         if (result >= 0 && bytes > before) { ++frames; last_frame = now; }
-        else { ++errors; usleep(10000); }
+        else if (!parked) { ++errors; usleep(10000); }
         if (now - last_report >= 1000) {
             std::printf("STATUS elapsed_ms=%" PRIu64 " input=%ux%u signal=%u frames=%" PRIu64
                         " delta=%" PRIu64 " errors=%" PRIu64 "\n",

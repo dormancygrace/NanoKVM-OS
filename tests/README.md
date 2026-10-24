@@ -52,6 +52,11 @@ ownership and absence of an INT GPIO hog:
 
     python3 tests/test-hdmi-events-dt.py --kernel-source /path/to/patched-linux
 
+The platform boot stage also invokes the DT qualification with its prepared
+kernel tree, so release-build CI checks resolved properties for every profile.
+Event/session tests cover parked VI suppression and the C measurement cost of
+recovery versus full diagnostics.
+
 The Makefile groups some of them, for example `make test-wifi-modules test-alpine-network`.
 CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no arguments and no root.
 

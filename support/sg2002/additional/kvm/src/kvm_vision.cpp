@@ -780,7 +780,7 @@ template<class Events>
 static bool service_hdmi_events(Events &events, uint64_t now,
     bool vi_refreshed = false, uint8_t vi_state = 0)
 {
-    if (vi_refreshed) events.observe_vi(vi_state);
+    if (vi_refreshed && !capture_park.parked()) events.observe_vi(vi_state);
     const auto request = events.next(now, receiver_retry_pending.load(std::memory_order_relaxed));
     if (!request) return false;
     static const bool trace = [] {

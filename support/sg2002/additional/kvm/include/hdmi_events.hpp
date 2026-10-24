@@ -4,7 +4,7 @@
 #include "internal/gpio_edges.hpp"
 
 namespace nanokvm {
-enum class HdmiPollReason { None, Initial, Edge, Resync, Retry, Fallback };
+enum class HdmiPollReason { None, Initial, Edge, Resync, ViFault, Retry, Fallback };
 struct HdmiPollRequest {
     HdmiPollReason reason = HdmiPollReason::None;
     bool edge = false, resync = false;
@@ -15,6 +15,7 @@ inline const char *hdmi_poll_reason(HdmiPollReason reason) {
     case HdmiPollReason::Initial: return "initial";
     case HdmiPollReason::Edge: return "edge";
     case HdmiPollReason::Resync: return "resync";
+    case HdmiPollReason::ViFault: return "vi-fault";
     case HdmiPollReason::Retry: return "retry";
     case HdmiPollReason::Fallback: return "fallback";
     default: return "none";
@@ -25,7 +26,7 @@ inline const char *hdmi_poll_reason(HdmiPollReason reason) {
 // Pending edges survive failed/paused/settling reads. No healthy timer reads.
 class HdmiPollSchedule {
     bool available_ = false, initial_ = true, edge_ = false, resync_ = false;
-    bool attempted_ = false, failed_ = false;
+    bool vi_fault_ = false, attempted_ = false, failed_ = false;
     uint64_t last_ = 0;
 public:
     void observe(ReceiverKind kind, bool available, const GpioEdgeBatch &batch) {
@@ -36,21 +37,22 @@ public:
     }
     // Called only for a fresh VI report in normal detection mode. Recover
     // a silent/missed INT without probing a healthy input on a timer.
-    void observe_vi(uint8_t code) { resync_ |= code >= 2 && code <= 7; }
+    void observe_vi(uint8_t code) { vi_fault_ |= code >= 2 && code <= 7; }
     HdmiPollRequest next(uint64_t now, bool retry) {
         const bool recovery = failed_ || retry;
         if (attempted_ && now - last_ < (recovery || !available_ ? 1000U : 100U))
             return {};
-        if (!initial_ && !edge_ && !resync_ && !recovery && available_) return {};
+        if (!initial_ && !edge_ && !resync_ && !vi_fault_ && !recovery && available_) return {};
         const auto reason = initial_ ? HdmiPollReason::Initial :
             edge_ ? HdmiPollReason::Edge : resync_ ? HdmiPollReason::Resync :
-            recovery ? HdmiPollReason::Retry : HdmiPollReason::Fallback;
+            vi_fault_ ? HdmiPollReason::ViFault : recovery ? HdmiPollReason::Retry : HdmiPollReason::Fallback;
         attempted_ = true; last_ = now;
+        // VI health recovery does not force optional register diagnostics.
         return {reason, edge_, resync_ || initial_};
     }
     void completed(bool success) {
         failed_ = !success;
-        if (success) initial_ = edge_ = resync_ = false;
+        if (success) initial_ = edge_ = resync_ = vi_fault_ = false;
     }
 };
 

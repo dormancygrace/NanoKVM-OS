@@ -5,6 +5,7 @@
 #include <deque>
 #include <vector>
 #include "hdmi_events.hpp"
+#include "capture_park.hpp"
 
 using namespace nanokvm;
 struct Read {
@@ -170,6 +171,7 @@ static void transport_tests() {
 }
 
 static std::atomic<bool> receiver_retry_pending{false};
+static CapturePark capture_park;
 struct Call { bool automatic, initial, event; };
 static std::vector<Call> calls;
 static bool fail_poll = false, change_mode = false;
@@ -286,7 +288,7 @@ static void vi_recovery_tests() {
         for (uint8_t code = 2; code <= 7; ++code) {
             const auto before = calls.size();
             service_hdmi_events(events, now, true, code);
-            assert(calls.size() == before + 1 && calls.back().event &&
+            assert(calls.size() == before + 1 && !calls.back().event &&
                    !calls.back().automatic && !receiver_retry_pending);
             for (unsigned delta : {100U, 1000U, 9999U}) {
                 events.observe(kind, now + delta);
@@ -308,11 +310,26 @@ static void vi_recovery_tests() {
         assert(calls.size() == before + 1);
         fail_poll = false;
         service_hdmi_events(events, now + 1000);
-        assert(calls.size() == before + 2 && calls.back().event &&
+        assert(calls.size() == before + 2 && !calls.back().event &&
                !receiver_retry_pending);
         service_hdmi_events(events, now + 10000, true, 1);
         assert(calls.size() == before + 2);
+        // No-viewer parking can suppress VI/VPSS output without a receiver
+        // fault. Fresh reports must not create a receiver or diagnostic timer.
+        assert(capture_park.set(true, [] { return 0; }, [](bool) { return 0; }) == 0);
+        now += 20000;
+        for (uint8_t code = 2; code <= 7; ++code) {
+            service_hdmi_events(events, now, true, code); now += 10000;
+        }
+        assert(calls.size() == before + 2);
+        // Real HDMI edges remain actionable while parked.
+        queue(1, kind == ReceiverKind::C);
+        events.observe(kind, now); service_hdmi_events(events, now, true, 2);
+        assert(calls.size() == before + 3 && calls.back().event);
+        assert(capture_park.set(false, [] { return 0; }, [](bool) { return 0; }) == 0);
+        service_hdmi_events(events, now + 10000, true, 3);
+        assert(calls.size() == before + 4 && !calls.back().event);
     }
-    puts("PASS silent INT: fresh VI faults recover all models, healthy/stale reports stay quiet, resync survives coalescing and I2C failure");
+    puts("PASS silent INT: fresh VI faults recover all models, healthy/stale reports stay quiet, recovery survives coalescing/I2C failure, no forced VI diagnostics, parked VI ignored");
 }
 int main() { transport_tests(); schedule_tests(); vi_recovery_tests(); }

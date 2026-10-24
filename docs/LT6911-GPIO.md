@@ -26,7 +26,8 @@ normal mode requests recovery even if an open GPIO descriptor delivered no edge.
 - Coalesce applicable edges, with at least 100 ms between healthy snapshots.
   Keep the edge pending across paused, settling and failed I2C reads.
 - Retry failed or reset-delayed reads once per second. A successful ready or
-  no-signal snapshot ends recovery; a stable no-signal input waits for an edge.
+  no-signal snapshot ends that retry sequence. Later reads require a new event,
+  source resync, maintenance/reset, or a fresh eligible VI fault.
 - Track GPIO request and line sequence numbers. A gap requests a fresh
   diagnostic snapshot, even if the applicable edge was among the lost events.
 - If GPIO is missing, busy, unsupported or fails, log the error and use the
@@ -34,9 +35,16 @@ normal mode requests recovery even if an open GPIO descriptor delivered no edge.
   After reconnecting, take another snapshot before returning to event-only reads.
 - Use fresh VI reports (the existing ten-second cadence) as a second recovery
   source. Codes 2–7 (no input frames, CSI size mismatch or unknown CSI failure)
-  request one resync snapshot; healthy code 1 and unavailable/uninitialized code
-  0 do not. Never replay a stale VI fault every detector iteration. Failed I2C
-  recovery retains its normal one-second retry.
+  request one recovery snapshot while capture is not parked. Healthy code 1,
+  unavailable/uninitialized code 0 and reports from parked capture do not.
+  Never replay a stale VI fault every detector iteration. Failed I2C recovery
+  retains its normal one-second retry. A stable no-signal source can therefore
+  be sampled every ten seconds while unparked, but not because of parked VI.
+- VI recovery passes no receiver-event flag: it does not reset the optional
+  diagnostic schedule. An unchanged ready/no-signal sample on C performs one
+  measurement window, not a second full diagnostic measurement. A changed
+  state/geometry can diagnose once through the existing key; real edges,
+  sequence loss and reset/maintenance retain full diagnostic refresh.
 - Drain events during manual modes and retain pending work until normal mode.
   Only a confirmed applicable edge permits automatic mode switching.
 
@@ -45,8 +53,8 @@ probe, using a 1.8 V power domain. Alpha, detect and PCIe retain this group in
 their controller pinctrl lists alongside their existing reset/HDD pins; beta
 and Lite inherit the common default. This does not hog the GPIO line or set an
 output value. The userspace request sets input and both-edge flags only, with
-no output, bias, active-low or pad-mux programming. The detector owns the descriptor and closes
-it on exit or a transport failure. Reads are nonblocking and bounded even
+no output, bias, active-low or pad-mux programming. The detector owns the
+descriptor and closes it on exit or a transport failure. Reads are nonblocking and bounded even
 during an interrupt storm.
 
 The stock counter is in Sipeed's customized
@@ -79,13 +87,17 @@ edges, reset/I2C retries, missing/busy GPIO, reconnects, syscall failures,
 descriptor zero, cleanup, sequence gaps and wrap, and bounded interrupt storms.
 The Python harness also checks the runtime probe's C++ syntax and executes
 silent-INT VI recovery cases for all models, including fresh versus stale
-reports and retained resync after failed/coalesced reads.
+reports, parked VI suppression and retained recovery after failed/coalesced
+reads. Receiver-session tests count the actual C measurement writes on repeated
+ready/no-signal recovery samples and on real diagnostic events.
 
 With a prepared patched Linux source and cpp/dtc/fdtget on PATH, compile and
 inspect every board DT, including variant overrides and free input ownership:
 
     python3 tests/test-hdmi-events-dt.py --kernel-source /path/to/patched-linux
 
+The platform boot build stage invokes this test using its prepared kernel tree
+and host tools, including in PR release-build CI.
 The UXC/PCIe stand (mainline 7.3.0-nanokvm-os-r3) was exercised on 2026-10-24
 with a RAM-only test library and `firmware/probes/hdmi-events-runtime.cpp`.
 Installed services were stopped during exclusive capture and restored afterward.
@@ -102,8 +114,18 @@ Installed services were stopped during exclusive capture and restored afterward.
   events while the GPIO descriptor stayed active. Both real HDMI transitions
   recovered through fresh VI faults (codes 4 and 3), with no edge-triggered
   samples: 65 seconds, 3493 frames, two capture retries and no stalls.
-  The new pinctrl DTBs were compiled/inspected for all five profiles; they
-  were not booted on the stand.
+- The new PCIe DTB was then actually booted through a one-shot UART U-Boot
+  load of dbg.sd, using the installed kernel/initramfs. Live pinctrl reported
+  pin 48 / PWR_GPIO1 owned by 5021000.gpio in nanokvm-hdmi-int-cfg. With the
+  production application and a RAM-mounted test library, GPIOE1 was requested
+  by nanokvm-hdmi-int while GPIOE3 remained nanokvm-atx, both input IRQs.
+  Installed boot.sd/fip.bin hashes were unchanged; normal boot was restored
+  and dbg.sd removed. Alpha, beta, Lite and detect were not physically booted.
+- A final 40-second probe parked capture from second 5 through second 30:
+  894 frames, one startup retry, no stalls and no receiver samples while
+  parked. Parked UXC VIDevFPS was 48/54, VIFPS 59/59 (nonzero); this does not
+  establish other models' VI behavior. All models' parked abnormal VI reports
+  are suppressed by the production-service tests.
 - The original source mode, installed application and library hash were
   restored/verified. The GPIO request was released and RAM artifacts removed.
 
@@ -121,9 +143,15 @@ restoration on exit. Run for 10–180 seconds:
 NANOKVM_HDMI_IRQ_TRACE=1 ./hdmi-events-runtime 30
 ```
 
+For a bounded park/resume trial (minimum 40 seconds), add park; it captures
+for five seconds, disables capture outputs for 25 seconds without reading
+frames, then resumes:
+
+    NANOKVM_HDMI_IRQ_TRACE=1 ./hdmi-events-runtime 40 park
+
 The probe enables normal capture admission, never asserts receiver reset,
 discards H.265 output, and reports frame/byte/error/stall counts and input size.
 It does not flash receiver firmware or write EDID. With tracing enabled,
-`reason=initial|edge|resync|retry|fallback` identifies detector snapshots;
+`reason=initial|edge|resync|vi-fault|retry|fallback` identifies detector snapshots;
 the optional vi/fresh fields identify a fresh VI report behind a snapshot.
 Normal operation logs only event-source availability changes.

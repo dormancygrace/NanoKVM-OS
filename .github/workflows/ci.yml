@@ -89,6 +89,10 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -Isupport/sg2002/additional/kvm/include \
             support/sg2002/additional/kvm/tests/stream_size_test.cpp -o "$RUNNER_TEMP/stream-size-test"
           "$RUNNER_TEMP/stream-size-test"
+      - name: LT6911C/D stock clock policy
+        run: |
+          python3 tests/test-lt6911cd-clocks.py
+          NANOKVM_SANITIZE=1 python3 tests/test-lt6911cd-clocks.py
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
       # The C906 vector kernels are generated with .4byte/WORD encodings; each

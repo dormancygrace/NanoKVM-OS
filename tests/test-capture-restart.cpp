@@ -23,8 +23,15 @@ struct {
 struct {
     std::atomic<int> reopen_cam_flag{0};
     int vpss_width = 0, vpss_height = 0, reinit_flag = 0;
-    uint8_t hdmi_cable_state = 1;
+    uint8_t hdmi_cable_state = 1, hdmi_version = 1;
 } kvmv_cfg;
+bool clock_profile_ready = true;
+namespace nanokvm {
+bool video_clocks_ready(unsigned receiver) {
+    assert(receiver <= 3);
+    return clock_profile_ready;
+}
+}
 constexpr int default_vpss_width = 1920, default_vpss_height = 1080, KVMV_MAX_TRY_NUM = 3;
 void debug(const char *, ...) {}
 int mmf_venc_pending_vi(int) { return pending_video ? 0 : -1; }
@@ -62,6 +69,20 @@ int observed_lock(pthread_mutex_t *mutex) {
 #undef pthread_mutex_lock
 
 int main() {
+    // A failed clock policy must not reopen capture or retire active leases.
+    for (uint8_t receiver : {0, 3}) {
+        kvmv_cfg.hdmi_version = receiver;
+        clock_profile_ready = false;
+        pending_video = true;
+        kvm_venc.enc_video_init = 1;
+        assert(!restart_capture_now());
+        assert(kvmv_cfg.reopen_cam_flag == 1);
+        assert(restarts == 0 && retired == 0 && pending_video && kvm_venc.enc_video_init);
+    }
+    clock_profile_ready = true;
+    kvmv_cfg.hdmi_version = 1;
+    pending_video = false;
+    kvm_venc.enc_video_init = 0;
     nanokvm::GeometryGate geometry(1920, 1080);
     for (bool jpeg : {false, true}) {
         pthread_mutex_lock(&vi_mutex);

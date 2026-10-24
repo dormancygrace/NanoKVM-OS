@@ -1,0 +1,54 @@
+#!/bin/sh
+# Called before both video services start. UXC/UE retain their DT clocks.
+set -eu
+policy=/run/nanokvm/video_clock_policy
+parameters=/sys/module/sg2002_video_clocks/parameters
+mkdir -p /run/nanokvm
+publish_policy() {
+    printf '%s\n' "$1" > "$policy.$$"
+    mv -f "$policy.$$" "$policy"
+}
+trap 'rm -f "$policy.$$"' EXIT
+model=$(cat /etc/kvm/hdmi_version 2>/dev/null || true)
+case "$model" in
+    c|d|ux|ue) ;;
+    *)
+        if pidof NanoKVM-Server kvm_system >/dev/null 2>&1; then
+            echo 'video-clocks: stop both video services before retrying model detection' >&2
+            exit 1
+        fi
+        # Recover a transient NACK during S15 boot probing, before any MMF opens.
+        /kvmapp/system/init.d/S15kvmhwd get_hdmi_version || true
+        model=$(cat /etc/kvm/hdmi_version 2>/dev/null || true)
+        ;;
+esac
+case "$model" in
+    c|d) ;;
+    ux|ue) publish_policy dt; exit 0 ;;
+    *)
+        # A failed partial setup cannot be relabelled as a harmless unknown.
+        if [ "$(cat "$policy" 2>/dev/null || true)" = failed ] || [ -d "$parameters" ]; then
+            echo 'video-clocks: model unavailable after a profile attempt; restart after detection or reboot' >&2
+            exit 1
+        fi
+        publish_policy deferred
+        echo 'video-clocks: receiver unidentified; keeping DT clocks for this service run' >&2
+        exit 0
+        ;;
+esac
+# This marker survives a failed modprobe/readback until a verified retry or reboot.
+publish_policy failed
+if [ ! -d "$parameters" ]; then
+    if pidof NanoKVM-Server kvm_system >/dev/null 2>&1; then
+        echo 'video-clocks: stop both video services before applying the C/D profile' >&2
+        exit 1
+    fi
+    modprobe sg2002-video-clocks receiver="$model"
+fi
+[ "$(cat "$parameters/receiver")" = "$model" ] &&
+    [ "$(cat "$parameters/ready")" = Y ] &&
+    [ "$(cat "$parameters/rates")" = '396000000 360000000 300000000' ] || {
+    echo 'video-clocks: LT6911C/D stock profile verification failed' >&2
+    exit 1
+}
+publish_policy stock

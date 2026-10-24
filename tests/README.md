@@ -180,3 +180,8 @@ SD storage policy checks:
   Both variants verify the second boot preserves data and reflashing handles
   an old exFAT signature. This does not qualify the SG2002 Boot ROM; booting a
   freshly flashed aligned image on hardware is a separate release gate.
+
+For decimal 1 GB first-boot coverage, run the disposable loop test with
+`--card-bytes 1000000000`, both with and without `--legacy`. It verifies data
+creation, full remaining capacity, preservation on the next boot and reflash.
+The non-root error suite also checks the 96 MiB floor and existing installations.

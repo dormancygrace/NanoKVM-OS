@@ -102,10 +102,22 @@ results, marker, calls = run_case(partitions=ALIGNED, p3=(1705984, 100000))
 check('aligned card with legacy p3 is not formatted', results[0][0] == 0 and not marker and 'mkfs.exfat' not in calls, (results, calls))
 results, marker, calls = run_case(partitions={'mmcblk0p1': (1, 131072), 'mmcblk0p2': (139264, 1572864)})
 check('mixed boot/root layout is not formatted', results[0][0] == 0 and not marker and 'sfdisk' not in calls and 'mkfs.exfat' not in calls, (results, calls))
-results, marker, calls = run_case(partitions=ALIGNED, card=1712128 + 262143)
-check('less than 128 MiB data refused', results[0][0] == 0 and not marker and 'sfdisk' not in calls, (results, calls))
-results, marker, calls = run_case(partitions=ALIGNED, card=1712128 + 262144, created_start=1712128)
-check('128 MiB data accepted', results == [(0, '')] and not marker and 'mkfs.exfat' in calls, (results, calls))
+results, marker, calls = run_case(partitions=ALIGNED, card=1712128 + 196607)
+check('less than 96 MiB data refused', results[0][0] == 0 and not marker and 'sfdisk' not in calls, (results, calls))
+results, marker, calls = run_case(partitions=ALIGNED, card=1712128 + 196608, created_start=1712128)
+check('96 MiB data accepted', results == [(0, '')] and not marker and 'mkfs.exfat' in calls, (results, calls))
+
+# Decimal 1 GB cards work with both supported fresh layouts.
+for layout, start in [(FRESH, 1705984), (ALIGNED, 1712128)]:
+    results, marker, calls = run_case(partitions=layout, card=1_000_000_000 // 512,
+                                     created_start=start, runs=2)
+    check(f'1 GB fresh card at {start}', results == [(0, ''), (0, '')] and not marker
+          and calls.count('sfdisk') == 1 and calls.count('mkfs.exfat') == 1, (results, calls))
+    # An installed device has no fresh-image marker, even with a tiny /data.
+    results, marker, calls = run_case(partitions=layout, card=1_000_000_000 // 512,
+                                     p3=(start, 65536), marker=False)
+    check(f'existing small data at {start} untouched', results == [(0, '')]
+          and not marker and calls == '', (results, calls))
 
 # No marker: nothing to do.
 results, marker, calls = run_case(marker=False)

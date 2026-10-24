@@ -53,7 +53,9 @@ if [ ! -b /dev/mmcblk0p3 ]; then
     total=$(cat /sys/class/block/mmcblk0/size 2>/dev/null) ||
         retry_later "cannot read the card size"
     size=$((total - start))
-    [ "$size" -ge 262144 ] || leave_card "the SD card is too small for a data partition"
+    # 96 MiB minimum leaves room on nominal 1 GB cards with either layout.
+    # Allocate the entire remainder; this is only a fresh-install safety floor.
+    [ "$size" -ge 196608 ] || leave_card "the SD card is too small for a data partition"
     printf 'start=%s, size=%s, type=7\n' "$start" "$size" |
         sfdisk --no-reread --no-tell-kernel -N 3 /dev/mmcblk0 ||
         retry_later "cannot create partition 3"

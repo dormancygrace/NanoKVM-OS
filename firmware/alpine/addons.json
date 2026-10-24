@@ -1,5 +1,10 @@
 {
   "packages": {
+    "nanokvm-ipmi-0.1.0-r0.apk": {
+      "url": "https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-ipmi-0.1.0-r0/nanokvm-ipmi-0.1.0-r0.apk",
+      "sha256": "65093c6e7a92211053e5ecb55b2c3e7df996922f0f17ccf86d8025c63ae779ce",
+      "size": 1593607
+    },
     "nanokvm-rustdesk-0.5.5-r0.apk": {
       "url": "https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-0.5.5-r0/nanokvm-rustdesk-0.5.5-r0.apk",
       "sha256": "76f9ff32aa4e25fc86d900513cbe617bf92473e047df8ebf16a4546859b70355",

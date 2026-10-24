@@ -1,9 +1,9 @@
 {
   "packages": {
-    "nanokvm-rustdesk-0.5.5-r0.apk": {
-      "url": "https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-0.5.5-r0/nanokvm-rustdesk-0.5.5-r0.apk",
-      "sha256": "76f9ff32aa4e25fc86d900513cbe617bf92473e047df8ebf16a4546859b70355",
-      "size": 814030
+    "nanokvm-rustdesk-0.5.6-r0.apk": {
+      "url": "https://github.com/dormancygrace/NanoKVM-OS/releases/download/nanokvm-rustdesk-0.5.6-r0/nanokvm-rustdesk-0.5.6-r0.apk",
+      "sha256": "9aa4a41ef76cea17a90da331b6b8faa9bf803bba13e7bae7688a06dcd1a0c662",
+      "size": 825366
     }
   }
 }

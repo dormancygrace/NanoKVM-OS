@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +11,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"NanoKVM-Server/internal/storageidentity"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/remotemedia"
@@ -21,6 +20,8 @@ import (
 )
 
 type remoteSession struct {
+	kind      string
+	cancel    context.CancelFunc
 	name      string
 	size      uint64
 	ws        *websocket.Conn
@@ -31,7 +32,17 @@ type remoteSession struct {
 	mounted   bool // guarded by Service.mu
 }
 
-func (s *remoteSession) close() { s.closeOnce.Do(func() { close(s.closed); s.ws.Close() }) }
+func (s *remoteSession) close() {
+	s.closeOnce.Do(func() {
+		close(s.closed)
+		if s.cancel != nil {
+			s.cancel()
+		}
+		if s.ws != nil {
+			s.ws.Close()
+		}
+	})
+}
 func (s *remoteSession) send(value any) error {
 	s.writes.Lock()
 	defer s.writes.Unlock()
@@ -41,9 +52,9 @@ func (s *remoteSession) send(value any) error {
 func (s *Service) RemoteStatus(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	data := gin.H{"connected": false}
+	data := gin.H{"connected": false, "source": s.remoteKind, "error": s.remoteError}
 	if r := s.remote; r != nil {
-		data = gin.H{"connected": true, "mounted": r.mounted, "name": r.name, "size": r.size, "readBytes": r.readBytes.Load()}
+		data = gin.H{"connected": true, "source": r.kind, "mounted": r.mounted, "name": r.name, "size": r.size, "readBytes": r.readBytes.Load()}
 	}
 	var rsp proto.Response
 	rsp.OkRspWithData(c, data)
@@ -65,7 +76,7 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	if err != nil {
 		return
 	}
-	r := &remoteSession{ws: ws, closed: make(chan struct{})}
+	r := &remoteSession{kind: "browser", ws: ws, closed: make(chan struct{})}
 	defer r.close()
 	stopWatch := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatch()
@@ -95,112 +106,46 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	}
 	r.name = filepath.Base(hello.Name)
 	r.size = hello.Size
-	s.mu.Lock()
-	if s.remote != nil {
-		s.mu.Unlock()
-		fail(errors.New("Browser media is already connected"))
+	if err := s.reserveRemote(r); err != nil {
+		fail(err)
 		return
 	}
-	if s.netboot != nil {
-		s.mu.Unlock()
-		fail(errors.New("Turn off network boot before connecting an ISO"))
-		return
-	}
-	current, err := os.ReadFile(mountDevice)
-	if err != nil {
-		s.mu.Unlock()
-		fail(errors.New("Enable USB mass storage in USB Composition first"))
-		return
-	}
-	if strings.TrimSpace(string(current)) != "" {
-		s.mu.Unlock()
-		fail(errors.New("Unmount the current image first"))
-		return
-	}
-	s.remote = r
-	s.mu.Unlock()
-	defer func() {
-		s.mu.Lock()
-		if s.remote == r {
-			s.remote = nil
-		}
-		s.mu.Unlock()
-	}()
+	defer s.releaseRemote(r, nil)
 	// Keep one reader active even when the host is idle, so disconnect/revocation
 	// immediately tears down the block device. The reader serializes browser requests.
 	_ = ws.SetReadDeadline(time.Now().Add(45 * time.Second))
 	ws.SetPongHandler(func(string) error { return ws.SetReadDeadline(time.Now().Add(45 * time.Second)) })
 	reader := newRemoteReader(r)
-	defer reader.close()
-	device, err := remotemedia.Open(r.size, reader.read)
-	if err != nil {
-		fail(err)
-		return
-	}
-	defer func() {
-		r.close()
-		device.Close() // unblock gadget reads before removing the medium
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		h := hid.GetHid()
-		h.Lock()
-		defer h.Unlock()
-		if data, _ := os.ReadFile(mountDevice); strings.TrimSpace(string(data)) == remotemedia.DevicePath {
-			if err := os.WriteFile(mountDevice, []byte("\n"), 0600); err != nil {
-				// Host prevention of medium removal must not retain disconnected media.
-				_ = os.WriteFile(filepath.Join(filepath.Dir(mountDevice), "forced_eject"), []byte("1"), 0600)
+	// The receiver and the auth watcher still stop browser-owned sessions while
+	// idle. Heartbeats never run on device-owned HTTP image sessions.
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-r.closed:
+				return
+			case <-c.Request.Context().Done():
+				r.close()
+				return
+			case <-ticker.C:
+				if err := ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
+					r.close()
+					return
+				}
 			}
 		}
 	}()
-	// Re-enumerate after insertion, as the existing SD-image mount does.
-	// Hosts cache the SCSI device type, so a CD-ROM/drive switch needs this.
-	s.mu.Lock()
-	h := hid.GetHid()
-	h.Lock()
-	for _, item := range []struct{ path, value string }{{roFlag, "1"}, {cdromFlag, "1"}, {inquiryString, storageidentity.Read(hid.USBFlagsDir).Inquiry("remote")}, {mountDevice, remotemedia.DevicePath}} {
-		if err = os.WriteFile(item.path, []byte(item.value), 0600); err != nil {
-			break
-		}
-	}
-	if err == nil {
-		err = reconnectRemoteUSB()
-	}
-	if err == nil {
-		r.mounted = true
-	}
-	h.Unlock()
-	s.mu.Unlock()
-	if err != nil {
-		fail(fmt.Errorf("Connect remote ISO: %w", err))
-		return
-	}
-	if err = r.send(gin.H{"type": "mounted", "name": r.name, "size": r.size}); err != nil {
-		return
-	}
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-r.closed:
-			return
-		case <-device.Stopped():
-			fail(errors.New("Remote media device disconnected"))
-			return
-		case <-c.Request.Context().Done():
-			return
-		case <-ticker.C:
-			if err = ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
-				return
-			}
-		}
-	}
+	_ = s.serveRemote(r, reader, func() error {
+		return r.send(gin.H{"type": "mounted", "name": r.name, "size": r.size})
+	})
 }
 
 // Reconnect only the controller already bound to this gadget. Keep HID file
 // descriptors synchronized with the disconnect, matching local image mounts.
 // Caller holds the HID lock across LUN insertion and re-enumeration.
 func reconnectRemoteUSB() error {
-	const path = "/sys/kernel/config/usb_gadget/g0/UDC"
+	path := usbGadgetUDC
 	controller, err := os.ReadFile(path)
 	if err != nil {
 		return err

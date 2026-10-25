@@ -1,4 +1,4 @@
-// Package remotemedia serves read-only browser-backed block media.
+// Package remotemedia serves read-only remote block media.
 package remotemedia
 
 import (

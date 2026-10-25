@@ -72,3 +72,48 @@ a block is already in flight. The current browser protocol cannot cancel that
 response without closing the session. Browser disconnect and access revocation
 still close the socket, interrupt pending reads and tear down the NBD device.
 These changes do not alter Ethernet coalescing or NAPI settings.
+
+## HTTP(S)-mounted ISO reads
+
+In **Images → From URL**, enter a direct HTTP or HTTPS URL to an immutable ISO
+and, optionally, HTTP Basic credentials. Enable the USB virtual disk first and
+eject any other image. The server must support byte-range GETs: the device
+probes a real 2 KiB range and requires an exact `206 Content-Range` response.
+Neither HEAD nor an `Accept-Ranges` header alone is sufficient. Every read
+checks the range, total size and body length; compressed responses are rejected.
+The existing optical size/alignment limits apply, including the kernel's DVD
+capability check. This source presents a read-only CD/DVD, not a writable disk.
+
+The device fetches blocks on demand. It retains at most 1 MiB of image data in
+RAM, reusing the same buffer; after two sequential transitions of at least
+64 KiB it fills a window up to 1 MiB. There is no image file, persistent cache
+or full-image download on the SD card. Network availability and latency remain
+part of each uncached read. Each request, including its response body, has a
+10-second timeout; disconnect cancels an outstanding request immediately.
+
+Use a stable, unchanging object for the entire mount. A strong ETag is pinned
+with `If-Match`; otherwise a valid Last-Modified timestamp is pinned with
+`If-Unmodified-Since`. A changed or missing pinned validator or a changed total
+size fails the session. Without a usable validator, same-size content changes
+cannot be detected. Cached blocks are not revalidated on every access.
+
+HTTPS validates the server certificate. Redirects are bounded, cannot downgrade
+HTTPS to HTTP, and do not forward Basic credentials to another origin. URLs
+with embedded credentials are rejected; use the separate fields. URL queries
+and credentials remain in process memory and are omitted from media status,
+source error messages and request-error console diagnostics. HTTP itself does
+not encrypt credentials or image data. LAN servers are supported; only an
+authenticated administrator can create or disconnect a mount.
+
+The HTTP session belongs to the device and survives closing the page, signing
+out, or closing the browser. Disconnect it from **Images** when finished.
+Restarting the server/device, disabling USB storage, ejecting the medium, or a
+source read failure ends the session. A failed source is detached and its error
+appears in media status; there is no automatic reconnection to possibly changed
+content. Startup cleanup only ejects a stale NBD backing when both its ownership
+lock and kernel PID show that it is unused. Local images, browser ISO, HTTP ISO
+and network boot share one exclusive virtual medium.
+
+This URL source supports HTTP(S). SMB, SFTP and remote NBD URLs are not supported.
+The source interface separates block reads from the common local NBD/USB
+lifecycle, while browser media keeps its own WebSocket buffering and prefetch.

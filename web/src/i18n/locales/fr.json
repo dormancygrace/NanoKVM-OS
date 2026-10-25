@@ -578,11 +578,13 @@
       "disconnectFailed": "Impossible de déconnecter l'ISO. Réessayez.",
       "source": "Source de l’image",
       "url": "Depuis une URL",
-      "urlHint": "Montez une ISO via HTTP(S) comme CD/DVD en lecture seule sans l’enregistrer sur la carte SD. Le serveur doit prendre en charge les plages d’octets. Vous pouvez fermer cette page ; déconnectez l’image après utilisation. Le redémarrage de NanoKVM la déconnecte.",
+      "urlHint": "Montez un ISO via HTTP(S) ou SMB comme CD/DVD en lecture seule sans le copier sur la carte SD. Le serveur HTTP doit prendre en charge les plages d’octets. Pour SMB : smb://server/share/image.iso. Vous pouvez fermer cette page ; déconnectez l’image après utilisation. Redémarrer NanoKVM la déconnecte.",
       "urlAddress": "URL de l’image",
       "username": "Nom d’utilisateur",
       "password": "Mot de passe",
-      "credentialsHint": "Authentification HTTP Basic (facultative)"
+      "credentialsHint": "Authentification HTTP Basic (facultative)",
+      "smbCredentialsHint": "Compte SMB2/3 (nom d’utilisateur requis ; domaine facultatif)",
+      "domain": "Domaine (facultatif)"
     },
     "title": "Images",
     "loading": "Chargement",

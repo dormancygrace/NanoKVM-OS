@@ -297,11 +297,13 @@
       "connectFailed": "ISO nebylo možné připojit. Zkontrolujte připojení k zařízení a zkuste to znovu.",
       "source": "Zdroj obrazu",
       "url": "Z URL",
-      "urlHint": "Připojte ISO přes HTTP(S) jako CD/DVD jen pro čtení bez ukládání na SD kartu. Server musí podporovat rozsahy bajtů. Tuto stránku můžete zavřít; po použití obraz odpojte. Restart NanoKVM obraz odpojí.",
+      "urlHint": "Připojte ISO přes HTTP(S) nebo SMB jako CD/DVD pouze pro čtení bez ukládání na SD kartu. HTTP server musí podporovat rozsahy bajtů. Pro SMB použijte smb://server/share/image.iso. Tuto stránku můžete zavřít; po dokončení obraz odpojte. Restart NanoKVM jej odpojí.",
       "urlAddress": "URL obrazu",
       "username": "Uživatelské jméno",
       "password": "Heslo",
-      "credentialsHint": "Ověření HTTP Basic (volitelné)"
+      "credentialsHint": "Ověření HTTP Basic (volitelné)",
+      "smbCredentialsHint": "Účet SMB2/3 (uživatelské jméno je povinné; doména je volitelná)",
+      "domain": "Doména (volitelné)"
     },
     "cdrom": "CD/DVD",
     "forceEject": "Vynutit vysunutí",

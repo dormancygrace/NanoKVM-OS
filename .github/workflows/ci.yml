@@ -40,6 +40,8 @@ jobs:
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
+      - name: Signed and encrypted SMB media
+        run: bash ../tests/test-remote-smb.sh
 
   web:
     name: Web UI

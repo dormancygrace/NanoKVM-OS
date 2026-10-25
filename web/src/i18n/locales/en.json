@@ -578,11 +578,13 @@
       "disconnectFailed": "Could not disconnect the ISO. Try again.",
       "source": "Image source",
       "url": "From URL",
-      "urlHint": "Mount an HTTP(S) ISO as a read-only CD/DVD without saving it to the SD card. The server must support byte ranges. You can close this page; disconnect the image when finished. Restarting NanoKVM disconnects it.",
+      "urlHint": "Mount an HTTP(S) or SMB ISO as a read-only CD/DVD without saving it to the SD card. HTTP servers must support byte ranges. For SMB, use smb://server/share/image.iso. You can close this page; disconnect the image when finished. Restarting NanoKVM disconnects it.",
       "urlAddress": "Image URL",
       "username": "Username",
       "password": "Password",
-      "credentialsHint": "HTTP Basic authentication (optional)"
+      "credentialsHint": "HTTP Basic authentication (optional)",
+      "smbCredentialsHint": "SMB2/3 account (username required; domain optional)",
+      "domain": "Domain (optional)"
     },
     "title": "Images",
     "loading": "Loading…",

@@ -17,6 +17,7 @@ func storageRouter(r *gin.Engine) {
 	api.GET("/storage/remote", service.RemoteStatus)
 	api.GET("/storage/remote/connect", service.ConnectRemote)
 	api.POST("/storage/remote/http", service.ConnectHTTP)
+	api.POST("/storage/remote/smb", service.ConnectSMB)
 	api.POST("/storage/remote/disconnect", service.DisconnectRemote)
 	api.GET("/storage/image", service.GetImages)                 // get image list
 	api.GET("/storage/image/mounted", service.GetMountedImage)   // get mounted image

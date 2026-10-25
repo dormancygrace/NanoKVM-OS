@@ -122,7 +122,7 @@ func (s *Service) serveRemote(r *remoteSession, source remotemedia.Source, mount
 			default:
 			}
 		}
-		if err == nil && r.kind == "http" {
+		if err == nil && r.kind != "browser" {
 			r.readBytes.Add(uint64(len(data)))
 		}
 		return data, err
@@ -204,23 +204,55 @@ func (s *Service) ConnectHTTP(c *gin.Context) {
 		rsp.ErrRsp(c, -1, err.Error())
 		return
 	}
+	s.connectRemoteURL(c, "http", func(ctx context.Context) (remotemedia.Source, string, uint64, error) {
+		source, err := remotemedia.OpenHTTP(ctx, req)
+		if err != nil {
+			return nil, "", 0, err
+		}
+		return source, source.Name, source.Size, nil
+	})
+}
+
+func (s *Service) ConnectSMB(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 8192)
+	var req remotemedia.SMBOptions
+	var rsp proto.Response
+	if err := c.ShouldBindJSON(&req); err != nil {
+		rsp.ErrRsp(c, -1, "Invalid SMB image options")
+		return
+	}
+	if err := remotemedia.ValidateSMBOptions(req); err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	s.connectRemoteURL(c, "smb", func(ctx context.Context) (remotemedia.Source, string, uint64, error) {
+		source, err := remotemedia.OpenSMB(ctx, req)
+		if err != nil {
+			return nil, "", 0, err
+		}
+		return source, source.Name, source.Size, nil
+	})
+}
+
+func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(context.Context) (remotemedia.Source, string, uint64, error)) {
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &remoteSession{kind: "http", name: "remote.iso", closed: make(chan struct{}), cancel: cancel}
+	r := &remoteSession{kind: kind, name: "remote.iso", closed: make(chan struct{}), cancel: cancel}
 	if err := s.reserveRemote(r); err != nil {
 		r.close()
 		c.JSON(409, gin.H{"code": -2, "msg": err.Error()})
 		return
 	}
 	go func() {
-		source, err := remotemedia.OpenHTTP(ctx, req)
+		source, name, size, err := open(ctx)
 		if err == nil {
 			s.mu.Lock()
-			r.name, r.size = source.Name, source.Size
+			r.name, r.size = name, size
 			s.mu.Unlock()
 			err = s.serveRemote(r, source, nil)
 		}
 		s.releaseRemote(r, err)
 	}()
+	var rsp proto.Response
 	rsp.OkRsp(c)
 }
 

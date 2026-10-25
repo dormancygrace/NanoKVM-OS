@@ -578,11 +578,13 @@
       "disconnectFailed": "ISO を切断できませんでした。もう一度お試しください。",
       "source": "イメージの接続元",
       "url": "URL から",
-      "urlHint": "HTTP(S) の ISO を SD カードに保存せず、読み取り専用 CD/DVD として接続します。サーバーはバイト範囲の要求に対応している必要があります。このページは閉じてもかまいません。使用後はイメージを切断してください。NanoKVM を再起動すると切断されます。",
+      "urlHint": "HTTP(S) または SMB の ISO を、SD カードに保存せず読み取り専用 CD/DVD として接続します。HTTP サーバーはバイト範囲に対応している必要があります。SMB では smb://server/share/image.iso を指定します。このページは閉じても構いません。使用後はイメージを切断してください。NanoKVM の再起動で切断されます。",
       "urlAddress": "イメージの URL",
       "username": "ユーザー名",
       "password": "パスワード",
-      "credentialsHint": "HTTP Basic 認証（任意）"
+      "credentialsHint": "HTTP Basic 認証（任意）",
+      "smbCredentialsHint": "SMB2/3 アカウント（ユーザー名は必須、ドメインは任意）",
+      "domain": "ドメイン（任意）"
     },
     "title": "イメージ",
     "loading": "読み込み中",

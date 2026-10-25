@@ -142,6 +142,74 @@ function find(node, type) {
 }
 const noOp = () => {};
 
+function allNodes(node, type) {
+  if (!node || typeof node !== 'object') return [];
+  return [
+    ...(node.type === type ? [node] : []),
+    ...[node.props?.children].flat(Infinity).flatMap((child) => allNodes(child, type))
+  ];
+}
+
+test('remote URL form selects SMB, requires its username and clears passwords after failure', async () => {
+  const calls = [];
+  const pending = deferred();
+  const h = harness(
+    '../src/pages/desktop/menu/image/remote.tsx',
+    'RemoteImage',
+    {
+      antd: { Button: 'Button', Input: { Password: 'Password' }, Alert: 'Alert' },
+      '@/api/storage.ts': {
+        getRemoteMedia: async () => ({ code: 0, data: { connected: false } }),
+        connectHTTPImage: (options) => {
+          calls.push(['http', options]);
+          return pending.promise;
+        },
+        connectSMBImage: (options) => {
+          calls.push(['smb', options]);
+          return pending.promise;
+        }
+      },
+      '@/lib/service.ts': { getBaseUrl: () => 'https://device' },
+      '@/lib/visible-poll.ts': { pollWhileVisible: () => noOp }
+    },
+    { window: { addEventListener: noOp, removeEventListener: noOp, dispatchEvent: noOp } }
+  );
+  h.render({ isOpen: true, source: 'url', onConnected: noOp });
+  await h.flush();
+  const inputs = () =>
+    allNodes(h.output, 'label')
+      .flatMap((label) => [label.props.children].flat())
+      .filter((n) => n?.props?.onChange);
+  inputs()[0].props.onChange({ target: { value: 'smb://nas/images/test.iso' } });
+  h.render();
+  assert.equal(find(h.output, 'Button').props.disabled, true);
+  inputs()[1].props.onChange({ target: { value: 'reader' } });
+  h.render();
+  // Domain follows the username, and Password is the final field.
+  inputs()[2].props.onChange({ target: { value: 'OFFICE' } });
+  find(h.output, 'Password').props.onChange({ target: { value: 'private-password' } });
+  h.render();
+  assert.equal(find(h.output, 'Button').props.disabled, false);
+  const connecting = find(h.output, 'Button').props.onClick();
+  assert.deepEqual(calls, [
+    [
+      'smb',
+      {
+        url: 'smb://nas/images/test.iso',
+        username: 'reader',
+        password: 'private-password',
+        domain: 'OFFICE'
+      }
+    ]
+  ]);
+  pending.reject(new Error('network offline'));
+  await connecting;
+  await h.flush();
+  assert.equal(find(h.output, 'Password').props.value, '');
+  assert.equal(find(h.output, 'Alert').props.message, 'en:image.remote.connectFailed');
+  h.unmount();
+});
+
 function scriptHarness() {
   const calls = [];
   const h = harness('../src/pages/desktop/menu/script/run.tsx', 'Run', {

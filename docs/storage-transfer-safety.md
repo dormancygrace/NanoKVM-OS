@@ -114,6 +114,37 @@ content. Startup cleanup only ejects a stale NBD backing when both its ownership
 lock and kernel PID show that it is unused. Local images, browser ISO, HTTP ISO
 and network boot share one exclusive virtual medium.
 
-This URL source supports HTTP(S). SMB, SFTP and remote NBD URLs are not supported.
+URL sources support HTTP(S) and SMB2/3. FTP, SFTP and remote NBD URLs are not supported.
 The source interface separates block reads from the common local NBD/USB
 lifecycle, while browser media keeps its own WebSocket buffering and prefetch.
+
+## SMB-mounted ISO reads
+
+In **Images → From URL**, enter `smb://server/share/path/image.iso`, a username,
+password and, if needed, a separate domain. A nonstandard TCP port is supported:
+`smb://server:1445/share/image.iso`. Do not embed credentials in the URL. The
+server opens only that file for reading; it does not browse or mount the share.
+The same optical size limits and device-owned lifetime described above apply.
+
+SMB support is built into the main Go server and connects only on request.
+It does not install or start Samba, invoke `mount.cifs`, or load a CIFS/SMB kernel
+module. `CONFIG_CIFS` and `CONFIG_SMB_SERVER` remain disabled. The existing NBD
+module is still used for USB virtual media, as with browser and HTTP images.
+
+The client negotiates SMB2/3 with NTLMv2 authentication and requires message
+signing. Shares requiring SMB3 encryption are supported; signing alone does
+not encrypt the image. SMB1, guest/anonymous access, Kerberos and DFS referrals
+are not supported by this interface. Credentials are held in process memory,
+not saved as settings or files, and excluded from status and error messages.
+
+Keep the ISO unchanged for the whole session. File size and modification time
+are checked before each uncached read; an image changed while preserving both
+values cannot be detected. Cached blocks are not revalidated. Sequential reads
+use the same adaptive 1 MiB RAM window as HTTP, in addition to the SMB client's
+bounded protocol buffers. No image data is cached on the SD card. Opening and
+each uncached read have a 10-second deadline; disconnect closes the connection
+and interrupts pending I/O. Errors detach the medium without reconnecting.
+
+SMB signing and especially encryption consume CPU on SG2002. Throughput depends
+on the server, network latency, video load and access pattern; 100 Mbit/s Ethernet
+does not imply that encrypted SMB can reach line rate.

@@ -578,11 +578,13 @@
       "disconnectFailed": "Die ISO konnte nicht getrennt werden. Versuchen Sie es erneut.",
       "source": "Abbildquelle",
       "url": "Von URL",
-      "urlHint": "Ein ISO über HTTP(S) als schreibgeschützte CD/DVD einbinden, ohne es auf der SD-Karte zu speichern. Der Server muss Byte-Bereiche unterstützen. Diese Seite kann geschlossen werden; trennen Sie das Abbild nach Gebrauch. Ein Neustart von NanoKVM trennt es.",
+      "urlHint": "Ein ISO über HTTP(S) oder SMB als schreibgeschützte CD/DVD einbinden, ohne es auf der SD-Karte zu speichern. HTTP-Server müssen Byte-Bereiche unterstützen. Für SMB: smb://server/share/image.iso. Diese Seite kann geschlossen werden; trennen Sie das Abbild nach Gebrauch. Ein Neustart von NanoKVM trennt es.",
       "urlAddress": "Abbild-URL",
       "username": "Benutzername",
       "password": "Passwort",
-      "credentialsHint": "HTTP-Basic-Authentifizierung (optional)"
+      "credentialsHint": "HTTP-Basic-Authentifizierung (optional)",
+      "smbCredentialsHint": "SMB2/3-Konto (Benutzername erforderlich; Domäne optional)",
+      "domain": "Domäne (optional)"
     },
     "title": "Bilder",
     "loading": "Lädt...",

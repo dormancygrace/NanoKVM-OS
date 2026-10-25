@@ -87,48 +87,19 @@ vector context.
 
 ## Poly1305
 
-The prepared GOROOT uses `sum_c906_riscv64.s`. The pinned x/crypto v0.57.0
-`sum_riscv64.s` remains unchanged as the reference, and
-`build-tests.py --poly1305-reference` recreates the previous implementation
-with its existing fast unaligned loads in a build overlay.
+The vendored Poly1305 is the x/crypto v0.57.0 code without its riscv64
+assembly. prepare.py adds `sum_riscv64.s` (checked against the v0.57.0 file,
+sha256 `59299b25...dc84b`) with the v0.57.0 build tags, which take its 64x64
+multiplies with `MUL`/`MULHU` instead of the generic `bits.Mul64` code. That
+assembly loads unaligned messages byte by byte; TLS ciphertext starts 5 bytes
+into the record. `riscv_hwprobe` reports fast misaligned scalar access on this
+C906 (and unsupported misaligned vector access, so the ChaCha20 kernel keeps
+byte elements), so prepare.py lets it use 64-bit loads when
+`cpu.RISCV64.HasFastMisaligned` is set (`sum_misaligned_riscv64.go`);
+without it the byte loads remain. `tests/poly1305` compares both paths with
+the generic code for every offset modulo 16.
 
-The C906 implementation folds high products before propagating carries.
-Writing B = 2^64, p = 4*B^2 - 5 and the clamped key as r0 + r1*B,
-r1 is divisible by four. Precompute s1 = 5*(r1 >> 2). For the accumulator
-after adding a message block, form L = h0*r0 + h1*s1 and
-M = h0*r1 + h1*r0 + h2*s1; combine L, M*B and h2*r0*B^2, then
-reduce the remaining high word. There are still ten MUL/MULHU instructions,
-but substantially fewer carry/reduction instructions. The instruction order
-uses the C906's measured wide-multiply issue occupancy and result latency.
-
-Reachable input h2 is at most five before adding a block and seven after it.
-With r0,r1 < 2^60 and s1 < 5*2^58, the high word is below 9*2^60+2.
-The final 5*(high >> 2) addition fits in 64 bits and the output is below 2*p,
-as required by the existing finalizer. No secret-dependent branches or
-memory addresses are added. This is a source-level control-flow property,
-not a new claim about operand-independent hardware multiply timing.
-
-The aligned, fast-misaligned and byte-load paths, partial-block construction
-and public streaming API remain. `cpu.RISCV64.HasFastMisaligned` controls the
-native unaligned loads; the fallback is tested separately. Zero-length input
-returns without touching the state. Forty unreachable padding bytes retain
-the qualified Go 1.27.3 function extent, so surrounding code has identical
-placement in the comparison binaries.
-
-[Qualification results](../../../tests/manual/c906-poly1305/results.md)
-include 27 message sizes, independent big-integer and guard-page checks,
-three-process medians, real TLS 1.2/1.3 Ethernet tests, and a separate stock
-kernel WireGuard baseline. The measured AEAD CPU reduction is about 5–6% at
-1400 bytes and 7–8% at 16 KiB. These are incremental gains over the already
-accelerated NanoKVM code, unlike the older unpatched-Go comparison below.
-
-The Go change does not replace the kernel Poly1305 used by WireGuard.
-Linux uses its own RISC-V Cryptogams/OpenSSL assembly, which already folds
-the r1 products. The Go and kernel ChaCha20 implementations share the
-four-vector-plus-one-scalar design but have distinct calling conventions
-and state-management code.
-
-## Earlier baseline results
+## Results
 
 Device, by thread CPU time (MB/s, medians of 7 interleaved runs of 5 rounds,
 with video streaming in the background), base = unpatched GOROOT:

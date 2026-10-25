@@ -7,7 +7,7 @@ modified. Cross-check tests that need the riscv64 implementation hooks are
 only added when the GOROOT contains them.
 """
 from pathlib import Path
-import argparse, hashlib, json, os, subprocess, tempfile
+import argparse, json, os, subprocess, tempfile
 
 PACKAGES = ['chacha20', 'chacha20poly1305', 'internal/poly1305']
 
@@ -16,7 +16,6 @@ parser.add_argument('--goroot', type=Path, required=True)
 parser.add_argument('--xcrypto', type=Path, required=True, help='extracted golang.org/x/crypto module with its tests')
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--gocache', type=Path)
-parser.add_argument('--poly1305-reference', action='store_true', help='compare the pinned upstream Poly1305 with existing fast unaligned loads')
 args = parser.parse_args()
 here = Path(__file__).resolve().parent
 goroot = args.goroot.absolute()
@@ -30,23 +29,6 @@ for pkg in PACKAGES:
     for f in sorted((here / 'tests' / Path(pkg).name).glob('*_test.go')):
         if f.name.endswith('_bench_test.go') or hooks:
             overlay[str(target / f.name)] = str(f)
-if args.poly1305_reference:
-    if not (goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/sum_misaligned_riscv64.go').exists():
-        parser.error('--poly1305-reference requires a prepared NanoKVM GOROOT')
-    reference = (here / 'sum_riscv64.s').read_text()
-    pin = json.loads((here.parent / 'sysmon-runtime/go-source-pin.json').read_text())
-    if hashlib.sha256(reference.encode()).hexdigest() != pin['x_crypto_v0.57.0_sum_riscv64_s_sha256']:
-        parser.error('Poly1305 reference differs from the pinned upstream source')
-    anchor = '\tAND\t$7, X6, X28\n'
-    assert reference.count(anchor) == 1
-    reference = reference.replace(anchor, anchor +
-        '\tMOVBU\t·useMisalignedLoads(SB), X29\n'
-        '\tBEQZ\tX29, alignment_checked\n'
-        '\tMOV\t$0, X28\n\n'
-        'alignment_checked:\n')
-    reference_path = args.output / 'poly1305-reference_riscv64.s'
-    reference_path.write_text(reference)
-    overlay[str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/sum_riscv64.s')] = str(reference_path.absolute())
 env = dict(os.environ, GOROOT=str(goroot), GOTOOLCHAIN='local', GOOS='linux', GOARCH='riscv64',
            GORISCV64='rva20u64', CGO_ENABLED='0', GOFLAGS='')
 if args.gocache:

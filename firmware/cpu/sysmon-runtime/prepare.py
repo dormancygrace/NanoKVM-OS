@@ -71,7 +71,7 @@ vendor_files = [f'{chacha}/chacha_noasm.go', f'{chacha}/chacha_generic.go']
 for name, pkg in [('chacha_riscv64.go', chacha), ('chacha_riscv64.s', chacha)]:
     shutil.copyfile(crypto / name, out / 'src' / pkg / name)
     vendor_files.append(f'{pkg}/{name}')
-# Poly1305: keep the pinned upstream reference, install the C906 reduction.
+# Poly1305: the riscv64 assembly of x/crypto v0.57.0 with its build tags.
 poly = 'vendor/golang.org/x/crypto/internal/poly1305'
 materialize(poly)
 if sha256(crypto / 'sum_riscv64.s') != pin['x_crypto_v0.57.0_sum_riscv64_s_sha256']:
@@ -79,8 +79,16 @@ if sha256(crypto / 'sum_riscv64.s') != pin['x_crypto_v0.57.0_sum_riscv64_s_sha25
 edit(f'{poly}/mac_noasm.go', '(!amd64 && !loong64 && !ppc64le && !ppc64 && !s390x)',
      '(!amd64 && !loong64 && !ppc64le && !ppc64 && !riscv64 && !s390x)')
 edit(f'{poly}/sum_asm.go', '(amd64 || loong64 || ppc64 || ppc64le)', '(amd64 || loong64 || ppc64 || ppc64le || riscv64)')
-shutil.copyfile(crypto / 'sum_c906_riscv64.s', out / 'src' / poly / 'sum_riscv64.s')
-shutil.copyfile(crypto / 'sum_misaligned_riscv64.go', out / 'src' / poly / 'sum_misaligned_riscv64.go')
+for name in ['sum_riscv64.s', 'sum_misaligned_riscv64.go']:
+    shutil.copyfile(crypto / name, out / 'src' / poly / name)
+# Unaligned messages (TLS ciphertext) take 64-bit loads where they are fast.
+edit(f'{poly}/sum_riscv64.s', '\tAND\t$7, X6, X28\n',
+     '\tAND\t$7, X6, X28\n'
+     '\tMOVBU\t·useMisalignedLoads(SB), X29\n'
+     '\tBEQZ\tX29, alignment_checked\n'
+     '\tMOV\t$0, X28\t\t// NanoKVM: no byte loads\n'
+     '\n'
+     'alignment_checked:\n')
 vendor_files += [f'{poly}/mac_noasm.go', f'{poly}/sum_asm.go', f'{poly}/sum_riscv64.s', f'{poly}/sum_misaligned_riscv64.go']
 # Short substring search without Rabin-Karp (go-bytes-index): where Index
 # falls back to Rabin-Karp, a sep of at most 255 bytes uses Horspool.

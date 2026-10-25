@@ -184,6 +184,7 @@ jobs:
           - server/third_party/pion-ice
           - server/third_party/pion-srtp
           - firmware/crypto/experimental/sg2002-crypto-all/ghash-go
+          - tests/manual/c906-poly1305/wireguard
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -196,6 +197,11 @@ jobs:
       - run: go build ./...
       - name: Test
         run: go test -timeout 5m ./...
+      - name: Cross-build WireGuard measurement endpoints
+        if: matrix.directory == 'tests/manual/c906-poly1305/wireguard'
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o "$RUNNER_TEMP/wg-client.exe" client_windows.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o "$RUNNER_TEMP/wg-server" server_linux.go
 
   rustdesk:
     name: RustDesk host tests

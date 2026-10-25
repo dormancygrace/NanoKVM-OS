@@ -71,4 +71,8 @@ Read-ahead improves sustained ISO transfers but can add latency to a seek while
 a block is already in flight. The current browser protocol cannot cancel that
 response without closing the session. Browser disconnect and access revocation
 still close the socket, interrupt pending reads and tear down the NBD device.
-These changes do not alter Ethernet coalescing or NAPI settings.
+These reader changes do not alter Ethernet coalescing or NAPI settings.
+
+Ethernet startup also applies the [SG2002 receive batching policy](ethernet-rx-batching.md).
+It affects the whole physical interface; its throughput and loaded-latency
+tradeoff is separate from the browser reader's buffering and seek behavior.

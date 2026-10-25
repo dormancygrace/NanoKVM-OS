@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -26,10 +25,8 @@ type remoteSession struct {
 	size      uint64
 	ws        *websocket.Conn
 	writes    sync.Mutex
-	responses chan []byte
 	closed    chan struct{}
 	closeOnce sync.Once
-	readID    uint32
 	readBytes atomic.Uint64
 	mounted   bool // guarded by Service.mu
 }
@@ -41,29 +38,6 @@ func (s *remoteSession) send(value any) error {
 	_ = s.ws.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	return s.ws.WriteJSON(value)
 }
-func (s *remoteSession) read(offset uint64, length uint32) ([]byte, error) {
-	s.readID++
-	if err := s.send(gin.H{"type": "read", "id": s.readID, "offset": offset, "length": length}); err != nil {
-		return nil, err
-	}
-	timer := time.NewTimer(15 * time.Second)
-	defer timer.Stop()
-	select {
-	case <-s.closed:
-		return nil, errors.New("browser disconnected")
-	case <-timer.C:
-		s.close()
-		return nil, errors.New("browser read timed out")
-	case data := <-s.responses:
-		if len(data) != int(length)+4 || binary.BigEndian.Uint32(data[:4]) != s.readID {
-			s.close()
-			return nil, errors.New("invalid browser block response")
-		}
-		s.readBytes.Add(uint64(length))
-		return data[4:], nil
-	}
-}
-
 func (s *Service) RemoteStatus(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -91,7 +65,7 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	if err != nil {
 		return
 	}
-	r := &remoteSession{ws: ws, responses: make(chan []byte, 1), closed: make(chan struct{})}
+	r := &remoteSession{ws: ws, closed: make(chan struct{})}
 	defer r.close()
 	stopWatch := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatch()
@@ -153,29 +127,12 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 		s.mu.Unlock()
 	}()
 	// Keep one reader active even when the host is idle, so disconnect/revocation
-	// immediately tears down the block device. Only the NBD worker requests data.
+	// immediately tears down the block device. The reader serializes browser requests.
 	_ = ws.SetReadDeadline(time.Now().Add(45 * time.Second))
 	ws.SetPongHandler(func(string) error { return ws.SetReadDeadline(time.Now().Add(45 * time.Second)) })
-	go func() {
-		defer r.close()
-		for {
-			kind, data, err := ws.ReadMessage()
-			if err != nil {
-				return
-			}
-			if kind != websocket.BinaryMessage || len(data) < 4 {
-				return
-			}
-			select {
-			case r.responses <- data:
-			case <-r.closed:
-				return
-			default:
-				return
-			}
-		}
-	}()
-	device, err := remotemedia.Open(r.size, r.read)
+	reader := newRemoteReader(r)
+	defer reader.close()
+	device, err := remotemedia.Open(r.size, reader.read)
 	if err != nil {
 		fail(err)
 		return

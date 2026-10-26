@@ -187,6 +187,8 @@ for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing',
     elif case == 'park':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
     extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct', 'vi-yuv420') else []
+    if case == 'vpss-demand':
+        extra += ['-Wl,--wrap=access', '-Wl,--wrap=fopen']
     subprocess.run(flags + extra + [str(path) for path in sources] + ['-o', str(binary)], check=True)
     if case == 'hevc-direct':
         for mode in ['switch', 'stride', 'invalid']:

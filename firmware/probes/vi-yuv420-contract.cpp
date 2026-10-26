@@ -2,6 +2,8 @@
 // the H.264 VI-direct path built on it; no hardware.
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
 #include <cassert>
+CVI_S32 CVI_VPSS_DetachVbPool(VPSS_GRP, VPSS_CHN) { abort(); }
+CVI_S32 CVI_VPSS_AttachVbPool(VPSS_GRP, VPSS_CHN, VB_POOL) { abort(); }
 #include <string>
 #include <thread>
 #include <atomic>
@@ -86,7 +88,9 @@ static void start(unsigned w = 1920, unsigned h = 1080) {
     priv.vi_is_inited = false;
 }
 static void reset() {
-    priv = {}; vi_direct[0] = vi_direct[1] = false; vi_frame_from_vi[0] = vi_frame_from_vi[1] = false;
+    priv = {};
+    for (int i = 0; i < MMF_VI_MAX_CHN; ++i) priv.vi_chn_pool_id[i] = VB_INVALID_POOLID;
+    vi_direct[0] = vi_direct[1] = false; vi_frame_from_vi[0] = vi_frame_from_vi[1] = false;
     vi_direct_venc = -1; vi_shared_reader_us[0] = vi_shared_reader_us[1] = 0;
     vi_yuv420_wanted = vi_yuv420_running = vi_yuv420_broken = vi_yuv420_refused = vpss_rate_thins = false;
     param_present = true; param_ignores_writes = false; packed_src = true; setting.clear();

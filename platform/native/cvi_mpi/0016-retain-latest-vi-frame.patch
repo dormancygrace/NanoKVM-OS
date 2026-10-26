@@ -1,0 +1,27 @@
+--- a/sample/common/sample_common_vi.c
++++ b/sample/common/sample_common_vi.c
+@@ -24,6 +24,9 @@
+ #include "cvi_comm_isp.h"
+ #include "sample_comm.h"
+ #include "cvi_isp.h"
++#ifdef NANOKVM_OS
++#include "nanokvm_vi_buffering.h"
++#endif
+ 
+ // default is output YUV420 image
+ VI_CHN_ATTR_S CHN_ATTR_420_SDR8 = {
+@@ -762,6 +765,14 @@
+ 			pstSnsObj   = (ISP_SNS_OBJ_S *)SAMPLE_COMM_ISP_GetSnsObj(u32SnsId);
+ 
+ 			SAMPLE_COMM_VI_GetChnAttrBySns(pstViConfig->astViInfo[i].stSnsInfo.enSnsType, &stChnAttr);
++
++#ifdef NANOKVM_OS
++            /* Set the depth before EnableChn; changing a running VI's
++             * attributes interrupts capture. Match the common source pool. */
++            if (pstViConfig->astViInfo[i].stSnsInfo.enSnsType == LONTIUM_LT6911_2M_60FPS_8BIT)
++                stChnAttr.u32Depth = nanokvm_vi_ready_depth(
++                    stChnAttr.stSize.u32Width, stChnAttr.stSize.u32Height);
++#endif
+ 
+ 			stChnAttr.enDynamicRange = pstViConfig->astViInfo[i].stChnInfo.enDynamicRange;
+ 			stChnAttr.enVideoFormat  = pstViConfig->astViInfo[i].stChnInfo.enVideoFormat;

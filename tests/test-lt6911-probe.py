@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Apply the production sensor patches and execute the complete probe offline."""
+"""Apply the production sensor patches and execute the complete probe."""
+from functools import lru_cache
 import hashlib
 import os
 from pathlib import Path
@@ -7,16 +8,39 @@ import re
 import subprocess
 import tempfile
 import unittest
+from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 REL = "sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c"
 
 
+REVISION = "e2824e1d07f516c41238e123fefbab71a34843bc"
+SOURCE_SHA256 = "225f5b78a51f890a6f8ea3adca92e1644ed644cfdd0cf6061e4bffdaaa1ea1a8"
+SOURCE_URL = f"https://raw.githubusercontent.com/sophgo/SensorSupportList/{REVISION}/{REL}"
+
+
+@lru_cache(maxsize=1)
+def upstream_source():
+    """Use a local download or fetch the pinned vendor file; never vendor it."""
+    lock = (ROOT / "platform/sources.lock").read_text().splitlines()
+    sensor = next(line.split() for line in lock if line.startswith("sensors "))
+    if sensor[2] != REVISION:
+        raise AssertionError("sensor revision changed; refresh the probe fixture pin")
+    local = os.environ.get("NANOKVM_LT6911_SOURCE")
+    if local:
+        data = Path(local).read_bytes()
+    else:
+        with urlopen(SOURCE_URL, timeout=30) as response:
+            data = response.read(1024 * 1024 + 1)
+    if len(data) > 1024 * 1024 or hashlib.sha256(data).hexdigest() != SOURCE_SHA256:
+        raise AssertionError("LT6911 source does not match the pinned SHA-256")
+    return data
+
+
 def patched_sensor(directory):
-    fixture = ROOT / "tests/fixtures/lt6911/lt6911_sensor_ctl.c"
     target = directory / REL
     target.parent.mkdir(parents=True)
-    target.write_bytes(fixture.read_bytes())
+    target.write_bytes(upstream_source())
     for patch in sorted((ROOT / "firmware/sensor/patches").glob("*.patch")):
         # Apply the actual ctl hunks, including earlier error/session patches.
         # Other sensor files have separate cross-build coverage.
@@ -35,7 +59,7 @@ def patched_sensor(directory):
 class ProbeTests(unittest.TestCase):
     def test_pinned_fixture(self):
         # Git blob identity from the pinned, unmodified upstream file.
-        fixture = (ROOT / "tests/fixtures/lt6911/lt6911_sensor_ctl.c").read_bytes()
+        fixture = upstream_source()
         self.assertEqual(hashlib.sha1(b"blob " + str(len(fixture)).encode() + b"\0" + fixture).hexdigest(),
                          "c364820b6ebae8fd5a557d13d95ac9898004b6c7")
 

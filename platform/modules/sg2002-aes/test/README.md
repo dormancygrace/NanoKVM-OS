@@ -1,10 +1,20 @@
-# SG2002 AEAD qualification
+# SG2002 CMAC and AEAD qualification
 
 Build the driver and these test modules against the device's prepared kernel
 and matching configuration, with the repository's kernel CPU profile. Keep
 build output outside the source checkout. Load test modules from RAM on an
 exclusively owned stand, with no active users of the crypto module when replacing
 it. Restore the installed driver afterwards; no installed-file backups are needed.
+
+`sg2002_cmac_test.ko` checks `sg2002-cmac-aes` against the independent AES-CMAC
+library. For example, `insmod sg2002_cmac_test.ko cases=2000 bench_ms=700`
+checks RFC 4493's four vectors in 32 request modes, AES-128/192/256, empty and
+partial blocks, chained scatterlists and virtual input, synchronous and queued
+requests, streaming update/final/finup, export/import into another request,
+invalid keys/state, and four concurrent streams with different keys. Sizes
+cover 4 KiB DMA boundaries through 64 KiB. Successful insertion means all
+checks passed; inspect `cmac_test:` messages and unload afterwards. Setting
+`bench_ms=0` skips the comparison with the software `cmac-aes-lib` provider.
 
 `sg2002_ccm_test.ko` compares the explicitly selected `sg2002-ccm-aes` driver with
 the synchronous software `ccm(aes)` implementation. Its default 3000 cases cover:
@@ -63,3 +73,96 @@ fallback was checked with the same vectors and concurrent streams. Production
 contains no fault-injection switch. A standalone RFC vector increased the AES
 DMA submitted/completed counters by exactly three (two CBC operations and one
 CTR operation); the engine remained unpoisoned during hardware qualification.
+
+## AES-CMAC signing, same stand and fixture
+
+Use the signed, unencrypted `images` share and restrict the Samba fixture to
+`server smb3 signing algorithms = AES-128-CMAC`. Verify full CMAC signing and
+no encryption with `smbstatus -j`. The order was original software, hardware,
+original software, Crypto API software, hardware; each session ran two full
+sequential rounds. The complete reader additionally checked the full 64 MiB
+SHA-256. All five hashes matched. Read sizes, caching and network relays were
+the same as above.
+
+| Signing implementation | Direct CIFS | Complete server source |
+| --- | ---: | ---: |
+| Original CIFS AES library | 6.15–6.20 MiB/s | 5.33–5.80 MiB/s |
+| Crypto API, software CMAC | 5.98–6.18 MiB/s | 5.81 MiB/s |
+| Crypto API, SG2002 CMAC | 9.27–9.60 MiB/s | 8.65–8.72 MiB/s |
+
+The normal server path improves about 50% over software signing. Hardware
+sessions increased both AES DMA counters by 34,594 (direct) and 51,374
+(complete reader); software sessions left them unchanged. The hardware latch
+remained clear. Whole-device busy time was about 90–93% directly and 96%
+through the reader, against 95–96% and 98% with the original software path.
+Random-read latency varied, so no improvement is claimed for it.
+
+Raw 64 KiB CMAC measured 131.4 MiB/s in hardware versus 15.0 MiB/s in software.
+DMA setup dominates small messages: at 64 bytes hardware measured 4.3 MiB/s
+versus 9.4 MiB/s in software. The network results include that overhead for
+SMB requests and metadata; the bulk-read gain must not be generalized to all
+message sizes.
+
+### DMA crossover
+
+`insmod sg2002_cmac_test.ko cases=0 crossover=1 bench_ms=400` measures every
+16-byte size from 16 through 384 bytes, then 512, 768 and 1024 bytes. Run three
+times, unloading between runs. Each size compares both providers with a reused
+key and with a newly allocated transform/key per message, including teardown.
+Both modes allocate the request per message. The latter matches CIFS's current
+cryptographic lifecycle; it excludes filesystem/network processing and SG-list
+construction. Compare paired runs rather than extrapolating from bulk throughput.
+
+Three runs on the same SG2002 found the last consistently slower and first
+consistently faster tested sizes:
+
+| Key/context lifetime | Last DMA loss | First DMA win | Suggested cutoff |
+| --- | ---: | ---: | ---: |
+| Reused key/transform | 160 bytes | 176 bytes | 192 bytes |
+| New transform/key per MAC (CIFS) | 288 bytes | 304 bytes | 320 bytes |
+
+Median full-lifecycle time per signature, in microseconds (lower is better):
+
+| Message bytes | Software | Hardware | Hardware speedup |
+| ---: | ---: | ---: | ---: |
+| 64 | 10.96 | 23.40 | 0.47× |
+| 128 | 14.95 | 23.61 | 0.63× |
+| 256 | 22.64 | 24.28 | 0.93× |
+| 288 | 24.58 | 24.89 | 0.99× |
+| 304 | 25.64 | 24.86 | 1.03× |
+| 320 | 26.36 | 24.93 | 1.06× |
+| 384 | 30.66 | 25.59 | 1.20× |
+| 512 | 38.31 | 26.82 | 1.43× |
+| 1024 | 69.15 | 29.47 | 2.35× |
+
+The 304-byte gain was only 2–5% across individual runs; at 320 bytes it was
+5–8%, and at 384 bytes 19–30%. A 320-byte full-message cutoff is therefore
+reasonable for this CIFS implementation, or 384 bytes for a larger margin.
+This is a CMAC-message crossover, not a universal threshold for individual
+CBC DMA chunks or other crypto algorithms. Key reuse changes the crossover,
+so retest if CIFS starts caching signing transforms. These measurements describe
+the current always-hardware CMAC provider; they do not add automatic size-based
+provider selection.
+
+The hardware driver passed 2000 differential cases and all vector/concurrency
+checks. A separate fault-injection build, used only in RAM, set the poison
+latch and returned `-EIO` after its second CBC operation had completed and
+returned DMA ownership. `expect_failure=1 cases=300 bench_ms=0` checks that
+the failed request cannot emit a tag or export state, an already-started
+unfailed request finishes correctly from its saved CBC chain, and new requests
+use software fallback. The complete fallback run, including vectors and
+concurrency, submitted exactly three AES operations (one subkey ECB and two
+CBC); none occurred after the latch. `expect_failure` belongs only to the test
+module and requires this separately instrumented driver. Production has no
+fault-injection switch. After restoring the production driver, 200 CMAC,
+300 CCM and 1000 GCM regression cases passed with an unpoisoned engine.
+
+On NanoKVM's patched kernel, set `NANOKVM_SMB_TEST_STRICT_SIGNATURES=1` and
+`NANOKVM_SMB_TEST_ADDR` when running `TestSMBRejectModifiedSignature` in the
+`remotemedia` test binary. Its TCP proxy modifies only signature bytes of READ
+and QUERY_INFO responses from the signed fixture. Both must fail, including
+required metadata revalidation after optional share probes. The original CIFS
+module accepted the modified metadata in the negative control; the patch
+preserves signature errors through compound-response handling. Distribution
+CI kernels skip this device-specific check. The real signed/encrypted Samba
+suite also covers deadlines, cancellation, mount restrictions and cleanup.

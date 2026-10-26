@@ -141,12 +141,15 @@ supported. Credentials pass through a private inherited socket and separate
 kernel `fsconfig` values, never command arguments, settings or credential files.
 API status and error messages exclude credentials and the remote address.
 
-Kernel SMB encryption uses the Linux Crypto API. On SG2002, the
+Kernel SMB3 signing and encryption use the Linux Crypto API. On SG2002, the
 `sg2002-gcm-aes` driver accelerates AES-CTR and overlaps it with the optimized
 CPU GHASH. The `sg2002-ccm-aes` driver accelerates both CBC-MAC and CTR, using
-the same shared engine in chunks of at most 4 KiB. Both honor the existing
-hardware-AES setting and software fallback. AES-CMAC signing still uses the
-kernel AES library. Cipher negotiation is unchanged: the CCM driver is selected
+the same shared engine in chunks of at most 4 KiB. The `sg2002-cmac-aes`
+driver accelerates AES-CMAC signing, including subkey derivation and CBC-MAC.
+All three honor the existing hardware-AES setting and software fallback.
+Each CIFS signature calculation owns its transform and key; failed verification
+rejects both read data and compound metadata responses. SMB2.1 HMAC signing
+is unchanged. Cipher negotiation is unchanged: the CCM driver is selected
 when the SMB server and client negotiate CCM; its presence does not force CCM
 on servers which select GCM.
 
@@ -164,14 +167,16 @@ A new reader waits for the previous one to be reaped, so repeated connection
 attempts cannot accumulate stuck processes. Errors detach the medium.
 
 On the SG2002 100 Mbit/s stand, matched 64 MiB source reads measured approximately
-10.8 MiB/s unsigned, 6.2 MiB/s with AES-128-CMAC, 5.2 MiB/s with software
+10.8 MiB/s unsigned, 6.2 MiB/s with software AES-128-CMAC, 5.2 MiB/s with software
 AES-128-GCM and 7.4 MiB/s with the existing GCM accelerator. The previous partial
 CCM path (hardware CTR, software CBC-MAC) measured 5.4 MiB/s. With hardware
 CBC-MAC, repeated direct CIFS reads reached 8.58–8.67 MiB/s for CCM against
 7.43–7.57 MiB/s for GCM. The complete server reader, including its cancellable
 relay and IPC, measured 7.97–8.03 MiB/s with CCM against 6.81–7.04 MiB/s with GCM
-(about 15% faster); full-image SHA-256 matched in every run. Signed reads
-previously measured 5.8 MiB/s. See the [crypto qualification notes](../platform/modules/sg2002-aes/test/README.md).
+(about 15% faster). Hardware AES-CMAC reached 9.27–9.60 MiB/s directly through
+CIFS and 8.65–8.72 MiB/s through the complete reader, versus about 5.8 MiB/s
+for software signing (about 50% faster). Full-image SHA-256 matched in every
+server-reader run. See the [crypto qualification notes](../platform/modules/sg2002-aes/test/README.md).
 These are source benchmarks, not USB-throughput
 guarantees; server latency, video load and access pattern affect actual speed.
 Unsigned mode was used only for comparison; this interface always requires

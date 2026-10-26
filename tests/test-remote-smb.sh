@@ -4,6 +4,8 @@
 # binaries use detached read-only mounts; no host mountpoint or credentials file.
 # On the NanoKVM kernel, also set NANOKVM_SMB_TEST_NLS_REFS=1 to check the
 # mount-failure NLS cleanup patch (distribution CI kernels need not include it).
+# NANOKVM_SMB_TEST_STRICT_SIGNATURES=1 enables the patched-kernel READ/metadata
+# signature corruption checks; run the device test binary against this fixture.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 scratch=$(mktemp -d)

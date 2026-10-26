@@ -68,3 +68,10 @@ no EVP result. It is compiled only for RISC-V64, outside the FIPS module. See
 chunks. OpenSSL owns streaming, padding, digest lengths and software fallback.
 The FIPS module is excluded. See `experimental/openssl-sha256` for qualification;
 the selected 4 KiB threshold and scalar adapter have native qualification.
+
+## AES
+
+`0005-aes-dma.patch` adds ECB/CBC/CTR and the AES-CTR primitive used by GCM.
+OpenSSL retains streaming, padding, GHASH, authentication and TLS handling.
+The shared block helper commits only completed chunks and supports separate
+full-width and GCM counters. See `experimental/openssl-aes` for qualification.

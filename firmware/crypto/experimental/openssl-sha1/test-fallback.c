@@ -28,7 +28,7 @@ int main(void)
         SHA_CTX got,want;memset(&got,0,sizeof got);SHA1_Init(&got);
         got.Nl=0x12345678;got.Nh=7;got.num=13;want=got;calls=opened=closed=0;
         size_t done=ossl_sha1_sg2002(&got,data+off,blocks[z]);assert(done<=blocks[z]&&done%64==0);
-        if(blocks[z]<64)assert(!opened&&!calls&&!closed);
+        if(blocks[z]<128)assert(!opened&&!calls&&!closed);
         else if(fail_after==-2)assert(opened==1&&!calls&&!closed);else assert(opened==1&&closed==1);
         for(size_t n=done;n<blocks[z];n++)SHA1_Transform(&got,data+off+64*n);
         for(size_t n=0;n<blocks[z];n++)SHA1_Transform(&want,data+off+64*n);

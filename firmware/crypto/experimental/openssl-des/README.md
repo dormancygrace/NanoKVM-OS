@@ -18,3 +18,5 @@ It pins host OpenSSL's independent ciphertext fingerprint
 context copies, unaligned/in-place buffers and guards. The host ASan/UBSan run
 passes. Native provider loading, EVP vectors, DMA counters, throughput and RAM
 measurements are pending; no speedup is claimed.
+
+Native C906: the integrated 1944-case block-mode test and upstream DES vectors pass. Three rotated trials found only a small gain at 1 KiB, but DES-CBC decryption at 1536 bytes reached 12.54 versus 8.86 MiB/CPU-s upstream; at 16 KiB, 49.95 versus 9.48. The measured DMA minimum is 1536 bytes. The O3 software core already unrolls all rounds and uses C906 extraction, rotate and indexed-load instructions; no replacement software implementation has been selected.

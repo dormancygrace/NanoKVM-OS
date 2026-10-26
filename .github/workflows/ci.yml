@@ -124,6 +124,8 @@ jobs:
         run: |
           python3 tests/test-lz4-compressor.py
           NANOKVM_SANITIZE=1 python3 tests/test-lz4-compressor.py
+          python3 tests/test-lz4-small-table.py
+          NANOKVM_SANITIZE=1 python3 tests/test-lz4-small-table.py
       - name: Platform Buildroot configuration
         run: python3 tests/test-platform-config.py
       - name: Alpine DHCP gateway integration

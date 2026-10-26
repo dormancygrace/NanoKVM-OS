@@ -1,5 +1,12 @@
 # C906 LZ4 qualification
 
+The candidate generator/probe below is historical and supports only trees with
+legacy `lib/lz4/lz4_compress.c`. It is retired for the imported 1.10 compressor
+and fails before creating output on that layout. Use
+`python3 tests/test-lz4-compressor.py` for the current compression API contract.
+The standalone `zram-bench.c` and its instructions remain usable. Historical
+measurements below do not qualify the new compressor.
+
 These tools generate and test scalar candidates from a supplied Linux tree.
 They build one temporary module against the exact running kernel ABI; they do
 not replace the kernel, ZRAM, compression policy, or production dispatch.

@@ -13,8 +13,17 @@ ALIGNED_WILD_COPY = """
     }
 """
 
+def require_legacy_source(source):
+    source = Path(source)
+    if not (source / 'lib/lz4/lz4_compress.c').is_file():
+        raise ValueError('This historical candidate generator requires the legacy lz4_compress.c layout; '
+                         'it is retired for the LZ4 1.10 compressor. Use tests/test-lz4-compressor.py '
+                         'for current API validation; zram-bench.c remains standalone.')
+
 def generate(source, output):
-    source=Path(source);output=Path(output);output.mkdir(parents=True,exist_ok=True)
+    source=Path(source);output=Path(output)
+    require_legacy_source(source)
+    output.mkdir(parents=True,exist_ok=True)
     original=(source/'lib/lz4/lz4defs.h').read_text()
     api=set()
     for name in ['lz4_compress.c','lz4_decompress.c']:
@@ -97,4 +106,5 @@ def generate(source, output):
 if __name__=='__main__':
     import argparse
     p=argparse.ArgumentParser();p.add_argument('kernel');p.add_argument('output');a=p.parse_args()
-    print(generate(a.kernel,a.output))
+    try: print(generate(a.kernel,a.output))
+    except ValueError as e: p.error(str(e))

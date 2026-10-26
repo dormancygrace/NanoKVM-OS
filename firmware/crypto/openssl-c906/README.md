@@ -66,3 +66,11 @@ See `experimental/openssl-sha1` for fault tests and pending native qualification
 OpenSSL retains streaming, padding, GHASH, authentication and TLS handling.
 The shared block helper commits only completed chunks and supports separate
 full-width and GCM counters. See `experimental/openssl-aes` for qualification.
+
+## DES
+
+`0006-des-dma.patch` enables legacy-provider ECB/CBC with software continuation
+and private raw-key storage. The initial 1 KiB threshold remains unqualified.
+The transport environment check uses a public libc entry point so the separate
+legacy module has no dependency on libcrypto's private symbols. See
+`../experimental/openssl-des` for the shared block-mode EVP reference and limits.

@@ -1,0 +1,96 @@
+--- a/providers/implementations/ciphers/cipher_des.h
++++ b/providers/implementations/ciphers/cipher_des.h
+@@ -23,6 +23,10 @@
+             const DES_key_schedule *, unsigned char *);
+     } dstream;
+ 
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    unsigned char sg2002_key[8];
++#endif
++
+ } PROV_DES_CTX;
+ 
+ const PROV_CIPHER_HW *ossl_prov_cipher_hw_des_cbc(void);
+--- a/providers/implementations/ciphers/cipher_des_hw.c
++++ b/providers/implementations/ciphers/cipher_des_hw.c
+@@ -15,6 +15,9 @@
+ 
+ #include "prov/ciphercommon.h"
+ #include "cipher_des.h"
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++#include "crypto/sg2002.h"
++#endif
+ 
+ static int cipher_hw_des_initkey(PROV_CIPHER_CTX *ctx,
+     const unsigned char *key, size_t keylen)
+@@ -34,6 +37,9 @@
+     }
+ #endif
+     DES_set_key_unchecked(deskey, ks);
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    memcpy(dctx->sg2002_key, key, sizeof(dctx->sg2002_key));
++#endif
+     return 1;
+ }
+ 
+@@ -52,6 +58,16 @@
+ {
+     size_t i, bl = ctx->blocksize;
+     DES_key_schedule *key = &(((PROV_DES_CTX *)ctx)->dks.ks);
++
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    if (len >= 1024) {
++        size_t done = ossl_sg2002_cipher(SG2002_ALG_DES, SG2002_MODE_ECB, ctx->enc,
++            ((PROV_DES_CTX *)ctx)->sg2002_key, 8, ctx->iv, 8, in, out, len, 1024);
++        in += done;
++        out += done;
++        len -= done;
++    }
++#endif
+ 
+     if (len < bl)
+         return 1;
+@@ -66,6 +82,16 @@
+ {
+     PROV_DES_CTX *dctx = (PROV_DES_CTX *)ctx;
+     DES_key_schedule *key = &(dctx->dks.ks);
++
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    if (len >= 1024) {
++        size_t done = ossl_sg2002_cipher(SG2002_ALG_DES, SG2002_MODE_CBC, ctx->enc,
++            ((PROV_DES_CTX *)ctx)->sg2002_key, 8, ctx->iv, 8, in, out, len, 1024);
++        in += done;
++        out += done;
++        len -= done;
++    }
++#endif
+ 
+     if (dctx->dstream.cbc != NULL) {
+         (*dctx->dstream.cbc)(in, out, len, key, ctx->iv);
+--- a/crypto/sg2002.c
++++ b/crypto/sg2002.c
+@@ -4,14 +4,12 @@
+ #include <fcntl.h>
+ #include <stdatomic.h>
+ #include <stdint.h>
++#include <stdlib.h>
+ #include <string.h>
+ #include <sys/stat.h>
+ #include <sys/ioctl.h>
+ #include <unistd.h>
+ #include <openssl/crypto.h>
+-#ifndef NKOS_SG2002_TEST
+-#include "internal/cryptlib.h"
+-#endif
+ #include "crypto/sg2002.h"
+ 
+ _Static_assert(sizeof(struct sg2002_crypto_request) == 144, "SG2002 request ABI");
+@@ -22,7 +20,7 @@
+ static int disabled;
+ static void init_options(void)
+ {
+-    const char *v = ossl_safe_getenv("NANOKVM_OPENSSL_DMA");
++    const char *v = secure_getenv("NANOKVM_OPENSSL_DMA");
+     disabled = v != NULL && strcmp(v, "off") == 0;
+ }
+ static void fault(int error)

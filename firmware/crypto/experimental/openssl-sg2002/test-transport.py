@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise direct-DMA transport failure semantics with ASan/UBSan on the host."""
 import argparse
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -21,6 +22,15 @@ def added_files(patch):
             files[path] += line[1:]
     return files
 
+def apply_transport_updates(directory):
+    # Exercise the transport after every later per-algorithm patch as shipped.
+    for patch in sorted((ROOT / 'firmware/crypto/openssl-c906').glob('*.patch')):
+        for section in re.split(r'(?m)(?=^--- )', patch.read_text()):
+            if section.startswith('--- a/crypto/sg2002.c\n'):
+                subprocess.run(['patch', '--batch', '--fuzz=0', '-p1'],
+                               input=section, text=True, cwd=directory,
+                               stdout=subprocess.DEVNULL, check=True)
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--no-sanitizers', action='store_true')
@@ -36,6 +46,7 @@ def main():
             dest = d / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(text)
+        apply_transport_updates(d)
         flags = [] if a.no_sanitizers else ['-fsanitize=address,undefined']
         binary = d / 'test'
         subprocess.run(['cc', '-O1', '-g', '-Wall', '-Wextra', '-Werror', *flags,

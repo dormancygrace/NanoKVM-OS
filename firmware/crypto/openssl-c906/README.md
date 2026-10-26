@@ -74,3 +74,9 @@ and private raw-key storage. The initial 1 KiB threshold remains unqualified.
 The transport environment check uses a public libc entry point so the separate
 legacy module has no dependency on libcrypto's private symbols. See
 `../experimental/openssl-des` for the shared block-mode EVP reference and limits.
+
+## Triple DES
+
+`0007-tdes-dma.patch` covers ECB/CBC with two or three keys, preserving upstream
+stream state and fallback. Its 1 KiB candidate minimum needs native validation;
+see `../experimental/openssl-tdes`.

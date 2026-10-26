@@ -1,0 +1,80 @@
+--- a/providers/implementations/ciphers/cipher_tdes.h
++++ b/providers/implementations/ciphers/cipher_tdes.h
+@@ -26,6 +26,9 @@
+         void (*cbc)(const void *, void *, size_t,
+             const DES_key_schedule *, unsigned char *);
+     } tstream;
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    unsigned char sg2002_key[24];
++#endif
+     OSSL_FIPS_IND_DECLARE
+ 
+ } PROV_TDES_CTX;
+--- a/providers/implementations/ciphers/cipher_tdes_hw.c
++++ b/providers/implementations/ciphers/cipher_tdes_hw.c
+@@ -15,6 +15,9 @@
+ 
+ #include "prov/ciphercommon.h"
+ #include "cipher_tdes.h"
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++#include "crypto/sg2002.h"
++#endif
+ 
+ #define ks1 tks.ks[0]
+ #define ks2 tks.ks[1]
+@@ -41,6 +44,9 @@
+     DES_set_key_unchecked(&deskey[0], &tctx->ks1);
+     DES_set_key_unchecked(&deskey[1], &tctx->ks2);
+     DES_set_key_unchecked(&deskey[2], &tctx->ks3);
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    memcpy(tctx->sg2002_key, key, 24);
++#endif
+     return 1;
+ }
+ 
+@@ -58,6 +64,16 @@
+     const unsigned char *in, size_t inl)
+ {
+     PROV_TDES_CTX *tctx = (PROV_TDES_CTX *)ctx;
++
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    if (inl >= 1024) {
++        size_t done = ossl_sg2002_cipher(SG2002_ALG_TDES, SG2002_MODE_CBC, ctx->enc,
++            tctx->sg2002_key, ctx->keylen, ctx->iv, 8, in, out, inl, 1024);
++        in += done;
++        out += done;
++        inl -= done;
++    }
++#endif
+ 
+     if (tctx->tstream.cbc != NULL) {
+         (*tctx->tstream.cbc)(in, out, inl, tctx->tks.ks, ctx->iv);
+@@ -83,6 +99,16 @@
+     size_t i;
+     PROV_TDES_CTX *tctx = (PROV_TDES_CTX *)ctx;
+ 
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    if (len >= 1024) {
++        size_t done = ossl_sg2002_cipher(SG2002_ALG_TDES, SG2002_MODE_ECB, ctx->enc,
++            tctx->sg2002_key, ctx->keylen, ctx->iv, 8, in, out, len, 1024);
++        in += done;
++        out += done;
++        len -= done;
++    }
++#endif
++
+     if (len < DES_BLOCK_SIZE)
+         return 1;
+ 
+--- a/providers/implementations/ciphers/cipher_tdes_default_hw.c
++++ b/providers/implementations/ciphers/cipher_tdes_default_hw.c
+@@ -41,6 +41,9 @@
+     DES_set_key_unchecked(&deskey[0], &tctx->ks1);
+     DES_set_key_unchecked(&deskey[1], &tctx->ks2);
+     memcpy(&tctx->ks3, &tctx->ks1, sizeof(tctx->ks1));
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    memcpy(tctx->sg2002_key, key, 16);
++#endif
+     return 1;
+ }
+ 

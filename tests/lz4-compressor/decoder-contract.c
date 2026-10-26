@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #define LIMIT 16384
 struct api {
     void *dl;
@@ -20,7 +22,7 @@ struct api {
 };
 static uint64_t checks, cases;
 static const char *library;
-static int off, ml, dict_mode;
+static int off, ml, dict_mode, tail = 12;
 #define CHECK(x)                                                                                   \
     do {                                                                                           \
         checks++;                                                                                  \
@@ -54,10 +56,12 @@ static int block(int prefix, int match, int offset, int *length) {
         int pos = prefix + i, from = pos - offset;
         expected[pos] = offset == 0 ? 0 : from < 0 ? dictionary[4096 + from] : expected[from];
     }
-    input[p++] = 12 << 4;
-    for (int i = 0; i < 12; i++)
+    input[p++] = (tail < 15 ? tail : 15) << 4;
+    if (tail >= 15)
+        extension(tail - 15, &p);
+    for (int i = 0; i < tail; i++)
         input[p++] = expected[prefix + match + i] = (unsigned char)(0xa0 + i);
-    *length = prefix + match + 12;
+    *length = prefix + match + tail;
     return p;
 }
 static unsigned char *fresh(int capacity) {
@@ -149,6 +153,49 @@ static void one(struct api *a) {
         guards(cap);
     }
 }
+/* Read and write limits sit directly against inaccessible pages. */
+static void guarded(struct api *a) {
+    size_t page = (size_t)sysconf(_SC_PAGESIZE), span = LIMIT;
+    unsigned char *src = mmap(NULL, span + 2 * page, PROT_NONE,
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    unsigned char *dst = mmap(NULL, span + 2 * page, PROT_NONE,
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    CHECK(src != MAP_FAILED && dst != MAP_FAILED);
+    CHECK(mprotect(src + page, span, PROT_READ | PROT_WRITE) == 0);
+    CHECK(mprotect(dst + page, span, PROT_READ | PROT_WRITE) == 0);
+    dict_mode = 0;
+    int matches[] = {4, 7, 8, 18, 19, 31, 32, 63, 64, 255, 256, 4096};
+    for (off = 0; off <= 32; off++)
+        for (unsigned j = 0; j < sizeof(matches) / sizeof(matches[0]); j++)
+            for (tail = 12; tail <= 96; tail++) {
+                ml = matches[j];
+                int length, n = block(off ? off : 16, ml, off, &length);
+                unsigned char *in = src + page + span - n;
+                unsigned char *out = dst + page + span - length;
+                memcpy(in, input, n);
+                CHECK(a->safe((char *)in, (char *)out, n, length) == length);
+                CHECK(!memcmp(out, expected, length));
+            }
+    uint32_t random = 0x9062026;
+    for (int i = 0; i < 10000; i++) {
+        random = random * 1664525U + 1013904223U;
+        int n = (int)(random % 512), cap = (int)((random >> 9) % 4097);
+        unsigned char *in = src + page + span - n;
+        unsigned char *out = dst + page + span - cap;
+        for (int j = 0; j < n; j++) {
+            random = random * 1664525U + 1013904223U;
+            in[j] = (unsigned char)(random >> 24);
+        }
+        int got = a->safe((char *)in, (char *)out, n, cap);
+        CHECK(got < 0 || got <= cap);
+    }
+    CHECK(a->safe(NULL, (char *)dst + page, 1, 4096) < 0);
+    CHECK(a->safe((char *)src + page, (char *)dst + page, -1, 4096) < 0);
+    CHECK(a->safe((char *)src + page, (char *)dst + page, 1, -1) < 0);
+    CHECK(munmap(src, span + 2 * page) == 0);
+    CHECK(munmap(dst, span + 2 * page) == 0);
+}
+
 #define LOAD(member, name)                                                                         \
     do {                                                                                           \
         *(void **)(&a.member) = dlsym(a.dl, name);                                                 \
@@ -181,15 +228,20 @@ int main(int argc, char **argv) {
         LOAD(set, "LZ4_setStreamDecode");
         LOAD(cont, "LZ4_decompress_safe_continue");
         LOAD(fastcont, "LZ4_decompress_fast_continue");
-        for (dict_mode = 0; dict_mode < 2; dict_mode++)
-            for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++)
-                for (unsigned j = 0; j < sizeof(lengths) / sizeof(lengths[0]); j++) {
-                    off = offsets[i];
-                    ml = lengths[j];
-                    if (dict_mode && off == 0)
-                        continue;
-                    one(&a);
-                }
+        int tails[] = {12, 64, 96, 255};
+        for (unsigned k = 0; k < sizeof(tails) / sizeof(tails[0]); k++) {
+            tail = tails[k];
+            for (dict_mode = 0; dict_mode < 2; dict_mode++)
+                for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++)
+                    for (unsigned j = 0; j < sizeof(lengths) / sizeof(lengths[0]); j++) {
+                        off = offsets[i];
+                        ml = lengths[j];
+                        if (dict_mode && off == 0)
+                            continue;
+                        one(&a);
+                    }
+        }
+        guarded(&a);
         CHECK(dlclose(a.dl) == 0);
         printf("PASS %s cases=%" PRIu64 " checks=%" PRIu64 "\n", library, cases, checks);
         fflush(stdout);

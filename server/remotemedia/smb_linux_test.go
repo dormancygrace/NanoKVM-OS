@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -84,6 +85,38 @@ func TestSMBHelperProtocol(t *testing.T) {
 	if err := <-done; err == nil {
 		t.Fatal("failed reader stayed alive")
 	}
+}
+
+func TestSMBFailedMountReleasesNLS(t *testing.T) {
+	// The CI host runs its distribution kernel. This extra check qualifies
+	// NanoKVM's kernel patch on the device with the same Samba fixture.
+	if os.Getenv("NANOKVM_SMB_TEST_NLS_REFS") != "1" {
+		t.Skip("requires the patched NanoKVM kernel")
+	}
+	address := os.Getenv("NANOKVM_SMB_TEST_ADDR")
+	if address == "" {
+		t.Fatal("missing Samba fixture")
+	}
+	count := func() string {
+		t.Helper()
+		data, err := os.ReadFile("/sys/module/nls_utf8/refcnt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(data))
+	}
+	before := count()
+	for range 3 {
+		s, err := OpenSMB(context.Background(), SMBOptions{URL: "smb://" + address + "/images/test.iso", Username: "media", Password: "incorrect"})
+		if err == nil {
+			s.Close()
+			t.Fatal("invalid password accepted")
+		}
+	}
+	if after := count(); after != before {
+		t.Fatalf("NLS reference leak: %s -> %s", before, after)
+	}
+	t.Log("NLS reference count unchanged:", before)
 }
 
 func TestSMBMountIsPrivateAndReadOnly(t *testing.T) {

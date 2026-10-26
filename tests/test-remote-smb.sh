@@ -2,6 +2,8 @@
 # A disposable real SMB2/3 peer for the production source and service tests.
 # Docker, Go and a CIFS-capable Linux kernel are required. The privileged test
 # binaries use detached read-only mounts; no host mountpoint or credentials file.
+# On the NanoKVM kernel, also set NANOKVM_SMB_TEST_NLS_REFS=1 to check the
+# mount-failure NLS cleanup patch (distribution CI kernels need not include it).
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 scratch=$(mktemp -d)

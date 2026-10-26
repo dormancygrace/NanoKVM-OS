@@ -172,6 +172,8 @@ jobs:
           for t in tests/test-*.sh; do
             # Needs root for its network namespace; run it by hand (tests/README.md).
             [ "$t" = tests/test-pmtu-netns.sh ] && continue
+            # The Bash SMB fixture runs in the Go server job with Docker/sudo.
+            [ "$t" = tests/test-remote-smb.sh ] && continue
             echo "::group::$t"; sh "$t"; echo "::endgroup::"
           done
 

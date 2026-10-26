@@ -14,9 +14,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"NanoKVM-Server/internal/bmc"
 	"NanoKVM-Server/internal/bmc/redfish"
 	"NanoKVM-Server/internal/oomscore"
+	"NanoKVM-Server/pkg/bmc"
 	"NanoKVM-Server/service/extensions/apkpkg"
 )
 

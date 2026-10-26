@@ -255,6 +255,7 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | Source directory | Contents |
 | --- | --- |
 | `server/`, `web/` | Go application, streaming/API services and React/TypeScript interface |
+| `addons/` | Independently released RustDesk and IPMI add-ons, with their source and packaging |
 | `support/` | Native media/board integration and device tools (`kvm_system`, MMF, `nanokvm_update_edid`) |
 | `firmware/` | Alpine recipes, OpenRC integration, retained SDK inputs and board support |
 | `platform/`, `scripts/` | Pinned platform build, patches, packaging and image generation |

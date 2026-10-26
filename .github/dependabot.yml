@@ -46,6 +46,7 @@ updates:
   - package-ecosystem: gomod
     directories:
       - /server
+      - /addons/ipmi
       - /server/third_party/pion-dtls
       - /server/third_party/pion-ice
       - /server/third_party/pion-srtp
@@ -67,6 +68,8 @@ updates:
     # Updating require versions cannot replace our patched local source trees.
     # Their upstream releases are reported by upstream-watch for a real rebase.
     ignore:
+      # Shared local BMC code follows this checkout, not a published module.
+      - dependency-name: NanoKVM-Server
       - dependency-name: github.com/pion/dtls/v3
       - dependency-name: github.com/pion/ice/v4
       - dependency-name: github.com/pion/srtp/v3

@@ -25,3 +25,5 @@ exports unchanged; generated assembly matches the kernel generator and its
 passes against host OpenSSL. Physical C906 correctness, threshold selection,
 TLS 1.2/1.3 curl, memory and concurrent-video measurements are pending.
 The initial 320-byte threshold is a candidate, not a measured recommendation.
+
+Native C906 first pass: all 1680 cases and per-thread vector-off/on checks pass. Three rotated warm-key AEAD trials measured about 47.35 versus 29.50 MiB/CPU-s for 16 KiB records. A 320-byte vector dispatch lost to software; the candidate threshold is now 640 bytes. The dispatcher checks length before entering the C906 helper, avoiding its stack/setup work for short calls, including the Poly1305-key block. Final measurements of this revised boundary are pending.

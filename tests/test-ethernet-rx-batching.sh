@@ -13,7 +13,7 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-rx-test-') as temp:
     compat=eth/'device/of_node/compatible'
     flush=eth/'gro_flush_timeout';defer=eth/'napi_defer_hard_irqs'
     bins=root/'bin';bins.mkdir()
-    env=dict(os.environ,NANOKVM_RX_NET_CLASS_DIR=str(net))
+    env=dict(os.environ,NANOKVM_RX_NET_CLASS_DIR=str(net),NANOKVM_ETH_RX_BATCHING="1")
     def reset():
         compat.write_bytes(b'sophgo,cv1800b-dwmac\0snps,dwmac-3.70a\0')
         for p in (flush,defer):
@@ -23,6 +23,10 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-rx-test-') as temp:
         return subprocess.run(['sh',str(helper)],env=env|overrides,text=True,capture_output=True)
     def values():return (flush.read_text().strip(),defer.read_text().strip())
     reset()
+    defaults=env.copy();defaults.pop('NANOKVM_ETH_RX_BATCHING')
+    assert subprocess.run(['sh',str(helper)],env=defaults).returncode==0
+    assert values()==('0','0')
+    checks+=1
     assert run().returncode==0
     assert values()==('200000','2')
     before=(flush.stat().st_mtime_ns,defer.stat().st_mtime_ns)
@@ -94,6 +98,10 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-rx-test-') as temp:
         return subprocess.run(['sh',str(R/'kvmapp/system/init.d/S30eth'),'start'],
                               env=networkenv|overrides,text=True,capture_output=True)
     reset()
+    p=start(NANOKVM_ETH_RX_BATCHING='',NANOKVM_ETH_RX_TUNER=str(failhelper))
+    assert p.returncode==0 and values()==('0','0') and 'unavailable' not in p.stderr
+    assert 'udhcpc ' in calls.read_text()
+    checks+=1
     p=start()
     assert p.returncode==0 and values()==('200000','2'),p.stderr
     assert 'ip link set dev eth0 up' in calls.read_text()

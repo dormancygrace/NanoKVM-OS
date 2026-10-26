@@ -96,7 +96,7 @@ start() {
     fi
     "$NANOKVM_IP" link set dev eth0 up
     ethernet_interface || return 1
-    if [ -x "$NANOKVM_ETH_RX_TUNER" ]; then
+    if [ "${NANOKVM_ETH_RX_BATCHING:-0}" = 1 ] && [ -x "$NANOKVM_ETH_RX_TUNER" ]; then
         "$NANOKVM_ETH_RX_TUNER" ||
             echo "Ethernet receive batching unavailable; continuing network setup" >&2
     fi

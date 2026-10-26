@@ -1,8 +1,9 @@
 # Ethernet receive batching
 
 The integrated SG2002 Ethernet MAC can spend a substantial part of the C906
-CPU budget handling interrupts during browser ISO transfers. At Ethernet
-startup, S30eth applies a small software coalescing profile through
+CPU budget handling interrupts during browser ISO transfers. This optional policy is disabled by default because it can increase
+interactive latency under load. When explicitly enabled, Ethernet startup
+applies a software coalescing profile through
 /usr/libexec/nanokvm/ethernet-rx-batching:
 
 | Parameter on eth0 | Value |
@@ -36,18 +37,18 @@ restoration failures are reported too. S30eth logs the tuning failure and
 continues normal address/DHCP setup. Missing optional controls do not prevent
 Ethernet from starting. Disabling Ethernet skips the helper.
 
-To leave this profile disabled after the next boot, add this exported variable
+To opt into this profile after the next boot, add this exported variable
 to /etc/conf.d/nanokvm-network:
 
-    export NANOKVM_ETH_RX_BATCHING=0
+    export NANOKVM_ETH_RX_BATCHING=1
 
-That flag skips applying the policy; it does not undo settings already active
+Omit the variable or set it to `0` to stop applying the policy. This does not undo settings already active
 in the running kernel. To restore the default pair immediately, as root:
 
     printf '0\n' > /sys/class/net/eth0/napi_defer_hard_irqs
     printf '0\n' > /sys/class/net/eth0/gro_flush_timeout
 
-The helper can then be run directly to reapply the policy. For diagnostics,
+The helper can then be run with `NANOKVM_ETH_RX_BATCHING=1` to reapply the policy. For diagnostics,
 NANOKVM_RX_NET_CLASS_DIR selects a private sysfs fixture, and
 NANOKVM_ETH_RX_TUNER overrides the helper path used by S30eth.
 
@@ -120,7 +121,7 @@ A full 256 MiB SHA-256 read and six selected/repeated/EOF range checks passed.
 Hashing runs on Windows and is separate from throughput timing. Kernel,
 installed server and firmware were not replaced by this networking change.
 
-Host tests exercise compatible/unsupported interfaces, opt-out, existing
+Host tests exercise compatible/unsupported interfaces, default-off, explicit opt-in/opt-out, existing
 policies, idempotence, actual write failures, read-back mismatch and rollback,
 normal/disabled/VLAN Ethernet starts, optional-helper failure, and package
 placement. They run in the regular shell-test CI set.

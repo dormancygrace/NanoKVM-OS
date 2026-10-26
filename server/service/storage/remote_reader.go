@@ -13,7 +13,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const remoteSequentialMin = 64 << 10
+const (
+	remoteSequentialMin = 64 << 10
+	remoteReadTimeout   = 15 * time.Second
+)
 
 type remoteReadRequest struct {
 	id     uint32
@@ -29,16 +32,18 @@ type remoteReadResponse struct {
 // socket write before calling read again. Only the prefetch producer can fetch
 // while a window exists, and a seek joins it before issuing another request.
 type remoteReader struct {
-	session   *remoteSession
-	mu        sync.Mutex // serializes read and close, never held by the producer
-	pipe      *remoteReadAhead
-	output    []byte
-	requests  chan remoteReadRequest
-	responses chan remoteReadResponse
-	done      chan struct{}
-	readID    uint32 // owned by fetch; never more than one fetch is active
-	next      uint64
-	streak    uint8
+	session         *remoteSession
+	mu              sync.Mutex // serializes read and close, never held by the producer
+	pipe            *remoteReadAhead
+	prefetchBuffers [remotePrefetchSlots][]byte
+	readTimeout     time.Duration // total NBD read budget, including draining a seek
+	output          []byte
+	requests        chan remoteReadRequest
+	responses       chan remoteReadResponse
+	done            chan struct{}
+	readID          uint32 // owned by fetch; never more than one fetch is active
+	next            uint64
+	streak          uint8
 }
 
 func remoteAligned(n int) []byte {
@@ -49,7 +54,7 @@ func remoteAligned(n int) []byte {
 
 func newRemoteReader(s *remoteSession) *remoteReader {
 	r := &remoteReader{
-		session: s, output: remoteAligned(remotemedia.MaxRead),
+		session: s, output: remoteAligned(remotemedia.MaxRead), readTimeout: remoteReadTimeout,
 		requests:  make(chan remoteReadRequest, 1),
 		responses: make(chan remoteReadResponse, 1), done: make(chan struct{}),
 		next: ^uint64(0),
@@ -124,7 +129,7 @@ func (r *remoteReader) fetch(offset uint64, target []byte) error {
 		s.close()
 		return err
 	}
-	timer := time.NewTimer(15 * time.Second)
+	timer := time.NewTimer(remoteReadTimeout)
 	defer timer.Stop()
 	select {
 	case <-s.closed:
@@ -142,7 +147,7 @@ func (r *remoteReader) fetch(offset uint64, target []byte) error {
 	}
 }
 
-func (r *remoteReader) read(offset uint64, length uint32) ([]byte, error) {
+func (r *remoteReader) read(offset uint64, length uint32) (data []byte, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	select {
@@ -153,6 +158,20 @@ func (r *remoteReader) read(offset uint64, length uint32) ([]byte, error) {
 	if length == 0 || length > remotemedia.MaxRead || offset > r.session.size || uint64(length) > r.session.size-offset {
 		return nil, errors.New("invalid read bounds")
 	}
+	// One deadline covers a queued prefetch, draining it on a seek, sending
+	// the replacement request and receiving its reply. Closing is necessary:
+	// this protocol cannot cancel a response without losing frame alignment.
+	expired := make(chan struct{})
+	timer := time.AfterFunc(r.readTimeout, func() {
+		r.session.close()
+		close(expired)
+	})
+	defer func() {
+		if !timer.Stop() {
+			<-expired // join an expired callback before returning to NBD
+			data, err = nil, errors.New("browser read timed out")
+		}
+	}()
 	if offset == r.next && length >= remoteSequentialMin {
 		if r.streak < 2 {
 			r.streak++

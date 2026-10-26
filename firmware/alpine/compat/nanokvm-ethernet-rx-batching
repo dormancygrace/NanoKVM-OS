@@ -1,7 +1,7 @@
 #!/bin/sh
 # Software IRQ coalescing for the integrated SG2002 Ethernet MAC. The timer
 # stops after two empty polls; this does not enable continuous busy polling.
-[ "${NANOKVM_ETH_RX_BATCHING:-1}" = 1 ] || exit 0
+[ "${NANOKVM_ETH_RX_BATCHING:-0}" = 1 ] || exit 0
 net="${NANOKVM_RX_NET_CLASS_DIR:-/sys/class/net}/eth0"
 [ -r "$net/device/of_node/compatible" ] || exit 0
 tr '\000' '\n' < "$net/device/of_node/compatible" |

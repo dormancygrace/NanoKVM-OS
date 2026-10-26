@@ -122,6 +122,7 @@ var protectedPackages = map[string]bool{
 	"nanokvm-kmod-sg2002":       true,
 	"nanokvm-firmware-sg2002":   true,
 	"nanokvm-zlib":              true,
+	"nanokvm-openssl":           true,
 	"nanokvm-bootloader-sg2002": true,
 }
 

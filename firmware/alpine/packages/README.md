@@ -21,6 +21,7 @@ kmod-sg2002/             lib/modules/<kernel-release>/
 firmware-sg2002/         lib/firmware/ and optional usr/share/ data
 app/                      kvmapp/ and application files below /
 zlib/                     usr/lib/libz.so.1 (zlib-ng) and its license
+openssl/                  OpenSSL command, ABI3 libraries, engines, legacy provider and configuration
 release/                  etc/nanokvm-release, kvmapp/version and build profile metadata
 ```
 
@@ -81,6 +82,34 @@ the dynamic symbols of the built library with `nanokvm-zlib/zlib-1.3.2.symbols`
 (taken from Alpine's `libz.so.1.3.2`) and fails if any is missing. Move the pin
 to the first release that has this API, and refresh the symbol list when
 Alpine moves to a newer zlib.
+
+## OpenSSL runtime
+
+`nanokvm-openssl` replaces Alpine's `openssl`, `libssl3` and `libcrypto3`
+with the unmodified OpenSSL 3.5.9 LTS sources pinned in `platform/sources.lock`.
+It provides their package names and ABI3 SONAMEs, so curl, OpenSSH and apk
+continue to use their existing linkage. The release depends on the selected
+NanoKVM package version; the provided upstream version is tracked separately.
+Alpine development, static and FIPS packages require an exact upstream package
+version and are not supplied by this runtime package.
+
+`scripts/build-openssl.py` uses the shared C906 profile with `-O3`, disables
+compiler vectorization and uses scalar inline memory operations. Upstream
+assembly and runtime CPU dispatch are retained; no NanoKVM crypto assembly,
+CryptoDMA hook or engine activation is added. Alpine's feature switches and
+configuration paths are retained. The package contains the legacy provider and
+built engines, plus the build flags and pinned-source metadata under
+`/usr/share/nanokvm/openssl/`.
+
+The pin follows the OpenSSL 3.5 LTS branch, supported upstream through
+8 April 2030. The provided package revision `r100` selects this runtime over
+Alpine's build of the same upstream release. Updating the source pin must also
+update the provided upstream version in the APKBUILD.
+
+Rollback to a signed release index that predates `nanokvm-openssl` adds an
+exclusion for this package and restores Alpine's OpenSSL in the same APK
+transaction. The solver refuses the transaction if the target release still
+requires `nanokvm-openssl`.
 
 ## Sophgo `devmem` dependency
 

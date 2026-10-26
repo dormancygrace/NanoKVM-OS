@@ -179,7 +179,7 @@ class PackageVersionTests(unittest.TestCase):
         with redirect_stdout(printed):
             pv.main(['reused', '--versions', str(out / 'versions.json'), '--previous', str(previous)])
         lines = printed.getvalue().splitlines()
-        self.assertEqual(len(lines), 12)
+        self.assertEqual(len(lines), len(pv.PACKAGES) - len(pv.ALWAYS))
         self.assertIn('nanokvm-web-3.3.0-r0.apk ' + 'f' * 64, lines)
 
     def test_manifest_records_each_file_and_its_hash(self):

@@ -18,11 +18,11 @@ PROFILE = json.loads(PROFILE_FILE.read_text())
 
 
 def flags(kind='userspace'):
-    if kind not in ('userspace', 'kernel', 'bootloader', 'audio'):
+    if kind not in ('userspace', 'kernel', 'bootloader', 'audio', 'openssl'):
         raise ValueError('Unknown CPU build profile: ' + kind)
     if kind == 'kernel' and PROFILE.get('kernel_lto', 'none') != 'none':
         raise ValueError('Production GCC kernel requires kernel_lto=none')
-    isa_kind = 'userspace' if kind == 'audio' else kind
+    isa_kind = 'userspace' if kind in ('audio', 'openssl') else kind
     result = [PROFILE.get(kind + '_optimization', PROFILE['optimization']),
               '-march=' + PROFILE[isa_kind + '_isa'],
               '-mtune=' + PROFILE['tune'], '-mabi=' + PROFILE[isa_kind + '_abi']]
@@ -35,6 +35,10 @@ def flags(kind='userspace'):
         result.append('-mno-strict-align')
     # Keep handwritten/vendor RVV assembly; disable compiler autovectorization.
     result += ['-fno-tree-vectorize', '-fno-tree-slp-vectorize']
+    if kind == 'openssl':
+        # C906 memcpy and HTTPS measurements favor scalar inlining. Tree
+        # vectorization flags alone do not control inline memory operations.
+        result.append('-mstringop-strategy=scalar')
     return result
 
 
@@ -50,6 +54,8 @@ def validate_flags(actual, kind='userspace'):
         if option not in actual:
             raise ValueError(f'{kind}: missing {option}')
     forbidden = {'-mfence-tso'}
+    if kind == 'openssl':
+        forbidden |= {'-mstringop-strategy=' + value for value in ('auto', 'vector', 'libcall')}
     if '-mno-strict-align' in expected:
         forbidden.add('-mstrict-align')
     forbidden |= {'-ftree-vectorize', '-ftree-loop-vectorize', '-ftree-slp-vectorize'}
@@ -79,7 +85,7 @@ def record(output, compiler, kind='userspace', effective_flags=None):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('kind', choices=('userspace', 'kernel', 'bootloader', 'audio'))
+    p.add_argument('kind', choices=('userspace', 'kernel', 'bootloader', 'audio', 'openssl'))
     p.add_argument('--record', type=Path)
     p.add_argument('--compiler')
     args = p.parse_args()

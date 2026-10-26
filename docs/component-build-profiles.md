@@ -11,17 +11,18 @@ optimization level. These defaults follow measurements on the C906.
 | Source-owned network tools and private musl | GCC -O2 source profile | Compiler vectorization off; stale -Os objects rebuilt |
 | Opus, tinyalsa and usb-audio-capture | GCC -O2 audio profile, float Opus | Compiler vectorization off |
 | zlib-ng (nanokvm-zlib, libz.so.1; static in NanoKVM-Server) | GCC -O2, thead-c906, lp64d, -mno-strict-align, without xtheadvector | Compiler vectorization off; RVV and Zbc code off |
+| OpenSSL 3.5.9 LTS (nanokvm-openssl) | GCC -O3, thead-c906, lp64d | Compiler vectorization and LTO off; scalar inline memory operations; upstream crypto code |
 | liblzma (xz, static in NanoKVM-Server) | GCC -O2, thead-c906, lp64d, without xtheadvector | Compiler vectorization off; the flags do not change its decoder speed (10.5 MB/s with or without) |
 | Optional RustDesk performance build | Rust opt-level=3, scalar XTHead | fat LTO; codegen-units=1 |
 | RustDesk generic release | Existing Rust release profile | Remains available |
-| U-Boot/FIP and official Alpine packages (except zlib) | Existing policies | Outside this optimization change |
+| U-Boot/FIP and official Alpine packages (except zlib and OpenSSL) | Existing policies | Outside this optimization change |
 
 Both C loop vectorization and SLP are explicitly disabled. The userspace ISA
 still includes xtheadvector: existing vendor/intrinsic/assembly implementations
 remain usable. Kernel ISA stays separate from userspace FP/vector ISA.
 
 platform/cpu-profile.json supplies the defaults. The common flags/metadata
-helper accepts userspace, kernel, audio and bootloader. Kbuild is pinned to
+helper accepts userspace, kernel, audio, bootloader and openssl. Kbuild is pinned to
 the GCC compiler and CONFIG_LTO_NONE; the command auditor rejects accidental
 -flto options. Kernel PI/EFI/LZ4 and external JPEG/Realtek Makefiles inherit
 the requested optimizer rather than appending -O2. CVI SYS/GDC and json-c
@@ -63,3 +64,5 @@ emit legacy RVV 0.7.1.
 - Other native components use scalar -O2 as the baseline; not every library
   was timed.
 - Compiler flags do not select hardware AES/SHA or change TLS algorithms.
+
+OpenSSL measurements and reproduction: [C906/OpenSSL 3.5 LTS](../firmware/crypto/experimental/openssl-c906/README.md).

@@ -63,7 +63,7 @@ func TestRunSoftware(t *testing.T) {
 }
 
 func TestSplitApplicationPackagesProtected(t *testing.T) {
-	for _, name := range []string{"nanokvm", "nanokvm-web", "nanokvm-app"} {
+	for _, name := range []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-openssl"} {
 		if err := checkRemovable(name); err == nil {
 			t.Fatalf("%s must remain protected", name)
 		}

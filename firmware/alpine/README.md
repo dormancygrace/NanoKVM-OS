@@ -256,7 +256,7 @@ prerelease installed, **Install stable version** performs a confirmed rollback
 through the detached update helper. APK refreshes and verifies the official
 stable index, requires the complete core set, simulates dependency resolution,
 then installs a temporary `.nanokvm-stable-rollback` virtual package requiring
-exact versions of the thirteen core packages. The helper removes this constraint
+exact versions of the core packages. The helper removes this constraint
 after the transaction. Before installing, it durably registers a small OpenRC
 boot service under `/etc/init.d/nanokvm-rollback-recovery`. After an interrupted
 rollback this service removes the constraint offline, even if the restored

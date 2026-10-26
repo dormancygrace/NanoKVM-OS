@@ -175,3 +175,23 @@ func TestStableRollbackScopeAndPrereleaseDetection(t *testing.T) {
 		}
 	}
 }
+
+func TestStableRollbackBeforeCustomOpenSSL(t *testing.T) {
+	var output []string
+	for _, name := range corePackages {
+		if name != "nanokvm-openssl" {
+			output = append(output, name+"-3.5.0-r0")
+		}
+	}
+	targets, err := stablePackageTargets(strings.Join(output, "\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := " " + strings.Join(targets, " ") + " "
+	if !strings.Contains(joined, " !nanokvm-openssl ") || !strings.Contains(joined, " openssl ") {
+		t.Fatalf("legacy release must atomically restore Alpine OpenSSL: %v", targets)
+	}
+	if _, err = stablePackageTargets(strings.Join(output[1:], "\n")); err == nil {
+		t.Fatal("another missing core component must still reject rollback")
+	}
+}

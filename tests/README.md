@@ -132,7 +132,7 @@ APK migration test inside an Alpine container.
 ### ECDSA release signing
 
 `test-ecdsa-packages.py` runs in the Alpine 3.24 CI container with `alpine-sdk`,
-Python 3, OpenSSL and coreutils. It builds all thirteen APK recipes with small
+Python 3, OpenSSL and coreutils. It builds all fourteen APK recipes with small
 synthetic payloads and temporary keys, verifies signatures directly and through
 apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
 index formats. No production key or device is used; package scripts are retained
@@ -164,3 +164,15 @@ The D live-poll regression injects the reviewed operation-6 failure, then runs
 transitions. It requires zero D writes and no internal E1 identity reads.
 Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
 fault, including no further IO after a failed attempt in the same generation.
+
+### OpenSSL runtime transition
+
+`test-openssl-package.py` uses Alpine 3.24 with alpine-sdk, alpine-keys,
+Python, OpenSSL and coreutils. It builds the real recipe, installs stock
+RISC-V Alpine packages in a disposable root, upgrades to the NanoKVM
+runtime and rolls back to a release that predates it. It verifies library
+ownership, curl/SSH/apk dependencies, configuration preservation and atomic
+rejection of a contradictory rollback. CI uses fixture payloads;
+`--payload PATH` checks a cross-built runtime. No installed host or device
+files are changed. Native C906 benchmark sources and recorded results live
+in `firmware/crypto/experimental/openssl-c906`.

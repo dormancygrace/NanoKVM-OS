@@ -166,13 +166,13 @@ check_mjpeg_rate_pair()
 check_mjpeg_422_survives_path_switch()
 
 for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct',
-             'vi-yuv420']:
+             'vi-yuv420', 'vpss-demand']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
     if case == 'hevc-direct':
         sources = [repo / 'firmware/probes/hevc-direct-contract.cpp']
-    if case == 'vi-yuv420':
-        sources = [repo / 'firmware/probes/vi-yuv420-contract.cpp']
+    if case in ('vi-yuv420', 'vpss-demand'):
+        sources = [repo / f'firmware/probes/{case}-contract.cpp']
     if case == 'teardown':
         sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']
     if case == 'pacing':

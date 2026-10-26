@@ -26,6 +26,8 @@ CVI_S32 CVI_VB_DestroyPool(VB_POOL) { abort(); }
 CVI_S32 CVI_VI_ReleaseChnFrame(VI_PIPE, VI_CHN, const VIDEO_FRAME_INFO_S *) {
     ++releases; return CVI_SUCCESS;
 }
+CVI_S32 SAMPLE_COMM_VI_Bind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { abort(); }
+CVI_S32 SAMPLE_COMM_VI_UnBind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { abort(); }
 CVI_S32 CVI_VI_GetChnAttr(VI_PIPE, VI_CHN, VI_CHN_ATTR_S *) { abort(); }
 CVI_S32 CVI_VPSS_GetChnAttr(VPSS_GRP, VPSS_CHN, VPSS_CHN_ATTR_S *) { abort(); }
 CVI_S32 CVI_VPSS_DisableChn(VPSS_GRP, VPSS_CHN) { abort(); }

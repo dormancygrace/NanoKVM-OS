@@ -36,6 +36,8 @@ static VIDEO_FRAME_INFO_S vi_input, vpss_input;
 static PIXEL_FORMAT_E group_format;
 static int vi_gets, vpss_gets, vi_releases, vpss_releases, sends, enables, disables;
 static const VIDEO_FRAME_INFO_S *sent;
+CVI_S32 SAMPLE_COMM_VI_Bind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { return 0; }
+CVI_S32 SAMPLE_COMM_VI_UnBind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { return 0; }
 CVI_S32 CVI_VI_GetChnAttr(VI_PIPE, VI_CHN, VI_CHN_ATTR_S *a) { *a = {}; a->stSize = priv.vi_size; return 0; }
 CVI_S32 CVI_VPSS_GetChnAttr(VPSS_GRP, VPSS_CHN, VPSS_CHN_ATTR_S *a) { *a = output; return 0; }
 CVI_S32 CVI_VPSS_SetChnAttr(VPSS_GRP, VPSS_CHN, const VPSS_CHN_ATTR_S *a) { output = *a; return 0; }
@@ -92,6 +94,7 @@ static void reset() {
     output = {}; output.enPixelFormat = PIXEL_FORMAT_NV21; output.u32Width = 1920; output.u32Height = 1080;
     output.stFrameRate = {60, 60};
     priv.vi_size = {1920, 1080}; priv.vi_chn_is_inited[0] = true;
+    priv.vpss_chn_enabled[0] = true; priv.vi_source_bound = true;
     vi_input = nv21_frame(); vpss_input = nv21_frame(); vpss_input.stVFrame.u64PhyAddr[0] = 0x9000000;
     vpss_input.stVFrame.u64PhyAddr[1] = 0x9000000 + vpss_input.stVFrame.u32Length[0];
     FILE *f = __real_fopen(param_path, "w"); fputs("N\n", f); fclose(f);

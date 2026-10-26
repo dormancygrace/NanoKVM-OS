@@ -57,6 +57,7 @@ typedef struct {
 	bool vi_chn_stopping[MMF_VI_MAX_CHN];
 	bool vi_chn_disabled[MMF_VI_MAX_CHN];
 	bool vi_source_bound;  // the one VI source is bound to VPSS group 0
+	bool vpss_chn_enabled[MMF_VI_MAX_CHN]; // successful vendor enable/disable state
 	int vi_chn_pool_id[MMF_VI_MAX_CHN];
     int vi_buffers[MMF_VI_MAX_CHN], vi_queue_depth[MMF_VI_MAX_CHN];
 	SIZE_S vi_size;
@@ -521,6 +522,40 @@ static bool _vpss_thins(const VPSS_CHN_ATTR_S *attr)
 		&& attr->stFrameRate.s32DstFrameRate < attr->stFrameRate.s32SrcFrameRate;
 }
 
+// Binding is shared by every VPSS output, including MJPEG and CPU readers.
+// A disabled output still receives a VI reference while bound; the VPSS worker
+// returns it asynchronously even with no work, delaying the VI buffer refill.
+static int _mmf_vi_bind_vpss(bool bind)
+{
+	if (priv.vi_source_bound == bind) return CVI_SUCCESS;
+	const int result = bind ? SAMPLE_COMM_VI_Bind_VPSS(0, 0, 0)
+		: SAMPLE_COMM_VI_UnBind_VPSS(0, 0, 0);
+	if (result == CVI_SUCCESS) priv.vi_source_bound = bind;
+	else SAMPLE_PRT("VI %s VPSS failed: %#x\n", bind ? "bind" : "unbind", result);
+	return result;
+}
+
+static int _mmf_vpss_set_chn_enabled(int ch, bool enable)
+{
+	bool another_enabled = false;
+	for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
+		if (i != ch) another_enabled |= priv.vpss_chn_enabled[i];
+	const bool was_bound = priv.vi_source_bound;
+	// Stop feeding the last output before disabling it. Restore the input
+	// before enabling a consumer; a failed bind leaves its previous path usable.
+	int result = _mmf_vi_bind_vpss(enable || another_enabled);
+	if (result != CVI_SUCCESS) return result;
+	if (priv.vpss_chn_enabled[ch] == enable) return CVI_SUCCESS;
+	result = enable ? CVI_VPSS_EnableChn(0, ch) : CVI_VPSS_DisableChn(0, ch);
+	if (result != CVI_SUCCESS) {
+		// A failed rollback keeps the actual binding state for the next retry.
+		_mmf_vi_bind_vpss(was_bound);
+		return result;
+	}
+	priv.vpss_chn_enabled[ch] = enable;
+	return CVI_SUCCESS;
+}
+
 // Turn VI-direct capture on or off for one VPSS output. On: the output must be
 // NV21 at the VI size without mirror or flip (VPSS would have applied them);
 // its VPSS channel is disabled so a full queue there cannot stall the group.
@@ -541,12 +576,12 @@ static int _mmf_vi_direct_set(int ch, bool on)
 			|| _vpss_thins(&attr)
 			|| attr.u32Width != vi.stSize.u32Width || attr.u32Height != vi.stSize.u32Height)
 			return CVI_FAILURE;
-		const int result = CVI_VPSS_DisableChn(0, ch);
+		const int result = _mmf_vpss_set_chn_enabled(ch, false);
 		if (result != CVI_SUCCESS) return result;
 	} else {
 		// A VI lease still held by an encoder is released by its source tag.
 		if (priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch] && !priv.vi_chn_disabled[ch]) {
-			const int result = CVI_VPSS_EnableChn(0, ch);
+			const int result = _mmf_vpss_set_chn_enabled(ch, true);
 			if (result != CVI_SUCCESS) return result;
 		}
 	}
@@ -1279,12 +1314,15 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 		return CVI_FAILURE;
 	}
 
+	priv.vpss_chn_enabled[VpssChn] = true;
 	return s32Ret;
 }
 
 static CVI_S32 _mmf_vpss_chn_deinit(VPSS_GRP VpssGrp, VPSS_CHN VpssChn)
 {
-	return CVI_VPSS_DisableChn(VpssGrp, VpssChn);
+	const int result = CVI_VPSS_DisableChn(VpssGrp, VpssChn);
+	if (result == CVI_SUCCESS) priv.vpss_chn_enabled[VpssChn] = false;
+	return result;
 }
 
 static CVI_S32 _mmf_vpss_init_new(VPSS_GRP VpssGrp, CVI_U32 width, CVI_U32 height, PIXEL_FORMAT_E format)
@@ -1383,9 +1421,6 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
   if (priv.vi_chn_stopping[i]) return CVI_ERR_VENC_BUSY;
 	uint32_t pool_size_out = 0;
 	int pool_id = -1;
-	// VI has one source channel. The index here selects a VPSS output, not VI.
-	bool another_output = false;
-	for (int i = 0; i < MMF_VI_MAX_CHN; ++i) another_output |= priv.vi_chn_is_inited[i];
 
 	if (!priv.mmf_used_cnt) {
 		printf("%s: maix multi-media or vi not inited\n", __func__);
@@ -1441,8 +1476,8 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
  priv.vi_chn_stopping[ch] = true;
  priv.vi_chn_disabled[ch] = false;
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
- s32Ret = another_output ? CVI_SUCCESS : SAMPLE_COMM_VI_Bind_VPSS(0, 0, 0);
- if (s32Ret == CVI_SUCCESS) priv.vi_source_bound = true;
+ // An existing direct output may have disconnected the shared input.
+ s32Ret = _mmf_vi_bind_vpss(true);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("vi bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
 		goto _need_deinit_vpss_chn;
@@ -1493,25 +1528,16 @@ int mmf_del_vi_channel(int ch) {
  priv.vi_chn_stopping[ch] = true;
  int result = _mmf_release_vi_frame(ch);
  if (result != CVI_SUCCESS) return result;
- if (vi_direct[ch]) {
-  vi_direct[ch] = false; // the VPSS channel is torn down below anyway
-  vi_direct_venc = -1;
- }
- vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
- // VI has one source; it stays bound while another VPSS output is open.
- bool another_output = false;
- for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
-  if (i != ch) another_output |= priv.vi_chn_is_inited[i];
- if (!another_output && priv.vi_source_bound) {
-  result = SAMPLE_COMM_VI_UnBind_VPSS(0, 0, 0);
-  if (result != CVI_SUCCESS) return result;
-  priv.vi_source_bound = false;
- }
  if (!priv.vi_chn_disabled[ch]) {
-  result = _mmf_vpss_chn_deinit(0, ch);
+  result = _mmf_vpss_set_chn_enabled(ch, false);
   if (result != CVI_SUCCESS) return result;
   priv.vi_chn_disabled[ch] = true;
  }
+ if (vi_direct[ch]) {
+  vi_direct[ch] = false;
+  vi_direct_venc = -1;
+ }
+ vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
  result = _destroy_vb_pool(priv.vi_chn_pool_id[ch]);
  if (result != CVI_SUCCESS) return result;
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
@@ -1582,8 +1608,8 @@ int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
 
 int mmf_vi_chn_set_enabled(int ch, int enable) {
     if (!mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
-    if (vi_direct[ch]) return CVI_SUCCESS; // its VPSS channel stays off meanwhile
-    return enable ? CVI_VPSS_EnableChn(0, ch) : CVI_VPSS_DisableChn(0, ch);
+    // Direct readers have no VPSS demand, even when their capture is enabled.
+    return _mmf_vpss_set_chn_enabled(ch, enable && !vi_direct[ch]);
 }
 
 int mmf_vi_drop_pending(int ch) {

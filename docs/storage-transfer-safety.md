@@ -123,28 +123,50 @@ lifecycle, while browser media keeps its own WebSocket buffering and prefetch.
 In **Images → From URL**, enter `smb://server/share/path/image.iso`, a username,
 password and, if needed, a separate domain. A nonstandard TCP port is supported:
 `smb://server:1445/share/image.iso`. Do not embed credentials in the URL. The
-server opens only that file for reading; it does not browse or mount the share.
-The same optical size limits and device-owned lifetime described above apply.
+server opens only that file for reading. The same optical size limits and
+device-owned lifetime described above apply.
 
-SMB support is built into the main Go server and connects only on request.
-It does not install or start Samba, invoke `mount.cifs`, or load a CIFS/SMB kernel
-module. `CONFIG_CIFS` and `CONFIG_SMB_SERVER` remain disabled. The existing NBD
-module is still used for USB virtual media, as with browser and HTTP images.
+SMB is built into the main server using the Linux CIFS client. `CONFIG_CIFS=m`
+ships the module without loading it at boot; the first SMB connection loads it
+on demand. There is no Samba server, plugin, `mount.cifs` or persistent mountpoint.
+The detached share mount is read-only, noexec, nodev and nosuid; symlinks and
+paths escaping the share are rejected. Disconnect releases the file and mount.
+As with NBD, the module may remain loaded after use; other users are not forcibly
+disconnected or unloaded.
 
-The client negotiates SMB2/3 with NTLMv2 authentication and requires message
-signing. Shares requiring SMB3 encryption are supported; signing alone does
-not encrypt the image. SMB1, guest/anonymous access, Kerberos and DFS referrals
-are not supported by this interface. Credentials are held in process memory,
-not saved as settings or files, and excluded from status and error messages.
+The client negotiates SMB2.1 or SMB3 with NTLMv2 and requires message signing.
+Shares requiring SMB3 encryption are supported; signing alone does not encrypt
+the image. SMB1/2.0, guest/anonymous access, Kerberos and DFS referrals are not
+supported. Credentials pass through a private inherited socket and separate
+kernel `fsconfig` values, never command arguments, settings or credential files.
+API status and error messages exclude credentials and the remote address.
+
+Kernel SMB encryption uses the Linux Crypto API. On SG2002, the existing
+`sg2002-gcm-aes` driver accelerates AES-CTR and overlaps it with the optimized
+CPU GHASH. This honors the existing hardware-AES setting and software fallback.
+AES-CMAC signing still uses the kernel AES library. The current CCM path
+accelerates CTR but computes CBC-MAC on the CPU; it is not a fully accelerated
+CCM implementation.
 
 Keep the ISO unchanged for the whole session. File size and modification time
-are checked before each uncached read; an image changed while preserving both
-values cannot be detected. Cached blocks are not revalidated. Sequential reads
-use the same adaptive 1 MiB RAM window as HTTP, in addition to the SMB client's
-bounded protocol buffers. No image data is cached on the SD card. Opening and
-each uncached read have a 10-second deadline; disconnect closes the connection
-and interrupts pending I/O. Errors detach the medium without reconnecting.
+are checked before each uncached read with kernel caching disabled
+(`cache=none,actimeo=0`); changes preserving both values cannot be detected.
+Cached blocks are not revalidated. Sequential reads use an adaptive 1 MiB RAM
+window. No image data is cached on the SD card.
 
-SMB signing and especially encryption consume CPU on SG2002. Throughput depends
-on the server, network latency, video load and access pattern; 100 Mbit/s Ethernet
-does not imply that encrypted SMB can reach line rate.
+An isolated reader process owns kernel filesystem calls. Opening and each
+uncached read have a 10-second deadline. Disconnect closes IPC and the owned TCP relay, then kills the
+reader. The relay leaves SMB and cryptography in CIFS and uses Linux splice
+for forwarding; closing it also interrupts kernel read/close requests.
+A new reader waits for the previous one to be reaped, so repeated connection
+attempts cannot accumulate stuck processes. Errors detach the medium.
+
+On the SG2002 100 Mbit/s stand, matched 64 MiB source reads measured approximately
+10.8 MiB/s unsigned, 6.2 MiB/s with AES-128-CMAC, 5.2 MiB/s with software
+AES-128-GCM and 7.4 MiB/s with the existing GCM accelerator. The current partial
+CCM path measured 5.4 MiB/s. The complete server reader, including its cancellable
+relay and IPC, measured 5.8 MiB/s signed and 6.8–6.9 MiB/s with hardware GCM.
+These are source benchmarks, not USB-throughput
+guarantees; server latency, video load and access pattern affect actual speed.
+Unsigned mode was used only for comparison; this interface always requires
+signing or authenticated encryption.

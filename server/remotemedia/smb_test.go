@@ -3,9 +3,7 @@ package remotemedia
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -45,10 +43,9 @@ func TestSMBReadBoundsCacheAndChange(t *testing.T) {
 	defer f.Close()
 	info, _ := f.Stat()
 	ctx, cancel := context.WithCancel(context.Background())
-	conn, peer := net.Pipe()
-	defer peer.Close()
-	s := &SMBSource{ctx: ctx, cancel: cancel, conn: conn, file: f, Size: uint64(len(data)), mtime: info.ModTime(), buffer: make([]byte, MaxRead), next: ^uint64(0)}
-	s.stop = context.AfterFunc(ctx, func() { conn.Close() })
+	reader := &smbReadFile{file: f, size: uint64(len(data)), mtime: info.ModTime()}
+	s := &SMBSource{ctx: ctx, cancel: cancel, read: reader.read, close: func() {}, Size: reader.size, buffer: make([]byte, MaxRead), next: ^uint64(0)}
+	s.stop = context.AfterFunc(ctx, func() {})
 	defer s.Close()
 	for _, offset := range []uint64{0, 65536, 131072, 196608, 131000, uint64(len(data)) - 65536, 0} {
 		got, err := s.ReadBlock(offset, 65536)
@@ -76,39 +73,10 @@ func TestSMBReadBoundsCacheAndChange(t *testing.T) {
 	}
 }
 
-func TestBoundedSMBFrames(t *testing.T) {
-	for _, size := range []uint32{0, 63, 2*MaxRead + 1, 0x1000040} {
-		conn, peer := net.Pipe()
-		c := &boundedSMBConn{Conn: conn, headerPos: 4}
-		go func() {
-			defer peer.Close()
-			var header [4]byte
-			binary.BigEndian.PutUint32(header[:], size)
-			peer.Write(header[:])
-		}()
-		var header [4]byte
-		if _, err := io.ReadFull(c, header[:]); err == nil {
-			t.Errorf("accepted SMB frame %d", size)
-		}
-		conn.Close()
-	}
-	conn, peer := net.Pipe()
-	defer conn.Close()
-	wire := make([]byte, 0)
-	for _, size := range []uint32{64, 4096, MaxRead + 128} {
-		var header [4]byte
-		binary.BigEndian.PutUint32(header[:], size)
-		wire = append(wire, header[:]...)
-		wire = append(wire, bytes.Repeat([]byte{0x93}, int(size))...)
-	}
-	go func() { defer peer.Close(); peer.Write(wire) }()
-	got, err := io.ReadAll(&boundedSMBConn{Conn: conn, headerPos: 4})
-	if err != nil || !bytes.Equal(got, wire) {
-		t.Fatalf("valid framing corrupted: %v", err)
-	}
-}
-
 func TestSMBCancelNegotiation(t *testing.T) {
+	if os.Getenv("NANOKVM_SMB_TEST_ADDR") == "" {
+		t.Skip("requires the kernel CIFS integration fixture")
+	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +108,7 @@ func TestSMBCancelNegotiation(t *testing.T) {
 }
 
 // Run against a real signed Samba fixture, including an encryption-required
-// share, with NANOKVM_SMB_TEST_ADDR=127.0.0.1:3445. No OS filesystem mount is used.
+// share, with NANOKVM_SMB_TEST_ADDR=127.0.0.1:3445. Requires root/CAP_SYS_ADMIN and a kernel with CIFS and the new mount API.
 func TestSMBIntegration(t *testing.T) {
 	address := os.Getenv("NANOKVM_SMB_TEST_ADDR")
 	if address == "" {
@@ -148,7 +116,7 @@ func TestSMBIntegration(t *testing.T) {
 	}
 	for _, share := range []string{"images", "encrypted"} {
 		t.Run(share, func(t *testing.T) {
-			o := SMBOptions{URL: "smb://" + address + "/" + share + "/test.iso", Username: "media", Password: "nano-fixture", Domain: "WORKGROUP"}
+			o := SMBOptions{URL: "smb://" + address + "/" + share + "/test.iso", Username: "media", Password: "nano-fixture", Domain: ""}
 			s, err := OpenSMB(context.Background(), o)
 			if err != nil {
 				t.Fatal(err)
@@ -169,6 +137,7 @@ func TestSMBIntegration(t *testing.T) {
 					}
 				}
 			}
+			s.Close()
 			o.Password = "incorrect"
 			if bad, err := OpenSMB(context.Background(), o); err == nil {
 				bad.Close()

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # A disposable real SMB2/3 peer for the production source and service tests.
-# Docker and Go are required. Nothing is mounted through the host's CIFS driver.
+# Docker, Go and a CIFS-capable Linux kernel are required. The privileged test
+# binaries use detached read-only mounts; no host mountpoint or credentials file.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 scratch=$(mktemp -d)
@@ -42,4 +43,11 @@ if [[ "$ready" != true ]]; then
     exit 1
 fi
 cd "$root/server"
-NANOKVM_SMB_TEST_ADDR="$address" go test -tags teststub,nomsgpack -race -count=1 ./remotemedia ./service/storage
+runner=()
+if (( EUID != 0 )); then runner=(sudo -n); fi
+"${runner[@]}" modprobe cifs
+for package in remotemedia service/storage; do
+    binary="$scratch/${package##*/}.test"
+    go test -tags teststub,nomsgpack -race -c -o "$binary" "./$package"
+    "${runner[@]}" env NANOKVM_SMB_TEST_ADDR="$address" "$binary" -test.run TestSMB -test.count=1 -test.timeout=2m -test.v
+done

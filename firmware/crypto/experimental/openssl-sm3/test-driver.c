@@ -25,7 +25,7 @@ static unsigned char buffer[4096],crypto_output[8192],regs[1024];
 static uint32_t desc[32];
 static uint64_t buffer_dma=0x10200000,crypto_output_dma=0x20400000,desc_dma=0x30600000;
 static uint64_t crypto_completed[SG2002_ALG_COUNT];
-static bool poisoned;
+static bool poisoned, experimental_sm3;
 static unsigned initial_mask=7,pins;
 static struct {int dev;} device,*pdev=&device;
 static int wait_error;static u32 wait_status;
@@ -53,6 +53,8 @@ int main(void)
  struct sg2002_crypto_request r={.version=1,.algorithm=SG2002_ALG_SM3,.length=64,.input=1};
  const u32 iv[8]={0x7380166f,0x4914b2b9,0x172442d7,0xda8a0600,0xa96f30bc,0x163138aa,0xe38dee4d,0xb0fb0e4e};
  for(unsigned i=0;i<8;i++)put_unaligned_be32(iv[i],r.state+4*i);
+ assert(crypto_validate(&r)==-EOPNOTSUPP);
+ experimental_sm3=true;
  assert(!crypto_validate(&r));
  struct crypto_sizes s;assert(!crypto_prepare_descriptor(&r,&s.input,&s.output,&s.result));
  assert(desc[0]==(BIT(19)|BIT(23)|BIT(14)|15)&&desc[1]==1);

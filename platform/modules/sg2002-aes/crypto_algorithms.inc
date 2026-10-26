@@ -9,6 +9,12 @@
 static_assert(sizeof(struct sg2002_crypto_request) == 144);
 static_assert(sizeof(struct sg2002_crypto_info) == 160);
 static_assert(sizeof(struct sg2002_crypto_info2) == 176);
+/* The vendor SM3 protocol timed out on the qualification SG2002. Keep it
+ * opt-in until its hardware completion and chaining have been established.
+ */
+static bool experimental_sm3;
+module_param(experimental_sm3, bool, 0444);
+MODULE_PARM_DESC(experimental_sm3, "Enable unqualified SM3 DMA protocol (may require reboot)");
 static u8 *crypto_output;
 static dma_addr_t crypto_output_dma;
 static u64 crypto_submitted[SG2002_ALG_COUNT], crypto_completed[SG2002_ALG_COUNT];
@@ -51,6 +57,7 @@ static int crypto_validate(struct sg2002_crypto_request *r)
  if (r->version != SG2002_CRYPTO_ABI || r->algorithm < 1 ||
      r->algorithm >= SG2002_ALG_COUNT || r->encrypt > 1 ||
      memchr_inv(r->reserved, 0, sizeof(r->reserved))) return -EINVAL;
+ if (r->algorithm == SG2002_ALG_SM3 && !experimental_sm3) return -EOPNOTSUPP;
  if (!r->length || r->length > SG2002_CRYPTO_MAX || !r->input) return -EINVAL;
  if (r->output_length > SG2002_CRYPTO_OUT_MAX) return -EINVAL;
  if (crypto_is_hash(r->algorithm)) {
@@ -244,6 +251,7 @@ static long crypto_ioctl(unsigned int cmd, unsigned long arg)
    .algorithms = GENMASK(SG2002_ALG_COUNT-1, 1),
    .max_input = SG2002_CRYPTO_MAX, .max_output = SG2002_CRYPTO_OUT_MAX } };
   size_t size = cmd == SG2002_CRYPTO_INFO ? sizeof(info.legacy) : sizeof(info);
+  if (!experimental_sm3) info.legacy.algorithms &= ~BIT(SG2002_ALG_SM3);
   err = mutex_lock_interruptible(&lock); if (err) return err;
   info.legacy.poisoned = poisoned;
   memcpy(info.legacy.submitted, crypto_submitted, sizeof(info.legacy.submitted));

@@ -32,7 +32,18 @@ Completed checks:
 - Host EVP reference: 288 cases, fingerprint `1aa2e10b5fb3fe70`, independently
   generated with Python hashlib.
 
-Native checks remain pending. Run `dma-verify.c` first with the candidate module;
+The first physical SG2002 request (a padded empty message, 64 bytes) timed out
+with status 0. The result registers remained zero; the driver latched poison
+and retained DMA mappings until reboot. The 288 SM3 and 864 SHA EVP checks still
+passed through software after this failure. No hardware SM3 result is qualified.
+
+SM3 is therefore disabled by default: INFO/INFO2 omit its capability and direct
+requests return EOPNOTSUPP. `experimental_sm3=1` is an explicit diagnostic module
+parameter, not a production setting. Reboot restored the installed module; no
+installed libraries or module file were modified.
+
+Further native protocol checks remain pending. Run `dma-verify.c` first with
+`experimental_sm3=1` only during a coordinated diagnostic session;
 it compares complete padded messages and 64-byte versus 4 KiB chaining against
 software OpenSSL and verifies SM3 submission/completion counters. `verify.c`
 then checks the integrated EVP path, including streaming and context copies.

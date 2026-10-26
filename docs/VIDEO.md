@@ -256,3 +256,8 @@ packed-format JPEG and CPU readers can yield it. Host fault contracts count
 idempotent enable calls. This checks userspace ownership and is not a physical
 transition stress result. The earlier nine hardware phases did not count bind
 transitions; a counted long-running shared-reader test remains outstanding.
+
+The parked retry timer stops once native capture reports that disabled outputs
+no longer own private pools. Busy pools keep the one-second retry; returning
+viewers cancel it. Older libraries without the optional status query retain
+conservative retries.

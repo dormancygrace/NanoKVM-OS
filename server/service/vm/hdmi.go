@@ -40,6 +40,7 @@ var (
 	persistHdmiIdleTimeout = utils.PersistHDMIIdleTimeout
 	getHdmiSignal          = func() bool { return common.GetKvmVision().HasHDMISignal() }
 	setCaptureParked       = func(parked bool) bool { return common.GetKvmVision().SetCaptureParked(parked) == 0 }
+	captureReclaimPending  = func() bool { return common.GetKvmVision().CaptureReclaimPending() }
 )
 
 func (s *Service) ResetHdmi(c *gin.Context) {
@@ -311,6 +312,9 @@ func scheduleHdmiParkTimerLocked() {
 
 	delay := hdmiCaptureParkDelay
 	if hdmiCaptureParked {
+		if !captureReclaimPending() {
+			return
+		}
 		delay = hdmiCaptureReclaimDelay
 	}
 	generation := hdmiIdleGeneration

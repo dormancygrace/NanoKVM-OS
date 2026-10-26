@@ -2084,8 +2084,9 @@ int kvmv_hdmi_control(uint8_t _en)
 /* Caller holds vi_mutex. Parking deletes the video and JPEG encoder
    channels: a frame pre-submitted to the video encoder leases a VPSS buffer
    until collected, the next viewer starts with a new channel and an IDR
-   anyway, and the encoder memory is free while nobody watches. Disabling
-   releases the queued frames, so the first frame after resuming is fresh. */
+   anyway, and the encoder memory is free while nobody watches. Disabled
+   output pools are reclaimed after existing leases end and restored before
+   the next consumer enables the output. */
 static int set_capture_parked_locked(bool parked)
 {
     return capture_park.set(parked, [] {
@@ -2105,6 +2106,14 @@ int kvmv_set_capture_parked(uint8_t parked)
     pthread_mutex_unlock(&vi_mutex);
     if (result != 0) debug("[kvmv]capture %s failed: %d\n", parked ? "park" : "resume", result);
     return result;
+}
+
+int kvmv_capture_reclaim_pending(void)
+{
+    pthread_mutex_lock(&vi_mutex);
+    const int pending = mmf_vi_has_pending_pool();
+    pthread_mutex_unlock(&vi_mutex);
+    return pending;
 }
 
 uint8_t kvmv_hdmi_signal_active()

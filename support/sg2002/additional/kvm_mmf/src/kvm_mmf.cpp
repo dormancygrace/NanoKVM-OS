@@ -922,6 +922,16 @@ static int _mmf_reclaim_disabled_pool(int ch)
     return CVI_SUCCESS;
 }
 
+int mmf_vi_has_pending_pool(void)
+{
+    for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
+        if (priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch]
+            && !priv.vpss_chn_enabled[ch] && !priv.vi_pool_reclaimed[ch]
+            && priv.vi_chn_pool_id[ch] != (int)VB_INVALID_POOLID) return 1;
+    }
+    return 0;
+}
+
 static int _mmf_restore_vpss_pool(int ch)
 {
     if (!priv.vi_pool_reclaimed[ch] && !priv.vi_pool_detached[ch]) return CVI_SUCCESS;

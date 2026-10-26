@@ -295,13 +295,16 @@ static void delayed_pool_reclaim() {
     // No consumer/path change: the existing capture tick must reclaim a pool
     // whose last VPSS job finished after DisableChn returned.
     owned_pool(); destroy_error=-32;
+    assert(!mmf_vi_has_pending_pool());
     assert(_mmf_vi_direct_set(0,true)==0);
     expect({"unbind","disable0","detach0","destroy"});
     assert(priv.vb_pool_used[2] && priv.vi_pool_detached[0]);
+    assert(mmf_vi_has_pending_pool());
     destroy_error=0;
     _mmf_vi_direct_recheck(venc_now_us() + 1000000);
     expect({"destroy"});
     assert(vi_direct[0] && priv.vi_pool_reclaimed[0] && !priv.vb_pool_used[2]);
+    assert(!mmf_vi_has_pending_pool());
     // With no readers the timer repeats parking instead of running capture.
     owned_pool(); destroy_error=-32;
     assert(mmf_vi_chn_set_enabled(0,0)==0);
@@ -324,9 +327,11 @@ static void repeated_shared_reader_transitions() {
             assert(_mmf_vi_direct_set(0, true) == 0);
             assert(!priv.vi_source_bound && !priv.vpss_chn_enabled[0]);
             assert(!priv.vi_pool_reclaimed[0]); // old VPSS lease owns the pool
+            assert(mmf_vi_has_pending_pool());
             assert(mmf_vi_chn_set_enabled(0, 1) == 0); // direct demand is idempotent
             assert(_mmf_release_vi_frame(0) == 0);
             assert(priv.vi_pool_reclaimed[0]);
+            assert(!mmf_vi_has_pending_pool());
             // NV21 JPEG keeps its VI lease and must not yield; CPU/packed
             // readers yield, then a later video recheck can restore direct.
             assert(_mmf_jpeg_reader_yields() == !nv21);

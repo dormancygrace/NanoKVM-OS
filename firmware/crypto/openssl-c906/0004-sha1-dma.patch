@@ -54,9 +54,9 @@
 +}
 --- a/crypto/sha/build.info
 +++ b/crypto/sha/build.info
-@@ -186,3 +186,7 @@
+@@ -190,3 +190,7 @@
  IF[{- $target{asm_arch} eq "riscv64" -}]
-   SOURCE[../../libcrypto]=sha256_sg2002.c
+   SOURCE[../../libcrypto]=sha256-c906.S
  ENDIF
 +
 +IF[{- $target{asm_arch} eq "riscv64" -}]

@@ -1,0 +1,86 @@
+--- a/providers/implementations/ciphers/cipher_sm4.h
++++ b/providers/implementations/ciphers/cipher_sm4.h
+@@ -17,6 +17,9 @@
+         OSSL_UNION_ALIGN;
+         SM4_KEY ks;
+     } ks;
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    unsigned char sg2002_key[16];
++#endif
+ } PROV_SM4_CTX;
+ 
+ const PROV_CIPHER_HW *ossl_prov_cipher_hw_sm4_cbc(size_t keybits);
+--- a/providers/implementations/ciphers/cipher_sm4_hw.c
++++ b/providers/implementations/ciphers/cipher_sm4_hw.c
+@@ -116,15 +116,24 @@
+         }
+     }
+ 
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    memcpy(sctx->sg2002_key, key, sizeof(sctx->sg2002_key));
++#endif
+     return 1;
+ }
++
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++#include "cipher_sm4_sg2002.inc"
++#else
++#define SM4_GENERIC_CIPHER(mode) ossl_cipher_hw_generic_##mode
++#endif
+ 
+ IMPLEMENT_CIPHER_HW_COPYCTX(cipher_hw_sm4_copyctx, PROV_SM4_CTX)
+ 
+ #define PROV_CIPHER_HW_sm4_mode(mode)                   \
+     static const PROV_CIPHER_HW sm4_##mode = {          \
+         cipher_hw_sm4_initkey,                          \
+-        ossl_cipher_hw_generic_##mode,                  \
++        SM4_GENERIC_CIPHER(mode),                  \
+         cipher_hw_sm4_copyctx                           \
+     };                                                  \
+     PROV_CIPHER_HW_declare(mode)                        \
+--- /dev/null
++++ b/providers/implementations/ciphers/cipher_sm4_sg2002.inc
+@@ -0,0 +1,43 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++#include "crypto/sg2002.h"
++/* Candidate minimum, to be selected by native C906 measurements. */
++#define SG2002_SM4_MIN 1024
++static size_t sm4_sg2002_prefix(PROV_CIPHER_CTX *ctx, unsigned int mode,
++    unsigned char *out, const unsigned char *in, size_t len)
++{
++    PROV_SM4_CTX *a = (PROV_SM4_CTX *)ctx;
++    return ossl_sg2002_cipher(SG2002_ALG_SM4, mode, ctx->enc,
++        a->sg2002_key, ctx->keylen, ctx->iv, 16, in, out, len, SG2002_SM4_MIN);
++}
++static int cipher_sg2002_sm4_cbc(PROV_CIPHER_CTX *ctx, unsigned char *out,
++    const unsigned char *in, size_t len)
++{
++    size_t n = sm4_sg2002_prefix(ctx, SG2002_MODE_CBC, out, in, len);
++    return n == len || ossl_cipher_hw_generic_cbc(ctx, out + n, in + n, len - n);
++}
++static int cipher_sg2002_sm4_ecb(PROV_CIPHER_CTX *ctx, unsigned char *out,
++    const unsigned char *in, size_t len)
++{
++    size_t n = sm4_sg2002_prefix(ctx, SG2002_MODE_ECB, out, in, len);
++    return n == len || ossl_cipher_hw_generic_ecb(ctx, out + n, in + n, len - n);
++}
++static int cipher_sg2002_sm4_ctr(PROV_CIPHER_CTX *ctx, unsigned char *out,
++    const unsigned char *in, size_t len)
++{
++    size_t n;
++    if (len == 0) return 1;
++    if (ctx->num >= 16) return ossl_cipher_hw_generic_ctr(ctx, out, in, len);
++    if (ctx->num != 0) {
++        n = 16 - ctx->num;
++        if (n > len) n = len;
++        if (!ossl_cipher_hw_generic_ctr(ctx, out, in, n)) return 0;
++        out += n; in += n; len -= n;
++    }
++    n = sm4_sg2002_prefix(ctx, SG2002_MODE_CTR, out, in, len);
++    return n == len || ossl_cipher_hw_generic_ctr(ctx, out + n, in + n, len - n);
++}
++#define cipher_sg2002_sm4_ofb128 ossl_cipher_hw_generic_ofb128
++#define cipher_sg2002_sm4_cfb128 ossl_cipher_hw_generic_cfb128
++#define cipher_sg2002_sm4_cfb1 ossl_cipher_hw_generic_cfb1
++#define cipher_sg2002_sm4_cfb8 ossl_cipher_hw_generic_cfb8
++#define SM4_GENERIC_CIPHER(mode) cipher_sg2002_sm4_##mode

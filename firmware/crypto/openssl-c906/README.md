@@ -80,3 +80,9 @@ legacy module has no dependency on libcrypto's private symbols. See
 `0007-tdes-dma.patch` covers ECB/CBC with two or three keys, preserving upstream
 stream state and fallback. Its 1 KiB candidate minimum needs native validation;
 see `../experimental/openssl-tdes`.
+
+## SM4
+
+`0008-sm4-dma.patch` adds ECB/CBC/CTR using the common committed-prefix helper.
+The 1 KiB candidate minimum and native behavior remain to be qualified; see
+`../experimental/openssl-sm4`.

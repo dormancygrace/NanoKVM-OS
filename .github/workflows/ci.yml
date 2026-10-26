@@ -119,6 +119,12 @@ jobs:
           python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py
       - name: OpenSSL block-cipher partial DMA continuation
         run: python3 firmware/crypto/experimental/openssl-aes/test-blocks.py
+      - name: OpenSSL AES EVP state and counter carry
+        run: |
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify-gcm.c -lcrypto -o /tmp/openssl-gcm-verify
+          /tmp/openssl-gcm-verify
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -Iplatform/modules/sg2002-aes firmware/crypto/experimental/openssl-aes/verify-ctr.c -lcrypto -o /tmp/openssl-ctr-verify
+          /tmp/openssl-ctr-verify
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

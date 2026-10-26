@@ -337,3 +337,36 @@ func TestRemoteShortReadDetaches(t *testing.T) {
 		t.Fatal("short source retained by USB gadget")
 	}
 }
+
+type failedRemoteSource struct{ err error }
+
+func (s failedRemoteSource) ReadBlock(uint64, uint32) ([]byte, error) { return nil, s.err }
+func (s failedRemoteSource) Close()                                   {}
+
+func TestRemoteReadErrorSurvivesDeviceStop(t *testing.T) {
+	s, _ := remoteGadgetFixture(t)
+	sourceError := errors.New("Remote image changed; disconnect and reconnect it")
+	for i := 0; i < 32; i++ {
+		device := &fakeRemoteDevice{stopped: make(chan struct{})}
+		var read remotemedia.ReadBlock
+		openRemoteBlockDevice = func(_ uint64, fn remotemedia.ReadBlock) (remoteBlockDevice, error) {
+			read = fn
+			return device, nil
+		}
+		r := &remoteSession{kind: "http", size: 1048576, closed: make(chan struct{})}
+		if err := s.reserveRemote(r); err != nil {
+			t.Fatal(err)
+		}
+		err := s.serveRemote(r, failedRemoteSource{sourceError}, func() error {
+			if _, err := read(0, 512); !errors.Is(err, sourceError) {
+				t.Fatalf("read error: %v", err)
+			}
+			device.Close()
+			return nil
+		})
+		s.releaseRemote(r, err)
+		if !errors.Is(err, sourceError) {
+			t.Fatalf("lost source error: %v", err)
+		}
+	}
+}

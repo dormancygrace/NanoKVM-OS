@@ -3,6 +3,7 @@ import { Alert, Button, Input } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/storage.ts';
+import { requestErrorText } from '@/lib/request-error.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 
@@ -130,12 +131,13 @@ export const RemoteImage = ({ isOpen, source, onConnected }: Props) => {
     setConnecting(true);
     try {
       const rsp = await api.connectHTTPImage({ url: url.trim(), username, password });
-      if (rsp.code !== 0) throw new Error(rsp.msg);
+      if (rsp.code !== 0) throw rsp;
       setStatus({ connected: true, source: 'http', mounted: false });
       callback.current(true);
       window.dispatchEvent(new Event('nanokvm:image-updated'));
-    } catch {
-      setError(t('image.remote.connectFailed'));
+    } catch (error) {
+      const message = requestErrorText(error, t('image.remote.connectFailed'));
+      if (message) setError(message);
     } finally {
       setPassword('');
       setConnecting(false);
@@ -146,10 +148,11 @@ export const RemoteImage = ({ isOpen, source, onConnected }: Props) => {
     setError('');
     try {
       const rsp = await api.disconnectRemoteMedia();
-      if (rsp.code !== 0) throw new Error(rsp.msg);
+      if (rsp.code !== 0) throw rsp;
       socket.current?.close();
-    } catch {
-      setError(t('image.remote.disconnectFailed'));
+    } catch (error) {
+      const message = requestErrorText(error, t('image.remote.disconnectFailed'));
+      if (message) setError(message);
     }
   }
 

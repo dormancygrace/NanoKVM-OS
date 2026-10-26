@@ -177,6 +177,13 @@ func (s *Service) serveRemote(r *remoteSession, source remotemedia.Source, mount
 		case err := <-readError:
 			return err
 		case <-device.Stopped():
+			// Serve can stop immediately after a failed callback. Keep the
+			// source's actionable error when both notifications are ready.
+			select {
+			case err := <-readError:
+				return err
+			default:
+			}
 			return errors.New("Remote media device disconnected")
 		case <-ticker.C:
 			h.Lock()

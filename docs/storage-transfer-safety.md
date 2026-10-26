@@ -61,15 +61,18 @@ finishes writing that reply before the buffer can be reused. Unsolicited
 WebSocket data cannot overwrite a reply owned by NBD.
 
 After two consecutive sequential transitions with requests of at least 64 KiB,
-the server reads ahead in two 1 MiB blocks. This bounds active payload buffers to
+the server reads ahead in two 1 MiB blocks, starting at the first unread byte. This bounds active payload buffers to
 approximately 3 MiB per session, including the direct/cross-block output buffer.
+The two buffers are retained and reused across later sequential streams.
 The final block is shortened at the image boundary. Small isolated reads use
 the exact requested length; a seek outside the current window drains its one
 outstanding browser response and returns to direct reads.
 
 Read-ahead improves sustained ISO transfers but can add latency to a seek while
 a block is already in flight. The current browser protocol cannot cancel that
-response without closing the session. Browser disconnect and access revocation
+response without closing the session. A single 15-second NBD read budget covers
+both draining the old response and receiving the replacement; expiry closes the
+session, staying below the kernel's 20-second NBD timeout. Browser disconnect and access revocation
 still close the socket, interrupt pending reads and tear down the NBD device.
 These changes do not alter Ethernet coalescing or NAPI settings.
 
@@ -89,7 +92,7 @@ RAM, reusing the same buffer; after two sequential transitions of at least
 64 KiB it fills a window up to 1 MiB. There is no image file, persistent cache
 or full-image download on the SD card. Network availability and latency remain
 part of each uncached read. Each request, including its response body, has a
-10-second timeout; disconnect cancels an outstanding request immediately.
+8-second timeout; disconnect cancels an outstanding request immediately.
 
 Use a stable, unchanging object for the entire mount. A strong ETag is pinned
 with `If-Match`; otherwise a valid Last-Modified timestamp is pinned with
@@ -117,3 +120,25 @@ and network boot share one exclusive virtual medium.
 This URL source supports HTTP(S). SMB, SFTP and remote NBD URLs are not supported.
 The source interface separates block reads from the common local NBD/USB
 lifecycle, while browser media keeps its own WebSocket buffering and prefetch.
+
+### HTTP failures, trust and redirects
+
+A read makes at most two attempts, each capped at eight seconds, within one
+16-second budget below the kernel NBD timeout. Timeouts, interrupted connections
+and HTTP 5xx responses are retried once on a fresh connection. Authentication,
+missing files, changed validators, invalid ranges and oversized responses fail
+with specific errors; an interrupted short body can use the one retry. Slow links must deliver an adaptive block of up to 1 MiB
+within one attempt; retries do not remove this per-attempt limit.
+
+The original URL is retained in memory. If a resolved signed target expires
+(HTTP 401, 403 or 410), it can be resolved again once within that same budget.
+The new target must match the pinned size and ETag or Last-Modified validator.
+Without a validator, an expired target requires disconnecting and reconnecting.
+Credentials remain limited to the original origin and redirects never send a
+Referer or downgrade HTTPS to HTTP.
+
+HTTPS uses the device's system CA trust store. For a private CA, install its
+root certificate in the Alpine system trust store before connecting; an
+untrusted/self-signed server is rejected. Certificate verification cannot be
+disabled here. HTTP Basic credentials sent over plain HTTP are not encrypted;
+use HTTPS when authentication is required.

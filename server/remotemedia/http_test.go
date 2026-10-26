@@ -345,3 +345,221 @@ func TestHTTPReadTimeout(t *testing.T) {
 		t.Fatal("stalled body accepted")
 	}
 }
+
+func TestHTTPStatusErrorsDoNotRetryPermanentFailures(t *testing.T) {
+	for code, want := range map[int]string{200: "byte ranges", 401: "denied access", 403: "denied access", 404: "not found", 410: "not found", 412: "image changed", 416: "size or byte range changed", 429: "HTTP 429"} {
+		t.Run(fmt.Sprint(code), func(t *testing.T) {
+			data := httpImage()
+			var calls atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if calls.Add(1) == 1 {
+					rangeResponse(w, r, data)
+					return
+				}
+				w.WriteHeader(code)
+			}))
+			defer server.Close()
+			s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL + "/test.iso?secret=hidden"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			_, err = s.ReadBlock(4096, 512)
+			if err == nil || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), "hidden") {
+				t.Fatalf("wrong status error: %v", err)
+			}
+			if calls.Load() != 2 {
+				t.Fatalf("permanent failure retried: %d", calls.Load())
+			}
+		})
+	}
+}
+
+func TestHTTPRealPreconditionFailure(t *testing.T) {
+	data := httpImage()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			rangeResponse(w, r, data)
+			return
+		}
+		w.Header().Set("ETag", `"version-two"`)
+		http.ServeContent(w, r, "test.iso", time.Unix(1700000000, 0), bytes.NewReader(data))
+	}))
+	defer server.Close()
+	s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, err = s.ReadBlock(4096, 512); err == nil || !strings.Contains(err.Error(), "image changed") {
+		t.Fatalf("412: %v", err)
+	}
+	if calls.Load() != 2 {
+		t.Fatal("retried changed image")
+	}
+}
+
+func TestHTTPTransientReadRetriesOnceOnFreshConnection(t *testing.T) {
+	for _, mode := range []string{"503", "interrupted", "persistent"} {
+		t.Run(mode, func(t *testing.T) {
+			data := httpImage()
+			var calls atomic.Int32
+			peers := make(chan string, 4)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				call := calls.Add(1)
+				peers <- r.RemoteAddr
+				if call == 2 || mode == "persistent" && call > 1 {
+					if mode == "interrupted" {
+						w.Header().Set("ETag", `"version-one"`)
+						w.Header().Set("Content-Range", fmt.Sprintf("bytes 4096-4607/%d", len(data)))
+						w.Header().Set("Content-Length", "512")
+						w.WriteHeader(206)
+						w.(http.Flusher).Flush()
+						_, _ = w.Write([]byte("short"))
+						w.(http.Flusher).Flush()
+						conn, _, err := w.(http.Hijacker).Hijack()
+						if err == nil {
+							conn.Close()
+						}
+						return
+					}
+					w.WriteHeader(503)
+					return
+				}
+				rangeResponse(w, r, data)
+			}))
+			defer server.Close()
+			s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			got, err := s.ReadBlock(4096, 512)
+			if mode == "persistent" {
+				if err == nil {
+					t.Fatal("persistent failure accepted")
+				}
+			} else if err != nil || !bytes.Equal(got, data[4096:4608]) {
+				t.Fatalf("retry: %v", err)
+			}
+			if calls.Load() != 3 {
+				t.Fatalf("want two attempts, got %d total requests", calls.Load())
+			}
+			<-peers
+			first, second := <-peers, <-peers
+			if first == second {
+				t.Fatal("retry reused the old connection")
+			}
+		})
+	}
+}
+
+func TestHTTPAttemptsShareOneReadBudget(t *testing.T) {
+	data := httpImage()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if calls.Add(1) == 1 {
+			rangeResponse(w, r, data)
+			return
+		}
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+	s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	s.attemptTimeout = 120 * time.Millisecond
+	s.readBudget = 180 * time.Millisecond
+	start := time.Now()
+	if _, err = s.ReadBlock(4096, 512); err == nil {
+		t.Fatal("stalled read accepted")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("read exceeded total budget")
+	}
+	if calls.Load() != 3 {
+		t.Fatalf("retry count: %d", calls.Load())
+	}
+}
+
+func TestHTTPSignedTargetRefreshKeepsImageIdentity(t *testing.T) {
+	for _, mode := range []string{"401", "403", "410", "changed-etag", "changed-size", "no-validator"} {
+		t.Run(mode, func(t *testing.T) {
+			data := httpImage()
+			var selectors, targets atomic.Int32
+			target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				count := targets.Add(1)
+				if r.Header.Get("Authorization") != "" || r.Header.Get("Referer") != "" {
+					t.Error("credentials leaked on refresh")
+				}
+				if count > 1 && r.URL.Query().Get("token") == "1" {
+					code := 401
+					if mode == "403" {
+						code = 403
+					}
+					if mode == "410" {
+						code = 410
+					}
+					w.WriteHeader(code)
+					return
+				}
+				tag := `"version-one"`
+				body := data
+				stamp := time.Unix(1700000000, 0)
+				if count > 1 && mode == "changed-etag" {
+					tag = `"version-two"`
+				}
+				if count > 1 && mode == "changed-size" {
+					body = append(append([]byte(nil), data...), make([]byte, 2048)...)
+				}
+				if mode == "no-validator" {
+					tag = ""
+					stamp = time.Time{}
+				}
+				if tag != "" {
+					w.Header().Set("ETag", tag)
+				}
+				http.ServeContent(w, r, "test.iso", stamp, bytes.NewReader(body))
+			}))
+			defer target.Close()
+			origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				u, p, ok := r.BasicAuth()
+				if !ok || u != "admin" || p != "secret" {
+					t.Error("origin credentials missing")
+				}
+				token := selectors.Add(1)
+				http.Redirect(w, r, fmt.Sprintf("%s/test.iso?token=%d", target.URL, token), 302)
+			}))
+			defer origin.Close()
+			s, err := OpenHTTP(context.Background(), HTTPOptions{URL: origin.URL + "/start?private=hidden", Username: "admin", Password: "secret"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			got, err := s.ReadBlock(4096, 512)
+			good := mode == "401" || mode == "403" || mode == "410"
+			if good && (err != nil || !bytes.Equal(got, data[4096:4608])) {
+				t.Fatalf("refresh: %v", err)
+			}
+			if !good && err == nil {
+				t.Fatal("unverified replacement accepted")
+			}
+			want := int32(2)
+			if mode == "no-validator" {
+				want = 1
+			}
+			if selectors.Load() != want {
+				t.Fatalf("selector count: %d", selectors.Load())
+			}
+			if good && s.url.Query().Get("token") != "2" {
+				t.Fatal("new target was not retained")
+			}
+			if err != nil && (strings.Contains(err.Error(), "hidden") || strings.Contains(err.Error(), "secret")) {
+				t.Fatal("secret exposed in error")
+			}
+		})
+	}
+}

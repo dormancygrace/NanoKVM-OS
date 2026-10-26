@@ -6,6 +6,11 @@ blocks up to 4096 bytes. Use its 4128-byte workspace in the no-dictionary zram
 backend on 4 KiB page kernels. Keep generic and dictionary compression at the
 existing 16 KiB table size, and leave larger-page kernels unchanged.
 
+The 32-byte metadata makes vmalloc round 16416 and 4128 bytes to 20 KiB
+and 8 KiB respectively on 4 KiB-page kernels (excluding allocation metadata
+and virtual guard pages). This reduces workspace backing by 12 KiB per
+no-dictionary context; it is not a measurement of compressed zsmalloc usage.
+
 diff --git a/lib/lz4/Makefile b/lib/lz4/Makefile
 --- a/lib/lz4/Makefile
 +++ b/lib/lz4/Makefile
@@ -28,12 +33,12 @@ diff --git a/lib/lz4/lz4_110.h b/lib/lz4/lz4_110.h
 +static inline int LZ4_compress_destSize_extState_internal(lz4_110_stream* state, const char* src, char* dst, int* srcSizePtr, int targetDstSize, int acceleration)
  {
      void* const s = LZ4_initStream(state, sizeof (*state));
-     assert(s != NULL); (void)s;
+     if (s == NULL) return 0;
 diff --git a/lib/lz4/lz4_compress_4k.c b/lib/lz4/lz4_compress_4k.c
 new file mode 100644
 --- /dev/null
 +++ b/lib/lz4/lz4_compress_4k.c
-@@ -0,0 +1,34 @@
+@@ -0,0 +1,38 @@
 +// SPDX-License-Identifier: BSD-2-Clause
 +/* Small-table, independent-block LZ4 compression for 4 KiB zram pages. */
 +#include <linux/kernel.h>
@@ -51,11 +56,15 @@ new file mode 100644
 +int LZ4_compress_fast_4k(const char *src, char *dst, int src_size,
 +                         int dst_capacity, int acceleration, void *workmem)
 +{
++    lz4_110_stream *stream;
 +    lz4_110_stream_internal *ctx;
 +
 +    if ((unsigned int)src_size > 4096 || dst_capacity < 0)
 +        return 0;
-+    ctx = &LZ4_initStream(workmem, sizeof(lz4_110_stream))->internal_donotuse;
++    stream = LZ4_initStream(workmem, sizeof(lz4_110_stream));
++    if (stream == NULL)
++        return 0;
++    ctx = &stream->internal_donotuse;
 +    if (acceleration < LZ4_ACCELERATION_DEFAULT)
 +        acceleration = LZ4_ACCELERATION_DEFAULT;
 +    if (acceleration > LZ4_ACCELERATION_MAX)
@@ -71,7 +80,7 @@ new file mode 100644
 diff --git a/include/linux/lz4.h b/include/linux/lz4.h
 --- a/include/linux/lz4.h
 +++ b/include/linux/lz4.h
-@@ -197,6 +197,25 @@
+@@ -197,6 +197,26 @@
  int LZ4_compress_default(const char *source, char *dest, int inputSize,
  	int maxOutputSize, void *wrkmem);
  
@@ -89,7 +98,8 @@ diff --git a/include/linux/lz4.h b/include/linux/lz4.h
 + *
 + * The output uses the ordinary LZ4 block format. No dictionary or streaming
 + * state is supported. The work buffer is initialized on every call.
-+ * Return: compressed size, or 0 on invalid size or insufficient output space.
++ * Return: compressed size, or 0 on invalid size, NULL/misaligned workspace,
++ * or insufficient output space.
 + */
 +int LZ4_compress_fast_4k(const char *src, char *dst, int src_size,
 +                       int dst_capacity, int acceleration, void *workmem);

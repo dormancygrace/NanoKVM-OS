@@ -114,6 +114,23 @@ static void fixed_output(void) {
             }
         }
 }
+static void invalid_workspace(void) {
+    for (unsigned offset = 0; offset < 8; offset++) {
+        void *workspace = offset ? (unsigned char *)state_words + offset : NULL;
+        for (int api = 0; api < 3; api++) {
+            memset(state_words, 0xA5, sizeof(state_words));
+            memset(out, 0xA5, sizeof(out));
+            int consumed = 4096;
+            int result = api == 0 ? c.fast((char *)src, (char *)out, consumed, CAP, 1, workspace)
+                       : api == 1 ? c.normal((char *)src, (char *)out, consumed, CAP, workspace)
+                       : c.dest((char *)src, (char *)out, &consumed, 128, workspace);
+            CHECK(result == 0);
+            CHECK(consumed == 4096);
+            for (unsigned i = 0; i < sizeof(state_words); i++) CHECK(((unsigned char *)state_words)[i] == 0xA5);
+            for (unsigned i = 0; i < sizeof(out); i++) CHECK(out[i] == 0xA5);
+        }
+    }
+}
 static void streams(void) {
     const int dictionaries[] = {0, 1, 3, 7, 8, 31, 4096, 65535, 65536, 70000};
     const int chunks[] = {0, 1, 3, 7, 4096, 65535, 4096, 65536, 8192};
@@ -215,6 +232,7 @@ int main(int argc, char **argv) {
                     one(edges[l], a, mode, accelerations[k]);
     CHECK(c.fast((char *)src, (char *)out, -1, CAP, 1, state_words) == 0);
     CHECK(c.fast((char *)src, (char *)out, INT_MAX, CAP, 1, state_words) == 0);
+    invalid_workspace();
     fixed_output();
     streams();
     long_stream();

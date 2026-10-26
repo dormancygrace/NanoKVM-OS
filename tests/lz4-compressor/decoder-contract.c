@@ -20,7 +20,7 @@ struct api {
 };
 static uint64_t checks, cases;
 static const char *library;
-static int off, ml, dict_mode;
+static int off, ml, dict_mode, tail;
 #define CHECK(x)                                                                                   \
     do {                                                                                           \
         checks++;                                                                                  \
@@ -54,10 +54,10 @@ static int block(int prefix, int match, int offset, int *length) {
         int pos = prefix + i, from = pos - offset;
         expected[pos] = offset == 0 ? 0 : from < 0 ? dictionary[4096 + from] : expected[from];
     }
-    input[p++] = 12 << 4;
-    for (int i = 0; i < 12; i++)
+    input[p++] = tail << 4;
+    for (int i = 0; i < tail; i++)
         input[p++] = expected[prefix + match + i] = (unsigned char)(0xa0 + i);
-    *length = prefix + match + 12;
+    *length = prefix + match + tail;
     return p;
 }
 static unsigned char *fresh(int capacity) {
@@ -149,6 +149,37 @@ static void one(struct api *a) {
         guards(cap);
     }
 }
+static void malformed(struct api *a) {
+    unsigned char bad[600];
+    int capacity = 128;
+    /* Offset exceeds both the produced prefix and an external dictionary. */
+    memset(bad, 0, sizeof(bad));
+    bad[0] = 0x10; bad[1] = 'A'; bad[2] = 0xff; bad[3] = 0xff;
+    bad[4] = 0xc0;
+    unsigned char *out = fresh(capacity);
+    CHECK(a->safe((char *)bad, (char *)out, 17, capacity) < 0);
+    guards(capacity);
+    out = fresh(capacity);
+    CHECK(a->dict((char *)bad, (char *)out, 17, capacity,
+                  (char *)dictionary, sizeof(dictionary)) < 0);
+    guards(capacity);
+    /* Literal and match extensions that overflow the output capacity,
+     * including unterminated extension chains. */
+    for (int match = 0; match < 2; match++) {
+        int p = 0;
+        bad[p++] = match ? 0x1f : 0xf0;
+        if (match) { bad[p++] = 'A'; bad[p++] = 1; bad[p++] = 0; }
+        memset(bad + p, 255, 512); p += 512;
+        for (int terminated = 0; terminated < 2; terminated++) {
+            int n = p;
+            if (terminated) { bad[n++] = 0; bad[n++] = 0xc0;
+                memset(bad + n, 0, 12); n += 12; }
+            out = fresh(capacity);
+            CHECK(a->safe((char *)bad, (char *)out, n, capacity) < 0);
+            guards(capacity);
+        }
+    }
+}
 #define LOAD(member, name)                                                                         \
     do {                                                                                           \
         *(void **)(&a.member) = dlsym(a.dl, name);                                                 \
@@ -181,12 +212,14 @@ int main(int argc, char **argv) {
         LOAD(set, "LZ4_setStreamDecode");
         LOAD(cont, "LZ4_decompress_safe_continue");
         LOAD(fastcont, "LZ4_decompress_fast_continue");
+        malformed(&a);
+        for (tail = 5; tail <= 12; tail++)
         for (dict_mode = 0; dict_mode < 2; dict_mode++)
             for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++)
                 for (unsigned j = 0; j < sizeof(lengths) / sizeof(lengths[0]); j++) {
                     off = offsets[i];
                     ml = lengths[j];
-                    if (dict_mode && off == 0)
+                    if (ml + tail < 12 || (dict_mode && off == 0))
                         continue;
                     one(&a);
                 }

@@ -1,13 +1,15 @@
 From: Gleb Pesin <dormancygrace@gmail.com>
-Subject: [PATCH] smb: client: use Crypto API CMAC and preserve signature failures
+Subject: [PATCH] smb: client: select CPU/DMA CMAC by size and preserve signature failures
 
 Allow asynchronous hardware CMAC providers, including SG2002 CryptoDMA.
-Use request-owned transforms to avoid concurrent verification/signing key
-races. Extract kernel pages into a bounded scatterlist rather than passing
-temporary local mappings to async callbacks; preserve the original iterators.
-Keep a software provider available. Propagate signature errors and withhold
-unauthenticated compound response buffers, otherwise a later wire-status
-mapping can mask the error. Distinguish bad signatures from server ACL errors.
+Use synchronous providers below the measured 320-byte per-message cutoff,
+selecting before key setup so short signatures submit no DMA. Use request-owned
+transforms to avoid concurrent verification/signing key races. Extract kernel
+pages into a bounded scatterlist rather than passing temporary local mappings
+to async callbacks; preserve the original iterators. Keep a software provider
+available. Propagate signature errors and withhold unauthenticated compound
+response buffers, otherwise a later wire-status mapping can mask the error.
+Distinguish bad signatures from server ACL errors.
 
 --- a/fs/smb/client/Kconfig
 +++ b/fs/smb/client/Kconfig
@@ -66,17 +68,19 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
  /*
 --- a/fs/smb/client/smb2transport.c
 +++ b/fs/smb/client/smb2transport.c
-@@ -19,7 +19,8 @@
+@@ -19,10 +19,10 @@
  #include <linux/mempool.h>
  #include <linux/highmem.h>
  #include <crypto/aead.h>
 -#include <crypto/aes-cbc-macs.h>
-+#include <crypto/hash.h>
-+#include <linux/overflow.h>
  #include <crypto/sha2.h>
  #include <crypto/utils.h>
  #include "cifsglob.h"
-@@ -460,58 +461,104 @@
++#include "smb3_cmac.h"
+ #include "cifsproto.h"
+ #include "smb2proto.h"
+ #include "cifs_debug.h"
+@@ -460,58 +460,103 @@
  	return generate_smb3signingkey(ses, server, &triplet);
  }
  
@@ -87,24 +91,17 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
 + * The request owns the pages throughout; user iterators are not accepted here.
 + */
 +static int smb3_cmac_digest(struct crypto_ahash *tfm, struct smb_rqst *rqst,
-+                           u8 *signature)
++			   size_t headlen, size_t total, u8 *signature)
 +{
 +	struct ahash_request *req = NULL;
 +	struct iov_iter headers, data = rqst->rq_iter;
 +	struct sg_table sgt = {};
 +	DECLARE_CRYPTO_WAIT(wait);
-+	size_t headlen = 0, datalen = iov_iter_count(&data), total;
++	size_t datalen = iov_iter_count(&data);
 +	unsigned int num_sgs, data_sgs;
 +	ssize_t extracted;
-+	int i, rc;
++	int rc;
 +
-+	for (i = 0; i < rqst->rq_nvec; i++)
-+		if (check_add_overflow(headlen, rqst->rq_iov[i].iov_len, &headlen))
-+			return -EOVERFLOW;
-+	if (headlen <= 4)
-+		return -EINVAL;
-+	if (check_add_overflow(headlen, datalen, &total) || total > UINT_MAX)
-+		return -EOVERFLOW;
 +	if (datalen && iov_iter_extract_will_pin(&data))
 +		return -EIO;
 +
@@ -149,10 +146,11 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
  static int
  smb3_calc_signature(struct smb_rqst *rqst, struct TCP_Server_Info *server)
  {
-+	struct smb2_hdr *shdr = rqst->rq_iov[0].iov_base;
++	struct smb2_hdr *shdr;
 +	unsigned char signature[SMB2_CMACAES_SIZE];
 +	struct crypto_ahash *tfm;
 +	u8 key[SMB3_SIGN_KEY_SIZE];
++	size_t headlen, total;
  	int rc;
 -	unsigned char smb3_signature[SMB2_CMACAES_SIZE];
 -	struct kvec *iov = rqst->rq_iov;
@@ -165,6 +163,11 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
  	if (server->vals->protocol_id <= SMB21_PROT_ID)
  		return smb2_calc_signature(rqst, server);
 -
++	rc = smb3_cmac_length(rqst->rq_iov, rqst->rq_nvec,
++			     iov_iter_count(&rqst->rq_iter), &headlen, &total);
++	if (rc)
++		return rc;
++	shdr = rqst->rq_iov[0].iov_base;
  	rc = smb3_get_sign_key(le64_to_cpu(shdr->SessionId), server, key);
 -	if (unlikely(rc)) {
 -		cifs_server_dbg(FYI, "%s: Could not get signing key\n", __func__);
@@ -179,7 +182,7 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
 +
 +	/* Each calculation owns its transform/key. Receive verification can run
 +	 * concurrently with signing, and channels may carry several sessions. */
-+	tfm = crypto_alloc_ahash("cmac(aes)", 0, 0);
++	tfm = smb3_cmac_alloc(total);
 +	if (IS_ERR(tfm)) {
 +		memzero_explicit(key, sizeof(key));
 +		return PTR_ERR(tfm);
@@ -214,7 +217,7 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
 -		memcpy(shdr->Signature, smb3_signature, SMB2_SIGNATURE_SIZE);
 +	if (!rc) {
 +		memset(shdr->Signature, 0, SMB2_SIGNATURE_SIZE);
-+		rc = smb3_cmac_digest(tfm, rqst, signature);
++		rc = smb3_cmac_digest(tfm, rqst, headlen, total, signature);
 +		if (!rc)
 +			memcpy(shdr->Signature, signature, SMB2_SIGNATURE_SIZE);
 +	}
@@ -223,7 +226,7 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
  	return rc;
  }
  
-@@ -590,7 +637,7 @@
+@@ -590,7 +635,7 @@
  			  SMB2_SIGNATURE_SIZE)) {
  		cifs_dbg(VFS, "sign fail cmd 0x%x message id 0x%llx\n",
  			shdr->Command, shdr->MessageId);
@@ -232,7 +235,7 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
  	} else
  		return 0;
  }
-@@ -712,9 +759,12 @@
+@@ -712,9 +757,12 @@
  		int rc;
  
  		rc = smb2_verify_signature(&rqst, server);
@@ -266,3 +269,46 @@ mapping can mask the error. Distinguish bad signatures from server ACL errors.
  		num_processed = i + 1;
  	}
  
+--- /dev/null
++++ b/fs/smb/client/smb3_cmac.h
+@@ -0,0 +1,40 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _SMB3_CMAC_H
++#define _SMB3_CMAC_H
++
++#include <crypto/hash.h>
++#include <linux/overflow.h>
++#include <linux/uio.h>
++
++/* SG2002's measured crossover including per-message alloc/setkey/free is
++ * 304 bytes. Keep a margin, and avoid DMA even for key setup below 320 bytes.
++ * A synchronous CPU provider remains available when hardware AES is disabled.
++ */
++#define SMB3_CMAC_ASYNC_MIN_SIZE 320U
++
++static inline int smb3_cmac_length(const struct kvec *iov, unsigned int nvec,
++				 size_t datalen, size_t *headlen, size_t *total)
++{
++	size_t head = 0;
++	unsigned int i;
++
++	for (i = 0; i < nvec; i++)
++		if (check_add_overflow(head, iov[i].iov_len, &head))
++			return -EOVERFLOW;
++	if (head <= 4)
++		return -EINVAL;
++	if (check_add_overflow(head, datalen, total) || *total > UINT_MAX)
++		return -EOVERFLOW;
++	*headlen = head;
++	return 0;
++}
++
++static inline struct crypto_ahash *smb3_cmac_alloc(size_t total)
++{
++	/* Exclude async/DMA providers for short messages without pinning a CPU
++	 * implementation. Larger messages use the highest-priority provider. */
++	return crypto_alloc_ahash("cmac(aes)", 0,
++				total < SMB3_CMAC_ASYNC_MIN_SIZE ? CRYPTO_ALG_ASYNC : 0);
++}
++
++#endif

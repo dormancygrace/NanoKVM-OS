@@ -137,12 +137,40 @@ Median full-lifecycle time per signature, in microseconds (lower is better):
 
 The 304-byte gain was only 2–5% across individual runs; at 320 bytes it was
 5–8%, and at 384 bytes 19–30%. A 320-byte full-message cutoff is therefore
-reasonable for this CIFS implementation, or 384 bytes for a larger margin.
+used by this CIFS implementation.
 This is a CMAC-message crossover, not a universal threshold for individual
 CBC DMA chunks or other crypto algorithms. Key reuse changes the crossover,
-so retest if CIFS starts caching signing transforms. These measurements describe
-the current always-hardware CMAC provider; they do not add automatic size-based
-provider selection.
+so retest if CIFS starts caching signing transforms. The measurements above
+compare the providers before automatic selection. CIFS now excludes asynchronous
+providers below 320 bytes and uses normal priority selection from 320 bytes
+upwards. Selection happens before allocating/preparing the key, so a short
+signature submits no DMA even for subkey derivation. The underlying SG2002
+provider and its streaming/failure behavior are unchanged.
+
+Build these tests with `CIFS_SRC=/path/to/patched/kernel/fs/smb/client` to also
+build `sg2002_cifs_cmac_test.ko`. It includes the actual production length and
+provider-selection helper from patch 0053. It checks the combined header/data
+length, empty/invalid headers, addition and API-length overflow, exact provider
+selection around 319/320/321 bytes, and matching tags over fragmented input.
+With the accelerator loaded, `insmod sg2002_cifs_cmac_test.ko` must succeed.
+After unloading the accelerator, repeat with `hardware=0`; every size must use
+the CPU provider. Unload the test module after each run.
+
+For isolated counter checks, run with `size=319` and `size=320`. On SG2002 the
+first submits zero AES DMA operations, including key setup; the second submits
+three (subkey ECB, bulk CBC and final CBC). Both returned the reference CMAC.
+The real signed/encrypted SMB suite also passed with automatic selection,
+including modified READ and QUERY_INFO signature rejection and mount cleanup.
+
+Alternating the previous always-DMA CIFS module and automatic selection in
+three sessions each preserved every full-image SHA-256. Each session read the
+same 64 MiB image twice sequentially, performed the same random reads, then
+checked the full image. AES submissions fell from 51,374 to 50,258 per session
+(1,116 fewer, about 2.2%). Median sequential throughput was 8.72 MiB/s before
+and 8.71 MiB/s after; observed ranges were 8.09–8.76 and 8.40–8.77 MiB/s.
+Thus these runs verify reduced DMA use without establishing a bulk-read
+throughput improvement. All sessions negotiated full AES-128-CMAC signing
+without encryption, and the hardware failure latch remained clear.
 
 The hardware driver passed 2000 differential cases and all vector/concurrency
 checks. A separate fault-injection build, used only in RAM, set the poison

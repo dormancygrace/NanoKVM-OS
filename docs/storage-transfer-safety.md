@@ -149,7 +149,12 @@ driver accelerates AES-CMAC signing, including subkey derivation and CBC-MAC.
 All three honor the existing hardware-AES setting and software fallback.
 Each CIFS signature calculation owns its transform and key; failed verification
 rejects both read data and compound metadata responses. SMB2.1 HMAC signing
-is unchanged. Cipher negotiation is unchanged: the CCM driver is selected
+is unchanged. For CMAC messages shorter than 320 bytes, CIFS selects the
+synchronous CPU provider before key setup, avoiding DMA overhead entirely.
+Messages of 320 bytes or more use the highest-priority provider, normally
+`sg2002-cmac-aes`; software remains available when hardware AES is disabled.
+The threshold counts all header vectors and payload bytes in the signature.
+Cipher negotiation is unchanged: the CCM driver is selected
 when the SMB server and client negotiate CCM; its presence does not force CCM
 on servers which select GCM.
 

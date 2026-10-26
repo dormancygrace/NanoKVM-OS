@@ -25,6 +25,7 @@ for actual in (user, kernel, flags('audio'), flags('openssl')):
     assert '-fno-tree-vectorize' in actual and '-fno-tree-slp-vectorize' in actual
 assert flags('audio') == user
 assert '-mstringop-strategy=scalar' in flags('openssl')
+assert all('xtheadvector' not in flag for flag in flags('openssl'))
 assert PROFILE['kernel_lto'] == 'none'
 assert 'CONFIG_LTO_NONE=y' in (ROOT/'platform/kernel/config').read_text()
 kernel_isa = PROFILE['kernel_isa']
@@ -54,7 +55,7 @@ for kind in ('userspace', 'kernel', 'bootloader', 'audio', 'openssl'):
     if kind == 'kernel':
         overrides.append('-mstrict-align')
     if kind == 'openssl':
-        overrides.append('-mstringop-strategy=vector')
+        overrides.extend(['-mstringop-strategy=vector', '-march=' + PROFILE['userspace_isa']])
     for override in overrides:
         try:
             validate_flags([*flags(kind), override], kind)
@@ -90,6 +91,8 @@ if a.compiler:
             assert '__riscv_flen' not in macros and '__riscv_xtheadvector' not in macros
         else:
             assert '#define __riscv_flen 64' in macros
+        if kind == 'openssl':
+            assert '__riscv_xtheadvector' not in macros and '__riscv_vector' not in macros
         with tempfile.TemporaryDirectory(prefix='nkos-cpu-profile-test-') as tmp:
             obj = Path(tmp)/'probe.o'
             subprocess.run([a.compiler, *flags(kind), '-x', 'c', '-c', '-', '-o', str(obj)],

@@ -840,6 +840,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "ブートローダー",
           "zlib": "圧縮ライブラリ",
+          "openssl": "OpenSSL",
           "exfatprogs": "exFAT ツール",
           "i2ctools": "I2C ツール"
         }

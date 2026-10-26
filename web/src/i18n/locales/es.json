@@ -840,6 +840,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Cargador de arranque",
           "zlib": "Biblioteca de compresión",
+          "openssl": "OpenSSL",
           "exfatprogs": "Herramientas exFAT",
           "i2ctools": "Herramientas I2C"
         }

@@ -433,6 +433,7 @@
     }
   },
   "keyboard": {
+    "more": "Opciones del teclado",
     "title": "Teclado",
     "paste": "Pegar",
     "tips": "Sólo están soportadas las letras y símbolos estándar del teclado",

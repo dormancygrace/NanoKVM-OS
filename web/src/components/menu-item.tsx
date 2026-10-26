@@ -325,8 +325,8 @@ export const MenuItem = ({
       mouseEnterDelay={0.6}
       placement={tooltipPlacement}
       classNames={{ root: overlay }}
-      open={disabled ? undefined : isTooltipOpen}
-      onOpenChange={disabled ? undefined : (next) => !isOpen && setIsTooltipOpen(next)}
+      open={disabled ? undefined : !isOpen && isTooltipOpen}
+      onOpenChange={disabled ? undefined : (next) => setIsTooltipOpen(next && !isOpenRef.current)}
     >
       <div
         role="button"

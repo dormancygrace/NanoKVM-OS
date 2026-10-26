@@ -40,6 +40,16 @@ body {
   }
 }
 
+/* Only touch toolbar triggers: popovers and dialogs are rendered in portals.
+   Minima preserve wider controls such as the recording timer. */
+@layer utilities {
+  .nanokvm-touch-toolbar :is(button, [role='button'], [data-toolbar-control]) {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    touch-action: manipulation;
+  }
+}
+
 .nanokvm-mobile-menu-popover {
   max-width: calc(100vw - 76px);
 }

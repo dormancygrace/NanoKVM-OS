@@ -4,6 +4,12 @@ Replace shifted-word reconstruction with native misaligned scalar loads.
 Preserve the existing short and aligned paths byte-for-byte, including their
 addresses, and retry faulting copies bytewise for an exact accessible prefix.
 
+Platform contract: this NanoKVM-only patch requires SG2002/C906 with native
+misaligned scalar accesses enabled by platform firmware, including early boot.
+It intentionally bypasses the generic runtime misalignment probe used by patch
+0045 for memcpy. Do not reuse this implementation on another RISC-V target
+without a safe dispatch/fallback or independent hardware qualification.
+
 --- a/arch/riscv/lib/uaccess.S
 +++ b/arch/riscv/lib/uaccess.S
 @@ -103,7 +103,7 @@
@@ -54,7 +60,7 @@ addresses, and retry faulting copies bytewise for an exact accessible prefix.
  	addi	a0, a0, 8*SZREG
  	addi	a1, a1, 8*SZREG
  	bleu	a0, t0, 2b
-@@ -138,61 +138,35 @@
+@@ -138,61 +138,38 @@
  	addi	t0, t0, 8*SZREG /* revert to original value */
  	j	.Lbyte_copy_tail
  
@@ -138,8 +144,11 @@ addresses, and retry faulting copies bytewise for an exact accessible prefix.
 +	addi	a1, a1, 1
 +	j	.Lbyte_store
 +
-+	/* Preserve the original 44-byte region: all normal short/aligned
-+	 * instructions and subsequent kernel text retain their addresses. */
++	/* Keep the qualified 44-byte region so later text keeps its addresses.
++	 * Without RVC these 11 instructions use all 44 bytes; with RVC the
++	 * assembler fills the remaining space. This is a placement contract,
++	 * not algorithmic padding. If this body grows, remove/rederive .org
++	 * and repeat whole-image layout and performance qualification. */
 +	.org .Lnative_copy + 44
  .Lbyte_copy_tail:
  	/*

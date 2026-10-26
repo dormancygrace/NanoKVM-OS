@@ -52,21 +52,34 @@ static int validate_moves(void)
     if(check_move(v,160+s,160+s+distances[k],n))return -EINVAL;
    cond_resched();
   }
-  /* Real memmove must stay inside the requested range. A guard-page
-   * fault is a kernel failure, so run on a one-shot test kernel. */
-  for(n=0;n<=256;n++)for(d=0;d<8;d++) {
+  /* Both address orders: guard source loads and destination stores at the
+   * unmapped end, then overlap both ways with the upper range at the guard. */
+  for(k=0;k<2;k++)for(n=0;n<=256;n++)for(d=0;d<8;d++) {
+   u8 *src=k ? other : area, *dst=k ? area : other;
    unsigned i;
-   for(i=0;i<65536;i++) { area[i]=sm_pattern(i+seed);other[i]=0xa5; }
-   if(moves[v](other+16+d,area+65536-n,n)!=other+16+d ||
-      memcmp(other+16+d,area+65536-n,n))return -EINVAL;
-   if(other[15+d]!=0xa5 || other[16+d+n]!=0xa5)return -EINVAL;
+   for(i=0;i<65536;i++) { src[i]=sm_pattern(i+seed);dst[i]=0xa5; }
+   if(moves[v](dst+16+d,src+65536-n,n)!=dst+16+d ||
+      memcmp(dst+16+d,src+65536-n,n))return -EINVAL;
+   if(dst[15+d]!=0xa5 || dst[16+d+n]!=0xa5)return -EINVAL;
    checks++;
-   memset(other+65536-n-16,0xa5,n+16);
-   if(moves[v](other+65536-n,area+16+d,n)!=other+65536-n ||
-      memcmp(other+65536-n,area+16+d,n))return -EINVAL;
-   if(other[65536-n-1]!=0xa5)return -EINVAL;
+   memset(dst+65536-n-16,0xa5,n+16);
+   if(moves[v](dst+65536-n,src+16+d,n)!=dst+65536-n ||
+      memcmp(dst+65536-n,src+16+d,n))return -EINVAL;
+   if(dst[65536-n-1]!=0xa5)return -EINVAL;
    checks++;
    if(!(d&3))cond_resched();
+  }
+  for(k=0;k<2;k++)for(n=0;n<=256;n++)for(d=1;d<=8;d++)for(j=0;j<2;j++) {
+   u8 *buf=k ? other : area;
+   unsigned src=65536-n-(j ? d : 0), dst=65536-n-(j ? 0 : d), i;
+   for(i=0;i<65536;i++)buf[i]=sm_pattern(i+seed);
+   if(moves[v](buf+dst,buf+src,n)!=buf+dst)return -EINVAL;
+   for(i=0;i<65536;i++) {
+    unsigned orig=(i>=dst && i<dst+n) ? src+i-dst : i;
+    if(buf[i]!=sm_pattern(orig+seed))return -EINVAL;
+   }
+   checks++;
+   cond_resched();
   }
  }
  return 0;

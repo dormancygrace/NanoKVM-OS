@@ -110,7 +110,9 @@ The separate native usercopy candidate passed 155,744 checks, including
 86,240 fault cases and raw/SUM/public wrapper checks. It nevertheless failed
 the ordinary pipe timing guard: 16-byte pairs took about 13–14% more CPU time,
 and 128-byte pairs about 11–19% more, while several large unaligned cases
-improved. It is excluded from this patch.
+improved. That first rewrite is excluded. The final PR includes the subsequent
+layout-preserving patch 0053, qualified separately with 172,352 checks and
+pipe/socket controls in [the usercopy results](../c906-usercopy/results.md).
 
 An earlier benchmark through a temporary module was rejected for performance
 attribution: repeating the same kernel image and helper produced up to 70%
@@ -118,5 +120,14 @@ variation in short calls. Those timings are not evidence for either acceptance
 or rejection here. The ordinary pipe measurements supersede them; the module's
 independent correctness checks remain valid.
 
-This change affects kernel memmove. Existing optimized memcpy, usercopy, Go
-runtime routines and compiler optimization flags are outside this patch.
+The measurements on this page isolate kernel memmove and the rejected first
+usercopy candidate. They do not describe the final usercopy patch 0053. Existing
+optimized memcpy, Go runtime routines and compiler flags are unchanged.
+
+## Guard coverage extension
+
+The verifier now runs 46,440 cases per seed. Added cases mirror both guard-end
+copies between the allocations and place overlapping copies in both directions
+at each allocation end. The 68,208 live-kernel result above belongs to the
+original 34,104-case verifier; it is not a claim that the extended matrix was
+run on hardware.

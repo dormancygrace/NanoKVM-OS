@@ -7,6 +7,12 @@ store. Handle the final 1–7 bytes the same way. Align the short entry to
 32 bytes so one-byte and empty copies stay together. The same standalone
 implementation serves the kernel and early-boot PI aliases.
 
+Platform contract: this NanoKVM-only patch requires SG2002/C906 with native
+misaligned scalar accesses enabled by platform firmware, including early boot.
+It intentionally bypasses the generic runtime misalignment probe used by patch
+0045 for memcpy. Do not reuse this implementation on another RISC-V target
+without a safe dispatch/fallback or independent hardware qualification.
+
 --- a/arch/riscv/lib/memmove.S
 +++ b/arch/riscv/lib/memmove.S
 @@ -1,314 +1,135 @@

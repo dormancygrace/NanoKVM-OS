@@ -26,7 +26,7 @@ rmmod c906_memory_test
 dmesg | tail
 ~~~
 
-Insertion validates **34,104 cases per seed** and prints PASS. A mismatch rejects
+Insertion validates **46,440 cases per seed** and prints PASS. A mismatch rejects
 insertion and logs FAIL. The test checks the actual unmapped end guards; an
 out-of-bounds implementation can fault the kernel, so use a temporary test boot.
 Remove the helper afterwards.
@@ -34,7 +34,8 @@ Remove the helper afterwards.
 Coverage includes dense lengths 0–129 and boundaries through 16 KiB; every 8×8
 source/destination alignment; both address orders; equal pointers; positive and
 negative overlap distances through 129 bytes; the returned destination pointer;
-unchanged bytes outside the destination; and guarded source/destination page ends.
+unchanged bytes outside the destination; guarded source/destination page ends in
+both address orders; and overlaps in both directions ending at the guard.
 
 ## Measurements
 
@@ -44,9 +45,10 @@ overlapping block before any store and uses no vector or floating-point state.
 The same standalone code serves the normal and early-boot PI aliases.
 
 Qualification results and measurement limits are recorded in
-[results.md](results.md). A separate native usercopy candidate was excluded
-after real syscall measurements regressed; existing memcpy and usercopy paths
-remain as they were.
+[results.md](results.md). The first usercopy rewrite was rejected after syscall
+regressions. The final PR includes a different, layout-preserving usercopy patch
+0053; its [qualification](../c906-usercopy/results.md) records 172,352 checks
+and the final pipe/socket controls. Existing memcpy remains unchanged.
 
 
 ## Integration timing control

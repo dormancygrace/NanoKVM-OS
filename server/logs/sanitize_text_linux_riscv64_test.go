@@ -15,7 +15,11 @@ import (
 func requireLogVector(t *testing.T) {
 	t.Helper()
 	if !logVectorAvailable() {
-		t.Skip("XTheadVector unavailable or disabled")
+		info, err := os.ReadFile("/proc/cpuinfo")
+		if err == nil && logCPUHasVector(info) && os.Getenv("NANOKVM_LOG_TEXT") != "generic" {
+			t.Fatal("XTheadVector CPU detected but production vector dispatch is disabled")
+		}
+		t.Skip("XTheadVector unavailable or explicitly disabled")
 	}
 }
 
@@ -257,4 +261,9 @@ func TestLogVectorConcurrentState(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestLogVectorRoutedSanitizer(t *testing.T) {
+	requireLogVector(t)
+	checkRoutedSanitizerCorpus(t)
 }

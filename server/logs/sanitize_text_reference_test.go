@@ -137,3 +137,64 @@ func referenceSanitizeTail(data []byte, truncated bool) (string, int, bool) {
 	lines = lines[start:]
 	return strings.Join(lines, "\n"), len(lines), truncated
 }
+
+// Printable, nonperiodic lines exercise the production vector routing path,
+// including keywords split by controls that disappear before redaction.
+func routedSanitizerCorpus() []string {
+	state := uint64(0x499500)
+	var inputs []string
+	for _, n := range []int{16, 17, 31, 32, 63, 64, 95, 127, 128, 129, 255, 256, 257, 1024, 4096} {
+		data := make([]byte, n)
+		for {
+			for i := range data {
+				state ^= state << 13
+				state ^= state >> 7
+				state ^= state << 17
+				data[i] = 32 + byte(state%95)
+			}
+			if !preferScalarLogLine(string(data)) {
+				break
+			}
+		}
+		inputs = append(inputs, "discarded partial line\n"+string(data)+"\n")
+		for _, word := range sensitiveWords {
+			mixed := []byte(word)
+			for i := 0; i < len(mixed); i += 2 {
+				if mixed[i] >= 'a' && mixed[i] <= 'z' {
+					mixed[i] -= 'a' - 'A'
+				}
+			}
+			for _, control := range []string{"", "\x7f", "\x1b[31m", "\x00", "\u0085"} {
+				keyword := string(mixed[:len(mixed)/2]) + control + string(mixed[len(mixed)/2:])
+				if len(keyword) > n {
+					continue
+				}
+				for _, at := range []int{0, (n - len(keyword)) / 2, n - len(keyword)} {
+					body := append([]byte(nil), data...)
+					copy(body[at:], keyword)
+					inputs = append(inputs, "discarded partial line\n"+string(body)+"\n")
+				}
+			}
+		}
+	}
+	return inputs
+}
+
+func checkRoutedSanitizerCorpus(t *testing.T) {
+	t.Helper()
+	inputs := routedSanitizerCorpus()
+	for i, input := range inputs {
+		for _, truncated := range []bool{false, true} {
+			got, gl, gc := sanitizeTail([]byte(input), truncated)
+			want, wl, wc := referenceSanitizeTail([]byte(input), truncated)
+			if got != want || gl != wl || gc != wc {
+				t.Fatalf("routed case%d truncated%v: got %q/%d/%v want %q/%d/%v", i, truncated, got, gl, gc, want, wl, wc)
+			}
+		}
+	}
+	t.Logf("%d printable/control/keyword inputs, two truncation modes", len(inputs))
+}
+
+func TestSanitizerRoutedEquivalence(t *testing.T) {
+	checkRoutedSanitizerCorpus(t)
+}

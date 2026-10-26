@@ -41,7 +41,5 @@ the time budget in one iteration; the CSV records the actual iteration count.
   and secrets revealed by character filtering.
 - Production RISC-V server cross-build passes with the prepared runtime and
   existing six-library native bundle.
-- Prior exploratory differential test:10261 inputs in both truncation modes
-  matched the original sanitizer on host and C906.
 
 RVV experiments are separate from this scalar Go change.

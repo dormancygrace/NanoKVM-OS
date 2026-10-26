@@ -47,7 +47,11 @@ faster. The ordinary DHCP fixture took 43.58% less time. Do not claim zero
 overhead for arbitrary short strings or apply these numbers to all Go code.
 
 The CSV files retain all samples from that **pre-integration prototype**.
-They are not measurements of the final runtime-gated server binary.
+They are not measurements of the final runtime-gated server binary or the
+final #499 scalar baseline. The final scalar DHCP fixture was about 333 ms/op;
+362.331 ms/op above belongs to the earlier prototype control and must not be
+used to calculate a gain over #499. Final same-binary hardware measurements
+remain required before claiming a production speedup.
 All 12 production assembly kernels were compared with the qualified prototype
 as linked Go ABI0 machine code: 912 bytes are identical (kernel-equivalence.json).
 
@@ -58,8 +62,12 @@ all four LMULs, protected-page boundaries, concurrent vector work and SIGURG.
 Production tests retain those checks, skip hardware-only tests on unsupported
 machines, and add the runtime-gate override, ISA parser, all real keywords,
 scalar fallback and full sanitizer equivalence to the PR499 reference.
-The reference corpus has 10482 inputs in both truncation modes, including invalid
+The reference corpus includes both truncation modes, including invalid
 UTF-8, Unicode/control characters, ANSI sequences and hidden secrets.
+A separate nonperiodic printable corpus covers 16–4096 byte lines, mixed-case
+keywords at the start/middle/end, and DEL, ESC, NUL and U+0085 inside keywords.
+On a detected XTheadVector CPU without the generic override, a disabled runtime
+gate fails the vector tests instead of silently skipping them.
 
 Host race tests, purego tests and vet pass for logs/logger. RISC-V vet and test
 cross-build pass. The complete production RISC-V server builds against the
@@ -89,8 +97,8 @@ skip them and still pass all architecture-neutral tests:
 Then run each mode in three separate processes, alternating mode order,
 using the same binary to avoid different instruction layouts:
 
-    GOMAXPROCS=1 ./logs.test -test.run='^$' -test.bench='BenchmarkSanitizeMiB$|BenchmarkSanitizeRepetitive' -test.benchtime=10x -test.cpu=1
-    NANOKVM_LOG_TEXT=generic GOMAXPROCS=1 ./logs.test -test.run='^$' -test.bench='BenchmarkSanitizeMiB$|BenchmarkSanitizeRepetitive' -test.benchtime=10x -test.cpu=1
+    GOMAXPROCS=1 ./logs.test -test.run='^$' -test.bench='BenchmarkSanitizeMiB$|BenchmarkSanitizeRepetitive|BenchmarkSensitiveInputs/(16|32|64|95|128)/regular$' -test.benchtime=10x -test.cpu=1
+    NANOKVM_LOG_TEXT=generic GOMAXPROCS=1 ./logs.test -test.run='^$' -test.bench='BenchmarkSanitizeMiB$|BenchmarkSanitizeRepetitive|BenchmarkSensitiveInputs/(16|32|64|95|128)/regular$' -test.benchtime=10x -test.cpu=1
 
 Also compare against the separately built PR499 baseline to include the cost of
 feature dispatch and line selection.

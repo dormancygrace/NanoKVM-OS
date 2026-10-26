@@ -125,6 +125,21 @@ def check_capture_mode_wiring():
     print('capture mode wiring ok')
 
 
+def check_vi_buffering_startup():
+    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    init = function_body(mmf, 'static CVI_S32 _mmf_sys_init(')
+    assert init.count('nanokvm_vi_configure_buffering(') == 1
+    assert 'u32BlkCnt = buffering.source_buffers;' in init
+    assert init.index('nanokvm_vi_configure_buffering(') < init.index('SAMPLE_COMM_SYS_Init(')
+    vi = (args.mpi / 'sample/common/sample_common_vi.c').read_text()
+    start = function_body(vi, 'CVI_S32 SAMPLE_COMM_VI_StartViChn(')
+    depth = start.index('nanokvm_vi_startup_depth(')
+    assert start.index('SAMPLE_COMM_VI_GetChnAttrBySns(') < depth < start.index('CVI_VI_SetChnAttr(')
+    assert 'return CVI_FAILURE;' in start[depth:start.index('CVI_VI_SetChnAttr(')]
+    assert start.index('CVI_VI_SetChnAttr(') < start.index('CVI_VI_EnableChn(')
+    print('single startup buffering snapshot wiring ok')
+
+
 def check_mjpeg_rate_pair():
     """Next to video the server reads MJPEG below the rate of its VPSS output. A server rate
     above it made the JPEG reader wait for VPSS frames and halved the video stream (1440p60:
@@ -147,7 +162,7 @@ def check_mjpeg_422_survives_path_switch():
     single video failure gave up 4:2:2 until a GUI retry: MJPEG then read the video's QHD 4:2:0
     output (pale, and H.265 next to it fell from 45 to 32 fps)."""
     mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
-    assert 'static void _mmf_vi_direct_recheck(void)' in mmf
+    assert 'static void _mmf_vi_direct_recheck(uint64_t now = venc_now_us())' in mmf
     vision = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
     read = vision[vision.index('static int kvmv_read_img('):vision.index('static int kvmv_read_video(')]
     give_up = read.index('disable_mjpeg_422("video encoder failed with separate outputs");')
@@ -162,6 +177,7 @@ def check_mjpeg_422_survives_path_switch():
 check_read_img_gates()
 check_no_gop_setting()
 check_capture_mode_wiring()
+check_vi_buffering_startup()
 check_mjpeg_rate_pair()
 check_mjpeg_422_survives_path_switch()
 
@@ -186,6 +202,7 @@ for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing',
         sources = [repo / 'support/sg2002/additional/kvm/tests/geometry_gate_test.cpp']
     elif case == 'park':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
+    sources += [repo / 'firmware/mpi/nanokvm_vi_buffering.c']
     extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct', 'vi-yuv420') else []
     if case == 'vpss-demand':
         extra += ['-Wl,--wrap=access', '-Wl,--wrap=fopen']
@@ -203,3 +220,14 @@ for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing',
         result.stdout + result.stderr + f'exit={result.returncode}\n')
     print(result.stdout + result.stderr, end='', flush=True)
     result.check_returncode()
+    if case == 'vpss-demand':
+        # Every configure emits exactly one complete decision, including the
+        # malformed/missing property and old-layout fallbacks.
+        decisions = [line for line in result.stderr.splitlines() if '] VI buffering ' in line]
+        assert len(decisions) == 23, decisions
+        for expected in ['cma_bytes=150994944 cma_read=ok buffers=4 depth=1 policy=shared-cma',
+                         'cma_read=failed buffers=3 depth=0 policy=unknown-cma-size',
+                         'cma_read=invalid buffers=3 depth=0 policy=unknown-cma-size',
+                         'cma_read=ok buffers=3 depth=0 policy=small-cma',
+                         'cma_read=ok buffers=3 depth=0 policy=fixed-layout']:
+            assert any(expected in line for line in decisions), expected

@@ -7,13 +7,15 @@ static std::vector<std::string> calls;
 static bool shared_vi_heap = true;
 static uint32_t vi_heap_mib = 144;
 static int vi_heap_size_bytes = 4;
+static int vi_heap_reads;
 extern "C" FILE *__real_fopen(const char *, const char *);
 extern "C" FILE *__wrap_fopen(const char *path, const char *mode) {
     if (strcmp(path,"/proc/device-tree/reserved-memory/ion/size")) return __real_fopen(path,mode);
+    ++vi_heap_reads;
     if (vi_heap_size_bytes < 0) return nullptr;
     FILE *file=tmpfile(); assert(file);
     const uint32_t bytes=vi_heap_mib*1024*1024;
-    const uint8_t value[]={uint8_t(bytes>>24),uint8_t(bytes>>16),uint8_t(bytes>>8),uint8_t(bytes)};
+    const uint8_t value[]={uint8_t(bytes>>24),uint8_t(bytes>>16),uint8_t(bytes>>8),uint8_t(bytes),0,0,0,0};
     assert(fwrite(value,1,vi_heap_size_bytes,file)==size_t(vi_heap_size_bytes));
     rewind(file);return file;
 }
@@ -169,25 +171,46 @@ static void source_buffer_policy() {
     for (const auto &c : {Case{1920,1080,1,4}, Case{2560,1440,1,4},
              Case{1440,2560,1,4}, Case{2560,1441,0,2}, Case{3840,2160,0,2},
              Case{0,1440,0,2}, Case{1920,0,0,2}, Case{UINT32_MAX,UINT32_MAX,0,2}}) {
-        assert(nanokvm_vi_ready_depth(c.w,c.h)==c.depth);
-        assert(nanokvm_vi_source_buffers(c.w,c.h)==c.buffers);
+        const auto cfg=nanokvm_vi_configure_buffering(c.w,c.h);
+        assert(cfg.ready_depth==c.depth && cfg.source_buffers==c.buffers);
+        assert(cfg.cma_bytes==144U*1024*1024 && cfg.cma_read==NANOKVM_CMA_READ_OK);
     }
     shared_vi_heap=false;
-    assert(nanokvm_vi_ready_depth(1920,1080)==0 && nanokvm_vi_source_buffers(1920,1080)==3);
-    assert(nanokvm_vi_ready_depth(2560,1440)==0 && nanokvm_vi_source_buffers(2560,1440)==3);
-    assert(nanokvm_vi_ready_depth(3840,2160)==0 && nanokvm_vi_source_buffers(3840,2160)==2);
+    for (const auto &c : {Case{1920,1080,0,3}, Case{2560,1440,0,3}, Case{3840,2160,0,2}}) {
+        const auto cfg=nanokvm_vi_configure_buffering(c.w,c.h);
+        assert(!cfg.reusable && cfg.ready_depth==c.depth && cfg.source_buffers==c.buffers);
+    }
     shared_vi_heap=true;
     for (uint32_t mib : {40U,56U,104U,128U,143U}) {
         vi_heap_mib=mib;
-        assert(nanokvm_vi_ready_depth(2560,1440)==0 && nanokvm_vi_source_buffers(2560,1440)==3);
+        const auto cfg=nanokvm_vi_configure_buffering(2560,1440);
+        assert(cfg.ready_depth==0 && cfg.source_buffers==3 && cfg.cma_bytes==mib*1024*1024);
     }
     vi_heap_mib=144;
-    for (int count : {-1,0,3}) {
+    for (int count : {-1,0,3,5,8}) {
         vi_heap_size_bytes=count;
-        assert(nanokvm_vi_ready_depth(2560,1440)==0 && nanokvm_vi_source_buffers(2560,1440)==3);
+        const auto cfg=nanokvm_vi_configure_buffering(2560,1440);
+        assert(cfg.ready_depth==0 && cfg.source_buffers==3 && cfg.cma_bytes==0);
+        assert(cfg.cma_read==(count<0 ? NANOKVM_CMA_READ_FAILED : NANOKVM_CMA_READ_INVALID));
     }
     vi_heap_size_bytes=4;
-    assert(nanokvm_vi_ready_depth(2560,1440)==1 && nanokvm_vi_source_buffers(2560,1440)==4);
+    nanokvm_vi_configure_buffering(2560,1440);
+    const int reads=vi_heap_reads;
+    shared_vi_heap=false; vi_heap_mib=40;
+    uint32_t depth=42;
+    assert(nanokvm_vi_startup_depth(2560,1440,&depth)==0 && depth==1);
+    assert(vi_heap_reads==reads); // no second DT lookup during channel startup
+    for (const auto &c : {Case{3840,2160,0,0}, Case{1440,2560,0,0}, Case{0,0,0,0}}) {
+        depth=42;
+        assert(nanokvm_vi_startup_depth(c.w,c.h,&depth)!=0 && depth==42);
+    }
+    assert(nanokvm_vi_startup_depth(2560,1440,nullptr)!=0);
+    nanokvm_vi_reset_buffering();
+    assert(nanokvm_vi_startup_depth(2560,1440,&depth)!=0);
+    shared_vi_heap=true;vi_heap_mib=144;
+    const auto uhd=nanokvm_vi_configure_buffering(3840,2160);
+    assert(uhd.source_buffers==2);
+    assert(nanokvm_vi_startup_depth(3840,2160,&depth)==0 && depth==0);
 }
 static void owned_pool() {
     reset(); pool_trace=true;
@@ -267,8 +290,27 @@ static void pool_faults() {
     assert(mmf_del_vi_channel(0)==0);expect({"destroy"});
     assert(!priv.vi_chn_is_inited[0] && !priv.vb_pool_used[2]);
 }
+static void delayed_pool_reclaim() {
+    // No consumer/path change: the existing capture tick must reclaim a pool
+    // whose last VPSS job finished after DisableChn returned.
+    owned_pool(); destroy_error=-32;
+    assert(_mmf_vi_direct_set(0,true)==0);
+    expect({"unbind","disable0","detach0","destroy"});
+    assert(priv.vb_pool_used[2] && priv.vi_pool_detached[0]);
+    destroy_error=0;
+    _mmf_vi_direct_recheck(venc_now_us() + 1000000);
+    expect({"destroy"});
+    assert(vi_direct[0] && priv.vi_pool_reclaimed[0] && !priv.vb_pool_used[2]);
+    // With no readers the timer repeats parking instead of running capture.
+    owned_pool(); destroy_error=-32;
+    assert(mmf_vi_chn_set_enabled(0,0)==0);
+    expect({"unbind","disable0","detach0","destroy"});
+    destroy_error=0;
+    assert(mmf_vi_chn_set_enabled(0,0)==0);expect({"destroy"});
+    assert(!priv.vpss_chn_enabled[0] && !priv.vi_source_bound && priv.vi_pool_reclaimed[0] && !priv.vb_pool_used[2]);
+}
 int main() {
     direct_and_readers(); multiple_and_idle(); new_consumer(); faults();
-    source_buffer_policy(); reclaim_and_restore(); pool_faults();
+    source_buffer_policy(); reclaim_and_restore(); pool_faults(); delayed_pool_reclaim();
     puts("PASS source buffering, pool reclaim/restore/lease/fault ownership, shared VPSS demand: H.265/H.264 direct, readers, idle, delete, lease and fault retries");
 }

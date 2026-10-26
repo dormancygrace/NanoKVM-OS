@@ -666,12 +666,13 @@ static void _mmf_vi_direct_off_all(void)
 // format of its first frame, so its next frame fails and the caller creates
 // a new encoder, which starts with the other path (one key frame). The
 // capture mode follows the video encoder too (setting, stream rate).
-static void _mmf_vi_direct_recheck(void)
+static void _mmf_vi_direct_recheck(uint64_t now = venc_now_us())
 {
 	static uint64_t last_us;
-	const uint64_t now = venc_now_us();
 	if (now - last_us < 1000000) return;
 	last_us = now;
+	// A late VPSS job may have kept a disabled pool busy on its first reclaim.
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) _mmf_reclaim_disabled_pool(ch);
 	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
 		if (priv.venc[ch].is_inited && (priv.venc[ch].type == 1 || priv.venc[ch].type == 2)) {
 			_mmf_vi_yuv420_follow(&priv.venc[ch].cfg);
@@ -979,6 +980,7 @@ static CVI_S32 _mmf_free_frame(VIDEO_FRAME_INFO_S *frame)
 
 static void _mmf_sys_exit(void)
 {
+	nanokvm_vi_reset_buffering();
 	if (g_stViConfig.s32WorkingViNum != 0) {
 		SAMPLE_COMM_VI_DestroyIsp(&g_stViConfig);
 		SAMPLE_COMM_VI_DestroyVi(&g_stViConfig);
@@ -1002,9 +1004,9 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 		DATA_BITWIDTH_8, enCompressMode, DEFAULT_ALIGN);
 	u32BlkSize = MAX(u32BlkSize, u32BlkRotSize);
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
-    // Keep VI's startup queue and its common pool on the same memory policy.
-    stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt =
-        nanokvm_vi_source_buffers(stSize.u32Width, stSize.u32Height);
+    // Snapshot geometry and CMA once; the VI startup consumes this same decision.
+    const auto buffering = nanokvm_vi_configure_buffering(stSize.u32Width, stSize.u32Height);
+    stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = buffering.source_buffers;
 	stVbConf.astCommPool[MMF_VB_VI_ID].enRemapMode	= VB_REMAP_MODE_CACHED;
 	stVbConf.u32MaxPoolCnt = 1;
 

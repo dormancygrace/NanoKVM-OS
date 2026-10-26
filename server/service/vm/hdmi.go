@@ -21,6 +21,9 @@ const hdmiCaptureWarmupDuration = time.Second
 // reload does not park and resume them.
 var hdmiCaptureParkDelay = 20 * time.Second
 
+// Disabled pools can remain busy until the last VPSS job returns its frame.
+var hdmiCaptureReclaimDelay = time.Second
+
 var (
 	hdmiMutex           sync.Mutex
 	hdmiCaptureReadSlot = make(chan struct{}, 1)
@@ -298,29 +301,40 @@ func stopHdmiParkTimerLocked() {
 	}
 }
 
-// With no viewer, VPSS still converted every input frame for nobody. Parking
-// disables its outputs and keeps their memory; the HDMI idle timeout below is
-// a separate, user-configured stop of the input.
+// Parking disables unused VPSS outputs and releases their pools. Retry while
+// parked because a late VPSS job may keep a pool busy after disabling it. The
+// HDMI idle timeout below independently stops the input.
 func scheduleHdmiParkTimerLocked() {
-	if hdmiHasCaptureDemandLocked() || hdmiCaptureParked || isHdmiDisabled() {
+	if hdmiHasCaptureDemandLocked() || isHdmiDisabled() || hdmiStoppedForIdle {
 		return
 	}
 
+	delay := hdmiCaptureParkDelay
+	if hdmiCaptureParked {
+		delay = hdmiCaptureReclaimDelay
+	}
 	generation := hdmiIdleGeneration
-	hdmiParkTimer = time.AfterFunc(hdmiCaptureParkDelay, func() {
+	hdmiParkTimer = time.AfterFunc(delay, func() {
 		hdmiMutex.Lock()
 		defer hdmiMutex.Unlock()
 
-		if generation != hdmiIdleGeneration || hdmiHasCaptureDemandLocked() || hdmiCaptureParked || isHdmiDisabled() {
+		if generation != hdmiIdleGeneration || hdmiHasCaptureDemandLocked() || isHdmiDisabled() || hdmiStoppedForIdle {
 			return
 		}
 		hdmiParkTimer = nil
 		if !setCaptureParked(true) {
-			log.Info("video capture not parked; it keeps converting frames without viewers")
+			if hdmiCaptureParked {
+				scheduleHdmiParkTimerLocked()
+			} else {
+				log.Info("video capture not parked; it keeps converting frames without viewers")
+			}
 			return
 		}
-		hdmiCaptureParked = true
-		log.Debug("parked video capture without viewers")
+		if !hdmiCaptureParked {
+			hdmiCaptureParked = true
+			log.Debug("parked video capture without viewers")
+		}
+		scheduleHdmiParkTimerLocked()
 	})
 }
 

@@ -62,8 +62,9 @@
  * buffers, the reconstruction frames, an 8 MiB bitstream and codec tables.
  * MJPEG is not available at 2160p. The 144 MiB CMA region holds it. */
 #define uhd_ion_mib             104U
-/* 2560x1440 at 60 Hz H.265 with MJPEG holds 53.9 MiB; the portrait profiles
- * need less (no MJPEG at 1440x2560). The QHD modes provide 54 or 56 MiB. */
+/* Legacy three-VI-buffer layouts measured 53.9 MiB at QHD60 with MJPEG.
+ * This remains the admission floor for those older layouts. The four-buffer
+ * policy is used only with shared CMA >=144 MiB; see docs/VIDEO.md. */
 #define qhd_ion_mib             54U
 
 #define LT6911_ADDR 	0x2B
@@ -155,11 +156,9 @@ void debug(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 kvm_venc_t kvm_venc;
 
-/* With no reader, VPSS kept converting every input frame into outputs that
-   nobody took ("Can't acquire VB BLK" once both buffers were held). Parked
-   outputs stay configured but disabled: their pools stay allocated, so
-   resuming needs no video memory; reopening a channel after idle can
-   exhaust the carveout (see kvmv_hdmi_control). */
+/* With no reader, disable VPSS outputs and reclaim their private pools.
+   Configuration is retained; resume recreates a reclaimed pool before enabling
+   the output. Repeated park calls retry a pool held by a late VPSS job. */
 static nanokvm::CapturePark capture_park;
 static int set_capture_parked_locked(bool parked);
 

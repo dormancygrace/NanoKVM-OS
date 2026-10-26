@@ -6,21 +6,31 @@ cryptodev, ENGINE or a new kernel module. The transport supports all seven
 advertised algorithms; each algorithm's OpenSSL integration and measured size
 threshold belongs in its own patch/PR.
 
-Every operation owns a close-on-exec descriptor and checks capabilities. No
+Every operation owns a close-on-exec descriptor. Capabilities and ABI are
+cached after a successful probe; concurrent first probes may repeat INFO. No
 userspace lock, shared request/key/output, or descriptor cache crosses fork,
 provider unload or threads. Requests remain bounded to the driver's 4 KiB
 maximum. Callers split large operations and retain the original software
 state until success. Cipher/Base64 output is committed from private scratch;
 hashes do not allocate that scratch. An interrupted or failed final copy
-cannot corrupt in-place input before software fallback. Controller failures
-are latched for the process, while interrupted/resource failures allow later
-operations. `NANOKVM_OPENSSL_DMA=off` is a diagnostic software-only control.
+cannot corrupt in-place input before software fallback. Controller, availability, permission and protocol failures
+are latched for the library image, while interrupted/resource failures allow
+later operations. Libcrypto and the legacy DSO each own a separate cache.
+A latched absence or permission error is retried after process restart. `NANOKVM_OPENSSL_DMA=off` is a diagnostic software-only control.
 
 Run `python3 firmware/crypto/experimental/openssl-sg2002/test-transport.py`.
-The host ASan/UBSan test injects 56 submissions across all seven algorithms:
+The host ASan/UBSan test injects 77 submissions across all seven algorithms:
 success, EINTR, EIO, a late EFAULT after writes to private scratch, invalid
 completion status and oversized output. It checks unchanged caller state and
 in-place data on failure, retry/disable policy and descriptor lifecycle.
 It also covers permission failure, non-device paths, incompatible ABI and
 poisoned-controller capability reports. These are transport fault tests;
 physical hardware correctness and profitability require native measurements.
+
+The transport uses public libc `secure_getenv`; the legacy DSO has no private
+libcrypto environment-symbol dependency. Positive capability caching removes
+the repeated INFO ioctl and its driver mutex wait. Negative caching covers
+ENOENT/EACCES and incompatible requests, while EMFILE/EINTR remain retryable.
+Descriptors remain operation-owned, so no descriptor cache or new userspace
+lock crosses fork or provider unload. RUN errors still detect a replacement
+or poisoned driver and preserve software fallback.

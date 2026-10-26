@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the pinned, unmodified OpenSSL source for NanoKVM's C906/musl runtime."""
+"""Build the pinned OpenSSL source with reviewed NanoKVM patches for NanoKVM's C906/musl runtime."""
 import argparse
 import hashlib
 import json
@@ -38,6 +38,15 @@ def build(archive, output, cross, jobs):
     with tarfile.open(archive) as tar:
         tar.extractall(output, filter='data')
     source = output / url.rsplit('/', 1)[-1].removesuffix('.tar.gz')
+    patches = sorted((ROOT / 'firmware/crypto/openssl-c906').glob('*.patch'))
+    subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-chacha.py'),
+                    '--binutils', str(cross), '--check'], check=True)
+    patch_records = []
+    for patch in patches:
+        subprocess.run(['patch', '--batch', '--forward', '--fuzz=0', '-p1',
+                        '-i', str(patch)], cwd=source, check=True)
+        patch_records.append({'file': patch.name,
+                              'sha256': hashlib.sha256(patch.read_bytes()).hexdigest()})
     compiler = Path(str(cross) + 'gcc')
     cflags = flags('openssl') + ['-g0', '-fstack-protector-strong',
                                '-fstack-clash-protection', '-Wformat',
@@ -83,11 +92,14 @@ def build(archive, output, cross, jobs):
     license_dir = runtime / 'usr/share/licenses/nanokvm-openssl'
     license_dir.mkdir(parents=True)
     shutil.copy2(source / 'LICENSE.txt', license_dir / 'LICENSE.txt')
+    shutil.copy2(ROOT / 'firmware/cpu/go-crypto-c906/LICENSE',
+                 license_dir / 'C906-BSD-3-Clause.txt')
     info_dir = runtime / 'usr/share/nanokvm/openssl'
     info_dir.mkdir(parents=True)
     shutil.copy2(output / 'cpu-profile.json', info_dir / 'cpu-profile.json')
     metadata = {'source': url, 'sha256': digest, 'configure': command[2:],
-                'custom_crypto_code': False, 'cryptodma': False}
+                'custom_crypto_code': bool(patch_records), 'patches': patch_records,
+                'cryptodma': False}
     (info_dir / 'source.json').write_text(json.dumps(metadata, indent=2) + '\n')
     return runtime
 

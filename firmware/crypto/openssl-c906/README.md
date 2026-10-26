@@ -1,0 +1,41 @@
+# NanoKVM OpenSSL patches
+
+Patches apply in filename order to the SHA-256-pinned OpenSSL release in
+`platform/sources.lock`, with zero fuzz. The runtime records every patch digest
+in `/usr/share/nanokvm/openssl/source.json`. Each algorithm has its own patch
+and pull request; upstream upgrades must requalify the affected algorithms.
+
+## ChaCha20
+
+`0001-chacha20-c906.patch` adds our C906 five-block implementation to OpenSSL's
+existing RISC-V primitive dispatch. The default provider keeps its existing
+ChaCha20/Poly1305, TLS, buffering, tag verification and counter-limit handling.
+No ENGINE or cryptodev interface is involved.
+
+The GNU ABI assembly is generated from
+`firmware/cpu/go-crypto-c906/gen_chacha_linux.py`, which also supplies Linux's
+ChaCha implementation. Its four vector lanes and fifth scalar block share the
+round construction with the separate Go generator. The GNU version preserves
+the C callee-saved registers, takes a 16-word state and round count, and wipes
+its stack keystream. The Go implementation uses a different ABI and buffer
+wrapper; its timings are not OpenSSL measurements.
+
+Selection requires `xtheadvector` in every CPU ISA line and vector state enabled
+for the calling thread through `PR_RISCV_V_GET_CONTROL`. Missing information,
+unsupported kernels, disabled threads and inputs shorter than 320 bytes use
+upstream code. The current-thread control is checked at each eligible call,
+including after a context moves between threads. The environment variable
+`NANOKVM_OPENSSL_CHACHA20=generic` disables this path for diagnosis; it cannot
+force unsupported instructions and is ignored for privileged execution.
+
+The assembly is used under its BSD-3-Clause option; the runtime carries the
+BSD license alongside OpenSSL's Apache-2.0 license. The new C glue is Apache-2.0.
+Generate/verify with the same binutils used to build the firmware:
+
+```sh
+python3 firmware/crypto/openssl-c906/generate-chacha.py \
+  --binutils /path/to/riscv64-buildroot-linux-musl- --check
+```
+
+Qualification sources and results belong to
+`firmware/crypto/experimental/openssl-chacha20/`.

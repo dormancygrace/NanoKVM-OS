@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage the pinned Gorilla masking patch and an isolated server modfile."""
+"""Stage the pinned Gorilla masking patch and a relocatable server module."""
 import argparse
 import hashlib
 import json
@@ -69,32 +69,41 @@ def prepare(go, project, output, tests=False):
     if output.exists() or project.is_relative_to(output) or output.is_relative_to(project):
         raise ValueError("Use a new build output directory outside the source project")
     output.mkdir(parents=True)
-    modfile = output / "server.mod"
-    shutil.copyfile(project / "go.mod", modfile)
-    shutil.copyfile(project / "go.sum", modfile.with_suffix(".sum"))
+    # Build from a private module root so replacements can stay relative.
+    # Absolute replacement paths are embedded in Go's build information even
+    # with -trimpath and make identical builds differ by output directory.
+    staged_project = output / "server"
+    shutil.copytree(project, staged_project, symlinks=True,
+                    ignore=shutil.ignore_patterns(".git", "__pycache__", "*.test"))
+    # common's cgo directives use this sibling header tree in both normal
+    # builds and teststub builds. Keep its relative layout in the private root.
+    headers = Path("support/sg2002/additional/kvm/include")
+    shutil.copytree(project.parent / headers, output / headers, symlinks=True)
+    modfile = staged_project / "go.mod"
     env = dict(os.environ, GOTOOLCHAIN="local", GOWORK="off")
 
     def run(*args):
-        return subprocess.check_output([str(go), *args], cwd=project, env=env, text=True)
+        return subprocess.check_output([str(go), *args], cwd=staged_project, env=env, text=True)
 
     module = json.loads(run("mod", "edit", "-json", "-modfile=" + str(modfile)))
     if not any(x["Path"] == MODULE and x["Version"] == VERSION for x in module.get("Require", [])):
         raise ValueError(f"The server must require {MODULE} {VERSION}; review upgrades explicitly")
-    # Preserve the meaning of the server's existing relative local replacements.
+    # Existing local forks must remain inside the staged module. Reject new
+    # external/absolute replacements rather than leaking host paths into builds.
     for replacement in module.get("Replace", []):
         old, new = replacement["Old"], replacement["New"]
         if old["Path"] == MODULE:
             raise ValueError("Unexpected pre-existing Gorilla replacement")
-        if not new.get("Version") and not Path(new["Path"]).is_absolute():
-            name = old["Path"] + ("@" + old["Version"] if old.get("Version") else "")
-            run("mod", "edit", "-modfile=" + str(modfile),
-                "-replace=" + name + "=" + str((project / new["Path"]).resolve()))
+        if not new.get("Version"):
+            path = Path(new["Path"])
+            if path.is_absolute() or not (project / path).resolve().is_relative_to(project):
+                raise ValueError("Local replacements must be relative and inside the server module")
     info = json.loads(run("mod", "download", "-modfile=" + str(modfile), "-json", MODULE))
     if info.get("Error") or info.get("Path") != MODULE or info.get("Version") != VERSION or not info.get("Sum"):
         raise ValueError(f"Could not obtain the checksum-verified pinned module: {info}")
     module_dir = output / "websocket"
     hashes = stage_module(info["Dir"], module_dir, tests)
-    run("mod", "edit", "-modfile=" + str(modfile), "-replace=" + MODULE + "=" + str(module_dir))
+    run("mod", "edit", "-modfile=" + str(modfile), "-replace=" + MODULE + "=../websocket")
     manifest = {
         "module": MODULE, "version": VERSION, "upstream_sum": info["Sum"],
         "upstream_pins": PINS, "files": hashes, "tests": tests,

@@ -83,17 +83,17 @@ selected_root = subprocess.check_output([go, 'env', 'GOROOT'], env=env, text=Tru
 if Path(selected_root).resolve() != go_root:
     p.error('Go did not select the requested GOROOT')
 custom_runtime_expected = (go_root/'src/runtime/nanokvm_sysmon_linux_riscv64.go').is_file()
-# Go does not permit replacing files in GOMODCACHE with -overlay. Stage only
-# the pinned Gorilla package and use a private modfile; source and cache stay intact.
+# Go forbids replacing GOMODCACHE files with -overlay. Stage the server and
+# patched Gorilla with relative replacements; source and cache stay intact.
 websocket = out / 'websocket-c906'
 subprocess.run([sys.executable, str(repo / 'firmware/cpu/go-websocket-c906/prepare.py'),
                 '--go', go, '--project', str(repo / 'server'), '--output', str(websocket)],
                env=env, check=True)
-websocket_modfile = str(websocket / 'server.mod')
+websocket_modfile = str(websocket / 'server/go.mod')
 # Go action IDs include the output-specific CGO library search path.
 # Omit the Go build ID; manifest SHA-256 values identify the exact binaries.
 subprocess.run([go, 'build', '-modfile=' + websocket_modfile, '-tags=nomsgpack', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode=external -buildid=', '-o',
-                str(out/'NanoKVM-Server'), '.'], cwd=repo/'server', env=env, check=True)
+                str(out/'NanoKVM-Server'), '.'], cwd=websocket/'server', env=env, check=True)
 info = subprocess.check_output([go, 'version', '-m', str(out/'NanoKVM-Server')], env=env, text=True)
 symbols = subprocess.check_output([go, 'tool', 'nm', str(out/'NanoKVM-Server')], env=env, text=True)
 custom_runtime_present = all(name in {line.split()[-1] for line in symbols.splitlines() if line.split()}

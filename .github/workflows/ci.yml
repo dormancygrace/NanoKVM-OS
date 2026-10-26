@@ -49,10 +49,12 @@ jobs:
           python3 ../tests/test-websocket-c906.py
           out="$RUNNER_TEMP/websocket-c906"
           python3 ../firmware/cpu/go-websocket-c906/prepare.py --go "$(command -v go)" --output "$out" --tests
-          go test -modfile="$out/server.mod" github.com/gorilla/websocket
-          go test -tags=purego -modfile="$out/server.mod" github.com/gorilla/websocket
+          python3 ../tests/check-websocket-reproducibility.py --go "$(command -v go)" --output "$RUNNER_TEMP/websocket-repro"
+          cd "$out/server"
+          go test github.com/gorilla/websocket
+          go test -tags=purego github.com/gorilla/websocket
           GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 \
-            go test -c -modfile="$out/server.mod" -o "$out/websocket.test" github.com/gorilla/websocket
+            go test -c -o "$out/websocket.test" github.com/gorilla/websocket
 
   web:
     name: Web UI

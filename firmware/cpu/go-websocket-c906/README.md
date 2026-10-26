@@ -25,8 +25,12 @@ calls or Go safe points. Linux preserves it across signals and task switches.
 scripts/build-server-existing-libs.py calls prepare.py. It obtains the exact
 go.sum-verified Gorilla v1.5.3 module, checks mask.go and go.mod against pinned
 SHA-256 values, stages only the root package files under its build output and
-creates a private server.mod/server.sum. Existing local Pion replacements keep
-their original meaning. Neither the source checkout nor the shared module cache
+copies the server module and its sibling native header directory into a private
+build root. The staged go.mod uses
+`../websocket`; local Pion replacements remain relative inside the copied server.
+Builds run from this staged server root, so Go build information contains no
+output-directory-dependent replacement paths. A two-directory binary comparison
+in CI checks this property. Neither the source checkout nor the shared module cache
 is modified. Go forbids overlays below GOMODCACHE, so a private module replacement
 is used instead.
 
@@ -128,11 +132,11 @@ From the repository root, with GOROOT exported to the prepared runtime and a new
 
     python3 firmware/cpu/go-websocket-c906/prepare.py \
       --go "$GOROOT/bin/go" --output "$OUT" --tests
-    cd server
+    cd "$OUT/server"
     GODEBUG=randseednop=0 "$GOROOT/bin/go" test \
-      -modfile="$OUT/server.mod" github.com/gorilla/websocket
+      github.com/gorilla/websocket
     GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 \
-      "$GOROOT/bin/go" test -c -trimpath -modfile="$OUT/server.mod" \
+      "$GOROOT/bin/go" test -c -trimpath \
       -o "$OUT/websocket.test" github.com/gorilla/websocket
 
 On the C906 stand, use one temporary executable in RAM and remove it afterwards:

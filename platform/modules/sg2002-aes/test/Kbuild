@@ -2,3 +2,5 @@
 #   make -C KERNEL_BUILD M=$PWD modules
 obj-m += sg2002_gcm_test.o
 sg2002_gcm_test-y := gcm_test.o
+obj-m += sg2002_ccm_test.o
+sg2002_ccm_test-y := ccm_test.o

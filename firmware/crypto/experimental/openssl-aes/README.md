@@ -31,3 +31,20 @@ and candidate fingerprints match. Driver counters confirm AES use without a
 poisoned device. The host continuation suite covers threshold boundaries,
 first/later failures, offsets, in-place output and GCM counter rollover under
 ASan/UBSan. Final-stack native and HTTPS checks follow integration.
+
+CTR requests are always split before the low 32-bit counter wraps, including
+ordinary full-width CTR. Software advances the full external counter between
+requests; correctness therefore does not depend on the engine carrying into
+higher words. The continuation test rejects a request crossing that boundary,
+and its negative control catches the previous full-width hardware assumption.
+
+`verify-ctr.c` independently constructs CTR from ECB and checks 288 EVP cases
+carrying into byte 11, byte 7 and across the full 128-bit counter. `--raw-only`
+characterizes the device's carry behavior separately; `--native` also runs the
+provider cases. `verify-gcm.c` checks 2160 split-update, copy, in-place and
+rejected-tag/ciphertext cases across AES-128/192/256, 8/12-byte IVs and the
+1024/2048/3072/4096 boundaries. It frees the original context after copying.
+The ciphertext/tag fingerprint `a2d7088437b53472` comes from independent host
+OpenSSL 3.5.5, alongside the existing published AEAD known-answer vectors.
+Both extended suites pass host ASan/UBSan; physical qualification of these new
+carry and provider cases is pending.

@@ -9,8 +9,8 @@ Other DES modes retain their original software implementations.
 The legacy module uses libc `secure_getenv` for the transport switch rather than
 an unexported libcrypto internal symbol. A full RISC-V OpenSSL 3.5.9 build passes
 without warnings; the legacy DSO has no unresolved private `ossl_*` symbols.
-The transport fault suite also applies subsequent transport changes before
-running its ASan/UBSan checks and negative control.
+The common transport patch already supplies this public environment API;
+its ASan/UBSan fault suite runs without applying later algorithm patches.
 
 `verify.c` is the shared native EVP verifier for 18 AES/DES/TDES/SM4 modes.
 It pins host OpenSSL's independent ciphertext fingerprint

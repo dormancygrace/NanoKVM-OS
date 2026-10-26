@@ -25,12 +25,13 @@ extern "C" int __wrap_access(const char *path, int mode) {
     return __real_access(path,mode);
 }
 static int bind_error, unbind_error, enable_error, disable_error, destroy_error;
+static unsigned bind_successes, unbind_successes;
 static VPSS_CHN_ATTR_S output;
 static int vi_releases, vpss_releases, attach_error, detach_error, frame_release_error;
 static bool pool_trace, create_error;
 static std::vector<unsigned> pool_requests;
-CVI_S32 SAMPLE_COMM_VI_Bind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { calls.push_back("bind"); return bind_error; }
-CVI_S32 SAMPLE_COMM_VI_UnBind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { calls.push_back("unbind"); return unbind_error; }
+CVI_S32 SAMPLE_COMM_VI_Bind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { calls.push_back("bind"); if (!bind_error) ++bind_successes; return bind_error; }
+CVI_S32 SAMPLE_COMM_VI_UnBind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { calls.push_back("unbind"); if (!unbind_error) ++unbind_successes; return unbind_error; }
 CVI_S32 CVI_VPSS_EnableChn(VPSS_GRP, VPSS_CHN ch) { calls.push_back("enable" + std::to_string(ch)); return enable_error; }
 CVI_S32 CVI_VPSS_DisableChn(VPSS_GRP, VPSS_CHN ch) { calls.push_back("disable" + std::to_string(ch)); return disable_error; }
 CVI_S32 CVI_VI_GetChnAttr(VI_PIPE, VI_CHN, VI_CHN_ATTR_S *a) { *a = {}; a->stSize = {2560,1440}; return 0; }
@@ -309,8 +310,39 @@ static void delayed_pool_reclaim() {
     assert(mmf_vi_chn_set_enabled(0,0)==0);expect({"destroy"});
     assert(!priv.vpss_chn_enabled[0] && !priv.vi_source_bound && priv.vi_pool_reclaimed[0] && !priv.vb_pool_used[2]);
 }
+// Count real production helper calls while old VPSS leases straddle a switch.
+// This validates userspace ownership/idempotency, not device scheduling.
+static void repeated_shared_reader_transitions() {
+    unsigned total = 0;
+    for (bool nv21 : {false, true}) {
+        owned_pool(); vi_yuv420_running = nv21; vi_yuv420_refused = false;
+        bind_successes = unbind_successes = 0;
+        for (unsigned round = 0; round < 500; ++round) {
+            priv.vi_frame_valid[0] = true;
+            priv.vi_frame[0].stVFrame.enPixelFormat = PIXEL_FORMAT_NV21;
+            vi_frame_from_vi[0] = false;
+            assert(_mmf_vi_direct_set(0, true) == 0);
+            assert(!priv.vi_source_bound && !priv.vpss_chn_enabled[0]);
+            assert(!priv.vi_pool_reclaimed[0]); // old VPSS lease owns the pool
+            assert(mmf_vi_chn_set_enabled(0, 1) == 0); // direct demand is idempotent
+            assert(_mmf_release_vi_frame(0) == 0);
+            assert(priv.vi_pool_reclaimed[0]);
+            // NV21 JPEG keeps its VI lease and must not yield; CPU/packed
+            // readers yield, then a later video recheck can restore direct.
+            assert(_mmf_jpeg_reader_yields() == !nv21);
+            assert(_mmf_vi_direct_yield(0) == 0);
+            assert(priv.vi_source_bound && priv.vpss_chn_enabled[0]);
+            assert(!priv.vi_pool_reclaimed[0] && !priv.vi_pool_detached[0]);
+            assert(mmf_vi_chn_set_enabled(0, 1) == 0);
+            assert(bind_successes == round + 1 && unbind_successes == round + 1);
+            calls.clear();
+        }
+        total += bind_successes + unbind_successes;
+    }
+    printf("PASS %u counted shared-reader bind/unbind transitions\n", total);
+}
 int main() {
     direct_and_readers(); multiple_and_idle(); new_consumer(); faults();
-    source_buffer_policy(); reclaim_and_restore(); pool_faults(); delayed_pool_reclaim();
+    source_buffer_policy(); reclaim_and_restore(); pool_faults(); delayed_pool_reclaim(); repeated_shared_reader_transitions();
     puts("PASS source buffering, pool reclaim/restore/lease/fault ownership, shared VPSS demand: H.265/H.264 direct, readers, idle, delete, lease and fault retries");
 }

@@ -1008,11 +1008,9 @@ static int mjpeg_chroma_choice = -1; // Legacy environment default until explici
 static uint64_t mjpeg_last_video_ms = 0, mjpeg_last_jpeg_ms = 0;
 static unsigned mjpeg_last_video_width = 0, mjpeg_last_jpeg_width = 0;
 static bool mjpeg_resolution_limited = false;
-// MJPEG's own output next to a video stream: a little above the rate the
-// server reads it at (mjpegNextToVideoFPS 30, next to a stream wider than
-// 1920 mjpegNextToWideVideoFPS 25).
+// Keep MJPEG's own VPSS output ahead of the server's 30 fps reader at every
+// video resolution, reducing waits that pause the Go video capture worker.
 static constexpr int mjpeg_next_to_video_fps = 33;
-static constexpr int mjpeg_next_to_wide_video_fps = 27;
 static uint64_t mjpeg_monotonic_ms()
 {
     timespec time{};
@@ -1704,7 +1702,7 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
         const bool own_jpeg = _type == VENC_MJPEG && capture_format == nanokvm::nv16_format();
         if (cam->get_channel() >= 0 && mmf_vpss_set_chn_max_rate(cam->get_channel(),
                 !own_jpeg || !mjpeg_video_reader_active(capture_now) ? 0
-                : mjpeg_last_video_width > 1920 ? mjpeg_next_to_wide_video_fps : mjpeg_next_to_video_fps) != 0) {
+                : mjpeg_next_to_video_fps) != 0) {
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }

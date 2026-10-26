@@ -132,12 +132,12 @@ def check_mjpeg_rate_pair():
     import re
     go = (repo / 'server/service/stream/mjpeg/streamer.go').read_text()
     native = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
-    server = {name: int(re.search(rf'{name}\s*=\s*(\d+)', go).group(1))
-              for name in ('mjpegNextToVideoFPS', 'mjpegNextToWideVideoFPS')}
-    vpss = {name: int(re.search(rf'static constexpr int {name} = (\d+);', native).group(1))
-            for name in ('mjpeg_next_to_video_fps', 'mjpeg_next_to_wide_video_fps')}
-    assert server['mjpegNextToVideoFPS'] < vpss['mjpeg_next_to_video_fps'], (server, vpss)
-    assert server['mjpegNextToWideVideoFPS'] < vpss['mjpeg_next_to_wide_video_fps'], (server, vpss)
+    # One pairing now applies at every encoded width. Keep the cross-language
+    # headroom check when either side's limit changes.
+    server = re.findall(r'mjpegNextTo\w*VideoFPS\s*=\s*(\d+)', go)
+    vpss = re.findall(r'static constexpr int mjpeg_next_to_\w*video_fps = (\d+);', native)
+    assert len(server) == len(vpss) == 1, (server, vpss)
+    assert 0 < int(server[0]) < int(vpss[0]), (server, vpss)
     print('mjpeg rate pair ok')
 
 

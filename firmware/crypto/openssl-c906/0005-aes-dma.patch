@@ -78,17 +78,19 @@
 +}
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_sg2002.inc
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,45 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include "crypto/sg2002.h"
-+/* Candidate minimum, to be selected by native C906 measurements. */
-+#define SG2002_AES_MIN 1024
++/* Selected against the indexed-load software path on the physical C906. */
++#define SG2002_AES_BLOCK_MIN 2560
++#define SG2002_AES_CTR_MIN 2048
 +static size_t aes_sg2002_prefix(PROV_CIPHER_CTX *ctx, unsigned int mode,
 +    unsigned char *out, const unsigned char *in, size_t len)
 +{
 +    PROV_AES_CTX *a = (PROV_AES_CTX *)ctx;
 +    return ossl_sg2002_cipher(SG2002_ALG_AES, mode, ctx->enc,
-+        a->plat.sg2002.key, ctx->keylen, ctx->iv, 16, in, out, len, SG2002_AES_MIN);
++        a->plat.sg2002.key, ctx->keylen, ctx->iv, 16, in, out, len,
++        mode == SG2002_MODE_CTR ? SG2002_AES_CTR_MIN : SG2002_AES_BLOCK_MIN);
 +}
 +static int cipher_sg2002_aes_cbc(PROV_CIPHER_CTX *ctx, unsigned char *out,
 +    const unsigned char *in, size_t len)
@@ -138,7 +140,7 @@
 +    size_t n;
 +    memcpy(iv, ivec, sizeof(iv));
 +    n = ossl_sg2002_cipher(SG2002_ALG_AES, SG2002_MODE_CTR, 1,
-+        a->plat.sg2002.key, a->base.keylen, iv, 4, in, out, blocks * 16, 1024);
++        a->plat.sg2002.key, a->base.keylen, iv, 4, in, out, blocks * 16, 2048);
 +    in += n; out += n; blocks -= n / 16;
 +    while (blocks-- != 0) {
 +        AES_encrypt(iv, stream, key);
@@ -256,3 +258,93 @@
      return 1;
  }
  
+--- a/crypto/aes/asm/aes-riscv64.pl
++++ b/crypto/aes/asm/aes-riscv64.pl
+@@ -152,6 +152,12 @@
+     andi    $Ts->[3],$Ts->[3],0x3FC
+ 
+     # Index into table.
++#if defined(__riscv_xtheadmemidx) && !defined(FIPS_MODULE)
++    th.lrwu $Ds->[0],$TBL,$Ts->[0],0
++    th.lrwu $Ds->[1],$TBL,$Ts->[1],0
++    th.lrwu $Ds->[2],$TBL,$Ts->[2],0
++    th.lrwu $Ds->[3],$TBL,$Ts->[3],0
++#else
+     add     $I0,$TBL,$Ts->[0]
+     lwu     $Ds->[0],0($I0)
+     add     $I0,$TBL,$Ts->[1]
+@@ -160,6 +166,7 @@
+     lwu     $Ds->[2],0($I0)
+     add     $I0,$TBL,$Ts->[3]
+     lwu     $Ds->[3],0($I0)
++#endif
+ 
+ ___
+ 
+@@ -171,6 +178,7 @@
+ sub do_lookup_byte {
+     my $ret = do_lookup(@_);
+     $ret =~ s/lwu/lbu/g;
++    $ret =~ s/th.lrwu/th.lrbu/g;
+     return $ret;
+ }
+ 
+@@ -198,6 +206,12 @@
+     andi    $Ts->[2],$Ts->[2],0xFF
+     andi    $Ts->[3],$Ts->[3],0xFF
+ 
++#if defined(__riscv_xtheadmemidx) && !defined(FIPS_MODULE)
++    th.lrbu $Ds->[0],$TBL,$Ts->[0],0
++    th.lrbu $Ds->[1],$TBL,$Ts->[1],0
++    th.lrbu $Ds->[2],$TBL,$Ts->[2],0
++    th.lrbu $Ds->[3],$TBL,$Ts->[3],0
++#else
+     add     $I0,$TBL,$Ts->[0]
+     lbu     $Ds->[0],0($I0)
+     add     $I0,$TBL,$Ts->[1]
+@@ -206,6 +220,7 @@
+     lbu     $Ds->[2],0($I0)
+     add     $I0,$TBL,$Ts->[3]
+     lbu     $Ds->[3],0($I0)
++#endif
+ 
+ ___
+ 
+@@ -813,7 +828,7 @@
+     sd      $T0,0($KEYP)
+     sd      $T2,8($KEYP)
+ 
+-    # if bits == 128
++    // if bits == 128
+     # jump into loop
+     beq     $BITS,$T8,1f
+ 
+@@ -821,7 +836,7 @@
+     srli    $T5,$T4,32
+     sd      $T4,16($KEYP)
+ 
+-    # if bits == 192
++    // if bits == 192
+     # jump into loop
+     beq     $BITS,$T9,2f
+ 
+--- a/crypto/aes/build.info
++++ b/crypto/aes/build.info
+@@ -52,7 +52,7 @@
+   # aes-c64xplus.s implements AES_ctr32_encrypt
+   $AESDEF_c64xplus=AES_ASM AES_CTR_ASM
+ 
+-  $AESASM_riscv64=aes_cbc.c aes-riscv64.s aes-riscv64-zkn.s aes-riscv64-zvkb-zvkned.s aes-riscv64-zvkned.s aes-riscv64-zvbb-zvkg-zvkned.s
++  $AESASM_riscv64=aes_cbc.c aes-riscv64.S aes-riscv64-zkn.s aes-riscv64-zvkb-zvkned.s aes-riscv64-zvkned.s aes-riscv64-zvbb-zvkg-zvkned.s
+   $AESDEF_riscv64=AES_ASM
+   $AESASM_riscv32=aes_core.c aes_cbc.c aes-riscv32-zkn.s
+ 
+@@ -126,7 +126,7 @@
+ GENERATE[aes-mips.S]=asm/aes-mips.pl
+ INCLUDE[aes-mips.o]=..
+ 
+-GENERATE[aes-riscv64.s]=asm/aes-riscv64.pl
++GENERATE[aes-riscv64.S]=asm/aes-riscv64.pl
+ GENERATE[aes-riscv64-zkn.s]=asm/aes-riscv64-zkn.pl
+ GENERATE[aes-riscv32-zkn.s]=asm/aes-riscv32-zkn.pl
+ GENERATE[aes-riscv64-zvkb-zvkned.s]=asm/aes-riscv64-zvkb-zvkned.pl

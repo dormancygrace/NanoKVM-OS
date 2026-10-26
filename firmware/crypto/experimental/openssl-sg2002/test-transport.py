@@ -26,7 +26,8 @@ def apply_transport_updates(directory):
     # Exercise the transport after every later per-algorithm patch as shipped.
     for patch in sorted((ROOT / 'firmware/crypto/openssl-c906').glob('*.patch')):
         for section in re.split(r'(?m)(?=^--- )', patch.read_text()):
-            if section.startswith('--- a/crypto/sg2002.c\n'):
+            if any(section.startswith('--- a/' + name + '\n') for name in
+                   ('crypto/sg2002.c', 'include/crypto/sg2002_crypto.h')):
                 subprocess.run(['patch', '--batch', '--fuzz=0', '-p1'],
                                input=section, text=True, cwd=directory,
                                stdout=subprocess.DEVNULL, check=True)
@@ -38,8 +39,6 @@ def main():
     a = p.parse_args()
     patch = ROOT / 'firmware/crypto/openssl-c906/0002-sg2002-transport.patch'
     files = added_files(patch.read_text())
-    # Never drift from the real kernel ioctl ABI, including its syscall license.
-    assert files['include/crypto/sg2002_crypto.h'] == (ROOT / 'platform/modules/sg2002-aes/sg2002_crypto.h').read_text()
     with tempfile.TemporaryDirectory(prefix='nkos-sg2002-test-') as tmp:
         d = Path(tmp)
         for name, text in files.items():
@@ -47,6 +46,8 @@ def main():
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(text)
         apply_transport_updates(d)
+        # Compare the fully patched userspace ABI to the kernel header.
+        assert (d / "include/crypto/sg2002_crypto.h").read_text() == (ROOT / "platform/modules/sg2002-aes/sg2002_crypto.h").read_text()
         flags = [] if a.no_sanitizers else ['-fsanitize=address,undefined']
         binary = d / 'test'
         subprocess.run(['cc', '-O1', '-g', '-Wall', '-Wextra', '-Werror', *flags,

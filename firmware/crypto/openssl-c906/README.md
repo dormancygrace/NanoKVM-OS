@@ -86,3 +86,10 @@ see `../experimental/openssl-tdes`.
 `0008-sm4-dma.patch` adds ECB/CBC/CTR using the common committed-prefix helper.
 The 1 KiB candidate minimum and native behavior remain to be qualified; see
 `../experimental/openssl-sm4`.
+
+## SM3
+
+`0009-sm3-dma.patch` and the matching driver extension add capability-gated SM3
+compression using Sophgo's newer SG200x implementation. Original ioctl layouts
+remain compatible. State-word order, completion status and the 4 KiB threshold
+still need native confirmation; see `../experimental/openssl-sm3`.

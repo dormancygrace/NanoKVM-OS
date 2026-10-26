@@ -115,6 +115,12 @@ jobs:
         run: python3 firmware/crypto/experimental/openssl-sha1/test-fallback.py
       - name: OpenSSL block-cipher partial DMA continuation
         run: python3 firmware/crypto/experimental/openssl-aes/test-blocks.py
+      - name: OpenSSL SM3 DMA continuation and driver ABI
+        run: |
+          python3 firmware/crypto/experimental/openssl-sm3/test-fallback.py
+          python3 firmware/crypto/experimental/openssl-sm3/test-driver.py
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-sm3/verify.c -lcrypto -o /tmp/openssl-sm3-verify
+          /tmp/openssl-sm3-verify
       - name: OpenSSL block-mode EVP reference
         run: |
           cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-des/verify.c -lcrypto -o /tmp/openssl-block-verify

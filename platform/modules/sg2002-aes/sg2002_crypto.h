@@ -10,10 +10,10 @@
 enum sg2002_crypto_algorithm {
  SG2002_ALG_AES = 1, SG2002_ALG_DES, SG2002_ALG_TDES, SG2002_ALG_SM4,
  SG2002_ALG_SHA1, SG2002_ALG_SHA256, SG2002_ALG_BASE64,
- SG2002_ALG_COUNT
+ SG2002_ALG_SM3, SG2002_ALG_COUNT
 };
 enum sg2002_crypto_mode { SG2002_MODE_ECB, SG2002_MODE_CBC, SG2002_MODE_CTR };
-/* SHA requests transform complete 64-byte blocks. state contains/returns the
+/* SHA/SM3 requests transform complete 64-byte blocks. state contains/returns the
  * canonical big-endian chaining state; callers handle initialization/padding.
  * input/output are userspace virtual addresses, never physical/DMA addresses.
  * output_length is capacity on input and actual length on successful return.
@@ -25,12 +25,19 @@ struct sg2002_crypto_request {
  __aligned_u64 input, output;
  __u32 reserved[4];
 };
+/* Frozen counter count keeps the original INFO ioctl number and layout. */
+#define SG2002_INFO_V1_COUNT 8
 struct sg2002_crypto_info {
  __u32 version, algorithms, max_input, max_output;
  __u32 poisoned, reserved[3];
- __aligned_u64 submitted[SG2002_ALG_COUNT];
- __aligned_u64 completed[SG2002_ALG_COUNT];
+ __aligned_u64 submitted[SG2002_INFO_V1_COUNT];
+ __aligned_u64 completed[SG2002_INFO_V1_COUNT];
+};
+struct sg2002_crypto_info2 {
+ struct sg2002_crypto_info legacy;
+ __aligned_u64 sm3_submitted, sm3_completed;
 };
 #define SG2002_CRYPTO_RUN _IOWR('K', 0xc2, struct sg2002_crypto_request)
 #define SG2002_CRYPTO_INFO _IOR('K', 0xc3, struct sg2002_crypto_info)
+#define SG2002_CRYPTO_INFO2 _IOR('K', 0xc4, struct sg2002_crypto_info2)
 #endif

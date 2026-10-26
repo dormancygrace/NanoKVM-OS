@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Included by the existing serialized AES owner, using its DMA resources and
- * failure latch. SG2002 TRM 22.1; descriptor fields checked against SOPHGO
- * linux_5.10 382af279 cvitek-spacc.c. SM3 is deliberately absent: SG2002's
- * published descriptor bit 14 is reserved.
+ * failure latch. SHA/cipher fields follow SG2002 TRM 22.1. SM3 follows
+ * Sophgo linux_5.10 sg200x-dev, commit 6ef521238996 (2025-06-23):
+ * descriptor bit14 and result registers 0x1e0 supersede the older TRM.
  */
 #include "sg2002_crypto.h"
+#include <linux/unaligned.h>
+static_assert(sizeof(struct sg2002_crypto_request) == 144);
+static_assert(sizeof(struct sg2002_crypto_info) == 160);
+static_assert(sizeof(struct sg2002_crypto_info2) == 176);
 static u8 *crypto_output;
 static dma_addr_t crypto_output_dma;
 static u64 crypto_submitted[SG2002_ALG_COUNT], crypto_completed[SG2002_ALG_COUNT];
@@ -33,7 +37,7 @@ static void crypto_free_output(void)
 
 static bool crypto_is_hash(u32 alg)
 {
- return alg == SG2002_ALG_SHA1 || alg == SG2002_ALG_SHA256;
+ return alg == SG2002_ALG_SHA1 || alg == SG2002_ALG_SHA256 || alg == SG2002_ALG_SM3;
 }
 static bool crypto_b64_char(u8 c)
 {
@@ -93,6 +97,19 @@ static int crypto_prepare_descriptor(struct sg2002_crypto_request *r,
  desc[0] = 0xf;
  desc[4] = lower_32_bits(buffer_dma); desc[5] = upper_32_bits(buffer_dma);
  desc[8] = *input_size;
+ if (r->algorithm == SG2002_ALG_SM3) {
+  /* Unlike SHA, SM3's descriptor carries native little-endian words.
+   * Keep the userspace chaining state in canonical big-endian order.
+   * Give the vendor's destination field a separate bounded output mapping.
+   */
+  desc[0] |= BIT(19) | BIT(23) | BIT(14);
+  desc[1] = 1;
+  for (i = 0; i < 8; i++) desc[10+i] = get_unaligned_be32(r->state + i*4);
+  desc[6] = lower_32_bits(crypto_output_dma);
+  desc[7] = upper_32_bits(crypto_output_dma);
+  *output_size = *input_size;
+  return 0;
+ }
  if (hash) {
   desc[0] |= BIT(19) | BIT(12);
   desc[1] = r->algorithm == SG2002_ALG_SHA256 ? 3 : 1;
@@ -175,9 +192,8 @@ static int crypto_finish_locked(struct sg2002_crypto_request *r, const struct cr
  int err;
  err = engine_wait(&status);
  r->status = status;
- // SG2002 TRM 22.3: bit0 is encryption completion, bit1 hash completion.
- // A hash has no ciphertext write and completes with 2, not AES's 1.
- if (err || status != (crypto_is_hash(r->algorithm) ? 2 : 1)) {
+ // Completion: cipher bit0, SHA bit1, SM3 bit2. Never accept mixed status.
+ if (err || status != (r->algorithm == SG2002_ALG_SM3 ? 4 : crypto_is_hash(r->algorithm) ? 2 : 1)) {
   poisoned = true; __module_get(THIS_MODULE);
   pr_err("sg2002_crypto: algorithm=%u DMA uncertain status=%#x timeout=%d; pinned until reboot\n", r->algorithm, status, err);
   err = err ? err : -EIO;
@@ -189,7 +205,10 @@ static int crypto_finish_locked(struct sg2002_crypto_request *r, const struct cr
  dma_sync_single_for_cpu(&pdev->dev, buffer_dma, input_size, DMA_BIDIRECTIONAL);
  if (output_size) dma_sync_single_for_cpu(&pdev->dev, crypto_output_dma, output_size, DMA_BIDIRECTIONAL);
  crypto_completed[r->algorithm]++;
- if (crypto_is_hash(r->algorithm)) {
+ if (r->algorithm == SG2002_ALG_SM3) {
+  for (i = 0; i < 8; i++)
+   put_unaligned_be32(readl(regs + 0x1e0 + i*4), r->state + i*4);
+ } else if (crypto_is_hash(r->algorithm)) {
   for (i = 0; i < (r->algorithm == SG2002_ALG_SHA256 ? 8 : 5); i++)
    ((__le32 *)r->state)[i] = cpu_to_le32(readl(regs + 0x1c0 + i*4));
  }
@@ -212,7 +231,7 @@ static void crypto_clean_locked(const struct sg2002_crypto_request *r)
  memzero_explicit(buffer, ALIGN(r->length, 16));
  if (r->algorithm == SG2002_ALG_BASE64)
   memzero_explicit(crypto_output, r->encrypt ? DIV_ROUND_UP(r->length, 3)*4 : r->length/4*3);
- else if (!crypto_is_hash(r->algorithm))
+ else if (!crypto_is_hash(r->algorithm) || r->algorithm == SG2002_ALG_SM3)
   memzero_explicit(crypto_output, ALIGN(r->length, 16));
  memzero_explicit(desc, DESC_BYTES);
 }
@@ -220,16 +239,19 @@ static long crypto_ioctl(unsigned int cmd, unsigned long arg)
 {
  struct sg2002_crypto_request r = {};
  int err;
- if (cmd == SG2002_CRYPTO_INFO) {
-  struct sg2002_crypto_info info = { .version = SG2002_CRYPTO_ABI,
+ if (cmd == SG2002_CRYPTO_INFO || cmd == SG2002_CRYPTO_INFO2) {
+  struct sg2002_crypto_info2 info = { .legacy = { .version = SG2002_CRYPTO_ABI,
    .algorithms = GENMASK(SG2002_ALG_COUNT-1, 1),
-   .max_input = SG2002_CRYPTO_MAX, .max_output = SG2002_CRYPTO_OUT_MAX };
+   .max_input = SG2002_CRYPTO_MAX, .max_output = SG2002_CRYPTO_OUT_MAX } };
+  size_t size = cmd == SG2002_CRYPTO_INFO ? sizeof(info.legacy) : sizeof(info);
   err = mutex_lock_interruptible(&lock); if (err) return err;
-  info.poisoned = poisoned;
-  memcpy(info.submitted, crypto_submitted, sizeof(crypto_submitted));
-  memcpy(info.completed, crypto_completed, sizeof(crypto_completed));
+  info.legacy.poisoned = poisoned;
+  memcpy(info.legacy.submitted, crypto_submitted, sizeof(info.legacy.submitted));
+  memcpy(info.legacy.completed, crypto_completed, sizeof(info.legacy.completed));
+  info.sm3_submitted = crypto_submitted[SG2002_ALG_SM3];
+  info.sm3_completed = crypto_completed[SG2002_ALG_SM3];
   mutex_unlock(&lock);
-  return copy_to_user((void __user *)arg, &info, sizeof(info)) ? -EFAULT : 0;
+  return copy_to_user((void __user *)arg, &info, size) ? -EFAULT : 0;
  }
  if (cmd != SG2002_CRYPTO_RUN) return -ENOTTY;
  if (copy_from_user(&r, (void __user *)arg, sizeof(r))) { err = -EFAULT; goto clear; }

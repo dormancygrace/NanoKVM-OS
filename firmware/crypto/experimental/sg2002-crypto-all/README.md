@@ -35,7 +35,7 @@ The results below describe the September 2026 experiments and their original sof
 
 For 16 KiB AES-256-GCM records, OpenSSL software measured 5.90 MiB/s and 2.604 ms CPU; hardware AES + software GHASH measured 12.03 MiB/s and 1.196 ms CPU (54% less CPU work). Base64 decoding is an exception to hardware benefits: at 87,384 input bytes it used 23.22 ms CPU/MiB versus 15.87 in software. Small operations can also lose to ioctl/copy overhead; hardware selection must be based on workload size.
 
-These are functional checks and bounded microbenchmarks with capture disabled, not long concurrent video/TLS loads. GHASH/HMAC/GCM are not separate native SG2002 CryptoDMA engines. TRNG is a separate block and was not included in these deterministic-algorithm measurements. SM3 appears in a newer generic vendor driver, but SG2002 TRM marks its descriptor bit reserved; it is not advertised here.
+These are functional checks and bounded microbenchmarks with capture disabled, not long concurrent video/TLS loads. GHASH/HMAC/GCM are not separate native SG2002 CryptoDMA engines. TRNG is a separate block and was not included in these deterministic-algorithm measurements. SM3 was added to Sophgo's `sg200x-dev` driver on 2025-06-23 (commit `6ef521238996`), superseding the older TRM's reserved-bit description. The current candidate extension and its still-pending native qualification are documented in `../openssl-sm3`; these historical measurements do not cover SM3.
 
 ## Primary sources
 

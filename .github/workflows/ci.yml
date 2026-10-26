@@ -121,6 +121,12 @@ jobs:
         run: |
           cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-des/verify.c -lcrypto -o /tmp/openssl-block-verify
           /tmp/openssl-block-verify
+      - name: OpenSSL AES EVP state and counter carry
+        run: |
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify-gcm.c -lcrypto -o /tmp/openssl-gcm-verify
+          /tmp/openssl-gcm-verify
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -Iplatform/modules/sg2002-aes firmware/crypto/experimental/openssl-aes/verify-ctr.c -lcrypto -o /tmp/openssl-ctr-verify
+          /tmp/openssl-ctr-verify
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

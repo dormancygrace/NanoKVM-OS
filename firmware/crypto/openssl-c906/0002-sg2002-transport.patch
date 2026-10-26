@@ -12,70 +12,94 @@
 +ENDIF
 --- /dev/null
 +++ b/crypto/sg2002.c
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,152 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <errno.h>
 +#include <fcntl.h>
 +#include <stdatomic.h>
 +#include <stdint.h>
++#include <stdlib.h>
 +#include <string.h>
 +#include <sys/stat.h>
 +#include <sys/ioctl.h>
 +#include <unistd.h>
 +#include <openssl/crypto.h>
-+#ifndef NKOS_SG2002_TEST
-+#include "internal/cryptlib.h"
-+#endif
 +#include "crypto/sg2002.h"
 +
 +_Static_assert(sizeof(struct sg2002_crypto_request) == 144, "SG2002 request ABI");
 +_Static_assert(sizeof(struct sg2002_crypto_info) == 160, "SG2002 info ABI");
 +
 +static _Atomic int failed;
++/* Capabilities are immutable for this ABI. Each DSO has its own cache.
++ * Descriptors remain operation-owned, including across fork/provider unload. */
++static _Atomic unsigned int cached_algorithms;
 +static CRYPTO_ONCE once = CRYPTO_ONCE_STATIC_INIT;
 +static int disabled;
 +static void init_options(void)
 +{
-+    const char *v = ossl_safe_getenv("NANOKVM_OPENSSL_DMA");
++    const char *v = secure_getenv("NANOKVM_OPENSSL_DMA");
 +    disabled = v != NULL && strcmp(v, "off") == 0;
 +}
 +static void fault(int error)
 +{
-+    /* Transient resource failures and interruptions are retried only by a
-+     * later operation. A controller/device failure disables this process.
-+     */
-+    if (error == EIO || error == ETIMEDOUT || error == ENODEV)
++    /* Retry transient resource failures/interruptions on a later operation.
++     * Availability, access and protocol failures disable this library image. */
++    if (error == EIO || error == ETIMEDOUT || error == ENODEV
++        || error == ENOENT || error == ENOTDIR || error == EACCES || error == EPERM
++        || error == ENOTTY || error == EINVAL || error == EMSGSIZE || error == EBADF)
 +        atomic_store_explicit(&failed, 1, memory_order_relaxed);
 +}
 +int ossl_sg2002_begin(unsigned int algorithm)
 +{
 +    struct sg2002_crypto_info info;
 +    struct stat st;
-+    int fd;
++    unsigned int algorithms;
++    int fd, error;
 +    if (algorithm < 1 || algorithm >= SG2002_ALG_COUNT
 +        || !CRYPTO_THREAD_run_once(&once, init_options) || disabled
 +        || atomic_load_explicit(&failed, memory_order_relaxed))
 +        return -1;
-+    fd = open("/dev/sg2002-aes-probe", O_RDWR | O_CLOEXEC);
-+    if (fd < 0)
++    algorithms = atomic_load_explicit(&cached_algorithms, memory_order_acquire);
++    if (algorithms != 0 && !(algorithms & (1u << algorithm)))
 +        return -1;
-+    memset(&info, 0, sizeof(info));
-+    if (fstat(fd, &st) != 0 || !S_ISCHR(st.st_mode)
-+        || ioctl(fd, SG2002_CRYPTO_INFO, &info) != 0) {
-+        close(fd);
++    fd = open("/dev/sg2002-aes-probe", O_RDWR | O_CLOEXEC);
++    if (fd < 0) {
++        fault(errno);
 +        return -1;
 +    }
-+    if (info.version != SG2002_CRYPTO_ABI || info.poisoned
-+        || !(info.algorithms & (1u << algorithm))
-+        || info.max_input < SG2002_CRYPTO_MAX
-+        || info.max_output < SG2002_CRYPTO_OUT_MAX) {
-+        if (info.poisoned)
-+            atomic_store_explicit(&failed, 1, memory_order_relaxed);
++    if (fstat(fd, &st) != 0) {
++        error = errno;
++        goto unavailable;
++    }
++    if (!S_ISCHR(st.st_mode)) {
++        error = ENODEV;
++        goto unavailable;
++    }
++    if (algorithms == 0) {
++        memset(&info, 0, sizeof(info));
++        if (ioctl(fd, SG2002_CRYPTO_INFO, &info) != 0) {
++            error = errno;
++            goto unavailable;
++        }
++        if (info.version != SG2002_CRYPTO_ABI || info.poisoned
++            || info.algorithms == 0 || info.max_input < SG2002_CRYPTO_MAX
++            || info.max_output < SG2002_CRYPTO_OUT_MAX) {
++            error = info.poisoned ? EIO : EINVAL;
++            goto unavailable;
++        }
++        algorithms = info.algorithms;
++        atomic_store_explicit(&cached_algorithms, algorithms, memory_order_release);
++    }
++    if (!(algorithms & (1u << algorithm))) {
 +        close(fd);
 +        return -1;
 +    }
 +    return fd;
++unavailable:
++    fault(error);
++    close(fd);
++    return -1;
 +}
 +static int transaction(int fd, struct sg2002_crypto_request *request,
 +                       unsigned char *scratch)

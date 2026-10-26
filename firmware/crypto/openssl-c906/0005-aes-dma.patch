@@ -47,7 +47,7 @@
 +        if (chunk > SG2002_CRYPTO_MAX)
 +            chunk = SG2002_CRYPTO_MAX;
 +        chunk -= chunk % block;
-+        if (mode == SG2002_MODE_CTR && counter_bytes == 4) {
++        if (mode == SG2002_MODE_CTR) {
 +            uint32_t counter = (uint32_t)iv[block-4] << 24
 +                | (uint32_t)iv[block-3] << 16 | (uint32_t)iv[block-2] << 8 | iv[block-1];
 +            uint64_t remaining = (UINT64_C(1) << 32) - counter;

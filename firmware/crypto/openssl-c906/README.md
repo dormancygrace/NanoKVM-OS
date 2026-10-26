@@ -39,3 +39,10 @@ python3 firmware/crypto/openssl-c906/generate-chacha.py \
 
 Qualification sources and results belong to
 `firmware/crypto/experimental/openssl-chacha20/`.
+
+## Direct SG2002 transport
+
+`0002-sg2002-transport.patch` adds the shared private ioctl client for subsequent
+per-algorithm patches. On its own it selects no hardware algorithm and changes
+no EVP result. It is compiled only for RISC-V64, outside the FIPS module. See
+`firmware/crypto/experimental/openssl-sg2002/` for fault tests and lifetime rules.

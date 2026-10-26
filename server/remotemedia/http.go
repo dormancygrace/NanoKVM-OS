@@ -2,9 +2,11 @@ package remotemedia
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -17,7 +19,10 @@ import (
 	"unicode/utf8"
 )
 
-const httpReadTimeout = 10 * time.Second
+const (
+	httpReadTimeout = 8 * time.Second
+	httpReadBudget  = 16 * time.Second
+)
 
 type HTTPOptions struct {
 	URL      string `json:"url"`
@@ -28,22 +33,24 @@ type HTTPOptions struct {
 // HTTPSource stores at most one MiB of image data, in memory only. It keeps the
 // URL (including signed query parameters) and credentials out of public state.
 type HTTPSource struct {
-	Name               string
-	Size               uint64
-	ctx                context.Context
-	cancel             context.CancelFunc
-	client             *http.Client
-	transport          *http.Transport
-	url                *url.URL
-	authOrigin         string
-	username, password string
-	etag, modified     string
-	mu                 sync.Mutex
-	buffer             []byte
-	start              uint64
-	valid              int
-	next               uint64
-	streak             uint8
+	Name                       string
+	Size                       uint64
+	ctx                        context.Context
+	cancel                     context.CancelFunc
+	client                     *http.Client
+	transport                  *http.Transport
+	url                        *url.URL
+	originalURL                *url.URL
+	attemptTimeout, readBudget time.Duration
+	authOrigin                 string
+	username, password         string
+	etag, modified             string
+	mu                         sync.Mutex
+	buffer                     []byte
+	start                      uint64
+	valid                      int
+	next                       uint64
+	streak                     uint8
 }
 
 func ValidateHTTPOptions(o HTTPOptions) error {
@@ -83,7 +90,7 @@ func OpenHTTP(ctx context.Context, o HTTPOptions) (*HTTPSource, error) {
 	t.MaxIdleConnsPerHost = 1
 	t.MaxResponseHeaderBytes = 32 << 10
 	t.ResponseHeaderTimeout = httpReadTimeout
-	s := &HTTPSource{ctx: ctx, cancel: cancel, transport: t, url: u,
+	s := &HTTPSource{ctx: ctx, cancel: cancel, transport: t, url: u, originalURL: u, attemptTimeout: httpReadTimeout, readBudget: httpReadBudget,
 		authOrigin: httpOrigin(u), username: o.Username, password: o.Password,
 		buffer: make([]byte, MaxRead), next: ^uint64(0)}
 	s.client = &http.Client{Transport: t, Timeout: httpReadTimeout, CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -144,14 +151,79 @@ func strongHTTPETag(s string) bool {
 	return true
 }
 
+type httpReadFailure struct {
+	message string
+	retry   bool
+	expired bool
+}
+
+func (e *httpReadFailure) Error() string { return e.message }
+
+func httpStatusFailure(code int) error {
+	e := &httpReadFailure{}
+	switch code {
+	case http.StatusOK:
+		e.message = "Image server does not support byte ranges (HTTP 206 required)"
+	case http.StatusUnauthorized, http.StatusForbidden:
+		e.message, e.expired = "Image server denied access; check credentials or the signed URL", true
+	case http.StatusNotFound, http.StatusGone:
+		e.message, e.expired = "Remote image was not found or is no longer available", code == http.StatusGone
+	case http.StatusPreconditionFailed:
+		e.message = "Remote image changed; disconnect and reconnect it"
+	case http.StatusRequestedRangeNotSatisfiable:
+		e.message = "Remote image size or byte range changed; disconnect and reconnect it"
+	default:
+		e.message = fmt.Sprintf("Image server returned HTTP %d", code)
+		e.retry = code == http.StatusRequestTimeout || code >= 500 && code <= 599
+	}
+	return e
+}
+
+// At most two attempts share one budget below the kernel's 20-second NBD
+// timeout. Never expose URL-bearing transport errors or retry changed data.
 func (s *HTTPSource) fetch(offset uint64, target []byte, probe bool) error {
-	req, err := http.NewRequestWithContext(s.ctx, http.MethodGet, s.url.String(), nil)
+	ctx, cancel := context.WithTimeout(s.ctx, s.readBudget)
+	defer cancel()
+	targetURL := s.url
+	for attempt := 0; ; attempt++ {
+		attemptCtx, stop := context.WithTimeout(ctx, s.attemptTimeout)
+		err := s.fetchOnce(attemptCtx, targetURL, offset, target, probe)
+		stop()
+		if err == nil {
+			return nil
+		}
+		if s.ctx.Err() != nil {
+			return s.ctx.Err()
+		}
+		if ctx.Err() != nil {
+			return errors.New("Remote HTTP read timed out")
+		}
+		var failure *httpReadFailure
+		if attempt == 1 || !errors.As(err, &failure) {
+			return err
+		}
+		if failure.expired && !probe && targetURL.String() != s.originalURL.String() {
+			// A renewed signed URL must still identify the pinned image.
+			// Size alone is not sufficient to safely renew an expired target.
+			if s.etag == "" && s.modified == "" {
+				return errors.New("Signed image URL expired without an image validator; disconnect and reconnect it")
+			}
+			targetURL = s.originalURL
+		} else if !failure.retry {
+			return err
+		}
+		s.transport.CloseIdleConnections()
+	}
+}
+
+func (s *HTTPSource) fetchOnce(ctx context.Context, targetURL *url.URL, offset uint64, target []byte, probe bool) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL.String(), nil)
 	if err != nil {
 		return errors.New("Invalid image request")
 	}
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", offset, offset+uint64(len(target))-1))
 	req.Header.Set("Accept-Encoding", "identity")
-	if s.username != "" && httpOrigin(s.url) == s.authOrigin {
+	if s.username != "" && httpOrigin(targetURL) == s.authOrigin {
 		req.SetBasicAuth(s.username, s.password)
 	}
 	if s.etag != "" {
@@ -165,11 +237,19 @@ func (s *HTTPSource) fetch(offset uint64, target []byte, probe bool) error {
 			return s.ctx.Err()
 		}
 		// net/url errors contain the complete URL, possibly including secrets.
-		return errors.New("Remote HTTP request failed; check the connection and TLS certificate")
+		var networkError net.Error
+		var connectionError *net.OpError
+		retry := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
+			(errors.As(err, &networkError) && networkError.Timeout()) || errors.As(err, &connectionError)
+		var certificateError *tls.CertificateVerificationError
+		if errors.As(err, &certificateError) {
+			retry = false
+		}
+		return &httpReadFailure{message: "Remote HTTP request failed; check the connection and TLS certificate", retry: retry}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusPartialContent {
-		return fmt.Errorf("Image server returned HTTP %d; byte-range responses (206) are required", resp.StatusCode)
+		return httpStatusFailure(resp.StatusCode)
 	}
 	start, end, total, ok := parseContentRange(resp.Header.Get("Content-Range"))
 	if !ok || start != offset || end-start+1 != uint64(len(target)) || (resp.ContentLength >= 0 && resp.ContentLength != int64(len(target))) {
@@ -182,8 +262,24 @@ func (s *HTTPSource) fetch(offset uint64, target []byte, probe bool) error {
 		if err := ValidateImage(total); err != nil {
 			return err
 		}
+	} else if total != s.Size || (s.etag != "" && resp.Header.Get("ETag") != s.etag) || (s.etag == "" && s.modified != "" && resp.Header.Get("Last-Modified") != s.modified) {
+		return errors.New("Remote image changed; disconnect and reconnect it")
+	}
+	if _, err := io.ReadFull(resp.Body, target); err != nil {
+		if s.ctx.Err() != nil {
+			return s.ctx.Err()
+		}
+		return &httpReadFailure{message: "Image server returned a short or interrupted block", retry: true}
+	}
+	var extra [1]byte
+	if _, err := io.ReadFull(resp.Body, extra[:]); err != io.EOF {
+		if s.ctx.Err() != nil {
+			return s.ctx.Err()
+		}
+		return &httpReadFailure{message: "Image server returned an oversized or incomplete block", retry: err != nil}
+	}
+	if probe {
 		s.Size = total
-		s.url = resp.Request.URL // Pin the resolved URL; do not repeat a redirect selector.
 		if tag := resp.Header.Get("ETag"); strongHTTPETag(tag) {
 			s.etag = tag
 		}
@@ -192,22 +288,10 @@ func (s *HTTPSource) fetch(offset uint64, target []byte, probe bool) error {
 				s.modified = modified
 			}
 		}
-	} else if total != s.Size || (s.etag != "" && resp.Header.Get("ETag") != s.etag) || (s.etag == "" && s.modified != "" && resp.Header.Get("Last-Modified") != s.modified) {
-		return errors.New("Remote image changed; disconnect and reconnect it")
 	}
-	if _, err := io.ReadFull(resp.Body, target); err != nil {
-		if s.ctx.Err() != nil {
-			return s.ctx.Err()
-		}
-		return errors.New("Image server returned a short or interrupted block")
-	}
-	var extra [1]byte
-	if _, err := io.ReadFull(resp.Body, extra[:]); err != io.EOF {
-		if s.ctx.Err() != nil {
-			return s.ctx.Err()
-		}
-		return errors.New("Image server returned an oversized or incomplete block")
-	}
+	// Update the pinned target only after a complete, validated block. Normal
+	// reads avoid the selector; a refreshed target passes the original checks.
+	s.url = resp.Request.URL
 	return nil
 }
 

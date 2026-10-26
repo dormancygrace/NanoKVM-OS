@@ -194,3 +194,9 @@ module accepted the modified metadata in the negative control; the patch
 preserves signature errors through compound-response handling. Distribution
 CI kernels skip this device-specific check. The real signed/encrypted Samba
 suite also covers deadlines, cancellation, mount restrictions and cleanup.
+
+The host Samba fixture permits optional signing. `TestSMBRequiresSigningWithOptionalServer`
+checks that the production client sets SIGNING_REQUIRED in its negotiate request
+and signs its actual READ request. Removing `sec=ntlmsspi` fails this test even
+on an unpatched distribution kernel. Corrupted-signature rejection still
+requires the separate patched-kernel qualification described above.

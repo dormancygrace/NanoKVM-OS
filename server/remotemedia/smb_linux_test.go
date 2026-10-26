@@ -343,3 +343,31 @@ func TestSMBCloseInterruptsRead(t *testing.T) {
 	}
 	s.Close()
 }
+
+func TestSMBReaderSlotDeadlineIsActionable(t *testing.T) {
+	smbReaderSlot <- struct{}{}
+	defer func() { <-smbReaderSlot }()
+	for _, canceled := range []bool{false, true} {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+		if canceled {
+			cancel()
+		}
+		s, err := OpenSMB(ctx, SMBOptions{URL: "smb://example.invalid/images/test.iso", Username: "reader"})
+		cancel()
+		if s != nil || err == nil {
+			t.Fatalf("unexpected source: %v, %v", s, err)
+		}
+		if canceled {
+			if !errors.Is(err, context.Canceled) {
+				t.Fatal(err)
+			}
+		} else if err.Error() != "The previous SMB reader is still shutting down; try again" {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	if err := smbError(ctx, "SMB connection timed out"); err.Error() != "SMB connection timed out" {
+		t.Fatal(err)
+	}
+}

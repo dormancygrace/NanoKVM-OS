@@ -87,7 +87,7 @@ type SMBSource struct {
 }
 
 func smbError(ctx context.Context, message string) error {
-	if ctx.Err() != nil {
+	if ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return ctx.Err()
 	}
 	// System errors can contain the supplied remote path or server details.

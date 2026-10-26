@@ -137,3 +137,105 @@ func corruptSMBResponse(t *testing.T, address string, command uint16) (string, *
 	})
 	return listener.Addr().String(), modified
 }
+
+// This also runs on distribution kernels. Optional server signing ensures the
+// client requirement is tested independently of the server's policy.
+func TestSMBRequiresSigningWithOptionalServer(t *testing.T) {
+	address := os.Getenv("NANOKVM_SMB_TEST_ADDR")
+	if address == "" {
+		t.Skip("requires the Samba fixture")
+	}
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	var required, optional, signedRead, unsignedRead atomic.Bool
+	go func() {
+		defer close(done)
+		front, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer front.Close()
+		back, err := (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, "tcp", address)
+		if err != nil {
+			return
+		}
+		defer back.Close()
+		stop := context.AfterFunc(ctx, func() { front.Close(); back.Close() })
+		defer stop()
+		front.SetDeadline(time.Now().Add(20 * time.Second))
+		back.SetDeadline(time.Now().Add(20 * time.Second))
+		forward := func(dst, src net.Conn, request bool) {
+			defer dst.Close()
+			for {
+				var header [4]byte
+				if _, err := io.ReadFull(src, header[:]); err != nil {
+					return
+				}
+				size := binary.BigEndian.Uint32(header[:])
+				if size > 16*1024*1024 {
+					return
+				}
+				packet := make([]byte, size)
+				if _, err := io.ReadFull(src, packet); err != nil {
+					return
+				}
+				if len(packet) >= 70 && bytes.Equal(packet[:4], []byte{0xfe, 'S', 'M', 'B'}) {
+					command := binary.LittleEndian.Uint16(packet[12:14])
+					if command == 0 {
+						if request {
+							required.Store(binary.LittleEndian.Uint16(packet[68:70])&2 != 0)
+						} else {
+							optional.Store(binary.LittleEndian.Uint16(packet[66:68])&2 == 0)
+						}
+					}
+					if request && command == 8 {
+						if binary.LittleEndian.Uint32(packet[16:20])&8 != 0 && !bytes.Equal(packet[48:64], make([]byte, 16)) {
+							signedRead.Store(true)
+						} else {
+							unsignedRead.Store(true)
+						}
+					}
+				}
+				if _, err := io.Copy(dst, io.MultiReader(bytes.NewReader(header[:]), bytes.NewReader(packet))); err != nil {
+					return
+				}
+			}
+		}
+		reverseDone := make(chan struct{})
+		go func() { defer close(reverseDone); forward(front, back, false) }()
+		forward(back, front, true)
+		front.Close()
+		back.Close()
+		<-reverseDone
+	}()
+	defer func() {
+		cancel()
+		listener.Close()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Error("signing observer did not stop")
+		}
+	}()
+	s, err := OpenSMB(ctx, SMBOptions{URL: "smb://" + listener.Addr().String() + "/images/test.iso", Username: "media", Password: "nano-fixture"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, err := s.ReadBlock(0, 65536); err != nil {
+		t.Fatal(err)
+	}
+	if !optional.Load() {
+		t.Fatal("fixture server must not require signing")
+	}
+	if !required.Load() {
+		t.Fatal("client did not require SMB signing")
+	}
+	if !signedRead.Load() || unsignedRead.Load() {
+		t.Fatal("client READ was not signed")
+	}
+}

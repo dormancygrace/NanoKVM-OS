@@ -75,7 +75,7 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 	select {
 	case smbReaderSlot <- struct{}{}:
 	case <-opening.Done():
-		return nil, opening.Err()
+		return nil, smbError(opening, "The previous SMB reader is still shutting down; try again")
 	}
 	started := false
 	defer func() {
@@ -85,7 +85,7 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 	}()
 	relay, err := newSMBRelay(opening, address)
 	if err != nil {
-		return nil, smbError(opening, "Could not connect to the SMB server")
+		return nil, smbError(opening, "SMB connection failed or timed out")
 	}
 	transferred := false
 	defer func() {
@@ -178,7 +178,7 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 	}
 	// Stop the opening timer callback before handing ownership to the source.
 	if !stopOpening() || opening.Err() != nil {
-		return nil, opening.Err()
+		return nil, smbError(opening, "SMB connection timed out")
 	}
 	_ = conn.SetDeadline(time.Time{})
 	lifetime, cancel := context.WithCancel(ctx)

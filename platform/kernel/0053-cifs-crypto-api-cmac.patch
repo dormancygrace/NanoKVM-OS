@@ -9,7 +9,8 @@ pages into a bounded scatterlist rather than passing temporary local mappings
 to async callbacks; preserve the original iterators. Keep a software provider
 available. Propagate signature errors and withhold unauthenticated compound
 response buffers, otherwise a later wire-status mapping can mask the error.
-Distinguish bad signatures from server ACL errors.
+Distinguish bad signatures from server ACL errors. Load the CMAC template
+with CIFS so the first signature does not autoload it under srv_mutex.
 
 --- a/fs/smb/client/Kconfig
 +++ b/fs/smb/client/Kconfig
@@ -312,3 +313,12 @@ Distinguish bad signatures from server ACL errors.
 +}
 +
 +#endif
+--- a/fs/smb/client/cifsfs.c
++++ b/fs/smb/client/cifsfs.c
+@@ -2259,5 +2259,6 @@
+ MODULE_SOFTDEP("aead2");
+ MODULE_SOFTDEP("ccm");
+ MODULE_SOFTDEP("gcm");
++MODULE_SOFTDEP("pre: cmac");
+ module_init(init_cifs)
+ module_exit(exit_cifs)

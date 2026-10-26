@@ -21,7 +21,7 @@
 +    size_t completed = 0;
 +    int fd;
 +
-+    if (blocks < DMA_BLOCKS)
++    if (blocks < 2 * DMA_BLOCKS)
 +        return 0;
 +    fd = ossl_sg2002_begin(SG2002_ALG_SHA1);
 +    if (fd < 0)
@@ -73,7 +73,7 @@
 +size_t ossl_sha1_sg2002(SHA_CTX *ctx, const unsigned char *in, size_t blocks);
 +static void sha1_block_data_order(SHA_CTX *c, const void *p, size_t num)
 +{
-+    size_t completed = num >= 64 ? ossl_sha1_sg2002(c, p, num) : 0;
++    size_t completed = num >= 128 ? ossl_sha1_sg2002(c, p, num) : 0;
 +    num -= completed;
 +    if (num != 0)
 +        sha1_block_data_order_c(c, (const unsigned char *)p + completed * SHA_CBLOCK, num);

@@ -62,8 +62,8 @@
 		 * The pre-ready-queue measurements were 39.8 MiB at portrait
 		 * 1080p100, 53.9 MiB at 1440p60 with MJPEG, and 102.7 MiB at
 		 * 2160p30. Current QHD adds a 7.03 MiB VI block and can reclaim
-		 * 15.82 MiB of idle VPSS output buffers; its mixed-reader peak
-		 * needs separate measurement (docs/VIDEO.md). Spare capacity
+		 * 15.82 MiB of idle VPSS output buffers. Mixed-reader operation
+		 * is qualified on this shared region (docs/VIDEO.md). Spare capacity
 		 * lets an allocation use another range when
 		 * a page is busy (a pool sized to the peak failed on cold
 		 * boots). Outside the region Linux keeps about 90 MiB for

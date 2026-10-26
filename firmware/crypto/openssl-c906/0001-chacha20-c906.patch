@@ -21,7 +21,7 @@
  void ChaCha20_ctr32(unsigned char *out, const unsigned char *inp, size_t len,
      const unsigned int key[8], const unsigned int counter[4])
  {
-+    if (ossl_chacha20_c906(out, inp, len, key, counter))
++    if (len >= 640 && ossl_chacha20_c906(out, inp, len, key, counter))
 +        return;
      if (len > CHACHA_BLK_SIZE && RISCV_HAS_ZBB() && riscv_vlen() >= 128
          && (size_t)out % sizeof(size_t) == 0
@@ -90,7 +90,7 @@
 +    size_t bytes;
 +    int control;
 +
-+    if (len < 320 || !CRYPTO_THREAD_run_once(&once, detect_xtheadvector)
++    if (len < 640 || !CRYPTO_THREAD_run_once(&once, detect_xtheadvector)
 +        || !have_xtheadvector)
 +        return 0;
 +    /* PR_RISCV_V_GET_CONTROL is per-thread; do not cache its result.

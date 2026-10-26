@@ -28,3 +28,7 @@ Validation completed:
 
 Physical hardware correctness/counters, thresholds, RAM, concurrent video and
 comparison with our separate Go scalar SHA implementation remain pending.
+
+The same algorithm patch now includes a GNU ABI adapter of the BSD Go C906 SHA-256 compression core. XTheadBb builds use it below the 4 KiB DMA threshold and for software tails; other targets and FIPS keep upstream code. The generator preserves the used callee-saved registers and wipes the 64-byte schedule (112-byte frame).
+
+Physical C906, matched O3 builds, three rotated trials with DMA disabled: the first adapter passed all 864 SHA1/224/256 EVP cases. SHA-256 improved from 8.40 to 9.29 MiB/CPU-s at 64 bytes, 18.30 to 20.70 at 1 KiB, and 19.80 to 22.42 at 16 KiB. The final adapter removes saves of unused registers; final native regression remains pending. At 4 KiB the separate DMA candidate measured 42.80 MiB/CPU-s versus 19.64 upstream. SHA-224 shares the same compression implementation.

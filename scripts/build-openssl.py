@@ -41,6 +41,8 @@ def build(archive, output, cross, jobs):
     patches = sorted((ROOT / 'firmware/crypto/openssl-c906').glob('*.patch'))
     subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-chacha.py'),
                     '--binutils', str(cross), '--check'], check=True)
+    subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-sha256.py'),
+                    '--check'], check=True)
     patch_records = []
     for patch in patches:
         subprocess.run(['patch', '--batch', '--forward', '--fuzz=0', '-p1',

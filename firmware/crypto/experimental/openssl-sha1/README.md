@@ -22,3 +22,5 @@ streaming boundaries and expected digest fingerprint `768fd5312ca481be` from
 
 Native correctness/counters, software candidate comparison, size threshold,
 RAM and concurrent-video measurements remain pending.
+
+Native C906: 864 digest EVP cases passed; hardware counters confirmed SHA-1 submissions. Three rotated trials found a 4 KiB call slower with DMA (42.54 versus 54.01 MiB/CPU-s), while 8 KiB reached 68.14 versus 55.44 and 16 KiB 92.55 versus 56.14. The minimum is therefore 8 KiB; each submitted request remains 4 KiB. The separate GNU adapter of the Go scalar core passed correctness but achieved only 41.78 MiB/CPU-s at 16 KiB, so upstream OpenSSL software is retained. GCC already emits C906 rotates and byte swaps for it.

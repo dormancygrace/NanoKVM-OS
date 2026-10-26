@@ -440,6 +440,19 @@
         "id": "gcc-compiler",
         "mode": "review"
       }
+    },
+    {
+      "name": "OpenSSL 3.5 LTS",
+      "lock_entry": "openssl",
+      "path": "platform/sources.lock",
+      "pattern": "^openssl\\s+\\S*/openssl-([0-9.]+)\\.tar\\.gz",
+      "kind": "index",
+      "url": "https://openssl-library.org/source/",
+      "upstream_pattern": "openssl-(3\\.5\\.[0-9]+)\\.tar\\.gz",
+      "pull_request": {
+        "id": "openssl-35-lts",
+        "mode": "review"
+      }
     }
   ]
 }

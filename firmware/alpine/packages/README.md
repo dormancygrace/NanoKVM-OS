@@ -104,7 +104,9 @@ built engines, plus the build flags and pinned-source metadata under
 The pin follows the OpenSSL 3.5 LTS branch, supported upstream through
 8 April 2030. The provided package revision `r100` selects this runtime over
 Alpine's build of the same upstream release. Updating the source pin must also
-update the provided upstream version in the APKBUILD.
+update the provided upstream version in the APKBUILD. The upstream monitor
+reports patch releases only within 3.5.x and requests review before changing
+the qualified pin and package aliases.
 
 Rollback to a signed release index that predates `nanokvm-openssl` adds an
 exclusion for this package and restores Alpine's OpenSSL in the same APK

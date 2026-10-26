@@ -22,6 +22,15 @@ if (base / 'VERSION').read_text().splitlines()[0] != pin['go_version']:
 for rel, digest in pin['vendor_sha256'].items():
     if sha256(base / 'src' / rel) != digest:
         parser.error(f'{rel} checksum differs from pin')
+def copy_sources(src, dst):
+    # Downloaded Go module toolchains are read-only. Only the isolated copies
+    # become writable; linked base-toolchain files retain their original mode.
+    shutil.copytree(src, dst, symlinks=False)
+    for p in [dst, *dst.rglob('*')]:
+        if not p.is_symlink():
+            p.chmod(p.stat().st_mode | 0o200)
+
+
 out.mkdir(exist_ok=False)
 for p in base.iterdir():
     if p.name != 'src':
@@ -29,7 +38,7 @@ for p in base.iterdir():
 (out / 'src').mkdir()
 for p in (base / 'src').iterdir():
     if p.name == 'runtime':
-        shutil.copytree(p, out / 'src/runtime', symlinks=False)
+        copy_sources(p, out / 'src/runtime')
     else:
         (out / 'src' / p.name).symlink_to(p, target_is_directory=p.is_dir())
 
@@ -44,7 +53,7 @@ def materialize(rel):
             continue
         o.unlink()
         if i == len(parts) - 1:
-            shutil.copytree(b, o, symlinks=False)
+            copy_sources(b, o)
         else:
             o.mkdir()
             for p in b.iterdir():

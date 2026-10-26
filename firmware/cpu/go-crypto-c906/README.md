@@ -113,7 +113,16 @@ and public streaming API remain. `cpu.RISCV64.HasFastMisaligned` controls the
 native unaligned loads; the fallback is tested separately. Zero-length input
 returns without touching the state. Forty unreachable padding bytes retain
 the qualified Go 1.27.3 function extent, so surrounding code has identical
-placement in the comparison binaries.
+placement in the comparison binaries. This is specific to the pinned Go
+assembler, including instruction relaxation. After changing Go or the routine,
+rederive both symbol extents and requalify matched whole-binary placement;
+do not preserve the padding length without measurement.
+
+CI prepares the pinned production GOROOT, builds both the selected and upstream
+reference Poly1305 test binaries and checks their 506-byte update symbols.
+`tests/test-c906-poly1305.py` runs the upstream, big-integer, alignment and
+guard-page tests on scalar RISC-V QEMU with RVV disabled; its deliberate
+corrupted-result control must fail. This tests correctness, not C906 timing.
 
 [Qualification results](../../../tests/manual/c906-poly1305/results.md)
 include 27 message sizes, independent big-integer and guard-page checks,

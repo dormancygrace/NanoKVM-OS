@@ -41,6 +41,23 @@ jobs:
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
 
+  poly1305:
+    name: Prepared RISC-V Poly1305
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: server/go.sum
+      - name: Install scalar RISC-V emulator
+        run: sudo apt-get update && sudo apt-get install -y qemu-user
+      - name: Build and test the production assembly and pinned reference
+        run: |
+          XCRYPTO=$(go mod download -json golang.org/x/crypto@v0.57.0 | jq -r .Dir)
+          python3 tests/test-c906-poly1305.py --base "$(go env GOROOT)" \
+            --xcrypto "$XCRYPTO" --output "$RUNNER_TEMP/poly1305"
+
   web:
     name: Web UI
     runs-on: ubuntu-24.04

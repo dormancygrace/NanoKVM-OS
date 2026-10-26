@@ -16,6 +16,8 @@ parser.add_argument('--goroot', type=Path, required=True)
 parser.add_argument('--xcrypto', type=Path, required=True, help='extracted golang.org/x/crypto module with its tests')
 parser.add_argument('--output', type=Path, required=True)
 parser.add_argument('--gocache', type=Path)
+parser.add_argument('--package', action='append', choices=PACKAGES,
+                    help='Build only selected packages (repeatable; default: all)')
 parser.add_argument('--poly1305-reference', action='store_true', help='compare the pinned upstream Poly1305 with existing fast unaligned loads')
 args = parser.parse_args()
 here = Path(__file__).resolve().parent
@@ -54,7 +56,7 @@ if args.gocache:
 with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
     json.dump({'Replace': overlay}, f)
 try:
-    for pkg in PACKAGES:
+    for pkg in args.package or PACKAGES:
         out = args.output / (Path(pkg).name + '.test')
         subprocess.run([str(goroot / 'bin/go'), 'test', '-c', '-trimpath', '-overlay', f.name, '-o', str(out),
                         'vendor/golang.org/x/crypto/' + pkg], env=env, check=True)

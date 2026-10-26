@@ -164,6 +164,10 @@ return_empty:
 
 // Keep the qualified Go 1.27.3 reference function extent (506 bytes).
 // This padding is unreachable; it preserves surrounding code placement.
+// Go assembler relaxation makes this a toolchain-specific measurement contract.
+// After changing Go or this routine, rederive both candidate/reference extents
+// and requalify matched whole-binary code placement; do not keep 40 bytes by rote.
+// tests/test-c906-poly1305.py checks both 506-byte symbols in the pinned build.
 	WORD	$0x00000013
 	WORD	$0x00000013
 	WORD	$0x00000013

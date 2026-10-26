@@ -233,3 +233,20 @@ JPEG quality 50 is encoded as 51: the encoder rejects a quality factor of exactl
 The source decides the RGB range on HDMI. In CE video formats such as 1920×1080 at 60 Hz it sends limited-range RGB (16–235) unless the monitor says it accepts either. The receivers convert RGB to YCbCr as if it were full range, so black arrived as 16 in every codec. Every monitor profile except the stock one carries a CTA Video Capability Data Block with QS=1 (`scripts/edid-rgb-range.py`, the last step of the profile build), and the source may then send full-range RGB. An NVIDIA card then does so by default: on the stand the dark taskbar went from (40, 44, 58) to (27, 33, 48) and black from 16 to 0. QY stays 0, because the capture expects limited-range YCbCr from the receiver. A source that ignores the block, or is set to limited range by hand, still sends limited range; set its output to full range (NVIDIA: *Output dynamic range*).
 
 A device updated from a release without the block keeps the profile it programmed. At the first start the server finds the shipped profile whose earlier version has the recorded hash and programs the current version of it once, with the same resolution and rate. A Cube is left alone, since every EDID write there needs a power cycle; it gets the block with the next profile it programs.
+
+### VI/VPSS transitions and queued input ownership
+
+With the pinned osdrv revision `1b3a49649d18488ecf54fb4fcb6c27599e433fdc`,
+`sys_ctx_unbind` removes the routing entry under `bind_lock`; it does not drain
+VPSS or release its queued input. `vb_qbuf` acquires a VB reference and VPSS
+frame completion calls `vb_done_handler` to release it. A dispatch that already
+copied the destinations can enqueue one final reference after unbind. The
+application therefore keeps the VPSS group alive through direct-path switches
+and retains private output pools until existing output leases are released.
+
+NV21 JPEG reads use their own VI lease and do not yield the direct output;
+packed-format JPEG and CPU readers can yield it. Host fault contracts count
+2,000 successful bind/unbind transitions, including old output leases and
+idempotent enable calls. This checks userspace ownership and is not a physical
+transition stress result. The earlier nine hardware phases did not count bind
+transitions; a counted long-running shared-reader test remains outstanding.

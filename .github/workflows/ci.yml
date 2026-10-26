@@ -113,6 +113,8 @@ jobs:
         run: python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py
       - name: OpenSSL SHA-1 partial DMA continuation
         run: python3 firmware/crypto/experimental/openssl-sha1/test-fallback.py
+      - name: OpenSSL block-cipher partial DMA continuation
+        run: python3 firmware/crypto/experimental/openssl-aes/test-blocks.py
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

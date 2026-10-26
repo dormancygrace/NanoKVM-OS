@@ -59,3 +59,10 @@ the current 4 KiB threshold still requires physical crossover measurements.
 `0004-sha1-dma.patch` separately wraps SHA-1 compression, preserving upstream
 streaming/padding and software continuation. It excludes the FIPS module.
 See `experimental/openssl-sha1` for fault tests and pending native qualification.
+
+## AES
+
+`0005-aes-dma.patch` adds ECB/CBC/CTR and the AES-CTR primitive used by GCM.
+OpenSSL retains streaming, padding, GHASH, authentication and TLS handling.
+The shared block helper commits only completed chunks and supports separate
+full-width and GCM counters. See `experimental/openssl-aes` for qualification.

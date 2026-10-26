@@ -1,0 +1,258 @@
+--- /dev/null
++++ b/crypto/sg2002_cipher.c
+@@ -0,0 +1,75 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++#include <stdint.h>
++#include <string.h>
++#include <openssl/crypto.h>
++#include "crypto/sg2002.h"
++
++/* Advance just the chosen suffix. GCM uses 32 bits; ordinary CTR uses 128. */
++static void increment(unsigned char *iv, unsigned int bytes, unsigned int blocks)
++{
++    for (unsigned int i = bytes; i != 0 && blocks != 0; --i) {
++        blocks += iv[i-1];
++        iv[i-1] = (unsigned char)blocks;
++        blocks >>= 8;
++    }
++}
++
++size_t ossl_sg2002_cipher(unsigned int algorithm, unsigned int mode, int enc,
++    const unsigned char *key, size_t keylen, unsigned char *iv,
++    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
++    size_t len, size_t minimum)
++{
++    struct sg2002_crypto_request r = { .version = SG2002_CRYPTO_ABI };
++    unsigned char saved_iv[16];
++    unsigned int block = algorithm == SG2002_ALG_DES || algorithm == SG2002_ALG_TDES ? 8 : 16;
++    size_t done = 0;
++    int fd;
++
++    if (len < minimum || minimum == 0 || minimum > SG2002_CRYPTO_MAX
++        || algorithm < SG2002_ALG_AES || algorithm > SG2002_ALG_SM4
++        || mode > SG2002_MODE_CTR || keylen > sizeof(r.key)
++        || (mode != SG2002_MODE_ECB && iv == NULL)
++        || (mode == SG2002_MODE_CTR && counter_bytes != 4 && counter_bytes != block))
++        return 0;
++    fd = ossl_sg2002_begin(algorithm);
++    if (fd < 0)
++        return 0;
++    r.algorithm = algorithm;
++    r.mode = mode;
++    r.encrypt = mode == SG2002_MODE_CTR ? 1 : enc != 0;
++    r.key_length = (unsigned int)keylen;
++    memcpy(r.key, key, keylen);
++    while (len - done >= minimum) {
++        size_t chunk = len - done;
++        if (chunk > SG2002_CRYPTO_MAX)
++            chunk = SG2002_CRYPTO_MAX;
++        chunk -= chunk % block;
++        if (mode == SG2002_MODE_CTR && counter_bytes == 4) {
++            uint32_t counter = (uint32_t)iv[block-4] << 24
++                | (uint32_t)iv[block-3] << 16 | (uint32_t)iv[block-2] << 8 | iv[block-1];
++            uint64_t remaining = (UINT64_C(1) << 32) - counter;
++            if (chunk / block > remaining)
++                chunk = (size_t)remaining * block;
++        }
++        if (chunk == 0)
++            break;
++        r.length = r.output_length = (unsigned int)chunk;
++        r.input = (uintptr_t)(in + done);
++        r.output = (uintptr_t)(out + done);
++        if (mode != SG2002_MODE_ECB)
++            memcpy(r.iv, iv, block);
++        if (mode == SG2002_MODE_CBC && !enc)
++            memcpy(saved_iv, in + done + chunk - block, block);
++        if (!ossl_sg2002_run(fd, &r))
++            break;
++        if (mode == SG2002_MODE_CBC)
++            memcpy(iv, enc ? out + done + chunk - block : saved_iv, block);
++        else if (mode == SG2002_MODE_CTR)
++            increment(iv + block - counter_bytes, counter_bytes, (unsigned int)(chunk / block));
++        done += chunk;
++    }
++    ossl_sg2002_end(fd);
++    OPENSSL_cleanse(&r, sizeof(r));
++    OPENSSL_cleanse(saved_iv, sizeof(saved_iv));
++    return done;
++}
+--- /dev/null
++++ b/providers/implementations/ciphers/cipher_aes_sg2002.inc
+@@ -0,0 +1,43 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++#include "crypto/sg2002.h"
++/* Candidate minimum, to be selected by native C906 measurements. */
++#define SG2002_AES_MIN 1024
++static size_t aes_sg2002_prefix(PROV_CIPHER_CTX *ctx, unsigned int mode,
++    unsigned char *out, const unsigned char *in, size_t len)
++{
++    PROV_AES_CTX *a = (PROV_AES_CTX *)ctx;
++    return ossl_sg2002_cipher(SG2002_ALG_AES, mode, ctx->enc,
++        a->plat.sg2002.key, ctx->keylen, ctx->iv, 16, in, out, len, SG2002_AES_MIN);
++}
++static int cipher_sg2002_aes_cbc(PROV_CIPHER_CTX *ctx, unsigned char *out,
++    const unsigned char *in, size_t len)
++{
++    size_t n = aes_sg2002_prefix(ctx, SG2002_MODE_CBC, out, in, len);
++    return n == len || ossl_cipher_hw_generic_cbc(ctx, out + n, in + n, len - n);
++}
++static int cipher_sg2002_aes_ecb(PROV_CIPHER_CTX *ctx, unsigned char *out,
++    const unsigned char *in, size_t len)
++{
++    size_t n = aes_sg2002_prefix(ctx, SG2002_MODE_ECB, out, in, len);
++    return n == len || ossl_cipher_hw_generic_ecb(ctx, out + n, in + n, len - n);
++}
++static int cipher_sg2002_aes_ctr(PROV_CIPHER_CTX *ctx, unsigned char *out,
++    const unsigned char *in, size_t len)
++{
++    size_t n;
++    if (len == 0) return 1;
++    if (ctx->num >= 16) return ossl_cipher_hw_generic_ctr(ctx, out, in, len);
++    if (ctx->num != 0) {
++        n = 16 - ctx->num;
++        if (n > len) n = len;
++        if (!ossl_cipher_hw_generic_ctr(ctx, out, in, n)) return 0;
++        out += n; in += n; len -= n;
++    }
++    n = aes_sg2002_prefix(ctx, SG2002_MODE_CTR, out, in, len);
++    return n == len || ossl_cipher_hw_generic_ctr(ctx, out + n, in + n, len - n);
++}
++#define cipher_sg2002_aes_ofb128 ossl_cipher_hw_generic_ofb128
++#define cipher_sg2002_aes_cfb128 ossl_cipher_hw_generic_cfb128
++#define cipher_sg2002_aes_cfb1 ossl_cipher_hw_generic_cfb1
++#define cipher_sg2002_aes_cfb8 ossl_cipher_hw_generic_cfb8
++#define AES_GENERIC_CIPHER(mode) cipher_sg2002_aes_##mode
+--- /dev/null
++++ b/providers/implementations/ciphers/cipher_aes_gcm_sg2002.inc
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++#include <stddef.h>
++#include <stdint.h>
++#include "crypto/sg2002.h"
++static void aes_sg2002_gcm_ctr(const unsigned char *in, unsigned char *out,
++    size_t blocks, const void *key, const unsigned char ivec[16])
++{
++    const PROV_AES_GCM_CTX *a = (const PROV_AES_GCM_CTX *)
++        ((const unsigned char *)key - offsetof(PROV_AES_GCM_CTX, ks.ks));
++    unsigned char iv[16], stream[16];
++    size_t n;
++    memcpy(iv, ivec, sizeof(iv));
++    n = ossl_sg2002_cipher(SG2002_ALG_AES, SG2002_MODE_CTR, 1,
++        a->plat.sg2002.key, a->base.keylen, iv, 4, in, out, blocks * 16, 1024);
++    in += n; out += n; blocks -= n / 16;
++    while (blocks-- != 0) {
++        AES_encrypt(iv, stream, key);
++        for (unsigned int j = 0; j < 16; ++j) out[j] = in[j] ^ stream[j];
++        for (unsigned int j = 16; j > 12; --j) if (++iv[j-1]) break;
++        in += 16; out += 16;
++    }
++    OPENSSL_cleanse(stream, sizeof(stream));
++    OPENSSL_cleanse(iv, sizeof(iv));
++}
+--- a/include/crypto/sg2002.h
++++ b/include/crypto/sg2002.h
+@@ -1,9 +1,17 @@
+ /* SPDX-License-Identifier: Apache-2.0 */
+ #ifndef OSSL_NANOKVM_SG2002_TRANSPORT_H
+ #define OSSL_NANOKVM_SG2002_TRANSPORT_H
++#include <stddef.h>
+ #include "crypto/sg2002_crypto.h"
+ /* A call owns its fd. No shared request, key, buffer or userspace mutex. */
+ int ossl_sg2002_begin(unsigned int algorithm);
+ int ossl_sg2002_run(int fd, struct sg2002_crypto_request *request);
+ void ossl_sg2002_end(int fd);
++/* Returns a committed whole-block prefix; advances IV only on success.
++ * The caller resumes its original software operation over the remainder.
++ */
++size_t ossl_sg2002_cipher(unsigned int algorithm, unsigned int mode, int enc,
++    const unsigned char *key, size_t keylen, unsigned char *iv,
++    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
++    size_t len, size_t minimum);
+ #endif
+--- a/crypto/build.info
++++ b/crypto/build.info
+@@ -146,6 +146,6 @@
+ 
+ # NanoKVM direct DMA access is private to the normal/legacy providers.
+ IF[{- $target{asm_arch} eq "riscv64" -}]
+-  SOURCE[../libcrypto]=sg2002.c
+-  SOURCE[../providers/liblegacy.a]=sg2002.c
++  SOURCE[../libcrypto]=sg2002.c sg2002_cipher.c
++  SOURCE[../providers/liblegacy.a]=sg2002.c sg2002_cipher.c
+ ENDIF
+--- a/providers/implementations/ciphers/cipher_aes.h
++++ b/providers/implementations/ciphers/cipher_aes.h
+@@ -21,6 +21,9 @@
+     /* Platform specific data */
+     union {
+         int dummy;
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++        struct { unsigned char key[32]; } sg2002;
++#endif
+ #if defined(OPENSSL_CPUID_OBJ) && defined(__s390__)
+         struct {
+             union {
+--- a/providers/implementations/ciphers/cipher_aes_gcm.h
++++ b/providers/implementations/ciphers/cipher_aes_gcm.h
+@@ -22,6 +22,9 @@
+     /* Platform specific data */
+     union {
+         int dummy;
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++        struct { unsigned char key[32]; } sg2002;
++#endif
+ #if defined(OPENSSL_CPUID_OBJ) && defined(__s390__)
+         struct {
+             union {
+--- a/providers/implementations/ciphers/cipher_aes_hw.c
++++ b/providers/implementations/ciphers/cipher_aes_hw.c
+@@ -122,15 +122,24 @@
+         return 0;
+     }
+ 
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    memcpy(adat->plat.sg2002.key, key, keylen);
++#endif
+     return 1;
+ }
++
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++#include "cipher_aes_sg2002.inc"
++#else
++#define AES_GENERIC_CIPHER(mode) ossl_cipher_hw_generic_##mode
++#endif
+ 
+ IMPLEMENT_CIPHER_HW_COPYCTX(cipher_hw_aes_copyctx, PROV_AES_CTX)
+ 
+ #define PROV_CIPHER_HW_aes_mode(mode)                   \
+     static const PROV_CIPHER_HW aes_##mode = {          \
+         cipher_hw_aes_initkey,                          \
+-        ossl_cipher_hw_generic_##mode,                  \
++        AES_GENERIC_CIPHER(mode),                  \
+         cipher_hw_aes_copyctx                           \
+     };                                                  \
+     PROV_CIPHER_HW_declare(mode)                        \
+--- a/providers/implementations/ciphers/cipher_aes_gcm_hw.c
++++ b/providers/implementations/ciphers/cipher_aes_gcm_hw.c
+@@ -16,6 +16,10 @@
+ #include "internal/deprecated.h"
+ 
+ #include "cipher_aes_gcm.h"
++
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++#include "cipher_aes_gcm_sg2002.inc"
++#endif
+ 
+ static int aes_gcm_initkey(PROV_GCM_CTX *ctx, const unsigned char *key,
+     size_t keylen)
+@@ -55,6 +59,10 @@
+         GCM_HW_SET_KEY_CTR_FN(ks, AES_set_encrypt_key, AES_encrypt, NULL);
+ #endif /* AES_CTR_ASM */
+     }
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    memcpy(actx->plat.sg2002.key, key, keylen);
++    ctx->ctr = aes_sg2002_gcm_ctr;
++#endif
+     return 1;
+ }
+ 

@@ -1,14 +1,5 @@
-# OpenSSL SG2002 Triple DES qualification
+# OpenSSL TDES native qualification
 
-`0007-tdes-dma.patch` enables two-key and three-key Triple DES ECB/CBC through
-SG2002. A successful whole-block prefix advances the IV before OpenSSL resumes
-software over any remaining input. Padding, partial updates and other modes
-remain upstream. The 24-byte private raw-key storage participates in existing
-context duplication and clear-free. FIPS code is unchanged.
+`0007-tdes-dma.patch` handles two-key and three-key ECB/CBC with the shared direct DMA transport. Use `../openssl-des/verify.c` for the shared block-mode correctness checks.
 
-The RISC-V OpenSSL 3.5.9 build passes without warnings. The common block helper
-passes 5640 ASan/UBSan continuation cases; the independent EVP reference covers
-1944 cases across 18 modes including both TDES key sizes. The initial 1024-byte
-threshold, native correctness, driver counter evidence, throughput and RAM
-remain unqualified. Run `../openssl-des/verify.c` with the baseline and candidate
-libraries on the physical C906 before selecting a threshold.
+Physical C906: the 1944-case shared verifier and upstream vectors pass with DMA counters confirming TDES submissions. In three rotated trials, TDES-EDE3-CBC decryption reached 7.58 versus 3.25 MiB/CPU-s upstream at 1 KiB, and 32.17 versus 3.48 at 16 KiB. The 1 KiB minimum is retained. Small messages keep OpenSSL's already-unrolled DES scalar core, whose O3 code uses C906 bit extraction, rotates and indexed loads.

@@ -53,3 +53,9 @@ no EVP result. It is compiled only for RISC-V64, outside the FIPS module. See
 chunks. OpenSSL owns streaming, padding, digest lengths and software fallback.
 The FIPS module is excluded. See `experimental/openssl-sha256` for qualification;
 the current 4 KiB threshold still requires physical crossover measurements.
+
+## SHA-1
+
+`0004-sha1-dma.patch` separately wraps SHA-1 compression, preserving upstream
+streaming/padding and software continuation. It excludes the FIPS module.
+See `experimental/openssl-sha1` for fault tests and pending native qualification.

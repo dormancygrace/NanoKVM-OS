@@ -1,0 +1,110 @@
+--- /dev/null
++++ b/crypto/sha/sha1_sg2002.c
+@@ -0,0 +1,51 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++/* SG2002 SHA-1 compression only. OpenSSL owns buffering, padding and length. */
++#include <stdint.h>
++#include <openssl/crypto.h>
++#include <openssl/sha.h>
++#include "crypto/sg2002.h"
++
++/* Initial conservative candidate; native threshold qualification is required. */
++#define DMA_BLOCKS (SG2002_CRYPTO_MAX / SHA_CBLOCK)
++
++size_t ossl_sha1_sg2002(SHA_CTX *ctx, const unsigned char *in, size_t blocks)
++{
++    struct sg2002_crypto_request r = {
++        .version = SG2002_CRYPTO_ABI, .algorithm = SG2002_ALG_SHA1,
++        .length = SG2002_CRYPTO_MAX
++    };
++    uint32_t words[5] = { ctx->h0, ctx->h1, ctx->h2, ctx->h3, ctx->h4 };
++    size_t completed = 0;
++    int fd;
++
++    if (blocks < DMA_BLOCKS)
++        return 0;
++    fd = ossl_sg2002_begin(SG2002_ALG_SHA1);
++    if (fd < 0)
++        return 0;
++    for (unsigned int i = 0; i < 5; ++i)
++        for (unsigned int j = 0; j < 4; ++j)
++            r.state[4*i+j] = (unsigned char)(words[i] >> (24-8*j));
++    while (blocks - completed >= DMA_BLOCKS) {
++        r.input = (uintptr_t)(in + completed * SHA_CBLOCK);
++        if (!ossl_sg2002_run(fd, &r))
++            break;
++        completed += DMA_BLOCKS;
++    }
++    ossl_sg2002_end(fd);
++    /* Commit only completed chunks. The caller hashes the rest in software,
++     * starting from this exact chaining state, including after a late fault.
++     */
++    if (completed != 0)
++        for (unsigned int i = 0; i < 5; ++i)
++            words[i] = (uint32_t)r.state[4*i] << 24
++                | (uint32_t)r.state[4*i+1] << 16
++                | (uint32_t)r.state[4*i+2] << 8 | r.state[4*i+3];
++    if (completed != 0) {
++        ctx->h0 = words[0]; ctx->h1 = words[1]; ctx->h2 = words[2];
++        ctx->h3 = words[3]; ctx->h4 = words[4];
++    }
++    OPENSSL_cleanse(words, sizeof(words));
++    OPENSSL_cleanse(&r, sizeof(r));
++    return completed;
++}
+--- a/crypto/sha/build.info
++++ b/crypto/sha/build.info
+@@ -186,3 +186,7 @@
+ IF[{- $target{asm_arch} eq "riscv64" -}]
+   SOURCE[../../libcrypto]=sha256_sg2002.c
+ ENDIF
++
++IF[{- $target{asm_arch} eq "riscv64" -}]
++  SOURCE[../../libcrypto]=sha1_sg2002.c
++ENDIF
+--- a/crypto/sha/sha_local.h
++++ b/crypto/sha/sha_local.h
+@@ -43,7 +43,19 @@
+     ix = (a) = ROTATE((a), 1))
+ 
+ #ifndef SHA1_ASM
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++static void sha1_block_data_order_c(SHA_CTX *c, const void *p, size_t num);
++size_t ossl_sha1_sg2002(SHA_CTX *ctx, const unsigned char *in, size_t blocks);
++static void sha1_block_data_order(SHA_CTX *c, const void *p, size_t num)
++{
++    size_t completed = num >= 64 ? ossl_sha1_sg2002(c, p, num) : 0;
++    num -= completed;
++    if (num != 0)
++        sha1_block_data_order_c(c, (const unsigned char *)p + completed * SHA_CBLOCK, num);
++}
++#else
+ static void sha1_block_data_order(SHA_CTX *c, const void *p, size_t num);
++#endif
+ #else
+ void sha1_block_data_order(SHA_CTX *c, const void *p, size_t num);
+ #endif
+@@ -139,7 +151,11 @@
+ #endif
+ 
+ #if !defined(SHA1_ASM)
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++static void sha1_block_data_order_c(SHA_CTX *c, const void *p, size_t num)
++#else
+ static void HASH_BLOCK_DATA_ORDER(SHA_CTX *c, const void *p, size_t num)
++#endif
+ {
+     const unsigned char *data = p;
+     register unsigned MD32_REG_T A, B, C, D, E, T, l;
+@@ -377,7 +393,11 @@
+     } while (0)
+ 
+ #if !defined(SHA1_ASM)
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++static void sha1_block_data_order_c(SHA_CTX *c, const void *p, size_t num)
++#else
+ static void HASH_BLOCK_DATA_ORDER(SHA_CTX *c, const void *p, size_t num)
++#endif
+ {
+     const unsigned char *data = p;
+     register unsigned MD32_REG_T A, B, C, D, E, T, l;

@@ -46,3 +46,10 @@ Qualification sources and results belong to
 per-algorithm patches. On its own it selects no hardware algorithm and changes
 no EVP result. It is compiled only for RISC-V64, outside the FIPS module. See
 `firmware/crypto/experimental/openssl-sg2002/` for fault tests and lifetime rules.
+
+## SHA-224/256
+
+`0003-sha256-dma.patch` uses the shared direct transport for full compression
+chunks. OpenSSL owns streaming, padding, digest lengths and software fallback.
+The FIPS module is excluded. See `experimental/openssl-sha256` for qualification;
+the current 4 KiB threshold still requires physical crossover measurements.

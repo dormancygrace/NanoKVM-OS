@@ -1,0 +1,80 @@
+--- /dev/null
++++ b/crypto/sha/sha256_sg2002.c
+@@ -0,0 +1,45 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++/* SG2002 SHA-256 compression only. OpenSSL owns buffering, padding and length. */
++#include <stdint.h>
++#include <openssl/crypto.h>
++#include <openssl/sha.h>
++#include "crypto/sg2002.h"
++
++/* Initial conservative candidate; native threshold qualification is required. */
++#define DMA_BLOCKS (SG2002_CRYPTO_MAX / SHA256_CBLOCK)
++
++size_t ossl_sha256_sg2002(SHA256_CTX *ctx, const unsigned char *in, size_t blocks)
++{
++    struct sg2002_crypto_request r = {
++        .version = SG2002_CRYPTO_ABI, .algorithm = SG2002_ALG_SHA256,
++        .length = SG2002_CRYPTO_MAX
++    };
++    size_t completed = 0;
++    int fd;
++
++    if (blocks < DMA_BLOCKS)
++        return 0;
++    fd = ossl_sg2002_begin(SG2002_ALG_SHA256);
++    if (fd < 0)
++        return 0;
++    for (unsigned int i = 0; i < 8; ++i)
++        for (unsigned int j = 0; j < 4; ++j)
++            r.state[4*i+j] = (unsigned char)(ctx->h[i] >> (24-8*j));
++    while (blocks - completed >= DMA_BLOCKS) {
++        r.input = (uintptr_t)(in + completed * SHA256_CBLOCK);
++        if (!ossl_sg2002_run(fd, &r))
++            break;
++        completed += DMA_BLOCKS;
++    }
++    ossl_sg2002_end(fd);
++    /* Commit only completed chunks. The caller hashes the rest in software,
++     * starting from this exact chaining state, including after a late fault.
++     */
++    if (completed != 0)
++        for (unsigned int i = 0; i < 8; ++i)
++            ctx->h[i] = (uint32_t)r.state[4*i] << 24
++                | (uint32_t)r.state[4*i+1] << 16
++                | (uint32_t)r.state[4*i+2] << 8 | r.state[4*i+3];
++    OPENSSL_cleanse(&r, sizeof(r));
++    return completed;
++}
+--- a/crypto/sha/build.info
++++ b/crypto/sha/build.info
+@@ -182,3 +182,7 @@
+ GENERATE[keccak1600p8-ppc.S]=asm/keccak1600p8-ppc.pl
+ 
+ GENERATE[sha1-thumb.S]=asm/sha1-thumb.pl
++
++IF[{- $target{asm_arch} eq "riscv64" -}]
++  SOURCE[../../libcrypto]=sha256_sg2002.c
++ENDIF
+--- a/crypto/sha/sha_riscv.c
++++ b/crypto/sha/sha_riscv.c
+@@ -19,8 +19,19 @@
+ void sha256_block_data_order_c(void *ctx, const void *in, size_t num);
+ void sha256_block_data_order(void *ctx, const void *in, size_t num);
+ 
++#ifndef FIPS_MODULE
++size_t ossl_sha256_sg2002(SHA256_CTX *ctx, const unsigned char *in, size_t blocks);
++#endif
++
+ void sha256_block_data_order(void *ctx, const void *in, size_t num)
+ {
++#ifndef FIPS_MODULE
++    size_t completed = num >= 64 ? ossl_sha256_sg2002(ctx, in, num) : 0;
++    num -= completed;
++    in = (const unsigned char *)in + completed * SHA256_CBLOCK;
++    if (num == 0)
++        return;
++#endif
+     if (RISCV_HAS_ZVKB() && (RISCV_HAS_ZVKNHA() || RISCV_HAS_ZVKNHB()) && riscv_vlen() >= 128) {
+         sha256_block_data_order_zvkb_zvknha_or_zvknhb(ctx, in, num);
+     } else {

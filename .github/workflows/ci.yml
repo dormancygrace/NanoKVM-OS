@@ -95,8 +95,7 @@ jobs:
         run: |
           python3 tests/test-hdmi-events.py
           NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
-      # The C906 vector kernels are generated with .4byte/WORD encodings; each
-      # generator checks its output against GNU as/objdump for XTheadVector.
+      # Check C906 .4byte/WORD encodings against GNU as/objdump for XTheadVector.
       # The GHASH generator also runs its output against a bit-serial GHASH.
       - name: Generated C906 assembly is up to date
         run: |
@@ -106,6 +105,7 @@ jobs:
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+          python3 ../../../tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

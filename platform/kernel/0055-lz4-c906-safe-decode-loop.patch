@@ -9,7 +9,7 @@ diff --git a/lib/lz4/lz4_decompress.c b/lib/lz4/lz4_decompress.c
   * BSD 2 - Clause License (http://www.opensource.org/licenses/bsd - license.php)
   * Redistribution and use in source and binary forms, with or without
   * modification, are permitted provided that the following conditions are
-@@ -447,13 +447,319 @@
+@@ -447,13 +447,320 @@
  	return (int) (-(((const char *)ip) - src)) - 1;
  }
  
@@ -114,7 +114,8 @@ diff --git a/lib/lz4/lz4_decompress.c b/lib/lz4/lz4_decompress.c
 +
 +/*
 + * Full-block decoder adapted from LZ4 1.10.0 for C906.
-+ * Keep partial, dictionary and unsafe APIs in the existing generic decoder.
++ * Partial, nonempty-dictionary and unsafe paths retain the generic decoder.
++ * Empty-dictionary and first-block streaming wrappers delegate to this path.
 + * Eight-byte literal and match copies avoid the upstream 32-byte copy cost.
 + */
 +static FORCE_INLINE int LZ4_decompress_safe_generic(const char *const src,

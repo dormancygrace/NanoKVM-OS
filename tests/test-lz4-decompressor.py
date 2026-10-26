@@ -2,6 +2,7 @@
 """Validate the actual patched kernel decoder, including dictionary/partial APIs."""
 from pathlib import Path
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -25,11 +26,21 @@ def check(directory):
              '-Werror', '-Wno-unused-parameter', '-Wno-sign-compare']
     if os.environ.get('NANOKVM_SANITIZE') == '1':
         flags += ['-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-fno-sanitize-recover=all']
+    # Compile the actual source unchanged; expose its retained generic full
+    # decoder only in this test translation unit as a differential oracle.
+    source = directory / 'decoder-with-reference.c'
+    source.write_text('#include ' + json.dumps(str((args.source / 'lib/lz4/lz4_decompress.c').resolve())) + '\n' + '''
+int nanokvm_lz4_generic_full(const char *src, char *dst, int size, int capacity)
+{
+    return LZ4_decompress_generic(src, dst, size, capacity,
+        endOnInputSize, decode_full_block, noDict, (BYTE *)dst, NULL, 0);
+}
+''')
     library = directory / 'decoder.so'
     subprocess.run(['cc', *flags, '-fPIC', '-shared', '-Wl,-Bsymbolic-functions',
                     '-DCONFIG_64BIT=1', '-D__LITTLE_ENDIAN=1',
                     '-include', str(ROOT / 'tests/lz4-compressor/decoder-compat.h'),
-                    '-I' + str(include.parent), str(args.source / 'lib/lz4/lz4_decompress.c'),
+                    '-I' + str(include.parent), str(source),
                     '-o', str(library)], check=True)
     test = directory / 'decoder-contract'
     subprocess.run(['cc', *flags, str(ROOT / 'tests/lz4-compressor/decoder-contract.c'),

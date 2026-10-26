@@ -36,7 +36,7 @@ diff --git a/lib/lz4/lz4_decompress.c b/lib/lz4/lz4_decompress.c
  		}
  
  		if (unlikely(offset < 8)) {
-+			/* Keep offset-zero matches initialized. */
++			/* Full decodes initialize offset-zero matches; partial mode is unchanged. */
 +			if (!partialDecoding)
 +				LZ4_write32(op, (U32)offset);
  			op[0] = match[0];

@@ -40,6 +40,22 @@ static void *guarded_end(size_t bytes) {
     return p + page + accessible;
 }
 
+static void invalid_workspace(void) {
+    _Alignas(8) unsigned char workspace[STATE + 8], before[STATE + 8];
+    unsigned char input[32] = {0}, output[64], output_before[64];
+    memset(workspace, 0x5a, sizeof(workspace));
+    memcpy(before, workspace, sizeof(before));
+    memset(output, 0xa5, sizeof(output));
+    memcpy(output_before, output, sizeof(output));
+    for (int offset = 0; offset < 8; offset++) {
+        void *invalid = offset ? workspace + offset : NULL;
+        CHECK(compress4k((char *)input, (char *)output, sizeof(input),
+                         sizeof(output), 1, invalid) == 0);
+        CHECK(!memcmp(workspace, before, sizeof(workspace)));
+        CHECK(!memcmp(output, output_before, sizeof(output)));
+    }
+}
+
 static void check_block(int n, int mode, int acceleration) {
     unsigned char *src = input_end - n;
     for (int i = 0; i < n; i++) {
@@ -88,6 +104,7 @@ int main(int argc, char **argv) {
     compress4k = dlsym(lib, "LZ4_compress_fast_4k");
     decode = dlsym(oracle, "LZ4_decompress_safe");
     CHECK(compress4k && decode);
+    invalid_workspace();
     input_end = guarded_end(4096);
     output_end = guarded_end(8192);
     state = (unsigned char *)guarded_end(STATE + 16) - STATE;

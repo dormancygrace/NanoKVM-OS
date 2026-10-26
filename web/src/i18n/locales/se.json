@@ -102,6 +102,7 @@
     "retryJoin": "Försök igen"
   },
   "keyboard": {
+    "more": "Tangentbordsalternativ",
     "title": "Tangentbord",
     "paste": "Klistra in",
     "tips": "Endast standardbokstäver och symboler på tangentbordet stöds",

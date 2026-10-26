@@ -125,6 +125,7 @@
     "mjpegFallback": "MJPEG není k dispozici když je HDMI vstup 3840 × 2160, takže je namísto toho zobrazen proud videa."
   },
   "keyboard": {
+    "more": "Možnosti klávesnice",
     "title": "Klávesnice",
     "paste": "Vložit",
     "tips": "Podporovány jsou pouze písmena a symboly, které se standardně nacházejí na klávesnici",

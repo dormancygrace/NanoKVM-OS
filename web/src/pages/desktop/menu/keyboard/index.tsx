@@ -49,7 +49,7 @@ export const Keyboard = ({ quickAccess = false }: { quickAccess?: boolean }) => 
         </button>
       )}
       <MenuItem
-        title={t('keyboard.title')}
+        title={t(quickAccess ? 'keyboard.more' : 'keyboard.title')}
         icon={quickAccess ? <EllipsisIcon size={18} /> : <KeyboardIcon size={18} />}
         content={content}
       />

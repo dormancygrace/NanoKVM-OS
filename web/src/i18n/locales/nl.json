@@ -102,6 +102,7 @@
     "retryJoin": "Opnieuw proberen"
   },
   "keyboard": {
+    "more": "Toetsenbordopties",
     "title": "Toetsenbord",
     "paste": "Plakken",
     "tips": "Alleen standaard toetsenbordletters en symbolen worden ondersteund",

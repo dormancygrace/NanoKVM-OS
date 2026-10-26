@@ -58,13 +58,13 @@ export const Scale = (): ReactElement => {
       content={content}
       popoverProps={{ placement: 'rightTop', arrow: false, align: { offset: [13, 0] } }}
     >
-      <div className="flex h-[30px] cursor-pointer items-center gap-1 rounded px-3 text-neutral-300 hover:bg-neutral-700/50">
+      <div className="flex min-h-[30px] cursor-pointer flex-wrap items-center gap-x-1 gap-y-0.5 rounded px-3 text-neutral-300 hover:bg-neutral-700/50">
         <div className="flex h-[14px] w-[20px] items-end">
           <ScalingIcon size={16} />
         </div>
         <span>{t('screen.scale')}</span>
         {/* The current value, as in the video rows above. */}
-        <span className="ml-auto pl-4 whitespace-nowrap text-neutral-500">
+        <span className="ml-auto max-w-full pl-4 text-right wrap-break-word text-neutral-500">
           {Math.round(videoScale * 100)}%
         </span>
       </div>

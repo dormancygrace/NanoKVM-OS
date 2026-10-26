@@ -33,6 +33,13 @@ int ossl_sg2002_run(int fd,struct sg2002_crypto_request *r)
 {
  assert(fd==37&&r->algorithm==current->alg&&r->mode==current->mode);
  assert(r->key_length==current->keylen&&!memcmp(r->key,key,current->keylen));
+ /* Model a device which only advances the low 32 counter bits. A request
+  * must not rely on wider hardware carry, even for ordinary 128-bit CTR. */
+ if(r->mode==SG2002_MODE_CTR){
+  unsigned b=current->block;
+  uint32_t low=(uint32_t)r->iv[b-4]<<24|(uint32_t)r->iv[b-3]<<16|(uint32_t)r->iv[b-2]<<8|r->iv[b-1];
+  assert((uint64_t)low+r->length/b <= (UINT64_C(1)<<32));
+ }
  if(calls++==fail_after)return 0;
  unsigned char iv[16];memcpy(iv,r->iv,16);
  software(r->encrypt,(const unsigned char*)(uintptr_t)r->input,(unsigned char*)(uintptr_t)r->output,r->length,iv);

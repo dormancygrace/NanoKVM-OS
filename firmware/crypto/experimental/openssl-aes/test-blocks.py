@@ -19,3 +19,15 @@ with tempfile.TemporaryDirectory(prefix='nkos-aes-test-') as tmp:
                     '-fsanitize=address,undefined','-I'+str(d/'crypto'),'-I'+str(d/'include'),
                     str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True)
+    source=d/'crypto/sg2002_cipher.c'
+    original=source.read_text()
+    broken=original.replace('if (mode == SG2002_MODE_CTR) {',
+                            'if (mode == SG2002_MODE_CTR && counter_bytes == 4) {')
+    assert broken != original
+    source.write_text(broken)
+    subprocess.run(['cc','-O1','-g','-Wall','-Wextra','-Werror',
+                    '-fsanitize=address,undefined','-I'+str(d/'crypto'),'-I'+str(d/'include'),
+                    str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(binary)],check=True)
+    bad=subprocess.run([str(binary)],capture_output=True)
+    assert bad.returncode != 0 and b'low+r->length/b' in bad.stderr, bad.stderr
+    print('PASS negative control: relying on a full-width hardware counter is rejected')

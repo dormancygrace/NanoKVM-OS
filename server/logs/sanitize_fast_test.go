@@ -31,6 +31,8 @@ func TestSanitizeCharacterPaths(t *testing.T) {
 	cases := []struct{ name, input, want string }{
 		{"ascii", "safe printable line\twith tab\n", "safe printable line\twith tab"},
 		{"unicode", "Журнал: café 😀\n", "Журнал: café 😀"},
+		{"c1-controls", "a\u0085b\u009bc\n", "abc"},
+		{"c1-reveals-secret", "to\u0085ken=do-not-show\n", redactedLine},
 		{"format", "a\u200bb\u202ec\ufeffd\n", "abcd"},
 		{"combining", "e\u0301\uFE0F\n", "e\u0301\uFE0F"},
 		{"ansi", "\x1b[31mred\x1b[0m\n", "red"},

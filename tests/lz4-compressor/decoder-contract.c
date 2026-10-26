@@ -153,6 +153,34 @@ static void one(struct api *a) {
         guards(cap);
     }
 }
+static int literal_block(int length) {
+    int p = 0;
+    input[p++] = (length < 15 ? length : 15) << 4;
+    if (length >= 15)
+        extension(length - 15, &p);
+    for (int i = 0; i < length; i++)
+        input[p++] = expected[i] = (unsigned char)(length * 19 + i * 29);
+    return p;
+}
+
+/* The terminal copy must retain memmove semantics in either direction. */
+static void short_literals(struct api *a) {
+    unsigned char original[256], want[256], got[256];
+    off = ml = dict_mode = 0;
+    for (tail = 0; tail <= 64; tail++) {
+        int n = literal_block(tail);
+        for (int shift = -32; shift <= 32; shift++) {
+            memset(original, 0xcc, sizeof(original));
+            memcpy(original + 96, input, n);
+            memcpy(want, original, sizeof(want));
+            memcpy(want + 96 + shift, expected, tail);
+            memcpy(got, original, sizeof(got));
+            CHECK(a->safe((char *)got + 96, (char *)got + 96 + shift, n, tail) == tail);
+            CHECK(!memcmp(got, want, sizeof(got)));
+        }
+    }
+}
+
 /* Read and write limits sit directly against inaccessible pages. */
 static void guarded(struct api *a) {
     size_t page = (size_t)sysconf(_SC_PAGESIZE), span = LIMIT;
@@ -176,6 +204,14 @@ static void guarded(struct api *a) {
                 CHECK(a->safe((char *)in, (char *)out, n, length) == length);
                 CHECK(!memcmp(out, expected, length));
             }
+    for (int length = 0; length <= 64; length++) {
+        int n = literal_block(length);
+        unsigned char *in = src + page + span - n;
+        unsigned char *out = dst + page + span - length;
+        memcpy(in, input, n);
+        CHECK(a->safe((char *)in, (char *)out, n, length) == length);
+        CHECK(!memcmp(out, expected, length));
+    }
     uint32_t random = 0x9062026;
     for (int i = 0; i < 10000; i++) {
         random = random * 1664525U + 1013904223U;
@@ -241,6 +277,7 @@ int main(int argc, char **argv) {
                         one(&a);
                     }
         }
+        short_literals(&a);
         guarded(&a);
         CHECK(dlclose(a.dl) == 0);
         printf("PASS %s cases=%" PRIu64 " checks=%" PRIu64 "\n", library, cases, checks);

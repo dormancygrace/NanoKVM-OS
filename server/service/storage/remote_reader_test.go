@@ -287,3 +287,88 @@ func TestRemoteReaderSocketCloseRejectsCachedData(t *testing.T) {
 		t.Fatal("served cached payload after socket closure")
 	}
 }
+
+func TestRemoteReaderPrefetchStartsAtUnreadByteAndReusesBuffers(t *testing.T) {
+	requests := make(chan remoteTestRequest, 32)
+	r, _ := remoteTestFixture(t, func(ws *websocket.Conn, q remoteTestRequest, _ <-chan struct{}) error {
+		requests <- q
+		return ws.WriteMessage(websocket.BinaryMessage, remoteTestPayload(q))
+	})
+	for i := 0; i < 3; i++ {
+		remoteTestRead(t, r, uint64(i*65536), 65536)
+	}
+	for i := 0; i < 3; i++ {
+		q := <-requests
+		if q.Offset != uint64(i*65536) {
+			t.Fatalf("request %d re-read bytes: %+v", i, q)
+		}
+	}
+	buffers := r.prefetchBuffers
+	remoteTestRead(t, r, r.session.size-4096, 4096)
+	for i := 0; i < 3; i++ {
+		remoteTestRead(t, r, uint64(i*65536), 65536)
+	}
+	for i := range buffers {
+		if &buffers[i][0] != &r.prefetchBuffers[i][0] {
+			t.Fatal("seek allocated a new prefetch buffer")
+		}
+	}
+	current := &r.pipe.current.buffer[0]
+	if current != &buffers[0][0] && current != &buffers[1][0] {
+		t.Fatal("producer did not use the retained buffers")
+	}
+}
+
+func TestRemoteReaderSeekHasOneDeadline(t *testing.T) {
+	for _, drainOnly := range []bool{false, true} {
+		t.Run(fmt.Sprint(drainOnly), func(t *testing.T) {
+			pending := make(chan struct{})
+			beginDrain := make(chan struct{})
+			r, _ := remoteTestFixture(t, func(ws *websocket.Conn, q remoteTestRequest, closed <-chan struct{}) error {
+				if q.ID == 4 {
+					close(pending)
+					select {
+					case <-beginDrain:
+					case <-closed:
+						return errors.New("closed while draining")
+					}
+					if drainOnly {
+						<-closed
+						return errors.New("closed while draining")
+					}
+				}
+				if q.ID >= 4 {
+					select {
+					case <-time.After(140 * time.Millisecond):
+					case <-closed:
+						return errors.New("closed during slow response")
+					}
+				}
+				return ws.WriteMessage(websocket.BinaryMessage, remoteTestPayload(q))
+			})
+			for i := 0; i < 3; i++ {
+				remoteTestRead(t, r, uint64(i*65536), 65536)
+			}
+			remoteTestWait(t, pending)
+			r.readTimeout = 200 * time.Millisecond
+			pipe := r.pipe
+			result := make(chan error, 1)
+			start := time.Now()
+			go func() { _, err := r.read(r.session.size-4096, 4096); result <- err }()
+			remoteTestWait(t, pipe.cancel)
+			close(beginDrain)
+			select {
+			case err := <-result:
+				if err == nil || err.Error() != "browser read timed out" {
+					t.Fatalf("seek did not use one budget: %v", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("seek exceeded its total read budget")
+			}
+			if time.Since(start) >= time.Second {
+				t.Fatal("seek was not bounded")
+			}
+			remoteTestWait(t, r.session.closed)
+		})
+	}
+}

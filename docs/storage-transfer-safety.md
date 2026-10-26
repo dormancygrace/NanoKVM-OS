@@ -61,14 +61,17 @@ finishes writing that reply before the buffer can be reused. Unsolicited
 WebSocket data cannot overwrite a reply owned by NBD.
 
 After two consecutive sequential transitions with requests of at least 64 KiB,
-the server reads ahead in two 1 MiB blocks. This bounds active payload buffers to
+the server reads ahead in two 1 MiB blocks, starting at the first unread byte. This bounds active payload buffers to
 approximately 3 MiB per session, including the direct/cross-block output buffer.
+The two buffers are retained and reused across later sequential streams.
 The final block is shortened at the image boundary. Small isolated reads use
 the exact requested length; a seek outside the current window drains its one
 outstanding browser response and returns to direct reads.
 
 Read-ahead improves sustained ISO transfers but can add latency to a seek while
 a block is already in flight. The current browser protocol cannot cancel that
-response without closing the session. Browser disconnect and access revocation
+response without closing the session. A single 15-second NBD read budget covers
+both draining the old response and receiving the replacement; expiry closes the
+session, staying below the kernel's 20-second NBD timeout. Browser disconnect and access revocation
 still close the socket, interrupt pending reads and tear down the NBD device.
 These changes do not alter Ethernet coalescing or NAPI settings.

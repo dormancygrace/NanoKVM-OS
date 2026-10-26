@@ -31,14 +31,17 @@ type remoteReadAhead struct {
 }
 
 func (r *remoteReader) newReadAhead(offset uint64) *remoteReadAhead {
-	offset = offset / remotePrefetchBlock * remotePrefetchBlock
+	// Start at the first unread byte; block alignment would fetch bytes again.
 	p := &remoteReadAhead{
 		cancel: make(chan struct{}), done: make(chan struct{}),
 		free:   make(chan []byte, remotePrefetchSlots),
 		chunks: make(chan remoteChunk, remotePrefetchSlots), position: offset,
 	}
 	for i := 0; i < remotePrefetchSlots; i++ {
-		p.free <- remoteAligned(remotePrefetchBlock)
+		if r.prefetchBuffers[i] == nil {
+			r.prefetchBuffers[i] = remoteAligned(remotePrefetchBlock)
+		}
+		p.free <- r.prefetchBuffers[i]
 	}
 	go func() {
 		defer close(p.done)

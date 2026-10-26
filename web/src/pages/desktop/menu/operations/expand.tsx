@@ -17,6 +17,7 @@ export const Expand = ({ toggleMenu }: ExpandProps) => {
       <Divider type="vertical" style={{ margin: '0 4px' }} />
 
       <div
+        data-toolbar-control
         className="flex size-[26px] cursor-pointer items-center justify-center rounded text-neutral-500 hover:bg-neutral-800/60 hover:text-white"
         onClick={() => toggleMenu(true)}
       >

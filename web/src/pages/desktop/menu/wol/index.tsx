@@ -191,7 +191,7 @@ export const Wol = () => {
       <Divider style={{ margin: '10px 0 10px 0' }} />
 
       <div className="w-full space-y-1 py-3">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 @min-[300px]:grid-cols-[100px_minmax(0,1fr)_auto]">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 @min-[300px]:grid-cols-[minmax(100px,max-content)_minmax(0,1fr)_auto]">
           <Select
             className="col-span-2 min-w-0 @min-[300px]:col-span-1"
             value={networkInterface || undefined}

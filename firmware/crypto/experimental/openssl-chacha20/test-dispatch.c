@@ -13,7 +13,6 @@ int ossl_riscv_has_xtheadvector;
 static int fake_prctl(int op, ...) {
     assert(op == 70); ++queries; return mode;
 }
-char *ossl_safe_getenv(const char *name) { return getenv(name); }
 #define prctl fake_prctl
 #include "chacha_c906.c"
 #undef prctl

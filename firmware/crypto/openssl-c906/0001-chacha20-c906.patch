@@ -82,16 +82,17 @@
 +#endif
 --- /dev/null
 +++ b/crypto/chacha/chacha_c906.c
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,75 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +/* NanoKVM OS: the shared five-block ChaCha kernel; protocol, buffering and
 + * counter limits remain in OpenSSL. Hardware capability is detected by the
 + * existing OpenSSL startup hwprobe, never by file I/O on the cipher path.
 + */
++#define _GNU_SOURCE
++#include <stdlib.h>
 +#include <string.h>
 +#include <sys/prctl.h>
 +#include <openssl/crypto.h>
-+#include "internal/cryptlib.h"
 +#include "crypto/chacha.h"
 +#include "crypto/riscv_arch.h"
 +#include "chacha_c906.h"
@@ -101,7 +102,7 @@
 +
 +static void detect_override(void)
 +{
-+    const char *override = ossl_safe_getenv("NANOKVM_OPENSSL_CHACHA20");
++    const char *override = secure_getenv("NANOKVM_OPENSSL_CHACHA20");
 +    /* Per-call prctl can be fatal under a caller-installed seccomp filter.
 +     * Enable only in clients whose syscall policy has been qualified.
 +     * An absent/unknown value, including secure execution, stays generic.

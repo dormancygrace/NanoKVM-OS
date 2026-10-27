@@ -105,6 +105,11 @@ output, and probes guard pages and 300,000 random/mutated inputs plus truncated 
 word-aligned lengths from 0 through 4 KiB, six fill patterns, prefix canaries,
 and an inaccessible following page. It accepts the same source/sanitizer options.
 
+`test-zram-streams.py` compiles the actual zcomp frontend with pthread/CPUHP
+shims. It checks direction independence, same-direction serialization, nine
+allocation-failure points, concurrent calls, teardown waits, and migration to
+an online CPU. The real LZ4/zstd backends are additionally qualified on C906.
+
 ## Manual tools
 
 `manual/` holds tools that are run by hand and never by CI.

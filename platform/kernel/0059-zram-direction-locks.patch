@@ -1,0 +1,179 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] zram: serialize compression and decompression independently
+
+A writer keeps its compression stream locked while allocating and storing
+its object. A reader on the same CPU currently waits for that whole path,
+although its decoder state and bounce buffer are independent.
+
+Add a decompression lock to the existing per-CPU stream and use it for
+reads, including the writeback bounce-buffer users. Keep compression on
+the existing lock and acquire both locks before CPU teardown frees state.
+No additional codec context or per-page buffer is needed.
+
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+diff --git a/drivers/block/zram/zcomp.h b/drivers/block/zram/zcomp.h
+--- a/drivers/block/zram/zcomp.h
++++ b/drivers/block/zram/zcomp.h
+@@ -30,8 +30,9 @@
+ 
+ /*
+  * Run-time driver context - scratch buffers, etc. It is modified during
+- * request execution (compression/decompression), cannot be shared, so
+- * it's in per-CPU area.
++ * request execution (compression/decompression), is serialized per direction,
++ * so it is in per-CPU area. Compression and decompression state must be
++ * independent: callers can use the two directions concurrently.
+  */
+ struct zcomp_ctx {
+ 	void *context;
+@@ -44,6 +45,8 @@
+ 	/* local copy of handle memory */
+ 	void *local_copy;
+ 	struct zcomp_ctx ctx;
++	/* Preserve the compression path's existing field offsets. */
++	struct mutex dlock;
+ };
+ 
+ struct zcomp_req {
+@@ -87,6 +90,8 @@
+ 
+ struct zcomp_strm *zcomp_stream_get(struct zcomp *comp);
+ void zcomp_stream_put(struct zcomp_strm *zstrm);
++struct zcomp_strm *zcomp_dstream_get(struct zcomp *comp);
++void zcomp_dstream_put(struct zcomp_strm *zstrm);
+ 
+ int zcomp_compress(struct zcomp *comp, struct zcomp_strm *zstrm,
+ 		   const void *src, unsigned int *dst_len);
+diff --git a/drivers/block/zram/zcomp.c b/drivers/block/zram/zcomp.c
+--- a/drivers/block/zram/zcomp.c
++++ b/drivers/block/zram/zcomp.c
+@@ -112,31 +112,42 @@
+ 	return at;
+ }
+ 
+-struct zcomp_strm *zcomp_stream_get(struct zcomp *comp)
++static __always_inline struct zcomp_strm *
++zcomp_get_stream(struct zcomp *comp, bool decompress)
+ {
+ 	for (;;) {
+ 		struct zcomp_strm *zstrm = raw_cpu_ptr(comp->stream);
++		struct mutex *lock = decompress ? &zstrm->dlock : &zstrm->lock;
+ 
+ 		/*
+-		 * Inspired by zswap
+-		 *
+-		 * stream is returned with ->mutex locked which prevents
+-		 * cpu_dead() from releasing this stream under us, however
+-		 * there is still a race window between raw_cpu_ptr() and
+-		 * mutex_lock(), during which we could have been migrated
+-		 * from a CPU that has already destroyed its stream.  If
+-		 * so then unlock and re-try on the current CPU.
++		 * CPU teardown takes both direction locks before destroying the
++		 * context. Retry if migration raced with an offline CPU's stream.
+ 		 */
+-		mutex_lock(&zstrm->lock);
++		mutex_lock(lock);
+ 		if (likely(zstrm->buffer))
+ 			return zstrm;
+-		mutex_unlock(&zstrm->lock);
+-	}
++		mutex_unlock(lock);
++	}
++}
++
++struct zcomp_strm *zcomp_stream_get(struct zcomp *comp)
++{
++	return zcomp_get_stream(comp, false);
+ }
+ 
+ void zcomp_stream_put(struct zcomp_strm *zstrm)
+ {
+ 	mutex_unlock(&zstrm->lock);
++}
++
++struct zcomp_strm *zcomp_dstream_get(struct zcomp *comp)
++{
++	return zcomp_get_stream(comp, true);
++}
++
++void zcomp_dstream_put(struct zcomp_strm *zstrm)
++{
++	mutex_unlock(&zstrm->dlock);
+ }
+ 
+ int zcomp_compress(struct zcomp *comp, struct zcomp_strm *zstrm,
+@@ -189,7 +200,9 @@
+ 	struct zcomp_strm *zstrm = per_cpu_ptr(comp->stream, cpu);
+ 
+ 	mutex_lock(&zstrm->lock);
++	mutex_lock(&zstrm->dlock);
+ 	zcomp_strm_free(comp, zstrm);
++	mutex_unlock(&zstrm->dlock);
+ 	mutex_unlock(&zstrm->lock);
+ 	return 0;
+ }
+@@ -207,8 +220,10 @@
+ 	if (ret)
+ 		goto cleanup;
+ 
+-	for_each_possible_cpu(cpu)
++	for_each_possible_cpu(cpu) {
+ 		mutex_init(&per_cpu_ptr(comp->stream, cpu)->lock);
++		mutex_init(&per_cpu_ptr(comp->stream, cpu)->dlock);
++	}
+ 
+ 	ret = cpuhp_state_add_instance(CPUHP_ZCOMP_PREPARE, &comp->node);
+ 	if (ret < 0)
+diff --git a/drivers/block/zram/zram_drv.c b/drivers/block/zram/zram_drv.c
+--- a/drivers/block/zram/zram_drv.c
++++ b/drivers/block/zram/zram_drv.c
+@@ -1363,14 +1363,14 @@
+ 	size = get_slot_size(zram, index);
+ 	prio = get_slot_comp_priority(zram, index);
+ 
+-	zstrm = zcomp_stream_get(zram->comps[prio]);
++	zstrm = zcomp_dstream_get(zram->comps[prio]);
+ 	src = kmap_local_page(page);
+ 	ret = zcomp_decompress(zram->comps[prio], zstrm, src, size,
+ 			       zstrm->local_copy);
+ 	if (!ret)
+ 		copy_page(src, zstrm->local_copy);
+ 	kunmap_local(src);
+-	zcomp_stream_put(zstrm);
++	zcomp_dstream_put(zstrm);
+ 	slot_unlock(zram, index);
+ 
+ 	return ret;
+@@ -2112,14 +2112,14 @@
+ 	size = get_slot_size(zram, index);
+ 	prio = get_slot_comp_priority(zram, index);
+ 
+-	zstrm = zcomp_stream_get(zram->comps[prio]);
++	zstrm = zcomp_dstream_get(zram->comps[prio]);
+ 	src = zs_obj_read_begin(zram->mem_pool, handle, size,
+ 				zstrm->local_copy);
+ 	dst = kmap_local_page(page);
+ 	ret = zcomp_decompress(zram->comps[prio], zstrm, src, size, dst);
+ 	kunmap_local(dst);
+ 	zs_obj_read_end(zram->mem_pool, handle, size, src);
+-	zcomp_stream_put(zstrm);
++	zcomp_dstream_put(zstrm);
+ 
+ 	return ret;
+ }
+@@ -2141,12 +2141,12 @@
+ 	 * case if object spans two physical pages. No decompression
+ 	 * takes place here, as we read raw compressed data.
+ 	 */
+-	zstrm = zcomp_stream_get(zram->comps[ZRAM_PRIMARY_COMP]);
++	zstrm = zcomp_dstream_get(zram->comps[ZRAM_PRIMARY_COMP]);
+ 	src = zs_obj_read_begin(zram->mem_pool, handle, size,
+ 				zstrm->local_copy);
+ 	memcpy_to_page(page, 0, src, size);
+ 	zs_obj_read_end(zram->mem_pool, handle, size, src);
+-	zcomp_stream_put(zstrm);
++	zcomp_dstream_put(zstrm);
+ 
+ 	memzero_page(page, size, PAGE_SIZE - size);
+ 

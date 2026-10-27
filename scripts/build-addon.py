@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build a NanoKVM add-on APK from its recipe, firmware/alpine/packages/NAME/addon.json.
+"""Build a NanoKVM add-on APK from its recipe, addons/NAME/addon.json.
 
-The add-on is a static Go program of server/ (CGO off, so no device toolchain)
+The add-on is a static Go program in its own module (CGO off, so no device toolchain)
 with its files and lifecycle scripts, packed by apk-tools 3 mkpkg. It has the
 recipe's version and the given revision, never the OS release's. RustDesk has
 a builder of its own (scripts/build-rustdesk-addon.py).
@@ -20,15 +20,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import addon_packages  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGES = ROOT / 'firmware/alpine/packages'
+ADDONS = ROOT / 'addons'
 SCRIPTS = ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade', 'pre-deinstall', 'post-deinstall')
 
 
-def recipe(name, packages=PACKAGES):
+def recipe(name, addons=ADDONS):
     """The checked recipe of the add-on NAME."""
     if name not in addon_packages.ADDONS:
         raise ValueError(f'Not an add-on: {name}')
-    directory = packages / name
+    directory = addons / name.removeprefix('nanokvm-')
     r = json.loads((directory / 'addon.json').read_text())
     if r['name'] != name or not addon_packages.TAG.fullmatch(f"{name}-{r['version']}-r0"):
         raise ValueError(f'{name}: bad name or version in addon.json')
@@ -59,7 +59,7 @@ def build_go(r, go, output):
                GOEXPERIMENT='', GOROOT=str(go_root), GOTOOLCHAIN='local')
     binary = output / Path(r['go']['path']).name
     subprocess.run([str(go_root / 'bin/go'), 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',
-                    '-o', str(binary), r['go']['package']], cwd=ROOT / 'server', env=env, check=True)
+                    '-o', str(binary), r['go']['package']], cwd=r['directory'], env=env, check=True)
     version = subprocess.check_output([str(go_root / 'bin/go'), 'version'], env=env, text=True).strip()
     return binary, version
 

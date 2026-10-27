@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +17,7 @@ spec.loader.exec_module(b)
 
 class RecipeTests(unittest.TestCase):
     def test_every_built_add_on_has_a_valid_recipe(self):
-        recipes = [d.name for d in b.PACKAGES.iterdir() if (d / 'addon.json').is_file()]
+        recipes = ['nanokvm-' + d.name for d in b.ADDONS.iterdir() if (d / 'addon.json').is_file()]
         self.assertIn('nanokvm-ipmi', recipes)
         for name in recipes:
             r = b.recipe(name)
@@ -40,20 +41,39 @@ class RecipeTests(unittest.TestCase):
             b.recipe('nanokvm-web')
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
-            good = json.loads((b.PACKAGES / 'nanokvm-ipmi/addon.json').read_text())
-            (d / 'nanokvm-ipmi').mkdir()
+            good = json.loads((b.ADDONS / 'ipmi/addon.json').read_text())
+            (d / 'ipmi').mkdir()
             for name in ['nanokvm-ipmi.initd', 'nanokvm-ipmi.pre-upgrade', 'nanokvm-ipmi.post-upgrade',
                          'nanokvm-ipmi.pre-deinstall']:
-                (d / 'nanokvm-ipmi' / name).write_text('#!/bin/sh\n')
+                (d / 'ipmi' / name).write_text('#!/bin/sh\n')
             for bad in [{'version': '3.4'}, {'name': 'nanokvm-web'},
                         {'files': {'/etc/../x': {'source': 'nanokvm-ipmi.initd', 'mode': '0755'}}},
                         {'scripts': {'trigger': 'nanokvm-ipmi.initd'}}, {'licenses': ['NO-SUCH-LICENSE']},
                         {'os': ''}, {'os': '3.5'}, {'os': 'v3.5.0'}, {'os': '3.5.0-beta.1'},
                         {'depends': 'openrc nanokvm-os>=3.4.0'}]:
                 with self.subTest(bad=bad):
-                    (d / 'nanokvm-ipmi/addon.json').write_text(json.dumps({**good, **bad}))
+                    (d / 'ipmi/addon.json').write_text(json.dumps({**good, **bad}))
                     with self.assertRaises(ValueError):
                         b.recipe('nanokvm-ipmi', d)
+
+
+class BuildTests(unittest.TestCase):
+    def test_go_build_uses_the_addon_module(self):
+        r = b.recipe('nanokvm-ipmi')
+        with tempfile.TemporaryDirectory() as d:
+            output = Path(d)
+            with patch.object(b.subprocess, 'run') as run, patch.object(
+                b.subprocess, 'check_output', return_value='go version test\n'
+            ):
+                binary, version = b.build_go(r, Path('/toolchain/bin/go'), output)
+            args, kwargs = run.call_args
+            self.assertEqual(kwargs['cwd'], ROOT / 'addons/ipmi')
+            self.assertEqual(args[0][-1], './cmd/nkos-ipmi')
+            self.assertEqual(kwargs['env']['GOARCH'], 'riscv64')
+            self.assertEqual(kwargs['env']['CGO_ENABLED'], '0')
+            self.assertTrue(kwargs['check'])
+            self.assertEqual(binary, output / 'nkos-ipmi')
+            self.assertEqual(version, 'go version test')
 
 
 class PackageTests(unittest.TestCase):

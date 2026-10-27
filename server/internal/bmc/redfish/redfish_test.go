@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"NanoKVM-Server/internal/bmc"
+	"NanoKVM-Server/pkg/bmc"
 )
 
 type fakePower struct {

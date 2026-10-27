@@ -46,6 +46,7 @@ updates:
   - package-ecosystem: gomod
     directories:
       - /server
+      - /addons/ipmi
       - /server/third_party/pion-dtls
       - /server/third_party/pion-ice
       - /server/third_party/pion-srtp
@@ -69,6 +70,8 @@ updates:
     ignore:
       # The C906 masking patch pins and verifies Gorilla source files.
       - dependency-name: github.com/gorilla/websocket
+      # Shared local BMC code follows this checkout, not a published module.
+      - dependency-name: NanoKVM-Server
       - dependency-name: github.com/pion/dtls/v3
       - dependency-name: github.com/pion/ice/v4
       - dependency-name: github.com/pion/srtp/v3

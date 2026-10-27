@@ -202,6 +202,7 @@ jobs:
       fail-fast: false
       matrix:
         directory:
+          - addons/ipmi
           - server/third_party/pion-dtls
           - server/third_party/pion-ice
           - server/third_party/pion-srtp
@@ -218,6 +219,12 @@ jobs:
       - run: go build ./...
       - name: Test
         run: go test -timeout 5m ./...
+      - name: Vet IPMI add-on
+        if: matrix.directory == 'addons/ipmi'
+        run: go vet ./...
+      - name: Race-test IPMI add-on
+        if: matrix.directory == 'addons/ipmi'
+        run: go test -race -timeout 5m ./...
 
   rustdesk:
     name: RustDesk host tests

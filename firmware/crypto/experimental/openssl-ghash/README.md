@@ -20,10 +20,13 @@ ChaCha's musl environment lookup was separately corrected in its parent PR.
 Fatal seccomp policies cannot be made safe by waiting for errno from a forbidden
 syscall; clients must qualify their policy before opting in.
 
-## Current physical measurements
+## Recorded physical measurements
 
 OpenSSL 3.5.9, GCC 16.2, restricted C906/O3 flags, physical 1 GHz SG2002 with
-video active, with the selected AES extraction/tail changes from #511.
+video active, with the selected AES extraction/tail changes from #511, before
+the SHA-1/DES/TDES scope cleanup. GHASH assembly, AES algorithms and thresholds
+are unchanged, but these are measurements of the recorded pre-cleanup library,
+not new timing results from the restacked build.
 Three rotated trials used the same binary, equal-length option
 values and per-process disabled ASLR. Input offset is 5. Values are MiB per
 process CPU-second. `validation.json` pins source, patches and binaries;
@@ -51,6 +54,13 @@ There is no context growth or persistent key cache. Expansion and assembly
 frames total 1376 bytes plus callers. See `native-memory.txt` for raw readings.
 
 ## Verification
+
+The cleaned branch is stacked on AES #511, which now derives directly from
+SHA-256 #508 without SHA-1 offload commits. `scope-cleanup-validation.json`
+records the zero-fuzz patch application, clean C906/O3 cross-build, unchanged
+5808 public exports, generator/dispatcher negative controls and downloader
+tests. The GHASH patch is byte-identical. Native checks were not repeated for
+this cleanup; the native qualifications below retain their original identities.
 
 - The shared generator passed 200 independent bit-serial cases per primitive;
   126 vector encodings matched GNU binutils.

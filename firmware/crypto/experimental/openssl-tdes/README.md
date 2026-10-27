@@ -17,7 +17,10 @@ across 18 AES/DES/TDES block modes. Prior physical runs passed native legacy
 provider loading, all block cases, upstream DES vectors and hardware-counter
 checks. The final restricted-ISA stack also passes the full native block, digest,
 CTR/GCM carry, AEAD and upstream vector suites with DMA enabled and disabled.
-`native-final-validation.json` pins both libcrypto and the legacy provider. These legacy algorithms are not selected for modern TLS.
+`native-final-validation.json` pins both libcrypto and the legacy provider,
+including the selected AES lookup/tail changes and 20,736 independent AES
+tail/IV checks. TDES retains a 1024-byte continuation minimum as well as its
+initial minimum. These legacy algorithms are not selected for modern TLS.
 
 Historical EDE3-CBC encryption: 1 KiB 3.249→7.578 MiB/CPU-s,
 16 KiB 3.484→32.17. The selected minimum is 1 KiB.

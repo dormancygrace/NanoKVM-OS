@@ -1,136 +1,194 @@
 {
-  "head": "0a1b4f68be3af062ef7ad90f9b897f3f2b20ccd3",
-  "files": {
-    "legacy-policy/libcrypto.so.3": "2049e9778269e30fab7a6c20f7410d61cf4833c473237f52e0e3365ff692f7f9",
-    "legacy-policy/modules/legacy.so": "a3ee218ca205ee5fce804d0ec50511275c8ea84540f400ffb8a4925e1a486fab"
+  "identities": {
+    "profile": "legacy-policy",
+    "head": "1d146638fc482b87258738c3f850c888c4a6c2cf",
+    "libcrypto": "4efee7572609bba5d37ee8d01feab57c909107a0f295955fa6e139a677235bc2",
+    "legacy": "db3098a0443420855eeb8c5f71adce209f3026c41499be6d7a3bb2c8dfd56c39",
+    "patches": [
+      {
+        "file": "0001-chacha20-c906.patch",
+        "sha256": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+      },
+      {
+        "file": "0002-sg2002-transport.patch",
+        "sha256": "0b9315799971cacaf92e306cf55920aab1af3b909f2997af3f450174145af899"
+      },
+      {
+        "file": "0003-sha256-dma.patch",
+        "sha256": "8a8ab6b8075a250eec9b88987223cd3ece7127cd9af2add2bd931098a888c31c"
+      },
+      {
+        "file": "0004-sha1-dma.patch",
+        "sha256": "def79f14653d6ea022d4964eb75fd67c899ed07e0c1960e9bf287a035c5a0636"
+      },
+      {
+        "file": "0005-aes-c906.patch",
+        "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+      },
+      {
+        "file": "0005-aes-dma.patch",
+        "sha256": "139baa77d2aa87c69a4410e401db1f064544c8c2d76784c74c0ce94e58b5c0f2"
+      },
+      {
+        "file": "0006-des-dma.patch",
+        "sha256": "41dfd3d4f41483eb234f518d0d806372f7eadd709f5b881fa2c4f1ed81bdd530"
+      },
+      {
+        "file": "0007-tdes-dma.patch",
+        "sha256": "69289b50ff7efc64d6f88ed744170ac668dab227f29720c431f1e9fbb59b635e"
+      }
+    ]
   },
   "checks": [
     {
-      "dma": "yes",
-      "program": "blocks-verify",
-      "vector": null,
-      "rc": 0,
-      "result": "{\"cases\":1944,\"fingerprint\":\"a37680a0195705fb\"}\n"
-    },
-    {
-      "dma": "yes",
-      "program": "digest-verify",
-      "vector": null,
-      "rc": 0,
-      "result": "{\"cases\":864,\"fingerprint\":\"768fd5312ca481be\"}\n"
-    },
-    {
-      "dma": "yes",
-      "program": "verify-ctr",
-      "vector": null,
-      "rc": 0,
-      "result": "PASS 288 EVP CTR carry cases\n"
-    },
-    {
-      "dma": "yes",
-      "program": "verify-gcm",
-      "vector": null,
-      "rc": 0,
-      "result": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\nPASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472\n"
-    },
-    {
-      "dma": "yes",
-      "program": "evp-bench",
-      "vector": null,
-      "rc": 0,
-      "result": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\n"
-    },
-    {
-      "dma": "yes",
-      "program": "evp-test-legacy",
-      "vector": "evpciph_des.txt",
-      "rc": 0,
-      "result": "    # DES-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # DES-CFB is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-CFB\n    # \n    # INFO:  @ test/testutil/stanza.c:122\n    # Starting \"DES Tests (various sources)\" tests at line 78\n    # INFO:  @ test/evp_test.c:1025\n    # DES-EDE3-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-EDE3-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # DES-EDE3-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-EDE3-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # DESX-CBC is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DESX-CBC\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 13 tests with 0 errors and 0 skipped\n"
-    },
-    {
-      "dma": "yes",
-      "program": "evp-test-legacy",
-      "vector": "evpciph_aes_common.txt",
-      "rc": 0,
-      "result": " RUNNING TEST FOR CIPHER AES-128-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-128-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-128-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB8\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 313 tests with 0 errors and 1 skipped\n"
-    },
-    {
-      "dma": "yes",
-      "program": "evp-test-legacy",
-      "vector": "evpmd_sha.txt",
-      "rc": 0,
-      "result": " is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-384 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-384 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-384 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/testutil/stanza.c:122\n    # Starting \"Case insensitive digest tests\" tests at line 389\n    # INFO:  @ test/evp_test.c:733\n    # Sha3-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # shA512 is fetched\n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 74 tests with 0 errors and 0 skipped\n"
-    },
-    {
-      "dma": "yes",
-      "program": "evp-test-legacy",
-      "vector": "evpciph_chacha.txt",
-      "rc": 0,
-      "result": "# INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 27 tests with 0 errors and 0 skipped\n"
-    },
-    {
       "dma": "off",
       "program": "blocks-verify",
-      "vector": null,
+      "args": [],
       "rc": 0,
       "result": "{\"cases\":1944,\"fingerprint\":\"a37680a0195705fb\"}\n"
     },
     {
       "dma": "off",
       "program": "digest-verify",
-      "vector": null,
+      "args": [],
       "rc": 0,
       "result": "{\"cases\":864,\"fingerprint\":\"768fd5312ca481be\"}\n"
     },
     {
       "dma": "off",
       "program": "verify-ctr",
-      "vector": null,
+      "args": [
+        "--native"
+      ],
       "rc": 0,
-      "result": "PASS 288 EVP CTR carry cases\n"
+      "result": "=1 matches32=0\nRAW AES-128 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-128 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-192 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-256 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=2 matches128=1 matches64=0 matches32=0\nPASS 288 EVP CTR carry cases\n"
     },
     {
       "dma": "off",
       "program": "verify-gcm",
-      "vector": null,
+      "args": [],
       "rc": 0,
       "result": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\nPASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472\n"
     },
     {
       "dma": "off",
-      "program": "evp-bench",
-      "vector": null,
+      "program": "verify-aes-tails",
+      "args": [
+        "bfe84c43ff49df11"
+      ],
       "rc": 0,
-      "result": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\n"
+      "result": "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.9 29 Sep 2026\"}\n"
     },
     {
       "dma": "off",
       "program": "evp-test-legacy",
-      "vector": "evpciph_des.txt",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpciph_des.txt"
+      ],
       "rc": 0,
-      "result": "    # DES-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # DES-CFB is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-CFB\n    # \n    # INFO:  @ test/testutil/stanza.c:122\n    # Starting \"DES Tests (various sources)\" tests at line 78\n    # INFO:  @ test/evp_test.c:1025\n    # DES-EDE3-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-EDE3-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # DES-EDE3-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DES-EDE3-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # DESX-CBC is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER DESX-CBC\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 13 tests with 0 errors and 0 skipped\n"
+      "result": " test/evp_test.c:5320\n    # skipping, 'legacy' provider not available: /tmp/nkos-openssl-review506/vectors/evpciph_des.txt:80\n    # INFO:  @ test/evp_test.c:5320\n    # skipping, 'legacy' provider not available: /tmp/nkos-openssl-review506/vectors/evpciph_des.txt:87\n    # INFO:  @ test/evp_test.c:5320\n    # skipping, 'legacy' provider not available: /tmp/nkos-openssl-review506/vectors/evpciph_des.txt:95\n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 0 tests with 0 errors and 13 skipped\n"
     },
     {
       "dma": "off",
       "program": "evp-test-legacy",
-      "vector": "evpciph_aes_common.txt",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpciph_aes_common.txt"
+      ],
       "rc": 0,
-      "result": " RUNNING TEST FOR CIPHER AES-128-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB1 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-128-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-128-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB8\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 313 tests with 0 errors and 1 skipped\n"
+      "result": "FB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-128-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB8\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 313 tests with 0 errors and 1 skipped\n"
     },
     {
       "dma": "off",
       "program": "evp-test-legacy",
-      "vector": "evpmd_sha.txt",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpmd_sha.txt"
+      ],
       "rc": 0,
-      "result": " is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-384 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-384 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-384 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/testutil/stanza.c:122\n    # Starting \"Case insensitive digest tests\" tests at line 389\n    # INFO:  @ test/evp_test.c:733\n    # Sha3-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # shA512 is fetched\n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 74 tests with 0 errors and 0 skipped\n"
+      "result": ":  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/testutil/stanza.c:122\n    # Starting \"Case insensitive digest tests\" tests at line 389\n    # INFO:  @ test/evp_test.c:733\n    # Sha3-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # shA512 is fetched\n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 74 tests with 0 errors and 0 skipped\n"
     },
     {
       "dma": "off",
       "program": "evp-test-legacy",
-      "vector": "evpciph_chacha.txt",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpciph_chacha.txt"
+      ],
       "rc": 0,
-      "result": "# INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 27 tests with 0 errors and 0 skipped\n"
+      "result": "O:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 27 tests with 0 errors and 0 skipped\n"
+    },
+    {
+      "dma": "yes",
+      "program": "blocks-verify",
+      "args": [],
+      "rc": 0,
+      "result": "{\"cases\":1944,\"fingerprint\":\"a37680a0195705fb\"}\n"
+    },
+    {
+      "dma": "yes",
+      "program": "digest-verify",
+      "args": [],
+      "rc": 0,
+      "result": "{\"cases\":864,\"fingerprint\":\"768fd5312ca481be\"}\n"
+    },
+    {
+      "dma": "yes",
+      "program": "verify-ctr",
+      "args": [
+        "--native"
+      ],
+      "rc": 0,
+      "result": "=1 matches32=0\nRAW AES-128 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-128 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-192 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-256 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=2 matches128=1 matches64=0 matches32=0\nPASS 288 EVP CTR carry cases\n"
+    },
+    {
+      "dma": "yes",
+      "program": "verify-gcm",
+      "args": [],
+      "rc": 0,
+      "result": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\nPASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472\n"
+    },
+    {
+      "dma": "yes",
+      "program": "verify-aes-tails",
+      "args": [
+        "bfe84c43ff49df11"
+      ],
+      "rc": 0,
+      "result": "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.9 29 Sep 2026\"}\n"
+    },
+    {
+      "dma": "yes",
+      "program": "evp-test-legacy",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpciph_des.txt"
+      ],
+      "rc": 0,
+      "result": " test/evp_test.c:5320\n    # skipping, 'legacy' provider not available: /tmp/nkos-openssl-review506/vectors/evpciph_des.txt:80\n    # INFO:  @ test/evp_test.c:5320\n    # skipping, 'legacy' provider not available: /tmp/nkos-openssl-review506/vectors/evpciph_des.txt:87\n    # INFO:  @ test/evp_test.c:5320\n    # skipping, 'legacy' provider not available: /tmp/nkos-openssl-review506/vectors/evpciph_des.txt:95\n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 0 tests with 0 errors and 13 skipped\n"
+    },
+    {
+      "dma": "yes",
+      "program": "evp-test-legacy",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpciph_aes_common.txt"
+      ],
+      "rc": 0,
+      "result": "FB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-128-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB8\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 313 tests with 0 errors and 1 skipped\n"
+    },
+    {
+      "dma": "yes",
+      "program": "evp-test-legacy",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpmd_sha.txt"
+      ],
+      "rc": 0,
+      "result": ":  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # KECCAK-512 is fetched\n    # INFO:  @ test/testutil/stanza.c:122\n    # Starting \"Case insensitive digest tests\" tests at line 389\n    # INFO:  @ test/evp_test.c:733\n    # Sha3-256 is fetched\n    # INFO:  @ test/evp_test.c:733\n    # shA512 is fetched\n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 74 tests with 0 errors and 0 skipped\n"
+    },
+    {
+      "dma": "yes",
+      "program": "evp-test-legacy",
+      "args": [
+        "/tmp/nkos-openssl-review506/vectors/evpciph_chacha.txt"
+      ],
+      "rc": 0,
+      "result": "O:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # chacha20-poly1305 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER ChaCha20-Poly1305\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 27 tests with 0 errors and 0 skipped\n"
     }
-  ],
-  "driver_status": "{\"version\":1,\"algorithms\":254,\"poisoned\":0,\"completed\":[0,308672,1050,2172,0,1920,332566,0]}\n"
+  ]
 }

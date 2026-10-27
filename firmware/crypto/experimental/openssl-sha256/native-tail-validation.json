@@ -1,0 +1,75 @@
+{
+  "date_utc": "2026-10-27T11:34:05.200374+00:00",
+  "base_head": "b4e7e7e1549fa3535bbc2b24a1b55e9703af1a6f",
+  "kernel": "7.3.0-nanokvm-os-r3",
+  "scope": "Real production DMA transport and scalar compressor; two renamed SHA DMA helper versions in one static binary. Includes open/fstat/RUN/close, context reset, digest comparison and clock calls. Excludes EVP and full-library layout effects. Five alternating-order 180ms CPU trials per size. Every measured request asserts the expected completed block count, so fallback cannot be mistaken for DMA.",
+  "driver_lengths": "57 successful SHA-256 compression requests: 512..4096 in 64-byte steps, each compared with actual scalar compression",
+  "files": {
+    "508-native": "01ddfc40e78f718ef8f650e4ec8e6374744eb8ee9f1bd956bca8e24cfaa85fcf",
+    "508-sha-base.c": "bca11aec43e522c9d9c6f55f8be450f6f6d1e968673e714d5bfff2b30d9c8b40",
+    "508-sha-tail.c": "2c3e7dd316b49d33f7756e1c05140f1e02471265543c03184926f2c0de63e2f8"
+  },
+  "compiler": "riscv64-buildroot-linux-musl-gcc.br_real (Buildroot 2026.08) 16.2.0",
+  "median_rows": [
+    {
+      "bytes": 4096,
+      "base_ns": 75584.836,
+      "candidate_ns": 76123.061,
+      "change_percent": 0.71
+    },
+    {
+      "bytes": 4160,
+      "base_ns": 98771.096,
+      "candidate_ns": 99186.534,
+      "change_percent": 0.42
+    },
+    {
+      "bytes": 4224,
+      "base_ns": 101152.36,
+      "candidate_ns": 102041.632,
+      "change_percent": 0.88
+    },
+    {
+      "bytes": 4352,
+      "base_ns": 106657.844,
+      "candidate_ns": 107597.609,
+      "change_percent": 0.88
+    },
+    {
+      "bytes": 4480,
+      "base_ns": 112107.828,
+      "candidate_ns": 113110.528,
+      "change_percent": 0.89
+    },
+    {
+      "bytes": 4608,
+      "base_ns": 118151.339,
+      "candidate_ns": 86604.444,
+      "change_percent": -26.7
+    },
+    {
+      "bytes": 5120,
+      "base_ns": 139471.975,
+      "candidate_ns": 89146.139,
+      "change_percent": -36.08
+    },
+    {
+      "bytes": 6144,
+      "base_ns": 182887.756,
+      "candidate_ns": 92921.961,
+      "change_percent": -49.19
+    },
+    {
+      "bytes": 8192,
+      "base_ns": 101775.625,
+      "candidate_ns": 102340.284,
+      "change_percent": 0.55
+    },
+    {
+      "bytes": 8704,
+      "base_ns": 143703.496,
+      "candidate_ns": 112178.667,
+      "change_percent": -21.94
+    }
+  ]
+}

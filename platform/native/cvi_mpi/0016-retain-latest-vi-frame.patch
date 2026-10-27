@@ -1,0 +1,31 @@
+--- a/sample/common/sample_common_vi.c
++++ b/sample/common/sample_common_vi.c
+@@ -24,6 +24,9 @@
+ #include "cvi_comm_isp.h"
+ #include "sample_comm.h"
+ #include "cvi_isp.h"
++#ifdef NANOKVM_OS
++#include "nanokvm_vi_buffering.h"
++#endif
+ 
+ // default is output YUV420 image
+ VI_CHN_ATTR_S CHN_ATTR_420_SDR8 = {
+@@ -762,6 +765,18 @@
+ 			pstSnsObj   = (ISP_SNS_OBJ_S *)SAMPLE_COMM_ISP_GetSnsObj(u32SnsId);
+ 
+ 			SAMPLE_COMM_VI_GetChnAttrBySns(pstViConfig->astViInfo[i].stSnsInfo.enSnsType, &stChnAttr);
++
++#ifdef NANOKVM_OS
++            /* The common pool already owns the capture-start decision. A mode
++             * change between these steps must restart, never enable a depth
++             * chosen from a different geometry or a second device-tree read. */
++            if (pstViConfig->astViInfo[i].stSnsInfo.enSnsType == LONTIUM_LT6911_2M_60FPS_8BIT
++                && nanokvm_vi_startup_depth(stChnAttr.stSize.u32Width,
++                    stChnAttr.stSize.u32Height, &stChnAttr.u32Depth) != 0) {
++                SAMPLE_PRT("VI geometry changed during startup; retry capture\n");
++                return CVI_FAILURE;
++            }
++#endif
+ 
+ 			stChnAttr.enDynamicRange = pstViConfig->astViInfo[i].stChnInfo.enDynamicRange;
+ 			stChnAttr.enVideoFormat  = pstViConfig->astViInfo[i].stChnInfo.enVideoFormat;

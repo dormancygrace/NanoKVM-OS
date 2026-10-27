@@ -90,6 +90,24 @@ class WatchTests(unittest.TestCase):
         with patch.object(u, 'github', return_value=tags + [{'name': 'json-c-0.20-20270101'}]):
             self.assertEqual(u.check(source)['status'], 'update available')
 
+    def test_openssl_tracks_only_selected_lts_patch_releases(self):
+        sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
+        source = next(s for s in sources if s.get('lock_entry') == 'openssl')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pin = root / source['path']
+            pin.parent.mkdir(parents=True)
+            pin.write_text('openssl https://example.test/openssl-3.5.9.tar.gz checksum\n')
+            listing = 'openssl-3.5.9.tar.gz openssl-3.6.5.tar.gz openssl-4.1.0.tar.gz openssl-3.5.10-beta1.tar.gz'
+            with patch.object(u, 'request', return_value=listing):
+                result = u.check(source, root)
+                self.assertEqual(result['latest'], '3.5.9', result)
+                self.assertEqual(result['status'], 'current', result)
+            with patch.object(u, 'request', return_value=listing + ' openssl-3.5.10.tar.gz'):
+                result = u.check(source, root)
+                self.assertEqual(result['latest'], '3.5.10', result)
+                self.assertEqual(result['status'], 'update available', result)
+
     def test_buildroot_reports_only_new_stable_archive_releases(self):
         sources = json.loads((ROOT / '.github/upstream-watch.json').read_text())['sources']
         source = next(s for s in sources if s['name'] == 'Buildroot')
@@ -175,7 +193,7 @@ class WatchTests(unittest.TestCase):
     @staticmethod
     def alpine_index(value, missing=None):
         data = ''.join('P:' + name + '\nV:' + value + '\nA:riscv64\n\n'
-                       for name in ('openssl', 'libssl3', 'libcrypto3') if name != missing).encode()
+                       for name in ('openssl', 'libssl3', 'libcrypto3', 'libgcc') if name != missing).encode()
         output = io.BytesIO()
         with tarfile.open(fileobj=output, mode='w:gz') as archive:
             item = tarfile.TarInfo('APKINDEX')
@@ -401,9 +419,9 @@ class CoverageTests(unittest.TestCase):
     def test_split_app_packages_are_not_alpine_dependencies(self):
         with patch.object(u, 'request_bytes', return_value=WatchTests.alpine_index('3.5.9-r0')):
             results = {item['name']: item for item in u.check_alpine_inventory(ROOT)}
-        for name in ('nanokvm', 'nanokvm-web', 'nanokvm-app'):
+        for name in ('nanokvm', 'nanokvm-web', 'nanokvm-app', 'nanokvm-openssl', 'openssl'):
             self.assertNotIn('Alpine: ' + name, results)
-        self.assertEqual(results['Alpine: openssl']['status'], 'repository-managed')
+        self.assertEqual(results['Alpine: libgcc']['status'], 'repository-managed')
         self.assertEqual(results['Alpine: curl']['status'], 'error',
                          'missing external packages must still be reported')
 

@@ -433,6 +433,7 @@
     }
   },
   "keyboard": {
+    "more": "Keyboard options",
     "title": "Keyboard",
     "paste": "Paste",
     "tips": "Only standard keyboard letters and symbols are supported",
@@ -575,7 +576,16 @@
       "disconnect": "Disconnect ISO",
       "readFailed": "Could not read the selected ISO. Reconnect the file to try again.",
       "connectFailed": "Could not connect the ISO. Check the device connection and try again.",
-      "disconnectFailed": "Could not disconnect the ISO. Try again."
+      "disconnectFailed": "Could not disconnect the ISO. Try again.",
+      "source": "Image source",
+      "url": "From URL",
+      "urlHint": "Mount an HTTP(S) or SMB ISO as a read-only CD/DVD without saving it to the SD card. HTTP servers must support byte ranges. For SMB, use smb://server/share/image.iso. You can close this page; disconnect the image when finished. Restarting NanoKVM disconnects it.",
+      "urlAddress": "Image URL",
+      "username": "Username",
+      "password": "Password",
+      "credentialsHint": "HTTP Basic authentication (optional)",
+      "smbCredentialsHint": "SMB2/3 account (username required; domain optional)",
+      "domain": "Domain (optional)"
     },
     "title": "Images",
     "loading": "Loading…",
@@ -619,7 +629,7 @@
       "secureBoot": "UEFI Secure Boot",
       "secureBootHint": "Uses the iPXE image signed for Secure Boot (x86-64 UEFI only). With Secure Boot on, netboot.xyz installs Debian, Devuan and Kali; other entries need Secure Boot turned off in the computer's firmware.",
       "needComposition": "Turn on USB network and the virtual disk in the USB settings first.",
-      "browserMedia": "Disconnect the ISO from this computer first.",
+      "browserMedia": "Disconnect the remote ISO first.",
       "enableNote": "Replaces the mounted image and turns on USB internet sharing until network boot is turned off.",
       "enable": "Turn on network boot",
       "enabling": "Turning on…",
@@ -840,6 +850,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Bootloader",
           "zlib": "Compression library",
+          "openssl": "OpenSSL",
           "exfatprogs": "exFAT tools",
           "i2ctools": "I2C tools"
         }

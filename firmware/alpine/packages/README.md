@@ -21,6 +21,7 @@ kmod-sg2002/             lib/modules/<kernel-release>/
 firmware-sg2002/         lib/firmware/ and optional usr/share/ data
 app/                      kvmapp/ and application files below /
 zlib/                     usr/lib/libz.so.1 (zlib-ng) and its license
+openssl/                  OpenSSL command, ABI3 libraries, engines, legacy provider and configuration
 release/                  etc/nanokvm-release, kvmapp/version and build profile metadata
 ```
 
@@ -81,6 +82,48 @@ the dynamic symbols of the built library with `nanokvm-zlib/zlib-1.3.2.symbols`
 (taken from Alpine's `libz.so.1.3.2`) and fails if any is missing. Move the pin
 to the first release that has this API, and refresh the symbol list when
 Alpine moves to a newer zlib.
+
+## OpenSSL runtime
+
+`nanokvm-openssl` replaces Alpine's `openssl`, `libssl3` and `libcrypto3`
+with the unmodified OpenSSL 3.5.9 LTS sources pinned in `platform/sources.lock`.
+It provides their package names and ABI3 SONAMEs, so curl, OpenSSH and apk
+continue to use their existing linkage. As with `nanokvm-zlib`, the release depends on the named
+NanoKVM package at its selected minimum version; the provided upstream version is tracked separately.
+Alpine development, static and FIPS packages require an exact upstream package
+version and are not supplied by this runtime package.
+
+`scripts/build-openssl.py` uses the shared C906 profile with `-O3`, disables
+compiler vectorization, removes `xtheadvector` from the baseline ISA, and uses
+scalar inline memory operations. Upstream
+assembly and runtime CPU dispatch are retained; no NanoKVM crypto assembly,
+CryptoDMA hook or engine activation is added. Alpine's feature switches and
+configuration paths are retained. The package contains the legacy provider and
+built engines, plus the build flags and pinned-source metadata under
+`/usr/share/nanokvm/openssl/`.
+
+The pin follows the OpenSSL 3.5 LTS branch, supported upstream through
+8 April 2030. The provided package revision `r100` only outranks
+Alpine revisions of the same upstream version. Provider priority does not pin
+a newer versioned alias. The named `nanokvm-openssl>=...` dependency in
+`nanokvm-release` keeps the selected runtime installed even when Alpine offers
+a higher upstream version; signed APK tests cover that case during fresh
+installation and upgrade. Requests requiring a newer library version fail
+until NanoKVM publishes a compatible runtime. Do not raise the provided version
+without updating the source.
+
+NanoKVM maintainers own OpenSSL security updates for this runtime. They must
+review upstream 3.5 LTS security/patch releases, update the source checksum and
+provided upstream versions together, rerun compatibility and correctness tests,
+and publish a signed OS/package update. An Alpine security update alone does
+not update `nanokvm-openssl`. The upstream monitor
+reports patch releases only within 3.5.x and requests review before changing
+the qualified pin and package aliases.
+
+Rollback to a signed release index that predates `nanokvm-openssl` adds an
+exclusion for this package and restores Alpine's OpenSSL in the same APK
+transaction. The solver refuses the transaction if the target release still
+requires `nanokvm-openssl`.
 
 ## Sophgo `devmem` dependency
 
@@ -158,7 +201,7 @@ its own later versions.
 
 - RustDesk: `addons/rustdesk`, built and released by the RustDesk add-on
   workflow (`.github/workflows/rustdesk.yml`).
-- A Go program of `server/` (IPMI): a recipe `NAME/addon.json` here (version,
+- A Go program in its own module (IPMI): a recipe `addons/ipmi/addon.json` (version,
   minimum OS release, metadata, the program, files, lifecycle scripts,
   licenses), built by
   `scripts/build-addon.py` and released by the add-on release workflow

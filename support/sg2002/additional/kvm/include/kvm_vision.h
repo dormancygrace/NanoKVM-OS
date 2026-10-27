@@ -92,6 +92,8 @@ uint8_t kvmv_hdmi_signal_active(void);
 /* Parks (1) or resumes (0) the VPSS outputs while nobody reads frames. A
    read resumes them by itself. */
 int kvmv_set_capture_parked(uint8_t parked);
+// Whether disabled VPSS outputs still own pools awaiting reclamation.
+int kvmv_capture_reclaim_pending(void);
 
 #ifdef __cplusplus
 }

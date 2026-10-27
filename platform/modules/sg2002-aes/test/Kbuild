@@ -2,3 +2,12 @@
 #   make -C KERNEL_BUILD M=$PWD modules
 obj-m += sg2002_gcm_test.o
 sg2002_gcm_test-y := gcm_test.o
+obj-m += sg2002_ccm_test.o
+sg2002_ccm_test-y := ccm_test.o
+obj-m += sg2002_cmac_test.o
+sg2002_cmac_test-y := cmac_test.o
+ifneq ($(CIFS_SRC),)
+ccflags-y += -I$(CIFS_SRC)
+obj-m += sg2002_cifs_cmac_test.o
+sg2002_cifs_cmac_test-y := cifs_cmac_test.o
+endif

@@ -1,4 +1,4 @@
-# Contents of the thirteen nanokvm-* APK packages (firmware/alpine/packages).
+# Contents of the fourteen nanokvm-* APK packages (firmware/alpine/packages).
 #
 #   package  type  path  mode  source
 #
@@ -62,6 +62,7 @@ base  file  /usr/lib/udev/rules.d/90-nanokvm-ipv6.rules    0644  server/service/
 # The DHCPv6 client of an interface whose IPv6 address comes from DHCPv6.
 base  file  /usr/libexec/nanokvm/dhcpv6                    0755  server/service/network/scripts/nanokvm-dhcpv6
 base  file  /usr/libexec/nanokvm/dhcpv6-event              0755  server/service/network/scripts/nanokvm-dhcpv6-event
+base  file  /usr/libexec/nanokvm/ethernet-rx-batching    0755  firmware/alpine/compat/nanokvm-ethernet-rx-batching
 base  file  /usr/libexec/nanokvm/console-policy            0755  firmware/alpine/compat/nanokvm-console-policy
 base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
 base  file  /usr/libexec/nanokvm/firstboot-storage        0755  firmware/alpine/compat/nanokvm-firstboot-storage
@@ -127,6 +128,7 @@ base  file  /usr/sbin/nkos-board-select                   0755  firmware/alpine/
 base  file  /usr/sbin/nkos-update                         0755  @server/nkos-update
 base  link  /usr/sbin/watchdog                            -     /sbin/watchdog
 base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox-LICENSE
+base  file  /usr/share/licenses/nanokvm-base/CRYPTOGAMS-LICENSE 0644 firmware/cpu/go-crypto-c906/CRYPTOGAMS-LICENSE
 
 # nanokvm: server, native libraries and the board service (app payload)
 app   file  /usr/share/nanokvm/usb-flags-layout            0644  kvmapp/system/usb-flags-layout
@@ -150,6 +152,7 @@ app   tree  /usr/share/licenses/nanokvm/native           0644  @native-licenses
 # Linked statically into NanoKVM-Server (server/internal/decompress).
 app   file  /usr/share/licenses/nanokvm/zlib-ng-LICENSE.md 0644 @tools/zlib-ng/LICENSE.md
 app   file  /usr/share/licenses/nanokvm/liblzma-COPYING.0BSD 0644 @tools/xz/COPYING.0BSD
+app   file  /usr/share/licenses/nanokvm/CRYPTOGAMS-LICENSE 0644 firmware/cpu/go-crypto-c906/CRYPTOGAMS-LICENSE
 web   tree  /kvmapp/server/web                            0644  @web
 web   file  /kvmapp/web-build-manifest.json                0644  %web-build-manifest.json
 app   file  /kvmapp/system/bin/usb-audio-capture          0755  @tools/usb-audio-capture
@@ -204,3 +207,10 @@ i2c-tools file /usr/sbin/i2cdump                           0755  @tools/i2c-tool
 i2c-tools file /usr/sbin/i2ctransfer                       0755  @tools/i2c-tools/i2ctransfer
 i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING 0644 @tools/i2c-tools/COPYING
 i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING.LGPL 0644 @tools/i2c-tools/COPYING.LGPL
+
+# OpenSSL 3.5 LTS runtime; headers/static libraries remain development artifacts.
+openssl tree /usr/bin 0755 @tools/openssl/usr/bin
+openssl tree /usr/lib 0755 @tools/openssl/usr/lib
+openssl tree /etc/ssl 0644 @tools/openssl/etc/ssl
+openssl tree /usr/share/licenses/nanokvm-openssl 0644 @tools/openssl/usr/share/licenses/nanokvm-openssl
+openssl tree /usr/share/nanokvm/openssl 0644 @tools/openssl/usr/share/nanokvm/openssl

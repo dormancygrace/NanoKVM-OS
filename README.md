@@ -98,7 +98,7 @@ Configure the USB gadget through presets (KVM, with USB network, with the serial
 | Function | What it provides |
 | --- | --- |
 | **Keyboard and pointers** | Browser control, with normal and HID compatibility profiles |
-| **Virtual media** | SD-backed images or direct ISO mounting from your computer without first copying the ISO to the card; CD/DVD images up to 31.625 GiB |
+| **Virtual media** | SD-backed images or direct read-only ISO mounting from your computer, HTTP(S) or SMB2/3 without copying the ISO to the card; CD/DVD images up to 31.625 GiB. [Source requirements and lifetime](docs/storage-transfer-safety.md#https-mounted-iso-reads) |
 | **Network boot** | Boot the managed computer from the [netboot.xyz](docs/netboot.md) menus over USB network, with the official iPXE images (UEFI Secure Boot signed one included) |
 | **User disk** | A writable FAT32 USB drive backed by an image on the SD card, for BIOS update files, profiles and logs; selectable sizes from 64 MiB to 4 GiB; browse folders, upload/download files and manage contents while detached from the computer |
 | **USB network** | Local access to NanoKVM through the USB NCM adapter |
@@ -222,7 +222,7 @@ and a kernel or bootloader change requires a reboot.
 Existing installations stay on Stable. Independent stable add-on releases are
 available in both channels.
 
-Updates retain settings, user data and independently installed packages. The thirteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. Kernel and bootloader updates need a reboot to take effect. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The fourteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. Kernel and bootloader updates need a reboot to take effect. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.
@@ -255,6 +255,7 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | Source directory | Contents |
 | --- | --- |
 | `server/`, `web/` | Go application, streaming/API services and React/TypeScript interface |
+| `addons/` | Independently released RustDesk and IPMI add-ons, with their source and packaging |
 | `support/` | Native media/board integration and device tools (`kvm_system`, MMF, `nanokvm_update_edid`) |
 | `firmware/` | Alpine recipes, OpenRC integration, retained SDK inputs and board support |
 | `platform/`, `scripts/` | Pinned platform build, patches, packaging and image generation |

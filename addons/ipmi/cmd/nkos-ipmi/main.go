@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"NanoKVM-Server/internal/bmc"
-	"NanoKVM-Server/internal/bmc/ipmi"
+	"NanoKVM-IPMI/internal/ipmi"
+	"NanoKVM-Server/pkg/bmc"
 )
 
 func main() {

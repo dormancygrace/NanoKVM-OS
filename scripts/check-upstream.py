@@ -304,7 +304,7 @@ def render(results):
               '- Update related source/archive hashes, Go runtime patches, module ABI and platform output manifest together after rebuilding and testing.',
               '- Do not overwrite patched Pion sources by only bumping go.mod versions.',
               '- Selected Buildroot packages and compiler/libc recipes follow the stable Buildroot release pin. Development-branch recipe changes do not produce reports or PRs; GCC stable releases are checked separately.',
-              '- Production OpenSSL uses the stock signed Alpine riscv64 repository. Repository-managed rows show availability, not the installed device version.',
+              '- Production OpenSSL follows the pinned 3.5 LTS source branch. Other Alpine repository-managed rows show availability, not the installed device version.',
               '- This watcher does not run apk upgrade or change devices.',
               '- Retired Buildroot OpenVPN 3/Asio, Superfile, private apk-tools and vendor-libc loader recipes are excluded; they do not describe the current Alpine package set.',
               '- Alpine branch monitoring does not update installed APKs. APK package revisions and firmware release approval remain separate.',

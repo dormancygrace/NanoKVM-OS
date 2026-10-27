@@ -311,7 +311,7 @@ func (s *Service) enableNetboot(ctx context.Context, secureBoot bool) (int, erro
 	busy, on := s.remote != nil, s.netboot != nil
 	s.mu.Unlock()
 	if busy {
-		return -5, errors.New("Disconnect browser media before turning on network boot")
+		return -5, errors.New("Disconnect remote media before turning on network boot")
 	}
 	if on {
 		if code, err := s.disableNetboot(); err != nil {
@@ -380,7 +380,7 @@ func (s *Service) enableNetboot(ctx context.Context, secureBoot bool) (int, erro
 	s.mu.Lock()
 	if s.remote != nil {
 		s.mu.Unlock()
-		return fail(-5, errors.New("Disconnect browser media before turning on network boot"))
+		return fail(-5, errors.New("Disconnect remote media before turning on network boot"))
 	}
 	if err = n.listen(address); err != nil {
 		s.mu.Unlock()

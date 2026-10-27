@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--libraries', type=Path, required=True)
@@ -40,13 +41,20 @@ required_native_symbols = {
 required_native_dependencies = {
     'libkvm.so': {'mmf_add_venc_channel_v2', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
+native_exports = {}
 for library, required in required_native_symbols.items():
     output = subprocess.check_output(
         [cross+'nm', '-D', '--defined-only', str(sources[library])], text=True)
     defined = {line.split()[-1] for line in output.splitlines() if line.split()}
+    native_exports[library] = defined
     missing = sorted(required - defined)
     if missing:
         p.error(f'Native bundle mismatch: {library} is missing {", ".join(missing)}')
+# The optional park-status query adds a capture -> MMF dependency.
+# Older complete bundles remain supported through the Go dlsym fallback.
+if ('kvmv_capture_reclaim_pending' in native_exports['libkvm.so']
+        and 'mmf_vi_has_pending_pool' not in native_exports['libkvm_mmf.so']):
+    p.error('Native bundle mismatch: libkvm_mmf.so is missing mmf_vi_has_pending_pool')
 for library, required in required_native_dependencies.items():
     output = subprocess.check_output(
         [cross+'nm', '-D', '--undefined-only', str(sources[library])], text=True)
@@ -82,10 +90,17 @@ selected_root = subprocess.check_output([go, 'env', 'GOROOT'], env=env, text=Tru
 if Path(selected_root).resolve() != go_root:
     p.error('Go did not select the requested GOROOT')
 custom_runtime_expected = (go_root/'src/runtime/nanokvm_sysmon_linux_riscv64.go').is_file()
+# Go forbids replacing GOMODCACHE files with -overlay. Stage the server and
+# patched Gorilla with relative replacements; source and cache stay intact.
+websocket = out / 'websocket-c906'
+subprocess.run([sys.executable, str(repo / 'firmware/cpu/go-websocket-c906/prepare.py'),
+                '--go', go, '--project', str(repo / 'server'), '--output', str(websocket)],
+               env=env, check=True)
+websocket_modfile = str(websocket / 'server/go.mod')
 # Go action IDs include the output-specific CGO library search path.
 # Omit the Go build ID; manifest SHA-256 values identify the exact binaries.
-subprocess.run([go, 'build', '-tags=nomsgpack', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode=external -buildid=', '-o',
-                str(out/'NanoKVM-Server'), '.'], cwd=repo/'server', env=env, check=True)
+subprocess.run([go, 'build', '-modfile=' + websocket_modfile, '-tags=nomsgpack', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode=external -buildid=', '-o',
+                str(out/'NanoKVM-Server'), '.'], cwd=websocket/'server', env=env, check=True)
 info = subprocess.check_output([go, 'version', '-m', str(out/'NanoKVM-Server')], env=env, text=True)
 symbols = subprocess.check_output([go, 'tool', 'nm', str(out/'NanoKVM-Server')], env=env, text=True)
 custom_runtime_present = all(name in {line.split()[-1] for line in symbols.splitlines() if line.split()}
@@ -94,6 +109,10 @@ custom_runtime_present = all(name in {line.split()[-1] for line in symbols.split
                                           'runtime.nanokvmSysmonMinDelay'))
 if custom_runtime_expected and not custom_runtime_present:
     raise SystemExit('Requested NanoKVM runtime hooks are missing from the built server')
+websocket_mask_present = 'github.com/gorilla/websocket.maskBytesC906.abi0' in {
+    line.split()[-1] for line in symbols.splitlines() if line.split()}
+if not websocket_mask_present:
+    raise SystemExit('Requested C906 WebSocket mask is missing from the built server')
 (out/'build-info.txt').write_text(info)
 shutil.copyfile(out/'NanoKVM-Server', out/'NanoKVM-Server.stripped')
 # The symbol table too: 3 MB the server reads from the SD card as it starts.
@@ -117,6 +136,8 @@ files.append(out/'nkos-usb-internet')
 manifest = {'qualification': 'cross-build only',
             'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,
+            'websocket_c906_present': websocket_mask_present,
+            'websocket_c906': json.loads((websocket/'manifest.json').read_text()),
             'native_bundle_contract': {
                 'id': 'sink-only-no-gop-v5',
                 'activation': 'stage server, libkvm.so, and libkvm_mmf.so together; activate only by tested device reboot',

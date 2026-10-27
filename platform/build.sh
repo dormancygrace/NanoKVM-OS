@@ -18,13 +18,13 @@
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
-#              exfatprogs, i2c-tools, zlib-ng, and zlib-ng and liblzma for the server
+#              exfatprogs, i2c-tools, OpenSSL, zlib-ng and liblzma for the server
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the thirteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the thirteen packages
+#   payloads   contents of the fourteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the fourteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -707,6 +707,13 @@ tools() {
     cp "$t/usb-audio/usb-audio-capture" "$img/tools/"
     cp "$t/usb-audio/share/usb-audio/"* "$img/tools/usb-audio/"
 
+    # ABI-compatible OpenSSL 3 runtime, upstream source with the C906/O3 profile.
+    local openssl_archive
+    openssl_archive=$(lock openssl | awk '{ print $2 }')
+    "$py" "$repo/scripts/build-openssl.py" --archive "$dl/${openssl_archive##*/}" \
+        --output "$t/openssl" --cross-prefix "$cross" --jobs "$jobs"
+    cp -a "$t/openssl/runtime" "$img/tools/openssl"
+
     # zlib-ng as libz.so.1 for apk, curl and ssh (nanokvm-zlib replaces
     # Alpine's zlib). Its chunked copies use misaligned words, which the C906
     # handles in hardware; -mtune=thead-c906 already allows them, and
@@ -785,7 +792,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the thirteen package payloads from packages.list.
+# Assemble the fourteen package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -1059,7 +1066,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the thirteen packages with abuild in an Alpine riscv64 tree.
+# Build the fourteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -1162,6 +1169,10 @@ rootfs() {
     done
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
+    # One provider owns the OpenSSL command, configuration and both ABI3 libraries.
+    grep -qx 'P:nanokvm-openssl' "$r/lib/apk/db/installed" &&
+        ! grep -qxE 'P:(openssl|openssl3|libcrypto3|libssl3)' "$r/lib/apk/db/installed" || {
+        echo "rootfs: OpenSSL is not exclusively nanokvm-openssl's" >&2; exit 1; }
     # nanokvm-zlib replaces Alpine's zlib; both installed would share libz.so.1.
     ! grep -qx 'P:zlib' "$r/lib/apk/db/installed" && [ "$(readlink "$r/usr/lib/libz.so.1")" = libz.so.1.3.2.zlib-ng ] || {
         echo "rootfs: libz.so.1 is not nanokvm-zlib's" >&2; exit 1; }

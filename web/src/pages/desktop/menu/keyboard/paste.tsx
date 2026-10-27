@@ -229,7 +229,7 @@ export const Paste = () => {
 
         <div
           className={clsx(
-            'flex w-full items-center space-x-3 pb-2',
+            'flex w-full flex-wrap items-center gap-3 pb-2',
             isClipboardSupported ? 'justify-start' : 'justify-end'
           )}
         >
@@ -273,7 +273,7 @@ export const Paste = () => {
             type="primary"
             loading={isLoading}
             htmlType="submit"
-            style={{ width: '300px' }}
+            style={{ width: '300px', maxWidth: '100%' }}
             onClick={submit}
           >
             {t('keyboard.submit')}

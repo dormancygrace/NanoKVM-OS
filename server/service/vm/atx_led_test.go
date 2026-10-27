@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"NanoKVM-Server/config"
-	"NanoKVM-Server/internal/bmc"
+	"NanoKVM-Server/pkg/bmc"
 )
 
 // With "power LED connected" off, the BMC side sees no power LED: the state

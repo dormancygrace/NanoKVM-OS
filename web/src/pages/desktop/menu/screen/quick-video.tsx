@@ -71,10 +71,12 @@ const Row = ({
     }
     popoverProps={{ placement: 'rightTop', arrow: false, align: { offset: [13, 0] } }}
   >
-    <div className="flex h-[30px] cursor-pointer items-center gap-1 rounded px-3 text-neutral-300 hover:bg-neutral-700/50">
+    <div className="flex min-h-[30px] cursor-pointer flex-wrap items-center gap-x-1 gap-y-0.5 rounded px-3 text-neutral-300 hover:bg-neutral-700/50">
       <div className="flex h-[14px] w-[20px] items-end">{icon}</div>
       <span>{title}</span>
-      <span className="ml-auto pl-4 whitespace-nowrap text-neutral-500">{value}</span>
+      <span className="ml-auto max-w-full pl-4 text-right wrap-break-word text-neutral-500">
+        {value}
+      </span>
     </div>
   </MenuSubmenu>
 );

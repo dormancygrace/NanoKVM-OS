@@ -1,0 +1,44 @@
+diff --git a/lib/lz4/lz4_110.h b/lib/lz4/lz4_110.h
+--- a/lib/lz4/lz4_110.h
++++ b/lib/lz4/lz4_110.h
+@@ -401,7 +401,7 @@
+ #       elif (defined(__clang__) || (defined(__GNUC__) && ((__GNUC__ > 3) || \
+                             ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 4))))) && \
+                                         !defined(LZ4_FORCE_SW_BITCOUNT)
+-            return (unsigned)__builtin_ctzll((U64)val) >> 3;
++            return (unsigned)__builtin_clzll(__builtin_bswap64((U64)val)) >> 3;
+ #       else
+             const U64 m = 0x0101010101010101ULL;
+             val ^= val - 1;
+diff --git a/lib/lz4/lz4_decompress.c b/lib/lz4/lz4_decompress.c
+--- a/lib/lz4/lz4_decompress.c
++++ b/lib/lz4/lz4_decompress.c
+@@ -298,18 +298,6 @@
+ 			goto _output_error;
+ 		}
+ 
+-		/* costs ~1%; silence an msan warning when offset == 0 */
+-		/*
+-		 * note : when partialDecoding, there is no guarantee that
+-		 * at least 4 bytes remain available in output buffer
+-		 */
+-		if (!partialDecoding) {
+-			assert(oend > op);
+-			assert(oend - op >= 4);
+-
+-			LZ4_write32(op, (U32)offset);
+-		}
+-
+ 		if (length == ML_MASK) {
+ 			unsigned int s;
+ 
+@@ -402,6 +390,9 @@
+ 		}
+ 
+ 		if (unlikely(offset < 8)) {
++			/* Full decodes initialize offset-zero matches; partial mode is unchanged. */
++			if (!partialDecoding)
++				LZ4_write32(op, (U32)offset);
+ 			op[0] = match[0];
+ 			op[1] = match[1];
+ 			op[2] = match[2];

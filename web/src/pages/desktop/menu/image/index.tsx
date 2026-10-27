@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider, Modal, Segmented, Tooltip } from 'antd';
+import { Divider, Modal, Segmented, Select, Tooltip } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
 import { DiscIcon, HardDriveIcon } from 'lucide-react';
@@ -29,6 +29,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
   const disabled = diskEnabled !== true;
   const openRef = useRef(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [source, setSource] = useState('device');
   const [remoteConnected, setRemoteConnected] = useState(false);
@@ -90,6 +91,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
     (open: boolean) => {
       if (open === openRef.current) return;
       openRef.current = open;
+      setIsTooltipOpen(false);
       setIsModalOpen(open);
       setSubmenuOpenCount((count) => (open ? count + 1 : Math.max(0, count - 1)));
     },
@@ -115,7 +117,14 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
 
   return (
     <>
-      <Tooltip title={t('image.title')} placement={tooltipPlacement} mouseEnterDelay={0.6}>
+      <Tooltip
+        title={t('image.title')}
+        placement={tooltipPlacement}
+        trigger={['hover', 'focus']}
+        mouseEnterDelay={0.6}
+        open={!isModalOpen && isTooltipOpen}
+        onOpenChange={(open) => setIsTooltipOpen(open && !openRef.current)}
+      >
         <div
           role="button"
           aria-label={t('image.title')}
@@ -156,19 +165,19 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
         <Divider style={{ margin: '24px 0' }} />
 
         <div className="flex flex-col space-y-6">
-          <Segmented
-            className="[&_.ant-segmented-group]:gap-2"
-            block
+          <Select
+            aria-label={t('image.remote.source')}
             value={source}
             onChange={setSource}
             options={[
               { value: 'device', label: t('image.remote.device') },
               { value: 'browser', label: t('image.remote.browser') },
+              { value: 'url', label: t('image.remote.url') },
               { value: 'network', label: t('image.netboot.tab') }
             ]}
           />
           <div
-            className="flex items-center justify-between"
+            className="flex flex-wrap items-center justify-between gap-2"
             style={{ display: source === 'device' ? undefined : 'none' }}
           >
             <span>{t('image.mountMode')}</span>
@@ -180,8 +189,12 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
               onChange={setMode}
             />
           </div>
-          <div style={{ display: source === 'browser' ? undefined : 'none' }}>
-            <RemoteImage isOpen={isModalOpen} onConnected={setRemoteConnected} />
+          <div style={{ display: source === 'browser' || source === 'url' ? undefined : 'none' }}>
+            <RemoteImage
+              isOpen={isModalOpen}
+              source={source === 'url' ? 'url' : 'browser'}
+              onConnected={setRemoteConnected}
+            />
           </div>
           <div style={{ display: source === 'network' ? undefined : 'none' }}>
             <Netboot isOpen={isModalOpen} onEnabled={setNetbootEnabled} />

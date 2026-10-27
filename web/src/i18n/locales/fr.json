@@ -433,6 +433,7 @@
     }
   },
   "keyboard": {
+    "more": "Options du clavier",
     "title": "Clavier",
     "paste": "Coller",
     "tips": "Seuls les caractères et symboles standard du clavier sont pris en charge",
@@ -575,7 +576,16 @@
       "disconnect": "Déconnecter l'ISO",
       "readFailed": "Impossible de lire l'ISO sélectionné. Reconnectez le fichier pour réessayer.",
       "connectFailed": "Impossible de connecter l'ISO. Vérifiez la connexion à l'appareil et réessayez.",
-      "disconnectFailed": "Impossible de déconnecter l'ISO. Réessayez."
+      "disconnectFailed": "Impossible de déconnecter l'ISO. Réessayez.",
+      "source": "Source de l’image",
+      "url": "Depuis une URL",
+      "urlHint": "Montez un ISO via HTTP(S) ou SMB comme CD/DVD en lecture seule sans le copier sur la carte SD. Le serveur HTTP doit prendre en charge les plages d’octets. Pour SMB : smb://server/share/image.iso. Vous pouvez fermer cette page ; déconnectez l’image après utilisation. Redémarrer NanoKVM la déconnecte.",
+      "urlAddress": "URL de l’image",
+      "username": "Nom d’utilisateur",
+      "password": "Mot de passe",
+      "credentialsHint": "Authentification HTTP Basic (facultative)",
+      "smbCredentialsHint": "Compte SMB2/3 (nom d’utilisateur requis ; domaine facultatif)",
+      "domain": "Domaine (facultatif)"
     },
     "title": "Images",
     "loading": "Chargement",
@@ -619,7 +629,7 @@
       "secureBoot": "UEFI Secure Boot",
       "secureBootHint": "Utilise l'image iPXE signée pour Secure Boot (x86-64 UEFI uniquement). Avec Secure Boot, netboot.xyz installe Debian, Devuan et Kali ; les autres entrées nécessitent de désactiver Secure Boot dans le firmware de l'ordinateur.",
       "needComposition": "Activez d'abord le réseau USB et le disque virtuel dans les paramètres USB.",
-      "browserMedia": "Déconnectez d'abord l'ISO de cet ordinateur.",
+      "browserMedia": "Déconnectez d’abord l’ISO distante.",
       "enableNote": "Remplace l'image montée et active le partage Internet par USB jusqu'à la désactivation du démarrage réseau.",
       "enable": "Activer le démarrage réseau",
       "enabling": "Activation…",
@@ -840,6 +850,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Chargeur d'amorçage",
           "zlib": "Bibliothèque de compression",
+          "openssl": "OpenSSL",
           "exfatprogs": "Outils exFAT",
           "i2ctools": "Outils I2C"
         }

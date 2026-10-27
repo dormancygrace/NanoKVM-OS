@@ -11,10 +11,13 @@ import (
 func storageRouter(r *gin.Engine) {
 	service := storage.NewService()
 	service.CleanupNetboot()
+	service.CleanupRemote()
 	api := r.Group("/api").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 
 	api.GET("/storage/remote", service.RemoteStatus)
 	api.GET("/storage/remote/connect", service.ConnectRemote)
+	api.POST("/storage/remote/http", service.ConnectHTTP)
+	api.POST("/storage/remote/smb", service.ConnectSMB)
 	api.POST("/storage/remote/disconnect", service.DisconnectRemote)
 	api.GET("/storage/image", service.GetImages)                 // get image list
 	api.GET("/storage/image/mounted", service.GetMountedImage)   // get mounted image

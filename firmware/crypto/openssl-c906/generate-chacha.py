@@ -21,6 +21,7 @@ def generate(prefix):
     text = text.replace('chacha_xtheadvector', 'ossl_chacha20_c906_blocks')
     text = text.replace('caller holds kernel_vector_begin().',
                         'caller checks the current thread vector control.')
+    text = text.replace('\tlw\tt5, 48(a0)', '#ifdef NKOS_CHACHA_TEST\n\t.option push\n\t.option pic\n\tla\tt3, ossl_chacha_c906_test_count\n\t.option pop\n\tli\tt4, 1\n\tamoadd.d zero, t4, (t3)\n#endif\n\tlw\tt5, 48(a0)')
     return text + '\n.section .note.GNU-stack,"",@progbits\n'
 
 def main():

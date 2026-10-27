@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { getRuntimeStatus } from '@/api/picoclaw.ts';
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
 import {
@@ -65,7 +66,7 @@ function lazyItem(key: string, item: ReactNode, placeholder: ReactNode = <Toolba
 }
 
 const mobileRailToggleButtonClass =
-  'flex! size-[30px]! min-w-[30px]! touch-manipulation items-center! justify-center! !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-white active:!bg-neutral-600/70';
+  'flex! size-[40px]! min-w-[40px]! touch-manipulation items-center! justify-center! !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-white active:!bg-neutral-600/70';
 
 const mobileMenuPopoverClassName = 'nanokvm-mobile-menu-popover';
 
@@ -108,6 +109,7 @@ export const Menu = () => {
     if (picoclawStatus?.installed === false) setPicoclawOpen(false);
   }, [picoclawStatus?.installed, setPicoclawOpen]);
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
+  const isKeyboardOpen = useAtomValue(isKeyboardOpenAtom);
   const mobileRailRef = useRef<HTMLDivElement | null>(null);
 
   const menuDisabledItems = useAtomValue(menuDisabledItemsAtom);
@@ -208,7 +210,7 @@ export const Menu = () => {
       [
         ...(usbInput.available ? [<Control key="control" />] : []),
         ...(captureEnabled && usbInput.keyboard && isEnabled('keyboard')
-          ? [<Keyboard key="keyboard" />]
+          ? [<Keyboard key="keyboard" quickAccess={responsiveDevice.isTouchLikeDevice} />]
           : []),
         ...(captureEnabled && (usbInput.absolute || usbInput.relative) && isEnabled('mouse')
           ? [<Mouse key="mouse" />]
@@ -278,7 +280,7 @@ export const Menu = () => {
             sideClass,
             isInitialized ? 'opacity-100' : 'opacity-0'
           )}
-          style={{ top: placement.top }}
+          style={{ top: placement.top, zIndex: isKeyboardOpen ? 998 : 1000 }}
         >
           <MobileMenuItemProvider
             mobilePlacement={placement.edge}
@@ -286,13 +288,13 @@ export const Menu = () => {
             dismissMenuKey={dismissMenuKey}
             onRequestMobileMenuDismiss={dismissMenus}
           >
-            <div className="w-[38px] overflow-hidden rounded-[19px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
+            <div className="nanokvm-touch-toolbar w-[48px] overflow-hidden rounded-[24px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
               {/* Collapsing hides the items but keeps them mounted: a browser ISO,
                   a recording or an open dialog belongs to its item. */}
               {isMobileRailCollapsed && (
                 <div className="flex flex-col items-center p-1">
                   <strong>
-                    <div className="flex size-[28px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
+                    <div className="flex size-[40px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
                       <GripVerticalIcon size={18} />
                     </div>
                   </strong>
@@ -310,9 +312,10 @@ export const Menu = () => {
                   'max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto p-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
                   isMobileRailCollapsed ? 'hidden' : 'flex'
                 )}
+                style={{ maxHeight: `calc(100dvh - ${placement.top}px - 16px)` }}
               >
                 <strong>
-                  <div className="flex size-[30px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
+                  <div className="flex size-[40px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
                     <GripVerticalIcon size={18} />
                   </div>
                 </strong>
@@ -369,7 +372,7 @@ export const Menu = () => {
               className={clsx(
                 'absolute z-10 !p-0 transition-all duration-300',
                 isTouchLandscapeMenu
-                  ? 'top-0 left-1/2 flex! !h-6 !w-16 !min-w-16 -translate-x-1/2 items-center! justify-center! !rounded-b !bg-neutral-800/80 text-neutral-300 shadow-lg shadow-black/30 backdrop-blur'
+                  ? 'top-0 left-1/2 flex! !h-10 !w-16 !min-w-16 -translate-x-1/2 items-center! justify-center! !rounded-b !bg-neutral-800/80 text-neutral-300 shadow-lg shadow-black/30 backdrop-blur'
                   : 'top-[-10px] left-0 h-[46px]! w-full! bg-transparent!',
                 isMenuHidden ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
               )}
@@ -397,7 +400,8 @@ export const Menu = () => {
           <div className="sticky top-[10px] flex w-full justify-center">
             <div
               className={clsx(
-                'pointer-events-auto h-[36px] max-w-[calc(100vw-16px)] items-center rounded bg-neutral-800/80 pr-2 pl-1 transition-all duration-300',
+                'pointer-events-auto max-w-[calc(100vw-16px)] items-center rounded bg-neutral-800/80 pr-2 pl-1 transition-all duration-300',
+                isTouchLandscapeMenu ? 'nanokvm-touch-toolbar h-[44px]' : 'h-[36px]',
                 isMenuExpanded ? 'flex' : 'hidden',
                 isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
@@ -436,7 +440,12 @@ export const Menu = () => {
           </div>
 
           {!isMenuExpanded && (
-            <div className="pointer-events-auto inline-flex w-max">
+            <div
+              className={clsx(
+                'pointer-events-auto inline-flex w-max',
+                isTouchLandscapeMenu && 'nanokvm-touch-toolbar'
+              )}
+            >
               <Expand toggleMenu={setIsMenuExpanded} />
             </div>
           )}

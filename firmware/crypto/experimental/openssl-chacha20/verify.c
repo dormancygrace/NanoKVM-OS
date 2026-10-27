@@ -2,12 +2,18 @@
 /* Differential verification against the RFC 8439 scalar construction. */
 #define _GNU_SOURCE
 #include <openssl/evp.h>
+#include <dlfcn.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
+#include <stddef.h>
+#include <errno.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -74,9 +80,76 @@ static void run_cases(unsigned seed)
     }
     EVP_CIPHER_CTX_free(ctx);EVP_CIPHER_CTX_free(copy);free(src);free(want);free(buf);
 }
+static void verify_hits(int vector_on)
+{
+    unsigned long (*hits)(void) = (unsigned long (*)(void))dlsym(RTLD_DEFAULT, "nkos_chacha_test_hits");
+    check(hits != NULL, "test build assembly counter export");
+    const int sizes[] = {0,1,319,320,512,639,640,641,768,1024,1400,16384};
+    unsigned char key[32] = {0}, iv[16] = {0}, in[16384] = {0}, out[16384];
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new(); check(ctx != NULL, "counter ctx");
+    const char *override = getenv("NANOKVM_OPENSSL_CHACHA20");
+    int enabled = vector_on && !(override && !strcmp(override, "generic"));
+    for (size_t i = 0; i < sizeof(sizes)/sizeof(sizes[0]); ++i) {
+        int got; check(EVP_EncryptInit_ex2(ctx, EVP_chacha20(), key, iv, NULL) == 1, "counter init");
+        unsigned long before = hits();
+        check(EVP_EncryptUpdate(ctx, out, &got, in, sizes[i]) == 1 && got == sizes[i], "counter update");
+        check((hits() > before) == (enabled && sizes[i] >= 640), "actual assembly-entry hits");
+    }
+    EVP_CIPHER_CTX_free(ctx);
+    puts("PASS actual assembly-entry counts at threshold boundaries");
+}
+
+/* OpenSSL and the provider are loaded before the filter. No cipher call has
+ * happened yet. Kill on file opens or another hardware probe; permit or deny
+ * the per-call thread-control query in separate children.
+ */
+static void sandbox_case(int allow_prctl)
+{
+    EVP_CIPHER *cipher = EVP_CIPHER_fetch(NULL, "CHACHA20", NULL);
+    check(cipher != NULL, "sandbox provider load"); EVP_CIPHER_free(cipher);
+    struct sock_filter code[] = {
+        BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_openat, 0, 1),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+#ifdef __NR_open
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_open, 0, 1),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+#endif
+#ifdef __NR_openat2
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_openat2, 0, 1),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+#endif
+#ifdef __NR_riscv_hwprobe
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_riscv_hwprobe, 0, 1),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
+#endif
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_prctl, 0, 1),
+        BPF_STMT(BPF_RET | BPF_K, allow_prctl ? SECCOMP_RET_ALLOW : (SECCOMP_RET_ERRNO | EPERM)),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+    };
+    struct sock_fprog prog = { (unsigned short)(sizeof(code)/sizeof(code[0])), code };
+    check(prctl(PR_SET_NO_NEW_PRIVS, 1L, 0L, 0L, 0L) == 0, "sandbox no new privs");
+    check(prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) == 0, "sandbox install");
+    verify_hits(allow_prctl);
+}
+static void verify_sandbox(void)
+{
+    fflush(NULL);
+    for (int allow = 0; allow <= 1; ++allow) {
+        pid_t pid = fork(); check(pid >= 0, "sandbox fork");
+        if (!pid) { sandbox_case(allow); _exit(0); }
+        int status;
+        check(waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0,
+              "sandbox first cipher: no file/probe syscalls; denied prctl falls back");
+    }
+    puts("PASS seccomp first cipher, with permitted and denied thread-control query");
+}
+
 static void *worker(void *v)
 {
     unsigned long id=(unsigned long)v;
+    if (id == 2) { verify_hits(0); return NULL; }
+    if (id == 3) { check(prctl(69,2L,0L,0L,0L)==0,"counter thread vector on"); verify_hits(1); return NULL; }
     /* Called in an exec child initially OFF. One thread enables its own unit. */
     if (id==1) check(prctl(69,2L,0L,0L,0L)==0,"thread vector on");
     run_cases((unsigned)id+19);
@@ -88,16 +161,25 @@ int main(int argc,char **argv)
 {
     if (argc>1&&!strcmp(argv[1],"--off-child")) {
         check((prctl(70,0L,0L,0L,0L)&3)==1,"exec vector off");
+        pthread_t proof;
+        if (argc > 2 && !strcmp(argv[2], "--hits")) {
+            for (unsigned long i = 2; i <= 3; ++i) {
+                check(pthread_create(&proof, NULL, worker, (void *)i) == 0, "counter thread create");
+                check(pthread_join(proof, NULL) == 0, "counter thread join");
+            }
+        }
         pthread_t threads[2];
         for(unsigned long i=0;i<2;i++) check(pthread_create(&threads[i],NULL,worker,(void *)i)==0,"thread create");
         for(int i=0;i<2;i++) check(pthread_join(threads[i],NULL)==0,"thread join");
         puts("PASS vector-off/vector-on threads");return 0;
     }
+    int instrumented = argc > 2 && !strcmp(argv[2], "--hits");
+    if (instrumented) { verify_sandbox(); verify_hits(1); }
     run_cases(7);
     puts("PASS 1680 raw ChaCha cases: offsets, counters, split, in-place, context copy");
     if (argc>1&&!strcmp(argv[1],"--native")) {
         pid_t pid=fork();check(pid>=0,"fork");
-        if (!pid) { check(prctl(69,4L,0L,0L,0L)==0,"next exec off");execl(argv[0],argv[0],"--off-child",NULL);_exit(3); }
+        if (!pid) { check(prctl(69,4L,0L,0L,0L)==0,"next exec off");execl(argv[0],argv[0],"--off-child",instrumented ? "--hits" : "",NULL);_exit(3); }
         int status;check(waitpid(pid,&status,0)==pid&&WIFEXITED(status)&&WEXITSTATUS(status)==0,"child");
     }
     return 0;

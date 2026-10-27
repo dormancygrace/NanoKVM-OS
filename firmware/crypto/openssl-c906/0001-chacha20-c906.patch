@@ -11,74 +11,111 @@
    # Now that we have defined all the arch specific variables, use the
 --- a/crypto/chacha/chacha_riscv.c
 +++ b/crypto/chacha/chacha_riscv.c
-@@ -48,9 +48,14 @@
+@@ -48,9 +48,13 @@
      size_t len, const unsigned int key[8],
      const unsigned int counter[4]);
  
-+int ossl_chacha20_c906(unsigned char *out, const unsigned char *in, size_t len,
-+    const unsigned int key[8], const unsigned int counter[4]);
++#include "chacha_c906.h"
 +
  void ChaCha20_ctr32(unsigned char *out, const unsigned char *inp, size_t len,
      const unsigned int key[8], const unsigned int counter[4])
  {
-+    if (len >= 640 && ossl_chacha20_c906(out, inp, len, key, counter))
++    if (len >= OSSL_CHACHA_C906_MIN_BYTES && ossl_chacha20_c906(out, inp, len, key, counter))
 +        return;
      if (len > CHACHA_BLK_SIZE && RISCV_HAS_ZBB() && riscv_vlen() >= 128
          && (size_t)out % sizeof(size_t) == 0
          && (size_t)inp % sizeof(size_t) == 0) {
+--- a/include/crypto/riscv_arch.h
++++ b/include/crypto/riscv_arch.h
+@@ -101,10 +101,15 @@
+  * hwprobe_key is copied from asm/hwprobe.h.
+  * It should be updated along with riscv_arch.def.
+  */
+-#define OSSL_RISCV_HWPROBE_PAIR_COUNT 1
++#define OSSL_RISCV_HWPROBE_PAIR_COUNT 2
+ #define OSSL_RISCV_HWPROBE_PAIR_CONTENT \
+-    { 4, 0 },
++    { 4, 0 }, \
++    { 11, 0 }, /* RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0 */
+ #endif
++
++/* Linux all-online-CPU intersection, independent of ISA environment overrides.
++ * Zero when hwprobe, its T-Head key or usable build headers are unavailable. */
++extern int ossl_riscv_has_xtheadvector;
+ 
+ /* Extension combination tests. */
+ #define RISCV_HAS_ZBB_AND_ZBC() (RISCV_HAS_ZBB() && RISCV_HAS_ZBC())
+--- a/crypto/riscvcap.c
++++ b/crypto/riscvcap.c
+@@ -27,6 +27,7 @@
+ extern size_t riscv_vlen_asm(void);
+ 
+ static size_t vlen = 0;
++int ossl_riscv_has_xtheadvector = 0;
+ 
+ #ifdef OSSL_RISCV_HWPROBE
+ unsigned int OPENSSL_riscv_hwcap_P = 0;
+@@ -110,6 +111,12 @@
+     ret = riscv_hwprobe(pairs, OSSL_RISCV_HWPROBE_PAIR_COUNT, 0, NULL, 0);
+     /* if hwprobe syscall does not exist, ret would be -ENOSYS */
+     if (ret == 0) {
++        /* Vendor key 11, XTheadVector bit 0. Unknown keys become -1.
++         * This is the intersection over all online CPUs (cpus=NULL).
++         * Do not infer draft vectors from the standard ISA V bit.
++         */
++        if (pairs[1].key == 11)
++            ossl_riscv_has_xtheadvector = (pairs[1].value & 1) != 0;
+         for (size_t i = 0; i < kRISCVNumCaps; ++i) {
+             for (size_t j = 0; j != OSSL_RISCV_HWPROBE_PAIR_COUNT; ++j) {
+                 if (pairs[j].key == RISCV_capabilities[i].hwprobe_key
+--- /dev/null
++++ b/crypto/chacha/chacha_c906.h
+@@ -0,0 +1,9 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++#ifndef OSSL_CHACHA_C906_H
++#define OSSL_CHACHA_C906_H
++#include <stddef.h>
++#define OSSL_CHACHA_C906_MIN_BYTES 640
++#define OSSL_CHACHA_C906_GROUP_BYTES 320
++int ossl_chacha20_c906(unsigned char *out, const unsigned char *in, size_t len,
++    const unsigned int key[8], const unsigned int counter[4]);
++#endif
 --- /dev/null
 +++ b/crypto/chacha/chacha_c906.c
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,70 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
-+/* NanoKVM OS: use the kernel's five-block ChaCha kernel in userspace.
-+ * Protocol handling, Poly1305, buffering and counter limits remain in OpenSSL.
++/* NanoKVM OS: the shared five-block ChaCha kernel; protocol, buffering and
++ * counter limits remain in OpenSSL. Hardware capability is detected by the
++ * existing OpenSSL startup hwprobe, never by file I/O on the cipher path.
 + */
-+#include <stdio.h>
 +#include <string.h>
 +#include <sys/prctl.h>
 +#include <openssl/crypto.h>
 +#include "internal/cryptlib.h"
 +#include "crypto/chacha.h"
++#include "crypto/riscv_arch.h"
++#include "chacha_c906.h"
 +
 +static CRYPTO_ONCE once = CRYPTO_ONCE_STATIC_INIT;
-+static int have_xtheadvector;
++static int disabled;
 +
-+/* Fail closed on missing/truncated CPU information or mixed ISA CPUs. */
-+static void detect_xtheadvector(void)
++static void detect_override(void)
 +{
-+    char line[4096];
-+    int found = 0;
-+    FILE *f;
 +    const char *override = ossl_safe_getenv("NANOKVM_OPENSSL_CHACHA20");
-+
-+    if (override != NULL && strcmp(override, "generic") == 0)
-+        return;
-+    f = fopen("/proc/cpuinfo", "r");
-+    if (f == NULL)
-+        return;
-+    while (fgets(line, sizeof(line), f) != NULL) {
-+        char *colon, *p, *end;
-+        if (strchr(line, '\n') == NULL && !feof(f))
-+            goto done;
-+        colon = strchr(line, ':');
-+        if (colon == NULL)
-+            continue;
-+        end = colon;
-+        while (end > line && (end[-1] == ' ' || end[-1] == '\t'))
-+            --end;
-+        if (end - line != 3 || memcmp(line, "isa", 3) != 0)
-+            continue;
-+        p = strstr(colon + 1, "_xtheadvector");
-+        if (p == NULL || (p[13] != '_' && p[13] != '\n'
-+                         && p[13] != '\r' && p[13] != '\0'))
-+            goto done;
-+        found = 1;
-+    }
-+    if (!ferror(f))
-+        have_xtheadvector = found;
-+done:
-+    fclose(f);
++    disabled = override != NULL && strcmp(override, "generic") == 0;
 +}
++
++#ifdef NKOS_CHACHA_TEST
++/* Incremented at the assembly entry; excluded from the production build.
++ * The test build exports only the accessor in its private version script.
++ */
++#include <stdatomic.h>
++_Atomic unsigned long ossl_chacha_c906_test_count;
++unsigned long nkos_chacha_test_hits(void)
++{
++    return atomic_load_explicit(&ossl_chacha_c906_test_count, memory_order_relaxed);
++}
++#endif
 +
 +void ossl_chacha20_c906_blocks(unsigned int state[16],
 +    const unsigned char *in, unsigned char *out, size_t groups, int rounds);
@@ -90,8 +127,8 @@
 +    size_t bytes;
 +    int control;
 +
-+    if (len < 640 || !CRYPTO_THREAD_run_once(&once, detect_xtheadvector)
-+        || !have_xtheadvector)
++    if (len < OSSL_CHACHA_C906_MIN_BYTES || !ossl_riscv_has_xtheadvector
++        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled)
 +        return 0;
 +    /* PR_RISCV_V_GET_CONTROL is per-thread; do not cache its result.
 +     * Older kernels and disabled vector state safely use upstream code.
@@ -105,8 +142,9 @@
 +    state[3] = 0x6b206574;
 +    memcpy(state + 4, key, 32);
 +    memcpy(state + 12, counter, 16);
-+    bytes = len / 320 * 320;
-+    ossl_chacha20_c906_blocks(state, in, out, len / 320, 20);
++    bytes = len / OSSL_CHACHA_C906_GROUP_BYTES * OSSL_CHACHA_C906_GROUP_BYTES;
++    ossl_chacha20_c906_blocks(state, in, out,
++        len / OSSL_CHACHA_C906_GROUP_BYTES, 20);
 +    /* The primitive wraps only the low 32-bit counter, like ctr32_c.
 +     * Higher-level OpenSSL callers own the nonce and counter-width policy.
 +     */
@@ -117,7 +155,7 @@
 +}
 --- /dev/null
 +++ b/crypto/chacha/chacha-c906.S
-@@ -0,0 +1,513 @@
+@@ -0,0 +1,521 @@
 +/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 +/*
 + * Generated by firmware/cpu/go-crypto-c906/gen_chacha_linux.py
@@ -156,6 +194,14 @@
 +	sd	s9, 392(sp)
 +	sd	s10, 400(sp)
 +	sd	s11, 408(sp)
++#ifdef NKOS_CHACHA_TEST
++	.option push
++	.option pic
++	la	t3, ossl_chacha_c906_test_count
++	.option pop
++	li	t4, 1
++	amoadd.d zero, t4, (t3)
++#endif
 +	lw	t5, 48(a0)
 +	beqz	a3, .Ldone
 +.Lgroup:

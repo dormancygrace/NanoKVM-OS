@@ -36,6 +36,15 @@ func GetAPKStatus() APKStatus {
 	s := APKStatus{State: "idle"}
 	b, _ := os.ReadFile(apkStateDir + "/state.json")
 	_ = json.Unmarshal(b, &s)
+	if s.State == "ready" {
+		// Packages updated since the check, from a shell too, are left out.
+		if installed, err := installedVersions(); err == nil {
+			s.Upgrades = pendingUpgrades(s.Upgrades, installed)
+			if s.Upgrades == "" {
+				s.State = "up-to-date"
+			}
+		}
+	}
 	_, e := os.Stat("/run/reboot-required")
 	s.Reboot = e == nil
 	b, _ = os.ReadFile("/proc/sys/kernel/osrelease")
@@ -138,6 +147,27 @@ func installableUpgrades(listing string, skip []string) string {
 	return strings.Join(lines, "\n")
 }
 
+// pendingUpgrades keeps the lines of a checked upgrade listing whose package
+// is still installed below the available version.
+func pendingUpgrades(listing string, installed map[string]string) string {
+	var lines []string
+	for _, line := range strings.Split(listing, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		m := apkVersionedName.FindStringSubmatch(fields[0])
+		if m == nil {
+			lines = append(lines, line)
+			continue
+		}
+		if version, ok := installed[m[1]]; ok && compareAPKVersions(fields[len(fields)-1], version) > 0 {
+			lines = append(lines, line)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // Runs in a detached helper so upgrading/restarting the web server cannot stop APK.
 func RunAPK(action string) (result error) {
 	defer func() {
@@ -195,8 +225,10 @@ func RunAPK(action string) (result error) {
 	if action == "install" {
 		if names := filePinnedPackages(true); len(names) > 0 {
 			fmt.Printf("Taking %s back to the NanoKVM repositories: installed from local files\n", strings.Join(names, ", "))
+			// A test build the repositories never carried cannot be selected
+			// there; it stays as it is and the other updates still install.
 			if e := run(append([]string{"add"}, names...)...); e != nil {
-				return fmt.Errorf("cannot release the local file selections: %w", e)
+				fmt.Printf("Kept the local file selections: %v\n", e)
 			}
 		}
 	}

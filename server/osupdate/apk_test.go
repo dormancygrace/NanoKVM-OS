@@ -8,10 +8,13 @@ import (
 )
 
 func TestNativeAPKWorker(t *testing.T) {
-	oldDir, oldExec := apkStateDir, apkExecutable
-	defer func() { apkStateDir, apkExecutable = oldDir, oldExec }()
+	oldDir, oldExec, oldWorld, oldDB := apkStateDir, apkExecutable, worldPath, installedDBPath
+	defer func() { apkStateDir, apkExecutable, worldPath, installedDBPath = oldDir, oldExec, oldWorld, oldDB }()
 	apkStateDir = t.TempDir()
 	apkExecutable = filepath.Join(t.TempDir(), "apk")
+	worldPath = filepath.Join(apkStateDir, "world")
+	installedDBPath = filepath.Join(apkStateDir, "installed")
+	os.WriteFile(installedDBPath, []byte("P:nanokvm-kernel-sg2002\nV:2.0_alpha1-r1\n\n"), 0600)
 	install := func(script string) {
 		t.Helper()
 		if e := os.WriteFile(apkExecutable, []byte("#!/bin/sh\n"+script), 0700); e != nil {
@@ -49,9 +52,18 @@ func TestNativeAPKWorker(t *testing.T) {
 // another one is not offered, since apk upgrade keeps it.
 func TestLocalFileSelections(t *testing.T) {
 	dir := t.TempDir()
-	oldDir, oldExec, oldWorld := apkStateDir, apkExecutable, worldPath
-	t.Cleanup(func() { apkStateDir, apkExecutable, worldPath = oldDir, oldExec, oldWorld })
+	oldDir, oldExec, oldWorld, oldDB := apkStateDir, apkExecutable, worldPath, installedDBPath
+	t.Cleanup(func() { apkStateDir, apkExecutable, worldPath, installedDBPath = oldDir, oldExec, oldWorld, oldDB })
 	apkStateDir, apkExecutable, worldPath = dir, filepath.Join(dir, "apk"), filepath.Join(dir, "world")
+	installedDBPath = filepath.Join(dir, "installed")
+	installed := func(rustdesk string) {
+		t.Helper()
+		db := "P:nanokvm-rustdesk\nV:" + rustdesk + "\n\nP:nanokvm-app\nV:3.6.0-r0\n\nP:tailscale\nV:1.90.1-r0\n\n"
+		if err := os.WriteFile(installedDBPath, []byte(db), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	installed("0.5.5-r0")
 	world := "busybox\nnanokvm-app\nnanokvm-rustdesk><Q15uLgzMeQQlIv4B5ols+nasIpK7s=\ntailscale><Q1abc=\n"
 	if err := os.WriteFile(worldPath, []byte(world), 0600); err != nil {
 		t.Fatal(err)
@@ -71,6 +83,12 @@ func TestLocalFileSelections(t *testing.T) {
 	if s := GetAPKStatus(); s.State != "ready" || s.Upgrades != want {
 		t.Fatalf("%+v", s)
 	}
+	// Updated since the check, from a shell: no longer listed.
+	installed("0.5.6-r0")
+	if s := GetAPKStatus(); s.State != "ready" || s.Upgrades != "nanokvm-app-3.6.0-r0                    < 3.6.1-r0" {
+		t.Fatalf("%+v", s)
+	}
+	installed("0.5.5-r0")
 	os.Remove(calls)
 	if err := RunAPK("install"); err != nil {
 		t.Fatal(err)
@@ -88,6 +106,29 @@ func TestLocalFileSelections(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(calls); string(data) != "update\nupgrade\n" {
 		t.Fatalf("apk calls:\n%s", data)
+	}
+}
+
+// The notice is a snapshot of the last check: a package updated since then
+// is no longer offered, and the components show no update for it.
+func TestNoticeLeavesOutPackagesUpdatedSinceTheCheck(t *testing.T) {
+	dir := t.TempDir()
+	oldDir, oldDB := apkStateDir, installedDBPath
+	t.Cleanup(func() { apkStateDir, installedDBPath = oldDir, oldDB })
+	apkStateDir, installedDBPath = dir, filepath.Join(dir, "installed")
+	db := "P:nanokvm-rustdesk\nV:0.5.6-r0\n\nP:nanokvm-app\nV:3.6.0-r0\n\n"
+	if err := os.WriteFile(installedDBPath, []byte(db), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveNotice(UpdateNotice{State: "ok", CheckedAt: 1, Updates: []SoftwareUpdate{
+		{Name: "nanokvm-rustdesk", Installed: "0.5.5-r0", Available: "0.5.6-r0"},
+		{Name: "nanokvm-app", Installed: "3.6.0-r0", Available: "3.6.1-r0"},
+		{Name: "nanokvm-removed", Installed: "1.0-r0", Available: "1.1-r0"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := GetNotice().Updates; len(got) != 1 || got[0].Name != "nanokvm-app" {
+		t.Fatalf("%+v", got)
 	}
 }
 

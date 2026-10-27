@@ -24,13 +24,13 @@
 +{
 +    struct sg2002_crypto_request r;
 +    unsigned char saved_iv[16];
-+    unsigned int block = algorithm == SG2002_ALG_DES || algorithm == SG2002_ALG_TDES ? 8 : 16;
++    const unsigned int block = 16;
 +    size_t done = 0;
 +    int fd;
 +
 +    if (len < minimum || minimum == 0 || minimum > SG2002_CRYPTO_MAX
 +        || continuation_minimum < block || continuation_minimum > minimum
-+        || algorithm < SG2002_ALG_AES || algorithm > SG2002_ALG_SM4
++        || algorithm != SG2002_ALG_AES
 +        || mode > SG2002_MODE_CTR || keylen > sizeof(r.key)
 +        || (mode != SG2002_MODE_ECB && iv == NULL)
 +        || (mode == SG2002_MODE_CTR && counter_bytes != 4 && counter_bytes != block))
@@ -46,7 +46,7 @@
 +    r.key_length = (unsigned int)keylen;
 +    memcpy(r.key, key, keylen);
 +    /* Only the first submission pays descriptor acquisition. A later RUN
-+     * still has a fixed cost, so each algorithm supplies a separate tail floor. */
++     * still has a fixed cost, so the caller supplies a separate tail floor. */
 +    while (len - done >= (done ? continuation_minimum : minimum)) {
 +        size_t chunk = len - done;
 +        if (chunk > SG2002_CRYPTO_MAX)
@@ -173,7 +173,7 @@
  int ossl_sg2002_begin(unsigned int algorithm);
  int ossl_sg2002_run(int fd, struct sg2002_crypto_request *request);
  void ossl_sg2002_end(int fd);
-+/* Returns a committed whole-block prefix; advances IV only on success.
++/* AES only: returns a whole-block prefix; advances IV only on success.
 + * minimum includes session setup; continuation_minimum includes only RUN.
 + * The caller resumes its original software operation over the remainder.
 + */
@@ -184,14 +184,14 @@
  #endif
 --- a/crypto/build.info
 +++ b/crypto/build.info
-@@ -146,6 +146,6 @@
+@@ -146,6 +146,5 @@
  
- # NanoKVM direct DMA access is private to the normal/legacy providers.
+-# NanoKVM direct DMA access is private to the normal/legacy providers.
++# NanoKVM direct DMA access is private to the normal provider.
  IF[{- $target{asm_arch} eq "riscv64" -}]
 -  SOURCE[../libcrypto]=sg2002.c
 -  SOURCE[../providers/liblegacy.a]=sg2002.c
 +  SOURCE[../libcrypto]=sg2002.c sg2002_cipher.c
-+  SOURCE[../providers/liblegacy.a]=sg2002.c sg2002_cipher.c
  ENDIF
 --- a/providers/implementations/ciphers/cipher_aes.h
 +++ b/providers/implementations/ciphers/cipher_aes.h

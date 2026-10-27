@@ -117,10 +117,12 @@ jobs:
         run: |
           python3 firmware/crypto/openssl-c906/generate-sha256.py --check
           python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py
-      - name: OpenSSL block-cipher partial DMA continuation
+      - name: OpenSSL AES partial DMA continuation
         run: python3 firmware/crypto/experimental/openssl-aes/test-blocks.py
       - name: OpenSSL AES EVP state and counter carry
         run: |
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify.c -lcrypto -o /tmp/openssl-aes-verify
+          /tmp/openssl-aes-verify
           cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify-gcm.c -lcrypto -o /tmp/openssl-gcm-verify
           /tmp/openssl-gcm-verify
           cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -Iplatform/modules/sg2002-aes firmware/crypto/experimental/openssl-aes/verify-ctr.c -lcrypto -o /tmp/openssl-ctr-verify

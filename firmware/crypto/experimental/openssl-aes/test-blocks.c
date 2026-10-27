@@ -10,11 +10,7 @@ struct cipher_case {const char *name;unsigned alg,mode,keylen,block;};
 static const struct cipher_case cases[]={
  {"AES-128-ECB",1,0,16,16},{"AES-128-CBC",1,1,16,16},{"AES-128-CTR",1,2,16,16},
  {"AES-192-ECB",1,0,24,16},{"AES-192-CBC",1,1,24,16},{"AES-192-CTR",1,2,24,16},
- {"AES-256-ECB",1,0,32,16},{"AES-256-CBC",1,1,32,16},{"AES-256-CTR",1,2,32,16},
- {"DES-ECB",2,0,8,8},{"DES-CBC",2,1,8,8},
- {"DES-EDE",3,0,16,8},{"DES-EDE-CBC",3,1,16,8},
- {"DES-EDE3",3,0,24,8},{"DES-EDE3-CBC",3,1,24,8},
- {"SM4-ECB",4,0,16,16},{"SM4-CBC",4,1,16,16},{"SM4-CTR",4,2,16,16}};
+ {"AES-256-ECB",1,0,32,16},{"AES-256-CBC",1,1,32,16},{"AES-256-CTR",1,2,32,16}};
 static const struct cipher_case *current;
 static EVP_CIPHER *cipher;
 static unsigned char key[32];
@@ -95,9 +91,25 @@ static void check_tail_policy(void)
  puts("PASS 960 CBC tail-policy/failure cases at every block from 4096+16 to 4096+2560");
 }
 
+static void check_non_aes_rejected(void)
+{
+ const unsigned int algorithms[]={0,SG2002_ALG_DES,SG2002_ALG_TDES,SG2002_ALG_SM4,SG2002_ALG_SHA1,SG2002_ALG_SHA256,UINT32_MAX};
+ unsigned char input[4096],out[4096],iv[16];
+ current=&cases[0];fail_after=-1;
+ for(size_t i=0;i<sizeof algorithms/sizeof *algorithms;i++) {
+  memset(input,0x51,sizeof input);memset(out,0xa7,sizeof out);memset(iv,0x29,sizeof iv);
+  calls=opens=closes=0;
+  assert(ossl_sg2002_cipher(algorithms[i],SG2002_MODE_CBC,1,key,16,iv,16,input,out,sizeof input,3072,512)==0);
+  assert(!opens&&!calls&&!closes);
+  for(size_t k=0;k<sizeof out;k++)assert(out[k]==0xa7&&input[k]==0x51);
+  for(size_t k=0;k<sizeof iv;k++)assert(iv[k]==0x29);
+ }
+ puts("PASS 7 non-AES algorithms rejected before device access, output and IV unchanged");
+}
+
 int main(void)
 {
- OSSL_PROVIDER *def=OSSL_PROVIDER_load(NULL,"default"),*legacy=OSSL_PROVIDER_load(NULL,"legacy");assert(def&&legacy);
+ OSSL_PROVIDER *def=OSSL_PROVIDER_load(NULL,"default");assert(def);
  unsigned char input[16432],original[16432],want[16432],buf[16432],iv[16],next[16],expected_iv[16];unsigned count=0;
  const size_t sizes[]={0,16,512,1008,1024,1025,1536,2032,2048,2064,2544,2560,2576,4095,4096,4112,4160,4352,4592,4608,4624,4864,5120,5632,6000,6144,6656,8192,10000,16384};const int offsets[]={0,5,15};const size_t minima[]={1024,1536,2048,2560};
  for(unsigned k=0;k<32;k++)key[k]=(unsigned char)(k*7+3);
@@ -122,8 +134,9 @@ int main(void)
    count++;
   }EVP_CIPHER_free(cipher);
  }
+ check_non_aes_rejected();
  check_gcm_counter();
  check_tail_policy();
- OSSL_PROVIDER_unload(legacy);OSSL_PROVIDER_unload(def);
- printf("PASS %u block-cipher continuation cases across 18 AES/DES/TDES/SM4 modes\n",count);
+ OSSL_PROVIDER_unload(def);
+ printf("PASS %u block-cipher continuation cases across 9 AES modes\n",count);
 }

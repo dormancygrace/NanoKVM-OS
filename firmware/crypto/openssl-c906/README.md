@@ -80,3 +80,8 @@ schedules.
 OpenSSL retains streaming, padding, GHASH, authentication and TLS handling.
 The shared block helper commits only completed chunks and supports separate
 full-width and GCM counters. See `experimental/openssl-aes` for qualification.
+
+The AES PR is based directly on the SHA-256 patch. SHA-1, DES, TDES and SM4
+OpenSSL offloads are not included. The AES helper rejects other algorithm IDs,
+and the legacy provider does not link the SG2002 transport. AES block-mode
+verification is self-contained in `experimental/openssl-aes/verify.c`.

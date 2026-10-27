@@ -40,3 +40,13 @@ with tempfile.TemporaryDirectory(prefix='nkos-aes-test-') as tmp:
     bad=subprocess.run([str(binary)],capture_output=True)
     assert bad.returncode != 0 and b'n == expected' in bad.stderr, bad.stderr
     print('PASS negative control: repeating the setup minimum on a tail is rejected')
+    broken=original.replace('algorithm != SG2002_ALG_AES',
+                            'algorithm < SG2002_ALG_AES || algorithm > SG2002_ALG_SM4')
+    assert broken != original
+    source.write_text(broken)
+    subprocess.run(['cc','-O1','-g','-Wall','-Wextra','-Werror',
+                    '-fsanitize=address,undefined','-I'+str(d/'crypto'),'-I'+str(d/'include'),
+                    str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(binary)],check=True)
+    bad=subprocess.run([str(binary)],capture_output=True)
+    assert bad.returncode != 0 and b'alg==current->alg' in bad.stderr, bad.stderr
+    print('PASS negative control: accepting a non-AES algorithm is rejected')

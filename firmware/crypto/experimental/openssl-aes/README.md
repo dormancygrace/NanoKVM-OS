@@ -13,9 +13,12 @@ independently; no cryptodev or ENGINE integration is added.
 
 ## Native selection and performance
 
-All current measurements use OpenSSL 3.5.9, the restricted C906/O3 profile and
-physical hardware. `native-measurement-identities.json` pins binaries, all
-patches, flags and harnesses. Rates are MiB per process CPU-second.
+The performance measurements below use OpenSSL 3.5.9, the restricted C906/O3
+profile and physical hardware, before the SHA-1/DES/TDES scope cleanup.
+`native-measurement-identities.json` pins those binaries, patches, flags and
+harnesses. They are historical measurements of the recorded revisions, not
+new measurements of the restacked build. Rates are MiB per process CPU-second.
+AES assembly, thresholds and provider algorithms are unchanged by the cleanup.
 
 Five rotated primitive trials measure AES-128 encryption/decryption at
 0.700/0.703 us per block, versus upstream 1.030/1.030 us. AES-192 and AES-256
@@ -70,8 +73,8 @@ operation submits 4096 and handles 16 bytes in software. In the experiment,
 sending every final block to DMA lost up to 3.7% at a 16-byte tail, while a
 512-byte tail improved all measured key/mode/direction combinations. The
 initial descriptor cost and the cost of another RUN are different, and neither
-is zero. DES/TDES callers may retain their separately qualified continuation
-policies.
+is zero. The helper accepts AES only; other algorithms are rejected before
+opening the device. The legacy provider no longer links the DMA transport.
 
 Provider size checks now skip the DMA helper entirely below the initial
 minimum. Request initialization occurs only after successful validation and
@@ -80,12 +83,22 @@ returning immediately to software.
 
 ## Correctness and memory
 
-The ASan/UBSan helper suite passes 184,320 continuation cases plus 960 CBC
-cases at every block boundary from 4096+16 through 4096+2560 and 25 GCM counter
-wrap/fault cases. Negative controls reject both full-width hardware-counter
-assumptions and repeating the setup minimum on a tail.
+The AES-only ASan/UBSan helper suite passes 92,880 continuation cases plus 960
+CBC cases at every block boundary from 4096+16 through 4096+2560 and 25 GCM
+counter wrap/fault cases. Seven non-AES IDs must leave input, output and IV
+unchanged without opening the device. Negative controls reject full-width
+hardware-counter assumptions, repeating the setup minimum on a tail, and
+accepting a non-AES algorithm.
 
-Final native DMA-on/off checks each pass 1944 block cases, 288 CTR carry cases,
+`verify.c` retains the 972 AES cases from the former shared DES verifier:
+AES-128/192/256 ECB/CBC/CTR, both directions, split updates, context copying,
+in-place operation, offsets and output guards. Its independent host OpenSSL
+3.5.5 ciphertext fingerprint is `019ff5988780130c`; CI compiles and runs it with
+ASan/UBSan alongside the CTR, GCM and tail verifiers. It needs only the default
+provider. A wrong-fingerprint negative control is also checked locally.
+
+The earlier native DMA-on/off checks each passed 1944 mixed-algorithm block
+cases (including those 972 AES cases), 288 CTR carry cases,
 408 AEAD known-answer/rejected-tag cases, 2160 extended GCM cases, 20,736 real
 EVP tail cases and upstream AES vectors (313 tests, one FIPS-only skip). Tail
 outputs and updated IVs match independent host OpenSSL 3.5.5 fingerprint
@@ -105,7 +118,7 @@ DMA helper adds no per-context output buffer. Production retains all 5808
 libcrypto dynamic definitions. Native files and raw measurements are published
 alongside the standalone benchmark and verification sources.
 
-Four real 16 MiB HTTPS range downloads with the final library pass CA,
+Four real 16 MiB HTTPS range downloads with the recorded pre-cleanup library pass CA,
 status, length and independent SHA-256 checks: AES-128/256-GCM under TLS 1.2
 and TLS 1.3. These are qualification runs, not a repeated network-throughput
 comparison; see `native-final-https.jsonl`.

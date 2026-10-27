@@ -83,6 +83,23 @@ struct.pack_into("<I", out, field_offset(fip.P1_FIELDS, "BL2_IMG_CKSUM"),
 struct.pack_into("<I", out, 12, fip.crc(out[16:2048]))
 rejected("valid-CRC first-stage modification",
          lambda: fip.validate(base, bytes(out), monitor, uboot, manifest), "first-stage")
+stock = bytearray(candidate)
+stock[bl2start + fip.BL2_MPLL_OFFSET:bl2start + fip.BL2_MPLL_OFFSET + 4] = fip.BL2_MPLL_STOCK
+struct.pack_into("<I", stock, field_offset(fip.P1_FIELDS, "BL2_IMG_CKSUM"),
+                 fip.crc(stock[bl2start:bl2start + p1["BL2_IMG_SIZE"]]))
+struct.pack_into("<I", stock, 12, fip.crc(stock[16:2048]))
+rejected("stock 850 MHz BL2", lambda: fip.validate(base, bytes(stock), monitor, uboot, manifest), "first-stage")
+other = bytearray(base)
+base1 = fip.inspect(base)[0]
+other[4096 + base1["BLCP_IMG_SIZE"] + 200] ^= 1
+struct.pack_into("<I", other, field_offset(fip.P1_FIELDS, "BL2_IMG_CKSUM"),
+                 fip.crc(other[4096 + base1["BLCP_IMG_SIZE"]:4096 + base1["BLCP_IMG_SIZE"] + base1["BL2_IMG_SIZE"]]))
+struct.pack_into("<I", other, 12, fip.crc(other[16:2048]))
+rejected("BL2 patch on another BL2", lambda: fip.patch_bl2(bytes(other)), "not the stock image")
+patched = fip.inspect(fip.patch_bl2(base))[2]["BL2"]
+assert patched[fip.BL2_MPLL_OFFSET:fip.BL2_MPLL_OFFSET + 4] == bytes.fromhex("b7875005")
+assert sum(x != y for x, y in zip(patched, fip.inspect(base)[2]["BL2"])) == 2
+print("BL2 patch changes exactly the mpll immediate: pass")
 real_inspect = fip.inspect
 
 

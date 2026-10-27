@@ -87,6 +87,15 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   Bluetooth RX path:
   `gcc -fsanitize=address,undefined tests/test-aic8800-bt-rx.c && ./a.out`.
 
+## Kernel zstd and zram contracts
+
+`test-zram-zstd.py --source /path/to/patched-linux` compiles the actual kernel
+codec and zram backend on a 64-bit little-endian Linux host. It compares empty
+and real dictionaries, injects every allocation failure, checks cleanup and
+runs compression/decompression concurrently. Set `NANOKVM_SANITIZE=1` for
+ASan/UBSan. Release-build CI runs both modes against its prepared kernel source.
+The tests do not access a device or change the supplied source tree.
+
 ## Manual tools
 
 `manual/` holds tools that are run by hand and never by CI.

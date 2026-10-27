@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -96,6 +98,46 @@ func StartAPK(action string) error {
 	return nil
 }
 
+// A package installed from a local file (`apk add ./name.apk`) stays selected
+// as that file in the world file, name><Q1checksum: apk upgrade keeps it while
+// apk version lists the newer repository version, so the page offered an
+// update that installing never made. Installing updates takes NanoKVM packages
+// back to the repositories; another package selected this way is not offered.
+// filePinnedPackages lists the NanoKVM ones (nanokvm true) or the others.
+func filePinnedPackages(nanokvm bool) []string {
+	data, err := os.ReadFile(worldPath)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, entry := range strings.Fields(string(data)) {
+		name, _, pinned := strings.Cut(entry, "><")
+		if pinned && strings.HasPrefix(name, "nanokvm") == nanokvm {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+var apkVersionedName = regexp.MustCompile(`^(.+)-[0-9][^-]*-r[0-9]+$`)
+
+// installableUpgrades is the `apk version --limit <` listing without its
+// header and without the packages in skip.
+func installableUpgrades(listing string, skip []string) string {
+	var lines []string
+	for _, line := range strings.Split(strings.TrimSpace(listing), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] == "Installed:" {
+			continue
+		}
+		if m := apkVersionedName.FindStringSubmatch(fields[0]); m != nil && slices.Contains(skip, m[1]) {
+			continue
+		}
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	return strings.Join(lines, "\n")
+}
+
 // Runs in a detached helper so upgrading/restarting the web server cannot stop APK.
 func RunAPK(action string) (result error) {
 	defer func() {
@@ -141,11 +183,7 @@ func RunAPK(action string) (result error) {
 		if e != nil {
 			return fmt.Errorf("APK upgrade check failed: %s", strings.TrimSpace(string(b)))
 		}
-		lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-		if len(lines) > 0 && strings.HasPrefix(lines[0], "Installed:") {
-			lines = lines[1:]
-		}
-		upgrades := strings.TrimSpace(strings.Join(lines, "\n"))
+		upgrades := installableUpgrades(string(b), filePinnedPackages(false))
 		state := "ready"
 		if upgrades == "" {
 			state = "up-to-date"
@@ -153,6 +191,14 @@ func RunAPK(action string) (result error) {
 		// The notice has an index of its own; a manual check refreshes it too.
 		_ = CheckUpdates(ctx, true)
 		return saveAPKStatus(APKStatus{State: state, Upgrades: upgrades})
+	}
+	if action == "install" {
+		if names := filePinnedPackages(true); len(names) > 0 {
+			fmt.Printf("Taking %s back to the NanoKVM repositories: installed from local files\n", strings.Join(names, ", "))
+			if e := run(append([]string{"add"}, names...)...); e != nil {
+				return fmt.Errorf("cannot release the local file selections: %w", e)
+			}
+		}
 	}
 	args := []string{"upgrade"}
 	if action == "rollback" {

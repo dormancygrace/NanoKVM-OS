@@ -26,6 +26,23 @@ export function componentLabel(t: TFunction, name: string): string {
   return key ? t(`settings.updates.components.names.${key}`) : name;
 }
 
+// The package updates check reports `apk version --limit <`, one package per
+// line: "nanokvm-rustdesk-0.5.5-r0               < 0.5.6-r0".
+export function parseUpgrades(text: string) {
+  return text
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .filter((fields) => fields[0])
+    .map((fields) => {
+      const versioned = /^(.+)-(\d[^-]*-r\d+)$/.exec(fields[0]);
+      return {
+        name: versioned ? versioned[1] : fields[0],
+        installed: versioned ? versioned[2] : '',
+        available: fields.length > 1 ? fields[fields.length - 1] : ''
+      };
+    });
+}
+
 // The notification shows once per set of available versions in a browser.
 const SEEN_KEY = 'nano-kvm-update-notice-seen';
 

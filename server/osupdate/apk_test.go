@@ -44,6 +44,53 @@ func TestNativeAPKWorker(t *testing.T) {
 	}
 }
 
+// A package installed from a local file is selected as that file: installing
+// updates takes a NanoKVM one back to the repositories before upgrading, and
+// another one is not offered, since apk upgrade keeps it.
+func TestLocalFileSelections(t *testing.T) {
+	dir := t.TempDir()
+	oldDir, oldExec, oldWorld := apkStateDir, apkExecutable, worldPath
+	t.Cleanup(func() { apkStateDir, apkExecutable, worldPath = oldDir, oldExec, oldWorld })
+	apkStateDir, apkExecutable, worldPath = dir, filepath.Join(dir, "apk"), filepath.Join(dir, "world")
+	world := "busybox\nnanokvm-app\nnanokvm-rustdesk><Q15uLgzMeQQlIv4B5ols+nasIpK7s=\ntailscale><Q1abc=\n"
+	if err := os.WriteFile(worldPath, []byte(world), 0600); err != nil {
+		t.Fatal(err)
+	}
+	calls := filepath.Join(dir, "calls")
+	script := "#!/bin/sh\necho \"$*\" >> '" + calls + "'\ncase \"$1\" in update|add|upgrade) exit 0;;\n" +
+		"version) printf 'Installed:                                Available:\\n" +
+		"nanokvm-rustdesk-0.5.5-r0               < 0.5.6-r0 \\ntailscale-1.90.1-r0                     < 1.92.0-r0 \\n" +
+		"nanokvm-app-3.6.0-r0                    < 3.6.1-r0 \\n';;\n*) exit 99;;\nesac\n"
+	if err := os.WriteFile(apkExecutable, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := RunAPK("check"); err != nil {
+		t.Fatal(err)
+	}
+	want := "nanokvm-rustdesk-0.5.5-r0               < 0.5.6-r0\nnanokvm-app-3.6.0-r0                    < 3.6.1-r0"
+	if s := GetAPKStatus(); s.State != "ready" || s.Upgrades != want {
+		t.Fatalf("%+v", s)
+	}
+	os.Remove(calls)
+	if err := RunAPK("install"); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(calls); string(data) != "update\nadd nanokvm-rustdesk\nupgrade\n" {
+		t.Fatalf("apk calls:\n%s", data)
+	}
+	// Nothing pinned: no extra step.
+	if err := os.WriteFile(worldPath, []byte("busybox\nnanokvm-app\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(calls)
+	if err := RunAPK("install"); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(calls); string(data) != "update\nupgrade\n" {
+		t.Fatalf("apk calls:\n%s", data)
+	}
+}
+
 func TestRollbackWorkerUsesCompleteCoreSetAndFailsClosed(t *testing.T) {
 	dir := communityFixture(t, communityOff)
 	oldRecovery := rollbackRecoveryRoot

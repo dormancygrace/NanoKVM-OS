@@ -28,6 +28,21 @@ CONFIG_SYS_PBSIZE=544
 CONFIG_BOARD_INIT=y
 CONFIG_SYS_PROMPT="nanokvm# "
 # CONFIG_CMD_BOOTDEV is not set
+# CONFIG_CMD_BDI is not set
+# CONFIG_CMD_CPU is not set
+# CONFIG_CMD_IMI is not set
+# CONFIG_CMD_XIMG is not set
+# CONFIG_CMD_EXPORTENV is not set
+# CONFIG_CMD_EDITENV is not set
+# CONFIG_CMD_SAVEENV is not set
+# CONFIG_CMD_RANDOM is not set
+# CONFIG_CMD_LZMADEC is not set
+# CONFIG_CMD_UNLZ4 is not set
+# CONFIG_CMD_UNZIP is not set
+# CONFIG_CMD_LOADB is not set
+# CONFIG_CMD_LOADS is not set
+# CONFIG_CMD_ITEST is not set
+# CONFIG_CMD_BLOCK_CACHE is not set
 CONFIG_CMD_MBR=y
 CONFIG_CMD_FAT=y
 CONFIG_CMD_MMC=y
@@ -53,6 +68,8 @@ CONFIG_SYS_NS16550_MEM32=y
 CONFIG_SYSRESET=y
 CONFIG_SYSRESET_CV1800B=y
 CONFIG_BOOTDELAY=-2
-CONFIG_ZSTD=y
+# boot.sd carries an LZ4 kernel (since v3.3.0); no other decompressor is used.
+CONFIG_LZ4=y
+# CONFIG_GZIP is not set
 # CONFIG_MMC_TRACE is not set
 # CONFIG_TOOLS_MKEFICAPSULE is not set

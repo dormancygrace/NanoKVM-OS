@@ -107,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install system test tools
-        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools iproute2 g++ busybox openssh-client liblz4-dev
+        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools iproute2 g++ busybox openssh-client libssl-dev liblz4-dev
       - name: Shellcheck (errors only; parses each script per its shebang)
         run: |
           git ls-files -z | while IFS= read -r -d '' f; do
@@ -150,6 +150,8 @@ jobs:
           sudo apt-get install -y libssl-dev
           python3 firmware/crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
           python3 firmware/crypto/experimental/openssl-chacha20/test-dispatch.py --negative-control
+      - name: OpenSSL direct-DMA transport failure paths
+        run: python3 firmware/crypto/experimental/openssl-sg2002/test-transport.py --negative-control
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

@@ -1,0 +1,10 @@
+6f433b338bb49b98b2b52646b2e48f85e5f74c76b2700bd16c45ac43c7083218
+{"syscall":56,"ioctl_request":0,"result":3,"traced_wall_ns":100319}
+{"syscall":57,"ioctl_request":0,"result":0,"traced_wall_ns":62440}
+{"syscall":56,"ioctl_request":0,"result":3,"traced_wall_ns":109599}
+{"syscall":80,"ioctl_request":0,"result":0,"traced_wall_ns":55359}
+{"syscall":29,"ioctl_request":18446744071572573123,"result":0,"traced_wall_ns":159478}
+{"syscall":29,"ioctl_request":18446744072645266370,"result":0,"traced_wall_ns":215798}
+{"syscall":57,"ioctl_request":0,"result":0,"traced_wall_ns":187518}
+{"syscall":29,"ioctl_request":21523,"result":-25,"traced_wall_ns":54640}
+{"counts":{"25":1,"29":3,"56":2,"57":2,"63":1,"66":1,"80":1,"94":1,"96":1,"135":15,"174":1,"175":1,"176":1,"177":1,"214":4,"215":31,"221":1,"222":32,"258":1}}

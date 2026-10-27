@@ -2,11 +2,13 @@
 """Build a probe using the exact supplied kernel ABI; never rebuild the core."""
 import argparse,json,subprocess,shutil
 from pathlib import Path
-from variants import generate
+from variants import generate, require_legacy_source
 p=argparse.ArgumentParser();p.add_argument('--kernel',type=Path,required=True);p.add_argument('--kernel-build',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True);p.add_argument('--cross',required=True);p.add_argument('--cflags',required=True)
 a=p.parse_args()
 a.kernel=a.kernel.resolve();a.kernel_build=a.kernel_build.resolve();a.output=a.output.resolve()
+try: require_legacy_source(a.kernel)
+except ValueError as e: p.error(str(e))
 if not (a.kernel_build/'include/config/kernel.release').is_file() or not (a.kernel_build/'Module.symvers').is_file():
     p.error('a configured and fully built matching kernel is required')
 a.output.mkdir(parents=True,exist_ok=False)

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"NanoKVM-Server/internal/bmc"
+	"NanoKVM-Server/pkg/bmc"
 )
 
 type fakeATX struct{}

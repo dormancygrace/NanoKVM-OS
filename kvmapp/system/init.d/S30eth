@@ -9,6 +9,7 @@ RESERVE_INET="192.168.90.1/22"
 : "${NANOKVM_ETH_VLAN_STATE:=/run/nanokvm-eth-vlan}"
 : "${NANOKVM_IP:=ip}"
 : "${NANOKVM_IPV6_INIT:=/etc/init.d/S02ipv6}"
+: "${NANOKVM_ETH_RX_TUNER:=/usr/libexec/nanokvm/ethernet-rx-batching}"
 : "${NANOKVM_MODPROBE:=modprobe}"
 : "${NANOKVM_UDHCPC:=udhcpc}"
 : "${NANOKVM_ARPING:=arping}"
@@ -95,6 +96,10 @@ start() {
     fi
     "$NANOKVM_IP" link set dev eth0 up
     ethernet_interface || return 1
+    if [ "${NANOKVM_ETH_RX_BATCHING:-0}" = 1 ] && [ -x "$NANOKVM_ETH_RX_TUNER" ]; then
+        "$NANOKVM_ETH_RX_TUNER" ||
+            echo "Ethernet receive batching unavailable; continuing network setup" >&2
+    fi
     if [ -x /etc/init.d/S29qdisc ]; then
         /etc/init.d/S29qdisc eth0 || echo "Could not apply fq_codel to eth0" >&2
     fi

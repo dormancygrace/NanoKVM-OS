@@ -2,6 +2,8 @@
 // the H.264 VI-direct path built on it; no hardware.
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
 #include <cassert>
+CVI_S32 CVI_VPSS_DetachVbPool(VPSS_GRP, VPSS_CHN) { abort(); }
+CVI_S32 CVI_VPSS_AttachVbPool(VPSS_GRP, VPSS_CHN, VB_POOL) { abort(); }
 #include <string>
 #include <thread>
 #include <atomic>
@@ -36,6 +38,8 @@ static VIDEO_FRAME_INFO_S vi_input, vpss_input;
 static PIXEL_FORMAT_E group_format;
 static int vi_gets, vpss_gets, vi_releases, vpss_releases, sends, enables, disables;
 static const VIDEO_FRAME_INFO_S *sent;
+CVI_S32 SAMPLE_COMM_VI_Bind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { return 0; }
+CVI_S32 SAMPLE_COMM_VI_UnBind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { return 0; }
 CVI_S32 CVI_VI_GetChnAttr(VI_PIPE, VI_CHN, VI_CHN_ATTR_S *a) { *a = {}; a->stSize = priv.vi_size; return 0; }
 CVI_S32 CVI_VPSS_GetChnAttr(VPSS_GRP, VPSS_CHN, VPSS_CHN_ATTR_S *a) { *a = output; return 0; }
 CVI_S32 CVI_VPSS_SetChnAttr(VPSS_GRP, VPSS_CHN, const VPSS_CHN_ATTR_S *a) { output = *a; return 0; }
@@ -84,7 +88,9 @@ static void start(unsigned w = 1920, unsigned h = 1080) {
     priv.vi_is_inited = false;
 }
 static void reset() {
-    priv = {}; vi_direct[0] = vi_direct[1] = false; vi_frame_from_vi[0] = vi_frame_from_vi[1] = false;
+    priv = {};
+    for (int i = 0; i < MMF_VI_MAX_CHN; ++i) priv.vi_chn_pool_id[i] = VB_INVALID_POOLID;
+    vi_direct[0] = vi_direct[1] = false; vi_frame_from_vi[0] = vi_frame_from_vi[1] = false;
     vi_direct_venc = -1; vi_shared_reader_us[0] = vi_shared_reader_us[1] = 0;
     vi_yuv420_wanted = vi_yuv420_running = vi_yuv420_broken = vi_yuv420_refused = vpss_rate_thins = false;
     param_present = true; param_ignores_writes = false; packed_src = true; setting.clear();
@@ -92,6 +98,7 @@ static void reset() {
     output = {}; output.enPixelFormat = PIXEL_FORMAT_NV21; output.u32Width = 1920; output.u32Height = 1080;
     output.stFrameRate = {60, 60};
     priv.vi_size = {1920, 1080}; priv.vi_chn_is_inited[0] = true;
+    priv.vpss_chn_enabled[0] = true; priv.vi_source_bound = true;
     vi_input = nv21_frame(); vpss_input = nv21_frame(); vpss_input.stVFrame.u64PhyAddr[0] = 0x9000000;
     vpss_input.stVFrame.u64PhyAddr[1] = 0x9000000 + vpss_input.stVFrame.u32Length[0];
     FILE *f = __real_fopen(param_path, "w"); fputs("N\n", f); fclose(f);

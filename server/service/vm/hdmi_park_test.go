@@ -9,8 +9,9 @@ import (
 )
 
 type parkRecorder struct {
-	calls  []bool
-	result bool
+	calls   []bool
+	result  bool
+	pending bool
 }
 
 func (r *parkRecorder) snapshot() []bool {
@@ -22,7 +23,9 @@ func (r *parkRecorder) snapshot() []bool {
 func withParkHooks(t *testing.T) *parkRecorder {
 	t.Helper()
 	recorder := &parkRecorder{result: true}
-	oldPark, oldDisabled, oldTimeout, oldPersist, oldHDMI, oldDelay := setCaptureParked, isHdmiDisabled, getHdmiIdleTimeout, persistHdmiIdleTimeout, setHDMI, hdmiCaptureParkDelay
+	oldPending := captureReclaimPending
+	captureReclaimPending = func() bool { return recorder.pending }
+	oldPark, oldDisabled, oldTimeout, oldPersist, oldHDMI, oldDelay, oldReclaimDelay := setCaptureParked, isHdmiDisabled, getHdmiIdleTimeout, persistHdmiIdleTimeout, setHDMI, hdmiCaptureParkDelay, hdmiCaptureReclaimDelay
 	setCaptureParked = func(parked bool) bool {
 		recorder.calls = append(recorder.calls, parked)
 		return recorder.result
@@ -32,6 +35,8 @@ func withParkHooks(t *testing.T) *parkRecorder {
 	persistHdmiIdleTimeout = func(int) {}
 	setHDMI = func(bool) {}
 	hdmiCaptureParkDelay = 20 * time.Millisecond
+	// Individual retry tests shorten this; transition tests observe one park.
+	hdmiCaptureReclaimDelay = time.Hour
 	reset := func() {
 		hdmiMutex.Lock()
 		stopHdmiParkTimerLocked()
@@ -45,7 +50,8 @@ func withParkHooks(t *testing.T) *parkRecorder {
 	reset()
 	t.Cleanup(func() {
 		reset()
-		setCaptureParked, isHdmiDisabled, getHdmiIdleTimeout, persistHdmiIdleTimeout, setHDMI, hdmiCaptureParkDelay = oldPark, oldDisabled, oldTimeout, oldPersist, oldHDMI, oldDelay
+		captureReclaimPending = oldPending
+		setCaptureParked, isHdmiDisabled, getHdmiIdleTimeout, persistHdmiIdleTimeout, setHDMI, hdmiCaptureParkDelay, hdmiCaptureReclaimDelay = oldPark, oldDisabled, oldTimeout, oldPersist, oldHDMI, oldDelay, oldReclaimDelay
 	})
 	return recorder
 }
@@ -135,4 +141,94 @@ func TestIdleTimeoutChangeKeepsParking(t *testing.T) {
 	UpdateHdmiViewerSnapshot("webrtc", 0, 1)
 	SetHdmiIdleTimeout(5)
 	waitParkCalls(t, recorder, true)
+}
+
+func TestParkedCaptureRetriesReclamationUntilViewerReturns(t *testing.T) {
+	recorder := withParkHooks(t)
+	recorder.pending = true
+	hdmiCaptureReclaimDelay = 20 * time.Millisecond
+	UpdateHdmiViewerSnapshot("webrtc", 0, 1)
+	deadline := time.Now().Add(5 * time.Second)
+	for len(recorder.snapshot()) < 3 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	hdmiMutex.Lock()
+	if len(recorder.calls) < 3 {
+		hdmiMutex.Unlock()
+		t.Fatal("parked capture never retried reclamation")
+	}
+	for _, parked := range recorder.calls {
+		if !parked {
+			hdmiMutex.Unlock()
+			t.Fatal("reclamation re-enabled capture")
+		}
+	}
+	// A failed repeat must retain the parked state and arrange another retry.
+	recorder.result = false
+	beforeFailure := len(recorder.calls)
+	hdmiMutex.Unlock()
+	deadline = time.Now().Add(5 * time.Second)
+	for len(recorder.snapshot()) < beforeFailure+2 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	hdmiMutex.Lock()
+	if !hdmiCaptureParked || len(recorder.calls) < beforeFailure+2 {
+		hdmiMutex.Unlock()
+		t.Fatal("failed repeated park lost state or stopped retrying")
+	}
+	recorder.result = true
+	hdmiMutex.Unlock()
+	UpdateHdmiViewerSnapshot("webrtc", 1, 2)
+	calls := recorder.snapshot()
+	if calls[len(calls)-1] {
+		t.Fatal("new viewer did not resume capture")
+	}
+	time.Sleep(5 * hdmiCaptureReclaimDelay)
+	if got := recorder.snapshot(); !reflect.DeepEqual(got, calls) {
+		t.Fatalf("reclamation continued with a viewer: %v -> %v", calls, got)
+	}
+}
+
+func TestParkTimerStopsWhenAllPoolsAreReclaimed(t *testing.T) {
+	recorder := withParkHooks(t)
+	hdmiCaptureReclaimDelay = 20 * time.Millisecond
+	UpdateHdmiViewerSnapshot("webrtc", 0, 1)
+	waitParkCalls(t, recorder, true)
+	expectNoMoreParkCalls(t, recorder, true)
+}
+
+func TestParkTimerStopsAfterDelayedPoolReclaim(t *testing.T) {
+	recorder := withParkHooks(t)
+	recorder.pending = true
+	hdmiCaptureReclaimDelay = 20 * time.Millisecond
+	UpdateHdmiViewerSnapshot("webrtc", 0, 1)
+	deadline := time.Now().Add(5 * time.Second)
+	for len(recorder.snapshot()) < 2 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	hdmiMutex.Lock()
+	if len(recorder.calls) < 2 {
+		hdmiMutex.Unlock()
+		t.Fatal("pending pool was not retried")
+	}
+	recorder.pending = false
+	hdmiMutex.Unlock()
+	deadline = time.Now().Add(5 * time.Second)
+	for {
+		hdmiMutex.Lock()
+		done := hdmiParkTimer == nil
+		hdmiMutex.Unlock()
+		if done {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("reclaim timer did not stop")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	calls := recorder.snapshot()
+	time.Sleep(5 * hdmiCaptureReclaimDelay)
+	if got := recorder.snapshot(); !reflect.DeepEqual(got, calls) {
+		t.Fatalf("reclamation continued after completion: %v -> %v", calls, got)
+	}
 }

@@ -4,8 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"NanoKVM-Server/authn"
-	"NanoKVM-Server/internal/bmc"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/pkg/bmc"
 	"NanoKVM-Server/proto"
 	bmcservice "NanoKVM-Server/service/bmc"
 	"NanoKVM-Server/service/vm"

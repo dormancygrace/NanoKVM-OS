@@ -22,6 +22,15 @@ if (base / 'VERSION').read_text().splitlines()[0] != pin['go_version']:
 for rel, digest in pin['vendor_sha256'].items():
     if sha256(base / 'src' / rel) != digest:
         parser.error(f'{rel} checksum differs from pin')
+def copy_sources(src, dst):
+    # Downloaded Go module toolchains are read-only. Only the isolated copies
+    # become writable; linked base-toolchain files retain their original mode.
+    shutil.copytree(src, dst, symlinks=False)
+    for p in [dst, *dst.rglob('*')]:
+        if not p.is_symlink():
+            p.chmod(p.stat().st_mode | 0o200)
+
+
 out.mkdir(exist_ok=False)
 for p in base.iterdir():
     if p.name != 'src':
@@ -29,7 +38,7 @@ for p in base.iterdir():
 (out / 'src').mkdir()
 for p in (base / 'src').iterdir():
     if p.name == 'runtime':
-        shutil.copytree(p, out / 'src/runtime', symlinks=False)
+        copy_sources(p, out / 'src/runtime')
     else:
         (out / 'src' / p.name).symlink_to(p, target_is_directory=p.is_dir())
 
@@ -44,7 +53,7 @@ def materialize(rel):
             continue
         o.unlink()
         if i == len(parts) - 1:
-            shutil.copytree(b, o, symlinks=False)
+            copy_sources(b, o)
         else:
             o.mkdir()
             for p in b.iterdir():
@@ -71,7 +80,7 @@ vendor_files = [f'{chacha}/chacha_noasm.go', f'{chacha}/chacha_generic.go']
 for name, pkg in [('chacha_riscv64.go', chacha), ('chacha_riscv64.s', chacha)]:
     shutil.copyfile(crypto / name, out / 'src' / pkg / name)
     vendor_files.append(f'{pkg}/{name}')
-# Poly1305: the riscv64 assembly of x/crypto v0.57.0 with its build tags.
+# Poly1305: keep the pinned upstream reference, install the C906 reduction.
 poly = 'vendor/golang.org/x/crypto/internal/poly1305'
 materialize(poly)
 if sha256(crypto / 'sum_riscv64.s') != pin['x_crypto_v0.57.0_sum_riscv64_s_sha256']:
@@ -79,16 +88,8 @@ if sha256(crypto / 'sum_riscv64.s') != pin['x_crypto_v0.57.0_sum_riscv64_s_sha25
 edit(f'{poly}/mac_noasm.go', '(!amd64 && !loong64 && !ppc64le && !ppc64 && !s390x)',
      '(!amd64 && !loong64 && !ppc64le && !ppc64 && !riscv64 && !s390x)')
 edit(f'{poly}/sum_asm.go', '(amd64 || loong64 || ppc64 || ppc64le)', '(amd64 || loong64 || ppc64 || ppc64le || riscv64)')
-for name in ['sum_riscv64.s', 'sum_misaligned_riscv64.go']:
-    shutil.copyfile(crypto / name, out / 'src' / poly / name)
-# Unaligned messages (TLS ciphertext) take 64-bit loads where they are fast.
-edit(f'{poly}/sum_riscv64.s', '\tAND\t$7, X6, X28\n',
-     '\tAND\t$7, X6, X28\n'
-     '\tMOVBU\t·useMisalignedLoads(SB), X29\n'
-     '\tBEQZ\tX29, alignment_checked\n'
-     '\tMOV\t$0, X28\t\t// NanoKVM: no byte loads\n'
-     '\n'
-     'alignment_checked:\n')
+shutil.copyfile(crypto / 'sum_c906_riscv64.s', out / 'src' / poly / 'sum_riscv64.s')
+shutil.copyfile(crypto / 'sum_misaligned_riscv64.go', out / 'src' / poly / 'sum_misaligned_riscv64.go')
 vendor_files += [f'{poly}/mac_noasm.go', f'{poly}/sum_asm.go', f'{poly}/sum_riscv64.s', f'{poly}/sum_misaligned_riscv64.go']
 # Short substring search without Rabin-Karp (go-bytes-index): where Index
 # falls back to Rabin-Karp, a sep of at most 255 bytes uses Horspool.
@@ -154,6 +155,15 @@ edit('crypto/sha1/sha1block_decl.go', '//go:build (386 || arm || loong64 || risc
 edit('crypto/sha1/sha1block_riscv64.s', 'TEXT ·block(SB),NOSPLIT,$64-32\n', 'TEXT ·blockRV64(SB),NOSPLIT,$64-32\n')
 for name in ['sha1block_riscv64.go', 'sha1block_c906_riscv64.s']:
     shutil.copyfile(crypto / name, out / 'src/crypto/sha1' / name)
+# Keccak-f[1600] for T-Head cores (go-crypto-c906/gen_keccak_c906.py), chosen
+# like the SHA blocks by cpu.RISCV64.HasXTheadBb.
+sha3 = 'crypto/internal/fips140/sha3'
+materialize(sha3)
+edit(f'{sha3}/sha3_noasm.go', '//go:build (!amd64 && !arm64 && !s390x) || purego\n',
+     '//go:build (!amd64 && !arm64 && !riscv64 && !s390x) || purego\n')
+for name in ['sha3_riscv64.go', 'keccak_c906_riscv64.s']:
+    shutil.copyfile(crypto / name, out / 'src' / sha3 / name)
+vendor_files += [f'{sha3}/sha3_noasm.go', f'{sha3}/sha3_riscv64.go', f'{sha3}/keccak_c906_riscv64.s']
 vendor_files += ['internal/cpu/cpu.go', 'internal/cpu/cpu_riscv64.go', 'internal/cpu/cpu_riscv64_linux.go',
                  'crypto/internal/fips140deps/cpu/cpu.go', f'{sha}/sha256block_asm.go', f'{sha}/sha256block_riscv64.s',
                  f'{sha}/sha256block_riscv64.go', f'{sha}/sha256block_c906_riscv64.s',

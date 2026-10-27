@@ -39,8 +39,8 @@ importers:
         specifier: 4.2.0
         version: 4.2.0
       i18next:
-        specifier: 26.5.6
-        version: 26.5.6(@typescript/typescript6@6.0.2)
+        specifier: 26.5.8
+        version: 26.5.8(@typescript/typescript6@6.0.2)
       jotai:
         specifier: 3.0.1
         version: 3.0.1(@types/react@19.3.0)(react@19.3.1)
@@ -66,8 +66,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0(react@19.3.1)
       react-i18next:
-        specifier: 17.1.3
-        version: 17.1.3(@typescript/typescript6@6.0.2)(i18next@26.5.6(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 17.1.6
+        version: 17.1.6(@typescript/typescript6@6.0.2)(i18next@26.5.8(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-markdown:
         specifier: 10.1.0
         version: 10.1.0(@types/react@19.3.0)(react@19.3.1)
@@ -78,8 +78,8 @@ importers:
         specifier: 7.18.4
         version: 7.18.4(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-simple-keyboard:
-        specifier: 3.8.286
-        version: 3.8.286(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 3.8.287
+        version: 3.8.287(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1
@@ -1971,8 +1971,8 @@ packages:
   hyphenate-style-name@1.1.0:
     resolution: {integrity: sha512-WDC/ui2VVRrz3jOVi+XtjqkDjiVjTtFaAGiW37k6b+ohyQ5wYDOGkvCZa8+H0nx3gyvv0+BST9xuOgIyGQ00gw==}
 
-  i18next@26.5.6:
-    resolution: {integrity: sha512-GFWrDwGmYhOQS3bKvjA2Ir2ob9ScEdyY1UbeQJ10jyVACGQ6XxmDYqC/lxEj/IPEJlPQYNRnYffDET6TM8mnFg==}
+  i18next@26.5.8:
+    resolution: {integrity: sha512-EQx2RyhwINMekbykhZpAJQ2ILeJqnYOpRjWEkSVv45pR8yeVbb0thr2zxQ+dOo365OIb7h06BKPtt16WE8Wliw==}
     peerDependencies:
       typescript: ^5 || ^6 || ^7
     peerDependenciesMeta:
@@ -2595,8 +2595,8 @@ packages:
     peerDependencies:
       react: ^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  react-i18next@17.1.3:
-    resolution: {integrity: sha512-XfaTqU09NPuBDuADQ8TEPbE0Goc2Gh6FHu0qvdFWfOWCdGQWRxRY2Uo5tDPtGBdzu4COXp0LQCkQIYa0IhJXlA==}
+  react-i18next@17.1.6:
+    resolution: {integrity: sha512-Chrt5sVco051WgQST6RA3/BePVNC6fBf9BtXhKts0i7vpGVziqyLb5IrmdNtsEYE5vJ0mEDkJHWF1Gie40khXA==}
     peerDependencies:
       i18next: '>= 26.2.0'
       react: '>= 16.8.0'
@@ -2666,8 +2666,8 @@ packages:
       react-dom:
         optional: true
 
-  react-simple-keyboard@3.8.286:
-    resolution: {integrity: sha512-CUxzRcyxn0rKaxKHl7bS5c4HUjKicybiv1asrLy3z4r+3SZwAu31Sphxcp1iWFfnf/uyWUTG1kKwoE80E0LCSg==}
+  react-simple-keyboard@3.8.287:
+    resolution: {integrity: sha512-oGJAJleInmQ3xUO6I7vZ7/xCEc7YN3eIFyXgyVKFatHeL+AMGX5lwq3eqtkCUti9RIJklbYKEVrCoWh9Rq5E2Q==}
     peerDependencies:
       react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -4775,7 +4775,7 @@ snapshots:
 
   hyphenate-style-name@1.1.0: {}
 
-  i18next@26.5.6(@typescript/typescript6@6.0.2):
+  i18next@26.5.8(@typescript/typescript6@6.0.2):
     optionalDependencies:
       typescript: '@typescript/typescript6@6.0.2'
 
@@ -5475,11 +5475,11 @@ snapshots:
       react-fast-compare: 3.2.2
       shallowequal: 1.1.0
 
-  react-i18next@17.1.3(@typescript/typescript6@6.0.2)(i18next@26.5.6(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+  react-i18next@17.1.6(@typescript/typescript6@6.0.2)(i18next@26.5.8(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
       '@babel/runtime': 7.29.7
       html-parse-stringify: 4.0.1
-      i18next: 26.5.6(@typescript/typescript6@6.0.2)
+      i18next: 26.5.8(@typescript/typescript6@6.0.2)
       react: 19.3.1
       use-sync-external-store: 1.7.0(react@19.3.1)
     optionalDependencies:
@@ -5549,7 +5549,7 @@ snapshots:
     optionalDependencies:
       react-dom: 19.3.1(react@19.3.1)
 
-  react-simple-keyboard@3.8.286(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+  react-simple-keyboard@3.8.287(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)

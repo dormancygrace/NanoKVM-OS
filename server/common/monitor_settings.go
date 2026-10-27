@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -217,12 +218,32 @@ func receiverHoldsLocked(hw monitorSettingsBackend, hash string) bool {
 		checked()
 		return true
 	}
-	name := "an EDID that is not a NanoKVM profile"
-	if path := shippedMonitorProfileLocked(held); path != "" {
-		name = filepath.Base(path)
-	}
+	name := heldProfileNameLocked(held)
 	log.Warnf("the HDMI receiver holds %s, not the recorded profile; programming the saved one", name)
 	return false
+}
+
+// heldProfileNameLocked names a shipped profile with this hash for the log.
+// Several files can hold the same EDID (the 1080p 90 Hz profile is also Auto
+// and the final video profiles): the monitor or portrait names say most.
+func heldProfileNameLocked(hash string) string {
+	files, _ := filepath.Glob(filepath.Join(monitorEDIDDir, "NanoKVM-*.bin"))
+	sort.Strings(files)
+	var names []string
+	for _, path := range files {
+		if sum, err := fileSHA256(path); err == nil && sum == hash {
+			names = append(names, filepath.Base(path))
+		}
+	}
+	if len(names) == 0 {
+		return "an EDID that is not a NanoKVM profile"
+	}
+	for _, name := range names {
+		if strings.HasPrefix(name, "NanoKVM-monitor-") || strings.HasPrefix(name, "NanoKVM-portrait-") {
+			return name
+		}
+	}
+	return names[0]
 }
 
 // A Cube receiver keeps its EDID in flash across reinstalls, and writing it

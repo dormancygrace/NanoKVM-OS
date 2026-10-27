@@ -225,6 +225,22 @@ func TestFirstStartReadsTheReceiverOncePerBoot(t *testing.T) {
 	}
 }
 
+// The log names the profile by its monitor name when several files hold it.
+func TestHeldProfileName(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	for _, name := range []string{"NanoKVM-final-video-profiles.bin", "NanoKVM-monitor-1080-90.bin", "NanoKVM-monitor-auto.bin"} {
+		if err := os.WriteFile(filepath.Join(monitorEDIDDir, name), heldEDID(), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := heldProfileNameLocked(edidHash(heldEDID())); got != "NanoKVM-monitor-1080-90.bin" {
+		t.Fatalf("named %q", got)
+	}
+	if got := heldProfileNameLocked("0"); got != "an EDID that is not a NanoKVM profile" {
+		t.Fatalf("named %q", got)
+	}
+}
+
 // The saved portrait profile is the one advertised, as in applyMonitorSettings.
 func TestProgramMonitorProfileOnFirstStartPortrait(t *testing.T) {
 	monitorState(t, 1080, true, 1920)

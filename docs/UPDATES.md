@@ -48,8 +48,10 @@ them again on first use; **Software → Packages** offers the refresh.
 ## Packages previously installed from local files
 
 Installing local `.apk` files can leave file pins in `/etc/apk/world`, keeping
-those packages at their old versions. Replace the core package selections with
-repository selections before upgrading:
+those packages at their old versions. **Install updates** in Settings takes
+NanoKVM packages pinned this way back to the repositories before it upgrades;
+other packages pinned this way are not offered there. From a shell, replace the
+core package selections with repository selections before upgrading:
 
 ```sh
 apk update

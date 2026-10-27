@@ -15,5 +15,8 @@ later builds. Upstream O3 software is retained for small inputs.
 Shared host ASan/UBSan tests cover continuation and 1944 independent EVP cases
 across 18 AES/DES/TDES block modes. Prior physical runs passed native legacy
 provider loading, all block cases, upstream DES vectors and hardware-counter
-checks. A final restricted-ISA full-stack native check is recorded separately
-when complete. These legacy algorithms are not selected for modern TLS.
+checks. The final restricted-ISA stack with the selected AES changes also passes
+all native block/digest/CTR/GCM/AEAD and upstream vector checks with DMA
+enabled and disabled, including 20,736 independent AES tail/IV cases.
+`native-final-validation.json` pins both library images and source patches.
+DES retains a 1536-byte continuation minimum as well as its initial minimum. These legacy algorithms are not selected for modern TLS.

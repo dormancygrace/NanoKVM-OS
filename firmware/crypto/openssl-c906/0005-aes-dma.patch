@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/crypto/sg2002_cipher.c
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,80 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stdint.h>
 +#include <string.h>
@@ -20,15 +20,16 @@
 +size_t ossl_sg2002_cipher(unsigned int algorithm, unsigned int mode, int enc,
 +    const unsigned char *key, size_t keylen, unsigned char *iv,
 +    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
-+    size_t len, size_t minimum)
++    size_t len, size_t minimum, size_t continuation_minimum)
 +{
-+    struct sg2002_crypto_request r = { .version = SG2002_CRYPTO_ABI };
++    struct sg2002_crypto_request r;
 +    unsigned char saved_iv[16];
 +    unsigned int block = algorithm == SG2002_ALG_DES || algorithm == SG2002_ALG_TDES ? 8 : 16;
 +    size_t done = 0;
 +    int fd;
 +
 +    if (len < minimum || minimum == 0 || minimum > SG2002_CRYPTO_MAX
++        || continuation_minimum < block || continuation_minimum > minimum
 +        || algorithm < SG2002_ALG_AES || algorithm > SG2002_ALG_SM4
 +        || mode > SG2002_MODE_CTR || keylen > sizeof(r.key)
 +        || (mode != SG2002_MODE_ECB && iv == NULL)
@@ -37,12 +38,16 @@
 +    fd = ossl_sg2002_begin(algorithm);
 +    if (fd < 0)
 +        return 0;
++    memset(&r, 0, sizeof(r));
++    r.version = SG2002_CRYPTO_ABI;
 +    r.algorithm = algorithm;
 +    r.mode = mode;
 +    r.encrypt = mode == SG2002_MODE_CTR ? 1 : enc != 0;
 +    r.key_length = (unsigned int)keylen;
 +    memcpy(r.key, key, keylen);
-+    while (len - done >= minimum) {
++    /* Only the first submission pays descriptor acquisition. A later RUN
++     * still has a fixed cost, so each algorithm supplies a separate tail floor. */
++    while (len - done >= (done ? continuation_minimum : minimum)) {
 +        size_t chunk = len - done;
 +        if (chunk > SG2002_CRYPTO_MAX)
 +            chunk = SG2002_CRYPTO_MAX;
@@ -78,19 +83,21 @@
 +}
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_sg2002.inc
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,47 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include "crypto/sg2002.h"
-+/* Selected against the indexed-load software path on the physical C906. */
-+#define SG2002_AES_BLOCK_MIN 2560
-+#define SG2002_AES_CTR_MIN 2048
++#include "cipher_aes_sg2002.h"
 +static size_t aes_sg2002_prefix(PROV_CIPHER_CTX *ctx, unsigned int mode,
 +    unsigned char *out, const unsigned char *in, size_t len)
 +{
 +    PROV_AES_CTX *a = (PROV_AES_CTX *)ctx;
++    size_t minimum = mode == SG2002_MODE_CTR
++        ? SG2002_AES_CTR_MIN : SG2002_AES_BLOCK_MIN;
++    if (len < minimum)
++        return 0;
 +    return ossl_sg2002_cipher(SG2002_ALG_AES, mode, ctx->enc,
 +        a->plat.sg2002.key, ctx->keylen, ctx->iv, 16, in, out, len,
-+        mode == SG2002_MODE_CTR ? SG2002_AES_CTR_MIN : SG2002_AES_BLOCK_MIN);
++        minimum, SG2002_AES_CONTINUE_MIN);
 +}
 +static int cipher_sg2002_aes_cbc(PROV_CIPHER_CTX *ctx, unsigned char *out,
 +    const unsigned char *in, size_t len)
@@ -126,21 +133,24 @@
 +#define AES_GENERIC_CIPHER(mode) cipher_sg2002_aes_##mode
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_gcm_sg2002.inc
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,27 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stddef.h>
 +#include <stdint.h>
 +#include "crypto/sg2002.h"
++#include "cipher_aes_sg2002.h"
 +static void aes_sg2002_gcm_ctr(const unsigned char *in, unsigned char *out,
 +    size_t blocks, const void *key, const unsigned char ivec[16])
 +{
 +    const PROV_AES_GCM_CTX *a = (const PROV_AES_GCM_CTX *)
 +        ((const unsigned char *)key - offsetof(PROV_AES_GCM_CTX, ks.ks));
 +    unsigned char iv[16], stream[16];
-+    size_t n;
++    size_t n = 0;
 +    memcpy(iv, ivec, sizeof(iv));
-+    n = ossl_sg2002_cipher(SG2002_ALG_AES, SG2002_MODE_CTR, 1,
-+        a->plat.sg2002.key, a->base.keylen, iv, 4, in, out, blocks * 16, 2048);
++    if (blocks >= SG2002_AES_CTR_MIN / 16)
++        n = ossl_sg2002_cipher(SG2002_ALG_AES, SG2002_MODE_CTR, 1,
++        a->plat.sg2002.key, a->base.keylen, iv, 4, in, out, blocks * 16,
++        SG2002_AES_CTR_MIN, SG2002_AES_CONTINUE_MIN);
 +    in += n; out += n; blocks -= n / 16;
 +    while (blocks-- != 0) {
 +        AES_encrypt(iv, stream, key);
@@ -153,7 +163,7 @@
 +}
 --- a/include/crypto/sg2002.h
 +++ b/include/crypto/sg2002.h
-@@ -1,9 +1,17 @@
+@@ -1,9 +1,18 @@
  /* SPDX-License-Identifier: Apache-2.0 */
  #ifndef OSSL_NANOKVM_SG2002_TRANSPORT_H
  #define OSSL_NANOKVM_SG2002_TRANSPORT_H
@@ -164,12 +174,13 @@
  int ossl_sg2002_run(int fd, struct sg2002_crypto_request *request);
  void ossl_sg2002_end(int fd);
 +/* Returns a committed whole-block prefix; advances IV only on success.
++ * minimum includes session setup; continuation_minimum includes only RUN.
 + * The caller resumes its original software operation over the remainder.
 + */
 +size_t ossl_sg2002_cipher(unsigned int algorithm, unsigned int mode, int enc,
 +    const unsigned char *key, size_t keylen, unsigned char *iv,
 +    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
-+    size_t len, size_t minimum);
++    size_t len, size_t minimum, size_t continuation_minimum);
  #endif
 --- a/crypto/build.info
 +++ b/crypto/build.info
@@ -258,93 +269,14 @@
      return 1;
  }
  
---- a/crypto/aes/asm/aes-riscv64.pl
-+++ b/crypto/aes/asm/aes-riscv64.pl
-@@ -152,6 +152,12 @@
-     andi    $Ts->[3],$Ts->[3],0x3FC
- 
-     # Index into table.
-+#if defined(__riscv_xtheadmemidx) && !defined(FIPS_MODULE)
-+    th.lrwu $Ds->[0],$TBL,$Ts->[0],0
-+    th.lrwu $Ds->[1],$TBL,$Ts->[1],0
-+    th.lrwu $Ds->[2],$TBL,$Ts->[2],0
-+    th.lrwu $Ds->[3],$TBL,$Ts->[3],0
-+#else
-     add     $I0,$TBL,$Ts->[0]
-     lwu     $Ds->[0],0($I0)
-     add     $I0,$TBL,$Ts->[1]
-@@ -160,6 +166,7 @@
-     lwu     $Ds->[2],0($I0)
-     add     $I0,$TBL,$Ts->[3]
-     lwu     $Ds->[3],0($I0)
+--- /dev/null
++++ b/providers/implementations/ciphers/cipher_aes_sg2002.h
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++#ifndef OSSL_NANOKVM_AES_SG2002_H
++#define OSSL_NANOKVM_AES_SG2002_H
++/* Native C906 thresholds against the extract/scaled-load software path. */
++#define SG2002_AES_BLOCK_MIN 3072
++#define SG2002_AES_CTR_MIN 2048
++#define SG2002_AES_CONTINUE_MIN 512
 +#endif
- 
- ___
- 
-@@ -171,6 +178,7 @@
- sub do_lookup_byte {
-     my $ret = do_lookup(@_);
-     $ret =~ s/lwu/lbu/g;
-+    $ret =~ s/th.lrwu/th.lrbu/g;
-     return $ret;
- }
- 
-@@ -198,6 +206,12 @@
-     andi    $Ts->[2],$Ts->[2],0xFF
-     andi    $Ts->[3],$Ts->[3],0xFF
- 
-+#if defined(__riscv_xtheadmemidx) && !defined(FIPS_MODULE)
-+    th.lrbu $Ds->[0],$TBL,$Ts->[0],0
-+    th.lrbu $Ds->[1],$TBL,$Ts->[1],0
-+    th.lrbu $Ds->[2],$TBL,$Ts->[2],0
-+    th.lrbu $Ds->[3],$TBL,$Ts->[3],0
-+#else
-     add     $I0,$TBL,$Ts->[0]
-     lbu     $Ds->[0],0($I0)
-     add     $I0,$TBL,$Ts->[1]
-@@ -206,6 +220,7 @@
-     lbu     $Ds->[2],0($I0)
-     add     $I0,$TBL,$Ts->[3]
-     lbu     $Ds->[3],0($I0)
-+#endif
- 
- ___
- 
-@@ -813,7 +828,7 @@
-     sd      $T0,0($KEYP)
-     sd      $T2,8($KEYP)
- 
--    # if bits == 128
-+    // if bits == 128
-     # jump into loop
-     beq     $BITS,$T8,1f
- 
-@@ -821,7 +836,7 @@
-     srli    $T5,$T4,32
-     sd      $T4,16($KEYP)
- 
--    # if bits == 192
-+    // if bits == 192
-     # jump into loop
-     beq     $BITS,$T9,2f
- 
---- a/crypto/aes/build.info
-+++ b/crypto/aes/build.info
-@@ -52,7 +52,7 @@
-   # aes-c64xplus.s implements AES_ctr32_encrypt
-   $AESDEF_c64xplus=AES_ASM AES_CTR_ASM
- 
--  $AESASM_riscv64=aes_cbc.c aes-riscv64.s aes-riscv64-zkn.s aes-riscv64-zvkb-zvkned.s aes-riscv64-zvkned.s aes-riscv64-zvbb-zvkg-zvkned.s
-+  $AESASM_riscv64=aes_cbc.c aes-riscv64.S aes-riscv64-zkn.s aes-riscv64-zvkb-zvkned.s aes-riscv64-zvkned.s aes-riscv64-zvbb-zvkg-zvkned.s
-   $AESDEF_riscv64=AES_ASM
-   $AESASM_riscv32=aes_core.c aes_cbc.c aes-riscv32-zkn.s
- 
-@@ -126,7 +126,7 @@
- GENERATE[aes-mips.S]=asm/aes-mips.pl
- INCLUDE[aes-mips.o]=..
- 
--GENERATE[aes-riscv64.s]=asm/aes-riscv64.pl
-+GENERATE[aes-riscv64.S]=asm/aes-riscv64.pl
- GENERATE[aes-riscv64-zkn.s]=asm/aes-riscv64-zkn.pl
- GENERATE[aes-riscv32-zkn.s]=asm/aes-riscv32-zkn.pl
- GENERATE[aes-riscv64-zvkb-zvkned.s]=asm/aes-riscv64-zvkb-zvkned.pl

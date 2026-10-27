@@ -37,7 +37,7 @@ test('keyboard/assistive activation retains the trigger as the focus return targ
   assert.equal(blurred, false);
 });
 
-async function renderComponent(path, exportName) {
+async function renderComponent(path, exportName, stateWrites = []) {
   const { readFileSync } = await import('node:fs');
   const { default: ts } = await import('typescript');
   const jsx = (type, props) => ({ type, props });
@@ -48,7 +48,7 @@ async function renderComponent(path, exportName) {
   new Function('exports', 'require', js)(exports, (name) => {
     if (name === 'react')
       return {
-        useState: (value) => [value, () => {}],
+        useState: (value) => [value, (next) => stateWrites.push(next)],
         useRef: (value) => ({ current: value }),
         useCallback: (fn) => fn,
         useEffect() {},
@@ -109,5 +109,35 @@ for (const [path, component, label] of [
     assert.equal(blurs, 1);
     trigger.props.onClick({ detail: 0, currentTarget });
     assert.equal(blurs, 1);
+  });
+}
+
+function findTooltip(node, title) {
+  if (!node || typeof node !== 'object') return;
+  if (node.props?.title === title) return node;
+  const children = node.props?.children;
+  for (const child of Array.isArray(children) ? children : [children]) {
+    const found = findTooltip(child, title);
+    if (found) return found;
+  }
+}
+
+for (const [path, component, label] of [
+  ['../src/components/menu-item.tsx', 'MenuItem', 'test-menu'],
+  ['../src/pages/desktop/menu/image/index.tsx', 'Image', 'image.title']
+]) {
+  test(component + ' rejects a delayed tooltip opening after activation', async () => {
+    const writes = [];
+    const tree = await renderComponent(path, component, writes);
+    const tooltip = findTooltip(tree, label);
+    const trigger = findTrigger(tree, label);
+    assert.equal(typeof tooltip.props.onOpenChange, 'function');
+    tooltip.props.onOpenChange(true);
+    assert.equal(writes.at(-1), true, 'closed menus still offer tooltips');
+    // Focus/hover timers can run before React commits the new open state.
+    // Use the original callback intentionally to exercise that stale closure.
+    trigger.props.onKeyDown({ key: 'Enter', preventDefault() {} });
+    tooltip.props.onOpenChange(true);
+    assert.equal(writes.at(-1), false, 'opening the panel suppresses late tooltips');
   });
 }

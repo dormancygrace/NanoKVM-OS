@@ -102,6 +102,7 @@
     "retryJoin": "重試"
   },
   "keyboard": {
+    "more": "鍵盤選項",
     "title": "鍵盤",
     "paste": "貼上",
     "tips": "僅支援標準鍵盤的字母和符號",

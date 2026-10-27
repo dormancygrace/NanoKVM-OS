@@ -102,6 +102,7 @@
     "retryJoin": "Torna-ho a provar"
   },
   "keyboard": {
+    "more": "Opcions del teclat",
     "title": "Teclat",
     "paste": "Enganxa",
     "tips": "Només es permeten lletres i símbols estàndard",

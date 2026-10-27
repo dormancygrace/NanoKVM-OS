@@ -165,6 +165,13 @@ transitions. It requires zero D writes and no internal E1 identity reads.
 Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
 fault, including no further IO after a failed attempt in the same generation.
 
+The [C906 memory test](manual/c906-memory/README.md) validates the running kernel’s
+memmove assembly on SG2002, including overlapping buffers, return values and
+unmapped page boundaries.
+
+The [C906 usercopy test](manual/c906-usercopy/README.md) validates the real raw,
+SUM-enabled and public usercopy paths, fault recovery, and pipe/socket timing.
+
 ### OpenSSL runtime transition
 
 `test-openssl-package.py` uses Alpine 3.24 with alpine-sdk, alpine-keys,

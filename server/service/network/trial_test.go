@@ -345,6 +345,8 @@ func TestNoChangeStartsWhileAnotherIsBeingUndone(t *testing.T) {
 		return active == nil
 	})
 	setEthernetOnTrial(t, `{"enabled":false,"mode":"dhcp"}`)
+	// Let the asynchronous restart finish before cleanup replaces the hooks.
+	waitApplied(t)
 	if f.read(t, trialFile) == "<absent>" {
 		t.Fatal("the next change has no record")
 	}
@@ -473,6 +475,8 @@ func TestAFailedRestoreKeepsBlockingUntilItSucceeds(t *testing.T) {
 		return active == nil
 	})
 	setEthernetOnTrial(t, `{"enabled":false,"mode":"dhcp"}`)
+	// Let the asynchronous restart finish before cleanup replaces the hooks.
+	waitApplied(t)
 }
 
 func TestARecordNobodyOwnsIsNeverReplaced(t *testing.T) {

@@ -33,13 +33,29 @@ func sanitizeTail(data []byte, truncated bool) (string, int, bool) {
 	if truncated {
 		data = trimPartialLine(data)
 	}
-	text := terminalEscape.ReplaceAllString(strings.ToValidUTF8(string(data), "�"), "")
-	text = strings.Map(func(r rune) rune {
-		if r != '\n' && r != '\t' && (unicode.IsControl(r) || unicode.Is(unicode.Cf, r)) {
-			return -1
+	text := strings.ToValidUTF8(string(data), "�")
+	// Most snapshots contain no ANSI escape sequences; avoid a regexp copy.
+	if strings.IndexByte(text, 0x1b) >= 0 {
+		text = terminalEscape.ReplaceAllString(text, "")
+	}
+	// Printable ASCII and the two retained whitespace bytes need no Unicode
+	// classification. Keep the full filter for non-ASCII and control bytes.
+	needsRuneFilter := false
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		if c >= 0x7f || c < 0x20 && c != '\n' && c != '\t' {
+			needsRuneFilter = true
+			break
 		}
-		return r
-	}, text)
+	}
+	if needsRuneFilter {
+		text = strings.Map(func(r rune) rune {
+			if r != '\n' && r != '\t' && (unicode.IsControl(r) || unicode.Is(unicode.Cf, r)) {
+				return -1
+			}
+			return r
+		}, text)
+	}
 	// Do not expose an unfinished last entry: a secret label may only arrive
 	// with the following write. It will appear at the next refresh once complete.
 	if last := strings.LastIndexByte(text, '\n'); last >= 0 {

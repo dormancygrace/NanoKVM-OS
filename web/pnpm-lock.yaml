@@ -39,8 +39,8 @@ importers:
         specifier: 4.2.0
         version: 4.2.0
       i18next:
-        specifier: 26.5.7
-        version: 26.5.7(@typescript/typescript6@6.0.2)
+        specifier: 26.5.8
+        version: 26.5.8(@typescript/typescript6@6.0.2)
       jotai:
         specifier: 3.0.1
         version: 3.0.1(@types/react@19.3.0)(react@19.3.1)
@@ -66,8 +66,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0(react@19.3.1)
       react-i18next:
-        specifier: 17.1.5
-        version: 17.1.5(@typescript/typescript6@6.0.2)(i18next@26.5.7(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 17.1.6
+        version: 17.1.6(@typescript/typescript6@6.0.2)(i18next@26.5.8(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-markdown:
         specifier: 10.1.0
         version: 10.1.0(@types/react@19.3.0)(react@19.3.1)
@@ -1971,8 +1971,8 @@ packages:
   hyphenate-style-name@1.1.0:
     resolution: {integrity: sha512-WDC/ui2VVRrz3jOVi+XtjqkDjiVjTtFaAGiW37k6b+ohyQ5wYDOGkvCZa8+H0nx3gyvv0+BST9xuOgIyGQ00gw==}
 
-  i18next@26.5.7:
-    resolution: {integrity: sha512-mY9cECbKtiOqpcB8d8ijNsiPZQoTFULehBlWXZzzURpTm9aLbE2c3T2FKdGZhdEjlTvXUGd0TvCisL06YafO0Q==}
+  i18next@26.5.8:
+    resolution: {integrity: sha512-EQx2RyhwINMekbykhZpAJQ2ILeJqnYOpRjWEkSVv45pR8yeVbb0thr2zxQ+dOo365OIb7h06BKPtt16WE8Wliw==}
     peerDependencies:
       typescript: ^5 || ^6 || ^7
     peerDependenciesMeta:
@@ -2595,8 +2595,8 @@ packages:
     peerDependencies:
       react: ^16.6.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  react-i18next@17.1.5:
-    resolution: {integrity: sha512-dRSwnd2pACasvcZXR+uP+60vW61CJKw9ZUM12B4ZucrY9SEIIsLBWgpo8UneOUXQcUtvjQmHMeOJ03Vursl1Ag==}
+  react-i18next@17.1.6:
+    resolution: {integrity: sha512-Chrt5sVco051WgQST6RA3/BePVNC6fBf9BtXhKts0i7vpGVziqyLb5IrmdNtsEYE5vJ0mEDkJHWF1Gie40khXA==}
     peerDependencies:
       i18next: '>= 26.2.0'
       react: '>= 16.8.0'
@@ -4775,7 +4775,7 @@ snapshots:
 
   hyphenate-style-name@1.1.0: {}
 
-  i18next@26.5.7(@typescript/typescript6@6.0.2):
+  i18next@26.5.8(@typescript/typescript6@6.0.2):
     optionalDependencies:
       typescript: '@typescript/typescript6@6.0.2'
 
@@ -5475,11 +5475,11 @@ snapshots:
       react-fast-compare: 3.2.2
       shallowequal: 1.1.0
 
-  react-i18next@17.1.5(@typescript/typescript6@6.0.2)(i18next@26.5.7(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+  react-i18next@17.1.6(@typescript/typescript6@6.0.2)(i18next@26.5.8(@typescript/typescript6@6.0.2))(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
       '@babel/runtime': 7.29.7
       html-parse-stringify: 4.0.1
-      i18next: 26.5.7(@typescript/typescript6@6.0.2)
+      i18next: 26.5.8(@typescript/typescript6@6.0.2)
       react: 19.3.1
       use-sync-external-store: 1.7.0(react@19.3.1)
     optionalDependencies:

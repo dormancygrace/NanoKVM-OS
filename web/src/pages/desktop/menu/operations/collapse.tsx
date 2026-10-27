@@ -12,6 +12,7 @@ export const Collapse = ({ toggleMenu }: CollapseProps) => {
   return (
     <Tooltip title={t('menu.collapse')} placement="bottom" mouseEnterDelay={0.6}>
       <div
+        data-toolbar-control
         className="flex size-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
         onClick={() => toggleMenu(false)}
       >

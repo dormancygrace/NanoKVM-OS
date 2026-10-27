@@ -102,6 +102,7 @@
     "retryJoin": "Újrapróbálkozás"
   },
   "keyboard": {
+    "more": "Billentyűzetbeállítások",
     "title": "Billentyűzet",
     "paste": "Beillesztés",
     "tips": "Csak a szabványos billentyűzet betűi és szimbólumai támogatottak",

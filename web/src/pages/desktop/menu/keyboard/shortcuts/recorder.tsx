@@ -238,7 +238,7 @@ export const Recorder = ({
                   key={shortcut.id}
                   className="flex items-center justify-between rounded p-2 hover:bg-neutral-700/50"
                 >
-                  <div className="flex items-center space-x-1">
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
                     {shortcut.keys.map((key, index) => (
                       <KbdGroup key={index}>
                         <Kbd>{key.label}</Kbd>

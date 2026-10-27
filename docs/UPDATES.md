@@ -50,8 +50,10 @@ them again on first use; **Software → Packages** offers the refresh.
 Installing local `.apk` files can leave file pins in `/etc/apk/world`, keeping
 those packages at their old versions. **Install updates** in Settings takes
 NanoKVM packages pinned this way back to the repositories before it upgrades;
-other packages pinned this way are not offered there. From a shell, replace the
-core package selections with repository selections before upgrading:
+other packages pinned this way are not offered there. Explicit version bounds
+remain intact: a bound such as `<2` or `~1.0` still offers the upgrades APK can
+install within it. From a shell, replace the core package selections with
+repository selections before upgrading:
 
 ```sh
 apk update

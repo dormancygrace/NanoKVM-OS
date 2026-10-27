@@ -226,11 +226,14 @@ jobs:
           sudo unshare -n env NANOKVM_NETNS_TEST=1 "$RUNNER_TEMP/network.test" -test.run InANetworkNamespace -test.v
       - name: Export production rollback commands
         working-directory: server
-        run: NKOS_ROLLBACK_COMMANDS="$RUNNER_TEMP/rollback-commands.json" go test ./internal/apkrollback -run TestExportIntegrationCommands -count=1
+        run: |
+          NKOS_ROLLBACK_COMMANDS="$RUNNER_TEMP/rollback-commands.json" go test ./internal/apkrollback -run TestExportIntegrationCommands -count=1
+          CGO_ENABLED=0 go test -tags teststub,nomsgpack -c -o "$RUNNER_TEMP/osupdate.test" ./osupdate
       - name: APK application split migration
         run: |
-          docker run --rm --volume "$PWD:/src:ro" --volume "$RUNNER_TEMP/rollback-commands.json:/rollback-commands.json:ro" --workdir /src alpine:3.24 sh -ec '
+          docker run --rm --volume "$PWD:/src:ro" --volume "$RUNNER_TEMP/rollback-commands.json:/rollback-commands.json:ro" --volume "$RUNNER_TEMP/osupdate.test:/osupdate.test:ro" --workdir /src alpine:3.24 sh -ec '
             apk add --no-cache python3 openssl
+            python3 tests/test-package-update-selections.py --apk /sbin/apk --worker-test /osupdate.test
             python3 tests/test-split-app-packages.py --apk /sbin/apk
             python3 tests/test-settings-recovery-apk.py --apk /sbin/apk
             python3 tests/test-release-channels-apk.py --apk /sbin/apk --commands /rollback-commands.json

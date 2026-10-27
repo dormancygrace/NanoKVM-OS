@@ -15,6 +15,7 @@ import (
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/stream"
 )
 
 var screenFileMap = map[string]string{
@@ -51,10 +52,17 @@ const maxQualityValue = common.MaxQualityValue
 // mmf_video_path): 0 none, 1 the capture, 2-7 VPSS and why. libkvm writes it
 // while frames flow; once the stream stops the file keeps its last value.
 var videoPath = func() int {
-	if common.ReadVideoValue("/run/nanokvm/now_fps") == 0 {
+	_, active := stream.ActiveEncoderConfig()
+	return currentVideoPath(active, common.ReadVideoValue)
+}
+
+func currentVideoPath(encoderActive bool, readValue func(string) int) int {
+	// now_fps falls back to MJPEG when the video stream stops. An allocated
+	// native encoder may also outlive its subscribers, so check the session.
+	if !encoderActive || readValue("/run/nanokvm/now_fps") == 0 {
 		return 0
 	}
-	return common.ReadVideoValue("/run/nanokvm/video_path")
+	return readValue("/run/nanokvm/video_path")
 }
 
 func (s *Service) GetScreen(c *gin.Context) {

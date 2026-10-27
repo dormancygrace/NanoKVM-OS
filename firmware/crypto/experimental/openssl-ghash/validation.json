@@ -1,9 +1,7 @@
 {
-  "source_commit": "5c50e393313ab885ee1e0c5958b76bb9b40dfdee",
+  "source_commit": "0c9a38a5254f78e0c5fdc136ce2a8afefbbcb2c9",
   "libraries": {
-    "production": "5aec9143c69180d94f17c0ba07868c7f2cd17a44214fc211d052836cf99843cc",
-    "instrumented": "10472b8e1bd0ac04e042dbdc267f631d9c6fa932eb49ff884f5354f7d0818648",
-    "patch": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+    "production": "db1a0776fc207c75e0f6cd2e5e15dd87b128ab6ff47e7b8cdbad1e4f60990c27"
   },
   "openssl_patches": [
     {
@@ -23,8 +21,12 @@
       "sha256": "def79f14653d6ea022d4964eb75fd67c899ed07e0c1960e9bf287a035c5a0636"
     },
     {
+      "file": "0005-aes-c906.patch",
+      "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+    },
+    {
       "file": "0005-aes-dma.patch",
-      "sha256": "76e5fbc86b014c3942e4fbd822b0bb4f60e1813dc89c71d759e5484708cb30f7"
+      "sha256": "139baa77d2aa87c69a4410e401db1f064544c8c2d76784c74c0ce94e58b5c0f2"
     },
     {
       "file": "0010-ghash-c906.patch",
@@ -56,9 +58,19 @@
     ],
     "native_fingerprints": {
       "gcm": "a2d7088437b53472",
-      "digests": "768fd5312ca481be"
+      "digests": "768fd5312ca481be",
+      "aes_tails": "bfe84c43ff49df11"
     },
     "sshd": "six normal authentication-failure responses, AES128/256-GCM and ChaCha20-Poly1305, 18/5011-byte usernames; preauth seccomp active",
-    "https": "five 16 MiB range downloads, TLS 1.2/1.3 AES128/256 plus TLS1.3 ChaCha, CA/length/SHA256 verified"
-  }
+    "https": "five 16 MiB range downloads, TLS 1.2/1.3 AES128/256 plus TLS1.3 ChaCha, CA/length/SHA256 verified",
+    "aes_tail_cases_per_profile": 20736
+  },
+  "path_test_qualification": {
+    "source_commit": "5c50e393313ab885ee1e0c5958b76bb9b40dfdee",
+    "production": "5aec9143c69180d94f17c0ba07868c7f2cd17a44214fc211d052836cf99843cc",
+    "instrumented": "10472b8e1bd0ac04e042dbdc267f631d9c6fa932eb49ff884f5354f7d0818648",
+    "ghash_patch_sha256": "6a3bf08b5031d48e2f40509a3bad7d293a4144a7392cc94a949d4a59077c88b1",
+    "note": "The instrumented entry/negative-gate qualification remains valid for the unchanged GHASH patch; selected-stack timing, SSH, TLS and correctness were repeated after the AES parent changed."
+  },
+  "exports_count": 5808
 }

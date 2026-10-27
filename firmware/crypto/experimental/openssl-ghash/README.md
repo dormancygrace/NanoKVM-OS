@@ -23,21 +23,22 @@ syscall; clients must qualify their policy before opting in.
 ## Current physical measurements
 
 OpenSSL 3.5.9, GCC 16.2, restricted C906/O3 flags, physical 1 GHz SG2002 with
-video active. Three rotated trials used the same binary, equal-length option
+video active, with the selected AES extraction/tail changes from #511.
+Three rotated trials used the same binary, equal-length option
 values and per-process disabled ASLR. Input offset is 5. Values are MiB per
 process CPU-second. `validation.json` pins source, patches and binaries;
 `native-results.jsonl` contains all samples and `native-medians.csv` the medians.
 
 | Operation | Bytes | Generic, DMA off | C906, DMA off | Generic, DMA on | C906, DMA on |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| GHASH | 1024 | 28.563 | 28.521 | 28.537 | 28.607 |
-| GHASH | 3072 | 28.559 | 39.727 | 28.616 | 39.685 |
-| GHASH | 16384 | 28.576 | 42.654 | 28.593 | 42.673 |
-| AES-128-GCM open | 16384 | 10.019 | 10.737 | 14.313 | 14.631 |
-| AES-256-GCM open | 16384 | 8.254 | 8.770 | 13.637 | 14.074 |
+| GHASH | 1024 | 28.568 | 28.625 | 28.577 | 28.518 |
+| GHASH | 3072 | 28.638 | 39.710 | 28.638 | 39.766 |
+| GHASH | 16384 | 28.550 | 42.785 | 28.649 | 42.788 |
+| AES-128-GCM open | 16384 | 11.256 | 12.376 | 14.079 | 14.564 |
+| AES-256-GCM open | 16384 | 9.489 | 10.266 | 13.730 | 14.238 |
 
 At 16 KiB GHASH alone gains about 49%; full software AES-128/256-GCM gains
-7.2%/6.2%. With the parent's AES DMA enabled, full-GCM gains are 2.2%/3.2%.
+10.0%/8.2%. With the parent's AES DMA enabled, full-GCM gains are 3.4%/3.7%.
 No small-record gain or HTTPS throughput gain is claimed. These results replace
 the earlier CPU-info/broad-ISA measurements. An intermediate restricted-ISA
 build accidentally excluded the integration through a compiler macro; the
@@ -59,9 +60,12 @@ frames total 1376 bytes plus callers. See `native-memory.txt` for raw readings.
 - `verify-path.c` checks 32 boundaries/alignment cases against test-only atomic
   counters at the actual assembly entry: 12 hits with opt-in, zero with generic,
   thread vectors off, or default policy under a fatal syscall filter.
+  That test-library qualification is pinned separately in `validation.json`;
+  the GHASH patch is unchanged in the selected-parent integration run.
   Production retains 5808 dynamic definitions and no counter exports.
 - Native DMA on/off, generic and vector-off profiles each passed 408 AEAD,
-  2160 extended GCM, 288 CTR-carry and 864 SHA streaming/copy cases. GCM's
+  2160 extended GCM, 288 CTR-carry, 864 SHA streaming/copy and 20,736 AES
+  tail/output/IV cases. GCM's
   independent ciphertext/tag fingerprint is `a2d7088437b53472`.
 - A separate loopback OpenSSH listener, with preauth seccomp active, handled
   short and 5011-byte authentication requests over AES-128/256-GCM and ChaCha20.

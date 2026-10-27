@@ -1,0 +1,43 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] zram: batch same-filled page stores for C906
+
+Fill eight machine words per iteration so the C906 compiler can use paired
+stores. Retain the tail for word-aligned lengths smaller than one group.
+A larger unroll regresses on cold pages, while changing the same-filled
+detector did not improve the measured block I/O workload.
+
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+diff --git a/drivers/block/zram/zram_drv.c b/drivers/block/zram/zram_drv.c
+--- a/drivers/block/zram/zram_drv.c
++++ b/drivers/block/zram/zram_drv.c
+@@ -324,10 +324,26 @@
+ #endif
+ 
+ static inline void zram_fill_page(void *ptr, unsigned long len,
+-					unsigned long value)
+-{
++				  unsigned long value)
++{
++	unsigned long *words = ptr;
++	unsigned long count = len / sizeof(*words);
++
+ 	WARN_ON_ONCE(!IS_ALIGNED(len, sizeof(unsigned long)));
+-	memset_l(ptr, value, len / sizeof(unsigned long));
++	while (count >= 8) {
++		words[0] = value;
++		words[1] = value;
++		words[2] = value;
++		words[3] = value;
++		words[4] = value;
++		words[5] = value;
++		words[6] = value;
++		words[7] = value;
++		words += 8;
++		count -= 8;
++	}
++	while (count--)
++		*words++ = value;
+ }
+ 
+ static bool page_same_filled(void *ptr, unsigned long *element)

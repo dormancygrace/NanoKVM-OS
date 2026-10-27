@@ -17,7 +17,7 @@ import nanokvm_cpu_profile  # noqa: E402
 
 class NativeBundleABITests(unittest.TestCase):
     def check_bundle(self, old_capture=False, old_mmf=False, old_dependency=False,
-                     expected=None):
+                     expected=None, reclaim_query=False, missing_reclaim=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             libraries = root / 'libraries'
@@ -44,6 +44,11 @@ class NativeBundleABITests(unittest.TestCase):
                     'void mmf_vi_drop_pending(void) {}\n',
                 **{name: 'void unused(void) {}\n' for name in ('ae', 'awb', 'af', 'isp_algo')},
             }
+            if reclaim_query:
+                sources['kvm'] += ('extern int mmf_vi_has_pending_pool(void);\n'
+                                   'int kvmv_capture_reclaim_pending(void) { return mmf_vi_has_pending_pool(); }\n')
+                if not missing_reclaim:
+                    sources['kvm_mmf'] += 'int mmf_vi_has_pending_pool(void) { return 0; }\n'
             for name, source in sources.items():
                 c = root / f'{name}.c'
                 c.write_text(source)
@@ -95,6 +100,13 @@ class NativeBundleABITests(unittest.TestCase):
     def test_capture_still_importing_old_mmf_is_rejected(self):
         self.check_bundle(old_dependency=True,
                           expected='libkvm.so does not require mmf_add_venc_channel_v2')
+
+    def test_reclaim_query_bundle_reaches_go(self):
+        self.check_bundle(reclaim_query=True)
+
+    def test_reclaim_query_rejects_old_mmf(self):
+        self.check_bundle(reclaim_query=True, missing_reclaim=True,
+                          expected='libkvm_mmf.so is missing mmf_vi_has_pending_pool')
 
     def test_matching_bundle_reaches_go(self):
         self.check_bundle()

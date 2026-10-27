@@ -43,8 +43,9 @@ sources = sorted((mpi / 'sample/common').glob('*.c'))
 sources += [sensor / 'common/sensor_list.c']
 sources += sorted((sensor / 'sensor/cv182x/lontium_lt6911').glob('*.c'))
 sources += [inih / 'ini.c', repo / 'firmware/mpi/nanokvm_capture_size.c',
+            repo / 'firmware/mpi/nanokvm_vi_buffering.c',
             repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp']
-if len(sources) != 20 or len({path.stem for path in sources}) != len(sources):
+if len(sources) != 21 or len({path.stem for path in sources}) != len(sources):
     raise SystemExit('Unexpected MMF source set; review before updating the build')
 names = ['sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'venc', 'vdec', 'misc',
          'isp', 'isp_algo', 'ae', 'awb', 'af', 'cvi_bin', 'cvi_bin_isp']

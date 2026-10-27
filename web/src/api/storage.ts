@@ -75,6 +75,27 @@ export function disableNetboot() {
   return http.post('/api/storage/netboot/disable');
 }
 
+export type RemoteMediaStatus = {
+  connected: boolean;
+  source?: 'browser' | 'http' | 'smb';
+  mounted?: boolean;
+  name?: string;
+  size?: number;
+  readBytes?: number;
+  error?: string;
+};
+export function connectHTTPImage(options: { url: string; username: string; password: string }) {
+  return http.post('/api/storage/remote/http', options, { sensitive: true });
+}
+export function connectSMBImage(options: {
+  url: string;
+  username: string;
+  password: string;
+  domain: string;
+}) {
+  return http.post('/api/storage/remote/smb', options, { sensitive: true });
+}
+
 export function getRemoteMedia() {
   return http.get('/api/storage/remote');
 }

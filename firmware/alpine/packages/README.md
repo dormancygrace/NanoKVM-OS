@@ -201,7 +201,7 @@ its own later versions.
 
 - RustDesk: `addons/rustdesk`, built and released by the RustDesk add-on
   workflow (`.github/workflows/rustdesk.yml`).
-- A Go program of `server/` (IPMI): a recipe `NAME/addon.json` here (version,
+- A Go program in its own module (IPMI): a recipe `addons/ipmi/addon.json` (version,
   minimum OS release, metadata, the program, files, lifecycle scripts,
   licenses), built by
   `scripts/build-addon.py` and released by the add-on release workflow

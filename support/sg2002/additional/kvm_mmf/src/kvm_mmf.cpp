@@ -1,4 +1,5 @@
 #include "internal/capture_rate.hpp"
+#include "nanokvm_vi_buffering.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -57,7 +58,9 @@ typedef struct {
 	bool vi_chn_stopping[MMF_VI_MAX_CHN];
 	bool vi_chn_disabled[MMF_VI_MAX_CHN];
 	bool vi_source_bound;  // the one VI source is bound to VPSS group 0
+	bool vpss_chn_enabled[MMF_VI_MAX_CHN]; // successful vendor enable/disable state
 	int vi_chn_pool_id[MMF_VI_MAX_CHN];
+	bool vi_pool_detached[MMF_VI_MAX_CHN], vi_pool_reclaimed[MMF_VI_MAX_CHN];
     int vi_buffers[MMF_VI_MAX_CHN], vi_queue_depth[MMF_VI_MAX_CHN];
 	SIZE_S vi_size;
 	VIDEO_FRAME_INFO_S vi_frame[MMF_VI_MAX_CHN];
@@ -475,6 +478,9 @@ int mmf_vi_yuv420_pending(void)
  * Keep the former zero-copy hook's frame lifetime in the MMF implementation.
  * A frame released by the image path stays leased until VENC has consumed it.
  */
+static int _mmf_reclaim_disabled_pool(int ch);
+static int _mmf_restore_vpss_pool(int ch);
+
 static int _mmf_release_vi_frame(int ch)
 {
  if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
@@ -504,11 +510,14 @@ static int _mmf_release_vi_frame(int ch)
    ? "CVI_VI_ReleaseChnFrame" : "CVI_VPSS_ReleaseChnFrame", ch, released);
   return released;
  }
+ const bool reclaim_pool = frame->stVFrame.enPixelFormat != PIXEL_FORMAT_NV16;
  memset(frame, 0, sizeof(*frame));
  vi_frame_from_vi[ch] = false;
  priv.vi_frame_valid[ch] = false;
  priv.vi_frame_mapped[ch] = false;
  priv.vi_frame_deferred[ch] = false;
+ // NV16 JPEG releases may run outside vi_mutex; its pool stays with its owner.
+ if (reclaim_pool) _mmf_reclaim_disabled_pool(ch);
  return CVI_SUCCESS;
 }
 
@@ -521,12 +530,54 @@ static bool _vpss_thins(const VPSS_CHN_ATTR_S *attr)
 		&& attr->stFrameRate.s32DstFrameRate < attr->stFrameRate.s32SrcFrameRate;
 }
 
+// Binding is shared by every VPSS output, including MJPEG and CPU readers.
+// A disabled output still receives a VI reference while bound; the VPSS worker
+// returns it asynchronously even with no work, delaying the VI buffer refill.
+static int _mmf_vi_bind_vpss(bool bind)
+{
+	if (priv.vi_source_bound == bind) return CVI_SUCCESS;
+	const int result = bind ? SAMPLE_COMM_VI_Bind_VPSS(0, 0, 0)
+		: SAMPLE_COMM_VI_UnBind_VPSS(0, 0, 0);
+	if (result == CVI_SUCCESS) priv.vi_source_bound = bind;
+	else SAMPLE_PRT("VI %s VPSS failed: %#x\n", bind ? "bind" : "unbind", result);
+	return result;
+}
+
+static int _mmf_vpss_set_chn_enabled(int ch, bool enable)
+{
+	if (enable && priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch]) {
+		const int restored = _mmf_restore_vpss_pool(ch);
+		if (restored != CVI_SUCCESS) return restored;
+	}
+	bool another_enabled = false;
+	for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
+		if (i != ch) another_enabled |= priv.vpss_chn_enabled[i];
+	const bool was_bound = priv.vi_source_bound;
+	// Stop feeding the last output before disabling it. Restore the input
+	// before enabling a consumer; a failed bind leaves its previous path usable.
+	int result = _mmf_vi_bind_vpss(enable || another_enabled);
+	if (result != CVI_SUCCESS) return result;
+	if (priv.vpss_chn_enabled[ch] == enable) {
+		if (!enable) _mmf_reclaim_disabled_pool(ch);
+		return CVI_SUCCESS;
+	}
+	result = enable ? CVI_VPSS_EnableChn(0, ch) : CVI_VPSS_DisableChn(0, ch);
+	if (result != CVI_SUCCESS) {
+		// A failed rollback keeps the actual binding state for the next retry.
+		_mmf_vi_bind_vpss(was_bound);
+		return result;
+	}
+	priv.vpss_chn_enabled[ch] = enable;
+	if (!enable) _mmf_reclaim_disabled_pool(ch);
+	return CVI_SUCCESS;
+}
+
 // Turn VI-direct capture on or off for one VPSS output. On: the output must be
 // NV21 at the VI size without mirror or flip (VPSS would have applied them);
 // its VPSS channel is disabled so a full queue there cannot stall the group.
 // The VI channel attributes stay untouched: CVI_VI_SetChnAttr on a running VI
-// bound to VPSS stops its frames for good (stand, 2026-10-20). With depth 0,
-// CVI_VI_GetChnFrame still returns the next finished frame (base snap job).
+// bound to VPSS stops its frames for good (stand, 2026-10-20). The startup
+// policy keeps at most one latest frame; UHD still uses next-frame snap jobs.
 static int _mmf_vi_direct_set(int ch, bool on)
 {
 	if (ch < 0 || ch >= MMF_VI_MAX_CHN || vi_direct[ch] == on) return CVI_SUCCESS;
@@ -541,12 +592,12 @@ static int _mmf_vi_direct_set(int ch, bool on)
 			|| _vpss_thins(&attr)
 			|| attr.u32Width != vi.stSize.u32Width || attr.u32Height != vi.stSize.u32Height)
 			return CVI_FAILURE;
-		const int result = CVI_VPSS_DisableChn(0, ch);
+		const int result = _mmf_vpss_set_chn_enabled(ch, false);
 		if (result != CVI_SUCCESS) return result;
 	} else {
 		// A VI lease still held by an encoder is released by its source tag.
 		if (priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch] && !priv.vi_chn_disabled[ch]) {
-			const int result = CVI_VPSS_EnableChn(0, ch);
+			const int result = _mmf_vpss_set_chn_enabled(ch, true);
 			if (result != CVI_SUCCESS) return result;
 		}
 	}
@@ -615,12 +666,13 @@ static void _mmf_vi_direct_off_all(void)
 // format of its first frame, so its next frame fails and the caller creates
 // a new encoder, which starts with the other path (one key frame). The
 // capture mode follows the video encoder too (setting, stream rate).
-static void _mmf_vi_direct_recheck(void)
+static void _mmf_vi_direct_recheck(uint64_t now = venc_now_us())
 {
 	static uint64_t last_us;
-	const uint64_t now = venc_now_us();
 	if (now - last_us < 1000000) return;
 	last_us = now;
+	// A late VPSS job may have kept a disabled pool busy on its first reclaim.
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) _mmf_reclaim_disabled_pool(ch);
 	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
 		if (priv.venc[ch].is_inited && (priv.venc[ch].type == 1 || priv.venc[ch].type == 2)) {
 			_mmf_vi_yuv420_follow(&priv.venc[ch].cfg);
@@ -847,6 +899,63 @@ static int _destroy_vb_pool(uint32_t pool_id)
 	return 0;
 }
 
+// A disabled output has no VPSS producer. Return its private pool after the
+// last old VPSS lease, without touching the common pool used by VI/VENC.
+// Called on the capture lock; NV16 JPEG's independent release does not enter.
+static int _mmf_reclaim_disabled_pool(int ch)
+{
+    if (!priv.vi_chn_is_inited[ch] || priv.vi_chn_stopping[ch]
+        || priv.vpss_chn_enabled[ch] || priv.vi_pool_reclaimed[ch]
+        || (priv.vi_frame_valid[ch] && !vi_frame_from_vi[ch])) return CVI_SUCCESS;
+    const int pool = priv.vi_chn_pool_id[ch];
+    if (pool == (int)VB_INVALID_POOLID) return CVI_SUCCESS;
+    if (!priv.vi_pool_detached[ch]) {
+        const int result = CVI_VPSS_DetachVbPool(0, ch);
+        if (result != CVI_SUCCESS) return result;
+        priv.vi_pool_detached[ch] = true;
+    }
+    const int result = _destroy_vb_pool(pool);
+    if (result != CVI_SUCCESS) return result; // retain ownership for retry
+    priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
+    priv.vi_pool_detached[ch] = false;
+    priv.vi_pool_reclaimed[ch] = true;
+    return CVI_SUCCESS;
+}
+
+int mmf_vi_has_pending_pool(void)
+{
+    for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
+        if (priv.vi_chn_is_inited[ch] && !priv.vi_chn_stopping[ch]
+            && !priv.vpss_chn_enabled[ch] && !priv.vi_pool_reclaimed[ch]
+            && priv.vi_chn_pool_id[ch] != (int)VB_INVALID_POOLID) return 1;
+    }
+    return 0;
+}
+
+static int _mmf_restore_vpss_pool(int ch)
+{
+    if (!priv.vi_pool_reclaimed[ch] && !priv.vi_pool_detached[ch]) return CVI_SUCCESS;
+    if (priv.vi_chn_pool_id[ch] == (int)VB_INVALID_POOLID) {
+        VPSS_CHN_ATTR_S attr;
+        const int result = CVI_VPSS_GetChnAttr(0, ch, &attr);
+        if (result != CVI_SUCCESS) return result;
+        const uint32_t size = COMMON_GetPicBufferSize(attr.u32Width, attr.u32Height,
+            attr.enPixelFormat, DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
+        int pool = _create_vb_pool(size, priv.vi_buffers[ch]);
+        if (pool < 0 && priv.vi_buffers[ch] > 3) pool = _create_vb_pool(size, 3);
+        if (pool < 0 && priv.vi_buffers[ch] > 2) pool = _create_vb_pool(size, 2);
+        if (pool < 0) return CVI_FAILURE;
+        priv.vi_chn_pool_id[ch] = pool;
+        priv.vi_pool_reclaimed[ch] = false;
+        priv.vi_pool_detached[ch] = true;
+    }
+    const int result = CVI_VPSS_AttachVbPool(0, ch, priv.vi_chn_pool_id[ch]);
+    if (result != CVI_SUCCESS) return result; // the channel still owns this pool
+    priv.vi_pool_detached[ch] = false;
+    priv.vi_pool_reclaimed[ch] = false;
+    return CVI_SUCCESS;
+}
+
 static SAMPLE_VI_CONFIG_S g_stViConfig;
 static int mmf_vi_deinit(void);
 static int mmf_del_vi_channel_all(void);
@@ -881,6 +990,7 @@ static CVI_S32 _mmf_free_frame(VIDEO_FRAME_INFO_S *frame)
 
 static void _mmf_sys_exit(void)
 {
+	nanokvm_vi_reset_buffering();
 	if (g_stViConfig.s32WorkingViNum != 0) {
 		SAMPLE_COMM_VI_DestroyIsp(&g_stViConfig);
 		SAMPLE_COMM_VI_DestroyVi(&g_stViConfig);
@@ -904,13 +1014,9 @@ static CVI_S32 _mmf_sys_init(SIZE_S stSize)
 		DATA_BITWIDTH_8, enCompressMode, DEFAULT_ALIGN);
 	u32BlkSize = MAX(u32BlkSize, u32BlkRotSize);
 	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkSize	= u32BlkSize;
-	// Up to 2560x1440 three source surfaces: a video stream straight from
-	// capture holds one in the encoder and one pre-submitted while the VPSS
-	// reads a third for MJPEG's own output (with two, the VI had none to
-	// write and dropped frames). Above that MJPEG is refused and two keep the
-	// producer/VPSS overlap.
-	stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt =
-		(CVI_U64)stSize.u32Width * stSize.u32Height > 2560ULL * 1440 ? 2 : 3;
+    // Snapshot geometry and CMA once; the VI startup consumes this same decision.
+    const auto buffering = nanokvm_vi_configure_buffering(stSize.u32Width, stSize.u32Height);
+    stVbConf.astCommPool[MMF_VB_VI_ID].u32BlkCnt = buffering.source_buffers;
 	stVbConf.astCommPool[MMF_VB_VI_ID].enRemapMode	= VB_REMAP_MODE_CACHED;
 	stVbConf.u32MaxPoolCnt = 1;
 
@@ -1279,12 +1385,15 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 		return CVI_FAILURE;
 	}
 
+	priv.vpss_chn_enabled[VpssChn] = true;
 	return s32Ret;
 }
 
 static CVI_S32 _mmf_vpss_chn_deinit(VPSS_GRP VpssGrp, VPSS_CHN VpssChn)
 {
-	return CVI_VPSS_DisableChn(VpssGrp, VpssChn);
+	const int result = CVI_VPSS_DisableChn(VpssGrp, VpssChn);
+	if (result == CVI_SUCCESS) priv.vpss_chn_enabled[VpssChn] = false;
+	return result;
 }
 
 static CVI_S32 _mmf_vpss_init_new(VPSS_GRP VpssGrp, CVI_U32 width, CVI_U32 height, PIXEL_FORMAT_E format)
@@ -1383,9 +1492,6 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
   if (priv.vi_chn_stopping[i]) return CVI_ERR_VENC_BUSY;
 	uint32_t pool_size_out = 0;
 	int pool_id = -1;
-	// VI has one source channel. The index here selects a VPSS output, not VI.
-	bool another_output = false;
-	for (int i = 0; i < MMF_VI_MAX_CHN; ++i) another_output |= priv.vi_chn_is_inited[i];
 
 	if (!priv.mmf_used_cnt) {
 		printf("%s: maix multi-media or vi not inited\n", __func__);
@@ -1441,8 +1547,9 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
  priv.vi_chn_stopping[ch] = true;
  priv.vi_chn_disabled[ch] = false;
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
- s32Ret = another_output ? CVI_SUCCESS : SAMPLE_COMM_VI_Bind_VPSS(0, 0, 0);
- if (s32Ret == CVI_SUCCESS) priv.vi_source_bound = true;
+ priv.vi_pool_detached[ch] = priv.vi_pool_reclaimed[ch] = false;
+ // An existing direct output may have disconnected the shared input.
+ s32Ret = _mmf_vi_bind_vpss(true);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("vi bind vpss failed. s32Ret: 0x%x !\n", s32Ret);
 		goto _need_deinit_vpss_chn;
@@ -1493,28 +1600,20 @@ int mmf_del_vi_channel(int ch) {
  priv.vi_chn_stopping[ch] = true;
  int result = _mmf_release_vi_frame(ch);
  if (result != CVI_SUCCESS) return result;
- if (vi_direct[ch]) {
-  vi_direct[ch] = false; // the VPSS channel is torn down below anyway
-  vi_direct_venc = -1;
- }
- vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
- // VI has one source; it stays bound while another VPSS output is open.
- bool another_output = false;
- for (int i = 0; i < MMF_VI_MAX_CHN; ++i)
-  if (i != ch) another_output |= priv.vi_chn_is_inited[i];
- if (!another_output && priv.vi_source_bound) {
-  result = SAMPLE_COMM_VI_UnBind_VPSS(0, 0, 0);
-  if (result != CVI_SUCCESS) return result;
-  priv.vi_source_bound = false;
- }
  if (!priv.vi_chn_disabled[ch]) {
-  result = _mmf_vpss_chn_deinit(0, ch);
+  result = _mmf_vpss_set_chn_enabled(ch, false);
   if (result != CVI_SUCCESS) return result;
   priv.vi_chn_disabled[ch] = true;
  }
+ if (vi_direct[ch]) {
+  vi_direct[ch] = false;
+  vi_direct_venc = -1;
+ }
+ vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
  result = _destroy_vb_pool(priv.vi_chn_pool_id[ch]);
  if (result != CVI_SUCCESS) return result;
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
+ priv.vi_pool_detached[ch] = priv.vi_pool_reclaimed[ch] = false;
  priv.vi_chn_is_inited[ch] = false;
  priv.vi_chn_stopping[ch] = false;
  priv.vi_chn_disabled[ch] = false;
@@ -1582,8 +1681,8 @@ int mmf_vi_frame_pop_nv21(int ch, mmf_nv21_view_t *view)
 
 int mmf_vi_chn_set_enabled(int ch, int enable) {
     if (!mmf_vi_chn_is_open(ch)) return CVI_FAILURE;
-    if (vi_direct[ch]) return CVI_SUCCESS; // its VPSS channel stays off meanwhile
-    return enable ? CVI_VPSS_EnableChn(0, ch) : CVI_VPSS_DisableChn(0, ch);
+    // Direct readers have no VPSS demand, even when their capture is enabled.
+    return _mmf_vpss_set_chn_enabled(ch, enable && !vi_direct[ch]);
 }
 
 int mmf_vi_drop_pending(int ch) {
@@ -1596,10 +1695,8 @@ int mmf_vi_drop_pending(int ch) {
     // failure: the leasing consumer is mid-frame and releases it itself.
     if (priv.vi_frame_valid[ch]) return MMF_VI_OUTPUT_LEASED;
     VIDEO_FRAME_INFO_S *frame = &priv.vi_frame[ch];
-    // An output straight from capture queues nothing (VI depth 0: a read
-    // takes the next finished frame). Taking one here only threw away the
-    // video stream's next frame, once per MJPEG read, and an empty read logs
-    // a VI error each time.
+    // A direct output owns the video reader's latest/next VI frame. Draining
+    // it here would discard that frame once per MJPEG read.
     if (vi_direct[ch]) return CVI_SUCCESS;
     const int result = CVI_VPSS_GetChnFrame(0, ch, frame, 0);
     if (result == CVI_ERR_VPSS_BUF_EMPTY) return CVI_SUCCESS;

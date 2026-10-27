@@ -4,6 +4,13 @@ import { notifyAuthExpired, notifyPasswordChangeRequired } from '@/lib/auth-even
 import { isHandledRequestError, passwordChangeRequiredCode } from '@/lib/request-error.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    // Suppress diagnostics containing credentials or signed URLs in request data.
+    sensitive?: boolean;
+  }
+}
+
 type Response = {
   code: number;
   msg: string;
@@ -41,7 +48,7 @@ class Http {
       },
       (error) => {
         // Aborts, session expiry and the password redirect are expected.
-        if (!isHandledRequestError(error)) console.log(error);
+        if (!isHandledRequestError(error) && !error.config?.sensitive) console.log(error);
         const code = error.response?.status;
         if (code === 401) {
           notifyAuthExpired();

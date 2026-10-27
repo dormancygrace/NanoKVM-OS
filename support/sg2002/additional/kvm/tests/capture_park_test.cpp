@@ -88,7 +88,7 @@ void basics() {
     assert(set(park, out, false) == 0 && out.enabled);   // resume when running: no-op
     assert(set(park, out, true) == 0);
     assert(park.parked() && !out.enabled && out.retired == 1);
-    assert(set(park, out, true) == 0 && out.retired == 1); // park when parked: no-op
+    assert(set(park, out, true) == 0 && out.retired == 1); // retry without retiring again
     assert(set(park, out, false) == 0);
     assert(!park.parked() && out.enabled);
 
@@ -117,6 +117,20 @@ void failures() {
     assert(out.enabled && !park.parked());
     out.disable_error = 0;
     assert(set(park, out, true) == 0 && !out.enabled && park.parked());
+}
+
+void repeated_park_retries_without_resuming() {
+    CapturePark park;
+    Outputs out;
+    int attempts = 0;
+    out.on_disable = [&] { ++attempts; };
+    assert(set(park, out, true) == 0 && attempts == 1);
+    out.disable_error = 9;
+    assert(set(park, out, true) == 9 && attempts == 2);
+    assert(park.parked() && !out.enabled && out.retired == 1);
+    out.disable_error = 0;
+    assert(set(park, out, true) == 0 && attempts == 3);
+    assert(park.parked() && !out.enabled && out.retired == 1);
 }
 
 // Review: parked; the detector restarts and is about to disable the new
@@ -180,6 +194,7 @@ void legacy_loses_resume() {
 int main() {
     basics();
     failures();
+    repeated_park_retries_without_resuming();
     viewer_resumes_during_restart(false);
     viewer_resumes_during_restart(true);
     restart_after_resume();

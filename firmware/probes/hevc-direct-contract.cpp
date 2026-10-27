@@ -1,9 +1,15 @@
 // Fault injection of the production VI-direct state and leases; no hardware.
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
 #include <cassert>
+CVI_S32 CVI_VB_DestroyPool(VB_POOL) { abort(); }
+VB_POOL CVI_VB_CreatePool(VB_POOL_CONFIG_S *) { abort(); }
+CVI_S32 CVI_VPSS_DetachVbPool(VPSS_GRP, VPSS_CHN) { abort(); }
+CVI_S32 CVI_VPSS_AttachVbPool(VPSS_GRP, VPSS_CHN, VB_POOL) { abort(); }
 static int disable_error, enable_error, release_error, vi_releases, vpss_releases;
 static VIDEO_FRAME_INFO_S input;
 static VPSS_CHN_ATTR_S output;
+CVI_S32 SAMPLE_COMM_VI_Bind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { return 0; }
+CVI_S32 SAMPLE_COMM_VI_UnBind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { return 0; }
 CVI_S32 CVI_VI_GetChnAttr(VI_PIPE, VI_CHN, VI_CHN_ATTR_S *a) {
     *a = {}; a->stSize = {1080,1920}; return 0;
 }
@@ -27,6 +33,8 @@ extern "C" FILE *__wrap_fopen(const char *path, const char *) {
 int main(int argc, char **argv) {
     assert(argc==2);
     priv={}; priv.vi_chn_is_inited[0]=true;
+    for (int i = 0; i < MMF_VI_MAX_CHN; ++i) priv.vi_chn_pool_id[i] = VB_INVALID_POOLID;
+    priv.vpss_chn_enabled[0]=true; priv.vi_source_bound=true;
     output={}; output.enPixelFormat=PIXEL_FORMAT_NV21;
     output.u32Width=1080; output.u32Height=1920;
     if (strcmp(argv[1],"switch")==0) {

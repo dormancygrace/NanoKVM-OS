@@ -62,6 +62,13 @@ jobs:
           du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
 
+      - name: Check native capture contracts
+        run: |
+          python3 tests/test-mjpeg-native-contracts.py --mpi "$OUT/native/src/cvi_mpi" \
+            --sensor "$OUT/native/src/sensors" --output "$RUNNER_TEMP/native-contracts"
+          python3 tests/test-mjpeg-native-contracts.py --mpi "$OUT/native/src/cvi_mpi" \
+            --sensor "$OUT/native/src/sensors" --output "$RUNNER_TEMP/native-contracts-sanitize" --sanitize
+
       - name: Check kernel configuration guard
         run: |
           python3 tests/test-kernel-config.py --source "$OUT/kernel/src" \

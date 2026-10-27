@@ -41,13 +41,20 @@ required_native_symbols = {
 required_native_dependencies = {
     'libkvm.so': {'mmf_add_venc_channel_v2', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
+native_exports = {}
 for library, required in required_native_symbols.items():
     output = subprocess.check_output(
         [cross+'nm', '-D', '--defined-only', str(sources[library])], text=True)
     defined = {line.split()[-1] for line in output.splitlines() if line.split()}
+    native_exports[library] = defined
     missing = sorted(required - defined)
     if missing:
         p.error(f'Native bundle mismatch: {library} is missing {", ".join(missing)}')
+# The optional park-status query adds a capture -> MMF dependency.
+# Older complete bundles remain supported through the Go dlsym fallback.
+if ('kvmv_capture_reclaim_pending' in native_exports['libkvm.so']
+        and 'mmf_vi_has_pending_pool' not in native_exports['libkvm_mmf.so']):
+    p.error('Native bundle mismatch: libkvm_mmf.so is missing mmf_vi_has_pending_pool')
 for library, required in required_native_dependencies.items():
     output = subprocess.check_output(
         [cross+'nm', '-D', '--undefined-only', str(sources[library])], text=True)

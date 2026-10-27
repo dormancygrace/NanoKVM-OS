@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/contexts/auth';
 import { Alert, Button, Spin, Splitter } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { createPortal } from 'react-dom';
@@ -134,15 +135,22 @@ export const Desktop = () => {
     [picoclawHost]
   );
   const [activeVideoMode, setActiveVideoMode] = useState(getVideoMode);
-  // Without a choice of its own, this browser waits for the device transport.
-  const [videoModeKnown, setVideoModeKnown] = useState(() => storage.getVideoMode() !== null);
+  // An administrator's transport is the device transport: it follows a change
+  // made elsewhere (another browser, RustDesk). Other users keep their own
+  // choice. Without one, a browser waits for the device transport.
+  const admin = useAuth().account.role === 'admin';
+  const [videoModeKnown, setVideoModeKnown] = useState(
+    () => !admin && storage.getVideoMode() !== null
+  );
   useEffect(() => {
     if (videoModeKnown) return;
     let active = true;
     getVideoCapabilities()
       .then((rsp) => {
         const mode = rsp.code === 0 ? deviceVideoMode(rsp.data?.stream?.transport) : null;
-        if (active && mode) setActiveVideoMode(mode);
+        if (!active || !mode) return;
+        setActiveVideoMode(mode);
+        if (admin) storage.setVideoMode(mode);
       })
       .catch(() => {})
       .finally(() => {
@@ -151,7 +159,7 @@ export const Desktop = () => {
     return () => {
       active = false;
     };
-  }, [videoModeKnown]);
+  }, [admin, videoModeKnown]);
   const [mjpegRefused, setMjpegRefused] = useState(false);
   const [encoderReady, setEncoderReady] = useState(false);
   const [encoderError, setEncoderError] = useState<string | null>(null);

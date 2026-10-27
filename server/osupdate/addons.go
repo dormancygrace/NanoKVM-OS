@@ -12,10 +12,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"NanoKVM-Server/internal/apkrollback"
 )
 
 // Add-ons are the packages of the NanoKVM repository that are not part of the
-// OS: every nanokvm-* package outside nanokvm-release and its dependencies.
+// OS: every nanokvm-* package outside nanokvm-release and its dependencies, those
+// of the installed release and those of the release the index offers.
 // The update check stores them from the index it has just fetched, so a new
 // add-on appears on the Add-ons page with the next daily check, without an OS
 // release. An add-on states the first OS release it works with as the
@@ -56,10 +59,59 @@ type storedCatalog struct {
 
 var addonPackage = regexp.MustCompile(`^nanokvm-[a-z0-9][a-z0-9+_.-]{0,119}$`)
 
-// The OS packages before the first list since boot names them.
-var knownCore = []string{"nanokvm", "nanokvm-release", "nanokvm-app", "nanokvm-web", "nanokvm-base",
-	"nanokvm-keys", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002",
-	"nanokvm-bootloader-sg2002", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-exfatprogs", "nanokvm-i2c-tools"}
+// The OS packages of this server's release, for a device whose package database
+// has no installed nanokvm-release to read them from.
+var knownCore = apkrollback.CorePackages
+
+// addonCorePackages: nanokvm-release and its dependencies, those of the
+// installed release (the package database) and those of the indexed one
+// (catalogCore). The installed release keeps an OS package that a cached index
+// of an older release does not know yet out of the add-ons, and a package that
+// a later release moved out of the OS is an add-on once that release is
+// installed.
+func addonCorePackages(catalogCore []string) map[string]bool {
+	core := map[string]bool{"nanokvm-release": true}
+	for _, name := range catalogCore {
+		core[name] = true
+	}
+	installed := installedReleaseCore()
+	if len(installed) == 0 {
+		installed = knownCore
+	}
+	for _, name := range installed {
+		core[name] = true
+	}
+	return core
+}
+
+// installedReleaseCore: the NanoKVM packages the installed nanokvm-release
+// depends on, from its D: line in the package database.
+func installedReleaseCore() []string {
+	data, err := os.ReadFile(installedDBPath)
+	if err != nil {
+		return nil
+	}
+	var core []string
+	release := false
+	for _, line := range strings.Split(string(data), "\n") {
+		switch {
+		case line == "":
+			release = false
+		case strings.HasPrefix(line, "P:"):
+			release = line == "P:nanokvm-release"
+		case release && strings.HasPrefix(line, "D:"):
+			for _, dep := range strings.Fields(line[2:]) {
+				if strings.HasPrefix(dep, "!") {
+					continue // a conflict, not a dependency
+				}
+				if name := dependencyName(dep); name == "nanokvm" || strings.HasPrefix(name, "nanokvm-") {
+					core = append(core, name)
+				}
+			}
+		}
+	}
+	return core
+}
 
 func addonCatalogPath() string { return apkStateDir + "/addons.json" }
 
@@ -116,6 +168,8 @@ func parseAddonIndex(out string) (storedCatalog, error) {
 	if release == nil {
 		return storedCatalog{}, errors.New("the NanoKVM index has no nanokvm-release")
 	}
+	// The indexed release's own OS packages; the installed release's are
+	// added when the list is read (addonCorePackages).
 	core := map[string]bool{"nanokvm-release": true}
 	for _, dep := range release.Depends {
 		if name := dependencyName(dep); name == "nanokvm" || strings.HasPrefix(name, "nanokvm-") {
@@ -184,17 +238,14 @@ func GetAddonCatalog() AddonCatalog {
 	c := AddonCatalog{Addons: []Addon{}, State: notice.State, NoticeEnabled: notice.Enabled}
 	installed, _ := installedVersions()
 	c.OS = installedOS(installed)
-	stored, ok := readCatalog()
-	if !ok {
-		stored.Core = knownCore
-	}
+	stored, _ := readCatalog()
 	c.CheckedAt = stored.CheckedAt
-	core := map[string]bool{}
-	for _, name := range stored.Core {
-		core[name] = true
-	}
+	core := addonCorePackages(stored.Core)
 	listed := map[string]bool{}
 	for _, a := range stored.Addons {
+		if core[a.Name] {
+			continue
+		}
 		listed[a.Name] = true
 		a.Installed = installed[a.Name]
 		a.Compatible = a.MinOS == "" || (c.OS != "" && compareAPKVersions(c.OS, a.MinOS) >= 0)
@@ -236,8 +287,7 @@ func AddonInstallSpec(name string) (string, error) {
 }
 
 // IsInstalledAddon: name is installed and is not part of the OS. Before the
-// first list since boot the OS packages are only those of knownCore, which
-// a later release may outgrow: nothing counts as an add-on then.
+// first list since boot nothing counts as an add-on.
 func IsInstalledAddon(name string) bool {
 	c := GetAddonCatalog()
 	if c.CheckedAt == 0 {
@@ -255,14 +305,8 @@ func IsInstalledAddon(name string) bool {
 // transcript would upgrade, downgrade, replace or remove: an add-on install
 // must leave the OS as it is.
 func CoreChanges(simulation, addon string) []string {
-	stored, ok := readCatalog()
-	if !ok {
-		stored.Core = knownCore
-	}
-	core := map[string]bool{}
-	for _, name := range stored.Core {
-		core[name] = true
-	}
+	stored, _ := readCatalog()
+	core := addonCorePackages(stored.Core)
 	var changed []string
 	for _, line := range strings.Split(simulation, "\n") {
 		fields := strings.Fields(line)

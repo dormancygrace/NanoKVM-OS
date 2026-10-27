@@ -46,6 +46,55 @@ func TestParseAddonIndex(t *testing.T) {
 	}
 }
 
+func TestParseAddonIndexCoreFromRelease(t *testing.T) {
+	// An OS package unknown to this server, named by the indexed release.
+	input := strings.Replace(addonIndexFixture, "\n]", `,
+  {"name": "nanokvm-future-core", "version": "1.0-r0"}
+]`, 1)
+	input = strings.Replace(input, `"alpine-base"`, `"alpine-base", "nanokvm-future-core>=1.0-r0"`, 1)
+	stored, err := parseAddonIndex(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, addon := range stored.Addons {
+		if addon.Name == "nanokvm-future-core" {
+			t.Error("OS package saved as an add-on")
+		}
+	}
+	if !reflect.DeepEqual(stored.Core, []string{"nanokvm", "nanokvm-base", "nanokvm-future-core", "nanokvm-release", "nanokvm-web"}) {
+		t.Fatalf("core=%q", stored.Core)
+	}
+	if len(stored.Addons) != 2 {
+		t.Fatalf("real add-ons were lost: %+v", stored.Addons)
+	}
+}
+
+// The installed release decides with the index which packages are the OS: a
+// cached index of an older release lists an OS package added since as an
+// add-on, and a package the installed release moved out of the OS is an add-on
+// although this server's built-in list still names it.
+func TestAddonCatalogUsesInstalledRelease(t *testing.T) {
+	addonFixture(t, "P:nanokvm-release\nV:3.7.0-r0\nD:alpine-base nanokvm>=3.7.0-r0 nanokvm-openssl>=3.7.0-r0 nanokvm-web>=3.7.0-r0\n\n"+
+		"P:nanokvm-openssl\nV:3.7.0-r0\n\nP:nanokvm-i2c-tools\nV:3.7.0-r0\n\nP:nanokvm-web\nV:3.7.0-r0\n\n")
+	stored, err := parseAddonIndex(strings.Replace(addonIndexFixture, "\n]", `,
+  {"name": "nanokvm-openssl", "version": "3.6.0-r0"},
+  {"name": "nanokvm-i2c-tools", "version": "3.7.0-r0"}
+]`, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeStored(t, stored)
+	if IsInstalledAddon("nanokvm-openssl") || IsInstalledAddon("nanokvm-web") {
+		t.Fatal("an OS package of the installed release is removable as an add-on")
+	}
+	if _, err := AddonInstallSpec("nanokvm-openssl"); err == nil {
+		t.Fatal("an OS package of the installed release is installable as an add-on")
+	}
+	if !IsInstalledAddon("nanokvm-i2c-tools") {
+		t.Fatal("a package the installed release moved out of the OS is not an add-on")
+	}
+}
+
 func addonFixture(t *testing.T, installed string) {
 	t.Helper()
 	noticeFixture(t, noticeRepositories)
@@ -113,6 +162,54 @@ func TestAddonCatalog(t *testing.T) {
 	writeStored(t, stored)
 	if _, err := AddonInstallSpec("nanokvm-ipmi"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAddonCatalogKeepsKnownCoreWithStaleCache(t *testing.T) {
+	for _, cachedAsAddon := range []bool{false, true} {
+		name := "old core list"
+		if cachedAsAddon {
+			name = "misclassified cached add-ons"
+		}
+		t.Run(name, func(t *testing.T) {
+			addonFixture(t, "P:nanokvm-release\nV:3.6.0-r0\n\n"+
+				"P:nanokvm-openssl\nV:3.6.0-r0\n\nP:nanokvm-web\nV:3.6.0-r0\n\n"+
+				"P:nanokvm-future-core\nV:1.0-r0\n\n"+
+				"P:nanokvm-rustdesk\nV:0.5.6-r0\n\nP:nanokvm-gone\nV:1.0-r0\n\n")
+			stored := storedCatalog{
+				Core:   []string{"nanokvm-release", "nanokvm-future-core"},
+				Addons: []Addon{{Name: "nanokvm-rustdesk", Version: "0.5.6-r0"}},
+			}
+			core := []string{"nanokvm-openssl", "nanokvm-web", "nanokvm-future-core"}
+			if cachedAsAddon {
+				for _, name := range core {
+					stored.Addons = append(stored.Addons, Addon{Name: name, Version: "3.6.0-r0"})
+				}
+			}
+			writeStored(t, stored)
+			want := []Addon{
+				{Name: "nanokvm-gone", Installed: "1.0-r0", Compatible: true},
+				{Name: "nanokvm-rustdesk", Version: "0.5.6-r0", Installed: "0.5.6-r0", Compatible: true},
+			}
+			catalog := GetAddonCatalog()
+			if catalog.CheckedAt != 42 || !reflect.DeepEqual(catalog.Addons, want) {
+				t.Fatalf("catalog with stale cache=%+v", catalog)
+			}
+			for _, name := range core {
+				if _, err := AddonInstallSpec(name); err == nil {
+					t.Errorf("system package %s accepted for add-on installation", name)
+				}
+				if IsInstalledAddon(name) {
+					t.Errorf("system package %s accepted for add-on removal", name)
+				}
+			}
+			if !IsInstalledAddon("nanokvm-gone") || !IsInstalledAddon("nanokvm-rustdesk") {
+				t.Fatal("real installed add-ons cannot be removed")
+			}
+			if spec, err := AddonInstallSpec("nanokvm-rustdesk"); err != nil || spec != "nanokvm-rustdesk>=0.5.6-r0" {
+				t.Fatalf("real add-on installation: spec=%q, error=%v", spec, err)
+			}
+		})
 	}
 }
 

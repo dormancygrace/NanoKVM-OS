@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -34,6 +36,15 @@ func GetAPKStatus() APKStatus {
 	s := APKStatus{State: "idle"}
 	b, _ := os.ReadFile(apkStateDir + "/state.json")
 	_ = json.Unmarshal(b, &s)
+	if s.State == "ready" {
+		// Packages updated since the check, from a shell too, are left out.
+		if installed, err := installedVersions(); err == nil {
+			s.Upgrades = pendingUpgrades(s.Upgrades, installed)
+			if s.Upgrades == "" {
+				s.State = "up-to-date"
+			}
+		}
+	}
 	_, e := os.Stat("/run/reboot-required")
 	s.Reboot = e == nil
 	b, _ = os.ReadFile("/proc/sys/kernel/osrelease")
@@ -96,6 +107,117 @@ func StartAPK(action string) error {
 	return nil
 }
 
+// A package installed from a local file (`apk add ./name.apk`) stays selected
+// as that file in the world file, name><Q1checksum: apk upgrade keeps it while
+// apk version lists the newer repository version, so the page offered an
+// update that installing never made. Installing updates takes NanoKVM packages
+// back to the repositories (nanokvmFilePins).
+func nanokvmFilePins() []string {
+	var names []string
+	for _, entry := range worldEntries() {
+		if name, _, pinned := strings.Cut(entry, "><"); pinned && isNanoKVMSelection(name) {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// Repository tags are preserved when returning a file selection to a repository.
+func isNanoKVMSelection(selection string) bool {
+	name, _, _ := strings.Cut(selection, "@")
+	return name == "nanokvm" || strings.HasPrefix(name, "nanokvm-")
+}
+
+// upgradeSelections identifies entries that cannot use apk version's highest
+// repository version. File pins outside NanoKVM remain held. Exact, upper and
+// fuzzy bounds use the version selected by apk's solver instead: <2 or ~1.0
+// can still allow upgrades, including a version below the repository's latest.
+func upgradeSelections() (skip, bounded []string) {
+	for _, entry := range worldEntries() {
+		if name, _, pinned := strings.Cut(entry, "><"); pinned {
+			if !isNanoKVMSelection(name) {
+				skip = append(skip, strings.SplitN(name, "@", 2)[0])
+			}
+			continue
+		}
+		i := strings.IndexAny(entry, "=<>~")
+		if i < 0 || entry[i] == '>' {
+			continue
+		}
+		name := strings.SplitN(entry[:i], "@", 2)[0]
+		skip = append(skip, name)
+		bounded = append(bounded, name)
+	}
+	return skip, bounded
+}
+
+// APK's transaction output is also consumed by addonCoreChanges. Only upgrades
+// of the bounded packages are added; installations, removals and holds are not.
+var apkPlannedUpgrade = regexp.MustCompile(`^\([0-9]+/[0-9]+\) Upgrading ([^ ]+) \(([^ ]+) -> ([^ )]+)\)$`)
+
+func boundedUpgrades(plan string, bounded []string) string {
+	var lines []string
+	for _, line := range strings.Split(plan, "\n") {
+		m := apkPlannedUpgrade.FindStringSubmatch(strings.TrimSpace(line))
+		if m != nil && slices.Contains(bounded, m[1]) {
+			lines = append(lines, m[1]+"-"+m[2]+" < "+m[3])
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func worldEntries() []string {
+	data, err := os.ReadFile(worldPath)
+	if err != nil {
+		return nil
+	}
+	return strings.Fields(string(data))
+}
+
+var apkVersionedName = regexp.MustCompile(`^(.+)-[0-9][^-]*-r[0-9]+$`)
+
+// installableUpgrades is the `apk version --limit <` listing without its
+// header and without the packages in skip.
+func installableUpgrades(listing string, skip []string) string {
+	var lines []string
+	for _, line := range strings.Split(strings.TrimSpace(listing), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] == "Installed:" {
+			continue
+		}
+		if m := apkVersionedName.FindStringSubmatch(fields[0]); m != nil && slices.Contains(skip, m[1]) {
+			continue
+		}
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// pendingUpgrades keeps the lines of a checked upgrade listing whose package
+// is still installed below the available version.
+func pendingUpgrades(listing string, installed map[string]string) string {
+	var lines []string
+	for _, line := range strings.Split(listing, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		m := apkVersionedName.FindStringSubmatch(fields[0])
+		if m == nil {
+			lines = append(lines, line)
+			continue
+		}
+		if version, ok := installed[m[1]]; ok && compareAPKVersions(fields[len(fields)-1], version) > 0 {
+			if fields[0] != m[1]+"-"+version {
+				fields[0] = m[1] + "-" + version
+				line = strings.Join(fields, " ")
+			}
+			lines = append(lines, line)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // Runs in a detached helper so upgrading/restarting the web server cannot stop APK.
 func RunAPK(action string) (result error) {
 	defer func() {
@@ -141,11 +263,15 @@ func RunAPK(action string) (result error) {
 		if e != nil {
 			return fmt.Errorf("APK upgrade check failed: %s", strings.TrimSpace(string(b)))
 		}
-		lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-		if len(lines) > 0 && strings.HasPrefix(lines[0], "Installed:") {
-			lines = lines[1:]
+		skip, bounded := upgradeSelections()
+		upgrades := installableUpgrades(string(b), skip)
+		if len(bounded) > 0 {
+			plan, err := apkrun.Command(ctx, apkExecutable, "upgrade", "--simulate").CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("APK upgrade plan failed: %s", strings.TrimSpace(string(plan)))
+			}
+			upgrades = strings.TrimSpace(upgrades + "\n" + boundedUpgrades(string(plan), bounded))
 		}
-		upgrades := strings.TrimSpace(strings.Join(lines, "\n"))
 		state := "ready"
 		if upgrades == "" {
 			state = "up-to-date"
@@ -153,6 +279,16 @@ func RunAPK(action string) (result error) {
 		// The notice has an index of its own; a manual check refreshes it too.
 		_ = CheckUpdates(ctx, true)
 		return saveAPKStatus(APKStatus{State: state, Upgrades: upgrades})
+	}
+	if action == "install" {
+		if names := nanokvmFilePins(); len(names) > 0 {
+			fmt.Printf("Taking %s back to the NanoKVM repositories: installed from local files\n", strings.Join(names, ", "))
+			// If resolving the repository selections fails, log the error
+			// and still attempt the remaining upgrades.
+			if e := run(append([]string{"add"}, names...)...); e != nil {
+				fmt.Printf("Kept the local file selections: %v\n", e)
+			}
+		}
 	}
 	args := []string{"upgrade"}
 	if action == "rollback" {

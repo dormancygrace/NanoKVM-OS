@@ -114,6 +114,10 @@ func TestChannelSerializesWithUpdatesAndDatabase(t *testing.T) {
 func TestChannelCannotRaceRunningNoticeCheck(t *testing.T) {
 	communityFixture(t, communityOff)
 	noticeFixture(t, communityOff)
+	// The notice offers only packages still installed below the update.
+	if err := os.WriteFile(installedDBPath, []byte("P:nanokvm\nV:3.3.3-r0\n\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	entered, release := make(chan struct{}), make(chan struct{})
 	done := make(chan error, 1)
 	noticeApk = func(_ context.Context, args ...string) (string, error) {

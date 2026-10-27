@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Alert, Button, Collapse, message, Popconfirm } from 'antd';
 import { useTranslation } from 'react-i18next';
 
+import { componentLabel, parseUpgrades } from '@/lib/update-components.ts';
 import { Panel } from '@/components/ui/settings.tsx';
 
 export type APKState = {
@@ -42,9 +43,22 @@ export const APKUpdates = ({
       <div className="font-medium">{tr('title')}</div>
       <p className="text-fg-muted mt-0 text-sm">{tr('description')}</p>
       {state?.state === 'ready' && state.upgrades && (
-        <pre className="text-fg m-0 max-h-48 overflow-auto text-xs whitespace-pre-wrap">
-          {state.upgrades}
-        </pre>
+        <table className="w-full border-collapse text-sm">
+          <tbody>
+            {parseUpgrades(state.upgrades).map((upgrade) => (
+              <tr key={upgrade.name} className="border-t border-neutral-700/60 first:border-t-0">
+                <td className="py-1.5 pr-3">
+                  <div>{componentLabel(t, upgrade.name)}</div>
+                  <div className="text-fg-muted text-xs">{upgrade.name}</div>
+                </td>
+                <td className="py-1.5 text-right whitespace-nowrap tabular-nums">
+                  {upgrade.installed && `${upgrade.installed} → `}
+                  {upgrade.available}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
       <div className="flex flex-wrap gap-2">
         <Button

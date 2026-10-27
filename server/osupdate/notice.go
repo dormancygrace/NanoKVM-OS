@@ -87,6 +87,18 @@ func GetNotice() UpdateNotice {
 	if b, err := os.ReadFile(noticePath()); err == nil {
 		_ = json.Unmarshal(b, &n)
 	}
+	// The check is a snapshot: a package updated since then, from Settings or
+	// a shell, is no longer an update.
+	if installed, err := installedVersions(); err == nil {
+		current := []SoftwareUpdate{}
+		for _, u := range n.Updates {
+			if version, ok := installed[u.Name]; ok && compareAPKVersions(u.Available, version) > 0 {
+				u.Installed = version
+				current = append(current, u)
+			}
+		}
+		n.Updates = current
+	}
 	if n.Updates == nil {
 		n.Updates = []SoftwareUpdate{}
 	}

@@ -12,7 +12,9 @@ in-place decryption preserves the last ciphertext; IVs advance only after
 success. CTR retains partial blocks and splits at GCM's 32-bit counter wrap.
 Requests are bounded at 4096 bytes. Hardware absence or failure resumes software.
 
-Three rotated native trials compared the same OpenSSL 3.5.9 C906/O3 flags.
+The following historical threshold-selection results use three rotated trials
+with matched OpenSSL 3.5.9 C906/O3 flags. Binary identities are retained here;
+these timings predate the later restricted-ISA/sandbox-policy revision.
 With DMA disabled, indexed loads improved AES-128-GCM opening by 16.9% at
 64 bytes and 11.5% at 1024 bytes; AES-256-GCM improved by 18.7% and 15.1%.
 AES-128 ECB/CBC/CTR at 1024 bytes improved by 18.1%, 20.9% and 17.4%.
@@ -30,7 +32,7 @@ invalid tags, and upstream AES vectors (313 tests, one FIPS-only skip). Baseline
 and candidate fingerprints match. Driver counters confirm AES use without a
 poisoned device. The host continuation suite covers threshold boundaries,
 first/later failures, offsets, in-place output and GCM counter rollover under
-ASan/UBSan. Final-stack native and HTTPS checks follow integration.
+ASan/UBSan. Final restricted-ISA native and HTTPS checks also pass as described below.
 
 CTR requests are always split before the low 32-bit counter wraps, including
 ordinary full-width CTR. Software advances the full external counter between
@@ -46,5 +48,15 @@ rejected-tag/ciphertext cases across AES-128/192/256, 8/12-byte IVs and the
 1024/2048/3072/4096 boundaries. It frees the original context after copying.
 The ciphertext/tag fingerprint `a2d7088437b53472` comes from independent host
 OpenSSL 3.5.5, alongside the existing published AEAD known-answer vectors.
-Both extended suites pass host ASan/UBSan; physical qualification of these new
-carry and provider cases is pending.
+Both extended suites pass host ASan/UBSan and physical C906 qualification.
+The final stack passes 408 AEAD + 2160 GCM + 288 CTR cases with DMA on/off,
+generic GHASH and vectors disabled. Five real TLS 1.2/1.3 AES128/256/ChaCha
+downloads pass CA, length and SHA-256 verification. A private preauth SSH
+listener passes AES128/256-GCM with 18/5011-byte authentication requests.
+Provider contexts are AES 472 bytes and AES-GCM 984 bytes, versus 448/960
+before DMA key retention; no per-context DMA output buffer is added.
+
+The separate GHASH patch and its final measurements are reviewed in #527.
+The experimental combined GCM ioctl/persistent-descriptor design is not part
+of this patch. Its latency measurements do not establish an end-to-end SRTP
+regression without paired deadline-to-completion analysis.

@@ -1,0 +1,22 @@
+{
+  "source_stack": "0a1b4f68be3af062ef7ad90f9b897f3f2b20ccd3",
+  "device_boot_id": "dbac9055-f3fd-4c12-9789-b92cdb2d8918",
+  "kernel": "7.3.0-nanokvm-os-r3",
+  "measurement": "Physical SG2002/C906, 1 GHz, video active; three processes, 10000 iterations per operation, CPU clock. Static benchmark includes SHA256 integration from the stated stack.",
+  "sha256_4k_expected": "6f433b338bb49b98b2b52646b2e48f85e5f74c76b2700bd16c45ac43c7083218",
+  "median_cpu_ns_per_call": {
+    "empty": 7.668,
+    "open-close": 17108.148,
+    "open-fstat-close": 24230.18,
+    "sha256-full-evp-fetched": 96627.144,
+    "sha256-full-evp-legacy": 118714.808,
+    "sha256-run-held-fd": 22531.808,
+    "warm-begin-end": 25756.24
+  },
+  "sha256": {
+    "bench-session": "450313410f4666605a6b085fa545d34b88cf3565136b519fd143b8aafae4c0fa",
+    "trace-session": "56ed99a039c89737f4971d244ae51e27baf9683f8b796ccd4dbab75c74a6ef0c",
+    "legacy-policy/openssl-3.5.9/libcrypto.a": "5e949f52ddb2e324c239e6c84f9d70c0208a516f05b5dba0e5a73eba7015f8b4"
+  },
+  "trace_note": "Own-child ptrace trace. Traced wall times include ptrace stops and scheduler overhead and must not be used as untraced syscall latency."
+}

@@ -14,6 +14,8 @@ const (
 	MaxImageSize uint64 = 512 * 1024 * 1024 * 1024
 )
 
+// ReadBlock may return a borrowed buffer. Serve finishes writing its contents
+// before making the next call; the buffer must remain valid until that call.
 type ReadBlock func(offset uint64, length uint32) ([]byte, error)
 
 // Serve handles the transmission phase of the standard Linux NBD protocol.

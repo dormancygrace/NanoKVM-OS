@@ -29,7 +29,7 @@ def check(output):
     output.mkdir(parents=True, exist_ok=True)
     reference = output / 'reference-source'
     shutil.copytree(kernel / 'lib/zstd', reference / 'lib/zstd', dirs_exist_ok=True)
-    patch = ROOT / 'platform/kernel/0056-zstd-c906-bit-operations.patch'
+    patch = ROOT / 'platform/kernel/0059-zstd-c906-bit-operations.patch'
     subprocess.run(['patch', '--batch', '--reverse', '--fuzz=0', '-p1',
                     '-d', str(reference)], input=patch.read_text(), text=True, check=True)
     include = support.headers(output, kernel)

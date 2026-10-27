@@ -179,7 +179,9 @@ Python, OpenSSL and coreutils. It builds the real recipe, installs stock
 RISC-V Alpine packages in a disposable root, upgrades to the NanoKVM
 runtime and rolls back to a release that predates it. It verifies library
 ownership, curl/SSH/apk dependencies, configuration preservation and atomic
-rejection of a contradictory rollback. CI uses fixture payloads;
+rejection of a contradictory rollback. A signed higher-version Alpine fixture
+checks fresh installs and upgrades against the real release dependency;
+removing that dependency selects Alpine as a negative control. CI uses fixture payloads;
 `--payload PATH` checks a cross-built runtime. No installed host or device
 files are changed. Native C906 benchmark sources and recorded results live
 in `firmware/crypto/experimental/openssl-c906`.

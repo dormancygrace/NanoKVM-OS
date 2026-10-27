@@ -83,6 +83,8 @@ static int engine_wait(u32 *status)
 #include "crypto_algorithms.inc"
 #include "crypto_linux_api.inc"
 #include "crypto_gcm.inc"
+#include "crypto_ccm.inc"
+#include "crypto_cmac.inc"
 
 static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -225,14 +227,22 @@ static int __init aes_init(void)
  if (err) goto data;
  err = crypto_linux_register();
  if (err) goto crypto_data;
- err = crypto_register_aead(&sg2_gcm_alg);
+ err = crypto_register_ahash(&sg2_cmac_alg);
  if (err) goto crypto_linux;
- err = misc_register(&misc);
+ err = crypto_register_aead(&sg2_gcm_alg);
+ if (err) goto crypto_cmac;
+ err = crypto_register_aead(&sg2_ccm_alg);
  if (err) goto crypto_gcm;
+ err = misc_register(&misc);
+ if (err) goto crypto_ccm;
  pr_info("sg2002_aes_probe: ready crypto-api=1 descriptor=streaming coherent=%d, status=%#x mask=%#x; Linux Crypto API registered\n", dev_is_dma_coherent(&pdev->dev), readl(regs + STATUS), initial_mask);
  return 0;
+crypto_ccm:
+ crypto_unregister_aead(&sg2_ccm_alg);
 crypto_gcm:
  crypto_unregister_aead(&sg2_gcm_alg);
+crypto_cmac:
+ crypto_unregister_ahash(&sg2_cmac_alg);
 crypto_linux:
  crypto_linux_unregister();
 crypto_data:
@@ -253,7 +263,9 @@ device:
 static void __exit aes_exit(void)
 {
  misc_deregister(&misc);
+ crypto_unregister_aead(&sg2_ccm_alg);
  crypto_unregister_aead(&sg2_gcm_alg);
+ crypto_unregister_ahash(&sg2_cmac_alg);
  crypto_linux_unregister();
  crypto_free_output();
  /* A failed submission pins the module, so normal unload is only reachable

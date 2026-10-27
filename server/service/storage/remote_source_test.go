@@ -28,7 +28,7 @@ type fakeRemoteDevice struct {
 func (d *fakeRemoteDevice) Close()                   { d.once.Do(func() { close(d.stopped) }) }
 func (d *fakeRemoteDevice) Stopped() <-chan struct{} { return d.stopped }
 
-func remoteGadgetFixture(t *testing.T) (*Service, <-chan remotemedia.ReadBlock) {
+func remoteGadgetFixture(t *testing.T, sizes ...uint64) (*Service, <-chan remotemedia.ReadBlock) {
 	t.Helper()
 	root := t.TempDir()
 	original := []string{usbGadgetUDC, usbStorageLink, mountDevice, forcedEjectDevice, roFlag, cdromFlag, inquiryString}
@@ -53,8 +53,12 @@ func remoteGadgetFixture(t *testing.T) (*Service, <-chan remotemedia.ReadBlock) 
 		t.Fatal(err)
 	}
 	reads := make(chan remotemedia.ReadBlock, 4)
+	expectedSize := uint64(1048576)
+	if len(sizes) > 0 {
+		expectedSize = sizes[0]
+	}
 	openRemoteBlockDevice = func(size uint64, read remotemedia.ReadBlock) (remoteBlockDevice, error) {
-		if size != 1048576 {
+		if size != expectedSize {
 			t.Errorf("wrong NBD size: %d", size)
 		}
 		reads <- read
@@ -73,6 +77,72 @@ func remoteGadgetFixture(t *testing.T) (*Service, <-chan remotemedia.ReadBlock) 
 		openRemoteBlockDevice = open
 	})
 	return s, reads
+}
+
+func remoteSMBCall(s *Service, body string, ctx context.Context) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/api/storage/remote/smb", strings.NewReader(body)).WithContext(ctx)
+	c.Request.Header.Set("Content-Type", "application/json")
+	s.ConnectSMB(c)
+	return w
+}
+
+func TestSMBMediaRejectsBusyAndInvalidRequests(t *testing.T) {
+	s, _ := remoteGadgetFixture(t)
+	for _, body := range []string{`{`, `{"url":"smb://host/share/test.iso"}`, `{"url":"smb://u:p@host/share/test.iso","username":"u"}`, strings.Repeat(" ", 8193)} {
+		if rsp := remoteSMBCall(s, body, context.Background()); !strings.Contains(rsp.Body.String(), `"code":-1`) {
+			t.Fatal("invalid SMB options accepted")
+		}
+	}
+	s.netboot = &netbootSession{}
+	if rsp := remoteSMBCall(s, `{"url":"smb://host/share/test.iso","username":"reader"}`, context.Background()); rsp.Code != 409 {
+		t.Fatal("SMB replaced network boot")
+	}
+	s.netboot = nil
+}
+
+func TestSMBMediaIntegration(t *testing.T) {
+	address := os.Getenv("NANOKVM_SMB_TEST_ADDR")
+	if address == "" {
+		t.Skip("real Samba fixture not configured")
+	}
+	s, reads := remoteGadgetFixture(t, 64*1048576)
+	body, _ := json.Marshal(remotemedia.SMBOptions{URL: "smb://" + address + "/images/test.iso", Username: "media", Password: "nano-fixture", Domain: "WORKGROUP"})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if rsp := remoteSMBCall(s, string(body), ctx); rsp.Code != 200 {
+		t.Fatal(rsp.Body.String())
+	}
+	cancel()
+	waitRemoteState(t, s, true)
+	block, err := (<-reads)(64*1048576-4096, 4096)
+	if err != nil || len(block) != 4096 {
+		t.Fatalf("SMB NBD read: %v", err)
+	}
+	for i, b := range block {
+		p := 1048576 - 4096 + i
+		if b != byte((p*37+p/1009)%251) {
+			t.Fatal("SMB NBD data mismatch")
+		}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	s.RemoteStatus(c)
+	if !strings.Contains(w.Body.String(), `"source":"smb"`) || strings.Contains(w.Body.String(), address) || strings.Contains(w.Body.String(), "nano-fixture") || strings.Contains(w.Body.String(), "WORKGROUP") {
+		t.Fatal("incorrect SMB status or leaked credentials")
+	}
+	if rsp := remoteHTTPCall(s, `{"url":"http://host/image.iso"}`, context.Background()); rsp.Code != 409 {
+		t.Fatal("HTTP replaced SMB")
+	}
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	s.DisconnectRemote(c)
+	waitRemoteState(t, s, false)
+	backing, _ := os.ReadFile(mountDevice)
+	if strings.TrimSpace(string(backing)) != "" {
+		t.Fatal("SMB backing retained after disconnect")
+	}
 }
 
 func waitRemoteState(t *testing.T, s *Service, mounted bool) {

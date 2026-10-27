@@ -579,11 +579,13 @@
       "disconnectFailed": "无法断开 ISO，请重试。",
       "source": "镜像来源",
       "url": "通过 URL",
-      "urlHint": "通过 HTTP(S) 将 ISO 挂载为只读 CD/DVD，无需保存到 SD 卡。服务器必须支持字节范围请求。可以关闭此页面；使用完毕后请断开镜像。重启 NanoKVM 会断开镜像。",
+      "urlHint": "通过 HTTP(S) 或 SMB 将 ISO 挂载为只读 CD/DVD，无需保存到 SD 卡。HTTP 服务器必须支持字节范围请求。SMB 地址格式为 smb://server/share/image.iso。可以关闭此页面；使用完毕后请断开镜像。重启 NanoKVM 会断开连接。",
       "urlAddress": "镜像 URL",
       "username": "用户名",
       "password": "密码",
-      "credentialsHint": "HTTP Basic 身份验证（可选）"
+      "credentialsHint": "HTTP Basic 身份验证（可选）",
+      "smbCredentialsHint": "SMB2/3 账户（用户名必填，域可选）",
+      "domain": "域（可选）"
     },
     "title": "镜像",
     "loading": "加载中",

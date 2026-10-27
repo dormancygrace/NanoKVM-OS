@@ -192,7 +192,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
           <div style={{ display: source === 'browser' || source === 'url' ? undefined : 'none' }}>
             <RemoteImage
               isOpen={isModalOpen}
-              source={source === 'url' ? 'http' : 'browser'}
+              source={source === 'url' ? 'url' : 'browser'}
               onConnected={setRemoteConnected}
             />
           </div>

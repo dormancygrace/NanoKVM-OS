@@ -1,0 +1,140 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] zram: use a 4 KiB LZ4 hash table for 4 KiB pages
+
+Instantiate the private LZ4 1.10 compressor with a 4 KiB table for independent
+blocks up to 4096 bytes. Use its 4128-byte workspace in the no-dictionary zram
+backend on 4 KiB page kernels. Keep generic and dictionary compression at the
+existing 16 KiB table size, and leave larger-page kernels unchanged.
+
+The 32-byte metadata makes vmalloc round 16416 and 4128 bytes to 20 KiB
+and 8 KiB respectively on 4 KiB-page kernels (excluding allocation metadata
+and virtual guard pages). This reduces workspace backing by 12 KiB per
+no-dictionary context; it is not a measurement of compressed zsmalloc usage.
+
+diff --git a/lib/lz4/Makefile b/lib/lz4/Makefile
+--- a/lib/lz4/Makefile
++++ b/lib/lz4/Makefile
+@@ -2,6 +2,6 @@
+ ccflags-y += $(if $(filter -O%,$(KCFLAGS)),$(lastword $(filter -O%,$(KCFLAGS))),-O2)
+ 
+ obj-$(CONFIG_LZ4_COMPRESS) += lz4_compress.o
+-lz4_compress-y := lz4_compress_110.o
++lz4_compress-y := lz4_compress_110.o lz4_compress_4k.o
+ obj-$(CONFIG_LZ4HC_COMPRESS) += lz4hc_compress.o
+ obj-$(CONFIG_LZ4_DECOMPRESS) += lz4_decompress.o
+diff --git a/lib/lz4/lz4_110.h b/lib/lz4/lz4_110.h
+--- a/lib/lz4/lz4_110.h
++++ b/lib/lz4/lz4_110.h
+@@ -1181,7 +1181,7 @@
+ /* Note!: This function leaves the stream in an unclean/broken state!
+  * It is not safe to subsequently use the same state with a _fastReset() or
+  * _continue() call without resetting it. */
+-static int LZ4_compress_destSize_extState_internal(lz4_110_stream* state, const char* src, char* dst, int* srcSizePtr, int targetDstSize, int acceleration)
++static inline int LZ4_compress_destSize_extState_internal(lz4_110_stream* state, const char* src, char* dst, int* srcSizePtr, int targetDstSize, int acceleration)
+ {
+     void* const s = LZ4_initStream(state, sizeof (*state));
+     if (s == NULL) return 0;
+diff --git a/lib/lz4/lz4_compress_4k.c b/lib/lz4/lz4_compress_4k.c
+new file mode 100644
+--- /dev/null
++++ b/lib/lz4/lz4_compress_4k.c
+@@ -0,0 +1,38 @@
++// SPDX-License-Identifier: BSD-2-Clause
++/* Small-table, independent-block LZ4 compression for 4 KiB zram pages. */
++#include <linux/kernel.h>
++#include <linux/limits.h>
++#include <linux/lz4.h>
++#include <linux/module.h>
++#include <linux/string.h>
++
++#define LZ4_110_MEMORY_USAGE 12
++#include "lz4_110.h"
++
++static_assert(sizeof(lz4_110_stream) <= LZ4_MEM_COMPRESS_4K);
++static_assert(__alignof__(lz4_110_stream) <= __alignof__(LZ4_stream_t));
++
++int LZ4_compress_fast_4k(const char *src, char *dst, int src_size,
++                         int dst_capacity, int acceleration, void *workmem)
++{
++    lz4_110_stream *stream;
++    lz4_110_stream_internal *ctx;
++
++    if ((unsigned int)src_size > 4096 || dst_capacity < 0)
++        return 0;
++    stream = LZ4_initStream(workmem, sizeof(lz4_110_stream));
++    if (stream == NULL)
++        return 0;
++    ctx = &stream->internal_donotuse;
++    if (acceleration < LZ4_ACCELERATION_DEFAULT)
++        acceleration = LZ4_ACCELERATION_DEFAULT;
++    if (acceleration > LZ4_ACCELERATION_MAX)
++        acceleration = LZ4_ACCELERATION_MAX;
++
++    if (dst_capacity >= LZ4_compressBound(src_size))
++        return LZ4_compress_generic(ctx, src, dst, src_size, NULL, 0,
++                    notLimited, byU16, noDict, noDictIssue, acceleration);
++    return LZ4_compress_generic(ctx, src, dst, src_size, NULL, dst_capacity,
++                    limitedOutput, byU16, noDict, noDictIssue, acceleration);
++}
++EXPORT_SYMBOL(LZ4_compress_fast_4k);
+diff --git a/include/linux/lz4.h b/include/linux/lz4.h
+--- a/include/linux/lz4.h
++++ b/include/linux/lz4.h
+@@ -197,6 +197,26 @@
+ int LZ4_compress_default(const char *source, char *dest, int inputSize,
+ 	int maxOutputSize, void *wrkmem);
+ 
++/* 4 KiB hash table plus private stream metadata. */
++#define LZ4_MEM_COMPRESS_4K (4096 + 32)
++
++/**
++ * LZ4_compress_fast_4k() - compress an independent block of at most 4096 bytes
++ * @src: input buffer
++ * @dst: output buffer
++ * @src_size: input length, from 0 through 4096
++ * @dst_capacity: writable output capacity
++ * @acceleration: acceleration, as in LZ4_compress_fast()
++ * @workmem: LZ4_MEM_COMPRESS_4K bytes, aligned as LZ4_stream_t
++ *
++ * The output uses the ordinary LZ4 block format. No dictionary or streaming
++ * state is supported. The work buffer is initialized on every call.
++ * Return: compressed size, or 0 on invalid size, NULL/misaligned workspace,
++ * or insufficient output space.
++ */
++int LZ4_compress_fast_4k(const char *src, char *dst, int src_size,
++                       int dst_capacity, int acceleration, void *workmem);
++
+ /**
+  * LZ4_compress_fast() - As LZ4_compress_default providing an acceleration param
+  * @source: source address of the original data
+diff --git a/drivers/block/zram/backend_lz4.c b/drivers/block/zram/backend_lz4.c
+--- a/drivers/block/zram/backend_lz4.c
++++ b/drivers/block/zram/backend_lz4.c
+@@ -80,7 +80,8 @@
+ 
+ 	ctx->context = zctx;
+ 	if (params->dict_sz == 0) {
+-		zctx->mem = vmalloc(LZ4_MEM_COMPRESS);
++		zctx->mem = vmalloc(PAGE_SIZE == 4096 ?
++				    LZ4_MEM_COMPRESS_4K : LZ4_MEM_COMPRESS);
+ 		if (!zctx->mem)
+ 			goto error;
+ 	} else {
+@@ -107,9 +108,14 @@
+ 	int ret;
+ 
+ 	if (!zctx->cstrm) {
+-		ret = LZ4_compress_fast(req->src, req->dst, req->src_len,
+-					req->dst_len, params->level,
+-					zctx->mem);
++		if (PAGE_SIZE == 4096)
++			ret = LZ4_compress_fast_4k(req->src, req->dst, req->src_len,
++						   req->dst_len, params->level,
++						   zctx->mem);
++		else
++			ret = LZ4_compress_fast(req->src, req->dst, req->src_len,
++						 req->dst_len, params->level,
++						 zctx->mem);
+ 	} else {
+ 		/* Cstrm needs to be reset */
+ 		memcpy(zctx->cstrm, params->drv_data, sizeof(*zctx->cstrm));

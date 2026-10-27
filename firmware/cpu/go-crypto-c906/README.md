@@ -87,19 +87,57 @@ vector context.
 
 ## Poly1305
 
-The vendored Poly1305 is the x/crypto v0.57.0 code without its riscv64
-assembly. prepare.py adds `sum_riscv64.s` (checked against the v0.57.0 file,
-sha256 `59299b25...dc84b`) with the v0.57.0 build tags, which take its 64x64
-multiplies with `MUL`/`MULHU` instead of the generic `bits.Mul64` code. That
-assembly loads unaligned messages byte by byte; TLS ciphertext starts 5 bytes
-into the record. `riscv_hwprobe` reports fast misaligned scalar access on this
-C906 (and unsupported misaligned vector access, so the ChaCha20 kernel keeps
-byte elements), so prepare.py lets it use 64-bit loads when
-`cpu.RISCV64.HasFastMisaligned` is set (`sum_misaligned_riscv64.go`);
-without it the byte loads remain. `tests/poly1305` compares both paths with
-the generic code for every offset modulo 16.
+The prepared GOROOT uses `sum_c906_riscv64.s`. The pinned x/crypto v0.57.0
+`sum_riscv64.s` remains unchanged as the reference, and
+`build-tests.py --poly1305-reference` recreates the previous implementation
+with its existing fast unaligned loads in a build overlay.
 
-## Results
+The C906 implementation folds high products before propagating carries.
+Writing B = 2^64, p = 4*B^2 - 5 and the clamped key as r0 + r1*B,
+r1 is divisible by four. Precompute s1 = 5*(r1 >> 2). For the accumulator
+after adding a message block, form L = h0*r0 + h1*s1 and
+M = h0*r1 + h1*r0 + h2*s1; combine L, M*B and h2*r0*B^2, then
+reduce the remaining high word. There are still ten MUL/MULHU instructions,
+but substantially fewer carry/reduction instructions. The instruction order
+uses the C906's measured wide-multiply issue occupancy and result latency.
+
+Reachable input h2 is at most five before adding a block and seven after it.
+With r0,r1 < 2^60 and s1 < 5*2^58, the high word is below 9*2^60+2.
+The final 5*(high >> 2) addition fits in 64 bits and the output is below 2*p,
+as required by the existing finalizer. No secret-dependent branches or
+memory addresses are added. This is a source-level control-flow property,
+not a new claim about operand-independent hardware multiply timing.
+
+The aligned, fast-misaligned and byte-load paths, partial-block construction
+and public streaming API remain. `cpu.RISCV64.HasFastMisaligned` controls the
+native unaligned loads; the fallback is tested separately. Zero-length input
+returns without touching the state. Forty unreachable padding bytes retain
+the qualified Go 1.27.3 function extent, so surrounding code has identical
+placement in the comparison binaries. This is specific to the pinned Go
+assembler, including instruction relaxation. After changing Go or the routine,
+rederive both symbol extents and requalify matched whole-binary placement;
+do not preserve the padding length without measurement.
+
+CI prepares the pinned production GOROOT, builds both the selected and upstream
+reference Poly1305 test binaries and checks their 506-byte update symbols.
+`tests/test-c906-poly1305.py` runs the upstream, big-integer, alignment and
+guard-page tests on scalar RISC-V QEMU with RVV disabled; its deliberate
+corrupted-result control must fail. This tests correctness, not C906 timing.
+
+[Qualification results](../../../tests/manual/c906-poly1305/results.md)
+include 27 message sizes, independent big-integer and guard-page checks,
+three-process medians, real TLS 1.2/1.3 Ethernet tests, and a separate stock
+kernel WireGuard baseline. The measured AEAD CPU reduction is about 5–6% at
+1400 bytes and 7–8% at 16 KiB. These are incremental gains over the already
+accelerated NanoKVM code, unlike the older unpatched-Go comparison below.
+
+The Go change does not replace the kernel Poly1305 used by WireGuard.
+Linux uses its own RISC-V Cryptogams/OpenSSL assembly, which already folds
+the r1 products. The Go and kernel ChaCha20 implementations share the
+four-vector-plus-one-scalar design but have distinct calling conventions
+and state-management code.
+
+## Earlier baseline results
 
 Device, by thread CPU time (MB/s, medians of 7 interleaved runs of 5 rounds,
 with video streaming in the background), base = unpatched GOROOT:
@@ -288,4 +326,67 @@ GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha256.test crypto/sha2
 # on the device:
 ./sha256.test -test.v -test.short | grep XTheadBb
 GODEBUG=cpu.xtheadbb=off ./sha256.test -test.run XXX -test.bench Hash
+```
+
+## Keccak-f[1600] (`gen_keccak_c906.py`)
+
+SHA-3 and SHAKE run the Keccak-f[1600] permutation. Since Go 1.24, every TLS
+handshake with `X25519MLKEM768` (the default) expands its ML-KEM matrix with
+SHAKE128, so the permutation is on the server's TLS path. On rva20u64, Go's
+generic permutation compiles to about 287 instructions per round. Every
+rotate takes three instructions, and the lanes spill to the stack.
+
+`gen_keccak_c906.py` builds `keccakF1600C906` from CRYPTOGAMS
+`riscv/keccak1600-riscv.pl` (BSD-3-Clause, see `CRYPTOGAMS-LICENSE`). The
+generator pins the commit and the sha256.
+
+CRYPTOGAMS keeps all 25 lanes in registers. Without Zbb it uses lane
+complementing, so χ needs no `andn`, which the C906 lacks. The generator
+takes that no-Zbb round and changes two things:
+
+- It fuses each shift/shift/or rotate into one `th.srri` (XTheadBb): 24 in ρ
+  and 5 in θ. Each fusion is checked for data flow and dead temporaries.
+- It moves CRYPTOGAMS' lane in x27 to x1, because x27 is Go's `g`. The
+  round-constant pointer then lives in the frame instead of x1.
+
+A round is about 162 instructions, against about 287 for Go's generic
+permutation. Both figures are static counts of the loop body.
+
+On the device (C906 at 1 GHz, NanoKVM server running, load below 1.6), five
+alternating runs of each binary, medians:
+
+| Benchmark | Generic | C906 | Speedup |
+| --- | ---: | ---: | ---: |
+| Keccak-f[1600] permutation | 9.34 µs | 4.63 µs | 2.0× |
+| SHA3-256, 1350 B | 111.5 µs | 61.9 µs | 1.8× |
+| SHAKE128, 1350 B | 95.1 µs | 52.6 µs | 1.8× |
+| ML-KEM-768 key generation | 1.678 ms | 1.438 ms | −14% |
+| ML-KEM-768 encapsulation | 2.026 ms | 1.778 ms | −12% |
+| ML-KEM-768 decapsulation | 1.903 ms | 1.801 ms | −5% |
+
+The permutation is measured in one binary. The other rows compare the default
+with `GODEBUG=cpu.xtheadbb=off` in the same binary. A TLS server
+encapsulates once per `X25519MLKEM768` handshake, so the saving is about
+0.25 ms of CPU per handshake, around 1% of a full handshake.
+
+`--binutils` checks every `th.srri` WORD against GNU as. `--check`
+regenerates the file and compares. CI does both.
+
+`prepare.py` adds `sha3_riscv64.go`:
+
+- It selects `keccakF1600C906` when `cpu.RISCV64.HasXTheadBb` is set, and
+  registers it with `crypto/internal/impl`, so the crypto tests run both
+  permutations.
+- `GODEBUG=cpu.xtheadbb=off` selects the generic permutation.
+
+`tests/sha3` compares both permutations on 20,000 random, all-zero and
+all-one states. It fails if a T-Head core does not select the C906 path.
+
+```sh
+curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o keccak1600-riscv.pl
+python3 gen_keccak_c906.py --cryptogams keccak1600-riscv.pl --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
+python3 build-tests.py --goroot $PREPARED --xcrypto $XCRYPTO --output out   # adds fips-sha3, sha3, mlkem
+# under qemu-riscv64 -cpu thead-c906, or on the device:
+NANOKVM_REQUIRE_XTHEADBB=1 ./out/fips-sha3.test -test.v
+./out/sha3.test -test.skip TestCSHAKELargeS && ./out/mlkem.test -test.short  # that test needs 512 MiB
 ```

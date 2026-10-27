@@ -39,14 +39,115 @@ Run at least five rotated baseline/candidate/generic trials on physical C906.
 and tail, the complete wrapper, and first/second vector calls in fresh threads.
 It retains stack wiping in all vector kernel measurements.
 
-The preceding CPU-info-based build passed 1680 native cases and per-thread
-checks. Three initial rotated 16 KiB AEAD trials measured about 47.35 versus
-29.50 MiB/CPU-s; the current threshold is 640 bytes after a 320-byte dispatch
-lost in the initial measurement. Actual TLS 1.2/1.3 ChaCha downloads also passed
-file SHA-256 verification. These are prior-build observations: the startup
-hwprobe revision and expanded path/overhead tests still need native execution.
+The startup-hwprobe revision was tested on the physical SG2002 C906 at
+1 GHz with active video and zero swap usage. The exact library hashes, six
+rotated trials, a second six-trial placement control, memory measurements and
+overhead samples are in `native-review-results.json`. Production dynamic
+exports remain unchanged (5808 definitions); test counters are absent.
 
-The startup-hwprobe revision cross-builds with 5808 unchanged production dynamic
-definitions. Host differential checks and dispatch ASan/UBSan/negative controls
-pass. The counter is present only in the instrumented library. Native results
-will be recorded against each binary's SHA-256 before selecting a new threshold.
+All native path proofs passed: 1680 raw differential cases, real assembly entry
+counts, vector-off/on threads, generic override, and both post-load seccomp
+cases. Independent Poly1305 references passed 55,050 cases for each library,
+including unaligned input, split updates, context duplication/free-original,
+and protected-page boundaries. Upstream EVP vectors passed 46 Poly1305 and
+27 ChaCha20/AEAD tests with no errors or skips.
+
+### Threshold and call costs
+
+The 320-byte threshold control differs from production in exactly two bytes;
+code placement is identical. A second comparison used the same executable,
+constant loader path, equal-length override values and process-local disabled
+ASLR. This makes the below-threshold candidate and generic paths agree and
+confirms the full AEAD regression from lowering the threshold.
+
+Medians of six placement-controlled trials, MiB per process CPU second:
+
+| Operation | Bytes | Generic | Threshold 640 | Threshold 320 |
+| --- | ---: | ---: | ---: | ---: |
+| Raw ChaCha20 | 320 | 34.48 | 34.47 | 47.95 |
+| Raw ChaCha20 | 512 | 35.93 | 35.90 | 43.13 |
+| AEAD open | 319 | 16.49 | 16.54 | 16.49 |
+| AEAD open | 320 | 17.40 | 17.43 | 16.04 |
+| AEAD open | 512 | 20.69 | 20.65 | 19.21 |
+| AEAD open | 640 | 21.89 | 24.31 | 24.21 |
+| AEAD open | 1400 | 25.02 | 30.04 | 29.91 |
+| AEAD open | 16384 | 29.52 | 48.26 | 48.34 |
+
+Keep **640 bytes**. The standalone primitive benefits at 320 bytes, but full
+AEAD open loses about 8% at 320 and 7% at 512. At 16 KiB the selected path gains
+about 63.5% over the same library's generic mode. Small-record speedups are not
+claimed: in the separate complete-build comparison, AEAD open at 64 bytes was
+6.52 versus 7.28 MiB/CPU-s for the base build. Binary/data placement affects
+these small measurements; that comparison must not be presented as a gain.
+
+Six repetitions of the static component benchmark measured `prctl` at a median
+609 ns and state preparation/cleansing at 98 ns. At 640 bytes, scalar processing
+was 15.90 us, the kernel plus tail 7.57 us, and complete dispatch 8.54 us. At
+16 KiB these were 406.28, 193.56 and 194.90 us. These are separate microbenchmarks,
+not an additive decomposition of EVP or TLS.
+
+Fresh-thread samples use thread CPU time because this kernel traps user-mode
+`rdcycle`. Across 120 threads, the empty timer pair had a 3.98 us median; first
+and second 320-byte vector calls including that timer overhead had medians
+21.38 and 7.52 us. The first-call cost is therefore recorded explicitly rather
+than inferred from warm throughput. No global kernel timing setting was changed.
+
+### Poly1305 comparison requested in review
+
+The CRYPTOGAMS `poly1305-riscv.pl` from Linux 7.3
+(SHA-256 `9a75fc04cd61e8fbd7f7e7cafec070158fb2d964d33c1d3da3d028e10a0a1a72`)
+was adapted privately to OpenSSL's init/blocks/emit ABI and tested in both its
+64-bit and RV64-executed 32-bit arithmetic forms. This is a different
+implementation from the earlier Go assembly adapter. The production patch in
+this PR still changes only ChaCha20.
+
+Six rotating-order trials, MiB per process CPU second:
+
+| Operation | Bytes | Existing Poly1305 C | CRYPTOGAMS 64 | CRYPTOGAMS 32 |
+| --- | ---: | ---: | ---: | ---: |
+| Poly1305 MAC | 1400 | 127.03 | 152.18 | 61.50 |
+| Poly1305 MAC | 16384 | 142.67 | 188.00 | 66.24 |
+| ChaCha20-Poly1305 open | 1400 | 31.19 | 33.00 | 24.80 |
+| ChaCha20-Poly1305 open | 16384 | 48.35 | 53.09 | 34.62 |
+
+All variants retain a 248-byte low-level Poly1305 context. Allocating and
+initializing 256 EVP MAC contexts increased anonymous memory by exactly 84 KiB
+in every one of three rotated runs per variant. RSS ranges overlap and do not
+show a reliable memory saving from either assembly variant.
+
+The 64-bit implementation is **not selected** despite its large-record gain.
+The official C906 RTL selects a different multiplication sequence when both
+operands fit its short-width condition. Wide `mul`/`mulhu` operations involving
+Poly1305 key limbs therefore cannot simply be assumed constant-time on C906.
+The 32-bit arithmetic variant avoids that particular width-dependent condition
+but is substantially slower than the existing C code. This is a qualification
+limitation, not a claim of a demonstrated exploit. See
+[the multiplier width test and state machine](https://github.com/XUANTIE-RV/openc906/blob/b0c06eb1f8b3bae663bd8b87eac89ff48e68a57f/C906_RTL_FACTORY/gen_rtl/iu/rtl/aq_iu_mul.v#L264-L275).
+
+### HTTPS with the current startup-hwprobe build
+
+`https-probe.go` is the physical-download harness; build it as a submodule of
+`NanoKVM-Server` with the project server module as a local replacement. Set
+`-runtime-root` to the directory containing `base/` and `candidate/` libraries;
+`-profile alpine` uses the installed libraries. Each process checks one bounded
+range download and removes its private data and header files.
+
+`native-https-results.jsonl` contains six rotating-order TLS 1.3 downloads each
+for installed Alpine, the current C906/O3 base and this ChaCha20 candidate.
+The installed curl fetched a 16 MiB range from the same Ubuntu HTTPS peer over
+Wi-Fi while video stayed active. Data passed through the production Go SHA-256
+path into a private SD file; every response was HTTP 206, had the expected
+length and SHA-256, and the file was synced outside the timed interval.
+
+| Metric, median of six | Alpine | C906/O3 base | ChaCha20 candidate |
+| --- | ---: | ---: | ---: |
+| curl CPU, seconds | 1.945 | 1.493 | 1.244 |
+| Transfer, seconds | 5.178 | 4.673 | 4.244 |
+| curl peak RSS, KiB | 7692 | 8188 | 8240 |
+| curl anonymous RSS, KiB | 2288 | 2288 | 2288 |
+
+The candidate uses 16.7% less curl CPU than the current base build, with
+52 KiB more median peak RSS and unchanged anonymous RSS. Network/wall-time
+variation and the absence of an encoder-control experiment prevent attributing
+an FPS improvement to this change. A separate TLS 1.2 ChaCha20 download also
+passed length and SHA-256 verification. No installed device files were replaced.

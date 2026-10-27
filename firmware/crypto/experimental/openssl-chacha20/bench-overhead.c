@@ -21,9 +21,6 @@ static uint64_t now(void) {
     struct timespec t; check(clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t) == 0);
     return (uint64_t)t.tv_sec * 1000000000 + t.tv_nsec;
 }
-static uint64_t cycles(void) {
-    uint64_t x; __asm__ volatile("rdcycle %0" : "=r"(x) : : "memory"); return x;
-}
 static void prepare(unsigned int s[16]) {
     s[0]=0x61707865; s[1]=0x3320646e; s[2]=0x79622d32; s[3]=0x6b206574;
     memcpy(s+4,key,32); memcpy(s+12,counter,16);
@@ -59,11 +56,14 @@ static void bench(const char *kind, int mode, size_t n, uint64_t duration) {
 static void *first_vector(void *arg) {
     unsigned int s[16]; prepare(s);
     check((prctl(70,0L,0L,0L,0L)&3)==2);
-    uint64_t a=cycles(); ossl_chacha20_c906_blocks(s,input+5,output+5,1,20); uint64_t b=cycles();
-    ossl_chacha20_c906_blocks(s,input+5,output+5,1,20); uint64_t c=cycles();
+    /* User-mode rdcycle is not enabled on every supported kernel. Include
+     * the empty timer pair so the thread-CPU clock overhead stays visible. */
+    uint64_t t=now(), a=now();
+    ossl_chacha20_c906_blocks(s,input+5,output+5,1,20); uint64_t b=now();
+    ossl_chacha20_c906_blocks(s,input+5,output+5,1,20); uint64_t c=now();
     OPENSSL_cleanse(s,sizeof(s));
-    printf("{\"kind\":\"first-vector\",\"thread\":%lu,\"first_cycles\":%llu,\"second_cycles\":%llu}\n",
-           (unsigned long)arg,(unsigned long long)(b-a),(unsigned long long)(c-b));
+    printf("{\"kind\":\"first-vector\",\"thread\":%lu,\"timer_pair_cpu_ns\":%llu,\"first_cpu_ns\":%llu,\"second_cpu_ns\":%llu}\n",
+           (unsigned long)arg,(unsigned long long)(a-t),(unsigned long long)(b-a),(unsigned long long)(c-b));
     return NULL;
 }
 int main(int argc,char **argv) {

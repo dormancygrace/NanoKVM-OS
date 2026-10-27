@@ -102,6 +102,7 @@
     "retryJoin": "Yeniden dene"
   },
   "keyboard": {
+    "more": "Klavye seçenekleri",
     "title": "Klavye",
     "paste": "Yapıştır",
     "tips": "Sadece standart klavye harfleri ve sembolleri desteklenmektedir.",

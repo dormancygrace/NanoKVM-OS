@@ -18,5 +18,6 @@ test('known packages get their component name, others keep the package name', ()
     componentLabel(t, 'nanokvm-kernel-sg2002'),
     't:settings.updates.components.names.kernel'
   );
+  assert.equal(componentLabel(t, 'nanokvm-openssl'), 't:settings.updates.components.names.openssl');
   assert.equal(componentLabel(t, 'nanokvm-future'), 'nanokvm-future');
 });

@@ -1,6 +1,8 @@
 package common
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -57,8 +59,10 @@ var monitorDeferredFile = "/etc/kvm/monitor_edid_deferred"
 // so under a new system in the FHD video memory mode, and the capture refused
 // the input. Until a profile is recorded, which profile the receiver holds is
 // unknown. nanokvm_update_edid reads the EDID first and skips the flash write
-// when the profile is already installed. It returns the programmed profile, or
-// "" when a profile is recorded or EDID is not programmable. A Cube is checked
+// when the profile is already installed. Once a profile is recorded, every start
+// reads the receiver and programs the saved profile again only when the
+// receiver holds another EDID (receiverHoldsLocked). It returns the programmed
+// profile, or "" when nothing was programmed. A Cube is checked
 // once instead and only reprogrammed when its receiver advertises modes it
 // cannot capture (checkCubeMonitorEDIDLocked).
 func ProgramMonitorProfileOnFirstStart() (string, error) {
@@ -103,23 +107,22 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 		}
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
 			hash := strings.TrimSpace(string(recorded))
-			if !retiredMonitorProfiles[hash] {
+			if retiredMonitorProfiles[hash] {
+				if err := retireStreamRateLocked(); err != nil {
+					return "", err
+				}
+				log.Infof("the HDMI receiver holds a retired 1080p 100 Hz profile; programming the current one")
+			} else if path := rgbRangeSuccessorLocked(hash); path != "" {
 				// A profile written before the profiles declared the RGB range
 				// selectable: the same profile, current version.
-				path := rgbRangeSuccessorLocked(hash)
-				if path == "" {
-					return "", nil
-				}
 				log.Infof("the HDMI receiver holds %s without the RGB range declaration; programming the current one", filepath.Base(path))
 				if err := hw.apply(path); err != nil {
 					return "", err
 				}
 				return path, nil
+			} else if receiverHoldsLocked(hw, hash) {
+				return "", nil
 			}
-			if err := retireStreamRateLocked(); err != nil {
-				return "", err
-			}
-			log.Infof("the HDMI receiver holds a retired 1080p 100 Hz profile; programming the current one")
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return "", nil
 		}
@@ -168,6 +171,36 @@ func retireStreamRateLocked() error {
 	}
 	SetScreen("fps", 90)
 	return nil
+}
+
+// The recorded profile is only what this server last wrote. The receiver keeps
+// its EDID in its own flash, which a tool or another system can rewrite: a
+// receiver recorded with QHD was found holding the 1080p profile, and the
+// source offered no QHD while QHD showed as selected. receiverHoldsLocked reads
+// the receiver (about 1 s on PCIe, with a receiver reset around the read) and
+// reports false when it holds another EDID, so that the saved profile is
+// programmed again. A failed read changes nothing.
+func receiverHoldsLocked(hw monitorSettingsBackend, hash string) bool {
+	edid, err := hw.read()
+	if err == nil && !edidValid(edid) {
+		err = errors.New("invalid EDID header or checksum")
+	}
+	if err != nil {
+		log.Warnf("cannot check the HDMI receiver EDID: %v", err)
+		return true
+	}
+	// The copy is 256 bytes; a one-block profile file is 128.
+	sum := sha256.Sum256(edid[:(int(edid[126])+1)*128])
+	held := hex.EncodeToString(sum[:])
+	if held == hash {
+		return true
+	}
+	name := "an EDID that is not a NanoKVM profile"
+	if path := shippedMonitorProfileLocked(held); path != "" {
+		name = filepath.Base(path)
+	}
+	log.Warnf("the HDMI receiver holds %s, not the recorded profile; programming the saved one", name)
+	return false
 }
 
 // A Cube receiver keeps its EDID in flash across reinstalls, and writing it

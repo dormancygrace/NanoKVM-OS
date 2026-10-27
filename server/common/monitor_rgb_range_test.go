@@ -65,6 +65,13 @@ func TestRetiredPointerAndRGBRangeWriteOnce(t *testing.T) {
 	// the backend records as applyMonitorProfileLocked does
 	apply := hw.apply
 	hw.apply = func(p string) error { recordMonitorProfileLocked(p); return apply(p) }
+	// the receiver holds what was last written
+	hw.read = func() ([]byte, error) {
+		if len(applied) == 0 {
+			return stock, nil
+		}
+		return os.ReadFile(applied[len(applied)-1])
+	}
 	if _, err := retireWindowsPointerLocked(hw); err != nil {
 		t.Fatal(err)
 	}
@@ -94,16 +101,16 @@ func TestFirstStartAddsRGBRangeToRecordedProfile(t *testing.T) {
 	current := withRGBRange(t, stock)
 	for _, tc := range []struct {
 		name       string
-		recorded   string
-		stock      bool // the stock profile is shipped as it is
+		held       []byte // the receiver holds the recorded profile
+		stock      bool   // the stock profile is shipped as it is
 		powerCycle bool
 		want       string
 	}{
-		{"earlier version of a shipped profile", hashOf(stock), false, false, "NanoKVM-monitor-1080-60.bin"},
-		{"current version", hashOf(current), false, false, ""},
-		{"a shipped profile without the block", hashOf(stock), true, false, ""},
-		{"unknown profile", "0", false, false, ""},
-		{"Cube", hashOf(stock), false, true, ""},
+		{"earlier version of a shipped profile", stock, false, false, "NanoKVM-monitor-1080-60.bin"},
+		{"current version", current, false, false, ""},
+		{"a shipped profile without the block", stock, true, false, ""},
+		{"unknown profile", heldEDID(), false, false, ""},
+		{"Cube", stock, false, true, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 1080, false, 1920)
@@ -119,11 +126,13 @@ func TestFirstStartAddsRGBRangeToRecordedProfile(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(monitorEDIDDir, "checked"), nil, 0600); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(monitorEDIDHashFile, []byte(tc.recorded+"\n"), 0600); err != nil {
+			if err := os.WriteFile(monitorEDIDHashFile, []byte(hashOf(tc.held)+"\n"), 0600); err != nil {
 				t.Fatal(err)
 			}
 			var applied []string
-			path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(true, tc.powerCycle, &applied, nil), poolUHD)
+			hw := firstStartBackend(true, tc.powerCycle, &applied, nil)
+			hw.read = func() ([]byte, error) { return tc.held, nil }
+			path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
 			if err != nil {
 				t.Fatal(err)
 			}

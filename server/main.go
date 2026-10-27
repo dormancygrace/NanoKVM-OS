@@ -114,8 +114,9 @@ func initialize(stopMemory context.CancelFunc) {
 
 	// The monitor profile is kept in the HDMI receiver across restarts and
 	// reinstalls; it must not exceed the video memory of this boot (a smaller
-	// mode may have been selected after it was saved), and after an
-	// installation it must be the saved one. Programming can take a while.
+	// mode may have been selected after it was saved), and it must be the
+	// saved one, after an installation or a write by anything but this server.
+	// Programming can take a while.
 	go func() {
 		if recovering {
 			return

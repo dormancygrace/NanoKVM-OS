@@ -62,8 +62,9 @@
  * buffers, the reconstruction frames, an 8 MiB bitstream and codec tables.
  * MJPEG is not available at 2160p. The 144 MiB CMA region holds it. */
 #define uhd_ion_mib             104U
-/* 2560x1440 at 60 Hz H.265 with MJPEG holds 53.9 MiB; the portrait profiles
- * need less (no MJPEG at 1440x2560). The QHD modes provide 54 or 56 MiB. */
+/* Legacy three-VI-buffer layouts measured 53.9 MiB at QHD60 with MJPEG.
+ * This remains the admission floor for those older layouts. The four-buffer
+ * policy is used only with shared CMA >=144 MiB; see docs/VIDEO.md. */
 #define qhd_ion_mib             54U
 
 #define LT6911_ADDR 	0x2B
@@ -155,11 +156,9 @@ void debug(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 kvm_venc_t kvm_venc;
 
-/* With no reader, VPSS kept converting every input frame into outputs that
-   nobody took ("Can't acquire VB BLK" once both buffers were held). Parked
-   outputs stay configured but disabled: their pools stay allocated, so
-   resuming needs no video memory; reopening a channel after idle can
-   exhaust the carveout (see kvmv_hdmi_control). */
+/* With no reader, disable VPSS outputs and reclaim their private pools.
+   Configuration is retained; resume recreates a reclaimed pool before enabling
+   the output. Repeated park calls retry a pool held by a late VPSS job. */
 static nanokvm::CapturePark capture_park;
 static int set_capture_parked_locked(bool parked);
 
@@ -1008,11 +1007,9 @@ static int mjpeg_chroma_choice = -1; // Legacy environment default until explici
 static uint64_t mjpeg_last_video_ms = 0, mjpeg_last_jpeg_ms = 0;
 static unsigned mjpeg_last_video_width = 0, mjpeg_last_jpeg_width = 0;
 static bool mjpeg_resolution_limited = false;
-// MJPEG's own output next to a video stream: a little above the rate the
-// server reads it at (mjpegNextToVideoFPS 30, next to a stream wider than
-// 1920 mjpegNextToWideVideoFPS 25).
+// Keep MJPEG's own VPSS output ahead of the server's 30 fps reader at every
+// video resolution, reducing waits that pause the Go video capture worker.
 static constexpr int mjpeg_next_to_video_fps = 33;
-static constexpr int mjpeg_next_to_wide_video_fps = 27;
 static uint64_t mjpeg_monotonic_ms()
 {
     timespec time{};
@@ -1704,7 +1701,7 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
         const bool own_jpeg = _type == VENC_MJPEG && capture_format == nanokvm::nv16_format();
         if (cam->get_channel() >= 0 && mmf_vpss_set_chn_max_rate(cam->get_channel(),
                 !own_jpeg || !mjpeg_video_reader_active(capture_now) ? 0
-                : mjpeg_last_video_width > 1920 ? mjpeg_next_to_wide_video_fps : mjpeg_next_to_video_fps) != 0) {
+                : mjpeg_next_to_video_fps) != 0) {
             pthread_mutex_unlock(&vi_mutex);
             return IMG_VENC_ERROR;
         }
@@ -2087,8 +2084,9 @@ int kvmv_hdmi_control(uint8_t _en)
 /* Caller holds vi_mutex. Parking deletes the video and JPEG encoder
    channels: a frame pre-submitted to the video encoder leases a VPSS buffer
    until collected, the next viewer starts with a new channel and an IDR
-   anyway, and the encoder memory is free while nobody watches. Disabling
-   releases the queued frames, so the first frame after resuming is fresh. */
+   anyway, and the encoder memory is free while nobody watches. Disabled
+   output pools are reclaimed after existing leases end and restored before
+   the next consumer enables the output. */
 static int set_capture_parked_locked(bool parked)
 {
     return capture_park.set(parked, [] {
@@ -2108,6 +2106,14 @@ int kvmv_set_capture_parked(uint8_t parked)
     pthread_mutex_unlock(&vi_mutex);
     if (result != 0) debug("[kvmv]capture %s failed: %d\n", parked ? "park" : "resume", result);
     return result;
+}
+
+int kvmv_capture_reclaim_pending(void)
+{
+    pthread_mutex_lock(&vi_mutex);
+    const int pending = mmf_vi_has_pending_pool();
+    pthread_mutex_unlock(&vi_mutex);
+    return pending;
 }
 
 uint8_t kvmv_hdmi_signal_active()

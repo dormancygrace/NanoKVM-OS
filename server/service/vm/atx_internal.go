@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"NanoKVM-Server/config"
-	"NanoKVM-Server/internal/bmc"
+	"NanoKVM-Server/pkg/bmc"
 )
 
 // ATX is the host's power buttons and LED for the BMC protocols: the

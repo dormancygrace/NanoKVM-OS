@@ -74,7 +74,7 @@ func (s *Service) MountImage(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.remote != nil {
-		c.JSON(409, gin.H{"code": -2, "msg": "Disconnect browser media before mounting another image"})
+		c.JSON(409, gin.H{"code": -2, "msg": "Disconnect remote media before mounting another image"})
 		return
 	}
 	if s.netboot != nil {

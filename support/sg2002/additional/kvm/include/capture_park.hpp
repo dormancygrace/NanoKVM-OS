@@ -26,11 +26,12 @@ public:
 
     // Parking retires what holds output buffers first (retire), then disables
     // the outputs; a failure leaves them enabled and the capture not parked.
-    // Resuming enables them. Either is a no-op when already in that state.
+    // Resuming enables them. Repeated parking retries pool reclamation after
+    // late VPSS jobs finish, without retiring encoders or enabling outputs.
     template <class Retire, class SetEnabled>
     int set(bool park, Retire &&retire, SetEnabled &&set_enabled) {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (parked_ == park) return 0;
+        if (parked_ == park) return park ? set_enabled(false) : 0;
         if (park) {
             if (const int retired = retire()) return retired;
             if (const int disabled = set_enabled(false)) {

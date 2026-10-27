@@ -79,9 +79,11 @@ extern "C" {
 // pre-submitted between two reads. Any other value is an error.
 #define MMF_VI_OUTPUT_LEASED 1
 int mmf_vi_drop_pending(int ch);
-// Enables or disables an open output's VPSS channel without touching its
-// pool, queue or leases.
+// Disables an output and reclaims its private pool after leases end;
+// enabling restores a reclaimed pool before restarting the VPSS channel.
 int mmf_vi_chn_set_enabled(int ch, int enable);
+// Read under the capture lock; true while a disabled output still owns a pool.
+int mmf_vi_has_pending_pool(void);
 int mmf_add_vi_channel_configured(int ch, int width, int height, int format, int buffers, int queue_depth);
 #ifdef __cplusplus
 }

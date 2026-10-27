@@ -89,6 +89,11 @@ jobs:
           python3 tests/test-zram-pages.py --source "$OUT/kernel/src"
           NANOKVM_SANITIZE=1 python3 tests/test-zram-pages.py --source "$OUT/kernel/src"
 
+      - name: Check zram stream concurrency
+        run: |
+          python3 tests/test-zram-streams.py --source "$OUT/kernel/src"
+          NANOKVM_SANITIZE=1 python3 tests/test-zram-streams.py --source "$OUT/kernel/src"
+
       - name: Check LZ4 decoder contracts
         run: |
           python3 tests/test-lz4-decompressor.py --source "$OUT/kernel/src"

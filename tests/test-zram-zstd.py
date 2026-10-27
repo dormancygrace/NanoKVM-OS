@@ -28,7 +28,7 @@ def check(output):
     reference = output / 'reference-source'
     shutil.copytree(kernel / 'drivers/block/zram', reference / 'drivers/block/zram',
                     dirs_exist_ok=True)
-    patch = ROOT / 'platform/kernel/0057-zram-zstd-empty-dictionaries.patch'
+    patch = ROOT / 'platform/kernel/0058-zram-zstd-empty-dictionaries.patch'
     subprocess.run(['patch', '--batch', '--reverse', '--fuzz=0', '-p1',
                     '-d', str(reference)], input=patch.read_text(), text=True, check=True)
     for name, source, expected in [('reference', reference, 3), ('candidate', kernel, 1)]:

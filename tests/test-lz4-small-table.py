@@ -32,6 +32,12 @@ def check(directory):
                            'lib/lz4/lz4_110.h', 'lib/lz4/lz4_compress_4k.c'})
     subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(directory)],
                    input=selected, text=True, check=True)
+    scalar = ROOT / 'platform/kernel/0056-lz4-c906-scalar-paths.patch'
+    selected = ''.join('diff --git ' + part for part in scalar.read_text().split('diff --git ')[1:]
+                       if part.splitlines()[0].split(' b/')[1] == 'lib/lz4/lz4_110.h')
+    assert selected
+    subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(directory)],
+                   input=selected, text=True, check=True)
     include = directory / 'include/linux'
     include.mkdir(parents=True, exist_ok=True)
     for name in ['kernel.h', 'limits.h', 'lz4.h', 'module.h', 'string.h']:

@@ -30,6 +30,12 @@ def check(directory):
         target.write_text(content)
         extracted.add(name)
     assert extracted == set(sources)
+    scalar = ROOT / 'platform/kernel/0056-lz4-c906-scalar-paths.patch'
+    selected = ''.join('diff --git ' + part for part in scalar.read_text().split('diff --git ')[1:]
+                       if part.splitlines()[0].split(' b/')[1] == 'lib/lz4/lz4_110.h')
+    assert selected
+    subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(directory)],
+                   input=selected, text=True, check=True)
     # Old candidate tools must fail explicitly before creating partial outputs.
     bench = ROOT / 'firmware/alpine/bench/c906-lz4'
     for tool in ['variants.py', 'build.py']:

@@ -76,15 +76,20 @@ accepting small differences. A fast result for one repeated pattern does not
 establish a useful change for mixed ZRAM pages. Run real ZRAM acceptance only
 after choosing a stable candidate, then build the whole kernel once.
 
-## Selected production change
+## Historical aligned-copy experiment
 
-Patch `platform/kernel/0039-c906-aligned-lz4-decompression.patch` selects
-variant 9 only in the decompressor. The shared helper's compressor instantiation
-retains its original code. The Kconfig option defaults off for other kernels;
-NanoKVM's `platform/kernel/config` enables it, and `selected.config` is available
-for a separate qualification tree. The production GCC optimization remains
-`-O3`, with compiler vectorization disabled. This helper uses scalar aligned
-64-bit loads and stores; it requires no vector context.
+The former patch 0039 selected variant 9 only in the decompressor. Its
+`CONFIG_RISCV_C906_LZ4_DECOMPRESS` switch and `selected.config` are retired.
+Current kernel KCFLAGS include `-mno-strict-align` after the architecture
+Makefile flags, so ordinary fixed-size copies already use word loads/stores;
+the separate aligned dispatch is redundant. The current 0056 patch instead
+uses byte reversal plus CLZ for compressor byte counting and limits the full
+decoder overlap initialization to offsets below eight. Production optimization
+remains `-O3` with compiler vectorization disabled.
+
+The measurements below describe the old aligned-copy experiment, not the
+current compressor or decoder. Use the current API/guarded-buffer contracts
+listed above for the imported 1.10 stack.
 
 The C906 qualification passed all 45,056 cases before a complete kernel/module
 build. Across the 3,696-row page matrix, paired median decompression time fell

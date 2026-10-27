@@ -165,6 +165,11 @@ transitions. It requires zero D writes and no internal E1 identity reads.
 Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
 fault, including no further IO after a failed attempt in the same generation.
 
+The kernel build also runs `test-lz4-decompressor.py --source <patched-kernel-tree>`
+with and without `NANOKVM_SANITIZE=1`. Its constructed blocks cover short overlap
+distances, length extensions, partial decoding, external dictionaries, safe and
+fast streaming APIs, in-place buffers, truncated input and tight output bounds.
+
 The [C906 memory test](manual/c906-memory/README.md) validates the running kernel’s
 memmove assembly on SG2002, including overlapping buffers, return values and
 unmapped page boundaries.

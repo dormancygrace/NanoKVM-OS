@@ -14,6 +14,7 @@ def generate(prefix):
     module.selftest(text, 200)
     text = text.replace('#include <linux/linkage.h>', '/* BSD-3-Clause option; caller checks the current thread vector control. */\n#define SYM_FUNC_START(n) .globl n; .hidden n; .type n,@function; .p2align 4; n:\n#define SYM_FUNC_END(n) .size n,.-n')
     text = text.replace('ghash_blocks_c906', 'ossl_ghash_blocks_c906')
+    text = text.replace('SYM_FUNC_START(ossl_ghash_blocks_c906_v)\n', 'SYM_FUNC_START(ossl_ghash_blocks_c906_v)\n#ifdef NKOS_GHASH_TEST\n\tla t0,ossl_ghash_test_count\n\tli t1,1\n\tamoadd.d zero,t1,(t0)\n#endif\n')
     return text + '\n.section .note.GNU-stack,"",@progbits\n'
 def main():
     p = argparse.ArgumentParser(description=__doc__)

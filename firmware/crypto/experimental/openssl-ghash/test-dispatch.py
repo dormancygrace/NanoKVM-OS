@@ -13,6 +13,26 @@ def main():
     parser.add_argument('--negative-control',action='store_true')
     a=parser.parse_args()
     patch=(ROOT/'firmware/crypto/openssl-c906/0010-ghash-c906.patch').read_text()
+    # Exercise the actual integration guards without the draft-vector compiler
+    # macro: vectors are encoded explicitly and enabled by runtime hwprobe.
+    integration = patch.split('+++ b/crypto/modes/gcm128.c\n', 1)[1].split('diff --git ', 1)[0]
+    guards = [line[1:] for line in integration.splitlines() if line.startswith('+#if ')]
+    assert len(guards) == 2
+    def included(guard, definitions):
+        probe = guard + '\nGHASH_INTEGRATED\n#endif\n'
+        result = subprocess.run(['cc', '-E', '-P', '-x', 'c', *definitions, '-'],
+                                input=probe, capture_output=True, text=True, check=True)
+        return 'GHASH_INTEGRATED' in result.stdout
+    target = ['-D__riscv=1', '-D__riscv_xlen=64', '-D__riscv_xtheadbb=1']
+    for guard in guards:
+        assert included(guard, target), 'scalar C906 baseline must include runtime dispatch'
+        for extra in ['-DOPENSSL_NO_ASM=1', '-DFIPS_MODULE=1']:
+            assert not included(guard, target + [extra])
+        assert not included(guard, [])
+        if a.negative_control:
+            old_guard = guard.replace('__riscv_xtheadbb', '__riscv_xtheadvector')
+            assert not included(old_guard, target), 'old compiler-macro regression must be detected'
+    print('PASS: C906 scalar-ISA integration guards, no-asm/FIPS exclusion')
     source=added_file(patch,'crypto/modes/gcm_c906.c')
     with tempfile.TemporaryDirectory(prefix='ghash-dispatch-') as td:
         temp=Path(td); (temp/'crypto').mkdir(); (temp/'crypto/riscv_arch.h').write_text('extern int ossl_riscv_has_xtheadvector;\n')

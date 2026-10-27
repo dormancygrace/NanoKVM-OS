@@ -1,0 +1,186 @@
+{
+  "base/etc/ssl/openssl.cnf": {
+    "sha256": "a65a2cb9f4ee8ffdc7ef4f0ac600c0bdafb95b7b1ab457188ac610a62f5ad6b3",
+    "size": 12411
+  },
+  "base/etc/ssl/ct_log_list.cnf": {
+    "sha256": "f1c1803d13d1d0b755b13b23c28bd4e20e07baf9f2b744c9337ba5866aa0ec3b",
+    "size": 412
+  },
+  "base/usr/lib/libcrypto.so.3": {
+    "sha256": "92a11bbc70bd6040289f7048aecf53d500c98356dfa328c5dbbff10fe085c3ec",
+    "size": 4398000
+  },
+  "base/usr/lib/libssl.so.3": {
+    "sha256": "171848c63920c13c3b3aa690dd871defe4a7bec77dca60a749cd2c7ab0b032e2",
+    "size": 917392
+  },
+  "base/usr/bin/openssl": {
+    "sha256": "d1e2a52e9cb715079d8fcb73036752a58c48935d09eb984c53ef0ef15b6207ed",
+    "size": 979624
+  },
+  "base/usr/share/nanokvm/openssl/cpu-profile.json": {
+    "sha256": "78aefc2f82e9e2d1f0eb69085f1166fde8b5deb2097805b160d8b1af3c601b6a",
+    "size": 864
+  },
+  "base/usr/share/nanokvm/openssl/source.json": {
+    "sha256": "89f93aed0c7451ceb615933416b4d8c6330e201bf21b788c08fdbefea172d9e7",
+    "size": 652
+  },
+  "base/usr/share/licenses/nanokvm-openssl/LICENSE.txt": {
+    "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "size": 10175
+  },
+  "base/usr/lib/ossl-modules/legacy.so": {
+    "sha256": "5e974b1d9ca0d8ee0e7a48505c81ff8a7636ded1e88e799c65b2e6f32f11f75b",
+    "size": 108464
+  },
+  "base/usr/lib/engines-3/capi.so": {
+    "sha256": "a5c55577c279972b7befb5df86593464f7a0c7542a2287f43f78f918e2f664a4",
+    "size": 5616
+  },
+  "base/usr/lib/engines-3/afalg.so": {
+    "sha256": "dce11298371673559b345aa2e2391136b1e082c5d58faa182e5e5191d309ec6f",
+    "size": 18560
+  },
+  "base/usr/lib/engines-3/padlock.so": {
+    "sha256": "a5c55577c279972b7befb5df86593464f7a0c7542a2287f43f78f918e2f664a4",
+    "size": 5616
+  },
+  "base/usr/lib/engines-3/loader_attic.so": {
+    "sha256": "4094272fd0d4700d9aa45cc57bb08400fe81104b6805712cead60b959df24d85",
+    "size": 47488
+  },
+  "candidate/etc/ssl/openssl.cnf": {
+    "sha256": "a65a2cb9f4ee8ffdc7ef4f0ac600c0bdafb95b7b1ab457188ac610a62f5ad6b3",
+    "size": 12411
+  },
+  "candidate/etc/ssl/ct_log_list.cnf": {
+    "sha256": "f1c1803d13d1d0b755b13b23c28bd4e20e07baf9f2b744c9337ba5866aa0ec3b",
+    "size": 412
+  },
+  "candidate/usr/lib/libcrypto.so.3": {
+    "sha256": "d89396fb381ca4ca6fa25d656e675c2bed088f981e0065c93df04ac3c2f3ccad",
+    "size": 4402096
+  },
+  "candidate/usr/lib/libssl.so.3": {
+    "sha256": "171848c63920c13c3b3aa690dd871defe4a7bec77dca60a749cd2c7ab0b032e2",
+    "size": 917392
+  },
+  "candidate/usr/bin/openssl": {
+    "sha256": "d1e2a52e9cb715079d8fcb73036752a58c48935d09eb984c53ef0ef15b6207ed",
+    "size": 979624
+  },
+  "candidate/usr/share/nanokvm/openssl/cpu-profile.json": {
+    "sha256": "78aefc2f82e9e2d1f0eb69085f1166fde8b5deb2097805b160d8b1af3c601b6a",
+    "size": 864
+  },
+  "candidate/usr/share/nanokvm/openssl/source.json": {
+    "sha256": "e9668ce73a550b609022f9056b78def889696af12f8104d69001f0ef148c5c55",
+    "size": 1877
+  },
+  "candidate/usr/share/licenses/nanokvm-openssl/C906-BSD-3-Clause.txt": {
+    "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "size": 1453
+  },
+  "candidate/usr/share/licenses/nanokvm-openssl/LICENSE.txt": {
+    "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "size": 10175
+  },
+  "candidate/usr/lib/ossl-modules/legacy.so": {
+    "sha256": "35eaa15af212f88c4d245009d0dd7b0317a247b71fbd42e93b1215848c0a593c",
+    "size": 112560
+  },
+  "candidate/usr/lib/engines-3/capi.so": {
+    "sha256": "a5c55577c279972b7befb5df86593464f7a0c7542a2287f43f78f918e2f664a4",
+    "size": 5616
+  },
+  "candidate/usr/lib/engines-3/afalg.so": {
+    "sha256": "dce11298371673559b345aa2e2391136b1e082c5d58faa182e5e5191d309ec6f",
+    "size": 18560
+  },
+  "candidate/usr/lib/engines-3/padlock.so": {
+    "sha256": "a5c55577c279972b7befb5df86593464f7a0c7542a2287f43f78f918e2f664a4",
+    "size": 5616
+  },
+  "candidate/usr/lib/engines-3/loader_attic.so": {
+    "sha256": "4094272fd0d4700d9aa45cc57bb08400fe81104b6805712cead60b959df24d85",
+    "size": 47488
+  },
+  "bin/chacha-verify": {
+    "sha256": "2d35136a99a7901d0e30e04f507527090eee9dbf2a4f2932eeaa66147a2b4f29",
+    "size": 13968
+  },
+  "bin/chacha-bench": {
+    "sha256": "06190525a17ac7d5b7fb29690e7ba4e28171d6679b7f1b39067a9d86be34f6d6",
+    "size": 22976
+  },
+  "bin/evp-bench": {
+    "sha256": "c935b72b6e1fafcf4e71d4109e2fdcaa4ed961198d4521e7dfca99f316220490",
+    "size": 22936
+  },
+  "bin/crypto-bench": {
+    "sha256": "ac2c36d02e2e62011f88a5f896d315b4d1e7ce39a3762f4e3be17d6d58ae2771",
+    "size": 24176
+  },
+  "bin/digest-verify": {
+    "sha256": "3818e88ece7e6fecd5457ebe52ae8f0a37bf42c9aef20d1567a88d296f33c839",
+    "size": 13616
+  },
+  "bin/digest-bench": {
+    "sha256": "46fbec6b45e775a75570f14a6a6d2561c1ae60bef6a2ae8d7b9e9fc3bb203e15",
+    "size": 22976
+  },
+  "bin/blocks-verify": {
+    "sha256": "9b75cadd45fcddc0135e83cd3d02175540e986d0c95ace7c2456c27b94f25bd3",
+    "size": 14128
+  },
+  "bin/block-bench": {
+    "sha256": "f0d4818bf96863db8519ab618eb85d515fe609632eb6ecdf5140164e7bacb2d3",
+    "size": 13768
+  },
+  "bin/sm3-verify": {
+    "sha256": "fcfc6470793b25c7d4c6adacf9d87a9a2a06e148fbd83bf12ec17a10e7f24335",
+    "size": 13512
+  },
+  "bin/sm3-dma-verify": {
+    "sha256": "8829e0bd28e7874ab8c2cbfa6c3af91e1da10c60efb328217368e7e68db2f589",
+    "size": 13400
+  },
+  "bin/crypto-info": {
+    "sha256": "db6fd0438d61fa71f103d9ea3c5281a3aba88827cefcd9de6bae88f02de2c351",
+    "size": 8832
+  },
+  "bin/evp_test": {
+    "sha256": "4d1b11aeb4b84e78682dda3f0e3f9864f91d97945fa8e513ef2f64baccf2ff35",
+    "size": 188432
+  },
+  "module/sg2002_aes_probe.ko": {
+    "sha256": "fa768d119197cd7697a9173ef33a052f43142a7f37bd120fda4b2c09a1874518",
+    "size": 61448
+  },
+  "vectors/evpciph_chacha.txt": {
+    "sha256": "0aff52358c3dfd275bfd3166597ba23f273dab602d3d197c87a4ed35118ba293",
+    "size": 53714
+  },
+  "vectors/evpciph_aes_common.txt": {
+    "sha256": "6d010340aed62f376905253680d5b856ee751ba663d85772774b56fa7e490936",
+    "size": 229890
+  },
+  "vectors/evpmd_sha.txt": {
+    "sha256": "1cdaa355477300fd3c0ad453d2f6c13f528f3b127af83ff03dbfbf2bf33029c4",
+    "size": 32761
+  },
+  "vectors/evpciph_des.txt": {
+    "sha256": "ec3e1cd75910417454d83234278cfc92f60b8f26877069a133a02badd2178407",
+    "size": 2499
+  },
+  "vectors/evpciph_sm4.txt": {
+    "sha256": "9e66667dd0634a59a5549340e14822591314c9b1ccebfcf5ae70ba6fe7472aba",
+    "size": 5723
+  },
+  "vectors/evpmd_sm3.txt": {
+    "sha256": "436922194a65464e40ec7d40ce8afb4310b62a8c780cef05b7ec9fb97cb9b9d4",
+    "size": 5189
+  }
+}

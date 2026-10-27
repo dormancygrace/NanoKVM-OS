@@ -160,6 +160,18 @@ jobs:
         run: |
           sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user
           python3 tests/test-openssl-source.py --negative-control
+      - name: OpenSSL AES partial DMA continuation
+        run: python3 firmware/crypto/experimental/openssl-aes/test-blocks.py
+      - name: OpenSSL AES EVP state and counter carry
+        run: |
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify.c -lcrypto -o /tmp/openssl-aes-verify
+          /tmp/openssl-aes-verify
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify-gcm.c -lcrypto -o /tmp/openssl-gcm-verify
+          /tmp/openssl-gcm-verify
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -Iplatform/modules/sg2002-aes firmware/crypto/experimental/openssl-aes/verify-ctr.c -lcrypto -o /tmp/openssl-ctr-verify
+          /tmp/openssl-ctr-verify
+          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify-tails.c -lcrypto -o /tmp/openssl-aes-tails
+          /tmp/openssl-aes-tails bfe84c43ff49df11
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

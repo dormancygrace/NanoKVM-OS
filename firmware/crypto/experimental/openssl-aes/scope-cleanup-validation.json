@@ -1,0 +1,124 @@
+{
+  "profile": "aes-final-policy",
+  "source_revision_before_report": "1aff0f781a30ceeab431f0c7f28886b9d8693a7f",
+  "patches": [
+    {
+      "file": "0001-chacha20-c906.patch",
+      "sha256": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+    },
+    {
+      "file": "0002-sg2002-transport.patch",
+      "sha256": "0b9315799971cacaf92e306cf55920aab1af3b909f2997af3f450174145af899"
+    },
+    {
+      "file": "0003-sha256-dma.patch",
+      "sha256": "8a8ab6b8075a250eec9b88987223cd3ece7127cd9af2add2bd931098a888c31c"
+    },
+    {
+      "file": "0005-aes-c906.patch",
+      "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+    },
+    {
+      "file": "0005-aes-dma.patch",
+      "sha256": "cb2d796bde7cf25052bf10692360d8ddee7dc44dbd6c7bb2bc25d9d3b262453d"
+    }
+  ],
+  "libcrypto_sha256": "f18d246638a2b6f842b338a2d7c44f20c68df2dca0e32a63eba569001a8dc92d",
+  "libssl_sha256": "814c7e4aee61bc3c75adbdd4a069de2fce04beb8546bd7fb18ddc8acaa362db2",
+  "public_exports": 5808,
+  "no_sha1_offload_object": true,
+  "legacy_provider_has_no_sg2002_objects": true,
+  "zero_fuzz_patches": true,
+  "source_files_verified": 27,
+  "cpu_profile": {
+    "schema": 1,
+    "profile": "sg2002-c906-o2",
+    "kind": "openssl",
+    "compiler_family": "gcc",
+    "lto": "none",
+    "profile_sha256": "58540f3540904e6de09c65273cd6bf694401230caad96a8701d09c7ce5a56048",
+    "compiler_version": "16.2.0",
+    "compiler_target": "riscv64-buildroot-linux-musl",
+    "flags": [
+      "-O3",
+      "-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync",
+      "-mtune=thead-c906",
+      "-mabi=lp64d",
+      "-mno-fence-tso",
+      "-fno-tree-vectorize",
+      "-fno-tree-slp-vectorize",
+      "-mstringop-strategy=scalar",
+      "-g0",
+      "-fstack-protector-strong",
+      "-fstack-clash-protection",
+      "-Wformat",
+      "-Werror=format-security",
+      "-D_FORTIFY_SOURCE=2"
+    ],
+    "scope": "NanoKVM-built source objects; excludes stock Alpine and prebuilt vendor objects"
+  },
+  "schema": 1,
+  "purpose": "AES-only cleanup and restack directly onto SHA-256",
+  "host_reference": "OpenSSL 3.5.5 27 Jan 2026 (Library: OpenSSL 3.5.5 27 Jan 2026)",
+  "evp_host_checks": [
+    {
+      "source": "verify.c",
+      "sha256": "6b4b1ee2962f9f4006bb2194d80cfa4d142e0241af57155b8749cb28c05acf8d",
+      "rc": 0,
+      "output": "{\"cases\":972,\"fingerprint\":\"019ff5988780130c\"}\n"
+    },
+    {
+      "source": "verify-ctr.c",
+      "sha256": "42e9d4707a40147af535e7440c197bcb26276d99eb2f854b6e694b4f2e30a555",
+      "rc": 0,
+      "output": "PASS 288 EVP CTR carry cases\n"
+    },
+    {
+      "source": "verify-gcm.c",
+      "sha256": "117af8f22fac3ec3cdf1d31d3cbb5538e9ae4bd1e5137018759a1f6e85518d59",
+      "rc": 0,
+      "output": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.5 27 Jan 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\nPASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472\n"
+    },
+    {
+      "source": "verify-tails.c",
+      "sha256": "e59aaa65ce831c1f06e63465daaa582afbd693270f19904e869e1bd7084f5f40",
+      "rc": 0,
+      "output": "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.5 27 Jan 2026\"}\n"
+    }
+  ],
+  "helper_checks": {
+    "sanitizers": [
+      "address",
+      "undefined"
+    ],
+    "continuation_cases": 92880,
+    "cbc_tail_failure_cases": 960,
+    "gcm_wrap_failure_cases": 25,
+    "rejected_non_aes_ids": 7,
+    "negative_controls": [
+      "full-width hardware counter assumption",
+      "initial threshold repeated on tail",
+      "non-AES algorithm accepted"
+    ],
+    "result": "PASS"
+  },
+  "transport_check": {
+    "submissions": 77,
+    "negative_control": "direct output writes rejected",
+    "result": "PASS"
+  },
+  "sha256_check": {
+    "fallback_cases": 1920,
+    "result": "PASS"
+  },
+  "independent_ciphertext_fingerprint_negative_control": "PASS: one-bit-wrong expected fingerprint rejected",
+  "native_checks_repeated_for_cleanup": false,
+  "native_reference": "native-final-validation.json retains the exact pre-cleanup library, patch hashes and results; AES assembly, provider algorithms and DMA thresholds are unchanged.",
+  "harnesses": {
+    "verify-gcm.c": "117af8f22fac3ec3cdf1d31d3cbb5538e9ae4bd1e5137018759a1f6e85518d59",
+    "verify-ctr.c": "42e9d4707a40147af535e7440c197bcb26276d99eb2f854b6e694b4f2e30a555",
+    "test-blocks.c": "c3caaa08f01bc0b54911c2ba031cbe6146fd7a8fdfef9a61aa6f3c4290f43b81",
+    "verify.c": "6b4b1ee2962f9f4006bb2194d80cfa4d142e0241af57155b8749cb28c05acf8d",
+    "verify-tails.c": "e59aaa65ce831c1f06e63465daaa582afbd693270f19904e869e1bd7084f5f40"
+  }
+}

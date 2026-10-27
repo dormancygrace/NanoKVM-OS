@@ -1,0 +1,117 @@
+{
+  "device_boot_id": "dbac9055-f3fd-4c12-9789-b92cdb2d8918",
+  "device": "physical SG2002/C906, 1 GHz, video active",
+  "clock": "CLOCK_PROCESS_CPUTIME_ID",
+  "final_sha256": "46d5d46d2623937759c6bc16937ca08ffd21e74ea4d99b2f3b56c8f1a591df66",
+  "baseline_sha256": "4b34b5e722fdfca0d52b1ef334de415abae83db27dec4ba85feb5bc0f5bc164d",
+  "final_source": {
+    "source": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+    "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+    "configure": [
+      "linux64-riscv64",
+      "--prefix=/usr",
+      "--libdir=lib",
+      "--openssldir=/etc/ssl",
+      "enable-fips",
+      "enable-ktls",
+      "shared",
+      "no-zlib",
+      "no-async",
+      "no-comp",
+      "no-idea",
+      "no-mdc2",
+      "no-rc5",
+      "no-ec2m",
+      "no-ssl3",
+      "no-seed",
+      "no-weak-ssl-ciphers",
+      "--cross-compile-prefix=riscv64-buildroot-linux-musl-",
+      "-Wa,--noexecstack"
+    ],
+    "custom_crypto_code": true,
+    "patches": [
+      {
+        "file": "0001-chacha20-c906.patch",
+        "sha256": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+      },
+      {
+        "file": "0002-sg2002-transport.patch",
+        "sha256": "0b9315799971cacaf92e306cf55920aab1af3b909f2997af3f450174145af899"
+      },
+      {
+        "file": "0003-sha256-dma.patch",
+        "sha256": "8a8ab6b8075a250eec9b88987223cd3ece7127cd9af2add2bd931098a888c31c"
+      },
+      {
+        "file": "0004-sha1-dma.patch",
+        "sha256": "def79f14653d6ea022d4964eb75fd67c899ed07e0c1960e9bf287a035c5a0636"
+      },
+      {
+        "file": "0005-aes-c906.patch",
+        "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+      },
+      {
+        "file": "0005-aes-dma.patch",
+        "sha256": "139baa77d2aa87c69a4410e401db1f064544c8c2d76784c74c0ce94e58b5c0f2"
+      }
+    ],
+    "cryptodma": true
+  },
+  "cpu_profile": {
+    "schema": 1,
+    "profile": "sg2002-c906-o2",
+    "kind": "openssl",
+    "compiler_family": "gcc",
+    "lto": "none",
+    "profile_sha256": "58540f3540904e6de09c65273cd6bf694401230caad96a8701d09c7ce5a56048",
+    "compiler_version": "16.2.0",
+    "compiler_target": "riscv64-buildroot-linux-musl",
+    "flags": [
+      "-O3",
+      "-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync",
+      "-mtune=thead-c906",
+      "-mabi=lp64d",
+      "-mno-fence-tso",
+      "-fno-tree-vectorize",
+      "-fno-tree-slp-vectorize",
+      "-mstringop-strategy=scalar",
+      "-g0",
+      "-fstack-protector-strong",
+      "-fstack-clash-protection",
+      "-Wformat",
+      "-Werror=format-security",
+      "-D_FORTIFY_SOURCE=2"
+    ],
+    "scope": "NanoKVM-built source objects; excludes stock Alpine and prebuilt vendor objects"
+  },
+  "exports": {
+    "count": 5808,
+    "baseline_sha256": "4b34b5e722fdfca0d52b1ef334de415abae83db27dec4ba85feb5bc0f5bc164d",
+    "candidate_sha256": "46d5d46d2623937759c6bc16937ca08ffd21e74ea4d99b2f3b56c8f1a591df66",
+    "identical_names_and_types": true
+  },
+  "harness_sha256": {
+    "aes-final-bench": "7d3a2891dcf67f41c317e2ae2888c3885cc4a8f1c66a0ce1c64accf526aa1815",
+    "evp-bench": "c935b72b6e1fafcf4e71d4109e2fdcaa4ed961198d4521e7dfca99f316220490",
+    "verify-aes-tails": "d4b03503a3794163a5e0f5bea8662e3d05c8989309c3824ac3f48f51941f9228",
+    "bench-aes-primitive": "644a1127dc5ae2b3d6f9ffc42d8bacce63810d602133cbbebb2914bc7d83386c",
+    "bench-aes-stream": "a5f6e08fe462b0a43766c0f646c132e2a4b390732761af2bb2ccb1528135d544"
+  },
+  "independent_tail_reference": {
+    "cases": 20736,
+    "fingerprint": "bfe84c43ff49df11",
+    "openssl": "OpenSSL 3.5.5 27 Jan 2026"
+  },
+  "generic_and_fips_aes_text_identical_to_upstream": true,
+  "profiles": {
+    "base-off": "#504 baseline, DMA off",
+    "extract-off": "lookup-only experimental delta over previous complete stack; DMA off, no early provider size guard",
+    "final-off": "selected AES patch stack, DMA off",
+    "final-on": "same selected DSO, DMA on; GCM uses upstream software GHASH; no #527 patch"
+  },
+  "limitations": [
+    "Full bench.c operation includes EVP key/IV reinitialization and finalization on each call.",
+    "Tiny complete EVP calls can regress despite faster AES blocks; no unconditional small-message gain is claimed.",
+    "No installed files were replaced. Timing comparisons include complete DSO layout; do not attribute every change to one instruction."
+  ]
+}

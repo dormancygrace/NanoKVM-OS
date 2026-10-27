@@ -106,6 +106,11 @@ jobs:
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+      - name: OpenSSL C906 ChaCha dispatch
+        run: |
+          sudo apt-get install -y libssl-dev
+          python3 firmware/crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
+          python3 firmware/crypto/experimental/openssl-chacha20/test-dispatch.py --negative-control
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

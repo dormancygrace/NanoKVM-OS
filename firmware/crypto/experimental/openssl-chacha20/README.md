@@ -28,7 +28,37 @@ Removing the capability, per-thread or explicit opt-in gate must fail. The assem
 generator verifies the encoded instructions against GNU binutils. Existing
 `../openssl-c906/evp-bench.c 0` checks AEAD known answers and bad tags/ciphertext.
 
-## Measurements
+## Final explicit-opt-in build
+
+The final implementation is `6ce28df8`, libcrypto SHA-256
+`6af139e8a8dee9e88e36b7e09a6e5a5ca3d4b001f36da4c8ab14151e1581ca5d`.
+It passed the native differential, actual-entry, thread-state and strengthened
+fatal-syscall tests described above, plus 408 AEAD known-answer/rejected-tag cases.
+The first eligible call makes no UID/GID or file probe. Production retains all
+5808 dynamic definitions and no test-counter exports.
+
+Six rotated final-build trials are in `native-policy-bench.jsonl` and
+`native-policy-https.jsonl`, with identities/limits in `native-policy-validation.json`.
+At 16 KiB, AEAD open measures 48.14 versus 29.38 MiB/CPU-s for the same binary's
+generic path. The full-build 64-byte result remains slower than base (6.39 versus
+6.84); no small-input gain is claimed. The 640-byte minimum is retained.
+
+| Final HTTPS, median of six | C906/O3 base | ChaCha candidate |
+| --- | ---: | ---: |
+| curl CPU, seconds | 1.478 | 1.252 |
+| Transfer, seconds | 4.509 | 4.417 |
+| curl peak RSS, KiB | 8228 | 8204 |
+| Anonymous RSS, KiB | 2288 | 2288 |
+
+This is **15.3% less curl CPU**. Peak-RSS ranges overlap (8136–8244 versus
+8136–8252 KiB), so the small median difference is not evidence of memory savings.
+One base sample has 2292 KiB anonymous memory; all other samples have 2288 KiB.
+The private runtime libraries reside on tmpfs: smaps reports some swapped
+shared mappings, but SwapPss is zero in every sample. All twelve downloads
+passed CA, HTTP range, length and SHA-256 checks. Video remained active;
+these runs do not establish an FPS improvement.
+
+## Earlier component and threshold measurements
 
 `bench.c` measures ChaCha20, Poly1305 and ChaCha20-Poly1305 through EVP in the
 same binary at 64, 128, 256, 319, 320, 512, 640, 768, 1024, 1400, 4096 and

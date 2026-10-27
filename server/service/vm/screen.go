@@ -47,6 +47,16 @@ var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().Set
 // The native readers of /kvmapp/kvm/qlty use small fixed buffers.
 const maxQualityValue = common.MaxQualityValue
 
+// videoPath is where the video encoder takes its frames (kvm_mmf.hpp
+// mmf_video_path): 0 none, 1 the capture, 2-7 VPSS and why. libkvm writes it
+// while frames flow; once the stream stops the file keeps its last value.
+var videoPath = func() int {
+	if common.ReadVideoValue("/run/nanokvm/now_fps") == 0 {
+		return 0
+	}
+	return common.ReadVideoValue("/run/nanokvm/video_path")
+}
+
 func (s *Service) GetScreen(c *gin.Context) {
 	current := common.GetScreen()
 	activeChroma, chromaFallback := readMjpegChromaStatus()
@@ -75,10 +85,9 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"measuredFps":       common.ReadVideoValue("/run/nanokvm/now_fps"),
 		"mjpegMeasuredFps":  common.ReadVideoValue("/run/nanokvm/mjpeg_fps"),
 		"measuredKbps":      common.ReadVideoValue("/run/nanokvm/now_kbps"),
-		// Where the video encoder takes its frames: kvm_mmf.hpp mmf_video_path.
-		"videoPath":   common.ReadVideoValue("/run/nanokvm/video_path"),
-		"frameDetect": common.FrameDetectEnabled(),
-		"hevcDirect":  common.HevcDirect(), "hevcDirectSupported": hevcDirectSupported(),
+		"videoPath":         videoPath(),
+		"frameDetect":       common.FrameDetectEnabled(),
+		"hevcDirect":        common.HevcDirect(), "hevcDirectSupported": hevcDirectSupported(),
 		"viDirectH264Supported": viDirectH264Supported(),
 		"effectiveFps":          common.GetCaptureScreen().FPS})
 }

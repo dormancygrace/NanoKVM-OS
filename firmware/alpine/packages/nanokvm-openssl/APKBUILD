@@ -1,0 +1,25 @@
+pkgname=nanokvm-openssl
+pkgver=${PKGVER:-0.1.0}
+pkgrel=0
+pkgdesc="OpenSSL 3.5 LTS runtime built for the C906 with -O3"
+url="https://openssl-library.org/"
+arch="riscv64"
+license="Apache-2.0"
+depends="musl"
+provides="openssl=3.5.9-r100 openssl3=3.5.9-r100 libcrypto3=3.5.9-r100 libssl3=3.5.9-r100 so:libcrypto.so.3=3 so:libssl.so.3=3 cmd:openssl=3.5.9-r100"
+replaces="openssl openssl3 libcrypto3 libssl3"
+provider_priority=100
+source="$pkgname-$pkgver.tar.gz"
+# Prebuilt by build-openssl.py with the image toolchain; runtime needs only musl.
+options="!check !strip !tracedeps"
+
+build() {
+    :
+}
+
+package() {
+    mkdir -p "$pkgdir"
+    cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

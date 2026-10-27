@@ -23,6 +23,7 @@ sipeed-sdk  https://github.com/sipeed/LicheeRV-Nano-Build.git  d4003f15b35d43ad4
 opensbi https://github.com/riscv-software-src/opensbi.git cbf9f6734dd85a982c63e3cb5db7ffe09da839ca .=d6a4747810533f9da9e17428cab821ccc8b1594c
 
 # Application and native media libraries
+openssl    https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
 cvi-mpi    https://github.com/sophgo/cvi_mpi.git             693a72a1d52f2e08ea767e0a72905e81f10572a5  .=839006d556c5d57bed19aa2974a57470a5f7a900
 sensors    https://github.com/sophgo/SensorSupportList.git   e2824e1d07f516c41238e123fefbab71a34843bc  .=d64a3a80534b362db4811565e866652d709974c0
 json-c     https://github.com/json-c/json-c.git              aa716cd8d663c976b99b0f30f102ee1d8ef63146  .=00e916a56cc3170c16771cc1f97d6eaef92fc578

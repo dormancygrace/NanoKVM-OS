@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"NanoKVM-Server/internal/bmc"
+	"NanoKVM-Server/pkg/bmc"
 )
 
 const (

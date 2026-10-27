@@ -1,7 +1,7 @@
 package vm
 
 import (
-	"NanoKVM-Server/internal/bmc"
+	"NanoKVM-Server/pkg/bmc"
 	"context"
 	"encoding/json"
 	"errors"

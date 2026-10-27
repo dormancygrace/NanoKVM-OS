@@ -4,6 +4,9 @@
 // until the channel is destroyed.
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
 #include <cassert>
+VB_POOL CVI_VB_CreatePool(VB_POOL_CONFIG_S *) { abort(); }
+CVI_S32 CVI_VPSS_DetachVbPool(VPSS_GRP, VPSS_CHN) { abort(); }
+CVI_S32 CVI_VPSS_AttachVbPool(VPSS_GRP, VPSS_CHN, VB_POOL) { abort(); }
 static int stops, resets, destroys, releases, vendor_error;
 CVI_S32 CVI_VENC_QueryStatus(VENC_CHN, VENC_CHN_STATUS_S *status) {
     memset(status, 0, sizeof(*status));
@@ -26,6 +29,8 @@ CVI_S32 CVI_VB_DestroyPool(VB_POOL) { abort(); }
 CVI_S32 CVI_VI_ReleaseChnFrame(VI_PIPE, VI_CHN, const VIDEO_FRAME_INFO_S *) {
     ++releases; return CVI_SUCCESS;
 }
+CVI_S32 SAMPLE_COMM_VI_Bind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { abort(); }
+CVI_S32 SAMPLE_COMM_VI_UnBind_VPSS(VI_PIPE, VI_CHN, VPSS_GRP) { abort(); }
 CVI_S32 CVI_VI_GetChnAttr(VI_PIPE, VI_CHN, VI_CHN_ATTR_S *) { abort(); }
 CVI_S32 CVI_VPSS_GetChnAttr(VPSS_GRP, VPSS_CHN, VPSS_CHN_ATTR_S *) { abort(); }
 CVI_S32 CVI_VPSS_DisableChn(VPSS_GRP, VPSS_CHN) { abort(); }
@@ -35,6 +40,7 @@ int main() {
     stops = resets = destroys = releases = 0;
     vi_frame_from_vi[0] = direct;
     priv = {};
+    for (int i = 0; i < MMF_VI_MAX_CHN; ++i) priv.vi_chn_pool_id[i] = VB_INVALID_POOLID;
     priv.venc[1].is_inited = 1;
     priv.venc[1].is_running = 1;
     priv.venc_input_vi_ch[1] = 0;

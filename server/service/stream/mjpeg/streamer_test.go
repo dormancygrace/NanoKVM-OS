@@ -233,15 +233,15 @@ func TestMjpegRateNextToVideo(t *testing.T) {
 	for _, c := range []struct {
 		screen int
 		video  bool
-		wide   bool
 		want   int
 	}{
-		{90, false, false, 90}, {90, true, false, 30}, {60, true, false, 30}, {30, true, false, 30},
-		{27, true, false, 27}, {60, true, true, 25}, {25, true, true, 25}, {20, true, true, 20},
-		{60, false, true, 60}, {0, true, false, 1}, {0, false, false, 1},
+		{120, false, 120}, {90, false, 90}, {60, false, 60},
+		{120, true, 30}, {90, true, 30}, {60, true, 30}, {31, true, 30}, {30, true, 30},
+		{29, true, 29}, {27, true, 27}, {25, true, 25}, {20, true, 20},
+		{0, true, 1}, {0, false, 1}, {-1, true, 1},
 	} {
-		if got := mjpegRate(c.screen, c.video, c.wide); got != c.want {
-			t.Errorf("mjpegRate(%d, %v, %v) = %d, want %d", c.screen, c.video, c.wide, got, c.want)
+		if got := mjpegRate(c.screen, c.video); got != c.want {
+			t.Errorf("mjpegRate(%d, %v) = %d, want %d", c.screen, c.video, got, c.want)
 		}
 	}
 }

@@ -12,7 +12,7 @@ var RecoveryService []byte
 
 var CorePackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release",
 	"nanokvm-base", "nanokvm-keys", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002",
-	"nanokvm-firmware-sg2002", "nanokvm-bootloader-sg2002", "nanokvm-zlib",
+	"nanokvm-firmware-sg2002", "nanokvm-bootloader-sg2002", "nanokvm-zlib", "nanokvm-openssl",
 	"nanokvm-exfatprogs", "nanokvm-i2c-tools"}
 
 func Query(repo string) []string {
@@ -23,4 +23,14 @@ func Query(repo string) []string {
 
 func Install(targets []string) []string {
 	return append([]string{"add", "--virtual", Constraint}, targets...)
+}
+
+// LegacyTargets restores the Alpine runtime when rolling back to a release
+// published before this NanoKVM component existed. The solver also verifies
+// that the target release no longer requires the excluded component.
+func LegacyTargets(name string) []string {
+	if name == "nanokvm-openssl" {
+		return []string{"!nanokvm-openssl", "openssl"}
+	}
+	return nil
 }

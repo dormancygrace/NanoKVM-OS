@@ -66,3 +66,7 @@ curl -k -u 'admin:<password>' -H 'Content-Type: application/json' -d '{"ResetTyp
   https://<device>/redfish/v1/Systems/1/Actions/ComputerSystem.Reset
 ipmitool -I lanplus -H <device> -U admin -P '<password>' chassis power status
 ```
+
+## Source and development
+
+The IPMI daemon, protocol tests and package recipe live in [`addons/ipmi/`](../addons/ipmi/README.md), a separate Go module. Shared configuration, power operations and the internal ATX client live in `server/pkg/bmc`; Redfish stays in `server/internal/bmc/redfish`. Both protocols use the same shared BMC implementation.

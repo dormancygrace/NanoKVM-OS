@@ -1,0 +1,206 @@
+{
+  "date": "2026-10-26",
+  "source_sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+  "baseline": "Alpine 3.24 OpenSSL 3.5.9-r0, GCC 15.2, -Os",
+  "candidate": "OpenSSL 3.5.9, project GCC 16.2.0, C906 -O3, scalar memory operations",
+  "experiment": "same 3.5.9 build, -mstringop-strategy=auto instead of scalar",
+  "profile": {
+    "schema": 1,
+    "profile": "sg2002-c906-o2",
+    "kind": "openssl",
+    "compiler_family": "gcc",
+    "lto": "none",
+    "profile_sha256": "58540f3540904e6de09c65273cd6bf694401230caad96a8701d09c7ce5a56048",
+    "compiler_version": "16.2.0",
+    "compiler_target": "riscv64-buildroot-linux-musl",
+    "flags": [
+      "-O3",
+      "-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync_xtheadvector",
+      "-mtune=thead-c906",
+      "-mabi=lp64d",
+      "-mno-fence-tso",
+      "-fno-tree-vectorize",
+      "-fno-tree-slp-vectorize",
+      "-mstringop-strategy=scalar",
+      "-g0",
+      "-fstack-protector-strong",
+      "-fstack-clash-protection",
+      "-Wformat",
+      "-Werror=format-security",
+      "-D_FORTIFY_SOURCE=2"
+    ],
+    "scope": "NanoKVM-built source objects; excludes stock Alpine and prebuilt vendor objects"
+  },
+  "reproducibility": {
+    "version": "3.5.9",
+    "identical": true,
+    "files": {
+      "etc/ssl/ct_log_list.cnf": "f1c1803d13d1d0b755b13b23c28bd4e20e07baf9f2b744c9337ba5866aa0ec3b",
+      "etc/ssl/openssl.cnf": "a65a2cb9f4ee8ffdc7ef4f0ac600c0bdafb95b7b1ab457188ac610a62f5ad6b3",
+      "usr/bin/openssl": "d1e2a52e9cb715079d8fcb73036752a58c48935d09eb984c53ef0ef15b6207ed",
+      "usr/lib/engines-3/afalg.so": "dce11298371673559b345aa2e2391136b1e082c5d58faa182e5e5191d309ec6f",
+      "usr/lib/engines-3/capi.so": "a5c55577c279972b7befb5df86593464f7a0c7542a2287f43f78f918e2f664a4",
+      "usr/lib/engines-3/loader_attic.so": "4094272fd0d4700d9aa45cc57bb08400fe81104b6805712cead60b959df24d85",
+      "usr/lib/engines-3/padlock.so": "a5c55577c279972b7befb5df86593464f7a0c7542a2287f43f78f918e2f664a4",
+      "usr/lib/libcrypto.so.3": "92a11bbc70bd6040289f7048aecf53d500c98356dfa328c5dbbff10fe085c3ec",
+      "usr/lib/libssl.so.3": "171848c63920c13c3b3aa690dd871defe4a7bec77dca60a749cd2c7ab0b032e2",
+      "usr/lib/ossl-modules/legacy.so": "5e974b1d9ca0d8ee0e7a48505c81ff8a7636ded1e88e799c65b2e6f32f11f75b",
+      "usr/share/licenses/nanokvm-openssl/LICENSE.txt": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "usr/share/nanokvm/openssl/cpu-profile.json": "78aefc2f82e9e2d1f0eb69085f1166fde8b5deb2097805b160d8b1af3c601b6a",
+      "usr/share/nanokvm/openssl/source.json": "89f93aed0c7451ceb615933416b4d8c6330e201bf21b788c08fdbefea172d9e7"
+    }
+  },
+  "abi": {
+    "libcrypto.so.3": {
+      "alpine_symbols": 5808,
+      "candidate_symbols": 5808,
+      "missing": [],
+      "alpine_bytes": 3877776,
+      "candidate_bytes": 4398000
+    },
+    "libssl.so.3": {
+      "alpine_symbols": 608,
+      "candidate_symbols": 608,
+      "missing": [],
+      "alpine_bytes": 802664,
+      "candidate_bytes": 917392
+    }
+  },
+  "c_object_vector_emission": {
+    "o3": [
+      {
+        "object": "crypto/chacha/libcrypto-lib-chacha_enc.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      },
+      {
+        "object": "crypto/poly1305/libcrypto-lib-poly1305.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      },
+      {
+        "object": "crypto/modes/libcrypto-lib-gcm128.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      },
+      {
+        "object": "ssl/libssl-lib-ssl_lib.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      },
+      {
+        "object": "ssl/record/methods/libssl-lib-tls_common.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      }
+    ],
+    "auto": [
+      {
+        "object": "crypto/chacha/libcrypto-lib-chacha_enc.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      },
+      {
+        "object": "crypto/poly1305/libcrypto-lib-poly1305.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      },
+      {
+        "object": "crypto/modes/libcrypto-lib-gcm128.o",
+        "vector_instruction_lines": 0,
+        "example": []
+      },
+      {
+        "object": "ssl/libssl-lib-ssl_lib.o",
+        "vector_instruction_lines": 57,
+        "example": [
+          "7c4:\t0006f057          \tth.vsetvli\tzero,a3,e8,m1,d1",
+          "7c8:\t5e0030d7          \tth.vmv.v.i\tv1,0",
+          "7e2:\t0207f0a7          \tth.vse.v\tv1,(a5)",
+          "26e8:\t0006f757          \tth.vsetvli\ta4,a3,e8,m1,d1",
+          "26ec:\t0205f087          \tth.vle.v\tv1,(a1)",
+          "26f4:\t020670a7          \tth.vse.v\tv1,(a2)"
+        ]
+      },
+      {
+        "object": "ssl/record/methods/libssl-lib-tls_common.o",
+        "vector_instruction_lines": 49,
+        "example": [
+          "d5a:\t000777d7          \tth.vsetvli\ta5,a4,e8,m1,d1",
+          "d5e:\t02067087          \tth.vle.v\tv1,(a2)",
+          "d66:\t0206f0a7          \tth.vse.v\tv1,(a3)",
+          "d8a:\t000777d7          \tth.vsetvli\ta5,a4,e8,m1,d1",
+          "d8e:\t02067087          \tth.vle.v\tv1,(a2)",
+          "d96:\t0206f0a7          \tth.vse.v\tv1,(a3)"
+        ]
+      }
+    ]
+  },
+  "upstream_tests": {
+    "evpciph_aes_common.txt": [
+      "# Completed 313 tests with 0 errors and 1 skipped"
+    ],
+    "evpciph_chacha.txt": [
+      "# Completed 27 tests with 0 errors and 0 skipped"
+    ],
+    "evpkdf_hkdf.txt": [
+      "# Completed 30 tests with 0 errors and 2 skipped"
+    ],
+    "evpkdf_tls13_kdf.txt": [
+      "# Completed 563 tests with 0 errors and 8 skipped"
+    ],
+    "evpmd_sha.txt": [
+      "# Completed 74 tests with 0 errors and 0 skipped"
+    ],
+    "evppkey_ecc.txt": [
+      "# Completed 124 tests with 0 errors and 324 skipped"
+    ],
+    "evppkey_ecx.txt": [
+      "# Completed 121 tests with 0 errors and 6 skipped"
+    ]
+  },
+  "correctness": [
+    {
+      "profile": "baseline",
+      "program": "evp-bench",
+      "code": 0,
+      "stdout": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\n",
+      "stderr": ""
+    },
+    {
+      "profile": "baseline",
+      "program": "evp-negative",
+      "code": 2,
+      "stdout": "",
+      "stderr": "FAIL KAT mismatch\n"
+    },
+    {
+      "profile": "c906-o3",
+      "program": "evp-bench",
+      "code": 0,
+      "stdout": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\n",
+      "stderr": ""
+    },
+    {
+      "profile": "c906-o3",
+      "program": "evp-negative",
+      "code": 2,
+      "stdout": "",
+      "stderr": "FAIL KAT mismatch\n"
+    },
+    {
+      "profile": "c906-auto",
+      "program": "evp-bench",
+      "code": 0,
+      "stdout": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\n",
+      "stderr": ""
+    },
+    {
+      "profile": "c906-auto",
+      "program": "evp-negative",
+      "code": 2,
+      "stdout": "",
+      "stderr": "FAIL KAT mismatch\n"
+    }
+  ]
+}

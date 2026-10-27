@@ -1,20 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button } from 'antd';
+import { Alert, Button, Input } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/storage.ts';
+import { requestErrorText } from '@/lib/request-error.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 
-type Props = { isOpen: boolean; onConnected: (value: boolean) => void };
-type Status = { connected: boolean; mounted?: boolean; name?: string; readBytes?: number };
+type Props = { isOpen: boolean; source: 'browser' | 'url'; onConnected: (value: boolean) => void };
+type Status = api.RemoteMediaStatus;
 
-export const RemoteImage = ({ isOpen, onConnected }: Props) => {
+export const RemoteImage = ({ isOpen, source, onConnected }: Props) => {
   const { t } = useTranslation();
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<Status>({ connected: false });
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState('');
+  const [url, setUrl] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [domain, setDomain] = useState('');
+  const isSMB = /^smb:\/\//i.test(url.trim());
   const socket = useRef<WebSocket | null>(null);
   const callback = useRef(onConnected);
   callback.current = onConnected;
@@ -78,7 +84,13 @@ export const RemoteImage = ({ isOpen, onConnected }: Props) => {
         } else if (data.type === 'mounted') {
           mounted = true;
           setConnecting(false);
-          setStatus({ connected: true, mounted: true, name: selected.name, readBytes: 0 });
+          setStatus({
+            connected: true,
+            source: 'browser',
+            mounted: true,
+            name: selected.name,
+            readBytes: 0
+          });
           callback.current(true);
           window.dispatchEvent(new Event('nanokvm:image-updated'));
         } else if (data.type === 'read') {
@@ -122,21 +134,49 @@ export const RemoteImage = ({ isOpen, onConnected }: Props) => {
     };
   }
 
+  async function connectURL() {
+    setError('');
+    setConnecting(true);
+    try {
+      const options = { url: url.trim(), username, password };
+      const rsp = isSMB
+        ? await api.connectSMBImage({ ...options, domain })
+        : await api.connectHTTPImage(options);
+      if (rsp.code !== 0) throw rsp;
+      setStatus({ connected: true, source: isSMB ? 'smb' : 'http', mounted: false });
+      callback.current(true);
+      window.dispatchEvent(new Event('nanokvm:image-updated'));
+    } catch (error) {
+      const message = requestErrorText(error, t('image.remote.connectFailed'));
+      if (message) setError(message);
+    } finally {
+      setPassword('');
+      setConnecting(false);
+    }
+  }
+
   async function disconnect() {
     setError('');
     try {
       const rsp = await api.disconnectRemoteMedia();
-      if (rsp.code !== 0) throw new Error(rsp.msg);
+      if (rsp.code !== 0) throw rsp;
       socket.current?.close();
-    } catch {
-      setError(t('image.remote.disconnectFailed'));
+    } catch (error) {
+      const message = requestErrorText(error, t('image.remote.disconnectFailed'));
+      if (message) setError(message);
     }
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-neutral-400">{t('image.remote.hint')}</p>
-      {!status.connected && !connecting && (
+      <p className="text-sm text-neutral-400">
+        {t(
+          (status.connected ? status.source : source) === 'browser'
+            ? 'image.remote.hint'
+            : 'image.remote.urlHint'
+        )}
+      </p>
+      {!status.connected && !connecting && source === 'browser' && (
         <input
           type="file"
           accept=".iso"
@@ -147,9 +187,63 @@ export const RemoteImage = ({ isOpen, onConnected }: Props) => {
           }}
         />
       )}
-      {error && <Alert type="error" showIcon message={error} />}
+      {!status.connected && source === 'url' && (
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span>{t('image.remote.urlAddress')}</span>
+            <Input
+              type="url"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="https://server/image.iso"
+              value={url}
+              disabled={connecting}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setError('');
+              }}
+            />
+          </label>
+          <span className="text-sm text-neutral-400">
+            {t(isSMB ? 'image.remote.smbCredentialsHint' : 'image.remote.credentialsHint')}
+          </span>
+          <label className="flex flex-col gap-1">
+            <span>{t('image.remote.username')}</span>
+            <Input
+              autoComplete="off"
+              value={username}
+              disabled={connecting}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </label>
+          {isSMB && (
+            <label className="flex flex-col gap-1">
+              <span>{t('image.remote.domain')}</span>
+              <Input
+                autoComplete="off"
+                value={domain}
+                disabled={connecting}
+                onChange={(e) => setDomain(e.target.value)}
+              />
+            </label>
+          )}
+          <label className="flex flex-col gap-1">
+            <span>{t('image.remote.password')}</span>
+            <Input.Password
+              autoComplete="new-password"
+              value={password}
+              disabled={connecting}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+        </div>
+      )}
+      {(error || status.error) && <Alert type="error" showIcon message={error || status.error} />}
       {status.connected && (
         <div className="flex flex-col gap-1">
+          <span className="text-sm text-neutral-400">
+            {t(status.source === 'browser' ? 'image.remote.browser' : 'image.remote.url')}
+          </span>
           <span className="break-all">{status.name}</span>
           <span className="text-sm text-neutral-400">
             {t(status.mounted ? 'image.remote.mounted' : 'image.remote.connecting')}
@@ -161,7 +255,16 @@ export const RemoteImage = ({ isOpen, onConnected }: Props) => {
       {status.connected ? (
         <Button onClick={disconnect}>{t('image.remote.disconnect')}</Button>
       ) : (
-        <Button type="primary" loading={connecting} disabled={!file} onClick={connect}>
+        <Button
+          type="primary"
+          loading={connecting}
+          disabled={
+            source === 'url'
+              ? !/^(https?|smb):\/\//i.test(url.trim()) || (isSMB && !username)
+              : !file
+          }
+          onClick={source === 'url' ? connectURL : connect}
+        >
           {t(connecting ? 'image.remote.connecting' : 'image.remote.connect')}
         </Button>
       )}

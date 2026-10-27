@@ -1,0 +1,31 @@
+#!/bin/sh
+# Software IRQ coalescing for the integrated SG2002 Ethernet MAC. The timer
+# stops after two empty polls; this does not enable continuous busy polling.
+[ "${NANOKVM_ETH_RX_BATCHING:-0}" = 1 ] || exit 0
+net="${NANOKVM_RX_NET_CLASS_DIR:-/sys/class/net}/eth0"
+[ -r "$net/device/of_node/compatible" ] || exit 0
+tr '\000' '\n' < "$net/device/of_node/compatible" |
+    grep -qx 'sophgo,cv1800b-dwmac' || exit 0
+
+flush="$net/gro_flush_timeout"
+defer="$net/napi_defer_hard_irqs"
+[ -r "$flush" ] && [ -r "$defer" ] || exit 0
+old_flush=$(cat "$flush") || exit 0
+old_defer=$(cat "$defer") || exit 0
+# Keep a pre-existing administrator/driver policy, including a partial setting.
+# Repeated starts with our complete profile are also a no-op.
+[ "$old_flush" = 0 ] && [ "$old_defer" = 0 ] || exit 0
+
+if printf '%s\n' 200000 > "$flush"; then
+    if printf '%s\n' 2 > "$defer" &&
+        [ "$(cat "$flush")" = 200000 ] && [ "$(cat "$defer")" = 2 ]; then
+        exit 0
+    fi
+    # A refused write or read-back must not leave half of the profile active.
+    printf '%s\n' "$old_defer" > "$defer" ||
+        echo "Could not restore Ethernet napi_defer_hard_irqs" >&2
+    printf '%s\n' "$old_flush" > "$flush" ||
+        echo "Could not restore Ethernet gro_flush_timeout" >&2
+fi
+echo "Could not apply Ethernet receive batching" >&2
+exit 1

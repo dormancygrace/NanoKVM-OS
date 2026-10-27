@@ -13,5 +13,6 @@
   "kernel_optimization": "-O3",
   "audio_optimization": "-O2",
   "kernel_lto": "none",
-  "kernel_strict_align": false
+  "kernel_strict_align": false,
+  "openssl_optimization": "-O3"
 }

@@ -16,6 +16,11 @@ package common
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_fps");
         return fn ? fn(fps) : -1;
     }
+    static int capture_reclaim_pending(void) {
+        int (*fn)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "kvmv_capture_reclaim_pending");
+        // An older library cannot report completion: retain conservative retries.
+        return fn ? fn() : 1;
+    }
     static int set_capture_parked(unsigned char parked) {
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_parked");
         return fn ? fn(parked) : -1;
@@ -216,6 +221,14 @@ func (k *KvmVision) SetCaptureParked(parked bool) int {
 	}
 	defer k.pauseCaptureLocked()()
 	return int(C.set_capture_parked(C.uchar(boolToInt(parked))))
+}
+
+// CaptureReclaimPending reports disabled outputs that still own private pools.
+// It does not retry reclamation or change capture state.
+func (k *KvmVision) CaptureReclaimPending() bool {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+	return !k.closed && C.capture_reclaim_pending() != 0
 }
 
 func (k *KvmVision) HasHDMISignal() bool {

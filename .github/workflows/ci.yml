@@ -141,6 +141,8 @@ jobs:
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+          curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
+          python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

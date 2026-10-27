@@ -4,7 +4,8 @@
 The upstream x/crypto tests (from an extracted golang.org/x/crypto module) and
 the tests in tests/ are added with a go build overlay, so neither GOROOT is
 modified. Cross-check tests that need the riscv64 implementation hooks are
-only added when the GOROOT contains them.
+only added when the GOROOT contains them. With the C906 Keccak permutation
+in the GOROOT, the SHA-3 and ML-KEM test binaries are built as well.
 """
 from pathlib import Path
 import argparse, hashlib, json, os, subprocess, tempfile
@@ -49,6 +50,12 @@ if args.poly1305_reference:
     reference_path = args.output / 'poly1305-reference_riscv64.s'
     reference_path.write_text(reference)
     overlay[str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/sum_riscv64.s')] = str(reference_path.absolute())
+STD = {}
+sha3 = goroot / 'src/crypto/internal/fips140/sha3'
+if (sha3 / 'keccak_c906_riscv64.s').exists():
+    STD = {'crypto/internal/fips140/sha3': 'fips-sha3', 'crypto/sha3': 'sha3', 'crypto/mlkem': 'mlkem'}
+    for f in sorted((here / 'tests/sha3').glob('*_test.go')):
+        overlay[str(sha3 / f.name)] = str(f)
 env = dict(os.environ, GOROOT=str(goroot), GOTOOLCHAIN='local', GOOS='linux', GOARCH='riscv64',
            GORISCV64='rva20u64', CGO_ENABLED='0', GOFLAGS='')
 if args.gocache:
@@ -60,6 +67,11 @@ try:
         out = args.output / (Path(pkg).name + '.test')
         subprocess.run([str(goroot / 'bin/go'), 'test', '-c', '-trimpath', '-overlay', f.name, '-o', str(out),
                         'vendor/golang.org/x/crypto/' + pkg], env=env, check=True)
+        print(out)
+    for pkg, name in STD.items():
+        out = args.output / (name + '.test')
+        subprocess.run([str(goroot / 'bin/go'), 'test', '-c', '-trimpath', '-overlay', f.name, '-o', str(out), pkg],
+                       env=env, check=True)
         print(out)
 finally:
     os.unlink(f.name)

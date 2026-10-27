@@ -155,6 +155,15 @@ edit('crypto/sha1/sha1block_decl.go', '//go:build (386 || arm || loong64 || risc
 edit('crypto/sha1/sha1block_riscv64.s', 'TEXT ·block(SB),NOSPLIT,$64-32\n', 'TEXT ·blockRV64(SB),NOSPLIT,$64-32\n')
 for name in ['sha1block_riscv64.go', 'sha1block_c906_riscv64.s']:
     shutil.copyfile(crypto / name, out / 'src/crypto/sha1' / name)
+# Keccak-f[1600] for T-Head cores (go-crypto-c906/gen_keccak_c906.py), chosen
+# like the SHA blocks by cpu.RISCV64.HasXTheadBb.
+sha3 = 'crypto/internal/fips140/sha3'
+materialize(sha3)
+edit(f'{sha3}/sha3_noasm.go', '//go:build (!amd64 && !arm64 && !s390x) || purego\n',
+     '//go:build (!amd64 && !arm64 && !riscv64 && !s390x) || purego\n')
+for name in ['sha3_riscv64.go', 'keccak_c906_riscv64.s']:
+    shutil.copyfile(crypto / name, out / 'src' / sha3 / name)
+vendor_files += [f'{sha3}/sha3_noasm.go', f'{sha3}/sha3_riscv64.go', f'{sha3}/keccak_c906_riscv64.s']
 vendor_files += ['internal/cpu/cpu.go', 'internal/cpu/cpu_riscv64.go', 'internal/cpu/cpu_riscv64_linux.go',
                  'crypto/internal/fips140deps/cpu/cpu.go', f'{sha}/sha256block_asm.go', f'{sha}/sha256block_riscv64.s',
                  f'{sha}/sha256block_riscv64.go', f'{sha}/sha256block_c906_riscv64.s',

@@ -67,6 +67,8 @@ updates:
     # Updating require versions cannot replace our patched local source trees.
     # Their upstream releases are reported by upstream-watch for a real rebase.
     ignore:
+      # The C906 masking patch pins and verifies Gorilla source files.
+      - dependency-name: github.com/gorilla/websocket
       - dependency-name: github.com/pion/dtls/v3
       - dependency-name: github.com/pion/ice/v4
       - dependency-name: github.com/pion/srtp/v3

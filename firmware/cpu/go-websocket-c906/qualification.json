@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-26",
+  "go": "go1.27.3",
+  "kernel": "7.3.0-nanokvm-os-r3",
+  "cpu": "SG2002/C906, 1 GHz",
+  "test_binary": {
+    "sha256": "8d4ddba9134b520c262dc0f10200d77d099986f05ac3a018269bbc36b5aaabfb",
+    "go_version": "go1.27.3",
+    "module": "github.com/gorilla/websocket v1.5.3",
+    "source_branch": "codex/c906-websocket-mask",
+    "source_commit_base": "c93fb1ad72eb11a76089998da8707a67f2b08454",
+    "upstream_test_compat": "real CONNECT tunnel, GODEBUG=randseednop=0; no skipped assertions"
+  },
+  "api_binary": {
+    "sha256": "508271d1810aa8f157649234c7a1376f2989e55d22bfed58dd255c8f49ce9f46",
+    "method": "three processes, 3 rotated repetitions; paired generic/C906 per case; process CPU including final GC, GC before each variant; 16 passes over bounded prebuilt wire; in-memory ReadMessage, not network throughput"
+  },
+  "production_files": {
+    "mask_linux_riscv64.go": "cddc0aec7a29d75869f3e067021fc993394db93281e7c322e9a05e776078490b",
+    "mask_linux_riscv64.s": "005374d9854b901cb666f0c5ad02389a79e9f5cf654f90d5df275c17e08742a4",
+    "mask_other.go": "f2ef60f9544a666a725d8dd67c1a1f3adbd3842574d4f8a1a27e9ff9914008d4"
+  },
+  "production_binary_sha256": "500a964021a2097feea9aefb214b441893fde17e3aff0ae266546f4f79f6db87",
+  "data_sha256": "6b1351f836638682555fece298390dbaa9331b5892a9e934c1218934926f1daf",
+  "method": "3 processes x 3 repetitions; per-process medians then median of ratios; primitive thread CPU, ReadMessage process CPU including GC"
+}

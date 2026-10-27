@@ -2,6 +2,7 @@
 """Exercise real FIP validation against a built candidate and corrupt inputs."""
 import argparse
 import copy
+import hashlib
 import importlib.util
 import json
 import struct
@@ -20,8 +21,10 @@ candidate = (a.images / "fip.bin").read_bytes()
 monitor = (a.images / "opensbi/fw_dynamic.bin").read_bytes()
 uboot = (a.images / "u-boot.bin").read_bytes()
 manifest = json.loads((a.images / "opensbi/build-manifest.json").read_text())
-fip.validate(base, candidate, monitor, uboot, manifest)
-print("built candidate: pass")
+report = fip.validate(base, candidate, monitor, uboot, manifest)
+assert report["base_fip_sha256"] == hashlib.sha256(base).hexdigest(), "base provenance must identify the original input"
+assert json.loads((a.images / "fip-manifest.json").read_text())["base_fip_sha256"] == report["base_fip_sha256"]
+print("built candidate and original base provenance: pass")
 
 
 def rejected(name, action, message):

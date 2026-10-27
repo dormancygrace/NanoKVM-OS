@@ -138,6 +138,7 @@ def patch_bl2(base):
 
 
 def validate(base, candidate, monitor, uboot, manifest):
+    base_sha256 = sha(base)
     base = patch_bl2(base)
     old1, old2, old, _ = inspect(base)
     new1, new2, new, spans = inspect(candidate)
@@ -169,7 +170,7 @@ def validate(base, candidate, monitor, uboot, manifest):
     require(dec.decompress(loader[32:], max_length=len(uboot) + 1) == uboot and dec.eof and not any(dec.unused_data),
             "packaged U-Boot differs or has extra compressed data")
     return {
-        "schema": 2, "base_fip_sha256": sha(base), "fip_sha256": sha(candidate),
+        "schema": 2, "base_fip_sha256": base_sha256, "fip_sha256": sha(candidate),
         "fip_bytes": len(candidate), "opensbi_version": manifest["version"],
         "opensbi_commit": manifest["upstream_commit"], "monitor_sha256": sha(monitor),
         "uboot_sha256": sha(uboot), "monitor_run_address": MONITOR_ADDR,

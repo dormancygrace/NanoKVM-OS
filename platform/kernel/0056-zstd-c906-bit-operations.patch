@@ -1,0 +1,26 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] zstd: avoid the bit-mask table load on C906
+
+Use the existing shift-based bit reader on XTheadBb RV64. It handles
+zero-width reads without a dependent load from the bit-mask table.
+
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+diff --git a/lib/zstd/common/bitstream.h b/lib/zstd/common/bitstream.h
+--- a/lib/zstd/common/bitstream.h
++++ b/lib/zstd/common/bitstream.h
+@@ -315,12 +315,12 @@
+ FORCE_INLINE_TEMPLATE BitContainerType BIT_lookBits(const BIT_DStream_t*  bitD, U32 nbBits)
+ {
+     /* arbitrate between double-shift and shift+mask */
+-#if 1
++#if !defined(__riscv_xtheadbb) || __riscv_xlen != 64
+     /* if bitD->bitsConsumed + nbBits > sizeof(bitD->bitContainer)*8,
+      * bitstream is likely corrupted, and result is undefined */
+     return BIT_getMiddleBits(bitD->bitContainer, (sizeof(bitD->bitContainer)*8) - bitD->bitsConsumed - nbBits, nbBits);
+ #else
+-    /* this code path is slower on my os-x laptop */
++    /* Avoid a dependent mask-table load on the C906, including nbBits == 0. */
+     U32 const regMask = sizeof(bitD->bitContainer)*8 - 1;
+     return ((bitD->bitContainer << (bitD->bitsConsumed & regMask)) >> 1) >> ((regMask-nbBits) & regMask);
+ #endif

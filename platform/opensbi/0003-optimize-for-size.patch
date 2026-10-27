@@ -1,0 +1,19 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] Makefile: optimize the firmware for size
+
+At -O2 the SG2002 RX region (text, rodata, relocations) is 146 KB, so the
+power-of-two RX/RW split puts the RW sections at 256 KiB and fw_dynamic.bin
+carries 110 KB of zeros. At -Os with the RVV 1.0 code disabled it fits
+under 128 KiB, and the FSBL reads 131 KB less from the SD card.
+---
+--- a/Makefile
++++ b/Makefile
+@@ -453,7 +453,7 @@
+ CFLAGS		+=	-O0
+ CPPFLAGS	+=	-DOPENSBI_DEBUG
+ else
+-CFLAGS		+=	-O2
++CFLAGS		+=	-Os
+ endif
+ 
+ ifeq ($(UBSAN),y)

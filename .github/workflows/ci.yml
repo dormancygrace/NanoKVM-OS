@@ -152,6 +152,14 @@ jobs:
           python3 firmware/crypto/experimental/openssl-chacha20/test-dispatch.py --negative-control
       - name: OpenSSL direct-DMA transport failure paths
         run: python3 firmware/crypto/experimental/openssl-sg2002/test-transport.py --negative-control
+      - name: OpenSSL SHA-256 partial DMA continuation
+        run: |
+          python3 firmware/crypto/openssl-c906/generate-sha256.py --check
+          python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py --negative-control
+      - name: OpenSSL pinned patches and C906 SHA-256 arithmetic
+        run: |
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user
+          python3 tests/test-openssl-source.py --negative-control
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

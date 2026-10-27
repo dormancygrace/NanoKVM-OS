@@ -41,6 +41,8 @@ def build(archive, output, cross, jobs):
     patches = sorted((ROOT / 'firmware/crypto/openssl-c906').glob('*.patch'))
     subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-chacha.py'),
                     '--binutils', str(cross), '--check'], check=True)
+    subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-sha256.py'),
+                    '--check'], check=True)
     patch_records = []
     for patch in patches:
         subprocess.run(['patch', '--batch', '--forward', '--fuzz=0', '-p1',
@@ -99,7 +101,7 @@ def build(archive, output, cross, jobs):
     shutil.copy2(output / 'cpu-profile.json', info_dir / 'cpu-profile.json')
     metadata = {'source': url, 'sha256': digest, 'configure': command[2:],
                 'custom_crypto_code': bool(patch_records), 'patches': patch_records,
-                'cryptodma': False}
+                'cryptodma': any(p['file'].endswith('-dma.patch') for p in patch_records)}
     (info_dir / 'source.json').write_text(json.dumps(metadata, indent=2) + '\n')
     return runtime
 

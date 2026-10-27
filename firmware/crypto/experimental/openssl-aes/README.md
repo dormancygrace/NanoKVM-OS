@@ -106,6 +106,12 @@ outputs and updated IVs match independent host OpenSSL 3.5.5 fingerprint
 operation. GCM retains its independent `a2d7088437b53472` fingerprint and tests
 context copy/free-original, split updates and rejected tags/ciphertext.
 
+`scope-cleanup-validation.json` records the current AES-only host sanitizer
+checks and clean C906 cross-build, with all 5808 public exports unchanged and
+no SHA-1 offload or SG2002 objects in the legacy provider. Native checks were
+not repeated for this cleanup; `native-final-validation.json` retains the
+exact earlier library and patch identities. No new performance claim is made.
+
 Only completed whole-block prefixes are committed. CBC in-place decryption
 preserves the last ciphertext, and IVs advance after success. Every CTR request
 splits before its low 32-bit word wraps, even for ordinary 128-bit CTR; software

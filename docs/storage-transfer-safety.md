@@ -74,4 +74,8 @@ response without closing the session. A single 15-second NBD read budget covers
 both draining the old response and receiving the replacement; expiry closes the
 session, staying below the kernel's 20-second NBD timeout. Browser disconnect and access revocation
 still close the socket, interrupt pending reads and tear down the NBD device.
-These changes do not alter Ethernet coalescing or NAPI settings.
+These reader changes do not alter Ethernet coalescing or NAPI settings.
+
+Ethernet startup can optionally apply the [SG2002 receive batching policy](ethernet-rx-batching.md).
+It is disabled by default and affects the whole physical interface when enabled;
+its throughput/latency tradeoff is separate from browser buffering and seeking.

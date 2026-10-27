@@ -25,7 +25,7 @@ static int thread_control(int op, ...)
 #undef prctl
 void ossl_ghash_blocks_c906(u64 acc[2], const void *kp, const u8 *in, size_t blocks)
 {
-    (void)acc; (void)kp; (void)in; assert(blocks == 1); ++scalar_calls;
+    (void)acc; (void)kp; (void)in; assert(blocks >= 1 && blocks <= 4); ++scalar_calls;
 }
 void ossl_ghash_blocks_c906_v(u64 acc[2], const void *kp, const u8 *in, size_t groups)
 {
@@ -54,13 +54,13 @@ int main(void)
     }
     reset(1,"auto",2);
     assert(ossl_gcm_c906_prefix(xi,table,input,3071)==0 && !controls);
-    assert(ossl_gcm_c906_prefix(xi,table,input+5,3072)==3040);
-    assert(vector_calls==1 && scalar_calls==4 && controls==1);
+    assert(ossl_gcm_c906_prefix(xi,table,input+5,3072)==3072);
+    assert(vector_calls==1 && scalar_calls==5 && controls==1);
     memcpy(copy,table,sizeof(copy));
     control=1; assert(ossl_gcm_c906_prefix(xi,copy,input,16384)==0);
     assert(vector_calls==1 && controls==2);
-    control=2; assert(ossl_gcm_c906_prefix(xi,copy,input,16384)==16320);
-    assert(vector_calls==2 && scalar_calls==8 && controls==3);
+    control=2; assert(ossl_gcm_c906_prefix(xi,copy,input,16384)==16384);
+    assert(vector_calls==2 && scalar_calls==10 && controls==3);
     puts("PASS: hwprobe/override/thread gates, short input, temporary key and copied context dispatch");
     return 0;
 }

@@ -47,7 +47,7 @@ diff --git a/crypto/modes/build.info b/crypto/modes/build.info
 diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 --- /dev/null
 +++ b/crypto/modes/gcm_c906.c
-@@ -0,0 +1,114 @@
+@@ -0,0 +1,117 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <stdint.h>
@@ -110,7 +110,7 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +{
 +    u64 kp[112], powers[5][2], acc[2];
 +    unsigned int pos = 320, i, q, j, lane;
-+    size_t groups = len / 80;
++    size_t groups = len / 80, blocks = len % 80 / 16;
 +
 +    u64 h0 = table[8].hi, h1 = table[8].lo, carry = h0 >> 63;
 +    u64 lo = (h1 << 1) ^ carry;
@@ -139,12 +139,15 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +    acc[0] = __builtin_bswap64(xi[1]);
 +    acc[1] = __builtin_bswap64(xi[0]);
 +    ossl_ghash_blocks_c906_v(acc, kp, in, groups);
++    /* Reuse the expanded scalar key for all remaining whole blocks. */
++    if (blocks != 0)
++        ossl_ghash_blocks_c906(acc, kp, in + groups * 80, blocks);
 +    xi[0] = __builtin_bswap64(acc[1]);
 +    xi[1] = __builtin_bswap64(acc[0]);
 +    OPENSSL_cleanse(kp, sizeof(kp));
 +    OPENSSL_cleanse(powers, sizeof(powers));
 +    OPENSSL_cleanse(acc, sizeof(acc));
-+    return groups * 80;
++    return groups * 80 + blocks * 16;
 +}
 +
 +size_t ossl_gcm_c906_prefix(u64 xi[2], const u128 *table,

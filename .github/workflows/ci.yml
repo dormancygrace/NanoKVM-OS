@@ -119,7 +119,11 @@ jobs:
       - name: OpenSSL SHA-256 partial DMA continuation
         run: |
           python3 firmware/crypto/openssl-c906/generate-sha256.py --check
-          python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py
+          python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py --negative-control
+      - name: OpenSSL pinned patches and C906 SHA-256/GHASH arithmetic
+        run: |
+          sudo apt-get install -y gcc-riscv64-linux-gnu qemu-user
+          python3 tests/test-openssl-source.py --negative-control
       - name: OpenSSL AES partial DMA continuation
         run: python3 firmware/crypto/experimental/openssl-aes/test-blocks.py
       - name: OpenSSL AES EVP state and counter carry

@@ -1,0 +1,92 @@
+{
+  "libcrypto_sha256": "b4601ce4daafbaf72db0e5003cd891693390af2b75e464874bef2331139986fb",
+  "libssl_sha256": "f6598fbce3e83cbd176485668eee646ae2cdbb4bf97e25b8fea363ea2aee09bf",
+  "exports": 5808,
+  "export_reference_sha256": "325205c2f5d8b51d73edfb98cc9f627a44071aa3d8716be00a0bafc4b03c8aa7",
+  "patches": [
+    {
+      "file": "0001-chacha20-c906.patch",
+      "sha256": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+    },
+    {
+      "file": "0002-sg2002-transport.patch",
+      "sha256": "0b9315799971cacaf92e306cf55920aab1af3b909f2997af3f450174145af899"
+    },
+    {
+      "file": "0003-sha256-dma.patch",
+      "sha256": "7491f590796ea18f211859fa43419b656f737a4cebe758b0b9077d00d676b18a"
+    },
+    {
+      "file": "0005-aes-c906.patch",
+      "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+    },
+    {
+      "file": "0005-aes-dma.patch",
+      "sha256": "cb2d796bde7cf25052bf10692360d8ddee7dc44dbd6c7bb2bc25d9d3b262453d"
+    },
+    {
+      "file": "0010-ghash-c906.patch",
+      "sha256": "6d2598be01899656cbfe9f32396b4cb7d2c11d017184a196008efb1c0fca8e03"
+    }
+  ],
+  "sha_parent": "9c3b2ffbbb74db403ae2426f905757cfe6fb3755",
+  "aes_parent": "432a9b475f69811a3ba86a51173d9e7968739948",
+  "ghash_previous": "cf3cbbddaa6c98222c3a1acd7655375b30360ce3",
+  "date_utc": "2026-10-27T11:51:10.178248+00:00",
+  "host": "QEMU 3520 cases + five negative controls; original vector words verified separately by GNU binutils; dispatcher ASan/UBSan + three negative controls",
+  "native_arithmetic": {
+    "cases": 3520,
+    "kernel": "7.3.0-nanokvm-os-r3",
+    "assembly": "original XTheadVector 0.7.1, no opcode translation",
+    "harness_sha256": "e583512fd62fbf79cbe3e4acc4ab5b645a29afae3519d80c9f408e100931cfdf",
+    "result": "PASS: 3520 actual XTheadVector GHASH cases; keys, Xi, 0-4 scalar tails, offsets and guards"
+  },
+  "native_profiles": {
+    "generic": [
+      "{\"cases\":972,\"fingerprint\":\"019ff5988780130c\"}",
+      "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}",
+      "PASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472",
+      "PASS 288 EVP CTR carry cases",
+      "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.9 29 Sep 2026\"}",
+      "{\"cases\":864,\"fingerprint\":\"768fd5312ca481be\"}"
+    ],
+    "vector": [
+      "{\"cases\":972,\"fingerprint\":\"019ff5988780130c\"}",
+      "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}",
+      "PASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472",
+      "PASS 288 EVP CTR carry cases",
+      "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.9 29 Sep 2026\"}",
+      "{\"cases\":864,\"fingerprint\":\"768fd5312ca481be\"}"
+    ],
+    "dma-vector": [
+      "{\"cases\":972,\"fingerprint\":\"019ff5988780130c\"}",
+      "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}",
+      "PASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472",
+      "PASS 288 EVP CTR carry cases",
+      "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.9 29 Sep 2026\"}",
+      "{\"cases\":864,\"fingerprint\":\"768fd5312ca481be\"}"
+    ]
+  },
+  "native_sha_tail_checks": {
+    "cases": 28,
+    "sizes": [
+      4096,
+      4608,
+      5120,
+      6144,
+      8192,
+      8704,
+      10000
+    ],
+    "algorithms": [
+      "SHA224",
+      "SHA256"
+    ],
+    "dma": [
+      "off",
+      "on"
+    ],
+    "reference": "Python hashlib, deterministic bytes (i*29+3)%256"
+  },
+  "timing": "No new GHASH throughput claim; this revision verifies correctness and the scalar-tail change."
+}

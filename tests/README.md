@@ -99,6 +99,11 @@ NanoKVM uses LZ4 for primary zram compression. The zstd allocation savings
 apply when optional recompression is enabled (`ZRAM_RECOMPRESS=1`, off by
 default); they do not change the default LZ4 memory use.
 
+`test-zstd-c906.py` uses the same `--source` argument and sanitizer switch. It
+compares the original and patched codecs on generated 4 KiB pages and short
+buffers, checks bit-reader boundaries, cross-decodes identical compressed
+output, and probes guard pages and 300,000 random/mutated inputs plus truncated streams.
+
 ## Manual tools
 
 `manual/` holds tools that are run by hand and never by CI.

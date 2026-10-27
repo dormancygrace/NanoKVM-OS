@@ -114,8 +114,9 @@ func initialize(stopMemory context.CancelFunc) {
 
 	// The monitor profile is kept in the HDMI receiver across restarts and
 	// reinstalls; it must not exceed the video memory of this boot (a smaller
-	// mode may have been selected after it was saved), and after an
-	// installation it must be the saved one. Programming can take a while.
+	// mode may have been selected after it was saved), and it must be the
+	// saved one, after an installation or a write by anything but this server.
+	// Programming can take a while.
 	go func() {
 		if recovering {
 			return
@@ -137,7 +138,7 @@ func initialize(stopMemory context.CancelFunc) {
 			logrus.Errorf("failed to retire the Windows pointer profile: %v", err)
 		}
 		// After a fit the profile is recorded and this does nothing.
-		if path, err := common.ProgramMonitorProfileOnFirstStart(); err != nil {
+		if path, err := common.ProgramMonitorProfileOnFirstStart(utils.IsHdmiDisabled()); err != nil {
 			logrus.Errorf("failed to program the monitor profile on the first start: %v", err)
 		} else if path != "" {
 			logrus.Infof("programmed the monitor profile %s on the first start", path)

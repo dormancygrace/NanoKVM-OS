@@ -202,7 +202,10 @@ func recordMonitorProfileLocked(path string) {
 	}
 	if atomicWriteMonitorFile(monitorEDIDHashFile, []byte(sum+"\n"), ".monitor_edid-*") != nil {
 		_ = os.Remove(monitorEDIDHashFile)
+		return
 	}
+	// nanokvm_update_edid reads the receiver back after writing it.
+	markReceiverVerifiedLocked(sum)
 }
 
 func fileSHA256(path string) (string, error) {

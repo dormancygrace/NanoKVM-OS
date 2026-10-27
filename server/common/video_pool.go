@@ -140,7 +140,7 @@ func FitMonitorToVideoMemory() (bool, error) {
 	return fitMonitorToVideoPoolLocked(BootedVideoPool(), monitorSettingsBackend{
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
-		readMonitorEDIDLocked,
+		readMonitorEDIDLocked, false,
 	})
 }
 

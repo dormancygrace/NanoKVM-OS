@@ -1,6 +1,8 @@
 package common
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -22,7 +24,24 @@ func firstStartBackend(hardware, powerCycle bool, applied *[]string, fail error)
 			*applied = append(*applied, path)
 			return fail
 		},
-		read: func() ([]byte, error) { return testEDID(1920, 280, 1080, 45, 14850, 16), nil },
+		read:        func() ([]byte, error) { return heldEDID(), nil },
+		readAtStart: true,
+	}
+}
+
+// heldEDID is what the receiver holds in firstStartBackend.
+func heldEDID() []byte { return testEDID(1920, 280, 1080, 45, 14850, 16) }
+
+func edidHash(edid []byte) string {
+	sum := sha256.Sum256(edid)
+	return hex.EncodeToString(sum[:])
+}
+
+// recordHeld records the profile the receiver holds, as after a write.
+func recordHeld(t *testing.T) {
+	t.Helper()
+	if err := os.WriteFile(monitorEDIDHashFile, []byte(edidHash(heldEDID())+"\n"), 0600); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -42,9 +61,7 @@ func TestProgramMonitorProfileOnFirstStart(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 1080, false, 1920)
 			if tc.recorded {
-				if err := os.WriteFile(monitorEDIDHashFile, []byte("0\n"), 0600); err != nil {
-					t.Fatal(err)
-				}
+				recordHeld(t)
 			}
 			var applied []string
 			path, err := programMonitorProfileOnFirstStartLocked(firstStartBackend(tc.hardware, tc.powerCycle, &applied, nil), poolUHD)
@@ -72,7 +89,7 @@ func TestFirstStartReplacesRetired100HzProfile(t *testing.T) {
 	t.Cleanup(func() { screenFileMap["fps"] = previous; SetScreen("fps", 90) })
 	for hash, retired := range map[string]bool{
 		"8e90f013b8d93be6936bbcdaa324640ad9de03dd877891732c9f4daa2b95ca8a": true,
-		"0": false,
+		edidHash(heldEDID()): false,
 	} {
 		if err := os.WriteFile(monitorEDIDHashFile, []byte(hash+"\n"), 0600); err != nil {
 			t.Fatal(err)
@@ -127,6 +144,137 @@ func TestFirstStartByReceiver(t *testing.T) {
 				t.Fatalf("applied %v, EDID reads %d", applied, reads)
 			}
 		})
+	}
+}
+
+// With a profile recorded but not yet verified, startup reads the receiver. The saved profile is
+// programmed again only when the receiver holds another EDID, and an unreadable
+// receiver is left alone. The LT6911D on PCIe is not read.
+func TestFirstStartChecksTheReceiver(t *testing.T) {
+	other := testEDID(1920, 160, 1080, 53, 23550, 16)
+	oneBlock := testEDID(1280, 370, 720, 30, 7425)[:128]
+	oneBlock[126], oneBlock[127] = 0, oneBlock[127]+1
+	padded := append(append([]byte(nil), oneBlock...), make([]byte, 256-len(oneBlock))...)
+	for _, tc := range []struct {
+		name     string
+		chip     string
+		recorded []byte
+		held     []byte
+		readErr  error
+		reads    int
+		writes   int
+	}{
+		{"holds the recorded profile", "ux", heldEDID(), heldEDID(), nil, 1, 0},
+		{"holds another EDID", "ux", heldEDID(), other, nil, 1, 1},
+		{"one-block profile in a 256-byte copy", "ux", oneBlock, padded, nil, 1, 0},
+		{"read failure", "ux", heldEDID(), nil, errors.New("i2c"), 1, 0},
+		{"read returned zeros", "ux", heldEDID(), make([]byte, 256), nil, 1, 0},
+		{"LT6911D", "d", heldEDID(), other, nil, 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, 1080, false, 1920)
+			selectBoard(t, "pcie", tc.chip)
+			if err := os.WriteFile(monitorEDIDHashFile, []byte(edidHash(tc.recorded)+"\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var applied []string
+			reads := 0
+			hw := firstStartBackend(true, false, &applied, nil)
+			hw.read = func() ([]byte, error) { reads++; return tc.held, tc.readErr }
+			path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
+			if err != nil || reads != tc.reads || len(applied) != tc.writes {
+				t.Fatalf("error %v, reads %d, applied %v", err, reads, applied)
+			}
+			if tc.writes == 0 && path != "" {
+				t.Fatalf("reported %q without programming", path)
+			}
+			if tc.writes == 1 && (path != applied[0] || path != monitorProfilePathAt(1080, GetScreen().FPS)) {
+				t.Fatalf("reported %q, applied %v", path, applied)
+			}
+		})
+	}
+}
+
+// The receiver is read once per boot: a restart of the server in the same boot
+// does not reset it again, unless the last read found another EDID (the next
+// start confirms the write). With HDMI capture disabled it is never read.
+func TestFirstStartReadsTheReceiverOncePerBoot(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	selectBoard(t, "pcie", "ux")
+	recordHeld(t)
+	var applied []string
+	reads := 0
+	hw := firstStartBackend(true, false, &applied, nil)
+	held := testEDID(1920, 160, 1080, 53, 23550, 16)
+	hw.read = func() ([]byte, error) { reads++; return held, nil }
+	hw.apply = func(path string) error { applied = append(applied, path); held = heldEDID(); return nil }
+	for i := 0; i < 3; i++ {
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if reads != 2 || len(applied) != 1 {
+		t.Fatalf("reads %d, applied %v", reads, applied)
+	}
+	// Later boots of the same system version do not read it.
+	boot := func() {
+		t.Helper()
+		if err := os.Remove(monitorReceiverCheckedFile); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil {
+			t.Fatal(err)
+		}
+	}
+	boot()
+	if reads != 2 {
+		t.Fatalf("read again in a later boot: %d", reads)
+	}
+	// The first boot after an update reads it once.
+	if err := os.WriteFile(monitorSystemVersionFile, []byte("3.6.1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	boot()
+	boot()
+	if reads != 3 {
+		t.Fatalf("after an update: %d reads", reads)
+	}
+	if err := os.WriteFile(monitorSystemVersionFile, []byte("3.6.2\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	hw.readAtStart = false
+	boot()
+	if reads != 3 {
+		t.Fatalf("HDMI disabled: %d reads", reads)
+	}
+}
+
+// A profile the server writes is read back by the tool: no read at the next start.
+func TestWrittenProfileCountsAsVerified(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	path := filepath.Join(monitorEDIDDir, "NanoKVM-monitor-1080-90.bin")
+	if err := os.WriteFile(path, heldEDID(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	recordMonitorProfileLocked(path)
+	if !receiverVerifiedLocked(edidHash(heldEDID())) {
+		t.Fatal("written profile not verified")
+	}
+}
+
+// The log names the profile by its monitor name when several files hold it.
+func TestHeldProfileName(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	for _, name := range []string{"NanoKVM-final-video-profiles.bin", "NanoKVM-monitor-1080-90.bin", "NanoKVM-monitor-auto.bin"} {
+		if err := os.WriteFile(filepath.Join(monitorEDIDDir, name), heldEDID(), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := heldProfileNameLocked(edidHash(heldEDID())); got != "NanoKVM-monitor-1080-90.bin" {
+		t.Fatalf("named %q", got)
+	}
+	if got := heldProfileNameLocked("0"); got != "an EDID that is not a NanoKVM profile" {
+		t.Fatalf("named %q", got)
 	}
 }
 
@@ -191,7 +339,7 @@ func TestProgramMonitorProfileOnFirstStartStopsAfterRecordedSuccess(t *testing.T
 	monitorState(t, 1080, false, 1920)
 	writes := 0
 	hw := firstStartBackend(true, false, new([]string), nil)
-	hw.apply = func(string) error { writes++; return os.WriteFile(monitorEDIDHashFile, []byte("recorded\n"), 0600) }
+	hw.apply = func(string) error { writes++; recordHeld(t); return nil }
 	for i := 0; i < 2; i++ {
 		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolFHD); err != nil {
 			t.Fatal(err)
@@ -311,5 +459,56 @@ func TestCubeFirstStartRetriesIncompleteEDID(t *testing.T) {
 	}
 	if _, err := os.Stat(monitorEDIDCheckedFile); !os.IsNotExist(err) {
 		t.Fatal("incomplete EDID marked checked")
+	}
+}
+
+// A failed check must not become a durable confirmation. Restarts in the same
+// boot skip the read, but the next boot retries without rewriting an unknown EDID.
+func TestReceiverReadFailureRetriesNextBoot(t *testing.T) {
+	partial := append([]byte(nil), heldEDID()[:128]...)
+	badChecksum := append([]byte(nil), heldEDID()...)
+	badChecksum[20] ^= 1
+	for _, tc := range []struct {
+		name string
+		edid []byte
+		err  error
+	}{
+		{"read error", nil, errors.New("i2c failure")},
+		{"truncated extension", partial, nil},
+		{"bad checksum", badChecksum, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, 1080, false, 1920)
+			selectBoard(t, "pcie", "ux")
+			recordHeld(t)
+			if err := os.WriteFile(monitorSystemVersionFile, []byte("3.6.0\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var applied []string
+			hw := firstStartBackend(true, false, &applied, nil)
+			reads := 0
+			hw.read = func() ([]byte, error) { reads++; return tc.edid, tc.err }
+			for range 2 {
+				if path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || path != "" {
+					t.Fatalf("path %q, error %v", path, err)
+				}
+			}
+			if reads != 1 || len(applied) != 0 {
+				t.Fatalf("reads %d, writes %v", reads, applied)
+			}
+			if receiverVerifiedLocked(edidHash(heldEDID())) {
+				t.Fatal("failed read persisted as verified")
+			}
+			if err := os.Remove(monitorReceiverCheckedFile); err != nil {
+				t.Fatal(err)
+			}
+			hw.read = func() ([]byte, error) { reads++; return heldEDID(), nil }
+			if path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || path != "" {
+				t.Fatalf("path %q, error %v", path, err)
+			}
+			if reads != 2 || len(applied) != 0 || !receiverVerifiedLocked(edidHash(heldEDID())) {
+				t.Fatalf("next boot: reads %d, writes %v, verified %v", reads, applied, receiverVerifiedLocked(edidHash(heldEDID())))
+			}
+		})
 	}
 }

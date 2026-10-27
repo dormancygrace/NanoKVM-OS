@@ -48,9 +48,12 @@ func TestMonitorProfileForStreamRate(t *testing.T) {
 
 func TestProgrammedMonitorProfileComparesContent(t *testing.T) {
 	dir := t.TempDir()
-	oldHash := monitorEDIDHashFile
+	oldHash, oldVerified, oldVersion := monitorEDIDHashFile, monitorReceiverVerifiedFile, monitorSystemVersionFile
 	monitorEDIDHashFile = filepath.Join(dir, "monitor_edid_sha256")
-	defer func() { monitorEDIDHashFile = oldHash }()
+	monitorReceiverVerifiedFile, monitorSystemVersionFile = filepath.Join(dir, "verified"), filepath.Join(dir, "version")
+	t.Cleanup(func() {
+		monitorEDIDHashFile, monitorReceiverVerifiedFile, monitorSystemVersionFile = oldHash, oldVerified, oldVersion
+	})
 	a, b := filepath.Join(dir, "a.bin"), filepath.Join(dir, "b.bin")
 	_ = os.WriteFile(a, []byte("same"), 0o644)
 	_ = os.WriteFile(b, []byte("other"), 0o644)

@@ -28,7 +28,7 @@ func RetireWindowsPointer() error {
 	_, err := retireWindowsPointerLocked(monitorSettingsBackend{
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
-		readMonitorEDIDLocked,
+		readMonitorEDIDLocked, false,
 	})
 	return err
 }

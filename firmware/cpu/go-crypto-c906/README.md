@@ -327,3 +327,66 @@ GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha256.test crypto/sha2
 ./sha256.test -test.v -test.short | grep XTheadBb
 GODEBUG=cpu.xtheadbb=off ./sha256.test -test.run XXX -test.bench Hash
 ```
+
+## Keccak-f[1600] (`gen_keccak_c906.py`)
+
+SHA-3 and SHAKE run the Keccak-f[1600] permutation. Since Go 1.24, every TLS
+handshake with `X25519MLKEM768` (the default) expands its ML-KEM matrix with
+SHAKE128, so the permutation is on the server's TLS path. On rva20u64, Go's
+generic permutation compiles to about 287 instructions per round. Every
+rotate takes three instructions, and the lanes spill to the stack.
+
+`gen_keccak_c906.py` builds `keccakF1600C906` from CRYPTOGAMS
+`riscv/keccak1600-riscv.pl` (BSD-3-Clause, see `CRYPTOGAMS-LICENSE`). The
+generator pins the commit and the sha256.
+
+CRYPTOGAMS keeps all 25 lanes in registers. Without Zbb it uses lane
+complementing, so χ needs no `andn`, which the C906 lacks. The generator
+takes that no-Zbb round and changes two things:
+
+- It fuses each shift/shift/or rotate into one `th.srri` (XTheadBb): 24 in ρ
+  and 5 in θ. Each fusion is checked for data flow and dead temporaries.
+- It moves CRYPTOGAMS' lane in x27 to x1, because x27 is Go's `g`. The
+  round-constant pointer then lives in the frame instead of x1.
+
+A round is about 162 instructions, against about 287 for Go's generic
+permutation. Both figures are static counts of the loop body.
+
+On the device (C906 at 1 GHz, NanoKVM server running, load below 1.6), five
+alternating runs of each binary, medians:
+
+| Benchmark | Generic | C906 | Speedup |
+| --- | ---: | ---: | ---: |
+| Keccak-f[1600] permutation | 9.34 µs | 4.63 µs | 2.0× |
+| SHA3-256, 1350 B | 111.5 µs | 61.9 µs | 1.8× |
+| SHAKE128, 1350 B | 95.1 µs | 52.6 µs | 1.8× |
+| ML-KEM-768 key generation | 1.678 ms | 1.438 ms | −14% |
+| ML-KEM-768 encapsulation | 2.026 ms | 1.778 ms | −12% |
+| ML-KEM-768 decapsulation | 1.903 ms | 1.801 ms | −5% |
+
+The permutation is measured in one binary. The other rows compare the default
+with `GODEBUG=cpu.xtheadbb=off` in the same binary. A TLS server
+encapsulates once per `X25519MLKEM768` handshake, so the saving is about
+0.25 ms of CPU per handshake, around 1% of a full handshake.
+
+`--binutils` checks every `th.srri` WORD against GNU as. `--check`
+regenerates the file and compares. CI does both.
+
+`prepare.py` adds `sha3_riscv64.go`:
+
+- It selects `keccakF1600C906` when `cpu.RISCV64.HasXTheadBb` is set, and
+  registers it with `crypto/internal/impl`, so the crypto tests run both
+  permutations.
+- `GODEBUG=cpu.xtheadbb=off` selects the generic permutation.
+
+`tests/sha3` compares both permutations on 20,000 random, all-zero and
+all-one states. It fails if a T-Head core does not select the C906 path.
+
+```sh
+curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o keccak1600-riscv.pl
+python3 gen_keccak_c906.py --cryptogams keccak1600-riscv.pl --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
+python3 build-tests.py --goroot $PREPARED --xcrypto $XCRYPTO --output out   # adds fips-sha3, sha3, mlkem
+# under qemu-riscv64 -cpu thead-c906, or on the device:
+NANOKVM_REQUIRE_XTHEADBB=1 ./out/fips-sha3.test -test.v
+./out/sha3.test -test.skip TestCSHAKELargeS && ./out/mlkem.test -test.short  # that test needs 512 MiB
+```

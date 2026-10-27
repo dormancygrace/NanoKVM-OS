@@ -102,6 +102,7 @@
     "retryJoin": "Coba lagi"
   },
   "keyboard": {
+    "more": "Opsi papan ketik",
     "title": "Keyboard",
     "paste": "Tempel",
     "tips": "Hanya huruf dan simbol keyboard standar yang didukung",

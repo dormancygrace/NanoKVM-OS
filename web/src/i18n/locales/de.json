@@ -433,6 +433,7 @@
     }
   },
   "keyboard": {
+    "more": "Tastaturoptionen",
     "title": "Tastatur",
     "paste": "Einfügen",
     "tips": "Es werden nur Standardbuchstaben und -symbole der Tastatur unterstützt.",

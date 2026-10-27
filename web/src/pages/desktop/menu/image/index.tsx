@@ -29,6 +29,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
   const disabled = diskEnabled !== true;
   const openRef = useRef(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [source, setSource] = useState('device');
   const [remoteConnected, setRemoteConnected] = useState(false);
@@ -90,6 +91,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
     (open: boolean) => {
       if (open === openRef.current) return;
       openRef.current = open;
+      setIsTooltipOpen(false);
       setIsModalOpen(open);
       setSubmenuOpenCount((count) => (open ? count + 1 : Math.max(0, count - 1)));
     },
@@ -115,7 +117,14 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
 
   return (
     <>
-      <Tooltip title={t('image.title')} placement={tooltipPlacement} mouseEnterDelay={0.6}>
+      <Tooltip
+        title={t('image.title')}
+        placement={tooltipPlacement}
+        trigger={['hover', 'focus']}
+        mouseEnterDelay={0.6}
+        open={!isModalOpen && isTooltipOpen}
+        onOpenChange={(open) => setIsTooltipOpen(open && !openRef.current)}
+      >
         <div
           role="button"
           aria-label={t('image.title')}
@@ -168,7 +177,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
             ]}
           />
           <div
-            className="flex items-center justify-between"
+            className="flex flex-wrap items-center justify-between gap-2"
             style={{ display: source === 'device' ? undefined : 'none' }}
           >
             <span>{t('image.mountMode')}</span>

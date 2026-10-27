@@ -433,6 +433,7 @@
     }
   },
   "keyboard": {
+    "more": "Keyboard options",
     "title": "Keyboard",
     "paste": "Paste",
     "tips": "Only standard keyboard letters and symbols are supported",

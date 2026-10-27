@@ -87,6 +87,23 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   Bluetooth RX path:
   `gcc -fsanitize=address,undefined tests/test-aic8800-bt-rx.c && ./a.out`.
 
+## Kernel zstd and zram contracts
+
+`test-zram-zstd.py --source /path/to/patched-linux` compiles the actual kernel
+codec and zram backend on a 64-bit little-endian Linux host. It compares empty
+and real dictionaries, injects every allocation failure, checks cleanup and
+runs compression/decompression concurrently. Set `NANOKVM_SANITIZE=1` for
+ASan/UBSan. Release-build CI runs both modes against its prepared kernel source.
+The tests do not access a device or change the supplied source tree.
+NanoKVM uses LZ4 for primary zram compression. The zstd allocation savings
+apply when optional recompression is enabled (`ZRAM_RECOMPRESS=1`, off by
+default); they do not change the default LZ4 memory use.
+
+`test-zstd-c906.py` uses the same `--source` argument and sanitizer switch. It
+compares the original and patched codecs on generated 4 KiB pages and short
+buffers, checks bit-reader boundaries, cross-decodes identical compressed
+output, and probes guard pages and 300,000 random/mutated inputs plus truncated streams.
+
 ## Manual tools
 
 `manual/` holds tools that are run by hand and never by CI.
@@ -164,3 +181,15 @@ The D live-poll regression injects the reviewed operation-6 failure, then runs
 transitions. It requires zero D writes and no internal E1 identity reads.
 Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
 fault, including no further IO after a failed attempt in the same generation.
+
+The kernel build also runs `test-lz4-decompressor.py --source <patched-kernel-tree>`
+with and without `NANOKVM_SANITIZE=1`. Its constructed blocks cover short overlap
+distances, length extensions, partial decoding, external dictionaries, safe and
+fast streaming APIs, in-place buffers, truncated input and tight output bounds.
+
+The [C906 memory test](manual/c906-memory/README.md) validates the running kernel’s
+memmove assembly on SG2002, including overlapping buffers, return values and
+unmapped page boundaries.
+
+The [C906 usercopy test](manual/c906-usercopy/README.md) validates the real raw,
+SUM-enabled and public usercopy paths, fault recovery, and pipe/socket timing.

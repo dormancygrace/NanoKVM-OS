@@ -149,7 +149,7 @@ provider and its streaming/failure behavior are unchanged.
 
 Build these tests with `CIFS_SRC=/path/to/patched/kernel/fs/smb/client` to also
 build `sg2002_cifs_cmac_test.ko`. It includes the actual production length and
-provider-selection helper from patch 0053. It checks the combined header/data
+provider-selection helper from patch 0063. It checks the combined header/data
 length, empty/invalid headers, addition and API-length overflow, exact provider
 selection around 319/320/321 bytes, and matching tags over fragmented input.
 With the accelerator loaded, `insmod sg2002_cifs_cmac_test.ko` must succeed.

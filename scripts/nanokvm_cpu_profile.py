@@ -23,8 +23,13 @@ def flags(kind='userspace'):
     if kind == 'kernel' and PROFILE.get('kernel_lto', 'none') != 'none':
         raise ValueError('Production GCC kernel requires kernel_lto=none')
     isa_kind = 'userspace' if kind in ('audio', 'openssl') else kind
+    isa = PROFILE[isa_kind + '_isa']
+    if kind == 'openssl':
+        # No unconditional RVV instructions in general-purpose crypto code.
+        # Vectorization/stringop switches alone do not restrict all expansions.
+        isa = '_'.join(part for part in isa.split('_') if part != 'xtheadvector')
     result = [PROFILE.get(kind + '_optimization', PROFILE['optimization']),
-              '-march=' + PROFILE[isa_kind + '_isa'],
+              '-march=' + isa,
               '-mtune=' + PROFILE['tune'], '-mabi=' + PROFILE[isa_kind + '_abi']]
     if not PROFILE['fence_tso']:
         result.append('-mno-fence-tso')

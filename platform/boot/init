@@ -122,10 +122,13 @@ if [ -w "$cpufreq/scaling_governor" ]; then
 fi 2>/dev/null || true
 
 mkdir -p /boot
-# Probe-only DTs can expose MMC a little later than the normal board DT.
-for attempt in 1 2 3 4 5 6 7 8 9 10; do
-	[ -b /dev/mmcblk0p2 ] && break
-	sleep 1
+# The card's partitions appear some 50 ms after /init starts, and probe-only
+# DTs expose MMC a little later still. Poll in 20 ms steps for up to 10 s: a
+# one-second step cost a whole second whenever /init got here first.
+attempt=0
+while [ ! -b /dev/mmcblk0p2 ] && [ "$attempt" -lt 500 ]; do
+	sleep 0.02
+	attempt=$((attempt + 1))
 done
 mount -o ro /dev/mmcblk0p1 /boot
 

@@ -129,8 +129,7 @@ jobs:
         run: |
           python3 tests/test-hdmi-events.py
           NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
-      # The C906 vector kernels are generated with .4byte/WORD encodings; each
-      # generator checks its output against GNU as/objdump for XTheadVector.
+      # Check C906 .4byte/WORD encodings against GNU as/objdump for XTheadVector.
       # The GHASH generator also runs its output against a bit-serial GHASH.
       - name: Generated C906 assembly is up to date
         run: |
@@ -141,8 +140,11 @@ jobs:
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+          python3 ../../../tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
           curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
           python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
+      - name: Log XTheadVector instruction encodings
+        run: python3 tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade
@@ -176,6 +178,16 @@ jobs:
         with:
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
+      - name: RISC-V log sanitizer ABI and test build
+        working-directory: server
+        env:
+          GOOS: linux
+          GOARCH: riscv64
+          GORISCV64: rva20u64
+          CGO_ENABLED: '0'
+        run: |
+          go vet ./logs ./logger
+          go test -c -o "$RUNNER_TEMP/logs-riscv64.test" ./logs
       - name: Gateway preference against kernel routes
         # A disposable network namespace, as for the DHCP gateway test above.
         working-directory: server

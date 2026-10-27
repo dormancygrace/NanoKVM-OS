@@ -17,7 +17,7 @@ var terminalEscape = regexp.MustCompile("\x1b(?:\\[[0-?]*[ -/]*[@-~]|\\][^\x07\x
 
 var sensitiveWords = []string{"password", "passwd", "passphrase", "psk", "secret", "token", "credential", "api_key", "api-key", "api key", "apikey", "auth_key", "auth-key", "auth key", "authkey", "authorization", "cookie", "bearer", "private_key", "private-key", "private key", "privatekey", "ssh-rsa", "ssh-ed25519", "ecdsa-sha2", "\"message", "\"prompt\"", "\"content\"", "\"payload\"", "\"body\"", "?key=", "&key=", "?signature=", "&signature=", "?sig=", "&sig="}
 
-func sensitiveLine(line string) bool {
+func sensitiveLineGeneric(line string) bool {
 	lowered := strings.ToLower(line)
 	for _, word := range sensitiveWords {
 		if strings.Contains(lowered, word) {
@@ -35,20 +35,12 @@ func sanitizeTail(data []byte, truncated bool) (string, int, bool) {
 	}
 	text := strings.ToValidUTF8(string(data), "�")
 	// Most snapshots contain no ANSI escape sequences; avoid a regexp copy.
-	if strings.IndexByte(text, 0x1b) >= 0 {
+	if containsEscape(text) {
 		text = terminalEscape.ReplaceAllString(text, "")
 	}
 	// Printable ASCII and the two retained whitespace bytes need no Unicode
 	// classification. Keep the full filter for non-ASCII and control bytes.
-	needsRuneFilter := false
-	for i := 0; i < len(text); i++ {
-		c := text[i]
-		if c >= 0x7f || c < 0x20 && c != '\n' && c != '\t' {
-			needsRuneFilter = true
-			break
-		}
-	}
-	if needsRuneFilter {
+	if needsRuneFilter(text) {
 		text = strings.Map(func(r rune) rune {
 			if r != '\n' && r != '\t' && (unicode.IsControl(r) || unicode.Is(unicode.Cf, r)) {
 				return -1

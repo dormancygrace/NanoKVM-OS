@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/crypto/sha/sha256_sg2002.c
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,48 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +/* SG2002 SHA-256 compression only. OpenSSL owns buffering, padding and length. */
 +#include <stdint.h>
@@ -10,12 +10,13 @@
 +
 +/* Native C906 qualification selects 4 KiB minimum and request chunks. */
 +#define DMA_BLOCKS (SG2002_CRYPTO_MAX / SHA256_CBLOCK)
++/* Reuse the descriptor for tails of at least 512 B, qualified on C906. */
++#define CONTINUE_BLOCKS 8
 +
 +size_t ossl_sha256_sg2002(SHA256_CTX *ctx, const unsigned char *in, size_t blocks)
 +{
 +    struct sg2002_crypto_request r = {
-+        .version = SG2002_CRYPTO_ABI, .algorithm = SG2002_ALG_SHA256,
-+        .length = SG2002_CRYPTO_MAX
++        .version = SG2002_CRYPTO_ABI, .algorithm = SG2002_ALG_SHA256
 +    };
 +    size_t completed = 0;
 +    int fd;
@@ -28,11 +29,13 @@
 +    for (unsigned int i = 0; i < 8; ++i)
 +        for (unsigned int j = 0; j < 4; ++j)
 +            r.state[4*i+j] = (unsigned char)(ctx->h[i] >> (24-8*j));
-+    while (blocks - completed >= DMA_BLOCKS) {
++    while (blocks - completed >= (completed ? CONTINUE_BLOCKS : DMA_BLOCKS)) {
++        size_t n = blocks - completed < DMA_BLOCKS ? blocks - completed : DMA_BLOCKS;
++        r.length = (uint32_t)(n * SHA256_CBLOCK);
 +        r.input = (uintptr_t)(in + completed * SHA256_CBLOCK);
 +        if (!ossl_sg2002_run(fd, &r))
 +            break;
-+        completed += DMA_BLOCKS;
++        completed += n;
 +    }
 +    ossl_sg2002_end(fd);
 +    /* Commit only completed chunks. The caller hashes the rest in software,

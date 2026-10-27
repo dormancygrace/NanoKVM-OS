@@ -1,0 +1,168 @@
+TRIAL 0 PROFILE vector-sw
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030277080,"wall_seconds":0.033255983,"user_seconds":0.026969,"kernel_seconds":0.003367,"mib_per_cpu_second":0.838609}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1312,"cpu_seconds":0.030105600,"wall_seconds":0.033613539,"user_seconds":0.030126,"kernel_seconds":0.000000,"mib_per_cpu_second":2.659908}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030035680,"wall_seconds":0.032899747,"user_seconds":0.030058,"kernel_seconds":0.000000,"mib_per_cpu_second":5.982468}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032563320,"wall_seconds":0.035753717,"user_seconds":0.032585,"kernel_seconds":0.000000,"mib_per_cpu_second":8.637019}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.038308240,"wall_seconds":0.042329490,"user_seconds":0.038330,"kernel_seconds":0.000000,"mib_per_cpu_second":9.789017}
+MEM phase=before
+Rss:                4280 kB
+Private_Dirty:      3804 kB
+Anonymous:           868 kB
+MEM phase=256-contexts
+Rss:                4604 kB
+Private_Dirty:      4128 kB
+Anonymous:          1192 kB
+TRIAL 0 PROFILE generic-sw
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030431800,"wall_seconds":0.033149743,"user_seconds":0.029883,"kernel_seconds":0.000603,"mib_per_cpu_second":0.834345}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1312,"cpu_seconds":0.030097280,"wall_seconds":0.033424141,"user_seconds":0.028712,"kernel_seconds":0.001439,"mib_per_cpu_second":2.660643}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030356120,"wall_seconds":0.036916426,"user_seconds":0.029461,"kernel_seconds":0.000942,"mib_per_cpu_second":5.919317}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032609360,"wall_seconds":0.035689798,"user_seconds":0.032659,"kernel_seconds":0.000000,"mib_per_cpu_second":8.624824}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.039721320,"wall_seconds":0.045327540,"user_seconds":0.039771,"kernel_seconds":0.000000,"mib_per_cpu_second":9.440774}
+MEM phase=before
+Rss:                4280 kB
+Private_Dirty:      3804 kB
+Anonymous:           868 kB
+MEM phase=256-contexts
+Rss:                4604 kB
+Private_Dirty:      4128 kB
+Anonymous:          1192 kB
+TRIAL 0 PROFILE vector-dma
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030528120,"wall_seconds":0.033616298,"user_seconds":0.030604,"kernel_seconds":0.000000,"mib_per_cpu_second":0.831713}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1312,"cpu_seconds":0.030175920,"wall_seconds":0.033427861,"user_seconds":0.030195,"kernel_seconds":0.000000,"mib_per_cpu_second":2.653709}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030237320,"wall_seconds":0.032904267,"user_seconds":0.030256,"kernel_seconds":0.000000,"mib_per_cpu_second":5.942574}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032238360,"wall_seconds":0.034304772,"user_seconds":0.032288,"kernel_seconds":0.000000,"mib_per_cpu_second":8.724079}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.033137720,"wall_seconds":0.035709757,"user_seconds":0.014461,"kernel_seconds":0.018723,"mib_per_cpu_second":11.316409}
+MEM phase=before
+Rss:                4288 kB
+Private_Dirty:      3812 kB
+Anonymous:           876 kB
+MEM phase=256-contexts
+Rss:                4612 kB
+Private_Dirty:      4136 kB
+Anonymous:          1200 kB
+TRIAL 0 PROFILE generic-dma
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030503080,"wall_seconds":0.033302862,"user_seconds":0.030577,"kernel_seconds":0.000000,"mib_per_cpu_second":0.832395}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1344,"cpu_seconds":0.030680880,"wall_seconds":0.033695058,"user_seconds":0.030742,"kernel_seconds":0.000000,"mib_per_cpu_second":2.673693}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030342120,"wall_seconds":0.033135784,"user_seconds":0.030394,"kernel_seconds":0.000000,"mib_per_cpu_second":5.922048}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032567520,"wall_seconds":0.035760757,"user_seconds":0.032618,"kernel_seconds":0.000000,"mib_per_cpu_second":8.635905}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.034344600,"wall_seconds":0.039165482,"user_seconds":0.020219,"kernel_seconds":0.014205,"mib_per_cpu_second":10.918747}
+MEM phase=before
+Rss:                4288 kB
+Private_Dirty:      3812 kB
+Anonymous:           876 kB
+MEM phase=256-contexts
+Rss:                4612 kB
+Private_Dirty:      4136 kB
+Anonymous:          1200 kB
+TRIAL 1 PROFILE generic-sw
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030476120,"wall_seconds":0.034003375,"user_seconds":0.030531,"kernel_seconds":0.000000,"mib_per_cpu_second":0.833132}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1344,"cpu_seconds":0.030611480,"wall_seconds":0.033624339,"user_seconds":0.030629,"kernel_seconds":0.000000,"mib_per_cpu_second":2.679754}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030420680,"wall_seconds":0.033579940,"user_seconds":0.030440,"kernel_seconds":0.000000,"mib_per_cpu_second":5.906755}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032655680,"wall_seconds":0.035995955,"user_seconds":0.032705,"kernel_seconds":0.000000,"mib_per_cpu_second":8.612591}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.039093320,"wall_seconds":0.045923014,"user_seconds":0.039114,"kernel_seconds":0.000000,"mib_per_cpu_second":9.592432}
+MEM phase=before
+Rss:                4280 kB
+Private_Dirty:      3804 kB
+Anonymous:           868 kB
+MEM phase=256-contexts
+Rss:                4604 kB
+Private_Dirty:      4128 kB
+Anonymous:          1192 kB
+TRIAL 1 PROFILE vector-dma
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030310960,"wall_seconds":0.033463661,"user_seconds":0.029842,"kernel_seconds":0.000524,"mib_per_cpu_second":0.837671}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1344,"cpu_seconds":0.030423440,"wall_seconds":0.033099384,"user_seconds":0.030193,"kernel_seconds":0.000250,"mib_per_cpu_second":2.696317}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030227040,"wall_seconds":0.033138263,"user_seconds":0.023726,"kernel_seconds":0.006521,"mib_per_cpu_second":5.944595}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032895440,"wall_seconds":0.036171033,"user_seconds":0.032048,"kernel_seconds":0.000867,"mib_per_cpu_second":8.549817}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.033529720,"wall_seconds":0.036669428,"user_seconds":0.032837,"kernel_seconds":0.000744,"mib_per_cpu_second":11.184108}
+MEM phase=before
+Rss:                4288 kB
+Private_Dirty:      3812 kB
+Anonymous:           876 kB
+MEM phase=256-contexts
+Rss:                4612 kB
+Private_Dirty:      4136 kB
+Anonymous:          1200 kB
+TRIAL 1 PROFILE generic-dma
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1632,"cpu_seconds":0.030171320,"wall_seconds":0.033341662,"user_seconds":0.029541,"kernel_seconds":0.000683,"mib_per_cpu_second":0.825365}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1312,"cpu_seconds":0.030065000,"wall_seconds":0.033191944,"user_seconds":0.030084,"kernel_seconds":0.000000,"mib_per_cpu_second":2.663500}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030062760,"wall_seconds":0.032892627,"user_seconds":0.029632,"kernel_seconds":0.000481,"mib_per_cpu_second":5.977079}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032546240,"wall_seconds":0.036843946,"user_seconds":0.031556,"kernel_seconds":0.001048,"mib_per_cpu_second":8.641551}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.033974520,"wall_seconds":0.037596498,"user_seconds":0.029669,"kernel_seconds":0.004356,"mib_per_cpu_second":11.037684}
+MEM phase=before
+Rss:                4288 kB
+Private_Dirty:      3812 kB
+Anonymous:           876 kB
+MEM phase=256-contexts
+Rss:                4612 kB
+Private_Dirty:      4136 kB
+Anonymous:          1200 kB
+TRIAL 1 PROFILE vector-sw
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030370160,"wall_seconds":0.033242142,"user_seconds":0.026925,"kernel_seconds":0.003498,"mib_per_cpu_second":0.836039}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1312,"cpu_seconds":0.030196280,"wall_seconds":0.033220103,"user_seconds":0.028056,"kernel_seconds":0.002160,"mib_per_cpu_second":2.651920}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030569680,"wall_seconds":0.038050613,"user_seconds":0.028075,"kernel_seconds":0.002515,"mib_per_cpu_second":5.877965}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032120360,"wall_seconds":0.036025315,"user_seconds":0.032078,"kernel_seconds":0.000136,"mib_per_cpu_second":8.756129}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.038463600,"wall_seconds":0.042061653,"user_seconds":0.038485,"kernel_seconds":0.000000,"mib_per_cpu_second":9.749477}
+MEM phase=before
+Rss:                4280 kB
+Private_Dirty:      3804 kB
+Anonymous:           868 kB
+MEM phase=256-contexts
+Rss:                4604 kB
+Private_Dirty:      4128 kB
+Anonymous:          1192 kB
+TRIAL 2 PROFILE vector-dma
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030301760,"wall_seconds":0.033114704,"user_seconds":0.029193,"kernel_seconds":0.001161,"mib_per_cpu_second":0.837926}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1312,"cpu_seconds":0.030421960,"wall_seconds":0.033541460,"user_seconds":0.030442,"kernel_seconds":0.000000,"mib_per_cpu_second":2.632247}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030260520,"wall_seconds":0.033557580,"user_seconds":0.030313,"kernel_seconds":0.000000,"mib_per_cpu_second":5.938018}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032005640,"wall_seconds":0.033665138,"user_seconds":0.032054,"kernel_seconds":0.000000,"mib_per_cpu_second":8.787514}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.033221000,"wall_seconds":0.039628598,"user_seconds":0.025897,"kernel_seconds":0.007373,"mib_per_cpu_second":11.288041}
+MEM phase=before
+Rss:                4288 kB
+Private_Dirty:      3812 kB
+Anonymous:           876 kB
+MEM phase=256-contexts
+Rss:                4612 kB
+Private_Dirty:      4136 kB
+Anonymous:          1200 kB
+TRIAL 2 PROFILE generic-dma
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1696,"cpu_seconds":0.030375960,"wall_seconds":0.032210993,"user_seconds":0.028181,"kernel_seconds":0.002271,"mib_per_cpu_second":0.851954}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1344,"cpu_seconds":0.030241520,"wall_seconds":0.032951306,"user_seconds":0.029741,"kernel_seconds":0.000521,"mib_per_cpu_second":2.712537}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030289320,"wall_seconds":0.033671339,"user_seconds":0.030000,"kernel_seconds":0.000310,"mib_per_cpu_second":5.932372}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032780600,"wall_seconds":0.036071194,"user_seconds":0.032800,"kernel_seconds":0.000000,"mib_per_cpu_second":8.579770}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.033058680,"wall_seconds":0.034548930,"user_seconds":0.026006,"kernel_seconds":0.007104,"mib_per_cpu_second":11.343466}
+MEM phase=before
+Rss:                4288 kB
+Private_Dirty:      3812 kB
+Anonymous:           876 kB
+MEM phase=256-contexts
+Rss:                4612 kB
+Private_Dirty:      4136 kB
+Anonymous:          1200 kB
+TRIAL 2 PROFILE vector-sw
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030459400,"wall_seconds":0.033299302,"user_seconds":0.030538,"kernel_seconds":0.000000,"mib_per_cpu_second":0.833589}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1312,"cpu_seconds":0.030025320,"wall_seconds":0.033966416,"user_seconds":0.030047,"kernel_seconds":0.000000,"mib_per_cpu_second":2.667020}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030264840,"wall_seconds":0.033664899,"user_seconds":0.030309,"kernel_seconds":0.000000,"mib_per_cpu_second":5.937170}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032655280,"wall_seconds":0.036330951,"user_seconds":0.032676,"kernel_seconds":0.000000,"mib_per_cpu_second":8.612696}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.037996240,"wall_seconds":0.041304380,"user_seconds":0.038016,"kernel_seconds":0.000000,"mib_per_cpu_second":9.869398}
+MEM phase=before
+Rss:                4280 kB
+Private_Dirty:      3804 kB
+Anonymous:           868 kB
+MEM phase=256-contexts
+Rss:                4604 kB
+Private_Dirty:      4128 kB
+Anonymous:          1192 kB
+TRIAL 2 PROFILE generic-sw
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":16,"offset":0,"iterations":1664,"cpu_seconds":0.030490920,"wall_seconds":0.033661058,"user_seconds":0.030553,"kernel_seconds":0.000000,"mib_per_cpu_second":0.832727}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":64,"offset":0,"iterations":1344,"cpu_seconds":0.030672480,"wall_seconds":0.033924496,"user_seconds":0.030692,"kernel_seconds":0.000000,"mib_per_cpu_second":2.674425}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":256,"offset":0,"iterations":736,"cpu_seconds":0.030279720,"wall_seconds":0.032935305,"user_seconds":0.030335,"kernel_seconds":0.000000,"mib_per_cpu_second":5.934252}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":1024,"offset":0,"iterations":288,"cpu_seconds":0.032850560,"wall_seconds":0.036213912,"user_seconds":0.027049,"kernel_seconds":0.005852,"mib_per_cpu_second":8.561498}
+{"kind":"bench","algorithm":"AES-128-GCM","operation":"new-key","bytes":4096,"offset":0,"iterations":96,"cpu_seconds":0.039216920,"wall_seconds":0.043599797,"user_seconds":0.039271,"kernel_seconds":0.000000,"mib_per_cpu_second":9.562199}
+MEM phase=before
+Rss:                4280 kB
+Private_Dirty:      3804 kB
+Anonymous:           868 kB
+MEM phase=256-contexts
+Rss:                4604 kB
+Private_Dirty:      4128 kB
+Anonymous:          1192 kB

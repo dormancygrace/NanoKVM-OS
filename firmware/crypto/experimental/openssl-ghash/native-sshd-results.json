@@ -1,0 +1,44 @@
+[
+  {
+    "cipher": "aes128-gcm@openssh.com",
+    "case": "short",
+    "username_bytes": 18,
+    "rc": 255,
+    "authentication_failure_received": true
+  },
+  {
+    "cipher": "aes128-gcm@openssh.com",
+    "case": "long",
+    "username_bytes": 5011,
+    "rc": 255,
+    "authentication_failure_received": true
+  },
+  {
+    "cipher": "aes256-gcm@openssh.com",
+    "case": "short",
+    "username_bytes": 18,
+    "rc": 255,
+    "authentication_failure_received": true
+  },
+  {
+    "cipher": "aes256-gcm@openssh.com",
+    "case": "long",
+    "username_bytes": 5011,
+    "rc": 255,
+    "authentication_failure_received": true
+  },
+  {
+    "cipher": "chacha20-poly1305@openssh.com",
+    "case": "short",
+    "username_bytes": 18,
+    "rc": 255,
+    "authentication_failure_received": true
+  },
+  {
+    "cipher": "chacha20-poly1305@openssh.com",
+    "case": "long",
+    "username_bytes": 5011,
+    "rc": 255,
+    "authentication_failure_received": true
+  }
+]

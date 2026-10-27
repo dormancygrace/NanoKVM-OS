@@ -41,7 +41,7 @@
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
 +    if (len >= 1536) {
 +        size_t done = ossl_sg2002_cipher(SG2002_ALG_DES, SG2002_MODE_ECB, ctx->enc,
-+            ((PROV_DES_CTX *)ctx)->sg2002_key, 8, ctx->iv, 8, in, out, len, 1536);
++            ((PROV_DES_CTX *)ctx)->sg2002_key, 8, ctx->iv, 8, in, out, len, 1536, 1536);
 +        in += done;
 +        out += done;
 +        len -= done;
@@ -58,7 +58,7 @@
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
 +    if (len >= 1536) {
 +        size_t done = ossl_sg2002_cipher(SG2002_ALG_DES, SG2002_MODE_CBC, ctx->enc,
-+            ((PROV_DES_CTX *)ctx)->sg2002_key, 8, ctx->iv, 8, in, out, len, 1536);
++            ((PROV_DES_CTX *)ctx)->sg2002_key, 8, ctx->iv, 8, in, out, len, 1536, 1536);
 +        in += done;
 +        out += done;
 +        len -= done;

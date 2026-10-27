@@ -90,10 +90,10 @@ static int check(const void *fdt) {
         uint64_t size, addr = fdtdec_get_addr_size_auto_parent(fdt, parent, node, "reg", 0, &size, false);
         if (addr == FDT_ADDR_T_NONE) continue;
         assert(size && count < 32);
-        if (addr == 0x80000000 && size == 0x40000) {
+        if (addr == 0x80000000 && size == 0x20000) {
             ro++; assert(fdt_getprop(fdt, node, "no-map", NULL));
         }
-        if (addr == 0x80040000 && size == 0x10000) {
+        if (addr == 0x80020000 && size == 0x10000) {
             rw++; assert(fdt_getprop(fdt, node, "no-map", NULL));
         }
         starts[count] = addr; ends[count++] = addr + size;
@@ -120,8 +120,8 @@ int main(int argc, char **argv) {
     /* The FIP carries no small-core image: its 2 MiB must not be reserved. */
     assert(small_core(source) == 0);
     /* Region labels follow the size-sorted upstream domain order. */
-    add(source, "mmode_resv1", 0x80000000, 0x40000);
-    add(source, "mmode_resv0", 0x80040000, 0x10000);
+    add(source, "mmode_resv1", 0x80000000, 0x20000);
+    add(source, "mmode_resv0", 0x80020000, 0x10000);
     for (int i = 2; i < argc; i++) {
         void *target = load(argv[i]);
         /* The board DT carries no small-core node of its own. */

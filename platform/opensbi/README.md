@@ -9,17 +9,17 @@ platform/build.sh -o build/platform -j8 fetch toolchain uboot opensbi fip
 python3 tests/test-nanokvm-fip.py --images build/platform/images
 ```
 
-The generic platform uses normal upstream `-O2`, no LTO, `rv64imac_zicsr_zifencei` and soft-float `lp64`. C906 has a proprietary draft vector ISA: do not advertise standard V/RVV 1.0 in this M-mode DT. Linux retains its own board DT. The DT selects one application hart and 40 KiB aligned heap; the upstream platform default supplies an 8 KiB stack. Unsupported SUSP, CPPC, DBTR, SSE and MPXY facilities are disabled; other extensions retain upstream probing.
+The generic platform uses `-Os` (patch `0003`), no LTO, no RVV 1.0 code (`CC_SUPPORT_VECTOR=n`), `rv64imac_zicsr_zifencei` and soft-float `lp64`. C906 has a proprietary draft vector ISA: do not advertise standard V/RVV 1.0 in this M-mode DT. Linux retains its own board DT. The DT selects one application hart and 40 KiB aligned heap; the upstream platform default supplies an 8 KiB stack. Unsupported SUSP, CPPC, DBTR, SSE and MPXY facilities are disabled; other extensions retain upstream probing.
 
 | Item | Address / size |
 |---|---|
-| MONITOR entry / firmware RO PMP | `0x80000000` / `0x40000` (256 KiB) |
-| Firmware RW PMP including stack/heap | `0x80040000` / `0x10000` (64 KiB) |
+| MONITOR entry / firmware RO PMP | `0x80000000` / `0x20000` (128 KiB) |
+| Firmware RW PMP including stack/heap | `0x80020000` / `0x10000` (64 KiB) |
 | Relocated M-mode DT handed to U-Boot | `0x80100000`, maximum 64 KiB including fixup room |
 | U-Boot loader header / entry | `0x801fffe0` / `0x80200000` |
 | Small-core reservation | none (stock FSBL region `0x8d000000` / `0x200000` is not reserved) |
 
-The ELF manifest enforces the two PMP extents. Default upstream separates RX and RW firmware domains and denies S/U access to both. U-Boot copies these no-map reservations into the Linux DT. Its exact-address/size deduplication keeps the existing 256 KiB board reservation and adds the 64 KiB RW reservation. Do not replace the static Linux node with one overlapping 320/512 KiB node. The SD partition layout can remain unchanged.
+The ELF manifest enforces the two PMP extents. Default upstream separates RX and RW firmware domains and denies S/U access to both. U-Boot copies these no-map reservations into the Linux DT. Its exact-address/size deduplication keeps the existing 128 KiB board reservation and adds the 64 KiB RW reservation. Do not replace the static Linux node with one overlapping 192/512 KiB node. The SD partition layout can remain unchanged.
 
 The M-mode DT has no static `reserved-memory` children. The stock FIP carries no BLCP/BLCP_2ND image (both sizes are zero), so the FSBL starts no small core (`No C906L image.`) and nothing uses the 2 MiB at `0x8d000000`; the earlier `c906l@8d000000` node in this DT only made U-Boot copy a useless `no-map` reservation into every Linux DT. Without it, and without the `c906l` node the board DTs used to carry, those 2 MiB are available to Linux. `scripts/nanokvm-fip.py` rejects a FIP that carries a BLCP_2ND image, because that image would run in an unreserved region. No OpenSBI or U-Boot code refers to `0x8d000000`.
 

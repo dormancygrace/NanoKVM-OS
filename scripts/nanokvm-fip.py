@@ -128,11 +128,11 @@ def validate(base, candidate, monitor, uboot, manifest):
     require(new["MONITOR"] == padded_monitor, "packaged MONITOR differs")
     require(sha(monitor) == manifest["binary_sha256"], "OpenSBI manifest hash mismatch")
     require(manifest["pmp_regions"] == [
-        {"base": MONITOR_ADDR, "bytes": 0x40000, "m_permissions": "RX"},
-        {"base": MONITOR_ADDR + 0x40000, "bytes": 0x10000, "m_permissions": "RW"}],
+        {"base": MONITOR_ADDR, "bytes": 0x20000, "m_permissions": "RX"},
+        {"base": MONITOR_ADDR + 0x20000, "bytes": 0x10000, "m_permissions": "RW"}],
         "OpenSBI does not match the split RO/RW PMP contract")
-    require(manifest["pmp_bytes"] == 0x50000, "incorrect total PMP reservation")
-    require(MONITOR_ADDR + len(monitor) <= manifest["fw_end"] <= manifest["runtime_end"] <= MONITOR_ADDR + 0x50000,
+    require(manifest["pmp_bytes"] == 0x30000, "incorrect total PMP reservation")
+    require(MONITOR_ADDR + len(monitor) <= manifest["fw_end"] <= manifest["runtime_end"] <= MONITOR_ADDR + 0x30000,
             "OpenSBI runtime exceeds PMP reservation")
     require(manifest["fdt_destination"] == 0x80100000 and manifest["fdt_max_bytes"] == 0x10000,
             "unexpected FDT relocation contract")
@@ -154,7 +154,7 @@ def validate(base, candidate, monitor, uboot, manifest):
         "file_spans": [{"name": n, "offset": start, "end": end} for n, start, end in spans],
         "checks": ["parameter CRCs", "all image CRCs", "512-byte alignment", "no file overlaps",
                    "first-stage bytes", "DDR/small-core bytes", "no small-core image", "monitor bytes", "U-Boot decompression",
-                   "load/run addresses", "320 KiB split RO/RW PMP contract"],
+                   "load/run addresses", "192 KiB split RO/RW PMP contract"],
         "hardware_validation": "pending",
         "apk_updates_fip": False
     }

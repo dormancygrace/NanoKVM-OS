@@ -9,7 +9,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 TEXT = 0x80000000
-RO_SIZE = 0x40000
+RO_SIZE = 0x20000
 RW_SIZE = 0x10000
 FDT_DEST = 0x80100000
 STACK_SIZE = 8192
@@ -93,7 +93,7 @@ def main():
         "schema": 2, "version": "1.9", "upstream_url": pin[1],
         "upstream_commit": pin[2], "upstream_tree": pin[3].split("=", 1)[1],
         "source_date_epoch": 1782907200, "platform": "generic", "firmware": "FW_DYNAMIC",
-        "isa": "rv64imac_zicsr_zifencei", "abi": "lp64", "optimization": "-O2", "lto": False,
+        "isa": "rv64imac_zicsr_zifencei", "abi": "lp64", "optimization": "-Os", "lto": False,
         "compiler": subprocess.check_output([a.compiler, "--version"], text=True).splitlines()[0],
         "patches": {f.name: sha(f) for f in sorted((REPO / "platform/opensbi").glob("*.patch"))},
         "builder_sha256": sha(REPO / "platform/build.sh"),

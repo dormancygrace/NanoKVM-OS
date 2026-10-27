@@ -15,7 +15,7 @@ args = parser.parse_args()
 
 def check(directory):
     directory.mkdir(parents=True, exist_ok=True)
-    patch = (ROOT / 'platform/kernel/0052-lz4-update-compressor-1.10.patch').read_text()
+    patch = (ROOT / 'platform/kernel/0054-lz4-update-compressor-1.10.patch').read_text()
     sources = ['lib/lz4/lz4_110.h', 'lib/lz4/lz4_compress_110.c']
     extracted = set()
     for part in patch.split('diff --git ')[1:]:
@@ -30,7 +30,7 @@ def check(directory):
         target.write_text(content)
         extracted.add(name)
     assert extracted == set(sources)
-    scalar = ROOT / 'platform/kernel/0054-lz4-c906-scalar-paths.patch'
+    scalar = ROOT / 'platform/kernel/0056-lz4-c906-scalar-paths.patch'
     selected = ''.join('diff --git ' + part for part in scalar.read_text().split('diff --git ')[1:]
                        if part.splitlines()[0].split(' b/')[1] == 'lib/lz4/lz4_110.h')
     assert selected

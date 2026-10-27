@@ -102,6 +102,7 @@
     "retryJoin": "Prøv igen"
   },
   "keyboard": {
+    "more": "Tastaturindstillinger",
     "title": "Tastatur",
     "paste": "Indsæt",
     "tips": "Kun standard bogstaver og symboler er understøttet",

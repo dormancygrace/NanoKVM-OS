@@ -16,8 +16,8 @@ args = parser.parse_args()
 def check(directory):
     directory.mkdir(parents=True, exist_ok=True)
     # Reconstruct the private core from PR1, then apply the actual PR2 patch.
-    first = ROOT / 'platform/kernel/0052-lz4-update-compressor-1.10.patch'
-    second = ROOT / 'platform/kernel/0053-lz4-zram-small-table.patch'
+    first = ROOT / 'platform/kernel/0054-lz4-update-compressor-1.10.patch'
+    second = ROOT / 'platform/kernel/0055-lz4-zram-small-table.patch'
     for part in first.read_text().split('diff --git ')[1:]:
         name = part.splitlines()[0].split(' b/')[1]
         if name != 'lib/lz4/lz4_110.h':
@@ -32,7 +32,7 @@ def check(directory):
                            'lib/lz4/lz4_110.h', 'lib/lz4/lz4_compress_4k.c'})
     subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(directory)],
                    input=selected, text=True, check=True)
-    scalar = ROOT / 'platform/kernel/0054-lz4-c906-scalar-paths.patch'
+    scalar = ROOT / 'platform/kernel/0056-lz4-c906-scalar-paths.patch'
     selected = ''.join('diff --git ' + part for part in scalar.read_text().split('diff --git ')[1:]
                        if part.splitlines()[0].split(' b/')[1] == 'lib/lz4/lz4_110.h')
     assert selected

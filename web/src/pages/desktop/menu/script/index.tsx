@@ -157,8 +157,8 @@ export const Script = () => {
   }
 
   const content = (
-    <div className="min-w-[250px]">
-      <div className="flex items-center justify-between">
+    <div className="w-[300px] max-w-full min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-base font-bold text-neutral-300">{t('script.title')}</span>
 
         <input
@@ -193,7 +193,7 @@ export const Script = () => {
             className="flex items-center justify-between space-x-5 px-2 py-1.5"
             onClick={() => activate(script)}
           >
-            <div className="flex max-w-[300px] items-center gap-1.5 select-none">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 select-none">
               <span className="truncate">{script}</span>
               {autostart.includes(script) && (
                 <PowerIcon
@@ -203,7 +203,12 @@ export const Script = () => {
                 />
               )}
             </div>
-            <div className={clsx('h-[16px] w-[16px]', script === currentScript && 'rotate-90')}>
+            <div
+              className={clsx(
+                'h-[16px] w-[16px] shrink-0',
+                script === currentScript && 'rotate-90'
+              )}
+            >
               <ChevronRightIcon size={16} />
             </div>
           </div>
@@ -226,7 +231,7 @@ export const Script = () => {
           )}
 
           {script === currentScript && (
-            <div className="flex items-center justify-end space-x-2 p-3">
+            <div className="flex flex-wrap items-center justify-end gap-2 p-3">
               <Button type="primary" size="small" onClick={() => runScript('foreground')}>
                 {t('script.run')}
               </Button>

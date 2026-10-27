@@ -102,6 +102,7 @@
     "retryJoin": "Prøv igjen"
   },
   "keyboard": {
+    "more": "Tastaturalternativer",
     "title": "Åpne tastatur",
     "paste": "Lim inn",
     "tips": "Kun vanlige tegn på tastatur er støttet",

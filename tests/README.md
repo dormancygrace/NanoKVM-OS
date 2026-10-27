@@ -169,3 +169,10 @@ The kernel build also runs `test-lz4-decompressor.py --source <patched-kernel-tr
 with and without `NANOKVM_SANITIZE=1`. Its constructed blocks cover short overlap
 distances, length extensions, partial decoding, external dictionaries, safe and
 fast streaming APIs, in-place buffers, truncated input and tight output bounds.
+
+The [C906 memory test](manual/c906-memory/README.md) validates the running kernel’s
+memmove assembly on SG2002, including overlapping buffers, return values and
+unmapped page boundaries.
+
+The [C906 usercopy test](manual/c906-usercopy/README.md) validates the real raw,
+SUM-enabled and public usercopy paths, fault recovery, and pipe/socket timing.

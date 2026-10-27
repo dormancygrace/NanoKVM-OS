@@ -58,13 +58,14 @@ func TestLocalFileSelections(t *testing.T) {
 	installedDBPath = filepath.Join(dir, "installed")
 	installed := func(rustdesk string) {
 		t.Helper()
-		db := "P:nanokvm-rustdesk\nV:" + rustdesk + "\n\nP:nanokvm-app\nV:3.6.0-r0\n\nP:tailscale\nV:1.90.1-r0\n\n"
+		db := "P:nanokvm-rustdesk\nV:" + rustdesk + "\n\nP:nanokvm-app\nV:3.6.0-r0\n\nP:tailscale\nV:1.90.1-r0\n\n" +
+			"P:busybox\nV:1.37.0-r30\n\nP:netbird\nV:0.78.2-r0\n\n"
 		if err := os.WriteFile(installedDBPath, []byte(db), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	installed("0.5.5-r0")
-	world := "busybox\nnanokvm-app\nnanokvm-rustdesk><Q15uLgzMeQQlIv4B5ols+nasIpK7s=\ntailscale><Q1abc=\n"
+	world := "busybox=1.37.0-r30\nnanokvm-app\nnanokvm-rustdesk><Q15uLgzMeQQlIv4B5ols+nasIpK7s=\ntailscale><Q1abc=\nnetbird>=0.78.2-r0\n"
 	if err := os.WriteFile(worldPath, []byte(world), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -72,20 +73,22 @@ func TestLocalFileSelections(t *testing.T) {
 	script := "#!/bin/sh\necho \"$*\" >> '" + calls + "'\ncase \"$1\" in update|add|upgrade) exit 0;;\n" +
 		"version) printf 'Installed:                                Available:\\n" +
 		"nanokvm-rustdesk-0.5.5-r0               < 0.5.6-r0 \\ntailscale-1.90.1-r0                     < 1.92.0-r0 \\n" +
-		"nanokvm-app-3.6.0-r0                    < 3.6.1-r0 \\n';;\n*) exit 99;;\nesac\n"
+		"nanokvm-app-3.6.0-r0                    < 3.6.1-r0 \\nbusybox-1.37.0-r30                      < 1.37.0-r31 \\n" +
+		"netbird-0.78.2-r0                       < 0.79.0-r0 \\n';;\n*) exit 99;;\nesac\n"
 	if err := os.WriteFile(apkExecutable, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := RunAPK("check"); err != nil {
 		t.Fatal(err)
 	}
-	want := "nanokvm-rustdesk-0.5.5-r0               < 0.5.6-r0\nnanokvm-app-3.6.0-r0                    < 3.6.1-r0"
+	want := "nanokvm-rustdesk-0.5.5-r0               < 0.5.6-r0\nnanokvm-app-3.6.0-r0                    < 3.6.1-r0\n" +
+		"netbird-0.78.2-r0                       < 0.79.0-r0"
 	if s := GetAPKStatus(); s.State != "ready" || s.Upgrades != want {
 		t.Fatalf("%+v", s)
 	}
 	// Updated since the check, from a shell: no longer listed.
 	installed("0.5.6-r0")
-	if s := GetAPKStatus(); s.State != "ready" || s.Upgrades != "nanokvm-app-3.6.0-r0                    < 3.6.1-r0" {
+	if s := GetAPKStatus(); s.State != "ready" || s.Upgrades != "nanokvm-app-3.6.0-r0                    < 3.6.1-r0\nnetbird-0.78.2-r0                       < 0.79.0-r0" {
 		t.Fatalf("%+v", s)
 	}
 	installed("0.5.5-r0")

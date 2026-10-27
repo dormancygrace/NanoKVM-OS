@@ -111,21 +111,45 @@ func StartAPK(action string) error {
 // as that file in the world file, name><Q1checksum: apk upgrade keeps it while
 // apk version lists the newer repository version, so the page offered an
 // update that installing never made. Installing updates takes NanoKVM packages
-// back to the repositories; another package selected this way is not offered.
-// filePinnedPackages lists the NanoKVM ones (nanokvm true) or the others.
-func filePinnedPackages(nanokvm bool) []string {
-	data, err := os.ReadFile(worldPath)
-	if err != nil {
-		return nil
-	}
+// back to the repositories (nanokvmFilePins); heldPackages are not offered.
+func nanokvmFilePins() []string {
 	var names []string
-	for _, entry := range strings.Fields(string(data)) {
-		name, _, pinned := strings.Cut(entry, "><")
-		if pinned && strings.HasPrefix(name, "nanokvm") == nanokvm {
+	for _, entry := range worldEntries() {
+		if name, _, pinned := strings.Cut(entry, "><"); pinned && strings.HasPrefix(name, "nanokvm") {
 			names = append(names, name)
 		}
 	}
 	return names
+}
+
+// heldPackages are those apk upgrade keeps where they are: an exact or upper
+// version bound (name=1.0-r0, name<2, name~1.2), a deliberate choice, or a
+// local file selection of a package other than NanoKVM's. A lower bound
+// (name>=1.0) still upgrades.
+func heldPackages() []string {
+	var names []string
+	for _, entry := range worldEntries() {
+		if name, _, pinned := strings.Cut(entry, "><"); pinned {
+			if !strings.HasPrefix(name, "nanokvm") {
+				names = append(names, strings.SplitN(name, "@", 2)[0])
+			}
+			continue
+		}
+		i := strings.IndexAny(entry, "=<>~")
+		if i < 0 || entry[i] == '>' {
+			continue
+		}
+		names = append(names, strings.SplitN(entry[:i], "@", 2)[0])
+	}
+	return names
+}
+
+func worldEntries() []string {
+	data, err := os.ReadFile(worldPath)
+	if err != nil {
+		return nil
+	}
+	return strings.Fields(string(data))
 }
 
 var apkVersionedName = regexp.MustCompile(`^(.+)-[0-9][^-]*-r[0-9]+$`)
@@ -213,7 +237,7 @@ func RunAPK(action string) (result error) {
 		if e != nil {
 			return fmt.Errorf("APK upgrade check failed: %s", strings.TrimSpace(string(b)))
 		}
-		upgrades := installableUpgrades(string(b), filePinnedPackages(false))
+		upgrades := installableUpgrades(string(b), heldPackages())
 		state := "ready"
 		if upgrades == "" {
 			state = "up-to-date"
@@ -223,7 +247,7 @@ func RunAPK(action string) (result error) {
 		return saveAPKStatus(APKStatus{State: state, Upgrades: upgrades})
 	}
 	if action == "install" {
-		if names := filePinnedPackages(true); len(names) > 0 {
+		if names := nanokvmFilePins(); len(names) > 0 {
 			fmt.Printf("Taking %s back to the NanoKVM repositories: installed from local files\n", strings.Join(names, ", "))
 			// A test build the repositories never carried cannot be selected
 			// there; it stays as it is and the other updates still install.

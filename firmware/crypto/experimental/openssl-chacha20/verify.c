@@ -88,7 +88,7 @@ static void verify_hits(int vector_on)
     unsigned char key[32] = {0}, iv[16] = {0}, in[16384] = {0}, out[16384];
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new(); check(ctx != NULL, "counter ctx");
     const char *override = getenv("NANOKVM_OPENSSL_CHACHA20");
-    int enabled = vector_on && !(override && !strcmp(override, "generic"));
+    int enabled = vector_on && override && !strcmp(override, "auto");
     for (size_t i = 0; i < sizeof(sizes)/sizeof(sizes[0]); ++i) {
         int got; check(EVP_EncryptInit_ex2(ctx, EVP_chacha20(), key, iv, NULL) == 1, "counter init");
         unsigned long before = hits();
@@ -124,13 +124,14 @@ static void sandbox_case(int allow_prctl)
         BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
 #endif
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_prctl, 0, 1),
-        BPF_STMT(BPF_RET | BPF_K, allow_prctl ? SECCOMP_RET_ALLOW : (SECCOMP_RET_ERRNO | EPERM)),
+        BPF_STMT(BPF_RET | BPF_K, allow_prctl < 0 ? SECCOMP_RET_KILL_PROCESS :
+            allow_prctl ? SECCOMP_RET_ALLOW : (SECCOMP_RET_ERRNO | EPERM)),
         BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
     };
     struct sock_fprog prog = { (unsigned short)(sizeof(code)/sizeof(code[0])), code };
     check(prctl(PR_SET_NO_NEW_PRIVS, 1L, 0L, 0L, 0L) == 0, "sandbox no new privs");
     check(prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) == 0, "sandbox install");
-    verify_hits(allow_prctl);
+    verify_hits(allow_prctl == 1);
 }
 static void verify_sandbox(void)
 {
@@ -159,6 +160,12 @@ static void *worker(void *v)
 }
 int main(int argc,char **argv)
 {
+    if (argc > 1 && !strcmp(argv[1], "--hard-sandbox")) {
+        check(getenv("NANOKVM_OPENSSL_CHACHA20") == NULL, "default policy child");
+        sandbox_case(-1);
+        puts("PASS default policy with fatal prctl/open/hwprobe filter");
+        return 0;
+    }
     if (argc>1&&!strcmp(argv[1],"--off-child")) {
         check((prctl(70,0L,0L,0L,0L)&3)==1,"exec vector off");
         pthread_t proof;
@@ -174,7 +181,17 @@ int main(int argc,char **argv)
         puts("PASS vector-off/vector-on threads");return 0;
     }
     int instrumented = argc > 2 && !strcmp(argv[2], "--hits");
-    if (instrumented) { verify_sandbox(); verify_hits(1); }
+    if (instrumented) {
+        pid_t child = fork(); check(child >= 0, "hard sandbox fork");
+        if (!child) {
+            check(unsetenv("NANOKVM_OPENSSL_CHACHA20") == 0, "clear opt-in");
+            execl(argv[0], argv[0], "--hard-sandbox", NULL); _exit(3);
+        }
+        int status;
+        check(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
+              "default policy survives fatal syscall filter");
+        verify_sandbox(); verify_hits(1);
+    }
     run_cases(7);
     puts("PASS 1680 raw ChaCha cases: offsets, counters, split, in-place, context copy");
     if (argc>1&&!strcmp(argv[1],"--native")) {

@@ -95,6 +95,9 @@ and real dictionaries, injects every allocation failure, checks cleanup and
 runs compression/decompression concurrently. Set `NANOKVM_SANITIZE=1` for
 ASan/UBSan. Release-build CI runs both modes against its prepared kernel source.
 The tests do not access a device or change the supplied source tree.
+NanoKVM uses LZ4 for primary zram compression. The zstd allocation savings
+apply when optional recompression is enabled (`ZRAM_RECOMPRESS=1`, off by
+default); they do not change the default LZ4 memory use.
 
 `test-zstd-c906.py` uses the same `--source` argument and sanitizer switch. It
 compares the original and patched codecs on generated 4 KiB pages and short
@@ -178,6 +181,11 @@ The D live-poll regression injects the reviewed operation-6 failure, then runs
 transitions. It requires zero D writes and no internal E1 identity reads.
 Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
 fault, including no further IO after a failed attempt in the same generation.
+
+The kernel build also runs `test-lz4-decompressor.py --source <patched-kernel-tree>`
+with and without `NANOKVM_SANITIZE=1`. Its constructed blocks cover short overlap
+distances, length extensions, partial decoding, external dictionaries, safe and
+fast streaming APIs, in-place buffers, truncated input and tight output bounds.
 
 The [C906 memory test](manual/c906-memory/README.md) validates the running kernel’s
 memmove assembly on SG2002, including overlapping buffers, return values and

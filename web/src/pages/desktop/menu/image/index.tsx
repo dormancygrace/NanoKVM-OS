@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider, Modal, Segmented, Tooltip } from 'antd';
+import { Divider, Modal, Segmented, Select, Tooltip } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
 import { DiscIcon, HardDriveIcon } from 'lucide-react';
@@ -165,14 +165,14 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
         <Divider style={{ margin: '24px 0' }} />
 
         <div className="flex flex-col space-y-6">
-          <Segmented
-            className="[&_.ant-segmented-group]:gap-2"
-            block
+          <Select
+            aria-label={t('image.remote.source')}
             value={source}
             onChange={setSource}
             options={[
               { value: 'device', label: t('image.remote.device') },
               { value: 'browser', label: t('image.remote.browser') },
+              { value: 'url', label: t('image.remote.url') },
               { value: 'network', label: t('image.netboot.tab') }
             ]}
           />
@@ -189,8 +189,12 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
               onChange={setMode}
             />
           </div>
-          <div style={{ display: source === 'browser' ? undefined : 'none' }}>
-            <RemoteImage isOpen={isModalOpen} onConnected={setRemoteConnected} />
+          <div style={{ display: source === 'browser' || source === 'url' ? undefined : 'none' }}>
+            <RemoteImage
+              isOpen={isModalOpen}
+              source={source === 'url' ? 'http' : 'browser'}
+              onConnected={setRemoteConnected}
+            />
           </div>
           <div style={{ display: source === 'network' ? undefined : 'none' }}>
             <Netboot isOpen={isModalOpen} onEnabled={setNetbootEnabled} />

@@ -97,7 +97,7 @@ struct.pack_into("<I", other, field_offset(fip.P1_FIELDS, "BL2_IMG_CKSUM"),
 struct.pack_into("<I", other, 12, fip.crc(other[16:2048]))
 rejected("BL2 patch on another BL2", lambda: fip.patch_bl2(bytes(other)), "not the stock image")
 patched = fip.inspect(fip.patch_bl2(base))[2]["BL2"]
-assert patched[fip.BL2_MPLL_OFFSET:fip.BL2_MPLL_OFFSET + 4] == bytes.fromhex("b7875005")
+assert patched[fip.BL2_MPLL_OFFSET:fip.BL2_MPLL_OFFSET + 4] == bytes.fromhex("b7875004")
 assert sum(x != y for x, y in zip(patched, fip.inspect(base)[2]["BL2"])) == 2
 print("BL2 patch changes exactly the mpll immediate: pass")
 real_inspect = fip.inspect

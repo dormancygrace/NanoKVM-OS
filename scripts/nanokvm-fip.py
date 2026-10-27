@@ -18,13 +18,15 @@ SMALL_CORE_ADDR = 0x8d000000
 SMALL_CORE_SIZE = 0x200000
 # The stock BL2 sets the C906 PLL (mpll) to 850 MHz: sys_pll_nd() in the pinned
 # fsbl/plat/cv181x/platform.c writes 0x00448101 to 0x03002908, and Linux raises
-# it to 1000 MHz only when sg2002-cpufreq probes. Replace that one constant with
-# 0x05508101, the FSBL's own 1000 MHz setting (ictrl 5, div 40), so OpenSBI,
-# U-Boot and early Linux already run at the clock and core voltage Linux keeps.
+# it to 1000 MHz in the initramfs. Replace that one constant with 0x04508101,
+# the value Linux's clk-cv18xx-pll writes for 1000 MHz (integer mode, div 40,
+# ictrl 4, read back on a running system), so OpenSBI, U-Boot and early Linux
+# already run at the PLL setting, clock and core voltage Linux keeps; cpufreq
+# then finds 1000 MHz and does not reprogram it.
 BL2_SHA256 = "8ca7f9d6bd72107842fa768467350c76e7278b99e5c5623b1b8346990f8a7cba"
 BL2_MPLL_OFFSET = 0x8f0
 BL2_MPLL_STOCK = bytes.fromhex("b7874400")  # lui a5, 0x448  (0x00448101, 850 MHz)
-BL2_MPLL_1000 = bytes.fromhex("b7875005")   # lui a5, 0x5508 (0x05508101, 1000 MHz)
+BL2_MPLL_1000 = bytes.fromhex("b7875004")   # lui a5, 0x4508 (0x04508101, 1000 MHz)
 # Layout from pinned Sipeed fsbl/plat/cv181x/fiptool.py (BSD-3-Clause FSBL).
 P1_FIELDS = [
     ("MAGIC1", 8), ("MAGIC2", 4), ("PARAM_CKSUM", 4), ("NAND_INFO", 128),

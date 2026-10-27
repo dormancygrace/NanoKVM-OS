@@ -1311,6 +1311,13 @@ static void apply_capture_rate(void)
         nanokvm::write_small_uint("/run/nanokvm/input_fps", input_fps);
         published_fps = input_fps;
     }
+    // Straight from capture or through VPSS, and why (kvm_mmf.hpp).
+    static int published_path = -1;
+    const int path = mmf_video_path();
+    if (path != published_path) {
+        nanokvm::write_small_uint("/run/nanokvm/video_path", path);
+        published_path = path;
+    }
 }
 void kvmv_request_keyframe(void) {
  requested_keyframe.store(true, std::memory_order_relaxed);

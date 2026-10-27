@@ -14,6 +14,7 @@ import {
   resolutionChoices,
   resolutionOf,
   transportChoice,
+  videoPath,
   withResolution,
   type Codec,
   type Transport,
@@ -22,7 +23,11 @@ import {
 import { MenuSubmenu } from '@/components/menu-item.tsx';
 
 import { applyVideoDraft } from '../settings/video/apply';
-import { useSyncStreamAtoms, useVideoSettings } from '../settings/video/use-video-settings';
+import {
+  useSyncStreamAtoms,
+  useVideoSettings,
+  videoPathText
+} from '../settings/video/use-video-settings';
 
 type Item = {
   key: string;
@@ -262,7 +267,22 @@ export const QuickVideo = () => {
 
   return (
     <div className="flex flex-col">
-      <div className="px-3 pb-1 text-xs text-neutral-400">{summary}</div>
+      <div className="flex items-center gap-2 px-3 pb-1 text-xs text-neutral-400">
+        <span>{summary}</span>
+        {/* Green straight from capture, amber through VPSS; the reason on hover. */}
+        {!mjpeg && videoPath(status.videoPath) && (
+          <span
+            className={`ms-auto flex shrink-0 items-center gap-1 ${
+              videoPath(status.videoPath) === 'direct' ? 'text-emerald-400' : 'text-amber-400'
+            }`}
+            title={videoPathText(t, status.videoPath)}
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+            {/* The hardware blocks: VI (capture) or VPSS (video processor). */}
+            {videoPath(status.videoPath) === 'direct' ? 'VI' : 'VPSS'}
+          </span>
+        )}
+      </div>
       {admin && (
         <Row
           icon={<MonitorIcon size={16} />}

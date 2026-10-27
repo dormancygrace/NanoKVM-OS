@@ -1988,6 +1988,17 @@
     "hevcDirect": "H.265 přímo ze zachytávání",
     "hevcDirectHint": "Enkodér čte zachycený obraz samotný namísto jeho převedené kopie: nižší prodleva (přibližně 6ms při 1080p, 25 ms při 4K) a nižší provoz v operační paměti. Pokud chcete enkódovat přes videoprocesor (jako dříve), vypněte. Bude uplatněno během sekundy a bez restartu.",
     "viDirect": "Video přímo ze zachytávání",
+    "path": "Cesta",
+    "pathDirect": "Přímo ze zachytávání",
+    "pathVpss": "Přes videoprocesor (VPSS): {{reason}}",
+    "pathReason": {
+      "setting": "„Video přímo ze zachytávání“ je vypnuto",
+      "rate": "snímková frekvence streamu je nižší než u vstupu",
+      "size": "velikost streamu se liší od vstupu",
+      "shared": "MJPEG čte stejný obraz",
+      "unsupported": "ovladače zachytávání nepodporují přímou cestu",
+      "other": "přepínání"
+    },
     "viDirectH264Hint": "H.264 při velikosti a obnovovací frekvenci vstupu čte zachycený snímek samotný: zachytávání přepne na vzorkování barev 4:2:0 (při 1080p o přibližně 6ms nižší prodleva a nižší provoz v operační paměti), a MJPEG mezitím používá také 4:2:0. Při změně tohoto režimu se zachytávání nakrátko restartuje. Pokud chcete enkódovat pomocí videoprocesoru (jako dříve), vypněte.",
     "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálovaného) H.264.",
     "aspect": "Poměr stran"

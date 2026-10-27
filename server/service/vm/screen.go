@@ -75,8 +75,10 @@ func (s *Service) GetScreen(c *gin.Context) {
 		"measuredFps":       common.ReadVideoValue("/run/nanokvm/now_fps"),
 		"mjpegMeasuredFps":  common.ReadVideoValue("/run/nanokvm/mjpeg_fps"),
 		"measuredKbps":      common.ReadVideoValue("/run/nanokvm/now_kbps"),
-		"frameDetect":       common.FrameDetectEnabled(),
-		"hevcDirect":        common.HevcDirect(), "hevcDirectSupported": hevcDirectSupported(),
+		// Where the video encoder takes its frames: kvm_mmf.hpp mmf_video_path.
+		"videoPath":   common.ReadVideoValue("/run/nanokvm/video_path"),
+		"frameDetect": common.FrameDetectEnabled(),
+		"hevcDirect":  common.HevcDirect(), "hevcDirectSupported": hevcDirectSupported(),
 		"viDirectH264Supported": viDirectH264Supported(),
 		"effectiveFps":          common.GetCaptureScreen().FPS})
 }

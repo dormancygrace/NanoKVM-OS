@@ -248,6 +248,17 @@
     "hevcDirect": "H.265 directement depuis la capture",
     "hevcDirectHint": "L'encodeur lit lui-même l'image capturée au lieu d'une copie convertie : latence réduite (environ 6 ms en 1080p, 25 ms en 4K) et moins d'accès mémoire. Désactivez pour encoder via le processeur vidéo comme avant. S'applique en une seconde sans redémarrage.",
     "viDirect": "Vidéo directement depuis la capture",
+    "path": "Chemin",
+    "pathDirect": "Directement depuis la capture",
+    "pathVpss": "Par le processeur vidéo (VPSS) : {{reason}}",
+    "pathReason": {
+      "setting": "« Vidéo directement depuis la capture » est désactivé",
+      "rate": "la fréquence du flux est inférieure à celle de l’entrée",
+      "size": "la taille du flux diffère de l’entrée",
+      "shared": "MJPEG lit la même image",
+      "unsupported": "les pilotes de capture ne prennent pas en charge le chemin direct",
+      "other": "changement en cours"
+    },
     "viDirectH264Hint": "H.264 à la taille et à la fréquence de l'entrée lit lui-même l'image capturée : la capture passe en sous-échantillonnage couleur 4:2:0 (en 1080p environ 6 ms de latence en moins et moins d'accès mémoire), et MJPEG utilise aussi le 4:2:0 pendant ce temps. La capture redémarre brièvement lorsque ce mode change. Désactivez pour encoder via le processeur vidéo comme avant.",
     "mjpegChromaFallback_resolution": "MJPEG est limité à 1920 pixels de largeur pour conserver le 4:2:2 tant que H.264/H.265 utilise une sortie plus large. La résolution sélectionnée reprend à la fin de ce flux vidéo.",
     "mjpegChromaFallback_video": "Une seule sortie de capture prend en charge des largeurs supérieures à 1920 pixels. MJPEG utilise le 4:2:0 tant que les deux flux sont plus larges ; le 4:2:2 reprend à la fin du flux vidéo ou lorsque l'un des flux est réduit.",

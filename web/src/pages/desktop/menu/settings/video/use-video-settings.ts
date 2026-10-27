@@ -1,19 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/auth';
+import type { TFunction } from 'i18next';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { getScreen, getVideoCapabilities } from '@/api/vm';
 import { getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder';
 import * as storage from '@/lib/localstorage';
-import type {
-  BrowserSupport,
-  DirectCapture,
-  Transport,
-  VideoCapabilities,
-  VideoDraft
+import {
+  videoPath,
+  type BrowserSupport,
+  type DirectCapture,
+  type Transport,
+  type VideoCapabilities,
+  type VideoDraft
 } from '@/lib/video-model';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { resolutionAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
+
+// "Straight from capture", or "Through the video processor (VPSS): <why>".
+export function videoPathText(t: TFunction, path: number | undefined) {
+  const where = videoPath(path);
+  if (!where) return '';
+  return where === 'direct'
+    ? t('videoSettings.pathDirect')
+    : t('videoSettings.pathVpss', { reason: t(`videoSettings.pathReason.${where}`) });
+}
 
 // Shared settings and status returned by GET /api/vm/screen.
 type ScreenStatus = {
@@ -46,6 +57,10 @@ type ScreenStatus = {
   // The MJPEG stream alone (older servers: absent).
   mjpegMeasuredFps?: number;
   measuredKbps: number;
+  // Where the H.264/H.265 encoder takes its frames (kvm_mmf.hpp): 0 no video
+  // encoder, 1 straight from capture, 2-7 through VPSS and why (older
+  // servers: absent).
+  videoPath?: number;
   // Device-wide MJPEG frame detection, saved by the server.
   frameDetect: boolean;
 };

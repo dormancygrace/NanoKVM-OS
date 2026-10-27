@@ -248,6 +248,17 @@
     "hevcDirect": "H.265 direkt aus der Aufnahme",
     "hevcDirectHint": "Der Encoder liest das aufgenommene Bild selbst statt einer umgewandelten Kopie: geringere Latenz (etwa 6 ms bei 1080p, 25 ms bei 4K) und weniger Speicherzugriffe. Ausschalten, um wie bisher über den Videoprozessor zu kodieren. Wird innerhalb einer Sekunde ohne Neustart übernommen.",
     "viDirect": "Video direkt aus der Aufnahme",
+    "path": "Pfad",
+    "pathDirect": "Direkt aus der Aufnahme",
+    "pathVpss": "Über den Videoprozessor (VPSS): {{reason}}",
+    "pathReason": {
+      "setting": "„Video direkt aus der Aufnahme“ ist aus",
+      "rate": "die Bildrate des Streams liegt unter der des Eingangs",
+      "size": "die Größe des Streams weicht vom Eingang ab",
+      "shared": "MJPEG liest dasselbe Bild",
+      "unsupported": "die Aufnahmetreiber kennen den direkten Weg nicht",
+      "other": "wird umgeschaltet"
+    },
     "viDirectH264Hint": "H.264 in Eingangsgröße und -rate liest das aufgenommene Bild selbst: Die Aufnahme wechselt auf 4:2:0-Farbabtastung (bei 1080p etwa 6 ms geringere Latenz und weniger Speicherzugriffe), und MJPEG verwendet währenddessen ebenfalls 4:2:0. Beim Wechsel dieses Modus startet die Aufnahme kurz neu. Ausschalten, um wie bisher über den Videoprozessor zu kodieren.",
     "mjpegChromaFallback_resolution": "MJPEG ist auf 1920 Pixel Breite begrenzt, um 4:2:2 beizubehalten, während H.264/H.265 eine breitere Ausgabe verwendet. Die gewählte Auflösung wird wiederhergestellt, sobald dieser Videostream endet.",
     "mjpegChromaFallback_video": "Nur ein Aufnahmeausgang unterstützt Breiten über 1920 Pixel. MJPEG verwendet 4:2:0, solange beide Streams breiter sind; 4:2:2 wird wiederhergestellt, sobald der Videostream endet oder einer der Streams verkleinert wird.",

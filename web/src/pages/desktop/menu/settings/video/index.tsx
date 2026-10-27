@@ -10,7 +10,7 @@ import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { Hdmi } from '../device/hdmi';
 import { VideoForm } from './form';
-import { useVideoSettings } from './use-video-settings';
+import { useVideoSettings, videoPathText } from './use-video-settings';
 
 export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) => void }) => {
   const { t } = useTranslation();
@@ -135,6 +135,10 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
               ? `${size(outputWidth || status.outputWidth, outputHeight || status.outputHeight)} · ${[codec, transport].filter(Boolean).join(' ')} · ${t('videoSettings.fpsValue', { value: (mjpeg ? status.mjpegMeasuredFps : undefined) ?? status.measuredFps })}`
               : '—'
           )}
+          {!mjpeg &&
+            enabled &&
+            !!status?.videoPath &&
+            line(t('videoSettings.path'), videoPathText(t, status.videoPath))}
           {!mjpeg &&
             line(
               t('videoSettings.bitrate'),

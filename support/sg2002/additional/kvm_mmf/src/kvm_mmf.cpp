@@ -698,6 +698,28 @@ static void _mmf_vi_direct_recheck(uint64_t now = venc_now_us())
 	}
 }
 
+// The state the decisions above left, without SDK calls: read by the capture
+// thread once a second for the status page.
+int mmf_video_path(void)
+{
+	const mmf_venc_cfg_t *cfg = nullptr;
+	for (int ch = 0; ch < MMF_VENC_MAX_CHN && !cfg; ++ch)
+		if (priv.venc[ch].is_inited && (priv.venc[ch].type == 1 || priv.venc[ch].type == 2)) cfg = &priv.venc[ch].cfg;
+	if (!cfg) return MMF_VIDEO_PATH_NONE;
+	if (vi_direct_venc >= 0) return MMF_VIDEO_PATH_DIRECT;
+	if (!_vi_direct_setting_on()) return MMF_VIDEO_PATH_SETTING;
+	if ((int)priv.vi_size.u32Width != cfg->w || (int)priv.vi_size.u32Height != cfg->h) return MMF_VIDEO_PATH_SIZE;
+	if (vpss_rate_thins) return MMF_VIDEO_PATH_RATE;
+	// H.264 needs the 4:2:0 capture, which starts with the next capture start.
+	if (cfg->type != _mmf_vi_direct_type()) return cfg->type == 2 && !_mmf_vi_yuv420_supported()
+		? MMF_VIDEO_PATH_UNSUPPORTED : MMF_VIDEO_PATH_OTHER;
+	if (!_vi_direct_supported()) return MMF_VIDEO_PATH_UNSUPPORTED;
+	const uint64_t now = venc_now_us();
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch)
+		if (vi_shared_reader_us[ch] && now - vi_shared_reader_us[ch] < 2000000) return MMF_VIDEO_PATH_SHARED;
+	return MMF_VIDEO_PATH_OTHER;
+}
+
 // A 4:2:0 frame with another layout than expected: log it once per capture
 // start, give the frame back and keep the output on the VPSS (which reads the
 // same NV21) until the capture restarts.

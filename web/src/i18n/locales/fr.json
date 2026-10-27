@@ -257,7 +257,7 @@
       "size": "la taille du flux diffère de l’entrée",
       "shared": "MJPEG lit la même image",
       "unsupported": "les pilotes de capture ne prennent pas en charge le chemin direct",
-      "other": "changement en cours"
+      "other": "changement en cours ou autre cause"
     },
     "viDirectH264Hint": "H.264 à la taille et à la fréquence de l'entrée lit lui-même l'image capturée : la capture passe en sous-échantillonnage couleur 4:2:0 (en 1080p environ 6 ms de latence en moins et moins d'accès mémoire), et MJPEG utilise aussi le 4:2:0 pendant ce temps. La capture redémarre brièvement lorsque ce mode change. Désactivez pour encoder via le processeur vidéo comme avant.",
     "mjpegChromaFallback_resolution": "MJPEG est limité à 1920 pixels de largeur pour conserver le 4:2:2 tant que H.264/H.265 utilise une sortie plus large. La résolution sélectionnée reprend à la fin de ce flux vidéo.",

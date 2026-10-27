@@ -257,7 +257,7 @@
       "size": "die Größe des Streams weicht vom Eingang ab",
       "shared": "MJPEG liest dasselbe Bild",
       "unsupported": "die Aufnahmetreiber kennen den direkten Weg nicht",
-      "other": "wird umgeschaltet"
+      "other": "Umschalten oder ein anderer Grund"
     },
     "viDirectH264Hint": "H.264 in Eingangsgröße und -rate liest das aufgenommene Bild selbst: Die Aufnahme wechselt auf 4:2:0-Farbabtastung (bei 1080p etwa 6 ms geringere Latenz und weniger Speicherzugriffe), und MJPEG verwendet währenddessen ebenfalls 4:2:0. Beim Wechsel dieses Modus startet die Aufnahme kurz neu. Ausschalten, um wie bisher über den Videoprozessor zu kodieren.",
     "mjpegChromaFallback_resolution": "MJPEG ist auf 1920 Pixel Breite begrenzt, um 4:2:2 beizubehalten, während H.264/H.265 eine breitere Ausgabe verwendet. Die gewählte Auflösung wird wiederhergestellt, sobald dieser Videostream endet.",

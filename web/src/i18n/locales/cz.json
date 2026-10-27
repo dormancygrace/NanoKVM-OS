@@ -1997,7 +1997,7 @@
       "size": "velikost streamu se liší od vstupu",
       "shared": "MJPEG čte stejný obraz",
       "unsupported": "ovladače zachytávání nepodporují přímou cestu",
-      "other": "přepínání"
+      "other": "přepínání nebo jiný důvod"
     },
     "viDirectH264Hint": "H.264 při velikosti a obnovovací frekvenci vstupu čte zachycený snímek samotný: zachytávání přepne na vzorkování barev 4:2:0 (při 1080p o přibližně 6ms nižší prodleva a nižší provoz v operační paměti), a MJPEG mezitím používá také 4:2:0. Při změně tohoto režimu se zachytávání nakrátko restartuje. Pokud chcete enkódovat pomocí videoprocesoru (jako dříve), vypněte.",
     "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálovaného) H.264.",

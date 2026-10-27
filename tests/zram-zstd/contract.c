@@ -57,10 +57,10 @@ void host_free(void *p)
     free(h);
 }
 static unsigned char page[4096], dict[4096], packed[8192], decoded[4096];
-static unsigned long exercise(int level, size_t dict_size, unsigned fail, int report)
+static unsigned long exercise(int level, size_t dict_size, unsigned fail, int report, int null_dict)
 {
     struct zcomp_params params = {
-        .level = level, .dict = dict_size ? dict : NULL, .dict_sz = dict_size};
+        .level = level, .dict = dict_size && !null_dict ? dict : NULL, .dict_sz = dict_size};
     struct zcomp_ctx ctx = {0};
     struct zcomp_req req = {.src = page, .src_len = 4096, .dst = packed, .dst_len = 8192};
     int ret, created = 0;
@@ -148,10 +148,13 @@ int main(void)
     size_t sizes[] = {0, 64, 4096};
     for (unsigned l = 0; l < 5; l++)
         for (unsigned d = 0; d < 3; d++) {
-            unsigned long total = exercise(levels[l], sizes[d], 0, 1);
+            unsigned long total = exercise(levels[l], sizes[d], 0, 1, 0);
             for (unsigned f = 1; f <= total; f++)
-                exercise(levels[l], sizes[d], f, 0);
+                exercise(levels[l], sizes[d], f, 0, 0);
         }
+    /* A nonzero length must retain dictionary objects even for a NULL pointer. */
+    for (unsigned l = 0; l < 5; l++)
+        exercise(levels[l], 64, 0, 0, 1);
     for (unsigned d = 0; d < 3; d++) {
         struct zcomp_params p = {.level = 3, .dict = sizes[d] ? dict : NULL, .dict_sz = sizes[d]};
         struct zcomp_ctx c = {0};

@@ -6,7 +6,8 @@ was configured. The no-dictionary path uses its embedded contexts and
 never reads the dictionary objects allocated during parameter setup.
 
 Adapted from upstream v7 06/15, with the no-dictionary return before
-computing dictionary-specific compression parameters.
+computing dictionary-specific compression parameters. Match the consumers
+that select the dictionary path by dict_sz alone.
 
 Link: https://lore.kernel.org/all/20261025021839.1542805-7-senozhatsky@chromium.org/
 Signed-off-by: Sergey Senozhatsky <senozhatsky@chromium.org>
@@ -20,7 +21,7 @@ diff --git a/drivers/block/zram/backend_zstd.c b/drivers/block/zram/backend_zstd
  	zp->custom_mem.customAlloc = zstd_custom_alloc;
  	zp->custom_mem.customFree = zstd_custom_free;
 +
-+	if (!params->dict || !params->dict_sz)
++	if (!params->dict_sz)
 +		return 0;
  
  	prm = zstd_get_cparams(params->level, PAGE_SIZE,

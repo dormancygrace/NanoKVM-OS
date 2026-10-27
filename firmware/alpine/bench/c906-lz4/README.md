@@ -82,7 +82,7 @@ The former patch 0039 selected variant 9 only in the decompressor. Its
 `CONFIG_RISCV_C906_LZ4_DECOMPRESS` switch and `selected.config` are retired.
 Current kernel KCFLAGS include `-mno-strict-align` after the architecture
 Makefile flags, so ordinary fixed-size copies already use word loads/stores;
-the separate aligned dispatch is redundant. The current 0054 patch instead
+the separate aligned dispatch is redundant. The current 0056 patch instead
 uses byte reversal plus CLZ for compressor byte counting and limits the full
 decoder overlap initialization to offsets below eight. Production optimization
 remains `-O3` with compiler vectorization disabled.

@@ -349,7 +349,7 @@ export const DownloadImage = () => {
   }
 
   const content = (
-    <div key={popoverKey} className="min-w-[300px]">
+    <div key={popoverKey} className="w-[360px] max-w-full min-w-0">
       <div className="flex items-center justify-between px-1">
         <span className="text-base font-bold text-neutral-300">{t('download.title')}</span>
       </div>
@@ -357,7 +357,7 @@ export const DownloadImage = () => {
       <Divider style={{ margin: '10px 0 10px 0' }} />
 
       {diskEnabled !== true && (
-        <div className="mb-2 flex items-center gap-2 text-amber-400">
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-amber-400">
           <span>
             {t(
               diskCheckFailed

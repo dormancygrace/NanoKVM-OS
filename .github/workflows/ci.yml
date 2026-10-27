@@ -58,6 +58,23 @@ jobs:
           GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 \
             go test -c -o "$out/websocket.test" github.com/gorilla/websocket
 
+  poly1305:
+    name: Prepared RISC-V Poly1305
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: server/go.sum
+      - name: Install scalar RISC-V emulator
+        run: sudo apt-get update && sudo apt-get install -y qemu-user
+      - name: Build and test the production assembly and pinned reference
+        run: |
+          XCRYPTO=$(go mod download -json golang.org/x/crypto@v0.57.0 | jq -r .Dir)
+          python3 tests/test-c906-poly1305.py --base "$(go env GOROOT)" \
+            --xcrypto "$XCRYPTO" --output "$RUNNER_TEMP/poly1305"
+
   web:
     name: Web UI
     runs-on: ubuntu-24.04
@@ -211,6 +228,7 @@ jobs:
           - server/third_party/pion-ice
           - server/third_party/pion-srtp
           - firmware/crypto/experimental/sg2002-crypto-all/ghash-go
+          - tests/manual/c906-poly1305/wireguard
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -229,6 +247,11 @@ jobs:
       - name: Race-test IPMI add-on
         if: matrix.directory == 'addons/ipmi'
         run: go test -race -timeout 5m ./...
+      - name: Cross-build WireGuard measurement endpoints
+        if: matrix.directory == 'tests/manual/c906-poly1305/wireguard'
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o "$RUNNER_TEMP/wg-client.exe" client_windows.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o "$RUNNER_TEMP/wg-server" server_linux.go
 
   rustdesk:
     name: RustDesk host tests

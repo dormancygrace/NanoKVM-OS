@@ -216,12 +216,49 @@ func TestFirstStartReadsTheReceiverOncePerBoot(t *testing.T) {
 	if reads != 2 || len(applied) != 1 {
 		t.Fatalf("reads %d, applied %v", reads, applied)
 	}
-	if err := os.Remove(monitorReceiverCheckedFile); err != nil {
+	// Later boots of the same system version do not read it.
+	boot := func() {
+		t.Helper()
+		if err := os.Remove(monitorReceiverCheckedFile); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil {
+			t.Fatal(err)
+		}
+	}
+	boot()
+	if reads != 2 {
+		t.Fatalf("read again in a later boot: %d", reads)
+	}
+	// The first boot after an update reads it once.
+	if err := os.WriteFile(monitorSystemVersionFile, []byte("3.6.1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	boot()
+	boot()
+	if reads != 3 {
+		t.Fatalf("after an update: %d reads", reads)
+	}
+	if err := os.WriteFile(monitorSystemVersionFile, []byte("3.6.2\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	hw.readAtStart = false
-	if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 2 {
-		t.Fatalf("HDMI disabled: error %v, reads %d", err, reads)
+	boot()
+	if reads != 3 {
+		t.Fatalf("HDMI disabled: %d reads", reads)
+	}
+}
+
+// A profile the server writes is read back by the tool: no read at the next start.
+func TestWrittenProfileCountsAsVerified(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	path := filepath.Join(monitorEDIDDir, "NanoKVM-monitor-1080-90.bin")
+	if err := os.WriteFile(path, heldEDID(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	recordMonitorProfileLocked(path)
+	if !receiverVerifiedLocked(edidHash(heldEDID())) {
+		t.Fatal("written profile not verified")
 	}
 }
 

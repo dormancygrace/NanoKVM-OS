@@ -1,0 +1,28 @@
+{
+  "previous_source_stack": "0a1b4f68be3af062ef7ad90f9b897f3f2b20ccd3",
+  "lookup_experiment": {
+    "baseline": "2049e9778269e30fab7a6c20f7410d61cf4833c473237f52e0e3365ff692f7f9",
+    "extract_scaled": "7ffdba49715bc65cbec5fc084dec4eef45a37c527099006bbb6c46aa56f0e860",
+    "encrypt_extract_count": 2160,
+    "source_sha256": "09710acd79e8848a597d5f8d3e8830c22eb4cd8a982ed0273ff0d0f27e06ecdb"
+  },
+  "threshold_experiment": {
+    "sha256": "d8bde1f5a1f95821e611e271b9f413c6dc19a38d0871c34cae5314266c236ce8",
+    "purpose": "PRIVATE threshold experiment: start minimum 256, continuation 16, extract+scaled-load AES; never selected/installed",
+    "source_before": "0a1b4f68be3af062ef7ad90f9b897f3f2b20ccd3"
+  },
+  "fallback_machine_code": {
+    "rv64gc_text_sha256": "3fbe3d89c4a659584c852c69267de59ecea5fa17a986b0043059f15004772bb9",
+    "comparison": "upstream generator vs candidate generator without XTheadBb/XTheadMemIdx; byte-identical .text"
+  },
+  "tail_reference": {
+    "cases": 20736,
+    "fingerprint": "bfe84c43ff49df11",
+    "openssl": "OpenSSL 3.5.5 27 Jan 2026"
+  },
+  "notes": [
+    "Lookup matrix: five rotated trials; base is #504, legacy-policy is the previous combined stack with indexed loads, aes-extract replaces only AES lookups. Full-library comparisons can include layout effects.",
+    "Threshold matrix: three rotated trials. floor-on/floor-off share one private DSO; its 256-byte initial /16-byte continuation minima are experimental and are not shipped. extract-current-min is the two-instruction lookup with previous 2560/2048 minima; previous is the original indexed-load stack.",
+    "The selected scalar patch has two-instruction extraction/scaled-load lookups, with a byte-identical RV64GC fallback. The selected DMA start minima are 3072 ECB/CBC and 2048 CTR/GCM; continuation is 512."
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "libcrypto_sha256": "46d5d46d2623937759c6bc16937ca08ffd21e74ea4d99b2f3b56c8f1a591df66",
+  "patches": [
+    {
+      "file": "0001-chacha20-c906.patch",
+      "sha256": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+    },
+    {
+      "file": "0002-sg2002-transport.patch",
+      "sha256": "0b9315799971cacaf92e306cf55920aab1af3b909f2997af3f450174145af899"
+    },
+    {
+      "file": "0003-sha256-dma.patch",
+      "sha256": "8a8ab6b8075a250eec9b88987223cd3ece7127cd9af2add2bd931098a888c31c"
+    },
+    {
+      "file": "0004-sha1-dma.patch",
+      "sha256": "def79f14653d6ea022d4964eb75fd67c899ed07e0c1960e9bf287a035c5a0636"
+    },
+    {
+      "file": "0005-aes-c906.patch",
+      "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+    },
+    {
+      "file": "0005-aes-dma.patch",
+      "sha256": "139baa77d2aa87c69a4410e401db1f064544c8c2d76784c74c0ce94e58b5c0f2"
+    }
+  ],
+  "checks": [
+    {
+      "dma": "off",
+      "program": "blocks-verify",
+      "rc": 0,
+      "result": "{\"cases\":1944,\"fingerprint\":\"a37680a0195705fb\"}\n"
+    },
+    {
+      "dma": "off",
+      "program": "verify-ctr",
+      "rc": 0,
+      "result": "RAW AES-128 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-128 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-128 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-192 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-256 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=2 matches128=1 matches64=0 matches32=0\nPASS 288 EVP CTR carry cases\n"
+    },
+    {
+      "dma": "off",
+      "program": "verify-gcm",
+      "rc": 0,
+      "result": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\nPASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472\n"
+    },
+    {
+      "dma": "off",
+      "program": "verify-aes-tails",
+      "rc": 0,
+      "result": "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.9 29 Sep 2026\"}\n"
+    },
+    {
+      "dma": "off",
+      "program": "evp-test-legacy",
+      "rc": 0,
+      "result": "   # RUNNING TEST FOR CIPHER AES-256-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-128-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-128-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB8\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 313 tests with 0 errors and 1 skipped\n"
+    },
+    {
+      "dma": "yes",
+      "program": "blocks-verify",
+      "rc": 0,
+      "result": "{\"cases\":1944,\"fingerprint\":\"a37680a0195705fb\"}\n"
+    },
+    {
+      "dma": "yes",
+      "program": "verify-ctr",
+      "rc": 0,
+      "result": "RAW AES-128 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-128 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-128 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-192 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-192 carry=2 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=0 matches128=1 matches64=1 matches32=0\nRAW AES-256 carry=1 matches128=1 matches64=0 matches32=0\nRAW AES-256 carry=2 matches128=1 matches64=0 matches32=0\nPASS 288 EVP CTR carry cases\n"
+    },
+    {
+      "dma": "yes",
+      "program": "verify-gcm",
+      "rc": 0,
+      "result": "{\"kind\":\"correctness\",\"version\":\"OpenSSL 3.5.9 29 Sep 2026\",\"cases\":408,\"fingerprint\":\"e7e3ae5e643eb451\"}\nPASS 2160 GCM split/copy/in-place/tag cases fingerprint=a2d7088437b53472\n"
+    },
+    {
+      "dma": "yes",
+      "program": "verify-aes-tails",
+      "rc": 0,
+      "result": "{\"cases\":20736,\"fingerprint\":\"bfe84c43ff49df11\",\"openssl\":\"OpenSSL 3.5.9 29 Sep 2026\"}\n"
+    },
+    {
+      "dma": "yes",
+      "program": "evp-test-legacy",
+      "rc": 0,
+      "result": "   # RUNNING TEST FOR CIPHER AES-256-CFB1\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-128-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-128-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-192-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-192-CFB8\n    # \n    # INFO:  @ test/evp_test.c:1025\n    # AES-256-CFB8 is fetched\n    # INFO:  @ test/evp_test.c:1529\n    # RUNNING TEST FOR CIPHER AES-256-CFB8\n    # \n    # INFO:  @ test/testutil/stanza.c:32\n    # Completed 313 tests with 0 errors and 1 skipped\n"
+    }
+  ]
+}

@@ -31,3 +31,12 @@ with tempfile.TemporaryDirectory(prefix='nkos-aes-test-') as tmp:
     bad=subprocess.run([str(binary)],capture_output=True)
     assert bad.returncode != 0 and b'low+r->length/b' in bad.stderr, bad.stderr
     print('PASS negative control: relying on a full-width hardware counter is rejected')
+    broken=original.replace('(done ? continuation_minimum : minimum)', 'minimum')
+    assert broken != original
+    source.write_text(broken)
+    subprocess.run(['cc','-O1','-g','-Wall','-Wextra','-Werror',
+                    '-fsanitize=address,undefined','-I'+str(d/'crypto'),'-I'+str(d/'include'),
+                    str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(binary)],check=True)
+    bad=subprocess.run([str(binary)],capture_output=True)
+    assert bad.returncode != 0 and b'n == expected' in bad.stderr, bad.stderr
+    print('PASS negative control: repeating the setup minimum on a tail is rejected')

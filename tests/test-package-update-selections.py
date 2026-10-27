@@ -59,8 +59,10 @@ with tempfile.TemporaryDirectory(prefix="nkos-update-selections-") as directory:
         repositories = root / "etc/apk/repositories"
         repositories.write_text(str(old / "Packages.adb") + "\n")
         common = ["--root", root, "--allow-untrusted"]
+        # CI runs inside Alpine as root; --usermode is only for host users.
+        usermode = ["--usermode"] if os.geteuid() else []
         if selection:
-            run(*common, "add", "--initdb", "--usermode", "--no-scripts", selection)
+            run(*common, "add", "--initdb", *usermode, "--no-scripts", selection)
             expected = {
                 "upgrades": [] if target == "1.0-r0" else [f"fixture-1.0-r0 < {target}"],
                 "installed": {"fixture": target},
@@ -68,7 +70,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-update-selections-") as directory:
             }
         else:
             names = ["nanokvm-rustdesk", "nanokvm-private", "nanokvmish", "tailscale"]
-            run(*common, "add", "--initdb", "--usermode", "--no-scripts", "--force-non-repository",
+            run(*common, "add", "--initdb", *usermode, "--no-scripts", "--force-non-repository",
                 *[old / f"{name}-1.0-r0.apk" for name in names])
             kept = [line for line in (root / "etc/apk/world").read_text().splitlines()
                     if line.startswith(("nanokvmish>", "tailscale>"))]

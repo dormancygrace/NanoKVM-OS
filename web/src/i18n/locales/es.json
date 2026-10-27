@@ -248,6 +248,17 @@
     "hevcDirect": "H.265 directo desde la captura",
     "hevcDirectHint": "El codificador lee la imagen capturada directamente en lugar de una copia convertida: menor latencia (unos 6 ms a 1080p, 25 ms a 4K) y menos tráfico de memoria. Desactívelo para codificar a través del procesador de vídeo como antes. Se aplica en un segundo sin reiniciar.",
     "viDirect": "Vídeo directo desde la captura",
+    "path": "Ruta",
+    "pathDirect": "Directo desde la captura",
+    "pathVpss": "A través del procesador de vídeo (VPSS): {{reason}}",
+    "pathReason": {
+      "setting": "«Vídeo directo desde la captura» está desactivado",
+      "rate": "la frecuencia del flujo es menor que la de la entrada",
+      "size": "el tamaño del flujo difiere de la entrada",
+      "shared": "MJPEG lee la misma imagen",
+      "unsupported": "los controladores de captura no admiten la ruta directa",
+      "other": "cambio u otra causa"
+    },
     "viDirectH264Hint": "H.264 al tamaño y la frecuencia de la entrada lee la imagen capturada directamente: la captura pasa a muestreo de color 4:2:0 (a 1080p unos 6 ms menos de latencia y menos tráfico de memoria), y MJPEG también usa 4:2:0 mientras tanto. La captura se reinicia brevemente cuando cambia este modo. Desactívelo para codificar a través del procesador de vídeo como antes.",
     "mjpegChromaFallback_resolution": "MJPEG se limita a 1920 píxeles de ancho para mantener 4:2:2 mientras H.264/H.265 usa una salida más ancha. La resolución seleccionada se restablece cuando termina ese flujo de vídeo.",
     "mjpegChromaFallback_video": "Solo una salida de captura admite anchos superiores a 1920 píxeles. MJPEG usa 4:2:0 mientras ambos flujos son más anchos; 4:2:2 se restablece cuando termina el flujo de vídeo o se reduce alguno de los flujos.",

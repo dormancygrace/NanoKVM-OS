@@ -163,6 +163,22 @@ export function directCaptureApplies(
 }
 
 // VI measures a 50 Hz input as 50 or 51 fps; show the nominal rate.
+// Where the H.264/H.265 encoder takes its frames (the server's videoPath,
+// kvm_mmf.hpp): undefined without a video encoder, 'direct' straight from
+// capture, else why it reads VPSS (a videoSettings.pathReason key).
+const VIDEO_PATH_REASONS: Record<number, string> = {
+  2: 'setting',
+  3: 'rate',
+  4: 'size',
+  5: 'shared',
+  6: 'unsupported',
+  7: 'other'
+};
+export function videoPath(path: number | undefined): string | undefined {
+  if (!path) return undefined;
+  return path === 1 ? 'direct' : (VIDEO_PATH_REASONS[path] ?? 'other');
+}
+
 export function nominalRate(fps: number) {
   const nominal = [24, 25, 30, 40, 50, 60, 75, 120].find((rate) => Math.abs(rate - fps) <= 1);
   return nominal ?? fps;

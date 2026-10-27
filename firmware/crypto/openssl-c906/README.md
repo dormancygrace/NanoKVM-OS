@@ -71,6 +71,11 @@ the selected 4 KiB threshold and scalar adapter have native qualification.
 
 ## AES
 
+`0005-aes-c906.patch` separately optimizes the existing scalar AES table lookups
+with XTheadBb byte extraction and scaled XTheadMemIdx loads. The original
+RISC-V/FIPS assembly remains the fallback. It changes neither tables nor key
+schedules.
+
 `0005-aes-dma.patch` adds ECB/CBC/CTR and the AES-CTR primitive used by GCM.
 OpenSSL retains streaming, padding, GHASH, authentication and TLS handling.
 The shared block helper commits only completed chunks and supports separate

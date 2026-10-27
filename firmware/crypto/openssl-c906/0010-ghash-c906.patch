@@ -47,16 +47,16 @@ diff --git a/crypto/modes/build.info b/crypto/modes/build.info
 diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 --- /dev/null
 +++ b/crypto/modes/gcm_c906.c
-@@ -0,0 +1,153 @@
+@@ -0,0 +1,103 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <stdint.h>
-+#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
 +#include <sys/prctl.h>
 +#include <openssl/crypto.h>
 +#include "crypto/modes.h"
++#include "crypto/riscv_arch.h"
 +
 +void ossl_ghash_blocks_c906(u64 acc[2], const void *kp, const u8 *in, size_t blocks);
 +void ossl_ghash_blocks_c906_v(u64 acc[2], const void *kp, const u8 *in, size_t groups);
@@ -67,63 +67,12 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +};
 +static const u8 zero[16];
 +static CRYPTO_ONCE once = CRYPTO_ONCE_STATIC_INIT;
-+static int available;
++static int disabled;
 +
-+static int isa_token(const char *isa, const char *token)
++static void detect_override(void)
 +{
-+    const char *p = strstr(isa, token);
-+    if (p == NULL)
-+        return 0;
-+    p += strlen(token);
-+    return *p == '_' || *p == '\n' || *p == '\r' || *p == '\0';
-+}
-+
-+/* Identify every CPU as C906 and require its vector extension. C906 provides
-+ * XTheadBb, but older kernels omit that token from /proc/cpuinfo. Thus the
-+ * explicit microarchitecture check also protects the scalar byte swaps.
-+ * Missing, truncated or mixed CPU information leaves the upstream path active.
-+ */
-+static void detect_c906(void)
-+{
-+    char line[4096];
-+    int found = 0, c906_cpus = 0;
-+    FILE *f;
 +    const char *option = secure_getenv("NANOKVM_OPENSSL_GHASH");
-+
-+    if (option != NULL && strcmp(option, "generic") == 0)
-+        return;
-+    f = fopen("/proc/cpuinfo", "r");
-+    if (f == NULL)
-+        return;
-+    while (fgets(line, sizeof(line), f) != NULL) {
-+        char *colon, *end;
-+        if (strchr(line, '\n') == NULL && !feof(f))
-+            goto done;
-+        colon = strchr(line, ':');
-+        if (colon == NULL)
-+            continue;
-+        end = colon;
-+        while (end > line && (end[-1] == ' ' || end[-1] == '\t'))
-+            --end;
-+        if (end - line == 5 && memcmp(line, "uarch", 5) == 0) {
-+            const char *value = colon + 1;
-+            while (*value == ' ' || *value == '\t')
-+                ++value;
-+            if (strncmp(value, "thead,c906", 10) != 0
-+                || (value[10] != '\n' && value[10] != '\r' && value[10] != '\0'))
-+                goto done;
-+            ++c906_cpus;
-+        }
-+        if (end - line != 3 || memcmp(line, "isa", 3) != 0)
-+            continue;
-+        if (!isa_token(colon + 1, "_xtheadvector"))
-+            goto done;
-+        ++found;
-+    }
-+    if (!ferror(f))
-+        available = found != 0 && found == c906_cpus;
-+done:
-+    fclose(f);
++    disabled = option != NULL && strcmp(option, "generic") == 0;
 +}
 +
 +static void scalar_key(u64 kp[112], u64 lo, u64 hi)
@@ -191,7 +140,8 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +    const u8 *in, size_t len)
 +{
 +    int control;
-+    if (len < 3072 || !CRYPTO_THREAD_run_once(&once, detect_c906) || !available)
++    if (len < 3072 || !ossl_riscv_has_xtheadvector
++        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled)
 +        return 0;
 +    /* The current thread may disable vectors or inherit different control.
 +     * Query on every eligible call, including after an EVP context is copied.

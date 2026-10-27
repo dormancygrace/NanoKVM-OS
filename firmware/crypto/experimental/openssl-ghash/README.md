@@ -10,19 +10,22 @@ The expanded key and powers are temporary: there is no context growth or
 persistent allocation. On the qualified ABI, `GCM128_CONTEXT` remains 448 bytes
 and the AES provider context remains 984 bytes. Allocating 256 EVP contexts
 added 324 KiB of anonymous memory in both control and candidate. The large-call
-key-expansion and assembly frames total 1376 bytes, plus their callers. CPU
-detection uses a one-time 4 KiB line buffer.
+key-expansion and assembly frames total 1376 bytes, plus their callers. The updated startup-hwprobe path removes the previous one-time 4 KiB CPU-info
+line buffer.
 
-Selection currently requires every CPU to identify as C906, advertise
-XTheadVector, and permit vectors for the current thread. C906 supplies XTheadBb,
-which this kernel does not advertise separately. Missing or inconsistent CPU
-information fails closed. `NANOKVM_OPENSSL_GHASH=generic` selects the upstream
-primitive; it cannot force unsupported instructions. FIPS and no-assembly
-build paths retain upstream code.
+Selection reuses OpenSSL's startup `riscv_hwprobe` T-Head vendor result,
+intersected over all online CPUs, and checks the current thread's vector
+permission on every eligible call. Missing hardware information or denied
+permission retains upstream code. Scalar XTheadBb instructions are already
+part of this library's baseline C906 ISA profile.
+`NANOKVM_OPENSSL_GHASH=generic` selects the upstream primitive; it cannot force
+unsupported instructions. FIPS and no-assembly paths retain upstream code.
 
 ## Physical measurements
 
-Three rotating trials on the 1 GHz C906 with video encoding active, OpenSSL
+These are measurements of the preceding CPU-info-based implementation with
+the broad baseline ISA. The startup-hwprobe/restricted-ISA revision still needs
+native requalification. Three rotating trials on the 1 GHz C906 with video encoding active, OpenSSL
 3.5.9 and the project C906/O3 flags. DMA was disabled for the following table.
 The control is the **same binary** with `NANOKVM_OPENSSL_GHASH=generic`, so code
 placement, providers and allocation layout match. Values are MiB per process
@@ -50,8 +53,8 @@ libcrypto SHA-256 is
 
 - The shared generator passed 200 independent bit-serial reference cases for
   each primitive; all 126 distinct vector encodings matched GNU binutils.
-- `test-dispatch.py --negative-control` passed ASan/UBSan CPU, override and
-  per-thread permission cases. Removing the thread gate makes the test fail.
+- `test-dispatch.py --negative-control` passed ASan/UBSan capability, override and
+  per-thread permission cases. Removing either the thread or capability gate makes the test fail.
 - Fresh cross-build, patches applied with zero fuzz.
 - On the physical C906, 408 AEAD known-answer/rejected-tag cases plus 2160 GCM
   split/copy/free-original/in-place/tag cases passed with DMA on, DMA off,

@@ -31,7 +31,7 @@ void ChaCha20_ctr32_c(unsigned char *out, const unsigned char *in, size_t len,
 static void reset(void) {
     once = (CRYPTO_ONCE)CRYPTO_ONCE_STATIC_INIT; disabled = 0;
     calls = tails = queries = 0; ossl_riscv_has_xtheadvector = 1; mode = 2;
-    assert(unsetenv("NANOKVM_OPENSSL_CHACHA20") == 0);
+    assert(setenv("NANOKVM_OPENSSL_CHACHA20", "auto", 1) == 0);
 }
 int main(void) {
     unsigned char in[1024], out[1024]; memset(in, 0x5a, sizeof(in));
@@ -53,7 +53,9 @@ int main(void) {
     assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
     reset(); assert(setenv("NANOKVM_OPENSSL_CHACHA20", "generic", 1) == 0);
     assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
+    reset(); assert(unsetenv("NANOKVM_OPENSSL_CHACHA20") == 0);
+    assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
     reset(); assert(setenv("NANOKVM_OPENSSL_CHACHA20", "unknown", 1) == 0);
-    assert(ossl_chacha20_c906(out, in, 640, key, ctr)); assert(calls == 1);
+    assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
     puts("PASS real ChaCha dispatch: threshold, hwprobe capability, thread modes, override, tail");
 }

@@ -433,6 +433,7 @@
     }
   },
   "keyboard": {
+    "more": "Tastaturoptionen",
     "title": "Tastatur",
     "paste": "Einfügen",
     "tips": "Es werden nur Standardbuchstaben und -symbole der Tastatur unterstützt.",
@@ -840,6 +841,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Bootloader",
           "zlib": "Kompressionsbibliothek",
+          "openssl": "OpenSSL",
           "exfatprogs": "exFAT-Werkzeuge",
           "i2ctools": "I2C-Werkzeuge"
         }

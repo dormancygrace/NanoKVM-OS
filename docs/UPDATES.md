@@ -18,7 +18,7 @@ reboot
 ```
 
 `apk update` refreshes repository indexes; `apk upgrade` installs the available
-updates. This release has thirteen core packages; optional add-ons and Alpine dependency
+updates. This release has fourteen core packages; optional add-ons and Alpine dependency
 updates are additional.
 
 Reboot when requested to activate updated kernel or bootloader files.
@@ -75,7 +75,7 @@ or install the published EC key and current repository URL manually. The old
 RSA public key remains installed for historical packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The legacy index includes the thirteen core packages. The v3 index also
+The legacy index includes the fourteen core packages. The v3 index also
 includes RustDesk, whose APK v3 format cannot appear in a legacy index.
 RustDesk remains a separate add-on; install it from Software after updating
 the system. It is not installed in the full SD image.

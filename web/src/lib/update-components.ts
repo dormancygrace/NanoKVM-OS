@@ -16,6 +16,7 @@ const labels: Record<string, string> = {
   'nanokvm-rustdesk': 'rustdesk',
   'nanokvm-bootloader-sg2002': 'bootloader',
   'nanokvm-zlib': 'zlib',
+  'nanokvm-openssl': 'openssl',
   'nanokvm-exfatprogs': 'exfatprogs',
   'nanokvm-i2c-tools': 'i2ctools'
 };

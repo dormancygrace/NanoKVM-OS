@@ -1,13 +1,7 @@
 diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
 --- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
 +++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
-@@ -1,4 +1,5 @@
- #include <stdio.h>
-+#include <stdlib.h>
- #include <sys/types.h>
- #include <sys/stat.h>
- #include <sys/ioctl.h>
-@@ -188,11 +189,67 @@
+@@ -188,11 +188,51 @@
  	return low < 0 ? CVI_FAILURE : (high << 8) | low;
  }
  
@@ -19,20 +13,6 @@ diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lo
 +	int variant = fgetc(version);
 +	fclose(version);
 +	return variant == 'd';
-+}
-+
-+static int lt6911_d_pinmux(void)
-+{
-+	/* Match the SG200x NanoKVM LT6911 setup, only on boards identified as D. */
-+	for (unsigned int addr = 0x0300116c; addr <= 0x03001190; addr += 4) {
-+		char command[64];
-+		snprintf(command, sizeof(command), "/usr/sbin/devmem 0x%08x 32 0x3", addr);
-+		if (system(command) != 0) {
-+			CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911D pinmux write failed at 0x%08x\n", addr);
-+			return CVI_FAILURE;
-+		}
-+	}
-+	return CVI_SUCCESS;
 +}
 +
 +static int lt6911_d_read_pair(VI_PIPE ViPipe, unsigned char reg, unsigned char values[2])
@@ -61,8 +41,6 @@ diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lo
  int lt6911_probe(VI_PIPE ViPipe)
  {
 +	int is_d = lt6911_is_d_board();
-+	if (is_d && lt6911_d_pinmux() != CVI_SUCCESS)
-+		return CVI_FAILURE;
  	usleep(50);
  	if (lt6911_i2c_init(ViPipe) != CVI_SUCCESS)
  		return CVI_FAILURE;

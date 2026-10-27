@@ -149,7 +149,7 @@ APK migration test inside an Alpine container.
 ### ECDSA release signing
 
 `test-ecdsa-packages.py` runs in the Alpine 3.24 CI container with `alpine-sdk`,
-Python 3, OpenSSL and coreutils. It builds all thirteen APK recipes with small
+Python 3, OpenSSL and coreutils. It builds all fourteen APK recipes with small
 synthetic payloads and temporary keys, verifies signatures directly and through
 apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
 index formats. No production key or device is used; package scripts are retained
@@ -193,3 +193,17 @@ unmapped page boundaries.
 
 The [C906 usercopy test](manual/c906-usercopy/README.md) validates the real raw,
 SUM-enabled and public usercopy paths, fault recovery, and pipe/socket timing.
+
+### OpenSSL runtime transition
+
+`test-openssl-package.py` uses Alpine 3.24 with alpine-sdk, alpine-keys,
+Python, OpenSSL and coreutils. It builds the real recipe, installs stock
+RISC-V Alpine packages in a disposable root, upgrades to the NanoKVM
+runtime and rolls back to a release that predates it. It verifies library
+ownership, curl/SSH/apk dependencies, configuration preservation and atomic
+rejection of a contradictory rollback. A signed higher-version Alpine fixture
+checks fresh installs and upgrades against the real release dependency;
+removing that dependency selects Alpine as a negative control. CI uses fixture payloads;
+`--payload PATH` checks a cross-built runtime. No installed host or device
+files are changed. Native C906 benchmark sources and recorded results live
+in `firmware/crypto/experimental/openssl-c906`.

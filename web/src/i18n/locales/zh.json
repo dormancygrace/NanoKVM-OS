@@ -850,6 +850,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "引导加载程序",
           "zlib": "压缩库",
+          "openssl": "OpenSSL",
           "exfatprogs": "exFAT 工具",
           "i2ctools": "I2C 工具"
         }

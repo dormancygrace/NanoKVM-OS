@@ -1,4 +1,4 @@
-# Contents of the thirteen nanokvm-* APK packages (firmware/alpine/packages).
+# Contents of the fourteen nanokvm-* APK packages (firmware/alpine/packages).
 #
 #   package  type  path  mode  source
 #
@@ -205,3 +205,10 @@ i2c-tools file /usr/sbin/i2cdump                           0755  @tools/i2c-tool
 i2c-tools file /usr/sbin/i2ctransfer                       0755  @tools/i2c-tools/i2ctransfer
 i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING 0644 @tools/i2c-tools/COPYING
 i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING.LGPL 0644 @tools/i2c-tools/COPYING.LGPL
+
+# OpenSSL 3.5 LTS runtime; headers/static libraries remain development artifacts.
+openssl tree /usr/bin 0755 @tools/openssl/usr/bin
+openssl tree /usr/lib 0755 @tools/openssl/usr/lib
+openssl tree /etc/ssl 0644 @tools/openssl/etc/ssl
+openssl tree /usr/share/licenses/nanokvm-openssl 0644 @tools/openssl/usr/share/licenses/nanokvm-openssl
+openssl tree /usr/share/nanokvm/openssl 0644 @tools/openssl/usr/share/nanokvm/openssl

@@ -59,7 +59,7 @@ var addonPackage = regexp.MustCompile(`^nanokvm-[a-z0-9][a-z0-9+_.-]{0,119}$`)
 // The OS packages before the first list since boot names them.
 var knownCore = []string{"nanokvm", "nanokvm-release", "nanokvm-app", "nanokvm-web", "nanokvm-base",
 	"nanokvm-keys", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002",
-	"nanokvm-bootloader-sg2002", "nanokvm-zlib", "nanokvm-exfatprogs", "nanokvm-i2c-tools"}
+	"nanokvm-bootloader-sg2002", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-exfatprogs", "nanokvm-i2c-tools"}
 
 func addonCatalogPath() string { return apkStateDir + "/addons.json" }
 

@@ -33,6 +33,7 @@ PACKAGES = {
     'nanokvm-web': 'web',
     'nanokvm-app': None,
     'nanokvm-zlib': 'zlib',
+    'nanokvm-openssl': 'openssl',
     'nanokvm-exfatprogs': 'exfatprogs',
     'nanokvm-i2c-tools': 'i2c-tools',
     'nanokvm-release': 'release',

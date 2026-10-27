@@ -17,7 +17,7 @@ class StockProfileTests(unittest.TestCase):
 
     def test_package_builder_rejects_mislabeled_release(self):
         payloads = self.root / "payloads"
-        for name in ("base", "kernel-sg2002", "kmod-sg2002", "firmware-sg2002", "bootloader-sg2002", "app", "web", "zlib", "exfatprogs", "i2c-tools", "release/etc"):
+        for name in ("base", "kernel-sg2002", "kmod-sg2002", "firmware-sg2002", "bootloader-sg2002", "app", "web", "zlib", "openssl", "exfatprogs", "i2c-tools", "release/etc"):
             (payloads / name).mkdir(parents=True)
         (payloads / "release/etc/nanokvm-build-profile").write_text("c906-scalar\n")
         (payloads / "release/etc/nanokvm-release").write_text('BUILD_PROFILE="c906-scalar"\n')

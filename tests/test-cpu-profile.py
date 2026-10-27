@@ -14,16 +14,18 @@ p.add_argument('--compiler')
 a = p.parse_args()
 user = flags()
 kernel = flags('kernel')
-for actual, optimization in ((user, '-O2'), (kernel, '-O3'), (flags('audio'), '-O2'), (flags('bootloader'), '-O2')):
+for actual, optimization in ((user, '-O2'), (kernel, '-O3'), (flags('audio'), '-O2'), (flags('bootloader'), '-O2'), (flags('openssl'), '-O3')):
     assert [f for f in actual if f.startswith('-O')] == [optimization], actual
     assert '-mtune=thead-c906' in actual and '-mno-fence-tso' in actual
 assert '-mabi=lp64d' in user and '-mabi=lp64' in kernel
 # Only the kernel and its modules drop -mstrict-align; userspace never had it.
 assert '-mno-strict-align' in kernel and '-mno-strict-align' not in user
 assert '-mno-strict-align' not in flags('bootloader') and '-mno-strict-align' not in flags('audio')
-for actual in (user, kernel, flags('audio')):
+for actual in (user, kernel, flags('audio'), flags('openssl')):
     assert '-fno-tree-vectorize' in actual and '-fno-tree-slp-vectorize' in actual
 assert flags('audio') == user
+assert '-mstringop-strategy=scalar' in flags('openssl')
+assert all('xtheadvector' not in flag for flag in flags('openssl'))
 assert PROFILE['kernel_lto'] == 'none'
 assert 'CONFIG_LTO_NONE=y' in (ROOT/'platform/kernel/config').read_text()
 kernel_isa = PROFILE['kernel_isa']
@@ -40,18 +42,20 @@ assert '+  OPT_LEVEL := ' + ' '.join(user) + ' -mcmodel=medany' in patch.read_te
 # Source builds must consume the profile instead of keeping a local ISA copy.
 for name in ('build-capture.py', 'build-mmf.py', 'build-system.py',
              'build-mpi-bin.py', 'build-isp-vendor.py',
-             'build-server-existing-libs.py', 'build-usb-audio.py'):
+             'build-server-existing-libs.py', 'build-usb-audio.py', 'build-openssl.py'):
     text = (ROOT/'scripts'/name).read_text()
     assert 'from nanokvm_cpu_profile import' in text, name
     assert '-march=rv64' not in text, name
     assert '-Os' not in text and 'MinSizeRel' not in text, name
 assert '+EXTRA_CFLAGS += -O2' in (ROOT/'platform/modules/rtl8733bs/0002-o2-build-policy.patch').read_text()
 assert 'nanokvm_cpu_profile.py" kernel' in (ROOT/'platform/build.sh').read_text()
-for kind in ('userspace', 'kernel', 'bootloader', 'audio'):
+for kind in ('userspace', 'kernel', 'bootloader', 'audio', 'openssl'):
     validate_flags(flags(kind), kind)
-    overrides = ['-Os', '-O2' if kind == 'kernel' else '-O3', '-flto', '-march=rv64gc', '-mtune=generic', '-mabi=ilp32', '-mfence-tso']
+    overrides = ['-Os', '-O2' if kind in ('kernel', 'openssl') else '-O3', '-flto', '-march=rv64gc', '-mtune=generic', '-mabi=ilp32', '-mfence-tso']
     if kind == 'kernel':
         overrides.append('-mstrict-align')
+    if kind == 'openssl':
+        overrides.extend(['-mstringop-strategy=vector', '-march=' + PROFILE['userspace_isa']])
     for override in overrides:
         try:
             validate_flags([*flags(kind), override], kind)
@@ -79,7 +83,7 @@ with tempfile.TemporaryDirectory(prefix='nkos-kbuild-flags-') as tmp:
                                 capture_output=True, text=True)
         assert (result.returncode == 0) == success, (extra, result.stdout, result.stderr)
 if a.compiler:
-    for kind in ('userspace', 'kernel', 'bootloader', 'audio'):
+    for kind in ('userspace', 'kernel', 'bootloader', 'audio', 'openssl'):
         macros = subprocess.check_output([a.compiler, *flags(kind), '-dM', '-E', '-x', 'c', '-'], input='', text=True)
         assert '#define __riscv_xlen 64' in macros
         assert '#define __riscv_xtheadba ' in macros
@@ -87,6 +91,8 @@ if a.compiler:
             assert '__riscv_flen' not in macros and '__riscv_xtheadvector' not in macros
         else:
             assert '#define __riscv_flen 64' in macros
+        if kind == 'openssl':
+            assert '__riscv_xtheadvector' not in macros and '__riscv_vector' not in macros
         with tempfile.TemporaryDirectory(prefix='nkos-cpu-profile-test-') as tmp:
             obj = Path(tmp)/'probe.o'
             subprocess.run([a.compiler, *flags(kind), '-x', 'c', '-c', '-', '-o', str(obj)],
@@ -98,4 +104,4 @@ if a.compiler:
             result = json.loads(manifest.read_text())
             assert result['flags'] == flags(kind)
             assert result['compiler_version'] == '16.2.0'
-print('C906 GCC kernel/modules -O3, scalar userspace/audio -O2 and unchanged bootloader policy pass')
+print('C906 GCC kernel/modules/OpenSSL -O3, userspace/audio -O2 and unchanged bootloader policy pass')

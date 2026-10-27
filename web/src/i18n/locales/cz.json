@@ -1599,6 +1599,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Zavaděč systému",
           "zlib": "Knihovna komprese",
+          "openssl": "OpenSSL",
           "exfatprogs": "Nástroje pro exFAT",
           "i2ctools": "Nástroje pro I2C"
         }

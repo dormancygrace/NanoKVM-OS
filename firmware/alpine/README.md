@@ -256,7 +256,7 @@ prerelease installed, **Install stable version** performs a confirmed rollback
 through the detached update helper. APK refreshes and verifies the official
 stable index, requires the complete core set, simulates dependency resolution,
 then installs a temporary `.nanokvm-stable-rollback` virtual package requiring
-exact versions of the thirteen core packages. The helper removes this constraint
+exact versions of the core packages. The helper removes this constraint
 after the transaction. Before installing, it durably registers a small OpenRC
 boot service under `/etc/init.d/nanokvm-rollback-recovery`. After an interrupted
 rollback this service removes the constraint offline, even if the restored
@@ -421,7 +421,7 @@ the currently deployed repository in place.
 
 The release and repository workflows no longer read `APK_RSA_KEY`. The signing
 policy is part of each core package's content fingerprint, so v3.4.0 rebuilds
-all thirteen core packages once; a previous RSA-signed package cannot be reused
+all core packages present in that release once; a previous RSA-signed package cannot be reused
 as the current release's package. Later releases resume ordinary content reuse.
 Historical RSA-signed files and their public key are retained for verification
 and rollback; no new RSA signature is created.

@@ -161,6 +161,10 @@ func stablePackageTargets(output string) ([]string, error) {
 	var targets []string
 	for _, name := range corePackages {
 		if found[name] == "" {
+			if legacy := apkrollback.LegacyTargets(name); legacy != nil {
+				targets = append(targets, legacy...)
+				continue
+			}
 			return nil, errors.New("stable repository is missing " + name)
 		}
 		targets = append(targets, name+"="+found[name])

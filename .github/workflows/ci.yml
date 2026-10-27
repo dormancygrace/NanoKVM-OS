@@ -146,8 +146,9 @@ jobs:
       - name: ECDSA package signing and upgrade
         run: |
           docker run --rm -v "$PWD:/src:ro" -w /src alpine:3.24 sh -ec '
-            apk add --no-cache alpine-sdk python3 openssl coreutils > /dev/null
-            python3 tests/test-ecdsa-packages.py'
+            apk add --no-cache alpine-sdk alpine-keys python3 openssl coreutils > /dev/null
+            python3 tests/test-ecdsa-packages.py
+            python3 tests/test-openssl-package.py'
 
       - name: RustDesk package version transitions
         run: python3 tests/test-rustdesk-builder.py

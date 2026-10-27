@@ -850,6 +850,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Загрузчик",
           "zlib": "Библиотека сжатия",
+          "openssl": "OpenSSL",
           "exfatprogs": "Утилиты exFAT",
           "i2ctools": "Утилиты I2C"
         }

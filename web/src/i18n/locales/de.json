@@ -850,6 +850,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Bootloader",
           "zlib": "Kompressionsbibliothek",
+          "openssl": "OpenSSL",
           "exfatprogs": "exFAT-Werkzeuge",
           "i2ctools": "I2C-Werkzeuge"
         }

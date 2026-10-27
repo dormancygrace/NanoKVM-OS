@@ -101,6 +101,10 @@ compares the original and patched codecs on generated 4 KiB pages and short
 buffers, checks bit-reader boundaries, cross-decodes identical compressed
 output, and probes guard pages and 300,000 random/mutated inputs plus truncated streams.
 
+`test-zram-pages.py` extracts the actual page-fill helper and checks all
+word-aligned lengths from 0 through 4 KiB, six fill patterns, prefix canaries,
+and an inaccessible following page. It accepts the same source/sanitizer options.
+
 ## Manual tools
 
 `manual/` holds tools that are run by hand and never by CI.

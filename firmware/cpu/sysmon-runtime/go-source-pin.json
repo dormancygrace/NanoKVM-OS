@@ -17,7 +17,8 @@
     "crypto/internal/fips140/sha256/sha256block_riscv64.s": "5b2d828f24ef41d7de1da4d6debdacaf5f30711d490199e815172851588f58e7",
     "crypto/sha1/sha1block_decl.go": "c49529cceac26a33b3e5cc465adbe947d6f90f8064fdc4bb2bec070df3d6b814",
     "crypto/sha1/sha1block_riscv64.s": "e9df4ca88dde841f54225a0c10b7efd245e543e122e4b6392a818a8f0cf24bb5",
-    "runtime/memmove_riscv64.s": "a40d9599366924f1973daf98a434f1ce95e7a7b5a2507fab6d7cb6d7ca19ab70"
+    "runtime/memmove_riscv64.s": "a40d9599366924f1973daf98a434f1ce95e7a7b5a2507fab6d7cb6d7ca19ab70",
+    "crypto/internal/fips140/sha3/sha3_noasm.go": "7d612a30f8a63ae042d3ac998bacd50744700125060893ef87580ef33be77a94"
   },
   "x_crypto_v0.57.0_sum_riscv64_s_sha256": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",
   "target": "linux/riscv64",

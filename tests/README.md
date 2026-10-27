@@ -80,12 +80,42 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
     is the patched `aic8800_fdrv` source, as `platform/build.sh modules`
     prepares it.
 
-  Each test's `--help` lists what it needs.
+  Each test's `--help` lists what it needs. The Release build workflow runs
+  `test-mjpeg-native-contracts.py` against its patched `native/src/cvi_mpi` and
+  `native/src/sensors` after the build, both normally and with ASan/UBSan.
+  This includes buffering, pool reclamation, capture parking and injected
+  ownership failures; they are required CI gates, not manual-only checks.
 - **`test-usb-prefix.py`** takes the S30usbnet script to test: `--script firmware/alpine/compat/S30usbnet`.
 - **`test-video-recovery-native.py`** needs `go`; CI runs it in the Go job.
 - **`test-aic8800-bt-rx.c`** is a standalone contract of the AIC8800
   Bluetooth RX path:
   `gcc -fsanitize=address,undefined tests/test-aic8800-bt-rx.c && ./a.out`.
+
+## Kernel zstd and zram contracts
+
+`test-zram-zstd.py --source /path/to/patched-linux` compiles the actual kernel
+codec and zram backend on a 64-bit little-endian Linux host. It compares empty
+and real dictionaries, injects every allocation failure, checks cleanup and
+runs compression/decompression concurrently. Set `NANOKVM_SANITIZE=1` for
+ASan/UBSan. Release-build CI runs both modes against its prepared kernel source.
+The tests do not access a device or change the supplied source tree.
+NanoKVM uses LZ4 for primary zram compression. The zstd allocation savings
+apply when optional recompression is enabled (`ZRAM_RECOMPRESS=1`, off by
+default); they do not change the default LZ4 memory use.
+
+`test-zstd-c906.py` uses the same `--source` argument and sanitizer switch. It
+compares the original and patched codecs on generated 4 KiB pages and short
+buffers, checks bit-reader boundaries, cross-decodes identical compressed
+output, and probes guard pages and 300,000 random/mutated inputs plus truncated streams.
+
+`test-zram-pages.py` extracts the actual page-fill helper and checks all
+word-aligned lengths from 0 through 4 KiB, six fill patterns, prefix canaries,
+and an inaccessible following page. It accepts the same source/sanitizer options.
+
+`test-zram-streams.py` compiles the actual zcomp frontend with pthread/CPUHP
+shims. It checks direction independence, same-direction serialization, nine
+allocation-failure points, concurrent calls, teardown waits, and migration to
+an online CPU. The real LZ4/zstd backends are additionally qualified on C906.
 
 ## Manual tools
 
@@ -164,6 +194,11 @@ The D live-poll regression injects the reviewed operation-6 failure, then runs
 transitions. It requires zero D writes and no internal E1 identity reads.
 Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
 fault, including no further IO after a failed attempt in the same generation.
+
+The kernel build also runs `test-lz4-decompressor.py --source <patched-kernel-tree>`
+with and without `NANOKVM_SANITIZE=1`. Its constructed blocks cover short overlap
+distances, length extensions, partial decoding, external dictionaries, safe and
+fast streaming APIs, in-place buffers, truncated input and tight output bounds.
 
 The [C906 memory test](manual/c906-memory/README.md) validates the running kernel’s
 memmove assembly on SG2002, including overlapping buffers, return values and

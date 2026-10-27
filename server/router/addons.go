@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"NanoKVM-Server/authn"
-	"NanoKVM-Server/internal/bmc"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/osupdate"
+	"NanoKVM-Server/pkg/bmc"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"NanoKVM-Server/service/picoclaw"

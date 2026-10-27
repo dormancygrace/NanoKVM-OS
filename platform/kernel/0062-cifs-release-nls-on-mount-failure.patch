@@ -1,0 +1,28 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] smb: client: release the NLS reference when mounting fails
+
+cifs_setup_cifs_sb() takes a reference to the mount's NLS table before
+cifs_mount() authenticates. If authentication or tree connection fails,
+the out path frees cifs_sb without reaching delayed_free(), leaking the
+NLS reference. Repeated bad passwords therefore pin nls_utf8 indefinitely.
+
+Balance the reference on this failure path as delayed_free() does on
+normal unmount. The zero-initialized pointer is safe on earlier failures.
+
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+ fs/smb/client/cifsfs.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/fs/smb/client/cifsfs.c b/fs/smb/client/cifsfs.c
+--- a/fs/smb/client/cifsfs.c
++++ b/fs/smb/client/cifsfs.c
+@@ -1088,6 +1088,7 @@ cifs_smb3_do_mount(struct fs_context *fc, struct smb3_fs_context *old_ctx)
+ 	deactivate_locked_super(sb);
+ 	return root;
+ out:
++	unload_nls(cifs_sb->local_nls);
+ 	kfree(cifs_sb->prepath);
+ 	smb3_cleanup_fs_context(cifs_sb->ctx);
+ 	kfree(cifs_sb);
+

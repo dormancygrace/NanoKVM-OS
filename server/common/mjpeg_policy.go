@@ -7,10 +7,9 @@ import (
 )
 
 // MjpegMaxLongSide is the longest side of the HDMI input MJPEG may run with.
-// At a 3840x2160 input MJPEG is not usable whatever the stream limit is: next
-// to a 4K stream the JPEG channel wedges the hardware encoder ("cviGetEncodedInfo
-// = 2501" until reboot), and with the stream limited to 1440p it produces no
-// frames.
+// A UHD input plus a secondary JPEG output can stall VPSS frame delivery,
+// including JPEG downscaled to 1920x1080. The guard therefore uses the HDMI
+// input size rather than the requested stream size; see docs/VIDEO.md.
 const MjpegMaxLongSide = 2560
 
 // MjpegBlockedResult is the ReadMjpeg result of a capture that was refused

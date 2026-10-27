@@ -204,45 +204,27 @@ func (s *Streamer) getClients() []*mjpegClient {
 	return *clients
 }
 
-// While an H.264 or H.265 stream has viewers, MJPEG runs at most at this
-// rate, and lower next to a stream wider than 1920 (2560x1440): each JPEG
-// costs the video stream about one frame (1080p90 H.264 alone 91 fps, next
-// to MJPEG at 53 fps only 32 fps). Up to 1920 wide 30 cost nothing measurable
-// against 27 (H.265 1080p90 80-85, 1080p60 57-60, 720p120 107-116); at
-// 2560x1440 30 over 33 was worse than 25 over 27. The native library runs
-// MJPEG's own VPSS output a little above these (33 and 27).
-const (
-	mjpegNextToVideoFPS     = 30
-	mjpegNextToWideVideoFPS = 25
-)
+// Limit the shared MJPEG capture while H.264/H.265 has viewers. Its own
+// VPSS output runs slightly faster so JPEG reads need not wait for a frame.
+// UHD inputs are refused separately by the MJPEG input-size guard.
+const mjpegNextToVideoFPS = 30
 
 // mjpegRate is the MJPEG capture rate for a screen rate.
-func mjpegRate(screenFPS int, videoActive, videoWide bool) int {
+func mjpegRate(screenFPS int, videoActive bool) int {
 	if screenFPS <= 0 {
 		return 1
 	}
-	limit := mjpegNextToVideoFPS
-	if videoWide {
-		limit = mjpegNextToWideVideoFPS
-	}
-	if videoActive && screenFPS > limit {
-		return limit
+	if videoActive && screenFPS > mjpegNextToVideoFPS {
+		return mjpegNextToVideoFPS
 	}
 	return screenFPS
-}
-
-// mjpegVideo reports whether an H.264 or H.265 stream has viewers and whether
-// it is wider than 1920 (the width the native library last encoded).
-func mjpegVideo() (active, wide bool) {
-	_, active = stream.ActiveEncoderConfig()
-	return active, active && common.ReadVideoValue("/run/nanokvm/video_width") > 1920
 }
 
 func (s *Streamer) run() {
 	common.CheckScreen()
 	screen := common.GetCaptureScreen()
-	videoActive, videoWide := mjpegVideo()
-	fps := mjpegRate(screen.FPS, videoActive, videoWide)
+	_, videoActive := stream.ActiveEncoderConfig()
+	fps := mjpegRate(screen.FPS, videoActive)
 	nextVideoCheck := time.Now().Add(time.Second)
 
 	vision := common.GetKvmVision()
@@ -266,8 +248,8 @@ func (s *Streamer) run() {
 		// The video state is checked once a second, not on every frame.
 		if now := time.Now(); now.After(nextVideoCheck) || screen.FPS != 0 && screen.FPS < fps {
 			nextVideoCheck = now.Add(time.Second)
-			videoActive, videoWide = mjpegVideo()
-			if rate := mjpegRate(screen.FPS, videoActive, videoWide); rate != fps && screen.FPS != 0 {
+			_, videoActive = stream.ActiveEncoderConfig()
+			if rate := mjpegRate(screen.FPS, videoActive); rate != fps && screen.FPS != 0 {
 				fps = rate
 				ticker.Reset(time.Second / time.Duration(fps))
 			}

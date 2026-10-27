@@ -40,6 +40,40 @@ jobs:
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
+      - name: Signed and encrypted SMB media
+        run: bash ../tests/test-remote-smb.sh
+
+      - name: C906 WebSocket staging and fallback tests
+        env:
+          # Gorilla 1.5.3's prepared-message tests intentionally reseed math/rand.
+          GODEBUG: randseednop=0
+        run: |
+          python3 ../tests/test-websocket-c906.py
+          out="$RUNNER_TEMP/websocket-c906"
+          python3 ../firmware/cpu/go-websocket-c906/prepare.py --go "$(command -v go)" --output "$out" --tests
+          python3 ../tests/check-websocket-reproducibility.py --go "$(command -v go)" --output "$RUNNER_TEMP/websocket-repro"
+          cd "$out/server"
+          go test github.com/gorilla/websocket
+          go test -tags=purego github.com/gorilla/websocket
+          GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 \
+            go test -c -o "$out/websocket.test" github.com/gorilla/websocket
+
+  poly1305:
+    name: Prepared RISC-V Poly1305
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: server/go.sum
+      - name: Install scalar RISC-V emulator
+        run: sudo apt-get update && sudo apt-get install -y qemu-user
+      - name: Build and test the production assembly and pinned reference
+        run: |
+          XCRYPTO=$(go mod download -json golang.org/x/crypto@v0.57.0 | jq -r .Dir)
+          python3 tests/test-c906-poly1305.py --base "$(go env GOROOT)" \
+            --xcrypto "$XCRYPTO" --output "$RUNNER_TEMP/poly1305"
 
   web:
     name: Web UI
@@ -73,7 +107,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install system test tools
-        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools iproute2 g++ busybox openssh-client libssl-dev
+        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools iproute2 g++ busybox openssh-client libssl-dev liblz4-dev
       - name: Shellcheck (errors only; parses each script per its shebang)
         run: |
           git ls-files -z | while IFS= read -r -d '' f; do
@@ -95,17 +129,22 @@ jobs:
         run: |
           python3 tests/test-hdmi-events.py
           NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
-      # The C906 vector kernels are generated with .4byte/WORD encodings; each
-      # generator checks its output against GNU as/objdump for XTheadVector.
+      # Check C906 .4byte/WORD encodings against GNU as/objdump for XTheadVector.
       # The GHASH generator also runs its output against a bit-serial GHASH.
       - name: Generated C906 assembly is up to date
         run: |
           sudo apt-get install -y binutils-riscv64-linux-gnu
           cd firmware/cpu/go-crypto-c906
           python3 gen_chacha_riscv64.py --binutils riscv64-linux-gnu- --check chacha_riscv64.s
+          python3 ../go-websocket-c906/gen_mask_riscv64.py --binutils riscv64-linux-gnu- --check ../go-websocket-c906/mask_linux_riscv64.s
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+          python3 ../../../tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
+          curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
+          python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
+      - name: Log XTheadVector instruction encodings
+        run: python3 tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
       - name: OpenSSL C906 ChaCha dispatch
         run: |
           sudo apt-get install -y libssl-dev
@@ -128,6 +167,12 @@ jobs:
         run: |
           sudo apt-get install -y ccache
           python3 tests/test-compiler-cache.py
+      - name: Kernel LZ4 compressor compatibility
+        run: |
+          python3 tests/test-lz4-compressor.py
+          NANOKVM_SANITIZE=1 python3 tests/test-lz4-compressor.py
+          python3 tests/test-lz4-small-table.py
+          NANOKVM_SANITIZE=1 python3 tests/test-lz4-small-table.py
       - name: Platform Buildroot configuration
         run: python3 tests/test-platform-config.py
       - name: Alpine DHCP gateway integration
@@ -140,6 +185,16 @@ jobs:
         with:
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
+      - name: RISC-V log sanitizer ABI and test build
+        working-directory: server
+        env:
+          GOOS: linux
+          GOARCH: riscv64
+          GORISCV64: rva20u64
+          CGO_ENABLED: '0'
+        run: |
+          go vet ./logs ./logger
+          go test -c -o "$RUNNER_TEMP/logs-riscv64.test" ./logs
       - name: Gateway preference against kernel routes
         # A disposable network namespace, as for the DHCP gateway test above.
         working-directory: server
@@ -178,6 +233,8 @@ jobs:
           for t in tests/test-*.sh; do
             # Needs root for its network namespace; run it by hand (tests/README.md).
             [ "$t" = tests/test-pmtu-netns.sh ] && continue
+            # The Bash SMB fixture runs in the Go server job with Docker/sudo.
+            [ "$t" = tests/test-remote-smb.sh ] && continue
             echo "::group::$t"; sh "$t"; echo "::endgroup::"
           done
 
@@ -188,10 +245,12 @@ jobs:
       fail-fast: false
       matrix:
         directory:
+          - addons/ipmi
           - server/third_party/pion-dtls
           - server/third_party/pion-ice
           - server/third_party/pion-srtp
           - firmware/crypto/experimental/sg2002-crypto-all/ghash-go
+          - tests/manual/c906-poly1305/wireguard
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -204,6 +263,17 @@ jobs:
       - run: go build ./...
       - name: Test
         run: go test -timeout 5m ./...
+      - name: Vet IPMI add-on
+        if: matrix.directory == 'addons/ipmi'
+        run: go vet ./...
+      - name: Race-test IPMI add-on
+        if: matrix.directory == 'addons/ipmi'
+        run: go test -race -timeout 5m ./...
+      - name: Cross-build WireGuard measurement endpoints
+        if: matrix.directory == 'tests/manual/c906-poly1305/wireguard'
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o "$RUNNER_TEMP/wg-client.exe" client_windows.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o "$RUNNER_TEMP/wg-server" server_linux.go
 
   rustdesk:
     name: RustDesk host tests

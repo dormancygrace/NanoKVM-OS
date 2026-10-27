@@ -59,9 +59,12 @@
 		/* Video memory: one reusable CMA region of 144 MiB for every
 		 * video resolution. Linux uses its idle pages (movable
 		 * allocations only) and migrates them away when video asks.
-		 * The video pool holds 39.8 MiB at 1080x1920 100 Hz with MJPEG,
-		 * 53.9 MiB at 1440p60 and 102.7 MiB at 2160p30; the rest of the
-		 * region is slack, so an allocation can use another range when
+		 * The pre-ready-queue measurements were 39.8 MiB at portrait
+		 * 1080p100, 53.9 MiB at 1440p60 with MJPEG, and 102.7 MiB at
+		 * 2160p30. Current QHD adds a 7.03 MiB VI block and can reclaim
+		 * 15.82 MiB of idle VPSS output buffers. Mixed-reader operation
+		 * is qualified on this shared region (docs/VIDEO.md). Spare capacity
+		 * lets an allocation use another range when
 		 * a page is busy (a pool sized to the peak failed on cold
 		 * boots). Outside the region Linux keeps about 90 MiB for
 		 * unmovable kernel memory. */

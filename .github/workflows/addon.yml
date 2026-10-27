@@ -1,6 +1,6 @@
 name: Add-on release
 
-# Builds an optional add-on from its recipe (firmware/alpine/packages/NAME/
+# Builds an optional add-on from its recipe (addons/NAME/
 # addon.json, scripts/build-addon.py) and publishes it as a release of its
 # own, NAME-VERSION-rN: the APK and SHA256SUMS. Run it by hand (Actions →
 # Add-on release → Run workflow) after merging a change to the add-on. The APK
@@ -28,10 +28,11 @@ on:
       - scripts/build-addon.py
       - scripts/addon_packages.py
       - scripts/next-addon-revision.py
-      - firmware/alpine/packages/nanokvm-ipmi/**
+      - addons/ipmi/**
       - firmware/cpu/sysmon-runtime/**
-      - server/cmd/nkos-ipmi/**
-      - server/internal/bmc/**
+      - server/pkg/bmc/**
+      - server/go.mod
+      - server/go.sum
 
 permissions:
   contents: read
@@ -145,7 +146,7 @@ jobs:
             apk adbdump "$apk" | grep -qx "  version: ${TAG#"$ADDON"-}"
             d=$(mktemp -d)
             apk extract --allow-untrusted --destination "$d" "$apk"
-            python3 - "$d" /src/firmware/alpine/packages/$ADDON/addon.json "$apk" <<"PY"
+            python3 - "$d" /src/addons/${ADDON#nanokvm-}/addon.json "$apk" <<"PY"
           import json, os, subprocess, sys
           root, recipe = sys.argv[1], json.load(open(sys.argv[2]))
           # The minimum OS release is a dependency of the package.

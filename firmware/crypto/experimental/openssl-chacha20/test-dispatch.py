@@ -35,6 +35,7 @@ def main():
             for name, old, new in (
                 ('thread gate', 'control < 0 || (control & 3) != 2', 'control < -100'),
                 ('capability gate', '!ossl_riscv_has_xtheadvector', '0'),
+                ('explicit opt-in', 'override == NULL || strcmp(override, "auto") != 0', '((void)override, 0)'),
             ):
                 assert old in source
                 c.write_text(source.replace(old, new))

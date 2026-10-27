@@ -1,0 +1,49 @@
+{
+  "platform": "Physical SG2002 C906, Linux 7.3.0-nanokvm-os-r3, 1 GHz, active video, swap usage zero",
+  "source_head": "f5c23c6c672763339c77f2dbba9b99a625ac888a",
+  "libraries": {
+    "review506-test-libcrypto": "1d448a821b2accb447bf8330258e90521f46f92a0eff367d019cfd8390f58d56",
+    "review506-poly1305-libcrypto": "cfd3223062f6814bdf2091829896dc5860eb372f5e74f7c77c327fd669bc4582",
+    "review506-poly1305-test-libcrypto": "2c2af98d554c2b0895c8b700cdea9b420709bc505ba992c8593a476259c7dabc",
+    "review506-poly1305-32-libcrypto": "c8e2bfebd9b670df49beadb27a290b165dabdc2f224dcf9d5c80b4836cf8b169",
+    "review506-poly1305-32-test-libcrypto": "bdd1b2e961ba7f1f588140f5822db6d0b8273db8094b2ffc8afb91f3d82200ec",
+    "base": "4b34b5e722fdfca0d52b1ef334de415abae83db27dec4ba85feb5bc0f5bc164d",
+    "candidate": "c33e8d5c3616e77fd60fc0b04349fcfd6e57d64b3d6e47a149cf9a4229c71190"
+  },
+  "threshold320": {
+    "sha256": "190c542e64955c3f5a638c669a42cb4a259168d1bf14009f313f8bec5f11cbb4",
+    "changed_bytes": 2,
+    "offsets": [
+      1196635,
+      1197785
+    ],
+    "size_unchanged": 4402096
+  },
+  "datasets": {
+    "rotated": {
+      "file": "native-rotated.jsonl",
+      "rows": 1764,
+      "sha256": "df5c9f402d13b6f309790edf8aa9f96554f9dfd674b036bc2e571f844efe55a1"
+    },
+    "fixed_layout": {
+      "file": "native-fixed-layout.csv",
+      "rows": 882,
+      "sha256": "265b44a2a5b459fff79c7a823bd173ad1e32b705bdf6d82c9a2a0da3e37749c8"
+    },
+    "overhead": {
+      "file": "native-overhead.csv",
+      "rows": 372,
+      "sha256": "32776c1692bda86f3fdb333d817dde8e5ce9f7a41c808201188131f953f2b787"
+    },
+    "poly_memory": {
+      "file": "native-poly-memory.csv",
+      "rows": 36,
+      "sha256": "935120e5a8df40e1722777ba408a65047783ffe4fd2fda7101d78b29805e78c6"
+    }
+  },
+  "https": {
+    "file": "native-https-results.jsonl",
+    "rows": 19,
+    "sha256": "5c214357984b6f35969a263ba2a6875b57e51f8a66437902ef7fe3066c4768dc"
+  }
+}

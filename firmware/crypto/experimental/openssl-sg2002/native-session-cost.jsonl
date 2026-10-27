@@ -1,0 +1,24 @@
+{"operation": "cold-begin-end", "iterations": 1, "cpu_ns": 110600, "wall_ns": 92239, "trial": 0, "utc": "2026-10-27T07:48:29.950232+00:00"}
+{"operation": "empty", "iterations": 10000, "cpu_ns": 78080, "wall_ns": 86799, "cpu_ns_per_call": 7.808, "trial": 0, "utc": "2026-10-27T07:48:29.950337+00:00"}
+{"operation": "open-close", "iterations": 10000, "cpu_ns": 167942320, "wall_ns": 182485704, "cpu_ns_per_call": 16794.232, "trial": 0, "utc": "2026-10-27T07:48:29.950372+00:00"}
+{"operation": "open-fstat-close", "iterations": 10000, "cpu_ns": 242301800, "wall_ns": 264304591, "cpu_ns_per_call": 24230.18, "trial": 0, "utc": "2026-10-27T07:48:29.950415+00:00"}
+{"operation": "warm-begin-end", "iterations": 10000, "cpu_ns": 257562400, "wall_ns": 281000742, "cpu_ns_per_call": 25756.24, "trial": 0, "utc": "2026-10-27T07:48:29.950438+00:00"}
+{"operation": "sha256-run-held-fd", "iterations": 10000, "cpu_ns": 224950760, "wall_ns": 248482593, "cpu_ns_per_call": 22495.076, "trial": 0, "utc": "2026-10-27T07:48:29.950449+00:00"}
+{"operation": "sha256-full-evp-legacy", "iterations": 10000, "cpu_ns": 1187148080, "wall_ns": 1298091437, "cpu_ns_per_call": 118714.808, "trial": 0, "utc": "2026-10-27T07:48:29.950459+00:00"}
+{"operation": "sha256-full-evp-fetched", "iterations": 10000, "cpu_ns": 966271440, "wall_ns": 1053163608, "cpu_ns_per_call": 96627.144, "trial": 0, "utc": "2026-10-27T07:48:29.950468+00:00"}
+{"operation": "cold-begin-end", "iterations": 1, "cpu_ns": 113840, "wall_ns": 94799, "trial": 1, "utc": "2026-10-27T07:48:33.851639+00:00"}
+{"operation": "empty", "iterations": 10000, "cpu_ns": 76680, "wall_ns": 85640, "cpu_ns_per_call": 7.668, "trial": 1, "utc": "2026-10-27T07:48:33.851721+00:00"}
+{"operation": "open-close", "iterations": 10000, "cpu_ns": 171348960, "wall_ns": 186728661, "cpu_ns_per_call": 17134.896, "trial": 1, "utc": "2026-10-27T07:48:33.851750+00:00"}
+{"operation": "open-fstat-close", "iterations": 10000, "cpu_ns": 239713600, "wall_ns": 258688209, "cpu_ns_per_call": 23971.36, "trial": 1, "utc": "2026-10-27T07:48:33.851763+00:00"}
+{"operation": "warm-begin-end", "iterations": 10000, "cpu_ns": 253910600, "wall_ns": 275035643, "cpu_ns_per_call": 25391.06, "trial": 1, "utc": "2026-10-27T07:48:33.851774+00:00"}
+{"operation": "sha256-run-held-fd", "iterations": 10000, "cpu_ns": 228038600, "wall_ns": 249919898, "cpu_ns_per_call": 22803.86, "trial": 1, "utc": "2026-10-27T07:48:33.851819+00:00"}
+{"operation": "sha256-full-evp-legacy", "iterations": 10000, "cpu_ns": 1225640000, "wall_ns": 1339029941, "cpu_ns_per_call": 122564.0, "trial": 1, "utc": "2026-10-27T07:48:33.851871+00:00"}
+{"operation": "sha256-full-evp-fetched", "iterations": 10000, "cpu_ns": 997663640, "wall_ns": 1090995664, "cpu_ns_per_call": 99766.364, "trial": 1, "utc": "2026-10-27T07:48:33.851893+00:00"}
+{"operation": "cold-begin-end", "iterations": 1, "cpu_ns": 102680, "wall_ns": 88479, "trial": 2, "utc": "2026-10-27T07:48:37.715775+00:00"}
+{"operation": "empty", "iterations": 10000, "cpu_ns": 75680, "wall_ns": 84239, "cpu_ns_per_call": 7.568, "trial": 2, "utc": "2026-10-27T07:48:37.715864+00:00"}
+{"operation": "open-close", "iterations": 10000, "cpu_ns": 171081480, "wall_ns": 191566291, "cpu_ns_per_call": 17108.148, "trial": 2, "utc": "2026-10-27T07:48:37.715922+00:00"}
+{"operation": "open-fstat-close", "iterations": 10000, "cpu_ns": 242871440, "wall_ns": 266130374, "cpu_ns_per_call": 24287.144, "trial": 2, "utc": "2026-10-27T07:48:37.715973+00:00"}
+{"operation": "warm-begin-end", "iterations": 10000, "cpu_ns": 259139000, "wall_ns": 311111156, "cpu_ns_per_call": 25913.9, "trial": 2, "utc": "2026-10-27T07:48:37.716023+00:00"}
+{"operation": "sha256-run-held-fd", "iterations": 10000, "cpu_ns": 225318080, "wall_ns": 244795111, "cpu_ns_per_call": 22531.808, "trial": 2, "utc": "2026-10-27T07:48:37.716072+00:00"}
+{"operation": "sha256-full-evp-legacy", "iterations": 10000, "cpu_ns": 1179776560, "wall_ns": 1294540593, "cpu_ns_per_call": 117977.656, "trial": 2, "utc": "2026-10-27T07:48:37.716097+00:00"}
+{"operation": "sha256-full-evp-fetched", "iterations": 10000, "cpu_ns": 963536440, "wall_ns": 1056521134, "cpu_ns_per_call": 96353.644, "trial": 2, "utc": "2026-10-27T07:48:37.716138+00:00"}

@@ -40,3 +40,43 @@ stack: DMA on/off and software fallback pass 864 SHA, 288 CTR, 408 AEAD and
 2160 extended GCM cases per mode. A private OpenSSH preauth sandbox exercises
 permission-denied device access without killing the process. Algorithm-specific
 throughput and context-size measurements remain in the corresponding reports.
+
+## Native session overhead
+
+`native-session-cost.jsonl` contains three 10,000-iteration runs on the physical
+C906 at 1 GHz with video active. The benchmark statically links the matching
+libcrypto from stack `0a1b4f68` (including SHA-256 integration); it measures
+process CPU time, with provider fetch/warm-up outside repeated timings.
+
+| Operation | Median CPU time per call |
+| --- | ---: |
+| Empty loop | 0.008 us |
+| Device open + close | 17.108 us |
+| Device open + fstat + close | 24.230 us |
+| Cached-capability begin + end | 25.756 us |
+| 4 KiB SHA-256 RUN, descriptor already held | 22.532 us |
+| Full 4 KiB EVP SHA-256, reused fetched method/context | 96.627 us |
+| Full 4 KiB EVP SHA-256, legacy method lookup each init | 118.715 us |
+
+The first cold begin/end costs 103–114 us of CPU and includes INFO. A separate
+one-hash trace confirms one device open, fstat, INFO, RUN and close; a second
+open/close reads OpenSSL configuration. Its digest matches an independent
+SHA-256 calculation. The raw trace uses `trace-session.c`, a ptrace tracer of
+its own child. Its per-syscall wall times include tracer scheduling and are
+**not** native syscall latencies; use the untraced loop for the cost estimate.
+
+Descriptor acquisition is substantial (about 27% of this full fetched-EVP
+measurement), but these separate loops are not an additive cycle profile.
+A permanent library-wide descriptor is not enabled by this patch: it would
+pin the module, persist across fork and privilege/sandbox transitions, and
+require a defined close/invalidation policy. Keeping operation-owned
+descriptors makes the measured algorithm thresholds include this real cost.
+Provider lookup is also material; applications can reuse fetched methods
+without adding a descriptor cache.
+
+Reproduce by compiling `bench-session.c` with the OpenSSL source/include
+directories and its matching `libcrypto.a`, plus `-ldl -pthread`, using the same
+C906/O3 toolchain flags as that stack. Run without arguments for the repeated
+measurements, or `--hash-once` under the provided tracer for the syscall list.
+The binary/static-library identities and digest are pinned in
+`native-session-validation.json`. No installed library was replaced.

@@ -183,7 +183,7 @@ export const Sequences = () => {
 
         <Divider style={{ margin: '14px 0' }} />
 
-        <div className="flex items-center justify-between space-x-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col">
             <span>Ctrl + Alt + Del</span>
             <span className="text-xs text-neutral-500">{t('keyboard.sequences.ctrlAltDel')}</span>
@@ -204,9 +204,9 @@ export const Sequences = () => {
             <span>{t('keyboard.sequences.sysrq.title')}</span>
             <span className="text-xs text-neutral-500">{t('keyboard.sequences.sysrq.desc')}</span>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Select
-              className="flex-1"
+              className="min-w-0 flex-1"
               variant="filled"
               value={sysrqKey}
               onChange={(value) => setSysrqKey(value)}
@@ -229,7 +229,7 @@ export const Sequences = () => {
             <span>{t('keyboard.sequences.reisub.title')}</span>
             <span className="text-xs text-neutral-500">{t('keyboard.sequences.reisub.desc')}</span>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-neutral-400">{t('keyboard.sequences.reisub.delay')}</span>
             <InputNumber
               min={1}
@@ -246,7 +246,7 @@ export const Sequences = () => {
             </Button>
           </div>
           {reisubRunning && (
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Progress percent={reisubPercent} size="small" showInfo={false} className="flex-1" />
               <span className="text-xs text-neutral-400">
                 {t('keyboard.sequences.reisub.running', {

@@ -183,7 +183,7 @@ export const Wol = () => {
   }
 
   const content = (
-    <div className="min-w-[300px]">
+    <div className="@container w-[360px] max-w-full min-w-0">
       <div className="flex items-center justify-between px-1">
         <span className="text-base font-bold text-neutral-300">{t('wol.title')}</span>
       </div>
@@ -191,9 +191,9 @@ export const Wol = () => {
       <Divider style={{ margin: '10px 0 10px 0' }} />
 
       <div className="w-full space-y-1 py-3">
-        <div className="flex items-center space-x-1">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1 @min-[300px]:grid-cols-[minmax(100px,max-content)_minmax(0,1fr)_auto]">
           <Select
-            className="min-w-[100px]"
+            className="col-span-2 min-w-0 @min-[300px]:col-span-1"
             value={networkInterface || undefined}
             placeholder={t('wol.interface')}
             aria-label={t('wol.interface')}
@@ -201,6 +201,7 @@ export const Wol = () => {
             onChange={setNetworkInterface}
           />
           <Input
+            className="min-w-0"
             ref={inputRef}
             value={input}
             placeholder={t('wol.input')}
@@ -230,7 +231,7 @@ export const Wol = () => {
           dataSource={macList}
           renderItem={(item) => (
             <List.Item className="flex w-full items-center justify-between gap-2 py-2">
-              <div className="min-h-[32px] min-w-0 flex-1">
+              <div className="min-h-[32px] min-w-0 flex-1 [overflow-wrap:anywhere]">
                 {item.isEdit ? (
                   <Input
                     autoFocus

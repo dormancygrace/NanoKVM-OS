@@ -102,6 +102,7 @@
     "retryJoin": "Tentar novamente"
   },
   "keyboard": {
+    "more": "Opções do teclado",
     "title": "Teclado",
     "paste": "Colar",
     "tips": "Apenas letras e símbolos de teclado padrão são suportados",

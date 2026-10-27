@@ -102,6 +102,7 @@
     "retryJoin": "Riprova"
   },
   "keyboard": {
+    "more": "Opzioni tastiera",
     "title": "Tastiera",
     "paste": "Incolla",
     "tips": "Sono supportati solo lettere e simboli standard della tastiera",

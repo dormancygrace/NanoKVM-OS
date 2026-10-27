@@ -15,17 +15,22 @@ production_record = builder.record
 
 
 def flags(kind):
-    return [f for f in production_flags(kind) if not f.startswith('-mstringop-strategy=')] + ['-mstringop-strategy=auto']
+    actual = [f for f in production_flags(kind) if not f.startswith('-mstringop-strategy=')]
+    # Deliberately enable the historical experimental ISA outside production.
+    actual = [f + '_xtheadvector' if f.startswith('-march=') and 'xtheadvector' not in f else f
+              for f in actual]
+    return actual + ['-mstringop-strategy=auto']
 
 
 def record(output, compiler, kind, actual):
     # Check all other production constraints, then record the actual experiment.
     checked = [f for f in actual if not f.startswith('-mstringop-strategy=')] + ['-mstringop-strategy=scalar']
+    checked = [f.replace('_xtheadvector', '') if f.startswith('-march=') else f for f in checked]
     production_record(output, compiler, kind, checked)
     path = Path(output)
     data = json.loads(path.read_text())
     data['flags'] = actual
-    data['experimental'] = 'Only compiler stringop strategy changed to auto for isolated measurement'
+    data['experimental'] = 'Experimental XTheadVector ISA and auto stringops; never used by the image build'
     path.write_text(json.dumps(data, indent=2) + '\n')
 
 

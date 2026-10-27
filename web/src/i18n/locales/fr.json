@@ -433,6 +433,7 @@
     }
   },
   "keyboard": {
+    "more": "Options du clavier",
     "title": "Clavier",
     "paste": "Coller",
     "tips": "Seuls les caractères et symboles standard du clavier sont pris en charge",
@@ -840,6 +841,7 @@
           "rustdesk": "RustDesk",
           "bootloader": "Chargeur d'amorçage",
           "zlib": "Bibliothèque de compression",
+          "openssl": "OpenSSL",
           "exfatprogs": "Outils exFAT",
           "i2ctools": "Outils I2C"
         }

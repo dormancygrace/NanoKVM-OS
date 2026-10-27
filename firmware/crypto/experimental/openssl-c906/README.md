@@ -4,7 +4,7 @@ Measured on 2026-10-26 on a NanoKVM with one C906 at 1 GHz, 240 MiB RAM,
 Linux 7.3-r3, active HDMI encoding and the installed Alpine curl 8.22.0.
 All performance measurements below ran on the physical device.
 
-The production candidate uses unmodified OpenSSL **3.5.9 LTS**, project GCC
+The measured candidate at `0c78b2ca` uses unmodified OpenSSL **3.5.9 LTS**, project GCC
 16.2.0 and the shared C906 profile with `-O3`. Alpine's installed 3.5.9-r0
 was built with GCC 15.2 and `-Os`. This comparison measures the complete
 build profile, including the compiler version; it does not isolate `-O3`.
@@ -12,10 +12,18 @@ The 3.5 series is [supported through 8 April 2030](https://openssl-library.org/s
 
 No custom cryptographic assembly or CryptoDMA integration is added to OpenSSL.
 Upstream assembly/CPU dispatch and Alpine's feature choices are retained.
-Loop and SLP vectorization are disabled. Production uses
+Loop and SLP vectorization are disabled. The measured scalar build uses
 `-mstringop-strategy=scalar`; the separate experiment changes only that option
 to `auto`. This affects compiler memory operations, including some `memset`
 expansions, and does not replace libc's `memcpy`.
+
+The current production profile also removes `xtheadvector` from `-march`,
+matching the zlib-ng library policy. The recorded physical timings retain the
+original profile and are not measurements of this later change. The rebuilt
+profile passed 408 AEAD cases under C906 emulation, including a failing
+corrupted-answer control, and retains all 5,809 libcrypto and 609 libssl
+exported symbols/version nodes from Alpine. These are correctness and ABI
+checks, not replacement performance measurements.
 
 ## EVP operations
 
@@ -158,6 +166,9 @@ python3 scripts/build-openssl.py --archive "$CACHE/openssl-3.5.9.tar.gz" \
 output directory must not already exist. Keep all experiments isolated from
 installed libraries, and coordinate device ownership before running them.
 Build the separate auto experiment with `build-auto.py` and the same options.
+It deliberately restores `xtheadvector` in addition to selecting auto stringops.
+To reproduce the recorded scalar/auto pair, use revision `0c78b2ca`; the current
+production profile has a narrower baseline ISA.
 
 To build the EVP probe, point `OPENSSL_BUILD` at the extracted/configured
 source tree inside that output, and `BENCH` at this directory:
@@ -173,7 +184,8 @@ Set `OPENSSL_CONF=/dev/null` and the candidate's `LD_LIBRARY_PATH` and
 `OPENSSL_MODULES` for candidate trials; unset those paths for the baseline.
 Compile a negative control with `-DCORRUPT_KAT`; it must exit 2.
 
-For memcpy, use `python3 scripts/nanokvm_cpu_profile.py openssl` flags.
+For the historical memcpy experiment, use the `openssl` profile flags from
+revision `0c78b2ca`, which still included `xtheadvector`.
 Compile twice with `-DCOPY_IMPL`: scalar uses `-DPREFIX=scalar_`; auto uses
 `-DPREFIX=auto_` and replaces the scalar stringop option with `auto`. Link
 both objects with the same source compiled without COPY_IMPL. Inspect both

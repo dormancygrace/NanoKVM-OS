@@ -102,6 +102,7 @@
     "retryJoin": "Ponów próbę"
   },
   "keyboard": {
+    "more": "Opcje klawiatury",
     "title": "Klawiatura",
     "paste": "Wklej",
     "tips": "Tylko standardowe klawiaturowe znaki i symbole są obsługiwane.",

@@ -37,7 +37,8 @@ The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNA
 | PLIC | Use mainline `thead,c900-plic`, 101 sources, M/S contexts. Upstream handles T-Head delegation. |
 | Vendor `thead,reset-sample` ebreak reset | Do not carry the sample reset handler; it is not matched by the stock DT. System reset is advertised only if an upstream backend supports it. Linux/U-Boot have the SoC reset driver. |
 | T-Head TH1520 TLB erratum | Retain upstream's model-specific selection; do not apply an unrelated workaround to SG2002. |
-| DDR, BL2, BLCP and BLCP_2ND | Preserve their bytes and relevant parameter fields from base FIP. No OTP/eFuse changes or new signing flow. |
+| DDR, BLCP and BLCP_2ND | Preserve their bytes and relevant parameter fields from base FIP. No OTP/eFuse changes or new signing flow. |
+| BL2 | The verified stock image receives only the MPLL immediate change from `0x00448101` to `0x04508101` (850 to 1000 MHz), plus its required CRC updates. All other first-stage bytes are preserved. |
 
 The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and v1.9; not every vendor/upstream diff is an SG2002 requirement.
 

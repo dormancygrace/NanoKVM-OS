@@ -110,8 +110,8 @@ mount -t sysfs sysfs /sys
 mount -t configfs configfs /sys/kernel/config
 mount -t debugfs debugfs /sys/kernel/debug
 
-# The bootloader leaves the CPU at 850 MHz, and the server applied the saved
-# clock only some 12 s later. The boot runs at 1000 MHz, the default; a user
+# The FSBL sets 1000 MHz (an older FIP leaves 850 MHz), and the server applied
+# the saved clock only some 12 s later. The boot runs at 1000 MHz, the default; a user
 # who chose 850 MHz gets it back once the root is mounted (below).
 # Overclocking stays with the server, which guards it.
 cpufreq=/sys/devices/system/cpu/cpufreq/policy0

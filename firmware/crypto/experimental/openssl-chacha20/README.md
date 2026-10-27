@@ -2,6 +2,8 @@
 
 Candidate: OpenSSL 3.5.9 LTS with `0001-chacha20-c906.patch`.
 Control: PR #504, built with the same source, compiler and C906/O3 flags.
+Acceleration requires `NANOKVM_OPENSSL_CHACHA20=auto`; the image downloader sets
+this only for its curl child, preserving explicit operator overrides.
 Measurements from Go or the kernel do not replace OpenSSL measurements.
 
 ## Correctness and dispatch
@@ -16,12 +18,13 @@ calls and zero entries below 640 bytes, in disabled threads, and with the generi
 override. Forked seccomp tests kill file opens/hardware probes after provider
 loading, then exercise the first cipher call with `prctl` permitted or denied.
 This covers filters installed after library startup, not arbitrary filters
-that kill syscalls during dynamic loading.
+that kill syscalls during dynamic loading. A separate fresh-exec child leaves
+the opt-in unset and verifies that a fatal `prctl` rule also survives.
 
 `test-dispatch.py --negative-control` compiles the patched C dispatcher with
 mocked hardware/syscall edges under ASan/UBSan. It checks the threshold,
 missing capability, all thread-control values, overrides and scalar tails.
-Removing either the capability or per-thread gate must fail. The assembly
+Removing the capability, per-thread or explicit opt-in gate must fail. The assembly
 generator verifies the encoded instructions against GNU binutils. Existing
 `../openssl-c906/evp-bench.c 0` checks AEAD known answers and bad tags/ciphertext.
 
@@ -39,7 +42,10 @@ Run at least five rotated baseline/candidate/generic trials on physical C906.
 and tail, the complete wrapper, and first/second vector calls in fresh threads.
 It retains stack wiping in all vector kernel measurements.
 
-The startup-hwprobe revision was tested on the physical SG2002 C906 at
+The following timing tables describe the recorded startup-hwprobe revision
+(hashes in the result files), before the explicit opt-in policy correction.
+They must not be attributed to a later binary without remeasurement.
+That revision was tested on the physical SG2002 C906 at
 1 GHz with active video and zero swap usage. The exact library hashes, six
 rotated trials, a second six-trial placement control, memory measurements and
 overhead samples are in `native-review-results.json`. Production dynamic
@@ -151,3 +157,19 @@ The candidate uses 16.7% less curl CPU than the current base build, with
 variation and the absence of an encoder-control experiment prevent attributing
 an FPS improvement to this change. A separate TLS 1.2 ChaCha20 download also
 passed length and SHA-256 verification. No installed device files were replaced.
+
+### Sandbox compatibility and threshold attribution
+
+A private native OpenSSH listener reproduced a fatal pre-authentication seccomp
+violation when a separately patched vector GHASH queried `prctl` on a large
+AES-GCM packet. Baseline OpenSSL handled the same packet. ChaCha's dispatcher
+used the same syscall pattern, so both vector paths require explicit per-client
+opt-in. No SSH filter or authentication policy is weakened.
+
+Additional syscall tracing found exactly one vector-control query per eligible
+AEAD record and no hidden per-record file/hardware probes. Changing stack
+padding did not remove the lower-threshold regression. Calling the measured
+ChaCha primitive together with 64-byte key generation and Poly1305 still won
+in isolation: the remaining loss depends on the full EVP caller context.
+A precise instruction-cache explanation has not been demonstrated. The 640-byte
+threshold is an empirical result, not a claim that the full cause is known.

@@ -28,9 +28,7 @@ func TestParseAddonIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"nanokvm", "nanokvm-app", "nanokvm-base", "nanokvm-bootloader-sg2002",
-		"nanokvm-exfatprogs", "nanokvm-firmware-sg2002", "nanokvm-i2c-tools", "nanokvm-kernel-sg2002",
-		"nanokvm-keys", "nanokvm-kmod-sg2002", "nanokvm-openssl", "nanokvm-release", "nanokvm-web", "nanokvm-zlib"}; !reflect.DeepEqual(stored.Core, want) {
+	if want := []string{"nanokvm", "nanokvm-base", "nanokvm-release", "nanokvm-web"}; !reflect.DeepEqual(stored.Core, want) {
 		t.Fatalf("core=%q", stored.Core)
 	}
 	want := []Addon{
@@ -48,39 +46,52 @@ func TestParseAddonIndex(t *testing.T) {
 	}
 }
 
-func TestParseAddonIndexKeepsKnownCore(t *testing.T) {
-	// The index still describes the previous OS release, but a newly known
-	// system package is present. It must not be saved as an add-on.
+func TestParseAddonIndexCoreFromRelease(t *testing.T) {
+	// An OS package unknown to this server, named by the indexed release.
 	input := strings.Replace(addonIndexFixture, "\n]", `,
-  {"name": "nanokvm-openssl", "version": "3.6.0-r0"},
   {"name": "nanokvm-future-core", "version": "1.0-r0"}
 ]`, 1)
-	// Repository dependencies also identify core packages unknown to this
-	// server version.
 	input = strings.Replace(input, `"alpine-base"`, `"alpine-base", "nanokvm-future-core>=1.0-r0"`, 1)
 	stored, err := parseAddonIndex(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"nanokvm-openssl", "nanokvm-future-core"} {
-		for _, addon := range stored.Addons {
-			if addon.Name == name {
-				t.Errorf("system package %s saved as an add-on", name)
-			}
+	for _, addon := range stored.Addons {
+		if addon.Name == "nanokvm-future-core" {
+			t.Error("OS package saved as an add-on")
 		}
-		found := false
-		for _, core := range stored.Core {
-			if core == name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("system package %s missing from saved core list", name)
-		}
+	}
+	if !reflect.DeepEqual(stored.Core, []string{"nanokvm", "nanokvm-base", "nanokvm-future-core", "nanokvm-release", "nanokvm-web"}) {
+		t.Fatalf("core=%q", stored.Core)
 	}
 	if len(stored.Addons) != 2 {
 		t.Fatalf("real add-ons were lost: %+v", stored.Addons)
+	}
+}
+
+// The installed release decides with the index which packages are the OS: a
+// cached index of an older release lists an OS package added since as an
+// add-on, and a package the installed release moved out of the OS is an add-on
+// although this server's built-in list still names it.
+func TestAddonCatalogUsesInstalledRelease(t *testing.T) {
+	addonFixture(t, "P:nanokvm-release\nV:3.7.0-r0\nD:alpine-base nanokvm>=3.7.0-r0 nanokvm-openssl>=3.7.0-r0 nanokvm-web>=3.7.0-r0\n\n"+
+		"P:nanokvm-openssl\nV:3.7.0-r0\n\nP:nanokvm-i2c-tools\nV:3.7.0-r0\n\nP:nanokvm-web\nV:3.7.0-r0\n\n")
+	stored, err := parseAddonIndex(strings.Replace(addonIndexFixture, "\n]", `,
+  {"name": "nanokvm-openssl", "version": "3.6.0-r0"},
+  {"name": "nanokvm-i2c-tools", "version": "3.7.0-r0"}
+]`, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeStored(t, stored)
+	if IsInstalledAddon("nanokvm-openssl") || IsInstalledAddon("nanokvm-web") {
+		t.Fatal("an OS package of the installed release is removable as an add-on")
+	}
+	if _, err := AddonInstallSpec("nanokvm-openssl"); err == nil {
+		t.Fatal("an OS package of the installed release is installable as an add-on")
+	}
+	if !IsInstalledAddon("nanokvm-i2c-tools") {
+		t.Fatal("a package the installed release moved out of the OS is not an add-on")
 	}
 }
 

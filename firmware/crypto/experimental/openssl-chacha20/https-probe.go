@@ -120,7 +120,7 @@ func run() error {
 		args = append(args, "--limit-rate", strconv.Itoa(*rate))
 	}
 	cmd := exec.CommandContext(ctx, "/usr/bin/curl", args...)
-	cmd.Env = append(os.Environ(), "OPENSSL_CONF=/dev/null", "NANOKVM_OPENSSL_CHACHA20=auto")
+	cmd.Env = append(os.Environ(), "OPENSSL_CONF=/dev/null", "NANOKVM_OPENSSL_CHACHA20=auto", "NANOKVM_OPENSSL_GHASH=auto")
 	libs := *runtimeRoot + "/" + *profile + ":" + *runtimeRoot + "/candidate"
 	switch *profile {
 	case "base", "candidate", "ghash":

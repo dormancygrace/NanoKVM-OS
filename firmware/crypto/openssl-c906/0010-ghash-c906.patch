@@ -47,7 +47,7 @@ diff --git a/crypto/modes/build.info b/crypto/modes/build.info
 diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 --- /dev/null
 +++ b/crypto/modes/gcm_c906.c
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,114 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <stdint.h>
@@ -81,7 +81,9 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +static void detect_override(void)
 +{
 +    const char *option = secure_getenv("NANOKVM_OPENSSL_GHASH");
-+    disabled = option != NULL && strcmp(option, "generic") == 0;
++    /* A fatal seccomp rule cannot fall back after issuing prctl.
++     * Only qualified clients may opt into this syscall-bearing path. */
++    disabled = option == NULL || strcmp(option, "auto") != 0;
 +}
 +
 +static void scalar_key(u64 kp[112], u64 lo, u64 hi)

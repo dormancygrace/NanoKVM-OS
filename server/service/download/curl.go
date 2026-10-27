@@ -160,8 +160,10 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 // Preserve an explicit operator override (including generic/unknown values).
 func imageCurlEnv() []string {
 	env := os.Environ()
-	if _, set := os.LookupEnv("NANOKVM_OPENSSL_CHACHA20"); !set {
-		env = append(env, "NANOKVM_OPENSSL_CHACHA20=auto")
+	for _, name := range []string{"NANOKVM_OPENSSL_CHACHA20", "NANOKVM_OPENSSL_GHASH"} {
+		if _, set := os.LookupEnv(name); !set {
+			env = append(env, name+"=auto")
+		}
 	}
 	return env
 }

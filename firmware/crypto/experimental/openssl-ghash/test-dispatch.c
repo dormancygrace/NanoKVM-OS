@@ -40,14 +40,19 @@ static void reset(int capable, const char *opt, int ctl)
 int main(void)
 {
     u128 table[16]={{0}},copy[16]; u64 xi[2]={0}; u8 input[16400]={0};
-    reset(0,NULL,2); assert(ossl_gcm_c906_prefix(xi,table,input,16384)==0);
+    reset(0,"auto",2); assert(ossl_gcm_c906_prefix(xi,table,input,16384)==0);
     assert(!vector_calls && !scalar_calls && !controls);
     reset(1,"generic",2); assert(ossl_gcm_c906_prefix(xi,table,input,16384)==0);
+    assert(!controls);
+    reset(1,NULL,2); assert(ossl_gcm_c906_prefix(xi,table,input,16384)==0);
+    assert(!controls);
+    reset(1,"unknown",2); assert(ossl_gcm_c906_prefix(xi,table,input,16384)==0);
+    assert(!controls);
     for(int ctl=-1;ctl<2;ctl++) {
-        reset(1,NULL,ctl); assert(ossl_gcm_c906_prefix(xi,table,input,16384)==0);
+        reset(1,"auto",ctl); assert(ossl_gcm_c906_prefix(xi,table,input,16384)==0);
         assert(!vector_calls && !scalar_calls);
     }
-    reset(1,NULL,2);
+    reset(1,"auto",2);
     assert(ossl_gcm_c906_prefix(xi,table,input,3071)==0 && !controls);
     assert(ossl_gcm_c906_prefix(xi,table,input+5,3072)==3040);
     assert(vector_calls==1 && scalar_calls==4 && controls==1);

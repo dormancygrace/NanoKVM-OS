@@ -43,7 +43,8 @@ def main():
         subprocess.run(cmd,check=True);subprocess.run([str(exe)],check=True)
         if a.negative_control:
             for name, old, new in [('thread', 'control < 0 || (control & 3) != 2', 'control < -100'),
-                                   ('capability', '!ossl_riscv_has_xtheadvector', '0')]:
+                                   ('capability', '!ossl_riscv_has_xtheadvector', '0'),
+                                   ('opt-in', 'option == NULL || strcmp(option, "auto") != 0', '((void)option, 0)')]:
                 assert old in source
                 (temp/'gcm_c906.c').write_text(source.replace(old, new))
                 subprocess.run(cmd,check=True)

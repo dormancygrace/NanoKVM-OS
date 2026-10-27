@@ -173,3 +173,9 @@ ChaCha primitive together with 64-byte key generation and Poly1305 still won
 in isolation: the remaining loss depends on the full EVP caller context.
 A precise instruction-cache explanation has not been demonstrated. The 640-byte
 threshold is an empirical result, not a claim that the full cause is known.
+
+The native SSH test also caught a separate lazy-initialization issue: OpenSSL's
+`ossl_safe_getenv` uses UID/GID syscalls on musl, and OpenSSH's preauth filter
+kills `getgid`. The C906 wrapper uses musl `secure_getenv` directly, preserving
+secure-execution handling without those syscalls. The native seccomp regression
+now kills `getgid`/`getegid` as well as file/probe syscalls.

@@ -30,7 +30,13 @@ type monitorSettingsBackend struct {
 	followsRefresh    func() bool
 	apply             func(string) error
 	read              func() ([]byte, error)
+	// The receiver may be read at start: HDMI capture is not disabled.
+	readAtStart bool
 }
+
+// Set once a start found the receiver holding the recorded profile, or could
+// not read it: later starts of the same boot do not reset the receiver again.
+var monitorReceiverCheckedFile = "/run/nanokvm-monitor-edid-checked"
 
 func readMonitorEDIDLocked() ([]byte, error) { return GetKvmVision().ReadMonitorEDID() }
 
@@ -45,7 +51,7 @@ func ApplyMonitorSettings(update MonitorSettings) error {
 	return applyMonitorSettingsLocked(update, monitorSettingsBackend{
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
-		readMonitorEDIDLocked,
+		readMonitorEDIDLocked, false,
 	})
 }
 
@@ -59,19 +65,19 @@ var monitorDeferredFile = "/etc/kvm/monitor_edid_deferred"
 // so under a new system in the FHD video memory mode, and the capture refused
 // the input. Until a profile is recorded, which profile the receiver holds is
 // unknown. nanokvm_update_edid reads the EDID first and skips the flash write
-// when the profile is already installed. Once a profile is recorded, every start
-// reads the receiver and programs the saved profile again only when the
+// when the profile is already installed. Once a profile is recorded, the first
+// start of each boot reads the receiver and programs the saved profile again only when the
 // receiver holds another EDID (receiverHoldsLocked). It returns the programmed
 // profile, or "" when nothing was programmed. A Cube is checked
 // once instead and only reprogrammed when its receiver advertises modes it
 // cannot capture (checkCubeMonitorEDIDLocked).
-func ProgramMonitorProfileOnFirstStart() (string, error) {
+func ProgramMonitorProfileOnFirstStart(hdmiDisabled bool) (string, error) {
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()
 	return programMonitorProfileOnFirstStartLocked(monitorSettingsBackend{
 		requireMonitorHardwareLocked, portraitResolutionSupportedLocked,
 		MonitorRequiresPowerCycle, MonitorRefreshFollowsStream, applyMonitorProfileLocked,
-		readMonitorEDIDLocked,
+		readMonitorEDIDLocked, !hdmiDisabled,
 	}, BootedVideoPool())
 }
 
@@ -179,20 +185,36 @@ func retireStreamRateLocked() error {
 // source offered no QHD while QHD showed as selected. receiverHoldsLocked reads
 // the receiver (about 1 s on PCIe, with a receiver reset around the read) and
 // reports false when it holds another EDID, so that the saved profile is
-// programmed again. A failed read changes nothing.
+// programmed again. A failed read changes nothing. The read runs once per
+// boot, not at every restart of the server (an update of the app restarts
+// it), and never while HDMI capture is disabled: the read would release the
+// receiver from reset.
 func receiverHoldsLocked(hw monitorSettingsBackend, hash string) bool {
+	if !hw.readAtStart {
+		return true
+	}
+	if _, err := os.Stat(monitorReceiverCheckedFile); err == nil {
+		return true
+	}
+	checked := func() {
+		if err := os.WriteFile(monitorReceiverCheckedFile, nil, 0600); err != nil {
+			log.Warnf("cannot record the HDMI receiver EDID check: %v", err)
+		}
+	}
 	edid, err := hw.read()
 	if err == nil && !edidValid(edid) {
 		err = errors.New("invalid EDID header or checksum")
 	}
 	if err != nil {
 		log.Warnf("cannot check the HDMI receiver EDID: %v", err)
+		checked()
 		return true
 	}
 	// The copy is 256 bytes; a one-block profile file is 128.
 	sum := sha256.Sum256(edid[:(int(edid[126])+1)*128])
 	held := hex.EncodeToString(sum[:])
 	if held == hash {
+		checked()
 		return true
 	}
 	name := "an EDID that is not a NanoKVM profile"

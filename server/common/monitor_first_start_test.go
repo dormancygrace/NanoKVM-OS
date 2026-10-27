@@ -24,7 +24,8 @@ func firstStartBackend(hardware, powerCycle bool, applied *[]string, fail error)
 			*applied = append(*applied, path)
 			return fail
 		},
-		read: func() ([]byte, error) { return heldEDID(), nil },
+		read:        func() ([]byte, error) { return heldEDID(), nil },
+		readAtStart: true,
 	}
 }
 
@@ -191,6 +192,36 @@ func TestFirstStartChecksTheReceiver(t *testing.T) {
 				t.Fatalf("reported %q, applied %v", path, applied)
 			}
 		})
+	}
+}
+
+// The receiver is read once per boot: a restart of the server in the same boot
+// does not reset it again, unless the last read found another EDID (the next
+// start confirms the write). With HDMI capture disabled it is never read.
+func TestFirstStartReadsTheReceiverOncePerBoot(t *testing.T) {
+	monitorState(t, 1080, false, 1920)
+	selectBoard(t, "pcie", "ux")
+	recordHeld(t)
+	var applied []string
+	reads := 0
+	hw := firstStartBackend(true, false, &applied, nil)
+	held := testEDID(1920, 160, 1080, 53, 23550, 16)
+	hw.read = func() ([]byte, error) { reads++; return held, nil }
+	hw.apply = func(path string) error { applied = append(applied, path); held = heldEDID(); return nil }
+	for i := 0; i < 3; i++ {
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if reads != 2 || len(applied) != 1 {
+		t.Fatalf("reads %d, applied %v", reads, applied)
+	}
+	if err := os.Remove(monitorReceiverCheckedFile); err != nil {
+		t.Fatal(err)
+	}
+	hw.readAtStart = false
+	if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 2 {
+		t.Fatalf("HDMI disabled: error %v, reads %d", err, reads)
 	}
 }
 

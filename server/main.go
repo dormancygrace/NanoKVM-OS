@@ -138,7 +138,7 @@ func initialize(stopMemory context.CancelFunc) {
 			logrus.Errorf("failed to retire the Windows pointer profile: %v", err)
 		}
 		// After a fit the profile is recorded and this does nothing.
-		if path, err := common.ProgramMonitorProfileOnFirstStart(); err != nil {
+		if path, err := common.ProgramMonitorProfileOnFirstStart(utils.IsHdmiDisabled()); err != nil {
 			logrus.Errorf("failed to program the monitor profile on the first start: %v", err)
 		} else if path != "" {
 			logrus.Infof("programmed the monitor profile %s on the first start", path)

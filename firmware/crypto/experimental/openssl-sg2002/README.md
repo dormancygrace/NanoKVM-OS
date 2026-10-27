@@ -34,3 +34,9 @@ ENOENT/EACCES and incompatible requests, while EMFILE/EINTR remain retryable.
 Descriptors remain operation-owned, so no descriptor cache or new userspace
 lock crosses fork or provider unload. RUN errors still detect a replacement
 or poisoned driver and preserve software fallback.
+
+Native integration was rechecked on the restricted-ISA, secure-environment
+stack: DMA on/off and software fallback pass 864 SHA, 288 CTR, 408 AEAD and
+2160 extended GCM cases per mode. A private OpenSSH preauth sandbox exercises
+permission-denied device access without killing the process. Algorithm-specific
+throughput and context-size measurements remain in the corresponding reports.

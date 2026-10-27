@@ -1,34 +1,32 @@
 # OpenSSL SG2002 SHA-224/256 qualification
 
-`0003-sha256-dma.patch` offloads complete 4 KiB SHA-256 compression chunks via
-the common direct ioctl transport. SHA-224 shares this compression function,
-with its own initial state and output length. OpenSSL retains streaming state,
-message length, padding and final output. Short blocks, missing hardware and
-unfinished chunks continue through the original software implementation.
-The FIPS module is excluded. No ENGINE or cryptodev path is used.
+`0003-sha256-dma.patch` adds the C906 scalar SHA-256 compression adapter and
+uses direct CryptoDMA for complete compression batches starting at 4096 bytes.
+SHA-224 shares the compressor. OpenSSL retains streaming, length, padding,
+initial values and final output. Only completed chunks update chaining state;
+absent hardware or partial failure continues in software. FIPS is excluded.
+No ENGINE or cryptodev is used, and `SHA256_CTX` remains 112 bytes.
 
-The initial 4096-byte minimum is a conservative **candidate**, pending native
-measurement including device-open/capability costs. A request failure after
-successful chunks commits only their chaining state and hashes the remainder
-in software. No hash output buffer or extra persistent digest state is added.
+The GNU adapter comes from the separate BSD Go C906 core. It preserves six
+callee-saved registers and wipes its 64-byte schedule in a 112-byte frame.
+A same-layout control replacing three dispatch bytes with the upstream C path
+measured about 10–13% better compression throughput. This does not establish a
+whole-library small-message gain: the patched 1–128-byte EVP results remained
+slower than the separate base library. Small-message speedups are not claimed.
 
-Validation completed:
+Historical threshold-selection runs measured 4 KiB DMA at 42.80 versus
+19.64 MiB/CPU-s upstream. `native-scalar-results.jsonl` and
+`native-measurement-identities.json` preserve the matched software comparison's
+actual binaries; these timings predate the restricted-ISA/sandbox-policy revision.
+The 4096-byte minimum remains a conservative measured choice, not a claim of
+fresh timing for every later binary.
 
-- Full OpenSSL 3.5.9 RISC-V cross-build.
-- `python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py`:
-  1920 host ASan/UBSan cases for SHA-224/256, every input offset, hardware
-  absent/first/later failures, exact software continuation and unchanged
-  OpenSSL buffering/length fields.
-- `verify.c`: 864 EVP streaming/context-copy/unaligned cases over SHA-1,
-  SHA-224 and SHA-256. Expected digest fingerprint `768fd5312ca481be`, independently
-  calculated with Python hashlib and confirmed by host OpenSSL. This helper
-  is ready for native baseline/candidate runs; it has not yet qualified DMA.
-- `bench.c NAME SECONDS`: process CPU, elapsed time and peak RSS across
-  64–16384 bytes, particularly around the hardware crossover.
+Verification: 1920 host ASan/UBSan fault-continuation cases cover offsets,
+first/later failures and unchanged buffering/length fields. Final restricted-ISA
+native integration passes the independent 864 SHA1/224/256 streaming, copy,
+unaligned and boundary cases with DMA on/off, generic and disabled-vector
+profiles. Digest fingerprint: `768fd5312ca481be`. The native data flow also
+passes real HTTPS downloads with SHA-256 file verification.
 
-Physical hardware correctness/counters, thresholds, RAM, concurrent video and
-comparison with our separate Go scalar SHA implementation remain pending.
-
-The same algorithm patch now includes a GNU ABI adapter of the BSD Go C906 SHA-256 compression core. XTheadBb builds use it below the 4 KiB DMA threshold and for software tails; other targets and FIPS keep upstream code. The generator preserves the used callee-saved registers and wipes the 64-byte schedule (112-byte frame).
-
-Physical C906, matched O3 builds, three rotated trials with DMA disabled: the first adapter passed all 864 SHA1/224/256 EVP cases. SHA-256 improved from 8.40 to 9.29 MiB/CPU-s at 64 bytes, 18.30 to 20.70 at 1 KiB, and 19.80 to 22.42 at 16 KiB. The final adapter removes saves of unused registers; final native regression remains pending. At 4 KiB the separate DMA candidate measured 42.80 MiB/CPU-s versus 19.64 upstream. SHA-224 shares the same compression implementation.
+`verify.c` checks the digest cases; `bench.c NAME SECONDS` reports CPU, wall
+and RSS across input sizes. `NANOKVM_OPENSSL_DMA=off` disables the hardware path.

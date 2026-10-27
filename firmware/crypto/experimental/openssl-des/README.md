@@ -1,22 +1,19 @@
 # OpenSSL SG2002 DES qualification
 
-`0006-des-dma.patch` enables DES ECB/CBC through the existing root-only SG2002
-ioctl, preserving the legacy provider, padding, streaming and software fallback.
-An eight-byte private raw-key field follows the existing context copy/clear-free
-lifecycle. The initial 1024-byte minimum is pending physical C906 measurement.
-Other DES modes retain their original software implementations.
+`0006-des-dma.patch` uses direct SG2002 DMA for complete ECB/CBC prefixes starting
+at 1536 bytes. OpenSSL retains buffering, padding, IV continuation and the
+original C906/O3 software below the minimum or after hardware absence/failure.
+No ENGINE, cryptodev or new software assembly implementation is introduced.
+The context grows from 328 to 336 bytes for the hardware key; output scratch is
+operation-local, not retained in each EVP context.
 
-The legacy module uses libc `secure_getenv` for the transport switch rather than
-an unexported libcrypto internal symbol. A full RISC-V OpenSSL 3.5.9 build passes
-without warnings; the legacy DSO has no unresolved private `ossl_*` symbols.
-The common transport patch already supplies this public environment API;
-its ASan/UBSan fault suite runs without applying later algorithm patches.
+Three rotated native threshold-selection trials and their original binary
+identities are retained in this directory. Those timings predate the later
+restricted-ISA/sandbox-policy changes and are not labelled as measurements of
+later builds. Upstream O3 software is retained for small inputs.
 
-`verify.c` is the shared native EVP verifier for 18 AES/DES/TDES/SM4 modes.
-It pins host OpenSSL's independent ciphertext fingerprint
-`a37680a0195705fb` and covers 1944 encrypt/decrypt cases with partial updates,
-context copies, unaligned/in-place buffers and guards. The host ASan/UBSan run
-passes. Native provider loading, EVP vectors, DMA counters, throughput and RAM
-measurements are pending; no speedup is claimed.
-
-Native C906: the integrated 1944-case block-mode test and upstream DES vectors pass. Three rotated trials found only a small gain at 1 KiB, but DES-CBC decryption at 1536 bytes reached 12.54 versus 8.86 MiB/CPU-s upstream; at 16 KiB, 49.95 versus 9.48. The measured DMA minimum is 1536 bytes. The O3 software core already unrolls all rounds and uses C906 extraction, rotate and indexed-load instructions; no replacement software implementation has been selected.
+Shared host ASan/UBSan tests cover continuation and 1944 independent EVP cases
+across 18 AES/DES/TDES block modes. Prior physical runs passed native legacy
+provider loading, all block cases, upstream DES vectors and hardware-counter
+checks. A final restricted-ISA full-stack native check is recorded separately
+when complete. These legacy algorithms are not selected for modern TLS.

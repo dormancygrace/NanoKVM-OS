@@ -195,6 +195,27 @@ transitions. It requires zero D writes and no internal E1 identity reads.
 Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
 fault, including no further IO after a failed attempt in the same generation.
 
+SD storage policy checks:
+
+- `python3 tests/test-storage-mount-policy.py`: real remount policy, existing
+  settings, failure warnings and the unavailable-data placeholder.
+- `python3 tests/test-storage-recovery-layout.py`: both recovery guards accept
+  legacy and aligned geometry and reject mixed or overlapping layouts.
+- `python3 tests/test-alpine-sd-image-boot.py`: MBR offsets, partition payloads,
+  FAT hidden-sector field and reading boot.sd at its offset in the full image.
+  Set `NANOKVM_TEST_F2FS_TOOLS` to a host f2fs-tools directory to use real
+  mkfs/sload/fsck instead of the default lightweight F2FS fixture.
+- `sudo python3 tests/test-alpine-firstboot-storage.py`: disposable 2 GiB loop
+  disk with aligned geometry; add `--legacy` to exercise the old geometry.
+  Both variants verify the second boot preserves data and reflashing handles
+  an old exFAT signature. This does not qualify the SG2002 Boot ROM; booting a
+  freshly flashed aligned image on hardware is a separate release gate.
+
+For decimal 1 GB first-boot coverage, run the disposable loop test with
+`--card-bytes 1000000000`, both with and without `--legacy`. It verifies data
+creation, full remaining capacity, preservation on the next boot and reflash.
+The non-root error suite also checks the 96 MiB floor and existing installations.
+
 The kernel build also runs `test-lz4-decompressor.py --source <patched-kernel-tree>`
 with and without `NANOKVM_SANITIZE=1`. Its constructed blocks cover short overlap
 distances, length extensions, partial decoding, external dictionaries, safe and

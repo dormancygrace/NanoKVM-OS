@@ -13,6 +13,15 @@ UENV = """# Read by U-Boot at every boot; other variables are ignored.
 #extraargs=
 """
 
+# All new partitions start on 4 MiB boundaries; sizes stay compatible with
+# the legacy 64 MiB boot and 768 MiB root. Existing cards are never moved.
+SECTOR_SIZE = 512
+BOOT_START = 8192       # 4 MiB
+BOOT_SECTORS = 131072   # 64 MiB
+ROOT_START = BOOT_START + BOOT_SECTORS
+ROOT_SECTORS = 1572864  # 768 MiB
+DATA_START = ROOT_START + ROOT_SECTORS
+
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--rootfs-archive',type=Path,required=True)
 p.add_argument('--fip',type=Path,required=True)
@@ -78,7 +87,7 @@ run(a.f2fs_tools/'sload.f2fs','-f',root,'-P','-t','/',rootimage)
 run(a.f2fs_tools/'fsck.f2fs','-f',rootimage)
 bootimage=out/'boot-partition.img'
 with bootimage.open('xb') as stream:stream.truncate(64*1024*1024)
-run(tool('mkfs.fat'),'--invariant','-F','16','-S','512','-s','4','-R','4','-n','boot',bootimage)
+run(tool('mkfs.fat'),'--invariant','-F','16','-S','512','-s','4','-R','4','-h',str(BOOT_START),'-n','boot',bootimage)
 files=out/'boot-files';files.mkdir()
 run('sh',bootset/'compose-fit',bootset,'detect',files/'boot.sd');shutil.copy2(a.fip,files/'fip.bin')
 (files/'uEnv.txt').write_text(UENV)
@@ -94,18 +103,19 @@ for name in ['wifi.sta','gt9xx']:(files/name).touch()
 for file in sorted(files.iterdir()):run(tool('mcopy'),'-i',bootimage,file,'::/'+file.name)
 run(tool('fsck.fat'),'-n',bootimage)
 mbr=bytearray(512);mbr[510:]=b'\x55\xaa'
-for index,kind,start,sectors in [(0,0x0c,1,131072),(1,0x83,131073,1572864)]:
+for index,kind,start,sectors in [(0,0x0c,BOOT_START,BOOT_SECTORS),(1,0x83,ROOT_START,ROOT_SECTORS)]:
     offset=446+16*index
     struct.pack_into('<B3sB3sII',mbr,offset,0,b'\xfe\xff\xff',kind,b'\xfe\xff\xff',start,sectors)
 image=out/('NanoKVM-OS-Image-'+a.image_version+'-apps-'+a.version+'.img')
 with image.open('xb') as dst:
     dst.write(mbr)
-    for source in [bootimage,rootimage]:
+    for start, source in [(BOOT_START,bootimage),(ROOT_START,rootimage)]:
+        dst.seek(start * SECTOR_SIZE)
         with source.open('rb') as src:shutil.copyfileobj(src,dst,4*1024*1024)
-assert image.stat().st_size==832*1024*1024+512
+assert image.stat().st_size==DATA_START * SECTOR_SIZE
 archive=out/(image.name+'.zip')
 with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:z.write(image,image.name)
-manifest={'version':a.version,**image_metadata,'kernel':release,'rootfs_archive_sha256':sha(a.rootfs_archive),'fip_sha256':sha(a.fip),'image_bytes':image.stat().st_size,'zip_bytes':archive.stat().st_size,'partitions':[{'number':1,'start':1,'sectors':131072,'filesystem':'FAT16'},{'number':2,'start':131073,'sectors':1572864,'filesystem':'F2FS'},{'number':3,'start':1705984,'sectors':'remaining SD capacity; created on first boot','filesystem':'exFAT'}]}
+manifest={'version':a.version,**image_metadata,'kernel':release,'rootfs_archive_sha256':sha(a.rootfs_archive),'fip_sha256':sha(a.fip),'image_bytes':image.stat().st_size,'zip_bytes':archive.stat().st_size,'partitions':[{'number':1,'start':BOOT_START,'sectors':BOOT_SECTORS,'filesystem':'FAT16'},{'number':2,'start':ROOT_START,'sectors':ROOT_SECTORS,'filesystem':'F2FS'},{'number':3,'start':DATA_START,'sectors':'remaining SD capacity; created on first boot','filesystem':'exFAT'}]}
 (out/'build-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 (out/'SHA256SUMS').write_text(''.join(sha(x)+'  '+x.name+'\n' for x in [image,archive,out/'build-manifest.json']))
 print(json.dumps(manifest,indent=2))

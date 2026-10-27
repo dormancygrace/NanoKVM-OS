@@ -80,12 +80,10 @@ read_sector_field() {
 }
 
 validate_layout() {
-	[ "$(read_sector_field /sys/class/block/mmcblk0p2/start)" = 131073 ] ||
-		fail "unexpected p2 start"
 	[ "$(read_sector_field /sys/class/block/mmcblk0p2/size)" = 1572864 ] ||
 		fail "unexpected p2 size"
-	case "$(read_sector_field /sys/class/block/mmcblk0p3/start)" in
-		1705984|3180544) ;;
+	case "$(read_sector_field /sys/class/block/mmcblk0p2/start):$(read_sector_field /sys/class/block/mmcblk0p3/start)" in
+		131073:1705984|131073:3180544|139264:1712128) ;;
 		*) fail "unexpected p3 start" ;;
 	esac
 }

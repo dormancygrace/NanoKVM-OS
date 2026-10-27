@@ -162,10 +162,10 @@ check_recovery_layout() {
 		die "$BOOT_ROOT is not the boot partition (mmcblk0p1, vfat)"
 	mounted_as /dev/mmcblk0p3 "$DATA_ROOT" exfat ||
 		die "$DATA_ROOT is not the exFAT data partition (mmcblk0p3) that recovery reads"
-	[ "$(sector_field mmcblk0p2 start)" = 131073 ] && [ "$(sector_field mmcblk0p2 size)" = 1572864 ] ||
+	[ "$(sector_field mmcblk0p2 size)" = 1572864 ] ||
 		die "the root partition is not where recovery expects it"
-	case "$(sector_field mmcblk0p3 start)" in
-		1705984|3180544) ;;
+	case "$(sector_field mmcblk0p2 start):$(sector_field mmcblk0p3 start)" in
+		131073:1705984|131073:3180544|139264:1712128) ;;
 		*) die "the data partition is not where recovery expects it" ;;
 	esac
 }

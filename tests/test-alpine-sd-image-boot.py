@@ -3,7 +3,7 @@
 
 Host fixture only: a miniature boot set in the compact layout, stub f2fs tools
 and the host's mtools/dosfstools. Checks the FAT boot partition's boot.sd."""
-import hashlib, json, shutil, subprocess, tarfile, tempfile, unittest
+import hashlib, json, os, shutil, struct, subprocess, tarfile, tempfile, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +52,8 @@ class SdImageBootTests(unittest.TestCase):
                 stub = f2fs/name
                 stub.write_text('#!/bin/sh\nfor a; do last=$a; done\n[ -e "$last" ] || : > "$last"\n')
                 stub.chmod(0o755)
+            if os.environ.get('NANOKVM_TEST_F2FS_TOOLS'):
+                f2fs = Path(os.environ['NANOKVM_TEST_F2FS_TOOLS'])
             fip = tmp/'fip.bin'
             fip.write_bytes(b'fip')
             out = tmp/'out'
@@ -73,6 +75,29 @@ class SdImageBootTests(unittest.TestCase):
             for key, value in expected.items():
                 self.assertEqual(manifest[key], value)
             self.assertTrue((out/'NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip').is_file())
+            image = out/'NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img'
+            bootimage = out/'boot-partition.img'
+            with image.open('rb') as disk:
+                mbr = disk.read(512)
+                self.assertEqual(mbr[510:], b'\x55\xaa')
+                for i, start, size, payload in [(0, 8192, 131072, bootimage),
+                                                 (1, 139264, 1572864, out/'rootfs.f2fs')]:
+                    self.assertEqual(struct.unpack_from('<II', mbr, 446 + 16*i + 8), (start, size))
+                    self.assertEqual(start % 8192, 0)
+                    disk.seek(start * 512)
+                    with payload.open('rb') as partition:
+                        self.assertEqual(disk.read(4096), partition.read(4096))
+                self.assertEqual(mbr[478:510], bytes(32))  # p3 is made on the card
+            self.assertEqual(image.stat().st_size, 836 * 1024 * 1024)
+            self.assertEqual(manifest['partitions'][2]['start'], 1712128)
+            # Check the real FAT at its offset inside the final disk, not just
+            # the separately generated partition file.
+            final_boot = tmp/'final-boot.sd'
+            subprocess.run(['mcopy', '-i', str(image) + '@@4194304', '::/boot.sd', str(final_boot)], check=True)
+            self.assertEqual(final_boot.read_bytes(), COMPOSED)
+            with bootimage.open('rb') as fat:
+                self.assertEqual(struct.unpack_from('<I', fat.read(64), 28)[0], 8192)
+
 
 
 if __name__ == '__main__':

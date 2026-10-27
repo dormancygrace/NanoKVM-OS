@@ -2697,6 +2697,84 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
     return copied;
 }
 
+/*
+ * One picture of the screen as 8-bit B, G and R planes for the TPU models,
+ * whose input layout this is: no JPEG and no colour conversion on the CPU.
+ * Capture outputs hold VPSS channels 0 and 1 (MMF_VI_MAX_CHN), so channel 2
+ * (up to 1920 wide) serves the picture for the length of the call: it is set
+ * up here, disabled as soon as it has delivered, and its pool destroyed.
+ * Video read straight from the VI may have left the VI unbound from VPSS; it
+ * is bound for the call and unbound again. The capture owner serializes calls.
+ */
+#define MMF_PICTURE_CHN 2
+int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int timeout_ms)
+{
+	const int chn = MMF_PICTURE_CHN;
+	if (width < 16 || height < 16 || width > 1920 || height > 1920 || width % 2 || height % 2
+		|| !out || size < (size_t)width * height * 3) return -1;
+	if (!priv.mmf_used_cnt || !priv.vi_is_inited) return -2;
+	VPSS_CHN_ATTR_S attr = {};
+	attr.u32Width = width;
+	attr.u32Height = height;
+	attr.enVideoFormat = VIDEO_FORMAT_LINEAR;
+	attr.enPixelFormat = PIXEL_FORMAT_BGR_888_PLANAR;
+	attr.stFrameRate.s32SrcFrameRate = -1;
+	attr.stFrameRate.s32DstFrameRate = -1;
+	attr.u32Depth = 1;
+	attr.bMirror = !g_priv.vi_hmirror[0];
+	attr.bFlip = !g_priv.vi_vflip[0];
+	attr.stAspectRatio.enMode = ASPECT_RATIO_NONE; // the whole screen, to the size asked
+	attr.stNormalize.bEnable = CVI_FALSE;
+	VPSS_CROP_INFO_S crop = {};
+	crop.bEnable = CVI_FALSE;
+	if (CVI_VPSS_SetChnAttr(0, chn, &attr) != CVI_SUCCESS || CVI_VPSS_SetChnCrop(0, chn, &crop) != CVI_SUCCESS)
+		return -1;
+	const uint32_t bytes = COMMON_GetPicBufferSize(width, height, PIXEL_FORMAT_BGR_888_PLANAR,
+		DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
+	const int pool = _create_vb_pool(bytes, 2);
+	if (pool < 0) {
+		note_video_memory(true);
+		return -1;
+	}
+	const bool was_bound = priv.vi_source_bound;
+	int result = -1;
+	if (CVI_VPSS_AttachVbPool(0, chn, pool) == CVI_SUCCESS && _mmf_vi_bind_vpss(true) == CVI_SUCCESS
+		&& CVI_VPSS_EnableChn(0, chn) == CVI_SUCCESS) {
+		VIDEO_FRAME_INFO_S frame = {};
+		result = CVI_VPSS_GetChnFrame(0, chn, &frame, timeout_ms) == CVI_SUCCESS ? 0 : -3;
+		CVI_VPSS_DisableChn(0, chn);
+		if (result == 0) {
+			const VIDEO_FRAME_S &v = frame.stVFrame;
+			const uint64_t total = (uint64_t)v.u32Length[0] + v.u32Length[1] + v.u32Length[2];
+			const bool layout = (int)v.u32Width == width && (int)v.u32Height == height && v.u64PhyAddr[0]
+				&& v.u64PhyAddr[1] == v.u64PhyAddr[0] + v.u32Length[0]
+				&& v.u64PhyAddr[2] == v.u64PhyAddr[1] + v.u32Length[1]
+				&& v.u32Stride[0] >= (CVI_U32)width && v.u32Stride[1] >= (CVI_U32)width
+				&& v.u32Stride[2] >= (CVI_U32)width;
+			// CVI_SYS_MmapCache invalidates the newly mapped range.
+			uint8_t *mapped = layout ? (uint8_t *)CVI_SYS_MmapCache(v.u64PhyAddr[0], total) : NULL;
+			if (mapped) {
+				const uint8_t *plane = mapped;
+				for (int c = 0; c < 3; ++c) {
+					for (int y = 0; y < height; ++y)
+						memcpy(out + ((size_t)c * height + y) * width, plane + (size_t)y * v.u32Stride[c], width);
+					plane += v.u32Length[c];
+				}
+				CVI_SYS_Munmap(mapped, total);
+			} else {
+				result = -1;
+			}
+			CVI_VPSS_ReleaseChnFrame(0, chn, &frame);
+		}
+	} else {
+		CVI_VPSS_DisableChn(0, chn);
+	}
+	CVI_VPSS_DetachVbPool(0, chn);
+	if (!was_bound) _mmf_vi_bind_vpss(false);
+	_destroy_vb_pool(pool);
+	return result;
+}
+
 int mmf_vi_input_fps(void) {
 	VI_CHN_STATUS_S status = {};
 	if (CVI_VI_QueryChnStatus(0, 0, &status) != CVI_SUCCESS || !status.bEnable) return 0;

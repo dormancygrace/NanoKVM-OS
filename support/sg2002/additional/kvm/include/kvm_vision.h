@@ -95,6 +95,11 @@ int kvmv_set_capture_parked(uint8_t parked);
 // Whether disabled VPSS outputs still own pools awaiting reclamation.
 int kvmv_capture_reclaim_pending(void);
 
+/* One picture of the screen, scaled by VPSS to width x height (even, at most
+   1920 wide), as 8-bit B, G and R planes one after the other: the input
+   layout of the TPU models. 0, or < 0 when there is no capture or picture. */
+int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size);
+
 #ifdef __cplusplus
 }
 #endif

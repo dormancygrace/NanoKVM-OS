@@ -1,0 +1,3 @@
+# NAME SHA256 URL (PaddleOCR, Apache-2.0)
+det.tar 50446e5d01ac2a73d5319c89513281f6578414c888c602f9af13f93feefffc58 https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv5_mobile_det_infer.tar
+rec.tar b9f70da0ca2bbc4d4cb7ba406a2d023061178437d6a930f07c8ca18c6c591839 https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/eslav_PP-OCRv5_mobile_rec_infer.tar

@@ -2106,6 +2106,14 @@ static int set_capture_parked_locked(bool parked)
     }, [](bool enabled) { return cam->set_enabled(enabled); });
 }
 
+int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size)
+{
+    pthread_mutex_lock(&vi_mutex);
+    const int result = mmf_read_bgr_planar(width, height, out, size, 1000);
+    pthread_mutex_unlock(&vi_mutex);
+    return result;
+}
+
 int kvmv_set_capture_parked(uint8_t parked)
 {
     pthread_mutex_lock(&vi_mutex);

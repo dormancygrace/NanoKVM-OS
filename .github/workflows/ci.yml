@@ -145,6 +145,11 @@ jobs:
           python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
       - name: Log XTheadVector instruction encodings
         run: python3 tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
+      - name: OpenSSL C906 ChaCha dispatch
+        run: |
+          sudo apt-get install -y libssl-dev
+          python3 firmware/crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
+          python3 firmware/crypto/experimental/openssl-chacha20/test-dispatch.py --negative-control
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade

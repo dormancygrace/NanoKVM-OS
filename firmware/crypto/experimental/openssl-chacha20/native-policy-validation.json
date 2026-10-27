@@ -1,0 +1,67 @@
+{
+  "implementation_commit": "6ce28df8c83bbd2f7097fa7eb7e9def7e4ba8041",
+  "libraries": {
+    "production": "6af139e8a8dee9e88e36b7e09a6e5a5ca3d4b001f36da4c8ab14151e1581ca5d",
+    "instrumented": "7b0f2ccdde49f6e98085e3862465f40097d0bc37bb739377b7967647f5ad087d",
+    "patch": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+  },
+  "base_libcrypto_sha256": "4b34b5e722fdfca0d52b1ef334de415abae83db27dec4ba85feb5bc0f5bc164d",
+  "trials": 6,
+  "device": "physical 1 GHz SG2002 C906, active video",
+  "component_controls": "same candidate binary; auto vs offx (equal-length); per-process ASLR disabled",
+  "https": {
+    "base": {
+      "cpu_seconds": 1.47819,
+      "wall_seconds": 4.509081242500001,
+      "maxrss_kib": 8228.0,
+      "anonymous_kib": [
+        2288,
+        2292
+      ],
+      "rss_range": [
+        8136,
+        8244
+      ],
+      "swap_kib": [
+        516
+      ],
+      "swap_pss_kib": [
+        0
+      ]
+    },
+    "candidate": {
+      "cpu_seconds": 1.2517265,
+      "wall_seconds": 4.4174302125,
+      "maxrss_kib": 8204.0,
+      "anonymous_kib": [
+        2288
+      ],
+      "rss_range": [
+        8136,
+        8252
+      ],
+      "swap_kib": [
+        76
+      ],
+      "swap_pss_kib": [
+        0
+      ]
+    }
+  },
+  "native_validation": {
+    "raw_cases": 1680,
+    "actual_assembly_entries": "enabled at >=640; absent below threshold/generic/vector-off",
+    "thread_cases": "independent vector-off/on threads and exec inheritance",
+    "seccomp": "after provider load: fatal opens/hwprobe/getgid/getegid; prctl allowed/errno-denied; fresh exec default policy also permits fatal prctl filter",
+    "aead_cases": 408,
+    "production_dynamic_definitions": 5808,
+    "test_exports_in_production": false
+  },
+  "limitations": [
+    "Historical threshold320 and Poly1305 comparisons use their recorded earlier library hashes.",
+    "Small full-build AEAD measurements regress; no small-record improvement claimed.",
+    "Tmpfs mapped-library pages may be swapped: SwapPss is zero for all curl samples; RSS ranges overlap. No RSS saving claimed.",
+    "No causal instruction-cache proof for the lower-threshold AEAD regression.",
+    "No FPS improvement inferred from the download experiment."
+  ]
+}

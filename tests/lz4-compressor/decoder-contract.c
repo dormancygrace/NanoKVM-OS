@@ -6,10 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #define LIMIT 16384
 struct api {
     void *dl;
     int (*safe)(const char *, char *, int, int);
+    int (*reference)(const char *, char *, int, int);
     int (*partial)(const char *, char *, int, int, int);
     int (*dict)(const char *, char *, int, int, const char *, int);
     int (*fast)(const char *, char *, int);
@@ -20,7 +23,7 @@ struct api {
 };
 static uint64_t checks, cases;
 static const char *library;
-static int off, ml, dict_mode, tail;
+static int off, ml, dict_mode, tail = 12;
 #define CHECK(x)                                                                                   \
     do {                                                                                           \
         checks++;                                                                                  \
@@ -54,7 +57,9 @@ static int block(int prefix, int match, int offset, int *length) {
         int pos = prefix + i, from = pos - offset;
         expected[pos] = offset == 0 ? 0 : from < 0 ? dictionary[4096 + from] : expected[from];
     }
-    input[p++] = tail << 4;
+    input[p++] = (tail < 15 ? tail : 15) << 4;
+    if (tail >= 15)
+        extension(tail - 15, &p);
     for (int i = 0; i < tail; i++)
         input[p++] = expected[prefix + match + i] = (unsigned char)(0xa0 + i);
     *length = prefix + match + tail;
@@ -149,6 +154,131 @@ static void one(struct api *a) {
         guards(cap);
     }
 }
+static int literal_block(int length) {
+    int p = 0;
+    input[p++] = (length < 15 ? length : 15) << 4;
+    if (length >= 15)
+        extension(length - 15, &p);
+    for (int i = 0; i < length; i++)
+        input[p++] = expected[i] = (unsigned char)(length * 19 + i * 29);
+    return p;
+}
+
+/* The terminal copy must retain memmove semantics in either direction. */
+static void short_literals(struct api *a) {
+    unsigned char original[256], want[256], got[256];
+    off = ml = dict_mode = 0;
+    for (tail = 0; tail <= 64; tail++) {
+        int n = literal_block(tail);
+        for (int shift = -32; shift <= 32; shift++) {
+            memset(original, 0xcc, sizeof(original));
+            memcpy(original + 96, input, n);
+            memcpy(want, original, sizeof(want));
+            memcpy(want + 96 + shift, expected, tail);
+            memcpy(got, original, sizeof(got));
+            CHECK(a->safe((char *)got + 96, (char *)got + 96 + shift, n, tail) == tail);
+            CHECK(!memcmp(got, want, sizeof(got)));
+        }
+    }
+}
+
+/* Successful full decodes must match the retained generic full decoder.
+ * The partial API is not an oracle for malformed offset-zero blocks: even
+ * zeroed destinations can contain speculative literal copies at the match
+ * position, and partial mode deliberately skips offset-zero initialization.
+ * Negative error codes need not be identical between decoder versions. */
+static int differential(struct api *a, const unsigned char *src,
+                        unsigned char *dst, int n, int capacity) {
+    unsigned char reference[LIMIT];
+    CHECK(capacity >= 0 && capacity <= LIMIT);
+    memset(dst, 0, capacity);
+    memset(reference, 0, capacity);
+    int got = a->safe((const char *)src, (char *)dst, n, capacity);
+    CHECK(got < 0 || got <= capacity);
+    if (got < 0)
+        return 0;
+    int other = a->reference((const char *)src, (char *)reference, n, capacity);
+    CHECK(other == got);
+    CHECK(!memcmp(dst, reference, got));
+    return 1;
+}
+
+/* Read and write limits sit directly against inaccessible pages. */
+static void guarded(struct api *a) {
+    size_t page = (size_t)sysconf(_SC_PAGESIZE), span = LIMIT;
+    unsigned char *src = mmap(NULL, span + 2 * page, PROT_NONE,
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    unsigned char *dst = mmap(NULL, span + 2 * page, PROT_NONE,
+                              MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    CHECK(src != MAP_FAILED && dst != MAP_FAILED);
+    CHECK(mprotect(src + page, span, PROT_READ | PROT_WRITE) == 0);
+    CHECK(mprotect(dst + page, span, PROT_READ | PROT_WRITE) == 0);
+    dict_mode = 0;
+    int matches[] = {4, 7, 8, 18, 19, 31, 32, 63, 64, 255, 256, 4096};
+    for (off = 0; off <= 32; off++)
+        for (unsigned j = 0; j < sizeof(matches) / sizeof(matches[0]); j++)
+            for (tail = 5; tail <= 96; tail++) {
+                ml = matches[j];
+                if (ml + tail < 12)
+                    continue;
+                int length, n = block(off ? off : 16, ml, off, &length);
+                unsigned char *in = src + page + span - n;
+                unsigned char *out = dst + page + span - length;
+                memcpy(in, input, n);
+                CHECK(a->safe((char *)in, (char *)out, n, length) == length);
+                CHECK(!memcmp(out, expected, length));
+            }
+    for (int length = 0; length <= 64; length++) {
+        int n = literal_block(length);
+        unsigned char *in = src + page + span - n;
+        unsigned char *out = dst + page + span - length;
+        memcpy(in, input, n);
+        CHECK(a->safe((char *)in, (char *)out, n, length) == length);
+        CHECK(!memcmp(out, expected, length));
+    }
+    uint32_t random = 0x9062026;
+    for (int i = 0; i < 10000; i++) {
+        random = random * 1664525U + 1013904223U;
+        int n = (int)(random % 512), cap = (int)((random >> 9) % 4097);
+        unsigned char *in = src + page + span - n;
+        unsigned char *out = dst + page + span - cap;
+        for (int j = 0; j < n; j++) {
+            random = random * 1664525U + 1013904223U;
+            in[j] = (unsigned char)(random >> 24);
+        }
+        differential(a, in, out, n, cap);
+    }
+    unsigned accepted = 0;
+    /* Mutating valid blocks reaches substantially more successful paths than
+     * arbitrary random bytes: literal/match/extension changes and truncation. */
+    for (int i = 0; i < 20000; i++) {
+        random = random * 1664525U + 1013904223U;
+        off = (int)(random % 33);
+        ml = 7 + (int)((random >> 6) % 2048);
+        tail = 5 + (int)((random >> 18) % 92);
+        int length, n = block(off ? off : 16, ml, off, &length);
+        int mode = i % 5;
+        if (mode == 1 || mode == 2) {
+            int at = (int)((random >> 4) % (unsigned)n);
+            input[at] ^= mode == 1 ? (1U << ((random >> 24) % 8)) : 0xff;
+        } else if (mode == 3) {
+            n -= (int)((random >> 5) % (unsigned)n);
+        }
+        int cap = mode == 4 ? (int)(random % (unsigned)(length + 32)) : length;
+        unsigned char *in = src + page + span - n;
+        unsigned char *out = dst + page + span - cap;
+        memcpy(in, input, n);
+        accepted += differential(a, in, out, n, cap);
+    }
+    CHECK(accepted >= 4000);
+    printf("Differential accepted mutated/valid blocks=%u\n", accepted);
+    CHECK(a->safe(NULL, (char *)dst + page, 1, 4096) < 0);
+    CHECK(a->safe((char *)src + page, (char *)dst + page, -1, 4096) < 0);
+    CHECK(a->safe((char *)src + page, (char *)dst + page, 1, -1) < 0);
+    CHECK(munmap(src, span + 2 * page) == 0);
+    CHECK(munmap(dst, span + 2 * page) == 0);
+}
+
 static void malformed(struct api *a) {
     unsigned char bad[600];
     int capacity = 128;
@@ -206,23 +336,29 @@ int main(int argc, char **argv) {
         }
         LOAD(safe, "LZ4_decompress_safe");
         LOAD(partial, "LZ4_decompress_safe_partial");
+        LOAD(reference, "nanokvm_lz4_generic_full");
         LOAD(dict, "LZ4_decompress_safe_usingDict");
         LOAD(fast, "LZ4_decompress_fast");
         LOAD(fastdict, "LZ4_decompress_fast_usingDict");
         LOAD(set, "LZ4_setStreamDecode");
         LOAD(cont, "LZ4_decompress_safe_continue");
         LOAD(fastcont, "LZ4_decompress_fast_continue");
+        int tails[] = {5, 6, 7, 8, 9, 10, 11, 12, 64, 96, 255};
+        for (unsigned k = 0; k < sizeof(tails) / sizeof(tails[0]); k++) {
+            tail = tails[k];
+            for (dict_mode = 0; dict_mode < 2; dict_mode++)
+                for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++)
+                    for (unsigned j = 0; j < sizeof(lengths) / sizeof(lengths[0]); j++) {
+                        off = offsets[i];
+                        ml = lengths[j];
+                        if (ml + tail < 12 || (dict_mode && off == 0))
+                            continue;
+                        one(&a);
+                    }
+        }
         malformed(&a);
-        for (tail = 5; tail <= 12; tail++)
-        for (dict_mode = 0; dict_mode < 2; dict_mode++)
-            for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++)
-                for (unsigned j = 0; j < sizeof(lengths) / sizeof(lengths[0]); j++) {
-                    off = offsets[i];
-                    ml = lengths[j];
-                    if (ml + tail < 12 || (dict_mode && off == 0))
-                        continue;
-                    one(&a);
-                }
+        short_literals(&a);
+        guarded(&a);
         CHECK(dlclose(a.dl) == 0);
         printf("PASS %s cases=%" PRIu64 " checks=%" PRIu64 "\n", library, cases, checks);
         fflush(stdout);

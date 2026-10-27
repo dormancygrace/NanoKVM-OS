@@ -39,6 +39,7 @@ export const Fullscreen = () => {
   return (
     <Tooltip title={t('fullscreen.toggle')} placement="bottom" mouseEnterDelay={0.6}>
       <div
+        data-toolbar-control
         className="hidden h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white sm:flex"
         onClick={handleFullscreen}
       >

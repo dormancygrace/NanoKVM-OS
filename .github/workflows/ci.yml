@@ -106,7 +106,11 @@ jobs:
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
-          python3 ../../crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
+      - name: OpenSSL C906 ChaCha dispatch
+        run: |
+          sudo apt-get install -y libssl-dev
+          python3 firmware/crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
+          python3 firmware/crypto/experimental/openssl-chacha20/test-dispatch.py --negative-control
       - name: OpenSSL direct-DMA transport failure paths
         run: python3 firmware/crypto/experimental/openssl-sg2002/test-transport.py --negative-control
       - name: OpenSSL SHA-256 partial DMA continuation
@@ -162,7 +166,7 @@ jobs:
           set -e
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-bootloader-activation alpine-sd-image-boot alpine-network alpine-app-wait \
                    alpine-recovery-password alpine-recovery-settings alpine-firstboot-storage-errors alpine-check-volume alpine-service-deps board-selection usb-state capture-restart \
-                   s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start hdmi-sessions \
+                   s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start lt6911-probe hdmi-sessions \
                    mmf-light-link native-bundle-abi capture-colour-switch capture-output-snapshot monitor-edids edid-rgb-range video-pool-native nanokvm-service-stop net-probe server-supervisor oled-detect oled-ip-window wifi-ap-key platform-build kernel-panic-policy compare-outputs release-build release-build-tar apk-resign release-workflow release-storage next-release next-addon-revision addon-packages build-addon assemble-apk-repo package-versions \
                    portrait-edid wide-monitor-edids serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \
                    app-trigger keys-repository resource-trim rustdesk-c906-config stock-profile dhcp-options dhcpv6-stop s95-start-prelude ssh-rescue cache-cleanup tpu-lifetime trng usb-flags-migrate usb-layout-start memory-reclaim; do

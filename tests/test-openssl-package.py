@@ -77,9 +77,16 @@ def main():
         run('abuild', '-F', '-d', cwd=recipe, env=env)
         package = w / 'repo/recipes/riscv64/nanokvm-openssl-3.6.0-r0.apk'
         assert package.is_file()
+        release_env = {k: v for k, v in os.environ.items() if not k.startswith('V_nanokvm_')}
+        release_env['PKGVER'] = '3.6.0'
+        release_depends = run('sh', '-c', '. "$1"; printf "%s" "$depends"', 'sh',
+                              ROOT / 'firmware/alpine/packages/nanokvm-release/APKBUILD',
+                              env=release_env).split()
+        runtime_dependency = next(dep for dep in release_depends if dep.startswith('nanokvm-openssl'))
+        assert runtime_dependency.startswith('nanokvm-openssl>=3.6.0-r0'), runtime_dependency
         feeds = {}
         for version, dependency, channel in [('3.5.0-r0', 'openssl', 'stock'),
-                                              ('3.6.0-r0', 'nanokvm-openssl=3.6.0-r0', 'custom')]:
+                                              ('3.6.0-r0', runtime_dependency, 'custom')]:
             repo = w / channel
             repo.mkdir()
             run('apk', '--sign-key', key, 'mkpkg', '--info', 'name:nanokvm-release',
@@ -90,6 +97,31 @@ def main():
             index = repo / 'Packages.adb'
             run('apk', '--keys-dir', w, '--sign-key', key, 'mkndx', '--output', index, *repo.glob('*.apk'))
             feeds[channel] = index
+        # A signed repository with a strictly newer Alpine-style provider.
+        # The release's named nanokvm-openssl dependency, not r100 or provider
+        # priority, must keep the selected runtime in both install and upgrade.
+        major, minor, patch = map(int, upstream.split('.'))
+        future = f'{major}.{minor}.{patch + 1}-r0'
+        newer = w / 'newer-alpine'
+        newer.mkdir()
+        fixtures = (
+            ('libcrypto3', 'musl', 'so:libcrypto.so.3=3', 'usr/lib/libcrypto.so.3'),
+            ('libssl3', f'musl libcrypto3={future}', 'so:libssl.so.3=3', 'usr/lib/libssl.so.3'),
+            ('openssl', f'libcrypto3={future} libssl3={future}', f'cmd:openssl={future}', 'usr/bin/openssl'),
+        )
+        for name, depends, provides, filename in fixtures:
+            files = w / ('future-' + name)
+            payload = files / filename
+            payload.parent.mkdir(parents=True)
+            payload.write_text('Newer Alpine fixture\n')
+            run('apk', '--sign-key', key, 'mkpkg', '--files', files,
+                '--info', 'name:' + name, '--info', 'version:' + future,
+                '--info', 'arch:riscv64', '--info', 'depends:' + depends,
+                '--info', 'provides:' + provides, '--info', 'provider-priority:100',
+                '--output', newer / (name + '-' + future + '.apk'))
+        newer_index = newer / 'Packages.adb'
+        run('apk', '--keys-dir', w, '--sign-key', key, 'mkndx',
+            '--output', newer_index, *newer.glob('*.apk'))
         target = w / 'root'
         # The Docker host may be x86_64; riscv64 uses another official Alpine key.
         shutil.copytree('/usr/share/apk/keys', target / 'etc/apk/keys')
@@ -123,6 +155,32 @@ def main():
         # An ordinary full upgrade must not silently restore Alpine's copies.
         run(*base, 'upgrade', '--no-scripts')
         assert not stock & installed(target)
+        with (target / 'etc/apk/repositories').open('a') as repos:
+            repos.write(str(newer_index) + '\n')
+        run(*base, 'update')
+        transaction = run(*base, 'upgrade', '--no-scripts')
+        assert 'nanokvm-openssl' in installed(target) and not stock & installed(target), transaction
+        for name in ('usr/bin/openssl', 'usr/lib/libcrypto.so.3', 'usr/lib/libssl.so.3'):
+            assert (target / name).read_bytes() == (source / name).read_bytes()
+        # Do not misrepresent an older custom library as satisfying a newer ABI
+        # package version: conflicting development dependencies must fail.
+        for request in ('openssl=' + future, 'libcrypto3>=' + future):
+            rejected = subprocess.run([str(x) for x in [*base, 'add', '--simulate', request]],
+                                      capture_output=True, text=True)
+            assert rejected.returncode > 0, (request, rejected.stdout, rejected.stderr)
+        fresh = w / 'fresh'
+        shutil.copytree(target / 'etc/apk', fresh / 'etc/apk')
+        (fresh / 'etc/apk/world').unlink(missing_ok=True)
+        fresh_base = ['apk', '--root', fresh, '--arch', 'riscv64']
+        run(*fresh_base, 'add', '--initdb', '--no-scripts', 'openssl', 'nanokvm-release')
+        assert 'nanokvm-openssl' in installed(fresh) and not stock & installed(fresh)
+        # Control: without the release constraint, the same newer repository
+        # can replace the custom provider during an ordinary upgrade.
+        run(*fresh_base, 'del', '--no-scripts', 'nanokvm-release')
+        run(*fresh_base, 'upgrade', '--no-scripts')
+        assert stock <= installed(fresh) and 'nanokvm-openssl' not in installed(fresh)
+        assert (fresh / 'usr/bin/openssl').read_text() == 'Newer Alpine fixture\n'
+        print('PASS: newer Alpine provider cannot replace the release-pinned runtime; unconstrained control selects it')
         # A missing component in a broken newer index must not silently remove
         # a runtime which that release still requires. APK must reject atomically.
         before = {name: (target / name).read_bytes() for name in

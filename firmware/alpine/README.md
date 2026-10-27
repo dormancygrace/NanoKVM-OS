@@ -421,7 +421,7 @@ the currently deployed repository in place.
 
 The release and repository workflows no longer read `APK_RSA_KEY`. The signing
 policy is part of each core package's content fingerprint, so v3.4.0 rebuilds
-all thirteen core packages once; a previous RSA-signed package cannot be reused
+all core packages present in that release once; a previous RSA-signed package cannot be reused
 as the current release's package. Later releases resume ordinary content reuse.
 Historical RSA-signed files and their public key are retained for verification
 and rollback; no new RSA signature is created.

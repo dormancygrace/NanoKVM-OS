@@ -11,7 +11,6 @@ to x1, and the round-constant pointer moves from x1 into the frame.
 
 Outputs:
   --go FILE    Go assembly (keccakF1600C906), th.srri as WORD encodings
-  --gnu FILE   GNU assembly of the same code, for host/qemu differential tests
   --check FILE regenerate the Go output and compare it with FILE
 """
 import argparse

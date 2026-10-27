@@ -128,6 +128,7 @@ base  file  /usr/sbin/nkos-board-select                   0755  firmware/alpine/
 base  file  /usr/sbin/nkos-update                         0755  @server/nkos-update
 base  link  /usr/sbin/watchdog                            -     /sbin/watchdog
 base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox-LICENSE
+base  file  /usr/share/licenses/nanokvm-base/CRYPTOGAMS-LICENSE 0644 firmware/cpu/go-crypto-c906/CRYPTOGAMS-LICENSE
 
 # nanokvm: server, native libraries and the board service (app payload)
 app   file  /usr/share/nanokvm/usb-flags-layout            0644  kvmapp/system/usb-flags-layout
@@ -151,6 +152,7 @@ app   tree  /usr/share/licenses/nanokvm/native           0644  @native-licenses
 # Linked statically into NanoKVM-Server (server/internal/decompress).
 app   file  /usr/share/licenses/nanokvm/zlib-ng-LICENSE.md 0644 @tools/zlib-ng/LICENSE.md
 app   file  /usr/share/licenses/nanokvm/liblzma-COPYING.0BSD 0644 @tools/xz/COPYING.0BSD
+app   file  /usr/share/licenses/nanokvm/CRYPTOGAMS-LICENSE 0644 firmware/cpu/go-crypto-c906/CRYPTOGAMS-LICENSE
 web   tree  /kvmapp/server/web                            0644  @web
 web   file  /kvmapp/web-build-manifest.json                0644  %web-build-manifest.json
 app   file  /kvmapp/system/bin/usb-audio-capture          0755  @tools/usb-audio-capture

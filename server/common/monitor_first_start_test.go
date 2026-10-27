@@ -147,7 +147,7 @@ func TestFirstStartByReceiver(t *testing.T) {
 	}
 }
 
-// With a profile recorded, every start reads the receiver: the saved profile is
+// With a profile recorded but not yet verified, startup reads the receiver. The saved profile is
 // programmed again only when the receiver holds another EDID, and an unreadable
 // receiver is left alone. The LT6911D on PCIe is not read.
 func TestFirstStartChecksTheReceiver(t *testing.T) {
@@ -459,5 +459,56 @@ func TestCubeFirstStartRetriesIncompleteEDID(t *testing.T) {
 	}
 	if _, err := os.Stat(monitorEDIDCheckedFile); !os.IsNotExist(err) {
 		t.Fatal("incomplete EDID marked checked")
+	}
+}
+
+// A failed check must not become a durable confirmation. Restarts in the same
+// boot skip the read, but the next boot retries without rewriting an unknown EDID.
+func TestReceiverReadFailureRetriesNextBoot(t *testing.T) {
+	partial := append([]byte(nil), heldEDID()[:128]...)
+	badChecksum := append([]byte(nil), heldEDID()...)
+	badChecksum[20] ^= 1
+	for _, tc := range []struct {
+		name string
+		edid []byte
+		err  error
+	}{
+		{"read error", nil, errors.New("i2c failure")},
+		{"truncated extension", partial, nil},
+		{"bad checksum", badChecksum, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, 1080, false, 1920)
+			selectBoard(t, "pcie", "ux")
+			recordHeld(t)
+			if err := os.WriteFile(monitorSystemVersionFile, []byte("3.6.0\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var applied []string
+			hw := firstStartBackend(true, false, &applied, nil)
+			reads := 0
+			hw.read = func() ([]byte, error) { reads++; return tc.edid, tc.err }
+			for range 2 {
+				if path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || path != "" {
+					t.Fatalf("path %q, error %v", path, err)
+				}
+			}
+			if reads != 1 || len(applied) != 0 {
+				t.Fatalf("reads %d, writes %v", reads, applied)
+			}
+			if receiverVerifiedLocked(edidHash(heldEDID())) {
+				t.Fatal("failed read persisted as verified")
+			}
+			if err := os.Remove(monitorReceiverCheckedFile); err != nil {
+				t.Fatal(err)
+			}
+			hw.read = func() ([]byte, error) { reads++; return heldEDID(), nil }
+			if path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || path != "" {
+				t.Fatalf("path %q, error %v", path, err)
+			}
+			if reads != 2 || len(applied) != 0 || !receiverVerifiedLocked(edidHash(heldEDID())) {
+				t.Fatalf("next boot: reads %d, writes %v, verified %v", reads, applied, receiverVerifiedLocked(edidHash(heldEDID())))
+			}
+		})
 	}
 }

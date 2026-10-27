@@ -1,0 +1,76 @@
+{
+  "source_commit": "0c9a38a5254f78e0c5fdc136ce2a8afefbbcb2c9",
+  "libraries": {
+    "production": "db1a0776fc207c75e0f6cd2e5e15dd87b128ab6ff47e7b8cdbad1e4f60990c27"
+  },
+  "openssl_patches": [
+    {
+      "file": "0001-chacha20-c906.patch",
+      "sha256": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+    },
+    {
+      "file": "0002-sg2002-transport.patch",
+      "sha256": "0b9315799971cacaf92e306cf55920aab1af3b909f2997af3f450174145af899"
+    },
+    {
+      "file": "0003-sha256-dma.patch",
+      "sha256": "8a8ab6b8075a250eec9b88987223cd3ece7127cd9af2add2bd931098a888c31c"
+    },
+    {
+      "file": "0004-sha1-dma.patch",
+      "sha256": "def79f14653d6ea022d4964eb75fd67c899ed07e0c1960e9bf287a035c5a0636"
+    },
+    {
+      "file": "0005-aes-c906.patch",
+      "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+    },
+    {
+      "file": "0005-aes-dma.patch",
+      "sha256": "139baa77d2aa87c69a4410e401db1f064544c8c2d76784c74c0ce94e58b5c0f2"
+    },
+    {
+      "file": "0010-ghash-c906.patch",
+      "sha256": "6a3bf08b5031d48e2f40509a3bad7d293a4144a7392cc94a949d4a59077c88b1"
+    }
+  ],
+  "hardware": "physical SG2002 C906, 1 GHz, video active",
+  "timing_trials": 3,
+  "process_aslr": "disabled only for each benchmark child",
+  "controls": "same binary, auto vs offx (equal-length values); DMA yes vs off",
+  "contexts_bytes": {
+    "GCM128_CONTEXT": 448,
+    "PROV_AES_GCM_CTX": 984
+  },
+  "anonymous_growth_256_contexts_kib": 324,
+  "tests": {
+    "host_dispatch_asan_ubsan": "pass; thread/capability/opt-in and compile-guard negative controls",
+    "generator": "200 cases per primitive; 126 vector encodings",
+    "aead_cases_per_profile": 408,
+    "gcm_cases_per_profile": 2160,
+    "ctr_cases_per_profile": 288,
+    "sha_cases_per_profile": 864,
+    "native_profiles": [
+      "vector-sw",
+      "generic-sw",
+      "vector-dma",
+      "generic-dma",
+      "vector-off"
+    ],
+    "native_fingerprints": {
+      "gcm": "a2d7088437b53472",
+      "digests": "768fd5312ca481be",
+      "aes_tails": "bfe84c43ff49df11"
+    },
+    "sshd": "six normal authentication-failure responses, AES128/256-GCM and ChaCha20-Poly1305, 18/5011-byte usernames; preauth seccomp active",
+    "https": "five 16 MiB range downloads, TLS 1.2/1.3 AES128/256 plus TLS1.3 ChaCha, CA/length/SHA256 verified",
+    "aes_tail_cases_per_profile": 20736
+  },
+  "path_test_qualification": {
+    "source_commit": "5c50e393313ab885ee1e0c5958b76bb9b40dfdee",
+    "production": "5aec9143c69180d94f17c0ba07868c7f2cd17a44214fc211d052836cf99843cc",
+    "instrumented": "10472b8e1bd0ac04e042dbdc267f631d9c6fa932eb49ff884f5354f7d0818648",
+    "ghash_patch_sha256": "6a3bf08b5031d48e2f40509a3bad7d293a4144a7392cc94a949d4a59077c88b1",
+    "note": "The instrumented entry/negative-gate qualification remains valid for the unchanged GHASH patch; selected-stack timing, SSH, TLS and correctness were repeated after the AES parent changed."
+  },
+  "exports_count": 5808
+}

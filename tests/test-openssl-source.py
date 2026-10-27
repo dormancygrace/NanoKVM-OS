@@ -52,6 +52,8 @@ def main():
         if args.negative_control:
             command.append('--negative-control')
         subprocess.run(command, check=True)
+        command[1] = str(ROOT / 'firmware/crypto/experimental/openssl-ghash/test-arithmetic.py')
+        subprocess.run(command, check=True)
         print(f'PASS: {len(patches)} complete patches applied with zero fuzz to SHA-256-verified source')
 
 

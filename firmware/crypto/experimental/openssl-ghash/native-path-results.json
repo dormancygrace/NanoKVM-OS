@@ -1,0 +1,26 @@
+[
+  {
+    "option": "auto",
+    "vector_off": false,
+    "sandbox": false,
+    "result": "PASS 32 GHASH entry proofs; vector_enabled=1 actual_asm_hits=12\n"
+  },
+  {
+    "option": "generic",
+    "vector_off": false,
+    "sandbox": false,
+    "result": "PASS 32 GHASH entry proofs; vector_enabled=0 actual_asm_hits=0\n"
+  },
+  {
+    "option": "unset",
+    "vector_off": false,
+    "sandbox": true,
+    "result": "PASS 32 GHASH entry proofs; vector_enabled=0 actual_asm_hits=0\n"
+  },
+  {
+    "option": "auto",
+    "vector_off": true,
+    "sandbox": false,
+    "result": "PASS 32 GHASH entry proofs; vector_enabled=0 actual_asm_hits=0\n"
+  }
+]

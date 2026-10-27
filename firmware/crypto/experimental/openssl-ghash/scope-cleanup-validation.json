@@ -1,0 +1,90 @@
+{
+  "profile": "ghash-policy",
+  "source_revision_before_report": "a48ff8d184413f6ea04245243ecf6d795b19254e",
+  "patches": [
+    {
+      "file": "0001-chacha20-c906.patch",
+      "sha256": "18d9aa0ebb57052a2833607baeafe13f604763e872e7bed9e953d669b446d5b4"
+    },
+    {
+      "file": "0002-sg2002-transport.patch",
+      "sha256": "0b9315799971cacaf92e306cf55920aab1af3b909f2997af3f450174145af899"
+    },
+    {
+      "file": "0003-sha256-dma.patch",
+      "sha256": "8a8ab6b8075a250eec9b88987223cd3ece7127cd9af2add2bd931098a888c31c"
+    },
+    {
+      "file": "0005-aes-c906.patch",
+      "sha256": "6d8a3b2896bab6a375356945282c315372a18888607339298ad53387b3929f55"
+    },
+    {
+      "file": "0005-aes-dma.patch",
+      "sha256": "cb2d796bde7cf25052bf10692360d8ddee7dc44dbd6c7bb2bc25d9d3b262453d"
+    },
+    {
+      "file": "0010-ghash-c906.patch",
+      "sha256": "6a3bf08b5031d48e2f40509a3bad7d293a4144a7392cc94a949d4a59077c88b1"
+    }
+  ],
+  "libcrypto_sha256": "4cf64175fd389c7dc717ef558714ac5dee2e3925d4598148781e2b6b39d93609",
+  "libssl_sha256": "814c7e4aee61bc3c75adbdd4a069de2fce04beb8546bd7fb18ddc8acaa362db2",
+  "public_exports": 5808,
+  "no_sha1_offload_object": true,
+  "legacy_provider_has_no_sg2002_objects": true,
+  "zero_fuzz_patches": true,
+  "source_files_verified": 31,
+  "cpu_profile": {
+    "schema": 1,
+    "profile": "sg2002-c906-o2",
+    "kind": "openssl",
+    "compiler_family": "gcc",
+    "lto": "none",
+    "profile_sha256": "58540f3540904e6de09c65273cd6bf694401230caad96a8701d09c7ce5a56048",
+    "compiler_version": "16.2.0",
+    "compiler_target": "riscv64-buildroot-linux-musl",
+    "flags": [
+      "-O3",
+      "-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync",
+      "-mtune=thead-c906",
+      "-mabi=lp64d",
+      "-mno-fence-tso",
+      "-fno-tree-vectorize",
+      "-fno-tree-slp-vectorize",
+      "-mstringop-strategy=scalar",
+      "-g0",
+      "-fstack-protector-strong",
+      "-fstack-clash-protection",
+      "-Wformat",
+      "-Werror=format-security",
+      "-D_FORTIFY_SOURCE=2"
+    ],
+    "scope": "NanoKVM-built source objects; excludes stock Alpine and prebuilt vendor objects"
+  },
+  "schema": 1,
+  "purpose": "Restack GHASH on the AES-only parent based directly on SHA-256",
+  "ghash_patch_unchanged": true,
+  "host_checks": [
+    {
+      "name": "ghash-generator",
+      "rc": 0,
+      "seconds": 1.32,
+      "output": "GHASH assembly matches; 200 cases per primitive and vector encodings verified\n"
+    },
+    {
+      "name": "ghash-dispatch",
+      "rc": 0,
+      "seconds": 1.6,
+      "output": "PASS: hwprobe/override/thread gates, short input, temporary key and copied context dispatch\nPASS: C906 scalar-ISA integration guards, no-asm/FIPS exclusion\nPASS: removing the thread check is detected\nPASS: removing the capability check is detected\nPASS: removing the opt-in check is detected\n"
+    },
+    {
+      "name": "download",
+      "rc": 0,
+      "seconds": 5.35,
+      "output": "ok  \tNanoKVM-Server/service/download\t1.547s\n"
+    }
+  ],
+  "aes_parent_validation": "../openssl-aes/scope-cleanup-validation.json",
+  "native_checks_repeated_for_cleanup": false,
+  "native_reference": "validation.json retains pre-cleanup native source/library identities and raw results. GHASH patch, AES assembly, provider algorithms and thresholds are unchanged."
+}

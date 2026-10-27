@@ -30,10 +30,14 @@ disabled. Standard RVV 1.0 alone does not enable draft XTheadVector code.
 Inputs below the single `OSSL_CHACHA_C906_MIN_BYTES` threshold (640 bytes) use
 upstream code. Every eligible call checks the calling thread's vector permission
 with `PR_RISCV_V_GET_CONTROL`; the result is never cached across threads.
-A failed/denied query uses software. A seccomp policy must permit this query
-for acceleration; a policy that kills `prctl` cannot be handled by fallback.
-`NANOKVM_OPENSSL_CHACHA20=generic` disables this path for diagnosis and is ignored
-for privileged execution. It cannot force unsupported instructions.
+A failed query returning errno uses software. Fatal seccomp rules cannot be
+handled by fallback: acceleration therefore requires the explicit secure
+environment opt-in `NANOKVM_OPENSSL_CHACHA20=auto`. Missing, unknown or `generic`
+values retain upstream code without issuing the per-call query. Privileged
+execution ignores the opt-in. The image downloader enables it only for its
+qualified curl child and preserves explicit operator overrides. Other clients
+must qualify their syscall policy before opting in. The opt-in cannot force
+unsupported instructions or bypass the calling thread's vector permission.
 
 `NKOS_CHACHA_TEST` adds an atomic counter at the actual assembly entry and an
 accessor for a private test-library export map. Production builds omit both

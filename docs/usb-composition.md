@@ -43,6 +43,11 @@ hosts that reject the composite device, without network, storage or audio
 draft. Only additions that exceed either limit are disabled; already-selected
 functions can always be removed. Over-budget drafts cannot be applied.
 
+For UEFI setup menus that do not recognize the keyboard, disable USB network,
+serial console and audio while using those menus. HID with optional storage
+uses per-interface device classes; enabling any of those three functions
+requires the composite IAD class, which some firmware does not recognize.
+
 USB network and serial are **not mutually exclusive**. For example, keyboard +
 network + storage + serial uses 6 IN / 4 OUT. The interface no longer tells the
 user to disable USB network as a prerequisite for serial.

@@ -22,3 +22,11 @@ The v4.4.8 refresh sends the peer-reflexive type preference in Binding-request P
 The additional boundary test in tcp_mux_bounds_test.go covers 0, 1, 65535 and
 65536 bytes and checks that rejection writes nothing. The shared length guard
 also bounds the allocation size flagged by CodeQL in tcp_mux.go.
+
+TURN v5.1.3 validates the source of relayed data. The unconnected UDP socket
+opened by `ListenPacket` is exposed to TURN through `net.PacketConn` only, so
+its configured numeric server remains the source to validate. This avoids
+`vnet.UDPConn.RemoteAddr` returning a typed-nil `*net.UDPAddr` that otherwise
+overrides that server. Connected TCP/TLS/DTLS adapters retain `RemoteAddr`.
+The VNet regression checks trusted and untrusted sources and successful relay
+allocation; NAT connectivity tests have bounded connection waits.

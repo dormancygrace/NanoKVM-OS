@@ -1397,7 +1397,9 @@ func TestGatherCandidatesRelayRespectsNetworkTypeAndTransport(t *testing.T) { //
 						require.Empty(t, candidates)
 						require.True(t, client.closeCalled)
 						require.True(t, relayConn.closed)
-						controlConn, ok := client.cfgConn.(*stubPacketConn)
+						unconnectedConn, ok := client.cfgConn.(struct{ net.PacketConn })
+						require.True(t, ok)
+						controlConn, ok := unconnectedConn.PacketConn.(*stubPacketConn)
 						require.True(t, ok)
 						require.True(t, controlConn.closed)
 					}

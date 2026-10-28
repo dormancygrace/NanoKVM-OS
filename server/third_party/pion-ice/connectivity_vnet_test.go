@@ -182,21 +182,22 @@ func connectWithVNet(t *testing.T, aAgent, bAgent *Agent) (*Conn, *Conn) {
 
 	gatherAndExchangeCandidates(t, aAgent, bAgent)
 
-	accepted := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	accepted := make(chan error, 1)
 	var aConn *Conn
 
 	go func() {
 		var acceptErr error
-		aConn, acceptErr = aAgent.Accept(context.TODO(), bUfrag, bPwd)
-		require.NoError(t, acceptErr)
-		close(accepted)
+		aConn, acceptErr = aAgent.Accept(ctx, bUfrag, bPwd)
+		accepted <- acceptErr
 	}()
 
-	bConn, err := bAgent.Dial(context.TODO(), aUfrag, aPwd)
+	bConn, err := bAgent.Dial(ctx, aUfrag, aPwd)
 	require.NoError(t, err)
 
 	// Ensure accepted
-	<-accepted
+	require.NoError(t, <-accepted)
 
 	return aConn, bConn
 }

@@ -22,7 +22,7 @@ require (
 	github.com/pion/srtp/v3 v3.1.3
 	github.com/pion/stun/v4 v4.0.1
 	github.com/pion/transport/v5 v5.1.1
-	github.com/pion/turn/v5 v5.1.2
+	github.com/pion/turn/v5 v5.1.3
 	github.com/pion/webrtc/v4 v4.2.25
 	github.com/rs/cors/wrapper/gin v0.0.0-20261008204034-5d834403882d
 	github.com/sirupsen/logrus v1.10.2

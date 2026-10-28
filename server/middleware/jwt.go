@@ -19,6 +19,7 @@ const (
 	principalContextKey = "principal"
 	tokenContextKey     = "token"
 	CookieName          = "nano-kvm-token"
+	HTTPCookieName      = "nano-kvm-token-http"
 	sessionRecheckDelay = 5 * time.Second
 )
 
@@ -133,7 +134,13 @@ func authenticate(c *gin.Context) (Principal, *Token, bool) {
 	rawToken, supplied := bearerToken(c.GetHeader("Authorization"))
 	if !supplied {
 		var err error
-		rawToken, err = c.Cookie(CookieName)
+		name := SessionCookieName(c.Request)
+		rawToken, err = c.Cookie(name)
+		// Keep pre-upgrade HTTP sessions working, but never fall back from an
+		// invalid preferred cookie or accept the HTTP cookie over HTTPS.
+		if err == http.ErrNoCookie && name == HTTPCookieName {
+			rawToken, err = c.Cookie(CookieName)
+		}
 		if err != nil {
 			return Principal{}, nil, false
 		}
@@ -151,6 +158,17 @@ func authenticate(c *gin.Context) (Principal, *Token, bool) {
 		return Principal{}, nil, false
 	}
 	return Principal{Username: user.Username, Role: user.Role, MustChangePassword: user.MustChangePassword}, token, true
+}
+
+// SessionCookieName separates HTTP logins from HTTPS cookies: browsers refuse
+// to replace an existing Secure cookie from an HTTP response. Keep the original
+// name for HTTPS and for reading legacy HTTP sessions.
+func SessionCookieName(request *http.Request) string {
+	_, scheme := ExternalRequestAddress(request)
+	if scheme == "https" {
+		return CookieName
+	}
+	return HTTPCookieName
 }
 
 // bearerToken reports whether the caller supplied an Authorization header.

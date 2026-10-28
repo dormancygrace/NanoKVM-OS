@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Alert, Button, Card, Input, message, Modal, Select, Space, Spin, theme } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Input,
+  message,
+  Modal,
+  Select,
+  Space,
+  Spin,
+  theme,
+  Tooltip
+} from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getScreenText, getScreenTextSettings, type ScreenTextSettings } from '@/api/vm.ts';
@@ -55,6 +68,7 @@ export const ScreenTextOverlay = () => {
   const [region, setRegion] = useState<ScreenTextRegion>(wholeScreen);
   const [text, setText] = useState('');
   const [seconds, setSeconds] = useState(0);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const frameRef = useRef<RenderedMediaRect | null>(null);
@@ -242,7 +256,8 @@ export const ScreenTextOverlay = () => {
   async function copy() {
     try {
       await writeClipboardText(text);
-      message.success(t('screenText.copied'));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
     } catch {
       message.error(t('screenText.copyFailed'));
     }
@@ -276,27 +291,46 @@ export const ScreenTextOverlay = () => {
         width={720}
         onCancel={close}
         footer={
-          <Space wrap>
-            {languageSelect}
-            <Button onClick={() => void read(region, language)}>{t('screenText.again')}</Button>
-            <Button onClick={() => setPhase('select')}>{t('screenText.newArea')}</Button>
-            <Button type="primary" disabled={!text} onClick={() => void copy()}>
-              {t('screenText.copy')}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Space wrap>
+              {languageSelect}
+              <Button onClick={() => void read(region, language)}>{t('screenText.again')}</Button>
+              <Button onClick={() => setPhase('select')}>{t('screenText.newArea')}</Button>
+            </Space>
+            <Button
+              type="primary"
+              disabled={!text}
+              icon={copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+              onClick={() => void copy()}
+            >
+              {t(copied ? 'screenText.copied' : 'screenText.copy')}
             </Button>
-          </Space>
+          </div>
         }
       >
         {error ? (
           <Alert type="error" showIcon message={error} />
         ) : text ? (
           <Space direction="vertical" className="w-full">
-            <Input.TextArea
-              value={text}
-              readOnly
-              autoSize={{ minRows: 4, maxRows: 18 }}
-              className="font-mono"
-              onFocus={(event) => event.currentTarget.select()}
-            />
+            <div className="relative">
+              <Input.TextArea
+                value={text}
+                readOnly
+                autoSize={{ minRows: 4, maxRows: 18 }}
+                className="pr-10! font-mono"
+                onFocus={(event) => event.currentTarget.select()}
+              />
+              <Tooltip title={t(copied ? 'screenText.copied' : 'screenText.copy')}>
+                <Button
+                  type="text"
+                  size="small"
+                  aria-label={t('screenText.copy')}
+                  className="absolute! top-1.5 right-1.5"
+                  icon={copied ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
+                  onClick={() => void copy()}
+                />
+              </Tooltip>
+            </div>
             <span style={{ color: token.colorTextSecondary }}>
               {t('screenText.took', { seconds })}
             </span>

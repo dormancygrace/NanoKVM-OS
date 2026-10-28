@@ -62,14 +62,18 @@ progress indication on the LED or OLED. Diagnostic output is on the UART
 console; the last step or error is also saved in partition 3 as
 `.nanokvm-stock-install/status`. Board selection can require another reboot.
 
-**Recovery duration has not yet been measured on stock devices.** There is no
-qualified completion time or safe power-off timeout for this preview. Elapsed
-time, an unreachable UI or an unchanged display cannot tell you whether the
-card is being written. Keep power connected during migration. If UART shows
-that stock U-Boot cannot load the recovery FIT, use the
-[card-reader procedure](#restore-stock-boot-with-a-card-reader) below; it applies
-only before formatting starts. Timing measurements remain part of device
-qualification before installer publication.
+Allow the migration to finish with power connected. If the device remains
+unreachable after a generous wait, power it off and use the
+[card-reader procedure](#recover-with-a-card-reader), even without UART. The
+saved state on the card determines whether to restore stock or resume migration;
+you do not need to identify the interrupted stage before powering off. A power
+cut is normally recoverable, subject to the
+[storage failure limits](#card-transition-and-interruption-behavior) below.
+
+**A measured recovery duration and recommended waiting interval are installer
+release blockers.** They are not yet available for this development preview;
+host tests do not establish a device timeout. Elapsed time or an unchanged
+display alone cannot establish that rollback to stock is possible.
 
 ## Offline package
 
@@ -129,8 +133,10 @@ are fetched over HTTPS; this is not a separate digital-signature format.
 
 Installation runs independently of the SSH connection. Before reboot, its log
 is `/var/log/nanokvm-stock-install.log`. During recovery, the last step or error
-is `/data/.nanokvm-stock-install/status`. Do not interrupt power while writing
-the card. Board selection can require an additional reboot.
+is `/data/.nanokvm-stock-install/status`. An interrupted migration normally
+resumes on power-on. If it appears stalled, follow the
+[card-reader procedure](#recover-with-a-card-reader). Board selection can require
+an additional reboot.
 
 ## Card transition and interruption behavior
 
@@ -166,8 +172,10 @@ After formatting begins, the stock root is no longer usable: a reboot resumes
 recovery with the original saved settings. It never snapshots a partially
 written root. The MBR commit is idempotent and rejects an unexpected partition
 table. Once the new OS boots, its storage service removes the bounded staging
-files. A torn final MBR sector or faulty storage can still require external
-recovery; host tests do not establish the SD controller's power-loss behavior.
+files. A power cut during exFAT metadata writes on partition 3 can damage the
+saved transaction, and a torn final MBR sector can prevent either boot path.
+Those cases, or faulty storage, can still require external recovery; host tests
+do not establish the SD controller's power-loss behavior.
 
 The current root-reinstallation recovery enforces the full-image layouts and
 is unavailable on migrated cards, as described above. The fresh-image storage
@@ -175,47 +183,74 @@ allocator is deliberately disabled for the retained partition 3; do not re-enabl
 it on this layout. Supporting root reinstallation for migrated geometry remains
 separate work; this installer does not relax those destructive-operation checks.
 
-## Restore stock boot with a card reader
+## Recover with a card reader
 
-If stock U-Boot cannot start the recovery FIT on the first reboot, the original
-stock `boot.sd` is saved on partition 3. A bootloader failure confirmed on UART
-occurs before recovery can write the old root. Power off before removing the
-card. If the failure stage is unknown, cutting power can interrupt writes;
-waiting an arbitrary number of minutes does not establish that rollback is safe.
+This procedure requires a **Linux computer**; a Linux live USB also works.
+UART is optional. If nothing has come back after a generous wait, power off
+before removing the card, then inspect it to choose the appropriate path below.
+The original stock `boot.sd` and the migration transaction are on partition 3.
 
-1. Connect the card to a computer. Open partition 3 (exFAT) and inspect the
-   hidden `.nanokvm-stock-install` directory. Do not accept a prompt to format
-   an unrecognized partition.
-2. Proceed only if the saved transaction is intact, its `formatting` file is
-   absent, and the card still has its original partition table. The installer
-   writes and syncs `formatting` **before** changing any old-root sectors.
-   `status` alone is not proof that formatting never started. On Linux, the
-   following read-only checks verify the saved files and original first sector;
-   replace `/path/to/partition3` and `/dev/sdX` with the mounted data volume and
-   the **whole card device**, respectively. All checks must succeed:
+Open partition 3 (exFAT) and its hidden `.nanokvm-stock-install` directory. Do
+not accept a prompt to format an unrecognized partition. First verify the saved
+transaction, replacing `/path/to/partition3` with the mounted data volume:
 
-   ```sh
-   cd /path/to/partition3/.nanokvm-stock-install &&
-     test ! -e formatting &&
-     sha256sum -c transaction.sha256 &&
-     sudo cmp -n 512 mbr.old /dev/sdX
-   ```
+```sh
+cd /path/to/partition3/.nanokvm-stock-install &&
+  sha256sum -c transaction.sha256
+```
 
-3. Copy `.nanokvm-stock-install/stock-boot.sd` from partition 3 onto partition 1
-   (the original FAT boot volume), replacing its `boot.sd`. Leave `fip.bin` and
-   the partition table unchanged. Flush writes, safely eject the card, put it
-   back in the NanoKVM and power on. This restores the original boot path to the
-   untouched stock root.
-4. Keep the transaction for inspection after returning to stock. A new installer
-   attempt refuses an existing `.nanokvm-stock-install` directory; clear it only
-   after confirming stock works and the pre-format conditions above still hold.
+If every saved file verifies, check whether `formatting` exists in that same
+directory. The installer writes and syncs this marker **before** changing any
+old-root sectors. The `status` text alone does not determine which path applies.
 
-If `formatting` exists, the table has changed, any saved file is missing/corrupt,
-or these checks cannot be completed, **do not restore the stock boot image**.
-An absent staging directory is not evidence of a pre-format failure: successful
-migration also removes it. Keep an interrupted transaction intact for recovery
-to resume, or copy wanted data off the card and install a full SD image
-externally. Restoring the old boot image cannot recover a formatted stock root.
+### Formatting has started: resume migration
+
+If `formatting` exists, **do not restore the stock boot image**. Leave all files
+and partitions unchanged, safely eject the card, reinsert it in the NanoKVM and
+power on:
+
+- Before the MBR commit, partition 1 still contains the recovery FIT. It restarts
+  migration using the original saved transaction, replacing partially written
+  boot/root filesystems.
+- If the MBR commit completed, the new OS boots and removes the staging files
+  during its normal startup.
+
+No new installer upload or staging-directory deletion is needed to resume.
+
+### Formatting has not started: restore stock
+
+If `formatting` is absent, also verify that the card still has its original
+partition table. Run the following from the same staging directory after the
+checksum check above succeeds. Replace `/dev/sdX` with the **whole card device**:
+a USB reader commonly uses `/dev/sdX`, while a built-in SD slot may use
+`/dev/mmcblk0`. Do not use a partition such as `/dev/sdX1` or `/dev/mmcblk0p1`.
+Both checks must succeed:
+
+```sh
+test ! -e formatting &&
+  sudo cmp -n 512 mbr.old /dev/sdX
+```
+
+Copy `.nanokvm-stock-install/stock-boot.sd` from partition 3 onto partition 1
+(the original FAT boot volume), replacing its `boot.sd`. Leave `fip.bin` and
+the partition table unchanged. Flush writes, safely eject the card, reinsert it
+in the NanoKVM and power on. This restores the original boot path to the untouched
+stock root, even if the interrupted stage was unknown when power was cut.
+
+Keep the transaction for inspection after returning to stock. A new installer
+attempt refuses an existing `.nanokvm-stock-install` directory; clear it only
+after confirming stock works and the pre-format checks above still pass.
+
+### Missing or damaged state
+
+If a saved file is missing/corrupt or the pre-format table check fails, **do not
+restore the stock boot image**. An absent staging directory is not evidence of
+a pre-format failure: successful migration also removes it. Leave the card
+unchanged and try booting it normally. If it cannot boot or resume because the
+transaction or partition table is damaged, copy wanted data off the card and
+install a full SD image externally. Restoring the old boot image cannot recover
+a formatted stock root. See the
+[storage failure limits](#card-transition-and-interruption-behavior) above.
 
 ## Build and validation
 

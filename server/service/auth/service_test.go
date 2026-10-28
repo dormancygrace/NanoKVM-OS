@@ -539,7 +539,7 @@ func loginCookie(t *testing.T, handler http.Handler, username, password string) 
 		t.Fatalf("Vary = %q, want %q", got, ReturnTokenHeader)
 	}
 	for _, cookie := range recorder.Result().Cookies() {
-		if cookie.Name == middleware.CookieName {
+		if cookie.Name == middleware.SessionCookieName(request) {
 			return cookie
 		}
 	}
@@ -549,7 +549,7 @@ func loginCookie(t *testing.T, handler http.Handler, username, password string) 
 
 func hasSessionCookie(cookies []*http.Cookie) bool {
 	for _, cookie := range cookies {
-		if cookie.Name == middleware.CookieName {
+		if (cookie.Name == middleware.CookieName || cookie.Name == middleware.HTTPCookieName) && cookie.Value != "" && cookie.MaxAge >= 0 {
 			return true
 		}
 	}
@@ -640,10 +640,11 @@ func TestFactoryPasswordOnlyAllowsPasswordChangeRoutes(t *testing.T) {
 
 	body := map[string]any{"username": "admin", "password": encryptForRequest(t, "admin")}
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, jsonRequest(http.MethodPost, "/api/auth/login", body))
+	loginRequest := jsonRequest(http.MethodPost, "/api/auth/login", body)
+	router.ServeHTTP(recorder, loginRequest)
 	var cookie *http.Cookie
 	for _, c := range recorder.Result().Cookies() {
-		if c.Name == middleware.CookieName {
+		if c.Name == middleware.SessionCookieName(loginRequest) {
 			cookie = c
 		}
 	}

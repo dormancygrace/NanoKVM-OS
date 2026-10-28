@@ -139,9 +139,20 @@ start_usb_dev(){
         echo 0x1009 > idProduct
     fi
 
-    echo 0xEF > bDeviceClass
-    echo 0x02 > bDeviceSubClass
-    echo 0x01 > bDeviceProtocol
+    # NCM, CDC ACM and our UAC1 function have Interface Association Descriptors.
+    # HID and storage alone use interface classes; claiming IAD for them keeps
+    # some UEFI implementations from matching the boot keyboard as console input.
+    # Rewrite all three fields: g0 survives live composition changes.
+    if [ -e "$conf/usb.ncm" ] || [ -e "$conf/usb.rndis0" ] ||
+       [ -e "$conf/usb.acm" ] || [ -e "$conf/usb.audio" ]; then
+        echo 0xEF > bDeviceClass
+        echo 0x02 > bDeviceSubClass
+        echo 0x01 > bDeviceProtocol
+    else
+        echo 0x00 > bDeviceClass
+        echo 0x00 > bDeviceSubClass
+        echo 0x00 > bDeviceProtocol
+    fi
 
     mkdir -p strings/0x409
     _serial='0123456789ABCDEF'

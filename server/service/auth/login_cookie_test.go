@@ -2,10 +2,15 @@ package auth
 
 import (
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
 	"testing"
 
+	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
+	"NanoKVM-Server/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -39,9 +44,7 @@ func TestSessionCookieOnlyTrustsConfiguredProxy(t *testing.T) {
 			context.Request = request
 			setSessionCookie(context, "token")
 			cookies := recorder.Result().Cookies()
-			if len(cookies) != 1 || cookies[0].Secure != test.secure {
-				t.Fatalf("cookie = %+v, want Secure=%v", cookies, test.secure)
-			}
+			assertSessionCookieResponse(t, cookies, test.secure)
 		})
 	}
 }
@@ -78,9 +81,229 @@ func TestSessionCookieForwardedProtoRejectsMultipleValues(t *testing.T) {
 			context.Request = request
 			setSessionCookie(context, "token")
 			cookies := recorder.Result().Cookies()
-			if len(cookies) != 1 || cookies[0].Secure != test.secure {
-				t.Fatalf("cookie = %+v, want Secure=%v", cookies, test.secure)
+			assertSessionCookieResponse(t, cookies, test.secure)
+		})
+	}
+}
+
+func assertSessionCookieResponse(t *testing.T, cookies []*http.Cookie, secure bool) {
+	t.Helper()
+	wantCount := 2
+	expiredName := "nano-kvm-token"
+	if secure {
+		expiredName = "nano-kvm-token-http"
+	}
+	if len(cookies) != wantCount {
+		t.Fatalf("got %d Set-Cookie headers, want %d", len(cookies), wantCount)
+	}
+	active, expired := 0, 0
+	for _, cookie := range cookies {
+		if cookie.Name == expiredName {
+			if cookie.MaxAge != -1 || cookie.Value != "" || cookie.Path != "/" || cookie.Domain != "" ||
+				cookie.Secure != secure || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
+				t.Fatalf("login must expire the other cookie name: %+v", cookie)
+			}
+			expired++
+			continue
+		}
+		assertSessionCookieAttributes(t, cookie, secure)
+		if cookie.Value == "" || cookie.MaxAge <= 0 {
+			t.Fatalf("login did not issue a persistent session: %+v", cookie)
+		}
+		active++
+	}
+	if active != 1 || expired != wantCount-1 {
+		t.Fatalf("cookie response has %d active and %d expired cookies", active, expired)
+	}
+}
+
+func assertSessionCookieAttributes(t *testing.T, cookie *http.Cookie, secure bool) {
+	t.Helper()
+	name := "nano-kvm-token-http"
+	if secure {
+		name = "nano-kvm-token"
+	}
+	if cookie.Name != name || cookie.Secure != secure || !cookie.HttpOnly ||
+		cookie.SameSite != http.SameSiteStrictMode || cookie.Path != "/" || cookie.Domain != "" {
+		t.Fatalf("session cookie = %+v, want host-only %q, Secure=%v, HttpOnly, SameSite=Strict, Path=/", cookie, name, secure)
+	}
+}
+
+func TestSessionLoginHTTPSHTTPAndBack(t *testing.T) {
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+	changeFactoryPassword(t, store)
+	conf := config.GetInstance()
+	originalProto := conf.Proto
+	t.Cleanup(func() { conf.Proto = originalProto })
+	service := NewService()
+	router := gin.New()
+	router.POST("/login", service.Login)
+	router.GET("/account", middleware.CheckToken(), service.GetAccount)
+
+	conf.Proto = "https"
+	httpsCookie := loginCookie(t, router, "admin", ownerPassword)
+	assertSessionCookieAttributes(t, httpsCookie, true)
+	httpsURL, _ := url.Parse("https://kvm.example/account")
+	httpURL, _ := url.Parse("http://kvm.example/account")
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jar.SetCookies(httpsURL, []*http.Cookie{httpsCookie})
+	if cookies := jar.Cookies(httpURL); len(cookies) != 0 {
+		t.Fatalf("Secure session leaked to HTTP: %v", cookies)
+	}
+
+	conf.Proto = "http"
+	httpCookie := loginCookie(t, router, "admin", ownerPassword)
+	assertSessionCookieAttributes(t, httpCookie, false)
+	// The Go jar does not enforce the browser's Secure-cookie overwrite rule.
+	// Different names are essential: the old Secure cookie must remain intact.
+	if httpCookie.Name == httpsCookie.Name {
+		t.Fatal("HTTP login would collide with the old Secure cookie")
+	}
+	jar.SetCookies(httpURL, []*http.Cookie{httpCookie})
+	if cookies := jar.Cookies(httpsURL); len(cookies) != 2 {
+		t.Fatalf("expected both sessions to coexist, got %v", cookies)
+	}
+	for _, target := range []*url.URL{httpURL, httpsURL} {
+		conf.Proto = target.Scheme
+		request := httptest.NewRequest(http.MethodGet, target.String(), nil)
+		for _, cookie := range jar.Cookies(target) {
+			request.AddCookie(cookie)
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("account after switching to %s = %d, want 200", target.Scheme, recorder.Code)
+		}
+	}
+	// A fresh HTTPS login removes the plain-HTTP credential while preserving
+	// the working Secure session. Use every Set-Cookie header, as a browser does.
+	recorder := requestJSONRecorder(router, http.MethodPost, "/login", map[string]any{
+		"username": "admin", "password": encryptForRequest(t, ownerPassword),
+	}, nil)
+	assertSessionCookieResponse(t, recorder.Result().Cookies(), true)
+	jar.SetCookies(httpsURL, recorder.Result().Cookies())
+	if cookies := jar.Cookies(httpURL); len(cookies) != 0 {
+		t.Fatalf("HTTPS login retained a plain-HTTP credential: %v", cookies)
+	}
+	if cookies := jar.Cookies(httpsURL); len(cookies) != 1 || cookies[0].Name != "nano-kvm-token" {
+		t.Fatalf("HTTPS login lost its Secure session: %v", cookies)
+	}
+}
+
+func TestSessionLogoutClearsBothCookieNamesWithoutRevocation(t *testing.T) {
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+	changeFactoryPassword(t, store)
+	conf := config.GetInstance()
+	originalProto := conf.Proto
+	t.Cleanup(func() { conf.Proto = originalProto })
+	conf.JWT.RevokeTokensOnLogout = false
+	service := NewService()
+	router := gin.New()
+	router.POST("/login", service.Login)
+	router.POST("/logout", middleware.CheckToken(), service.Logout)
+	router.GET("/account", middleware.CheckToken(), service.GetAccount)
+	for _, scheme := range []string{"http", "https"} {
+		t.Run(scheme, func(t *testing.T) {
+			conf.Proto = scheme
+			current := loginCookie(t, router, "admin", ownerPassword)
+			target, _ := url.Parse(scheme + "://kvm.example/logout")
+			jar, err := cookiejar.New(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"nano-kvm-token", "nano-kvm-token-http"} {
+				cookie := *current
+				cookie.Name = name
+				cookie.Secure = name == "nano-kvm-token" && scheme == "https"
+				jar.SetCookies(target, []*http.Cookie{&cookie})
+			}
+			request := httptest.NewRequest(http.MethodPost, target.String(), nil)
+			for _, cookie := range jar.Cookies(target) {
+				request.AddCookie(cookie)
+			}
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("logout = %d, want 200", recorder.Code)
+			}
+			cookies := recorder.Result().Cookies()
+			if len(cookies) != 2 {
+				t.Fatalf("logout must clear both names, got %v", cookies)
+			}
+			for _, cookie := range cookies {
+				if cookie.MaxAge != -1 || cookie.Value != "" || cookie.Path != "/" ||
+					cookie.Secure != (scheme == "https") || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
+					t.Fatalf("invalid deletion cookie: %+v", cookie)
+				}
+			}
+			jar.SetCookies(target, cookies)
+			if cookies := jar.Cookies(target); len(cookies) != 0 {
+				t.Fatalf("logout left cookies that could restore the session: %v", cookies)
+			}
+			// Revocation is disabled: deletion, not server-side revocation,
+			// must prevent the legacy fallback from reviving this browser login.
+			if status := requestJSON(router, http.MethodGet, "/account", nil, current); status != http.StatusOK {
+				t.Fatalf("test token was unexpectedly revoked: %d", status)
+			}
+			if status := requestJSON(router, http.MethodGet, "/account", nil, nil); status != http.StatusUnauthorized {
+				t.Fatalf("account after logout = %d, want 401", status)
 			}
 		})
+	}
+}
+
+func TestHTTPLoginRemovesLegacyCookieForAnotherUser(t *testing.T) {
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+	changeFactoryPassword(t, store)
+	if err := store.Create("alice", "alice-password", authn.RoleUser); err != nil {
+		t.Fatal(err)
+	}
+	conf := config.GetInstance()
+	originalProto := conf.Proto
+	t.Cleanup(func() { conf.Proto = originalProto })
+	conf.Proto = "http"
+	service := NewService()
+	router := gin.New()
+	router.POST("/login", service.Login)
+	router.GET("/account", middleware.CheckToken(), service.GetAccount)
+	legacy := loginCookie(t, router, "alice", "alice-password")
+	legacy.Name = "nano-kvm-token"
+	target, _ := url.Parse("http://kvm.example/account")
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jar.SetCookies(target, []*http.Cookie{legacy})
+	recorder := requestJSONRecorder(router, http.MethodPost, "/login", map[string]any{
+		"username": "admin", "password": encryptForRequest(t, ownerPassword),
+	}, legacy)
+	assertSessionCookieResponse(t, recorder.Result().Cookies(), false)
+	jar.SetCookies(target, recorder.Result().Cookies())
+	cookies := jar.Cookies(target)
+	if len(cookies) != 1 || cookies[0].Name != "nano-kvm-token-http" {
+		t.Fatalf("HTTP login retained the old identity: %v", cookies)
+	}
+	// Losing the new cookie must not reveal Alice's old session again.
+	jar.SetCookies(target, []*http.Cookie{{Name: "nano-kvm-token-http", Path: "/", MaxAge: -1}})
+	request := httptest.NewRequest(http.MethodGet, target.String(), nil)
+	for _, cookie := range jar.Cookies(target) {
+		request.AddCookie(cookie)
+	}
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("legacy session restored after removing new cookie: %d", recorder.Code)
+	}
+	if status := requestJSON(router, http.MethodGet, "/account", nil, legacy); status != http.StatusOK {
+		t.Fatalf("legacy session was revoked rather than removed: %d", status)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"context"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -406,4 +407,58 @@ func TestVNetGather_TURNConnectionLeak(t *testing.T) {
 	}()
 
 	aAgent.gatherCandidatesRelay(context.Background(), []*stun.URI{turnServerURL}, aAgent.gatherGeneration)
+}
+
+// TestVNetGather_TURNServerSource covers the typed-nil RemoteAddr returned by an
+// unconnected vnet UDP socket. Trusted data reaches the TURN parser; packets
+// from another endpoint are still discarded before their payload is parsed.
+func TestVNetGather_TURNServerSource(t *testing.T) {
+	defer test.CheckRoutines(t)()
+
+	natType := &vnet.NATType{MappingBehavior: vnet.EndpointAddrPortDependent, FilteringBehavior: vnet.EndpointAddrPortDependent}
+	virtualNet, err := buildVNet(natType, natType)
+	require.NoError(t, err)
+	defer virtualNet.close()
+
+	server := &net.UDPAddr{IP: net.ParseIP(vnetSTUNServerIP), Port: vnetSTUNServerPort}
+	url := &stun.URI{Scheme: stun.SchemeTypeTURN, Host: vnetSTUNServerIP, Port: vnetSTUNServerPort, Username: "user", Password: "pass", Proto: stun.ProtoTypeUDP}
+	agent, err := NewAgentWithOptions(
+		WithNet(virtualNet.net0), WithNetworkTypes([]NetworkType{NetworkTypeUDP4}),
+		WithTURNTransportProtocols([]NetworkType{NetworkTypeUDP4}),
+		WithCandidateTypes([]CandidateType{CandidateTypeRelay}), WithMulticastDNSMode(MulticastDNSModeDisabled),
+		WithUrls([]*stun.URI{url}),
+	)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, agent.Close()) }()
+
+	var checked atomic.Int32
+	agent.turnClientFactory = func(cfg *turn.ClientConfig) (turnClient, error) {
+		client, clientErr := turn.NewClient(cfg)
+		if clientErr != nil {
+			return nil, clientErr
+		}
+		// Missing DATA/XOR-PEER-ADDRESS is an error only for a trusted source.
+		indication := stun.MustBuild(stun.TransactionID, stun.NewType(stun.MethodData, stun.ClassIndication))
+		handled, inboundErr := client.HandleInbound(indication.Raw, server)
+		if !handled || inboundErr == nil {
+			t.Error("trusted TURN server must reach the indication parser")
+		}
+		for _, from := range []net.Addr{nil, &net.UDPAddr{IP: server.IP, Port: server.Port + 1}} {
+			handled, inboundErr = client.HandleInbound(indication.Raw, from)
+			if !handled || inboundErr != nil {
+				t.Error("untrusted TURN source must be discarded before parsing")
+			}
+		}
+		checked.Add(1)
+
+		return client, nil
+	}
+	require.NoError(t, agent.OnCandidate(func(Candidate) {}))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	agent.gatherCandidatesRelay(ctx, agent.urls, agent.gatherGeneration)
+	require.EqualValues(t, 1, checked.Load(), "TURN source validation must be exercised")
+	candidates, err := agent.GetLocalCandidates()
+	require.NoError(t, err)
+	require.Len(t, candidates, 1, "the valid TURN server must still allocate a relay")
 }

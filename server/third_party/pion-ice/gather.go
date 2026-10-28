@@ -1107,6 +1107,9 @@ func (a *Agent) gatherCandidatesRelay(ctx context.Context, urls []*stun.URI, gen
 
 						relAddr = locConn.LocalAddr().(*net.UDPAddr).IP.String() //nolint:forcetypeassert
 						relPort = locConn.LocalAddr().(*net.UDPAddr).Port        //nolint:forcetypeassert
+						// ListenPacket is unconnected: validate relay sources against the
+						// resolved server, not an optional (possibly typed-nil) RemoteAddr.
+						locConn = struct{ net.PacketConn }{locConn}
 						relayProtocol = udp
 						needsTURNServerAddr = true
 					case a.proxyDialer != nil && urlProto == stun.ProtoTypeTCP &&

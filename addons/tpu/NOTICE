@@ -15,5 +15,7 @@ Library Exception.
 flatbuffers (headers, build tool): Apache-2.0.
 
 The OCR models are converted from PaddleOCR (Apache-2.0,
-https://github.com/PaddlePaddle/PaddleOCR): Multilingual PP-OCRv3 text
-detection and Cyrillic PP-OCRv3 text recognition with its dictionary.
+https://github.com/PaddlePaddle/PaddleOCR): PP-OCRv6 medium text detection,
+PP-OCRv6 small and medium text recognition (output narrowed to Latin
+letters) and Cyrillic PP-OCRv5 mobile text recognition (affine blocks folded
+into the convolutions), with their dictionaries.

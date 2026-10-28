@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // nanokvm-ocr: the text on a picture of the screen, with PaddleOCR models
-// (PP-OCRv5 text detection and recognition) on the CV181x TPU.
+// (PP-OCR text detection and recognition) on the CV181x TPU.
 //
-//   nanokvm-ocr DET.cvimodel REC.cvimodel DICT.txt < picture
+//   nanokvm-ocr DET.cvimodel REC.cvimodel DICT.txt [SURE.cvimodel] < picture
 //
 // Several recognition models of one height may be given, comma-separated:
-// each line goes through the narrowest that holds it.
+// each line goes through the narrowest that holds it. REC.cvimodel:N is one
+// model with N programs, its widths, sharing the weights. SURE, a bigger
+// recognizer with the same dictionary (given the same way), reads again the
+// lines with a doubtful character.
 //
 // stdin: "WIDTH HEIGHT\n", then WIDTH*HEIGHT*3 bytes of packed RGB, or
 // "P WIDTH HEIGHT\n", then the B, G and R planes (WIDTH*HEIGHT bytes each),
 // as VPSS produces them and as the models take them.
 // stdout: one JSON object per word, then a summary:
 //   {"text":"...","score":0.97,"x":10,"y":20,"w":80,"h":16}
-//   {"done":true,"words":12,"det_ms":310,"rec_ms":240}
+//   {"done":true,"words":12,"reread":2,"det_ms":310,"rec_ms":240}
 // Boxes are in picture pixels. Errors go to stderr, exit status 1;
 // NANOKVM_OCR_DEBUG=1 also prints the models and every box there.
 //
@@ -27,6 +30,7 @@
 
 #include <dirent.h>
 #include <unistd.h>
+#include <riscv_vector.h> // XTheadVector: build with -march=rv64gc_xtheadvector
 
 #include <algorithm>
 #include <chrono>
@@ -68,6 +72,16 @@ struct Model {
 
     bool open(const char *path) {
         if (CVI_NN_RegisterModel(path, &handle) != 0) return false;
+        return tensors();
+    }
+    // Program `program` of an open model with several (one recognizer in
+    // several widths): it shares the model's weights.
+    bool open_program(const Model &model, int program) {
+        if (CVI_NN_CloneModel(model.handle, &handle) != 0) return false;
+        CVI_NN_SetConfig(handle, OPTION_PROGRAM_INDEX, program);
+        return tensors();
+    }
+    bool tensors() {
         if (CVI_NN_GetInputOutputTensors(handle, &inputs, &input_count, &outputs, &output_count) != 0
             || input_count != 1 || output_count < 1) return false;
         const CVI_SHAPE shape = CVI_NN_TensorShape(&inputs[0]);
@@ -358,15 +372,124 @@ std::vector<Box> split_wide(const Picture &pic, const Box &box, int max_w) {
     return pieces;
 }
 
+// The first largest of n values: its index, and the value in best. Each
+// vector lane keeps its largest value and where it was; only whole vectors
+// are loaded (RVV 0.7.1 clears the elements past vl, which would lose the
+// lanes' values), the rest is scanned one by one. Ties go to the lowest index.
+int argmax(const float *p, int n, float &best) {
+    int at = 0, i = 0;
+    best = p[0];
+    const size_t vl = __riscv_vsetvlmax_e32m4();
+    if (n >= static_cast<int>(vl)) {
+        vfloat32m4_t top = __riscv_vle32_v_f32m4(p, vl);
+        vuint32m4_t where = __riscv_vid_v_u32m4(vl);
+        vuint32m4_t index = where;
+        for (i = static_cast<int>(vl); i + static_cast<int>(vl) <= n; i += static_cast<int>(vl)) {
+            index = __riscv_vadd_vx_u32m4(index, static_cast<uint32_t>(vl), vl);
+            const vfloat32m4_t v = __riscv_vle32_v_f32m4(p + i, vl);
+            const vbool8_t larger = __riscv_vmflt_vv_f32m4_b8(top, v, vl);
+            top = __riscv_vmerge_vvm_f32m4(top, v, larger, vl);
+            where = __riscv_vmerge_vvm_u32m4(where, index, larger, vl);
+        }
+        const vfloat32m1_t m = __riscv_vfredmax_vs_f32m4_f32m1(top, __riscv_vfmv_v_f_f32m1(p[0], 1), vl);
+        best = __riscv_vfmv_f_s_f32m1_f32(m);
+        const vbool8_t is_best = __riscv_vmfeq_vf_f32m4_b8(top, best, vl);
+        const vuint32m1_t first = __riscv_vredminu_vs_u32m4_u32m1_m(is_best, where,
+            __riscv_vmv_v_x_u32m1(UINT32_MAX, 1), vl);
+        at = static_cast<int>(__riscv_vmv_x_s_u32m1_u32(first));
+    }
+    for (; i < n; ++i)
+        if (p[i] > best) { best = p[i]; at = i; }
+    return at;
+}
+
+// Bilinear sampling of one line into a recognizer input, in fixed point (8
+// fractional bits for the weights, 16 for the rows). Per column: the two
+// source columns, their weight, and where the line's top is (it follows the
+// slant); per output row: each column's two source rows and their weight,
+// which serve all three planes.
+struct Sampling {
+    explicit Sampling(int n) : width(n), x0(n), x1(n), r0(n), r1(n), ax(n), top(n), ay(n) {}
+    int width;
+    std::vector<uint32_t> x0, x1, r0, r1;
+    std::vector<int32_t> ax, top, ay;
+};
+
+void sampling_rows(Sampling &s, const Picture &pic, int down) {
+    const int32_t max_row = (pic.height - 1) << 16, last = pic.height - 1;
+    for (int x = 0; x < s.width;) {
+        const size_t vl = __riscv_vsetvl_e32m4(s.width - x);
+        vint32m4_t fy = __riscv_vadd_vx_i32m4(__riscv_vle32_v_i32m4(s.top.data() + x, vl), down, vl);
+        fy = __riscv_vmax_vx_i32m4(__riscv_vmin_vx_i32m4(fy, max_row, vl), 0, vl);
+        const vint32m4_t y0 = __riscv_vsra_vx_i32m4(fy, 16, vl);
+        const vint32m4_t y1 = __riscv_vmin_vx_i32m4(__riscv_vadd_vx_i32m4(y0, 1, vl), last, vl);
+        __riscv_vse32_v_u32m4(s.r0.data() + x, __riscv_vreinterpret_v_i32m4_u32m4(__riscv_vmul_vx_i32m4(y0, pic.width, vl)), vl);
+        __riscv_vse32_v_u32m4(s.r1.data() + x, __riscv_vreinterpret_v_i32m4_u32m4(__riscv_vmul_vx_i32m4(y1, pic.width, vl)), vl);
+        __riscv_vse32_v_i32m4(s.ay.data() + x, __riscv_vand_vx_i32m4(__riscv_vsra_vx_i32m4(fy, 8, vl), 255, vl), vl);
+        x += static_cast<int>(vl);
+    }
+}
+
+// One output row of one plane: the vector unit gathers the four source
+// pixels of a run of columns at once (th.vlxbu.v loads bytes by index into
+// 32-bit elements).
+void sample_row(const Sampling &s, const uint8_t *plane, uint8_t *row) {
+    const uint32_t *base = reinterpret_cast<const uint32_t *>(plane); // the intrinsic's pointer type
+    for (int x = 0; x < s.width;) {
+        const size_t vl = __riscv_vsetvl_e32m4(s.width - x);
+        const vuint32m4_t r0 = __riscv_vle32_v_u32m4(s.r0.data() + x, vl), r1 = __riscv_vle32_v_u32m4(s.r1.data() + x, vl);
+        const vuint32m4_t x0 = __riscv_vle32_v_u32m4(s.x0.data() + x, vl), x1 = __riscv_vle32_v_u32m4(s.x1.data() + x, vl);
+        auto pixel = [&](vuint32m4_t r, vuint32m4_t c) {
+            return __riscv_vreinterpret_v_u32m4_i32m4(__riscv_th_vlxbu_v_u32m4(base, __riscv_vadd_vv_u32m4(r, c, vl), vl));
+        };
+        const vint32m4_t a = pixel(r0, x0), b = pixel(r0, x1), d = pixel(r1, x0), e = pixel(r1, x1);
+        const vint32m4_t ax = __riscv_vle32_v_i32m4(s.ax.data() + x, vl), ay = __riscv_vle32_v_i32m4(s.ay.data() + x, vl);
+        const vint32m4_t top = __riscv_vmacc_vv_i32m4(__riscv_vsll_vx_i32m4(a, 8, vl), __riscv_vsub_vv_i32m4(b, a, vl), ax, vl);
+        const vint32m4_t bottom = __riscv_vmacc_vv_i32m4(__riscv_vsll_vx_i32m4(d, 8, vl), __riscv_vsub_vv_i32m4(e, d, vl), ax, vl);
+        vint32m4_t v = __riscv_vmacc_vv_i32m4(__riscv_vsll_vx_i32m4(top, 8, vl), __riscv_vsub_vv_i32m4(bottom, top, vl), ay, vl);
+        v = __riscv_vadd_vx_i32m4(v, 1 << 15, vl);
+        const vuint16m2_t v16 = __riscv_vnsrl_wx_u16m2(__riscv_vreinterpret_v_i32m4_u32m4(v), 16, vl);
+        __riscv_vse8_v_u8m1(row + x, __riscv_vnsrl_wx_u8m1(v16, 0, vl), vl);
+        x += static_cast<int>(vl);
+    }
+}
+
 // Recognition of one box: height 48 (the model's), width by the box ratio,
-// padded; returns the text and the mean probability of its characters.
-std::string recognize(Model &rec, const Picture &pic, const Box &box, const std::vector<std::string> &dict, float &score) {
+// padded; returns the text, the mean probability of its characters and that
+// of the least sure one.
+std::string recognize(Model &rec, const Picture &pic, const Box &box, const std::vector<std::string> &dict, float &score,
+    float &weakest) {
     const int h = rec.in_h, w = rec.in_w;
     const int width = std::clamp(static_cast<int>(std::ceil(static_cast<float>(h) * box.w / box.h)), 1, w);
     CVI_TENSOR *in = &rec.inputs[0];
     const bool raw = in->fmt == CVI_FMT_UINT8;
     uint8_t *planes = raw ? static_cast<uint8_t *>(CVI_NN_TensorPtr(in)) : nullptr;
-    for (int c = 0; c < 3; ++c) {
+    if (raw) {
+        // 8-bit planes (normalization fused into the model): the bilinear
+        // weights of each column are worked out once for all rows and planes.
+        // Fixed point, 8 fractional bits for the weights and 16 for the rows;
+        // each pixel's two rows and weights serve all three planes.
+        Sampling s(width);
+        for (int x = 0; x < width; ++x) {
+            const float fx = std::clamp(box.x + (x + 0.5f) * box.w / width - 0.5f, 0.0f, pic.width - 1.0f);
+            const int x0 = static_cast<int>(fx);
+            s.x0[x] = static_cast<uint32_t>(x0);
+            s.x1[x] = static_cast<uint32_t>(std::min(x0 + 1, pic.width - 1));
+            s.ax[x] = static_cast<int32_t>((fx - x0) * 256 + 0.5f);
+            s.top[x] = static_cast<int32_t>(std::lround((box.y + box.slope * (fx - box.x) - 0.5f) * 65536));
+        }
+        const int step = static_cast<int>(std::lround(static_cast<double>(box.h) / h * 65536));
+        for (int y = 0; y < h; ++y) {
+            sampling_rows(s, pic, y * step + step / 2);
+            for (int c = 0; c < 3; ++c) {
+                uint8_t *row = planes + (static_cast<size_t>(c) * h + y) * w;
+                sample_row(s, pic.plane(c), row);
+                // The padding: grey, 0 after normalization.
+                std::memset(row + width, 128, w - width);
+            }
+        }
+    }
+    for (int c = 0; !raw && c < 3; ++c) {
         const int src = 2 - c;
         for (int y = 0; y < h; ++y)
             for (int x = 0; x < w; ++x) {
@@ -384,6 +507,7 @@ std::string recognize(Model &rec, const Picture &pic, const Box &box, const std:
             }
     }
     score = 0;
+    weakest = 1;
     if (!rec.forward()) return {};
     CVI_TENSOR *out = &rec.outputs[0];
     const CVI_SHAPE shape = CVI_NN_TensorShape(out);
@@ -394,18 +518,27 @@ std::string recognize(Model &rec, const Picture &pic, const Box &box, const std:
     const int steps = static_cast<int>(CVI_NN_TensorCount(out) / classes);
     std::string text;
     int previous = 0, chars = 0;
+    // This scan is steps x classes (hundreds to thousands): FP32
+    // output, as tpu-mlir gives it, is read directly.
+    const float *probs = out->fmt == CVI_FMT_FP32 ? static_cast<const float *>(CVI_NN_TensorPtr(out)) : nullptr;
     for (int t = 0; t < steps; ++t) {
         int best = 0;
-        float best_p = get(out, static_cast<size_t>(t) * classes);
-        for (int k = 1; k < classes; ++k) {
-            const float p = get(out, static_cast<size_t>(t) * classes + k);
-            if (p > best_p) { best_p = p; best = k; }
+        float best_p;
+        if (probs) {
+            best = argmax(probs + static_cast<size_t>(t) * classes, classes, best_p);
+        } else {
+            best_p = get(out, static_cast<size_t>(t) * classes);
+            for (int k = 1; k < classes; ++k) {
+                const float p = get(out, static_cast<size_t>(t) * classes + k);
+                if (p > best_p) { best_p = p; best = k; }
+            }
         }
         // 0 is the CTC blank; then the dictionary; the last class is a space.
         if (best != 0 && best != previous) {
             if (best <= static_cast<int>(dict.size())) text += dict[best - 1];
             else text += ' ';
             score += best_p;
+            weakest = std::min(weakest, best_p);
             ++chars;
         }
         previous = best;
@@ -486,7 +619,7 @@ long dmabuf_kb() {
     DIR *dir = opendir("/proc/self/fd");
     if (!dir) return -1;
     while (const dirent *entry = readdir(dir)) {
-        char link[64], target[64] = {};
+        char link[300], target[64] = {};
         std::snprintf(link, sizeof(link), "/proc/self/fd/%s", entry->d_name);
         if (readlink(link, target, sizeof(target) - 1) <= 0 || !std::strstr(target, "dmabuf")) continue;
         std::snprintf(link, sizeof(link), "/proc/self/fdinfo/%s", entry->d_name);
@@ -513,8 +646,9 @@ long ms_since(std::chrono::steady_clock::time_point start) {
 } // namespace
 
 int main(int argc, char **argv) {
-    if (argc != 4) {
-        std::fprintf(stderr, "usage: nanokvm-ocr DET.cvimodel REC.cvimodel[,REC.cvimodel...] DICT.txt < picture\n");
+    if (argc != 4 && argc != 5) {
+        std::fprintf(stderr, "usage: nanokvm-ocr DET.cvimodel REC.cvimodel[:PROGRAMS][,REC.cvimodel...] DICT.txt"
+            " [SURE.cvimodel[:PROGRAMS][,...]] < picture\n");
         return 1;
     }
     memory_note("start");
@@ -563,17 +697,31 @@ int main(int argc, char **argv) {
         return true;
     };
     // Recognition models of one height in several widths, narrowest first.
-    std::vector<std::string> rec_paths;
-    for (const char *p = argv[2]; *p;) {
-        const char *comma = std::strchr(p, ',');
-        rec_paths.emplace_back(p, comma ? comma - p : std::strlen(p));
-        p = comma ? comma + 1 : p + rec_paths.back().size();
-    }
-    std::vector<std::unique_ptr<Model>> recs;
-    auto load_recs = [&]() {
-        for (const std::string &path : rec_paths) {
+    // REC.cvimodel:N is one recognizer whose N programs (its widths) share
+    // the weights, loaded once.
+    using Recs = std::vector<std::unique_ptr<Model>>;
+    auto load_recs = [&](const char *list, Recs &recs) {
+        std::vector<std::string> rec_paths;
+        for (const char *p = list; *p;) {
+            const char *comma = std::strchr(p, ',');
+            rec_paths.emplace_back(p, comma ? comma - p : std::strlen(p));
+            p = comma ? comma + 1 : p + rec_paths.back().size();
+        }
+        for (const std::string &arg : rec_paths) {
+            const size_t colon = arg.rfind(':');
+            const int programs = colon == std::string::npos ? 1 : std::atoi(arg.c_str() + colon + 1);
+            const std::string path = programs > 1 ? arg.substr(0, colon) : arg;
             recs.push_back(std::make_unique<Model>());
+            const Model &first = *recs.back();
             if (!load(*recs.back(), path.c_str())) return false;
+            for (int program = 1; program < programs; ++program) {
+                recs.push_back(std::make_unique<Model>());
+                Model &m = *recs.back();
+                if (!m.open_program(first, program) || !supported(&m.inputs[0]) || !supported(&m.outputs[0])) {
+                    std::fprintf(stderr, "nanokvm-ocr: cannot open program %d of %s\n", program, path.c_str());
+                    return false;
+                }
+            }
         }
         std::sort(recs.begin(), recs.end(), [](const auto &a, const auto &b) { return a->in_w < b->in_w; });
         return true;
@@ -600,7 +748,8 @@ int main(int argc, char **argv) {
         }
         memory_note("detector");
     }
-    if (!load_recs()) return 1;
+    Recs recs, sure;
+    if (!load_recs(argv[2], recs)) return 1;
     memory_note("recognizers loaded");
     // The widest recognizer sets how wide a box may be.
     const float max_ratio = static_cast<float>(recs.back()->in_w) / recs.back()->in_h;
@@ -624,20 +773,33 @@ int main(int argc, char **argv) {
     const long det_ms = ms_since(start);
     start = std::chrono::steady_clock::now();
     if (getenv("NANOKVM_OCR_DEBUG")) std::fprintf(stderr, "models and detection %ld ms\n", det_ms);
-    int words = 0;
+    // The narrowest model that holds the line at the recognition height: its
+    // TPU time follows the width.
+    auto fitting = [](const Recs &set, const Box &box) {
+        for (const auto &m : set)
+            if (static_cast<float>(m->in_h) * box.w / box.h <= m->in_w) return m.get();
+        return set.back().get();
+    };
+    // A line with a doubtful character is read again by the surer (bigger,
+    // 4-5 times slower) recognizer, if one is given: on photos of screens
+    // that is a fifth to a quarter of the lines and most of its gain. It
+    // loads at the first such line.
+    const float doubtful = 0.6f;
+    int words = 0, reread = 0;
     for (const Box &box : boxes) {
-        // The narrowest model that holds the line at the recognition height:
-        // its TPU time follows the width.
-        Model *rec = recs.back().get();
-        for (const auto &m : recs) {
-            if (static_cast<float>(m->in_h) * box.w / box.h <= m->in_w) { rec = m.get(); break; }
-        }
-        float score = 0;
+        Model *rec = fitting(recs, box);
+        float score = 0, weakest = 0;
         const auto line_start = std::chrono::steady_clock::now();
-        const std::string text = one_script(recognize(*rec, pic, box, dict, score));
+        std::string text = one_script(recognize(*rec, pic, box, dict, score, weakest));
+        if (argc == 5 && weakest < doubtful) {
+            if (sure.empty() && !load_recs(argv[4], sure)) return 1;
+            rec = fitting(sure, box);
+            text = one_script(recognize(*rec, pic, box, dict, score, weakest));
+            ++reread;
+        }
         if (getenv("NANOKVM_OCR_DEBUG"))
-            std::fprintf(stderr, "box %d,%d %dx%d det %.2f -> '%s' %.3f; width %d, %ld ms\n", box.x, box.y, box.w, box.h,
-                box.score, text.c_str(), score, rec->in_w, ms_since(line_start));
+            std::fprintf(stderr, "box %d,%d %dx%d det %.2f -> '%s' %.3f min %.3f; width %d, %ld ms\n", box.x, box.y, box.w, box.h,
+                box.score, text.c_str(), score, weakest, rec->in_w, ms_since(line_start));
         if (text.empty() || score < 0.5f) continue;
         std::printf("{\"text\":");
         json_string(text);
@@ -647,6 +809,7 @@ int main(int argc, char **argv) {
         ++words;
     }
     memory_note("recognition");
-    std::printf("{\"done\":true,\"words\":%d,\"det_ms\":%ld,\"rec_ms\":%ld}\n", words, det_ms, ms_since(start));
+    std::printf("{\"done\":true,\"words\":%d,\"reread\":%d,\"det_ms\":%ld,\"rec_ms\":%ld}\n", words, reread, det_ms,
+        ms_since(start));
     return 0;
 }

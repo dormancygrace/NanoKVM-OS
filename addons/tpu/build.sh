@@ -30,7 +30,8 @@ git -C "$src" fetch -q --depth 1 --filter=blob:none origin "$commit"
 git -C "$src" checkout -q FETCH_HEAD
 for patch in "$here"/patches/*.patch; do git -C "$src" apply "$patch"; done
 
-isa=$(python3 "$here/../../scripts/nanokvm_cpu_profile.py" native 2>/dev/null || echo '-march=rv64gc -mabi=lp64d')
+# The platform's userspace flags (XTheadVector among them: nanokvm-ocr needs it).
+isa=$(python3 "$here/../../scripts/nanokvm_cpu_profile.py" userspace)
 cat > "$build/toolchain.cmake" <<EOF
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR riscv64)
@@ -85,6 +86,10 @@ for lib in libstdc++.so.6 libgcc_s.so.1; do
     "${cross}strip" --strip-unneeded "$stage/lib/$lib"
 done
 (cd "$models" && sha256sum -c --quiet SHA256SUMS)
-cp "$models/ocr-det.cvimodel" "$models"/ocr-rec-*.cvimodel "$models/ocr-dict.txt" "$stage/models/"
+cp "$models/ocr-det.cvimodel" "$stage/models/"
+for lang in latin cyrillic; do
+    mkdir -p "$stage/models/$lang"
+    cp "$models/$lang"/ocr-*.cvimodel "$models/$lang/ocr-dict.txt" "$stage/models/$lang/"
+done
 cp "$here/NOTICE" "$stage/"
 du -sh "$stage"

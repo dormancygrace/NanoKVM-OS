@@ -88,19 +88,20 @@ func TestSessionCookieForwardedProtoRejectsMultipleValues(t *testing.T) {
 
 func assertSessionCookieResponse(t *testing.T, cookies []*http.Cookie, secure bool) {
 	t.Helper()
-	wantCount := 1
+	wantCount := 2
+	expiredName := "nano-kvm-token"
 	if secure {
-		wantCount = 2
+		expiredName = "nano-kvm-token-http"
 	}
 	if len(cookies) != wantCount {
 		t.Fatalf("got %d Set-Cookie headers, want %d", len(cookies), wantCount)
 	}
 	active, expired := 0, 0
 	for _, cookie := range cookies {
-		if secure && cookie.Name == "nano-kvm-token-http" {
+		if cookie.Name == expiredName {
 			if cookie.MaxAge != -1 || cookie.Value != "" || cookie.Path != "/" || cookie.Domain != "" ||
-				!cookie.Secure || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
-				t.Fatalf("HTTPS login must expire the HTTP cookie: %+v", cookie)
+				cookie.Secure != secure || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
+				t.Fatalf("login must expire the other cookie name: %+v", cookie)
 			}
 			expired++
 			continue
@@ -255,5 +256,54 @@ func TestSessionLogoutClearsBothCookieNamesWithoutRevocation(t *testing.T) {
 				t.Fatalf("account after logout = %d, want 401", status)
 			}
 		})
+	}
+}
+
+func TestHTTPLoginRemovesLegacyCookieForAnotherUser(t *testing.T) {
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+	changeFactoryPassword(t, store)
+	if err := store.Create("alice", "alice-password", authn.RoleUser); err != nil {
+		t.Fatal(err)
+	}
+	conf := config.GetInstance()
+	originalProto := conf.Proto
+	t.Cleanup(func() { conf.Proto = originalProto })
+	conf.Proto = "http"
+	service := NewService()
+	router := gin.New()
+	router.POST("/login", service.Login)
+	router.GET("/account", middleware.CheckToken(), service.GetAccount)
+	legacy := loginCookie(t, router, "alice", "alice-password")
+	legacy.Name = "nano-kvm-token"
+	target, _ := url.Parse("http://kvm.example/account")
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jar.SetCookies(target, []*http.Cookie{legacy})
+	recorder := requestJSONRecorder(router, http.MethodPost, "/login", map[string]any{
+		"username": "admin", "password": encryptForRequest(t, ownerPassword),
+	}, legacy)
+	assertSessionCookieResponse(t, recorder.Result().Cookies(), false)
+	jar.SetCookies(target, recorder.Result().Cookies())
+	cookies := jar.Cookies(target)
+	if len(cookies) != 1 || cookies[0].Name != "nano-kvm-token-http" {
+		t.Fatalf("HTTP login retained the old identity: %v", cookies)
+	}
+	// Losing the new cookie must not reveal Alice's old session again.
+	jar.SetCookies(target, []*http.Cookie{{Name: "nano-kvm-token-http", Path: "/", MaxAge: -1}})
+	request := httptest.NewRequest(http.MethodGet, target.String(), nil)
+	for _, cookie := range jar.Cookies(target) {
+		request.AddCookie(cookie)
+	}
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("legacy session restored after removing new cookie: %d", recorder.Code)
+	}
+	if status := requestJSON(router, http.MethodGet, "/account", nil, legacy); status != http.StatusOK {
+		t.Fatalf("legacy session was revoked rather than removed: %d", status)
 	}
 }

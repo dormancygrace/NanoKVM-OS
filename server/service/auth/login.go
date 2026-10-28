@@ -152,6 +152,10 @@ func setSessionCookie(c *gin.Context, token string) {
 		// Upgrading to HTTPS must not leave the earlier HTTP credential in
 		// the browser, where it could still be sent over a plain connection.
 		c.SetCookie(middleware.HTTPCookieName, "", -1, "/", "", true, true)
+	} else {
+		// Remove a pre-upgrade plain-HTTP session, possibly for another user.
+		// Browsers ignore this deletion if that name belongs to a Secure cookie.
+		c.SetCookie(middleware.CookieName, "", -1, "/", "", false, true)
 	}
 	c.SetCookie(
 		name,

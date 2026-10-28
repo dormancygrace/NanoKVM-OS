@@ -140,7 +140,16 @@ browsers cannot replace an existing Secure cookie over HTTP. Both remain HttpOnl
 the HTTPS cookie also has Secure set. A new HTTPS login expires the HTTP cookie.
 Protocol selection honors the trusted-proxy rules above.
 Existing HTTP sessions with the old cookie name remain valid until expiry, unless a new HTTP cookie
-is present. Cookie-based clients should retain the cookies returned by login rather than hardcode a name.
+is present. A new HTTP login expires the old non-Secure cookie; browsers preserve an HTTPS Secure
+cookie of that name. Cookie-based clients should retain all cookies returned by login rather than
+hardcode a name.
+
+After switching from HTTP to HTTPS, log in again: HTTPS does not accept the new HTTP cookie.
+Pre-upgrade sessions using the old name still work on HTTPS because the server cannot distinguish
+whether that older cookie was originally issued over HTTP or HTTPS.
+An HTTP logout cannot remove a Secure cookie from an earlier HTTPS session. With
+`revokeTokensOnLogout: false`, that HTTPS session can remain active; with the default `true`,
+logout revokes every token belonging to the account being logged out. Other accounts are unaffected.
 
 Passwords in the authentication and user-management APIs are not plaintext. They use the CryptoJS /
 OpenSSL salted passphrase format with passphrase `nanokvm-sipeed-2024`. This is transport

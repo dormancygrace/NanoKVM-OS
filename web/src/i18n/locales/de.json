@@ -78,6 +78,32 @@
     "noVideo": "Warten Sie auf ein Videobild, bevor Sie ein Bildschirmfoto erstellen",
     "failed": "Bildschirmfoto konnte nicht gespeichert werden"
   },
+  "screenText": {
+    "read": "Text auf dem Bildschirm erkennen",
+    "captureDisabled": "Aktivieren Sie die Erfassung, um Text auf dem Bildschirm zu erkennen",
+    "title": "Text auf dem Bildschirm",
+    "dragHint": "Ziehen Sie über den Text oder erkennen Sie den ganzen Bildschirm",
+    "reading": "Bildschirm wird gelesen…",
+    "readingHint": "Das dauert einige Sekunden",
+    "readSelection": "Auswahl erkennen",
+    "wholeScreen": "Ganzer Bildschirm",
+    "cancel": "Abbrechen",
+    "again": "Erneut erkennen",
+    "newArea": "Anderen Bereich wählen",
+    "copy": "Kopieren",
+    "copied": "Text kopiert",
+    "copyFailed": "Der Text konnte nicht kopiert werden; markieren und kopieren Sie ihn von Hand",
+    "took": "Erkannt in {{seconds}} s",
+    "empty": "In diesem Bereich wurde kein Text gefunden",
+    "failed": "Der Text konnte nicht erkannt werden",
+    "busy": "Der Bildschirm wird bereits gelesen; versuchen Sie es gleich noch einmal",
+    "noSignal": "Kein HDMI-Signal",
+    "tooLarge": "Die Texterkennung funktioniert bis 1920×1080; verringern Sie die Auflösung des Computers",
+    "languages": {
+      "latin": "Lateinisch: Englisch und europäische Sprachen",
+      "cyrillic": "Kyrillisch: Russisch, Ukrainisch und weitere, mit Englisch"
+    }
+  },
   "vpn": {
     "rename": "Umbenennen",
     "profileName": "Profilname",

@@ -78,6 +78,32 @@
     "noVideo": "Attendez une image vidéo avant de prendre une capture d'écran",
     "failed": "Impossible d'enregistrer la capture d'écran"
   },
+  "screenText": {
+    "read": "Reconnaître le texte à l'écran",
+    "captureDisabled": "Activez la capture pour reconnaître le texte à l'écran",
+    "title": "Texte à l'écran",
+    "dragHint": "Faites glisser sur le texte ou reconnaissez tout l'écran",
+    "reading": "Lecture de l'écran…",
+    "readingHint": "Cela prend quelques secondes",
+    "readSelection": "Reconnaître la sélection",
+    "wholeScreen": "Tout l'écran",
+    "cancel": "Annuler",
+    "again": "Reconnaître à nouveau",
+    "newArea": "Choisir une autre zone",
+    "copy": "Copier",
+    "copied": "Texte copié",
+    "copyFailed": "Le texte n'a pas pu être copié ; sélectionnez-le et copiez-le à la main",
+    "took": "Reconnu en {{seconds}} s",
+    "empty": "Aucun texte trouvé dans cette zone",
+    "failed": "Le texte n'a pas pu être reconnu",
+    "busy": "L'écran est déjà en cours de lecture ; réessayez dans un instant",
+    "noSignal": "Pas de signal HDMI",
+    "tooLarge": "La reconnaissance de texte fonctionne jusqu'à 1920×1080 ; réduisez la résolution de l'ordinateur",
+    "languages": {
+      "latin": "Latin : anglais et langues européennes",
+      "cyrillic": "Cyrillique : russe, ukrainien et autres, avec anglais"
+    }
+  },
   "vpn": {
     "rename": "Renommer",
     "profileName": "Nom du profil",

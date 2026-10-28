@@ -21,7 +21,11 @@ import (
 )
 
 // The TPU add-on (addons/tpu) installs the helper and its models here.
-var screenTextRoot = "/usr/lib/nanokvm-tpu"
+const screenTextRoot = "/usr/lib/nanokvm-tpu"
+
+// ScreenTextHelper is the add-on's program; its presence means the add-on
+// is installed.
+const ScreenTextHelper = screenTextRoot + "/bin/nanokvm-ocr"
 
 // screenTextPicture keeps the last picture for offline runs (?save=1).
 var screenTextPicture = "/run/nanokvm/screen-text.bgr"
@@ -78,7 +82,7 @@ func screenTextSize(width, height int) (int, int) {
 // ?lang= picks the recognizer (screenTextLanguages).
 func (s *Service) GetScreenText(c *gin.Context) {
 	var rsp proto.Response
-	helper := screenTextRoot + "/bin/nanokvm-ocr"
+	helper := ScreenTextHelper
 	if _, err := os.Stat(helper); err != nil {
 		rsp.ErrRsp(c, -1, "the TPU add-on is not installed")
 		return

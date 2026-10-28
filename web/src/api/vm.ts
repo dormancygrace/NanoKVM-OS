@@ -34,6 +34,18 @@ export function getGpio() {
   return http.get('/api/vm/gpio');
 }
 
+// Read the text on the screen with the TPU add-on: one recognition takes a
+// few seconds, up to 90 on the server. Aborting the request stops it there.
+export function getScreenText(language: string, signal?: AbortSignal) {
+  return http.request({
+    method: 'get',
+    url: '/api/vm/screen/text',
+    params: { lang: language },
+    timeout: 100 * 1000,
+    signal
+  });
+}
+
 // update screen arguments
 export function getScreen() {
   return http.get('/api/vm/screen');

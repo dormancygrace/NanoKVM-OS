@@ -78,6 +78,32 @@
     "noVideo": "Wait for a video frame before taking a screenshot",
     "failed": "Screenshot could not be saved"
   },
+  "screenText": {
+    "read": "Read text on the screen",
+    "captureDisabled": "Enable capture to read text on the screen",
+    "title": "Text on the screen",
+    "dragHint": "Drag over the text to read, or read the whole screen",
+    "reading": "Reading the screen…",
+    "readingHint": "This takes a few seconds",
+    "readSelection": "Read selection",
+    "wholeScreen": "Whole screen",
+    "cancel": "Cancel",
+    "again": "Read again",
+    "newArea": "Select another area",
+    "copy": "Copy",
+    "copied": "Text copied",
+    "copyFailed": "The text could not be copied; select it and copy it by hand",
+    "took": "Read in {{seconds}} s",
+    "empty": "No text found in this area",
+    "failed": "The text could not be read",
+    "busy": "The screen is already being read; try again in a moment",
+    "noSignal": "No HDMI signal",
+    "tooLarge": "Text recognition works up to 1920×1080; lower the computer's resolution",
+    "languages": {
+      "latin": "Latin: English and European languages",
+      "cyrillic": "Cyrillic: Russian, Ukrainian and others, with English"
+    }
+  },
   "vpn": {
     "rename": "Rename",
     "profileName": "Profile name",

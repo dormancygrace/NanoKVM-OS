@@ -78,6 +78,32 @@
     "noVideo": "请等待视频画面后再截图",
     "failed": "无法保存截图"
   },
+  "screenText": {
+    "read": "识别屏幕文字",
+    "captureDisabled": "启用采集后才能识别屏幕文字",
+    "title": "屏幕文字",
+    "dragHint": "拖动框选文字，或识别整个屏幕",
+    "reading": "正在识别屏幕…",
+    "readingHint": "需要几秒钟",
+    "readSelection": "识别选区",
+    "wholeScreen": "整个屏幕",
+    "cancel": "取消",
+    "again": "重新识别",
+    "newArea": "选择其他区域",
+    "copy": "复制",
+    "copied": "文字已复制",
+    "copyFailed": "无法复制文字；请选中后手动复制",
+    "took": "识别用时 {{seconds}} 秒",
+    "empty": "此区域未找到文字",
+    "failed": "无法识别文字",
+    "busy": "屏幕正在识别中，请稍后再试",
+    "noSignal": "无 HDMI 信号",
+    "tooLarge": "文字识别最高支持 1920×1080；请降低电脑的分辨率",
+    "languages": {
+      "latin": "拉丁字母：英语和欧洲语言",
+      "cyrillic": "西里尔字母：俄语、乌克兰语等，含英语"
+    }
+  },
   "vpn": {
     "rename": "重命名",
     "profileName": "配置名称",

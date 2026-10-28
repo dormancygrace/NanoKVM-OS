@@ -4,6 +4,8 @@ export type AddonInventory = {
   rustdesk: { installed: boolean };
   picoclaw: { installed: boolean };
   ipmi: { installed: boolean };
+  // Absent from servers older than the TPU add-on.
+  tpu?: { installed: boolean };
 };
 
 export const getAddonInventory = () =>

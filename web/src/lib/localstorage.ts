@@ -1,3 +1,8 @@
+import {
+  isScreenTextLanguage,
+  screenTextLanguages,
+  type ScreenTextLanguage
+} from './screen-text.ts';
 import type { DirectPlayback } from './video-model.ts';
 
 const LANGUAGE_KEY = 'nano-kvm-language';
@@ -15,6 +20,7 @@ const MENU_AUTO_HIDE_KEY = 'nano-kvm-menu-auto-hide';
 const MOBILE_MENU_PLACEMENT_KEY = 'nano-kvm-mobile-menu-placement';
 const KEYBOARD_LED_STATUS_VISIBLE_KEY = 'nano-kvm-keyboard-led-status-visible';
 const POWER_CONFIRM_KEY = 'nano-kvm-power-confirm';
+const SCREEN_TEXT_LANGUAGE_KEY = 'nano-kvm-screen-text-language';
 
 export function getLanguage() {
   return localStorage.getItem(LANGUAGE_KEY);
@@ -162,6 +168,16 @@ export function getPowerConfirm() {
 
 export function setPowerConfirm(enabled: boolean) {
   localStorage.setItem(POWER_CONFIRM_KEY, String(enabled));
+}
+
+// The recognizer for reading text on the screen (TPU add-on).
+export function getScreenTextLanguage(): ScreenTextLanguage {
+  const language = localStorage.getItem(SCREEN_TEXT_LANGUAGE_KEY);
+  return isScreenTextLanguage(language) ? language : screenTextLanguages[0];
+}
+
+export function setScreenTextLanguage(language: ScreenTextLanguage) {
+  localStorage.setItem(SCREEN_TEXT_LANGUAGE_KEY, language);
 }
 
 // Lowest latency unless this browser chose smooth playback.

@@ -50,6 +50,7 @@ const DownloadImage = lazy(() =>
 const Image = lazy(() => loadAdminItems().then((module) => ({ default: module.Image })));
 const Picoclaw = lazy(() => loadAdminItems().then((module) => ({ default: module.Picoclaw })));
 const Script = lazy(() => loadAdminItems().then((module) => ({ default: module.Script })));
+const ScreenText = lazy(() => loadAdminItems().then((module) => ({ default: module.ScreenText })));
 const Terminal = lazy(() => loadAdminItems().then((module) => ({ default: module.Terminal })));
 const UsbMenu = lazy(() => loadAdminItems().then((module) => ({ default: module.UsbMenu })));
 
@@ -204,6 +205,7 @@ export const Menu = () => {
         <Screen key="screen" />,
         ...(isAdmin ? [lazyItem('capture', <Capture />)] : []),
         <Screenshot key="screenshot" />,
+        ...(isAdmin ? [lazyItem('screen-text', <ScreenText />, null)] : []),
         ...(isEnabled('recorder') ? [<Recorder key="recorder" />] : [])
       ],
       audio.available ? [<AudioMenu key="audio" audio={audio} />] : [],

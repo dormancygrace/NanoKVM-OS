@@ -13,6 +13,7 @@ import (
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"NanoKVM-Server/service/picoclaw"
+	"NanoKVM-Server/service/vm"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,10 +38,16 @@ func addonsRouter(r *gin.Engine) {
 			response.ErrRsp(c, -1, "cannot read installed extensions")
 			return
 		}
+		tpu, err := installedBinary(vm.ScreenTextHelper)
+		if err != nil {
+			response.ErrRsp(c, -1, "cannot read installed extensions")
+			return
+		}
 		response.OkRspWithData(c, gin.H{
 			"rustdesk": gin.H{"installed": rustdesk},
 			"picoclaw": gin.H{"installed": pico},
 			"ipmi":     gin.H{"installed": ipmiInstalled},
+			"tpu":      gin.H{"installed": tpu},
 		})
 	})
 }

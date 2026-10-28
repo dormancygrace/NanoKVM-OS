@@ -34,4 +34,7 @@ export const controlRegionModeAtom = atom<ControlRegionMode>('off');
 // show the live input-region selection overlay
 export const inputRegionSelectingAtom = atom(false);
 
+// show the overlay that reads text on the screen (TPU add-on)
+export const screenTextOpenAtom = atom(false);
+
 export const streamFpsAtom = atom(60);

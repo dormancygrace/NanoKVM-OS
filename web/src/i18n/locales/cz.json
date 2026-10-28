@@ -2198,6 +2198,32 @@
     "captureDisabled": "Aby bylo možné pořídit snímek obrazovky, zapněte zachytávání",
     "noVideo": "Před pořízením snímku obrazovky vyčkejte na videosnímek"
   },
+  "screenText": {
+    "read": "Rozpoznat text na obrazovce",
+    "captureDisabled": "Pro rozpoznání textu zapněte snímání",
+    "title": "Text na obrazovce",
+    "dragHint": "Táhnutím označte text, nebo rozpoznejte celou obrazovku",
+    "reading": "Čtení obrazovky…",
+    "readingHint": "Potrvá to několik sekund",
+    "readSelection": "Rozpoznat výběr",
+    "wholeScreen": "Celá obrazovka",
+    "cancel": "Zrušit",
+    "again": "Rozpoznat znovu",
+    "newArea": "Vybrat jinou oblast",
+    "copy": "Kopírovat",
+    "copied": "Text zkopírován",
+    "copyFailed": "Text se nepodařilo zkopírovat; označte jej a zkopírujte ručně",
+    "took": "Rozpoznáno za {{seconds}} s",
+    "empty": "V této oblasti nebyl nalezen žádný text",
+    "failed": "Text se nepodařilo rozpoznat",
+    "busy": "Obrazovka se již čte; zkuste to za chvíli znovu",
+    "noSignal": "Žádný signál HDMI",
+    "tooLarge": "Rozpoznávání textu funguje do 1920×1080; snižte rozlišení počítače",
+    "languages": {
+      "latin": "Latinka: angličtina a evropské jazyky",
+      "cyrillic": "Cyrilice: ruština, ukrajinština a další, s angličtinou"
+    }
+  },
   "inputConnection": {
     "connecting": "Připojování k řídícímu kanálu",
     "reconnecting": "Řídící spojení ztraceno. Opětovné připojování…",

@@ -353,7 +353,7 @@ class Staging(LayoutFixture):
                               'root/.ssh/authorized_keys': 'ssh-ed25519 fixture\n',
                               'boot/boot.sd': 'stock boot', 'boot/eth.nodhcp': '192.0.2.2/24 192.0.2.1\n',
                               'data/user.iso': 'do not change',
-                              'proc/device-tree/compatible': 'sophgo,sg2002\x00',
+                              'proc/device-tree/compatible': 'cvitek,cv181x\x00',
                               'proc/cmdline': 'root=' + str(root / 'dev/mmcblk0p2') + ' rw\n'}.items():
             write(root, path, content)
         self.usb_flags = USB_SETTINGS if usb_flags is None else usb_flags
@@ -409,6 +409,25 @@ reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
         self.assertFalse((self.root / 'data/.nanokvm-stock-install').exists())
         self.assertEqual((self.root / 'boot/boot.sd').read_text(), 'stock boot')
         self.assertFalse((self.root / 'rebooted').exists())
+
+    def test_real_stock_dt_and_compatibility_list_require_stock_identity(self):
+        self.prepare()
+        compatible = self.root / 'proc/device-tree/compatible'
+        for name in ('cvitek,cv181x', 'sophgo,sg2002', 'sophgo,cv181x', 'sipeed,licheerv-nano'):
+            compatible.write_bytes(b'board-specific,identity\0' + name.encode() + b'\0')
+            result = self.invoke()
+            self.assertEqual(result.returncode, 0, result.stderr)
+        for name in ('other,soc', 'cvitek,cv181x-fake'):
+            compatible.write_bytes(name.encode() + b'\0')
+            result = self.invoke('--yes')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('not an SG2002', result.stderr)
+            self.assertFalse((self.root / 'data/.nanokvm-stock-install').exists())
+        compatible.write_bytes(b'cvitek,cv181x\0')
+        write(self.root, 'etc/kvm/hw', 'other-board')
+        self.assertIn('unsupported stock board', self.invoke().stderr)
+        (self.root / 'etc/kvm/hw').unlink()
+        self.assertIn('stock NanoKVM identity is missing', self.invoke().stderr)
 
     def test_success_stages_and_activates_without_partition_writes(self):
         self.prepare()
@@ -579,7 +598,7 @@ format_root() {
         actual = {p.name: p.read_text() for p in (root / 'etc/kvm/usb').iterdir() if not p.name.startswith('.')}
         self.assertEqual(actual, self.usb_flags)
 
-    def test_empty_stock_usb_set_does_not_enable_image_defaults(self):
+    def test_empty_stock_usb_set_does_not_add_virtual_disk_defaults(self):
         self.prepare(usb_flags={})
         self.assertEqual(self.recover().returncode, 80)
         self.import_usb_flags()
@@ -647,6 +666,8 @@ class OfflinePackage(unittest.TestCase):
         self.env = {**os.environ, 'TEST_ROOT': str(self.root)}
         for path in ('var/log', 'run', 'root'):
             (self.root / path).mkdir(parents=True, exist_ok=True)
+        self.boot_id = '11111111-1111-4111-8111-111111111111'
+        write(self.root, 'proc/sys/kernel/random/boot_id', self.boot_id + '\n')
         write(self.root, 'kvmapp/server/NanoKVM-Server', 'stock binary')
         write(self.root, 'kvmapp/system/init.d/S95nanokvm',
               '#!/bin/sh\necho stock-restart >>"$TEST_ROOT/order"\n', 0o755)
@@ -654,7 +675,7 @@ class OfflinePackage(unittest.TestCase):
         self.script = write(self.root, 'hook', self.isolate((SOURCE / 'S95nanokvm').read_text()) + '\nwait "$!"\n')
 
     def isolate(self, text):
-        return re.sub(r'(?<![A-Za-z0-9_/.])/(?:root|kvmapp|var|run)(?=/|\b)',
+        return re.sub(r'(?<![A-Za-z0-9_/.])/(?:root|kvmapp|var|run|proc)(?=/|\b)',
                       lambda match: str(self.root) + match.group(), text)
 
     def upload(self, status=0):
@@ -670,10 +691,10 @@ class OfflinePackage(unittest.TestCase):
         return subprocess.run(['busybox', 'sh', str(self.script), 'restart'],
                               env=self.env, capture_output=True, text=True)
 
-    def assert_restored(self):
+    def assert_restored(self, retained_handoffs=()):
         self.assertEqual((self.root / 'kvmapp/server/NanoKVM-Server').read_text(), 'stock binary')
         self.assertEqual((self.root / 'data/.nanokvm-stock-install/status').read_text(), 'keep transaction')
-        self.assertFalse(list((self.root / 'root').glob('.nanokvm-stock-incoming.*')))
+        self.assertEqual(set((self.root / 'root').glob('.nanokvm-stock-incoming.*')), set(retained_handoffs))
 
     def test_restores_stock_before_install_and_refuses_missing_backup(self):
         self.upload()
@@ -721,6 +742,62 @@ class OfflinePackage(unittest.TestCase):
                 self.assertEqual((self.root / 'root/.nanokvm-stock-package/active').read_text(), 'in use')
                 self.assertNotIn('install', (self.root / 'order').read_text().splitlines())
                 lock.rmdir()
+
+    def test_power_loss_during_restart_is_cleaned_after_next_boot(self):
+        # Kill only the fixture's controller child before it promotes the
+        # package. SIGKILL deliberately bypasses its EXIT cleanup trap.
+        write(self.root, 'kvmapp/system/init.d/S95nanokvm', '#!/bin/sh\nkill -KILL "$PPID"\n', 0o755)
+        self.upload()
+        self.assertNotEqual(self.run_hook().returncode, 0)
+        handoffs = list((self.root / 'root').glob('.nanokvm-stock-incoming.*'))
+        self.assertEqual(len(handoffs), 1)
+        old = handoffs[0]
+        self.assertTrue(old.name.startswith('.nanokvm-stock-incoming.' + self.boot_id + '.'))
+        self.assertTrue((old / 'package/migration/install.sh').is_file())
+        self.assert_restored([old])
+        self.boot_id = '22222222-2222-4222-8222-222222222222'
+        write(self.root, 'proc/sys/kernel/random/boot_id', self.boot_id + '\n')
+        write(self.root, 'kvmapp/system/init.d/S95nanokvm', '#!/bin/sh\necho stock-restart >>"$TEST_ROOT/order"\n', 0o755)
+        self.upload()
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_restored()
+        self.assertFalse(old.exists())
+
+    def test_pruning_needs_lock_and_preserves_current_boot_and_unowned_paths(self):
+        prefix = '.nanokvm-stock-incoming.'
+        old = self.root / 'root' / (prefix + '22222222-2222-4222-8222-222222222222.old123')
+        live = self.root / 'root' / (prefix + self.boot_id + '.live12')
+        unknown = self.root / 'root' / (prefix + 'unclassified')
+        for path in (old, live, unknown):
+            write(path, 'package/payload', 'preserve unless old boot')
+        outside = self.root / 'unrelated'
+        write(outside, 'payload', 'do not follow links')
+        link = self.root / 'root' / (prefix + '33333333-3333-4333-8333-333333333333.link12')
+        link.symlink_to(outside, target_is_directory=True)
+        lock = self.root / 'run/nanokvm-stock-package.lock'
+        lock.mkdir()
+        self.upload()
+        self.assertNotEqual(self.run_hook().returncode, 0)
+        self.assert_restored([old, live, unknown, link])
+        lock.rmdir()
+        self.upload()
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_restored([live, unknown, link])
+        self.assertFalse(old.exists())
+        self.assertEqual((outside / 'payload').read_text(), 'do not follow links')
+        self.assertTrue((live / 'package/payload').is_file())
+
+    def test_missing_boot_id_keeps_stock_ui_and_skips_unproven_cleanup(self):
+        (self.root / 'proc/sys/kernel/random/boot_id').unlink()
+        old = self.root / 'root/.nanokvm-stock-incoming.22222222-2222-4222-8222-222222222222.old123'
+        write(old, 'package/payload', 'cannot prove a previous boot')
+        self.upload()
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_restored([old])
+        self.assertTrue((old / 'package/payload').is_file())
 
     def test_failed_stock_restart_does_not_start_migration(self):
         write(self.root, 'kvmapp/system/init.d/S95nanokvm', '#!/bin/sh\nexit 18\n', 0o755)

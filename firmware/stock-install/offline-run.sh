@@ -20,6 +20,20 @@ locked=1
 [ ! -e /run/nanokvm-stock-install.lock ] || {
     echo 'A migration is already running; stock application has been restored.' >&2; exit 1;
 }
+# A handoff from an earlier kernel boot cannot have a live controller. Keep
+# current-boot handoffs: another upload may be waiting to acquire this lock.
+boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null) || boot_id=unknown
+case "$boot_id" in ''|*[!0-9a-f-]*) boot_id=unknown ;; esac
+[ "${#boot_id}" = 36 ] || boot_id=unknown
+for stale in /root/.nanokvm-stock-incoming.*; do
+    [ "$boot_id" != unknown ] || break
+    [ "$stale" != "$incoming" ] && [ -d "$stale" ] && [ ! -L "$stale" ] || continue
+    stamp=${stale##*/.nanokvm-stock-incoming.}
+    stamp=${stamp%.*}
+    case "$stamp" in ''|*[!0-9a-f-]*) continue ;; esac
+    [ "${#stamp}" = 36 ] && [ "$stamp" != "$boot_id" ] || continue
+    rm -rf "$stale"
+done
 # No controller or migration uses the old package. A refused preflight or a
 # power cycle may have left it behind; replace it after restoring the stock UI.
 rm -rf "$package"

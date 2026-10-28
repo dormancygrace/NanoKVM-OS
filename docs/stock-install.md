@@ -33,7 +33,8 @@ change; that change also updates the root password used by SSH.
 USB gadget and networking settings (including RNDIS/NCM, DHCP/prefix, HID and
 USB identity/storage choices), the Ethernet MAC override, Ethernet disabled
 state and static DNS configuration are retained. A stock device with no USB
-flags keeps USB disabled; fresh-image defaults do not override the stock set.
+flags keeps its stock composition (HID only); the fresh-image defaults, including
+an enabled virtual disk, are not added.
 
 **Root recovery limitation:** the current `nanokvm-stage-update` path and
 `firmware/alpine/recovery/init` cannot reinstall the root on a migrated card:
@@ -63,8 +64,12 @@ The package restores the stock updater's own `/root/old` application before
 preflight. If preflight refuses the migration, the stock UI remains available.
 Read `/var/log/nanokvm-stock-install.log` over SSH for the reason. The offline
 controller removes its temporary package when it finishes, including after a
-refused preflight. Uploading again restores the stock UI before checking for
-an active installer or replacing a stale package. An existing transaction in
+refused preflight. Handoff names include the kernel boot ID. Under its package
+lock, a later run removes handoffs from previous boots after an interrupted
+installation; current-boot handoffs are retained because another controller may
+still use them. Unclassified handoffs or an unavailable kernel boot ID do not
+trigger automatic deletion. Uploading again restores the stock UI before checking for an
+active installer or replacing a stale package. An existing transaction in
 `/data/.nanokvm-stock-install` is kept for inspection and never silently replaced;
 do not remove it after recovery has started formatting.
 

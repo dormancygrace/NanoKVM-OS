@@ -14,7 +14,9 @@ case "$2" in --check|--yes) mode=$2 ;; *) usage ;; esac
 [ -f /etc/kvm/hw ] && [ -f /kvmapp/version ] || fail "stock NanoKVM identity is missing"
 case "$(cat /etc/kvm/hw)" in alpha|beta|pcie) ;; *) fail "unsupported stock board" ;; esac
 [ -r /proc/device-tree/compatible ] || fail "device tree is unavailable"
-tr '\000' '\n' </proc/device-tree/compatible | grep -Eq '^(sophgo,sg2002|sophgo,cv181x|sipeed,licheerv-nano)$' ||
+# The stock SG2002 SDK exposes the CV181x family name here. Board/application
+# identity above and the card-layout checks below still restrict the target.
+tr '\000' '\n' </proc/device-tree/compatible | grep -Eq '^(cvitek,cv181x|sophgo,sg2002|sophgo,cv181x|sipeed,licheerv-nano)$' ||
     fail "not an SG2002 device tree"
 for cmd in sha256sum awk tar df sync cmp find; do
     command -v "$cmd" >/dev/null || fail "required command is missing: $cmd"

@@ -119,7 +119,7 @@ tar --numeric-owner -xpzf "$stage/alpine-rootfs.tar.gz" -C /realroot
 # Never run the fresh-image allocator on an existing data partition.
 rm -f /realroot/etc/nanokvm-firstboot-storage
 # The root bundle seeds USB defaults for a new SD image. Stock's
-# complete flag set (including an empty, disabled set) must replace them.
+# complete flag set (including an empty, HID-only set) must replace them.
 rm -rf /realroot/etc/kvm/usb
 mkdir -p /realroot/etc/kvm/usb
 # The normal importer still consumes any carried /boot flags with this marker.

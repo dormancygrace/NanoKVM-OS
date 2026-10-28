@@ -7,7 +7,12 @@ case "${1:-}" in start|restart) ;; stop) exit 0 ;; *) exit 2 ;; esac
     echo 'Stock updater backup /root/old is missing; installation stopped.' >&2; exit 1;
 }
 # A unique handoff keeps a retry from overwriting a still-running controller.
-incoming=$(mktemp -d /root/.nanokvm-stock-incoming.XXXXXX)
+# Stamp the directory name before moving any payload: after a power loss,
+# another boot can identify this handoff without confusing it with a live one.
+boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null) || boot_id=unknown
+case "$boot_id" in ''|*[!0-9a-f-]*) boot_id=unknown ;; esac
+[ "${#boot_id}" = 36 ] || boot_id=unknown
+incoming=$(mktemp -d "/root/.nanokvm-stock-incoming.$boot_id.XXXXXX")
 if ! mv /kvmapp "$incoming/package"; then
     rmdir "$incoming"
     exit 1

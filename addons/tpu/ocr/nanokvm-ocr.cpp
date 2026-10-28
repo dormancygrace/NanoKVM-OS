@@ -30,6 +30,8 @@
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <linux/dma-heap.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <riscv_vector.h> // XTheadVector: build with -march=rv64gc_xtheadvector
@@ -73,11 +75,8 @@ struct Model {
     int32_t input_count = 0, output_count = 0;
     int in_h = 0, in_w = 0;
 
-    // The model in path, or in bytes already read from it.
-    bool open(const char *path, const std::vector<int8_t> &bytes = {}) {
-        const CVI_RC rc = bytes.empty() ? CVI_NN_RegisterModel(path, &handle)
-                                        : CVI_NN_RegisterModelFromBuffer(bytes.data(), bytes.size(), &handle);
-        if (rc != 0) return false;
+    bool open(const char *path) {
+        if (CVI_NN_RegisterModel(path, &handle) != 0) return false;
         return tensors();
     }
     // Program `program` of an open model with several (one recognizer in
@@ -727,45 +726,52 @@ std::vector<std::string> model_paths(const char *list) {
     return paths;
 }
 
-// Model files read from the card by a thread of their own while the TPU
-// works. They are read into the process's memory: the page cache does not
-// keep them, as loading a model takes its TPU memory from the region the
-// cache is in and drops what the cache holds there (the medium recognizer
-// came from the card each time: 0.7 s of a read).
+// Has the page cache hold a file, read through a small buffer.
+void warm(const std::string &path) {
+    const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return;
+    std::vector<char> buffer(1 << 20);
+    while (::read(fd, buffer.data(), buffer.size()) > 0) {}
+    close(fd);
+}
+
+// Takes `bytes` of the TPU's memory (the dma-buf heap the runtime uses: the
+// one TPU_DMA_HEAP names, else linux,cma, else the first that is not the
+// system heap) until the returned descriptor is closed; -1 when it cannot.
+int hold_tpu_memory(size_t bytes) {
+    std::vector<std::string> heaps;
+    if (const char *name = getenv("TPU_DMA_HEAP")) heaps.push_back(name);
+    heaps.push_back("linux,cma");
+    if (DIR *dir = opendir("/dev/dma_heap")) {
+        while (const dirent *entry = readdir(dir))
+            if (entry->d_name[0] != '.' && std::strcmp(entry->d_name, "system") != 0) heaps.push_back(entry->d_name);
+        closedir(dir);
+    }
+    for (const std::string &heap : heaps) {
+        const int fd = open(("/dev/dma_heap/" + heap).c_str(), O_RDWR | O_CLOEXEC);
+        if (fd < 0) continue;
+        dma_heap_allocation_data alloc = {};
+        alloc.len = bytes;
+        alloc.fd_flags = O_RDWR | O_CLOEXEC;
+        const int rc = ioctl(fd, DMA_HEAP_IOCTL_ALLOC, &alloc);
+        close(fd);
+        return rc == 0 ? static_cast<int>(alloc.fd) : -1;
+    }
+    return -1;
+}
+
+// Model files read into the page cache by a thread of their own while the
+// TPU detects, for the runtime to load them from there.
 class ModelFiles {
 public:
-    explicit ModelFiles(const char *list) : paths_(model_paths(list)), data_(paths_.size()), reader_([this] { read(); }) {}
-    ~ModelFiles() { if (reader_.joinable()) reader_.join(); }
-    // The bytes of one of the files, once read; empty when it could not be.
-    std::vector<int8_t> take(const std::string &path) {
-        if (reader_.joinable()) reader_.join();
-        for (size_t i = 0; i < paths_.size(); ++i)
-            if (paths_[i] == path) return std::move(data_[i]);
-        return {};
-    }
+    explicit ModelFiles(const char *list) : paths_(model_paths(list)), reader_([this] {
+        for (const std::string &path : paths_) warm(path);
+    }) {}
+    ~ModelFiles() { wait(); }
+    void wait() { if (reader_.joinable()) reader_.join(); }
 
 private:
-    void read() {
-        for (size_t i = 0; i < paths_.size(); ++i) {
-            const int fd = open(paths_[i].c_str(), O_RDONLY | O_CLOEXEC);
-            struct stat st;
-            if (fd < 0) continue;
-            if (fstat(fd, &st) == 0 && st.st_size > 0) {
-                std::vector<int8_t> &data = data_[i];
-                data.resize(st.st_size);
-                size_t done = 0;
-                while (done < data.size()) {
-                    const ssize_t n = ::read(fd, data.data() + done, data.size() - done);
-                    if (n <= 0) break;
-                    done += n;
-                }
-                if (done != data.size()) data.clear();
-            }
-            close(fd);
-        }
-    }
     std::vector<std::string> paths_;
-    std::vector<std::vector<int8_t>> data_;
     std::thread reader_;
 };
 
@@ -814,9 +820,9 @@ int main(int argc, char **argv) {
         for (int c = 0; c < 3; ++c) pic.bgr[(2 - c) * pixels + i] = rgb[i * 3 + c];
     // The TPU memory comes from the region that video shares: the detector is
     // freed as soon as detection is done.
-    auto load = [](Model &m, const char *path, const std::vector<int8_t> &bytes = {}) {
+    auto load = [](Model &m, const char *path) {
         const auto loading = std::chrono::steady_clock::now();
-        if (!m.open(path, bytes) || !supported(&m.inputs[0]) || !supported(&m.outputs[0])) {
+        if (!m.open(path) || !supported(&m.inputs[0]) || !supported(&m.outputs[0])) {
             std::fprintf(stderr, "nanokvm-ocr: cannot load %s\n", path);
             return false;
         }
@@ -829,9 +835,10 @@ int main(int argc, char **argv) {
     };
     // Recognition models of one height in several widths, narrowest first.
     // REC.cvimodel:N is one recognizer whose N programs (its widths) share
-    // the weights, loaded once. The files come read by a ModelFiles.
+    // the weights, loaded once, once a ModelFiles has read their files.
     using Recs = std::vector<std::unique_ptr<Model>>;
     auto load_recs = [&](const char *list, Recs &recs, ModelFiles &files) {
+        files.wait();
         std::vector<std::string> rec_paths;
         for (const char *p = list; *p;) {
             const char *comma = std::strchr(p, ',');
@@ -844,7 +851,7 @@ int main(int argc, char **argv) {
             const std::string path = programs > 1 ? arg.substr(0, colon) : arg;
             recs.push_back(std::make_unique<Model>());
             const Model &first = *recs.back();
-            if (!load(*recs.back(), path.c_str(), files.take(path))) return false;
+            if (!load(*recs.back(), path.c_str())) return false;
             for (int program = 1; program < programs; ++program) {
                 recs.push_back(std::make_unique<Model>());
                 Model &m = *recs.back();
@@ -857,11 +864,21 @@ int main(int argc, char **argv) {
         std::sort(recs.begin(), recs.end(), [](const auto &a, const auto &b) { return a->in_w < b->in_w; });
         return true;
     };
-    // Each model is loaded once (a load reads it from the card, 0.25-0.8 s).
+    // The memory the detector takes (61.5 MiB for 960x544).
+    const size_t det_memory = 64u << 20;
+    // Each model is loaded once (a load reads it from the card, 0.25-1.2 s).
     // The detector and the recognizers do not fit in memory together next to
     // the video buffers: the detector is freed before the recognizers load.
-    // Their files are read while the TPU detects, once the detector has its
-    // memory.
+    //
+    // The model files stay in the page cache from one read to the next only
+    // where the TPU's memory will not be taken: taking it drops the cache
+    // there (the CMA region is shared with the cache). So the detector's file
+    // is read into the cache while that much memory is held, and the
+    // recognizers' files while the detector holds it; the detector then takes
+    // the memory held and the recognizers the detector's, not the files.
+    // The files are read through the cache, not into the process: the
+    // copies took the memory the cache needed (the detector's file came
+    // from the card each time, about 1 s with a viewer).
     auto start = std::chrono::steady_clock::now();
     const int scale = pic.width > 1280 ? 2 : 1;
     const Picture half = scale == 2 ? half_size(pic) : Picture{};
@@ -869,6 +886,17 @@ int main(int argc, char **argv) {
     std::vector<Region> regions;
     std::unique_ptr<ModelFiles> rec_files, sure_files;
     {
+        {
+            const auto holding = std::chrono::steady_clock::now();
+            const int held = hold_tpu_memory(det_memory);
+            const long hold_ms = ms_since(holding);
+            const auto reading = std::chrono::steady_clock::now();
+            warm(argv[1]);
+            if (held >= 0) close(held);
+            if (getenv("NANOKVM_OCR_DEBUG"))
+                std::fprintf(stderr, "detector memory %s in %ld ms, file read in %ld ms\n", held >= 0 ? "held" : "not held",
+                    hold_ms, ms_since(reading));
+        }
         Model det;
         if (!load(det, argv[1])) return 1;
         rec_files = std::make_unique<ModelFiles>(argv[2]);

@@ -86,10 +86,18 @@ for lib in libstdc++.so.6 libgcc_s.so.1; do
     "${cross}strip" --strip-unneeded "$stage/lib/$lib"
 done
 (cd "$models" && sha256sum -c --quiet SHA256SUMS)
-cp "$models/ocr-det.cvimodel" "$stage/models/"
+# The models go in with their command buffers already in the form the
+# runtime gives them at load (ocr/cvimodel-dmabuf.c): a tool for this
+# machine, with the runtime's converter.
+soc=$src/cviruntime/src/soc
+cc -O2 -Wall -I"$src/cviruntime/include" -I"$src/cvikernel/include" -I"$soc/181x" -I"$soc/common"     "$here/ocr/cvimodel-dmabuf.c" "$soc/181x/bm_dmabuf.c" -o "$build/cvimodel-dmabuf"
+"$build/cvimodel-dmabuf" "$models/ocr-det.cvimodel" "$stage/models/ocr-det.cvimodel"
 for lang in latin chinese cyrillic; do
     mkdir -p "$stage/models/$lang"
-    cp "$models/$lang"/ocr-*.cvimodel "$models/$lang/ocr-dict.txt" "$stage/models/$lang/"
+    for model in "$models/$lang"/ocr-*.cvimodel; do
+        "$build/cvimodel-dmabuf" "$model" "$stage/models/$lang/${model##*/}"
+    done
+    cp "$models/$lang/ocr-dict.txt" "$stage/models/$lang/"
 done
 cp "$here/NOTICE" "$stage/"
 du -sh "$stage"

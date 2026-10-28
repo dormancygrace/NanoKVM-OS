@@ -1702,6 +1702,19 @@
       "description": "Ovládání napájení hostitele pro nástroje pro datová centra, prostřednictvím ATX připojení: Redfish (fence_redfish, Ansible) je součástí NanoKVM OS, IPMI přes LAN (ipmitool, fence_ipmilan) je součástí doplňku.",
       "title": "Redfish a IPMI",
       "removeTitle": "Odebrat doplněk IPMI?"
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "Rozpoznávání textu",
+        "language": "Výchozí jazyk",
+        "languageDescription": "Pro rozpoznávání textu na obrazovce: tlačítko v liště, MCP a PicoClaw. Při čtení lze zvolit jiný jazyk.",
+        "notInstalled": "Rozpoznávání textu potřebuje doplněk TPU.",
+        "openAddons": "Doplňky",
+        "saved": "Jazyk uložen",
+        "saveFailed": "Jazyk se nepodařilo uložit",
+        "noModels": "nenainstalováno"
+      }
     }
   },
   "picoclaw": {

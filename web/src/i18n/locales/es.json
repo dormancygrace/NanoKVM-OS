@@ -2047,6 +2047,19 @@
       "confirm": "He revisado los cambios y podré volver a conectarme después del reinicio.",
       "reboot": "Reiniciar para finalizar",
       "rebooting": "Restauración programada. El dispositivo se está reiniciando; vuelva a conectarse después."
+    },
+    "ai": {
+      "title": "IA",
+      "screenText": {
+        "title": "Reconocimiento de texto",
+        "language": "Idioma predeterminado",
+        "languageDescription": "Para reconocer texto en la pantalla: el botón de la barra, MCP y PicoClaw. Cada lectura puede elegir otro idioma.",
+        "notInstalled": "El reconocimiento de texto necesita el complemento TPU.",
+        "openAddons": "Complementos",
+        "saved": "Idioma guardado",
+        "saveFailed": "No se pudo guardar el idioma",
+        "noModels": "no instalado"
+      }
     }
   },
   "picoclaw": {

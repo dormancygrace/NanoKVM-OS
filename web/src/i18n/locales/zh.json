@@ -2047,6 +2047,19 @@
       "confirm": "我已检查更改，并能在重启后重新连接设备。",
       "reboot": "重启以完成恢复",
       "rebooting": "恢复已排队。设备正在重启；请稍后重新连接。"
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "文字识别",
+        "language": "默认语言",
+        "languageDescription": "用于识别屏幕文字：工具栏按钮、MCP 和 PicoClaw。每次识别可以选择其他语言。",
+        "notInstalled": "文字识别需要 TPU 扩展。",
+        "openAddons": "扩展",
+        "saved": "语言已保存",
+        "saveFailed": "无法保存语言",
+        "noModels": "未安装"
+      }
     }
   },
   "picoclaw": {

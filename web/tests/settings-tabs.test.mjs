@@ -19,6 +19,14 @@ test('old settings ids open the pages that replaced them', () => {
   assert.equal(resolveSettingsTab('date-time'), 'system-date-time');
   assert.equal(resolveSettingsTab('video'), 'video');
   assert.equal(resolveSettingsTab('usb'), 'usb-composition');
+  assert.equal(resolveSettingsTab('system-mcp'), 'ai-mcp');
+});
+
+test('the AI group holds text recognition and MCP', () => {
+  assert.equal(isSettingsGroup('ai'), true);
+  assert.equal(settingsGroupOf('ai-screen-text'), 'ai');
+  assert.equal(settingsGroupOf('ai-mcp'), 'ai');
+  assert.equal(resolveSettingsTab('ai'), 'ai-screen-text');
 });
 
 test('pages belong to the group named by their prefix', () => {

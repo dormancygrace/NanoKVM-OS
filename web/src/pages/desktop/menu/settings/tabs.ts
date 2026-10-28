@@ -2,7 +2,7 @@
 // requests still use.
 
 // A tab id "<group>-<page>" is shown inside its expandable group.
-export const settingsGroups = ['usb', 'network', 'system', 'software'] as const;
+export const settingsGroups = ['usb', 'network', 'system', 'ai', 'software'] as const;
 export type SettingsGroup = (typeof settingsGroups)[number];
 
 // The group's own entry, which expands it instead of opening a page.
@@ -43,6 +43,9 @@ const aliases: Record<string, string> = {
   // HTTPS, its certificate and SSH moved to System > Security.
   security: 'system-security',
   extensions: 'software-addons',
+  // MCP moved from System to the AI group.
+  'system-mcp': 'ai-mcp',
+  ai: 'ai-screen-text',
   'extensions-rustdesk': 'software-rustdesk'
 };
 

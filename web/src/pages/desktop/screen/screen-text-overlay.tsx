@@ -3,12 +3,12 @@ import { Alert, Button, Card, Input, message, Modal, Select, Space, Spin, theme 
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { getScreenText } from '@/api/vm.ts';
+import { getScreenText, getScreenTextSettings, type ScreenTextSettings } from '@/api/vm.ts';
 import { writeClipboardText } from '@/lib/clipboard.ts';
-import { getScreenTextLanguage, setScreenTextLanguage } from '@/lib/localstorage.ts';
 import {
   boxesInRegion,
   boxesToText,
+  isScreenTextLanguage,
   screenTextLanguages,
   type ScreenTextLanguage,
   type ScreenTextRegion,
@@ -46,7 +46,10 @@ export const ScreenTextOverlay = () => {
   const resolution = useAtomValue(resolutionAtom);
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
   const [phase, setPhase] = useState<Phase>('select');
-  const [language, setLanguage] = useState<ScreenTextLanguage>(getScreenTextLanguage);
+  // The device's default (Settings > AI); picking another one here is for
+  // this read only.
+  const [language, setLanguage] = useState<ScreenTextLanguage>(screenTextLanguages[0]);
+  const [installed, setInstalled] = useState<string[] | null>(null);
   const [frame, setFrame] = useState<RenderedMediaRect | null>(null);
   const [selection, setSelection] = useState<RenderedMediaRect | null>(null);
   const [region, setRegion] = useState<ScreenTextRegion>(wholeScreen);
@@ -67,6 +70,24 @@ export const ScreenTextOverlay = () => {
     setPhase('select');
     setOpen(false);
   }, [setOpen]);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    getScreenTextSettings()
+      .then((rsp) => {
+        if (!active || rsp.code !== 0) return;
+        const settings = rsp.data as ScreenTextSettings;
+        if (isScreenTextLanguage(settings.language)) setLanguage(settings.language);
+        setInstalled(settings.languages.filter((lang) => lang.installed).map((lang) => lang.name));
+      })
+      .catch(() => {
+        /* The default language stays; the server picks its own without ?lang. */
+      });
+    return () => {
+      active = false;
+    };
+  }, [open]);
 
   // Keys go to the dialog, not to the remote computer, while it is open.
   useEffect(() => {
@@ -165,11 +186,6 @@ export const ScreenTextOverlay = () => {
     [t]
   );
 
-  function chooseLanguage(lang: ScreenTextLanguage) {
-    setLanguage(lang);
-    setScreenTextLanguage(lang);
-  }
-
   function clamp(x: number, y: number) {
     if (!frame) return null;
     return {
@@ -238,11 +254,12 @@ export const ScreenTextOverlay = () => {
     <Select
       size="small"
       value={language}
-      onChange={chooseLanguage}
+      onChange={setLanguage}
       popupMatchSelectWidth={false}
       options={screenTextLanguages.map((lang) => ({
         value: lang,
-        label: t(`screenText.languages.${lang}`)
+        label: t(`screenText.languages.${lang}`),
+        disabled: installed !== null && !installed.includes(lang)
       }))}
     />
   );

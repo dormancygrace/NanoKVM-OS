@@ -2047,6 +2047,19 @@
       "confirm": "I reviewed the changes and can reconnect to the device after reboot.",
       "reboot": "Reboot to finish recovery",
       "rebooting": "Recovery queued. The device is rebooting; reconnect afterwards."
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "Text recognition",
+        "language": "Default language",
+        "languageDescription": "Used for reading text on the screen: the toolbar button, MCP and PicoClaw. A read can pick another language.",
+        "notInstalled": "Text recognition needs the TPU add-on.",
+        "openAddons": "Add-ons",
+        "saved": "Language saved",
+        "saveFailed": "The language could not be saved",
+        "noModels": "not installed"
+      }
     }
   },
   "picoclaw": {

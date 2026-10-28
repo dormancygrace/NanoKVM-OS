@@ -2047,6 +2047,19 @@
       "confirm": "Ich habe die Änderungen geprüft und kann mich nach dem Neustart wieder verbinden.",
       "reboot": "Zum Abschließen neu starten",
       "rebooting": "Wiederherstellung vorgemerkt. Das Gerät startet neu; verbinden Sie sich danach erneut."
+    },
+    "ai": {
+      "title": "KI",
+      "screenText": {
+        "title": "Texterkennung",
+        "language": "Standardsprache",
+        "languageDescription": "Für die Texterkennung auf dem Bildschirm: Schaltfläche in der Leiste, MCP und PicoClaw. Beim Lesen kann eine andere Sprache gewählt werden.",
+        "notInstalled": "Die Texterkennung benötigt das TPU-Add-on.",
+        "openAddons": "Add-ons",
+        "saved": "Sprache gespeichert",
+        "saveFailed": "Die Sprache konnte nicht gespeichert werden",
+        "noModels": "nicht installiert"
+      }
     }
   },
   "picoclaw": {

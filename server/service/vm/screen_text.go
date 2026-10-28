@@ -20,6 +20,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/proto"
 )
 
@@ -47,6 +48,52 @@ const screenTextMaxPixels = 1920 * 1080
 // screenTextLanguages are the recognizers of the add-on, one directory of
 // models each (addons/tpu/models/convert.sh); the first is the default.
 var screenTextLanguages = []string{"latin", "cyrillic"}
+
+// screenTextLanguageFile holds the language a read without ?lang= uses
+// (Settings > AI > Text recognition); absent: the first language.
+var screenTextLanguageFile = "/etc/kvm/screen-text-language"
+
+func screenTextDefaultLanguage() string {
+	data, err := os.ReadFile(screenTextLanguageFile)
+	if lang := strings.TrimSpace(string(data)); err == nil && slices.Contains(screenTextLanguages, lang) {
+		return lang
+	}
+	return screenTextLanguages[0]
+}
+
+// GetScreenTextSettings: the default language and which languages have
+// their models installed.
+func (s *Service) GetScreenTextSettings(c *gin.Context) {
+	var rsp proto.Response
+	type language struct {
+		Name      string `json:"name"`
+		Installed bool   `json:"installed"`
+	}
+	languages := make([]language, 0, len(screenTextLanguages))
+	for _, lang := range screenTextLanguages {
+		_, err := screenTextArgs(screenTextRoot+"/models/", lang)
+		languages = append(languages, language{Name: lang, Installed: err == nil})
+	}
+	rsp.OkRspWithData(c, gin.H{"language": screenTextDefaultLanguage(), "languages": languages})
+}
+
+// SetScreenTextSettings saves the default language ({"language":"..."}).
+func (s *Service) SetScreenTextSettings(c *gin.Context) {
+	var rsp proto.Response
+	var req struct {
+		Language string `json:"language"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || !slices.Contains(screenTextLanguages, req.Language) {
+		rsp.ErrRsp(c, -1, "unknown language")
+		return
+	}
+	if err := atomicfile.Write(screenTextLanguageFile, []byte(req.Language+"\n"), 0o644); err != nil {
+		log.Errorf("screen text: save language: %v", err)
+		rsp.ErrRsp(c, -2, "the language could not be saved")
+		return
+	}
+	rsp.OkRspWithData(c, gin.H{"language": req.Language})
+}
 
 // screenTextArgs are the helper's arguments for a language: the recognizer's
 // three widths are programs of one model. A language may have a surer model
@@ -160,7 +207,8 @@ func shiftScreenTextBox(line []byte, dx, dy int) ([]byte, error) {
 // GetScreenText reads the text on the screen with the TPU: one picture from
 // VPSS as B, G and R planes, then nanokvm-ocr. Each line of the helper is one
 // box ({"text","score","x","y","w","h","slope"}); the last one holds the
-// timings. ?lang= picks the recognizer (screenTextLanguages). ?crop=x,y,w,h
+// timings. ?lang= picks the recognizer (screenTextLanguages; without it the
+// default from the settings). ?crop=x,y,w,h
 // (fractions of the picture) reads only that area: smaller than 1280 pixels
 // wide, it is detected at full size, not halved, so small text is found, and
 // it is faster. Boxes are in pixels of the whole picture either way.
@@ -171,7 +219,11 @@ func (s *Service) GetScreenText(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "the TPU add-on is not installed")
 		return
 	}
-	args, err := screenTextArgs(screenTextRoot+"/models/", c.Query("lang"))
+	lang := c.Query("lang")
+	if lang == "" {
+		lang = screenTextDefaultLanguage()
+	}
+	args, err := screenTextArgs(screenTextRoot+"/models/", lang)
 	if err != nil {
 		rsp.ErrRsp(c, -6, err.Error())
 		return

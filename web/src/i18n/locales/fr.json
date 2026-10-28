@@ -2047,6 +2047,19 @@
       "confirm": "J’ai vérifié les modifications et pourrai me reconnecter après le redémarrage.",
       "reboot": "Redémarrer pour terminer",
       "rebooting": "Restauration planifiée. L’appareil redémarre ; reconnectez-vous ensuite."
+    },
+    "ai": {
+      "title": "IA",
+      "screenText": {
+        "title": "Reconnaissance de texte",
+        "language": "Langue par défaut",
+        "languageDescription": "Pour reconnaître le texte à l'écran : le bouton de la barre, MCP et PicoClaw. Chaque lecture peut choisir une autre langue.",
+        "notInstalled": "La reconnaissance de texte nécessite le module TPU.",
+        "openAddons": "Modules",
+        "saved": "Langue enregistrée",
+        "saveFailed": "La langue n'a pas pu être enregistrée",
+        "noModels": "non installé"
+      }
     }
   },
   "picoclaw": {

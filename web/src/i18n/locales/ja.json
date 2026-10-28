@@ -2047,6 +2047,19 @@
       "confirm": "変更を確認し、再起動後にデバイスへ再接続できます。",
       "reboot": "再起動して完了",
       "rebooting": "復元を予約しました。デバイスが再起動しています。その後、再接続してください。"
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "文字認識",
+        "language": "既定の言語",
+        "languageDescription": "画面の文字認識に使います：ツールバーのボタン、MCP、PicoClaw。認識ごとに別の言語も選べます。",
+        "notInstalled": "文字認識には TPU アドオンが必要です。",
+        "openAddons": "アドオン",
+        "saved": "言語を保存しました",
+        "saveFailed": "言語を保存できませんでした",
+        "noModels": "未インストール"
+      }
     }
   },
   "picoclaw": {

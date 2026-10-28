@@ -69,6 +69,23 @@ func TestShiftScreenTextBox(t *testing.T) {
 	}
 }
 
+func TestScreenTextDefaultLanguage(t *testing.T) {
+	saved := screenTextLanguageFile
+	defer func() { screenTextLanguageFile = saved }()
+	screenTextLanguageFile = filepath.Join(t.TempDir(), "language")
+	if got := screenTextDefaultLanguage(); got != "latin" {
+		t.Errorf("without a file: %q, want latin", got)
+	}
+	for content, want := range map[string]string{"cyrillic\n": "cyrillic", "korean\n": "latin", "": "latin"} {
+		if err := os.WriteFile(screenTextLanguageFile, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := screenTextDefaultLanguage(); got != want {
+			t.Errorf("file %q: %q, want %q", content, got, want)
+		}
+	}
+}
+
 func TestScreenTextArgs(t *testing.T) {
 	models := t.TempDir() + "/"
 	for _, f := range []string{"latin/ocr-rec.cvimodel", "latin/ocr-sure.cvimodel", "cyrillic/ocr-rec.cvimodel"} {

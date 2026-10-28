@@ -9,7 +9,7 @@ TECHNICAL = {'APKINDEX.tar.gz', 'Packages.adb', 'packages.json', 'addons.json',
              'build-manifest.json', 'installed-packages.txt', 'installed-licenses.txt'}
 # addons.json is accepted for old builds, not produced by current OS releases.
 REQUIRED = TECHNICAL - {'build-manifest.json', 'addons.json'}
-STOCK_INSTALLER = re.compile(r'nanokvm_\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?\.tar\.gz')
+STOCK_INSTALLER = re.compile(r'nanokvm_\d+\.\d+\.\d+\.tar\.gz')
 
 
 def storage_tag(version):
@@ -48,7 +48,7 @@ def split(directory):
     if sum(f.name.endswith('-source.tar.xz') for f in public) != 1:
         raise ValueError('Expected exactly one corresponding-source archive')
     source = next(f for f in public if f.name.endswith('-source.tar.xz'))
-    installer_name = 'nanokvm_' + source.name.removeprefix('NanoKVM-OS-v').removesuffix('-source.tar.xz') + '.tar.gz'
+    installer_name = 'nanokvm_' + source.name.removeprefix('NanoKVM-OS-v').removesuffix('-source.tar.xz').split('-', 1)[0] + '.tar.gz'
     installers = [f.name for f in public if STOCK_INSTALLER.fullmatch(f.name)]
     if installers and installers != [installer_name]:
         raise ValueError('Stock installer version differs from the release source')

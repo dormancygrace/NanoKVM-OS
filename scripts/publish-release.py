@@ -111,7 +111,7 @@ def verify_public_downloads(version, current):
     required = {'SHA256SUMS', f'NanoKVM-OS-{version}-source.tar.xz'}
     images = [n for n in names if re.fullmatch(
         r'NanoKVM-OS-Image-.+-apps-' + re.escape(version) + r'\.img\.zip', n)]
-    installer = {'nanokvm_' + version.removeprefix('v') + '.tar.gz'} & set(names)
+    installer = {'nanokvm_' + version.removeprefix('v').split('-', 1)[0] + '.tar.gz'} & set(names)
     if (len(names) != len(set(names)) or any(Path(n).name != n for n in names)
             or len(images) > 1 or set(names) != required | set(images) | installer):
         raise ValueError(f'{version}: original public download set is incomplete or unexpected')

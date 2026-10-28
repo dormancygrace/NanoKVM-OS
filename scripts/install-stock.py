@@ -90,7 +90,8 @@ def verify(path, expected):
 
 
 def unpack(archive, destination, version):
-    root_name = 'nanokvm_' + version
+    stock_version = version.split('-', 1)[0]
+    root_name = 'nanokvm_' + stock_version
     with tarfile.open(archive, 'r:gz') as tar:
         members = []
         names = set()
@@ -120,12 +121,14 @@ def unpack(archive, destination, version):
                 shutil.copyfileobj(src, dst)
             target.chmod(0o755 if member.mode & 0o111 else 0o644)
     root = destination / root_name
-    if (root / 'version').read_text().strip() != version:
+    if (root / 'version').read_text().strip() != stock_version:
         raise ValueError('installer package version mismatch')
     for name in ('migration/install.sh', 'migration/SHA256SUMS', 'server/NanoKVM-Server',
                  'kvm_system/kvm_system', 'system/init.d/S95nanokvm'):
         if not (root / name).is_file():
             raise ValueError('installer package lacks ' + name)
+    if (root / 'migration/target-version').read_text().strip() != version:
+        raise ValueError('installer target version differs from the selected release')
     return root / 'migration'
 
 
@@ -148,7 +151,7 @@ def main():
     if match is None:
         parser.error('unsupported release tag')
     version = match.group(1)
-    filename = 'nanokvm_' + version + '.tar.gz'
+    filename = 'nanokvm_' + version.split('-', 1)[0] + '.tar.gz'
     cache = Path('/root/.cache')
     cache.mkdir(mode=0o700, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix='nanokvm-stock-', dir=cache))

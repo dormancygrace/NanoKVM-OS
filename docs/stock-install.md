@@ -9,7 +9,10 @@ Use the [full SD image](INSTALL.md) for a qualified installation today.
 Both methods install the same `nanokvm_X.Y.Z.tar.gz` release asset. This is a
 stock **offline application update package**, not an APK. It replaces the stock
 operating system and applications with NanoKVM OS. Existing NanoKVM OS devices
-must use [package updates](UPDATES.md).
+must use [package updates](UPDATES.md). The stock updater accepts only numeric
+`X.Y.Z` filenames. A beta release therefore uses the same numeric wrapper name
+(e.g. `nanokvm_3.7.0.tar.gz` inside release `v3.7.0-beta.2`); the checked
+`migration/target-version` and installed OS retain the complete beta version.
 
 ## Requirements and retained settings
 

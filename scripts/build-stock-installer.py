@@ -96,10 +96,12 @@ def build(build_root, output, version):
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.stock-build-', dir=output) as temporary:
         work = Path(temporary)
-        package = work / f'nanokvm_{version}'
+        stock_version = version.split('-', 1)[0]
+        package = work / f'nanokvm_{stock_version}'
         payload = package / 'migration'
         payload.mkdir(parents=True)
-        (package / 'version').write_text(version + '\n')
+        (package / 'version').write_text(stock_version + '\n')
+        (payload / 'target-version').write_text(version + '\n')
         for name in ('install.sh', 'offline-run.sh'):
             shutil.copy2(source / name, payload / name)
         entry = package / 'system/init.d/S95nanokvm'

@@ -186,15 +186,24 @@ class Download(unittest.TestCase):
             root = Path(temporary)
             prefix = 'nanokvm_3.6.0'
             tree = root / prefix
-            for path in ['version', 'migration/install.sh', 'migration/SHA256SUMS',
+            for path in ['version', 'migration/target-version', 'migration/install.sh', 'migration/SHA256SUMS',
                          'server/NanoKVM-Server', 'kvm_system/kvm_system', 'system/init.d/S95nanokvm']:
-                write(tree, path, '3.6.0\n' if path == 'version' else 'test\n', 0o755)
+                write(tree, path, '3.6.0\n' if path in ('version', 'migration/target-version') else 'test\n', 0o755)
             archive = root / 'package.tar.gz'
             builder.package_tree(tree, archive)
             target = root / 'out'
             target.mkdir()
             payload = bootstrap.unpack(archive, target, '3.6.0')
             self.assertTrue((payload / 'install.sh').is_file())
+            write(tree, 'migration/target-version', '3.6.0-beta.2\n')
+            builder.package_tree(tree, archive)
+            beta_target = root / 'beta'
+            beta_target.mkdir()
+            self.assertTrue(bootstrap.unpack(archive, beta_target, '3.6.0-beta.2').is_dir())
+            wrong_target = root / 'wrong'
+            wrong_target.mkdir()
+            with self.assertRaisesRegex(ValueError, 'target version differs'):
+                bootstrap.unpack(archive, wrong_target, '3.6.0-beta.3')
             expected = hashlib.sha256(archive.read_bytes()).hexdigest()
             bootstrap.verify(archive, expected)
             with self.assertRaises(ValueError):
@@ -246,6 +255,7 @@ class Staging(LayoutFixture):
         for name in ['recovery.sd', 'boot.img.gz', 'alpine-rootfs.tar.gz', 'install.sh', 'offline-run.sh']:
             write(self.bundle, name, name + ' fixture')
         write(self.bundle, 'rootfs-kib', '1024\n')
+        write(self.bundle, 'target-version', '3.6.0\n')
         write(self.bundle, 'SHA256SUMS', ''.join(hashlib.sha256(f.read_bytes()).hexdigest() + '  ' + f.name + '\n'
               for f in sorted(self.bundle.iterdir())))
         shims = root / 'shims'

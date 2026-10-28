@@ -126,6 +126,13 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(state['releases']['v3.3.1']['assets'], original)
 
+    def test_beta_installer_keeps_the_numeric_stock_filename(self):
+        (self.directory / 'NanoKVM-OS-v3.3.1-source.tar.xz').rename(
+            self.directory / 'NanoKVM-OS-v3.3.1-beta.2-source.tar.xz')
+        (self.directory / 'nanokvm_3.3.1.tar.gz').write_text('beta installer')
+        assets.split(self.directory)
+        self.assertTrue((self.directory / 'public/nanokvm_3.3.1.tar.gz').is_file())
+
     def test_wrong_stock_installer_version_fails_before_moving_assets(self):
         (self.directory / 'nanokvm_3.3.2.tar.gz').write_text('wrong version')
         with self.assertRaisesRegex(ValueError, 'version differs'):

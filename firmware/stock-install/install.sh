@@ -21,7 +21,7 @@ for cmd in sha256sum awk tar df sync cmp find; do
 done
 # Verify before executing any payload program. This manifest travels inside the
 # offline package, whose download is checked against the release SHA256SUMS.
-for name in stock-layout recovery.sd boot.img.gz alpine-rootfs.tar.gz rootfs-kib install.sh offline-run.sh; do
+for name in stock-layout recovery.sd boot.img.gz alpine-rootfs.tar.gz rootfs-kib target-version install.sh offline-run.sh; do
     [ -f "$bundle/$name" ] && [ ! -L "$bundle/$name" ] || fail "missing regular payload: $name"
     expected=$(awk -v wanted="$name" '$2==wanted && NF==2 {n++; hash=$1} END {if(n==1) print hash; else exit 1}' "$bundle/SHA256SUMS") ||
         fail "missing or duplicate checksum: $name"

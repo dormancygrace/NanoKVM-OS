@@ -256,6 +256,10 @@ export const ScreenTextOverlay = () => {
       value={language}
       onChange={setLanguage}
       popupMatchSelectWidth={false}
+      // Inside the overlay's card: on the page body the list would sit under
+      // the overlay (z-index 1050 < 1100), visible through the mask, and a
+      // click on it would start a selection instead.
+      getPopupContainer={(trigger: HTMLElement) => trigger.parentElement ?? document.body}
       options={screenTextLanguages.map((lang) => ({
         value: lang,
         label: t(`screenText.languages.${lang}`),

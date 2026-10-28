@@ -71,6 +71,23 @@ start() {
     else
         ewarn "SD data partition not ready; retrying at the next boot"
     fi
+    # Only a completed stock migration puts this marker in the new root.
+    # Remove its bounded transport files, including after power loss just
+    # after the MBR commit; never remove arbitrary contents of /data.
+    if [ "$data_ready" = 1 ] && [ -f /etc/nanokvm-stock-migration ]; then
+        migration=/data/.nanokvm-stock-install
+        if [ ! -L "$migration" ]; then
+            for file in boot.img.gz alpine-rootfs.tar.gz recovery.sd mbr.old stock-boot.sd \
+                        root.shadow ssh-state settings.tar transaction.sha256 status formatting; do
+                rm -f "$migration/$file" || break
+            done
+            if [ ! -e "$migration" ] || rmdir "$migration"; then
+                rm -f /etc/nanokvm-stock-migration
+            else
+                ewarn "Stock migration staging cleanup needs attention"
+            fi
+        fi
+    fi
     compatibility_data=/data
     if [ "$data_ready" = 0 ]; then
         # The web upload probe checks writability. An ordinary /data directory

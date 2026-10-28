@@ -28,6 +28,7 @@
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
+#   stock-installer  experimental stock offline/SSH migration package
 #   source     write the corresponding-source archive of the outputs
 #   clean      delete OUTPUT/apk-builder and OUTPUT/rootfs, whose files belong
 #              to subordinate IDs (see packages)
@@ -83,7 +84,7 @@ case "$kernel_profile" in
         # Debug packages and images are for test cards: test keys only, so
         # nothing built with the debug kernel can reach a published repository.
         case " ${steps[*]} " in
-            *" payloads "* | *" packages "* | *" rootfs "* | *" image "*)
+            *" payloads "* | *" packages "* | *" rootfs "* | *" image "* | *" stock-installer "*)
                 [ -n "$devkey" ] || {
                     echo "NANOKVM_KERNEL_PROFILE=debug packages and images need -d (test keys)" >&2
                     exit 2
@@ -1239,6 +1240,11 @@ hashes() {
     echo "$(wc -l < "$img/SHA256SUMS") outputs: $img/SHA256SUMS"
 }
 
+stock_installer() {
+    "$host/python3" "$repo/scripts/build-stock-installer.py" --build-root "$out" \
+        --output "$rel/stock-installer" --version "$version"
+}
+
 source_archive() {
     local name=NanoKVM-OS-$version-source stage pkg url
     [ -z "$(git -C "$repo" status --porcelain)" ] || { echo 'Commit local changes first' >&2; exit 2; }
@@ -1296,7 +1302,7 @@ check_output_kernel_profile() {
     mv "$stamp.tmp" "$stamp"
 }
 case " ${steps[*]} " in
-    *" kernel "* | *" modules "* | *" initramfs "* | *" boot "* | *" payloads "* | *" packages "* | *" rootfs "* | *" image "*)
+    *" kernel "* | *" modules "* | *" initramfs "* | *" boot "* | *" payloads "* | *" packages "* | *" rootfs "* | *" image "* | *" stock-installer "*)
         check_output_kernel_profile ;;
 esac
 
@@ -1310,6 +1316,7 @@ for step in "${steps[@]}"; do
             log "$step"; "$step" ;;
         packages|rootfs|image|clean)
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;
+        stock-installer) log stock-installer; stock_installer ;;
         source) log source; source_archive ;;
         toolchain-id) toolchain_id ;;
         cache-stats) "$host/ccache" --show-stats ;;

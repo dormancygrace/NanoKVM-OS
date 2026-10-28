@@ -91,7 +91,7 @@ the system. It is not installed in the full SD image.
 - **Coming from a2 with OpenVPN 3:** the supported optional client is now
   OpenVPN 2. Install it from VPN settings before reconnecting; existing profile
   files are retained.
-- **Stock firmware or pre-v2 betas:** use the [full SD image](INSTALL.md).
+- **Stock firmware or pre-v2 betas:** use the [full SD image](INSTALL.md). The [stock migration installer](stock-install.md) is an experimental development path pending device qualification.
   Legacy `.nkos` packages do not migrate the system to Alpine.
 - **Original v2.0-a1 image:** it predates the ready-to-use native update path
   documented here; use the full image for a fresh installation.

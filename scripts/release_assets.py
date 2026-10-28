@@ -9,6 +9,7 @@ TECHNICAL = {'APKINDEX.tar.gz', 'Packages.adb', 'packages.json', 'addons.json',
              'build-manifest.json', 'installed-packages.txt', 'installed-licenses.txt'}
 # addons.json is accepted for old builds, not produced by current OS releases.
 REQUIRED = TECHNICAL - {'build-manifest.json', 'addons.json'}
+STOCK_INSTALLER = re.compile(r'nanokvm_\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?\.tar\.gz')
 
 
 def storage_tag(version):
@@ -38,7 +39,7 @@ def split(directory):
         if file.is_symlink() or not file.is_file():
             raise ValueError(f'Not a regular release file: {file}')
         if re.fullmatch(r'NanoKVM-OS-.+-source\.tar\.xz', file.name) or re.fullmatch(
-                r'NanoKVM-OS-Image-.+\.img\.zip', file.name):
+                r'NanoKVM-OS-Image-.+\.img\.zip', file.name) or STOCK_INSTALLER.fullmatch(file.name):
             public.append(file)
         elif file.name in TECHNICAL or file.name.endswith('.apk'):
             packages.append(file)
@@ -46,6 +47,11 @@ def split(directory):
             raise ValueError(f'Unclassified release asset: {file.name}')
     if sum(f.name.endswith('-source.tar.xz') for f in public) != 1:
         raise ValueError('Expected exactly one corresponding-source archive')
+    source = next(f for f in public if f.name.endswith('-source.tar.xz'))
+    installer_name = 'nanokvm_' + source.name.removeprefix('NanoKVM-OS-v').removesuffix('-source.tar.xz') + '.tar.gz'
+    installers = [f.name for f in public if STOCK_INSTALLER.fullmatch(f.name)]
+    if installers and installers != [installer_name]:
+        raise ValueError('Stock installer version differs from the release source')
     for name, group in [('public', public), ('packages', packages)]:
         target = directory / name
         target.mkdir()

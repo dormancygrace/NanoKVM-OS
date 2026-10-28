@@ -1,0 +1,137 @@
+#!/busybox sh
+# PID 1 of the stock migration FIT. Only the new, bounded loop devices are
+# formatted. Before the final MBR commit the original FAT boot remains intact.
+set -eu
+umask 077
+export PATH=/bin:/sbin
+/busybox mkdir -p /bin /sbin /dev /proc /sys /data /realroot
+ROOT_HASH='@ROOT_HASH@'
+BOOT_HASH='@BOOT_HASH@'
+BOOT_RAW_HASH='@BOOT_RAW_HASH@'
+stage=/data/.nanokvm-stock-install
+formatting=0
+fail() {
+    trap - EXIT
+    echo "NanoKVM OS migration stopped: $*" >&2
+    if [ -d "$stage" ]; then
+        printf 'failed: %s\n' "$*" >"$stage/status" 2>/dev/null || true
+        sync
+    fi
+    # Returning to stock is possible only before any old-root sectors change.
+    if [ "$formatting" = 0 ] && [ -f "$stage/stock-boot.sd" ]; then
+        mkdir -p /oldboot
+        if mount -t vfat /dev/mmcblk0p1 /oldboot; then
+            if cp "$stage/stock-boot.sd" /oldboot/.stock-boot.new && sync &&
+               cmp "$stage/stock-boot.sd" /oldboot/.stock-boot.new &&
+               mv -f /oldboot/.stock-boot.new /oldboot/boot.sd && sync; then
+                echo 'Stock boot restored. Read /data/.nanokvm-stock-install/status over SSH.' >&2
+                reboot -f
+            fi
+        fi
+    fi
+    echo 'Keep staging files intact. A power cycle resumes this migration.' >&2
+    exec /bin/sh </dev/console >/dev/console 2>&1
+}
+trap 'fail "an installation command failed"' EXIT
+verify() {
+    actual=$(sha256sum "$2") || fail "cannot hash $2"
+    [ "${actual%% *}" = "$1" ] || fail "checksum mismatch: $2"
+}
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    [ -b /dev/mmcblk0p3 ] && break
+    sleep 1
+done
+mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /data || fail "cannot mount data partition"
+# A missing/corrupt record must never allow formatting or an unverified rollback.
+formatting=1
+for name in mbr.old stock-boot.sd root.shadow ssh-state settings.tar; do
+    expected=$(awk -v wanted="$name" '$2==wanted && NF==2 {n++; hash=$1} END {if(n==1) print hash; else exit 1}' "$stage/transaction.sha256") ||
+        fail "settings transaction is incomplete"
+    actual=$(sha256sum "$stage/$name") || fail "settings transaction is incomplete"
+    [ "${actual%% *}" = "$expected" ] || fail "settings transaction is incomplete"
+done
+state=$(/sbin/stock-layout state /dev/mmcblk0 "$stage/mbr.old") || fail "SD layout changed"
+if [ "$state" = installed ]; then
+    # Commit completed before power failed. The new boot is already on p1.
+    sync
+    reboot -f
+    fail "reboot failed"
+fi
+[ -e "$stage/formatting" ] || formatting=0
+verify "$ROOT_HASH" "$stage/alpine-rootfs.tar.gz"
+verify "$BOOT_HASH" "$stage/boot.img.gz"
+# The archive contains only small regular files and directories made by the
+# stock-side installer. Check names before extracting into the new root.
+[ "$(wc -c <"$stage/settings.tar")" -le 2097152 ] || fail "settings archive is too large"
+tar -tf "$stage/settings.tar" >/settings.paths
+tar -tvf "$stage/settings.tar" | awk 'substr($0,1,1)!="-" && substr($0,1,1)!="d" {bad=1} END {exit bad}' ||
+    fail "settings archive contains a link or special file"
+while IFS= read -r path; do
+    case "$path" in
+        ./|./etc/|./etc/kvm/|./etc/ssh/|./root/|./root/.ssh/|./boot/|\
+        ./etc/hostname|./etc/kvm/wifi.ssid|./etc/kvm/wifi.pass|./root/.ssh/authorized_keys|\
+        ./boot/eth.nodhcp|./boot/wifi.nodhcp|./boot/wifi.ssid|./boot/wifi.pass|\
+        ./boot/hostname|./boot/hostname.prefix|./boot/hostname.suffix|\
+        ./etc/ssh/ssh_host_rsa_key|./etc/ssh/ssh_host_rsa_key.pub|\
+        ./etc/ssh/ssh_host_ecdsa_key|./etc/ssh/ssh_host_ecdsa_key.pub|\
+        ./etc/ssh/ssh_host_ed25519_key|./etc/ssh/ssh_host_ed25519_key.pub) ;;
+        *) fail "unexpected settings path: $path" ;;
+    esac
+done </settings.paths
+awk -F: 'NR==1 && $1=="root" && NF==9 {ok=1} END {exit !(ok && NR==1)}' "$stage/root.shadow" || fail "invalid root password entry"
+case "$(cat "$stage/ssh-state")" in on|off) ;; *) fail "invalid SSH state" ;; esac
+boot_loop=$(/sbin/stock-layout map-boot /dev/mmcblk0 "$stage/mbr.old")
+root_loop=$(/sbin/stock-layout map-root /dev/mmcblk0 "$stage/mbr.old")
+# Persist the no-return boundary BEFORE touching the old root. All settings and
+# payloads remain on p3 and an interrupted run reuses exactly this transaction.
+printf 'formatting\n' >"$stage/formatting"
+sync
+formatting=1
+printf 'installing boot filesystem\n' >"$stage/status"
+gzip -dc "$stage/boot.img.gz" >"$boot_loop"
+sync
+verify "$BOOT_RAW_HASH" "$boot_loop"
+printf 'installing root filesystem\n' >"$stage/status"
+/sbin/mkfs.f2fs -f -t 0 "$root_loop"
+mount -t f2fs -o noatime "$root_loop" /realroot
+umask 022
+tar --numeric-owner -xpzf "$stage/alpine-rootfs.tar.gz" -C /realroot
+[ -f /realroot/etc/alpine-release ] && [ -x /realroot/bin/busybox ] &&
+    [ -x /realroot/etc/init.d/nanokvm-app ] || fail "new root is incomplete"
+# Never run the fresh-image allocator on an existing data partition.
+rm -f /realroot/etc/nanokvm-firstboot-storage
+mkdir -p /realroot/boot /realroot/root/.ssh
+mount -t vfat "$boot_loop" /realroot/boot
+tar --numeric-owner -xf "$stage/settings.tar" -C /realroot
+[ ! -f /realroot/etc/kvm/wifi.pass ] || chmod 600 /realroot/etc/kvm/wifi.pass
+awk -F: 'NR==FNR {saved=$0; next} $1=="root" {print saved; next} {print}' \
+    "$stage/root.shadow" /realroot/etc/shadow >/realroot/etc/shadow.new
+chmod 600 /realroot/etc/shadow.new
+mv -f /realroot/etc/shadow.new /realroot/etc/shadow
+chmod 700 /realroot/root/.ssh
+[ ! -f /realroot/root/.ssh/authorized_keys ] || chmod 600 /realroot/root/.ssh/authorized_keys
+if [ "$(cat "$stage/ssh-state")" = on ]; then
+    rm -f /realroot/etc/kvm/ssh_stop
+else
+    touch /realroot/etc/kvm/ssh_stop
+fi
+# The normal storage service removes this transaction after the new layout
+# boots, including when power fails just after the MBR commit.
+touch /realroot/etc/nanokvm-stock-migration
+sync
+umount /realroot/boot
+umount /realroot
+losetup -d "$boot_loop"
+losetup -d "$root_loop"
+printf 'committing partition table\n' >"$stage/status"
+sync
+/sbin/stock-layout commit /dev/mmcblk0 "$stage/mbr.old"
+printf 'installed\n' >"$stage/status"
+sync
+umount /data
+trap - EXIT
+reboot -f
+exec /bin/sh </dev/console >/dev/console 2>&1

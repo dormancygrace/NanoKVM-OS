@@ -52,3 +52,12 @@ make package PLATFORM_ARGS='-e path/to/key.key'
 aliases (`app`, `support`, `vision`) use the prepared platform toolchain and
 sources. `make web` builds `web/dist` for frontend development. Release versions
 come from `firmware/alpine/release.env`, not a separate Makefile variable.
+
+## Stock migration
+
+`install-stock.py` downloads and verifies the stock migration package from a
+GitHub release; its default is a compatibility check and `--yes` starts a
+detached installation. `build-stock-installer.py` assembles the matching Sipeed
+offline package from completed platform outputs. See
+[stock installation](../docs/stock-install.md) for requirements, state
+transitions, tests and the outstanding physical qualification.

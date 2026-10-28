@@ -27,7 +27,7 @@ class UnpackTests(unittest.TestCase):
         self.out = self.root / 'out'
         self.out.mkdir()
 
-    def pack(self, build, *, check=True):
+    def pack(self, build, *, check=True, stock=False):
         # Execute the actual workflow, skipping only the expensive build.
         workflow = (ROOT / '.github/workflows/release.yml').read_text()
         step = re.search(r'^      - name: Packages, root file system and image\n'
@@ -35,9 +35,15 @@ class UnpackTests(unittest.TestCase):
         run = textwrap.dedent(step.split('        run: |\n', 1)[1])
         build_command, packing = run.split('\n', 1)
         self.assertTrue(build_command.startswith('platform/build.sh '))
+        # The optional builder is also expensive; exercise its handoff with a
+        # prepared output just as the ordinary image builder above.
+        command = '  platform/build.sh -o "$OUT" stock-installer'
+        self.assertIn(command, packing)
+        packing = packing.replace(command, '  :')
         result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', packing], cwd=ROOT,
                               env={**os.environ, 'OUT': str(build), 'RUNNER_TEMP': str(self.root),
-                                   'NANOKVM_VERSION': 'v3.5.0', 'LC_ALL': 'C'},
+                                   'NANOKVM_VERSION': 'v3.5.0', 'LC_ALL': 'C',
+                                   'BUILD_STOCK_INSTALLER': 'true' if stock else 'false'},
                               capture_output=True, text=True)
         if check:
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -86,6 +92,18 @@ class UnpackTests(unittest.TestCase):
         self.assertEqual((self.out / 'release/apk/recipes/riscv64/nanokvm-3.5.0-r0.apk').read_bytes(), b'apk')
         self.assertEqual((self.out / 'release/image/NanoKVM-OS.img.zip').stat().st_mode & 0o777, 0o755)
         self.assertTrue((self.out / FILES[0]).is_file())
+
+    def test_opt_in_stock_installer_is_transferred(self):
+        self.build_tar()
+        build = next(p for p in self.root.iterdir()
+                     if p.is_dir() and p.name.startswith('build outputs '))
+        package = build / 'release/stock-installer/nanokvm_3.5.0.tar.gz'
+        package.parent.mkdir()
+        package.write_bytes(b'installer')
+        (package.parent / 'SHA256SUMS').write_text('checksums')
+        self.pack(build, stock=True)
+        m.unpack(self.root / 'release-build.tar', self.out)
+        self.assertEqual((self.out / package.relative_to(build)).read_bytes(), b'installer')
 
     def test_missing_finished_image_or_manifest_fails_the_build(self):
         self.build_tar()

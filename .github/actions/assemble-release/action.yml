@@ -57,6 +57,9 @@ runs:
         [ "$IMAGE" != true ] || cp "$OUT"/release/image/*.img.zip "$OUT/release/image/build-manifest.json" "$a/"
         cp "$OUT/release/installed-packages.txt" "$OUT/release/installed-licenses.txt" "$a/"
         cp "$OUT"/NanoKVM-OS-*-source.tar.xz "$a/"
+        if [ -d "$OUT/release/stock-installer" ]; then
+          cp "$OUT"/release/stock-installer/nanokvm_*.tar.gz "$a/"
+        fi
         python3 scripts/release_assets.py "$a"
         ls -la "$a/public" "$a/packages"
         cat "$a/public/SHA256SUMS" "$a/packages/SHA256SUMS"

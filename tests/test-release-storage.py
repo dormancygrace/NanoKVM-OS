@@ -112,6 +112,26 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertNotIn('.apk', (self.directory / 'public/SHA256SUMS').read_text())
         self.assertNotIn('.img.zip', (self.directory / 'packages/SHA256SUMS').read_text())
 
+    def test_optional_stock_installer_is_public_and_survives_publication_retry(self):
+        name = 'nanokvm_3.3.1.tar.gz'
+        (self.directory / name).write_text('stock installer')
+        assets.split(self.directory)
+        self.assertTrue((self.directory / 'public' / name).is_file())
+        self.assertIn(name, (self.directory / 'public/SHA256SUMS').read_text())
+        result, state = self.invoke(FAIL_PUBLISH='v3.3.1')
+        self.assertNotEqual(result.returncode, 0)
+        original = state['releases']['v3.3.1']['assets']
+        self.resign_local_assembly()
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state['releases']['v3.3.1']['assets'], original)
+
+    def test_wrong_stock_installer_version_fails_before_moving_assets(self):
+        (self.directory / 'nanokvm_3.3.2.tar.gz').write_text('wrong version')
+        with self.assertRaisesRegex(ValueError, 'version differs'):
+            assets.split(self.directory)
+        self.assertFalse((self.directory / 'public').exists())
+
     def test_patch_without_image_contains_only_source_and_checksums(self):
         (self.directory / 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip').unlink()
         (self.directory / 'build-manifest.json').unlink()

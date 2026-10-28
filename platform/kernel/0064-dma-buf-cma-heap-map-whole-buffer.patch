@@ -1,0 +1,68 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] dma-buf: heaps: cma: map a whole buffer at mmap time
+
+A CMA heap buffer is physically contiguous, yet mmap() maps it one page per
+fault. On the SG2002 (C906) the faults cost about 13 us a page: filling a
+freshly mapped 60 MiB buffer took 390 ms, 185 ms with the whole buffer
+mapped at once (a second pass 20 ms either way). The TPU runtime fills
+such buffers with the weights and command buffers of every model it loads.
+
+Map the requested range with remap_pfn_range() when the buffer is mapped.
+The VMA flags are those remap_pfn_range() sets (VM_IO | VM_PFNMAP |
+VM_DONTEXPAND | VM_DONTDUMP), as before. The dma-buf core already refuses
+a range past the buffer; the heap checks it again before mapping.
+
+Registering a model from memory on the NanoKVM: the 20 MB Latin text
+recognizer 300 -> 255 ms, the 24 MB Chinese one 353 -> 268 ms, a 4 MB one
+59 -> 49 ms; the 26 MB text detector unchanged (440 ms).
+
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+diff --git a/drivers/dma-buf/heaps/cma_heap.c b/drivers/dma-buf/heaps/cma_heap.c
+--- a/drivers/dma-buf/heaps/cma_heap.c
++++ b/drivers/dma-buf/heaps/cma_heap.c
+@@ -166,21 +166,6 @@
+ 	return 0;
+ }
+ 
+-static vm_fault_t cma_heap_vm_fault(struct vm_fault *vmf)
+-{
+-	struct vm_area_struct *vma = vmf->vma;
+-	struct cma_heap_buffer *buffer = vma->vm_private_data;
+-
+-	if (vmf->pgoff >= buffer->pagecount)
+-		return VM_FAULT_SIGBUS;
+-
+-	return vmf_insert_pfn(vma, vmf->address, page_to_pfn(buffer->pages[vmf->pgoff]));
+-}
+-
+-static const struct vm_operations_struct dma_heap_vm_ops = {
+-	.fault = cma_heap_vm_fault,
+-};
+-
+ static int cma_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+ {
+ 	struct cma_heap_buffer *buffer = dmabuf->priv;
+@@ -188,12 +173,17 @@
+ 	if ((vma->vm_flags & (VM_SHARED | VM_MAYSHARE)) == 0)
+ 		return -EINVAL;
+ 
+-	vm_flags_set(vma, VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP);
+-
+-	vma->vm_ops = &dma_heap_vm_ops;
+-	vma->vm_private_data = buffer;
++	if (vma->vm_pgoff + vma_pages(vma) > buffer->pagecount)
++		return -EINVAL;
+ 
+-	return 0;
++	/*
++	 * The buffer is physically contiguous: map all of it now. Inserting
++	 * one page per fault cost about 13 us a page on a C906, 0.2 s for
++	 * each 60 MiB a TPU model writes.
++	 */
++	return remap_pfn_range(vma, vma->vm_start,
++			       page_to_pfn(buffer->cma_pages) + vma->vm_pgoff,
++			       vma->vm_end - vma->vm_start, vma->vm_page_prot);
+ }
+ 
+ static void *cma_heap_do_vmap(struct cma_heap_buffer *buffer)

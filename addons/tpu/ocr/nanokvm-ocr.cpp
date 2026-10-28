@@ -29,6 +29,8 @@
 #include "cviruntime.h"
 
 #include <dirent.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <riscv_vector.h> // XTheadVector: build with -march=rv64gc_xtheadvector
 
@@ -41,6 +43,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -70,8 +73,11 @@ struct Model {
     int32_t input_count = 0, output_count = 0;
     int in_h = 0, in_w = 0;
 
-    bool open(const char *path) {
-        if (CVI_NN_RegisterModel(path, &handle) != 0) return false;
+    // The model in path, or in bytes already read from it.
+    bool open(const char *path, const std::vector<int8_t> &bytes = {}) {
+        const CVI_RC rc = bytes.empty() ? CVI_NN_RegisterModel(path, &handle)
+                                        : CVI_NN_RegisterModelFromBuffer(bytes.data(), bytes.size(), &handle);
+        if (rc != 0) return false;
         return tensors();
     }
     // Program `program` of an open model with several (one recognizer in
@@ -708,6 +714,61 @@ void memory_note(const char *stage) {
         proc_kb("/proc/self/status", "VmRSS"), proc_kb("/proc/self/status", "VmHWM"));
 }
 
+// The model files of REC.cvimodel[:N][,...]: the program counts dropped.
+std::vector<std::string> model_paths(const char *list) {
+    std::vector<std::string> paths;
+    for (const char *p = list; *p;) {
+        const char *comma = std::strchr(p, ',');
+        std::string arg(p, comma ? comma - p : std::strlen(p));
+        p = comma ? comma + 1 : p + arg.size();
+        const size_t colon = arg.rfind(':');
+        paths.push_back(colon == std::string::npos ? arg : arg.substr(0, colon));
+    }
+    return paths;
+}
+
+// Model files read from the card by a thread of their own while the TPU
+// works. They are read into the process's memory: the page cache does not
+// keep them, as loading a model takes its TPU memory from the region the
+// cache is in and drops what the cache holds there (the medium recognizer
+// came from the card each time: 0.7 s of a read).
+class ModelFiles {
+public:
+    explicit ModelFiles(const char *list) : paths_(model_paths(list)), data_(paths_.size()), reader_([this] { read(); }) {}
+    ~ModelFiles() { if (reader_.joinable()) reader_.join(); }
+    // The bytes of one of the files, once read; empty when it could not be.
+    std::vector<int8_t> take(const std::string &path) {
+        if (reader_.joinable()) reader_.join();
+        for (size_t i = 0; i < paths_.size(); ++i)
+            if (paths_[i] == path) return std::move(data_[i]);
+        return {};
+    }
+
+private:
+    void read() {
+        for (size_t i = 0; i < paths_.size(); ++i) {
+            const int fd = open(paths_[i].c_str(), O_RDONLY | O_CLOEXEC);
+            struct stat st;
+            if (fd < 0) continue;
+            if (fstat(fd, &st) == 0 && st.st_size > 0) {
+                std::vector<int8_t> &data = data_[i];
+                data.resize(st.st_size);
+                size_t done = 0;
+                while (done < data.size()) {
+                    const ssize_t n = ::read(fd, data.data() + done, data.size() - done);
+                    if (n <= 0) break;
+                    done += n;
+                }
+                if (done != data.size()) data.clear();
+            }
+            close(fd);
+        }
+    }
+    std::vector<std::string> paths_;
+    std::vector<std::vector<int8_t>> data_;
+    std::thread reader_;
+};
+
 long ms_since(std::chrono::steady_clock::time_point start) {
     return static_cast<long>(std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - start).count());
@@ -753,9 +814,9 @@ int main(int argc, char **argv) {
         for (int c = 0; c < 3; ++c) pic.bgr[(2 - c) * pixels + i] = rgb[i * 3 + c];
     // The TPU memory comes from the region that video shares: the detector is
     // freed as soon as detection is done.
-    auto load = [](Model &m, const char *path) {
+    auto load = [](Model &m, const char *path, const std::vector<int8_t> &bytes = {}) {
         const auto loading = std::chrono::steady_clock::now();
-        if (!m.open(path) || !supported(&m.inputs[0]) || !supported(&m.outputs[0])) {
+        if (!m.open(path, bytes) || !supported(&m.inputs[0]) || !supported(&m.outputs[0])) {
             std::fprintf(stderr, "nanokvm-ocr: cannot load %s\n", path);
             return false;
         }
@@ -768,9 +829,9 @@ int main(int argc, char **argv) {
     };
     // Recognition models of one height in several widths, narrowest first.
     // REC.cvimodel:N is one recognizer whose N programs (its widths) share
-    // the weights, loaded once.
+    // the weights, loaded once. The files come read by a ModelFiles.
     using Recs = std::vector<std::unique_ptr<Model>>;
-    auto load_recs = [&](const char *list, Recs &recs) {
+    auto load_recs = [&](const char *list, Recs &recs, ModelFiles &files) {
         std::vector<std::string> rec_paths;
         for (const char *p = list; *p;) {
             const char *comma = std::strchr(p, ',');
@@ -783,7 +844,7 @@ int main(int argc, char **argv) {
             const std::string path = programs > 1 ? arg.substr(0, colon) : arg;
             recs.push_back(std::make_unique<Model>());
             const Model &first = *recs.back();
-            if (!load(*recs.back(), path.c_str())) return false;
+            if (!load(*recs.back(), path.c_str(), files.take(path))) return false;
             for (int program = 1; program < programs; ++program) {
                 recs.push_back(std::make_unique<Model>());
                 Model &m = *recs.back();
@@ -799,14 +860,19 @@ int main(int argc, char **argv) {
     // Each model is loaded once (a load reads it from the card, 0.25-0.8 s).
     // The detector and the recognizers do not fit in memory together next to
     // the video buffers: the detector is freed before the recognizers load.
+    // Their files are read while the TPU detects, once the detector has its
+    // memory.
     auto start = std::chrono::steady_clock::now();
     const int scale = pic.width > 1280 ? 2 : 1;
     const Picture half = scale == 2 ? half_size(pic) : Picture{};
     const Picture &small = scale == 2 ? half : pic;
     std::vector<Region> regions;
+    std::unique_ptr<ModelFiles> rec_files, sure_files;
     {
         Model det;
         if (!load(det, argv[1])) return 1;
+        rec_files = std::make_unique<ModelFiles>(argv[2]);
+        if (argc == 5) sure_files = std::make_unique<ModelFiles>(argv[4]);
         // Tiles overlap by a text line or two, so no line is cut in all of them.
         const int overlap = 48;
         for (int ty = 0; ty < small.height; ty += det.in_h - overlap) {
@@ -819,7 +885,8 @@ int main(int argc, char **argv) {
         memory_note("detector");
     }
     Recs recs, sure;
-    if (!load_recs(argv[2], recs)) return 1;
+    if (!load_recs(argv[2], recs, *rec_files)) return 1;
+    rec_files.reset();
     memory_note("recognizers loaded");
     // The widest recognizer sets how wide a box may be.
     const float max_ratio = static_cast<float>(recs.back()->in_w) / recs.back()->in_h;
@@ -862,7 +929,7 @@ int main(int argc, char **argv) {
         const auto line_start = std::chrono::steady_clock::now();
         std::string text = one_script(recognize(*rec, pic, box, dict, score, weakest));
         if (argc == 5 && weakest < doubtful) {
-            if (sure.empty() && !load_recs(argv[4], sure)) return 1;
+            if (sure.empty() && !load_recs(argv[4], sure, *sure_files)) return 1;
             rec = fitting(sure, box);
             text = one_script(recognize(*rec, pic, box, dict, score, weakest));
             ++reread;

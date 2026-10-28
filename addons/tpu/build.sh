@@ -71,7 +71,7 @@ run cmake -S "$src/cviruntime" -B "$build/cviruntime" "${target[@]}" -DCHIP=cv18
 run cmake --build "$build/cviruntime" --target install
 
 # nanokvm-ocr, against the runtime just built; libraries next to it.
-"${cross}g++" -std=gnu++17 -O2 -Wall -Wextra $isa -I"$inst/include" "$here/ocr/nanokvm-ocr.cpp" \
+"${cross}g++" -std=gnu++17 -O2 -Wall -Wextra -pthread $isa -I"$inst/include" "$here/ocr/nanokvm-ocr.cpp" \
     -L"$inst/lib" -lcviruntime -Wl,-rpath,'$ORIGIN/../lib' -o "$stage/bin/nanokvm-ocr"
 "${cross}strip" "$stage/bin/nanokvm-ocr"
 cp "$inst/bin/model_runner" "$stage/bin/"

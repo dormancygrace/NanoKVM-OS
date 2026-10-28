@@ -4,6 +4,12 @@ A full SD image replaces everything on the card. An existing v2.0-a2 or newer
 installation keeps its settings and data with [package updates](UPDATES.md)
 instead.
 
+## Migrating stock firmware
+
+An experimental [stock migration package and GitHub SSH installer](stock-install.md)
+are available for development and host testing. Stock-device qualification is
+still pending; released installation instructions below use the full SD image.
+
 ## Fresh SD card
 
 1. Download `NanoKVM-OS-Image-*.img.zip` and `SHA256SUMS` from the

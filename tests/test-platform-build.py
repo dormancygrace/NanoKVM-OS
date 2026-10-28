@@ -138,7 +138,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
         release_metadata.write_bytes(saved_metadata)
     marker = out / ".kernel-profile"
     marker.write_text("debug\n")
-    for step in ("kernel", "modules", "initramfs", "boot", "payloads"):
+    for step in ("kernel", "modules", "initramfs", "boot", "payloads", "stock-installer"):
         expect(build(tree, out, step), False, f"persisted debug profile rejects release {step}", "Output kernel profile is debug")
     marker.unlink()
     expect(build(tree, out, "payloads"), True, "primary package payload assembly")
@@ -147,7 +147,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out), "kernel"],
                             env=debug_env, capture_output=True, text=True)
     expect(result, False, "release artifacts reject debug rebuild", "Output kernel profile is release")
-    for step in ("payloads", "packages", "rootfs", "image"):
+    for step in ("payloads", "packages", "rootfs", "image", "stock-installer"):
         result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(root / "debug"), step],
                                 env=debug_env, capture_output=True, text=True)
         expect(result, False, f"debug {step} needs test keys", "need -d (test keys)")

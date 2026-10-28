@@ -1,0 +1,27 @@
+#!/bin/sh
+# Sipeed's offline update entry point. Restore the updater's saved stock app
+# before inspecting stale packages or migration locks, including on a retry.
+set -eu
+case "${1:-}" in start|restart) ;; stop) exit 0 ;; *) exit 2 ;; esac
+[ -f /root/old/server/NanoKVM-Server ] && [ -x /root/old/system/init.d/S95nanokvm ] || {
+    echo 'Stock updater backup /root/old is missing; installation stopped.' >&2; exit 1;
+}
+# A unique handoff keeps a retry from overwriting a still-running controller.
+# Stamp the directory name before moving any payload: after a power loss,
+# another boot can identify this handoff without confusing it with a live one.
+boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null) || boot_id=unknown
+case "$boot_id" in ''|*[!0-9a-f-]*) boot_id=unknown ;; esac
+[ "${#boot_id}" = 36 ] || boot_id=unknown
+incoming=$(mktemp -d "/root/.nanokvm-stock-incoming.$boot_id.XXXXXX")
+if ! mv /kvmapp "$incoming/package"; then
+    rmdir "$incoming"
+    exit 1
+fi
+if ! mv /root/old /kvmapp; then
+    mv "$incoming/package" /kvmapp
+    rmdir "$incoming"
+    exit 1
+fi
+# The controller first restarts the restored stock app, then serializes package
+# replacement. It survives the server's restart and browser/SSH disconnects.
+nohup sh "$incoming/package/migration/offline-run.sh" "$incoming" > /var/log/nanokvm-stock-install.log 2>&1 </dev/null &

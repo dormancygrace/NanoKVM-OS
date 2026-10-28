@@ -15,7 +15,7 @@ import re
 import tarfile
 
 SOURCE = re.compile(r'NanoKVM-OS-[0-9A-Za-z.+~-]+-source\.tar\.xz')
-TREES = ('release/apk', 'release/image')
+TREES = ('release/apk', 'release/image', 'release/stock-installer')
 FILES = ('release/installed-packages.txt', 'release/installed-licenses.txt')
 
 

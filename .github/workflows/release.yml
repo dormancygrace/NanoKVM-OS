@@ -33,6 +33,10 @@ on:
         description: 'Publish a new SD image (first-boot, layout or install changes)'
         type: boolean
         default: false
+      stock_installer:
+        description: 'Include experimental stock migration package (requires stock-device qualification)'
+        type: boolean
+        default: false
       dry_run:
         description: 'Test keys; publish nothing'
         type: boolean
@@ -56,6 +60,11 @@ on:
       - tests/test-release-build-tar.py
       - tests/test-release-storage.py
       - tests/test-release-workflow.py
+      - scripts/build-stock-installer.py
+      - scripts/install-stock.py
+      - firmware/stock-install/**
+      - tests/test-stock-installer.py
+      - tests/test-stock-layout-loop.py
 
 permissions:
   contents: read
@@ -196,6 +205,7 @@ jobs:
       - name: Packages, root file system and image
         if: steps.version.outputs.skip != 'true'
         env:
+          BUILD_STOCK_INSTALLER: ${{ inputs.stock_installer == true || github.event_name == 'pull_request' }}
           NANOKVM_CHANNEL: ${{ steps.version.outputs.channel }}
           # Compare with the newest tested set, including betas; package-versions.py
           # rebuilds every prerelease package when producing a stable release.
@@ -205,12 +215,17 @@ jobs:
           NANOKVM_IMAGE_VERSION: ${{ steps.version.outputs.image_version }}
         run: |
           platform/build.sh -o "$OUT" -u payloads packages rootfs image
+          extra=()
+          if [ "${BUILD_STOCK_INSTALLER:-false}" = true ]; then
+            platform/build.sh -o "$OUT" stock-installer
+            extra=(release/stock-installer)
+          fi
           # A tar keeps the file modes, which an artifact drops. Transfer only
           # the finished image: image/root contains private runtime files owned
           # by subordinate IDs, and the other image files are build intermediates.
           (cd "$OUT" && tar -cf "$RUNNER_TEMP/release-build.tar" release/apk \
             release/image/*.img.zip release/image/build-manifest.json \
-            release/installed-packages.txt release/installed-licenses.txt "NanoKVM-OS-$NANOKVM_VERSION-source.tar.xz")
+            release/installed-packages.txt release/installed-licenses.txt "NanoKVM-OS-$NANOKVM_VERSION-source.tar.xz" "${extra[@]}")
 
       - uses: actions/upload-artifact@v7
         if: steps.version.outputs.skip != 'true'

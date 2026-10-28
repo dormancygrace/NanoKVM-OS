@@ -32,7 +32,11 @@ func mcpRouter(r *gin.Engine, control *controlmode.Manager, picoclawService *pic
 	management.POST("/config", service.SetConfig)
 	management.POST("/key/regenerate", service.RegenerateAPIKey)
 
-	handler := mcpservice.NewMCPHandler(control, kvmcapture.New())
+	// One screen text reader for MCP and PicoClaw: both read through the TPU
+	// add-on, one read at a time.
+	textReader := kvmcapture.NewTextReader()
+	picoclawService.SetTextReader(textReader)
+	handler := mcpservice.NewMCPHandler(control, kvmcapture.New(), textReader)
 	handler = http.NewCrossOriginProtection().Handler(handler)
 	r.Any("/api/mcp", mcpservice.APIKeyMiddleware(control), gin.WrapH(handler))
 }

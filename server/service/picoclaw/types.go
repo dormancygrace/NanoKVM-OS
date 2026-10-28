@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/service/controlmode"
+	mcpservice "NanoKVM-Server/service/mcp"
 
 	"github.com/gorilla/websocket"
 )
@@ -40,6 +41,7 @@ type Service struct {
 	captureLeaseTimers map[string]*time.Timer
 	runtimeLifecycleMu sync.Mutex
 	reconcileOnce      sync.Once
+	textReader         mcpservice.ScreenTextReader
 }
 
 type ConfigStore struct {

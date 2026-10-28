@@ -1,7 +1,7 @@
 # Debug kernel profile (NANOKVM_KERNEL_PROFILE=debug): kernel/config with these
 # options on top. perf and its CPU counters, frame pointers for exact
 # backtraces (on RISC-V perf forces them), tracefs events and probes.
-CONFIG_LOCALVERSION="-nanokvm-os-r3-debug"
+CONFIG_LOCALVERSION="-nanokvm-os-r4-debug"
 CONFIG_PERF_EVENTS=y
 CONFIG_RISCV_PMU=y
 CONFIG_RISCV_PMU_LEGACY=y
@@ -46,3 +46,13 @@ CONFIG_SCHEDSTATS=y
 # DWARF for vmlinux on the build host (perf report, gdb, addr2line); the
 # installed modules are stripped.
 CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=y
+# debugfs (clocks, GPIO, dma-buf and CMA state) and a 128 KiB printk buffer:
+# the release kernel has neither (debugfs held 1.3 MB of inodes, the buffer
+# 576 KB with its records; 32 KiB holds a boot's log twice over).
+CONFIG_DEBUG_FS=y
+CONFIG_DEBUG_FS_ALLOW_ALL=y
+CONFIG_LOG_BUF_SHIFT=17
+# Also left out of the release kernel: slab debugging (slab_debug= at boot)
+# and the F2FS statistics, which debugfs shows.
+CONFIG_SLUB_DEBUG=y
+CONFIG_F2FS_STAT_FS=y

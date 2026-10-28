@@ -99,6 +99,13 @@ apply_reclaim() {
     # A policy the kernel refuses must not fail the swap setup itself.
     { echo "$swappiness" > "$VM_SYSCTL/swappiness"; } 2>/dev/null || true
     { echo "$page_cluster" > "$VM_SYSCTL/page-cluster"; } 2>/dev/null || true
+    # No extra reclaim after a fragmentation event (the kernel boosts it by
+    # default). With video and the TPU taking tens of MiB from the CMA region
+    # such events come often, and the boost evicted page cache still in use.
+    # On the stand with a live stream, eight text reads with and without:
+    # kswapd reclaimed about a fifth less, direct reclaim (which stalls the
+    # reader) fell from 500-1500 pages to 0-650, the reads 0.2-0.4 s faster.
+    { echo 0 > "$VM_SYSCTL/watermark_boost_factor"; } 2>/dev/null || true
 }
 
 apply_sd() {

@@ -1,0 +1,56 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] net: stmmac: build without devlink
+
+stmmac selects NET_DEVLINK for one driver parameter, phc_coarse_adj (coarse
+or fine adjustment of the PTP clock), and registers it only when the MAC
+has timestamping and a PTP clock rate. Selecting it builds all of devlink
+into the kernel, 329 KiB on riscv64, on boards that use neither PTP nor
+any other devlink user.
+
+Register the parameter when devlink is built for some other reason, and
+not select it.
+
+Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
+---
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -10,7 +10,6 @@
+ 	select PHYLINK
+ 	select CRC32
+ 	select RESET_CONTROLLER
+-	select NET_DEVLINK
+ 	help
+ 	  This is the driver for the Ethernet IPs built around a
+ 	  Synopsys IP Core.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -7701,6 +7701,10 @@
+ 	.xmo_rx_timestamp		= stmmac_xdp_rx_timestamp,
+ };
+ 
++/* devlink serves only the PTP coarse-adjust parameter below; without it the
++ * driver works the same, and the kernel need not build devlink for that.
++ */
++#if IS_ENABLED(CONFIG_NET_DEVLINK)
+ static int stmmac_dl_ts_coarse_set(struct devlink *dl, u32 id,
+ 				   struct devlink_param_gset_ctx *ctx,
+ 				   struct netlink_ext_ack *extack)
+@@ -7790,6 +7794,16 @@
+ 				  ARRAY_SIZE(stmmac_devlink_params));
+ 	devlink_free(priv->devlink);
+ }
++#else
++static int stmmac_register_devlink(struct stmmac_priv *priv)
++{
++	return 0;
++}
++
++static void stmmac_unregister_devlink(struct stmmac_priv *priv)
++{
++}
++#endif
+ 
+ struct plat_stmmacenet_data *stmmac_plat_dat_alloc(struct device *dev)
+ {

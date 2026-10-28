@@ -33,6 +33,7 @@ for shell in shells:
             subprocess.run(shell, input=fixture + 'apply_reclaim\n', text=True, check=True)
             assert (d / 'swappiness').read_text() == swappiness + '\n', (shell, sd, swaps)
             assert (d / 'page-cluster').read_text() == cluster + '\n', (shell, sd, swaps)
+            assert (d / 'watermark_boost_factor').read_text() == '0\n', (shell, sd, swaps)
             # Exercise the actual stop dispatch with device operations doubled.
             stop = re.search(r'^    stop\) (.*?) ;;$', source, re.M).group(1)
             table.write_text(header)

@@ -108,7 +108,6 @@ mount -t proc proc /proc
 mkdir -p /sys
 mount -t sysfs sysfs /sys
 mount -t configfs configfs /sys/kernel/config
-mount -t debugfs debugfs /sys/kernel/debug
 
 # The FSBL sets 1000 MHz (an older FIP leaves 850 MHz), and the server applied
 # the saved clock only some 12 s later. The boot runs at 1000 MHz, the default; a user
@@ -139,13 +138,19 @@ then
 fi
 
 # The User Key held down across half a second exports the card over USB. Only
-# a key already down at the first look is worth the wait.
-flashkey0=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
-if [ "${flashkey0}" -ne 0 ]
+# a key already down at the first look is worth the wait. The key is line 30
+# of the GPIO controller at 0x03020000 on every board, low while pressed; its
+# input register is read directly (the release kernel has no debugfs, where
+# /sys/kernel/debug/gpio showed it).
+user_key_down() {
+	value=$(devmem 0x03020050 32) || return 1
+	case "$value" in 0x*) ;; *) return 1 ;; esac
+	[ $(( value >> 30 & 1 )) -eq 0 ]
+}
+if user_key_down
 then
 	sleep 0.5
-	flashkey1=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
-	if [ "${flashkey1}" -ne 0 ]
+	if user_key_down
 	then
 		msc
 	fi

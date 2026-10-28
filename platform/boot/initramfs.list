@@ -22,6 +22,7 @@ file /lib/libuuid.so.1 @TARGET@/usr/lib/libuuid.so.1 755 0 0
 slink /blkid busybox 777 0 0
 slink /cat busybox 777 0 0
 slink /dd busybox 777 0 0
+slink /devmem busybox 777 0 0
 slink /grep busybox 777 0 0
 slink /ln busybox 777 0 0
 slink /ls busybox 777 0 0

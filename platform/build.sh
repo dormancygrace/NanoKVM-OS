@@ -110,7 +110,7 @@ version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alp
 # Official Alpine packages.
 image_version=${NANOKVM_IMAGE_VERSION:-$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")}
 profile=stock
-release=7.3.0-nanokvm-os-r3
+release=7.3.0-nanokvm-os-r4
 [ "$kernel_profile" = release ] || release=$release-debug
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
 # is the upstream Linux 7.3 release date (00:00 UTC).

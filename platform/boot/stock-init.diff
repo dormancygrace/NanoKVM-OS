@@ -71,28 +71,62 @@
  		busybox uptime
  		busybox uname
  		sync
-@@ -69,6 +111,11 @@
- mount -t debugfs debugfs /sys/kernel/debug
+@@ -66,9 +108,27 @@
+ mkdir -p /sys
+ mount -t sysfs sysfs /sys
+ mount -t configfs configfs /sys/kernel/config
+-mount -t debugfs debugfs /sys/kernel/debug
++
++# The FSBL sets 1000 MHz (an older FIP leaves 850 MHz), and the server applied
++# the saved clock only some 12 s later. The boot runs at 1000 MHz, the default; a user
++# who chose 850 MHz gets it back once the root is mounted (below).
++# Overclocking stays with the server, which guards it.
++cpufreq=/sys/devices/system/cpu/cpufreq/policy0
++if [ -w "$cpufreq/scaling_governor" ]; then
++	echo userspace > "$cpufreq/scaling_governor" &&
++		echo 1000000 > "$cpufreq/scaling_max_freq" &&
++		echo 1000000 > "$cpufreq/scaling_setspeed"
++fi 2>/dev/null || true
  
  mkdir -p /boot
-+# Probe-only DTs can expose MMC a little later than the normal board DT.
-+for attempt in 1 2 3 4 5 6 7 8 9 10; do
-+	[ -b /dev/mmcblk0p2 ] && break
-+	sleep 1
++# The card's partitions appear some 50 ms after /init starts, and probe-only
++# DTs expose MMC a little later still. Poll in 20 ms steps for up to 10 s: a
++# one-second step cost a whole second whenever /init got here first.
++attempt=0
++while [ ! -b /dev/mmcblk0p2 ] && [ "$attempt" -lt 500 ]; do
++	sleep 0.02
++	attempt=$((attempt + 1))
 +done
  mount -o ro /dev/mmcblk0p1 /boot
  
  msc=0
-@@ -77,8 +124,6 @@
+@@ -77,33 +137,50 @@
  	msc
  fi
  
 -umount /dev/mmcblk0p1
 -
- flashkey0=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
- sleep 0.5
- flashkey1=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
-@@ -90,20 +135,31 @@
+-flashkey0=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
+-sleep 0.5
+-flashkey1=$(cat /sys/kernel/debug/gpio | grep 'User Key' | grep lo | wc -l)
+-if [ "${flashkey0}" -ne 0 ]
++# The User Key held down across half a second exports the card over USB. Only
++# a key already down at the first look is worth the wait. The key is line 30
++# of the GPIO controller at 0x03020000 on every board, low while pressed; its
++# input register is read directly (the release kernel has no debugfs, where
++# /sys/kernel/debug/gpio showed it).
++user_key_down() {
++	value=$(devmem 0x03020050 32) || return 1
++	case "$value" in 0x*) ;; *) return 1 ;; esac
++	[ $(( value >> 30 & 1 )) -eq 0 ]
++}
++if user_key_down
+ then
+-	if [ "${flashkey1}" -ne 0 ]
++	sleep 0.5
++	if user_key_down
+ 	then
+ 		msc
  	fi
  fi
  
@@ -129,7 +163,17 @@
  	mfail="$?"
  	if [ "${mfail}" -ne 0 ]
  	then
-@@ -114,4 +170,11 @@
+@@ -111,7 +188,21 @@
+ 	fi
+ fi
+ 
++# The saved clock (service/vm/cpufreq.go): only 850 MHz is below the boot's.
++if [ -w "$cpufreq/scaling_setspeed" ] && read -r mhz < /realroot/etc/kvm/cpufreq 2>/dev/null &&
++	[ "$mhz" = 850 ]; then
++	echo 850000 > "$cpufreq/scaling_setspeed"
++	echo 850000 > "$cpufreq/scaling_max_freq"
++fi 2>/dev/null || true
++
  mount -t proc proc /realroot/proc
  mount -t sysfs sysfs /realroot/sys
  mount -t devtmpfs devtmpfs /realroot/dev

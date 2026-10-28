@@ -64,8 +64,11 @@ export const ScreenTextOverlay = () => {
   // this read only.
   const [language, setLanguage] = useState<ScreenTextLanguage>(screenTextLanguages[0]);
   // Until the settings arrive or a language is picked, reads go without
-  // ?lang= and the server uses the device's default.
+  // ?lang= and the server uses the device's default; the list shows that
+  // default by name only once it is known.
   const [languageKnown, setLanguageKnown] = useState(false);
+  // A language picked in this overlay: settings that arrive later keep it.
+  const picked = useRef(false);
   const readLanguage = languageKnown ? language : undefined;
   const [installed, setInstalled] = useState<string[] | null>(null);
   const [frame, setFrame] = useState<RenderedMediaRect | null>(null);
@@ -88,6 +91,7 @@ export const ScreenTextOverlay = () => {
     setText('');
     setPhase('select');
     setLanguageKnown(false);
+    picked.current = false;
     setOpen(false);
   }, [setOpen]);
 
@@ -99,8 +103,10 @@ export const ScreenTextOverlay = () => {
         if (!active || rsp.code !== 0) return;
         const settings = rsp.data as ScreenTextSettings;
         if (isScreenTextLanguage(settings.language)) {
-          setLanguage(settings.language);
-          setLanguageKnown(true);
+          if (!picked.current) {
+            setLanguage(settings.language);
+            setLanguageKnown(true);
+          }
         }
         setInstalled(settings.languages.filter((lang) => lang.installed).map((lang) => lang.name));
       })
@@ -278,8 +284,10 @@ export const ScreenTextOverlay = () => {
   const languageSelect = (
     <Select
       size="small"
-      value={language}
+      value={readLanguage}
+      placeholder={t('settings.ai.screenText.language')}
       onChange={(value: ScreenTextLanguage) => {
+        picked.current = true;
         setLanguage(value);
         setLanguageKnown(true);
       }}

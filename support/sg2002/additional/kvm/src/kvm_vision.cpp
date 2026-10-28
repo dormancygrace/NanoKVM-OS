@@ -2109,6 +2109,20 @@ static int set_capture_parked_locked(bool parked)
 int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size)
 {
     pthread_mutex_lock(&vi_mutex);
+    // The same states the stream reader reports (kvmv_read_img): no cable,
+    // then a capture that is changing or cannot run.
+    if (__atomic_load_n(&kvmv_cfg.hdmi_cable_state, __ATOMIC_ACQUIRE) == 0) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -10;
+    }
+    if (kvmv_cfg.hdmi_res_err == ERROR_RES || kvmv_cfg.hdmi_res_type == UNSUPPORT_RES
+        || kvmv_cfg.vi_detect_state == 1) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -11;
+    }
+    // A new input size seen without a viewer: restart the capture for it, as
+    // the stream reader would (check_kvmv), so VPSS gives the new picture.
+    if (kvmv_cfg.reopen_cam_flag.exchange(0) == 1) restart_capture_locked();
     const int result = mmf_read_bgr_planar(width, height, out, size, 500);
     pthread_mutex_unlock(&vi_mutex);
     return result;

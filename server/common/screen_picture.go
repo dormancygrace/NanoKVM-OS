@@ -9,3 +9,10 @@ var ErrPlanarPictureUnavailable = errors.New("planar screen pictures are unavail
 // ErrPlanarPictureTimeout means VPSS gave no picture within the native call's
 // wait; a capture that has just started may need another try.
 var ErrPlanarPictureTimeout = errors.New("no picture of the screen in time")
+
+// ErrPlanarPictureNoSignal means no HDMI cable is connected.
+var ErrPlanarPictureNoSignal = errors.New("no HDMI signal")
+
+// ErrPlanarCaptureNotReady means the capture is changing (a new input size
+// being detected) or cannot run at the input's resolution.
+var ErrPlanarCaptureNotReady = errors.New("the capture is not ready")

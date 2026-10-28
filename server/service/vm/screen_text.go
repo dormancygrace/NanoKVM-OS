@@ -279,6 +279,9 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	start := time.Now()
 	planes, err := readScreenPicture(ctx, width, height)
 	release()
+	if errors.Is(err, common.ErrPlanarPictureNoSignal) {
+		return nil, screenTextError(-3, "no HDMI signal")
+	}
 	if err != nil {
 		log.Warnf("screen text: %v", err)
 		return nil, screenTextError(-8, "the picture of the screen could not be taken")
@@ -320,16 +323,17 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 }
 
 // readScreenPicture takes the picture, trying again when VPSS gave no frame in
-// time: a capture started cold (no viewer since the server started, as for
-// MCP) can take more than a second for its first frame. Each native call waits
-// half a second with the capture locked, under the video readers' one-second
-// wait for that lock, so a slow picture does not stall the stream.
+// time or the capture was changing: a capture started cold (no viewer since
+// the server started, as for MCP) can take more than a second for its first
+// frame. Each native call waits at most half a second for the picture with the
+// capture locked (the pool and the copy add a little); the video readers wait
+// a second for that lock, and get it between tries.
 func readScreenPicture(ctx context.Context, width, height int) ([]byte, error) {
 	var err error
 	for attempt := 0; attempt < 6; attempt++ {
 		var planes []byte
 		planes, err = common.GetKvmVision().ReadBGRPlanar(width, height)
-		if !errors.Is(err, common.ErrPlanarPictureTimeout) {
+		if !errors.Is(err, common.ErrPlanarPictureTimeout) && !errors.Is(err, common.ErrPlanarCaptureNotReady) {
 			return planes, err
 		}
 		select {
@@ -362,6 +366,12 @@ func parseScreenTextOutput(out []byte, dx, dy int) ([]ScreenTextBox, json.RawMes
 		}
 		box.X += dx
 		box.Y += dy
+		// The helper reads a line at the top edge with its margin above the
+		// picture; report the part inside it (MCP promises 0..1).
+		if box.Y < 0 {
+			box.H = max(1, box.H+box.Y)
+			box.Y = 0
+		}
 		boxes = append(boxes, box)
 	}
 	return boxes, done

@@ -246,6 +246,10 @@ func (k *KvmVision) ReadBGRPlanar(width, height int) ([]byte, error) {
 		return nil, ErrPlanarPictureUnavailable
 	case -3:
 		return nil, ErrPlanarPictureTimeout
+	case -10:
+		return nil, ErrPlanarPictureNoSignal
+	case -11:
+		return nil, ErrPlanarCaptureNotReady
 	default:
 		return nil, fmt.Errorf("no picture of the screen (%d)", int(result))
 	}

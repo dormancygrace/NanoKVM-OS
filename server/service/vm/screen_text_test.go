@@ -73,6 +73,15 @@ not json
 	if boxes, _ := parseScreenTextOutput(nil, 0, 0); boxes == nil || len(boxes) != 0 {
 		t.Errorf("no output: %v, want an empty list (JSON [])", boxes)
 	}
+	// A line at the top edge, its margin above the picture: the part inside.
+	top := []byte(`{"text":"top","score":0.9,"x":5,"y":-4,"w":30,"h":28,"slope":0}`)
+	if boxes, _ := parseScreenTextOutput(top, 0, 0); len(boxes) != 1 || boxes[0].Y != 0 || boxes[0].H != 24 {
+		t.Errorf("top edge: %+v, want y 0, h 24", boxes)
+	}
+	// In an area, the same box lies inside the picture and stays as it is.
+	if boxes, _ := parseScreenTextOutput(top, 0, 100); len(boxes) != 1 || boxes[0].Y != 96 || boxes[0].H != 28 {
+		t.Errorf("area: %+v, want y 96, h 28", boxes)
+	}
 }
 
 func TestScreenTextLines(t *testing.T) {

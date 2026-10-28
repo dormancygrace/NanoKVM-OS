@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"sync"
 	"time"
 
@@ -31,12 +32,42 @@ var screenTextMutex sync.Mutex
 // screenTextLimit bounds one read: models, detection and every line.
 const screenTextLimit = 90 * time.Second
 
-// screenTextSize scales the input to the planar picture: at most 1920 wide
-// (VPSS channel 2), even sides, the aspect ratio kept.
+// screenTextMaxPixels: the TPU reads screens up to Full HD (1920x1080 or
+// 1080x1920). Larger inputs take video buffers the models need: the CMA
+// region holds video and models together only up to that size.
+const screenTextMaxPixels = 1920 * 1080
+
+// screenTextLanguages are the recognizers of the add-on, one directory of
+// models each (addons/tpu/models/convert.sh); the first is the default.
+var screenTextLanguages = []string{"latin", "cyrillic"}
+
+// screenTextArgs are the helper's arguments for a language: the recognizer's
+// three widths are programs of one model. A language may have a surer model
+// with the same dictionary (Latin: the medium one), which reads again the
+// lines the small one is unsure of.
+func screenTextArgs(models, lang string) ([]string, error) {
+	if lang == "" {
+		lang = screenTextLanguages[0]
+	}
+	if !slices.Contains(screenTextLanguages, lang) {
+		return nil, fmt.Errorf("unknown language %q", lang)
+	}
+	dir := models + lang + "/"
+	if _, err := os.Stat(dir + "ocr-rec.cvimodel"); err != nil {
+		return nil, fmt.Errorf("no models for %s", lang)
+	}
+	args := []string{models + "ocr-det.cvimodel", dir + "ocr-rec.cvimodel:3", dir + "ocr-dict.txt"}
+	if _, err := os.Stat(dir + "ocr-sure.cvimodel"); err == nil {
+		args = append(args, dir+"ocr-sure.cvimodel:3")
+	}
+	return args, nil
+}
+
+// screenTextSize is the planar picture for an input: the input itself, even
+// sides; 0x0 for inputs over Full HD.
 func screenTextSize(width, height int) (int, int) {
-	if width > 1920 {
-		height = height * 1920 / width
-		width = 1920
+	if width*height > screenTextMaxPixels {
+		return 0, 0
 	}
 	return width &^ 1, height &^ 1
 }
@@ -44,12 +75,17 @@ func screenTextSize(width, height int) (int, int) {
 // GetScreenText reads the text on the screen with the TPU: one picture from
 // VPSS as B, G and R planes, then nanokvm-ocr. Each line of the helper is one
 // box ({"text","score","x","y","w","h"}); the last one holds the timings.
+// ?lang= picks the recognizer (screenTextLanguages).
 func (s *Service) GetScreenText(c *gin.Context) {
 	var rsp proto.Response
 	helper := screenTextRoot + "/bin/nanokvm-ocr"
-	models := screenTextRoot + "/models/"
 	if _, err := os.Stat(helper); err != nil {
 		rsp.ErrRsp(c, -1, "the TPU add-on is not installed")
+		return
+	}
+	args, err := screenTextArgs(screenTextRoot+"/models/", c.Query("lang"))
+	if err != nil {
+		rsp.ErrRsp(c, -6, err.Error())
 		return
 	}
 	if !screenTextMutex.TryLock() {
@@ -60,9 +96,14 @@ func (s *Service) GetScreenText(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), screenTextLimit)
 	defer cancel()
-	width, height := screenTextSize(common.CaptureInputSize())
-	if width < 16 || height < 16 {
+	inputWidth, inputHeight := common.CaptureInputSize()
+	if inputWidth < 16 || inputHeight < 16 {
 		rsp.ErrRsp(c, -3, "no HDMI signal")
+		return
+	}
+	width, height := screenTextSize(inputWidth, inputHeight)
+	if width == 0 {
+		rsp.ErrRsp(c, -5, fmt.Sprintf("text recognition works up to 1920x1080; the input is %dx%d", inputWidth, inputHeight))
 		return
 	}
 	release, claimFresh, err := AcquireHdmiCaptureLeaseForRead(ctx)
@@ -91,9 +132,7 @@ func (s *Service) GetScreenText(c *gin.Context) {
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, helper, models+"ocr-det.cvimodel",
-		models+"ocr-rec-160.cvimodel,"+models+"ocr-rec-320.cvimodel,"+models+"ocr-rec-640.cvimodel",
-		models+"ocr-dict.txt")
+	cmd := exec.CommandContext(ctx, helper, args...)
 	cmd.Env = append(os.Environ(), "LD_LIBRARY_PATH="+screenTextRoot+"/lib")
 	cmd.Stdin = bytes.NewReader(input)
 	var stderr bytes.Buffer

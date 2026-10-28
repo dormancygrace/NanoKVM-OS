@@ -98,6 +98,7 @@
     "failed": "无法识别文字",
     "busy": "屏幕正在识别中，请稍后再试",
     "noSignal": "无 HDMI 信号",
+    "captureFailed": "无法获取屏幕图像，请重试",
     "tooLarge": "文字识别最高支持 1920×1080；请降低电脑的分辨率",
     "languages": {
       "latin": "拉丁字母：英语和欧洲语言",

@@ -326,10 +326,19 @@ std::vector<Box> merge(std::vector<Box> boxes) {
         }
         if (!duplicate) kept.push_back(b);
     }
-    // Reading order: by the centre line at the left end, then left to right.
-    std::sort(kept.begin(), kept.end(), [](const Box &a, const Box &b) {
-        return a.y + a.h / 2 < b.y || (std::abs((a.y + a.h / 2) - (b.y + b.h / 2)) <= std::min(a.h, b.h) / 2 && a.x < b.x);
-    });
+    // Reading order: by the centre line at the left end, then left to right
+    // within a row (each centre within half the lower box of the one above it
+    // in the row). Two passes: one comparator for both would not be a strict
+    // weak order.
+    auto centre = [](const Box &b) { return b.y + b.h / 2; };
+    std::sort(kept.begin(), kept.end(), [&](const Box &a, const Box &b) { return centre(a) < centre(b); });
+    for (size_t row = 0; row < kept.size();) {
+        size_t end = row + 1;
+        while (end < kept.size() &&
+               centre(kept[end]) - centre(kept[end - 1]) <= std::min(kept[end - 1].h, kept[end].h) / 2) ++end;
+        std::sort(kept.begin() + row, kept.begin() + end, [](const Box &a, const Box &b) { return a.x < b.x; });
+        row = end;
+    }
     return kept;
 }
 
@@ -931,6 +940,9 @@ int main(int argc, char **argv) {
         box.w = std::min(box.w * scale, pic.width - box.x);
         box.h = std::min(box.h * scale, pic.height - box.y);
     }
+    // A slanted box can start at or below the bottom edge: nothing to read.
+    boxes.erase(std::remove_if(boxes.begin(), boxes.end(), [](const Box &b) { return b.w <= 0 || b.h <= 0; }),
+                boxes.end());
     std::vector<Box> lines;
     for (const Box &box : merge(std::move(boxes)))
         for (const Box &piece : split_wide(pic, box, static_cast<int>(max_ratio * box.h))) lines.push_back(piece);

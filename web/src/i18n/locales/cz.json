@@ -2239,6 +2239,7 @@
     "failed": "Text se nepodařilo rozpoznat",
     "busy": "Obrazovka se již čte; zkuste to za chvíli znovu",
     "noSignal": "Žádný signál HDMI",
+    "captureFailed": "Obraz obrazovky se nepodařilo získat; zkuste to znovu",
     "tooLarge": "Rozpoznávání textu funguje do 1920×1080; snižte rozlišení počítače",
     "languages": {
       "latin": "Latinka: angličtina a evropské jazyky",

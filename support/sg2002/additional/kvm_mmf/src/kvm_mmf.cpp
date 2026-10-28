@@ -2746,11 +2746,13 @@ int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int ti
 		if (result == 0) {
 			const VIDEO_FRAME_S &v = frame.stVFrame;
 			const uint64_t total = (uint64_t)v.u32Length[0] + v.u32Length[1] + v.u32Length[2];
-			const bool layout = (int)v.u32Width == width && (int)v.u32Height == height && v.u64PhyAddr[0]
+			bool layout = (int)v.u32Width == width && (int)v.u32Height == height && v.u64PhyAddr[0]
 				&& v.u64PhyAddr[1] == v.u64PhyAddr[0] + v.u32Length[0]
-				&& v.u64PhyAddr[2] == v.u64PhyAddr[1] + v.u32Length[1]
-				&& v.u32Stride[0] >= (CVI_U32)width && v.u32Stride[1] >= (CVI_U32)width
-				&& v.u32Stride[2] >= (CVI_U32)width;
+				&& v.u64PhyAddr[2] == v.u64PhyAddr[1] + v.u32Length[1];
+			// Every row the copy reads lies inside its plane.
+			for (int c = 0; c < 3; ++c)
+				layout = layout && v.u32Stride[c] >= (CVI_U32)width
+					&& v.u32Length[c] >= (uint64_t)v.u32Stride[c] * (height - 1) + width;
 			// CVI_SYS_MmapCache invalidates the newly mapped range.
 			uint8_t *mapped = layout ? (uint8_t *)CVI_SYS_MmapCache(v.u64PhyAddr[0], total) : NULL;
 			if (mapped) {

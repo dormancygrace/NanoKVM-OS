@@ -37,8 +37,9 @@ export function getGpio() {
 // Read the text on the screen with the TPU add-on: one recognition takes a
 // few seconds, up to 90 on the server. Aborting the request stops it there.
 // crop, fractions of the picture, reads only that area (at full size).
+// Without a language the server reads in the device's default.
 export function getScreenText(
-  language: string,
+  language: string | undefined,
   signal?: AbortSignal,
   crop?: { left: number; top: number; width: number; height: number }
 ) {
@@ -46,7 +47,7 @@ export function getScreenText(
     method: 'get',
     url: '/api/vm/screen/text',
     params: {
-      lang: language,
+      ...(language && { lang: language }),
       ...(crop && {
         crop: [crop.left, crop.top, crop.width, crop.height]
           .map((v) => Math.min(1, Math.max(0, v)).toFixed(4))

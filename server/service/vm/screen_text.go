@@ -43,8 +43,12 @@ const screenTextLimit = 90 * time.Second
 
 // screenTextMaxPixels: the TPU reads screens up to Full HD (1920x1080 or
 // 1080x1920). Larger inputs take video buffers the models need: the CMA
-// region holds video and models together only up to that size.
-const screenTextMaxPixels = 1920 * 1080
+// region holds video and models together only up to that size. VPSS
+// channel 2 also takes at most 1920 on either side.
+const (
+	screenTextMaxPixels = 1920 * 1080
+	screenTextMaxSide   = 1920
+)
 
 // screenTextLanguages are the recognizers of the add-on, one directory of
 // models each (addons/tpu/models/convert.sh); the first is the default.
@@ -122,9 +126,9 @@ func screenTextArgs(models, lang string) ([]string, error) {
 }
 
 // screenTextSize is the planar picture for an input: the input itself, even
-// sides; 0x0 for inputs over Full HD.
+// sides; 0x0 for inputs over Full HD or wider or taller than 1920.
 func screenTextSize(width, height int) (int, int) {
-	if width*height > screenTextMaxPixels {
+	if width*height > screenTextMaxPixels || width > screenTextMaxSide || height > screenTextMaxSide {
 		return 0, 0
 	}
 	return width &^ 1, height &^ 1
@@ -266,18 +270,18 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	if width == 0 {
 		return nil, screenTextError(-5, "text recognition works up to 1920x1080; the input is %dx%d", inputWidth, inputHeight)
 	}
-	release, claimFresh, err := AcquireHdmiCaptureLeaseForRead(ctx)
+	// The fresh-frame claim is left to the readers that can hand out a frame
+	// buffered before HDMI resumed: VPSS channel 2 is set up for each read.
+	release, _, err := AcquireHdmiCaptureLeaseForRead(ctx)
 	if err != nil {
 		return nil, screenTextError(-3, "%v", err)
-	}
-	if claimFresh != nil {
-		claimFresh()
 	}
 	start := time.Now()
 	planes, err := readScreenPicture(ctx, width, height)
 	release()
 	if err != nil {
-		return nil, screenTextError(-3, "%v", err)
+		log.Warnf("screen text: %v", err)
+		return nil, screenTextError(-8, "the picture of the screen could not be taken")
 	}
 	captured := time.Since(start)
 
@@ -317,19 +321,21 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 
 // readScreenPicture takes the picture, trying again when VPSS gave no frame in
 // time: a capture started cold (no viewer since the server started, as for
-// MCP) can take longer than the native call's second for its first frame.
+// MCP) can take more than a second for its first frame. Each native call waits
+// half a second with the capture locked, under the video readers' one-second
+// wait for that lock, so a slow picture does not stall the stream.
 func readScreenPicture(ctx context.Context, width, height int) ([]byte, error) {
 	var err error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 6; attempt++ {
 		var planes []byte
 		planes, err = common.GetKvmVision().ReadBGRPlanar(width, height)
-		if err == nil || errors.Is(err, common.ErrPlanarPictureUnavailable) {
+		if !errors.Is(err, common.ErrPlanarPictureTimeout) {
 			return planes, err
 		}
 		select {
 		case <-ctx.Done():
 			return nil, err
-		case <-time.After(300 * time.Millisecond):
+		case <-time.After(100 * time.Millisecond):
 		}
 	}
 	return nil, err

@@ -167,6 +167,9 @@ func TestScreenTextSizeUpToFullHD(t *testing.T) {
 		{2560, 1440, 0, 0},
 		{3840, 2160, 0, 0},
 		{1920, 1200, 0, 0},
+		// Under Full HD in pixels, but wider than VPSS channel 2 takes.
+		{2560, 720, 0, 0},
+		{720, 2560, 0, 0},
 	} {
 		w, h := screenTextSize(tc.inW, tc.inH)
 		if w != tc.w || h != tc.h {

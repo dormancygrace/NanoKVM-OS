@@ -5,3 +5,7 @@ import "errors"
 // ErrPlanarPictureUnavailable means the native library cannot deliver planar
 // pictures of the screen (kvmv_read_bgr_planar).
 var ErrPlanarPictureUnavailable = errors.New("planar screen pictures are unavailable")
+
+// ErrPlanarPictureTimeout means VPSS gave no picture within the native call's
+// wait; a capture that has just started may need another try.
+var ErrPlanarPictureTimeout = errors.New("no picture of the screen in time")

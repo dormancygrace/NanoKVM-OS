@@ -46,7 +46,8 @@ const minimumSelectionSize = 8;
 const errorKeys: Record<number, string> = {
   [-2]: 'screenText.busy',
   [-3]: 'screenText.noSignal',
-  [-5]: 'screenText.tooLarge'
+  [-5]: 'screenText.tooLarge',
+  [-8]: 'screenText.captureFailed'
 };
 
 // Reads the text on the screen with the TPU add-on: the user drags a
@@ -62,6 +63,10 @@ export const ScreenTextOverlay = () => {
   // The device's default (Settings > AI); picking another one here is for
   // this read only.
   const [language, setLanguage] = useState<ScreenTextLanguage>(screenTextLanguages[0]);
+  // Until the settings arrive or a language is picked, reads go without
+  // ?lang= and the server uses the device's default.
+  const [languageKnown, setLanguageKnown] = useState(false);
+  const readLanguage = languageKnown ? language : undefined;
   const [installed, setInstalled] = useState<string[] | null>(null);
   const [frame, setFrame] = useState<RenderedMediaRect | null>(null);
   const [selection, setSelection] = useState<RenderedMediaRect | null>(null);
@@ -82,6 +87,7 @@ export const ScreenTextOverlay = () => {
     setError('');
     setText('');
     setPhase('select');
+    setLanguageKnown(false);
     setOpen(false);
   }, [setOpen]);
 
@@ -92,7 +98,10 @@ export const ScreenTextOverlay = () => {
       .then((rsp) => {
         if (!active || rsp.code !== 0) return;
         const settings = rsp.data as ScreenTextSettings;
-        if (isScreenTextLanguage(settings.language)) setLanguage(settings.language);
+        if (isScreenTextLanguage(settings.language)) {
+          setLanguage(settings.language);
+          setLanguageKnown(true);
+        }
         setInstalled(settings.languages.filter((lang) => lang.installed).map((lang) => lang.name));
       })
       .catch(() => {
@@ -139,8 +148,9 @@ export const ScreenTextOverlay = () => {
     };
   }, [open, phase, resolution]);
 
+  // Escape leaves the overlay, also while reading (that stops the read).
   useEffect(() => {
-    if (!open || phase !== 'select') return;
+    if (!open || phase === 'result') return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== 'Escape') return;
       event.preventDefault();
@@ -161,7 +171,7 @@ export const ScreenTextOverlay = () => {
   );
 
   const read = useCallback(
-    async (target: ScreenTextRegion, lang: ScreenTextLanguage) => {
+    async (target: ScreenTextRegion, lang: ScreenTextLanguage | undefined) => {
       request.current?.abort();
       const controller = new AbortController();
       request.current = controller;
@@ -249,7 +259,7 @@ export const ScreenTextOverlay = () => {
         width: selection.width / frame.width,
         height: selection.height / frame.height
       },
-      language
+      readLanguage
     );
   }
 
@@ -269,7 +279,10 @@ export const ScreenTextOverlay = () => {
     <Select
       size="small"
       value={language}
-      onChange={setLanguage}
+      onChange={(value: ScreenTextLanguage) => {
+        setLanguage(value);
+        setLanguageKnown(true);
+      }}
       popupMatchSelectWidth={false}
       // Inside the overlay's card: on the page body the list would sit under
       // the overlay (z-index 1050 < 1100), visible through the mask, and a
@@ -294,7 +307,7 @@ export const ScreenTextOverlay = () => {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Space wrap>
               {languageSelect}
-              <Button onClick={() => void read(region, language)}>{t('screenText.again')}</Button>
+              <Button onClick={() => void read(region, readLanguage)}>{t('screenText.again')}</Button>
               <Button onClick={() => setPhase('select')}>{t('screenText.newArea')}</Button>
             </Space>
             <Button
@@ -384,7 +397,7 @@ export const ScreenTextOverlay = () => {
               <Button size="small" type="primary" disabled={!selected} onClick={readSelection}>
                 {t('screenText.readSelection')}
               </Button>
-              <Button size="small" onClick={() => void read(wholeScreen, language)}>
+              <Button size="small" onClick={() => void read(wholeScreen, readLanguage)}>
                 {t('screenText.wholeScreen')}
               </Button>
               <Button size="small" onClick={close}>

@@ -98,6 +98,7 @@
     "failed": "Der Text konnte nicht erkannt werden",
     "busy": "Der Bildschirm wird bereits gelesen; versuchen Sie es gleich noch einmal",
     "noSignal": "Kein HDMI-Signal",
+    "captureFailed": "Das Bild des Bildschirms konnte nicht aufgenommen werden; versuchen Sie es erneut",
     "tooLarge": "Die Texterkennung funktioniert bis 1920×1080; verringern Sie die Auflösung des Computers",
     "languages": {
       "latin": "Lateinisch: Englisch und europäische Sprachen",

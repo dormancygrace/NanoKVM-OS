@@ -2109,7 +2109,7 @@ static int set_capture_parked_locked(bool parked)
 int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size)
 {
     pthread_mutex_lock(&vi_mutex);
-    const int result = mmf_read_bgr_planar(width, height, out, size, 1000);
+    const int result = mmf_read_bgr_planar(width, height, out, size, 500);
     pthread_mutex_unlock(&vi_mutex);
     return result;
 }

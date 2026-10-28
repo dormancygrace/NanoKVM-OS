@@ -771,6 +771,16 @@
     "controlRequired": "Another session controls the input. Take control first."
   },
   "settings": {
+    "addonPage": {
+      "failed": "Could not read the add-on's values",
+      "notRunning": "The add-on's service is not running",
+      "refused": "The add-on refused it",
+      "saved": "Saved",
+      "save": "Save",
+      "status": "Status",
+      "yes": "Yes",
+      "no": "No"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Connect NanoKVM to a private network. Select a VPN to set it up."

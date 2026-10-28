@@ -13,6 +13,8 @@ import {
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { AddonSections } from '../addon/sections';
+
 // System > Redfish and IPMI: Redfish is part of the server, IPMI comes with
 // its add-on; one BMC account for both, and the power button hold of a
 // forced power-off.
@@ -202,6 +204,7 @@ export const BmcSettingsPage = () => {
           {t('save')}
         </Button>
       </Form>
+      <AddonSections host="services-bmc" />
     </div>
   );
 };

@@ -694,6 +694,16 @@
         "enabledDescription": "Đọc văn bản trên màn hình bằng TPU: nút trên thanh công cụ, MCP và PicoClaw. Khi tắt, không thành phần nào đọc được.",
         "switchFailed": "Không thể lưu cài đặt"
       }
+    },
+    "addonPage": {
+      "failed": "Không thể đọc giá trị của tiện ích bổ sung",
+      "notRunning": "Dịch vụ của tiện ích bổ sung không chạy",
+      "refused": "Tiện ích bổ sung đã từ chối",
+      "saved": "Đã lưu",
+      "save": "Lưu",
+      "status": "Trạng thái",
+      "yes": "Có",
+      "no": "Không"
     }
   },
   "picoclaw": {

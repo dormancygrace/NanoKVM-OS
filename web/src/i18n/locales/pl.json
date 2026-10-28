@@ -693,6 +693,16 @@
         "enabledDescription": "Odczyt tekstu z ekranu na TPU: przycisk na pasku narzędzi, MCP i PicoClaw. Wyłączone — żaden z nich nie może czytać ekranu.",
         "switchFailed": "Nie udało się zapisać ustawienia"
       }
+    },
+    "addonPage": {
+      "failed": "Nie można odczytać wartości dodatku",
+      "notRunning": "Usługa dodatku nie działa",
+      "refused": "Dodatek odrzucił zmianę",
+      "saved": "Zapisano",
+      "save": "Zapisz",
+      "status": "Stan",
+      "yes": "Tak",
+      "no": "Nie"
     }
   },
   "picoclaw": {

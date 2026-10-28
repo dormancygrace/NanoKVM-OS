@@ -692,6 +692,16 @@
         "enabledDescription": "Llegir el text de la pantalla amb la TPU: el botó de la barra d'eines, MCP i PicoClaw. Desactivat, cap d'ells no la pot llegir.",
         "switchFailed": "No s'ha pogut desar el paràmetre"
       }
+    },
+    "addonPage": {
+      "failed": "No s'han pogut llegir els valors del complement",
+      "notRunning": "El servei del complement no s'està executant",
+      "refused": "El complement ho ha rebutjat",
+      "saved": "Desat",
+      "save": "Desa",
+      "status": "Estat",
+      "yes": "Sí",
+      "no": "No"
     }
   },
   "picoclaw": {

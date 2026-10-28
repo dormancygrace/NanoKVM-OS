@@ -691,6 +691,16 @@
         "enabledDescription": "Membaca teks di layar dengan TPU: tombol bilah alat, MCP, dan PicoClaw. Jika mati, tidak satu pun dapat membacanya.",
         "switchFailed": "Pengaturan tidak dapat disimpan"
       }
+    },
+    "addonPage": {
+      "failed": "Tidak dapat membaca nilai add-on",
+      "notRunning": "Layanan add-on tidak berjalan",
+      "refused": "Add-on menolaknya",
+      "saved": "Tersimpan",
+      "save": "Simpan",
+      "status": "Status",
+      "yes": "Ya",
+      "no": "Tidak"
     }
   },
   "picoclaw": {

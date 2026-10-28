@@ -1,6 +1,6 @@
 {
   "name": "nanokvm-ipmi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "GPL-3.0-only",
   "description": "NanoKVM IPMI add-on: IPMI over LAN power control of the host",
   "url": "https://github.com/dormancygrace/NanoKVM-OS/blob/main/docs/BMC.md",
@@ -8,7 +8,8 @@
   "depends": "openrc",
   "go": {"package": "./cmd/nkos-ipmi", "path": "/usr/sbin/nkos-ipmi"},
   "files": {
-    "/etc/init.d/nanokvm-ipmi": {"source": "nanokvm-ipmi.initd", "mode": "0755"}
+    "/etc/init.d/nanokvm-ipmi": {"source": "nanokvm-ipmi.initd", "mode": "0755"},
+    "/usr/share/nanokvm/addons.d/ipmi.json": {"source": "addon-ui.json", "mode": "0644"}
   },
   "licenses": ["LICENSE"],
   "scripts": {

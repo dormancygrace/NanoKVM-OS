@@ -1,0 +1,66 @@
+{
+  "id": "ipmi",
+  "api": 1,
+  "title": {
+    "en": "IPMI status",
+    "ru": "Состояние IPMI",
+    "de": "IPMI-Status",
+    "fr": "État IPMI",
+    "es": "Estado de IPMI",
+    "cz": "Stav IPMI",
+    "ja": "IPMI の状態",
+    "zh": "IPMI 状态"
+  },
+  "description": {
+    "en": "What the IPMI service is doing now: its sessions and the last power command.",
+    "ru": "Что сейчас делает служба IPMI: её сеансы и последняя команда питания.",
+    "de": "Was der IPMI-Dienst gerade tut: seine Sitzungen und der letzte Strombefehl.",
+    "fr": "Ce que fait le service IPMI : ses sessions et la dernière commande d'alimentation.",
+    "es": "Lo que hace ahora el servicio IPMI: sus sesiones y el último comando de alimentación.",
+    "cz": "Co právě dělá služba IPMI: její relace a poslední příkaz napájení.",
+    "ja": "IPMI サービスの現在の状況：セッションと最後の電源コマンド。",
+    "zh": "IPMI 服务当前的状况：会话和最后的电源命令。"
+  },
+  "backend": {
+    "socket": "ipmi.sock"
+  },
+  "settings": {
+    "section": "services-bmc",
+    "form": {
+      "source": "/api/addon/ipmi/status",
+      "refresh": 5,
+      "fields": [
+        {
+          "key": "state",
+          "type": "status",
+          "label": { "en": "State", "ru": "Состояние", "de": "Zustand", "fr": "État", "es": "Estado", "cz": "Stav", "ja": "状態", "zh": "状态" }
+        },
+        {
+          "key": "port",
+          "type": "status",
+          "label": { "en": "UDP port", "ru": "UDP-порт", "de": "UDP-Port", "fr": "Port UDP", "es": "Puerto UDP", "cz": "Port UDP", "ja": "UDP ポート", "zh": "UDP 端口" }
+        },
+        {
+          "key": "sessions",
+          "type": "status",
+          "label": { "en": "Open sessions", "ru": "Открытые сеансы", "de": "Offene Sitzungen", "fr": "Sessions ouvertes", "es": "Sesiones abiertas", "cz": "Otevřené relace", "ja": "開いているセッション", "zh": "打开的会话" }
+        },
+        {
+          "key": "lockedOut",
+          "type": "status",
+          "label": { "en": "Clients locked out for too many logins", "ru": "Клиенты, заблокированные за частые входы", "de": "Wegen zu vieler Anmeldungen gesperrte Clients", "fr": "Clients bloqués pour trop de connexions", "es": "Clientes bloqueados por demasiados inicios de sesión", "cz": "Klienti zablokovaní kvůli příliš mnoha přihlášením", "ja": "ログイン回数超過でブロックされたクライアント", "zh": "因登录次数过多被锁定的客户端" }
+        },
+        {
+          "key": "lastCommand",
+          "type": "status",
+          "label": { "en": "Last power command", "ru": "Последняя команда питания", "de": "Letzter Strombefehl", "fr": "Dernière commande d'alimentation", "es": "Último comando de alimentación", "cz": "Poslední příkaz napájení", "ja": "最後の電源コマンド", "zh": "最后的电源命令" }
+        },
+        {
+          "key": "lastCommandAt",
+          "type": "status",
+          "label": { "en": "At", "ru": "Время", "de": "Zeitpunkt", "fr": "À", "es": "Hora", "cz": "Čas", "ja": "時刻", "zh": "时间" }
+        }
+      ]
+    }
+  }
+}

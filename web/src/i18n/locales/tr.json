@@ -693,6 +693,16 @@
         "enabledDescription": "Ekrandaki metni TPU ile okuma: araç çubuğu düğmesi, MCP ve PicoClaw. Kapalıyken hiçbiri okuyamaz.",
         "switchFailed": "Ayar kaydedilemedi"
       }
+    },
+    "addonPage": {
+      "failed": "Eklentinin değerleri okunamadı",
+      "notRunning": "Eklentinin hizmeti çalışmıyor",
+      "refused": "Eklenti bunu reddetti",
+      "saved": "Kaydedildi",
+      "save": "Kaydet",
+      "status": "Durum",
+      "yes": "Evet",
+      "no": "Hayır"
     }
   },
   "picoclaw": {

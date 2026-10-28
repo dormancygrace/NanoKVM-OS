@@ -718,6 +718,16 @@
         "enabledDescription": "A képernyőn lévő szöveg olvasása a TPU-val: az eszköztár gombja, az MCP és a PicoClaw. Kikapcsolva egyikük sem olvashat.",
         "switchFailed": "A beállítást nem sikerült menteni"
       }
+    },
+    "addonPage": {
+      "failed": "Nem sikerült beolvasni a bővítmény értékeit",
+      "notRunning": "A bővítmény szolgáltatása nem fut",
+      "refused": "A bővítmény elutasította",
+      "saved": "Mentve",
+      "save": "Mentés",
+      "status": "Állapot",
+      "yes": "Igen",
+      "no": "Nem"
     }
   },
   "picoclaw": {

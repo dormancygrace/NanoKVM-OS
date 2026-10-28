@@ -694,6 +694,16 @@
         "enabledDescription": "TPU로 화면의 텍스트를 읽습니다: 도구 모음 버튼, MCP, PicoClaw. 끄면 어느 것도 읽을 수 없습니다.",
         "switchFailed": "설정을 저장할 수 없습니다"
       }
+    },
+    "addonPage": {
+      "failed": "애드온 값을 읽을 수 없습니다",
+      "notRunning": "애드온 서비스가 실행 중이 아닙니다",
+      "refused": "애드온이 거부했습니다",
+      "saved": "저장됨",
+      "save": "저장",
+      "status": "상태",
+      "yes": "예",
+      "no": "아니요"
     }
   },
   "picoclaw": {

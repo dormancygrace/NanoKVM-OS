@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 	"time"
 
 	"NanoKVM-Server/authn"
@@ -11,11 +12,15 @@ import (
 	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/pkg/bmc"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/addons"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"NanoKVM-Server/service/picoclaw"
 	"NanoKVM-Server/service/vm"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
+
+var reportedManifestErrors sync.Map
 
 // Navigation needs only installation facts. It must not run package queries,
 // probe a gateway, or wait for service status.
@@ -43,12 +48,33 @@ func addonsRouter(r *gin.Engine) {
 			response.ErrRsp(c, -1, "cannot read installed extensions")
 			return
 		}
+		// Add-ons that describe themselves (addons.d): read on every request,
+		// so an installed or removed add-on shows without a server restart.
+		manifests, skipped := addons.Load(addons.ManifestDir)
+		for _, err := range skipped {
+			// The page polls this: each problem goes to the log once.
+			if _, seen := reportedManifestErrors.LoadOrStore(err.Error(), true); !seen {
+				log.Warnf("add-on manifest skipped: %v", err)
+			}
+		}
+		if manifests == nil {
+			manifests = []addons.Manifest{}
+		}
 		response.OkRspWithData(c, gin.H{
 			"rustdesk": gin.H{"installed": rustdesk},
 			"picoclaw": gin.H{"installed": pico},
 			"ipmi":     gin.H{"installed": ipmiInstalled},
 			"tpu":      gin.H{"installed": tpu, "enabled": vm.ScreenTextEnabled()},
+			"addons":   manifests,
 		})
+	})
+
+	// An add-on's own API, for administrators: its manifest names the socket.
+	proxy := &addons.Proxy{Dir: addons.ManifestDir}
+	r.Any("/api/addon/:id/*path", middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin), func(c *gin.Context) {
+		principal, _ := middleware.CurrentPrincipal(c)
+		proxy.ServeAddon(c.Writer, c.Request, c.Param("id"), c.Param("path"),
+			addons.Identity{User: principal.Username, Role: string(principal.Role)})
 	})
 }
 

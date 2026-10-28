@@ -547,50 +547,120 @@ std::string recognize(Model &rec, const Picture &pic, const Box &box, const std:
     return text;
 }
 
-// The Cyrillic model mixes letters that look alike in both scripts ("Bид",
-// "yстpойство"). A word takes the script most of its letters are in; a word
-// with as many of each stays as it is.
-std::string word_script(const std::string &word) {
-    // Latin and Cyrillic glyphs of the same shape, as UTF-8.
-    static const char *const pairs[][2] = {
-        {"A", "А"}, {"B", "В"}, {"C", "С"}, {"E", "Е"}, {"H", "Н"}, {"K", "К"}, {"M", "М"}, {"O", "О"},
-        {"P", "Р"}, {"T", "Т"}, {"X", "Х"}, {"a", "а"}, {"c", "с"}, {"e", "е"}, {"o", "о"}, {"p", "р"},
-        {"x", "х"}, {"y", "у"},
-    };
-    int latin = 0, cyrillic = 0;
-    for (size_t i = 0; i < word.size(); ++i) {
-        const unsigned char c = word[i];
-        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) ++latin;
-        else if ((c == 0xd0 || c == 0xd1) && i + 1 < word.size()) { ++cyrillic; ++i; }
-    }
-    if (latin == 0 || cyrillic == 0 || latin == cyrillic) return word;
-    const int from = cyrillic > latin ? 0 : 1, to = 1 - from;
-    std::string out;
-    for (size_t i = 0; i < word.size();) {
-        bool replaced = false;
-        for (const auto &pair : pairs) {
-            const size_t n = std::strlen(pair[from]);
-            if (word.compare(i, n, pair[from]) == 0) {
-                out += pair[to];
-                i += n;
-                replaced = true;
-                break;
-            }
-        }
-        if (!replaced) out += word[i++];
+std::u32string utf32(const std::string &s) {
+    std::u32string out;
+    for (size_t i = 0; i < s.size();) {
+        const unsigned char c = s[i];
+        const int n = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 1;
+        char32_t cp = n == 1 ? c : c & (0x7f >> n);
+        for (int k = 1; k < n && i + k < s.size(); ++k) cp = (cp << 6) | (static_cast<unsigned char>(s[i + k]) & 0x3f);
+        out += cp;
+        i += n;
     }
     return out;
 }
 
-std::string one_script(const std::string &line) {
+std::string utf8(const std::u32string &s) {
     std::string out;
-    for (size_t start = 0; start <= line.size();) {
-        const size_t space = std::min(line.find(' ', start), line.size());
-        out += word_script(line.substr(start, space - start));
-        if (space < line.size()) out += ' ';
-        start = space + 1;
+    for (const char32_t cp : s) {
+        if (cp < 0x80) {
+            out += static_cast<char>(cp);
+        } else if (cp < 0x800) {
+            out += static_cast<char>(0xc0 | (cp >> 6));
+            out += static_cast<char>(0x80 | (cp & 0x3f));
+        } else if (cp < 0x10000) {
+            out += static_cast<char>(0xe0 | (cp >> 12));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3f));
+            out += static_cast<char>(0x80 | (cp & 0x3f));
+        } else {
+            out += static_cast<char>(0xf0 | (cp >> 18));
+            out += static_cast<char>(0x80 | ((cp >> 12) & 0x3f));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3f));
+            out += static_cast<char>(0x80 | (cp & 0x3f));
+        }
     }
     return out;
+}
+
+// Latin and Cyrillic letters of the same shape.
+const std::pair<char32_t, char32_t> look_alikes[] = {
+    {U'A', U'А'}, {U'B', U'В'}, {U'C', U'С'}, {U'E', U'Е'}, {U'H', U'Н'}, {U'K', U'К'}, {U'M', U'М'},
+    {U'O', U'О'}, {U'P', U'Р'}, {U'T', U'Т'}, {U'X', U'Х'}, {U'a', U'а'}, {U'c', U'с'}, {U'e', U'е'},
+    {U'o', U'о'}, {U'p', U'р'}, {U'x', U'х'}, {U'y', U'у'}, {U'k', U'к'}, {U'i', U'і'}, {U'I', U'І'},
+    {U'j', U'ј'}, {U's', U'ѕ'}, {U'S', U'Ѕ'},
+};
+// Letters the Cyrillic model reads for one another in words of the other
+// script ("пginx", "adтin"), unlike in print.
+const std::pair<char32_t, char32_t> confusables[] = {{U'n', U'п'}, {U'm', U'т'}, {U'u', U'и'}, {U'r', U'г'}};
+
+enum class Kind { none, latin, cyrillic, other, twin };
+
+template <size_t N>
+char32_t partner(const std::pair<char32_t, char32_t> (&pairs)[N], char32_t c) {
+    for (const auto &pair : pairs) {
+        if (pair.first == c) return pair.second;
+        if (pair.second == c) return pair.first;
+    }
+    return 0;
+}
+
+// Letters only: anything else ends a run of letters.
+Kind kind_of(char32_t c) {
+    if ((c >= U'a' && c <= U'z') || (c >= U'A' && c <= U'Z') ||
+        (c >= 0xc0 && c <= 0x24f && c != 0xd7 && c != 0xf7) || (c >= 0x1e00 && c <= 0x1eff)) return Kind::latin;
+    if (c >= 0x400 && c <= 0x4ff) return Kind::cyrillic;
+    if ((c >= 0x370 && c <= 0x3ff) || (c >= 0x3040 && c <= 0x30ff) || (c >= 0x3400 && c <= 0x9fff) ||
+        (c >= 0xac00 && c <= 0xd7af)) return Kind::other;
+    return Kind::none;
+}
+
+// The script of the nearest Latin or Cyrillic letters before and after i in
+// its run of letters: the one both sides agree on, or the only side there is.
+Kind context(const std::vector<Kind> &kinds, size_t i) {
+    auto side = [&](int step) {
+        for (long j = static_cast<long>(i) + step; j >= 0 && j < static_cast<long>(kinds.size()); j += step) {
+            if (kinds[j] == Kind::none) break;
+            if (kinds[j] == Kind::latin || kinds[j] == Kind::cyrillic) return kinds[j];
+        }
+        return Kind::none;
+    };
+    const Kind left = side(-1), right = side(1);
+    if (left == right || right == Kind::none) return left;
+    return left == Kind::none ? right : Kind::none;
+}
+
+// The Cyrillic model mixes Latin and Cyrillic letters ("USВ", "Wаrning",
+// "пgіnх"), and seldom reads spaces, so words cannot decide. A letter that
+// has a twin in the other script takes the script of its unambiguous
+// neighbours in the run of letters it is in; when they disagree or there are
+// none, it stays as read. The confusable letters go first, against
+// unambiguous letters only; then they count as letters of their script.
+std::string one_script(const std::string &line) {
+    std::u32string text = utf32(line);
+    std::vector<Kind> kinds(text.size());
+    auto settle = [&](auto &pairs) {
+        for (size_t i = 0; i < text.size(); ++i) {
+            const char32_t other = partner(pairs, text[i]);
+            if (!other || kinds[i] != Kind::twin) continue;
+            const Kind want = context(kinds, i);
+            if (want != Kind::none && kind_of(other) == want) text[i] = other;
+        }
+    };
+    for (size_t i = 0; i < text.size(); ++i)
+        kinds[i] = partner(confusables, text[i]) || partner(look_alikes, text[i]) ? Kind::twin : kind_of(text[i]);
+    settle(confusables);
+    for (size_t i = 0; i < text.size(); ++i)
+        kinds[i] = partner(look_alikes, text[i]) ? Kind::twin : kind_of(text[i]);
+    // Every look-alike decides against the text as it was before this pass.
+    const std::vector<Kind> before = kinds;
+    std::u32string out = text;
+    for (size_t i = 0; i < text.size(); ++i) {
+        const char32_t other = partner(look_alikes, text[i]);
+        if (!other) continue;
+        const Kind want = context(before, i);
+        if (want != Kind::none && kind_of(other) == want) out[i] = other;
+    }
+    return utf8(out);
 }
 
 void json_string(const std::string &s) {

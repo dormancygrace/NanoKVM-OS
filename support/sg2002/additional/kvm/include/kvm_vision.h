@@ -97,9 +97,10 @@ int kvmv_capture_reclaim_pending(void);
 
 /* One picture of the screen, scaled by VPSS to width x height (even, at most
    1920 wide), as 8-bit B, G and R planes one after the other: the input
-   layout of the TPU models. 0; -10 without an HDMI cable; -11 while the
-   capture is changing or cannot run; -3 when VPSS gave no picture in time
-   (worth another try); other values < 0 on other failures. */
+   layout of the TPU models. 0; -10 without an HDMI cable; -11 while a new
+   input size is being detected and -3 when VPSS gave no picture in time
+   (both worth another try); -12 when the input's resolution cannot be
+   captured; other values < 0 on other failures. */
 int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size);
 
 #ifdef __cplusplus

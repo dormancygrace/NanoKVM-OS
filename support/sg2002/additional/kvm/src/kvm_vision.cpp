@@ -2115,8 +2115,11 @@ int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t
         pthread_mutex_unlock(&vi_mutex);
         return -10;
     }
-    if (kvmv_cfg.hdmi_res_err == ERROR_RES || kvmv_cfg.hdmi_res_type == UNSUPPORT_RES
-        || kvmv_cfg.vi_detect_state == 1) {
+    if (kvmv_cfg.hdmi_res_err == ERROR_RES || kvmv_cfg.hdmi_res_type == UNSUPPORT_RES) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -12;
+    }
+    if (kvmv_cfg.vi_detect_state == 1) {
         pthread_mutex_unlock(&vi_mutex);
         return -11;
     }

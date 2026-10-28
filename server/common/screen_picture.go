@@ -13,6 +13,8 @@ var ErrPlanarPictureTimeout = errors.New("no picture of the screen in time")
 // ErrPlanarPictureNoSignal means no HDMI cable is connected.
 var ErrPlanarPictureNoSignal = errors.New("no HDMI signal")
 
-// ErrPlanarCaptureNotReady means the capture is changing (a new input size
-// being detected) or cannot run at the input's resolution.
+// ErrPlanarCaptureNotReady means a new input size is being detected.
 var ErrPlanarCaptureNotReady = errors.New("the capture is not ready")
+
+// ErrPlanarCaptureUnsupported means the input's resolution cannot be captured.
+var ErrPlanarCaptureUnsupported = errors.New("the capture cannot run at the input's resolution")

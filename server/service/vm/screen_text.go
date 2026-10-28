@@ -323,23 +323,28 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 }
 
 // readScreenPicture takes the picture, trying again when VPSS gave no frame in
-// time or the capture was changing: a capture started cold (no viewer since
-// the server started, as for MCP) can take more than a second for its first
-// frame. Each native call waits at most half a second for the picture with the
-// capture locked (the pool and the copy add a little); the video readers wait
-// a second for that lock, and get it between tries.
+// time or a new input size was being detected: a capture started cold (no
+// viewer since the server started, as for MCP) can take more than a second for
+// its first frame. Each native call waits at most half a second for the
+// picture with the capture locked (the pool and the copy add a little); the
+// video readers wait a second for that lock, and get it between tries. A
+// detection returns at once, so the pause after it is as long as that wait.
 func readScreenPicture(ctx context.Context, width, height int) ([]byte, error) {
 	var err error
 	for attempt := 0; attempt < 6; attempt++ {
 		var planes []byte
 		planes, err = common.GetKvmVision().ReadBGRPlanar(width, height)
-		if !errors.Is(err, common.ErrPlanarPictureTimeout) && !errors.Is(err, common.ErrPlanarCaptureNotReady) {
+		pause := 100 * time.Millisecond
+		switch {
+		case errors.Is(err, common.ErrPlanarCaptureNotReady):
+			pause = 500 * time.Millisecond
+		case !errors.Is(err, common.ErrPlanarPictureTimeout):
 			return planes, err
 		}
 		select {
 		case <-ctx.Done():
 			return nil, err
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(pause):
 		}
 	}
 	return nil, err

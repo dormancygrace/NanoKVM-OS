@@ -52,3 +52,7 @@ CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=y
 CONFIG_DEBUG_FS=y
 CONFIG_DEBUG_FS_ALLOW_ALL=y
 CONFIG_LOG_BUF_SHIFT=17
+# Also left out of the release kernel: slab debugging (slab_debug= at boot)
+# and the F2FS statistics, which debugfs shows.
+CONFIG_SLUB_DEBUG=y
+CONFIG_F2FS_STAT_FS=y

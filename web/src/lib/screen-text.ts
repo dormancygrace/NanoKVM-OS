@@ -18,7 +18,7 @@ export type ScreenTextResult = {
 };
 
 // The recognizers of the add-on; the first is the server's default.
-export const screenTextLanguages = ['latin', 'cyrillic'] as const;
+export const screenTextLanguages = ['latin', 'chinese', 'cyrillic'] as const;
 export type ScreenTextLanguage = (typeof screenTextLanguages)[number];
 
 export function isScreenTextLanguage(value: unknown): value is ScreenTextLanguage {

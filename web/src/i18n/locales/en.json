@@ -101,6 +101,7 @@
     "tooLarge": "Text recognition works up to 1920×1080; lower the computer's resolution",
     "languages": {
       "latin": "Latin: English and European languages",
+      "chinese": "Chinese: Simplified and Traditional, Japanese, English",
       "cyrillic": "Cyrillic: Russian, Ukrainian and others, with English"
     }
   },
@@ -2059,6 +2060,14 @@
         "saved": "Language saved",
         "saveFailed": "The language could not be saved",
         "noModels": "not installed"
+      },
+      "picoclaw": {
+        "notInstalled": "PicoClaw is not installed.",
+        "model": "Model",
+        "noModel": "No model configured",
+        "openChat": "Open chat",
+        "changeModel": "Change the model",
+        "changeModelDescription": "The API key and base URL are not shown once saved: enter all three to change the model."
       }
     }
   },

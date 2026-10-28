@@ -47,7 +47,7 @@ const screenTextMaxPixels = 1920 * 1080
 
 // screenTextLanguages are the recognizers of the add-on, one directory of
 // models each (addons/tpu/models/convert.sh); the first is the default.
-var screenTextLanguages = []string{"latin", "cyrillic"}
+var screenTextLanguages = []string{"latin", "chinese", "cyrillic"}
 
 // screenTextLanguageFile holds the language a read without ?lang= uses
 // (Settings > AI > Text recognition); absent: the first language.

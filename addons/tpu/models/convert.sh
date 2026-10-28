@@ -10,11 +10,13 @@
 #                                  line goes through the narrowest that holds it)
 #     latin     PP-OCRv6 small with a Latin head (English and the European
 #               languages written in Latin letters)
+#     chinese   PP-OCRv6 small as it is (Simplified and Traditional Chinese,
+#               Japanese, English: 18 708 characters)
 #     cyrillic  PP-OCRv5 mobile Cyrillic (Russian, Ukrainian, Belarusian,
 #               Serbian, Bulgarian and others, with English)
-#   latin/ocr-sure.cvimodel        PP-OCRv6 medium with the same Latin head: the
-#                                  helper reads the lines the small model is
-#                                  unsure of again with it
+#   latin/ocr-sure.cvimodel        PP-OCRv6 medium with the same head as the
+#   chinese/ocr-sure.cvimodel      small one: the helper reads the lines the
+#                                  small model is unsure of again with it
 # The PP-OCRv5 recognizer gets its LearnableAffineBlocks folded into the
 # convolutions first (fold_affine.py); kept, they run in BF16 at a third of
 # the speed. INT8 needs calibration: the tables in calibration/ were measured
@@ -49,10 +51,16 @@ chars = yaml.safe_load(open(sys.argv[1] + \".src/inference.yml\"))[\"PostProcess
 open(sys.argv[1] + \".dict.txt\", \"w\", encoding=\"utf-8\").write(\"\n\".join(chars) + \"\n\")
 " "$1"
 }
-python3 /models/latin_head.py latin.src latin.onnx latin.head.onnx latin.dict.txt
-python3 /models/latin_head.py latin-sure.src latin-sure.onnx latin-sure.head.onnx latin-sure.dict.txt
-# The sure model reads with the dictionary of the small one.
+python3 /models/latin_head.py small.src small.onnx latin.head.onnx latin.dict.txt
+python3 /models/latin_head.py medium.src medium.onnx latin-sure.head.onnx latin-sure.dict.txt
+cp small.onnx chinese.head.onnx
+cp medium.onnx chinese-sure.head.onnx
+dict small
+dict medium
+mv small.dict.txt chinese.dict.txt
+# The sure models read with the dictionary of the small ones.
 cmp latin.dict.txt latin-sure.dict.txt
+cmp chinese.dict.txt medium.dict.txt
 dict cyrillic
 python3 /models/fold_affine.py cyrillic.onnx cyrillic.head.onnx
 
@@ -79,12 +87,14 @@ recognizer() {  # MODEL OUTPUT
     done
     model_tool --combine "${programs[@]}" -o "$2" >/dev/null
 }
-for m in latin cyrillic; do
+for m in latin chinese cyrillic; do
     mkdir -p $m
     cp $m.dict.txt $m/ocr-dict.txt
 done
 recognizer latin latin/ocr-rec.cvimodel
 recognizer latin-sure latin/ocr-sure.cvimodel
+recognizer chinese chinese/ocr-rec.cvimodel
+recognizer chinese-sure chinese/ocr-sure.cvimodel
 recognizer cyrillic cyrillic/ocr-rec.cvimodel
 sha256sum ocr-det.cvimodel */ocr-*.cvimodel */ocr-dict.txt > SHA256SUMS
 '

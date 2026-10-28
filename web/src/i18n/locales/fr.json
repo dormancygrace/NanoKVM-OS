@@ -101,6 +101,7 @@
     "tooLarge": "La reconnaissance de texte fonctionne jusqu'à 1920×1080 ; réduisez la résolution de l'ordinateur",
     "languages": {
       "latin": "Latin : anglais et langues européennes",
+      "chinese": "Chinois : simplifié et traditionnel, japonais, anglais",
       "cyrillic": "Cyrillique : russe, ukrainien et autres, avec anglais"
     }
   },
@@ -2059,6 +2060,14 @@
         "saved": "Langue enregistrée",
         "saveFailed": "La langue n'a pas pu être enregistrée",
         "noModels": "non installé"
+      },
+      "picoclaw": {
+        "notInstalled": "PicoClaw n'est pas installé.",
+        "model": "Modèle",
+        "noModel": "Aucun modèle configuré",
+        "openChat": "Ouvrir le chat",
+        "changeModel": "Changer de modèle",
+        "changeModelDescription": "La clé d'API et l'URL de base ne sont plus affichées une fois enregistrées : saisissez les trois champs pour changer de modèle."
       }
     }
   },

@@ -87,7 +87,7 @@ for lib in libstdc++.so.6 libgcc_s.so.1; do
 done
 (cd "$models" && sha256sum -c --quiet SHA256SUMS)
 cp "$models/ocr-det.cvimodel" "$stage/models/"
-for lang in latin cyrillic; do
+for lang in latin chinese cyrillic; do
     mkdir -p "$stage/models/$lang"
     cp "$models/$lang"/ocr-*.cvimodel "$models/$lang/ocr-dict.txt" "$stage/models/$lang/"
 done

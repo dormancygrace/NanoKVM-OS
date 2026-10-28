@@ -67,6 +67,7 @@ test('selects the boxes whose centre is in the region, in picture fractions', ()
 test('knows the add-on languages', () => {
   assert.ok(isScreenTextLanguage('latin'));
   assert.ok(isScreenTextLanguage('cyrillic'));
+  assert.ok(isScreenTextLanguage('chinese'));
   assert.ok(!isScreenTextLanguage('korean'));
   assert.ok(!isScreenTextLanguage(null));
 });

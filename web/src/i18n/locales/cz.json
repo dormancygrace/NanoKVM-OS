@@ -1714,6 +1714,14 @@
         "saved": "Jazyk uložen",
         "saveFailed": "Jazyk se nepodařilo uložit",
         "noModels": "nenainstalováno"
+      },
+      "picoclaw": {
+        "notInstalled": "PicoClaw není nainstalován.",
+        "model": "Model",
+        "noModel": "Model není nastaven",
+        "openChat": "Otevřít chat",
+        "changeModel": "Změnit model",
+        "changeModelDescription": "Klíč API a základní URL se po uložení nezobrazují: pro změnu modelu vyplňte všechna tři pole."
       }
     }
   },
@@ -2234,6 +2242,7 @@
     "tooLarge": "Rozpoznávání textu funguje do 1920×1080; snižte rozlišení počítače",
     "languages": {
       "latin": "Latinka: angličtina a evropské jazyky",
+      "chinese": "Čínština: zjednodušená a tradiční, japonština, angličtina",
       "cyrillic": "Cyrilice: ruština, ukrajinština a další, s angličtinou"
     }
   },

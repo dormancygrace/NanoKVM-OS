@@ -145,11 +145,16 @@ func (s *Service) GetAccount(c *gin.Context) {
 
 func setSessionCookie(c *gin.Context, token string) {
 	conf := config.GetInstance()
-	_, scheme := middleware.ExternalRequestAddress(c.Request)
-	secure := scheme == "https"
+	name := middleware.SessionCookieName(c.Request)
+	secure := name == middleware.CookieName
 	c.SetSameSite(http.SameSiteStrictMode)
+	if secure {
+		// Upgrading to HTTPS must not leave the earlier HTTP credential in
+		// the browser, where it could still be sent over a plain connection.
+		c.SetCookie(middleware.HTTPCookieName, "", -1, "/", "", true, true)
+	}
 	c.SetCookie(
-		middleware.CookieName,
+		name,
 		token,
 		int(conf.JWT.RefreshTokenDuration),
 		"/",
@@ -160,8 +165,12 @@ func setSessionCookie(c *gin.Context, token string) {
 }
 
 func clearSessionCookie(c *gin.Context) {
-	_, scheme := middleware.ExternalRequestAddress(c.Request)
-	secure := scheme == "https"
+	secure := middleware.SessionCookieName(c.Request) == middleware.CookieName
 	c.SetSameSite(http.SameSiteStrictMode)
-	c.SetCookie(middleware.CookieName, "", -1, "/", "", secure, true)
+	// Clear the legacy cookie too, so HTTP fallback cannot restore a session
+	// after logout when token revocation is disabled. HTTPS can clear both;
+	// HTTP cannot remove a Secure cookie left by a previous HTTPS session.
+	for _, name := range []string{middleware.CookieName, middleware.HTTPCookieName} {
+		c.SetCookie(name, "", -1, "/", "", secure, true)
+	}
 }

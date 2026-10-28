@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,10 +79,91 @@ func screenTextSize(width, height int) (int, int) {
 	return width &^ 1, height &^ 1
 }
 
+// screenTextArea is a part of the picture in pixels.
+type screenTextArea struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+// screenTextMargin is added around a requested area, so a line the
+// selection cuts at its edge is still detected whole.
+const screenTextMargin = 24
+
+// parseScreenTextCrop reads ?crop=x,y,w,h, fractions (0..1) of the picture.
+func parseScreenTextCrop(value string) ([4]float64, error) {
+	var f [4]float64
+	parts := strings.Split(value, ",")
+	if len(parts) != 4 {
+		return f, errors.New("crop is x,y,w,h")
+	}
+	for i, part := range parts {
+		v, err := strconv.ParseFloat(strings.TrimSpace(part), 64)
+		if err != nil || math.IsNaN(v) || v < 0 || v > 1 {
+			return f, errors.New("crop values are fractions from 0 to 1")
+		}
+		f[i] = v
+	}
+	if f[2] <= 0 || f[3] <= 0 {
+		return f, errors.New("crop is empty")
+	}
+	return f, nil
+}
+
+// screenTextCropArea is the area to read for a crop of a width x height
+// picture: the fractions in pixels, the margin around them, within the
+// picture, at least 32x32.
+func screenTextCropArea(f [4]float64, width, height int) screenTextArea {
+	x0 := int(math.Floor(f[0]*float64(width))) - screenTextMargin
+	y0 := int(math.Floor(f[1]*float64(height))) - screenTextMargin
+	x1 := int(math.Ceil((f[0]+f[2])*float64(width))) + screenTextMargin
+	y1 := int(math.Ceil((f[1]+f[3])*float64(height))) + screenTextMargin
+	x0, y0 = max(0, min(x0, width-32)), max(0, min(y0, height-32))
+	x1, y1 = min(width, max(x1, x0+32)), min(height, max(y1, y0+32))
+	return screenTextArea{X: x0, Y: y0, W: x1 - x0, H: y1 - y0}
+}
+
+// cropPlanes cuts an area out of B, G and R planes of a width x height picture.
+func cropPlanes(planes []byte, width, height int, area screenTextArea) []byte {
+	out := make([]byte, 0, 3*area.W*area.H)
+	for c := range 3 {
+		plane := planes[c*width*height:]
+		for y := area.Y; y < area.Y+area.H; y++ {
+			out = append(out, plane[y*width+area.X:y*width+area.X+area.W]...)
+		}
+	}
+	return out
+}
+
+// shiftScreenTextBox moves a box of the helper by dx, dy (from the area into
+// the picture). The struct holds the helper's fields (nanokvm-ocr.cpp), in
+// its order.
+func shiftScreenTextBox(line []byte, dx, dy int) ([]byte, error) {
+	var box struct {
+		Text  string  `json:"text"`
+		Score float64 `json:"score"`
+		X     int     `json:"x"`
+		Y     int     `json:"y"`
+		W     int     `json:"w"`
+		H     int     `json:"h"`
+		Slope float64 `json:"slope"`
+	}
+	if err := json.Unmarshal(line, &box); err != nil {
+		return nil, err
+	}
+	box.X += dx
+	box.Y += dy
+	return json.Marshal(box)
+}
+
 // GetScreenText reads the text on the screen with the TPU: one picture from
 // VPSS as B, G and R planes, then nanokvm-ocr. Each line of the helper is one
-// box ({"text","score","x","y","w","h"}); the last one holds the timings.
-// ?lang= picks the recognizer (screenTextLanguages).
+// box ({"text","score","x","y","w","h","slope"}); the last one holds the
+// timings. ?lang= picks the recognizer (screenTextLanguages). ?crop=x,y,w,h
+// (fractions of the picture) reads only that area: smaller than 1280 pixels
+// wide, it is detected at full size, not halved, so small text is found, and
+// it is faster. Boxes are in pixels of the whole picture either way.
 func (s *Service) GetScreenText(c *gin.Context) {
 	var rsp proto.Response
 	helper := ScreenTextHelper
@@ -91,6 +175,15 @@ func (s *Service) GetScreenText(c *gin.Context) {
 	if err != nil {
 		rsp.ErrRsp(c, -6, err.Error())
 		return
+	}
+	var crop *[4]float64
+	if value := c.Query("crop"); value != "" {
+		f, err := parseScreenTextCrop(value)
+		if err != nil {
+			rsp.ErrRsp(c, -7, err.Error())
+			return
+		}
+		crop = &f
 	}
 	if !screenTextMutex.TryLock() {
 		rsp.ErrRsp(c, -2, "the screen is being read")
@@ -127,8 +220,13 @@ func (s *Service) GetScreenText(c *gin.Context) {
 	}
 	captured := time.Since(start)
 
+	area := screenTextArea{W: width, H: height}
+	if crop != nil {
+		area = screenTextCropArea(*crop, width, height)
+		planes = cropPlanes(planes, width, height, area)
+	}
 	input := make([]byte, 0, len(planes)+32)
-	input = fmt.Appendf(input, "P %d %d\n", width, height)
+	input = fmt.Appendf(input, "P %d %d\n", area.W, area.H)
 	input = append(input, planes...)
 	if c.Query("save") == "1" {
 		if err := os.WriteFile(screenTextPicture, input, 0o600); err != nil {
@@ -163,10 +261,17 @@ func (s *Service) GetScreenText(c *gin.Context) {
 			done = append(json.RawMessage(nil), line...)
 			continue
 		}
+		if area.X != 0 || area.Y != 0 {
+			shifted, err := shiftScreenTextBox(line, area.X, area.Y)
+			if err != nil {
+				continue
+			}
+			line = shifted
+		}
 		boxes = append(boxes, append(json.RawMessage(nil), line...))
 	}
 	rsp.OkRspWithData(c, gin.H{
-		"width": width, "height": height, "boxes": boxes, "stats": done,
+		"width": width, "height": height, "area": area, "boxes": boxes, "stats": done,
 		"capture_ms": captured.Milliseconds(), "total_ms": time.Since(start).Milliseconds(),
 	})
 }

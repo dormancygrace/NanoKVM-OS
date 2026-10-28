@@ -17,7 +17,12 @@ import {
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { resolutionAtom, screenTextOpenAtom } from '@/jotai/screen.ts';
 
-import { getMediaSize, getRenderedMediaRect, type RenderedMediaRect } from './geometry.ts';
+import {
+  getMediaSize,
+  getRenderedMediaRect,
+  isSameGeometry,
+  type RenderedMediaRect
+} from './geometry.ts';
 
 type Phase = 'select' | 'reading' | 'result';
 
@@ -32,8 +37,8 @@ const errorKeys: Record<number, string> = {
 };
 
 // Reads the text on the screen with the TPU add-on: the user drags a
-// rectangle over the video (or takes the whole screen); the server reads the
-// whole picture and the words whose centre is in the rectangle are kept.
+// rectangle over the video (or takes the whole screen); the server reads that
+// area with a margin, and the words whose centre is in the rectangle are kept.
 export const ScreenTextOverlay = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
@@ -49,6 +54,7 @@ export const ScreenTextOverlay = () => {
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState('');
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const frameRef = useRef<RenderedMediaRect | null>(null);
   const request = useRef<AbortController | null>(null);
 
   const close = useCallback(() => {
@@ -80,16 +86,14 @@ export const ScreenTextOverlay = () => {
         size && bounds && bounds.width > 0 && bounds.height > 0
           ? getRenderedMediaRect(bounds, size)
           : null;
-      setFrame((current) =>
-        current &&
-        next &&
-        current.left === next.left &&
-        current.top === next.top &&
-        current.width === next.width &&
-        current.height === next.height
-          ? current
-          : next
-      );
+      if (isSameGeometry(frameRef.current, next)) return;
+      // The selection is in page pixels: it no longer covers the same text.
+      if (frameRef.current) {
+        dragStart.current = null;
+        setSelection(null);
+      }
+      frameRef.current = next;
+      setFrame(next);
     }
     update();
     window.addEventListener('resize', update);
@@ -130,7 +134,13 @@ export const ScreenTextOverlay = () => {
       setError('');
       setPhase('reading');
       try {
-        const rsp = await getScreenText(lang, controller.signal);
+        // A selection is read on its own (the server crops it, with a margin);
+        // the whole screen without a crop.
+        const rsp = await getScreenText(
+          lang,
+          controller.signal,
+          target === wholeScreen ? undefined : target
+        );
         if (controller.signal.aborted) return;
         if (rsp.code !== 0) {
           setError(

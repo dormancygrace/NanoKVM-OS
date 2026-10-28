@@ -50,11 +50,12 @@ After a release has been qualified and includes the installer:
 
 The package restores the stock updater's own `/root/old` application before
 preflight. If preflight refuses the migration, the stock UI remains available.
-Read `/var/log/nanokvm-stock-install.log` over SSH for the reason. A failed
-attempt can leave `/root/.nanokvm-stock-package` and
-`/data/.nanokvm-stock-install` for inspection; do not remove the latter after
-recovery has started formatting. The installer never silently replaces an
-existing transaction.
+Read `/var/log/nanokvm-stock-install.log` over SSH for the reason. The offline
+controller removes its temporary package when it finishes, including after a
+refused preflight. Uploading again restores the stock UI before checking for
+an active installer or replacing a stale package. An existing transaction in
+`/data/.nanokvm-stock-install` is kept for inspection and never silently replaced;
+do not remove it after recovery has started formatting.
 
 The package shape follows the stock
 [offline updater](https://github.com/sipeed/NanoKVM/blob/509a22f6bd94af85bca264d37f2fab70763b60e3/server/service/application/update_offline.go)
@@ -137,6 +138,17 @@ The builder checks the root archive version, cross-compiles the small layout
 helper for SG2002, creates the new FAT filesystem, and builds
 a recovery FIT with a gzip kernel for stock U-Boot and an LZ4 initramfs. The
 root archive stays on `/data`, not in RAM or the small old boot volume.
+Host tools are resolved from the selected Buildroot output, including `mcopy`
+and `mkfs.fat`, without requiring a previously exported build PATH.
+
+The recovery-only DTB explicitly reserves 512 KiB at `0x80000000` with `no-map`
+for the stock OpenSBI, following the pinned
+[stock memory map](https://github.com/sipeed/LicheeRV-Nano-Build/blob/d4003f15b35d43ad4842f427050ab2bba0114fa5/build/boards/sg200x/sg2002_licheervnano_sd/memmap.py).
+It does not depend on the vendor-only `riscv.fwsz` kernel parameter. The FIT
+provides both `config-sg2002_licheervnano_sd` (the
+[stock loader selection](https://github.com/sipeed/LicheeRV-Nano-Build/blob/d4003f15b35d43ad4842f427050ab2bba0114fa5/u-boot-2021.10/include/configs/mars-asic.h))
+and `config-sg2002_licheervnano_sd_minimal` (the NanoKVM OS loader selection).
+These source and artifact checks still require physical boot qualification.
 
 The Release workflow builds the installer in pull-request dry runs. Publishing
 it requires the explicit `stock_installer` input, disabled by default. Public

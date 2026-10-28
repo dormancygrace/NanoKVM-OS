@@ -73,7 +73,11 @@ def main():
                 for sector in [parts[0][0], parts[0][0]+parts[0][1]-1, parts[2][0], parts[2][0]+parts[2][1]-1]:
                     stream.seek(sector*512)
                     assert stream.read(512) == b'protected' * 56 + b'XXXXXXXX'
-            subprocess.run([str(helper), 'commit', str(disk), str(saved)], check=True)
+            # Commit via a real block descriptor, including BLKFLSBUF readback.
+            whole = subprocess.check_output(['losetup', '--find', '--show', str(disk)], text=True).strip()
+            loops.append(whole)
+            for _ in range(2):
+                subprocess.run([str(helper), 'commit', whole, str(saved)], check=True)
             with disk.open('rb') as stream:
                 final = stream.read(512)
             assert final[478:] == mbr[478:]

@@ -95,7 +95,7 @@ gzip -dc "$stage/boot.img.gz" >"$boot_loop"
 sync
 verify "$BOOT_RAW_HASH" "$boot_loop"
 printf 'installing root filesystem\n' >"$stage/status"
-/sbin/mkfs.f2fs -f -t 0 "$root_loop"
+/sbin/mkfs.f2fs -f -t 0 -l rootfs "$root_loop"
 mount -t f2fs -o noatime "$root_loop" /realroot
 umask 022
 tar --numeric-owner -xpzf "$stage/alpine-rootfs.tar.gz" -C /realroot

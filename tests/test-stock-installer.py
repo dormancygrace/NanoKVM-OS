@@ -225,6 +225,70 @@ class Download(unittest.TestCase):
                     self.assertEqual(list(empty.iterdir()), [])
 
 
+class Builder(unittest.TestCase):
+    def test_kernel_accepts_modular_ext4_but_requires_recovery_drivers(self):
+        config = ''.join('CONFIG_' + name + '=y\n' for name in
+                         ('RD_LZ4', 'BLK_DEV_LOOP', 'F2FS_FS', 'EXFAT_FS', 'VFAT_FS', 'DEVTMPFS', 'FAT_FS'))
+        builder.check_kernel_config(config + 'CONFIG_EXT4_FS=m\n')
+        for name in ('RD_LZ4', 'BLK_DEV_LOOP', 'F2FS_FS', 'EXFAT_FS', 'VFAT_FS', 'DEVTMPFS'):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, 'CONFIG_' + name):
+                    builder.check_kernel_config(config.replace('CONFIG_' + name + '=y', 'CONFIG_' + name + '=m'))
+
+    def test_host_tools_do_not_require_exported_buildroot_path(self):
+        with tempfile.TemporaryDirectory(prefix='stock-host-tools-') as temporary:
+            root = Path(temporary)
+            host = root / 'host/bin'
+            for directory, name in [('bin', 'mcopy'), ('sbin', 'mkfs.fat')]:
+                path = write(root, 'host/' + directory + '/' + name, '#!/bin/sh\necho built-tool\n', 0o755)
+                with patch.dict(os.environ, {'PATH': ''}):
+                    selected = builder.host_tool(host, name)
+                    self.assertEqual(selected, path)
+                    self.assertEqual(subprocess.check_output([str(selected)], text=True), 'built-tool\n')
+            with patch.dict(os.environ, {'PATH': ''}):
+                with self.assertRaisesRegex(ValueError, 'missing host tool'):
+                    builder.host_tool(host, 'absent')
+
+    def test_recovery_dtb_and_stock_fit_configuration(self):
+        # Real dtc/fdtget/fdtput: assert the assembled device tree, including
+        # both stock/current bootm selections, without a hardware boot claim.
+        for tool in ('dtc', 'fdtget', 'fdtput'):
+            self.assertIsNotNone(shutil.which(tool), tool + ' is required (device-tree-compiler)')
+        with tempfile.TemporaryDirectory(prefix='stock-fit-') as temporary:
+            work = Path(temporary)
+            for width in (1, 2):
+                with self.subTest(cells=width):
+                    reg = '80000000 20000' if width == 1 else '0 80000000 0 20000'
+                    other = '90000000 1000' if width == 1 else '0 90000000 0 1000'
+                    dts = '/dts-v1/; / { reserved-memory { #address-cells = <' + str(width) + '>; '
+                    dts += '#size-cells = <' + str(width) + '>; ranges; '
+                    dts += 'mmode_resv0@80000000 { reg = <' + ' '.join('0x' + cell for cell in reg.split()) + '>; no-map; }; '
+                    dts += 'other@90000000 { reg = <' + ' '.join('0x' + cell for cell in other.split()) + '>; no-map; }; }; };'
+                    (work / 'source.dts').write_text(dts)
+                    subprocess.run(['dtc', '-q', '-I', 'dts', '-O', 'dtb', '-o', str(work / 'source.dtb'),
+                                    str(work / 'source.dts')], check=True)
+                    original = (work / 'source.dtb').read_bytes()
+                    builder.recovery_dtb(work / 'source.dtb', work / 'board.dtb', 'fdtget', 'fdtput')
+                    def get(file, node, prop):
+                        return subprocess.check_output(['fdtget', '-t', 'x', str(work / file), node, prop], text=True).strip()
+                    node = '/reserved-memory/mmode_resv0@80000000'
+                    self.assertEqual(get('board.dtb', node, 'reg'), '80000000 80000' if width == 1 else '0 80000000 0 80000')
+                    self.assertEqual(get('board.dtb', node, 'no-map'), '')
+                    self.assertEqual(get('board.dtb', '/reserved-memory/other@90000000', 'reg'), other)
+                    self.assertEqual((work / 'source.dtb').read_bytes(), original)
+            (work / 'Image.gz').write_bytes(gzip.compress(b'kernel fixture'))
+            (work / 'initramfs.cpio.lz4').write_bytes(b'ramdisk fixture')
+            (work / 'boot.its').write_text(builder.recovery_its((REPO / 'platform/boot/boot.its').read_text()))
+            subprocess.run(['dtc', '-q', '-I', 'dts', '-O', 'dtb', '-o', 'recovery.sd', 'boot.its'], cwd=work, check=True)
+            def text_property(node, prop):
+                return subprocess.check_output(['fdtget', '-t', 's', str(work / 'recovery.sd'), node, prop], text=True).strip()
+            for name in ('sg2002_licheervnano_sd', 'sg2002_licheervnano_sd_minimal'):
+                for prop in ('kernel', 'ramdisk', 'fdt'):
+                    image = text_property('/configurations/config-' + name, prop)
+                    self.assertTrue(get('recovery.sd', '/images/' + image, 'data'))
+            self.assertEqual(text_property('/images/kernel-1', 'compression'), 'gzip')
+
+
 class Staging(LayoutFixture):
     def prepare(self):
         root = self.root
@@ -397,6 +461,7 @@ sync() { :; }
 sleep() { :; }
 reboot() { echo reboot >>"$TEST_ROOT/actions"; trap - EXIT; exit 80; }
 format_root() {
+    printf '%s\n' "$*" >"$TEST_ROOT/mkfs-arguments"
     echo format >>"$TEST_ROOT/actions"
     [ "${FAIL_STEP:-}" != format ] || return 32
     rm -rf "$TEST_ROOT/realroot"
@@ -414,6 +479,7 @@ format_root() {
         self.prepare()
         result = self.recover()
         self.assertEqual(result.returncode, 80, result.stderr)
+        self.assertEqual((self.root / 'mkfs-arguments').read_text().split()[:5], ['-f', '-t', '0', '-l', 'rootfs'])
         self.assertEqual((self.root / 'realroot/etc/shadow').read_text(), 'root:TESTHASH:1::::::\ndaemon:*:1::::::\n')
         self.assertEqual((self.root / 'realroot/etc/kvm/wifi.ssid').read_text(), 'my network')
         self.assertEqual((self.root / 'realroot/boot/eth.nodhcp').read_text(), '192.0.2.2/24 192.0.2.1\n')
@@ -488,32 +554,95 @@ format_root() {
 
 
 class OfflinePackage(unittest.TestCase):
-    def test_restores_stock_app_before_dispatch_and_refuses_missing_backup(self):
-        with tempfile.TemporaryDirectory(prefix='stock-offline-') as temporary:
-            root = Path(temporary)
-            write(root, 'root/old/server/NanoKVM-Server', 'stock binary')
-            write(root, 'root/old/system/init.d/S95nanokvm', '#!/bin/sh\necho stock-restart >>"$TEST_ROOT/order"\n', 0o755)
-            write(root, 'kvmapp/migration/install.sh', '#!/bin/sh\necho install >>"$TEST_ROOT/order"\n', 0o755)
-            (root / 'var/log').mkdir(parents=True)
-            def isolate(text):
-                return re.sub(r'(?<![A-Za-z0-9_/.])/(?:root|kvmapp|var)(?=/|\b)',
-                              lambda match: str(root) + match.group(), text)
-            write(root, 'kvmapp/migration/offline-run.sh', isolate((SOURCE / 'offline-run.sh').read_text()), 0o755)
-            script = write(root, 'hook', isolate((SOURCE / 'S95nanokvm').read_text()) + '\nwait\n')
-            env = {**os.environ, 'TEST_ROOT': str(root)}
-            result = subprocess.run(['busybox', 'sh', str(script), 'restart'], env=env, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual((root / 'order').read_text(), 'stock-restart\ninstall\n')
-            self.assertEqual((root / 'kvmapp/server/NanoKVM-Server').read_text(), 'stock binary')
-            self.assertTrue((root / 'root/.nanokvm-stock-package/migration/install.sh').is_file())
-            result = subprocess.run(['busybox', 'sh', str(script), 'restart'], env=env, capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('already exists', result.stderr)
-            shutil.rmtree(root / 'root/.nanokvm-stock-package')
-            result = subprocess.run(['busybox', 'sh', str(script), 'restart'], env=env, capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('backup', result.stderr)
-            self.assertEqual((root / 'kvmapp/server/NanoKVM-Server').read_text(), 'stock binary')
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='stock-offline-')
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.env = {**os.environ, 'TEST_ROOT': str(self.root)}
+        for path in ('var/log', 'run', 'root'):
+            (self.root / path).mkdir(parents=True, exist_ok=True)
+        write(self.root, 'kvmapp/server/NanoKVM-Server', 'stock binary')
+        write(self.root, 'kvmapp/system/init.d/S95nanokvm',
+              '#!/bin/sh\necho stock-restart >>"$TEST_ROOT/order"\n', 0o755)
+        write(self.root, 'data/.nanokvm-stock-install/status', 'keep transaction')
+        self.script = write(self.root, 'hook', self.isolate((SOURCE / 'S95nanokvm').read_text()) + '\nwait "$!"\n')
+
+    def isolate(self, text):
+        return re.sub(r'(?<![A-Za-z0-9_/.])/(?:root|kvmapp|var|run)(?=/|\b)',
+                      lambda match: str(self.root) + match.group(), text)
+
+    def upload(self, status=0):
+        # Model the stock updater's /root/old -> /kvmapp swap on every upload.
+        (self.root / 'kvmapp').rename(self.root / 'root/old')
+        write(self.root, 'kvmapp/server/NanoKVM-Server', 'package stub')
+        write(self.root, 'kvmapp/migration/install.sh',
+              '#!/bin/sh\necho install >>"$TEST_ROOT/order"\nexit ' + str(status) + '\n', 0o755)
+        write(self.root, 'kvmapp/migration/offline-run.sh',
+              self.isolate((SOURCE / 'offline-run.sh').read_text()), 0o755)
+
+    def run_hook(self):
+        return subprocess.run(['busybox', 'sh', str(self.script), 'restart'],
+                              env=self.env, capture_output=True, text=True)
+
+    def assert_restored(self):
+        self.assertEqual((self.root / 'kvmapp/server/NanoKVM-Server').read_text(), 'stock binary')
+        self.assertEqual((self.root / 'data/.nanokvm-stock-install/status').read_text(), 'keep transaction')
+        self.assertFalse(list((self.root / 'root').glob('.nanokvm-stock-incoming.*')))
+
+    def test_restores_stock_before_install_and_refuses_missing_backup(self):
+        self.upload()
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'order').read_text(), 'stock-restart\ninstall\n')
+        self.assert_restored()
+        self.assertFalse((self.root / 'root/.nanokvm-stock-package').exists())
+        result = self.run_hook()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('backup', result.stderr)
+        self.assert_restored()
+
+    def test_failed_attempt_can_be_uploaded_again(self):
+        self.upload(status=17)
+        self.assertNotEqual(self.run_hook().returncode, 0)
+        self.assert_restored()
+        self.assertFalse((self.root / 'root/.nanokvm-stock-package').exists())
+        self.assertFalse((self.root / 'run/nanokvm-stock-package.lock').exists())
+        self.upload()
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_restored()
+        self.assertEqual((self.root / 'order').read_text(), 'stock-restart\ninstall\n' * 2)
+
+    def test_retry_replaces_stale_package_after_restoring_stock(self):
+        write(self.root, 'root/.nanokvm-stock-package/stale', 'old attempt')
+        self.upload()
+        result = self.run_hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assert_restored()
+        self.assertEqual((self.root / 'order').read_text(), 'stock-restart\ninstall\n')
+        self.assertFalse((self.root / 'root/.nanokvm-stock-package').exists())
+
+    def test_busy_retry_restores_ui_and_keeps_active_package(self):
+        for name in ('nanokvm-stock-install.lock', 'nanokvm-stock-package.lock'):
+            with self.subTest(lock=name):
+                lock = self.root / 'run' / name
+                lock.mkdir()
+                write(self.root, 'root/.nanokvm-stock-package/active', 'in use')
+                self.upload()
+                self.assertNotEqual(self.run_hook().returncode, 0)
+                self.assert_restored()
+                self.assertTrue(lock.is_dir())
+                self.assertEqual((self.root / 'root/.nanokvm-stock-package/active').read_text(), 'in use')
+                self.assertNotIn('install', (self.root / 'order').read_text().splitlines())
+                lock.rmdir()
+
+    def test_failed_stock_restart_does_not_start_migration(self):
+        write(self.root, 'kvmapp/system/init.d/S95nanokvm', '#!/bin/sh\nexit 18\n', 0o755)
+        self.upload()
+        self.assertNotEqual(self.run_hook().returncode, 0)
+        self.assert_restored()
+        self.assertFalse((self.root / 'order').exists())
+        self.assertFalse((self.root / 'run/nanokvm-stock-package.lock').exists())
 
 
 if __name__ == '__main__':

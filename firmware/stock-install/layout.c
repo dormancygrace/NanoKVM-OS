@@ -139,6 +139,11 @@ int main(int argc, char **argv) {
         if (!strcmp(op,"state")) puts(old?"stock":"installed");
         else if (!strcmp(op,"commit")) {
             if (old && (pwrite(fd,next,SECTOR,0)!=SECTOR || fsync(fd))) die("MBR commit failed");
+            struct stat card;
+            if (fstat(fd,&card)) die("stat card failed");
+            // Drop the block-device cache after fsync: read the sector back
+            // from the device instead of comparing our own cached write.
+            if (S_ISBLK(card.st_mode) && ioctl(fd,BLKFLSBUF,0)) die("MBR cache flush failed");
             read_sector(fd,current);
             if (memcmp(current,next,SECTOR)) die("MBR readback failed");
         } else if (!strcmp(op,"map-boot") || !strcmp(op,"map-root")) {

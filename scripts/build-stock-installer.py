@@ -66,6 +66,71 @@ def package_tree(directory, archive):
                 tar.add(directory, arcname=directory.name, filter=normalize)
 
 
+def check_kernel_config(config):
+    # Recovery never mounts the old ext4 root; all programs/drivers it does
+    # need must be built in because the migration initramfs has no modules.
+    for name in ('RD_LZ4', 'BLK_DEV_LOOP', 'F2FS_FS', 'EXFAT_FS', 'VFAT_FS', 'DEVTMPFS'):
+        if f'CONFIG_{name}=y\n' not in config:
+            raise ValueError(f'migration kernel requires CONFIG_{name}=y')
+
+
+def host_tool(host, name):
+    # stock-installer can run without a preceding toolchain step in this
+    # shell. Do not depend on platform/build.sh having exported its PATH.
+    for directory in (host, host.parent / 'sbin'):
+        path = directory / name
+        if path.is_file() and os.access(path, os.X_OK):
+            return path
+    path = shutil.which(name)
+    if path:
+        return Path(path)
+    raise ValueError(f'missing host tool: {name}')
+
+
+def recovery_dtb(source, destination, fdtget, fdtput):
+    shutil.copyfile(source, destination)
+    node = '/reserved-memory/mmode_resv0@80000000'
+    def cells(path, prop):
+        return [int(word, 16) for word in subprocess.check_output(
+            [str(fdtget), '-t', 'x', str(destination), path, prop], text=True).split()]
+    address_cells = cells('/reserved-memory', '#address-cells')[0]
+    size_cells = cells('/reserved-memory', '#size-cells')[0]
+    if address_cells not in (1, 2) or size_cells not in (1, 2):
+        raise ValueError('unsupported reserved-memory cell widths')
+    reg = cells(node, 'reg')
+    if len(reg) != address_cells + size_cells:
+        raise ValueError('invalid OpenSBI reservation')
+    address = int.from_bytes(b''.join(v.to_bytes(4, 'big') for v in reg[:address_cells]), 'big')
+    size = int.from_bytes(b''.join(v.to_bytes(4, 'big') for v in reg[address_cells:]), 'big')
+    if address != 0x80000000:
+        raise ValueError('unexpected OpenSBI reservation address')
+    # The stock SDK reserves 512 KiB for OpenSBI. Its riscv.fwsz parameter is
+    # vendor-only; reserve the range explicitly in this recovery-only DTB.
+    size = max(size, 0x80000)
+    values = ([0] if address_cells == 2 else []) + [address]
+    values += ([0] if size_cells == 2 else []) + [size]
+    run(fdtput, '-t', 'x', destination, node, 'reg', *(f'{value:x}' for value in values))
+    run(fdtput, destination, node, 'no-map')
+
+
+def recovery_its(template):
+    # Stock SDK mars-asic.h selects config-${CVICHIP}_${CVIBOARD}, which is
+    # sg2002_licheervnano_sd. Also retain our loader's *_sd_minimal selection.
+    stock = """        config-sg2002_licheervnano_sd {
+            description = "NanoKVM OS recovery with stock Sipeed loader";
+            kernel = "kernel-1";
+            ramdisk = "ramdisk-1";
+            fdt = "fdt-sg2002_licheervnano_sd_minimal";
+        };
+"""
+    selection = '        config-sg2002_licheervnano_sd_minimal {\n'
+    if template.count(selection) != 1:
+        raise ValueError('unexpected boot FIT template')
+    return (template.replace('Image.lz4', 'Image.gz')
+            .replace('compression = "lz4"', 'compression = "gzip"')
+            .replace(selection, stock + selection))
+
+
 def build(build_root, output, version):
     version = version.removeprefix('v')
     if not VERSION.fullmatch(version):
@@ -83,15 +148,8 @@ def build(build_root, output, version):
     for file in required:
         if not file.is_file():
             raise ValueError(f'missing platform output: {file}')
-    config = (build_root / 'kernel/build/.config').read_text()
-    for name in ('RD_LZ4', 'BLK_DEV_LOOP', 'F2FS_FS', 'EXT4_FS', 'EXFAT_FS', 'FAT_FS'):
-        if f'CONFIG_{name}=y\n' not in config:
-            raise ValueError(f'migration kernel requires CONFIG_{name}=y')
-    lz4 = host / 'lz4'
-    if not lz4.exists():
-        lz4 = shutil.which('lz4')
-    if not lz4:
-        raise ValueError('lz4 host tool missing')
+    check_kernel_config((build_root / 'kernel/build/.config').read_text())
+    tools = {name: host_tool(host, name) for name in ('lz4', 'mkfs.fat', 'mcopy', 'fdtget', 'fdtput')}
     root_kib = archive_root_size(rootfs, version)
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.stock-build-', dir=output) as temporary:
@@ -120,7 +178,7 @@ def build(build_root, output, version):
         boot_img = work / 'boot.img'
         with boot_img.open('wb') as stream:
             stream.truncate(BOOT_BYTES)
-        run('mkfs.fat', '--invariant', '-F', '16', '-n', 'NKOSBOOT', boot_img, stdout=subprocess.DEVNULL)
+        run(tools['mkfs.fat'], '--invariant', '-F', '16', '-n', 'NKOSBOOT', boot_img, stdout=subprocess.DEVNULL)
         boot_files = work / 'boot-files'
         boot_files.mkdir()
         for src, name in [(images / 'boot-fit/detect.sd', 'boot.sd'), (images / 'fip.bin', 'fip.bin')]:
@@ -128,7 +186,7 @@ def build(build_root, output, version):
         (boot_files / 'ver').write_text(f'NanoKVM OS v{version}\n')
         for file in sorted(boot_files.iterdir()):
             os.utime(file, (315532800, 315532800))
-            run('mcopy', '-m', '-i', boot_img, file, '::' + file.name)
+            run(tools['mcopy'], '-m', '-i', boot_img, file, '::' + file.name)
         boot_raw_hash = digest(boot_img)
         compress(boot_img, payload / 'boot.img.gz')
         shutil.copyfile(rootfs, payload / 'alpine-rootfs.tar.gz')
@@ -171,12 +229,12 @@ def build(build_root, output, version):
         cpio = work / 'initramfs.cpio'
         with cpio.open('wb') as stream:
             run(build_root / 'kernel/build/usr/gen_init_cpio', '-t', '0', listing, stdout=stream)
-        run(lz4, '-q', '-f', '-l', '-12', cpio, work / 'initramfs.cpio.lz4')
+        run(tools['lz4'], '-q', '-f', '-l', '-12', cpio, work / 'initramfs.cpio.lz4')
         # Stock U-Boot must load the first FIT; gzip avoids relying on its LZ4
         # or Zstd configuration. Linux itself unpacks the LZ4 initramfs.
         compress(images / 'Image', work / 'Image.gz')
-        shutil.copyfile(images / 'dtb/detect.dtb', work / 'board.dtb')
-        its = (REPO / 'platform/boot/boot.its').read_text().replace('Image.lz4', 'Image.gz').replace('compression = "lz4"', 'compression = "gzip"')
+        recovery_dtb(images / 'dtb/detect.dtb', work / 'board.dtb', tools['fdtget'], tools['fdtput'])
+        its = recovery_its((REPO / 'platform/boot/boot.its').read_text())
         (work / 'boot.its').write_text(its)
         run(host / 'mkimage', '-f', 'boot.its', 'recovery.sd', cwd=work,
             env={**os.environ, 'SOURCE_DATE_EPOCH': '0'}, stdout=subprocess.DEVNULL)

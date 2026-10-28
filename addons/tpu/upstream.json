@@ -7,6 +7,6 @@
   },
   "models": {
     "sources": "models/sources.txt",
-    "converter": "sophgo/tpuc_dev:v3.4 with tpu_mlir 1.30.2 and paddle2onnx 1.3.1"
+    "converter": "sophgo/tpuc_dev:v3.4 with tpu_mlir 1.30.2, paddlepaddle 3.0.0 and paddle2onnx 2.0.1 (pinned in models/convert.sh)"
   }
 }

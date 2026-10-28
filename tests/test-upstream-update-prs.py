@@ -51,11 +51,13 @@ class ProposalTests(unittest.TestCase):
         names = {s['name'] for s in self.sources}
         all_names = {s['name'] for s in json.loads((self.root / '.github/upstream-watch.json').read_text())['sources']}
         self.assertEqual(all_names - names, {'Linux', 'QEMU Ubuntu build helper'})
-        self.assertEqual(len(names), 35)
+        self.assertEqual(len(names), 39)
         self.assertIn('OpenSSL 3.5 LTS', names)
         self.assertEqual(self.source('aic8800')['repo'], 'radxa-pkg/aic8800')
         for name in ('Go runtime', 'Patched Pion dtls/v3', 'Patched Pion ice/v4',
-                     'Patched Pion srtp/v3', 'GCC compiler', 'Alpine stable branch', 'OpenSSL 3.5 LTS'):
+                     'Patched Pion srtp/v3', 'GCC compiler', 'Alpine stable branch', 'OpenSSL 3.5 LTS',
+                     'OCR models: PaddleX model list', 'OCR models: PaddlePaddle on Hugging Face',
+                     'OCR converter: tpu-mlir', 'TPU runtime (cviruntime dma-buf port)'):
             self.assertEqual(self.source(name)['pull_request']['mode'], 'review')
 
     def test_rustdesk_release_is_one_review_with_both_commits(self):

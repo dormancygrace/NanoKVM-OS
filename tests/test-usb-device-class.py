@@ -18,7 +18,9 @@ if shutil.which('busybox'):
 
 def fixture(name, directory):
     source = (ROOT / 'kvmapp/system/init.d' / name).read_text()
-    source = source.split('case "$1" in\n', 1)[0]
+    dispatch = 'case "$1" in\n'
+    assert source.count(dispatch) == 1, (name, "init dispatch changed")
+    source = source.split(dispatch, 1)[0]
     paths = {
         '/etc/kvm/usb': directory / 'flags',
         'conf=/boot': 'conf=' + str(directory / 'boot'),
@@ -32,6 +34,7 @@ def fixture(name, directory):
     for old, new in paths.items():
         source = source.replace(old, str(new))
     source = source.replace('. /etc/profile', ':')
+    assert "/sys/kernel/config" not in source, (name, "unmapped configfs path")
     gadget = shlex.quote(str(directory / 'configfs/g0'))
     # configfs creates attributes and default LUNs with each object, and
     # removes a function's attributes when rmdir releases it. Model only that

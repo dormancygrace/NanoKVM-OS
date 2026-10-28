@@ -30,6 +30,17 @@ choice is retained. Stock web users, application settings and installed tools
 are not migrated. The new web login is **admin / admin** and requires a password
 change; that change also updates the root password used by SSH.
 
+USB gadget and networking settings (including RNDIS/NCM, DHCP/prefix, HID and
+USB identity/storage choices), the Ethernet MAC override, Ethernet disabled
+state and static DNS configuration are retained. A stock device with no USB
+flags keeps USB disabled; fresh-image defaults do not override the stock set.
+
+**Root recovery limitation:** the current `nanokvm-stage-update` path and
+`firmware/alpine/recovery/init` cannot reinstall the root on a migrated card:
+their fixed partition-size/start checks reject this layout. Signed APK updates
+and their package rollback remain available. Restoring the entire root requires
+writing a full SD image externally (copy wanted data off the card first).
+
 The preflight calculates the actual space requirement: the complete payload,
 saved stock boot image and 8 MiB of headroom on `/data`, the recovery FIT plus 1 MiB free on the old boot volume,
 and at least 128 MiB of root filesystem headroom. The stock updater also needs
@@ -113,6 +124,15 @@ extracts the new root, restores access settings, flushes and unmounts both
 filesystems, and finally changes the two MBR entries. The new boot contains
 NanoKVM OS's normal `fip.bin` and automatic-detection `boot.sd`.
 
+The new boot FAT uses the SD image's 512-byte sectors, four sectors per cluster,
+four reserved sectors, `boot` label and MBR type `0x0c`. The builder leaves the
+hidden-sector field at zero in its hashed template. After verifying that template,
+recovery updates only `BPB_HiddSec` to the planned p1 start through the bounded
+loop and verifies the resulting header. `uEnv.txt`, the default hostname prefix
+and `image.json` are provided; the latter reports `stock-migration` as the image
+origin together with the bundled application version. This matches the image's
+boot filesystem format but still requires a physical ROM-to-FIP cold-boot test.
+
 Before formatting, a payload validation failure can restore the stock boot.
 After formatting begins, the stock root is no longer usable: a reboot resumes
 recovery with the original saved settings. It never snapshots a partially
@@ -121,9 +141,11 @@ table. Once the new OS boots, its storage service removes the bounded staging
 files. A torn final MBR sector or faulty storage can still require external
 recovery; host tests do not establish the SD controller's power-loss behavior.
 
-The older attended `nanokvm-stage-update` recovery bundle has fixed layout
-checks and is not supported on this migrated layout. Normal signed APK updates
-work independently of those fixed offsets.
+The current root-reinstallation recovery enforces the full-image layouts and
+is unavailable on migrated cards, as described above. The fresh-image storage
+allocator is deliberately disabled for the retained partition 3; do not re-enable
+it on this layout. Supporting root reinstallation for migrated geometry remains
+separate work; this installer does not relax those destructive-operation checks.
 
 ## Build and validation
 

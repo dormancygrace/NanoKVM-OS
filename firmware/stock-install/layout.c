@@ -63,8 +63,22 @@ static void entry(unsigned char *p, unsigned char active, unsigned char type,
     put32(p+8,start); put32(p+12,size);
 }
 static void replacement(unsigned char *m, struct layout l) {
-    entry(m+446,0x80,0x0e,l.boot,BOOT_SECTORS);
+    entry(m+446,0x80,0x0c,l.boot,BOOT_SECTORS);
     entry(m+462,0,0x83,l.root,l.rootsize);
+}
+// Emit a corrected FAT header without writing the whole-disk descriptor.
+// Recovery writes it only through the already bounded boot loop device.
+static void boot_sector(int fd, struct layout l) {
+    unsigned char sector[SECTOR];
+    if (pread(fd,sector,SECTOR,(off_t)l.boot*SECTOR)!=SECTOR) die("cannot read new boot sector");
+    if (sector[510]!=0x55 || sector[511]!=0xaa || sector[11]!=0 || sector[12]!=2 ||
+        sector[13]!=4 || sector[14]!=4 || sector[15]!=0 || sector[16]!=2 ||
+        get32(sector+32)!=BOOT_SECTORS || memcmp(sector+54,"FAT16   ",8))
+        die("unexpected boot FAT geometry");
+    uint32_t hidden=get32(sector+28);
+    if (hidden && hidden!=l.boot) die("unexpected boot FAT hidden sectors");
+    put32(sector+28,l.boot);
+    if (fwrite(sector,1,SECTOR,stdout)!=SECTOR) die("cannot emit boot sector");
 }
 static uint64_t capacity(int fd, int fixture) {
     struct stat st;
@@ -102,7 +116,7 @@ static void map_partition(int fd, uint64_t start, uint64_t size) {
     close(loop); puts(path);
 }
 int main(int argc, char **argv) {
-    if (argc<3) die("usage: stock-layout plan|save|state|map-boot|map-root|commit CARD [SAVED-MBR]");
+    if (argc<3) die("usage: stock-layout plan|save|state|map-boot|map-root|boot-sector|commit CARD [SAVED-MBR]");
     const char *op=argv[1];
     int fixture=0;
 #ifdef STOCK_LAYOUT_TEST
@@ -146,6 +160,9 @@ int main(int argc, char **argv) {
             if (S_ISBLK(card.st_mode) && ioctl(fd,BLKFLSBUF,0)) die("MBR cache flush failed");
             read_sector(fd,current);
             if (memcmp(current,next,SECTOR)) die("MBR readback failed");
+        } else if (!strcmp(op,"boot-sector")) {
+            if (!old) die("refusing to patch an installed system");
+            boot_sector(fd,l);
         } else if (!strcmp(op,"map-boot") || !strcmp(op,"map-root")) {
             if (!old) die("refusing to remap an installed system");
             if (!strcmp(op,"map-boot")) map_partition(fd,l.boot,BOOT_SECTORS);

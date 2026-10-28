@@ -75,6 +75,13 @@ while IFS= read -r path; do
         ./etc/hostname|./etc/kvm/wifi.ssid|./etc/kvm/wifi.pass|./root/.ssh/authorized_keys|\
         ./boot/eth.nodhcp|./boot/wifi.nodhcp|./boot/wifi.ssid|./boot/wifi.pass|\
         ./boot/hostname|./boot/hostname.prefix|./boot/hostname.suffix|\
+        ./boot/eth.mac|./boot/eth.disabled|./boot/resolv.conf|./boot/usb.dev|\
+        ./boot/usb.disk0|./boot/usb.disk0.ro|./boot/usb.userdisk|./boot/usb.rndis0|\
+        ./boot/usb.ncm|./boot/usb.acm|./boot/usb.audio|./boot/disable_hid|\
+        ./boot/usb.disable_keyboard|./boot/usb.disable_relative|./boot/usb.disable_absolute|./boot/usb.vid|\
+        ./boot/usb.pid|./boot/usb.manufacturer|./boot/usb.product|./boot/usb.storage.vendor|\
+        ./boot/usb.storage.image|./boot/usb.storage.setup|./boot/usb.storage.user|./boot/usb.serialnumber|\
+        ./boot/usb.notwakeup|./boot/usb.internet|./boot/rndis.nodhcpd|./boot/rndis.ipv4_prefix|\
         ./etc/ssh/ssh_host_rsa_key|./etc/ssh/ssh_host_rsa_key.pub|\
         ./etc/ssh/ssh_host_ecdsa_key|./etc/ssh/ssh_host_ecdsa_key.pub|\
         ./etc/ssh/ssh_host_ed25519_key|./etc/ssh/ssh_host_ed25519_key.pub) ;;
@@ -94,6 +101,14 @@ printf 'installing boot filesystem\n' >"$stage/status"
 gzip -dc "$stage/boot.img.gz" >"$boot_loop"
 sync
 verify "$BOOT_RAW_HASH" "$boot_loop"
+# Only the actual card knows p1's start. After verifying the complete template,
+# set BPB_HiddSec to that LBA through the bounded loop and read back the header.
+/sbin/stock-layout boot-sector /dev/mmcblk0 "$stage/mbr.old" >/realroot/.boot-sector
+dd if=/realroot/.boot-sector of="$boot_loop" bs=512 count=1 conv=notrunc 2>/dev/null
+sync
+dd if="$boot_loop" of=/realroot/.boot-sector.readback bs=512 count=1 2>/dev/null
+cmp /realroot/.boot-sector /realroot/.boot-sector.readback || fail "boot FAT header readback failed"
+rm -f /realroot/.boot-sector /realroot/.boot-sector.readback
 printf 'installing root filesystem\n' >"$stage/status"
 /sbin/mkfs.f2fs -f -t 0 -l rootfs "$root_loop"
 mount -t f2fs -o noatime "$root_loop" /realroot
@@ -103,6 +118,12 @@ tar --numeric-owner -xpzf "$stage/alpine-rootfs.tar.gz" -C /realroot
     [ -x /realroot/etc/init.d/nanokvm-app ] || fail "new root is incomplete"
 # Never run the fresh-image allocator on an existing data partition.
 rm -f /realroot/etc/nanokvm-firstboot-storage
+# The root bundle seeds USB defaults for a new SD image. Stock's
+# complete flag set (including an empty, disabled set) must replace them.
+rm -rf /realroot/etc/kvm/usb
+mkdir -p /realroot/etc/kvm/usb
+# The normal importer still consumes any carried /boot flags with this marker.
+touch /realroot/etc/kvm/usb/.layout-v1
 mkdir -p /realroot/boot /realroot/root/.ssh
 mount -t vfat "$boot_loop" /realroot/boot
 tar --numeric-owner -xf "$stage/settings.tar" -C /realroot

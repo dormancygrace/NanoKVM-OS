@@ -90,7 +90,13 @@ umask 077
 settings=$(mktemp -d /tmp/nanokvm-settings.XXXXXX)
 trap 'rm -f "$settings.paths"; rm -rf "$settings"; rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' EXIT
 paths='etc/hostname etc/kvm/wifi.ssid etc/kvm/wifi.pass root/.ssh/authorized_keys
-boot/eth.nodhcp boot/wifi.nodhcp boot/wifi.ssid boot/wifi.pass boot/hostname boot/hostname.prefix boot/hostname.suffix'
+boot/eth.nodhcp boot/wifi.nodhcp boot/wifi.ssid boot/wifi.pass boot/hostname boot/hostname.prefix boot/hostname.suffix
+boot/eth.mac boot/eth.disabled boot/resolv.conf boot/usb.dev boot/usb.disk0
+boot/usb.disk0.ro boot/usb.userdisk boot/usb.rndis0 boot/usb.ncm boot/usb.acm
+boot/usb.audio boot/disable_hid boot/usb.disable_keyboard boot/usb.disable_relative boot/usb.disable_absolute
+boot/usb.vid boot/usb.pid boot/usb.manufacturer boot/usb.product boot/usb.storage.vendor
+boot/usb.storage.image boot/usb.storage.setup boot/usb.storage.user boot/usb.serialnumber boot/usb.notwakeup
+boot/usb.internet boot/rndis.nodhcpd boot/rndis.ipv4_prefix'
 for path in $paths; do
     [ ! -L "/$path" ] || fail "settings symlink is unsupported: $path"
     [ -e "/$path" ] || continue

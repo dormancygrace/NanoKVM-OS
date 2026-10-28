@@ -22,6 +22,14 @@ from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[1]
 SOURCE = REPO / 'firmware/stock-install'
+USB_NAMES = re.search(r"names='([^']+)'", (REPO / 'firmware/alpine/compat/nanokvm-usb-flags-migrate').read_text()).group(1).split()
+USB_SETTINGS = dict.fromkeys(USB_NAMES, '')
+USB_SETTINGS.update({'usb.vid': '0x1d6b', 'usb.pid': '0x0104', 'usb.manufacturer': 'My KVM',
+                     'usb.product': 'Retained identity', 'usb.serialnumber': 'stock-serial',
+                     'usb.disk0': '/data/user.iso', 'usb.storage.image': 'My virtual disk',
+                     'rndis.ipv4_prefix': '10.77.9'})
+BOOT_NETWORK = {'eth.mac': '02:00:00:00:12:34', 'eth.disabled': '',
+                'resolv.conf': 'nameserver 192.0.2.53\n'}
 
 
 def load(name, path):
@@ -54,6 +62,17 @@ def disk(path, value=None):
         stream.write(value)
         stream.truncate(4 * 1024**3)
     return bytes(value)
+
+
+
+def boot_header():
+    header = bytearray(512)
+    struct.pack_into('<HBHB', header, 11, 512, 4, 4, 2)
+    struct.pack_into('<I', header, 32, 131072)
+    header[43:54] = b'boot       '
+    header[54:62] = b'FAT16   '
+    header[510:] = b'\x55\xaa'
+    return header
 
 
 def write(root, path, data='', mode=0o644):
@@ -118,6 +137,36 @@ class Layout(LayoutFixture):
         result = self.command('map-root', self.card, self.saved)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(b'refusing to remap', result.stderr)
+
+    def test_boot_header_adapts_only_hidden_sectors_without_writing_card(self):
+        plan = list(map(int, self.command('plan', self.card).stdout.split()))
+        offset = plan[6] * 512
+        header = boot_header()
+        def set_header(value):
+            with self.card.open('r+b') as f:
+                f.seek(offset)
+                f.write(value)
+        set_header(header)
+        result = self.command('boot-sector', self.card, self.saved)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        expected = header.copy()
+        struct.pack_into('<I', expected, 28, plan[6])
+        self.assertEqual(result.stdout, expected)
+        with self.card.open('rb') as f:
+            self.assertEqual(f.read(512), self.original)
+            f.seek(offset)
+            self.assertEqual(f.read(512), header)
+        set_header(expected)
+        self.assertEqual(self.command('boot-sector', self.card, self.saved).stdout, expected)
+        for offset_in_header, value in ((13, 8), (14, 1), (28, 1), (510, 0)):
+            corrupt = header.copy()
+            corrupt[offset_in_header] = value
+            set_header(corrupt)
+            result = self.command('boot-sector', self.card, self.saved)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, b'')
+        self.assertEqual(self.command('commit', self.card, self.saved).returncode, 0)
+        self.assertNotEqual(self.command('boot-sector', self.card, self.saved).returncode, 0)
 
     def test_refuses_geometry_and_stale_transactions(self):
         for label, change in [
@@ -290,7 +339,7 @@ class Builder(unittest.TestCase):
 
 
 class Staging(LayoutFixture):
-    def prepare(self):
+    def prepare(self, usb_flags=None):
         root = self.root
         self.card = root / 'dev/mmcblk0'
         self.original = disk(self.card)
@@ -307,6 +356,9 @@ class Staging(LayoutFixture):
                               'proc/device-tree/compatible': 'sophgo,sg2002\x00',
                               'proc/cmdline': 'root=' + str(root / 'dev/mmcblk0p2') + ' rw\n'}.items():
             write(root, path, content)
+        self.usb_flags = USB_SETTINGS if usb_flags is None else usb_flags
+        for name, content in (BOOT_NETWORK | self.usb_flags).items():
+            write(root, 'boot/' + name, content)
         (root / 'run').mkdir()
         (root / 'tmp').mkdir()
         for i, (start, size) in enumerate([(1,32768),(32769,3145728),(3180544,1048576)], 1):
@@ -373,6 +425,8 @@ reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
             self.assertEqual(stream.read(512), self.original)
         with tarfile.open(stage / 'settings.tar') as tar:
             self.assertEqual(tar.extractfile('./etc/kvm/wifi.ssid').read(), b'my network')
+            for name, content in (BOOT_NETWORK | self.usb_flags).items():
+                self.assertEqual(tar.extractfile('./boot/' + name).read(), content.encode())
         # A retry never overwrites the transaction with a new snapshot.
         self.assertNotEqual(self.invoke('--yes').returncode, 0)
 
@@ -410,19 +464,25 @@ reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
 
 
 class Recovery(LayoutFixture):
-    def prepare(self):
-        Staging.prepare(self)
+    def prepare(self, usb_flags=None):
+        Staging.prepare(self, usb_flags)
         rootfs = self.root / 'new-root'
         for path, text, mode in [
             ('etc/alpine-release', '3.24.3\n', 0o644), ('bin/busybox', 'executable', 0o755),
             ('etc/init.d/nanokvm-app', 'executable', 0o755),
             ('etc/shadow', 'root:IMAGE:1::::::\ndaemon:*:1::::::\n', 0o600),
+            ('etc/kvm/usb/.layout-v1', '', 0o644), ('etc/kvm/usb/usb.dev', '', 0o644),
+            ('etc/kvm/usb/usb.disk0', '', 0o644),
             ('etc/kvm/ssh_stop', '', 0o600), ('etc/nanokvm-firstboot-storage', '', 0o644)]:
             write(rootfs, path, text, mode)
         with tarfile.open(self.bundle / 'alpine-rootfs.tar.gz', 'w:gz') as tar:
             tar.add(rootfs, arcname='.')
         (rootfs / 'etc').chmod(0o755)
-        boot_raw = b'boot filesystem fixture\n' * 1024
+        boot_raw = bytes(boot_header()) + b'boot filesystem fixture\n' * 1024
+        self.boot_raw = boot_raw
+        patched = boot_header()
+        struct.pack_into('<I', patched, 28, 40960)
+        (self.root / 'patched-boot-sector').write_bytes(patched)
         (self.bundle / 'boot.img.gz').write_bytes(gzip.compress(boot_raw))
         (self.bundle / 'SHA256SUMS').write_text(''.join(
             hashlib.sha256(f.read_bytes()).hexdigest() + '  ' + f.name + '\n'
@@ -435,6 +495,7 @@ class Recovery(LayoutFixture):
 case "$1" in
  map-boot) echo map-boot >>"$TEST_ROOT/actions"; echo "$TEST_ROOT/boot-loop" ;;
  map-root) echo map-root >>"$TEST_ROOT/actions"; echo "$TEST_ROOT/root-loop" ;;
+ boot-sector) echo boot-sector >>"$TEST_ROOT/actions"; cat "$TEST_ROOT/patched-boot-sector" ;;
  commit)
     echo commit >>"$TEST_ROOT/actions"
     [ "${FAIL_STEP:-}" != commit ] || exit 31
@@ -493,10 +554,35 @@ format_root() {
         self.assertGreater(actions.index('commit'), actions.index('format'))
         self.assertEqual(actions[actions.index('commit')-2:actions.index('commit')], ['detach', 'detach'])
         self.assertEqual((self.root / 'data/user.iso').read_text(), 'do not change')
+        image = (self.root / 'boot-loop').read_bytes()
+        self.assertEqual(image[:28], self.boot_raw[:28])
+        self.assertEqual(struct.unpack_from('<I', image, 28)[0], 40960)
+        self.assertEqual(image[32:], self.boot_raw[32:])
+        for name, content in (BOOT_NETWORK | self.usb_flags).items():
+            self.assertEqual((self.root / 'realroot/boot' / name).read_text(), content)
+        self.import_usb_flags()
         # An already committed card must never be formatted again.
         previous = actions.count('format')
         self.assertEqual(self.recover().returncode, 80)
         self.assertEqual((self.root / 'actions').read_text().splitlines().count('format'), previous)
+
+    def import_usb_flags(self):
+        root = self.root / 'realroot'
+        layout = write(self.root, 'usb-layout', 'layout')
+        env = os.environ | {'NANOKVM_USB_FLAGS_BOOT': str(root / 'boot'),
+                            'NANOKVM_USB_FLAGS_DIR': str(root / 'etc/kvm/usb'),
+                            'NANOKVM_USB_FLAGS_LAYOUT': str(layout),
+                            'NANOKVM_USB_FLAGS_PIDOF': '/bin/false'}
+        result = subprocess.run(['busybox', 'sh', str(REPO / 'firmware/alpine/compat/nanokvm-usb-flags-migrate')],
+                                env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actual = {p.name: p.read_text() for p in (root / 'etc/kvm/usb').iterdir() if not p.name.startswith('.')}
+        self.assertEqual(actual, self.usb_flags)
+
+    def test_empty_stock_usb_set_does_not_enable_image_defaults(self):
+        self.prepare(usb_flags={})
+        self.assertEqual(self.recover().returncode, 80)
+        self.import_usb_flags()
 
     def test_restart_after_interrupted_format_or_commit(self):
         for step in ['format', 'commit']:

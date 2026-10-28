@@ -7,6 +7,7 @@ The installer is experimental until the stock boot chain is qualified.
 import argparse
 import gzip
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -178,12 +179,18 @@ def build(build_root, output, version):
         boot_img = work / 'boot.img'
         with boot_img.open('wb') as stream:
             stream.truncate(BOOT_BYTES)
-        run(tools['mkfs.fat'], '--invariant', '-F', '16', '-n', 'NKOSBOOT', boot_img, stdout=subprocess.DEVNULL)
+        run(tools['mkfs.fat'], '--invariant', '-F', '16', '-S', '512', '-s', '4', '-R', '4',
+            '-h', '0', '-n', 'boot', boot_img, stdout=subprocess.DEVNULL)
         boot_files = work / 'boot-files'
         boot_files.mkdir()
         for src, name in [(images / 'boot-fit/detect.sd', 'boot.sd'), (images / 'fip.bin', 'fip.bin')]:
             shutil.copyfile(src, boot_files / name)
         (boot_files / 'ver').write_text(f'NanoKVM OS v{version}\n')
+        (boot_files / 'uEnv.txt').write_text('# NanoKVM OS boot overrides (uncomment to change).\n#bootdelay=-2\n#extraargs=\n')
+        (boot_files / 'hostname.prefix').write_text('kvm')
+        (boot_files / 'image.json').write_text(json.dumps({
+            'image_version': 'stock-migration', 'bundled_application_version': version,
+        }, indent=2) + '\n')
         for file in sorted(boot_files.iterdir()):
             os.utime(file, (315532800, 315532800))
             run(tools['mcopy'], '-m', '-i', boot_img, file, '::' + file.name)
@@ -222,7 +229,7 @@ def build(build_root, output, version):
         copy_elf(target / 'bin/busybox', '/busybox')
         copy_elf(target / 'usr/sbin/mkfs.f2fs', '/sbin/mkfs.f2fs')
         lines.append('slink /lib/ld-musl-riscv64.so.1 libc.so 777 0 0')
-        for applet in ('awk cat chmod cmp cp echo grep gzip losetup mkdir mount mv reboot rm sha256sum sh sleep sync tar touch umount wc') .split():
+        for applet in ('awk cat chmod cmp cp dd echo grep gzip losetup mkdir mount mv reboot rm sha256sum sh sleep sync tar touch umount wc') .split():
             lines.append(f'slink /bin/{applet} ../busybox 777 0 0')
         listing = work / 'initramfs.list'
         listing.write_text('\n'.join(lines) + '\n')

@@ -2,7 +2,7 @@
 """Root-only real loop-device bounds test using a disposable sparse card file.
 
 Run explicitly: sudo python3 tests/test-stock-layout-loop.py --output /tmp/qa
-Requires cc, losetup, blockdev and mkfs.fat. Never opens a physical disk.
+Requires cc, losetup, blockdev, mkfs.fat and fsck.fat. Never opens a physical disk.
 """
 import argparse
 import hashlib
@@ -68,7 +68,16 @@ def main():
                     assert stream.read(512) == marker
                     stream.seek((offset+size-1)*512)
                     assert stream.read(512) == marker
-            subprocess.run(['mkfs.fat', '-F', '16', loops[0]], check=True, stdout=subprocess.DEVNULL)
+            subprocess.run(['mkfs.fat', '-F', '16', '-S', '512', '-s', '4', '-R', '4', '-h', '0', '-n', 'boot', loops[0]], check=True, stdout=subprocess.DEVNULL)
+            header = subprocess.check_output([str(helper), 'boot-sector', str(disk), str(saved)])
+            assert len(header) == 512
+            assert struct.unpack_from('<I', header, 28)[0] == plan[6]
+            with open(loops[0], 'r+b', buffering=0) as stream:
+                stream.write(header)
+                os.fsync(stream.fileno())
+                stream.seek(0)
+                assert stream.read(512) == header
+            subprocess.run(['fsck.fat', '-n', loops[0]], check=True, stdout=subprocess.DEVNULL)
             with disk.open('rb') as stream:
                 for sector in [parts[0][0], parts[0][0]+parts[0][1]-1, parts[2][0], parts[2][0]+parts[2][1]-1]:
                     stream.seek(sector*512)
@@ -81,6 +90,7 @@ def main():
             with disk.open('rb') as stream:
                 final = stream.read(512)
             assert final[478:] == mbr[478:]
+            assert final[450] == 0x0c
             print('PASS: real bounded boot/root loops, boundary writes rejected, FAT format, old boot/data intact, MBR commit')
         finally:
             for loop in reversed(loops):

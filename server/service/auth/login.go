@@ -63,7 +63,7 @@ func (s *Service) Login(c *gin.Context) {
 		return
 	}
 	defer release()
-	password, err := utils.DecodeDecrypt(req.Password)
+	password, err := utils.DecodeCredentialPassword(req.Password, req.PasswordEncoding)
 	if err != nil || password == "" {
 		s.loginFailed(c, clientIP, &rsp)
 		return

@@ -35,9 +35,6 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
-      crypto-js:
-        specifier: 4.2.0
-        version: 4.2.0
       i18next:
         specifier: 26.5.11
         version: 26.5.11(@typescript/typescript6@6.0.2)
@@ -93,9 +90,6 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.3.3
         version: 4.3.3(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
-      '@types/crypto-js':
-        specifier: 4.2.2
-        version: 4.2.2
       '@types/node':
         specifier: 26.6.6
         version: 26.6.6
@@ -1161,9 +1155,6 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@types/crypto-js@4.2.2':
-    resolution: {integrity: sha512-sDOLlVbHhXpAUAL0YHDUUwDZf3iN4Bwi4W6a0W0b+QcAezUbRtH4FVb+9J4h+XFPW7l/gQ9F8qC7P+Ec4k8QVQ==}
-
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
 
@@ -1547,10 +1538,6 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
-
-  crypto-js@4.2.0:
-    resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
-    deprecated: Active development of CryptoJS has been discontinued. This library is no longer maintained.
 
   css-mediaquery@0.1.2:
     resolution: {integrity: sha512-COtn4EROW5dBGlE/4PiKnh6rZpAPxDeFLaEEwt4i10jpDMFt2EhQGS79QmmrO+iKCHv0PU/HrOWEhijFd1x99Q==}
@@ -3755,8 +3742,6 @@ snapshots:
       tailwindcss: 4.3.3
       vite: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
 
-  '@types/crypto-js@4.2.2': {}
-
   '@types/debug@4.1.13':
     dependencies:
       '@types/ms': 2.1.0
@@ -4143,8 +4128,6 @@ snapshots:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
-
-  crypto-js@4.2.0: {}
 
   css-mediaquery@0.1.2: {}
 

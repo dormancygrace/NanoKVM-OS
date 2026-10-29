@@ -95,3 +95,28 @@ func TestAESBridgeLegacyCompatibility(t *testing.T) {
 		}
 	}
 }
+
+func TestCredentialPasswordFormats(t *testing.T) {
+	for _, value := range []string{"päss+%20密碼", "U2FsdGVkX1-not-ciphertext", opensslCiphertextWithPlus, "", " white space "} {
+		got, err := DecodeCredentialPassword(value, "plain")
+		if err != nil || got != value {
+			t.Fatalf("plain value was transformed: %q %v", got, err)
+		}
+	}
+	for _, encoding := range []string{"", "cryptojs"} {
+		for _, value := range []string{opensslCiphertextWithPlus, url.QueryEscape(opensslCiphertextWithPlus)} {
+			got, err := DecodeCredentialPassword(value, encoding)
+			if err != nil || got != "operator-password" {
+				t.Fatalf("legacy value rejected: %q %v", got, err)
+			}
+		}
+		if _, err := DecodeCredentialPassword("plaintext-must-not-be-guessed", encoding); err == nil {
+			t.Fatal("implicit plaintext accepted")
+		}
+	}
+	for _, encoding := range []string{"PLAIN", "plain ", "aes", "future"} {
+		if _, err := DecodeCredentialPassword(opensslCiphertextWithPlus, encoding); err == nil {
+			t.Fatal("unknown encoding accepted")
+		}
+	}
+}

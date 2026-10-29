@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/auth.ts';
 import { User, UserRole } from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
-import { encrypt } from '@/lib/encrypt.ts';
 import { Panel, SettingsSection } from '@/components/ui/settings.tsx';
 
 type CreateValues = {
@@ -70,7 +69,7 @@ export const Users = () => {
   async function createUser(values: CreateValues) {
     setIsLoading(true);
     try {
-      const rsp = await api.createUser(values.username, encrypt(values.password), values.role);
+      const rsp = await api.createUser(values.username, values.password, values.role);
       if (rsp.code !== 0) throw new Error(rsp.msg);
 
       setIsCreateOpen(false);
@@ -137,7 +136,7 @@ export const Users = () => {
     if (!passwordUser) return;
     setIsLoading(true);
     try {
-      const rsp = await api.resetUserPassword(passwordUser, encrypt(values.password));
+      const rsp = await api.resetUserPassword(passwordUser, values.password);
       if (rsp.code !== 0) throw new Error(rsp.msg);
       setPasswordUser(null);
       passwordForm.resetFields();

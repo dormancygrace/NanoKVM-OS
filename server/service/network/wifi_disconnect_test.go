@@ -23,15 +23,16 @@ func TestWifiDisconnectStopsAutomaticConnection(t *testing.T) {
 	root := t.TempDir()
 	net := filepath.Join(root, "wlan0")
 	_ = os.Mkdir(net, 0700)
-	var commands []string
+	var commands, removed []string
 	var fail error
 	run := filepath.Join(root, "run")
+	// Connected to it through a block of an older S30wifi (no id_str).
 	wifiControl = radioControl{etc: root, net: net, runDir: run, run: func(name string, args ...string) (string, error) {
 		if name == WiFiScript {
 			commands = append(commands, strings.Join(args, " "))
 		}
 		return "", fail
-	}}
+	}, request: fakeSupplicant(nil, "ssid=Office\nwpa_state=COMPLETED\n", &removed)}
 	router := gin.New()
 	router.POST("/disconnect", NewService().DisconnectWifi)
 	post := func() int {

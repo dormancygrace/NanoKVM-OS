@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -26,7 +28,7 @@ func TestSaveNetworkReplacesBySSIDAndHidesPasswords(t *testing.T) {
 	if err := w.saveNetwork(wifiProfile{Ssid: ssid, Password: "second-pass", Security: "wpa2", Hidden: true}, false); err != nil {
 		t.Fatal(err)
 	}
-	networks, err := w.readSaved()
+	networks, err := w.readSaved("")
 	if err != nil || len(networks) != 1 {
 		t.Fatalf("saved networks %+v, %v; want one", networks, err)
 	}
@@ -63,7 +65,9 @@ func TestReadSavedMarksCurrentAndSkipsForeignEntries(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := writePrivateFile(filepath.Join(w.etc, "wifi.ssid"), []byte("Cafe")); err != nil {
+	// The last chosen network is not the connected one after wpa_supplicant
+	// moved to another saved network: current is the connected one.
+	if err := writePrivateFile(filepath.Join(w.etc, "wifi.ssid"), []byte("Office")); err != nil {
 		t.Fatal(err)
 	}
 	// A directory whose name is not its SSID is not one the server wrote.
@@ -74,9 +78,12 @@ func TestReadSavedMarksCurrentAndSkipsForeignEntries(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(foreign, "ssid"), []byte("Other"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	networks, err := w.readSaved()
+	networks, err := w.readSaved(savedName("Cafe"))
 	if err != nil || len(networks) != 2 || networks[0].Ssid != "Cafe" || !networks[0].Current || networks[1].Current {
 		t.Fatalf("saved networks %+v, %v", networks, err)
+	}
+	if networks, _ := w.readSaved(""); networks[0].Current || networks[1].Current {
+		t.Fatal("a network is current while not connected")
 	}
 	if _, _, err := w.savedProfile("Other"); err == nil {
 		t.Fatal("an entry under another SSID's name was read")
@@ -102,7 +109,7 @@ func TestSaveNetworkKeepsTheMostRecent(t *testing.T) {
 	if err := w.saveNetwork(wifiProfile{Ssid: "newest", Password: "password1", Security: "personal"}, true); err != nil {
 		t.Fatal(err)
 	}
-	networks, err := w.readSaved()
+	networks, err := w.readSaved("")
 	if err != nil || len(networks) != maxSavedNetworks {
 		t.Fatalf("%d saved networks, %v; want %d", len(networks), err, maxSavedNetworks)
 	}
@@ -213,18 +220,111 @@ func TestSelectedNetworkLivesInTheRunDirectory(t *testing.T) {
 	}
 }
 
-func TestRemoveRunningNetworkRemovesOnlyThatSSID(t *testing.T) {
-	var sent []string
-	w := radioControl{request: func(command string) (string, error) {
-		sent = append(sent, command)
-		if command == "LIST_NETWORKS" {
-			return "network id / ssid / bssid / flags\n0\tOffice\tany\t[CURRENT]\n1\tOffice\tany\t\n2\tCafe\\x20Bar\tany\t\n", nil
+// fakeSupplicant answers LIST_NETWORKS with blocks of the given SSIDs as
+// wpa_supplicant shows them (printf_encode), GET_NETWORK id_str with the
+// block's id_str (FAIL for none, as for a block of an older S30wifi), and
+// records REMOVE_NETWORK.
+type fakeBlock struct{ listed, idStr string }
+
+func fakeSupplicant(blocks []fakeBlock, status string, removed *[]string) func(string) (string, error) {
+	return func(command string) (string, error) {
+		switch {
+		case command == "STATUS":
+			return status, nil
+		case command == "LIST_NETWORKS":
+			out := "network id / ssid / bssid / flags\n"
+			for i, b := range blocks {
+				out += fmt.Sprintf("%d\t%s\tany\t\n", i, b.listed)
+			}
+			return out, nil
+		case strings.HasPrefix(command, "GET_NETWORK "):
+			fields := strings.Fields(command)
+			i, err := strconv.Atoi(fields[1])
+			if err != nil || i >= len(blocks) || fields[2] != "id_str" || blocks[i].idStr == "" {
+				return "FAIL\n", nil
+			}
+			return `"` + blocks[i].idStr + `"` + "\n", nil
+		case strings.HasPrefix(command, "REMOVE_NETWORK "):
+			*removed = append(*removed, strings.TrimPrefix(command, "REMOVE_NETWORK "))
+			return "OK\n", nil
 		}
-		return "OK\n", nil
-	}}
+		return "FAIL\n", nil
+	}
+}
+
+func TestRemoveRunningNetworkRemovesOnlyThatSSID(t *testing.T) {
+	var removed []string
+	w := radioControl{request: fakeSupplicant([]fakeBlock{{"Office", ""}, {"Office", ""}, {`Cafe\x20Bar`, ""}}, "", &removed)}
 	w.removeRunningNetwork("Cafe Bar")
-	if len(sent) != 2 || sent[1] != "REMOVE_NETWORK 2" {
-		t.Fatalf("commands %q", sent)
+	if strings.Join(removed, ",") != "2" {
+		t.Fatalf("removed %q", removed)
+	}
+}
+
+// LIST_NETWORKS escapes quotes, backslashes and tabs as well as other bytes:
+// the literal SSIDs Cafe\A and Cafe\x41 are listed as Cafe\\A and Cafe\\x41
+// and are different networks. Forgetting one removes it and only it, with
+// and without an id_str on the blocks.
+func TestRemoveRunningNetworkEscapedSSIDs(t *testing.T) {
+	ssids := []string{`Cafe\A`, `Cafe\x41`, `CafeA`, `Say "hi"`, "tab\there"}
+	listed := []string{`Cafe\\A`, `Cafe\\x41`, `CafeA`, `Say \"hi\"`, `tab\there`}
+	for _, withID := range []bool{false, true} {
+		blocks := make([]fakeBlock, len(ssids))
+		for i := range ssids {
+			blocks[i].listed = listed[i]
+			if withID {
+				blocks[i].idStr = savedName(ssids[i])
+			}
+		}
+		for i, ssid := range ssids {
+			var removed []string
+			w := radioControl{request: fakeSupplicant(blocks, "", &removed)}
+			w.removeRunningNetwork(ssid)
+			if strings.Join(removed, ",") != strconv.Itoa(i) {
+				t.Fatalf("id_str %v: forgetting %q removed %q, want %d", withID, ssid, removed, i)
+			}
+		}
+	}
+	// A malformed listing or an id_str that is not a saved name matches nothing.
+	var removed []string
+	w := radioControl{request: fakeSupplicant([]fakeBlock{{`Cafe\q`, ""}, {"Cafe", "4361666"}, {"x\tCafe", ""}}, "", &removed)}
+	w.removeRunningNetwork("Cafe")
+	if len(removed) != 0 {
+		t.Fatalf("removed %q", removed)
+	}
+}
+
+func TestWpaUnescape(t *testing.T) {
+	for value, want := range map[string]string{
+		`Office`: "Office", `Cafe\\A`: `Cafe\A`, `Cafe\\x41`: `Cafe\x41`, `Cafe\x41`: "CafeA",
+		`Say \"hi\"`: `Say "hi"`, `a\tb\nc\rd\e`: "a\tb\nc\rd\x1b", `\xd0\x9a`: "К",
+	} {
+		if got, ok := wpaUnescape(value); !ok || got != want {
+			t.Errorf("wpaUnescape(%q) = %q, %v; want %q", value, got, ok, want)
+		}
+	}
+	for _, value := range []string{`a\`, `\q`, `\x4`, `\xzz`} {
+		if _, ok := wpaUnescape(value); ok {
+			t.Errorf("wpaUnescape(%q) accepted", value)
+		}
+	}
+}
+
+// The connected network is named by the block's id_str; a block of an older
+// S30wifi by its SSID. Not connected: none.
+func TestAssociatedNetwork(t *testing.T) {
+	var removed []string
+	for status, want := range map[string]string{
+		"bssid=00:11:22:33:44:55\nssid=Cafe\\x41\nid=3\nid_str=" + savedName(`Cafe\x41`) + "\nwpa_state=COMPLETED\n": savedName(`Cafe\x41`),
+		"ssid=Say \\\"hi\\\"\nwpa_state=COMPLETED\n":                                                                 savedName(`Say "hi"`),
+		"ssid=Office\nid_str=" + savedName("Office") + "\nwpa_state=SCANNING\n":                                      "",
+		"wpa_state=DISCONNECTED\n": "",
+	} {
+		w := radioControl{request: fakeSupplicant(nil, status, &removed)}
+		got, ok := w.associated()
+		if got != want || ok != (want != "") {
+			t.Errorf("STATUS %q: associated %q, %v; want %q", status, got, ok, want)
+		}
 	}
 }
 

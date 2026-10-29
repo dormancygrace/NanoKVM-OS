@@ -406,7 +406,12 @@ func (w radioControl) status() *proto.GetWifiRsp {
 		case "wpa_state":
 			d.Connected = value == "COMPLETED"
 		case "ssid":
-			d.Ssid = decodeSSID(value)
+			// wpa_supplicant escapes SSIDs its own way, unlike iw's scan.
+			if ssid, ok := wpaUnescape(value); ok {
+				d.Ssid = ssid
+			} else {
+				d.Ssid = value
+			}
 		case "freq":
 			c.Frequency, _ = strconv.Atoi(value)
 			d.Band = bandFor(c.Frequency)
@@ -701,9 +706,10 @@ func (w radioControl) forgetProfile() error {
 	return nil
 }
 
-// DisconnectWifi leaves the joined network and stops joining it
-// automatically; it stays saved (Settings > Network > Saved networks forgets
-// it). Wi-Fi stays on and joins another saved network that connects
+// DisconnectWifi leaves the network wlan0 is connected to and stops joining
+// it automatically; it stays saved (Settings > Network > Saved networks
+// forgets it). That is the associated network, not necessarily the last
+// chosen one. Wi-Fi stays on and joins another saved network that connects
 // automatically, or idles. The reply goes out before the interface that may
 // carry this request stops.
 func (s *Service) DisconnectWifi(c *gin.Context) {
@@ -716,15 +722,8 @@ func (s *Service) DisconnectWifi(c *gin.Context) {
 	go func() {
 		time.Sleep(300 * time.Millisecond)
 		err := wifiControl.migrateSaved()
-		if p, ok := wifiControl.configuredProfile(); err == nil && ok {
-			// Without an entry S30wifi would store this network again as one
-			// that connects automatically and rejoin it at once.
-			if err = wifiControl.setAutoConnect(p.Ssid, false); os.IsNotExist(err) {
-				err = wifiControl.saveNetwork(p, false)
-			}
-		}
 		if err == nil {
-			err = wifiControl.clearSelected()
+			err = wifiControl.stopJoiningAssociated()
 		}
 		if err == nil {
 			// disable also drops the addresses of the left network.

@@ -139,16 +139,48 @@ func adoptResolvConf() error {
 	} else if err := refreshDHCPResolvCacheFromEffective(); err != nil {
 		log.Warnf("failed to cache dhcp dns before handing resolv.conf to openresolv: %s", err)
 	}
-	if !strings.Contains(base, "nameserver") {
-		return nil
+	if err := adoptBaseResolver(tool, base); err != nil {
+		return err
+	}
+	log.Infof("handed %s to openresolv", etcResolvFile)
+	return nil
+}
+
+// Adopt even an empty resolver before DHCP has supplied a nameserver. Otherwise
+// openresolv rejects every later DHCP update with "signature mismatch". Keep
+// existing DHCP/VPN entries when the file is empty or only has comments. If
+// it has other resolver settings, preserve those without replacing DNS servers
+// already submitted under nkos.base.
+func adoptBaseResolver(tool, base string) error {
+	hasSettings, hasServers := false, false
+	for _, line := range strings.Split(base, "\n") {
+		line, _, _ = strings.Cut(line, "#")
+		line, _, _ = strings.Cut(line, ";")
+		fields := strings.Fields(line)
+		if len(fields) > 1 {
+			hasSettings = true
+			hasServers = hasServers || fields[0] == "nameserver"
+		}
+	}
+	if hasSettings && !hasServers {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		previous, err := exec.CommandContext(ctx, tool, "-l", "nkos.base").Output()
+		var exitErr *exec.ExitError
+		// openresolv returns 2 when the requested key does not exist yet.
+		if err != nil && !(errors.As(err, &exitErr) && exitErr.ExitCode() == 2) {
+			return fmt.Errorf("read existing base dns: %w", err)
+		}
+		base = string(previous) + "\n" + base
 	}
 	if err := resolvconfRunner(tool, "", "-u"); err != nil {
 		return fmt.Errorf("take over %s: %w", etcResolvFile, err)
 	}
-	if err := resolvconfRunner(tool, base, "-a", "nkos.base"); err != nil {
-		return fmt.Errorf("publish base dns: %w", err)
+	if hasSettings {
+		if err := resolvconfRunner(tool, base, "-a", "nkos.base"); err != nil {
+			return fmt.Errorf("publish base dns: %w", err)
+		}
 	}
-	log.Infof("handed %s to openresolv", etcResolvFile)
 	return nil
 }
 

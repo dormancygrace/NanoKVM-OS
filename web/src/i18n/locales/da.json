@@ -675,6 +675,13 @@
     },
     "extensions": {
       "title": "Udvidelser"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Tekstgenkendelse",
+        "enabledDescription": "Læs teksten på skærmen med TPU: knappen i værktøjslinjen, MCP og PicoClaw. Slået fra kan ingen af dem læse den.",
+        "switchFailed": "Indstillingen kunne ikke gemmes"
+      }
     }
   },
   "picoclaw": {
@@ -954,5 +961,8 @@
     "start": "Aktivér billedopsamling",
     "stop": "Deaktivér billedopsamling",
     "off": "Billedopsamling deaktiveret"
+  },
+  "screenText": {
+    "language": "Sprog"
   }
 }

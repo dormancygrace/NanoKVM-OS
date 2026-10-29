@@ -120,20 +120,23 @@ func TestScreenTextLines(t *testing.T) {
 	}
 }
 
-func TestScreenTextDefaultLanguage(t *testing.T) {
-	saved := screenTextLanguageFile
-	defer func() { screenTextLanguageFile = saved }()
-	screenTextLanguageFile = filepath.Join(t.TempDir(), "language")
-	if got := screenTextDefaultLanguage(); got != "latin" {
-		t.Errorf("without a file: %q, want latin", got)
+func TestScreenTextSwitch(t *testing.T) {
+	saved := screenTextOffFile
+	defer func() { screenTextOffFile = saved }()
+	screenTextOffFile = filepath.Join(t.TempDir(), "screen-text-off")
+	if !ScreenTextEnabled() {
+		t.Fatal("without the flag text recognition is off")
 	}
-	for content, want := range map[string]string{"cyrillic\n": "cyrillic", "korean\n": "latin", "": "latin"} {
-		if err := os.WriteFile(screenTextLanguageFile, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if got := screenTextDefaultLanguage(); got != want {
-			t.Errorf("file %q: %q, want %q", content, got, want)
-		}
+	if err := os.WriteFile(screenTextOffFile, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ScreenTextEnabled() || ScreenTextAvailable() {
+		t.Fatal("with the flag text recognition is still on")
+	}
+	_, err := ReadScreenText(context.Background(), ScreenTextRequest{})
+	var readErr *ScreenTextError
+	if !errors.As(err, &readErr) || readErr.Code != -7 {
+		t.Fatalf("read while off: %v", err)
 	}
 }
 

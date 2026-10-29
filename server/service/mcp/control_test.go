@@ -168,3 +168,25 @@ func TestHostControlNeedsMCPMode(t *testing.T) {
 		t.Fatalf("host touched outside MCP mode: %s", fake.entries())
 	}
 }
+
+// screen_text follows the reader: with text recognition off (or the add-on
+// missing) it is neither listed nor callable, the other tools stay.
+func TestScreenTextToolFollowsTheSwitch(t *testing.T) {
+	useTestConfig(t)
+	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
+	for _, c := range []struct {
+		reader ScreenTextReader
+		want   bool
+	}{{fakeTextReader{off: true}, false}, {nil, false}, {fakeTextReader{}, true}} {
+		handler := newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, c.reader, nil, HostControl{})
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/mcp", bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		handler.ServeHTTP(recorder, req)
+		list := recorder.Body.String()
+		if strings.Contains(list, `"name":"screen_text"`) != c.want || !strings.Contains(list, `"name":"screenshot"`) {
+			t.Fatalf("reader %#v: screen_text listed %v, want %v: %s", c.reader, !c.want, c.want, list)
+		}
+	}
+}

@@ -47,7 +47,7 @@ func addonsRouter(r *gin.Engine) {
 			"rustdesk": gin.H{"installed": rustdesk},
 			"picoclaw": gin.H{"installed": pico},
 			"ipmi":     gin.H{"installed": ipmiInstalled},
-			"tpu":      gin.H{"installed": tpu},
+			"tpu":      gin.H{"installed": tpu, "enabled": vm.ScreenTextEnabled()},
 		})
 	})
 }

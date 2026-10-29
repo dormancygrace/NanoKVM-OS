@@ -13,7 +13,10 @@ import (
 type screenText struct {
 	language string
 	area     *mcpservice.ScreenBox
+	off      bool
 }
+
+func (r *screenText) Available() bool { return !r.off }
 
 func (*screenText) Languages() []string { return []string{"latin", "chinese", "cyrillic"} }
 
@@ -30,16 +33,25 @@ func toolCall(arguments string) string {
 func TestMCPScreenText(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	service := &Service{}
-	if list := performMCPRequest(service, jsonRPCBody("tools/list")).Body.String(); !strings.Contains(list, `"kvm_screen_text"`) {
-		t.Fatalf("tools/list: %s", list)
+	if list := performMCPRequest(service, jsonRPCBody("tools/list")).Body.String(); strings.Contains(list, `"kvm_screen_text"`) {
+		t.Fatalf("tools/list without a reader offers kvm_screen_text: %s", list)
 	}
 	if body := performMCPRequest(service, toolCall(`{}`)).Body.String(); !strings.Contains(body, `"isError":true`) ||
 		!strings.Contains(body, "TPU add-on") {
 		t.Fatalf("without a reader: %s", body)
 	}
 
-	reader := &screenText{}
+	// Text recognition off: not offered.
+	reader := &screenText{off: true}
 	service.SetTextReader(reader)
+	if list := performMCPRequest(service, jsonRPCBody("tools/list")).Body.String(); strings.Contains(list, `"kvm_screen_text"`) ||
+		!strings.Contains(list, `"kvm_actions"`) {
+		t.Fatalf("tools/list with text recognition off: %s", list)
+	}
+	reader.off = false
+	if list := performMCPRequest(service, jsonRPCBody("tools/list")).Body.String(); !strings.Contains(list, `"kvm_screen_text"`) {
+		t.Fatalf("tools/list: %s", list)
+	}
 	body := performMCPRequest(service, toolCall(`{"language":"cyrillic","area":{"x":0,"y":0.9,"w":0.2,"h":0.1}}`)).Body.String()
 	if strings.Contains(body, `"isError":true`) || !strings.Contains(body, `Пуск`) || !strings.Contains(body, `\"ok\":true`) {
 		t.Fatalf("read: %s", body)

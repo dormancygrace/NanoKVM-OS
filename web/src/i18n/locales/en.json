@@ -104,7 +104,8 @@
       "latin": "Latin: English and European languages",
       "chinese": "Chinese: Simplified and Traditional, Japanese, English",
       "cyrillic": "Cyrillic: Russian, Ukrainian and others, with English"
-    }
+    },
+    "language": "Language"
   },
   "vpn": {
     "rename": "Rename",
@@ -2076,13 +2077,11 @@
       "title": "AI",
       "screenText": {
         "title": "Text recognition",
-        "language": "Default language",
-        "languageDescription": "Used for reading text on the screen: the toolbar button, MCP and PicoClaw. A read can pick another language.",
         "notInstalled": "Text recognition needs the TPU add-on.",
         "openAddons": "Add-ons",
-        "saved": "Language saved",
-        "saveFailed": "The language could not be saved",
-        "noModels": "not installed"
+        "enabled": "Text recognition",
+        "enabledDescription": "Read the text on the screen with the TPU: the toolbar button, MCP and PicoClaw. Off, none of them can read it.",
+        "switchFailed": "The setting could not be saved"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw is not installed.",

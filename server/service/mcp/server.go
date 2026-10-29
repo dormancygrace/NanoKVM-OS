@@ -109,29 +109,40 @@ func lazyMCPHandler(create func() http.Handler) http.Handler {
 
 func newMCPHandler(control *controlmode.Manager, coordinator *inputcontrol.Coordinator, remote *Remote, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader, hostControl HostControl) http.Handler {
 	executor := &toolExecutor{control: control, coordinator: coordinator}
-	newServer := func() *protocol.Server {
+	// One server per set of switchable tools: host control exists while the
+	// administrator allows it, screen_text while text recognition is on and
+	// installed. The transport is stateless, so every request may get
+	// another server; each is built once, on first use.
+	type toolSet struct{ control, text bool }
+	var mu sync.Mutex
+	servers := map[toolSet]*protocol.Server{}
+	serverFor := func(set toolSet) *protocol.Server {
+		mu.Lock()
+		defer mu.Unlock()
+		if server := servers[set]; server != nil {
+			return server
+		}
 		server := protocol.NewServer(&protocol.Implementation{
 			Name:    mcpServerName,
 			Version: "v1.0.0",
 		}, nil)
-		registerTools(server, executor, remote, snapshotter, textReader, host)
+		var reader ScreenTextReader
+		if set.text {
+			reader = textReader
+		}
+		registerTools(server, executor, remote, snapshotter, reader, host)
+		if set.control {
+			registerHostControlTools(server, executor, hostControl)
+		}
+		servers[set] = server
 		return server
 	}
-	// Two servers: the host control tools exist only in the second, which
-	// answers while the administrator allows them. The transport is
-	// stateless, so every request may get the other one.
-	server := newServer()
-	withControl := sync.OnceValue(func() *protocol.Server {
-		server := newServer()
-		registerHostControlTools(server, executor, hostControl)
-		return server
-	})
 	handler := protocol.NewStreamableHTTPHandler(
 		func(*http.Request) *protocol.Server {
-			if hostControlAllowed() {
-				return withControl()
-			}
-			return server
+			return serverFor(toolSet{
+				control: hostControlAllowed(),
+				text:    textReader != nil && textReader.Available(),
+			})
 		},
 		&protocol.StreamableHTTPOptions{Stateless: true, JSONResponse: true},
 	)
@@ -147,7 +158,11 @@ func registerTools(server *protocol.Server, executor *toolExecutor, remote *Remo
 	protocol.AddTool(server, &protocol.Tool{Name: scrollMouseToolName, Description: "Scroll the remote mouse wheel", InputSchema: scrollMouseSchema()}, scrollMouseHandler(executor, remote))
 	protocol.AddTool(server, &protocol.Tool{Name: screenshotToolName, Description: "Capture a JPEG screenshot from the remote display", InputSchema: screenshotSchema()}, screenshotHandler(executor, snapshotter))
 	protocol.AddTool(server, &protocol.Tool{Name: hostStatusToolName, Description: "The host's state without a screenshot: power (whether the NanoKVM can press its buttons, and on/off when a power LED is wired), whether the HDMI input has a signal, and the Caps/Num/Scroll Lock LEDs. Changes nothing", InputSchema: hostStatusSchema()}, hostStatusHandler(host))
-	protocol.AddTool(server, &protocol.Tool{Name: screenTextToolName, Description: "Read the text on the remote display (OCR on the NanoKVM's TPU, needs the TPU add-on, inputs up to 1920x1080): lines in reading order, and their pieces with boxes in the mouse tools' normalized coordinates. Takes 3-15 s", InputSchema: screenTextSchema(textReader)}, screenTextHandler(textReader))
+	// Without a reader (add-on missing, or text recognition off) there is no
+	// screen_text to offer.
+	if textReader != nil {
+		protocol.AddTool(server, &protocol.Tool{Name: screenTextToolName, Description: "Read the text on the remote display (OCR on the NanoKVM's TPU, inputs up to 1920x1080): lines in reading order, and their pieces with boxes in the mouse tools' normalized coordinates. Takes 3-15 s", InputSchema: screenTextSchema(textReader)}, screenTextHandler(textReader))
+	}
 }
 
 func typeTextHandler(executor *toolExecutor, remote *Remote) protocol.ToolHandlerFor[TypeTextParams, TypeTextResult] {

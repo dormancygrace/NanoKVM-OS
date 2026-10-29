@@ -25,6 +25,28 @@ export function isScreenTextLanguage(value: unknown): value is ScreenTextLanguag
   return screenTextLanguages.includes(value as ScreenTextLanguage);
 }
 
+// The reading dialog keeps the last language picked in this browser; a first
+// read is in Latin.
+const languageKey = 'nano-kvm-screen-text-language';
+
+export function storedScreenTextLanguage(): ScreenTextLanguage {
+  try {
+    const stored = globalThis.localStorage?.getItem(languageKey);
+    if (isScreenTextLanguage(stored)) return stored;
+  } catch {
+    // Storage blocked: the default.
+  }
+  return screenTextLanguages[0];
+}
+
+export function storeScreenTextLanguage(language: ScreenTextLanguage) {
+  try {
+    globalThis.localStorage?.setItem(languageKey, language);
+  } catch {
+    // Storage blocked: the pick lasts until the page reloads.
+  }
+}
+
 // A part of the picture as fractions of its width and height (0..1).
 export type ScreenTextRegion = { left: number; top: number; width: number; height: number };
 

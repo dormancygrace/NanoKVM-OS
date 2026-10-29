@@ -678,6 +678,13 @@
     },
     "extensions": {
       "title": "Ekstensi"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Pengenalan teks",
+        "enabledDescription": "Membaca teks di layar dengan TPU: tombol bilah alat, MCP, dan PicoClaw. Jika mati, tidak satu pun dapat membacanya.",
+        "switchFailed": "Pengaturan tidak dapat disimpan"
+      }
     }
   },
   "picoclaw": {
@@ -956,5 +963,8 @@
     "start": "Aktifkan penangkapan video",
     "stop": "Nonaktifkan penangkapan video",
     "off": "Penangkapan video nonaktif"
+  },
+  "screenText": {
+    "language": "Bahasa"
   }
 }

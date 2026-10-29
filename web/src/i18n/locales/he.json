@@ -268,6 +268,13 @@
     },
     "extensions": {
       "title": "הרחבות"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "זיהוי טקסט",
+        "enabledDescription": "קריאת הטקסט שעל המסך באמצעות ה-TPU: הלחצן בסרגל הכלים, MCP ו-PicoClaw. כשהאפשרות כבויה, אף אחד מהם לא יכול לקרוא.",
+        "switchFailed": "לא ניתן היה לשמור את ההגדרה"
+      }
     }
   },
   "keyboard": {
@@ -401,5 +408,8 @@
   },
   "error": {
     "refresh": "רענון"
+  },
+  "screenText": {
+    "language": "שפה"
   }
 }

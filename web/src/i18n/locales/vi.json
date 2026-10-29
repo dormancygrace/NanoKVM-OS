@@ -681,6 +681,13 @@
     },
     "extensions": {
       "title": "Tiện ích mở rộng"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Nhận dạng văn bản",
+        "enabledDescription": "Đọc văn bản trên màn hình bằng TPU: nút trên thanh công cụ, MCP và PicoClaw. Khi tắt, không thành phần nào đọc được.",
+        "switchFailed": "Không thể lưu cài đặt"
+      }
     }
   },
   "picoclaw": {
@@ -959,5 +966,8 @@
     "start": "Bật thu hình",
     "stop": "Tắt thu hình",
     "off": "Đã tắt thu hình"
+  },
+  "screenText": {
+    "language": "Ngôn ngữ"
   }
 }

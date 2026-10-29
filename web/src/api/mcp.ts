@@ -18,7 +18,7 @@ export function setMCPEnabled(enabled: boolean) {
 }
 
 export function setMCPHostControl(enabled: boolean) {
-  return http.post('/api/mcp/host-control', { enabled });
+  return http.post<MCPConfig>('/api/mcp/host-control', { enabled });
 }
 
 export function regenerateMCPAPIKey() {

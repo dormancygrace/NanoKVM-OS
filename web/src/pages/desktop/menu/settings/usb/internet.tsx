@@ -15,7 +15,7 @@ export const UsbInternet = ({ usbBusy, network }: { usbBusy: boolean; network: b
   const refresh = useCallback(async () => {
     const rsp = await getUsbInternet();
     if (rsp.code !== 0) throw new Error(rsp.msg);
-    return rsp.data as UsbInternetStatus;
+    return rsp.data;
   }, []);
 
   useEffect(() => {

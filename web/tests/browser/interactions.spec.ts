@@ -20,16 +20,18 @@ async function openKeyboard(page: Page) {
 }
 const key = (page: Page, code = 'KeyA') => page.locator(`[data-skbtn="${code}"]`).first();
 
-// Exercise taps, drags and cancellation through the same native touch driver.
+// Use Chrome's native tap gesture with its standard 50 ms finger contact.
+// Raw touch events below exercise movement and cancellation explicitly.
 async function touchTap(cdp: CDPSession, target: Locator) {
   await expect(target).toBeVisible();
   const box = await target.boundingBox();
   if (!box) throw new Error('touch target not visible');
-  await cdp.send('Input.dispatchTouchEvent', {
-    type: 'touchStart',
-    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }]
+  await cdp.send('Input.synthesizeTapGesture', {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+    duration: 50,
+    gestureSourceType: 'touch'
   });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
 test.beforeEach(async ({ request }) => {

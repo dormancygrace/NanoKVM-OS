@@ -88,8 +88,8 @@ export function KeyboardSheet({
           drag.current = null;
           setOffset(0);
           if (distance >= 64) {
-            // Keep the native touch target alive through touchend. Removing it
-            // during pointerup can make Chrome swallow the following tap.
+            // Keep the native target alive until touchend has bubbled; it is
+            // dispatched after pointerup for the same finger release.
             closeFrame.current = requestAnimationFrame(() => {
               closeFrame.current = null;
               onClose();

@@ -169,6 +169,7 @@
     "duration": "{{days}}d {{hours}}h {{minutes}}m",
     "open": "Open {{name}} settings",
     "of": "of {{total}}",
+    "freeRam": "Free RAM",
     "freeStorage": "Free space",
     "uptime": "Uptime",
     "device": "Device",

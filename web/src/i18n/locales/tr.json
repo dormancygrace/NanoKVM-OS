@@ -895,6 +895,7 @@
   },
   "dashboard": {
     "title": "Genel bakış",
+    "freeRam": "Boş RAM",
     "freeStorage": "Boş alan",
     "uptime": "Çalışma süresi",
     "kernel": "Çekirdek",

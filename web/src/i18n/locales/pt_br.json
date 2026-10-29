@@ -897,6 +897,7 @@
   },
   "dashboard": {
     "title": "Painel",
+    "freeRam": "RAM livre",
     "freeStorage": "Espaço livre",
     "uptime": "Tempo de atividade",
     "kernel": "Kernel",

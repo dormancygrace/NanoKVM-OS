@@ -896,6 +896,7 @@
   },
   "dashboard": {
     "title": "Overzicht",
+    "freeRam": "Vrij RAM",
     "freeStorage": "Vrije ruimte",
     "uptime": "Uptime",
     "kernel": "Kernel",

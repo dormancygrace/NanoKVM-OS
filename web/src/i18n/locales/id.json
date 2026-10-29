@@ -892,6 +892,7 @@
   },
   "dashboard": {
     "title": "Dasbor",
+    "freeRam": "RAM bebas",
     "freeStorage": "Ruang kosong",
     "uptime": "Waktu aktif",
     "kernel": "Kernel",

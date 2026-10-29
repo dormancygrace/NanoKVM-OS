@@ -157,6 +157,39 @@ test.describe('touch', () => {
     request
   }) => {
     await login(page);
+    page.on('console', (message) => {
+      if (message.text().startsWith('touch diagnostic')) console.info(message.text());
+    });
+    await page.evaluate(() => {
+      for (const type of [
+        'pointerdown',
+        'pointerup',
+        'pointercancel',
+        'lostpointercapture',
+        'touchstart',
+        'touchend',
+        'touchcancel',
+        'click'
+      ]) {
+        document.addEventListener(type, (event) => {
+          const e = event as PointerEvent;
+          const target = e.target as HTMLElement;
+          console.info(
+            'touch diagnostic',
+            JSON.stringify({
+              type,
+              target: target.tagName,
+              text: target.textContent?.slice(0, 30),
+              prevented: e.defaultPrevented,
+              pointer: e.pointerId,
+              x: e.clientX,
+              y: e.clientY,
+              time: performance.now()
+            })
+          );
+        });
+      }
+    });
     const cdp = await page.context().newCDPSession(page);
     await touchTap(cdp, page.getByRole('button', { name: 'Open keyboard', exact: true }));
     await expect(page.getByRole('dialog')).toBeVisible();

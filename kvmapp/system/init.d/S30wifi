@@ -415,14 +415,45 @@ start_dhcp() {
     "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1 &
 }
 
-stop_dhcp() {
-    [ -e "$WLAN_DHCP_PID" ] || return 0
-    pid=$(cat "$WLAN_DHCP_PID")
+# end_process FILE NAME ends the process NAME whose pid FILE holds and waits
+# until it has exited: SIGTERM, then SIGKILL after 3 s. udhcpc and wpa_cli
+# remove their pid file as they exit, so one still exiting would remove the
+# file of the one started after it, which S30wifi then no longer finds.
+# Returns 1, keeping FILE, when the process is still there.
+end_process() {
+    [ -e "$1" ] || return 0
+    pid=$(cat "$1" 2>/dev/null || true)
     case "$pid" in
         ''|*[!0-9]*) ;;
-        *) [ "$pid" -le 1 ] || kill "$pid" 2>/dev/null || true ;;
+        *)
+            if [ "$pid" -gt 1 ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null)" = "$2" ]; then
+                kill "$pid" 2>/dev/null || true
+                if ! process_exited "$pid" 30; then
+                    echo "$2 $pid did not exit; killing it" >&2
+                    kill -9 "$pid" 2>/dev/null || true
+                    process_exited "$pid" 10 || {
+                        echo "$2 $pid is still running" >&2
+                        return 1
+                    }
+                fi
+            fi
+            ;;
     esac
-    rm -f "$WLAN_DHCP_PID"
+    rm -f "$1"
+}
+
+# process_exited PID TENTHS: whether PID is gone within TENTHS of a second.
+process_exited() {
+    tries=0
+    while [ -e "/proc/$1" ]; do
+        [ "$tries" -lt "$2" ] || return 1
+        tries=$((tries + 1))
+        sleep 0.1
+    done
+}
+
+stop_dhcp() {
+    end_process "$WLAN_DHCP_PID" udhcpc
 }
 
 # With several saved networks wpa_supplicant moves between them by itself
@@ -442,26 +473,10 @@ start_event_handler() {
 }
 
 stop_event_handler() {
-    if [ -r "$WPA_CLI_PID" ]; then
-        pid=$(cat "$WPA_CLI_PID")
-        case "$pid" in
-            ''|*[!0-9]*) ;;
-            *)
-                if [ "$pid" -gt 1 ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null)" = wpa_cli ]; then
-                    kill "$pid" 2>/dev/null || true
-                    # wpa_cli removes its pid file as it exits: one still
-                    # exiting would remove the next one's, which disables
-                    # its events. Wait for it, up to 2 s.
-                    tries=0
-                    while [ -e "/proc/$pid" ] && [ "$tries" -lt 20 ]; do
-                        tries=$((tries + 1))
-                        sleep 0.1
-                    done
-                fi
-                ;;
-        esac
-    fi
-    rm -f "$WPA_CLI_PID" "$ASSOCIATED_FILE"
+    end_process "$WPA_CLI_PID" wpa_cli
+    ended=$?
+    rm -f "$ASSOCIATED_FILE"
+    return "$ended"
 }
 
 # wpa_cli -a: "<script> wlan0 CONNECTED|DISCONNECTED", the block's id_str in
@@ -477,7 +492,11 @@ wifi_event() {
     [ -n "$previous" ] && [ "$previous" != "$network" ] || return 0
     [ -e "$WLAN_DHCP_PID" ] || return 0
     echo "WiFi moved to another saved network; requesting a new address"
-    stop_dhcp
+    # Never two clients for one pid file: the old one must be gone first.
+    stop_dhcp || {
+        echo "The previous DHCP client did not exit; not starting another one" >&2
+        return 1
+    }
     # Its deconfig removes the previous network's address before DISCOVER.
     start_dhcp
 }
@@ -571,12 +590,12 @@ stop() {
         esac
     fi
     # Before wpa_supplicant: its last events must not start DHCP again.
-    stop_event_handler
+    stop_event_handler || true
     "$NANOKVM_KILLALL" wpa_supplicant 2>/dev/null || true
     wait_for_exit wpa_supplicant "$NANOKVM_WPA_CTRL_DIR/wlan0"
     wait_for_exit hostapd "$NANOKVM_HOSTAPD_CTRL_DIR/wlan0"
 
-    stop_dhcp
+    stop_dhcp || true
 
     rm -f "$UDHCPD_PID" "$UDHCPD_LEASES" "$WPA_CONFIG" \
         "$HOSTAPD_CONFIG" "$UDHCPD_CONFIG" "$NANOKVM_WIFI_AP_FLAG"

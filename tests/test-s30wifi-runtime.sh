@@ -92,6 +92,16 @@ EOF
         chmod +x "$BIN_DIR/$command"
     done
     chmod +x "$BIN_DIR/wpa_passphrase"
+    # udhcpc writes its -p pid file.
+    cat > "$BIN_DIR/udhcpc" <<'EOF'
+#!/bin/sh
+args=$*
+while [ $# -gt 1 ]; do
+    [ "$1" != -p ] || echo 4343 > "$2"
+    shift
+done
+printf 'udhcpc args=%s\n' "$args" >> "$CALL_LOG"
+EOF
     cat > "$BIN_DIR/iw" <<'EOF'
 #!/bin/sh
 printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
@@ -365,6 +375,33 @@ wait_for() {
     done
 }
 
+# daemon NAME FILE [stubborn]: a running NAME (udhcpc, wpa_cli) whose pid is
+# in FILE. Like them it removes FILE as it exits, here 0.5 s after SIGTERM;
+# a stubborn one ignores SIGTERM. Started from a subshell, so that init reaps
+# it like a daemon. Prints its pid.
+daemon() {
+    mkdir -p "$CASE_DIR/daemon"
+    if [ "${3:-}" = stubborn ]; then
+        cat > "$CASE_DIR/daemon/$1" <<'EOF'
+#!/bin/sh
+trap '' TERM
+while :; do sleep 0.1; done
+EOF
+    else
+        cat > "$CASE_DIR/daemon/$1" <<'EOF'
+#!/bin/sh
+trap 'sleep 0.5; rm -f "$PIDFILE"; exit 0' TERM
+while :; do sleep 0.1; done
+EOF
+    fi
+    chmod +x "$CASE_DIR/daemon/$1"
+    # Not on this function's output: $(daemon ...) would wait for it.
+    ( PIDFILE=$2 "$CASE_DIR/daemon/$1" </dev/null >/dev/null 2>&1 & echo $! > "$2" )
+    pid=$(cat "$2")
+    [ "$(cat "/proc/$pid/comm")" = "$1" ] || fail "test daemon is not named $1"
+    echo "$pid"
+}
+
 network_block() {
     awk -v ssid="ssid=$1" '/^network=\{/ { block = "" } { block = block $0 "\n" } /^}/ && index(block, ssid) { printf "%s", block }' \
         "$RUN_DIR/wpa_supplicant.conf"
@@ -485,9 +522,7 @@ save_entry Cafe cafepass1 personal false 1
 run_action start
 wait_for 'udhcpc args=' "$CALL_LOG" # started in the background
 echo 4242 > "$RUN_DIR/wpa_cli.pid" # what wpa_cli -P writes
-sleep 5 &
-dhcp=$!
-echo "$dhcp" > "$DHCP_PID"
+old=$(daemon udhcpc "$DHCP_PID")
 : > "$CALL_LOG"
 event "$(hex Office)"
 event "$(hex Office)"
@@ -495,21 +530,26 @@ event ''
 assert_not_contains 'udhcpc args=' "$CALL_LOG"
 [ "$(cat "$RUN_DIR/associated")" = "$(hex Office)" ] || fail 'association not recorded'
 event "$(hex Cafe)" > "$CASE_DIR/stdout"
-if wait "$dhcp"; then fail 'the DHCP client of the previous network was not stopped'; fi
+# The old client has exited before the new one starts: exiting later, it
+# would remove the new one's pid file, and the next change would find none.
+[ ! -e "/proc/$old" ] || fail 'a new DHCP client started before the previous one exited'
 wait_for 'udhcpc args=-S -B -O 121 -i wlan0' "$CALL_LOG"
 assert_count 'udhcpc args=-S -B -O 121 -i wlan0' 1 "$CALL_LOG"
+sleep 0.7
+[ "$(cat "$DHCP_PID" 2>/dev/null)" = 4343 ] || fail "the new DHCP client's pid file was removed"
 assert_contains 'requesting a new address' "$CASE_DIR/stdout"
 [ "$(cat "$RUN_DIR/associated")" = "$(hex Cafe)" ] || fail 'new association not recorded'
 # DISCONNECTED and events after stop (the handler's pid file is gone) do nothing.
 # stop ends the handler and waits for it: a wpa_cli still exiting would remove
 # the pid file of the next one.
-mkdir -p "$CASE_DIR/daemon"
-printf '#!/bin/sh\nsleep 5\n' > "$CASE_DIR/daemon/wpa_cli"
-chmod +x "$CASE_DIR/daemon/wpa_cli"
-# Started from a subshell, so that init reaps it like the daemon wpa_cli.
-( "$CASE_DIR/daemon/wpa_cli" & echo $! > "$RUN_DIR/wpa_cli.pid" )
-handler=$(cat "$RUN_DIR/wpa_cli.pid")
-[ "$(cat "/proc/$handler/comm")" = wpa_cli ] || fail 'test handler is not named wpa_cli'
+# A client that ignores SIGTERM is killed, and only then replaced.
+stubborn=$(daemon udhcpc "$DHCP_PID" stubborn)
+: > "$CALL_LOG"
+event "$(hex Office)" >/dev/null 2> "$CASE_DIR/stderr"
+[ ! -e "/proc/$stubborn" ] || fail 'a DHCP client that ignores SIGTERM was left running'
+assert_contains "udhcpc $stubborn did not exit; killing it" "$CASE_DIR/stderr"
+wait_for 'udhcpc args=-S -B -O 121 -i wlan0' "$CALL_LOG"
+handler=$(daemon wpa_cli "$RUN_DIR/wpa_cli.pid")
 : > "$CALL_LOG"
 run_action wlan0 DISCONNECTED
 run_action stop

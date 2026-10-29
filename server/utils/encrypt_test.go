@@ -120,3 +120,27 @@ func TestCredentialPasswordFormats(t *testing.T) {
 		}
 	}
 }
+
+// Frozen CryptoJS 4.2.0 output from the old browser implementation:
+//
+//	encodeURIComponent(CryptoJS.AES.encrypt(password, "nanokvm-sipeed-2024", {
+//	  salt: CryptoJS.enc.Hex.parse("0001020304050607")
+//	}).toString()). The fixed salt makes these independent compatibility vectors
+//
+// reproducible; tests must not regenerate them with the server's decoder.
+func TestCryptoJS420BrowserVectors(t *testing.T) {
+	tests := []struct{ plaintext, raw, escaped string }{
+		{"password/+=?& with spaces", "U2FsdGVkX18AAQIDBAUGB7sGW2QcHOMONEief1QAPlEHIuOF4wgNKrnWfuQ7FmJV", "U2FsdGVkX18AAQIDBAUGB7sGW2QcHOMONEief1QAPlEHIuOF4wgNKrnWfuQ7FmJV"},
+		{"пароль🔒+ %", "U2FsdGVkX18AAQIDBAUGB9r4f+NqE4e5s2h9NM2wUCDbeyJHBGwx8JC3N4eofTbx", "U2FsdGVkX18AAQIDBAUGB9r4f%2BNqE4e5s2h9NM2wUCDbeyJHBGwx8JC3N4eofTbx"},
+	}
+	for _, tt := range tests {
+		for _, encoding := range []string{"", "cryptojs"} {
+			for _, value := range []string{tt.raw, tt.escaped} {
+				got, err := DecodeCredentialPassword(value, encoding)
+				if err != nil || got != tt.plaintext {
+					t.Fatalf("CryptoJS 4.2.0 vector: encoding=%q plaintext matches=%v error=%v", encoding, got == tt.plaintext, err)
+				}
+			}
+		}
+	}
+}

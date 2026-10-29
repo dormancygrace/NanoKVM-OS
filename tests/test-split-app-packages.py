@@ -118,8 +118,33 @@ with tempfile.TemporaryDirectory(prefix="nkos-split-app-") as directory:
     assert (fresh / binary).read_text() == "new server"
     assert (fresh / asset).read_text() == "web-only fix"
     # An incompatible browser API must be rejected rather than silently installed.
-    package("nanokvm-web", incompatible_update, {asset: "incompatible"}, "nanokvm-web-api=2", replaces=replaces)
+    _, server_depends, server_provides, server_replaces = metadata("nanokvm")
+    api = next(int(p.split("=")[1]) for p in server_provides.split() if p.startswith("nanokvm-web-api="))
+    assert f"nanokvm-web-api={api}" in depends.split(), "browser and server recipes name different API versions"
+    package("nanokvm-web", incompatible_update, {asset: "incompatible"}, f"nanokvm-web-api={api + 1}", replaces=replaces)
     index()
     run(*base, "add", "--no-scripts", "nanokvm-web=" + incompatible_update, ok=False)
     assert (root / asset).read_text() == "web-only fix"
+    # Neither side of a contract change pairs with the other side's previous
+    # release: a server and a browser of the previous API version.
+    previous = "0.1-r0"
+    package("nanokvm", previous, {binary: "previous server"}, server_depends,
+            server_provides.replace(f"nanokvm-web-api={api}", f"nanokvm-web-api={api - 1}"), server_replaces)
+    package("nanokvm-web", previous, {asset: "previous web"}, f"nanokvm-web-api={api - 1}", replaces=replaces)
+    index()
+    for pair in [("nanokvm=" + previous, "nanokvm-web=" + versions["nanokvm-web"]),
+                 ("nanokvm=" + versions["nanokvm"], "nanokvm-web=" + previous)]:
+        mixed = work / ("mixed-" + pair[0].replace("=", "-"))
+        (mixed / "etc/apk").mkdir(parents=True)
+        (mixed / "etc/apk/repositories").write_text(str(repository / "Packages.adb") + "\n")
+        mixedbase = ["--root", mixed, "--arch", "riscv64", "--allow-untrusted"]
+        run(*mixedbase, "add", "--initdb", *usermode, "--no-scripts", *pair, "runtime-fixture", "layout-base-fixture", ok=False)
+    # The matching pair of the previous release still installs.
+    old = work / "previous"
+    (old / "etc/apk").mkdir(parents=True)
+    (old / "etc/apk/repositories").write_text(str(repository / "Packages.adb") + "\n")
+    oldbase = ["--root", old, "--arch", "riscv64", "--allow-untrusted"]
+    run(*oldbase, "add", "--initdb", *usermode, "--no-scripts", "nanokvm=" + previous, "nanokvm-web=" + previous,
+        "runtime-fixture", "layout-base-fixture")
+    assert (old / asset).read_text() == "previous web"
 print("PASS: migration, file ownership, protected settings, independent web upgrade and API rejection")

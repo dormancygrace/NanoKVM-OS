@@ -31,7 +31,7 @@
   },
   "sophgo_cvi_mpi": {
     "url": "https://github.com/sophgo/cvi_mpi.git",
-    "commit": "693a72a1d52f2e08ea767e0a72905e81f10572a5",
+    "commit": "923e41a3e1801573c74c27d9717f7eaf24babfa2",
     "branch": "sg200x-dev"
   },
   "sophgo_kernel_port_reference": {

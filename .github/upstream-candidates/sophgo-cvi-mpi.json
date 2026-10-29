@@ -1,0 +1,20 @@
+{
+  "component": "sophgo_cvi_mpi",
+  "current": "693a72a1d52f2e08ea767e0a72905e81f10572a5",
+  "candidate": "923e41a3e1801573c74c27d9717f7eaf24babfa2",
+  "candidate_key": "923e41a3e1801573c74c27d9717f7eaf24babfa2",
+  "status": "pending-review",
+  "upstream": "https://github.com/sophgo/cvi_mpi/compare/693a72a1d52f2e08ea767e0a72905e81f10572a5...923e41a3e1801573c74c27d9717f7eaf24babfa2",
+  "source_path": "platform/sources.lock",
+  "strategy": "git-pin",
+  "evidence": {
+    "commit": "923e41a3e1801573c74c27d9717f7eaf24babfa2",
+    "objects": {
+      ".": "1652b1039fe7e4b064ff520363b1fd3d7ea31584"
+    }
+  },
+  "pin_files_updated": [
+    "firmware/sources.json",
+    "platform/sources.lock"
+  ]
+}

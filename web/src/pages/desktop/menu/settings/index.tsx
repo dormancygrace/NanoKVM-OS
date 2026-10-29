@@ -63,7 +63,7 @@ import { RustDeskIcon } from '@/components/icons/rustdesk';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { builtinMenu, orderMenu } from './menu.ts';
+import { builtinMenu, orderMenu, type BuiltinMenuId, type SettingsMenuEntry } from './menu.ts';
 import styles from './sidebar.module.css';
 import {
   isSettingsGroup,
@@ -194,7 +194,9 @@ const menuIcons: Record<string, ReactNode> = {
   wifi: <WifiIcon size={16} />
 };
 
-const menuTitles = new Map(builtinMenu.map((entry) => [entry.id, entry.title]));
+const menuTitles = new Map<string, SettingsMenuEntry['title']>(
+  builtinMenu.map((entry) => [entry.id, entry.title])
+);
 
 const PageLoading = () => (
   <div className="flex justify-center pt-10">
@@ -250,69 +252,75 @@ export const Settings = ({
   // What each menu entry opens. An entry without a page here (not an admin,
   // no Bluetooth chip, add-on not installed) is not shown; a group (null)
   // shows only with something inside.
-  const pages: Record<string, ReactNode | undefined> = {
+  // Typed object literals: a misspelt id is a type error, also here.
+  const adminPages: Partial<Record<BuiltinMenuId, ReactNode>> = isAdmin
+    ? {
+        usb: null,
+        'usb-composition': <Usb part="composition" />,
+        'usb-identity': <Usb part="identity" />,
+        network: null,
+        'network-general': <Network />,
+        'network-wifi': <WifiSettings />,
+        'network-ethernet': <EthernetSettings />,
+        'network-bluetooth': hasBluetooth ? <BluetoothSettings /> : undefined,
+        'network-webrtc': <WebRTCSettings />,
+        vpn: <VPNList open={changeTab} />,
+        'vpn-wireguard': <WireGuard setIsLocked={setIsLocked} />,
+        'vpn-openvpn': <OpenVPN setIsLocked={setIsLocked} />,
+        'vpn-tailscale': <Tailscale setIsLocked={setIsLocked} />,
+        'vpn-netbird': <Netbird setIsLocked={setIsLocked} />,
+        services: null,
+        'services-bmc': <BmcSettingsPage />,
+        'services-rustdesk': inventory?.rustdesk.installed ? <RustDeskControls /> : undefined,
+        system: null,
+        'system-general': <System />,
+        'system-users': <Account />,
+        'system-security': <Security />,
+        'system-date-time': <DateTimeSettings />,
+        'system-recovery': <Recovery />,
+        'system-updates': <Updates />,
+        'system-memory': <Memory />,
+        'system-diagnostics': <Diagnostics />,
+        ai: null,
+        'ai-screen-text': (
+          <ScreenTextSettingsPage onOpenAddons={() => changeTab('software-addons')} />
+        ),
+        'ai-picoclaw': (
+          <PicoclawSettingsPage
+            onOpenAddons={() => changeTab('software-addons')}
+            onOpenChat={() => {
+              closeModal();
+              setPicoclawOpen(true);
+            }}
+          />
+        ),
+        'ai-mcp': <MCP />,
+        software: null,
+        'software-addons': (
+          <Addons
+            onOpenRustDesk={() => changeTab('services-rustdesk')}
+            onOpenBmc={() => changeTab('services-bmc')}
+            onOpenAcme={() => changeTab('system-security')}
+            onOpen={() => {
+              closeModal();
+              setPicoclawOpen(true);
+            }}
+          />
+        ),
+        'software-packages': <Software />
+      }
+    : {};
+  const pages: Partial<Record<BuiltinMenuId, ReactNode>> = {
     dashboard: <Dashboard navigate={changeTab} />,
     video: <VideoSettings setIsLocked={setIsLocked} />,
     appearance: <Appearance />,
     account: isAdmin ? undefined : <Account />,
     about: <About />,
-    ...(isAdmin && {
-      usb: null,
-      'usb-composition': <Usb part="composition" />,
-      'usb-identity': <Usb part="identity" />,
-      network: null,
-      'network-general': <Network />,
-      'network-wifi': <WifiSettings />,
-      'network-ethernet': <EthernetSettings />,
-      'network-bluetooth': hasBluetooth ? <BluetoothSettings /> : undefined,
-      'network-webrtc': <WebRTCSettings />,
-      vpn: <VPNList open={changeTab} />,
-      'vpn-wireguard': <WireGuard setIsLocked={setIsLocked} />,
-      'vpn-openvpn': <OpenVPN setIsLocked={setIsLocked} />,
-      'vpn-tailscale': <Tailscale setIsLocked={setIsLocked} />,
-      'vpn-netbird': <Netbird setIsLocked={setIsLocked} />,
-      services: null,
-      'services-bmc': <BmcSettingsPage />,
-      'services-rustdesk': inventory?.rustdesk.installed ? <RustDeskControls /> : undefined,
-      system: null,
-      'system-general': <System />,
-      'system-users': <Account />,
-      'system-security': <Security />,
-      'system-date-time': <DateTimeSettings />,
-      'system-recovery': <Recovery />,
-      'system-updates': <Updates />,
-      'system-memory': <Memory />,
-      'system-diagnostics': <Diagnostics />,
-      ai: null,
-      'ai-screen-text': (
-        <ScreenTextSettingsPage onOpenAddons={() => changeTab('software-addons')} />
-      ),
-      'ai-picoclaw': (
-        <PicoclawSettingsPage
-          onOpenAddons={() => changeTab('software-addons')}
-          onOpenChat={() => {
-            closeModal();
-            setPicoclawOpen(true);
-          }}
-        />
-      ),
-      'ai-mcp': <MCP />,
-      software: null,
-      'software-addons': (
-        <Addons
-          onOpenRustDesk={() => changeTab('services-rustdesk')}
-          onOpenBmc={() => changeTab('services-bmc')}
-          onOpenAcme={() => changeTab('system-security')}
-          onOpen={() => {
-            closeModal();
-            setPicoclawOpen(true);
-          }}
-        />
-      ),
-      'software-packages': <Software />
-    })
+    ...adminPages
   };
-  const available = orderMenu(builtinMenu).filter((entry) => pages[entry.id] !== undefined);
+  const available = orderMenu(builtinMenu).filter(
+    (entry) => pages[entry.id as BuiltinMenuId] !== undefined
+  );
   const tabs = available
     .filter(
       (entry) =>
@@ -322,7 +330,7 @@ export const Settings = ({
     .map((entry) => ({
       id: entry.id,
       icon: entry.icon ? menuIcons[entry.icon] : undefined,
-      component: pages[entry.id] ?? null,
+      component: pages[entry.id as BuiltinMenuId] ?? null,
       hidden: entry.hidden
     }));
 

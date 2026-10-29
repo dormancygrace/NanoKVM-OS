@@ -20,7 +20,7 @@ export type SettingsMenuEntry = {
   title: { key: string } | { text: string };
 };
 
-export const builtinMenu: SettingsMenuEntry[] = [
+export const builtinMenu = [
   { id: 'dashboard', order: 10, icon: 'dashboard', title: { key: 'dashboard.title' } },
   { id: 'video', order: 20, icon: 'video', title: { key: 'videoSettings.title' } },
 
@@ -107,7 +107,11 @@ export const builtinMenu: SettingsMenuEntry[] = [
   { id: 'appearance', order: 100, icon: 'palette', title: { key: 'settings.appearance.title' } },
   { id: 'account', order: 110, icon: 'user', title: { key: 'settings.account.title' } },
   { id: 'about', order: 120, icon: 'info', title: { key: 'settings.about.title' } }
-];
+] as const satisfies readonly SettingsMenuEntry[];
+
+// The ids of the built-in pages: the page table in index.tsx is keyed by
+// them, so a misspelt id fails type checking instead of hiding a page.
+export type BuiltinMenuId = (typeof builtinMenu)[number]['id'];
 
 // The navigation order: top-level entries by their order, each group's and
 // collection's entries right after it by theirs. An entry whose group or

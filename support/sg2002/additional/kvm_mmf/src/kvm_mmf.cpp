@@ -1522,16 +1522,21 @@ static int mmf_vi_deinit(void)
 
 	const int released = _mmf_release_all_vi_frames();
 	if (released != CVI_SUCCESS) return released;
+	// A picture VPSS did not take back stays the reader's when the group goes
+	// (and its pool cannot be destroyed): return it first, as the VI frames.
+	if (picture_frame_held) {
+		if (CVI_VPSS_ReleaseChnFrame(0, MMF_PICTURE_CHN, &picture_frame) != CVI_SUCCESS) return CVI_FAILURE;
+		picture_frame_held = false;
+	}
 	CVI_S32 s32Ret = CVI_SUCCESS;
 	s32Ret = _mmf_vpss_deinit_new(0);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("_mmf_vpss_deinit_new failed with %#x!\n", s32Ret);
 		return CVI_FAILURE;
 	}
-	// The group and its channels are gone: so are a picture pool's
-	// attachment and a picture it did not take back.
+	// The group and its channels are gone, and with them the picture
+	// pool's attachment; the pool itself is destroyed now.
 	picture_pool_attached = false;
-	picture_frame_held = false;
 	_mmf_release_picture_pool();
 
 	priv.vi_is_inited = false;

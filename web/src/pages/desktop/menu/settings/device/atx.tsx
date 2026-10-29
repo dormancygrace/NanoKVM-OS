@@ -29,7 +29,7 @@ export const Atx = () => {
       .then((rsp) => {
         if (disposed) return;
         if (rsp.code !== 0) setLoadError(true);
-        else setState(rsp.data as api.ATXState);
+        else setState(rsp.data);
       })
       .catch((err) => {
         if (disposed) return;

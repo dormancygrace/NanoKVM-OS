@@ -156,7 +156,8 @@ func (s *Service) RegenerateAPIKey(c *gin.Context) {
 }
 
 // SetHostControl allows or forbids the host control tools (power, virtual
-// media, Wake-on-LAN); the next MCP request sees the change.
+// media, Wake-on-LAN); it answers once the operations running are done, and
+// none starts after that.
 func (s *Service) SetHostControl(c *gin.Context) {
 	var req proto.SetMCPHostControlReq
 	var rsp proto.Response
@@ -166,10 +167,7 @@ func (s *Service) SetHostControl(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
-	cfg, err := updateConfig(func(cfg Config) (Config, error) {
-		cfg.AllowHostControl = *req.Enabled
-		return cfg, nil
-	})
+	cfg, err := setHostControl(*req.Enabled)
 	if err != nil {
 		log.Errorf("failed to save MCP host control: %v", err)
 		rsp.ErrRsp(c, -2, "operation failed")

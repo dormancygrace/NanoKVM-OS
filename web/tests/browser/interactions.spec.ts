@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, CDPSession, Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
 
@@ -19,6 +19,19 @@ async function openKeyboard(page: Page) {
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 const key = (page: Page, code = 'KeyA') => page.locator(`[data-skbtn="${code}"]`).first();
+
+// Keep taps and drags on one CDP session. Mixing Playwright's touchscreen
+// session with a separate drag session can lose the next tap after a swipe.
+async function touchTap(cdp: CDPSession, target: Locator) {
+  await expect(target).toBeVisible();
+  const box = await target.boundingBox();
+  if (!box) throw new Error('touch target not visible');
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }]
+  });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
 
 test.beforeEach(async ({ request }) => {
   await request.post('/__test/reset');
@@ -144,9 +157,10 @@ test.describe('touch', () => {
     request
   }) => {
     await login(page);
-    await page.getByRole('button', { name: 'Open keyboard', exact: true }).tap();
+    const cdp = await page.context().newCDPSession(page);
+    await touchTap(cdp, page.getByRole('button', { name: 'Open keyboard', exact: true }));
     await expect(page.getByRole('dialog')).toBeVisible();
-    await key(page).tap();
+    await touchTap(cdp, key(page));
     await expect.poll(() => reports(request).then((r) => r.some((x) => x[3] === 4))).toBe(true);
     await expect
       .poll(() => reports(request).then((r) => r[r.length - 1]?.slice(1)))
@@ -154,7 +168,6 @@ test.describe('touch', () => {
     const dialog = page.getByRole('dialog');
     const keyBox = await key(page).boundingBox();
     if (!keyBox) throw new Error('key not visible');
-    const cdp = await page.context().newCDPSession(page);
     const kx = keyBox.x + keyBox.width / 2,
       ky = keyBox.y + keyBox.height / 2;
     await cdp.send('Input.dispatchTouchEvent', {
@@ -177,6 +190,7 @@ test.describe('touch', () => {
       type: 'touchMove',
       touchPoints: [{ x, y: y + 35 }]
     });
+    await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 35)');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
     await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
@@ -186,7 +200,7 @@ test.describe('touch', () => {
     });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await expect(dialog).toHaveCount(0);
-    await page.getByRole('button', { name: 'Open keyboard', exact: true }).tap();
+    await touchTap(cdp, page.getByRole('button', { name: 'Open keyboard', exact: true }));
     await expect(page.getByRole('dialog')).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
   });
 });

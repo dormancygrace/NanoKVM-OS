@@ -33,6 +33,7 @@ const server = createServer(async (req, res) => {
     } else return json({ error: 'Unknown test endpoint' }, 404);
     return ok(null);
   }
+  if (pathname === '/api/vm/web-title') return ok({ title: '' });
   if (pathname === '/api/branding')
     return ok({
       title: '',

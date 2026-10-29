@@ -248,7 +248,7 @@ jobs:
           set -e
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-bootloader-activation alpine-sd-image-boot alpine-network alpine-app-wait \
                    alpine-recovery-password alpine-recovery-settings stock-installer alpine-firstboot-storage-errors storage-mount-policy storage-recovery-layout alpine-check-volume alpine-service-deps board-selection usb-state capture-restart \
-                   s15-packaging kvm-system-lifecycle kvm-file-inputs hdmi-detection-cache hdmi-receiver-start lt6911-probe hdmi-sessions \
+                   s15-packaging kvm-system-lifecycle kvm-system-polling kvm-file-inputs hdmi-detection-cache hdmi-receiver-start lt6911-probe hdmi-sessions \
                    mmf-light-link native-bundle-abi capture-colour-switch capture-output-snapshot monitor-edids edid-rgb-range video-pool-native nanokvm-service-stop net-probe server-supervisor oled-detect oled-ip-window wifi-ap-key platform-build kernel-panic-policy compare-outputs release-build release-build-tar apk-resign release-workflow release-storage next-release next-addon-revision addon-packages build-addon assemble-apk-repo package-versions \
                    portrait-edid wide-monitor-edids serial-console-disk startup-aes-policy wifi-selector upstream-watch kernel-update-pr upstream-update-prs \
                    app-trigger keys-repository resource-trim rustdesk-c906-config stock-profile dhcp-options dhcpv6-stop s95-start-prelude ssh-rescue cache-cleanup tpu-lifetime trng usb-flags-migrate usb-layout-start usb-device-class memory-reclaim initramfs-user-key; do

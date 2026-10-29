@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, message, Select } from 'antd';
+import { message, Select } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,8 @@ import { getScreenTextSettings, setScreenTextLanguage, type ScreenTextSettings }
 import { screenTextLanguages } from '@/lib/screen-text.ts';
 import { addonInventoryAtom } from '@/jotai/addons.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
+
+import { CatalogInstallNotice } from '../software/catalog-install';
 
 // Settings > AI > Text recognition: reading the text on the screen with the
 // TPU add-on. The default language is the device's: the web dialog, MCP and
@@ -48,15 +50,10 @@ export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => v
 
   if (inventory && !installed) {
     return (
-      <Alert
-        type="info"
-        showIcon
+      <CatalogInstallNotice
+        name="nanokvm-tpu"
         message={t('settings.ai.screenText.notInstalled')}
-        action={
-          <Button size="small" onClick={onOpenAddons}>
-            {t('settings.ai.screenText.openAddons')}
-          </Button>
-        }
+        onOpenAddons={onOpenAddons}
       />
     );
   }

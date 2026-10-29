@@ -41,7 +41,7 @@
     "react-markdown": "10.1.0",
     "react-responsive": "10.0.1",
     "react-router-dom": "7.18.4",
-    "react-simple-keyboard": "3.8.288",
+    "react-simple-keyboard": "3.8.289",
     "remark-gfm": "4.0.1",
     "yocto-queue": "1.2.2"
   },
@@ -65,7 +65,7 @@
     "tailwindcss": "4.3.3",
     "tsx": "4.23.15",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.72.0",
+    "typescript-eslint": "8.72.1",
     "vite": "8.3.5"
   },
   "msw": {

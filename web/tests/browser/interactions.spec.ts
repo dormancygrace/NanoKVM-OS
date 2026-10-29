@@ -208,7 +208,13 @@ test.describe('touch', () => {
       type: 'touchMove',
       touchPoints: [{ x: kx, y: ky + 20 }]
     });
+    // Dragging a pressed key must not turn into native page scrolling and
+    // cancel its held HID report before the finger is released.
+    await expect.poll(() => reports(request).then((r) => r[r.length - 1]?.[3])).toBe(4);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect
+      .poll(() => reports(request).then((r) => r[r.length - 1]?.slice(1)))
+      .toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
     await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
     const handle = dialog.locator('[aria-hidden="true"]').first();
     const box = await handle.boundingBox();

@@ -7,17 +7,54 @@ static uint64_t oled_monotonic_ms();
 namespace {
 
 constexpr uint64_t OLED_IP_WINDOW_MS = 10U * 60U * 1000U;
+// The addresses last seen and the window's deadline, for the next kvm_system
+// of the same boot: a restart (a package upgrade, nanokvm-app restart) is not
+// a new address. /run starts empty at boot, so a boot still opens a window.
+constexpr char OLED_IP_WINDOW_STATE[] = "/run/kvm_system-oled-ip-window";
 
 struct oled_ip_window_t {
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
     char eth_addr[16] = {};
     char wifi_addr[16] = {};
     uint64_t deadline_ms = 0;
+    bool restored = false;
     bool settings_stamp_known = false;
     struct stat settings_stamp = {};
 };
 
 oled_ip_window_t oled_ip_window;
+
+// Called with the mutex held. One line: eth wifi deadline, "-" for no address.
+void restore_ip_window(uint64_t now)
+{
+    FILE *fp = fopen(OLED_IP_WINDOW_STATE, "r");
+    if (fp == NULL) return;
+    char eth[16] = {};
+    char wifi[16] = {};
+    unsigned long long deadline = 0;
+    const bool parsed = fscanf(fp, "%15s %15s %llu", eth, wifi, &deadline) == 3;
+    fclose(fp);
+    if (!parsed) return;
+    snprintf(oled_ip_window.eth_addr, sizeof(oled_ip_window.eth_addr), "%s", strcmp(eth, "-") ? eth : "");
+    snprintf(oled_ip_window.wifi_addr, sizeof(oled_ip_window.wifi_addr), "%s", strcmp(wifi, "-") ? wifi : "");
+    // CLOCK_MONOTONIC runs on across process restarts within a boot.
+    if (deadline > now && deadline - now <= OLED_IP_WINDOW_MS) oled_ip_window.deadline_ms = deadline;
+}
+
+// Called with the mutex held, only when something changed.
+void save_ip_window()
+{
+    char temporary[sizeof(OLED_IP_WINDOW_STATE) + sizeof(".tmp") - 1];
+    snprintf(temporary, sizeof(temporary), "%s.tmp", OLED_IP_WINDOW_STATE);
+    FILE *fp = fopen(temporary, "w");
+    if (fp == NULL) return;
+    const bool written = fprintf(fp, "%s %s %llu\n",
+        oled_ip_window.eth_addr[0] ? oled_ip_window.eth_addr : "-",
+        oled_ip_window.wifi_addr[0] ? oled_ip_window.wifi_addr : "-",
+        (unsigned long long)oled_ip_window.deadline_ms) > 0;
+    if (fclose(fp) == 0 && written) rename(temporary, OLED_IP_WINDOW_STATE);
+    else unlink(temporary);
+}
 
 bool same_settings_stamp(const struct stat& left, const struct stat& right)
 {
@@ -137,11 +174,18 @@ void oled_ip_window_observe(const char *eth_addr, const char *wifi_addr)
     const bool persistently_disabled = OLED_IsDisabled();
     const uint64_t now = oled_monotonic_ms();
     pthread_mutex_lock(&oled_ip_window.mutex);
+    if (!oled_ip_window.restored) {
+        oled_ip_window.restored = true;
+        restore_ip_window(now);
+    }
 
     const char *next_eth = eth_addr == NULL ? "" : eth_addr;
     const char *next_wifi = wifi_addr == NULL ? "" : wifi_addr;
-    const bool eth_event = next_eth[0] != 0 && strcmp(next_eth, oled_ip_window.eth_addr) != 0;
-    const bool wifi_event = next_wifi[0] != 0 && strcmp(next_wifi, oled_ip_window.wifi_addr) != 0;
+    const bool eth_changed = strcmp(next_eth, oled_ip_window.eth_addr) != 0;
+    const bool wifi_changed = strcmp(next_wifi, oled_ip_window.wifi_addr) != 0;
+    const bool eth_event = next_eth[0] != 0 && eth_changed;
+    const bool wifi_event = next_wifi[0] != 0 && wifi_changed;
+    const uint64_t previous_deadline = oled_ip_window.deadline_ms;
     snprintf(oled_ip_window.eth_addr, sizeof(oled_ip_window.eth_addr), "%s", next_eth);
     snprintf(oled_ip_window.wifi_addr, sizeof(oled_ip_window.wifi_addr), "%s", next_wifi);
 
@@ -152,6 +196,7 @@ void oled_ip_window_observe(const char *eth_addr, const char *wifi_addr)
         // DHCP renewals, address churn, or repeated carrier flaps.
         oled_ip_window.deadline_ms = now + OLED_IP_WINDOW_MS;
     }
+    if (eth_changed || wifi_changed || oled_ip_window.deadline_ms != previous_deadline) save_ip_window();
     pthread_mutex_unlock(&oled_ip_window.mutex);
 }
 

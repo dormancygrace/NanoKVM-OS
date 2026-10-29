@@ -20,17 +20,31 @@ export function KeyboardSheet({
   const panel = useRef<HTMLElement>(null);
   const drag = useRef<{ id: number; y: number } | null>(null);
   const [offset, setOffset] = useState(0);
+  const closeFrame = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     if (!open) return;
     const previous = document.activeElement;
     const sheet = panel.current;
+    let focusedInside = sheet?.contains(document.activeElement) ?? false;
+    const trackFocus = (event: FocusEvent) => {
+      focusedInside = sheet?.contains(event.target as Node) ?? false;
+    };
+    document.addEventListener('focusin', trackFocus);
     return () => {
+      document.removeEventListener('focusin', trackFocus);
       drag.current = null;
+      if (closeFrame.current !== null) cancelAnimationFrame(closeFrame.current);
+      closeFrame.current = null;
       setOffset(0);
-      // Restore focus only if it is still ours, never after the user has
-      // already focused the video or another control behind this sheet.
-      if (previous instanceof HTMLElement && sheet?.contains(document.activeElement)) {
+      // React can remove the portal before layout cleanup, moving the active
+      // element to body without a focusin event. Remember whether focus was
+      // ours, but never steal it from a control chosen outside the sheet.
+      const active = document.activeElement;
+      if (
+        previous instanceof HTMLElement &&
+        (sheet?.contains(active) || (focusedInside && active === document.body))
+      ) {
         previous.focus({ preventScroll: true });
       }
     };
@@ -73,7 +87,14 @@ export function KeyboardSheet({
           const distance = event.clientY - drag.current.y;
           drag.current = null;
           setOffset(0);
-          if (distance >= 64) onClose();
+          if (distance >= 64) {
+            // Keep the native target alive until touchend has bubbled; it is
+            // dispatched after pointerup for the same finger release.
+            closeFrame.current = requestAnimationFrame(() => {
+              closeFrame.current = null;
+              onClose();
+            });
+          }
         }}
         onLostPointerCapture={() => {
           drag.current = null;

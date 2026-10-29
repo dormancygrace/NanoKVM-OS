@@ -91,6 +91,12 @@ holds two fixes for musl. `build.sh` stores the models' command buffers in
 the form the runtime would give them at load (`ocr/cvimodel-dmabuf.c`), which
 saves that step on the device.
 
+A failed TPU run ends the read with exit status 1, never a partial or empty
+result. To check that on a device, build `tests/forward-failure.c` as a
+shared library with the platform's compiler and run
+`tests/forward-failure.sh LIBRARY PICTURE`: it fails the detector's and a
+recognizer's run in turn.
+
 The daily upstream watch (`.github/upstream-watch.json`) opens a
 notification PR for a new PP-OCR generation (PaddleX model list and
 PaddlePaddle on Hugging Face), a new tpu-mlir and new commits on the runtime

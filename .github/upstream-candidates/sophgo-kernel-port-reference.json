@@ -1,0 +1,12 @@
+{
+  "component": "sophgo_kernel_port_reference",
+  "current": "ae7d7584767ff77fc62b095e9cdc66720f3a6aaa",
+  "candidate": "2d84ae43387525b7b05e68d158445dd4b1b11d5a",
+  "candidate_key": "2d84ae43387525b7b05e68d158445dd4b1b11d5a",
+  "status": "pending-review",
+  "upstream": "https://github.com/sophgo/linux_5.10/compare/ae7d7584767ff77fc62b095e9cdc66720f3a6aaa...2d84ae43387525b7b05e68d158445dd4b1b11d5a",
+  "source_path": "firmware/sources.json",
+  "strategy": "review",
+  "evidence": {},
+  "pin_files_updated": []
+}

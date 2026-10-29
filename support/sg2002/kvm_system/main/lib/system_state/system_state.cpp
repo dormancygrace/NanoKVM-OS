@@ -429,19 +429,8 @@ void kvm_update_hdmi_state()
 
 void kvm_update_stream_fps(void)
 {
-	FILE *fp;
-	int file_size;
-	uint8_t RW_Data[10];
-
-	// FPS
-	fp = fopen("/run/nanokvm/now_fps", "r");
-    fseek(fp, 0, SEEK_END);
-    file_size = ftell(fp); 
-    fseek(fp, 0, SEEK_SET);
-    fread(RW_Data, sizeof(char), file_size, fp);
-	fclose(fp);
-	RW_Data[file_size] = 0;
-	kvm_sys_state.now_fps = atoi((char*)RW_Data);
+	// Written by the server; absent until it does, e.g. right after a restart.
+	kvm_sys_state.now_fps = read_integer_file("/run/nanokvm/now_fps", 0);
 }
 
 void kvm_update_stream_type(void)

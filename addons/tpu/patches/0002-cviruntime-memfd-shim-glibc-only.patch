@@ -1,0 +1,26 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] cviruntime: memfd_create shim only for old glibc
+
+The shim tests __GLIBC_PREREQ, which musl does not define, so the
+preprocessor fails before it can decide; musl has memfd_create.
+---
+diff --git a/cviruntime/src/common/section.cpp b/cviruntime/src/common/section.cpp
+index 96c78a65..735ab87a 100644
+--- a/cviruntime/src/common/section.cpp
++++ b/cviruntime/src/common/section.cpp
+@@ -10,8 +10,13 @@
+ #include <runtime/section.hpp>
+ #include <runtime/stream.hpp>
+ 
+-#if (defined(__aarch64__) || defined(__arm__) || (__GNUC__ < 6)) && \
+-	(!defined(__GLIBC__) || !__GLIBC_PREREQ(2, 27))
++/* musl has memfd_create; only old glibc needs the shim. */
++#if defined(__GLIBC__)
++#if (defined(__aarch64__) || defined(__arm__) || (__GNUC__ < 6)) && !__GLIBC_PREREQ(2, 27)
++#define CVI_NEED_MEMFD_SHIM 1
++#endif
++#endif
++#ifdef CVI_NEED_MEMFD_SHIM
+ #include <sys/syscall.h>
+ #include <fcntl.h>
+ 

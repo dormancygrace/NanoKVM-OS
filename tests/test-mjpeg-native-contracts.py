@@ -174,7 +174,24 @@ def check_mjpeg_422_survives_path_switch():
     print('mjpeg 4:2:2 path switch ok')
 
 
+def check_picture_gate():
+    """The OCR picture read is admitted against the protected input geometry, as the JPEG steps:
+    after a pending capture restart, one snapshot; an input over Full HD or not the size asked
+    for is refused before VPSS or a pool is touched; the read runs under a lease on that snapshot."""
+    source = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    body = function_body(source, 'int kvmv_read_bgr_planar(')
+    order = ['pthread_mutex_lock(&vi_mutex);', 'restart_capture_locked();', 'vi_geometry.snapshot();',
+             'return -14;', 'vi_geometry.lease(geometry)', 'return -13;', 'mmf_read_bgr_planar(',
+             'lease.release();', 'pthread_mutex_unlock(&vi_mutex);\n    return result;']
+    positions = [body.index(item) for item in order]
+    assert positions == sorted(positions), list(zip(order, positions))
+    assert body.count('mmf_read_bgr_planar(') == 1
+    assert '1920u * 1080u' in body
+    print('picture geometry gate ok')
+
+
 check_read_img_gates()
+check_picture_gate()
 check_no_gop_setting()
 check_capture_mode_wiring()
 check_vi_buffering_startup()
@@ -182,12 +199,12 @@ check_mjpeg_rate_pair()
 check_mjpeg_422_survives_path_switch()
 
 for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct',
-             'vi-yuv420', 'vpss-demand']:
+             'vi-yuv420', 'vpss-demand', 'picture']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
     if case == 'hevc-direct':
         sources = [repo / 'firmware/probes/hevc-direct-contract.cpp']
-    if case in ('vi-yuv420', 'vpss-demand'):
+    if case in ('vi-yuv420', 'vpss-demand', 'picture'):
         sources = [repo / f'firmware/probes/{case}-contract.cpp']
     if case == 'teardown':
         sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']

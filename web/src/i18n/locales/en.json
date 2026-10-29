@@ -78,6 +78,34 @@
     "noVideo": "Wait for a video frame before taking a screenshot",
     "failed": "Screenshot could not be saved"
   },
+  "screenText": {
+    "read": "Read text on the screen",
+    "captureDisabled": "Enable capture to read text on the screen",
+    "title": "Text on the screen",
+    "dragHint": "Drag over the text to read, or read the whole screen",
+    "reading": "Reading the screen…",
+    "readingHint": "This takes a few seconds",
+    "readSelection": "Read selection",
+    "wholeScreen": "Whole screen",
+    "cancel": "Cancel",
+    "again": "Read again",
+    "newArea": "Select another area",
+    "copy": "Copy",
+    "copied": "Text copied",
+    "copyFailed": "The text could not be copied; select it and copy it by hand",
+    "took": "Read in {{seconds}} s",
+    "empty": "No text found in this area",
+    "failed": "The text could not be read",
+    "busy": "The screen is already being read; try again in a moment",
+    "noSignal": "No HDMI signal",
+    "captureFailed": "The picture of the screen could not be taken; try again",
+    "tooLarge": "Text recognition works up to 1920×1080; lower the computer's resolution",
+    "languages": {
+      "latin": "Latin: English and European languages",
+      "chinese": "Chinese: Simplified and Traditional, Japanese, English",
+      "cyrillic": "Cyrillic: Russian, Ukrainian and others, with English"
+    }
+  },
   "vpn": {
     "rename": "Rename",
     "profileName": "Profile name",
@@ -2021,6 +2049,27 @@
       "confirm": "I reviewed the changes and can reconnect to the device after reboot.",
       "reboot": "Reboot to finish recovery",
       "rebooting": "Recovery queued. The device is rebooting; reconnect afterwards."
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "Text recognition",
+        "language": "Default language",
+        "languageDescription": "Used for reading text on the screen: the toolbar button, MCP and PicoClaw. A read can pick another language.",
+        "notInstalled": "Text recognition needs the TPU add-on.",
+        "openAddons": "Add-ons",
+        "saved": "Language saved",
+        "saveFailed": "The language could not be saved",
+        "noModels": "not installed"
+      },
+      "picoclaw": {
+        "notInstalled": "PicoClaw is not installed.",
+        "model": "Model",
+        "noModel": "No model configured",
+        "openChat": "Open chat",
+        "changeModel": "Change the model",
+        "changeModelDescription": "The API key and base URL are not shown once saved: enter all three to change the model."
+      }
     }
   },
   "picoclaw": {

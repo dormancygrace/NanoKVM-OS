@@ -78,6 +78,34 @@
     "noVideo": "请等待视频画面后再截图",
     "failed": "无法保存截图"
   },
+  "screenText": {
+    "read": "识别屏幕文字",
+    "captureDisabled": "启用采集后才能识别屏幕文字",
+    "title": "屏幕文字",
+    "dragHint": "拖动框选文字，或识别整个屏幕",
+    "reading": "正在识别屏幕…",
+    "readingHint": "需要几秒钟",
+    "readSelection": "识别选区",
+    "wholeScreen": "整个屏幕",
+    "cancel": "取消",
+    "again": "重新识别",
+    "newArea": "选择其他区域",
+    "copy": "复制",
+    "copied": "文字已复制",
+    "copyFailed": "无法复制文字；请选中后手动复制",
+    "took": "识别用时 {{seconds}} 秒",
+    "empty": "此区域未找到文字",
+    "failed": "无法识别文字",
+    "busy": "屏幕正在识别中，请稍后再试",
+    "noSignal": "无 HDMI 信号",
+    "captureFailed": "无法获取屏幕图像，请重试",
+    "tooLarge": "文字识别最高支持 1920×1080；请降低电脑的分辨率",
+    "languages": {
+      "latin": "拉丁字母：英语和欧洲语言",
+      "chinese": "中文：简体和繁体，日语，英语",
+      "cyrillic": "西里尔字母：俄语、乌克兰语等，含英语"
+    }
+  },
   "vpn": {
     "rename": "重命名",
     "profileName": "配置名称",
@@ -2021,6 +2049,27 @@
       "confirm": "我已检查更改，并能在重启后重新连接设备。",
       "reboot": "重启以完成恢复",
       "rebooting": "恢复已排队。设备正在重启；请稍后重新连接。"
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "文字识别",
+        "language": "默认语言",
+        "languageDescription": "用于识别屏幕文字：工具栏按钮、MCP 和 PicoClaw。每次识别可以选择其他语言。",
+        "notInstalled": "文字识别需要 TPU 扩展。",
+        "openAddons": "扩展",
+        "saved": "语言已保存",
+        "saveFailed": "无法保存语言",
+        "noModels": "未安装"
+      },
+      "picoclaw": {
+        "notInstalled": "未安装 PicoClaw。",
+        "model": "模型",
+        "noModel": "尚未配置模型",
+        "openChat": "打开聊天",
+        "changeModel": "更换模型",
+        "changeModelDescription": "保存后不再显示 API 密钥和基础地址：更换模型时请填写全部三项。"
+      }
     }
   },
   "picoclaw": {

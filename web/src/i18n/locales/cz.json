@@ -1702,6 +1702,27 @@
       "description": "Ovládání napájení hostitele pro nástroje pro datová centra, prostřednictvím ATX připojení: Redfish (fence_redfish, Ansible) je součástí NanoKVM OS, IPMI přes LAN (ipmitool, fence_ipmilan) je součástí doplňku.",
       "title": "Redfish a IPMI",
       "removeTitle": "Odebrat doplněk IPMI?"
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "Rozpoznávání textu",
+        "language": "Výchozí jazyk",
+        "languageDescription": "Pro rozpoznávání textu na obrazovce: tlačítko v liště, MCP a PicoClaw. Při čtení lze zvolit jiný jazyk.",
+        "notInstalled": "Rozpoznávání textu potřebuje doplněk TPU.",
+        "openAddons": "Doplňky",
+        "saved": "Jazyk uložen",
+        "saveFailed": "Jazyk se nepodařilo uložit",
+        "noModels": "nenainstalováno"
+      },
+      "picoclaw": {
+        "notInstalled": "PicoClaw není nainstalován.",
+        "model": "Model",
+        "noModel": "Model není nastaven",
+        "openChat": "Otevřít chat",
+        "changeModel": "Změnit model",
+        "changeModelDescription": "Klíč API a základní URL se po uložení nezobrazují: pro změnu modelu vyplňte všechna tři pole."
+      }
     }
   },
   "picoclaw": {
@@ -2197,6 +2218,34 @@
     "failed": "Snímek obrazovky nebylo možné uložit",
     "captureDisabled": "Aby bylo možné pořídit snímek obrazovky, zapněte zachytávání",
     "noVideo": "Před pořízením snímku obrazovky vyčkejte na videosnímek"
+  },
+  "screenText": {
+    "read": "Rozpoznat text na obrazovce",
+    "captureDisabled": "Pro rozpoznání textu zapněte snímání",
+    "title": "Text na obrazovce",
+    "dragHint": "Táhnutím označte text, nebo rozpoznejte celou obrazovku",
+    "reading": "Čtení obrazovky…",
+    "readingHint": "Potrvá to několik sekund",
+    "readSelection": "Rozpoznat výběr",
+    "wholeScreen": "Celá obrazovka",
+    "cancel": "Zrušit",
+    "again": "Rozpoznat znovu",
+    "newArea": "Vybrat jinou oblast",
+    "copy": "Kopírovat",
+    "copied": "Text zkopírován",
+    "copyFailed": "Text se nepodařilo zkopírovat; označte jej a zkopírujte ručně",
+    "took": "Rozpoznáno za {{seconds}} s",
+    "empty": "V této oblasti nebyl nalezen žádný text",
+    "failed": "Text se nepodařilo rozpoznat",
+    "busy": "Obrazovka se již čte; zkuste to za chvíli znovu",
+    "noSignal": "Žádný signál HDMI",
+    "captureFailed": "Obraz obrazovky se nepodařilo získat; zkuste to znovu",
+    "tooLarge": "Rozpoznávání textu funguje do 1920×1080; snižte rozlišení počítače",
+    "languages": {
+      "latin": "Latinka: angličtina a evropské jazyky",
+      "chinese": "Čínština: zjednodušená a tradiční, japonština, angličtina",
+      "cyrillic": "Cyrilice: ruština, ukrajinština a další, s angličtinou"
+    }
   },
   "inputConnection": {
     "connecting": "Připojování k řídícímu kanálu",

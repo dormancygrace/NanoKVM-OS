@@ -1,0 +1,22 @@
+NanoKVM TPU add-on
+
+nanokvm-ocr (ocr/nanokvm-ocr.cpp): GPL-3.0-or-later, part of NanoKVM OS.
+
+The TPU runtime (libcviruntime, libcvikernel, model_runner) is Sophgo's
+cviruntime and cvikernel as ported to dma-buf heaps in
+https://github.com/leafpmpmp/duo-buildroot-sdk-v2 (branch mainline-tpu).
+Sophgo's repositories carry no licence file; the source files carry Sophgo
+or Cvitek copyright notices. Until Sophgo states a licence, this add-on is
+built for testing and not published.
+
+libcnpy: cnpy by Carl Rogers, MIT licence.
+libstdc++, libgcc_s: GCC runtime libraries, GPL-3.0 with the GCC Runtime
+Library Exception.
+flatbuffers (headers, build tool): Apache-2.0.
+
+The OCR models are converted from PaddleOCR (Apache-2.0,
+https://github.com/PaddlePaddle/PaddleOCR): PP-OCRv6 medium text detection,
+PP-OCRv6 small and medium text recognition (as they are, and with the
+output narrowed to Latin letters) and Cyrillic PP-OCRv5 mobile text
+recognition (affine blocks folded into the convolutions), with their
+dictionaries.

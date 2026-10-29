@@ -43,6 +43,7 @@ import { getMediaSize, isInputRegionCompatible, isMediaReady } from './screen/ge
 import { InputRegionOverlay } from './screen/input-region-overlay.tsx';
 import { ManualRegion } from './screen/manual-region.tsx';
 import { preloadPlayer } from './screen/players.ts';
+import { ScreenTextOverlay } from './screen/screen-text-overlay.tsx';
 import { UpdateNotification } from './update-notification.tsx';
 import { VideoRecovery } from './video-recovery.tsx';
 
@@ -469,6 +470,7 @@ export const Desktop = () => {
               <AutoRegion />
               <ManualRegion />
               <InputRegionOverlay />
+              <ScreenTextOverlay />
               <Mouse />
               {usbInput.keyboard && <Keyboard />}
             </>

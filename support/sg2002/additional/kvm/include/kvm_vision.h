@@ -95,6 +95,16 @@ int kvmv_set_capture_parked(uint8_t parked);
 // Whether disabled VPSS outputs still own pools awaiting reclamation.
 int kvmv_capture_reclaim_pending(void);
 
+/* One picture of the screen, scaled by VPSS to width x height (even, at most
+   1920 wide), as 8-bit B, G and R planes one after the other: the input
+   layout of the TPU models. 0; -10 without an HDMI cable; -11 while a new
+   input size is being detected and -3 when VPSS gave no picture in time
+   (both worth another try); -12 when the input's resolution cannot be
+   captured; -13 when the input is no longer width x height (read its size
+   again); -14 when the input is larger than Full HD; other values < 0 on
+   other failures. */
+int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size);
+
 #ifdef __cplusplus
 }
 #endif

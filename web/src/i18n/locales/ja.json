@@ -78,6 +78,34 @@
     "noVideo": "スクリーンショットを撮る前に映像フレームが表示されるまでお待ちください",
     "failed": "スクリーンショットを保存できませんでした"
   },
+  "screenText": {
+    "read": "画面の文字を認識",
+    "captureDisabled": "画面の文字を認識するにはキャプチャを有効にしてください",
+    "title": "画面の文字",
+    "dragHint": "文字をドラッグで囲むか、画面全体を認識します",
+    "reading": "画面を読み取り中…",
+    "readingHint": "数秒かかります",
+    "readSelection": "選択範囲を認識",
+    "wholeScreen": "画面全体",
+    "cancel": "キャンセル",
+    "again": "もう一度認識",
+    "newArea": "別の範囲を選択",
+    "copy": "コピー",
+    "copied": "文字をコピーしました",
+    "copyFailed": "文字をコピーできませんでした。選択して手動でコピーしてください",
+    "took": "{{seconds}} 秒で認識",
+    "empty": "この範囲に文字が見つかりません",
+    "failed": "文字を認識できませんでした",
+    "busy": "画面はすでに読み取り中です。しばらくしてからお試しください",
+    "noSignal": "HDMI 信号がありません",
+    "captureFailed": "画面の画像を取得できませんでした。もう一度お試しください",
+    "tooLarge": "文字認識は 1920×1080 までです。コンピューターの解像度を下げてください",
+    "languages": {
+      "latin": "ラテン文字：英語とヨーロッパの言語",
+      "chinese": "中国語：簡体字と繁体字、日本語、英語",
+      "cyrillic": "キリル文字：ロシア語、ウクライナ語など（英語を含む）"
+    }
+  },
   "vpn": {
     "rename": "名前を変更",
     "profileName": "プロファイル名",
@@ -2021,6 +2049,27 @@
       "confirm": "変更を確認し、再起動後にデバイスへ再接続できます。",
       "reboot": "再起動して完了",
       "rebooting": "復元を予約しました。デバイスが再起動しています。その後、再接続してください。"
+    },
+    "ai": {
+      "title": "AI",
+      "screenText": {
+        "title": "文字認識",
+        "language": "既定の言語",
+        "languageDescription": "画面の文字認識に使います：ツールバーのボタン、MCP、PicoClaw。認識ごとに別の言語も選べます。",
+        "notInstalled": "文字認識には TPU アドオンが必要です。",
+        "openAddons": "アドオン",
+        "saved": "言語を保存しました",
+        "saveFailed": "言語を保存できませんでした",
+        "noModels": "未インストール"
+      },
+      "picoclaw": {
+        "notInstalled": "PicoClaw はインストールされていません。",
+        "model": "モデル",
+        "noModel": "モデルが設定されていません",
+        "openChat": "チャットを開く",
+        "changeModel": "モデルを変更",
+        "changeModelDescription": "API キーとベース URL は保存後に表示されません。モデルを変更するには 3 項目すべてを入力してください。"
+      }
     }
   },
   "picoclaw": {

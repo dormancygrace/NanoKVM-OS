@@ -921,6 +921,34 @@ static int _destroy_vb_pool(uint32_t pool_id)
 	return 0;
 }
 
+// VPSS channel 2 serves one picture of the screen (mmf_read_bgr_planar).
+#define MMF_PICTURE_CHN 2
+// The picture's pool until it is destroyed. A late VPSS job can keep it busy
+// after the channel is disabled: it is then kept and destroyed by the next
+// read, which waits for that (as _mmf_reclaim_disabled_pool does for outputs).
+static int picture_pool = -1;
+static bool picture_pool_attached = false;
+// A picture VPSS did not take back: it holds a block of the pool, so it is
+// returned first, by the next read, before the pool goes.
+static VIDEO_FRAME_INFO_S picture_frame;
+static bool picture_frame_held = false;
+
+static int _mmf_release_picture_pool(void)
+{
+	if (picture_frame_held) {
+		if (CVI_VPSS_ReleaseChnFrame(0, MMF_PICTURE_CHN, &picture_frame) != CVI_SUCCESS) return CVI_FAILURE;
+		picture_frame_held = false;
+	}
+	if (picture_pool < 0) return CVI_SUCCESS;
+	if (picture_pool_attached) {
+		if (CVI_VPSS_DetachVbPool(0, MMF_PICTURE_CHN) != CVI_SUCCESS) return CVI_FAILURE;
+		picture_pool_attached = false;
+	}
+	if (_destroy_vb_pool(picture_pool) != CVI_SUCCESS) return CVI_FAILURE;
+	picture_pool = -1;
+	return CVI_SUCCESS;
+}
+
 // A disabled output has no VPSS producer. Return its private pool after the
 // last old VPSS lease, without touching the common pool used by VI/VENC.
 // Called on the capture lock; NV16 JPEG's independent release does not enter.
@@ -1174,7 +1202,10 @@ static int _mmf_deinit(void)
 		CVI_VENC_ResetChn(ch);
 		if (CVI_VENC_DestroyChn(ch) == CVI_SUCCESS) priv.enc_jpg_destroy_failed = false;
 	}
-	mmf_vi_deinit();
+	// A picture VPSS will not take back keeps the group, its pool and the
+	// media system: fail, so the caller keeps its reference and tries again.
+	const int vi_deinit = mmf_vi_deinit();
+	if (vi_deinit != CVI_SUCCESS) return vi_deinit;
 	_mmf_sys_exit();
 	return CVI_SUCCESS;
 }
@@ -1494,12 +1525,22 @@ static int mmf_vi_deinit(void)
 
 	const int released = _mmf_release_all_vi_frames();
 	if (released != CVI_SUCCESS) return released;
+	// A picture VPSS did not take back stays the reader's when the group goes
+	// (and its pool cannot be destroyed): return it first, as the VI frames.
+	if (picture_frame_held) {
+		if (CVI_VPSS_ReleaseChnFrame(0, MMF_PICTURE_CHN, &picture_frame) != CVI_SUCCESS) return CVI_FAILURE;
+		picture_frame_held = false;
+	}
 	CVI_S32 s32Ret = CVI_SUCCESS;
 	s32Ret = _mmf_vpss_deinit_new(0);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("_mmf_vpss_deinit_new failed with %#x!\n", s32Ret);
 		return CVI_FAILURE;
 	}
+	// The group and its channels are gone, and with them the picture
+	// pool's attachment; the pool itself is destroyed now.
+	picture_pool_attached = false;
+	_mmf_release_picture_pool();
 
 	priv.vi_is_inited = false;
 
@@ -2695,6 +2736,93 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
         frame->stVFrame.u32Height, frame->stVFrame.enPixelFormat, frame);
     if (copied == CVI_SUCCESS) priv.venc_input_vi_ch[ch] = vi_ch;
     return copied;
+}
+
+/*
+ * One picture of the screen as 8-bit B, G and R planes for the TPU models,
+ * whose input layout this is: no JPEG and no colour conversion on the CPU.
+ * Capture outputs hold VPSS channels 0 and 1 (MMF_VI_MAX_CHN), so channel 2
+ * (up to 1920 wide) serves the picture for the length of the call: it is set
+ * up here, disabled as soon as it has delivered, and its pool destroyed.
+ * Video read straight from the VI may have left the VI unbound from VPSS; it
+ * is bound for the call and unbound again. The capture owner serializes calls.
+ */
+int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int timeout_ms)
+{
+	const int chn = MMF_PICTURE_CHN;
+	if (width < 16 || height < 16 || width > 1920 || height > 1920 || width % 2 || height % 2
+		|| !out || size < (size_t)width * height * 3) return -1;
+	if (!priv.mmf_used_cnt || !priv.vi_is_inited) return -2;
+	// The previous read's pool is still busy: like a picture not yet there.
+	if (_mmf_release_picture_pool() != CVI_SUCCESS) return -3;
+	VPSS_CHN_ATTR_S attr = {};
+	attr.u32Width = width;
+	attr.u32Height = height;
+	attr.enVideoFormat = VIDEO_FORMAT_LINEAR;
+	attr.enPixelFormat = PIXEL_FORMAT_BGR_888_PLANAR;
+	attr.stFrameRate.s32SrcFrameRate = -1;
+	attr.stFrameRate.s32DstFrameRate = -1;
+	attr.u32Depth = 1;
+	attr.bMirror = !g_priv.vi_hmirror[0];
+	attr.bFlip = !g_priv.vi_vflip[0];
+	attr.stAspectRatio.enMode = ASPECT_RATIO_NONE; // the whole screen, to the size asked
+	attr.stNormalize.bEnable = CVI_FALSE;
+	VPSS_CROP_INFO_S crop = {};
+	crop.bEnable = CVI_FALSE;
+	if (CVI_VPSS_SetChnAttr(0, chn, &attr) != CVI_SUCCESS || CVI_VPSS_SetChnCrop(0, chn, &crop) != CVI_SUCCESS)
+		return -1;
+	const uint32_t bytes = COMMON_GetPicBufferSize(width, height, PIXEL_FORMAT_BGR_888_PLANAR,
+		DATA_BITWIDTH_8, COMPRESS_MODE_NONE, DEFAULT_ALIGN);
+	const int pool = _create_vb_pool(bytes, 2);
+	if (pool < 0) {
+		note_video_memory(true);
+		return -1;
+	}
+	picture_pool = pool;
+	const bool was_bound = priv.vi_source_bound;
+	int result = -1;
+	picture_pool_attached = CVI_VPSS_AttachVbPool(0, chn, pool) == CVI_SUCCESS;
+	if (picture_pool_attached && _mmf_vi_bind_vpss(true) == CVI_SUCCESS
+		&& CVI_VPSS_EnableChn(0, chn) == CVI_SUCCESS) {
+		VIDEO_FRAME_INFO_S frame = {};
+		result = CVI_VPSS_GetChnFrame(0, chn, &frame, timeout_ms) == CVI_SUCCESS ? 0 : -3;
+		CVI_VPSS_DisableChn(0, chn);
+		if (result == 0) {
+			const VIDEO_FRAME_S &v = frame.stVFrame;
+			const uint64_t total = (uint64_t)v.u32Length[0] + v.u32Length[1] + v.u32Length[2];
+			bool layout = (int)v.u32Width == width && (int)v.u32Height == height && v.u64PhyAddr[0]
+				&& v.u64PhyAddr[1] == v.u64PhyAddr[0] + v.u32Length[0]
+				&& v.u64PhyAddr[2] == v.u64PhyAddr[1] + v.u32Length[1];
+			// Every row the copy reads lies inside its plane.
+			for (int c = 0; c < 3; ++c)
+				layout = layout && v.u32Stride[c] >= (CVI_U32)width
+					&& v.u32Length[c] >= (uint64_t)v.u32Stride[c] * (height - 1) + width;
+			// CVI_SYS_MmapCache invalidates the newly mapped range.
+			uint8_t *mapped = layout ? (uint8_t *)CVI_SYS_MmapCache(v.u64PhyAddr[0], total) : NULL;
+			if (mapped) {
+				const uint8_t *plane = mapped;
+				for (int c = 0; c < 3; ++c) {
+					for (int y = 0; y < height; ++y)
+						memcpy(out + ((size_t)c * height + y) * width, plane + (size_t)y * v.u32Stride[c], width);
+					plane += v.u32Length[c];
+				}
+				CVI_SYS_Munmap(mapped, total);
+			} else {
+				result = -1;
+			}
+			if (CVI_VPSS_ReleaseChnFrame(0, chn, &frame) != CVI_SUCCESS) {
+				picture_frame = frame;
+				picture_frame_held = true;
+				printf("[mmf] picture not taken back by VPSS; retried by the next read\n");
+			}
+		}
+	} else {
+		CVI_VPSS_DisableChn(0, chn);
+	}
+	if (_mmf_release_picture_pool() != CVI_SUCCESS)
+		printf("[mmf] picture pool %d still busy; released by the next read\n", pool);
+	if (!was_bound) _mmf_vi_bind_vpss(false);
+	return result;
 }
 
 int mmf_vi_input_fps(void) {

@@ -163,7 +163,6 @@ export function getPowerConfirm() {
 export function setPowerConfirm(enabled: boolean) {
   localStorage.setItem(POWER_CONFIRM_KEY, String(enabled));
 }
-
 // Lowest latency unless this browser chose smooth playback.
 export function getDirectPlayback(): DirectPlayback {
   return localStorage.getItem('direct-playback') === 'paced' ? 'paced' : 'immediate';

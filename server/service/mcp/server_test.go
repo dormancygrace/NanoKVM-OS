@@ -27,6 +27,15 @@ func (s fakeSnapshotter) Capture(context.Context, SnapshotRequest) (Snapshot, er
 	return s.snapshot, s.err
 }
 
+type fakeTextReader struct{}
+
+func (fakeTextReader) Languages() []string { return []string{"latin", "chinese", "cyrillic"} }
+
+func (fakeTextReader) ReadText(context.Context, string, *ScreenBox) (ScreenText, error) {
+	return ScreenText{Language: "cyrillic", Width: 1920, Height: 1080, Text: "Привет, мир",
+		Pieces: []ScreenTextPiece{{Text: "Привет, мир", Score: 0.9, Box: ScreenBox{X: 0.4, Y: 0.5, W: 0.1, H: 0.025}}}}, nil
+}
+
 func TestScreenshotHandlerReturnsImage(t *testing.T) {
 	handler := screenshotHandler(nil, fakeSnapshotter{snapshot: Snapshot{
 		OK: true, Width: 800, Height: 600, JPEG: []byte{0xff, 0xd8, 0xff},
@@ -95,7 +104,7 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 	handler := lazyMCPHandler(func() http.Handler {
 		return newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(hid), fakeSnapshotter{snapshot: Snapshot{
 			OK: true, Width: 800, Height: 600, JPEG: []byte{0xff, 0xd8, 0xff},
-		}})
+		}}, fakeTextReader{})
 	})
 
 	request := func(method string, body string, sessionID string) *httptest.ResponseRecorder {
@@ -132,12 +141,12 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 	if tools.Code != http.StatusOK {
 		t.Fatalf("tools/list status=%d body=%s", tools.Code, tools.Body.String())
 	}
-	for _, name := range []string{"cube_type_text", "cube_press_keys", "cube_move_mouse", "cube_click_mouse", "cube_scroll_mouse", "cube_screenshot"} {
+	for _, name := range []string{"cube_type_text", "cube_press_keys", "cube_move_mouse", "cube_click_mouse", "cube_scroll_mouse", "cube_screenshot", "cube_screen_text"} {
 		if !strings.Contains(tools.Body.String(), `"name":"`+name+`"`) {
 			t.Fatalf("tools/list missing %s: %s", name, tools.Body.String())
 		}
 	}
-	for _, name := range []string{"type_text", "press_keys", "move_mouse", "click_mouse", "scroll_mouse", "screenshot"} {
+	for _, name := range []string{"type_text", "press_keys", "move_mouse", "click_mouse", "scroll_mouse", "screenshot", "screen_text"} {
 		if strings.Contains(tools.Body.String(), `"name":"`+name+`"`) {
 			t.Fatalf("tools/list exposes unprefixed tool %s: %s", name, tools.Body.String())
 		}
@@ -154,6 +163,8 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		{6, "cube_click_mouse", `{"button":"left","clicks":1}`},
 		{7, "cube_scroll_mouse", `{"deltaY":1}`},
 		{8, "cube_screenshot", `{"quality":75}`},
+		{18, "cube_screen_text", `{}`},
+		{19, "cube_screen_text", `{"language":"cyrillic","area":{"x":0.1,"y":0.1,"w":0.5,"h":0.5}}`},
 	}
 	for _, call := range calls {
 		body := `{"jsonrpc":"2.0","id":` + fmt.Sprint(call.id) + `,"method":"tools/call","params":{"name":"` + call.name + `","arguments":` + call.arguments + `}}`
@@ -163,6 +174,9 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		}
 		if call.name == "cube_screenshot" && !strings.Contains(response.Body.String(), "image/jpeg") {
 			t.Fatalf("screenshot response missing image: %s", response.Body.String())
+		}
+		if call.name == "cube_screen_text" && !strings.Contains(response.Body.String(), `Привет, мир`) {
+			t.Fatalf("screen text response missing the lines: %s", response.Body.String())
 		}
 		if call.name == "cube_screenshot" && strings.HasPrefix(response.Body.String(), "data:") {
 			t.Fatalf("screenshot unexpectedly used SSE response: %s", response.Body.String())
@@ -183,6 +197,9 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		{15, "cube_click_mouse", `{"mode":"absolute","button":"middle","x":0.5,"y":0.5}`},
 		{16, "cube_click_mouse", `{"button":"back"}`},
 		{17, "cube_press_keys", `{"keys":["MediaPlayPause"]}`},
+		{20, "cube_screen_text", `{"language":"korean"}`},
+		{21, "cube_screen_text", `{"area":{"x":0.8,"y":0.1,"w":0.5,"h":0.5}}`},
+		{22, "cube_screen_text", `{"area":{"x":0.1,"y":0.1}}`},
 	}
 	for _, call := range invalidCalls {
 		body := `{"jsonrpc":"2.0","id":` + fmt.Sprint(call.id) + `,"method":"tools/call","params":{"name":"` + call.name + `","arguments":` + call.arguments + `}}`
@@ -201,7 +218,7 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 
 func TestMCPHandlerRejectsCrossOriginBrowserRequests(t *testing.T) {
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	handler := http.NewCrossOriginProtection().Handler(newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil))
+	handler := http.NewCrossOriginProtection().Handler(newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil))
 
 	request := func(origin string) *httptest.ResponseRecorder {
 		recorder := httptest.NewRecorder()
@@ -221,7 +238,7 @@ func TestMCPHandlerRejectsCrossOriginBrowserRequests(t *testing.T) {
 
 func TestMCPHandlerRejectsOversizedRequestBody(t *testing.T) {
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	handler := newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil)
+	handler := newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil)
 	recorder := httptest.NewRecorder()
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -442,13 +459,13 @@ func BenchmarkMCPConstruction(b *testing.B) {
 	b.Run("eager", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			benchmarkMCPHandler = newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil)
+			benchmarkMCPHandler = newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil)
 		}
 	})
 	b.Run("deferred", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			benchmarkMCPHandler = NewMCPHandler(control, nil)
+			benchmarkMCPHandler = NewMCPHandler(control, nil, nil)
 		}
 	})
 }

@@ -27,13 +27,16 @@ import {
   LayoutDashboardIcon,
   LockIcon,
   MemoryStickIcon,
+  MessageSquareIcon,
   NetworkIcon,
   PackageIcon,
   PaletteIcon,
   RadioTowerIcon,
+  ScanTextIcon,
   ServerIcon,
   SettingsIcon,
   ShieldIcon,
+  SparklesIcon,
   StethoscopeIcon,
   UsbIcon,
   UserRoundIcon,
@@ -81,6 +84,12 @@ const About = lazyPage(() => import('./about').then((module) => ({ default: modu
 const Account = lazyPage(() => import('./account').then((module) => ({ default: module.Account })));
 const Appearance = lazyPage(() =>
   import('./appearance').then((module) => ({ default: module.Appearance }))
+);
+const PicoclawSettingsPage = lazyPage(() =>
+  import('./ai/picoclaw.tsx').then((module) => ({ default: module.PicoclawSettingsPage }))
+);
+const ScreenTextSettingsPage = lazyPage(() =>
+  import('./ai/screen-text.tsx').then((module) => ({ default: module.ScreenTextSettingsPage }))
 );
 const Dashboard = lazyPage(() =>
   import('./dashboard').then((module) => ({ default: module.Dashboard }))
@@ -281,13 +290,32 @@ export const Settings = ({
           },
           { id: 'system-recovery', icon: <DownloadIcon size={16} />, component: <Recovery /> },
           { id: 'system-updates', icon: <DownloadIcon size={16} />, component: <Updates /> },
-          { id: 'system-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
           { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
           {
             id: 'system-diagnostics',
             icon: <StethoscopeIcon size={16} />,
             component: <Diagnostics />
           },
+          { id: 'ai', icon: <SparklesIcon size={16} />, component: null },
+          {
+            id: 'ai-screen-text',
+            icon: <ScanTextIcon size={16} />,
+            component: <ScreenTextSettingsPage onOpenAddons={() => changeTab('software-addons')} />
+          },
+          {
+            id: 'ai-picoclaw',
+            icon: <MessageSquareIcon size={16} />,
+            component: (
+              <PicoclawSettingsPage
+                onOpenAddons={() => changeTab('software-addons')}
+                onOpenChat={() => {
+                  closeModal();
+                  setPicoclawOpen(true);
+                }}
+              />
+            )
+          },
+          { id: 'ai-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
           { id: 'software', icon: <PackageIcon size={16} />, component: null },
           {
             id: 'software-addons',
@@ -491,7 +519,10 @@ export const Settings = ({
     if (id === 'system-date-time') return t('dateTime.title');
     if (id === 'system-recovery') return t('settings.recovery.title');
     if (id === 'system-updates') return t('settings.updates.title');
-    if (id === 'system-mcp') return t('settings.mcp.title');
+    if (id === 'ai') return t('settings.ai.title');
+    if (id === 'ai-screen-text') return t('settings.ai.screenText.title');
+    if (id === 'ai-picoclaw') return 'PicoClaw';
+    if (id === 'ai-mcp') return t('settings.mcp.title');
     if (id === 'system-memory') return t('settings.memory.title');
     if (id === 'system-diagnostics') return t('settings.system.diagnostics.title');
     if (id === 'software') return t('settings.software.title');

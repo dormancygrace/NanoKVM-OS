@@ -9,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+
+	mcpservice "NanoKVM-Server/service/mcp"
 )
 
 // JSON-RPC 2.0 types for MCP HTTP transport
@@ -84,6 +86,37 @@ var mcpToolDefinitions = []map[string]interface{}{
 			"required": []string{"actions"},
 		},
 	},
+	{
+		"name": "kvm_screen_text",
+		"description": "Read the text on the downstream remote host's screen (OCR on the NanoKVM's TPU; needs the TPU add-on, " +
+			"inputs up to 1920x1080; takes 3-15 s). Returns the lines in reading order and their pieces with boxes in " +
+			"normalized [0,1] coordinates, as kvm_actions uses: click the middle of a box to click that text.",
+		"inputSchema": map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"language": map[string]interface{}{
+					"type": "string",
+					"enum": []string{"latin", "chinese", "cyrillic"},
+					"description": "latin (English and European languages), chinese (Simplified and Traditional Chinese, " +
+						"Japanese, English) or cyrillic (Russian, Ukrainian and others, with English); omitted, the device's default",
+				},
+				"area": map[string]interface{}{
+					"type":        "object",
+					"description": "Read only this part of the screen (normalized): it is read at full resolution, so small text is found",
+					"properties": map[string]interface{}{
+						"x": map[string]interface{}{"type": "number"}, "y": map[string]interface{}{"type": "number"},
+						"w": map[string]interface{}{"type": "number"}, "h": map[string]interface{}{"type": "number"},
+					},
+					"required": []string{"x", "y", "w", "h"},
+				},
+			},
+		},
+	},
+}
+
+// SetTextReader gives kvm_screen_text the OCR of the TPU add-on.
+func (s *Service) SetTextReader(reader mcpservice.ScreenTextReader) {
+	s.textReader = reader
 }
 
 // MCPHandler handles MCP HTTP transport (JSON-RPC 2.0 over POST).
@@ -198,6 +231,9 @@ func (s *Service) mcpToolsCall(req jsonRPCRequest, c *gin.Context) jsonRPCRespon
 	switch params.Name {
 	case "kvm_screenshot":
 		return s.mcpScreenshot(req, params.Arguments, c)
+	case "kvm_screen_text":
+		// Reading is no input: like the screenshot, it needs no control mode.
+		return s.mcpScreenText(req, params.Arguments, c)
 	case "kvm_actions":
 		releaseMode, modeErr := s.acquireControlMode()
 		if modeErr != nil {
@@ -271,6 +307,36 @@ func (s *Service) mcpScreenshot(req jsonRPCRequest, args json.RawMessage, c *gin
 				"capture_width":  meta.CaptureWidth,
 				"capture_height": meta.CaptureHeight,
 			},
+		},
+	}
+}
+
+func (s *Service) mcpScreenText(req jsonRPCRequest, args json.RawMessage, c *gin.Context) jsonRPCResponse {
+	if s.textReader == nil {
+		return mcpToolError(req, mcpservice.ErrNoTextReader.Error())
+	}
+	var params struct {
+		Language string                `json:"language"`
+		Area     *mcpservice.ScreenBox `json:"area"`
+	}
+	if len(args) > 0 {
+		if err := json.Unmarshal(args, &params); err != nil {
+			return mcpToolError(req, "invalid screen text arguments")
+		}
+	}
+	if a := params.Area; a != nil && (a.X < 0 || a.Y < 0 || a.W <= 0 || a.H <= 0 || a.X+a.W > 1 || a.Y+a.H > 1) {
+		return mcpToolError(req, "area must be non-empty and lie within the screen")
+	}
+	text, err := s.textReader.ReadText(c.Request.Context(), params.Language, params.Area)
+	if err != nil {
+		return mcpToolError(req, err.Error())
+	}
+	resultJSON, _ := json.Marshal(mcpservice.ScreenTextResult{OK: true, ScreenText: text})
+	return jsonRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]interface{}{
+			"content": []map[string]interface{}{{"type": "text", "text": string(resultJSON)}},
 		},
 	}
 }

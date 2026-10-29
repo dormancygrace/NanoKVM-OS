@@ -4,6 +4,7 @@ export { Capture } from './capture';
 export { DownloadImage } from './download.tsx';
 export { Image } from './image';
 export { Picoclaw } from './picoclaw';
+export { ScreenText } from './screen-text.tsx';
 export { Script } from './script';
 export { Terminal } from './terminal';
 export { UsbMenu } from './usb';

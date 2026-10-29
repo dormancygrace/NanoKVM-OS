@@ -2106,6 +2106,48 @@ static int set_capture_parked_locked(bool parked)
     }, [](bool enabled) { return cam->set_enabled(enabled); });
 }
 
+int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size)
+{
+    pthread_mutex_lock(&vi_mutex);
+    // The same states the stream reader reports (kvmv_read_img): no cable,
+    // then a capture that is changing or cannot run.
+    if (__atomic_load_n(&kvmv_cfg.hdmi_cable_state, __ATOMIC_ACQUIRE) == 0) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -10;
+    }
+    if (kvmv_cfg.hdmi_res_err == ERROR_RES || kvmv_cfg.hdmi_res_type == UNSUPPORT_RES) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -12;
+    }
+    if (kvmv_cfg.vi_detect_state == 1) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -11;
+    }
+    // A new input size seen without a viewer: restart the capture for it, as
+    // the stream reader would (check_kvmv), so VPSS gives the new picture.
+    if (kvmv_cfg.reopen_cam_flag.exchange(0) == 1) restart_capture_locked();
+    // Admitted against the protected input geometry (geometry_gate.hpp), as
+    // the JPEG steps are: the size asked for is the input's (even), and the
+    // input is at most Full HD, whose video buffers leave the models room.
+    // The lease keeps the geometry from changing until the picture is taken.
+    const nanokvm::GeometrySnapshot geometry = vi_geometry.snapshot();
+    if (uint32_t(geometry.width) * geometry.height > 1920u * 1080u || geometry.width > 1920
+        || geometry.height > 1920) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -14;
+    }
+    nanokvm::GeometryGate::Lease lease;
+    if ((geometry.width & ~1) != width || (geometry.height & ~1) != height
+        || !(lease = vi_geometry.lease(geometry))) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -13;
+    }
+    const int result = mmf_read_bgr_planar(width, height, out, size, 500);
+    lease.release();
+    pthread_mutex_unlock(&vi_mutex);
+    return result;
+}
+
 int kvmv_set_capture_parked(uint8_t parked)
 {
     pthread_mutex_lock(&vi_mutex);

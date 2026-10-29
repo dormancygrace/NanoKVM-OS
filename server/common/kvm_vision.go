@@ -25,6 +25,11 @@ package common
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_parked");
         return fn ? fn(parked) : -1;
     }
+    static int read_bgr_planar(unsigned short width, unsigned short height, unsigned char *out, unsigned int size) {
+        int (*fn)(unsigned short, unsigned short, unsigned char *, unsigned int) =
+            (int (*)(unsigned short, unsigned short, unsigned char *, unsigned int))dlsym(RTLD_DEFAULT, "kvmv_read_bgr_planar");
+        return fn ? fn(width, height, out, size) : -9;
+    }
 */
 import "C"
 import (
@@ -34,6 +39,7 @@ import (
 	"os/exec"
 	"sync"
 	"time"
+	"unsafe"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -221,6 +227,38 @@ func (k *KvmVision) SetCaptureParked(parked bool) int {
 	}
 	defer k.pauseCaptureLocked()()
 	return int(C.set_capture_parked(C.uchar(boolToInt(parked))))
+}
+
+// ReadBGRPlanar returns one picture of the screen scaled by VPSS to width x
+// height (even, at most 1920 wide) as B, G and R planes, the TPU models' input
+// layout. The capture must run: hold a capture lease while reading.
+func (k *KvmVision) ReadBGRPlanar(width, height int) ([]byte, error) {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+	if k.closed {
+		return nil, ErrPlanarPictureUnavailable
+	}
+	out := make([]byte, width*height*3)
+	switch result := C.read_bgr_planar(C.ushort(width), C.ushort(height), (*C.uchar)(unsafe.Pointer(&out[0])), C.uint(len(out))); result {
+	case 0:
+		return out, nil
+	case -9:
+		return nil, ErrPlanarPictureUnavailable
+	case -3:
+		return nil, ErrPlanarPictureTimeout
+	case -10:
+		return nil, ErrPlanarPictureNoSignal
+	case -11:
+		return nil, ErrPlanarCaptureNotReady
+	case -12:
+		return nil, ErrPlanarCaptureUnsupported
+	case -13:
+		return nil, ErrPlanarInputChanged
+	case -14:
+		return nil, ErrPlanarInputTooLarge
+	default:
+		return nil, fmt.Errorf("no picture of the screen (%d)", int(result))
+	}
 }
 
 // CaptureReclaimPending reports disabled outputs that still own private pools.

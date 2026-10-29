@@ -78,6 +78,34 @@
     "noVideo": "Espera a que llegue un fotograma de vídeo antes de hacer una captura de pantalla",
     "failed": "No se pudo guardar la captura de pantalla"
   },
+  "screenText": {
+    "read": "Reconocer texto en la pantalla",
+    "captureDisabled": "Active la captura para reconocer texto en la pantalla",
+    "title": "Texto en la pantalla",
+    "dragHint": "Arrastre sobre el texto o reconozca toda la pantalla",
+    "reading": "Leyendo la pantalla…",
+    "readingHint": "Esto tarda unos segundos",
+    "readSelection": "Reconocer selección",
+    "wholeScreen": "Toda la pantalla",
+    "cancel": "Cancelar",
+    "again": "Reconocer de nuevo",
+    "newArea": "Seleccionar otra zona",
+    "copy": "Copiar",
+    "copied": "Texto copiado",
+    "copyFailed": "No se pudo copiar el texto; selecciónelo y cópielo a mano",
+    "took": "Reconocido en {{seconds}} s",
+    "empty": "No se encontró texto en esta zona",
+    "failed": "No se pudo reconocer el texto",
+    "busy": "La pantalla ya se está leyendo; inténtelo de nuevo en un momento",
+    "noSignal": "Sin señal HDMI",
+    "captureFailed": "No se pudo capturar la imagen de la pantalla; vuelve a intentarlo",
+    "tooLarge": "El reconocimiento de texto funciona hasta 1920×1080; reduzca la resolución del equipo",
+    "languages": {
+      "latin": "Latino: inglés e idiomas europeos",
+      "chinese": "Chino: simplificado y tradicional, japonés, inglés",
+      "cyrillic": "Cirílico: ruso, ucraniano y otros, con inglés"
+    }
+  },
   "vpn": {
     "rename": "Cambiar nombre",
     "profileName": "Nombre del perfil",
@@ -2021,6 +2049,27 @@
       "confirm": "He revisado los cambios y podré volver a conectarme después del reinicio.",
       "reboot": "Reiniciar para finalizar",
       "rebooting": "Restauración programada. El dispositivo se está reiniciando; vuelva a conectarse después."
+    },
+    "ai": {
+      "title": "IA",
+      "screenText": {
+        "title": "Reconocimiento de texto",
+        "language": "Idioma predeterminado",
+        "languageDescription": "Para reconocer texto en la pantalla: el botón de la barra, MCP y PicoClaw. Cada lectura puede elegir otro idioma.",
+        "notInstalled": "El reconocimiento de texto necesita el complemento TPU.",
+        "openAddons": "Complementos",
+        "saved": "Idioma guardado",
+        "saveFailed": "No se pudo guardar el idioma",
+        "noModels": "no instalado"
+      },
+      "picoclaw": {
+        "notInstalled": "PicoClaw no está instalado.",
+        "model": "Modelo",
+        "noModel": "No hay modelo configurado",
+        "openChat": "Abrir chat",
+        "changeModel": "Cambiar el modelo",
+        "changeModelDescription": "La clave de API y la URL base no se muestran tras guardarlas: introduzca los tres campos para cambiar el modelo."
+      }
     }
   },
   "picoclaw": {

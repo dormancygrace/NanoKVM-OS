@@ -189,6 +189,13 @@ failure, and capture isolation from optional diagnostics. The EDID C harness
 also checks normalized model-specific sleeps, EINTR and reset failures.
 `test-hdmi-receiver-start.py` verifies the startup delay before service probes.
 
+`test-capture-restart.py` exercises the production capture lifecycle around the
+receiver helper: disable waits for a frame owner, releases MMF, blocks stale
+detector restarts and park requests, retries incomplete cleanup while stopped,
+and rebuilds capture on enable. Repeated cycles and failed teardown/restart
+retain the appropriate retry state. The receiver tests above continue to
+cover the underlying reset, ownership and quiet-window behavior.
+
 The D live-poll regression injects the reviewed operation-6 failure, then runs
 100 healthy stale-dimension polls without an IRQ, plus IRQ/resume/reset
 transitions. It requires zero D writes and no internal E1 identity reads.
@@ -241,3 +248,11 @@ removing that dependency selects Alpine as a negative control. CI uses fixture p
 `--payload PATH` checks a cross-built runtime. No installed host or device
 files are changed. Native C906 benchmark sources and recorded results live
 in `firmware/crypto/experimental/openssl-c906`.
+
+`test-monitor-maintenance-native.py` runs the real Go EDID read/apply bindings
+against a recording native ABI. It checks enabled and disabled capture on PCIe
+and Cube, rejects full capture lifecycle calls during maintenance, propagates
+admission/utility/restore failures, and checks pending markers and file cleanup.
+Only filesystem paths are redirected; the Go control flow is unmodified.
+The HDMI session test also verifies native maintenance preserves MMF lifetime
+and capture state on PCIe/Cube/Lite and keeps detector reset off the frame lock.

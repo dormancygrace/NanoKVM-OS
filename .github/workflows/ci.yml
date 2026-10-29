@@ -36,6 +36,8 @@ jobs:
         run: go build -tags teststub,nomsgpack ./...
       - name: Video recovery native-call guard
         run: python3 ../tests/test-video-recovery-native.py
+      - name: Monitor maintenance native bindings
+        run: python3 ../tests/test-monitor-maintenance-native.py
       - name: Vet
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test

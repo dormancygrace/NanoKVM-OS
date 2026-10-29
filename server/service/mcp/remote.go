@@ -203,6 +203,57 @@ func (r *Remote) Scroll(ctx context.Context, deltaY int) error {
 	return nil
 }
 
+// Drag holds a button at from, moves in steps to to over duration, and
+// releases it there. The button is released on every exit, also on an error
+// or a cancelled context, so a drag never leaves it held.
+func (r *Remote) Drag(ctx context.Context, button string, from, to [2]float64, steps int, duration time.Duration) error {
+	for _, v := range []float64{from[0], from[1], to[0], to[1]} {
+		if v < 0 || v > 1 {
+			return fmt.Errorf("absolute coordinates must be between 0 and 1")
+		}
+	}
+	bit, err := mouseButtonBit(button)
+	if err != nil {
+		return err
+	}
+	steps = clampInt(steps, 1, maxDragSteps)
+	x, y := absoluteCoordinate(from[0]), absoluteCoordinate(from[1])
+
+	r.hidMu.Lock()
+	defer r.hidMu.Unlock()
+	if err := contextError(ctx); err != nil {
+		return err
+	}
+	// Move there first: a press that arrives with the move is not a drag
+	// start for every host.
+	if err := r.hid.WriteAbsoluteMouseReport(buildAbsolutePointerReport(x, y, 0, 0)); err != nil {
+		return err
+	}
+	if err := r.hid.WriteAbsoluteMouseReport(buildAbsolutePointerReport(x, y, bit, 0)); err != nil {
+		_ = r.hid.WriteAbsoluteMouseReport(buildAbsolutePointerReport(x, y, 0, 0))
+		return err
+	}
+	release := func() error { return r.hid.WriteAbsoluteMouseReport(buildAbsolutePointerReport(x, y, 0, 0)) }
+	if err := sleepContext(ctx, defaultClickDelayMS*time.Millisecond); err != nil {
+		_ = release()
+		return err
+	}
+	for i := 1; i <= steps; i++ {
+		t := float64(i) / float64(steps)
+		x = absoluteCoordinate(from[0] + (to[0]-from[0])*t)
+		y = absoluteCoordinate(from[1] + (to[1]-from[1])*t)
+		if err := r.hid.WriteAbsoluteMouseReport(buildAbsolutePointerReport(x, y, bit, 0)); err != nil {
+			_ = release()
+			return err
+		}
+		if err := sleepContext(ctx, duration/time.Duration(steps)); err != nil {
+			_ = release()
+			return err
+		}
+	}
+	return release()
+}
+
 func sleepContext(ctx context.Context, delay time.Duration) error {
 	if delay <= 0 {
 		return contextError(ctx)

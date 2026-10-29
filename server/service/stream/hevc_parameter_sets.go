@@ -1,6 +1,6 @@
 package stream
 
-import "bytes"
+import "NanoKVM-Server/internal/annexb"
 
 // The SG2002 H.265 encoder in SmartP mode codes two temporal sub-layers: the
 // IDR and every background ("virtual I") frame have TemporalId 0, all other
@@ -118,14 +118,13 @@ func isH264Slice(header byte) bool {
 // start code) before the first slice; parameter sets precede it, so the slice
 // data of a frame is never searched.
 func scanParameterSets(data []byte, isSlice func(byte) bool, visit func(start, end int)) {
-	startCode := []byte{0, 0, 1}
-	i := bytes.Index(data, startCode)
+	i := annexb.Index(data)
 	for i >= 0 {
 		start := i + 3
 		if start >= len(data) || isSlice(data[start]) {
 			return
 		}
-		next := bytes.Index(data[start:], startCode)
+		next := annexb.Index(data[start:])
 		end := len(data)
 		if next >= 0 {
 			next += start

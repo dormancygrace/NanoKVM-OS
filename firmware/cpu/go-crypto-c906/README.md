@@ -287,6 +287,29 @@ python3 ../firmware/cpu/go-crypto-c906/check-binary.py --binutils $B \
 ./sha1mb.test -test.run Measure -test.v -sha1mb.measure=7
 ```
 
+## Annex-B start codes (`server/internal/annexb`)
+
+The WebRTC payloaders split each access unit at its start codes, and the
+key frame parameter set scan looks for them too. `bytes.Index(b, {0,0,1})`
+stops at every zero byte of coded video and calls IndexByte again from
+there; on the stand's stream (a zero in about 170 bytes) it never switches
+to Horspool. `annexb.Index` uses `indexStartCode` from
+`gen_annexb_riscv64.py` instead: two overlapping LMUL 8 loads compared with
+zero find each `00 00`, and a scalar load checks the third byte. Inputs
+under 64 bytes, other CPUs, a missing `xtheadvector`, vector state disabled
+(`internal/xtheadvector`) and `NANOKVM_ANNEXB=generic` use bytes.Index.
+
+On the device, 9 KB access units shaped like the stand's stream: 7.5 us per
+unit, bytes.Index 21 us.
+
+```sh
+python3 gen_annexb_riscv64.py --binutils $B --check ../../../server/internal/annexb/annexb_riscv64.s
+cd ../../../server
+GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o annexb.test ./internal/annexb
+# on the device:
+./annexb.test -test.v && ./annexb.test -test.run XXX -test.bench .
+```
+
 ## SHA-1 and SHA-256 blocks (`gen_sha_c906.py`)
 
 Go builds riscv64 for rva20u64. As a result, each `RORW` in its riscv64 SHA-1 and SHA-256 assembly becomes three instructions (`srliw`, `slliw`, `or`), and each message word is assembled from four byte loads.

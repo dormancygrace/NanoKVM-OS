@@ -20,18 +20,17 @@ async function openKeyboard(page: Page) {
 }
 const key = (page: Page, code = 'KeyA') => page.locator(`[data-skbtn="${code}"]`).first();
 
-// Use Chrome's native tap gesture with its standard 50 ms finger contact.
-// Raw touch events below exercise movement and cancellation explicitly.
+// Native pointer delivery is required: DOM-dispatched events cannot test capture
+// or browser gesture arbitration.
 async function touchTap(cdp: CDPSession, target: Locator) {
   await expect(target).toBeVisible();
   const box = await target.boundingBox();
   if (!box) throw new Error('touch target not visible');
-  await cdp.send('Input.synthesizeTapGesture', {
-    x: box.x + box.width / 2,
-    y: box.y + box.height / 2,
-    duration: 50,
-    gestureSourceType: 'touch'
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }]
   });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
 test.beforeEach(async ({ request }) => {
@@ -153,6 +152,28 @@ test('reconnect does not replay held input and expired auth stops reconnecting',
 
 test.describe('touch', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 393, height: 852 } });
+  test('a fresh touch swipe can close and reopen the keyboard', async ({ page }) => {
+    await login(page);
+    const cdp = await page.context().newCDPSession(page);
+    const opener = page.getByRole('button', { name: 'Open keyboard', exact: true });
+    await touchTap(cdp, opener);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    const box = await dialog.locator('[aria-hidden="true"]').first().boundingBox();
+    if (!box) throw new Error('handle not visible');
+    const x = box.x + box.width / 2,
+      y = box.y + box.height / 2;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x, y: y + 90 }]
+    });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(dialog).toHaveCount(0);
+    await touchTap(cdp, opener);
+    await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  });
+
   test('touch keys release; only the handle drags the sheet; cancelled drags reset', async ({
     page,
     request

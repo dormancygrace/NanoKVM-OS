@@ -43,7 +43,8 @@ export function Workbench() {
           Video focus target{' '}
           <input ref={video} aria-label="Video focus target" className="max-w-full border p-2" />
         </label>
-        <div className="flex flex-wrap gap-4">
+        {/* Match the production touch toolbar, including its gesture policy. */}
+        <div className="nanokvm-touch-toolbar flex flex-wrap gap-4">
           <button onMouseDown={(e) => e.preventDefault()} onClick={() => openKeyboard(true)}>
             Open keyboard
           </button>

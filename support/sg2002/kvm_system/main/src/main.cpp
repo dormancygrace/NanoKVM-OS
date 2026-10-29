@@ -141,6 +141,17 @@ void* thread_key_handle(void *)
     return nullptr;
 }
 
+// The Ethernet, USB, HDMI and stream state is only drawn on the OLED's main
+// page. It is not polled (nor the gateway pinged) while nothing shows it: no
+// panel, the display asleep or switched off (oled_sleep), or the IP window
+// in its place. On waking, the next pass (STATE_DELAY) refreshes it; the HDMI
+// flag and the gateway ping follow at their own, slower intervals.
+static bool oled_shows_state(void)
+{
+	return kvm_sys_state.oled_thread_running == 1 && !kvm_oled_state.oled_sleep_state &&
+		!OLED_IPWindowActive();
+}
+
 void* thread_sys_handle(void *)
 {
 	get_ping_allow_state();
@@ -152,17 +163,21 @@ void* thread_sys_handle(void *)
 		kvm_observe_oled_ip_window();
 		// net
 		if(kvm_sys_state.page == 0){
-			kvm_update_eth_state();
+			// The Wi-Fi state is also the server's (/run/nanokvm/wifi_state,
+			// /etc/kvm/wifi_exist): always kept up to date.
 			kvm_update_wifi_state();
-			// kvm_update_rndis_state();
-			// kvm_update_tailscale_state();
-			// sys_state
-			kvm_update_usb_state();
-			kvm_update_hdmi_state();
-			kvm_update_stream_fps();
-			kvm_update_hdmi_res();
-			kvm_update_stream_type();
-			kvm_update_stream_qlty();
+			if (oled_shows_state()) {
+				kvm_update_eth_state();
+				// kvm_update_rndis_state();
+				// kvm_update_tailscale_state();
+				// sys_state
+				kvm_update_usb_state();
+				kvm_update_hdmi_state();
+				kvm_update_stream_fps();
+				kvm_update_hdmi_res();
+				kvm_update_stream_type();
+				kvm_update_stream_qlty();
+			}
 			kvm_wifi_web_config_process();
 
 		} else if(kvm_sys_state.page == 1){

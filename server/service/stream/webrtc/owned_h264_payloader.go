@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"NanoKVM-Server/internal/annexb"
 	"github.com/pion/rtp"
 )
 
@@ -28,17 +29,17 @@ type ownedH264PayloadPlan struct {
 	stap           bool
 }
 
-var ownedH264StartCode = []byte{0, 0, 1}
-
+// ownedH264EmitNalus splits an Annex-B access unit as Pion's emitNalus does;
+// annexb.Index searches the start codes with XTheadVector on the C906.
 func ownedH264EmitNalus(nals []byte, emit func([]byte)) {
-	start := bytes.Index(nals, ownedH264StartCode)
+	start := annexb.Index(nals)
 	offset := 3
 	if start == -1 {
 		emit(nals)
 		return
 	}
 	for start < len(nals) {
-		end := bytes.Index(nals[start+offset:], ownedH264StartCode)
+		end := annexb.Index(nals[start+offset:])
 		if end == -1 {
 			emit(nals[start+offset:])
 			break

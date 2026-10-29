@@ -100,7 +100,9 @@ int kvmv_capture_reclaim_pending(void);
    layout of the TPU models. 0; -10 without an HDMI cable; -11 while a new
    input size is being detected and -3 when VPSS gave no picture in time
    (both worth another try); -12 when the input's resolution cannot be
-   captured; other values < 0 on other failures. */
+   captured; -13 when the input is no longer width x height (read its size
+   again); -14 when the input is larger than Full HD; other values < 0 on
+   other failures. */
 int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size);
 
 #ifdef __cplusplus

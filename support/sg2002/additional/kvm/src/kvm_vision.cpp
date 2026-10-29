@@ -2126,7 +2126,24 @@ int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t
     // A new input size seen without a viewer: restart the capture for it, as
     // the stream reader would (check_kvmv), so VPSS gives the new picture.
     if (kvmv_cfg.reopen_cam_flag.exchange(0) == 1) restart_capture_locked();
+    // Admitted against the protected input geometry (geometry_gate.hpp), as
+    // the JPEG steps are: the size asked for is the input's (even), and the
+    // input is at most Full HD, whose video buffers leave the models room.
+    // The lease keeps the geometry from changing until the picture is taken.
+    const nanokvm::GeometrySnapshot geometry = vi_geometry.snapshot();
+    if (uint32_t(geometry.width) * geometry.height > 1920u * 1080u || geometry.width > 1920
+        || geometry.height > 1920) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -14;
+    }
+    nanokvm::GeometryGate::Lease lease;
+    if ((geometry.width & ~1) != width || (geometry.height & ~1) != height
+        || !(lease = vi_geometry.lease(geometry))) {
+        pthread_mutex_unlock(&vi_mutex);
+        return -13;
+    }
     const int result = mmf_read_bgr_planar(width, height, out, size, 500);
+    lease.release();
     pthread_mutex_unlock(&vi_mutex);
     return result;
 }

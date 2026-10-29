@@ -315,7 +315,9 @@ export const ScreenTextOverlay = () => {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Space wrap>
               {languageSelect}
-              <Button onClick={() => void read(region, readLanguage)}>{t('screenText.again')}</Button>
+              <Button onClick={() => void read(region, readLanguage)}>
+                {t('screenText.again')}
+              </Button>
               <Button onClick={() => setPhase('select')}>{t('screenText.newArea')}</Button>
             </Space>
             <Button

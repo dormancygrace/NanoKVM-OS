@@ -111,10 +111,12 @@ func screenTextArgs(models, lang string) ([]string, error) {
 	if lang == "" {
 		lang = screenTextLanguages[0]
 	}
-	if !slices.Contains(screenTextLanguages, lang) {
+	i := slices.Index(screenTextLanguages, lang)
+	if i < 0 {
 		return nil, fmt.Errorf("unknown language %q", lang)
 	}
-	dir := models + lang + "/"
+	// The directory name comes from the fixed list, never from the request.
+	dir := models + screenTextLanguages[i] + "/"
 	if _, err := os.Stat(dir + "ocr-rec.cvimodel"); err != nil {
 		return nil, fmt.Errorf("no models for %s", lang)
 	}
@@ -262,13 +264,10 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 
 	ctx, cancel := context.WithTimeout(ctx, screenTextLimit)
 	defer cancel()
-	inputWidth, inputHeight := common.CaptureInputSize()
-	if inputWidth < 16 || inputHeight < 16 {
-		return nil, screenTextError(-3, "no HDMI signal")
-	}
-	width, height := screenTextSize(inputWidth, inputHeight)
-	if width == 0 {
-		return nil, screenTextError(-5, "text recognition works up to 1920x1080; the input is %dx%d", inputWidth, inputHeight)
+	// A first look at the input size: the native read checks it again under
+	// the capture lock, against the size the detector published.
+	if _, _, err := screenTextInput(); err != nil {
+		return nil, err
 	}
 	// The fresh-frame claim is left to the readers that can hand out a frame
 	// buffered before HDMI resumed: VPSS channel 2 is set up for each read.
@@ -277,10 +276,16 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 		return nil, screenTextError(-3, "%v", err)
 	}
 	start := time.Now()
-	planes, err := readScreenPicture(ctx, width, height)
+	planes, width, height, err := readScreenPicture(ctx)
 	release()
-	if errors.Is(err, common.ErrPlanarPictureNoSignal) {
+	var sizeErr *ScreenTextError
+	switch {
+	case errors.As(err, &sizeErr):
+		return nil, sizeErr
+	case errors.Is(err, common.ErrPlanarPictureNoSignal):
 		return nil, screenTextError(-3, "no HDMI signal")
+	case errors.Is(err, common.ErrPlanarInputTooLarge):
+		return nil, screenTextError(-5, "text recognition works up to 1920x1080")
 	}
 	if err != nil {
 		log.Warnf("screen text: %v", err)
@@ -322,33 +327,62 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	}, nil
 }
 
-// readScreenPicture takes the picture, trying again when VPSS gave no frame in
-// time or a new input size was being detected: a capture started cold (no
-// viewer since the server started, as for MCP) can take more than a second for
-// its first frame. Each native call waits at most half a second for the
-// picture with the capture locked (the pool and the copy add a little); the
-// video readers wait a second for that lock, and get it between tries. A
-// detection returns at once, so the pause after it is as long as that wait.
-func readScreenPicture(ctx context.Context, width, height int) ([]byte, error) {
+// screenTextInput is the picture size for the current input, or the read's
+// error: no signal, or an input over Full HD.
+func screenTextInput() (int, int, error) {
+	inputWidth, inputHeight := captureInputSize()
+	if inputWidth < 16 || inputHeight < 16 {
+		return 0, 0, screenTextError(-3, "no HDMI signal")
+	}
+	width, height := screenTextSize(inputWidth, inputHeight)
+	if width == 0 {
+		return 0, 0, screenTextError(-5, "text recognition works up to 1920x1080; the input is %dx%d", inputWidth, inputHeight)
+	}
+	return width, height, nil
+}
+
+// readScreenPicture takes the picture at the input's size, trying again when
+// VPSS gave no frame in time, a new input size was being detected, or the
+// input changed size since it was read: a capture started cold (no viewer
+// since the server started, as for MCP) can take more than a second for its
+// first frame. Each native call waits at most half a second for the picture
+// with the capture locked (the pool and the copy add a little); the video
+// readers wait a second for that lock, and get it between tries. A detection
+// returns at once, so the pause after it is as long as that wait.
+func readScreenPicture(ctx context.Context) ([]byte, int, int, error) {
 	var err error
 	for attempt := 0; attempt < 6; attempt++ {
+		width, height, sizeErr := screenTextInput()
+		if sizeErr != nil {
+			return nil, 0, 0, sizeErr
+		}
 		var planes []byte
-		planes, err = common.GetKvmVision().ReadBGRPlanar(width, height)
+		planes, err = readPlanar(width, height)
 		pause := 100 * time.Millisecond
 		switch {
-		case errors.Is(err, common.ErrPlanarCaptureNotReady):
+		case err == nil:
+			return planes, width, height, nil
+		case errors.Is(err, common.ErrPlanarCaptureNotReady), errors.Is(err, common.ErrPlanarInputChanged):
 			pause = 500 * time.Millisecond
 		case !errors.Is(err, common.ErrPlanarPictureTimeout):
-			return planes, err
+			return nil, 0, 0, err
 		}
 		select {
 		case <-ctx.Done():
-			return nil, err
+			return nil, 0, 0, err
 		case <-time.After(pause):
 		}
 	}
-	return nil, err
+	return nil, 0, 0, err
 }
+
+// The input size and the native picture read (variables for tests).
+var (
+	captureInputSize = common.CaptureInputSize
+	readPlanar       = func(width, height int) ([]byte, error) {
+		return common.GetKvmVision().ReadBGRPlanar(width, height)
+	}
+)
 
 // parseScreenTextOutput reads the helper's lines: the boxes, moved by dx, dy
 // from the area into the picture, and the summary.

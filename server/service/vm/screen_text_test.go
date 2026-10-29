@@ -1,10 +1,14 @@
 package vm
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"NanoKVM-Server/common"
 )
 
 func TestScreenTextCrop(t *testing.T) {
@@ -184,5 +188,40 @@ func TestScreenTextSizeUpToFullHD(t *testing.T) {
 		if w != tc.w || h != tc.h {
 			t.Errorf("screenTextSize(%d, %d) = %dx%d, want %dx%d", tc.inW, tc.inH, w, h, tc.w, tc.h)
 		}
+	}
+}
+
+// The input changes size during a read: the picture is taken again at the
+// new size, which must still be at most Full HD.
+func TestReadScreenPictureFollowsInputSize(t *testing.T) {
+	defer func(size func() (int, int), read func(int, int) ([]byte, error)) {
+		captureInputSize, readPlanar = size, read
+	}(captureInputSize, readPlanar)
+	inputs := [][2]int{{1920, 1080}, {1280, 720}}
+	var asked [][2]int
+	captureInputSize = func() (int, int) { return inputs[0][0], inputs[0][1] }
+	readPlanar = func(width, height int) ([]byte, error) {
+		asked = append(asked, [2]int{width, height})
+		if len(asked) == 1 {
+			inputs = inputs[1:] // the detector publishes 1280x720
+			return nil, common.ErrPlanarInputChanged
+		}
+		return make([]byte, width*height*3), nil
+	}
+	planes, width, height, err := readScreenPicture(context.Background())
+	if err != nil || width != 1280 || height != 720 || len(planes) != 1280*720*3 {
+		t.Fatalf("got %dx%d, %d bytes, %v", width, height, len(planes), err)
+	}
+	if len(asked) != 2 || asked[0] != [2]int{1920, 1080} || asked[1] != [2]int{1280, 720} {
+		t.Fatalf("asked for %v", asked)
+	}
+
+	// Now over Full HD: refused before any further native read.
+	asked = nil
+	inputs = [][2]int{{1920, 1080}, {3840, 2160}}
+	_, _, _, err = readScreenPicture(context.Background())
+	var readErr *ScreenTextError
+	if !errors.As(err, &readErr) || readErr.Code != -5 || len(asked) != 1 {
+		t.Fatalf("over Full HD: %v after %v", err, asked)
 	}
 }

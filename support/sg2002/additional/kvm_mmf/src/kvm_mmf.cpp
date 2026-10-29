@@ -928,9 +928,17 @@ static int _destroy_vb_pool(uint32_t pool_id)
 // read, which waits for that (as _mmf_reclaim_disabled_pool does for outputs).
 static int picture_pool = -1;
 static bool picture_pool_attached = false;
+// A picture VPSS did not take back: it holds a block of the pool, so it is
+// returned first, by the next read, before the pool goes.
+static VIDEO_FRAME_INFO_S picture_frame;
+static bool picture_frame_held = false;
 
 static int _mmf_release_picture_pool(void)
 {
+	if (picture_frame_held) {
+		if (CVI_VPSS_ReleaseChnFrame(0, MMF_PICTURE_CHN, &picture_frame) != CVI_SUCCESS) return CVI_FAILURE;
+		picture_frame_held = false;
+	}
 	if (picture_pool < 0) return CVI_SUCCESS;
 	if (picture_pool_attached) {
 		if (CVI_VPSS_DetachVbPool(0, MMF_PICTURE_CHN) != CVI_SUCCESS) return CVI_FAILURE;
@@ -1520,8 +1528,10 @@ static int mmf_vi_deinit(void)
 		SAMPLE_PRT("_mmf_vpss_deinit_new failed with %#x!\n", s32Ret);
 		return CVI_FAILURE;
 	}
-	// The group and its channels are gone: so is a picture pool's attachment.
+	// The group and its channels are gone: so are a picture pool's
+	// attachment and a picture it did not take back.
 	picture_pool_attached = false;
+	picture_frame_held = false;
 	_mmf_release_picture_pool();
 
 	priv.vi_is_inited = false;
@@ -2792,7 +2802,11 @@ int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int ti
 			} else {
 				result = -1;
 			}
-			CVI_VPSS_ReleaseChnFrame(0, chn, &frame);
+			if (CVI_VPSS_ReleaseChnFrame(0, chn, &frame) != CVI_SUCCESS) {
+				picture_frame = frame;
+				picture_frame_held = true;
+				printf("[mmf] picture not taken back by VPSS; retried by the next read\n");
+			}
 		}
 	} else {
 		CVI_VPSS_DisableChn(0, chn);

@@ -18,3 +18,10 @@ var ErrPlanarCaptureNotReady = errors.New("the capture is not ready")
 
 // ErrPlanarCaptureUnsupported means the input's resolution cannot be captured.
 var ErrPlanarCaptureUnsupported = errors.New("the capture cannot run at the input's resolution")
+
+// ErrPlanarInputChanged means the input is no longer the size asked for: a
+// new size was detected; read it again.
+var ErrPlanarInputChanged = errors.New("the input size changed")
+
+// ErrPlanarInputTooLarge means the input is larger than Full HD.
+var ErrPlanarInputTooLarge = errors.New("the input is larger than Full HD")

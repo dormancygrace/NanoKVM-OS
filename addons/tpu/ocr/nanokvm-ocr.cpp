@@ -44,6 +44,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -187,7 +188,8 @@ void fit_line(Region &r, const std::vector<int> &pixels, int w) {
 }
 
 // DB detection on one tile at (tx, ty): the regions over threshold.
-void detect_tile(Model &det, const Picture &pic, int tx, int ty, std::vector<Region> &regions) {
+// false: the TPU failed. That is an error, not a tile without text.
+bool detect_tile(Model &det, const Picture &pic, int tx, int ty, std::vector<Region> &regions) {
     const int h = det.in_h, w = det.in_w;
     // PaddleOCR's detector is trained on BGR with ImageNet mean and std.
     static const float mean[3] = {0.485f, 0.456f, 0.406f}, std_[3] = {0.229f, 0.224f, 0.225f};
@@ -213,11 +215,11 @@ void detect_tile(Model &det, const Picture &pic, int tx, int ty, std::vector<Reg
                 }
         }
     }
-    if (!det.forward()) return;
+    if (!det.forward()) return false;
     CVI_TENSOR *out = &det.outputs[0];
     const CVI_SHAPE shape = CVI_NN_TensorShape(out);
     const int oh = shape.dim[shape.dim_size - 2], ow = shape.dim[shape.dim_size - 1];
-    if (oh != h || ow != w) return;
+    if (oh != h || ow != w) return false;
     std::vector<float> prob(static_cast<size_t>(h) * w);
     if (out->fmt == CVI_FMT_FP32) std::memcpy(prob.data(), CVI_NN_TensorPtr(out), prob.size() * sizeof(float));
     else for (size_t i = 0; i < prob.size(); ++i) prob[i] = get(out, i);
@@ -255,6 +257,7 @@ void detect_tile(Model &det, const Picture &pic, int tx, int ty, std::vector<Reg
         fit_line(region, pixels, w);
         regions.push_back(std::move(region));
     }
+    return true;
 }
 
 // The boxes of a region, unclipped as PaddleOCR does, in picture pixels.
@@ -470,9 +473,9 @@ void sample_row(const Sampling &s, const uint8_t *plane, uint8_t *row) {
 
 // Recognition of one box: height 48 (the model's), width by the box ratio,
 // padded; returns the text, the mean probability of its characters and that
-// of the least sure one.
-std::string recognize(Model &rec, const Picture &pic, const Box &box, const std::vector<std::string> &dict, float &score,
-    float &weakest) {
+// of the least sure one. Nothing: the TPU failed, unlike an empty text.
+std::optional<std::string> recognize(Model &rec, const Picture &pic, const Box &box,
+    const std::vector<std::string> &dict, float &score, float &weakest) {
     const int h = rec.in_h, w = rec.in_w;
     const int width = std::clamp(static_cast<int>(std::ceil(static_cast<float>(h) * box.w / box.h)), 1, w);
     CVI_TENSOR *in = &rec.inputs[0];
@@ -522,7 +525,7 @@ std::string recognize(Model &rec, const Picture &pic, const Box &box, const std:
     }
     score = 0;
     weakest = 1;
-    if (!rec.forward()) return {};
+    if (!rec.forward()) return std::nullopt;
     CVI_TENSOR *out = &rec.outputs[0];
     const CVI_SHAPE shape = CVI_NN_TensorShape(out);
     // Steps x classes, with trailing 1s as tpu-mlir pads the shape to 4D.
@@ -914,7 +917,10 @@ int main(int argc, char **argv) {
         const int overlap = 48;
         for (int ty = 0; ty < small.height; ty += det.in_h - overlap) {
             for (int tx = 0; tx < small.width; tx += det.in_w - overlap) {
-                detect_tile(det, small, tx, ty, regions);
+                if (!detect_tile(det, small, tx, ty, regions)) {
+                    std::fprintf(stderr, "nanokvm-ocr: text detection failed on the TPU\n");
+                    return 1;
+                }
                 if (tx + det.in_w >= small.width) break;
             }
             if (ty + det.in_h >= small.height) break;
@@ -967,13 +973,20 @@ int main(int argc, char **argv) {
         Model *rec = fitting(recs, box);
         float score = 0, weakest = 0;
         const auto line_start = std::chrono::steady_clock::now();
-        std::string text = one_script(recognize(*rec, pic, box, dict, score, weakest));
-        if (argc == 5 && weakest < doubtful) {
+        std::optional<std::string> read = recognize(*rec, pic, box, dict, score, weakest);
+        if (read && argc == 5 && weakest < doubtful) {
             if (sure.empty() && !load_recs(argv[4], sure, *sure_files)) return 1;
             rec = fitting(sure, box);
-            text = one_script(recognize(*rec, pic, box, dict, score, weakest));
+            read = recognize(*rec, pic, box, dict, score, weakest);
             ++reread;
         }
+        // A line the TPU could not read fails the whole read: leaving it out
+        // would return part of the text as if it were all.
+        if (!read) {
+            std::fprintf(stderr, "nanokvm-ocr: text recognition failed on the TPU\n");
+            return 1;
+        }
+        const std::string text = one_script(*read);
         if (getenv("NANOKVM_OCR_DEBUG"))
             std::fprintf(stderr, "box %d,%d %dx%d det %.2f -> '%s' %.3f min %.3f; width %d, %ld ms\n", box.x, box.y, box.w, box.h,
                 box.score, text.c_str(), score, weakest, rec->in_w, ms_since(line_start));

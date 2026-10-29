@@ -138,6 +138,8 @@ jobs:
           python3 gen_chacha_riscv64.py --binutils riscv64-linux-gnu- --check chacha_riscv64.s
           python3 ../go-websocket-c906/gen_mask_riscv64.py --binutils riscv64-linux-gnu- --check ../go-websocket-c906/mask_linux_riscv64.s
           python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
+          python3 ../sysmon-runtime/gen_memmove_c906.py --binutils riscv64-linux-gnu- --check ../sysmon-runtime/nanokvm_memmove_riscv64.s
+          python3 ../sysmon-runtime/gen_memclr_c906.py --binutils riscv64-linux-gnu- --check ../sysmon-runtime/nanokvm_memclr_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
           python3 ../../crypto/openssl-c906/generate-ghash.py --binutils riscv64-linux-gnu- --check

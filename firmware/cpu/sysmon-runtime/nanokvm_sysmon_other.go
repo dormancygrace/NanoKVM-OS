@@ -10,3 +10,5 @@ func nanokvmThreadInit() {}
 
 //go:nosplit
 func nanokvmSysmonDelay(delay uint32) uint32 { return delay }
+
+func nanokvmVectorEnabled() bool { return false }

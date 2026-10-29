@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license matching Go.
 #include "textflag.h"
 
-// Linux RISC-V: __NR_prctl=167; only timer-slack options 29/30 are used.
+// Linux RISC-V: __NR_prctl=167; timer-slack options 29/30 and
+// PR_RISCV_V_GET_CONTROL (70) are used.
 TEXT runtime·nanokvmPrctl(SB),NOSPLIT|NOFRAME,$0-24
 	MOV option+0(FP), A0
 	MOV value+8(FP), A1

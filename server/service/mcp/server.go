@@ -91,12 +91,12 @@ type toolExecutor struct {
 	coordinator *inputcontrol.Coordinator
 }
 
-func NewMCPHandler(control *controlmode.Manager, snapshotter Snapshotter, textReader ScreenTextReader) http.Handler {
+func NewMCPHandler(control *controlmode.Manager, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader) http.Handler {
 	// Registering typed tools builds their JSON schema validators. The router
 	// authenticates and checks the control mode before reaching this handler,
 	// so an unused MCP endpoint does no work on the path to the first frame.
 	return lazyMCPHandler(func() http.Handler {
-		return newMCPHandler(control, inputcontrol.GetCoordinator(), NewRemote(), snapshotter, textReader)
+		return newMCPHandler(control, inputcontrol.GetCoordinator(), NewRemote(), snapshotter, textReader, host)
 	})
 }
 
@@ -107,13 +107,13 @@ func lazyMCPHandler(create func() http.Handler) http.Handler {
 	})
 }
 
-func newMCPHandler(control *controlmode.Manager, coordinator *inputcontrol.Coordinator, remote *Remote, snapshotter Snapshotter, textReader ScreenTextReader) http.Handler {
+func newMCPHandler(control *controlmode.Manager, coordinator *inputcontrol.Coordinator, remote *Remote, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader) http.Handler {
 	executor := &toolExecutor{control: control, coordinator: coordinator}
 	server := protocol.NewServer(&protocol.Implementation{
 		Name:    mcpServerName,
 		Version: "v1.0.0",
 	}, nil)
-	registerTools(server, executor, remote, snapshotter, textReader)
+	registerTools(server, executor, remote, snapshotter, textReader, host)
 	handler := protocol.NewStreamableHTTPHandler(
 		func(*http.Request) *protocol.Server { return server },
 		&protocol.StreamableHTTPOptions{Stateless: true, JSONResponse: true},
@@ -121,13 +121,15 @@ func newMCPHandler(control *controlmode.Manager, coordinator *inputcontrol.Coord
 	return http.MaxBytesHandler(handler, maxRequestBodyBytes)
 }
 
-func registerTools(server *protocol.Server, executor *toolExecutor, remote *Remote, snapshotter Snapshotter, textReader ScreenTextReader) {
+func registerTools(server *protocol.Server, executor *toolExecutor, remote *Remote, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader) {
 	protocol.AddTool(server, &protocol.Tool{Name: typeTextToolName, Description: "Type short text into the remote host", InputSchema: typeTextSchema()}, typeTextHandler(executor, remote))
 	protocol.AddTool(server, &protocol.Tool{Name: pressKeysToolName, Description: "Press one keyboard shortcut on the remote host", InputSchema: pressKeysSchema()}, pressKeysHandler(executor, remote))
 	protocol.AddTool(server, &protocol.Tool{Name: moveMouseToolName, Description: "Move the remote mouse pointer", InputSchema: moveMouseSchema()}, moveMouseHandler(executor, remote))
 	protocol.AddTool(server, &protocol.Tool{Name: clickMouseToolName, Description: "Click a remote mouse button", InputSchema: clickMouseSchema()}, clickMouseHandler(executor, remote))
+	protocol.AddTool(server, &protocol.Tool{Name: dragMouseToolName, Description: "Drag with a mouse button held: press at from, move to to, release there (select text, move a window or an icon)", InputSchema: dragMouseSchema()}, dragMouseHandler(executor, remote))
 	protocol.AddTool(server, &protocol.Tool{Name: scrollMouseToolName, Description: "Scroll the remote mouse wheel", InputSchema: scrollMouseSchema()}, scrollMouseHandler(executor, remote))
 	protocol.AddTool(server, &protocol.Tool{Name: screenshotToolName, Description: "Capture a JPEG screenshot from the remote display", InputSchema: screenshotSchema()}, screenshotHandler(executor, snapshotter))
+	protocol.AddTool(server, &protocol.Tool{Name: hostStatusToolName, Description: "The host's state without a screenshot: power (whether the NanoKVM can press its buttons, and on/off when a power LED is wired), whether the HDMI input has a signal, and the Caps/Num/Scroll Lock LEDs. Changes nothing", InputSchema: hostStatusSchema()}, hostStatusHandler(host))
 	protocol.AddTool(server, &protocol.Tool{Name: screenTextToolName, Description: "Read the text on the remote display (OCR on the NanoKVM's TPU, needs the TPU add-on, inputs up to 1920x1080): lines in reading order, and their pieces with boxes in the mouse tools' normalized coordinates. Takes 3-15 s", InputSchema: screenTextSchema(textReader)}, screenTextHandler(textReader))
 }
 

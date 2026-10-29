@@ -88,6 +88,9 @@ func (s *Service) GetHdmiState(c *gin.Context) {
 	log.Debug("get hdmi state")
 }
 
+// HdmiState is GET /api/vm/hdmi for other services (MCP's host_status).
+func HdmiState() *proto.GetGetHdmiStateRsp { return hdmiState() }
+
 func hdmiState() *proto.GetGetHdmiStateRsp {
 	enabled := !isHdmiDisabled()
 	hdmiMutex.Lock()

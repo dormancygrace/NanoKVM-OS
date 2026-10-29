@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 type recordingHID struct {
@@ -116,4 +117,51 @@ func TestRemoteTypeTextCancellationReleasesKeyboard(t *testing.T) {
 
 func newRemoteWithHID(writer HIDWriter) *Remote {
 	return &Remote{hid: writer}
+}
+
+func TestDragHoldsTheButtonAndReleasesAtTheEnd(t *testing.T) {
+	hid := &recordingHID{}
+	if err := newRemoteWithHID(hid).Drag(context.Background(), "left", [2]float64{0, 0}, [2]float64{1, 1}, 4, 0); err != nil {
+		t.Fatal(err)
+	}
+	// Move, press, 4 moves held, release.
+	if len(hid.absolute) != 7 {
+		t.Fatalf("absolute reports = %d, want 7: %v", len(hid.absolute), hid.absolute)
+	}
+	if hid.absolute[0][0] != 0 || hid.absolute[1][0] != 1 {
+		t.Fatalf("drag start = %v %v", hid.absolute[0], hid.absolute[1])
+	}
+	for _, report := range hid.absolute[2:6] {
+		if report[0] != 1 {
+			t.Fatalf("button released during the move: %v", report)
+		}
+	}
+	last := hid.absolute[6]
+	if last[0] != 0 || string(last[1:5]) != string(hid.absolute[5][1:5]) {
+		t.Fatalf("release = %v, want buttons 0 at %v", last, hid.absolute[5][1:5])
+	}
+}
+
+func TestDragReleasesWhenCancelledOrFailing(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	hid := &recordingHID{}
+	hid.onWrite = func(n int) {
+		if n == 3 {
+			cancel()
+		}
+	}
+	if err := newRemoteWithHID(hid).Drag(ctx, "left", [2]float64{0, 0}, [2]float64{1, 1}, 10, 100*time.Millisecond); err == nil {
+		t.Fatal("cancelled drag returned no error")
+	}
+	if last := hid.absolute[len(hid.absolute)-1]; last[0] != 0 {
+		t.Fatalf("cancelled drag left the button held: %v", hid.absolute)
+	}
+
+	failing := &recordingHID{failAt: 4}
+	if err := newRemoteWithHID(failing).Drag(context.Background(), "right", [2]float64{0, 0}, [2]float64{1, 1}, 10, 0); err == nil {
+		t.Fatal("failing drag returned no error")
+	}
+	if last := failing.absolute[len(failing.absolute)-1]; last[0] != 0 {
+		t.Fatalf("failing drag left the button held: %v", failing.absolute)
+	}
 }

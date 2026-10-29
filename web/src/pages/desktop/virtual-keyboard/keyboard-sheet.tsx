@@ -20,6 +20,7 @@ export function KeyboardSheet({
   const panel = useRef<HTMLElement>(null);
   const drag = useRef<{ id: number; y: number } | null>(null);
   const [offset, setOffset] = useState(0);
+  const closeFrame = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -33,6 +34,8 @@ export function KeyboardSheet({
     return () => {
       document.removeEventListener('focusin', trackFocus);
       drag.current = null;
+      if (closeFrame.current !== null) cancelAnimationFrame(closeFrame.current);
+      closeFrame.current = null;
       setOffset(0);
       // React can remove the portal before layout cleanup, moving the active
       // element to body without a focusin event. Remember whether focus was
@@ -84,7 +87,14 @@ export function KeyboardSheet({
           const distance = event.clientY - drag.current.y;
           drag.current = null;
           setOffset(0);
-          if (distance >= 64) onClose();
+          if (distance >= 64) {
+            // Keep the native touch target alive through touchend. Removing it
+            // during pointerup can make Chrome swallow the following tap.
+            closeFrame.current = requestAnimationFrame(() => {
+              closeFrame.current = null;
+              onClose();
+            });
+          }
         }}
         onLostPointerCapture={() => {
           drag.current = null;

@@ -20,8 +20,7 @@ async function openKeyboard(page: Page) {
 }
 const key = (page: Page, code = 'KeyA') => page.locator(`[data-skbtn="${code}"]`).first();
 
-// Keep taps and drags on one CDP session. Mixing Playwright's touchscreen
-// session with a separate drag session can lose the next tap after a swipe.
+// Exercise taps, drags and cancellation through the same native touch driver.
 async function touchTap(cdp: CDPSession, target: Locator) {
   await expect(target).toBeVisible();
   const box = await target.boundingBox();
@@ -157,9 +156,7 @@ test.describe('touch', () => {
     request
   }) => {
     await login(page);
-    page.on('console', (message) => {
-      if (message.text().startsWith('touch diagnostic')) console.info(message.text());
-    });
+    // Include native event order in failure traces, without adding CI log noise.
     await page.evaluate(() => {
       for (const type of [
         'pointerdown',
@@ -174,8 +171,8 @@ test.describe('touch', () => {
         document.addEventListener(type, (event) => {
           const e = event as PointerEvent;
           const target = e.target as HTMLElement;
-          console.info(
-            'touch diagnostic',
+          console.debug(
+            'touch input',
             JSON.stringify({
               type,
               target: target.tagName,

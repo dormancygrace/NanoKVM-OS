@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	mcpServerName       = "nanokvm-cube-remote-control"
-	typeTextToolName    = "cube_type_text"
-	pressKeysToolName   = "cube_press_keys"
-	moveMouseToolName   = "cube_move_mouse"
-	clickMouseToolName  = "cube_click_mouse"
-	scrollMouseToolName = "cube_scroll_mouse"
-	screenshotToolName  = "cube_screenshot"
+	mcpServerName       = "nanokvm-remote-control"
+	typeTextToolName    = "type_text"
+	pressKeysToolName   = "press_keys"
+	moveMouseToolName   = "move_mouse"
+	clickMouseToolName  = "click_mouse"
+	scrollMouseToolName = "scroll_mouse"
+	screenshotToolName  = "screenshot"
 	defaultTypeDelayMS  = 30
 	defaultHoldMS       = 50
 	defaultClickDelayMS = 50

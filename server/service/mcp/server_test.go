@@ -128,7 +128,7 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		t.Fatalf("initialize content type=%q, want application/json", contentType)
 	}
 	sessionID := initialize.Header().Get("Mcp-Session-Id")
-	if sessionID != "" || !strings.Contains(initialize.Body.String(), "nanokvm-cube-remote-control") {
+	if sessionID != "" || !strings.Contains(initialize.Body.String(), "nanokvm-remote-control") {
 		t.Fatalf("session=%q body=%s", sessionID, initialize.Body.String())
 	}
 
@@ -141,15 +141,13 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 	if tools.Code != http.StatusOK {
 		t.Fatalf("tools/list status=%d body=%s", tools.Code, tools.Body.String())
 	}
-	for _, name := range []string{"cube_type_text", "cube_press_keys", "cube_move_mouse", "cube_click_mouse", "cube_scroll_mouse", "cube_screenshot", "cube_screen_text"} {
+	for _, name := range []string{"type_text", "press_keys", "move_mouse", "click_mouse", "scroll_mouse", "screenshot", "screen_text"} {
 		if !strings.Contains(tools.Body.String(), `"name":"`+name+`"`) {
 			t.Fatalf("tools/list missing %s: %s", name, tools.Body.String())
 		}
 	}
-	for _, name := range []string{"type_text", "press_keys", "move_mouse", "click_mouse", "scroll_mouse", "screenshot", "screen_text"} {
-		if strings.Contains(tools.Body.String(), `"name":"`+name+`"`) {
-			t.Fatalf("tools/list exposes unprefixed tool %s: %s", name, tools.Body.String())
-		}
+	if strings.Contains(tools.Body.String(), `"name":"cube_`) {
+		t.Fatalf("tools/list still exposes cube_ names: %s", tools.Body.String())
 	}
 
 	calls := []struct {
@@ -157,14 +155,14 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		name      string
 		arguments string
 	}{
-		{3, "cube_type_text", `{"text":"A","delayMs":1}`},
-		{4, "cube_press_keys", `{"keys":["ControlLeft","AltLeft","KeyA","KeyB","KeyC","KeyD","KeyE","KeyF"],"holdMs":1}`},
-		{5, "cube_move_mouse", `{"mode":"absolute","x":0.5,"y":0.5}`},
-		{6, "cube_click_mouse", `{"button":"left","clicks":1}`},
-		{7, "cube_scroll_mouse", `{"deltaY":1}`},
-		{8, "cube_screenshot", `{"quality":75}`},
-		{18, "cube_screen_text", `{}`},
-		{19, "cube_screen_text", `{"language":"cyrillic","area":{"x":0.1,"y":0.1,"w":0.5,"h":0.5}}`},
+		{3, "type_text", `{"text":"A","delayMs":1}`},
+		{4, "press_keys", `{"keys":["ControlLeft","AltLeft","KeyA","KeyB","KeyC","KeyD","KeyE","KeyF"],"holdMs":1}`},
+		{5, "move_mouse", `{"mode":"absolute","x":0.5,"y":0.5}`},
+		{6, "click_mouse", `{"button":"left","clicks":1}`},
+		{7, "scroll_mouse", `{"deltaY":1}`},
+		{8, "screenshot", `{"quality":75}`},
+		{18, "screen_text", `{}`},
+		{19, "screen_text", `{"language":"cyrillic","area":{"x":0.1,"y":0.1,"w":0.5,"h":0.5}}`},
 	}
 	for _, call := range calls {
 		body := `{"jsonrpc":"2.0","id":` + fmt.Sprint(call.id) + `,"method":"tools/call","params":{"name":"` + call.name + `","arguments":` + call.arguments + `}}`
@@ -172,13 +170,13 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		if response.Code != http.StatusOK || strings.Contains(response.Body.String(), `"isError":true`) {
 			t.Fatalf("tools/call %s status=%d body=%s", call.name, response.Code, response.Body.String())
 		}
-		if call.name == "cube_screenshot" && !strings.Contains(response.Body.String(), "image/jpeg") {
+		if call.name == "screenshot" && !strings.Contains(response.Body.String(), "image/jpeg") {
 			t.Fatalf("screenshot response missing image: %s", response.Body.String())
 		}
-		if call.name == "cube_screen_text" && !strings.Contains(response.Body.String(), `Привет, мир`) {
+		if call.name == "screen_text" && !strings.Contains(response.Body.String(), `Привет, мир`) {
 			t.Fatalf("screen text response missing the lines: %s", response.Body.String())
 		}
-		if call.name == "cube_screenshot" && strings.HasPrefix(response.Body.String(), "data:") {
+		if call.name == "screenshot" && strings.HasPrefix(response.Body.String(), "data:") {
 			t.Fatalf("screenshot unexpectedly used SSE response: %s", response.Body.String())
 		}
 	}
@@ -188,18 +186,18 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		name      string
 		arguments string
 	}{
-		{9, "cube_move_mouse", `{"mode":"absolute"}`},
-		{10, "cube_move_mouse", `{"mode":"absolute","x":1.1,"y":0.5}`},
-		{11, "cube_click_mouse", `{"mode":"absolute","button":"left"}`},
-		{12, "cube_screenshot", `{"x":10}`},
-		{13, "cube_move_mouse", `{"mode":"relative","x":0.5,"y":0.5}`},
-		{14, "cube_move_mouse", `{"mode":"relative"}`},
-		{15, "cube_click_mouse", `{"mode":"absolute","button":"middle","x":0.5,"y":0.5}`},
-		{16, "cube_click_mouse", `{"button":"back"}`},
-		{17, "cube_press_keys", `{"keys":["MediaPlayPause"]}`},
-		{20, "cube_screen_text", `{"language":"korean"}`},
-		{21, "cube_screen_text", `{"area":{"x":0.8,"y":0.1,"w":0.5,"h":0.5}}`},
-		{22, "cube_screen_text", `{"area":{"x":0.1,"y":0.1}}`},
+		{9, "move_mouse", `{"mode":"absolute"}`},
+		{10, "move_mouse", `{"mode":"absolute","x":1.1,"y":0.5}`},
+		{11, "click_mouse", `{"mode":"absolute","button":"left"}`},
+		{12, "screenshot", `{"x":10}`},
+		{13, "move_mouse", `{"mode":"relative","x":0.5,"y":0.5}`},
+		{14, "move_mouse", `{"mode":"relative"}`},
+		{15, "click_mouse", `{"mode":"absolute","button":"middle","x":0.5,"y":0.5}`},
+		{16, "click_mouse", `{"button":"back"}`},
+		{17, "press_keys", `{"keys":["MediaPlayPause"]}`},
+		{20, "screen_text", `{"language":"korean"}`},
+		{21, "screen_text", `{"area":{"x":0.8,"y":0.1,"w":0.5,"h":0.5}}`},
+		{22, "screen_text", `{"area":{"x":0.1,"y":0.1}}`},
 	}
 	for _, call := range invalidCalls {
 		body := `{"jsonrpc":"2.0","id":` + fmt.Sprint(call.id) + `,"method":"tools/call","params":{"name":"` + call.name + `","arguments":` + call.arguments + `}}`

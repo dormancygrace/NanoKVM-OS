@@ -334,6 +334,123 @@ do
 done
 echo 'S30wifi runtime-state tests passed'
 
+hex() {
+    printf '%s' "$1" | od -An -tx1 | tr -d ' \n'
+}
+
+# save_entry SSID PASS SECURITY HIDDEN AUTO: a saved network as the server writes it.
+save_entry() {
+    entry=$ETC_DIR/wifi.saved/$(hex "$1")
+    mkdir -p "$entry"
+    printf %s "$1" > "$entry/ssid"
+    printf %s "$2" > "$entry/pass"
+    printf %s "$3" > "$entry/security"
+    printf %s "$4" > "$entry/hidden"
+    printf %s "$5" > "$entry/auto"
+}
+
+network_block() {
+    awk -v ssid="ssid=$1" '/^network=\{/ { block = "" } { block = block $0 "\n" } /^}/ && index(block, ssid) { printf "%s", block }' \
+        "$RUN_DIR/wpa_supplicant.conf"
+}
+
+# A release with one network: it becomes a saved network that connects
+# automatically, with private permissions.
+new_case migrate_single
+printf 'Office\n' > "$ETC_DIR/wifi.ssid"
+printf 'secret123\n' > "$ETC_DIR/wifi.pass"
+run_action start
+entry=$ETC_DIR/wifi.saved/$(hex Office)
+[ "$(cat "$entry/ssid")" = Office ] || fail 'migrated SSID'
+[ "$(wc -c < "$entry/pass")" -eq 9 ] && [ "$(cat "$entry/pass")" = secret123 ] ||
+    fail 'migrated password is not exactly the password'
+[ "$(cat "$entry/security")" = personal ] || fail 'migrated security'
+[ "$(cat "$entry/auto")" = 1 ] || fail 'migrated network does not connect automatically'
+[ "$(stat -c '%a' "$ETC_DIR/wifi.saved")" = 700 ] || fail 'saved directory mode is not 0700'
+[ "$(stat -c '%a' "$entry/pass")" = 600 ] || fail 'saved password mode is not 0600'
+assert_count 'network={' 2 "$RUN_DIR/wpa_supplicant.conf"
+
+# All saved networks that connect automatically are joined wherever the device
+# is: the last chosen one with its band blocks first, the others below it. One
+# that does not connect automatically is left out, and so is an entry that
+# cannot be configured, without stopping the others.
+new_case saved_networks
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+printf 2412 > "$ETC_DIR/wifi.freq_list_2.4"
+printf 5180 > "$ETC_DIR/wifi.freq_list_5"
+save_entry Office secret123 personal false 1
+save_entry 'Cafe "Wi-Fi"' cafepass1 wpa2 false 1
+save_entry Hotel hotelpass1 personal false 0
+save_entry Guest '' open true 1
+save_entry Broken brokenpass bogus false 1
+mkdir -p "$ETC_DIR/wifi.saved/$(hex Renamed)"
+printf Other > "$ETC_DIR/wifi.saved/$(hex Renamed)/ssid"
+printf 1 > "$ETC_DIR/wifi.saved/$(hex Renamed)/auto"
+run_action start 2>"$CASE_DIR/stderr"
+config=$RUN_DIR/wpa_supplicant.conf
+assert_count 'network={' 4 "$config"
+case "$(network_block "$(hex Office)")" in *priority=2*) ;; *) fail 'last chosen network has no preferred block' ;; esac
+case "$(network_block "$(hex 'Cafe "Wi-Fi"')")" in *proto=RSN*priority=0*) ;; *) fail 'saved WPA2 network missing' ;; esac
+case "$(network_block "$(hex Guest)")" in *key_mgmt=NONE*scan_ssid=1*priority=0*) ;; *) fail 'saved hidden open network missing' ;; esac
+assert_not_contains "ssid=$(hex Hotel)" "$config"
+assert_not_contains "ssid=$(hex Broken)" "$config"
+assert_not_contains "ssid=$(hex Other)" "$config"
+assert_contains "Skipping saved WiFi network $(hex Broken)" "$CASE_DIR/stderr"
+assert_contains 'wpa_supplicant args=-B -i wlan0' "$CALL_LOG"
+
+# The network chosen in this boot is joined without automatic connection;
+# after a reboot (/run empty) it is not.
+hex Hotel > "$RUN_DIR/selected"
+run_action restart 2>/dev/null
+case "$(network_block "$(hex Hotel)")" in *priority=0*) ;; *) fail 'network chosen in this boot was left out' ;; esac
+rm "$RUN_DIR/selected"
+run_action restart 2>/dev/null
+assert_not_contains "ssid=$(hex Hotel)" "$config"
+
+# The last chosen network without automatic connection: after a reboot the
+# device joins the others; chosen again in this boot, it gets its band blocks.
+new_case current_not_auto
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+save_entry Office secret123 personal false 0
+save_entry Cafe cafepass1 personal false 1
+run_action start
+assert_not_contains "ssid=$(hex Office)" "$RUN_DIR/wpa_supplicant.conf"
+assert_contains "ssid=$(hex Cafe)" "$RUN_DIR/wpa_supplicant.conf"
+hex Office > "$RUN_DIR/selected"
+run_action restart
+case "$(network_block "$(hex Office)")" in *priority=2*) ;; *) fail 'chosen network has no preferred block' ;; esac
+
+# A configured network without a password that is not open was never usable:
+# it is not stored, and Wi-Fi idles as before.
+new_case no_password
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+run_action start
+assert_absent "$ETC_DIR/wifi.saved"
+assert_not_contains 'wpa_supplicant args=' "$CALL_LOG"
+
+# Saved networks of which none connects automatically: idle, nothing started.
+new_case none_automatic
+save_entry Hotel hotelpass1 personal false 0
+run_action start
+assert_not_contains 'wpa_supplicant args=' "$CALL_LOG"
+assert_absent "$RUN_DIR"
+
+# Credentials provisioned through /boot replace a saved network of the same
+# name and connect automatically.
+new_case boot_replaces_saved
+save_entry Office oldpass12 personal false 0
+printf 'Office\n' > "$BOOT_DIR/wifi.ssid"
+printf 'newpass12\n' > "$BOOT_DIR/wifi.pass"
+run_action start
+entry=$ETC_DIR/wifi.saved/$(hex Office)
+[ "$(cat "$entry/pass")" = newpass12 ] || fail 'boot credentials did not replace the saved password'
+[ "$(cat "$entry/auto")" = 1 ] || fail 'boot credentials do not connect automatically'
+assert_contains 'wpa_passphrase args=Office stdin=newpass12' "$CALL_LOG"
+[ "$(ls -A "$ETC_DIR/wifi.saved" | grep -c '^\.')" = 0 ] || fail 'temporary saved-network directory left behind'
+echo 'S30wifi saved network tests passed'
+
 # restart waits for the old wpa_supplicant before starting the new one, and
 # removes its control socket only once it has gone.
 new_case restart_waits

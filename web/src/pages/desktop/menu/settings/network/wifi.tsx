@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Checkbox, Input, message, Modal, Select, Switch } from 'antd';
 import i18n from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -84,8 +84,22 @@ export const Wifi = () => {
     password: '',
     band: '2.4',
     hidden: false,
-    security: 'wpa2-wpa3'
+    security: 'wpa2-wpa3',
+    autoConnect: true
   });
+  // Networks the device knows: joined again without the password.
+  const [saved, setSaved] = useState<api.SavedWifiNetwork[]>([]);
+  const loadSaved = useCallback(async () => {
+    try {
+      const rsp = await api.getSavedWifi();
+      if (rsp.code === 0) setSaved(rsp.data as api.SavedWifiNetwork[]);
+    } catch {
+      // The list only saves typing a password again.
+    }
+  }, []);
+  useEffect(() => {
+    void loadSaved();
+  }, [loadSaved, state?.ssid, state?.connected]);
 
   useEffect(() => {
     let alive = true;
@@ -232,7 +246,8 @@ export const Wifi = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Leave and forget the joined network. Over Wi-Fi this cuts the page off.
+  // Leave the joined network and stop joining it automatically; it stays
+  // saved. Over Wi-Fi this cuts the page off.
   async function disconnect() {
     if (locked || !state?.connected) return;
     const overWifi = !!state.thisConnection;
@@ -272,14 +287,44 @@ export const Wifi = () => {
       network?.candidates.find(
         (item) => state?.connected && state.ssid === item.ssid && state.band === item.band
       ) || network;
+    const known = saved.find((item) => item.ssid === network?.ssid);
     setProfile({
       ssid: network?.ssid || '',
       password: '',
       band: state?.preferredBand || candidate?.band || state?.band || state?.bands?.[0] || '5',
       hidden: false,
-      security: candidate && candidate.security !== 'unsupported' ? candidate.security : 'wpa2-wpa3'
+      security:
+        candidate && candidate.security !== 'unsupported' ? candidate.security : 'wpa2-wpa3',
+      autoConnect: known ? known.autoConnect : true
     });
     setModal(true);
+  }
+
+  // A saved network is joined with its stored password and setting.
+  async function joinSaved(ssid: string) {
+    if (locked) return;
+    if (state?.thisConnection && state.connected && ssid !== state.ssid) {
+      const confirmed = await confirmAction({
+        title: t('settings.network.wifi.joinConfirm', { ssid }),
+        content: <Alert type="warning" showIcon message={tr('joinOverWifi')} />,
+        okText: tr('confirmBtn'),
+        danger: true
+      });
+      if (!confirmed) return;
+    }
+    setBusy(true);
+    try {
+      const rsp = await api.connectSavedWifi(ssid);
+      if (rsp.code !== 0) {
+        showRequestError(rsp, 'settings.network.wifi.operationFailed');
+        return;
+      }
+      track({ ssid });
+    } catch (err) {
+      showRequestError(err, 'settings.network.wifi.operationFailed');
+    } finally {
+      setBusy(false);
+    }
   }
 
   const valid =
@@ -447,6 +492,14 @@ export const Wifi = () => {
                     <Button size="small" danger disabled={locked} onClick={disconnect}>
                       {tr('disconnectButton')}
                     </Button>
+                  ) : saved.some((item) => item.ssid === network.ssid) ? (
+                    <Button
+                      size="small"
+                      disabled={locked}
+                      onClick={() => void joinSaved(network.ssid)}
+                    >
+                      {tr('joinBtn')}
+                    </Button>
                   ) : (
                     <Button
                       size="small"
@@ -533,6 +586,13 @@ export const Wifi = () => {
               <span className="text-fg-muted text-xs">{tr('passwordHint')}</span>
             </label>
           )}
+          <Checkbox
+            checked={profile.autoConnect !== false}
+            disabled={busy}
+            onChange={(e) => setProfile({ ...profile, autoConnect: e.target.checked })}
+          >
+            {tr('autoConnect')}
+          </Checkbox>
         </div>
       </Modal>
     </div>

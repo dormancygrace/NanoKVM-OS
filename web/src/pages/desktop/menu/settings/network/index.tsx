@@ -7,6 +7,7 @@ import { Gateway } from './gateway.tsx';
 import { NetworkInformation } from './information.tsx';
 import { Mdns } from './mdns';
 import { WebRTCServers } from './webrtc-servers.tsx';
+import { SavedWifi } from './wifi-saved.tsx';
 import { Wifi } from './wifi.tsx';
 
 export const Network = () => (
@@ -23,6 +24,8 @@ export const Network = () => (
 );
 
 export const WifiSettings = () => <Wifi />;
+
+export const SavedWifiSettings = () => <SavedWifi />;
 
 export const EthernetSettings = () => <Ethernet />;
 

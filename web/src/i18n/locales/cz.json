@@ -648,7 +648,7 @@
         "joinBtn": "Připojit",
         "disconnectButton": "Odpojit",
         "disconnectConfirm": "Odpojit od sítě {{ssid}}?",
-        "disconnectHint": "NanoKVM opustí tuto síť a zapomene její heslo. Wi-Fi zůstane zapnutá, takže se můžete znovu připojit k síti.",
+        "disconnectHint": "NanoKVM se od této sítě odpojí a přestane se k ní automaticky připojovat. Zůstane v Uložených sítích, kde se k ní můžete znovu připojit nebo ji zapomenout. Wi-Fi zůstane zapnuté a připojí se k jiné uložené síti s automatickým připojením.",
         "disconnectOverWifi": "Tato stránka komunikuje s NanoKVM přes tuto síť Wi-Fi: spojení se přeruší. Pro nové připojení k síti použijte ethernet nebo síť USB.",
         "confirmBtn": "OK",
         "cancelBtn": "Zrušit",
@@ -684,7 +684,20 @@
         "preferredBandHint": "Uplatněno na stávající spojení (pokud podporováno); přepínání pásem ho může nakrátko přerušit. Ostatní pásma zůstávají k dispozici jako náhradní.",
         "connectionTimeout": "Připojení nebylo potvrzeno. Zkontrolujte síť a v případě, že adresa zařízení byla změněna, znovu se k němu připojte.",
         "joinConfirm": "Připojit k {{ssid}}?",
-        "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu daná síť přidělí."
+        "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu daná síť přidělí.",
+        "autoConnect": "Připojovat automaticky"
+      },
+      "wifiSaved": {
+        "title": "Uložené sítě",
+        "description": "Sítě, ke kterým se zařízení připojilo. K sítím s automatickým připojením se připojí samo, ať je kdekoli: po restartu nebo na jiném místě.",
+        "empty": "Zatím žádné uložené sítě. Sítě, ke kterým se připojíte, se zapamatují zde.",
+        "connected": "Připojeno",
+        "automatic": "Připojuje se automaticky",
+        "manual": "Jen po výběru",
+        "forget": "Zapomenout",
+        "forgetConfirm": "Zapomenout {{ssid}}?",
+        "forgetHint": "NanoKVM smaže tuto síť a její heslo. Pro opětovné připojení zadejte heslo.",
+        "forgetCurrentHint": "NanoKVM se od této sítě odpojí a smaže ji i s heslem. Wi-Fi zůstane zapnuté a připojí se k jiné uložené síti s automatickým připojením."
       },
       "tls": {
         "description": "Povolit protokol HTTPS",

@@ -1538,7 +1538,7 @@
         "joinBtn": "加入",
         "disconnectButton": "断开",
         "disconnectConfirm": "断开与 {{ssid}} 的连接？",
-        "disconnectHint": "NanoKVM 将离开此网络并忘记其密码。Wi-Fi 保持开启，您可以重新加入网络。",
+        "disconnectHint": "NanoKVM 将断开此网络，并不再自动连接。它仍保留在“已保存的网络”中，可在那里重新连接或忘记它。Wi-Fi 保持开启，并连接另一个可自动连接的已保存网络。",
         "disconnectOverWifi": "此页面通过该 Wi-Fi 网络连接 NanoKVM：连接将会中断。要重新加入网络，请通过以太网或 USB 网络连接。",
         "confirmBtn": "确定",
         "cancelBtn": "取消",
@@ -1548,7 +1548,20 @@
           "ip": "IP {{ip}}"
         },
         "joinConfirm": "加入 {{ssid}}？",
-        "joinOverWifi": "此页面通过 Wi-Fi 访问。加入其他网络会断开此连接；之后设备将在新网络中、以新网络分配的地址响应。"
+        "joinOverWifi": "此页面通过 Wi-Fi 访问。加入其他网络会断开此连接；之后设备将在新网络中、以新网络分配的地址响应。",
+        "autoConnect": "自动连接"
+      },
+      "wifiSaved": {
+        "title": "已保存的网络",
+        "description": "此设备连接过的网络。对于可自动连接的网络，无论设备在哪里（重启后或移到其他地方），都会自动连接。",
+        "empty": "暂无已保存的网络。您连接过的网络会保存在这里。",
+        "connected": "已连接",
+        "automatic": "自动连接",
+        "manual": "仅手动选择时",
+        "forget": "忘记",
+        "forgetConfirm": "忘记 {{ssid}}？",
+        "forgetHint": "NanoKVM 将删除此网络及其密码。要重新连接，需要输入密码。",
+        "forgetCurrentHint": "NanoKVM 将断开此网络，并将其连同密码一起删除。Wi-Fi 保持开启，并连接另一个可自动连接的已保存网络。"
       },
       "tls": {
         "confirmEnable": "开启 HTTPS？",

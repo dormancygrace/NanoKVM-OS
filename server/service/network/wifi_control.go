@@ -27,12 +27,14 @@ import (
 var wifiMu sync.Mutex
 var wifiBusy bool
 var wifiError string
-var wifiControl = radioControl{etc: "/etc/kvm", net: "/sys/class/net/wlan0", run: runRadioCommand,
+var wifiControl = radioControl{etc: "/etc/kvm", net: "/sys/class/net/wlan0", runDir: wifiRunDir, run: runRadioCommand,
 	request: wpaControl(wpaControlSocket), bands: &bandCache{ttl: 30 * time.Second}}
 
 type radioControl struct {
 	etc, net string
-	run      func(string, ...string) (string, error)
+	// runDir holds the network chosen in this boot (default /run/nanokvm-wifi).
+	runDir string
+	run    func(string, ...string) (string, error)
 	// request sends a command to wpa_supplicant for wlan0 and returns the reply.
 	request func(string) (string, error)
 	// bands, when set, lets status polls reuse a recent channel list.
@@ -467,7 +469,12 @@ type wifiProfile struct {
 	PreferredBand string `json:"preferredBand"`
 	Hidden        bool   `json:"hidden"`
 	Security      string `json:"security"`
+	// AutoConnect: join this network again after a reboot or when it comes in
+	// range (absent from clients of earlier releases: yes, as before).
+	AutoConnect *bool `json:"autoConnect"`
 }
+
+func (p wifiProfile) autoConnect() bool { return p.AutoConnect == nil || *p.AutoConnect }
 
 func (p wifiProfile) validate() error {
 	validText := func(s string) bool { return utf8.ValidString(s) && !strings.ContainsAny(s, "\x00\r\n") }
@@ -694,9 +701,11 @@ func (w radioControl) forgetProfile() error {
 	return nil
 }
 
-// DisconnectWifi leaves the joined network and forgets it. Wi-Fi stays on and
-// idle (S30wifi starts without a network), so another one can be joined. The
-// reply goes out before the interface that may carry this request stops.
+// DisconnectWifi leaves the joined network and stops joining it
+// automatically; it stays saved (Settings > Network > Saved networks forgets
+// it). Wi-Fi stays on and joins another saved network that connects
+// automatically, or idles. The reply goes out before the interface that may
+// carry this request stops.
 func (s *Service) DisconnectWifi(c *gin.Context) {
 	var rsp proto.Response
 	if !checkRadio(c, true) {
@@ -706,7 +715,17 @@ func (s *Service) DisconnectWifi(c *gin.Context) {
 	c.Writer.Flush()
 	go func() {
 		time.Sleep(300 * time.Millisecond)
-		err := wifiControl.forgetProfile()
+		err := wifiControl.migrateSaved()
+		if p, ok := wifiControl.configuredProfile(); err == nil && ok {
+			// Without an entry S30wifi would store this network again as one
+			// that connects automatically and rejoin it at once.
+			if err = wifiControl.setAutoConnect(p.Ssid, false); os.IsNotExist(err) {
+				err = wifiControl.saveNetwork(p, false)
+			}
+		}
+		if err == nil {
+			err = wifiControl.clearSelected()
+		}
 		if err == nil {
 			// disable also drops the addresses of the left network.
 			_, err = wifiControl.run(WiFiScript, "disable")
@@ -770,6 +789,11 @@ func (s *Service) ConfigureWifi(c *gin.Context) {
 		preferredBand = wifiControl.preferredBand()
 	}
 	if err := wifiControl.saveProfile(req, freqs, preferredBand); err != nil {
+		finishWifi(err)
+		rsp.ErrRsp(c, -1, "failed to save Wi-Fi")
+		return
+	}
+	if err := wifiControl.rememberJoined(req, req.autoConnect()); err != nil {
 		finishWifi(err)
 		rsp.ErrRsp(c, -1, "failed to save Wi-Fi")
 		return

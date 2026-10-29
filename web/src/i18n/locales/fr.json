@@ -1538,7 +1538,7 @@
         "joinBtn": "Rejoindre",
         "disconnectButton": "Déconnecter",
         "disconnectConfirm": "Se déconnecter de {{ssid}} ?",
-        "disconnectHint": "NanoKVM quitte ce réseau et oublie son mot de passe. Le Wi-Fi reste activé, vous pouvez donc rejoindre un réseau à nouveau.",
+        "disconnectHint": "NanoKVM quitte ce réseau et cesse de s’y connecter automatiquement. Il reste dans Réseaux enregistrés, où vous pouvez vous y reconnecter ou l’oublier. Le Wi-Fi reste activé et se connecte à un autre réseau enregistré à connexion automatique.",
         "disconnectOverWifi": "Cette page accède à NanoKVM par ce réseau Wi-Fi : la connexion sera perdue. Pour rejoindre un réseau à nouveau, connectez-vous par Ethernet ou par le réseau USB.",
         "confirmBtn": "OK",
         "cancelBtn": "Annuler",
@@ -1548,7 +1548,20 @@
           "ip": "IP {{ip}}"
         },
         "joinConfirm": "Rejoindre {{ssid}} ?",
-        "joinOverWifi": "Cette page utilise le Wi-Fi. Rejoindre un autre réseau coupe sa connexion ; l'appareil répond ensuite sur le nouveau réseau, à l'adresse que celui-ci lui donne."
+        "joinOverWifi": "Cette page utilise le Wi-Fi. Rejoindre un autre réseau coupe sa connexion ; l'appareil répond ensuite sur le nouveau réseau, à l'adresse que celui-ci lui donne.",
+        "autoConnect": "Se connecter automatiquement"
+      },
+      "wifiSaved": {
+        "title": "Réseaux enregistrés",
+        "description": "Réseaux auxquels cet appareil s’est connecté. Il se connecte à ceux à connexion automatique où qu’il soit : après un redémarrage ou dans un autre lieu.",
+        "empty": "Aucun réseau enregistré pour l’instant. Les réseaux auxquels vous vous connectez sont mémorisés ici.",
+        "connected": "Connecté",
+        "automatic": "Connexion automatique",
+        "manual": "Uniquement sur choix",
+        "forget": "Oublier",
+        "forgetConfirm": "Oublier {{ssid}} ?",
+        "forgetHint": "NanoKVM supprime ce réseau et son mot de passe. Pour vous y reconnecter, saisissez le mot de passe.",
+        "forgetCurrentHint": "NanoKVM quitte ce réseau et le supprime avec son mot de passe. Le Wi-Fi reste activé et se connecte à un autre réseau enregistré à connexion automatique."
       },
       "tls": {
         "confirmEnable": "Activer HTTPS ?",

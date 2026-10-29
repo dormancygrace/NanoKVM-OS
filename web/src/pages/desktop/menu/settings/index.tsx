@@ -15,6 +15,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   ArrowLeftIcon,
   BluetoothIcon,
+  BookmarkIcon,
   BotIcon,
   ChevronRightIcon,
   ClockIcon,
@@ -141,6 +142,9 @@ const Network = lazyPage(() => import('./network').then((module) => ({ default: 
 const WifiSettings = lazyPage(() =>
   import('./network').then((module) => ({ default: module.WifiSettings }))
 );
+const SavedWifiSettings = lazyPage(() =>
+  import('./network').then((module) => ({ default: module.SavedWifiSettings }))
+);
 const EthernetSettings = lazyPage(() =>
   import('./network').then((module) => ({ default: module.EthernetSettings }))
 );
@@ -238,6 +242,11 @@ export const Settings = ({
           { id: 'network', icon: <NetworkIcon size={16} />, component: null },
           { id: 'network-general', icon: <SettingsIcon size={16} />, component: <Network /> },
           { id: 'network-wifi', icon: <WifiIcon size={16} />, component: <WifiSettings /> },
+          {
+            id: 'network-wifi-saved',
+            icon: <BookmarkIcon size={16} />,
+            component: <SavedWifiSettings />
+          },
           {
             id: 'network-ethernet',
             icon: <EthernetPortIcon size={16} />,
@@ -504,6 +513,7 @@ export const Settings = ({
     if (id === 'network') return t('settings.network.title');
     if (id === 'network-general') return t('settings.network.general');
     if (id === 'network-wifi') return t('settings.network.wifi.title');
+    if (id === 'network-wifi-saved') return t('settings.network.wifiSaved.title');
     if (id === 'network-ethernet') return t('settings.network.ethernet.name');
     if (id === 'network-bluetooth') return 'Bluetooth';
     if (id === 'network-webrtc') return 'WebRTC';

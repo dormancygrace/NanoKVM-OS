@@ -6,10 +6,10 @@ import { Tls } from '../network/tls.tsx';
 // Access to the device: SSH first, then HTTPS with its certificate.
 export const Security = () => (
   <div className="space-y-6">
-    <SettingsSection>
+    <SettingsSection title="SSH">
       <Ssh />
     </SettingsSection>
-    <SettingsSection>
+    <SettingsSection title="HTTPS">
       <Tls />
     </SettingsSection>
   </div>

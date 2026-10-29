@@ -17,7 +17,7 @@ import {
   providerMatches
 } from '@/lib/acme.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
-import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
+import { SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
 const POLL_MS = 2000;
 
@@ -237,7 +237,7 @@ export const Acme = ({ onChange }: { onChange: () => void }) => {
     (!needsEab(ca) || (eabKid.trim() !== '' && eabHmac.trim() !== ''));
 
   return (
-    <Panel className="space-y-4">
+    <div className="space-y-4">
       <SettingRow
         label={t('settings.network.acme.title')}
         description={t('settings.network.acme.description')}
@@ -539,6 +539,6 @@ export const Acme = ({ onChange }: { onChange: () => void }) => {
           </div>
         </>
       )}
-    </Panel>
+    </div>
   );
 };

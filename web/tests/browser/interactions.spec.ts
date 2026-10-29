@@ -174,6 +174,35 @@ test('reconnect does not replay held input and expired auth stops reconnecting',
 
 test.describe('touch', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 393, height: 852 } });
+  test('a fast handle flick permits the first tap to reopen the production keyboard', async ({
+    page
+  }) => {
+    await login(page);
+    const cdp = await page.context().newCDPSession(page);
+    const opener = page.getByRole('button', { name: 'Keyboard', exact: true });
+    await touchTap(cdp, opener);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    const box = await dialog.locator('[aria-hidden="true"]').first().boundingBox();
+    if (!box) throw new Error('handle not visible');
+    const x = box.x + box.width / 2,
+      y = box.y + box.height / 2;
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    // Unlike swipeDown, finish while the finger is moving, without a stationary
+    // release. A fast flick must not consume the next tap on the real toolbar.
+    for (let step = 1; step <= 3; step++) {
+      await page.waitForTimeout(16);
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y: y + step * 30 }]
+      });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(dialog).toHaveCount(0);
+    await touchTap(cdp, opener);
+    await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  });
+
   test('a fresh touch swipe can close and reopen the keyboard', async ({ page }) => {
     await login(page);
     const cdp = await page.context().newCDPSession(page);

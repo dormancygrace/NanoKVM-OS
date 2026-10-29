@@ -36,7 +36,7 @@ export type RustDeskStatus = {
 export const getRustDeskStatus = (signal?: AbortSignal) =>
   http.request<RustDeskStatus>({ method: 'get', url: '/api/addons/rustdesk/status', signal });
 export const configureRustDesk = (data: RustDeskConfig) =>
-  http.request<RustDeskStatus>({
+  http.request<null>({
     method: 'put',
     url: '/api/addons/rustdesk/config',
     data,
@@ -44,4 +44,4 @@ export const configureRustDesk = (data: RustDeskConfig) =>
   });
 export const rustDeskPackageAction = (
   action: 'install' | 'upgrade' | 'remove' | 'check' | 'regenerate-password'
-) => http.post<RustDeskStatus>('/api/addons/rustdesk/' + action, undefined, { timeout: 190000 });
+) => http.post<null>('/api/addons/rustdesk/' + action, undefined, { timeout: 190000 });

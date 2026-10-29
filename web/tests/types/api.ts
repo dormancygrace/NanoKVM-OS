@@ -1,6 +1,10 @@
+import { addonCatalogAction, checkAddonCatalog, type AddonCatalog } from '@/api/addons';
 import { getAccount } from '@/api/auth';
+import { configureBmc, type BmcSettings } from '@/api/bmc';
 import { addShortcut } from '@/api/hid';
 import { getEthernet, getSavedWifi, setEthernet } from '@/api/network';
+import { configureRustDesk, rustDeskPackageAction, type RustDeskConfig } from '@/api/rustdesk';
+import { setUpdateNoticeEnabled } from '@/api/updates';
 import { http, type ApiResponse } from '@/lib/http';
 
 // Compiled, never executed or included in the app bundle.
@@ -26,4 +30,17 @@ export async function responseContracts() {
   // @ts-expect-error Downloads do not return a JSON envelope.
   const json: ApiResponse = await http.request({ url: '/api/archive', responseType: 'blob' });
   return { token, ssid, blob, json };
+}
+
+// Mutators that return OkRsp/updateReply(nil) must not promise status data.
+export async function mutationContracts(bmc: BmcSettings, rustdesk: RustDeskConfig) {
+  const checked: null = (await checkAddonCatalog()).data;
+  const notice: null = (await setUpdateNoticeEnabled(true)).data;
+  const configured: null = (await configureBmc(bmc)).data;
+  const desk: null = (await configureRustDesk(rustdesk)).data;
+  const action: null = (await rustDeskPackageAction('check')).data;
+  const catalog: AddonCatalog = (await addonCatalogAction('install', 'nanokvm-tpu')).data;
+  // @ts-expect-error A check acknowledges the request; it does not return a catalog.
+  void (await checkAddonCatalog()).data.addons;
+  return { checked, notice, configured, desk, action, catalog };
 }

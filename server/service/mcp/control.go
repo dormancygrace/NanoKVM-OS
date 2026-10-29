@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"NanoKVM-Server/service/controlmode"
 
@@ -75,6 +76,12 @@ type WakeOnLANParams struct {
 	Interface string `json:"interface,omitempty"`
 }
 
+// hostControlGate orders host control operations against the switch: an
+// operation checks it and runs under the read lock, setHostControl saves it
+// under the write lock. Once switching off has answered, no operation runs
+// and none starts, also one whose request came in before.
+var hostControlGate sync.RWMutex
+
 // hostControlAllowed reads the switch for every request, so turning it off
 // takes the tools away at once.
 func hostControlAllowed() bool {
@@ -84,6 +91,16 @@ func hostControlAllowed() bool {
 		return false
 	}
 	return cfg.AllowHostControl
+}
+
+// setHostControl saves the switch once the operations running are done.
+func setHostControl(allowed bool) (Config, error) {
+	hostControlGate.Lock()
+	defer hostControlGate.Unlock()
+	return updateConfig(func(cfg Config) (Config, error) {
+		cfg.AllowHostControl = allowed
+		return cfg, nil
+	})
 }
 
 func registerHostControlTools(server *protocol.Server, executor *toolExecutor, control HostControl) {
@@ -104,19 +121,31 @@ func registerHostControlTools(server *protocol.Server, executor *toolExecutor, c
 	}
 }
 
-// beginControl lets a host control tool run only in MCP mode, and keeps the
-// mode from changing until it is done. It takes no input lease: like a
-// hardware BMC (and the Redfish and IPMI services), power and media work
-// whoever holds the keyboard.
+// beginControl lets a host control tool run only in MCP mode and while the
+// switch allows it, and keeps both from changing until it is done. The
+// switch is checked here, not only when the request picks its tools: the
+// request body may arrive after the switch went off. It takes no input
+// lease: like a hardware BMC (and the Redfish and IPMI services), power and
+// media work whoever holds the keyboard.
 func (e *toolExecutor) beginControl() (func(), error) {
-	if e == nil || e.control == nil {
-		return func() {}, nil
+	releaseMode := func() {}
+	if e != nil && e.control != nil {
+		release, err := e.control.AcquireWrite(controlmode.ModeMCP)
+		if err != nil {
+			return nil, fmt.Errorf("MCP service is disabled: %w", err)
+		}
+		releaseMode = release
 	}
-	release, err := e.control.AcquireWrite(controlmode.ModeMCP)
-	if err != nil {
-		return nil, fmt.Errorf("MCP service is disabled: %w", err)
+	hostControlGate.RLock()
+	if !hostControlAllowed() {
+		hostControlGate.RUnlock()
+		releaseMode()
+		return nil, errors.New("host control is off (Settings > AI > MCP)")
 	}
-	return release, nil
+	return func() {
+		hostControlGate.RUnlock()
+		releaseMode()
+	}, nil
 }
 
 func powerHandler(executor *toolExecutor, power PowerControl) protocol.ToolHandlerFor[PowerParams, ToolOKResult] {
@@ -140,34 +169,33 @@ func powerHandler(executor *toolExecutor, power PowerControl) protocol.ToolHandl
 func virtualMediaHandler(executor *toolExecutor, media MediaControl) protocol.ToolHandlerFor[VirtualMediaParams, VirtualMediaResult] {
 	return func(ctx context.Context, _ *protocol.CallToolRequest, input VirtualMediaParams) (*protocol.CallToolResult, VirtualMediaResult, error) {
 		var result VirtualMediaResult
-		switch action := strings.ToLower(strings.TrimSpace(input.Action)); action {
-		case "list", "status":
-			if action == "list" {
-				images, err := media.Images()
-				if err != nil {
-					return nil, result, err
-				}
-				result.Images = images
+		action := strings.ToLower(strings.TrimSpace(input.Action))
+		switch {
+		case action != "list" && action != "status" && action != "mount" && action != "eject":
+			return nil, result, fmt.Errorf("unknown virtual media action: %s", input.Action)
+		case action == "mount" && input.File == "":
+			return nil, result, errors.New("mount needs file, one of the listed images")
+		}
+		release, err := executor.beginControl()
+		if err != nil {
+			return nil, result, err
+		}
+		defer release()
+		switch action {
+		case "list":
+			images, err := media.Images()
+			if err != nil {
+				return nil, result, err
 			}
+			result.Images = images
 		case "mount", "eject":
 			file := ""
 			if action == "mount" {
-				if input.File == "" {
-					return nil, result, errors.New("mount needs file, one of the listed images")
-				}
 				file = input.File
 			}
-			release, err := executor.beginControl()
-			if err != nil {
+			if err := media.MountImageFile(file, input.Cdrom && file != ""); err != nil {
 				return nil, result, err
 			}
-			err = media.MountImageFile(file, input.Cdrom && file != "")
-			release()
-			if err != nil {
-				return nil, result, err
-			}
-		default:
-			return nil, result, fmt.Errorf("unknown virtual media action: %s", input.Action)
 		}
 		// The list and the state still answer without a virtual disk: the
 		// agent learns why a mount would fail.

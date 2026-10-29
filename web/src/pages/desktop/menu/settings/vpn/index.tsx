@@ -41,7 +41,9 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
   const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
-    const rsp = await http.get('/api/extensions/wireguard/status');
+    const rsp = await http.get<{ profiles: Profile[]; now: number; available: boolean }>(
+      '/api/extensions/wireguard/status'
+    );
     if (rsp.code !== 0) throw new Error(rsp.msg);
     if (mounted.current) {
       setProfiles(rsp.data.profiles);

@@ -151,12 +151,20 @@ An HTTP logout cannot remove a Secure cookie from an earlier HTTPS session. With
 `revokeTokensOnLogout: false`, that HTTPS session can remain active; with the default `true`,
 logout revokes every token belonging to the account being logged out. Other accounts are unaffected.
 
-Passwords in the authentication and user-management APIs are not plaintext. They use the CryptoJS /
-OpenSSL salted passphrase format with passphrase `nanokvm-sipeed-2024`. This is transport
-obfuscation; always use HTTPS for remote access. The shell function below returns raw Base64 (the
-`-md md5` option is required for CryptoJS compatibility). Use it with `curl --data-urlencode`,
-which performs the HTTP form encoding exactly once; JSON clients may send the legacy
-percent-encoded CryptoJS value.
+New browser clients send password fields as entered, with `passwordEncoding: "plain"`.
+This applies to login, user creation/reset, the signed-in password change (both fields),
+and SSH enablement. JSON strings are not URI-decoded or auto-detected as ciphertext.
+Form clients still need normal HTTP form encoding (`curl --data-urlencode`). Unknown
+encoding names are rejected. Password validation, session invalidation and the existing
+HTTP/HTTPS access policy are unchanged. Use HTTPS to protect credentials in transit;
+plain HTTP provides no confidentiality.
+
+For compatibility, omitting `passwordEncoding` (or selecting `"cryptojs"`) keeps the
+CryptoJS / OpenSSL salted passphrase format with the public passphrase
+`nanokvm-sipeed-2024`. That format is obfuscation, not a substitute for HTTPS.
+The examples below demonstrate the retained legacy format. The shell function returns
+raw Base64 (`-md md5` is required for compatibility); `curl --data-urlencode` performs
+HTTP form encoding once. Legacy JSON clients may also send percent-encoded ciphertext.
 
 ```sh
 encrypt_password() {
@@ -197,8 +205,9 @@ curl --fail --silent --show-error -X PUT -H "Authorization: Bearer $TOKEN" \
 Renaming the signed-in owner revokes `$TOKEN`, so the rename is deliberately the last command;
 sign in again with the new username before making more API calls.
 
-To change the signed-in user's own password, post both encrypted fields to
-`/api/auth/password`: `currentPassword` and `password`. Earlier clients that posted
+To change the signed-in user's own password, post both password fields to
+`/api/auth/password`: `currentPassword` and `password`, using the same encoding for both.
+Earlier clients that posted
 `{username, password}` to this endpoint must migrate; the old request body is not accepted.
 
 ## Build and update

@@ -15,7 +15,7 @@ export type LogSnapshot = {
 };
 
 export function getLogs(source: LogSource, boot: LogBoot, signal: AbortSignal) {
-  return http.request({
+  return http.request<LogSnapshot>({
     method: 'get',
     url: '/api/vm/logs',
     params: { source, boot },
@@ -25,5 +25,10 @@ export function getLogs(source: LogSource, boot: LogBoot, signal: AbortSignal) {
 }
 
 export function getLogBoots(signal: AbortSignal) {
-  return http.request({ method: 'get', url: '/api/vm/logs/boots', signal, timeout: 10000 });
+  return http.request<{ boots: LogBootInfo[]; archiveAvailable: boolean }>({
+    method: 'get',
+    url: '/api/vm/logs/boots',
+    signal,
+    timeout: 10000
+  });
 }

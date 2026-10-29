@@ -16,7 +16,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getScreenText, getScreenTextSettings, type ScreenTextSettings } from '@/api/vm.ts';
+import { getScreenText, getScreenTextSettings } from '@/api/vm.ts';
 import { writeClipboardText } from '@/lib/clipboard.ts';
 import {
   boxesInRegion,
@@ -25,8 +25,7 @@ import {
   storedScreenTextLanguage,
   storeScreenTextLanguage,
   type ScreenTextLanguage,
-  type ScreenTextRegion,
-  type ScreenTextResult
+  type ScreenTextRegion
 } from '@/lib/screen-text.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { resolutionAtom, screenTextOpenAtom } from '@/jotai/screen.ts';
@@ -92,7 +91,7 @@ export const ScreenTextOverlay = () => {
     getScreenTextSettings()
       .then((rsp) => {
         if (!active || rsp.code !== 0) return;
-        const settings = rsp.data as ScreenTextSettings;
+        const settings = rsp.data;
         setInstalled(settings.languages.filter((lang) => lang.installed).map((lang) => lang.name));
       })
       .catch(() => {
@@ -184,7 +183,7 @@ export const ScreenTextOverlay = () => {
           );
           setText('');
         } else {
-          const result = rsp.data as ScreenTextResult;
+          const result = rsp.data;
           setText(boxesToText(boxesInRegion(result, target)));
           setSeconds(Math.round(result.total_ms / 100) / 10);
         }

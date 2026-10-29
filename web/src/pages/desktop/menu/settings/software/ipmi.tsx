@@ -36,7 +36,7 @@ export const IpmiAddon = ({
       const response = await getBmcStatus();
       if (!mounted.current || working.current) return;
       if (response.code !== 0) throw new Error(response.msg);
-      setStatus(response.data as BmcStatus);
+      setStatus(response.data);
       setError('');
     } catch {
       if (mounted.current) setError(t('failed'));

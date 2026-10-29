@@ -4,7 +4,7 @@ import { CheckIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
-import type { EthernetConfig, EthernetMode, NetworkTrial } from '@/api/network.ts';
+import type { EthernetConfig, EthernetMode } from '@/api/network.ts';
 import {
   networkTrialDone,
   startNetworkTrial,
@@ -65,7 +65,7 @@ export const Ethernet = () => {
         setLoadError(rsp.msg || t('settings.network.ethernet.loadFailed'));
         return;
       }
-      const fetched = rsp.data as EthernetConfig;
+      const fetched = rsp.data;
       setConfig(fetched);
       setOriginal(fetched);
     } catch {
@@ -90,7 +90,7 @@ export const Ethernet = () => {
       try {
         const rsp = await api.getEthernet();
         if (rsp.code !== 0) return;
-        const { adminUp, linkUp, currentAddress } = rsp.data as EthernetConfig;
+        const { adminUp, linkUp, currentAddress } = rsp.data;
         const status = { adminUp, linkUp, currentAddress };
         setConfig((current) => ({ ...current, ...status }));
         setOriginal((current) => current && { ...current, ...status });
@@ -153,7 +153,7 @@ export const Ethernet = () => {
       setConfig(saved);
       setOriginal(saved);
       // The device undoes the change unless the dialog reaches it.
-      const pending = (rsp.data as { trial?: NetworkTrial } | null)?.trial;
+      const pending = rsp.data?.trial;
       if (pending) startNetworkTrial(pending);
       else setMessage(t('settings.network.ethernet.saved'));
     } catch (err) {

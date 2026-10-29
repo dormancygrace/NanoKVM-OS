@@ -3,7 +3,6 @@ import { Alert, Button, Form, Input, Modal, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
-import { encrypt } from '@/lib/encrypt.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
@@ -51,7 +50,7 @@ export const Ssh = () => {
     }
     setIsLoading(true);
     try {
-      const rsp = await api.enableSSH(encrypt(values.password));
+      const rsp = await api.enableSSH(values.password);
       if (rsp.code !== 0) {
         showRequestError(rsp, 'settings.system.ssh.failed');
         return;

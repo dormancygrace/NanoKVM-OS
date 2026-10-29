@@ -45,7 +45,7 @@ export const SerialConsole = ({ serial, disk }: { serial: boolean; disk: boolean
     }
     try {
       const rsp = await api.getUsbInternet();
-      const address = rsp.code === 0 ? (rsp.data as api.UsbInternetStatus).address : undefined;
+      const address = rsp.code === 0 ? rsp.data.address : undefined;
       setUsbAddress(address ? address.split('/')[0] : undefined);
     } catch {
       setUsbAddress(undefined);

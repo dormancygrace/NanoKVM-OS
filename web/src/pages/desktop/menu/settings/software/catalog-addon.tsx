@@ -71,7 +71,7 @@ export const CatalogAddonCard = ({
       const response = await addonCatalogAction(action, addon.name);
       if (response.code !== 0) throw new Error(response.msg);
       setError('');
-      onChanged(response.data as AddonCatalog);
+      onChanged(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('failed'));
       onChanged();

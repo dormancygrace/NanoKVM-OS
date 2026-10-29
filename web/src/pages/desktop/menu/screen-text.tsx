@@ -4,7 +4,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { ScanTextIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getAddonInventory, type AddonInventory } from '@/api/addons';
+import { getAddonInventory } from '@/api/addons';
 import { addonInventoryAtom } from '@/jotai/addons.ts';
 import { isHdmiEnabledAtom, screenTextOpenAtom } from '@/jotai/screen.ts';
 
@@ -21,7 +21,7 @@ export const ScreenText = () => {
     let active = true;
     getAddonInventory()
       .then((response) => {
-        if (active && response.code === 0) setInventory(response.data as AddonInventory);
+        if (active && response.code === 0) setInventory(response.data);
       })
       .catch(() => {
         /* Without the inventory the button stays hidden. */

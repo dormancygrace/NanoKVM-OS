@@ -4,7 +4,7 @@ import { useAtom } from 'jotai';
 import { DownloadIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getRustDeskStatus, rustDeskPackageAction, type RustDeskStatus } from '@/api/rustdesk';
+import { getRustDeskStatus, rustDeskPackageAction } from '@/api/rustdesk';
 import { requestErrorText } from '@/lib/request-error.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll';
@@ -39,7 +39,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
         setError(response.msg);
         return;
       }
-      setStatus(response.data as RustDeskStatus);
+      setStatus(response.data);
       setError('');
     } catch {
       if (started === generation.current && !controller.signal.aborted) setError(t('failed'));

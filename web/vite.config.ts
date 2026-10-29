@@ -78,7 +78,8 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     // The vendor chunk holds all code the entry needs before the first render
-    // (React, antd core, router, i18n): about 740 kB minified, 240 kB gzipped.
+    // (React, antd core, router, i18n). The byte AND request budgets in
+    // tests/chunks.test.mjs cover complete page closures, including lazy roots.
     chunkSizeWarningLimit: 800,
     rolldownOptions: {
       output: {

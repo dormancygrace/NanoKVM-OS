@@ -23,11 +23,7 @@ import {
   setOriginalResolutionConfig,
   setSelectedOriginalResolution
 } from '@/api/vm.ts';
-import {
-  ControlRegionConfig,
-  ControlRegionMode,
-  OriginalResolution as ResolutionPreset
-} from '@/types';
+import { ControlRegionMode, OriginalResolution as ResolutionPreset } from '@/types';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import {
   controlRegionModeAtom,
@@ -74,7 +70,7 @@ export const OriginalResolution = () => {
   async function loadConfig() {
     const rsp = await getInputRegion();
     if (rsp.code === 0) {
-      const config = rsp.data as ControlRegionConfig;
+      const config = rsp.data;
       setResolutions(config?.resolutions || []);
       setManualRegions(config?.regions || []);
       setSelectedManualRegion(config?.selectedRegion || '');
@@ -186,9 +182,9 @@ export const OriginalResolution = () => {
     setMode(nextMode);
     if (nextMode === 'manual') {
       const config = await loadConfig();
-      const selectedRegion = (config.data as ControlRegionConfig)?.selectedRegion || '';
-      const selectedResolution = (config.data as ControlRegionConfig)?.selectedResolution || '';
-      const regions = (config.data as ControlRegionConfig)?.regions || [];
+      const selectedRegion = config.data?.selectedRegion || '';
+      const selectedResolution = config.data?.selectedResolution || '';
+      const regions = config.data?.regions || [];
       setInputRegion(
         selectedResolution
           ? null

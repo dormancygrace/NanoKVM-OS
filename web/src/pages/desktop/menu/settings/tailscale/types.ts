@@ -1,8 +1,4 @@
-export type State = 'notInstall' | 'notRunning' | 'notLogin' | 'stopped' | 'running';
-
-export type Status = {
-  state: State;
-  name: string;
-  ip: string;
-  account: string;
-};
+export type {
+  TailscaleState as State,
+  TailscaleStatus as Status
+} from '@/api/extensions/tailscale';

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, message, Switch } from 'antd';
+import { message, Switch } from 'antd';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,8 @@ import { getScreenTextSettings, setScreenTextEnabled } from '@/api/vm.ts';
 import { screenTextSwitch } from '@/lib/screen-text.ts';
 import { addonInventoryAtom } from '@/jotai/addons.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
+
+import { CatalogInstallNotice } from '../software/catalog-install';
 
 // Settings > AI > Text recognition: reading the text on the screen with the
 // TPU add-on, on or off for the toolbar button, MCP and PicoClaw together.
@@ -49,15 +51,10 @@ export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => v
 
   if (inventory && !installed) {
     return (
-      <Alert
-        type="info"
-        showIcon
+      <CatalogInstallNotice
+        name="nanokvm-tpu"
         message={t('settings.ai.screenText.notInstalled')}
-        action={
-          <Button size="small" onClick={onOpenAddons}>
-            {t('settings.ai.screenText.openAddons')}
-          </Button>
-        }
+        onOpenAddons={onOpenAddons}
       />
     );
   }

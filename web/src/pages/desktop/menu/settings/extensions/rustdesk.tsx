@@ -21,8 +21,7 @@ import {
   configureRustDesk,
   getRustDeskStatus,
   rustDeskPackageAction,
-  type RustDeskConfig,
-  type RustDeskStatus
+  type RustDeskConfig
 } from '@/api/rustdesk';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll';
@@ -61,7 +60,7 @@ export const RustDeskControls = () => {
         setError(response.msg);
         return;
       }
-      const next = response.data as RustDeskStatus;
+      const next = response.data;
       setStatus(next);
       if (!dirty.current)
         form.setFieldsValue({ audio_enabled: true, ...next.config, password: '' });

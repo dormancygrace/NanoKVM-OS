@@ -1,8 +1,13 @@
-import { lazy, Suspense, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Spin } from 'antd';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
-const TipsDialog = lazy(() => import('./tips-dialog'));
+import { retryableLazy } from '@/lib/retryable-lazy';
+import { LazyError } from '@/components/lazy-error';
+
+const tips = retryableLazy(() => import('./tips-dialog'));
+const TipsDialog = tips.Component;
 
 export const Tips = () => {
   const { t } = useTranslation();
@@ -21,9 +26,20 @@ export const Tips = () => {
         {t('auth.forgetPassword')}
       </button>
       {opened && (
-        <Suspense fallback={<Spin size="small" />}>
-          <TipsDialog open={visible} onClose={() => setVisible(false)} />
-        </Suspense>
+        <ErrorBoundary
+          fallbackRender={({ resetErrorBoundary }) => (
+            <LazyError
+              onRetry={() => {
+                tips.retry();
+                resetErrorBoundary();
+              }}
+            />
+          )}
+        >
+          <Suspense fallback={<Spin size="small" />}>
+            <TipsDialog open={visible} onClose={() => setVisible(false)} />
+          </Suspense>
+        </ErrorBoundary>
       )}
     </>
   );

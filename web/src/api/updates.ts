@@ -25,7 +25,7 @@ export const getUpdateNotice = () =>
   http.request<UpdateNotice>({ method: 'get', url: '/api/os/update/notice', timeout: 10000 });
 
 export const setUpdateNoticeEnabled = (enabled: boolean) =>
-  http.request<UpdateNotice>({ method: 'put', url: '/api/os/update/notice', data: { enabled } });
+  http.request<null>({ method: 'put', url: '/api/os/update/notice', data: { enabled } });
 
 export const availableUpdates = (notice: UpdateNotice | null | undefined) =>
   notice?.enabled ? notice.updates : [];

@@ -37,6 +37,6 @@ export type AddonCatalog = {
 export const getAddonCatalog = () =>
   http.request<AddonCatalog>({ method: 'get', url: '/api/addons/catalog', timeout: 10000 });
 export const checkAddonCatalog = () =>
-  http.post<AddonCatalog>('/api/addons/catalog/check', undefined, { timeout: 10000 });
+  http.post<null>('/api/addons/catalog/check', undefined, { timeout: 10000 });
 export const addonCatalogAction = (action: 'install' | 'remove', name: string) =>
-  http.post('/api/addons/catalog/' + action, { name }, { timeout: 190000 });
+  http.post<AddonCatalog>('/api/addons/catalog/' + action, { name }, { timeout: 190000 });

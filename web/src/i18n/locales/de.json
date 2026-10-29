@@ -1265,7 +1265,13 @@
       "reboot": "Neustarten",
       "rebootDesc": "Sind Sie sicher dass Sie NanoKVM neustarten möchten?",
       "okBtn": "Ja",
-      "cancelBtn": "Nein"
+      "cancelBtn": "Nein",
+      "atx": {
+        "title": "ATX-Stromsteuerung",
+        "description": "Power- und Reset-Taste sowie Power-LED des Hosts: die KVM-B-Platine bei Cube oder Lite, in der PCIe-Karte eingebaut. Aus: keine Power-Schaltfläche in der Werkzeugleiste, und Redfish, IPMI und MCP können die Tasten nicht drücken.",
+        "unavailable": "Diese Platine hat keinen bekannten ATX-Anschluss.",
+        "failed": "Die ATX-Einstellung konnte nicht geändert werden"
+      }
     },
     "usb": {
       "internet": {

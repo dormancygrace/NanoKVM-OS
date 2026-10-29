@@ -402,6 +402,12 @@
       "cancelBtn": "Hayır",
       "cpuFrequency": {
         "title": "CPU frekansı ve hız aşırtma"
+      },
+      "atx": {
+        "title": "ATX güç denetimi",
+        "description": "Ana makinenin güç ve sıfırlama düğmeleri ile güç LED'i: Cube veya Lite'ta KVM-B kartı, PCIe kartında yerleşik. Kapalıyken araç çubuğunda güç düğmesi olmaz; Redfish, IPMI ve MCP düğmelere basamaz.",
+        "unavailable": "Bu kartın bilinen bir ATX bağlantısı yok.",
+        "failed": "ATX ayarı değiştirilemedi"
       }
     },
     "network": {

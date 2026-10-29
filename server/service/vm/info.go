@@ -135,5 +135,6 @@ func (s *Service) GetHardware(c *gin.Context) {
 
 	rsp.OkRspWithData(c, &proto.GetHardwareRsp{
 		Version: version,
+		ATX:     ATXEnabled(),
 	})
 }

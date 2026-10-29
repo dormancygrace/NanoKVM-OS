@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"NanoKVM-Server/config"
 	"NanoKVM-Server/pkg/bmc"
 )
 
@@ -23,7 +22,7 @@ type ATX struct{}
 var bmcConfigPath = bmc.ConfigPath
 
 func (ATX) State(ctx context.Context) (bmc.ATXState, error) {
-	hardware := config.GetInstance().Hardware
+	hardware := atxHardware()
 	ledLine := hardware.GPIOPowerLED != ""
 	state := bmc.ATXState{
 		PowerButton: hardware.GPIOPower != "",
@@ -33,7 +32,7 @@ func (ATX) State(ctx context.Context) (bmc.ATXState, error) {
 		PowerLED: ledLine && bmc.PowerLEDConnected(bmcConfigPath),
 	}
 	if ledLine {
-		status, err := monitoredGPIOInputs.Current(ctx)
+		status, err := gpioMonitor().Current(ctx)
 		if err != nil {
 			return state, err
 		}
@@ -48,7 +47,7 @@ func (ATX) State(ctx context.Context) (bmc.ATXState, error) {
 // Press holds a button for durationMs (100-60000) and returns once it is
 // released.
 func (ATX) Press(ctx context.Context, button string, durationMs int) error {
-	hardware := config.GetInstance().Hardware
+	hardware := atxHardware()
 	device := ""
 	switch button {
 	case "power":

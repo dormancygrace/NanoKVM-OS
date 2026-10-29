@@ -1265,7 +1265,13 @@
       "reboot": "重新启动",
       "rebootDesc": "您确定要重新启动 NanoKVM 吗？",
       "okBtn": "是",
-      "cancelBtn": "否"
+      "cancelBtn": "否",
+      "atx": {
+        "title": "ATX 电源控制",
+        "description": "主机的电源和复位按钮以及电源指示灯：Cube 或 Lite 上为 KVM-B 板，PCIe 卡内置。关闭后，工具栏上没有电源按钮，Redfish、IPMI 和 MCP 也无法按下按钮。",
+        "unavailable": "此主板没有已知的 ATX 连接。",
+        "failed": "无法更改 ATX 设置"
+      }
     },
     "usb": {
       "internet": {

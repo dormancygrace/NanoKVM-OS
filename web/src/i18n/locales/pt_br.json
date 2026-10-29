@@ -402,6 +402,12 @@
       "cancelBtn": "Não",
       "cpuFrequency": {
         "title": "Frequência da CPU e overclock"
+      },
+      "atx": {
+        "title": "Controle de energia ATX",
+        "description": "Botões de energia e reset e LED de energia do host: a placa KVM-B em um Cube ou Lite, embutidos na placa PCIe. Desligado: sem botão de energia na barra de ferramentas, e Redfish, IPMI e MCP não podem pressionar os botões.",
+        "unavailable": "Esta placa não tem conexão ATX conhecida.",
+        "failed": "Não foi possível alterar a configuração ATX"
       }
     },
     "network": {

@@ -1265,7 +1265,13 @@
       "reboot": "Reboot",
       "rebootDesc": "Are you sure you want to reboot NanoKVM?",
       "okBtn": "Yes",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "atx": {
+        "title": "ATX power control",
+        "description": "The host's power and reset buttons and power LED: the KVM-B board on a Cube or Lite, built into the PCIe card. Off: no power button on the toolbar, and Redfish, IPMI and MCP cannot press the buttons.",
+        "unavailable": "This board has no known ATX connection.",
+        "failed": "Could not update the ATX setting"
+      }
     },
     "usb": {
       "internet": {

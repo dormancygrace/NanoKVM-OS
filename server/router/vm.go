@@ -48,6 +48,11 @@ func vmRouter(r *gin.Engine) {
 		service.GetLiveStatus(c, principal.Role == authn.RoleAdmin)
 	})
 
+	// ATX switch: the board's default is written at the first start.
+	vm.EnsureATXSetting()
+	api.GET("/vm/atx", service.GetATX)
+	admin.POST("/vm/atx", service.SetATX)
+
 	api.POST("/vm/gpio", requireInputOwner(), service.SetGpio)                 // update gpio
 	api.GET("/vm/gpio", service.GetGpio)                                       // get gpio
 	admin.POST("/vm/screen", middleware.RequireVideo, service.SetScreen)       // update screen

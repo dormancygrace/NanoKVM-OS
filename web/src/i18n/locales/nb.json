@@ -402,6 +402,12 @@
       "cancelBtn": "Nei",
       "cpuFrequency": {
         "title": "CPU-frekvens og overklokking"
+      },
+      "atx": {
+        "title": "ATX-strømstyring",
+        "description": "Vertens av/på- og tilbakestillingsknapp og strøm-LED: KVM-B-kortet på en Cube eller Lite, innebygd i PCIe-kortet. Av: ingen av/på-knapp i verktøylinjen, og Redfish, IPMI og MCP kan ikke trykke på knappene.",
+        "unavailable": "Dette kortet har ingen kjent ATX-tilkobling.",
+        "failed": "ATX-innstillingen kunne ikke endres"
       }
     },
     "network": {

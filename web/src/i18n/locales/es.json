@@ -1265,7 +1265,13 @@
       "reboot": "Reiniciar",
       "rebootDesc": "¿Estás seguro de que deseas reiniciar el NanoKVM?",
       "okBtn": "Sí",
-      "cancelBtn": "No"
+      "cancelBtn": "No",
+      "atx": {
+        "title": "Control de encendido ATX",
+        "description": "Botones de encendido y reinicio y LED de encendido del equipo: la placa KVM-B en un Cube o Lite, integrados en la tarjeta PCIe. Desactivado: no hay botón de encendido en la barra de herramientas, y Redfish, IPMI y MCP no pueden pulsar los botones.",
+        "unavailable": "Esta placa no tiene una conexión ATX conocida.",
+        "failed": "No se pudo cambiar el ajuste ATX"
+      }
     },
     "usb": {
       "internet": {

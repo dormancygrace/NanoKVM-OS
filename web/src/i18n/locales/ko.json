@@ -402,6 +402,12 @@
       "cancelBtn": "아니오",
       "cpuFrequency": {
         "title": "CPU 주파수 및 오버클럭"
+      },
+      "atx": {
+        "title": "ATX 전원 제어",
+        "description": "호스트의 전원·리셋 버튼과 전원 LED: Cube나 Lite에서는 KVM-B 보드, PCIe 카드에는 내장. 끄면 도구 모음에 전원 버튼이 없고 Redfish, IPMI, MCP도 버튼을 누를 수 없습니다.",
+        "unavailable": "이 보드에는 알려진 ATX 연결이 없습니다.",
+        "failed": "ATX 설정을 바꿀 수 없습니다"
       }
     },
     "network": {

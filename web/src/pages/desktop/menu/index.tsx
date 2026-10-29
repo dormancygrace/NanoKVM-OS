@@ -2,14 +2,16 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNod
 import { useAuth } from '@/contexts/auth.ts';
 import { Button, Divider } from 'antd';
 import clsx from 'clsx';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { ChevronDownIcon, ChevronUpIcon, GripVerticalIcon } from 'lucide-react';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
 import { getRuntimeStatus } from '@/api/picoclaw.ts';
+import { getHardware } from '@/api/vm.ts';
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { atxEnabledAtom } from '@/jotai/atx.ts';
 import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
@@ -114,6 +116,22 @@ export const Menu = () => {
   const mobileRailRef = useRef<HTMLDivElement | null>(null);
 
   const menuDisabledItems = useAtomValue(menuDisabledItemsAtom);
+  // The power button needs ATX power control on (System > Device).
+  const [atxEnabled, setAtxEnabled] = useAtom(atxEnabledAtom);
+  useEffect(() => {
+    if (atxEnabled !== null) return;
+    let disposed = false;
+    getHardware()
+      .then((rsp) => {
+        if (!disposed && rsp.code === 0) setAtxEnabled(rsp.data.atx === true);
+      })
+      .catch(() => {
+        /* Without the answer the power button stays hidden. */
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [atxEnabled, setAtxEnabled]);
   const menuCloseSignal = useAtomValue(menuCloseSignalAtom);
   const isKeyboardLedStatusVisible = useAtomValue(keyboardLedStatusVisibleAtom);
   const [isMobileRailCollapsed, setIsMobileRailCollapsed] = useState(false);
@@ -238,7 +256,9 @@ export const Menu = () => {
         : [],
       [
         ...(isEnabled('wol') ? [<Wol key="wol" />] : []),
-        ...(isEnabled('power') ? [<Power key="power" vertical={variant === 'mobile'} />] : [])
+        ...(atxEnabled && isEnabled('power')
+          ? [<Power key="power" vertical={variant === 'mobile'} />]
+          : [])
       ],
       variant === 'mobile'
         ? [

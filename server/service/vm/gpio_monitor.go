@@ -8,7 +8,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"NanoKVM-Server/config"
 	"NanoKVM-Server/internal/gpioio"
 )
 
@@ -64,16 +63,22 @@ type gpioInputMonitor struct {
 	err    error
 }
 
-var monitoredGPIOInputs = newGPIOInputMonitor(
-	func() (string, string) {
-		hardware := config.GetInstance().Hardware
-		return hardware.GPIOPowerLED, hardware.GPIOHDDLed
-	},
-	gpioio.Open,
-	gpioInputSampleInterval,
-	hddActivityHold,
-	gpioInputRetryInterval,
-).withEdges(gpioio.OpenEdges, gpioEdgeInterval)
+// monitoredGPIOInputs is replaced when ATX is switched off (gpioMonitor,
+// stopGPIOMonitor in atx.go).
+var monitoredGPIOInputs = newLEDMonitor()
+
+func newLEDMonitor() *gpioInputMonitor {
+	return newGPIOInputMonitor(
+		func() (string, string) {
+			hardware := atxHardware()
+			return hardware.GPIOPowerLED, hardware.GPIOHDDLed
+		},
+		gpioio.Open,
+		gpioInputSampleInterval,
+		hddActivityHold,
+		gpioInputRetryInterval,
+	).withEdges(gpioio.OpenEdges, gpioEdgeInterval)
+}
 
 func newGPIOInputMonitor(paths gpioInputPaths, open gpioLineOpen, sampleInterval, hddHold, retryInterval time.Duration) *gpioInputMonitor {
 	return &gpioInputMonitor{
@@ -94,6 +99,11 @@ func (m *gpioInputMonitor) withEdges(open gpioEdgeOpen, interval time.Duration) 
 	m.openEdges = open
 	m.edgeInterval = interval
 	return m
+}
+
+// close stops the monitor's goroutine, if it runs; it does not wait.
+func (m *gpioInputMonitor) close() {
+	m.stopOnce.Do(func() { close(m.stop) })
 }
 
 func (m *gpioInputMonitor) Current(ctx context.Context) (gpioInputStatus, error) {

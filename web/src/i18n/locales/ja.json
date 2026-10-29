@@ -1265,7 +1265,13 @@
       "reboot": "再起動",
       "rebootDesc": "NanoKVM を再起動してもよろしいですか?",
       "okBtn": "はい",
-      "cancelBtn": "いいえ"
+      "cancelBtn": "いいえ",
+      "atx": {
+        "title": "ATX 電源制御",
+        "description": "ホストの電源ボタン・リセットボタンと電源 LED: Cube や Lite では KVM-B ボード、PCIe カードでは内蔵。オフにすると、ツールバーの電源ボタンがなくなり、Redfish・IPMI・MCP もボタンを押せません。",
+        "unavailable": "このボードには既知の ATX 接続がありません。",
+        "failed": "ATX の設定を変更できませんでした"
+      }
     },
     "usb": {
       "internet": {

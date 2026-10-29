@@ -281,9 +281,16 @@ func (s *Service) GetMountedImage(c *gin.Context) {
 	})
 }
 
+// ErrNoUSBStorage: the USB gadget has no mass storage function bound, so
+// there is no virtual disk to show or mount.
+var ErrNoUSBStorage = errors.New("USB storage is off: enable it in Settings > USB Gadget")
+
 // MountedImage is the file on the virtual disk ("" when none) and whether it
-// is shown as an optical drive.
+// is shown as an optical drive; ErrNoUSBStorage without a virtual disk.
 func (s *Service) MountedImage() (string, bool, error) {
+	if err := requireActiveUSBStorage(); err != nil {
+		return "", false, ErrNoUSBStorage
+	}
 	image, err := mountedImage()
 	if err != nil || image == "" {
 		return image, false, err

@@ -66,6 +66,8 @@ type VirtualMediaResult struct {
 	Images  []string `json:"images,omitempty"`
 	Mounted string   `json:"mounted"`
 	Cdrom   bool     `json:"cdrom"`
+	// Why there is no virtual disk to mount on (USB storage off), if so.
+	Unavailable string `json:"unavailable,omitempty"`
 }
 
 type WakeOnLANParams struct {
@@ -167,9 +169,11 @@ func virtualMediaHandler(executor *toolExecutor, media MediaControl) protocol.To
 		default:
 			return nil, result, fmt.Errorf("unknown virtual media action: %s", input.Action)
 		}
+		// The list and the state still answer without a virtual disk: the
+		// agent learns why a mount would fail.
 		mounted, cdrom, err := media.MountedImage()
 		if err != nil {
-			return nil, result, err
+			result.Unavailable = err.Error()
 		}
 		result.OK, result.Mounted, result.Cdrom = true, mounted, cdrom
 		return nil, result, nil

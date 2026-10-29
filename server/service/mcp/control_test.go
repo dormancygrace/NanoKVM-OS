@@ -3,6 +3,7 @@ package mcpservice
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,9 +17,10 @@ import (
 )
 
 type fakeHostControl struct {
-	mu      sync.Mutex
-	log     []string
-	mounted string
+	mu        sync.Mutex
+	log       []string
+	mounted   string
+	noStorage bool
 }
 
 func (f *fakeHostControl) record(entry string) {
@@ -37,6 +39,9 @@ func (f *fakeHostControl) Images() ([]string, error) { return []string{"/data/de
 func (f *fakeHostControl) MountedImage() (string, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.noStorage {
+		return "", false, errors.New("USB storage is off")
+	}
 	return f.mounted, f.mounted != "", nil
 }
 
@@ -135,6 +140,16 @@ func TestHostControlToolsFollowTheSwitch(t *testing.T) {
 	}
 	if list = call(40, "tools/list", `{}`); strings.Contains(list, `"name":"power"`) {
 		t.Fatalf("switched off again, tools/list offers power: %s", list)
+	}
+}
+
+// Without USB storage the list still comes, with the reason a mount would fail
+// (found on the stand: the tool answered only "read failed").
+func TestVirtualMediaListWithoutUSBStorage(t *testing.T) {
+	fake := &fakeHostControl{noStorage: true}
+	_, result, err := virtualMediaHandler(nil, fake)(context.Background(), nil, VirtualMediaParams{Action: "list"})
+	if err != nil || !result.OK || len(result.Images) != 1 || result.Unavailable == "" {
+		t.Fatalf("list without USB storage: %+v, %v", result, err)
 	}
 }
 

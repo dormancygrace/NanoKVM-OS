@@ -952,6 +952,9 @@
       "limitNone": "Сейчас лимита нет.",
       "limitError": "Не удалось изменить лимит памяти"
     },
+    "services": {
+      "title": "Сервисы"
+    },
     "system": {
       "title": "Система",
       "general": "Общее",
@@ -2014,7 +2017,7 @@
       "ipmiEnable": "Включить IPMI",
       "ipmiNotInstalled": "IPMI ставится дополнением IPMI, оно не установлено.",
       "ipmiInstall": "Установить дополнение IPMI",
-      "ipmiAddonDescription": "IPMI по сети для управления питанием хоста (ipmitool, fence_ipmilan). Настройки — в разделе «Система > Redfish и IPMI».",
+      "ipmiAddonDescription": "IPMI по сети для управления питанием хоста (ipmitool, fence_ipmilan). Настройки — в разделе «Сервисы > Redfish и IPMI».",
       "holdDefault": "5 (меню питания)"
     },
     "recovery": {

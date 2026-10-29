@@ -952,6 +952,9 @@
       "limitNone": "En vigor: sin límite.",
       "limitError": "No se pudo cambiar el límite de memoria"
     },
+    "services": {
+      "title": "Servicios"
+    },
     "system": {
       "title": "Sistema",
       "general": "General",
@@ -2014,7 +2017,7 @@
       "ipmiEnable": "Activar IPMI",
       "ipmiNotInstalled": "IPMI viene con el complemento IPMI, que no está instalado.",
       "ipmiInstall": "Instalar el complemento IPMI",
-      "ipmiAddonDescription": "IPMI por LAN para el control de energía del equipo (ipmitool, fence_ipmilan). Sus ajustes están en Sistema > Redfish e IPMI.",
+      "ipmiAddonDescription": "IPMI por LAN para el control de energía del equipo (ipmitool, fence_ipmilan). Sus ajustes están en Servicios > Redfish e IPMI.",
       "holdDefault": "5 (menú de energía)"
     },
     "recovery": {

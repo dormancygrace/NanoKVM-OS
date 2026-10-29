@@ -2,7 +2,7 @@
 // requests still use.
 
 // A tab id "<group>-<page>" is shown inside its expandable group.
-export const settingsGroups = ['usb', 'network', 'system', 'ai', 'software'] as const;
+export const settingsGroups = ['usb', 'network', 'services', 'system', 'ai', 'software'] as const;
 export type SettingsGroup = (typeof settingsGroups)[number];
 
 // The group's own entry, which expands it instead of opening a page.
@@ -46,7 +46,10 @@ const aliases: Record<string, string> = {
   // MCP moved from System to the AI group.
   'system-mcp': 'ai-mcp',
   ai: 'ai-screen-text',
-  'extensions-rustdesk': 'software-rustdesk'
+  // Redfish/IPMI and RustDesk moved to Services.
+  'system-bmc': 'services-bmc',
+  'software-rustdesk': 'services-rustdesk',
+  'extensions-rustdesk': 'services-rustdesk'
 };
 
 export const resolveSettingsTab = (id: string) => aliases[id] ?? id;

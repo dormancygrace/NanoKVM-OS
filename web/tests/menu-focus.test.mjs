@@ -74,6 +74,11 @@ async function renderComponent(path, exportName, stateWrites = []) {
     if (name.includes('useResponsiveDevice')) return { useResponsiveDevice: () => ({}) };
     if (name.includes('contexts/auth')) return { useAuth: () => ({ account: { role: 'user' } }) };
     if (name === './tabs.ts') return new Proxy({}, { get: () => () => undefined });
+    if (name === './menu.ts')
+      return {
+        builtinMenu: [{ id: 'dashboard', order: 10, title: { key: 'dashboard.title' } }],
+        orderMenu: (entries) => entries
+      };
     return {};
   });
   return exports[exportName]({ title: 'test-menu', icon: null, content: null });

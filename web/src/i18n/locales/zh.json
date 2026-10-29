@@ -952,6 +952,9 @@
       "limitNone": "当前生效：无上限。",
       "limitError": "无法更改内存上限"
     },
+    "services": {
+      "title": "服务"
+    },
     "system": {
       "title": "系统",
       "general": "常规",
@@ -2014,7 +2017,7 @@
       "ipmiEnable": "启用 IPMI",
       "ipmiNotInstalled": "IPMI 由 IPMI 扩展提供，该扩展尚未安装。",
       "ipmiInstall": "安装 IPMI 扩展",
-      "ipmiAddonDescription": "用于主机电源控制的 IPMI over LAN（ipmitool、fence_ipmilan）。设置位于“系统 > Redfish 与 IPMI”。",
+      "ipmiAddonDescription": "用于主机电源控制的 IPMI over LAN（ipmitool、fence_ipmilan）。设置位于“服务 > Redfish 与 IPMI”。",
       "holdDefault": "5（电源菜单）"
     },
     "recovery": {

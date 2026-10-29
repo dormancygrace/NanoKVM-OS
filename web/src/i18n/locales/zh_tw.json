@@ -572,6 +572,9 @@
       "used": "已使用",
       "algorithm": "壓縮"
     },
+    "services": {
+      "title": "服務"
+    },
     "system": {
       "general": "一般",
       "logs": {

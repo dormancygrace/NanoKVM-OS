@@ -572,6 +572,9 @@
       "used": "Używane",
       "algorithm": "Kompresja"
     },
+    "services": {
+      "title": "Usługi"
+    },
     "system": {
       "general": "Ogólne",
       "logs": {

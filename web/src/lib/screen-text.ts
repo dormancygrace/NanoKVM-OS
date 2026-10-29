@@ -25,6 +25,14 @@ export function isScreenTextLanguage(value: unknown): value is ScreenTextLanguag
   return screenTextLanguages.includes(value as ScreenTextLanguage);
 }
 
+// The switch of Settings > AI > Text recognition from its GET reply. A server
+// from before the switch answers {language, languages}: there text
+// recognition is always on and cannot be turned off.
+export function screenTextSwitch(data: { enabled?: unknown } | null | undefined) {
+  if (typeof data?.enabled === 'boolean') return { enabled: data.enabled, switchable: true };
+  return { enabled: true, switchable: false };
+}
+
 // The reading dialog keeps the last language picked in this browser; a first
 // read is in Latin.
 const languageKey = 'nano-kvm-screen-text-language';

@@ -3,7 +3,8 @@ import { Alert, Button, message, Switch } from 'antd';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { getScreenTextSettings, setScreenTextEnabled, type ScreenTextSettings } from '@/api/vm.ts';
+import { getScreenTextSettings, setScreenTextEnabled } from '@/api/vm.ts';
+import { screenTextSwitch } from '@/lib/screen-text.ts';
 import { addonInventoryAtom } from '@/jotai/addons.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
@@ -13,7 +14,7 @@ import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => void }) => {
   const { t } = useTranslation();
   const [inventory, setInventory] = useAtom(addonInventoryAtom);
-  const [settings, setSettings] = useState<ScreenTextSettings>();
+  const [settings, setSettings] = useState<ReturnType<typeof screenTextSwitch>>();
   const [busy, setBusy] = useState(false);
   const installed = inventory?.tpu?.installed;
 
@@ -22,7 +23,7 @@ export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => v
     let active = true;
     getScreenTextSettings()
       .then((rsp) => {
-        if (active && rsp.code === 0) setSettings(rsp.data as ScreenTextSettings);
+        if (active && rsp.code === 0) setSettings(screenTextSwitch(rsp.data));
       })
       .catch(() => {});
     return () => {
@@ -31,7 +32,7 @@ export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => v
   }, [installed]);
 
   async function toggle(enabled: boolean) {
-    if (!settings) return;
+    if (!settings?.switchable) return;
     setBusy(true);
     try {
       const rsp = await setScreenTextEnabled(enabled);
@@ -73,7 +74,7 @@ export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => v
           aria-describedby="screen-text-enabled-description"
           checked={settings?.enabled ?? false}
           loading={!settings || busy}
-          disabled={!settings || busy}
+          disabled={!settings?.switchable || busy}
           onChange={(enabled) => void toggle(enabled)}
         />
       </SettingRow>

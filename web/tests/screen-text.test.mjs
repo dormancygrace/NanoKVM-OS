@@ -5,6 +5,7 @@ import {
   boxesInRegion,
   boxesToText,
   isScreenTextLanguage,
+  screenTextSwitch,
   storedScreenTextLanguage,
   storeScreenTextLanguage
 } from '../src/lib/screen-text.ts';
@@ -103,4 +104,18 @@ test('the reading dialog remembers the last language, Latin at first', () => {
     if (saved) Object.defineProperty(globalThis, 'localStorage', saved);
     else delete globalThis.localStorage;
   }
+});
+
+test('the settings switch, also against a server from before it', () => {
+  assert.deepEqual(screenTextSwitch({ enabled: false, languages: [] }), {
+    enabled: false,
+    switchable: true
+  });
+  assert.deepEqual(screenTextSwitch({ enabled: true, languages: [] }), {
+    enabled: true,
+    switchable: true
+  });
+  // 3.6.0 answers the default language: always on, no switch to send to.
+  const old = { language: 'latin', languages: [{ name: 'latin', installed: true }] };
+  assert.deepEqual(screenTextSwitch(old), { enabled: true, switchable: false });
 });

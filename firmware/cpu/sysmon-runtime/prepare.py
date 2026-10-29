@@ -180,7 +180,8 @@ text = original.decode()
 zbb = '\t\triscv64HasZbb = cpu.RISCV64.HasZbb\n'
 assert text.count(zbb) == 1
 text = text.replace(zbb, zbb + '\t\tnanokvmFastMisaligned = cpu.RISCV64.HasFastMisaligned\n'
-                    '\t\tnanokvmVectorMemmove = cpu.RISCV64.HasXTheadVector && nanokvmVectorEnabled()\n')
+                    '\t\tnanokvmVectorMemmove = cpu.RISCV64.HasXTheadVector && nanokvmVectorEnabled()\n'
+                    '\t\tnanokvmVectorMemclr = nanokvmVectorMemmove\n')
 anchor = 'func sysmon() {\n'
 assert text.count(anchor) == 1
 text = text.replace(anchor, anchor + '\tnanokvmSysmonInit()\n')
@@ -228,11 +229,24 @@ for d in 'fb':
          '\tMOVBU\truntime·nanokvmFastMisaligned(SB), X7\n'
          f'\tBNEZ\tX7, {d}_same_alignment\n'
          f'{d}_loop8_unaligned_check:\n')
+# Clears of nanokvmVectorMemclrMin bytes or more go to the XTheadVector loop
+# (gen_memclr_c906.py) when nanokvmVectorMemclr is set; smaller clears pay a
+# compare and a branch.
+edit('runtime/memclr_riscv64.s', '#include "textflag.h"\n', '#include "go_asm.h"\n#include "textflag.h"\n')
+edit('runtime/memclr_riscv64.s', '\t// X10 = ptr\n\t// X11 = n\n\n',
+     '\t// X10 = ptr\n\t// X11 = n\n\n'
+     '\t// NanoKVM: large clears with XTheadVector (nanokvm_memclr.go).\n'
+     '\tMOV\t$const_nanokvmVectorMemclrMin, X9\n'
+     '\tBLTU\tX11, X9, nanokvm_scalar\n'
+     '\tMOVBU\truntime·nanokvmVectorMemclr(SB), X9\n'
+     '\tBEQZ\tX9, nanokvm_scalar\n'
+     '\tJMP\truntime·nanokvmMemclrVector(SB)\n'
+     'nanokvm_scalar:\n')
 for p in source.glob('nanokvm_*'):
     shutil.copyfile(p, out / 'src/runtime' / p.name)
 manifest = {'source_go': str(base), 'goroot': str(out), 'source_pin': pin,
             'runtime_sources': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                                for p in [out / 'src/runtime/proc.go', out / 'src/runtime/memmove_riscv64.s', *sorted((out / 'src/runtime').glob('nanokvm_*'))]},
+                                for p in [out / 'src/runtime/proc.go', out / 'src/runtime/memmove_riscv64.s', out / 'src/runtime/memclr_riscv64.s', *sorted((out / 'src/runtime').glob('nanokvm_*'))]},
             'vendor_sources': {rel: sha256(out / 'src' / rel) for rel in vendor_files}}
 (out / 'nanokvm-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 assert hashlib.sha256((base / 'src/runtime/proc.go').read_bytes()).hexdigest() == pin['proc_go_sha256']

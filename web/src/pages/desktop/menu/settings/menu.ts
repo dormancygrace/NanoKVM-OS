@@ -66,7 +66,7 @@ export const builtinMenu = [
   { id: 'services-rustdesk', order: 20, icon: 'rustdesk', title: { text: 'RustDesk' } },
 
   { id: 'system', order: 70, icon: 'shield', title: { key: 'settings.system.title' } },
-  { id: 'system-general', order: 10, icon: 'settings', title: { key: 'settings.system.general' } },
+  { id: 'system-general', order: 10, icon: 'settings', title: { key: 'settings.system.device' } },
   { id: 'system-users', order: 20, icon: 'user', title: { key: 'settings.account.title' } },
   { id: 'system-security', order: 30, icon: 'lock', title: { key: 'settings.security.title' } },
   { id: 'system-date-time', order: 40, icon: 'clock', title: { key: 'dateTime.title' } },

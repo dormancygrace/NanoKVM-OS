@@ -169,6 +169,7 @@
     "duration": "{{days}}日 {{hours}}時間 {{minutes}}分",
     "open": "{{name}} の設定を開く",
     "of": "/ {{total}}",
+    "freeRam": "空きメモリ",
     "freeStorage": "空き容量",
     "uptime": "稼働時間",
     "device": "デバイス",

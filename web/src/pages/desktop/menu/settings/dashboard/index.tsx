@@ -382,12 +382,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           cpu ?? undefined,
           admin ? 'system-general' : undefined
         )}
+        {/* What programs can still get, page cache included, like the free space next to it. */}
         {metric(
-          'RAM',
-          bytes(memory?.usedBytes),
+          t('dashboard.freeRam'),
+          bytes(memory?.availableBytes),
           <MemoryStickIcon size={16} />,
           memory ? t('dashboard.of', { total: bytes(memory.totalBytes) }) : undefined,
-          memory ? percent(memory.usedBytes, memory.totalBytes) : undefined,
+          memory ? percent(memory.availableBytes, memory.totalBytes) : undefined,
           admin ? 'system-memory' : undefined
         )}
         {metric(

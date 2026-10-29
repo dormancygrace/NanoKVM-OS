@@ -899,6 +899,7 @@
   },
   "dashboard": {
     "title": "Огляд",
+    "freeRam": "Вільна RAM",
     "freeStorage": "Вільне місце",
     "uptime": "Час роботи",
     "kernel": "Ядро",

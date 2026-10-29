@@ -898,6 +898,7 @@
   },
   "dashboard": {
     "title": "Översikt",
+    "freeRam": "Ledigt RAM",
     "freeStorage": "Ledigt utrymme",
     "uptime": "Drifttid",
     "kernel": "Kärna",

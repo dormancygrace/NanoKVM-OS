@@ -64,6 +64,7 @@ import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { builtinMenu, orderMenu, type BuiltinMenuId, type SettingsMenuEntry } from './menu.ts';
+import { SessionActions } from './session-actions.tsx';
 import styles from './sidebar.module.css';
 import {
   isSettingsGroup,
@@ -630,7 +631,10 @@ export const Settings = ({
                   </Fragment>
                 );
               })}
-            <div className={clsx('px-3 pt-6 pb-4', !mobile && 'mt-auto!')}>
+            <div className={clsx('pt-6', !mobile && 'mt-auto!')}>
+              <SessionActions isAdmin={isAdmin} disabled={isLocked} mobile={mobile} />
+            </div>
+            <div className="px-3 pt-2 pb-4">
               <button
                 type="button"
                 disabled={isLocked}

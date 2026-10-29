@@ -169,6 +169,7 @@
     "duration": "{{days}} д {{hours}} ч {{minutes}} мин",
     "open": "Открыть настройки: {{name}}",
     "of": "из {{total}}",
+    "freeRam": "Свободная RAM",
     "freeStorage": "Свободное место",
     "uptime": "Время работы",
     "device": "Устройство",

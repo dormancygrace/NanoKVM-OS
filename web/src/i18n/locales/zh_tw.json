@@ -893,6 +893,7 @@
   },
   "dashboard": {
     "title": "儀表板",
+    "freeRam": "可用記憶體",
     "freeStorage": "可用空間",
     "uptime": "運作時間",
     "kernel": "核心",

@@ -169,6 +169,7 @@
     "duration": "{{days}}天 {{hours}}小时 {{minutes}}分钟",
     "open": "打开 {{name}} 设置",
     "of": "共 {{total}}",
+    "freeRam": "可用内存",
     "freeStorage": "可用空间",
     "uptime": "运行时间",
     "device": "设备",

@@ -898,6 +898,7 @@
   },
   "dashboard": {
     "title": "Tổng quan",
+    "freeRam": "RAM trống",
     "freeStorage": "Dung lượng trống",
     "uptime": "Thời gian hoạt động",
     "kernel": "Nhân hệ điều hành",

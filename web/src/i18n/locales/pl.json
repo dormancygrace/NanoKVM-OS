@@ -899,6 +899,7 @@
   },
   "dashboard": {
     "title": "Panel informacyjny",
+    "freeRam": "Wolna pamięć RAM",
     "freeStorage": "Wolne miejsce",
     "uptime": "Czas działania",
     "kernel": "Jądro",

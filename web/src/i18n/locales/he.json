@@ -331,6 +331,7 @@
   },
   "dashboard": {
     "title": "לוח בקרה",
+    "freeRam": "זיכרון RAM פנוי",
     "freeStorage": "שטח פנוי",
     "uptime": "זמן פעילות",
     "kernel": "ליבה",

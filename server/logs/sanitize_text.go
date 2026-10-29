@@ -58,27 +58,3 @@ func containsKeywordScalar(s, sub string) bool {
 	}
 	return false
 }
-
-// logCPUHasVector requires an exact XTheadVector token in every ISA record.
-// The standard V extension has different encodings and is not sufficient.
-func logCPUHasVector(info []byte) bool {
-	seen := false
-	for _, line := range strings.Split(string(info), "\n") {
-		key, value, ok := strings.Cut(line, ":")
-		if !ok || strings.TrimSpace(key) != "isa" {
-			continue
-		}
-		seen = true
-		found := false
-		for _, ext := range strings.Split(strings.TrimSpace(value), "_") {
-			if ext == "xtheadvector" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return seen
-}

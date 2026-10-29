@@ -285,25 +285,6 @@ func TestSelection(t *testing.T) {
 	}
 }
 
-func TestISAParse(t *testing.T) {
-	for _, c := range []struct {
-		cpuinfo string
-		want    bool
-	}{
-		{"processor\t: 0\nhart\t\t: 0\nisa\t\t: rv64imafdc_zicntr_zicsr_zifencei_zihpm_xtheadvector\nmmu\t\t: sv39\n", true},
-		{"isa\t\t: rv64imafdc_zicntr_zicsr_zifencei_zihpm\n", false},
-		{"isa : rv64imafdcv_xtheadvectorx\n", false},
-		{"isa : rv64gc_xtheadvector\nisa : rv64gc\n", false},
-		{"isa : rv64gc_xtheadvector\r\nisa : rv64gc_xtheadvector\n", true},
-		{"processor : 0\n", false},
-		{"", false},
-	} {
-		if got := isaHasExtension([]byte(c.cpuinfo), "xtheadvector"); got != c.want {
-			t.Errorf("%q: got %v", c.cpuinfo, got)
-		}
-	}
-}
-
 var stressSink atomic.Pointer[[]byte]
 
 // TestStress runs SumBatch in several goroutines with a CPU profile

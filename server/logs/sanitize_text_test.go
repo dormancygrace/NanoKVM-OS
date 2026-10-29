@@ -5,26 +5,6 @@ import (
 	"testing"
 )
 
-func TestLogVectorISARecords(t *testing.T) {
-	cases := []struct {
-		info string
-		want bool
-	}{
-		{"", false}, {"isa : rv64imafdcv\n", false},
-		{"isa : rv64imafdc_xtheadvector\n", true},
-		{"isa : rv64imafdc_xtheadvectorx\n", false},
-		{"isa extensions : xtheadvector\n", false},
-		{"isa : rv64imafdc_xtheadvector\nisa : rv64imafdc\n", false},
-		{"isa : rv64imafdc_xtheadvector\nisa : rv64imafdc_xtheadvector\n", true},
-		{"processor : 0\nisa\t: rv64imafdc_xtheadvector_zba\n", true},
-	}
-	for _, tc := range cases {
-		if got := logCPUHasVector([]byte(tc.info)); got != tc.want {
-			t.Errorf("info%q:got%v want%v", tc.info, got, tc.want)
-		}
-	}
-}
-
 func TestShortRepetitiveLogRouting(t *testing.T) {
 	for _, s := range []string{"", "password=x", strings.Repeat("a", 95), strings.Repeat("pxk", 32), strings.Repeat("private_kex", 4)} {
 		if !preferScalarLogLine(s) {

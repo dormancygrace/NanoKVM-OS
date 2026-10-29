@@ -572,6 +572,9 @@
       "used": "사용량",
       "algorithm": "압축"
     },
+    "services": {
+      "title": "서비스"
+    },
     "system": {
       "general": "일반",
       "logs": {

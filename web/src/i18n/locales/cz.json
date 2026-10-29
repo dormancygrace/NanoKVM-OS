@@ -1007,6 +1007,9 @@
     "security": {
       "title": "Zabezpečení"
     },
+    "services": {
+      "title": "Služby"
+    },
     "system": {
       "diagnostics": {
         "apk": "APK",
@@ -1667,7 +1670,7 @@
     "bmc": {
       "holdHint": "Nevyplněno: tak dlouho, jako je nastaveno v dlouhém stisku v nabídce napájení (5 s).",
       "holdDefault": "5 (nabídka napájení)",
-      "ipmiAddonDescription": "IPMI přes LAN pro ovládání napájení hostitele (ipmitool, fence_ipmilan). Jeho nastavení jsou v Systém → Redfish a IPMI.",
+      "ipmiAddonDescription": "IPMI přes LAN pro ovládání napájení hostitele (ipmitool, fence_ipmilan). Jeho nastavení jsou v Služby → Redfish a IPMI.",
       "ipmiInstall": "Nainstalovat doplněk pro IPMI",
       "ipmiNotInstalled": "IPMI je součástí doplňku IPMI, který není nainstalovaný.",
       "ipmiEnable": "Povolit IPMI",

@@ -572,6 +572,9 @@
       "used": "Brukt",
       "algorithm": "Komprimering"
     },
+    "services": {
+      "title": "Tjenester"
+    },
     "system": {
       "general": "Generelt",
       "logs": {

@@ -951,6 +951,9 @@
       "limitNone": "In effect: no limit.",
       "limitError": "Could not change the memory limit"
     },
+    "services": {
+      "title": "Services"
+    },
     "system": {
       "title": "System",
       "general": "General",
@@ -2013,7 +2016,7 @@
       "ipmiEnable": "Enable IPMI",
       "ipmiNotInstalled": "IPMI comes with the IPMI add-on, which is not installed.",
       "ipmiInstall": "Install the IPMI add-on",
-      "ipmiAddonDescription": "IPMI over LAN for power control of the host (ipmitool, fence_ipmilan). Its settings are in System > Redfish and IPMI.",
+      "ipmiAddonDescription": "IPMI over LAN for power control of the host (ipmitool, fence_ipmilan). Its settings are in Services > Redfish and IPMI.",
       "holdDefault": "5 (power menu)"
     },
     "recovery": {

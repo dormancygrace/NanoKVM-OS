@@ -951,6 +951,9 @@
       "limitNone": "現在の上限：なし。",
       "limitError": "メモリ上限を変更できませんでした"
     },
+    "services": {
+      "title": "サービス"
+    },
     "system": {
       "title": "システム",
       "general": "一般",
@@ -2013,7 +2016,7 @@
       "ipmiEnable": "IPMI を有効にする",
       "ipmiNotInstalled": "IPMI は IPMI アドオンで提供されますが、インストールされていません。",
       "ipmiInstall": "IPMI アドオンをインストール",
-      "ipmiAddonDescription": "ホスト電源制御のための IPMI over LAN（ipmitool、fence_ipmilan）。設定は「システム > Redfish と IPMI」にあります。",
+      "ipmiAddonDescription": "ホスト電源制御のための IPMI over LAN（ipmitool、fence_ipmilan）。設定は「サービス > Redfish と IPMI」にあります。",
       "holdDefault": "5（電源メニュー）"
     },
     "recovery": {

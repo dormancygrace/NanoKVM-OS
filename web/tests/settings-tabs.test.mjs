@@ -15,7 +15,9 @@ test('old settings ids open the pages that replaced them', () => {
   assert.equal(resolveSettingsTab('tailscale'), 'vpn-tailscale');
   assert.equal(resolveSettingsTab('vpn-wireguard'), 'vpn-wireguard');
   assert.equal(resolveSettingsTab('network-openvpn'), 'vpn-openvpn');
-  assert.equal(resolveSettingsTab('extensions-rustdesk'), 'software-rustdesk');
+  assert.equal(resolveSettingsTab('extensions-rustdesk'), 'services-rustdesk');
+  assert.equal(resolveSettingsTab('software-rustdesk'), 'services-rustdesk');
+  assert.equal(resolveSettingsTab('system-bmc'), 'services-bmc');
   assert.equal(resolveSettingsTab('date-time'), 'system-date-time');
   assert.equal(resolveSettingsTab('video'), 'video');
   assert.equal(resolveSettingsTab('usb'), 'usb-composition');
@@ -32,7 +34,8 @@ test('the AI group holds text recognition and MCP', () => {
 test('pages belong to the group named by their prefix', () => {
   assert.equal(settingsGroupOf('network-wifi'), 'network');
   assert.equal(settingsGroupOf('system-memory'), 'system');
-  assert.equal(settingsGroupOf('software-rustdesk'), 'software');
+  assert.equal(settingsGroupOf('services-rustdesk'), 'services');
+  assert.equal(settingsGroupOf('services-bmc'), 'services');
   assert.equal(settingsGroupOf('video'), undefined);
   assert.equal(settingsGroupOf('usb-identity'), 'usb');
   assert.equal(isSettingsGroup('usb'), true);

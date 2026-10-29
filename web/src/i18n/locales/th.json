@@ -572,6 +572,9 @@
       "used": "ใช้แล้ว",
       "algorithm": "การบีบอัด"
     },
+    "services": {
+      "title": "บริการ"
+    },
     "system": {
       "general": "ทั่วไป",
       "logs": {

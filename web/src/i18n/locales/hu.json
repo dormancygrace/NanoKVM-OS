@@ -596,6 +596,9 @@
       "used": "Felhasznált",
       "algorithm": "Tömörítés"
     },
+    "services": {
+      "title": "Szolgáltatások"
+    },
     "system": {
       "general": "Általános",
       "logs": {

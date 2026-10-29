@@ -33,6 +33,7 @@ import {
   PaletteIcon,
   RadioTowerIcon,
   ScanTextIcon,
+  ServerCogIcon,
   ServerIcon,
   SettingsIcon,
   ShieldIcon,
@@ -62,6 +63,7 @@ import { RustDeskIcon } from '@/components/icons/rustdesk';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import { builtinMenu, orderMenu } from './menu.ts';
 import styles from './sidebar.module.css';
 import {
   isSettingsGroup,
@@ -159,6 +161,41 @@ const UpdateDot = () => (
   />
 );
 
+// The icon names menu entries can use.
+const menuIcons: Record<string, ReactNode> = {
+  bluetooth: <BluetoothIcon size={16} />,
+  bot: <BotIcon size={16} />,
+  clock: <ClockIcon size={16} />,
+  dashboard: <LayoutDashboardIcon size={16} />,
+  download: <DownloadIcon size={16} />,
+  ethernet: <EthernetPortIcon size={16} />,
+  fingerprint: <FingerprintIcon size={16} />,
+  info: <InfoIcon size={16} />,
+  layers: <LayersIcon size={16} />,
+  lock: <LockIcon size={16} />,
+  memory: <MemoryStickIcon size={16} />,
+  message: <MessageSquareIcon size={16} />,
+  network: <NetworkIcon size={16} />,
+  package: <PackageIcon size={16} />,
+  palette: <PaletteIcon size={16} />,
+  'radio-tower': <RadioTowerIcon size={16} />,
+  rustdesk: <RustDeskIcon size={16} />,
+  'scan-text': <ScanTextIcon size={16} />,
+  server: <ServerIcon size={16} />,
+  'server-cog': <ServerCogIcon size={16} />,
+  settings: <SettingsIcon size={16} />,
+  shield: <ShieldIcon size={16} />,
+  sparkles: <SparklesIcon size={16} />,
+  stethoscope: <StethoscopeIcon size={16} />,
+  usb: <UsbIcon size={16} />,
+  user: <UserRoundIcon size={16} />,
+  video: <VideoIcon size={16} />,
+  vpn: <GlobeLockIcon size={16} />,
+  wifi: <WifiIcon size={16} />
+};
+
+const menuTitles = new Map(builtinMenu.map((entry) => [entry.id, entry.title]));
+
 const PageLoading = () => (
   <div className="flex justify-center pt-10">
     <Spin size="small" />
@@ -210,146 +247,84 @@ export const Settings = ({
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
   const setSubmenuOpenCount = useSetAtom(submenuOpenCountAtom);
 
-  // Hidden tabs are collection items: opened from their list, not the menu.
-  const tabs: { id: string; icon?: ReactNode; component: ReactNode; hidden?: boolean }[] = [
-    {
-      id: 'dashboard',
-      icon: <LayoutDashboardIcon size={16} />,
-      component: <Dashboard navigate={changeTab} />
-    },
-    {
-      id: 'video',
-      icon: <VideoIcon size={16} />,
-      component: <VideoSettings setIsLocked={setIsLocked} />
-    },
-    ...(isAdmin
-      ? [
-          { id: 'usb', icon: <UsbIcon size={16} />, component: null },
-          {
-            id: 'usb-composition',
-            icon: <LayersIcon size={16} />,
-            component: <Usb part="composition" />
-          },
-          {
-            id: 'usb-identity',
-            icon: <FingerprintIcon size={16} />,
-            component: <Usb part="identity" />
-          },
-          { id: 'network', icon: <NetworkIcon size={16} />, component: null },
-          { id: 'network-general', icon: <SettingsIcon size={16} />, component: <Network /> },
-          { id: 'network-wifi', icon: <WifiIcon size={16} />, component: <WifiSettings /> },
-          {
-            id: 'network-ethernet',
-            icon: <EthernetPortIcon size={16} />,
-            component: <EthernetSettings />
-          },
-          ...(hasBluetooth
-            ? [
-                {
-                  id: 'network-bluetooth',
-                  icon: <BluetoothIcon size={16} />,
-                  component: <BluetoothSettings />
-                }
-              ]
-            : []),
-          {
-            id: 'network-webrtc',
-            icon: <RadioTowerIcon size={16} />,
-            component: <WebRTCSettings />
-          },
-          { id: 'vpn', icon: <GlobeLockIcon size={16} />, component: <VPNList open={changeTab} /> },
-          {
-            id: 'vpn-wireguard',
-            hidden: true,
-            component: <WireGuard setIsLocked={setIsLocked} />
-          },
-          {
-            id: 'vpn-openvpn',
-            hidden: true,
-            component: <OpenVPN setIsLocked={setIsLocked} />
-          },
-          {
-            id: 'vpn-tailscale',
-            hidden: true,
-            component: <Tailscale setIsLocked={setIsLocked} />
-          },
-          {
-            id: 'vpn-netbird',
-            hidden: true,
-            component: <Netbird setIsLocked={setIsLocked} />
-          },
-          { id: 'system', icon: <ShieldIcon size={16} />, component: null },
-          { id: 'system-general', icon: <SettingsIcon size={16} />, component: <System /> },
-          { id: 'system-users', icon: <UserRoundIcon size={16} />, component: <Account /> },
-          { id: 'system-security', icon: <LockIcon size={16} />, component: <Security /> },
-          { id: 'system-bmc', icon: <ServerIcon size={16} />, component: <BmcSettingsPage /> },
-          {
-            id: 'system-date-time',
-            icon: <ClockIcon size={16} />,
-            component: <DateTimeSettings />
-          },
-          { id: 'system-recovery', icon: <DownloadIcon size={16} />, component: <Recovery /> },
-          { id: 'system-updates', icon: <DownloadIcon size={16} />, component: <Updates /> },
-          { id: 'system-memory', icon: <MemoryStickIcon size={16} />, component: <Memory /> },
-          {
-            id: 'system-diagnostics',
-            icon: <StethoscopeIcon size={16} />,
-            component: <Diagnostics />
-          },
-          { id: 'ai', icon: <SparklesIcon size={16} />, component: null },
-          {
-            id: 'ai-screen-text',
-            icon: <ScanTextIcon size={16} />,
-            component: <ScreenTextSettingsPage onOpenAddons={() => changeTab('software-addons')} />
-          },
-          {
-            id: 'ai-picoclaw',
-            icon: <MessageSquareIcon size={16} />,
-            component: (
-              <PicoclawSettingsPage
-                onOpenAddons={() => changeTab('software-addons')}
-                onOpenChat={() => {
-                  closeModal();
-                  setPicoclawOpen(true);
-                }}
-              />
-            )
-          },
-          { id: 'ai-mcp', icon: <BotIcon size={16} />, component: <MCP /> },
-          { id: 'software', icon: <PackageIcon size={16} />, component: null },
-          {
-            id: 'software-addons',
-            icon: <PackageIcon size={16} />,
-            component: (
-              <Addons
-                onOpenRustDesk={() => changeTab('software-rustdesk')}
-                onOpenBmc={() => changeTab('system-bmc')}
-                onOpenAcme={() => changeTab('system-security')}
-                onOpen={() => {
-                  closeModal();
-                  setPicoclawOpen(true);
-                }}
-              />
-            )
-          },
-          { id: 'software-packages', icon: <PackageIcon size={16} />, component: <Software /> },
-          ...(inventory?.rustdesk.installed
-            ? [
-                {
-                  id: 'software-rustdesk',
-                  icon: <RustDeskIcon size={16} />,
-                  component: <RustDeskControls />
-                }
-              ]
-            : [])
-        ]
-      : []),
-    { id: 'appearance', icon: <PaletteIcon size={16} />, component: <Appearance /> },
-    ...(!isAdmin
-      ? [{ id: 'account', icon: <UserRoundIcon size={16} />, component: <Account /> }]
-      : []),
-    { id: 'about', icon: <InfoIcon size={16} />, component: <About /> }
-  ];
+  // What each menu entry opens. An entry without a page here (not an admin,
+  // no Bluetooth chip, add-on not installed) is not shown; a group (null)
+  // shows only with something inside.
+  const pages: Record<string, ReactNode | undefined> = {
+    dashboard: <Dashboard navigate={changeTab} />,
+    video: <VideoSettings setIsLocked={setIsLocked} />,
+    appearance: <Appearance />,
+    account: isAdmin ? undefined : <Account />,
+    about: <About />,
+    ...(isAdmin && {
+      usb: null,
+      'usb-composition': <Usb part="composition" />,
+      'usb-identity': <Usb part="identity" />,
+      network: null,
+      'network-general': <Network />,
+      'network-wifi': <WifiSettings />,
+      'network-ethernet': <EthernetSettings />,
+      'network-bluetooth': hasBluetooth ? <BluetoothSettings /> : undefined,
+      'network-webrtc': <WebRTCSettings />,
+      vpn: <VPNList open={changeTab} />,
+      'vpn-wireguard': <WireGuard setIsLocked={setIsLocked} />,
+      'vpn-openvpn': <OpenVPN setIsLocked={setIsLocked} />,
+      'vpn-tailscale': <Tailscale setIsLocked={setIsLocked} />,
+      'vpn-netbird': <Netbird setIsLocked={setIsLocked} />,
+      services: null,
+      'services-bmc': <BmcSettingsPage />,
+      'services-rustdesk': inventory?.rustdesk.installed ? <RustDeskControls /> : undefined,
+      system: null,
+      'system-general': <System />,
+      'system-users': <Account />,
+      'system-security': <Security />,
+      'system-date-time': <DateTimeSettings />,
+      'system-recovery': <Recovery />,
+      'system-updates': <Updates />,
+      'system-memory': <Memory />,
+      'system-diagnostics': <Diagnostics />,
+      ai: null,
+      'ai-screen-text': (
+        <ScreenTextSettingsPage onOpenAddons={() => changeTab('software-addons')} />
+      ),
+      'ai-picoclaw': (
+        <PicoclawSettingsPage
+          onOpenAddons={() => changeTab('software-addons')}
+          onOpenChat={() => {
+            closeModal();
+            setPicoclawOpen(true);
+          }}
+        />
+      ),
+      'ai-mcp': <MCP />,
+      software: null,
+      'software-addons': (
+        <Addons
+          onOpenRustDesk={() => changeTab('services-rustdesk')}
+          onOpenBmc={() => changeTab('services-bmc')}
+          onOpenAcme={() => changeTab('system-security')}
+          onOpen={() => {
+            closeModal();
+            setPicoclawOpen(true);
+          }}
+        />
+      ),
+      'software-packages': <Software />
+    })
+  };
+  const available = orderMenu(builtinMenu).filter((entry) => pages[entry.id] !== undefined);
+  const tabs = available
+    .filter(
+      (entry) =>
+        !isSettingsGroup(entry.id) ||
+        available.some((child) => settingsGroupOf(child.id) === entry.id)
+    )
+    .map((entry) => ({
+      id: entry.id,
+      icon: entry.icon ? menuIcons[entry.icon] : undefined,
+      component: pages[entry.id] ?? null,
+      hidden: entry.hidden
+    }));
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -404,7 +379,7 @@ export const Settings = ({
   }, [picoclawStatus, setInventory]);
 
   useEffect(() => {
-    if (currentTab === 'software-rustdesk' && inventory?.rustdesk.installed === false) {
+    if (currentTab === 'services-rustdesk' && inventory?.rustdesk.installed === false) {
       setCurrentTab('software-addons');
       setDetailOpen(true);
     }
@@ -496,42 +471,9 @@ export const Settings = ({
   }
 
   function tabTitle(id: string) {
-    if (id === 'dashboard') return t('dashboard.title');
-    if (id === 'video') return t('videoSettings.title');
-    if (id === 'usb') return t('settings.usb.gadget');
-    if (id === 'usb-composition') return t('settings.usb.compositionMenu');
-    if (id === 'usb-identity') return t('settings.usb.identityMenu');
-    if (id === 'network') return t('settings.network.title');
-    if (id === 'network-general') return t('settings.network.general');
-    if (id === 'network-wifi') return t('settings.network.wifi.title');
-    if (id === 'network-ethernet') return t('settings.network.ethernet.name');
-    if (id === 'network-bluetooth') return 'Bluetooth';
-    if (id === 'network-webrtc') return 'WebRTC';
-    if (id === 'vpn') return t('settings.vpn.title');
-    if (id === 'vpn-openvpn') return 'OpenVPN';
-    if (id === 'vpn-tailscale') return 'Tailscale';
-    if (id === 'vpn-netbird') return 'NetBird';
-    if (id === 'vpn-wireguard') return 'WireGuard';
-    if (id === 'system') return t('settings.system.title');
-    if (id === 'system-general') return t('settings.system.general');
-    if (id === 'system-users') return t('settings.account.title');
-    if (id === 'system-security') return t('settings.security.title');
-    if (id === 'system-date-time') return t('dateTime.title');
-    if (id === 'system-recovery') return t('settings.recovery.title');
-    if (id === 'system-updates') return t('settings.updates.title');
-    if (id === 'ai') return t('settings.ai.title');
-    if (id === 'ai-screen-text') return t('settings.ai.screenText.title');
-    if (id === 'ai-picoclaw') return 'PicoClaw';
-    if (id === 'ai-mcp') return t('settings.mcp.title');
-    if (id === 'system-memory') return t('settings.memory.title');
-    if (id === 'system-diagnostics') return t('settings.system.diagnostics.title');
-    if (id === 'software') return t('settings.software.title');
-    if (id === 'software-addons') return t('settings.software.addons.title');
-    if (id === 'software-packages') return t('settings.software.addons.packages');
-    if (id === 'software-rustdesk') return 'RustDesk';
-    if (id === 'system-bmc') return t('settings.bmc.title');
-    if (id === 'account') return t('settings.account.title');
-    return t(`settings.${id}.title`);
+    const title = menuTitles.get(id);
+    if (!title) return t(`settings.${id}.title`);
+    return 'key' in title ? t(title.key) : title.text;
   }
 
   // "Group / Page" for pages inside a group or a collection.

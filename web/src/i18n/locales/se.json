@@ -572,6 +572,9 @@
       "used": "Använt",
       "algorithm": "Komprimering"
     },
+    "services": {
+      "title": "Tjänster"
+    },
     "system": {
       "general": "Allmänt",
       "logs": {

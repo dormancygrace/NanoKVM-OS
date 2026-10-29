@@ -572,6 +572,9 @@
       "used": "Kullanılan",
       "algorithm": "Sıkıştırma"
     },
+    "services": {
+      "title": "Hizmetler"
+    },
     "system": {
       "general": "Genel",
       "logs": {

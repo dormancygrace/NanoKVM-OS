@@ -572,6 +572,9 @@
       "used": "Використано",
       "algorithm": "Стиснення"
     },
+    "services": {
+      "title": "Сервіси"
+    },
     "system": {
       "general": "Загальні",
       "logs": {

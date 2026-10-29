@@ -572,6 +572,9 @@
       "used": "Terpakai",
       "algorithm": "Kompresi"
     },
+    "services": {
+      "title": "Layanan"
+    },
     "system": {
       "general": "Umum",
       "logs": {

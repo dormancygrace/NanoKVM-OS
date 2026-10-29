@@ -951,6 +951,9 @@
       "limitNone": "Aktuell: kein Limit.",
       "limitError": "Das Speicherlimit konnte nicht geändert werden"
     },
+    "services": {
+      "title": "Dienste"
+    },
     "system": {
       "title": "System",
       "general": "Allgemein",
@@ -2013,7 +2016,7 @@
       "ipmiEnable": "IPMI aktivieren",
       "ipmiNotInstalled": "IPMI kommt mit der IPMI-Erweiterung, die nicht installiert ist.",
       "ipmiInstall": "IPMI-Erweiterung installieren",
-      "ipmiAddonDescription": "IPMI über LAN zur Stromsteuerung des Hosts (ipmitool, fence_ipmilan). Die Einstellungen finden Sie unter System > Redfish und IPMI.",
+      "ipmiAddonDescription": "IPMI über LAN zur Stromsteuerung des Hosts (ipmitool, fence_ipmilan). Die Einstellungen finden Sie unter Dienste > Redfish und IPMI.",
       "holdDefault": "5 (Strommenü)"
     },
     "recovery": {

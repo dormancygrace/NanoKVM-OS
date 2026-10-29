@@ -951,6 +951,9 @@
       "limitNone": "En vigueur : aucune limite.",
       "limitError": "Impossible de modifier la limite mémoire"
     },
+    "services": {
+      "title": "Services"
+    },
     "system": {
       "title": "Système",
       "general": "Général",
@@ -2013,7 +2016,7 @@
       "ipmiEnable": "Activer IPMI",
       "ipmiNotInstalled": "IPMI est fourni par le module IPMI, qui n'est pas installé.",
       "ipmiInstall": "Installer le module IPMI",
-      "ipmiAddonDescription": "IPMI sur LAN pour le contrôle de l'alimentation de l'hôte (ipmitool, fence_ipmilan). Ses paramètres sont dans Système > Redfish et IPMI.",
+      "ipmiAddonDescription": "IPMI sur LAN pour le contrôle de l'alimentation de l'hôte (ipmitool, fence_ipmilan). Ses paramètres sont dans Services > Redfish et IPMI.",
       "holdDefault": "5 (menu d'alimentation)"
     },
     "recovery": {

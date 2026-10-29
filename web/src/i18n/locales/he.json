@@ -98,6 +98,9 @@
       "used": "בשימוש",
       "algorithm": "דחיסה"
     },
+    "services": {
+      "title": "שירותים"
+    },
     "system": {
       "general": "כללי",
       "logs": {

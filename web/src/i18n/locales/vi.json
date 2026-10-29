@@ -572,6 +572,9 @@
       "used": "Đã dùng",
       "algorithm": "Nén"
     },
+    "services": {
+      "title": "Dịch vụ"
+    },
     "system": {
       "general": "Chung",
       "logs": {

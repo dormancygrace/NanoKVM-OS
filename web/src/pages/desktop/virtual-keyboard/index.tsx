@@ -3,9 +3,11 @@ import { AppleOutlined, WindowsOutlined } from '@ant-design/icons';
 import clsx from 'clsx';
 import { useAtom } from 'jotai';
 import { XIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { KeyboardButtonTheme } from 'react-simple-keyboard';
 import Keyboard from 'react-simple-keyboard/build/index.modern.esm.js';
-import { Drawer } from 'vaul';
+
+import { KeyboardSheet } from './keyboard-sheet.tsx';
 
 import 'react-simple-keyboard/build/css/index.css';
 import '@/assets/styles/keyboard.css';
@@ -38,6 +40,7 @@ const languages = [
 ];
 
 export const VirtualKeyboard = () => {
+  const { t } = useTranslation();
   const isBigScreen = useMediaQuery({ minWidth: 850 });
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useAtom(isKeyboardOpenAtom);
@@ -47,7 +50,6 @@ export const VirtualKeyboard = () => {
   const [keyboardLanguage, setKeyboardLanguage] = useState('en');
   const [activeModifierKeys, setActiveModifierKeys] = useState<string[]>([]);
 
-  const keyboardRef = useRef<any>(null);
   // A non-modifier key reported down: simple-keyboard only reports the
   // release when the pointer goes up on the same button.
   const keyHeld = useRef(false);
@@ -77,6 +79,19 @@ export const VirtualKeyboard = () => {
       release();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isKeyboardOpen) {
+      releaseHeld.current();
+      setActiveModifierKeys([]);
+    }
+  }, [isKeyboardOpen]);
+
+  function closeKeyboard() {
+    releaseHeld.current();
+    setActiveModifierKeys([]);
+    setIsKeyboardOpen(false);
+  }
 
   const systems = [
     { value: 'win', icon: <WindowsOutlined /> },
@@ -258,87 +273,86 @@ export const VirtualKeyboard = () => {
   }
 
   return (
-    <Drawer.Root open={isKeyboardOpen} onOpenChange={setIsKeyboardOpen} modal={false}>
-      <Drawer.Portal>
-        <Drawer.Content
-          className={clsx(
-            'fixed right-0 bottom-0 left-0 z-999 mx-auto overflow-hidden rounded bg-white outline-none',
-            isBigScreen ? 'w-[820px]' : 'w-full max-w-[650px]'
-          )}
+    <KeyboardSheet
+      open={isKeyboardOpen}
+      label={t('keyboard.virtual')}
+      onClose={closeKeyboard}
+      className={clsx(
+        'fixed right-0 bottom-0 left-0 z-999 mx-auto overflow-hidden rounded bg-white outline-none',
+        isBigScreen ? 'w-[820px]' : 'w-full max-w-[650px]'
+      )}
+    >
+      {/* header */}
+      <div className="keyboard-drawer-header flex items-center justify-between gap-2 px-2 py-1 sm:px-3">
+        <ConfigProvider
+          theme={{
+            algorithm: theme.defaultAlgorithm
+          }}
         >
-          {/* header */}
-          <div className="keyboard-drawer-header flex items-center justify-between gap-2 px-2 py-1 sm:px-3">
-            <ConfigProvider
-              theme={{
-                algorithm: theme.defaultAlgorithm
-              }}
-            >
-              <div className="keyboard-drawer-controls flex min-w-0 items-center space-x-5 overflow-x-auto">
-                <Select
-                  size="small"
-                  style={{ minWidth: 90 }}
-                  defaultValue={keyboardLanguage}
-                  options={languages}
-                  onChange={selectLanguage}
-                />
+          <div className="keyboard-drawer-controls flex min-w-0 items-center space-x-5 overflow-x-auto">
+            <Select
+              size="small"
+              style={{ minWidth: 90 }}
+              defaultValue={keyboardLanguage}
+              options={languages}
+              onChange={selectLanguage}
+            />
 
-                {keyboardLanguage === 'en' && (
-                  <Segmented
-                    size="small"
-                    options={systems}
-                    value={keyboardSystem}
-                    onChange={selectSystem}
-                  />
-                )}
-              </div>
-            </ConfigProvider>
-
-            <div className="flex flex-none items-center justify-end">
-              <div
-                className="flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded text-neutral-600 hover:bg-neutral-300 hover:text-white"
-                onClick={() => setIsKeyboardOpen(false)}
-              >
-                <XIcon size={18} />
-              </div>
-            </div>
+            {keyboardLanguage === 'en' && (
+              <Segmented
+                size="small"
+                options={systems}
+                value={keyboardSystem}
+                onChange={selectSystem}
+              />
+            )}
           </div>
+        </ConfigProvider>
 
-          <div className="h-px shrink-0 border-b bg-neutral-300" />
+        <div className="flex flex-none items-center justify-end">
+          <button
+            type="button"
+            aria-label={t('settings.close')}
+            className="flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded text-neutral-600 hover:bg-neutral-300 hover:text-white"
+            onClick={closeKeyboard}
+          >
+            <XIcon size={18} />
+          </button>
+        </div>
+      </div>
 
-          <div data-vaul-no-drag className="keyboardContainer w-full">
-            {/* main keyboard */}
+      <div className="h-px shrink-0 border-b bg-neutral-300" />
+
+      <div className="keyboardContainer w-full">
+        {/* main keyboard */}
+        <Keyboard
+          buttonTheme={getButtonTheme()}
+          onKeyPress={onKeyPress}
+          onKeyReleased={onKeyReleased}
+          layoutName={keyboardLayout}
+          {...keyboardOptions}
+          disableButtonHold={disableButtonHold}
+        />
+
+        {/* control keyboard */}
+        {isBigScreen && (
+          <div className="controlArrows">
             <Keyboard
-              buttonTheme={getButtonTheme()}
-              keyboardRef={(r) => (keyboardRef.current = r)}
               onKeyPress={onKeyPress}
               onKeyReleased={onKeyReleased}
-              layoutName={keyboardLayout}
-              {...keyboardOptions}
+              {...keyboardControlPadOptions}
               disableButtonHold={disableButtonHold}
             />
 
-            {/* control keyboard */}
-            {isBigScreen && (
-              <div className="controlArrows">
-                <Keyboard
-                  onKeyPress={onKeyPress}
-                  onKeyReleased={onKeyReleased}
-                  {...keyboardControlPadOptions}
-                  disableButtonHold={disableButtonHold}
-                />
-
-                <Keyboard
-                  onKeyPress={onKeyPress}
-                  onKeyReleased={onKeyReleased}
-                  {...keyboardArrowsOptions}
-                  disableButtonHold={disableButtonHold}
-                />
-              </div>
-            )}
+            <Keyboard
+              onKeyPress={onKeyPress}
+              onKeyReleased={onKeyReleased}
+              {...keyboardArrowsOptions}
+              disableButtonHold={disableButtonHold}
+            />
           </div>
-        </Drawer.Content>
-        <Drawer.Overlay />
-      </Drawer.Portal>
-    </Drawer.Root>
+        )}
+      </div>
+    </KeyboardSheet>
   );
 };

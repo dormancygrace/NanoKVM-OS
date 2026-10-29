@@ -26,7 +26,7 @@
   },
   "sophgo_osdrv": {
     "url": "https://github.com/sophgo/osdrv.git",
-    "commit": "1b3a49649d18488ecf54fb4fcb6c27599e433fdc",
+    "commit": "e3622ff59a71faf2c43c390921fb5544303111d1",
     "branch": "sg200x-dev"
   },
   "sophgo_cvi_mpi": {

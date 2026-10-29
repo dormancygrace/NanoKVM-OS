@@ -1,0 +1,20 @@
+{
+  "component": "osdrv",
+  "current": "1b3a49649d18488ecf54fb4fcb6c27599e433fdc",
+  "candidate": "e3622ff59a71faf2c43c390921fb5544303111d1",
+  "candidate_key": "e3622ff59a71faf2c43c390921fb5544303111d1",
+  "status": "pending-review",
+  "upstream": "https://github.com/sophgo/osdrv/compare/1b3a49649d18488ecf54fb4fcb6c27599e433fdc...e3622ff59a71faf2c43c390921fb5544303111d1",
+  "source_path": "platform/sources.lock",
+  "strategy": "git-pin",
+  "evidence": {
+    "commit": "e3622ff59a71faf2c43c390921fb5544303111d1",
+    "objects": {
+      ".": "58a0741b53ad6da334f47ccbf37c33820448aa2d"
+    }
+  },
+  "pin_files_updated": [
+    "firmware/sources.json",
+    "platform/sources.lock"
+  ]
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Checkbox, Input, message, Modal, Select, Switch } from 'antd';
+import { Alert, Button, Checkbox, Input, message, Modal, Select, Switch, Tabs } from 'antd';
 import i18n from 'i18next';
 import { useTranslation } from 'react-i18next';
 
@@ -443,99 +443,118 @@ export const Wifi = () => {
 
       {state?.supported && <IPv6 name="wlan0" />}
 
-      {canConfigure && (
-        <SettingsSection
-          title={tr('availableNetworks')}
-          actions={
-            <Button
-              size="small"
-              onClick={scan}
-              loading={scanning}
-              disabled={locked || !state.bands?.length}
-            >
-              {tr('scan')}
-            </Button>
-          }
-        >
-          {!state.bands?.length && (
-            <div className="text-fg-muted text-xs">{tr('bandsUnavailable')}</div>
-          )}
-          {groupedNetworks.length > 0 && (
-            <Panel flush className="divide-line divide-y">
-              {groupedNetworks.map((network) => (
-                <div
-                  key={`${network.ssid}-${network.security}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <WifiSignal signal={network.signal} />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className="break-all">{network.ssid}</span>
-                        {network.bands.map((band) => (
-                          <WifiBandTag key={band} band={band} />
-                        ))}
-                        {saved.some((item) => item.ssid === network.ssid) && (
-                          <StatusBadge tone="neutral">{tr('savedTag')}</StatusBadge>
-                        )}
-                      </div>
-                      <div className="text-fg-muted text-xs">
-                        {Array.from(
-                          new Set(
-                            network.candidates.flatMap((item) =>
-                              securityLabel(item.security).split('/')
-                            )
-                          )
-                        ).join(' / ')}
-                        {' · '}
-                        {Math.round(network.signal)} dBm
-                      </div>
-                    </div>
-                  </div>
-                  {state.connected && state.ssid === network.ssid ? (
-                    <Button size="small" danger disabled={locked} onClick={disconnect}>
-                      {tr('disconnectButton')}
-                    </Button>
-                  ) : saved.some((item) => item.ssid === network.ssid) ? (
-                    <Button
-                      size="small"
-                      disabled={locked}
-                      onClick={() => void joinSaved(network.ssid)}
-                    >
-                      {tr('joinBtn')}
-                    </Button>
-                  ) : (
-                    <Button
-                      size="small"
-                      disabled={locked || network.security === 'unsupported'}
-                      onClick={() => open(network)}
-                    >
-                      {tr('joinBtn')}
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </Panel>
-          )}
-          {scanned && networks.length === 0 && (
-            <div className="text-fg-muted text-xs">{tr('noNetworks')}</div>
-          )}
-          <div>
-            <Button size="small" disabled={locked || !state.bands?.length} onClick={() => open()}>
-              {tr('manual')}
-            </Button>
-          </div>
-        </SettingsSection>
-      )}
-
       {state?.supported && !state.apMode && (
-        <SavedWifi
-          networks={saved}
-          state={state}
-          locked={locked}
-          canJoin={canConfigure}
-          onJoin={(ssid) => void joinSaved(ssid)}
-          onChanged={() => void loadSaved()}
+        <Tabs
+          defaultActiveKey="available"
+          items={[
+            {
+              key: 'available',
+              label: tr('availableNetworks'),
+              children: canConfigure ? (
+                <SettingsSection
+                  actions={
+                    <Button
+                      size="small"
+                      onClick={scan}
+                      loading={scanning}
+                      disabled={locked || !state.bands?.length}
+                    >
+                      {tr('scan')}
+                    </Button>
+                  }
+                >
+                  {!state.bands?.length && (
+                    <div className="text-fg-muted text-xs">{tr('bandsUnavailable')}</div>
+                  )}
+                  {groupedNetworks.length > 0 && (
+                    <Panel flush className="divide-line divide-y">
+                      {groupedNetworks.map((network) => (
+                        <div
+                          key={`${network.ssid}-${network.security}`}
+                          className="flex items-center justify-between gap-3 px-4 py-3"
+                        >
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
+                            <WifiSignal signal={network.signal} />
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <span className="break-all">{network.ssid}</span>
+                                {network.bands.map((band) => (
+                                  <WifiBandTag key={band} band={band} />
+                                ))}
+                                {saved.some((item) => item.ssid === network.ssid) && (
+                                  <StatusBadge tone="neutral">{tr('savedTag')}</StatusBadge>
+                                )}
+                              </div>
+                              <div className="text-fg-muted text-xs">
+                                {Array.from(
+                                  new Set(
+                                    network.candidates.flatMap((item) =>
+                                      securityLabel(item.security).split('/')
+                                    )
+                                  )
+                                ).join(' / ')}
+                                {' · '}
+                                {Math.round(network.signal)} dBm
+                              </div>
+                            </div>
+                          </div>
+                          {state.connected && state.ssid === network.ssid ? (
+                            <Button size="small" danger disabled={locked} onClick={disconnect}>
+                              {tr('disconnectButton')}
+                            </Button>
+                          ) : saved.some((item) => item.ssid === network.ssid) ? (
+                            <Button
+                              size="small"
+                              disabled={locked}
+                              onClick={() => void joinSaved(network.ssid)}
+                            >
+                              {tr('joinBtn')}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              disabled={locked || network.security === 'unsupported'}
+                              onClick={() => open(network)}
+                            >
+                              {tr('joinBtn')}
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </Panel>
+                  )}
+                  {scanned && networks.length === 0 && (
+                    <div className="text-fg-muted text-xs">{tr('noNetworks')}</div>
+                  )}
+                  <div>
+                    <Button
+                      size="small"
+                      disabled={locked || !state.bands?.length}
+                      onClick={() => open()}
+                    >
+                      {tr('manual')}
+                    </Button>
+                  </div>
+                </SettingsSection>
+              ) : (
+                <div className="text-fg-muted text-xs">{tr('disabled')}</div>
+              )
+            },
+            {
+              key: 'saved',
+              label: t('settings.network.wifiSaved.title'),
+              children: (
+                <SavedWifi
+                  networks={saved}
+                  state={state}
+                  locked={locked}
+                  canJoin={canConfigure}
+                  onJoin={(ssid) => void joinSaved(ssid)}
+                  onChanged={() => void loadSaved()}
+                />
+              )
+            }
+          ]}
         />
       )}
 

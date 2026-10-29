@@ -74,7 +74,7 @@ export const SavedWifi = ({ networks, state, locked, canJoin, onJoin, onChanged 
   }
 
   return (
-    <SettingsSection title={tr('title')} description={tr('description')}>
+    <SettingsSection description={tr('description')}>
       {networks.length === 0 ? (
         <div className="text-fg-muted text-xs">{tr('empty')}</div>
       ) : (

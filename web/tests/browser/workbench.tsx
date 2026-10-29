@@ -44,7 +44,7 @@ export function Workbench() {
           <input ref={video} aria-label="Video focus target" className="max-w-full border p-2" />
         </label>
         <div className="flex flex-wrap gap-4">
-          <button onPointerDown={(e) => e.preventDefault()} onClick={() => openKeyboard(true)}>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => openKeyboard(true)}>
             Open keyboard
           </button>
           <button

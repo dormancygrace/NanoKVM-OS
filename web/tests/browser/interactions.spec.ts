@@ -144,7 +144,8 @@ test.describe('touch', () => {
     request
   }) => {
     await login(page);
-    await openKeyboard(page);
+    await page.getByRole('button', { name: 'Open keyboard', exact: true }).tap();
+    await expect(page.getByRole('dialog')).toBeVisible();
     await key(page).tap();
     await expect.poll(() => reports(request).then((r) => r.some((x) => x[3] === 4))).toBe(true);
     await expect

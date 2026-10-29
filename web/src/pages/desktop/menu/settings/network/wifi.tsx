@@ -12,6 +12,7 @@ import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui
 import { IPv6 } from './ipv6.tsx';
 import { WifiBandTag } from './wifi-band';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
+import { SavedWifi } from './wifi-saved.tsx';
 import { WifiSignal } from './wifi-signal';
 
 type Pending = { until: number; enabled?: boolean; ssid?: string; disconnect?: boolean };
@@ -522,6 +523,17 @@ export const Wifi = () => {
             </Button>
           </div>
         </SettingsSection>
+      )}
+
+      {state?.supported && !state.apMode && (
+        <SavedWifi
+          networks={saved}
+          state={state}
+          locked={locked}
+          canJoin={canConfigure}
+          onJoin={(ssid) => void joinSaved(ssid)}
+          onChanged={() => void loadSaved()}
+        />
       )}
 
       <Modal

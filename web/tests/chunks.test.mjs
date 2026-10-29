@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
+import { gzipSync } from 'node:zlib';
 
 // Checks the production chunk graph produced by the codeSplitting groups in
 // vite.config.ts. Build the web app before running it.
@@ -69,6 +70,7 @@ test('the login and desktop pages load optional parts lazily', () => {
     entry,
     find(/^login-.*\.js$/),
     find(/^desktop-.*\.js$/),
+    find(/^root-.*\.js$/),
     find(/^admin-items-.*\.js$/),
     find(/^h264-direct-.*\.js$/)
   ]);
@@ -86,4 +88,42 @@ test('the login and desktop pages load optional parts lazily', () => {
     assert.ok(!initial.has(find(player)), `${find(player)} is loaded statically`);
   }
   assert.ok(names.some((name) => /^direct\.worker-.*\.js$/.test(name)));
+});
+
+// Sum each reachable file once, rather than moving bytes between named chunks.
+// Includes the eagerly used admin menu/default player and its worker on desktop.
+// Limits retain modest headroom; changes must report both bytes and requests.
+test('startup JavaScript stays within gzip and request budgets', () => {
+  const routes = {
+    entry: { roots: [entry], bytes: 250_000, requests: 3 },
+    login: { roots: [entry, find(/^login-.*\.js$/)], bytes: 390_000, requests: 15 },
+    desktop: {
+      roots: [
+        entry,
+        find(/^root-.*\.js$/),
+        find(/^desktop-.*\.js$/),
+        find(/^admin-items-.*\.js$/),
+        find(/^h264-direct-.*\.js$/),
+        find(/^direct\.worker-.*\.js$/)
+      ],
+      bytes: 625_000,
+      requests: 50
+    }
+  };
+  for (const [route, budget] of Object.entries(routes)) {
+    const files = closure(budget.roots);
+    const bytes = [...files].reduce(
+      (total, name) => total + gzipSync(readFileSync(new URL(name, assets)), { level: 9 }).length,
+      0
+    );
+    assert.ok(bytes <= budget.bytes, `${route}: ${bytes} gzip bytes > ${budget.bytes}`);
+    assert.ok(
+      files.size <= budget.requests,
+      `${route}: ${files.size} requests > ${budget.requests}`
+    );
+    console.info(`${route}: ${bytes} gzip bytes, ${files.size} JavaScript requests`);
+  }
+  const login = closure(routes.login.roots);
+  assert.ok(!login.has(find(/^tips-dialog-.*\.js$/)), 'password help must load only when opened');
+  assert.ok(!login.has(find(/^root-.*\.js$/)), 'authenticated shell must stay out of login');
 });

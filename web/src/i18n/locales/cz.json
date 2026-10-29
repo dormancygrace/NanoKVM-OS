@@ -436,6 +436,10 @@
       "regenerateConfirmDesc": "Stávající klíč přestane okamžitě fungovat.",
       "enableConfirmTitle": "Povolit externí ovládání MCP?",
       "enableConfirmDesc": "Povolením MCP se zastaví PicoClaw a ukončí se všechny aktivní relace PicoClaw.",
+      "hostControl": "Napájení, virtuální média a Wake-on-LAN",
+      "hostControlDesc": "Povolit klientům MCP také stisknout tlačítko napájení a resetu hostitele, připojovat obrazy na virtuální disk a posílat Wake-on-LAN",
+      "hostControlConfirmTitle": "Povolit klientům MCP ovládat hostitele?",
+      "hostControlConfirmDesc": "Kdokoli s klíčem API bude moci hostitele vypnout, resetovat a změnit jeho spouštěcí médium. Neuložená práce na hostiteli může být ztracena.",
       "failed": "Operace MCP se nezdařila",
       "copyFailed": "Kopírování se nezdařilo. Zkopírujte ručně.",
       "okBtn": "Potvrdit",
@@ -1730,13 +1734,11 @@
       "title": "AI",
       "screenText": {
         "title": "Rozpoznávání textu",
-        "language": "Výchozí jazyk",
-        "languageDescription": "Pro rozpoznávání textu na obrazovce: tlačítko v liště, MCP a PicoClaw. Při čtení lze zvolit jiný jazyk.",
         "notInstalled": "Rozpoznávání textu potřebuje doplněk TPU.",
         "openAddons": "Doplňky",
-        "saved": "Jazyk uložen",
-        "saveFailed": "Jazyk se nepodařilo uložit",
-        "noModels": "nenainstalováno"
+        "enabled": "Rozpoznávání textu",
+        "enabledDescription": "Čtení textu z obrazovky pomocí TPU: tlačítko na panelu nástrojů, MCP a PicoClaw. Vypnuto — nikdo z nich obrazovku nepřečte.",
+        "switchFailed": "Nastavení se nepodařilo uložit"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw není nainstalován.",
@@ -2269,7 +2271,8 @@
       "latin": "Latinka: angličtina a evropské jazyky",
       "chinese": "Čínština: zjednodušená a tradiční, japonština, angličtina",
       "cyrillic": "Cyrilice: ruština, ukrajinština a další, s angličtinou"
-    }
+    },
+    "language": "Jazyk"
   },
   "inputConnection": {
     "connecting": "Připojování k řídícímu kanálu",

@@ -1,8 +1,10 @@
 package proto
 
 type LoginReq struct {
-	Username string `json:"username" form:"username" validate:"required"`
-	Password string `json:"password" form:"password" validate:"required"`
+	// Empty selects the legacy CryptoJS format for existing clients.
+	PasswordEncoding string `json:"passwordEncoding" form:"passwordEncoding"`
+	Username         string `json:"username" form:"username" validate:"required"`
+	Password         string `json:"password" form:"password" validate:"required"`
 }
 
 // LoginRsp is returned only when the client explicitly requests an automation
@@ -19,8 +21,10 @@ type GetAccountRsp struct {
 }
 
 type ChangePasswordReq struct {
-	CurrentPassword string `json:"currentPassword" form:"currentPassword"`
-	Password        string `json:"password" form:"password" validate:"required"`
+	// Empty selects the legacy CryptoJS format for existing clients.
+	PasswordEncoding string `json:"passwordEncoding" form:"passwordEncoding"`
+	CurrentPassword  string `json:"currentPassword" form:"currentPassword"`
+	Password         string `json:"password" form:"password" validate:"required"`
 }
 
 type IsPasswordUpdatedRsp struct {
@@ -39,9 +43,11 @@ type ListUsersRsp struct {
 }
 
 type CreateUserReq struct {
-	Username string `json:"username" form:"username" validate:"required"`
-	Password string `json:"password" form:"password" validate:"required"`
-	Role     string `json:"role" form:"role" validate:"required"`
+	// Empty selects the legacy CryptoJS format for existing clients.
+	PasswordEncoding string `json:"passwordEncoding" form:"passwordEncoding"`
+	Username         string `json:"username" form:"username" validate:"required"`
+	Password         string `json:"password" form:"password" validate:"required"`
+	Role             string `json:"role" form:"role" validate:"required"`
 }
 
 type UpdateUserReq struct {

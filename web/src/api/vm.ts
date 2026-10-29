@@ -1,15 +1,19 @@
+import type { ControlRegionConfig } from '@/types';
 import { ControlRegionMode, InputRegion, OriginalResolution } from '@/types';
 import { http } from '@/lib/http.ts';
 import { inputLeaseHeaders } from '@/lib/input-lease.ts';
+import type { ScreenTextResult } from '@/lib/screen-text';
+import type { TlsStatus } from '@/lib/tls-certificate';
+import type { VideoCapabilities } from '@/lib/video-model';
 
 // get NanoKVM information
 export function getInfo() {
-  return http.get('/api/vm/info');
+  return http.get<DeviceInfo>('/api/vm/info');
 }
 
 // get hardware information ({version, atx})
 export function getHardware() {
-  return http.get('/api/vm/hardware');
+  return http.get<{ version: string }>('/api/vm/hardware');
 }
 
 // The ATX switch (System > Device).
@@ -49,19 +53,19 @@ export function setGpio(type: string, duration: number) {
 
 // get gpio value
 export function getGpio() {
-  return http.get('/api/vm/gpio');
+  return http.get<{ pwr: boolean; hdd: boolean }>('/api/vm/gpio');
 }
 
 // Read the text on the screen with the TPU add-on: one recognition takes a
 // few seconds, up to 90 on the server. Aborting the request stops it there.
 // crop, fractions of the picture, reads only that area (at full size).
-// Without a language the server reads in the device's default.
+// Without a language the server reads in Latin.
 export function getScreenText(
   language: string | undefined,
   signal?: AbortSignal,
   crop?: { left: number; top: number; width: number; height: number }
 ) {
-  return http.request({
+  return http.request<ScreenTextResult>({
     method: 'get',
     url: '/api/vm/screen/text',
     params: {
@@ -78,22 +82,22 @@ export function getScreenText(
 }
 
 export type ScreenTextSettings = {
-  // The language a read uses unless one is picked for it.
-  language: string;
+  // Text recognition is on: the toolbar button, MCP and PicoClaw read.
+  enabled: boolean;
   languages: { name: string; installed: boolean }[];
 };
 
 export function getScreenTextSettings() {
-  return http.get('/api/vm/screen/text/settings');
+  return http.get<ScreenTextSettings>('/api/vm/screen/text/settings');
 }
 
-export function setScreenTextLanguage(language: string) {
-  return http.post('/api/vm/screen/text/settings', { language });
+export function setScreenTextEnabled(enabled: boolean) {
+  return http.post<{ enabled: boolean }>('/api/vm/screen/text/settings', { enabled });
 }
 
 // update screen arguments
 export function getScreen() {
-  return http.get('/api/vm/screen');
+  return http.get<ScreenStatus>('/api/vm/screen');
 }
 
 export function updateScreen(type: string, value: number, confirmPowerCycle = false) {
@@ -107,7 +111,7 @@ export function updateScreen(type: string, value: number, confirmPowerCycle = fa
 
 // every video choice this device offers, and why the others are unavailable
 export function getVideoCapabilities() {
-  return http.get('/api/vm/video/capabilities');
+  return http.get<VideoCapabilities>('/api/vm/video/capabilities');
 }
 
 // apply several video settings together; returns the new capabilities
@@ -115,12 +119,12 @@ export function applyVideoSettings(
   settings: Record<string, number | boolean | string>,
   confirmPowerCycle = false
 ) {
-  return http.post('/api/vm/video', { ...settings, confirmPowerCycle });
+  return http.post<VideoCapabilities>('/api/vm/video', { ...settings, confirmPowerCycle });
 }
 
 // get the device-level absolute mouse input region
 export function getInputRegion() {
-  return http.get('/api/vm/input-region');
+  return http.get<ControlRegionConfig>('/api/vm/input-region');
 }
 
 export function setInputRegionConfig(
@@ -177,7 +181,7 @@ export function setManualRegions(
 
 // get OLED configuration
 export function getOLED() {
-  return http.get('/api/vm/oled');
+  return http.get<{ exist: boolean; sleep: number }>('/api/vm/oled');
 }
 
 // set OLED configuration
@@ -192,7 +196,9 @@ export function resetHdmi() {
 
 // get HDMI state
 export function getHdmiState() {
-  return http.get('/api/vm/hdmi');
+  return http.get<{ viewerCount: number; enabled: boolean; signal: boolean; idleTimeout: number }>(
+    '/api/vm/hdmi'
+  );
 }
 
 // enable HDMI
@@ -220,12 +226,16 @@ export function setHdmiIdleTimeout(minutes: number) {
 
 // get SSH state
 export function getSSHState() {
-  return http.get('/api/vm/ssh');
+  return http.get<{ enabled: boolean; rescue: boolean }>('/api/vm/ssh');
 }
 
 // enable SSH
 export function enableSSH(password: string) {
-  return http.post('/api/vm/ssh/enable', { password });
+  return http.post(
+    '/api/vm/ssh/enable',
+    { password, passwordEncoding: 'plain' },
+    { sensitive: true }
+  );
 }
 
 // disable SSH
@@ -235,7 +245,7 @@ export function disableSSH() {
 
 // get mouse jiggler
 export function getMouseJiggler() {
-  return http.get('/api/vm/mouse-jiggler');
+  return http.get<{ enabled: boolean; mode: 'absolute' | 'relative' }>('/api/vm/mouse-jiggler');
 }
 
 // set mouse jiggler
@@ -246,7 +256,7 @@ export function setMouseJiggler(enabled: boolean, mode: string) {
 
 // get Hostname
 export function getHostname() {
-  return http.get('/api/vm/hostname');
+  return http.get<{ hostname: string }>('/api/vm/hostname');
 }
 
 // set Hostname
@@ -256,7 +266,7 @@ export function setHostname(hostname: string) {
 
 // get WebTitle
 export function getWebTitle() {
-  return http.get('/api/vm/web-title');
+  return http.get<{ title: string }>('/api/vm/web-title');
 }
 
 // set WebTitle
@@ -266,7 +276,7 @@ export function setWebTitle(title: string) {
 
 // get mDNS state
 export function getMdnsState() {
-  return http.get('/api/vm/mdns');
+  return http.get<{ enabled: boolean }>('/api/vm/mdns');
 }
 
 // enable mDNS
@@ -288,7 +298,7 @@ export type BluetoothState = {
 
 // get Bluetooth state and version
 export function getBluetoothState() {
-  return http.get('/api/vm/bluetooth');
+  return http.get<BluetoothState>('/api/vm/bluetooth');
 }
 
 // load Bluetooth now and at every boot
@@ -308,7 +318,7 @@ export function setTLS(enabled: boolean) {
 
 // HTTPS and certificate status
 export function getTLS() {
-  return http.get('/api/vm/tls');
+  return http.get<TlsStatus>('/api/vm/tls');
 }
 
 // install a custom certificate: form field "cert" (PEM, chain and key
@@ -375,7 +385,7 @@ export type MemoryStatus = {
 };
 
 export function getMemoryStatus() {
-  return http.get('/api/vm/memory/status');
+  return http.get<MemoryStatus>('/api/vm/memory/status');
 }
 
 export function setMemorySwap(
@@ -384,11 +394,11 @@ export function setMemorySwap(
   sizeMiB: number,
   recompress?: boolean
 ) {
-  return http.post('/api/vm/memory/swap', { kind, enabled, sizeMiB, recompress });
+  return http.post<MemoryStatus>('/api/vm/memory/swap', { kind, enabled, sizeMiB, recompress });
 }
 
 export function getCPUFrequency() {
-  return http.get('/api/vm/cpu-frequency');
+  return http.get<CPUFrequency>('/api/vm/cpu-frequency');
 }
 export function setCPUFrequency(target: number, applyAtBoot: boolean) {
   return http.post('/api/vm/cpu-frequency', { target, applyAtBoot });
@@ -405,7 +415,7 @@ export type MemoryLimit = {
 
 // The Go memory limit of the NanoKVM server.
 export function getMemoryLimit() {
-  return http.get('/api/vm/memory/limit');
+  return http.get<MemoryLimit>('/api/vm/memory/limit');
 }
 
 // enabled false removes the saved limit and returns to the default.
@@ -416,3 +426,59 @@ export function setMemoryLimit(enabled: boolean, limit: number) {
 export function importSSHKeys(keys: string, password: string) {
   return http.post('/api/vm/ssh/keys/import', { keys, password });
 }
+
+export type DeviceInfo = {
+  ips: { type: string; addr: string }[];
+  mdns: string;
+  image: string;
+  application: string;
+  bundledApplication?: string;
+  deviceKey: string;
+};
+
+export type ScreenStatus = {
+  width: number;
+  height: number;
+  fps: number;
+  quality: number;
+  bitRate: number;
+  mjpegChroma: number;
+  mjpegChromaActive: number;
+  mjpegChromaFallback: string;
+  // The straight-from-capture setting (both codecs) and the codecs it applies to.
+  hevcDirect: number;
+  hevcDirectSupported: boolean;
+  viDirectH264Supported?: boolean;
+  monitor: number;
+  portrait: boolean;
+  portraitResolution: number;
+  inputWidth: number;
+  inputHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  mjpegOutputWidth: number;
+  mjpegOutputHeight: number;
+  videoOutputWidth: number;
+  videoOutputHeight: number;
+  effectiveFps: number;
+  // The main stream: H.264/H.265 while it runs, else MJPEG.
+  measuredFps: number;
+  // The MJPEG stream alone (older servers: absent).
+  mjpegMeasuredFps?: number;
+  measuredKbps: number;
+  // Where the H.264/H.265 encoder takes its frames (kvm_mmf.hpp): 0 no video
+  // encoder, 1 straight from capture, 2-7 through VPSS and why (older
+  // servers: absent).
+  videoPath?: number;
+  // Device-wide MJPEG frame detection, saved by the server.
+  frameDetect: boolean;
+};
+export type CPUFrequency = {
+  supported: boolean;
+  throttled?: boolean;
+  running: number;
+  target: number;
+  options: number[];
+  applyAtBoot?: boolean;
+  bootFallback?: boolean;
+};

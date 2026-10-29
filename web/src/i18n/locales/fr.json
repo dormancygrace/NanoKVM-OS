@@ -104,7 +104,8 @@
       "latin": "Latin : anglais et langues européennes",
       "chinese": "Chinois : simplifié et traditionnel, japonais, anglais",
       "cyrillic": "Cyrillique : russe, ukrainien et autres, avec anglais"
-    }
+    },
+    "language": "Langue"
   },
   "vpn": {
     "rename": "Renommer",
@@ -1075,6 +1076,10 @@
       "regenerateConfirmDesc": "La clé actuelle cessera immédiatement de fonctionner.",
       "enableConfirmTitle": "Activer le contrôle MCP externe ?",
       "enableConfirmDesc": "L’activation de MCP arrêtera PicoClaw et fermera toute session PicoClaw active.",
+      "hostControl": "Alimentation, média virtuel et Wake-on-LAN",
+      "hostControlDesc": "Permettre aussi aux clients MCP d'appuyer sur les boutons d'alimentation et de réinitialisation de l'hôte, de monter des images sur le disque virtuel et d'envoyer un Wake-on-LAN",
+      "hostControlConfirmTitle": "Autoriser les clients MCP à contrôler l'hôte ?",
+      "hostControlConfirmDesc": "Toute personne disposant de la clé API pourra éteindre l'hôte, le réinitialiser et changer son média de démarrage. Le travail non enregistré sur l'hôte peut être perdu.",
       "failed": "Échec de l’opération MCP",
       "copyFailed": "La copie a échoué. Copiez manuellement.",
       "okBtn": "Confirmer",
@@ -2078,13 +2083,11 @@
       "title": "IA",
       "screenText": {
         "title": "Reconnaissance de texte",
-        "language": "Langue par défaut",
-        "languageDescription": "Pour reconnaître le texte à l'écran : le bouton de la barre, MCP et PicoClaw. Chaque lecture peut choisir une autre langue.",
         "notInstalled": "La reconnaissance de texte nécessite le module TPU.",
         "openAddons": "Modules",
-        "saved": "Langue enregistrée",
-        "saveFailed": "La langue n'a pas pu être enregistrée",
-        "noModels": "non installé"
+        "enabled": "Reconnaissance de texte",
+        "enabledDescription": "Lire le texte à l'écran avec le TPU : le bouton de la barre d'outils, MCP et PicoClaw. Désactivée, aucun d'eux ne peut lire.",
+        "switchFailed": "Le réglage n'a pas pu être enregistré"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw n'est pas installé.",

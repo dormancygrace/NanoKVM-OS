@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "Kunci saat ini akan langsung berhenti berfungsi.",
       "enableConfirmTitle": "Aktifkan kontrol MCP eksternal?",
       "enableConfirmDesc": "Mengaktifkan MCP akan menghentikan PicoClaw dan menutup semua sesi PicoClaw yang aktif.",
+      "hostControl": "Daya, media virtual, dan Wake-on-LAN",
+      "hostControlDesc": "Izinkan juga klien MCP menekan tombol daya dan reset host, memasang image ke disk virtual, dan mengirim Wake-on-LAN",
+      "hostControlConfirmTitle": "Izinkan klien MCP mengendalikan host?",
+      "hostControlConfirmDesc": "Siapa pun yang memiliki kunci API dapat mematikan host, meresetnya, dan mengganti media boot-nya. Pekerjaan yang belum disimpan di host dapat hilang.",
       "failed": "Operasi MCP gagal",
       "copyFailed": "Gagal menyalin. Salin secara manual.",
       "okBtn": "Konfirmasi",
@@ -680,6 +684,13 @@
     },
     "extensions": {
       "title": "Ekstensi"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Pengenalan teks",
+        "enabledDescription": "Membaca teks di layar dengan TPU: tombol bilah alat, MCP, dan PicoClaw. Jika mati, tidak satu pun dapat membacanya.",
+        "switchFailed": "Pengaturan tidak dapat disimpan"
+      }
     }
   },
   "picoclaw": {
@@ -958,5 +969,8 @@
     "start": "Aktifkan penangkapan video",
     "stop": "Nonaktifkan penangkapan video",
     "off": "Penangkapan video nonaktif"
+  },
+  "screenText": {
+    "language": "Bahasa"
   }
 }

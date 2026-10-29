@@ -39,9 +39,11 @@ type ScreenText struct {
 	Pieces   []ScreenTextPiece `json:"pieces"`
 }
 
-// ScreenTextReader reads the text on the screen; language "" is the device's
-// default, area nil the whole screen.
+// ScreenTextReader reads the text on the screen; language "" is the first
+// language (latin), area nil the whole screen. Available: the add-on is
+// installed and text recognition is on, so the tool is offered.
 type ScreenTextReader interface {
+	Available() bool
 	Languages() []string
 	ReadText(ctx context.Context, language string, area *ScreenBox) (ScreenText, error)
 }
@@ -78,7 +80,7 @@ func screenTextSchema(reader ScreenTextReader) *jsonschema.Schema {
 		Type: "string",
 		Description: "Recognizer: latin (English and European languages), chinese (Simplified and " +
 			"Traditional Chinese, Japanese, English) or cyrillic (Russian, Ukrainian and others, with English); " +
-			"omitted, the device's default from Settings > AI",
+			"omitted, latin",
 	}
 	if reader != nil {
 		for _, name := range reader.Languages() {

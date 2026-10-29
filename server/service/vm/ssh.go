@@ -43,7 +43,7 @@ func (s *Service) EnableSSH(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "a new root password is required")
 		return
 	}
-	password, err := utils.DecodeDecrypt(req.Password)
+	password, err := utils.DecodeCredentialPassword(req.Password, req.PasswordEncoding)
 	if err != nil || strings.EqualFold(strings.TrimSpace(password), "root") {
 		rsp.ErrRsp(c, -1, "invalid root password")
 		return

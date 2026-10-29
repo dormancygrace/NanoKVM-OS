@@ -30,7 +30,7 @@ func (s *Service) ChangePassword(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "invalid session")
 		return
 	}
-	currentPassword, err := utils.DecodeDecrypt(req.CurrentPassword)
+	currentPassword, err := utils.DecodeCredentialPassword(req.CurrentPassword, req.PasswordEncoding)
 	if err != nil || currentPassword == "" {
 		rsp.ErrRsp(c, -3, "current password is required")
 		return
@@ -60,7 +60,7 @@ func (s *Service) ChangePassword(c *gin.Context) {
 		rsp.ErrRsp(c, -3, "current password is incorrect")
 		return
 	}
-	if err := changeUserPassword(principal.Username, req.Password); err != nil {
+	if err := changeUserPassword(principal.Username, req.Password, req.PasswordEncoding); err != nil {
 		rsp.ErrRsp(c, -5, err.Error())
 		return
 	}
@@ -90,8 +90,8 @@ func (s *Service) IsPasswordUpdated(c *gin.Context) {
 	rsp.OkRspWithData(c, &proto.IsPasswordUpdatedRsp{IsUpdated: !user.MustChangePassword})
 }
 
-func changeUserPassword(username, encryptedPassword string) error {
-	password, err := utils.DecodeDecrypt(encryptedPassword)
+func changeUserPassword(username, encodedPassword, encoding string) error {
+	password, err := utils.DecodeCredentialPassword(encodedPassword, encoding)
 	if err != nil || password == "" {
 		return errInvalidPassword
 	}

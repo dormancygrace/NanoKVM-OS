@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "현재 키는 즉시 작동을 중지합니다.",
       "enableConfirmTitle": "외부 MCP 제어를 활성화하시겠습니까?",
       "enableConfirmDesc": "MCP를 활성화하면 PicoClaw가 중지되고 활성 PicoClaw 세션이 모두 닫힙니다.",
+      "hostControl": "전원, 가상 미디어 및 Wake-on-LAN",
+      "hostControlDesc": "MCP 클라이언트가 호스트의 전원 및 리셋 버튼을 누르고, 가상 디스크에 이미지를 마운트하고, Wake-on-LAN을 보내도록 허용합니다",
+      "hostControlConfirmTitle": "MCP 클라이언트가 호스트를 제어하도록 허용할까요?",
+      "hostControlConfirmDesc": "API 키가 있는 사람은 누구나 호스트를 끄고, 리셋하고, 부팅 미디어를 바꿀 수 있습니다. 호스트에서 저장하지 않은 작업이 사라질 수 있습니다.",
       "failed": "MCP 작업에 실패했습니다",
       "copyFailed": "복사에 실패했습니다. 수동으로 복사하세요.",
       "okBtn": "확인",
@@ -683,6 +687,13 @@
     },
     "extensions": {
       "title": "확장 기능"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "텍스트 인식",
+        "enabledDescription": "TPU로 화면의 텍스트를 읽습니다: 도구 모음 버튼, MCP, PicoClaw. 끄면 어느 것도 읽을 수 없습니다.",
+        "switchFailed": "설정을 저장할 수 없습니다"
+      }
     }
   },
   "picoclaw": {
@@ -961,5 +972,8 @@
     "start": "캡처 활성화",
     "stop": "캡처 비활성화",
     "off": "캡처 비활성화됨"
+  },
+  "screenText": {
+    "language": "언어"
   }
 }

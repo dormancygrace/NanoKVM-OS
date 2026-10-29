@@ -20,7 +20,7 @@ export const Gateway = () => {
     try {
       const rsp = await api.getGatewayPreference();
       if (rsp.code !== 0) throw new Error(rsp.msg);
-      setStatus(rsp.data as api.GatewayStatus);
+      setStatus(rsp.data);
       setError('');
     } catch {
       setError(t('settings.network.gateway.loadFailed'));

@@ -87,7 +87,7 @@ def npm_sources(root):
             pattern = r'"' + re.escape(name) + r'"\s*:\s*"' + re.escape(value[:-len(pin)]) + r'([0-9.]+)"'
             source = dict(name='npm: ' + name, path=path, pattern=pattern, kind='npm', package=actual)
             if name == '@types/node':
-                source['policy'] = 'New majors are reported here, but Dependabot keeps types aligned with Node 24'
+                source['policy'] = 'New majors are reported here, but Dependabot keeps types aligned with Node 26'
             result.append(source)
     return result
 

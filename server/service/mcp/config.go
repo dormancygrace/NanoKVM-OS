@@ -24,6 +24,8 @@ var (
 
 type Config struct {
 	APIKey string `json:"apiKey"`
+	// AllowHostControl offers the power, virtual_media and wake_on_lan tools.
+	AllowHostControl bool `json:"allowHostControl,omitempty"`
 }
 
 func loadConfig() (Config, error) {

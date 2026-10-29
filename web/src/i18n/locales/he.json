@@ -119,7 +119,11 @@
     },
     "title": "הגדרות",
     "mcp": {
-      "cancelBtn": "ביטול"
+      "cancelBtn": "ביטול",
+      "hostControl": "הפעלה, מדיה וירטואלית ו-Wake-on-LAN",
+      "hostControlDesc": "לאפשר ללקוחות MCP גם ללחוץ על לחצני ההפעלה והאיפוס של המחשב, לחבר קובצי תמונה לדיסק הווירטואלי ולשלוח Wake-on-LAN",
+      "hostControlConfirmTitle": "לאפשר ללקוחות MCP לשלוט במחשב?",
+      "hostControlConfirmDesc": "כל מי שמחזיק במפתח ה-API יוכל לכבות את המחשב, לאפס אותו ולהחליף את מדיית האתחול שלו. עבודה שלא נשמרה במחשב עלולה לאבוד."
     },
     "about": {
       "title": "אודות",
@@ -270,6 +274,13 @@
     },
     "extensions": {
       "title": "הרחבות"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "זיהוי טקסט",
+        "enabledDescription": "קריאת הטקסט שעל המסך באמצעות ה-TPU: הלחצן בסרגל הכלים, MCP ו-PicoClaw. כשהאפשרות כבויה, אף אחד מהם לא יכול לקרוא.",
+        "switchFailed": "לא ניתן היה לשמור את ההגדרה"
+      }
     }
   },
   "keyboard": {
@@ -403,5 +414,8 @@
   },
   "error": {
     "refresh": "רענון"
+  },
+  "screenText": {
+    "language": "שפה"
   }
 }

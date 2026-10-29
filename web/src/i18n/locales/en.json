@@ -104,7 +104,8 @@
       "latin": "Latin: English and European languages",
       "chinese": "Chinese: Simplified and Traditional, Japanese, English",
       "cyrillic": "Cyrillic: Russian, Ukrainian and others, with English"
-    }
+    },
+    "language": "Language"
   },
   "vpn": {
     "rename": "Rename",
@@ -1075,6 +1076,10 @@
       "regenerateConfirmDesc": "The current key will stop working immediately.",
       "enableConfirmTitle": "Enable external MCP control?",
       "enableConfirmDesc": "Enabling MCP will stop PicoClaw and close any active PicoClaw session.",
+      "hostControl": "Power, virtual media and Wake-on-LAN",
+      "hostControlDesc": "Also let MCP clients press the host's power and reset buttons, mount images on the virtual disk and send Wake-on-LAN",
+      "hostControlConfirmTitle": "Let MCP clients control the host?",
+      "hostControlConfirmDesc": "Anyone with the API key will be able to switch the host off, reset it and change its boot media. Unsaved work on the host can be lost.",
       "failed": "MCP operation failed",
       "copyFailed": "Copy failed. Copy manually.",
       "okBtn": "Confirm",
@@ -2078,13 +2083,11 @@
       "title": "AI",
       "screenText": {
         "title": "Text recognition",
-        "language": "Default language",
-        "languageDescription": "Used for reading text on the screen: the toolbar button, MCP and PicoClaw. A read can pick another language.",
         "notInstalled": "Text recognition needs the TPU add-on.",
         "openAddons": "Add-ons",
-        "saved": "Language saved",
-        "saveFailed": "The language could not be saved",
-        "noModels": "not installed"
+        "enabled": "Text recognition",
+        "enabledDescription": "Read the text on the screen with the TPU: the toolbar button, MCP and PicoClaw. Off, none of them can read it.",
+        "switchFailed": "The setting could not be saved"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw is not installed.",

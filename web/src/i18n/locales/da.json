@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "Den nuværende nøgle holder straks op med at virke.",
       "enableConfirmTitle": "Aktivér ekstern MCP-styring?",
       "enableConfirmDesc": "Aktivering af MCP stopper PicoClaw og lukker alle aktive PicoClaw-sessioner.",
+      "hostControl": "Strøm, virtuelle medier og Wake-on-LAN",
+      "hostControlDesc": "Lad også MCP-klienter trykke på værtens tænd- og nulstillingsknap, montere images på det virtuelle drev og sende Wake-on-LAN",
+      "hostControlConfirmTitle": "Lad MCP-klienter styre værten?",
+      "hostControlConfirmDesc": "Alle med API-nøglen kan slukke værten, nulstille den og skifte dens startmedie. Ikke-gemt arbejde på værten kan gå tabt.",
       "failed": "MCP-handlingen mislykkedes",
       "copyFailed": "Kopiering mislykkedes. Kopiér manuelt.",
       "okBtn": "Bekræft",
@@ -677,6 +681,13 @@
     },
     "extensions": {
       "title": "Udvidelser"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Tekstgenkendelse",
+        "enabledDescription": "Læs teksten på skærmen med TPU: knappen i værktøjslinjen, MCP og PicoClaw. Slået fra kan ingen af dem læse den.",
+        "switchFailed": "Indstillingen kunne ikke gemmes"
+      }
     }
   },
   "picoclaw": {
@@ -956,5 +967,8 @@
     "start": "Aktivér billedopsamling",
     "stop": "Deaktivér billedopsamling",
     "off": "Billedopsamling deaktiveret"
+  },
+  "screenText": {
+    "language": "Sprog"
   }
 }

@@ -25,6 +25,36 @@ export function isScreenTextLanguage(value: unknown): value is ScreenTextLanguag
   return screenTextLanguages.includes(value as ScreenTextLanguage);
 }
 
+// The switch of Settings > AI > Text recognition from its GET reply. A server
+// from before the switch answers {language, languages}: there text
+// recognition is always on and cannot be turned off.
+export function screenTextSwitch(data: { enabled?: unknown } | null | undefined) {
+  if (typeof data?.enabled === 'boolean') return { enabled: data.enabled, switchable: true };
+  return { enabled: true, switchable: false };
+}
+
+// The reading dialog keeps the last language picked in this browser; a first
+// read is in Latin.
+const languageKey = 'nano-kvm-screen-text-language';
+
+export function storedScreenTextLanguage(): ScreenTextLanguage {
+  try {
+    const stored = globalThis.localStorage?.getItem(languageKey);
+    if (isScreenTextLanguage(stored)) return stored;
+  } catch {
+    // Storage blocked: the default.
+  }
+  return screenTextLanguages[0];
+}
+
+export function storeScreenTextLanguage(language: ScreenTextLanguage) {
+  try {
+    globalThis.localStorage?.setItem(languageKey, language);
+  } catch {
+    // Storage blocked: the pick lasts until the page reloads.
+  }
+}
+
 // A part of the picture as fractions of its width and height (0..1).
 export type ScreenTextRegion = { left: number; top: number; width: number; height: number };
 

@@ -54,23 +54,32 @@ const (
 // models each (addons/tpu/models/convert.sh); the first is the default.
 var screenTextLanguages = []string{"latin", "chinese", "cyrillic"}
 
-// screenTextLanguageFile holds the language a read without ?lang= uses
-// (Settings > AI > Text recognition); absent: the first language.
-var screenTextLanguageFile = "/etc/kvm/screen-text-language"
+// screenTextOffFile turns text recognition off (Settings > AI > Text
+// recognition): the toolbar button, MCP's screen_text and PicoClaw's
+// kvm_screen_text go, and reads are refused. Absent: on.
+var screenTextOffFile = "/etc/kvm/screen-text-off"
 
 // ScreenTextLanguageNames are the recognizers a read can ask for.
 func ScreenTextLanguageNames() []string { return slices.Clone(screenTextLanguages) }
 
-func screenTextDefaultLanguage() string {
-	data, err := os.ReadFile(screenTextLanguageFile)
-	if lang := strings.TrimSpace(string(data)); err == nil && slices.Contains(screenTextLanguages, lang) {
-		return lang
-	}
-	return screenTextLanguages[0]
+// ScreenTextEnabled reports the switch; an unreadable flag counts as on.
+func ScreenTextEnabled() bool {
+	_, err := os.Stat(screenTextOffFile)
+	return err != nil
 }
 
-// GetScreenTextSettings: the default language and which languages have
-// their models installed.
+// ScreenTextAvailable: the TPU add-on is installed and text recognition is
+// on, so the tools that read the screen are offered.
+func ScreenTextAvailable() bool {
+	if !ScreenTextEnabled() {
+		return false
+	}
+	info, err := os.Stat(ScreenTextHelper)
+	return err == nil && info.Mode().IsRegular()
+}
+
+// GetScreenTextSettings: the switch and which languages have their models
+// installed.
 func (s *Service) GetScreenTextSettings(c *gin.Context) {
 	var rsp proto.Response
 	type language struct {
@@ -82,25 +91,33 @@ func (s *Service) GetScreenTextSettings(c *gin.Context) {
 		_, err := screenTextArgs(screenTextRoot+"/models/", lang)
 		languages = append(languages, language{Name: lang, Installed: err == nil})
 	}
-	rsp.OkRspWithData(c, gin.H{"language": screenTextDefaultLanguage(), "languages": languages})
+	rsp.OkRspWithData(c, gin.H{"enabled": ScreenTextEnabled(), "languages": languages})
 }
 
-// SetScreenTextSettings saves the default language ({"language":"..."}).
+// SetScreenTextSettings turns text recognition on or off ({"enabled":bool}).
 func (s *Service) SetScreenTextSettings(c *gin.Context) {
 	var rsp proto.Response
 	var req struct {
-		Language string `json:"language"`
+		Enabled *bool `json:"enabled"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || !slices.Contains(screenTextLanguages, req.Language) {
-		rsp.ErrRsp(c, -1, "unknown language")
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+		rsp.ErrRsp(c, -1, "enabled is required")
 		return
 	}
-	if err := atomicfile.Write(screenTextLanguageFile, []byte(req.Language+"\n"), 0o644); err != nil {
-		log.Errorf("screen text: save language: %v", err)
-		rsp.ErrRsp(c, -2, "the language could not be saved")
+	var err error
+	if *req.Enabled {
+		if err = os.Remove(screenTextOffFile); errors.Is(err, os.ErrNotExist) {
+			err = nil
+		}
+	} else {
+		err = atomicfile.Write(screenTextOffFile, nil, 0o644)
+	}
+	if err != nil {
+		log.Errorf("screen text: switch: %v", err)
+		rsp.ErrRsp(c, -2, "the setting could not be saved")
 		return
 	}
-	rsp.OkRspWithData(c, gin.H{"language": req.Language})
+	rsp.OkRspWithData(c, gin.H{"enabled": *req.Enabled})
 }
 
 // screenTextArgs are the helper's arguments for a language: the recognizer's
@@ -245,13 +262,16 @@ func screenTextError(code int, format string, args ...any) error {
 // faster. Boxes are in pixels of the whole picture either way. The web UI
 // (GetScreenText), MCP and PicoClaw all read through here.
 func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextReply, error) {
+	if !ScreenTextEnabled() {
+		return nil, screenTextError(-7, "text recognition is off (Settings > AI > Text recognition)")
+	}
 	helper := ScreenTextHelper
 	if _, err := os.Stat(helper); err != nil {
 		return nil, screenTextError(-1, "the TPU add-on is not installed")
 	}
 	lang := req.Language
 	if lang == "" {
-		lang = screenTextDefaultLanguage()
+		lang = screenTextLanguages[0]
 	}
 	args, err := screenTextArgs(screenTextRoot+"/models/", lang)
 	if err != nil {

@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "Geçerli anahtar hemen çalışmayı durduracaktır.",
       "enableConfirmTitle": "Harici MCP kontrolü etkinleştirilsin mi?",
       "enableConfirmDesc": "MCP etkinleştirildiğinde PicoClaw durdurulur ve tüm etkin PicoClaw oturumları kapatılır.",
+      "hostControl": "Güç, sanal medya ve Wake-on-LAN",
+      "hostControlDesc": "MCP istemcilerinin ana makinenin güç ve sıfırlama düğmelerine basmasına, sanal diske imaj bağlamasına ve Wake-on-LAN göndermesine de izin ver",
+      "hostControlConfirmTitle": "MCP istemcilerinin ana makineyi denetlemesine izin verilsin mi?",
+      "hostControlConfirmDesc": "API anahtarına sahip herkes ana makineyi kapatabilir, sıfırlayabilir ve önyükleme ortamını değiştirebilir. Ana makinedeki kaydedilmemiş çalışmalar kaybolabilir.",
       "failed": "MCP işlemi başarısız oldu",
       "copyFailed": "Kopyalama başarısız. Elle kopyalayın.",
       "okBtn": "Onayla",
@@ -682,6 +686,13 @@
     },
     "extensions": {
       "title": "Uzantılar"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Metin tanıma",
+        "enabledDescription": "Ekrandaki metni TPU ile okuma: araç çubuğu düğmesi, MCP ve PicoClaw. Kapalıyken hiçbiri okuyamaz.",
+        "switchFailed": "Ayar kaydedilemedi"
+      }
     }
   },
   "picoclaw": {
@@ -961,5 +972,8 @@
     "start": "Yakalamayı etkinleştir",
     "stop": "Yakalamayı devre dışı bırak",
     "off": "Yakalama devre dışı"
+  },
+  "screenText": {
+    "language": "Dil"
   }
 }

@@ -104,7 +104,8 @@
       "latin": "Lateinisch: Englisch und europäische Sprachen",
       "chinese": "Chinesisch: vereinfacht und traditionell, Japanisch, Englisch",
       "cyrillic": "Kyrillisch: Russisch, Ukrainisch und weitere, mit Englisch"
-    }
+    },
+    "language": "Sprache"
   },
   "vpn": {
     "rename": "Umbenennen",
@@ -1075,6 +1076,10 @@
       "regenerateConfirmDesc": "Der aktuelle Schlüssel funktioniert dann sofort nicht mehr.",
       "enableConfirmTitle": "Externe MCP-Steuerung aktivieren?",
       "enableConfirmDesc": "Durch Aktivieren von MCP wird PicoClaw gestoppt und jede aktive PicoClaw-Sitzung geschlossen.",
+      "hostControl": "Stromversorgung, virtuelle Medien und Wake-on-LAN",
+      "hostControlDesc": "MCP-Clients zusätzlich erlauben, die Power- und Reset-Taste des Hosts zu drücken, Images auf dem virtuellen Laufwerk einzubinden und Wake-on-LAN zu senden",
+      "hostControlConfirmTitle": "MCP-Clients die Steuerung des Hosts erlauben?",
+      "hostControlConfirmDesc": "Jeder mit dem API-Schlüssel kann den Host ausschalten, zurücksetzen und sein Startmedium ändern. Nicht gespeicherte Arbeit auf dem Host kann verloren gehen.",
       "failed": "MCP-Aktion fehlgeschlagen",
       "copyFailed": "Kopieren fehlgeschlagen. Bitte manuell kopieren.",
       "okBtn": "Bestätigen",
@@ -2078,13 +2083,11 @@
       "title": "KI",
       "screenText": {
         "title": "Texterkennung",
-        "language": "Standardsprache",
-        "languageDescription": "Für die Texterkennung auf dem Bildschirm: Schaltfläche in der Leiste, MCP und PicoClaw. Beim Lesen kann eine andere Sprache gewählt werden.",
         "notInstalled": "Die Texterkennung benötigt das TPU-Add-on.",
         "openAddons": "Add-ons",
-        "saved": "Sprache gespeichert",
-        "saveFailed": "Die Sprache konnte nicht gespeichert werden",
-        "noModels": "nicht installiert"
+        "enabled": "Texterkennung",
+        "enabledDescription": "Text auf dem Bildschirm mit der TPU lesen: die Schaltfläche in der Werkzeugleiste, MCP und PicoClaw. Ausgeschaltet kann keiner davon lesen.",
+        "switchFailed": "Die Einstellung konnte nicht gespeichert werden"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw ist nicht installiert.",

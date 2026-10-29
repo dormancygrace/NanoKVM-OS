@@ -51,6 +51,7 @@ application version separately. Existing installations retain their original
 
 On a Linux x86-64 host (tested on Ubuntu 24.04) with:
 - the [Buildroot requirements](https://buildroot.org/downloads/manual/manual.html#requirement), plus `git` 2.27 or newer, `curl`, `openssl`, `libssl-dev`, `flex` and `bison`;
+- `libatomic` for the official Node.js 26 binaries (on Ubuntu: `libatomic1`);
 - OpenSSL 3.5 or newer on the host: the kernel configuration records whether the host OpenSSL supports ML-DSA (`CONFIG_OPENSSL_SUPPORTS_ML_DSA`), so an older one fails the `kernel` step's configuration check. The pins come from Ubuntu 26.04;
 - for the packages, rootfs and image steps: Linux 6.7 or newer, `newuidmap` and `newgidmap` (package `uidmap`), and subordinate IDs for the build user in `/etc/subuid` and `/etc/subgid` (Ubuntu adds them for every user).
 
@@ -314,7 +315,9 @@ statically, exfatprogs against the device's `libblkid`. Each package
 `provides` and `replaces` the Alpine package of the same tool, so an upgrade
 removes the Alpine package and a dependency on the tool's name is satisfied.
 
-The browser package requires `nanokvm-web-api=1`, provided by the server.
+The browser package requires `nanokvm-web-api=2`, provided by the server
+(2: the browser sends passwords as typed, marked `passwordEncoding: "plain"`,
+not as CryptoJS ciphertext).
 Increment this contract version when the browser/server API becomes incompatible,
 and update both recipes together. Compatible fixes may increment either package's
 `pkgrel` independently. Do not pin their revisions to each other.

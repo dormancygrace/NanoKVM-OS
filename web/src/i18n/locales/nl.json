@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "De huidige sleutel werkt dan onmiddellijk niet meer.",
       "enableConfirmTitle": "Externe MCP-bediening inschakelen?",
       "enableConfirmDesc": "Als MCP wordt ingeschakeld, stopt PicoClaw en worden alle actieve PicoClaw-sessies gesloten.",
+      "hostControl": "Voeding, virtuele media en Wake-on-LAN",
+      "hostControlDesc": "MCP-clients ook de aan/uit- en resetknop van de host laten indrukken, images op de virtuele schijf laten koppelen en Wake-on-LAN laten versturen",
+      "hostControlConfirmTitle": "MCP-clients de host laten besturen?",
+      "hostControlConfirmDesc": "Iedereen met de API-sleutel kan de host uitschakelen, resetten en het opstartmedium wijzigen. Niet-opgeslagen werk op de host kan verloren gaan.",
       "failed": "MCP-bewerking mislukt",
       "copyFailed": "Kopiëren mislukt. Kopieer handmatig.",
       "okBtn": "Bevestigen",
@@ -683,6 +687,13 @@
     },
     "extensions": {
       "title": "Uitbreidingen"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Tekstherkenning",
+        "enabledDescription": "Tekst op het scherm lezen met de TPU: de knop in de werkbalk, MCP en PicoClaw. Uitgeschakeld kan geen van hen lezen.",
+        "switchFailed": "De instelling kon niet worden opgeslagen"
+      }
     }
   },
   "picoclaw": {
@@ -962,5 +973,8 @@
     "start": "Beeldopname inschakelen",
     "stop": "Beeldopname uitschakelen",
     "off": "Beeldopname uitgeschakeld"
+  },
+  "screenText": {
+    "language": "Taal"
   }
 }

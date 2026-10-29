@@ -60,7 +60,7 @@ export const Acme = ({
     try {
       const rsp = await api.getStatus();
       if (rsp.code !== 0) return undefined;
-      const next = rsp.data as AcmeStatus;
+      const next = rsp.data;
       setStatus(next);
       if (next.installed && !next.latest && !checked.current) {
         // The last check does not survive a server restart; ask once per
@@ -69,7 +69,7 @@ export const Acme = ({
         api
           .checkUpdate()
           .then((check) => {
-            if (check.code === 0) setStatus(check.data as AcmeStatus);
+            if (check.code === 0) setStatus(check.data);
           })
           .catch(() => {
             /* GitHub not reachable: the check button stays */
@@ -100,7 +100,7 @@ export const Acme = ({
     api
       .getProviders()
       .then((rsp) => {
-        if (rsp.code === 0) setProviders(rsp.data as AcmeProvider[]);
+        if (rsp.code === 0) setProviders(rsp.data);
       })
       .catch(() => {
         /* the select stays empty */
@@ -163,7 +163,7 @@ export const Acme = ({
     try {
       const rsp = await api.checkUpdate();
       if (rsp.code === 0) {
-        const next = rsp.data as AcmeStatus;
+        const next = rsp.data;
         setStatus(next);
         message.info(
           t(

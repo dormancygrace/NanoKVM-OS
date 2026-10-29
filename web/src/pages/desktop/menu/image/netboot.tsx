@@ -25,7 +25,7 @@ export const Netboot = ({ isOpen, onEnabled }: Props) => {
         .getNetboot()
         .then((rsp) => {
           if (rsp.code !== 0) return;
-          const data = rsp.data as api.NetbootStatus;
+          const data = rsp.data;
           setStatus(data);
           // The last choice is the default until the user picks again.
           if (!chosen.current) setSecureBoot(data.secureBoot || !data.ipxe);
@@ -57,7 +57,7 @@ export const Netboot = ({ isOpen, onEnabled }: Props) => {
       if (rsp.code !== 0) {
         setError(rsp.msg || t('image.netboot.failed'));
       } else if (rsp.data) {
-        setStatus(rsp.data as api.NetbootStatus);
+        setStatus(rsp.data);
         callback.current(!!rsp.data.enabled);
       }
     } catch {

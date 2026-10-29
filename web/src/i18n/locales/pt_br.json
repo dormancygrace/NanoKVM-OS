@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "A chave atual deixará de funcionar imediatamente.",
       "enableConfirmTitle": "Habilitar o controle MCP externo?",
       "enableConfirmDesc": "Habilitar o MCP interromperá o PicoClaw e fechará todas as sessões ativas do PicoClaw.",
+      "hostControl": "Energia, mídia virtual e Wake-on-LAN",
+      "hostControlDesc": "Permitir também que clientes MCP pressionem os botões de energia e reset do host, montem imagens no disco virtual e enviem Wake-on-LAN",
+      "hostControlConfirmTitle": "Permitir que clientes MCP controlem o host?",
+      "hostControlConfirmDesc": "Qualquer pessoa com a chave de API poderá desligar o host, reiniciá-lo e trocar sua mídia de inicialização. Trabalho não salvo no host pode ser perdido.",
       "failed": "Falha na operação MCP",
       "copyFailed": "Falha ao copiar. Copie manualmente.",
       "okBtn": "Confirmar",
@@ -683,6 +687,13 @@
     },
     "extensions": {
       "title": "Extensões"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Reconhecimento de texto",
+        "enabledDescription": "Ler o texto da tela com a TPU: o botão da barra de ferramentas, MCP e PicoClaw. Desligado, nenhum deles pode ler.",
+        "switchFailed": "Não foi possível salvar a configuração"
+      }
     }
   },
   "picoclaw": {
@@ -963,5 +974,8 @@
     "start": "Ativar captura",
     "stop": "Desativar captura",
     "off": "Captura desativada"
+  },
+  "screenText": {
+    "language": "Idioma"
   }
 }

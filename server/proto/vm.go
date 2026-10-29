@@ -234,7 +234,9 @@ type GetSSHStateRsp struct {
 }
 
 type EnableSSHReq struct {
-	Password string `json:"password" validate:"required"`
+	// Empty selects the legacy CryptoJS format for existing clients.
+	PasswordEncoding string `json:"passwordEncoding" form:"passwordEncoding"`
+	Password         string `json:"password" validate:"required"`
 }
 
 type GetSwapRsp struct {

@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "La clau actual deixarà de funcionar immediatament.",
       "enableConfirmTitle": "Voleu activar el control MCP extern?",
       "enableConfirmDesc": "En activar MCP, PicoClaw s’aturarà i es tancarà qualsevol sessió activa de PicoClaw.",
+      "hostControl": "Alimentació, mitjans virtuals i Wake-on-LAN",
+      "hostControlDesc": "Permetre també als clients MCP prémer els botons d'engegada i de reinici de l'equip, muntar imatges al disc virtual i enviar Wake-on-LAN",
+      "hostControlConfirmTitle": "Permetre que els clients MCP controlin l'equip?",
+      "hostControlConfirmDesc": "Qualsevol persona amb la clau API podrà apagar l'equip, reiniciar-lo i canviar-ne el mitjà d'arrencada. Es pot perdre la feina no desada a l'equip.",
       "failed": "L’operació MCP ha fallat",
       "copyFailed": "La còpia ha fallat. Copieu-ho manualment.",
       "okBtn": "Confirma",
@@ -681,6 +685,13 @@
     },
     "extensions": {
       "title": "Extensions"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Reconeixement de text",
+        "enabledDescription": "Llegir el text de la pantalla amb la TPU: el botó de la barra d'eines, MCP i PicoClaw. Desactivat, cap d'ells no la pot llegir.",
+        "switchFailed": "No s'ha pogut desar el paràmetre"
+      }
     }
   },
   "picoclaw": {
@@ -960,5 +971,8 @@
     "start": "Activa la captura",
     "stop": "Desactiva la captura",
     "off": "Captura desactivada"
+  },
+  "screenText": {
+    "language": "Idioma"
   }
 }

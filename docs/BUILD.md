@@ -14,7 +14,7 @@ creates a local test image, and `make help` lists the component targets.
 
 ## Working on one component
 
-The web UI and the server can be developed without the full build. The web UI needs Node.js 24 LTS and pnpm 11 or newer (CI uses pnpm 12); the root `.nvmrc` selects Node 24, so with nvm run `nvm install` and `nvm use` from the repository root:
+The web UI and the server can be developed without the full build. The web UI needs Node.js 26 LTS and pnpm 11 or newer (CI uses pnpm 12); the root `.nvmrc` selects Node 26, so with nvm run `nvm install` and `nvm use` from the repository root:
 
 ```sh
 cd web && pnpm install --frozen-lockfile && pnpm dev

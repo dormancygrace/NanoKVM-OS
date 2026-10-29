@@ -31,7 +31,7 @@ export const IPv6 = ({ name }: { name: IPv6Interface['name'] }) => {
     try {
       const rsp = await getIPv6();
       if (rsp.code !== 0) throw new Error();
-      setStatus(rsp.data as IPv6Status);
+      setStatus(rsp.data);
       setError('');
     } catch {
       setError(t('settings.network.ipv6.loadFailed'));

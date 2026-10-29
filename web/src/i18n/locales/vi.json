@@ -310,6 +310,10 @@
       "regenerateConfirmDesc": "Khóa hiện tại sẽ ngừng hoạt động ngay lập tức.",
       "enableConfirmTitle": "Bật điều khiển MCP bên ngoài?",
       "enableConfirmDesc": "Bật MCP sẽ dừng PicoClaw và đóng tất cả phiên PicoClaw đang hoạt động.",
+      "hostControl": "Nguồn, phương tiện ảo và Wake-on-LAN",
+      "hostControlDesc": "Cho phép máy khách MCP nhấn nút nguồn và nút reset của máy chủ, gắn ảnh đĩa vào ổ ảo và gửi Wake-on-LAN",
+      "hostControlConfirmTitle": "Cho phép máy khách MCP điều khiển máy chủ?",
+      "hostControlConfirmDesc": "Bất kỳ ai có khóa API đều có thể tắt máy chủ, khởi động lại và thay đổi phương tiện khởi động. Công việc chưa lưu trên máy chủ có thể bị mất.",
       "failed": "Thao tác MCP không thành công",
       "copyFailed": "Sao chép thất bại. Vui lòng sao chép thủ công.",
       "okBtn": "Xác nhận",
@@ -683,6 +687,13 @@
     },
     "extensions": {
       "title": "Tiện ích mở rộng"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Nhận dạng văn bản",
+        "enabledDescription": "Đọc văn bản trên màn hình bằng TPU: nút trên thanh công cụ, MCP và PicoClaw. Khi tắt, không thành phần nào đọc được.",
+        "switchFailed": "Không thể lưu cài đặt"
+      }
     }
   },
   "picoclaw": {
@@ -961,5 +972,8 @@
     "start": "Bật thu hình",
     "stop": "Tắt thu hình",
     "off": "Đã tắt thu hình"
+  },
+  "screenText": {
+    "language": "Ngôn ngữ"
   }
 }

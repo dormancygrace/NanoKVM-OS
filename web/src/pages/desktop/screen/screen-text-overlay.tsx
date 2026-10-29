@@ -16,16 +16,16 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getScreenText, getScreenTextSettings, type ScreenTextSettings } from '@/api/vm.ts';
+import { getScreenText, getScreenTextSettings } from '@/api/vm.ts';
 import { writeClipboardText } from '@/lib/clipboard.ts';
 import {
   boxesInRegion,
   boxesToText,
-  isScreenTextLanguage,
   screenTextLanguages,
+  storedScreenTextLanguage,
+  storeScreenTextLanguage,
   type ScreenTextLanguage,
-  type ScreenTextRegion,
-  type ScreenTextResult
+  type ScreenTextRegion
 } from '@/lib/screen-text.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { resolutionAtom, screenTextOpenAtom } from '@/jotai/screen.ts';
@@ -60,16 +60,8 @@ export const ScreenTextOverlay = () => {
   const resolution = useAtomValue(resolutionAtom);
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
   const [phase, setPhase] = useState<Phase>('select');
-  // The device's default (Settings > AI); picking another one here is for
-  // this read only.
-  const [language, setLanguage] = useState<ScreenTextLanguage>(screenTextLanguages[0]);
-  // Until the settings arrive or a language is picked, reads go without
-  // ?lang= and the server uses the device's default; the list shows that
-  // default by name only once it is known.
-  const [languageKnown, setLanguageKnown] = useState(false);
-  // A language picked in this overlay: settings that arrive later keep it.
-  const picked = useRef(false);
-  const readLanguage = languageKnown ? language : undefined;
+  // The last language picked in this browser, Latin at first.
+  const [language, setLanguage] = useState<ScreenTextLanguage>(storedScreenTextLanguage);
   const [installed, setInstalled] = useState<string[] | null>(null);
   const [frame, setFrame] = useState<RenderedMediaRect | null>(null);
   const [selection, setSelection] = useState<RenderedMediaRect | null>(null);
@@ -90,8 +82,6 @@ export const ScreenTextOverlay = () => {
     setError('');
     setText('');
     setPhase('select');
-    setLanguageKnown(false);
-    picked.current = false;
     setOpen(false);
   }, [setOpen]);
 
@@ -101,17 +91,11 @@ export const ScreenTextOverlay = () => {
     getScreenTextSettings()
       .then((rsp) => {
         if (!active || rsp.code !== 0) return;
-        const settings = rsp.data as ScreenTextSettings;
-        if (isScreenTextLanguage(settings.language)) {
-          if (!picked.current) {
-            setLanguage(settings.language);
-            setLanguageKnown(true);
-          }
-        }
+        const settings = rsp.data;
         setInstalled(settings.languages.filter((lang) => lang.installed).map((lang) => lang.name));
       })
       .catch(() => {
-        /* The default language stays; the server picks its own without ?lang. */
+        /* Every language stays offered. */
       });
     return () => {
       active = false;
@@ -199,7 +183,7 @@ export const ScreenTextOverlay = () => {
           );
           setText('');
         } else {
-          const result = rsp.data as ScreenTextResult;
+          const result = rsp.data;
           setText(boxesToText(boxesInRegion(result, target)));
           setSeconds(Math.round(result.total_ms / 100) / 10);
         }
@@ -265,7 +249,7 @@ export const ScreenTextOverlay = () => {
         width: selection.width / frame.width,
         height: selection.height / frame.height
       },
-      readLanguage
+      language
     );
   }
 
@@ -284,12 +268,11 @@ export const ScreenTextOverlay = () => {
   const languageSelect = (
     <Select
       size="small"
-      value={readLanguage}
-      placeholder={t('settings.ai.screenText.language')}
+      value={language}
+      aria-label={t('settings.ai.screenText.language')}
       onChange={(value: ScreenTextLanguage) => {
-        picked.current = true;
         setLanguage(value);
-        setLanguageKnown(true);
+        storeScreenTextLanguage(value);
       }}
       popupMatchSelectWidth={false}
       // Inside the overlay's card: on the page body the list would sit under
@@ -315,9 +298,7 @@ export const ScreenTextOverlay = () => {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Space wrap>
               {languageSelect}
-              <Button onClick={() => void read(region, readLanguage)}>
-                {t('screenText.again')}
-              </Button>
+              <Button onClick={() => void read(region, language)}>{t('screenText.again')}</Button>
               <Button onClick={() => setPhase('select')}>{t('screenText.newArea')}</Button>
             </Space>
             <Button
@@ -407,7 +388,7 @@ export const ScreenTextOverlay = () => {
               <Button size="small" type="primary" disabled={!selected} onClick={readSelection}>
                 {t('screenText.readSelection')}
               </Button>
-              <Button size="small" onClick={() => void read(wholeScreen, readLanguage)}>
+              <Button size="small" onClick={() => void read(wholeScreen, language)}>
                 {t('screenText.wholeScreen')}
               </Button>
               <Button size="small" onClick={close}>

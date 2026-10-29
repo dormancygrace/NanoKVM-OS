@@ -98,7 +98,7 @@ var mcpToolDefinitions = []map[string]interface{}{
 					"type": "string",
 					"enum": []string{"latin", "chinese", "cyrillic"},
 					"description": "latin (English and European languages), chinese (Simplified and Traditional Chinese, " +
-						"Japanese, English) or cyrillic (Russian, Ukrainian and others, with English); omitted, the device's default",
+						"Japanese, English) or cyrillic (Russian, Ukrainian and others, with English); omitted, latin",
 				},
 				"area": map[string]interface{}{
 					"type":        "object",
@@ -205,12 +205,23 @@ func (s *Service) mcpInitialize(req jsonRPCRequest) jsonRPCResponse {
 	}
 }
 
+// mcpToolsList offers kvm_screen_text only while text recognition is on and
+// the TPU add-on is installed.
 func (s *Service) mcpToolsList(req jsonRPCRequest) jsonRPCResponse {
+	tools := mcpToolDefinitions
+	if s.textReader == nil || !s.textReader.Available() {
+		tools = make([]map[string]interface{}, 0, len(mcpToolDefinitions))
+		for _, tool := range mcpToolDefinitions {
+			if tool["name"] != "kvm_screen_text" {
+				tools = append(tools, tool)
+			}
+		}
+	}
 	return jsonRPCResponse{
 		JSONRPC: "2.0",
 		ID:      req.ID,
 		Result: map[string]interface{}{
-			"tools": mcpToolDefinitions,
+			"tools": tools,
 		},
 	}
 }

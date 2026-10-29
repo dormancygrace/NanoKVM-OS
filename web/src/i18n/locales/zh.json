@@ -104,7 +104,8 @@
       "latin": "拉丁字母：英语和欧洲语言",
       "chinese": "中文：简体和繁体，日语，英语",
       "cyrillic": "西里尔字母：俄语、乌克兰语等，含英语"
-    }
+    },
+    "language": "语言"
   },
   "vpn": {
     "rename": "重命名",
@@ -1075,6 +1076,10 @@
       "regenerateConfirmDesc": "当前 key 将立即失效。",
       "enableConfirmTitle": "启用外部 MCP 控制？",
       "enableConfirmDesc": "启用 MCP 将停止 PicoClaw，并关闭当前活动的 PicoClaw 会话。",
+      "hostControl": "电源、虚拟介质和网络唤醒",
+      "hostControlDesc": "同时允许 MCP 客户端按下主机的电源和复位按钮、在虚拟磁盘上挂载镜像以及发送网络唤醒（Wake-on-LAN）",
+      "hostControlConfirmTitle": "允许 MCP 客户端控制主机？",
+      "hostControlConfirmDesc": "任何持有 API 密钥的人都能关闭主机、复位主机并更换其启动介质。主机上未保存的工作可能会丢失。",
       "failed": "MCP 操作失败",
       "copyFailed": "复制失败，请手动复制。",
       "okBtn": "确认",
@@ -2078,13 +2083,11 @@
       "title": "AI",
       "screenText": {
         "title": "文字识别",
-        "language": "默认语言",
-        "languageDescription": "用于识别屏幕文字：工具栏按钮、MCP 和 PicoClaw。每次识别可以选择其他语言。",
         "notInstalled": "文字识别需要 TPU 扩展。",
         "openAddons": "扩展",
-        "saved": "语言已保存",
-        "saveFailed": "无法保存语言",
-        "noModels": "未安装"
+        "enabled": "文字识别",
+        "enabledDescription": "使用 TPU 读取屏幕上的文字：工具栏按钮、MCP 和 PicoClaw。关闭后，它们都无法读取。",
+        "switchFailed": "无法保存设置"
       },
       "picoclaw": {
         "notInstalled": "未安装 PicoClaw。",

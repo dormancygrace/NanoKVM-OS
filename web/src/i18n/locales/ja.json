@@ -104,7 +104,8 @@
       "latin": "ラテン文字：英語とヨーロッパの言語",
       "chinese": "中国語：簡体字と繁体字、日本語、英語",
       "cyrillic": "キリル文字：ロシア語、ウクライナ語など（英語を含む）"
-    }
+    },
+    "language": "言語"
   },
   "vpn": {
     "rename": "名前を変更",
@@ -1075,6 +1076,10 @@
       "regenerateConfirmDesc": "現在のキーは直ちに使用できなくなります。",
       "enableConfirmTitle": "外部 MCP 制御を有効にしますか？",
       "enableConfirmDesc": "MCP を有効にすると PicoClaw が停止し、アクティブな PicoClaw セッションがすべて終了します。",
+      "hostControl": "電源・仮想メディア・Wake-on-LAN",
+      "hostControlDesc": "MCP クライアントにホストの電源ボタンとリセットボタンの操作、仮想ディスクへのイメージのマウント、Wake-on-LAN の送信も許可します",
+      "hostControlConfirmTitle": "MCP クライアントにホストの制御を許可しますか？",
+      "hostControlConfirmDesc": "API キーを持つ人は誰でもホストの電源を切り、リセットし、起動メディアを変更できます。ホスト上の保存されていない作業は失われる可能性があります。",
       "failed": "MCP 操作に失敗しました",
       "copyFailed": "コピーに失敗しました。手動でコピーしてください。",
       "okBtn": "確認",
@@ -2078,13 +2083,11 @@
       "title": "AI",
       "screenText": {
         "title": "文字認識",
-        "language": "既定の言語",
-        "languageDescription": "画面の文字認識に使います：ツールバーのボタン、MCP、PicoClaw。認識ごとに別の言語も選べます。",
         "notInstalled": "文字認識には TPU アドオンが必要です。",
         "openAddons": "アドオン",
-        "saved": "言語を保存しました",
-        "saveFailed": "言語を保存できませんでした",
-        "noModels": "未インストール"
+        "enabled": "文字認識",
+        "enabledDescription": "TPU で画面上の文字を読み取ります: ツールバーのボタン、MCP、PicoClaw。オフにすると、どれも読み取れません。",
+        "switchFailed": "設定を保存できませんでした"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw はインストールされていません。",

@@ -9,6 +9,7 @@ import (
 	"NanoKVM-Server/recovery"
 	"NanoKVM-Server/service/controlmode"
 	"NanoKVM-Server/service/picoclaw"
+	"NanoKVM-Server/service/storage"
 
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
@@ -74,16 +75,17 @@ func web(r *gin.Engine) {
 func server(r *gin.Engine) {
 	control := controlmode.GetManager()
 	picoclawService := picoclaw.NewService(control)
+	storageService := storage.NewService()
 
 	brandingRouter(r)
 	authRouter(r)
 	vmRouter(r)
 	streamRouter(r)
-	storageRouter(r)
+	storageRouter(r, storageService)
 	networkRouter(r)
 	hidRouter(r)
 	controlRouter(r, control, picoclawService)
-	mcpRouter(r, control, picoclawService)
+	mcpRouter(r, control, picoclawService, storageService)
 	picoclawRouter(r, picoclawService)
 	wsRouter(r)
 	downloadRouter(r)

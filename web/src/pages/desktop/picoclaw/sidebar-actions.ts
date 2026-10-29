@@ -235,7 +235,7 @@ export function createPicoclawSidebarActions(options: PicoclawSidebarActionOptio
       }
 
       if (runtimeRsp.code === 0) {
-        const nextStatus = runtimeRsp.data as PicoclawRuntimeStatus;
+        const nextStatus = runtimeRsp.data;
         const canCommit =
           requestId === refreshRequestSeqRef.current &&
           (force || requestEpoch === mutationEpochRef.current) &&

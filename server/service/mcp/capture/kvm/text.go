@@ -18,6 +18,8 @@ func NewTextReader() mcpservice.ScreenTextReader {
 	return textReader{read: vm.ReadScreenText}
 }
 
+func (textReader) Available() bool { return vm.ScreenTextAvailable() }
+
 func (textReader) Languages() []string { return vm.ScreenTextLanguageNames() }
 
 func (r textReader) ReadText(ctx context.Context, language string, area *mcpservice.ScreenBox) (mcpservice.ScreenText, error) {

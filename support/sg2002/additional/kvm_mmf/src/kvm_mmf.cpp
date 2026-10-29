@@ -1202,7 +1202,10 @@ static int _mmf_deinit(void)
 		CVI_VENC_ResetChn(ch);
 		if (CVI_VENC_DestroyChn(ch) == CVI_SUCCESS) priv.enc_jpg_destroy_failed = false;
 	}
-	mmf_vi_deinit();
+	// A picture VPSS will not take back keeps the group, its pool and the
+	// media system: fail, so the caller keeps its reference and tries again.
+	const int vi_deinit = mmf_vi_deinit();
+	if (vi_deinit != CVI_SUCCESS) return vi_deinit;
 	_mmf_sys_exit();
 	return CVI_SUCCESS;
 }

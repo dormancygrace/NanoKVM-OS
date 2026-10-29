@@ -66,6 +66,20 @@ void *CVI_SYS_MmapCache(CVI_U64 addr, CVI_U32 size)
     return memory.data();
 }
 CVI_S32 CVI_SYS_Munmap(void *, CVI_U32) { return 0; }
+// The rest of the public teardown (mmf_try_deinit): no encoder or VI
+// channel is open in these cases, so only the SYS exit is recorded.
+CVI_S32 CVI_VB_ReleaseBlock(VB_BLK) { return 0; }
+CVI_S32 CVI_VENC_DestroyChn(VENC_CHN) { return 0; }
+CVI_S32 CVI_VENC_GetStream(VENC_CHN, VENC_STREAM_S *, CVI_S32) { return -1; }
+CVI_S32 CVI_VENC_QueryStatus(VENC_CHN, VENC_CHN_STATUS_S *status) { *status = {}; return 0; }
+CVI_S32 CVI_VENC_ReleaseStream(VENC_CHN, VENC_STREAM_S *) { return 0; }
+CVI_S32 CVI_VENC_ResetChn(VENC_CHN) { return 0; }
+CVI_S32 CVI_VENC_StopRecvFrame(VENC_CHN) { return 0; }
+CVI_S32 CVI_VI_GetChnAttr(VI_PIPE, VI_CHN, VI_CHN_ATTR_S *attr) { *attr = {}; return 0; }
+CVI_S32 CVI_VPSS_GetChnAttr(VPSS_GRP, VPSS_CHN, VPSS_CHN_ATTR_S *attr) { *attr = {}; return 0; }
+CVI_S32 SAMPLE_COMM_VI_DestroyIsp(SAMPLE_VI_CONFIG_S *) { return 0; }
+CVI_S32 SAMPLE_COMM_VI_DestroyVi(SAMPLE_VI_CONFIG_S *) { return 0; }
+CVI_VOID SAMPLE_COMM_SYS_Exit(void) { calls.push_back("sys-exit"); }
 
 static void reset()
 {
@@ -180,6 +194,19 @@ int main()
     assert(mmf_vi_deinit() == 0);
     expect({"release", "stop-group", "destroy-group", "destroy"});
     assert(!picture_frame_held && picture_pool < 0 && outstanding == 0);
+
+    // The same through the public teardown (Capture::shutdown/restart): the
+    // media system stays, with its reference, until the picture is back.
+    reset();
+    release_failures = 3;
+    assert(read_picture() == 0);
+    calls.clear();
+    assert(mmf_try_deinit(true) != 0);
+    expect({"release"});
+    assert(priv.mmf_used_cnt == 1 && priv.vi_is_inited && picture_frame_held && outstanding == 1);
+    assert(mmf_try_deinit(true) == 0);
+    expect({"release", "stop-group", "destroy-group", "destroy", "sys-exit"});
+    assert(priv.mmf_used_cnt == 0 && !priv.vi_is_inited && !picture_frame_held && outstanding == 0);
 
     puts("picture contract ok");
     return 0;

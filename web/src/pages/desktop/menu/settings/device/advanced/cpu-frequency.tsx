@@ -71,8 +71,10 @@ export const CPUFrequency = () => {
   }
   async function toggleBoot(applyAtBoot: boolean) {
     if (!state) return;
+    // At stock or below there is nothing to warn about at startup.
     if (
       applyAtBoot &&
+      state.target > 1000 &&
       !(await confirmAction({
         title: t('settings.device.cpuFrequency.confirmBoot'),
         content: t('settings.device.cpuFrequency.bootWarning'),
@@ -83,6 +85,13 @@ export const CPUFrequency = () => {
     await save(state.target, applyAtBoot);
   }
   const overclocked = !!state?.supported && Math.max(state.target, state.running) > 1000;
+  // Opens by itself while anything here is off stock, but never closes
+  // under the user's hand.
+  const [open, setOpen] = useState(false);
+  const offStock = overclocked || !!state?.applyAtBoot;
+  useEffect(() => {
+    if (offStock) setOpen(true);
+  }, [offStock]);
   return (
     <div className="space-y-2">
       {loadError !== null && (
@@ -96,17 +105,14 @@ export const CPUFrequency = () => {
         <Alert type="warning" showIcon message={t('settings.device.cpuFrequency.bootFallback')} />
       )}
       <Panel flush className="overflow-hidden">
-        <details className="group" open={overclocked || !!state?.applyAtBoot}>
+        <details
+          className="group"
+          open={open}
+          onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+        >
           <summary className="text-fg-muted hover:text-fg flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
             <span>{t('settings.system.performance')}</span>
-            <span className="flex items-center gap-2">
-              {state?.supported && (
-                <span className="text-xs">
-                  {t('settings.device.cpuFrequency.running', { mhz: state.running })}
-                </span>
-              )}
-              <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
-            </span>
+            <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
           </summary>
           <div className="space-y-2 px-4 pb-4">
             <SettingRow

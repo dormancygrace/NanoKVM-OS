@@ -895,6 +895,7 @@
   },
   "dashboard": {
     "title": "대시보드",
+    "freeRam": "사용 가능한 RAM",
     "freeStorage": "여유 공간",
     "uptime": "가동 시간",
     "kernel": "커널",

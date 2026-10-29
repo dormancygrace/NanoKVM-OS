@@ -169,6 +169,7 @@
     "duration": "{{days}} T {{hours}} Std {{minutes}} Min",
     "open": "{{name}}-Einstellungen öffnen",
     "of": "von {{total}}",
+    "freeRam": "Freier RAM",
     "freeStorage": "Freier Speicher",
     "uptime": "Betriebszeit",
     "device": "Gerät",

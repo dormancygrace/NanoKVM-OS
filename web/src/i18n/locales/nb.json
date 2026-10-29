@@ -895,6 +895,7 @@
   },
   "dashboard": {
     "title": "Oversikt",
+    "freeRam": "Ledig RAM",
     "freeStorage": "Ledig plass",
     "uptime": "Oppetid",
     "kernel": "Kjerne",

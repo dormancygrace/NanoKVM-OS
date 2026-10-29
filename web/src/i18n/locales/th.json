@@ -894,6 +894,7 @@
   },
   "dashboard": {
     "title": "ภาพรวม",
+    "freeRam": "RAM ว่าง",
     "freeStorage": "พื้นที่ว่าง",
     "uptime": "ระยะเวลาทำงาน",
     "kernel": "เคอร์เนล",

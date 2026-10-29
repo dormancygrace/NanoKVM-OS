@@ -894,6 +894,7 @@
   },
   "dashboard": {
     "title": "Tauler de control",
+    "freeRam": "RAM lliure",
     "freeStorage": "Espai lliure",
     "uptime": "Temps d’activitat",
     "kernel": "Nucli",

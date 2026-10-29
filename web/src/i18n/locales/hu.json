@@ -927,6 +927,7 @@
   },
   "dashboard": {
     "title": "Áttekintés",
+    "freeRam": "Szabad RAM",
     "freeStorage": "Szabad hely",
     "uptime": "Üzemidő",
     "kernel": "Rendszermag",

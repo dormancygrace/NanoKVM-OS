@@ -2055,6 +2055,7 @@
     "compression": "Komprese",
     "kernel": "Jádro systému",
     "title": "Rychlý přehled",
+    "freeRam": "Volná RAM",
     "freeStorage": "Volné místo",
     "ntpServers": "NTP servery",
     "timezone": "Časové pásmo",

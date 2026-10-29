@@ -40,9 +40,14 @@ export const SessionActions = ({
     setBusy('logout');
     try {
       const rsp = await authApi.logout();
-      if (rsp.code !== 0) return;
+      if (rsp.code !== 0) {
+        showRequestError(rsp);
+        return;
+      }
       notifyAuthExpired();
       navigate('/auth/login');
+    } catch (err) {
+      showRequestError(err);
     } finally {
       setBusy(undefined);
     }

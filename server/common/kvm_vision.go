@@ -34,6 +34,7 @@ package common
 import "C"
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -318,9 +319,9 @@ func (k *KvmVision) Close() {
 }
 
 // ApplyMonitorProfile serializes maintenance with frame reads and HDMI controls.
-// Native HDMI-off pauses its detector. The utility pulses reset while this lock
-// keeps the detector and capture callers away from its I2C programming sequence.
-func (k *KvmVision) ApplyMonitorProfile(path string) error {
+// Receiver maintenance preserves capture intent and MMF buffers. The utility
+// pulses reset while this lock keeps capture callers away from its I2C sequence.
+func (k *KvmVision) ApplyMonitorProfile(path string) (err error) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 	if k.closed {
@@ -328,17 +329,14 @@ func (k *KvmVision) ApplyMonitorProfile(path string) error {
 	}
 	defer k.pauseCaptureLocked()()
 	cube := MonitorRequiresPowerCycle()
-	if cube {
-		if C.edid_maintenance(1) < 0 {
-			return fmt.Errorf("Cube EDID maintenance requires updated native video library")
-		}
-		defer C.edid_maintenance(0)
-	} else {
-		defer C.kvmv_hdmi_control(1)
-		if C.kvmv_hdmi_control(0) < 0 {
-			return fmt.Errorf("cannot pause HDMI for monitor change")
-		}
+	if C.edid_maintenance(1) != 0 {
+		return fmt.Errorf("cannot pause HDMI for monitor change")
 	}
+	defer func() {
+		if C.edid_maintenance(0) != 0 {
+			err = errors.Join(err, fmt.Errorf("cannot restore HDMI after monitor change"))
+		}
+	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	args := []string{path}
@@ -361,24 +359,22 @@ func (k *KvmVision) ApplyMonitorProfile(path string) error {
 // ReadMonitorEDID copies the HDMI receiver's EDID (256 bytes) under the same
 // serialization as ApplyMonitorProfile: nanokvm_update_edid reads it with the
 // register sequence that programming uses to compare the installed EDID.
-func (k *KvmVision) ReadMonitorEDID() ([]byte, error) {
+func (k *KvmVision) ReadMonitorEDID() (data []byte, err error) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 	if k.closed {
 		return nil, fmt.Errorf("video capture is closed")
 	}
 	defer k.pauseCaptureLocked()()
-	if MonitorRequiresPowerCycle() {
-		if C.edid_maintenance(1) < 0 {
-			return nil, fmt.Errorf("Cube EDID maintenance requires updated native video library")
-		}
-		defer C.edid_maintenance(0)
-	} else {
-		defer C.kvmv_hdmi_control(1)
-		if C.kvmv_hdmi_control(0) < 0 {
-			return nil, fmt.Errorf("cannot pause HDMI to read the monitor EDID")
-		}
+	if C.edid_maintenance(1) != 0 {
+		return nil, fmt.Errorf("cannot pause HDMI to read the monitor EDID")
 	}
+	defer func() {
+		if C.edid_maintenance(0) != 0 {
+			data = nil
+			err = errors.Join(err, fmt.Errorf("cannot restore HDMI after reading the monitor EDID"))
+		}
+	}()
 	f, err := os.CreateTemp("/run", "nanokvm-edid-*.bin")
 	if err != nil {
 		return nil, err
@@ -395,7 +391,7 @@ func (k *KvmVision) ReadMonitorEDID() ([]byte, error) {
 		log.Errorf("reading the monitor EDID failed: %v: %s", err, output)
 		return nil, fmt.Errorf("reading the monitor EDID failed")
 	}
-	data, err := os.ReadFile(name)
+	data, err = os.ReadFile(name)
 	if err != nil {
 		return nil, err
 	}

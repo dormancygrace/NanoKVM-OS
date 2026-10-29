@@ -214,6 +214,16 @@ static struct {
 static int signal_active = 1, publications = 0, mode_switches = 0;
 static nanokvm::GeometryGate test_geometry(1920, 1080);
 static uint8_t hdmi_capture_enabled = 1;
+static std::atomic<bool> capture_stopped{false};
+static std::mutex hdmi_control_mutex;
+static bool hdmi_maintenance_active = false;
+static pthread_mutex_t vi_mutex = PTHREAD_MUTEX_INITIALIZER;
+static unsigned capture_shutdowns = 0, capture_restarts = 0;
+static int shutdown_capture_locked() { ++capture_shutdowns; return 0; }
+static bool restart_capture_locked() { ++capture_restarts; return true; }
+namespace nanokvm {
+void sleep_ms(unsigned ms) { fake_now += std::chrono::milliseconds(ms); }
+}
 static constexpr uint8_t fresh_frame_discard_count = 5;
 static bool reset_asserted = false, reset_error = false;
 static unsigned reset_calls = 0;
@@ -242,6 +252,7 @@ static void set_hdmi_mode(int value) { assert(value == 1); ++mode_switches; }
 // PRODUCTION_POLL
 
 static void controls() {
+    kvmv_cfg.hw_version = 'b'; // Existing no-reset Cube maintenance contract.
     std::promise<void> entered, release;
     auto leave = release.get_future();
     std::thread reader([&] {
@@ -259,22 +270,23 @@ static void controls() {
     { auto held = receiver_access.read(); assert(held.state == ReceiverState::Settling); }
     fake_now += std::chrono::milliseconds(250);
     assert(kvmv_edid_maintenance(0) == -1 && errno == EINVAL);
+    kvmv_cfg.hw_version = 'p';
     {
         nanokvm::ReceiverFileLock external; assert(external);
         auto calls = reset_calls;
         const auto started = std::chrono::steady_clock::now();
-        assert(kvmv_hdmi_control(0) == -1 && errno == EBUSY);
+        assert(control_hdmi_receiver(0) == -1 && errno == EBUSY);
         const auto waited = std::chrono::steady_clock::now() - started;
         assert(waited >= std::chrono::milliseconds(1800) && waited < std::chrono::seconds(4));
         assert(reset_calls == calls && hdmi_capture_enabled == 1);
     }
-    assert(kvmv_hdmi_control(0) == 0 && reset_asserted && !hdmi_capture_enabled);
+    assert(control_hdmi_receiver(0) == 0 && reset_asserted && !hdmi_capture_enabled);
     { auto refused = receiver_access.read(); assert(refused.state == ReceiverState::Paused); }
     reset_error = true;
-    assert(kvmv_hdmi_control(1) == -1 && reset_asserted && !hdmi_capture_enabled);
+    assert(control_hdmi_receiver(1) == -1 && reset_asserted && !hdmi_capture_enabled);
     { auto refused = receiver_access.read(); assert(refused.state == ReceiverState::Paused); }
     reset_error = false;
-    assert(kvmv_hdmi_control(1) == 0 && !reset_asserted && hdmi_capture_enabled);
+    assert(control_hdmi_receiver(1) == 0 && !reset_asserted && hdmi_capture_enabled);
     { auto held = receiver_access.read(); assert(held.state == ReceiverState::Settling); }
     auto i2c_calls = LT6911_i2c.calls;
     auto published = publications;
@@ -295,7 +307,7 @@ static void controls() {
     stuck_entered.get_future().wait();
     auto calls = reset_calls;
     auto start = std::chrono::steady_clock::now();
-    assert(kvmv_hdmi_control(0) == -1 && errno == ETIMEDOUT);
+    assert(control_hdmi_receiver(0) == -1 && errno == ETIMEDOUT);
     assert(std::chrono::steady_clock::now() - start < std::chrono::seconds(4));
     assert(reset_calls == calls && hdmi_capture_enabled == 1);
     unstuck.set_value(); stuck.join();
@@ -307,26 +319,82 @@ static void controls() {
         sensor_entered.set_value(); sensor_done.wait();
     });
     sensor_entered.get_future().wait();
-    auto waiting_reset = std::async(std::launch::async, [] { return kvmv_hdmi_control(0); });
+    auto waiting_reset = std::async(std::launch::async, [] { return control_hdmi_receiver(0); });
     assert(waiting_reset.wait_for(std::chrono::milliseconds(30)) == std::future_status::timeout);
     sensor_release.set_value(); sensor.join();
     assert(waiting_reset.get() == 0 && reset_asserted && !hdmi_capture_enabled);
-    assert(kvmv_hdmi_control(1) == 0 && !reset_asserted && hdmi_capture_enabled);
+    assert(control_hdmi_receiver(1) == 0 && !reset_asserted && hdmi_capture_enabled);
     fake_now += std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS);
     // Reset-less Cube/Lite still support logical capture disable and pause
     // receiver sampling; the capture wrapper releases MMF on both boards.
     for (uint8_t board : {'a', 'b'}) {
         kvmv_cfg.hw_version = board;
         const auto before = reset_calls;
-        assert(kvmv_hdmi_control(0) == 0 && !hdmi_capture_enabled);
+        assert(control_hdmi_receiver(0) == 0 && !hdmi_capture_enabled);
         { auto held = receiver_access.read(); assert(held.state == ReceiverState::Paused); }
-        assert(kvmv_hdmi_control(1) == 0 && hdmi_capture_enabled);
+        assert(control_hdmi_receiver(1) == 0 && hdmi_capture_enabled);
         { auto ready = receiver_access.read(); assert(ready); }
         assert(reset_calls == before);
     }
     kvmv_cfg.hw_version = 'p';
     signal_active = 1;
     puts("PASS production maintenance/reset: active read drained, nested pause refused, state restored, external ownership respected, reset failure retained pause and stuck reader timed out");
+}
+
+static void maintenance_lifecycle() {
+    for (uint8_t board : {'p', 'a', 'b'}) {
+        kvmv_cfg.hw_version = board;
+        for (bool enabled : {false, true}) {
+            assert(kvmv_hdmi_control(0) == 0 && capture_stopped);
+            if (enabled) assert(kvmv_hdmi_control(1) == 0 && !capture_stopped);
+            const auto stops = capture_shutdowns, starts = capture_restarts;
+            assert(kvmv_edid_maintenance(1) == 0 && !hdmi_capture_enabled);
+            { auto held = receiver_access.read(); assert(held.state == ReceiverState::Paused); }
+            assert(kvmv_hdmi_control(1) == -1 && errno == EBUSY);
+            const auto resets = reset_calls;
+            reset_hdmi_for_detection();
+            assert(reset_calls == resets);
+            // The external EDID utility pulses reset and leaves it released.
+            reset_asserted = false;
+            assert(kvmv_edid_maintenance(0) == 0);
+            assert(hdmi_capture_enabled == enabled && capture_stopped == !enabled);
+            assert(capture_shutdowns == stops && capture_restarts == starts);
+            if (board == 'p') assert(reset_asserted == !enabled);
+            { auto state = receiver_access.read(); assert(state.state ==
+                (enabled ? ReceiverState::Settling : ReceiverState::Paused)); }
+            fake_now += std::chrono::seconds(3);
+        }
+    }
+    kvmv_cfg.hw_version = 'p';
+    // Failed begin never opens a session or changes the prior capture intent.
+    reset_error = true;
+    assert(kvmv_edid_maintenance(1) == -1 && !hdmi_maintenance_active && hdmi_capture_enabled);
+    reset_error = false;
+    // A failed end stays paused but does not strand the control interface.
+    assert(kvmv_edid_maintenance(1) == 0);
+    reset_error = true;
+    assert(kvmv_edid_maintenance(0) == -1 && !hdmi_maintenance_active && !hdmi_capture_enabled);
+    reset_error = false;
+    assert(kvmv_hdmi_control(1) == 0);
+    fake_now += std::chrono::seconds(3);
+    assert(kvmv_edid_maintenance(1) == 0);
+    {
+        nanokvm::ReceiverFileLock external; assert(external);
+        assert(kvmv_edid_maintenance(0) == -1 && errno == EBUSY);
+        assert(!hdmi_maintenance_active && !hdmi_capture_enabled);
+    }
+    assert(kvmv_hdmi_control(1) == 0);
+    fake_now += std::chrono::seconds(3);
+    // A detector reset cannot hold the frame lock while waiting for I2C.
+    pthread_mutex_lock(&vi_mutex);
+    auto reset = std::async(std::launch::async, [] { reset_hdmi_for_detection(); });
+    const bool independent = reset.wait_for(std::chrono::milliseconds(500)) == std::future_status::ready;
+    pthread_mutex_unlock(&vi_mutex);
+    reset.get();
+    assert(independent);
+    fake_now += std::chrono::seconds(3);
+    signal_active = 1;
+    puts("PASS production maintenance lifecycle: on/off preserved, no MMF restart, stopped GPIO restored, detector excluded, failed begin/end recoverable");
 }
 
 static void publication() {
@@ -442,8 +510,8 @@ static void failure_generations() {
         // No poll observes the paused state: only lifecycle generation can
         // distinguish the fresh read sequence from the pre-maintenance one.
         if (reset) {
-            assert(kvmv_hdmi_control(0) == 0);
-            assert(kvmv_hdmi_control(1) == 0);
+            assert(control_hdmi_receiver(0) == 0);
+            assert(control_hdmi_receiver(1) == 0);
         } else {
             assert(kvmv_edid_maintenance(1) == 0);
             assert(kvmv_edid_maintenance(0) == 0);
@@ -477,12 +545,12 @@ static void publication_during_lease() {
     assert(!publisher.get());
     assert(test_geometry.snapshot().width == before.width);
     // The admission mutex was released even though frame visibility is pending.
-    auto reset = std::async(std::launch::async, [] { return kvmv_hdmi_control(0); });
+    auto reset = std::async(std::launch::async, [] { return control_hdmi_receiver(0); });
     assert(reset.wait_for(std::chrono::seconds(1)) == std::future_status::ready);
     assert(reset.get() == 0);
     lease.release();
     assert(test_geometry.snapshot().width == 1280 && test_geometry.snapshot().height == 720);
-    assert(kvmv_hdmi_control(1) == 0);
+    assert(control_hdmi_receiver(1) == 0);
     puts("PASS real GeometryGate: publish/reset complete while frame lease remains held; visibility changes after release");
 }
 
@@ -756,8 +824,9 @@ static void model_windows() {
         assert(nanokvm::receiver_settle_ms(kind) == reset_window);
         for (bool reset : {true, false}) {
             const auto expected = reset ? reset_window : 250U;
+            kvmv_cfg.hw_version = reset ? 'p' : 'b';
             if (reset) {
-                assert(kvmv_hdmi_control(0) == 0 && kvmv_hdmi_control(1) == 0);
+                assert(control_hdmi_receiver(0) == 0 && control_hdmi_receiver(1) == 0);
             } else {
                 const auto resets = reset_calls;
                 assert(kvmv_edid_maintenance(1) == 0 && kvmv_edid_maintenance(0) == 0);
@@ -776,8 +845,11 @@ static void model_windows() {
     }
     for (auto kind : {ReceiverKind::C, ReceiverKind::D}) {
         kvmv_cfg.hdmi_version = kind == ReceiverKind::C ? 0 : 3;
-        assert(kvmv_hdmi_control(0) == 0 && kvmv_hdmi_control(1) == 0);
+        kvmv_cfg.hw_version = 'p';
+        assert(control_hdmi_receiver(0) == 0 && control_hdmi_receiver(1) == 0);
         fake_now += std::chrono::milliseconds(100);
+        // A no-reset maintenance gap must retain the longer reset deadline.
+        kvmv_cfg.hw_version = 'b';
         assert(kvmv_edid_maintenance(1) == 0 && kvmv_edid_maintenance(0) == 0);
         LT6911_i2c = Bus::fixture(kind);
         for (unsigned ms = 100; ms < 2500; ++ms) {
@@ -787,6 +859,7 @@ static void model_windows() {
         }
         assert(!poll_hdmi_receiver(false) && signal_active && LT6911_i2c.calls);
     }
+    kvmv_cfg.hw_version = 'p';
     puts("PASS reset2500/2500/250ms; no-reset maintenance250ms; overlapping maintenance preserves reset deadline; no early I2C/publication and IRQ retained");
 }
 
@@ -815,7 +888,7 @@ static void d_read_only_production() {
     assert(kvmv_edid_maintenance(1) == 0 && kvmv_edid_maintenance(0) == 0);
     fake_now += std::chrono::milliseconds(250);
     assert(!poll_hdmi_receiver(false));
-    assert(kvmv_hdmi_control(0) == 0 && kvmv_hdmi_control(1) == 0);
+    assert(control_hdmi_receiver(0) == 0 && control_hdmi_receiver(1) == 0);
     fake_now += std::chrono::milliseconds(2500);
     assert(!poll_hdmi_receiver(false));
     assert(LT6911_i2c.registers[0xe0ee] == 0 && LT6911_i2c.writes.empty());
@@ -883,4 +956,4 @@ static void c_recovery_diagnostics() {
     puts("PASS C VI recovery: one measurement per unchanged ready/no-signal sample; real events keep full diagnostics");
 }
 
-int main() { snapshots(); admission(); controls(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); firmware_diagnostics(); model_windows(); d_read_only_production(); exclusive_d_identity(); c_recovery_diagnostics(); }
+int main() { snapshots(); admission(); controls(); maintenance_lifecycle(); publication(); failure_generations(); publication_during_lease(); diagnostics(); cd_diagnostics(); firmware_diagnostics(); model_windows(); d_read_only_production(); exclusive_d_identity(); c_recovery_diagnostics(); }

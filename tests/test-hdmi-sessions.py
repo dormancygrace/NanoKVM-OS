@@ -22,12 +22,10 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-hdmi-session-') as name:
     source = (root / 'tests/test-hdmi-sessions.cpp').read_text()
     source = source.replace('// PRODUCTION_DIAGNOSTICS', function(vision, 'static void log_receiver_diagnostics('))
     source = source.replace('// PRODUCTION_POLL', function(vision, 'static bool poll_hdmi_receiver('))
-    # Exercise receiver ownership separately from the capture lifecycle, which
-    # test-capture-restart.py exercises through the public control wrapper.
-    source = source.replace('// PRODUCTION_CONTROL',
-                            function(vision, 'int kvmv_edid_maintenance(') + '\n' +
-                            function(vision, 'static int control_hdmi_receiver(').replace(
-                                'static int control_hdmi_receiver(', 'int kvmv_hdmi_control('))
+    source = source.replace('// PRODUCTION_CONTROL', '\n'.join(function(vision, marker) for marker in (
+        'static void load_hdmi_board(', 'int kvmv_edid_maintenance(',
+        'static int control_hdmi_receiver(', 'int kvmv_hdmi_control(',
+        'static void reset_hdmi_for_detection()\n{')))
     cpp = tmp / 'sessions.cpp'
     cpp.write_text(source)
     flags = ['-Wall', '-Wextra', '-Werror', '-g']

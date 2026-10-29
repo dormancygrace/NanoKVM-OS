@@ -166,6 +166,10 @@ static void reset_hdmi_for_detection();
 // The stop latch is checked again under vi_mutex before any allocation. The
 // detector may already be waiting to restart when the user disables capture.
 static std::atomic<bool> capture_stopped{false};
+// Serializes control intent across full capture changes and receiver-only
+// maintenance. Detector reset must not hold vi_mutex while waiting for I2C.
+static std::mutex hdmi_control_mutex;
+static bool hdmi_maintenance_active = false;
 static bool capture_shutdown_pending = false; // protected by vi_mutex
 
 static int shutdown_capture_locked()
@@ -2055,35 +2059,7 @@ static int set_owned_hdmi_reset(bool asserted)
     return 0;
 }
 
-// Pause the HDMI detector and capture without touching board-specific GPIO.
-// Called under the server maintenance/capture mutex for Cube EDID writes.
-int kvmv_edid_maintenance(uint8_t pause)
-{
-    auto control = receiver_access.control();
-    if (!control) { errno = ETIMEDOUT; return -1; }
-    static uint8_t previous_capture = 0;
-    static bool active = false;
-    if (pause) {
-        if (active) { errno = EBUSY; return -1; }
-        previous_capture = __atomic_load_n(&hdmi_capture_enabled, __ATOMIC_ACQUIRE);
-        control.pause();
-        set_hdmi_capture_enabled(0);
-        active = true;
-    } else {
-        if (!active) { errno = EINVAL; return -1; }
-        kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
-        // This Cube/Lite maintenance does not reset the receiver. Keep the
-        // short post-access gap, without shortening a pending reset deadline.
-        control.resume(std::chrono::milliseconds(NANOKVM_RECEIVER_MAINTENANCE_MS), true);
-        receiver_diagnostics_pending = true;
-        receiver_retry_pending.store(true, std::memory_order_relaxed);
-        set_hdmi_capture_enabled(previous_capture);
-        active = false;
-    }
-    return 0;
-}
-
-static int control_hdmi_receiver(uint8_t _en)
+static void load_hdmi_board()
 {
     if(kvmv_cfg.hw_version == 0){
 
@@ -2104,6 +2080,56 @@ static int control_hdmi_receiver(uint8_t _en)
             }
         }
     }
+}
+
+// Called with the server's capture worker paused. Maintenance never changes
+// the MMF lifetime: preserve a running pipeline, or leave a stopped one empty.
+// The EDID utility may pulse reset itself, so restore its entry state on exit.
+int kvmv_edid_maintenance(uint8_t pause)
+{
+    std::lock_guard<std::mutex> guard(hdmi_control_mutex);
+    if (pause ? hdmi_maintenance_active : !hdmi_maintenance_active) {
+        errno = pause ? EBUSY : EINVAL;
+        return -1;
+    }
+    // End the session even when cleanup cannot acquire receiver ownership.
+    // A subsequent explicit capture control must remain able to recover it.
+    if (!pause) hdmi_maintenance_active = false;
+    auto control = receiver_access.control();
+    if (!control) { errno = ETIMEDOUT; return -1; }
+    nanokvm::ReceiverFileLock ownership(NANOKVM_RECEIVER_CONTROL_TIMEOUT_MS);
+    if (!ownership) return -1;
+    load_hdmi_board();
+    const bool pcie = kvmv_cfg.hw_version == 'p';
+    static uint8_t previous_capture = 0;
+    if (pause) {
+        // Failed admission leaves capture intent unchanged; the caller must
+        // not resume a maintenance session that never started.
+        if (pcie && set_owned_hdmi_reset(true) != 0) return -1;
+        previous_capture = __atomic_load_n(&hdmi_capture_enabled, __ATOMIC_ACQUIRE);
+        control.pause();
+        set_hdmi_capture_enabled(0);
+        hdmi_maintenance_active = true;
+    } else {
+        const bool resume = previous_capture != 0 && !capture_stopped.load();
+        // Until a successful restore the detector remains paused.
+        if (pcie && set_owned_hdmi_reset(!resume) != 0) return -1;
+        kvmv_cfg.fresh_frame_count = fresh_frame_discard_count;
+        if (resume) {
+            const int settle = pcie ? nanokvm::receiver_settle_ms(
+                nanokvm::receiver_kind(kvmv_cfg.hdmi_version)) : NANOKVM_RECEIVER_MAINTENANCE_MS;
+            control.resume(std::chrono::milliseconds(settle), !pcie);
+            receiver_diagnostics_pending = true;
+            receiver_retry_pending.store(true, std::memory_order_relaxed);
+        }
+        set_hdmi_capture_enabled(resume);
+    }
+    return 0;
+}
+
+static int control_hdmi_receiver(uint8_t _en)
+{
+    load_hdmi_board();
     auto control = receiver_access.control();
     if (!control) { errno = ETIMEDOUT; return -1; }
     // Cube/Lite have no reset GPIO, but still pause the detector and release
@@ -2136,9 +2162,12 @@ static int control_hdmi_receiver(uint8_t _en)
 
 // Lock order: vi_mutex -> receiver admission/device ownership. Release the
 // receiver locks before MMF calls into the sensor driver, which owns the same
-// device lock. JPEG teardown waits for its in-flight frame through MMF's hold.
+// device lock. hdmi_control_mutex serializes intent before these locks.
+// JPEG teardown waits for its in-flight frame through MMF's hold.
 int kvmv_hdmi_control(uint8_t enabled)
 {
+    std::lock_guard<std::mutex> guard(hdmi_control_mutex);
+    if (hdmi_maintenance_active) { errno = EBUSY; return -1; }
     pthread_mutex_lock(&vi_mutex);
     int result = control_hdmi_receiver(enabled);
     if (result == 0) {
@@ -2160,13 +2189,13 @@ int kvmv_hdmi_control(uint8_t enabled)
 
 static void reset_hdmi_for_detection()
 {
-    pthread_mutex_lock(&vi_mutex);
-    // A detector pass queued before disable must not turn capture back on.
-    if (!capture_stopped.load() && control_hdmi_receiver(0) == 0) {
+    std::lock_guard<std::mutex> guard(hdmi_control_mutex);
+    // A detector pass queued before disable/maintenance must not turn capture
+    // back on. Receiver ownership can wait without blocking frame readers.
+    if (!capture_stopped.load() && !hdmi_maintenance_active && control_hdmi_receiver(0) == 0) {
         nanokvm::sleep_ms(10);
         control_hdmi_receiver(1);
     }
-    pthread_mutex_unlock(&vi_mutex);
 }
 
 /* Caller holds vi_mutex. Parking deletes the video and JPEG encoder

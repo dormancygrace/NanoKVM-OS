@@ -42,7 +42,9 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
   const mounted = useRef(true);
   const input = useRef<HTMLInputElement>(null);
   const refresh = useCallback(async () => {
-    const rsp = await http.get('/api/extensions/openvpn/status');
+    const rsp = await http.get<{ profiles: Profile[]; available: boolean }>(
+      '/api/extensions/openvpn/status'
+    );
     if (rsp.code !== 0) throw new Error(rsp.msg);
     if (mounted.current) {
       setProfiles(rsp.data.profiles);

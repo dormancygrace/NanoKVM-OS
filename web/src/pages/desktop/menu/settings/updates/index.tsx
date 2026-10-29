@@ -36,7 +36,7 @@ export const Updates = () => {
     const request = ++generation.current;
     pending.current++;
     try {
-      const rsp = await http.get('/api/os/update');
+      const rsp = await http.get<State>('/api/os/update');
       if (request !== generation.current) return;
       if (rsp.code === 0) {
         setState(rsp.data);

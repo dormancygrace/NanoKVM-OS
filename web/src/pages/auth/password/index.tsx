@@ -7,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 
 import * as api from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
-import { encrypt } from '@/lib/encrypt.ts';
 import { Head } from '@/components/head.tsx';
 
 // This code is specific to POST /api/auth/password. The backend uses it when
@@ -34,12 +33,12 @@ export const Password = () => {
       setMsg(t('auth.differentPassword'));
       return;
     }
-    const currentPassword = encrypt(values.currentPassword);
-    const password = encrypt(values.password);
+    const currentPassword = values.currentPassword;
+    const password = values.password;
 
     api
       .changePassword(currentPassword, password)
-      .then((rsp: any) => {
+      .then((rsp) => {
         if (rsp.code !== 0) {
           setMsg(
             rsp.code === invalidCurrentPasswordCode

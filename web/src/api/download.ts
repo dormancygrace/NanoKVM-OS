@@ -14,9 +14,18 @@ export function cancelDownloadImage() {
 }
 
 export function statusImage() {
-  return http.get('/api/download/image/status');
+  return http.get<ImageDownloadStatus>('/api/download/image/status');
 }
 
 export function imageEnabled() {
-  return http.get('/api/download/image/enabled');
+  return http.get<{ enabled: boolean }>('/api/download/image/enabled');
 }
+
+export type ImageDownloadStatus = {
+  downloadedBytes: number;
+  totalBytes: number;
+  bytesPerSecond: number;
+  status: string;
+  file: string;
+  percentage: string;
+};

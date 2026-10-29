@@ -35,7 +35,7 @@ export const BmcSettingsPage = () => {
       const response = await getBmcStatus();
       if (!mounted.current) return;
       if (response.code !== 0) throw new Error(response.msg);
-      const next = response.data as BmcStatus;
+      const next = response.data;
       setStatus(next);
       if (!dirty.current)
         form.setFieldsValue({ ...next, holdSeconds: next.holdSeconds || undefined, password: '' });

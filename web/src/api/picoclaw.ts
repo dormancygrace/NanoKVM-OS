@@ -1,4 +1,5 @@
 import { http } from '@/lib/http.ts';
+import type { PicoclawRuntimeStatus } from '@/jotai/picoclaw';
 
 type ModelConfigRequest = {
   model: string;
@@ -20,25 +21,36 @@ export type PicoclawSessionListItem = {
 };
 
 export function setPicoclawModelConfig(data: ModelConfigRequest) {
-  return http.post('/api/picoclaw/model/config', data);
+  return http.post<{ status: PicoclawRuntimeStatus; installed?: boolean }>(
+    '/api/picoclaw/model/config',
+    data
+  );
 }
 
 // The agent's shell, file write and command scheduling tools on the NanoKVM.
 export function setPicoclawHostTools(enabled: boolean) {
-  return http.post('/api/picoclaw/host-tools', { enabled });
+  return http.post<{ status: PicoclawRuntimeStatus; installed?: boolean }>(
+    '/api/picoclaw/host-tools',
+    { enabled }
+  );
 }
 
 export function setPicoclawAgentProfile(data: AgentProfileRequest) {
-  return http.post('/api/picoclaw/agent/profile', data);
+  return http.post<{ status: PicoclawRuntimeStatus; installed?: boolean }>(
+    '/api/picoclaw/agent/profile',
+    data
+  );
 }
 
 export function listPicoclawSessions(params?: { offset?: number; limit?: number }) {
   // http.get already wraps its argument as axios `params`.
-  return http.get('/api/picoclaw/sessions', params);
+  return http.get<PicoclawSessionListItem[]>('/api/picoclaw/sessions', params);
 }
 
 export function getPicoclawSession(id: string) {
-  return http.get(`/api/picoclaw/sessions/${encodeURIComponent(id)}`);
+  return http.get<{ id: string; messages: { role: 'user' | 'assistant'; content: string }[] }>(
+    `/api/picoclaw/sessions/${encodeURIComponent(id)}`
+  );
 }
 
 export function deletePicoclawSession(id: string) {
@@ -46,15 +58,15 @@ export function deletePicoclawSession(id: string) {
 }
 
 export function getRuntimeStatus() {
-  return http.get('/api/picoclaw/runtime/status');
+  return http.get<PicoclawRuntimeStatus>('/api/picoclaw/runtime/status');
 }
 
 export function startRuntime() {
-  return http.post('/api/picoclaw/runtime/start');
+  return http.post<{ status: PicoclawRuntimeStatus }>('/api/picoclaw/runtime/start');
 }
 
 export function stopRuntime() {
-  return http.post('/api/picoclaw/runtime/stop');
+  return http.post<{ status: PicoclawRuntimeStatus }>('/api/picoclaw/runtime/stop');
 }
 
 export function setAIControlMode(mode: 'off' | 'mcp' | 'picoclaw') {
@@ -66,9 +78,13 @@ export function setAIControlMode(mode: 'off' | 'mcp' | 'picoclaw') {
 }
 
 export function installRuntime() {
-  return http.post('/api/picoclaw/runtime/install');
+  return http.post<{ status: PicoclawRuntimeStatus; installed?: boolean }>(
+    '/api/picoclaw/runtime/install'
+  );
 }
 
 export function uninstallRuntime() {
-  return http.post('/api/picoclaw/runtime/uninstall');
+  return http.post<{ status: PicoclawRuntimeStatus; installed?: boolean }>(
+    '/api/picoclaw/runtime/uninstall'
+  );
 }

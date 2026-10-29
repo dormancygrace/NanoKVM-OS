@@ -4,6 +4,7 @@ import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http';
+import type { Branding } from '@/jotai/branding';
 import { brandingAtom } from '@/jotai/branding';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
@@ -25,7 +26,7 @@ export const BannerStyleSetting = () => {
     if (style === current || busy) return;
     setBusy(true);
     try {
-      const rsp = await http.post('/api/branding/banner-style', { style });
+      const rsp = await http.post<Branding>('/api/branding/banner-style', { style });
       if (rsp.code !== 0) throw new Error(rsp.msg);
       setBranding(rsp.data);
     } catch {

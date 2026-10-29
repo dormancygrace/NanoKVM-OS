@@ -11,10 +11,10 @@ declare module 'axios' {
   }
 }
 
-type Response = {
+export type ApiResponse<T = unknown> = {
   code: number;
   msg: string;
-  data: any;
+  data: T;
 };
 
 class Http {
@@ -62,16 +62,20 @@ class Http {
     );
   }
 
-  public get(url: string, params?: any): Promise<Response> {
-    return this.instance.request({
+  public get<T = unknown>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
+    return this.instance.request<unknown, ApiResponse<T>, unknown>({
       method: 'get',
       url,
       params
     });
   }
 
-  public post(url: string, data?: any, config?: AxiosRequestConfig): Promise<Response> {
-    return this.instance.request({
+  public post<T = unknown>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig<unknown>
+  ): Promise<ApiResponse<T>> {
+    return this.instance.request<unknown, ApiResponse<T>, unknown>({
       method: 'post',
       url,
       data,
@@ -79,15 +83,17 @@ class Http {
     });
   }
 
-  public delete(url: string, data?: any): Promise<Response> {
-    return this.instance.request({
+  public delete<T = unknown>(url: string, data?: unknown): Promise<ApiResponse<T>> {
+    return this.instance.request<unknown, ApiResponse<T>, unknown>({
       method: 'delete',
       url,
       data
     });
   }
 
-  public request(config: AxiosRequestConfig): Promise<Response> {
+  public request(config: AxiosRequestConfig<unknown> & { responseType: 'blob' }): Promise<Blob>;
+  public request<T = unknown>(config: AxiosRequestConfig<unknown>): Promise<ApiResponse<T>>;
+  public request(config: AxiosRequestConfig<unknown>): Promise<unknown> {
     return this.instance.request(config);
   }
 }

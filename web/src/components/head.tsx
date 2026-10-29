@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useOptionalAuth } from '@/contexts/auth.ts';
 import { useAtom } from 'jotai';
-import { Helmet, HelmetData } from 'react-helmet-async';
 
 import { getWebTitle } from '@/api/vm.ts';
 import { http } from '@/lib/http';
+import type { Branding } from '@/jotai/branding';
 import { brandingAtom, brandingFavicon } from '@/jotai/branding';
 import { webTitleAtom } from '@/jotai/settings.ts';
 
@@ -13,15 +13,13 @@ type HeadProps = {
   description?: string;
 };
 
-const helmetData = new HelmetData({});
-
 export const Head = ({ title = '', description = '' }: HeadProps = {}) => {
   const [webTitle, setWebTitle] = useAtom(webTitleAtom);
   const auth = useOptionalAuth();
   const [branding, setBranding] = useAtom(brandingAtom);
   useEffect(() => {
     http
-      .get('/api/branding')
+      .get<Branding>('/api/branding')
       .then((rsp) => {
         if (rsp.code === 0) {
           setBranding(rsp.data);
@@ -42,17 +40,14 @@ export const Head = ({ title = '', description = '' }: HeadProps = {}) => {
   }, [auth, setWebTitle]);
 
   return (
-    <Helmet
-      helmetData={helmetData}
-      title={webTitle ? webTitle : title ? `${title} - NanoKVM OS` : 'NanoKVM OS'}
-      defaultTitle={webTitle}
-    >
+    <>
+      <title>{webTitle || (title ? `${title} - NanoKVM OS` : 'NanoKVM OS')}</title>
       <meta name="description" content={description} />
       <link
         rel="icon"
         type={branding.customFaviconAvailable ? 'image/png' : 'image/svg+xml'}
         href={brandingFavicon(branding)}
       />
-    </Helmet>
+    </>
   );
 };

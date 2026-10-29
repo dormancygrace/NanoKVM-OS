@@ -9,7 +9,7 @@ export function VPNVersion({ name }: { name: 'tailscale' | 'wireguard' | 'openvp
     let active = true;
     const refresh = () =>
       void http
-        .get('/api/extensions/vpn/versions')
+        .get<Record<string, string>>('/api/extensions/vpn/versions')
         .then((rsp) => {
           if (active && rsp.code === 0) setVersion(rsp.data[name] || '');
         })

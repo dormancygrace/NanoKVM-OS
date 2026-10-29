@@ -82,7 +82,7 @@ export const Logs = () => {
         const response = await getLogs(source, boot, controller.signal);
         if (disposed) return;
         if (response.code !== 0) throw new Error('logs unavailable');
-        setSnapshot(response.data as LogSnapshot);
+        setSnapshot(response.data);
         if (typeof response.data.archiveAvailable === 'boolean')
           setArchiveAvailable(response.data.archiveAvailable);
         setError(false);

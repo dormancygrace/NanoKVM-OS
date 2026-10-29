@@ -4,7 +4,7 @@ import { Button, notification } from 'antd';
 import { useAtom, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { availableUpdates, getUpdateNotice, type UpdateNotice } from '@/api/updates.ts';
+import { availableUpdates, getUpdateNotice } from '@/api/updates.ts';
 import { getSeenUpdates, setSeenUpdates, updateSignature } from '@/lib/update-components.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { settingsRequestAtom } from '@/jotai/settings.ts';
@@ -39,7 +39,7 @@ export const UpdateNotification = () => {
       try {
         const rsp = await getUpdateNotice();
         if (active && rsp.code === 0) {
-          setNotice((current) => (current === previous ? (rsp.data as UpdateNotice) : current));
+          setNotice((current) => (current === previous ? rsp.data : current));
         }
       } catch {
         /* Keep the last known state through brief disconnects. */

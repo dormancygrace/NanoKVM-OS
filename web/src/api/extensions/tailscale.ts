@@ -19,7 +19,7 @@ export function uninstall() {
 
 // get tailscale status
 export function getStatus() {
-  return http.get('/api/extensions/tailscale/status');
+  return http.get<TailscaleStatus>('/api/extensions/tailscale/status');
 }
 
 // start tailscale
@@ -49,10 +49,22 @@ export function down() {
 
 // login tailscale
 export function login() {
-  return http.post('/api/extensions/tailscale/login', undefined, { timeout: SLOW_CALL_TIMEOUT });
+  return http.post<{ url: string }>('/api/extensions/tailscale/login', undefined, {
+    timeout: SLOW_CALL_TIMEOUT
+  });
 }
 
 // logout tailscale
 export function logout() {
   return http.post('/api/extensions/tailscale/logout', undefined, { timeout: SLOW_CALL_TIMEOUT });
 }
+
+export type TailscaleState = 'notInstall' | 'notRunning' | 'notLogin' | 'stopped' | 'running';
+
+export type TailscaleStatus = {
+  state: TailscaleState;
+  name: string;
+  ip: string;
+  account: string;
+  busy?: boolean;
+};

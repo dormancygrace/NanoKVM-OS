@@ -1,7 +1,7 @@
 import { createHashRouter, Outlet } from 'react-router-dom';
 
 import { AdminRoute, ProtectedRoute } from '@/components/auth';
-import { Root } from '@/components/root';
+import { LazyRoot } from '@/components/lazy-root';
 
 export const router = createHashRouter([
   {
@@ -15,7 +15,7 @@ export const router = createHashRouter([
     path: '/',
     element: (
       <ProtectedRoute>
-        <Root />
+        <LazyRoot />
       </ProtectedRoute>
     ),
     children: [

@@ -51,7 +51,7 @@ export const UserDiskFiles = ({
       return;
     }
     setFolder(path);
-    setListing(rsp.data as storage.UserDiskListing);
+    setListing(rsp.data);
   }
 
   async function run(action: () => Promise<void>) {

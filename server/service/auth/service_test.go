@@ -393,7 +393,7 @@ func TestNormalUserPasswordNeverChangesSystemPassword(t *testing.T) {
 	}
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if err := changeUserPassword("alice", encryptForRequest(t, "new-password")); err != nil {
+	if err := changeUserPassword("alice", encryptForRequest(t, "new-password"), ""); err != nil {
 		t.Fatal(err)
 	}
 	if updates != 0 {
@@ -509,7 +509,7 @@ func TestSystemPasswordFailureRollsBackWebPassword(t *testing.T) {
 	systemPasswordUpdater = func(string) error { return errors.New("passwd failed") }
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if err := changeUserPassword("admin", encryptForRequest(t, "new-password")); err == nil {
+	if err := changeUserPassword("admin", encryptForRequest(t, "new-password"), ""); err == nil {
 		t.Fatal("system password failure was ignored")
 	}
 	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {

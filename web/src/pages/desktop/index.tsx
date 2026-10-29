@@ -8,7 +8,6 @@ import { useMediaQuery } from 'react-responsive';
 
 import { getEncoderState } from '@/api/stream.ts';
 import { getInputRegion, getScreen, getVideoCapabilities, setControlRegionMode } from '@/api/vm.ts';
-import { ControlRegionConfig } from '@/types';
 import { adoptLiveCapture } from '@/lib/capture-control.ts';
 import { getEncoderCodec, initializeEncoderCodec } from '@/lib/encoder.ts';
 import { refreshLiveStatus, subscribeLiveStatus } from '@/lib/live-status.ts';
@@ -279,7 +278,7 @@ export const Desktop = () => {
 
     getInputRegion()
       .then((rsp) => {
-        const config = rsp.data as ControlRegionConfig | null;
+        const config = rsp.data;
         const mode = config?.mode || 'off';
         const selectedResolution = config?.selectedResolution || '';
         const regions = config?.regions || [];

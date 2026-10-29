@@ -1,7 +1,7 @@
 # NanoKVM TPU add-on
 
 The CV181x TPU runtime and an OCR helper that reads the text on the remote
-screen. The web UI (Read text on the screen), the MCP tool `cube_screen_text`
+screen. The web UI (Read text on the screen), the MCP tool `screen_text`
 and PicoClaw's `kvm_screen_text` use it. It is an add-on because of the
 runtime's licence: see NOTICE. Until Sophgo states a licence for cviruntime,
 it is built for testing and not published.

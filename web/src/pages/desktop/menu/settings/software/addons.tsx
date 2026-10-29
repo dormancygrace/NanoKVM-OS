@@ -41,7 +41,7 @@ export const Addons = ({
   const loadCatalog = useCallback(async () => {
     try {
       const response = await getAddonCatalog();
-      if (response.code === 0) setCatalog(response.data as AddonCatalog);
+      if (response.code === 0) setCatalog(response.data);
     } catch {
       // The cards below work without the list; the next poll retries.
     }

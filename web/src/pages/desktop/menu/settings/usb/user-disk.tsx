@@ -48,7 +48,7 @@ export const UserDisk = ({
   const load = useCallback(async () => {
     try {
       const rsp = await storage.getUserDisk();
-      if (rsp.code === 0) setStatus(rsp.data as UserDiskStatus);
+      if (rsp.code === 0) setStatus(rsp.data);
     } catch {
       /* the card stays without details */
     }
@@ -73,7 +73,7 @@ export const UserDisk = ({
     try {
       const rsp = await storage.createUserDisk(size);
       if (rsp.code === 0) {
-        setStatus(rsp.data as UserDiskStatus);
+        setStatus(rsp.data);
         message.success(t('settings.usb.userDisk.created'));
       } else {
         message.error(
@@ -102,7 +102,7 @@ export const UserDisk = ({
     setWorking(true);
     try {
       const rsp = await storage.deleteUserDisk();
-      if (rsp.code === 0) setStatus(rsp.data as UserDiskStatus);
+      if (rsp.code === 0) setStatus(rsp.data);
       else
         message.error(
           rsp.code === -2

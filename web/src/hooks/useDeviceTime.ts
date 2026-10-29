@@ -19,7 +19,7 @@ export function useDeviceTime() {
         .get<Status>('/api/vm/date-time')
         .then((rsp) => {
           if (!mounted || rsp.code !== 0) return;
-          const { timezone, format, dateFormat = 'auto' } = rsp.data.config as TimePreferences;
+          const { timezone, format, dateFormat = 'auto' } = rsp.data.config;
           // Keep the same object while nothing changed, so readers do not re-render.
           setPreferences((current) =>
             current.timezone === timezone &&

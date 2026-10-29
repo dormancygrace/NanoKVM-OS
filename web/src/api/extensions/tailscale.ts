@@ -67,5 +67,4 @@ export type TailscaleStatus = {
   ip: string;
   account: string;
   busy?: boolean;
-  message?: string;
 };

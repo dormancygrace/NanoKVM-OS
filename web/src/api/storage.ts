@@ -83,7 +83,7 @@ export function disableNetboot() {
 
 export type RemoteMediaStatus = {
   connected: boolean;
-  source?: 'browser' | 'http' | 'smb';
+  source?: '' | 'browser' | 'http' | 'smb';
   mounted?: boolean;
   name?: string;
   size?: number;

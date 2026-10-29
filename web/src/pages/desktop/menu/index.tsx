@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 import { getRuntimeStatus } from '@/api/picoclaw.ts';
 import { getHardware } from '@/api/vm.ts';
+import { atxFromHardware } from '@/lib/atx.ts';
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { atxEnabledAtom } from '@/jotai/atx.ts';
@@ -123,7 +124,7 @@ export const Menu = () => {
     let disposed = false;
     getHardware()
       .then((rsp) => {
-        if (!disposed && rsp.code === 0) setAtxEnabled(rsp.data.atx === true);
+        if (!disposed && rsp.code === 0) setAtxEnabled(atxFromHardware(rsp.data));
       })
       .catch(() => {
         /* Without the answer the power button stays hidden. */

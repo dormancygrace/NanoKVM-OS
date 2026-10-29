@@ -4,6 +4,7 @@ import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { isMissingEndpoint } from '@/lib/atx.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { atxEnabledAtom } from '@/jotai/atx.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
@@ -19,6 +20,7 @@ export const Atx = () => {
   const [state, setState] = useState<api.ATXState>();
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [unsupported, setUnsupported] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -29,8 +31,10 @@ export const Atx = () => {
         if (rsp.code !== 0) setLoadError(true);
         else setState(rsp.data as api.ATXState);
       })
-      .catch(() => {
-        if (!disposed) setLoadError(true);
+      .catch((err) => {
+        if (disposed) return;
+        if (isMissingEndpoint(err)) setUnsupported(true);
+        else setLoadError(true);
       });
     return () => {
       disposed = true;
@@ -54,6 +58,8 @@ export const Atx = () => {
       setBusy(false);
     }
   }
+
+  if (unsupported) return null;
 
   return (
     <div className="space-y-4">

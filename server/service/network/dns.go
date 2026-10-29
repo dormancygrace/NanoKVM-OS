@@ -26,13 +26,14 @@ const (
 	dnsServersFile    = "/etc/kvm/network/dns.servers"
 	bootResolvFile    = "/boot/resolv.conf"
 	bootResolvBackup  = "/boot/resolv.conf.manual.bak"
-	etcResolvFile     = "/etc/resolv.conf"
 	dhcpResolvFile    = "/etc/resolv.conf.dhcp"
 	tmpResolvFile     = "/tmp/resolv.conf"
 	udhcpcDNSHookName = "99-nanokvm-dns"
 
 	maxDNSServers = 6
 )
+
+var etcResolvFile = "/etc/resolv.conf"
 
 //go:embed scripts/99-nanokvm-dns
 var udhcpcDNSHook string

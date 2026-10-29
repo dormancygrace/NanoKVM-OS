@@ -197,10 +197,19 @@ func TestManualDNSWithdrawsOnlyDHCPv6Resolvers(t *testing.T) {
 }
 
 func TestAdoptResolverBeforeDHCP(t *testing.T) {
-	for _, base := range []string{"", "\n", "# Waiting for DHCP\n"} {
+	for _, base := range []string{"", "\n", "# Waiting for DHCP\n", "# nameserver arrives later\n", "; nameserver comment\n"} {
 		t.Run(strings.ReplaceAll(base, "\n", "_"), func(t *testing.T) {
-			old := resolvconfRunner
-			t.Cleanup(func() { resolvconfRunner = old })
+			old, oldFile := resolvconfRunner, etcResolvFile
+			t.Cleanup(func() { resolvconfRunner, etcResolvFile = old, oldFile })
+			dir := t.TempDir()
+			etcResolvFile = filepath.Join(dir, "resolv.conf")
+			if err := os.WriteFile(etcResolvFile, []byte(base), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "resolvconf"), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", dir)
 			// DHCP can submit its key before startup adopts the empty file.
 			// A VPN entry must survive the handover too.
 			entries := map[string]string{
@@ -222,7 +231,7 @@ func TestAdoptResolverBeforeDHCP(t *testing.T) {
 				}
 				return nil
 			}
-			if err := adoptBaseResolver("resolvconf", base); err != nil {
+			if err := adoptResolvConf(); err != nil {
 				t.Fatal(err)
 			}
 			if !owned {
@@ -275,5 +284,67 @@ func TestAdoptResolverPreservesBaseAndReportsFailures(t *testing.T) {
 				t.Fatalf("calls %v, want %v", calls, want)
 			}
 		})
+	}
+}
+
+// A pre-DHCP resolver may still carry a search suffix or libc options. Preserve
+// those while keeping nameservers already submitted to openresolv.
+func TestAdoptResolverKeepsSettingsWithoutServers(t *testing.T) {
+	for _, base := range []string{"search example.test\n", "domain example.test\n", "options ndots:2\n", "sortlist 192.0.2.0/24\n"} {
+		for _, previous := range []string{"", "nameserver 192.0.2.53\n"} {
+			t.Run(strings.Fields(base)[0]+"/"+strings.TrimSpace(previous), func(t *testing.T) {
+				old := resolvconfRunner
+				t.Cleanup(func() { resolvconfRunner = old })
+				dir := t.TempDir()
+				tool := filepath.Join(dir, "resolvconf")
+				script := "#!/bin/sh\n[ \"$*\" = \"-l nkos.base\" ] || exit 1\n"
+				if previous == "" {
+					script += "exit 2\n"
+				} else {
+					script += "printf 'nameserver 192.0.2.53\\n'\n"
+				}
+				if err := os.WriteFile(tool, []byte(script), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				entries := map[string]string{"nkos.base": previous, "wg0": "nameserver 198.51.100.53\n"}
+				owned := false
+				resolvconfRunner = func(_ string, input string, args ...string) error {
+					switch strings.Join(args, " ") {
+					case "-u":
+						owned = true
+					case "-a nkos.base":
+						if !owned {
+							t.Fatal("published before takeover")
+						}
+						entries["nkos.base"] = input
+					default:
+						t.Fatalf("unexpected operation %v", args)
+					}
+					return nil
+				}
+				if err := adoptBaseResolver(tool, base); err != nil {
+					t.Fatal(err)
+				}
+				if !owned || entries["nkos.base"] != previous+"\n"+base || entries["wg0"] != "nameserver 198.51.100.53\n" {
+					t.Fatalf("lost settings or DHCP/VPN DNS: owned=%v entries=%v", owned, entries)
+				}
+			})
+		}
+	}
+}
+
+func TestAdoptResolverReportsBaseLookupFailure(t *testing.T) {
+	old := resolvconfRunner
+	t.Cleanup(func() { resolvconfRunner = old })
+	tool := filepath.Join(t.TempDir(), "resolvconf")
+	if err := os.WriteFile(tool, []byte("#!/bin/sh\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	resolvconfRunner = func(string, string, ...string) error {
+		t.Fatal("resolver changed after its existing base could not be read")
+		return nil
+	}
+	if err := adoptBaseResolver(tool, "search example.test\n"); err == nil {
+		t.Fatal("lookup error was hidden")
 	}
 }

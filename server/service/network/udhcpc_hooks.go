@@ -147,14 +147,36 @@ func adoptResolvConf() error {
 }
 
 // Adopt even an empty resolver before DHCP has supplied a nameserver. Otherwise
-// openresolv rejects every later DHCP update with "signature mismatch". Updating
-// first also restores any entries already submitted by DHCP or a VPN; do not
-// replace those with an empty nkos.base entry.
+// openresolv rejects every later DHCP update with "signature mismatch". Keep
+// existing DHCP/VPN entries when the file is empty or only has comments. If
+// it has other resolver settings, preserve those without replacing DNS servers
+// already submitted under nkos.base.
 func adoptBaseResolver(tool, base string) error {
+	hasSettings, hasServers := false, false
+	for _, line := range strings.Split(base, "\n") {
+		line, _, _ = strings.Cut(line, "#")
+		line, _, _ = strings.Cut(line, ";")
+		fields := strings.Fields(line)
+		if len(fields) > 1 {
+			hasSettings = true
+			hasServers = hasServers || fields[0] == "nameserver"
+		}
+	}
+	if hasSettings && !hasServers {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		previous, err := exec.CommandContext(ctx, tool, "-l", "nkos.base").Output()
+		var exitErr *exec.ExitError
+		// openresolv returns 2 when the requested key does not exist yet.
+		if err != nil && !(errors.As(err, &exitErr) && exitErr.ExitCode() == 2) {
+			return fmt.Errorf("read existing base dns: %w", err)
+		}
+		base = string(previous) + "\n" + base
+	}
 	if err := resolvconfRunner(tool, "", "-u"); err != nil {
 		return fmt.Errorf("take over %s: %w", etcResolvFile, err)
 	}
-	if strings.Contains(base, "nameserver") {
+	if hasSettings {
 		if err := resolvconfRunner(tool, base, "-a", "nkos.base"); err != nil {
 			return fmt.Errorf("publish base dns: %w", err)
 		}

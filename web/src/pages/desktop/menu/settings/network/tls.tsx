@@ -35,8 +35,8 @@ export const Tls = () => {
     try {
       const rsp = await api.getTLS();
       if (rsp.code === 0) {
-        setStatus(rsp.data as TlsStatus);
-        setIsEnabled((rsp.data as TlsStatus).enabled);
+        setStatus(rsp.data);
+        setIsEnabled(rsp.data.enabled);
       }
     } catch {
       /* the switch keeps following the page protocol */

@@ -33,7 +33,7 @@ const ServerMemoryLimit = ({ totalBytes }: { totalBytes: number }) => {
     api
       .getMemoryLimit()
       .then((rsp) => {
-        if (active && rsp.code === 0) adopt(rsp.data as MemoryLimit);
+        if (active && rsp.code === 0) adopt(rsp.data);
       })
       .catch(() => {});
     return () => {

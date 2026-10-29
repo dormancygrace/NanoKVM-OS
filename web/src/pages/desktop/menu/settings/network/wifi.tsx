@@ -92,7 +92,7 @@ export const Wifi = () => {
   const loadSaved = useCallback(async () => {
     try {
       const rsp = await api.getSavedWifi();
-      if (rsp.code === 0) setSaved(rsp.data as api.SavedWifiNetwork[]);
+      if (rsp.code === 0) setSaved(rsp.data);
     } catch {
       // The list only saves typing a password again.
     }

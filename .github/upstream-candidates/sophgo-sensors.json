@@ -1,0 +1,20 @@
+{
+  "component": "sophgo_sensors",
+  "current": "e2824e1d07f516c41238e123fefbab71a34843bc",
+  "candidate": "b77f304241ed7ec920eeca3fe9a3c0ffd59009a0",
+  "candidate_key": "b77f304241ed7ec920eeca3fe9a3c0ffd59009a0",
+  "status": "pending-review",
+  "upstream": "https://github.com/sophgo/SensorSupportList/compare/e2824e1d07f516c41238e123fefbab71a34843bc...b77f304241ed7ec920eeca3fe9a3c0ffd59009a0",
+  "source_path": "platform/sources.lock",
+  "strategy": "git-pin",
+  "evidence": {
+    "commit": "b77f304241ed7ec920eeca3fe9a3c0ffd59009a0",
+    "objects": {
+      ".": "7a3827670ae51802ae5756a78550a908256d46cc"
+    }
+  },
+  "pin_files_updated": [
+    "firmware/sources.json",
+    "platform/sources.lock"
+  ]
+}

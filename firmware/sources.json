@@ -60,7 +60,7 @@
   "sophgo_sensors": {
     "url": "https://github.com/sophgo/SensorSupportList.git",
     "branch": "sg200x-dev",
-    "commit": "e2824e1d07f516c41238e123fefbab71a34843bc",
+    "commit": "b77f304241ed7ec920eeca3fe9a3c0ffd59009a0",
     "qualification": "LT6911 callbacks tested; UXC hardware probe integration pending"
   }
 }

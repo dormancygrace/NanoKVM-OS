@@ -189,6 +189,13 @@ failure, and capture isolation from optional diagnostics. The EDID C harness
 also checks normalized model-specific sleeps, EINTR and reset failures.
 `test-hdmi-receiver-start.py` verifies the startup delay before service probes.
 
+`test-capture-restart.py` exercises the production capture lifecycle around the
+receiver helper: disable waits for a frame owner, releases MMF, blocks stale
+detector restarts and park requests, retries incomplete cleanup while stopped,
+and rebuilds capture on enable. Repeated cycles and failed teardown/restart
+retain the appropriate retry state. The receiver tests above continue to
+cover the underlying reset, ownership and quiet-window behavior.
+
 The D live-poll regression injects the reviewed operation-6 failure, then runs
 100 healthy stale-dimension polls without an IRQ, plus IRQ/resume/reset
 transitions. It requires zero D writes and no internal E1 identity reads.

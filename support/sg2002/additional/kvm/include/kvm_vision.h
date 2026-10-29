@@ -84,6 +84,8 @@ int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
 void kvmv_request_keyframe(void);
 void set_frame_detact(uint8_t _frame_detact);
 void kvmv_deinit();
+// Disable drains encoders and releases VI/VPSS/MMF; enable rebuilds capture.
+// Incomplete driver cleanup is retried while disabled. Nonzero reports failure.
 int kvmv_hdmi_control(uint8_t _en);
 int kvmv_edid_maintenance(uint8_t pause);
 /* Stream rate the server will request; VPSS drops surplus input frames. */

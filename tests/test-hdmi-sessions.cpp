@@ -313,6 +313,18 @@ static void controls() {
     assert(waiting_reset.get() == 0 && reset_asserted && !hdmi_capture_enabled);
     assert(kvmv_hdmi_control(1) == 0 && !reset_asserted && hdmi_capture_enabled);
     fake_now += std::chrono::milliseconds(NANOKVM_RECEIVER_SETTLE_MS);
+    // Reset-less Cube/Lite still support logical capture disable and pause
+    // receiver sampling; the capture wrapper releases MMF on both boards.
+    for (uint8_t board : {'a', 'b'}) {
+        kvmv_cfg.hw_version = board;
+        const auto before = reset_calls;
+        assert(kvmv_hdmi_control(0) == 0 && !hdmi_capture_enabled);
+        { auto held = receiver_access.read(); assert(held.state == ReceiverState::Paused); }
+        assert(kvmv_hdmi_control(1) == 0 && hdmi_capture_enabled);
+        { auto ready = receiver_access.read(); assert(ready); }
+        assert(reset_calls == before);
+    }
+    kvmv_cfg.hw_version = 'p';
     signal_active = 1;
     puts("PASS production maintenance/reset: active read drained, nested pause refused, state restored, external ownership respected, reset failure retained pause and stuck reader timed out");
 }

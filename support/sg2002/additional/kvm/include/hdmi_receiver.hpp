@@ -30,7 +30,7 @@ public:
     explicit operator bool() const { return fd_ >= 0; }
 };
 
-/* The detector never takes vi_mutex. Admission, pause and reset instead share
+/* Receiver sampling never takes vi_mutex. Admission, pause and reset share
  * this leaf lock. Holding it through publication prevents a paused detector
  * from publishing a sample taken before maintenance. */
 class ReceiverAccess {

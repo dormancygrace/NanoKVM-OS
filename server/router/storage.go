@@ -8,8 +8,8 @@ import (
 	"NanoKVM-Server/service/storage"
 )
 
-func storageRouter(r *gin.Engine) {
-	service := storage.NewService()
+// service is the one virtual disk owner: MCP's virtual_media uses it too.
+func storageRouter(r *gin.Engine, service *storage.Service) {
 	service.CleanupNetboot()
 	service.CleanupRemote()
 	api := r.Group("/api").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))

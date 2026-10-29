@@ -155,11 +155,42 @@ func (s *Service) RegenerateAPIKey(c *gin.Context) {
 	rsp.OkRspWithData(c, mcpConfigResponse(cfg, status))
 }
 
+// SetHostControl allows or forbids the host control tools (power, virtual
+// media, Wake-on-LAN); the next MCP request sees the change.
+func (s *Service) SetHostControl(c *gin.Context) {
+	var req proto.SetMCPHostControlReq
+	var rsp proto.Response
+	c.Header("Cache-Control", "no-store")
+
+	if err := proto.ParseFormRequest(c, &req); err != nil {
+		rsp.ErrRsp(c, -1, "invalid arguments")
+		return
+	}
+	cfg, err := updateConfig(func(cfg Config) (Config, error) {
+		cfg.AllowHostControl = *req.Enabled
+		return cfg, nil
+	})
+	if err != nil {
+		log.Errorf("failed to save MCP host control: %v", err)
+		rsp.ErrRsp(c, -2, "operation failed")
+		return
+	}
+	status, err := s.control.Status()
+	if err != nil {
+		log.Errorf("failed to load AI control mode: %v", err)
+		rsp.ErrRsp(c, -2, "operation failed")
+		return
+	}
+	log.Infof("MCP host control tools %s", map[bool]string{true: "allowed", false: "forbidden"}[cfg.AllowHostControl])
+	rsp.OkRspWithData(c, mcpConfigResponse(cfg, status))
+}
+
 func mcpConfigResponse(cfg Config, status controlmode.Status) *proto.GetMCPConfigRsp {
 	return &proto.GetMCPConfigRsp{
-		Enabled:       status.Mode == controlmode.ModeMCP && !status.Transitioning,
-		APIKey:        cfg.APIKey,
-		ControlMode:   string(status.Mode),
-		Transitioning: status.Transitioning,
+		Enabled:          status.Mode == controlmode.ModeMCP && !status.Transitioning,
+		APIKey:           cfg.APIKey,
+		ControlMode:      string(status.Mode),
+		Transitioning:    status.Transitioning,
+		AllowHostControl: cfg.AllowHostControl,
 	}
 }

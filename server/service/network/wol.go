@@ -99,21 +99,41 @@ func (s *Service) WakeOnLAN(c *gin.Context) {
 		return
 	}
 
-	mac, err := parseMAC(req.Mac)
-	if err != nil {
-		rsp.ErrRsp(c, -2, "invalid MAC address")
+	if err := Wake(req.Mac, req.Interface); err != nil {
+		var wakeErr *WakeError
+		if errors.As(err, &wakeErr) {
+			rsp.ErrRsp(c, wakeErr.Code, wakeErr.Message)
+		} else {
+			rsp.ErrRsp(c, -3, err.Error())
+		}
 		return
 	}
+	rsp.OkRsp(c)
+}
 
-	interfaceName, err := selectWolInterface(req.Interface)
+// WakeError is a refused or failed wake with its API code.
+type WakeError struct {
+	Code    int
+	Message string
+}
+
+func (e *WakeError) Error() string { return e.Message }
+
+// Wake sends a magic packet to mac through iface ("" picks one), with the
+// web page's checks and rate limit, and remembers the address.
+func Wake(macAddress, iface string) error {
+	mac, err := parseMAC(macAddress)
 	if err != nil {
-		rsp.ErrRsp(c, -2, "invalid network interface")
-		return
+		return &WakeError{-2, "invalid MAC address"}
+	}
+
+	interfaceName, err := selectWolInterface(iface)
+	if err != nil {
+		return &WakeError{-2, "invalid network interface"}
 	}
 
 	if !wolLimiter.allow(time.Now()) {
-		rsp.ErrRsp(c, -4, "too many wake requests, try again in a second")
-		return
+		return &WakeError{-4, "too many wake requests, try again in a second"}
 	}
 
 	cmd := wolCommand(interfaceName, mac)
@@ -121,14 +141,12 @@ func (s *Service) WakeOnLAN(c *gin.Context) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Errorf("failed to wake on lan: %s", err)
-		rsp.ErrRsp(c, -3, string(output))
-		return
+		return &WakeError{-3, string(output)}
 	}
 
 	saveMac(mac)
-
-	rsp.OkRsp(c)
 	log.Debugf("wake on lan: %s via %s", mac, interfaceName)
+	return nil
 }
 
 func (s *Service) GetWolInterfaces(c *gin.Context) {

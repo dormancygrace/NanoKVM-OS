@@ -91,12 +91,12 @@ type toolExecutor struct {
 	coordinator *inputcontrol.Coordinator
 }
 
-func NewMCPHandler(control *controlmode.Manager, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader) http.Handler {
+func NewMCPHandler(control *controlmode.Manager, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader, hostControl HostControl) http.Handler {
 	// Registering typed tools builds their JSON schema validators. The router
 	// authenticates and checks the control mode before reaching this handler,
 	// so an unused MCP endpoint does no work on the path to the first frame.
 	return lazyMCPHandler(func() http.Handler {
-		return newMCPHandler(control, inputcontrol.GetCoordinator(), NewRemote(), snapshotter, textReader, host)
+		return newMCPHandler(control, inputcontrol.GetCoordinator(), NewRemote(), snapshotter, textReader, host, hostControl)
 	})
 }
 
@@ -107,15 +107,32 @@ func lazyMCPHandler(create func() http.Handler) http.Handler {
 	})
 }
 
-func newMCPHandler(control *controlmode.Manager, coordinator *inputcontrol.Coordinator, remote *Remote, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader) http.Handler {
+func newMCPHandler(control *controlmode.Manager, coordinator *inputcontrol.Coordinator, remote *Remote, snapshotter Snapshotter, textReader ScreenTextReader, host HostStatusReader, hostControl HostControl) http.Handler {
 	executor := &toolExecutor{control: control, coordinator: coordinator}
-	server := protocol.NewServer(&protocol.Implementation{
-		Name:    mcpServerName,
-		Version: "v1.0.0",
-	}, nil)
-	registerTools(server, executor, remote, snapshotter, textReader, host)
+	newServer := func() *protocol.Server {
+		server := protocol.NewServer(&protocol.Implementation{
+			Name:    mcpServerName,
+			Version: "v1.0.0",
+		}, nil)
+		registerTools(server, executor, remote, snapshotter, textReader, host)
+		return server
+	}
+	// Two servers: the host control tools exist only in the second, which
+	// answers while the administrator allows them. The transport is
+	// stateless, so every request may get the other one.
+	server := newServer()
+	withControl := sync.OnceValue(func() *protocol.Server {
+		server := newServer()
+		registerHostControlTools(server, executor, hostControl)
+		return server
+	})
 	handler := protocol.NewStreamableHTTPHandler(
-		func(*http.Request) *protocol.Server { return server },
+		func(*http.Request) *protocol.Server {
+			if hostControlAllowed() {
+				return withControl()
+			}
+			return server
+		},
 		&protocol.StreamableHTTPOptions{Stateless: true, JSONResponse: true},
 	)
 	return http.MaxBytesHandler(handler, maxRequestBodyBytes)

@@ -71,17 +71,6 @@ func listImages() ([]string, error) {
 }
 
 func (s *Service) MountImage(c *gin.Context) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.remote != nil {
-		c.JSON(409, gin.H{"code": -2, "msg": "Disconnect remote media before mounting another image"})
-		return
-	}
-	if s.netboot != nil {
-		c.JSON(409, gin.H{"code": -2, "msg": "Turn off network boot before mounting another image"})
-		return
-	}
-
 	var req proto.MountImageReq
 	var rsp proto.Response
 
@@ -89,24 +78,15 @@ func (s *Service) MountImage(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
-	if req.Force && req.File != "" {
-		rsp.ErrRsp(c, -1, "force is only valid when ejecting an image")
-		return
-	}
-	// Use only the validated path below, never req.File.
-	file := ""
-	if req.File != "" {
-		var err error
-		if file, err = imageFile(req.File); err != nil {
-			rsp.ErrRsp(c, -2, "invalid image")
-			return
-		}
-	}
-	if err := mountLocalImage(file, req.Cdrom, req.Force); err != nil {
+	file, err := s.mountImage(req.File, req.Cdrom, req.Force)
+	if err != nil {
 		var mountErr *imageMountError
-		if errors.As(err, &mountErr) {
+		switch {
+		case errors.As(err, &mountErr) && mountErr.conflict:
+			c.JSON(409, gin.H{"code": mountErr.code, "msg": mountErr.msg})
+		case errors.As(err, &mountErr):
 			rsp.ErrRsp(c, mountErr.code, mountErr.msg)
-		} else {
+		default:
 			rsp.ErrRsp(c, -2, "mount image failed")
 		}
 		return
@@ -116,10 +96,48 @@ func (s *Service) MountImage(c *gin.Context) {
 	log.Debugf("mount image %s success", file)
 }
 
-// imageMountError carries the API code and message of a failed mount.
+// Images lists the images in /data that MountImageFile accepts.
+func (s *Service) Images() ([]string, error) { return listImages() }
+
+// MountImageFile puts an image of /data on the virtual disk, or ejects the
+// medium when name is empty: the checks and the effect of the web page's
+// mount (POST /api/storage/image/mount), for other services such as MCP.
+func (s *Service) MountImageFile(name string, cdrom bool) error {
+	_, err := s.mountImage(name, cdrom, false)
+	return err
+}
+
+// mountImage validates name, refuses while remote media or network boot own
+// the virtual disk, and mounts; it returns the validated path.
+func (s *Service) mountImage(name string, cdrom, force bool) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.remote != nil {
+		return "", &imageMountError{code: -2, msg: "Disconnect remote media before mounting another image", conflict: true}
+	}
+	if s.netboot != nil {
+		return "", &imageMountError{code: -2, msg: "Turn off network boot before mounting another image", conflict: true}
+	}
+	if force && name != "" {
+		return "", &imageMountError{code: -1, msg: "force is only valid when ejecting an image"}
+	}
+	// Use only the validated path below, never the name given.
+	file := ""
+	if name != "" {
+		var err error
+		if file, err = imageFile(name); err != nil {
+			return "", &imageMountError{code: -2, msg: "invalid image"}
+		}
+	}
+	return file, mountLocalImage(file, cdrom, force)
+}
+
+// imageMountError carries the API code and message of a failed mount;
+// conflict: another medium owns the virtual disk (HTTP 409).
 type imageMountError struct {
-	code int
-	msg  string
+	code     int
+	msg      string
+	conflict bool
 }
 
 func (e *imageMountError) Error() string { return e.msg }
@@ -133,17 +151,17 @@ func mountLocalImage(file string, cdrom, force bool) error {
 	defer h.Unlock()
 	if err := requireActiveUSBStorage(); err != nil {
 		log.Warnf("USB storage is unavailable: %s", err)
-		return &imageMountError{-3, "Enable USB storage before mounting an image"}
+		return &imageMountError{code: -3, msg: "Enable USB storage before mounting an image"}
 	}
 
 	if file != "" && cdrom {
 		info, statErr := os.Stat(file)
 		if statErr != nil || !info.Mode().IsRegular() {
-			return &imageMountError{-2, "Cannot read the selected optical image"}
+			return &imageMountError{code: -2, msg: "Cannot read the selected optical image"}
 		}
 		_, dvdErr := os.Stat(filepath.Join(filepath.Dir(mountDevice), "dvd"))
 		if err := remotemedia.ValidateOptical(uint64(info.Size()), dvdErr == nil); err != nil {
-			return &imageMountError{-2, err.Error()}
+			return &imageMountError{code: -2, msg: err.Error()}
 		}
 	}
 
@@ -159,19 +177,19 @@ func mountLocalImage(file string, cdrom, force bool) error {
 	// unmount
 	if err := ejectLocalImage(force, os.WriteFile); err != nil {
 		log.Errorf("unmount file failed: %s", err)
-		return &imageMountError{-4, "unmount image failed"}
+		return &imageMountError{code: -4, msg: "unmount image failed"}
 	}
 
 	// ro flag
 	if err := os.WriteFile(roFlag, []byte(flag), 0o666); err != nil {
 		log.Errorf("set ro flag failed: %s", err)
-		return &imageMountError{-2, "set ro flag failed"}
+		return &imageMountError{code: -2, msg: "set ro flag failed"}
 	}
 
 	// cdrom flag
 	if err := os.WriteFile(cdromFlag, []byte(flag), 0o666); err != nil {
 		log.Errorf("set cdrom flag failed: %s", err)
-		return &imageMountError{-2, "set cdrom flag failed"}
+		return &imageMountError{code: -2, msg: "set cdrom flag failed"}
 	}
 
 	kind := "disk"
@@ -182,14 +200,14 @@ func mountLocalImage(file string, cdrom, force bool) error {
 
 	if err := os.WriteFile(inquiryString, []byte(inquiryData), 0o666); err != nil {
 		log.Errorf("set inquiry %s failed: %s", inquiryData, err)
-		return &imageMountError{-2, "set inquiry failed"}
+		return &imageMountError{code: -2, msg: "set inquiry failed"}
 	}
 
 	// mount
 	if file != "" {
 		if err := os.WriteFile(mountDevice, []byte(file), 0o666); err != nil {
 			log.Errorf("mount file %s failed: %s", file, err)
-			return &imageMountError{-2, "mount image failed"}
+			return &imageMountError{code: -2, msg: "mount image failed"}
 		}
 	}
 	// Without a file the device stays unmounted (no media).
@@ -209,7 +227,7 @@ func mountLocalImage(file string, cdrom, force bool) error {
 	for _, command := range commands {
 		err := exec.Command("sh", "-c", command).Run()
 		if err != nil {
-			return &imageMountError{-2, "execute command failed"}
+			return &imageMountError{code: -2, msg: "execute command failed"}
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -253,23 +271,39 @@ func ejectLocalImage(force bool, writeFile func(string, []byte, os.FileMode) err
 func (s *Service) GetMountedImage(c *gin.Context) {
 	var rsp proto.Response
 
-	mode, err := hid.GetMode()
+	image, err := mountedImage()
 	if err != nil {
-		rsp.ErrRsp(c, -2, "get HID mode failed")
+		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
+	rsp.OkRspWithData(c, &proto.GetMountedImageRsp{
+		File: image,
+	})
+}
 
+// MountedImage is the file on the virtual disk ("" when none) and whether it
+// is shown as an optical drive.
+func (s *Service) MountedImage() (string, bool, error) {
+	image, err := mountedImage()
+	if err != nil || image == "" {
+		return image, false, err
+	}
+	flag, err := os.ReadFile(cdromFlag)
+	return image, strings.TrimSpace(string(flag)) == "1", err
+}
+
+func mountedImage() (string, error) {
+	mode, err := hid.GetMode()
+	if err != nil {
+		return "", errors.New("get HID mode failed")
+	}
 	if mode == hid.ModeHidOnly {
-		rsp.OkRspWithData(c, &proto.GetMountedImageRsp{
-			File: "",
-		})
-		return
+		return "", nil
 	}
 
 	content, err := os.ReadFile(mountDevice)
 	if err != nil {
-		rsp.ErrRsp(c, -2, "read failed")
-		return
+		return "", errors.New("read failed")
 	}
 
 	image := strings.TrimSpace(string(content))
@@ -277,12 +311,7 @@ func (s *Service) GetMountedImage(c *gin.Context) {
 		// Backward compat: treat eMMC partition as "no image mounted"
 		image = ""
 	}
-
-	data := &proto.GetMountedImageRsp{
-		File: image,
-	}
-
-	rsp.OkRspWithData(c, data)
+	return image, nil
 }
 
 func (s *Service) GetCdRom(c *gin.Context) {

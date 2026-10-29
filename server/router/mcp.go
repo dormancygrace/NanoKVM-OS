@@ -9,12 +9,14 @@ import (
 	"NanoKVM-Server/service/hid"
 	mcpservice "NanoKVM-Server/service/mcp"
 	"NanoKVM-Server/service/mcp/capture/kvm"
+	"NanoKVM-Server/service/network"
 	"NanoKVM-Server/service/picoclaw"
+	"NanoKVM-Server/service/storage"
 
 	"github.com/gin-gonic/gin"
 )
 
-func mcpRouter(r *gin.Engine, control *controlmode.Manager, picoclawService *picoclaw.Service) {
+func mcpRouter(r *gin.Engine, control *controlmode.Manager, picoclawService *picoclaw.Service, storageService *storage.Service) {
 	service := mcpservice.NewServiceWithPreempt(
 		control,
 		picoclawService.PreemptControlLeasesForMCP,
@@ -31,12 +33,18 @@ func mcpRouter(r *gin.Engine, control *controlmode.Manager, picoclawService *pic
 	management.GET("/config", service.GetConfig)
 	management.POST("/config", service.SetConfig)
 	management.POST("/key/regenerate", service.RegenerateAPIKey)
+	management.POST("/host-control", service.SetHostControl)
 
 	// One screen text reader for MCP and PicoClaw: both read through the TPU
 	// add-on, one read at a time.
 	textReader := kvmcapture.NewTextReader()
 	picoclawService.SetTextReader(textReader)
-	handler := mcpservice.NewMCPHandler(control, kvmcapture.New(), textReader, kvmcapture.NewHostStatus())
+	hostControl := mcpservice.HostControl{
+		Power: kvmcapture.NewPower(),
+		Media: storageService,
+		Wake:  network.Wake,
+	}
+	handler := mcpservice.NewMCPHandler(control, kvmcapture.New(), textReader, kvmcapture.NewHostStatus(), hostControl)
 	handler = http.NewCrossOriginProtection().Handler(handler)
 	r.Any("/api/mcp", mcpservice.APIKeyMiddleware(control), gin.WrapH(handler))
 }

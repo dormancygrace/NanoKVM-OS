@@ -139,16 +139,26 @@ func adoptResolvConf() error {
 	} else if err := refreshDHCPResolvCacheFromEffective(); err != nil {
 		log.Warnf("failed to cache dhcp dns before handing resolv.conf to openresolv: %s", err)
 	}
-	if !strings.Contains(base, "nameserver") {
-		return nil
+	if err := adoptBaseResolver(tool, base); err != nil {
+		return err
 	}
+	log.Infof("handed %s to openresolv", etcResolvFile)
+	return nil
+}
+
+// Adopt even an empty resolver before DHCP has supplied a nameserver. Otherwise
+// openresolv rejects every later DHCP update with "signature mismatch". Updating
+// first also restores any entries already submitted by DHCP or a VPN; do not
+// replace those with an empty nkos.base entry.
+func adoptBaseResolver(tool, base string) error {
 	if err := resolvconfRunner(tool, "", "-u"); err != nil {
 		return fmt.Errorf("take over %s: %w", etcResolvFile, err)
 	}
-	if err := resolvconfRunner(tool, base, "-a", "nkos.base"); err != nil {
-		return fmt.Errorf("publish base dns: %w", err)
+	if strings.Contains(base, "nameserver") {
+		if err := resolvconfRunner(tool, base, "-a", "nkos.base"); err != nil {
+			return fmt.Errorf("publish base dns: %w", err)
+		}
 	}
-	log.Infof("handed %s to openresolv", etcResolvFile)
 	return nil
 }
 

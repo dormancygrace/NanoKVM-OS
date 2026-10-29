@@ -195,3 +195,85 @@ func TestManualDNSWithdrawsOnlyDHCPv6Resolvers(t *testing.T) {
 		t.Fatal("resolver removal failure was hidden")
 	}
 }
+
+func TestAdoptResolverBeforeDHCP(t *testing.T) {
+	for _, base := range []string{"", "\n", "# Waiting for DHCP\n"} {
+		t.Run(strings.ReplaceAll(base, "\n", "_"), func(t *testing.T) {
+			old := resolvconfRunner
+			t.Cleanup(func() { resolvconfRunner = old })
+			// DHCP can submit its key before startup adopts the empty file.
+			// A VPN entry must survive the handover too.
+			entries := map[string]string{
+				"nkos.base": "nameserver 192.0.2.53\n",
+				"wg0":       "nameserver 198.51.100.53\n",
+			}
+			owned := false
+			resolvconfRunner = func(tool, input string, args ...string) error {
+				switch strings.Join(args, " ") {
+				case "-u":
+					owned = true
+				case "-a nkos.base":
+					if !owned {
+						return errors.New("signature mismatch")
+					}
+					entries["nkos.base"] = input
+				default:
+					t.Fatalf("unexpected command: %s %v", tool, args)
+				}
+				return nil
+			}
+			if err := adoptBaseResolver("resolvconf", base); err != nil {
+				t.Fatal(err)
+			}
+			if !owned {
+				t.Fatal("startup left the empty resolver unmanaged")
+			}
+			if entries["nkos.base"] != "nameserver 192.0.2.53\n" ||
+				entries["wg0"] != "nameserver 198.51.100.53\n" {
+				t.Fatalf("adoption replaced existing DHCP/VPN DNS: %v", entries)
+			}
+			// The DHCP hook uses -a directly, without a takeover retry.
+			if err := resolvconfRunner("resolvconf", "nameserver 203.0.113.53\n", "-a", "nkos.base"); err != nil {
+				t.Fatalf("a later DHCP lease cannot publish DNS: %v", err)
+			}
+			if entries["nkos.base"] != "nameserver 203.0.113.53\n" ||
+				entries["wg0"] != "nameserver 198.51.100.53\n" {
+				t.Fatalf("DHCP renewal lost DNS or changed VPN DNS: %v", entries)
+			}
+		})
+	}
+}
+
+func TestAdoptResolverPreservesBaseAndReportsFailures(t *testing.T) {
+	old := resolvconfRunner
+	t.Cleanup(func() { resolvconfRunner = old })
+	base := "search example.test\nnameserver 192.0.2.53\n"
+	for _, failAt := range []string{"", "-u", "-a nkos.base"} {
+		t.Run(failAt, func(t *testing.T) {
+			var calls []string
+			failure := errors.New("resolver unavailable")
+			resolvconfRunner = func(tool, input string, args ...string) error {
+				command := strings.Join(args, " ")
+				calls = append(calls, command)
+				if command == failAt {
+					return failure
+				}
+				if command == "-a nkos.base" && input != base {
+					t.Fatalf("lost existing resolver settings: %q", input)
+				}
+				return nil
+			}
+			err := adoptBaseResolver("resolvconf", base)
+			if (failAt == "" && err != nil) || (failAt != "" && !errors.Is(err, failure)) {
+				t.Fatalf("failure %q: got %v", failAt, err)
+			}
+			want := []string{"-u", "-a nkos.base"}
+			if failAt == "-u" {
+				want = want[:1]
+			}
+			if !reflect.DeepEqual(calls, want) {
+				t.Fatalf("calls %v, want %v", calls, want)
+			}
+		})
+	}
+}

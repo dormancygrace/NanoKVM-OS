@@ -18,8 +18,8 @@ import (
 // host's power and reset buttons and its power and HDD LEDs. Absent: the
 // board's default, written at the first start (EnsureATXSetting). Cube and
 // Lite need the KVM-B board for ATX, so they start off; PCIe has it on the
-// card. nanokvm-base's post-upgrade writes "on" for Cubes updated from a
-// release without the switch, which had ATX on.
+// card. The nanokvm package's post-upgrade writes "on" for Cubes updated from
+// a release without the switch, which had ATX on.
 var atxSettingFile = "/etc/kvm/atx"
 
 func atxDefault(board string) bool { return board == "pcie" }

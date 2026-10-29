@@ -1,10 +1,10 @@
 #!/bin/sh
-# The ATX block of nanokvm-base's post-upgrade, run against a private copy of
+# The ATX block of nanokvm's (the server package's) post-upgrade, run against a private copy of
 # /etc/kvm: an updated Cube keeps ATX on; nothing else is written.
 set -eu
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-HOOK="$ROOT/firmware/alpine/packages/nanokvm-base/nanokvm-base.post-upgrade"
+HOOK="$ROOT/firmware/alpine/packages/nanokvm/nanokvm.post-upgrade"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 

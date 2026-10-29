@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+# ATX switch (added after 3.6.0, System > Device): new installations start
+# with ATX off except on PCIe, since Cube and Lite need the KVM-B board.
+# A Cube updated from a release without the switch had ATX on and keeps it.
+# The server writes the board's default at its first start, so the file
+# exists from then on and later updates leave it alone. Lite had no ATX.
+# This is the server's package: its post-upgrade runs in the same apk
+# transaction before the trigger restarts the new server.
+if [ ! -e /etc/kvm/atx ]; then
+    atx_board=$(cat /etc/kvm/board-profile 2>/dev/null || cat /etc/kvm/hw 2>/dev/null || true)
+    case "$atx_board" in
+        alpha | beta) mkdir -p /etc/kvm && printf 'on\n' > /etc/kvm/atx ;;
+    esac
+    unset atx_board
+fi
+# ATX switch end

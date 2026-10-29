@@ -62,6 +62,7 @@ import { RustDeskIcon } from '@/components/icons/rustdesk';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import { SessionActions } from './session-actions.tsx';
 import styles from './sidebar.module.css';
 import {
   isSettingsGroup,
@@ -513,7 +514,7 @@ export const Settings = ({
     if (id === 'vpn-netbird') return 'NetBird';
     if (id === 'vpn-wireguard') return 'WireGuard';
     if (id === 'system') return t('settings.system.title');
-    if (id === 'system-general') return t('settings.system.general');
+    if (id === 'system-general') return t('settings.system.device');
     if (id === 'system-users') return t('settings.account.title');
     if (id === 'system-security') return t('settings.security.title');
     if (id === 'system-date-time') return t('dateTime.title');
@@ -680,7 +681,10 @@ export const Settings = ({
                   </Fragment>
                 );
               })}
-            <div className={clsx('px-3 pt-6 pb-4', !mobile && 'mt-auto!')}>
+            <div className={clsx('pt-6', !mobile && 'mt-auto!')}>
+              <SessionActions isAdmin={isAdmin} disabled={isLocked} mobile={mobile} />
+            </div>
+            <div className="px-3 pt-2 pb-4">
               <button
                 type="button"
                 disabled={isLocked}

@@ -12,10 +12,9 @@ import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui
 import { IPv6 } from './ipv6.tsx';
 import { WifiBandTag } from './wifi-band';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
+import { operationDone, type Pending } from './wifi-pending.ts';
 import { SavedWifi } from './wifi-saved.tsx';
 import { WifiSignal } from './wifi-signal';
-
-type Pending = { until: number; enabled?: boolean; ssid?: string; disconnect?: boolean };
 
 // wpa_supplicant's key management of the association, as users know it.
 function keyMgmtLabel(keyMgmt: string, open: string) {
@@ -117,12 +116,7 @@ export const Wifi = () => {
         setStatusFailed(false);
         const operation = pendingRef.current;
         if (operation && !next.busy) {
-          const done = operation.disconnect
-            ? !next.connected
-            : operation.ssid !== undefined
-              ? next.connected && next.ssid === operation.ssid
-              : next.enabled === operation.enabled;
-          if (next.error || done) {
+          if (next.error || operationDone(operation, next)) {
             pendingRef.current = undefined;
             setPending(undefined);
             if (next.error) notifyFailure('operationFailed');
@@ -273,7 +267,7 @@ export const Wifi = () => {
         showRequestError(rsp, 'settings.network.wifi.operationFailed');
         return;
       }
-      track({ disconnect: true });
+      track({ disconnect: true, leaving: state.ssid });
     } catch (err) {
       showRequestError(err, 'settings.network.wifi.operationFailed');
     } finally {

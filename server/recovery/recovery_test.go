@@ -552,6 +552,18 @@ func TestOptionalNanokvmPackagesAreRemovable(t *testing.T) {
 		t.Fatal("BMC credentials portable")
 	}
 }
+
+// Saved Wi-Fi networks are restored on the device itself, never on a clone.
+func TestSavedWifiNetworksAreDeviceSettings(t *testing.T) {
+	for _, p := range []string{"etc/kvm/wifi.saved/4f6666696365/pass", "etc/kvm/wifi.saved/4f6666696365/auto"} {
+		if !allowed(p) || portable(p) {
+			t.Fatalf("%s: allowed %v, portable %v", p, allowed(p), portable(p))
+		}
+	}
+	if allowed("etc/kvm/wifi.saved") || allowed("etc/kvm/wifi.savedx/a") {
+		t.Fatal("paths outside the saved networks allowed")
+	}
+}
 func TestMalformedJournalRetainsRepairEvidence(t *testing.T) {
 	e := fixture(t)
 	write(e.Root, PendingPath, &File{Data: []byte("{truncated"), Mode: 0600})

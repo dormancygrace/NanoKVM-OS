@@ -1542,7 +1542,7 @@
         "joinBtn": "Unirse",
         "disconnectButton": "Desconectar",
         "disconnectConfirm": "¿Desconectar de {{ssid}}?",
-        "disconnectHint": "NanoKVM abandona esta red y olvida su contraseña. El Wi-Fi sigue activado, así que puede volver a unirse a una red.",
+        "disconnectHint": "NanoKVM deja esta red y deja de conectarse a ella automáticamente. Sigue en Redes guardadas, donde puede volver a conectarse u olvidarla. El Wi-Fi sigue activado y se conecta a otra red guardada con conexión automática.",
         "disconnectOverWifi": "Esta página llega a NanoKVM a través de esta red Wi-Fi: perderá la conexión. Para unirse de nuevo a una red, conéctese por Ethernet o por la red USB.",
         "confirmBtn": "Aceptar",
         "cancelBtn": "Cancelar",
@@ -1552,7 +1552,21 @@
           "ip": "IP {{ip}}"
         },
         "joinConfirm": "¿Conectar a {{ssid}}?",
-        "joinOverWifi": "Esta página usa Wi-Fi. Conectarse a otra red corta su conexión; después el dispositivo responde en la nueva red, en la dirección que esa red le dé."
+        "joinOverWifi": "Esta página usa Wi-Fi. Conectarse a otra red corta su conexión; después el dispositivo responde en la nueva red, en la dirección que esa red le dé.",
+        "autoConnect": "Conectar automáticamente",
+        "savedTag": "Guardada"
+      },
+      "wifiSaved": {
+        "title": "Redes guardadas",
+        "description": "Redes a las que se ha conectado este dispositivo. Se conecta a las de conexión automática esté donde esté: tras un reinicio o en otro lugar.",
+        "empty": "Aún no hay redes guardadas. Las redes a las que se conecta se recuerdan aquí.",
+        "connected": "Conectado",
+        "automatic": "Se conecta automáticamente",
+        "manual": "Solo al elegirla",
+        "forget": "Olvidar",
+        "forgetConfirm": "¿Olvidar {{ssid}}?",
+        "forgetHint": "NanoKVM elimina esta red y su contraseña. Para volver a conectarse, introduzca la contraseña.",
+        "forgetCurrentHint": "NanoKVM deja esta red y la elimina con su contraseña. El Wi-Fi sigue activado y se conecta a otra red guardada con conexión automática."
       },
       "tls": {
         "confirmEnable": "¿Activar HTTPS?",

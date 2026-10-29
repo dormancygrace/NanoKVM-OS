@@ -63,7 +63,7 @@ udev_trigger = root/'etc/conf.d/udev-trigger'
 assert udev_trigger.is_file() and ': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"' in udev_trigger.read_text(), 'udev coldplug not limited'
 assert not list((root/'root').glob('.ssh/*'))
 assert not list((root/'etc/ssh').glob('ssh_host_*'))
-for name in ['server.key','server.crt','pwd','wifi.pass','wifi.ssid','.jwt_secret']:
+for name in ['server.key','server.crt','pwd','wifi.pass','wifi.ssid','wifi.saved','.jwt_secret']:
     assert not (root/'etc/kvm'/name).exists(), 'Personal configuration in clean image: '+name
 for name in ['boot','data','dev','proc','sys','run','tmp']:
     (root/name).mkdir(exist_ok=True)

@@ -2,6 +2,7 @@ package picoclaw
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"NanoKVM-Server/internal/oomscore"
@@ -427,14 +429,17 @@ func readRuntimePIDFile(path string) (int, error) {
 	return pid, nil
 }
 
+var readPicoclawProcessCmdline = os.ReadFile
+
 func isPicoclawGatewayProcess(pid int) (bool, error) {
 	if pid <= 0 {
 		return false, nil
 	}
 	cmdlinePath := filepath.Join("/proc", strconv.Itoa(pid), "cmdline")
-	data, err := os.ReadFile(cmdlinePath)
+	data, err := readPicoclawProcessCmdline(cmdlinePath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		// procfs can return ESRCH when the process exits after the file opens.
+		if os.IsNotExist(err) || errors.Is(err, syscall.ESRCH) {
 			return false, nil
 		}
 		return false, err

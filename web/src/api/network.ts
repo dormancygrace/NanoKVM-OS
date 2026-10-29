@@ -238,7 +238,26 @@ export type WifiProfile = {
   preferredBand?: WifiBand;
   hidden: boolean;
   security: WifiSecurity;
+  // Join again after a reboot or when it comes in range (default: yes).
+  autoConnect?: boolean;
 };
+// A network the device has joined; passwords never leave it.
+export type SavedWifiNetwork = {
+  ssid: string;
+  security: WifiSecurity | 'personal';
+  hidden: boolean;
+  autoConnect: boolean;
+  current: boolean;
+};
+export function getSavedWifi() {
+  return http.get('/api/network/wifi/saved');
+}
+export function connectSavedWifi(ssid: string) {
+  return http.post('/api/network/wifi/saved/connect', { ssid });
+}
+export function forgetSavedWifi(ssid: string) {
+  return http.post('/api/network/wifi/saved/forget', { ssid });
+}
 export function disconnectWifi() {
   return http.post('/api/network/wifi/disconnect');
 }

@@ -14,21 +14,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestWifiDisconnectForgetsTheNetwork(t *testing.T) {
+// Disconnect leaves the network and stops joining it automatically; it stays
+// saved, as does the configured network, so it can be joined again.
+func TestWifiDisconnectStopsAutomaticConnection(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	previous := wifiControl
 	defer func() { wifiControl = previous; wifiMu.Lock(); wifiBusy = false; wifiError = ""; wifiMu.Unlock() }()
 	root := t.TempDir()
 	net := filepath.Join(root, "wlan0")
 	_ = os.Mkdir(net, 0700)
-	var commands []string
+	var commands, removed []string
 	var fail error
-	wifiControl = radioControl{etc: root, net: net, run: func(name string, args ...string) (string, error) {
+	run := filepath.Join(root, "run")
+	// Connected to it through a block of an older S30wifi (no id_str).
+	wifiControl = radioControl{etc: root, net: net, runDir: run, run: func(name string, args ...string) (string, error) {
 		if name == WiFiScript {
 			commands = append(commands, strings.Join(args, " "))
 		}
 		return "", fail
-	}}
+	}, request: fakeSupplicant(nil, "ssid=Office\nwpa_state=COMPLETED\n", &removed)}
 	router := gin.New()
 	router.POST("/disconnect", NewService().DisconnectWifi)
 	post := func() int {
@@ -62,17 +66,27 @@ func TestWifiDisconnectForgetsTheNetwork(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if err := writePrivateFile(filepath.Join(root, "wifi.ssid"), []byte("Office")); err != nil {
+		t.Fatal(err)
+	}
+	if err := wifiControl.selectNetwork("Office"); err != nil {
+		t.Fatal(err)
+	}
 	if post() != 0 {
 		t.Fatal("disconnect rejected")
 	}
 	wait()
-	for _, name := range wifiProfileFiles {
-		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
-			t.Fatalf("%s kept", name)
+	for _, name := range append([]string{wifiBandPreferenceFile}, wifiProfileFiles...) {
+		if _, err := os.Stat(filepath.Join(root, name)); err != nil {
+			t.Fatalf("%s removed", name)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(root, wifiBandPreferenceFile)); err != nil {
-		t.Fatal("band preference removed")
+	// The network of a release with one network becomes a saved one.
+	if _, auto, err := wifiControl.savedProfile("Office"); err != nil || auto {
+		t.Fatalf("saved network: auto %v, %v; want saved without automatic connection", auto, err)
+	}
+	if _, err := os.Stat(filepath.Join(run, wifiSelectedFile)); !os.IsNotExist(err) {
+		t.Fatal("the network is still chosen for this boot")
 	}
 	if strings.Join(commands, ",") != "disable,start" || !wifiControl.enabled() {
 		t.Fatalf("commands %v, enabled %v", commands, wifiControl.enabled())

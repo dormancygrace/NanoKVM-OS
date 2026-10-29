@@ -1542,7 +1542,7 @@
         "joinBtn": "Verbinden",
         "disconnectButton": "Trennen",
         "disconnectConfirm": "Von {{ssid}} trennen?",
-        "disconnectHint": "NanoKVM verlässt dieses Netzwerk und vergisst sein Passwort. WLAN bleibt eingeschaltet, sodass Sie erneut einem Netzwerk beitreten können.",
+        "disconnectHint": "NanoKVM trennt sich von diesem Netzwerk und verbindet sich nicht mehr automatisch damit. Es bleibt unter „Gespeicherte Netzwerke“, wo Sie es erneut verbinden oder vergessen können. WLAN bleibt eingeschaltet und verbindet sich mit einem anderen gespeicherten Netzwerk mit automatischer Verbindung.",
         "disconnectOverWifi": "Diese Seite erreicht NanoKVM über dieses WLAN: Die Verbindung geht verloren. Um erneut einem Netzwerk beizutreten, verbinden Sie sich über Ethernet oder das USB-Netzwerk.",
         "confirmBtn": "OK",
         "cancelBtn": "Abbrechen",
@@ -1552,7 +1552,21 @@
           "ip": "IP {{ip}}"
         },
         "joinConfirm": "Mit {{ssid}} verbinden?",
-        "joinOverWifi": "Diese Seite nutzt WLAN. Ein anderes Netz beendet ihre Verbindung; das Gerät antwortet dann im neuen Netz unter der Adresse, die es dort erhält."
+        "joinOverWifi": "Diese Seite nutzt WLAN. Ein anderes Netz beendet ihre Verbindung; das Gerät antwortet dann im neuen Netz unter der Adresse, die es dort erhält.",
+        "autoConnect": "Automatisch verbinden",
+        "savedTag": "Gespeichert"
+      },
+      "wifiSaved": {
+        "title": "Gespeicherte Netzwerke",
+        "description": "Netzwerke, mit denen sich dieses Gerät verbunden hat. Mit denen, die sich automatisch verbinden, verbindet es sich überall: nach einem Neustart oder an einem anderen Ort.",
+        "empty": "Noch keine gespeicherten Netzwerke. Netzwerke, mit denen Sie sich verbinden, werden hier gespeichert.",
+        "connected": "Verbunden",
+        "automatic": "Verbindet automatisch",
+        "manual": "Nur bei Auswahl",
+        "forget": "Vergessen",
+        "forgetConfirm": "{{ssid}} vergessen?",
+        "forgetHint": "NanoKVM löscht dieses Netzwerk und sein Passwort. Um sich erneut zu verbinden, geben Sie das Passwort ein.",
+        "forgetCurrentHint": "NanoKVM trennt sich von diesem Netzwerk und löscht es samt Passwort. WLAN bleibt eingeschaltet und verbindet sich mit einem anderen gespeicherten Netzwerk mit automatischer Verbindung."
       },
       "tls": {
         "confirmEnable": "HTTPS einschalten?",

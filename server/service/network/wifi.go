@@ -218,6 +218,12 @@ func connect(ssid string, password string) error {
 		return err
 	}
 
+	// The legacy and first-setup routes join automatically, as before.
+	if err := wifiControl.rememberJoined(legacyProfile(ssid, password), true); err != nil {
+		log.Errorf("failed to save wifi network: %s", err)
+		return err
+	}
+
 	if err := os.WriteFile(WiFiConnect, nil, 0o644); err != nil {
 		log.Errorf("failed to connect wifi: %s", err)
 		return err

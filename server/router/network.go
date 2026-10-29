@@ -40,6 +40,9 @@ func networkRouter(r *gin.Engine) {
 	admin.GET("/network/wifi", service.GetWifi)                    // get Wi-Fi information
 	admin.POST("/network/wifi/connect", service.ConnectWifi)       // connect Wi-Fi
 	admin.POST("/network/wifi/disconnect", service.DisconnectWifi) // disconnect Wi-Fi
+	admin.GET("/network/wifi/saved", service.GetSavedWifi)
+	admin.POST("/network/wifi/saved/connect", service.ConnectSavedWifi)
+	admin.POST("/network/wifi/saved/forget", service.ForgetSavedWifi)
 	admin.GET("/network/ipv6", service.GetIPv6)
 	admin.POST("/network/ipv6", service.SetIPv6)
 	admin.GET("/network/dns", service.GetDNS)            // get DNS configuration

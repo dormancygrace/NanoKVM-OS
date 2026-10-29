@@ -10,6 +10,7 @@
 : "${NANOKVM_WIFI_UID_FILE:=/sys/class/cvi-base/base_uid}"
 : "${NANOKVM_WPA_PASSPHRASE:=wpa_passphrase}"
 : "${NANOKVM_WPA_SUPPLICANT:=wpa_supplicant}"
+: "${NANOKVM_WPA_CLI:=wpa_cli}"
 : "${NANOKVM_UDHCPC:=udhcpc}"
 : "${NANOKVM_HOSTAPD:=hostapd}"
 : "${NANOKVM_UDHCPD:=udhcpd}"
@@ -39,12 +40,23 @@ WIFI_PASS_FILE=$NANOKVM_WIFI_ETC_DIR/wifi.pass
 BOOT_SSID_FILE=$NANOKVM_WIFI_BOOT_DIR/wifi.ssid
 BOOT_PASS_FILE=$NANOKVM_WIFI_BOOT_DIR/wifi.pass
 WPA_CONFIG=$NANOKVM_WIFI_RUN_DIR/wpa_supplicant.conf
+# Every network the device has joined: one directory per network named by the
+# hex of its SSID (ssid, pass, security, hidden, auto). The top-level wifi.*
+# files are the last chosen network.
+SAVED_DIR=$NANOKVM_WIFI_ETC_DIR/wifi.saved
+# The network chosen in this boot; joined even when it does not connect
+# automatically. /run starts empty, so after a reboot only those that do.
+SELECTED_FILE=$NANOKVM_WIFI_RUN_DIR/selected
 FALLBACK_BGSCAN=simple:30:-70:120
 HOSTAPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/hostapd.conf
 UDHCPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/udhcpd.conf
 UDHCPD_PID=$NANOKVM_WIFI_RUN_DIR/udhcpd.pid
 UDHCPD_LEASES=$NANOKVM_WIFI_RUN_DIR/udhcpd.leases
 WLAN_DHCP_PID=$NANOKVM_WIFI_DHCP_PID
+# wpa_cli runs this script on association events. It keeps the saved network
+# (hex of its SSID, the id_str of its blocks) last associated in this start.
+WPA_CLI_PID=$NANOKVM_WIFI_RUN_DIR/wpa_cli.pid
+ASSOCIATED_FILE=$NANOKVM_WIFI_RUN_DIR/associated
 
 prepare_run_dir() {
     mkdir -p "$NANOKVM_WIFI_RUN_DIR" || return 1
@@ -113,6 +125,49 @@ import_boot_credentials() {
     rm -f "$NANOKVM_WIFI_ETC_DIR/wifi.security" "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" \
         "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list" "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list_2.4" \
         "$NANOKVM_WIFI_ETC_DIR/wifi.freq_list_5" "$NANOKVM_WIFI_ETC_DIR/wifi.band_preference"
+    save_current_network replace
+}
+
+hex_of() {
+    printf '%s' "$1" | od -An -tx1 | tr -d ' \n'
+}
+
+# Store the last chosen network as a saved one that connects automatically:
+# once for an installation from a release with one network, and with
+# "replace" for credentials provisioned through /boot.
+save_current_network() {
+    [ -s "$WIFI_SSID_FILE" ] || return 0
+    current_ssid=$(cat "$WIFI_SSID_FILE") || return 1
+    name=$(hex_of "$current_ssid")
+    [ "${1:-}" = replace ] || [ ! -d "$SAVED_DIR/$name" ] || return 0
+    # A network without a password that is not open was never usable.
+    current_pass=$(cat "$WIFI_PASS_FILE" 2>/dev/null || true)
+    current_security=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.security" 2>/dev/null || true)
+    [ -n "$current_security" ] || current_security=personal
+    [ -n "$current_pass" ] || [ "$current_security" = open ] || return 0
+    mkdir -p "$SAVED_DIR" && chmod 700 "$SAVED_DIR" || return 1
+    tmp=$SAVED_DIR/.$name.tmp
+    rm -rf "$tmp" && mkdir -m 700 "$tmp" || return 1
+    (
+        umask 077
+        # Values without the line break a file written with an editor ends with.
+        printf '%s' "$current_ssid" > "$tmp/ssid" || exit 1
+        printf '%s' "$current_pass" > "$tmp/pass" || exit 1
+        printf '%s' "$current_security" > "$tmp/security" || exit 1
+        hidden=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" 2>/dev/null || true)
+        [ "$hidden" = true ] || hidden=false
+        printf '%s' "$hidden" > "$tmp/hidden" || exit 1
+        printf 1 > "$tmp/auto"
+    ) || {
+        rm -rf "$tmp"
+        return 1
+    }
+    rm -rf "$SAVED_DIR/.$name.old"
+    if [ -d "$SAVED_DIR/$name" ]; then
+        mv "$SAVED_DIR/$name" "$SAVED_DIR/.$name.old" || return 1
+    fi
+    mv "$tmp" "$SAVED_DIR/$name" || return 1
+    rm -rf "$SAVED_DIR/.$name.old"
 }
 
 valid_frequencies() {
@@ -168,8 +223,12 @@ emit_network() {
     priority=$2
     background_scan=${3:-}
     echo 'network={'
-    # Hex encoding prevents quotes/backslashes in SSIDs becoming config.
-    printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
+    # Hex encoding prevents quotes/backslashes in SSIDs becoming config. The
+    # same hex, the saved network's name, is the block's id_str: STATUS,
+    # GET_NETWORK and association events name the saved network by it without
+    # wpa_supplicant's escaped SSID text.
+    printf '    ssid=%s\n' "$(hex_of "$ssid")"
+    printf '    id_str="%s"\n' "$(hex_of "$ssid")"
     if [ "$security" = open ]; then
         echo '    key_mgmt=NONE'
     else
@@ -201,7 +260,7 @@ emit_network() {
                 ;;
         esac
     fi
-    if [ "$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.hidden" 2>/dev/null)" = true ]; then
+    if [ "$hidden" = true ]; then
         echo '    scan_ssid=1'
     fi
     [ -z "$frequencies" ] || echo "    freq_list=$frequencies"
@@ -210,47 +269,93 @@ emit_network() {
     echo '}'
 }
 
-write_wpa_config() {
-    ssid=$1
-    pass=$2
-    config_tmp=$WPA_CONFIG.tmp.$$
+# A saved network that connects automatically, or the one chosen in this boot.
+network_wanted() {
+    [ "$(cat "$1/auto" 2>/dev/null)" = 1 ] && return 0
+    [ "$(cat "$SELECTED_FILE" 2>/dev/null)" = "$(basename "$1")" ]
+}
 
-    security=personal
-    [ ! -f "$NANOKVM_WIFI_ETC_DIR/wifi.security" ] || security=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.security")
+# Read one saved network into the variables emit_network uses. An entry that
+# cannot be configured (no SSID, a name that is not its SSID, a password
+# wpa_passphrase rejects, unknown security) returns 1 and is skipped.
+load_network() {
+    entry=$1
+    ssid=$(cat "$entry/ssid" 2>/dev/null) || return 1
+    [ -n "$ssid" ] && [ "$(hex_of "$ssid")" = "$(basename "$entry")" ] || return 1
+    pass=$(cat "$entry/pass" 2>/dev/null || true)
+    security=$(cat "$entry/security" 2>/dev/null || true)
+    [ -n "$security" ] || security=personal
+    hidden=$(cat "$entry/hidden" 2>/dev/null || true)
     case "$security" in
         personal|wpa|wpa-wpa2|wpa2|wpa3|wpa2-wpa3)
+            [ -n "$pass" ] || return 1
             # Password stays off argv; discard the plaintext comment.
             psk_config=$(printf '%s\n' "$pass" | "$NANOKVM_WPA_PASSPHRASE" "$ssid") || return 1
-            sae_password=$(printf '%s' "$pass" | od -An -tx1 | tr -d ' \n') || return 1
+            sae_password=$(hex_of "$pass") || return 1
             ;;
         open) ;;
         *) return 1 ;;
     esac
+}
+
+write_wpa_config() {
+    config_tmp=$WPA_CONFIG.tmp.$$
+    current=
+    if [ -s "$WIFI_SSID_FILE" ]; then
+        current=$SAVED_DIR/$(hex_of "$(cat "$WIFI_SSID_FILE")")
+    fi
     preferred_band=$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.band_preference" 2>/dev/null || printf 5)
     case "$preferred_band" in 2.4|5) ;; *) preferred_band=5 ;; esac
     preferred_frequencies=$(band_frequencies "$preferred_band") || return 1
 
+    skipped=0
     umask 077
     {
         echo "ctrl_interface=/var/run/wpa_supplicant"
-        # wpa_supplicant selects the higher-priority block when both match.
-        # The unrestricted lower-priority block preserves a usable fallback on
-        # another band (and on a 2.4 GHz-only adapter).
-        if [ -n "$preferred_frequencies" ]; then
-            emit_network "$preferred_frequencies" 2
-            # A connected station never reselects by itself, so a fallback
-            # taken while the preferred band was away (a router restart, one
-            # failed SAE exchange) would last until the next reconnect. Only
-            # the fallback scans in the background: every 30 s below -70 dBm,
-            # otherwise every 120 s. The preferred block never scans.
-            emit_network "" 1 "$FALLBACK_BGSCAN"
-        else
-            emit_network "" 1
+        # The last chosen network first: wpa_supplicant selects the
+        # higher-priority block when both match. The unrestricted
+        # lower-priority block preserves a usable fallback on another band
+        # (and on a 2.4 GHz-only adapter).
+        if [ -n "$current" ] && [ -d "$current" ] && network_wanted "$current"; then
+            if load_network "$current"; then
+                if [ -n "$preferred_frequencies" ]; then
+                    emit_network "$preferred_frequencies" 2
+                    # A connected station never reselects by itself, so a
+                    # fallback taken while the preferred band was away (a
+                    # router restart, one failed SAE exchange) would last until
+                    # the next reconnect. Only the fallback scans in the
+                    # background: every 30 s below -70 dBm, otherwise every
+                    # 120 s. The preferred block never scans.
+                    emit_network "" 1 "$FALLBACK_BGSCAN"
+                else
+                    emit_network "" 1
+                fi
+            else
+                echo "Skipping saved WiFi network $(basename "$current"): it cannot be configured" >&2
+                skipped=$((skipped + 1))
+            fi
         fi
+        # Every other saved network that connects automatically, below it: the
+        # device joins a known network wherever it is.
+        for entry in "$SAVED_DIR"/*; do
+            [ -d "$entry" ] && [ "$entry" != "$current" ] || continue
+            network_wanted "$entry" || continue
+            if load_network "$entry"; then
+                emit_network "" 0
+            else
+                echo "Skipping saved WiFi network $(basename "$entry"): it cannot be configured" >&2
+                skipped=$((skipped + 1))
+            fi
+        done
     } > "$config_tmp" || {
         rm -f "$config_tmp"
         return 1
     }
+    # Nothing that could be configured: fail as with one bad network before.
+    if [ "$skipped" -gt 0 ] && ! grep -q '^network={' "$config_tmp"; then
+        rm -f "$config_tmp"
+        return 1
+    fi
     mv "$config_tmp" "$WPA_CONFIG" || return 1
 }
 
@@ -269,32 +374,131 @@ start() {
         "$NANOKVM_IPV6_INIT" interface wlan0 || return 1
     fi
 
-    if [ ! -s "$WIFI_SSID_FILE" ] || { [ ! -s "$WIFI_PASS_FILE" ] && [ "$(cat "$NANOKVM_WIFI_ETC_DIR/wifi.security" 2>/dev/null)" != open ]; }; then
-        echo "WiFi credentials are not configured; leaving wlan0 idle"
+    # Credentials created by older releases were world-readable. Tighten them
+    # on every start so upgrading fixes existing installations immediately.
+    for credential in "$WIFI_SSID_FILE" "$WIFI_PASS_FILE"; do
+        [ -e "$credential" ] || continue
+        "$NANOKVM_CHOWN" root:root "$credential" || return 1
+        chmod 600 "$credential" || return 1
+    done
+    save_current_network || echo "Could not store the configured WiFi network as a saved one" >&2
+    wanted=
+    for entry in "$SAVED_DIR"/*; do
+        [ -d "$entry" ] && network_wanted "$entry" && wanted=1 && break
+    done
+    if [ -z "$wanted" ]; then
+        echo "No saved WiFi network connects automatically; leaving wlan0 idle"
         return 0
     fi
 
-    # Credentials created by older releases were world-readable. Tighten them
-    # on every start so upgrading fixes existing installations immediately.
-    "$NANOKVM_CHOWN" root:root "$WIFI_SSID_FILE" "$WIFI_PASS_FILE" || return 1
-    chmod 600 "$WIFI_SSID_FILE" "$WIFI_PASS_FILE" || return 1
-
-    ssid=$(cat "$WIFI_SSID_FILE") || return 1
-    pass=$(cat "$WIFI_PASS_FILE") || return 1
     prepare_run_dir || return 1
-    write_wpa_config "$ssid" "$pass" || {
+    write_wpa_config || {
         echo "Could not generate WiFi configuration" >&2
         return 1
     }
+    if ! grep -q '^network={' "$WPA_CONFIG"; then
+        echo "No saved WiFi network to join; leaving wlan0 idle"
+        return 0
+    fi
 
     "$NANOKVM_WPA_SUPPLICANT" -B -i wlan0 -c "$WPA_CONFIG" || return 1
-    if [ ! -e "$NANOKVM_WIFI_BOOT_DIR/wifi.nodhcp" ]; then
-        set -- -S -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID"
-        if value=$(dhcp_hostname); then
-            set -- "$@" -x "hostname:$value" -F "$value"
-        fi
-        "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1 &
+    start_event_handler
+    start_dhcp
+}
+
+start_dhcp() {
+    [ ! -e "$NANOKVM_WIFI_BOOT_DIR/wifi.nodhcp" ] || return 0
+    set -- -S -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID"
+    if value=$(dhcp_hostname); then
+        set -- "$@" -x "hostname:$value" -F "$value"
     fi
+    "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1 &
+}
+
+# end_process FILE NAME ends the process NAME whose pid FILE holds and waits
+# until it has exited: SIGTERM, then SIGKILL after 3 s. udhcpc and wpa_cli
+# remove their pid file as they exit, so one still exiting would remove the
+# file of the one started after it, which S30wifi then no longer finds.
+# Returns 1, keeping FILE, when the process is still there.
+end_process() {
+    [ -e "$1" ] || return 0
+    pid=$(cat "$1" 2>/dev/null || true)
+    case "$pid" in
+        ''|*[!0-9]*) ;;
+        *)
+            if [ "$pid" -gt 1 ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null)" = "$2" ]; then
+                kill "$pid" 2>/dev/null || true
+                if ! process_exited "$pid" 30; then
+                    echo "$2 $pid did not exit; killing it" >&2
+                    kill -9 "$pid" 2>/dev/null || true
+                    process_exited "$pid" 10 || {
+                        echo "$2 $pid is still running" >&2
+                        return 1
+                    }
+                fi
+            fi
+            ;;
+    esac
+    rm -f "$1"
+}
+
+# process_exited PID TENTHS: whether PID is gone within TENTHS of a second.
+process_exited() {
+    tries=0
+    while [ -e "/proc/$1" ]; do
+        [ "$tries" -lt "$2" ] || return 1
+        tries=$((tries + 1))
+        sleep 0.1
+    done
+}
+
+stop_dhcp() {
+    end_process "$WLAN_DHCP_PID" udhcpc
+}
+
+# With several saved networks wpa_supplicant moves between them by itself
+# when one goes out of range. udhcpc does not watch the link: it would keep
+# the old network's address, routes and DNS until its lease ran out. wpa_cli
+# runs this script on every association; a change of saved network starts
+# DHCP again, while moving between bands of the same network does not.
+start_event_handler() {
+    if ! command -v "$NANOKVM_WPA_CLI" >/dev/null 2>&1; then
+        echo "wpa_cli is missing; the address is not renewed when WiFi moves to another network" >&2
+        return 0
+    fi
+    rm -f "$ASSOCIATED_FILE"
+    self=$(readlink -f "$0") || self=$0
+    "$NANOKVM_WPA_CLI" -B -i wlan0 -p "$NANOKVM_WPA_CTRL_DIR" -P "$WPA_CLI_PID" -a "$self" ||
+        echo "Could not start the WiFi event handler" >&2
+}
+
+stop_event_handler() {
+    end_process "$WPA_CLI_PID" wpa_cli
+    ended=$?
+    rm -f "$ASSOCIATED_FILE"
+    return "$ended"
+}
+
+# wpa_cli -a: "<script> wlan0 CONNECTED|DISCONNECTED", the block's id_str in
+# WPA_ID_STR. A block without one (written by an older S30wifi) is ignored.
+wifi_event() {
+    [ "$1" = CONNECTED ] || return 0
+    network=${WPA_ID_STR:-}
+    case "$network" in ''|*[!0-9a-f]*) return 0 ;; esac
+    # Stopped meanwhile: S30wifi stop removes the handler's pid file first.
+    [ -e "$WPA_CLI_PID" ] || return 0
+    previous=$(cat "$ASSOCIATED_FILE" 2>/dev/null || true)
+    (umask 077 && printf '%s' "$network" > "$ASSOCIATED_FILE") || return 1
+    [ -n "$previous" ] && [ "$previous" != "$network" ] || return 0
+    [ -e "$WLAN_DHCP_PID" ] || return 0
+    echo "WiFi moved to another saved network; requesting a new address"
+    # Never two clients for one pid file: the old one must be gone first.
+    stop_dhcp || {
+        echo "The previous DHCP client did not exit; not starting another one" >&2
+        return 1
+    }
+    # Its deconfig removes the previous network's address before DISCOVER.
+    start_dhcp
 }
 
 ap_start() {
@@ -385,18 +589,13 @@ stop() {
                 ;;
         esac
     fi
+    # Before wpa_supplicant: its last events must not start DHCP again.
+    stop_event_handler || true
     "$NANOKVM_KILLALL" wpa_supplicant 2>/dev/null || true
     wait_for_exit wpa_supplicant "$NANOKVM_WPA_CTRL_DIR/wlan0"
     wait_for_exit hostapd "$NANOKVM_HOSTAPD_CTRL_DIR/wlan0"
 
-    if [ -e "$WLAN_DHCP_PID" ]; then
-        pid=$(cat "$WLAN_DHCP_PID")
-        case "$pid" in
-            ''|*[!0-9]*) ;;
-            *) [ "$pid" -le 1 ] || kill "$pid" 2>/dev/null || true ;;
-        esac
-        rm -f "$WLAN_DHCP_PID"
-    fi
+    stop_dhcp || true
 
     rm -f "$UDHCPD_PID" "$UDHCPD_LEASES" "$WPA_CONFIG" \
         "$HOSTAPD_CONFIG" "$UDHCPD_CONFIG" "$NANOKVM_WIFI_AP_FLAG"
@@ -424,4 +623,6 @@ case "${1:-}" in
         ap_start
         ;;
     restart) restart ;;
+    # Run by wpa_cli -a (start_event_handler).
+    wlan0) wifi_event "${2:-}" ;;
 esac

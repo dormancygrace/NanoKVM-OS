@@ -1542,7 +1542,7 @@
         "joinBtn": "Join",
         "disconnectButton": "Disconnect",
         "disconnectConfirm": "Disconnect from {{ssid}}?",
-        "disconnectHint": "NanoKVM leaves this network and forgets its password. Wi-Fi stays on, so you can join a network again.",
+        "disconnectHint": "NanoKVM leaves this network and stops joining it automatically. It stays in Saved networks, where you can join it again or forget it. Wi-Fi stays on and joins another saved network that connects automatically.",
         "disconnectOverWifi": "This page reaches NanoKVM over this Wi-Fi network: it will lose the connection. To join a network again, connect over Ethernet or the USB network.",
         "confirmBtn": "OK",
         "cancelBtn": "Cancel",
@@ -1552,7 +1552,21 @@
           "ip": "IP {{ip}}"
         },
         "joinConfirm": "Join {{ssid}}?",
-        "joinOverWifi": "This page uses Wi-Fi. Joining another network ends its connection; the device then answers on the new network, at the address that network gives it."
+        "joinOverWifi": "This page uses Wi-Fi. Joining another network ends its connection; the device then answers on the new network, at the address that network gives it.",
+        "autoConnect": "Connect automatically",
+        "savedTag": "Saved"
+      },
+      "wifiSaved": {
+        "title": "Saved networks",
+        "description": "Networks this device has joined. It joins those that connect automatically wherever it is: after a reboot, or when moved to another place.",
+        "empty": "No saved networks yet. Networks you join are remembered here.",
+        "connected": "Connected",
+        "automatic": "Connects automatically",
+        "manual": "Joined only when chosen",
+        "forget": "Forget",
+        "forgetConfirm": "Forget {{ssid}}?",
+        "forgetHint": "NanoKVM deletes this network and its password. To join it again, enter the password.",
+        "forgetCurrentHint": "NanoKVM leaves this network and deletes it with its password. Wi-Fi stays on and joins another saved network that connects automatically."
       },
       "tls": {
         "confirmEnable": "Turn on HTTPS?",

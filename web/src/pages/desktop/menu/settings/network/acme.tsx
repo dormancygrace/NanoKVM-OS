@@ -28,7 +28,14 @@ const POLL_MS = 2000;
  * background; the panel polls while they run and tells the certificate
  * panel when they are done.
  */
-export const Acme = ({ onChange }: { onChange: () => void }) => {
+export const Acme = ({
+  onChange,
+  reloadKey
+}: {
+  onChange: () => void;
+  // Bumped when the certificate block changed the ACME state itself.
+  reloadKey: number;
+}) => {
   const { t, i18n } = useTranslation();
   const [status, setStatus] = useState<AcmeStatus>();
   const [providers, setProviders] = useState<AcmeProvider[]>([]);
@@ -85,7 +92,7 @@ export const Acme = ({ onChange }: { onChange: () => void }) => {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   // The DNS hooks, once acme.sh is there and the DNS challenge is chosen.
   useEffect(() => {
@@ -238,17 +245,15 @@ export const Acme = ({ onChange }: { onChange: () => void }) => {
 
   return (
     <div className="space-y-4">
-      <SettingRow
-        label={t('settings.network.acme.title')}
-        description={t('settings.network.acme.description')}
-      >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-fg-muted text-xs">{t('settings.network.acme.description')}</span>
         {status &&
           (status.installed ? (
             <span className="text-fg-muted text-xs">acme.sh {status.version}</span>
           ) : (
             <StatusBadge tone="neutral">{t('settings.network.acme.notInstalled')}</StatusBadge>
           ))}
-      </SettingRow>
+      </div>
 
       {status && !status.installed && (
         <div className="flex flex-wrap items-center gap-3">

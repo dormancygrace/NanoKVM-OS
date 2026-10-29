@@ -185,6 +185,7 @@ const Certificate = ({
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<Source>();
   const [open, setOpen] = useState(false);
+  const [acmeKey, setAcmeKey] = useState(0);
   const opened = useRef(false);
 
   const info = status?.certificate;
@@ -289,6 +290,7 @@ const Certificate = ({
     setBusy(true);
     try {
       const rsp = await acmeApi.remove();
+      setAcmeKey((key) => key + 1);
       if (rsp.code === 0) message.success(t('settings.network.acme.removed'));
       else message.error(rsp.msg || t('settings.network.acme.failed'));
       await refresh();
@@ -423,7 +425,7 @@ const Certificate = ({
           )}
           {/* Kept mounted so a running issue keeps being followed. */}
           <div className={source === 'acme' ? undefined : 'hidden'}>
-            <Acme onChange={() => void refresh()} />
+            <Acme onChange={() => void refresh()} reloadKey={acmeKey} />
           </div>
         </div>
       </details>

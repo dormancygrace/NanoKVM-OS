@@ -93,6 +93,7 @@ platform = lib.parent / 'platform'
 ctrl = (lib / 'oled_ctrl.cpp').read_text()
 startup = ctrl[ctrl.index('// Chosen by oled_exist()'):ctrl.index('// 坐标设置')]
 integration = r"""
+#include "oled_ctrl.h"
 #include "oled_detect.h"
 #include "kvm_platform.h"
 #include <cassert>
@@ -103,7 +104,9 @@ integration = r"""
 #include <set>
 #include <utility>
 #include <vector>
+#include <mutex>
 #include <fcntl.h>
+#include <time.h>
 #include <linux/i2c-dev.h>
 #include <linux/i2c.h>
 #include <unistd.h>
@@ -164,6 +167,8 @@ extern "C" ssize_t __wrap_write(int fd, const void *data, size_t size) {
     ++writes;
     return size;
 }
+// The drawing helpers that follow the slice are not part of this test.
+#pragma GCC diagnostic ignored "-Wunused-function"
 """ + startup + r"""
 static void put(const char *name, const std::string &data) {
     std::ofstream file(root + "/" + name, std::ios::binary);

@@ -336,6 +336,16 @@ const uint8_t oled_sipeed_logo[32] = {
 0x66,0x66,0x66,0x66,0x66,0x70,0xfe,0x78,0xfe,0x7d,0xfc,0x3f,0xf8,0x1f,0x00,0x00
 };
 int oled_exist(void);
+// While one exists (in any thread, nested), display writes are queued and
+// sent as one I2C transfer per run of commands or data (oled_ctrl.cpp).
+struct OledBatch {
+	OledBatch();
+	~OledBatch();
+	OledBatch(const OledBatch &) = delete;
+	OledBatch &operator=(const OledBatch &) = delete;
+};
+// Forget what the display RAM holds: the next drawing sends every byte.
+void OLED_ForgetRAM(void);
 void OLED_Clear(void);
 void OLED_Fill(void);
 void OLED_Init(void);

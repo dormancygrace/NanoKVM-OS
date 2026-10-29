@@ -9,18 +9,14 @@ import { modelConfigComplete, modelProviderAllowsEmptyApiKey } from '@/lib/picoc
 import { picoclawRuntimeStatusAtom, type PicoclawRuntimeStatus } from '@/jotai/picoclaw.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { PicoclawInstall } from './picoclaw-install';
+
 const replyText = (rsp: { msg?: string; message?: string }) => rsp.message || rsp.msg || '';
 
 // Settings > AI > PicoClaw: the model the agent talks to and its tools on the
 // NanoKVM, the same settings as the chat panel's menu. The server never sends
 // the API key or base URL back: saving takes all three again.
-export const PicoclawSettingsPage = ({
-  onOpenAddons,
-  onOpenChat
-}: {
-  onOpenAddons: () => void;
-  onOpenChat: () => void;
-}) => {
+export const PicoclawSettingsPage = ({ onOpenChat }: { onOpenChat: () => void }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useAtom(picoclawRuntimeStatusAtom);
   const [model, setModel] = useState('');
@@ -98,18 +94,7 @@ export const PicoclawSettingsPage = ({
   }
 
   if (status && !status.installed) {
-    return (
-      <Alert
-        type="info"
-        showIcon
-        message={t('settings.ai.picoclaw.notInstalled')}
-        action={
-          <Button size="small" onClick={onOpenAddons}>
-            {t('settings.ai.screenText.openAddons')}
-          </Button>
-        }
-      />
-    );
+    return <PicoclawInstall status={status} onStatus={setStatus} />;
   }
 
   const hostTools = status?.runtime_intent?.host_tools ?? false;

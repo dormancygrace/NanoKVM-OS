@@ -1,4 +1,6 @@
 .keyboardContainer {
+  /* Key drags are remote input, not browser pan/zoom gestures. */
+  touch-action: none;
   display: flex;
   background-color: #e5e5e5;
   justify-content: center;

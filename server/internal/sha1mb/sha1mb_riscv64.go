@@ -5,7 +5,8 @@ package sha1mb
 import (
 	"os"
 	"sync"
-	"syscall"
+
+	"NanoKVM-Server/internal/xtheadvector"
 )
 
 // sha1x4 runs nsteps steps of the four lane queues lanes[j] = [first, end)
@@ -28,9 +29,8 @@ func vector() bool {
 	return useVector
 }
 
-// detectVector selects the kernel only if /proc/cpuinfo lists xtheadvector
-// and the kernel enables vector state for this thread.
-// NANOKVM_SHA1MB=generic selects crypto/sha1.
+// detectVector selects the kernel only if XTheadVector is available to this
+// process. NANOKVM_SHA1MB=generic selects crypto/sha1.
 func detectVector() bool {
 	if os.Getenv("NANOKVM_SHA1MB") == "generic" {
 		return false
@@ -38,27 +38,4 @@ func detectVector() bool {
 	return haveVector()
 }
 
-func haveVector() bool { return cpuinfoHasExtension("xtheadvector") && vectorEnabled() }
-
-// vectorEnabled reports whether the kernel enables vector state for this
-// thread on first use (prctl PR_RISCV_V_GET_CONTROL; the sysctl
-// abi.riscv_v_default_allow sets the default). Go threads inherit it.
-func vectorEnabled() bool {
-	const (
-		prRISCVVGetControl  = 70
-		prRISCVVCtrlCurMask = 3
-		prRISCVVCtrlOn      = 2
-	)
-	r, _, errno := syscall.RawSyscall(syscall.SYS_PRCTL, prRISCVVGetControl, 0, 0)
-	return errno == 0 && r&prRISCVVCtrlCurMask == prRISCVVCtrlOn
-}
-
-// cpuinfoHasExtension reports whether /proc/cpuinfo has an "isa" line and
-// every one lists ext among its underscore-separated extensions.
-func cpuinfoHasExtension(ext string) bool {
-	data, err := os.ReadFile("/proc/cpuinfo")
-	if err != nil {
-		return false
-	}
-	return isaHasExtension(data, ext)
-}
+func haveVector() bool { return xtheadvector.Available() }

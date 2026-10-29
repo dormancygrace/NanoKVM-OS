@@ -6,14 +6,14 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"syscall"
+
+	"NanoKVM-Server/internal/xtheadvector"
 )
 
 var logVectorOnce sync.Once
 var logUseVector bool
 
-// The server does not change per-thread vector policy. Go threads inherit the
-// Linux policy; cache the same ISA/prctl check used by the SHA-1 backend.
+// The server does not change per-thread vector policy, so the answer is cached.
 func logVectorAvailable() bool {
 	logVectorOnce.Do(func() { logUseVector = detectLogVector() })
 	return logUseVector
@@ -24,17 +24,7 @@ func detectLogVector() bool {
 	if os.Getenv("NANOKVM_LOG_TEXT") == "generic" {
 		return false
 	}
-	info, err := os.ReadFile("/proc/cpuinfo")
-	if err != nil || !logCPUHasVector(info) {
-		return false
-	}
-	const (
-		prRISCVVGetControl  = 70
-		prRISCVVCtrlCurMask = 3
-		prRISCVVCtrlOn      = 2
-	)
-	state, _, errno := syscall.RawSyscall(syscall.SYS_PRCTL, prRISCVVGetControl, 0, 0)
-	return errno == 0 && state&prRISCVVCtrlCurMask == prRISCVVCtrlOn
+	return xtheadvector.Available()
 }
 
 func sensitiveLine(line string) bool {

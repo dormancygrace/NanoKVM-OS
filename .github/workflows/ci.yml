@@ -104,6 +104,18 @@ jobs:
         run: pnpm lint
       - name: Test
         run: node --import tsx --test tests/*.test.mjs
+      - name: Chrome browser dependencies
+        run: pnpm exec playwright install --with-deps chrome
+      - name: Browser interactions
+        run: pnpm test:browser
+      - name: Browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure-traces
+          path: ${{ runner.temp }}/nanokvm-browser-results/**/trace.zip
+          if-no-files-found: ignore
+
 
   scripts:
     name: Init scripts and tooling

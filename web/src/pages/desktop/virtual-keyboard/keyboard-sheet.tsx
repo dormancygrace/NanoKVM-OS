@@ -25,12 +25,23 @@ export function KeyboardSheet({
     if (!open) return;
     const previous = document.activeElement;
     const sheet = panel.current;
+    let focusedInside = sheet?.contains(document.activeElement) ?? false;
+    const trackFocus = (event: FocusEvent) => {
+      focusedInside = sheet?.contains(event.target as Node) ?? false;
+    };
+    document.addEventListener('focusin', trackFocus);
     return () => {
+      document.removeEventListener('focusin', trackFocus);
       drag.current = null;
       setOffset(0);
-      // Restore focus only if it is still ours, never after the user has
-      // already focused the video or another control behind this sheet.
-      if (previous instanceof HTMLElement && sheet?.contains(document.activeElement)) {
+      // React can remove the portal before layout cleanup, moving the active
+      // element to body without a focusin event. Remember whether focus was
+      // ours, but never steal it from a control chosen outside the sheet.
+      const active = document.activeElement;
+      if (
+        previous instanceof HTMLElement &&
+        (sheet?.contains(active) || (focusedInside && active === document.body))
+      ) {
         previous.focus({ preventScroll: true });
       }
     };

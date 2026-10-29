@@ -166,8 +166,23 @@ func liveGatewayScript(t *testing.T, home, script string) *exec.Cmd {
 	if err := os.WriteFile(filepath.Join(home, picoclawPIDFileName), []byte(strconv.Itoa(cmd.Process.Pid)+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if running, err := isRuntimeRunning(); err != nil || !running {
-		t.Fatalf("fake gateway not recognized: %v %v", running, err)
+	// Start returns after exec, before the child is necessarily observable
+	// through procfs. Wait for the fixture before exercising shutdown.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		running, err := isRuntimeRunning()
+		if err == nil && running {
+			break
+		}
+		select {
+		case <-done:
+			t.Fatalf("fake gateway exited before becoming ready: %v", cmd.ProcessState)
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("fake gateway not recognized: %v %v", running, err)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 	return cmd
 }

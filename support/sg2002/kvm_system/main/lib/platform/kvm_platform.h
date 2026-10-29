@@ -15,7 +15,8 @@ uint64_t time_ms();          // CLOCK_REALTIME
 void sleep_ms(uint64_t ms);
 
 // Interface name -> dotted IPv4 address, without lo. An interface with
-// several addresses keeps the last one getifaddrs() lists.
+// several addresses keeps the last one getifaddrs() lists. The answer may be
+// up to 500 ms old.
 std::map<std::string, std::string> ip_address();
 
 // One /dev/i2c-N, opened on first use. A missing bus is not fatal: every

@@ -90,6 +90,7 @@ test('keyboard keeps background focus and restores it on close and Escape', asyn
   await expect(target).toBeFocused();
   await openKeyboard(page);
   await page.locator('[data-skbtn="{shiftleft}"]').first().click();
+  await expect(page.locator('[data-skbtn="{shiftleft}"]').first()).toHaveClass(/hg-highlight/);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await openKeyboard(page);
   await expect(page.locator('.hg-highlight')).toHaveCount(0);
@@ -123,13 +124,17 @@ test('held keys release outside the key, on blur and on unmount', async ({ page,
     .poll(() => reports(request).then((r) => r[r.length - 1]?.slice(1)))
     .toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await request.post('/__test/reports/reset');
   await page.mouse.down();
+  await expect.poll(() => reports(request).then((r) => r[r.length - 1]?.[3])).toBe(4);
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   await expect
     .poll(() => reports(request).then((r) => r[r.length - 1]?.slice(1)))
     .toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   await page.mouse.up();
+  await request.post('/__test/reports/reset');
   await page.mouse.down();
+  await expect.poll(() => reports(request).then((r) => r[r.length - 1]?.[3])).toBe(4);
   // Keyboard activation of an external control unmounts while the pointer is held.
   await page.getByRole('button', { name: 'Unmount keyboard' }).focus();
   await page.keyboard.press('Enter');
@@ -269,4 +274,38 @@ test.describe('touch', () => {
     await touchTap(cdp, page.getByRole('button', { name: 'Open keyboard', exact: true }));
     await expect(page.getByRole('dialog')).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
   });
+});
+
+test('production keyboard opener restores keyboard focus on close', async ({ page }) => {
+  await login(page);
+  const opener = page.getByRole('button', { name: 'Keyboard', exact: true });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(opener).toBeFocused();
+  await page.getByRole('button', { name: 'Close', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(opener).toBeFocused();
+});
+
+test('a failed password-help chunk leaves login usable and offers recovery', async ({ page }) => {
+  let fail = true;
+  await page.route('**/tips-dialog.tsx*', async (route) => {
+    if (fail) {
+      fail = false;
+      await route.abort('failed');
+    } else await route.continue();
+  });
+  await page.goto(url);
+  await page.getByRole('button', { name: 'Forgot password' }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.getByPlaceholder('Username').fill('still usable');
+  await expect(page.getByPlaceholder('Username')).toHaveValue('still usable');
+  await expect(
+    page.getByRole('alert').getByRole('button', { name: 'Try again', exact: true })
+  ).toBeVisible();
+  await page.getByRole('alert').getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.getByRole('button', { name: 'Forgot password' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
 });

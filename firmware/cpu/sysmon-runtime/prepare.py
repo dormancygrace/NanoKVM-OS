@@ -127,18 +127,24 @@ for pkg in ['internal/cpu', 'crypto/internal/fips140deps/cpu', 'crypto/internal/
     materialize(pkg)
 edit('internal/cpu/cpu.go', '\tHasZvkt           bool // Vector Data-Independent Execution Latency\n',
      '\tHasZvkt           bool // Vector Data-Independent Execution Latency\n'
-     '\tHasXTheadBb       bool // T-Head XTheadBb (NanoKVM: mvendorid of a T-Head core)\n')
+     '\tHasXTheadBb       bool // T-Head XTheadBb (NanoKVM: mvendorid of a T-Head core)\n'
+     '\tHasXTheadVector   bool // T-Head XTheadVector (NanoKVM: riscv_hwprobe vendor key)\n')
 edit('internal/cpu/cpu_riscv64.go', '\t\t{Name: "zvkt", Feature: &RISCV64.HasZvkt},\n',
      '\t\t{Name: "zvkt", Feature: &RISCV64.HasZvkt},\n'
-     '\t\t{Name: "xtheadbb", Feature: &RISCV64.HasXTheadBb},\n')
+     '\t\t{Name: "xtheadbb", Feature: &RISCV64.HasXTheadBb},\n'
+     '\t\t{Name: "xtheadvector", Feature: &RISCV64.HasXTheadVector},\n')
 edit('internal/cpu/cpu_riscv64_linux.go', '\t\t{riscv_HWPROBE_KEY_CPUPERF_0, 0},\n\t}\n',
      '\t\t{riscv_HWPROBE_KEY_CPUPERF_0, 0},\n'
-     '\t\t{0, 0}, // NanoKVM: RISCV_HWPROBE_KEY_MVENDORID\n\t}\n')
+     '\t\t{0, 0}, // NanoKVM: RISCV_HWPROBE_KEY_MVENDORID\n'
+     '\t\t{11, 0}, // NanoKVM: RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0\n\t}\n')
 edit('internal/cpu/cpu_riscv64_linux.go', '\tif pairs[1].key != -1 {\n',
      '\t// Every T-Head RISC-V core (vendor ID 0x5b7) implements XTheadBb, which\n'
      '\t// Linux reports neither in hwprobe nor in /proc/cpuinfo.\n'
      '\tif pairs[2].key != -1 {\n'
      '\t\tRISCV64.HasXTheadBb = pairs[2].value == 0x5b7\n'
+     '\t}\n'
+     '\tif pairs[3].key != -1 { // RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR\n'
+     '\t\tRISCV64.HasXTheadVector = pairs[3].value&1 != 0\n'
      '\t}\n'
      '\tif pairs[1].key != -1 {\n')
 edit('crypto/internal/fips140deps/cpu/cpu.go', '\tRISCV64HasV = cpu.RISCV64.HasV\n',
@@ -173,7 +179,8 @@ text = original.decode()
 # memmove: misaligned 8-byte loads where riscv_hwprobe reports them fast.
 zbb = '\t\triscv64HasZbb = cpu.RISCV64.HasZbb\n'
 assert text.count(zbb) == 1
-text = text.replace(zbb, zbb + '\t\tnanokvmFastMisaligned = cpu.RISCV64.HasFastMisaligned\n')
+text = text.replace(zbb, zbb + '\t\tnanokvmFastMisaligned = cpu.RISCV64.HasFastMisaligned\n'
+                    '\t\tnanokvmVectorMemmove = cpu.RISCV64.HasXTheadVector && nanokvmVectorEnabled()\n')
 anchor = 'func sysmon() {\n'
 assert text.count(anchor) == 1
 text = text.replace(anchor, anchor + '\tnanokvmSysmonInit()\n')
@@ -191,6 +198,19 @@ text = text[:pos] + '\tnanokvmThreadInit()\n' + text[pos:]
 # (misaligned loads) instead of the byte loops when the loads are fast. The
 # test sits out of line, so the co-aligned path is unchanged. Below 32 bytes
 # aligning the destination byte by byte costs more than it saves.
+# Copies of nanokvmVectorMemmoveMin bytes or more go to the XTheadVector loop
+# (gen_memmove_c906.py) when nanokvmVectorMemmove is set; the test for it
+# costs smaller copies a compare and a branch.
+edit('runtime/memmove_riscv64.s', '#include "textflag.h"\n', '#include "go_asm.h"\n#include "textflag.h"\n')
+edit('runtime/memmove_riscv64.s', '\tBEQ\tX10, X11, done\n\tBEQZ\tX12, done\n',
+     '\tBEQ\tX10, X11, done\n\tBEQZ\tX12, done\n\n'
+     '\t// NanoKVM: large copies with XTheadVector (nanokvm_memmove.go).\n'
+     '\tMOV\t$const_nanokvmVectorMemmoveMin, X9\n'
+     '\tBLTU\tX12, X9, nanokvm_scalar\n'
+     '\tMOVBU\truntime·nanokvmVectorMemmove(SB), X9\n'
+     '\tBEQZ\tX9, nanokvm_scalar\n'
+     '\tJMP\truntime·nanokvmMemmoveVector(SB)\n'
+     'nanokvm_scalar:\n')
 for d in 'fb':
     edit('runtime/memmove_riscv64.s',
          '\t// Check alignment - if alignment differs we have to do one byte at a time.\n'

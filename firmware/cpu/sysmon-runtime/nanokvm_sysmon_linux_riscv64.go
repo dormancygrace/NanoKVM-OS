@@ -86,3 +86,16 @@ func nanokvmThreadInit() {
 
 //go:noescape
 func nanokvmPrctl(option, value uintptr) int64
+
+// nanokvmVectorEnabled reports whether the kernel enables vector state for
+// this thread on first use (prctl PR_RISCV_V_GET_CONTROL; the sysctl
+// abi.riscv_v_default_allow sets the default). Threads inherit it.
+func nanokvmVectorEnabled() bool {
+	const (
+		prRISCVVGetControl  = 70
+		prRISCVVCtrlCurMask = 3
+		prRISCVVCtrlOn      = 2
+	)
+	r := nanokvmPrctl(prRISCVVGetControl, 0)
+	return r >= 0 && r&prRISCVVCtrlCurMask == prRISCVVCtrlOn
+}

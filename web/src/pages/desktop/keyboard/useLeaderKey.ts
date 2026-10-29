@@ -42,7 +42,7 @@ export function useLeaderKey(
   useEffect(() => {
     api
       .getLeaderKey()
-      .then((rsp: any) => {
+      .then((rsp) => {
         if (rsp.code === 0 && rsp.data?.key !== undefined) {
           setLeaderKeyCode(rsp.data.key);
         }

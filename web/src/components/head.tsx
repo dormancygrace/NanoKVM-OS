@@ -4,6 +4,7 @@ import { useAtom } from 'jotai';
 
 import { getWebTitle } from '@/api/vm.ts';
 import { http } from '@/lib/http';
+import type { Branding } from '@/jotai/branding';
 import { brandingAtom, brandingFavicon } from '@/jotai/branding';
 import { webTitleAtom } from '@/jotai/settings.ts';
 
@@ -18,7 +19,7 @@ export const Head = ({ title = '', description = '' }: HeadProps = {}) => {
   const [branding, setBranding] = useAtom(brandingAtom);
   useEffect(() => {
     http
-      .get('/api/branding')
+      .get<Branding>('/api/branding')
       .then((rsp) => {
         if (rsp.code === 0) {
           setBranding(rsp.data);

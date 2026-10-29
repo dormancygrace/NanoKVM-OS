@@ -28,12 +28,12 @@ export function wol(mac: string, networkInterface: string) {
 }
 
 export function getWolInterfaces() {
-  return http.get('/api/network/wol/interfaces');
+  return http.get<{ interfaces: string[] }>('/api/network/wol/interfaces');
 }
 
 // get wake-on-lan macs history
 export function getWolMacs() {
-  return http.get('/api/network/wol/mac');
+  return http.get<{ macs: string[] }>('/api/network/wol/mac');
 }
 
 export function deleteWolMac(mac: string) {
@@ -50,7 +50,7 @@ export function setWolMacName(mac: string, name: string) {
 
 // get wifi information
 export function getWiFi() {
-  return http.get('/api/network/wifi');
+  return http.get<WifiStatus>('/api/network/wifi');
 }
 
 // connect wifi without auth (only available in wifi configuration mode)
@@ -101,7 +101,7 @@ export type DTLSCipher = 'chacha20' | 'aes-gcm';
 
 // The STUN and TURN servers of WebRTC video, audio and RustDesk.
 export function getWebRTCServers() {
-  return http.get('/api/network/webrtc');
+  return http.get<WebRTCServers>('/api/network/webrtc');
 }
 
 // credential: empty keeps the stored TURN password; an empty address removes TURN.
@@ -115,11 +115,11 @@ export function setWebRTCServers(body: {
 }
 
 export function getEthernet() {
-  return http.get('/api/network/ethernet');
+  return http.get<EthernetConfig>('/api/network/ethernet');
 }
 
 export function setEthernet(config: Omit<EthernetConfig, 'interface' | 'adminUp' | 'linkUp'>) {
-  return http.post('/api/network/ethernet', config);
+  return http.post<{ trial: NetworkTrial }>('/api/network/ethernet', config);
 }
 
 // A network change on trial: the device undoes it unless it is confirmed
@@ -133,7 +133,11 @@ export type NetworkTrial = {
 };
 
 export function confirmNetworkTrial(token: string, timeout?: number) {
-  return http.post('/api/network/trial/confirm', { token }, timeout ? { timeout } : undefined);
+  return http.post<null>(
+    '/api/network/trial/confirm',
+    { token },
+    timeout ? { timeout } : undefined
+  );
 }
 
 export type GatewayPreference = 'auto' | 'ethernet' | 'wifi';
@@ -148,11 +152,11 @@ export type GatewayStatus = {
 };
 
 export function getGatewayPreference() {
-  return http.get('/api/network/gateway');
+  return http.get<GatewayStatus>('/api/network/gateway');
 }
 
 export function setGatewayPreference(preferred: GatewayPreference) {
-  return http.post('/api/network/gateway', { preferred });
+  return http.post<null>('/api/network/gateway', { preferred });
 }
 
 // Ethernet and Wi-Fi each have an IPv6 setting of their own: automatic
@@ -185,14 +189,14 @@ export type IPv6Status = {
 };
 
 export function getIPv6() {
-  return http.get('/api/network/ipv6');
+  return http.get<IPv6Status>('/api/network/ipv6');
 }
 
 export function setIPv6(
   iface: IPv6Interface['name'],
   setting: { enabled: boolean; mode?: IPv6Mode; address?: string; gateway?: string }
 ) {
-  return http.post('/api/network/ipv6', { ...setting, interface: iface });
+  return http.post<null>('/api/network/ipv6', { ...setting, interface: iface });
 }
 
 export type WifiBand = '2.4' | '5';
@@ -250,7 +254,7 @@ export type SavedWifiNetwork = {
   current: boolean;
 };
 export function getSavedWifi() {
-  return http.get('/api/network/wifi/saved');
+  return http.get<SavedWifiNetwork[]>('/api/network/wifi/saved');
 }
 export function connectSavedWifi(ssid: string) {
   return http.post('/api/network/wifi/saved/connect', { ssid });
@@ -269,7 +273,7 @@ export function setWifiBandPreference(preferredBand: WifiBand) {
   return http.post('/api/network/wifi/band-preference', { preferredBand });
 }
 export function scanWifi(band: WifiBand | 'all' = 'all') {
-  return http.get('/api/network/wifi/scan', { band });
+  return http.get<WifiNetwork[]>('/api/network/wifi/scan', { band });
 }
 export function configureWifi(profile: WifiProfile) {
   return http.post('/api/network/wifi/configure', profile);

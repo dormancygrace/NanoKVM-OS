@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/auth';
 import type { TFunction } from 'i18next';
 import { useAtomValue, useSetAtom } from 'jotai';
 
+import type { ScreenStatus } from '@/api/vm';
 import { getScreen, getVideoCapabilities } from '@/api/vm';
 import { getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder';
 import * as storage from '@/lib/localstorage';
@@ -27,43 +28,6 @@ export function videoPathText(t: TFunction, path: number | undefined) {
 }
 
 // Shared settings and status returned by GET /api/vm/screen.
-type ScreenStatus = {
-  width: number;
-  height: number;
-  fps: number;
-  quality: number;
-  bitRate: number;
-  mjpegChroma: number;
-  mjpegChromaActive: number;
-  mjpegChromaFallback: string;
-  // The straight-from-capture setting (both codecs) and the codecs it applies to.
-  hevcDirect: number;
-  hevcDirectSupported: boolean;
-  viDirectH264Supported?: boolean;
-  monitor: number;
-  portrait: boolean;
-  portraitResolution: number;
-  inputWidth: number;
-  inputHeight: number;
-  outputWidth: number;
-  outputHeight: number;
-  mjpegOutputWidth: number;
-  mjpegOutputHeight: number;
-  videoOutputWidth: number;
-  videoOutputHeight: number;
-  effectiveFps: number;
-  // The main stream: H.264/H.265 while it runs, else MJPEG.
-  measuredFps: number;
-  // The MJPEG stream alone (older servers: absent).
-  mjpegMeasuredFps?: number;
-  measuredKbps: number;
-  // Where the H.264/H.265 encoder takes its frames (kvm_mmf.hpp): 0 no video
-  // encoder, 1 straight from capture, 2-7 through VPSS and why (older
-  // servers: absent).
-  videoPath?: number;
-  // Device-wide MJPEG frame detection, saved by the server.
-  frameDetect: boolean;
-};
 
 const transportOf = (mode: string): Transport =>
   mode === 'h264' ? 'webrtc' : mode === 'mjpeg' ? 'mjpeg' : 'direct';

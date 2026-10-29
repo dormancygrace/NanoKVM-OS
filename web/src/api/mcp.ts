@@ -8,13 +8,13 @@ export type MCPConfig = {
 };
 
 export function getMCPConfig() {
-  return http.get('/api/mcp/config');
+  return http.get<MCPConfig>('/api/mcp/config');
 }
 
 export function setMCPEnabled(enabled: boolean) {
-  return http.post('/api/mcp/config', { enabled });
+  return http.post<MCPConfig>('/api/mcp/config', { enabled });
 }
 
 export function regenerateMCPAPIKey() {
-  return http.post('/api/mcp/key/regenerate');
+  return http.post<MCPConfig>('/api/mcp/key/regenerate');
 }

@@ -23,7 +23,7 @@ export const CommunityRepository = ({ disabled, onEnabled }: CommunityProps) => 
   useEffect(() => {
     let active = true;
     http
-      .get('/api/os/update/software/community')
+      .get<Status & { needed?: string[] }>('/api/os/update/software/community')
       .then((rsp) => {
         if (!active) return;
         if (rsp.code !== 0) throw new Error(rsp.msg);
@@ -42,7 +42,7 @@ export const CommunityRepository = ({ disabled, onEnabled }: CommunityProps) => 
     setBusy(true);
     setNeeded([]);
     try {
-      const rsp = await http.request({
+      const rsp = await http.request<Status & { needed?: string[] }>({
         method: 'put',
         url: '/api/os/update/software/community',
         data: { enabled }

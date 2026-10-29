@@ -1,6 +1,7 @@
 import { atom } from 'jotai';
 
-type Branding = {
+export type Branding = {
+  title?: string;
   logoRevision: string;
   faviconRevision: string;
   customLogoAvailable: boolean;

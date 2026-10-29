@@ -4,6 +4,7 @@ import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http';
+import type { Branding } from '@/jotai/branding';
 import {
   brandingAtom,
   brandingButtonColor,
@@ -27,7 +28,7 @@ export const ButtonColor = () => {
 
   useEffect(() => setDraft(currentColor), [currentColor]);
 
-  async function update(action: () => ReturnType<typeof http.get>) {
+  async function update(action: () => Promise<import('@/lib/http').ApiResponse<Branding>>) {
     setBusy(true);
     try {
       const rsp = await action();
@@ -89,7 +90,9 @@ export const ButtonColor = () => {
             loading={busy}
             disabled={!valid || normalizedDraft === currentColor}
             onClick={() =>
-              update(() => http.post('/api/branding/button-color', { color: normalizedDraft }))
+              update(() =>
+                http.post<Branding>('/api/branding/button-color', { color: normalizedDraft })
+              )
             }
           >
             {tr('save')}
@@ -97,7 +100,7 @@ export const ButtonColor = () => {
           {branding.customButtonColor && (
             <Button
               disabled={busy}
-              onClick={() => update(() => http.delete('/api/branding/button-color'))}
+              onClick={() => update(() => http.delete<Branding>('/api/branding/button-color'))}
             >
               {tr('restoreDefault')}
             </Button>

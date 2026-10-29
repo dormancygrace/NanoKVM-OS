@@ -20,7 +20,7 @@ export function uninstall() {
 }
 
 export function getStatus() {
-  return http.request({
+  return http.request<NetbirdStatus>({
     method: 'get',
     url: '/api/extensions/netbird/status',
     timeout: SLOW_CALL_TIMEOUT
@@ -28,7 +28,7 @@ export function getStatus() {
 }
 
 export function login() {
-  return http.post('/api/extensions/netbird/login', undefined, {
+  return http.post<{ url: string }>('/api/extensions/netbird/login', undefined, {
     timeout: SLOW_CALL_TIMEOUT
   });
 }
@@ -54,7 +54,16 @@ export function stop() {
 export function down() {
   // Do not let Http's shared 60s default turn a slow device response into an
   // ambiguous client-side failure.
-  return http.post('/api/extensions/netbird/down', undefined, {
+  return http.post<null>('/api/extensions/netbird/down', undefined, {
     timeout: SLOW_CALL_TIMEOUT
   });
 }
+
+export type NetbirdState = 'notInstall' | 'notRunning' | 'notLogin' | 'stopped' | 'running';
+
+export type NetbirdStatus = {
+  state: NetbirdState;
+  name: string;
+  ip: string;
+  version: string;
+};

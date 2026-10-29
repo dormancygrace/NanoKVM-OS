@@ -18,7 +18,7 @@ export const IndexSchedule = () => {
   useEffect(() => {
     let active = true;
     http
-      .get('/api/os/update/software/index-schedule')
+      .get<{ schedule: Schedule; timezone: string }>('/api/os/update/software/index-schedule')
       .then((rsp) => {
         if (!active) return;
         if (rsp.code !== 0) throw new Error(rsp.msg);

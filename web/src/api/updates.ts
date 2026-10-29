@@ -22,10 +22,10 @@ export type Components = {
 };
 
 export const getUpdateNotice = () =>
-  http.request({ method: 'get', url: '/api/os/update/notice', timeout: 10000 });
+  http.request<UpdateNotice>({ method: 'get', url: '/api/os/update/notice', timeout: 10000 });
 
 export const setUpdateNoticeEnabled = (enabled: boolean) =>
-  http.request({ method: 'put', url: '/api/os/update/notice', data: { enabled } });
+  http.request<UpdateNotice>({ method: 'put', url: '/api/os/update/notice', data: { enabled } });
 
 export const availableUpdates = (notice: UpdateNotice | null | undefined) =>
   notice?.enabled ? notice.updates : [];

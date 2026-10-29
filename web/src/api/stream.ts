@@ -2,7 +2,7 @@ import { http } from '@/lib/http.ts';
 
 // Never cache this: another viewer may have started or stopped the encoder.
 export function getEncoderState() {
-  return http.request({ method: 'get', url: '/api/stream/state', timeout: 4000 });
+  return http.request<EncoderState>({ method: 'get', url: '/api/stream/state', timeout: 4000 });
 }
 
 // enable/disable frame detect
@@ -23,5 +23,7 @@ export function stopFrameDetect(duration: number) {
 
 // Only an explicit user action may replace the shared encoder codec.
 export function selectEncoderCodec(codec: 'h264' | 'h265') {
-  return http.post('/api/stream/state', { codec });
+  return http.post<null>('/api/stream/state', { codec });
 }
+
+export type EncoderState = { active: boolean; selected: boolean; codec: 'h264' | 'h265' | '' };

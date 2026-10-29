@@ -34,9 +34,14 @@ export type RustDeskStatus = {
   runtime?: { registered: boolean; sessions: number };
 };
 export const getRustDeskStatus = (signal?: AbortSignal) =>
-  http.request({ method: 'get', url: '/api/addons/rustdesk/status', signal });
+  http.request<RustDeskStatus>({ method: 'get', url: '/api/addons/rustdesk/status', signal });
 export const configureRustDesk = (data: RustDeskConfig) =>
-  http.request({ method: 'put', url: '/api/addons/rustdesk/config', data, timeout: 190000 });
+  http.request<RustDeskStatus>({
+    method: 'put',
+    url: '/api/addons/rustdesk/config',
+    data,
+    timeout: 190000
+  });
 export const rustDeskPackageAction = (
   action: 'install' | 'upgrade' | 'remove' | 'check' | 'regenerate-password'
-) => http.post('/api/addons/rustdesk/' + action, undefined, { timeout: 190000 });
+) => http.post<RustDeskStatus>('/api/addons/rustdesk/' + action, undefined, { timeout: 190000 });

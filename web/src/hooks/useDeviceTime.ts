@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
 import { atom, useAtom } from 'jotai';
 
+import type { DateTimeConfig } from '@/lib/date-time.ts';
 import { defaultTimePreferences, type TimePreferences } from '@/lib/date-time.ts';
 import { http } from '@/lib/http.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+
+type Status = { config: DateTimeConfig; zones: string[]; now: number; synchronized: boolean };
 
 export const timePreferencesAtom = atom<TimePreferences>(defaultTimePreferences);
 
@@ -13,7 +16,7 @@ export function useDeviceTime() {
     let mounted = true;
     const refresh = () => {
       void http
-        .get('/api/vm/date-time')
+        .get<Status>('/api/vm/date-time')
         .then((rsp) => {
           if (!mounted || rsp.code !== 0) return;
           const { timezone, format, dateFormat = 'auto' } = rsp.data.config as TimePreferences;

@@ -3,12 +3,12 @@ import { getBaseUrl } from '@/lib/service.ts';
 
 // get image list
 export function getImages() {
-  return http.get('/api/storage/image');
+  return http.get<{ files: string[] }>('/api/storage/image');
 }
 
 // get mounted image
 export function getMountedImage() {
-  return http.get('/api/storage/image/mounted');
+  return http.get<{ file: string }>('/api/storage/image/mounted');
 }
 
 // mount/unmount image
@@ -23,7 +23,7 @@ export function mountImage(file?: string, cdrom?: boolean, force = false) {
 
 // get CD-ROM flag
 export function getCdRom() {
-  return http.get('/api/storage/cdrom');
+  return http.get<{ cdrom: number }>('/api/storage/cdrom');
 }
 
 export function deleteImage(file: string) {
@@ -35,13 +35,13 @@ export function deleteImage(file: string) {
 
 // The writable FAT32 user disk (a third LUN of the virtual storage).
 export function getUserDisk() {
-  return http.get('/api/storage/user-disk');
+  return http.get<UserDiskStatus>('/api/storage/user-disk');
 }
 export function createUserDisk(sizeMiB: number) {
-  return http.post('/api/storage/user-disk/create', { sizeMiB });
+  return http.post<UserDiskStatus>('/api/storage/user-disk/create', { sizeMiB });
 }
 export function deleteUserDisk() {
-  return http.post('/api/storage/user-disk/delete');
+  return http.post<UserDiskStatus>('/api/storage/user-disk/delete');
 }
 
 // Network boot: the official iPXE image on the virtual disk loads the
@@ -63,16 +63,22 @@ export type NetbootStatus = {
 // Downloads of the iPXE images (about 13 MB) can take minutes on Wi-Fi.
 const netbootTimeout = 11 * 60 * 1000;
 export function getNetboot() {
-  return http.get('/api/storage/netboot');
+  return http.get<NetbootStatus>('/api/storage/netboot');
 }
 export function updateNetboot() {
-  return http.post('/api/storage/netboot/update', undefined, { timeout: netbootTimeout });
+  return http.post<NetbootStatus>('/api/storage/netboot/update', undefined, {
+    timeout: netbootTimeout
+  });
 }
 export function enableNetboot(secureBoot: boolean) {
-  return http.post('/api/storage/netboot/enable', { secureBoot }, { timeout: netbootTimeout });
+  return http.post<NetbootStatus>(
+    '/api/storage/netboot/enable',
+    { secureBoot },
+    { timeout: netbootTimeout }
+  );
 }
 export function disableNetboot() {
-  return http.post('/api/storage/netboot/disable');
+  return http.post<NetbootStatus>('/api/storage/netboot/disable');
 }
 
 export type RemoteMediaStatus = {
@@ -97,7 +103,7 @@ export function connectSMBImage(options: {
 }
 
 export function getRemoteMedia() {
-  return http.get('/api/storage/remote');
+  return http.get<RemoteMediaStatus>('/api/storage/remote');
 }
 export function disconnectRemoteMedia() {
   return http.post('/api/storage/remote/disconnect');
@@ -120,7 +126,7 @@ export type UserDiskListing = {
   total: number;
 };
 export function listUserDiskFiles(path: string, offset = 0) {
-  return http.get(userFilesUrl, { path, offset });
+  return http.get<UserDiskListing>(userFilesUrl, { path, offset });
 }
 export function uploadUserDiskFile(
   path: string,
@@ -146,3 +152,14 @@ export function deleteUserDiskFile(path: string) {
 export function userDiskDownloadUrl(path: string) {
   return getBaseUrl('http') + userFilesUrl + '/download?' + new URLSearchParams({ path });
 }
+
+export type UserDiskStatus = {
+  file: string;
+  label: string;
+  sizes: number[];
+  exists: boolean;
+  sizeMiB?: number;
+  modifiedAt?: string;
+  enabled: boolean;
+  attached: boolean;
+};

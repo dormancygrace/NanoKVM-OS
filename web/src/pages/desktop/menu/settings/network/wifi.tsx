@@ -111,7 +111,7 @@ export const Wifi = () => {
         const rsp = await api.getWiFi();
         if (rsp.code !== 0) throw new Error();
         if (!alive) return;
-        const next = rsp.data as api.WifiStatus;
+        const next = rsp.data;
         setState(next);
         setStatusFailed(false);
         const operation = pendingRef.current;

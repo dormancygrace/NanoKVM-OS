@@ -53,7 +53,11 @@ export const PicoclawInstall = ({
       <Alert
         type="info"
         showIcon
-        message={t('settings.ai.picoclaw.notInstalled')}
+        message={
+          status.installing
+            ? t('picoclaw.install.installing')
+            : t('settings.ai.picoclaw.notInstalled')
+        }
         description={
           // A line, not antd's Progress: Progress in this lazy chunk makes the
           // antd chunks import each other (tests/chunks.test.mjs).

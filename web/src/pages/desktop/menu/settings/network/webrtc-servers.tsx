@@ -50,7 +50,7 @@ export const WebRTCServers = () => {
       .then((rsp) => {
         if (!active) return;
         if (rsp.code !== 0) setLoadError({ error: rsp });
-        else adopt(rsp.data as State);
+        else adopt(rsp.data);
       })
       .catch((error: unknown) => active && setLoadError({ error }));
     return () => {

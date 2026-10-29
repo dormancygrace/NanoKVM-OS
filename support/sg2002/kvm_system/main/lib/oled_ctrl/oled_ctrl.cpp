@@ -18,9 +18,8 @@ uint8_t OLED_state = 0;
 uint8_t kvm_hw_ver = 0;
 
 // The display is written over I2C bit-banged by the kernel (i2c-gpio, a
-// udelay per bit). With the display on, the screen was sent every second
-// byte by byte, a start, the address, a control byte and a stop around each:
-// 3.7% of the CPU. Two things cut that down:
+// udelay per bit). Each byte of a changed line was sent separately, with a
+// start, address, control byte and stop around it. Two things cut that down:
 //  * Only bytes that differ from what the controller's RAM already holds are
 //    sent. Drawing sets a position (oled_cursor) and writes data; a copy of
 //    the RAM (oled_ram) skips unchanged bytes, and the position goes out only
@@ -37,9 +36,12 @@ static int oled_batch_depth = 0;
 static uint8_t oled_run[1 + 128];
 static int oled_run_len = 0;
 
-// Page addressing: after column 127 the controller's cursor wraps to column
-// 0 of the same page.
-enum { OLED_PAGES = 16, OLED_COLUMNS = 128 };
+// SSD1306 page addressing has eight RAM pages; after column 127 the cursor
+// wraps to column 0 of the same page. The legacy PCIe layout sends B8..BB:
+// keep those addresses untracked instead of assuming they refer to separate
+// RAM. oled_cursor sends them verbatim and invalidates the shadow, preserving
+// clears on controllers where the high page bit is ignored.
+enum { OLED_PAGES = 8, OLED_COLUMNS = 128 };
 static uint8_t oled_ram[OLED_PAGES][OLED_COLUMNS];
 static bool oled_ram_known[OLED_PAGES][OLED_COLUMNS];
 static uint64_t oled_ram_since_ms = 0;

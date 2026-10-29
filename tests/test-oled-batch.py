@@ -20,6 +20,7 @@ with tempfile.TemporaryDirectory() as directory:
 struct Display {
     uint8_t ram[16][256] = {};
     int page = 0, column = 0;
+    int page_mask = 15;
     size_t transfers = 0, bytes = 0;
     void transfer(const uint8_t *data, int len) {
         transfers++;
@@ -29,7 +30,7 @@ struct Display {
             if (data[0] == OLED_DATA) {
                 ram[page][column] = b;
                 column = column + 1 < 128 ? column + 1 : 0;
-            } else if (b >= 0xb0 && b <= 0xbf) page = b - 0xb0;
+            } else if (b >= 0xb0 && b <= 0xbf) page = (b - 0xb0) & page_mask;
             else if (b >= 0x10 && b <= 0x1f) column = (column & 0x0f) | (b & 0x0f) << 4;
             else if (b <= 0x0f) column = (column & 0xf0) | b;
             else assert(!"unexpected command while drawing");
@@ -123,6 +124,19 @@ int main()
     same_as_full([] { OLED_Fill(); OLED_ShowString(30, 3, "on white", 8); });
     kvm_hw_ver = 2; // the narrow display: shifted pages and columns
     same_as_full([] { OLED_Clear(); OLED_ShowString(0, 0, "PCIe", 4); OLED_ShowNum(42, 3, 60, 3, 4); });
+    // The legacy narrow layout sends B8..BB. Do not assume these name
+    // independent RAM pages: a controller decoding only three page bits
+    // aliases them to the pages OLED_Clear writes. Clearing must still erase
+    // the text, even if no pixel in the shadow's low pages has changed.
+    OLED_ForgetRAM();
+    display.page_mask = 7;
+    OLED_Clear();
+    OLED_ShowString(0, 0, "PCIe", 4);
+    OLED_Clear();
+    for (int page = 0; page < 8; page++)
+        for (int column = 0; column < 128; column++) assert(display.ram[page][column] == 0);
+    display.page_mask = 15;
+    OLED_ForgetRAM();
     kvm_hw_ver = 0;
 
     // A line drawn past column 127 wraps to column 0 of its page, as the

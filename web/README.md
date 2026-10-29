@@ -2,9 +2,10 @@
 
 React/TypeScript browser interface derived from Sipeed NanoKVM. Product behavior is documented in [Video](../docs/VIDEO.md), [Updates](../docs/UPDATES.md) and the [main README](../README.md).
 
-Use Node.js 24 LTS and pnpm 11+ as specified in `package.json` (CI uses pnpm 12).
-The repository root `.nvmrc` selects Node 24; nvm users can run `nvm install`
-and `nvm use` from that directory before entering `web/`:
+Use Node.js 26 LTS and pnpm 11+ as specified in `package.json` (CI uses pnpm 12).
+The repository root `.nvmrc` selects Node 26; nvm users can run `nvm install`
+and `nvm use` from that directory before entering `web/`. On Linux, the
+official Node.js 26 binaries also require `libatomic` (Ubuntu: `libatomic1`):
 
 ```sh
 pnpm install --frozen-lockfile

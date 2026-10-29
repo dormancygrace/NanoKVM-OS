@@ -18,7 +18,7 @@ Intentional exceptions have separate monitoring:
 
 | Dependabot exception | Independent check / reason |
 |---|---|
-| Major `@types/node` bumps | The watcher reports latest; types stay aligned with the selected Node 24 runtime until a deliberate migration. |
+| Major `@types/node` bumps | The watcher reports latest; types stay aligned with the selected Node 26 runtime until a deliberate migration. |
 | `pion/dtls/v3`, `pion/ice/v4`, `pion/srtp/v3` | The watcher checks upstream tags. Local replacements contain patches; changing `require` alone would not update their implementation. |
 | `github.com/rs/cors/wrapper/gin` | The watcher checks the Go module proxy's actual nested-module release. Dependabot previously tried a parent tag that contains no such package. |
 | `github.com/mervick/aes-bridge-go` | The watcher checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |

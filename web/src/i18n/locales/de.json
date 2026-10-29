@@ -1549,7 +1549,8 @@
         },
         "joinConfirm": "Mit {{ssid}} verbinden?",
         "joinOverWifi": "Diese Seite nutzt WLAN. Ein anderes Netz beendet ihre Verbindung; das Gerät antwortet dann im neuen Netz unter der Adresse, die es dort erhält.",
-        "autoConnect": "Automatisch verbinden"
+        "autoConnect": "Automatisch verbinden",
+        "savedTag": "Gespeichert"
       },
       "wifiSaved": {
         "title": "Gespeicherte Netzwerke",

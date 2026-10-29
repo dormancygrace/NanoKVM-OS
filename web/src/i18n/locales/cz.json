@@ -685,7 +685,8 @@
         "connectionTimeout": "Připojení nebylo potvrzeno. Zkontrolujte síť a v případě, že adresa zařízení byla změněna, znovu se k němu připojte.",
         "joinConfirm": "Připojit k {{ssid}}?",
         "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu daná síť přidělí.",
-        "autoConnect": "Připojovat automaticky"
+        "autoConnect": "Připojovat automaticky",
+        "savedTag": "Uložená"
       },
       "wifiSaved": {
         "title": "Uložené sítě",

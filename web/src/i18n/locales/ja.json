@@ -1549,7 +1549,8 @@
         },
         "joinConfirm": "{{ssid}} に接続しますか?",
         "joinOverWifi": "このページは Wi-Fi 経由です。別のネットワークに接続するとこの接続は切れ、デバイスは新しいネットワークで割り当てられたアドレスで応答します。",
-        "autoConnect": "自動的に接続する"
+        "autoConnect": "自動的に接続する",
+        "savedTag": "保存済み"
       },
       "wifiSaved": {
         "title": "保存済みネットワーク",

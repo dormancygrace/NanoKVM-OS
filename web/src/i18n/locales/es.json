@@ -1549,7 +1549,8 @@
         },
         "joinConfirm": "¿Conectar a {{ssid}}?",
         "joinOverWifi": "Esta página usa Wi-Fi. Conectarse a otra red corta su conexión; después el dispositivo responde en la nueva red, en la dirección que esa red le dé.",
-        "autoConnect": "Conectar automáticamente"
+        "autoConnect": "Conectar automáticamente",
+        "savedTag": "Guardada"
       },
       "wifiSaved": {
         "title": "Redes guardadas",

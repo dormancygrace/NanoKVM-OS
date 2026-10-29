@@ -475,6 +475,9 @@ export const Wifi = () => {
                         {network.bands.map((band) => (
                           <WifiBandTag key={band} band={band} />
                         ))}
+                        {saved.some((item) => item.ssid === network.ssid) && (
+                          <StatusBadge tone="neutral">{tr('savedTag')}</StatusBadge>
+                        )}
                       </div>
                       <div className="text-fg-muted text-xs">
                         {Array.from(

@@ -1549,7 +1549,8 @@
         },
         "joinConfirm": "Rejoindre {{ssid}} ?",
         "joinOverWifi": "Cette page utilise le Wi-Fi. Rejoindre un autre réseau coupe sa connexion ; l'appareil répond ensuite sur le nouveau réseau, à l'adresse que celui-ci lui donne.",
-        "autoConnect": "Se connecter automatiquement"
+        "autoConnect": "Se connecter automatiquement",
+        "savedTag": "Enregistré"
       },
       "wifiSaved": {
         "title": "Réseaux enregistrés",

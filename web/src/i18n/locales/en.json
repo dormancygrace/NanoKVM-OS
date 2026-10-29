@@ -1549,7 +1549,8 @@
         },
         "joinConfirm": "Join {{ssid}}?",
         "joinOverWifi": "This page uses Wi-Fi. Joining another network ends its connection; the device then answers on the new network, at the address that network gives it.",
-        "autoConnect": "Connect automatically"
+        "autoConnect": "Connect automatically",
+        "savedTag": "Saved"
       },
       "wifiSaved": {
         "title": "Saved networks",

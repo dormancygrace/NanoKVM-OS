@@ -1549,7 +1549,8 @@
         },
         "joinConfirm": "加入 {{ssid}}？",
         "joinOverWifi": "此页面通过 Wi-Fi 访问。加入其他网络会断开此连接；之后设备将在新网络中、以新网络分配的地址响应。",
-        "autoConnect": "自动连接"
+        "autoConnect": "自动连接",
+        "savedTag": "已保存"
       },
       "wifiSaved": {
         "title": "已保存的网络",

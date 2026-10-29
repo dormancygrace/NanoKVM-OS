@@ -1,27 +1,17 @@
 {
   "component": "Node (selected LTS)",
-  "current": "24.22.0",
-  "candidate": "24.22.1",
-  "candidate_key": "24.22.1",
-  "status": "qualified",
+  "current": "24.22.1",
+  "candidate": "24.22.2",
+  "candidate_key": "24.22.2",
+  "status": "pending-review",
   "upstream": "https://nodejs.org/dist/index.json",
   "source_path": "platform/sources.lock",
   "strategy": "archive-pin",
   "evidence": {
-    "archive": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz",
-    "sha256": "6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6"
+    "archive": "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64.tar.xz",
+    "sha256": "48cc0e21e048790e54c0cf5749c2725005313d652651c40b7a21feb9697aaf75"
   },
   "pin_files_updated": [
     "platform/sources.lock"
-  ],
-  "verification": {
-    "node": "24.22.1",
-    "pnpm": "12.8.1",
-    "official_archive_sha256_verified": true,
-    "canonical_web_build": "passed",
-    "clean_old_new_builds_identical_files": 218,
-    "web_tests_passed": 291,
-    "web_lint": "passed",
-    "device_runtime_changed": false
-  }
+  ]
 }

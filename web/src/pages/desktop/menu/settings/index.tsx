@@ -288,7 +288,6 @@ export const Settings = ({
         ),
         'ai-picoclaw': (
           <PicoclawSettingsPage
-            onOpenAddons={() => changeTab('software-addons')}
             onOpenChat={() => {
               closeModal();
               setPicoclawOpen(true);

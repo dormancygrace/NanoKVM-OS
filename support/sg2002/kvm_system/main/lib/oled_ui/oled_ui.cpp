@@ -10,7 +10,7 @@ constexpr uint64_t OLED_IP_WINDOW_MS = 10U * 60U * 1000U;
 // The addresses last seen and the window's deadline, for the next kvm_system
 // of the same boot: a restart (a package upgrade, nanokvm-app restart) is not
 // a new address. /run starts empty at boot, so a boot still opens a window.
-constexpr const char *OLED_IP_WINDOW_STATE = "/run/kvm_system-oled-ip-window";
+constexpr char OLED_IP_WINDOW_STATE[] = "/run/kvm_system-oled-ip-window";
 
 struct oled_ip_window_t {
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -44,7 +44,7 @@ void restore_ip_window(uint64_t now)
 // Called with the mutex held, only when something changed.
 void save_ip_window()
 {
-    char temporary[64];
+    char temporary[sizeof(OLED_IP_WINDOW_STATE) + sizeof(".tmp") - 1];
     snprintf(temporary, sizeof(temporary), "%s.tmp", OLED_IP_WINDOW_STATE);
     FILE *fp = fopen(temporary, "w");
     if (fp == NULL) return;

@@ -8,6 +8,7 @@
 #include <ifaddrs.h>
 #include <linux/i2c-dev.h>
 #include <linux/i2c.h>
+#include <mutex>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -33,8 +34,22 @@ void sleep_ms(uint64_t ms)
     }
 }
 
+// The state loop asks for addresses at several places within a few
+// milliseconds, and each getifaddrs() is a netlink dump of every link and
+// address. One dump serves them all; an answer is at most this old.
+static constexpr uint64_t IP_ADDRESS_MAX_AGE_MS = 500;
+
 std::map<std::string, std::string> ip_address()
 {
+    static std::mutex lock;
+    static std::map<std::string, std::string> cached;
+    static uint64_t cached_at;
+    static bool have_cached = false;
+    std::lock_guard<std::mutex> guard(lock);
+    const uint64_t now = ticks_ms();
+    if (have_cached && now - cached_at < IP_ADDRESS_MAX_AGE_MS)
+        return cached;
+
     std::map<std::string, std::string> addresses;
     struct ifaddrs *list;
     if (getifaddrs(&list) == -1)
@@ -48,6 +63,9 @@ std::map<std::string, std::string> ip_address()
             addresses[ifa->ifa_name] = text;
     }
     freeifaddrs(list);
+    cached = addresses;
+    cached_at = now;
+    have_cached = true;
     return addresses;
 }
 

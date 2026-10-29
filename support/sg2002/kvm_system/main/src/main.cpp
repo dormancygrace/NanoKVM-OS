@@ -35,15 +35,19 @@ void* thread_oled_handle(void *)
 		kvm_oled_state.sub_page = kvm_sys_state.sub_page;
 
 
-		switch(kvm_oled_state.page){
-			case 0 : // main page
-				kvm_main_ui_disp(page_changed, subpage_changed);
-				break;
-			case 1 : // wifi config page
-				kvm_wifi_config_ui_disp(page_changed, subpage_changed);
-				break;
-			default:
-				OLED_Clear();
+		{
+			// One screen update, sent in as few I2C transfers as possible.
+			OledBatch batch;
+			switch(kvm_oled_state.page){
+				case 0 : // main page
+					kvm_main_ui_disp(page_changed, subpage_changed);
+					break;
+				case 1 : // wifi config page
+					kvm_wifi_config_ui_disp(page_changed, subpage_changed);
+					break;
+				default:
+					OLED_Clear();
+			}
 		}
 		kvms::sleep_ms(OLED_DELAY);
     }

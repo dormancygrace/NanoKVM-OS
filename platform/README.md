@@ -315,7 +315,9 @@ statically, exfatprogs against the device's `libblkid`. Each package
 `provides` and `replaces` the Alpine package of the same tool, so an upgrade
 removes the Alpine package and a dependency on the tool's name is satisfied.
 
-The browser package requires `nanokvm-web-api=1`, provided by the server.
+The browser package requires `nanokvm-web-api=2`, provided by the server
+(2: the browser sends passwords as typed, marked `passwordEncoding: "plain"`,
+not as CryptoJS ciphertext).
 Increment this contract version when the browser/server API becomes incompatible,
 and update both recipes together. Compatible fixes may increment either package's
 `pkgrel` independently. Do not pin their revisions to each other.

@@ -30,6 +30,23 @@ async function touchTap(cdp: CDPSession, target: Locator) {
     type: 'touchStart',
     touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }]
   });
+  // This duration models finger contact, not a wait for the UI to pass.
+  await target.page().waitForTimeout(50);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
+async function swipeDown(page: Page, cdp: CDPSession, x: number, y: number) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  // A finite-speed pull followed by a stationary release: a single 90 px jump
+  // followed immediately by touchend describes a fling, not a handle drag.
+  for (let step = 1; step <= 6; step++) {
+    await page.waitForTimeout(30);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x, y: y + step * 15 }]
+    });
+  }
+  await page.waitForTimeout(50);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
@@ -163,12 +180,7 @@ test.describe('touch', () => {
     if (!box) throw new Error('handle not visible');
     const x = box.x + box.width / 2,
       y = box.y + box.height / 2;
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [{ x, y: y + 90 }]
-    });
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await swipeDown(page, cdp, x, y);
     await expect(dialog).toHaveCount(0);
     await touchTap(cdp, opener);
     await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
@@ -252,12 +264,7 @@ test.describe('touch', () => {
     await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 35)');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
     await expect(dialog).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-    await cdp.send('Input.dispatchTouchEvent', {
-      type: 'touchMove',
-      touchPoints: [{ x, y: y + 90 }]
-    });
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await swipeDown(page, cdp, x, y);
     await expect(dialog).toHaveCount(0);
     await touchTap(cdp, page.getByRole('button', { name: 'Open keyboard', exact: true }));
     await expect(page.getByRole('dialog')).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');

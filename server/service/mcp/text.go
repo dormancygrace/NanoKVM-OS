@@ -8,7 +8,7 @@ import (
 	protocol "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const screenTextToolName = "cube_screen_text"
+const screenTextToolName = "screen_text"
 
 // ErrNoTextReader: the TPU add-on, which reads the text, is not installed.
 var ErrNoTextReader = errors.New("reading the screen text needs the TPU add-on")

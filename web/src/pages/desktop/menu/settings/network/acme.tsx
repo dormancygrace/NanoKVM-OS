@@ -17,7 +17,7 @@ import {
   providerMatches
 } from '@/lib/acme.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
-import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
+import { SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
 const POLL_MS = 2000;
 
@@ -28,7 +28,14 @@ const POLL_MS = 2000;
  * background; the panel polls while they run and tells the certificate
  * panel when they are done.
  */
-export const Acme = ({ onChange }: { onChange: () => void }) => {
+export const Acme = ({
+  onChange,
+  reloadKey
+}: {
+  onChange: () => void;
+  // Bumped when the certificate block changed the ACME state itself.
+  reloadKey: number;
+}) => {
   const { t, i18n } = useTranslation();
   const [status, setStatus] = useState<AcmeStatus>();
   const [providers, setProviders] = useState<AcmeProvider[]>([]);
@@ -85,7 +92,7 @@ export const Acme = ({ onChange }: { onChange: () => void }) => {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   // The DNS hooks, once acme.sh is there and the DNS challenge is chosen.
   useEffect(() => {
@@ -237,18 +244,16 @@ export const Acme = ({ onChange }: { onChange: () => void }) => {
     (!needsEab(ca) || (eabKid.trim() !== '' && eabHmac.trim() !== ''));
 
   return (
-    <Panel className="space-y-4">
-      <SettingRow
-        label={t('settings.network.acme.title')}
-        description={t('settings.network.acme.description')}
-      >
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-fg-muted text-xs">{t('settings.network.acme.description')}</span>
         {status &&
           (status.installed ? (
             <span className="text-fg-muted text-xs">acme.sh {status.version}</span>
           ) : (
             <StatusBadge tone="neutral">{t('settings.network.acme.notInstalled')}</StatusBadge>
           ))}
-      </SettingRow>
+      </div>
 
       {status && !status.installed && (
         <div className="flex flex-wrap items-center gap-3">
@@ -539,6 +544,6 @@ export const Acme = ({ onChange }: { onChange: () => void }) => {
           </div>
         </>
       )}
-    </Panel>
+    </div>
   );
 };

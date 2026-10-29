@@ -10,6 +10,7 @@
 : "${NANOKVM_WIFI_UID_FILE:=/sys/class/cvi-base/base_uid}"
 : "${NANOKVM_WPA_PASSPHRASE:=wpa_passphrase}"
 : "${NANOKVM_WPA_SUPPLICANT:=wpa_supplicant}"
+: "${NANOKVM_WPA_CLI:=wpa_cli}"
 : "${NANOKVM_UDHCPC:=udhcpc}"
 : "${NANOKVM_HOSTAPD:=hostapd}"
 : "${NANOKVM_UDHCPD:=udhcpd}"
@@ -52,6 +53,10 @@ UDHCPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/udhcpd.conf
 UDHCPD_PID=$NANOKVM_WIFI_RUN_DIR/udhcpd.pid
 UDHCPD_LEASES=$NANOKVM_WIFI_RUN_DIR/udhcpd.leases
 WLAN_DHCP_PID=$NANOKVM_WIFI_DHCP_PID
+# wpa_cli runs this script on association events. It keeps the saved network
+# (hex of its SSID, the id_str of its blocks) last associated in this start.
+WPA_CLI_PID=$NANOKVM_WIFI_RUN_DIR/wpa_cli.pid
+ASSOCIATED_FILE=$NANOKVM_WIFI_RUN_DIR/associated
 
 prepare_run_dir() {
     mkdir -p "$NANOKVM_WIFI_RUN_DIR" || return 1
@@ -218,8 +223,12 @@ emit_network() {
     priority=$2
     background_scan=${3:-}
     echo 'network={'
-    # Hex encoding prevents quotes/backslashes in SSIDs becoming config.
-    printf '    ssid=%s\n' "$(printf '%s' "$ssid" | od -An -tx1 | tr -d ' \n')"
+    # Hex encoding prevents quotes/backslashes in SSIDs becoming config. The
+    # same hex, the saved network's name, is the block's id_str: STATUS,
+    # GET_NETWORK and association events name the saved network by it without
+    # wpa_supplicant's escaped SSID text.
+    printf '    ssid=%s\n' "$(hex_of "$ssid")"
+    printf '    id_str="%s"\n' "$(hex_of "$ssid")"
     if [ "$security" = open ]; then
         echo '    key_mgmt=NONE'
     else
@@ -393,13 +402,84 @@ start() {
     fi
 
     "$NANOKVM_WPA_SUPPLICANT" -B -i wlan0 -c "$WPA_CONFIG" || return 1
-    if [ ! -e "$NANOKVM_WIFI_BOOT_DIR/wifi.nodhcp" ]; then
-        set -- -S -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID"
-        if value=$(dhcp_hostname); then
-            set -- "$@" -x "hostname:$value" -F "$value"
-        fi
-        "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1 &
+    start_event_handler
+    start_dhcp
+}
+
+start_dhcp() {
+    [ ! -e "$NANOKVM_WIFI_BOOT_DIR/wifi.nodhcp" ] || return 0
+    set -- -S -B -O 121 -i wlan0 -t 10 -T 1 -A 5 -b -p "$WLAN_DHCP_PID"
+    if value=$(dhcp_hostname); then
+        set -- "$@" -x "hostname:$value" -F "$value"
     fi
+    "$NANOKVM_UDHCPC" "$@" >/dev/null 2>&1 &
+}
+
+stop_dhcp() {
+    [ -e "$WLAN_DHCP_PID" ] || return 0
+    pid=$(cat "$WLAN_DHCP_PID")
+    case "$pid" in
+        ''|*[!0-9]*) ;;
+        *) [ "$pid" -le 1 ] || kill "$pid" 2>/dev/null || true ;;
+    esac
+    rm -f "$WLAN_DHCP_PID"
+}
+
+# With several saved networks wpa_supplicant moves between them by itself
+# when one goes out of range. udhcpc does not watch the link: it would keep
+# the old network's address, routes and DNS until its lease ran out. wpa_cli
+# runs this script on every association; a change of saved network starts
+# DHCP again, while moving between bands of the same network does not.
+start_event_handler() {
+    if ! command -v "$NANOKVM_WPA_CLI" >/dev/null 2>&1; then
+        echo "wpa_cli is missing; the address is not renewed when WiFi moves to another network" >&2
+        return 0
+    fi
+    rm -f "$ASSOCIATED_FILE"
+    self=$(readlink -f "$0") || self=$0
+    "$NANOKVM_WPA_CLI" -B -i wlan0 -p "$NANOKVM_WPA_CTRL_DIR" -P "$WPA_CLI_PID" -a "$self" ||
+        echo "Could not start the WiFi event handler" >&2
+}
+
+stop_event_handler() {
+    if [ -r "$WPA_CLI_PID" ]; then
+        pid=$(cat "$WPA_CLI_PID")
+        case "$pid" in
+            ''|*[!0-9]*) ;;
+            *)
+                if [ "$pid" -gt 1 ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null)" = wpa_cli ]; then
+                    kill "$pid" 2>/dev/null || true
+                    # wpa_cli removes its pid file as it exits: one still
+                    # exiting would remove the next one's, which disables
+                    # its events. Wait for it, up to 2 s.
+                    tries=0
+                    while [ -e "/proc/$pid" ] && [ "$tries" -lt 20 ]; do
+                        tries=$((tries + 1))
+                        sleep 0.1
+                    done
+                fi
+                ;;
+        esac
+    fi
+    rm -f "$WPA_CLI_PID" "$ASSOCIATED_FILE"
+}
+
+# wpa_cli -a: "<script> wlan0 CONNECTED|DISCONNECTED", the block's id_str in
+# WPA_ID_STR. A block without one (written by an older S30wifi) is ignored.
+wifi_event() {
+    [ "$1" = CONNECTED ] || return 0
+    network=${WPA_ID_STR:-}
+    case "$network" in ''|*[!0-9a-f]*) return 0 ;; esac
+    # Stopped meanwhile: S30wifi stop removes the handler's pid file first.
+    [ -e "$WPA_CLI_PID" ] || return 0
+    previous=$(cat "$ASSOCIATED_FILE" 2>/dev/null || true)
+    (umask 077 && printf '%s' "$network" > "$ASSOCIATED_FILE") || return 1
+    [ -n "$previous" ] && [ "$previous" != "$network" ] || return 0
+    [ -e "$WLAN_DHCP_PID" ] || return 0
+    echo "WiFi moved to another saved network; requesting a new address"
+    stop_dhcp
+    # Its deconfig removes the previous network's address before DISCOVER.
+    start_dhcp
 }
 
 ap_start() {
@@ -490,18 +570,13 @@ stop() {
                 ;;
         esac
     fi
+    # Before wpa_supplicant: its last events must not start DHCP again.
+    stop_event_handler
     "$NANOKVM_KILLALL" wpa_supplicant 2>/dev/null || true
     wait_for_exit wpa_supplicant "$NANOKVM_WPA_CTRL_DIR/wlan0"
     wait_for_exit hostapd "$NANOKVM_HOSTAPD_CTRL_DIR/wlan0"
 
-    if [ -e "$WLAN_DHCP_PID" ]; then
-        pid=$(cat "$WLAN_DHCP_PID")
-        case "$pid" in
-            ''|*[!0-9]*) ;;
-            *) [ "$pid" -le 1 ] || kill "$pid" 2>/dev/null || true ;;
-        esac
-        rm -f "$WLAN_DHCP_PID"
-    fi
+    stop_dhcp
 
     rm -f "$UDHCPD_PID" "$UDHCPD_LEASES" "$WPA_CONFIG" \
         "$HOSTAPD_CONFIG" "$UDHCPD_CONFIG" "$NANOKVM_WIFI_AP_FLAG"
@@ -529,4 +604,6 @@ case "${1:-}" in
         ap_start
         ;;
     restart) restart ;;
+    # Run by wpa_cli -a (start_event_handler).
+    wlan0) wifi_event "${2:-}" ;;
 esac

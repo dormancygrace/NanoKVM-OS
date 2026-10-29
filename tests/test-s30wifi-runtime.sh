@@ -82,7 +82,7 @@ echo $((count + 1)) > "$CALL_LOG.alive"
 exit 0
 EOF
     chmod +x "$BIN_DIR/pidof"
-    for command in wpa_supplicant udhcpc hostapd udhcpd ifconfig ip killall chown
+    for command in wpa_supplicant wpa_cli udhcpc hostapd udhcpd ifconfig ip killall chown
     do
         cat > "$BIN_DIR/$command" <<EOF
 #!/bin/sh
@@ -101,7 +101,6 @@ EOF
 }
 
 run_action() (
-    action=$1
     export CALL_LOG WPA_FAIL ALIVE_CHECKS
     export NANOKVM_PIDOF="$BIN_DIR/pidof"
     export NANOKVM_WPA_CTRL_DIR="$CASE_DIR/wpa_ctrl"
@@ -115,6 +114,7 @@ run_action() (
     export NANOKVM_WIFI_DHCP_PID="$DHCP_PID"
     export NANOKVM_WPA_PASSPHRASE="$BIN_DIR/wpa_passphrase"
     export NANOKVM_WPA_SUPPLICANT="$BIN_DIR/wpa_supplicant"
+    export NANOKVM_WPA_CLI="$BIN_DIR/wpa_cli"
     export NANOKVM_UDHCPC="$BIN_DIR/udhcpc"
     export NANOKVM_HOSTAPD="$BIN_DIR/hostapd"
     export NANOKVM_UDHCPD="$BIN_DIR/udhcpd"
@@ -124,7 +124,14 @@ run_action() (
     export NANOKVM_CHOWN="$BIN_DIR/chown"
     export NANOKVM_IW="$BIN_DIR/iw"
     export NANOKVM_WIFI_PHY_LINK="$PHY_LINK"
-    "$SCRIPT" "$action"
+    "$SCRIPT" "$@"
+)
+
+# event ID_STR: what wpa_cli -a runs when wlan0 associates with that block.
+event() (
+    WPA_ID_STR=$1
+    export WPA_ID_STR
+    run_action wlan0 CONNECTED
 )
 
 # With no credentials, boot must not launch idle WPA/DHCP processes or create
@@ -349,6 +356,15 @@ save_entry() {
     printf %s "$5" > "$entry/auto"
 }
 
+wait_for() {
+    tries=0
+    until grep -F -- "$1" "$2" >/dev/null; do
+        tries=$((tries + 1))
+        [ "$tries" -le 50 ] || fail "$2 does not contain: $1"
+        sleep 0.1
+    done
+}
+
 network_block() {
     awk -v ssid="ssid=$1" '/^network=\{/ { block = "" } { block = block $0 "\n" } /^}/ && index(block, ssid) { printf "%s", block }' \
         "$RUN_DIR/wpa_supplicant.conf"
@@ -398,6 +414,13 @@ assert_not_contains "ssid=$(hex Broken)" "$config"
 assert_not_contains "ssid=$(hex Other)" "$config"
 assert_contains "Skipping saved WiFi network $(hex Broken)" "$CASE_DIR/stderr"
 assert_contains 'wpa_supplicant args=-B -i wlan0' "$CALL_LOG"
+
+# Every block names its saved network in id_str, for the event handler and
+# the server.
+case "$(network_block "$(hex Office)")" in *"id_str=\"$(hex Office)\""*) ;; *) fail 'block without id_str' ;; esac
+assert_count 'id_str=' 4 "$config"
+# wpa_cli runs this script on association events.
+assert_contains "wpa_cli args=-B -i wlan0 -p $CASE_DIR/wpa_ctrl -P $RUN_DIR/wpa_cli.pid -a $(readlink -f "$SCRIPT")" "$CALL_LOG"
 
 # The network chosen in this boot is joined without automatic connection;
 # after a reboot (/run empty) it is not.
@@ -449,6 +472,63 @@ entry=$ETC_DIR/wifi.saved/$(hex Office)
 [ "$(cat "$entry/auto")" = 1 ] || fail 'boot credentials do not connect automatically'
 assert_contains 'wpa_passphrase args=Office stdin=newpass12' "$CALL_LOG"
 [ "$(ls -A "$ETC_DIR/wifi.saved" | grep -c '^\.')" = 0 ] || fail 'temporary saved-network directory left behind'
+
+# wpa_supplicant moves to another saved network by itself: DHCP starts again
+# for it (udhcpc would keep the old network's address). The first
+# association, a move between bands of the same network and a block without
+# id_str do not touch DHCP.
+new_case network_change_dhcp
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+save_entry Office secret123 personal false 1
+save_entry Cafe cafepass1 personal false 1
+run_action start
+wait_for 'udhcpc args=' "$CALL_LOG" # started in the background
+echo 4242 > "$RUN_DIR/wpa_cli.pid" # what wpa_cli -P writes
+sleep 5 &
+dhcp=$!
+echo "$dhcp" > "$DHCP_PID"
+: > "$CALL_LOG"
+event "$(hex Office)"
+event "$(hex Office)"
+event ''
+assert_not_contains 'udhcpc args=' "$CALL_LOG"
+[ "$(cat "$RUN_DIR/associated")" = "$(hex Office)" ] || fail 'association not recorded'
+event "$(hex Cafe)" > "$CASE_DIR/stdout"
+if wait "$dhcp"; then fail 'the DHCP client of the previous network was not stopped'; fi
+wait_for 'udhcpc args=-S -B -O 121 -i wlan0' "$CALL_LOG"
+assert_count 'udhcpc args=-S -B -O 121 -i wlan0' 1 "$CALL_LOG"
+assert_contains 'requesting a new address' "$CASE_DIR/stdout"
+[ "$(cat "$RUN_DIR/associated")" = "$(hex Cafe)" ] || fail 'new association not recorded'
+# DISCONNECTED and events after stop (the handler's pid file is gone) do nothing.
+# stop ends the handler and waits for it: a wpa_cli still exiting would remove
+# the pid file of the next one.
+mkdir -p "$CASE_DIR/daemon"
+printf '#!/bin/sh\nsleep 5\n' > "$CASE_DIR/daemon/wpa_cli"
+chmod +x "$CASE_DIR/daemon/wpa_cli"
+# Started from a subshell, so that init reaps it like the daemon wpa_cli.
+( "$CASE_DIR/daemon/wpa_cli" & echo $! > "$RUN_DIR/wpa_cli.pid" )
+handler=$(cat "$RUN_DIR/wpa_cli.pid")
+[ "$(cat "/proc/$handler/comm")" = wpa_cli ] || fail 'test handler is not named wpa_cli'
+: > "$CALL_LOG"
+run_action wlan0 DISCONNECTED
+run_action stop
+[ ! -e "/proc/$handler" ] || fail 'stop returned before the event handler exited'
+assert_absent "$RUN_DIR/wpa_cli.pid"
+assert_absent "$RUN_DIR/associated"
+event "$(hex Office)"
+assert_not_contains 'udhcpc args=' "$CALL_LOG"
+
+# A static configuration has no DHCP client to start again.
+new_case network_change_nodhcp
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+touch "$BOOT_DIR/wifi.nodhcp"
+run_action start
+echo 4242 > "$RUN_DIR/wpa_cli.pid"
+event "$(hex Office)"
+event "$(hex Cafe)"
+assert_not_contains 'udhcpc args=' "$CALL_LOG"
 echo 'S30wifi saved network tests passed'
 
 # restart waits for the old wpa_supplicant before starting the new one, and

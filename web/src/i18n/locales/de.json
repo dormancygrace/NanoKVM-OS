@@ -38,7 +38,6 @@
     "format": "Zeitformat",
     "hour24": "24 Stunden",
     "hour12": "12 Stunden",
-    "preview": "Vorschau",
     "dateFormat": "Datumsformat",
     "dateAuto": "Wie die Sprache",
     "dateDmy": "TT.MM.JJJJ",
@@ -46,13 +45,19 @@
     "dateYmd": "JJJJ-MM-TT",
     "servers": "NTP-Server",
     "serversHelp": "Wählen Sie 1–6 Hostnamen oder IP-Adressen aus oder geben Sie sie ein. Eine Änderung der Server startet die Zeitsynchronisierung neu.",
-    "scope": "Die Zeitzone gilt für das Gerät. Zeit- und Datumsformat gelten für die gesamte Oberfläche, einschließlich der VPN-Handshake-Zeiten.",
     "synchronized": "Synchronisiert",
     "waiting": "Synchronisierung nicht bestätigt",
     "save": "Speichern",
     "saved": "Datums- und Uhrzeiteinstellungen gespeichert",
     "loadFailed": "Gerätezeit kann nicht gelesen werden. Überprüfen Sie die Verbindung.",
-    "saveFailed": "Einstellungen konnten nicht übernommen werden. Überprüfen Sie die Serveradressen und die Geräteverbindung."
+    "saveFailed": "Einstellungen konnten nicht übernommen werden. Überprüfen Sie die Serveradressen und die Geräteverbindung.",
+    "device": "Gerät",
+    "display": "Anzeige",
+    "displayHint": "Für die gesamte Oberfläche, auch für VPN-Handshake-Zeiten.",
+    "setFromBrowser": "Zeit dieses Browsers übernehmen",
+    "setFromBrowserHint": "Für Netzwerke ohne NTP. Die Zeit wird auch im Uhrenchip des Geräts gespeichert.",
+    "clockSet": "Gerätezeit gesetzt",
+    "clockFailed": "Die Gerätezeit konnte nicht gesetzt werden."
   },
   "recorder": {
     "startDirect": "Aufnahme des Originalstreams starten (MP4)",
@@ -2056,7 +2061,9 @@
       "ipmiNotInstalled": "IPMI kommt mit der IPMI-Erweiterung, die nicht installiert ist.",
       "ipmiInstall": "IPMI-Erweiterung installieren",
       "ipmiAddonDescription": "IPMI über LAN zur Stromsteuerung des Hosts (ipmitool, fence_ipmilan). Die Einstellungen finden Sie unter Dienste > Redfish und IPMI.",
-      "holdDefault": "5 (Strommenü)"
+      "holdDefault": "5 (Strommenü)",
+      "advanced": "Erweitert",
+      "accountFirst": "Legen Sie unten das BMC-Konto fest und klicken Sie auf Speichern: Redfish und IPMI lassen sich nur mit Passwort einschalten."
     },
     "recovery": {
       "title": "Sicherung und Zurücksetzen",

@@ -38,7 +38,6 @@
     "format": "时间格式",
     "hour24": "24 小时制",
     "hour12": "12 小时制",
-    "preview": "预览",
     "dateFormat": "日期格式",
     "dateAuto": "跟随界面语言",
     "dateDmy": "DD.MM.YYYY",
@@ -46,13 +45,19 @@
     "dateYmd": "YYYY-MM-DD",
     "servers": "NTP 服务器",
     "serversHelp": "选择或输入 1–6 个主机名或 IP 地址。更改服务器会重新启动时间同步。",
-    "scope": "时区作用于设备。时间和日期格式在整个界面中通用，包括 VPN 握手时间。",
     "synchronized": "已同步",
     "waiting": "尚未确认同步",
     "save": "保存",
     "saved": "日期和时间设置已保存",
     "loadFailed": "无法读取设备时间。请检查连接。",
-    "saveFailed": "无法应用设置。请检查服务器地址和设备连接。"
+    "saveFailed": "无法应用设置。请检查服务器地址和设备连接。",
+    "device": "设备",
+    "display": "显示",
+    "displayHint": "适用于整个界面，包括 VPN 握手时间。",
+    "setFromBrowser": "使用此浏览器的时间",
+    "setFromBrowserHint": "适用于没有 NTP 的网络。时间也会保存到设备的时钟芯片。",
+    "clockSet": "设备时间已设置",
+    "clockFailed": "无法设置设备时间。"
   },
   "recorder": {
     "startDirect": "开始录制原始流（MP4）",
@@ -2056,7 +2061,9 @@
       "ipmiNotInstalled": "IPMI 由 IPMI 扩展提供，该扩展尚未安装。",
       "ipmiInstall": "安装 IPMI 扩展",
       "ipmiAddonDescription": "用于主机电源控制的 IPMI over LAN（ipmitool、fence_ipmilan）。设置位于“服务 > Redfish 与 IPMI”。",
-      "holdDefault": "5（电源菜单）"
+      "holdDefault": "5（电源菜单）",
+      "advanced": "高级",
+      "accountFirst": "请在下方设置 BMC 账户并点击保存：Redfish 和 IPMI 只有在设置密码后才能开启。"
     },
     "recovery": {
       "title": "备份与重置",

@@ -333,10 +333,16 @@
     "deviceTime": "שעת המכשיר",
     "timezone": "אזור זמן",
     "format": "תבנית שעה",
-    "preview": "תצוגה מקדימה",
     "synchronized": "מסונכרן",
     "waiting": "הסנכרון לא אושר",
-    "save": "שמירה"
+    "save": "שמירה",
+    "device": "מכשיר",
+    "display": "תצוגה",
+    "displayHint": "לכל הממשק, כולל זמני לחיצת היד של VPN.",
+    "setFromBrowser": "לקחת את השעה מהדפדפן הזה",
+    "setFromBrowserHint": "לרשת ללא NTP. השעה נשמרת גם בשעון של המכשיר.",
+    "clockSet": "שעת המכשיר הוגדרה",
+    "clockFailed": "לא ניתן להגדיר את שעת המכשיר."
   },
   "recorder": {
     "title": "הקלטת וידאו",

@@ -895,10 +895,16 @@
     "deviceTime": "Ora del dispositivo",
     "timezone": "Fuso orario",
     "format": "Formato dell’ora",
-    "preview": "Anteprima",
     "synchronized": "Sincronizzato",
     "waiting": "Sincronizzazione non confermata",
-    "save": "Salva"
+    "save": "Salva",
+    "device": "Dispositivo",
+    "display": "Visualizzazione",
+    "displayHint": "Per tutta l'interfaccia, inclusi gli orari di handshake VPN.",
+    "setFromBrowser": "Usa l'ora di questo browser",
+    "setFromBrowserHint": "Per una rete senza NTP. L'ora viene salvata anche nell'orologio del dispositivo.",
+    "clockSet": "Ora del dispositivo impostata",
+    "clockFailed": "Impossibile impostare l'ora del dispositivo."
   },
   "recorder": {
     "title": "Registrazione video",

@@ -1741,7 +1741,9 @@
       "install": "Nainstalovat",
       "description": "Ovládání napájení hostitele pro nástroje pro datová centra, prostřednictvím ATX připojení: Redfish (fence_redfish, Ansible) je součástí NanoKVM OS, IPMI přes LAN (ipmitool, fence_ipmilan) je součástí doplňku.",
       "title": "Redfish a IPMI",
-      "removeTitle": "Odebrat doplněk IPMI?"
+      "removeTitle": "Odebrat doplněk IPMI?",
+      "advanced": "Pokročilé",
+      "accountFirst": "Nastavte níže účet BMC a stiskněte Uložit: Redfish a IPMI lze zapnout jen s heslem."
     },
     "ai": {
       "title": "AI",
@@ -2196,7 +2198,6 @@
   },
   "dateTime": {
     "save": "Uložit",
-    "preview": "Náhled",
     "dateFormat": "Formát data",
     "dateAuto": "Podle jazyka",
     "dateDmy": "DD.MM.RRRR",
@@ -2214,8 +2215,14 @@
     "saved": "Nastavení data a času uložena",
     "loadFailed": "Nebylo možné číst čas v zařízení. Zkontrolujte připojení.",
     "serversHelp": "Zvolte nebo zadejte 1-6 názvů hostitelů či IP adres. Změna serverů restartuje synchronizaci času.",
-    "scope": "Časové pásmo je uplatňováno na zařízení. Formát času a data je sdílen napříč rozhraním, včetně časů ustavení VPN spojení.",
-    "saveFailed": "Nastavení nebylo možné uplatnit. Zkontrolujte adresy serverů a připojení zařízení."
+    "saveFailed": "Nastavení nebylo možné uplatnit. Zkontrolujte adresy serverů a připojení zařízení.",
+    "device": "Zařízení",
+    "display": "Zobrazení",
+    "displayHint": "Pro celé rozhraní včetně časů handshake VPN.",
+    "setFromBrowser": "Převzít čas z tohoto prohlížeče",
+    "setFromBrowserHint": "Pro síť bez NTP. Čas se uloží i do hodin zařízení.",
+    "clockSet": "Čas zařízení nastaven",
+    "clockFailed": "Čas zařízení se nepodařilo nastavit."
   },
   "sessionControl": {
     "take": "Převzít ovládání",

@@ -927,10 +927,16 @@
     "deviceTime": "Eszközidő",
     "timezone": "Időzóna",
     "format": "Időformátum",
-    "preview": "Előnézet",
     "synchronized": "Szinkronizálva",
     "waiting": "A szinkronizálás nincs megerősítve",
-    "save": "Mentés"
+    "save": "Mentés",
+    "device": "Eszköz",
+    "display": "Megjelenítés",
+    "displayHint": "A teljes felülethez, a VPN-kézfogások idejét is beleértve.",
+    "setFromBrowser": "Idő átvétele ebből a böngészőből",
+    "setFromBrowserHint": "NTP nélküli hálózathoz. Az idő az eszköz órájába is mentésre kerül.",
+    "clockSet": "Az eszköz ideje beállítva",
+    "clockFailed": "Nem sikerült beállítani az eszköz idejét."
   },
   "recorder": {
     "title": "Videófelvétel",

@@ -891,10 +891,16 @@
     "deviceTime": "裝置時間",
     "timezone": "時區",
     "format": "時間格式",
-    "preview": "預覽",
     "synchronized": "已同步",
     "waiting": "同步尚未確認",
-    "save": "儲存"
+    "save": "儲存",
+    "device": "裝置",
+    "display": "顯示",
+    "displayHint": "適用於整個介面，包括 VPN 交握時間。",
+    "setFromBrowser": "使用此瀏覽器的時間",
+    "setFromBrowserHint": "適用於沒有 NTP 的網路。時間也會儲存到裝置的時鐘晶片。",
+    "clockSet": "裝置時間已設定",
+    "clockFailed": "無法設定裝置時間。"
   },
   "recorder": {
     "title": "影片錄製",

@@ -38,7 +38,6 @@
     "format": "時刻形式",
     "hour24": "24 時間",
     "hour12": "12 時間",
-    "preview": "プレビュー",
     "dateFormat": "日付形式",
     "dateAuto": "言語に合わせる",
     "dateDmy": "DD.MM.YYYY",
@@ -46,13 +45,19 @@
     "dateYmd": "YYYY-MM-DD",
     "servers": "NTP サーバー",
     "serversHelp": "ホスト名または IP アドレスを 1–6 個選択または入力してください。サーバーを変更すると時刻同期が再起動されます。",
-    "scope": "タイムゾーンはデバイスに適用されます。時刻と日付の形式は VPN のハンドシェイク時刻を含め、インターフェース全体で共通です。",
     "synchronized": "同期済み",
     "waiting": "同期が確認されていません",
     "save": "保存",
     "saved": "日付と時刻の設定を保存しました",
     "loadFailed": "デバイスの時刻を読み取れません。接続を確認してください。",
-    "saveFailed": "設定を適用できませんでした。サーバーアドレスとデバイスの接続を確認してください。"
+    "saveFailed": "設定を適用できませんでした。サーバーアドレスとデバイスの接続を確認してください。",
+    "device": "デバイス",
+    "display": "表示",
+    "displayHint": "インターフェース全体（VPN ハンドシェイクの時刻を含む）に適用されます。",
+    "setFromBrowser": "このブラウザーの時刻を使う",
+    "setFromBrowserHint": "NTP のないネットワーク向けです。時刻はデバイスの時計チップにも保存されます。",
+    "clockSet": "デバイスの時刻を設定しました",
+    "clockFailed": "デバイスの時刻を設定できませんでした。"
   },
   "recorder": {
     "startDirect": "元のストリームの録画を開始（MP4）",
@@ -2056,7 +2061,9 @@
       "ipmiNotInstalled": "IPMI は IPMI アドオンで提供されますが、インストールされていません。",
       "ipmiInstall": "IPMI アドオンをインストール",
       "ipmiAddonDescription": "ホスト電源制御のための IPMI over LAN（ipmitool、fence_ipmilan）。設定は「サービス > Redfish と IPMI」にあります。",
-      "holdDefault": "5（電源メニュー）"
+      "holdDefault": "5（電源メニュー）",
+      "advanced": "詳細設定",
+      "accountFirst": "下の BMC アカウントを設定して［保存］を押してください。Redfish と IPMI はパスワードがあるときだけ有効になります。"
     },
     "recovery": {
       "title": "バックアップとリセット",

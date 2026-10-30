@@ -896,10 +896,16 @@
     "deviceTime": "Apparaattijd",
     "timezone": "Tijdzone",
     "format": "Tijdnotatie",
-    "preview": "Voorbeeld",
     "synchronized": "Gesynchroniseerd",
     "waiting": "Synchronisatie niet bevestigd",
-    "save": "Opslaan"
+    "save": "Opslaan",
+    "device": "Apparaat",
+    "display": "Weergave",
+    "displayHint": "Voor de hele interface, ook voor VPN-handshaketijden.",
+    "setFromBrowser": "Tijd van deze browser gebruiken",
+    "setFromBrowserHint": "Voor een netwerk zonder NTP. De tijd wordt ook in de klok van het apparaat opgeslagen.",
+    "clockSet": "Apparaattijd ingesteld",
+    "clockFailed": "Kan de apparaattijd niet instellen."
   },
   "recorder": {
     "title": "Video-opname",

@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Utseende",
-      "display": "Visning",
       "language": "Språk",
       "languageDesc": "Välj språk för gränssnittet",
       "helpTranslate": "Hjälp till att översätta",
       "webTitle": "Webbtitel",
       "webTitleDesc": "Anpassa webbsidans titel",
       "menuBar": {
-        "title": "Menyrad",
         "mode": "Visningsläge",
-        "modeDesc": "Visa menyraden på skärmen",
+        "modeDesc": "Dölj automatiskt: fältet visas när musen når överkanten.",
         "modeAuto": "Dölj automatiskt",
         "modeAlways": "Alltid synlig",
         "keyboardLedStatus": "Indikatorer för tangentbordslås",
-        "keyboardLedStatusDesc": "Visa Num Lock-, Caps Lock- och Scroll Lock-status för fjärrdatorn",
-        "icons": "Undermenyikoner",
-        "iconsDesc": "Visa undermenyikoner i menyraden"
+        "keyboardLedStatusDesc": "Visa Caps Lock, Num Lock och Scroll Lock för fjärrdatorn i menyfältet.",
+        "icons": "Knappar i menyfältet",
+        "iconsDesc": "Visa undermenyikoner i menyraden",
+        "hiddenCount": "{{count}} dolda",
+        "showAll": "Visa alla"
       },
-      "buttonColor": {
-        "save": "Verkställ"
+      "buttonColor": {},
+      "browser": "I den här webbläsaren",
+      "browserDesc": "Sparas bara i den här webbläsaren; andra webbläsare och användare har sina egna.",
+      "device": "För alla på den här enheten",
+      "deviceDesc": "Sparas på enheten och visas för alla som öppnar den.",
+      "saved": "Sparat",
+      "branding": {
+        "upload": "Ladda upp"
       }
     },
     "keyboardLedStatus": {

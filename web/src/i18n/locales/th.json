@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "ลักษณะการแสดงผล",
-      "display": "การแสดงผล",
       "language": "ภาษา",
       "languageDesc": "เลือกภาษาสำหรับอินเทอร์เฟซ",
       "helpTranslate": "ช่วยแปล",
       "webTitle": "ชื่อเว็บ",
       "webTitleDesc": "ปรับแต่งชื่อหน้าเว็บ",
       "menuBar": {
-        "title": "แถบเมนู",
         "mode": "โหมดการแสดงผล",
-        "modeDesc": "แสดงแถบเมนูบนหน้าจอ",
+        "modeDesc": "ซ่อนอัตโนมัติ: แถบจะปรากฏเมื่อเมาส์ไปถึงขอบบน",
         "modeAuto": "ซ่อนอัตโนมัติ",
         "modeAlways": "มองเห็นได้เสมอ",
         "keyboardLedStatus": "ตัวบ่งชี้ปุ่มล็อกแป้นพิมพ์",
-        "keyboardLedStatusDesc": "แสดงสถานะ Num Lock, Caps Lock และ Scroll Lock ของคอมพิวเตอร์ระยะไกล",
-        "icons": "ไอคอนเมนูย่อย",
-        "iconsDesc": "แสดงไอคอนเมนูย่อยในแถบเมนู"
+        "keyboardLedStatusDesc": "แสดง Caps Lock, Num Lock และ Scroll Lock ของคอมพิวเตอร์ระยะไกลในแถบเมนู",
+        "icons": "ปุ่มในแถบเมนู",
+        "iconsDesc": "แสดงไอคอนเมนูย่อยในแถบเมนู",
+        "hiddenCount": "ซ่อน {{count}} รายการ",
+        "showAll": "แสดงทั้งหมด"
       },
-      "buttonColor": {
-        "save": "นำไปใช้"
+      "buttonColor": {},
+      "browser": "ในเบราว์เซอร์นี้",
+      "browserDesc": "เก็บไว้ในเบราว์เซอร์นี้เท่านั้น เบราว์เซอร์และผู้ใช้อื่นมีการตั้งค่าของตนเอง",
+      "device": "สำหรับทุกคนบนอุปกรณ์นี้",
+      "deviceDesc": "บันทึกไว้บนอุปกรณ์และแสดงให้ทุกคนที่เปิดเห็น",
+      "saved": "บันทึกแล้ว",
+      "branding": {
+        "upload": "อัปโหลด"
       }
     },
     "keyboardLedStatus": {

@@ -1,7 +1,7 @@
 import { ComponentProps, ReactNode } from 'react';
 import { Button, Tooltip } from 'antd';
 import clsx from 'clsx';
-import { CircleHelpIcon } from 'lucide-react';
+import { ChevronDownIcon, CircleHelpIcon } from 'lucide-react';
 
 // Building blocks for the settings pages. One page = SettingsPage; groups of
 // related settings = SettingsSection; one setting = SettingRow (label and
@@ -115,6 +115,19 @@ export const Panel = ({ className, flush, children }: PanelProps) => (
   <div className={clsx('border-line bg-surface rounded-lg border', !flush && 'p-4', className)}>
     {children}
   </div>
+);
+
+// A folded part of a page, closed until opened.
+export const Fold = ({ title, children }: { title: ReactNode; children: ReactNode }) => (
+  <Panel flush className="overflow-hidden">
+    <details className="group">
+      <summary className="text-fg-muted hover:text-fg flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+        <span>{title}</span>
+        <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-3 px-4 pb-4">{children}</div>
+    </details>
+  </Panel>
 );
 
 type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';

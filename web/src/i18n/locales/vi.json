@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Giao diện",
-      "display": "Hiển thị",
       "language": "Ngôn ngữ",
       "languageDesc": "Chọn ngôn ngữ cho giao diện",
       "helpTranslate": "Giúp dịch",
       "webTitle": "Tiêu đề trang web",
       "webTitleDesc": "Tùy chỉnh tiêu đề trang web",
       "menuBar": {
-        "title": "Thanh menu",
         "mode": "Chế độ hiển thị",
-        "modeDesc": "Hiển thị thanh menu trên màn hình",
+        "modeDesc": "Tự ẩn: thanh xuất hiện khi chuột chạm cạnh trên.",
         "modeAuto": "Tự động ẩn",
         "modeAlways": "Luôn hiển thị",
         "keyboardLedStatus": "Chỉ báo khóa bàn phím",
-        "keyboardLedStatusDesc": "Hiển thị trạng thái Num Lock, Caps Lock và Scroll Lock của máy tính từ xa",
-        "icons": "Biểu tượng menu con",
-        "iconsDesc": "Hiển thị biểu tượng menu con trên thanh menu"
+        "keyboardLedStatusDesc": "Hiển thị Caps Lock, Num Lock và Scroll Lock của máy tính từ xa trên thanh menu.",
+        "icons": "Nút trên thanh menu",
+        "iconsDesc": "Hiển thị biểu tượng menu con trên thanh menu",
+        "hiddenCount": "đã ẩn {{count}}",
+        "showAll": "Hiện tất cả"
       },
-      "buttonColor": {
-        "save": "Áp dụng"
+      "buttonColor": {},
+      "browser": "Trong trình duyệt này",
+      "browserDesc": "Chỉ lưu trong trình duyệt này; trình duyệt và người dùng khác có cài đặt riêng.",
+      "device": "Cho mọi người trên thiết bị này",
+      "deviceDesc": "Lưu trên thiết bị và hiển thị cho mọi người mở nó.",
+      "saved": "Đã lưu",
+      "branding": {
+        "upload": "Tải lên"
       }
     },
     "keyboardLedStatus": {

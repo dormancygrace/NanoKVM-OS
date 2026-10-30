@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Megjelenés",
-      "display": "Kijelző",
       "language": "Nyelv",
       "languageDesc": "Válassza ki a felület nyelvét",
       "helpTranslate": "Segíts a fordításban",
       "webTitle": "Webcím",
       "webTitleDesc": "A weboldal címének testreszabása",
       "menuBar": {
-        "title": "Menüsor",
         "mode": "Megjelenítési mód",
-        "modeDesc": "Menüsor megjelenítése a képernyőn",
+        "modeDesc": "Automatikus elrejtés: a sáv akkor jelenik meg, amikor az egér a felső szélhez ér.",
         "modeAuto": "Automatikus elrejtés",
         "modeAlways": "Mindig látható",
         "keyboardLedStatus": "Billentyűzár-jelzők",
-        "keyboardLedStatusDesc": "A távoli számítógép Num Lock, Caps Lock és Scroll Lock állapotának megjelenítése",
-        "icons": "Almenü ikonok",
-        "iconsDesc": "Almenüikonok megjelenítése a menüsorban"
+        "keyboardLedStatusDesc": "A távoli számítógép Caps Lock, Num Lock és Scroll Lock állapotának megjelenítése a menüsorban.",
+        "icons": "Menüsor gombjai",
+        "iconsDesc": "Almenüikonok megjelenítése a menüsorban",
+        "hiddenCount": "{{count}} elrejtve",
+        "showAll": "Összes megjelenítése"
       },
-      "buttonColor": {
-        "save": "Alkalmazás"
+      "buttonColor": {},
+      "browser": "Ebben a böngészőben",
+      "browserDesc": "Csak ebben a böngészőben tárolódik; más böngészőknek és felhasználóknak saját van.",
+      "device": "Mindenkinek ezen az eszközön",
+      "deviceDesc": "Az eszközön tárolódik, és mindenki látja, aki megnyitja.",
+      "saved": "Mentve",
+      "branding": {
+        "upload": "Feltöltés"
       }
     },
     "keyboardLedStatus": {

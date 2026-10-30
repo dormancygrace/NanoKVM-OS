@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Görünüm",
-      "display": "Ekran",
       "language": "Dil",
       "languageDesc": "Arayüz için dili seçin",
       "helpTranslate": "Çeviriye yardım et",
       "webTitle": "Site başlığı",
       "webTitleDesc": "Görünen site başlığını güncelleyin",
       "menuBar": {
-        "title": "Menü Çubuğu",
         "mode": "Görüntüleme Modu",
-        "modeDesc": "Ekranda menü çubuğunu görüntüle",
+        "modeDesc": "Otomatik gizle: fare üst kenara geldiğinde çubuk görünür.",
         "modeAuto": "Otomatik gizle",
         "modeAlways": "Her zaman görünür",
         "keyboardLedStatus": "Klavye kilidi göstergeleri",
-        "keyboardLedStatusDesc": "Uzak bilgisayarın Num Lock, Caps Lock ve Scroll Lock durumunu göster",
-        "icons": "Alt Menü Simgeleri",
-        "iconsDesc": "Menü çubuğunda alt menü simgelerini görüntüle"
+        "keyboardLedStatusDesc": "Uzak bilgisayarın Caps Lock, Num Lock ve Scroll Lock durumunu menü çubuğunda göster.",
+        "icons": "Menü çubuğu düğmeleri",
+        "iconsDesc": "Menü çubuğunda alt menü simgelerini görüntüle",
+        "hiddenCount": "{{count}} gizli",
+        "showAll": "Tümünü göster"
       },
-      "buttonColor": {
-        "save": "Uygula"
+      "buttonColor": {},
+      "browser": "Bu tarayıcıda",
+      "browserDesc": "Yalnızca bu tarayıcıda saklanır; diğer tarayıcılar ve kullanıcıların kendi ayarları vardır.",
+      "device": "Bu cihazdaki herkes için",
+      "deviceDesc": "Cihazda saklanır ve onu açan herkes görür.",
+      "saved": "Kaydedildi",
+      "branding": {
+        "upload": "Yükle"
       }
     },
     "keyboardLedStatus": {

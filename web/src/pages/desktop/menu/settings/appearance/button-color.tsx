@@ -3,19 +3,16 @@ import { Button, ColorPicker, Input, message } from 'antd';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { http } from '@/lib/http';
+import { http, type ApiResponse } from '@/lib/http';
 import type { Branding } from '@/jotai/branding';
-import {
-  brandingAtom,
-  brandingButtonColor,
-  buttonTextColor,
-  DEFAULT_BUTTON_COLOR
-} from '@/jotai/branding';
-import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
+import { brandingAtom, brandingButtonColor } from '@/jotai/branding';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 const normalizeColor = (value: string) => value.trim().toUpperCase();
 const isColor = (value: string) => /^#[0-9A-F]{6}$/.test(value);
 
+// The colour applies when the palette closes or a complete code is entered;
+// the buttons of the page itself are the preview.
 export const ButtonColor = () => {
   const { t } = useTranslation();
   const tr = (key: string) => t(`settings.appearance.buttonColor.${key}`);
@@ -28,7 +25,7 @@ export const ButtonColor = () => {
 
   useEffect(() => setDraft(currentColor), [currentColor]);
 
-  async function update(action: () => Promise<import('@/lib/http').ApiResponse<Branding>>) {
+  async function update(action: () => Promise<ApiResponse<Branding>>) {
     setBusy(true);
     try {
       const rsp = await action();
@@ -36,77 +33,58 @@ export const ButtonColor = () => {
       setBranding(rsp.data);
       setDraft(brandingButtonColor(rsp.data));
     } catch {
+      setDraft(currentColor);
       message.error(tr('failed'));
     } finally {
       setBusy(false);
     }
   }
 
-  const previewColor = valid ? normalizedDraft : currentColor;
+  function apply(color: string) {
+    const next = normalizeColor(color);
+    if (busy || !isColor(next) || next === currentColor) return;
+    void update(() => http.post<Branding>('/api/branding/button-color', { color: next }));
+  }
 
   return (
-    <SettingRow label={tr('title')} description={tr('description')} stacked>
-      <Panel className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
-          <div className="bg-surface-raised flex h-28 w-full max-w-56 flex-none items-center justify-center rounded-md p-3 sm:flex-1 sm:basis-48">
-            <Button
-              type="primary"
-              style={{
-                backgroundColor: previewColor,
-                borderColor: previewColor,
-                color: buttonTextColor(previewColor)
-              }}
-            >
-              {tr('preview')}
-            </Button>
-          </div>
-          <div className="flex w-full min-w-0 flex-none flex-col items-start gap-1 sm:flex-1 sm:basis-40">
-            <span className="text-fg">{tr('accentTitle')}</span>
-            <span className="text-fg-muted text-xs">{tr('accentDescription')}</span>
-            <StatusBadge tone={branding.customButtonColor ? 'info' : 'neutral'}>
-              {branding.customButtonColor ? tr('customActive') : tr('defaultActive')}
-            </StatusBadge>
-          </div>
-        </div>
-
-        <div className="flex w-full max-w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
-          <ColorPicker
-            value={valid ? normalizedDraft : DEFAULT_BUTTON_COLOR}
-            disabledAlpha
-            disabled={busy}
-            onChange={(color) => setDraft(color.toHexString().toUpperCase())}
-          />
-          <Input
-            aria-label={tr('inputLabel')}
-            className="w-28 font-mono"
-            value={draft}
-            maxLength={7}
-            status={valid ? undefined : 'error'}
-            disabled={busy}
-            onChange={(event) => setDraft(event.target.value)}
-          />
+    <SettingRow
+      label={tr('title')}
+      description={branding.customButtonColor ? tr('description') : tr('defaultActive')}
+      htmlFor="appearance-button-color"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <ColorPicker
+          value={valid ? normalizedDraft : currentColor}
+          disabledAlpha
+          disabled={busy}
+          onChange={(color) => setDraft(color.toHexString().toUpperCase())}
+          onOpenChange={(open) => {
+            if (!open) apply(draft);
+          }}
+        />
+        <Input
+          id="appearance-button-color"
+          aria-describedby="appearance-button-color-description"
+          aria-label={tr('inputLabel')}
+          className="w-28 font-mono"
+          value={draft}
+          maxLength={7}
+          status={valid ? undefined : 'error'}
+          disabled={busy}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => (valid ? apply(draft) : setDraft(currentColor))}
+          onPressEnter={() => apply(draft)}
+        />
+        {branding.customButtonColor && (
           <Button
-            type="primary"
-            loading={busy}
-            disabled={!valid || normalizedDraft === currentColor}
-            onClick={() =>
-              update(() =>
-                http.post<Branding>('/api/branding/button-color', { color: normalizedDraft })
-              )
-            }
+            type="text"
+            disabled={busy}
+            onClick={() => void update(() => http.delete<Branding>('/api/branding/button-color'))}
           >
-            {tr('save')}
+            {tr('restoreDefault')}
           </Button>
-          {branding.customButtonColor && (
-            <Button
-              disabled={busy}
-              onClick={() => update(() => http.delete<Branding>('/api/branding/button-color'))}
-            >
-              {tr('restoreDefault')}
-            </Button>
-          )}
-        </div>
-      </Panel>
+        )}
+      </div>
     </SettingRow>
   );
 };

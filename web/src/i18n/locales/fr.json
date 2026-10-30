@@ -1166,8 +1166,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "Personnalisation visuelle",
-        "description": "Personnalisez indépendamment le logo de connexion et le favicon du navigateur. Les images intégrées restent disponibles par défaut.",
         "logoTitle": "Logo de connexion",
         "logoDescription": "Le logo principal affiché au-dessus du formulaire de connexion.",
         "logoPreview": "Aperçu du logo de connexion",
@@ -1180,18 +1178,14 @@
         "customActive": "Image personnalisée",
         "restoreDefault": "Rétablir la valeur par défaut",
         "formats": "PNG ou JPEG, jusqu'à 2 MiB et 1024 × 1024 pixels. Un PNG carré transparent donne le meilleur résultat.",
-        "failed": "Impossible d'enregistrer la personnalisation visuelle."
+        "failed": "Impossible d'enregistrer la personnalisation visuelle.",
+        "upload": "Téléverser"
       },
       "buttonColor": {
         "title": "Couleur des boutons",
         "description": "Choisissez la couleur d'accent utilisée par les boutons principaux dans toute l'interface.",
-        "accentTitle": "Boutons principaux",
-        "accentDescription": "Les états de survol et d'appui sont générés automatiquement.",
-        "preview": "Aperçu du bouton",
         "inputLabel": "Couleur des boutons au format hexadécimal",
         "defaultActive": "Vert du logo intégré (#45E9A0)",
-        "customActive": "Couleur personnalisée",
-        "save": "Appliquer",
         "restoreDefault": "Rétablir la valeur par défaut",
         "failed": "Impossible d'enregistrer la couleur des boutons."
       },
@@ -1203,8 +1197,6 @@
         "failed": "Impossible d'enregistrer le style de la bannière SSH."
       },
       "title": "Apparence",
-      "display": "Affichage",
-      "customize": "Personnaliser",
       "language": "Langue",
       "languageDesc": "Sélectionnez la langue de l'interface",
       "helpTranslate": "Aider à traduire",
@@ -1213,16 +1205,22 @@
       "webTitle": "Titre Web",
       "webTitleDesc": "Personnaliser le titre de la page Web",
       "menuBar": {
-        "title": "Barre de menus",
         "mode": "Mode d'affichage",
-        "modeDesc": "Afficher la barre de menu sur l'écran",
+        "modeDesc": "Masquage auto : la barre apparaît quand la souris atteint le bord supérieur.",
         "modeAuto": "Masquer automatiquement",
         "modeAlways": "Toujours visible",
         "keyboardLedStatus": "Indicateurs de verrouillage du clavier",
-        "keyboardLedStatusDesc": "Afficher l’état de Verr Num, Verr Maj et Arrêt défil du poste distant",
-        "icons": "Icônes du sous-menu",
-        "iconsDesc": "Afficher les icônes des sous-menus dans la barre de menus"
-      }
+        "keyboardLedStatusDesc": "Afficher Verr. Maj, Verr. Num et Arrêt défil de l'ordinateur distant dans la barre de menu.",
+        "icons": "Boutons de la barre de menu",
+        "iconsDesc": "Afficher les icônes des sous-menus dans la barre de menus",
+        "hiddenCount": "{{count}} masqué(s)",
+        "showAll": "Tout afficher"
+      },
+      "browser": "Dans ce navigateur",
+      "browserDesc": "Conservé dans ce navigateur uniquement ; les autres navigateurs et utilisateurs ont les leurs.",
+      "device": "Pour tous sur cet appareil",
+      "deviceDesc": "Enregistré sur l'appareil et visible par tous ceux qui l'ouvrent.",
+      "saved": "Enregistré"
     },
     "keyboardLedStatus": {
       "groupLabel": "État des verrouillages du clavier distant",

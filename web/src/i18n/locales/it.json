@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Aspetto",
-      "display": "Schermo",
       "language": "Lingua",
       "languageDesc": "Seleziona la lingua per l'interfaccia",
       "helpTranslate": "Aiuta a tradurre",
       "webTitle": "Titolo web",
       "webTitleDesc": "Personalizza il titolo della pagina web",
       "menuBar": {
-        "title": "Barra dei menu",
         "mode": "Modalità di visualizzazione",
-        "modeDesc": "Visualizza la barra dei menu sullo schermo",
+        "modeDesc": "Nascondi automaticamente: la barra appare quando il mouse raggiunge il bordo superiore.",
         "modeAuto": "Nascondi automaticamente",
         "modeAlways": "Sempre visibile",
         "keyboardLedStatus": "Indicatori di blocco della tastiera",
-        "keyboardLedStatusDesc": "Mostra lo stato di Bloc Num, Bloc Maiusc e Bloc Scorr del computer remoto",
-        "icons": "Icone dei sottomenu",
-        "iconsDesc": "Visualizza le icone dei sottomenu nella barra dei menu"
+        "keyboardLedStatusDesc": "Mostra Bloc Maiusc, Bloc Num e Bloc Scorr del computer remoto nella barra dei menu.",
+        "icons": "Pulsanti della barra dei menu",
+        "iconsDesc": "Visualizza le icone dei sottomenu nella barra dei menu",
+        "hiddenCount": "{{count}} nascosti",
+        "showAll": "Mostra tutto"
       },
-      "buttonColor": {
-        "save": "Applica"
+      "buttonColor": {},
+      "browser": "In questo browser",
+      "browserDesc": "Salvato solo in questo browser; altri browser e utenti hanno le proprie impostazioni.",
+      "device": "Per tutti su questo dispositivo",
+      "deviceDesc": "Salvato sul dispositivo e visibile a chiunque lo apra.",
+      "saved": "Salvato",
+      "branding": {
+        "upload": "Carica"
       }
     },
     "keyboardLedStatus": {

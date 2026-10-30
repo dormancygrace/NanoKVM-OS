@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Wygląd",
-      "display": "Ekran",
       "language": "Język",
       "languageDesc": "Wybierz język interfejsu",
       "helpTranslate": "Pomóż w tłumaczeniu",
       "webTitle": "Tytuł strony internetowej",
       "webTitleDesc": "Dostosuj tytuł strony internetowej",
       "menuBar": {
-        "title": "Pasek menu",
         "mode": "Tryb wyświetlania",
-        "modeDesc": "Wyświetl pasek menu na ekranie",
+        "modeDesc": "Autoukrywanie: pasek pojawia się, gdy mysz dotrze do górnej krawędzi.",
         "modeAuto": "Automatyczne ukrywanie",
         "modeAlways": "Zawsze widoczny",
         "keyboardLedStatus": "Wskaźniki blokad klawiatury",
-        "keyboardLedStatusDesc": "Wyświetl stan Num Lock, Caps Lock i Scroll Lock zdalnego komputera",
-        "icons": "Ikony podmenu",
-        "iconsDesc": "Wyświetla ikony podmenu na pasku menu"
+        "keyboardLedStatusDesc": "Pokazuj Caps Lock, Num Lock i Scroll Lock zdalnego komputera na pasku menu.",
+        "icons": "Przyciski paska menu",
+        "iconsDesc": "Wyświetla ikony podmenu na pasku menu",
+        "hiddenCount": "ukryte: {{count}}",
+        "showAll": "Pokaż wszystkie"
       },
-      "buttonColor": {
-        "save": "Zastosuj"
+      "buttonColor": {},
+      "browser": "W tej przeglądarce",
+      "browserDesc": "Zapisane tylko w tej przeglądarce; inne przeglądarki i użytkownicy mają własne.",
+      "device": "Dla wszystkich na tym urządzeniu",
+      "deviceDesc": "Zapisane na urządzeniu i widoczne dla każdego, kto je otworzy.",
+      "saved": "Zapisano",
+      "branding": {
+        "upload": "Prześlij"
       }
     },
     "keyboardLedStatus": {

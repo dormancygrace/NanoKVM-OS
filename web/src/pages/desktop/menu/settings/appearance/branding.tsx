@@ -6,10 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { http, type ApiResponse } from '@/lib/http';
 import type { Branding as BrandingState } from '@/jotai/branding';
 import { brandingAtom, brandingFavicon, brandingLogo } from '@/jotai/branding';
-import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
+import { SettingRow } from '@/components/ui/settings.tsx';
 
 type Asset = 'logo' | 'favicon';
 
+// The login logo and the favicon: one row each, a small preview and the
+// upload / built-in buttons.
 export const Branding = () => {
   const { t } = useTranslation();
   const tr = (key: string) => t(`settings.appearance.branding.${key}`);
@@ -50,39 +52,33 @@ export const Branding = () => {
       preview: brandingLogo(branding),
       custom: branding.customLogoAvailable,
       input: logoInput,
-      previewClassName: 'h-24 w-52'
+      previewClassName: 'h-8 w-20'
     },
     {
       asset: 'favicon' as const,
       preview: brandingFavicon(branding),
       custom: branding.customFaviconAvailable,
       input: faviconInput,
-      previewClassName: 'h-16 w-16'
+      previewClassName: 'size-8'
     }
   ];
 
   return (
-    <SettingRow label={tr('title')} description={tr('description')} stacked>
-      <div className="space-y-2">
-        {assets.map(({ asset, preview, custom, input, previewClassName }) => (
-          <Panel key={asset} className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
-              <div className="bg-surface-raised flex h-28 w-full max-w-56 flex-none items-center justify-center rounded-md p-3 sm:flex-1 sm:basis-48">
-                <img
-                  src={preview}
-                  alt={tr(`${asset}Preview`)}
-                  className={`${previewClassName} max-w-full object-contain`}
-                />
-              </div>
-              <div className="flex w-full min-w-0 flex-none flex-col items-start gap-1 sm:flex-1 sm:basis-40">
-                <span className="text-fg">{tr(`${asset}Title`)}</span>
-                <span className="text-fg-muted text-xs">{tr(`${asset}Description`)}</span>
-                <StatusBadge tone={custom ? 'info' : 'neutral'}>
-                  {custom ? tr('customActive') : tr('defaultActive')}
-                </StatusBadge>
-              </div>
+    <>
+      {assets.map(({ asset, preview, custom, input, previewClassName }) => (
+        <SettingRow
+          key={asset}
+          label={tr(`${asset}Title`)}
+          description={`${tr(`${asset}Description`)} ${custom ? tr('customActive') : tr('defaultActive')}.`}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="bg-surface-raised flex h-10 items-center justify-center rounded-md px-2">
+              <img
+                src={preview}
+                alt={tr(`${asset}Preview`)}
+                className={`${previewClassName} object-contain`}
+              />
             </div>
-
             <input
               ref={input}
               type="file"
@@ -94,32 +90,28 @@ export const Branding = () => {
                 event.target.value = '';
               }}
             />
-            <div className="flex w-full max-w-full min-w-0 flex-wrap gap-2 sm:w-auto">
+            <Button
+              disabled={busy !== undefined}
+              loading={busy === asset}
+              onClick={() => input.current?.click()}
+            >
+              {tr('upload')}
+            </Button>
+            {custom && (
               <Button
-                className="h-auto w-full max-w-full py-1 whitespace-normal sm:w-auto [&>span]:break-words [&>span]:whitespace-normal"
+                type="text"
                 disabled={busy !== undefined}
-                loading={busy === asset}
-                onClick={() => input.current?.click()}
+                onClick={() =>
+                  void update(asset, () => http.delete<BrandingState>(`/api/branding/${asset}`))
+                }
               >
-                {tr(`${asset}Upload`)}
+                {tr('restoreDefault')}
               </Button>
-              {custom && (
-                <Button
-                  className="h-auto w-full max-w-full py-1 whitespace-normal sm:w-auto [&>span]:break-words [&>span]:whitespace-normal"
-                  disabled={busy !== undefined}
-                  onClick={() =>
-                    update(asset, () => http.delete<BrandingState>(`/api/branding/${asset}`))
-                  }
-                >
-                  {tr('restoreDefault')}
-                </Button>
-              )}
-            </div>
-          </Panel>
-        ))}
-
-        <div className="text-fg-muted text-xs">{tr('formats')}</div>
-      </div>
-    </SettingRow>
+            )}
+          </div>
+        </SettingRow>
+      ))}
+      <p className="text-fg-muted m-0 text-xs">{tr('formats')}</p>
+    </>
   );
 };

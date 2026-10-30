@@ -64,15 +64,18 @@ func getHardware() Hardware {
 	return gpioV2Hardware(GetHwVersion(), string(declared))
 }
 
-// Never guess an ATX pin assignment when board detection is missing.
+// Never guess an ATX pin assignment when board detection is missing. Whether
+// the lines are used is the ATX switch's (service/vm/atx.go).
 func gpioV2Hardware(version HWVersion, declared string) Hardware {
-	h := Hardware{Version: version}
-	switch strings.TrimSpace(declared) {
+	h := Hardware{Version: version, Board: strings.TrimSpace(declared)}
+	switch h.Board {
 	case "lite":
-		// Base/Lite has no positively identified ATX daughterboard. Native
-		// application compatibility remains Beta, but no GPIO is exposed.
+		// Base/Lite has no ATX of its own. With the KVM-B board it is wired
+		// as the Full (Beta) one, as in Sipeed's firmware, which has no Lite
+		// case; native application compatibility remains Beta. The ATX
+		// switch is off by default here.
 		h.Version = HWVersionBeta
-		return h
+		h.GPIOReset = gpioio.Path("3020000.gpio", 25)
 	case "alpha":
 		h.Version = HWVersionAlpha
 		h.GPIOReset = gpioio.Path("3020000.gpio", 27)
@@ -86,6 +89,7 @@ func gpioV2Hardware(version HWVersion, declared string) Hardware {
 		h.GPIOHDDLed = gpioio.Path("5021000.gpio", 3)
 	default:
 		log.Error("ATX disabled: no recognized board revision")
+		h.Board = ""
 		return h
 	}
 	h.GPIOPower = gpioio.Path("3020000.gpio", 23)

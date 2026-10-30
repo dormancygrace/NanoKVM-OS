@@ -11,9 +11,27 @@ export function getInfo() {
   return http.get<DeviceInfo>('/api/vm/info');
 }
 
-// get hardware information
+// get hardware information ({version, atx})
 export function getHardware() {
-  return http.get<{ version: string }>('/api/vm/hardware');
+  return http.get<{ version: string; atx?: boolean }>('/api/vm/hardware');
+}
+
+// The ATX switch (System > Device).
+export type ATXState = {
+  enabled: boolean;
+  // The board has known ATX lines.
+  available: boolean;
+  // The board's default: on for PCIe, off for Cube and Lite.
+  default: boolean;
+  board: string;
+};
+
+export function getATX() {
+  return http.get<ATXState>('/api/vm/atx');
+}
+
+export function setATX(enabled: boolean) {
+  return http.post<{ enabled: boolean }>('/api/vm/atx', { enabled });
 }
 
 export function getDiagnostics() {

@@ -406,6 +406,12 @@
       "cancelBtn": "Nee",
       "cpuFrequency": {
         "title": "CPU-frequentie en overklokken"
+      },
+      "atx": {
+        "title": "ATX-voedingsbesturing",
+        "description": "Aan/uit- en resetknop en voedings-LED van de host: de KVM-B-kaart op een Cube of Lite, ingebouwd in de PCIe-kaart. Uit: geen aan/uit-knop in de werkbalk, en Redfish, IPMI en MCP kunnen de knoppen niet indrukken.",
+        "unavailable": "Dit bord heeft geen bekende ATX-aansluiting.",
+        "failed": "De ATX-instelling kon niet worden gewijzigd"
       }
     },
     "network": {

@@ -23,6 +23,8 @@ type GetInfoRsp struct {
 
 type GetHardwareRsp struct {
 	Version string `json:"version"`
+	// ATX power control is on (System > Device) on a board with ATX lines.
+	ATX bool `json:"atx"`
 }
 
 type SetGpioReq struct {

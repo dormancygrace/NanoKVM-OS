@@ -406,6 +406,12 @@
       "cancelBtn": "取消",
       "cpuFrequency": {
         "title": "CPU 頻率與超頻"
+      },
+      "atx": {
+        "title": "ATX 電源控制",
+        "description": "主機的電源與重設按鈕以及電源指示燈：Cube 或 Lite 上為 KVM-B 板，PCIe 卡內建。關閉後，工具列上沒有電源按鈕，Redfish、IPMI 與 MCP 也無法按下按鈕。",
+        "unavailable": "此主機板沒有已知的 ATX 連接。",
+        "failed": "無法變更 ATX 設定"
       }
     },
     "network": {

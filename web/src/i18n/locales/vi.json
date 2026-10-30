@@ -406,6 +406,12 @@
       "cancelBtn": "Không",
       "cpuFrequency": {
         "title": "Tần số CPU và ép xung"
+      },
+      "atx": {
+        "title": "Điều khiển nguồn ATX",
+        "description": "Nút nguồn, nút reset và đèn nguồn của máy chủ: bo mạch KVM-B trên Cube hoặc Lite, tích hợp sẵn trong thẻ PCIe. Tắt: không có nút nguồn trên thanh công cụ, và Redfish, IPMI, MCP không thể nhấn các nút.",
+        "unavailable": "Bo mạch này không có kết nối ATX đã biết.",
+        "failed": "Không thể thay đổi cài đặt ATX"
       }
     },
     "network": {

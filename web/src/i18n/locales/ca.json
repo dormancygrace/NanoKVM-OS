@@ -406,6 +406,12 @@
       "cancelBtn": "No",
       "cpuFrequency": {
         "title": "Freqüència de la CPU i overclocking"
+      },
+      "atx": {
+        "title": "Control d'alimentació ATX",
+        "description": "Botons d'engegada i de reinici i LED d'engegada de l'equip: la placa KVM-B en un Cube o Lite, integrats a la targeta PCIe. Desactivat: no hi ha botó d'engegada a la barra d'eines, i Redfish, IPMI i MCP no poden prémer els botons.",
+        "unavailable": "Aquesta placa no té cap connexió ATX coneguda.",
+        "failed": "No s'ha pogut canviar el paràmetre ATX"
       }
     },
     "network": {

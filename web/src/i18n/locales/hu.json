@@ -406,6 +406,12 @@
       "cancelBtn": "Nem",
       "cpuFrequency": {
         "title": "CPU-órajel és túlhajtás"
+      },
+      "atx": {
+        "title": "ATX tápvezérlés",
+        "description": "A gazdagép bekapcsoló- és reset gombja és tápjelző LED-je: a KVM-B panel Cube vagy Lite esetén, a PCIe kártyába beépítve. Kikapcsolva nincs bekapcsoló gomb az eszköztáron, és a Redfish, az IPMI és az MCP nem nyomhatja meg a gombokat.",
+        "unavailable": "Ennek a panelnek nincs ismert ATX-csatlakozása.",
+        "failed": "Az ATX-beállítást nem sikerült módosítani"
       }
     },
     "network": {

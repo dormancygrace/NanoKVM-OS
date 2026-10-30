@@ -634,6 +634,12 @@
         "throttled": "Teplotní limit aktivní. Používání vámi vybrané frekvence bude navráceno po zchlazení.",
         "running": "Provozováno na: {{mhz}} MHz",
         "description": "Uplatněno okamžitě. Standardní a energii šetřící nastavení jsou uložena; přetaktování přetrvá do příštího restartu zařízení. Zkontrolujte teplotu SoC čipu na Přehledu."
+      },
+      "atx": {
+        "title": "Ovládání napájení ATX",
+        "description": "Tlačítko napájení a resetu a LED napájení hostitele: deska KVM-B u Cube nebo Lite, vestavěno v kartě PCIe. Vypnuto — žádné tlačítko napájení na panelu nástrojů a Redfish, IPMI ani MCP nemohou tlačítka stisknout.",
+        "unavailable": "Tato deska nemá známé připojení ATX.",
+        "failed": "Nastavení ATX se nepodařilo změnit"
       }
     },
     "network": {

@@ -406,6 +406,12 @@
       "cancelBtn": "Nie",
       "cpuFrequency": {
         "title": "Częstotliwość procesora i podkręcanie"
+      },
+      "atx": {
+        "title": "Sterowanie zasilaniem ATX",
+        "description": "Przyciski zasilania i resetu oraz dioda zasilania hosta: płytka KVM-B w Cube lub Lite, wbudowane w kartę PCIe. Wyłączone — brak przycisku zasilania na pasku narzędzi, a Redfish, IPMI i MCP nie mogą naciskać przycisków.",
+        "unavailable": "Ta płyta nie ma znanego połączenia ATX.",
+        "failed": "Nie udało się zmienić ustawienia ATX"
       }
     },
     "network": {

@@ -406,6 +406,12 @@
       "cancelBtn": "No",
       "cpuFrequency": {
         "title": "Frequenza CPU e overclock"
+      },
+      "atx": {
+        "title": "Controllo dell'alimentazione ATX",
+        "description": "Pulsanti di accensione e reset e LED di alimentazione dell'host: la scheda KVM-B su Cube o Lite, integrati nella scheda PCIe. Disattivato: nessun pulsante di accensione nella barra degli strumenti, e Redfish, IPMI e MCP non possono premere i pulsanti.",
+        "unavailable": "Questa scheda non ha un collegamento ATX noto.",
+        "failed": "Impossibile modificare l'impostazione ATX"
       }
     },
     "network": {

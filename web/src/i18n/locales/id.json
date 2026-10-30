@@ -406,6 +406,12 @@
       "cancelBtn": "Tidak",
       "cpuFrequency": {
         "title": "Frekuensi CPU dan overclock"
+      },
+      "atx": {
+        "title": "Kontrol daya ATX",
+        "description": "Tombol daya dan reset serta LED daya host: papan KVM-B pada Cube atau Lite, terpasang di kartu PCIe. Mati: tidak ada tombol daya di bilah alat, dan Redfish, IPMI, serta MCP tidak dapat menekan tombol.",
+        "unavailable": "Papan ini tidak memiliki sambungan ATX yang dikenal.",
+        "failed": "Pengaturan ATX tidak dapat diubah"
       }
     },
     "network": {

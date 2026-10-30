@@ -18,6 +18,7 @@ func TestATXStateFollowsThePowerLEDSetting(t *testing.T) {
 		*hardware, monitoredGPIOInputs, bmcConfigPath = previousHardware, previousMonitor, previousPath
 	})
 	hardware.GPIOPower, hardware.GPIOReset, hardware.GPIOPowerLED = "power", "reset", "led"
+	useATX(t, "beta", "on")
 
 	lit := newGPIOInputMonitor(nil, nil, 0, 0, 0)
 	lit.startOnce.Do(func() {})

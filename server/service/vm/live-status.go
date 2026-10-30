@@ -25,8 +25,11 @@ type liveStatus struct {
 // included only for administrators, like GET /api/vm/device/virtual.
 func (s *Service) GetLiveStatus(c *gin.Context, admin bool) {
 	status := liveStatus{Recovery: failsafe.Status(), HDMI: hdmiState(), Input: hid.InputStatus(), Audio: audio.StatusData()}
-	if leds, err := monitoredGPIOInputs.Current(c.Request.Context()); err == nil {
-		status.GPIO = &proto.GetGpioRsp{PWR: leds.Power, HDD: leds.HDD}
+	// With ATX off the LED monitor is not started: no gpio.
+	if ATXEnabled() {
+		if leds, err := gpioMonitor().Current(c.Request.Context()); err == nil {
+			status.GPIO = &proto.GetGpioRsp{PWR: leds.Power, HDD: leds.HDD}
+		}
 	}
 	if admin {
 		status.USB = virtualDeviceState()

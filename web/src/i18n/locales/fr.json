@@ -1270,7 +1270,13 @@
       "reboot": "Redémarrer",
       "rebootDesc": "Êtes-vous sûr de vouloir redémarrer NanoKVM?",
       "okBtn": "Oui",
-      "cancelBtn": "Non"
+      "cancelBtn": "Non",
+      "atx": {
+        "title": "Contrôle de l'alimentation ATX",
+        "description": "Boutons d'alimentation et de réinitialisation et voyant d'alimentation de l'hôte : la carte KVM-B sur un Cube ou un Lite, intégrés à la carte PCIe. Désactivé : pas de bouton d'alimentation dans la barre d'outils, et Redfish, IPMI et MCP ne peuvent pas appuyer sur les boutons.",
+        "unavailable": "Cette carte n'a pas de connexion ATX connue.",
+        "failed": "Impossible de modifier le réglage ATX"
+      }
     },
     "usb": {
       "internet": {

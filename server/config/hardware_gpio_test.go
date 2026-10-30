@@ -3,11 +3,22 @@ package config
 import "testing"
 
 func TestATXRequiresKnownBoard(t *testing.T) {
-	for _, name := range []string{"", "unknown", "Alpha", "lite"} {
+	for _, name := range []string{"", "unknown", "Alpha"} {
 		h := gpioV2Hardware(HWVersionAlpha, name)
-		if h.GPIOPower != "" || h.GPIOReset != "" || h.GPIOPowerLED != "" || h.GPIOHDDLed != "" {
+		if h.GPIOPower != "" || h.GPIOReset != "" || h.GPIOPowerLED != "" || h.GPIOHDDLed != "" || h.Board != "" {
 			t.Fatalf("unknown board retained GPIO access: %+v", h)
 		}
+	}
+}
+
+// A Lite with the KVM-B board is wired as the Full (Beta) one; whether the
+// lines are used is the ATX switch's.
+func TestATXLiteUsesTheBetaMapping(t *testing.T) {
+	l := gpioV2Hardware(HWVersionAlpha, "lite\n")
+	b := gpioV2Hardware(HWVersionAlpha, "beta")
+	if l.Board != "lite" || l.Version != HWVersionBeta || l.GPIOPower != b.GPIOPower || l.GPIOReset != b.GPIOReset ||
+		l.GPIOPowerLED != b.GPIOPowerLED || l.GPIOHDDLed != "" || l.GPIOPower == "" {
+		t.Fatalf("Lite mapping: %+v, Beta: %+v", l, b)
 	}
 }
 func TestATXPCIeAndAlphaMapping(t *testing.T) {

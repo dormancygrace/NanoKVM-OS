@@ -406,6 +406,12 @@
       "cancelBtn": "Nej",
       "cpuFrequency": {
         "title": "CPU-frekvens och överklockning"
+      },
+      "atx": {
+        "title": "ATX-strömstyrning",
+        "description": "Värdens ström- och återställningsknapp och ström-LED: KVM-B-kortet på en Cube eller Lite, inbyggt i PCIe-kortet. Av: ingen strömknapp i verktygsfältet, och Redfish, IPMI och MCP kan inte trycka på knapparna.",
+        "unavailable": "Det här kortet har ingen känd ATX-anslutning.",
+        "failed": "ATX-inställningen kunde inte ändras"
       }
     },
     "network": {

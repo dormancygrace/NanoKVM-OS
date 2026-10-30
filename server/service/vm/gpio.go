@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
-	"NanoKVM-Server/config"
 	"NanoKVM-Server/internal/gpioio"
 	"NanoKVM-Server/proto"
 )
@@ -25,7 +24,7 @@ func (s *Service) SetGpio(c *gin.Context) {
 	}
 
 	device := ""
-	conf := config.GetInstance().Hardware
+	conf := atxHardware()
 
 	switch req.Type {
 	case "power":
@@ -34,6 +33,10 @@ func (s *Service) SetGpio(c *gin.Context) {
 		device = conf.GPIOReset
 	default:
 		rsp.ErrRsp(c, -2, fmt.Sprintf("invalid power event: %s", req.Type))
+		return
+	}
+	if device == "" {
+		rsp.ErrRsp(c, -2, "ATX power control is off (System > Device)")
 		return
 	}
 
@@ -60,7 +63,11 @@ func (s *Service) SetGpio(c *gin.Context) {
 func (s *Service) GetGpio(c *gin.Context) {
 	var rsp proto.Response
 
-	status, err := monitoredGPIOInputs.Current(c.Request.Context())
+	if !ATXEnabled() {
+		rsp.ErrRsp(c, -1, "ATX power control is off (System > Device)")
+		return
+	}
+	status, err := gpioMonitor().Current(c.Request.Context())
 	if err != nil {
 		rsp.ErrRsp(c, -2, fmt.Sprintf("failed to read ATX LEDs: %s", err))
 		return

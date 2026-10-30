@@ -171,3 +171,41 @@ func TestLoadSkipsBrokenManifests(t *testing.T) {
 		t.Errorf("missing directory: %v, %v", manifests, skipped)
 	}
 }
+
+func TestManifestURLBrowserNormalization(t *testing.T) {
+	invalid := []string{
+		"/api/addon/demo/%2e%2e/%2e%2e/auth/password",
+		"/api/addon/demo/.%2E/.%2e/auth/password",
+		"/api/addon/demo/.\t./.\n./auth/password",
+		"/api/addon/demo/status%0a",
+		"/api/addon/demo/%5cstatus",
+		"/api/addon/demo/status?mode=1",
+		"/api/addon/demo/status#fragment",
+		"/api/addon/demo/%zz",
+	}
+	for _, target := range []string{"source", "submit", "action"} {
+		for _, value := range invalid {
+			t.Run(target+"/"+value, func(t *testing.T) {
+				m := validManifest()
+				switch target {
+				case "source":
+					m.Settings.Form.Source = value
+				case "submit":
+					m.Settings.Form.Submit = value
+				case "action":
+					m.Settings.Form.Actions[0].URL = value
+				}
+				if err := m.Validate(); err == nil {
+					t.Fatalf("accepted unsafe URL %q", value)
+				}
+			})
+		}
+	}
+	for _, value := range []string{"/api/addon/demo/status", "/api/addon/demo/status%2Ddetail", "/api/addon/demo/%E2%9C%93"} {
+		m := validManifest()
+		m.Settings.Form.Source = value
+		if err := m.Validate(); err != nil {
+			t.Errorf("valid URL %q: %v", value, err)
+		}
+	}
+}

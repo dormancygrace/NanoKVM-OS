@@ -15,13 +15,15 @@ import { SettingsSection } from '@/components/ui/settings.tsx';
 // (docs/ADDONS.md). Values come from the add-on's own API through the
 // server's proxy; core keeps the look, the add-on only describes the fields.
 // embedded: one section of a core page (settings.section) instead of a page.
-export const AddonPage = ({
-  manifest,
-  embedded = false
-}: {
-  manifest: AddonManifest;
-  embedded?: boolean;
-}) => {
+type AddonPageProps = { manifest: AddonManifest; embedded?: boolean };
+
+export const AddonPage = (props: AddonPageProps) => (
+  // A changed definition gets a new form instance. Pending requests from
+  // the previous definition must not write values into its replacement.
+  <AddonFormPage key={JSON.stringify(props.manifest.settings!.form)} {...props} />
+);
+
+const AddonFormPage = ({ manifest, embedded = false }: AddonPageProps) => {
   const { t, i18n } = useTranslation('translation', { keyPrefix: 'settings.addonPage' });
   // The inventory poll brings a new manifest object every time: start over
   // (and reset an edited form) only when the form itself changed.
@@ -43,12 +45,24 @@ export const AddonPage = ({
   const [values] = Form.useForm();
   const dirty = useRef(false);
   const mounted = useRef(false);
+  const editRevision = useRef(0);
+  const readRevision = useRef(0);
+  const pendingRead = useRef<number | null>(null);
+  const posting = useRef(false);
+  const invalidateReads = useCallback(() => {
+    readRevision.current++;
+    pendingRead.current = null;
+  }, []);
 
   const refresh = useCallback(async () => {
-    if (!mounted.current) return;
+    // A slow source must get to finish instead of being superseded by each
+    // poll tick. Mutations and form teardown explicitly invalidate that read.
+    if (!mounted.current || posting.current || pendingRead.current !== null) return;
+    const revision = ++readRevision.current;
+    pendingRead.current = revision;
     try {
       const response = await http.get(form.source);
-      if (!mounted.current) return;
+      if (!mounted.current || revision !== readRevision.current) return;
       if (response.code !== 0) throw response;
       const next = (response.data ?? {}) as Record<string, unknown>;
       setData(next);
@@ -56,49 +70,65 @@ export const AddonPage = ({
       setLoadError('');
       setStopped(false);
     } catch (err) {
-      if (!mounted.current) return;
+      if (!mounted.current || revision !== readRevision.current) return;
       const notRunning = isAxiosError(err) && err.response?.status === 502;
       setStopped(notRunning);
       setLoadError(notRunning ? '' : (requestErrorText(err, t('failed')) ?? ''));
+    } finally {
+      if (pendingRead.current === revision) pendingRead.current = null;
     }
   }, [form, values, t]);
 
   useEffect(() => {
     mounted.current = true;
-    dirty.current = false;
-    setData(undefined);
     void refresh();
     const stop = form.refresh
       ? pollWhileVisible(() => void refresh(), form.refresh * 1000)
       : undefined;
     return () => {
       mounted.current = false;
+      invalidateReads();
       stop?.();
     };
-  }, [form, refresh]);
+  }, [form, refresh, invalidateReads]);
 
-  const post = async (key: string, url: string, body?: Record<string, unknown>) => {
+  const post = async (
+    key: string,
+    url: string,
+    body?: Record<string, unknown>,
+    onSuccess?: () => void
+  ) => {
+    if (!mounted.current || posting.current) return;
+    posting.current = true;
+    // A read started before this mutation can no longer describe its result.
+    invalidateReads();
     setBusy(key);
     try {
-      const response = await http.post(url, body);
+      const response = await http.post(url, body, { sensitive: true });
+      if (!mounted.current) return;
       if (response.code !== 0) throw response;
       setActionError('');
-      return true;
+      onSuccess?.();
     } catch (err) {
-      setActionError(requestErrorText(err, t('refused')) ?? '');
-      return false;
+      if (mounted.current) setActionError(requestErrorText(err, t('refused')) ?? '');
     } finally {
-      setBusy('');
-      void refresh();
+      posting.current = false;
+      if (mounted.current) {
+        setBusy('');
+        void refresh();
+      }
     }
   };
 
   const save = async (edited: Record<string, unknown>) => {
     if (!form.submit) return;
-    if (await post('submit', form.submit, submitValues(form.fields, edited))) {
-      dirty.current = false;
+    const revision = editRevision.current;
+    await post('submit', form.submit, submitValues(form.fields, edited), () => {
+      // A successful POST only saved the submitted revision. Keep any edits
+      // made while it was in flight when the following GET refreshes status.
+      if (revision === editRevision.current) dirty.current = false;
       void message.success(t('saved'));
-    }
+    });
   };
 
   const section = (children: ReactNode) =>
@@ -177,6 +207,7 @@ export const AddonPage = ({
           layout="vertical"
           onValuesChange={() => {
             dirty.current = true;
+            editRevision.current++;
           }}
           onFinish={(edited) => void save(edited)}
         >
@@ -192,7 +223,12 @@ export const AddonPage = ({
               {control(field)}
             </Form.Item>
           ))}
-          <Button type="primary" htmlType="submit" loading={busy === 'submit'}>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={busy === 'submit'}
+            disabled={busy !== '' && busy !== 'submit'}
+          >
             {t('save')}
           </Button>
         </Form>
@@ -203,8 +239,8 @@ export const AddonPage = ({
             <Button
               key={action.id}
               danger={action.danger}
-              loading={busy === action.id}
-              disabled={busy !== '' && busy !== action.id}
+              loading={busy === `action:${action.id}`}
+              disabled={busy !== '' && busy !== `action:${action.id}`}
               onClick={async () => {
                 if (action.confirm) {
                   const confirmed = await confirmAction({
@@ -214,7 +250,7 @@ export const AddonPage = ({
                   });
                   if (!confirmed) return;
                 }
-                void post(action.id, action.url);
+                void post(`action:${action.id}`, action.url);
               }}
             >
               {text(action.label)}

@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // ManifestDir holds one <id>.json per installed add-on, files of its package.
@@ -185,8 +187,13 @@ func (m *Manifest) Validate() error {
 	}
 	prefix := "/api/addon/" + m.ID + "/"
 	url := func(what, value string) error {
-		if !strings.HasPrefix(value, prefix) || strings.Contains(value, "..") ||
-			strings.ContainsAny(value, "?#\\ ") {
+		// Browsers normalize encoded dot segments before sending the request.
+		// Check the decoded path too, and reject control characters rather
+		// than allowing URL parsing to strip them into a traversal segment.
+		parsed, err := url.ParseRequestURI(value)
+		if err != nil || !strings.HasPrefix(value, prefix) || !strings.HasPrefix(parsed.Path, prefix) ||
+			strings.Contains(parsed.Path, "..") || strings.ContainsAny(value, "?#\\ ") ||
+			strings.ContainsAny(parsed.Path, "?#\\ ") || strings.ContainsFunc(parsed.Path, unicode.IsControl) {
 			return fmt.Errorf("%s %q: must be a path under %s", what, value, prefix)
 		}
 		return nil

@@ -694,6 +694,16 @@
         "enabledDescription": "Tekst op het scherm lezen met de TPU: de knop in de werkbalk, MCP en PicoClaw. Uitgeschakeld kan geen van hen lezen.",
         "switchFailed": "De instelling kon niet worden opgeslagen"
       }
+    },
+    "addonPage": {
+      "failed": "Kan de waarden van de add-on niet lezen",
+      "notRunning": "De dienst van de add-on draait niet",
+      "refused": "De add-on heeft het geweigerd",
+      "saved": "Opgeslagen",
+      "save": "Opslaan",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nee"
     }
   },
   "picoclaw": {

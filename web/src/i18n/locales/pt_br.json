@@ -694,6 +694,16 @@
         "enabledDescription": "Ler o texto da tela com a TPU: o botão da barra de ferramentas, MCP e PicoClaw. Desligado, nenhum deles pode ler.",
         "switchFailed": "Não foi possível salvar a configuração"
       }
+    },
+    "addonPage": {
+      "failed": "Não foi possível ler os valores do complemento",
+      "notRunning": "O serviço do complemento não está em execução",
+      "refused": "O complemento recusou",
+      "saved": "Salvo",
+      "save": "Salvar",
+      "status": "Status",
+      "yes": "Sim",
+      "no": "Não"
     }
   },
   "picoclaw": {

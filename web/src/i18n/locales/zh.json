@@ -771,6 +771,16 @@
     "controlRequired": "另一个会话正在控制输入。请先获取控制。"
   },
   "settings": {
+    "addonPage": {
+      "failed": "无法读取附加组件的数据",
+      "notRunning": "附加组件的服务未运行",
+      "refused": "附加组件拒绝了此操作",
+      "saved": "已保存",
+      "save": "保存",
+      "status": "状态",
+      "yes": "是",
+      "no": "否"
+    },
     "vpn": {
       "title": "VPN",
       "description": "将 NanoKVM 连接到私有网络。选择一种 VPN 进行设置。"

@@ -41,3 +41,22 @@ refuses to create a substitute local profile. `pnpm test:browser --list` lists
 cases without launching a browser. The suite runs serially, has no retries,
 and uploads a trace on failure. Test-only files are excluded from the production
 bundle and a chunk test checks that the fixture credentials/routes do not ship.
+
+### Add-on form regressions
+
+Open `/tests/browser/addon.html` in the same Chrome Main fixture session. It uses
+the production AddonPage and HTTP error interceptor with a controlled adapter;
+all data is synthetic and no add-on or device is contacted.
+
+- Save Name `draft A`, change it to `draft B` while Save is pending, then press
+  Complete save. After the GET delivery appears in Test events, Name stays B.
+- Hold old source, then Switch source. After CURRENT NEW appears, Release old
+  read. Name and status stay on the new source.
+- On a fresh page, Hold next poll and wait for the held GET event. Save a changed
+  Name, Complete save, wait for its refreshed GET, then Release old read. The
+  committed Name must remain visible.
+- Fail saves, enter the literal synthetic value `fixture-secret`, and Save. The
+  refusal remains visible and Test events must not contain PASSWORD LOGGED.
+
+`addon.spec.ts` runs these regressions in CI, and verifies that a read slower
+than the polling interval is allowed to finish without overlapping requests.

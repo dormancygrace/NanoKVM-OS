@@ -47,12 +47,19 @@ func main() {
 	errs := make(chan error, 1)
 	go func() { errs <- server.Serve(conn) }()
 	log.Printf("IPMI: listening on UDP port %d", config.IPMIPort)
+	// The settings page's data, through the server's add-on proxy. Without
+	// it the page says the add-on is not running; IPMI itself goes on.
+	if err := serveStatus(statusSocket, server, config.IPMIPort); err != nil {
+		log.Printf("status page: %v", err)
+	}
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
 	select {
 	case <-signals:
+		_ = os.Remove(statusSocket)
 	case err := <-errs:
+		_ = os.Remove(statusSocket)
 		log.Fatalf("IPMI: %v", err)
 	}
 }

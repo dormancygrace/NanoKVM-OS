@@ -7,6 +7,50 @@ export type AddonInventory = {
   // Absent from servers older than the TPU add-on.
   // enabled: text recognition is on (absent from older servers: on).
   tpu?: { installed: boolean; enabled?: boolean };
+  // Add-ons that describe themselves (server/service/addons, docs/ADDONS.md).
+  addons?: AddonManifest[];
+};
+
+// A text in several languages; "en" is always there.
+export type AddonText = Record<string, string>;
+
+export type AddonFieldType = 'text' | 'password' | 'number' | 'select' | 'switch' | 'status';
+
+export type AddonField = {
+  key: string;
+  type: AddonFieldType;
+  label: AddonText;
+  help?: AddonText;
+  options?: { value: string; label: AddonText }[];
+  min?: number;
+  max?: number;
+  required?: boolean;
+};
+
+export type AddonAction = {
+  id: string;
+  label: AddonText;
+  url: string;
+  confirm?: AddonText;
+  danger?: boolean;
+};
+
+export type AddonForm = {
+  source: string;
+  submit?: string;
+  refresh?: number;
+  fields: AddonField[];
+  actions?: AddonAction[];
+};
+
+export type AddonManifest = {
+  id: string;
+  api: number;
+  title: AddonText;
+  description?: AddonText;
+  backend?: { socket: string };
+  // group: a page of its own; section: a section of that core page.
+  settings?: { group?: string; section?: string; icon?: string; form: AddonForm };
 };
 
 export const getAddonInventory = () =>

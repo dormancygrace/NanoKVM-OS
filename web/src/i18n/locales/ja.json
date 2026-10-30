@@ -771,6 +771,16 @@
     "controlRequired": "別のセッションが入力を操作しています。先に操作権を取得してください。"
   },
   "settings": {
+    "addonPage": {
+      "failed": "アドオンの値を読み取れませんでした",
+      "notRunning": "アドオンのサービスは実行されていません",
+      "refused": "アドオンが拒否しました",
+      "saved": "保存しました",
+      "save": "保存",
+      "status": "状態",
+      "yes": "はい",
+      "no": "いいえ"
+    },
     "vpn": {
       "title": "VPN",
       "description": "NanoKVM をプライベートネットワークに接続します。設定する VPN を選択してください。"

@@ -693,6 +693,16 @@
         "enabledDescription": "Läs texten på skärmen med TPU: knappen i verktygsfältet, MCP och PicoClaw. Avstängd kan ingen av dem läsa den.",
         "switchFailed": "Inställningen kunde inte sparas"
       }
+    },
+    "addonPage": {
+      "failed": "Kunde inte läsa tilläggets värden",
+      "notRunning": "Tilläggets tjänst körs inte",
+      "refused": "Tillägget avvisade det",
+      "saved": "Sparat",
+      "save": "Spara",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nej"
     }
   },
   "picoclaw": {

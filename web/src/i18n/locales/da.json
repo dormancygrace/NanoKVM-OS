@@ -688,6 +688,16 @@
         "enabledDescription": "Læs teksten på skærmen med TPU: knappen i værktøjslinjen, MCP og PicoClaw. Slået fra kan ingen af dem læse den.",
         "switchFailed": "Indstillingen kunne ikke gemmes"
       }
+    },
+    "addonPage": {
+      "failed": "Kunne ikke læse tilføjelsens værdier",
+      "notRunning": "Tilføjelsens tjeneste kører ikke",
+      "refused": "Tilføjelsen afviste det",
+      "saved": "Gemt",
+      "save": "Gem",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nej"
     }
   },
   "picoclaw": {

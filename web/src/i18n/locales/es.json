@@ -771,6 +771,16 @@
     "controlRequired": "Otra sesión controla la entrada. Toma el control primero."
   },
   "settings": {
+    "addonPage": {
+      "failed": "No se pudieron leer los valores del complemento",
+      "notRunning": "El servicio del complemento no se está ejecutando",
+      "refused": "El complemento lo rechazó",
+      "saved": "Guardado",
+      "save": "Guardar",
+      "status": "Estado",
+      "yes": "Sí",
+      "no": "No"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Conecta el NanoKVM a una red privada. Selecciona una VPN para configurarla."

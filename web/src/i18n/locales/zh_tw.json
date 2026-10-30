@@ -690,6 +690,16 @@
         "enabledDescription": "使用 TPU 讀取螢幕上的文字：工具列按鈕、MCP 與 PicoClaw。關閉後，它們都無法讀取。",
         "switchFailed": "無法儲存設定"
       }
+    },
+    "addonPage": {
+      "failed": "無法讀取附加元件的值",
+      "notRunning": "附加元件的服務未執行",
+      "refused": "附加元件拒絕了此操作",
+      "saved": "已儲存",
+      "save": "儲存",
+      "status": "狀態",
+      "yes": "是",
+      "no": "否"
     }
   },
   "picoclaw": {

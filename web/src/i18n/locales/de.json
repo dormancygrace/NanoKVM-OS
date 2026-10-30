@@ -771,6 +771,16 @@
     "controlRequired": "Eine andere Sitzung steuert die Eingabe. Übernehmen Sie zuerst die Steuerung."
   },
   "settings": {
+    "addonPage": {
+      "failed": "Die Werte des Add-ons konnten nicht gelesen werden",
+      "notRunning": "Der Dienst des Add-ons läuft nicht",
+      "refused": "Das Add-on hat abgelehnt",
+      "saved": "Gespeichert",
+      "save": "Speichern",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nein"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Verbinden Sie den NanoKVM mit einem privaten Netzwerk. Wählen Sie ein VPN aus, um es einzurichten."

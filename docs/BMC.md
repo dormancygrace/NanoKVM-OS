@@ -7,6 +7,8 @@ Data centre tools can switch the host on and off through the NanoKVM's ATX conne
 
 Both are off by default. They are set up in Services > Redfish and IPMI, each on its own switch, with one BMC account for both.
 
+From version 0.2.0 the IPMI add-on also adds an "IPMI status" section to that page, drawn from its manifest (see [ADDONS.md](ADDONS.md)): open sessions, clients locked out for too many logins, and the last power command. It reads them while IPMI is switched on; otherwise the section says the add-on's service is not running.
+
 ## What it serves
 
 | Request | Redfish (`ResetType`) | IPMI (`ipmitool chassis power …`) | Buttons |

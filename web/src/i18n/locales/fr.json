@@ -771,6 +771,16 @@
     "controlRequired": "Une autre session contrôle la saisie. Prenez d'abord le contrôle."
   },
   "settings": {
+    "addonPage": {
+      "failed": "Impossible de lire les valeurs du module complémentaire",
+      "notRunning": "Le service du module complémentaire n'est pas lancé",
+      "refused": "Le module complémentaire a refusé",
+      "saved": "Enregistré",
+      "save": "Enregistrer",
+      "status": "État",
+      "yes": "Oui",
+      "no": "Non"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Connectez le NanoKVM à un réseau privé. Sélectionnez un VPN pour le configurer."

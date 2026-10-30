@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Form, Input, InputNumber, message, Spin, Switch } from 'antd';
+import { Alert, Button, Form, Input, InputNumber, message, Spin, Switch, Tabs } from 'antd';
+import { useAtom } from 'jotai';
 import { DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,14 +11,22 @@ import {
   type BmcSettings,
   type BmcStatus
 } from '@/api/bmc.ts';
+import { localized } from '@/lib/addon-form.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { bmcTabAtom } from '@/jotai/settings.ts';
 import { SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
-// System > Redfish and IPMI: Redfish is part of the server, IPMI comes with
-// its add-on; one BMC account for both, and the power button hold of a
-// forced power-off.
+import { AddonPage } from '../addon';
+import { useAddonSections } from '../addon/sections';
+
+// Services > Redfish and IPMI: Redfish is part of the server, IPMI comes with
+// its add-on; one tab each, and below them the BMC account for both and the
+// power button hold of a forced power-off. Other add-ons that extend this
+// page (settings.section "services-bmc") get a tab of their own.
 export const BmcSettingsPage = () => {
-  const { t } = useTranslation('translation', { keyPrefix: 'settings.bmc' });
+  const { t, i18n } = useTranslation('translation', { keyPrefix: 'settings.bmc' });
+  const sections = useAddonSections('services-bmc');
+  const [activeTab, setActiveTab] = useAtom(bmcTabAtom);
   const [status, setStatus] = useState<BmcStatus>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -96,7 +105,16 @@ export const BmcSettingsPage = () => {
     }
   };
 
+  // The page has no <form> element (see below): Enter submits by hand.
+  const submit = () => form.submit();
+
   if (!status) return error ? <Alert type="error" title={error} showIcon /> : <Spin />;
+  // An add-on removed while its tab is open: back to Redfish, not an empty page.
+  const currentTab =
+    activeTab.startsWith('addon-') &&
+    !sections.some((manifest) => `addon-${manifest.id}` === activeTab)
+      ? 'redfish'
+      : activeTab;
   // The account and the power options serve Redfish and IPMI: without
   // either they configure nothing. Hidden, not unmounted, so a save keeps them.
   const shared = Boolean(redfish) || status.ipmiInstalled;
@@ -105,8 +123,10 @@ export const BmcSettingsPage = () => {
     <div className="space-y-6">
       <p className="text-fg-muted m-0 text-sm">{t('description')}</p>
       {error && <Alert type="error" title={error} showIcon />}
+      {/* No <form> element: an add-on section in a tab may bring its own form. */}
       <Form
         form={form}
+        component={false}
         layout="vertical"
         onValuesChange={() => {
           dirty.current = true;
@@ -114,93 +134,135 @@ export const BmcSettingsPage = () => {
         onFinish={(values) => void save(values)}
         onFinishFailed={() => setShowValidationErrors(true)}
       >
-        <SettingsSection title={t('redfish')}>
-          <Form.Item
-            name="redfish"
-            label={t('redfishEnable')}
-            valuePropName="checked"
-            extra={t('redfishHint', { host: window.location.host })}
-          >
-            <Switch />
-          </Form.Item>
-        </SettingsSection>
-        <SettingsSection title={t('ipmi')}>
-          {status.ipmiInstalled ? (
-            <>
-              <StatusBadge tone={status.ipmiRunning ? 'success' : 'neutral'}>
-                {status.ipmiRunning ? t('running') : t('stopped')}
-              </StatusBadge>
+        <Tabs
+          activeKey={currentTab}
+          onChange={setActiveTab}
+          items={[
+            {
+              key: 'redfish',
+              label: t('redfish'),
+              // Rendered while hidden: a save sends the fields of every tab.
+              forceRender: true,
+              children: (
+                <Form.Item
+                  name="redfish"
+                  label={t('redfishEnable')}
+                  valuePropName="checked"
+                  extra={t('redfishHint', { host: window.location.host })}
+                >
+                  <Switch />
+                </Form.Item>
+              )
+            },
+            {
+              key: 'ipmi',
+              label: t('ipmi'),
+              forceRender: true,
+              children: (
+                <div className="space-y-4">
+                  {status.ipmiInstalled ? (
+                    <>
+                      <StatusBadge tone={status.ipmiRunning ? 'success' : 'neutral'}>
+                        {status.ipmiRunning ? t('running') : t('stopped')}
+                      </StatusBadge>
+                      <Form.Item
+                        name="ipmi"
+                        label={t('ipmiEnable')}
+                        valuePropName="checked"
+                        extra={t('ipmiHint')}
+                      >
+                        <Switch />
+                      </Form.Item>
+                      {ipmi && <Alert type="warning" title={t('ipmiWarning')} showIcon />}
+                      <Form.Item name="ipmiPort" label={t('ipmiPort')}>
+                        <InputNumber min={1} max={65535} onPressEnter={submit} />
+                      </Form.Item>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-fg-muted m-0 text-sm">{t('ipmiNotInstalled')}</p>
+                      <Button
+                        icon={<DownloadIcon size={16} />}
+                        loading={installing}
+                        onClick={() => void installIpmi()}
+                      >
+                        {t('ipmiInstall')}
+                      </Button>
+                    </>
+                  )}
+                  {/* Its status: the badge above already says when it is stopped. */}
+                  {status.ipmiRunning &&
+                    sections
+                      .filter((manifest) => manifest.id === 'ipmi')
+                      .map((manifest) => (
+                        <AddonPage key={manifest.id} manifest={manifest} embedded />
+                      ))}
+                </div>
+              )
+            },
+            ...sections
+              .filter((manifest) => manifest.id !== 'ipmi')
+              .map((manifest) => ({
+                key: `addon-${manifest.id}`,
+                label: localized(manifest.title, i18n.language),
+                // The tab carries its title: drawn as a page of its own.
+                children: <AddonPage manifest={manifest} />
+              }))
+          ]}
+        />
+        {/* The account and Save belong to Redfish and IPMI, not to an add-on's tab. */}
+        <div className="space-y-6" hidden={currentTab.startsWith('addon-')}>
+          {!shared && !showValidationErrors && (
+            <p className="text-fg-muted m-0 text-sm">{t('sharedOff')}</p>
+          )}
+          {/* A rejected draft must stay editable even after Redfish is switched off. */}
+          <div hidden={!shared && !showValidationErrors}>
+            <SettingsSection
+              title={t('account')}
+              description={status.ipmiInstalled ? t('accountHint') : t('accountHintRedfish')}
+            >
               <Form.Item
-                name="ipmi"
-                label={t('ipmiEnable')}
+                name="username"
+                label={t('username')}
+                rules={[
+                  { required: true, pattern: /^[A-Za-z0-9._-]{1,16}$/, message: t('usernameRule') }
+                ]}
+              >
+                <Input autoComplete="off" maxLength={16} onPressEnter={submit} />
+              </Form.Item>
+              <Form.Item
+                name="password"
+                label={t('password')}
+                extra={status.passwordSet ? t('passwordKeep') : t('passwordRule')}
+                rules={[
+                  { min: 8, message: t('passwordRule') },
+                  { max: 20, message: t('passwordRule') }
+                ]}
+              >
+                <Input.Password autoComplete="new-password" maxLength={20} onPressEnter={submit} />
+              </Form.Item>
+              <Form.Item name="holdSeconds" label={t('holdSeconds')} extra={t('holdHint')}>
+                <InputNumber
+                  min={1}
+                  max={30}
+                  placeholder={t('holdDefault')}
+                  onPressEnter={submit}
+                />
+              </Form.Item>
+              <Form.Item
+                name="powerLedConnected"
+                label={t('powerLed')}
                 valuePropName="checked"
-                extra={t('ipmiHint')}
+                extra={t('powerLedHint')}
               >
                 <Switch />
               </Form.Item>
-              {ipmi && <Alert type="warning" title={t('ipmiWarning')} showIcon />}
-              <Form.Item name="ipmiPort" label={t('ipmiPort')}>
-                <InputNumber min={1} max={65535} />
-              </Form.Item>
-            </>
-          ) : (
-            <>
-              <p className="text-fg-muted m-0 text-sm">{t('ipmiNotInstalled')}</p>
-              <Button
-                icon={<DownloadIcon size={16} />}
-                loading={installing}
-                onClick={() => void installIpmi()}
-              >
-                {t('ipmiInstall')}
-              </Button>
-            </>
-          )}
-        </SettingsSection>
-        {!shared && !showValidationErrors && (
-          <p className="text-fg-muted m-0 text-sm">{t('sharedOff')}</p>
-        )}
-        {/* A rejected draft must stay editable even after Redfish is switched off. */}
-        <div hidden={!shared && !showValidationErrors}>
-          <SettingsSection
-            title={t('account')}
-            description={status.ipmiInstalled ? t('accountHint') : t('accountHintRedfish')}
-          >
-            <Form.Item
-              name="username"
-              label={t('username')}
-              rules={[
-                { required: true, pattern: /^[A-Za-z0-9._-]{1,16}$/, message: t('usernameRule') }
-              ]}
-            >
-              <Input autoComplete="off" maxLength={16} />
-            </Form.Item>
-            <Form.Item
-              name="password"
-              label={t('password')}
-              extra={status.passwordSet ? t('passwordKeep') : t('passwordRule')}
-              rules={[
-                { min: 8, message: t('passwordRule') },
-                { max: 20, message: t('passwordRule') }
-              ]}
-            >
-              <Input.Password autoComplete="new-password" maxLength={20} />
-            </Form.Item>
-            <Form.Item name="holdSeconds" label={t('holdSeconds')} extra={t('holdHint')}>
-              <InputNumber min={1} max={30} placeholder={t('holdDefault')} />
-            </Form.Item>
-            <Form.Item
-              name="powerLedConnected"
-              label={t('powerLed')}
-              valuePropName="checked"
-              extra={t('powerLedHint')}
-            >
-              <Switch />
-            </Form.Item>
-          </SettingsSection>
+            </SettingsSection>
+          </div>
+          <Button type="primary" loading={busy} onClick={submit}>
+            {t('save')}
+          </Button>
         </div>
-        <Button type="primary" htmlType="submit" loading={busy}>
-          {t('save')}
-        </Button>
       </Form>
     </div>
   );

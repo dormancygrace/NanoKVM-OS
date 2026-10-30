@@ -422,6 +422,16 @@
     "controlRequired": "Ovládání vstupu je v držení jiné relace. Nejprve převezměte ovládání."
   },
   "settings": {
+    "addonPage": {
+      "failed": "Hodnoty doplňku se nepodařilo načíst",
+      "notRunning": "Služba doplňku neběží",
+      "refused": "Doplněk to odmítl",
+      "saved": "Uloženo",
+      "save": "Uložit",
+      "status": "Stav",
+      "yes": "Ano",
+      "no": "Ne"
+    },
     "title": "Nastavení",
     "back": "Zpět",
     "close": "Zavřít",

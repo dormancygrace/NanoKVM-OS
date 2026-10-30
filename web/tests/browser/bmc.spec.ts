@@ -21,9 +21,7 @@ test('BMC switches use stored fields and serialize writes through the readback',
   await expect(events(page)).toContainText('PUT held user=initial redfish=false');
   await expect(save(page)).toBeDisabled();
   await page.getByRole('tab', { name: 'IPMI over LAN' }).click();
-  await expect(
-    page.getByRole('switch', { name: 'Enable IPMI', exact: true })
-  ).toBeDisabled();
+  await expect(page.getByRole('switch', { name: 'Enable IPMI', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Hold next read', exact: true }).click();
   await complete(page).click();
   await expect(events(page)).toContainText('GET held');

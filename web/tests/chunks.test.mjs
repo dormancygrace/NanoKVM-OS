@@ -127,3 +127,11 @@ test('startup JavaScript stays within gzip and request budgets', () => {
   assert.ok(!login.has(find(/^tips-dialog-.*\.js$/)), 'password help must load only when opened');
   assert.ok(!login.has(find(/^root-.*\.js$/)), 'authenticated shell must stay out of login');
 });
+
+test('production chunks exclude the browser fixture', () => {
+  for (const name of names) {
+    const code = readFileSync(new URL(name, assets), 'utf8');
+    for (const marker of ['browser-test-password', '/__test/state', 'fixture-session'])
+      assert.ok(!code.includes(marker), `${name} contains browser fixture ${marker}`);
+  }
+});

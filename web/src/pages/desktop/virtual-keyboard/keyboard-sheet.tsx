@@ -21,6 +21,27 @@ export function KeyboardSheet({
   const drag = useRef<{ id: number; y: number } | null>(null);
   const [offset, setOffset] = useState(0);
   const closeFrame = useRef<number | null>(null);
+  const handle = useRef<HTMLDivElement>(null);
+
+  // A fast flick of the handle still ends as a fling gesture, although
+  // touch-action: none scrolls nothing, and Chrome then takes the next tap
+  // anywhere on the page as the one that stops the fling: no click. With the
+  // handle's touches cancelled the browser makes no gesture of them; the drag
+  // runs on pointer events, which still arrive. React listens passively, so
+  // the listeners are native.
+  useLayoutEffect(() => {
+    const element = handle.current;
+    if (!open || !element) return;
+    const cancel = (event: TouchEvent) => {
+      if (event.cancelable) event.preventDefault();
+    };
+    element.addEventListener('touchstart', cancel, { passive: false });
+    element.addEventListener('touchmove', cancel, { passive: false });
+    return () => {
+      element.removeEventListener('touchstart', cancel);
+      element.removeEventListener('touchmove', cancel);
+    };
+  }, [open]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -69,6 +90,7 @@ export function KeyboardSheet({
       }}
     >
       <div
+        ref={handle}
         aria-hidden="true"
         className="flex h-5 cursor-grab touch-none items-center justify-center"
         onPointerDown={(event) => {

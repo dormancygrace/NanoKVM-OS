@@ -771,6 +771,11 @@
     "controlRequired": "另一个会话正在控制输入。请先获取控制。"
   },
   "settings": {
+    "shutdown": {
+      "title": "关闭 NanoKVM",
+      "description": "停止视频、键盘、虚拟磁盘、SSH 和附加组件。断开 NanoKVM 电源前，请等待完成确认。如果保持供电，可通过重启页面重新启动 NanoKVM OS。连接的计算机将保持开机。",
+      "magic": "同时允许 Wake-on-LAN 魔术包。任何能够访问监听服务的人都可以在无需密码的情况下重启 NanoKVM。"
+    },
     "vpn": {
       "title": "VPN",
       "description": "将 NanoKVM 连接到私有网络。选择一种 VPN 进行设置。"

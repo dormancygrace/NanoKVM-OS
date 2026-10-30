@@ -296,6 +296,11 @@
     "cancelBtn": "Tidak"
   },
   "settings": {
+    "shutdown": {
+      "title": "Matikan NanoKVM",
+      "description": "Menghentikan video, keyboard, disk virtual, SSH, dan pengaya. Tunggu konfirmasi sebelum memutus daya NanoKVM. Jika daya tetap terhubung, gunakan halaman mulai ulang untuk menjalankan NanoKVM OS kembali. Komputer yang terhubung tetap menyala.",
+      "magic": "Izinkan juga paket ajaib Wake-on-LAN. Siapa pun yang dapat menjangkau layanan penerima dapat memulai ulang NanoKVM tanpa kata sandi."
+    },
     "title": "Pengaturan",
     "back": "Kembali",
     "close": "Tutup",

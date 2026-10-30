@@ -771,6 +771,11 @@
     "controlRequired": "Une autre session contrôle la saisie. Prenez d'abord le contrôle."
   },
   "settings": {
+    "shutdown": {
+      "title": "Arrêter NanoKVM",
+      "description": "Arrête la vidéo, le clavier, les disques virtuels, SSH et les extensions. Attendez la confirmation avant de débrancher l’alimentation de NanoKVM. Si l’alimentation reste branchée, utilisez la page de redémarrage pour relancer NanoKVM OS. L’ordinateur connecté reste allumé.",
+      "magic": "Autoriser aussi un paquet magique Wake-on-LAN. Toute personne pouvant joindre le service d’écoute peut redémarrer NanoKVM sans mot de passe."
+    },
     "vpn": {
       "title": "VPN",
       "description": "Connectez le NanoKVM à un réseau privé. Sélectionnez un VPN pour le configurer."

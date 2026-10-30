@@ -296,6 +296,11 @@
     "cancelBtn": "取消"
   },
   "settings": {
+    "shutdown": {
+      "title": "關閉 NanoKVM",
+      "description": "停止視訊、鍵盤、虛擬磁碟、SSH 和附加元件。拔除 NanoKVM 電源前，請等待完成確認。如果保持供電，可透過重新啟動頁面再次啟動 NanoKVM OS。連接的電腦將保持開機。",
+      "magic": "同時允許 Wake-on-LAN 魔術封包。任何能夠存取監聽服務的人都可以在無需密碼的情況下重新啟動 NanoKVM。"
+    },
     "title": "設定",
     "back": "返回",
     "close": "關閉",

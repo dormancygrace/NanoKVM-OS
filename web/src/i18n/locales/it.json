@@ -296,6 +296,11 @@
     "cancelBtn": "No"
   },
   "settings": {
+    "shutdown": {
+      "title": "Arresta NanoKVM",
+      "description": "Arresta video, tastiera, dischi virtuali, SSH e componenti aggiuntivi. Attendi la conferma prima di scollegare l’alimentazione di NanoKVM. Se l’alimentazione rimane collegata, usa la pagina di riavvio per avviare nuovamente NanoKVM OS. Il computer collegato rimane acceso.",
+      "magic": "Consenti anche un magic packet Wake-on-LAN. Chiunque possa raggiungere il servizio in ascolto può riavviare NanoKVM senza password."
+    },
     "title": "Impostazioni",
     "back": "Indietro",
     "close": "Chiudi",

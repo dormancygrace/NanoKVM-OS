@@ -296,6 +296,11 @@
     "cancelBtn": "Nem"
   },
   "settings": {
+    "shutdown": {
+      "title": "NanoKVM leállítása",
+      "description": "Leállítja a videót, a billentyűzetet, a virtuális lemezeket, az SSH-t és a bővítményeket. Várja meg a visszaigazolást, mielőtt megszakítja a NanoKVM tápellátását. Ha a tápellátás megmarad, az újraindítási oldalon ismét elindíthatja a NanoKVM OS-t. A csatlakoztatott számítógép bekapcsolva marad.",
+      "magic": "Wake-on-LAN mágikus csomag engedélyezése is. Bárki, aki eléri a figyelő szolgáltatást, jelszó nélkül újraindíthatja a NanoKVM-et."
+    },
     "title": "Beállítások",
     "back": "Vissza",
     "close": "Bezárás",

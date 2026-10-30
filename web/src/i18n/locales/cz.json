@@ -422,6 +422,11 @@
     "controlRequired": "Ovládání vstupu je v držení jiné relace. Nejprve převezměte ovládání."
   },
   "settings": {
+    "shutdown": {
+      "title": "Vypnout NanoKVM",
+      "description": "Zastaví video, klávesnici, virtuální disky, SSH a doplňky. Před odpojením napájení NanoKVM počkejte na potvrzení. Pokud napájení zůstane připojené, můžete NanoKVM OS znovu spustit na stránce pro restart. Připojený počítač zůstane zapnutý.",
+      "magic": "Povolit také magický paket Wake-on-LAN. Kdokoli, kdo se může spojit s naslouchající službou, může restartovat NanoKVM bez hesla."
+    },
     "title": "Nastavení",
     "back": "Zpět",
     "close": "Zavřít",

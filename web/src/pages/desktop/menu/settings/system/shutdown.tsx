@@ -7,16 +7,12 @@ import { showRequestError } from '@/lib/show-request-error';
 import { confirmAction } from '@/components/ui/confirm';
 import { SettingsSection } from '@/components/ui/settings';
 
-// Draft copy uses i18next fallbacks; existing Weblate translations are untouched.
 export const Shutdown = () => {
   const { t } = useTranslation();
   const [magicWake, setMagicWake] = useState(false);
   const [busy, setBusy] = useState(false);
-  const title = t('settings.shutdown.title', { defaultValue: 'Shut down NanoKVM' });
-  const explanation = t('settings.shutdown.description', {
-    defaultValue:
-      'Stops video, keyboard, virtual disks, SSH and add-ons. Wait for confirmation before disconnecting NanoKVM power. If power stays connected, use the restart page to start NanoKVM OS again. The connected computer stays on.'
-  });
+  const title = t('settings.shutdown.title');
+  const explanation = t('settings.shutdown.description');
 
   async function shutdown() {
     if (busy) return;
@@ -87,10 +83,7 @@ export const Shutdown = () => {
         disabled={busy}
         onChange={(e) => setMagicWake(e.target.checked)}
       >
-        {t('settings.shutdown.magic', {
-          defaultValue:
-            'Also allow a Wake-on-LAN magic packet. Anyone who can reach the listener can restart NanoKVM without a password.'
-        })}
+        {t('settings.shutdown.magic')}
       </Checkbox>
       <div>
         <Button danger loading={busy} onClick={() => void shutdown()}>

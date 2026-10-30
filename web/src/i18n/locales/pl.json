@@ -296,6 +296,11 @@
     "cancelBtn": "Nie"
   },
   "settings": {
+    "shutdown": {
+      "title": "Wyłącz NanoKVM",
+      "description": "Zatrzymuje obraz, klawiaturę, dyski wirtualne, SSH i dodatki. Poczekaj na potwierdzenie przed odłączeniem zasilania NanoKVM. Jeśli zasilanie pozostaje podłączone, użyj strony ponownego uruchamiania, aby znów uruchomić NanoKVM OS. Podłączony komputer pozostaje włączony.",
+      "magic": "Zezwól także na magiczny pakiet Wake-on-LAN. Każdy, kto może dotrzeć do usługi nasłuchującej, może ponownie uruchomić NanoKVM bez hasła."
+    },
     "title": "Ustawienia",
     "back": "Wstecz",
     "close": "Zamknij",

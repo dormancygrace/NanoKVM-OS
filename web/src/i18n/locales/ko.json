@@ -296,6 +296,11 @@
     "cancelBtn": "아니오"
   },
   "settings": {
+    "shutdown": {
+      "title": "NanoKVM 종료",
+      "description": "영상, 키보드, 가상 디스크, SSH 및 추가 기능을 중지합니다. NanoKVM의 전원을 분리하기 전에 완료 확인을 기다리세요. 전원을 연결한 상태로 두면 재시작 페이지에서 NanoKVM OS를 다시 시작할 수 있습니다. 연결된 컴퓨터의 전원은 켜진 상태로 유지됩니다.",
+      "magic": "Wake-on-LAN 매직 패킷도 허용합니다. 수신 서비스에 접근할 수 있는 사람은 누구나 암호 없이 NanoKVM을 다시 시작할 수 있습니다."
+    },
     "title": "설정",
     "back": "뒤로",
     "close": "닫기",

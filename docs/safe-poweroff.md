@@ -207,9 +207,15 @@ one reboot for concurrent web requests, magic restart after readiness, and
 intact writer files. It used the same head and the same HTTPS Origin workaround;
 Ethernet did not require the Wi-Fi library workaround.
 
-The final fixes still need a board recheck. Wi-Fi loss/reassociation and DHCP
-renewal during readiness, ten-minute block observation, memory pressure/dirty
-mmap, and Cube/Lite qualification remain outside these reported hardware runs.
+The [subsequent PCIe recheck](https://github.com/dormancygrace/NanoKVM-OS/pull/591#issuecomment-6528666809)
+used addbd856 without local patches, over HTTPS and station Wi-Fi with DHCP.
+It reports successful preparation and commit, readiness about seven seconds
+after the old server stopped, and exactly one normal reboot using the restart
+page's own HTTPS button. The safe confirmation default also passed.
+
+Wi-Fi loss/reassociation and DHCP renewal during readiness, ten-minute block
+observation, memory pressure/dirty mmap, and Cube/Lite qualification remain
+outside these reported hardware runs.
 
 ## Hardware acceptance before release
 

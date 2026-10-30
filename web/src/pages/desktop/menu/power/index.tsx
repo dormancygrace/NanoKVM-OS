@@ -4,10 +4,8 @@ import clsx from 'clsx';
 import { HardDriveIcon, LoaderCircleIcon, PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import * as api from '@/api/vm';
-import { subscribeLiveStatus } from '@/lib/live-status.ts';
+import { subscribeLEDStatus } from '@/lib/led-status.ts';
 import * as localstorage from '@/lib/localstorage.ts';
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
 import { PowerLong } from './power-long.tsx';
@@ -21,48 +19,15 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   const [isHddActive, setIsHddActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(localstorage.getPowerConfirm);
-  const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    let disposed = false;
-    let inFlight = false;
-
-    async function refreshLeds() {
-      if (inFlight) return;
-      inFlight = true;
-      try {
-        const rsp = await api.getGpio();
-        if (!disposed && rsp.code === 0) {
-          setIsPowerOn(rsp.data.pwr);
-          setIsHddActive(rsp.data.hdd);
-        }
-      } catch (err) {
-        console.log(err);
-      } finally {
-        inFlight = false;
-      }
-    }
-
-    // The toolbar only shows the power glow and HDD LED, which the shared live
-    // poll provides; poll quickly only while the popover is open and the user
-    // is acting on power controls.
-    let stopPolling: () => void;
-    if (isOpen) {
-      void refreshLeds();
-      stopPolling = pollWhileVisible(refreshLeds, 300);
-    } else {
-      stopPolling = subscribeLiveStatus((status) => {
-        if (disposed || !status?.gpio) return;
-        setIsPowerOn(status.gpio.pwr);
-        setIsHddActive(status.gpio.hdd);
-      });
-    }
-
-    return () => {
-      disposed = true;
-      stopPolling();
-    };
-  }, [isOpen]);
+  useEffect(
+    () =>
+      subscribeLEDStatus((status) => {
+        setIsPowerOn(status?.pwr ?? false);
+        setIsHddActive(status?.hdd ?? false);
+      }),
+    []
+  );
 
   function updateShowConfirm(value: boolean) {
     setShowConfirm(value);
@@ -114,17 +79,15 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
 
   return (
     <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>
-      <MenuItem title={t('power.title')} icon={icon} content={content} onOpenChange={setIsOpen} />
+      <MenuItem title={t('power.title')} icon={icon} content={content} />
       <Tooltip title={t('power.hddLed')} placement="bottom" mouseEnterDelay={0.6}>
         <div
           role="img"
           aria-label={t('power.hddLed')}
           className={clsx(
-            'flex h-[30px] cursor-default items-center justify-center transition-colors',
+            'flex h-[30px] cursor-default items-center justify-center',
             vertical ? 'w-[30px]' : 'w-[24px]',
-            isHddActive
-              ? 'animate-pulse text-amber-400 drop-shadow-[0_0_4px_currentColor]'
-              : 'text-neutral-600'
+            isHddActive ? 'text-amber-400 drop-shadow-[0_0_4px_currentColor]' : 'text-neutral-600'
           )}
         >
           <HardDriveIcon size={17} />

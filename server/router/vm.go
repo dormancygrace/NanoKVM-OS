@@ -55,7 +55,8 @@ func vmRouter(r *gin.Engine) {
 	api.GET("/vm/atx", service.GetATX)
 	admin.POST("/vm/atx", service.SetATX)
 
-	api.POST("/vm/gpio", requireInputOwner(), service.SetGpio)                 // update gpio
+	api.POST("/vm/gpio", requireInputOwner(), service.SetGpio) // update gpio
+	api.GET("/vm/gpio/events", service.GetGpioEvents)
 	api.GET("/vm/gpio", service.GetGpio)                                       // get gpio
 	admin.POST("/vm/screen", middleware.RequireVideo, service.SetScreen)       // update screen
 	api.GET("/vm/screen", service.GetScreen)                                   // read shared screen settings

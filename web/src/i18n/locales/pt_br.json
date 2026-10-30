@@ -296,6 +296,11 @@
     "cancelBtn": "Não"
   },
   "settings": {
+    "shutdown": {
+      "title": "Desligar NanoKVM",
+      "description": "Interrompe o vídeo, o teclado, os discos virtuais, o SSH e os complementos. Aguarde a confirmação antes de desconectar a alimentação do NanoKVM. Se a alimentação continuar conectada, use a página de reinicialização para iniciar o NanoKVM OS novamente. O computador conectado permanece ligado.",
+      "magic": "Permitir também um pacote mágico Wake-on-LAN. Qualquer pessoa que consiga acessar o serviço de escuta pode reiniciar o NanoKVM sem senha."
+    },
     "title": "Configurações",
     "back": "Voltar",
     "close": "Fechar",

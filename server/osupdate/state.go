@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/standby"
 )
 
 // Base holds the shared update lock. APK, software, VPN and add-on
@@ -114,6 +115,10 @@ func RecoveryLock() (*os.File, error) {
 	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		f.Close()
 		return nil, errors.New("another update operation is in progress")
+	}
+	if err = standby.Pending(); err != nil {
+		f.Close()
+		return nil, err
 	}
 	return f, nil
 }

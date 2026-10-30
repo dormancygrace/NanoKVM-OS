@@ -296,6 +296,11 @@
     "cancelBtn": "Nee"
   },
   "settings": {
+    "shutdown": {
+      "title": "NanoKVM afsluiten",
+      "description": "Stopt video, toetsenbord, virtuele schijven, SSH en uitbreidingen. Wacht op de bevestiging voordat u de stroom van NanoKVM loskoppelt. Als de stroom aangesloten blijft, kunt u NanoKVM OS opnieuw starten via de herstartpagina. De aangesloten computer blijft ingeschakeld.",
+      "magic": "Sta ook een Wake-on-LAN-magic-pakket toe. Iedereen die de luisterende dienst kan bereiken, kan NanoKVM zonder wachtwoord opnieuw starten."
+    },
     "title": "Instellingen",
     "back": "Terug",
     "close": "Sluiten",

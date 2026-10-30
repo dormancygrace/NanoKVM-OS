@@ -776,6 +776,11 @@
     "controlRequired": "Another session controls the input. Take control first."
   },
   "settings": {
+    "shutdown": {
+      "title": "Shut down NanoKVM",
+      "description": "Stops video, keyboard, virtual disks, SSH and add-ons. Wait for confirmation before disconnecting NanoKVM power. If power stays connected, use the restart page to start NanoKVM OS again. The connected computer stays on.",
+      "magic": "Also allow a Wake-on-LAN magic packet. Anyone who can reach the listener can restart NanoKVM without a password."
+    },
     "addonPage": {
       "failed": "Could not read the add-on's values",
       "notRunning": "The add-on's service is not running",

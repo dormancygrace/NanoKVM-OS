@@ -296,6 +296,11 @@
     "cancelBtn": "Nej"
   },
   "settings": {
+    "shutdown": {
+      "title": "Stäng av NanoKVM",
+      "description": "Stoppar video, tangentbord, virtuella diskar, SSH och tillägg. Vänta på bekräftelsen innan du kopplar bort strömmen till NanoKVM. Om strömmen förblir ansluten kan du starta NanoKVM OS igen från omstartssidan. Den anslutna datorn förblir påslagen.",
+      "magic": "Tillåt även ett Wake-on-LAN-magic-paket. Alla som kan nå den lyssnande tjänsten kan starta om NanoKVM utan lösenord."
+    },
     "title": "Inställningar",
     "back": "Tillbaka",
     "close": "Stäng",

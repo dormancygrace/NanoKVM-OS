@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"NanoKVM-Server/internal/networktrial"
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 
@@ -101,7 +102,11 @@ func (s *Service) SetEthernet(c *gin.Context) {
 	}
 	rsp.OkRspWithData(c, gin.H{"trial": trial.info(trialHosts(newAddress, c.Request.Host))})
 	c.Writer.Flush()
+	// A slow apply can outlive the trial's timeout and completed rollback.
+	// Keep shutdown excluded until this background restart has also returned.
+	releaseRestart := networktrial.Begin()
 	go func() {
+		defer releaseRestart()
 		time.Sleep(restartDelay)
 		trial.restarted(restartEthernet())
 	}()

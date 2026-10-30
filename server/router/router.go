@@ -34,6 +34,8 @@ var ownBodyLimitRoutes = []string{
 }
 
 func Init(r *gin.Engine) {
+	r.Use(standbyAdmission())
+	standbyRouter(r)
 	r.Use(func(c *gin.Context) {
 		if c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" && (recovery.Engine{Root: "/"}).Pending() && c.Request.URL.Path != "/api/system/recovery/reboot" && c.Request.URL.Path != "/api/auth/login" && c.Request.URL.Path != "/api/auth/logout" {
 			c.AbortWithStatusJSON(409, gin.H{"code": -1, "msg": "Settings recovery pending; reboot before changing settings."})

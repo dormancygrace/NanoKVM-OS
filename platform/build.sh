@@ -592,7 +592,7 @@ server() {
         "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
         --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out"
     cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
-    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$img/server/"
+    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-standby" "$img/server/"
 }
 
 # Web UI. npm packages are checked against pnpm-lock.yaml.

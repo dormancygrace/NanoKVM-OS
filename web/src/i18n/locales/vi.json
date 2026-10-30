@@ -296,6 +296,11 @@
     "cancelBtn": "Không"
   },
   "settings": {
+    "shutdown": {
+      "title": "Tắt NanoKVM",
+      "description": "Dừng video, bàn phím, đĩa ảo, SSH và các tiện ích bổ sung. Chờ xác nhận trước khi ngắt nguồn NanoKVM. Nếu vẫn kết nối nguồn, hãy dùng trang khởi động lại để chạy NanoKVM OS lần nữa. Máy tính được kết nối vẫn bật.",
+      "magic": "Cho phép cả gói tin magic Wake-on-LAN. Bất kỳ ai có thể truy cập dịch vụ lắng nghe đều có thể khởi động lại NanoKVM mà không cần mật khẩu."
+    },
     "title": "Cài đặt",
     "back": "Quay lại",
     "close": "Đóng",

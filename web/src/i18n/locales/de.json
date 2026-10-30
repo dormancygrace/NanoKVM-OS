@@ -776,6 +776,11 @@
     "controlRequired": "Eine andere Sitzung steuert die Eingabe. Übernehmen Sie zuerst die Steuerung."
   },
   "settings": {
+    "shutdown": {
+      "title": "NanoKVM herunterfahren",
+      "description": "Stoppt Video, Tastatur, virtuelle Laufwerke, SSH und Erweiterungen. Warten Sie auf die Bestätigung, bevor Sie die Stromversorgung von NanoKVM trennen. Bleibt die Stromversorgung angeschlossen, können Sie NanoKVM OS über die Neustartseite wieder starten. Der angeschlossene Computer bleibt eingeschaltet.",
+      "magic": "Auch ein Wake-on-LAN-Magic-Packet zulassen. Jeder, der den Empfangsdienst erreichen kann, kann NanoKVM ohne Passwort neu starten."
+    },
     "addonPage": {
       "failed": "Die Werte des Add-ons konnten nicht gelesen werden",
       "notRunning": "Der Dienst des Add-ons läuft nicht",

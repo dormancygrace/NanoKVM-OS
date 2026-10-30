@@ -296,6 +296,11 @@
     "cancelBtn": "No"
   },
   "settings": {
+    "shutdown": {
+      "title": "Apaga NanoKVM",
+      "description": "Atura el vídeo, el teclat, els discos virtuals, SSH i els complements. Espereu la confirmació abans de desconnectar l’alimentació de NanoKVM. Si l’alimentació continua connectada, feu servir la pàgina de reinici per tornar a iniciar NanoKVM OS. L’ordinador connectat continua encès.",
+      "magic": "Permet també un paquet màgic Wake-on-LAN. Qualsevol persona que pugui accedir al servei d’escolta pot reiniciar NanoKVM sense contrasenya."
+    },
     "title": "Configuració",
     "back": "Enrere",
     "close": "Tanca",

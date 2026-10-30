@@ -3,6 +3,7 @@ import { SettingsSection } from '@/components/ui/settings.tsx';
 import { CPUFrequency } from '../device/advanced/cpu-frequency.tsx';
 import { Atx } from '../device/atx.tsx';
 import { Oled } from '../device/oled.tsx';
+import { Shutdown } from './shutdown.tsx';
 
 export const System = () => (
   <div className="space-y-6">
@@ -13,5 +14,6 @@ export const System = () => (
       <Atx />
     </SettingsSection>
     <CPUFrequency />
+    <Shutdown />
   </div>
 );

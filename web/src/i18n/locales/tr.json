@@ -296,6 +296,11 @@
     "cancelBtn": "Hayır"
   },
   "settings": {
+    "shutdown": {
+      "title": "NanoKVM'yi kapat",
+      "description": "Videoyu, klavyeyi, sanal diskleri, SSH'ı ve eklentileri durdurur. NanoKVM'nin gücünü kesmeden önce onayı bekleyin. Güç bağlı kalırsa NanoKVM OS'yi yeniden başlatmak için yeniden başlatma sayfasını kullanın. Bağlı bilgisayar açık kalır.",
+      "magic": "Wake-on-LAN sihirli paketine de izin ver. Dinleme hizmetine erişebilen herkes NanoKVM'yi parola olmadan yeniden başlatabilir."
+    },
     "title": "Ayarlar",
     "back": "Geri",
     "close": "Kapat",

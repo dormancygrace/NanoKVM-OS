@@ -69,7 +69,8 @@ Before packing, every file was cleaned on the device:
 - entries that may hold passwords, keys, tokens or cookies are hidden;
 - JSON and YAML settings are parsed and the values of keys naming
   credentials, user names or keys are hidden with everything under them
-  (comments are dropped); a settings file that does not parse is omitted.
+  (comments are dropped); a settings file that does not parse, or uses
+  YAML anchors, is omitted.
 Not collected at all: passwords, keys and certificates, the web login
 secret, Wi-Fi and VPN configuration, user scripts, the USB serial number,
 screen or video content and the contents of files on the user disk (the
@@ -296,11 +297,33 @@ func redactSettings(data []byte) ([]byte, error) {
 		err := enc.Encode(redactValue(value))
 		return out.Bytes(), err
 	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return nil, err
+	}
+	// An anchor lets a credential key take its value from any other field
+	// (turnCred: *x), so hiding the key would leave the value under the
+	// anchor. The device never writes anchors: such a file is refused.
+	if yamlHasAnchors(&doc) {
+		return nil, errors.New("settings with YAML anchors")
+	}
 	var value any
-	if err := yaml.Unmarshal(data, &value); err != nil {
+	if err := doc.Decode(&value); err != nil {
 		return nil, err
 	}
 	return yaml.Marshal(redactValue(value))
+}
+
+func yamlHasAnchors(node *yaml.Node) bool {
+	if node.Anchor != "" || node.Kind == yaml.AliasNode {
+		return true
+	}
+	for _, child := range node.Content {
+		if yamlHasAnchors(child) {
+			return true
+		}
+	}
+	return false
 }
 
 func redactValue(value any) any {

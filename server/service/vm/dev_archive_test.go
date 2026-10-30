@@ -55,6 +55,10 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	write("config/etc_kvm_flow.yaml", "proto: http\nturn: {turnUser: alice, turnCred: flow-value-739}\nwebrtc:\n  turnCred: |-\n    block-value-739\n")
 	write("config/etc_kvm_mcp.json", `{"enabled": true, "auth": {"apiKey": "json-value-739"}, "port": 8765}`)
 	write("config/etc_kvm_broken.yaml", "proto: [unclosed\n  turnCred: broken-value-739\n")
+	// A credential taken from another field through an anchor.
+	write("config/etc_kvm_alias.yaml", "common: &turnvalue alias-value-739\nturn:\n  turnCred: *turnvalue\n")
+	// A network no longer saved, in an older boot's kernel log.
+	write("logs/previous/kernel.log", "rwnx_send_sm_connect_req drv_vif_index:0 connect to of Forgotten Home595(16) channel:5180\n")
 	write("config/etc_kvm_memory.conf", "# memory\nzram_size=128\nswappiness=100\n")
 	write("hardware/run-nanokvm/run_nanokvm_screen-text.bgr", "screen text pixels\n")
 	write("hardware/run-nanokvm/run_nanokvm_width", "1920\n")
@@ -85,7 +89,7 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	for _, text := range files {
 		all += text
 	}
-	for _, leaked := range []string{"192.168.4.128", "48:da:35", "aa:bb:cc", "HomeNetwork", "hunter2", "abc123", "letmein", "alice", "flow-value", "block-value", "json-value", "broken-value", "screen text pixels", "Loft Mesh", "Attic-5G"} {
+	for _, leaked := range []string{"192.168.4.128", "48:da:35", "aa:bb:cc", "HomeNetwork", "hunter2", "abc123", "letmein", "alice", "flow-value", "block-value", "json-value", "broken-value", "screen text pixels", "Loft Mesh", "Attic-5G", "alias-value", "Forgotten Home595"} {
 		if strings.Contains(all, leaked) {
 			t.Errorf("%q leaked", leaked)
 		}
@@ -93,7 +97,7 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	if !strings.Contains(files["logs/current/application.log"], "chip_id=0x0417") {
 		t.Errorf("receiver diagnostics lost: %q", files["logs/current/application.log"])
 	}
-	for _, omitted := range []string{"hardware/edid.bin", "hardware/run-nanokvm/run_nanokvm_screen-text.bgr", "config/etc_kvm_broken.yaml"} {
+	for _, omitted := range []string{"hardware/edid.bin", "hardware/run-nanokvm/run_nanokvm_screen-text.bgr", "config/etc_kvm_broken.yaml", "config/etc_kvm_alias.yaml"} {
 		if _, ok := files[omitted]; ok {
 			t.Errorf("%s packed", omitted)
 		}

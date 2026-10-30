@@ -14,27 +14,37 @@ out=$2
 mkdir -p "$out" || exit 1
 export LC_ALL=C
 
-# The collection lives in RAM: each output is cut at 1 MiB, and nothing more
-# is collected once the directory holds 20 MiB.
+# The collection lives in RAM. Every output is bounded while it is written
+# (1 MiB, errors 64 KiB), and nothing is written that could take the
+# directory past 20 MiB: the room for the largest possible output is checked
+# before each command and each copied file.
 cap=1048576
+errcap=65536
+budget=20971520
+
+# room NAME NEED : true while NEED more bytes keep the collection in budget;
+# otherwise NAME is listed as skipped.
 room() {
 	used=$(du -sk "$out" 2>/dev/null | cut -f1)
-	[ "${used:-0}" -lt 20480 ] && return 0
+	[ $((${used:-0} * 1024 + $2)) -le "$budget" ] && return 0
 	echo "$1" >>"$out/skipped-over-budget"
 	return 1
 }
 
-# run FILE COMMAND... : the command's output, at most 10 s and 1 MiB; errors
-# beside it.
+# run FILE COMMAND... : the command's output, at most 10 s and 1 MiB; its
+# errors (at most 64 KiB) and a non-zero exit status beside it. A command cut
+# short by the bound reports the broken pipe (141).
 run() {
-	room "$1" || return 0
+	room "$1" $((cap + errcap)) || return 0
 	file=$out/$1
 	shift
 	mkdir -p "${file%/*}"
 	{
-		timeout 10 "$@" 2>"$file.err"
-		echo $? >"$file.status"
-	} | head -c "$cap" >"$file"
+		{
+			timeout 10 "$@" 2>&1 1>&3 3>&-
+			echo $? >"$file.status"
+		} | head -c "$errcap" >"$file.err"
+	} 3>&1 | head -c "$cap" >"$file"
 	status=$(cat "$file.status" 2>/dev/null)
 	rm -f "$file.status"
 	[ "${status:-0}" -eq 0 ] || echo "exit status $status" >>"$file.err"
@@ -43,13 +53,13 @@ run() {
 
 # copy DIR FILE... : regular files, the last 1 MiB of each, named by path.
 copy() {
-	room "$1" || return 0
 	dir=$out/$1
 	shift
 	mkdir -p "$dir"
 	for src in "$@"; do
 		[ -f "$src" ] || continue
 		name=$(echo "${src#/}" | tr / _)
+		room "${dir#"$out"/}/$name" "$cap" || continue
 		tail -c "$cap" "$src" >"$dir/$name" 2>/dev/null
 	done
 }
@@ -151,4 +161,4 @@ copy config /etc/kvm/server.yaml /etc/kvm/date-time.json /etc/kvm/memory.conf \
 	/etc/kvm/mcp.json /etc/kvm/picoclaw-runtime.json
 run config/usb-flags ls -la /etc/kvm/usb
 
-echo "nanokvm-dev-archive 3" >"$out/collector"
+echo "nanokvm-dev-archive 4" >"$out/collector"

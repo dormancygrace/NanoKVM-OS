@@ -26,14 +26,16 @@ func TestMaskAddresses(t *testing.T) {
 		"Oct 30 12:34:56 nanokvm wpa_supplicant: wlan0: Trying to associate with SSID 'SyntheticHome595'",
 		"wlan0: CTRL-EVENT-SSID-TEMP-DISABLED id=0 ssid=\"Cafe Net\" auth_failures=1",
 		"scan result ssid=GuestNet freq=2412",
+		"<4>[30444.410271] rwnx_send_sm_connect_req drv_vif_index:0 connect to of Forgotten Home595(16) channel:5180 auth_type:3",
+		"<4>[   17.743626] rwnx_send_sm_connect_req drv_vif_index:0 connect to of AP(2) channel:2412 auth_type:3",
 	}, "\n")
 	out := MaskAddresses(in)
-	for _, leaked := range []string{"192.168.4.128", "192.168.4.255", "10.0.0.1", "48:da:35", "fe80::4ada", "2001:db8", "2001:470:20:23", "HomeNetwork", "Upstairs", "Mesh Net", "Office Wi-Fi", "SyntheticHome595", "Cafe Net", "GuestNet"} {
+	for _, leaked := range []string{"192.168.4.128", "192.168.4.255", "10.0.0.1", "48:da:35", "fe80::4ada", "2001:db8", "2001:470:20:23", "HomeNetwork", "Upstairs", "Mesh Net", "Office Wi-Fi", "SyntheticHome595", "Cafe Net", "GuestNet", "Forgotten Home595", "of AP("} {
 		if strings.Contains(out, leaked) {
 			t.Errorf("%q not masked:\n%s", leaked, out)
 		}
 	}
-	for _, kept := range []string{"monitor_edid_sha256: 3f2a9c0d", "127.0.0.1/8", "255.255.255.0", "0.0.0.0", "::1/128", "15:04:05", "12:34:56", "3.6.0-r0", "7.3.0-nanokvm-os-r3", "3.24.3", "fw=0x00000300", "chip_id=0x0417", "auth_failures=1", "freq=2412"} {
+	for _, kept := range []string{"monitor_edid_sha256: 3f2a9c0d", "127.0.0.1/8", "255.255.255.0", "0.0.0.0", "::1/128", "15:04:05", "12:34:56", "3.6.0-r0", "7.3.0-nanokvm-os-r3", "3.24.3", "fw=0x00000300", "chip_id=0x0417", "auth_failures=1", "freq=2412", "connect to of <ssid>(16) channel:5180", "connect to of <ssid>(2) channel:2412"} {
 		if !strings.Contains(out, kept) {
 			t.Errorf("%q lost:\n%s", kept, out)
 		}

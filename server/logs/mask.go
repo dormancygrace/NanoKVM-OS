@@ -19,6 +19,9 @@ var (
 	// and "SSID 'Home'" / "ssid=Home" inside log messages.
 	maskSSIDLine   = regexp.MustCompile(`(?im)^(\s*(?:ssid|essid)(?:\s*[:=]\s*|\s+)).*$`)
 	maskSSIDInline = regexp.MustCompile(`(?i)\b(e?ssid)(\s*[:=]\s*|\s+)('[^'\n]*'|"[^"\n]*"|[^\s,;\]\)]+)`)
+	// The AIC Wi-Fi driver: "connect to of <SSID>(<length>) channel:..."; the
+	// name runs to the last "(length)" of the line, whatever it contains.
+	maskAICConnect = regexp.MustCompile(`(connect to of ).*(\(\d+\))`)
 )
 
 // MaskAddresses replaces IPv4, IPv6 and MAC addresses and Wi-Fi network
@@ -40,6 +43,7 @@ func MaskAddresses(text string) string {
 		}
 		return "<ip6>"
 	})
+	text = maskAICConnect.ReplaceAllString(text, "${1}<ssid>${2}")
 	text = maskSSIDLine.ReplaceAllString(text, "${1}<ssid>")
 	return maskSSIDInline.ReplaceAllString(text, "${1}${2}<ssid>")
 }

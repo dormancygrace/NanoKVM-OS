@@ -78,3 +78,12 @@ ordering. Check stored account use by switches, serialization through readback,
 newer account edits during Save, stale polls, persistent refusal messages,
 credential redaction and the initial-password path. `bmc.spec.ts` repeats these
 cases in Chrome Main in CI. No device or add-on is contacted.
+
+### Updates
+
+Open /tests/browser/updates.html for a synthetic repository and package state.
+Offer core update, Complete package check, Complete installation and Fail operation
+exercise the production card and its confirmation dialogs. Daily-check settings,
+channel switching and stable rollback use the same production page. No package
+manager, host reboot or device request is executed. updates.spec.ts covers
+these paths in CI.

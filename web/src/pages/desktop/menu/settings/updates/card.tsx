@@ -116,10 +116,10 @@ export const UpdateCard = ({
       </div>
 
       {notice?.state === 'failed' && notice.message && (
-        <Alert type="warning" showIcon message={tr('notice.failed', { message: notice.message })} />
+        <Alert type="warning" showIcon title={tr('notice.failed', { message: notice.message })} />
       )}
       {apk?.state === 'failed' && (
-        <Alert type="error" showIcon message={apk.message || tr('apk.failed')} />
+        <Alert type="error" showIcon title={apk.message || tr('apk.failed')} />
       )}
 
       {upgrades.length > 0 && (
@@ -166,7 +166,7 @@ export const UpdateCard = ({
         <Alert
           type="warning"
           showIcon
-          message={tr('apk.rebootRequired')}
+          title={tr('apk.rebootRequired')}
           action={
             <Popconfirm title={tr('apk.rebootConfirm')} onConfirm={() => action('apk/reboot')}>
               <Button disabled={working}>{tr('apk.reboot')}</Button>

@@ -82,14 +82,14 @@ export const Updates = () => {
   return (
     <div className="space-y-4">
       <p className="text-fg-muted mt-0 text-sm">{t('settings.updates.description')}</p>
-      {reconnecting && <Alert type="info" message={t('settings.updates.reconnecting')} />}
+      {reconnecting && <Alert type="info" title={t('settings.updates.reconnecting')} />}
       {state?.channel?.channel === 'beta' && (
-        <Alert type="warning" message={t('settings.updates.channel.warning')} />
+        <Alert type="warning" title={t('settings.updates.channel.warning')} />
       )}
       {state?.channel?.rollbackAvailable && (
         <Alert
           type="warning"
-          message={t('settings.updates.channel.rollbackDescription')}
+          title={t('settings.updates.channel.rollbackDescription')}
           action={
             <Popconfirm
               title={t('settings.updates.channel.rollbackConfirm')}

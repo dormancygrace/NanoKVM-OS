@@ -15,6 +15,20 @@
   outline-offset: -2px;
 }
 
+/* Sign out and Reboot: actions, not pages. Muted until pointed at; Reboot
+   then shows the danger colour. After .item, whose colour it replaces. */
+.action {
+  color: var(--color-fg-muted);
+}
+.action:hover,
+.action:focus-visible {
+  color: var(--color-fg);
+}
+.action.danger:hover,
+.action.danger:focus-visible {
+  color: var(--color-danger);
+}
+
 .about {
   appearance: none;
   border: 0;

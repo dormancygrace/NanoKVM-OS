@@ -33,7 +33,8 @@ export const SessionActions = ({
       !(await confirmAction({
         title: t('settings.account.logoutDesc'),
         okText: t('settings.account.logoutBtn'),
-        cancelText: t('settings.account.cancelBtn')
+        cancelText: t('settings.account.cancelBtn'),
+        safeDefault: true
       }))
     )
       return;
@@ -60,7 +61,8 @@ export const SessionActions = ({
         title: t('settings.device.rebootDesc'),
         okText: t('settings.device.reboot'),
         cancelText: t('settings.device.cancelBtn'),
-        danger: true
+        danger: true,
+        safeDefault: true
       }))
     )
       return;
@@ -88,9 +90,10 @@ export const SessionActions = ({
       aria-label={label}
       className={clsx(
         styles.item,
+        styles.action,
+        danger && styles.danger,
         'flex w-full items-center gap-2 rounded-lg p-2 text-left select-none sm:px-3',
-        mobile && 'min-h-12',
-        danger && 'text-danger'
+        mobile && 'min-h-12'
       )}
       onClick={onClick}
     >
@@ -102,7 +105,8 @@ export const SessionActions = ({
   );
 
   return (
-    <div className="space-y-0.5">
+    // A thin line sets the actions apart from the pages above.
+    <div className="border-line space-y-0.5 border-t pt-2">
       {item(t('settings.account.logoutBtn'), <LogOutIcon size={16} />, () => void logout())}
       {isAdmin &&
         item(t('settings.device.reboot'), <RotateCwIcon size={16} />, () => void reboot(), true)}

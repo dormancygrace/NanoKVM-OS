@@ -832,7 +832,9 @@
         "checkNow": "Comprobar ahora",
         "dailyOff": "La comprobación diaria de actualizaciones está desactivada: la lista solo cambia cuando usted comprueba.",
         "listFailed": "La última comprobación falló.",
-        "failed": "La solicitud falló."
+        "failed": "La solicitud falló.",
+        "installedSection": "Instalados",
+        "availableSection": "Disponibles"
       },
       "title": "Software",
       "description": "Gestiona paquetes de los repositorios de Alpine configurados. Los cambios de paquetes usan la misma base de datos APK y los mismos servicios que SSH.",
@@ -845,7 +847,6 @@
       "upToDate": "Todos los paquetes instalados están actualizados.",
       "searchPlaceholder": "Buscar nombre de paquete",
       "search": "Buscar",
-      "searchHint": "La búsqueda empieza automáticamente cuando dejas de escribir.",
       "noResults": "No hay paquetes coincidentes",
       "indexMissing": "No hay índices de paquetes disponibles. Actualiza los índices antes de buscar o instalar.",
       "indexStale": "Los índices de paquetes pueden estar desactualizados (última actualización: {{updated}}). Actualízalos antes de instalar.",

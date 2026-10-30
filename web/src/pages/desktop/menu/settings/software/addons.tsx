@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, message, Modal, Progress, Spin } from 'antd';
-import { useAtom } from 'jotai';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Alert, Button, message, Progress, Spin } from 'antd';
+import { useAtom, useAtomValue } from 'jotai';
 import { DownloadIcon, ExternalLinkIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { checkAddonCatalog, getAddonCatalog, type AddonCatalog } from '@/api/addons.ts';
 import { getRuntimeStatus, installRuntime, uninstallRuntime } from '@/api/picoclaw.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { addonInventoryAtom } from '@/jotai/addons';
 import { picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
+import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
 import { Robot } from '@/components/icons/robot.tsx';
+import { confirmAction } from '@/components/ui/confirm.ts';
 
 import { AcmeAddon } from './acme';
 import { AddonCard } from './addon-card';
@@ -33,7 +36,9 @@ export const Addons = ({
   const [loadError, setLoadError] = useState('');
   const pending = useRef(false);
   const generation = useRef(0);
-  const [modal, contextHolder] = Modal.useModal();
+  const inventory = useAtomValue(addonInventoryAtom);
+  const rustDesk = useAtomValue(rustDeskStatusAtom);
+  const [acmeInstalled, setAcmeInstalled] = useState<boolean>();
   // The add-ons of the NanoKVM repository, from the daily update check: a new
   // one appears here without an OS release.
   const [catalog, setCatalog] = useState<AddonCatalog>();
@@ -112,68 +117,88 @@ export const Addons = ({
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {contextHolder}
-      <AddonCard title="PicoClaw" icon={<Robot size={24} />}>
-        <p className="text-fg m-0 text-sm">{t('settings.software.addons.picoclawDescription')}</p>
-        <a
-          className="text-info inline-flex items-center gap-1 text-sm no-underline!"
-          href="https://github.com/sipeed/picoclaw/releases/latest"
-          target="_blank"
-          rel="noreferrer"
-        >
-          {t('settings.software.addons.source')} <ExternalLinkIcon size={14} />
-        </a>
-        {(loadError || status?.last_error) && (
-          <Alert type="error" title={loadError || status?.last_error} showIcon />
-        )}
-        {!status ? (
-          <Spin size="small" />
-        ) : status.installing ? (
-          <div>
-            <div className="text-fg text-sm">
-              {t(`picoclaw.install.stages.${status.install_stage || 'preparing'}`)}
-            </div>
-            <Progress percent={status.install_progress || 0} status="active" />
+  const picoclaw = (
+    <AddonCard key="picoclaw" title="PicoClaw" icon={<Robot size={24} />}>
+      <p className="text-fg m-0 text-sm">{t('settings.software.addons.picoclawDescription')}</p>
+      <a
+        className="text-info inline-flex items-center gap-1 text-sm no-underline!"
+        href="https://github.com/sipeed/picoclaw/releases/latest"
+        target="_blank"
+        rel="noreferrer"
+      >
+        {t('settings.software.addons.source')} <ExternalLinkIcon size={14} />
+      </a>
+      {(loadError || status?.last_error) && (
+        <Alert type="error" title={loadError || status?.last_error} showIcon />
+      )}
+      {!status ? (
+        <Spin size="small" />
+      ) : status.installing ? (
+        <div>
+          <div className="text-fg text-sm">
+            {t(`picoclaw.install.stages.${status.install_stage || 'preparing'}`)}
           </div>
-        ) : status.installed ? (
-          <div className="flex flex-wrap gap-2">
-            <Button type="primary" disabled={busy} onClick={onOpen}>
-              {t('settings.software.addons.open')}
-            </Button>
-            <Button
-              danger
-              loading={busy}
-              icon={<Trash2Icon size={16} />}
-              onClick={() =>
-                modal.confirm({
-                  title: t('picoclaw.uninstall.confirmTitle'),
-                  content: t('picoclaw.uninstall.confirmContent'),
-                  okText: t('picoclaw.uninstall.confirmOk'),
-                  cancelText: t('picoclaw.uninstall.confirmCancel'),
-                  onOk: () => run(true)
-                })
-              }
-            >
-              {t('picoclaw.uninstall.menuLabel')}
-            </Button>
-          </div>
-        ) : (
-          <Button
-            type="primary"
-            loading={busy}
-            icon={<DownloadIcon size={16} />}
-            onClick={() => void run(false)}
-          >
-            {t('picoclaw.install.install')}
+          <Progress percent={status.install_progress || 0} status="active" />
+        </div>
+      ) : status.installed ? (
+        <div className="flex flex-wrap gap-2">
+          <Button type="primary" disabled={busy} onClick={onOpen}>
+            {t('settings.software.addons.open')}
           </Button>
-        )}
-      </AddonCard>
-      <RustDeskAddon onOpen={onOpenRustDesk} />
-      <AcmeAddon onOpen={onOpenAcme} />
-      {ipmiEntry && <IpmiAddon onOpen={onOpenBmc} entry={ipmiEntry} os={catalog?.os} />}
-      {others.map((addon) => (
+          <Button
+            type="text"
+            loading={busy}
+            icon={<Trash2Icon size={16} />}
+            onClick={async () => {
+              const confirmed = await confirmAction({
+                title: t('picoclaw.uninstall.confirmTitle'),
+                content: t('picoclaw.uninstall.confirmContent'),
+                okText: t('picoclaw.uninstall.confirmOk'),
+                cancelText: t('picoclaw.uninstall.confirmCancel'),
+                danger: true,
+                safeDefault: true
+              });
+              if (confirmed) void run(true);
+            }}
+          >
+            {t('picoclaw.uninstall.menuLabel')}
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="primary"
+          loading={busy}
+          icon={<DownloadIcon size={16} />}
+          onClick={() => void run(false)}
+        >
+          {t('settings.software.addons.install')}
+        </Button>
+      )}
+    </AddonCard>
+  );
+  // Each card once, in Installed or Available. A card whose state is not
+  // known yet waits under Available.
+  const cards: { installed?: boolean; card: ReactNode }[] = [
+    { installed: status?.installed, card: picoclaw },
+    {
+      installed: rustDesk?.installed ?? inventory?.rustdesk.installed,
+      card: <RustDeskAddon key="rustdesk" onOpen={onOpenRustDesk} />
+    },
+    {
+      installed: acmeInstalled,
+      card: <AcmeAddon key="acme" onOpen={onOpenAcme} onInstalled={setAcmeInstalled} />
+    },
+    ...(ipmiEntry
+      ? [
+          {
+            installed: inventory?.ipmi.installed,
+            card: <IpmiAddon key="ipmi" onOpen={onOpenBmc} entry={ipmiEntry} os={catalog?.os} />
+          }
+        ]
+      : []),
+    ...others.map((addon) => ({
+      installed: !!addon.installed,
+      card: (
         <CatalogAddonCard
           key={addon.name}
           addon={addon}
@@ -181,8 +206,31 @@ export const Addons = ({
           listed={!!catalog?.checkedAt}
           onChanged={(next) => (next ? setCatalog(next) : void loadCatalog())}
         />
-      ))}
+      )
+    }))
+  ];
+  const installed = cards.filter((item) => item.installed).map((item) => item.card);
+  const available = cards.filter((item) => !item.installed).map((item) => item.card);
+
+  return (
+    <div className="space-y-6">
       <CatalogStatus catalog={catalog} checking={checking} onCheck={() => void checkCatalog()} />
+      {installed.length > 0 && (
+        <section className="space-y-4">
+          <h3 className="text-fg-muted m-0 text-sm font-medium">
+            {t('settings.software.addons.installedSection')}
+          </h3>
+          {installed}
+        </section>
+      )}
+      {available.length > 0 && (
+        <section className="space-y-4">
+          <h3 className="text-fg-muted m-0 text-sm font-medium">
+            {t('settings.software.addons.availableSection')}
+          </h3>
+          {available}
+        </section>
+      )}
     </div>
   );
 };

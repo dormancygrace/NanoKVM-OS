@@ -832,7 +832,9 @@
         "checkNow": "Jetzt prüfen",
         "dailyOff": "Die tägliche Update-Prüfung ist aus: Die Liste ändert sich nur, wenn Sie prüfen.",
         "listFailed": "Die letzte Prüfung ist fehlgeschlagen.",
-        "failed": "Die Anfrage ist fehlgeschlagen."
+        "failed": "Die Anfrage ist fehlgeschlagen.",
+        "installedSection": "Installiert",
+        "availableSection": "Verfügbar"
       },
       "title": "Software",
       "description": "Verwalten Sie Pakete aus den konfigurierten Alpine-Repositorys. Paketänderungen verwenden dieselbe APK-Datenbank und dieselben Dienste wie SSH.",
@@ -845,7 +847,6 @@
       "upToDate": "Alle installierten Pakete sind auf dem neuesten Stand.",
       "searchPlaceholder": "Paketname suchen",
       "search": "Suchen",
-      "searchHint": "Die Suche startet automatisch, sobald Sie mit dem Tippen pausieren.",
       "noResults": "Keine passenden Pakete",
       "indexMissing": "Keine Paketindizes verfügbar. Aktualisieren Sie die Indizes, bevor Sie suchen oder installieren.",
       "indexStale": "Die Paketindizes sind möglicherweise veraltet (zuletzt aktualisiert {{updated}}). Aktualisieren Sie sie vor der Installation.",

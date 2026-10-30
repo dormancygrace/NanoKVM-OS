@@ -17,6 +17,7 @@ import { RustDeskVersions } from './rustdesk-versions';
 
 export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.rustdesk' });
+  const { t: common } = useTranslation();
   const [status, setStatus] = useAtom(rustDeskStatusAtom);
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -130,8 +131,14 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
                     {t('upgrade', { version: status.update_version })}
                   </Button>
                 )}
-                <Popconfirm title={t('deletion')} onConfirm={() => operation('remove')}>
-                  <Button danger disabled={busy} icon={<Trash2Icon size={16} />}>
+                <Popconfirm
+                  title={t('deletion')}
+                  onConfirm={() => operation('remove')}
+                  // The safe answer is the highlighted one, as for sign-out.
+                  okButtonProps={{ danger: true, type: 'default' }}
+                  cancelButtonProps={{ type: 'primary' }}
+                >
+                  <Button type="text" disabled={busy} icon={<Trash2Icon size={16} />}>
                     {t('remove')}
                   </Button>
                 </Popconfirm>
@@ -144,7 +151,7 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
                 disabled={!status?.available}
                 onClick={() => void operation('install')}
               >
-                {t('install')}
+                {common('settings.software.addons.install')}
               </Button>
             )}
           </div>

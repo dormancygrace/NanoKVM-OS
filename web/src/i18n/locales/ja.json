@@ -1020,7 +1020,6 @@
         "image": "イメージ",
         "alpine": "Alpine",
         "kernel": "実行中のカーネル",
-        "systemBase": "システムベース",
         "modules": "カーネルモジュール",
         "boot": "ブートコンポーネント",
         "video": "HDMI とビデオキャプチャ",
@@ -1056,6 +1055,15 @@
           "saved-profile": "保存済みプロファイル",
           "power-cycle-pending": "物理的な電源の再投入待ち",
           "pending-reboot": "再起動待ち"
+        },
+        "allOk": "すべて正常です",
+        "problems": "見つかった問題: {{count}}",
+        "packages": "パッケージ（{{count}}）",
+        "usbOff": "USB は USB ガジェットの設定でオフになっています。",
+        "optionalIdle": "オプション、未実行",
+        "nftFeatures": {
+          "mss-clamp": "MSS をパス MTU に制限",
+          "usb-internet": "USB インターネット共有"
         }
       },
       "device": "デバイス",

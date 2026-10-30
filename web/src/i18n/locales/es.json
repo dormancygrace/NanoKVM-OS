@@ -1020,7 +1020,6 @@
         "image": "Imagen",
         "alpine": "Alpine",
         "kernel": "Kernel en ejecución",
-        "systemBase": "Base del sistema",
         "modules": "Módulos del kernel",
         "boot": "Componentes de arranque",
         "video": "HDMI y captura de vídeo",
@@ -1056,6 +1055,15 @@
           "saved-profile": "perfil guardado",
           "power-cycle-pending": "ciclo de apagado físico pendiente",
           "pending-reboot": "reinicio pendiente"
+        },
+        "allOk": "Todo está bien",
+        "problems": "Problemas encontrados: {{count}}",
+        "packages": "Paquetes ({{count}})",
+        "usbOff": "El USB está apagado en los ajustes del gadget USB.",
+        "optionalIdle": "Opcionales, no en ejecución",
+        "nftFeatures": {
+          "mss-clamp": "Ajuste de MSS a la MTU de ruta",
+          "usb-internet": "Internet por USB"
         }
       },
       "device": "Dispositivo",

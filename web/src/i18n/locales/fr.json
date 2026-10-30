@@ -1020,7 +1020,6 @@
         "image": "Image",
         "alpine": "Alpine",
         "kernel": "Noyau en cours d'exécution",
-        "systemBase": "Base du système",
         "modules": "Modules du noyau",
         "boot": "Composants de démarrage",
         "video": "HDMI et capture vidéo",
@@ -1056,6 +1055,15 @@
           "saved-profile": "profil enregistré",
           "power-cycle-pending": "coupure physique de l'alimentation en attente",
           "pending-reboot": "redémarrage en attente"
+        },
+        "allOk": "Tout va bien",
+        "problems": "Problèmes trouvés : {{count}}",
+        "packages": "Paquets ({{count}})",
+        "usbOff": "L'USB est désactivé dans les réglages du gadget USB.",
+        "optionalIdle": "Facultatifs, non lancés",
+        "nftFeatures": {
+          "mss-clamp": "Limitation du MSS au MTU du chemin",
+          "usb-internet": "Partage Internet par USB"
         }
       },
       "device": "Appareil",

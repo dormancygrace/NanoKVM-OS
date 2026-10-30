@@ -1020,7 +1020,6 @@
         "image": "Image",
         "alpine": "Alpine",
         "kernel": "Running kernel",
-        "systemBase": "System base",
         "modules": "Kernel modules",
         "boot": "Boot components",
         "video": "HDMI and video capture",
@@ -1056,6 +1055,15 @@
           "saved-profile": "saved profile",
           "power-cycle-pending": "physical power cycle pending",
           "pending-reboot": "reboot pending"
+        },
+        "allOk": "Everything is OK",
+        "problems": "Problems found: {{count}}",
+        "packages": "Packages ({{count}})",
+        "usbOff": "USB is switched off in USB Gadget settings.",
+        "optionalIdle": "Optional, not running",
+        "nftFeatures": {
+          "mss-clamp": "MSS clamp to path MTU",
+          "usb-internet": "USB internet sharing"
         }
       },
       "device": "Device",

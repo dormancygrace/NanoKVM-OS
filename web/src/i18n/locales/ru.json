@@ -1020,7 +1020,6 @@
         "image": "Образ",
         "alpine": "Alpine",
         "kernel": "Запущенное ядро",
-        "systemBase": "База системы",
         "modules": "Модули ядра",
         "boot": "Компоненты загрузки",
         "video": "HDMI и видеозахват",
@@ -1056,6 +1055,15 @@
           "saved-profile": "сохранённый профиль",
           "power-cycle-pending": "нужно физически отключить питание",
           "pending-reboot": "ожидается перезагрузка"
+        },
+        "allOk": "Всё в порядке",
+        "problems": "Найдено проблем: {{count}}",
+        "packages": "Пакеты ({{count}})",
+        "usbOff": "USB выключен в настройках USB-гаджета.",
+        "optionalIdle": "Необязательные, не запущены",
+        "nftFeatures": {
+          "mss-clamp": "Ограничение MSS по PMTU",
+          "usb-internet": "Интернет через USB"
         }
       },
       "device": "Устройство",

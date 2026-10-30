@@ -1020,7 +1020,6 @@
         "image": "镜像",
         "alpine": "Alpine",
         "kernel": "运行中的内核",
-        "systemBase": "系统基础",
         "modules": "内核模块",
         "boot": "启动组件",
         "video": "HDMI 与视频采集",
@@ -1056,6 +1055,15 @@
           "saved-profile": "已保存的配置",
           "power-cycle-pending": "等待物理断电重启",
           "pending-reboot": "等待重启"
+        },
+        "allOk": "一切正常",
+        "problems": "发现的问题：{{count}}",
+        "packages": "软件包（{{count}}）",
+        "usbOff": "USB 已在 USB 设备设置中关闭。",
+        "optionalIdle": "可选，未运行",
+        "nftFeatures": {
+          "mss-clamp": "按路径 MTU 限制 MSS",
+          "usb-internet": "USB 网络共享"
         }
       },
       "device": "设备",

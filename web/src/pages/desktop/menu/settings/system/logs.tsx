@@ -218,10 +218,14 @@ export const Logs = () => {
           }}
           onPressEnter={(event) => moveMatch(event.shiftKey ? -1 : 1)}
           allowClear
+          suffix={
+            query ? (
+              <span className="text-fg-muted text-xs tabular-nums">
+                {view.matches.length ? selectedMatch + 1 : 0} / {view.matches.length}
+              </span>
+            ) : undefined
+          }
         />
-        <span className="text-fg-muted min-w-12 text-center text-xs">
-          {view.matches.length ? selectedMatch + 1 : 0} / {view.matches.length}
-        </span>
         <Button
           size="small"
           aria-label={t(`${key}.previousMatch`)}
@@ -279,7 +283,7 @@ export const Logs = () => {
         tabIndex={0}
         aria-label={t(`${key}.title`)}
         aria-busy={loading}
-        className="border-line text-fg m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border bg-black/30 p-3 font-mono text-xs leading-5 whitespace-pre focus-visible:outline-2 focus-visible:outline-blue-400"
+        className="border-line text-fg m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border bg-black/30 p-3 font-mono text-xs leading-5 break-all whitespace-pre-wrap focus-visible:outline-2 focus-visible:outline-blue-400"
       >
         {view.lines.length ? (
           activeRow === undefined ? (

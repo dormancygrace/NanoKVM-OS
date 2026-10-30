@@ -1080,7 +1080,6 @@
         "collected": "Shromážděno: {{time}}",
         "kernel": "Spuštěné jádro systému",
         "boot": "Součásti zavádění systému",
-        "systemBase": "Základ systému",
         "modules": "Moduly jádra systému",
         "download": "Stáhnout si hlášení",
         "fps": "Naměřený počet snímků/s",
@@ -1095,7 +1094,16 @@
         "video": "HDMI a zachytávání videa",
         "operationFailed": "Poslední operace se nezdařila; hlášení úmyslně vynechává nezpracovaný záznam této operace.",
         "usb": "USB gadget",
-        "binding": "Navázání řadiče"
+        "binding": "Navázání řadiče",
+        "allOk": "Vše v pořádku",
+        "problems": "Nalezené problémy: {{count}}",
+        "packages": "Balíčky ({{count}})",
+        "usbOff": "USB je vypnuté v nastavení USB gadgetu.",
+        "optionalIdle": "Volitelné, neběží",
+        "nftFeatures": {
+          "mss-clamp": "Omezení MSS na MTU cesty",
+          "usb-internet": "Internet přes USB"
+        }
       },
       "logs": {
         "sources": {

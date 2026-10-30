@@ -1020,7 +1020,6 @@
         "image": "Image",
         "alpine": "Alpine",
         "kernel": "Laufender Kernel",
-        "systemBase": "Systembasis",
         "modules": "Kernel-Module",
         "boot": "Boot-Komponenten",
         "video": "HDMI und Videoaufnahme",
@@ -1056,6 +1055,15 @@
           "saved-profile": "gespeichertes Profil",
           "power-cycle-pending": "physischer Stromzyklus ausstehend",
           "pending-reboot": "Neustart ausstehend"
+        },
+        "allOk": "Alles in Ordnung",
+        "problems": "Gefundene Probleme: {{count}}",
+        "packages": "Pakete ({{count}})",
+        "usbOff": "USB ist in den USB-Gadget-Einstellungen ausgeschaltet.",
+        "optionalIdle": "Optional, nicht aktiv",
+        "nftFeatures": {
+          "mss-clamp": "MSS-Begrenzung auf Pfad-MTU",
+          "usb-internet": "Internet über USB"
         }
       },
       "device": "Gerät",

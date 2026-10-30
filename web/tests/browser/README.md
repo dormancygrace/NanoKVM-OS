@@ -60,3 +60,12 @@ all data is synthetic and no add-on or device is contacted.
 
 `addon.spec.ts` runs these regressions in CI, and verifies that a read slower
 than the polling interval is allowed to finish without overlapping requests.
+
+### BMC settings regressions
+
+`/tests/browser/bmc.html` exercises the production BMC page with synthetic
+responses. Hold next read / Release read and Complete write control response
+ordering. Check stored account use by switches, serialization through readback,
+newer account edits during Save, stale polls, persistent refusal messages,
+credential redaction and the initial-password path. `bmc.spec.ts` repeats these
+cases in Chrome Main in CI. No device or add-on is contacted.

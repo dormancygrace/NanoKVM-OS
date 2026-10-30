@@ -2053,7 +2053,9 @@
       "ipmiNotInstalled": "IPMI kommt mit der IPMI-Erweiterung, die nicht installiert ist.",
       "ipmiInstall": "IPMI-Erweiterung installieren",
       "ipmiAddonDescription": "IPMI über LAN zur Stromsteuerung des Hosts (ipmitool, fence_ipmilan). Die Einstellungen finden Sie unter Dienste > Redfish und IPMI.",
-      "holdDefault": "5 (Strommenü)"
+      "holdDefault": "5 (Strommenü)",
+      "advanced": "Erweitert",
+      "accountFirst": "Legen Sie unten das BMC-Konto fest und klicken Sie auf Speichern: Redfish und IPMI lassen sich nur mit Passwort einschalten."
     },
     "recovery": {
       "title": "Sicherung und Zurücksetzen",

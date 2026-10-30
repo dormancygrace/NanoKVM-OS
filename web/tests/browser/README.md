@@ -79,6 +79,14 @@ newer account edits during Save, stale polls, persistent refusal messages,
 credential redaction and the initial-password path. `bmc.spec.ts` repeats these
 cases in Chrome Main in CI. No device or add-on is contacted.
 
+## Recovery
+
+Open /tests/browser/recovery.html. All recovery calls are synthetic, including
+apply and reboot. Use the displayed fixture passwords to check export,
+restore/reset previews, cancellation, apply errors and pending reboot.
+The fixture archive button supplies a tiny synthetic file; export records
+the Blob download without writing into Downloads.
+
 ### Updates
 
 Open /tests/browser/updates.html for a synthetic repository and package state.

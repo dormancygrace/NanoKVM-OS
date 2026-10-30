@@ -2071,13 +2071,11 @@
       "password": "Mot de passe actuel de l’administrateur",
       "export": "Exporter les paramètres",
       "encryption": "L’archive contient des mots de passe et des clés privées. Elle est chiffrée avec votre mot de passe de sauvegarde (12–256 octets). Conservez le fichier et le mot de passe en lieu sûr : un mot de passe perdu ne peut pas être récupéré.",
-      "archivePassword": "Mot de passe de sauvegarde (également pour ouvrir une archive)",
+      "archivePassword": "Mot de passe de l'archive",
       "download": "Télécharger la sauvegarde chiffrée",
-      "restoreReset": "Restaurer ou réinitialiser",
       "restore": "Restaurer les paramètres",
       "reset": "Réinitialiser les paramètres d’usine",
       "updateBase": "Mettez à jour nanokvm-base pour activer la restauration et la réinitialisation.",
-      "file": "Archive des paramètres (.nkos)",
       "fileLimit": "Choisissez une archive de paramètres de 4 Mio maximum.",
       "migrate": "Migrer vers un autre appareil (recommandé)",
       "device": "Restaurer cet appareil, y compris les paramètres d’accès et de réseau",
@@ -2097,7 +2095,11 @@
       "inventory": "Paquets recensés dans la sauvegarde (non installés automatiquement)",
       "confirm": "J’ai vérifié les modifications et pourrai me reconnecter après le redémarrage.",
       "reboot": "Redémarrer pour terminer",
-      "rebooting": "Restauration planifiée. L’appareil redémarre ; reconnectez-vous ensuite."
+      "rebooting": "Restauration planifiée. L’appareil redémarre ; reconnectez-vous ensuite.",
+      "backupPassword": "Mot de passe de la sauvegarde",
+      "backupPasswordShort": "Au moins 12 caractères.",
+      "chooseFile": "Choisir un fichier .nkos",
+      "deviceHint": "Remplace tous les réglages de cet appareil par ceux de l'archive, y compris les utilisateurs, le réseau, le VPN, les certificats et les réglages matériels."
     },
     "ai": {
       "title": "IA",

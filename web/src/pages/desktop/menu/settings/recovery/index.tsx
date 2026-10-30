@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Alert, Button, Checkbox, Input, Modal, Select, Spin } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Button, Checkbox, Input, Modal, Radio, Spin } from 'antd';
+import { FileUpIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { http } from '@/lib/http';
@@ -21,6 +22,7 @@ type Preview = {
 };
 type Request = { password: string; archivePassword: string; archive: string; options: Options };
 const maxArchive = 4 * 1024 * 1024;
+const minBackupPassword = 12;
 
 async function call<T>(action: string, data: unknown) {
   const response = await http.post<T>(`/api/system/recovery/${action}`, data, {
@@ -37,25 +39,38 @@ function encode(bytes: Uint8Array) {
   return btoa(binary);
 }
 
+// What the administrator password confirms: every action asks for it when
+// it starts, not before one is chosen.
+type Ask = {
+  title: string;
+  okText: string;
+  danger?: boolean;
+  run: (password: string) => Promise<void>;
+};
+
+// System > Backup & reset: export the settings, restore them from a file,
+// or reset them. Restore and reset show what will change before applying.
 export const Recovery = () => {
   const { t } = useTranslation();
   const label = (key: string) => t(`settings.recovery.${key}`);
-  const [password, setPassword] = useState('');
+  const [backupPassword, setBackupPassword] = useState('');
   const [archivePassword, setArchivePassword] = useState('');
   const [file, setFile] = useState<File>();
-  const [options, setOptions] = useState<Options>({
-    action: 'restore',
-    mode: 'migrate',
-    keepUsers: true,
-    keepApps: true
-  });
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<Options['mode']>('migrate');
+  const [keepUsers, setKeepUsers] = useState(true);
+  const [keepApps, setKeepApps] = useState(true);
+  const [ask, setAsk] = useState<Ask>();
+  const [adminPassword, setAdminPassword] = useState('');
   const [preview, setPreview] = useState<{ data: Preview; request: Request }>();
+  const [checked, setChecked] = useState(false);
   const [available, setAvailable] = useState(false);
   const [pending, setPending] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
-  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -69,175 +84,270 @@ export const Recovery = () => {
         setAvailable(r.data.available);
         setPending(r.data.status.state === 'pending');
         setStatus(r.data.status.message || '');
+        setLoaded(true);
       })
       .catch((e: Error) => {
-        if (active) setError(e.message);
+        if (active) setLoadError(e.message);
       });
     return () => {
       active = false;
     };
   }, []);
 
-  async function perform(action: () => Promise<void>) {
+  // The last dialog's texts stay while it fades out after closing.
+  const shown = useRef<Ask>(undefined);
+  function start(next: Ask) {
+    setError('');
+    setAdminPassword('');
+    shown.current = next;
+    setAsk(next);
+  }
+  // A typed but unused password does not stay in the page.
+  function closeAsk() {
+    setAsk(undefined);
+    setAdminPassword('');
+  }
+  async function confirmAsk() {
+    if (!ask || !adminPassword || busy) return;
     setBusy(true);
     setError('');
     try {
-      await action();
+      await ask.run(adminPassword);
+      closeAsk();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
   }
-  async function download() {
-    await perform(async () => {
-      const result = await call<{ archive: string }>('export', { password, archivePassword });
-      const bytes = Uint8Array.from(atob(result.archive), (c) => c.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'NanoKVM-settings.nkos';
-      anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  async function download(password: string) {
+    const result = await call<{ archive: string }>('export', {
+      password,
+      archivePassword: backupPassword
     });
+    const bytes = Uint8Array.from(atob(result.archive), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'NanoKVM-settings.nkos';
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  async function inspect() {
-    await perform(async () => {
-      let archive = '';
-      if (options.action === 'restore') {
-        if (!file || file.size > maxArchive) throw new Error(label('fileLimit'));
-        archive = encode(new Uint8Array(await file.arrayBuffer()));
-      }
-      const request = { password, archivePassword, archive, options: { ...options } };
-      const data = await call<Preview>('preview', request);
-      setChecked(false);
-      setPreview({ data, request });
-    });
+  async function inspect(action: Options['action'], password: string) {
+    let archive = '';
+    if (action === 'restore') {
+      if (!file || file.size > maxArchive) throw new Error(label('fileLimit'));
+      archive = encode(new Uint8Array(await file.arrayBuffer()));
+    }
+    const request: Request = {
+      password,
+      archivePassword: action === 'restore' ? archivePassword : '',
+      archive,
+      options: { action, mode, keepUsers, keepApps }
+    };
+    const data = await call<Preview>('preview', request);
+    setChecked(false);
+    setPreview({ data, request });
   }
   async function apply() {
     if (!preview || !checked) return;
-    await perform(async () => {
+    setBusy(true);
+    setError('');
+    try {
       await call('apply', { ...preview.request, token: preview.data.token });
       setPreview(undefined);
-      setPassword('');
+      setBackupPassword('');
       setArchivePassword('');
       setPending(true);
       setStatus(label('rebooting'));
-    });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
   }
+
+  if (!loaded) return loadError ? <Alert type="error" showIcon title={loadError} /> : <Spin />;
+  const backupShort = backupPassword.length > 0 && backupPassword.length < minBackupPassword;
+
   return (
     <div className="flex flex-col gap-4">
-      <Alert type="info" showIcon title={label('scope')} />
-      {error && <Alert type="error" showIcon title={error} />}
+      <p className="text-fg-muted m-0 text-sm">{label('scope')}</p>
       {status && <Alert type={pending ? 'warning' : 'info'} showIcon title={status} />}
-      <Panel>
-        <label className="flex flex-col gap-2">
-          {label('password')}
-          <Input.Password
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={busy}
-          />
-        </label>
-      </Panel>
       {pending ? (
-        <Button
-          disabled={busy || !password}
-          onClick={() =>
-            perform(async () => {
-              await call('reboot', { password });
-              setStatus(label('rebooting'));
-            })
-          }
-        >
-          {label('reboot')}
-        </Button>
+        <div>
+          <Button
+            type="primary"
+            onClick={() =>
+              start({
+                title: label('reboot'),
+                okText: label('reboot'),
+                run: async (password) => {
+                  await call('reboot', { password });
+                  setStatus(label('rebooting'));
+                }
+              })
+            }
+          >
+            {label('reboot')}
+          </Button>
+        </div>
       ) : (
         <>
           <Panel>
-            <h3 className="mb-3 font-semibold">{label('export')}</h3>
-            <p className="text-fg-muted mb-3">{label('encryption')}</p>
+            <h3 className="mt-0 mb-2 font-semibold">{label('export')}</h3>
+            <p className="text-fg-muted mt-0 mb-3 text-sm">{label('encryption')}</p>
             <label className="flex flex-col gap-2">
-              {label('archivePassword')}
+              {label('backupPassword')}
               <Input.Password
                 autoComplete="new-password"
-                value={archivePassword}
-                onChange={(e) => setArchivePassword(e.target.value)}
-                disabled={busy}
+                value={backupPassword}
+                status={backupShort ? 'warning' : undefined}
+                onChange={(e) => setBackupPassword(e.target.value)}
               />
             </label>
+            {backupShort && (
+              <div className="text-warning mt-1 text-xs">{label('backupPasswordShort')}</div>
+            )}
             <Button
               className="mt-3"
-              disabled={busy || !password || archivePassword.length < 12}
-              onClick={download}
+              disabled={backupPassword.length < minBackupPassword}
+              onClick={() =>
+                start({ title: label('export'), okText: label('download'), run: download })
+              }
             >
               {label('download')}
             </Button>
           </Panel>
+
           <Panel>
-            <h3 className="mb-3 font-semibold">{label('restoreReset')}</h3>
-            {!available && <Alert type="warning" title={label('updateBase')} />}
-            <Select
-              className="my-3 w-full"
-              value={options.action}
-              disabled={busy}
-              onChange={(action) => setOptions({ ...options, action })}
-              options={[
-                { value: 'restore', label: label('restore') },
-                { value: 'reset', label: label('reset') }
-              ]}
-            />
-            {options.action === 'restore' ? (
-              <div className="flex flex-col gap-3">
-                <label>
-                  {label('file')}
-                  <input
-                    className="mt-2 block w-full"
-                    type="file"
-                    accept=".nkos"
-                    disabled={busy}
-                    onChange={(e) => setFile(e.target.files?.[0])}
-                  />
-                </label>
-                <Select
-                  value={options.mode}
-                  disabled={busy}
-                  onChange={(mode) => setOptions({ ...options, mode })}
-                  options={[
-                    { value: 'migrate', label: label('migrate') },
-                    { value: 'device', label: label('device') }
-                  ]}
+            <h3 className="mt-0 mb-3 font-semibold">{label('restore')}</h3>
+            {!available && <Alert className="mb-3" type="warning" title={label('updateBase')} />}
+            <div className="flex flex-col gap-3">
+              <div>
+                <input
+                  ref={fileInput}
+                  className="hidden"
+                  type="file"
+                  accept=".nkos"
+                  onChange={(e) => setFile(e.target.files?.[0])}
                 />
-                <p className="text-fg-muted">{label('migrationHint')}</p>
+                <Button icon={<FileUpIcon size={16} />} onClick={() => fileInput.current?.click()}>
+                  {label('chooseFile')}
+                </Button>
+                {file && <span className="text-fg-muted ml-3 text-sm break-all">{file.name}</span>}
               </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <Checkbox
-                  checked={options.keepUsers}
-                  disabled={busy}
-                  onChange={(e) => setOptions({ ...options, keepUsers: e.target.checked })}
-                >
-                  {label('keepUsers')}
-                </Checkbox>
-                <Checkbox
-                  checked={options.keepApps}
-                  disabled={busy}
-                  onChange={(e) => setOptions({ ...options, keepApps: e.target.checked })}
-                >
-                  {label('keepApps')}
-                </Checkbox>
-                <p className="text-fg-muted">{label('resetHint')}</p>
-                {!options.keepUsers && <Alert type="warning" title={label('resetUsers')} />}
-              </div>
-            )}
-            <Button className="mt-4" disabled={busy || !available || !password} onClick={inspect}>
+              <label className="flex flex-col gap-2">
+                {label('archivePassword')}
+                <Input.Password
+                  autoComplete="off"
+                  value={archivePassword}
+                  onChange={(e) => setArchivePassword(e.target.value)}
+                />
+              </label>
+              <Radio.Group
+                className="flex! flex-col gap-2"
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+              >
+                <Radio value="migrate">
+                  <div>{label('migrate')}</div>
+                  <div className="text-fg-muted text-xs">{label('migrationHint')}</div>
+                </Radio>
+                <Radio value="device">
+                  <div>{label('device')}</div>
+                  <div className="text-fg-muted text-xs">{label('deviceHint')}</div>
+                </Radio>
+              </Radio.Group>
+            </div>
+            <Button
+              className="mt-4"
+              disabled={!available || !file || !archivePassword}
+              onClick={() =>
+                start({
+                  title: label('restore'),
+                  okText: label('preview'),
+                  run: (password) => inspect('restore', password)
+                })
+              }
+            >
+              {label('preview')}
+            </Button>
+          </Panel>
+
+          <Panel>
+            <h3 className="mt-0 mb-3 font-semibold">{label('reset')}</h3>
+            <div className="flex flex-col gap-3">
+              <Checkbox checked={keepUsers} onChange={(e) => setKeepUsers(e.target.checked)}>
+                {label('keepUsers')}
+              </Checkbox>
+              <Checkbox checked={keepApps} onChange={(e) => setKeepApps(e.target.checked)}>
+                {label('keepApps')}
+              </Checkbox>
+              <p className="text-fg-muted m-0 text-sm">{label('resetHint')}</p>
+              {!keepUsers && <Alert type="warning" title={label('resetUsers')} />}
+            </div>
+            <Button
+              className="mt-4"
+              danger
+              disabled={!available}
+              onClick={() =>
+                start({
+                  title: label('reset'),
+                  okText: label('preview'),
+                  danger: true,
+                  run: (password) => inspect('reset', password)
+                })
+              }
+            >
               {label('preview')}
             </Button>
           </Panel>
         </>
       )}
-      {busy && <Spin />}
+
+      <Modal
+        open={!!ask}
+        title={shown.current?.title}
+        onCancel={() => {
+          if (!busy) closeAsk();
+        }}
+        closable={!busy}
+        maskClosable={!busy}
+        destroyOnHidden
+        footer={[
+          <Button key="cancel" disabled={busy} onClick={closeAsk}>
+            {label('cancel')}
+          </Button>,
+          <Button
+            key="ok"
+            type="primary"
+            danger={shown.current?.danger}
+            loading={busy}
+            disabled={!adminPassword}
+            onClick={() => void confirmAsk()}
+          >
+            {shown.current?.okText}
+          </Button>
+        ]}
+      >
+        <div className="flex flex-col gap-3">
+          {error && <Alert type="error" showIcon title={error} />}
+          <label className="flex flex-col gap-2">
+            {label('password')}
+            <Input.Password
+              autoFocus
+              autoComplete="current-password"
+              value={adminPassword}
+              disabled={busy}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              onPressEnter={() => void confirmAsk()}
+            />
+          </label>
+        </div>
+      </Modal>
+
       <Modal
         open={!!preview}
         title={label('preview')}
@@ -256,7 +366,7 @@ export const Recovery = () => {
             type="primary"
             loading={busy}
             disabled={!checked}
-            onClick={apply}
+            onClick={() => void apply()}
           >
             {label('apply')}
           </Button>

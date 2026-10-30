@@ -1692,17 +1692,19 @@
       "device": "Obnovit toto zařízení, včetně nastavení přístupů a sítě",
       "migrate": "Přenesení z jiného zařízení (doporučeno)",
       "fileLimit": "Vyberte archiv s nastaveními (až 4 MiB).",
-      "file": "Archiv s nastaveními (.nkos)",
       "updateBase": "Pro povolení obnovy a resetu zaktualizujte nanokvm-base.",
       "restore": "Obnovit nastavení",
-      "restoreReset": "Obnovit nebo resetovat",
       "download": "Stáhnout si šifrovanou zálohu",
-      "archivePassword": "Heslo pro zálohu (slouží také pro otevírání archivu)",
+      "archivePassword": "Heslo archivu",
       "encryption": "Archiv obsahuje hesla a soukromé klíče. Je šifrován vámi zadaným heslem zálohy (12-256 bajtů). Tento soubor a heslo uchovávejte někde bezpečně; zapomenuté heslo není možné obnovit.",
       "export": "Exportovat nastavení",
       "password": "Stávající heslo správce",
       "scope": "Zazálohovat spravovaná nastavení NanoKVM OS a podporovaných doplňků. Soubory operačního systému, nainstalované binárky, obrazy disků a uživatelské soubory nejsou zahrnuty. Vlastní konfigurace ostatního softwaru nainstalovaného přes APK se neresetuje.",
-      "title": "Záloha a resetování"
+      "title": "Záloha a resetování",
+      "backupPassword": "Heslo zálohy",
+      "backupPasswordShort": "Alespoň 12 znaků.",
+      "chooseFile": "Vybrat soubor .nkos",
+      "deviceHint": "Nahradí všechna nastavení tohoto zařízení nastaveními z archivu, včetně uživatelů, sítě, VPN, certifikátů a nastavení hardwaru."
     },
     "bmc": {
       "holdHint": "Nevyplněno: tak dlouho, jako je nastaveno v dlouhém stisku v nabídce napájení (5 s).",

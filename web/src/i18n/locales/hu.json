@@ -587,7 +587,8 @@
       },
       "addons": {
         "title": "Kiegészítők",
-        "packages": "Csomagok"
+        "packages": "Csomagok",
+        "install": "Telepítés"
       },
       "title": "Szoftverek",
       "available": "Elérhető csomagok",

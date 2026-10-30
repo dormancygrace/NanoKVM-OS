@@ -832,7 +832,9 @@
         "checkNow": "立即检查",
         "dailyOff": "每日更新检查已关闭：列表只在您检查时更新。",
         "listFailed": "上次检查失败。",
-        "failed": "请求失败。"
+        "failed": "请求失败。",
+        "installedSection": "已安装",
+        "availableSection": "可安装"
       },
       "title": "软件",
       "description": "管理来自已配置 Alpine 软件源的软件包。软件包变更与 SSH 使用相同的 APK 数据库和服务。",
@@ -845,7 +847,6 @@
       "upToDate": "所有已安装的软件包均为最新版本。",
       "searchPlaceholder": "搜索软件包名称",
       "search": "搜索",
-      "searchHint": "停止输入后将自动开始搜索。",
       "noResults": "没有匹配的软件包",
       "indexMissing": "没有可用的软件包索引。搜索或安装前请先刷新索引。",
       "indexStale": "软件包索引可能已过期（上次刷新：{{updated}}）。安装前请先刷新。",
@@ -1064,7 +1065,10 @@
         "nftFeatures": {
           "mss-clamp": "按路径 MTU 限制 MSS",
           "usb-internet": "USB 网络共享"
-        }
+        },
+        "archive": "准备开发者归档",
+        "archiveHint": "用于错误报告：最近几次启动的日志、系统、硬件和网络状态以及设置，合并为一个文件。密码、密钥和地址会在设备上删除。收集最多需要一分钟。",
+        "archiveError": "无法准备开发者归档"
       },
       "device": "设备",
       "performance": "性能",

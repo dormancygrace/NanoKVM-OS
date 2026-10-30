@@ -832,7 +832,9 @@
         "checkNow": "Vérifier maintenant",
         "dailyOff": "La vérification quotidienne des mises à jour est désactivée : la liste ne change que lorsque vous vérifiez.",
         "listFailed": "La dernière vérification a échoué.",
-        "failed": "La requête a échoué."
+        "failed": "La requête a échoué.",
+        "installedSection": "Installés",
+        "availableSection": "Disponibles"
       },
       "title": "Logiciels",
       "description": "Gérez les paquets des dépôts Alpine configurés. Les modifications de paquets utilisent la même base de données APK et les mêmes services que SSH.",
@@ -845,7 +847,6 @@
       "upToDate": "Tous les paquets installés sont à jour.",
       "searchPlaceholder": "Rechercher un nom de paquet",
       "search": "Rechercher",
-      "searchHint": "La recherche démarre automatiquement dès que vous arrêtez de taper.",
       "noResults": "Aucun paquet correspondant",
       "indexMissing": "Aucun index de paquets n'est disponible. Actualisez les index avant de rechercher ou d'installer.",
       "indexStale": "Les index de paquets sont peut-être obsolètes (dernière actualisation {{updated}}). Actualisez-les avant d'installer.",
@@ -1064,7 +1065,10 @@
         "nftFeatures": {
           "mss-clamp": "Limitation du MSS au MTU du chemin",
           "usb-internet": "Partage Internet par USB"
-        }
+        },
+        "archive": "Préparer une archive pour les développeurs",
+        "archiveHint": "Pour un rapport de bogue : journaux des derniers démarrages, état du système, du matériel et du réseau et réglages, en un seul fichier. Mots de passe, clés et adresses sont supprimés sur l'appareil. La collecte prend jusqu'à une minute.",
+        "archiveError": "Impossible de préparer l'archive pour les développeurs"
       },
       "device": "Appareil",
       "performance": "Performances",

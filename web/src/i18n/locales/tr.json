@@ -563,7 +563,8 @@
       },
       "addons": {
         "title": "Eklentiler",
-        "packages": "Paketler"
+        "packages": "Paketler",
+        "install": "Kur"
       },
       "title": "Yazılım",
       "available": "Kullanılabilir paketler",

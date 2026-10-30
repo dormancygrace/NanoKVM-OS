@@ -563,7 +563,8 @@
       },
       "addons": {
         "title": "Tillegg",
-        "packages": "Pakker"
+        "packages": "Pakker",
+        "install": "Installer"
       },
       "title": "Programvare",
       "available": "Tilgjengelige pakker",

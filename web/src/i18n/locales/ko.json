@@ -563,7 +563,8 @@
       },
       "addons": {
         "title": "추가 기능",
-        "packages": "패키지"
+        "packages": "패키지",
+        "install": "설치"
       },
       "title": "소프트웨어",
       "available": "사용 가능한 패키지",

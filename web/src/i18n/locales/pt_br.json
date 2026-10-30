@@ -563,7 +563,8 @@
       },
       "addons": {
         "title": "Complementos",
-        "packages": "Pacotes"
+        "packages": "Pacotes",
+        "install": "Instalar"
       },
       "title": "Software",
       "available": "Pacotes disponíveis",

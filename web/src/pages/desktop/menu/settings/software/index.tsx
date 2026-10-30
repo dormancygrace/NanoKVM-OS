@@ -277,7 +277,6 @@ export const Software = () => {
               />
             }
           />
-          <p className="text-fg-muted mt-0 text-xs">{t('settings.software.searchHint')}</p>
           <div className="divide-line max-h-80 divide-y overflow-auto pr-3">
             {results.map((pkg) => (
               <div className="flex items-center justify-between gap-3 py-2 text-sm" key={pkg.name}>
@@ -410,10 +409,22 @@ export const Software = () => {
       <IndexSchedule />
       <CommunityRepository disabled={working} onEnabled={() => void run('refresh')} />
       {indexWarning}
-      <Button icon={<RefreshCwIcon size={16} />} disabled={working} onClick={() => run('refresh')}>
-        {t('settings.software.refresh')}
-      </Button>
-      <Tabs className={styles.tabs} activeKey={activeTab} onChange={setActiveTab} items={tabs} />
+      <Tabs
+        className={styles.tabs}
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabs}
+        tabBarExtraContent={
+          <Button
+            size="small"
+            icon={<RefreshCwIcon size={14} />}
+            disabled={working}
+            onClick={() => run('refresh')}
+          >
+            {t('settings.software.refresh')}
+          </Button>
+        }
+      />
       <Modal
         open={Boolean(removal)}
         title={t('settings.software.removeTitle', { package: removal?.name })}

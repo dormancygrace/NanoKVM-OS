@@ -563,7 +563,8 @@
       },
       "addons": {
         "title": "Pengaya",
-        "packages": "Paket"
+        "packages": "Paket",
+        "install": "Instal"
       },
       "title": "Perangkat lunak",
       "available": "Paket tersedia",

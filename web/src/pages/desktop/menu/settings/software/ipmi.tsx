@@ -24,6 +24,7 @@ export const IpmiAddon = ({
   os?: string;
 }) => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.bmc' });
+  const { t: common } = useTranslation();
   const [status, setStatus] = useState<BmcStatus>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -59,7 +60,8 @@ export const IpmiAddon = ({
       const confirmed = await confirmAction({
         title: t('removeTitle'),
         content: t('removeConfirm'),
-        danger: true
+        danger: true,
+        safeDefault: true
       });
       if (!confirmed) return;
     }
@@ -96,7 +98,7 @@ export const IpmiAddon = ({
               {t('open')}
             </Button>
             <Button
-              danger
+              type="text"
               loading={busy}
               icon={<Trash2Icon size={16} />}
               onClick={() => void run('uninstall')}
@@ -116,7 +118,7 @@ export const IpmiAddon = ({
               icon={<DownloadIcon size={16} />}
               onClick={() => void run('install')}
             >
-              {t('install')}
+              {common('settings.software.addons.install')}
             </Button>
           </div>
         </>

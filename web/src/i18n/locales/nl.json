@@ -563,7 +563,8 @@
       },
       "addons": {
         "title": "Uitbreidingspakketten",
-        "packages": "Pakketten"
+        "packages": "Pakketten",
+        "install": "Installeren"
       },
       "title": "Software",
       "available": "Beschikbare pakketten",

@@ -832,7 +832,9 @@
         "checkNow": "Check now",
         "dailyOff": "The daily update check is off: the list changes only when you check.",
         "listFailed": "The last check failed.",
-        "failed": "The request failed."
+        "failed": "The request failed.",
+        "installedSection": "Installed",
+        "availableSection": "Available"
       },
       "title": "Software",
       "description": "Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.",
@@ -845,7 +847,6 @@
       "upToDate": "All installed packages are up to date.",
       "searchPlaceholder": "Search package name",
       "search": "Search",
-      "searchHint": "Search starts automatically after you pause typing.",
       "noResults": "No matching packages",
       "indexMissing": "No package indexes are available. Refresh indexes before searching or installing.",
       "indexStale": "Package indexes may be outdated (last refreshed {{updated}}). Refresh before installing.",
@@ -1064,7 +1065,10 @@
         "nftFeatures": {
           "mss-clamp": "MSS clamp to path MTU",
           "usb-internet": "USB internet sharing"
-        }
+        },
+        "archive": "Prepare archive for developers",
+        "archiveHint": "For a bug report: logs of the last boots, system, hardware and network state and settings, in one file. Passwords, keys and addresses are removed on the device. Collecting takes up to a minute.",
+        "archiveError": "Could not prepare the developer archive"
       },
       "device": "Device",
       "performance": "Performance",

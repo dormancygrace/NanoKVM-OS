@@ -563,7 +563,8 @@
       },
       "addons": {
         "title": "Complements",
-        "packages": "Paquets"
+        "packages": "Paquets",
+        "install": "Instal·la"
       },
       "title": "Programari",
       "available": "Paquets disponibles",

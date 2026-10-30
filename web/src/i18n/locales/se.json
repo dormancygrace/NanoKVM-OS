@@ -557,7 +557,8 @@
       },
       "addons": {
         "title": "Tilläggspaket",
-        "packages": "Paket"
+        "packages": "Paket",
+        "install": "Installera"
       },
       "title": "Programvara",
       "available": "Tillgängliga paket",

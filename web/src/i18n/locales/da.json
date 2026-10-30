@@ -556,7 +556,8 @@
       },
       "addons": {
         "title": "Tilføjelser",
-        "packages": "Pakker"
+        "packages": "Pakker",
+        "install": "Installér"
       },
       "title": "Software",
       "available": "Tilgængelige pakker",

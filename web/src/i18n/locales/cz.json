@@ -1178,7 +1178,9 @@
         "checkNow": "Zkontrolovat nyní",
         "dailyOff": "Denní kontrola aktualizací je vypnutá: seznam se změní, jen když ho dáte zkontrolovat.",
         "listFailed": "Poslední kontrola se nezdařila.",
-        "failed": "Požadavek se nezdařil."
+        "failed": "Požadavek se nezdařil.",
+        "installedSection": "Nainstalované",
+        "availableSection": "Dostupné"
       },
       "updatesTab": "Aktualizace",
       "remove": "Odebrat",
@@ -1212,7 +1214,6 @@
         "upgrade": "Přechod na novější verze všech balíčků…"
       },
       "upToDate": "Všechny nainstalované balíčky jsou aktuální.",
-      "searchHint": "Hledání bude zahájeno automaticky, jakmile na chvilku přestanete psát.",
       "description": "Spravovat balíčky z nastavených repozitářů distribuce Alpine. Změny balíčků používají stejnou databázi APK a služby, jako SSH.",
       "upgradeConfirm": "Přejít na novější verzi u všech nainstalovaných balíčků? Může se stát, že video a ovládání bude nakrátko odpojeno.",
       "indexMissing": "Nejsou k dispozici žádné rejstříky balíčků. Než se budete pokoušet vyhledávat či instalovat, nechte tyto rejstříky načíst znovu.",

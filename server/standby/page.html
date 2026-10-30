@@ -2,13 +2,14 @@
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>NanoKVM shutdown</title>
 <style>
-:root{color-scheme:dark light;font:16px system-ui}body{max-width:36rem;margin:10vh auto;padding:1.5rem;line-height:1.6}h1{font-size:1.8rem}button,input{font:inherit;padding:.7rem;border-radius:.4rem}button{cursor:pointer}input{width:90%}#state{font-weight:650}#detail{white-space:pre-wrap}code{overflow-wrap:anywhere}
+:root{color-scheme:dark light;font:16px system-ui}body{max-width:36rem;margin:10vh auto;padding:1.5rem;line-height:1.6}h1{font-size:1.8rem}button,input{font:inherit;padding:.7rem;border-radius:.4rem}button{cursor:pointer}input{width:90%}#state{font-weight:650}#detail,#restart-error{white-space:pre-wrap}#restart-error{color:#d33}code{overflow-wrap:anywhere}
 </style>
 <h1>NanoKVM shutdown</h1>
 <p id="state" role="status">Waiting for shutdown checks. Keep power connected.</p>
 <p id="detail">Video, keyboard, virtual disks, SSH and add-ons stop during shutdown. The connected computer is not shut down.</p>
 <p id="wake"></p>
 <button id="start" disabled>Start NanoKVM OS</button>
+<p id="restart-error" role="alert"></p>
 <p id="keyhelp">Keep this browser tab to start NanoKVM again, or save its restart key in a private place. The key is valid only until the next boot.</p>
 <details><summary>Restart key</summary><input id="key" type="password" autocomplete="off" aria-label="Restart key"><button id="use">Use key</button><button id="copy">Copy key</button></details>
 <p>Network restart works while NanoKVM still has power. After power is disconnected and restored, NanoKVM OS starts normally.</p>

@@ -88,3 +88,24 @@ test('a status response in flight cannot restore safe after restart was requeste
   assert.match(nodes.get('#state').textContent, /starting. Keep power connected/);
   assert.equal(nodes.get('#start').disabled, true);
 });
+
+test('restart rejection stays visible across ready polls and clears on a new attempt', async () => {
+  let reject = true;
+  const { nodes, timers } = await page(null, null, async (url) => {
+    if (url === '/standby/start') {
+      return reject
+        ? { ok: false, text: async () => 'same-origin request required' }
+        : { ok: true };
+    }
+    return { ok: true, json: async () => ({ state: 'ready', safe: true }) };
+  });
+  await nodes.get('#start').onclick();
+  assert.match(nodes.get('#restart-error').textContent, /same-origin request required/);
+  await timers.shift()();
+  assert.match(nodes.get('#state').textContent, /You can disconnect/);
+  assert.match(nodes.get('#restart-error').textContent, /same-origin request required/);
+  reject = false;
+  await nodes.get('#start').onclick();
+  assert.equal(nodes.get('#restart-error').textContent, '');
+  assert.match(nodes.get('#state').textContent, /starting. Keep power connected/);
+});

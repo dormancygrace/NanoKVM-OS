@@ -26,7 +26,8 @@ export const Shutdown = () => {
         content: explanation,
         okText: title,
         cancelText: t('settings.device.cancelBtn'),
-        danger: true
+        danger: true,
+        safeDefault: true
       }))
     )
       return;

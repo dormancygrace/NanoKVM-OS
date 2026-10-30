@@ -2,7 +2,6 @@ package standby
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -12,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/netutil"
 	"golang.org/x/sys/unix"
 )
 
@@ -93,14 +91,10 @@ func Takeover() (result error) {
 	if e != nil {
 		return e
 	}
-	if len(c.Certificate) > 0 {
-		cert, e := tls.X509KeyPair(c.Certificate, c.PrivateKey)
-		if e != nil {
-			return e
-		}
-		listener = tls.NewListener(listener, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12})
+	listener, e = runtimeListener(listener, c)
+	if e != nil {
+		return e
 	}
-	listener = netutil.LimitListener(listener, 32)
 	go func() {
 		if e := server.Serve(listener); e != nil {
 			state.Fail(e)

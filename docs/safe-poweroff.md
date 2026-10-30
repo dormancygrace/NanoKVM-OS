@@ -15,7 +15,8 @@ work are not assumed to stop merely because the application stopped.
 
 System settings offers **Shut down NanoKVM**, a confirmation describing the
 loss of video, keyboard, virtual disks, SSH and add-ons, and an optional
-magic-packet restart checkbox. The connected computer stays on.
+magic-packet restart checkbox. Cancel is highlighted and focused, so Enter
+cancels. The connected computer stays on.
 
 Preparation returns a fresh 256-bit restart key through the existing
 administrator-authenticated API. The browser saves it in session storage before
@@ -30,7 +31,10 @@ Web restart requires that key and a same-origin POST. Preparation and commit
 require an enabled administrator through the existing authentication middleware.
 HTTPS preserves the current certificate and port, without a plaintext fallback;
 an existing HTTP installation retains HTTP and its existing network exposure.
-The RAM server limits connections, headers and request timeouts.
+The RAM server limits TCP connections before wrapping them in TLS, preserving
+HTTPS request metadata for same-origin checks. It also limits headers and
+request timeouts. A rejected restart remains visible separately from later
+successful readiness polls.
 
 Magic packets use separate UDP listeners on ports 7 and 9 and an Ethernet
 `0x0842` listener, matching the selected interface's MAC. They do not pass
@@ -62,7 +66,10 @@ keep a board powered when one cable is removed.
    An unsuccessful preparation leaves normal services running.
 2. Stage the static Go helper, BusyBox and its ELF library closure in the
    existing `/run` tmpfs. Station Wi-Fi also stages wpa_supplicant, its linked
-   libraries and a restricted self-contained configuration. Probe the copies
+   libraries and a restricted self-contained configuration. The staged musl
+   interpreter supplies its reserved libc/libm/libpthread and related aliases,
+   including transitive imports; other missing libraries still refuse shutdown.
+   Probe the copies
    inside a chroot before stopping anything.
 3. Bind temporary RAM copies over `/etc/inittab` and `/etc/rc.conf`. An init-owned
    acknowledgement proves BusyBox reloaded its restart action before SIGQUIT.
@@ -169,12 +176,40 @@ events, optional watchdog sysfs state, delayed fatal recovery and read/stream
 admission during preparation. The real network-trial fixture exercises
 shutdown refusal before snapshot/staging while awaiting confirmation, during
 timer/boot rollback, a removal-sync failure with a pending retry, and a slow apply that
-outlives rollback. Executed JavaScript tests verify the page's
-safe-message gate and a late status response racing with restart. Standard server, web, cross-build
-and package assembly checks apply.
+outlives rollback. A real TCP/TLS listener test checks the scheme, origin,
+capability and duplicate-restart behavior. Synthetic ELF fixtures exercise
+transitive musl aliases and missing real libraries; isolated RISC-V chroot
+smoke checks run BusyBox and wpa_supplicant through QEMU user emulation,
+including copies of OpenSSL patched to import libc.so.
+Executed JavaScript tests verify the page's safe-message gate, a late status
+response racing with restart, and persistent restart errors across ready polls.
+The browser fixture verifies that Enter cancels shutdown without an API request
+and explicit confirmation sends one prepare request. Standard server, web,
+cross-build and package assembly checks apply.
 
 These host results do not qualify the RISC-V board kernel, SD controller,
 watchdog, USB controller or Wi-Fi driver.
+
+## Reported PCIe hardware checks
+
+The [2026-10-30 review](https://github.com/dormancygrace/NanoKVM-OS/pull/591#pullrequestreview-5714972889)
+reports PCIe tests on OS 3.6.0 / kernel 7.3.0-nanokvm-os-r3 with F2FS root,
+FAT boot and exFAT data. Station Wi-Fi/DHCP reached readiness, magic packets
+were ignored before readiness, the watchdog did not reset the device during
+a three-minute hold, and writer files survived software restarts and a physical
+power cycle. The reviewer used b8554748 with an unpushed libc.so staging
+workaround. HTTPS restart required an incorrect HTTP Origin because of the
+listener bug; these runs do not qualify the subsequent fixes.
+
+The [Ethernet addendum](https://github.com/dormancygrace/NanoKVM-OS/pull/591#issuecomment-6527549984)
+reports static, gateway-less Ethernet management, a 180-second hold, exactly
+one reboot for concurrent web requests, magic restart after readiness, and
+intact writer files. It used the same head and the same HTTPS Origin workaround;
+Ethernet did not require the Wi-Fi library workaround.
+
+The final fixes still need a board recheck. Wi-Fi loss/reassociation and DHCP
+renewal during readiness, ten-minute block observation, memory pressure/dirty
+mmap, and Cube/Lite qualification remain outside these reported hardware runs.
 
 ## Hardware acceptance before release
 

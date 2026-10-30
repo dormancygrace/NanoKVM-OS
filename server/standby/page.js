@@ -20,8 +20,10 @@ document.querySelector('#copy').onclick = async () => {
 const status = document.querySelector('#state');
 const detail = document.querySelector('#detail');
 const start = document.querySelector('#start');
+const restartError = document.querySelector('#restart-error');
 start.onclick = async () => {
   if (!confirm('Start NanoKVM OS? Keep power connected while it starts.')) return;
+  restartError.textContent = '';
   start.disabled = true;
   restarting = true;
   status.textContent = "NanoKVM OS is starting. Keep power connected.";
@@ -31,7 +33,13 @@ start.onclick = async () => {
     restarting = true;
     status.textContent = 'NanoKVM OS is starting. Keep power connected.';
     setTimeout(() => location.assign('/'), 30000);
-  } catch (error) { restarting = false; detail.textContent = String(error); start.disabled = false; setTimeout(poll, 1500); }
+  } catch (error) {
+    restarting = false;
+    restartError.textContent = 'Restart could not be confirmed: ' + String(error);
+    status.textContent = 'Keep power connected. Check the restart error below.';
+    start.disabled = false;
+    setTimeout(poll, 1500);
+  }
 };
 async function poll() {
   if (restarting) return;

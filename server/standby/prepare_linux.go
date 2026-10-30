@@ -413,56 +413,6 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	}
 	return closeErr
 }
-func stageELF(name, root string, seen map[string]bool) error {
-	if seen[name] {
-		return nil
-	}
-	seen[name] = true
-	f, err := elf.Open(name)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if root != "" {
-		if err = copyFile(name, filepath.Join(root, name), 0700); err != nil {
-			return err
-		}
-	}
-	for _, p := range f.Progs {
-		if p.Type == elf.PT_INTERP {
-			b, e := io.ReadAll(p.Open())
-			if e != nil {
-				return e
-			}
-			if err = stageELF(strings.TrimRight(string(b), "\x00"), root, seen); err != nil {
-				return err
-			}
-		}
-	}
-	libs, err := f.ImportedLibraries()
-	if err != nil {
-		return err
-	}
-	for _, lib := range libs {
-		if strings.Contains(lib, "/") {
-			return fmt.Errorf("unsupported ELF dependency %s", lib)
-		}
-		found := ""
-		for _, base := range []string{"/lib", "/usr/lib"} {
-			if _, e := os.Stat(base + "/" + lib); e == nil {
-				found = base + "/" + lib
-				break
-			}
-		}
-		if found == "" {
-			return fmt.Errorf("RAM dependency missing: %s", lib)
-		}
-		if err = stageELF(found, root, seen); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 func memAvailable() (int64, error) {
 	b, err := os.ReadFile("/proc/meminfo")
 	if err != nil {

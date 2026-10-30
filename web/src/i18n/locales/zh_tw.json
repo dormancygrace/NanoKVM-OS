@@ -677,6 +677,13 @@
     },
     "extensions": {
       "title": "擴充功能"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "文字辨識",
+        "enabledDescription": "使用 TPU 讀取螢幕上的文字：工具列按鈕、MCP 與 PicoClaw。關閉後，它們都無法讀取。",
+        "switchFailed": "無法儲存設定"
+      }
     }
   },
   "picoclaw": {
@@ -954,5 +961,8 @@
     "start": "啟用擷取",
     "stop": "停用擷取",
     "off": "已停用擷取"
+  },
+  "screenText": {
+    "language": "語言"
   }
 }

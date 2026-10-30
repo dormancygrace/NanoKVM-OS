@@ -5,7 +5,8 @@ export type AddonInventory = {
   picoclaw: { installed: boolean };
   ipmi: { installed: boolean };
   // Absent from servers older than the TPU add-on.
-  tpu?: { installed: boolean };
+  // enabled: text recognition is on (absent from older servers: on).
+  tpu?: { installed: boolean; enabled?: boolean };
 };
 
 export const getAddonInventory = () =>

@@ -104,7 +104,8 @@
       "latin": "拉丁字母：英语和欧洲语言",
       "chinese": "中文：简体和繁体，日语，英语",
       "cyrillic": "西里尔字母：俄语、乌克兰语等，含英语"
-    }
+    },
+    "language": "语言"
   },
   "vpn": {
     "rename": "重命名",
@@ -2076,13 +2077,11 @@
       "title": "AI",
       "screenText": {
         "title": "文字识别",
-        "language": "默认语言",
-        "languageDescription": "用于识别屏幕文字：工具栏按钮、MCP 和 PicoClaw。每次识别可以选择其他语言。",
         "notInstalled": "文字识别需要 TPU 扩展。",
         "openAddons": "扩展",
-        "saved": "语言已保存",
-        "saveFailed": "无法保存语言",
-        "noModels": "未安装"
+        "enabled": "文字识别",
+        "enabledDescription": "使用 TPU 读取屏幕上的文字：工具栏按钮、MCP 和 PicoClaw。关闭后，它们都无法读取。",
+        "switchFailed": "无法保存设置"
       },
       "picoclaw": {
         "notInstalled": "未安装 PicoClaw。",

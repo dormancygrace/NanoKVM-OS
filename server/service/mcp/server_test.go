@@ -34,7 +34,9 @@ func (fakeHostStatus) HostStatus(context.Context) HostState {
 		Video: HostVideo{Capture: true, Signal: true}, Keyboard: HostKeyboard{Known: true, NumLock: true}}
 }
 
-type fakeTextReader struct{}
+type fakeTextReader struct{ off bool }
+
+func (r fakeTextReader) Available() bool { return !r.off }
 
 func (fakeTextReader) Languages() []string { return []string{"latin", "chinese", "cyrillic"} }
 

@@ -9,7 +9,7 @@ import { addonInventoryAtom } from '@/jotai/addons.ts';
 import { isHdmiEnabledAtom, screenTextOpenAtom } from '@/jotai/screen.ts';
 
 // Reads the text on the screen with the TPU add-on; shown once the add-on is
-// installed.
+// installed, unless text recognition is off (Settings > AI).
 export const ScreenText = () => {
   const { t } = useTranslation();
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
@@ -31,7 +31,7 @@ export const ScreenText = () => {
     };
   }, [inventory, setInventory]);
 
-  if (!inventory?.tpu?.installed) return null;
+  if (!inventory?.tpu?.installed || inventory.tpu.enabled === false) return null;
 
   const title = captureEnabled ? t('screenText.read') : t('screenText.captureDisabled');
   return (

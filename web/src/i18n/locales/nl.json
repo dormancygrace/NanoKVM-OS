@@ -681,6 +681,13 @@
     },
     "extensions": {
       "title": "Uitbreidingen"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Tekstherkenning",
+        "enabledDescription": "Tekst op het scherm lezen met de TPU: de knop in de werkbalk, MCP en PicoClaw. Uitgeschakeld kan geen van hen lezen.",
+        "switchFailed": "De instelling kon niet worden opgeslagen"
+      }
     }
   },
   "picoclaw": {
@@ -960,5 +967,8 @@
     "start": "Beeldopname inschakelen",
     "stop": "Beeldopname uitschakelen",
     "off": "Beeldopname uitgeschakeld"
+  },
+  "screenText": {
+    "language": "Taal"
   }
 }

@@ -680,6 +680,13 @@
     },
     "extensions": {
       "title": "Uzantılar"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Metin tanıma",
+        "enabledDescription": "Ekrandaki metni TPU ile okuma: araç çubuğu düğmesi, MCP ve PicoClaw. Kapalıyken hiçbiri okuyamaz.",
+        "switchFailed": "Ayar kaydedilemedi"
+      }
     }
   },
   "picoclaw": {
@@ -959,5 +966,8 @@
     "start": "Yakalamayı etkinleştir",
     "stop": "Yakalamayı devre dışı bırak",
     "off": "Yakalama devre dışı"
+  },
+  "screenText": {
+    "language": "Dil"
   }
 }

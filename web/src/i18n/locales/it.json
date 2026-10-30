@@ -679,6 +679,13 @@
     },
     "extensions": {
       "title": "Estensioni"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Riconoscimento del testo",
+        "enabledDescription": "Leggere il testo sullo schermo con la TPU: il pulsante della barra degli strumenti, MCP e PicoClaw. Disattivato, nessuno di essi può leggerlo.",
+        "switchFailed": "Non è stato possibile salvare l'impostazione"
+      }
     }
   },
   "picoclaw": {
@@ -958,5 +965,8 @@
     "start": "Abilita acquisizione",
     "stop": "Disabilita acquisizione",
     "off": "Acquisizione disabilitata"
+  },
+  "screenText": {
+    "language": "Lingua"
   }
 }

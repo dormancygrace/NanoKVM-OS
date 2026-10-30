@@ -679,6 +679,13 @@
     },
     "extensions": {
       "title": "Extensions"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Reconeixement de text",
+        "enabledDescription": "Llegir el text de la pantalla amb la TPU: el botó de la barra d'eines, MCP i PicoClaw. Desactivat, cap d'ells no la pot llegir.",
+        "switchFailed": "No s'ha pogut desar el paràmetre"
+      }
     }
   },
   "picoclaw": {
@@ -958,5 +965,8 @@
     "start": "Activa la captura",
     "stop": "Desactiva la captura",
     "off": "Captura desactivada"
+  },
+  "screenText": {
+    "language": "Idioma"
   }
 }

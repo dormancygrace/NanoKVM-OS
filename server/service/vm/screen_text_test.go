@@ -1,12 +1,17 @@
 package vm
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 
 	"NanoKVM-Server/common"
 )
@@ -120,20 +125,23 @@ func TestScreenTextLines(t *testing.T) {
 	}
 }
 
-func TestScreenTextDefaultLanguage(t *testing.T) {
-	saved := screenTextLanguageFile
-	defer func() { screenTextLanguageFile = saved }()
-	screenTextLanguageFile = filepath.Join(t.TempDir(), "language")
-	if got := screenTextDefaultLanguage(); got != "latin" {
-		t.Errorf("without a file: %q, want latin", got)
+func TestScreenTextSwitch(t *testing.T) {
+	saved := screenTextOffFile
+	defer func() { screenTextOffFile = saved }()
+	screenTextOffFile = filepath.Join(t.TempDir(), "screen-text-off")
+	if !ScreenTextEnabled() {
+		t.Fatal("without the flag text recognition is off")
 	}
-	for content, want := range map[string]string{"cyrillic\n": "cyrillic", "korean\n": "latin", "": "latin"} {
-		if err := os.WriteFile(screenTextLanguageFile, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if got := screenTextDefaultLanguage(); got != want {
-			t.Errorf("file %q: %q, want %q", content, got, want)
-		}
+	if err := os.WriteFile(screenTextOffFile, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ScreenTextEnabled() || ScreenTextAvailable() {
+		t.Fatal("with the flag text recognition is still on")
+	}
+	_, err := ReadScreenText(context.Background(), ScreenTextRequest{})
+	var readErr *ScreenTextError
+	if !errors.As(err, &readErr) || readErr.Code != -7 {
+		t.Fatalf("read while off: %v", err)
 	}
 }
 
@@ -223,5 +231,39 @@ func TestReadScreenPictureFollowsInputSize(t *testing.T) {
 	var readErr *ScreenTextError
 	if !errors.As(err, &readErr) || readErr.Code != -5 || len(asked) != 1 {
 		t.Fatalf("over Full HD: %v after %v", err, asked)
+	}
+}
+
+// The page's switch: POST {"enabled":false} writes the flag, true removes it
+// (also when it is already gone), anything else is refused.
+func TestSetScreenTextSettingsSwitch(t *testing.T) {
+	saved := screenTextOffFile
+	defer func() { screenTextOffFile = saved }()
+	screenTextOffFile = filepath.Join(t.TempDir(), "screen-text-off")
+	gin.SetMode(gin.TestMode)
+	post := func(body string) string {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest("POST", "/api/vm/screen/text/settings", bytes.NewBufferString(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		(&Service{}).SetScreenTextSettings(c)
+		return recorder.Body.String()
+	}
+	for _, step := range []struct {
+		body    string
+		enabled bool
+		ok      bool
+	}{
+		{`{"enabled":false}`, false, true},
+		{`{"enabled":false}`, false, true},
+		{`{"enabled":true}`, true, true},
+		{`{"enabled":true}`, true, true},
+		{`{}`, true, false},
+		{`{"language":"latin"}`, true, false},
+	} {
+		reply := post(step.body)
+		if strings.Contains(reply, `"code":0`) != step.ok || ScreenTextEnabled() != step.enabled {
+			t.Fatalf("%s: reply %s, enabled %v", step.body, reply, ScreenTextEnabled())
+		}
 	}
 }

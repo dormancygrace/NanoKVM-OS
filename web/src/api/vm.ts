@@ -41,7 +41,7 @@ export function getGpio() {
 // Read the text on the screen with the TPU add-on: one recognition takes a
 // few seconds, up to 90 on the server. Aborting the request stops it there.
 // crop, fractions of the picture, reads only that area (at full size).
-// Without a language the server reads in the device's default.
+// Without a language the server reads in Latin.
 export function getScreenText(
   language: string | undefined,
   signal?: AbortSignal,
@@ -64,8 +64,8 @@ export function getScreenText(
 }
 
 export type ScreenTextSettings = {
-  // The language a read uses unless one is picked for it.
-  language: string;
+  // Text recognition is on: the toolbar button, MCP and PicoClaw read.
+  enabled: boolean;
   languages: { name: string; installed: boolean }[];
 };
 
@@ -73,8 +73,8 @@ export function getScreenTextSettings() {
   return http.get<ScreenTextSettings>('/api/vm/screen/text/settings');
 }
 
-export function setScreenTextLanguage(language: string) {
-  return http.post('/api/vm/screen/text/settings', { language });
+export function setScreenTextEnabled(enabled: boolean) {
+  return http.post<{ enabled: boolean }>('/api/vm/screen/text/settings', { enabled });
 }
 
 // update screen arguments

@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { boxesInRegion, boxesToText, isScreenTextLanguage } from '../src/lib/screen-text.ts';
+import {
+  boxesInRegion,
+  boxesToText,
+  isScreenTextLanguage,
+  screenTextSwitch,
+  storedScreenTextLanguage,
+  storeScreenTextLanguage
+} from '../src/lib/screen-text.ts';
 
 const box = (text, x, y, w = 40, h = 16) => ({ text, score: 0.9, x, y, w, h });
 
@@ -70,4 +77,45 @@ test('knows the add-on languages', () => {
   assert.ok(isScreenTextLanguage('chinese'));
   assert.ok(!isScreenTextLanguage('korean'));
   assert.ok(!isScreenTextLanguage(null));
+});
+
+test('the reading dialog remembers the last language, Latin at first', () => {
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const store = new Map();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) }
+  });
+  try {
+    assert.equal(storedScreenTextLanguage(), 'latin');
+    storeScreenTextLanguage('cyrillic');
+    assert.equal(storedScreenTextLanguage(), 'cyrillic');
+    store.set('nano-kvm-screen-text-language', 'korean');
+    assert.equal(storedScreenTextLanguage(), 'latin');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('blocked');
+      }
+    });
+    assert.equal(storedScreenTextLanguage(), 'latin');
+    storeScreenTextLanguage('chinese');
+  } finally {
+    if (saved) Object.defineProperty(globalThis, 'localStorage', saved);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('the settings switch, also against a server from before it', () => {
+  assert.deepEqual(screenTextSwitch({ enabled: false, languages: [] }), {
+    enabled: false,
+    switchable: true
+  });
+  assert.deepEqual(screenTextSwitch({ enabled: true, languages: [] }), {
+    enabled: true,
+    switchable: true
+  });
+  // 3.6.0 answers the default language: always on, no switch to send to.
+  const old = { language: 'latin', languages: [{ name: 'latin', installed: true }] };
+  assert.deepEqual(screenTextSwitch(old), { enabled: true, switchable: false });
 });

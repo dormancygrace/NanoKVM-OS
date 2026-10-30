@@ -104,7 +104,8 @@
       "latin": "Lateinisch: Englisch und europäische Sprachen",
       "chinese": "Chinesisch: vereinfacht und traditionell, Japanisch, Englisch",
       "cyrillic": "Kyrillisch: Russisch, Ukrainisch und weitere, mit Englisch"
-    }
+    },
+    "language": "Sprache"
   },
   "vpn": {
     "rename": "Umbenennen",
@@ -2076,13 +2077,11 @@
       "title": "KI",
       "screenText": {
         "title": "Texterkennung",
-        "language": "Standardsprache",
-        "languageDescription": "Für die Texterkennung auf dem Bildschirm: Schaltfläche in der Leiste, MCP und PicoClaw. Beim Lesen kann eine andere Sprache gewählt werden.",
         "notInstalled": "Die Texterkennung benötigt das TPU-Add-on.",
         "openAddons": "Add-ons",
-        "saved": "Sprache gespeichert",
-        "saveFailed": "Die Sprache konnte nicht gespeichert werden",
-        "noModels": "nicht installiert"
+        "enabled": "Texterkennung",
+        "enabledDescription": "Text auf dem Bildschirm mit der TPU lesen: die Schaltfläche in der Werkzeugleiste, MCP und PicoClaw. Ausgeschaltet kann keiner davon lesen.",
+        "switchFailed": "Die Einstellung konnte nicht gespeichert werden"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw ist nicht installiert.",

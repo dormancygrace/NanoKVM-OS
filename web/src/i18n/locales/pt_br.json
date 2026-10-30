@@ -681,6 +681,13 @@
     },
     "extensions": {
       "title": "Extensões"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Reconhecimento de texto",
+        "enabledDescription": "Ler o texto da tela com a TPU: o botão da barra de ferramentas, MCP e PicoClaw. Desligado, nenhum deles pode ler.",
+        "switchFailed": "Não foi possível salvar a configuração"
+      }
     }
   },
   "picoclaw": {
@@ -961,5 +968,8 @@
     "start": "Ativar captura",
     "stop": "Desativar captura",
     "off": "Captura desativada"
+  },
+  "screenText": {
+    "language": "Idioma"
   }
 }

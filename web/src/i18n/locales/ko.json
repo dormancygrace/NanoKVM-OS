@@ -681,6 +681,13 @@
     },
     "extensions": {
       "title": "확장 기능"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "텍스트 인식",
+        "enabledDescription": "TPU로 화면의 텍스트를 읽습니다: 도구 모음 버튼, MCP, PicoClaw. 끄면 어느 것도 읽을 수 없습니다.",
+        "switchFailed": "설정을 저장할 수 없습니다"
+      }
     }
   },
   "picoclaw": {
@@ -959,5 +966,8 @@
     "start": "캡처 활성화",
     "stop": "캡처 비활성화",
     "off": "캡처 비활성화됨"
+  },
+  "screenText": {
+    "language": "언어"
   }
 }

@@ -680,6 +680,13 @@
     },
     "extensions": {
       "title": "Utvidelser"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Tekstgjenkjenning",
+        "enabledDescription": "Les teksten på skjermen med TPU: knappen i verktøylinjen, MCP og PicoClaw. Slått av kan ingen av dem lese den.",
+        "switchFailed": "Innstillingen kunne ikke lagres"
+      }
     }
   },
   "picoclaw": {
@@ -959,5 +966,8 @@
     "start": "Aktiver bildeinnhenting",
     "stop": "Deaktiver bildeinnhenting",
     "off": "Bildeinnhenting deaktivert"
+  },
+  "screenText": {
+    "language": "Språk"
   }
 }

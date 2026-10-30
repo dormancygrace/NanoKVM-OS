@@ -104,7 +104,8 @@
       "latin": "Latino: inglés e idiomas europeos",
       "chinese": "Chino: simplificado y tradicional, japonés, inglés",
       "cyrillic": "Cirílico: ruso, ucraniano y otros, con inglés"
-    }
+    },
+    "language": "Idioma"
   },
   "vpn": {
     "rename": "Cambiar nombre",
@@ -2076,13 +2077,11 @@
       "title": "IA",
       "screenText": {
         "title": "Reconocimiento de texto",
-        "language": "Idioma predeterminado",
-        "languageDescription": "Para reconocer texto en la pantalla: el botón de la barra, MCP y PicoClaw. Cada lectura puede elegir otro idioma.",
         "notInstalled": "El reconocimiento de texto necesita el complemento TPU.",
         "openAddons": "Complementos",
-        "saved": "Idioma guardado",
-        "saveFailed": "No se pudo guardar el idioma",
-        "noModels": "no instalado"
+        "enabled": "Reconocimiento de texto",
+        "enabledDescription": "Leer el texto de la pantalla con la TPU: el botón de la barra de herramientas, MCP y PicoClaw. Desactivado, ninguno puede leerla.",
+        "switchFailed": "No se pudo guardar el ajuste"
       },
       "picoclaw": {
         "notInstalled": "PicoClaw no está instalado.",

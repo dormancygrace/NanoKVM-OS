@@ -705,6 +705,13 @@
     },
     "extensions": {
       "title": "Bővítmények"
+    },
+    "ai": {
+      "screenText": {
+        "enabled": "Szövegfelismerés",
+        "enabledDescription": "A képernyőn lévő szöveg olvasása a TPU-val: az eszköztár gombja, az MCP és a PicoClaw. Kikapcsolva egyikük sem olvashat.",
+        "switchFailed": "A beállítást nem sikerült menteni"
+      }
     }
   },
   "picoclaw": {
@@ -991,5 +998,8 @@
     "start": "Képfogadás engedélyezése",
     "stop": "Képfogadás letiltása",
     "off": "Képfogadás letiltva"
+  },
+  "screenText": {
+    "language": "Nyelv"
   }
 }

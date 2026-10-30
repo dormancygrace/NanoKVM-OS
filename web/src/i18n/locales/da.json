@@ -568,11 +568,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Pakkeopdateringer",
         "log": "Opdateringslog"
       },
       "title": "Opdateringer",
-      "installed": "Installeret"
+      "status": {
+        "checking": "Søger efter opdateringer…",
+        "installing": "Installerer opdateringer…",
+        "available": "Opdateringer tilgængelige"
+      },
+      "advanced": "Avanceret"
     },
     "memory": {
       "title": "Hukommelse",

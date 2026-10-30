@@ -86,3 +86,12 @@ apply and reboot. Use the displayed fixture passwords to check export,
 restore/reset previews, cancellation, apply errors and pending reboot.
 The fixture archive button supplies a tiny synthetic file; export records
 the Blob download without writing into Downloads.
+
+### Updates
+
+Open /tests/browser/updates.html for a synthetic repository and package state.
+Offer core update, Complete package check, Complete installation and Fail operation
+exercise the production card and its confirmation dialogs. Daily-check settings,
+channel switching and stable rollback use the same production page. No package
+manager, host reboot or device request is executed. updates.spec.ts covers
+these paths in CI.

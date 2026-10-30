@@ -1597,10 +1597,8 @@
       "idServer": "Server pro identifikátory / randezvous"
     },
     "updates": {
-      "installed": "Nainstalováno",
       "title": "Aktualizace",
       "apk": {
-        "title": "Aktualizace balíčků",
         "log": "Záznam událostí z aktualizace",
         "reboot": "Restartovat zařízení",
         "install": "Nainstalovat aktualizace",
@@ -1610,7 +1608,6 @@
         "rebootConfirm": "Restartovat zařízení nyní?",
         "current": "Všechny nainstalované balíčky jsou aktuální",
         "rebootRequired": "Aktualizace jsou nainstalované. Aby začalo být používáno nové jádro nebo součásti systému, zařízení restartujte.",
-        "description": "Zaktualizovat nainstalované balíčky z nastavených repozitářů. Nastavení jsou zachována. Služby jsou automaticky zrestartovány, ale aktualizace jádra vyžadují restart celého systému.",
         "confirm": "Nainstalovat tyto aktualizace balíčků? Může se stát, že video a ovládání se nakrátko odpojí."
       },
       "reconnecting": "Čeká se na opětovné připojení zařízení…",
@@ -1662,7 +1659,13 @@
         "rollback": "Nainstalovat stabilní verzi",
         "rollbackDescription": "Je nainstalovaná testovací verze. Je možné nainstalovat aktuální stabilní vydání, včetně starších verzí balíčků (bez toho, aby bylo třeba čekat na další vydání).",
         "rollbackConfirm": "Nahradit testovací firmware tím aktuálním stabilním? Nastavení a data jsou ponechána. Služby budou restartovány, může být zapotřebí restart systému zařízení."
-      }
+      },
+      "status": {
+        "checking": "Hledání aktualizací…",
+        "installing": "Instalace aktualizací…",
+        "available": "Jsou dostupné aktualizace"
+      },
+      "advanced": "Pokročilé"
     },
     "extensions": {
       "title": "Rozšíření"

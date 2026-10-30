@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "套件更新",
         "log": "更新日誌"
       },
       "title": "更新",
-      "installed": "已安裝"
+      "status": {
+        "checking": "正在檢查更新…",
+        "installing": "正在安裝更新…",
+        "available": "有可用的更新"
+      },
+      "advanced": "進階"
     },
     "memory": {
       "title": "記憶體",

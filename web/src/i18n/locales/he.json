@@ -85,11 +85,15 @@
     },
     "updates": {
       "apk": {
-        "title": "עדכוני חבילות",
         "log": "יומן עדכונים"
       },
       "title": "עדכונים",
-      "installed": "מותקן"
+      "status": {
+        "checking": "בודק עדכונים…",
+        "installing": "מתקין עדכונים…",
+        "available": "יש עדכונים"
+      },
+      "advanced": "מתקדם"
     },
     "memory": {
       "title": "זיכרון",

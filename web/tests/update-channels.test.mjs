@@ -42,8 +42,8 @@ function render(channel, operation = 'idle') {
     '@/lib/visible-poll.ts': {},
     '@/jotai/updates.ts': {},
     '@/components/ui/settings.tsx': { SettingRow: 'SettingRow' },
-    './apk': { APKUpdates: 'APKUpdates' },
-    './components': { ComponentList: 'ComponentList', UpdateCheck: 'UpdateCheck' }
+    './card': { UpdateCard: 'UpdateCard' },
+    './components': { ComponentList: 'ComponentList', Fold: 'Fold' }
   };
   const exports = {};
   const source = readFileSync(

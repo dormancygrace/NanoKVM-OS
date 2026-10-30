@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Paket güncellemeleri",
         "log": "Güncelleme günlüğü"
       },
       "title": "Güncellemeler",
-      "installed": "Kurulu"
+      "status": {
+        "checking": "Güncellemeler denetleniyor…",
+        "installing": "Güncellemeler yükleniyor…",
+        "available": "Güncellemeler var"
+      },
+      "advanced": "Gelişmiş"
     },
     "memory": {
       "title": "Bellek",

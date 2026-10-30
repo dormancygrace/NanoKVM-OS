@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Pakketupdates",
         "log": "Updatelogboek"
       },
       "title": "Updates",
-      "installed": "Geïnstalleerd"
+      "status": {
+        "checking": "Zoeken naar updates…",
+        "installing": "Updates installeren…",
+        "available": "Updates beschikbaar"
+      },
+      "advanced": "Geavanceerd"
     },
     "memory": {
       "title": "Geheugen",

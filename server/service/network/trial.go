@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"NanoKVM-Server/internal/networktrial"
 	"NanoKVM-Server/proto"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +33,7 @@ import (
 // during the trial, also a power cycle by a user who lost access, reverts
 // too.
 var trialDuration = 2 * time.Minute
-var trialFile = "/boot/net-trial.json"
+var trialFile = networktrial.RecordPath
 
 // A restore that fails is tried again this often; until it succeeds, no
 // other change starts, and the record stays the way back.
@@ -58,6 +59,7 @@ type trial struct {
 	// failed restore waits for its retry.
 	reverting bool
 	retry     *time.Timer
+	release   func()
 }
 
 var (
@@ -158,12 +160,14 @@ func beginTrial(service string, paths []string) (*trial, error) {
 	if err != nil {
 		return nil, err
 	}
+	t.release = networktrial.Begin()
 	if err = writeFileAtomic(trialFile, data); err == nil {
 		err = syncFiles()
 	}
 	if err != nil {
 		// Nothing has changed yet: no record is better than one not on the card.
 		_ = os.Remove(trialFile)
+		t.release()
 		return nil, fmt.Errorf("cannot record the current network settings: %w", err)
 	}
 	active = t
@@ -228,6 +232,7 @@ func finishRevert(t *trial, reason string, restart bool) {
 	trialMu.Lock()
 	if active == t {
 		active = nil
+		t.release()
 	}
 	trialMu.Unlock()
 }
@@ -287,6 +292,7 @@ func confirmTrial(token string) error {
 	}
 	t.timer.Stop()
 	active = nil
+	t.release()
 	log.Infof("network change confirmed")
 	return nil
 }
@@ -321,7 +327,7 @@ func RestorePendingTrial() {
 		_ = syncFiles()
 		return
 	}
-	t := &trial{record: record, reverting: true}
+	t := &trial{record: record, reverting: true, release: networktrial.Begin()}
 	trialMu.Lock()
 	active = t
 	trialMu.Unlock()

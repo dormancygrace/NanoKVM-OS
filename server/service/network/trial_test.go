@@ -39,6 +39,9 @@ func endTrialForTest() {
 	if active != nil && active.retry != nil {
 		active.retry.Stop()
 	}
+	if active != nil {
+		active.release()
+	}
 	active = nil
 	_ = os.Remove(trialFile)
 }

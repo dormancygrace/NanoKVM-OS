@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	"NanoKVM-Server/internal/networktrial"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -64,6 +66,11 @@ func lockFile(name string) (*os.File, error) {
 }
 
 func Prepare(c Config) (_ *Prepared, result error) {
+	// Admission is already closed. Refuse active/retrying background trials
+	// and their shared on-disk record before any network snapshot or staging.
+	if err := networktrial.CheckIdle(networktrial.RecordPath); err != nil {
+		return nil, fmt.Errorf("finish network setup before shutdown: %w", err)
+	}
 	// Never arm this mechanism on systemd, a container, or a custom root layout.
 	initInfo, err := os.Stat("/proc/1/exe")
 	if err != nil {
@@ -102,7 +109,7 @@ func Prepare(c Config) (_ *Prepared, result error) {
 	if _, err = os.Lstat(Directory); !errors.Is(err, os.ErrNotExist) {
 		return nil, errors.New("standby preparation already exists; reboot before retrying")
 	}
-	for _, name := range []string{"/var/lib/nanokvm-recovery/pending.json", "/run/nanokvm-network.pending", "/boot/rec"} {
+	for _, name := range []string{"/var/lib/nanokvm-recovery/pending.json", "/boot/rec"} {
 		if _, err = os.Stat(name); !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("finish recovery/network setup before shutdown (%s)", name)
 		}

@@ -53,10 +53,13 @@ keep a board powered when one cable is removed.
    APK runner, APK database and transfer exclusions. Ordinary GET/HEAD reads,
    assets and status polling remain available during preparation. New WebSocket
    and MJPEG streams, radio scans and user-disk file operations are excluded.
-   Queued package workers
-   recheck the shutdown marker after obtaining their locks. Reject recovery or
+   Queued package workers recheck the shutdown marker after obtaining their
+   locks. Reject recovery or
    network configuration in progress, unsupported storage/network layouts and
-   insufficient RAM. An unsuccessful preparation leaves normal services running.
+   insufficient RAM. Network trial exclusion shares the actual
+   `/boot/net-trial.json` record and tracks background apply/rollback work
+   through its last successful sync, including retries with an absent record.
+   An unsuccessful preparation leaves normal services running.
 2. Stage the static Go helper, BusyBox and its ELF library closure in the
    existing `/run` tmpfs. Station Wi-Fi also stages wpa_supplicant, its linked
    libraries and a restricted self-contained configuration. Probe the copies
@@ -163,9 +166,11 @@ Unit/race tests cover authorization/origin handling, readiness and failure
 states, concurrent restart, queued magic packets, mount/counter/process/route
 parsers, restricted Wi-Fi configuration, RAM budgeting, OpenRC failure
 events, optional watchdog sysfs state, delayed fatal recovery and read/stream
-admission during preparation. Executed JavaScript tests verify the page's
-safe-message gate and a
-late status response racing with restart. Standard server, web, cross-build
+admission during preparation. The real network-trial fixture exercises
+shutdown refusal before snapshot/staging while awaiting confirmation, during
+timer/boot rollback, a removal-sync failure with a pending retry, and a slow apply that
+outlives rollback. Executed JavaScript tests verify the page's
+safe-message gate and a late status response racing with restart. Standard server, web, cross-build
 and package assembly checks apply.
 
 These host results do not qualify the RISC-V board kernel, SD controller,

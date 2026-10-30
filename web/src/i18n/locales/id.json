@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Pembaruan paket",
         "log": "Log pembaruan"
       },
       "title": "Pembaruan",
-      "installed": "Terinstal"
+      "status": {
+        "checking": "Memeriksa pembaruan…",
+        "installing": "Memasang pembaruan…",
+        "available": "Pembaruan tersedia"
+      },
+      "advanced": "Lanjutan"
     },
     "memory": {
       "title": "Memori",

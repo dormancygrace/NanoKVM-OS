@@ -1,13 +1,24 @@
-import { useState } from 'react';
-import { Alert, message, Spin, Switch, Tag } from 'antd';
-import { useAtomValue } from 'jotai';
+import { type ReactNode } from 'react';
+import { Tag } from 'antd';
+import { ChevronDownIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { setUpdateNoticeEnabled, type Components, type UpdateNotice } from '@/api/updates.ts';
-import { formatDeviceTime } from '@/lib/date-time.ts';
+import type { Components } from '@/api/updates.ts';
 import { componentLabel } from '@/lib/update-components.ts';
-import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
-import { Panel, SettingRow } from '@/components/ui/settings.tsx';
+import { Panel } from '@/components/ui/settings.tsx';
+
+// A folded part of the page, closed until opened.
+export const Fold = ({ title, children }: { title: string; children: ReactNode }) => (
+  <Panel flush className="overflow-hidden">
+    <details className="group">
+      <summary className="text-fg-muted hover:text-fg flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+        <span>{title}</span>
+        <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-3 px-4 pb-4">{children}</div>
+    </details>
+  </Panel>
+);
 
 // The installed NanoKVM OS packages, with the newer version the last check
 // found, and the Alpine and kernel releases.
@@ -18,8 +29,7 @@ export const ComponentList = ({ components }: { components?: Components }) => {
   const kernelChanges =
     !!components?.bootKernel && !!components.kernel && components.bootKernel !== components.kernel;
   return (
-    <Panel className="space-y-3">
-      <div className="font-medium">{tr('title')}</div>
+    <>
       <p className="text-fg-muted mt-0 text-sm">{tr('description')}</p>
       <table className="w-full border-collapse text-sm">
         <tbody>
@@ -56,67 +66,6 @@ export const ComponentList = ({ components }: { components?: Components }) => {
           </tr>
         </tbody>
       </table>
-    </Panel>
-  );
-};
-
-// The daily look at the NanoKVM OS repository that drives the notification.
-export const UpdateCheck = ({
-  notice,
-  onChange
-}: {
-  notice?: UpdateNotice;
-  onChange: () => Promise<void>;
-}) => {
-  const { t, i18n } = useTranslation();
-  const timePreferences = useAtomValue(timePreferencesAtom);
-  const tr = (key: string, options?: Record<string, string>) =>
-    t(`settings.updates.notice.${key}`, options);
-  const [busy, setBusy] = useState(false);
-  const checking = notice?.state === 'checking';
-
-  async function run(request: () => Promise<{ code: number; msg: string }>) {
-    setBusy(true);
-    try {
-      const rsp = await request();
-      if (rsp.code !== 0) message.error(rsp.msg);
-      await onChange();
-    } catch {
-      message.error(t('settings.updates.requestFailed'));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const checked = notice?.checkedAt
-    ? formatDeviceTime(notice.checkedAt * 1000, timePreferences, i18n.language, true)
-    : undefined;
-  return (
-    <Panel className="space-y-3">
-      <SettingRow label={tr('auto')} description={tr('autoDescription')} htmlFor="update-check">
-        <Switch
-          id="update-check"
-          checked={!!notice?.enabled}
-          loading={busy && !checking}
-          disabled={!notice}
-          onChange={(enabled) => run(() => setUpdateNoticeEnabled(enabled))}
-        />
-      </SettingRow>
-      {/* Checked from Package updates: one check covers both repositories. */}
-      <div className="text-fg-muted flex items-center gap-2 text-sm">
-        {notice?.state === 'unavailable'
-          ? tr('unavailable')
-          : checked
-            ? tr('checked', { time: checked })
-            : tr('never')}
-        {checking && <Spin size="small" />}
-      </div>
-      {notice?.state === 'ok' && notice.updates.length === 0 && (
-        <Alert type="success" showIcon message={tr('upToDate')} />
-      )}
-      {notice?.state === 'failed' && notice.message && (
-        <Alert type="warning" showIcon message={tr('failed', { message: notice.message })} />
-      )}
-    </Panel>
+    </>
   );
 };

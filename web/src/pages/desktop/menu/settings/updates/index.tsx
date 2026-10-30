@@ -5,13 +5,12 @@ import { useTranslation } from 'react-i18next';
 
 import type { Components, UpdateNotice } from '@/api/updates.ts';
 import { http } from '@/lib/http';
-import { formatVersion } from '@/lib/version';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
-import { APKUpdates, type APKState } from './apk';
-import { ComponentList, UpdateCheck } from './components';
+import { UpdateCard, type APKState } from './card';
+import { ComponentList, Fold } from './components';
 
 type State = {
   apk?: APKState;
@@ -21,6 +20,8 @@ type State = {
   channel?: { channel: string; available: boolean; rollbackAvailable?: boolean };
 };
 
+// System > Updates: the update card first, then the installed components and
+// the update channel, both folded.
 export const Updates = () => {
   const { t } = useTranslation();
   const [state, setState] = useState<State | null>(null);
@@ -76,38 +77,12 @@ export const Updates = () => {
       setBusy(false);
     }
   }
+
+  const working = busy || ['checking', 'installing', 'rebooting'].includes(state?.apk?.state || '');
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <p className="text-fg-muted mt-0 text-sm">{t('settings.updates.description')}</p>
-      <SettingRow label={t('settings.updates.installed')}>
-        <span>{state?.installed.version ? formatVersion(state.installed.version) : '—'}</span>
-      </SettingRow>
-      {state?.channel && (
-        <SettingRow
-          label={t('settings.updates.channel.title')}
-          description={t('settings.updates.channel.description')}
-        >
-          <Select
-            aria-label={t('settings.updates.channel.title')}
-            value={state.channel.channel}
-            disabled={
-              !state.channel.available ||
-              busy ||
-              ['checking', 'installing', 'rebooting'].includes(state.apk?.state || '')
-            }
-            options={
-              state.channel.available
-                ? [
-                    { value: 'stable', label: t('settings.updates.channel.stable') },
-                    { value: 'beta', label: t('settings.updates.channel.beta') }
-                  ]
-                : [{ value: 'custom', label: t('settings.updates.channel.custom') }]
-            }
-            onChange={(channel) => action('channel', { channel })}
-            className="min-w-36"
-          />
-        </SettingRow>
-      )}
+      {reconnecting && <Alert type="info" message={t('settings.updates.reconnecting')} />}
       {state?.channel?.channel === 'beta' && (
         <Alert type="warning" message={t('settings.updates.channel.warning')} />
       )}
@@ -119,32 +94,53 @@ export const Updates = () => {
             <Popconfirm
               title={t('settings.updates.channel.rollbackConfirm')}
               onConfirm={() => action('apk/rollback')}
-              disabled={
-                busy || ['checking', 'installing', 'rebooting'].includes(state.apk?.state || '')
-              }
+              disabled={working}
             >
-              <Button
-                disabled={
-                  busy || ['checking', 'installing', 'rebooting'].includes(state.apk?.state || '')
-                }
-              >
-                {t('settings.updates.channel.rollback')}
-              </Button>
+              <Button disabled={working}>{t('settings.updates.channel.rollback')}</Button>
             </Popconfirm>
           }
         />
       )}
-      {state && <ComponentList components={state.components} />}
-      {state && <UpdateCheck notice={state.notice} onChange={refresh} />}
       {state && (
-        <APKUpdates
-          state={state.apk}
-          known={!!state.components?.packages.some((component) => component.available)}
+        <UpdateCard
+          version={state.installed.version}
+          apk={state.apk}
+          notice={state.notice}
+          components={state.components}
           busy={busy}
           action={action}
+          onChange={refresh}
         />
       )}
-      {reconnecting && <Alert type="info" message={t('settings.updates.reconnecting')} />}
+      {state && (
+        <Fold title={t('settings.updates.components.title')}>
+          <ComponentList components={state.components} />
+        </Fold>
+      )}
+      {state?.channel && (
+        <Fold title={t('settings.updates.advanced')}>
+          <SettingRow
+            label={t('settings.updates.channel.title')}
+            description={t('settings.updates.channel.description')}
+          >
+            <Select
+              aria-label={t('settings.updates.channel.title')}
+              value={state.channel.channel}
+              disabled={!state.channel.available || working}
+              options={
+                state.channel.available
+                  ? [
+                      { value: 'stable', label: t('settings.updates.channel.stable') },
+                      { value: 'beta', label: t('settings.updates.channel.beta') }
+                    ]
+                  : [{ value: 'custom', label: t('settings.updates.channel.custom') }]
+              }
+              onChange={(channel) => action('channel', { channel })}
+              className="min-w-36"
+            />
+          </SettingRow>
+        </Fold>
+      )}
     </div>
   );
 };

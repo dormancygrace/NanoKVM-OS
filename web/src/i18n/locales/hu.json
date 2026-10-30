@@ -593,11 +593,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Csomagfrissítések",
         "log": "Frissítési napló"
       },
       "title": "Frissítések",
-      "installed": "Telepítve"
+      "status": {
+        "checking": "Frissítések keresése…",
+        "installing": "Frissítések telepítése…",
+        "available": "Frissítések érhetők el"
+      },
+      "advanced": "Speciális"
     },
     "memory": {
       "title": "Memória",

@@ -15,7 +15,14 @@ func GetKvmVision() *KvmVision {
 }
 
 func (k *KvmVision) ReadMjpeg(uint16, uint16, uint16) ([]byte, int) {
-	return readMjpegChecked(func() ([]byte, int) { return nil, -1 })
+	// Like native capture, refuse a 3840x2160 input (the state files stand in
+	// for the size native capture detects).
+	return readMjpegChecked(func() ([]byte, int) {
+		if !MjpegAllowed() {
+			return nil, nativeMjpegBlocked
+		}
+		return nil, -1
+	})
 }
 
 func (k *KvmVision) ReadVideoWithHeadroom(uint16, uint16, uint8, uint16, uint8, int) ([]byte, []byte, int) {

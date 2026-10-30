@@ -4,6 +4,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 // MjpegMaxLongSide is the longest side of the HDMI input MJPEG may run with.
@@ -23,7 +25,7 @@ const nativeMjpegBlocked = -8
 
 // normalizeNativeMjpegResult maps a native JPEG read result to a ReadMjpeg
 // result, so that the stream, MCP and screenshot paths treat a refusal by
-// native capture and one by the file check below the same.
+// native capture and one by the refusal hold below the same.
 func normalizeNativeMjpegResult(native int) int {
 	if native == nativeMjpegBlocked {
 		return MjpegBlockedResult
@@ -31,17 +33,43 @@ func normalizeNativeMjpegResult(native int) int {
 	return native
 }
 
-// readMjpegChecked is the body of KvmVision.ReadMjpeg: the file check is a fast
-// path that avoids taking the capture lock, and read does the native capture.
-// The check below can be stale or fail open (the files are missing, or the
-// input changed after they were read), so the native check under vi_mutex,
-// made against the input size it has detected, is the authoritative one.
+// readMjpegChecked is the body of KvmVision.ReadMjpeg; read does the native
+// capture, which refuses a 3840x2160 input under vi_mutex against the size it
+// has detected. A refusal is remembered for mjpegRefusalHold: while the input
+// stays 3840x2160 the stream ticks stop here instead of taking the capture
+// lock, which the video reader shares, on every tick. The state files are not
+// read here: read for every frame they cost a dozen system calls a frame,
+// about 1900 a second at 1080p60 with a viewer.
 func readMjpegChecked(read func() ([]byte, int)) ([]byte, int) {
-	if !MjpegAllowed() {
+	if mjpegRecentlyRefused() {
 		return nil, MjpegBlockedResult
 	}
 	data, result := read()
-	return data, normalizeNativeMjpegResult(result)
+	result = normalizeNativeMjpegResult(result)
+	if result == MjpegBlockedResult {
+		deadline := time.Now().Add(mjpegRefusalHold)
+		mjpegRefusal.Store(&deadline)
+	}
+	return data, result
+}
+
+// mjpegRefusalHold is how long a native refusal answers for native capture:
+// MJPEG resumes at most this late after the input leaves 3840x2160.
+const mjpegRefusalHold = 500 * time.Millisecond
+
+// Keep the monotonic clock reading: a wall-clock correction must neither
+// extend a hold nor reactivate an expired one. nil means no native refusal.
+var mjpegRefusal atomic.Pointer[time.Time]
+
+func mjpegRecentlyRefused() bool {
+	deadline := mjpegRefusal.Load()
+	return deadline != nil && time.Now().Before(*deadline)
+}
+
+// MjpegRefusalHeld reports a native refusal within the hold: the stream loop
+// checks it on every tick instead of reading the state files.
+func MjpegRefusalHeld() bool {
+	return mjpegRecentlyRefused()
 }
 
 // MjpegBlockedMessage tells the user the rule and the way out.

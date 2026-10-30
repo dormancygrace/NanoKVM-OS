@@ -261,8 +261,10 @@ func (s *Streamer) run() {
 			continue
 		}
 
-		// The source may have become 3840x2160 since the viewers connected.
-		if mjpegBlocked() {
+		// The source may have become 3840x2160 since the viewers connected:
+		// native capture refuses it, and the refusal is held for a moment.
+		if mjpegHeld() {
+			logBlocked()
 			stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, common.MjpegBlockedResult)
 			delivery.last = nil
 			continue
@@ -270,6 +272,11 @@ func (s *Streamer) run() {
 
 		data, result := vision.ReadMjpeg(screen.Width, screen.Height, uint16(quality))
 		stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, result)
+		if result == common.MjpegBlockedResult {
+			logBlocked()
+		} else if result >= 0 {
+			blockedLogged.Store(false)
+		}
 		if result < 0 || result == 5 || len(data) == 0 {
 			// Signal loss/recovery must force a fresh delivery, even when
 			// the returning JPEG happens to match the last good one.

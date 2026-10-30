@@ -21,10 +21,11 @@ import (
 func blockMjpeg(t *testing.T) *bool {
 	t.Helper()
 	allowed := false
-	old := mjpegAllowed
+	old, oldHeld := mjpegAllowed, mjpegHeld
 	mjpegAllowed = func() bool { return allowed }
+	mjpegHeld = func() bool { return !allowed }
 	blockedLogged.Store(false)
-	t.Cleanup(func() { mjpegAllowed = old; blockedLogged.Store(false) })
+	t.Cleanup(func() { mjpegAllowed, mjpegHeld = old, oldHeld; blockedLogged.Store(false) })
 	return &allowed
 }
 

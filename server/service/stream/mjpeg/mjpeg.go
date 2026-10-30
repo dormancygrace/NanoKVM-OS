@@ -16,20 +16,28 @@ var streamer = NewStreamer()
 
 var mjpegAllowed = common.MjpegAllowed
 
+// mjpegHeld is the per-frame check: a recent native refusal, no file reads.
+var mjpegHeld = common.MjpegRefusalHeld
+
 // blockedLogged keeps the log to one line per blocked period.
 var blockedLogged atomic.Bool
 
-// mjpegBlocked reports whether MJPEG is unavailable now. It logs once at
-// Info when it becomes so, and again after it was available in between.
+// mjpegBlocked reports whether MJPEG is unavailable now (read from the state
+// files: once per connection). It logs once at Info when it becomes so, and
+// again after it was available in between.
 func mjpegBlocked() bool {
 	if mjpegAllowed() {
 		blockedLogged.Store(false)
 		return false
 	}
+	logBlocked()
+	return true
+}
+
+func logBlocked() {
 	if !blockedLogged.Swap(true) {
 		log.Info(common.MjpegBlockedMessage)
 	}
-	return true
 }
 
 func Connect(c *gin.Context) {

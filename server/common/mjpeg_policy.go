@@ -25,7 +25,7 @@ const nativeMjpegBlocked = -8
 
 // normalizeNativeMjpegResult maps a native JPEG read result to a ReadMjpeg
 // result, so that the stream, MCP and screenshot paths treat a refusal by
-// native capture and one by the file check below the same.
+// native capture and one by the refusal hold below the same.
 func normalizeNativeMjpegResult(native int) int {
 	if native == nativeMjpegBlocked {
 		return MjpegBlockedResult
@@ -47,7 +47,8 @@ func readMjpegChecked(read func() ([]byte, int)) ([]byte, int) {
 	data, result := read()
 	result = normalizeNativeMjpegResult(result)
 	if result == MjpegBlockedResult {
-		mjpegRefusal.Store(time.Now().Add(mjpegRefusalHold).UnixNano())
+		deadline := time.Now().Add(mjpegRefusalHold)
+		mjpegRefusal.Store(&deadline)
 	}
 	return data, result
 }
@@ -56,11 +57,13 @@ func readMjpegChecked(read func() ([]byte, int)) ([]byte, int) {
 // MJPEG resumes at most this late after the input leaves 3840x2160.
 const mjpegRefusalHold = 500 * time.Millisecond
 
-// mjpegRefusal is the end of the current hold, in Unix nanoseconds.
-var mjpegRefusal atomic.Int64
+// Keep the monotonic clock reading: a wall-clock correction must neither
+// extend a hold nor reactivate an expired one. nil means no native refusal.
+var mjpegRefusal atomic.Pointer[time.Time]
 
 func mjpegRecentlyRefused() bool {
-	return time.Now().UnixNano() < mjpegRefusal.Load()
+	deadline := mjpegRefusal.Load()
+	return deadline != nil && time.Now().Before(*deadline)
 }
 
 // MjpegRefusalHeld reports a native refusal within the hold: the stream loop

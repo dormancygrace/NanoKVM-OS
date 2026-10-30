@@ -5,7 +5,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"sync"
 	"testing"
+	"testing/synctest"
+	"time"
 )
 
 func TestMjpegAllowedForFollowsTheInput(t *testing.T) {
@@ -38,10 +41,11 @@ func fakeCapture(t *testing.T, width, height string, limit int) {
 	}
 	previousDir, previous := nativeStateDir, *GetScreen()
 	nativeStateDir = dir
-	mjpegRefusal.Store(0)
+	mjpegRefusal.Store(nil)
 	SetScreen("resolution", limit)
 	t.Cleanup(func() {
 		nativeStateDir = previousDir
+		mjpegRefusal.Store(nil)
 		SetScreen("resolution", int(previous.Height))
 	})
 }
@@ -90,8 +94,8 @@ func fakeCaptureFiles(t *testing.T, width, height *string) {
 	}
 	previous := nativeStateDir
 	nativeStateDir = dir
-	mjpegRefusal.Store(0)
-	t.Cleanup(func() { nativeStateDir = previous; mjpegRefusal.Store(0) })
+	mjpegRefusal.Store(nil)
+	t.Cleanup(func() { nativeStateDir = previous; mjpegRefusal.Store(nil) })
 }
 
 func str(s string) *string { return &s }
@@ -134,10 +138,56 @@ func TestNativeRefusalHoldsOffTheNextReads(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("native capture called %d times within the hold, want 1", calls)
 	}
-	mjpegRefusal.Store(0)
+	mjpegRefusal.Store(nil)
 	if _, result := readMjpegChecked(func() ([]byte, int) { calls++; return []byte("jpeg"), 0 }); result != 0 || calls != 2 {
 		t.Fatalf("after the hold: result %d, native calls %d", result, calls)
 	}
+}
+
+// The hold expires after elapsed time even when callers keep checking it.
+// All readers share the same deadline; held reads must not refresh it.
+func TestNativeRefusalHoldExpires(t *testing.T) {
+	fakeCaptureFiles(t, nil, nil)
+	synctest.Test(t, func(t *testing.T) {
+		if MjpegRefusalHeld() {
+			t.Fatal("held before any native refusal")
+		}
+		if _, result := readMjpegChecked(func() ([]byte, int) {
+			return nil, nativeMjpegBlocked
+		}); result != MjpegBlockedResult {
+			t.Fatalf("initial refusal = %d", result)
+		}
+
+		var readers sync.WaitGroup
+		for range 32 {
+			readers.Go(func() {
+				_, result := readMjpegChecked(func() ([]byte, int) {
+					t.Error("native capture called inside the shared hold")
+					return nil, 0
+				})
+				if result != MjpegBlockedResult {
+					t.Errorf("held result = %d", result)
+				}
+			})
+		}
+		readers.Wait()
+		time.Sleep(mjpegRefusalHold - time.Nanosecond)
+		if !MjpegRefusalHeld() {
+			t.Fatal("hold expired early")
+		}
+		time.Sleep(time.Nanosecond)
+		if MjpegRefusalHeld() {
+			t.Fatal("hold did not expire")
+		}
+		calls := 0
+		data, result := readMjpegChecked(func() ([]byte, int) {
+			calls++
+			return []byte("jpeg"), 0
+		})
+		if calls != 1 || result != 0 || string(data) != "jpeg" {
+			t.Fatalf("after expiry: calls %d result %d data %q", calls, result, data)
+		}
+	})
 }
 
 // The stream path reads no state files: with files saying 3840x2160 (or none)

@@ -52,3 +52,53 @@ test('persistent import failures do not trigger an automatic retry or reload loo
     page.retry();
   }
 });
+
+test('preloading shares one in-flight import with rendering and caches success', async () => {
+  let calls = 0;
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const page = retryableLazy(async () => {
+    calls++;
+    await gate;
+    return { default: () => createElement('div', null, 'ready') };
+  });
+  assert.equal(calls, 0, 'creating a lazy page must not start its import');
+  const first = page.preload();
+  const second = page.preload();
+  const view = render(page.Component);
+  await new Promise(setImmediate);
+  assert.equal(calls, 1, 'hover, focus and opening share one pending import');
+  page.retry(); // A pending or successful import must keep its identity.
+  release();
+  await Promise.all([first, second]);
+  assert.equal(await view, '<div>ready</div>');
+  await page.preload();
+  assert.equal(await render(page.Component), '<div>ready</div>');
+  assert.equal(calls, 1);
+});
+
+test('a failed preload is quiet until opening and remains explicitly retryable', async () => {
+  let calls = 0;
+  const page = retryableLazy(async () => {
+    if (++calls === 1) throw new Error('offline');
+    return { default: () => createElement('div', null, 'recovered') };
+  });
+  await page.preload();
+  await page.preload();
+  assert.equal(calls, 1, 'repeated hover must not create a retry loop');
+  await assert.rejects(render(page.Component), /offline/);
+  page.retry();
+  await page.preload();
+  assert.equal(await render(page.Component), '<div>recovered</div>');
+  assert.equal(calls, 2);
+});
+
+test('a synchronous loader failure is handled by preload and the local boundary', async () => {
+  const page = retryableLazy(() => {
+    throw new Error('loader failed');
+  });
+  await page.preload();
+  await assert.rejects(render(page.Component), /loader failed/);
+});

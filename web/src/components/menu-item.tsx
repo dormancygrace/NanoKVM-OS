@@ -242,6 +242,7 @@ type MenuItemProps = {
   mobilePlacement?: 'left' | 'right';
   mobilePopoverClassName?: string;
   onOpenChange?: (open: boolean) => void;
+  onIntent?: () => void;
 };
 export const MenuItem = ({
   title,
@@ -252,7 +253,8 @@ export const MenuItem = ({
   fresh,
   mobilePlacement,
   mobilePopoverClassName,
-  onOpenChange
+  onOpenChange,
+  onIntent
 }: MenuItemProps) => {
   const isBigScreen = useMediaQuery({ minWidth: 640 });
   const setCount = useSetAtom(submenuOpenCountAtom);
@@ -332,6 +334,8 @@ export const MenuItem = ({
         role="button"
         aria-label={title}
         onClick={releasePointerMenuFocus}
+        onPointerEnter={disabled ? undefined : onIntent}
+        onFocus={disabled ? undefined : onIntent}
         tabIndex={disabled ? -1 : 0}
         onKeyDown={(event) => {
           if (!disabled && (event.key === 'Enter' || event.key === ' ')) {

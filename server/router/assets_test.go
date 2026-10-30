@@ -197,7 +197,10 @@ func TestAssetsBrotliNegotiation(t *testing.T) {
 		t.Fatalf("conditional GET: %d %v", cached.Code, cached.Header())
 	}
 	ranged := request(http.MethodGet, map[string][]string{"Accept-Encoding": {"br"}, "Range": {"bytes=0-3"}})
-	if ranged.Code != http.StatusPartialContent || ranged.Header().Get("Content-Encoding") != "br" || !bytes.Equal(ranged.Body.Bytes(), br[:4]) {
+	if ranged.Code != http.StatusPartialContent || ranged.Header().Get("Content-Encoding") != "br" ||
+		ranged.Header().Get("Content-Length") != "4" ||
+		ranged.Header().Get("Content-Range") != "bytes 0-3/"+strconv.Itoa(len(br)) ||
+		!bytes.Equal(ranged.Body.Bytes(), br[:4]) {
 		t.Fatalf("range: %d %v %x", ranged.Code, ranged.Header(), ranged.Body.Bytes())
 	}
 }

@@ -339,7 +339,9 @@ test('a failed password-help chunk leaves login usable and offers recovery', asy
   await expect(page.getByRole('dialog')).toBeVisible();
 });
 
-test('USB settings load on first open and reuse the loaded module on reopen', async ({ page }) => {
+test('USB settings load on first interaction and reuse the loaded module on reopen', async ({
+  page
+}) => {
   let loads = 0;
   page.on('request', (request) => {
     if (/\/src\/pages\/desktop\/menu\/settings\/usb\/index\.tsx(?:\?|$)/.test(request.url()))
@@ -358,6 +360,28 @@ test('USB settings load on first open and reuse the loaded module on reopen', as
   await expect(page.locator('#usb-preset')).toBeVisible();
   expect(loads).toBe(1);
 });
+
+for (const intent of ['hover', 'focus'] as const) {
+  test(`USB ${intent} preloads the panel without opening it`, async ({ page }) => {
+    let loads = 0;
+    const isPanel = (url: string) =>
+      /\/src\/pages\/desktop\/menu\/settings\/usb\/index\.tsx(?:\?|$)/.test(url);
+    page.on('request', (request) => {
+      if (isPanel(request.url())) loads++;
+    });
+    await login(page);
+    const opener = page.getByRole('button', { name: /^USB Gadget/ });
+    await expect(opener).toBeVisible();
+    expect(loads).toBe(0);
+    const loaded = page.waitForResponse((response) => isPanel(response.url()) && response.ok());
+    await opener[intent]();
+    await loaded;
+    await expect(page.locator('#usb-preset')).toHaveCount(0);
+    await opener.click();
+    await expect(page.locator('#usb-preset')).toBeVisible();
+    expect(loads).toBe(1);
+  });
+}
 
 test('a failed USB settings chunk stays local and offers explicit recovery', async ({ page }) => {
   let fail = true;

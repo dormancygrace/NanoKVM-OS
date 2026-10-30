@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, normalizePath, type Plugin } from 'vite';
 
 // MSW's service worker is only needed with `--mode mocked`. It lives outside
 // public/ so that production builds do not ship it; this plugin serves it
@@ -42,11 +43,45 @@ const htmlOrMain = /\.html$|[\\/]src[\\/]main\.tsx$/;
 // These small helpers are already part of desktop startup and shared by its
 // optional panels/players. Keep them together instead of fetching each one.
 // UI pages and recorder implementations remain separate lazy chunks.
-const desktopHelpers =
-  /[\\/]src[\\/](?:lib[\\/](?:atx|capture-control|clipboard|date-time|encoder|keymap|recording-audio|recording-source|screen-text|screenshot|usb-audio-stream|video-audio|audio-sdp|webrtc-audio-recording|visible-poll|update-components)\.ts|hooks[\\/]useDeviceTime\.ts|pages[\\/]terminal[\\/]launch\.ts|components[\\/]icons[\\/](?:icon-base|robot|rustdesk)\.tsx)$/;
+// Validate every listed path: a rename must update the group instead of
+// silently turning the module back into an extra startup request.
+const desktopHelpers = new Set(
+  [
+    'lib/atx.ts',
+    'lib/capture-control.ts',
+    'lib/clipboard.ts',
+    'lib/date-time.ts',
+    'lib/encoder.ts',
+    'lib/keymap.ts',
+    'lib/recording-audio.ts',
+    'lib/recording-source.ts',
+    'lib/screen-text.ts',
+    'lib/screenshot.ts',
+    'lib/usb-audio-stream.ts',
+    'lib/video-audio.ts',
+    'lib/audio-sdp.ts',
+    'lib/webrtc-audio-recording.ts',
+    'lib/visible-poll.ts',
+    'lib/update-components.ts',
+    'hooks/useDeviceTime.ts',
+    'pages/terminal/launch.ts',
+    'components/icons/icon-base.tsx',
+    'components/icons/robot.tsx',
+    'components/icons/rustdesk.tsx'
+  ].map((name) => {
+    const file = fileURLToPath(new URL(`./src/${name}`, import.meta.url));
+    if (!existsSync(file))
+      throw new Error(`Missing desktop helper: ${name}; update desktopHelpers`);
+    return normalizePath(file);
+  })
+);
 const codeSplitting = {
   groups: [
-    { name: 'desktop-shared', test: desktopHelpers, priority: 2 },
+    {
+      name: 'desktop-shared',
+      test: (id: string) => desktopHelpers.has(normalizePath(id)),
+      priority: 2
+    },
     {
       name: 'vendor',
       tags: ['$initial' as const],

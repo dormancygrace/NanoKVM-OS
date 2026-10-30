@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, ColorPicker, Input, message } from 'antd';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,7 @@ export const ButtonColor = () => {
   const currentColor = brandingButtonColor(branding);
   const [draft, setDraft] = useState(currentColor);
   const [busy, setBusy] = useState(false);
+  const restoreButton = useRef<HTMLButtonElement>(null);
   const normalizedDraft = normalizeColor(draft);
   const valid = isColor(normalizedDraft);
 
@@ -46,13 +47,28 @@ export const ButtonColor = () => {
     void update(() => http.post<Branding>('/api/branding/button-color', { color: next }));
   }
 
+  function saveDraft() {
+    if (valid) apply(draft);
+    else setDraft(currentColor);
+  }
+
   return (
     <SettingRow
       label={tr('title')}
       description={branding.customButtonColor ? tr('description') : tr('defaultActive')}
       htmlFor="appearance-button-color"
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        className="flex flex-wrap items-center gap-2"
+        onBlur={(event) => {
+          // Tabbing past Reset still commits a draft that was not discarded.
+          if (
+            restoreButton.current?.contains(event.target) &&
+            !event.currentTarget.contains(event.relatedTarget)
+          )
+            saveDraft();
+        }}
+      >
         <ColorPicker
           value={valid ? normalizedDraft : currentColor}
           disabledAlpha
@@ -72,11 +88,15 @@ export const ButtonColor = () => {
           status={valid ? undefined : 'error'}
           disabled={busy}
           onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => (valid ? apply(draft) : setDraft(currentColor))}
+          onBlur={(event) => {
+            // Let the reset click run before an autosave can disable it.
+            if (event.relatedTarget !== restoreButton.current) saveDraft();
+          }}
           onPressEnter={() => apply(draft)}
         />
         {branding.customButtonColor && (
           <Button
+            ref={restoreButton}
             type="text"
             disabled={busy}
             onClick={() => void update(() => http.delete<Branding>('/api/branding/button-color'))}

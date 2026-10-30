@@ -693,7 +693,7 @@
     "ai": {
       "screenText": {
         "enabled": "Textigenkänning",
-        "enabledDescription": "Läs texten på skärmen med TPU: knappen i verktygsfältet, MCP och PicoClaw. Avstängd kan ingen av dem läsa den.",
+        "enabledDescription": "När den är på läser en knapp ovanför skärmen texten på den, och MCP och PicoClaw kan också läsa den. Av kan ingen av dem.",
         "switchFailed": "Inställningen kunde inte sparas"
       }
     },

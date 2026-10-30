@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Input, message, Modal, Switch } from 'antd';
+import { Button, Input, message, Switch } from 'antd';
 import { useAtom } from 'jotai';
-import { BookOpenIcon, CpuIcon, KeyRoundIcon, LinkIcon, MessageSquareIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  ChevronDownIcon,
+  CpuIcon,
+  KeyRoundIcon,
+  LinkIcon,
+  MessageSquareIcon
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getRuntimeStatus, setPicoclawHostTools, setPicoclawModelConfig } from '@/api/picoclaw.ts';
 import { modelConfigComplete, modelProviderAllowsEmptyApiKey } from '@/lib/picoclaw-model.ts';
 import { picoclawRuntimeStatusAtom, type PicoclawRuntimeStatus } from '@/jotai/picoclaw.ts';
-import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
+import { confirmAction } from '@/components/ui/confirm.ts';
+import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { PicoclawInstall } from './picoclaw-install';
 
@@ -68,17 +76,15 @@ export const PicoclawSettingsPage = ({ onOpenChat }: { onOpenChat: () => void })
 
   async function changeTools(enabled: boolean) {
     if (enabled) {
-      const confirmed = await new Promise<boolean>((resolve) =>
-        Modal.confirm({
-          title: t('picoclaw.model.hostTools'),
-          content: t('picoclaw.model.hostToolsWarning'),
-          okText: t('picoclaw.model.hostToolsEnable'),
-          okButtonProps: { danger: true },
-          cancelText: t('picoclaw.cancel'),
-          onOk: () => resolve(true),
-          onCancel: () => resolve(false)
-        })
-      );
+      // Cancel is focused: Enter must not hand the host's shell to the agent.
+      const confirmed = await confirmAction({
+        title: t('picoclaw.model.hostTools'),
+        content: t('picoclaw.model.hostToolsWarning'),
+        okText: t('picoclaw.model.hostToolsEnable'),
+        cancelText: t('picoclaw.cancel'),
+        danger: true,
+        safeDefault: true
+      });
       if (!confirmed) return;
     }
     setSavingTools(true);
@@ -122,62 +128,73 @@ export const PicoclawSettingsPage = ({ onOpenChat }: { onOpenChat: () => void })
         </SettingRow>
       </Panel>
 
-      <SettingsSection
-        title={t('settings.ai.picoclaw.changeModel')}
-        description={t('settings.ai.picoclaw.changeModelDescription')}
-        actions={
-          <Button
-            type="link"
-            size="small"
-            icon={<BookOpenIcon size={13} />}
-            href="https://docs.picoclaw.io/docs/configuration/model-list/#supported-vendors-and-protocols"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t('picoclaw.model.docsTitle')}
-          </Button>
-        }
-      >
-        <Panel className="space-y-4">
-          <SettingRow label={t('picoclaw.model.modelIdentifier')} htmlFor="picoclaw-model" stacked>
-            <Input
-              id="picoclaw-model"
-              prefix={<CpuIcon size={13} />}
-              placeholder={status?.model_name || t('picoclaw.model.modelIdentifierPlaceholder')}
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-            />
-          </SettingRow>
-          <SettingRow label={t('picoclaw.model.apiKey')} htmlFor="picoclaw-key" stacked>
-            <Input.Password
-              id="picoclaw-key"
-              prefix={<KeyRoundIcon size={13} />}
-              autoComplete="off"
-              placeholder={t(
-                keyOptional
-                  ? 'picoclaw.model.apiKeyOptionalPlaceholder'
-                  : 'picoclaw.model.apiKeyPlaceholder'
-              )}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-          </SettingRow>
-          <SettingRow label={t('picoclaw.model.apiBase')} htmlFor="picoclaw-base" stacked>
-            <Input
-              id="picoclaw-base"
-              prefix={<LinkIcon size={13} />}
-              placeholder={t('picoclaw.model.apiBasePlaceholder')}
-              value={apiBase}
-              onChange={(e) => setApiBase(e.target.value)}
-            />
-          </SettingRow>
-          <div className="flex justify-end">
-            <Button type="primary" loading={saving} onClick={() => void saveModel()}>
-              {t(saving ? 'picoclaw.model.saving' : 'picoclaw.model.save')}
-            </Button>
+      {/* Open while no model is configured; afterwards changing it is rare. */}
+      <Panel flush className="overflow-hidden">
+        <details className="group" open={!status?.model_configured}>
+          <summary className="text-fg-muted hover:text-fg flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+            <span>{t('settings.ai.picoclaw.changeModel')}</span>
+            <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="space-y-4 px-4 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-fg-muted m-0 text-xs">
+                {t('settings.ai.picoclaw.changeModelDescription')}
+              </p>
+              <Button
+                type="link"
+                size="small"
+                icon={<BookOpenIcon size={13} />}
+                href="https://docs.picoclaw.io/docs/configuration/model-list/#supported-vendors-and-protocols"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t('picoclaw.model.docsTitle')}
+              </Button>
+            </div>
+            <SettingRow
+              label={t('picoclaw.model.modelIdentifier')}
+              htmlFor="picoclaw-model"
+              stacked
+            >
+              <Input
+                id="picoclaw-model"
+                prefix={<CpuIcon size={13} />}
+                placeholder={status?.model_name || t('picoclaw.model.modelIdentifierPlaceholder')}
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              />
+            </SettingRow>
+            <SettingRow label={t('picoclaw.model.apiKey')} htmlFor="picoclaw-key" stacked>
+              <Input.Password
+                id="picoclaw-key"
+                prefix={<KeyRoundIcon size={13} />}
+                autoComplete="off"
+                placeholder={t(
+                  keyOptional
+                    ? 'picoclaw.model.apiKeyOptionalPlaceholder'
+                    : 'picoclaw.model.apiKeyPlaceholder'
+                )}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+            </SettingRow>
+            <SettingRow label={t('picoclaw.model.apiBase')} htmlFor="picoclaw-base" stacked>
+              <Input
+                id="picoclaw-base"
+                prefix={<LinkIcon size={13} />}
+                placeholder={t('picoclaw.model.apiBasePlaceholder')}
+                value={apiBase}
+                onChange={(e) => setApiBase(e.target.value)}
+              />
+            </SettingRow>
+            <div className="flex justify-end">
+              <Button type="primary" loading={saving} onClick={() => void saveModel()}>
+                {t(saving ? 'picoclaw.model.saving' : 'picoclaw.model.save')}
+              </Button>
+            </div>
           </div>
-        </Panel>
-      </SettingsSection>
+        </details>
+      </Panel>
 
       <Panel className="space-y-3">
         <SettingRow
@@ -194,9 +211,6 @@ export const PicoclawSettingsPage = ({ onOpenChat }: { onOpenChat: () => void })
             onChange={(checked) => void changeTools(checked)}
           />
         </SettingRow>
-        {hostTools && (
-          <Alert type="warning" showIcon message={t('picoclaw.model.hostToolsWarning')} />
-        )}
       </Panel>
     </div>
   );

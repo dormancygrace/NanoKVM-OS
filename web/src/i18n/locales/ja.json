@@ -2114,7 +2114,7 @@
         "notInstalled": "文字認識には TPU アドオンが必要です。",
         "openAddons": "アドオン",
         "enabled": "文字認識",
-        "enabledDescription": "TPU で画面上の文字を読み取ります: ツールバーのボタン、MCP、PicoClaw。オフにすると、どれも読み取れません。",
+        "enabledDescription": "オンにすると、画面上部のボタンで画面の文字を読み取れ、MCP と PicoClaw も読み取れます。オフでは、どれも読み取れません。",
         "switchFailed": "設定を保存できませんでした"
       },
       "picoclaw": {

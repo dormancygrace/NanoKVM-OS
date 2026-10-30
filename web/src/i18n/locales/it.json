@@ -692,7 +692,7 @@
     "ai": {
       "screenText": {
         "enabled": "Riconoscimento del testo",
-        "enabledDescription": "Leggere il testo sullo schermo con la TPU: il pulsante della barra degli strumenti, MCP e PicoClaw. Disattivato, nessuno di essi può leggerlo.",
+        "enabledDescription": "Se attivo, un pulsante sopra lo schermo ne legge il testo, e anche MCP e PicoClaw possono leggerlo. Se disattivo, nessuno di loro può.",
         "switchFailed": "Non è stato possibile salvare l'impostazione"
       }
     },

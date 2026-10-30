@@ -129,6 +129,9 @@ export const MCP = () => {
       title: t('settings.mcp.enableConfirmTitle'),
       content: <span className="text-fg-muted text-sm">{t('settings.mcp.enableConfirmDesc')}</span>,
       okText: t('settings.mcp.okBtn'),
+      okButtonProps: { danger: true, type: 'default' },
+      cancelButtonProps: { type: 'primary' },
+      autoFocusButton: 'cancel',
       cancelText: t('settings.mcp.cancelBtn'),
       onOk: () => updateEnabled(true)
     });
@@ -163,7 +166,9 @@ export const MCP = () => {
         <span className="text-fg-muted text-sm">{t('settings.mcp.hostControlConfirmDesc')}</span>
       ),
       okText: t('settings.mcp.okBtn'),
-      okButtonProps: { danger: true },
+      okButtonProps: { danger: true, type: 'default' },
+      cancelButtonProps: { type: 'primary' },
+      autoFocusButton: 'cancel',
       cancelText: t('settings.mcp.cancelBtn'),
       onOk: () => updateHostControl(true)
     });
@@ -193,6 +198,9 @@ export const MCP = () => {
         <span className="text-fg-muted text-sm">{t('settings.mcp.regenerateConfirmDesc')}</span>
       ),
       okText: t('settings.mcp.okBtn'),
+      okButtonProps: { danger: true, type: 'default' },
+      cancelButtonProps: { type: 'primary' },
+      autoFocusButton: 'cancel',
       cancelText: t('settings.mcp.cancelBtn'),
       onOk: async () => {
         actionVersionRef.current += 1;
@@ -220,7 +228,10 @@ export const MCP = () => {
 
       <div className="space-y-6">
         {loadFailed && <Alert type="error" showIcon message={t('settings.mcp.failed')} />}
-        <Alert type="warning" showIcon message={t('settings.mcp.securityWarning')} />
+        {/* The risk exists only while the endpoint is open. */}
+        {config.enabled && (
+          <Alert type="warning" showIcon message={t('settings.mcp.securityWarning')} />
+        )}
 
         <SettingRow
           label={t('settings.mcp.service')}
@@ -321,7 +332,7 @@ const CredentialRow = ({
     <span className="text-fg-muted w-24 shrink-0 text-sm font-medium">{label}</span>
     <div className="flex min-w-0 items-center justify-between gap-2">
       <span className="text-fg min-w-0 flex-1 truncate font-mono text-sm select-all">{value}</span>
-      <div className="flex shrink-0 items-center space-x-1 opacity-40 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 sm:ml-4">
+      <div className="flex shrink-0 items-center space-x-1 sm:ml-4">
         {actions}
         <IconButton
           label={copyLabel}

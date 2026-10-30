@@ -2114,7 +2114,7 @@
         "notInstalled": "文字识别需要 TPU 扩展。",
         "openAddons": "扩展",
         "enabled": "文字识别",
-        "enabledDescription": "使用 TPU 读取屏幕上的文字：工具栏按钮、MCP 和 PicoClaw。关闭后，它们都无法读取。",
+        "enabledDescription": "开启后，屏幕上方的按钮可以读取屏幕上的文字，MCP 和 PicoClaw 也可以读取。关闭后，它们都无法读取。",
         "switchFailed": "无法保存设置"
       },
       "picoclaw": {

@@ -693,7 +693,7 @@
     "ai": {
       "screenText": {
         "enabled": "Metin tanıma",
-        "enabledDescription": "Ekrandaki metni TPU ile okuma: araç çubuğu düğmesi, MCP ve PicoClaw. Kapalıyken hiçbiri okuyamaz.",
+        "enabledDescription": "Açıkken ekranın üstündeki bir düğme ekrandaki metni okur; MCP ve PicoClaw da okuyabilir. Kapalıyken hiçbiri okuyamaz.",
         "switchFailed": "Ayar kaydedilemedi"
       }
     },

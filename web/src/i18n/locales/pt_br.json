@@ -694,7 +694,7 @@
     "ai": {
       "screenText": {
         "enabled": "Reconhecimento de texto",
-        "enabledDescription": "Ler o texto da tela com a TPU: o botão da barra de ferramentas, MCP e PicoClaw. Desligado, nenhum deles pode ler.",
+        "enabledDescription": "Ativado, um botão acima da tela lê o texto nela, e MCP e PicoClaw também podem lê-lo. Desativado, nenhum deles pode.",
         "switchFailed": "Não foi possível salvar a configuração"
       }
     },

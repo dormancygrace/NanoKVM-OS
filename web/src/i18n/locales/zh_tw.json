@@ -690,7 +690,7 @@
     "ai": {
       "screenText": {
         "enabled": "文字辨識",
-        "enabledDescription": "使用 TPU 讀取螢幕上的文字：工具列按鈕、MCP 與 PicoClaw。關閉後，它們都無法讀取。",
+        "enabledDescription": "開啟後，螢幕上方的按鈕可以讀取螢幕上的文字，MCP 與 PicoClaw 也能讀取。關閉後，它們都無法讀取。",
         "switchFailed": "無法儲存設定"
       }
     },

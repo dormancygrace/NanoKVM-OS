@@ -2114,7 +2114,7 @@
         "notInstalled": "Die Texterkennung benötigt das TPU-Add-on.",
         "openAddons": "Add-ons",
         "enabled": "Texterkennung",
-        "enabledDescription": "Text auf dem Bildschirm mit der TPU lesen: die Schaltfläche in der Werkzeugleiste, MCP und PicoClaw. Ausgeschaltet kann keiner davon lesen.",
+        "enabledDescription": "Wenn eingeschaltet, liest eine Schaltfläche über dem Bildschirm dessen Text, und auch MCP und PicoClaw können ihn lesen. Ausgeschaltet kann es keiner von ihnen.",
         "switchFailed": "Die Einstellung konnte nicht gespeichert werden"
       },
       "picoclaw": {

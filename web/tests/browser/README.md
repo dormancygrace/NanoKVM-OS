@@ -61,6 +61,15 @@ all data is synthetic and no add-on or device is contacted.
 `addon.spec.ts` runs these regressions in CI, and verifies that a read slower
 than the polling interval is allowed to finish without overlapping requests.
 
+### Date and time regressions
+
+`/tests/browser/date-time.html` uses the production DateTimeSettings with a
+controlled adapter and a synthetic clock. Hold poll / Release read verifies
+that a late status cannot undo an immediate selection. Edited NTP servers
+must only be sent by Save. Complete write, Refuse writes and NTP synchronized
+cover the clock button and its partial-failure message. `date-time.spec.ts`
+runs these three scenarios in CI. Neither the host nor a device clock changes.
+
 ### BMC settings regressions
 
 `/tests/browser/bmc.html` exercises the production BMC page with synthetic

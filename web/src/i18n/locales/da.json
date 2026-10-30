@@ -886,10 +886,16 @@
     "deviceTime": "Enhedens klokkeslæt",
     "timezone": "Tidszone",
     "format": "Tidsformat",
-    "preview": "Forhåndsvisning",
     "synchronized": "Synkroniseret",
     "waiting": "Synkronisering ikke bekræftet",
-    "save": "Gem"
+    "save": "Gem",
+    "device": "Enhed",
+    "display": "Visning",
+    "displayHint": "For hele brugerfladen, også VPN-handshake-tider.",
+    "setFromBrowser": "Brug denne browsers tid",
+    "setFromBrowserHint": "Til et netværk uden NTP. Tiden gemmes også i enhedens ur.",
+    "clockSet": "Enhedens tid er indstillet",
+    "clockFailed": "Kunne ikke indstille enhedens tid."
   },
   "recorder": {
     "title": "Videooptagelse",

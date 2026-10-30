@@ -891,10 +891,16 @@
     "deviceTime": "Hora del dispositiu",
     "timezone": "Fus horari",
     "format": "Format de l’hora",
-    "preview": "Previsualització",
     "synchronized": "Sincronitzat",
     "waiting": "Sincronització no confirmada",
-    "save": "Desa"
+    "save": "Desa",
+    "device": "Dispositiu",
+    "display": "Visualització",
+    "displayHint": "Per a tota la interfície, incloses les hores de handshake de la VPN.",
+    "setFromBrowser": "Agafa l'hora d'aquest navegador",
+    "setFromBrowserHint": "Per a una xarxa sense NTP. L'hora també es desa al rellotge del dispositiu.",
+    "clockSet": "Hora del dispositiu establerta",
+    "clockFailed": "No s'ha pogut establir l'hora del dispositiu."
   },
   "recorder": {
     "title": "Enregistrament de vídeo",

@@ -33,6 +33,7 @@ func vmRouter(r *gin.Engine) {
 	})
 	api.GET("/vm/date-time", service.GetDateTime)
 	admin.POST("/vm/date-time", service.SetDateTime)
+	admin.POST("/vm/date-time/clock", service.SetClock)
 
 	api.GET("/vm/dashboard", service.GetDashboard)
 	admin.GET("/vm/logs", service.GetLogs)

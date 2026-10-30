@@ -42,6 +42,16 @@ export function downloadDiagnosticsReport() {
   return http.request({ method: 'get', url: '/api/vm/diagnostics/report', responseType: 'blob' });
 }
 
+// The developer archive takes up to a minute and a half to collect.
+export function downloadDevArchive() {
+  return http.request({
+    method: 'get',
+    url: '/api/vm/diagnostics/archive',
+    responseType: 'blob',
+    timeout: 120000
+  });
+}
+
 // set gpio value
 export function setGpio(type: string, duration: number) {
   const data = {

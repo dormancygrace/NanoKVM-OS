@@ -1065,7 +1065,10 @@
         "nftFeatures": {
           "mss-clamp": "MSS clamp to path MTU",
           "usb-internet": "USB internet sharing"
-        }
+        },
+        "archive": "Prepare archive for developers",
+        "archiveHint": "For a bug report: logs of the last boots, system, hardware and network state and settings, in one file. Passwords, keys and addresses are removed on the device. Collecting takes up to a minute.",
+        "archiveError": "Could not prepare the developer archive"
       },
       "device": "Device",
       "performance": "Performance",

@@ -1065,7 +1065,10 @@
         "nftFeatures": {
           "mss-clamp": "Limitation du MSS au MTU du chemin",
           "usb-internet": "Partage Internet par USB"
-        }
+        },
+        "archive": "Préparer une archive pour les développeurs",
+        "archiveHint": "Pour un rapport de bogue : journaux des derniers démarrages, état du système, du matériel et du réseau et réglages, en un seul fichier. Mots de passe, clés et adresses sont supprimés sur l'appareil. La collecte prend jusqu'à une minute.",
+        "archiveError": "Impossible de préparer l'archive pour les développeurs"
       },
       "device": "Appareil",
       "performance": "Performances",

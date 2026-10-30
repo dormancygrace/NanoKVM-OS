@@ -64,6 +64,7 @@ base  file  /usr/libexec/nanokvm/dhcpv6                    0755  server/service/
 base  file  /usr/libexec/nanokvm/dhcpv6-event              0755  server/service/network/scripts/nanokvm-dhcpv6-event
 base  file  /usr/libexec/nanokvm/ethernet-rx-batching    0755  firmware/alpine/compat/nanokvm-ethernet-rx-batching
 base  file  /usr/libexec/nanokvm/console-policy            0755  firmware/alpine/compat/nanokvm-console-policy
+base  file  /usr/libexec/nanokvm/dev-archive               0755  firmware/alpine/compat/nanokvm-dev-archive
 base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
 base  file  /usr/libexec/nanokvm/firstboot-storage        0755  firmware/alpine/compat/nanokvm-firstboot-storage
 base  file  /usr/libexec/nanokvm/check-volume             0755  firmware/alpine/compat/nanokvm-check-volume

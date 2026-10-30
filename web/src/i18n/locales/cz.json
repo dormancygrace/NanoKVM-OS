@@ -1103,7 +1103,10 @@
         "nftFeatures": {
           "mss-clamp": "Omezení MSS na MTU cesty",
           "usb-internet": "Internet přes USB"
-        }
+        },
+        "archive": "Připravit archiv pro vývojáře",
+        "archiveHint": "Pro hlášení chyby: protokoly posledních spuštění, stav systému, hardwaru a sítě a nastavení v jednom souboru. Hesla, klíče a adresy se odstraní na zařízení. Sběr trvá až minutu.",
+        "archiveError": "Archiv pro vývojáře se nepodařilo připravit"
       },
       "logs": {
         "sources": {

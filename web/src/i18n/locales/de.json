@@ -1065,7 +1065,10 @@
         "nftFeatures": {
           "mss-clamp": "MSS-Begrenzung auf Pfad-MTU",
           "usb-internet": "Internet über USB"
-        }
+        },
+        "archive": "Archiv für Entwickler erstellen",
+        "archiveHint": "Für einen Fehlerbericht: Protokolle der letzten Starts, System-, Hardware- und Netzwerkzustand und Einstellungen in einer Datei. Passwörter, Schlüssel und Adressen werden auf dem Gerät entfernt. Das Sammeln dauert bis zu einer Minute.",
+        "archiveError": "Das Entwicklerarchiv konnte nicht erstellt werden"
       },
       "device": "Gerät",
       "performance": "Leistung",

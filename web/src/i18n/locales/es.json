@@ -38,7 +38,6 @@
     "format": "Formato de hora",
     "hour24": "24 horas",
     "hour12": "12 horas",
-    "preview": "Vista previa",
     "dateFormat": "Formato de fecha",
     "dateAuto": "Según el idioma",
     "dateDmy": "DD.MM.AAAA",
@@ -46,13 +45,19 @@
     "dateYmd": "AAAA-MM-DD",
     "servers": "Servidores NTP",
     "serversHelp": "Elige o introduce de 1 a 6 nombres de host o direcciones IP. Al cambiar los servidores se reinicia la sincronización horaria.",
-    "scope": "La zona horaria se aplica al dispositivo. Los formatos de hora y fecha son comunes a toda la interfaz, incluidas las horas de handshake de la VPN.",
     "synchronized": "Sincronizada",
     "waiting": "Sincronización no confirmada",
     "save": "Guardar",
     "saved": "Configuración de fecha y hora guardada",
     "loadFailed": "No se puede leer la hora del dispositivo. Comprueba la conexión.",
-    "saveFailed": "No se pudo aplicar la configuración. Comprueba las direcciones de los servidores y la conexión del dispositivo."
+    "saveFailed": "No se pudo aplicar la configuración. Comprueba las direcciones de los servidores y la conexión del dispositivo.",
+    "device": "Dispositivo",
+    "display": "Visualización",
+    "displayHint": "Para toda la interfaz, incluidas las horas de handshake de VPN.",
+    "setFromBrowser": "Usar la hora de este navegador",
+    "setFromBrowserHint": "Para una red sin NTP. La hora también se guarda en el reloj del dispositivo.",
+    "clockSet": "Hora del dispositivo establecida",
+    "clockFailed": "No se pudo establecer la hora del dispositivo."
   },
   "recorder": {
     "startDirect": "Iniciar la grabación de la transmisión original (MP4)",
@@ -776,6 +781,16 @@
       "description": "Detiene el vídeo, el teclado, los discos virtuales, SSH y los complementos. Espere la confirmación antes de desconectar la alimentación de NanoKVM. Si la alimentación sigue conectada, use la página de reinicio para volver a iniciar NanoKVM OS. El ordenador conectado permanece encendido.",
       "magic": "Permitir también un paquete mágico Wake-on-LAN. Cualquier persona que pueda acceder al servicio de escucha puede reiniciar NanoKVM sin contraseña."
     },
+    "addonPage": {
+      "failed": "No se pudieron leer los valores del complemento",
+      "notRunning": "El servicio del complemento no se está ejecutando",
+      "refused": "El complemento lo rechazó",
+      "saved": "Guardado",
+      "save": "Guardar",
+      "status": "Estado",
+      "yes": "Sí",
+      "no": "No"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Conecta el NanoKVM a una red privada. Selecciona una VPN para configurarla."
@@ -822,7 +837,9 @@
         "checkNow": "Comprobar ahora",
         "dailyOff": "La comprobación diaria de actualizaciones está desactivada: la lista solo cambia cuando usted comprueba.",
         "listFailed": "La última comprobación falló.",
-        "failed": "La solicitud falló."
+        "failed": "La solicitud falló.",
+        "installedSection": "Instalados",
+        "availableSection": "Disponibles"
       },
       "title": "Software",
       "description": "Gestiona paquetes de los repositorios de Alpine configurados. Los cambios de paquetes usan la misma base de datos APK y los mismos servicios que SSH.",
@@ -835,7 +852,6 @@
       "upToDate": "Todos los paquetes instalados están actualizados.",
       "searchPlaceholder": "Buscar nombre de paquete",
       "search": "Buscar",
-      "searchHint": "La búsqueda empieza automáticamente cuando dejas de escribir.",
       "noResults": "No hay paquetes coincidentes",
       "indexMissing": "No hay índices de paquetes disponibles. Actualiza los índices antes de buscar o instalar.",
       "indexStale": "Los índices de paquetes pueden estar desactualizados (última actualización: {{updated}}). Actualízalos antes de instalar.",
@@ -858,8 +874,6 @@
     },
     "updates": {
       "apk": {
-        "title": "Actualizaciones de paquetes",
-        "description": "Actualiza los paquetes instalados desde los repositorios configurados. La configuración se conserva. Los servicios se reinician automáticamente; una actualización del kernel requiere reiniciar.",
         "check": "Buscar actualizaciones",
         "install": "Instalar actualizaciones",
         "confirm": "¿Instalar estas actualizaciones de paquetes? El vídeo y el control pueden desconectarse brevemente.",
@@ -873,7 +887,6 @@
       },
       "title": "Actualizaciones",
       "description": "Actualiza NanoKVM OS con paquetes firmados. Las actualizaciones del sistema reinician el dispositivo; las de la aplicación desconectan brevemente el vídeo y el control.",
-      "installed": "Instalado",
       "requestFailed": "La solicitud de actualización falló. Comprueba la conectividad del dispositivo y vuelve a intentarlo.",
       "reconnecting": "Esperando a que el dispositivo se reconecte…",
       "components": {
@@ -922,41 +935,45 @@
         "rollback": "Instalar versión estable",
         "rollbackDescription": "Hay una beta instalada. Puedes volver al firmware estable actual, incluso a versiones anteriores de paquetes.",
         "rollbackConfirm": "¿Reemplazar la beta por el firmware estable actual? Se conservan los ajustes y datos. Los servicios se reiniciarán; puede ser necesario reiniciar el dispositivo."
-      }
+      },
+      "status": {
+        "checking": "Buscando actualizaciones…",
+        "installing": "Instalando actualizaciones…",
+        "available": "Hay actualizaciones"
+      },
+      "advanced": "Avanzado"
     },
     "memory": {
       "zramAuto": "Automático ({{size}} MiB)",
       "recompressTitle": "Recomprimir páginas frías con ZSTD",
       "recompressDescription": "Mantiene el rápido LZ4 para las páginas nuevas. Cada 15 segundos intenta recomprimir hasta 1 MiB de páginas sin uso durante un minuto. Consume CPU y memoria del compresor adicionales; leer estas páginas puede ser más lento. Cambiar este modo recrea ZRAM y requiere suficiente RAM libre.",
       "recompressNotReady": "El modo guardado no está activo. Vuelve a aplicarlo cuando haya suficiente RAM disponible.",
-      "applicationTitle": "Reducir la memoria de la aplicación",
       "title": "Memoria",
       "ram": "RAM en uso",
       "available": "Disponible",
       "cache": "Caché recuperable",
-      "video": "Búferes de vídeo (ION)",
+      "video": "Búferes de vídeo",
       "videoMemoryShared": "Memoria de vídeo: {{size}} MiB, compartida con Linux",
       "videoMemoryReserved": "Memoria de vídeo: {{size}} MiB reservados. Reinicia el dispositivo para usar la memoria de vídeo compartida del sistema actualizado.",
       "ramNote": "La memoria disponible incluye la caché recuperable.",
       "zramTitle": "Activar swap ZRAM",
       "sdTitle": "Activar swap en SD",
       "zramDescription": "Comprime en la RAM las páginas de memoria inactivas. La capacidad se mide antes de la compresión; la RAM se asigna según sea necesario.",
-      "sdDescription": "Usa un archivo de swap en la tarjeta SD cuando escasea la memoria. El acceso a la SD es más lento que la RAM.",
+      "sdDescription": "Un archivo de intercambio en la tarjeta SD, usado después de ZRAM cuando falta memoria. Más lento que la RAM y desgasta la tarjeta.",
       "size": "Capacidad",
       "used": "Usado",
-      "algorithm": "Compresión",
-      "actualRam": "Almacenamiento de páginas en RAM",
-      "priorityNote": "ZRAM se usa antes que el swap en SD. Los cambios se aplican de inmediato y se conservan tras reiniciar.",
       "unavailable": "Requiere una compilación de NanoKVM OS con esta función.",
       "loadError": "No se pudo leer el estado de la memoria",
       "changeError": "No se pudo cambiar la configuración de swap",
       "limitTitle": "Límite de memoria del servidor",
-      "limitDescription": "Cerca de este límite, el servidor NanoKVM libera memoria con más empeño en lugar de quitársela a apk y al resto del sistema. Desactivado: una cuarta parte de la RAM ({{default}} MiB). Un límite propio es de al menos {{minimum}} MiB, aunque el predeterminado sea menor, y se aplica al instante sin reiniciar.",
+      "limitDescription": "Cerca de este límite, el servidor NanoKVM libera memoria con más fuerza en lugar de quitársela a apk y al resto del sistema. Un límite propio es de al menos {{minimum}} MiB y se aplica al instante.",
       "limitValue": "Límite",
       "limitApply": "Aplicar",
-      "limitCurrent": "En vigor: {{current}} MiB.",
       "limitNone": "En vigor: sin límite.",
-      "limitError": "No se pudo cambiar el límite de memoria"
+      "limitError": "No se pudo cambiar el límite de memoria",
+      "zramUsage": "Usado {{used}}, {{stored}} en RAM ({{algorithm}})",
+      "advanced": "Avanzado",
+      "limitDefault": "Predeterminado: una cuarta parte de la RAM ({{default}} MiB)."
     },
     "services": {
       "title": "Servicios"
@@ -1009,7 +1026,6 @@
         "image": "Imagen",
         "alpine": "Alpine",
         "kernel": "Kernel en ejecución",
-        "systemBase": "Base del sistema",
         "modules": "Módulos del kernel",
         "boot": "Componentes de arranque",
         "video": "HDMI y captura de vídeo",
@@ -1045,7 +1061,19 @@
           "saved-profile": "perfil guardado",
           "power-cycle-pending": "ciclo de apagado físico pendiente",
           "pending-reboot": "reinicio pendiente"
-        }
+        },
+        "allOk": "Todo está bien",
+        "problems": "Problemas encontrados: {{count}}",
+        "packages": "Paquetes ({{count}})",
+        "usbOff": "El USB está apagado en los ajustes del gadget USB.",
+        "optionalIdle": "Opcionales, no en ejecución",
+        "nftFeatures": {
+          "mss-clamp": "Ajuste de MSS a la MTU de ruta",
+          "usb-internet": "Internet por USB"
+        },
+        "archive": "Preparar archivo para desarrolladores",
+        "archiveHint": "Para un informe de error: registros de los últimos arranques, estado del sistema, del hardware y de la red y ajustes, en un solo archivo. Las contraseñas, claves y direcciones se eliminan en el dispositivo. La recopilación tarda hasta un minuto.",
+        "archiveError": "No se pudo preparar el archivo para desarrolladores"
       },
       "device": "Dispositivo",
       "performance": "Rendimiento",
@@ -1147,8 +1175,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "Marca",
-        "description": "Personaliza el logotipo de inicio de sesión y el favicon del navegador por separado. Las imágenes integradas siguen disponibles como predeterminadas.",
         "logoTitle": "Logotipo de inicio de sesión",
         "logoDescription": "El logotipo principal que se muestra sobre el formulario de inicio de sesión.",
         "logoPreview": "Vista previa del logotipo de inicio de sesión",
@@ -1161,18 +1187,14 @@
         "customActive": "Imagen personalizada",
         "restoreDefault": "Restablecer predeterminado",
         "formats": "PNG o JPEG, hasta 2 MiB y 1024 × 1024 píxeles. Un PNG cuadrado con transparencia funciona mejor.",
-        "failed": "No se pudo guardar la marca."
+        "failed": "No se pudo guardar la marca.",
+        "upload": "Subir"
       },
       "buttonColor": {
         "title": "Color de los botones",
         "description": "Elige el color de énfasis que usan los botones principales en toda la interfaz.",
-        "accentTitle": "Botones principales",
-        "accentDescription": "Los estados al pasar el cursor y al pulsar se generan automáticamente.",
-        "preview": "Botón de vista previa",
         "inputLabel": "Color de los botones en formato hexadecimal",
         "defaultActive": "Verde del logotipo integrado (#45E9A0)",
-        "customActive": "Color personalizado",
-        "save": "Aplicar",
         "restoreDefault": "Restablecer predeterminado",
         "failed": "No se pudo guardar el color de los botones."
       },
@@ -1184,8 +1206,6 @@
         "failed": "No se pudo guardar el estilo del banner de SSH."
       },
       "title": "Apariencia",
-      "display": "Pantalla",
-      "customize": "Personalizar",
       "language": "Idioma",
       "languageDesc": "Seleccionar el idioma de la interfaz",
       "helpTranslate": "Ayuda a traducir",
@@ -1194,16 +1214,22 @@
       "webTitle": "Título web",
       "webTitleDesc": "Personaliza el título de la página web",
       "menuBar": {
-        "title": "Barra de menú",
         "mode": "Modo de visualización",
-        "modeDesc": "Mostrar barra de menú en la pantalla",
+        "modeDesc": "Ocultar automáticamente: la barra aparece cuando el ratón llega al borde superior.",
         "modeAuto": "Ocultar automáticamente",
         "modeAlways": "Siempre visible",
         "keyboardLedStatus": "Indicadores de bloqueo del teclado",
-        "keyboardLedStatusDesc": "Mostrar el estado de Bloq Num, Bloq Mayús y Bloq Despl del equipo remoto",
-        "icons": "Iconos del submenú",
-        "iconsDesc": "Mostrar iconos de submenú en la barra de menú"
-      }
+        "keyboardLedStatusDesc": "Mostrar Bloq Mayús, Bloq Num y Bloq Despl del equipo remoto en la barra de menú.",
+        "icons": "Botones de la barra de menú",
+        "iconsDesc": "Mostrar iconos de submenú en la barra de menú",
+        "hiddenCount": "{{count}} ocultos",
+        "showAll": "Mostrar todo"
+      },
+      "browser": "En este navegador",
+      "browserDesc": "Se guarda solo en este navegador; otros navegadores y usuarios tienen los suyos.",
+      "device": "Para todos en este dispositivo",
+      "deviceDesc": "Se guarda en el dispositivo y lo ve cualquiera que lo abra.",
+      "saved": "Guardado"
     },
     "keyboardLedStatus": {
       "groupLabel": "Estado de bloqueos del teclado remoto",
@@ -2048,7 +2074,9 @@
       "ipmiNotInstalled": "IPMI viene con el complemento IPMI, que no está instalado.",
       "ipmiInstall": "Instalar el complemento IPMI",
       "ipmiAddonDescription": "IPMI por LAN para el control de energía del equipo (ipmitool, fence_ipmilan). Sus ajustes están en Servicios > Redfish e IPMI.",
-      "holdDefault": "5 (menú de energía)"
+      "holdDefault": "5 (menú de energía)",
+      "advanced": "Avanzado",
+      "accountFirst": "Configure la cuenta BMC abajo y pulse Guardar: Redfish e IPMI solo se activan con una contraseña."
     },
     "recovery": {
       "title": "Copia de seguridad y restablecimiento",
@@ -2056,13 +2084,11 @@
       "password": "Contraseña actual del administrador",
       "export": "Exportar ajustes",
       "encryption": "El archivo contiene contraseñas y claves privadas. Se cifra con la contraseña de la copia (12–256 bytes). Guarde el archivo y la contraseña en un lugar seguro; una contraseña perdida no se puede recuperar.",
-      "archivePassword": "Contraseña de la copia (también para abrir archivos)",
+      "archivePassword": "Contraseña del archivo",
       "download": "Descargar copia cifrada",
-      "restoreReset": "Restaurar o restablecer",
       "restore": "Restaurar ajustes",
       "reset": "Restablecer ajustes de fábrica",
       "updateBase": "Actualice nanokvm-base para habilitar la restauración y el restablecimiento.",
-      "file": "Archivo de ajustes (.nkos)",
       "fileLimit": "Seleccione un archivo de ajustes de hasta 4 MiB.",
       "migrate": "Migrar a otro dispositivo (recomendado)",
       "device": "Restaurar este dispositivo, incluidos los ajustes de acceso y red",
@@ -2082,7 +2108,11 @@
       "inventory": "Paquetes registrados en la copia (no se instalan automáticamente)",
       "confirm": "He revisado los cambios y podré volver a conectarme después del reinicio.",
       "reboot": "Reiniciar para finalizar",
-      "rebooting": "Restauración programada. El dispositivo se está reiniciando; vuelva a conectarse después."
+      "rebooting": "Restauración programada. El dispositivo se está reiniciando; vuelva a conectarse después.",
+      "backupPassword": "Contraseña de la copia",
+      "backupPasswordShort": "Al menos 12 caracteres.",
+      "chooseFile": "Elegir un archivo .nkos",
+      "deviceHint": "Sustituye todos los ajustes de este dispositivo por los del archivo, incluidos usuarios, red, VPN, certificados y ajustes de hardware."
     },
     "ai": {
       "title": "IA",
@@ -2091,7 +2121,7 @@
         "notInstalled": "El reconocimiento de texto necesita el complemento TPU.",
         "openAddons": "Complementos",
         "enabled": "Reconocimiento de texto",
-        "enabledDescription": "Leer el texto de la pantalla con la TPU: el botón de la barra de herramientas, MCP y PicoClaw. Desactivado, ninguno puede leerla.",
+        "enabledDescription": "Activado, un botón sobre la pantalla lee su texto, y MCP y PicoClaw también pueden leerlo. Desactivado, ninguno puede.",
         "switchFailed": "No se pudo guardar el ajuste"
       },
       "picoclaw": {

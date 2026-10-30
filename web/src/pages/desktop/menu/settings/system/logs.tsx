@@ -34,6 +34,7 @@ export const Logs = () => {
   const [revision, setRevision] = useState(0);
   const [refreshReady, setRefreshReady] = useState(false);
   const viewer = useRef<HTMLPreElement>(null);
+  const activeLine = useRef<HTMLElement>(null);
   const query = useDeferredValue(search).trim().toLowerCase();
   useEffect(() => {
     const controller = new AbortController();
@@ -147,12 +148,17 @@ export const Logs = () => {
 
   useEffect(() => {
     if (!viewer.current) return;
-    if (activeRow !== undefined) {
-      viewer.current.scrollTop = activeRow * 20;
+    if (activeRow !== undefined && activeLine.current) {
+      // Wrapped logical lines have variable heights. Scroll to the actual mark
+      // without moving the enclosing settings page.
+      viewer.current.scrollTop +=
+        activeLine.current.getBoundingClientRect().top -
+        viewer.current.getBoundingClientRect().top -
+        viewer.current.clientTop;
     } else if (follow && boot === 'current') {
       viewer.current.scrollTop = viewer.current.scrollHeight;
     }
-  }, [activeRow, snapshot, follow, boot]);
+  }, [activeRow, view, follow, boot]);
 
   const key = 'settings.system.logs';
   const timestamp = (at: number) => formatDeviceTime(at, timePreferences, i18n.language);
@@ -218,10 +224,14 @@ export const Logs = () => {
           }}
           onPressEnter={(event) => moveMatch(event.shiftKey ? -1 : 1)}
           allowClear
+          suffix={
+            query ? (
+              <span className="text-fg-muted text-xs tabular-nums">
+                {view.matches.length ? selectedMatch + 1 : 0} / {view.matches.length}
+              </span>
+            ) : undefined
+          }
         />
-        <span className="text-fg-muted min-w-12 text-center text-xs">
-          {view.matches.length ? selectedMatch + 1 : 0} / {view.matches.length}
-        </span>
         <Button
           size="small"
           aria-label={t(`${key}.previousMatch`)}
@@ -279,7 +289,7 @@ export const Logs = () => {
         tabIndex={0}
         aria-label={t(`${key}.title`)}
         aria-busy={loading}
-        className="border-line text-fg m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border bg-black/30 p-3 font-mono text-xs leading-5 whitespace-pre focus-visible:outline-2 focus-visible:outline-blue-400"
+        className="border-line text-fg m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border bg-black/30 p-3 font-mono text-xs leading-5 break-all whitespace-pre-wrap focus-visible:outline-2 focus-visible:outline-blue-400"
       >
         {view.lines.length ? (
           activeRow === undefined ? (
@@ -287,7 +297,9 @@ export const Logs = () => {
           ) : (
             <>
               {activeRow > 0 ? view.lines.slice(0, activeRow).join('\n') + '\n' : ''}
-              <mark className="bg-warning/25 text-fg rounded">{view.lines[activeRow]}</mark>
+              <mark ref={activeLine} className="bg-warning/25 text-fg rounded">
+                {view.lines[activeRow]}
+              </mark>
               {activeRow < view.lines.length - 1
                 ? '\n' + view.lines.slice(activeRow + 1).join('\n')
                 : ''}

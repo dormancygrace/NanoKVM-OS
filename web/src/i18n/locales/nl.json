@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Uiterlijk",
-      "display": "Beeldscherm",
       "language": "Taal",
       "languageDesc": "Selecteer de taal voor de interface",
       "helpTranslate": "Help met vertalen",
       "webTitle": "Webtitel",
       "webTitleDesc": "Pas de titel van de webpagina aan",
       "menuBar": {
-        "title": "Menubalk",
         "mode": "Weergavemodus",
-        "modeDesc": "Geef de menubalk weer op het scherm",
+        "modeDesc": "Automatisch verbergen: de balk verschijnt als de muis de bovenrand bereikt.",
         "modeAuto": "Automatisch verbergen",
         "modeAlways": "Altijd zichtbaar",
         "keyboardLedStatus": "Toetsvergrendelingsindicatoren",
-        "keyboardLedStatusDesc": "Toon de Num Lock-, Caps Lock- en Scroll Lock-status van de externe computer",
-        "icons": "Submenupictogrammen",
-        "iconsDesc": "Submenupictogrammen weergeven in de menubalk"
+        "keyboardLedStatusDesc": "Caps Lock, Num Lock en Scroll Lock van de externe computer in de menubalk tonen.",
+        "icons": "Knoppen van de menubalk",
+        "iconsDesc": "Submenupictogrammen weergeven in de menubalk",
+        "hiddenCount": "{{count}} verborgen",
+        "showAll": "Alles tonen"
       },
-      "buttonColor": {
-        "save": "Toepassen"
+      "buttonColor": {},
+      "browser": "In deze browser",
+      "browserDesc": "Alleen in deze browser bewaard; andere browsers en gebruikers hebben hun eigen.",
+      "device": "Voor iedereen op dit apparaat",
+      "deviceDesc": "Op het apparaat opgeslagen en zichtbaar voor iedereen die het opent.",
+      "saved": "Opgeslagen",
+      "branding": {
+        "upload": "Uploaden"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Uitbreidingspakketten",
-        "packages": "Pakketten"
+        "packages": "Pakketten",
+        "install": "Installeren"
       },
       "title": "Software",
       "available": "Beschikbare pakketten",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Pakketupdates",
         "log": "Updatelogboek"
       },
       "title": "Updates",
-      "installed": "Geïnstalleerd"
+      "status": {
+        "checking": "Zoeken naar updates…",
+        "installing": "Updates installeren…",
+        "available": "Updates beschikbaar"
+      },
+      "advanced": "Geavanceerd"
     },
     "memory": {
       "title": "Geheugen",
       "available": "Beschikbaar",
       "size": "Capaciteit",
-      "used": "Gebruikt",
-      "algorithm": "Compressie"
+      "used": "Gebruikt"
     },
     "services": {
       "title": "Diensten"
@@ -696,9 +706,19 @@
     "ai": {
       "screenText": {
         "enabled": "Tekstherkenning",
-        "enabledDescription": "Tekst op het scherm lezen met de TPU: de knop in de werkbalk, MCP en PicoClaw. Uitgeschakeld kan geen van hen lezen.",
+        "enabledDescription": "Aan: een knop boven het scherm leest de tekst erop, en ook MCP en PicoClaw kunnen die lezen. Uit: geen van hen kan dat.",
         "switchFailed": "De instelling kon niet worden opgeslagen"
       }
+    },
+    "addonPage": {
+      "failed": "Kan de waarden van de add-on niet lezen",
+      "notRunning": "De dienst van de add-on draait niet",
+      "refused": "De add-on heeft het geweigerd",
+      "saved": "Opgeslagen",
+      "save": "Opslaan",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nee"
     }
   },
   "picoclaw": {
@@ -887,10 +907,16 @@
     "deviceTime": "Apparaattijd",
     "timezone": "Tijdzone",
     "format": "Tijdnotatie",
-    "preview": "Voorbeeld",
     "synchronized": "Gesynchroniseerd",
     "waiting": "Synchronisatie niet bevestigd",
-    "save": "Opslaan"
+    "save": "Opslaan",
+    "device": "Apparaat",
+    "display": "Weergave",
+    "displayHint": "Voor de hele interface, ook voor VPN-handshaketijden.",
+    "setFromBrowser": "Tijd van deze browser gebruiken",
+    "setFromBrowserHint": "Voor een netwerk zonder NTP. De tijd wordt ook in de klok van het apparaat opgeslagen.",
+    "clockSet": "Apparaattijd ingesteld",
+    "clockFailed": "Kan de apparaattijd niet instellen."
   },
   "recorder": {
     "title": "Video-opname",

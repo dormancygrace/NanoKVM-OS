@@ -53,7 +53,13 @@ type DiagnosticHookChain struct {
 	Label  string `json:"label"`
 	Hook   string `json:"hook"`
 	Policy string `json:"policy,omitempty"`
+	// Feature names what a NanoKVM OS table does; empty for other tables.
+	Feature string `json:"feature,omitempty"`
 }
+
+// NanoKVM OS's own nftables tables, by what they do. Only these names leave
+// the device; any other table stays an anonymous "chain-N".
+var nftFeatures = map[string]string{"nkos_mss": "mss-clamp", "nkos_usb_internet": "usb-internet"}
 
 type DiagnosticPackage struct {
 	Name    string `json:"name"`
@@ -74,7 +80,6 @@ type DiagnosticsSnapshot struct {
 		Image       string              `json:"image,omitempty"`
 		Alpine      string              `json:"alpine,omitempty"`
 		Kernel      string              `json:"kernel,omitempty"`
-		SystemBase  string              `json:"systemBase,omitempty"`
 		Modules     DiagnosticItem      `json:"modules"`
 		Boot        DiagnosticItem      `json:"boot"`
 		Packages    []DiagnosticPackage `json:"packages"`
@@ -173,10 +178,10 @@ func diagnosticsReport(snapshot DiagnosticsSnapshot) any {
 		Schema: "nanokvm-diagnostics/v1", CollectedAt: snapshot.CollectedAt,
 		Privacy: "Allow-listed status only; no credentials, configuration contents, network addresses, identifiers, screen, or video data.",
 		Versions: struct {
-			Application, Image, Alpine, Kernel, SystemBase string
-			Modules, Boot                                  string
-			Packages                                       []DiagnosticPackage
-		}{safeScalar(snapshot.Versions.Application), safeScalar(snapshot.Versions.Image), safeScalar(snapshot.Versions.Alpine), safeScalar(snapshot.Versions.Kernel), safeSystemBase(snapshot.Versions.SystemBase), safeState(snapshot.Versions.Modules.State), safeState(snapshot.Versions.Boot.State), reportPackages(snapshot.Versions.Packages)},
+			Application, Image, Alpine, Kernel string
+			Modules, Boot                      string
+			Packages                           []DiagnosticPackage
+		}{safeScalar(snapshot.Versions.Application), safeScalar(snapshot.Versions.Image), safeScalar(snapshot.Versions.Alpine), safeScalar(snapshot.Versions.Kernel), safeState(snapshot.Versions.Modules.State), safeState(snapshot.Versions.Boot.State), reportPackages(snapshot.Versions.Packages)},
 		Services: reportServices(snapshot.Services),
 		Video:    struct{ State, EDIDState, Profile, Input, Output, MeasuredFPS string }{safeState(snapshot.Video.State), safeState(snapshot.Video.EDIDState), safeScalar(snapshot.Video.Profile), safeDimension(snapshot.Video.Input), safeDimension(snapshot.Video.Output), safeScalar(snapshot.Video.MeasuredFPS)},
 		USB: struct {
@@ -235,7 +240,7 @@ func reportPackages(items []DiagnosticPackage) []DiagnosticPackage {
 func reportHookChains(items []DiagnosticHookChain) []DiagnosticHookChain {
 	result := []DiagnosticHookChain{}
 	for i, item := range items {
-		result = append(result, DiagnosticHookChain{Label: "chain-" + strconv.Itoa(i+1), Hook: safeNFTHook(item.Hook), Policy: safeNFTPolicy(item.Policy)})
+		result = append(result, DiagnosticHookChain{Label: "chain-" + strconv.Itoa(i+1), Hook: safeNFTHook(item.Hook), Policy: safeNFTPolicy(item.Policy), Feature: safeNFTFeature(item.Feature)})
 	}
 	return result
 }
@@ -283,7 +288,6 @@ func collectDiagnostics(ctx context.Context) (DiagnosticsSnapshot, error) {
 	result.Versions.Image = safeScalar(getImageVersion())
 	result.Versions.Alpine = safeScalar(diagnosticText("/etc/alpine-release"))
 	result.Versions.Kernel = safeScalar(diagnosticText("/proc/sys/kernel/osrelease"))
-	result.Versions.SystemBase = safeScalar(diagnosticText("/etc/nkos-system-base"))
 	bootTarget := diagnosticText(filepath.Join(diagnosticBootDir, "kernel.release"))
 	pending := rebootRequired()
 	result.Versions.Modules = kernelModules(result.Versions.Kernel, bootTarget, pending)
@@ -342,15 +346,6 @@ func safeScalar(value string) string {
 
 func safeDimension(value string) string {
 	if safeDiagnosticDimension.MatchString(value) {
-		return value
-	}
-	return ""
-}
-
-var safeSystemBaseValue = regexp.MustCompile(`^[a-f0-9]{64}$`)
-
-func safeSystemBase(value string) string {
-	if safeSystemBaseValue.MatchString(value) {
 		return value
 	}
 	return ""
@@ -663,7 +658,7 @@ func parseNFTHookChains(data []byte) ([]DiagnosticHookChain, error) {
 		if item.Chain == nil || item.Chain.Hook == "" {
 			continue
 		}
-		chains = append(chains, DiagnosticHookChain{Label: "chain-" + strconv.Itoa(len(chains)+1), Hook: safeNFTHook(item.Chain.Hook), Policy: safeNFTPolicy(item.Chain.Policy)})
+		chains = append(chains, DiagnosticHookChain{Label: "chain-" + strconv.Itoa(len(chains)+1), Hook: safeNFTHook(item.Chain.Hook), Policy: safeNFTPolicy(item.Chain.Policy), Feature: nftFeatures[item.Chain.Table]})
 	}
 	return chains, nil
 }
@@ -674,6 +669,14 @@ func safeNFTHook(value string) string {
 		return value
 	}
 	return "unknown"
+}
+func safeNFTFeature(value string) string {
+	for _, feature := range nftFeatures {
+		if value == feature {
+			return value
+		}
+	}
+	return ""
 }
 func safeNFTPolicy(value string) string {
 	switch value {

@@ -78,7 +78,8 @@
       },
       "addons": {
         "title": "תוספים",
-        "packages": "חבילות"
+        "packages": "חבילות",
+        "install": "התקנה"
       },
       "title": "תוכנה",
       "available": "חבילות זמינות",
@@ -90,18 +91,21 @@
     },
     "updates": {
       "apk": {
-        "title": "עדכוני חבילות",
         "log": "יומן עדכונים"
       },
       "title": "עדכונים",
-      "installed": "מותקן"
+      "status": {
+        "checking": "בודק עדכונים…",
+        "installing": "מתקין עדכונים…",
+        "available": "יש עדכונים"
+      },
+      "advanced": "מתקדם"
     },
     "memory": {
       "title": "זיכרון",
       "available": "זמין",
       "size": "קיבולת",
-      "used": "בשימוש",
-      "algorithm": "דחיסה"
+      "used": "בשימוש"
     },
     "services": {
       "title": "שירותים"
@@ -139,10 +143,23 @@
       "documentation": "תיעוד"
     },
     "appearance": {
-      "buttonColor": {
-        "save": "החלה"
+      "buttonColor": {},
+      "title": "מראה",
+      "browser": "בדפדפן זה",
+      "browserDesc": "נשמר רק בדפדפן זה; לדפדפנים ולמשתמשים אחרים יש הגדרות משלהם.",
+      "device": "לכולם במכשיר זה",
+      "deviceDesc": "נשמר במכשיר ומוצג לכל מי שפותח אותו.",
+      "saved": "נשמר",
+      "menuBar": {
+        "hiddenCount": "{{count}} מוסתרים",
+        "showAll": "הצג הכול",
+        "modeDesc": "הסתרה אוטומטית: הסרגל מופיע כשהעכבר מגיע לקצה העליון.",
+        "keyboardLedStatusDesc": "הצג את Caps Lock,‏ Num Lock ו-Scroll Lock של המחשב המרוחק בסרגל התפריטים.",
+        "icons": "כפתורי סרגל התפריטים"
       },
-      "title": "מראה"
+      "branding": {
+        "upload": "העלאה"
+      }
     },
     "device": {
       "cpuFrequency": {
@@ -283,9 +300,19 @@
     "ai": {
       "screenText": {
         "enabled": "זיהוי טקסט",
-        "enabledDescription": "קריאת הטקסט שעל המסך באמצעות ה-TPU: הלחצן בסרגל הכלים, MCP ו-PicoClaw. כשהאפשרות כבויה, אף אחד מהם לא יכול לקרוא.",
+        "enabledDescription": "כשהאפשרות פעילה, כפתור מעל המסך קורא את הטקסט שעליו, וגם MCP ו-PicoClaw יכולים לקרוא אותו. כשהיא כבויה, אף אחד מהם לא יכול.",
         "switchFailed": "לא ניתן היה לשמור את ההגדרה"
       }
+    },
+    "addonPage": {
+      "failed": "לא ניתן לקרוא את ערכי התוסף",
+      "notRunning": "שירות התוסף אינו פועל",
+      "refused": "התוסף דחה זאת",
+      "saved": "נשמר",
+      "save": "שמירה",
+      "status": "מצב",
+      "yes": "כן",
+      "no": "לא"
     }
   },
   "keyboard": {
@@ -324,10 +351,16 @@
     "deviceTime": "שעת המכשיר",
     "timezone": "אזור זמן",
     "format": "תבנית שעה",
-    "preview": "תצוגה מקדימה",
     "synchronized": "מסונכרן",
     "waiting": "הסנכרון לא אושר",
-    "save": "שמירה"
+    "save": "שמירה",
+    "device": "מכשיר",
+    "display": "תצוגה",
+    "displayHint": "לכל הממשק, כולל זמני לחיצת היד של VPN.",
+    "setFromBrowser": "לקחת את השעה מהדפדפן הזה",
+    "setFromBrowserHint": "לרשת ללא NTP. השעה נשמרת גם בשעון של המכשיר.",
+    "clockSet": "שעת המכשיר הוגדרה",
+    "clockFailed": "לא ניתן להגדיר את שעת המכשיר."
   },
   "recorder": {
     "title": "הקלטת וידאו",

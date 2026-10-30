@@ -38,7 +38,6 @@
     "format": "时间格式",
     "hour24": "24 小时制",
     "hour12": "12 小时制",
-    "preview": "预览",
     "dateFormat": "日期格式",
     "dateAuto": "跟随界面语言",
     "dateDmy": "DD.MM.YYYY",
@@ -46,13 +45,19 @@
     "dateYmd": "YYYY-MM-DD",
     "servers": "NTP 服务器",
     "serversHelp": "选择或输入 1–6 个主机名或 IP 地址。更改服务器会重新启动时间同步。",
-    "scope": "时区作用于设备。时间和日期格式在整个界面中通用，包括 VPN 握手时间。",
     "synchronized": "已同步",
     "waiting": "尚未确认同步",
     "save": "保存",
     "saved": "日期和时间设置已保存",
     "loadFailed": "无法读取设备时间。请检查连接。",
-    "saveFailed": "无法应用设置。请检查服务器地址和设备连接。"
+    "saveFailed": "无法应用设置。请检查服务器地址和设备连接。",
+    "device": "设备",
+    "display": "显示",
+    "displayHint": "适用于整个界面，包括 VPN 握手时间。",
+    "setFromBrowser": "使用此浏览器的时间",
+    "setFromBrowserHint": "适用于没有 NTP 的网络。时间也会保存到设备的时钟芯片。",
+    "clockSet": "设备时间已设置",
+    "clockFailed": "无法设置设备时间。"
   },
   "recorder": {
     "startDirect": "开始录制原始流（MP4）",
@@ -776,6 +781,16 @@
       "description": "停止视频、键盘、虚拟磁盘、SSH 和附加组件。断开 NanoKVM 电源前，请等待完成确认。如果保持供电，可通过重启页面重新启动 NanoKVM OS。连接的计算机将保持开机。",
       "magic": "同时允许 Wake-on-LAN 魔术包。任何能够访问监听服务的人都可以在无需密码的情况下重启 NanoKVM。"
     },
+    "addonPage": {
+      "failed": "无法读取附加组件的数据",
+      "notRunning": "附加组件的服务未运行",
+      "refused": "附加组件拒绝了此操作",
+      "saved": "已保存",
+      "save": "保存",
+      "status": "状态",
+      "yes": "是",
+      "no": "否"
+    },
     "vpn": {
       "title": "VPN",
       "description": "将 NanoKVM 连接到私有网络。选择一种 VPN 进行设置。"
@@ -822,7 +837,9 @@
         "checkNow": "立即检查",
         "dailyOff": "每日更新检查已关闭：列表只在您检查时更新。",
         "listFailed": "上次检查失败。",
-        "failed": "请求失败。"
+        "failed": "请求失败。",
+        "installedSection": "已安装",
+        "availableSection": "可安装"
       },
       "title": "软件",
       "description": "管理来自已配置 Alpine 软件源的软件包。软件包变更与 SSH 使用相同的 APK 数据库和服务。",
@@ -835,7 +852,6 @@
       "upToDate": "所有已安装的软件包均为最新版本。",
       "searchPlaceholder": "搜索软件包名称",
       "search": "搜索",
-      "searchHint": "停止输入后将自动开始搜索。",
       "noResults": "没有匹配的软件包",
       "indexMissing": "没有可用的软件包索引。搜索或安装前请先刷新索引。",
       "indexStale": "软件包索引可能已过期（上次刷新：{{updated}}）。安装前请先刷新。",
@@ -858,8 +874,6 @@
     },
     "updates": {
       "apk": {
-        "title": "软件包更新",
-        "description": "从已配置的软件源更新已安装的软件包。设置会保留。服务会自动重启；内核更新需要重启设备。",
         "check": "检查更新",
         "install": "安装更新",
         "confirm": "安装这些软件包更新？视频和控制可能会短暂断开。",
@@ -873,7 +887,6 @@
       },
       "title": "更新",
       "description": "使用签名软件包更新 NanoKVM OS。系统更新会重启设备；应用更新会短暂断开视频和控制。",
-      "installed": "已安装",
       "requestFailed": "更新请求失败。请检查设备连接后重试。",
       "reconnecting": "正在等待设备重新连接…",
       "components": {
@@ -922,41 +935,45 @@
         "rollback": "安装稳定版本",
         "rollbackDescription": "当前安装的是测试版。可以立即返回当前稳定固件，包括较旧的软件包版本。",
         "rollbackConfirm": "将测试版替换为当前稳定固件？设置和数据将保留。服务将重启，设备可能需要重新启动。"
-      }
+      },
+      "status": {
+        "checking": "正在检查更新…",
+        "installing": "正在安装更新…",
+        "available": "有可用更新"
+      },
+      "advanced": "高级"
     },
     "memory": {
       "zramAuto": "自动（{{size}} MiB）",
       "recompressTitle": "使用 ZSTD 重新压缩冷页面",
       "recompressDescription": "新页面仍使用快速的 LZ4。每 15 秒尝试重新压缩最多 1 MiB 一分钟内未访问的页面。会占用额外的 CPU 和压缩器内存；读取这些页面可能变慢。更改此模式会重建 ZRAM，并需要足够的可用内存。",
       "recompressNotReady": "已保存的模式尚未生效。请在可用内存充足时重新应用。",
-      "applicationTitle": "减少应用内存占用",
       "title": "内存",
       "ram": "已用内存",
       "available": "可用",
       "cache": "可回收缓存",
-      "video": "视频缓冲区（ION）",
+      "video": "视频缓冲区",
       "videoMemoryShared": "视频内存：{{size}} MiB，与 Linux 共享",
       "videoMemoryReserved": "视频内存：已预留 {{size}} MiB。请重启设备以使用更新后系统的共享视频内存。",
       "ramNote": "可用内存包含可回收缓存。",
       "zramTitle": "启用 ZRAM 交换",
       "sdTitle": "启用 SD 交换",
       "zramDescription": "在内存中压缩不活跃的内存页。容量按压缩前计算；内存按需分配。",
-      "sdDescription": "内存不足时使用 SD 卡上的交换文件。SD 卡访问速度比内存慢。",
+      "sdDescription": "SD 卡上的交换文件，在内存不足时于 ZRAM 之后使用。比内存慢，并会磨损存储卡。",
       "size": "容量",
       "used": "已用",
-      "algorithm": "压缩算法",
-      "actualRam": "实际占用内存",
-      "priorityNote": "ZRAM 优先于 SD 交换使用。更改立即生效，重启后仍保留。",
       "unavailable": "需要包含此功能的 NanoKVM OS 版本。",
       "loadError": "无法读取内存状态",
       "changeError": "无法更改交换设置",
       "limitTitle": "服务器内存上限",
-      "limitDescription": "接近此上限时，NanoKVM 服务器会更积极地释放内存，而不是占用 apk 和系统其他部分的内存。关闭：内存的四分之一（{{default}} MiB）。自定义上限至少为 {{minimum}} MiB（即使默认值更低），无需重启立即生效。",
+      "limitDescription": "接近此上限时，NanoKVM 服务器会更积极地释放内存，而不是占用 apk 和系统其他部分的内存。自定义上限至少为 {{minimum}} MiB，并立即生效。",
       "limitValue": "上限",
       "limitApply": "应用",
-      "limitCurrent": "当前生效：{{current}} MiB。",
       "limitNone": "当前生效：无上限。",
-      "limitError": "无法更改内存上限"
+      "limitError": "无法更改内存上限",
+      "zramUsage": "已用 {{used}}，内存中 {{stored}}（{{algorithm}}）",
+      "advanced": "高级",
+      "limitDefault": "默认：内存的四分之一（{{default}} MiB）。"
     },
     "services": {
       "title": "服务"
@@ -1009,7 +1026,6 @@
         "image": "镜像",
         "alpine": "Alpine",
         "kernel": "运行中的内核",
-        "systemBase": "系统基础",
         "modules": "内核模块",
         "boot": "启动组件",
         "video": "HDMI 与视频采集",
@@ -1045,7 +1061,19 @@
           "saved-profile": "已保存的配置",
           "power-cycle-pending": "等待物理断电重启",
           "pending-reboot": "等待重启"
-        }
+        },
+        "allOk": "一切正常",
+        "problems": "发现的问题：{{count}}",
+        "packages": "软件包（{{count}}）",
+        "usbOff": "USB 已在 USB 设备设置中关闭。",
+        "optionalIdle": "可选，未运行",
+        "nftFeatures": {
+          "mss-clamp": "按路径 MTU 限制 MSS",
+          "usb-internet": "USB 网络共享"
+        },
+        "archive": "准备开发者归档",
+        "archiveHint": "用于错误报告：最近几次启动的日志、系统、硬件和网络状态以及设置，合并为一个文件。密码、密钥和地址会在设备上删除。收集最多需要一分钟。",
+        "archiveError": "无法准备开发者归档"
       },
       "device": "设备",
       "performance": "性能",
@@ -1147,8 +1175,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "品牌",
-        "description": "分别自定义登录页 Logo 和浏览器网站图标。内置图片仍作为默认选项保留。",
         "logoTitle": "登录页 Logo",
         "logoDescription": "显示在登录表单上方的主 Logo。",
         "logoPreview": "登录页 Logo 预览",
@@ -1161,18 +1187,14 @@
         "customActive": "自定义图片",
         "restoreDefault": "恢复默认",
         "formats": "PNG 或 JPEG，最大 2 MiB 且不超过 1024 × 1024 像素。建议使用正方形透明 PNG。",
-        "failed": "无法保存品牌设置。"
+        "failed": "无法保存品牌设置。",
+        "upload": "上传"
       },
       "buttonColor": {
         "title": "按钮颜色",
         "description": "选择整个界面中主要按钮使用的强调色。",
-        "accentTitle": "主要按钮",
-        "accentDescription": "悬停和按下状态会自动生成。",
-        "preview": "预览按钮",
         "inputLabel": "按钮颜色（十六进制格式）",
         "defaultActive": "内置 Logo 绿色（#45E9A0）",
-        "customActive": "自定义颜色",
-        "save": "应用",
         "restoreDefault": "恢复默认",
         "failed": "无法保存按钮颜色。"
       },
@@ -1184,8 +1206,6 @@
         "failed": "无法保存 SSH 横幅样式。"
       },
       "title": "外观",
-      "display": "显示",
-      "customize": "自定义",
       "language": "语言",
       "languageDesc": "选择界面语言",
       "helpTranslate": "帮助翻译",
@@ -1194,16 +1214,22 @@
       "webTitle": "网页标题",
       "webTitleDesc": "自定义网站页面标题",
       "menuBar": {
-        "title": "菜单栏",
         "mode": "显示方式",
-        "modeDesc": "菜单栏在屏幕上的显示方式",
+        "modeDesc": "自动隐藏：鼠标移到顶部边缘时显示菜单栏。",
         "modeAuto": "自动隐藏",
         "modeAlways": "始终显示",
         "keyboardLedStatus": "键盘锁定状态指示灯",
-        "keyboardLedStatusDesc": "显示远程主机的 Num Lock、Caps Lock 和 Scroll Lock 状态",
-        "icons": "菜单图标",
-        "iconsDesc": "是否在菜单栏中显示子菜单图标"
-      }
+        "keyboardLedStatusDesc": "在菜单栏中显示远程计算机的 Caps Lock、Num Lock 和 Scroll Lock 状态。",
+        "icons": "菜单栏按钮",
+        "iconsDesc": "是否在菜单栏中显示子菜单图标",
+        "hiddenCount": "已隐藏 {{count}} 个",
+        "showAll": "全部显示"
+      },
+      "browser": "在此浏览器中",
+      "browserDesc": "仅保存在此浏览器中；其他浏览器和用户各有自己的设置。",
+      "device": "对此设备的所有人",
+      "deviceDesc": "保存在设备上，所有打开它的人都能看到。",
+      "saved": "已保存"
     },
     "keyboardLedStatus": {
       "groupLabel": "远程键盘锁定状态",
@@ -2048,7 +2074,9 @@
       "ipmiNotInstalled": "IPMI 由 IPMI 扩展提供，该扩展尚未安装。",
       "ipmiInstall": "安装 IPMI 扩展",
       "ipmiAddonDescription": "用于主机电源控制的 IPMI over LAN（ipmitool、fence_ipmilan）。设置位于“服务 > Redfish 与 IPMI”。",
-      "holdDefault": "5（电源菜单）"
+      "holdDefault": "5（电源菜单）",
+      "advanced": "高级",
+      "accountFirst": "请在下方设置 BMC 账户并点击保存：Redfish 和 IPMI 只有在设置密码后才能开启。"
     },
     "recovery": {
       "title": "备份与重置",
@@ -2056,13 +2084,11 @@
       "password": "当前管理员密码",
       "export": "导出设置",
       "encryption": "备份包含密码和私钥，并使用备份密码（12–256 字节）加密。请妥善保管文件和密码；遗失的密码无法恢复。",
-      "archivePassword": "备份密码（也用于打开备份）",
+      "archivePassword": "归档密码",
       "download": "下载加密备份",
-      "restoreReset": "恢复或重置",
       "restore": "恢复设置",
       "reset": "恢复出厂设置",
       "updateBase": "请更新 nanokvm-base 以启用恢复和重置功能。",
-      "file": "设置备份文件（.nkos）",
       "fileLimit": "请选择不超过 4 MiB 的设置备份。",
       "migrate": "迁移到另一台设备（推荐）",
       "device": "恢复此设备，包括访问和网络设置",
@@ -2082,7 +2108,11 @@
       "inventory": "备份记录的软件包（不会自动安装）",
       "confirm": "我已检查更改，并能在重启后重新连接设备。",
       "reboot": "重启以完成恢复",
-      "rebooting": "恢复已排队。设备正在重启；请稍后重新连接。"
+      "rebooting": "恢复已排队。设备正在重启；请稍后重新连接。",
+      "backupPassword": "备份密码",
+      "backupPasswordShort": "至少 12 个字符。",
+      "chooseFile": "选择 .nkos 文件",
+      "deviceHint": "用归档中的设置替换此设备的全部设置，包括用户、网络、VPN、证书和硬件设置。"
     },
     "ai": {
       "title": "AI",
@@ -2091,7 +2121,7 @@
         "notInstalled": "文字识别需要 TPU 扩展。",
         "openAddons": "扩展",
         "enabled": "文字识别",
-        "enabledDescription": "使用 TPU 读取屏幕上的文字：工具栏按钮、MCP 和 PicoClaw。关闭后，它们都无法读取。",
+        "enabledDescription": "开启后，屏幕上方的按钮可以读取屏幕上的文字，MCP 和 PicoClaw 也可以读取。关闭后，它们都无法读取。",
         "switchFailed": "无法保存设置"
       },
       "picoclaw": {

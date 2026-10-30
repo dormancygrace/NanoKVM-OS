@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/auth.ts';
-import { Switch } from 'antd';
+import { Button, Switch } from 'antd';
 import { useAtom } from 'jotai';
 import {
   DiscIcon,
@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import * as ls from '@/lib/localstorage.ts';
 import { menuDisabledItemsAtom } from '@/jotai/settings.ts';
 import { Robot } from '@/components/icons/robot.tsx';
-import { Panel, SettingRow } from '@/components/ui/settings.tsx';
+import { Fold } from '@/components/ui/settings.tsx';
 
 export const MenuIcons = () => {
   const { t } = useTranslation();
@@ -59,32 +59,47 @@ export const MenuIcons = () => {
     ls.setMenuDisabledItems(newItems);
   }
 
-  return (
-    <SettingRow
-      label={t('settings.appearance.menuBar.icons')}
-      description={t('settings.appearance.menuBar.iconsDesc')}
-      stacked
-    >
-      <Panel flush>
-        <ul className="divide-line m-0 list-none divide-y p-0">
-          {items.map((item) => (
-            <li key={item.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
-              <div className="text-fg-muted flex min-w-0 items-center gap-2">
-                {item.icon}
-                <span className="text-fg">
-                  {item.label ? t(item.label) : t(`${item.key}.title`)}
-                </span>
-              </div>
+  const hidden = items.filter((item) => menuDisabledItems.includes(item.key)).length;
 
-              <Switch
-                aria-label={item.label ? t(item.label) : t(`${item.key}.title`)}
-                value={!menuDisabledItems.includes(item.key)}
-                onChange={() => updateItems(item.key)}
-              />
-            </li>
-          ))}
-        </ul>
-      </Panel>
-    </SettingRow>
+  function showAll() {
+    // Only the items offered here: the others stay as they are.
+    const offered = new Set(items.map((item) => item.key));
+    const newItems = menuDisabledItems.filter((key) => !offered.has(key));
+    setMenuDisabledItems(newItems);
+    ls.setMenuDisabledItems(newItems);
+  }
+
+  // Folded: most people never change the buttons.
+  return (
+    <Fold
+      title={
+        hidden > 0
+          ? `${t('settings.appearance.menuBar.icons')} · ${t('settings.appearance.menuBar.hiddenCount', { count: hidden })}`
+          : t('settings.appearance.menuBar.icons')
+      }
+    >
+      <p className="text-fg-muted m-0 text-xs">{t('settings.appearance.menuBar.iconsDesc')}</p>
+      <ul className="divide-line m-0 list-none divide-y p-0">
+        {items.map((item) => (
+          <li key={item.key} className="flex items-center justify-between gap-3 py-2.5">
+            <div className="text-fg-muted flex min-w-0 items-center gap-2">
+              {item.icon}
+              <span className="text-fg">{item.label ? t(item.label) : t(`${item.key}.title`)}</span>
+            </div>
+
+            <Switch
+              aria-label={item.label ? t(item.label) : t(`${item.key}.title`)}
+              value={!menuDisabledItems.includes(item.key)}
+              onChange={() => updateItems(item.key)}
+            />
+          </li>
+        ))}
+      </ul>
+      {hidden > 0 && (
+        <Button size="small" onClick={showAll}>
+          {t('settings.appearance.menuBar.showAll')}
+        </Button>
+      )}
+    </Fold>
   );
 };

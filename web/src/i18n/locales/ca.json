@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Aparença",
-      "display": "Pantalla",
       "language": "Idioma",
       "languageDesc": "Seleccioneu l'idioma per a la interfície",
       "helpTranslate": "Ajuda a traduir",
       "webTitle": "Títol web",
       "webTitleDesc": "Personalitza el títol de la pàgina",
       "menuBar": {
-        "title": "Barra de menús",
         "mode": "Mode de visualització",
-        "modeDesc": "Mostra la barra de menús a la pantalla",
+        "modeDesc": "Amaga automàticament: la barra apareix quan el ratolí arriba a la vora superior.",
         "modeAuto": "Ocultació automàtica",
         "modeAlways": "Sempre visible",
         "keyboardLedStatus": "Indicadors de bloqueig del teclat",
-        "keyboardLedStatusDesc": "Mostra l’estat de Bloq Num, Bloq Maj i Bloq Despl de l’ordinador remot",
-        "icons": "Icones del submenú",
-        "iconsDesc": "Mostra les icones del submenú a la barra de menús"
+        "keyboardLedStatusDesc": "Mostra Bloq Maj, Bloq Núm i Bloq Despl de l'ordinador remot a la barra de menú.",
+        "icons": "Botons de la barra de menú",
+        "iconsDesc": "Mostra les icones del submenú a la barra de menús",
+        "hiddenCount": "{{count}} amagats",
+        "showAll": "Mostra-ho tot"
       },
-      "buttonColor": {
-        "save": "Aplica"
+      "buttonColor": {},
+      "browser": "En aquest navegador",
+      "browserDesc": "Es desa només en aquest navegador; altres navegadors i usuaris tenen els seus.",
+      "device": "Per a tothom en aquest dispositiu",
+      "deviceDesc": "Es desa al dispositiu i el veu tothom qui l'obre.",
+      "saved": "Desat",
+      "branding": {
+        "upload": "Puja"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Complements",
-        "packages": "Paquets"
+        "packages": "Paquets",
+        "install": "Instal·la"
       },
       "title": "Programari",
       "available": "Paquets disponibles",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Actualitzacions de paquets",
         "log": "Registre d’actualització"
       },
       "title": "Actualitzacions",
-      "installed": "Instal·lat"
+      "status": {
+        "checking": "Cercant actualitzacions…",
+        "installing": "Instal·lant actualitzacions…",
+        "available": "Hi ha actualitzacions"
+      },
+      "advanced": "Avançat"
     },
     "memory": {
       "title": "Memòria",
       "available": "Disponible",
       "size": "Capacitat",
-      "used": "Utilitzat",
-      "algorithm": "Compressió"
+      "used": "Utilitzat"
     },
     "services": {
       "title": "Serveis"
@@ -694,9 +704,19 @@
     "ai": {
       "screenText": {
         "enabled": "Reconeixement de text",
-        "enabledDescription": "Llegir el text de la pantalla amb la TPU: el botó de la barra d'eines, MCP i PicoClaw. Desactivat, cap d'ells no la pot llegir.",
+        "enabledDescription": "Activat, un botó sobre la pantalla en llegeix el text, i MCP i PicoClaw també el poden llegir. Desactivat, cap d'ells no pot.",
         "switchFailed": "No s'ha pogut desar el paràmetre"
       }
+    },
+    "addonPage": {
+      "failed": "No s'han pogut llegir els valors del complement",
+      "notRunning": "El servei del complement no s'està executant",
+      "refused": "El complement ho ha rebutjat",
+      "saved": "Desat",
+      "save": "Desa",
+      "status": "Estat",
+      "yes": "Sí",
+      "no": "No"
     }
   },
   "picoclaw": {
@@ -886,10 +906,16 @@
     "deviceTime": "Hora del dispositiu",
     "timezone": "Fus horari",
     "format": "Format de l’hora",
-    "preview": "Previsualització",
     "synchronized": "Sincronitzat",
     "waiting": "Sincronització no confirmada",
-    "save": "Desa"
+    "save": "Desa",
+    "device": "Dispositiu",
+    "display": "Visualització",
+    "displayHint": "Per a tota la interfície, incloses les hores de handshake de la VPN.",
+    "setFromBrowser": "Agafa l'hora d'aquest navegador",
+    "setFromBrowserHint": "Per a una xarxa sense NTP. L'hora també es desa al rellotge del dispositiu.",
+    "clockSet": "Hora del dispositiu establerta",
+    "clockFailed": "No s'ha pogut establir l'hora del dispositiu."
   },
   "recorder": {
     "title": "Enregistrament de vídeo",

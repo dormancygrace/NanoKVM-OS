@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Giao diện",
-      "display": "Hiển thị",
       "language": "Ngôn ngữ",
       "languageDesc": "Chọn ngôn ngữ cho giao diện",
       "helpTranslate": "Giúp dịch",
       "webTitle": "Tiêu đề trang web",
       "webTitleDesc": "Tùy chỉnh tiêu đề trang web",
       "menuBar": {
-        "title": "Thanh menu",
         "mode": "Chế độ hiển thị",
-        "modeDesc": "Hiển thị thanh menu trên màn hình",
+        "modeDesc": "Tự ẩn: thanh xuất hiện khi chuột chạm cạnh trên.",
         "modeAuto": "Tự động ẩn",
         "modeAlways": "Luôn hiển thị",
         "keyboardLedStatus": "Chỉ báo khóa bàn phím",
-        "keyboardLedStatusDesc": "Hiển thị trạng thái Num Lock, Caps Lock và Scroll Lock của máy tính từ xa",
-        "icons": "Biểu tượng menu con",
-        "iconsDesc": "Hiển thị biểu tượng menu con trên thanh menu"
+        "keyboardLedStatusDesc": "Hiển thị Caps Lock, Num Lock và Scroll Lock của máy tính từ xa trên thanh menu.",
+        "icons": "Nút trên thanh menu",
+        "iconsDesc": "Hiển thị biểu tượng menu con trên thanh menu",
+        "hiddenCount": "đã ẩn {{count}}",
+        "showAll": "Hiện tất cả"
       },
-      "buttonColor": {
-        "save": "Áp dụng"
+      "buttonColor": {},
+      "browser": "Trong trình duyệt này",
+      "browserDesc": "Chỉ lưu trong trình duyệt này; trình duyệt và người dùng khác có cài đặt riêng.",
+      "device": "Cho mọi người trên thiết bị này",
+      "deviceDesc": "Lưu trên thiết bị và hiển thị cho mọi người mở nó.",
+      "saved": "Đã lưu",
+      "branding": {
+        "upload": "Tải lên"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Tiện ích bổ sung",
-        "packages": "Gói"
+        "packages": "Gói",
+        "install": "Cài đặt"
       },
       "title": "Phần mềm",
       "available": "Gói có sẵn",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Cập nhật gói",
         "log": "Nhật ký cập nhật"
       },
       "title": "Cập nhật",
-      "installed": "Đã cài đặt"
+      "status": {
+        "checking": "Đang kiểm tra cập nhật…",
+        "installing": "Đang cài đặt cập nhật…",
+        "available": "Có bản cập nhật"
+      },
+      "advanced": "Nâng cao"
     },
     "memory": {
       "title": "Bộ nhớ",
       "available": "Khả dụng",
       "size": "Dung lượng",
-      "used": "Đã dùng",
-      "algorithm": "Nén"
+      "used": "Đã dùng"
     },
     "services": {
       "title": "Dịch vụ"
@@ -696,9 +706,19 @@
     "ai": {
       "screenText": {
         "enabled": "Nhận dạng văn bản",
-        "enabledDescription": "Đọc văn bản trên màn hình bằng TPU: nút trên thanh công cụ, MCP và PicoClaw. Khi tắt, không thành phần nào đọc được.",
+        "enabledDescription": "Khi bật, một nút phía trên màn hình đọc văn bản trên đó, và MCP cùng PicoClaw cũng đọc được. Khi tắt, không ai trong số đó đọc được.",
         "switchFailed": "Không thể lưu cài đặt"
       }
+    },
+    "addonPage": {
+      "failed": "Không thể đọc giá trị của tiện ích bổ sung",
+      "notRunning": "Dịch vụ của tiện ích bổ sung không chạy",
+      "refused": "Tiện ích bổ sung đã từ chối",
+      "saved": "Đã lưu",
+      "save": "Lưu",
+      "status": "Trạng thái",
+      "yes": "Có",
+      "no": "Không"
     }
   },
   "picoclaw": {
@@ -886,10 +906,16 @@
     "deviceTime": "Thời gian trên thiết bị",
     "timezone": "Múi giờ",
     "format": "Định dạng giờ",
-    "preview": "Xem trước",
     "synchronized": "Đã đồng bộ",
     "waiting": "Chưa xác nhận đồng bộ",
-    "save": "Lưu"
+    "save": "Lưu",
+    "device": "Thiết bị",
+    "display": "Hiển thị",
+    "displayHint": "Cho toàn bộ giao diện, kể cả thời điểm bắt tay VPN.",
+    "setFromBrowser": "Lấy giờ từ trình duyệt này",
+    "setFromBrowserHint": "Cho mạng không có NTP. Giờ cũng được lưu vào đồng hồ của thiết bị.",
+    "clockSet": "Đã đặt giờ thiết bị",
+    "clockFailed": "Không thể đặt giờ thiết bị."
   },
   "recorder": {
     "title": "Quay video",

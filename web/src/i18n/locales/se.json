@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Utseende",
-      "display": "Visning",
       "language": "Språk",
       "languageDesc": "Välj språk för gränssnittet",
       "helpTranslate": "Hjälp till att översätta",
       "webTitle": "Webbtitel",
       "webTitleDesc": "Anpassa webbsidans titel",
       "menuBar": {
-        "title": "Menyrad",
         "mode": "Visningsläge",
-        "modeDesc": "Visa menyraden på skärmen",
+        "modeDesc": "Dölj automatiskt: fältet visas när musen når överkanten.",
         "modeAuto": "Dölj automatiskt",
         "modeAlways": "Alltid synlig",
         "keyboardLedStatus": "Indikatorer för tangentbordslås",
-        "keyboardLedStatusDesc": "Visa Num Lock-, Caps Lock- och Scroll Lock-status för fjärrdatorn",
-        "icons": "Undermenyikoner",
-        "iconsDesc": "Visa undermenyikoner i menyraden"
+        "keyboardLedStatusDesc": "Visa Caps Lock, Num Lock och Scroll Lock för fjärrdatorn i menyfältet.",
+        "icons": "Knappar i menyfältet",
+        "iconsDesc": "Visa undermenyikoner i menyraden",
+        "hiddenCount": "{{count}} dolda",
+        "showAll": "Visa alla"
       },
-      "buttonColor": {
-        "save": "Verkställ"
+      "buttonColor": {},
+      "browser": "I den här webbläsaren",
+      "browserDesc": "Sparas bara i den här webbläsaren; andra webbläsare och användare har sina egna.",
+      "device": "För alla på den här enheten",
+      "deviceDesc": "Sparas på enheten och visas för alla som öppnar den.",
+      "saved": "Sparat",
+      "branding": {
+        "upload": "Ladda upp"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Tilläggspaket",
-        "packages": "Paket"
+        "packages": "Paket",
+        "install": "Installera"
       },
       "title": "Programvara",
       "available": "Tillgängliga paket",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Paketuppdateringar",
         "log": "Uppdateringslogg"
       },
       "title": "Uppdateringar",
-      "installed": "Installerad"
+      "status": {
+        "checking": "Söker efter uppdateringar…",
+        "installing": "Installerar uppdateringar…",
+        "available": "Uppdateringar finns"
+      },
+      "advanced": "Avancerat"
     },
     "memory": {
       "title": "Minne",
       "available": "Tillgängligt",
       "size": "Kapacitet",
-      "used": "Använt",
-      "algorithm": "Komprimering"
+      "used": "Använt"
     },
     "services": {
       "title": "Tjänster"
@@ -695,9 +705,19 @@
     "ai": {
       "screenText": {
         "enabled": "Textigenkänning",
-        "enabledDescription": "Läs texten på skärmen med TPU: knappen i verktygsfältet, MCP och PicoClaw. Avstängd kan ingen av dem läsa den.",
+        "enabledDescription": "När den är på läser en knapp ovanför skärmen texten på den, och MCP och PicoClaw kan också läsa den. Av kan ingen av dem.",
         "switchFailed": "Inställningen kunde inte sparas"
       }
+    },
+    "addonPage": {
+      "failed": "Kunde inte läsa tilläggets värden",
+      "notRunning": "Tilläggets tjänst körs inte",
+      "refused": "Tillägget avvisade det",
+      "saved": "Sparat",
+      "save": "Spara",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nej"
     }
   },
   "picoclaw": {
@@ -886,10 +906,16 @@
     "deviceTime": "Enhetens tid",
     "timezone": "Tidszon",
     "format": "Tidsformat",
-    "preview": "Förhandsvisning",
     "synchronized": "Synkroniserad",
     "waiting": "Synkronisering inte bekräftad",
-    "save": "Spara"
+    "save": "Spara",
+    "device": "Enhet",
+    "display": "Visning",
+    "displayHint": "För hela gränssnittet, även VPN-handskakningstider.",
+    "setFromBrowser": "Använd tiden från den här webbläsaren",
+    "setFromBrowserHint": "För ett nätverk utan NTP. Tiden sparas även i enhetens klocka.",
+    "clockSet": "Enhetens tid har ställts in",
+    "clockFailed": "Det gick inte att ställa in enhetens tid."
   },
   "recorder": {
     "title": "Videoinspelning",

@@ -427,6 +427,16 @@
       "description": "Zastaví video, klávesnici, virtuální disky, SSH a doplňky. Před odpojením napájení NanoKVM počkejte na potvrzení. Pokud napájení zůstane připojené, můžete NanoKVM OS znovu spustit na stránce pro restart. Připojený počítač zůstane zapnutý.",
       "magic": "Povolit také magický paket Wake-on-LAN. Kdokoli, kdo se může spojit s naslouchající službou, může restartovat NanoKVM bez hesla."
     },
+    "addonPage": {
+      "failed": "Hodnoty doplňku se nepodařilo načíst",
+      "notRunning": "Služba doplňku neběží",
+      "refused": "Doplněk to odmítl",
+      "saved": "Uloženo",
+      "save": "Uložit",
+      "status": "Stav",
+      "yes": "Ano",
+      "no": "Ne"
+    },
     "title": "Nastavení",
     "back": "Zpět",
     "close": "Zavřít",
@@ -511,25 +521,24 @@
     },
     "appearance": {
       "title": "Vzhled",
-      "display": "Zobrazení",
       "language": "Jazyk",
       "languageDesc": "Vyberte jazyk rozhraní",
       "helpTranslate": "Pomozte s překládáním",
       "webTitle": "Název webu",
       "webTitleDesc": "Přizpůsobit si titulek webové stránky",
       "menuBar": {
-        "title": "Panel nabídek",
         "mode": "Režim zobrazení",
-        "modeDesc": "Zobrazování panelu nabídek na obrazovce",
+        "modeDesc": "Automaticky skrýt: lišta se objeví, když myš dojede k hornímu okraji.",
         "modeAuto": "Automaticky skrývat",
         "modeAlways": "Vždy viditelný",
         "keyboardLedStatus": "Indikátory zámku klávesnice",
-        "keyboardLedStatusDesc": "Zobrazovat stav Num Lock, Caps Lock a Scroll Lock vzdáleného počítače",
-        "icons": "Ikony podnabídek",
-        "iconsDesc": "Zobrazování ikon podnabídek v pruhu nabídek"
+        "keyboardLedStatusDesc": "Zobrazovat Caps Lock, Num Lock a Scroll Lock vzdáleného počítače na liště nabídky.",
+        "icons": "Tlačítka lišty nabídky",
+        "iconsDesc": "Zobrazování ikon podnabídek v pruhu nabídek",
+        "hiddenCount": "skryto: {{count}}",
+        "showAll": "Zobrazit vše"
       },
       "branding": {
-        "title": "Opatření vlastní značkou",
         "faviconTitle": "Ikona webu",
         "logoTitle": "Logo na přihlašovací obrazovce",
         "restoreDefault": "Obnovit výchozí",
@@ -540,12 +549,11 @@
         "logoPreview": "Náhled loga na přihlašovací obrazovce",
         "logoUpload": "Nahrát logo na přihlašovací obrazovku",
         "failed": "Opatření vlastní značkou nebylo možné uložit.",
-        "description": "Logo na přihlašovací obrazovce a ikona webu spolu nejsou nijak propojené – je možné si je přizpůsobit každé zvlášť. Vestavěné obrázky zůstávají k dispozici jako výchozí.",
         "logoDescription": "Hlavní logo zobrazované nad přihlašovacím formulářem.",
         "faviconDescription": "Malá ikona zobrazovaná na panelu prohlížeče.",
-        "formats": "PNG nebo JPEG (až 2 MiB a 1024 x 1024 pixelů). Nejlépe bude fungovat čtvercové PNG s průhledností."
+        "formats": "PNG nebo JPEG (až 2 MiB a 1024 x 1024 pixelů). Nejlépe bude fungovat čtvercové PNG s průhledností.",
+        "upload": "Nahrát"
       },
-      "customize": "Přizpůsobit",
       "bannerStyle": {
         "rainbow": "Duhový",
         "default": "Výchozí",
@@ -554,20 +562,20 @@
         "title": "SSH banner"
       },
       "buttonColor": {
-        "save": "Použít",
         "title": "Barva tlačítka",
-        "preview": "Náhled tlačítka",
-        "accentTitle": "Hlavní tlačítka",
-        "customActive": "Uživatelsky určená barva",
         "restoreDefault": "Obnovit výchozí",
         "inputLabel": "Barva tlačítka v šestnáctkovém (hex) formátu",
         "failed": "Barvu pro tlačítka nebylo možné uložit.",
         "description": "Zvolte barvu zvýraznění používanou hlavními tlačítky napříč rozhraním.",
-        "defaultActive": "Zelená vestavěného loga (#45E9A0)",
-        "accentDescription": "Stavy „Najetí ukazatelem“ a „Stisknuto“ jsou vytvořeny automaticky."
+        "defaultActive": "Zelená vestavěného loga (#45E9A0)"
       },
       "languagePartial": "neúplné",
-      "languagePartialHint": "Částečně přeloženo. Kde chybí překlady, jsou texty zobrazovány v angličtině."
+      "languagePartialHint": "Částečně přeloženo. Kde chybí překlady, jsou texty zobrazovány v angličtině.",
+      "browser": "V tomto prohlížeči",
+      "browserDesc": "Uloženo jen v tomto prohlížeči; ostatní prohlížeče a uživatelé mají vlastní.",
+      "device": "Pro všechny na tomto zařízení",
+      "deviceDesc": "Uloženo v zařízení a vidí to každý, kdo ho otevře.",
+      "saved": "Uloženo"
     },
     "keyboardLedStatus": {
       "groupLabel": "Stav zámků vzdálené klávesnice",
@@ -1075,7 +1083,6 @@
         "collected": "Shromážděno: {{time}}",
         "kernel": "Spuštěné jádro systému",
         "boot": "Součásti zavádění systému",
-        "systemBase": "Základ systému",
         "modules": "Moduly jádra systému",
         "download": "Stáhnout si hlášení",
         "fps": "Naměřený počet snímků/s",
@@ -1090,7 +1097,19 @@
         "video": "HDMI a zachytávání videa",
         "operationFailed": "Poslední operace se nezdařila; hlášení úmyslně vynechává nezpracovaný záznam této operace.",
         "usb": "USB gadget",
-        "binding": "Navázání řadiče"
+        "binding": "Navázání řadiče",
+        "allOk": "Vše v pořádku",
+        "problems": "Nalezené problémy: {{count}}",
+        "packages": "Balíčky ({{count}})",
+        "usbOff": "USB je vypnuté v nastavení USB gadgetu.",
+        "optionalIdle": "Volitelné, neběží",
+        "nftFeatures": {
+          "mss-clamp": "Omezení MSS na MTU cesty",
+          "usb-internet": "Internet přes USB"
+        },
+        "archive": "Připravit archiv pro vývojáře",
+        "archiveHint": "Pro hlášení chyby: protokoly posledních spuštění, stav systému, hardwaru a sítě a nastavení v jednom souboru. Hesla, klíče a adresy se odstraní na zařízení. Sběr trvá až minutu.",
+        "archiveError": "Archiv pro vývojáře se nepodařilo připravit"
       },
       "logs": {
         "sources": {
@@ -1165,7 +1184,9 @@
         "checkNow": "Zkontrolovat nyní",
         "dailyOff": "Denní kontrola aktualizací je vypnutá: seznam se změní, jen když ho dáte zkontrolovat.",
         "listFailed": "Poslední kontrola se nezdařila.",
-        "failed": "Požadavek se nezdařil."
+        "failed": "Požadavek se nezdařil.",
+        "installedSection": "Nainstalované",
+        "availableSection": "Dostupné"
       },
       "updatesTab": "Aktualizace",
       "remove": "Odebrat",
@@ -1199,7 +1220,6 @@
         "upgrade": "Přechod na novější verze všech balíčků…"
       },
       "upToDate": "Všechny nainstalované balíčky jsou aktuální.",
-      "searchHint": "Hledání bude zahájeno automaticky, jakmile na chvilku přestanete psát.",
       "description": "Spravovat balíčky z nastavených repozitářů distribuce Alpine. Změny balíčků používají stejnou databázi APK a služby, jako SSH.",
       "upgradeConfirm": "Přejít na novější verzi u všech nainstalovaných balíčků? Může se stát, že video a ovládání bude nakrátko odpojeno.",
       "indexMissing": "Nejsou k dispozici žádné rejstříky balíčků. Než se budete pokoušet vyhledávat či instalovat, nechte tyto rejstříky načíst znovu.",
@@ -1271,37 +1291,35 @@
     },
     "memory": {
       "used": "Použito",
-      "algorithm": "Komprese",
       "title": "Paměť",
       "size": "Kapacita",
       "available": "K dispozici",
       "cache": "Uvolnitelná mezipaměť",
       "ram": "Využitá operační paměť",
-      "video": "Vyrovnávací paměti videa (ION)",
+      "video": "Vyrovnávací paměti videa",
       "videoMemoryShared": "Videopaměť: {{size}} MiB, sdílená se systémem Linux",
       "videoMemoryReserved": "Videopaměť: vyhrazeno {{size}} MiB. Aby aktualizovaný systém používal sdílenou videopaměť, zařízení restartujte.",
       "zramTitle": "Zapnout ZRAM swap",
-      "actualRam": "Úložiště stránek v operační paměti",
       "zramAuto": "Automaticky ({{size}} MiB)",
       "recompressTitle": "Znovu zkomprimovat zřídka používané stránky pomocí ZSTD",
       "loadError": "Nebylo možné číst stav paměti",
       "changeError": "Nebylo možné změnit nastavení odkládání stránek",
       "limitTitle": "Limit paměti serveru",
-      "limitDescription": "Blízko tohoto limitu server NanoKVM uvolňuje paměť důrazněji, namísto aby ji bral apk a zbytku systému. Vypnuto: čtvrtina RAM ({{default}} MiB). Uživatelsky určený limit je nejméně {{minimum}} MiB, i když je výchozí hodnota nižší, a platí ihned bez restartu.",
+      "limitDescription": "Blízko tohoto limitu server NanoKVM uvolňuje paměť usilovněji, místo aby ji bral apk a zbytku systému. Vlastní limit je alespoň {{minimum}} MiB a platí hned.",
       "limitValue": "Limit",
       "limitApply": "Použít",
-      "limitCurrent": "Uplatňováno: {{current}} MiB.",
       "limitNone": "Uplatňováno: bez limitu.",
       "limitError": "Limit paměti nebylo možné změnit",
       "recompressNotReady": "Uložený režim není aktivní. Znovu ho použijte až bude k dispozici dostatek operační paměti.",
-      "applicationTitle": "Snížit využití operační paměti aplikacemi",
       "ramNote": "Paměť, která je k dispozici, zahrnuje i mezipaměť, kterou lze uvolnit.",
       "sdTitle": "Zapnout stránkování na SD kartu",
       "zramDescription": "Komprimovat neaktivní stránky v operační paměti. Kapacita je měřena před kompresí; operační paměť je přidělována dle potřeby.",
-      "sdDescription": "Pokud nastane nedostatek paměti, použít swap soubor na SD kartě. Přístup do ní je pomalejší než do RAM.",
-      "priorityNote": "Ještě než bude využito stránkování na SD kartu, je použito ZRAM. Změny jsou uplatněny okamžitě a přetrvají po restartu.",
+      "sdDescription": "Odkládací soubor na SD kartě, používá se po ZRAM, když dochází paměť. Pomalejší než RAM a opotřebovává kartu.",
       "unavailable": "Vyžaduje sestavení NanoKVM OS, obsahující tuto funkci.",
-      "recompressDescription": "Ponechat rychlou LZ4 pro nové stránky. Každý 15 sekund vyzkoušet až 1 MiB stránek, nepoužívaných více jak minutu. Spotřebovává cykly procesoru a paměť pro nástroj pro kompresi; může se stát, že čtení těchto stránek bude pomalejší. Změna tohoto režimu znovuvytvoří ZRAM a vyžaduje dostatek volné operační paměti."
+      "recompressDescription": "Ponechat rychlou LZ4 pro nové stránky. Každý 15 sekund vyzkoušet až 1 MiB stránek, nepoužívaných více jak minutu. Spotřebovává cykly procesoru a paměť pro nástroj pro kompresi; může se stát, že čtení těchto stránek bude pomalejší. Změna tohoto režimu znovuvytvoří ZRAM a vyžaduje dostatek volné operační paměti.",
+      "zramUsage": "Použito {{used}}, v RAM {{stored}} ({{algorithm}})",
+      "advanced": "Pokročilé",
+      "limitDefault": "Výchozí: čtvrtina RAM ({{default}} MiB)."
     },
     "usb": {
       "identity": {
@@ -1592,10 +1610,8 @@
       "idServer": "Server pro identifikátory / randezvous"
     },
     "updates": {
-      "installed": "Nainstalováno",
       "title": "Aktualizace",
       "apk": {
-        "title": "Aktualizace balíčků",
         "log": "Záznam událostí z aktualizace",
         "reboot": "Restartovat zařízení",
         "install": "Nainstalovat aktualizace",
@@ -1605,7 +1621,6 @@
         "rebootConfirm": "Restartovat zařízení nyní?",
         "current": "Všechny nainstalované balíčky jsou aktuální",
         "rebootRequired": "Aktualizace jsou nainstalované. Aby začalo být používáno nové jádro nebo součásti systému, zařízení restartujte.",
-        "description": "Zaktualizovat nainstalované balíčky z nastavených repozitářů. Nastavení jsou zachována. Služby jsou automaticky zrestartovány, ale aktualizace jádra vyžadují restart celého systému.",
         "confirm": "Nainstalovat tyto aktualizace balíčků? Může se stát, že video a ovládání se nakrátko odpojí."
       },
       "reconnecting": "Čeká se na opětovné připojení zařízení…",
@@ -1657,7 +1672,13 @@
         "rollback": "Nainstalovat stabilní verzi",
         "rollbackDescription": "Je nainstalovaná testovací verze. Je možné nainstalovat aktuální stabilní vydání, včetně starších verzí balíčků (bez toho, aby bylo třeba čekat na další vydání).",
         "rollbackConfirm": "Nahradit testovací firmware tím aktuálním stabilním? Nastavení a data jsou ponechána. Služby budou restartovány, může být zapotřebí restart systému zařízení."
-      }
+      },
+      "status": {
+        "checking": "Hledání aktualizací…",
+        "installing": "Instalace aktualizací…",
+        "available": "Jsou dostupné aktualizace"
+      },
+      "advanced": "Pokročilé"
     },
     "extensions": {
       "title": "Rozšíření"
@@ -1684,17 +1705,19 @@
       "device": "Obnovit toto zařízení, včetně nastavení přístupů a sítě",
       "migrate": "Přenesení z jiného zařízení (doporučeno)",
       "fileLimit": "Vyberte archiv s nastaveními (až 4 MiB).",
-      "file": "Archiv s nastaveními (.nkos)",
       "updateBase": "Pro povolení obnovy a resetu zaktualizujte nanokvm-base.",
       "restore": "Obnovit nastavení",
-      "restoreReset": "Obnovit nebo resetovat",
       "download": "Stáhnout si šifrovanou zálohu",
-      "archivePassword": "Heslo pro zálohu (slouží také pro otevírání archivu)",
+      "archivePassword": "Heslo archivu",
       "encryption": "Archiv obsahuje hesla a soukromé klíče. Je šifrován vámi zadaným heslem zálohy (12-256 bajtů). Tento soubor a heslo uchovávejte někde bezpečně; zapomenuté heslo není možné obnovit.",
       "export": "Exportovat nastavení",
       "password": "Stávající heslo správce",
       "scope": "Zazálohovat spravovaná nastavení NanoKVM OS a podporovaných doplňků. Soubory operačního systému, nainstalované binárky, obrazy disků a uživatelské soubory nejsou zahrnuty. Vlastní konfigurace ostatního softwaru nainstalovaného přes APK se neresetuje.",
-      "title": "Záloha a resetování"
+      "title": "Záloha a resetování",
+      "backupPassword": "Heslo zálohy",
+      "backupPasswordShort": "Alespoň 12 znaků.",
+      "chooseFile": "Vybrat soubor .nkos",
+      "deviceHint": "Nahradí všechna nastavení tohoto zařízení nastaveními z archivu, včetně uživatelů, sítě, VPN, certifikátů a nastavení hardwaru."
     },
     "bmc": {
       "holdHint": "Nevyplněno: tak dlouho, jako je nastaveno v dlouhém stisku v nabídce napájení (5 s).",
@@ -1733,7 +1756,9 @@
       "install": "Nainstalovat",
       "description": "Ovládání napájení hostitele pro nástroje pro datová centra, prostřednictvím ATX připojení: Redfish (fence_redfish, Ansible) je součástí NanoKVM OS, IPMI přes LAN (ipmitool, fence_ipmilan) je součástí doplňku.",
       "title": "Redfish a IPMI",
-      "removeTitle": "Odebrat doplněk IPMI?"
+      "removeTitle": "Odebrat doplněk IPMI?",
+      "advanced": "Pokročilé",
+      "accountFirst": "Nastavte níže účet BMC a stiskněte Uložit: Redfish a IPMI lze zapnout jen s heslem."
     },
     "ai": {
       "title": "AI",
@@ -1742,7 +1767,7 @@
         "notInstalled": "Rozpoznávání textu potřebuje doplněk TPU.",
         "openAddons": "Doplňky",
         "enabled": "Rozpoznávání textu",
-        "enabledDescription": "Čtení textu z obrazovky pomocí TPU: tlačítko na panelu nástrojů, MCP a PicoClaw. Vypnuto — nikdo z nich obrazovku nepřečte.",
+        "enabledDescription": "Když je zapnuto, tlačítko nad obrazovkou přečte text na ní a číst ho mohou i MCP a PicoClaw. Když je vypnuto, nemůže nikdo z nich.",
         "switchFailed": "Nastavení se nepodařilo uložit"
       },
       "picoclaw": {
@@ -2188,7 +2213,6 @@
   },
   "dateTime": {
     "save": "Uložit",
-    "preview": "Náhled",
     "dateFormat": "Formát data",
     "dateAuto": "Podle jazyka",
     "dateDmy": "DD.MM.RRRR",
@@ -2206,8 +2230,14 @@
     "saved": "Nastavení data a času uložena",
     "loadFailed": "Nebylo možné číst čas v zařízení. Zkontrolujte připojení.",
     "serversHelp": "Zvolte nebo zadejte 1-6 názvů hostitelů či IP adres. Změna serverů restartuje synchronizaci času.",
-    "scope": "Časové pásmo je uplatňováno na zařízení. Formát času a data je sdílen napříč rozhraním, včetně časů ustavení VPN spojení.",
-    "saveFailed": "Nastavení nebylo možné uplatnit. Zkontrolujte adresy serverů a připojení zařízení."
+    "saveFailed": "Nastavení nebylo možné uplatnit. Zkontrolujte adresy serverů a připojení zařízení.",
+    "device": "Zařízení",
+    "display": "Zobrazení",
+    "displayHint": "Pro celé rozhraní včetně časů handshake VPN.",
+    "setFromBrowser": "Převzít čas z tohoto prohlížeče",
+    "setFromBrowserHint": "Pro síť bez NTP. Čas se uloží i do hodin zařízení.",
+    "clockSet": "Čas zařízení nastaven",
+    "clockFailed": "Čas zařízení se nepodařilo nastavit."
   },
   "sessionControl": {
     "take": "Převzít ovládání",

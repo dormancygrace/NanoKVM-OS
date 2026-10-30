@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Utseende",
-      "display": "Skjerm",
       "language": "Språk",
       "languageDesc": "Velg språket for grensesnittet",
       "helpTranslate": "Hjelp med å oversette",
       "webTitle": "Netttittel",
       "webTitleDesc": "Tilpass nettsidetittelen",
       "menuBar": {
-        "title": "Menylinje",
         "mode": "Visningsmodus",
-        "modeDesc": "Vis menylinje på skjermen",
+        "modeDesc": "Skjul automatisk: linjen vises når musen når øvre kant.",
         "modeAuto": "Skjul automatisk",
         "modeAlways": "Alltid synlig",
         "keyboardLedStatus": "Indikatorer for tastaturlås",
-        "keyboardLedStatusDesc": "Vis Num Lock-, Caps Lock- og Scroll Lock-status for den eksterne datamaskinen",
-        "icons": "Undermenyikoner",
-        "iconsDesc": "Vis undermenyikoner i menylinjen"
+        "keyboardLedStatusDesc": "Vis Caps Lock, Num Lock og Scroll Lock for den eksterne datamaskinen i menylinjen.",
+        "icons": "Knapper i menylinjen",
+        "iconsDesc": "Vis undermenyikoner i menylinjen",
+        "hiddenCount": "{{count}} skjult",
+        "showAll": "Vis alle"
       },
-      "buttonColor": {
-        "save": "Bruk"
+      "buttonColor": {},
+      "browser": "I denne nettleseren",
+      "browserDesc": "Lagres bare i denne nettleseren; andre nettlesere og brukere har sine egne.",
+      "device": "For alle på denne enheten",
+      "deviceDesc": "Lagres på enheten og vises for alle som åpner den.",
+      "saved": "Lagret",
+      "branding": {
+        "upload": "Last opp"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Tillegg",
-        "packages": "Pakker"
+        "packages": "Pakker",
+        "install": "Installer"
       },
       "title": "Programvare",
       "available": "Tilgjengelige pakker",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Pakkeoppdateringer",
         "log": "Oppdateringslogg"
       },
       "title": "Oppdateringer",
-      "installed": "Installert"
+      "status": {
+        "checking": "Ser etter oppdateringer…",
+        "installing": "Installerer oppdateringer…",
+        "available": "Oppdateringer tilgjengelig"
+      },
+      "advanced": "Avansert"
     },
     "memory": {
       "title": "Minne",
       "available": "Tilgjengelig",
       "size": "Kapasitet",
-      "used": "Brukt",
-      "algorithm": "Komprimering"
+      "used": "Brukt"
     },
     "services": {
       "title": "Tjenester"
@@ -695,9 +705,19 @@
     "ai": {
       "screenText": {
         "enabled": "Tekstgjenkjenning",
-        "enabledDescription": "Les teksten på skjermen med TPU: knappen i verktøylinjen, MCP og PicoClaw. Slått av kan ingen av dem lese den.",
+        "enabledDescription": "Når slått på, leser en knapp over skjermen teksten på den, og MCP og PicoClaw kan også lese den. Slått av kan ingen av dem.",
         "switchFailed": "Innstillingen kunne ikke lagres"
       }
+    },
+    "addonPage": {
+      "failed": "Kunne ikke lese verdiene til tillegget",
+      "notRunning": "Tilleggets tjeneste kjører ikke",
+      "refused": "Tillegget avviste det",
+      "saved": "Lagret",
+      "save": "Lagre",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nei"
     }
   },
   "picoclaw": {
@@ -886,10 +906,16 @@
     "deviceTime": "Enhetens klokkeslett",
     "timezone": "Tidssone",
     "format": "Tidsformat",
-    "preview": "Forhåndsvisning",
     "synchronized": "Synkronisert",
     "waiting": "Synkronisering ikke bekreftet",
-    "save": "Lagre"
+    "save": "Lagre",
+    "device": "Enhet",
+    "display": "Visning",
+    "displayHint": "For hele grensesnittet, også VPN-handshake-tider.",
+    "setFromBrowser": "Bruk tiden fra denne nettleseren",
+    "setFromBrowserHint": "For et nettverk uten NTP. Tiden lagres også i enhetens klokke.",
+    "clockSet": "Enhetens tid er satt",
+    "clockFailed": "Kunne ikke sette enhetens tid."
   },
   "recorder": {
     "title": "Videoopptak",

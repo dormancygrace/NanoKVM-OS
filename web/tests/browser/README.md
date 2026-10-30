@@ -48,3 +48,86 @@ refuses to create a substitute local profile. `pnpm test:browser --list` lists
 cases without launching a browser. The suite runs serially, has no retries,
 and uploads a trace on failure. Test-only files are excluded from the production
 bundle and a chunk test checks that the fixture credentials/routes do not ship.
+
+### Add-on form regressions
+
+Open `/tests/browser/addon.html` in the same Chrome Main fixture session. It uses
+the production AddonPage and HTTP error interceptor with a controlled adapter;
+all data is synthetic and no add-on or device is contacted.
+
+- Save Name `draft A`, change it to `draft B` while Save is pending, then press
+  Complete save. After the GET delivery appears in Test events, Name stays B.
+- Hold old source, then Switch source. After CURRENT NEW appears, Release old
+  read. Name and status stay on the new source.
+- On a fresh page, Hold next poll and wait for the held GET event. Save a changed
+  Name, Complete save, wait for its refreshed GET, then Release old read. The
+  committed Name must remain visible.
+- Fail saves, enter the literal synthetic value `fixture-secret`, and Save. The
+  refusal remains visible and Test events must not contain PASSWORD LOGGED.
+
+`addon.spec.ts` runs these regressions in CI, and verifies that a read slower
+than the polling interval is allowed to finish without overlapping requests.
+
+### Date and time regressions
+
+`/tests/browser/date-time.html` uses the production DateTimeSettings with a
+controlled adapter and a synthetic clock. Hold poll / Release read verifies
+that a late status cannot undo an immediate selection. Edited NTP servers
+must only be sent by Save. Complete write, Refuse writes and NTP synchronized
+cover the clock button and its partial-failure message. `date-time.spec.ts`
+runs these three scenarios in CI. Neither the host nor a device clock changes.
+
+### BMC settings regressions
+
+`/tests/browser/bmc.html` exercises the production BMC page with synthetic
+responses. Hold next read / Release read and Complete write control response
+ordering. Check stored account use by switches, serialization through readback,
+newer account edits during Save, stale polls, persistent refusal messages,
+credential redaction and the initial-password path. `bmc.spec.ts` repeats these
+cases in Chrome Main in CI. No device or add-on is contacted.
+
+## Recovery
+
+Open /tests/browser/recovery.html. All recovery calls are synthetic, including
+apply and reboot. Use the displayed fixture passwords to check export,
+restore/reset previews, cancellation, apply errors and pending reboot.
+The fixture archive button supplies a tiny synthetic file; export records
+the Blob download without writing into Downloads.
+
+### Updates
+
+Open /tests/browser/updates.html for a synthetic repository and package state.
+Offer core update, Complete package check, Complete installation and Fail operation
+exercise the production card and its confirmation dialogs. Daily-check settings,
+channel switching and stable rollback use the same production page. No package
+manager, host reboot or device request is executed. updates.spec.ts covers
+these paths in CI.
+
+### Diagnostics
+
+Open /tests/browser/diagnostics.html. The production page receives only synthetic
+API responses. Healthy keeps optional stopped services, disabled USB and no HDMI
+signal neutral; APK failure and EDID pending must appear in the summary. Multiple
+problems must list all eight items. In Logs, search for needle and cycle next and
+previous at wide and narrow widths: the highlighted line must remain in the viewer
+after long wrapped lines. Check Only matching lines, no matches and clearing search.
+These six regressions run in diagnostics.spec.ts in CI. No device is contacted.
+
+### Appearance
+
+Open /tests/browser/appearance.html for the production Appearance page with
+synthetic responses. Hold writes makes the color/reset event ordering visible:
+after editing a hex color, Restore default must send DELETE on the first click,
+and also work after Tab then Enter. Tabbing past Reset without activating it
+still saves the draft. Refuse writes + Complete write must restore the confirmed
+color and show the error. These four cases run in appearance.spec.ts in CI.
+The menu switches and role buttons also allow checking browser-local settings;
+no device is contacted.
+
+### Package index schedule
+
+Open `/tests/browser/index-schedule.html` for the production schedule controls
+with held, synthetic writes. Edit the time and immediately click the switch:
+one request must contain both changes. Tab through the switch, save with Enter,
+leave the time incomplete, and refuse a write to check focus, serialization and
+rollback. `index-schedule.spec.ts` covers these cases in CI.

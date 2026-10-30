@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Wygląd",
-      "display": "Ekran",
       "language": "Język",
       "languageDesc": "Wybierz język interfejsu",
       "helpTranslate": "Pomóż w tłumaczeniu",
       "webTitle": "Tytuł strony internetowej",
       "webTitleDesc": "Dostosuj tytuł strony internetowej",
       "menuBar": {
-        "title": "Pasek menu",
         "mode": "Tryb wyświetlania",
-        "modeDesc": "Wyświetl pasek menu na ekranie",
+        "modeDesc": "Autoukrywanie: pasek pojawia się, gdy mysz dotrze do górnej krawędzi.",
         "modeAuto": "Automatyczne ukrywanie",
         "modeAlways": "Zawsze widoczny",
         "keyboardLedStatus": "Wskaźniki blokad klawiatury",
-        "keyboardLedStatusDesc": "Wyświetl stan Num Lock, Caps Lock i Scroll Lock zdalnego komputera",
-        "icons": "Ikony podmenu",
-        "iconsDesc": "Wyświetla ikony podmenu na pasku menu"
+        "keyboardLedStatusDesc": "Pokazuj Caps Lock, Num Lock i Scroll Lock zdalnego komputera na pasku menu.",
+        "icons": "Przyciski paska menu",
+        "iconsDesc": "Wyświetla ikony podmenu na pasku menu",
+        "hiddenCount": "ukryte: {{count}}",
+        "showAll": "Pokaż wszystkie"
       },
-      "buttonColor": {
-        "save": "Zastosuj"
+      "buttonColor": {},
+      "browser": "W tej przeglądarce",
+      "browserDesc": "Zapisane tylko w tej przeglądarce; inne przeglądarki i użytkownicy mają własne.",
+      "device": "Dla wszystkich na tym urządzeniu",
+      "deviceDesc": "Zapisane na urządzeniu i widoczne dla każdego, kto je otworzy.",
+      "saved": "Zapisano",
+      "branding": {
+        "upload": "Prześlij"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Dodatki",
-        "packages": "Pakiety"
+        "packages": "Pakiety",
+        "install": "Zainstaluj"
       },
       "title": "Oprogramowanie",
       "available": "Dostępne pakiety",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Aktualizacje pakietów",
         "log": "Dziennik aktualizacji"
       },
       "title": "Aktualizacje",
-      "installed": "Zainstalowano"
+      "status": {
+        "checking": "Sprawdzanie aktualizacji…",
+        "installing": "Instalowanie aktualizacji…",
+        "available": "Dostępne aktualizacje"
+      },
+      "advanced": "Zaawansowane"
     },
     "memory": {
       "title": "Pamięć",
       "available": "Dostępne",
       "size": "Pojemność",
-      "used": "Używane",
-      "algorithm": "Kompresja"
+      "used": "Używane"
     },
     "services": {
       "title": "Usługi"
@@ -695,9 +705,19 @@
     "ai": {
       "screenText": {
         "enabled": "Rozpoznawanie tekstu",
-        "enabledDescription": "Odczyt tekstu z ekranu na TPU: przycisk na pasku narzędzi, MCP i PicoClaw. Wyłączone — żaden z nich nie może czytać ekranu.",
+        "enabledDescription": "Gdy włączone, przycisk nad ekranem odczytuje tekst na nim, a MCP i PicoClaw też mogą go odczytać. Gdy wyłączone, nikt z nich nie może.",
         "switchFailed": "Nie udało się zapisać ustawienia"
       }
+    },
+    "addonPage": {
+      "failed": "Nie można odczytać wartości dodatku",
+      "notRunning": "Usługa dodatku nie działa",
+      "refused": "Dodatek odrzucił zmianę",
+      "saved": "Zapisano",
+      "save": "Zapisz",
+      "status": "Stan",
+      "yes": "Tak",
+      "no": "Nie"
     }
   },
   "picoclaw": {
@@ -887,10 +907,16 @@
     "deviceTime": "Czas urządzenia",
     "timezone": "Strefa czasowa",
     "format": "Format czasu",
-    "preview": "Podgląd",
     "synchronized": "Zsynchronizowano",
     "waiting": "Synchronizacja niepotwierdzona",
-    "save": "Zapisz"
+    "save": "Zapisz",
+    "device": "Urządzenie",
+    "display": "Wyświetlanie",
+    "displayHint": "Dla całego interfejsu, w tym czasów uzgadniania VPN.",
+    "setFromBrowser": "Ustaw czas z tej przeglądarki",
+    "setFromBrowserHint": "Dla sieci bez NTP. Czas zapisuje się też w zegarze urządzenia.",
+    "clockSet": "Ustawiono czas urządzenia",
+    "clockFailed": "Nie udało się ustawić czasu urządzenia."
   },
   "recorder": {
     "title": "Nagrywanie wideo",

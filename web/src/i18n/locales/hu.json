@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Megjelenés",
-      "display": "Kijelző",
       "language": "Nyelv",
       "languageDesc": "Válassza ki a felület nyelvét",
       "helpTranslate": "Segíts a fordításban",
       "webTitle": "Webcím",
       "webTitleDesc": "A weboldal címének testreszabása",
       "menuBar": {
-        "title": "Menüsor",
         "mode": "Megjelenítési mód",
-        "modeDesc": "Menüsor megjelenítése a képernyőn",
+        "modeDesc": "Automatikus elrejtés: a sáv akkor jelenik meg, amikor az egér a felső szélhez ér.",
         "modeAuto": "Automatikus elrejtés",
         "modeAlways": "Mindig látható",
         "keyboardLedStatus": "Billentyűzár-jelzők",
-        "keyboardLedStatusDesc": "A távoli számítógép Num Lock, Caps Lock és Scroll Lock állapotának megjelenítése",
-        "icons": "Almenü ikonok",
-        "iconsDesc": "Almenüikonok megjelenítése a menüsorban"
+        "keyboardLedStatusDesc": "A távoli számítógép Caps Lock, Num Lock és Scroll Lock állapotának megjelenítése a menüsorban.",
+        "icons": "Menüsor gombjai",
+        "iconsDesc": "Almenüikonok megjelenítése a menüsorban",
+        "hiddenCount": "{{count}} elrejtve",
+        "showAll": "Összes megjelenítése"
       },
-      "buttonColor": {
-        "save": "Alkalmazás"
+      "buttonColor": {},
+      "browser": "Ebben a böngészőben",
+      "browserDesc": "Csak ebben a böngészőben tárolódik; más böngészőknek és felhasználóknak saját van.",
+      "device": "Mindenkinek ezen az eszközön",
+      "deviceDesc": "Az eszközön tárolódik, és mindenki látja, aki megnyitja.",
+      "saved": "Mentve",
+      "branding": {
+        "upload": "Feltöltés"
       }
     },
     "keyboardLedStatus": {
@@ -586,7 +592,8 @@
       },
       "addons": {
         "title": "Kiegészítők",
-        "packages": "Csomagok"
+        "packages": "Csomagok",
+        "install": "Telepítés"
       },
       "title": "Szoftverek",
       "available": "Elérhető csomagok",
@@ -598,18 +605,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Csomagfrissítések",
         "log": "Frissítési napló"
       },
       "title": "Frissítések",
-      "installed": "Telepítve"
+      "status": {
+        "checking": "Frissítések keresése…",
+        "installing": "Frissítések telepítése…",
+        "available": "Frissítések érhetők el"
+      },
+      "advanced": "Speciális"
     },
     "memory": {
       "title": "Memória",
       "available": "Elérhető",
       "size": "Kapacitás",
-      "used": "Felhasznált",
-      "algorithm": "Tömörítés"
+      "used": "Felhasznált"
     },
     "services": {
       "title": "Szolgáltatások"
@@ -720,9 +730,19 @@
     "ai": {
       "screenText": {
         "enabled": "Szövegfelismerés",
-        "enabledDescription": "A képernyőn lévő szöveg olvasása a TPU-val: az eszköztár gombja, az MCP és a PicoClaw. Kikapcsolva egyikük sem olvashat.",
+        "enabledDescription": "Bekapcsolva a képernyő feletti gomb felolvassa a rajta lévő szöveget, és az MCP és a PicoClaw is olvashatja. Kikapcsolva egyikük sem.",
         "switchFailed": "A beállítást nem sikerült menteni"
       }
+    },
+    "addonPage": {
+      "failed": "Nem sikerült beolvasni a bővítmény értékeit",
+      "notRunning": "A bővítmény szolgáltatása nem fut",
+      "refused": "A bővítmény elutasította",
+      "saved": "Mentve",
+      "save": "Mentés",
+      "status": "Állapot",
+      "yes": "Igen",
+      "no": "Nem"
     }
   },
   "picoclaw": {
@@ -918,10 +938,16 @@
     "deviceTime": "Eszközidő",
     "timezone": "Időzóna",
     "format": "Időformátum",
-    "preview": "Előnézet",
     "synchronized": "Szinkronizálva",
     "waiting": "A szinkronizálás nincs megerősítve",
-    "save": "Mentés"
+    "save": "Mentés",
+    "device": "Eszköz",
+    "display": "Megjelenítés",
+    "displayHint": "A teljes felülethez, a VPN-kézfogások idejét is beleértve.",
+    "setFromBrowser": "Idő átvétele ebből a böngészőből",
+    "setFromBrowserHint": "NTP nélküli hálózathoz. Az idő az eszköz órájába is mentésre kerül.",
+    "clockSet": "Az eszköz ideje beállítva",
+    "clockFailed": "Nem sikerült beállítani az eszköz idejét."
   },
   "recorder": {
     "title": "Videófelvétel",

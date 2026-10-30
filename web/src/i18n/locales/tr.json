@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Görünüm",
-      "display": "Ekran",
       "language": "Dil",
       "languageDesc": "Arayüz için dili seçin",
       "helpTranslate": "Çeviriye yardım et",
       "webTitle": "Site başlığı",
       "webTitleDesc": "Görünen site başlığını güncelleyin",
       "menuBar": {
-        "title": "Menü Çubuğu",
         "mode": "Görüntüleme Modu",
-        "modeDesc": "Ekranda menü çubuğunu görüntüle",
+        "modeDesc": "Otomatik gizle: fare üst kenara geldiğinde çubuk görünür.",
         "modeAuto": "Otomatik gizle",
         "modeAlways": "Her zaman görünür",
         "keyboardLedStatus": "Klavye kilidi göstergeleri",
-        "keyboardLedStatusDesc": "Uzak bilgisayarın Num Lock, Caps Lock ve Scroll Lock durumunu göster",
-        "icons": "Alt Menü Simgeleri",
-        "iconsDesc": "Menü çubuğunda alt menü simgelerini görüntüle"
+        "keyboardLedStatusDesc": "Uzak bilgisayarın Caps Lock, Num Lock ve Scroll Lock durumunu menü çubuğunda göster.",
+        "icons": "Menü çubuğu düğmeleri",
+        "iconsDesc": "Menü çubuğunda alt menü simgelerini görüntüle",
+        "hiddenCount": "{{count}} gizli",
+        "showAll": "Tümünü göster"
       },
-      "buttonColor": {
-        "save": "Uygula"
+      "buttonColor": {},
+      "browser": "Bu tarayıcıda",
+      "browserDesc": "Yalnızca bu tarayıcıda saklanır; diğer tarayıcılar ve kullanıcıların kendi ayarları vardır.",
+      "device": "Bu cihazdaki herkes için",
+      "deviceDesc": "Cihazda saklanır ve onu açan herkes görür.",
+      "saved": "Kaydedildi",
+      "branding": {
+        "upload": "Yükle"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Eklentiler",
-        "packages": "Paketler"
+        "packages": "Paketler",
+        "install": "Kur"
       },
       "title": "Yazılım",
       "available": "Kullanılabilir paketler",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Paket güncellemeleri",
         "log": "Güncelleme günlüğü"
       },
       "title": "Güncellemeler",
-      "installed": "Kurulu"
+      "status": {
+        "checking": "Güncellemeler denetleniyor…",
+        "installing": "Güncellemeler yükleniyor…",
+        "available": "Güncellemeler var"
+      },
+      "advanced": "Gelişmiş"
     },
     "memory": {
       "title": "Bellek",
       "available": "Kullanılabilir",
       "size": "Kapasite",
-      "used": "Kullanılan",
-      "algorithm": "Sıkıştırma"
+      "used": "Kullanılan"
     },
     "services": {
       "title": "Hizmetler"
@@ -695,9 +705,19 @@
     "ai": {
       "screenText": {
         "enabled": "Metin tanıma",
-        "enabledDescription": "Ekrandaki metni TPU ile okuma: araç çubuğu düğmesi, MCP ve PicoClaw. Kapalıyken hiçbiri okuyamaz.",
+        "enabledDescription": "Açıkken ekranın üstündeki bir düğme ekrandaki metni okur; MCP ve PicoClaw da okuyabilir. Kapalıyken hiçbiri okuyamaz.",
         "switchFailed": "Ayar kaydedilemedi"
       }
+    },
+    "addonPage": {
+      "failed": "Eklentinin değerleri okunamadı",
+      "notRunning": "Eklentinin hizmeti çalışmıyor",
+      "refused": "Eklenti bunu reddetti",
+      "saved": "Kaydedildi",
+      "save": "Kaydet",
+      "status": "Durum",
+      "yes": "Evet",
+      "no": "Hayır"
     }
   },
   "picoclaw": {
@@ -886,10 +906,16 @@
     "deviceTime": "Cihaz saati",
     "timezone": "Saat dilimi",
     "format": "Saat biçimi",
-    "preview": "Önizleme",
     "synchronized": "Eşitlendi",
     "waiting": "Eşitleme doğrulanmadı",
-    "save": "Kaydet"
+    "save": "Kaydet",
+    "device": "Cihaz",
+    "display": "Görünüm",
+    "displayHint": "Tüm arayüz için, VPN el sıkışma zamanları dahil.",
+    "setFromBrowser": "Bu tarayıcının saatini kullan",
+    "setFromBrowserHint": "NTP olmayan bir ağ için. Saat, cihazın saat yongasına da kaydedilir.",
+    "clockSet": "Cihaz saati ayarlandı",
+    "clockFailed": "Cihaz saati ayarlanamadı."
   },
   "recorder": {
     "title": "Video kaydı",

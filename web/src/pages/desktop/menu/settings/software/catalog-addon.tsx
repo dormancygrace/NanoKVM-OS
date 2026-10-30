@@ -62,7 +62,8 @@ export const CatalogAddonCard = ({
       const confirmed = await confirmAction({
         title: t('removeTitle', { name: title(addon.name) }),
         content: t('removeConfirm'),
-        danger: true
+        danger: true,
+        safeDefault: true
       });
       if (!confirmed) return;
     }
@@ -133,7 +134,7 @@ export const CatalogAddonCard = ({
         )}
         {addon.installed && (
           <Button
-            danger
+            type="text"
             icon={<Trash2Icon size={16} />}
             loading={busy === 'remove'}
             disabled={!!busy}

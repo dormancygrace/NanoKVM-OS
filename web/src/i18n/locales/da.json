@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Udseende",
-      "display": "Visning",
       "language": "Sprog",
       "languageDesc": "Vælg sproget til grænsefladen",
       "helpTranslate": "Hjælp med at oversætte",
       "webTitle": "Webtitel",
       "webTitleDesc": "Tilpas websidens titel",
       "menuBar": {
-        "title": "Menulinje",
         "mode": "Visningstilstand",
-        "modeDesc": "Vis menulinje på skærmen",
+        "modeDesc": "Skjul automatisk: bjælken vises, når musen når den øverste kant.",
         "modeAuto": "Skjul automatisk",
         "modeAlways": "Altid synlig",
         "keyboardLedStatus": "Tastaturlåseindikatorer",
-        "keyboardLedStatusDesc": "Vis Num Lock-, Caps Lock- og Scroll Lock-status for fjerncomputeren",
-        "icons": "Undermenuikoner",
-        "iconsDesc": "Vis undermenuikoner i menulinjen"
+        "keyboardLedStatusDesc": "Vis Caps Lock, Num Lock og Scroll Lock for fjerncomputeren i menulinjen.",
+        "icons": "Knapper i menulinjen",
+        "iconsDesc": "Vis undermenuikoner i menulinjen",
+        "hiddenCount": "{{count}} skjult",
+        "showAll": "Vis alle"
       },
-      "buttonColor": {
-        "save": "Anvend"
+      "buttonColor": {},
+      "browser": "I denne browser",
+      "browserDesc": "Gemmes kun i denne browser; andre browsere og brugere har deres egne.",
+      "device": "For alle på denne enhed",
+      "deviceDesc": "Gemmes på enheden og vises for alle, der åbner den.",
+      "saved": "Gemt",
+      "branding": {
+        "upload": "Upload"
       }
     },
     "keyboardLedStatus": {
@@ -561,7 +567,8 @@
       },
       "addons": {
         "title": "Tilføjelser",
-        "packages": "Pakker"
+        "packages": "Pakker",
+        "install": "Installér"
       },
       "title": "Software",
       "available": "Tilgængelige pakker",
@@ -573,18 +580,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Pakkeopdateringer",
         "log": "Opdateringslog"
       },
       "title": "Opdateringer",
-      "installed": "Installeret"
+      "status": {
+        "checking": "Søger efter opdateringer…",
+        "installing": "Installerer opdateringer…",
+        "available": "Opdateringer tilgængelige"
+      },
+      "advanced": "Avanceret"
     },
     "memory": {
       "title": "Hukommelse",
       "available": "Tilgængelig",
       "size": "Kapacitet",
-      "used": "Brugt",
-      "algorithm": "Komprimering"
+      "used": "Brugt"
     },
     "services": {
       "title": "Tjenester"
@@ -690,9 +700,19 @@
     "ai": {
       "screenText": {
         "enabled": "Tekstgenkendelse",
-        "enabledDescription": "Læs teksten på skærmen med TPU: knappen i værktøjslinjen, MCP og PicoClaw. Slået fra kan ingen af dem læse den.",
+        "enabledDescription": "Når slået til, læser en knap over skærmen teksten på den, og MCP og PicoClaw kan også læse den. Slået fra kan ingen af dem.",
         "switchFailed": "Indstillingen kunne ikke gemmes"
       }
+    },
+    "addonPage": {
+      "failed": "Kunne ikke læse tilføjelsens værdier",
+      "notRunning": "Tilføjelsens tjeneste kører ikke",
+      "refused": "Tilføjelsen afviste det",
+      "saved": "Gemt",
+      "save": "Gem",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nej"
     }
   },
   "picoclaw": {
@@ -881,10 +901,16 @@
     "deviceTime": "Enhedens klokkeslæt",
     "timezone": "Tidszone",
     "format": "Tidsformat",
-    "preview": "Forhåndsvisning",
     "synchronized": "Synkroniseret",
     "waiting": "Synkronisering ikke bekræftet",
-    "save": "Gem"
+    "save": "Gem",
+    "device": "Enhed",
+    "display": "Visning",
+    "displayHint": "For hele brugerfladen, også VPN-handshake-tider.",
+    "setFromBrowser": "Brug denne browsers tid",
+    "setFromBrowserHint": "Til et netværk uden NTP. Tiden gemmes også i enhedens ur.",
+    "clockSet": "Enhedens tid er indstillet",
+    "clockFailed": "Kunne ikke indstille enhedens tid."
   },
   "recorder": {
     "title": "Videooptagelse",

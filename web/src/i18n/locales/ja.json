@@ -38,7 +38,6 @@
     "format": "時刻形式",
     "hour24": "24 時間",
     "hour12": "12 時間",
-    "preview": "プレビュー",
     "dateFormat": "日付形式",
     "dateAuto": "言語に合わせる",
     "dateDmy": "DD.MM.YYYY",
@@ -46,13 +45,19 @@
     "dateYmd": "YYYY-MM-DD",
     "servers": "NTP サーバー",
     "serversHelp": "ホスト名または IP アドレスを 1–6 個選択または入力してください。サーバーを変更すると時刻同期が再起動されます。",
-    "scope": "タイムゾーンはデバイスに適用されます。時刻と日付の形式は VPN のハンドシェイク時刻を含め、インターフェース全体で共通です。",
     "synchronized": "同期済み",
     "waiting": "同期が確認されていません",
     "save": "保存",
     "saved": "日付と時刻の設定を保存しました",
     "loadFailed": "デバイスの時刻を読み取れません。接続を確認してください。",
-    "saveFailed": "設定を適用できませんでした。サーバーアドレスとデバイスの接続を確認してください。"
+    "saveFailed": "設定を適用できませんでした。サーバーアドレスとデバイスの接続を確認してください。",
+    "device": "デバイス",
+    "display": "表示",
+    "displayHint": "インターフェース全体（VPN ハンドシェイクの時刻を含む）に適用されます。",
+    "setFromBrowser": "このブラウザーの時刻を使う",
+    "setFromBrowserHint": "NTP のないネットワーク向けです。時刻はデバイスの時計チップにも保存されます。",
+    "clockSet": "デバイスの時刻を設定しました",
+    "clockFailed": "デバイスの時刻を設定できませんでした。"
   },
   "recorder": {
     "startDirect": "元のストリームの録画を開始（MP4）",
@@ -776,6 +781,16 @@
       "description": "映像、キーボード、仮想ディスク、SSH、アドオンを停止します。NanoKVMの電源を切る前に、完了の確認を待ってください。電源を接続したままにする場合は、再起動ページからNanoKVM OSを再び起動できます。接続先のコンピューターの電源は入ったままです。",
       "magic": "Wake-on-LANのマジックパケットも許可します。受信サービスにアクセスできる人は誰でも、パスワードなしでNanoKVMを再起動できます。"
     },
+    "addonPage": {
+      "failed": "アドオンの値を読み取れませんでした",
+      "notRunning": "アドオンのサービスは実行されていません",
+      "refused": "アドオンが拒否しました",
+      "saved": "保存しました",
+      "save": "保存",
+      "status": "状態",
+      "yes": "はい",
+      "no": "いいえ"
+    },
     "vpn": {
       "title": "VPN",
       "description": "NanoKVM をプライベートネットワークに接続します。設定する VPN を選択してください。"
@@ -822,7 +837,9 @@
         "checkNow": "今すぐ確認",
         "dailyOff": "毎日の更新確認はオフです。一覧は確認したときだけ変わります。",
         "listFailed": "前回の確認に失敗しました。",
-        "failed": "リクエストに失敗しました。"
+        "failed": "リクエストに失敗しました。",
+        "installedSection": "インストール済み",
+        "availableSection": "利用可能"
       },
       "title": "ソフトウェア",
       "description": "設定済みの Alpine リポジトリからパッケージを管理します。パッケージの変更には SSH と同じ APK データベースとサービスが使用されます。",
@@ -835,7 +852,6 @@
       "upToDate": "インストール済みのパッケージはすべて最新です。",
       "searchPlaceholder": "パッケージ名で検索",
       "search": "検索",
-      "searchHint": "入力を止めると自動的に検索が始まります。",
       "noResults": "一致するパッケージがありません",
       "indexMissing": "パッケージインデックスがありません。検索やインストールの前にインデックスを更新してください。",
       "indexStale": "パッケージインデックスが古い可能性があります（最終更新：{{updated}}）。インストール前に更新してください。",
@@ -858,8 +874,6 @@
     },
     "updates": {
       "apk": {
-        "title": "パッケージのアップデート",
-        "description": "設定済みのリポジトリからインストール済みのパッケージを更新します。設定は保持されます。サービスは自動的に再起動されます。カーネルの更新には再起動が必要です。",
         "check": "アップデートを確認",
         "install": "アップデートをインストール",
         "confirm": "これらのパッケージのアップデートをインストールしますか？映像と操作が一時的に切断される場合があります。",
@@ -873,7 +887,6 @@
       },
       "title": "アップデート",
       "description": "署名済みパッケージを使用して NanoKVM OS を更新します。システムの更新ではデバイスが再起動し、アプリケーションの更新では映像と操作が一時的に切断されます。",
-      "installed": "インストール済み",
       "requestFailed": "アップデートのリクエストに失敗しました。デバイスの接続を確認して再試行してください。",
       "reconnecting": "デバイスの再接続を待機中…",
       "components": {
@@ -922,41 +935,45 @@
         "rollback": "安定版をインストール",
         "rollbackDescription": "ベータ版がインストールされています。古いパッケージを含む現在の安定版ファームウェアに戻せます。",
         "rollbackConfirm": "ベータ版を現在の安定版に置き換えますか？設定とデータは保持されます。サービスが再起動し、端末の再起動が必要になる場合があります。"
-      }
+      },
+      "status": {
+        "checking": "アップデートを確認しています…",
+        "installing": "アップデートをインストールしています…",
+        "available": "アップデートがあります"
+      },
+      "advanced": "詳細設定"
     },
     "memory": {
       "zramAuto": "自動（{{size}} MiB）",
       "recompressTitle": "コールドページを ZSTD で再圧縮",
       "recompressDescription": "新しいページには高速な LZ4 を使用します。15 秒ごとに、1 分間アクセスのないページを最大 1 MiB 再圧縮します。追加の CPU と圧縮用メモリを使用し、これらのページの読み取りが遅くなる場合があります。このモードを変更すると ZRAM が再作成されるため、十分な空き RAM が必要です。",
       "recompressNotReady": "保存されたモードは有効になっていません。十分な RAM が利用可能になったら再適用してください。",
-      "applicationTitle": "アプリケーションのメモリを削減",
       "title": "メモリ",
       "ram": "使用中の RAM",
       "available": "利用可能",
       "cache": "解放可能なキャッシュ",
-      "video": "ビデオバッファー（ION）",
+      "video": "ビデオバッファー",
       "videoMemoryShared": "ビデオメモリ：{{size}} MiB（Linux と共有）",
       "videoMemoryReserved": "ビデオメモリ：{{size}} MiB を予約済み。更新されたシステムの共有ビデオメモリを使用するには、デバイスを再起動してください。",
       "ramNote": "利用可能なメモリには解放可能なキャッシュが含まれます。",
       "zramTitle": "ZRAM スワップを有効にする",
       "sdTitle": "SD スワップを有効にする",
       "zramDescription": "非アクティブなメモリページを RAM 内で圧縮します。容量は圧縮前のサイズで計算され、RAM は必要に応じて割り当てられます。",
-      "sdDescription": "メモリが不足したときに SD カード上のスワップファイルを使用します。SD へのアクセスは RAM より低速です。",
+      "sdDescription": "SD カード上のスワップファイルです。メモリーが不足したとき ZRAM の後に使われます。RAM より遅く、カードを消耗させます。",
       "size": "容量",
       "used": "使用量",
-      "algorithm": "圧縮方式",
-      "actualRam": "RAM 上のページ格納量",
-      "priorityNote": "ZRAM は SD スワップより先に使用されます。変更はすぐに適用され、再起動後も保持されます。",
       "unavailable": "この機能を含む NanoKVM OS ビルドが必要です。",
       "loadError": "メモリの状態を読み取れませんでした",
       "changeError": "スワップ設定を変更できませんでした",
       "limitTitle": "サーバーのメモリ上限",
-      "limitDescription": "この上限に近づくと、NanoKVM サーバーは apk やシステムの他の部分からメモリを奪わず、より積極的にメモリを解放します。オフ：RAM の 4 分の 1（{{default}} MiB）。カスタム上限は、デフォルトがそれより低くても {{minimum}} MiB 以上で、再起動なしですぐに適用されます。",
+      "limitDescription": "この上限に近づくと、NanoKVM サーバーは apk やほかのシステムからメモリーを奪わず、より積極的に解放します。独自の上限は {{minimum}} MiB 以上で、すぐに適用されます。",
       "limitValue": "上限",
       "limitApply": "適用",
-      "limitCurrent": "現在の上限：{{current}} MiB。",
       "limitNone": "現在の上限：なし。",
-      "limitError": "メモリ上限を変更できませんでした"
+      "limitError": "メモリ上限を変更できませんでした",
+      "zramUsage": "使用 {{used}}、RAM 上 {{stored}}（{{algorithm}}）",
+      "advanced": "詳細設定",
+      "limitDefault": "既定: RAM の 4 分の 1（{{default}} MiB）。"
     },
     "services": {
       "title": "サービス"
@@ -1009,7 +1026,6 @@
         "image": "イメージ",
         "alpine": "Alpine",
         "kernel": "実行中のカーネル",
-        "systemBase": "システムベース",
         "modules": "カーネルモジュール",
         "boot": "ブートコンポーネント",
         "video": "HDMI とビデオキャプチャ",
@@ -1045,7 +1061,19 @@
           "saved-profile": "保存済みプロファイル",
           "power-cycle-pending": "物理的な電源の再投入待ち",
           "pending-reboot": "再起動待ち"
-        }
+        },
+        "allOk": "すべて正常です",
+        "problems": "見つかった問題: {{count}}",
+        "packages": "パッケージ（{{count}}）",
+        "usbOff": "USB は USB ガジェットの設定でオフになっています。",
+        "optionalIdle": "オプション、未実行",
+        "nftFeatures": {
+          "mss-clamp": "MSS をパス MTU に制限",
+          "usb-internet": "USB インターネット共有"
+        },
+        "archive": "開発者向けアーカイブを作成",
+        "archiveHint": "不具合報告用: 直近の起動のログ、システム・ハードウェア・ネットワークの状態と設定を 1 つのファイルにまとめます。パスワード、鍵、アドレスはデバイス上で削除されます。収集には最大 1 分かかります。",
+        "archiveError": "開発者向けアーカイブを作成できませんでした"
       },
       "device": "デバイス",
       "performance": "パフォーマンス",
@@ -1147,8 +1175,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "ブランディング",
-        "description": "ログインロゴとブラウザのファビコンを個別にカスタマイズします。組み込みの画像はデフォルトとして引き続き利用できます。",
         "logoTitle": "ログインロゴ",
         "logoDescription": "ログインフォームの上に表示されるメインロゴです。",
         "logoPreview": "ログインロゴのプレビュー",
@@ -1161,18 +1187,14 @@
         "customActive": "カスタム画像",
         "restoreDefault": "デフォルトに戻す",
         "formats": "PNG または JPEG、最大 2 MiB、1024 × 1024 ピクセルまで。正方形の透過 PNG が最適です。",
-        "failed": "ブランディングを保存できませんでした。"
+        "failed": "ブランディングを保存できませんでした。",
+        "upload": "アップロード"
       },
       "buttonColor": {
         "title": "ボタンの色",
         "description": "インターフェース全体のプライマリボタンに使用するアクセントカラーを選択します。",
-        "accentTitle": "プライマリボタン",
-        "accentDescription": "ホバー時と押下時の状態は自動的に生成されます。",
-        "preview": "ボタンのプレビュー",
         "inputLabel": "ボタンの色（16 進数形式）",
         "defaultActive": "組み込みのロゴグリーン（#45E9A0）",
-        "customActive": "カスタムカラー",
-        "save": "適用",
         "restoreDefault": "デフォルトに戻す",
         "failed": "ボタンの色を保存できませんでした。"
       },
@@ -1184,8 +1206,6 @@
         "failed": "SSH バナーのスタイルを保存できませんでした。"
       },
       "title": "外観",
-      "display": "表示",
-      "customize": "カスタマイズ",
       "language": "言語",
       "languageDesc": "インターフェース言語の選択",
       "helpTranslate": "翻訳に協力する",
@@ -1194,16 +1214,22 @@
       "webTitle": "ウェブページタイトル",
       "webTitleDesc": "ウェブページタイトルのカスタマイズ",
       "menuBar": {
-        "title": "メニューバー",
         "mode": "表示モード",
-        "modeDesc": "メニューバーの画面表示方法",
+        "modeDesc": "自動的に隠す：マウスが上端に来るとバーが表示されます。",
         "modeAuto": "自動非表示",
         "modeAlways": "常に表示",
         "keyboardLedStatus": "キーボードロックの表示",
-        "keyboardLedStatusDesc": "リモートコンピューターの Num Lock、Caps Lock、Scroll Lock の状態を表示",
-        "icons": "メニューアイコン",
-        "iconsDesc": "メニューバーでのサブメニューアイコンの表示"
-      }
+        "keyboardLedStatusDesc": "リモートコンピューターの Caps Lock、Num Lock、Scroll Lock をメニューバーに表示します。",
+        "icons": "メニューバーのボタン",
+        "iconsDesc": "メニューバーでのサブメニューアイコンの表示",
+        "hiddenCount": "{{count}} 件非表示",
+        "showAll": "すべて表示"
+      },
+      "browser": "このブラウザー",
+      "browserDesc": "このブラウザーにのみ保存されます。他のブラウザーやユーザーは個別の設定を持ちます。",
+      "device": "このデバイスの全員",
+      "deviceDesc": "デバイスに保存され、開いた全員に表示されます。",
+      "saved": "保存しました"
     },
     "keyboardLedStatus": {
       "groupLabel": "リモートキーボードのロック状態",
@@ -2048,7 +2074,9 @@
       "ipmiNotInstalled": "IPMI は IPMI アドオンで提供されますが、インストールされていません。",
       "ipmiInstall": "IPMI アドオンをインストール",
       "ipmiAddonDescription": "ホスト電源制御のための IPMI over LAN（ipmitool、fence_ipmilan）。設定は「サービス > Redfish と IPMI」にあります。",
-      "holdDefault": "5（電源メニュー）"
+      "holdDefault": "5（電源メニュー）",
+      "advanced": "詳細設定",
+      "accountFirst": "下の BMC アカウントを設定して［保存］を押してください。Redfish と IPMI はパスワードがあるときだけ有効になります。"
     },
     "recovery": {
       "title": "バックアップとリセット",
@@ -2056,13 +2084,11 @@
       "password": "現在の管理者パスワード",
       "export": "設定をエクスポート",
       "encryption": "アーカイブにはパスワードと秘密鍵が含まれます。バックアップ用パスワード（12～256 バイト）で暗号化されます。ファイルとパスワードを安全に保管してください。紛失したパスワードは復元できません。",
-      "archivePassword": "バックアップ用パスワード（アーカイブを開く際にも使用）",
+      "archivePassword": "アーカイブのパスワード",
       "download": "暗号化したバックアップをダウンロード",
-      "restoreReset": "復元またはリセット",
       "restore": "設定を復元",
       "reset": "設定を工場出荷時に戻す",
       "updateBase": "復元とリセットを有効にするには nanokvm-base を更新してください。",
-      "file": "設定アーカイブ（.nkos）",
       "fileLimit": "4 MiB 以下の設定アーカイブを選択してください。",
       "migrate": "別のデバイスに移行（推奨）",
       "device": "アクセスとネットワーク設定を含め、このデバイスを復元",
@@ -2082,7 +2108,11 @@
       "inventory": "バックアップに記録されたパッケージ（自動インストールされません）",
       "confirm": "変更を確認し、再起動後にデバイスへ再接続できます。",
       "reboot": "再起動して完了",
-      "rebooting": "復元を予約しました。デバイスが再起動しています。その後、再接続してください。"
+      "rebooting": "復元を予約しました。デバイスが再起動しています。その後、再接続してください。",
+      "backupPassword": "バックアップのパスワード",
+      "backupPasswordShort": "12 文字以上にしてください。",
+      "chooseFile": ".nkos ファイルを選択",
+      "deviceHint": "このデバイスのすべての設定を、ユーザー、ネットワーク、VPN、証明書、ハードウェア設定を含めてアーカイブの内容で置き換えます。"
     },
     "ai": {
       "title": "AI",
@@ -2091,7 +2121,7 @@
         "notInstalled": "文字認識には TPU アドオンが必要です。",
         "openAddons": "アドオン",
         "enabled": "文字認識",
-        "enabledDescription": "TPU で画面上の文字を読み取ります: ツールバーのボタン、MCP、PicoClaw。オフにすると、どれも読み取れません。",
+        "enabledDescription": "オンにすると、画面上部のボタンで画面の文字を読み取れ、MCP と PicoClaw も読み取れます。オフでは、どれも読み取れません。",
         "switchFailed": "設定を保存できませんでした"
       },
       "picoclaw": {

@@ -38,7 +38,6 @@
     "format": "Format de l'heure",
     "hour24": "24 heures",
     "hour12": "12 heures",
-    "preview": "Aperçu",
     "dateFormat": "Format de la date",
     "dateAuto": "Selon la langue",
     "dateDmy": "JJ.MM.AAAA",
@@ -46,13 +45,19 @@
     "dateYmd": "AAAA-MM-JJ",
     "servers": "Serveurs NTP",
     "serversHelp": "Choisissez ou saisissez de 1 à 6 noms d'hôte ou adresses IP. La modification des serveurs redémarre la synchronisation de l'heure.",
-    "scope": "Le fuseau horaire s'applique à l'appareil. Les formats de l'heure et de la date sont communs à toute l'interface, y compris les heures de handshake VPN.",
     "synchronized": "Synchronisé",
     "waiting": "Synchronisation non confirmée",
     "save": "Enregistrer",
     "saved": "Paramètres de date et d'heure enregistrés",
     "loadFailed": "Impossible de lire l'heure de l'appareil. Vérifiez la connexion.",
-    "saveFailed": "Impossible d'appliquer les paramètres. Vérifiez les adresses des serveurs et la connexion à l'appareil."
+    "saveFailed": "Impossible d'appliquer les paramètres. Vérifiez les adresses des serveurs et la connexion à l'appareil.",
+    "device": "Appareil",
+    "display": "Affichage",
+    "displayHint": "Pour toute l'interface, y compris les heures de handshake VPN.",
+    "setFromBrowser": "Prendre l'heure de ce navigateur",
+    "setFromBrowserHint": "Pour un réseau sans NTP. L'heure est aussi enregistrée dans l'horloge de l'appareil.",
+    "clockSet": "Heure de l'appareil réglée",
+    "clockFailed": "Impossible de régler l'heure de l'appareil."
   },
   "recorder": {
     "startDirect": "Démarrer l'enregistrement du flux d'origine (MP4)",
@@ -776,6 +781,16 @@
       "description": "Arrête la vidéo, le clavier, les disques virtuels, SSH et les extensions. Attendez la confirmation avant de débrancher l’alimentation de NanoKVM. Si l’alimentation reste branchée, utilisez la page de redémarrage pour relancer NanoKVM OS. L’ordinateur connecté reste allumé.",
       "magic": "Autoriser aussi un paquet magique Wake-on-LAN. Toute personne pouvant joindre le service d’écoute peut redémarrer NanoKVM sans mot de passe."
     },
+    "addonPage": {
+      "failed": "Impossible de lire les valeurs du module complémentaire",
+      "notRunning": "Le service du module complémentaire n'est pas lancé",
+      "refused": "Le module complémentaire a refusé",
+      "saved": "Enregistré",
+      "save": "Enregistrer",
+      "status": "État",
+      "yes": "Oui",
+      "no": "Non"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Connectez le NanoKVM à un réseau privé. Sélectionnez un VPN pour le configurer."
@@ -822,7 +837,9 @@
         "checkNow": "Vérifier maintenant",
         "dailyOff": "La vérification quotidienne des mises à jour est désactivée : la liste ne change que lorsque vous vérifiez.",
         "listFailed": "La dernière vérification a échoué.",
-        "failed": "La requête a échoué."
+        "failed": "La requête a échoué.",
+        "installedSection": "Installés",
+        "availableSection": "Disponibles"
       },
       "title": "Logiciels",
       "description": "Gérez les paquets des dépôts Alpine configurés. Les modifications de paquets utilisent la même base de données APK et les mêmes services que SSH.",
@@ -835,7 +852,6 @@
       "upToDate": "Tous les paquets installés sont à jour.",
       "searchPlaceholder": "Rechercher un nom de paquet",
       "search": "Rechercher",
-      "searchHint": "La recherche démarre automatiquement dès que vous arrêtez de taper.",
       "noResults": "Aucun paquet correspondant",
       "indexMissing": "Aucun index de paquets n'est disponible. Actualisez les index avant de rechercher ou d'installer.",
       "indexStale": "Les index de paquets sont peut-être obsolètes (dernière actualisation {{updated}}). Actualisez-les avant d'installer.",
@@ -858,8 +874,6 @@
     },
     "updates": {
       "apk": {
-        "title": "Mises à jour des paquets",
-        "description": "Mettez à jour les paquets installés depuis les dépôts configurés. Les paramètres sont conservés. Les services redémarrent automatiquement ; une mise à jour du noyau nécessite un redémarrage.",
         "check": "Rechercher des mises à jour",
         "install": "Installer les mises à jour",
         "confirm": "Installer ces mises à jour de paquets ? La vidéo et le contrôle peuvent être brièvement déconnectés.",
@@ -873,7 +887,6 @@
       },
       "title": "Mises à jour",
       "description": "Mettez à jour NanoKVM OS à l'aide de paquets signés. Les mises à jour système redémarrent l'appareil ; les mises à jour de l'application déconnectent brièvement la vidéo et le contrôle.",
-      "installed": "Installé",
       "requestFailed": "La requête de mise à jour a échoué. Vérifiez la connectivité de l'appareil et réessayez.",
       "reconnecting": "En attente de la reconnexion de l'appareil…",
       "components": {
@@ -922,41 +935,45 @@
         "rollback": "Installer la version stable",
         "rollbackDescription": "Une bêta est installée. Vous pouvez revenir au micrologiciel stable actuel, y compris à des versions de paquets antérieures.",
         "rollbackConfirm": "Remplacer la bêta par le micrologiciel stable actuel ? Les réglages et données sont conservés. Les services redémarreront ; un redémarrage peut être nécessaire."
-      }
+      },
+      "status": {
+        "checking": "Recherche de mises à jour…",
+        "installing": "Installation des mises à jour…",
+        "available": "Mises à jour disponibles"
+      },
+      "advanced": "Avancé"
     },
     "memory": {
       "zramAuto": "Automatique ({{size}} MiB)",
       "recompressTitle": "Recompresser les pages froides avec ZSTD",
       "recompressDescription": "Conserve LZ4, rapide, pour les nouvelles pages. Toutes les 15 secondes, traite jusqu'à 1 MiB de pages inutilisées depuis une minute. Consomme davantage de CPU et de mémoire du compresseur ; la lecture de ces pages peut être plus lente. La modification de ce mode recrée la ZRAM et nécessite suffisamment de RAM libre.",
       "recompressNotReady": "Le mode enregistré n'est pas actif. Appliquez-le de nouveau lorsque suffisamment de RAM sera disponible.",
-      "applicationTitle": "Réduire la mémoire de l'application",
       "title": "Mémoire",
       "ram": "RAM utilisée",
       "available": "Disponible",
       "cache": "Cache récupérable",
-      "video": "Tampons vidéo (ION)",
+      "video": "Tampons vidéo",
       "videoMemoryShared": "Mémoire vidéo : {{size}} Mio, partagée avec Linux",
       "videoMemoryReserved": "Mémoire vidéo : {{size}} Mio réservés. Redémarrez l'appareil pour utiliser la mémoire vidéo partagée du système mis à jour.",
       "ramNote": "La mémoire disponible inclut le cache récupérable.",
       "zramTitle": "Activer le swap ZRAM",
       "sdTitle": "Activer le swap SD",
       "zramDescription": "Compresse les pages mémoire inactives dans la RAM. La capacité est mesurée avant compression ; la RAM est allouée selon les besoins.",
-      "sdDescription": "Utilise un fichier d'échange sur la carte SD lorsque la mémoire se raréfie. L'accès à la carte SD est plus lent que la RAM.",
+      "sdDescription": "Un fichier d'échange sur la carte SD, utilisé après ZRAM quand la mémoire manque. Plus lent que la RAM, et il use la carte.",
       "size": "Capacité",
       "used": "Utilisé",
-      "algorithm": "Compression",
-      "actualRam": "Stockage des pages en RAM",
-      "priorityNote": "La ZRAM est utilisée avant le swap SD. Les modifications s'appliquent immédiatement et sont conservées après un redémarrage.",
       "unavailable": "Nécessite une version de NanoKVM OS incluant cette fonctionnalité.",
       "loadError": "Impossible de lire l'état de la mémoire",
       "changeError": "Impossible de modifier les paramètres de swap",
       "limitTitle": "Limite mémoire du serveur",
-      "limitDescription": "Près de cette limite, le serveur NanoKVM libère la mémoire plus activement au lieu de la prendre à apk et au reste du système. Désactivé : un quart de la RAM ({{default}} Mio). Une limite personnalisée vaut au moins {{minimum}} Mio, même si la valeur par défaut est plus basse, et s'applique aussitôt sans redémarrage.",
+      "limitDescription": "Près de cette limite, le serveur NanoKVM libère davantage de mémoire au lieu d'en prendre à apk et au reste du système. Une limite personnalisée est d'au moins {{minimum}} Mio et s'applique aussitôt.",
       "limitValue": "Limite",
       "limitApply": "Appliquer",
-      "limitCurrent": "En vigueur : {{current}} Mio.",
       "limitNone": "En vigueur : aucune limite.",
-      "limitError": "Impossible de modifier la limite mémoire"
+      "limitError": "Impossible de modifier la limite mémoire",
+      "zramUsage": "Utilisé {{used}}, {{stored}} en RAM ({{algorithm}})",
+      "advanced": "Avancé",
+      "limitDefault": "Par défaut : un quart de la RAM ({{default}} Mio)."
     },
     "services": {
       "title": "Services"
@@ -1009,7 +1026,6 @@
         "image": "Image",
         "alpine": "Alpine",
         "kernel": "Noyau en cours d'exécution",
-        "systemBase": "Base du système",
         "modules": "Modules du noyau",
         "boot": "Composants de démarrage",
         "video": "HDMI et capture vidéo",
@@ -1045,7 +1061,19 @@
           "saved-profile": "profil enregistré",
           "power-cycle-pending": "coupure physique de l'alimentation en attente",
           "pending-reboot": "redémarrage en attente"
-        }
+        },
+        "allOk": "Tout va bien",
+        "problems": "Problèmes trouvés : {{count}}",
+        "packages": "Paquets ({{count}})",
+        "usbOff": "L'USB est désactivé dans les réglages du gadget USB.",
+        "optionalIdle": "Facultatifs, non lancés",
+        "nftFeatures": {
+          "mss-clamp": "Limitation du MSS au MTU du chemin",
+          "usb-internet": "Partage Internet par USB"
+        },
+        "archive": "Préparer une archive pour les développeurs",
+        "archiveHint": "Pour un rapport de bogue : journaux des derniers démarrages, état du système, du matériel et du réseau et réglages, en un seul fichier. Mots de passe, clés et adresses sont supprimés sur l'appareil. La collecte prend jusqu'à une minute.",
+        "archiveError": "Impossible de préparer l'archive pour les développeurs"
       },
       "device": "Appareil",
       "performance": "Performances",
@@ -1147,8 +1175,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "Personnalisation visuelle",
-        "description": "Personnalisez indépendamment le logo de connexion et le favicon du navigateur. Les images intégrées restent disponibles par défaut.",
         "logoTitle": "Logo de connexion",
         "logoDescription": "Le logo principal affiché au-dessus du formulaire de connexion.",
         "logoPreview": "Aperçu du logo de connexion",
@@ -1161,18 +1187,14 @@
         "customActive": "Image personnalisée",
         "restoreDefault": "Rétablir la valeur par défaut",
         "formats": "PNG ou JPEG, jusqu'à 2 MiB et 1024 × 1024 pixels. Un PNG carré transparent donne le meilleur résultat.",
-        "failed": "Impossible d'enregistrer la personnalisation visuelle."
+        "failed": "Impossible d'enregistrer la personnalisation visuelle.",
+        "upload": "Téléverser"
       },
       "buttonColor": {
         "title": "Couleur des boutons",
         "description": "Choisissez la couleur d'accent utilisée par les boutons principaux dans toute l'interface.",
-        "accentTitle": "Boutons principaux",
-        "accentDescription": "Les états de survol et d'appui sont générés automatiquement.",
-        "preview": "Aperçu du bouton",
         "inputLabel": "Couleur des boutons au format hexadécimal",
         "defaultActive": "Vert du logo intégré (#45E9A0)",
-        "customActive": "Couleur personnalisée",
-        "save": "Appliquer",
         "restoreDefault": "Rétablir la valeur par défaut",
         "failed": "Impossible d'enregistrer la couleur des boutons."
       },
@@ -1184,8 +1206,6 @@
         "failed": "Impossible d'enregistrer le style de la bannière SSH."
       },
       "title": "Apparence",
-      "display": "Affichage",
-      "customize": "Personnaliser",
       "language": "Langue",
       "languageDesc": "Sélectionnez la langue de l'interface",
       "helpTranslate": "Aider à traduire",
@@ -1194,16 +1214,22 @@
       "webTitle": "Titre Web",
       "webTitleDesc": "Personnaliser le titre de la page Web",
       "menuBar": {
-        "title": "Barre de menus",
         "mode": "Mode d'affichage",
-        "modeDesc": "Afficher la barre de menu sur l'écran",
+        "modeDesc": "Masquage auto : la barre apparaît quand la souris atteint le bord supérieur.",
         "modeAuto": "Masquer automatiquement",
         "modeAlways": "Toujours visible",
         "keyboardLedStatus": "Indicateurs de verrouillage du clavier",
-        "keyboardLedStatusDesc": "Afficher l’état de Verr Num, Verr Maj et Arrêt défil du poste distant",
-        "icons": "Icônes du sous-menu",
-        "iconsDesc": "Afficher les icônes des sous-menus dans la barre de menus"
-      }
+        "keyboardLedStatusDesc": "Afficher Verr. Maj, Verr. Num et Arrêt défil de l'ordinateur distant dans la barre de menu.",
+        "icons": "Boutons de la barre de menu",
+        "iconsDesc": "Afficher les icônes des sous-menus dans la barre de menus",
+        "hiddenCount": "{{count}} masqué(s)",
+        "showAll": "Tout afficher"
+      },
+      "browser": "Dans ce navigateur",
+      "browserDesc": "Conservé dans ce navigateur uniquement ; les autres navigateurs et utilisateurs ont les leurs.",
+      "device": "Pour tous sur cet appareil",
+      "deviceDesc": "Enregistré sur l'appareil et visible par tous ceux qui l'ouvrent.",
+      "saved": "Enregistré"
     },
     "keyboardLedStatus": {
       "groupLabel": "État des verrouillages du clavier distant",
@@ -2048,7 +2074,9 @@
       "ipmiNotInstalled": "IPMI est fourni par le module IPMI, qui n'est pas installé.",
       "ipmiInstall": "Installer le module IPMI",
       "ipmiAddonDescription": "IPMI sur LAN pour le contrôle de l'alimentation de l'hôte (ipmitool, fence_ipmilan). Ses paramètres sont dans Services > Redfish et IPMI.",
-      "holdDefault": "5 (menu d'alimentation)"
+      "holdDefault": "5 (menu d'alimentation)",
+      "advanced": "Avancé",
+      "accountFirst": "Définissez le compte BMC ci-dessous et cliquez sur Enregistrer : Redfish et IPMI ne s'activent qu'avec un mot de passe."
     },
     "recovery": {
       "title": "Sauvegarde et réinitialisation",
@@ -2056,13 +2084,11 @@
       "password": "Mot de passe actuel de l’administrateur",
       "export": "Exporter les paramètres",
       "encryption": "L’archive contient des mots de passe et des clés privées. Elle est chiffrée avec votre mot de passe de sauvegarde (12–256 octets). Conservez le fichier et le mot de passe en lieu sûr : un mot de passe perdu ne peut pas être récupéré.",
-      "archivePassword": "Mot de passe de sauvegarde (également pour ouvrir une archive)",
+      "archivePassword": "Mot de passe de l'archive",
       "download": "Télécharger la sauvegarde chiffrée",
-      "restoreReset": "Restaurer ou réinitialiser",
       "restore": "Restaurer les paramètres",
       "reset": "Réinitialiser les paramètres d’usine",
       "updateBase": "Mettez à jour nanokvm-base pour activer la restauration et la réinitialisation.",
-      "file": "Archive des paramètres (.nkos)",
       "fileLimit": "Choisissez une archive de paramètres de 4 Mio maximum.",
       "migrate": "Migrer vers un autre appareil (recommandé)",
       "device": "Restaurer cet appareil, y compris les paramètres d’accès et de réseau",
@@ -2082,7 +2108,11 @@
       "inventory": "Paquets recensés dans la sauvegarde (non installés automatiquement)",
       "confirm": "J’ai vérifié les modifications et pourrai me reconnecter après le redémarrage.",
       "reboot": "Redémarrer pour terminer",
-      "rebooting": "Restauration planifiée. L’appareil redémarre ; reconnectez-vous ensuite."
+      "rebooting": "Restauration planifiée. L’appareil redémarre ; reconnectez-vous ensuite.",
+      "backupPassword": "Mot de passe de la sauvegarde",
+      "backupPasswordShort": "Au moins 12 caractères.",
+      "chooseFile": "Choisir un fichier .nkos",
+      "deviceHint": "Remplace tous les réglages de cet appareil par ceux de l'archive, y compris les utilisateurs, le réseau, le VPN, les certificats et les réglages matériels."
     },
     "ai": {
       "title": "IA",
@@ -2091,7 +2121,7 @@
         "notInstalled": "La reconnaissance de texte nécessite le module TPU.",
         "openAddons": "Modules",
         "enabled": "Reconnaissance de texte",
-        "enabledDescription": "Lire le texte à l'écran avec le TPU : le bouton de la barre d'outils, MCP et PicoClaw. Désactivée, aucun d'eux ne peut lire.",
+        "enabledDescription": "Activé, un bouton au-dessus de l'écran en lit le texte, et MCP et PicoClaw peuvent aussi le lire. Désactivé, aucun d'eux ne le peut.",
         "switchFailed": "Le réglage n'a pas pu être enregistré"
       },
       "picoclaw": {

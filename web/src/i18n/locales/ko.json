@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "디자인",
-      "display": "표시",
       "language": "언어",
       "languageDesc": "인터페이스 언어를 선택하세요",
       "helpTranslate": "번역 돕기",
       "webTitle": "웹 제목",
       "webTitleDesc": "웹 페이지 제목 사용자 지정",
       "menuBar": {
-        "title": "메뉴 바",
         "mode": "표시 모드",
-        "modeDesc": "메뉴 바를 화면에 표시합니다",
+        "modeDesc": "자동 숨기기: 마우스가 위쪽 가장자리에 닿으면 막대가 나타납니다.",
         "modeAuto": "자동 숨기기",
         "modeAlways": "항상 보이기",
         "keyboardLedStatus": "키보드 잠금 표시기",
-        "keyboardLedStatusDesc": "원격 컴퓨터의 Num Lock, Caps Lock, Scroll Lock 상태 표시",
-        "icons": "하위 메뉴 아이콘",
-        "iconsDesc": "메뉴 바에 하위 메뉴 아이콘을 표시합니다"
+        "keyboardLedStatusDesc": "원격 컴퓨터의 Caps Lock, Num Lock, Scroll Lock 상태를 메뉴 막대에 표시합니다.",
+        "icons": "메뉴 막대 버튼",
+        "iconsDesc": "메뉴 바에 하위 메뉴 아이콘을 표시합니다",
+        "hiddenCount": "{{count}}개 숨김",
+        "showAll": "모두 표시"
       },
-      "buttonColor": {
-        "save": "적용"
+      "buttonColor": {},
+      "browser": "이 브라우저",
+      "browserDesc": "이 브라우저에만 저장되며, 다른 브라우저와 사용자는 각자의 설정을 가집니다.",
+      "device": "이 장치의 모든 사용자",
+      "deviceDesc": "장치에 저장되어 장치를 여는 모든 사람에게 표시됩니다.",
+      "saved": "저장됨",
+      "branding": {
+        "upload": "업로드"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "추가 기능",
-        "packages": "패키지"
+        "packages": "패키지",
+        "install": "설치"
       },
       "title": "소프트웨어",
       "available": "사용 가능한 패키지",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "패키지 업데이트",
         "log": "업데이트 로그"
       },
       "title": "업데이트",
-      "installed": "설치됨"
+      "status": {
+        "checking": "업데이트 확인 중…",
+        "installing": "업데이트 설치 중…",
+        "available": "업데이트가 있습니다"
+      },
+      "advanced": "고급"
     },
     "memory": {
       "title": "메모리",
       "available": "사용 가능",
       "size": "용량",
-      "used": "사용량",
-      "algorithm": "압축"
+      "used": "사용량"
     },
     "services": {
       "title": "서비스"
@@ -696,9 +706,19 @@
     "ai": {
       "screenText": {
         "enabled": "텍스트 인식",
-        "enabledDescription": "TPU로 화면의 텍스트를 읽습니다: 도구 모음 버튼, MCP, PicoClaw. 끄면 어느 것도 읽을 수 없습니다.",
+        "enabledDescription": "켜면 화면 위의 버튼이 화면의 텍스트를 읽고, MCP와 PicoClaw도 읽을 수 있습니다. 끄면 아무것도 읽을 수 없습니다.",
         "switchFailed": "설정을 저장할 수 없습니다"
       }
+    },
+    "addonPage": {
+      "failed": "애드온 값을 읽을 수 없습니다",
+      "notRunning": "애드온 서비스가 실행 중이 아닙니다",
+      "refused": "애드온이 거부했습니다",
+      "saved": "저장됨",
+      "save": "저장",
+      "status": "상태",
+      "yes": "예",
+      "no": "아니요"
     }
   },
   "picoclaw": {
@@ -886,10 +906,16 @@
     "deviceTime": "장치 시간",
     "timezone": "시간대",
     "format": "시간 형식",
-    "preview": "미리 보기",
     "synchronized": "동기화됨",
     "waiting": "동기화 확인 안 됨",
-    "save": "저장"
+    "save": "저장",
+    "device": "장치",
+    "display": "표시",
+    "displayHint": "VPN 핸드셰이크 시간을 포함한 전체 인터페이스에 적용됩니다.",
+    "setFromBrowser": "이 브라우저의 시간 사용",
+    "setFromBrowserHint": "NTP가 없는 네트워크용입니다. 시간은 장치의 시계 칩에도 저장됩니다.",
+    "clockSet": "장치 시간이 설정되었습니다",
+    "clockFailed": "장치 시간을 설정할 수 없습니다."
   },
   "recorder": {
     "title": "비디오 녹화",

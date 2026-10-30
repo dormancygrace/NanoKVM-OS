@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, Button, InputNumber, message, Progress, Select, Spin, Switch } from 'antd';
+import { ChevronDownIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
@@ -10,6 +11,19 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 const mib = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MiB`;
+
+// Settings most people never need, folded until opened.
+const Fold = ({ title, children }: { title: string; children: ReactNode }) => (
+  <Panel flush className="overflow-hidden">
+    <details className="group">
+      <summary className="text-fg-muted hover:text-fg flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+        <span>{title}</span>
+        <ChevronDownIcon size={16} className="transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-4 px-4 pb-4">{children}</div>
+    </details>
+  </Panel>
+);
 
 /*
  * The Go memory limit of the NanoKVM server: near it the runtime collects
@@ -58,13 +72,18 @@ const ServerMemoryLimit = ({ totalBytes }: { totalBytes: number }) => {
   const maximum = Math.max(state.minimum, Math.floor(totalBytes / 1048576));
   const changed = state.enabled && value !== null && value !== state.limit;
   return (
-    <Panel className="space-y-4">
+    <div className="space-y-4">
       <SettingRow
         label={t('settings.memory.limitTitle')}
-        description={t('settings.memory.limitDescription', {
-          default: state.default,
-          minimum: state.minimum
-        })}
+        description={
+          <>
+            {t('settings.memory.limitDescription', { minimum: state.minimum })}{' '}
+            {!state.enabled &&
+              (state.current
+                ? t('settings.memory.limitDefault', { default: state.current })
+                : t('settings.memory.limitNone'))}
+          </>
+        }
         htmlFor="memory-limit"
       >
         <Switch
@@ -102,12 +121,7 @@ const ServerMemoryLimit = ({ totalBytes }: { totalBytes: number }) => {
           </div>
         </SettingRow>
       )}
-      <p className="text-fg-muted m-0 text-sm">
-        {state.current
-          ? t('settings.memory.limitCurrent', { current: state.current })
-          : t('settings.memory.limitNone')}
-      </p>
-    </Panel>
+    </div>
   );
 };
 
@@ -237,58 +251,32 @@ export const Memory = () => {
         {!swap.available && (
           <p className="text-warning m-0 text-sm">{t('settings.memory.unavailable')}</p>
         )}
-        <SettingRow label={t('settings.memory.size')} htmlFor={`memory-${kind}-size`}>
-          <Select
-            id={`memory-${kind}-size`}
-            value={kind === 'zram' && swap.auto ? 0 : swap.sizeMiB}
-            style={{ width: 180 }}
-            disabled={!!busy || !swap.available}
-            options={sizes.map((value) => ({
-              value,
-              label: value
-                ? `${value} MiB`
-                : t('settings.memory.zramAuto', { size: swap.auto ? swap.sizeMiB : half })
-            }))}
-            onChange={(size) => void change(kind, swap.enabled, size)}
-          />
-        </SettingRow>
-        <div className="text-fg-muted space-y-1 text-sm">
-          <div className="flex justify-between gap-3">
-            <span>{t('settings.memory.used')}</span>
-            <span>{mib(swap.usedBytes)}</span>
-          </div>
-          {kind === 'zram' && (
-            <>
-              <div className="flex justify-between gap-3">
-                <span>{t('settings.memory.algorithm')}</span>
-                <span>{swap.algorithm?.toUpperCase() || 'LZ4'}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span>{t('settings.memory.actualRam')}</span>
-                <span>{mib(swap.memoryBytes || 0)}</span>
-              </div>
-            </>
-          )}
-        </div>
-        {kind === 'zram' && (
+        {swap.enabled && (
           <>
-            <SettingRow
-              label={t('settings.memory.recompressTitle')}
-              description={t('settings.memory.recompressDescription')}
-              htmlFor="memory-recompress"
-            >
-              <Switch
-                id="memory-recompress"
-                aria-describedby="memory-recompress-description"
-                checked={!!swap.recompress}
-                loading={busy === 'zram'}
-                disabled={!!busy || (!swap.recompressAvailable && !swap.recompress)}
-                onChange={(enabled) => void change('zram', swap.enabled, requestSize, enabled)}
+            <SettingRow label={t('settings.memory.size')} htmlFor={`memory-${kind}-size`}>
+              <Select
+                id={`memory-${kind}-size`}
+                value={kind === 'zram' && swap.auto ? 0 : swap.sizeMiB}
+                style={{ width: 180 }}
+                disabled={!!busy || !swap.available}
+                options={sizes.map((value) => ({
+                  value,
+                  label: value
+                    ? `${value} MiB`
+                    : t('settings.memory.zramAuto', { size: swap.auto ? swap.sizeMiB : half })
+                }))}
+                onChange={(size) => void change(kind, swap.enabled, size)}
               />
             </SettingRow>
-            {swap.enabled && swap.recompress && !swap.recompressReady && (
-              <p className="text-warning m-0 text-xs">{t('settings.memory.recompressNotReady')}</p>
-            )}
+            <div className="text-fg-muted text-sm">
+              {kind === 'zram'
+                ? t('settings.memory.zramUsage', {
+                    used: mib(swap.usedBytes),
+                    stored: mib(swap.memoryBytes || 0),
+                    algorithm: swap.algorithm?.toUpperCase() || 'LZ4'
+                  })
+                : `${t('settings.memory.used')}: ${mib(swap.usedBytes)}`}
+            </div>
           </>
         )}
       </Panel>
@@ -339,8 +327,35 @@ export const Memory = () => {
           </Panel>
           {swapCard('zram', data.zram)}
           {swapCard('sd', data.sd)}
-          <p className="text-fg-muted m-0 text-xs">{t('settings.memory.priorityNote')}</p>
-          <ServerMemoryLimit totalBytes={data.totalBytes} />
+          <Fold title={t('settings.memory.advanced')}>
+            <SettingRow
+              label={t('settings.memory.recompressTitle')}
+              description={t('settings.memory.recompressDescription')}
+              htmlFor="memory-recompress"
+            >
+              <Switch
+                id="memory-recompress"
+                aria-describedby="memory-recompress-description"
+                checked={!!data.zram.recompress}
+                loading={busy === 'zram'}
+                disabled={!!busy || (!data.zram.recompressAvailable && !data.zram.recompress)}
+                onChange={(enabled) =>
+                  void change(
+                    'zram',
+                    data.zram.enabled,
+                    swapRequestSize('zram', data.zram),
+                    enabled
+                  )
+                }
+              />
+            </SettingRow>
+            {data.zram.enabled && data.zram.recompress && !data.zram.recompressReady && (
+              <p className="text-warning m-0 text-xs">{t('settings.memory.recompressNotReady')}</p>
+            )}
+            <div className="border-line border-t pt-4">
+              <ServerMemoryLimit totalBytes={data.totalBytes} />
+            </div>
+          </Fold>
         </>
       )}
     </div>

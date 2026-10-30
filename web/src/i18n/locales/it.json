@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Aspetto",
-      "display": "Schermo",
       "language": "Lingua",
       "languageDesc": "Seleziona la lingua per l'interfaccia",
       "helpTranslate": "Aiuta a tradurre",
       "webTitle": "Titolo web",
       "webTitleDesc": "Personalizza il titolo della pagina web",
       "menuBar": {
-        "title": "Barra dei menu",
         "mode": "Modalità di visualizzazione",
-        "modeDesc": "Visualizza la barra dei menu sullo schermo",
+        "modeDesc": "Nascondi automaticamente: la barra appare quando il mouse raggiunge il bordo superiore.",
         "modeAuto": "Nascondi automaticamente",
         "modeAlways": "Sempre visibile",
         "keyboardLedStatus": "Indicatori di blocco della tastiera",
-        "keyboardLedStatusDesc": "Mostra lo stato di Bloc Num, Bloc Maiusc e Bloc Scorr del computer remoto",
-        "icons": "Icone dei sottomenu",
-        "iconsDesc": "Visualizza le icone dei sottomenu nella barra dei menu"
+        "keyboardLedStatusDesc": "Mostra Bloc Maiusc, Bloc Num e Bloc Scorr del computer remoto nella barra dei menu.",
+        "icons": "Pulsanti della barra dei menu",
+        "iconsDesc": "Visualizza le icone dei sottomenu nella barra dei menu",
+        "hiddenCount": "{{count}} nascosti",
+        "showAll": "Mostra tutto"
       },
-      "buttonColor": {
-        "save": "Applica"
+      "buttonColor": {},
+      "browser": "In questo browser",
+      "browserDesc": "Salvato solo in questo browser; altri browser e utenti hanno le proprie impostazioni.",
+      "device": "Per tutti su questo dispositivo",
+      "deviceDesc": "Salvato sul dispositivo e visibile a chiunque lo apra.",
+      "saved": "Salvato",
+      "branding": {
+        "upload": "Carica"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Componenti aggiuntivi",
-        "packages": "Pacchetti"
+        "packages": "Pacchetti",
+        "install": "Installa"
       },
       "title": "Software",
       "available": "Pacchetti disponibili",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Aggiornamenti dei pacchetti",
         "log": "Registro aggiornamenti"
       },
       "title": "Aggiornamenti",
-      "installed": "Installato"
+      "status": {
+        "checking": "Ricerca aggiornamenti…",
+        "installing": "Installazione aggiornamenti…",
+        "available": "Aggiornamenti disponibili"
+      },
+      "advanced": "Avanzate"
     },
     "memory": {
       "title": "Memoria",
       "available": "Disponibile",
       "size": "Capacità",
-      "used": "Utilizzato",
-      "algorithm": "Compressione"
+      "used": "Utilizzato"
     },
     "services": {
       "title": "Servizi"
@@ -694,9 +704,19 @@
     "ai": {
       "screenText": {
         "enabled": "Riconoscimento del testo",
-        "enabledDescription": "Leggere il testo sullo schermo con la TPU: il pulsante della barra degli strumenti, MCP e PicoClaw. Disattivato, nessuno di essi può leggerlo.",
+        "enabledDescription": "Se attivo, un pulsante sopra lo schermo ne legge il testo, e anche MCP e PicoClaw possono leggerlo. Se disattivo, nessuno di loro può.",
         "switchFailed": "Non è stato possibile salvare l'impostazione"
       }
+    },
+    "addonPage": {
+      "failed": "Impossibile leggere i valori del componente aggiuntivo",
+      "notRunning": "Il servizio del componente aggiuntivo non è in esecuzione",
+      "refused": "Il componente aggiuntivo l'ha rifiutato",
+      "saved": "Salvato",
+      "save": "Salva",
+      "status": "Stato",
+      "yes": "Sì",
+      "no": "No"
     }
   },
   "picoclaw": {
@@ -886,10 +906,16 @@
     "deviceTime": "Ora del dispositivo",
     "timezone": "Fuso orario",
     "format": "Formato dell’ora",
-    "preview": "Anteprima",
     "synchronized": "Sincronizzato",
     "waiting": "Sincronizzazione non confermata",
-    "save": "Salva"
+    "save": "Salva",
+    "device": "Dispositivo",
+    "display": "Visualizzazione",
+    "displayHint": "Per tutta l'interfaccia, inclusi gli orari di handshake VPN.",
+    "setFromBrowser": "Usa l'ora di questo browser",
+    "setFromBrowserHint": "Per una rete senza NTP. L'ora viene salvata anche nell'orologio del dispositivo.",
+    "clockSet": "Ora del dispositivo impostata",
+    "clockFailed": "Impossibile impostare l'ora del dispositivo."
   },
   "recorder": {
     "title": "Registrazione video",

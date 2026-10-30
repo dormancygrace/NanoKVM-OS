@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Tampilan",
-      "display": "Layar",
       "language": "Bahasa",
       "languageDesc": "Pilih bahasa untuk antarmuka",
       "helpTranslate": "Bantu menerjemahkan",
       "webTitle": "Judul Web",
       "webTitleDesc": "Menyesuaikan judul halaman web",
       "menuBar": {
-        "title": "Bilah Menu",
         "mode": "Mode Tampilan",
-        "modeDesc": "Menampilkan bilah menu di layar",
+        "modeDesc": "Sembunyikan otomatis: bilah muncul saat mouse mencapai tepi atas.",
         "modeAuto": "Sembunyikan otomatis",
         "modeAlways": "Selalu terlihat",
         "keyboardLedStatus": "Indikator kunci keyboard",
-        "keyboardLedStatusDesc": "Tampilkan status Num Lock, Caps Lock, dan Scroll Lock komputer jarak jauh",
-        "icons": "Ikon Submenu",
-        "iconsDesc": "Menampilkan ikon submenu di bilah menu"
+        "keyboardLedStatusDesc": "Tampilkan Caps Lock, Num Lock, dan Scroll Lock komputer jarak jauh di bilah menu.",
+        "icons": "Tombol bilah menu",
+        "iconsDesc": "Menampilkan ikon submenu di bilah menu",
+        "hiddenCount": "{{count}} disembunyikan",
+        "showAll": "Tampilkan semua"
       },
-      "buttonColor": {
-        "save": "Terapkan"
+      "buttonColor": {},
+      "browser": "Di browser ini",
+      "browserDesc": "Disimpan hanya di browser ini; browser dan pengguna lain punya pengaturan sendiri.",
+      "device": "Untuk semua di perangkat ini",
+      "deviceDesc": "Disimpan di perangkat dan terlihat oleh siapa pun yang membukanya.",
+      "saved": "Tersimpan",
+      "branding": {
+        "upload": "Unggah"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Pengaya",
-        "packages": "Paket"
+        "packages": "Paket",
+        "install": "Instal"
       },
       "title": "Perangkat lunak",
       "available": "Paket tersedia",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Pembaruan paket",
         "log": "Log pembaruan"
       },
       "title": "Pembaruan",
-      "installed": "Terinstal"
+      "status": {
+        "checking": "Memeriksa pembaruan…",
+        "installing": "Memasang pembaruan…",
+        "available": "Pembaruan tersedia"
+      },
+      "advanced": "Lanjutan"
     },
     "memory": {
       "title": "Memori",
       "available": "Tersedia",
       "size": "Kapasitas",
-      "used": "Terpakai",
-      "algorithm": "Kompresi"
+      "used": "Terpakai"
     },
     "services": {
       "title": "Layanan"
@@ -693,9 +703,19 @@
     "ai": {
       "screenText": {
         "enabled": "Pengenalan teks",
-        "enabledDescription": "Membaca teks di layar dengan TPU: tombol bilah alat, MCP, dan PicoClaw. Jika mati, tidak satu pun dapat membacanya.",
+        "enabledDescription": "Saat aktif, tombol di atas layar membaca teks di layar, dan MCP serta PicoClaw juga bisa membacanya. Saat nonaktif, tidak satu pun bisa.",
         "switchFailed": "Pengaturan tidak dapat disimpan"
       }
+    },
+    "addonPage": {
+      "failed": "Tidak dapat membaca nilai add-on",
+      "notRunning": "Layanan add-on tidak berjalan",
+      "refused": "Add-on menolaknya",
+      "saved": "Tersimpan",
+      "save": "Simpan",
+      "status": "Status",
+      "yes": "Ya",
+      "no": "Tidak"
     }
   },
   "picoclaw": {
@@ -883,10 +903,16 @@
     "deviceTime": "Waktu perangkat",
     "timezone": "Zona waktu",
     "format": "Format waktu",
-    "preview": "Pratinjau",
     "synchronized": "Tersinkron",
     "waiting": "Sinkronisasi belum dikonfirmasi",
-    "save": "Simpan"
+    "save": "Simpan",
+    "device": "Perangkat",
+    "display": "Tampilan",
+    "displayHint": "Untuk seluruh antarmuka, termasuk waktu handshake VPN.",
+    "setFromBrowser": "Gunakan waktu browser ini",
+    "setFromBrowserHint": "Untuk jaringan tanpa NTP. Waktu juga disimpan ke jam perangkat.",
+    "clockSet": "Waktu perangkat diatur",
+    "clockFailed": "Tidak dapat mengatur waktu perangkat."
   },
   "recorder": {
     "title": "Perekaman video",

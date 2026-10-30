@@ -127,6 +127,41 @@ type Server struct {
 	failed     map[string]*failures
 	actions    chan func(context.Context) error
 	start      sync.Once
+	// The last power command accepted, for Stats.
+	lastCommand   string
+	lastCommandAt time.Time
+}
+
+// Stats is what the add-on's settings page shows.
+type Stats struct {
+	// Sessions is the number of established, unexpired IPMI sessions.
+	Sessions int `json:"sessions"`
+	// LockedOut is the number of clients refused for too many logins.
+	LockedOut int `json:"lockedOut"`
+	// LastCommand is the last power command accepted ("power on", ...).
+	LastCommand   string    `json:"lastCommand"`
+	LastCommandAt time.Time `json:"lastCommandAt"`
+}
+
+// Stats reports the server's sessions and its last power command.
+func (s *Server) Stats() Stats {
+	s.init()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.now()
+	stats := Stats{LastCommand: s.lastCommand, LastCommandAt: s.lastCommandAt}
+	// Expiry runs with the packets: count what it would keep.
+	for _, se := range s.sessions {
+		if se.active && now.Sub(se.lastUsed) <= sessionTimeout {
+			stats.Sessions++
+		}
+	}
+	for _, f := range s.failed {
+		if f.count >= maxFailures && now.Sub(f.since) <= failWindow {
+			stats.LockedOut++
+		}
+	}
+	return stats
 }
 
 func (s *Server) init() {
@@ -707,17 +742,18 @@ func (s *Server) chassisControl(se *session, req request) []byte {
 		return req.reply(ccRequestTooShort)
 	}
 	var action func(context.Context) error
+	var name string
 	switch req.data[0] & 0x0F {
 	case 0x00:
-		action = s.Power.ForceOff
+		action, name = s.Power.ForceOff, "power off"
 	case 0x01:
-		action = s.Power.On
+		action, name = s.Power.On, "power on"
 	case 0x02:
-		action = s.Power.Cycle
+		action, name = s.Power.Cycle, "power cycle"
 	case 0x03:
-		action = s.Power.Reset
+		action, name = s.Power.Reset, "reset"
 	case 0x05:
-		action = s.Power.Soft
+		action, name = s.Power.Soft, "soft off"
 	default:
 		return req.reply(ccInvalidField)
 	}
@@ -729,6 +765,7 @@ func (s *Server) chassisControl(se *session, req request) []byte {
 	}
 	select {
 	case s.actions <- action:
+		s.lastCommand, s.lastCommandAt = name, s.now()
 		return req.reply(ccOK)
 	default:
 		return req.reply(ccNodeBusy)

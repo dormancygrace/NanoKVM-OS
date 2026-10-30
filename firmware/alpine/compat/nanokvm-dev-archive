@@ -1,0 +1,176 @@
+#!/bin/sh
+# Collects what NanoKVM OS developers need to diagnose a device into DIR, raw.
+# The server (Diagnostics > Prepare archive for developers) hides secrets and
+# masks addresses before anything leaves the device; a directory collected by
+# hand over SSH is NOT masked. Configuration comes from an allow-list only:
+# keys, passwords, tokens, certificates and VPN state are never read.
+set -u
+
+if [ "${1:-}" != collect ] || [ -z "${2:-}" ]; then
+	echo "usage: $0 collect DIR" >&2
+	exit 2
+fi
+out=$2
+mkdir -p "$out" || exit 1
+export LC_ALL=C
+
+# The collection lives in RAM. Every output is bounded while it is written
+# (1 MiB, errors 64 KiB), and nothing is written that could take the
+# directory past 20 MiB: the room for the largest possible output is checked
+# before each command and each copied file.
+cap=1048576
+errcap=65536
+budget=20971520
+# Bytes written so far, counted as files are written (a du of the whole
+# directory before every file would double the collection time).
+used=0
+
+# room NAME NEED : true while NEED more bytes keep the collection in budget;
+# otherwise NAME is listed as skipped.
+room() {
+	[ $((used + $2)) -le "$budget" ] && return 0
+	echo "$1" >>"$out/skipped-over-budget"
+	return 1
+}
+
+# count FILE... : add the sizes of the written files to used.
+count() {
+	for f in "$@"; do
+		[ -f "$f" ] && used=$((used + $(wc -c <"$f")))
+	done
+	return 0
+}
+
+# run FILE COMMAND... : the command's output, at most 10 s and 1 MiB; its
+# errors (at most 64 KiB) and a non-zero exit status beside it. A command cut
+# short by the bound reports the broken pipe (141).
+run() {
+	room "$1" $((cap + errcap)) || return 0
+	file=$out/$1
+	shift
+	mkdir -p "${file%/*}"
+	{
+		{
+			timeout 10 "$@" 2>&1 1>&3 3>&-
+			echo $? >"$file.status"
+		} | head -c "$errcap" >"$file.err"
+	} 3>&1 | head -c "$cap" >"$file"
+	status=$(cat "$file.status" 2>/dev/null)
+	rm -f "$file.status"
+	[ "${status:-0}" -eq 0 ] || echo "exit status $status" >>"$file.err"
+	[ -s "$file.err" ] || rm -f "$file.err"
+	count "$file" "$file.err"
+}
+
+# copy DIR FILE... : regular files, the last 1 MiB of each, named by path.
+copy() {
+	dir=$out/$1
+	shift
+	mkdir -p "$dir"
+	for src in "$@"; do
+		[ -f "$src" ] || continue
+		name=$(echo "${src#/}" | tr / _)
+		room "${dir#"$out"/}/$name" "$cap" || continue
+		tail -c "$cap" "$src" >"$dir/$name" 2>/dev/null
+		count "$dir/$name"
+	done
+}
+
+# System
+run system/uname uname -a
+copy system /kvmapp/version /etc/os-release /etc/nanokvm-buildroot
+copy system /etc/nanokvm-release /etc/alpine-release /proc/cmdline /proc/cpuinfo \
+	/proc/meminfo /proc/swaps /proc/interrupts /proc/mounts /proc/loadavg \
+	/proc/pressure/cpu /proc/pressure/memory /proc/pressure/io /etc/apk/world /etc/apk/repositories
+run system/uptime uptime
+run system/date date
+run system/free free
+run system/df df -h
+run system/ps ps w
+run system/top top -b -n 1
+run system/lsmod lsmod
+run system/rc-status rc-status -a
+run system/app-status rc-service nanokvm-app status
+run system/apk-installed sh -c 'apk info -v 2>/dev/null | sort'
+run system/model cat /proc/device-tree/model
+run system/thermal sh -c 'for z in /sys/class/thermal/thermal_zone*; do echo "$z $(cat "$z/type" 2>/dev/null) $(cat "$z/temp" 2>/dev/null)"; done'
+run system/cpufreq sh -c 'cd /sys/devices/system/cpu/cpu0/cpufreq 2>/dev/null && grep . scaling_* cpuinfo_* 2>/dev/null'
+run system/zram sh -c 'for d in /sys/block/zram*; do echo "== $d"; grep . "$d"/comp_algorithm "$d"/disksize "$d"/mm_stat "$d"/io_stat 2>/dev/null; done'
+run system/boot-files ls -la /boot
+# SD card model and queue limits; never its serial number or CID.
+run system/sd-card sh -c 'd=/sys/block/mmcblk0; grep . $d/device/name $d/device/manfid $d/device/oemid $d/device/date $d/size $d/queue/max_sectors_kb $d/queue/max_hw_sectors_kb $d/queue/max_segments $d/queue/max_segment_size 2>/dev/null; cat /sys/kernel/debug/mmc0/ios 2>/dev/null'
+run system/clocks cat /sys/kernel/debug/clk/clk_summary
+copy system /boot/eth.nodhcp
+
+# Logs: the boot archives of the server's log viewer, apk and the kernel.
+for boot in current previous older; do
+	copy "logs/$boot" /var/log/nanokvm-boots/$boot/boot.json /var/log/nanokvm-boots/$boot/system.log \
+		/var/log/nanokvm-boots/$boot/kernel.log /var/log/nanokvm-boots/$boot/application.log
+done
+run logs/dmesg dmesg
+run logs/messages tail -n 2000 /var/log/messages
+run logs/logread logread
+run logs/apk.log tail -n 2000 /var/log/apk.log
+copy logs /var/log/nanokvm-apk-apply.log /var/log/dmesg
+for f in /run/log/*; do copy logs "$f"; done
+
+# Hardware: capture pipeline, HDMI receiver state, USB gadget. No I2C bus
+# scan: probing addresses can upset the HDMI receiver.
+for p in vi vi_dbg vpss venc vb sys; do run "hardware/cvitek-$p" cat /proc/cvitek/$p; done
+# Capture counters three times a second apart: are frames still arriving?
+run hardware/vi_dbg-samples sh -c 'for i in 1 2 3; do date; cat /proc/cvitek/vi_dbg; sleep 1; done'
+run hardware/mipi-rx cat /proc/mipi-rx
+run hardware/lt-int cat /proc/lt_int
+# Named status files only: /run/nanokvm also holds saved screen frames.
+for f in state width height input_fps now_fps now_kbps video_path video_width video_height \
+	stream_width stream_height mjpeg_fps mjpeg_width mjpeg_height wifi_state autostart recovery; do
+	copy hardware/run-nanokvm "/run/nanokvm/$f"
+done
+# The HDMI receiver (LT6911 model, chip id, firmware, timing, raw status) as
+# kvm_system logs it on every signal change; no extra I2C access.
+run hardware/hdmi-receiver sh -c 'cat /etc/kvm/hdmi_version 2>/dev/null; echo; for b in older previous current; do grep -h "\[hdmi\]" /var/log/nanokvm-boots/$b/application.log 2>/dev/null; done | tail -n 200' 
+for f in state width height fps now_fps res qlty type transport wifi_state; do
+	copy hardware/kvmapp-kvm "/kvmapp/kvm/$f"
+done
+copy hardware /etc/kvm/hw /etc/kvm/board-profile /etc/kvm/hdmi_version /etc/kvm/hdmi_mode \
+	/etc/kvm/video-memory-mode /etc/kvm/atx \
+	/etc/kvm/frame_detect /etc/kvm/encoder_codec /etc/kvm/monitor_resolution \
+	/etc/kvm/monitor_portrait /etc/kvm/monitor_portrait_resolution /etc/kvm/oled_exist /etc/kvm/oled_sleep
+# Labelled: a bare 64-character hash line would be hidden as a possible key.
+run hardware/edid-hashes sh -c 'for f in monitor_edid_sha256 monitor_edid_verified; do echo "$f: $(cat /etc/kvm/$f 2>/dev/null)"; done'
+run hardware/usb-gadget sh -c 'cd /sys/kernel/config/usb_gadget 2>/dev/null && find . -type f ! -name serialnumber | sort | while read -r f; do printf "%s: %s\n" "$f" "$(head -c 256 "$f" 2>/dev/null | tr "\n" " ")"; done'
+run hardware/udc sh -c 'for u in /sys/class/udc/*; do echo "$u $(cat "$u/state" 2>/dev/null) $(cat "$u/current_speed" 2>/dev/null)"; done'
+run hardware/lsusb lsusb
+run hardware/i2c-buses sh -c 'i2cdetect -l; for a in /sys/class/i2c-adapter/*; do echo "$a $(cat "$a/name" 2>/dev/null)"; done'
+run hardware/gpio cat /sys/kernel/debug/gpio
+run hardware/gpio-exported sh -c 'for g in /sys/class/gpio/gpio*; do [ -d "$g" ] && echo "$g $(cat "$g/direction" 2>/dev/null) $(cat "$g/value" 2>/dev/null) $(cat "$g/active_low" 2>/dev/null)"; done; true'
+# Read-only registers the issues asked for: pinmux of the HDMI/MIPI pins
+# (0x0300116c-0x03001190) and the HDD LED (0x05027078, 0x05021050). Only these
+# addresses: reading some other blocks (e.g. the TRNG) hangs the SoC.
+run hardware/registers sh -c 'for a in 0x0300116c 0x03001170 0x03001174 0x03001178 0x0300117c 0x03001180 0x03001184 0x03001188 0x0300118c 0x03001190 0x05027078 0x05021050; do echo "$a $(devmem $a 32 2>&1)"; done'
+run hardware/watchdog sh -c 'ls -l /sys/class/watchdog/ 2>/dev/null; pgrep -a watchdog'
+
+# Network. Addresses are masked by the server; Wi-Fi credentials are not read.
+run network/addr ip -d addr
+run network/route ip route
+run network/route6 ip -6 route
+run network/rule ip rule
+run network/link ip -s link
+run network/nft nft list ruleset
+run network/iw-dev iw dev
+run network/iw-link iw dev wlan0 link
+run network/netstat netstat -tunlp
+run network/links sh -c 'for n in /sys/class/net/*; do echo "${n##*/} $(cat "$n/operstate" 2>/dev/null) carrier=$(cat "$n/carrier" 2>/dev/null) speed=$(cat "$n/speed" 2>/dev/null) mtu=$(cat "$n/mtu" 2>/dev/null)"; done'
+copy network /proc/net/dev /proc/net/snmp /etc/resolv.conf /etc/kvm/wifi.band_preference \
+	/etc/kvm/wifi.freq_list /etc/kvm/wifi.freq_list_2.4 /etc/kvm/wifi.freq_list_5 /etc/kvm/wifi.hidden \
+	/etc/kvm/mdns_disabled /etc/kvm/network/ipv6
+run network/vpn-presence sh -c 'for d in /var/lib/tailscale /etc/wireguard /etc/openvpn /var/lib/netbird /etc/netbird; do [ -e "$d" ] && echo "$d present"; done; true'
+
+# Settings: an allow-list. Not read: .jwt_secret, .picoclaw_internal_token,
+# pwd, server.key, server.crt, scripts/, Wi-Fi and VPN configuration.
+copy config /etc/kvm/server.yaml /etc/kvm/date-time.json /etc/kvm/memory.conf \
+	/etc/kvm/ai-control.mode /etc/kvm/apk-community.chosen /etc/kvm/screen-text-language \
+	/etc/kvm/mcp.json /etc/kvm/picoclaw-runtime.json
+run config/usb-flags ls -la /etc/kvm/usb
+
+echo "nanokvm-dev-archive 4" >"$out/collector"

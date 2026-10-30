@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "外觀",
-      "display": "顯示",
       "language": "語言",
       "languageDesc": "選擇介面語言",
       "helpTranslate": "協助翻譯",
       "webTitle": "網頁標題",
       "webTitleDesc": "自訂網頁標題",
       "menuBar": {
-        "title": "選單列",
         "mode": "顯示方式",
-        "modeDesc": "選單欄在螢幕上的顯示方式",
+        "modeDesc": "自動隱藏：滑鼠移到頂端邊緣時顯示選單列。",
         "modeAuto": "自動隱藏",
         "modeAlways": "始終顯示",
         "keyboardLedStatus": "鍵盤鎖定狀態指示燈",
-        "keyboardLedStatusDesc": "顯示遠端電腦的 Num Lock、Caps Lock 與 Scroll Lock 狀態",
-        "icons": "選單圖示",
-        "iconsDesc": "是否在選單欄中顯示子選單圖示"
+        "keyboardLedStatusDesc": "在選單列中顯示遠端電腦的 Caps Lock、Num Lock 和 Scroll Lock 狀態。",
+        "icons": "選單列按鈕",
+        "iconsDesc": "是否在選單欄中顯示子選單圖示",
+        "hiddenCount": "已隱藏 {{count}} 個",
+        "showAll": "全部顯示"
       },
-      "buttonColor": {
-        "save": "套用"
+      "buttonColor": {},
+      "browser": "在此瀏覽器中",
+      "browserDesc": "僅儲存在此瀏覽器中；其他瀏覽器和使用者各有自己的設定。",
+      "device": "對此裝置的所有人",
+      "deviceDesc": "儲存在裝置上，所有開啟它的人都能看到。",
+      "saved": "已儲存",
+      "branding": {
+        "upload": "上傳"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "附加元件",
-        "packages": "套件"
+        "packages": "套件",
+        "install": "安裝"
       },
       "title": "軟體",
       "available": "可用套件",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "套件更新",
         "log": "更新日誌"
       },
       "title": "更新",
-      "installed": "已安裝"
+      "status": {
+        "checking": "正在檢查更新…",
+        "installing": "正在安裝更新…",
+        "available": "有可用的更新"
+      },
+      "advanced": "進階"
     },
     "memory": {
       "title": "記憶體",
       "available": "可用",
       "size": "容量",
-      "used": "已使用",
-      "algorithm": "壓縮"
+      "used": "已使用"
     },
     "services": {
       "title": "服務"
@@ -692,9 +702,19 @@
     "ai": {
       "screenText": {
         "enabled": "文字辨識",
-        "enabledDescription": "使用 TPU 讀取螢幕上的文字：工具列按鈕、MCP 與 PicoClaw。關閉後，它們都無法讀取。",
+        "enabledDescription": "開啟後，螢幕上方的按鈕可以讀取螢幕上的文字，MCP 與 PicoClaw 也能讀取。關閉後，它們都無法讀取。",
         "switchFailed": "無法儲存設定"
       }
+    },
+    "addonPage": {
+      "failed": "無法讀取附加元件的值",
+      "notRunning": "附加元件的服務未執行",
+      "refused": "附加元件拒絕了此操作",
+      "saved": "已儲存",
+      "save": "儲存",
+      "status": "狀態",
+      "yes": "是",
+      "no": "否"
     }
   },
   "picoclaw": {
@@ -882,10 +902,16 @@
     "deviceTime": "裝置時間",
     "timezone": "時區",
     "format": "時間格式",
-    "preview": "預覽",
     "synchronized": "已同步",
     "waiting": "同步尚未確認",
-    "save": "儲存"
+    "save": "儲存",
+    "device": "裝置",
+    "display": "顯示",
+    "displayHint": "適用於整個介面，包括 VPN 交握時間。",
+    "setFromBrowser": "使用此瀏覽器的時間",
+    "setFromBrowserHint": "適用於沒有 NTP 的網路。時間也會儲存到裝置的時鐘晶片。",
+    "clockSet": "裝置時間已設定",
+    "clockFailed": "無法設定裝置時間。"
   },
   "recorder": {
     "title": "影片錄製",

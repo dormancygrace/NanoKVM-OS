@@ -11,9 +11,19 @@ import { StatusBadge } from '@/components/ui/settings.tsx';
 
 import { AddonCard } from './addon-card';
 
-export const AcmeAddon = ({ onOpen }: { onOpen: () => void }) => {
+export const AcmeAddon = ({
+  onOpen,
+  onInstalled
+}: {
+  onOpen: () => void;
+  // The add-on list sorts the card into Installed or Available.
+  onInstalled?: (installed: boolean) => void;
+}) => {
   const { t } = useTranslation();
   const [status, setStatus] = useState<AcmeStatus>();
+  useEffect(() => {
+    if (status) onInstalled?.(status.installed);
+  }, [status, onInstalled]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const mounted = useRef(false);
@@ -104,7 +114,7 @@ export const AcmeAddon = ({ onOpen }: { onOpen: () => void }) => {
                 disabled={status.running}
                 onClick={() => void install()}
               >
-                {t('settings.network.acme.install')}
+                {t('settings.software.addons.install')}
               </Button>
             )}
             <Button

@@ -38,7 +38,6 @@
     "format": "Zeitformat",
     "hour24": "24 Stunden",
     "hour12": "12 Stunden",
-    "preview": "Vorschau",
     "dateFormat": "Datumsformat",
     "dateAuto": "Wie die Sprache",
     "dateDmy": "TT.MM.JJJJ",
@@ -46,13 +45,19 @@
     "dateYmd": "JJJJ-MM-TT",
     "servers": "NTP-Server",
     "serversHelp": "Wählen Sie 1–6 Hostnamen oder IP-Adressen aus oder geben Sie sie ein. Eine Änderung der Server startet die Zeitsynchronisierung neu.",
-    "scope": "Die Zeitzone gilt für das Gerät. Zeit- und Datumsformat gelten für die gesamte Oberfläche, einschließlich der VPN-Handshake-Zeiten.",
     "synchronized": "Synchronisiert",
     "waiting": "Synchronisierung nicht bestätigt",
     "save": "Speichern",
     "saved": "Datums- und Uhrzeiteinstellungen gespeichert",
     "loadFailed": "Gerätezeit kann nicht gelesen werden. Überprüfen Sie die Verbindung.",
-    "saveFailed": "Einstellungen konnten nicht übernommen werden. Überprüfen Sie die Serveradressen und die Geräteverbindung."
+    "saveFailed": "Einstellungen konnten nicht übernommen werden. Überprüfen Sie die Serveradressen und die Geräteverbindung.",
+    "device": "Gerät",
+    "display": "Anzeige",
+    "displayHint": "Für die gesamte Oberfläche, auch für VPN-Handshake-Zeiten.",
+    "setFromBrowser": "Zeit dieses Browsers übernehmen",
+    "setFromBrowserHint": "Für Netzwerke ohne NTP. Die Zeit wird auch im Uhrenchip des Geräts gespeichert.",
+    "clockSet": "Gerätezeit gesetzt",
+    "clockFailed": "Die Gerätezeit konnte nicht gesetzt werden."
   },
   "recorder": {
     "startDirect": "Aufnahme des Originalstreams starten (MP4)",
@@ -776,6 +781,16 @@
       "description": "Stoppt Video, Tastatur, virtuelle Laufwerke, SSH und Erweiterungen. Warten Sie auf die Bestätigung, bevor Sie die Stromversorgung von NanoKVM trennen. Bleibt die Stromversorgung angeschlossen, können Sie NanoKVM OS über die Neustartseite wieder starten. Der angeschlossene Computer bleibt eingeschaltet.",
       "magic": "Auch ein Wake-on-LAN-Magic-Packet zulassen. Jeder, der den Empfangsdienst erreichen kann, kann NanoKVM ohne Passwort neu starten."
     },
+    "addonPage": {
+      "failed": "Die Werte des Add-ons konnten nicht gelesen werden",
+      "notRunning": "Der Dienst des Add-ons läuft nicht",
+      "refused": "Das Add-on hat abgelehnt",
+      "saved": "Gespeichert",
+      "save": "Speichern",
+      "status": "Status",
+      "yes": "Ja",
+      "no": "Nein"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Verbinden Sie den NanoKVM mit einem privaten Netzwerk. Wählen Sie ein VPN aus, um es einzurichten."
@@ -822,7 +837,9 @@
         "checkNow": "Jetzt prüfen",
         "dailyOff": "Die tägliche Update-Prüfung ist aus: Die Liste ändert sich nur, wenn Sie prüfen.",
         "listFailed": "Die letzte Prüfung ist fehlgeschlagen.",
-        "failed": "Die Anfrage ist fehlgeschlagen."
+        "failed": "Die Anfrage ist fehlgeschlagen.",
+        "installedSection": "Installiert",
+        "availableSection": "Verfügbar"
       },
       "title": "Software",
       "description": "Verwalten Sie Pakete aus den konfigurierten Alpine-Repositorys. Paketänderungen verwenden dieselbe APK-Datenbank und dieselben Dienste wie SSH.",
@@ -835,7 +852,6 @@
       "upToDate": "Alle installierten Pakete sind auf dem neuesten Stand.",
       "searchPlaceholder": "Paketname suchen",
       "search": "Suchen",
-      "searchHint": "Die Suche startet automatisch, sobald Sie mit dem Tippen pausieren.",
       "noResults": "Keine passenden Pakete",
       "indexMissing": "Keine Paketindizes verfügbar. Aktualisieren Sie die Indizes, bevor Sie suchen oder installieren.",
       "indexStale": "Die Paketindizes sind möglicherweise veraltet (zuletzt aktualisiert {{updated}}). Aktualisieren Sie sie vor der Installation.",
@@ -858,8 +874,6 @@
     },
     "updates": {
       "apk": {
-        "title": "Paket-Updates",
-        "description": "Aktualisieren Sie installierte Pakete aus den konfigurierten Repositorys. Einstellungen bleiben erhalten. Dienste starten automatisch neu; ein Kernel-Update erfordert einen Neustart.",
         "check": "Nach Updates suchen",
         "install": "Updates installieren",
         "confirm": "Diese Paket-Updates installieren? Video und Steuerung können kurz unterbrochen werden.",
@@ -873,7 +887,6 @@
       },
       "title": "Updates",
       "description": "Aktualisieren Sie NanoKVM OS mit signierten Paketen. System-Updates starten das Gerät neu; Anwendungs-Updates unterbrechen Video und Steuerung kurz.",
-      "installed": "Installiert",
       "requestFailed": "Die Update-Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung zum Gerät und versuchen Sie es erneut.",
       "reconnecting": "Warten, bis sich das Gerät wieder verbindet…",
       "components": {
@@ -922,41 +935,45 @@
         "rollback": "Stabile Version installieren",
         "rollbackDescription": "Eine Beta ist installiert. Die aktuelle stabile Firmware kann auch mit älteren Paketversionen wiederhergestellt werden.",
         "rollbackConfirm": "Beta durch die aktuelle stabile Firmware ersetzen? Einstellungen und Daten bleiben erhalten. Dienste werden neu gestartet; ein Neustart kann nötig sein."
-      }
+      },
+      "status": {
+        "checking": "Suche nach Updates…",
+        "installing": "Updates werden installiert…",
+        "available": "Updates verfügbar"
+      },
+      "advanced": "Erweitert"
     },
     "memory": {
       "zramAuto": "Automatisch ({{size}} MiB)",
       "recompressTitle": "Kalte Seiten mit ZSTD neu komprimieren",
       "recompressDescription": "Schnelles LZ4 für neue Seiten beibehalten. Alle 15 Sekunden bis zu 1 MiB an Seiten verarbeiten, die eine Minute lang nicht verwendet wurden. Benötigt zusätzliche CPU-Leistung und Kompressorspeicher; das Lesen dieser Seiten kann langsamer sein. Eine Änderung dieses Modus erstellt ZRAM neu und erfordert ausreichend freien RAM.",
       "recompressNotReady": "Der gespeicherte Modus ist nicht aktiv. Wenden Sie ihn erneut an, wenn ausreichend RAM verfügbar ist.",
-      "applicationTitle": "Speicherbedarf der Anwendung reduzieren",
       "title": "Arbeitsspeicher",
       "ram": "Belegter RAM",
       "available": "Verfügbar",
       "cache": "Freigebbarer Cache",
-      "video": "Videopuffer (ION)",
+      "video": "Videopuffer",
       "videoMemoryShared": "Videospeicher: {{size}} MiB, gemeinsam mit Linux genutzt",
       "videoMemoryReserved": "Videospeicher: {{size}} MiB reserviert. Starten Sie das Gerät neu, um den gemeinsamen Videospeicher des aktualisierten Systems zu verwenden.",
       "ramNote": "Der verfügbare Speicher umfasst den freigebbaren Cache.",
       "zramTitle": "ZRAM-Swap aktivieren",
       "sdTitle": "SD-Swap aktivieren",
       "zramDescription": "Inaktive Speicherseiten im RAM komprimieren. Die Kapazität wird vor der Komprimierung gemessen; RAM wird bei Bedarf zugewiesen.",
-      "sdDescription": "Eine Swap-Datei auf der SD-Karte verwenden, wenn der Speicher knapp ist. SD-Zugriffe sind langsamer als RAM.",
+      "sdDescription": "Eine Auslagerungsdatei auf der SD-Karte, nach ZRAM genutzt, wenn Speicher knapp ist. Langsamer als RAM und nutzt die Karte ab.",
       "size": "Kapazität",
       "used": "Belegt",
-      "algorithm": "Komprimierung",
-      "actualRam": "Seitenspeicher im RAM",
-      "priorityNote": "ZRAM wird vor SD-Swap verwendet. Änderungen gelten sofort und bleiben nach einem Neustart erhalten.",
       "unavailable": "Erfordert einen NanoKVM-OS-Build mit dieser Funktion.",
       "loadError": "Speicherstatus konnte nicht gelesen werden",
       "changeError": "Swap-Einstellungen konnten nicht geändert werden",
       "limitTitle": "Speicherlimit des Servers",
-      "limitDescription": "Nahe dieser Grenze gibt der NanoKVM-Server Speicher konsequenter frei, statt ihn apk und dem übrigen System zu nehmen. Aus: ein Viertel des RAM ({{default}} MiB). Ein eigenes Limit beträgt mindestens {{minimum}} MiB, auch wenn der Standard niedriger ist, und gilt sofort ohne Neustart.",
+      "limitDescription": "Nahe dieser Grenze gibt der NanoKVM-Server Speicher stärker frei, statt ihn apk und dem übrigen System zu nehmen. Eine eigene Grenze beträgt mindestens {{minimum}} MiB und gilt sofort.",
       "limitValue": "Limit",
       "limitApply": "Übernehmen",
-      "limitCurrent": "Aktuell: {{current}} MiB.",
       "limitNone": "Aktuell: kein Limit.",
-      "limitError": "Das Speicherlimit konnte nicht geändert werden"
+      "limitError": "Das Speicherlimit konnte nicht geändert werden",
+      "zramUsage": "Belegt {{used}}, {{stored}} im RAM ({{algorithm}})",
+      "advanced": "Erweitert",
+      "limitDefault": "Standard: ein Viertel des RAM ({{default}} MiB)."
     },
     "services": {
       "title": "Dienste"
@@ -1009,7 +1026,6 @@
         "image": "Image",
         "alpine": "Alpine",
         "kernel": "Laufender Kernel",
-        "systemBase": "Systembasis",
         "modules": "Kernel-Module",
         "boot": "Boot-Komponenten",
         "video": "HDMI und Videoaufnahme",
@@ -1045,7 +1061,19 @@
           "saved-profile": "gespeichertes Profil",
           "power-cycle-pending": "physischer Stromzyklus ausstehend",
           "pending-reboot": "Neustart ausstehend"
-        }
+        },
+        "allOk": "Alles in Ordnung",
+        "problems": "Gefundene Probleme: {{count}}",
+        "packages": "Pakete ({{count}})",
+        "usbOff": "USB ist in den USB-Gadget-Einstellungen ausgeschaltet.",
+        "optionalIdle": "Optional, nicht aktiv",
+        "nftFeatures": {
+          "mss-clamp": "MSS-Begrenzung auf Pfad-MTU",
+          "usb-internet": "Internet über USB"
+        },
+        "archive": "Archiv für Entwickler erstellen",
+        "archiveHint": "Für einen Fehlerbericht: Protokolle der letzten Starts, System-, Hardware- und Netzwerkzustand und Einstellungen in einer Datei. Passwörter, Schlüssel und Adressen werden auf dem Gerät entfernt. Das Sammeln dauert bis zu einer Minute.",
+        "archiveError": "Das Entwicklerarchiv konnte nicht erstellt werden"
       },
       "device": "Gerät",
       "performance": "Leistung",
@@ -1147,8 +1175,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "Branding",
-        "description": "Passen Sie das Anmeldelogo und das Browser-Favicon unabhängig voneinander an. Die integrierten Bilder bleiben als Standard verfügbar.",
         "logoTitle": "Anmeldelogo",
         "logoDescription": "Das Hauptlogo über dem Anmeldeformular.",
         "logoPreview": "Vorschau des Anmeldelogos",
@@ -1161,18 +1187,14 @@
         "customActive": "Benutzerdefiniertes Bild",
         "restoreDefault": "Standard wiederherstellen",
         "formats": "PNG oder JPEG, bis zu 2 MiB und 1024 × 1024 Pixel. Ein quadratisches transparentes PNG eignet sich am besten.",
-        "failed": "Branding konnte nicht gespeichert werden."
+        "failed": "Branding konnte nicht gespeichert werden.",
+        "upload": "Hochladen"
       },
       "buttonColor": {
         "title": "Schaltflächenfarbe",
         "description": "Wählen Sie die Akzentfarbe für primäre Schaltflächen in der gesamten Oberfläche.",
-        "accentTitle": "Primäre Schaltflächen",
-        "accentDescription": "Hover- und Gedrückt-Zustände werden automatisch erzeugt.",
-        "preview": "Vorschau-Schaltfläche",
         "inputLabel": "Schaltflächenfarbe im Hexadezimalformat",
         "defaultActive": "Integriertes Logo-Grün (#45E9A0)",
-        "customActive": "Benutzerdefinierte Farbe",
-        "save": "Übernehmen",
         "restoreDefault": "Standard wiederherstellen",
         "failed": "Die Schaltflächenfarbe konnte nicht gespeichert werden."
       },
@@ -1184,8 +1206,6 @@
         "failed": "Der Stil des SSH-Banners konnte nicht gespeichert werden."
       },
       "title": "Erscheinungsbild",
-      "display": "Bildschirm",
-      "customize": "Anpassen",
       "language": "Sprache",
       "languageDesc": "Wählen Sie die Sprache für die Benutzeroberfläche aus",
       "helpTranslate": "Beim Übersetzen helfen",
@@ -1194,16 +1214,22 @@
       "webTitle": "Web Titel",
       "webTitleDesc": "Passen Sie den Web-Seite Titel an",
       "menuBar": {
-        "title": "Menüleiste",
         "mode": "Anzeigemodus",
-        "modeDesc": "Menüleiste auf dem Bildschirm anzeigen",
+        "modeDesc": "Automatisch ausblenden: Die Leiste erscheint, wenn die Maus den oberen Rand erreicht.",
         "modeAuto": "Automatisch ausblenden",
         "modeAlways": "Immer sichtbar",
         "keyboardLedStatus": "Tastensperren-Anzeigen",
-        "keyboardLedStatusDesc": "Num-Lock-, Feststell- und Rollen-Status des Remote-Computers anzeigen",
-        "icons": "Untermenüsymbole",
-        "iconsDesc": "Untermenüsymbole in der Menüleiste anzeigen"
-      }
+        "keyboardLedStatusDesc": "Caps Lock, Num Lock und Scroll Lock des entfernten Computers in der Menüleiste anzeigen.",
+        "icons": "Schaltflächen der Menüleiste",
+        "iconsDesc": "Untermenüsymbole in der Menüleiste anzeigen",
+        "hiddenCount": "{{count}} ausgeblendet",
+        "showAll": "Alle anzeigen"
+      },
+      "browser": "In diesem Browser",
+      "browserDesc": "Nur in diesem Browser gespeichert; andere Browser und Benutzer haben eigene Einstellungen.",
+      "device": "Für alle auf diesem Gerät",
+      "deviceDesc": "Auf dem Gerät gespeichert und für alle sichtbar, die es öffnen.",
+      "saved": "Gespeichert"
     },
     "keyboardLedStatus": {
       "groupLabel": "Tastensperren-Status der Remote-Tastatur",
@@ -2048,7 +2074,9 @@
       "ipmiNotInstalled": "IPMI kommt mit der IPMI-Erweiterung, die nicht installiert ist.",
       "ipmiInstall": "IPMI-Erweiterung installieren",
       "ipmiAddonDescription": "IPMI über LAN zur Stromsteuerung des Hosts (ipmitool, fence_ipmilan). Die Einstellungen finden Sie unter Dienste > Redfish und IPMI.",
-      "holdDefault": "5 (Strommenü)"
+      "holdDefault": "5 (Strommenü)",
+      "advanced": "Erweitert",
+      "accountFirst": "Legen Sie unten das BMC-Konto fest und klicken Sie auf Speichern: Redfish und IPMI lassen sich nur mit Passwort einschalten."
     },
     "recovery": {
       "title": "Sicherung und Zurücksetzen",
@@ -2056,13 +2084,11 @@
       "password": "Aktuelles Administratorpasswort",
       "export": "Einstellungen exportieren",
       "encryption": "Das Archiv enthält Passwörter und private Schlüssel. Es wird mit Ihrem Sicherungspasswort verschlüsselt (12–256 Bytes). Bewahren Sie Datei und Passwort sicher auf; ein verlorenes Passwort lässt sich nicht wiederherstellen.",
-      "archivePassword": "Sicherungspasswort (auch zum Öffnen eines Archivs)",
+      "archivePassword": "Archivpasswort",
       "download": "Verschlüsselte Sicherung herunterladen",
-      "restoreReset": "Wiederherstellen oder zurücksetzen",
       "restore": "Einstellungen wiederherstellen",
       "reset": "Werkseinstellungen wiederherstellen",
       "updateBase": "Aktualisieren Sie nanokvm-base, um Wiederherstellen und Zurücksetzen zu aktivieren.",
-      "file": "Einstellungsarchiv (.nkos)",
       "fileLimit": "Wählen Sie ein Einstellungsarchiv mit höchstens 4 MiB.",
       "migrate": "Auf ein anderes Gerät übertragen (empfohlen)",
       "device": "Dieses Gerät einschließlich Zugangs- und Netzwerkeinstellungen wiederherstellen",
@@ -2082,7 +2108,11 @@
       "inventory": "In der Sicherung erfasste Pakete (werden nicht automatisch installiert)",
       "confirm": "Ich habe die Änderungen geprüft und kann mich nach dem Neustart wieder verbinden.",
       "reboot": "Zum Abschließen neu starten",
-      "rebooting": "Wiederherstellung vorgemerkt. Das Gerät startet neu; verbinden Sie sich danach erneut."
+      "rebooting": "Wiederherstellung vorgemerkt. Das Gerät startet neu; verbinden Sie sich danach erneut.",
+      "backupPassword": "Sicherungspasswort",
+      "backupPasswordShort": "Mindestens 12 Zeichen.",
+      "chooseFile": ".nkos-Datei auswählen",
+      "deviceHint": "Ersetzt alle Einstellungen dieses Geräts durch die des Archivs, einschließlich Benutzer, Netzwerk, VPN, Zertifikate und Hardwareeinstellungen."
     },
     "ai": {
       "title": "KI",
@@ -2091,7 +2121,7 @@
         "notInstalled": "Die Texterkennung benötigt das TPU-Add-on.",
         "openAddons": "Add-ons",
         "enabled": "Texterkennung",
-        "enabledDescription": "Text auf dem Bildschirm mit der TPU lesen: die Schaltfläche in der Werkzeugleiste, MCP und PicoClaw. Ausgeschaltet kann keiner davon lesen.",
+        "enabledDescription": "Wenn eingeschaltet, liest eine Schaltfläche über dem Bildschirm dessen Text, und auch MCP und PicoClaw können ihn lesen. Ausgeschaltet kann es keiner von ihnen.",
         "switchFailed": "Die Einstellung konnte nicht gespeichert werden"
       },
       "picoclaw": {

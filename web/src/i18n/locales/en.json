@@ -38,7 +38,6 @@
     "format": "Time format",
     "hour24": "24 hours",
     "hour12": "12 hours",
-    "preview": "Preview",
     "dateFormat": "Date format",
     "dateAuto": "Language default",
     "dateDmy": "DD.MM.YYYY",
@@ -46,13 +45,19 @@
     "dateYmd": "YYYY-MM-DD",
     "servers": "NTP servers",
     "serversHelp": "Choose or enter 1–6 hostnames or IP addresses. Changing servers restarts time synchronization.",
-    "scope": "Time zone applies to the device. The time and date formats are shared across the interface, including VPN handshake times.",
     "synchronized": "Synchronized",
     "waiting": "Synchronization not confirmed",
     "save": "Save",
     "saved": "Date and time settings saved",
     "loadFailed": "Cannot read device time. Check the connection.",
-    "saveFailed": "Could not apply settings. Check server addresses and the device connection."
+    "saveFailed": "Could not apply settings. Check server addresses and the device connection.",
+    "device": "Device",
+    "display": "Display",
+    "displayHint": "For the whole interface, including VPN handshake times.",
+    "setFromBrowser": "Set to this browser's time",
+    "setFromBrowserHint": "For a network without NTP. The time is also saved to the device's clock chip.",
+    "clockSet": "Device time set",
+    "clockFailed": "Could not set the device time."
   },
   "recorder": {
     "startDirect": "Start recording the original stream (MP4)",
@@ -776,6 +781,16 @@
       "description": "Stops video, keyboard, virtual disks, SSH and add-ons. Wait for confirmation before disconnecting NanoKVM power. If power stays connected, use the restart page to start NanoKVM OS again. The connected computer stays on.",
       "magic": "Also allow a Wake-on-LAN magic packet. Anyone who can reach the listener can restart NanoKVM without a password."
     },
+    "addonPage": {
+      "failed": "Could not read the add-on's values",
+      "notRunning": "The add-on's service is not running",
+      "refused": "The add-on refused it",
+      "saved": "Saved",
+      "save": "Save",
+      "status": "Status",
+      "yes": "Yes",
+      "no": "No"
+    },
     "vpn": {
       "title": "VPN",
       "description": "Connect NanoKVM to a private network. Select a VPN to set it up."
@@ -822,7 +837,9 @@
         "checkNow": "Check now",
         "dailyOff": "The daily update check is off: the list changes only when you check.",
         "listFailed": "The last check failed.",
-        "failed": "The request failed."
+        "failed": "The request failed.",
+        "installedSection": "Installed",
+        "availableSection": "Available"
       },
       "title": "Software",
       "description": "Manage packages from the configured Alpine repositories. Package changes use the same APK database and services as SSH.",
@@ -835,7 +852,6 @@
       "upToDate": "All installed packages are up to date.",
       "searchPlaceholder": "Search package name",
       "search": "Search",
-      "searchHint": "Search starts automatically after you pause typing.",
       "noResults": "No matching packages",
       "indexMissing": "No package indexes are available. Refresh indexes before searching or installing.",
       "indexStale": "Package indexes may be outdated (last refreshed {{updated}}). Refresh before installing.",
@@ -858,8 +874,6 @@
     },
     "updates": {
       "apk": {
-        "title": "Package updates",
-        "description": "Update installed packages from the configured repositories. Settings are kept. Services restart automatically; a kernel update requires a reboot.",
         "check": "Check for updates",
         "install": "Install updates",
         "confirm": "Install these package updates? Video and control may briefly disconnect.",
@@ -873,7 +887,6 @@
       },
       "title": "Updates",
       "description": "Update NanoKVM OS using signed packages. System updates restart the device; application updates briefly disconnect video and control.",
-      "installed": "Installed",
       "requestFailed": "The update request failed. Check device connectivity and retry.",
       "reconnecting": "Waiting for the device to reconnect…",
       "components": {
@@ -922,41 +935,45 @@
         "rollback": "Install stable version",
         "rollbackDescription": "A beta is installed. You can install the current stable firmware, including older package versions, without waiting for another release.",
         "rollbackConfirm": "Replace the beta with the current stable firmware? Settings and data are kept. Services will restart; a reboot may be required."
-      }
+      },
+      "status": {
+        "checking": "Checking for updates…",
+        "installing": "Installing updates…",
+        "available": "Updates available"
+      },
+      "advanced": "Advanced"
     },
     "memory": {
       "zramAuto": "Auto ({{size}} MiB)",
       "recompressTitle": "Recompress cold pages with ZSTD",
       "recompressDescription": "Keep fast LZ4 for new pages. Every 15 seconds, try up to 1 MiB of pages untouched for a minute. Uses extra CPU and compressor memory; reading these pages may be slower. Changing this mode recreates ZRAM and requires enough free RAM.",
       "recompressNotReady": "The saved mode is not active. Reapply it when sufficient RAM is available.",
-      "applicationTitle": "Reduce application memory",
       "title": "Memory",
       "ram": "RAM in use",
       "available": "Available",
       "cache": "Reclaimable cache",
-      "video": "Video buffers (ION)",
+      "video": "Video buffers",
       "videoMemoryShared": "Video memory: {{size}} MiB, shared with Linux",
       "videoMemoryReserved": "Video memory: {{size}} MiB reserved. Restart the device to use the shared video memory of the updated system.",
       "ramNote": "Available memory includes reclaimable cache.",
       "zramTitle": "Enable ZRAM swap",
       "sdTitle": "Enable SD swap",
       "zramDescription": "Compress inactive memory pages in RAM. Capacity is measured before compression; RAM is allocated as needed.",
-      "sdDescription": "Use a swap file on the SD card when memory is scarce. SD access is slower than RAM.",
+      "sdDescription": "A swap file on the SD card, used after ZRAM when memory is scarce. Slower than RAM, and it wears the card.",
       "size": "Capacity",
       "used": "Used",
-      "algorithm": "Compression",
-      "actualRam": "Page storage in RAM",
-      "priorityNote": "ZRAM is used before SD swap. Changes apply immediately and persist after reboot.",
       "unavailable": "Requires a NanoKVM OS build with this feature.",
       "loadError": "Could not read memory status",
       "changeError": "Could not change swap settings",
       "limitTitle": "Server memory limit",
-      "limitDescription": "Near this limit the NanoKVM server frees memory harder instead of taking it from apk and the rest of the system. Off: a quarter of RAM ({{default}} MiB). A custom limit is at least {{minimum}} MiB, even where the default is lower, and applies at once without a restart.",
+      "limitDescription": "Near this limit the NanoKVM server frees memory harder instead of taking it from apk and the rest of the system. A custom limit is at least {{minimum}} MiB and applies at once.",
       "limitValue": "Limit",
       "limitApply": "Apply",
-      "limitCurrent": "In effect: {{current}} MiB.",
       "limitNone": "In effect: no limit.",
-      "limitError": "Could not change the memory limit"
+      "limitError": "Could not change the memory limit",
+      "zramUsage": "Used {{used}}, {{stored}} in RAM ({{algorithm}})",
+      "advanced": "Advanced",
+      "limitDefault": "Default: a quarter of RAM ({{default}} MiB)."
     },
     "services": {
       "title": "Services"
@@ -1009,7 +1026,6 @@
         "image": "Image",
         "alpine": "Alpine",
         "kernel": "Running kernel",
-        "systemBase": "System base",
         "modules": "Kernel modules",
         "boot": "Boot components",
         "video": "HDMI and video capture",
@@ -1045,7 +1061,19 @@
           "saved-profile": "saved profile",
           "power-cycle-pending": "physical power cycle pending",
           "pending-reboot": "reboot pending"
-        }
+        },
+        "allOk": "Everything is OK",
+        "problems": "Problems found: {{count}}",
+        "packages": "Packages ({{count}})",
+        "usbOff": "USB is switched off in USB Gadget settings.",
+        "optionalIdle": "Optional, not running",
+        "nftFeatures": {
+          "mss-clamp": "MSS clamp to path MTU",
+          "usb-internet": "USB internet sharing"
+        },
+        "archive": "Prepare archive for developers",
+        "archiveHint": "For a bug report: logs of the last boots, system, hardware and network state and settings, in one file. Passwords, keys and addresses are removed on the device. Collecting takes up to a minute.",
+        "archiveError": "Could not prepare the developer archive"
       },
       "device": "Device",
       "performance": "Performance",
@@ -1147,8 +1175,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "Branding",
-        "description": "Customize the login logo and browser favicon independently. Built-in images remain available as defaults.",
         "logoTitle": "Login logo",
         "logoDescription": "The main logo shown above the sign-in form.",
         "logoPreview": "Login logo preview",
@@ -1161,18 +1187,14 @@
         "customActive": "Custom image",
         "restoreDefault": "Restore default",
         "formats": "PNG or JPEG, up to 2 MiB and 1024 × 1024 pixels. A square transparent PNG works best.",
-        "failed": "Could not save branding."
+        "failed": "Could not save branding.",
+        "upload": "Upload"
       },
       "buttonColor": {
         "title": "Button color",
         "description": "Choose the accent color used by primary buttons throughout the interface.",
-        "accentTitle": "Primary buttons",
-        "accentDescription": "Hover and pressed states are generated automatically.",
-        "preview": "Preview button",
         "inputLabel": "Button color in hexadecimal format",
         "defaultActive": "Built-in logo green (#45E9A0)",
-        "customActive": "Custom color",
-        "save": "Apply",
         "restoreDefault": "Restore default",
         "failed": "Could not save the button color."
       },
@@ -1184,8 +1206,6 @@
         "failed": "Could not save the SSH banner style."
       },
       "title": "Appearance",
-      "display": "Display",
-      "customize": "Customize",
       "language": "Language",
       "languageDesc": "Select the language for the interface",
       "helpTranslate": "Help translate",
@@ -1194,16 +1214,22 @@
       "webTitle": "Web title",
       "webTitleDesc": "Customize the web page title",
       "menuBar": {
-        "title": "Menu bar",
         "mode": "Display mode",
-        "modeDesc": "Display menu bar on the screen",
+        "modeDesc": "Auto hide: the bar appears when the mouse reaches the top edge.",
         "modeAuto": "Auto hide",
         "modeAlways": "Always visible",
         "keyboardLedStatus": "Keyboard lock indicators",
-        "keyboardLedStatusDesc": "Display remote Num Lock, Caps Lock, and Scroll Lock status",
-        "icons": "Submenu icons",
-        "iconsDesc": "Display submenu icons in the menu bar"
-      }
+        "keyboardLedStatusDesc": "Show Caps Lock, Num Lock and Scroll Lock of the remote computer in the menu bar.",
+        "icons": "Menu bar buttons",
+        "iconsDesc": "Display submenu icons in the menu bar",
+        "hiddenCount": "{{count}} hidden",
+        "showAll": "Show all"
+      },
+      "browser": "In this browser",
+      "browserDesc": "Kept in this browser only; other browsers and users keep their own.",
+      "device": "For everyone on this device",
+      "deviceDesc": "Saved on the device and shown to everyone who opens it.",
+      "saved": "Saved"
     },
     "keyboardLedStatus": {
       "groupLabel": "Remote keyboard lock status",
@@ -2048,7 +2074,9 @@
       "ipmiNotInstalled": "IPMI comes with the IPMI add-on, which is not installed.",
       "ipmiInstall": "Install the IPMI add-on",
       "ipmiAddonDescription": "IPMI over LAN for power control of the host (ipmitool, fence_ipmilan). Its settings are in Services > Redfish and IPMI.",
-      "holdDefault": "5 (power menu)"
+      "holdDefault": "5 (power menu)",
+      "advanced": "Advanced",
+      "accountFirst": "Set the BMC account below and press Save: Redfish and IPMI turn on only with a password."
     },
     "recovery": {
       "title": "Backup & reset",
@@ -2056,13 +2084,11 @@
       "password": "Current administrator password",
       "export": "Export settings",
       "encryption": "The archive contains passwords and private keys. It is encrypted with your backup password (12–256 bytes). Keep the file and password somewhere safe; a lost password cannot be recovered.",
-      "archivePassword": "Backup password (also used to open an archive)",
+      "archivePassword": "Archive password",
       "download": "Download encrypted backup",
-      "restoreReset": "Restore or reset",
       "restore": "Restore settings",
       "reset": "Factory reset settings",
       "updateBase": "Update nanokvm-base to enable restore and reset.",
-      "file": "Settings archive (.nkos)",
       "fileLimit": "Choose a settings archive up to 4 MiB.",
       "migrate": "Migrate to another device (recommended)",
       "device": "Restore this device, including access and network settings",
@@ -2082,7 +2108,11 @@
       "inventory": "Packages recorded in the backup (not installed automatically)",
       "confirm": "I reviewed the changes and can reconnect to the device after reboot.",
       "reboot": "Reboot to finish recovery",
-      "rebooting": "Recovery queued. The device is rebooting; reconnect afterwards."
+      "rebooting": "Recovery queued. The device is rebooting; reconnect afterwards.",
+      "backupPassword": "Backup password",
+      "backupPasswordShort": "At least 12 characters.",
+      "chooseFile": "Choose a .nkos file",
+      "deviceHint": "Replaces all settings of this device with the archive's, including users, network, VPN, certificates and hardware settings."
     },
     "ai": {
       "title": "AI",
@@ -2091,7 +2121,7 @@
         "notInstalled": "Text recognition needs the TPU add-on.",
         "openAddons": "Add-ons",
         "enabled": "Text recognition",
-        "enabledDescription": "Read the text on the screen with the TPU: the toolbar button, MCP and PicoClaw. Off, none of them can read it.",
+        "enabledDescription": "When on, a button above the screen reads the text on it, and MCP and PicoClaw can read it too. Off, none of them can.",
         "switchFailed": "The setting could not be saved"
       },
       "picoclaw": {

@@ -339,25 +339,31 @@
     },
     "appearance": {
       "title": "Aparência",
-      "display": "Exibição",
       "language": "Idioma",
       "languageDesc": "Selecione o idioma da interface",
       "helpTranslate": "Ajude a traduzir",
       "webTitle": "Título da Web",
       "webTitleDesc": "Personalizar o título da página web",
       "menuBar": {
-        "title": "Barra de Menu",
         "mode": "Modo de exibição",
-        "modeDesc": "Exibir barra de menu na tela",
+        "modeDesc": "Ocultar automaticamente: a barra aparece quando o mouse chega à borda superior.",
         "modeAuto": "Ocultar automaticamente",
         "modeAlways": "Sempre visível",
         "keyboardLedStatus": "Indicadores de bloqueio do teclado",
-        "keyboardLedStatusDesc": "Exibir o estado de Num Lock, Caps Lock e Scroll Lock do computador remoto",
-        "icons": "Ícones do submenu",
-        "iconsDesc": "Exibir ícones de submenus na barra de menu"
+        "keyboardLedStatusDesc": "Mostrar Caps Lock, Num Lock e Scroll Lock do computador remoto na barra de menu.",
+        "icons": "Botões da barra de menu",
+        "iconsDesc": "Exibir ícones de submenus na barra de menu",
+        "hiddenCount": "{{count}} ocultos",
+        "showAll": "Mostrar todos"
       },
-      "buttonColor": {
-        "save": "Aplicar"
+      "buttonColor": {},
+      "browser": "Neste navegador",
+      "browserDesc": "Guardado só neste navegador; outros navegadores e usuários têm os seus.",
+      "device": "Para todos neste dispositivo",
+      "deviceDesc": "Salvo no dispositivo e exibido para todos que o abrem.",
+      "saved": "Salvo",
+      "branding": {
+        "upload": "Enviar"
       }
     },
     "keyboardLedStatus": {
@@ -562,7 +568,8 @@
       },
       "addons": {
         "title": "Complementos",
-        "packages": "Pacotes"
+        "packages": "Pacotes",
+        "install": "Instalar"
       },
       "title": "Software",
       "available": "Pacotes disponíveis",
@@ -574,18 +581,21 @@
     },
     "updates": {
       "apk": {
-        "title": "Atualizações de pacotes",
         "log": "Log de atualização"
       },
       "title": "Atualizações",
-      "installed": "Instalado"
+      "status": {
+        "checking": "Procurando atualizações…",
+        "installing": "Instalando atualizações…",
+        "available": "Atualizações disponíveis"
+      },
+      "advanced": "Avançado"
     },
     "memory": {
       "title": "Memória",
       "available": "Disponível",
       "size": "Capacidade",
-      "used": "Usado",
-      "algorithm": "Compressão"
+      "used": "Usado"
     },
     "services": {
       "title": "Serviços"
@@ -696,9 +706,19 @@
     "ai": {
       "screenText": {
         "enabled": "Reconhecimento de texto",
-        "enabledDescription": "Ler o texto da tela com a TPU: o botão da barra de ferramentas, MCP e PicoClaw. Desligado, nenhum deles pode ler.",
+        "enabledDescription": "Ativado, um botão acima da tela lê o texto nela, e MCP e PicoClaw também podem lê-lo. Desativado, nenhum deles pode.",
         "switchFailed": "Não foi possível salvar a configuração"
       }
+    },
+    "addonPage": {
+      "failed": "Não foi possível ler os valores do complemento",
+      "notRunning": "O serviço do complemento não está em execução",
+      "refused": "O complemento recusou",
+      "saved": "Salvo",
+      "save": "Salvar",
+      "status": "Status",
+      "yes": "Sim",
+      "no": "Não"
     }
   },
   "picoclaw": {
@@ -888,10 +908,16 @@
     "deviceTime": "Hora do dispositivo",
     "timezone": "Fuso horário",
     "format": "Formato de hora",
-    "preview": "Prévia",
     "synchronized": "Sincronizado",
     "waiting": "Sincronização não confirmada",
-    "save": "Salvar"
+    "save": "Salvar",
+    "device": "Dispositivo",
+    "display": "Exibição",
+    "displayHint": "Para toda a interface, incluindo os horários de handshake da VPN.",
+    "setFromBrowser": "Usar a hora deste navegador",
+    "setFromBrowserHint": "Para uma rede sem NTP. A hora também é salva no relógio do dispositivo.",
+    "clockSet": "Hora do dispositivo definida",
+    "clockFailed": "Não foi possível definir a hora do dispositivo."
   },
   "recorder": {
     "title": "Gravação de vídeo",

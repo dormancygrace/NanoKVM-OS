@@ -40,24 +40,59 @@ export const BmcSettingsPage = () => {
   const [form] = Form.useForm<BmcSettings>();
   const dirty = useRef(false);
   const mounted = useRef(false);
+  const operation = useRef(false);
+  const edits = useRef(0);
+  const generation = useRef(0);
+  const reading = useRef(false);
+  const stored = useRef<BmcStatus | undefined>(undefined);
+  const invalidateReads = useCallback(() => {
+    generation.current++;
+    reading.current = false;
+  }, []);
   const ipmi = Form.useWatch('ipmi', form);
   const redfish = Form.useWatch('redfish', form);
 
-  const refresh = useCallback(async () => {
-    if (!mounted.current) return;
-    try {
-      const response = await getBmcStatus();
-      if (!mounted.current) return;
-      if (response.code !== 0) throw new Error(response.msg);
-      const next = response.data;
+  const show = useCallback(
+    (next: BmcStatus) => {
+      stored.current = next;
       setStatus(next);
-      if (!dirty.current)
+      if (!dirty.current) {
         form.setFieldsValue({ ...next, holdSeconds: next.holdSeconds || undefined, password: '' });
-      setLoadError('');
-    } catch {
-      if (mounted.current) setLoadError(t('failed'));
-    }
-  }, [form, t]);
+      } else if (next.passwordSet) {
+        // Account edits stay local; switches still track the applied settings.
+        form.setFieldsValue({ redfish: next.redfish, ipmi: next.ipmi });
+      }
+    },
+    [form]
+  );
+
+  const refresh = useCallback(
+    async (afterMutation = false) => {
+      if (!mounted.current || reading.current || (operation.current && !afterMutation)) return;
+      const request = ++generation.current;
+      reading.current = true;
+      try {
+        const response = await getBmcStatus();
+        if (!mounted.current || request !== generation.current) return;
+        if (response.code !== 0) throw new Error(response.msg);
+        show(response.data);
+        setLoadError('');
+      } catch {
+        if (mounted.current && request === generation.current) setLoadError(t('failed'));
+      } finally {
+        if (request === generation.current) reading.current = false;
+      }
+    },
+    [show, t]
+  );
+
+  const begin = () => {
+    if (operation.current) return false;
+    operation.current = true;
+    // A read begun before this write must never restore the previous config.
+    invalidateReads();
+    return true;
+  };
 
   useEffect(() => {
     mounted.current = true;
@@ -65,34 +100,42 @@ export const BmcSettingsPage = () => {
     const stop = pollWhileVisible(() => void refresh(), 5000);
     return () => {
       mounted.current = false;
+      invalidateReads();
       stop();
     };
-  }, [refresh]);
+  }, [refresh, invalidateReads]);
 
   const save = async (values: BmcSettings) => {
+    const previous = stored.current;
+    if (!previous || !begin()) return;
+    const submittedEdit = edits.current;
+    const settings = {
+      ...values,
+      ipmi: Boolean(values.ipmi),
+      // The port field exists only with the add-on installed.
+      ipmiPort: values.ipmiPort ?? previous.ipmiPort,
+      holdSeconds: values.holdSeconds || 0,
+      powerLedConnected: values.powerLedConnected !== false,
+      password: values.password ?? ''
+    };
     setBusy(true);
     try {
-      const response = await configureBmc({
-        ...values,
-        ipmi: Boolean(values.ipmi),
-        // The port field exists only with the add-on installed.
-        ipmiPort: values.ipmiPort ?? status?.ipmiPort ?? 0,
-        // Empty: the power menu's long press.
-        holdSeconds: values.holdSeconds || 0,
-        powerLedConnected: values.powerLedConnected !== false,
-        password: values.password ?? ''
-      });
+      const response = await configureBmc(settings);
+      if (!mounted.current) return;
       if (response.code !== 0) throw new Error(response.msg);
-      dirty.current = false;
+      if (edits.current === submittedEdit) dirty.current = false;
+      if (form.getFieldValue('password') === values.password) form.setFieldValue('password', '');
+      const { password, ...applied } = settings;
+      show({ ...previous, ...applied, passwordSet: previous.passwordSet || !!password });
       setShowValidationErrors(false);
-      form.setFieldValue('password', '');
       void message.success(t('saved'));
       setActionError('');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('failed'));
+      if (mounted.current) setActionError(err instanceof Error ? err.message : t('failed'));
     } finally {
-      setBusy(false);
-      void refresh();
+      await refresh(true);
+      operation.current = false;
+      if (mounted.current) setBusy(false);
     }
   };
 
@@ -100,45 +143,60 @@ export const BmcSettingsPage = () => {
   // edited. Turning one on needs a stored password: until the account is
   // saved the switch stays on the page and Save turns it on.
   const toggle = async (key: 'redfish' | 'ipmi', on: boolean) => {
-    if (!status) return;
-    if (!status.passwordSet || on === status[key]) {
-      dirty.current = true;
+    const previous = stored.current;
+    if (!previous) return;
+    if (operation.current) {
+      form.setFieldValue(key, previous[key]);
       return;
     }
+    if (!previous.passwordSet || on === previous[key]) {
+      dirty.current = true;
+      edits.current++;
+      return;
+    }
+    if (!begin()) return;
     setSwitching(key);
     try {
       const response = await configureBmc({
-        redfish: status.redfish,
-        ipmi: status.ipmi,
-        username: status.username,
+        redfish: previous.redfish,
+        ipmi: previous.ipmi,
+        username: previous.username,
         password: '',
-        ipmiPort: status.ipmiPort,
-        holdSeconds: status.holdSeconds,
-        powerLedConnected: status.powerLedConnected,
+        ipmiPort: previous.ipmiPort,
+        holdSeconds: previous.holdSeconds,
+        powerLedConnected: previous.powerLedConnected,
         [key]: on
       });
+      if (!mounted.current) return;
       if (response.code !== 0) throw new Error(response.msg);
+      show({ ...previous, [key]: on });
       setActionError('');
     } catch (err) {
-      form.setFieldValue(key, status[key]);
-      setActionError(err instanceof Error ? err.message : t('failed'));
+      if (mounted.current) {
+        form.setFieldValue(key, previous[key]);
+        setActionError(err instanceof Error ? err.message : t('failed'));
+      }
     } finally {
-      setSwitching(undefined);
-      void refresh();
+      await refresh(true);
+      operation.current = false;
+      if (mounted.current) setSwitching(undefined);
     }
   };
 
   const installIpmi = async () => {
+    if (!begin()) return;
     setInstalling(true);
     try {
       const response = await ipmiPackageAction('install');
+      if (!mounted.current) return;
       if (response.code !== 0) throw new Error(response.msg);
       setActionError('');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : t('failed'));
+      if (mounted.current) setActionError(err instanceof Error ? err.message : t('failed'));
     } finally {
-      setInstalling(false);
-      void refresh();
+      await refresh(true);
+      operation.current = false;
+      if (mounted.current) setInstalling(false);
     }
   };
 
@@ -172,8 +230,10 @@ export const BmcSettingsPage = () => {
         layout="vertical"
         onValuesChange={(changed: Partial<BmcSettings>) => {
           // The switches apply on their own (toggle); the poll may update them.
-          if (Object.keys(changed).some((key) => key !== 'redfish' && key !== 'ipmi'))
+          if (Object.keys(changed).some((key) => key !== 'redfish' && key !== 'ipmi')) {
             dirty.current = true;
+            edits.current++;
+          }
         }}
         onFinish={(values) => void save(values)}
         onFinishFailed={() => setShowValidationErrors(true)}
@@ -198,7 +258,7 @@ export const BmcSettingsPage = () => {
                       id="bmc-redfish"
                       aria-describedby="bmc-redfish-description"
                       loading={switching === 'redfish'}
-                      disabled={!!switching}
+                      disabled={busy || !!switching || installing}
                       onChange={(on) => void toggle('redfish', on)}
                     />
                   </Form.Item>
@@ -226,7 +286,7 @@ export const BmcSettingsPage = () => {
                             id="bmc-ipmi"
                             aria-describedby="bmc-ipmi-description"
                             loading={switching === 'ipmi'}
-                            disabled={!!switching}
+                            disabled={busy || !!switching || installing}
                             onChange={(on) => void toggle('ipmi', on)}
                           />
                         </Form.Item>
@@ -239,6 +299,7 @@ export const BmcSettingsPage = () => {
                       <Button
                         icon={<DownloadIcon size={16} />}
                         loading={installing}
+                        disabled={busy || !!switching || installing}
                         onClick={() => void installIpmi()}
                       >
                         {t('ipmiInstall')}
@@ -332,7 +393,12 @@ export const BmcSettingsPage = () => {
                   </div>
                 </details>
               </Panel>
-              <Button type="primary" loading={busy} onClick={submit}>
+              <Button
+                type="primary"
+                loading={busy}
+                disabled={busy || !!switching || installing}
+                onClick={submit}
+              >
                 {t('save')}
               </Button>
             </SettingsSection>

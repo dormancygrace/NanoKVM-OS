@@ -2058,7 +2058,9 @@
       "ipmiNotInstalled": "IPMI est fourni par le module IPMI, qui n'est pas installé.",
       "ipmiInstall": "Installer le module IPMI",
       "ipmiAddonDescription": "IPMI sur LAN pour le contrôle de l'alimentation de l'hôte (ipmitool, fence_ipmilan). Ses paramètres sont dans Services > Redfish et IPMI.",
-      "holdDefault": "5 (menu d'alimentation)"
+      "holdDefault": "5 (menu d'alimentation)",
+      "advanced": "Avancé",
+      "accountFirst": "Définissez le compte BMC ci-dessous et cliquez sur Enregistrer : Redfish et IPMI ne s'activent qu'avec un mot de passe."
     },
     "recovery": {
       "title": "Sauvegarde et réinitialisation",

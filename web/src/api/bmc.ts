@@ -26,6 +26,12 @@ export type BmcSettings = {
 export const getBmcStatus = () =>
   http.request<BmcStatus>({ method: 'get', url: '/api/bmc/status', timeout: 10000 });
 export const configureBmc = (data: BmcSettings) =>
-  http.request<null>({ method: 'put', url: '/api/bmc/config', data, timeout: 30000 });
+  http.request<null>({
+    method: 'put',
+    url: '/api/bmc/config',
+    data,
+    timeout: 30000,
+    sensitive: true
+  });
 export const ipmiPackageAction = (action: 'install' | 'uninstall') =>
   http.post('/api/bmc/ipmi/' + action, undefined, { timeout: 190000 });

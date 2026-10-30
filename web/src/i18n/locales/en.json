@@ -2058,7 +2058,9 @@
       "ipmiNotInstalled": "IPMI comes with the IPMI add-on, which is not installed.",
       "ipmiInstall": "Install the IPMI add-on",
       "ipmiAddonDescription": "IPMI over LAN for power control of the host (ipmitool, fence_ipmilan). Its settings are in Services > Redfish and IPMI.",
-      "holdDefault": "5 (power menu)"
+      "holdDefault": "5 (power menu)",
+      "advanced": "Advanced",
+      "accountFirst": "Set the BMC account below and press Save: Redfish and IPMI turn on only with a password."
     },
     "recovery": {
       "title": "Backup & reset",

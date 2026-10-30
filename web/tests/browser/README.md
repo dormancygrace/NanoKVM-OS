@@ -69,3 +69,12 @@ that a late status cannot undo an immediate selection. Edited NTP servers
 must only be sent by Save. Complete write, Refuse writes and NTP synchronized
 cover the clock button and its partial-failure message. `date-time.spec.ts`
 runs these three scenarios in CI. Neither the host nor a device clock changes.
+
+### BMC settings regressions
+
+`/tests/browser/bmc.html` exercises the production BMC page with synthetic
+responses. Hold next read / Release read and Complete write control response
+ordering. Check stored account use by switches, serialization through readback,
+newer account edits during Save, stale polls, persistent refusal messages,
+credential redaction and the initial-password path. `bmc.spec.ts` repeats these
+cases in Chrome Main in CI. No device or add-on is contacted.

@@ -2058,7 +2058,9 @@
       "ipmiNotInstalled": "IPMI 由 IPMI 扩展提供，该扩展尚未安装。",
       "ipmiInstall": "安装 IPMI 扩展",
       "ipmiAddonDescription": "用于主机电源控制的 IPMI over LAN（ipmitool、fence_ipmilan）。设置位于“服务 > Redfish 与 IPMI”。",
-      "holdDefault": "5（电源菜单）"
+      "holdDefault": "5（电源菜单）",
+      "advanced": "高级",
+      "accountFirst": "请在下方设置 BMC 账户并点击保存：Redfish 和 IPMI 只有在设置密码后才能开启。"
     },
     "recovery": {
       "title": "备份与重置",

@@ -67,24 +67,26 @@ export const IndexSchedule = () => {
       ) : (
         <>
           <SettingRow label={t('enabled')} description={t('hint')} htmlFor="apk-index-refresh">
-            <Switch
-              id="apk-index-refresh"
-              aria-describedby="apk-index-refresh-description"
-              checked={schedule.enabled}
-              loading={busy}
-              disabled={busy || !saved}
-              // A half-typed time does not block the switch: the saved one stays.
-              onChange={(enabled) =>
-                void save(
-                  {
-                    ...schedule,
-                    enabled,
-                    time: validTime(schedule.time) || !saved ? schedule.time : saved.time
-                  },
-                  false
-                )
-              }
-            />
+            <div onBlur={() => void save(schedule, true)}>
+              <Switch
+                id="apk-index-refresh"
+                aria-describedby="apk-index-refresh-description"
+                checked={schedule.enabled}
+                loading={busy}
+                disabled={busy || !saved}
+                // A half-typed time does not block the switch: the saved one stays.
+                onChange={(enabled) =>
+                  void save(
+                    {
+                      ...schedule,
+                      enabled,
+                      time: validTime(schedule.time) || !saved ? schedule.time : saved.time
+                    },
+                    false
+                  )
+                }
+              />
+            </div>
           </SettingRow>
           {schedule.enabled && (
             <SettingRow
@@ -101,7 +103,12 @@ export const IndexSchedule = () => {
                 status={validTime(schedule.time) ? undefined : 'error'}
                 disabled={busy || !saved}
                 onChange={(event) => setSchedule({ ...schedule, time: event.target.value })}
-                onBlur={() => void save(schedule, true)}
+                onBlur={(event) => {
+                  // A click on the switch saves both fields. Saving here would
+                  // disable it between pointer-down and click, losing the toggle.
+                  // If focus only passes through the switch, its blur saves time.
+                  if (event.relatedTarget?.id !== 'apk-index-refresh') void save(schedule, true);
+                }}
                 onPressEnter={() => void save(schedule, true)}
               />
             </SettingRow>

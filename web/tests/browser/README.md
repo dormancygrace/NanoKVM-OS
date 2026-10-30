@@ -105,3 +105,11 @@ problems must list all eight items. In Logs, search for needle and cycle next an
 previous at wide and narrow widths: the highlighted line must remain in the viewer
 after long wrapped lines. Check Only matching lines, no matches and clearing search.
 These six regressions run in diagnostics.spec.ts in CI. No device is contacted.
+
+### Package index schedule
+
+Open `/tests/browser/index-schedule.html` for the production schedule controls
+with held, synthetic writes. Edit the time and immediately click the switch:
+one request must contain both changes. Tab through the switch, save with Enter,
+leave the time incomplete, and refuse a write to check focus, serialization and
+rollback. `index-schedule.spec.ts` covers these cases in CI.

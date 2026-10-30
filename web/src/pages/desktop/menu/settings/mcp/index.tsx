@@ -131,7 +131,7 @@ export const MCP = () => {
       okText: t('settings.mcp.okBtn'),
       okButtonProps: { danger: true, type: 'default' },
       cancelButtonProps: { type: 'primary' },
-      autoFocusButton: 'cancel',
+      focusable: { autoFocusButton: 'cancel' },
       cancelText: t('settings.mcp.cancelBtn'),
       onOk: () => updateEnabled(true)
     });
@@ -168,7 +168,7 @@ export const MCP = () => {
       okText: t('settings.mcp.okBtn'),
       okButtonProps: { danger: true, type: 'default' },
       cancelButtonProps: { type: 'primary' },
-      autoFocusButton: 'cancel',
+      focusable: { autoFocusButton: 'cancel' },
       cancelText: t('settings.mcp.cancelBtn'),
       onOk: () => updateHostControl(true)
     });
@@ -200,7 +200,7 @@ export const MCP = () => {
       okText: t('settings.mcp.okBtn'),
       okButtonProps: { danger: true, type: 'default' },
       cancelButtonProps: { type: 'primary' },
-      autoFocusButton: 'cancel',
+      focusable: { autoFocusButton: 'cancel' },
       cancelText: t('settings.mcp.cancelBtn'),
       onOk: async () => {
         actionVersionRef.current += 1;
@@ -227,10 +227,10 @@ export const MCP = () => {
       {contextHolder}
 
       <div className="space-y-6">
-        {loadFailed && <Alert type="error" showIcon message={t('settings.mcp.failed')} />}
+        {loadFailed && <Alert type="error" showIcon title={t('settings.mcp.failed')} />}
         {/* The risk exists only while the endpoint is open. */}
         {config.enabled && (
-          <Alert type="warning" showIcon message={t('settings.mcp.securityWarning')} />
+          <Alert type="warning" showIcon title={t('settings.mcp.securityWarning')} />
         )}
 
         <SettingRow

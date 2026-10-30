@@ -32,7 +32,7 @@ export const confirmAction = ({
       cancelText,
       okButtonProps: { danger, type: safeDefault ? 'default' : 'primary' },
       cancelButtonProps: safeDefault ? { type: 'primary' } : undefined,
-      autoFocusButton: safeDefault ? 'cancel' : 'ok',
+      focusable: { autoFocusButton: safeDefault ? 'cancel' : 'ok' },
       onOk: () => resolve(true),
       onCancel: () => resolve(false)
     });

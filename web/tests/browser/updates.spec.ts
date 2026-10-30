@@ -10,7 +10,7 @@ test('core update, install and reboot each preserve their confirmation boundary'
 }) => {
   const events = page.getByTestId('events');
   await page.getByRole('button', { name: 'Offer core update', exact: true }).click();
-  await expect(page.getByText('nanokvm-app', { exact: true })).toBeVisible();
+  await expect(page.getByRole('row').getByText('nanokvm-app', { exact: true })).toBeVisible();
   await expect(page.getByText('3.6.0-r0 → 3.6.1-r0', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Install updates', exact: true }).click();
   await expect(events).not.toContainText('post install');
@@ -19,7 +19,7 @@ test('core update, install and reboot each preserve their confirmation boundary'
   await page.getByRole('button', { name: 'Install updates', exact: true }).click();
   await page.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(events).toContainText('post install {}');
-  await expect(page.getByText('Installing updates…', { exact: true })).toBeVisible();
+  await expect(page.getByText('Installing updates…')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Complete installation', exact: true }).click();
   await expect(
@@ -41,7 +41,7 @@ test('manual package check includes non-core updates; channel and daily switch d
 }) => {
   const events = page.getByTestId('events');
   await page.getByRole('button', { name: 'Check for updates', exact: true }).click();
-  await expect(page.getByText('Checking for updates…', { exact: true })).toBeVisible();
+  await expect(page.getByText('Checking for updates…')).toBeVisible();
   await page.getByRole('button', { name: 'Complete package check', exact: true }).click();
   await expect(page.getByText('1.37.0-r0 → 1.37.0-r1', { exact: true })).toBeVisible();
   await page.getByRole('switch', { name: 'Check for updates daily', exact: true }).click();
@@ -74,7 +74,7 @@ test('failed checks retain known updates and show both package and repository er
   await expect(
     page.getByText('The last check failed: Fixture repository failed', { exact: true })
   ).toBeVisible();
-  await expect(page.getByText('nanokvm-app', { exact: true })).toBeVisible();
+  await expect(page.getByRole('row').getByText('nanokvm-app', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Check for updates', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Install updates', exact: true })).toBeEnabled();
 });

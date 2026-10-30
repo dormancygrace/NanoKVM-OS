@@ -2114,7 +2114,7 @@
         "notInstalled": "El reconocimiento de texto necesita el complemento TPU.",
         "openAddons": "Complementos",
         "enabled": "Reconocimiento de texto",
-        "enabledDescription": "Leer el texto de la pantalla con la TPU: el botón de la barra de herramientas, MCP y PicoClaw. Desactivado, ninguno puede leerla.",
+        "enabledDescription": "Activado, un botón sobre la pantalla lee su texto, y MCP y PicoClaw también pueden leerlo. Desactivado, ninguno puede.",
         "switchFailed": "No se pudo guardar el ajuste"
       },
       "picoclaw": {

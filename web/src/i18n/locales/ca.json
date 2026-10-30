@@ -692,7 +692,7 @@
     "ai": {
       "screenText": {
         "enabled": "Reconeixement de text",
-        "enabledDescription": "Llegir el text de la pantalla amb la TPU: el botó de la barra d'eines, MCP i PicoClaw. Desactivat, cap d'ells no la pot llegir.",
+        "enabledDescription": "Activat, un botó sobre la pantalla en llegeix el text, i MCP i PicoClaw també el poden llegir. Desactivat, cap d'ells no pot.",
         "switchFailed": "No s'ha pogut desar el paràmetre"
       }
     },

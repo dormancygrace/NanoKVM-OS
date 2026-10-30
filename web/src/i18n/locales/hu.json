@@ -718,7 +718,7 @@
     "ai": {
       "screenText": {
         "enabled": "Szövegfelismerés",
-        "enabledDescription": "A képernyőn lévő szöveg olvasása a TPU-val: az eszköztár gombja, az MCP és a PicoClaw. Kikapcsolva egyikük sem olvashat.",
+        "enabledDescription": "Bekapcsolva a képernyő feletti gomb felolvassa a rajta lévő szöveget, és az MCP és a PicoClaw is olvashatja. Kikapcsolva egyikük sem.",
         "switchFailed": "A beállítást nem sikerült menteni"
       }
     },

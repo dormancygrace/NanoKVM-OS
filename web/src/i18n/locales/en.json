@@ -2114,7 +2114,7 @@
         "notInstalled": "Text recognition needs the TPU add-on.",
         "openAddons": "Add-ons",
         "enabled": "Text recognition",
-        "enabledDescription": "Read the text on the screen with the TPU: the toolbar button, MCP and PicoClaw. Off, none of them can read it.",
+        "enabledDescription": "When on, a button above the screen reads the text on it, and MCP and PicoClaw can read it too. Off, none of them can.",
         "switchFailed": "The setting could not be saved"
       },
       "picoclaw": {

@@ -1760,7 +1760,7 @@
         "notInstalled": "Rozpoznávání textu potřebuje doplněk TPU.",
         "openAddons": "Doplňky",
         "enabled": "Rozpoznávání textu",
-        "enabledDescription": "Čtení textu z obrazovky pomocí TPU: tlačítko na panelu nástrojů, MCP a PicoClaw. Vypnuto — nikdo z nich obrazovku nepřečte.",
+        "enabledDescription": "Když je zapnuto, tlačítko nad obrazovkou přečte text na ní a číst ho mohou i MCP a PicoClaw. Když je vypnuto, nemůže nikdo z nich.",
         "switchFailed": "Nastavení se nepodařilo uložit"
       },
       "picoclaw": {

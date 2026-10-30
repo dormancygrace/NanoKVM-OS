@@ -691,7 +691,7 @@
     "ai": {
       "screenText": {
         "enabled": "Pengenalan teks",
-        "enabledDescription": "Membaca teks di layar dengan TPU: tombol bilah alat, MCP, dan PicoClaw. Jika mati, tidak satu pun dapat membacanya.",
+        "enabledDescription": "Saat aktif, tombol di atas layar membaca teks di layar, dan MCP serta PicoClaw juga bisa membacanya. Saat nonaktif, tidak satu pun bisa.",
         "switchFailed": "Pengaturan tidak dapat disimpan"
       }
     },

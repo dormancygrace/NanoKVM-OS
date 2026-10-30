@@ -693,7 +693,7 @@
     "ai": {
       "screenText": {
         "enabled": "Rozpoznawanie tekstu",
-        "enabledDescription": "Odczyt tekstu z ekranu na TPU: przycisk na pasku narzędzi, MCP i PicoClaw. Wyłączone — żaden z nich nie może czytać ekranu.",
+        "enabledDescription": "Gdy włączone, przycisk nad ekranem odczytuje tekst na nim, a MCP i PicoClaw też mogą go odczytać. Gdy wyłączone, nikt z nich nie może.",
         "switchFailed": "Nie udało się zapisać ustawienia"
       }
     },

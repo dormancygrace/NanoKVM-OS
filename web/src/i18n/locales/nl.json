@@ -694,7 +694,7 @@
     "ai": {
       "screenText": {
         "enabled": "Tekstherkenning",
-        "enabledDescription": "Tekst op het scherm lezen met de TPU: de knop in de werkbalk, MCP en PicoClaw. Uitgeschakeld kan geen van hen lezen.",
+        "enabledDescription": "Aan: een knop boven het scherm leest de tekst erop, en ook MCP en PicoClaw kunnen die lezen. Uit: geen van hen kan dat.",
         "switchFailed": "De instelling kon niet worden opgeslagen"
       }
     },

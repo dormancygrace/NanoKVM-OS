@@ -38,7 +38,7 @@ function fixture({ visible = true, initial = null, failConnect = false } = {}) {
     },
     (listener) => {
       fallbacks.add(listener);
-      listener(initial); // the shared poll may synchronously replay its cache
+      listener(initial, -1); // the shared poll may synchronously replay its cache
       return () => fallbacks.delete(listener);
     },
     env
@@ -140,21 +140,21 @@ test('hidden tabs close connections; late events and fallback callbacks are igno
   f.show(false);
   assert.equal(f.timers.size, 0);
   assert.equal(oldSource.closes, 1);
-  assert.equal(seen.at(-1), null);
+  assert.deepEqual(seen.at(-1), off);
   f.send(on, oldSource);
   oldFallback(on);
-  assert.equal(seen.at(-1), null);
+  assert.deepEqual(seen.at(-1), off);
   f.show(true);
   assert.equal(f.sources.length, 2);
   f.send(on, oldSource);
   oldFallback(on);
-  assert.equal(seen.at(-1), null);
+  assert.deepEqual(seen.at(-1), off);
   f.send(off);
   assert.deepEqual(seen.at(-1), off);
   stop();
 });
 
-test('errors clear stale LEDs, resume fallback and reconnect once after a delay', () => {
+test('errors retain power, clear stale activity, resume fallback and reconnect once after a delay', () => {
   const f = fixture();
   const seen = [];
   const stop = f.stream.subscribe((s) => seen.push(s));
@@ -162,7 +162,7 @@ test('errors clear stale LEDs, resume fallback and reconnect once after a delay'
   const old = f.sources[0];
   old.onerror();
   assert.equal(old.closes, 1);
-  assert.equal(seen.at(-1), null);
+  assert.deepEqual(seen.at(-1), off);
   assert.equal(f.fallbacks.size, 1);
   const late = [...f.fallbacks][0];
   late(off);
@@ -199,4 +199,44 @@ test('an initially hidden tab opens nothing; invalid data and missing EventSourc
   stopMissing();
   assert.equal(missing.timers.size, 0);
   assert.equal(missing.fallbacks.size, 0);
+});
+
+test('reconnect keeps confirmed power across missing fallback and accepts real state changes', () => {
+  const f = fixture();
+  const seen = [];
+  const stop = f.stream.subscribe((s) => seen.push(s));
+  f.send(off);
+  const start = seen.length;
+  f.sources[0].onerror();
+  for (const callback of f.fallbacks) callback(null);
+  assert.equal(seen.at(-1)?.pwr, true);
+  f.advance(3000);
+  assert.equal(seen.at(-1)?.pwr, true);
+  assert.ok(seen.slice(start).every((s) => s?.pwr === true));
+  f.send({ pwr: false, hdd: false });
+  assert.equal(seen.at(-1).pwr, false);
+  f.send(off);
+  f.send(null);
+  assert.equal(seen.at(-1), null);
+  stop();
+});
+
+test('cached and in-flight fallback polls cannot undo a newer stream snapshot', () => {
+  const f = fixture({ initial: { pwr: false, hdd: false } });
+  const seen = [];
+  const stop = f.stream.subscribe((s) => seen.push(s));
+  f.advance(10);
+  f.send(off);
+  f.sources[0].onerror();
+  assert.deepEqual(seen.at(-1), off);
+  const poll = [...f.fallbacks][0];
+  poll({ pwr: false, hdd: false }, 5);
+  assert.deepEqual(seen.at(-1), off);
+  poll({ pwr: false, hdd: false }, 11);
+  assert.equal(seen.at(-1).pwr, false);
+  stop();
+  const next = [];
+  const stopNext = f.stream.subscribe((s) => next.push(s));
+  assert.equal(next[0], null);
+  stopNext();
 });

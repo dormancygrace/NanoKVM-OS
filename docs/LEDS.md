@@ -11,8 +11,11 @@ does not open GPIO lines.
 The existing shared GPIO monitor still reads active-low Power and HDD inputs.
 It waits for GPIO edges and services a busy line at most once every 20 ms.
 A blink that ends before the GPIO level is read still counts as activity. HDD
-activity remains visible for 60 ms after its last observed edge, and remains on
-while the physical input is active. Boards without edge support retain the
+activity in the event stream remains visible for 60 ms after its last observed
+edge, and remains on while the physical input is active. Snapshot readers
+(`GET /api/vm/gpio`, live status, BMC and MCP) keep their existing 350 ms
+activity window through `Current()`, using the same physical activity timestamps
+without another GPIO reader or timer. Boards without edge support retain the
 20 ms sampling fallback. Slow web clients read the latest snapshot rather than
 queueing events or delaying GPIO monitoring.
 
@@ -21,7 +24,10 @@ visible. It closes the connection when hidden or unmounted, reconnects after an
 error, and uses the existing shared live-status poll while events are unavailable.
 A received on/off pair remains visible for about 40 ms, including when both
 messages arrive in one network read. The HDD icon has no decorative pulse or
-color transition. Disconnection or unavailable GPIO clears stale activity.
+color transition. Disconnection and hidden tabs clear transient HDD activity but retain the last
+confirmed power level while reconnecting. Missing or older fallback samples do
+not replace it. An explicit `data: null` from the server clears both LEDs; the
+last unsubscribe also clears stored state.
 
 This is a responsive activity indicator, not a waveform recorder: bursts within
 the hold interval merge, and network delay and display refresh still limit how

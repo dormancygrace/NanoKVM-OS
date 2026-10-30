@@ -13,7 +13,8 @@ import (
 
 const (
 	gpioInputSampleInterval = 20 * time.Millisecond
-	hddActivityHold         = 60 * time.Millisecond
+	hddActivityHold         = 350 * time.Millisecond
+	hddStreamHold           = 60 * time.Millisecond
 	gpioInputRetryInterval  = time.Second
 	// gpioEdgeInterval limits how often a line's event queue is serviced, so
 	// a fast-blinking HDD LED costs at most one read per line per interval.
@@ -43,7 +44,8 @@ type gpioInputMonitor struct {
 	openEdges gpioEdgeOpen // nil: always poll
 
 	sampleInterval time.Duration
-	hddHold        time.Duration
+	hddHold        time.Duration // Current(): compatibility window for snapshot readers
+	streamHold     time.Duration // snapshot(): responsive stream window
 	retryInterval  time.Duration
 	edgeInterval   time.Duration
 
@@ -58,10 +60,11 @@ type gpioInputMonitor struct {
 	stop      chan struct{}
 	stopped   chan struct{}
 
-	mu      sync.RWMutex
-	status  gpioInputStatus
-	err     error
-	changed chan struct{} // closed and replaced when the published state changes
+	mu            sync.RWMutex
+	status        gpioInputStatus
+	err           error
+	changed       chan struct{} // closed and replaced when the stream state changes
+	hddActivityAt time.Time     // last observed active level or HDD edge
 }
 
 // monitoredGPIOInputs is replaced when ATX is switched off (gpioMonitor,
@@ -78,7 +81,7 @@ func newLEDMonitor() *gpioInputMonitor {
 		gpioInputSampleInterval,
 		hddActivityHold,
 		gpioInputRetryInterval,
-	).withEdges(gpioio.OpenEdges, gpioEdgeInterval)
+	).withEdges(gpioio.OpenEdges, gpioEdgeInterval).withStreamHold(hddStreamHold)
 }
 
 func newGPIOInputMonitor(paths gpioInputPaths, open gpioLineOpen, sampleInterval, hddHold, retryInterval time.Duration) *gpioInputMonitor {
@@ -87,6 +90,7 @@ func newGPIOInputMonitor(paths gpioInputPaths, open gpioLineOpen, sampleInterval
 		open:           open,
 		sampleInterval: sampleInterval,
 		hddHold:        hddHold,
+		streamHold:     hddHold,
 		retryInterval:  retryInterval,
 		ready:          make(chan struct{}),
 		stop:           make(chan struct{}),
@@ -100,6 +104,13 @@ func newGPIOInputMonitor(paths gpioInputPaths, open gpioLineOpen, sampleInterval
 func (m *gpioInputMonitor) withEdges(open gpioEdgeOpen, interval time.Duration) *gpioInputMonitor {
 	m.openEdges = open
 	m.edgeInterval = interval
+	return m
+}
+
+// withStreamHold keeps the interactive stream independent of the longer
+// activity window returned by Current to polling API/BMC consumers.
+func (m *gpioInputMonitor) withStreamHold(hold time.Duration) *gpioInputMonitor {
+	m.streamHold = hold
 	return m
 }
 
@@ -121,7 +132,11 @@ func (m *gpioInputMonitor) Current(ctx context.Context) (gpioInputStatus, error)
 
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.status, m.err
+	status := m.status
+	if m.err == nil && time.Now().Before(m.hddActivityAt.Add(m.hddHold)) {
+		status.HDD = true
+	}
+	return status, m.err
 }
 
 func (m *gpioInputMonitor) run() {
@@ -247,7 +262,8 @@ func (m *gpioInputMonitor) sampleInputs(power, hdd gpioio.Line) bool {
 				return true
 			}
 			if !hddHigh {
-				hddUntil = now.Add(m.hddHold)
+				hddUntil = now.Add(m.streamHold)
+				m.noteHDDActivity(now)
 			}
 			hddActive = !hddHigh || now.Before(hddUntil)
 		}
@@ -308,7 +324,8 @@ func (m *gpioInputMonitor) watchEdges(power, hdd gpioio.EdgeLine) (retry bool, e
 				return false
 			}
 			if !hddHigh {
-				hddUntil = now.Add(m.hddHold)
+				hddUntil = now.Add(m.streamHold)
+				m.noteHDDActivity(now)
 			}
 			hddActive = !hddHigh || now.Before(hddUntil)
 			// While the LED is lit its rising edge will report; after that
@@ -342,7 +359,8 @@ func (m *gpioInputMonitor) watchEdges(power, hdd gpioio.EdgeLine) (retry bool, e
 			// Any HDD edge means the LED was lit at that moment, even when
 			// the blink ended before the levels are read.
 			if update.hdd && update.events.Count > 0 {
-				if until := update.events.Last.Add(m.hddHold); until.After(hddUntil) {
+				m.noteHDDActivity(update.events.Last)
+				if until := update.events.Last.Add(m.streamHold); until.After(hddUntil) {
 					hddUntil = until
 				}
 			}
@@ -380,7 +398,7 @@ func (m *gpioInputMonitor) readEdges(line gpioio.EdgeLine, hdd bool, updates cha
 	}
 }
 
-// snapshot returns the state and its change notification under the same lock,
+// snapshot returns the short-hold stream state and its change notification under the same lock,
 // so a subscriber cannot miss an update between reading and waiting. Slow
 // subscribers read the newest state; they never queue or delay GPIO events.
 func (m *gpioInputMonitor) snapshot() (gpioInputStatus, error, <-chan struct{}) {
@@ -389,10 +407,23 @@ func (m *gpioInputMonitor) snapshot() (gpioInputStatus, error, <-chan struct{}) 
 	return m.status, m.err, m.changed
 }
 
+// Track physical activity separately from the stream's display hold. Current
+// computes its longer window without extra GPIO reads, timers or wakeups.
+func (m *gpioInputMonitor) noteHDDActivity(at time.Time) {
+	m.mu.Lock()
+	if at.After(m.hddActivityAt) {
+		m.hddActivityAt = at
+	}
+	m.mu.Unlock()
+}
+
 func (m *gpioInputMonitor) publish(status gpioInputStatus, err error) {
 	m.mu.Lock()
 	changed := m.status != status || (m.err == nil) != (err == nil)
 	m.status, m.err = status, err
+	if err != nil {
+		m.hddActivityAt = time.Time{}
+	}
 	if changed {
 		close(m.changed)
 		m.changed = make(chan struct{})

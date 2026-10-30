@@ -7,7 +7,10 @@ const leds = createLEDStream(
     new EventSource(`${getBaseUrl('http')}/api/vm/gpio/events`, {
       withCredentials: (import.meta.env.VITE_WITH_CREDENTIALS as string) !== 'false'
     }),
-  (listener) => subscribeLiveStatus((status) => listener(status?.gpio ?? null))
+  (listener) =>
+    subscribeLiveStatus((status, startedAt) => {
+      if (status?.gpio) listener(status.gpio, startedAt);
+    })
 );
 
 export const subscribeLEDStatus = leds.subscribe;

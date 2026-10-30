@@ -2,6 +2,7 @@ import { browserPollEnv } from './visible-poll.ts';
 
 export type LEDStatus = { pwr: boolean; hdd: boolean } | null;
 type Listener = (status: LEDStatus) => void;
+type FallbackListener = (status: LEDStatus, startedAt?: number) => void;
 export type LEDSource = Pick<EventSource, 'onmessage' | 'onerror' | 'close'>;
 
 type Env = {
@@ -23,11 +24,12 @@ const browserEnv: Env = {
 // existing shared poll provides a fallback while SSE is unavailable.
 export function createLEDStream(
   connect: () => LEDSource,
-  fallback: (listener: Listener) => () => void,
+  fallback: (listener: FallbackListener) => () => void,
   env: Env = browserEnv
 ) {
   const listeners = new Set<Listener>();
   let last: LEDStatus = null;
+  let lastSnapshotAt = Number.NEGATIVE_INFINITY;
   let source: LEDSource | undefined;
   let stopFallback: (() => void) | undefined;
   let stopVisibility: (() => void) | undefined;
@@ -64,7 +66,15 @@ export function createLEDStream(
     }
   }
 
-  function stop() {
+  function fallbackSnapshot(status: LEDStatus, startedAt = env.now()) {
+    // A failed/missing sample carries no new LED state. A cached poll can
+    // also predate the most recent event; neither may undo confirmed power.
+    if (!status || startedAt < lastSnapshotAt) return;
+    lastSnapshotAt = startedAt;
+    display(status);
+  }
+
+  function stop(reset = false) {
     generation++;
     source?.close();
     source = undefined;
@@ -72,7 +82,17 @@ export function createLEDStream(
     stopRetry = undefined;
     stopFallback?.();
     stopFallback = undefined;
-    display(null);
+    stopClear?.();
+    stopClear = undefined;
+    hddUntil = 0;
+    if (reset) {
+      lastSnapshotAt = Number.NEGATIVE_INFINITY;
+      display(null);
+    } else if (last?.hdd) {
+      // Activity is transient; retain the confirmed power level while the
+      // transport recovers without leaving a stale HDD indication lit.
+      emit({ ...last, hdd: false });
+    }
   }
 
   function start() {
@@ -80,16 +100,17 @@ export function createLEDStream(
     const current = ++generation;
     const valid = () => current === generation;
     let sourceReady = false;
-    stopFallback ??= fallback((status) => {
-      if (valid() && env.isVisible() && !sourceReady) display(status);
+    stopFallback ??= fallback((status, startedAt) => {
+      if (valid() && env.isVisible() && !sourceReady) fallbackSnapshot(status, startedAt);
     });
     const failed = () => {
       if (!valid()) return;
       stop();
       if (listeners.size === 0 || !env.isVisible()) return;
       const fallbackGeneration = generation;
-      stopFallback = fallback((status) => {
-        if (generation === fallbackGeneration && env.isVisible()) display(status);
+      stopFallback = fallback((status, startedAt) => {
+        if (generation === fallbackGeneration && env.isVisible())
+          fallbackSnapshot(status, startedAt);
       });
       stopRetry = env.later(() => {
         stopRetry = undefined;
@@ -118,6 +139,7 @@ export function createLEDStream(
           return;
         }
         sourceReady = true;
+        lastSnapshotAt = env.now();
         stopFallback?.();
         stopFallback = undefined;
         display(status);
@@ -143,7 +165,7 @@ export function createLEDStream(
       if (listeners.size === 0) {
         stopVisibility?.();
         stopVisibility = undefined;
-        stop();
+        stop(true);
       }
     };
   }

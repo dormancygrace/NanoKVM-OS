@@ -2061,13 +2061,11 @@
       "password": "Current administrator password",
       "export": "Export settings",
       "encryption": "The archive contains passwords and private keys. It is encrypted with your backup password (12–256 bytes). Keep the file and password somewhere safe; a lost password cannot be recovered.",
-      "archivePassword": "Backup password (also used to open an archive)",
+      "archivePassword": "Archive password",
       "download": "Download encrypted backup",
-      "restoreReset": "Restore or reset",
       "restore": "Restore settings",
       "reset": "Factory reset settings",
       "updateBase": "Update nanokvm-base to enable restore and reset.",
-      "file": "Settings archive (.nkos)",
       "fileLimit": "Choose a settings archive up to 4 MiB.",
       "migrate": "Migrate to another device (recommended)",
       "device": "Restore this device, including access and network settings",
@@ -2087,7 +2085,11 @@
       "inventory": "Packages recorded in the backup (not installed automatically)",
       "confirm": "I reviewed the changes and can reconnect to the device after reboot.",
       "reboot": "Reboot to finish recovery",
-      "rebooting": "Recovery queued. The device is rebooting; reconnect afterwards."
+      "rebooting": "Recovery queued. The device is rebooting; reconnect afterwards.",
+      "backupPassword": "Backup password",
+      "backupPasswordShort": "At least 12 characters.",
+      "chooseFile": "Choose a .nkos file",
+      "deviceHint": "Replaces all settings of this device with the archive's, including users, network, VPN, certificates and hardware settings."
     },
     "ai": {
       "title": "AI",

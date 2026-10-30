@@ -2061,13 +2061,11 @@
       "password": "当前管理员密码",
       "export": "导出设置",
       "encryption": "备份包含密码和私钥，并使用备份密码（12–256 字节）加密。请妥善保管文件和密码；遗失的密码无法恢复。",
-      "archivePassword": "备份密码（也用于打开备份）",
+      "archivePassword": "归档密码",
       "download": "下载加密备份",
-      "restoreReset": "恢复或重置",
       "restore": "恢复设置",
       "reset": "恢复出厂设置",
       "updateBase": "请更新 nanokvm-base 以启用恢复和重置功能。",
-      "file": "设置备份文件（.nkos）",
       "fileLimit": "请选择不超过 4 MiB 的设置备份。",
       "migrate": "迁移到另一台设备（推荐）",
       "device": "恢复此设备，包括访问和网络设置",
@@ -2087,7 +2085,11 @@
       "inventory": "备份记录的软件包（不会自动安装）",
       "confirm": "我已检查更改，并能在重启后重新连接设备。",
       "reboot": "重启以完成恢复",
-      "rebooting": "恢复已排队。设备正在重启；请稍后重新连接。"
+      "rebooting": "恢复已排队。设备正在重启；请稍后重新连接。",
+      "backupPassword": "备份密码",
+      "backupPasswordShort": "至少 12 个字符。",
+      "chooseFile": "选择 .nkos 文件",
+      "deviceHint": "用归档中的设置替换此设备的全部设置，包括用户、网络、VPN、证书和硬件设置。"
     },
     "ai": {
       "title": "AI",

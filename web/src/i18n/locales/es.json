@@ -2061,13 +2061,11 @@
       "password": "Contraseña actual del administrador",
       "export": "Exportar ajustes",
       "encryption": "El archivo contiene contraseñas y claves privadas. Se cifra con la contraseña de la copia (12–256 bytes). Guarde el archivo y la contraseña en un lugar seguro; una contraseña perdida no se puede recuperar.",
-      "archivePassword": "Contraseña de la copia (también para abrir archivos)",
+      "archivePassword": "Contraseña del archivo",
       "download": "Descargar copia cifrada",
-      "restoreReset": "Restaurar o restablecer",
       "restore": "Restaurar ajustes",
       "reset": "Restablecer ajustes de fábrica",
       "updateBase": "Actualice nanokvm-base para habilitar la restauración y el restablecimiento.",
-      "file": "Archivo de ajustes (.nkos)",
       "fileLimit": "Seleccione un archivo de ajustes de hasta 4 MiB.",
       "migrate": "Migrar a otro dispositivo (recomendado)",
       "device": "Restaurar este dispositivo, incluidos los ajustes de acceso y red",
@@ -2087,7 +2085,11 @@
       "inventory": "Paquetes registrados en la copia (no se instalan automáticamente)",
       "confirm": "He revisado los cambios y podré volver a conectarme después del reinicio.",
       "reboot": "Reiniciar para finalizar",
-      "rebooting": "Restauración programada. El dispositivo se está reiniciando; vuelva a conectarse después."
+      "rebooting": "Restauración programada. El dispositivo se está reiniciando; vuelva a conectarse después.",
+      "backupPassword": "Contraseña de la copia",
+      "backupPasswordShort": "Al menos 12 caracteres.",
+      "chooseFile": "Elegir un archivo .nkos",
+      "deviceHint": "Sustituye todos los ajustes de este dispositivo por los del archivo, incluidos usuarios, red, VPN, certificados y ajustes de hardware."
     },
     "ai": {
       "title": "IA",

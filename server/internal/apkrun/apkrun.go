@@ -42,6 +42,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/internal/oomscore"
+	"NanoKVM-Server/standby"
 
 	"golang.org/x/sys/unix"
 )
@@ -185,6 +186,9 @@ func (c *Cmd) run() error {
 			return &notStartedError{err}
 		}
 		defer lock.Close()
+		if err = standby.Pending(); err != nil {
+			return &notStartedError{err}
+		}
 		if err = checkMemory(c.required()); err != nil {
 			return &notStartedError{err}
 		}

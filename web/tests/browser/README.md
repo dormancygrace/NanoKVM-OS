@@ -131,3 +131,13 @@ with held, synthetic writes. Edit the time and immediately click the switch:
 one request must contain both changes. Tab through the switch, save with Enter,
 leave the time incomplete, and refuse a write to check focus, serialization and
 rollback. `index-schedule.spec.ts` covers these cases in CI.
+
+### HDD LED responsiveness
+
+`/tests/browser/leds.html` uses the production Power toolbar with synthetic event
+messages and a local HTTP adapter; it never connects to a device. **8 ms blink**
+and **Combined on/off** must each produce a short amber flash. **Activity on**
+remains steadily amber, without a decorative pulse. **Drop stream** reconnects
+after three seconds; **Toggle toolbar** closes its connection. The connection
+and fallback-poll counters help verify that opening the Power popover does not
+start a second connection or a fast polling loop.

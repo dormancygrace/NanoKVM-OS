@@ -13,11 +13,11 @@ import (
 
 const (
 	gpioInputSampleInterval = 20 * time.Millisecond
-	hddActivityHold         = 350 * time.Millisecond
+	hddActivityHold         = 60 * time.Millisecond
 	gpioInputRetryInterval  = time.Second
 	// gpioEdgeInterval limits how often a line's event queue is serviced, so
 	// a fast-blinking HDD LED costs at most one read per line per interval.
-	gpioEdgeInterval = 50 * time.Millisecond
+	gpioEdgeInterval = 20 * time.Millisecond
 )
 
 type gpioInputStatus struct {
@@ -58,9 +58,10 @@ type gpioInputMonitor struct {
 	stop      chan struct{}
 	stopped   chan struct{}
 
-	mu     sync.RWMutex
-	status gpioInputStatus
-	err    error
+	mu      sync.RWMutex
+	status  gpioInputStatus
+	err     error
+	changed chan struct{} // closed and replaced when the published state changes
 }
 
 // monitoredGPIOInputs is replaced when ATX is switched off (gpioMonitor,
@@ -90,6 +91,7 @@ func newGPIOInputMonitor(paths gpioInputPaths, open gpioLineOpen, sampleInterval
 		ready:          make(chan struct{}),
 		stop:           make(chan struct{}),
 		stopped:        make(chan struct{}),
+		changed:        make(chan struct{}),
 	}
 }
 
@@ -112,6 +114,8 @@ func (m *gpioInputMonitor) Current(ctx context.Context) (gpioInputStatus, error)
 	select {
 	case <-ctx.Done():
 		return gpioInputStatus{}, ctx.Err()
+	case <-m.stop:
+		return gpioInputStatus{}, errors.New("ATX LED monitor stopped")
 	case <-m.ready:
 	}
 
@@ -123,6 +127,11 @@ func (m *gpioInputMonitor) Current(ctx context.Context) (gpioInputStatus, error)
 func (m *gpioInputMonitor) run() {
 	defer close(m.stopped)
 	for {
+		select {
+		case <-m.stop:
+			return
+		default:
+		}
 		power, hdd, edges, err := m.openInputs()
 		if err != nil {
 			m.publish(gpioInputStatus{}, err)
@@ -371,12 +380,25 @@ func (m *gpioInputMonitor) readEdges(line gpioio.EdgeLine, hdd bool, updates cha
 	}
 }
 
+// snapshot returns the state and its change notification under the same lock,
+// so a subscriber cannot miss an update between reading and waiting. Slow
+// subscribers read the newest state; they never queue or delay GPIO events.
+func (m *gpioInputMonitor) snapshot() (gpioInputStatus, error, <-chan struct{}) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.status, m.err, m.changed
+}
+
 func (m *gpioInputMonitor) publish(status gpioInputStatus, err error) {
 	m.mu.Lock()
-	m.status = status
-	m.err = err
-	m.mu.Unlock()
+	changed := m.status != status || (m.err == nil) != (err == nil)
+	m.status, m.err = status, err
+	if changed {
+		close(m.changed)
+		m.changed = make(chan struct{})
+	}
 	m.readyOnce.Do(func() { close(m.ready) })
+	m.mu.Unlock()
 }
 
 func (m *gpioInputMonitor) waitRetry() bool {

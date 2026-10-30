@@ -583,8 +583,7 @@
       "title": "Bellek",
       "available": "Kullanılabilir",
       "size": "Kapasite",
-      "used": "Kullanılan",
-      "algorithm": "Sıkıştırma"
+      "used": "Kullanılan"
     },
     "services": {
       "title": "Hizmetler"

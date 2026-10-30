@@ -99,8 +99,7 @@
       "title": "זיכרון",
       "available": "זמין",
       "size": "קיבולת",
-      "used": "בשימוש",
-      "algorithm": "דחיסה"
+      "used": "בשימוש"
     },
     "services": {
       "title": "שירותים"

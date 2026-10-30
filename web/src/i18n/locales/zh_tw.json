@@ -583,8 +583,7 @@
       "title": "記憶體",
       "available": "可用",
       "size": "容量",
-      "used": "已使用",
-      "algorithm": "壓縮"
+      "used": "已使用"
     },
     "services": {
       "title": "服務"

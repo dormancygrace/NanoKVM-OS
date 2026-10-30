@@ -583,8 +583,7 @@
       "title": "Memoria",
       "available": "Disponibile",
       "size": "Capacità",
-      "used": "Utilizzato",
-      "algorithm": "Compressione"
+      "used": "Utilizzato"
     },
     "services": {
       "title": "Servizi"

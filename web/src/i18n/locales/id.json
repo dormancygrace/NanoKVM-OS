@@ -583,8 +583,7 @@
       "title": "Memori",
       "available": "Tersedia",
       "size": "Kapasitas",
-      "used": "Terpakai",
-      "algorithm": "Kompresi"
+      "used": "Terpakai"
     },
     "services": {
       "title": "Layanan"

@@ -583,8 +583,7 @@
       "title": "Geheugen",
       "available": "Beschikbaar",
       "size": "Capaciteit",
-      "used": "Gebruikt",
-      "algorithm": "Compressie"
+      "used": "Gebruikt"
     },
     "services": {
       "title": "Diensten"

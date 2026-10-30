@@ -583,8 +583,7 @@
       "title": "Minne",
       "available": "Tilgjengelig",
       "size": "Kapasitet",
-      "used": "Brukt",
-      "algorithm": "Komprimering"
+      "used": "Brukt"
     },
     "services": {
       "title": "Tjenester"

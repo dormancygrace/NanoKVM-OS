@@ -583,8 +583,7 @@
       "title": "메모리",
       "available": "사용 가능",
       "size": "용량",
-      "used": "사용량",
-      "algorithm": "압축"
+      "used": "사용량"
     },
     "services": {
       "title": "서비스"

@@ -607,8 +607,7 @@
       "title": "Memória",
       "available": "Elérhető",
       "size": "Kapacitás",
-      "used": "Felhasznált",
-      "algorithm": "Tömörítés"
+      "used": "Felhasznált"
     },
     "services": {
       "title": "Szolgáltatások"

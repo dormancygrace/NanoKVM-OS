@@ -7,7 +7,7 @@
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08.1: cross toolchain, host tools, initramfs userland
-#   kernel     Linux 7.3 with kernel/*.patch and kernel/config
+#   kernel     Linux 7.3.1 with kernel/*.patch and kernel/config
 #              (NANOKVM_KERNEL_PROFILE=debug adds kernel/config-debug.fragment)
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
@@ -45,7 +45,7 @@
 # with a throwaway key made in OUTPUT/keys/build; the image trusts only the
 # published keys, and scripts/sign-release.sh then signs the repository with
 # the release key, outside the build. NANOKVM_KERNEL_PROFILE=debug builds
-# the kernel and its modules with kernel/config-debug.fragment (release 7.3.0-nanokvm-os-rN-debug)
+# the kernel and its modules with kernel/config-debug.fragment (release 7.3.1-nanokvm-os-rN-debug)
 # and, with -d only, packages and an image that add platform/debug-packages.
 # With NANOKVM_PREVIOUS (the URL or directory of the
 # published repository's riscv64/ with packages.json) a package whose content
@@ -111,11 +111,11 @@ version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alp
 # Official Alpine packages.
 image_version=${NANOKVM_IMAGE_VERSION:-$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")}
 profile=stock
-release=7.3.0-nanokvm-os-r5
+release=7.3.1-nanokvm-os-r5
 [ "$kernel_profile" = release ] || release=$release-debug
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
-# is the upstream Linux 7.3 release date (00:00 UTC).
-kernel_timestamp='Sun Oct 18 00:00:00 UTC 2026'
+# is the upstream Linux 7.3.1 release date (00:00 UTC).
+kernel_timestamp='Fri Oct 30 00:00:00 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
 isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
@@ -276,8 +276,8 @@ toolchain() {
 kernel() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
-    tar -xf "$dl/linux-7.3.tar.xz" -C "$out/kernel"
-    mv "$out/kernel/linux-7.3" "$ksrc"
+    tar -xf "$dl/linux-7.3.1.tar.xz" -C "$out/kernel"
+    mv "$out/kernel/linux-7.3.1" "$ksrc"
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"

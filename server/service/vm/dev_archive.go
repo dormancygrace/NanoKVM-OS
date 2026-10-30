@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +39,8 @@ var (
 	devArchiveRaw  = 24 << 20
 	devArchiveFile = 1 << 20
 	devArchiveBusy sync.Mutex
+	// Where the joined Wi-Fi networks are saved; read for their names only.
+	devArchiveEtc = "/etc/kvm"
 )
 
 // Screen content never leaves the device: saved frames and screenshots are
@@ -130,8 +133,12 @@ func packDevArchive(dir string, report any, note string, now time.Time) ([]byte,
 	var out bytes.Buffer
 	zw := gzip.NewWriter(&out)
 	tw := tar.NewWriter(zw)
+	known := knownSSIDs(devArchiveEtc)
 	raw := 0
 	add := func(name, text string) error {
+		if known != nil {
+			text = known.ReplaceAllString(text, "<ssid>")
+		}
 		raw += len(text)
 		if raw > devArchiveRaw {
 			return errors.New("the developer archive is too large")
@@ -241,6 +248,36 @@ func readLimited(path string, limit int) ([]byte, error) {
 		}
 	}
 	return io.ReadAll(io.LimitReader(f, int64(limit)))
+}
+
+// knownSSIDs matches the names of the Wi-Fi networks the device knows (the
+// saved networks and the last chosen one), wherever they appear: drivers and
+// tools print them in shapes no line rule foresees, e.g. the AIC driver's
+// "connect to of Home(4)". Names shorter than 3 bytes would mask unrelated
+// text and are left to the line rules.
+func knownSSIDs(etc string) *regexp.Regexp {
+	seen := map[string]bool{}
+	if b, err := os.ReadFile(filepath.Join(etc, "wifi.ssid")); err == nil {
+		seen[strings.TrimSpace(string(b))] = true
+	}
+	entries, _ := os.ReadDir(filepath.Join(etc, "wifi.saved"))
+	for _, entry := range entries {
+		if b, err := hex.DecodeString(entry.Name()); err == nil {
+			seen[string(b)] = true
+		}
+	}
+	var names []string
+	for name := range seen {
+		if len(name) >= 3 {
+			names = append(names, regexp.QuoteMeta(name))
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	// Longest first, so a name containing another is masked whole.
+	sort.Slice(names, func(i, j int) bool { return len(names[i]) > len(names[j]) })
+	return regexp.MustCompile(strings.Join(names, "|"))
 }
 
 // redactSettings parses a JSON or YAML settings file and replaces the value

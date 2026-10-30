@@ -62,6 +62,19 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	write("hardware/edid.bin", "\x00\xff\xff\xff\xff\xff\xff\x00")
 	write("system/model", "Sipeed NanoKVM PCIe\x00")
 	write("collector", "nanokvm-dev-archive 1\n")
+	write("logs/dmesg", "rwnx_send_sm_connect_req drv_vif_index:0 connect to of Loft Mesh(9) channel:5180\nwlan0: joined Attic-5G\n")
+
+	// The saved networks live outside the collection: names only, for masking.
+	etc := t.TempDir()
+	previous := devArchiveEtc
+	devArchiveEtc = etc
+	t.Cleanup(func() { devArchiveEtc = previous })
+	if err := os.MkdirAll(filepath.Join(etc, "wifi.saved", "4c6f6674204d657368"), 0o700); err != nil { // "Loft Mesh"
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(etc, "wifi.ssid"), []byte("Attic-5G\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := packDevArchive(dir, map[string]string{"schema": "nanokvm-diagnostics/v1"}, "", time.Unix(0, 0))
 	if err != nil {
@@ -72,7 +85,7 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	for _, text := range files {
 		all += text
 	}
-	for _, leaked := range []string{"192.168.4.128", "48:da:35", "aa:bb:cc", "HomeNetwork", "hunter2", "abc123", "letmein", "alice", "flow-value", "block-value", "json-value", "broken-value", "screen text pixels"} {
+	for _, leaked := range []string{"192.168.4.128", "48:da:35", "aa:bb:cc", "HomeNetwork", "hunter2", "abc123", "letmein", "alice", "flow-value", "block-value", "json-value", "broken-value", "screen text pixels", "Loft Mesh", "Attic-5G"} {
 		if strings.Contains(all, leaked) {
 			t.Errorf("%q leaked", leaked)
 		}

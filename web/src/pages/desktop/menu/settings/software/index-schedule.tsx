@@ -73,7 +73,17 @@ export const IndexSchedule = () => {
               checked={schedule.enabled}
               loading={busy}
               disabled={busy || !saved}
-              onChange={(enabled) => void save({ ...schedule, enabled }, false)}
+              // A half-typed time does not block the switch: the saved one stays.
+              onChange={(enabled) =>
+                void save(
+                  {
+                    ...schedule,
+                    enabled,
+                    time: validTime(schedule.time) || !saved ? schedule.time : saved.time
+                  },
+                  false
+                )
+              }
             />
           </SettingRow>
           {schedule.enabled && (

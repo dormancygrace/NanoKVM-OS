@@ -557,7 +557,8 @@
       },
       "addons": {
         "title": "附加元件",
-        "packages": "套件"
+        "packages": "套件",
+        "install": "安裝"
       },
       "title": "軟體",
       "available": "可用套件",

@@ -557,7 +557,8 @@
       },
       "addons": {
         "title": "Tiện ích bổ sung",
-        "packages": "Gói"
+        "packages": "Gói",
+        "install": "Cài đặt"
       },
       "title": "Phần mềm",
       "available": "Gói có sẵn",

@@ -73,7 +73,8 @@
       },
       "addons": {
         "title": "תוספים",
-        "packages": "חבילות"
+        "packages": "חבילות",
+        "install": "התקנה"
       },
       "title": "תוכנה",
       "available": "חבילות זמינות",

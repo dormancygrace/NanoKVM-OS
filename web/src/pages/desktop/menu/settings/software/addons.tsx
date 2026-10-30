@@ -181,7 +181,7 @@ export const Addons = ({
   const cards: { installed?: boolean; card: ReactNode }[] = [
     { installed: status?.installed, card: picoclaw },
     {
-      installed: rustDesk?.installed ?? inventory?.rustdesk.installed,
+      installed: rustDesk?.installed ?? inventory?.rustdesk?.installed,
       card: <RustDeskAddon key="rustdesk" onOpen={onOpenRustDesk} />
     },
     {
@@ -191,7 +191,7 @@ export const Addons = ({
     ...(ipmiEntry
       ? [
           {
-            installed: inventory?.ipmi.installed,
+            installed: inventory?.ipmi?.installed,
             card: <IpmiAddon key="ipmi" onOpen={onOpenBmc} entry={ipmiEntry} os={catalog?.os} />
           }
         ]

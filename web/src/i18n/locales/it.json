@@ -557,7 +557,8 @@
       },
       "addons": {
         "title": "Componenti aggiuntivi",
-        "packages": "Pacchetti"
+        "packages": "Pacchetti",
+        "install": "Installa"
       },
       "title": "Software",
       "available": "Pacchetti disponibili",

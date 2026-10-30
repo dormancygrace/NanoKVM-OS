@@ -1,17 +1,24 @@
-import { useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import { Suspense, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import { Spin } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
 import { UsbIcon } from 'lucide-react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { getVirtualDevice, usbCompositionChangedEvent } from '@/api/virtual-device.ts';
+import { retryableLazy } from '@/lib/retryable-lazy.ts';
 import { normalizeUsbStatus, usbDevices } from '@/lib/usb-composition.ts';
 import { client } from '@/lib/websocket.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
+import { LazyError } from '@/components/lazy-error.tsx';
 import { MenuItem } from '@/components/menu-item.tsx';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context';
 
-import { Usb } from './settings/usb';
+const usbPanel = retryableLazy(() =>
+  import('./settings/usb').then(({ Usb }) => ({ default: Usb }))
+);
+const Usb = usbPanel.Component;
 
 export const UsbMenu = () => {
   const { t } = useTranslation();
@@ -94,7 +101,28 @@ export const UsbMenu = () => {
               {statusText}
             </div>
           )}
-          {open && <Usb part="composition" />}
+          {open && (
+            <ErrorBoundary
+              fallbackRender={({ resetErrorBoundary }) => (
+                <LazyError
+                  onRetry={() => {
+                    usbPanel.retry();
+                    resetErrorBoundary();
+                  }}
+                />
+              )}
+            >
+              <Suspense
+                fallback={
+                  <div className="flex justify-center p-4">
+                    <Spin />
+                  </div>
+                }
+              >
+                <Usb part="composition" />
+              </Suspense>
+            </ErrorBoundary>
+          )}
         </div>
       }
     />

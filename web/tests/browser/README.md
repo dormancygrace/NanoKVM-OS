@@ -28,6 +28,10 @@ For a local check in your own Main-profile tab:
    connected; held input must not be replayed. Expire the session and verify
    return to login without further connection attempts.
 6. Open password help at a narrow viewport; its content must fit the dialog.
+7. In the Network panel, confirm the USB settings module is absent before
+   opening USB Gadget. Open, close and reopen it; the module loads once.
+   Block its first request and verify the error stays in the popover, the
+   desktop remains usable after closing it, and Refresh recovers the panel.
 
 `pnpm test:browser` runs these cases in CI using installed Google Chrome and a
 fresh **Main** profile under the runner's temporary directory. The launcher

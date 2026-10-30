@@ -338,3 +338,49 @@ test('a failed password-help chunk leaves login usable and offers recovery', asy
   await page.getByRole('button', { name: 'Forgot password' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
+
+test('USB settings load on first open and reuse the loaded module on reopen', async ({ page }) => {
+  let loads = 0;
+  page.on('request', (request) => {
+    if (/\/src\/pages\/desktop\/menu\/settings\/usb\/index\.tsx(?:\?|$)/.test(request.url()))
+      loads++;
+  });
+  await login(page);
+  const opener = page.getByRole('button', { name: /^USB Gadget/ });
+  await expect(opener).toBeVisible();
+  expect(loads).toBe(0);
+  await opener.click();
+  await expect(page.locator('#usb-preset')).toBeVisible();
+  expect(loads).toBe(1);
+  await opener.click();
+  await expect(page.locator('#usb-preset')).toHaveCount(0);
+  await opener.click();
+  await expect(page.locator('#usb-preset')).toBeVisible();
+  expect(loads).toBe(1);
+});
+
+test('a failed USB settings chunk stays local and offers explicit recovery', async ({ page }) => {
+  let fail = true;
+  await page.route('**/src/pages/desktop/menu/settings/usb/index.tsx*', async (route) => {
+    if (fail) {
+      fail = false;
+      await route.abort('failed');
+    } else await route.continue();
+  });
+  await login(page);
+  const opener = page.getByRole('button', { name: /^USB Gadget/ });
+  await opener.click();
+  const error = page.getByRole('alert');
+  await expect(error).toBeVisible();
+  await expect(error.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+  await opener.click();
+  await page.getByLabel('Video focus target').fill('desktop still usable');
+  await expect(page.getByLabel('Video focus target')).toHaveValue('desktop still usable');
+  await page.getByRole('button', { name: 'Keyboard', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await opener.click();
+  await error.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await page.getByRole('button', { name: /^USB Gadget/ }).click();
+  await expect(page.locator('#usb-preset')).toBeVisible();
+});

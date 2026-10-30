@@ -39,8 +39,14 @@ function mockServiceWorker(): Plugin {
 // Large optional parts (terminal, picoclaw, virtual keyboard, settings pages,
 // players, locales) stay lazily loaded chunks of their own.
 const htmlOrMain = /\.html$|[\\/]src[\\/]main\.tsx$/;
+// These small helpers are already part of desktop startup and shared by its
+// optional panels/players. Keep them together instead of fetching each one.
+// UI pages and recorder implementations remain separate lazy chunks.
+const desktopHelpers =
+  /[\\/]src[\\/](?:lib[\\/](?:atx|capture-control|clipboard|date-time|encoder|keymap|recording-audio|recording-source|screen-text|screenshot|usb-audio-stream|video-audio|audio-sdp|webrtc-audio-recording|visible-poll|update-components)\.ts|hooks[\\/]useDeviceTime\.ts|pages[\\/]terminal[\\/]launch\.ts|components[\\/]icons[\\/](?:icon-base|robot|rustdesk)\.tsx)$/;
 const codeSplitting = {
   groups: [
+    { name: 'desktop-shared', test: desktopHelpers, priority: 2 },
     {
       name: 'vendor',
       tags: ['$initial' as const],

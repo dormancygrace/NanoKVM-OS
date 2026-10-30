@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"net/netip"
 	"regexp"
 	"strings"
 )
@@ -11,10 +12,12 @@ import (
 var (
 	maskMAC  = regexp.MustCompile(`(?i)\b[0-9a-f]{2}(?:[:-][0-9a-f]{2}){5}\b`)
 	maskIPv4 = regexp.MustCompile(`\b(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}\b`)
+	// Candidates only: each is validated as an address before masking.
 	maskIPv6 = regexp.MustCompile(`(?i)(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?:%[a-z0-9]+)?`)
-	maskSSID = regexp.MustCompile(`(?im)^(\s*(?:ssid|essid)\s*[:=]\s*).*$`)
-	// Settings keys whose values are or name credentials; the key stays.
-	configSecret = regexp.MustCompile(`(?im)^(\s*"?[a-z0-9_.-]*(?:cred|pass|secret|token|key|user)[a-z0-9_.-]*"?\s*[:=]\s*).+$`)
+	// "SSID: Home", "ssid=\"Home\"" on a line of their own (iw, wpa_supplicant
+	// configuration dumps), and "SSID 'Home'" / "ssid=Home" inside log messages.
+	maskSSIDLine   = regexp.MustCompile(`(?im)^(\s*(?:ssid|essid)\s*[:=]\s*).*$`)
+	maskSSIDInline = regexp.MustCompile(`(?i)\b(e?ssid)(\s*[:=]\s*|\s+)('[^'\n]*'|"[^"\n]*"|[^\s,;\]\)]+)`)
 )
 
 // MaskAddresses replaces IPv4, IPv6 and MAC addresses and Wi-Fi network
@@ -27,21 +30,17 @@ func MaskAddresses(text string) string {
 		}
 		return "<ip>"
 	})
-	text = maskIPv6.ReplaceAllStringFunc(text, func(ip string) string {
-		bare, _, _ := strings.Cut(ip, "%")
-		if bare == "::" || bare == "::1" {
-			return ip
-		}
-		// Times (12:34:56) and similar: decimal groups and no "::".
-		if !strings.Contains(bare, "::") && strings.Count(bare, ":") < 3 {
-			return ip
-		}
-		if !strings.ContainsAny(strings.ToLower(bare), "abcdef") && !strings.Contains(bare, "::") {
-			return ip
+	text = maskIPv6.ReplaceAllStringFunc(text, func(candidate string) string {
+		bare, _, _ := strings.Cut(candidate, "%")
+		addr, err := netip.ParseAddr(bare)
+		// Not an address (a time such as 12:34:56), or loopback/unspecified.
+		if err != nil || addr.IsLoopback() || addr.IsUnspecified() {
+			return candidate
 		}
 		return "<ip6>"
 	})
-	return maskSSID.ReplaceAllString(text, "${1}<ssid>")
+	text = maskSSIDLine.ReplaceAllString(text, "${1}<ssid>")
+	return maskSSIDInline.ReplaceAllString(text, "${1}${2}<ssid>")
 }
 
 // SanitizeFile prepares a whole text file for the developer archive: entries
@@ -56,10 +55,4 @@ func SanitizeFile(data []byte) string {
 		return ""
 	}
 	return MaskAddresses(text) + "\n"
-}
-
-// SanitizeConfig is SanitizeFile for a settings file: values of keys that name
-// credentials, users or keys are replaced before the line checks run.
-func SanitizeConfig(data []byte) string {
-	return SanitizeFile([]byte(configSecret.ReplaceAllString(string(data), "${1}<hidden>")))
 }

@@ -50,7 +50,14 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	}
 	write("network/addr", "inet 192.168.4.128/24 brd 192.168.4.255\nlink/ether 48:da:35:6f:1a:2b\n")
 	write("network/iw-link", "Connected to aa:bb:cc:dd:ee:ff (on wlan0)\n\tSSID: HomeNetwork\n")
-	write("config/etc_kvm_server.yaml", "proto: https\nauthentication:\n  jwt:\n    secretKey: hunter2\nturn:\n    turnCred: abc123\n")
+	write("config/etc_kvm_server.yaml", "proto: https\nauthentication:\n  jwt:\n    secretKey: hunter2\n    refreshTokenDuration: 720\nturn:\n    turnCred: abc123\n")
+	// Shapes a line rule misses: a flow mapping and a block scalar.
+	write("config/etc_kvm_flow.yaml", "proto: http\nturn: {turnUser: alice, turnCred: flow-value-739}\nwebrtc:\n  turnCred: |-\n    block-value-739\n")
+	write("config/etc_kvm_mcp.json", `{"enabled": true, "auth": {"apiKey": "json-value-739"}, "port": 8765}`)
+	write("config/etc_kvm_broken.yaml", "proto: [unclosed\n  turnCred: broken-value-739\n")
+	write("config/etc_kvm_memory.conf", "# memory\nzram_size=128\nswappiness=100\n")
+	write("hardware/run-nanokvm/run_nanokvm_screen-text.bgr", "screen text pixels\n")
+	write("hardware/run-nanokvm/run_nanokvm_width", "1920\n")
 	write("logs/current/application.log", "[hdmi] diagnostics ready fw=0x00000300 model=LT6911UXC chip_id=0x0417\nlogin password=letmein\n")
 	write("hardware/edid.bin", "\x00\xff\xff\xff\xff\xff\xff\x00")
 	write("system/model", "Sipeed NanoKVM PCIe\x00")
@@ -65,7 +72,7 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	for _, text := range files {
 		all += text
 	}
-	for _, leaked := range []string{"192.168.4.128", "48:da:35", "aa:bb:cc", "HomeNetwork", "hunter2", "abc123", "letmein"} {
+	for _, leaked := range []string{"192.168.4.128", "48:da:35", "aa:bb:cc", "HomeNetwork", "hunter2", "abc123", "letmein", "alice", "flow-value", "block-value", "json-value", "broken-value", "screen text pixels"} {
 		if strings.Contains(all, leaked) {
 			t.Errorf("%q leaked", leaked)
 		}
@@ -73,8 +80,22 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	if !strings.Contains(files["logs/current/application.log"], "chip_id=0x0417") {
 		t.Errorf("receiver diagnostics lost: %q", files["logs/current/application.log"])
 	}
-	if _, ok := files["hardware/edid.bin"]; ok {
-		t.Error("binary file packed")
+	for _, omitted := range []string{"hardware/edid.bin", "hardware/run-nanokvm/run_nanokvm_screen-text.bgr", "config/etc_kvm_broken.yaml"} {
+		if _, ok := files[omitted]; ok {
+			t.Errorf("%s packed", omitted)
+		}
+	}
+	if !strings.Contains(files["config/etc_kvm_flow.yaml"], "proto: http") || !strings.Contains(files["config/etc_kvm_mcp.json"], "8765") {
+		t.Errorf("settings lost: %q %q", files["config/etc_kvm_flow.yaml"], files["config/etc_kvm_mcp.json"])
+	}
+	if !strings.Contains(files["config/etc_kvm_server.yaml"], "refreshTokenDuration: 720") {
+		t.Errorf("non-secret setting hidden: %q", files["config/etc_kvm_server.yaml"])
+	}
+	if !strings.Contains(files["config/etc_kvm_memory.conf"], "zram_size=128\nswappiness=100") {
+		t.Errorf("KEY=value settings changed: %q", files["config/etc_kvm_memory.conf"])
+	}
+	if files["hardware/run-nanokvm/run_nanokvm_width"] != "1920\n" {
+		t.Errorf("status file = %q", files["hardware/run-nanokvm/run_nanokvm_width"])
 	}
 	if files["system/model"] != "Sipeed NanoKVM PCIe\n" {
 		t.Errorf("model = %q", files["system/model"])
@@ -108,6 +129,17 @@ func TestDevArchiveRefusals(t *testing.T) {
 	defer devArchiveBusy.Unlock()
 	if reply := devArchiveReply(t); !strings.Contains(reply, "already being prepared") {
 		t.Fatalf("busy: %s", reply)
+	}
+}
+
+func TestReadLimitedKeepsTail(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "log")
+	if err := os.WriteFile(path, []byte(strings.Repeat("x", 5000)+"tail"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	data, err := readLimited(path, 10)
+	if err != nil || string(data) != "xxxxxxtail" {
+		t.Fatalf("readLimited = %q, %v", data, err)
 	}
 }
 

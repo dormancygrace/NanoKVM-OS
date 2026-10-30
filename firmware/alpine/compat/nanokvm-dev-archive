@@ -14,26 +14,43 @@ out=$2
 mkdir -p "$out" || exit 1
 export LC_ALL=C
 
-# run FILE COMMAND... : the command's output, at most 10 s; errors beside it.
+# The collection lives in RAM: each output is cut at 1 MiB, and nothing more
+# is collected once the directory holds 20 MiB.
+cap=1048576
+room() {
+	used=$(du -sk "$out" 2>/dev/null | cut -f1)
+	[ "${used:-0}" -lt 20480 ] && return 0
+	echo "$1" >>"$out/skipped-over-budget"
+	return 1
+}
+
+# run FILE COMMAND... : the command's output, at most 10 s and 1 MiB; errors
+# beside it.
 run() {
+	room "$1" || return 0
 	file=$out/$1
 	shift
 	mkdir -p "${file%/*}"
-	timeout 10 "$@" >"$file" 2>"$file.err"
-	status=$?
-	[ "$status" -eq 0 ] || echo "exit status $status" >>"$file.err"
+	{
+		timeout 10 "$@" 2>"$file.err"
+		echo $? >"$file.status"
+	} | head -c "$cap" >"$file"
+	status=$(cat "$file.status" 2>/dev/null)
+	rm -f "$file.status"
+	[ "${status:-0}" -eq 0 ] || echo "exit status $status" >>"$file.err"
 	[ -s "$file.err" ] || rm -f "$file.err"
 }
 
-# copy DIR FILE... : regular files, the last 2 MiB of each, named by path.
+# copy DIR FILE... : regular files, the last 1 MiB of each, named by path.
 copy() {
+	room "$1" || return 0
 	dir=$out/$1
 	shift
 	mkdir -p "$dir"
 	for src in "$@"; do
 		[ -f "$src" ] || continue
 		name=$(echo "${src#/}" | tr / _)
-		tail -c 2097152 "$src" >"$dir/$name" 2>/dev/null
+		tail -c "$cap" "$src" >"$dir/$name" 2>/dev/null
 	done
 }
 
@@ -82,11 +99,17 @@ for p in vi vi_dbg vpss venc vb sys; do run "hardware/cvitek-$p" cat /proc/cvite
 run hardware/vi_dbg-samples sh -c 'for i in 1 2 3; do date; cat /proc/cvitek/vi_dbg; sleep 1; done'
 run hardware/mipi-rx cat /proc/mipi-rx
 run hardware/lt-int cat /proc/lt_int
-for f in /run/nanokvm/*; do copy hardware/run-nanokvm "$f"; done
+# Named status files only: /run/nanokvm also holds saved screen frames.
+for f in state width height input_fps now_fps now_kbps video_path video_width video_height \
+	stream_width stream_height mjpeg_fps mjpeg_width mjpeg_height wifi_state autostart recovery; do
+	copy hardware/run-nanokvm "/run/nanokvm/$f"
+done
 # The HDMI receiver (LT6911 model, chip id, firmware, timing, raw status) as
 # kvm_system logs it on every signal change; no extra I2C access.
 run hardware/hdmi-receiver sh -c 'cat /etc/kvm/hdmi_version 2>/dev/null; echo; for b in older previous current; do grep -h "\[hdmi\]" /var/log/nanokvm-boots/$b/application.log 2>/dev/null; done | tail -n 200' 
-for f in /kvmapp/kvm/*; do copy hardware/kvmapp-kvm "$f"; done
+for f in state width height fps now_fps res qlty type transport wifi_state; do
+	copy hardware/kvmapp-kvm "/kvmapp/kvm/$f"
+done
 copy hardware /etc/kvm/hw /etc/kvm/board-profile /etc/kvm/hdmi_version /etc/kvm/hdmi_mode \
 	/etc/kvm/video-memory-mode /etc/kvm/atx \
 	/etc/kvm/frame_detect /etc/kvm/encoder_codec /etc/kvm/monitor_resolution \
@@ -128,4 +151,4 @@ copy config /etc/kvm/server.yaml /etc/kvm/date-time.json /etc/kvm/memory.conf \
 	/etc/kvm/mcp.json /etc/kvm/picoclaw-runtime.json
 run config/usb-flags ls -la /etc/kvm/usb
 
-echo "nanokvm-dev-archive 2" >"$out/collector"
+echo "nanokvm-dev-archive 3" >"$out/collector"

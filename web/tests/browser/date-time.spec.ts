@@ -21,6 +21,8 @@ async function hour12(page: Page) {
 test('date/time selects keep draft NTP servers out of their requests', async ({ page }) => {
   await page.getByRole('combobox', { name: 'NTP servers', exact: true }).fill('time.example.org');
   await page.getByRole('combobox', { name: 'NTP servers', exact: true }).press('Enter');
+  // Close the tag suggestions before opening the select below them.
+  await page.getByRole('combobox', { name: 'NTP servers', exact: true }).press('Escape');
   await hour12(page);
   await expect(events(page)).toContainText('"servers":["0.pool.ntp.org"]');
   await expect(events(page)).not.toContainText('time.example.org');

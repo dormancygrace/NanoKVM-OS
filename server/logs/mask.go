@@ -14,9 +14,10 @@ var (
 	maskIPv4 = regexp.MustCompile(`\b(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}\b`)
 	// Candidates only: each is validated as an address before masking.
 	maskIPv6 = regexp.MustCompile(`(?i)(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?:%[a-z0-9]+)?`)
-	// "SSID: Home", "ssid=\"Home\"" on a line of their own (iw, wpa_supplicant
-	// configuration dumps), and "SSID 'Home'" / "ssid=Home" inside log messages.
-	maskSSIDLine   = regexp.MustCompile(`(?im)^(\s*(?:ssid|essid)\s*[:=]\s*).*$`)
+	// "SSID: Home", "ssid=\"Home\"", "ssid My Home" on a line of their own (iw,
+	// wpa_supplicant configuration dumps; the name runs to the end of the line),
+	// and "SSID 'Home'" / "ssid=Home" inside log messages.
+	maskSSIDLine   = regexp.MustCompile(`(?im)^(\s*(?:ssid|essid)(?:\s*[:=]\s*|\s+)).*$`)
 	maskSSIDInline = regexp.MustCompile(`(?i)\b(e?ssid)(\s*[:=]\s*|\s+)('[^'\n]*'|"[^"\n]*"|[^\s,;\]\)]+)`)
 )
 

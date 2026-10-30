@@ -85,7 +85,7 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 			t.Errorf("%s packed", omitted)
 		}
 	}
-	if !strings.Contains(files["config/etc_kvm_flow.yaml"], "proto: http") || !strings.Contains(files["config/etc_kvm_mcp.json"], "8765") {
+	if !strings.Contains(files["config/etc_kvm_flow.yaml"], "proto: http") || !strings.Contains(files["config/etc_kvm_mcp.json"], `"apiKey": "<hidden>"`) {
 		t.Errorf("settings lost: %q %q", files["config/etc_kvm_flow.yaml"], files["config/etc_kvm_mcp.json"])
 	}
 	if !strings.Contains(files["config/etc_kvm_server.yaml"], "refreshTokenDuration: 720") {

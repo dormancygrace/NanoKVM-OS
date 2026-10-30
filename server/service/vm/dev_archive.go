@@ -252,8 +252,12 @@ func redactSettings(data []byte) ([]byte, error) {
 		if err := json.Unmarshal(data, &value); err != nil {
 			return nil, err
 		}
-		out, err := json.MarshalIndent(redactValue(value), "", "  ")
-		return append(out, '\n'), err
+		var out bytes.Buffer
+		enc := json.NewEncoder(&out)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		err := enc.Encode(redactValue(value))
+		return out.Bytes(), err
 	}
 	var value any
 	if err := yaml.Unmarshal(data, &value); err != nil {

@@ -21,13 +21,14 @@ func TestMaskAddresses(t *testing.T) {
 		"[hdmi] diagnostics ready fw=0x00000300 model=LT6911UXC chip_id=0x0417",
 		"monitor_edid_sha256: 3f2a9c0d4e5b6a7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
 		"\tSSID: HomeNetwork",
+		"\t\tssid Upstairs Mesh Net",
 		"ssid=\"Office Wi-Fi\"",
 		"Oct 30 12:34:56 nanokvm wpa_supplicant: wlan0: Trying to associate with SSID 'SyntheticHome595'",
 		"wlan0: CTRL-EVENT-SSID-TEMP-DISABLED id=0 ssid=\"Cafe Net\" auth_failures=1",
 		"scan result ssid=GuestNet freq=2412",
 	}, "\n")
 	out := MaskAddresses(in)
-	for _, leaked := range []string{"192.168.4.128", "192.168.4.255", "10.0.0.1", "48:da:35", "fe80::4ada", "2001:db8", "2001:470:20:23", "HomeNetwork", "Office Wi-Fi", "SyntheticHome595", "Cafe Net", "GuestNet"} {
+	for _, leaked := range []string{"192.168.4.128", "192.168.4.255", "10.0.0.1", "48:da:35", "fe80::4ada", "2001:db8", "2001:470:20:23", "HomeNetwork", "Upstairs", "Mesh Net", "Office Wi-Fi", "SyntheticHome595", "Cafe Net", "GuestNet"} {
 		if strings.Contains(out, leaked) {
 			t.Errorf("%q not masked:\n%s", leaked, out)
 		}

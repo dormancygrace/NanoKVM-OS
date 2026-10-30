@@ -1,21 +1,12 @@
 import { useAtomValue } from 'jotai';
 
+import type { AddonManifest } from '@/api/addons.ts';
 import { addonInventoryAtom } from '@/jotai/addons';
 
-import { AddonPage } from './index';
-
 // The sections add-ons add to the core page host (settings.section of their
-// manifests, server/service/addons): each at the end, in the order of ids.
-export const AddonSections = ({ host }: { host: string }) => {
+// manifests, server/service/addons), in the order of ids. The host page
+// decides where each one goes (BmcSettingsPage: a tab).
+export const useAddonSections = (host: string): AddonManifest[] => {
   const inventory = useAtomValue(addonInventoryAtom);
-  const manifests = (inventory?.addons ?? []).filter(
-    (manifest) => manifest.settings?.section === host
-  );
-  return (
-    <>
-      {manifests.map((manifest) => (
-        <AddonPage key={manifest.id} manifest={manifest} embedded />
-      ))}
-    </>
-  );
+  return (inventory?.addons ?? []).filter((manifest) => manifest.settings?.section === host);
 };

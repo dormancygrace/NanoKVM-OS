@@ -58,7 +58,7 @@ import { addonInventoryAtom } from '@/jotai/addons';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
-import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
+import { bmcTabAtom, settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
@@ -252,6 +252,7 @@ export const Settings = ({
   const [, setInventoryError] = useState(false);
   const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
+  const setBmcTab = useSetAtom(bmcTabAtom);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
@@ -306,7 +307,10 @@ export const Settings = ({
         'software-addons': (
           <Addons
             onOpenRustDesk={() => changeTab('services-rustdesk')}
-            onOpenBmc={() => changeTab('services-bmc')}
+            onOpenBmc={() => {
+              setBmcTab('ipmi');
+              changeTab('services-bmc');
+            }}
             onOpenAcme={() => changeTab('system-security')}
             onOpen={() => {
               closeModal();

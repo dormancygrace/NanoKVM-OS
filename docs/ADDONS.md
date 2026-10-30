@@ -9,7 +9,7 @@ NanoKVM OS draws the page from the form the manifest describes. Its values come 
 
 The server reads the manifests on every request: an installed or removed add-on shows up or goes away without a restart. An invalid manifest is left out and reported once in the server log; the other add-ons still show.
 
-The IPMI add-on (`addons/ipmi/addon-ui.json`, `cmd/nkos-ipmi/status.go`) is the working example: a section of Services > Redfish and IPMI.
+The IPMI add-on (`addons/ipmi/addon-ui.json`, `cmd/nkos-ipmi/status.go`) is the working example: a section in the IPMI tab of Services > Redfish and IPMI.
 
 ## Manifest
 
@@ -38,7 +38,7 @@ The IPMI add-on (`addons/ipmi/addon-ui.json`, `cmd/nkos-ipmi/status.go`) is the 
 | `title`, `description` | Texts by language (see below). The title names the page; the description stands at its top. |
 | `backend.socket` | The socket's file name in `/run/nanokvm/addons/`, ending in `.sock`. Only the manifest chooses the socket. |
 | `settings.group` | A page of its own, listed at the end of this settings group: `usb`, `network`, `services`, `system`, `ai` or `software`. |
-| `settings.section` | Instead of a group: a section at the end of this page of NanoKVM OS, titled with the add-on's title and description. For an add-on that extends what the page is about; `services-bmc` (Services > Redfish and IPMI) for now. |
+| `settings.section` | Instead of a group: part of this page of NanoKVM OS, for an add-on that extends what the page is about. `services-bmc` (Services > Redfish and IPMI) for now: the add-on gets a tab of its own, titled with its title; the IPMI add-on's status goes into the page's IPMI tab, as a section titled with its title and description. |
 | `settings.icon` | For a page of its own, optional: a name from the icon set of the settings menu (`menuIcons` in `web/src/pages/desktop/menu/settings/index.tsx`), such as `server`, `network`, `package` or `shield`. Other names show a puzzle piece. |
 | `settings.form` | The page, below. |
 

@@ -59,6 +59,7 @@ export const UsbMenu = () => {
   return (
     <MenuItem
       title={title}
+      onIntent={() => void usbPanel.preload()}
       icon={
         <span
           className="relative inline-flex"

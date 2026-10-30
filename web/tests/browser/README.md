@@ -29,7 +29,9 @@ For a local check in your own Main-profile tab:
    return to login without further connection attempts.
 6. Open password help at a narrow viewport; its content must fit the dialog.
 7. In the Network panel, confirm the USB settings module is absent before
-   opening USB Gadget. Open, close and reopen it; the module loads once.
+   hovering, focusing or opening USB Gadget. Hover or focus the button: the
+   module should preload without opening the panel. Open, close and reopen it;
+   the module loads once.
    Block its first request and verify the error stays in the popover, the
    desktop remains usable after closing it, and Refresh recovers the panel.
 

@@ -25,6 +25,10 @@ package common
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_parked");
         return fn ? fn(parked) : -1;
     }
+    static int mjpeg_tiles_release(void) {
+        int (*fn)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "kvmv_mjpeg_tiles_release");
+        return fn ? fn() : 0;
+    }
     static int read_bgr_planar(unsigned short width, unsigned short height, unsigned char *out, unsigned int size) {
         int (*fn)(unsigned short, unsigned short, unsigned char *, unsigned int) =
             (int (*)(unsigned short, unsigned short, unsigned char *, unsigned int))dlsym(RTLD_DEFAULT, "kvmv_read_bgr_planar");
@@ -113,6 +117,34 @@ func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data
 		log.Errorf("failed to read kvm image: %v", result)
 	}
 	return
+}
+
+// ReadMjpegTiles reads tiled MJPEG (kvm_vision.h): MjpegTilesResult with a
+// message, 0 with a bare JPEG of the whole picture, 5 when nothing changed,
+// MjpegTilesUnsupported from a library without it.
+func (k *KvmVision) ReadMjpegTiles(width, height, quality uint16, key bool, maxTiles uint16) (data []byte, result int) {
+	data, result = readMjpegChecked(func() ([]byte, int) {
+		k.mutex.Lock()
+		defer k.mutex.Unlock()
+		if k.closed {
+			return nil, -1
+		}
+		defer k.pauseCaptureLocked()()
+		return readMjpegTilesIntoOwnedStorage(width, height, quality, key, maxTiles)
+	})
+	if result < 0 && result != MjpegBlockedResult && result != MjpegTilesUnsupported {
+		log.Errorf("failed to read tiled kvm image: %v", result)
+	}
+	return
+}
+
+// ReleaseMjpegTiles frees what tiled reads keep once nobody reads tiles.
+func (k *KvmVision) ReleaseMjpegTiles() {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+	if !k.closed {
+		C.mjpeg_tiles_release()
+	}
 }
 
 // ReadVideoWithHeadroom is the Go-paced blocking read: the calling M waits

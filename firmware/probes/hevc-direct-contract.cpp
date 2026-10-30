@@ -1,5 +1,8 @@
 // Fault injection of the production VI-direct state and leases; no hardware.
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
+// The IVE (the tiled MJPEG change map) is not exercised here; teardown frees it.
+CVI_S32 CVI_SYS_FreeI(IVE_HANDLE, IVE_IMAGE_S *) { return 0; }
+CVI_S32 CVI_IVE_DestroyHandle(IVE_HANDLE) { return 0; }
 #include <cassert>
 CVI_S32 CVI_VB_DestroyPool(VB_POOL) { abort(); }
 VB_POOL CVI_VB_CreatePool(VB_POOL_CONFIG_S *) { abort(); }

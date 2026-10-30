@@ -5,6 +5,7 @@ package common
 /*
 #cgo CFLAGS: -I../../support/sg2002/additional/kvm/include
 #include "kvm_vision.h"
+#include <dlfcn.h>
 extern int goVideoPack(uintptr_t context, void *data, uint32_t size, uint32_t offset, uint32_t total);
 static inline int nkosVideoPack(uintptr_t context, const uint8_t *data, uint32_t size, uint32_t offset, uint32_t total) {
  return goVideoPack(context, (void *)data, size, offset, total);
@@ -14,6 +15,12 @@ static inline int nkosReadVideo(uint16_t w, uint16_t h, uint8_t codec, uint16_t 
 }
 static inline int nkosReadMjpeg(uint16_t w, uint16_t h, uint16_t quality, uintptr_t context) {
  return kvmv_read_mjpeg_sink(w, h, quality, nkosVideoPack, context);
+}
+typedef int (*nkos_tiles_fn)(uint16_t, uint16_t, uint16_t, uint8_t, uint16_t, kvmv_video_sink, uintptr_t);
+// Older libraries lack tiled MJPEG: -9.
+static inline int nkosReadMjpegTiles(uint16_t w, uint16_t h, uint16_t quality, uint8_t key, uint16_t max_tiles, uintptr_t context) {
+ nkos_tiles_fn fn = (nkos_tiles_fn)dlsym(RTLD_DEFAULT, "kvmv_read_mjpeg_tiles_sink");
+ return fn ? fn(w, h, quality, key, max_tiles, nkosVideoPack, context) : -9;
 }
 */
 import "C"
@@ -29,6 +36,10 @@ const (
 	_ = uint(C.IMG_MJPEG_INPUT_BLOCKED - nativeMjpegBlocked)
 	_ = uint(MjpegBlockedResult - C.IMG_MJPEG_INPUT_BLOCKED)
 	_ = uint(C.IMG_MJPEG_INPUT_BLOCKED - MjpegBlockedResult)
+	_ = uint(MjpegTilesResult - C.IMG_MJPEG_TILES)
+	_ = uint(C.IMG_MJPEG_TILES - MjpegTilesResult)
+	_ = uint(MjpegTileSize - C.KVMV_TILE_SIZE)
+	_ = uint(C.KVMV_TILE_SIZE - MjpegTileSize)
 )
 
 //export goVideoPack
@@ -61,4 +72,14 @@ func readMjpegIntoOwnedStorage(width, height, quality uint16) ([]byte, int) {
 	defer handle.Delete()
 	result := int(C.nkosReadMjpeg(C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality), C.uintptr_t(handle)))
 	return state.mjpegResult(result)
+}
+
+// Tiled MJPEG: one message (result 6) or a bare JPEG (0), copied like a JPEG.
+func readMjpegTilesIntoOwnedStorage(width, height, quality uint16, key bool, maxTiles uint16) ([]byte, int) {
+	state := &videoPackStorage{}
+	handle := cgo.NewHandle(state)
+	defer handle.Delete()
+	result := int(C.nkosReadMjpegTiles(C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality),
+		C.uint8_t(boolToInt(key)), C.uint16_t(maxTiles), C.uintptr_t(handle)))
+	return state.mjpegTilesResult(result)
 }

@@ -50,3 +50,14 @@ func (s *videoPackStorage) mjpegResult(result int) ([]byte, int) {
 	}
 	return s.storage, result
 }
+
+// Tiled MJPEG results 0 (a bare JPEG) and 6 (a message) carry data.
+func (s *videoPackStorage) mjpegTilesResult(result int) ([]byte, int) {
+	if result != 0 && result != MjpegTilesResult {
+		return nil, result
+	}
+	if !s.complete() {
+		return nil, -2
+	}
+	return s.storage, result
+}

@@ -54,6 +54,7 @@ typedef int (*kvmv_video_sink)(uintptr_t context, const uint8_t *data,
  *      3: H.264/H.265 key frame (parameter sets and random-access frame)
  *      4: H.264/H.265 delta frame
  *      5: image not changed
+ *      6: tiled MJPEG message (kvmv_read_mjpeg_tiles_sink)
  *
  * Video: one CBR Annex-B H.264/H.265 access unit. codec: 1 H.264, 2 H.265;
  * bitrate: 500..20000 Kbit/s.
@@ -81,6 +82,29 @@ uint8_t get_mjpeg_chroma_status(void);
 // JPEG callback runs before ReleaseStream/VI release; it must copy synchronously.
 int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
     kvmv_video_sink sink, uintptr_t context);
+/*
+ * Tiled MJPEG: the parts of the picture that changed since the previous read
+ * of this reader (IVE change map), as one message to sink, result 6. A read
+ * sends the whole picture instead when key is set, on its first read, after
+ * a failure, or when more than max_tiles tiles changed. 5 when nothing
+ * changed. 0 (a bare JPEG of the whole picture, no message) where there is
+ * no change map: a copied frame, a layout the map does not handle (wider or
+ * taller than 1920, a width not a multiple of 16) or no IVE driver that
+ * waits long enough; the caller compares those with the last one. Message,
+ * little-endian:
+ *     u8 version (1), u8 flags (1: the whole picture), u16 count,
+ *     u16 picture width, u16 picture height,
+ *     count x {u16 x, u16 y, u16 w, u16 h, u32 bytes}, then the JPEGs in order.
+ * Tiles are 128x128; the last column and row move inward and overlap.
+ */
+#define IMG_MJPEG_TILES			6
+#define KVMV_TILE_SIZE			128
+#define KVMV_TILE_FLAG_WHOLE		1
+int kvmv_read_mjpeg_tiles_sink(uint16_t width, uint16_t height, uint16_t quality,
+    uint8_t key, uint16_t max_tiles, kvmv_video_sink sink, uintptr_t context);
+// Frees what tiled reads keep (the IVE map and its kept frame, the region
+// JPEG channels) once nobody reads tiles; the next read sends a whole picture.
+int kvmv_mjpeg_tiles_release(void);
 void kvmv_request_keyframe(void);
 void set_frame_detact(uint8_t _frame_detact);
 void kvmv_deinit();

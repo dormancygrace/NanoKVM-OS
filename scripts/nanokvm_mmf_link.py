@@ -11,7 +11,7 @@ import re
 import subprocess
 
 VENDOR_LIBRARIES = ('ae', 'awb', 'af', 'isp_algo')
-OPEN_LIBRARIES = ('sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'venc', 'vdec',
+OPEN_LIBRARIES = ('sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'cvi_ive', 'venc', 'vdec',
                   'misc', 'isp', 'cvi_bin', 'cvi_bin_isp')
 PROBE_EXPORTS = {
     'nanokvm_read_capture_size', 'ini_parse_string', 'g_pastLt6911',

@@ -93,6 +93,28 @@ int mmf_enc_jpg_push_with_quality(int ch, uint8_t *data, int w, int h, int forma
 int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality);
 int mmf_enc_jpg_pop(int ch, uint8_t **data, int *size);
 int mmf_enc_jpg_free(int ch);
+// JPEG of a region of VI frame vi_ch on region channel ch (2 or 3): no copy,
+// the region points into the frame. x and w multiples of 16, y and h even.
+// *recreated is 1 when the channel was created for a new region size.
+// Release with mmf_enc_jpg_region_free before the next region on ch.
+int mmf_enc_jpg_region(int ch, int vi_ch, int x, int y, int w, int h, int quality,
+                       uint8_t **data, int *size, int *recreated);
+int mmf_enc_jpg_region_free(int ch);
+int mmf_enc_jpg_region_close(void);
+// Whether the frame leased on vi_ch suits the change map and region JPEGs:
+// planar NV21/NV16, a width multiple of 16, 128..1920 on each side.
+bool mmf_tile_frame_supported(int vi_ch);
+// Change map of VI frame vi_ch against the kept previous frame (IVE, 16x16
+// blocks, one byte per block, 1 = changed; cols x rows, the last row covers
+// the bottom rows that do not fill a block). 0 with a map, 1 without a kept
+// frame (none yet, or after a reset), -1 for a frame layout it does not
+// handle (the kept frame is forgotten).
+int mmf_tile_map(int vi_ch, uint8_t *map, int map_size, int *cols, int *rows, int *changed);
+// Copy a region of VI frame vi_ch (x, w multiples of 16) into the kept
+// frame: the regions that were sent, or the whole frame, which starts one.
+int mmf_tile_map_keep(int vi_ch, int x, int y, int w, int h);
+void mmf_tile_map_reset(void);
+int mmf_tile_map_close(void);
 // v2 removes the GOP field from mmf_venc_cfg_t; old libraries must not bind.
 extern "C" int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg);
 int mmf_del_venc_channel(int ch);

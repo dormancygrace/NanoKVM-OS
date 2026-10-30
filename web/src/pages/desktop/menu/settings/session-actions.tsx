@@ -33,7 +33,8 @@ export const SessionActions = ({
       !(await confirmAction({
         title: t('settings.account.logoutDesc'),
         okText: t('settings.account.logoutBtn'),
-        cancelText: t('settings.account.cancelBtn')
+        cancelText: t('settings.account.cancelBtn'),
+        safeDefault: true
       }))
     )
       return;

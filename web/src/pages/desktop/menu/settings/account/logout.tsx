@@ -35,6 +35,9 @@ export const Logout = () => {
         title={t('settings.account.logoutDesc')}
         okText={t('settings.account.okBtn')}
         cancelText={t('settings.account.cancelBtn')}
+        // As the toolbar's sign-out: the safe answer is the highlighted one.
+        okButtonProps={{ type: 'default' }}
+        cancelButtonProps={{ type: 'primary' }}
         onConfirm={logout}
       >
         <Button danger icon={<LogOutIcon size={16} />}>

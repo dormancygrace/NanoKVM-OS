@@ -34,6 +34,7 @@ export const Logs = () => {
   const [revision, setRevision] = useState(0);
   const [refreshReady, setRefreshReady] = useState(false);
   const viewer = useRef<HTMLPreElement>(null);
+  const activeLine = useRef<HTMLElement>(null);
   const query = useDeferredValue(search).trim().toLowerCase();
   useEffect(() => {
     const controller = new AbortController();
@@ -147,12 +148,17 @@ export const Logs = () => {
 
   useEffect(() => {
     if (!viewer.current) return;
-    if (activeRow !== undefined) {
-      viewer.current.scrollTop = activeRow * 20;
+    if (activeRow !== undefined && activeLine.current) {
+      // Wrapped logical lines have variable heights. Scroll to the actual mark
+      // without moving the enclosing settings page.
+      viewer.current.scrollTop +=
+        activeLine.current.getBoundingClientRect().top -
+        viewer.current.getBoundingClientRect().top -
+        viewer.current.clientTop;
     } else if (follow && boot === 'current') {
       viewer.current.scrollTop = viewer.current.scrollHeight;
     }
-  }, [activeRow, snapshot, follow, boot]);
+  }, [activeRow, view, follow, boot]);
 
   const key = 'settings.system.logs';
   const timestamp = (at: number) => formatDeviceTime(at, timePreferences, i18n.language);
@@ -291,7 +297,9 @@ export const Logs = () => {
           ) : (
             <>
               {activeRow > 0 ? view.lines.slice(0, activeRow).join('\n') + '\n' : ''}
-              <mark className="bg-warning/25 text-fg rounded">{view.lines[activeRow]}</mark>
+              <mark ref={activeLine} className="bg-warning/25 text-fg rounded">
+                {view.lines[activeRow]}
+              </mark>
               {activeRow < view.lines.length - 1
                 ? '\n' + view.lines.slice(activeRow + 1).join('\n')
                 : ''}

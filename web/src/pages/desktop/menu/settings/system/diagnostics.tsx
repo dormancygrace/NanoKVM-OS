@@ -69,15 +69,15 @@ function diagnosticProblems(snapshot: Snapshot, label: (key: string) => string):
   check(label('modules'), snapshot.versions.modules);
   check(label('boot'), snapshot.versions.boot);
   if (snapshot.video.enabled) check(label('capture'), { state: snapshot.video.state });
-  if (snapshot.video.edidState === 'error')
-    problems.push({ label: label('edid'), item: { state: 'error' } });
+  if (['error', 'power-cycle-pending'].includes(snapshot.video.edidState))
+    problems.push({ label: label('edid'), item: { state: snapshot.video.edidState } });
   if (snapshot.usb.selected.length > 0) check(label('binding'), snapshot.usb.binding);
   if (snapshot.firewall.state === 'error')
     problems.push({ label: label('firewall'), item: snapshot.firewall });
   for (const service of snapshot.services)
     if (service.optional ? service.state === 'error' : !good(service.state))
       problems.push({ label: service.name, item: service });
-  if (snapshot.apk.state === 'failed')
+  if (snapshot.apk.state === 'error' || snapshot.apk.state === 'failed')
     problems.push({
       label: label('apk'),
       item: { state: 'error', detail: snapshot.apk.errorCategory && label('operationFailed') }
@@ -213,7 +213,7 @@ const DiagnosticsStatus = () => {
           </Button>
         </div>
       </div>
-      {error && <Alert type="error" showIcon message={error} />}
+      {error && <Alert type="error" showIcon title={error} />}
       {loading && !snapshot ? (
         <div className="flex justify-center py-10">
           <Spin />
@@ -222,12 +222,12 @@ const DiagnosticsStatus = () => {
         snapshot && (
           <>
             {problems.length === 0 ? (
-              <Alert type="success" showIcon message={tr('allOk')} />
+              <Alert type="success" showIcon title={tr('allOk')} />
             ) : (
               <Alert
                 type="warning"
                 showIcon
-                message={t('settings.system.diagnostics.problems', { count: problems.length })}
+                title={t('settings.system.diagnostics.problems', { count: problems.length })}
                 description={
                   <ul className="m-0 ps-4">
                     {problems.map((problem) => (

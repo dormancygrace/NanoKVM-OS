@@ -2068,13 +2068,11 @@
       "password": "Aktuelles Administratorpasswort",
       "export": "Einstellungen exportieren",
       "encryption": "Das Archiv enthält Passwörter und private Schlüssel. Es wird mit Ihrem Sicherungspasswort verschlüsselt (12–256 Bytes). Bewahren Sie Datei und Passwort sicher auf; ein verlorenes Passwort lässt sich nicht wiederherstellen.",
-      "archivePassword": "Sicherungspasswort (auch zum Öffnen eines Archivs)",
+      "archivePassword": "Archivpasswort",
       "download": "Verschlüsselte Sicherung herunterladen",
-      "restoreReset": "Wiederherstellen oder zurücksetzen",
       "restore": "Einstellungen wiederherstellen",
       "reset": "Werkseinstellungen wiederherstellen",
       "updateBase": "Aktualisieren Sie nanokvm-base, um Wiederherstellen und Zurücksetzen zu aktivieren.",
-      "file": "Einstellungsarchiv (.nkos)",
       "fileLimit": "Wählen Sie ein Einstellungsarchiv mit höchstens 4 MiB.",
       "migrate": "Auf ein anderes Gerät übertragen (empfohlen)",
       "device": "Dieses Gerät einschließlich Zugangs- und Netzwerkeinstellungen wiederherstellen",
@@ -2094,7 +2092,11 @@
       "inventory": "In der Sicherung erfasste Pakete (werden nicht automatisch installiert)",
       "confirm": "Ich habe die Änderungen geprüft und kann mich nach dem Neustart wieder verbinden.",
       "reboot": "Zum Abschließen neu starten",
-      "rebooting": "Wiederherstellung vorgemerkt. Das Gerät startet neu; verbinden Sie sich danach erneut."
+      "rebooting": "Wiederherstellung vorgemerkt. Das Gerät startet neu; verbinden Sie sich danach erneut.",
+      "backupPassword": "Sicherungspasswort",
+      "backupPasswordShort": "Mindestens 12 Zeichen.",
+      "chooseFile": ".nkos-Datei auswählen",
+      "deviceHint": "Ersetzt alle Einstellungen dieses Geräts durch die des Archivs, einschließlich Benutzer, Netzwerk, VPN, Zertifikate und Hardwareeinstellungen."
     },
     "ai": {
       "title": "KI",

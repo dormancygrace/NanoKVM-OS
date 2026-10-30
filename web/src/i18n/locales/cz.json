@@ -516,25 +516,24 @@
     },
     "appearance": {
       "title": "Vzhled",
-      "display": "Zobrazení",
       "language": "Jazyk",
       "languageDesc": "Vyberte jazyk rozhraní",
       "helpTranslate": "Pomozte s překládáním",
       "webTitle": "Název webu",
       "webTitleDesc": "Přizpůsobit si titulek webové stránky",
       "menuBar": {
-        "title": "Panel nabídek",
         "mode": "Režim zobrazení",
-        "modeDesc": "Zobrazování panelu nabídek na obrazovce",
+        "modeDesc": "Automaticky skrýt: lišta se objeví, když myš dojede k hornímu okraji.",
         "modeAuto": "Automaticky skrývat",
         "modeAlways": "Vždy viditelný",
         "keyboardLedStatus": "Indikátory zámku klávesnice",
-        "keyboardLedStatusDesc": "Zobrazovat stav Num Lock, Caps Lock a Scroll Lock vzdáleného počítače",
-        "icons": "Ikony podnabídek",
-        "iconsDesc": "Zobrazování ikon podnabídek v pruhu nabídek"
+        "keyboardLedStatusDesc": "Zobrazovat Caps Lock, Num Lock a Scroll Lock vzdáleného počítače na liště nabídky.",
+        "icons": "Tlačítka lišty nabídky",
+        "iconsDesc": "Zobrazování ikon podnabídek v pruhu nabídek",
+        "hiddenCount": "skryto: {{count}}",
+        "showAll": "Zobrazit vše"
       },
       "branding": {
-        "title": "Opatření vlastní značkou",
         "faviconTitle": "Ikona webu",
         "logoTitle": "Logo na přihlašovací obrazovce",
         "restoreDefault": "Obnovit výchozí",
@@ -545,12 +544,11 @@
         "logoPreview": "Náhled loga na přihlašovací obrazovce",
         "logoUpload": "Nahrát logo na přihlašovací obrazovku",
         "failed": "Opatření vlastní značkou nebylo možné uložit.",
-        "description": "Logo na přihlašovací obrazovce a ikona webu spolu nejsou nijak propojené – je možné si je přizpůsobit každé zvlášť. Vestavěné obrázky zůstávají k dispozici jako výchozí.",
         "logoDescription": "Hlavní logo zobrazované nad přihlašovacím formulářem.",
         "faviconDescription": "Malá ikona zobrazovaná na panelu prohlížeče.",
-        "formats": "PNG nebo JPEG (až 2 MiB a 1024 x 1024 pixelů). Nejlépe bude fungovat čtvercové PNG s průhledností."
+        "formats": "PNG nebo JPEG (až 2 MiB a 1024 x 1024 pixelů). Nejlépe bude fungovat čtvercové PNG s průhledností.",
+        "upload": "Nahrát"
       },
-      "customize": "Přizpůsobit",
       "bannerStyle": {
         "rainbow": "Duhový",
         "default": "Výchozí",
@@ -559,20 +557,20 @@
         "title": "SSH banner"
       },
       "buttonColor": {
-        "save": "Použít",
         "title": "Barva tlačítka",
-        "preview": "Náhled tlačítka",
-        "accentTitle": "Hlavní tlačítka",
-        "customActive": "Uživatelsky určená barva",
         "restoreDefault": "Obnovit výchozí",
         "inputLabel": "Barva tlačítka v šestnáctkovém (hex) formátu",
         "failed": "Barvu pro tlačítka nebylo možné uložit.",
         "description": "Zvolte barvu zvýraznění používanou hlavními tlačítky napříč rozhraním.",
-        "defaultActive": "Zelená vestavěného loga (#45E9A0)",
-        "accentDescription": "Stavy „Najetí ukazatelem“ a „Stisknuto“ jsou vytvořeny automaticky."
+        "defaultActive": "Zelená vestavěného loga (#45E9A0)"
       },
       "languagePartial": "neúplné",
-      "languagePartialHint": "Částečně přeloženo. Kde chybí překlady, jsou texty zobrazovány v angličtině."
+      "languagePartialHint": "Částečně přeloženo. Kde chybí překlady, jsou texty zobrazovány v angličtině.",
+      "browser": "V tomto prohlížeči",
+      "browserDesc": "Uloženo jen v tomto prohlížeči; ostatní prohlížeče a uživatelé mají vlastní.",
+      "device": "Pro všechny na tomto zařízení",
+      "deviceDesc": "Uloženo v zařízení a vidí to každý, kdo ho otevře.",
+      "saved": "Uloženo"
     },
     "keyboardLedStatus": {
       "groupLabel": "Stav zámků vzdálené klávesnice",

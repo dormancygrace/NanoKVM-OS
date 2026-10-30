@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Aparência",
-      "display": "Exibição",
       "language": "Idioma",
       "languageDesc": "Selecione o idioma da interface",
       "helpTranslate": "Ajude a traduzir",
       "webTitle": "Título da Web",
       "webTitleDesc": "Personalizar o título da página web",
       "menuBar": {
-        "title": "Barra de Menu",
         "mode": "Modo de exibição",
-        "modeDesc": "Exibir barra de menu na tela",
+        "modeDesc": "Ocultar automaticamente: a barra aparece quando o mouse chega à borda superior.",
         "modeAuto": "Ocultar automaticamente",
         "modeAlways": "Sempre visível",
         "keyboardLedStatus": "Indicadores de bloqueio do teclado",
-        "keyboardLedStatusDesc": "Exibir o estado de Num Lock, Caps Lock e Scroll Lock do computador remoto",
-        "icons": "Ícones do submenu",
-        "iconsDesc": "Exibir ícones de submenus na barra de menu"
+        "keyboardLedStatusDesc": "Mostrar Caps Lock, Num Lock e Scroll Lock do computador remoto na barra de menu.",
+        "icons": "Botões da barra de menu",
+        "iconsDesc": "Exibir ícones de submenus na barra de menu",
+        "hiddenCount": "{{count}} ocultos",
+        "showAll": "Mostrar todos"
       },
-      "buttonColor": {
-        "save": "Aplicar"
+      "buttonColor": {},
+      "browser": "Neste navegador",
+      "browserDesc": "Guardado só neste navegador; outros navegadores e usuários têm os seus.",
+      "device": "Para todos neste dispositivo",
+      "deviceDesc": "Salvo no dispositivo e exibido para todos que o abrem.",
+      "saved": "Salvo",
+      "branding": {
+        "upload": "Enviar"
       }
     },
     "keyboardLedStatus": {

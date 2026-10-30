@@ -106,6 +106,17 @@ previous at wide and narrow widths: the highlighted line must remain in the view
 after long wrapped lines. Check Only matching lines, no matches and clearing search.
 These six regressions run in diagnostics.spec.ts in CI. No device is contacted.
 
+### Appearance
+
+Open /tests/browser/appearance.html for the production Appearance page with
+synthetic responses. Hold writes makes the color/reset event ordering visible:
+after editing a hex color, Restore default must send DELETE on the first click,
+and also work after Tab then Enter. Tabbing past Reset without activating it
+still saves the draft. Refuse writes + Complete write must restore the confirmed
+color and show the error. These four cases run in appearance.spec.ts in CI.
+The menu switches and role buttons also allow checking browser-local settings;
+no device is contacted.
+
 ### Package index schedule
 
 Open `/tests/browser/index-schedule.html` for the production schedule controls

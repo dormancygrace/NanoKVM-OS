@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Input } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Input, message } from 'antd';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -8,11 +8,16 @@ import { showRequestError } from '@/lib/show-request-error.ts';
 import { webTitleAtom } from '@/jotai/settings.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
+const DEFAULT_TITLE = 'NanoKVM OS';
+// The server stores no file for the default title; an empty field means it.
+const effective = (title: string) => title.trim() || DEFAULT_TITLE;
+
 export const WebTitle = () => {
   const { t } = useTranslation();
   const [webTitle, setWebTitle] = useAtom(webTitleAtom);
-
   const [isLoading, setIsLoading] = useState(false);
+  // The title the device has, to save only a change.
+  const saved = useRef(DEFAULT_TITLE);
 
   useEffect(() => {
     setIsLoading(true);
@@ -21,6 +26,7 @@ export const WebTitle = () => {
       .getWebTitle()
       .then((rsp) => {
         if (rsp.data?.title) {
+          saved.current = rsp.data.title;
           setWebTitle(rsp.data.title);
         }
       })
@@ -31,13 +37,20 @@ export const WebTitle = () => {
   }, [setWebTitle]);
 
   function submit() {
-    if (isLoading) return;
+    const next = effective(webTitle);
+    if (isLoading || next === saved.current) return;
     setIsLoading(true);
 
     api
-      .setWebTitle(webTitle)
+      .setWebTitle(next)
       .then((rsp) => {
-        if (rsp.code !== 0) showRequestError(rsp);
+        if (rsp.code !== 0) {
+          showRequestError(rsp);
+          return;
+        }
+        saved.current = next;
+        setWebTitle(next);
+        void message.success(t('settings.appearance.saved'));
       })
       .catch((err) => showRequestError(err))
       .finally(() => {
@@ -60,7 +73,7 @@ export const WebTitle = () => {
         onChange={(e) => setWebTitle(e.target.value)}
         onPressEnter={submit}
         onBlur={submit}
-        placeholder="NanoKVM OS"
+        placeholder={DEFAULT_TITLE}
       />
     </SettingRow>
   );

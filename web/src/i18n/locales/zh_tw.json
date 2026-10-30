@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "外觀",
-      "display": "顯示",
       "language": "語言",
       "languageDesc": "選擇介面語言",
       "helpTranslate": "協助翻譯",
       "webTitle": "網頁標題",
       "webTitleDesc": "自訂網頁標題",
       "menuBar": {
-        "title": "選單列",
         "mode": "顯示方式",
-        "modeDesc": "選單欄在螢幕上的顯示方式",
+        "modeDesc": "自動隱藏：滑鼠移到頂端邊緣時顯示選單列。",
         "modeAuto": "自動隱藏",
         "modeAlways": "始終顯示",
         "keyboardLedStatus": "鍵盤鎖定狀態指示燈",
-        "keyboardLedStatusDesc": "顯示遠端電腦的 Num Lock、Caps Lock 與 Scroll Lock 狀態",
-        "icons": "選單圖示",
-        "iconsDesc": "是否在選單欄中顯示子選單圖示"
+        "keyboardLedStatusDesc": "在選單列中顯示遠端電腦的 Caps Lock、Num Lock 和 Scroll Lock 狀態。",
+        "icons": "選單列按鈕",
+        "iconsDesc": "是否在選單欄中顯示子選單圖示",
+        "hiddenCount": "已隱藏 {{count}} 個",
+        "showAll": "全部顯示"
       },
-      "buttonColor": {
-        "save": "套用"
+      "buttonColor": {},
+      "browser": "在此瀏覽器中",
+      "browserDesc": "僅儲存在此瀏覽器中；其他瀏覽器和使用者各有自己的設定。",
+      "device": "對此裝置的所有人",
+      "deviceDesc": "儲存在裝置上，所有開啟它的人都能看到。",
+      "saved": "已儲存",
+      "branding": {
+        "upload": "上傳"
       }
     },
     "keyboardLedStatus": {

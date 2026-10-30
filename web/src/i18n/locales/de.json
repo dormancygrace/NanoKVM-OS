@@ -1170,8 +1170,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "Branding",
-        "description": "Passen Sie das Anmeldelogo und das Browser-Favicon unabhängig voneinander an. Die integrierten Bilder bleiben als Standard verfügbar.",
         "logoTitle": "Anmeldelogo",
         "logoDescription": "Das Hauptlogo über dem Anmeldeformular.",
         "logoPreview": "Vorschau des Anmeldelogos",
@@ -1184,18 +1182,14 @@
         "customActive": "Benutzerdefiniertes Bild",
         "restoreDefault": "Standard wiederherstellen",
         "formats": "PNG oder JPEG, bis zu 2 MiB und 1024 × 1024 Pixel. Ein quadratisches transparentes PNG eignet sich am besten.",
-        "failed": "Branding konnte nicht gespeichert werden."
+        "failed": "Branding konnte nicht gespeichert werden.",
+        "upload": "Hochladen"
       },
       "buttonColor": {
         "title": "Schaltflächenfarbe",
         "description": "Wählen Sie die Akzentfarbe für primäre Schaltflächen in der gesamten Oberfläche.",
-        "accentTitle": "Primäre Schaltflächen",
-        "accentDescription": "Hover- und Gedrückt-Zustände werden automatisch erzeugt.",
-        "preview": "Vorschau-Schaltfläche",
         "inputLabel": "Schaltflächenfarbe im Hexadezimalformat",
         "defaultActive": "Integriertes Logo-Grün (#45E9A0)",
-        "customActive": "Benutzerdefinierte Farbe",
-        "save": "Übernehmen",
         "restoreDefault": "Standard wiederherstellen",
         "failed": "Die Schaltflächenfarbe konnte nicht gespeichert werden."
       },
@@ -1207,8 +1201,6 @@
         "failed": "Der Stil des SSH-Banners konnte nicht gespeichert werden."
       },
       "title": "Erscheinungsbild",
-      "display": "Bildschirm",
-      "customize": "Anpassen",
       "language": "Sprache",
       "languageDesc": "Wählen Sie die Sprache für die Benutzeroberfläche aus",
       "helpTranslate": "Beim Übersetzen helfen",
@@ -1217,16 +1209,22 @@
       "webTitle": "Web Titel",
       "webTitleDesc": "Passen Sie den Web-Seite Titel an",
       "menuBar": {
-        "title": "Menüleiste",
         "mode": "Anzeigemodus",
-        "modeDesc": "Menüleiste auf dem Bildschirm anzeigen",
+        "modeDesc": "Automatisch ausblenden: Die Leiste erscheint, wenn die Maus den oberen Rand erreicht.",
         "modeAuto": "Automatisch ausblenden",
         "modeAlways": "Immer sichtbar",
         "keyboardLedStatus": "Tastensperren-Anzeigen",
-        "keyboardLedStatusDesc": "Num-Lock-, Feststell- und Rollen-Status des Remote-Computers anzeigen",
-        "icons": "Untermenüsymbole",
-        "iconsDesc": "Untermenüsymbole in der Menüleiste anzeigen"
-      }
+        "keyboardLedStatusDesc": "Caps Lock, Num Lock und Scroll Lock des entfernten Computers in der Menüleiste anzeigen.",
+        "icons": "Schaltflächen der Menüleiste",
+        "iconsDesc": "Untermenüsymbole in der Menüleiste anzeigen",
+        "hiddenCount": "{{count}} ausgeblendet",
+        "showAll": "Alle anzeigen"
+      },
+      "browser": "In diesem Browser",
+      "browserDesc": "Nur in diesem Browser gespeichert; andere Browser und Benutzer haben eigene Einstellungen.",
+      "device": "Für alle auf diesem Gerät",
+      "deviceDesc": "Auf dem Gerät gespeichert und für alle sichtbar, die es öffnen.",
+      "saved": "Gespeichert"
     },
     "keyboardLedStatus": {
       "groupLabel": "Tastensperren-Status der Remote-Tastatur",

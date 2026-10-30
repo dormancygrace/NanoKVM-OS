@@ -138,10 +138,23 @@
       "documentation": "תיעוד"
     },
     "appearance": {
-      "buttonColor": {
-        "save": "החלה"
+      "buttonColor": {},
+      "title": "מראה",
+      "browser": "בדפדפן זה",
+      "browserDesc": "נשמר רק בדפדפן זה; לדפדפנים ולמשתמשים אחרים יש הגדרות משלהם.",
+      "device": "לכולם במכשיר זה",
+      "deviceDesc": "נשמר במכשיר ומוצג לכל מי שפותח אותו.",
+      "saved": "נשמר",
+      "menuBar": {
+        "hiddenCount": "{{count}} מוסתרים",
+        "showAll": "הצג הכול",
+        "modeDesc": "הסתרה אוטומטית: הסרגל מופיע כשהעכבר מגיע לקצה העליון.",
+        "keyboardLedStatusDesc": "הצג את Caps Lock,‏ Num Lock ו-Scroll Lock של המחשב המרוחק בסרגל התפריטים.",
+        "icons": "כפתורי סרגל התפריטים"
       },
-      "title": "מראה"
+      "branding": {
+        "upload": "העלאה"
+      }
     },
     "device": {
       "cpuFrequency": {

@@ -1170,8 +1170,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "品牌",
-        "description": "分别自定义登录页 Logo 和浏览器网站图标。内置图片仍作为默认选项保留。",
         "logoTitle": "登录页 Logo",
         "logoDescription": "显示在登录表单上方的主 Logo。",
         "logoPreview": "登录页 Logo 预览",
@@ -1184,18 +1182,14 @@
         "customActive": "自定义图片",
         "restoreDefault": "恢复默认",
         "formats": "PNG 或 JPEG，最大 2 MiB 且不超过 1024 × 1024 像素。建议使用正方形透明 PNG。",
-        "failed": "无法保存品牌设置。"
+        "failed": "无法保存品牌设置。",
+        "upload": "上传"
       },
       "buttonColor": {
         "title": "按钮颜色",
         "description": "选择整个界面中主要按钮使用的强调色。",
-        "accentTitle": "主要按钮",
-        "accentDescription": "悬停和按下状态会自动生成。",
-        "preview": "预览按钮",
         "inputLabel": "按钮颜色（十六进制格式）",
         "defaultActive": "内置 Logo 绿色（#45E9A0）",
-        "customActive": "自定义颜色",
-        "save": "应用",
         "restoreDefault": "恢复默认",
         "failed": "无法保存按钮颜色。"
       },
@@ -1207,8 +1201,6 @@
         "failed": "无法保存 SSH 横幅样式。"
       },
       "title": "外观",
-      "display": "显示",
-      "customize": "自定义",
       "language": "语言",
       "languageDesc": "选择界面语言",
       "helpTranslate": "帮助翻译",
@@ -1217,16 +1209,22 @@
       "webTitle": "网页标题",
       "webTitleDesc": "自定义网站页面标题",
       "menuBar": {
-        "title": "菜单栏",
         "mode": "显示方式",
-        "modeDesc": "菜单栏在屏幕上的显示方式",
+        "modeDesc": "自动隐藏：鼠标移到顶部边缘时显示菜单栏。",
         "modeAuto": "自动隐藏",
         "modeAlways": "始终显示",
         "keyboardLedStatus": "键盘锁定状态指示灯",
-        "keyboardLedStatusDesc": "显示远程主机的 Num Lock、Caps Lock 和 Scroll Lock 状态",
-        "icons": "菜单图标",
-        "iconsDesc": "是否在菜单栏中显示子菜单图标"
-      }
+        "keyboardLedStatusDesc": "在菜单栏中显示远程计算机的 Caps Lock、Num Lock 和 Scroll Lock 状态。",
+        "icons": "菜单栏按钮",
+        "iconsDesc": "是否在菜单栏中显示子菜单图标",
+        "hiddenCount": "已隐藏 {{count}} 个",
+        "showAll": "全部显示"
+      },
+      "browser": "在此浏览器中",
+      "browserDesc": "仅保存在此浏览器中；其他浏览器和用户各有自己的设置。",
+      "device": "对此设备的所有人",
+      "deviceDesc": "保存在设备上，所有打开它的人都能看到。",
+      "saved": "已保存"
     },
     "keyboardLedStatus": {
       "groupLabel": "远程键盘锁定状态",

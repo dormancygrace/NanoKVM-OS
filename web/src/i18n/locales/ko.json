@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "디자인",
-      "display": "표시",
       "language": "언어",
       "languageDesc": "인터페이스 언어를 선택하세요",
       "helpTranslate": "번역 돕기",
       "webTitle": "웹 제목",
       "webTitleDesc": "웹 페이지 제목 사용자 지정",
       "menuBar": {
-        "title": "메뉴 바",
         "mode": "표시 모드",
-        "modeDesc": "메뉴 바를 화면에 표시합니다",
+        "modeDesc": "자동 숨기기: 마우스가 위쪽 가장자리에 닿으면 막대가 나타납니다.",
         "modeAuto": "자동 숨기기",
         "modeAlways": "항상 보이기",
         "keyboardLedStatus": "키보드 잠금 표시기",
-        "keyboardLedStatusDesc": "원격 컴퓨터의 Num Lock, Caps Lock, Scroll Lock 상태 표시",
-        "icons": "하위 메뉴 아이콘",
-        "iconsDesc": "메뉴 바에 하위 메뉴 아이콘을 표시합니다"
+        "keyboardLedStatusDesc": "원격 컴퓨터의 Caps Lock, Num Lock, Scroll Lock 상태를 메뉴 막대에 표시합니다.",
+        "icons": "메뉴 막대 버튼",
+        "iconsDesc": "메뉴 바에 하위 메뉴 아이콘을 표시합니다",
+        "hiddenCount": "{{count}}개 숨김",
+        "showAll": "모두 표시"
       },
-      "buttonColor": {
-        "save": "적용"
+      "buttonColor": {},
+      "browser": "이 브라우저",
+      "browserDesc": "이 브라우저에만 저장되며, 다른 브라우저와 사용자는 각자의 설정을 가집니다.",
+      "device": "이 장치의 모든 사용자",
+      "deviceDesc": "장치에 저장되어 장치를 여는 모든 사람에게 표시됩니다.",
+      "saved": "저장됨",
+      "branding": {
+        "upload": "업로드"
       }
     },
     "keyboardLedStatus": {

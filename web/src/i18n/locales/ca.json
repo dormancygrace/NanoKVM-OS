@@ -334,25 +334,31 @@
     },
     "appearance": {
       "title": "Aparença",
-      "display": "Pantalla",
       "language": "Idioma",
       "languageDesc": "Seleccioneu l'idioma per a la interfície",
       "helpTranslate": "Ajuda a traduir",
       "webTitle": "Títol web",
       "webTitleDesc": "Personalitza el títol de la pàgina",
       "menuBar": {
-        "title": "Barra de menús",
         "mode": "Mode de visualització",
-        "modeDesc": "Mostra la barra de menús a la pantalla",
+        "modeDesc": "Amaga automàticament: la barra apareix quan el ratolí arriba a la vora superior.",
         "modeAuto": "Ocultació automàtica",
         "modeAlways": "Sempre visible",
         "keyboardLedStatus": "Indicadors de bloqueig del teclat",
-        "keyboardLedStatusDesc": "Mostra l’estat de Bloq Num, Bloq Maj i Bloq Despl de l’ordinador remot",
-        "icons": "Icones del submenú",
-        "iconsDesc": "Mostra les icones del submenú a la barra de menús"
+        "keyboardLedStatusDesc": "Mostra Bloq Maj, Bloq Núm i Bloq Despl de l'ordinador remot a la barra de menú.",
+        "icons": "Botons de la barra de menú",
+        "iconsDesc": "Mostra les icones del submenú a la barra de menús",
+        "hiddenCount": "{{count}} amagats",
+        "showAll": "Mostra-ho tot"
       },
-      "buttonColor": {
-        "save": "Aplica"
+      "buttonColor": {},
+      "browser": "En aquest navegador",
+      "browserDesc": "Es desa només en aquest navegador; altres navegadors i usuaris tenen els seus.",
+      "device": "Per a tothom en aquest dispositiu",
+      "deviceDesc": "Es desa al dispositiu i el veu tothom qui l'obre.",
+      "saved": "Desat",
+      "branding": {
+        "upload": "Puja"
       }
     },
     "keyboardLedStatus": {

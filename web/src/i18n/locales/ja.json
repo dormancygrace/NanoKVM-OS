@@ -1170,8 +1170,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "ブランディング",
-        "description": "ログインロゴとブラウザのファビコンを個別にカスタマイズします。組み込みの画像はデフォルトとして引き続き利用できます。",
         "logoTitle": "ログインロゴ",
         "logoDescription": "ログインフォームの上に表示されるメインロゴです。",
         "logoPreview": "ログインロゴのプレビュー",
@@ -1184,18 +1182,14 @@
         "customActive": "カスタム画像",
         "restoreDefault": "デフォルトに戻す",
         "formats": "PNG または JPEG、最大 2 MiB、1024 × 1024 ピクセルまで。正方形の透過 PNG が最適です。",
-        "failed": "ブランディングを保存できませんでした。"
+        "failed": "ブランディングを保存できませんでした。",
+        "upload": "アップロード"
       },
       "buttonColor": {
         "title": "ボタンの色",
         "description": "インターフェース全体のプライマリボタンに使用するアクセントカラーを選択します。",
-        "accentTitle": "プライマリボタン",
-        "accentDescription": "ホバー時と押下時の状態は自動的に生成されます。",
-        "preview": "ボタンのプレビュー",
         "inputLabel": "ボタンの色（16 進数形式）",
         "defaultActive": "組み込みのロゴグリーン（#45E9A0）",
-        "customActive": "カスタムカラー",
-        "save": "適用",
         "restoreDefault": "デフォルトに戻す",
         "failed": "ボタンの色を保存できませんでした。"
       },
@@ -1207,8 +1201,6 @@
         "failed": "SSH バナーのスタイルを保存できませんでした。"
       },
       "title": "外観",
-      "display": "表示",
-      "customize": "カスタマイズ",
       "language": "言語",
       "languageDesc": "インターフェース言語の選択",
       "helpTranslate": "翻訳に協力する",
@@ -1217,16 +1209,22 @@
       "webTitle": "ウェブページタイトル",
       "webTitleDesc": "ウェブページタイトルのカスタマイズ",
       "menuBar": {
-        "title": "メニューバー",
         "mode": "表示モード",
-        "modeDesc": "メニューバーの画面表示方法",
+        "modeDesc": "自動的に隠す：マウスが上端に来るとバーが表示されます。",
         "modeAuto": "自動非表示",
         "modeAlways": "常に表示",
         "keyboardLedStatus": "キーボードロックの表示",
-        "keyboardLedStatusDesc": "リモートコンピューターの Num Lock、Caps Lock、Scroll Lock の状態を表示",
-        "icons": "メニューアイコン",
-        "iconsDesc": "メニューバーでのサブメニューアイコンの表示"
-      }
+        "keyboardLedStatusDesc": "リモートコンピューターの Caps Lock、Num Lock、Scroll Lock をメニューバーに表示します。",
+        "icons": "メニューバーのボタン",
+        "iconsDesc": "メニューバーでのサブメニューアイコンの表示",
+        "hiddenCount": "{{count}} 件非表示",
+        "showAll": "すべて表示"
+      },
+      "browser": "このブラウザー",
+      "browserDesc": "このブラウザーにのみ保存されます。他のブラウザーやユーザーは個別の設定を持ちます。",
+      "device": "このデバイスの全員",
+      "deviceDesc": "デバイスに保存され、開いた全員に表示されます。",
+      "saved": "保存しました"
     },
     "keyboardLedStatus": {
       "groupLabel": "リモートキーボードのロック状態",

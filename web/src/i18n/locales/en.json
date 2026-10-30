@@ -1170,8 +1170,6 @@
     },
     "appearance": {
       "branding": {
-        "title": "Branding",
-        "description": "Customize the login logo and browser favicon independently. Built-in images remain available as defaults.",
         "logoTitle": "Login logo",
         "logoDescription": "The main logo shown above the sign-in form.",
         "logoPreview": "Login logo preview",
@@ -1184,18 +1182,14 @@
         "customActive": "Custom image",
         "restoreDefault": "Restore default",
         "formats": "PNG or JPEG, up to 2 MiB and 1024 × 1024 pixels. A square transparent PNG works best.",
-        "failed": "Could not save branding."
+        "failed": "Could not save branding.",
+        "upload": "Upload"
       },
       "buttonColor": {
         "title": "Button color",
         "description": "Choose the accent color used by primary buttons throughout the interface.",
-        "accentTitle": "Primary buttons",
-        "accentDescription": "Hover and pressed states are generated automatically.",
-        "preview": "Preview button",
         "inputLabel": "Button color in hexadecimal format",
         "defaultActive": "Built-in logo green (#45E9A0)",
-        "customActive": "Custom color",
-        "save": "Apply",
         "restoreDefault": "Restore default",
         "failed": "Could not save the button color."
       },
@@ -1207,8 +1201,6 @@
         "failed": "Could not save the SSH banner style."
       },
       "title": "Appearance",
-      "display": "Display",
-      "customize": "Customize",
       "language": "Language",
       "languageDesc": "Select the language for the interface",
       "helpTranslate": "Help translate",
@@ -1217,16 +1209,22 @@
       "webTitle": "Web title",
       "webTitleDesc": "Customize the web page title",
       "menuBar": {
-        "title": "Menu bar",
         "mode": "Display mode",
-        "modeDesc": "Display menu bar on the screen",
+        "modeDesc": "Auto hide: the bar appears when the mouse reaches the top edge.",
         "modeAuto": "Auto hide",
         "modeAlways": "Always visible",
         "keyboardLedStatus": "Keyboard lock indicators",
-        "keyboardLedStatusDesc": "Display remote Num Lock, Caps Lock, and Scroll Lock status",
-        "icons": "Submenu icons",
-        "iconsDesc": "Display submenu icons in the menu bar"
-      }
+        "keyboardLedStatusDesc": "Show Caps Lock, Num Lock and Scroll Lock of the remote computer in the menu bar.",
+        "icons": "Menu bar buttons",
+        "iconsDesc": "Display submenu icons in the menu bar",
+        "hiddenCount": "{{count}} hidden",
+        "showAll": "Show all"
+      },
+      "browser": "In this browser",
+      "browserDesc": "Kept in this browser only; other browsers and users keep their own.",
+      "device": "For everyone on this device",
+      "deviceDesc": "Saved on the device and shown to everyone who opens it.",
+      "saved": "Saved"
     },
     "keyboardLedStatus": {
       "groupLabel": "Remote keyboard lock status",

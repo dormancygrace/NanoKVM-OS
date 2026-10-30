@@ -95,3 +95,13 @@ exercise the production card and its confirmation dialogs. Daily-check settings,
 channel switching and stable rollback use the same production page. No package
 manager, host reboot or device request is executed. updates.spec.ts covers
 these paths in CI.
+
+### Diagnostics
+
+Open /tests/browser/diagnostics.html. The production page receives only synthetic
+API responses. Healthy keeps optional stopped services, disabled USB and no HDMI
+signal neutral; APK failure and EDID pending must appear in the summary. Multiple
+problems must list all eight items. In Logs, search for needle and cycle next and
+previous at wide and narrow widths: the highlighted line must remain in the viewer
+after long wrapped lines. Check Only matching lines, no matches and clearing search.
+These six regressions run in diagnostics.spec.ts in CI. No device is contacted.

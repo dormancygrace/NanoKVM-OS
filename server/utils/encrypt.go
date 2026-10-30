@@ -9,7 +9,7 @@ import (
 	"net/url"
 )
 
-// SecretKey is only used to prevent the data from being transmitted in plaintext.
+// SecretKey is public and retained only for legacy wire compatibility, not security.
 const SecretKey = "nanokvm-sipeed-2024"
 
 var errInvalidCiphertext = errors.New("invalid encrypted password")
@@ -82,4 +82,19 @@ func DecodeDecrypt(data string) (string, error) {
 		return "", rawErr
 	}
 	return Decrypt(ciphertext)
+}
+
+// DecodeCredentialPassword selects an explicit wire format. Never infer the
+// format from password contents: a plaintext password may look like ciphertext
+// or contain percent escapes. The fixed legacy key only provided obfuscation;
+// transport confidentiality is provided by HTTPS, not this compatibility path.
+func DecodeCredentialPassword(value, encoding string) (string, error) {
+	switch encoding {
+	case "plain":
+		return value, nil
+	case "", "cryptojs":
+		return DecodeDecrypt(value)
+	default:
+		return "", errors.New("unsupported password encoding")
+	}
 }

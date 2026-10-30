@@ -207,7 +207,11 @@ export function getSSHState() {
 
 // enable SSH
 export function enableSSH(password: string) {
-  return http.post('/api/vm/ssh/enable', { password });
+  return http.post(
+    '/api/vm/ssh/enable',
+    { password, passwordEncoding: 'plain' },
+    { sensitive: true }
+  );
 }
 
 // disable SSH

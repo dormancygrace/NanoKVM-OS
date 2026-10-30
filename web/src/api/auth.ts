@@ -17,9 +17,10 @@ export type User = Omit<Account, 'mustChangePassword'> & {
 export function login(username: string, password: string) {
   const data = {
     username,
+    passwordEncoding: 'plain',
     password
   };
-  return http.post('/api/auth/login', data);
+  return http.post('/api/auth/login', data, { sensitive: true });
 }
 
 export function logout() {
@@ -31,7 +32,11 @@ export function getAccount() {
 }
 
 export function changePassword(currentPassword: string, password: string) {
-  return http.post('/api/auth/password', { currentPassword, password });
+  return http.post(
+    '/api/auth/password',
+    { currentPassword, password, passwordEncoding: 'plain' },
+    { sensitive: true }
+  );
 }
 
 export function getUsers() {
@@ -39,7 +44,11 @@ export function getUsers() {
 }
 
 export function createUser(username: string, password: string, role: UserRole) {
-  return http.post('/api/auth/users', { username, password, role });
+  return http.post(
+    '/api/auth/users',
+    { username, password, role, passwordEncoding: 'plain' },
+    { sensitive: true }
+  );
 }
 
 export function updateUser(
@@ -58,5 +67,9 @@ export function deleteUser(username: string) {
 }
 
 export function resetUserPassword(username: string, password: string) {
-  return http.post(`/api/auth/users/${encodeURIComponent(username)}/password`, { password });
+  return http.post(
+    `/api/auth/users/${encodeURIComponent(username)}/password`,
+    { password, passwordEncoding: 'plain' },
+    { sensitive: true }
+  );
 }

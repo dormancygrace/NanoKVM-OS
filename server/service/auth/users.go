@@ -40,7 +40,7 @@ func (s *Service) CreateUser(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid parameters")
 		return
 	}
-	password, err := decodePassword(req.Password)
+	password, err := decodePassword(req.Password, req.PasswordEncoding)
 	if err != nil {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
@@ -111,7 +111,7 @@ func (s *Service) ChangeUserPassword(c *gin.Context) {
 		rsp.ErrRsp(c, -3, "the device owner must change its own password")
 		return
 	}
-	if err := changeUserPassword(username, req.Password); err != nil {
+	if err := changeUserPassword(username, req.Password, req.PasswordEncoding); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
 	}
@@ -120,8 +120,8 @@ func (s *Service) ChangeUserPassword(c *gin.Context) {
 	log.Infof("password reset for user: %s", username)
 }
 
-func decodePassword(encrypted string) (string, error) {
-	password, err := utils.DecodeDecrypt(encrypted)
+func decodePassword(encoded, encoding string) (string, error) {
+	password, err := utils.DecodeCredentialPassword(encoded, encoding)
 	if err != nil || password == "" {
 		return "", errInvalidPassword
 	}

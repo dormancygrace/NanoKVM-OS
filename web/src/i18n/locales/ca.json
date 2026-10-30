@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Actualitzacions de paquets",
         "log": "Registre d’actualització"
       },
       "title": "Actualitzacions",
-      "installed": "Instal·lat"
+      "status": {
+        "checking": "Cercant actualitzacions…",
+        "installing": "Instal·lant actualitzacions…",
+        "available": "Hi ha actualitzacions"
+      },
+      "advanced": "Avançat"
     },
     "memory": {
       "title": "Memòria",

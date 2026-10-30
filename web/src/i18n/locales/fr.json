@@ -868,8 +868,6 @@
     },
     "updates": {
       "apk": {
-        "title": "Mises à jour des paquets",
-        "description": "Mettez à jour les paquets installés depuis les dépôts configurés. Les paramètres sont conservés. Les services redémarrent automatiquement ; une mise à jour du noyau nécessite un redémarrage.",
         "check": "Rechercher des mises à jour",
         "install": "Installer les mises à jour",
         "confirm": "Installer ces mises à jour de paquets ? La vidéo et le contrôle peuvent être brièvement déconnectés.",
@@ -883,7 +881,6 @@
       },
       "title": "Mises à jour",
       "description": "Mettez à jour NanoKVM OS à l'aide de paquets signés. Les mises à jour système redémarrent l'appareil ; les mises à jour de l'application déconnectent brièvement la vidéo et le contrôle.",
-      "installed": "Installé",
       "requestFailed": "La requête de mise à jour a échoué. Vérifiez la connectivité de l'appareil et réessayez.",
       "reconnecting": "En attente de la reconnexion de l'appareil…",
       "components": {
@@ -932,7 +929,13 @@
         "rollback": "Installer la version stable",
         "rollbackDescription": "Une bêta est installée. Vous pouvez revenir au micrologiciel stable actuel, y compris à des versions de paquets antérieures.",
         "rollbackConfirm": "Remplacer la bêta par le micrologiciel stable actuel ? Les réglages et données sont conservés. Les services redémarreront ; un redémarrage peut être nécessaire."
-      }
+      },
+      "status": {
+        "checking": "Recherche de mises à jour…",
+        "installing": "Installation des mises à jour…",
+        "available": "Mises à jour disponibles"
+      },
+      "advanced": "Avancé"
     },
     "memory": {
       "zramAuto": "Automatique ({{size}} MiB)",

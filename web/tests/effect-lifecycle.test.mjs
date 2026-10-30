@@ -526,8 +526,8 @@ function updatesHarness() {
       }
     },
     '@/components/ui/settings.tsx': { SettingRow: 'Row' },
-    './apk': { APKUpdates: 'APK' },
-    './components': { ComponentList: 'Components', UpdateCheck: 'Check' }
+    './card': { UpdateCard: 'Card' },
+    './components': { ComponentList: 'Components', Fold: 'Fold' }
   });
   const reply = (notice) => ({ code: 0, data: { installed: { version: '3.3.4' }, notice } });
   return { h, reads, writes, notices, poll: () => poll(), reply };
@@ -558,7 +558,7 @@ test(
     reads[0].resolve(reply({ state: 'never' }));
     await h.flush();
     poll(); // Slow read predates the action.
-    const action = find(h.output, 'APK').props.action('apk/check');
+    const action = find(h.output, 'Card').props.action('apk/check');
     writes[0].resolve({ code: 0 });
     await settle();
     assert.equal(reads.length, 3);
@@ -567,7 +567,7 @@ test(
     await h.flush();
     reads[1].resolve(reply({ state: 'checking', checkedAt: 100 }));
     await h.flush();
-    assert.equal(find(h.output, 'Check').props.notice.checkedAt, 200);
+    assert.equal(find(h.output, 'Card').props.notice.checkedAt, 200);
     assert.equal(notices.at(-1).checkedAt, 200);
   }
 );
@@ -601,7 +601,7 @@ test(
     h.render();
     reads[0].resolve(reply({ state: 'never' }));
     await h.flush();
-    const action = find(h.output, 'APK').props.action('apk/check');
+    const action = find(h.output, 'Card').props.action('apk/check');
     h.unmount();
     writes[0].resolve({ code: 0 });
     await action;

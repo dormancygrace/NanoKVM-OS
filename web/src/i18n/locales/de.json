@@ -868,8 +868,6 @@
     },
     "updates": {
       "apk": {
-        "title": "Paket-Updates",
-        "description": "Aktualisieren Sie installierte Pakete aus den konfigurierten Repositorys. Einstellungen bleiben erhalten. Dienste starten automatisch neu; ein Kernel-Update erfordert einen Neustart.",
         "check": "Nach Updates suchen",
         "install": "Updates installieren",
         "confirm": "Diese Paket-Updates installieren? Video und Steuerung können kurz unterbrochen werden.",
@@ -883,7 +881,6 @@
       },
       "title": "Updates",
       "description": "Aktualisieren Sie NanoKVM OS mit signierten Paketen. System-Updates starten das Gerät neu; Anwendungs-Updates unterbrechen Video und Steuerung kurz.",
-      "installed": "Installiert",
       "requestFailed": "Die Update-Anfrage ist fehlgeschlagen. Überprüfen Sie die Verbindung zum Gerät und versuchen Sie es erneut.",
       "reconnecting": "Warten, bis sich das Gerät wieder verbindet…",
       "components": {
@@ -932,7 +929,13 @@
         "rollback": "Stabile Version installieren",
         "rollbackDescription": "Eine Beta ist installiert. Die aktuelle stabile Firmware kann auch mit älteren Paketversionen wiederhergestellt werden.",
         "rollbackConfirm": "Beta durch die aktuelle stabile Firmware ersetzen? Einstellungen und Daten bleiben erhalten. Dienste werden neu gestartet; ein Neustart kann nötig sein."
-      }
+      },
+      "status": {
+        "checking": "Suche nach Updates…",
+        "installing": "Updates werden installiert…",
+        "available": "Updates verfügbar"
+      },
+      "advanced": "Erweitert"
     },
     "memory": {
       "zramAuto": "Automatisch ({{size}} MiB)",

@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Cập nhật gói",
         "log": "Nhật ký cập nhật"
       },
       "title": "Cập nhật",
-      "installed": "Đã cài đặt"
+      "status": {
+        "checking": "Đang kiểm tra cập nhật…",
+        "installing": "Đang cài đặt cập nhật…",
+        "available": "Có bản cập nhật"
+      },
+      "advanced": "Nâng cao"
     },
     "memory": {
       "title": "Bộ nhớ",

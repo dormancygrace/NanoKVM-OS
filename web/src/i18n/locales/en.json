@@ -868,8 +868,6 @@
     },
     "updates": {
       "apk": {
-        "title": "Package updates",
-        "description": "Update installed packages from the configured repositories. Settings are kept. Services restart automatically; a kernel update requires a reboot.",
         "check": "Check for updates",
         "install": "Install updates",
         "confirm": "Install these package updates? Video and control may briefly disconnect.",
@@ -883,7 +881,6 @@
       },
       "title": "Updates",
       "description": "Update NanoKVM OS using signed packages. System updates restart the device; application updates briefly disconnect video and control.",
-      "installed": "Installed",
       "requestFailed": "The update request failed. Check device connectivity and retry.",
       "reconnecting": "Waiting for the device to reconnect…",
       "components": {
@@ -932,7 +929,13 @@
         "rollback": "Install stable version",
         "rollbackDescription": "A beta is installed. You can install the current stable firmware, including older package versions, without waiting for another release.",
         "rollbackConfirm": "Replace the beta with the current stable firmware? Settings and data are kept. Services will restart; a reboot may be required."
-      }
+      },
+      "status": {
+        "checking": "Checking for updates…",
+        "installing": "Installing updates…",
+        "available": "Updates available"
+      },
+      "advanced": "Advanced"
     },
     "memory": {
       "zramAuto": "Auto ({{size}} MiB)",

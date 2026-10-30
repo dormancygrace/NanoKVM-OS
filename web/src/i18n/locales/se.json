@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "Paketuppdateringar",
         "log": "Uppdateringslogg"
       },
       "title": "Uppdateringar",
-      "installed": "Installerad"
+      "status": {
+        "checking": "Söker efter uppdateringar…",
+        "installing": "Installerar uppdateringar…",
+        "available": "Uppdateringar finns"
+      },
+      "advanced": "Avancerat"
     },
     "memory": {
       "title": "Minne",

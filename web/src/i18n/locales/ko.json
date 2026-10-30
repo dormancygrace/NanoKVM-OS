@@ -569,11 +569,15 @@
     },
     "updates": {
       "apk": {
-        "title": "패키지 업데이트",
         "log": "업데이트 로그"
       },
       "title": "업데이트",
-      "installed": "설치됨"
+      "status": {
+        "checking": "업데이트 확인 중…",
+        "installing": "업데이트 설치 중…",
+        "available": "업데이트가 있습니다"
+      },
+      "advanced": "고급"
     },
     "memory": {
       "title": "메모리",

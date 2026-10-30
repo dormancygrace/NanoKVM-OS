@@ -30,6 +30,12 @@ export function DateTimeSettings() {
   const mounted = useRef(false);
   const operation = useRef(false);
   const serversEdited = useRef(false);
+  const readGeneration = useRef(0);
+  const pendingRead = useRef<number | null>(null);
+  const invalidateReads = useCallback(() => {
+    readGeneration.current++;
+    pendingRead.current = null;
+  }, []);
 
   const show = useCallback(
     (next: Status) => {
@@ -45,15 +51,20 @@ export function DateTimeSettings() {
   useEffect(() => {
     mounted.current = true;
     const refresh = async () => {
-      if (operation.current) return;
+      if (operation.current || pendingRead.current !== null) return;
+      const generation = ++readGeneration.current;
+      pendingRead.current = generation;
       try {
         const rsp = await http.get<Status>('/api/vm/date-time');
+        if (!mounted.current || generation !== readGeneration.current) return;
         if (rsp.code !== 0) throw new Error(rsp.msg);
-        if (!mounted.current || operation.current) return;
         show(rsp.data);
         setLoadError('');
       } catch {
-        if (mounted.current) setLoadError(t('dateTime.loadFailed'));
+        if (mounted.current && generation === readGeneration.current)
+          setLoadError(t('dateTime.loadFailed'));
+      } finally {
+        if (pendingRead.current === generation) pendingRead.current = null;
       }
     };
     void refresh();
@@ -61,14 +72,16 @@ export function DateTimeSettings() {
     const tick = window.setInterval(() => setElapsed(performance.now() - received.current), 1000);
     return () => {
       mounted.current = false;
+      invalidateReads();
       stopPolling();
       window.clearInterval(tick);
     };
-  }, [show, t]);
+  }, [show, t, invalidateReads]);
 
   async function run(kind: Operation, request: () => Promise<{ code: number; data: Status }>) {
     if (operation.current) return false;
     operation.current = true;
+    invalidateReads();
     setBusy(kind);
     try {
       const rsp = await request();
@@ -79,6 +92,7 @@ export function DateTimeSettings() {
       }
       if (kind === 'servers') serversEdited.current = false;
       show(rsp.data);
+      setLoadError('');
       return true;
     } catch (err) {
       if (mounted.current)

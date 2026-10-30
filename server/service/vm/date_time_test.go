@@ -16,6 +16,9 @@ import (
 // the times set and the number of RTC writes.
 func useClock(t *testing.T, synced bool, syncErr error) (*[]time.Time, *int) {
 	t.Helper()
+	prevDir := deviceTime.Dir
+	deviceTime.Dir = t.TempDir()
+	t.Cleanup(func() { deviceTime.Dir = prevDir })
 	prevSynced, prevSet, prevRTC := clockSynchronized, setSystemClock, saveClockToRTC
 	t.Cleanup(func() { clockSynchronized, setSystemClock, saveClockToRTC = prevSynced, prevSet, prevRTC })
 	set, rtc := &[]time.Time{}, new(int)
@@ -46,9 +49,9 @@ func postClock(t *testing.T, body string) (code int, msg string) {
 func TestSetClockSetsTheClockAndTheRTC(t *testing.T) {
 	set, rtc := useClock(t, false, nil)
 	want := time.Date(2026, 10, 30, 12, 0, 0, 123e6, time.UTC)
-	// The reply then reads the date-time settings, which a test host may lack:
-	// only the clock and the RTC are checked here.
-	postClock(t, `{"now":`+strconv.FormatInt(want.UnixMilli(), 10)+`}`)
+	if code, msg := postClock(t, `{"now":`+strconv.FormatInt(want.UnixMilli(), 10)+`}`); code != 0 {
+		t.Fatalf("successful clock update: code %d %q", code, msg)
+	}
 	if len(*set) != 1 || !(*set)[0].Equal(want) {
 		t.Fatalf("clock set to %v, want %v", *set, want)
 	}
@@ -79,6 +82,12 @@ func TestSetClockRejectsBadTimes(t *testing.T) {
 	for _, body := range []string{
 		`{}`,
 		`{"now":"soon"}`,
+		`{"now":null}`,
+		`{"now":1.5}`,
+		`{"now":9223372036854775807}`,
+		`{"now":-9223372036854775808}`,
+		`{"now":9223372036854775808}`,
+		`{`,
 		`{"now":` + strconv.FormatInt(time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC).UnixMilli(), 10) + `}`,
 		`{"now":` + strconv.FormatInt(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli(), 10) + `}`,
 	} {
@@ -88,5 +97,36 @@ func TestSetClockRejectsBadTimes(t *testing.T) {
 	}
 	if len(*set) != 0 {
 		t.Fatalf("clock set from a bad request: %v", *set)
+	}
+}
+
+func TestSetClockReportsSystemClockFailure(t *testing.T) {
+	_, rtc := useClock(t, false, nil)
+	setSystemClock = func(time.Time) error { return errors.New("denied") }
+	code, msg := postClock(t, `{"now":1793361600000}`)
+	if code == 0 || !strings.Contains(msg, "Cannot set") || *rtc != 0 {
+		t.Fatalf("failed clock: code %d %q, rtc writes %d", code, msg, *rtc)
+	}
+}
+
+func TestSetClockReportsRTCPersistenceFailure(t *testing.T) {
+	set, _ := useClock(t, false, nil)
+	saveClockToRTC = func() error { return errors.New("RTC write failed") }
+	code, msg := postClock(t, `{"now":1793361600000}`)
+	if code == 0 || !strings.Contains(msg, "System clock set") || !strings.Contains(msg, "RTC") || len(*set) != 1 {
+		t.Fatalf("partial clock update: code %d %q, clock writes %v", code, msg, *set)
+	}
+}
+
+func TestSetClockAcceptsRangeEdges(t *testing.T) {
+	set, rtc := useClock(t, false, nil)
+	for _, now := range []time.Time{clockMin, clockMax.Add(-time.Millisecond)} {
+		code, msg := postClock(t, `{"now":`+strconv.FormatInt(now.UnixMilli(), 10)+`}`)
+		if code != 0 {
+			t.Fatalf("valid edge %v: code %d %q", now, code, msg)
+		}
+	}
+	if len(*set) != 2 || *rtc != 2 {
+		t.Fatalf("range edges: clock %v, rtc %d", *set, *rtc)
 	}
 }

@@ -66,8 +66,10 @@ var (
 		return syscall.Settimeofday(&tv)
 	}
 	saveClockToRTC = func() error {
-		if _, err := os.Stat("/dev/rtc0"); err != nil {
+		if _, err := os.Stat("/dev/rtc0"); os.IsNotExist(err) {
 			return nil
+		} else if err != nil {
+			return err
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -104,6 +106,8 @@ func (s *Service) SetClock(c *gin.Context) {
 	}
 	if err := saveClockToRTC(); err != nil {
 		log.Warnf("save the clock to the RTC: %v", err)
+		rsp.ErrRsp(c, -2, "System clock set, but could not save it to the RTC")
+		return
 	}
 	s.GetDateTime(c)
 }

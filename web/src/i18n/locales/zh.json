@@ -1064,7 +1064,10 @@
         "nftFeatures": {
           "mss-clamp": "按路径 MTU 限制 MSS",
           "usb-internet": "USB 网络共享"
-        }
+        },
+        "archive": "准备开发者归档",
+        "archiveHint": "用于错误报告：最近几次启动的日志、系统、硬件和网络状态以及设置，合并为一个文件。密码、密钥和地址会在设备上删除。收集最多需要一分钟。",
+        "archiveError": "无法准备开发者归档"
       },
       "device": "设备",
       "performance": "性能",

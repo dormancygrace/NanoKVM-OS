@@ -1064,7 +1064,10 @@
         "nftFeatures": {
           "mss-clamp": "Ajuste de MSS a la MTU de ruta",
           "usb-internet": "Internet por USB"
-        }
+        },
+        "archive": "Preparar archivo para desarrolladores",
+        "archiveHint": "Para un informe de error: registros de los últimos arranques, estado del sistema, del hardware y de la red y ajustes, en un solo archivo. Las contraseñas, claves y direcciones se eliminan en el dispositivo. La recopilación tarda hasta un minuto.",
+        "archiveError": "No se pudo preparar el archivo para desarrolladores"
       },
       "device": "Dispositivo",
       "performance": "Rendimiento",

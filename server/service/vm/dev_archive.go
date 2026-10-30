@@ -1,0 +1,197 @@
+package vm
+
+import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"NanoKVM-Server/logs"
+	"NanoKVM-Server/proto"
+	"github.com/gin-gonic/gin"
+)
+
+// The developer archive (Diagnostics > Prepare archive for developers). The
+// collector script of nanokvm-base gathers logs, system, hardware, network
+// and allow-listed settings into a RAM directory; every file then passes the
+// log viewer's sanitizer and address masking before it is packed.
+var (
+	devArchiveScript  = "/usr/libexec/nanokvm/dev-archive"
+	devArchiveTimeout = 90 * time.Second
+	devArchiveLimit   = 16 << 20
+	devArchiveFile    = 4 << 20
+	devArchiveBusy    sync.Mutex
+)
+
+const devArchiveReadme = `NanoKVM OS developer archive
+
+Collected on the device by %s, created %s.
+
+Contents: logs of the last three boots, the kernel and apk; system state
+(versions, processes, memory, mounts, services, packages); hardware (video
+capture, HDMI receiver diagnostics, USB gadget, thermal); network state;
+allow-listed settings; diagnostics.json, the report of the Diagnostics page.
+
+Before packing, every file was cleaned on the device:
+- IPv4, IPv6 and MAC addresses and Wi-Fi network names are masked;
+- entries that may hold passwords, keys, tokens or cookies are hidden;
+- in settings, values of keys naming credentials, users or keys are hidden.
+Not collected at all: passwords, keys and certificates, the web login
+secret, Wi-Fi and VPN configuration, user scripts, the USB serial number,
+screen or video content and the contents of files on the user disk (the
+names of images attached as virtual disks may appear).
+Not masked: host names and web user names in logs.
+%s`
+
+func (s *Service) DownloadDevArchive(c *gin.Context) {
+	var rsp proto.Response
+	if !devArchiveBusy.TryLock() {
+		rsp.ErrRsp(c, -1, "a developer archive is already being prepared")
+		return
+	}
+	defer devArchiveBusy.Unlock()
+	if _, err := os.Stat(devArchiveScript); err != nil {
+		rsp.ErrRsp(c, -1, "update nanokvm-base to prepare a developer archive")
+		return
+	}
+	dir, err := os.MkdirTemp("", "nanokvm-dev-archive-")
+	if err != nil {
+		rsp.ErrRsp(c, -1, "cannot prepare the developer archive")
+		return
+	}
+	defer os.RemoveAll(dir)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), devArchiveTimeout)
+	defer cancel()
+	// A partial collection is still useful: pack what exists and say why.
+	note := ""
+	if _, err = diagnosticRun(ctx, 64<<10, devArchiveScript, "collect", dir); err != nil {
+		note = fmt.Sprintf("\nThe collection did not finish: %v\n", err)
+	}
+	var report any
+	if snapshot, e := readDiagnostics(c.Request.Context()); e == nil {
+		report = diagnosticsReport(snapshot)
+	}
+	data, err := packDevArchive(dir, report, note, time.Now())
+	if err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	name := "nanokvm-dev-archive-" + time.Now().Format("20060102-150405") + ".tar.gz"
+	c.Header("Cache-Control", "no-store")
+	c.Header("Content-Disposition", `attachment; filename="`+name+`"`)
+	c.Data(http.StatusOK, "application/gzip", data)
+}
+
+func packDevArchive(dir string, report any, note string, now time.Time) ([]byte, error) {
+	var files []string
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && entry.Type().IsRegular() {
+			files = append(files, path)
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.New("cannot read the collected files")
+	}
+	sort.Strings(files)
+
+	var out bytes.Buffer
+	zw := gzip.NewWriter(&out)
+	tw := tar.NewWriter(zw)
+	add := func(name, text string) error {
+		if err := tw.WriteHeader(&tar.Header{Name: "nanokvm-dev-archive/" + name, Mode: 0o644, Size: int64(len(text)), ModTime: now, Typeflag: tar.TypeReg}); err != nil {
+			return err
+		}
+		_, err := tw.Write([]byte(text))
+		if err == nil && out.Len() > devArchiveLimit {
+			err = errors.New("the developer archive is too large")
+		}
+		return err
+	}
+	var omitted []string
+	for _, path := range files {
+		rel, _ := filepath.Rel(dir, path)
+		rel = filepath.ToSlash(rel)
+		raw, err := readLimited(path, devArchiveFile)
+		if err != nil || binaryData(raw) {
+			omitted = append(omitted, rel)
+			continue
+		}
+		// Text with stray NUL bytes: the device-tree model ends in one, and
+		// apk's log carries a few.
+		raw = bytes.ReplaceAll(raw, []byte{0}, nil)
+		text := logs.SanitizeFile(raw)
+		if strings.HasPrefix(rel, "config/") {
+			text = logs.SanitizeConfig(raw)
+		}
+		if err = add(rel, text); err != nil {
+			return nil, err
+		}
+	}
+	if report != nil {
+		b, err := json.MarshalIndent(report, "", "  ")
+		if err == nil {
+			err = add("diagnostics.json", string(b)+"\n")
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(omitted) > 0 {
+		note += "\nOmitted as binary or unreadable: " + strings.Join(omitted, ", ") + "\n"
+	}
+	collector := "the NanoKVM OS collector"
+	if b, err := os.ReadFile(filepath.Join(dir, "collector")); err == nil {
+		collector = strings.TrimSpace(string(b))
+	}
+	if err = add("README.txt", fmt.Sprintf(devArchiveReadme, collector, now.Format(time.RFC3339), note)); err != nil {
+		return nil, err
+	}
+	if err = tw.Close(); err == nil {
+		err = zw.Close()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if out.Len() > devArchiveLimit {
+		return nil, errors.New("the developer archive is too large")
+	}
+	return out.Bytes(), nil
+}
+
+// binaryData: more than one byte in twenty is a control character other than
+// tab, newline or carriage return.
+func binaryData(data []byte) bool {
+	control := 0
+	for _, b := range data {
+		if b < 0x20 && b != '\t' && b != '\n' && b != '\r' {
+			control++
+		}
+	}
+	return control*20 > len(data)
+}
+
+// readLimited reads the end of a file: the collector already keeps the last
+// part of logs, this only bounds an unexpected large file.
+func readLimited(path string, limit int) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > limit {
+		data = data[len(data)-limit:]
+	}
+	return data, nil
+}

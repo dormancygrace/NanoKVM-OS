@@ -1,0 +1,138 @@
+package vm
+
+import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"io"
+	"math/rand"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+func unpackDevArchive(t *testing.T, data []byte) map[string]string {
+	t.Helper()
+	zr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := tar.NewReader(zr)
+	files := map[string]string{}
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			return files
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(tr)
+		files[strings.TrimPrefix(h.Name, "nanokvm-dev-archive/")] = string(b)
+	}
+}
+
+func TestDevArchiveMasksAndHides(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, text string) {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("network/addr", "inet 192.168.4.128/24 brd 192.168.4.255\nlink/ether 48:da:35:6f:1a:2b\n")
+	write("network/iw-link", "Connected to aa:bb:cc:dd:ee:ff (on wlan0)\n\tSSID: HomeNetwork\n")
+	write("config/etc_kvm_server.yaml", "proto: https\nauthentication:\n  jwt:\n    secretKey: hunter2\nturn:\n    turnCred: abc123\n")
+	write("logs/current/application.log", "[hdmi] diagnostics ready fw=0x00000300 model=LT6911UXC chip_id=0x0417\nlogin password=letmein\n")
+	write("hardware/edid.bin", "\x00\xff\xff\xff\xff\xff\xff\x00")
+	write("system/model", "Sipeed NanoKVM PCIe\x00")
+	write("collector", "nanokvm-dev-archive 1\n")
+
+	data, err := packDevArchive(dir, map[string]string{"schema": "nanokvm-diagnostics/v1"}, "", time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := unpackDevArchive(t, data)
+	all := ""
+	for _, text := range files {
+		all += text
+	}
+	for _, leaked := range []string{"192.168.4.128", "48:da:35", "aa:bb:cc", "HomeNetwork", "hunter2", "abc123", "letmein"} {
+		if strings.Contains(all, leaked) {
+			t.Errorf("%q leaked", leaked)
+		}
+	}
+	if !strings.Contains(files["logs/current/application.log"], "chip_id=0x0417") {
+		t.Errorf("receiver diagnostics lost: %q", files["logs/current/application.log"])
+	}
+	if _, ok := files["hardware/edid.bin"]; ok {
+		t.Error("binary file packed")
+	}
+	if files["system/model"] != "Sipeed NanoKVM PCIe\n" {
+		t.Errorf("model = %q", files["system/model"])
+	}
+	if !strings.Contains(files["README.txt"], "hardware/edid.bin") || !strings.Contains(files["README.txt"], "nanokvm-dev-archive 1") {
+		t.Errorf("README = %q", files["README.txt"])
+	}
+	if !strings.Contains(files["diagnostics.json"], "nanokvm-diagnostics/v1") {
+		t.Errorf("diagnostics.json = %q", files["diagnostics.json"])
+	}
+}
+
+func devArchiveReply(t *testing.T) string {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/api/vm/diagnostics/archive", nil)
+	(&Service{}).DownloadDevArchive(c)
+	return w.Body.String()
+}
+
+func TestDevArchiveRefusals(t *testing.T) {
+	previous := devArchiveScript
+	t.Cleanup(func() { devArchiveScript = previous })
+	devArchiveScript = filepath.Join(t.TempDir(), "missing")
+	if reply := devArchiveReply(t); !strings.Contains(reply, "update nanokvm-base") {
+		t.Fatalf("missing collector: %s", reply)
+	}
+	devArchiveBusy.Lock()
+	defer devArchiveBusy.Unlock()
+	if reply := devArchiveReply(t); !strings.Contains(reply, "already being prepared") {
+		t.Fatalf("busy: %s", reply)
+	}
+}
+
+func TestDevArchiveSizeLimit(t *testing.T) {
+	dir := t.TempDir()
+	previous := devArchiveLimit
+	devArchiveLimit = 1024
+	t.Cleanup(func() { devArchiveLimit = previous })
+	// Pseudo-random words that gzip cannot shrink below the limit. Spaces
+	// keep the lines from looking like encoded keys, which would be hidden.
+	var b strings.Builder
+	random := rand.New(rand.NewSource(1))
+	for i := 0; i < 20000; i++ {
+		b.WriteByte(byte('a' + random.Intn(26)))
+		if i%6 == 5 {
+			b.WriteByte(' ')
+		}
+		if i%80 == 79 {
+			b.WriteByte('\n')
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "big"), []byte(b.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := packDevArchive(dir, nil, "", time.Unix(0, 0)); err == nil {
+		t.Fatal("oversized archive accepted")
+	}
+}

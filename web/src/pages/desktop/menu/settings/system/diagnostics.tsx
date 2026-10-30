@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Alert, Button, Spin, Tabs } from 'antd';
 import { useAtomValue } from 'jotai';
-import { ChevronDownIcon, DownloadIcon, RefreshCwIcon } from 'lucide-react';
+import { ArchiveIcon, ChevronDownIcon, DownloadIcon, RefreshCwIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { downloadDiagnosticsReport, getDiagnostics } from '@/api/vm';
+import { downloadDevArchive, downloadDiagnosticsReport, getDiagnostics } from '@/api/vm';
 import { formatDeviceTime } from '@/lib/date-time.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
@@ -93,6 +93,7 @@ const DiagnosticsStatus = () => {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -127,6 +128,28 @@ const DiagnosticsStatus = () => {
       showRequestError(err, 'settings.system.diagnostics.downloadError');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  // The server answers a refusal (busy, old nanokvm-base) as JSON.
+  const archive = async () => {
+    setArchiving(true);
+    try {
+      const response = (await downloadDevArchive()) as unknown as Blob;
+      if (response.type.includes('json')) {
+        const reply = JSON.parse(await response.text()) as { msg?: string };
+        throw new Error(reply.msg || tr('archiveError'));
+      }
+      const url = URL.createObjectURL(response);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nanokvm-dev-archive-${new Date().toISOString().slice(0, 10)}.tar.gz`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showRequestError(err, 'settings.system.diagnostics.archiveError');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -211,8 +234,17 @@ const DiagnosticsStatus = () => {
           >
             {tr('download')}
           </Button>
+          <Button
+            size="small"
+            icon={<ArchiveIcon size={14} />}
+            loading={archiving}
+            onClick={() => void archive()}
+          >
+            {tr('archive')}
+          </Button>
         </div>
       </div>
+      <p className="text-fg-muted m-0 text-xs">{tr('archiveHint')}</p>
       {error && <Alert type="error" showIcon title={error} />}
       {loading && !snapshot ? (
         <div className="flex justify-center py-10">

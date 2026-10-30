@@ -40,6 +40,7 @@ func vmRouter(r *gin.Engine) {
 	admin.GET("/vm/logs/boots", service.GetLogBoots)
 	admin.GET("/vm/diagnostics", service.GetDiagnostics)
 	admin.GET("/vm/diagnostics/report", service.DownloadDiagnosticsReport)
+	admin.GET("/vm/diagnostics/archive", service.DownloadDevArchive)
 	api.GET("/vm/info", service.GetInfo)         // get device information
 	api.GET("/vm/hardware", service.GetHardware) // get hardware version
 

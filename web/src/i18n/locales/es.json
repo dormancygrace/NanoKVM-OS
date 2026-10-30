@@ -2053,7 +2053,9 @@
       "ipmiNotInstalled": "IPMI viene con el complemento IPMI, que no está instalado.",
       "ipmiInstall": "Instalar el complemento IPMI",
       "ipmiAddonDescription": "IPMI por LAN para el control de energía del equipo (ipmitool, fence_ipmilan). Sus ajustes están en Servicios > Redfish e IPMI.",
-      "holdDefault": "5 (menú de energía)"
+      "holdDefault": "5 (menú de energía)",
+      "advanced": "Avanzado",
+      "accountFirst": "Configure la cuenta BMC abajo y pulse Guardar: Redfish e IPMI solo se activan con una contraseña."
     },
     "recovery": {
       "title": "Copia de seguridad y restablecimiento",

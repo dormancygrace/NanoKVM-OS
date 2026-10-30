@@ -2053,7 +2053,9 @@
       "ipmiNotInstalled": "IPMI は IPMI アドオンで提供されますが、インストールされていません。",
       "ipmiInstall": "IPMI アドオンをインストール",
       "ipmiAddonDescription": "ホスト電源制御のための IPMI over LAN（ipmitool、fence_ipmilan）。設定は「サービス > Redfish と IPMI」にあります。",
-      "holdDefault": "5（電源メニュー）"
+      "holdDefault": "5（電源メニュー）",
+      "advanced": "詳細設定",
+      "accountFirst": "下の BMC アカウントを設定して［保存］を押してください。Redfish と IPMI はパスワードがあるときだけ有効になります。"
     },
     "recovery": {
       "title": "バックアップとリセット",

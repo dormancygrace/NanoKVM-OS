@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Form, Input, InputNumber, message, Spin, Switch, Tabs } from 'antd';
 import { useAtom } from 'jotai';
-import { DownloadIcon } from 'lucide-react';
+import { ChevronDownIcon, DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -14,22 +14,27 @@ import {
 import { localized } from '@/lib/addon-form.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { bmcTabAtom } from '@/jotai/settings.ts';
-import { SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
+import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { AddonPage } from '../addon';
 import { useAddonSections } from '../addon/sections';
 
 // Services > Redfish and IPMI: Redfish is part of the server, IPMI comes with
-// its add-on; one tab each, and below them the BMC account for both and the
-// power button hold of a forced power-off. Other add-ons that extend this
-// page (settings.section "services-bmc") get a tab of their own.
+// its add-on; one tab each, and below them the BMC account for both, with the
+// power options and the IPMI port under Advanced. The two switches apply at
+// once; Save is for the account. Other add-ons that extend this page
+// (settings.section "services-bmc") get a tab of their own.
 export const BmcSettingsPage = () => {
   const { t, i18n } = useTranslation('translation', { keyPrefix: 'settings.bmc' });
   const sections = useAddonSections('services-bmc');
   const [activeTab, setActiveTab] = useAtom(bmcTabAtom);
   const [status, setStatus] = useState<BmcStatus>();
-  const [error, setError] = useState('');
+  // Reading the status and the last switch, save or install fail apart:
+  // the 5 s poll must not hide why a change was refused.
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [switching, setSwitching] = useState<'redfish' | 'ipmi'>();
   const [installing, setInstalling] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [form] = Form.useForm<BmcSettings>();
@@ -48,9 +53,9 @@ export const BmcSettingsPage = () => {
       setStatus(next);
       if (!dirty.current)
         form.setFieldsValue({ ...next, holdSeconds: next.holdSeconds || undefined, password: '' });
-      setError('');
+      setLoadError('');
     } catch {
-      if (mounted.current) setError(t('failed'));
+      if (mounted.current) setLoadError(t('failed'));
     }
   }, [form, t]);
 
@@ -82,11 +87,43 @@ export const BmcSettingsPage = () => {
       setShowValidationErrors(false);
       form.setFieldValue('password', '');
       void message.success(t('saved'));
-      setError('');
+      setActionError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('failed'));
+      setActionError(err instanceof Error ? err.message : t('failed'));
     } finally {
       setBusy(false);
+      void refresh();
+    }
+  };
+
+  // A switch applies at once with the stored account, not with fields being
+  // edited. Turning one on needs a stored password: until the account is
+  // saved the switch stays on the page and Save turns it on.
+  const toggle = async (key: 'redfish' | 'ipmi', on: boolean) => {
+    if (!status) return;
+    if (!status.passwordSet || on === status[key]) {
+      dirty.current = true;
+      return;
+    }
+    setSwitching(key);
+    try {
+      const response = await configureBmc({
+        redfish: status.redfish,
+        ipmi: status.ipmi,
+        username: status.username,
+        password: '',
+        ipmiPort: status.ipmiPort,
+        holdSeconds: status.holdSeconds,
+        powerLedConnected: status.powerLedConnected,
+        [key]: on
+      });
+      if (response.code !== 0) throw new Error(response.msg);
+      setActionError('');
+    } catch (err) {
+      form.setFieldValue(key, status[key]);
+      setActionError(err instanceof Error ? err.message : t('failed'));
+    } finally {
+      setSwitching(undefined);
       void refresh();
     }
   };
@@ -96,9 +133,9 @@ export const BmcSettingsPage = () => {
     try {
       const response = await ipmiPackageAction('install');
       if (response.code !== 0) throw new Error(response.msg);
-      setError('');
+      setActionError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('failed'));
+      setActionError(err instanceof Error ? err.message : t('failed'));
     } finally {
       setInstalling(false);
       void refresh();
@@ -108,7 +145,7 @@ export const BmcSettingsPage = () => {
   // The page has no <form> element (see below): Enter submits by hand.
   const submit = () => form.submit();
 
-  if (!status) return error ? <Alert type="error" title={error} showIcon /> : <Spin />;
+  if (!status) return loadError ? <Alert type="error" title={loadError} showIcon /> : <Spin />;
   // An add-on removed while its tab is open: back to Redfish, not an empty page.
   const currentTab =
     activeTab.startsWith('addon-') &&
@@ -118,18 +155,25 @@ export const BmcSettingsPage = () => {
   // The account and the power options serve Redfish and IPMI: without
   // either they configure nothing. Hidden, not unmounted, so a save keeps them.
   const shared = Boolean(redfish) || status.ipmiInstalled;
+  // A switch turned on before there is a password: it waits for Save.
+  const waiting =
+    !status.passwordSet &&
+    ((Boolean(redfish) && !status.redfish) || (Boolean(ipmi) && !status.ipmi));
 
   return (
     <div className="space-y-6">
       <p className="text-fg-muted m-0 text-sm">{t('description')}</p>
-      {error && <Alert type="error" title={error} showIcon />}
+      {loadError && <Alert type="error" title={loadError} showIcon />}
+      {actionError && <Alert type="error" title={actionError} showIcon />}
       {/* No <form> element: an add-on section in a tab may bring its own form. */}
       <Form
         form={form}
         component={false}
         layout="vertical"
-        onValuesChange={() => {
-          dirty.current = true;
+        onValuesChange={(changed: Partial<BmcSettings>) => {
+          // The switches apply on their own (toggle); the poll may update them.
+          if (Object.keys(changed).some((key) => key !== 'redfish' && key !== 'ipmi'))
+            dirty.current = true;
         }}
         onFinish={(values) => void save(values)}
         onFinishFailed={() => setShowValidationErrors(true)}
@@ -144,14 +188,21 @@ export const BmcSettingsPage = () => {
               // Rendered while hidden: a save sends the fields of every tab.
               forceRender: true,
               children: (
-                <Form.Item
-                  name="redfish"
+                <SettingRow
                   label={t('redfishEnable')}
-                  valuePropName="checked"
-                  extra={t('redfishHint', { host: window.location.host })}
+                  description={t('redfishHint', { host: window.location.host })}
+                  htmlFor="bmc-redfish"
                 >
-                  <Switch />
-                </Form.Item>
+                  <Form.Item name="redfish" valuePropName="checked" noStyle>
+                    <Switch
+                      id="bmc-redfish"
+                      aria-describedby="bmc-redfish-description"
+                      loading={switching === 'redfish'}
+                      disabled={!!switching}
+                      onChange={(on) => void toggle('redfish', on)}
+                    />
+                  </Form.Item>
+                </SettingRow>
               )
             },
             {
@@ -165,18 +216,22 @@ export const BmcSettingsPage = () => {
                       <StatusBadge tone={status.ipmiRunning ? 'success' : 'neutral'}>
                         {status.ipmiRunning ? t('running') : t('stopped')}
                       </StatusBadge>
-                      <Form.Item
-                        name="ipmi"
+                      <SettingRow
                         label={t('ipmiEnable')}
-                        valuePropName="checked"
-                        extra={t('ipmiHint')}
+                        description={t('ipmiHint')}
+                        htmlFor="bmc-ipmi"
                       >
-                        <Switch />
-                      </Form.Item>
+                        <Form.Item name="ipmi" valuePropName="checked" noStyle>
+                          <Switch
+                            id="bmc-ipmi"
+                            aria-describedby="bmc-ipmi-description"
+                            loading={switching === 'ipmi'}
+                            disabled={!!switching}
+                            onChange={(on) => void toggle('ipmi', on)}
+                          />
+                        </Form.Item>
+                      </SettingRow>
                       {ipmi && <Alert type="warning" title={t('ipmiWarning')} showIcon />}
-                      <Form.Item name="ipmiPort" label={t('ipmiPort')}>
-                        <InputNumber min={1} max={65535} onPressEnter={submit} />
-                      </Form.Item>
                     </>
                   ) : (
                     <>
@@ -212,6 +267,7 @@ export const BmcSettingsPage = () => {
         />
         {/* The account and Save belong to Redfish and IPMI, not to an add-on's tab. */}
         <div className="space-y-6" hidden={currentTab.startsWith('addon-')}>
+          {waiting && <Alert type="info" title={t('accountFirst')} showIcon />}
           {!shared && !showValidationErrors && (
             <p className="text-fg-muted m-0 text-sm">{t('sharedOff')}</p>
           )}
@@ -241,27 +297,46 @@ export const BmcSettingsPage = () => {
               >
                 <Input.Password autoComplete="new-password" maxLength={20} onPressEnter={submit} />
               </Form.Item>
-              <Form.Item name="holdSeconds" label={t('holdSeconds')} extra={t('holdHint')}>
-                <InputNumber
-                  min={1}
-                  max={30}
-                  placeholder={t('holdDefault')}
-                  onPressEnter={submit}
-                />
-              </Form.Item>
-              <Form.Item
-                name="powerLedConnected"
-                label={t('powerLed')}
-                valuePropName="checked"
-                extra={t('powerLedHint')}
-              >
-                <Switch />
-              </Form.Item>
+              {/* Rendered while folded: a save sends these fields too. */}
+              <Panel flush className="overflow-hidden">
+                <details className="group">
+                  <summary className="text-fg-muted hover:text-fg flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+                    <span>{t('advanced')}</span>
+                    <ChevronDownIcon
+                      size={16}
+                      className="transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="px-4 pb-1">
+                    <Form.Item name="holdSeconds" label={t('holdSeconds')} extra={t('holdHint')}>
+                      <InputNumber
+                        min={1}
+                        max={30}
+                        placeholder={t('holdDefault')}
+                        onPressEnter={submit}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="powerLedConnected"
+                      label={t('powerLed')}
+                      valuePropName="checked"
+                      extra={t('powerLedHint')}
+                    >
+                      <Switch />
+                    </Form.Item>
+                    {status.ipmiInstalled && (
+                      <Form.Item name="ipmiPort" label={t('ipmiPort')}>
+                        <InputNumber min={1} max={65535} onPressEnter={submit} />
+                      </Form.Item>
+                    )}
+                  </div>
+                </details>
+              </Panel>
+              <Button type="primary" loading={busy} onClick={submit}>
+                {t('save')}
+              </Button>
             </SettingsSection>
           </div>
-          <Button type="primary" loading={busy} onClick={submit}>
-            {t('save')}
-          </Button>
         </div>
       </Form>
     </div>

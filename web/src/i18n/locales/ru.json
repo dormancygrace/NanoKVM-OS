@@ -2053,7 +2053,9 @@
       "ipmiNotInstalled": "IPMI ставится дополнением IPMI, оно не установлено.",
       "ipmiInstall": "Установить дополнение IPMI",
       "ipmiAddonDescription": "IPMI по сети для управления питанием хоста (ipmitool, fence_ipmilan). Настройки — в разделе «Сервисы > Redfish и IPMI».",
-      "holdDefault": "5 (меню питания)"
+      "holdDefault": "5 (меню питания)",
+      "advanced": "Дополнительно",
+      "accountFirst": "Задайте учётную запись BMC ниже и нажмите «Сохранить»: Redfish и IPMI включаются только с паролем."
     },
     "recovery": {
       "title": "Резервная копия и сброс",

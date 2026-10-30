@@ -45,7 +45,8 @@ const optional = {
   'terminal (xterm)': 'xterm-helper-textarea',
   'virtual keyboard': 'hg-theme-default',
   'picoclaw (markdown)': 'gfmFootnote',
-  'Russian locale': 'Сначала используется ZRAM'
+  'Russian locale': 'Сначала используется ZRAM',
+  'USB settings panel': 'usb-preset'
 };
 
 test('static imports between chunks have no cycles', () => {
@@ -106,8 +107,8 @@ test('startup JavaScript stays within gzip and request budgets', () => {
         find(/^h264-direct-.*\.js$/),
         find(/^direct\.worker-.*\.js$/)
       ],
-      bytes: 625_000,
-      requests: 50
+      bytes: 600_000,
+      requests: 36
     }
   };
   for (const [route, budget] of Object.entries(routes)) {

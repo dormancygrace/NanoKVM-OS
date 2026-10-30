@@ -5,6 +5,7 @@ import { client } from '@/lib/websocket';
 import { isKeyboardOpenAtom } from '@/jotai/keyboard';
 import { Head } from '@/components/head';
 import { Keyboard } from '@/pages/desktop/menu/keyboard';
+import { UsbMenu } from '@/pages/desktop/menu/usb';
 import { VirtualKeyboard } from '@/pages/desktop/virtual-keyboard';
 
 export function Workbench() {
@@ -47,6 +48,7 @@ export function Workbench() {
         {/* Match the production touch toolbar, including its gesture policy. */}
         <div className="nanokvm-touch-toolbar flex flex-wrap gap-4">
           <Keyboard quickAccess />
+          <UsbMenu />
           {/* Isolated sheet focus case; the real opener above covers production activation. */}
           <button onMouseDown={(e) => e.preventDefault()} onClick={() => openKeyboard(true)}>
             Open keyboard

@@ -35,16 +35,16 @@ For a local check in your own Main-profile tab:
    Block its first request and verify the error stays in the popover, the
    desktop remains usable after closing it, and Refresh recovers the panel.
 
-`pnpm test:browser` runs these cases in CI using installed Google Chrome and a
-fresh **Main** profile under the runner's temporary directory. The launcher
-refuses to create a substitute local profile. `pnpm test:browser --list` lists
-cases without launching a browser. The suite runs serially, has no retries,
-and uploads a trace on failure. Test-only files are excluded from the production
-bundle and a chunk test checks that the fixture credentials/routes do not ship.
-
 Shutdown confirmation regression: open /tests/browser/shutdown.html in Chrome
 Main. The secondary action (labelled **No** in English) must be primary and
 focused; Enter closes the dialog with the events list still empty. Reopen and
 explicitly click **Shut down NanoKVM**: exactly one prepare request appears,
 then the simulated failure is shown. The fixture intercepts all requests and
 never commits shutdown or connects to a device.
+
+`pnpm test:browser` runs these cases in CI using installed Google Chrome and a
+fresh **Main** profile under the runner's temporary directory. The launcher
+refuses to create a substitute local profile. `pnpm test:browser --list` lists
+cases without launching a browser. The suite runs serially, has no retries,
+and uploads a trace on failure. Test-only files are excluded from the production
+bundle and a chunk test checks that the fixture credentials/routes do not ship.

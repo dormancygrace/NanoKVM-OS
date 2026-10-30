@@ -891,10 +891,16 @@
     "deviceTime": "Cihaz saati",
     "timezone": "Saat dilimi",
     "format": "Saat biçimi",
-    "preview": "Önizleme",
     "synchronized": "Eşitlendi",
     "waiting": "Eşitleme doğrulanmadı",
-    "save": "Kaydet"
+    "save": "Kaydet",
+    "device": "Cihaz",
+    "display": "Görünüm",
+    "displayHint": "Tüm arayüz için, VPN el sıkışma zamanları dahil.",
+    "setFromBrowser": "Bu tarayıcının saatini kullan",
+    "setFromBrowserHint": "NTP olmayan bir ağ için. Saat, cihazın saat yongasına da kaydedilir.",
+    "clockSet": "Cihaz saati ayarlandı",
+    "clockFailed": "Cihaz saati ayarlanamadı."
   },
   "recorder": {
     "title": "Video kaydı",

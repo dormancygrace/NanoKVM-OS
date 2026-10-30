@@ -38,7 +38,6 @@
     "format": "Time format",
     "hour24": "24 hours",
     "hour12": "12 hours",
-    "preview": "Preview",
     "dateFormat": "Date format",
     "dateAuto": "Language default",
     "dateDmy": "DD.MM.YYYY",
@@ -46,13 +45,19 @@
     "dateYmd": "YYYY-MM-DD",
     "servers": "NTP servers",
     "serversHelp": "Choose or enter 1–6 hostnames or IP addresses. Changing servers restarts time synchronization.",
-    "scope": "Time zone applies to the device. The time and date formats are shared across the interface, including VPN handshake times.",
     "synchronized": "Synchronized",
     "waiting": "Synchronization not confirmed",
     "save": "Save",
     "saved": "Date and time settings saved",
     "loadFailed": "Cannot read device time. Check the connection.",
-    "saveFailed": "Could not apply settings. Check server addresses and the device connection."
+    "saveFailed": "Could not apply settings. Check server addresses and the device connection.",
+    "device": "Device",
+    "display": "Display",
+    "displayHint": "For the whole interface, including VPN handshake times.",
+    "setFromBrowser": "Set to this browser's time",
+    "setFromBrowserHint": "For a network without NTP. The time is also saved to the device's clock chip.",
+    "clockSet": "Device time set",
+    "clockFailed": "Could not set the device time."
   },
   "recorder": {
     "startDirect": "Start recording the original stream (MP4)",
@@ -2053,7 +2058,9 @@
       "ipmiNotInstalled": "IPMI comes with the IPMI add-on, which is not installed.",
       "ipmiInstall": "Install the IPMI add-on",
       "ipmiAddonDescription": "IPMI over LAN for power control of the host (ipmitool, fence_ipmilan). Its settings are in Services > Redfish and IPMI.",
-      "holdDefault": "5 (power menu)"
+      "holdDefault": "5 (power menu)",
+      "advanced": "Advanced",
+      "accountFirst": "Set the BMC account below and press Save: Redfish and IPMI turn on only with a password."
     },
     "recovery": {
       "title": "Backup & reset",

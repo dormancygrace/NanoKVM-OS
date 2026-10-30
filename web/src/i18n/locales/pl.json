@@ -892,10 +892,16 @@
     "deviceTime": "Czas urządzenia",
     "timezone": "Strefa czasowa",
     "format": "Format czasu",
-    "preview": "Podgląd",
     "synchronized": "Zsynchronizowano",
     "waiting": "Synchronizacja niepotwierdzona",
-    "save": "Zapisz"
+    "save": "Zapisz",
+    "device": "Urządzenie",
+    "display": "Wyświetlanie",
+    "displayHint": "Dla całego interfejsu, w tym czasów uzgadniania VPN.",
+    "setFromBrowser": "Ustaw czas z tej przeglądarki",
+    "setFromBrowserHint": "Dla sieci bez NTP. Czas zapisuje się też w zegarze urządzenia.",
+    "clockSet": "Ustawiono czas urządzenia",
+    "clockFailed": "Nie udało się ustawić czasu urządzenia."
   },
   "recorder": {
     "title": "Nagrywanie wideo",

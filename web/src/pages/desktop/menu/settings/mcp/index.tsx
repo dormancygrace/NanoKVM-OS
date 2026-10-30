@@ -134,6 +134,41 @@ export const MCP = () => {
     });
   }
 
+  function updateHostControl(enabled: boolean) {
+    if (isLoading) return;
+    actionVersionRef.current += 1;
+    updateLoading(true);
+    api
+      .setMCPHostControl(enabled)
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          message.error(responseMessage(rsp) || t('settings.mcp.failed'));
+          return;
+        }
+        syncConfig(rsp.data);
+      })
+      .catch((err) => showRequestError(err, 'settings.mcp.failed'))
+      .finally(() => updateLoading(false));
+  }
+
+  // Allowing power and media control asks first, like enabling MCP.
+  function setHostControl(enabled: boolean) {
+    if (!enabled) {
+      updateHostControl(false);
+      return;
+    }
+    modal.confirm({
+      title: t('settings.mcp.hostControlConfirmTitle'),
+      content: (
+        <span className="text-fg-muted text-sm">{t('settings.mcp.hostControlConfirmDesc')}</span>
+      ),
+      okText: t('settings.mcp.okBtn'),
+      okButtonProps: { danger: true },
+      cancelText: t('settings.mcp.cancelBtn'),
+      onOk: () => updateHostControl(true)
+    });
+  }
+
   async function copyText(text: string, type: 'endpoint' | 'key') {
     if (!text) return;
     try {
@@ -240,6 +275,22 @@ export const MCP = () => {
                 }
               />
             </Panel>
+            <div className="mt-6">
+              <SettingRow
+                label={t('settings.mcp.hostControl')}
+                description={t('settings.mcp.hostControlDesc')}
+                htmlFor="mcp-host-control"
+              >
+                <Switch
+                  id="mcp-host-control"
+                  aria-label={t('settings.mcp.hostControl')}
+                  aria-describedby="mcp-host-control-description"
+                  checked={!!config.allowHostControl}
+                  loading={isLoading}
+                  onChange={(enabled) => setHostControl(enabled)}
+                />
+              </SettingRow>
+            </div>
           </div>
         )}
       </div>

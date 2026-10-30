@@ -111,7 +111,7 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 	handler := lazyMCPHandler(func() http.Handler {
 		return newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(hid), fakeSnapshotter{snapshot: Snapshot{
 			OK: true, Width: 800, Height: 600, JPEG: []byte{0xff, 0xd8, 0xff},
-		}}, fakeTextReader{}, fakeHostStatus{})
+		}}, fakeTextReader{}, fakeHostStatus{}, HostControl{})
 	})
 
 	request := func(method string, body string, sessionID string) *httptest.ResponseRecorder {
@@ -231,7 +231,7 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 
 func TestMCPHandlerRejectsCrossOriginBrowserRequests(t *testing.T) {
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	handler := http.NewCrossOriginProtection().Handler(newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil, nil))
+	handler := http.NewCrossOriginProtection().Handler(newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil, nil, HostControl{}))
 
 	request := func(origin string) *httptest.ResponseRecorder {
 		recorder := httptest.NewRecorder()
@@ -251,7 +251,7 @@ func TestMCPHandlerRejectsCrossOriginBrowserRequests(t *testing.T) {
 
 func TestMCPHandlerRejectsOversizedRequestBody(t *testing.T) {
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	handler := newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil, nil)
+	handler := newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil, nil, HostControl{})
 	recorder := httptest.NewRecorder()
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -472,13 +472,13 @@ func BenchmarkMCPConstruction(b *testing.B) {
 	b.Run("eager", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			benchmarkMCPHandler = newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil, nil)
+			benchmarkMCPHandler = newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil, nil, HostControl{})
 		}
 	})
 	b.Run("deferred", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			benchmarkMCPHandler = NewMCPHandler(control, nil, nil, nil)
+			benchmarkMCPHandler = NewMCPHandler(control, nil, nil, nil, HostControl{})
 		}
 	})
 }

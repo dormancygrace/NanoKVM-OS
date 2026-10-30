@@ -124,6 +124,42 @@ func TestMountImageRejectsInactiveUSBStorage(t *testing.T) {
 	}
 }
 
+// MCP's virtual_media mounts through MountImageFile: the same refusals as the
+// page while remote media or network boot own the virtual disk, before the
+// disk is touched, and the page still gets 409 for them.
+func TestMountImageFileRefusesWhileAnotherMediumOwnsTheDisk(t *testing.T) {
+	originalUDC := usbGadgetUDC
+	usbGadgetUDC = filepath.Join(t.TempDir(), "missing-udc")
+	t.Cleanup(func() { usbGadgetUDC = originalUDC })
+
+	for _, s := range []*Service{{remote: &remoteSession{}}, {netboot: &netbootSession{}}} {
+		err := s.MountImageFile("", false)
+		var mountErr *imageMountError
+		if !errors.As(err, &mountErr) || !mountErr.conflict {
+			t.Fatalf("mount with remote=%v netboot=%v: %v", s.remote != nil, s.netboot != nil, err)
+		}
+	}
+	// Free: the mount goes on and meets the inactive USB storage.
+	var mountErr *imageMountError
+	if err := NewService().MountImageFile("", false); !errors.As(err, &mountErr) || mountErr.code != -3 {
+		t.Fatalf("mount on a free disk: %v", err)
+	}
+	if err := NewService().MountImageFile("../etc/passwd", false); !errors.As(err, &mountErr) || mountErr.msg != "invalid image" {
+		t.Fatalf("mount outside /data: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	request := httptest.NewRequest(http.MethodPost, "/api/storage/image/mount", bytes.NewBufferString(`{"file":""}`))
+	request.Header.Set("Content-Type", "application/json")
+	context.Request = request
+	(&Service{netboot: &netbootSession{}}).MountImage(context)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("page mount during network boot: %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func postMountImage(t *testing.T, body string) proto.Response {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

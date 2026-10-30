@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -36,8 +37,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 	}
 	// Exiting PID1 panics the kernel; keep console evidence on fatal setup
-	// failure. Never claim safe or silently reboot.
+	// failure before storage release. Verified storage release permits the
+	// announced, delayed recovery reboot if the RAM listener could not start.
 	if os.Getpid() == 1 {
+		var recovery *standby.RecoveryError
+		if errors.As(err, &recovery) {
+			if recoveryErr := standby.RecoverFatal(err); recoveryErr != nil {
+				fmt.Fprintln(os.Stderr, recoveryErr)
+			}
+		}
 		for {
 			time.Sleep(time.Hour)
 		}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -88,8 +89,13 @@ func shutdownResult() error {
 	}
 	return nil
 }
-func watchdogsStopped() error {
-	entries, e := os.ReadDir("/sys/class/watchdog")
+
+// A clean OpenRC stop and leaveStorage's noUserProcesses check precede this.
+// dw_wdt may keep HW_RUNNING set after magic close; the kernel then feeds it.
+// The optional "state" attribute reports WDOG_ACTIVE (userspace ownership),
+// not HW_RUNNING. Missing CONFIG_WATCHDOG_SYSFS is not a failed shutdown.
+func watchdogsReleased(sysfs string) error {
+	entries, e := os.ReadDir(sysfs)
 	if os.IsNotExist(e) {
 		return nil
 	}
@@ -97,12 +103,15 @@ func watchdogsStopped() error {
 		return e
 	}
 	for _, entry := range entries {
-		b, e := os.ReadFile("/sys/class/watchdog/" + entry.Name() + "/state")
+		b, e := os.ReadFile(filepath.Join(sysfs, entry.Name(), "state"))
+		if errors.Is(e, os.ErrNotExist) {
+			continue
+		}
 		if e != nil {
 			return e
 		}
 		if string(b) != "inactive\n" {
-			return fmt.Errorf("watchdog %s remains active", entry.Name())
+			return fmt.Errorf("watchdog %s has not released userspace ownership", entry.Name())
 		}
 	}
 	return nil

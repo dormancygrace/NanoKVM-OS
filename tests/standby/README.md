@@ -49,7 +49,7 @@ host. Record `root/lib/apk/db/installed` if package versions have advanced.
 From the repository root:
 
 ```sh
-for mode in web dhcp magic held-mount hidden-mount stop-error; do
+for mode in web dhcp magic held-mount hidden-mount stop-error listener-error; do
     python3 tests/standby/qemu.py "$OUT" --filesystem f2fs --mode "$mode"
 done
 ```
@@ -60,7 +60,12 @@ production helper and a test-only driver, checks active-lock refusal, dirty
 mmap and writers on all volumes plus a loop disk backed by `/data`, enables zram swap, and runs the real init
 handoff. QMP counters must remain unchanged while ready. Fault cases must fail
 closed, recover by authenticated reboot, and boot normally next time with all
-final writer/mmap data intact.
+final writer/mmap data intact. The `listener-error` case instead renames the
+network interface during its normal stop, so the production RAM listener fails
+after storage protection. It requires the announced automatic reboot after
+approximately two minutes, without a web restart request, and verifies the next
+normal boot and the same writer/mmap data. Allow at least three minutes for
+that case.
 
 Results are `qemu/<mode>-<filesystem>-result.json`. Console output is overwritten
 between boots; it contains only a disposable guest capability, never a device

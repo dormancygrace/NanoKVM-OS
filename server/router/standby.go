@@ -18,6 +18,7 @@ import (
 	"NanoKVM-Server/standby"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 // Installed before the other routes: admission closes atomically against
@@ -30,7 +31,20 @@ func standbyAdmission() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		if c.Request.Method == http.MethodGet && (websocket.IsWebSocketUpgrade(c.Request) || path == "/api/stream/mjpeg") {
+			if !standby.Requests.EnterStream() {
+				c.AbortWithStatusJSON(409, gin.H{"code": -1, "msg": "NanoKVM shutdown is in progress"})
+				return
+			}
+			c.Next()
+			return
+		}
 		mutating := c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS"
+		// These GET handlers perform a radio scan or mount the user disk.
+		// Keep their side effects excluded while ordinary status reads continue.
+		if path == "/api/network/wifi/scan" || path == "/api/storage/user-disk/files" || path == "/api/storage/user-disk/files/download" {
+			mutating = true
+		}
 		if !standby.Requests.Enter(mutating) {
 			c.AbortWithStatusJSON(409, gin.H{"code": -1, "msg": "NanoKVM shutdown is in progress"})
 			return

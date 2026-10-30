@@ -410,7 +410,7 @@ func protectDisks() ([]Disk, error) {
 	return disks, nil
 }
 func verifyStorage(disks []Disk) error {
-	if err := watchdogsStopped(); err != nil {
+	if err := watchdogsReleased("/sys/class/watchdog"); err != nil {
 		return err
 	}
 	if e := memoryMountsOnly(); e != nil {

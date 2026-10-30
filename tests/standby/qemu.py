@@ -18,7 +18,7 @@ import urllib.error
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("output", type=Path)
-parser.add_argument("--mode", choices=["web", "magic", "held-mount", "hidden-mount", "dhcp", "stop-error"], default="web")
+parser.add_argument("--mode", choices=["web", "magic", "held-mount", "hidden-mount", "dhcp", "stop-error", "listener-error"], default="web")
 parser.add_argument("--filesystem",choices=["ext4","f2fs"],default="f2fs")
 args = parser.parse_args()
 out = args.output.resolve()
@@ -78,8 +78,9 @@ stop() {
   [ ! -f /run/udhcpc.eth0.pid ] || kill "$(cat /run/udhcpc.eth0.pid)"
   ip addr flush dev eth0
   ip link set eth0 down
+  LISTENER_FAULT
 }
-""", 0o755)
+""".replace("LISTENER_FAULT", "ip link set eth0 name losteth0" if args.mode=="listener-error" else ":"), 0o755)
 put(root/"etc/test-dhcp", """#!/bin/sh
 case "$1" in
 bound|renew)
@@ -201,52 +202,73 @@ with log.open("wb") as stream:
             time.sleep(.2)
         assert token, log.read_text(errors="replace")
         assert "STANDBY_TEST_PREFLIGHT_REFUSALS" in log.read_text(errors="replace")
-        status=None
-        while time.monotonic()<deadline:
-            try:
-                status=json.loads(get("/standby/status",token))
-                if status["state"] in ("ready","failed"):break
-            except (OSError,ValueError,urllib.error.URLError):pass
-            time.sleep(.25)
-        assert status,log.read_text(errors="replace")
-        expected="failed" if args.mode in ("held-mount","hidden-mount","stop-error") else "ready"
-        assert status["state"]==expected, (status,log.read_text(errors="replace"))
-        assert status["safe"]==(expected=="ready"),status
-        # An independent observation from the emulated disk, outside the guest.
-        sock=socket.socket(socket.AF_UNIX);sock.connect(str(qmp));fp=sock.makefile("rwb",buffering=0)
-        fp.readline()
-        def query(command):
-            fp.write(json.dumps({"execute":command}).encode()+b"\n")
-            while True:
-                reply=json.loads(fp.readline())
-                if "return" in reply:return reply["return"]
-                if "error" in reply:raise AssertionError(reply)
-        query("qmp_capabilities")
-        before=[d["stats"] for d in query("query-blockstats")]
-        for _ in range(10):
-            s=json.loads(get("/standby/status",token))
-            assert s["state"]==expected,s
-            time.sleep(.5)
-        after=[d["stats"] for d in query("query-blockstats")]
-        writes=["rd_bytes","rd_operations","wr_bytes","wr_operations","flush_operations"]
-        if expected=="ready":
-            assert [{k:d[k] for k in writes} for d in before]==[{k:d[k] for k in writes} for d in after],(before,after)
-        # Wrong capabilities may never reboot.
-        try:get("/standby/start","0"*64,True);raise AssertionError("unauthorized restart")
-        except urllib.error.HTTPError as e:assert e.code==401
-        if args.mode=="magic":
-            udp=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-            mac=bytes.fromhex("525400123456")
-            udp.sendto(b"\xff"*6+mac*16,("127.0.0.1",19009))
-            udp.close()
-        else:get("/standby/start",token,True)
-        assert vm.wait(timeout=15)==0,log.read_text(errors="replace")
+        if args.mode=="listener-error":
+            # Removing the staged interface makes SO_BINDTODEVICE fail only
+            # after the real storage release/protection path has completed.
+            marker="RAM service failed after storage release; keep power connected for automatic restart in two minutes"
+            while time.monotonic()<deadline:
+                text=log.read_text(errors="replace")
+                assert vm.poll() is None,text
+                if marker in text:break
+                time.sleep(.2)
+            else:raise AssertionError(log.read_text(errors="replace"))
+            failed_at=time.monotonic()
+            assert vm.wait(timeout=135)==0,log.read_text(errors="replace")
+            recovery_seconds=time.monotonic()-failed_at
+            assert recovery_seconds>=115,recovery_seconds
+            result={"mode":args.mode,"filesystem":args.filesystem,
+                    "automatic_restart_seconds":round(recovery_seconds,1),
+                    "storage_protection_completed":True,"busy_locks_rejected":True,
+                    "volumes":["root","boot","data"],"mmap_writer":True,
+                    "zram":True,"loop_backing_on_data":True}
+        else:
+            status=None
+            while time.monotonic()<deadline:
+                try:
+                    status=json.loads(get("/standby/status",token))
+                    if status["state"] in ("ready","failed"):break
+                except (OSError,ValueError,urllib.error.URLError):pass
+                time.sleep(.25)
+            assert status,log.read_text(errors="replace")
+            expected="failed" if args.mode in ("held-mount","hidden-mount","stop-error") else "ready"
+            assert status["state"]==expected, (status,log.read_text(errors="replace"))
+            assert status["safe"]==(expected=="ready"),status
+            # An independent observation from the emulated disk, outside the guest.
+            sock=socket.socket(socket.AF_UNIX);sock.connect(str(qmp));fp=sock.makefile("rwb",buffering=0)
+            fp.readline()
+            def query(command):
+                fp.write(json.dumps({"execute":command}).encode()+b"\n")
+                while True:
+                    reply=json.loads(fp.readline())
+                    if "return" in reply:return reply["return"]
+                    if "error" in reply:raise AssertionError(reply)
+            query("qmp_capabilities")
+            before=[d["stats"] for d in query("query-blockstats")]
+            for _ in range(10):
+                s=json.loads(get("/standby/status",token))
+                assert s["state"]==expected,s
+                time.sleep(.5)
+            after=[d["stats"] for d in query("query-blockstats")]
+            writes=["rd_bytes","rd_operations","wr_bytes","wr_operations","flush_operations"]
+            if expected=="ready":
+                assert [{k:d[k] for k in writes} for d in before]==[{k:d[k] for k in writes} for d in after],(before,after)
+            # Wrong capabilities may never reboot.
+            try:get("/standby/start","0"*64,True);raise AssertionError("unauthorized restart")
+            except urllib.error.HTTPError as e:assert e.code==401
+            if args.mode=="magic":
+                udp=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+                mac=bytes.fromhex("525400123456")
+                udp.sendto(b"\xff"*6+mac*16,("127.0.0.1",19009))
+                udp.close()
+            else:get("/standby/start",token,True)
+            assert vm.wait(timeout=15)==0,log.read_text(errors="replace")
         if args.filesystem=="ext4":
             writer_log=subprocess.check_output(["debugfs","-R","cat /writer.log",str(disk)],stderr=subprocess.DEVNULL,text=True)
             assert "stopped" in writer_log,writer_log
         assert "reboot: Restarting system" in log.read_text(errors="replace"),log.read_text(errors="replace")
-        result={"mode":args.mode,"filesystem":args.filesystem,"status":status,"quiet_seconds":5,"volumes":["root","boot","data"],"mmap_writer":True,"zram":True,"loop_backing_on_data":True,"busy_locks_rejected":True,
-                "qmp_before":[{k:d[k] for k in writes} for d in before],"qmp_after":[{k:d[k] for k in writes} for d in after]}
+        if args.mode!="listener-error":
+            result={"mode":args.mode,"filesystem":args.filesystem,"status":status,"quiet_seconds":5,"volumes":["root","boot","data"],"mmap_writer":True,"zram":True,"loop_backing_on_data":True,"busy_locks_rejected":True,
+                    "qmp_before":[{k:d[k] for k in writes} for d in before],"qmp_after":[{k:d[k] for k in writes} for d in after]}
         (q/(args.mode+"-"+args.filesystem+"-result.json")).write_text(json.dumps(result,indent=2)+"\n")
         print(json.dumps(result))
     finally:

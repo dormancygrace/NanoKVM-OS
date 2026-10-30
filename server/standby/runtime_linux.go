@@ -17,7 +17,13 @@ import (
 )
 
 // Takeover is only entered by BusyBox init's restart action.
-func Takeover() error {
+func Takeover() (result error) {
+	protected := false
+	defer func() {
+		if result != nil && protected {
+			result = &RecoveryError{Cause: result}
+		}
+	}()
 	if os.Getpid() != 1 {
 		return errors.New("takeover requires PID 1")
 	}
@@ -67,6 +73,8 @@ func Takeover() error {
 		disks, err = protectDisks()
 		if err != nil {
 			state.Fail(fmt.Errorf("protect storage: %w", err))
+		} else {
+			protected = true
 		}
 	}
 	server := &http.Server{Handler: Handler(c, state, func() error { unix.Sync(); return unix.Reboot(unix.LINUX_REBOOT_CMD_RESTART) }),

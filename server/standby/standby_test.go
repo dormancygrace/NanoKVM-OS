@@ -8,6 +8,7 @@ import (
 	"golang.org/x/sys/unix"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -68,7 +69,7 @@ func TestGateClosesAtomically(t *testing.T) {
 	if e := g.Begin(); e != nil {
 		t.Fatal(e)
 	}
-	if g.Enter(false) || g.Enter(true) || g.Begin() == nil {
+	if !g.Enter(false) || g.Enter(true) || g.EnterStream() || g.Begin() == nil {
 		t.Fatal("admission was not closed")
 	}
 	g.Cancel()
@@ -294,5 +295,68 @@ func TestLateFailureDoesNotDuplicateRestart(t *testing.T) {
 	}
 	if first, e := s.Restart(false); !first || e != nil {
 		t.Fatal("recovery retry unavailable", first, e)
+	}
+}
+
+func TestWatchdogOptionalSysfsAndUserspaceOwnership(t *testing.T) {
+	for _, tc := range []struct {
+		name, state   string
+		missing, fail bool
+	}{
+		{"sysfs-disabled", "", true, false},
+		{"clean-magic-close", "inactive\n", false, false},
+		{"userspace-deadline-still-active", "active\n", false, true},
+		{"malformed", "", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			device := filepath.Join(root, "watchdog0")
+			if e := os.Mkdir(device, 0700); e != nil {
+				t.Fatal(e)
+			}
+			if !tc.missing {
+				if e := os.WriteFile(filepath.Join(device, "state"), []byte(tc.state), 0600); e != nil {
+					t.Fatal(e)
+				}
+			}
+			if e := watchdogsReleased(root); (e != nil) != tc.fail {
+				t.Fatal(e)
+			}
+		})
+	}
+	root := t.TempDir()
+	if e := os.MkdirAll(filepath.Join(root, "watchdog0", "state"), 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e := watchdogsReleased(root); e == nil {
+		t.Fatal("ignored a non-ENOENT read failure")
+	}
+	if e := watchdogsReleased(filepath.Join(root, "absent")); e != nil {
+		t.Fatal(e)
+	}
+}
+
+func TestFatalRecoveryRequiresCompletedStorageProtection(t *testing.T) {
+	ordinary := errors.New("storage release failed")
+	waited, reboots := 0, 0
+	wait := func(d time.Duration) {
+		if d != 2*time.Minute {
+			t.Fatal(d)
+		}
+		waited++
+	}
+	reboot := func() error { reboots++; return nil }
+	if got := recoverFatal(ordinary, wait, reboot); got != ordinary || waited != 0 || reboots != 0 {
+		t.Fatal(got, waited, reboots)
+	}
+	if got := recoverFatal(nil, wait, reboot); got != nil || waited != 0 || reboots != 0 {
+		t.Fatal(got, waited, reboots)
+	}
+	safe := &RecoveryError{Cause: errors.New("listener failed")}
+	if got := recoverFatal(safe, wait, reboot); got != nil || waited != 1 || reboots != 1 {
+		t.Fatal(got, waited, reboots)
+	}
+	if got := recoverFatal(safe, wait, func() error { return errors.New("reboot refused") }); got == nil || !strings.Contains(got.Error(), "reboot refused") {
+		t.Fatal(got)
 	}
 }

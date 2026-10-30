@@ -111,13 +111,21 @@ type Gate struct {
 func (g *Gate) Enter(mutating bool) bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.closed {
+	if g.closed && mutating {
 		return false
 	}
 	if mutating {
 		g.active++
 	}
 	return true
+}
+
+// Streams may later mutate devices or execute commands, but existing streams
+// must not hold preparation open forever. OpenRC closes those during shutdown.
+func (g *Gate) EnterStream() bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return !g.closed
 }
 func (g *Gate) Leave(mutating bool) {
 	if mutating {

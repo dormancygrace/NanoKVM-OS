@@ -50,7 +50,10 @@ keep a board powered when one cable is removed.
 ## Transition and storage checks
 
 1. Close API admission atomically against active mutations; acquire the update,
-   APK runner, APK database and transfer exclusions. Queued package workers
+   APK runner, APK database and transfer exclusions. Ordinary GET/HEAD reads,
+   assets and status polling remain available during preparation. New WebSocket
+   and MJPEG streams, radio scans and user-disk file operations are excluded.
+   Queued package workers
    recheck the shutdown marker after obtaining their locks. Reject recovery or
    network configuration in progress, unsupported storage/network layouts and
    insufficient RAM. An unsuccessful preparation leaves normal services running.
@@ -76,16 +79,31 @@ keep a board powered when one cable is removed.
    mmap holders or uninterruptible userspace processes prevent readiness.
 7. Only after confirming all remaining mounts are memory/virtual filesystems,
    flush and mark physical disks and their partitions read-only.
-8. Restore the selected network and listeners from RAM. Check inactive
-   watchdogs, zero in-flight block I/O, and unchanged write, sector, discard and
-   flush counters for three successive one-second observations, then publish
-   readiness. Continue checking mounts, watchdogs and block counters every second.
+8. Restore the selected network and listeners from RAM. Check released
+   userspace watchdog ownership, zero in-flight block I/O, and unchanged write,
+   sector, discard and flush counters for three successive one-second
+   observations, then publish readiness. Continue checking mounts, optional
+   watchdog state and block counters every second.
+
+The board kernel does not enable `CONFIG_WATCHDOG_SYSFS`, so a watchdog may
+exist without a `state` attribute. A missing optional attribute is accepted
+only on the path that has already required a clean OpenRC shutdown and the
+exit of the old userspace. The managed BusyBox watchdog receives SIGTERM,
+writes its magic close and exits. With `dw_wdt`, hardware may keep running
+while the kernel worker feeds it. If available, `state` reports
+`WDOG_ACTIVE` (userspace ownership), not `WDOG_HW_RUNNING`: `active`,
+malformed values and read errors other than absence still prevent readiness.
+An active watchdog without an open userspace descriptor is not assumed safe.
 
 A failure never becomes safe later. Where the RAM page is reachable, an
 authenticated reboot is available even after a failed transition; magic wake
-is accepted only after successful readiness. A failure before the RAM listener
-starts may require serial recovery. Kernel hangs or a non-stoppable watchdog
-cannot be recovered by this userspace service.
+is accepted only after successful readiness. A fatal listener/TLS setup error
+after complete filesystem release and disk protection prints a recovery notice,
+keeps power connected for two minutes, then requests a normal kernel reboot.
+It never reports safe. Earlier fatal failures park PID 1 to avoid a kernel
+panic; serial output provides diagnostics, not a guaranteed login or recovery
+shell. These failures require manual recovery. Kernel hangs or loss of kernel
+watchdog feeding cannot be recovered by this userspace service.
 
 The claim is bounded by Linux filesystem/unmount results, block-device flush
 semantics and observable kernel counters. It does not prove an SD controller's
@@ -126,8 +144,11 @@ production preflight bypass. See [the fixture instructions](../tests/standby/REA
 
 The matrix covers static Ethernet and DHCP, web and UDP magic restart, a
 retained persistent mount (including one hidden by the eventual chroot), and an
-OpenRC stop failure. A writer touches every
-volume, a process retains a dirty shared mmap, a loop disk has a backing file on `/data`, and zram swap is active.
+OpenRC stop failure. A separate listener-failure case removes the staged
+network interface during service shutdown, checks the two-minute automatic
+reboot after storage protection, then checks the next normal boot.
+A writer touches every volume, a process retains a dirty shared mmap, a loop
+disk has a backing file on `/data`, and zram swap is active.
 Preparation is refused while each update/APK lock or the transfer marker is
 owned elsewhere. The next boot verifies final writer markers and all mmap
 bytes, and starts ordinary services without re-entering standby.
@@ -135,12 +156,15 @@ bytes, and starts ordinary services without re-entering standby.
 QMP independently observes all guest disks during five seconds of readiness:
 read bytes/operations, write bytes/operations and flush operations must remain
 unchanged. The helper additionally checks discard accounting. Failed cases
-must report `safe:false` and still accept authenticated restart.
+with a reachable RAM listener must report `safe:false` and still accept
+authenticated restart.
 
 Unit/race tests cover authorization/origin handling, readiness and failure
 states, concurrent restart, queued magic packets, mount/counter/process/route
-parsers, restricted Wi-Fi configuration, RAM budgeting and OpenRC failure
-events. Executed JavaScript tests verify the page's safe-message gate and a
+parsers, restricted Wi-Fi configuration, RAM budgeting, OpenRC failure
+events, optional watchdog sysfs state, delayed fatal recovery and read/stream
+admission during preparation. Executed JavaScript tests verify the page's
+safe-message gate and a
 late status response racing with restart. Standard server, web, cross-build
 and package assembly checks apply.
 
@@ -157,7 +181,10 @@ do not place backup trees on the SD card.
 - Exercise normal shutdown under sustained writes to root/boot/data, an open
   shared mmap, memory pressure with zram, mounted writable USB media and active
   add-ons. Verify stop results, no persistent mounts, no swap/backing files,
-  inactive watchdogs and disk/partition read-only flags.
+  clean watchdog daemon exit and disk/partition read-only flags. If watchdog
+  sysfs state is available, require inactive userspace ownership; otherwise
+  verify kernel servicing by remaining in standby well beyond the configured
+  watchdog timeout, including the observation interval below.
 - Observe block trace and whole-device counters before transition and for at
   least ten minutes after readiness, including F2FS GC/discard/checkpoint
   activity. Exercise DHCP renewal, link loss/reconnect and station reassociation

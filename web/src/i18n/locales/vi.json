@@ -891,10 +891,16 @@
     "deviceTime": "Thời gian trên thiết bị",
     "timezone": "Múi giờ",
     "format": "Định dạng giờ",
-    "preview": "Xem trước",
     "synchronized": "Đã đồng bộ",
     "waiting": "Chưa xác nhận đồng bộ",
-    "save": "Lưu"
+    "save": "Lưu",
+    "device": "Thiết bị",
+    "display": "Hiển thị",
+    "displayHint": "Cho toàn bộ giao diện, kể cả thời điểm bắt tay VPN.",
+    "setFromBrowser": "Lấy giờ từ trình duyệt này",
+    "setFromBrowserHint": "Cho mạng không có NTP. Giờ cũng được lưu vào đồng hồ của thiết bị.",
+    "clockSet": "Đã đặt giờ thiết bị",
+    "clockFailed": "Không thể đặt giờ thiết bị."
   },
   "recorder": {
     "title": "Quay video",

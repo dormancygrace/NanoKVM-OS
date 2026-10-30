@@ -1,14 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Select, Spin } from 'antd';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, message, Select, Spin } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import {
-  formatDeviceDay,
-  formatDeviceTime,
-  type DateFormat,
-  type DateTimeConfig
-} from '@/lib/date-time.ts';
+import { formatDeviceTime, type DateFormat, type DateTimeConfig } from '@/lib/date-time.ts';
 import { http } from '@/lib/http.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
@@ -17,19 +12,35 @@ import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui
 
 type Status = { config: DateTimeConfig; zones: string[]; now: number; synchronized: boolean };
 
+// What is being applied: one select, the server list or the clock.
+type Operation = 'timezone' | 'format' | 'dateFormat' | 'servers' | 'clock';
+
+// System > Date & time. The device (time zone, NTP servers) and the display
+// formats of the interface. The selects apply at once; the server list,
+// which restarts synchronisation, has its own Save.
 export function DateTimeSettings() {
   const { t, i18n } = useTranslation();
   const setPreferences = useSetAtom(timePreferencesAtom);
   const [status, setStatus] = useState<Status>();
-  const [config, setConfig] = useState<DateTimeConfig>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [servers, setServers] = useState<string[]>([]);
+  const [busy, setBusy] = useState<Operation>();
+  const [loadError, setLoadError] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const received = useRef(0);
   const mounted = useRef(false);
   const operation = useRef(false);
-  const dirty = useRef(false);
+  const serversEdited = useRef(false);
+
+  const show = useCallback(
+    (next: Status) => {
+      received.current = performance.now();
+      setElapsed(0);
+      setStatus(next);
+      setPreferences(next.config);
+      if (!serversEdited.current) setServers(next.config.servers);
+    },
+    [setPreferences]
+  );
 
   useEffect(() => {
     mounted.current = true;
@@ -39,14 +50,10 @@ export function DateTimeSettings() {
         const rsp = await http.get<Status>('/api/vm/date-time');
         if (rsp.code !== 0) throw new Error(rsp.msg);
         if (!mounted.current || operation.current) return;
-        received.current = performance.now();
-        setElapsed(0);
-        setStatus(rsp.data);
-        setPreferences(rsp.data.config);
-        if (!dirty.current) setConfig(rsp.data.config);
-        setError('');
+        show(rsp.data);
+        setLoadError('');
       } catch {
-        if (mounted.current) setError(t('dateTime.loadFailed'));
+        if (mounted.current) setLoadError(t('dateTime.loadFailed'));
       }
     };
     void refresh();
@@ -57,171 +64,172 @@ export function DateTimeSettings() {
       stopPolling();
       window.clearInterval(tick);
     };
-  }, [setPreferences, t]);
+  }, [show, t]);
 
-  function change(patch: Partial<DateTimeConfig>) {
-    dirty.current = true;
-    setSaved(false);
-    setConfig((current) => (current ? { ...current, ...patch } : current));
-  }
-
-  async function save() {
-    if (!config || operation.current) return;
+  async function run(kind: Operation, request: () => Promise<{ code: number; data: Status }>) {
+    if (operation.current) return false;
     operation.current = true;
-    setBusy(true);
-    setError('');
-    setSaved(false);
+    setBusy(kind);
     try {
-      const rsp = await http.post<Status>('/api/vm/date-time', config);
-      if (!mounted.current) return;
+      const rsp = await request();
+      if (!mounted.current) return false;
       if (rsp.code !== 0) {
-        showRequestError(rsp, 'dateTime.saveFailed');
-        return;
+        showRequestError(rsp, kind === 'clock' ? 'dateTime.clockFailed' : 'dateTime.saveFailed');
+        return false;
       }
-      dirty.current = false;
-      received.current = performance.now();
-      setElapsed(0);
-      setStatus(rsp.data);
-      setConfig(rsp.data.config);
-      setPreferences(rsp.data.config);
-      setSaved(true);
+      if (kind === 'servers') serversEdited.current = false;
+      show(rsp.data);
+      return true;
     } catch (err) {
-      if (mounted.current) showRequestError(err, 'dateTime.saveFailed');
+      if (mounted.current)
+        showRequestError(err, kind === 'clock' ? 'dateTime.clockFailed' : 'dateTime.saveFailed');
+      return false;
     } finally {
       operation.current = false;
-      if (mounted.current) setBusy(false);
+      if (mounted.current) setBusy(undefined);
     }
   }
 
+  // One setting with the stored others: servers being edited are not sent.
+  function apply(kind: Exclude<Operation, 'clock'>, patch: Partial<DateTimeConfig>) {
+    if (!status) return Promise.resolve(false);
+    return run(kind, () => http.post<Status>('/api/vm/date-time', { ...status.config, ...patch }));
+  }
+
+  async function saveServers() {
+    if (await apply('servers', { servers })) void message.success(t('dateTime.saved'));
+  }
+
+  async function setClockFromBrowser() {
+    if (await run('clock', () => http.post<Status>('/api/vm/date-time/clock', { now: Date.now() })))
+      void message.success(t('dateTime.clockSet'));
+  }
+
+  if (!status) return loadError ? <Alert type="error" showIcon message={loadError} /> : <Spin />;
+
   return (
     <div className="space-y-6">
-      {error && <Alert type="error" showIcon message={error} />}
-      {!status || !config ? (
-        <Spin />
-      ) : (
-        <>
-          <Panel>
-            <div className="text-fg-muted mb-2 text-xs">{t('dateTime.deviceTime')}</div>
-            <div className="text-xl tabular-nums">
-              {formatDeviceTime(status.now + elapsed, status.config, i18n.language, true)}
-            </div>
-            <div className="text-fg-muted mt-2 flex flex-wrap items-center gap-2 text-xs">
-              <span>{status.config.timezone}</span>
-              <StatusBadge tone={status.synchronized ? 'success' : 'danger'}>
-                {t(status.synchronized ? 'dateTime.synchronized' : 'dateTime.waiting')}
-              </StatusBadge>
-            </div>
-          </Panel>
-          <SettingsSection>
-            <SettingRow label={t('dateTime.timezone')} htmlFor="date-time-timezone">
-              <Select
-                id="date-time-timezone"
-                aria-label={t('dateTime.timezone')}
-                style={{ width: 180 }}
-                popupMatchSelectWidth={false}
-                showSearch
-                optionFilterProp="label"
-                value={config.timezone}
-                disabled={busy}
-                options={status.zones.map((zone) => ({
-                  value: zone,
-                  label: zone.replace(/_/g, ' ')
-                }))}
-                onChange={(timezone) => change({ timezone })}
-              />
-            </SettingRow>
-            <SettingRow
-              label={t('dateTime.format')}
-              description={
-                <>
-                  {t('dateTime.preview')}:{' '}
-                  {formatDeviceTime(status.now + elapsed, config, i18n.language)}
-                </>
-              }
-              htmlFor="date-time-format"
+      {loadError && <Alert type="error" showIcon message={loadError} />}
+      <Panel>
+        <div className="text-fg-muted mb-2 text-xs">{t('dateTime.deviceTime')}</div>
+        <div className="text-xl tabular-nums">
+          {formatDeviceTime(status.now + elapsed, status.config, i18n.language, true)}
+        </div>
+        <div className="text-fg-muted mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <span>{status.config.timezone}</span>
+          {/* Not yet, or no network: a state, not an error. */}
+          <StatusBadge tone={status.synchronized ? 'success' : 'warning'}>
+            {t(status.synchronized ? 'dateTime.synchronized' : 'dateTime.waiting')}
+          </StatusBadge>
+        </div>
+        {!status.synchronized && (
+          <div className="mt-3 space-y-1">
+            <Button
+              size="small"
+              loading={busy === 'clock'}
+              disabled={!!busy}
+              onClick={() => void setClockFromBrowser()}
             >
-              <Select
-                id="date-time-format"
-                aria-label={t('dateTime.format')}
-                aria-describedby="date-time-format-description"
-                style={{ width: 180 }}
-                value={config.format}
-                disabled={busy}
-                options={[
-                  { value: '24', label: t('dateTime.hour24') },
-                  { value: '12', label: t('dateTime.hour12') }
-                ]}
-                onChange={(format) => change({ format })}
-              />
-            </SettingRow>
-            <SettingRow
-              label={t('dateTime.dateFormat')}
-              description={
-                <>
-                  {t('dateTime.preview')}:{' '}
-                  {formatDeviceDay(status.now + elapsed, config, i18n.language)}
-                </>
-              }
-              htmlFor="date-time-date-format"
-            >
-              <Select
-                id="date-time-date-format"
-                aria-label={t('dateTime.dateFormat')}
-                aria-describedby="date-time-date-format-description"
-                style={{ width: 180 }}
-                value={config.dateFormat ?? 'auto'}
-                disabled={busy}
-                options={[
-                  { value: 'auto', label: t('dateTime.dateAuto') },
-                  { value: 'dmy', label: t('dateTime.dateDmy') },
-                  { value: 'mdy', label: t('dateTime.dateMdy') },
-                  { value: 'ymd', label: t('dateTime.dateYmd') }
-                ]}
-                onChange={(dateFormat: DateFormat) => change({ dateFormat })}
-              />
-            </SettingRow>
-            <SettingRow
-              label={t('dateTime.servers')}
-              description={t('dateTime.serversHelp')}
-              htmlFor="date-time-servers"
-              stacked
-            >
-              <Select
-                id="date-time-servers"
-                aria-label={t('dateTime.servers')}
-                aria-describedby="date-time-servers-description"
-                className="w-full"
-                mode="tags"
-                value={config.servers}
-                disabled={busy}
-                tokenSeparators={[',', ' ']}
-                maxCount={6}
-                options={[
-                  '0.pool.ntp.org',
-                  '1.pool.ntp.org',
-                  '2.pool.ntp.org',
-                  '3.pool.ntp.org',
-                  'time.cloudflare.com',
-                  'time.google.com'
-                ].map((value) => ({ value }))}
-                onChange={(servers) => change({ servers })}
-              />
-            </SettingRow>
-            <p className="text-fg-muted mt-0 text-xs">{t('dateTime.scope')}</p>
-            <div>
-              <Button
-                type="primary"
-                loading={busy}
-                disabled={!dirty.current || config.servers.length === 0}
-                onClick={() => void save()}
-              >
-                {t('dateTime.save')}
-              </Button>
-            </div>
-            {saved && <Alert type="success" showIcon message={t('dateTime.saved')} />}
-          </SettingsSection>
-        </>
-      )}
+              {t('dateTime.setFromBrowser')}
+            </Button>
+            <div className="text-fg-muted text-xs">{t('dateTime.setFromBrowserHint')}</div>
+          </div>
+        )}
+      </Panel>
+      <SettingsSection title={t('dateTime.device')}>
+        <SettingRow label={t('dateTime.timezone')} htmlFor="date-time-timezone">
+          <Select
+            id="date-time-timezone"
+            aria-label={t('dateTime.timezone')}
+            style={{ width: 260, maxWidth: '100%' }}
+            popupMatchSelectWidth={false}
+            showSearch
+            optionFilterProp="label"
+            value={status.config.timezone}
+            loading={busy === 'timezone'}
+            disabled={!!busy}
+            options={status.zones.map((zone) => ({
+              value: zone,
+              label: zone.replace(/_/g, ' ')
+            }))}
+            onChange={(timezone) => void apply('timezone', { timezone })}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t('dateTime.servers')}
+          description={t('dateTime.serversHelp')}
+          htmlFor="date-time-servers"
+          stacked
+        >
+          <Select
+            id="date-time-servers"
+            aria-label={t('dateTime.servers')}
+            aria-describedby="date-time-servers-description"
+            className="w-full"
+            mode="tags"
+            value={servers}
+            disabled={!!busy}
+            tokenSeparators={[',', ' ']}
+            maxCount={6}
+            options={[
+              '0.pool.ntp.org',
+              '1.pool.ntp.org',
+              '2.pool.ntp.org',
+              '3.pool.ntp.org',
+              'time.cloudflare.com',
+              'time.google.com'
+            ].map((value) => ({ value }))}
+            onChange={(next) => {
+              serversEdited.current = true;
+              setServers(next);
+            }}
+          />
+        </SettingRow>
+        <div>
+          <Button
+            type="primary"
+            loading={busy === 'servers'}
+            disabled={!serversEdited.current || servers.length === 0 || !!busy}
+            onClick={() => void saveServers()}
+          >
+            {t('dateTime.save')}
+          </Button>
+        </div>
+      </SettingsSection>
+      <SettingsSection title={t('dateTime.display')} description={t('dateTime.displayHint')}>
+        <SettingRow label={t('dateTime.format')} htmlFor="date-time-format">
+          <Select
+            id="date-time-format"
+            aria-label={t('dateTime.format')}
+            style={{ width: 180 }}
+            value={status.config.format}
+            loading={busy === 'format'}
+            disabled={!!busy}
+            options={[
+              { value: '24', label: t('dateTime.hour24') },
+              { value: '12', label: t('dateTime.hour12') }
+            ]}
+            onChange={(format) => void apply('format', { format })}
+          />
+        </SettingRow>
+        <SettingRow label={t('dateTime.dateFormat')} htmlFor="date-time-date-format">
+          <Select
+            id="date-time-date-format"
+            aria-label={t('dateTime.dateFormat')}
+            style={{ width: 180 }}
+            value={status.config.dateFormat ?? 'auto'}
+            loading={busy === 'dateFormat'}
+            disabled={!!busy}
+            options={[
+              { value: 'auto', label: t('dateTime.dateAuto') },
+              { value: 'dmy', label: t('dateTime.dateDmy') },
+              { value: 'mdy', label: t('dateTime.dateMdy') },
+              { value: 'ymd', label: t('dateTime.dateYmd') }
+            ]}
+            onChange={(dateFormat: DateFormat) => void apply('dateFormat', { dateFormat })}
+          />
+        </SettingRow>
+      </SettingsSection>
     </div>
   );
 }

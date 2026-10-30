@@ -891,10 +891,16 @@
     "deviceTime": "Enhetens tid",
     "timezone": "Tidszon",
     "format": "Tidsformat",
-    "preview": "Förhandsvisning",
     "synchronized": "Synkroniserad",
     "waiting": "Synkronisering inte bekräftad",
-    "save": "Spara"
+    "save": "Spara",
+    "device": "Enhet",
+    "display": "Visning",
+    "displayHint": "För hela gränssnittet, även VPN-handskakningstider.",
+    "setFromBrowser": "Använd tiden från den här webbläsaren",
+    "setFromBrowserHint": "För ett nätverk utan NTP. Tiden sparas även i enhetens klocka.",
+    "clockSet": "Enhetens tid har ställts in",
+    "clockFailed": "Det gick inte att ställa in enhetens tid."
   },
   "recorder": {
     "title": "Videoinspelning",

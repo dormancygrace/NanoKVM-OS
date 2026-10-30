@@ -888,10 +888,16 @@
     "deviceTime": "Waktu perangkat",
     "timezone": "Zona waktu",
     "format": "Format waktu",
-    "preview": "Pratinjau",
     "synchronized": "Tersinkron",
     "waiting": "Sinkronisasi belum dikonfirmasi",
-    "save": "Simpan"
+    "save": "Simpan",
+    "device": "Perangkat",
+    "display": "Tampilan",
+    "displayHint": "Untuk seluruh antarmuka, termasuk waktu handshake VPN.",
+    "setFromBrowser": "Gunakan waktu browser ini",
+    "setFromBrowserHint": "Untuk jaringan tanpa NTP. Waktu juga disimpan ke jam perangkat.",
+    "clockSet": "Waktu perangkat diatur",
+    "clockFailed": "Tidak dapat mengatur waktu perangkat."
   },
   "recorder": {
     "title": "Perekaman video",

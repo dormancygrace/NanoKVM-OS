@@ -2193,7 +2193,6 @@
   },
   "dateTime": {
     "save": "Uložit",
-    "preview": "Náhled",
     "dateFormat": "Formát data",
     "dateAuto": "Podle jazyka",
     "dateDmy": "DD.MM.RRRR",
@@ -2211,8 +2210,14 @@
     "saved": "Nastavení data a času uložena",
     "loadFailed": "Nebylo možné číst čas v zařízení. Zkontrolujte připojení.",
     "serversHelp": "Zvolte nebo zadejte 1-6 názvů hostitelů či IP adres. Změna serverů restartuje synchronizaci času.",
-    "scope": "Časové pásmo je uplatňováno na zařízení. Formát času a data je sdílen napříč rozhraním, včetně časů ustavení VPN spojení.",
-    "saveFailed": "Nastavení nebylo možné uplatnit. Zkontrolujte adresy serverů a připojení zařízení."
+    "saveFailed": "Nastavení nebylo možné uplatnit. Zkontrolujte adresy serverů a připojení zařízení.",
+    "device": "Zařízení",
+    "display": "Zobrazení",
+    "displayHint": "Pro celé rozhraní včetně časů handshake VPN.",
+    "setFromBrowser": "Převzít čas z tohoto prohlížeče",
+    "setFromBrowserHint": "Pro síť bez NTP. Čas se uloží i do hodin zařízení.",
+    "clockSet": "Čas zařízení nastaven",
+    "clockFailed": "Čas zařízení se nepodařilo nastavit."
   },
   "sessionControl": {
     "take": "Převzít ovládání",

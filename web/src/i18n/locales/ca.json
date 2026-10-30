@@ -579,8 +579,7 @@
       "title": "Memòria",
       "available": "Disponible",
       "size": "Capacitat",
-      "used": "Utilitzat",
-      "algorithm": "Compressió"
+      "used": "Utilitzat"
     },
     "services": {
       "title": "Serveis"

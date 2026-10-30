@@ -579,8 +579,7 @@
       "title": "Minne",
       "available": "Tillgängligt",
       "size": "Kapacitet",
-      "used": "Använt",
-      "algorithm": "Komprimering"
+      "used": "Använt"
     },
     "services": {
       "title": "Tjänster"

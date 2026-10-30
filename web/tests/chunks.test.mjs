@@ -45,7 +45,7 @@ const optional = {
   'terminal (xterm)': 'xterm-helper-textarea',
   'virtual keyboard': 'hg-theme-default',
   'picoclaw (markdown)': 'gfmFootnote',
-  'Russian locale': 'Сначала используется ZRAM',
+  'Russian locale': 'изнашивает карту',
   'USB settings panel': 'usb-preset'
 };
 

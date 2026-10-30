@@ -578,8 +578,7 @@
       "title": "Hukommelse",
       "available": "Tilgængelig",
       "size": "Kapacitet",
-      "used": "Brugt",
-      "algorithm": "Komprimering"
+      "used": "Brugt"
     },
     "services": {
       "title": "Tjenester"

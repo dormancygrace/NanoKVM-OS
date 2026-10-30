@@ -314,6 +314,7 @@ test('memory effect replay and locale changes discard stale reads and keep one p
   const requests = [],
     pollers = new Set();
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
+    'lucide-react': { ChevronDownIcon: 'Chevron' },
     '@/lib/swap-request.ts': { swapRequestSize },
     '@/lib/theme-tokens.ts': { themeTokens: { info: '#38bdf8' } },
     '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },
@@ -380,6 +381,7 @@ test('memory page shows the size of the video memory and whether Linux shares it
   });
   let current = status(true, 144);
   const h = harness('../src/pages/desktop/menu/settings/memory/index.tsx', 'Memory', {
+    'lucide-react': { ChevronDownIcon: 'Chevron' },
     '@/lib/swap-request.ts': { swapRequestSize },
     '@/lib/theme-tokens.ts': { themeTokens: { info: '#38bdf8' } },
     '@/components/ui/settings.tsx': { Panel: 'Panel', SettingRow: 'SettingRow' },

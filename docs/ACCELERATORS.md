@@ -9,7 +9,7 @@ The SG2002 has engines beside the CPU:
 - the AXI monitors in front of the DDR controller;
 - the true random number generator.
 
-NanoKVM OS builds and installs their drivers, but loads them only when something uses them. None of NanoKVM OS's own features use them yet. All numbers on this page are from a NanoKVM PCIe with a 1920 × 1080 input at 90 Hz.
+NanoKVM OS builds and installs their drivers, but loads them only when something uses them. MJPEG uses the IVE to send only the parts of the screen that changed ([Video](VIDEO.md#mjpeg-changed-tiles-only)); the server loads its driver for the first tiled viewer. All numbers on this page are from a NanoKVM PCIe with a 1920 × 1080 input at 90 Hz.
 
 ## Loading
 
@@ -47,6 +47,10 @@ Measured: SAD in 16 × 16 blocks, bit-exact against the CPU.
 | 960 × 544 | 1.4 ms |
 | 1280 × 720 | 2.5 ms |
 | 1920 × 1080 | 5.5 ms |
+
+Measured at 1920 × 1080 with the tiled MJPEG layout: SAD over the 67 whole block rows about 8 ms, the 16-row strip below them under 1 ms, a DMA copy of the whole luma plane about 6 ms. SAD in 16 × 16 blocks compares whole block rows only (rows 1072-1079 of a 1080-high picture are left out) and writes one value per block: its outputs need only the block grid's size.
+
+**An operation longer than 4 ms used to fail while it ran.** An operation that sleeps until the engine's interrupt gave up after one tick (`msecs_to_jiffies(1)`, 4 ms at HZ=250), and patch 0012 then reset the engine in the middle of its writes: a full HD SAD returned wrong maps, and the SoC hung twice on the stand. Osdrv patch 0020 waits as long as the polling path (100 ms), as the read-only module parameter `timeout_ms`; NanoKVM OS uses full-size IVE operations only with a driver that has it.
 
 **A 3840 × 2160 operation hangs the engine.** Before osdrv patch 0012, one such operation left every later two-input operation reading its second image from a stale address, with wrong results and no error, until the board restarted. The patch resets the engine after an operation that times out. The vendor user library does not report IVE errors, so callers must check sizes themselves.
 

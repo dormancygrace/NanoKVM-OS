@@ -95,9 +95,10 @@ func GetKvmVision() *KvmVision {
 }
 
 func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data []byte, result int) {
-	// Every JPEG capture passes here: the stream, MCP and the screenshots. The
-	// file check in readMjpegChecked stays out of the lock, which the video
-	// reader shares; native capture repeats the check under its own mutex.
+	// Every JPEG capture passes here: the stream, MCP and the screenshots.
+	// Native capture refuses a 3840x2160 input under its own mutex; after a
+	// refusal readMjpegChecked holds the next reads off that lock, which the
+	// video reader shares.
 	data, result = readMjpegChecked(func() ([]byte, int) {
 		k.mutex.Lock()
 		defer k.mutex.Unlock()

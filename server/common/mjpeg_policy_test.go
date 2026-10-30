@@ -38,6 +38,7 @@ func fakeCapture(t *testing.T, width, height string, limit int) {
 	}
 	previousDir, previous := nativeStateDir, *GetScreen()
 	nativeStateDir = dir
+	mjpegRefusal.Store(0)
 	SetScreen("resolution", limit)
 	t.Cleanup(func() {
 		nativeStateDir = previousDir
@@ -89,7 +90,8 @@ func fakeCaptureFiles(t *testing.T, width, height *string) {
 	}
 	previous := nativeStateDir
 	nativeStateDir = dir
-	t.Cleanup(func() { nativeStateDir = previous })
+	mjpegRefusal.Store(0)
+	t.Cleanup(func() { nativeStateDir = previous; mjpegRefusal.Store(0) })
 }
 
 func str(s string) *string { return &s }
@@ -118,21 +120,40 @@ func TestNativeRefusalIsTheBlockedResultWhateverTheFilesSay(t *testing.T) {
 	}
 }
 
-// 4K at the file check never reaches native capture.
-func TestFastPathDoesNotCallNativeAt4K(t *testing.T) {
-	fakeCaptureFiles(t, str("3840"), str("2160"))
-	_, result := readMjpegChecked(func() ([]byte, int) {
-		t.Fatal("native capture called for a 3840x2160 input")
-		return nil, 0
-	})
-	if result != MjpegBlockedResult {
-		t.Fatalf("result = %d", result)
+// A native refusal holds off native capture for the hold time; after it,
+// native capture is asked again.
+func TestNativeRefusalHoldsOffTheNextReads(t *testing.T) {
+	fakeCaptureFiles(t, str("1920"), str("1080"))
+	calls := 0
+	refuse := func() ([]byte, int) { calls++; return nil, nativeMjpegBlocked }
+	for i := 0; i < 3; i++ {
+		if _, result := readMjpegChecked(refuse); result != MjpegBlockedResult {
+			t.Fatalf("read %d: result %d", i, result)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("native capture called %d times within the hold, want 1", calls)
+	}
+	mjpegRefusal.Store(0)
+	if _, result := readMjpegChecked(func() ([]byte, int) { calls++; return []byte("jpeg"), 0 }); result != 0 || calls != 2 {
+		t.Fatalf("after the hold: result %d, native calls %d", result, calls)
 	}
 }
 
-// The input is 1080p when the files are read and 3840x2160 by the time native
-// capture takes its mutex: the refusal comes from native, and the next read,
-// after the files caught up, from the fast path.
+// The stream path reads no state files: with files saying 3840x2160 (or none)
+// native capture is asked, and its answer counts.
+func TestReadMjpegReadsNoStateFiles(t *testing.T) {
+	for _, files := range [][2]*string{{str("3840"), str("2160")}, {nil, nil}} {
+		fakeCaptureFiles(t, files[0], files[1])
+		calls := 0
+		if _, result := readMjpegChecked(func() ([]byte, int) { calls++; return []byte("jpeg"), 0 }); result != 0 || calls != 1 {
+			t.Fatalf("result %d, native calls %d; want native capture asked", result, calls)
+		}
+	}
+}
+
+// The input became 3840x2160 while a capture was in flight: the refusal comes
+// from native, and the next read stops at the hold without native capture.
 func TestAllowedInputBecomesUHDBetweenTheCheckAndTheNativeCall(t *testing.T) {
 	fakeCaptureFiles(t, str("1920"), str("1080"))
 	nativeCalls := 0
@@ -144,7 +165,6 @@ func TestAllowedInputBecomesUHDBetweenTheCheckAndTheNativeCall(t *testing.T) {
 	if nativeCalls != 1 || result != MjpegBlockedResult {
 		t.Fatalf("native calls %d result %d, want 1 and %d", nativeCalls, result, MjpegBlockedResult)
 	}
-	fakeCaptureFiles(t, str("3840"), str("2160"))
 	_, result = readMjpegChecked(func() ([]byte, int) {
 		nativeCalls++
 		return nil, 0

@@ -38,7 +38,7 @@ export const Password = () => {
 
     api
       .changePassword(currentPassword, password)
-      .then((rsp: any) => {
+      .then((rsp) => {
         if (rsp.code !== 0) {
           setMsg(
             rsp.code === invalidCurrentPasswordCode

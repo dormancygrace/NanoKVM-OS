@@ -1,8 +1,1 @@
-export type State = 'notInstall' | 'notRunning' | 'notLogin' | 'stopped' | 'running';
-
-export type Status = {
-  state: State;
-  name: string;
-  ip: string;
-  version: string;
-};
+export type { NetbirdState as State, NetbirdStatus as Status } from '@/api/extensions/netbird';

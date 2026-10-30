@@ -20,19 +20,19 @@ export function login(username: string, password: string) {
     passwordEncoding: 'plain',
     password
   };
-  return http.post('/api/auth/login', data, { sensitive: true });
+  return http.post<{ token: string } | null>('/api/auth/login', data, { sensitive: true });
 }
 
 export function logout() {
-  return http.post('/api/auth/logout');
+  return http.post<null>('/api/auth/logout');
 }
 
 export function getAccount() {
-  return http.get('/api/auth/account');
+  return http.get<Account>('/api/auth/account');
 }
 
 export function changePassword(currentPassword: string, password: string) {
-  return http.post(
+  return http.post<null>(
     '/api/auth/password',
     { currentPassword, password, passwordEncoding: 'plain' },
     { sensitive: true }
@@ -40,11 +40,11 @@ export function changePassword(currentPassword: string, password: string) {
 }
 
 export function getUsers() {
-  return http.get('/api/auth/users');
+  return http.get<{ users: User[] }>('/api/auth/users');
 }
 
 export function createUser(username: string, password: string, role: UserRole) {
-  return http.post(
+  return http.post<null>(
     '/api/auth/users',
     { username, password, role, passwordEncoding: 'plain' },
     { sensitive: true }
@@ -55,7 +55,7 @@ export function updateUser(
   username: string,
   data: Partial<Pick<User, 'username' | 'role' | 'enabled'>>
 ) {
-  return http.request({
+  return http.request<null>({
     method: 'put',
     url: `/api/auth/users/${encodeURIComponent(username)}`,
     data
@@ -63,11 +63,11 @@ export function updateUser(
 }
 
 export function deleteUser(username: string) {
-  return http.delete(`/api/auth/users/${encodeURIComponent(username)}`);
+  return http.delete<null>(`/api/auth/users/${encodeURIComponent(username)}`);
 }
 
 export function resetUserPassword(username: string, password: string) {
-  return http.post(
+  return http.post<null>(
     `/api/auth/users/${encodeURIComponent(username)}/password`,
     { password, passwordEncoding: 'plain' },
     { sensitive: true }

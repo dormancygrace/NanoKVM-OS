@@ -3,7 +3,8 @@ import { Button, message } from 'antd';
 import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
-import { http } from '@/lib/http';
+import { http, type ApiResponse } from '@/lib/http';
+import type { Branding as BrandingState } from '@/jotai/branding';
 import { brandingAtom, brandingFavicon, brandingLogo } from '@/jotai/branding';
 import { Panel, SettingRow, StatusBadge } from '@/components/ui/settings.tsx';
 
@@ -17,7 +18,7 @@ export const Branding = () => {
   const logoInput = useRef<HTMLInputElement>(null);
   const faviconInput = useRef<HTMLInputElement>(null);
 
-  async function update(asset: Asset, action: () => ReturnType<typeof http.get>) {
+  async function update(asset: Asset, action: () => Promise<ApiResponse<BrandingState>>) {
     setBusy(asset);
     try {
       const rsp = await action();
@@ -37,7 +38,9 @@ export const Branding = () => {
       return;
     }
     await update(asset, () =>
-      http.post(`/api/branding/${asset}`, file, { headers: { 'Content-Type': file.type } })
+      http.post<BrandingState>(`/api/branding/${asset}`, file, {
+        headers: { 'Content-Type': file.type }
+      })
     );
   }
 
@@ -104,7 +107,9 @@ export const Branding = () => {
                 <Button
                   className="h-auto w-full max-w-full py-1 whitespace-normal sm:w-auto [&>span]:break-words [&>span]:whitespace-normal"
                   disabled={busy !== undefined}
-                  onClick={() => update(asset, () => http.delete(`/api/branding/${asset}`))}
+                  onClick={() =>
+                    update(asset, () => http.delete<BrandingState>(`/api/branding/${asset}`))
+                  }
                 >
                   {tr('restoreDefault')}
                 </Button>

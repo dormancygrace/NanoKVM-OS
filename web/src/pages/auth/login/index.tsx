@@ -46,7 +46,7 @@ export const Login = (): ReactElement => {
 
     api
       .login(username, password)
-      .then((rsp: any) => {
+      .then((rsp) => {
         if (rsp.code !== 0) {
           let errorMsg = t('auth.error');
           if (rsp.code === -2) errorMsg = t('auth.invalidUser');

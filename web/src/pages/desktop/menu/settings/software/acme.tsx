@@ -29,7 +29,7 @@ export const AcmeAddon = ({ onOpen }: { onOpen: () => void }) => {
       const response = await api.getStatus();
       if (!mounted.current || started !== generation.current) return;
       if (response.code !== 0) throw new Error(response.msg);
-      setStatus(response.data as AcmeStatus);
+      setStatus(response.data);
       setError('');
     } catch {
       if (mounted.current && started === generation.current)

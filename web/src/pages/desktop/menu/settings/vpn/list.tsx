@@ -36,10 +36,10 @@ export const VPNList = ({ open }: { open: (tab: string) => void }) => {
     const refresh = () => {
       for (const provider of vpnProviders) {
         void http
-          .get(`/api/extensions/${provider.id}/status`)
+          .get<VPNStatusData>(`/api/extensions/${provider.id}/status`)
           .then((rsp) => {
             if (!active || rsp.code !== 0) return;
-            const data = rsp.data as VPNStatusData;
+            const data = rsp.data;
             setSummaries((current) => ({ ...current, [provider.id]: summarizeVPN(data) }));
             if ('version' in data && data.version) {
               setVersions((current) => ({ ...current, [provider.id]: data.version }));
@@ -48,7 +48,7 @@ export const VPNList = ({ open }: { open: (tab: string) => void }) => {
           .catch(() => {});
       }
       void http
-        .get('/api/extensions/vpn/versions')
+        .get<Record<string, string>>('/api/extensions/vpn/versions')
         .then((rsp) => {
           if (active && rsp.code === 0) setVersions((current) => ({ ...current, ...rsp.data }));
         })

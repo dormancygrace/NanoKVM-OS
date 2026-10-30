@@ -36,7 +36,7 @@ export function DateTimeSettings() {
     const refresh = async () => {
       if (operation.current) return;
       try {
-        const rsp = await http.get('/api/vm/date-time');
+        const rsp = await http.get<Status>('/api/vm/date-time');
         if (rsp.code !== 0) throw new Error(rsp.msg);
         if (!mounted.current || operation.current) return;
         received.current = performance.now();
@@ -72,7 +72,7 @@ export function DateTimeSettings() {
     setError('');
     setSaved(false);
     try {
-      const rsp = await http.post('/api/vm/date-time', config);
+      const rsp = await http.post<Status>('/api/vm/date-time', config);
       if (!mounted.current) return;
       if (rsp.code !== 0) {
         showRequestError(rsp, 'dateTime.saveFailed');

@@ -47,7 +47,7 @@ import {
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
-import { getAddonInventory, type AddonInventory } from '@/api/addons';
+import { getAddonInventory } from '@/api/addons';
 import { getBluetoothState } from '@/api/vm.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { retryableLazy } from '@/lib/retryable-lazy.ts';
@@ -345,7 +345,7 @@ export const Settings = ({
         const response = await getAddonInventory();
         if (!active) return;
         if (response.code !== 0) throw new Error(response.msg);
-        setInventory(response.data as AddonInventory);
+        setInventory(response.data);
         setInventoryError(false);
       } catch {
         if (active) setInventoryError(true);

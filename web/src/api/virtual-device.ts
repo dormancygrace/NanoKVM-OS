@@ -1,11 +1,11 @@
 import { http } from '@/lib/http.ts';
-import type { UsbComposition } from '@/lib/usb-composition.ts';
+import type { UsbComposition, UsbStatus } from '@/lib/usb-composition.ts';
 
 export const usbCompositionChangedEvent = 'nanokvm:usb-composition-changed';
 
 // get virtual devices status
 export function getVirtualDevice() {
-  return http.get('/api/vm/device/virtual');
+  return http.get<UsbStatus>('/api/vm/device/virtual');
 }
 
 export async function setUsbComposition(composition: UsbComposition, revision: string) {
@@ -22,7 +22,7 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
     storageIdentity,
     userDisk
   } = composition;
-  const response = await http.request({
+  const response = await http.request<UsbStatus>({
     method: 'put',
     url: '/api/vm/device/virtual',
     data: {
@@ -66,11 +66,11 @@ export type UsbInternetStatus = {
 };
 
 export function getUsbInternet() {
-  return http.get('/api/vm/usb-internet');
+  return http.get<UsbInternetStatus>('/api/vm/usb-internet');
 }
 
 export function setUsbInternet(enabled: boolean, expectedEnabled: boolean) {
-  return http.request({
+  return http.request<UsbInternetStatus>({
     method: 'put',
     url: '/api/vm/usb-internet',
     data: { enabled, expectedEnabled }

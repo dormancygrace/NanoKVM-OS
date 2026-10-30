@@ -81,7 +81,7 @@ const DiagnosticsStatus = () => {
   const download = async () => {
     setDownloading(true);
     try {
-      const response = (await downloadDiagnosticsReport()) as unknown as Blob;
+      const response = await downloadDiagnosticsReport();
       const url = URL.createObjectURL(new Blob([response], { type: 'application/json' }));
       const link = document.createElement('a');
       link.href = url;

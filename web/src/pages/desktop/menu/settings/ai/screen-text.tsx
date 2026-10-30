@@ -25,7 +25,7 @@ export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => v
     let active = true;
     getScreenTextSettings()
       .then((rsp) => {
-        if (active && rsp.code === 0) setSettings(rsp.data as ScreenTextSettings);
+        if (active && rsp.code === 0) setSettings(rsp.data);
       })
       .catch(() => {});
     return () => {

@@ -11,7 +11,11 @@ export function sendKeySequence(
   sequence: 'ctrl-alt-del' | 'sysrq' | 'reisub',
   options: { key?: string; delayMs?: number } = {}
 ) {
-  return http.post('/api/hid/sequence', { sequence, ...options }, { headers: inputLeaseHeaders() });
+  return http.post<{ sequence: string; durationMs: number }>(
+    '/api/hid/sequence',
+    { sequence, ...options },
+    { headers: inputLeaseHeaders() }
+  );
 }
 
 // the running key sequence (REISUB goes on after its request) and the last result
@@ -31,11 +35,11 @@ export function getKeyboardLedStatus() {
 
 // get shortcuts
 export function getShortcuts() {
-  return http.get('/api/hid/shortcuts');
+  return http.get<{ shortcuts: Shortcut[] }>('/api/hid/shortcuts');
 }
 
 // add shortcut
-export function addShortcut(keys: any[]) {
+export function addShortcut(keys: ShortcutKey[]) {
   const data = {
     keys
   };
@@ -52,10 +56,13 @@ export function deleteShortcut(id: string) {
 
 // get shortcut leader key
 export function getLeaderKey() {
-  return http.get('/api/hid/shortcut/leader-key');
+  return http.get<{ key: string }>('/api/hid/shortcut/leader-key');
 }
 
 // set shortcut leader key
 export function setLeaderKey(key: string) {
   return http.post('/api/hid/shortcut/leader-key', { key });
 }
+
+export type ShortcutKey = { label: string; code: string };
+export type Shortcut = { id: string; keys: ShortcutKey[] };

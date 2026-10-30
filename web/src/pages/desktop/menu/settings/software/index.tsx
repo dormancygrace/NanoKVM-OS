@@ -85,7 +85,7 @@ export const Software = () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     try {
-      const rsp = await http.get('/api/os/update/software');
+      const rsp = await http.get<SoftwareState>('/api/os/update/software');
       if (rsp.code === 0) {
         operationState.current = rsp.data.operation?.state || '';
         setState(rsp.data);
@@ -100,9 +100,11 @@ export const Software = () => {
 
   const refreshStatus = useCallback(async () => {
     try {
-      const rsp = await http.get('/api/os/update/software/status');
+      const rsp = await http.get<Omit<SoftwareState, 'installed'>>(
+        '/api/os/update/software/status'
+      );
       if (rsp.code !== 0) return;
-      const nextOperation = rsp.data.operation as Operation;
+      const nextOperation = rsp.data.operation;
       const previousState = operationState.current;
       operationState.current = nextOperation.state;
       setState((current) =>
@@ -149,7 +151,7 @@ export const Software = () => {
       searchRequest.current = request;
       setSearching(true);
       try {
-        const rsp = await http.request({
+        const rsp = await http.request<{ packages: Package[] }>({
           method: 'get',
           url: '/api/os/update/software/search',
           params: { query: term },
@@ -203,7 +205,9 @@ export const Software = () => {
 
   const previewRemoval = async (name: string) => {
     try {
-      const rsp = await http.post('/api/os/update/software/remove/preview', { name });
+      const rsp = await http.post<{ preview: string }>('/api/os/update/software/remove/preview', {
+        name
+      });
       if (rsp.code === 0) setRemoval({ name, preview: rsp.data.preview });
       else message.error(rsp.msg);
     } catch {
@@ -216,7 +220,7 @@ export const Software = () => {
     updatesInFlight.current = true;
     setUpdatesLoading(true);
     try {
-      const rsp = await http.get('/api/os/update/software/updates');
+      const rsp = await http.get<{ updates: PackageUpdate[] }>('/api/os/update/software/updates');
       if (rsp.code === 0) {
         setUpdates(rsp.data.updates || []);
         setUpdatesError('');

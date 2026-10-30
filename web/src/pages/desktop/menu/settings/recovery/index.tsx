@@ -22,8 +22,11 @@ type Preview = {
 type Request = { password: string; archivePassword: string; archive: string; options: Options };
 const maxArchive = 4 * 1024 * 1024;
 
-async function call(action: string, data: unknown) {
-  const response = await http.post(`/api/system/recovery/${action}`, data, { timeout: 180000 });
+async function call<T>(action: string, data: unknown) {
+  const response = await http.post<T>(`/api/system/recovery/${action}`, data, {
+    timeout: 180000,
+    sensitive: true
+  });
   if (response.code !== 0) throw new Error(response.msg);
   return response.data;
 }
@@ -57,7 +60,9 @@ export const Recovery = () => {
   useEffect(() => {
     let active = true;
     http
-      .get('/api/system/recovery')
+      .get<{ available: boolean; status: { state: string; message?: string } }>(
+        '/api/system/recovery'
+      )
       .then((r) => {
         if (!active) return;
         if (r.code !== 0) throw new Error(r.msg);
@@ -86,7 +91,7 @@ export const Recovery = () => {
   }
   async function download() {
     await perform(async () => {
-      const result = await call('export', { password, archivePassword });
+      const result = await call<{ archive: string }>('export', { password, archivePassword });
       const bytes = Uint8Array.from(atob(result.archive), (c) => c.charCodeAt(0));
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
       const anchor = document.createElement('a');
@@ -104,7 +109,7 @@ export const Recovery = () => {
         archive = encode(new Uint8Array(await file.arrayBuffer()));
       }
       const request = { password, archivePassword, archive, options: { ...options } };
-      const data = await call('preview', request);
+      const data = await call<Preview>('preview', request);
       setChecked(false);
       setPreview({ data, request });
     });

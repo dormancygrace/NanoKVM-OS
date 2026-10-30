@@ -29,7 +29,7 @@ export const PicoclawSettingsPage = ({ onOpenChat }: { onOpenChat: () => void })
     let active = true;
     getRuntimeStatus()
       .then((rsp) => {
-        if (active && rsp.code === 0) setStatus(rsp.data as PicoclawRuntimeStatus);
+        if (active && rsp.code === 0) setStatus(rsp.data);
       })
       .catch(() => {});
     return () => {

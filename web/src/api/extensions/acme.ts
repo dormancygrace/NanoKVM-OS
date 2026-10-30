@@ -1,3 +1,4 @@
+import type { AcmeProvider, AcmeStatus } from '@/lib/acme';
 import { http } from '@/lib/http.ts';
 
 import { SLOW_CALL_TIMEOUT } from './timeouts.ts';
@@ -7,11 +8,11 @@ import { SLOW_CALL_TIMEOUT } from './timeouts.ts';
 const DOWNLOAD_TIMEOUT = 5 * 60 * 1000;
 
 export function getStatus() {
-  return http.get('/api/extensions/acme/status');
+  return http.get<AcmeStatus>('/api/extensions/acme/status');
 }
 
 export function getProviders() {
-  return http.get('/api/extensions/acme/providers');
+  return http.get<AcmeProvider[]>('/api/extensions/acme/providers');
 }
 
 // Install or update to the latest stable release.
@@ -20,7 +21,7 @@ export function install() {
 }
 
 export function checkUpdate() {
-  return http.post('/api/extensions/acme/check');
+  return http.post<AcmeStatus>('/api/extensions/acme/check');
 }
 
 export function uninstall() {

@@ -31,6 +31,37 @@ nanokvm::JpegBuffer::~JpegBuffer() {free(bytes_);}
 int nanokvm::nv21_format() { return PIXEL_FORMAT_NV21; }
 int nanokvm::nv16_format() { return PIXEL_FORMAT_NV16; }
 nanokvm::I2c::~I2c() {} // Construction/destruction must not access host hardware.
+// Tiled MJPEG: a change map and region JPEGs (kvm_mmf).
+static int map_result, map_resets, region_errors;
+static std::vector<std::pair<int,int>> map_marks; // changed blocks (column, row)
+static std::vector<std::vector<int>> encoded_regions, kept_regions;
+static uint8_t region_jpeg[] = {0xff,0xd8,0x00,0xff,0xd9};
+static bool region_active, frame_supported = true;
+bool mmf_tile_frame_supported(int vi) { assert(vi==0); return frame_supported; }
+int mmf_tile_map(int vi,uint8_t *map,int map_size,int *cols,int *rows,int *changed) {
+    assert(vi==0 && map_size>=120*68);
+    if (map_result!=0) return map_result;
+    memset(map,0,120*68); *cols=120; *rows=68; *changed=(int)map_marks.size();
+    for (auto &mark : map_marks) map[mark.second*120+mark.first]=1;
+    return 0;
+}
+void mmf_tile_map_reset() { ++map_resets; }
+int mmf_tile_map_keep(int vi,int x,int y,int w,int h) { assert(vi==0); kept_regions.push_back({x,y,w,h}); return 0; }
+int mmf_enc_jpg_region(int ch,int vi,int x,int y,int w,int h,int quality,uint8_t **data,int *size,int *recreated) {
+    assert((ch==2 || ch==3) && vi==0 && quality==80 && !region_active && recreated);
+    if (region_errors) return region_errors;
+    encoded_regions.push_back({ch,x,y,w,h}); region_active=true;
+    region_jpeg[2]=(uint8_t)encoded_regions.size(); *data=region_jpeg; *size=sizeof(region_jpeg); return 0;
+}
+int mmf_enc_jpg_region_free(int ch) { assert((ch==2 || ch==3) && region_active); region_active=false; return 0; }
+static int tile_sink(uintptr_t context,const uint8_t *data,uint32_t size,uint32_t offset,uint32_t total) {
+    assert(context==123 && offset==0 && size==total);
+    copied.assign(data,data+size); return sink_error;
+}
+static unsigned le16(size_t at) { return copied[at] | copied[at+1]<<8; }
+static void reset_tiles() {
+    map_result=map_resets=region_errors=0; map_marks.clear(); encoded_regions.clear(); kept_regions.clear(); region_active=false;
+}
 static int sink(uintptr_t context,const uint8_t *data,uint32_t size,uint32_t offset,uint32_t total) {
     assert(context==123 && data==encoded && active && offset==0 && size==total && total==sizeof(encoded));
     copied.assign(data,data+size); return sink_error;
@@ -108,24 +139,24 @@ int main() {
     unsetenv("NANOKVM_MJPEG_422"); env_changed();
     kvmv_data_t frame{};
     reset();video_sink=sink;video_sink_context=123;
-    assert(frame_to_jpeg(0,&frame,80,false)==IMG_MJPEG_TYPE);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_MJPEG_TYPE);
     assert(copied[2]==0x11 && encoded[2]==0x99 && frees==1 && released==1);
     assert(frame.img_data_type==VENC_MJPEG && frame.img_data_size==sizeof(encoded));
 
     reset();video_sink=sink;video_sink_context=123;sink_error=-1;
-    assert(frame_to_jpeg(0,&frame,80,false)==IMG_BUFFER_FULL);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_BUFFER_FULL);
     assert(frees==1 && released==1);
 
     reset();video_sink=sink;video_sink_context=123;free_error=-2;
-    assert(frame_to_jpeg(0,&frame,80,false)==IMG_VENC_ERROR);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_VENC_ERROR);
     assert(deinit_count==1 && released==1 && frame.img_data_size==0);
 
     reset();video_sink=sink;video_sink_context=123;pop_error=-2;
-    assert(frame_to_jpeg(0,&frame,80,false)==IMG_VENC_ERROR);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_VENC_ERROR);
     assert(copied.empty() && deinit_count==1 && released==1);
 
     reset();video_sink=sink;video_sink_context=123;push_error=-2;
-    assert(frame_to_jpeg(0,&frame,80,false)==IMG_VENC_ERROR);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_VENC_ERROR);
     assert(pops==0 && frees==0 && released==1);
     assert(holds == 0);
 
@@ -133,12 +164,12 @@ int main() {
     // and on return; the JPEG hold covers submit to frame release.
     reset();video_sink=sink;video_sink_context=123;
     pthread_mutex_lock(&vi_mutex);
-    assert(frame_to_jpeg(0,&frame,80,true)==IMG_MJPEG_TYPE);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,true)==IMG_MJPEG_TYPE);
     assert(pthread_mutex_trylock(&vi_mutex) == 0); pthread_mutex_unlock(&vi_mutex);
     assert(holds == 0 && frees==1 && released==1);
     reset();video_sink=sink;video_sink_context=123;push_error=-2;
     pthread_mutex_lock(&vi_mutex);
-    assert(frame_to_jpeg(0,&frame,80,true)==IMG_VENC_ERROR);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,true)==IMG_VENC_ERROR);
     assert(pthread_mutex_trylock(&vi_mutex) == 0); pthread_mutex_unlock(&vi_mutex);
     assert(holds == 0 && released==1);
 
@@ -149,5 +180,59 @@ int main() {
     assert(jpg_dump(&frame,&jpg) && copied[2]==0x11);
     sink_error=-1;assert(!jpg_dump(&frame,&jpg));
     reset();assert(!jpg_dump(&frame,&jpg));
-    puts("PASS real JPEG sink: callback before release, owned bytes, sink required, callback/encoder failures, encode outside the capture lock, frame-detect path.");
+    // Tiled MJPEG: one message of the tiles that cover changed blocks, the
+    // last row moved inward; what was sent is kept for the next map.
+    tile_request_t request{false, 24};
+    tile_request=&request;
+    reset();reset_tiles();video_sink=tile_sink;video_sink_context=123;
+    map_marks={{9,3},{0,67}}; // x 144, y 48; the strip under the last whole block row
+    pthread_mutex_lock(&vi_mutex);
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,true)==IMG_MJPEG_TILES);
+    assert(pthread_mutex_trylock(&vi_mutex) == 0); pthread_mutex_unlock(&vi_mutex);
+    assert(holds==0 && released==1 && pushes==0 && !region_active);
+    assert((encoded_regions==std::vector<std::vector<int>>{{2,128,0,128,128},{2,0,952,128,128}}));
+    assert((kept_regions==std::vector<std::vector<int>>{{128,0,128,128},{0,952,128,128}}));
+    assert(copied.size()==8+2*12+2*sizeof(region_jpeg) && copied[0]==1 && copied[1]==0);
+    assert(le16(2)==2 && le16(4)==1920 && le16(6)==1080);
+    assert(le16(8)==128 && le16(10)==0 && le16(12)==128 && le16(14)==128 && le16(16)==sizeof(region_jpeg));
+    assert(le16(20)==0 && le16(22)==952 && copied[8+24+2]==1 && copied[8+24+sizeof(region_jpeg)+2]==2);
+
+    // Nothing changed: no message.
+    reset();reset_tiles();video_sink=tile_sink;video_sink_context=123;
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==5 && copied.empty() && released==1);
+
+    // A key, or no kept frame yet: the whole picture on its own channel, kept whole.
+    reset();reset_tiles();video_sink=tile_sink;video_sink_context=123;request.key=true;map_result=1;
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_MJPEG_TILES);
+    assert(map_resets==1 && copied[1]==KVMV_TILE_FLAG_WHOLE && le16(2)==1);
+    assert((encoded_regions==std::vector<std::vector<int>>{{3,0,0,1920,1080}}));
+    assert((kept_regions==std::vector<std::vector<int>>{{0,0,1920,1080}}));
+    request.key=false;
+
+    // More changed tiles than max_tiles: the whole picture.
+    reset();reset_tiles();video_sink=tile_sink;video_sink_context=123;request.max_tiles=1;map_marks={{0,0},{20,0}};
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_MJPEG_TILES && copied[1]==KVMV_TILE_FLAG_WHOLE);
+    request.max_tiles=24;
+
+    // No change map: a bare JPEG of the whole picture, nothing kept.
+    reset();reset_tiles();video_sink=tile_sink;video_sink_context=123;map_result=-1;
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_MJPEG_TYPE);
+    assert(copied.size()==sizeof(region_jpeg) && kept_regions.empty() && !region_active);
+
+    // An encoder failure forgets the kept frame; the next read is whole.
+    reset();reset_tiles();video_sink=tile_sink;video_sink_context=123;map_marks={{0,0}};region_errors=-2;
+    assert(frame_to_jpeg(0,1920,1080,&frame,80,false)==IMG_VENC_ERROR && map_resets==1 && copied.empty() && released==1);
+
+    // A frame the map does not take (packed from capture, wider than 1920)
+    // goes the classic way, also on MJPEG's own output.
+    reset();reset_tiles();video_sink=sink;video_sink_context=123;frame_supported=false;
+    assert(frame_to_jpeg(0,2560,1440,&frame,80,false)==IMG_MJPEG_TYPE && pushes==1 && map_resets==1);
+    reset();reset_tiles();video_sink=sink;video_sink_context=123;
+    pthread_mutex_lock(&vi_mutex);
+    assert(frame_to_jpeg(0,2560,1440,&frame,80,true)==IMG_MJPEG_TYPE && pushes==1);
+    assert(pthread_mutex_trylock(&vi_mutex) == 0); pthread_mutex_unlock(&vi_mutex);
+    frame_supported=true;
+    tile_request=nullptr;
+
+    puts("PASS real JPEG sink: callback before release, owned bytes, sink required, callback/encoder failures, encode outside the capture lock, frame-detect path, tiled messages.");
 }

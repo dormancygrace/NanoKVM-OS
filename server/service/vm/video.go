@@ -61,11 +61,13 @@ type streamLimitCapability struct {
 }
 
 // mjpegCapability is MJPEG availability for the current capture; MaxSide is
-// the longest input side it can run with.
+// the longest input side it can run with. Tiles: the server sends changed
+// tiles over /api/stream/mjpeg/tiles.
 type mjpegCapability struct {
 	Available bool   `json:"available"`
 	Reason    string `json:"reason,omitempty"`
 	MaxSide   int    `json:"maxSide"`
+	Tiles     bool   `json:"tiles"`
 }
 
 // h264Capability is H.264 availability for the current capture and stream
@@ -95,7 +97,7 @@ func modeCodecs(width, height uint16) []string {
 }
 
 func mjpegCapabilities(inputWidth, inputHeight int) mjpegCapability {
-	m := mjpegCapability{Available: true, MaxSide: common.MjpegMaxLongSide}
+	m := mjpegCapability{Available: true, MaxSide: common.MjpegMaxLongSide, Tiles: true}
 	if !common.MjpegAllowedFor(inputWidth, inputHeight) {
 		m.Available, m.Reason = false, reasonMjpeg4K
 	}

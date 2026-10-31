@@ -64,3 +64,9 @@ func (k *KvmVision) SetMjpegChroma(chroma uint16) int {
 	}
 	return 0
 }
+
+func (k *KvmVision) ReleaseMjpegTiles() {}
+
+func (k *KvmVision) ReadMjpegTiles(uint16, uint16, uint16, bool, uint16) ([]byte, int) {
+	return nil, MjpegTilesUnsupported
+}

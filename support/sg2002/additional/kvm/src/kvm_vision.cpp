@@ -1,5 +1,7 @@
 #include "internal/capture_rate.hpp"
+#include <algorithm>
 #include <utility>
+#include <vector>
 #include <atomic>
 #include <initializer_list>
 #include "stream_size.hpp"
@@ -1152,14 +1154,152 @@ uint8_t get_mjpeg_chroma_status()
     return state;
 }
 
+// Tiled MJPEG request of the calling reader (kvmv_read_mjpeg_tiles_sink).
+struct tile_request_t {
+    bool key;
+    int max_tiles;
+};
+static thread_local const tile_request_t *tile_request = nullptr;
+
+// Region channels of kvm_mmf: tiles on one, whole pictures on the other, so
+// neither is created again for every change of size.
+static constexpr int tile_chn = 2, whole_chn = 3;
+
+static void tile_put16(uint8_t *at, unsigned value) { at[0] = value & 0xff; at[1] = value >> 8 & 0xff; }
+static void tile_put32(uint8_t *at, uint32_t value) { tile_put16(at, value & 0xffff); tile_put16(at + 2, value >> 16); }
+
+// Logs a failed tile encode once per distinct result (every read retries).
+static void tile_error(const char *what, int result)
+{
+    static int last = 0;
+    if (result == last) return;
+    last = result;
+    fprintf(stderr, "[kvmv] %s failed: %#x\n", what, result);
+    fflush(stderr);
+}
+
+// One tiled MJPEG message of the frame on vi_ch (width x height), see
+// kvm_vision.h. Called with the frame and the JPEG hold held, without
+// vi_mutex on MJPEG's own output.
+static int8_t frame_to_tiles(int vi_ch, int width, int height, int quality)
+{
+    constexpr int tile = KVMV_TILE_SIZE, header = 8, record = 12;
+    static thread_local std::vector<uint8_t> message;
+    static uint8_t map[(1920 / 16) * (1920 / 16 + 1)];
+    int cols = 0, rows = 0, changed = 0;
+    if (tile_request->key) mmf_tile_map_reset();
+    const int mapped = mmf_tile_map(vi_ch, map, sizeof(map), &cols, &rows, &changed);
+    if (mapped == 0 && changed == 0) return 5;
+    if (mapped < 0) {
+        // No change map (no IVE driver that waits long enough): a bare JPEG
+        // of the whole picture, which the server sends only when it differs.
+        uint8_t *data = NULL;
+        int size = 0, recreated = 0;
+        const int encoded = mmf_enc_jpg_region(whole_chn, vi_ch, 0, 0, width, height, quality, &data, &size,
+                                               &recreated);
+        if (encoded != 0 || size <= 0) {
+            tile_error("whole JPEG", encoded);
+            return IMG_VENC_ERROR;
+        }
+        const int copied = video_sink(video_sink_context, data, size, 0, size);
+        if (mmf_enc_jpg_region_free(whole_chn) != 0) return IMG_VENC_ERROR;
+        return copied != 0 ? IMG_BUFFER_FULL : IMG_MJPEG_TYPE;
+    }
+    // Tiles whose rectangle covers a changed block. The last map row may
+    // cover the bottom rows only (a strip ending at the bottom).
+    struct rect { int x, y; } tiles[(1920 / tile + 1) * (1920 / tile + 1)];
+    int count = 0;
+    bool whole = mapped != 0;
+    if (!whole) {
+        const int tile_cols = (width + tile - 1) / tile, tile_rows = (height + tile - 1) / tile;
+        for (int ty = 0; ty < tile_rows && !whole; ++ty) {
+            const int y0 = std::min(ty * tile, height - tile);
+            for (int tx = 0; tx < tile_cols; ++tx) {
+                const int x0 = std::min(tx * tile, width - tile);
+                bool hit = false;
+                for (int row = 0; row < rows && !hit; ++row) {
+                    const int top = row == rows - 1 && height % 16 ? height - 16 : row * 16;
+                    if (top >= y0 + tile || top + 16 <= y0) continue;
+                    for (int column = x0 / 16; column < (x0 + tile) / 16 && !hit; ++column)
+                        hit = map[row * cols + column] != 0;
+                }
+                if (!hit) continue;
+                if (count == tile_request->max_tiles) { whole = true; break; }
+                tiles[count++] = {x0, y0};
+            }
+        }
+    }
+    if (whole) {
+        tiles[0] = {0, 0};
+        count = 1;
+    }
+    message.resize(header + record * count);
+    message[0] = 1;
+    message[1] = whole ? KVMV_TILE_FLAG_WHOLE : 0;
+    tile_put16(&message[2], count);
+    tile_put16(&message[4], width);
+    tile_put16(&message[6], height);
+    for (int i = 0; i < count; ++i) {
+        const int w = whole ? width : tile, h = whole ? height : tile, ch = whole ? whole_chn : tile_chn;
+        uint8_t *data = NULL;
+        int size = 0, recreated = 0;
+        const int encoded = mmf_enc_jpg_region(ch, vi_ch, tiles[i].x, tiles[i].y, w, h, quality, &data, &size,
+                                               &recreated);
+        if (encoded != 0 || size <= 0) {
+            tile_error("tile JPEG", encoded);
+            mmf_tile_map_reset();
+            return IMG_VENC_ERROR;
+        }
+        uint8_t *at = &message[header + record * i];
+        tile_put16(at, tiles[i].x);
+        tile_put16(at + 2, tiles[i].y);
+        tile_put16(at + 4, w);
+        tile_put16(at + 6, h);
+        tile_put32(at + 8, size);
+        message.insert(message.end(), data, data + size);
+        if (mmf_enc_jpg_region_free(ch) != 0) {
+            mmf_tile_map_reset();
+            return IMG_VENC_ERROR;
+        }
+        // The map compares with what the viewer has: keep what was sent. An
+        // unchanged block equals the kept one already.
+        if (const int kept = mmf_tile_map_keep(vi_ch, tiles[i].x, tiles[i].y, w, h); kept != 0) {
+            tile_error("keeping a tile", kept);
+            mmf_tile_map_reset();
+            return IMG_VENC_ERROR;
+        }
+    }
+    // The sink copies; a refused message leaves the client behind the map.
+    if (video_sink(video_sink_context, message.data(), message.size(), 0, message.size()) != 0) {
+        mmf_tile_map_reset();
+        return IMG_BUFFER_FULL;
+    }
+    return IMG_MJPEG_TILES;
+}
+
 // Called with vi_mutex held. On MJPEG's own output (outside_lock) the frame
 // is the JPEG reader's alone: vi_mutex is released after the submit, so the
 // video stream reads on while the JPEG encodes, and the function returns
 // with vi_mutex released. mmf_jpg_hold keeps the encoder and the frame from
 // a teardown meanwhile. Otherwise vi_mutex stays held throughout.
-static int8_t frame_to_jpeg(int vi_ch, kvmv_data_t* dump_to, uint16_t quality, bool outside_lock)
+static int8_t frame_to_jpeg(int vi_ch, int width, int height, kvmv_data_t* dump_to, uint16_t quality,
+                            bool outside_lock)
 {
     mmf_jpg_hold();
+    // A frame the change map does not take (packed straight from capture,
+    // wider than 1920, a width not a multiple of 16) is a bare JPEG from the
+    // classic path, which the server sends only when it differs.
+    if (tile_request && !mmf_tile_frame_supported(vi_ch))
+        mmf_tile_map_reset();
+    else if (tile_request) {
+        // The change map and the tiles do not touch the capture: on MJPEG's
+        // own output the video stream reads on meanwhile.
+        if (outside_lock) pthread_mutex_unlock(&vi_mutex);
+        const int8_t result = frame_to_tiles(vi_ch, width, height, quality);
+        mmf_vi_frame_release(vi_ch);
+        mmf_jpg_unhold();
+        return result;
+    }
     int8_t result = IMG_MJPEG_TYPE;
     int ret = mmf_enc_jpg_push_vi_with_quality(0, vi_ch, quality);
     if (outside_lock) pthread_mutex_unlock(&vi_mutex);
@@ -1925,14 +2065,15 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
             kvmv_data_t frame;
             if (native_vi_ch >= 0) {
                 const bool own_output = native_format == nanokvm::nv16_format();
-                int ret = frame_to_jpeg(native_vi_ch, &frame,
+                int ret = frame_to_jpeg(native_vi_ch, native_width, native_height, &frame,
                     maxmin_data(99, 20, (int)_qlty), own_output);
                 if (own_output) pthread_mutex_lock(&vi_mutex);
-                if (ret < 0 && own_output && ret == IMG_VENC_ERROR)
+                if (ret < 0 && own_output && ret == IMG_VENC_ERROR && !tile_request)
                     disable_mjpeg_422("native JPEG encoding failed");
                 pthread_mutex_unlock(&vi_mutex);
                 return ret;
             }
+            if (tile_request) mmf_tile_map_reset(); // a copied frame bypasses the map
             nanokvm::JpegBuffer *jpg = img->to_jpeg(maxmin_data(99, 20, (int)_qlty));
             if(jpg == NULL || !jpg_dump(&frame, jpg)){
                 delete jpg;
@@ -2024,6 +2165,42 @@ int kvmv_read_mjpeg_sink(uint16_t width, uint16_t height, uint16_t quality,
     video_sink = nullptr;
     video_sink_context = 0;
     return result;
+}
+
+int kvmv_read_mjpeg_tiles_sink(uint16_t width, uint16_t height, uint16_t quality,
+    uint8_t key, uint16_t max_tiles, kvmv_video_sink sink, uintptr_t context)
+{
+    if (sink == nullptr || video_sink != nullptr || max_tiles == 0) return IMG_VENC_ERROR;
+    const tile_request_t request{key != 0, max_tiles};
+    tile_request = &request;
+    video_sink = sink;
+    video_sink_context = context;
+    int result = kvmv_read_img(width, height, VENC_MJPEG, quality);
+    video_sink = nullptr;
+    video_sink_context = 0;
+    tile_request = nullptr;
+    return result;
+}
+
+int kvmv_mjpeg_tiles_release(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += 1;
+    // JPEG readers take turns: no tiled read is in flight meanwhile; a
+    // capture teardown (_mmf_deinit, under vi_mutex) frees the same.
+    if (pthread_mutex_timedlock(&jpeg_reader_mutex, &ts) != 0) return -5;
+    if (pthread_mutex_timedlock(&vi_mutex, &ts) != 0) {
+        pthread_mutex_unlock(&jpeg_reader_mutex);
+        return -5;
+    }
+    // A channel that could not be destroyed stays with its frame; the next
+    // read or capture teardown tries again.
+    const int closed = mmf_enc_jpg_region_close();
+    mmf_tile_map_close();
+    pthread_mutex_unlock(&vi_mutex);
+    pthread_mutex_unlock(&jpeg_reader_mutex);
+    return closed;
 }
 
 void kvmv_deinit()

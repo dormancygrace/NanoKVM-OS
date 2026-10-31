@@ -48,7 +48,13 @@ export type PortraitProfile = {
 export type StreamLimit = { height: number; width: number; available: boolean; reason?: Reason };
 // MJPEG for the current capture; maxSide is the longest input side it can run
 // with. Absent on a server that does not restrict it.
-export type MjpegCapability = { available: boolean; reason?: Reason; maxSide: number };
+// tiles: the server sends changed tiles over /api/stream/mjpeg/tiles.
+export type MjpegCapability = {
+  available: boolean;
+  reason?: Reason;
+  maxSide: number;
+  tiles?: boolean;
+};
 // H.264 for the current capture and stream limit: it encodes pictures up to
 // maxLongSide wide and maxHeight high. Absent on a server that does not
 // restrict it.

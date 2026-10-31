@@ -57,12 +57,23 @@ func (d *frameDelivery) offer(clients []*mjpegClient, data []byte, now time.Time
 		d.generation++
 	}
 	sent := false
+	var whole []byte // for tiled viewers, made once
 	for _, c := range clients {
 		if c.ctx.Err() != nil {
 			continue
 		}
 		if c.generation != d.generation || c.lastOffer.IsZero() || now.Sub(c.lastOffer) >= duplicateRefreshInterval {
-			c.offer(data)
+			if c.tiled {
+				if whole == nil {
+					whole = common.MjpegTilesWholeMessage(data)
+				}
+				if whole == nil {
+					continue
+				}
+				c.offerTile(whole, true)
+			} else {
+				c.offer(data)
+			}
 			c.generation = d.generation
 			c.lastOffer = now
 			sent = true
@@ -73,7 +84,7 @@ func (d *frameDelivery) offer(clients []*mjpegClient, data []byte, now time.Time
 
 func viewersReady(clients []*mjpegClient) bool {
 	for _, c := range clients {
-		if c.ctx.Err() == nil && len(c.frames) == 0 {
+		if c.ctx.Err() == nil && (len(c.frames) == 0 || c.tiled && len(c.frames) < cap(c.frames)/2) {
 			return true
 		}
 	}
@@ -100,9 +111,13 @@ func NewStreamer() *Streamer {
 type mjpegClient struct {
 	ctx    context.Context
 	frames chan []byte
+	// tiled: the viewer takes tile messages (tiles.go).
+	tiled bool
 	// Owned exclusively by the stream's capture loop.
 	generation uint64
 	lastOffer  time.Time
+	// A tiled viewer waiting for a whole picture.
+	resync bool
 }
 
 func newMjpegClient(ctx context.Context) *mjpegClient {
@@ -146,7 +161,14 @@ func (c *mjpegClient) offer(data []byte) {
 }
 
 func (s *Streamer) AddClient(c *gin.Context) *mjpegClient {
-	client := newMjpegClient(c.Request.Context())
+	return s.addClient(newMjpegClient(c.Request.Context()))
+}
+
+func (s *Streamer) AddTiledClient(ctx context.Context) *mjpegClient {
+	return s.addClient(newTiledClient(ctx))
+}
+
+func (s *Streamer) addClient(client *mjpegClient) *mjpegClient {
 
 	s.mutex.Lock()
 	s.clients[client] = struct{}{}
@@ -232,6 +254,7 @@ func (s *Streamer) run() {
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 	delivery := frameDelivery{}
+	tiles := tileDelivery{wantWhole: true}
 	var adaptive adaptiveQuality
 
 	for range ticker.C {
@@ -239,6 +262,7 @@ func (s *Streamer) run() {
 		clients := s.getClients()
 		if len(clients) == 0 {
 			if s.stopIfIdle() {
+				tiles.release()
 				log.Debug("mjpeg stream stopped due to no clients")
 				return
 			}
@@ -267,8 +291,17 @@ func (s *Streamer) run() {
 			logBlocked()
 			stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, common.MjpegBlockedResult)
 			delivery.last = nil
+			tiles.wantWhole = true
 			continue
 		}
+
+		if tilesOnly(clients) {
+			if tiles.read(clients, &delivery, screen, quality, time.Now()) {
+				stream.GetMjpegFrameRateCounter().Update()
+			}
+			continue
+		}
+		tiles.wantWhole = true
 
 		data, result := vision.ReadMjpeg(screen.Width, screen.Height, uint16(quality))
 		stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, result)

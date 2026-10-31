@@ -3,18 +3,101 @@ import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 
 import { stopFrameDetect } from '@/api/stream.ts';
+import { getVideoCapabilities } from '@/api/vm.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
 import { resolutionAtom, screenshotSourceAtom } from '@/jotai/screen.ts';
 
+import { startTileStream } from './mjpeg-tiles.ts';
 import { ScreenViewport } from './viewport.tsx';
 
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_RETRY_DELAY = 10000;
 const STREAM_HEALTH_INTERVAL = 1000;
 
+// Tiles over a WebSocket: only the parts of the picture that changed, where
+// the server says it sends them; otherwise the classic stream of whole JPEGs.
 export const Mjpeg = () => {
+  const [tiles, setTiles] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    getVideoCapabilities()
+      .then((rsp) => active && setTiles(rsp.code === 0 && rsp.data?.stream?.mjpeg?.tiles === true))
+      .catch(() => active && setTiles(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (tiles === null) return null;
+  return tiles ? <MjpegTiles /> : <MjpegImage />;
+};
+
+const MjpegTiles = () => {
+  const resolution = useAtomValue(resolutionAtom);
+  const mouseStyle = useAtomValue(mouseStyleAtom);
+  const setScreenshotSource = useSetAtom(screenshotSourceAtom);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext('2d', { alpha: false });
+    if (!canvas || !context) return;
+    void stopFrameDetect(10).catch(() => {});
+    setScreenshotSource(null);
+
+    const publish = (width: number, height: number) => {
+      canvas.width = width;
+      canvas.height = height;
+      canvas.dataset.mediaWidth = String(width);
+      canvas.dataset.mediaHeight = String(height);
+      setScreenshotSource({
+        width,
+        height,
+        capture: () =>
+          new Promise<Blob>((resolve, reject) =>
+            canvas.toBlob(
+              (blob) => (blob ? resolve(blob) : reject(new Error('screenshot-encode-failed'))),
+              'image/png'
+            )
+          )
+      });
+    };
+
+    return startTileStream<ImageBitmap>({
+      connect: () => new WebSocket(`${getBaseUrl('ws')}/api/stream/mjpeg/tiles`),
+      decode: (tile) => createImageBitmap(new Blob([tile.jpeg], { type: 'image/jpeg' })),
+      draw: (message, decoded, first) => {
+        // The first picture of this effect publishes the screenshot source
+        // again, also when the canvas keeps its size.
+        if (first || canvas.width !== message.width || canvas.height !== message.height) {
+          publish(message.width, message.height);
+        }
+        for (const { tile, bitmap } of decoded) {
+          context.drawImage(bitmap, tile.x, tile.y, tile.width, tile.height);
+        }
+      },
+      later: (callback, ms) => {
+        const timer = window.setTimeout(callback, ms);
+        return () => window.clearTimeout(timer);
+      }
+    });
+  }, [resolution, setScreenshotSource]);
+
+  useEffect(() => () => setScreenshotSource(null), [setScreenshotSource]);
+
+  return (
+    <ScreenViewport>
+      <canvas
+        ref={canvasRef}
+        id="screen"
+        className={clsx('block touch-none select-none', mouseStyle)}
+      ></canvas>
+    </ScreenViewport>
+  );
+};
+
+const MjpegImage = () => {
   const resolution = useAtomValue(resolutionAtom);
   const mouseStyle = useAtomValue(mouseStyleAtom);
   const setScreenshotSource = useSetAtom(screenshotSourceAtom);

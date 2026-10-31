@@ -19,9 +19,10 @@ func streamRouter(r *gin.Engine) {
 		middleware.RequireRole(authn.RoleAdmin),
 	)
 
-	api.GET("/stream/mjpeg", middleware.RequireVideo, mjpeg.Connect) // mjpeg stream
-	admin.POST("/stream/mjpeg/detect", mjpeg.UpdateFrameDetect)      // update frame detect (device-wide)
-	api.POST("/stream/mjpeg/detect/stop", mjpeg.StopFrameDetect)     // temporary stop frame detect
+	api.GET("/stream/mjpeg", middleware.RequireVideo, mjpeg.Connect)            // mjpeg stream
+	api.GET("/stream/mjpeg/tiles", middleware.RequireVideo, mjpeg.ConnectTiles) // changed tiles only (websocket)
+	admin.POST("/stream/mjpeg/detect", mjpeg.UpdateFrameDetect)                 // update frame detect (device-wide)
+	api.POST("/stream/mjpeg/detect/stop", mjpeg.StopFrameDetect)                // temporary stop frame detect
 
 	api.GET("/stream/state", stream.GetEncoderState)
 	api.POST("/stream/state", stream.SetEncoderState)

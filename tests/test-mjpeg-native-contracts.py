@@ -199,12 +199,12 @@ check_mjpeg_rate_pair()
 check_mjpeg_422_survives_path_switch()
 
 for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing', 'teardown', 'park', 'hevc-direct',
-             'vi-yuv420', 'vpss-demand', 'picture']:
+             'vi-yuv420', 'vpss-demand', 'picture', 'tile-map']:
     binary = args.output.resolve() / case
     sources = [repo / f'firmware/probes/mjpeg-{case}-contract.cpp']
     if case == 'hevc-direct':
         sources = [repo / 'firmware/probes/hevc-direct-contract.cpp']
-    if case in ('vi-yuv420', 'vpss-demand', 'picture'):
+    if case in ('vi-yuv420', 'vpss-demand', 'picture', 'tile-map'):
         sources = [repo / f'firmware/probes/{case}-contract.cpp']
     if case == 'teardown':
         sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']
@@ -220,7 +220,7 @@ for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing',
     elif case == 'park':
         sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
     sources += [repo / 'firmware/mpi/nanokvm_vi_buffering.c']
-    extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct', 'vi-yuv420') else []
+    extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct', 'vi-yuv420', 'tile-map') else []
     if case == 'vpss-demand':
         extra += ['-Wl,--wrap=access', '-Wl,--wrap=fopen']
     subprocess.run(flags + extra + [str(path) for path in sources] + ['-o', str(binary)], check=True)

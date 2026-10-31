@@ -1,0 +1,35 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] ive: wait for an operation as long as polling does
+
+An IVE operation that sleeps until the engine's interrupt (bInstant
+false) gave up after msecs_to_jiffies(1): one tick, at most 4 ms at
+HZ=250. A 1920x1080 SAD takes about 7 ms and a full-picture DMA copy
+about 5 ms, so they were reported as failures while the engine still
+ran, and the reset after a failed operation (0012) then stopped the
+engine in the middle of its writes: wrong results, and the SoC hung
+on the stand. Polling (bInstant true) already allows 100 ms (10000
+waits of 10 us); the interrupt path now allows the same.
+
+The limit is a read-only module parameter (timeout_ms): libkvm uses
+full-size IVE operations only with a driver that has it.
+
+---
+diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+--- a/interdrv/ive/hal/cv181x/cvi_ive_platform.c
++++ b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+@@ -27,7 +27,14 @@
+ #include <linux/sched/signal.h>
+ #endif
+ #define IVE_TOP_16_8_8(val, a, b, c) ((val) | (a << 16) | (b << 8) | (c))
+-#define TIMEOUT_MS (1)
++/* How long an operation may run when its caller sleeps until the engine's
++ * interrupt: as long as the polling path waits (10000 x 10 us). A full HD
++ * SAD takes about 7 ms, longer than one tick. User space reads the
++ * parameter to tell a driver that waits long enough. */
++static unsigned int timeout_ms = 100;
++module_param(timeout_ms, uint, 0444);
++MODULE_PARM_DESC(timeout_ms, "Longest wait for an operation's interrupt (ms)");
++#define TIMEOUT_MS (timeout_ms)
+ 
+ char IMG_FMT[16][32] = {
+ 	"YUV420 planar",

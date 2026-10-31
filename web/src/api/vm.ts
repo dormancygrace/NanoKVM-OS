@@ -369,9 +369,6 @@ export type MemorySwap = {
   compressedBytes?: number;
   originalBytes?: number;
   algorithm?: string;
-  recompress?: boolean;
-  recompressAvailable?: boolean;
-  recompressReady?: boolean;
   auto?: boolean;
 };
 
@@ -398,13 +395,8 @@ export function getMemoryStatus() {
   return http.get<MemoryStatus>('/api/vm/memory/status');
 }
 
-export function setMemorySwap(
-  kind: 'zram' | 'sd',
-  enabled: boolean,
-  sizeMiB: number,
-  recompress?: boolean
-) {
-  return http.post<MemoryStatus>('/api/vm/memory/swap', { kind, enabled, sizeMiB, recompress });
+export function setMemorySwap(kind: 'zram' | 'sd', enabled: boolean, sizeMiB: number) {
+  return http.post<MemoryStatus>('/api/vm/memory/swap', { kind, enabled, sizeMiB });
 }
 
 export function getCPUFrequency() {

@@ -482,11 +482,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   : state('off')
                 : '—'
             )}
-            {memory?.zram.enabled &&
-              line(
-                t('dashboard.compression'),
-                `${memory.zram.algorithm}${memory.zram.recompressReady ? ' + zstd' : ''}`
-              )}
+            {memory?.zram.enabled && line(t('dashboard.compression'), memory.zram.algorithm)}
             {line(
               t('dashboard.sdSwap'),
               memory

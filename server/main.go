@@ -38,7 +38,6 @@ func main() {
 	defer stopMemory()
 	initialize(stopMemory)
 	startDiagnosticCPUProfile()
-	go vm.RunMemoryMaintenance(ctx)
 	go logs.RunArchive(ctx)
 	go acme.RunRenewal(ctx)
 	go osupdate.RunNoticeSchedule(ctx)

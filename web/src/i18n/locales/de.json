@@ -946,9 +946,6 @@
     },
     "memory": {
       "zramAuto": "Automatisch ({{size}} MiB)",
-      "recompressTitle": "Kalte Seiten mit ZSTD neu komprimieren",
-      "recompressDescription": "Schnelles LZ4 für neue Seiten beibehalten. Alle 15 Sekunden bis zu 1 MiB an Seiten verarbeiten, die eine Minute lang nicht verwendet wurden. Benötigt zusätzliche CPU-Leistung und Kompressorspeicher; das Lesen dieser Seiten kann langsamer sein. Eine Änderung dieses Modus erstellt ZRAM neu und erfordert ausreichend freien RAM.",
-      "recompressNotReady": "Der gespeicherte Modus ist nicht aktiv. Wenden Sie ihn erneut an, wenn ausreichend RAM verfügbar ist.",
       "title": "Arbeitsspeicher",
       "ram": "Belegter RAM",
       "available": "Verfügbar",

@@ -946,9 +946,6 @@
     },
     "memory": {
       "zramAuto": "自動（{{size}} MiB）",
-      "recompressTitle": "コールドページを ZSTD で再圧縮",
-      "recompressDescription": "新しいページには高速な LZ4 を使用します。15 秒ごとに、1 分間アクセスのないページを最大 1 MiB 再圧縮します。追加の CPU と圧縮用メモリを使用し、これらのページの読み取りが遅くなる場合があります。このモードを変更すると ZRAM が再作成されるため、十分な空き RAM が必要です。",
-      "recompressNotReady": "保存されたモードは有効になっていません。十分な RAM が利用可能になったら再適用してください。",
       "title": "メモリ",
       "ram": "使用中の RAM",
       "available": "利用可能",

@@ -45,7 +45,8 @@ export class WsClient {
   private connectionStatus: InputConnectionStatus = 'idle';
   private readonly statusListeners = new Set<() => void>();
   private readonly controlListeners = new Set<() => void>();
-  private lastResponseAt = 0;
+  private lastHeartbeatAt = 0;
+  private missedHeartbeats = 0;
   private heartbeatAcknowledged = false;
   private readonly holdKeepalive = new HoldKeepalive(() => {
     this.send(new Uint8Array([KEEPALIVE_MESSAGE]));
@@ -77,6 +78,40 @@ export class WsClient {
 
   constructor(options: WsClientOptions = {}) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
+    // A browser may cut the sockets of a background tab and tell the page
+    // only when it comes back (Safari, energy saving); the open of a socket
+    // made meanwhile may never arrive either. On return the retries start
+    // afresh: the first goes at once, whatever happened in the background.
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        this.reconnectAttempts = 0;
+        this.retryAtOnce = true;
+        this.reconnectNow();
+      });
+    }
+  }
+
+  private retryAtOnce = true;
+
+  private static pageVisible(): boolean {
+    return typeof document === 'undefined' || document.visibilityState === 'visible';
+  }
+
+  private reconnectNow(): void {
+    if (!this.shouldReconnect) return;
+    // The visible retry budget is fresh, including a handshake already in flight.
+    if (
+      this.connectionStatus === 'disconnected' &&
+      (this.reconnectTimer !== null || this.instance?.readyState === WebSocket.CONNECTING)
+    ) {
+      this.updateConnectionStatus('reconnecting');
+    }
+    if (!this.reconnectTimer) return;
+    this.retryAtOnce = false;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    this.createConnection();
   }
 
   public connect(): void {
@@ -222,7 +257,8 @@ export class WsClient {
 
   private handleOpen(): void {
     this.reconnectAttempts = 0;
-    this.lastResponseAt = Date.now();
+    this.lastHeartbeatAt = Date.now();
+    this.missedHeartbeats = 0;
     this.heartbeatAcknowledged = false;
     this.send(new Uint8Array([KEEPALIVE_MESSAGE]));
     this.updateConnectionStatus('connected');
@@ -252,7 +288,7 @@ export class WsClient {
   private handleMessage(message: SocketMessageEvent): void {
     try {
       const data = JSON.parse(message.data as string);
-      this.lastResponseAt = Date.now();
+      this.missedHeartbeats = 0;
       if (data.type === 'heartbeat') this.heartbeatAcknowledged = true;
       if (data.type === 'control') {
         const status = JSON.parse(data.data as string) as { enabled?: unknown; lease?: unknown };
@@ -275,12 +311,17 @@ export class WsClient {
     this.stopHeartbeat();
     this.send(new Uint8Array([MessageEvent.Heartbeat]));
     this.heartbeatTimer = setInterval(() => {
-      // Older servers do not acknowledge heartbeats. Enable timeout recovery
-      // only after the server has demonstrated support for the reply.
-      if (
-        this.heartbeatAcknowledged &&
-        Date.now() - this.lastResponseAt >= 3 * this.options.heartbeatInterval
-      ) {
+      const now = Date.now();
+      // A suspended page did not send its scheduled probes. Give the open
+      // socket fresh heartbeat windows on return instead of closing it for
+      // time spent with paused or throttled browser timers.
+      if (now - this.lastHeartbeatAt >= 3 * this.options.heartbeatInterval) {
+        this.missedHeartbeats = 0;
+      }
+      this.lastHeartbeatAt = now;
+      // Count unanswered windows that actually ran. Older servers do not
+      // acknowledge heartbeats, so keep their existing behavior.
+      if (this.heartbeatAcknowledged && ++this.missedHeartbeats >= 3) {
         this.updateConnectionStatus('reconnecting');
         const previous = this.instance;
         this.instance = null;
@@ -317,9 +358,18 @@ export class WsClient {
     this.updateConnectionStatus(this.reconnectAttempts >= 3 ? 'disconnected' : 'reconnecting');
     console.log(`[WebSocket] Reconnecting... (attempt ${this.reconnectAttempts})`);
 
-    this.reconnectTimer = setTimeout(() => {
-      this.createConnection();
-    }, this.options.reconnectInterval);
+    // The first retry of a visible page, and the first after it comes back,
+    // goes at once: a lost connection is usually back within a handshake.
+    // A hidden page keeps the backoff.
+    const atOnce = WsClient.pageVisible() && (this.reconnectAttempts === 1 || this.retryAtOnce);
+    this.retryAtOnce = false;
+    this.reconnectTimer = setTimeout(
+      () => {
+        this.reconnectTimer = null;
+        this.createConnection();
+      },
+      atOnce ? 0 : this.options.reconnectInterval
+    );
   }
 
   private cleanup(): void {

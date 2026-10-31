@@ -82,6 +82,8 @@ func (c *Client) Read() error {
 	if err := c.UpdateHeartbeat(); err != nil {
 		return err
 	}
+	stopTransportHeartbeat := c.startTransportHeartbeat()
+	defer stopTransportHeartbeat()
 
 	for {
 		messageType, data, err := c.ws.ReadMessage()

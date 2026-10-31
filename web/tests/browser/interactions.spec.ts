@@ -156,10 +156,17 @@ test('reconnect does not replay held input and expired auth stops reconnecting',
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await expect.poll(() => reports(request).then((r) => r.some((x) => x[3] === 4))).toBe(true);
+  // The first visible retry is immediate. Hold its handshake so the
+  // disconnected input state is observable even on a fast local connection.
+  await request.post('/__test/upgrades/pause');
   await request.post('/__test/drop');
   await expect(page.getByTestId('connection')).toHaveText('reconnecting / no control');
+  await expect
+    .poll(async () => (await (await request.get('/__test/state')).json()).pendingUpgrades)
+    .toBe(1);
   await page.mouse.up();
   await request.post('/__test/reports/reset');
+  await request.post('/__test/upgrades/resume');
   await expect(page.getByTestId('connection')).toHaveText('connected / control');
   expect(await reports(request)).toEqual([]);
   await key(page).click();

@@ -77,6 +77,32 @@ export class WsClient {
 
   constructor(options: WsClientOptions = {}) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
+    // A browser may cut the sockets of a background tab and tell the page
+    // only when it comes back (Safari, energy saving); the open of a socket
+    // made meanwhile may never arrive either. On return the retries start
+    // afresh: the first goes at once, whatever happened in the background.
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        this.reconnectAttempts = 0;
+        this.retryAtOnce = true;
+        this.reconnectNow();
+      });
+    }
+  }
+
+  private retryAtOnce = true;
+
+  private static pageVisible(): boolean {
+    return typeof document === 'undefined' || document.visibilityState === 'visible';
+  }
+
+  private reconnectNow(): void {
+    if (!this.reconnectTimer || !this.shouldReconnect) return;
+    this.retryAtOnce = false;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    this.createConnection();
   }
 
   public connect(): void {
@@ -317,9 +343,18 @@ export class WsClient {
     this.updateConnectionStatus(this.reconnectAttempts >= 3 ? 'disconnected' : 'reconnecting');
     console.log(`[WebSocket] Reconnecting... (attempt ${this.reconnectAttempts})`);
 
-    this.reconnectTimer = setTimeout(() => {
-      this.createConnection();
-    }, this.options.reconnectInterval);
+    // The first retry of a visible page, and the first after it comes back,
+    // goes at once: a lost connection is usually back within a handshake.
+    // A hidden page keeps the backoff.
+    const atOnce = WsClient.pageVisible() && (this.reconnectAttempts === 1 || this.retryAtOnce);
+    this.retryAtOnce = false;
+    this.reconnectTimer = setTimeout(
+      () => {
+        this.reconnectTimer = null;
+        this.createConnection();
+      },
+      atOnce ? 0 : this.options.reconnectInterval
+    );
   }
 
   private cleanup(): void {

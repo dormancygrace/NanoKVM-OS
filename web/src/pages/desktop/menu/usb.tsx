@@ -1,4 +1,11 @@
-import { Suspense, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  Suspense,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore
+} from 'react';
 import { Spin } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
@@ -7,6 +14,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { getVirtualDevice, usbCompositionChangedEvent } from '@/api/virtual-device.ts';
+import { createConnectionWarningGate } from '@/lib/connection-warning.ts';
 import { retryableLazy } from '@/lib/retryable-lazy.ts';
 import { normalizeUsbStatus, usbDevices } from '@/lib/usb-composition.ts';
 import { client } from '@/lib/websocket.ts';
@@ -27,6 +35,31 @@ export const UsbMenu = () => {
   const [open, setOpen] = useState(false);
   const [usbEnabled, setUsbEnabled] = useState<boolean | null>(null);
   const status = useSyncExternalStore(client.subscribeConnectionStatus, client.getConnectionStatus);
+  // A lost connection shows only after a visible second (connection-warning.ts);
+  // the loss hushes the icon before paint, so no frame flashes.
+  const lost = status === 'reconnecting' || status === 'disconnected';
+  const [quiet, setQuiet] = useState(false);
+  const [gate] = useState(() =>
+    createConnectionWarningGate(setQuiet, {
+      isVisible: () => document.visibilityState === 'visible',
+      later: (callback, ms) => {
+        const timer = window.setTimeout(callback, ms);
+        return () => window.clearTimeout(timer);
+      }
+    })
+  );
+  useLayoutEffect(() => {
+    if (lost) gate.lost();
+  }, [gate, lost]);
+  useEffect(() => {
+    const visibility = () => gate.visibilityChanged();
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      document.removeEventListener('visibilitychange', visibility);
+      gate.dispose();
+    };
+  }, [gate]);
+  const shownStatus = lost && quiet ? 'connected' : status;
   useEffect(() => {
     let active = true;
     let generation = 0;
@@ -50,10 +83,14 @@ export const UsbMenu = () => {
     };
   }, [status, open]);
   const usbOff = usbEnabled === false;
-  const warning = status === 'disconnected' || status === 'reconnecting';
-  const statusText = t(`inputConnection.${status}`);
+  const warning = shownStatus === 'disconnected' || shownStatus === 'reconnecting';
+  const statusText = t(`inputConnection.${shownStatus}`);
   const color =
-    status === 'disconnected' ? '#ef4444' : status === 'reconnecting' ? '#f59e0b' : undefined;
+    shownStatus === 'disconnected'
+      ? '#ef4444'
+      : shownStatus === 'reconnecting'
+        ? '#f59e0b'
+        : undefined;
   const title = `${t('settings.usb.gadget')}${usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
   useEffect(() => () => lock({ source: 'usb-popover', locked: false }), [lock]);
   return (

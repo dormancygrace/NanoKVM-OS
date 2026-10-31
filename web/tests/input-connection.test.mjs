@@ -5,7 +5,8 @@ import vm from 'node:vm';
 import i18next from 'i18next';
 import ts from 'typescript';
 
-function fixture() {
+// page: a fake document whose visibility the test changes (none: always visible).
+function fixture({ page } = {}) {
   let now = 1000;
   const timers = new Map();
   let id = 0;
@@ -54,12 +55,13 @@ function fixture() {
       return id;
     },
     clearInterval: (i) => timers.delete(i),
-    setTimeout: (fn) => {
-      timers.set(++id, { fn, interval: false });
+    setTimeout: (fn, ms) => {
+      timers.set(++id, { fn, interval: false, ms });
       return id;
     },
     clearTimeout: (i) => timers.delete(i)
   };
+  if (page) sandbox.document = page;
   const holdSource = readFileSync(new URL('../src/lib/hold-keepalive.ts', import.meta.url), 'utf8');
   const holdCode = ts.transpileModule(holdSource, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
@@ -80,7 +82,21 @@ function fixture() {
       }
     },
     timers,
+    // Delays of the pending one-shot timers.
+    timeouts: () => [...timers.values()].filter((t) => !t.interval).map((t) => t.ms),
     expired: () => expired
+  };
+}
+
+function fakePage() {
+  const listeners = new Set();
+  return {
+    visibilityState: 'visible',
+    addEventListener: (type, listener) => type === 'visibilitychange' && listeners.add(listener),
+    show(state) {
+      this.visibilityState = state;
+      listeners.forEach((listener) => listener());
+    }
   };
 }
 
@@ -191,4 +207,52 @@ test('socket opts in once, sends hold keepalive only while held, and resets on d
   assert.equal(f.timers.size, 1); // reconnect only
   c.close();
   assert.equal(f.timers.size, 0);
+});
+
+test('a socket the browser cut in the background is replaced at once on return', () => {
+  const page = fakePage();
+  const f = fixture({ page }),
+    c = f.client;
+  c.connect();
+  f.sockets[0].open();
+  page.show('hidden');
+  // Lost while hidden: the backoff stays.
+  f.sockets[0].onclose({ code: 1006 });
+  assert.deepEqual(f.timeouts(), [3000]);
+  // On return the pending retry goes now, without waiting for a timer.
+  page.show('visible');
+  assert.equal(f.sockets.length, 2);
+  assert.deepEqual(f.timeouts(), []);
+  f.sockets[1].open();
+  assert.equal(c.getConnectionStatus(), 'connected');
+  c.close();
+});
+
+test('a close reported on return retries at once, also after background attempts', () => {
+  const page = fakePage();
+  const f = fixture({ page }),
+    c = f.client;
+  c.connect();
+  f.sockets[0].open();
+  page.show('hidden');
+  f.sockets[0].onclose({ code: 1006 });
+  f.tick();
+  // A background socket whose open never reached the page, and that the
+  // browser reports closed only once the tab is back.
+  assert.equal(f.sockets.length, 2);
+  page.show('visible');
+  assert.deepEqual(f.timeouts(), []);
+  f.sockets[1].onclose({ code: 1006 });
+  assert.deepEqual(f.timeouts(), [0]);
+  assert.equal(c.getConnectionStatus(), 'reconnecting');
+  f.tick();
+  f.sockets[2].open();
+  assert.equal(c.getConnectionStatus(), 'connected');
+  // A visible page that keeps failing still backs off after its first retry.
+  f.sockets[2].onclose({ code: 1006 });
+  assert.deepEqual(f.timeouts(), [0]);
+  f.tick();
+  f.sockets[3].onclose({ code: 1006 });
+  assert.deepEqual(f.timeouts(), [3000]);
+  c.close();
 });

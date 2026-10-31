@@ -58,8 +58,10 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
     steps:
+      # A dry run may build any branch: a model add-on is checked so before
+      # it merges.
       - name: Validate the branch
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
         run: |
           [ "$GITHUB_REF" = refs/heads/main ] || { echo 'Run the add-on release from main' >&2; exit 1; }
 
@@ -89,6 +91,7 @@ jobs:
           # shellcheck disable=SC2086 # one argument per part
           tpu/models/convert.sh "$RUNNER_TEMP/models" $PARTS
           tpu/models/stage.sh "$RUNNER_TEMP/models" "$RUNNER_TEMP/staged"
+          (cd "$RUNNER_TEMP/staged" && find . -type f | sort | xargs sha256sum)
 
       # The OS build's Go: the pinned official toolchain (platform/sources.lock)
       # with the NanoKVM runtime (firmware/cpu/sysmon-runtime).

@@ -7,11 +7,11 @@
 static int devfd;
 static unsigned standard_id(struct test_case *t)
 {
- if(t->alg==SG2002_ALG_SHA1)return CRYPTO_SHA1;
- if(t->alg==SG2002_ALG_SHA256)return CRYPTO_SHA2_256;
- if(t->alg==SG2002_ALG_AES)return t->mode==0?CRYPTO_AES_ECB:t->mode==1?CRYPTO_AES_CBC:CRYPTO_AES_CTR;
- if(t->mode==1&&t->alg==SG2002_ALG_DES)return CRYPTO_DES_CBC;
- if(t->mode==1&&t->alg==SG2002_ALG_TDES)return CRYPTO_3DES_CBC;
+ if(t->alg==HWCRYPTO_ALG_SHA1)return CRYPTO_SHA1;
+ if(t->alg==HWCRYPTO_ALG_SHA256)return CRYPTO_SHA2_256;
+ if(t->alg==HWCRYPTO_ALG_AES)return t->mode==0?CRYPTO_AES_ECB:t->mode==1?CRYPTO_AES_CBC:CRYPTO_AES_CTR;
+ if(t->mode==1&&t->alg==HWCRYPTO_ALG_DES)return CRYPTO_DES_CBC;
+ if(t->mode==1&&t->alg==HWCRYPTO_ALG_TDES)return CRYPTO_3DES_CBC;
  return 0;
 }
 static int dev_op(struct test_case *t,unsigned session,int encrypt,const unsigned char *src,size_t len,unsigned char *dst,unsigned flags)
@@ -95,12 +95,12 @@ int main(int argc,char **argv)
    const size_t sizes[]={1200,16384,65536};
    for(unsigned j=0;j<3;j++)for(unsigned round=0;round<3;round++)for(unsigned order=0;order<2;order++){
     if(selected_bytes&&sizes[j]!=selected_bytes)continue;
-    int hw=(round+order)%2;struct sg2002_crypto_info before,after;
-    if(ioctl(fd,SG2002_CRYPTO_INFO,&before))return 1;
+    int hw=(round+order)%2;struct hwcrypto_info before,after;
+    if(ioctl(fd,HWCRYPTO_INFO,&before))return 1;
     uint64_t wall=ns(CLOCK_MONOTONIC),cpu=ns(CLOCK_PROCESS_CPUTIME_ID);
     for(unsigned k=0;k<count;k++)if((hw?dev_op(t,session.ses,1,plain,sizes[j],hwout,0):sw_op(t,1,plain,sizes[j],swout))<0)return 1;
     cpu=ns(CLOCK_PROCESS_CPUTIME_ID)-cpu;wall=ns(CLOCK_MONOTONIC)-wall;
-    if(ioctl(fd,SG2002_CRYPTO_INFO,&after))return 1;
+    if(ioctl(fd,HWCRYPTO_INFO,&after))return 1;
     uint64_t calls=after.completed[t->alg]-before.completed[t->alg];
     if(after.poisoned||(hw&&!calls)||(!hw&&calls))return 1;
     printf("RESULT,%s,enc,%zu,%s,%u,%u,%llu,%llu,%llu\n",t->name,sizes[j],hw?"devcrypto":"sw",round,count,(unsigned long long)cpu,(unsigned long long)wall,(unsigned long long)calls);

@@ -9,7 +9,7 @@ import (
 	"unsafe"
 )
 
-// Keep these in sync with platform/modules/hwcrypto/sg2002_crypto.h.
+// Keep these in sync with platform/modules/hwcrypto/hwcrypto.h.
 const (
 	cryptoABI       = 1
 	cryptoAlgSHA256 = 6

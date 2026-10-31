@@ -13,12 +13,12 @@
 #include <errno.h>
 #include <time.h>
 #include <sys/ioctl.h>
-#include "sg2002_crypto.h"
+#include "hwcrypto.h"
 #include "sg2002_aes_probe.h"
 
 struct test_case { const char *name; unsigned alg, mode, keylen; EVP_CIPHER *cipher; };
 static struct test_case cases[] = {
- {"SHA256",SG2002_ALG_SHA256,0,0,NULL}, {"SHA1",SG2002_ALG_SHA1,0,0,NULL},
+ {"SHA256",HWCRYPTO_ALG_SHA256,0,0,NULL}, {"SHA1",HWCRYPTO_ALG_SHA1,0,0,NULL},
  {"AES-128-ECB",1,0,16,NULL}, {"AES-128-CBC",1,1,16,NULL}, {"AES-128-CTR",1,2,16,NULL},
  {"AES-192-ECB",1,0,24,NULL}, {"AES-192-CBC",1,1,24,NULL}, {"AES-192-CTR",1,2,24,NULL},
  {"AES-256-ECB",1,0,32,NULL}, {"AES-256-CBC",1,1,32,NULL}, {"AES-256-CTR",1,2,32,NULL},
@@ -26,7 +26,7 @@ static struct test_case cases[] = {
  {"TDES-2KEY-ECB",3,0,16,NULL}, {"TDES-2KEY-CBC",3,1,16,NULL}, {"TDES-2KEY-CTR",3,2,16,NULL},
  {"TDES-3KEY-ECB",3,0,24,NULL}, {"TDES-3KEY-CBC",3,1,24,NULL}, {"TDES-3KEY-CTR",3,2,24,NULL},
  {"SM4-ECB",4,0,16,NULL}, {"SM4-CBC",4,1,16,NULL}, {"SM4-CTR",4,2,16,NULL},
- {"BASE64",SG2002_ALG_BASE64,0,0,NULL},
+ {"BASE64",HWCRYPTO_ALG_BASE64,0,0,NULL},
 };
 static int fd;
 static EVP_CIPHER_CTX *cipher_ctx;
@@ -44,9 +44,9 @@ static void be32(unsigned char *out, uint32_t n)
 {
  for (int i=3;i>=0;i--) {out[i]=(unsigned char)n;n>>=8;}
 }
-static int run(struct sg2002_crypto_request *r)
+static int run(struct hwcrypto_request *r)
 {
- if (ioctl(fd,SG2002_CRYPTO_RUN,r)<0) { perror("hardware ioctl"); return -1; }
+ if (ioctl(fd,HWCRYPTO_RUN,r)<0) { perror("hardware ioctl"); return -1; }
  unsigned expected=(r->algorithm==5||r->algorithm==6)?2:1;
  if (r->status != expected) {fprintf(stderr,"no successful DMA completion\n");return -1;}
  return 0;
@@ -55,12 +55,12 @@ static int hw_hash(unsigned alg, const unsigned char *src, size_t len, unsigned 
 {
  static const uint32_t sha256_iv[]={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
  static const uint32_t sha1_iv[]={0x67452301,0xefcdab89,0x98badcfe,0x10325476,0xc3d2e1f0};
- unsigned words=alg==SG2002_ALG_SHA256?8:5;
- struct sg2002_crypto_request r={.version=1,.algorithm=alg};
+ unsigned words=alg==HWCRYPTO_ALG_SHA256?8:5;
+ struct hwcrypto_request r={.version=1,.algorithm=alg};
  for (unsigned i=0;i<words;i++) be32(r.state+i*4,(words==8?sha256_iv:sha1_iv)[i]);
  size_t full=len&~(size_t)63, pos=0;
  while (pos<full) {
-  r.length=(full-pos>SG2002_CRYPTO_MAX)?SG2002_CRYPTO_MAX:(unsigned)(full-pos);
+  r.length=(full-pos>HWCRYPTO_MAX)?HWCRYPTO_MAX:(unsigned)(full-pos);
   r.input=(uintptr_t)(src+pos);
   if (run(&r)) return -1;
   pos+=r.length;
@@ -81,16 +81,16 @@ static int hw_op(struct test_case *t, int encrypt, const unsigned char *src, siz
  unsigned block=(t->alg==2||t->alg==3)?8:16;
  unsigned char next_iv[16];memcpy(next_iv,iv,16);
  while (pos<len) {
-  struct sg2002_crypto_request r={.version=1,.algorithm=t->alg,.mode=t->mode,
-   .encrypt=(unsigned)encrypt,.key_length=t->keylen,.output_length=SG2002_CRYPTO_OUT_MAX};
-  size_t cap=(t->alg==7&&encrypt)?4095:SG2002_CRYPTO_MAX;
+  struct hwcrypto_request r={.version=1,.algorithm=t->alg,.mode=t->mode,
+   .encrypt=(unsigned)encrypt,.key_length=t->keylen,.output_length=HWCRYPTO_OUT_MAX};
+  size_t cap=(t->alg==7&&encrypt)?4095:HWCRYPTO_MAX;
   r.length=(unsigned)((len-pos<cap)?len-pos:cap);
   r.input=(uintptr_t)(src+pos);r.output=(uintptr_t)(dst+out);
   memcpy(r.key,key,t->keylen);memcpy(r.iv,next_iv,16);
   if (run(&r)) return -1;
-  if (t->alg!=7&&t->mode==SG2002_MODE_CBC)
+  if (t->alg!=7&&t->mode==HWCRYPTO_MODE_CBC)
    memcpy(next_iv,(encrypt?dst+out:src+pos)+r.length-block,block);
-  if (t->alg!=7&&t->mode==SG2002_MODE_CTR) increment(next_iv,block,(r.length+block-1)/block);
+  if (t->alg!=7&&t->mode==HWCRYPTO_MODE_CTR) increment(next_iv,block,(r.length+block-1)/block);
   pos+=r.length;out+=r.output_length;
  }
  return (int)out;
@@ -107,18 +107,18 @@ static int sw_des(struct test_case *t,int encrypt,const unsigned char *src,size_
   DES_set_key_unchecked((const_DES_cblock *)(t->keylen==16?key:key+16),&k3);
  }
  memcpy(vector,iv,8);
- if(t->mode==SG2002_MODE_CBC) {
+ if(t->mode==HWCRYPTO_MODE_CBC) {
   if(t->alg==3)DES_ede3_cbc_encrypt(src,dst,(long)len,&k1,&k2,&k3,&vector,encrypt);
   else DES_ncbc_encrypt(src,dst,(long)len,&k1,&vector,encrypt);
  }else{
   for(size_t i=0;i<len;i+=8){
    DES_cblock tmp;
-   const unsigned char *input=t->mode==SG2002_MODE_CTR?vector:src+i;
-   int enc=t->mode==SG2002_MODE_CTR?1:encrypt;
+   const unsigned char *input=t->mode==HWCRYPTO_MODE_CTR?vector:src+i;
+   int enc=t->mode==HWCRYPTO_MODE_CTR?1:encrypt;
    if(t->alg==3)DES_ecb3_encrypt((const_DES_cblock *)input,&tmp,&k1,&k2,&k3,enc);
    else DES_ecb_encrypt((const_DES_cblock *)input,&tmp,&k1,enc);
    size_t n=len-i<8?len-i:8;
-   if(t->mode==SG2002_MODE_CTR){for(size_t j=0;j<n;j++)dst[i+j]=src[i+j]^tmp[j];increment(vector,8,1);}
+   if(t->mode==HWCRYPTO_MODE_CTR){for(size_t j=0;j<n;j++)dst[i+j]=src[i+j]^tmp[j];increment(vector,8,1);}
    else memcpy(dst+i,tmp,n);
   }
  }
@@ -175,23 +175,23 @@ static int kat(struct test_case *t)
 }
 static int check_invalid(void)
 {
- struct sg2002_crypto_info before,after;
- if(ioctl(fd,SG2002_CRYPTO_INFO,&before))return -1;
+ struct hwcrypto_info before,after;
+ if(ioctl(fd,HWCRYPTO_INFO,&before))return -1;
  for(unsigned variant=0;variant<7;variant++){
-  struct sg2002_crypto_request r={.version=1,.algorithm=1,.key_length=16,.length=16,.encrypt=1,.output_length=16,
+  struct hwcrypto_request r={.version=1,.algorithm=1,.key_length=16,.length=16,.encrypt=1,.output_length=16,
    .input=(uintptr_t)plain,.output=(uintptr_t)hwout};
   switch(variant){case 0:r.version=99;break;case 1:r.algorithm=8;break;case 2:r.mode=9;break;
    case 3:r.length=4097;break;case 4:r.output_length=1;break;case 5:r.reserved[0]=1;break;case 6:r.input=1;break;}
-  if(ioctl(fd,SG2002_CRYPTO_RUN,&r)==0){fprintf(stderr,"invalid request accepted %u\n",variant);return -1;}
+  if(ioctl(fd,HWCRYPTO_RUN,&r)==0){fprintf(stderr,"invalid request accepted %u\n",variant);return -1;}
  }
- if(ioctl(fd,SG2002_CRYPTO_INFO,&after)||memcmp(before.submitted,after.submitted,sizeof(before.submitted))){
+ if(ioctl(fd,HWCRYPTO_INFO,&after)||memcmp(before.submitted,after.submitted,sizeof(before.submitted))){
   fprintf(stderr,"invalid request submitted DMA\n");return -1;
  }
  puts("INVALID_REQUESTS_PASS");return 0;
 }
 static int check_legacy(void)
 {
- struct sg2002_aes_request r={.length=64};
+ struct hwcrypto_aes_request r={.length=64};
  memcpy(r.key,key,16); memcpy(r.iv,iv,16); memcpy(r.data,plain,64);
  struct test_case *t=&cases[2];
  /* Locate CTR independently of table order. */
@@ -199,7 +199,7 @@ static int check_legacy(void)
  t->cipher=EVP_CIPHER_fetch(NULL,t->name,"provider=default");
  int n=t->cipher?sw_op(t,1,plain,64,swout):-1;
  EVP_CIPHER_free(t->cipher);t->cipher=NULL;
- if(n!=64||ioctl(fd,SG2002_AES_CTR,&r)||r.status!=1||memcmp(r.data,swout,64)){
+ if(n!=64||ioctl(fd,HWCRYPTO_AES_CTR,&r)||r.status!=1||memcmp(r.data,swout,64)){
   fprintf(stderr,"legacy AES128CTR mismatch\n");return -1;
  }
  puts("LEGACY_AES128_CTR_PASS");return 0;
@@ -214,8 +214,8 @@ static int bench(struct test_case *t,unsigned iterations)
   unsigned count=j==4?16:iterations;
   for(unsigned round=0;round<3;round++)for(unsigned order=0;order<2;order++){
    int hardware=((order+round)%2)==1;
-   struct sg2002_crypto_info before,after;
-   if(ioctl(fd,SG2002_CRYPTO_INFO,&before))return -1;
+   struct hwcrypto_info before,after;
+   if(ioctl(fd,HWCRYPTO_INFO,&before))return -1;
    uint64_t start_wall=ns(CLOCK_MONOTONIC),start_cpu=ns(CLOCK_PROCESS_CPUTIME_ID);
    int result=0;
    for(unsigned k=0;k<count;k++){
@@ -223,7 +223,7 @@ static int bench(struct test_case *t,unsigned iterations)
     if(result<0)return -1;
    }
    uint64_t cpu=ns(CLOCK_PROCESS_CPUTIME_ID)-start_cpu,wall=ns(CLOCK_MONOTONIC)-start_wall;
-   if(ioctl(fd,SG2002_CRYPTO_INFO,&after))return -1;
+   if(ioctl(fd,HWCRYPTO_INFO,&after))return -1;
    uint64_t calls=after.completed[t->alg]-before.completed[t->alg];
    if(after.poisoned||(hardware&&!calls)||(!hardware&&calls)){fprintf(stderr,"backend counter mismatch\n");return -1;}
    printf("RESULT,%s,%s,%zu,%s,%u,%u,%llu,%llu,%llu\n",t->name,enc?"enc":"dec",len,hardware?"hw":"sw",round,count,
@@ -245,8 +245,8 @@ int main(int argc,char **argv)
  if(!iterations||iterations>256)return 2;
  setvbuf(stdout,NULL,_IOLBF,0);
  fd=open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC);if(fd<0){perror("device");return 1;}
- struct sg2002_crypto_info info;
- if(ioctl(fd,SG2002_CRYPTO_INFO,&info)||info.version!=1||info.poisoned){perror("crypto capabilities");return 1;}
+ struct hwcrypto_info info;
+ if(ioctl(fd,HWCRYPTO_INFO,&info)||info.version!=1||info.poisoned){perror("crypto capabilities");return 1;}
  printf("OPENSSL %s\n",OpenSSL_version(OPENSSL_VERSION));
  printf("ABI %u algorithms=%#x input=%u output=%u\n",info.version,info.algorithms,info.max_input,info.max_output);
  for(unsigned i=0;i<sizeof(key);i++)key[i]=(unsigned char)i;

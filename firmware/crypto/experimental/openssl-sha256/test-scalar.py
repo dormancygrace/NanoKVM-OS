@@ -27,7 +27,7 @@ def main():
                    '-ffunction-sections', '-fdata-sections', '-Wl,--gc-sections',
                    '-I' + str(source / 'include'), '-I' + str(source),
                    str(HERE / 'test-scalar.c'), str(HERE / 'test-scalar-abi.S'),
-                   str(wrapper), str(source / 'crypto/sha/sha256_sg2002.c'), str(assembly),
+                   str(wrapper), str(source / 'crypto/sha/sha256_hwcrypto.c'), str(assembly),
                    '-o', str(binary)]
         def execute(extra=()):
             subprocess.run(command + list(extra), check=True)

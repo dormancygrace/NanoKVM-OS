@@ -59,7 +59,7 @@ static int sg2_cipher_process(struct skcipher_request *req, bool encrypt)
 {
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
  const struct sg2_cipher_alg *a = ctx->alg;
- struct sg2002_crypto_request r = { .version = 1, .algorithm = a->hardware,
+ struct hwcrypto_request r = { .version = 1, .algorithm = a->hardware,
   .mode = a->mode, .encrypt = encrypt, .key_length = ctx->keylen };
  u8 next_iv[16]; unsigned int pos = 0; int err = 0, in_nents, out_nents;
  if (!req->cryptlen) return 0;
@@ -69,17 +69,17 @@ static int sg2_cipher_process(struct skcipher_request *req, bool encrypt)
  memcpy(r.key, ctx->key, ctx->keylen);
  if (a->mode) memcpy(r.iv, req->iv, a->block);
  while (pos < req->cryptlen) {
-  r.length = min_t(unsigned int, SG2002_CRYPTO_MAX, req->cryptlen - pos);
+  r.length = min_t(unsigned int, HWCRYPTO_MAX, req->cryptlen - pos);
   r.output_length = r.length;
   mutex_lock(&lock);
   if (poisoned) { err = -EIO; mutex_unlock(&lock); break; }
   if (sg_pcopy_to_buffer(req->src, in_nents, buffer, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
-  if (a->mode == SG2002_MODE_CBC && !encrypt) memcpy(next_iv, buffer + r.length - a->block, a->block);
+  if (a->mode == HWCRYPTO_MODE_CBC && !encrypt) memcpy(next_iv, buffer + r.length - a->block, a->block);
   err = crypto_run_locked(&r);
   if (err) goto chunk_done;
   if (sg_pcopy_from_buffer(req->dst, out_nents, crypto_output, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
-  if (a->mode == SG2002_MODE_CBC) memcpy(r.iv, encrypt ? crypto_output + r.length - a->block : next_iv, a->block);
-  if (a->mode == SG2002_MODE_CTR) sg2_inc_counter(r.iv, a->block, DIV_ROUND_UP(r.length, a->block));
+  if (a->mode == HWCRYPTO_MODE_CBC) memcpy(r.iv, encrypt ? crypto_output + r.length - a->block : next_iv, a->block);
+  if (a->mode == HWCRYPTO_MODE_CTR) sg2_inc_counter(r.iv, a->block, DIV_ROUND_UP(r.length, a->block));
 chunk_done:
   crypto_clean_locked(&r);
   mutex_unlock(&lock);
@@ -106,7 +106,7 @@ static int sg2_cipher_submit(struct skcipher_request *req, bool encrypt)
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
  struct sg2_cipher_req *r = skcipher_request_ctx(req);
  int err;
- if (!ctx->keylen || (ctx->alg->mode != SG2002_MODE_CTR && req->cryptlen % ctx->alg->block)) return -EINVAL;
+ if (!ctx->keylen || (ctx->alg->mode != HWCRYPTO_MODE_CTR && req->cryptlen % ctx->alg->block)) return -EINVAL;
  if (!req->cryptlen) return 0;
  if (sg2_use_fallback(ctx->fallback)) return sg2_cipher_fallback(req, encrypt);
  if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_cipher_process(req, encrypt);
@@ -138,13 +138,13 @@ static int sg2_verify_des_key(struct crypto_skcipher *tfm, const u8 *key)
 static int sg2_cipher_setkey(struct crypto_skcipher *tfm, const u8 *key, unsigned int len)
 {
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(tfm);
- bool valid = ctx->alg->hardware == SG2002_ALG_AES ? (len == 16 || len == 24 || len == 32) :
-  ctx->alg->hardware == SG2002_ALG_DES ? len == 8 : ctx->alg->hardware == SG2002_ALG_TDES ? len == 24 : len == 16;
+ bool valid = ctx->alg->hardware == HWCRYPTO_ALG_AES ? (len == 16 || len == 24 || len == 32) :
+  ctx->alg->hardware == HWCRYPTO_ALG_DES ? len == 8 : ctx->alg->hardware == HWCRYPTO_ALG_TDES ? len == 24 : len == 16;
  int err;
  memzero_explicit(ctx->key, sizeof(ctx->key)); ctx->keylen = 0;
  if (!valid) return -EINVAL;
- if (ctx->alg->hardware == SG2002_ALG_DES && sg2_verify_des_key(tfm, key)) return -EINVAL;
- if (ctx->alg->hardware == SG2002_ALG_TDES && verify_skcipher_des3_key(tfm, key)) return -EINVAL;
+ if (ctx->alg->hardware == HWCRYPTO_ALG_DES && sg2_verify_des_key(tfm, key)) return -EINVAL;
+ if (ctx->alg->hardware == HWCRYPTO_ALG_TDES && verify_skcipher_des3_key(tfm, key)) return -EINVAL;
  if (ctx->fallback) {
   crypto_skcipher_clear_flags(ctx->fallback, CRYPTO_TFM_REQ_MASK);
   crypto_skcipher_set_flags(ctx->fallback, crypto_skcipher_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
@@ -174,7 +174,7 @@ static void sg2_cipher_exit(struct crypto_skcipher *tfm)
  { .hardware = id, .mode = mode_id, .block = bs, .alg = { \
  .base = { .cra_name = mode_name "(" cipher_name ")", .cra_driver_name = "sg2002-" cipher_name "-" mode_name, \
  .cra_priority = 300, .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NEED_FALLBACK, \
- .cra_blocksize = mode_id == SG2002_MODE_CTR ? 1 : bs, .cra_ctxsize = sizeof(struct sg2_cipher_ctx), .cra_module = THIS_MODULE }, \
+ .cra_blocksize = mode_id == HWCRYPTO_MODE_CTR ? 1 : bs, .cra_ctxsize = sizeof(struct sg2_cipher_ctx), .cra_module = THIS_MODULE }, \
  .min_keysize = min_key, .max_keysize = max_key, .ivsize = mode_id ? bs : 0, .chunksize = bs, \
  .setkey = sg2_cipher_setkey, .encrypt = sg2_cipher_encrypt, .decrypt = sg2_cipher_decrypt, .init = sg2_cipher_init, .exit = sg2_cipher_exit } }
 #define SG2_MODES(name, id, bs, min_key, max_key) \
@@ -182,10 +182,10 @@ static void sg2_cipher_exit(struct crypto_skcipher *tfm)
  SG2_CIPHER("cbc", name, id, 1, bs, min_key, max_key), \
  SG2_CIPHER("ctr", name, id, 2, bs, min_key, max_key)
 static struct sg2_cipher_alg sg2_ciphers[] = {
- SG2_MODES("aes", SG2002_ALG_AES, 16, 16, 32),
- SG2_MODES("des", SG2002_ALG_DES, 8, 8, 8),
- SG2_MODES("des3_ede", SG2002_ALG_TDES, 8, 24, 24),
- SG2_MODES("sm4", SG2002_ALG_SM4, 16, 16, 16),
+ SG2_MODES("aes", HWCRYPTO_ALG_AES, 16, 16, 32),
+ SG2_MODES("des", HWCRYPTO_ALG_DES, 8, 8, 8),
+ SG2_MODES("des3_ede", HWCRYPTO_ALG_TDES, 8, 24, 24),
+ SG2_MODES("sm4", HWCRYPTO_ALG_SM4, 16, 16, 16),
 };
 
 #define SG2_HASH_MAGIC 0x53473248
@@ -209,8 +209,8 @@ static int sg2_hash_read(struct ahash_request *req, int nents, unsigned int offs
 static int sg2_hash_blocks(struct ahash_request *req, int nents, unsigned int offset, const u8 *tail, unsigned int len)
 {
  struct sg2_hash_req *ctx = ahash_request_ctx(req);
- struct sg2002_crypto_request r = { .version = 1,
-  .algorithm = crypto_ahash_digestsize(crypto_ahash_reqtfm(req)) == 32 ? SG2002_ALG_SHA256 : SG2002_ALG_SHA1, .length = len };
+ struct hwcrypto_request r = { .version = 1,
+  .algorithm = crypto_ahash_digestsize(crypto_ahash_reqtfm(req)) == 32 ? HWCRYPTO_ALG_SHA256 : HWCRYPTO_ALG_SHA1, .length = len };
  int err;
  memcpy(r.state, ctx->hash.state, sizeof(r.state));
  mutex_lock(&lock);
@@ -247,7 +247,7 @@ static int sg2_hash_process(struct ahash_request *req, bool final, bool consume)
     s->used = 0; memzero_explicit(s->tail, sizeof(s->tail));
    }
   } else {
-   n = min_t(unsigned int, SG2002_CRYPTO_MAX, remaining & ~63U);
+   n = min_t(unsigned int, HWCRYPTO_MAX, remaining & ~63U);
    err = sg2_hash_blocks(req, nents, pos, NULL, n); if (err) goto failed;
    pos += n; remaining -= n;
   }

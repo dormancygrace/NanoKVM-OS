@@ -59,10 +59,10 @@ struct aes_scratch {
  u32 status;
  u8 data[];
 };
-static_assert(sizeof(struct aes_scratch) == offsetof(struct sg2002_aes_request, data));
-static_assert(offsetof(struct aes_scratch, key) == offsetof(struct sg2002_aes_request, key));
-static_assert(offsetof(struct aes_scratch, iv) == offsetof(struct sg2002_aes_request, iv));
-static_assert(offsetof(struct aes_scratch, status) == offsetof(struct sg2002_aes_request, status));
+static_assert(sizeof(struct aes_scratch) == offsetof(struct hwcrypto_aes_request, data));
+static_assert(offsetof(struct aes_scratch, key) == offsetof(struct hwcrypto_aes_request, key));
+static_assert(offsetof(struct aes_scratch, iv) == offsetof(struct hwcrypto_aes_request, iv));
+static_assert(offsetof(struct aes_scratch, status) == offsetof(struct hwcrypto_aes_request, status));
 
 /*
  * Wait for the completion status of the engine. A 4 KiB request takes about
@@ -91,13 +91,13 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  struct aes_scratch header = {};
  u32 status = 0, size = 0;
  int err;
- if (cmd != SG2002_AES_CTR) return crypto_ioctl(cmd, arg);
+ if (cmd != HWCRYPTO_AES_CTR) return crypto_ioctl(cmd, arg);
  /* Snapshot the fixed header once. The payload copy below uses this length and
   * never rereads userspace metadata, even if the caller races with the ioctl. */
  if (copy_from_user(&header, (void __user *)arg, sizeof(header))) {
   err = -EFAULT; goto clear_header;
  }
- if (!header.length || header.length > SG2002_AES_MAX || header.reserved) {
+ if (!header.length || header.length > HWCRYPTO_AES_MAX || header.reserved) {
   err = -EINVAL; goto clear_header;
  }
  err = mutex_lock_interruptible(&lock);
@@ -107,7 +107,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  /* The shared DMA buffer is protected by lock. Keeping the user copy inside
   * the lock removes the per-request allocation and the two intermediate copies. */
  if (copy_from_user(buffer,
-      (u8 __user *)arg + offsetof(struct sg2002_aes_request, data),
+      (u8 __user *)arg + offsetof(struct hwcrypto_aes_request, data),
       header.length)) {
   err = -EFAULT;
   goto clear_input;
@@ -156,7 +156,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
   err = -EFAULT;
   goto clear_scratch;
  }
- if (copy_to_user((u8 __user *)arg + offsetof(struct sg2002_aes_request, data),
+ if (copy_to_user((u8 __user *)arg + offsetof(struct hwcrypto_aes_request, data),
       crypto_output, header.length)) {
   err = -EFAULT;
   goto clear_scratch;
@@ -218,11 +218,11 @@ static int __init aes_init(void)
  desc_dma = dma_map_single(&pdev->dev, desc, DESC_BYTES, DMA_BIDIRECTIONAL);
  if (dma_mapping_error(&pdev->dev, desc_dma)) {err = -EIO; goto free_descriptor;}
  dma_sync_single_for_cpu(&pdev->dev, desc_dma, DESC_BYTES, DMA_BIDIRECTIONAL);
- buffer = kzalloc(SG2002_AES_MAX, GFP_KERNEL);
+ buffer = kzalloc(HWCRYPTO_AES_MAX, GFP_KERNEL);
  if (!buffer) {err = -ENOMEM; goto descriptor;}
- buffer_dma = dma_map_single(&pdev->dev, buffer, SG2002_AES_MAX, DMA_BIDIRECTIONAL);
+ buffer_dma = dma_map_single(&pdev->dev, buffer, HWCRYPTO_AES_MAX, DMA_BIDIRECTIONAL);
  if (dma_mapping_error(&pdev->dev, buffer_dma)) {err = -EIO; goto free_buffer;}
- dma_sync_single_for_cpu(&pdev->dev, buffer_dma, SG2002_AES_MAX, DMA_BIDIRECTIONAL);
+ dma_sync_single_for_cpu(&pdev->dev, buffer_dma, HWCRYPTO_AES_MAX, DMA_BIDIRECTIONAL);
  err = crypto_alloc_output();
  if (err) goto data;
  err = crypto_linux_register();
@@ -248,7 +248,7 @@ crypto_linux:
 crypto_data:
  crypto_free_output();
 data:
- dma_unmap_single(&pdev->dev, buffer_dma, SG2002_AES_MAX, DMA_BIDIRECTIONAL);
+ dma_unmap_single(&pdev->dev, buffer_dma, HWCRYPTO_AES_MAX, DMA_BIDIRECTIONAL);
 free_buffer:
  kfree_sensitive(buffer);
 descriptor:
@@ -272,9 +272,9 @@ static void __exit aes_exit(void)
   * after all opens close and each submitted descriptor has completed. */
  writel(0, regs + CTRL);
  writel(initial_mask, regs + MASK);
- memzero_explicit(buffer, SG2002_AES_MAX);
+ memzero_explicit(buffer, HWCRYPTO_AES_MAX);
  memzero_explicit(desc, DESC_BYTES);
- dma_unmap_single(&pdev->dev, buffer_dma, SG2002_AES_MAX, DMA_BIDIRECTIONAL);
+ dma_unmap_single(&pdev->dev, buffer_dma, HWCRYPTO_AES_MAX, DMA_BIDIRECTIONAL);
  kfree_sensitive(buffer);
  dma_unmap_single(&pdev->dev, desc_dma, DESC_BYTES, DMA_BIDIRECTIONAL);
  kfree_sensitive(desc);

@@ -76,13 +76,13 @@ int main(int argc,char **argv)
    if(sw_gcm(ctx,1,in,len,ref,auth,sizeof(auth),16))return 1;
    for(unsigned round=0;round<3;round++)for(unsigned order=0;order<2;order++){
     unsigned hw=(round+order)%2,count=32;
-    struct sg2002_crypto_info before,after;
-    if(ioctl(fd,SG2002_CRYPTO_INFO,&before))return 1;
+    struct hwcrypto_info before,after;
+    if(ioctl(fd,HWCRYPTO_INFO,&before))return 1;
     uint64_t wall=ns(CLOCK_MONOTONIC),cpu=ns(CLOCK_PROCESS_CPUTIME_ID);
     for(unsigned n=0;n<count;n++)if(hw?standard_gcm(session.ses,enc,enc?in:ref,len+(enc?0:16),out,auth,sizeof(auth),16):sw_gcm(ctx,enc,enc?in:ref,len,out,auth,sizeof(auth),16)){perror("bench");return 1;}
     cpu=ns(CLOCK_PROCESS_CPUTIME_ID)-cpu;wall=ns(CLOCK_MONOTONIC)-wall;
-    if(ioctl(fd,SG2002_CRYPTO_INFO,&after))return 1;
-    uint64_t calls=after.completed[SG2002_ALG_AES]-before.completed[SG2002_ALG_AES];
+    if(ioctl(fd,HWCRYPTO_INFO,&after))return 1;
+    uint64_t calls=after.completed[HWCRYPTO_ALG_AES]-before.completed[HWCRYPTO_ALG_AES];
     if(after.poisoned||(hw&&!calls)||(!hw&&calls))return 1;
     if(memcmp(out,enc?ref:in,len+(enc?16:0)))return 1;
     printf("RESULT,%s,%s,%zu,%s,%u,%u,%llu,%llu,%llu\n",name,enc?"enc":"dec",len,hw?"devcrypto":"sw",round,count,(unsigned long long)cpu,(unsigned long long)wall,(unsigned long long)calls);

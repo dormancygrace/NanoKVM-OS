@@ -406,7 +406,7 @@ index 000000000..e63dc66fa
 +    return rate >= 100000000 && rate <= 850000000 ? rate : 0;
 +}
 +
-+static int sg2002_target(struct cpufreq_policy *policy, unsigned int index)
++static int nanokvm_target(struct cpufreq_policy *policy, unsigned int index)
 +{
 +    unsigned long target = frequencies[index].frequency * 1000UL;
 +    unsigned long before = clk_get_rate(mpll);
@@ -449,7 +449,7 @@ index 000000000..e63dc66fa
 +    return ret;
 +}
 +
-+static int sg2002_policy_init(struct cpufreq_policy *policy)
++static int nanokvm_policy_init(struct cpufreq_policy *policy)
 +{
 +    unsigned long rate = clk_get_rate(cpu_clk);
 +    if (policy->cpu != 0 || num_possible_cpus() != 1 ||
@@ -465,13 +465,13 @@ index 000000000..e63dc66fa
 +    return 0;
 +}
 +
-+static struct cpufreq_driver sg2002_driver = {
++static struct cpufreq_driver nanokvm_driver = {
 +    .name = "sg2002-cpufreq",
 +    .flags = CPUFREQ_IS_COOLING_DEV,
 +    .verify = cpufreq_generic_frequency_table_verify,
-+    .target_index = sg2002_target,
++    .target_index = nanokvm_target,
 +    .get = cpufreq_generic_get,
-+    .init = sg2002_policy_init,
++    .init = nanokvm_policy_init,
 +};
 +
 +static struct clk *provider_clock(struct device_node *node, unsigned int id)
@@ -486,7 +486,7 @@ index 000000000..e63dc66fa
 +    clk_put(fpll); clk_put(a53); clk_put(other_cpu); clk_put(osc); clk_put(mpll); clk_put(cpu_clk);
 +}
 +
-+static int __init sg2002_cpufreq_init(void)
++static int __init nanokvm_cpufreq_init(void)
 +{
 +    struct device_node *node;
 +    int ret;
@@ -518,7 +518,7 @@ index 000000000..e63dc66fa
 +    ret = clk_rate_exclusive_get(mpll);
 +    if (ret)
 +        goto fail;
-+    ret = cpufreq_register_driver(&sg2002_driver);
++    ret = cpufreq_register_driver(&nanokvm_driver);
 +    if (ret) {
 +        clk_rate_exclusive_put(mpll);
 +        goto fail;
@@ -529,14 +529,14 @@ index 000000000..e63dc66fa
 +    return ret;
 +}
 +
-+static void __exit sg2002_cpufreq_exit(void)
++static void __exit nanokvm_cpufreq_exit(void)
 +{
-+    cpufreq_unregister_driver(&sg2002_driver);
++    cpufreq_unregister_driver(&nanokvm_driver);
 +    clk_rate_exclusive_put(mpll);
 +    put_clocks();
 +}
-+module_init(sg2002_cpufreq_init);
-+module_exit(sg2002_cpufreq_exit);
++module_init(nanokvm_cpufreq_init);
++module_exit(nanokvm_cpufreq_exit);
 +MODULE_LICENSE("GPL");
 +MODULE_DESCRIPTION("NanoKVM SG2002 CPU frequency control via CCF");
 diff --git a/drivers/firmware/efi/libstub/Makefile b/drivers/firmware/efi/libstub/Makefile
@@ -612,19 +612,19 @@ index 000000000..34ff925a6
 +#define TS_DIV          GENMASK(15, 8)
 +#define TS_RAW          GENMASK(12, 0)
 +
-+struct sg2002_temp {
++struct nanokvm_temp {
 +	void __iomem *base;
 +	u32 saved_ctrl, saved_set, saved_cycle;
 +};
 +
-+static umode_t sg2002_temp_visible(const void *data,
++static umode_t nanokvm_temp_visible(const void *data,
 +				 enum hwmon_sensor_types type, u32 attr, int channel)
 +{
 +	return type == hwmon_temp &&
 +		(attr == hwmon_temp_input || attr == hwmon_temp_label) ? 0444 : 0;
 +}
 +
-+static int sg2002_temp_value(struct sg2002_temp *sensor, long *value)
++static int nanokvm_temp_value(struct nanokvm_temp *sensor, long *value)
 +{
 +	u32 raw;
 +	long temp;
@@ -641,29 +641,29 @@ index 000000000..34ff925a6
 +}
 +
 +
-+static int sg2002_temp_read(struct device *dev, enum hwmon_sensor_types type,
++static int nanokvm_temp_read(struct device *dev, enum hwmon_sensor_types type,
 +                           u32 attr, int channel, long *value)
 +{
 +	if (type != hwmon_temp || attr != hwmon_temp_input || channel)
 +		return -EOPNOTSUPP;
-+	return sg2002_temp_value(dev_get_drvdata(dev), value);
++	return nanokvm_temp_value(dev_get_drvdata(dev), value);
 +}
 +
-+static int sg2002_thermal_get_temp(struct thermal_zone_device *zone, int *value)
++static int nanokvm_thermal_get_temp(struct thermal_zone_device *zone, int *value)
 +{
 +	long temp;
-+	int ret = sg2002_temp_value(thermal_zone_device_priv(zone), &temp);
++	int ret = nanokvm_temp_value(thermal_zone_device_priv(zone), &temp);
 +
 +	if (!ret)
 +		*value = temp;
 +	return ret;
 +}
 +
-+static const struct thermal_zone_device_ops sg2002_thermal_ops = {
-+	.get_temp = sg2002_thermal_get_temp,
++static const struct thermal_zone_device_ops nanokvm_thermal_ops = {
++	.get_temp = nanokvm_thermal_get_temp,
 +};
 +
-+static int sg2002_temp_label(struct device *dev, enum hwmon_sensor_types type,
++static int nanokvm_temp_label(struct device *dev, enum hwmon_sensor_types type,
 +			    u32 attr, int channel, const char **value)
 +{
 +	if (type != hwmon_temp || attr != hwmon_temp_label || channel)
@@ -672,25 +672,25 @@ index 000000000..34ff925a6
 +	return 0;
 +}
 +
-+static const struct hwmon_ops sg2002_temp_ops = {
-+	.is_visible = sg2002_temp_visible,
-+	.read = sg2002_temp_read,
-+	.read_string = sg2002_temp_label,
++static const struct hwmon_ops nanokvm_temp_ops = {
++	.is_visible = nanokvm_temp_visible,
++	.read = nanokvm_temp_read,
++	.read_string = nanokvm_temp_label,
 +};
 +
-+static const struct hwmon_channel_info * const sg2002_temp_info[] = {
++static const struct hwmon_channel_info * const nanokvm_temp_info[] = {
 +	HWMON_CHANNEL_INFO(temp, HWMON_T_INPUT | HWMON_T_LABEL),
 +	NULL,
 +};
 +
-+static const struct hwmon_chip_info sg2002_temp_chip = {
-+	.ops = &sg2002_temp_ops,
-+	.info = sg2002_temp_info,
++static const struct hwmon_chip_info nanokvm_temp_chip = {
++	.ops = &nanokvm_temp_ops,
++	.info = nanokvm_temp_info,
 +};
 +
-+static void sg2002_temp_restore(void *data)
++static void nanokvm_temp_restore(void *data)
 +{
-+	struct sg2002_temp *sensor = data;
++	struct nanokvm_temp *sensor = data;
 +
 +	writel(sensor->saved_ctrl & ~TS_ENABLE, sensor->base + TS_CTRL);
 +	writel(sensor->saved_set, sensor->base + TS_SET);
@@ -698,10 +698,10 @@ index 000000000..34ff925a6
 +	writel(sensor->saved_ctrl, sensor->base + TS_CTRL);
 +}
 +
-+static int sg2002_temp_probe(struct platform_device *pdev)
++static int nanokvm_temp_probe(struct platform_device *pdev)
 +{
 +	struct device *dev = &pdev->dev;
-+	struct sg2002_temp *sensor;
++	struct nanokvm_temp *sensor;
 +	struct device *hwmon;
 +	struct thermal_zone_device *zone;
 +	struct clk *clk;
@@ -725,7 +725,7 @@ index 000000000..34ff925a6
 +	/* Do not take over a controller already owned by firmware. */
 +	if (sensor->saved_ctrl & TS_ENABLE)
 +		return dev_err_probe(dev, -EBUSY, "temperature controller already enabled\n");
-+	ret = devm_add_action_or_reset(dev, sg2002_temp_restore, sensor);
++	ret = devm_add_action_or_reset(dev, nanokvm_temp_restore, sensor);
 +	if (ret)
 +		return ret;
 +	value = sensor->saved_set & ~(TS_CHOP | TS_ACC | TS_DIV);
@@ -739,30 +739,30 @@ index 000000000..34ff925a6
 +	writel(value | FIELD_PREP(TS_CHANNELS, 1) | TS_ENABLE,
 +	       sensor->base + TS_CTRL);
 +	hwmon = devm_hwmon_device_register_with_info(dev, "sg2002", sensor,
-+						   &sg2002_temp_chip, NULL);
++						   &nanokvm_temp_chip, NULL);
 +	if (IS_ERR(hwmon))
 +		return PTR_ERR(hwmon);
-+	zone = devm_thermal_of_zone_register(dev, 0, sensor, &sg2002_thermal_ops);
++	zone = devm_thermal_of_zone_register(dev, 0, sensor, &nanokvm_thermal_ops);
 +	/* Older board descriptions provide telemetry without a thermal zone. */
 +	if (IS_ERR(zone) && PTR_ERR(zone) != -ENODEV)
 +		return dev_err_probe(dev, PTR_ERR(zone), "thermal zone unavailable\n");
 +	return 0;
 +}
 +
-+static const struct of_device_id sg2002_temp_match[] = {
++static const struct of_device_id nanokvm_temp_match[] = {
 +	{ .compatible = "sophgo,sg2002-tempsen" },
 +	{ }
 +};
-+MODULE_DEVICE_TABLE(of, sg2002_temp_match);
++MODULE_DEVICE_TABLE(of, nanokvm_temp_match);
 +
-+static struct platform_driver sg2002_temp_driver = {
-+	.probe = sg2002_temp_probe,
++static struct platform_driver nanokvm_temp_driver = {
++	.probe = nanokvm_temp_probe,
 +	.driver = {
 +		.name = "sg2002-tempsen",
-+		.of_match_table = sg2002_temp_match,
++		.of_match_table = nanokvm_temp_match,
 +	},
 +};
-+module_platform_driver(sg2002_temp_driver);
++module_platform_driver(nanokvm_temp_driver);
 +MODULE_DESCRIPTION("SG2002 SoC temperature telemetry");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig

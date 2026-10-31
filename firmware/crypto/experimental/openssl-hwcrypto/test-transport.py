@@ -29,8 +29,8 @@ def main():
     patch = ROOT / 'firmware/crypto/openssl-c906/0002-hwcrypto-transport.patch'
     files = added_files(patch.read_text())
     # Never drift from the real kernel ioctl ABI, including its syscall license.
-    assert files['include/crypto/sg2002_crypto.h'] == (ROOT / 'platform/modules/hwcrypto/sg2002_crypto.h').read_text()
-    with tempfile.TemporaryDirectory(prefix='nkos-sg2002-test-') as tmp:
+    assert files['include/crypto/hwcrypto.h'] == (ROOT / 'platform/modules/hwcrypto/hwcrypto.h').read_text()
+    with tempfile.TemporaryDirectory(prefix='nkos-hwcrypto-test-') as tmp:
         d = Path(tmp)
         for name, text in files.items():
             dest = d / name
@@ -43,7 +43,7 @@ def main():
                         str(Path(__file__).with_suffix('.c')), '-lcrypto', '-o', str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
         if a.negative_control:
-            source = d / 'crypto/sg2002.c'
+            source = d / 'crypto/hwcrypto.c'
             original = source.read_text()
             broken = original.replace('r.output = hash ? 0 : (uintptr_t)scratch;',
                                       'r.output = request->output;')

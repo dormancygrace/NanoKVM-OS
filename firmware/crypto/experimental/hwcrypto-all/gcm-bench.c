@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/ioctl.h>
-#include "sg2002_crypto.h"
+#include "hwcrypto.h"
 
 static int fd;
 struct hw_key { unsigned char bytes[32]; unsigned length; int failed; };
@@ -23,16 +23,16 @@ static const unsigned char nonce[12]={0,1,2,3,4,5,6,7,8,9,10,11};
 static const unsigned char aad[17]="synthetic-header";
 static uint64_t ns(clockid_t id){struct timespec t;clock_gettime(id,&t);return (uint64_t)t.tv_sec*1000000000ULL+t.tv_nsec;}
 static void inc32(unsigned char *v,unsigned n){while(n--){for(unsigned i=16;i>12;i--)if(++v[i-1])break;}}
-static int submit(struct hw_key *k,struct sg2002_crypto_request *r)
+static int submit(struct hw_key *k,struct hwcrypto_request *r)
 {
  if(k->failed)return -1;
- if(ioctl(fd,SG2002_CRYPTO_RUN,r)<0||r->status!=1){k->failed=1;perror("AES hardware");return -1;}
+ if(ioctl(fd,HWCRYPTO_RUN,r)<0||r->status!=1){k->failed=1;perror("AES hardware");return -1;}
  return 0;
 }
 static void block(const unsigned char in[16],unsigned char out[16],const void *opaque)
 {
  struct hw_key *k=(struct hw_key *)opaque;
- struct sg2002_crypto_request r={.version=1,.algorithm=SG2002_ALG_AES,.encrypt=1,
+ struct hwcrypto_request r={.version=1,.algorithm=HWCRYPTO_ALG_AES,.encrypt=1,
   .key_length=k->length,.length=16,.output_length=16,.input=(uintptr_t)in,.output=(uintptr_t)out};
  memcpy(r.key,k->bytes,k->length);
  if(submit(k,&r))memset(out,0,16);
@@ -42,8 +42,8 @@ static void ctr(const unsigned char *in,unsigned char *out,size_t blocks,const v
  struct hw_key *k=(struct hw_key *)opaque;
  unsigned char counter[16];memcpy(counter,ivec,16);
  while(blocks){
-  unsigned n=blocks>SG2002_CRYPTO_MAX/16?SG2002_CRYPTO_MAX/16:(unsigned)blocks;
-  struct sg2002_crypto_request r={.version=1,.algorithm=SG2002_ALG_AES,.encrypt=1,.mode=SG2002_MODE_CTR,
+  unsigned n=blocks>HWCRYPTO_MAX/16?HWCRYPTO_MAX/16:(unsigned)blocks;
+  struct hwcrypto_request r={.version=1,.algorithm=HWCRYPTO_ALG_AES,.encrypt=1,.mode=HWCRYPTO_MODE_CTR,
    .key_length=k->length,.length=n*16,.output_length=n*16,.input=(uintptr_t)in,.output=(uintptr_t)out};
   memcpy(r.key,k->bytes,k->length);memcpy(r.iv,counter,16);
   if(submit(k,&r)){memset(out,0,blocks*16);return;}
@@ -74,8 +74,8 @@ int main(int argc,char **argv)
  int kat_only=argc>1&&!strcmp(argv[1],"--kat");
  setvbuf(stdout,NULL,_IOLBF,0);
  fd=open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC);if(fd<0){perror("device");return 1;}
- struct sg2002_crypto_info info;
- if(ioctl(fd,SG2002_CRYPTO_INFO,&info)||info.poisoned)return 1;
+ struct hwcrypto_info info;
+ if(ioctl(fd,HWCRYPTO_INFO,&info)||info.poisoned)return 1;
  for(unsigned i=0;i<sizeof(input);i++)input[i]=(unsigned char)(i*31+7);
  printf("OPENSSL %s; fixed-key setup excluded, nonce/AAD/tag and DMA copying included\n",OpenSSL_version(OPENSSL_VERSION));
  const char *names[]={"AES-128-GCM","AES-256-GCM"};
@@ -101,12 +101,12 @@ int main(int argc,char **argv)
   const size_t sizes[]={128,512,1200,4096,16384,65536};
   if(!kat_only)for(unsigned i=0;i<sizeof(sizes)/sizeof(sizes[0]);i++)for(unsigned round=0;round<3;round++)for(unsigned order=0;order<2;order++){
    int hw=(round+order)%2;unsigned count=sizes[i]>16384?16:64;unsigned char tag[16];
-   struct sg2002_crypto_info before,after;ioctl(fd,SG2002_CRYPTO_INFO,&before);
+   struct hwcrypto_info before,after;ioctl(fd,HWCRYPTO_INFO,&before);
    uint64_t wall=ns(CLOCK_MONOTONIC),cpu=ns(CLOCK_PROCESS_CPUTIME_ID);
    for(unsigned n=0;n<count;n++)if(hw?hybrid(g,&k,1,input,sizes[i],actual,tag):software(sw,input,sizes[i],expected,tag))return 1;
    cpu=ns(CLOCK_PROCESS_CPUTIME_ID)-cpu;wall=ns(CLOCK_MONOTONIC)-wall;
-   ioctl(fd,SG2002_CRYPTO_INFO,&after);
-   uint64_t calls=after.completed[SG2002_ALG_AES]-before.completed[SG2002_ALG_AES];
+   ioctl(fd,HWCRYPTO_INFO,&after);
+   uint64_t calls=after.completed[HWCRYPTO_ALG_AES]-before.completed[HWCRYPTO_ALG_AES];
    if(after.poisoned||(hw&&!calls)||(!hw&&calls))return 1;
    printf("RESULT,%s,%zu,%s,%u,%u,%llu,%llu,%llu\n",names[variant],sizes[i],hw?"hw-aes-sw-ghash":"sw",round,count,
     (unsigned long long)cpu,(unsigned long long)wall,(unsigned long long)calls);

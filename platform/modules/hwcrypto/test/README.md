@@ -6,8 +6,8 @@ build output outside the source checkout. Load test modules from RAM on an
 exclusively owned stand, with no active users of the crypto module when replacing
 it. Restore the installed driver afterwards; no installed-file backups are needed.
 
-`sg2002_cmac_test.ko` checks `sg2002-cmac-aes` against the independent AES-CMAC
-library. For example, `insmod sg2002_cmac_test.ko cases=2000 bench_ms=700`
+`hwcrypto_cmac_test.ko` checks `sg2002-cmac-aes` against the independent AES-CMAC
+library. For example, `insmod hwcrypto_cmac_test.ko cases=2000 bench_ms=700`
 checks RFC 4493's four vectors in 32 request modes, AES-128/192/256, empty and
 partial blocks, chained scatterlists and virtual input, synchronous and queued
 requests, streaming update/final/finup, export/import into another request,
@@ -16,7 +16,7 @@ cover 4 KiB DMA boundaries through 64 KiB. Successful insertion means all
 checks passed; inspect `cmac_test:` messages and unload afterwards. Setting
 `bench_ms=0` skips the comparison with the software `cmac-aes-lib` provider.
 
-`sg2002_ccm_test.ko` compares the explicitly selected `sg2002-ccm-aes` driver with
+`hwcrypto_ccm_test.ko` compares the explicitly selected `sg2002-ccm-aes` driver with
 the synchronous software `ccm(aes)` implementation. Its default 3000 cases cover:
 
 - RFC 3610 packet vector 1, AES-128/192/256, every CCM tag and nonce length.
@@ -27,13 +27,13 @@ the synchronous software `ccm(aes)` implementation. Its default 3000 cases cover
 - Invalid keys, tag sizes, IV parameters, too-short ciphertext and length overflow.
 - Four concurrent CCM/GCM streams with distinct keys sharing the engine.
 
-For example, `insmod sg2002_ccm_test.ko cases=3000 bench_ms=700` runs correctness
+For example, `insmod hwcrypto_ccm_test.ko cases=3000 bench_ms=700` runs correctness
 checks and then timings; successful insertion means all checks passed. Inspect
 the `ccm_test:` kernel messages and unload the test module afterwards. Setting
 `bench_ms=0` skips timing. The test performs no persistent writes. Timing reuses
 synthetic keys/nonces and must never be adapted to encrypt user data that way.
 
-`sg2002_gcm_test.ko` remains the existing GCM regression test. It intentionally
+`hwcrypto_gcm_test.ko` remains the existing GCM regression test. It intentionally
 returns `-EAGAIN` after a successful run; require its reported zero failures,
 not merely a failed insertion.
 
@@ -105,7 +105,7 @@ message sizes.
 
 ### DMA crossover
 
-`insmod sg2002_cmac_test.ko cases=0 crossover=1 bench_ms=400` measures every
+`insmod hwcrypto_cmac_test.ko cases=0 crossover=1 bench_ms=400` measures every
 16-byte size from 16 through 384 bytes, then 512, 768 and 1024 bytes. Run three
 times, unloading between runs. Each size compares both providers with a reused
 key and with a newly allocated transform/key per message, including teardown.
@@ -148,11 +148,11 @@ signature submits no DMA even for subkey derivation. The underlying SG2002
 provider and its streaming/failure behavior are unchanged.
 
 Build these tests with `CIFS_SRC=/path/to/patched/kernel/fs/smb/client` to also
-build `sg2002_cifs_cmac_test.ko`. It includes the actual production length and
+build `hwcrypto_cifs_cmac_test.ko`. It includes the actual production length and
 provider-selection helper from patch 0063. It checks the combined header/data
 length, empty/invalid headers, addition and API-length overflow, exact provider
 selection around 319/320/321 bytes, and matching tags over fragmented input.
-With the accelerator loaded, `insmod sg2002_cifs_cmac_test.ko` must succeed.
+With the accelerator loaded, `insmod hwcrypto_cifs_cmac_test.ko` must succeed.
 After unloading the accelerator, repeat with `hardware=0`; every size must use
 the CPU provider. Unload the test module after each run.
 

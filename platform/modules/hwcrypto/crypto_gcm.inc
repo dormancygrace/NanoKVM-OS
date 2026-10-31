@@ -3,7 +3,7 @@
  * gcm(aes) with the CryptoDMA engine for AES-CTR and the CPU for GHASH, the two
  * overlapped. The gcm template runs them one after the other: a CTR request
  * that waits for the engine, then GHASH over the whole message. Here each
- * chunk of up to SG2002_CRYPTO_MAX bytes is started on the engine, and while
+ * chunk of up to HWCRYPTO_MAX bytes is started on the engine, and while
  * it runs the CPU hashes the associated data (first chunk) and the ciphertext
  * of the previous chunk (encryption) or of the same chunk (decryption, whose
  * ciphertext is the input). E(J0) for the tag comes from the first chunk, as
@@ -69,8 +69,8 @@ static int sg2_gcm_process(struct aead_request *req, bool encrypt)
  unsigned int authsize = crypto_aead_authsize(tfm), assoclen = req->assoclen;
  unsigned int cryptlen = req->cryptlen - (encrypt ? 0 : authsize);
  unsigned int pos = 0, prev_pos = 0, prev_len = 0;
- struct sg2002_crypto_request r = { .version = 1, .algorithm = SG2002_ALG_AES,
-  .mode = SG2002_MODE_CTR, .encrypt = 1, .key_length = ctx->keylen };
+ struct hwcrypto_request r = { .version = 1, .algorithm = HWCRYPTO_ALG_AES,
+  .mode = HWCRYPTO_MODE_CTR, .encrypt = 1, .key_length = ctx->keylen };
  __be64 lengths[2] = { cpu_to_be64(8 * (u64)assoclen), cpu_to_be64(8 * (u64)cryptlen) };
  u8 ej0[16], tag[16], expected[16];
  struct ghash_ctx g;
@@ -87,7 +87,7 @@ static int sg2_gcm_process(struct aead_request *req, bool encrypt)
 
  do {
   unsigned int lead = first ? 16 : 0;
-  unsigned int n = min_t(unsigned int, SG2002_CRYPTO_MAX - lead, cryptlen - pos);
+  unsigned int n = min_t(unsigned int, HWCRYPTO_MAX - lead, cryptlen - pos);
   struct crypto_sizes s = {};
 
   r.length = lead + n;
@@ -176,8 +176,8 @@ static int sg2_gcm_decrypt(struct aead_request *req) { return sg2_gcm_submit(req
 static int sg2_gcm_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int len)
 {
  struct sg2_gcm_ctx *ctx = crypto_aead_ctx(tfm);
- struct sg2002_crypto_request r = { .version = 1, .algorithm = SG2002_ALG_AES,
-  .mode = SG2002_MODE_ECB, .encrypt = 1, .key_length = len, .length = 16, .output_length = 16 };
+ struct hwcrypto_request r = { .version = 1, .algorithm = HWCRYPTO_ALG_AES,
+  .mode = HWCRYPTO_MODE_ECB, .encrypt = 1, .key_length = len, .length = 16, .output_length = 16 };
  struct crypto_aead *fallback = ctx->fallback;
  u8 h[GHASH_BLOCK_SIZE];
  int err;

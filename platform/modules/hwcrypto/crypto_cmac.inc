@@ -47,8 +47,8 @@ static int sg2_cmac_blocks(struct ahash_request *req, int nents,
 {
 	struct sg2_cmac_ctx *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
 	struct sg2_cmac_state *s = &((struct sg2_cmac_req *)ahash_request_ctx(req))->state;
-	struct sg2002_crypto_request r = {
-		.version = 1, .algorithm = SG2002_ALG_AES, .mode = SG2002_MODE_CBC,
+	struct hwcrypto_request r = {
+		.version = 1, .algorithm = HWCRYPTO_ALG_AES, .mode = HWCRYPTO_MODE_CBC,
 		.encrypt = 1, .key_length = ctx->keylen, .length = len, .output_length = len,
 	};
 	u8 tmp[16];
@@ -145,7 +145,7 @@ static int sg2_cmac_process(struct ahash_request *req, unsigned int operation)
 			s->used = 0;
 			memzero_explicit(s->tail, sizeof(s->tail));
 		} else {
-			n = min_t(unsigned int, SG2002_CRYPTO_MAX, (remaining - 1) & ~15U);
+			n = min_t(unsigned int, HWCRYPTO_MAX, (remaining - 1) & ~15U);
 			err = sg2_cmac_blocks(req, nents, pos, NULL, n);
 			if (err)
 				goto failed;
@@ -250,8 +250,8 @@ static void sg2_cmac_double(u8 block[16])
 static int sg2_cmac_setkey(struct crypto_ahash *tfm, const u8 *key, unsigned int len)
 {
 	struct sg2_cmac_ctx *ctx = crypto_ahash_ctx(tfm);
-	struct sg2002_crypto_request r = {
-		.version = 1, .algorithm = SG2002_ALG_AES, .mode = SG2002_MODE_ECB,
+	struct hwcrypto_request r = {
+		.version = 1, .algorithm = HWCRYPTO_ALG_AES, .mode = HWCRYPTO_MODE_ECB,
 		.encrypt = 1, .key_length = len, .length = 16, .output_length = 16,
 	};
 	u8 zero[16] = {};

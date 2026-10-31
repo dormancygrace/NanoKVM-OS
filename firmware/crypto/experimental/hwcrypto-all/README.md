@@ -8,7 +8,7 @@ The existing AES-128-CTR ioctl remains unchanged and has a compatibility check. 
 
 ## ABI and ownership
 
-`sg2002_crypto.h` defines ABI version 1. `SG2002_CRYPTO_INFO` reports capabilities, poison status and per-algorithm submission/completion counters. `SG2002_CRYPTO_RUN` accepts at most 4096 input bytes. Input/output fields are userspace virtual pointers copied by the driver, never caller-provided DMA addresses. A separate 8192-byte output allocation accommodates Base64 expansion. The same mutex, controller and descriptor serialize the legacy and new operations.
+`hwcrypto.h` defines ABI version 1. `HWCRYPTO_INFO` reports capabilities, poison status and per-algorithm submission/completion counters. `HWCRYPTO_RUN` accepts at most 4096 input bytes. Input/output fields are userspace virtual pointers copied by the driver, never caller-provided DMA addresses. A separate 8192-byte output allocation accommodates Base64 expansion. The same mutex, controller and descriptor serialize the legacy and new operations.
 
 AES/DES/TDES/SM4 ECB and CBC require whole blocks; CTR accepts a partial last block, and the caller must continue its counter correctly across requests. No padding is added for ECB/CBC. SHA requests are raw compression transforms over multiples of 64 bytes; userspace initializes the state and supplies final SHA padding. The benchmark provides working streaming examples. Base64 decode requires contiguous padded input with no whitespace, and output capacity for `length / 4 * 3` bytes; actual output length excludes final padding. This is not a permissive MIME Base64 decoder.
 
@@ -16,7 +16,7 @@ Descriptor and payload mappings use explicit CPU/device ownership synchronizatio
 
 ## Build and reproduce
 
-The driver source, including `sg2002_crypto.h`, is `platform/modules/hwcrypto`; `platform/build.sh modules` builds `sg2002_aes_probe.ko` with the released kernel. Build the userspace tools with the firmware cross-toolchain against its headers:
+The driver source, including `hwcrypto.h`, is `platform/modules/hwcrypto`; `platform/build.sh modules` builds `sg2002_aes_probe.ko` with the released kernel. Build the userspace tools with the firmware cross-toolchain against its headers:
 
 ```sh
 H=-Iplatform/modules/hwcrypto

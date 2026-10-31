@@ -1,7 +1,7 @@
 # SG2002 direct transport qualification
 
 This layer uses `/dev/sg2002-aes-probe` and the private version-1 ioctl ABI from
-`platform/modules/hwcrypto/sg2002_crypto.h`. It does not use `/dev/crypto`,
+`platform/modules/hwcrypto/hwcrypto.h`. It does not use `/dev/crypto`,
 cryptodev, ENGINE or a new kernel module. The transport supports all seven
 advertised algorithms; each algorithm's OpenSSL integration and measured size
 threshold belongs in its own patch/PR.

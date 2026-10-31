@@ -1,4 +1,4 @@
-// Package sg2002aes adapts the SG2002 AES-CTR miscdevice to Pion SRTP.
+// Package hwcrypto adapts the SG2002 AES-CTR miscdevice to Pion SRTP.
 package hwcrypto
 
 import (

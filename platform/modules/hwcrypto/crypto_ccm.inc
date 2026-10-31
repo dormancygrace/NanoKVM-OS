@@ -44,11 +44,11 @@ static int sg2_ccm_fallback(struct aead_request *req, bool encrypt)
 }
 
 /* buffer contains whole, padded blocks; caller holds lock. */
-static int sg2_ccm_mac_locked(struct sg2002_crypto_request *r, u8 mac[16])
+static int sg2_ccm_mac_locked(struct hwcrypto_request *r, u8 mac[16])
 {
 	int err;
 
-	r->mode = SG2002_MODE_CBC;
+	r->mode = HWCRYPTO_MODE_CBC;
 	r->output_length = r->length;
 	memcpy(r->iv, mac, 16);
 	err = crypto_run_locked(r);
@@ -59,7 +59,7 @@ static int sg2_ccm_mac_locked(struct sg2002_crypto_request *r, u8 mac[16])
 
 /* NIST SP 800-38C A.2: B0 || encoded AAD || zero padding. */
 static int sg2_ccm_auth_start(struct aead_request *req,
-			      struct sg2002_crypto_request *r, u8 mac[16],
+			      struct hwcrypto_request *r, u8 mac[16],
 			      unsigned int cryptlen, int in_nents)
 {
 	unsigned int l = req->iv[0] + 1, pos = 0, head = 16;
@@ -88,7 +88,7 @@ static int sg2_ccm_auth_start(struct aead_request *req,
 		}
 	}
 	do {
-		unsigned int n = min_t(unsigned int, SG2002_CRYPTO_MAX - head,
+		unsigned int n = min_t(unsigned int, HWCRYPTO_MAX - head,
 					 req->assoclen - pos);
 
 		r->length = ALIGN(head + n, 16);
@@ -125,8 +125,8 @@ static int sg2_ccm_process(struct aead_request *req, bool encrypt)
 	unsigned int authsize = crypto_aead_authsize(tfm);
 	unsigned int cryptlen = req->cryptlen - (encrypt ? 0 : authsize);
 	unsigned int pos = 0, l = req->iv[0] + 1;
-	struct sg2002_crypto_request r = {
-		.version = 1, .algorithm = SG2002_ALG_AES,
+	struct hwcrypto_request r = {
+		.version = 1, .algorithm = HWCRYPTO_ALG_AES,
 		.encrypt = 1, .key_length = ctx->keylen,
 	};
 	u8 ctr[16] = {}, mac[16] = {}, s0[16], expected[16];
@@ -149,7 +149,7 @@ static int sg2_ccm_process(struct aead_request *req, bool encrypt)
 		goto out;
 	do {
 		unsigned int lead = first ? 16 : 0;
-		unsigned int n = min_t(unsigned int, SG2002_CRYPTO_MAX - lead,
+		unsigned int n = min_t(unsigned int, HWCRYPTO_MAX - lead,
 					 cryptlen - pos);
 
 		mutex_lock(&lock);
@@ -175,7 +175,7 @@ static int sg2_ccm_process(struct aead_request *req, bool encrypt)
 				memmove(buffer + lead, buffer, n);
 		}
 		memset(buffer, 0, lead);
-		r.mode = SG2002_MODE_CTR;
+		r.mode = HWCRYPTO_MODE_CTR;
 		r.length = lead + n;
 		r.output_length = r.length;
 		memcpy(r.iv, ctr, 16);

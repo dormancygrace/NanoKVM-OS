@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='nkos-sha256-test-') as tmp:
     subprocess.run(command,check=True)
     subprocess.run([str(binary)],check=True)
     if args.negative_control:
-        source=d/'crypto/sha/sha256_sg2002.c'
+        source=d/'crypto/sha/sha256_hwcrypto.c'
         original=source.read_text()
         for name,old,new in (
             ('request cap','blocks - completed < DMA_BLOCKS ? blocks - completed : DMA_BLOCKS','blocks - completed'),

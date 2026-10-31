@@ -19,10 +19,10 @@ with tempfile.TemporaryDirectory(prefix='nkos-aes-test-') as tmp:
                     '-fsanitize=address,undefined','-I'+str(d/'crypto'),'-I'+str(d/'include'),
                     str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True)
-    source=d/'crypto/sg2002_cipher.c'
+    source=d/'crypto/hwcrypto_cipher.c'
     original=source.read_text()
-    broken=original.replace('if (mode == SG2002_MODE_CTR) {',
-                            'if (mode == SG2002_MODE_CTR && counter_bytes == 4) {')
+    broken=original.replace('if (mode == HWCRYPTO_MODE_CTR) {',
+                            'if (mode == HWCRYPTO_MODE_CTR && counter_bytes == 4) {')
     assert broken != original
     source.write_text(broken)
     subprocess.run(['cc','-O1','-g','-Wall','-Wextra','-Werror',
@@ -40,8 +40,8 @@ with tempfile.TemporaryDirectory(prefix='nkos-aes-test-') as tmp:
     bad=subprocess.run([str(binary)],capture_output=True)
     assert bad.returncode != 0 and b'n == expected' in bad.stderr, bad.stderr
     print('PASS negative control: repeating the setup minimum on a tail is rejected')
-    broken=original.replace('algorithm != SG2002_ALG_AES',
-                            'algorithm < SG2002_ALG_AES || algorithm > SG2002_ALG_SM4')
+    broken=original.replace('algorithm != HWCRYPTO_ALG_AES',
+                            'algorithm < HWCRYPTO_ALG_AES || algorithm > HWCRYPTO_ALG_SM4')
     assert broken != original
     source.write_text(broken)
     subprocess.run(['cc','-O1','-g','-Wall','-Wextra','-Werror',

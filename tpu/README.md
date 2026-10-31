@@ -51,10 +51,14 @@ converts the parts the recipe needs (`build-addon.py --parts-only`),
 package records the converter (image and tpu-mlir) and the SHA-256 of every
 model in `/usr/share/NAME/source.json`.
 
-Conversion is reproducible: tpu-mlir stamps only the time of the conversion
-and an MD5 the runtime does not check, which `cvimodel-dmabuf` fixes. Two
-conversions of the screen classifier and the one checked on the device gave
-the same file.
+Conversion gives the models checked on the device. tpu-mlir stamps the time
+of the conversion and an MD5 the runtime does not check; `cvimodel-dmabuf`
+fixes both. Then a conversion from scratch gave byte for byte the detector,
+the screen classifier, the Latin models and the Chinese second reading that
+were measured. The Cyrillic and Chinese recognizers vary between runs in the
+scheduling tpu-mlir records for some layer groups (the order of tile
+overlaps; the weights and the groups are the same): on the device they read
+a screen with the same text and the same scores as the measured ones.
 
 ## Models
 

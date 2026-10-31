@@ -149,10 +149,13 @@ func render(e Event, language string, template *Template) Rendered {
 		}
 		body += e.Details
 	}
+	// A title stays one line whatever a variable holds (a user name comes
+	// from a login form).
+	title := strings.Join(strings.Fields(fill(m.Title, vars)), " ")
 	return Rendered{
 		Kind:     e.Kind,
 		Severity: e.Severity,
-		Title:    fill(m.Title, vars),
+		Title:    title,
 		Body:     body,
 		Device:   vars["device"],
 		Time:     e.Time,

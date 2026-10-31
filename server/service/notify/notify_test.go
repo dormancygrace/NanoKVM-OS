@@ -241,6 +241,11 @@ func TestTemplateRender(t *testing.T) {
 	if r, std := render(Event{Message: "hdmi.lost"}, "de", template), render(Event{Message: "hdmi.lost"}, "de", nil); r.Title != std.Title || r.Body != std.Body {
 		t.Fatal("a message the template lacks is not the standard one")
 	}
+	// A variable with line breaks keeps the title on one line.
+	newAddress := &Template{ID: "n", Name: "n", Messages: map[string]Message{"security.new-address": {Title: "{user} in"}}}
+	if r := render(Event{Message: "security.new-address", Vars: map[string]string{"user": "a\r\nb", "address": "x"}}, "en", newAddress); r.Title != "a b in" {
+		t.Fatalf("%q", r.Title)
+	}
 	// Unknown braces stay as written.
 	if got := fill("{a} {user} {", map[string]string{"user": "x"}); got != "{a} x {" {
 		t.Fatal(got)
@@ -255,6 +260,7 @@ func TestTemplateValidation(t *testing.T) {
 		"unknown variable":   {ID: "a", Name: "x", Messages: map[string]Message{"power.off": {Body: "{user} turned it off"}}},
 		"another's variable": {ID: "a", Name: "x", Messages: map[string]Message{"hdmi.lost": {Title: "{address}"}}},
 		"two-line title":     {ID: "a", Name: "x", Messages: map[string]Message{"hdmi.lost": {Title: "a\nb"}}},
+		"details in a title": {ID: "a", Name: "x", Messages: map[string]Message{"screen.panic": {Title: "Crash: {details}"}}},
 		"long body":          {ID: "a", Name: "x", Messages: map[string]Message{"hdmi.lost": {Body: strings.Repeat("x", maxBodyBytes+1)}}},
 	} {
 		if err := tc.validate(); err == nil {

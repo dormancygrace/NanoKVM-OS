@@ -82,6 +82,10 @@ func (t *Template) validate() error {
 			return fmt.Errorf("%s: %s: the title is one line of at most %d bytes", t.Name, key, maxTitleBytes)
 		case len(m.Body) > maxBodyBytes:
 			return fmt.Errorf("%s: %s: the text is longer than %d bytes", t.Name, key, maxBodyBytes)
+		case strings.Contains(m.Title, "{details}"):
+			// The details are lines read off the screen; a title is a mail
+			// subject or a syslog header.
+			return fmt.Errorf("%s: %s: {details} goes in the text, not the title", t.Name, key)
 		}
 		if unknown := unknownVars(m.Title+" "+m.Body, spec); len(unknown) > 0 {
 			return fmt.Errorf("%s: %s: unknown variable {%s}", t.Name, key, strings.Join(unknown, "}, {"))

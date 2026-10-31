@@ -29,23 +29,29 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
 | `release/apk/` | the signed APK repository of the nineteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
-| `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
+| `release/image/NanoKVM-OS-<version>.img.zip`, `SHA256SUMS` | the SD card image |
 
-## Image and application versions
+## Release and installation versions
 
-Starting with applications **v2.5-a1**, full SD images have their own version.
-**Image v1.0-a1** includes applications **v2.5-a1**; both are alpha releases.
-`firmware/alpine/release.env` is the source of truth: `NANOKVM_IMAGE_VERSION`
-identifies the image, `NANOKVM_VERSION` the applications, and
-`NANOKVM_APK_VERSION` their APK-comparable version (`2.5_alpha1`).
+`firmware/alpine/release.env` supplies `NANOKVM_VERSION`, shared by the OS and
+new SD images, and `NANOKVM_APK_VERSION`, its APK-comparable representation.
+For example, release `v3.7.0-beta.2` produces `NanoKVM-OS-v3.7.0-beta.2.img.zip`
+and APK version `3.7.0_beta2`. The release workflow can select the next version
+without editing this baseline. Publishing a package-only release does not
+require an image or advance a separate image counter.
 
-The image filename and `build-manifest.json` record both versions. The image
-builder also checks `/kvmapp/version` against the requested bundle version.
-`/boot/image.json` records the original image and its bundled applications;
-this file is not owned by an APK and is not rewritten by component updates.
-About shows the installed image, its original applications, and the current
-application version separately. Existing installations retain their original
-`/boot/ver` identity; an APK update does not label them as a newly flashed image.
+The builder checks `/kvmapp/version` against the requested OS release.
+`/boot/image.json` and `build-manifest.json` retain the `image_version` and
+`bundled_application_version` keys for compatibility; both now derive from
+that release. The optional `-debug` image suffix identifies the kernel profile.
+`/boot/image.json` is not owned by an APK and is not rewritten by component
+updates. About shows the current OS and the original installation image;
+the bundled version is shown separately only when it differs from the image.
+
+Existing installations and published assets keep their historical identities,
+including independent Image v1.x numbers and the `/boot/ver` fallback. No
+reflash or metadata migration is needed. Publication recovery and Pages accept
+both historical and current image filenames.
 
 ## Build
 
@@ -98,7 +104,7 @@ and interrupt, so it is not for measuring release behaviour.
 
 Its packages and SD image need the test keys (`-d`): nothing built with the
 debug kernel can reach a published repository. The image, named
-`NanoKVM-OS-Image-VERSION-debug-…`, adds the tools of `debug-packages` from
+`NanoKVM-OS-VERSION-debug.img.zip`, adds the tools of `debug-packages` from
 Alpine main and community, and keeps community in its repositories. A kernel
 from the published repository replaces the debug kernel on `apk upgrade`.
 

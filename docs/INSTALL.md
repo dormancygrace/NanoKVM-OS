@@ -12,7 +12,7 @@ still pending; released installation instructions below use the full SD image.
 
 ## Fresh SD card
 
-1. Download `NanoKVM-OS-Image-*.img.zip` and `SHA256SUMS` from the
+1. Download `NanoKVM-OS-*.img.zip` and `SHA256SUMS` from the
    [image download page](https://dormancygrace.github.io/NanoKVM-OS/).
    It links the newest full image; a newer application release may contain
    package updates only.
@@ -86,9 +86,10 @@ tens of thousands of small files take tens of seconds.
 
 ## Versions
 
-Full images and applications are versioned independently. **About** keeps the
-original image version and its bundled application version visible after
-later package updates.
+New SD images use their NanoKVM OS release version. **About** shows the current
+OS version and the image used for the initial installation, which stays unchanged
+after package updates. Historical images keep their original image number and
+bundled application version; they do not need to be reflashed.
 
 Board detection and the supported models are described in
 [board profiles](../firmware/boards/README.md).

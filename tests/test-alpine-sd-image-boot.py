@@ -18,6 +18,12 @@ COMPOSED = b'HEAD' + DTB + hashlib.sha256(DTB).digest() + b'TAIL'
 @unittest.skipUnless(shutil.which('mcopy'), 'mtools missing')
 class SdImageBootTests(unittest.TestCase):
     def test_boot_partition_gets_the_composed_detect_image(self):
+        for version, profile in [('v3.7.0', 'release'), ('v3.7.0-beta.2', 'release'), ('v3.7.0', 'debug')]:
+            with self.subTest(version=version, profile=profile):
+                self.check_image(version, profile)
+
+    def check_image(self, version, profile):
+        image_version = version + ('-debug' if profile == 'debug' else '')
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             root = tmp/'root'
@@ -32,7 +38,7 @@ class SdImageBootTests(unittest.TestCase):
             shutil.copyfile(COMPOSE, boot/'compose-fit')
             (root/'lib/modules/7.2.9-test').mkdir(parents=True)
             (root/'kvmapp').mkdir()
-            (root/'kvmapp/version').write_text('2.5-a1\n')
+            (root/'kvmapp/version').write_text(version.removeprefix('v') + '\n')
             (root/'etc/kvm').mkdir(parents=True)
             (root/'etc/kvm/ssh_stop').write_text('')
             (root/'etc/kvm/usb').mkdir()
@@ -58,7 +64,7 @@ class SdImageBootTests(unittest.TestCase):
             fip.write_bytes(b'fip')
             out = tmp/'out'
             result = subprocess.run(['python3', str(BUILDER), '--rootfs-archive', str(archive), '--fip', str(fip),
-                            '--f2fs-tools', str(f2fs), '--output', str(out), '--version', 'v2.5-a1', '--image-version', 'v1.0-a1'], capture_output=True, text=True)
+                            '--f2fs-tools', str(f2fs), '--output', str(out), '--version', version, '--profile', profile], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr[-1500:])
             self.assertEqual((out/'root/etc/kvm/mdns_disabled').read_text(), '1\n')
             self.assertTrue((out/'boot-files/boot.sd').exists(), result.stderr[-1500:])
@@ -69,13 +75,15 @@ class SdImageBootTests(unittest.TestCase):
             self.assertEqual(extracted.read_bytes(), COMPOSED)
             metadata = tmp/'image.json'
             subprocess.run(['mcopy', '-i', str(out/'boot-partition.img'), '::/image.json', str(metadata)], check=True)
-            expected = {'image_version':'v1.0-a1', 'bundled_application_version':'v2.5-a1'}
+            expected = {'image_version':image_version, 'bundled_application_version':version}
             self.assertEqual(json.loads(metadata.read_text()), expected)
             manifest = json.loads((out/'build-manifest.json').read_text())
             for key, value in expected.items():
                 self.assertEqual(manifest[key], value)
-            self.assertTrue((out/'NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip').is_file())
-            image = out/'NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img'
+            self.assertTrue((out/f'NanoKVM-OS-{image_version}.img.zip').is_file())
+            self.assertEqual((out/'boot-files/ver').read_text(), f'NanoKVM OS {image_version}\n')
+            self.assertEqual(manifest['version'], version)
+            image = out/f'NanoKVM-OS-{image_version}.img'
             bootimage = out/'boot-partition.img'
             with image.open('rb') as disk:
                 mbr = disk.read(512)

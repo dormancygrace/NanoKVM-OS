@@ -4,12 +4,11 @@ A technical release alone never changes Pages: the public OS release is the gate
 """
 import json
 import os
-import re
 from pathlib import Path
 import subprocess
 import tempfile
 
-from release_assets import marker, storage_tag, digest, STORAGE_MARKER, REQUIRED, TECHNICAL
+from release_assets import marker, storage_tag, digest, STORAGE_MARKER, REQUIRED, TECHNICAL, image_versions
 
 
 def gh(*args):
@@ -103,18 +102,19 @@ def recover_storage(version, current, storage, verify_published=False):
         gh('release', 'edit', tag, '--draft=false', '--prerelease', '--latest=false')
 
 
-def verify_public_downloads(version, current):
-    # The image is assembled AFTER signing too, not restored from release-build.
-    # Once storage is published, retain its original public download set rather
-    # than pairing it with a freshly rebuilt image containing different APKs.
-    names = [a['name'] for a in current['assets']]
+def validate_public_names(version, names):
     required = {'SHA256SUMS', f'NanoKVM-OS-{version}-source.tar.xz'}
-    images = [n for n in names if re.fullmatch(
-        r'NanoKVM-OS-Image-.+-apps-' + re.escape(version) + r'\.img\.zip', n)]
+    images = [n for n in names if (versions := image_versions(n)) and versions[1] == version]
     installer = {'nanokvm_' + version.removeprefix('v').split('-', 1)[0] + '.tar.gz'} & set(names)
     if (len(names) != len(set(names)) or any(Path(n).name != n for n in names)
             or len(images) > 1 or set(names) != required | set(images) | installer):
         raise ValueError(f'{version}: original public download set is incomplete or unexpected')
+
+
+def verify_public_downloads(version, current):
+    # Resume with the original signed assets, including historical image names.
+    names = [a['name'] for a in current['assets']]
+    validate_public_names(version, names)
     with tempfile.TemporaryDirectory() as temporary:
         gh('release', 'download', version, '--pattern', '*', '--dir', temporary)
         try:
@@ -148,11 +148,9 @@ def main():
             gh('workflow', 'run', 'apk-repository.yml', '--ref', env['DEFAULT_BRANCH'])
         return
     directory = Path(env['OUT']) / 'assets'
-    validate(directory / 'public')
+    validate_public_names(version, list(validate(directory / 'public')))
     validate(directory / 'packages')
     title = f'NanoKVM OS {version}'
-    if env['IMAGE'] == 'true':
-        title += ' · Image ' + env['NANOKVM_IMAGE_VERSION']
     flags = ['--generate-notes']
     if '-beta.' in version:
         flags += ['--prerelease', '--latest=false']

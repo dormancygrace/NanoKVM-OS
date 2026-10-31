@@ -1117,8 +1117,8 @@
       "cancelBtn": "Отмена"
     },
     "about": {
-      "applicationVersion": "Приложения",
-      "imageVersion": "Установленный образ",
+      "applicationVersion": "NanoKVM OS",
+      "imageVersion": "Исходная установка",
       "bundledVersion": "Приложения в исходном образе",
       "title": "О проекте",
       "description": "Независимая прошивка сообщества для NanoKVM.",

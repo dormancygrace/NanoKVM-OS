@@ -112,7 +112,7 @@ class AssembleTests(unittest.TestCase):
         self.fake.release('v3.3.4', '2026-10-01', [('nanokvm', '3.3.4-r0')],
                           extra={'NanoKVM-OS-Image-v1.5-apps-v3.3.4.img.zip': b'image'})
         self.fake.release('v3.4.0-beta.10', '2026-10-03', [('nanokvm', '3.4.0_beta10-r0')],
-                          extra={'NanoKVM-OS-Image-v1.6-beta.10-apps-v3.4.0-beta.10.img.zip': b'beta'})
+                          extra={'NanoKVM-OS-v3.4.0-beta.10.img.zip': b'beta'})
         self.fake.list[-1]['prerelease'] = True
         self.fake.release('v3.4.0-beta.2', '2026-10-04', [('nanokvm', '3.4.0_beta2-r0')])
         # Even a forgotten GitHub prerelease flag must not leak a beta tag.
@@ -125,7 +125,7 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v3.3.4')
         self.assertEqual((self.out / 'beta/alpine/v3.24/riscv64/Packages.adb').read_bytes(), b'adb v3.4.0-beta.10')
         self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v1.5')
-        self.assertEqual(json.loads((self.out / 'beta/latest-image/badge.json').read_text())['message'], 'v1.6-beta.10')
+        self.assertEqual(json.loads((self.out / 'beta/latest-image/badge.json').read_text())['message'], 'v3.4.0-beta.10')
         self.fake.release('v3.4.0', '2026-10-05', [('nanokvm', '3.4.0-r0')])
         self.assertEqual(a.releases('o/r', self.fake.fetch, channel='beta')[0]['tag_name'], 'v3.4.0')
 
@@ -134,7 +134,7 @@ class AssembleTests(unittest.TestCase):
             'packages.json': json.dumps({'version': version}).encode(),
             'addons.json': b'{"packages": {}}',
             f'NanoKVM-OS-{tag}-source.tar.xz': b'sources',
-            f'NanoKVM-OS-Image-v1.7-apps-{tag}.img.zip': b'image',
+            f'NanoKVM-OS-{tag}.img.zip': b'image',
         })
         return self.fake.split_release(tag)
 
@@ -435,7 +435,7 @@ class AssembleTests(unittest.TestCase):
                           extra={'NanoKVM-OS-Image-v1.5-apps-v3.3.0.img.zip': b'image'})
         self.fake.release('v3.3.1', '2026-04-02T00:00:00Z', [('nanokvm', '331-r0')])
         self.fake.release('v3.4.0', '2026-04-03T00:00:00Z', [('nanokvm', '34-r0')],
-                          extra={'NanoKVM-OS-Image-v1.6-apps-v3.4.0.img.zip': b'next'}, draft=True)
+                          extra={'NanoKVM-OS-v3.4.0.img.zip': b'next'}, draft=True)
         self.run_assemble(keep=1)
         badge = json.loads((self.out / 'latest-image/badge.json').read_text())
         self.assertEqual(badge, {'schemaVersion': 1, 'label': 'SD image', 'message': 'v1.5', 'color': 'blue'})
@@ -450,8 +450,23 @@ class AssembleTests(unittest.TestCase):
         # Publishing the next stable image advances both badge and destination.
         self.fake.list[-1]['prerelease'] = False
         self.run_assemble(keep=1)
-        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v1.6')
+        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v3.4.0')
         self.assertIn('/tag/v3.4.0', (self.out / 'latest-image/index.html').read_text())
+
+    def test_new_image_survives_hotfix_and_wrong_version_assets(self):
+        self.split_fixture(tag='v3.7.0', version='3.7.0-r0')
+        self.fake.release('v3.7.1', '2026-10-23', [('nanokvm', '3.7.1-r0')],
+                          extra={'packages.json': b'{"version":"3.7.1-r0"}',
+                                 'NanoKVM-OS-v99.0.0.img.zip': b'wrong version',
+                                 'unrelated.img.zip': b'not an OS image'})
+        self.fake.split_release('v3.7.1')
+        self.run_assemble(keep=1)
+        self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v3.7.1')
+        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v3.7.0')
+        self.assertIn('/tag/v3.7.0', (self.out / 'latest-image/index.html').read_text())
+        page = (self.out / 'index.html').read_text()
+        self.assertIn('NanoKVM-OS-v3.7.0.img.zip', page)
+        self.assertNotIn('NanoKVM-OS-v99.0.0.img.zip', page)
 
     def test_image_badge_without_images_does_not_invent_a_version(self):
         self.run_assemble()

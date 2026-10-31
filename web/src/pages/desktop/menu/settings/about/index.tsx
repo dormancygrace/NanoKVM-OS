@@ -50,7 +50,7 @@ export const About = () => {
               {t('settings.about.imageVersion')}: {imageVersion}
             </p>
           )}
-          {bundledVersion && (
+          {bundledVersion && bundledVersion !== imageVersion && (
             <p>
               {t('settings.about.bundledVersion')}: {bundledVersion}
             </p>

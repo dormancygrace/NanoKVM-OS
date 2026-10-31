@@ -93,7 +93,6 @@ jobs:
       channel: ${{ steps.version.outputs.channel }}
       version: ${{ steps.version.outputs.version }}
       apk_version: ${{ steps.version.outputs.apk_version }}
-      image_version: ${{ steps.version.outputs.image_version }}
       image: ${{ steps.version.outputs.image }}
       draft: ${{ steps.version.outputs.draft }}
       publish: ${{ steps.version.outputs.publish }}
@@ -133,11 +132,9 @@ jobs:
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
           case $EVENT in
             workflow_dispatch)
-              image=()
-              [ "$IMAGE" != true ] || image=(--image)
               gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' > "$RUNNER_TEMP/release-list"
               jq -s . "$RUNNER_TEMP/release-list" |
-                python3 scripts/next-release.py --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" "${image[@]}" > "$RUNNER_TEMP/next"
+                python3 scripts/next-release.py --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
               [ "$KIND" = minor ] && echo draft=true >> "$GITHUB_OUTPUT" || echo draft=false >> "$GITHUB_OUTPUT"
@@ -154,14 +151,14 @@ jobs:
                 echo "Tag $GITHUB_REF_NAME, but firmware/alpine/release.env says $NANOKVM_VERSION" >&2
                 exit 1
               fi
-              printf 'version=%s\napk_version=%s\nimage_version=%s\nimage=true\ndraft=true\npublish=true\n' \
-                "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" "$NANOKVM_IMAGE_VERSION" >> "$GITHUB_OUTPUT" ;;
+              printf 'version=%s\napk_version=%s\nimage=true\ndraft=true\npublish=true\n' \
+                "$NANOKVM_VERSION" "$NANOKVM_APK_VERSION" >> "$GITHUB_OUTPUT" ;;
             *)
               # release.env is an image baseline and can lag published packages.
               # Exercise reuse with a prospective release, as dispatch does.
               gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' > "$RUNNER_TEMP/release-list"
               jq -s . "$RUNNER_TEMP/release-list" |
-                python3 scripts/next-release.py --channel "$channel" --kind patch --ref main --image > "$RUNNER_TEMP/next"
+                python3 scripts/next-release.py --channel "$channel" --kind patch --ref main > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               printf 'image=true\ndraft=true\npublish=false\n' >> "$GITHUB_OUTPUT" ;;
           esac
@@ -178,7 +175,6 @@ jobs:
           NANOKVM_PATCH_GIT: '0'
           NANOKVM_VERSION: ${{ steps.version.outputs.version }}
           NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
-          NANOKVM_IMAGE_VERSION: ${{ steps.version.outputs.image_version }}
         run: |
           platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native tpu system tools server
           # The Go build cache (about 1 GB) is not reused within a run.
@@ -212,7 +208,6 @@ jobs:
           NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64
           NANOKVM_VERSION: ${{ steps.version.outputs.version }}
           NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
-          NANOKVM_IMAGE_VERSION: ${{ steps.version.outputs.image_version }}
         run: |
           platform/build.sh -o "$OUT" -u payloads packages rootfs image
           extra=()
@@ -257,7 +252,6 @@ jobs:
       NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}
       NANOKVM_VERSION: ${{ needs.build.outputs.version }}
       NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
-      NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
     steps:
       # The job holds the signing key and a write token: keep the token out
       # of .git/config, where the build tools it runs could read it.
@@ -309,7 +303,6 @@ jobs:
       NANOKVM_CHANNEL: ${{ needs.build.outputs.channel }}
       NANOKVM_VERSION: ${{ needs.build.outputs.version }}
       NANOKVM_APK_VERSION: ${{ needs.build.outputs.apk_version }}
-      NANOKVM_IMAGE_VERSION: ${{ needs.build.outputs.image_version }}
     steps:
       - uses: actions/checkout@v7
         with:

@@ -30,8 +30,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Software and image versions
-      description: For a tested device, copy Applications and Installed image from Settings → About. For a port request, say which firmware is currently installed.
+      label: NanoKVM OS version and initial installation
+      description: For a tested device, copy NanoKVM OS and Initial installation from Settings → About (Applications and Installed image in older versions). For a port request, say which firmware is currently installed.
   - type: textarea
     id: results
     attributes:

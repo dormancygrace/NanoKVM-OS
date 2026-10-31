@@ -13,6 +13,10 @@
 #include "usercopy_test.h"
 static int fd;
 static int negative_control;
+/* Accept a residual larger than the exact one (fewer bytes reported copied
+ * than were accessible), as the kernel's usercopy contract allows: the
+ * upstream fast-unaligned path reports from the start of its 8-word block. */
+static int conservative;
 static unsigned long tests,faults,under[3],max_under[3];
 static unsigned char *user,*output,*guard;
 static void die(const char *s) { perror(s);exit(1); }
@@ -94,7 +98,7 @@ static void correct(void)
     req(&q);
     if(q.residual>n || q.residual<n-prefix)fail("invalid residual",v,dir,n,prefix,b,q.residual);
     unsigned copied=n-q.residual;
-    if(copied!=prefix)fail("residual not exact",v,dir,n,prefix,b,copied);
+    if(copied!=prefix && !conservative)fail("residual not exact",v,dir,n,prefix,b,copied);
     if(copied<prefix){under[v]++;if(prefix-copied>max_under[v])max_under[v]=prefix-copied;}
     for(unsigned i=0;i<copied;i++)
      if((dir?p[i]:output[8+b+i])!=(dir?sm_pattern(8+b+i):sm_pattern(i+17)))
@@ -119,7 +123,8 @@ static void correct(void)
 int main(int argc, char **argv)
 {
  if (argc == 2 && !strcmp(argv[1], "--negative-control")) negative_control = 1;
- else if (argc != 1) { fprintf(stderr, "usage: %s [--negative-control]\n", argv[0]); return 2; }
+ else if (argc == 2 && !strcmp(argv[1], "--conservative")) conservative = 1;
+ else if (argc != 1) { fprintf(stderr, "usage: %s [--negative-control | --conservative]\n", argv[0]); return 2; }
  fd=open("/dev/c906_usercopy_test",O_RDWR|O_CLOEXEC);if(fd<0)die("open");
  user=mmap(NULL,65536,PROT_READ|PROT_WRITE,MAP_ANONYMOUS|MAP_PRIVATE,-1,0);
  output=malloc(65536);

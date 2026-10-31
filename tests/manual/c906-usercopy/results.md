@@ -1,5 +1,14 @@
 # C906 usercopy qualification results
 
+**Superseded in kernel r8.** Patch 0053 below was replaced by upstream's
+fast-unaligned usercopy (0058/0059). Measured 2026-10-31 on the stand, r7
+(0053) against the same tree with upstream's copy, two boots each, tmpfs
+pread/pwrite at every user and kernel offset: misaligned copies 13-50% faster
+at 512 B to 64 KiB in both directions, aligned and short copies the same or
+faster; `client --conservative` passes all 172352 checks on r8 (residual at
+most 63 bytes above exact), the strict check fails as expected. The 0053
+record follows.
+
 Measured on the SG2002/C906 NanoKVM PCIe stand on 2026-10-25. The selected
 patch accelerates the scalar misaligned-source path. The earlier rewrite of
 all scalar paths is excluded: it did not consistently preserve short-copy

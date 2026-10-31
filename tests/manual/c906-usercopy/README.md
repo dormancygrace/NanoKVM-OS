@@ -39,6 +39,16 @@ rmmod c906_usercopy_test
 ```
 
 A successful run reports 172352 usercopy checks, including 86240 fault cases.
+
+Since kernel r8 the usercopy is upstream's (patches 0058/0059, Linux 7.4
+commits 396d73f7b3d4 and 30514aa420fd, replacing 0053): with misaligned access
+found fast at boot it copies 8-word blocks with misaligned loads and stores,
+and a fault reports the residual from the start of the faulting block, up to 63
+bytes more than the exact one. The kernel's usercopy contract allows that, so
+run `client --conservative`: it skips only the exact-residual check, and
+still checks the residual's range, every reported byte, zero padding, guards
+and the protected page; under_copy_cases and max_under_copy report how far
+the residual was from exact. Plain `client` keeps the strict check.
 With the module loaded, running client --negative-control must fail with
 FAIL payload: it deliberately corrupts one byte of the result captured by the userspace
 verifier. It does not modify the kernel implementation.

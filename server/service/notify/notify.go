@@ -87,6 +87,12 @@ const (
 	// An event with the same message and arguments within this time is
 	// dropped: a producer that repeats itself must not flood a chat.
 	repeatWindow = time.Minute
+	// maxDeliveries bounds the deliveries alive at once, retries and their
+	// waits included, so a destination that hangs or is down cannot pile up
+	// goroutines and requests. maxChannelDeliveries keeps one such channel
+	// from taking every slot. A delivery beyond either is dropped and logged.
+	maxDeliveries        = 16
+	maxChannelDeliveries = 4
 )
 
 // retryDelays are the waits before the second, third and fourth attempts.
@@ -111,18 +117,22 @@ type Service struct {
 	mu     sync.Mutex
 	config Config
 	recent map[string]time.Time
+	// active counts the deliveries alive, inFlight those of each channel id.
+	active   int
+	inFlight map[string]int
 
 	startOnce sync.Once
 }
 
 func newService(path string) *Service {
 	s := &Service{
-		path:   path,
-		queue:  make(chan Event, queueSize),
-		send:   sendChannel,
-		now:    time.Now,
-		sleep:  sleepContext,
-		recent: make(map[string]time.Time),
+		path:     path,
+		queue:    make(chan Event, queueSize),
+		send:     sendChannel,
+		now:      time.Now,
+		sleep:    sleepContext,
+		recent:   make(map[string]time.Time),
+		inFlight: make(map[string]int),
 	}
 	config, err := Load(path)
 	if err != nil {
@@ -197,11 +207,38 @@ func (s *Service) dispatch(e Event) {
 	}
 	r := render(e, config.Language)
 	for _, ch := range targets {
+		if !s.admit(ch.ID) {
+			log.Warnf("notifications: %s %q is behind, dropped %s", ch.Type, ch.Name, e.Message)
+			continue
+		}
 		go s.deliver(ch, r)
 	}
 }
 
+// admit takes a delivery slot for a channel; false when none is free.
+func (s *Service) admit(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.active >= maxDeliveries || s.inFlight[id] >= maxChannelDeliveries {
+		return false
+	}
+	s.active++
+	s.inFlight[id]++
+	return true
+}
+
+func (s *Service) release(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.active--
+	if s.inFlight[id]--; s.inFlight[id] <= 0 {
+		delete(s.inFlight, id)
+	}
+}
+
+// deliver sends an admitted delivery, retrying, and then frees its slot.
 func (s *Service) deliver(ch Channel, r Rendered) {
+	defer s.release(ch.ID)
 	for attempt := 0; ; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 		err := s.send(ctx, ch, r)

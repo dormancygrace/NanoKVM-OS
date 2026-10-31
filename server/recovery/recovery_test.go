@@ -24,6 +24,8 @@ func fixture(t *testing.T) Engine {
 		"usr/bin/htop": "program", "usr/bin/picoclaw": "program", "data/installation.iso": "user-data",
 		"etc/kvm/hw": "PCIE", "etc/kvm/.jwt_secret": "old-token-secret",
 		"etc/hostname": "old", "etc/hosts": "127.0.0.1 old", "usr/share/zoneinfo/UTC": "TZif-test",
+		"etc/kvm/notify/config.json":    `{"channels":[{"type":"telegram","settings":{"token":"secret"}}]}`,
+		"etc/kvm/notify/addresses.json": `{"admin":["192.0.2.1"]}`,
 	} {
 		if err := write(e.Root, name, &File{Data: []byte(data), Mode: 0600}); err != nil {
 			t.Fatal(err)
@@ -109,6 +111,13 @@ func TestSnapshotExcludesBinariesAndData(t *testing.T) {
 			t.Fatalf("unexpected file %s", f.Path)
 		}
 	}
+	saved := map[string]bool{}
+	for _, f := range a.Files {
+		saved[f.Path] = true
+	}
+	if !saved["etc/kvm/notify/config.json"] || !saved["etc/kvm/notify/addresses.json"] {
+		t.Fatal("notification settings missing from the backup")
+	}
 	if a.RootHash != "$6$test" || !reflect.DeepEqual(a.Packages, []string{"alpine-baselayout", "apk-tools", "busybox", "nanokvm-release", "curl", "htop", "nanokvm-rustdesk"}) {
 		t.Fatalf("inventory %v", a.Packages)
 	}
@@ -152,6 +161,9 @@ func TestResetMatrix(t *testing.T) {
 				}
 				if got := contents(t, e, "etc/kvm/acme/data/account.conf"); got != "" {
 					t.Fatal("ACME settings retained")
+				}
+				if contents(t, e, "etc/kvm/notify/config.json") != "" || contents(t, e, "etc/kvm/notify/addresses.json") != "" {
+					t.Fatal("notification channels or login addresses retained")
 				}
 				if contents(t, e, "etc/kvm/acme/bin/acme.sh") != "program" {
 					t.Fatal("engine touched program files")
@@ -206,7 +218,8 @@ func TestMigrationAndCompatibility(t *testing.T) {
 		t.Fatal("no migration exclusions")
 	}
 	for _, c := range p.Changes {
-		if c.Path == "etc/shadow" || c.Path == "etc/kvm/wifi.ssid" || c.Path == "root/.ssh/authorized_keys" {
+		if c.Path == "etc/shadow" || c.Path == "etc/kvm/wifi.ssid" || c.Path == "root/.ssh/authorized_keys" ||
+			strings.HasPrefix(c.Path, "etc/kvm/notify/") {
 			t.Fatalf("migration clones identity: %s", c.Path)
 		}
 	}

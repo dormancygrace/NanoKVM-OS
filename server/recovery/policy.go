@@ -38,6 +38,7 @@ var settings = strings.Fields(`
  etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub
  etc/kvm/server.crt etc/kvm/server.key etc/kvm/bmc/config.json
  etc/kvm/acme/settings.json var/lib/tailscale/tailscaled.state etc/netbird/config.json
+ etc/kvm/notify/config.json etc/kvm/notify/addresses.json
 `)
 var trees = []string{"etc/kvm/network", "etc/kvm/wifi.saved", "etc/kvm/usb", "etc/kvm/branding", "etc/kvm/scripts", "etc/kvm/wireguard", "etc/kvm/openvpn", "etc/kvm/tls", "etc/kvm/acme/data", "etc/nanokvm-rustdesk"}
 var packageName = regexp.MustCompile(`^[A-Za-z0-9_.][A-Za-z0-9+_.-]{0,127}$`)
@@ -71,7 +72,10 @@ func portable(p string) bool {
 		}
 	}
 	switch p {
-	case "etc/kvm/bmc/config.json", "etc/kvm/cron/crontabs/root", "etc/kvm/cache/wol", "etc/netbird/config.json", "var/lib/tailscale/tailscaled.state", "etc/kvm/acme/settings.json", "etc/kvm/server.yaml", "etc/kvm/server.crt", "etc/kvm/server.key", "etc/hostname", "etc/hosts", "etc/kvm/ssh_stop", "etc/kvm/usb-before-rustdesk.json", "etc/kvm/mcp.json", "etc/kvm/autostart.list", "etc/kvm/picoclaw-runtime.json":
+	case "etc/kvm/bmc/config.json", "etc/kvm/cron/crontabs/root", "etc/kvm/cache/wol", "etc/netbird/config.json", "var/lib/tailscale/tailscaled.state", "etc/kvm/acme/settings.json", "etc/kvm/server.yaml", "etc/kvm/server.crt", "etc/kvm/server.key", "etc/hostname", "etc/hosts", "etc/kvm/ssh_stop", "etc/kvm/usb-before-rustdesk.json", "etc/kvm/mcp.json", "etc/kvm/autostart.list", "etc/kvm/picoclaw-runtime.json",
+		// Notification channels hold tokens and passwords; the addresses are
+		// this device's login history.
+		"etc/kvm/notify/config.json", "etc/kvm/notify/addresses.json":
 		return false
 	}
 	return !strings.HasPrefix(p, "etc/kvm/scripts/")

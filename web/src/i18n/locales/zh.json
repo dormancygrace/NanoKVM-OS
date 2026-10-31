@@ -1117,8 +1117,8 @@
       "cancelBtn": "取消"
     },
     "about": {
-      "applicationVersion": "应用",
-      "imageVersion": "已安装镜像",
+      "applicationVersion": "NanoKVM OS",
+      "imageVersion": "初始安装",
       "bundledVersion": "镜像内置的应用",
       "title": "关于 NanoKVM",
       "description": "NanoKVM 社区固件。",

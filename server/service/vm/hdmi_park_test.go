@@ -1,10 +1,12 @@
 package vm
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
 
+	"NanoKVM-Server/internal/videogate"
 	hdmistate "NanoKVM-Server/service/vm/hdmi_state"
 )
 
@@ -46,6 +48,12 @@ func withParkHooks(t *testing.T) *parkRecorder {
 		hdmiCaptureParked = false
 		hdmiStoppedForIdle = false
 		hdmiMutex.Unlock()
+		viewerGateMutex.Lock()
+		if viewerGate != nil {
+			viewerGate()
+			viewerGate = nil
+		}
+		viewerGateMutex.Unlock()
 	}
 	reset()
 	t.Cleanup(func() {
@@ -94,6 +102,48 @@ func TestCaptureParksAfterLastViewerAndResumesForNext(t *testing.T) {
 	waitParkCalls(t, recorder, true, false)
 	UpdateHdmiViewerSnapshot("direct", 2, 2)
 	expectNoMoreParkCalls(t, recorder, true, false)
+}
+
+// A viewer that wakes a parked capture (which restores its VPSS pools)
+// first waits for the background OCR it cancels to end; no background read
+// starts while viewers are there, and one can once they have gone.
+func TestViewerWakesParkedCaptureOnlyAfterOCREnded(t *testing.T) {
+	recorder := withParkHooks(t)
+	UpdateHdmiViewerSnapshot("webrtc", 1, 1)
+	UpdateHdmiViewerSnapshot("webrtc", 0, 2)
+	waitParkCalls(t, recorder, true)
+
+	ctx, end, ok := videogate.Begin(context.Background())
+	if !ok {
+		t.Fatal("background read refused")
+	}
+	beforeEnd := make(chan []bool, 1)
+	go func() {
+		<-ctx.Done()
+		time.Sleep(50 * time.Millisecond) // the helper exits
+		beforeEnd <- recorder.snapshot()
+		end()
+	}()
+	UpdateHdmiViewerSnapshot("direct", 1, 1)
+	select {
+	case calls := <-beforeEnd:
+		if !reflect.DeepEqual(calls, []bool{true}) {
+			t.Fatalf("the capture woke beside the OCR: %v", calls)
+		}
+	case <-time.After(5 * time.Second):
+		end()
+		t.Fatalf("the viewer did not cancel the OCR; park calls %v", recorder.snapshot())
+	}
+	waitParkCalls(t, recorder, true, false)
+	if _, _, ok := videogate.Begin(context.Background()); ok {
+		t.Fatal("a background read started beside a viewer")
+	}
+	UpdateHdmiViewerSnapshot("direct", 0, 2)
+	_, end, ok = videogate.Begin(context.Background())
+	if !ok {
+		t.Fatal("the gate stayed held without viewers")
+	}
+	end()
 }
 
 func TestCaptureStaysUpWhenViewerReturnsWithinDelay(t *testing.T) {

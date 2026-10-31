@@ -18,6 +18,8 @@ var messages = map[string]map[string]message{
 		"hdmi.restored":        {"HDMI signal restored", "The host sends a picture again."},
 		"security.lockout":     {"Logins blocked", "%d failed logins from %s: logins from this address are blocked for %d min."},
 		"security.new-address": {"Login from a new address", "%s logged in from %s, an address not seen before."},
+		"screen.bsod":          {"Blue screen on the host", "Windows stopped with an error."},
+		"screen.panic":         {"Kernel panic on the host", "The host's console shows a crash."},
 	},
 	"ru": {
 		"test":                 {"Проверка уведомлений", "Уведомления от этого NanoKVM доходят до этого канала."},
@@ -27,6 +29,8 @@ var messages = map[string]map[string]message{
 		"hdmi.restored":        {"HDMI-сигнал вернулся", "Хост снова передаёт изображение."},
 		"security.lockout":     {"Вход заблокирован", "%d неудачных входов с %s: вход с этого адреса заблокирован на %d мин."},
 		"security.new-address": {"Вход с нового адреса", "Вход пользователя %s с %s: с этого адреса раньше не входили."},
+		"screen.bsod":          {"Синий экран на хосте", "Windows остановилась с ошибкой."},
+		"screen.panic":         {"Kernel panic на хосте", "На консоли хоста — сбой."},
 	},
 }
 

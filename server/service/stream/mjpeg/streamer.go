@@ -2,6 +2,7 @@ package mjpeg
 
 import (
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
 	"bytes"
@@ -243,6 +244,10 @@ func mjpegRate(screenFPS int, videoActive bool) int {
 }
 
 func (s *Streamer) run() {
+	// Background OCR has ended before the JPEG encoder takes its memory (the
+	// viewer snapshot that woke the capture held the gate already).
+	release, _ := videogate.Hold(nil)
+	defer release()
 	common.CheckScreen()
 	screen := common.GetCaptureScreen()
 	_, videoActive := stream.ActiveEncoderConfig()

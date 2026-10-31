@@ -1807,12 +1807,14 @@
       "event": {
         "power": "Napájení hostitele",
         "hdmi": "Signál HDMI",
-        "security": "Přihlášení"
+        "security": "Přihlášení",
+        "screen": "Pád na obrazovce"
       },
       "eventHint": {
         "power": "hostitel byl zapnut nebo vypnut; vyžaduje ovládání ATX s připojenou LED napájení.",
         "hdmi": "obraz zmizel nebo se vrátil, i když hostitel vypne obrazovku; zjišťuje se, dokud běží záznam videa.",
-        "security": "adresa zablokovaná po neúspěšných přihlášeních, přihlášení z nové adresy."
+        "security": "adresa zablokovaná po neúspěšných přihlášeních, přihlášení z nové adresy.",
+        "screen": "modrá obrazovka nebo kernel panic rozpoznané doplňkem TPU; text se čte, když se nikdo nedívá na video, a posílá se se snímkem obrazovky."
       },
       "field": {
         "token": "Token",

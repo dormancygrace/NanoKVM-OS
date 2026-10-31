@@ -1,7 +1,7 @@
 // Package notify sends the device's events (host power, HDMI signal, login
-// security) to the channels set on the Notifications page: Telegram, e-mail,
-// chat webhooks, push services and syslog. Producers call Emit; it never
-// blocks them.
+// security, a crash on the host's screen) to the channels set on the
+// Notifications page: Telegram, e-mail, chat webhooks, push services and
+// syslog. Producers call Emit; it never blocks them.
 package notify
 
 import (
@@ -23,12 +23,14 @@ const (
 	KindPower    Kind = "power"
 	KindHDMI     Kind = "hdmi"
 	KindSecurity Kind = "security"
+	// KindScreen: a crash seen on the host's screen (the TPU add-on).
+	KindScreen Kind = "screen"
 	// KindTest is the page's Test button; it ignores the channel's kinds.
 	KindTest Kind = "test"
 )
 
 // Kinds are the kinds a channel can choose, in the page's order.
-var Kinds = []Kind{KindPower, KindHDMI, KindSecurity}
+var Kinds = []Kind{KindPower, KindHDMI, KindSecurity, KindScreen}
 
 type Severity int
 

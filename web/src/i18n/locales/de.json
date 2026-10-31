@@ -2161,12 +2161,14 @@
       "event": {
         "power": "Stromversorgung des Hosts",
         "hdmi": "HDMI-Signal",
-        "security": "Anmeldungen"
+        "security": "Anmeldungen",
+        "screen": "Absturz auf dem Bildschirm"
       },
       "eventHint": {
         "power": "der Host wurde ein- oder ausgeschaltet; braucht ATX-Steuerung mit angeschlossener Power-LED.",
         "hdmi": "das Bild ging verloren oder kam zurück, auch wenn der Host seinen Bildschirm abschaltet; erkannt, solange die Videoaufnahme läuft.",
-        "security": "eine Adresse nach fehlgeschlagenen Anmeldungen gesperrt, eine Anmeldung von einer neuen Adresse."
+        "security": "eine Adresse nach fehlgeschlagenen Anmeldungen gesperrt, eine Anmeldung von einer neuen Adresse.",
+        "screen": "ein Bluescreen oder eine Kernel-Panic, erkannt vom TPU-Add-on; der Text wird gelesen, wenn niemand das Video ansieht, und mit einem Bildschirmfoto gesendet."
       },
       "field": {
         "token": "Token",

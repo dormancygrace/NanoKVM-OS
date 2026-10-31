@@ -2161,12 +2161,14 @@
       "event": {
         "power": "Alimentación del host",
         "hdmi": "Señal HDMI",
-        "security": "Inicios de sesión"
+        "security": "Inicios de sesión",
+        "screen": "Fallo en la pantalla"
       },
       "eventHint": {
         "power": "el host se encendió o se apagó; requiere control ATX con el LED de encendido conectado.",
         "hdmi": "la imagen se perdió o volvió, también cuando el host apaga su pantalla; se detecta mientras la captura de vídeo está activa.",
-        "security": "una dirección bloqueada tras inicios de sesión fallidos, un inicio de sesión desde una dirección nueva."
+        "security": "una dirección bloqueada tras inicios de sesión fallidos, un inicio de sesión desde una dirección nueva.",
+        "screen": "una pantalla azul o un kernel panic, reconocidos por el complemento TPU; el texto se lee cuando nadie ve el vídeo y se envía con una captura."
       },
       "field": {
         "token": "Token",

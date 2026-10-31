@@ -7,6 +7,7 @@ import (
 
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/internal/startpriority"
+	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/proto"
 	hdmistate "NanoKVM-Server/service/vm/hdmi_state"
 	"NanoKVM-Server/utils"
@@ -173,21 +174,47 @@ func SetHdmiViewerCount(count int) {
 // SetHdmiViewerCountForSource is retained for callers that cannot provide a
 // source revision. Streamers should use UpdateHdmiViewerSnapshot instead.
 func SetHdmiViewerCountForSource(source string, count int) {
-	hdmiMutex.Lock()
-	defer hdmiMutex.Unlock()
-
-	version := hdmiDemand.NextVersion(source)
-	updateHdmiViewerSnapshotLocked(source, count, version)
+	withViewerGate(count, func() {
+		version := hdmiDemand.NextVersion(source)
+		updateHdmiViewerSnapshotLocked(source, count, version)
+	})
 }
 
 // UpdateHdmiViewerSnapshot applies a source's authoritative client count.
 // Revisions let streamers report after releasing their own client-map locks
 // without allowing an older count to overwrite a newer one.
 func UpdateHdmiViewerSnapshot(source string, count int, version uint64) {
-	hdmiMutex.Lock()
-	defer hdmiMutex.Unlock()
+	withViewerGate(count, func() {
+		updateHdmiViewerSnapshotLocked(source, count, version)
+	})
+}
 
-	updateHdmiViewerSnapshotLocked(source, count, version)
+var (
+	// viewerGateMutex orders the viewer updates with the gate they hold.
+	viewerGateMutex sync.Mutex
+	viewerGate      func()
+	holdVideoGate   = func() func() { release, _ := videogate.Hold(nil); return release }
+)
+
+// withViewerGate runs a viewer update under hdmiMutex. A viewer can wake a
+// parked capture, which restores its VPSS pools: while there are viewers the
+// video gate is held, taken before the update and so before the wake, with
+// the background OCR already ended; it is released when none are left.
+func withViewerGate(count int, update func()) {
+	viewerGateMutex.Lock()
+	defer viewerGateMutex.Unlock()
+	if count > 0 && viewerGate == nil {
+		// Outside hdmiMutex: the OCR being cancelled may wait for it.
+		viewerGate = holdVideoGate()
+	}
+	hdmiMutex.Lock()
+	update()
+	viewers := hdmiDemand.ViewerCount()
+	hdmiMutex.Unlock()
+	if viewers == 0 && viewerGate != nil {
+		viewerGate()
+		viewerGate = nil
+	}
 }
 
 func updateHdmiViewerSnapshotLocked(source string, count int, version uint64) {

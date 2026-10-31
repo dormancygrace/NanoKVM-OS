@@ -2161,12 +2161,14 @@
       "event": {
         "power": "Host power",
         "hdmi": "HDMI signal",
-        "security": "Logins"
+        "security": "Logins",
+        "screen": "Crash on the screen"
       },
       "eventHint": {
         "power": "the host was switched on or off; needs ATX control with the power LED connected.",
         "hdmi": "the picture was lost or came back, also when the host turns its display off; seen while video capture runs.",
-        "security": "an address blocked after failed logins, a login from a new address."
+        "security": "an address blocked after failed logins, a login from a new address.",
+        "screen": "a blue screen or a kernel panic, recognised by the TPU add-on; the text is read when nobody watches the video, and a screenshot is sent with it."
       },
       "field": {
         "token": "Token",

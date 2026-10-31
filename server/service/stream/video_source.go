@@ -2,6 +2,7 @@ package stream
 
 import (
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/videogate"
 	"context"
 	"errors"
 	"fmt"
@@ -301,6 +302,13 @@ func (s *VideoSource) run(session *videoSession) {
 		close(session.done)
 		s.mutex.Unlock()
 	}()
+	// Background OCR gives way, and has ended, before the capture lease can
+	// wake the capture and before the encoder takes its memory.
+	releaseGate, ok := videogate.Hold(session.stop)
+	if !ok {
+		return
+	}
+	defer releaseGate()
 	if hold := s.holdCapture.Load(); hold != nil {
 		release := (*hold)()
 		defer release()

@@ -74,6 +74,9 @@ run cmake --build "$build/cviruntime" --target install
 "${cross}g++" -std=gnu++17 -O2 -Wall -Wextra -pthread $isa -I"$inst/include" "$here/ocr/nanokvm-ocr.cpp" \
     -L"$inst/lib" -lcviruntime -Wl,-rpath,'$ORIGIN/../lib' -o "$stage/bin/nanokvm-ocr"
 "${cross}strip" "$stage/bin/nanokvm-ocr"
+"${cross}g++" -std=gnu++17 -O2 -Wall -Wextra $isa -I"$inst/include" "$here/ocr/nanokvm-screen.cpp" \
+    -L"$inst/lib" -lcviruntime -Wl,-rpath,'$ORIGIN/../lib' -o "$stage/bin/nanokvm-screen"
+"${cross}strip" "$stage/bin/nanokvm-screen"
 cp "$inst/bin/model_runner" "$stage/bin/"
 for lib in libcviruntime.so libcvikernel.so libcnpy.so; do
     cp -L "$inst/lib/$lib" "$stage/lib/"
@@ -92,6 +95,7 @@ done
 soc=$src/cviruntime/src/soc
 cc -O2 -Wall -I"$src/cviruntime/include" -I"$src/cvikernel/include" -I"$soc/181x" -I"$soc/common"     "$here/ocr/cvimodel-dmabuf.c" "$soc/181x/bm_dmabuf.c" -o "$build/cvimodel-dmabuf"
 "$build/cvimodel-dmabuf" "$models/ocr-det.cvimodel" "$stage/models/ocr-det.cvimodel"
+"$build/cvimodel-dmabuf" "$models/screen.cvimodel" "$stage/models/screen.cvimodel"
 for lang in latin chinese cyrillic; do
     mkdir -p "$stage/models/$lang"
     for model in "$models/$lang"/ocr-*.cvimodel; do

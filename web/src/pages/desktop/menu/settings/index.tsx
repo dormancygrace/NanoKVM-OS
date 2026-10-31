@@ -14,6 +14,7 @@ import clsx from 'clsx';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   ArrowLeftIcon,
+  BellIcon,
   BluetoothIcon,
   BotIcon,
   ChevronRightIcon,
@@ -105,6 +106,9 @@ const DateTimeSettings = lazyPage(() =>
 const MCP = lazyPage(() => import('./mcp').then((module) => ({ default: module.MCP })));
 const Memory = lazyPage(() => import('./memory').then((module) => ({ default: module.Memory })));
 const Netbird = lazyPage(() => import('./netbird').then((module) => ({ default: module.Netbird })));
+const Notifications = lazyPage(() =>
+  import('./notifications').then((module) => ({ default: module.Notifications }))
+);
 const Tailscale = lazyPage(() =>
   import('./tailscale').then((module) => ({ default: module.Tailscale }))
 );
@@ -169,6 +173,7 @@ const UpdateDot = () => (
 
 // The icon names menu entries can use.
 const menuIcons: Record<string, ReactNode> = {
+  bell: <BellIcon size={16} />,
   bluetooth: <BluetoothIcon size={16} />,
   bot: <BotIcon size={16} />,
   clock: <ClockIcon size={16} />,
@@ -281,6 +286,7 @@ export const Settings = ({
         services: null,
         'services-bmc': <BmcSettingsPage />,
         'services-rustdesk': inventory?.rustdesk.installed ? <RustDeskControls /> : undefined,
+        'services-notifications': <Notifications />,
         system: null,
         'system-general': <System />,
         'system-users': <Account />,

@@ -1778,6 +1778,89 @@
         "changeModel": "Změnit model",
         "changeModelDescription": "Klíč API a základní URL se po uložení nezobrazují: pro změnu modelu vyplňte všechna tři pole."
       }
+    },
+    "notifications": {
+      "title": "Oznámení",
+      "description": "Zprávy o hostiteli a tomto zařízení: napájení, signál HDMI, přihlášení. Každý kanál dostává události, které má zaškrtnuté.",
+      "channels": "Kanály",
+      "add": "Přidat kanál",
+      "empty": "Zatím žádné kanály.",
+      "name": "Název",
+      "events": "Události",
+      "enabled": "Kanál zapnut",
+      "test": "Odeslat zkušební zprávu",
+      "testSent": "Zkušební zpráva odeslána.",
+      "testFailed": "Neodesláno: {{error}}",
+      "remove": "Smazat kanál",
+      "removeConfirm": "Smazat tento kanál? Zmizí po uložení.",
+      "secretKept": "Uloženo; ponechte prázdné, aby zůstalo",
+      "secretClear": "Odebrat",
+      "messages": "Zprávy",
+      "language": "Jazyk zpráv",
+      "save": "Uložit",
+      "saved": "Uloženo",
+      "failed": "Nastavení oznámení se nepodařilo načíst.",
+      "types": {
+        "email": "E-mail (SMTP)",
+        "webhook": "Webhook (JSON)"
+      },
+      "event": {
+        "power": "Napájení hostitele",
+        "hdmi": "Signál HDMI",
+        "security": "Přihlášení"
+      },
+      "eventHint": {
+        "power": "hostitel byl zapnut nebo vypnut; vyžaduje ovládání ATX s připojenou LED napájení.",
+        "hdmi": "obraz zmizel nebo se vrátil, i když hostitel vypne obrazovku; zjišťuje se, dokud běží záznam videa.",
+        "security": "adresa zablokovaná po neúspěšných přihlášeních, přihlášení z nové adresy."
+      },
+      "field": {
+        "token": "Token",
+        "chatId": "ID chatu",
+        "threadId": "ID tématu",
+        "apiUrl": "Server Bot API",
+        "host": "Server",
+        "port": "Port",
+        "security": "Šifrování",
+        "username": "Uživatelské jméno",
+        "password": "Heslo",
+        "from": "Od",
+        "to": "Komu",
+        "url": "URL webhooku",
+        "hmacSecret": "Podpisový klíč",
+        "authorization": "Hlavička Authorization",
+        "server": "Server",
+        "topic": "Téma",
+        "appToken": "Token aplikace",
+        "userKey": "Uživatelský klíč",
+        "device": "Zařízení",
+        "homeserver": "Domovský server",
+        "accessToken": "Přístupový token",
+        "roomId": "ID místnosti",
+        "protocol": "Protokol",
+        "skipVerify": "Přijmout jakýkoli certifikát serveru"
+      },
+      "option": {
+        "none": "Žádné",
+        "starttls": "STARTTLS",
+        "tls": "TLS",
+        "udp": "UDP",
+        "tcp": "TCP"
+      },
+      "help": {
+        "telegram": "Vytvořte bota přes @BotFather, vložte jeho token a přidejte bota do chatu. ID skupiny začíná -100. ID tématu: pro skupinu s tématy. Server Bot API: jen pro vlastní server Bot API.",
+        "email": "STARTTLS na portu 587, TLS na 465. Bez šifrování (port 25) jen pro interní relay, který přijímá poštu bez přihlášení.",
+        "webhook": "JSON POST s poli event, severity, title, text, device a time. S podpisovým klíčem nese hlavička X-NanoKVM-Signature sha256= a HMAC-SHA256 těla.",
+        "slack": "Příchozí webhook. Mattermost a Rocket.Chat přijímají stejné zprávy.",
+        "teams": "V kanálu přidejte šablonu Workflows „Send webhook alerts to a channel“ a vložte její URL. URL konektorů Office 365 už nefungují.",
+        "googlechat": "V prostoru: Aplikace a integrace > Webhooky.",
+        "discord": "Nastavení kanálu > Integrace > Webhooky.",
+        "ntfy": "ntfy.sh nebo vlastní server. Na veřejném serveru téma čte každý, kdo ho zná: zvolte dlouhé náhodné.",
+        "gotify": "Token aplikace z vašeho serveru Gotify.",
+        "pushover": "Váš uživatelský klíč a token aplikace vytvořené na pushover.net.",
+        "matrix": "Přístupový token účtu v místnosti. Zprávy nejsou šifrovány end-to-end.",
+        "syslog": "Zprávy RFC 5424, facility daemon, na server syslog nebo do SIEM."
+      }
     }
   },
   "picoclaw": {

@@ -2132,6 +2132,89 @@
         "changeModel": "更换模型",
         "changeModelDescription": "保存后不再显示 API 密钥和基础地址：更换模型时请填写全部三项。"
       }
+    },
+    "notifications": {
+      "title": "通知",
+      "description": "关于主机和本设备的消息：电源、HDMI 信号、登录。每个通道接收其勾选的事件。",
+      "channels": "通道",
+      "add": "添加通道",
+      "empty": "还没有通道。",
+      "name": "名称",
+      "events": "事件",
+      "enabled": "通道已启用",
+      "test": "发送测试消息",
+      "testSent": "测试消息已发送。",
+      "testFailed": "未发送：{{error}}",
+      "remove": "删除通道",
+      "removeConfirm": "删除此通道？保存后生效。",
+      "secretKept": "已保存；留空则保持不变",
+      "secretClear": "移除",
+      "messages": "消息",
+      "language": "消息语言",
+      "save": "保存",
+      "saved": "已保存",
+      "failed": "无法加载通知设置。",
+      "types": {
+        "email": "电子邮件 (SMTP)",
+        "webhook": "Webhook (JSON)"
+      },
+      "event": {
+        "power": "主机电源",
+        "hdmi": "HDMI 信号",
+        "security": "登录"
+      },
+      "eventHint": {
+        "power": "主机被开启或关闭；需要启用 ATX 控制并连接电源指示灯。",
+        "hdmi": "画面丢失或恢复，包括主机关闭显示器时；仅在视频采集运行时检测。",
+        "security": "登录失败后被封锁的地址、从新地址登录。"
+      },
+      "field": {
+        "token": "令牌",
+        "chatId": "聊天 ID",
+        "threadId": "话题 ID",
+        "apiUrl": "Bot API 服务器",
+        "host": "服务器",
+        "port": "端口",
+        "security": "加密",
+        "username": "用户名",
+        "password": "密码",
+        "from": "发件人",
+        "to": "收件人",
+        "url": "Webhook URL",
+        "hmacSecret": "签名密钥",
+        "authorization": "Authorization 头",
+        "server": "服务器",
+        "topic": "主题",
+        "appToken": "应用令牌",
+        "userKey": "用户密钥",
+        "device": "设备",
+        "homeserver": "主服务器",
+        "accessToken": "访问令牌",
+        "roomId": "房间 ID",
+        "protocol": "协议",
+        "skipVerify": "接受任何服务器证书"
+      },
+      "option": {
+        "none": "无",
+        "starttls": "STARTTLS",
+        "tls": "TLS",
+        "udp": "UDP",
+        "tcp": "TCP"
+      },
+      "help": {
+        "telegram": "通过 @BotFather 创建机器人，粘贴其令牌，并将机器人加入聊天。群组 ID 以 -100 开头。话题 ID：用于启用话题的群组。Bot API 服务器：仅用于自建的 Bot API 服务器。",
+        "email": "STARTTLS 使用 587 端口，TLS 使用 465 端口。不加密（25 端口）仅用于无需登录即可收信的内部中继。",
+        "webhook": "以 JSON POST 发送 event、severity、title、text、device 和 time。设置签名密钥后，X-NanoKVM-Signature 头包含 sha256= 和正文的 HMAC-SHA256。",
+        "slack": "传入 Webhook。Mattermost 和 Rocket.Chat 接受相同的消息。",
+        "teams": "在频道中添加 Workflows 模板“Send webhook alerts to a channel”并粘贴其 URL。Office 365 连接器的 URL 已不再可用。",
+        "googlechat": "在空间中：应用和集成 > Webhook。",
+        "discord": "频道设置 > 整合 > Webhook。",
+        "ntfy": "ntfy.sh 或自建服务器。在公共服务器上，知道主题的人都能读取：请选择较长的随机主题。",
+        "gotify": "来自您的 Gotify 服务器的应用令牌。",
+        "pushover": "您的用户密钥，以及在 pushover.net 上创建的应用的令牌。",
+        "matrix": "房间中某个账户的访问令牌。消息不进行端到端加密。",
+        "syslog": "RFC 5424 消息，facility 为 daemon，发送到 syslog 服务器或 SIEM。"
+      }
     }
   },
   "picoclaw": {

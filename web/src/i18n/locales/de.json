@@ -2132,6 +2132,89 @@
         "changeModel": "Modell ändern",
         "changeModelDescription": "API-Schlüssel und Basis-URL werden nach dem Speichern nicht angezeigt: zum Ändern alle drei Felder ausfüllen."
       }
+    },
+    "notifications": {
+      "title": "Benachrichtigungen",
+      "description": "Meldungen über den Host und dieses Gerät: Stromversorgung, HDMI-Signal, Anmeldungen. Jeder Kanal erhält die bei ihm angehakten Ereignisse.",
+      "channels": "Kanäle",
+      "add": "Kanal hinzufügen",
+      "empty": "Noch keine Kanäle.",
+      "name": "Name",
+      "events": "Ereignisse",
+      "enabled": "Kanal an",
+      "test": "Testnachricht senden",
+      "testSent": "Testnachricht gesendet.",
+      "testFailed": "Nicht gesendet: {{error}}",
+      "remove": "Kanal löschen",
+      "removeConfirm": "Diesen Kanal löschen? Er wird beim Speichern entfernt.",
+      "secretKept": "Gespeichert; leer lassen, um es zu behalten",
+      "secretClear": "Entfernen",
+      "messages": "Meldungen",
+      "language": "Sprache der Meldungen",
+      "save": "Speichern",
+      "saved": "Gespeichert",
+      "failed": "Die Benachrichtigungseinstellungen konnten nicht geladen werden.",
+      "types": {
+        "email": "E-Mail (SMTP)",
+        "webhook": "Webhook (JSON)"
+      },
+      "event": {
+        "power": "Stromversorgung des Hosts",
+        "hdmi": "HDMI-Signal",
+        "security": "Anmeldungen"
+      },
+      "eventHint": {
+        "power": "der Host wurde ein- oder ausgeschaltet; braucht ATX-Steuerung mit angeschlossener Power-LED.",
+        "hdmi": "das Bild ging verloren oder kam zurück, auch wenn der Host seinen Bildschirm abschaltet; erkannt, solange die Videoaufnahme läuft.",
+        "security": "eine Adresse nach fehlgeschlagenen Anmeldungen gesperrt, eine Anmeldung von einer neuen Adresse."
+      },
+      "field": {
+        "token": "Token",
+        "chatId": "Chat-ID",
+        "threadId": "Themen-ID",
+        "apiUrl": "Bot-API-Server",
+        "host": "Server",
+        "port": "Port",
+        "security": "Verschlüsselung",
+        "username": "Benutzername",
+        "password": "Passwort",
+        "from": "Von",
+        "to": "An",
+        "url": "Webhook-URL",
+        "hmacSecret": "Signaturschlüssel",
+        "authorization": "Authorization-Header",
+        "server": "Server",
+        "topic": "Topic",
+        "appToken": "Anwendungstoken",
+        "userKey": "Benutzerschlüssel",
+        "device": "Gerät",
+        "homeserver": "Homeserver",
+        "accessToken": "Zugriffstoken",
+        "roomId": "Raum-ID",
+        "protocol": "Protokoll",
+        "skipVerify": "Jedes Serverzertifikat akzeptieren"
+      },
+      "option": {
+        "none": "Keine",
+        "starttls": "STARTTLS",
+        "tls": "TLS",
+        "udp": "UDP",
+        "tcp": "TCP"
+      },
+      "help": {
+        "telegram": "Erstellen Sie mit @BotFather einen Bot, fügen Sie sein Token ein und den Bot dem Chat hinzu. Die ID einer Gruppe beginnt mit -100. Themen-ID: für eine Gruppe mit Themen. Bot-API-Server: nur für einen eigenen Bot-API-Server.",
+        "email": "STARTTLS auf Port 587, TLS auf 465. Ohne Verschlüsselung (Port 25) nur für ein internes Relay, das Mail ohne Anmeldung annimmt.",
+        "webhook": "Ein JSON-POST mit event, severity, title, text, device und time. Mit Signaturschlüssel enthält der Header X-NanoKVM-Signature sha256= und den HMAC-SHA256 des Inhalts.",
+        "slack": "Ein Incoming Webhook. Mattermost und Rocket.Chat nehmen dieselben Nachrichten an.",
+        "teams": "Fügen Sie im Kanal die Workflows-Vorlage „Send webhook alerts to a channel“ hinzu und fügen Sie deren URL ein. URLs von Office-365-Connectors funktionieren nicht mehr.",
+        "googlechat": "Im Bereich: Apps und Integrationen > Webhooks.",
+        "discord": "Kanaleinstellungen > Integrationen > Webhooks.",
+        "ntfy": "ntfy.sh oder ein eigener Server. Auf einem öffentlichen Server liest jeder mit, der das Topic kennt: wählen Sie ein langes zufälliges.",
+        "gotify": "Ein Anwendungstoken Ihres Gotify-Servers.",
+        "pushover": "Ihr Benutzerschlüssel und das Token einer auf pushover.net angelegten Anwendung.",
+        "matrix": "Das Zugriffstoken eines Kontos im Raum. Nachrichten sind nicht Ende-zu-Ende-verschlüsselt.",
+        "syslog": "RFC-5424-Meldungen, Facility daemon, an einen Syslog-Server oder ein SIEM."
+      }
     }
   },
   "picoclaw": {

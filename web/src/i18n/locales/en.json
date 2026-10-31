@@ -2132,6 +2132,89 @@
         "changeModel": "Change the model",
         "changeModelDescription": "The API key and base URL are not shown once saved: enter all three to change the model."
       }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Messages about the host and this device: power, HDMI signal, logins. Each channel gets the events ticked on it.",
+      "channels": "Channels",
+      "add": "Add channel",
+      "empty": "No channels yet.",
+      "name": "Name",
+      "events": "Events",
+      "enabled": "Channel on",
+      "test": "Send a test message",
+      "testSent": "Test message sent.",
+      "testFailed": "Not sent: {{error}}",
+      "remove": "Delete channel",
+      "removeConfirm": "Delete this channel? It goes when you save.",
+      "secretKept": "Stored; leave empty to keep",
+      "secretClear": "Remove",
+      "messages": "Messages",
+      "language": "Language of the messages",
+      "save": "Save",
+      "saved": "Saved",
+      "failed": "The notification settings could not be loaded.",
+      "types": {
+        "email": "E-mail (SMTP)",
+        "webhook": "Webhook (JSON)"
+      },
+      "event": {
+        "power": "Host power",
+        "hdmi": "HDMI signal",
+        "security": "Logins"
+      },
+      "eventHint": {
+        "power": "the host was switched on or off; needs ATX control with the power LED connected.",
+        "hdmi": "the picture was lost or came back, also when the host turns its display off; seen while video capture runs.",
+        "security": "an address blocked after failed logins, a login from a new address."
+      },
+      "field": {
+        "token": "Token",
+        "chatId": "Chat ID",
+        "threadId": "Topic ID",
+        "apiUrl": "Bot API server",
+        "host": "Server",
+        "port": "Port",
+        "security": "Encryption",
+        "username": "User name",
+        "password": "Password",
+        "from": "From",
+        "to": "To",
+        "url": "Webhook URL",
+        "hmacSecret": "Signing secret",
+        "authorization": "Authorization header",
+        "server": "Server",
+        "topic": "Topic",
+        "appToken": "Application token",
+        "userKey": "User key",
+        "device": "Device",
+        "homeserver": "Homeserver",
+        "accessToken": "Access token",
+        "roomId": "Room ID",
+        "protocol": "Protocol",
+        "skipVerify": "Accept any server certificate"
+      },
+      "option": {
+        "none": "None",
+        "starttls": "STARTTLS",
+        "tls": "TLS",
+        "udp": "UDP",
+        "tcp": "TCP"
+      },
+      "help": {
+        "telegram": "Create a bot with @BotFather and paste its token, then add the bot to the chat. A group's ID starts with -100. Topic ID: for a group with topics. Bot API server: only for a Bot API server of your own.",
+        "email": "STARTTLS on port 587, TLS on 465. Without encryption (port 25) only for an internal relay that takes mail without a login.",
+        "webhook": "A JSON POST with event, severity, title, text, device and time. With a signing secret, the header X-NanoKVM-Signature carries sha256= and the HMAC-SHA256 of the body.",
+        "slack": "An incoming webhook. Mattermost and Rocket.Chat take the same messages.",
+        "teams": "In the channel, add the Workflows template \"Send webhook alerts to a channel\" and paste its URL. Office 365 connector URLs no longer work.",
+        "googlechat": "In the space: Apps & integrations > Webhooks.",
+        "discord": "Channel settings > Integrations > Webhooks.",
+        "ntfy": "ntfy.sh or a server of your own. On a public server anyone who knows the topic reads it: pick a long random one.",
+        "gotify": "An application token from your Gotify server.",
+        "pushover": "Your user key and the token of an application created on pushover.net.",
+        "matrix": "The access token of an account in the room. Messages are not end-to-end encrypted.",
+        "syslog": "RFC 5424 messages, facility daemon, to a syslog server or a SIEM."
+      }
     }
   },
   "picoclaw": {

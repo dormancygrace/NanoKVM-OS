@@ -2132,6 +2132,89 @@
         "changeModel": "モデルを変更",
         "changeModelDescription": "API キーとベース URL は保存後に表示されません。モデルを変更するには 3 項目すべてを入力してください。"
       }
+    },
+    "notifications": {
+      "title": "通知",
+      "description": "ホストとこのデバイスに関するメッセージ：電源、HDMI 信号、ログイン。各チャンネルはチェックしたイベントを受け取ります。",
+      "channels": "チャンネル",
+      "add": "チャンネルを追加",
+      "empty": "チャンネルはまだありません。",
+      "name": "名前",
+      "events": "イベント",
+      "enabled": "チャンネル有効",
+      "test": "テストメッセージを送信",
+      "testSent": "テストメッセージを送信しました。",
+      "testFailed": "送信できませんでした：{{error}}",
+      "remove": "チャンネルを削除",
+      "removeConfirm": "このチャンネルを削除しますか？保存時に削除されます。",
+      "secretKept": "保存済み。変更しない場合は空のまま",
+      "secretClear": "削除",
+      "messages": "メッセージ",
+      "language": "メッセージの言語",
+      "save": "保存",
+      "saved": "保存しました",
+      "failed": "通知設定を読み込めませんでした。",
+      "types": {
+        "email": "メール (SMTP)",
+        "webhook": "Webhook (JSON)"
+      },
+      "event": {
+        "power": "ホストの電源",
+        "hdmi": "HDMI 信号",
+        "security": "ログイン"
+      },
+      "eventHint": {
+        "power": "ホストの電源が入った、または切れた。ATX 制御と電源 LED の接続が必要です。",
+        "hdmi": "映像が途切れた、または戻った（ホストが画面をオフにした場合も含む）。ビデオキャプチャ中に検出します。",
+        "security": "ログイン失敗でブロックされたアドレス、新しいアドレスからのログイン。"
+      },
+      "field": {
+        "token": "トークン",
+        "chatId": "チャット ID",
+        "threadId": "トピック ID",
+        "apiUrl": "Bot API サーバー",
+        "host": "サーバー",
+        "port": "ポート",
+        "security": "暗号化",
+        "username": "ユーザー名",
+        "password": "パスワード",
+        "from": "差出人",
+        "to": "宛先",
+        "url": "Webhook URL",
+        "hmacSecret": "署名キー",
+        "authorization": "Authorization ヘッダー",
+        "server": "サーバー",
+        "topic": "トピック",
+        "appToken": "アプリケーショントークン",
+        "userKey": "ユーザーキー",
+        "device": "デバイス",
+        "homeserver": "ホームサーバー",
+        "accessToken": "アクセストークン",
+        "roomId": "ルーム ID",
+        "protocol": "プロトコル",
+        "skipVerify": "すべてのサーバー証明書を受け入れる"
+      },
+      "option": {
+        "none": "なし",
+        "starttls": "STARTTLS",
+        "tls": "TLS",
+        "udp": "UDP",
+        "tcp": "TCP"
+      },
+      "help": {
+        "telegram": "@BotFather でボットを作成してトークンを貼り付け、ボットをチャットに追加します。グループの ID は -100 で始まります。トピック ID：トピック付きグループ用。Bot API サーバー：独自の Bot API サーバーの場合のみ。",
+        "email": "STARTTLS はポート 587、TLS は 465。暗号化なし（ポート 25）はログインなしでメールを受け付ける社内リレーのみ。",
+        "webhook": "event、severity、title、text、device、time を含む JSON POST。署名キーを設定すると、X-NanoKVM-Signature ヘッダーに sha256= と本文の HMAC-SHA256 が入ります。",
+        "slack": "受信 Webhook。Mattermost と Rocket.Chat も同じメッセージを受け付けます。",
+        "teams": "チャンネルに Workflows テンプレート「Send webhook alerts to a channel」を追加し、その URL を貼り付けます。Office 365 コネクタの URL は使えなくなりました。",
+        "googlechat": "スペースで：アプリと統合 > Webhook。",
+        "discord": "チャンネル設定 > 連携サービス > ウェブフック。",
+        "ntfy": "ntfy.sh または独自サーバー。公開サーバーではトピックを知っている人なら誰でも読めます。長いランダムなトピックを選んでください。",
+        "gotify": "Gotify サーバーのアプリケーショントークン。",
+        "pushover": "ユーザーキーと、pushover.net で作成したアプリケーションのトークン。",
+        "matrix": "ルームにいるアカウントのアクセストークン。メッセージはエンドツーエンド暗号化されません。",
+        "syslog": "RFC 5424 メッセージ（facility daemon）を syslog サーバーまたは SIEM へ。"
+      }
     }
   },
   "picoclaw": {

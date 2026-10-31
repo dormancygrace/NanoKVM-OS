@@ -95,6 +95,7 @@ func server(r *gin.Engine) {
 	addonsRouter(r)
 	addonCatalogRouter(r)
 	bmcRouter(r)
+	notifyRouter(r)
 	rustdeskRouter(r)
 	osUpdateRouter(r)
 	recoveryRouter(r)

@@ -193,7 +193,7 @@ objects with `${CROSS}objdump -d` before running the resulting binary.
 
 The HTTPS helper is a separate static Go module named `loadprobe`. Put
 `curl-probe.go` at its root and the four non-test `sha256*.go` files from
-`server/internal/sg2002aes` in its `sha/` directory. Build with
+`server/internal/hwcrypto` in its `sha/` directory. Build with
 `CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build`. On the device it expects
 candidate runtimes in `/tmp/nkos-load-audit/c906-o3` and `c906-auto`; run with
 `GOMAXPROCS=1` and `-profile baseline`, `c906-o3` or `c906-auto`. The optional

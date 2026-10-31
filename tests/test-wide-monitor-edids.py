@@ -20,7 +20,7 @@ g = load("wide_edids", ROOT / "scripts/build-wide-monitor-edids.py")
 # The validator of the 16:9 profiles: every advertised mode, not only the DTDs.
 final = load("final_monitor_profiles", ROOT / "firmware/probes/edid120/build_final_monitor_profiles.py")
 rgb = load("edid_rgb_range", ROOT / "scripts/edid-rgb-range.py")
-SOURCE = (ROOT / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
+SOURCE = (ROOT / "support/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
 
 
 def dtd(data):

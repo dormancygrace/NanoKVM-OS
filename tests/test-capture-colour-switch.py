@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 repo = Path(__file__).resolve().parents[1]
-s = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+s = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
 start = s.index('        if (capture_format == nanokvm::nv21_format()) {', s.index('// The video encoders read limited-range'))
 body = s[start:s.index('        // MJPEG\'s own output next to a video stream:', start)]
 prefix = r'''#include <cassert>

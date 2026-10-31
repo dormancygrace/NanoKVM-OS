@@ -5,10 +5,10 @@ from pathlib import Path
 import subprocess
 import tempfile
 ROOT=Path(__file__).resolve().parents[4]
-spec=importlib.util.spec_from_file_location('transport',ROOT/'firmware/crypto/experimental/openssl-sg2002/test-transport.py')
+spec=importlib.util.spec_from_file_location('transport',ROOT/'firmware/crypto/experimental/openssl-hwcrypto/test-transport.py')
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 files={}
-for name in ('0002-sg2002-transport.patch','0005-aes-dma.patch'):
+for name in ('0002-hwcrypto-transport.patch','0005-aes-dma.patch'):
     files.update(module.added_files((ROOT/'firmware/crypto/openssl-c906'/name).read_text()))
 with tempfile.TemporaryDirectory(prefix='nkos-aes-test-') as tmp:
     d=Path(tmp)

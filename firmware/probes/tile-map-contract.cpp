@@ -1,7 +1,7 @@
 // Host test of the real tiled MJPEG change map and region JPEG channels
 // (kvm_mmf): the IVE is a CPU implementation of SAD (16x16 blocks) and DMA,
 // the encoder a fault-injected stub. No hardware is opened.
-#include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
+#include "../../support/additional/kvm_mmf/src/kvm_mmf.cpp"
 #include <atomic>
 #include <cassert>
 #include <thread>

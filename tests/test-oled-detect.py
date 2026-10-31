@@ -3,7 +3,7 @@
 from pathlib import Path
 import subprocess, tempfile
 repo = Path(__file__).resolve().parents[1]
-lib = repo / 'support/sg2002/kvm_system/main/lib/oled_ctrl'
+lib = repo / 'support/kvm_system/main/lib/oled_ctrl'
 source = r'''
 #include "oled_detect.h"
 #include <assert.h>

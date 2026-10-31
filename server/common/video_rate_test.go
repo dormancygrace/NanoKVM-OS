@@ -52,7 +52,7 @@ func TestCaptureRateOrientationParity(t *testing.T) {
 
 // The native capture library enforces the same table under its own mutex.
 func TestCaptureRateTiersMatchNative(t *testing.T) {
-	source, err := os.ReadFile("../../support/sg2002/additional/kvm_mmf/include/internal/capture_rate.hpp")
+	source, err := os.ReadFile("../../support/additional/kvm_mmf/include/internal/capture_rate.hpp")
 	if err != nil {
 		t.Fatal(err)
 	}

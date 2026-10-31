@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/internal/hwcrypto"
 )
 
 func TestHardwareAESRequiresExplicitOptIn(t *testing.T) {
@@ -23,7 +23,7 @@ func TestHardwareAESRequiresExplicitOptIn(t *testing.T) {
 	}
 
 	var opened int
-	openHardwareAES = func(func(error)) (*sg2002aes.Device, error) {
+	openHardwareAES = func(func(error)) (*hwcrypto.Device, error) {
 		opened++
 		return nil, errors.New("test hardware unavailable")
 	}
@@ -64,7 +64,7 @@ func TestHardwareAESRejectsOldLoadedModule(t *testing.T) {
 	t.Setenv("NANOKVM_SRTP_AES", "hardware")
 	hardwareAESCapabilityFile = filepath.Join(t.TempDir(), "out_of_place_burst4")
 	opened := 0
-	openHardwareAES = func(func(error)) (*sg2002aes.Device, error) { opened++; return nil, errors.New("test device") }
+	openHardwareAES = func(func(error)) (*hwcrypto.Device, error) { opened++; return nil, errors.New("test device") }
 	for _, value := range []string{"missing", "N\n", "", "unknown", "Y\n"} {
 		if value != "missing" {
 			if err := os.WriteFile(hardwareAESCapabilityFile, []byte(value), 0600); err != nil {

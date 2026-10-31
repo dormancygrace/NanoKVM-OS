@@ -1,7 +1,7 @@
 package srtpaccel
 
 import (
-	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/internal/hwcrypto"
 	"os"
 	"strings"
 	"sync"
@@ -11,7 +11,7 @@ import (
 )
 
 var hardwareAESOnce sync.Once
-var openHardwareAES = sg2002aes.Open
+var openHardwareAES = hwcrypto.Open
 var hardwareAESCapabilityFile = "/sys/module/sg2002_aes_probe/parameters/out_of_place_burst4"
 
 // Read the loaded module, not its replacement on disk: component updates

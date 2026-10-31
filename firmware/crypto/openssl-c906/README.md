@@ -57,10 +57,10 @@ Qualification sources and results belong to
 
 ## Direct SG2002 transport
 
-`0002-sg2002-transport.patch` adds the shared private ioctl client for subsequent
+`0002-hwcrypto-transport.patch` adds the shared private ioctl client for subsequent
 per-algorithm patches. On its own it selects no hardware algorithm and changes
 no EVP result. It is compiled only for RISC-V64, outside the FIPS module. See
-`firmware/crypto/experimental/openssl-sg2002/` for fault tests and lifetime rules.
+`firmware/crypto/experimental/openssl-hwcrypto/` for fault tests and lifetime rules.
 
 ## SHA-224/256
 

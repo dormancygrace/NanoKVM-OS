@@ -18,7 +18,7 @@ def load(name, path):
 
 rgb = load('edid_rgb_range', 'scripts/edid-rgb-range.py')
 monitor = load('monitor_edids', 'scripts/build-monitor-edids.py')
-ORIGINAL = (HERE.parent / 'support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin').read_bytes()
+ORIGINAL = (HERE.parent / 'support/nanokvm_update_edid/E21_NanoKVM.bin').read_bytes()
 
 
 def blocks(data):

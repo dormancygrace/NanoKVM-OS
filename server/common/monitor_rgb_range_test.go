@@ -31,7 +31,7 @@ func withRGBRange(t *testing.T, edid []byte) []byte {
 
 func stockEDID(t *testing.T) []byte {
 	t.Helper()
-	edid, err := os.ReadFile("../../support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin")
+	edid, err := os.ReadFile("../../support/nanokvm_update_edid/E21_NanoKVM.bin")
 	if err != nil {
 		t.Fatal(err)
 	}

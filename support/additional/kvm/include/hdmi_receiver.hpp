@@ -7,8 +7,8 @@
 #include <string>
 #include <utility>
 #include "hdmi_diagnostics.hpp"
-#include "../../../../../firmware/mpi/nanokvm_receiver_timing.h"
-#include "../../../../../firmware/mpi/nanokvm_receiver_lock.h"
+#include "../../../../firmware/mpi/nanokvm_receiver_timing.h"
+#include "../../../../firmware/mpi/nanokvm_receiver_lock.h"
 
 namespace nanokvm {
 enum class ReceiverState { Ready, NoSignal, Settling, IoError, Busy, Paused };

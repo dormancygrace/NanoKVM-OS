@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-vision = (root / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+vision = (root / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
 def function(source, marker):
     start = source.index(marker)
     brace = source.index('{', start)
@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-hdmi-session-') as name:
         flags += ['-fsanitize=address,undefined', '-fno-omit-frame-pointer']
     lock = f'-DNANOKVM_RECEIVER_LOCK_PATH="{tmp / "receiver.lock"}"'
     subprocess.run(['g++', '-std=c++17', *flags, '-pthread', lock,
-                    '-I' + str(root / 'support/sg2002/additional/kvm/include'),
+                    '-I' + str(root / 'support/additional/kvm/include'),
                     str(cpp), '-o', str(tmp / 'sessions')], check=True)
     subprocess.run([str(tmp / 'sessions')], check=True, timeout=20)
     subprocess.run(['gcc', '-std=gnu11', *flags, lock,
@@ -41,13 +41,13 @@ with tempfile.TemporaryDirectory(prefix='nanokvm-hdmi-session-') as name:
                    check=True)
     subprocess.run([str(tmp / 'edid')], check=True, timeout=10)
     subprocess.run(['g++', '-std=c++17', *flags,
-                    '-I' + str(root / 'support/sg2002/additional/kvm/include'),
+                    '-I' + str(root / 'support/additional/kvm/include'),
                     str(root / 'tests/test-hdmi-i2c.cpp'), '-o', str(tmp / 'transport')],
                    check=True)
     subprocess.run([str(tmp / 'transport')], check=True, timeout=10)
     # Compile the on-device wrapper too: it must forward transport selection.
     subprocess.run(['g++', '-std=c++17', *flags, '-fsyntax-only',
-                    '-I' + str(root / 'support/sg2002/additional/kvm/include'),
+                    '-I' + str(root / 'support/additional/kvm/include'),
                     str(root / 'firmware/probes/hdmi-receiver-runtime.cpp')],
                    check=True)
 print('PASS: native receiver/maintenance and production EDID I2C helpers')

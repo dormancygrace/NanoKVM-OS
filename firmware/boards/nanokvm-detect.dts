@@ -1,5 +1,5 @@
 /dts-v1/;
-#include "sg2002-nanokvm-common.dtsi"
+#include "nanokvm-common.dtsi"
 / { model = "NanoKVM automatic board selection"; sipeed,board-revision = "detect"; nanokvm,profile-version = <1>; };
 
 &sdhci1 { status = "disabled"; };

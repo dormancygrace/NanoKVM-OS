@@ -3,7 +3,7 @@
 package main
 
 import (
-	sha "NanoKVM-Server/internal/sg2002aes"
+	sha "NanoKVM-Server/internal/hwcrypto"
 	"bufio"
 	"bytes"
 	"context"

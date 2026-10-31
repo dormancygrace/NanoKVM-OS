@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include "../../../../../firmware/mpi/nanokvm_receiver_timing.h"
+#include "../../../../firmware/mpi/nanokvm_receiver_timing.h"
 
 namespace nanokvm {
 enum class ReceiverKind { C, UXC, D, Unknown };

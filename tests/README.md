@@ -8,7 +8,7 @@ the build host. They need no device, except where a test says otherwise.
 Tests that sit next to the code they exercise stay there:
 
 - Go tests in `server/`;
-- C++ tests in `support/sg2002/additional/kvm/tests`;
+- C++ tests in `support/additional/kvm/tests`;
 - the serial service tests in `firmware/services`;
 - the EDID generator test in `firmware/probes/edid120`;
 - the web tests in `web/tests`;

@@ -9,7 +9,7 @@ package common
 // for the 1440x2560 portrait, which it fits into 1080x1920).
 //
 // The native guard uses the same numbers (h264_max_long_side and
-// h264_max_height in support/sg2002/additional/kvm/include/stream_size.hpp);
+// h264_max_height in support/additional/kvm/include/stream_size.hpp);
 // a test compares them.
 const (
 	H264MaxLongSide = 2560

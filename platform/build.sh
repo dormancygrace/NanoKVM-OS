@@ -321,7 +321,7 @@ modules() {
     unpack_git osdrv . "$src/osdrv"
     unpack_git aic8800 src/SDIO/driver_fw/driver/aic8800 "$src/wifi"
     unpack_git cryptodev . "$src/cryptodev"
-    cp -r "$here/modules/sg2002-aes" "$src/aes"
+    cp -r "$here/modules/hwcrypto" "$src/aes"
     cp -r "$here/modules/cv181x-aximon" "$src/aximon"
     cp -r "$here/modules/cv181x-trng" "$src/trng"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
@@ -408,7 +408,7 @@ opensbi() {
     unpack_git opensbi . "$o/src"
     apply_patches "$o/src" "$here/opensbi"
     cp "$here/opensbi/defconfig" "$o/src/platform/generic/configs/nanokvm_defconfig"
-    "$host/dtc" -I dts -O dtb -o "$o/build/sg2002.dtb" "$here/opensbi/sg2002.dts"
+    "$host/dtc" -I dts -O dtb -o "$o/build/nanokvm.dtb" "$here/opensbi/nanokvm.dts"
     # Portable scalar instructions: C906's draft vector ISA is not RVV 1.0, so
     # CC_SUPPORT_VECTOR=n drops the RVV 1.0 misaligned-access emulators (they
     # read vlenb, which XTheadVector lacks). Patch 0003 builds at -Os; with
@@ -421,16 +421,16 @@ opensbi() {
         PLATFORM=generic PLATFORM_DEFCONFIG=nanokvm_defconfig \
         PLATFORM_RISCV_XLEN=64 PLATFORM_RISCV_ISA=rv64imac_zicsr_zifencei PLATFORM_RISCV_ABI=lp64 \
         FW_TEXT_START=0x80000000 FW_DYNAMIC=y FW_JUMP=n FW_PAYLOAD=n \
-        FW_FDT_PATH="$o/build/sg2002.dtb" FW_FDT_PADDING=0 FW_DYNAMIC_FDT_ADDR=0x80100000 \
+        FW_FDT_PATH="$o/build/nanokvm.dtb" FW_FDT_PADDING=0 FW_DYNAMIC_FDT_ADDR=0x80100000 \
         FW_OPTIONS=0x1 REPRODUCIBLE=y OPENSBI_VERSION_GIT= CC_SUPPORT_VECTOR=n
     "$host/python3" "$repo/scripts/nanokvm-opensbi-manifest.py" \
         --elf "$o/build/platform/generic/firmware/fw_dynamic.elf" \
         --binary "$o/build/platform/generic/firmware/fw_dynamic.bin" \
-        --dtb "$o/build/sg2002.dtb" --nm "${cross}nm" --compiler "${cross}gcc" \
+        --dtb "$o/build/nanokvm.dtb" --nm "${cross}nm" --compiler "${cross}gcc" \
         --config "$o/build/platform/generic/kconfig/.config" --fdtget "$host/fdtget" \
         --output "$img/opensbi/build-manifest.json"
     cp "$o/build/platform/generic/firmware/fw_dynamic.bin" "$img/opensbi/"
-    cp "$o/build/sg2002.dtb" "$img/opensbi/"
+    cp "$o/build/nanokvm.dtb" "$img/opensbi/"
 }
 
 fip() {
@@ -509,7 +509,7 @@ boot() {
     for profile in "${boards[@]}"; do
         "${cross}cpp" -P -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
             -I"$ksrc/arch/riscv/boot/dts/sophgo" -I"$ksrc/include" -I"$ksrc/scripts/dtc/include-prefixes" \
-            "$repo/firmware/boards/sg2002-nanokvm-$profile.dts" > "$b/$profile.dts"
+            "$repo/firmware/boards/nanokvm-$profile.dts" > "$b/$profile.dts"
         "$host/dtc" -q -I dts -O dtb -o "$b/$profile.dtb" "$b/$profile.dts"
         # One boot image per board, NAME.dtb: one reusable 144 MiB CMA region
         # holds the video buffers of every resolution, and Linux uses what
@@ -631,7 +631,7 @@ EOF
     cp "$repo/tpu/NOTICE" "$img/tpu/"
 }
 
-# kvm_system board service, from support/sg2002/kvm_system alone.
+# kvm_system board service, from support/kvm_system alone.
 system() {
     local s=$out/system
     rm -rf "$s" "${img:?}/system"
@@ -696,9 +696,9 @@ tools() {
 
     # As Buildroot builds a target package: TARGET_CFLAGS, then its strip.
     e=$t/edid
-    cp -r "$repo/support/sg2002/nanokvm_update_edid" "$e"
+    cp -r "$repo/support/nanokvm_update_edid" "$e"
     # Resolve shared receiver headers from the original source directory.
-    make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext CPPFLAGS="-I$repo/support/sg2002/nanokvm_update_edid" \
+    make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext CPPFLAGS="-I$repo/support/nanokvm_update_edid" \
         CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace) -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -g0 -Wall -Wextra -Werror"
     "${cross}strip" --remove-section=.comment --remove-section=.note \
         -o "$img/tools/nanokvm_update_edid" "$e/nanokvm_update_edid"

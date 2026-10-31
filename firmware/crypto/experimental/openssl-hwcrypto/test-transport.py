@@ -26,10 +26,10 @@ def main():
     p.add_argument('--no-sanitizers', action='store_true')
     p.add_argument('--negative-control', action='store_true')
     a = p.parse_args()
-    patch = ROOT / 'firmware/crypto/openssl-c906/0002-sg2002-transport.patch'
+    patch = ROOT / 'firmware/crypto/openssl-c906/0002-hwcrypto-transport.patch'
     files = added_files(patch.read_text())
     # Never drift from the real kernel ioctl ABI, including its syscall license.
-    assert files['include/crypto/sg2002_crypto.h'] == (ROOT / 'platform/modules/sg2002-aes/sg2002_crypto.h').read_text()
+    assert files['include/crypto/sg2002_crypto.h'] == (ROOT / 'platform/modules/hwcrypto/sg2002_crypto.h').read_text()
     with tempfile.TemporaryDirectory(prefix='nkos-sg2002-test-') as tmp:
         d = Path(tmp)
         for name, text in files.items():

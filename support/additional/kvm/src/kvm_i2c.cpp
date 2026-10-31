@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <fcntl.h>
 #include <unistd.h>
-#include "../../../../../firmware/mpi/nanokvm_i2c.h"
+#include "../../../../firmware/mpi/nanokvm_i2c.h"
 namespace nanokvm {
 I2c::~I2c() { if (fd_ >= 0) close(fd_); }
 bool I2c::select(int address, bool combined) {

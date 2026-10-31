@@ -1,5 +1,5 @@
 /dts-v1/;
-#include "sg2002-nanokvm-common.dtsi"
+#include "nanokvm-common.dtsi"
 / { model = "Sipeed NanoKVM early Full"; sipeed,board-revision = "alpha"; nanokvm,profile-version = <1>; };
 
 &sdhci1 { status = "disabled"; };

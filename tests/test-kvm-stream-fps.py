@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 repo = Path(__file__).resolve().parents[1]
-main = repo / 'support/sg2002/kvm_system/main'
+main = repo / 'support/kvm_system/main'
 source = (main / 'lib/system_state/system_state.cpp').read_text()
 
 
@@ -50,7 +50,7 @@ int main(int, char **argv) {
     puts("kvm_system FPS file: absent, normal, empty, long pass");
 }
 """)
-    includes = [main / 'include', repo / 'support/sg2002/additional/kvm/include']
+    includes = [main / 'include', repo / 'support/additional/kvm/include']
     includes += sorted(p for p in (main / 'lib').iterdir() if p.is_dir())
     subprocess.run(['g++', '-std=c++17', '-O1', '-g', '-pthread',
                     '-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-no-pie',

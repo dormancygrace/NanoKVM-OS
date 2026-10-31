@@ -23,8 +23,8 @@ if args.sanitize:
 flags += [f'-DSENSOR{i}_TYPE=LONTIUM_LT6911_2M_60FPS_8BIT' for i in range(3)]
 includes = [args.sensor / 'common', args.mpi / 'include', args.mpi / 'include/isp/cv181x',
             args.mpi / 'sample/common', args.mpi / 'component/panel/cv181x',
-            repo / 'support/sg2002/additional/kvm/include',
-            repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']
+            repo / 'support/additional/kvm/include',
+            repo / 'support/additional/kvm_mmf/include', repo / 'firmware/mpi']
 flags += ['-I' + str(path.resolve()) for path in includes]
 
 
@@ -35,7 +35,7 @@ def function_body(source, signature, end='\n}\n'):
 
 def check_read_img_gates():
     """Structure of the MJPEG guard in kvmv_read_img: one geometry snapshot per pass, the steps that create or submit to the JPEG channel under a lease on it, and no other path from the detector to the size."""
-    source = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    source = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
     assert '#include "geometry_gate.hpp"' in source
     # The geometry is owned by the gate: kvmv_cfg has no copy, so no other access exists.
     assert 'kvmv_cfg.vi_width' not in source and 'kvmv_cfg.vi_height' not in source
@@ -83,18 +83,18 @@ def check_read_img_gates():
 
 def check_no_gop_setting():
     """The encoder runs NormalP with IDRs on request and a periodic safety IDR (venc_tuning_t); no GOP length or mode reaches libkvm or MMF."""
-    source = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    source = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
     for name in ['set_h264_gop', 'gop_mode', 'kvmvenc_gop']:
         assert name not in source, name
     assert 'gop' not in function_body(source, 'static bool video_encoder_matches(')
-    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    mmf = (repo / 'support/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
     assert 'gop_mode' not in mmf and 'cfg->gop' not in mmf
     print('no gop setting ok')
 
 
 def check_capture_mode_wiring():
     """The 4:2:0 capture mode: one rule, applied only at a capture start, followed by video encoders and never by JPEG or CPU readers; kvmv_read_img restarts the capture for it and reads again."""
-    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    mmf = (repo / 'support/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
     assert mmf.count('static bool _mmf_vi_yuv420_rule(') == 1 and mmf.count('_mmf_vi_yuv420_rule(') == 2
     # The wanted mode is written by the rule's follower and by the capture start only.
     assert mmf.count('vi_yuv420_wanted = ') == 3
@@ -114,7 +114,7 @@ def check_capture_mode_wiring():
         for write in ['vi_yuv420_wanted', 'vi_yuv420_running =', '_mmf_vi_yuv420_follow(',
                       '_mmf_vi_yuv420_start(', 'restart']:
             assert write not in body, (reader, write)
-    vision = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    vision = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
     video = function_body(vision, 'int8_t frame_to_video(')
     pending = video.index('if (mmf_vi_yuv420_pending()) {')
     assert pending < video.index('mmf_venc_push_vi(') and video.index('init_venc_video(') < pending
@@ -126,7 +126,7 @@ def check_capture_mode_wiring():
 
 
 def check_vi_buffering_startup():
-    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    mmf = (repo / 'support/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
     init = function_body(mmf, 'static CVI_S32 _mmf_sys_init(')
     assert init.count('nanokvm_vi_configure_buffering(') == 1
     assert 'u32BlkCnt = buffering.source_buffers;' in init
@@ -146,7 +146,7 @@ def check_mjpeg_rate_pair():
     server 30 over VPSS 27 gave H.264 22 fps, 25 under 27 gave 45)."""
     import re
     go = (repo / 'server/service/stream/mjpeg/streamer.go').read_text()
-    native = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    native = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
     # One pairing now applies at every encoded width. Keep the cross-language
     # headroom check when either side's limit changes.
     server = re.findall(r'mjpegNextTo\w*VideoFPS\s*=\s*(\d+)', go)
@@ -161,9 +161,9 @@ def check_mjpeg_422_survives_path_switch():
     its first frame, so its first frame on the other path fails once by design (kvm_mmf). A
     single video failure gave up 4:2:2 until a GUI retry: MJPEG then read the video's QHD 4:2:0
     output (pale, and H.265 next to it fell from 45 to 32 fps)."""
-    mmf = (repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
+    mmf = (repo / 'support/additional/kvm_mmf/src/kvm_mmf.cpp').read_text()
     assert 'static void _mmf_vi_direct_recheck(uint64_t now = venc_now_us())' in mmf
-    vision = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    vision = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
     read = vision[vision.index('static int kvmv_read_img('):vision.index('static int kvmv_read_video(')]
     give_up = read.index('disable_mjpeg_422("video encoder failed with separate outputs");')
     guard = read.rindex('if (', 0, give_up)
@@ -178,7 +178,7 @@ def check_picture_gate():
     """The OCR picture read is admitted against the protected input geometry, as the JPEG steps:
     after a pending capture restart, one snapshot; an input over Full HD or not the size asked
     for is refused before VPSS or a pool is touched; the read runs under a lease on that snapshot."""
-    source = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+    source = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
     body = function_body(source, 'int kvmv_read_bgr_planar(')
     order = ['pthread_mutex_lock(&vi_mutex);', 'restart_capture_locked();', 'vi_geometry.snapshot();',
              'return -14;', 'vi_geometry.lease(geometry)', 'return -13;', 'mmf_read_bgr_planar(',
@@ -209,16 +209,16 @@ for case in ['quality', 'colour', 'sink', 'capture', 'policy', 'gate', 'pacing',
     if case == 'teardown':
         sources = [repo / 'firmware/probes/venc-teardown-contract.cpp']
     if case == 'pacing':
-        sources = [repo / 'support/sg2002/additional/kvm/tests/capture_pacing_test.cpp']
+        sources = [repo / 'support/additional/kvm/tests/capture_pacing_test.cpp']
     if case == 'capture':
         sources = [repo / 'firmware/probes/capture-contract.cpp',
-                   repo / 'support/sg2002/additional/kvm/src/kvm_capture.cpp']
+                   repo / 'support/additional/kvm/src/kvm_capture.cpp']
     elif case == 'policy':
-        sources = [repo / 'support/sg2002/additional/kvm/tests/mjpeg_policy_test.cpp']
+        sources = [repo / 'support/additional/kvm/tests/mjpeg_policy_test.cpp']
     elif case == 'gate':
-        sources = [repo / 'support/sg2002/additional/kvm/tests/geometry_gate_test.cpp']
+        sources = [repo / 'support/additional/kvm/tests/geometry_gate_test.cpp']
     elif case == 'park':
-        sources = [repo / 'support/sg2002/additional/kvm/tests/capture_park_test.cpp']
+        sources = [repo / 'support/additional/kvm/tests/capture_park_test.cpp']
     sources += [repo / 'firmware/mpi/nanokvm_vi_buffering.c']
     extra = ['-Wl,--wrap=fopen'] if case in ('colour', 'hevc-direct', 'vi-yuv420', 'tile-map') else []
     if case == 'vpss-demand':

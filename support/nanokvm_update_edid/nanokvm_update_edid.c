@@ -15,9 +15,9 @@
 #include <sys/stat.h>
 
 #include "nanokvm_update_edid.h"
-#include "../../../firmware/mpi/nanokvm_receiver_lock.h"
-#include "../../../firmware/mpi/nanokvm_i2c.h"
-#include "../../../firmware/mpi/nanokvm_receiver_timing.h"
+#include "../../firmware/mpi/nanokvm_receiver_lock.h"
+#include "../../firmware/mpi/nanokvm_i2c.h"
+#include "../../firmware/mpi/nanokvm_receiver_timing.h"
 
 
 int client = -1;

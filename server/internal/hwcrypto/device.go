@@ -1,5 +1,5 @@
 // Package sg2002aes adapts the SG2002 AES-CTR miscdevice to Pion SRTP.
-package sg2002aes
+package hwcrypto
 
 import (
 	"errors"
@@ -20,7 +20,7 @@ const MinPayload = 256
 var ErrUnavailable = errors.New("SG2002 AES device unavailable on this platform")
 var errCompletion = errors.New("SG2002 AES returned an invalid completion status")
 
-// Keep this ABI in sync with platform/modules/sg2002-aes.
+// Keep this ABI in sync with platform/modules/hwcrypto.
 type request struct {
 	Length, Reserved uint32
 	Key, IV          [16]byte

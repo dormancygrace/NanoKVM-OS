@@ -112,7 +112,7 @@ func TestEDIDBeyondCube(t *testing.T) {
 
 // The receiver's stock EDID must not be replaced.
 func TestEDIDBeyondCubeStockProfile(t *testing.T) {
-	edid, err := os.ReadFile("../../support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin")
+	edid, err := os.ReadFile("../../support/nanokvm_update_edid/E21_NanoKVM.bin")
 	if err != nil {
 		t.Fatal(err)
 	}

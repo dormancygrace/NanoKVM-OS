@@ -209,7 +209,7 @@ relay and IPC, measured 7.97–8.03 MiB/s with CCM against 6.81–7.04 MiB/s wit
 (about 15% faster). Hardware AES-CMAC reached 9.27–9.60 MiB/s directly through
 CIFS and 8.65–8.72 MiB/s through the complete reader, versus about 5.8 MiB/s
 for software signing (about 50% faster). Full-image SHA-256 matched in every
-server-reader run. See the [crypto qualification notes](../platform/modules/sg2002-aes/test/README.md).
+server-reader run. See the [crypto qualification notes](../platform/modules/hwcrypto/test/README.md).
 These are source benchmarks, not USB-throughput
 guarantees; server latency, video load and access pattern affect actual speed.
 Unsigned mode was used only for comparison; this interface always requires

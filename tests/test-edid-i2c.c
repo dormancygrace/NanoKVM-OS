@@ -34,7 +34,7 @@ static void test_perror(const char *text) { (void)text; }
 #define close test_close
 #define perror test_perror
 #define main edid_program_main
-#include "../support/sg2002/nanokvm_update_edid/nanokvm_update_edid.c"
+#include "../support/nanokvm_update_edid/nanokvm_update_edid.c"
 #undef main
 #undef perror
 #undef close

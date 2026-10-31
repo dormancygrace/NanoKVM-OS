@@ -44,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     # stand-in for firmware/buildroot.
     tree = root / "repo"
     shutil.copytree(REPO / "platform", tree / "platform",
-                    ignore=shutil.ignore_patterns("*.patch", "*.bin", "sg2002-aes"))
+                    ignore=shutil.ignore_patterns("*.patch", "*.bin", "hwcrypto"))
     (tree / "scripts").mkdir()
     shutil.copy(REPO / "scripts/nanokvm_cpu_profile.py", tree / "scripts/")
     (tree / "firmware/alpine").mkdir(parents=True)

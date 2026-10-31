@@ -54,7 +54,7 @@
 		// No small-core reservation here: the FIP carries no BLCP/BLCP_2ND
 		// image, so the 700 MHz C906 never runs and its stock 2 MiB at
 		// 0x8d000000 would be wasted. The OpenSBI DT in the FIP
-		// (platform/opensbi/sg2002.dts), whose reservations U-Boot copies,
+		// (platform/opensbi/nanokvm.dts), whose reservations U-Boot copies,
 		// has none either, so Linux can use those 2 MiB.
 		/* Video memory: one reusable CMA region of 144 MiB for every
 		 * video resolution. Linux uses its idle pages (movable

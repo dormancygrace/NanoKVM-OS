@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 repo = Path(__file__).resolve().parents[1]
-source = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+source = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
 body = source[source.index('static bool res_fits_video_memory'):source.index('uint8_t check_res')]
 constants = '\n'.join(re.findall(r'^#define (?:uhd_ion_mib|qhd_ion_mib) .*$', source, re.M))
 with tempfile.TemporaryDirectory() as tmp:

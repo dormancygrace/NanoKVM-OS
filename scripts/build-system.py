@@ -16,9 +16,9 @@ if subprocess.check_output([cross+'gcc','-dumpfullversion'],text=True).strip()!=
 # The debug data records the compiler's working directory; -ffile-prefix-map
 # turns the repository into ./nanokvm-os, so the output does not depend on it.
 os.chdir(repo)
-main=repo/'support/sg2002/kvm_system/main'
+main=repo/'support/kvm_system/main'
 sources=sorted(p for p in main.rglob('*.c') if p.name != 'qrcmd.c')+sorted(main.rglob('*.cpp'))
-sources += [repo/'support/sg2002/additional/kvm/src/vi_state_shared.cpp']
+sources += [repo/'support/additional/kvm/src/vi_state_shared.cpp']
 flags=['-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
        *cpu_flags(),
        '-DNANOKVM_OS','-Werror=return-type','-Werror=uninitialized','-Werror=maybe-uninitialized']
@@ -26,7 +26,7 @@ output.mkdir(parents=True,exist_ok=True)
 record_cpu_profile(output/'cpu-profile.json', cross+'gcc', effective_flags=flags)
 with tempfile.TemporaryDirectory(prefix='system-',dir=output) as directory:
     tmp=Path(directory)
-    includes=[main/'include',repo/'support/sg2002/additional/kvm/include']
+    includes=[main/'include',repo/'support/additional/kvm/include']
     includes += sorted(p for p in (main/'lib').iterdir() if p.is_dir())
     # Keep workstation paths out of assertion strings and debug data.
     path_flags = [f'-ffile-prefix-map={src}={name}' for src, name in [

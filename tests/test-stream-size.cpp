@@ -1,4 +1,4 @@
-#include "../support/sg2002/additional/kvm/include/stream_size.hpp"
+#include "../support/additional/kvm/include/stream_size.hpp"
 #include <cassert>
 #include <initializer_list>
 int main() {

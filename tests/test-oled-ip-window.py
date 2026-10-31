@@ -3,7 +3,7 @@
 from pathlib import Path
 import subprocess, tempfile
 repo=Path(__file__).resolve().parents[1]
-s=(repo/'support/sg2002/kvm_system/main/lib/oled_ui/oled_ui.cpp').read_text()
+s=(repo/'support/kvm_system/main/lib/oled_ui/oled_ui.cpp').read_text()
 state=s[s.index('constexpr uint64_t OLED_IP_WINDOW_MS'):s.index('bool ip_window_rendered')]
 functions=s[s.index('bool OLED_IPWindowActive(void)'):s.index('void kvm_init_cube_ui(void)')]
 # Keep the substituted state path longer than 64 bytes, including in CI.

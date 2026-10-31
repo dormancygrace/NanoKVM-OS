@@ -1,6 +1,6 @@
 # SG2002 CryptoDMA diagnostic tools and experiments
 
-These are opt-in developer diagnostics for the current driver in `platform/modules/sg2002-aes`, plus historical measurements and a standalone Go experiment. Restoring this directory does not install the tools, enable algorithms in applications, apply the Go patch, or change firmware outputs.
+These are opt-in developer diagnostics for the current driver in `platform/modules/hwcrypto`, plus historical measurements and a standalone Go experiment. Restoring this directory does not install the tools, enable algorithms in applications, apply the Go patch, or change firmware outputs.
 
 This extends the existing serialized `sg2002_aes_probe` owner with AES-128/192/256, DES, two-key and three-key Triple DES, SM4 (ECB/CBC/CTR), SHA-1, SHA-256 and Base64 encode/decode. All 24 algorithm/mode variants passed short physical-device differential checks. AES-GCM is demonstrated by a userspace hybrid: hardware AES + software GHASH.
 
@@ -16,13 +16,13 @@ Descriptor and payload mappings use explicit CPU/device ownership synchronizatio
 
 ## Build and reproduce
 
-The driver source, including `sg2002_crypto.h`, is `platform/modules/sg2002-aes`; `platform/build.sh modules` builds `sg2002_aes_probe.ko` with the released kernel. Build the userspace tools with the firmware cross-toolchain against its headers:
+The driver source, including `sg2002_crypto.h`, is `platform/modules/hwcrypto`; `platform/build.sh modules` builds `sg2002_aes_probe.ko` with the released kernel. Build the userspace tools with the firmware cross-toolchain against its headers:
 
 ```sh
-H=-Iplatform/modules/sg2002-aes
-"${CROSS_COMPILE}gcc" -O2 -Wall -Wextra -Werror $H -o crypto-bench firmware/crypto/experimental/sg2002-crypto-all/crypto-bench.c -lcrypto
-"${CROSS_COMPILE}gcc" -O2 -Wall -Wextra -Werror $H -o gcm-bench firmware/crypto/experimental/sg2002-crypto-all/gcm-bench.c -lcrypto
-"${CROSS_COMPILE}gcc" -O2 -Wall -Wextra -Werror $H -o sg2002-crypto-info firmware/crypto/experimental/sg2002-crypto-all/crypto-info.c
+H=-Iplatform/modules/hwcrypto
+"${CROSS_COMPILE}gcc" -O2 -Wall -Wextra -Werror $H -o crypto-bench firmware/crypto/experimental/hwcrypto-all/crypto-bench.c -lcrypto
+"${CROSS_COMPILE}gcc" -O2 -Wall -Wextra -Werror $H -o gcm-bench firmware/crypto/experimental/hwcrypto-all/gcm-bench.c -lcrypto
+"${CROSS_COMPILE}gcc" -O2 -Wall -Wextra -Werror $H -o sg2002-crypto-info firmware/crypto/experimental/hwcrypto-all/crypto-info.c
 ```
 
 After installing on the matching device, `crypto-bench --kat` checks boundaries, encryption/decryption, SHA padding/chaining, Base64 and invalid requests. `crypto-bench --bench 32` also measures 64/256/1200/4096/65536-byte inputs. `gcm-bench --kat` checks the AES-GCM hybrid; without arguments it measures hybrid versus software AES-GCM and software ChaCha20-Poly1305. These programs use synthetic keys/nonces and are measurement tools, not application encryption APIs. DES/TDES and SHA-1 are included to test the hardware ABI against a software reference; their presence is not a recommendation to use them for application security. Invalid GCM tags must be rejected; decrypted output must not be consumed before authentication succeeds.
@@ -55,7 +55,7 @@ openssl speed -elapsed -seconds 3 -bytes 16384 -engine devcrypto -evp aes-256-ct
 openssl dgst -engine devcrypto -engine_impl -sha256 example.bin
 ```
 
-The OpenSSL engine advertises AES-128/192/256 ECB/CBC/CTR, DES/3DES CBC, SHA1/SHA256. It does not implement AES-GCM. Standard `CIOCAUTHCRYPT` **does** provide AES-GCM using Linux `gcm(aes)` with hardware AES-CTR and software GHASH. Use `cryptodev-gcm-bench.c` to reproduce that path; use `cryptodev-bench.c` for the other standard algorithms. Compile either with the cross compiler, `-O2 -Wall -Wextra -Werror -Iplatform/modules/sg2002-aes -Ifirmware/crypto/cryptodev-linux -lcrypto`.
+The OpenSSL engine advertises AES-128/192/256 ECB/CBC/CTR, DES/3DES CBC, SHA1/SHA256. It does not implement AES-GCM. Standard `CIOCAUTHCRYPT` **does** provide AES-GCM using Linux `gcm(aes)` with hardware AES-CTR and software GHASH. Use `cryptodev-gcm-bench.c` to reproduce that path; use `cryptodev-bench.c` for the other standard algorithms. Compile either with the cross compiler, `-O2 -Wall -Wextra -Werror -Iplatform/modules/hwcrypto -Ifirmware/crypto/cryptodev-linux -lcrypto`.
 
 ### Longer matched standard-API batches
 

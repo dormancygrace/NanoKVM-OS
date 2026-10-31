@@ -12,7 +12,7 @@ are wrapped. Key derivation, SRTP/SRTCP counter generation, authentication,
 Cryptex, replay handling, GCM and NULL remain upstream code. Failed/declined
 requests use the original block CTR implementation.
 
-The NanoKVM backend is server/internal/sg2002aes. It copies input into its own
+The NanoKVM backend is server/internal/hwcrypto. It copies input into its own
 ioctl buffer and copies output back only on success, including in-place calls.
 Its shared descriptor/buffer is serialized and disabled permanently after the
 first failure. The hook contract requires declined calls to preserve all inputs

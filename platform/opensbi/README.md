@@ -53,7 +53,7 @@ Reservation propagation can be checked using unchanged pinned U-Boot functions a
 ```sh
 python3 tests/test-opensbi-reservations.py \
   --uboot-source build/platform/uboot/src \
-  --firmware-dtb build/platform/images/opensbi/sg2002.dtb \
+  --firmware-dtb build/platform/images/opensbi/nanokvm.dtb \
   --linux-dtbs build/platform/images/dtb
 ```
 

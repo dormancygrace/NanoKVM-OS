@@ -1,6 +1,6 @@
 //go:build linux && riscv64
 
-package sg2002aes
+package hwcrypto
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 	"unsafe"
 )
 
-// Keep these in sync with platform/modules/sg2002-aes/sg2002_crypto.h.
+// Keep these in sync with platform/modules/hwcrypto/sg2002_crypto.h.
 const (
 	cryptoABI       = 1
 	cryptoAlgSHA256 = 6

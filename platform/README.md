@@ -143,7 +143,7 @@ The build also uses these parts of the repository:
 - `firmware/sensor/patches/`: NanoKVM I2C/MIPI wiring and LT6911UXC/LT6911D identification; applied before compiling MMF;
 - `firmware/mpi/`: the MMF capture-size helper, compatibility headers and the hashes of the SOPHGO ISP objects (`vendor-isp-objects.json`);
 - `firmware/alpine/`: the APK recipes, OpenRC services and compatibility scripts, `release.env` with the version;
-- `server/`, `web/`, `support/sg2002/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
+- `server/`, `web/`, `support/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
 - `scripts/`: the component builders that `build.sh` calls.
 
 ## U-Boot console and uEnv.txt

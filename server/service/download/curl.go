@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/internal/hwcrypto"
 )
 
 const imageCurlPath = "/usr/bin/curl"
@@ -60,7 +60,7 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 	// Without a requested checksum, curl writes directly to the already-open
 	// destination FD. No pipe or Go buffer copy is needed for the image body.
 	var output io.Writer = dst
-	hasher := sg2002aes.NewSHA256()
+	hasher := hwcrypto.NewSHA256()
 	if expected != nil {
 		if offset > 0 {
 			if _, err := io.Copy(hasher, &imageContextReader{ctx, io.NewSectionReader(dst, 0, offset)}); err != nil {

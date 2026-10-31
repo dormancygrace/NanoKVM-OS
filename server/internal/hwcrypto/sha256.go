@@ -1,4 +1,4 @@
-package sg2002aes
+package hwcrypto
 
 import (
 	"crypto/sha256"

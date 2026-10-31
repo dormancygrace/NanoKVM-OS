@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/internal/hwcrypto"
 	"NanoKVM-Server/standby"
 )
 
@@ -71,7 +71,7 @@ func HashFile(name string) (string, error) {
 		return "", err
 	}
 	defer f.Close()
-	h := sg2002aes.NewSHA256()
+	h := hwcrypto.NewSHA256()
 	if _, err = io.Copy(h, f); err != nil {
 		return "", err
 	}

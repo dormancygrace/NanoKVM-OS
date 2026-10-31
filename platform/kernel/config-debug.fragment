@@ -1,7 +1,7 @@
 # Debug kernel profile (NANOKVM_KERNEL_PROFILE=debug): kernel/config with these
 # options on top. perf and its CPU counters, frame pointers for exact
 # backtraces (on RISC-V perf forces them), tracefs events and probes.
-CONFIG_LOCALVERSION="-nanokvm-os-r5-debug"
+CONFIG_LOCALVERSION="-nanokvm-os-r6-debug"
 CONFIG_PERF_EVENTS=y
 CONFIG_RISCV_PMU=y
 CONFIG_RISCV_PMU_LEGACY=y

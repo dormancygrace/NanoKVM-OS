@@ -4,8 +4,9 @@
 package runtime
 
 // nanokvmFastMisaligned lets memmove_riscv64.s copy buffers whose source and
-// destination alignments differ with 8-byte loads instead of byte loads. It
-// is set by cpuinit from riscv_hwprobe (internal/cpu HasFastMisaligned).
+// destination alignments differ with misaligned 8-byte loads and stores
+// instead of byte loads and stores. It is set by cpuinit from riscv_hwprobe
+// (internal/cpu HasFastMisaligned).
 var nanokvmFastMisaligned bool
 
 // nanokvmVectorMemmove sends copies of at least nanokvmVectorMemmoveMin bytes

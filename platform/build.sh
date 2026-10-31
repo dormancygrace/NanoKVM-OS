@@ -591,20 +591,20 @@ set(CMAKE_CXX_COMPILER ${cross}g++)
 set(CMAKE_SYSROOT $("${cross}gcc" -print-sysroot))
 set(CMAKE_FIND_ROOT_PATH $inst)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$src=tpu" CACHE STRING "")
-set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$src=tpu" CACHE STRING "")
+set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$t=tpu" CACHE STRING "")
+set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$t=tpu" CACHE STRING "")
 EOF
     # The runtime's CMake files predate CMake 3.5.
-    local cmake=("$host/cmake" -G Ninja -DCMAKE_MAKE_PROGRAM="$host/ninja" -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+    local cmake=("$host/cmake" -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
     local target=("${cmake[@]}" -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE=-O2 -DCMAKE_CXX_FLAGS_RELEASE=-O2
                   -DCMAKE_TOOLCHAIN_FILE="$build/toolchain.cmake" -DCMAKE_INSTALL_PREFIX="$inst")
     # The model schema: a host flatc, then the generated headers.
     "${cmake[@]}" -S "$src/flatbuffers" -B "$build/flatc" -DCMAKE_INSTALL_PREFIX="$build/flatc-install" \
         -DFLATBUFFERS_BUILD_TESTS=OFF > "$build/flatc.log"
-    "$host/cmake" --build "$build/flatc" --target install >> "$build/flatc.log"
+    "$host/cmake" --build "$build/flatc" --target install -j "$jobs" >> "$build/flatc.log"
     "${cmake[@]}" -S "$src/cvibuilder" -B "$build/cvibuilder" -DFLATBUFFERS_PATH="$build/flatc-install" \
         -DCMAKE_INSTALL_PREFIX="$build/cvibuilder-install" > "$build/cvibuilder.log"
-    "$host/cmake" --build "$build/cvibuilder" --target install >> "$build/cvibuilder.log"
+    "$host/cmake" --build "$build/cvibuilder" --target install -j "$jobs" >> "$build/cvibuilder.log"
     mkdir -p "$inst/flatbuffers/include"
     cp -r "$src/flatbuffers/include/flatbuffers" "$inst/flatbuffers/include/"
     "${target[@]}" -S "$src/cvikernel" -B "$build/cvikernel" -DCHIP=cv181x > "$build/cvikernel.log"
@@ -620,7 +620,7 @@ EOF
     # what is referenced keeps them.
     for helper in nanokvm-ocr nanokvm-screen; do
         "${cross}g++" -std=gnu++17 -O2 -Wall -Wextra -pthread "${cpu_flags[@]}" -I"$inst/include" \
-            -ffile-prefix-map="$repo"=. "$repo/tpu/helpers/$helper.cpp" \
+            -ffile-prefix-map="$repo"=. -ffile-prefix-map="$t"=tpu "$repo/tpu/helpers/$helper.cpp" \
             "$inst/lib/libcviruntime-static.a" "$inst/lib/libcvikernel-static.a" \
             -static-libstdc++ -static-libgcc -o "$t/$helper"
         "${cross}strip" --remove-section=.comment --remove-section=.note -o "$img/tpu/$helper" "$t/$helper"

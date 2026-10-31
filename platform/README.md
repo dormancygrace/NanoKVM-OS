@@ -10,8 +10,8 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 
 | Output | Shipped in |
 |---|---|
-| `images/Image` (Linux `7.3.1-nanokvm-os-r8`) | every `boot.sd` |
-| `images/lib/modules/7.3.1-nanokvm-os-r8/` (84 in-tree and 19 out-of-tree modules, `modules.*`) | `nanokvm-kmod` |
+| `images/Image` (Linux `7.3.1-nanokvm-os-r9`) | every `boot.sd` |
+| `images/lib/modules/7.3.1-nanokvm-os-r9/` (84 in-tree and 19 out-of-tree modules, `modules.*`) | `nanokvm-kmod` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (one per board, `NAME.dtb`, each with the 144 MiB CMA video region) | `nanokvm-kernel`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.lz4` | inside the `boot.sd` images |
 | `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel`, `/usr/share/licenses/nanokvm-kernel/initramfs` |

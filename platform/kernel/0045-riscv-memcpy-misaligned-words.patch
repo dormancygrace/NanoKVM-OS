@@ -7,8 +7,8 @@ index f668b9897..11c4b44e3 100644
  lib-y			+= delay.o
  lib-y			+= memcpy.o
 +lib-y			+= memcpy_misaligned.o
-+# Reached only once misaligned accesses have proved fast: misaligned word
-+# accesses on any build, and no loop turned back into a memcpy() call.
++# The C906 does misaligned accesses in hardware (NanoKVM only): misaligned
++# word accesses on any build, and no loop turned back into a memcpy() call.
 +CFLAGS_memcpy_misaligned.o += -mno-strict-align -fno-tree-loop-distribute-patterns
 +CFLAGS_REMOVE_memcpy_misaligned.o = $(CC_FLAGS_FTRACE)
 +KASAN_SANITIZE_memcpy_misaligned.o := n
@@ -30,7 +30,7 @@ index 44e009ec5..a7ebb800e 100644
 -SYM_FUNC_START(__memcpy)
 +/*
 + * void *__memcpy_asm(void *, const void *, size_t): the copy that __memcpy
-+ * (memcpy_misaligned.c) uses unless misaligned accesses are fast.
++ * (memcpy_misaligned.c) uses for aligned copies of 128 bytes or more.
 + */
 +SYM_FUNC_START(__memcpy_asm)
  	move t6, a0  /* Preserve return value */
@@ -47,7 +47,7 @@ index 44e009ec5..a7ebb800e 100644
 +SYM_FUNC_END(__memcpy_asm)
 +/* The kexec purgatory links this file alone; the kernel overrides memcpy. */
 +SYM_FUNC_ALIAS_WEAK(memcpy, __memcpy_asm)
-+/* Early boot code runs before the probe and the static keys. */
++/* Early boot code (the PI aliases) keeps the assembly copy. */
 +SYM_FUNC_ALIAS(__pi_memcpy, __memcpy_asm)
 +SYM_FUNC_ALIAS(__pi___memcpy, __memcpy_asm)
 diff --git a/arch/riscv/lib/memcpy_misaligned.c b/arch/riscv/lib/memcpy_misaligned.c
@@ -55,7 +55,7 @@ new file mode 100644
 index 000000000..0cd0cfdc2
 --- /dev/null
 +++ b/arch/riscv/lib/memcpy_misaligned.c
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,101 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * memcpy for harts whose misaligned scalar accesses are fast, such as the
@@ -64,21 +64,25 @@ index 000000000..0cd0cfdc2
 + * The assembly memcpy copies byte by byte below 128 bytes and whenever the
 + * source and the destination differ in alignment. On the C906, which does
 + * misaligned loads and stores in hardware, that is up to ten times slower
-+ * than copying words. Once the boot probe has found misaligned accesses fast
-+ * (has_fast_unaligned_accesses()), copy words instead: two overlapping
-+ * accesses below 8 bytes; otherwise an overlapping head, a destination
-+ * aligned to 8 bytes, a 128-byte body of misaligned loads and aligned
-+ * stores, and an overlapping tail. Copies of 128 bytes or more between two
-+ * 8-byte aligned buffers keep the assembly loop, which is faster there.
-+ * Before the probe, and on harts with slow misaligned access, every copy
-+ * takes the assembly memcpy.
++ * than copying words. Copy words instead: two overlapping
++ * accesses below 8 bytes; otherwise 128-byte blocks, then words, of
++ * misaligned loads, and an overlapping tail. Below 128 bytes the stores
++ * are misaligned too (as upstream's fast-unaligned usercopy): aligning the
++ * destination costs more there than it saves. From 128 bytes an
++ * overlapping head aligns the destination, and long runs of misaligned
++ * stores would cost more. Copies of 128 bytes or more between two 8-byte
++ * aligned buffers keep the assembly loop, which is faster there.
++ *
++ * Platform contract, as 0052: NanoKVM only, for the SG2002/C906 with native
++ * misaligned scalar access enabled by the firmware before Linux starts. No
++ * boot-probe check: once the probe has run it is a nop either way, and the
++ * copy is safe before it.
 + */
 +#define __NO_FORTIFY
 +#include <linux/linkage.h>
 +#include <linux/string.h>
 +#include <linux/types.h>
 +#include <linux/unaligned.h>
-+#include <asm/cpufeature.h>
 +
 +asmlinkage void *__memcpy_asm(void *dst, const void *src, size_t n);
 +
@@ -93,10 +97,9 @@ index 000000000..0cd0cfdc2
 +{
 +	u8 *d = dst, *end;
 +	const u8 *s = src;
-+	u64 head, tail;
++	u64 tail;
 +
-+	if (!has_fast_unaligned_accesses() ||
-+	    (n >= 128 && !(((uintptr_t)dst | (uintptr_t)src) & 7)))
++	if (n >= 128 && !(((uintptr_t)dst | (uintptr_t)src) & 7))
 +		return __memcpy_asm(dst, src, n);
 +
 +	if (n < 8) {
@@ -116,13 +119,12 @@ index 000000000..0cd0cfdc2
 +		return dst;
 +	}
 +
-+	head = ld64(s);
 +	tail = ld64(s + n - 8);
 +	end = d + n - 8;
-+	if (n >= 16) {
++	if (n >= 128) {
 +		size_t skip = 8 - ((uintptr_t)d & 7);
 +
-+		st64(d, head);
++		st64(d, ld64(s));
 +		d += skip;
 +		s += skip;
 +	}

@@ -20,6 +20,7 @@ These components are published by their authors in public repositories but carry
 |---|---|---|
 | `cvi_mpi`, including about 900 prebuilt ISP and audio objects | [SOPHGO](https://github.com/sophgo/cvi_mpi) | the media libraries in `/kvmapp/server/dl_lib` |
 | `SensorSupportList` | [SOPHGO](https://github.com/sophgo/SensorSupportList) | the LT6911 HDMI receiver driver in `libkvm_mmf` |
+| `cviruntime`, `cvikernel` and the model schema `cvibuilder`, the TPU runtime | [SOPHGO](https://github.com/sophgo/cviruntime), as ported to dma-buf heaps in [duo-buildroot-sdk-v2](https://github.com/leafpmpmp/duo-buildroot-sdk-v2/tree/mainline-tpu) | `nanokvm-ocr` and `nanokvm-screen` in `nanokvm-tpu` (linked statically) |
 | `coda980.bin`, `monet.bin` video codec firmware | [Sipeed LicheeRV-Nano-Build](https://github.com/sipeed/LicheeRV-Nano-Build) | `/usr/share/fw_vcodec` |
 
 The SD image contains the binaries built from them, as the Sipeed images do. The AIC8800 Wi-Fi firmware comes from the [Radxa aic8800 package](https://github.com/radxa-pkg/aic8800), the same source as the driver; Radxa's `debian/copyright` declares its `src/` tree, which includes the firmware, GPL-2.0, and the image installs that file in `/usr/share/licenses/nanokvm-firmware-sg2002`.

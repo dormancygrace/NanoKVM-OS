@@ -1,29 +1,40 @@
-# NanoKVM TPU add-on
+# NanoKVM TPU
 
-The CV181x TPU runtime and an OCR helper that reads the text on the remote
-screen. The web UI (Read text on the screen), the MCP tool `screen_text`
-and PicoClaw's `kvm_screen_text` use it. It is an add-on because of the
-runtime's licence: see NOTICE. Until Sophgo states a licence for cviruntime,
-it is built for testing and not published.
+The programs that run neural networks on the CV181x TPU: `nanokvm-ocr`
+reads the text on the remote screen (the web UI's Read text on the screen,
+the MCP tool `screen_text`, PicoClaw's `kvm_screen_text`), and
+`nanokvm-screen` says what the screen shows, for the screen-crash
+notification. They are part of the system; the models they run are
+add-ons, so that a model can be updated or added without a release.
 
-## What it installs
+## In the system
 
-Everything goes to `/usr/lib/nanokvm-tpu`:
+The core package `nanokvm-tpu` installs `/usr/lib/nanokvm-tpu/bin`:
 
-- `lib/`: `libcviruntime.so`, `libcvikernel.so`, `libcnpy.so`, and the
-  toolchain's C++ runtime, which only these programs use (rpath).
-- `bin/nanokvm-ocr`: text detection and recognition on a picture (see the
+- `nanokvm-ocr`: text detection and recognition on a picture (see the
   source for the protocol).
-- `bin/nanokvm-screen`: what the screen shows (a desktop, a Windows stop
-  screen, a text console, a blank screen, a firmware screen), for the
-  screen-crash notification.
-- `bin/model_runner`: Sophgo's tool to run and time a model.
-- `models/screen.cvimodel`: the screen-state classifier.
-- `models/ocr-det.cvimodel`, and per language `models/LANGUAGE/ocr-rec.cvimodel`,
-  `ocr-dict.txt` and, for `latin` and `chinese`, `ocr-sure.cvimodel`.
+- `nanokvm-screen`: a desktop, a Windows stop screen, a text console, a
+  blank screen or a firmware screen.
 
-The kernel side (the `cv181x_tpu` driver, loaded on demand, and the CMA
-dma-buf heap) is part of the system.
+Both are linked statically with Sophgo's runtime (cviruntime and cvikernel,
+as ported to dma-buf heaps for the mainline driver) and the C++ library:
+they need only the C library, about 1.4 MB each. The runtime's tools
+(`model_runner`, cnpy) and its PMU profiling are not built. The kernel side
+(the `cv181x_tpu` driver, loaded on demand, and the CMA dma-buf heap) is part
+of the kernel.
+
+The package provides `nanokvm-tpu-abi=1`. Model add-ons depend on it: the
+models carry command buffers in the layout of this runtime (see Build), and
+the programs take them as arguments of a fixed form. A change of either is
+a new ABI number and new model add-ons.
+
+## Model add-ons
+
+They install `/usr/lib/nanokvm-tpu/models`: `ocr-det.cvimodel`, per language
+`LANGUAGE/ocr-rec.cvimodel`, `ocr-dict.txt` and, for `latin` and `chinese`,
+`ocr-sure.cvimodel`; and `screen.cvimodel`, the screen-state classifier.
+Without them nothing offers to read the screen, and the crash event finds
+no classifier.
 
 ## Models
 
@@ -102,29 +113,36 @@ by `screen/train.sh`, which writes `screen.onnx` and
 
 ## Build
 
-    addons/tpu/models/convert.sh MODELS
-    addons/tpu/build.sh PLATFORM_OUTPUT MODELS OUTPUT
+The programs: `platform/build.sh tpu`. The runtime's source is the
+`tpu-runtime` entry of `platform/sources.lock` (cviruntime, cvikernel, the
+model schema and flatbuffers, pinned by Git tree ids); `patches/` holds two
+fixes for musl, makes the tools optional and takes the runtime version from
+the pin instead of Git and the build date.
+
+The models:
+
+    tpu/models/convert.sh MODELS
+    tpu/models/stage.sh PLATFORM_OUTPUT MODELS OUTPUT
 
 `convert.sh` runs in the official `sophgo/tpuc_dev` container, so the host
 needs only Docker. `models/sources.txt` pins its inputs by SHA-256. INT8
 needs calibration: the tables in `models/calibration/` were measured on
 synthetic screens and text lines, and fit these sources and this tpu-mlir
-only (they name layers).
-
-`PLATFORM_OUTPUT` is a `platform/build.sh` output with the toolchain and
-tools steps. The runtime source is pinned in `upstream.json`, and `patches/`
-holds two fixes for musl. `build.sh` stores the models' command buffers in
-the form the runtime would give them at load (`ocr/cvimodel-dmabuf.c`), which
-saves that step on the device.
+only (they name layers). `stage.sh` stores the models' command buffers in
+the form the runtime would give them at load (`helpers/cvimodel-dmabuf.c`),
+which saves that step on the device; `PLATFORM_OUTPUT` is a
+`platform/build.sh` output with the tpu step done.
 
 A failed TPU run ends the read with exit status 1, never a partial or empty
-result. To check that on a device, build `tests/forward-failure.c` as a
-shared library with the platform's compiler and run
-`tests/forward-failure.sh LIBRARY PICTURE`: it fails the detector's and a
+result. To check that on a device, link a test `nanokvm-ocr` with
+`tests/forward-failure.c` and `-Wl,--wrap=CVI_NN_Forward` (the platform's
+compiler, the tpu step's command) and run
+`tests/forward-failure.sh HELPER PICTURE`: it fails the detector's and a
 recognizer's run in turn.
 
 The daily upstream watch (`.github/upstream-watch.json`) opens a
-notification PR for a new PP-OCR generation (PaddleX model list and
-PaddlePaddle on Hugging Face), a new tpu-mlir and new commits on the runtime
-branch. It does not change the pins: a new model needs conversion,
-calibration and a check of accuracy and speed on a device.
+notification PR for new commits on the runtime branch, a new PP-OCR
+generation (PaddleX model list and PaddlePaddle on Hugging Face) and a new
+tpu-mlir. It does not change the pins: a new runtime can change the command
+buffer layout the models carry (a new ABI), and a new model needs
+conversion, calibration and a check of accuracy and speed on a device.

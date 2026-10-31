@@ -177,6 +177,17 @@ func TestScreenTextArgs(t *testing.T) {
 	if args, err := screenTextArgs(t.TempDir()+"/", "cyrillic"); err == nil {
 		t.Errorf("screenTextArgs without models = %q, want an error", args)
 	}
+	// Only Cyrillic installed: the default reads with it, not with Latin.
+	only := t.TempDir() + "/"
+	if err := os.MkdirAll(only+"cyrillic", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(only+"cyrillic/ocr-rec.cvimodel", nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if args, err := screenTextArgs(only, ""); err != nil || args[1] != only+"cyrillic/ocr-rec.cvimodel:3" {
+		t.Errorf("default with Cyrillic only = %q, %v", args, err)
+	}
 }
 
 func TestScreenTextSizeUpToFullHD(t *testing.T) {

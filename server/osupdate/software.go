@@ -124,6 +124,7 @@ var protectedPackages = map[string]bool{
 	"nanokvm-zlib":              true,
 	"nanokvm-openssl":           true,
 	"nanokvm-bootloader-sg2002": true,
+	"nanokvm-tpu":               true,
 }
 
 func checkRemovable(name string) error {

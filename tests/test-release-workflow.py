@@ -67,6 +67,20 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('p["changed"] and print(p["apk"])', action)
         self.assertIn('"$repo/packages.json" "$a/"', action)
 
+    def test_workflows_build_every_output_step(self):
+        # The workflows name their steps; a step added to build.sh's default
+        # list must be added there too, or payloads misses its outputs.
+        build = (ROOT / 'platform/build.sh').read_text()
+        default = set(re.search(r'\|\| steps=\(([^)]*)\)', build)[1].split())
+        outputs = default - {'fetch', 'toolchain', 'hashes', 'payloads', 'packages', 'rootfs', 'image'}
+        self.assertIn('tpu', outputs)
+        for workflow in ('release-build.yml', 'release.yml'):
+            text = (ROOT / '.github/workflows' / workflow).read_text()
+            steps = set()
+            for line in re.findall(r'platform/build\.sh -o "\$OUT" (?:-u )?([a-z -]+)$', text, re.M):
+                steps |= set(line.split())
+            self.assertEqual(outputs - steps, set(), workflow)
+
     def test_os_build_is_independent_of_add_on_releases(self):
         build = (ROOT / 'platform/build.sh').read_text()
         packages = build[build.index('packages() ('):build.index('rootfs() {')]

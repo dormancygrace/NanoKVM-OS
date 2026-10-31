@@ -911,7 +911,8 @@
           "zlib": "圧縮ライブラリ",
           "openssl": "OpenSSL",
           "exfatprogs": "exFAT ツール",
-          "i2ctools": "I2C ツール"
+          "i2ctools": "I2C ツール",
+          "tpu": "TPU"
         }
       },
       "notice": {
@@ -2118,7 +2119,7 @@
       "title": "AI",
       "screenText": {
         "title": "文字認識",
-        "notInstalled": "文字認識には TPU アドオンが必要です。",
+        "notInstalled": "文字認識には言語のモデル アドオンが必要です。",
         "openAddons": "アドオン",
         "enabled": "文字認識",
         "enabledDescription": "オンにすると、画面上部のボタンで画面の文字を読み取れ、MCP と PicoClaw も読み取れます。オフでは、どれも読み取れません。",

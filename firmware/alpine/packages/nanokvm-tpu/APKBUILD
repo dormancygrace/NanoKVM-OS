@@ -1,0 +1,27 @@
+pkgname=nanokvm-tpu
+pkgver=${PKGVER:-0.1.0}
+pkgrel=0
+pkgdesc="NanoKVM TPU programs: text recognition and screen classification"
+url="https://github.com/dormancygrace/NanoKVM-OS/blob/main/tpu/README.md"
+arch="riscv64"
+license="GPL-3.0-or-later AND custom"
+# The models are add-ons (nanokvm-model-*). They ask for this ABI: the
+# runtime's command buffer layout, baked into each model file when it is
+# packaged, and the programs' model arguments. A change of either is a new
+# number, and model add-ons built for it.
+provides="nanokvm-tpu-abi=1"
+source="$pkgname-$pkgver.tar.gz"
+# The programs come from build.sh (tpu step), linked statically with the
+# runtime and the C++ library: they need only the C library.
+options="!check !strip !tracedeps"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

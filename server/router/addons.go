@@ -43,11 +43,9 @@ func addonsRouter(r *gin.Engine) {
 			response.ErrRsp(c, -1, "cannot read installed extensions")
 			return
 		}
-		tpu, err := installedBinary(vm.ScreenTextHelper)
-		if err != nil {
-			response.ErrRsp(c, -1, "cannot read installed extensions")
-			return
-		}
+		// The TPU programs are part of the system: text recognition counts
+		// as installed once a model add-on is.
+		tpu := vm.ScreenTextInstalled()
 		// Add-ons that describe themselves (addons.d): read on every request,
 		// so an installed or removed add-on shows without a server restart.
 		manifests, skipped := addons.Load(addons.ManifestDir)

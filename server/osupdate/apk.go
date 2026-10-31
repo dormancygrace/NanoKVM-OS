@@ -302,13 +302,22 @@ func RunAPK(action string) (result error) {
 		}
 		repo := strings.TrimSpace(strings.Split(string(data), "\n")[i])
 		query := apkrollback.Query(repo)
-		output, err := apkrun.Command(ctx, apkExecutable, query...).CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("cannot read stable packages: %s", strings.TrimSpace(string(output)))
+		var output, stderr strings.Builder
+		search := apkrun.Command(ctx, apkExecutable, query...)
+		search.Stdout, search.Stderr = &output, &stderr
+		// search fails when a name is not in the index, as a core package is
+		// not in a release from before it (LegacyTargets); it still lists the
+		// others, and stablePackageTargets checks that nothing else is missing.
+		if err := search.Run(); err != nil && (apkrun.NotStarted(err) || strings.TrimSpace(output.String()) == "") {
+			return fmt.Errorf("cannot read stable packages: %s", strings.TrimSpace(stderr.String()))
 		}
-		targets, err := stablePackageTargets(string(output))
+		targets, err := stablePackageTargets(output.String())
 		if err != nil {
 			return err
+		}
+		db, _ := os.ReadFile(installedDBPath)
+		if names := tpuDependents(targets, string(db)); len(names) > 0 {
+			return fmt.Errorf("stable has no TPU runtime; remove %s first", strings.Join(names, ", "))
 		}
 		args = apkrollback.Install(targets)
 		// APK checks the complete dependency graph before installing anything.

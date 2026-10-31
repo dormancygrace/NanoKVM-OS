@@ -1,0 +1,27 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] cviruntime: make the tools optional
+
+model_runner and the other tools need cnpy; the device needs neither.
+ENABLE_TOOLS=OFF builds the runtime alone.
+---
+--- a/cviruntime/CMakeLists.txt	2026-10-31 15:13:22.741162815 +0200
++++ b/cviruntime/CMakeLists.txt	2026-10-31 15:13:22.745922427 +0200
+@@ -24,6 +24,7 @@
+ option(ENABLE_COMPRESS_CMDBUF "enable compressed cmdbuf" ON)
+ option(ENABLE_CPU_FUNC "enable cpu functions" ON)
+ option(ENABLE_PMU "enable tpu PMU" ON)
++option(ENABLE_TOOLS "build model_runner and the other tools (they need cnpy)" ON)
+ 
+ set(SAFETY_FLAGS " -Wall -Wextra -fno-strict-aliasing -Wno-missing-field-initializers")
+ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SAFETY_FLAGS}")
+@@ -114,7 +115,9 @@
+ endif()
+ 
+ add_subdirectory(src)
+-add_subdirectory(tool)
++if (ENABLE_TOOLS)
++  add_subdirectory(tool)
++endif()
+ if (ENABLE_PYRUNTIME STREQUAL "ON")
+   add_subdirectory(python)
+ endif()

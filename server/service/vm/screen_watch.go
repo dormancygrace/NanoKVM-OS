@@ -24,15 +24,15 @@ import (
 
 // The screen watcher looks at the host's screen for a crash: a Windows stop
 // screen or a kernel panic. A thumbnail every interval; once the screen has
-// changed and then held still, the TPU add-on's classifier (nanokvm-screen)
-// says what it shows. A stop screen or a text console is then read by the
+// changed and then held still, the TPU classifier (nanokvm-screen, with its
+// model add-on) says what it shows. A stop screen or a text console is then read by the
 // OCR, when nobody watches the video (its models take the memory a viewer's
 // video needs), and only text that names a crash makes a notification,
 // with the lines read and a screenshot.
 const (
 	screenHelper = screenTextRoot + "/bin/nanokvm-screen"
 	screenModel  = screenTextRoot + "/models/screen.cvimodel"
-	// The classifier's input (addons/tpu/models/screen/synth.py INPUT).
+	// The classifier's input (tpu/models/screen/synth.py INPUT).
 	screenThumbWidth, screenThumbHeight = 224, 128
 	// The screenshot sent with a crash.
 	screenShotWidth = 960
@@ -68,7 +68,8 @@ type screenVerdict struct {
 	MS     int                `json:"ms"`
 }
 
-// ScreenWatchAvailable: the TPU add-on has the classifier and the OCR is on.
+// ScreenWatchAvailable: the classifier's model is installed and the OCR is
+// installed and on.
 func ScreenWatchAvailable() bool {
 	if !ScreenTextAvailable() {
 		return false
@@ -356,7 +357,6 @@ func classifyScreen(ctx context.Context, planes []byte) (screenVerdict, error) {
 	}
 	input := fmt.Appendf(nil, "P %d %d\n", screenThumbWidth, screenThumbHeight)
 	cmd := exec.CommandContext(ctx, screenHelper, screenModel)
-	cmd.Env = append(os.Environ(), "LD_LIBRARY_PATH="+screenTextRoot+"/lib")
 	cmd.Stdin = bytes.NewReader(append(input, planes...))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

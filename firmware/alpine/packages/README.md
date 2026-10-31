@@ -66,6 +66,11 @@ without ever leaving it with a partly written `fip.bin`; see
 
 ## zlib-ng in place of Alpine's zlib
 
+`nanokvm-tpu` installs `nanokvm-ocr` and `nanokvm-screen`, the programs
+that run models on the TPU, linked statically with Sophgo's runtime (the `tpu`
+step, `tpu/README.md`). It provides `nanokvm-tpu-abi=1`, which the model
+add-ons depend on; the release depends on it, so an update installs it.
+
 `nanokvm-zlib` installs zlib-ng in zlib-compatible mode as `libz.so.1`, which
 apk, curl, OpenSSH, kmod and eudev load. Built for the C906 (see
 `docs/component-build-profiles.md`), it inflates about 36% faster than Alpine's

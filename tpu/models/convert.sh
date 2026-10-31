@@ -1,6 +1,6 @@
 #!/bin/bash
 # Convert the PaddleOCR models of the TPU add-on to CV181x cvimodels.
-#   addons/tpu/models/convert.sh OUTPUT
+#   tpu/models/convert.sh OUTPUT
 # Runs Sophgo's tpu-mlir in its official container (sophgo/tpuc_dev); the
 # host needs Docker only. The models are PaddleOCR's (Apache-2.0), INT8:
 #   ocr-det.cvimodel               PP-OCRv6 medium detection, 960x544: a 1080p

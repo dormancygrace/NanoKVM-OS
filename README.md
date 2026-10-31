@@ -223,7 +223,7 @@ and a kernel or bootloader change requires a reboot.
 Existing installations stay on Stable. Independent stable add-on releases are
 available in both channels.
 
-Updates retain settings, user data and independently installed packages. The fourteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. Kernel and bootloader updates need a reboot to take effect. Application service updates use OpenRC automatically; no separate apply command is needed.
+Updates retain settings, user data and independently installed packages. The fifteen core packages include **nanokvm** (backend), **nanokvm-web** (UI) and the **nanokvm-app** compatibility metapackage. Existing installations migrate automatically; later web-only updates need a browser refresh instead of a backend restart. Kernel and bootloader updates need a reboot to take effect. Application service updates use OpenRC automatically; no separate apply command is needed.
 
 - **Local `.apk` installations:** file-pinned packages may require an `apk add` step before upgrading; see [update instructions](docs/UPDATES.md).
 - **Signing transition:** `nanokvm-keys` installs the public keys and moves the official repository to the RSA/ECDSA-signed v3 index automatically. The RSA-signed legacy index remains available for older installations.

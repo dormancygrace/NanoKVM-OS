@@ -1,0 +1,29 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] cviruntime: take the version from the build
+
+The source is unpacked from a pinned commit, not a Git checkout, and the
+build date made every build differ. RUNTIME_VERSION is passed in instead.
+---
+--- a/cviruntime/CMakeLists.txt	2026-10-31 15:17:10.181747246 +0200
++++ b/cviruntime/CMakeLists.txt	2026-10-31 15:17:10.189025578 +0200
+@@ -2,15 +2,11 @@
+ 
+ project(cviruntime C CXX)
+ 
+-execute_process(
+-  COMMAND git describe --always --tags --dirty
+-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+-  RESULT_VARIABLE GIT_EXEC_RESULT
+-  OUTPUT_VARIABLE GIT_SHORT_HASH)
+-
+-string(STRIP ${GIT_SHORT_HASH} GIT_SHORT_HASH)
+-string(TIMESTAMP BUILD_TIME "%Y%m%d")
+-set(RUNTIME_VERSION "${GIT_SHORT_HASH}@${BUILD_TIME}")
++# The version comes from the build (the pinned commit): the source is not a
++# Git checkout, and a build date would make every build differ.
++if (NOT RUNTIME_VERSION)
++  set(RUNTIME_VERSION "unknown")
++endif()
+ message(STATUS "runtime version: ${RUNTIME_VERSION}")
+ add_definitions(-DRUNTIME_VERSION="${RUNTIME_VERSION}")
+ 

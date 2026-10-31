@@ -1648,7 +1648,8 @@
           "zlib": "Knihovna komprese",
           "openssl": "OpenSSL",
           "exfatprogs": "Nástroje pro exFAT",
-          "i2ctools": "Nástroje pro I2C"
+          "i2ctools": "Nástroje pro I2C",
+          "tpu": "TPU"
         }
       },
       "notice": {
@@ -1764,7 +1765,7 @@
       "title": "AI",
       "screenText": {
         "title": "Rozpoznávání textu",
-        "notInstalled": "Rozpoznávání textu potřebuje doplněk TPU.",
+        "notInstalled": "Rozpoznávání textu potřebuje doplněk s modelem jazyka.",
         "openAddons": "Doplňky",
         "enabled": "Rozpoznávání textu",
         "enabledDescription": "Když je zapnuto, tlačítko nad obrazovkou přečte text na ní a číst ho mohou i MCP a PicoClaw. Když je vypnuto, nemůže nikdo z nich.",

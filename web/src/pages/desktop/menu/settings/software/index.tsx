@@ -47,7 +47,8 @@ const protectedPackages = new Set([
   'nanokvm-firmware-sg2002',
   'nanokvm-zlib',
   'nanokvm-openssl',
-  'nanokvm-bootloader-sg2002'
+  'nanokvm-bootloader-sg2002',
+  'nanokvm-tpu'
 ]);
 
 // Server actions with their own progress text (settings.software.operation.*).

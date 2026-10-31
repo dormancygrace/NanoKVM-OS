@@ -13,7 +13,7 @@ var RecoveryService []byte
 var CorePackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release",
 	"nanokvm-base", "nanokvm-keys", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002",
 	"nanokvm-firmware-sg2002", "nanokvm-bootloader-sg2002", "nanokvm-zlib", "nanokvm-openssl",
-	"nanokvm-exfatprogs", "nanokvm-i2c-tools"}
+	"nanokvm-exfatprogs", "nanokvm-i2c-tools", "nanokvm-tpu"}
 
 func Query(repo string) []string {
 	// Do not use --no-network: APK 3 can have a differently named cached index
@@ -29,8 +29,12 @@ func Install(targets []string) []string {
 // published before this NanoKVM component existed. The solver also verifies
 // that the target release no longer requires the excluded component.
 func LegacyTargets(name string) []string {
-	if name == "nanokvm-openssl" {
+	switch name {
+	case "nanokvm-openssl":
 		return []string{"!nanokvm-openssl", "openssl"}
+	case "nanokvm-tpu":
+		// Before 3.7.0 the programs came with the models in an add-on.
+		return []string{"!nanokvm-tpu"}
 	}
 	return nil
 }

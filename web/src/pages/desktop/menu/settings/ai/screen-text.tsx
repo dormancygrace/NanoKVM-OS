@@ -52,7 +52,7 @@ export const ScreenTextSettingsPage = ({ onOpenAddons }: { onOpenAddons: () => v
   if (inventory && !installed) {
     return (
       <CatalogInstallNotice
-        name="nanokvm-tpu"
+        name="nanokvm-model-ocr-latin"
         message={t('settings.ai.screenText.notInstalled')}
         onOpenAddons={onOpenAddons}
       />

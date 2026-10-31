@@ -41,11 +41,14 @@ with tempfile.TemporaryDirectory(prefix='nkos-channels-') as directory:
                     'ec_paramgen_curve:P-256', '-out', str(key)], check=True, capture_output=True)
     subprocess.run(['openssl', 'pkey', '-in', str(key), '-pubout', '-out', str(pub)], check=True, capture_output=True)
     feeds = {}
-    for channel, version in [('stable', '3.3.4-r0'), ('beta', '3.4.0_beta1-r0'), ('final', '3.4.0-r0')]:
+    # legacy: a stable release from before nanokvm-tpu.
+    for channel, version in [('stable', '3.3.4-r0'), ('beta', '3.4.0_beta1-r0'), ('final', '3.4.0-r0'),
+                             ('legacy', '3.3.5-r0')]:
         repo = work / channel
         repo.mkdir()
         feeds[channel] = repo / 'Packages.adb'
-        for name in [*core, 'nanokvm-rustdesk', 'alpine-fixture']:
+        names = [n for n in core if channel != 'legacy' or n != 'nanokvm-tpu']
+        for name in [*names, 'nanokvm-rustdesk', 'alpine-fixture']:
             ver = version if name in core else ('2.0-r0' if channel == 'beta' else '1.0-r0')
             payload = repo / name
             path = payload / f'usr/share/{name}/version'
@@ -57,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix='nkos-channels-') as directory:
                 cfg.write_text('default-' + version)
             info = [f'name:{name}', f'version:{ver}', 'arch:riscv64', 'license:MIT']
             if name == 'nanokvm-release':
-                info.append('depends:' + ' '.join(n + '>=' + version for n in core if n != name))
+                info.append('depends:' + ' '.join(n + '>=' + version for n in names if n != name))
             if name == 'nanokvm-kernel-sg2002':
                 info.append('depends:nanokvm-kmod-sg2002=' + version)
             cmd = ['--sign-key', key, 'mkpkg', '--files', payload, '--output', repo / f'{name}-{ver}.apk']
@@ -164,5 +167,24 @@ with tempfile.TemporaryDirectory(prefix='nkos-channels-') as directory:
     run(*common, 'upgrade', '--no-scripts')
     assert all(n + '-3.4.0-r0' in installed() for n in core)
     assert cfg.read_text() == 'user setting'
+    # Back to a stable release from before nanokvm-tpu: the production legacy
+    # targets remove it and pin the rest.
+    select('legacy')
+    query = [arg.replace('@REPOSITORY@', feeds['legacy']) for arg in commands['query']]
+    # search fails for the missing name and still lists the others; the
+    # updater reads them (osupdate/apk.go).
+    search = subprocess.run([apk, *map(str, common), *query], capture_output=True, text=True)
+    assert search.returncode != 0
+    assert set(search.stdout.splitlines()) == {n + '-3.3.5-r0' for n in core if n != 'nanokvm-tpu'}
+    install = commands['install_without_tpu']
+    assert '!nanokvm-tpu' in install
+    run(*common, *install, '--no-scripts', '--simulate')
+    run(*common, *install, '--no-scripts')
+    run(*common, 'del', '--no-scripts', '.nanokvm-stable-rollback')
+    after = installed()
+    assert all(n + '-3.3.5-r0' in after for n in core if n != 'nanokvm-tpu'), after
+    assert not any(p.startswith('nanokvm-tpu-') for p in after), after
+    assert all(any(p.startswith(n + '-') for p in after) for n in ('nanokvm-rustdesk', 'alpine-fixture')), after
+    assert cfg.read_text() == 'user setting'
     httpd.shutdown()
-    print('PASS: signed stable -> beta -> stable rollback -> old-updater final, interrupted reboot recovery; 14 core packages, exact kernel/modules, config/data/world and independent packages preserved')
+    print(f'PASS: signed stable -> beta -> stable rollback -> old-updater final, interrupted reboot recovery, rollback before nanokvm-tpu; {len(core)} core packages, exact kernel/modules, config/data/world and independent packages preserved')

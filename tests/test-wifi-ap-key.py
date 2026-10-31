@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess, tempfile
 
 repo = Path(__file__).resolve().parents[1]
-main = repo / 'support/sg2002/kvm_system/main'
+main = repo / 'support/kvm_system/main'
 ctrl = (main / 'lib/system_ctrl/system_ctrl.cpp').read_text()
 state = (main / 'lib/system_state/system_state.cpp').read_text()
 key = ctrl[ctrl.index('static const char wifi_ap_key_symbols'):ctrl.index('// The first line a command prints')]

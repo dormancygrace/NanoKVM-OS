@@ -57,7 +57,7 @@ changes. It is not a claim of new full-library throughput.
 Reproduction: apply the pinned patch stack with `tests/test-openssl-source.py`;
 retain a separately header-generated source tree for the native build. Compile
 `bench-tail.c`, the unmodified transport and scalar assembly, and the old/new
-`sha256_sg2002.c` renamed to `base_sha256`/`tail_sha256`, with the C906 musl
+`sha256_hwcrypto.c` renamed to `base_sha256`/`tail_sha256`, with the C906 musl
 compiler (`-O3 -static -pthread`, project ISA flags). The baseline is pinned in
 `native-tail-validation.json`; the candidate is this patch. Run the resulting
 helper on a C906 with the SG2002 crypto device available.

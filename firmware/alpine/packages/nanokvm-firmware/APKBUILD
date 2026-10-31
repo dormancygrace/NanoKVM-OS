@@ -1,0 +1,22 @@
+pkgname=nanokvm-firmware
+pkgver=${PKGVER:-0.1.0}
+pkgrel=0
+pkgdesc="NanoKVM media and board firmware"
+url="https://github.com/sipeed/NanoKVM"
+arch="riscv64"
+license="custom:NanoKVM-vendor"
+# Named nanokvm-firmware-sg2002 before 3.7.0.
+replaces="nanokvm-firmware-sg2002"
+source="$pkgname-$pkgver.tar.gz"
+options="!check !strip"
+
+build() {
+	:
+}
+
+package() {
+	mkdir -p "$pkgdir"
+	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+}
+
+sha256sums=""

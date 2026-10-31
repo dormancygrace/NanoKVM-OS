@@ -4,30 +4,30 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the fifteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the nineteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
-Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader-sg2002` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
+Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
 | Output | Shipped in |
 |---|---|
 | `images/Image` (Linux `7.3.1-nanokvm-os-r6`) | every `boot.sd` |
-| `images/lib/modules/7.3.1-nanokvm-os-r6/` (84 in-tree and 19 out-of-tree modules, `modules.*`) | `nanokvm-kmod-sg2002` |
-| `images/boot/*.sd`, `*.sha256`, `kernel.release` (one per board, `NAME.dtb`, each with the 144 MiB CMA video region) | `nanokvm-kernel-sg2002`, `/usr/lib/nanokvm/boot` |
+| `images/lib/modules/7.3.1-nanokvm-os-r6/` (84 in-tree and 19 out-of-tree modules, `modules.*`) | `nanokvm-kmod` |
+| `images/boot/*.sd`, `*.sha256`, `kernel.release` (one per board, `NAME.dtb`, each with the 144 MiB CMA video region) | `nanokvm-kernel`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.lz4` | inside the `boot.sd` images |
-| `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel-sg2002`, `/usr/share/licenses/nanokvm-kernel-sg2002/initramfs` |
+| `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel`, `/usr/share/licenses/nanokvm-kernel/initramfs` |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
 | `images/native/*.so` (6 HDMI-light libraries) | `nanokvm`, `/kvmapp/server/dl_lib` |
 | `images/system/kvm_system` | `nanokvm`, `/kvmapp/kvm_system` |
 | `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm`, `nanokvm-base` |
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
-| `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware-sg2002` |
+| `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license) | `nanokvm-zlib`, in place of Alpine's `zlib` |
 | `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.3 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs`, `nanokvm-i2c-tools` |
 | `images/tools/xz/COPYING.0BSD` (liblzma license; zlib-ng and liblzma are also linked statically into NanoKVM-Server for its gzip and xz readers) | `nanokvm`, `/usr/share/licenses/nanokvm` |
-| `fip.bin`, `fip-licenses/` | `nanokvm-bootloader-sg2002`; its trigger puts `fip.bin` on the boot partition |
-| `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
-| `release/apk/` | the signed APK repository of the fifteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
+| `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
+| `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
+| `release/apk/` | the signed APK repository of the nineteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
 
@@ -131,7 +131,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `build.sh` | All build steps |
 | `packages.list` | The contents of the fifteen APK packages: each file, its mode and where it comes from |
 | `kernel/` | `config` and patches for kernel.org Linux 7.3.1 |
-| `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
+| `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces OpenSBI and U-Boot while retaining the vendor first-stage loader |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
@@ -143,7 +143,7 @@ The build also uses these parts of the repository:
 - `firmware/sensor/patches/`: NanoKVM I2C/MIPI wiring and LT6911UXC/LT6911D identification; applied before compiling MMF;
 - `firmware/mpi/`: the MMF capture-size helper, compatibility headers and the hashes of the SOPHGO ISP objects (`vendor-isp-objects.json`);
 - `firmware/alpine/`: the APK recipes, OpenRC services and compatibility scripts, `release.env` with the version;
-- `server/`, `web/`, `support/sg2002/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
+- `server/`, `web/`, `support/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
 - `scripts/`: the component builders that `build.sh` calls.
 
 ## U-Boot console and uEnv.txt
@@ -296,13 +296,21 @@ Measured on a NanoKVM PCIe: about 0.63 MiB lower server PSS, no demonstrated CPU
 
 ### Application package split
 
-The build produces fifteen core APKs. `nanokvm` owns the server, board service,
+The build produces nineteen core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
 `/kvmapp/server/web`. `nanokvm-app` is a file-free compatibility metapackage
 (revision r2 for v3.0-a1) depending on both. Keep it while older installations
 and `nanokvm-release` depend on the old package name. The new packages declare
 `replaces=nanokvm-app` so APK can transfer ownership during the upgrade.
 The OpenRC service is still named `nanokvm-app`.
+
+In the same way `nanokvm-kernel`, `nanokvm-kmod`, `nanokvm-firmware` and
+`nanokvm-bootloader` were named with a `-sg2002` suffix before 3.7.0 (there is
+no other board). The old names are file-free metapackages depending on the new
+ones, kept like `nanokvm-app` (`nanokvm-release` depends on them, and older
+installations list them in their world); the new packages replace them.
+A rollback to a release from before 3.7.0 removes the new packages and installs
+the old ones (`apkrollback.LegacyTargets`).
 
 ### Tools in place of Alpine community packages
 

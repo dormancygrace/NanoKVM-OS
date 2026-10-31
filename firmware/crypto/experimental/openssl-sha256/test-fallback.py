@@ -7,14 +7,14 @@ import subprocess
 import tempfile
 
 ROOT=Path(__file__).resolve().parents[4]
-spec=importlib.util.spec_from_file_location('transport_test',ROOT/'firmware/crypto/experimental/openssl-sg2002/test-transport.py')
+spec=importlib.util.spec_from_file_location('transport_test',ROOT/'firmware/crypto/experimental/openssl-hwcrypto/test-transport.py')
 module=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--negative-control", action="store_true")
 args=parser.parse_args()
 files={}
-for name in ('0002-sg2002-transport.patch','0003-sha256-dma.patch'):
+for name in ('0002-hwcrypto-transport.patch','0003-sha256-dma.patch'):
     files.update(module.added_files((ROOT/'firmware/crypto/openssl-c906'/name).read_text()))
 with tempfile.TemporaryDirectory(prefix='nkos-sha256-test-') as tmp:
     d=Path(tmp)
@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='nkos-sha256-test-') as tmp:
     subprocess.run(command,check=True)
     subprocess.run([str(binary)],check=True)
     if args.negative_control:
-        source=d/'crypto/sha/sha256_sg2002.c'
+        source=d/'crypto/sha/sha256_hwcrypto.c'
         original=source.read_text()
         for name,old,new in (
             ('request cap','blocks - completed < DMA_BLOCKS ? blocks - completed : DMA_BLOCKS','blocks - completed'),

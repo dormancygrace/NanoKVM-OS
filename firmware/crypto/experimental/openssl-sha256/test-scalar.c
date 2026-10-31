@@ -5,7 +5,7 @@
 #include <openssl/sha.h>
 #define OPENSSL_RISCVCAP_IMPL
 #include "crypto/riscv_arch.h"
-#include "crypto/sg2002.h"
+#include "crypto/hwcrypto_transport.h"
 
 void ossl_sha256_c906_blocks(void *, const void *, size_t);
 void sha256_block_data_order(void *, const void *, size_t);
@@ -75,13 +75,13 @@ static void reference(uint32_t h[8], const unsigned char *p, size_t blocks) {
 static uint32_t rng=0x3bc29871;
 static uint32_t random_word(void) { rng^=rng<<13;rng^=rng>>17;rng^=rng<<5;return rng; }
 static int fail_after, calls, opens, closes;
-int ossl_sg2002_begin(unsigned algorithm) {
-    REQUIRE(algorithm==SG2002_ALG_SHA256);opens++;return fail_after==-2?-1:37;
+int ossl_hwcrypto_begin(unsigned algorithm) {
+    REQUIRE(algorithm==HWCRYPTO_ALG_SHA256);opens++;return fail_after==-2?-1:37;
 }
-void ossl_sg2002_end(int fd) { REQUIRE(fd==37);closes++; }
-int ossl_sg2002_run(int fd, struct sg2002_crypto_request *r) {
+void ossl_hwcrypto_end(int fd) { REQUIRE(fd==37);closes++; }
+int ossl_hwcrypto_run(int fd, struct hwcrypto_request *r) {
     uint32_t h[8];
-    REQUIRE(fd==37 && r->algorithm==SG2002_ALG_SHA256);
+    REQUIRE(fd==37 && r->algorithm==HWCRYPTO_ALG_SHA256);
     REQUIRE(r->length>=512 && r->length<=4096 && r->length%64==0);
     if (calls++==fail_after) return 0;
     for(int i=0;i<8;i++)h[i]=be32(r->state+4*i);

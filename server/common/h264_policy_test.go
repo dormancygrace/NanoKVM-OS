@@ -77,7 +77,7 @@ func TestH264SelectionAcceptsTheSavedMonitor(t *testing.T) {
 
 // The native guard and the server use the same limits.
 func TestH264LimitsMatchTheNativeHeader(t *testing.T) {
-	const header = "../../support/sg2002/additional/kvm/include/stream_size.hpp"
+	const header = "../../support/additional/kvm/include/stream_size.hpp"
 	text, err := os.ReadFile(header)
 	if err != nil {
 		t.Fatal(err)

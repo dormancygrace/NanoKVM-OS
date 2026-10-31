@@ -1,5 +1,5 @@
 // Real capture JPEG paths with a fault-injected MMF provider. No hardware.
-#include "../../support/sg2002/additional/kvm/src/kvm_vision.cpp"
+#include "../../support/additional/kvm/src/kvm_vision.cpp"
 #include <cassert>
 #include "linux/cvi_comm_video.h"
 #include <vector>

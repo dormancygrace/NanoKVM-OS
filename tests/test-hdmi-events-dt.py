@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix="nanokvm-hdmi-int-dt-") as directory:
             "-I" + str(kernel / "arch/riscv/boot/dts/sophgo"),
             "-I" + str(kernel / "include"),
             "-I" + str(kernel / "scripts/dtc/include-prefixes"),
-            str(root / "firmware/boards" / ("sg2002-nanokvm-" + profile + ".dts")),
+            str(root / "firmware/boards" / ("nanokvm-" + profile + ".dts")),
         ]))
         run(["dtc", "-q", "-I", "dts", "-O", "dtb", "-o", str(binary), str(source)])
 

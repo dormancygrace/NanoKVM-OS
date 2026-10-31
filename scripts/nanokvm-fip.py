@@ -149,7 +149,7 @@ def validate(base, candidate, monitor, uboot, manifest):
     for key in ("DDR_PARAM_CKSUM", "DDR_PARAM_LOADADDR", "DDR_PARAM_SIZE", "DDR_PARAM_RESERVED",
                 "BLCP_2ND_CKSUM", "BLCP_2ND_LOADADDR", "BLCP_2ND_SIZE", "BLCP_2ND_RUNADDR"):
         require(old2[key] == new2[key], key + " changed")
-    # The M-mode DT reserves no memory at SMALL_CORE_ADDR (platform/opensbi/sg2002.dts),
+    # The M-mode DT reserves no memory at SMALL_CORE_ADDR (platform/opensbi/nanokvm.dts),
     # so a small-core image there would be overwritten by Linux.
     require(not new["BLCP_2ND"], "BLCP_2ND image requires a small-core reservation in the OpenSBI DT")
     padded_monitor = monitor + bytes((-len(monitor)) % ALIGN)

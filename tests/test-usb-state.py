@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 repo = Path(__file__).resolve().parents[1]
-s = (repo / 'support/sg2002/kvm_system/main/lib/system_state/system_state.cpp').read_text()
+s = (repo / 'support/kvm_system/main/lib/system_state/system_state.cpp').read_text()
 function = s[s.index('void kvm_update_usb_state()'):s.index('void kvm_update_hdmi_state()')]
 function = function.replace('"/sys/class/udc/4340000.usb/state"', 'state_path')
 prefix = r"""

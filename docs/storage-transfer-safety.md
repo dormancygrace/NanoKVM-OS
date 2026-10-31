@@ -170,9 +170,9 @@ kernel `fsconfig` values, never command arguments, settings or credential files.
 API status and error messages exclude credentials and the remote address.
 
 Kernel SMB3 signing and encryption use the Linux Crypto API. On SG2002, the
-`sg2002-gcm-aes` driver accelerates AES-CTR and overlaps it with the optimized
-CPU GHASH. The `sg2002-ccm-aes` driver accelerates both CBC-MAC and CTR, using
-the same shared engine in chunks of at most 4 KiB. The `sg2002-cmac-aes`
+`nanokvm-gcm-aes` driver accelerates AES-CTR and overlaps it with the optimized
+CPU GHASH. The `nanokvm-ccm-aes` driver accelerates both CBC-MAC and CTR, using
+the same shared engine in chunks of at most 4 KiB. The `nanokvm-cmac-aes`
 driver accelerates AES-CMAC signing, including subkey derivation and CBC-MAC.
 All three honor the existing hardware-AES setting and software fallback.
 Each CIFS signature calculation owns its transform and key; failed verification
@@ -180,7 +180,7 @@ rejects both read data and compound metadata responses. SMB2.1 HMAC signing
 is unchanged. For CMAC messages shorter than 320 bytes, CIFS selects the
 synchronous CPU provider before key setup, avoiding DMA overhead entirely.
 Messages of 320 bytes or more use the highest-priority provider, normally
-`sg2002-cmac-aes`; software remains available when hardware AES is disabled.
+`nanokvm-cmac-aes`; software remains available when hardware AES is disabled.
 The threshold counts all header vectors and payload bytes in the signature.
 Cipher negotiation is unchanged: the CCM driver is selected
 when the SMB server and client negotiate CCM; its presence does not force CCM
@@ -209,7 +209,7 @@ relay and IPC, measured 7.97–8.03 MiB/s with CCM against 6.81–7.04 MiB/s wit
 (about 15% faster). Hardware AES-CMAC reached 9.27–9.60 MiB/s directly through
 CIFS and 8.65–8.72 MiB/s through the complete reader, versus about 5.8 MiB/s
 for software signing (about 50% faster). Full-image SHA-256 matched in every
-server-reader run. See the [crypto qualification notes](../platform/modules/sg2002-aes/test/README.md).
+server-reader run. See the [crypto qualification notes](../platform/modules/hwcrypto/test/README.md).
 These are source benchmarks, not USB-throughput
 guarantees; server latency, video load and access pattern affect actual speed.
 Unsigned mode was used only for comparison; this interface always requires

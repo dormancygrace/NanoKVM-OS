@@ -1,0 +1,24 @@
+#!/bin/sh
+# Optional shared CryptoDMA owner. cryptodev (/dev/crypto) stays installed
+# but is not loaded: nothing in the system uses it (`modprobe cryptodev`).
+case "$1" in
+    start|restart)
+        # sg2002_aes_probe: the module before 3.7.0, still loaded until the
+        # reboot after the update. Never a second driver on the engine.
+        if [ ! -e /etc/kvm/disable_hardware_aes ] && [ ! -d /sys/module/nanokvm_hwcrypto ] &&
+           [ ! -d /sys/module/sg2002_aes_probe ]; then
+            if [ -f "/lib/modules/$(uname -r)/extra/nanokvm_hwcrypto.ko" ]; then
+                modprobe nanokvm_hwcrypto || echo 'CryptoDMA unavailable; application fallback remains available' >&2
+            fi
+        fi
+        ;;
+    stop)
+        # Active sessions or uncertain DMA ownership may pin the module.
+        # Shutdown must never force-unload the shared owner.
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}" >&2
+        exit 1
+        ;;
+esac
+exit 0

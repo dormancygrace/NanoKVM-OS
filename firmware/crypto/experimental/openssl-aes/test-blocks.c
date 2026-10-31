@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sg2002_cipher.c"
+#include "hwcrypto_cipher.c"
 struct cipher_case {const char *name;unsigned alg,mode,keylen,block;};
 static const struct cipher_case cases[]={
  {"AES-128-ECB",1,0,16,16},{"AES-128-CBC",1,1,16,16},{"AES-128-CTR",1,2,16,16},
@@ -23,15 +23,15 @@ static void software(int enc,const unsigned char *in,unsigned char *out,size_t l
  if(current->mode!=0) { assert(EVP_CIPHER_CTX_get_updated_iv(c,iv,current->block)); }
  EVP_CIPHER_CTX_free(c);
 }
-int ossl_sg2002_begin(unsigned alg){assert(alg==current->alg);opens++;return fail_after==-2?-1:37;}
-void ossl_sg2002_end(int fd){assert(fd==37);closes++;}
-int ossl_sg2002_run(int fd,struct sg2002_crypto_request *r)
+int ossl_hwcrypto_begin(unsigned alg){assert(alg==current->alg);opens++;return fail_after==-2?-1:37;}
+void ossl_hwcrypto_end(int fd){assert(fd==37);closes++;}
+int ossl_hwcrypto_run(int fd,struct hwcrypto_request *r)
 {
  assert(fd==37&&r->algorithm==current->alg&&r->mode==current->mode);
  assert(r->key_length==current->keylen&&!memcmp(r->key,key,current->keylen));
  /* Model a device which only advances the low 32 counter bits. A request
   * must not rely on wider hardware carry, even for ordinary 128-bit CTR. */
- if(r->mode==SG2002_MODE_CTR){
+ if(r->mode==HWCRYPTO_MODE_CTR){
   unsigned b=current->block;
   uint32_t low=(uint32_t)r->iv[b-4]<<24|(uint32_t)r->iv[b-3]<<16|(uint32_t)r->iv[b-2]<<8|r->iv[b-1];
   assert((uint64_t)low+r->length/b <= (UINT64_C(1)<<32));
@@ -63,7 +63,7 @@ static void check_gcm_counter(void)
  for(size_t len=1024;len<=16384;len*=2)for(fail_after=-2;fail_after<=2;fail_after++){
   memset(iv,0xff,16);iv[0]=0xa5;iv[15]=0xfe;memcpy(expected,iv,16);
   ctr32_reference(input,want,len,expected);memcpy(next,iv,16);memcpy(buf,input,len);calls=opens=closes=0;
-  size_t n=ossl_sg2002_cipher(1,2,1,key,16,next,4,buf,buf,len,1024,512);
+  size_t n=ossl_hwcrypto_cipher(1,2,1,key,16,next,4,buf,buf,len,1024,512);
   ctr32_reference(buf+n,buf+n,len-n,next);
   assert(!memcmp(buf,want,len)&&!memcmp(next,expected,16));
  }
@@ -79,7 +79,7 @@ static void check_tail_policy(void)
  for(size_t tail=16;tail<=2560;tail+=16)for(int enc=0;enc<=1;enc++)for(fail_after=-1;fail_after<=1;fail_after++){
   size_t len=4096+tail;memset(iv,0,16);memcpy(expected_iv,iv,16);
   software(enc,input,want,len,expected_iv);memcpy(buf,input,len);memcpy(next,iv,16);calls=opens=closes=0;
-  size_t n=ossl_sg2002_cipher(1,1,enc,key,16,next,16,buf,buf,len,3072,512);
+  size_t n=ossl_hwcrypto_cipher(1,1,enc,key,16,next,16,buf,buf,len,3072,512);
   size_t expected=fail_after==0?0:tail<512||fail_after==1?4096:len;
   assert(n == expected);
   assert(calls == (fail_after==0||tail<512?1:2));
@@ -93,13 +93,13 @@ static void check_tail_policy(void)
 
 static void check_non_aes_rejected(void)
 {
- const unsigned int algorithms[]={0,SG2002_ALG_DES,SG2002_ALG_TDES,SG2002_ALG_SM4,SG2002_ALG_SHA1,SG2002_ALG_SHA256,UINT32_MAX};
+ const unsigned int algorithms[]={0,HWCRYPTO_ALG_DES,HWCRYPTO_ALG_TDES,HWCRYPTO_ALG_SM4,HWCRYPTO_ALG_SHA1,HWCRYPTO_ALG_SHA256,UINT32_MAX};
  unsigned char input[4096],out[4096],iv[16];
  current=&cases[0];fail_after=-1;
  for(size_t i=0;i<sizeof algorithms/sizeof *algorithms;i++) {
   memset(input,0x51,sizeof input);memset(out,0xa7,sizeof out);memset(iv,0x29,sizeof iv);
   calls=opens=closes=0;
-  assert(ossl_sg2002_cipher(algorithms[i],SG2002_MODE_CBC,1,key,16,iv,16,input,out,sizeof input,3072,512)==0);
+  assert(ossl_hwcrypto_cipher(algorithms[i],HWCRYPTO_MODE_CBC,1,key,16,iv,16,input,out,sizeof input,3072,512)==0);
   assert(!opens&&!calls&&!closes);
   for(size_t k=0;k<sizeof out;k++)assert(out[k]==0xa7&&input[k]==0x51);
   for(size_t k=0;k<sizeof iv;k++)assert(iv[k]==0x29);
@@ -123,7 +123,7 @@ int main(void)
    if(!enc)software(1,original+off,input+off,len,next);
    memcpy(expected_iv,iv,16);software(enc,input+off,want,len,expected_iv);
    memset(buf,0xa7,sizeof buf);memcpy(buf+off,input+off,len);memcpy(next,iv,16);calls=opens=closes=0;
-   size_t n=ossl_sg2002_cipher(current->alg,current->mode,enc,key,current->keylen,next,current->block,buf+off,buf+off,len,minimum,continuation);
+   size_t n=ossl_hwcrypto_cipher(current->alg,current->mode,enc,key,current->keylen,next,current->block,buf+off,buf+off,len,minimum,continuation);
    assert(n<=len&&n%current->block==0);
    if(len<minimum)assert(!opens&&!calls&&!closes);
    else if(fail_after==-2)assert(opens==1&&!calls&&!closes);else assert(opens==1&&closes==1);

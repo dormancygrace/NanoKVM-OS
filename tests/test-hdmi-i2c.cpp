@@ -73,7 +73,7 @@ static int test_ioctl(int fd, unsigned long request, ...) {
 #define open test_open
 #define close test_close
 #define ioctl test_ioctl
-#include "../support/sg2002/additional/kvm/src/kvm_i2c.cpp"
+#include "../support/additional/kvm/src/kvm_i2c.cpp"
 #undef read
 #undef write
 #undef open

@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-vision = (root / "support/sg2002/additional/kvm/src/kvm_vision.cpp").read_text()
+vision = (root / "support/additional/kvm/src/kvm_vision.cpp").read_text()
 start = vision.index("template<class Events>\nstatic bool service_hdmi_events(")
 end = vision.index("\nvoid* vi_subsystem_detection", start)
 source = (root / "tests/test-hdmi-events.cpp").read_text().replace("// PRODUCTION_SERVICE", vision[start:end])
@@ -17,11 +17,11 @@ with tempfile.TemporaryDirectory(prefix="nanokvm-hdmi-events-") as directory:
     flags = ["-std=c++17", "-Wall", "-Wextra", "-Werror", "-pthread", "-g"]
     if os.getenv("NANOKVM_SANITIZE"):
         flags += ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
-    subprocess.run(["g++", *flags, "-I" + str(root / "support/sg2002/additional/kvm/include"),
+    subprocess.run(["g++", *flags, "-I" + str(root / "support/additional/kvm/include"),
                     str(cpp), "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=15)
     subprocess.run(["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-fsyntax-only",
-                    "-I" + str(root / "support/sg2002/additional/kvm/include"),
+                    "-I" + str(root / "support/additional/kvm/include"),
                     str(root / "firmware/probes/hdmi-events-runtime.cpp")], check=True)
 # The production loop observes events even while manual mode bypasses service.
 detector = vision[vision.index("void* vi_subsystem_detection"):vision.index("uint8_t frame_changed")]

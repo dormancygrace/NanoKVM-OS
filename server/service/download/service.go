@@ -1,7 +1,7 @@
 package download
 
 import (
-	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/internal/hwcrypto"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/utils"
@@ -523,7 +523,7 @@ func copyImage(dst io.Writer, src io.Reader, expected []byte) (int64, error) {
 	if expected == nil {
 		return io.Copy(dst, src)
 	}
-	hasher := sg2002aes.NewSHA256()
+	hasher := hwcrypto.NewSHA256()
 	n, err := io.Copy(io.MultiWriter(dst, hasher), src)
 	if err != nil {
 		return n, err

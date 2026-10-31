@@ -100,7 +100,7 @@ def main():
         "manifest_builder_sha256": sha(REPO / "scripts/nanokvm-opensbi-manifest.py"),
         "effective_config_sha256": sha(a.config),
         "defconfig_sha256": sha(REPO / "platform/opensbi/defconfig"),
-        "dts_sha256": sha(REPO / "platform/opensbi/sg2002.dts"),
+        "dts_sha256": sha(REPO / "platform/opensbi/nanokvm.dts"),
         "binary_sha256": sha(a.binary), "binary_bytes": a.binary.stat().st_size,
         "dtb_sha256": sha(a.dtb), "dtb_bytes": len(dtb),
         "text_start": TEXT, "fw_end": symbols["_fw_end"], "rw_start": rw_start, "runtime_end": runtime_end,

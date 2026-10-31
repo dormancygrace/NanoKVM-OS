@@ -28,7 +28,7 @@ def dependabot_directories(text):
 UNMONITORED = {
     'server/third_party/pion-dtls/e2e/Dockerfile': 'upstream test image of the vendored fork; never built here',
     'server/third_party/pion-ice/examples/nat-rules/Dockerfile': 'upstream example of the vendored fork; never built here',
-    'firmware/crypto/experimental/sg2002-crypto-all/ghash-go/go.mod': 'experimental benchmark module; not in the firmware',
+    'firmware/crypto/experimental/hwcrypto-all/ghash-go/go.mod': 'experimental benchmark module; not in the firmware',
 }
 
 

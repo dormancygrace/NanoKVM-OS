@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sha256_sg2002.c"
+#include "sha256_hwcrypto.c"
 static int fail_after, calls, opened, closed;
-int ossl_sg2002_begin(unsigned int alg) {assert(alg==6);opened++;return fail_after==-2?-1:37;}
-void ossl_sg2002_end(int fd) {assert(fd==37);closed++;}
-int ossl_sg2002_run(int fd,struct sg2002_crypto_request *r)
+int ossl_hwcrypto_begin(unsigned int alg) {assert(alg==6);opened++;return fail_after==-2?-1:37;}
+void ossl_hwcrypto_end(int fd) {assert(fd==37);closed++;}
+int ossl_hwcrypto_run(int fd,struct hwcrypto_request *r)
 {
     assert(fd==37&&r->algorithm==6&&r->length%64==0&&r->length>=512&&r->length<=4096);
     if(calls++==fail_after)return 0;
@@ -28,7 +28,7 @@ int main(void)
         SHA256_CTX got,want;memset(&got,0,sizeof got);
         if(sha224)SHA224_Init(&got);else SHA256_Init(&got);
         got.Nl=0x12345678;got.Nh=7;got.num=13;want=got;calls=opened=closed=0;
-        size_t done=ossl_sha256_sg2002(&got,data+off,blocks[z]);
+        size_t done=ossl_sha256_hwcrypto(&got,data+off,blocks[z]);
         assert(done<=blocks[z]&&(done==0||done>=64));
         if(fail_after==-1&&blocks[z]>=64)assert(blocks[z]-done<8);
         if(blocks[z]<64)assert(!opened&&!calls&&!closed);

@@ -28,7 +28,7 @@ func cpuFixture(t *testing.T) {
 		cpuFreqPolicy, cpuFreqPreference, cpuFreqWrite, cpuThermalRoot = oldPolicy, oldPreference, oldWrite, oldThermal
 		cpuFreqBootFlag, cpuFreqBootPending, cpuFreqBootFailed, cpuFreqBootSettle = oldFlag, oldPending, oldFailed, oldSettle
 	})
-	for name, value := range map[string]string{"scaling_driver": "sg2002-cpufreq", "cpuinfo_cur_freq": "850000"} {
+	for name, value := range map[string]string{"scaling_driver": "nanokvm-cpufreq", "cpuinfo_cur_freq": "850000"} {
 		if err := os.WriteFile(filepath.Join(cpuFreqPolicy, name), []byte(value), 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -131,7 +131,7 @@ func TestCPUFrequencyPreservesTargetWhileThermallyClamped(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, value := range map[string]string{
-		filepath.Join(zone, "type"):                      "sg2002-cpu",
+		filepath.Join(zone, "type"):                      "nanokvm-cpu",
 		filepath.Join(cooling, "type"):                   "cpufreq-cpu0",
 		filepath.Join(cooling, "cur_state"):              "1",
 		filepath.Join(cpuFreqPolicy, "cpuinfo_min_freq"): "850000",

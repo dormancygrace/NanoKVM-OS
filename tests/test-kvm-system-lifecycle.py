@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 repo = Path(__file__).resolve().parents[1]
-main = repo / 'support/sg2002/kvm_system/main'
+main = repo / 'support/kvm_system/main'
 source = (main / 'src/main.cpp').read_text()
 entry = source[source.index('int main(int argc, char* argv[])'):]
 # Only system interactions are doubled. The production startup, SIGINT handler
@@ -80,7 +80,7 @@ void sleep_ms(uint64_t ms) {
 with tempfile.TemporaryDirectory(prefix='nkos-system-lifecycle-') as directory:
     out = Path(directory)
     (out / 'test.cpp').write_text(preamble + entry)
-    includes = [main / 'include', repo / 'support/sg2002/additional/kvm/include']
+    includes = [main / 'include', repo / 'support/additional/kvm/include']
     includes += sorted(p for p in (main / 'lib').iterdir() if p.is_dir())
     subprocess.run(['g++', '-std=c++17', '-O1', '-g', '-pthread',
                     '-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-no-pie',

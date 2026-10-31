@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 
 repo = Path(__file__).resolve().parents[1]
-source = (repo / "support/sg2002/additional/kvm/src/kvm_vision.cpp").read_text()
+source = (repo / "support/additional/kvm/src/kvm_vision.cpp").read_text()
 
 
 def function(signature):
@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix="kvm-file-inputs-") as directory:
     subprocess.run([
         *compiler, "-std=gnu++17", "-Wall", "-Wextra", "-Werror", "-O1", "-g",
         *shlex.split(os.environ.get("CXXFLAGS", "")),
-        "-I" + str(repo / "support/sg2002/additional/kvm/include"),
+        "-I" + str(repo / "support/additional/kvm/include"),
         str(translation_unit), "-o", str(binary),
     ], check=True)
     subprocess.run([str(binary), str(directory)], check=True)

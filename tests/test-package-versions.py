@@ -147,14 +147,14 @@ class PackageVersionTests(unittest.TestCase):
 
     def test_kernel_and_modules_change_together(self):
         self.publish('3.3.0')
-        (self.payloads / 'kmod-sg2002/usr/file').write_text('module')
+        (self.payloads / 'kmod/usr/file').write_text('module')
         self.assertEqual(self.versions(self.publish('3.4.0')),
-                         {'nanokvm-kernel-sg2002': '3.4.0', 'nanokvm-kmod-sg2002': '3.4.0', 'nanokvm-release': '3.4.0'})
+                         {'nanokvm-kernel': '3.4.0', 'nanokvm-kmod': '3.4.0', 'nanokvm-release': '3.4.0'})
 
     def test_a_package_new_to_the_manifest_is_new(self):
         self.publish('3.3.0')
-        del self.previous['packages']['nanokvm-bootloader-sg2002']
-        self.assertIn('nanokvm-bootloader-sg2002', self.versions(self.publish('3.4.0')))
+        del self.previous['packages']['nanokvm-bootloader']
+        self.assertIn('nanokvm-bootloader', self.versions(self.publish('3.4.0')))
 
     def test_a_missing_payload_or_recipe_fails(self):
         (self.payloads / 'web/usr/file').unlink()

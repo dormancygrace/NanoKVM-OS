@@ -10,7 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include "sg2002_crypto.h"
+#include "hwcrypto.h"
 #endif
 static void check(int ok, const char *what)
 {
@@ -58,7 +58,7 @@ int main(int argc,char **argv)
     for(unsigned i=0;i<sizeof key;i++)key[i]=(unsigned char)(i*7+3);
     for(unsigned i=0;i<sizeof in;i++)in[i]=(unsigned char)(i*13+11);
 #ifdef __linux__
-    int fd=native?open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC):-1;
+    int fd=native?open("/dev/nanokvm-hwcrypto",O_RDWR|O_CLOEXEC):-1;
     if(native)check(fd>=0,"native device");
 #else
     check(!native,"native requires Linux");
@@ -74,15 +74,15 @@ int main(int argc,char **argv)
             iv[15]=0xfd; /* 32-bit carry, 64-bit carry, then testmgr's ff..fd. */
 #ifdef __linux__
             if(native) {
-                struct sg2002_crypto_request req={.version=SG2002_CRYPTO_ABI,
-                    .algorithm=SG2002_ALG_AES,.mode=SG2002_MODE_CTR,.encrypt=1,
+                struct hwcrypto_request req={.version=HWCRYPTO_ABI,
+                    .algorithm=HWCRYPTO_ALG_AES,.mode=HWCRYPTO_MODE_CTR,.encrypt=1,
                     .key_length=bits/8,.length=4096,.output_length=4096,
                     .input=(uintptr_t)in,.output=(uintptr_t)got};
                 memcpy(req.key,key,bits/8);memcpy(req.iv,iv,16);
                 reference(ecb,key,iv,in,want,4096,16);
                 reference(ecb,key,iv,in,c64,4096,8);
                 reference(ecb,key,iv,in,c32,4096,4);
-                check(ioctl(fd,SG2002_CRYPTO_RUN,&req)==0&&req.status==1&&req.output_length==4096,"raw DMA");
+                check(ioctl(fd,HWCRYPTO_RUN,&req)==0&&req.status==1&&req.output_length==4096,"raw DMA");
                 int full=!memcmp(got,want,4096),low64=!memcmp(got,c64,4096),low32=!memcmp(got,c32,4096);
                 check(full||low64||low32,"unrecognized hardware counter behavior");
                 printf("RAW AES-%u carry=%u matches128=%d matches64=%d matches32=%d\n",bits,carry,full,low64,low32);

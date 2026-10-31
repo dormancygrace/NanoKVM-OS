@@ -9,12 +9,12 @@
 #   toolchain  Buildroot 2026.08.1: cross toolchain, host tools, initramfs userland
 #   kernel     Linux 7.3.1 with kernel/*.patch and kernel/config
 #              (NANOKVM_KERNEL_PROFILE=debug adds kernel/config-debug.fragment)
-#   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
+#   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
 #   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
 #   fip        fip.bin: stock FSBL/DDR with new OpenSBI and U-Boot
 #   initramfs  initramfs from boot/initramfs.list and the Buildroot userland
-#   boot       board device trees and boot.sd images like nanokvm-kernel-sg2002
+#   boot       board device trees and boot.sd images like nanokvm-kernel
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
 #   tpu        TPU runtime and the programs that run models on it
 #   system     kvm_system board service
@@ -24,8 +24,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the fifteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the fifteen packages
+#   payloads   contents of the nineteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the nineteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -321,7 +321,7 @@ modules() {
     unpack_git osdrv . "$src/osdrv"
     unpack_git aic8800 src/SDIO/driver_fw/driver/aic8800 "$src/wifi"
     unpack_git cryptodev . "$src/cryptodev"
-    cp -r "$here/modules/sg2002-aes" "$src/aes"
+    cp -r "$here/modules/hwcrypto" "$src/aes"
     cp -r "$here/modules/cv181x-aximon" "$src/aximon"
     cp -r "$here/modules/cv181x-trng" "$src/trng"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
@@ -408,7 +408,7 @@ opensbi() {
     unpack_git opensbi . "$o/src"
     apply_patches "$o/src" "$here/opensbi"
     cp "$here/opensbi/defconfig" "$o/src/platform/generic/configs/nanokvm_defconfig"
-    "$host/dtc" -I dts -O dtb -o "$o/build/sg2002.dtb" "$here/opensbi/sg2002.dts"
+    "$host/dtc" -I dts -O dtb -o "$o/build/nanokvm.dtb" "$here/opensbi/nanokvm.dts"
     # Portable scalar instructions: C906's draft vector ISA is not RVV 1.0, so
     # CC_SUPPORT_VECTOR=n drops the RVV 1.0 misaligned-access emulators (they
     # read vlenb, which XTheadVector lacks). Patch 0003 builds at -Os; with
@@ -421,16 +421,16 @@ opensbi() {
         PLATFORM=generic PLATFORM_DEFCONFIG=nanokvm_defconfig \
         PLATFORM_RISCV_XLEN=64 PLATFORM_RISCV_ISA=rv64imac_zicsr_zifencei PLATFORM_RISCV_ABI=lp64 \
         FW_TEXT_START=0x80000000 FW_DYNAMIC=y FW_JUMP=n FW_PAYLOAD=n \
-        FW_FDT_PATH="$o/build/sg2002.dtb" FW_FDT_PADDING=0 FW_DYNAMIC_FDT_ADDR=0x80100000 \
+        FW_FDT_PATH="$o/build/nanokvm.dtb" FW_FDT_PADDING=0 FW_DYNAMIC_FDT_ADDR=0x80100000 \
         FW_OPTIONS=0x1 REPRODUCIBLE=y OPENSBI_VERSION_GIT= CC_SUPPORT_VECTOR=n
     "$host/python3" "$repo/scripts/nanokvm-opensbi-manifest.py" \
         --elf "$o/build/platform/generic/firmware/fw_dynamic.elf" \
         --binary "$o/build/platform/generic/firmware/fw_dynamic.bin" \
-        --dtb "$o/build/sg2002.dtb" --nm "${cross}nm" --compiler "${cross}gcc" \
+        --dtb "$o/build/nanokvm.dtb" --nm "${cross}nm" --compiler "${cross}gcc" \
         --config "$o/build/platform/generic/kconfig/.config" --fdtget "$host/fdtget" \
         --output "$img/opensbi/build-manifest.json"
     cp "$o/build/platform/generic/firmware/fw_dynamic.bin" "$img/opensbi/"
-    cp "$o/build/sg2002.dtb" "$img/opensbi/"
+    cp "$o/build/nanokvm.dtb" "$img/opensbi/"
 }
 
 fip() {
@@ -445,7 +445,7 @@ fip() {
         --output "$f/fip.bin" --report "$f/manifest.json"
     cp "$f/fip.bin" "$img/fip.bin"
     cp "$f/manifest.json" "$img/fip-manifest.json"
-    # Licenses of what fip.bin contains, for nanokvm-bootloader-sg2002.
+    # Licenses of what fip.bin contains, for nanokvm-bootloader.
     local l=$img/fip-licenses
     rm -rf "$l"
     mkdir -p "$l"
@@ -490,7 +490,7 @@ initramfs() {
     # -19 on the stand, though /init starts only 0.08 s sooner because the
     # unpacking overlaps driver probing; the larger file costs U-Boot 16 ms.
     "$host/lz4" -q -f -l -12 "$i/initramfs.cpio" "$img/initramfs.cpio.lz4"
-    # Their licenses, from the toolchain step; nanokvm-kernel-sg2002 installs them.
+    # Their licenses, from the toolchain step; nanokvm-kernel installs them.
     rm -rf "${img:?}/licenses/initramfs"
     mkdir -p "$img/licenses"
     cp -r "$bo/nanokvm-licenses" "$img/licenses/initramfs"
@@ -509,7 +509,7 @@ boot() {
     for profile in "${boards[@]}"; do
         "${cross}cpp" -P -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
             -I"$ksrc/arch/riscv/boot/dts/sophgo" -I"$ksrc/include" -I"$ksrc/scripts/dtc/include-prefixes" \
-            "$repo/firmware/boards/sg2002-nanokvm-$profile.dts" > "$b/$profile.dts"
+            "$repo/firmware/boards/nanokvm-$profile.dts" > "$b/$profile.dts"
         "$host/dtc" -q -I dts -O dtb -o "$b/$profile.dtb" "$b/$profile.dts"
         # One boot image per board, NAME.dtb: one reusable 144 MiB CMA region
         # holds the video buffers of every resolution, and Linux uses what
@@ -631,7 +631,7 @@ EOF
     cp "$repo/tpu/NOTICE" "$img/tpu/"
 }
 
-# kvm_system board service, from support/sg2002/kvm_system alone.
+# kvm_system board service, from support/kvm_system alone.
 system() {
     local s=$out/system
     rm -rf "$s" "${img:?}/system"
@@ -696,9 +696,9 @@ tools() {
 
     # As Buildroot builds a target package: TARGET_CFLAGS, then its strip.
     e=$t/edid
-    cp -r "$repo/support/sg2002/nanokvm_update_edid" "$e"
+    cp -r "$repo/support/nanokvm_update_edid" "$e"
     # Resolve shared receiver headers from the original source directory.
-    make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext CPPFLAGS="-I$repo/support/sg2002/nanokvm_update_edid" \
+    make -C "$e" CC="${cross}gcc" RISCV_FLAGS= LDFLAGS=-ztext CPPFLAGS="-I$repo/support/nanokvm_update_edid" \
         CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace) -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -g0 -Wall -Wextra -Werror"
     "${cross}strip" --remove-section=.comment --remove-section=.note \
         -o "$img/tools/nanokvm_update_edid" "$e/nanokvm_update_edid"
@@ -1132,7 +1132,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the fifteen packages with abuild in an Alpine riscv64 tree.
+# Build the nineteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu

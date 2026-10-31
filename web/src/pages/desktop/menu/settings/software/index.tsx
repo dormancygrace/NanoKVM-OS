@@ -42,12 +42,12 @@ const protectedPackages = new Set([
   'nanokvm-web',
   'nanokvm-base',
   'nanokvm-release',
-  'nanokvm-kernel-sg2002',
-  'nanokvm-kmod-sg2002',
-  'nanokvm-firmware-sg2002',
+  'nanokvm-kernel',
+  'nanokvm-kmod',
+  'nanokvm-firmware',
   'nanokvm-zlib',
   'nanokvm-openssl',
-  'nanokvm-bootloader-sg2002',
+  'nanokvm-bootloader',
   'nanokvm-tpu'
 ]);
 

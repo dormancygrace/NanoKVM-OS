@@ -68,7 +68,7 @@ class MonitorProfilesTest(unittest.TestCase):
     def setUpClass(cls):
         # The accepted final EDID is not stored: build it from the stock EDID
         # through the same chain as platform/build.sh.
-        stock = REPO / "support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin"
+        stock = REPO / "support/nanokvm_update_edid/E21_NanoKVM.bin"
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             probes = REPO / "firmware/probes/edid120"

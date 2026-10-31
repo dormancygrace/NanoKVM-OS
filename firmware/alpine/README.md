@@ -67,7 +67,7 @@ matching recovery FIT but leaves reboot explicit.
 - **The way back.** It keeps the running image as `/boot/boot.before-recovery`, with its SHA-256 and, in `.for`, the SHA-256 of each recovery FIT activated over it. A copy is used only while `boot.sd` is one of them, so one left by a recovery whose cleanup was cut short is replaced by the image it installed. A recovery that stops before it formats p2 puts that image back and restarts. One that stops later stays at the console, since the old root is gone by then.
 - **Power loss.** Recovery records the preserved settings and the root password on `/data` before formatting, so a run after a power cut resumes with them. A successful run removes both records.
 
-`nanokvm-kernel-sg2002` owns the board FITs and metadata below
+`nanokvm-kernel` owns the board FITs and metadata below
 `/usr/lib/nanokvm/boot` and depends on the matching module package. Its APK
 trigger activates the selected board image in `/boot/boot.sd` and requests a
 reboot. This native package path preserves rootfs and settings. The recovery

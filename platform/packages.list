@@ -2,8 +2,8 @@
 #
 #   package  type  path  mode  source
 #
-# package: keys, base, app, release, firmware-sg2002, kernel-sg2002, kmod-sg2002,
-#          zlib, bootloader-sg2002, tpu
+# package: keys, base, app, release, firmware, kernel, kmod,
+#          zlib, bootloader, tpu
 # type:    file  one file
 #          tree  every file below a directory, with this mode; directories 0755
 #          dir   a directory with a mode other than 0755
@@ -17,11 +17,11 @@
 # packages step adds the local test key.
 keys  tree  /etc/apk/keys                                 0644  firmware/alpine/keys
 
-# nanokvm-bootloader-sg2002: fip.bin (FSBL, OpenSBI, U-Boot); its trigger
+# nanokvm-bootloader: fip.bin (FSBL, OpenSBI, U-Boot); its trigger
 # puts it on the boot partition (docs/BOOT.md)
-bootloader-sg2002 file /usr/lib/nanokvm/bootloader/fip.bin  0644  @fip.bin
-bootloader-sg2002 file /usr/libexec/nanokvm/activate-bootloader 0755 firmware/alpine/packages/nanokvm-bootloader-sg2002/activate-bootloader
-bootloader-sg2002 tree /usr/share/licenses/nanokvm-bootloader-sg2002 0644 @fip-licenses
+bootloader file /usr/lib/nanokvm/bootloader/fip.bin  0644  @fip.bin
+bootloader file /usr/libexec/nanokvm/activate-bootloader 0755 firmware/alpine/packages/nanokvm-bootloader/activate-bootloader
+bootloader tree /usr/share/licenses/nanokvm-bootloader 0644 @fip-licenses
 
 # nanokvm-zlib: zlib-ng in zlib-compatible mode, in place of Alpine's zlib
 zlib  file  /usr/lib/libz.so.1.3.2.zlib-ng                0755  @tools/zlib-ng/libz.so.1.3.2.zlib-ng
@@ -99,7 +99,7 @@ base  file  /usr/libexec/nanokvm/legacy/S49persistent-cron 0755 kvmapp/system/in
 base  file  /usr/libexec/nanokvm/legacy/S50avahi-daemon   0755  firmware/alpine/compat/S50avahi-daemon
 base  file  /usr/libexec/nanokvm/legacy/S50sshd           0755  firmware/alpine/compat/S50sshd
 base  file  /usr/libexec/nanokvm/legacy/S80dnsmasq        0755  kvmapp/system/init.d/S80dnsmasq
-base  file  /usr/libexec/nanokvm/legacy/S94sg2002aes      0755  kvmapp/system/init.d/S94sg2002aes
+base  file  /usr/libexec/nanokvm/legacy/S94hwcrypto      0755  kvmapp/system/init.d/S94hwcrypto
 base  link  /usr/libexec/nanokvm/legacy/S95nanokvm        -     /kvmapp/system/init.d/S95nanokvm
 base  file  /usr/libexec/nanokvm/legacy/S96picoclaw       0755  kvmapp/system/init.d/S96picoclaw
 base  file  /usr/libexec/nanokvm/legacy/S98tailscaled     0755  kvmapp/system/init.d/S98tailscaled
@@ -122,7 +122,7 @@ base  link  /etc/init.d/S49persistent-cron                -     /usr/libexec/nan
 base  link  /etc/init.d/S50avahi-daemon                   -     /usr/libexec/nanokvm/legacy/S50avahi-daemon
 base  link  /etc/init.d/S50sshd                           -     /usr/libexec/nanokvm/legacy/S50sshd
 base  link  /etc/init.d/S80dnsmasq                        -     /usr/libexec/nanokvm/legacy/S80dnsmasq
-base  link  /etc/init.d/S94sg2002aes                      -     /usr/libexec/nanokvm/legacy/S94sg2002aes
+base  link  /etc/init.d/S94hwcrypto                      -     /usr/libexec/nanokvm/legacy/S94hwcrypto
 base  link  /etc/init.d/S95nanokvm                        -     /usr/libexec/nanokvm/legacy/S95nanokvm
 base  link  /etc/init.d/S96picoclaw                       -     /usr/libexec/nanokvm/legacy/S96picoclaw
 base  link  /etc/init.d/S98tailscaled                     -     /usr/libexec/nanokvm/legacy/S98tailscaled
@@ -176,7 +176,7 @@ app   file  /kvmapp/system/share/usb-audio/opus-COPYING   0644  @tools/usb-audio
 app   file  /kvmapp/system/share/usb-audio/tinyalsa-LICENSE 0644 @tools/usb-audio/tinyalsa-LICENSE
 app   file  /kvmapp/system/share/serial-console/nanokvm-serial-console.sh  0755 @tools/serial-console/nanokvm-serial-console.sh
 app   file  /kvmapp/system/share/serial-console/nanokvm-serial-console.img 0644 @tools/serial-console/nanokvm-serial-console.img
-app   file  /kvmapp/system/tool/E21_NanoKVM.bin           0644  support/sg2002/nanokvm_update_edid/E21_NanoKVM.bin
+app   file  /kvmapp/system/tool/E21_NanoKVM.bin           0644  support/nanokvm_update_edid/E21_NanoKVM.bin
 app   link  /kvmapp/system/tool/nanokvm_update_edid       -     /usr/sbin/nanokvm_update_edid
 
 # nanokvm-release: the release marker that depends on the tested package set
@@ -184,22 +184,22 @@ release file /etc/nanokvm-release                         0644  %nanokvm-release
 release file /kvmapp/version                              0644  %version
 release file /etc/nanokvm-build-profile                   0644  %nanokvm-build-profile
 
-# nanokvm-firmware-sg2002: Wi-Fi, video codec and HDMI firmware
-firmware-sg2002 tree /lib/firmware                        0644  @firmware/lib/firmware
-firmware-sg2002 tree /usr/share/fw_vcodec                 0644  @firmware/fw_vcodec
-firmware-sg2002 tree /usr/share/nanokvm/edid              0644  @tools/edid
-firmware-sg2002 tree /usr/share/licenses/nanokvm-firmware-sg2002 0644 @firmware/licenses
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini       0644 firmware/boards/sensor-defaults/sensor_cfg.ini
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.LT    0644 firmware/boards/sensor-defaults/sensor_cfg.ini
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.OA    0644 firmware/boards/sensor-defaults/sensor_cfg.ini.OA
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.SC035 0644 firmware/boards/sensor-defaults/sensor_cfg.ini.SC035
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.alpha 0644 firmware/boards/sensor-defaults/sensor_cfg.ini.alpha
-firmware-sg2002 file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.beta  0644 firmware/boards/sensor-defaults/sensor_cfg.ini.beta
+# nanokvm-firmware: Wi-Fi, video codec and HDMI firmware
+firmware tree /lib/firmware                        0644  @firmware/lib/firmware
+firmware tree /usr/share/fw_vcodec                 0644  @firmware/fw_vcodec
+firmware tree /usr/share/nanokvm/edid              0644  @tools/edid
+firmware tree /usr/share/licenses/nanokvm-firmware 0644 @firmware/licenses
+firmware file /usr/share/nanokvm/board-defaults/sensor_cfg.ini       0644 firmware/boards/sensor-defaults/sensor_cfg.ini
+firmware file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.LT    0644 firmware/boards/sensor-defaults/sensor_cfg.ini
+firmware file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.OA    0644 firmware/boards/sensor-defaults/sensor_cfg.ini.OA
+firmware file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.SC035 0644 firmware/boards/sensor-defaults/sensor_cfg.ini.SC035
+firmware file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.alpha 0644 firmware/boards/sensor-defaults/sensor_cfg.ini.alpha
+firmware file /usr/share/nanokvm/board-defaults/sensor_cfg.ini.beta  0644 firmware/boards/sensor-defaults/sensor_cfg.ini.beta
 
-# nanokvm-kernel-sg2002 and nanokvm-kmod-sg2002: the platform outputs
-kernel-sg2002 tree /usr/lib/nanokvm/boot                  0644  @boot
-kernel-sg2002 tree /usr/share/licenses/nanokvm-kernel-sg2002/initramfs 0644 @licenses/initramfs
-kmod-sg2002   tree /lib/modules                           0644  @lib/modules
+# nanokvm-kernel and nanokvm-kmod: the platform outputs
+kernel tree /usr/lib/nanokvm/boot                  0644  @boot
+kernel tree /usr/share/licenses/nanokvm-kernel/initramfs 0644 @licenses/initramfs
+kmod   tree /lib/modules                           0644  @lib/modules
 
 # nanokvm-exfatprogs and nanokvm-i2c-tools: in place of Alpine's community packages
 exfatprogs file /usr/sbin/mkfs.exfat                       0755  @tools/exfatprogs/mkfs.exfat

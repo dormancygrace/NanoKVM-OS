@@ -3,7 +3,7 @@
 package common
 
 /*
-#cgo CFLAGS: -I../../support/sg2002/additional/kvm/include
+#cgo CFLAGS: -I../../support/additional/kvm/include
 #cgo LDFLAGS: -lpthread
 #include "capture_worker.h"
 */

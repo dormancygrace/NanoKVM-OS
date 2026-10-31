@@ -28,7 +28,7 @@ if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip
     raise SystemExit('Expected GCC 16.2')
 includes = [mpi / 'include', mpi / 'include/isp/cv181x', mpi / 'sample/common',
             mpi / 'component/panel/cv181x', sensor / 'common', inih,
-            repo / 'support/sg2002/additional/kvm_mmf/include', repo / 'firmware/mpi']
+            repo / 'support/additional/kvm_mmf/include', repo / 'firmware/mpi']
 flags = ['-Wall', '-Wextra', '-Werror', '-fPIC', '-ffunction-sections', '-fdata-sections',
          *cpu_flags(),
          '-D__CV181X__', '-DOS_IS_LINUX', '-DNANOKVM_OS', '-DSENSOR_LONTIUM_LT6911']
@@ -44,7 +44,7 @@ sources += [sensor / 'common/sensor_list.c']
 sources += sorted((sensor / 'sensor/cv182x/lontium_lt6911').glob('*.c'))
 sources += [inih / 'ini.c', repo / 'firmware/mpi/nanokvm_capture_size.c',
             repo / 'firmware/mpi/nanokvm_vi_buffering.c',
-            repo / 'support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp']
+            repo / 'support/additional/kvm_mmf/src/kvm_mmf.cpp']
 if len(sources) != 21 or len({path.stem for path in sources}) != len(sources):
     raise SystemExit('Unexpected MMF source set; review before updating the build')
 names = ['sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'cvi_ive', 'venc', 'vdec', 'misc',

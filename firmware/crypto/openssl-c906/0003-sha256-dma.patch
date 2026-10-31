@@ -1,29 +1,29 @@
 --- /dev/null
-+++ b/crypto/sha/sha256_sg2002.c
++++ b/crypto/sha/sha256_hwcrypto.c
 @@ -0,0 +1,48 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +/* SG2002 SHA-256 compression only. OpenSSL owns buffering, padding and length. */
 +#include <stdint.h>
 +#include <openssl/crypto.h>
 +#include <openssl/sha.h>
-+#include "crypto/sg2002.h"
++#include "crypto/hwcrypto_transport.h"
 +
 +/* Native C906 qualification selects 4 KiB minimum and request chunks. */
-+#define DMA_BLOCKS (SG2002_CRYPTO_MAX / SHA256_CBLOCK)
++#define DMA_BLOCKS (HWCRYPTO_MAX / SHA256_CBLOCK)
 +/* Reuse the descriptor for tails of at least 512 B, qualified on C906. */
 +#define CONTINUE_BLOCKS 8
 +
-+size_t ossl_sha256_sg2002(SHA256_CTX *ctx, const unsigned char *in, size_t blocks)
++size_t ossl_sha256_hwcrypto(SHA256_CTX *ctx, const unsigned char *in, size_t blocks)
 +{
-+    struct sg2002_crypto_request r = {
-+        .version = SG2002_CRYPTO_ABI, .algorithm = SG2002_ALG_SHA256
++    struct hwcrypto_request r = {
++        .version = HWCRYPTO_ABI, .algorithm = HWCRYPTO_ALG_SHA256
 +    };
 +    size_t completed = 0;
 +    int fd;
 +
 +    if (blocks < DMA_BLOCKS)
 +        return 0;
-+    fd = ossl_sg2002_begin(SG2002_ALG_SHA256);
++    fd = ossl_hwcrypto_begin(HWCRYPTO_ALG_SHA256);
 +    if (fd < 0)
 +        return 0;
 +    for (unsigned int i = 0; i < 8; ++i)
@@ -33,11 +33,11 @@
 +        size_t n = blocks - completed < DMA_BLOCKS ? blocks - completed : DMA_BLOCKS;
 +        r.length = (uint32_t)(n * SHA256_CBLOCK);
 +        r.input = (uintptr_t)(in + completed * SHA256_CBLOCK);
-+        if (!ossl_sg2002_run(fd, &r))
++        if (!ossl_hwcrypto_run(fd, &r))
 +            break;
 +        completed += n;
 +    }
-+    ossl_sg2002_end(fd);
++    ossl_hwcrypto_end(fd);
 +    /* Commit only completed chunks. The caller hashes the rest in software,
 +     * starting from this exact chaining state, including after a late fault.
 +     */
@@ -57,7 +57,7 @@
  GENERATE[sha1-thumb.S]=asm/sha1-thumb.pl
 +
 +IF[{- $target{asm_arch} eq "riscv64" -}]
-+  SOURCE[../../libcrypto]=sha256_sg2002.c
++  SOURCE[../../libcrypto]=sha256_hwcrypto.c
 +ENDIF
 +
 +IF[{- $target{asm_arch} eq "riscv64" -}]
@@ -70,7 +70,7 @@
  void sha256_block_data_order(void *ctx, const void *in, size_t num);
  
 +#ifndef FIPS_MODULE
-+size_t ossl_sha256_sg2002(SHA256_CTX *ctx, const unsigned char *in, size_t blocks);
++size_t ossl_sha256_hwcrypto(SHA256_CTX *ctx, const unsigned char *in, size_t blocks);
 +#if defined(__riscv_xtheadbb)
 +void ossl_sha256_c906_blocks(void *ctx, const void *in, size_t blocks);
 +#endif
@@ -79,7 +79,7 @@
  void sha256_block_data_order(void *ctx, const void *in, size_t num)
  {
 +#ifndef FIPS_MODULE
-+    size_t completed = num >= 64 ? ossl_sha256_sg2002(ctx, in, num) : 0;
++    size_t completed = num >= 64 ? ossl_sha256_hwcrypto(ctx, in, num) : 0;
 +    num -= completed;
 +    in = (const unsigned char *)in + completed * SHA256_CBLOCK;
 +    if (num == 0)

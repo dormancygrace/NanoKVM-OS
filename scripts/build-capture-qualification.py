@@ -35,8 +35,8 @@ for name in ('dual-stream-runtime', 'mjpeg-runtime', 'vpss-demand-runtime'):
     subprocess.run([cross+'g++', '-std=gnu++17', '-O2', '-Wall', '-Wextra', '-Werror',
         '-march=rv64gc_xtheadba_xtheadbb_xtheadbs_xtheadcmo_xtheadcondmov_xtheadfmemidx_xtheadfmv_xtheadint_xtheadmac_xtheadmemidx_xtheadmempair_xtheadsync',
         '-mtune=thead-c906', '-mno-fence-tso', '-mabi=lp64d', '-D__CV181X__',
-        '-I'+str(repo/'support/sg2002/additional/kvm/include'),
-        '-I'+str(repo/'support/sg2002/additional/kvm_mmf/include'), '-I'+str(mpi/'include'),
+        '-I'+str(repo/'support/additional/kvm/include'),
+        '-I'+str(repo/'support/additional/kvm_mmf/include'), '-I'+str(mpi/'include'),
         str(repo/'firmware/probes'/(name+'.cpp')),
         '-L'+str(capture), '-lkvm', '-L'+str(mmf), '-lkvm_mmf', '-Wl,-rpath-link,'+str(mmf)+':'+str(mpi/'lib'),
         '-static-libgcc', '-o', str(dest)], check=True)

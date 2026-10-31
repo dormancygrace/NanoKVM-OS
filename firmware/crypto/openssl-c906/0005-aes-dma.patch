@@ -1,11 +1,11 @@
 --- /dev/null
-+++ b/crypto/sg2002_cipher.c
++++ b/crypto/hwcrypto_cipher.c
 @@ -0,0 +1,80 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stdint.h>
 +#include <string.h>
 +#include <openssl/crypto.h>
-+#include "crypto/sg2002.h"
++#include "crypto/hwcrypto_transport.h"
 +
 +/* Advance just the chosen suffix. GCM uses 32 bits; ordinary CTR uses 128. */
 +static void increment(unsigned char *iv, unsigned int bytes, unsigned int blocks)
@@ -17,42 +17,42 @@
 +    }
 +}
 +
-+size_t ossl_sg2002_cipher(unsigned int algorithm, unsigned int mode, int enc,
++size_t ossl_hwcrypto_cipher(unsigned int algorithm, unsigned int mode, int enc,
 +    const unsigned char *key, size_t keylen, unsigned char *iv,
 +    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
 +    size_t len, size_t minimum, size_t continuation_minimum)
 +{
-+    struct sg2002_crypto_request r;
++    struct hwcrypto_request r;
 +    unsigned char saved_iv[16];
 +    const unsigned int block = 16;
 +    size_t done = 0;
 +    int fd;
 +
-+    if (len < minimum || minimum == 0 || minimum > SG2002_CRYPTO_MAX
++    if (len < minimum || minimum == 0 || minimum > HWCRYPTO_MAX
 +        || continuation_minimum < block || continuation_minimum > minimum
-+        || algorithm != SG2002_ALG_AES
-+        || mode > SG2002_MODE_CTR || keylen > sizeof(r.key)
-+        || (mode != SG2002_MODE_ECB && iv == NULL)
-+        || (mode == SG2002_MODE_CTR && counter_bytes != 4 && counter_bytes != block))
++        || algorithm != HWCRYPTO_ALG_AES
++        || mode > HWCRYPTO_MODE_CTR || keylen > sizeof(r.key)
++        || (mode != HWCRYPTO_MODE_ECB && iv == NULL)
++        || (mode == HWCRYPTO_MODE_CTR && counter_bytes != 4 && counter_bytes != block))
 +        return 0;
-+    fd = ossl_sg2002_begin(algorithm);
++    fd = ossl_hwcrypto_begin(algorithm);
 +    if (fd < 0)
 +        return 0;
 +    memset(&r, 0, sizeof(r));
-+    r.version = SG2002_CRYPTO_ABI;
++    r.version = HWCRYPTO_ABI;
 +    r.algorithm = algorithm;
 +    r.mode = mode;
-+    r.encrypt = mode == SG2002_MODE_CTR ? 1 : enc != 0;
++    r.encrypt = mode == HWCRYPTO_MODE_CTR ? 1 : enc != 0;
 +    r.key_length = (unsigned int)keylen;
 +    memcpy(r.key, key, keylen);
 +    /* Only the first submission pays descriptor acquisition. A later RUN
 +     * still has a fixed cost, so the caller supplies a separate tail floor. */
 +    while (len - done >= (done ? continuation_minimum : minimum)) {
 +        size_t chunk = len - done;
-+        if (chunk > SG2002_CRYPTO_MAX)
-+            chunk = SG2002_CRYPTO_MAX;
++        if (chunk > HWCRYPTO_MAX)
++            chunk = HWCRYPTO_MAX;
 +        chunk -= chunk % block;
-+        if (mode == SG2002_MODE_CTR) {
++        if (mode == HWCRYPTO_MODE_CTR) {
 +            uint32_t counter = (uint32_t)iv[block-4] << 24
 +                | (uint32_t)iv[block-3] << 16 | (uint32_t)iv[block-2] << 8 | iv[block-1];
 +            uint64_t remaining = (UINT64_C(1) << 32) - counter;
@@ -64,54 +64,54 @@
 +        r.length = r.output_length = (unsigned int)chunk;
 +        r.input = (uintptr_t)(in + done);
 +        r.output = (uintptr_t)(out + done);
-+        if (mode != SG2002_MODE_ECB)
++        if (mode != HWCRYPTO_MODE_ECB)
 +            memcpy(r.iv, iv, block);
-+        if (mode == SG2002_MODE_CBC && !enc)
++        if (mode == HWCRYPTO_MODE_CBC && !enc)
 +            memcpy(saved_iv, in + done + chunk - block, block);
-+        if (!ossl_sg2002_run(fd, &r))
++        if (!ossl_hwcrypto_run(fd, &r))
 +            break;
-+        if (mode == SG2002_MODE_CBC)
++        if (mode == HWCRYPTO_MODE_CBC)
 +            memcpy(iv, enc ? out + done + chunk - block : saved_iv, block);
-+        else if (mode == SG2002_MODE_CTR)
++        else if (mode == HWCRYPTO_MODE_CTR)
 +            increment(iv + block - counter_bytes, counter_bytes, (unsigned int)(chunk / block));
 +        done += chunk;
 +    }
-+    ossl_sg2002_end(fd);
++    ossl_hwcrypto_end(fd);
 +    OPENSSL_cleanse(&r, sizeof(r));
 +    OPENSSL_cleanse(saved_iv, sizeof(saved_iv));
 +    return done;
 +}
 --- /dev/null
-+++ b/providers/implementations/ciphers/cipher_aes_sg2002.inc
++++ b/providers/implementations/ciphers/cipher_aes_hwcrypto.inc
 @@ -0,0 +1,47 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
-+#include "crypto/sg2002.h"
-+#include "cipher_aes_sg2002.h"
-+static size_t aes_sg2002_prefix(PROV_CIPHER_CTX *ctx, unsigned int mode,
++#include "crypto/hwcrypto_transport.h"
++#include "cipher_aes_hwcrypto.h"
++static size_t aes_hwcrypto_prefix(PROV_CIPHER_CTX *ctx, unsigned int mode,
 +    unsigned char *out, const unsigned char *in, size_t len)
 +{
 +    PROV_AES_CTX *a = (PROV_AES_CTX *)ctx;
-+    size_t minimum = mode == SG2002_MODE_CTR
-+        ? SG2002_AES_CTR_MIN : SG2002_AES_BLOCK_MIN;
++    size_t minimum = mode == HWCRYPTO_MODE_CTR
++        ? HWCRYPTO_AES_CTR_MIN : HWCRYPTO_AES_BLOCK_MIN;
 +    if (len < minimum)
 +        return 0;
-+    return ossl_sg2002_cipher(SG2002_ALG_AES, mode, ctx->enc,
-+        a->plat.sg2002.key, ctx->keylen, ctx->iv, 16, in, out, len,
-+        minimum, SG2002_AES_CONTINUE_MIN);
++    return ossl_hwcrypto_cipher(HWCRYPTO_ALG_AES, mode, ctx->enc,
++        a->plat.hwcrypto.key, ctx->keylen, ctx->iv, 16, in, out, len,
++        minimum, HWCRYPTO_AES_CONTINUE_MIN);
 +}
-+static int cipher_sg2002_aes_cbc(PROV_CIPHER_CTX *ctx, unsigned char *out,
++static int cipher_hwcrypto_aes_cbc(PROV_CIPHER_CTX *ctx, unsigned char *out,
 +    const unsigned char *in, size_t len)
 +{
-+    size_t n = aes_sg2002_prefix(ctx, SG2002_MODE_CBC, out, in, len);
++    size_t n = aes_hwcrypto_prefix(ctx, HWCRYPTO_MODE_CBC, out, in, len);
 +    return n == len || ossl_cipher_hw_generic_cbc(ctx, out + n, in + n, len - n);
 +}
-+static int cipher_sg2002_aes_ecb(PROV_CIPHER_CTX *ctx, unsigned char *out,
++static int cipher_hwcrypto_aes_ecb(PROV_CIPHER_CTX *ctx, unsigned char *out,
 +    const unsigned char *in, size_t len)
 +{
-+    size_t n = aes_sg2002_prefix(ctx, SG2002_MODE_ECB, out, in, len);
++    size_t n = aes_hwcrypto_prefix(ctx, HWCRYPTO_MODE_ECB, out, in, len);
 +    return n == len || ossl_cipher_hw_generic_ecb(ctx, out + n, in + n, len - n);
 +}
-+static int cipher_sg2002_aes_ctr(PROV_CIPHER_CTX *ctx, unsigned char *out,
++static int cipher_hwcrypto_aes_ctr(PROV_CIPHER_CTX *ctx, unsigned char *out,
 +    const unsigned char *in, size_t len)
 +{
 +    size_t n;
@@ -123,23 +123,23 @@
 +        if (!ossl_cipher_hw_generic_ctr(ctx, out, in, n)) return 0;
 +        out += n; in += n; len -= n;
 +    }
-+    n = aes_sg2002_prefix(ctx, SG2002_MODE_CTR, out, in, len);
++    n = aes_hwcrypto_prefix(ctx, HWCRYPTO_MODE_CTR, out, in, len);
 +    return n == len || ossl_cipher_hw_generic_ctr(ctx, out + n, in + n, len - n);
 +}
-+#define cipher_sg2002_aes_ofb128 ossl_cipher_hw_generic_ofb128
-+#define cipher_sg2002_aes_cfb128 ossl_cipher_hw_generic_cfb128
-+#define cipher_sg2002_aes_cfb1 ossl_cipher_hw_generic_cfb1
-+#define cipher_sg2002_aes_cfb8 ossl_cipher_hw_generic_cfb8
-+#define AES_GENERIC_CIPHER(mode) cipher_sg2002_aes_##mode
++#define cipher_hwcrypto_aes_ofb128 ossl_cipher_hw_generic_ofb128
++#define cipher_hwcrypto_aes_cfb128 ossl_cipher_hw_generic_cfb128
++#define cipher_hwcrypto_aes_cfb1 ossl_cipher_hw_generic_cfb1
++#define cipher_hwcrypto_aes_cfb8 ossl_cipher_hw_generic_cfb8
++#define AES_GENERIC_CIPHER(mode) cipher_hwcrypto_aes_##mode
 --- /dev/null
-+++ b/providers/implementations/ciphers/cipher_aes_gcm_sg2002.inc
++++ b/providers/implementations/ciphers/cipher_aes_gcm_hwcrypto.inc
 @@ -0,0 +1,27 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stddef.h>
 +#include <stdint.h>
-+#include "crypto/sg2002.h"
-+#include "cipher_aes_sg2002.h"
-+static void aes_sg2002_gcm_ctr(const unsigned char *in, unsigned char *out,
++#include "crypto/hwcrypto_transport.h"
++#include "cipher_aes_hwcrypto.h"
++static void aes_hwcrypto_gcm_ctr(const unsigned char *in, unsigned char *out,
 +    size_t blocks, const void *key, const unsigned char ivec[16])
 +{
 +    const PROV_AES_GCM_CTX *a = (const PROV_AES_GCM_CTX *)
@@ -147,10 +147,10 @@
 +    unsigned char iv[16], stream[16];
 +    size_t n = 0;
 +    memcpy(iv, ivec, sizeof(iv));
-+    if (blocks >= SG2002_AES_CTR_MIN / 16)
-+        n = ossl_sg2002_cipher(SG2002_ALG_AES, SG2002_MODE_CTR, 1,
-+        a->plat.sg2002.key, a->base.keylen, iv, 4, in, out, blocks * 16,
-+        SG2002_AES_CTR_MIN, SG2002_AES_CONTINUE_MIN);
++    if (blocks >= HWCRYPTO_AES_CTR_MIN / 16)
++        n = ossl_hwcrypto_cipher(HWCRYPTO_ALG_AES, HWCRYPTO_MODE_CTR, 1,
++        a->plat.hwcrypto.key, a->base.keylen, iv, 4, in, out, blocks * 16,
++        HWCRYPTO_AES_CTR_MIN, HWCRYPTO_AES_CONTINUE_MIN);
 +    in += n; out += n; blocks -= n / 16;
 +    while (blocks-- != 0) {
 +        AES_encrypt(iv, stream, key);
@@ -161,23 +161,23 @@
 +    OPENSSL_cleanse(stream, sizeof(stream));
 +    OPENSSL_cleanse(iv, sizeof(iv));
 +}
---- a/include/crypto/sg2002.h
-+++ b/include/crypto/sg2002.h
+--- a/include/crypto/hwcrypto_transport.h
++++ b/include/crypto/hwcrypto_transport.h
 @@ -1,9 +1,18 @@
  /* SPDX-License-Identifier: Apache-2.0 */
- #ifndef OSSL_NANOKVM_SG2002_TRANSPORT_H
- #define OSSL_NANOKVM_SG2002_TRANSPORT_H
+ #ifndef OSSL_NANOKVM_HWCRYPTO_TRANSPORT_H
+ #define OSSL_NANOKVM_HWCRYPTO_TRANSPORT_H
 +#include <stddef.h>
- #include "crypto/sg2002_crypto.h"
+ #include "crypto/hwcrypto.h"
  /* A call owns its fd. No shared request, key, buffer or userspace mutex. */
- int ossl_sg2002_begin(unsigned int algorithm);
- int ossl_sg2002_run(int fd, struct sg2002_crypto_request *request);
- void ossl_sg2002_end(int fd);
+ int ossl_hwcrypto_begin(unsigned int algorithm);
+ int ossl_hwcrypto_run(int fd, struct hwcrypto_request *request);
+ void ossl_hwcrypto_end(int fd);
 +/* AES only: returns a whole-block prefix; advances IV only on success.
 + * minimum includes session setup; continuation_minimum includes only RUN.
 + * The caller resumes its original software operation over the remainder.
 + */
-+size_t ossl_sg2002_cipher(unsigned int algorithm, unsigned int mode, int enc,
++size_t ossl_hwcrypto_cipher(unsigned int algorithm, unsigned int mode, int enc,
 +    const unsigned char *key, size_t keylen, unsigned char *iv,
 +    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
 +    size_t len, size_t minimum, size_t continuation_minimum);
@@ -189,9 +189,9 @@
 -# NanoKVM direct DMA access is private to the normal/legacy providers.
 +# NanoKVM direct DMA access is private to the normal provider.
  IF[{- $target{asm_arch} eq "riscv64" -}]
--  SOURCE[../libcrypto]=sg2002.c
--  SOURCE[../providers/liblegacy.a]=sg2002.c
-+  SOURCE[../libcrypto]=sg2002.c sg2002_cipher.c
+-  SOURCE[../libcrypto]=hwcrypto.c
+-  SOURCE[../providers/liblegacy.a]=hwcrypto.c
++  SOURCE[../libcrypto]=hwcrypto.c hwcrypto_cipher.c
  ENDIF
 --- a/providers/implementations/ciphers/cipher_aes.h
 +++ b/providers/implementations/ciphers/cipher_aes.h
@@ -200,7 +200,7 @@
      union {
          int dummy;
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
-+        struct { unsigned char key[32]; } sg2002;
++        struct { unsigned char key[32]; } hwcrypto;
 +#endif
  #if defined(OPENSSL_CPUID_OBJ) && defined(__s390__)
          struct {
@@ -212,7 +212,7 @@
      union {
          int dummy;
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
-+        struct { unsigned char key[32]; } sg2002;
++        struct { unsigned char key[32]; } hwcrypto;
 +#endif
  #if defined(OPENSSL_CPUID_OBJ) && defined(__s390__)
          struct {
@@ -224,13 +224,13 @@
      }
  
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
-+    memcpy(adat->plat.sg2002.key, key, keylen);
++    memcpy(adat->plat.hwcrypto.key, key, keylen);
 +#endif
      return 1;
  }
 +
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
-+#include "cipher_aes_sg2002.inc"
++#include "cipher_aes_hwcrypto.inc"
 +#else
 +#define AES_GENERIC_CIPHER(mode) ossl_cipher_hw_generic_##mode
 +#endif
@@ -253,7 +253,7 @@
  #include "cipher_aes_gcm.h"
 +
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
-+#include "cipher_aes_gcm_sg2002.inc"
++#include "cipher_aes_gcm_hwcrypto.inc"
 +#endif
  
  static int aes_gcm_initkey(PROV_GCM_CTX *ctx, const unsigned char *key,
@@ -263,20 +263,20 @@
  #endif /* AES_CTR_ASM */
      }
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
-+    memcpy(actx->plat.sg2002.key, key, keylen);
-+    ctx->ctr = aes_sg2002_gcm_ctr;
++    memcpy(actx->plat.hwcrypto.key, key, keylen);
++    ctx->ctr = aes_hwcrypto_gcm_ctr;
 +#endif
      return 1;
  }
  
 --- /dev/null
-+++ b/providers/implementations/ciphers/cipher_aes_sg2002.h
++++ b/providers/implementations/ciphers/cipher_aes_hwcrypto.h
 @@ -0,0 +1,8 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
-+#ifndef OSSL_NANOKVM_AES_SG2002_H
-+#define OSSL_NANOKVM_AES_SG2002_H
++#ifndef OSSL_NANOKVM_AES_HWCRYPTO_H
++#define OSSL_NANOKVM_AES_HWCRYPTO_H
 +/* Native C906 thresholds against the extract/scaled-load software path. */
-+#define SG2002_AES_BLOCK_MIN 3072
-+#define SG2002_AES_CTR_MIN 2048
-+#define SG2002_AES_CONTINUE_MIN 512
++#define HWCRYPTO_AES_BLOCK_MIN 3072
++#define HWCRYPTO_AES_CTR_MIN 2048
++#define HWCRYPTO_AES_CONTINUE_MIN 512
 +#endif

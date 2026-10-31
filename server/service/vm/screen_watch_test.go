@@ -243,7 +243,7 @@ func TestScreenWatchYieldsToAViewerDuringTheRead(t *testing.T) {
 	held := make(chan func(), 1)
 	var cancelled bool
 	s.duringRead = func(ctx context.Context) {
-		go func() { held <- videogate.Hold() }() // a video session starts
+		go func() { release, _ := videogate.Hold(nil); held <- release }() // a video session starts
 		select {
 		case <-ctx.Done():
 			cancelled = true

@@ -43,7 +43,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 import addon_packages
-from release_assets import STORAGE_PREFIX, STORAGE_MARKER, storage_tag
+from release_assets import STORAGE_PREFIX, STORAGE_MARKER, storage_tag, image_versions
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
@@ -217,7 +217,8 @@ def install_link(published):
     """The newest image, for new cards: not every release carries one."""
     for release in published:
         public_assets = release.get('_public_assets', release['assets'])
-        image = next((a for a in public_assets if a['name'].endswith('.img.zip')), None)
+        image = next((a for a in public_assets if (versions := image_versions(a['name']))
+                      and versions[1] == release['tag_name']), None)
         if image:
             sums = next(a for a in public_assets if a['name'] == 'SHA256SUMS')
             return (f'\n<p>To install on a new SD card: <a href="{escape(image["browser_download_url"])}">'
@@ -233,10 +234,10 @@ def image_badge(output, published, include_beta=False):
     for release in published:
         if is_beta(release) and not include_beta:
             continue
-        image = next((a for a in release['assets'] if re.fullmatch(
-            r'NanoKVM-OS-Image-(v.+)-apps-v.+\.img\.zip', a['name'])), None)
+        image = next((a for a in release['assets'] if (versions := image_versions(a['name']))
+                      and versions[1] == release['tag_name']), None)
         if image:
-            message = re.fullmatch(r'NanoKVM-OS-Image-(v.+)-apps-v.+\.img\.zip', image['name'])[1]
+            message = image_versions(image['name'])[0]
             color = 'blue'
             target += '/tag/' + quote(release['tag_name'], safe='')
             break

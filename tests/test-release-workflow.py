@@ -224,9 +224,22 @@ class ReleaseExecutionTests(unittest.TestCase):
                     if event in ('workflow_dispatch', 'pull_request'):
                         self.assertEqual(values['version'], 'v3.3.1')
                         self.assertEqual(values['apk_version'], '3.3.1')
-                        self.assertEqual(values['image_version'], 'v1.6')
+                        self.assertNotIn('image_version', values)
                         self.assertEqual(values['previous'], 'v3.2.0')
                         self.assertEqual(values['draft'], 'false' if event == 'workflow_dispatch' else 'true')
+
+            # A package-only hotfix also works when the entire release history
+            # has no image assets. IMAGE controls publication, not versioning.
+            (root / 'releases').write_text(json.dumps({'tag_name': 'v3.3.0', 'draft': False, 'assets': []}))
+            (root / 'output').write_text('')
+            result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,
+                                    env={**env, 'IMAGE': 'false'}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values = dict(line.split('=', 1) for line in (root / 'output').read_text().splitlines())
+            self.assertEqual(values['version'], 'v3.3.1')
+            self.assertEqual(values['image'], 'false')
+            self.assertNotIn('image_version', values)
+            (root / 'releases').write_text('\n'.join(json.dumps(r) for r in releases))
 
             # A failed release lookup must not fall back to stale release.env.
             (root / 'output').write_text('')
@@ -251,7 +264,7 @@ class ReleaseExecutionTests(unittest.TestCase):
             self.assertEqual(values['channel'], 'beta')
             self.assertEqual(values['version'], 'v3.3.1-beta.1')
             self.assertEqual(values['apk_version'], '3.3.1_beta1')
-            self.assertEqual(values['image_version'], 'v1.6-beta.1')
+            self.assertNotIn('image_version', values)
 
     def test_both_channels_compare_against_latest_tested_packages(self):
         # The packages are built, and compared with the published ones, in the

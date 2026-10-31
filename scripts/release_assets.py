@@ -12,6 +12,16 @@ REQUIRED = TECHNICAL - {'build-manifest.json', 'addons.json'}
 STOCK_INSTALLER = re.compile(r'nanokvm_\d+\.\d+\.\d+\.tar\.gz')
 
 
+def image_versions(name):
+    """Return (image label, OS version) for current and historical SD assets."""
+    version = r'v[0-9][A-Za-z0-9.-]*'
+    if match := re.fullmatch(r'NanoKVM-OS-(' + version + r')\.img\.zip', name):
+        return match[1], match[1]
+    if match := re.fullmatch(r'NanoKVM-OS-Image-(' + version + r')-apps-(' + version + r')\.img\.zip', name):
+        return match[1], match[2]
+    return None
+
+
 def storage_tag(version):
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?', version):
         raise ValueError(f'Unsupported release version: {version}')
@@ -38,8 +48,8 @@ def split(directory):
     for file in files:
         if file.is_symlink() or not file.is_file():
             raise ValueError(f'Not a regular release file: {file}')
-        if re.fullmatch(r'NanoKVM-OS-.+-source\.tar\.xz', file.name) or re.fullmatch(
-                r'NanoKVM-OS-Image-.+\.img\.zip', file.name) or STOCK_INSTALLER.fullmatch(file.name):
+        if re.fullmatch(r'NanoKVM-OS-.+-source\.tar\.xz', file.name) or image_versions(
+                file.name) or STOCK_INSTALLER.fullmatch(file.name):
             public.append(file)
         elif file.name in TECHNICAL or file.name.endswith('.apk'):
             packages.append(file)

@@ -14,8 +14,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Application version
-      description: Copy the Applications version from Settings → About. If the device cannot boot, enter the release you installed or “unknown”.
+      label: NanoKVM OS version
+      description: Copy the NanoKVM OS version from Settings → About. If the device cannot boot, enter the release you installed or “unknown”.
       placeholder: e.g. v3.4.0
     validations:
       required: true
@@ -33,8 +33,8 @@ body:
   - type: input
     id: image
     attributes:
-      label: Installed image version
-      description: Copy the Installed image version from Settings → About, if available. It can differ from the application version.
+      label: Initial installation
+      description: Copy Initial installation from Settings → About, if available (Installed image in older versions). This identifies the original installation and can differ from the currently running version.
       placeholder: e.g. v1.6, or unknown
   - type: dropdown
     id: channel

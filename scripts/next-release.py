@@ -8,12 +8,11 @@
 Drafts reserve versions. Stable ignores beta releases. --channel beta uses
 the next stable base with -beta.N tags and _betaN APK versions; final stable
 supersedes its betas. Each channel follows its newest line, so a beta for an
-older target is refused once a newer beta exists. The image version follows
-the newest stable image; with --image, its minor plus one (and a beta suffix
-for a beta image).
+older target is refused once a newer beta exists. SD images use the OS release
+version; their presence and historical names do not affect version selection.
 
 Reads the JSON of GitHub's release list (drafts included) on standard input and
-prints key=value lines for $GITHUB_OUTPUT: version, apk_version, image_version,
+prints key=value lines for $GITHUB_OUTPUT: version, apk_version,
 and previous (the release the notes start from).
 """
 import argparse
@@ -22,17 +21,16 @@ import re
 import sys
 
 RELEASE = re.compile(r'v(\d+)\.(\d+)\.(\d+)')
-IMAGE = re.compile(r'NanoKVM-OS-Image-v(\d+)\.(\d+)')
 BETA = re.compile(r'v(\d+)\.(\d+)\.(\d+)-beta\.([1-9][0-9]*)')
 BRANCH = re.compile(r'release/(\d+)\.(\d+)')
 
 
-def next_release(releases, kind, ref, image, channel='stable'):
+def next_release(releases, kind, ref, channel='stable'):
     if channel not in ('stable', 'beta'):
         raise ValueError('unknown release channel')
     stable = [r for r in releases if not r.get('prerelease') and not BETA.fullmatch(r['tag_name'])]
     if channel == 'beta':
-        result = next_release(stable, kind, ref, image)
+        result = next_release(stable, kind, ref)
         target = result['version']
         base = tuple(map(int, RELEASE.fullmatch(target).groups()))
         if any(tuple(map(int, m.groups()[:3])) > base for r in releases
@@ -46,8 +44,6 @@ def next_release(releases, kind, ref, image, channel='stable'):
             result['previous'] = max(published, key=lambda r: int(BETA.fullmatch(r['tag_name'])[4]))['tag_name']
         result['version'] += f'-beta.{number}'
         result['apk_version'] += f'_beta{number}'
-        if image:
-            result['image_version'] += f'-beta.{number}'
         return result
     releases = stable
     versions = [tuple(map(int, m.groups())) for r in releases if (m := RELEASE.fullmatch(r['tag_name']))]
@@ -77,15 +73,8 @@ def next_release(releases, kind, ref, image, channel='stable'):
     # latest published earlier line.
     previous_line = [v for v in published if v[:2] == version[:2] and v < version]
     previous = max(previous_line or [v for v in published if v < version], default=None)
-    images = [tuple(map(int, m.groups())) for r in releases if not r['draft'] or image
-              for a in r['assets'] if (m := IMAGE.match(a['name']))]
-    if not images:
-        raise ValueError('no published image')
-    image_major, image_minor = max(images)
-    if image:
-        image_minor += 1
     text = '.'.join(map(str, version))
-    return {'version': 'v' + text, 'apk_version': text, 'image_version': f'v{image_major}.{image_minor}',
+    return {'version': 'v' + text, 'apk_version': text,
             'previous': 'v' + '.'.join(map(str, previous)) if previous else ''}
 
 
@@ -94,10 +83,9 @@ def main():
     parser.add_argument('--channel', choices=('stable', 'beta'), default='stable')
     parser.add_argument('--kind', choices=('patch', 'minor'), required=True)
     parser.add_argument('--ref', required=True)
-    parser.add_argument('--image', action='store_true', help='the release publishes a new image')
     args = parser.parse_args()
     try:
-        values = next_release(json.load(sys.stdin), args.kind, args.ref, args.image, args.channel)
+        values = next_release(json.load(sys.stdin), args.kind, args.ref, args.channel)
     except ValueError as error:
         sys.exit(f'next-release: {error}')
     for key, value in values.items():

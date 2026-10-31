@@ -1117,8 +1117,8 @@
       "cancelBtn": "キャンセル"
     },
     "about": {
-      "applicationVersion": "アプリケーション",
-      "imageVersion": "インストール済みイメージ",
+      "applicationVersion": "NanoKVM OS",
+      "imageVersion": "初回インストール",
       "bundledVersion": "イメージに同梱のアプリケーション",
       "title": "NanoKVM について",
       "description": "NanoKVM 用のコミュニティファームウェア。",

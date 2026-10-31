@@ -1117,8 +1117,8 @@
       "cancelBtn": "Cancelar"
     },
     "about": {
-      "applicationVersion": "Aplicaciones",
-      "imageVersion": "Imagen instalada",
+      "applicationVersion": "NanoKVM OS",
+      "imageVersion": "Instalación inicial",
       "bundledVersion": "Aplicaciones incluidas en la imagen",
       "title": "Sobre NanoKVM",
       "description": "Firmware comunitario para NanoKVM.",

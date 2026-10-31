@@ -1117,8 +1117,8 @@
       "cancelBtn": "Cancel"
     },
     "about": {
-      "applicationVersion": "Applications",
-      "imageVersion": "Installed image",
+      "applicationVersion": "NanoKVM OS",
+      "imageVersion": "Initial installation",
       "bundledVersion": "Applications bundled with image",
       "title": "About",
       "description": "Independent community firmware for NanoKVM.",

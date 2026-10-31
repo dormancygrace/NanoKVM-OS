@@ -6,7 +6,7 @@
 
 **Browser KVM, Internet over USB, remote access and a full Alpine system — on SG2002 NanoKVM hardware.**
 
-[![Latest applications](https://img.shields.io/github/v/release/dormancygrace/NanoKVM-OS?filter=v*&label=applications&color=blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/latest)
+[![Latest NanoKVM OS](https://img.shields.io/github/v/release/dormancygrace/NanoKVM-OS?filter=v*&label=NanoKVM%20OS&color=blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/latest)
 [![Latest SD image](https://img.shields.io/endpoint?url=https%3A%2F%2Fdormancygrace.github.io%2FNanoKVM-OS%2Flatest-image%2Fbadge.json)](https://dormancygrace.github.io/NanoKVM-OS/latest-image/)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
@@ -31,7 +31,7 @@
 
 Underneath the interface is **Alpine Linux 3.24 on a writable F2FS root**, with ordinary APK packages, OpenRC services and official Alpine userspace. You can install software, update individual components and retain your settings without rebuilding or reflashing the entire card.
 
-See the [latest application release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) for what’s new, or get the [latest SD image](https://dormancygrace.github.io/NanoKVM-OS/latest-image/) for a fresh installation. Applications and images have separate version numbers; package-only updates keep the previous image available. New release downloads contain the image (when included), corresponding sources and checksums. APKs and build metadata live in [technical package storage](firmware/alpine/README.md#public-downloads-and-technical-package-storage) in this repository; devices continue to update through the signed APK repository.
+See the [latest OS release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) for what’s new, or get the [latest SD image](https://dormancygrace.github.io/NanoKVM-OS/latest-image/) for a fresh installation. New SD images use the OS release version; package-only updates keep the previous image available. New release downloads contain the image (when included), corresponding sources and checksums. APKs and build metadata live in [technical package storage](firmware/alpine/README.md#public-downloads-and-technical-package-storage) in this repository; devices continue to update through the signed APK repository.
 
 **💡 Help shape what comes next.** [Share your ideas and feature requests](https://github.com/dormancygrace/NanoKVM-OS/issues/406), browse community suggestions, and add a **👍 reaction** to the ones you would use. One idea per comment makes it easy for others to find it and vote.
 
@@ -180,7 +180,7 @@ Receiver-specific features, including higher resolutions and programmable EDID, 
 
 1. Try the [current release](https://github.com/dormancygrace/NanoKVM-OS/releases/latest) using the [installation](#install) or [update](#updates) instructions.
 2. Check what you normally use: boot and network access, video and audio, keyboard/mouse, USB media, and OLED or ATX controls where your board has them. A desktop or phone session and reconnecting after a reboot are useful checks. **You do not need to test every feature.**
-3. [Share a test report](https://github.com/dormancygrace/NanoKVM-OS/issues/new?template=hardware_compatibility.yml&title=Hardware%20test%20report%3A%20) — a successful test is worth reporting too. Include your **board/revision**, HDMI receiver if known, **application and image versions** from About, fresh install or upgrade, browser/OS, and the resolution/FPS, codec and transport you tried. Name the specific features you tried and separate **Works**, **Fails** and **Not tested**; for a failure, add reproduction steps and relevant GUI logs.
+3. [Share a test report](https://github.com/dormancygrace/NanoKVM-OS/issues/new?template=hardware_compatibility.yml&title=Hardware%20test%20report%3A%20) — a successful test is worth reporting too. Include your **board/revision**, HDMI receiver if known, **current OS and original installation versions** from About, fresh install or upgrade, browser/OS, and the resolution/FPS, codec and transport you tried. Name the specific features you tried and separate **Works**, **Fails** and **Not tested**; for a failure, add reproduction steps and relevant GUI logs.
 
 Report the exact versions you tested, rather than “latest”. Features in unreleased PRs should be tested only with the specific build and instructions provided for that PR.
 
@@ -200,7 +200,7 @@ The [latest SD image page](https://dormancygrace.github.io/NanoKVM-OS/latest-ima
 
 The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
 
-Image and application versions are independent: later APK updates preserve the original image identity. **About** shows the installed image, its bundled applications and the current application version.
+SD images use the version of the OS release they contain. **About** shows the current OS version and the image used for the initial installation; package updates preserve that installation history. Older images retain their historical image number and bundled application version.
 
 <a id="updates"></a>
 

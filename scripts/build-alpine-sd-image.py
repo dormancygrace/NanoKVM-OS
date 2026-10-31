@@ -29,12 +29,12 @@ p.add_argument('--f2fs-tools',type=Path,required=True)
 p.add_argument('--output',type=Path,required=True)
 release_file=Path(__file__).resolve().parents[1]/'firmware/alpine/release.env'
 release_values=dict(line.split('=',1) for line in release_file.read_text().splitlines() if line and not line.startswith('#'))
-p.add_argument('--version',default=release_values['NANOKVM_VERSION'], help='Bundled application version')
-p.add_argument('--image-version',default=release_values['NANOKVM_IMAGE_VERSION'])
+p.add_argument('--version',default=release_values['NANOKVM_VERSION'], help='NanoKVM OS release version')
+p.add_argument('--profile',choices=('release','debug'),default='release')
 a=p.parse_args()
-for version in (a.version, a.image_version):
-    if not version or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-' for c in version):
-        p.error('Invalid version')
+if not a.version or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-' for c in a.version):
+    p.error('Invalid version')
+image_name_version=a.version + ('-debug' if a.profile == 'debug' else '')
 out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
 root=out/'root';root.mkdir()
 def run(*args):
@@ -92,10 +92,12 @@ files=out/'boot-files';files.mkdir()
 run('sh',bootset/'compose-fit',bootset,'detect',files/'boot.sd');shutil.copy2(a.fip,files/'fip.bin')
 (files/'uEnv.txt').write_text(UENV)
 (files/'hostname.prefix').write_text('kvm')
+# Keep the metadata keys understood by existing clients. Both versions now
+# derive from the OS release; the debug profile is only a build qualifier.
 # Origin metadata belongs to the SD image, never to an upgradable APK.
-image_metadata={'image_version':a.image_version,'bundled_application_version':a.version}
+image_metadata={'image_version':image_name_version,'bundled_application_version':a.version}
 (files/'image.json').write_text(json.dumps(image_metadata,indent=2)+'\n')
-(files/'ver').write_text('NanoKVM OS Image '+a.image_version+'\n')
+(files/'ver').write_text('NanoKVM OS '+image_name_version+'\n')
 # The fresh-install USB flags come with the rootfs (etc/kvm/usb).
 assert (root/'etc/kvm/usb/.layout-v1').is_file()
 assert (root/'etc/kvm/usb/usb.dev').is_file() and (root/'etc/kvm/usb/usb.disk0').is_file()
@@ -106,7 +108,7 @@ mbr=bytearray(512);mbr[510:]=b'\x55\xaa'
 for index,kind,start,sectors in [(0,0x0c,BOOT_START,BOOT_SECTORS),(1,0x83,ROOT_START,ROOT_SECTORS)]:
     offset=446+16*index
     struct.pack_into('<B3sB3sII',mbr,offset,0,b'\xfe\xff\xff',kind,b'\xfe\xff\xff',start,sectors)
-image=out/('NanoKVM-OS-Image-'+a.image_version+'-apps-'+a.version+'.img')
+image=out/('NanoKVM-OS-'+image_name_version+'.img')
 with image.open('xb') as dst:
     dst.write(mbr)
     for start, source in [(BOOT_START,bootimage),(ROOT_START,rootimage)]:

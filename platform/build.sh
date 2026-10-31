@@ -110,7 +110,6 @@ export GIT_CEILING_DIRECTORIES=$out
 # firmware/alpine/release.env.
 version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")}
 # Official Alpine packages.
-image_version=${NANOKVM_IMAGE_VERSION:-$(sed -n 's/^NANOKVM_IMAGE_VERSION=//p' "$repo/firmware/alpine/release.env")}
 profile=stock
 release=7.3.1-nanokvm-os-r7
 [ "$kernel_profile" = release ] || release=$release-debug
@@ -1284,13 +1283,10 @@ clean() {
 # The SD card image: boot partition with fip.bin and the detect boot.sd,
 # F2FS root partition from the rootfs step.
 image() {
-    local name_version=$image_version
-    # A debug image says so in its file name.
-    [ "$kernel_profile" = release ] || name_version=$image_version-debug
     rm -rf "${rel:?}/image"
     PATH=$bo/host/sbin:$host:$PATH "$host/python3" "$repo/scripts/build-alpine-sd-image.py" \
         --rootfs-archive "$rel/alpine-rootfs.tar.gz" --fip "$img/fip.bin" --f2fs-tools "$bo/host/sbin" \
-        --output "$rel/image" --version "$version" --image-version "$name_version"
+        --output "$rel/image" --version "$version" --profile "$kernel_profile"
 }
 
 # The hash of every output. CI publishes them for each build of main and

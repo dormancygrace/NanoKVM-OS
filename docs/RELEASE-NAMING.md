@@ -1,31 +1,39 @@
 # Current release naming
 
-Starting with **NanoKVM OS v2.5-a1**, application releases and full SD images
-are versioned independently. Alpha (`a`) releases are marked as GitHub
-prereleases.
+New full SD images share the NanoKVM OS release version. There is no separate
+image counter. The release workflow selects one OS version; the image builder
+uses it for the filename and original-installation metadata.
 
-| Artifact | First release with independent image version |
-|---|---|
-| Application release / Git tag | `v2.5-a1` |
-| GitHub release title | `NanoKVM OS v2.5-a1 · Image v1.0-a1 (Alpha)` |
-| Full image | `NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip` |
-| APK upstream version | `2.5_alpha1` |
-| Corresponding source | `NanoKVM-OS-v2.5-a1-source.tar.xz` |
+| Artifact | Stable example | Beta example |
+|---|---|---|
+| OS release / Git tag | `v3.7.0` | `v3.7.0-beta.2` |
+| GitHub release title | `NanoKVM OS v3.7.0` | `NanoKVM OS v3.7.0-beta.2` |
+| Full SD image | `NanoKVM-OS-v3.7.0.img.zip` | `NanoKVM-OS-v3.7.0-beta.2.img.zip` |
+| APK upstream version | `3.7.0` | `3.7.0_beta2` |
+| Corresponding source | `NanoKVM-OS-v3.7.0-source.tar.xz` | `NanoKVM-OS-v3.7.0-beta.2-source.tar.xz` |
 
-The full image is an installation bundle. Its version does not replace the
-application version or APK ordering. A subsequent application update can be
-installed on Image v1.0-a1 without rewriting that image's origin metadata.
-The original bundled version stays visible alongside the current application
-version in About. A new full image gets an independently selected image version.
+The ZIP contains the same stem with `.img`. Checksums use `SHA256SUMS`.
+A local debug image adds `-debug` before `.img.zip`; this is a build-profile
+qualifier, not an independent release version.
 
-Values live in `firmware/alpine/release.env`; the SD builder and build manifest
-use them directly. Legacy v1 naming is documented below for archived artifacts.
+A patch such as `v3.7.1` may publish only packages and corresponding source.
+The latest-image badge and download link then remain on the newest release
+that actually includes an image. Stable excludes beta images; the beta channel
+can offer either stable or beta releases according to its existing ordering.
 
-## Stable releases
+`firmware/alpine/release.env` defines the OS baseline and its APK-comparable
+version. `/boot/image.json` records the original installation and is not replaced
+by package updates. About can therefore show OS `v3.7.1` installed from image
+`v3.7.0` without implying that the SD card was reflashed.
 
-Stable versions have no suffix: for example applications **v3.1.0** (APK
-version **3.1.0**) in **Image v1.3**, published as
-`NanoKVM-OS-Image-v1.3-apps-v3.1.0.img.zip`.
+## Historical independent image versions
+
+Releases from applications **v2.5-a1** used a separate Image v1.x series, such as
+`NanoKVM-OS-Image-v1.0-a1-apps-v2.5-a1.img.zip` and
+`NanoKVM-OS-Image-v1.8-apps-v3.6.0.img.zip`. Those published assets and installed
+metadata keep their original names. Pages and publication recovery recognize
+both formats; About retains the bundled application version when it differs
+from the historical image number.
 
 ## Legacy naming (v1 releases)
 

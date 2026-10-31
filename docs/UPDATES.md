@@ -103,9 +103,11 @@ APK resolves dependencies and verifies signatures. Software → Add-ons manages
 RustDesk, PicoClaw and acme.sh. RustDesk comes from the signed NanoKVM repository;
 PicoClaw and acme.sh use their upstream release downloads.
 
-Full SD images and application releases have independent versions.
-Component updates keep the original image identity;
-About shows both versions. Reflashing is not required for routine updates.
+New full SD images use the OS release version. A package-only hotfix does not
+require a new image; the latest-image link continues to offer the newest
+published image. Component updates preserve the original installation metadata
+shown in About, including historical image numbers. Reflashing is not required
+for routine updates.
 
 ## Component versions and support
 

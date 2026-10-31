@@ -82,7 +82,7 @@ class ReleaseStorageTests(unittest.TestCase):
         self.directory.mkdir()
         for name in assets.REQUIRED | {'nanokvm-3.3.1-r0.apk', 'build-manifest.json',
                                       'NanoKVM-OS-v3.3.1-source.tar.xz',
-                                      'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip'}:
+                                      'NanoKVM-OS-v3.3.1.img.zip'}:
             (self.directory / name).write_text('content of ' + name)
         apk = self.directory / 'nanokvm-3.3.1-r0.apk'
         (self.directory / 'packages.json').write_text(json.dumps({
@@ -92,7 +92,7 @@ class ReleaseStorageTests(unittest.TestCase):
         self.state.write_text(json.dumps({'calls': [], 'releases': {}}))
         self.env = {**os.environ, 'PATH': str(self.root) + ':' + os.environ['PATH'],
                     'STATE': str(self.state), 'OUT': str(self.root), 'NANOKVM_VERSION': 'v3.3.1',
-                    'NANOKVM_IMAGE_VERSION': 'v1.5', 'GITHUB_REPOSITORY': 'example/test',
+                    'GITHUB_REPOSITORY': 'example/test',
                     'IMAGE': 'true', 'DRAFT': 'false', 'PREVIOUS': 'v3.3.0',
                     'SHA': 'a' * 40, 'DEFAULT_BRANCH': 'main'}
 
@@ -104,7 +104,7 @@ class ReleaseStorageTests(unittest.TestCase):
     def test_split_public_downloads_and_separate_hashes(self):
         assets.split(self.directory)
         self.assertEqual({p.name for p in (self.directory / 'public').iterdir()}, {
-            'NanoKVM-OS-v3.3.1-source.tar.xz', 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip', 'SHA256SUMS'})
+            'NanoKVM-OS-v3.3.1-source.tar.xz', 'NanoKVM-OS-v3.3.1.img.zip', 'SHA256SUMS'})
         for part in ('public', 'packages'):
             result = subprocess.run(['sha256sum', '-c', 'SHA256SUMS'], cwd=self.directory / part,
                                     capture_output=True)
@@ -139,8 +139,38 @@ class ReleaseStorageTests(unittest.TestCase):
             assets.split(self.directory)
         self.assertFalse((self.directory / 'public').exists())
 
+    def test_legacy_image_name_can_still_publish_and_resume(self):
+        old = 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip'
+        (self.directory / 'NanoKVM-OS-v3.3.1.img.zip').rename(self.directory / old)
+        assets.split(self.directory)
+        result, state = self.invoke(FAIL_PUBLISH='v3.3.1')
+        self.assertNotEqual(result.returncode, 0)
+        original = state['releases']['v3.3.1']['assets']
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(state['releases']['v3.3.1']['assets'], original)
+        self.assertIn(old, {x['name'] for x in original})
+
+    def test_wrong_or_duplicate_image_version_is_not_published(self):
+        for name, duplicate in [('NanoKVM-OS-v3.3.2.img.zip', False),
+                                ('NanoKVM-OS-Image-v1.8-apps-v3.3.2.img.zip', False),
+                                ('NanoKVM-OS-Image-v1.8-apps-v3.3.1.img.zip', True)]:
+            with self.subTest(name=name):
+                # Recreate a fresh fixture for each independent rejected release.
+                self.setUp()
+                current = self.directory / 'NanoKVM-OS-v3.3.1.img.zip'
+                if duplicate:
+                    (self.directory / name).write_bytes(current.read_bytes())
+                else:
+                    current.rename(self.directory / name)
+                assets.split(self.directory)
+                result, state = self.invoke()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('incomplete or unexpected', result.stderr)
+                self.assertFalse(state['releases'])
+
     def test_patch_without_image_contains_only_source_and_checksums(self):
-        (self.directory / 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip').unlink()
+        (self.directory / 'NanoKVM-OS-v3.3.1.img.zip').unlink()
         (self.directory / 'build-manifest.json').unlink()
         assets.split(self.directory)
         result, state = self.invoke(IMAGE='false')
@@ -157,7 +187,7 @@ class ReleaseStorageTests(unittest.TestCase):
         data = json.loads(manifest.read_text())
         data['packages']['nanokvm']['apk_sha256'] = assets.digest(self.directory / 'packages/nanokvm-3.3.1-r0.apk')
         manifest.write_text(json.dumps(data))
-        (self.directory / 'public/NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip').write_text('rebuilt image')
+        (self.directory / 'public/NanoKVM-OS-v3.3.1.img.zip').write_text('rebuilt image')
         for name in ('public', 'packages'):
             sums = self.directory / name / 'SHA256SUMS'
             sums.write_text(''.join(f'{assets.digest(f)}  {f.name}\n'
@@ -196,7 +226,7 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertFalse(storage['latest'])
         self.assertIn(assets.marker('v3.3.1'), public['body'])
         self.assertEqual({a['name'] for a in public['assets']}, {
-            'SHA256SUMS', 'NanoKVM-OS-v3.3.1-source.tar.xz', 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip'})
+            'SHA256SUMS', 'NanoKVM-OS-v3.3.1-source.tar.xz', 'NanoKVM-OS-v3.3.1.img.zip'})
         self.assertEqual(state['calls'][-1], ['workflow', 'run', 'apk-repository.yml', '--ref', 'main'])
         create = next(c for c in state['calls'] if c[:3] == ['release', 'create', 'v3.3.1'])
         self.assertIn(self.env['SHA'], create)
@@ -313,7 +343,7 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         snapshot = json.dumps(state)
         for tag, name in [('os-packages-v3.3.1', 'nanokvm-3.3.1-r0.apk'),
-                          ('v3.3.1', 'NanoKVM-OS-Image-v1.5-apps-v3.3.1.img.zip')]:
+                          ('v3.3.1', 'NanoKVM-OS-v3.3.1.img.zip')]:
             for corruption in ('bytes', 'missing'):
                 with self.subTest(tag=tag, corruption=corruption):
                     state = json.loads(snapshot)
@@ -349,6 +379,9 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertEqual([c[0] for c in state['calls'][count:]], ['api', 'api', 'workflow'])
 
     def test_beta_never_becomes_latest(self):
+        for suffix in ('source.tar.xz', 'img.zip'):
+            old = 'NanoKVM-OS-v3.3.1' + ('-' if suffix.startswith('source') else '.') + suffix
+            (self.directory / old).rename(self.directory / old.replace('v3.3.1', 'v3.4.0-beta.1'))
         assets.split(self.directory)
         result, state = self.invoke(NANOKVM_VERSION='v3.4.0-beta.1')
         self.assertEqual(result.returncode, 0, result.stderr)

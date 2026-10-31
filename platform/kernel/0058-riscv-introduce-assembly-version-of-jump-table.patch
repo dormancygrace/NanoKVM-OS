@@ -1,0 +1,52 @@
+From 396d73f7b3d417be074b70236fd30088c7cf4022 Mon Sep 17 00:00:00 2001
+From: Andy Chiu <tchiu@tenstorrent.com>
+Date: Mon, 5 Oct 2026 19:02:54 -0600
+Subject: [PATCH] riscv: introduce assembly version of jump table
+
+This is the introductary patch for us to call the user copy that
+supports fast unaligned access after the runtime detection.
+
+Signed-off-by: Andy Chiu <tchiu@tenstorrent.com>
+Link: https://patch.msgid.link/20260911182402.1434257-2-tchiu@tenstorrent.com
+Signed-off-by: Paul Walmsley <pjw@kernel.org>
+---
+ arch/riscv/include/asm/jump_label.h | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/arch/riscv/include/asm/jump_label.h b/arch/riscv/include/asm/jump_label.h
+index 3ab5f2e3212bec..d75961ed33246c 100644
+--- a/arch/riscv/include/asm/jump_label.h
++++ b/arch/riscv/include/asm/jump_label.h
+@@ -65,6 +65,32 @@ static __always_inline bool arch_static_branch_jump(struct static_key * const ke
+ label:
+ 	return true;
+ }
++#else
++#include <asm/asm.h>
++
++#define JUMP_TABLE_ENTRY(key, label)			\
++	.pushsection	__jump_table, "aw";		\
++	.align		RISCV_LGPTR;			\
++	.long		1b - ., label - .;		\
++	RISCV_PTR	key - .;			\
++	.popsection
++
++#define ARCH_STATIC_BRANCH_ASM(key, label)		\
++	.align		2;				\
++	.option push;					\
++	.option norelax;				\
++	.option norvc;					\
++1:	nop;						\
++	.option pop;					\
++	JUMP_TABLE_ENTRY(key, label)
+ 
++#define ARCH_STATIC_BRANCH_JUMP_ASM(key, label)		\
++	.align		2;				\
++	.option push;					\
++	.option norelax;				\
++	.option norvc;					\
++1:	j		label;				\
++	.option pop;					\
++	JUMP_TABLE_ENTRY(key, label)
+ #endif  /* __ASSEMBLER__ */
+ #endif	/* __ASM_JUMP_LABEL_H */

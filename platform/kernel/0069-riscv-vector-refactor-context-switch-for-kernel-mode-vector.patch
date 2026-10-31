@@ -1,0 +1,52 @@
+From 333485f3e0212acf51aa01c6e50df6b811566e5b Mon Sep 17 00:00:00 2001
+From: Andy Chiu <tchiu@tenstorrent.com>
+Date: Mon, 5 Oct 2026 19:02:55 -0600
+Subject: [PATCH] riscv: vector: refactor context switch for kernel-mode vector
+
+When context switching out a thread in preemptible kernel-mode vector,
+there are 2 distinct cases: One is voluntary switch and the other is
+trap-introduced switch. We don't need to save vector context for
+voluntary switch and the context is always !dirty as long as we clear
+the dirty bit at riscv_v_context_nesting_end().
+
+Signed-off-by: Andy Chiu <tchiu@tenstorrent.com>
+Link: https://patch.msgid.link/20260918215154.2481482-3-tchiu@tenstorrent.com
+Signed-off-by: Paul Walmsley <pjw@kernel.org>
+---
+ arch/riscv/include/asm/vector.h        | 5 +++--
+ arch/riscv/kernel/kernel_mode_vector.c | 1 +
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/include/asm/vector.h b/arch/riscv/include/asm/vector.h
+index 92192621a..cd09f32e1 100644
+--- a/arch/riscv/include/asm/vector.h
++++ b/arch/riscv/include/asm/vector.h
+@@ -378,10 +378,11 @@ static inline void __switch_to_vector(struct task_struct *prev,
+ 
+ 	if (riscv_preempt_v_started(prev)) {
+ 		if (!(current->thread.riscv_v_flags & RISCV_V_CTX_DEPTH_MASK)) {
++			/* Voluntary schedule(): nesting_end closed any dirty. */
++			WARN_ON(riscv_preempt_v_dirty(prev));
+ 			riscv_v_disable();
+ 			prev->thread.riscv_v_flags |= RISCV_PREEMPT_V_IN_SCHEDULE;
+-		}
+-		if (riscv_preempt_v_dirty(prev)) {
++		} else if (riscv_preempt_v_dirty(prev)) {
+ 			__riscv_v_vstate_save(&prev->thread.kernel_vstate,
+ 					      prev->thread.kernel_vstate.datap);
+ 			riscv_preempt_v_clear_dirty(prev);
+diff --git a/arch/riscv/kernel/kernel_mode_vector.c b/arch/riscv/kernel/kernel_mode_vector.c
+index 5ad93ddf6..b9481a3e4 100644
+--- a/arch/riscv/kernel/kernel_mode_vector.c
++++ b/arch/riscv/kernel/kernel_mode_vector.c
+@@ -219,6 +219,7 @@ asmlinkage void riscv_v_context_nesting_end(struct pt_regs *regs)
+ 			__riscv_v_vstate_clean(regs);
+ 			riscv_preempt_v_reset_flags();
+ 		}
++		riscv_preempt_v_clear_dirty(current);
+ 	}
+ }
+ #else
+-- 
+2.53.0
+

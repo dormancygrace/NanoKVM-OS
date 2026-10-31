@@ -101,9 +101,12 @@ static void correct(void)
       fail("fault copied prefix",v,dir,n,prefix,b,i);
     if(!dir) {
      if(zero)for(unsigned i=copied;i<n;i++)if(output[8+b+i])fail("zero padding",v,dir,n,prefix,b,i);
-     if(!zero)for(unsigned i=prefix;i<n;i++)if(output[8+b+i]!=0xa5)fail("write past valid source",v,dir,n,prefix,b,i);
+     /* raw_copy_*_user: nothing past the reported copied prefix is stored. */
+     if(!zero)for(unsigned i=copied;i<n;i++)if(output[8+b+i]!=0xa5)fail("write past reported prefix",v,dir,n,prefix,b,i);
      for(unsigned i=0;i<8+b;i++)if(output[i]!=0xa5)fail("fault kernel prefix",v,dir,n,prefix,b,i);
      for(unsigned i=8+b+n;i<n+32;i++)if(output[i]!=0xa5)fail("fault kernel suffix",v,dir,n,prefix,b,i);
+    } else {
+     for(unsigned i=copied;i<prefix;i++)if(p[i]!=0xa5)fail("write past reported prefix",v,dir,n,prefix,b,i);
     }
     if(mprotect(guard+8192,4096,PROT_READ|PROT_WRITE))die("mprotect verify");
     for(unsigned i=0;i<4096;i++)if(guard[8192+i]!=0xa5)fail("protected page modified",v,dir,n,prefix,b,i);

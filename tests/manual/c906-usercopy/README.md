@@ -39,6 +39,15 @@ rmmod c906_usercopy_test
 ```
 
 A successful run reports 172352 usercopy checks, including 86240 fault cases.
+
+Since kernel r8 the usercopy is upstream's (patches 0058/0059, Linux 7.4
+commits 396d73f7b3d4 and 30514aa420fd, replacing 0053): with misaligned access
+found fast at boot it copies 8-word blocks with misaligned loads and stores.
+Patch 0071 sends a fault in such a block to a bytewise replay from the block
+start, as 0053 did, so the residual stays exact. The client also checks that
+nothing past the reported copied prefix was stored, in both directions
+(raw_copy_*_user leaves everything past it unmodified); without 0071 that
+check fails as soon as a block stores a word before its fault.
 With the module loaded, running client --negative-control must fail with
 FAIL payload: it deliberately corrupts one byte of the result captured by the userspace
 verifier. It does not modify the kernel implementation.

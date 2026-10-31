@@ -180,7 +180,7 @@ jobs:
           NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
           NANOKVM_IMAGE_VERSION: ${{ steps.version.outputs.image_version }}
         run: |
-          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system tools server
+          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native tpu system tools server
           # The Go build cache (about 1 GB) is not reused within a run.
           rm -rf "$OUT/server/gocache"
           platform/build.sh -o "$OUT" web firmware hashes source

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -177,6 +178,34 @@ func TestStableRollbackScopeAndPrereleaseDetection(t *testing.T) {
 		if _, err := stablePackageTargets(bad); err == nil {
 			t.Fatal("unsafe rollback set accepted")
 		}
+	}
+}
+
+func TestStableRollbackBeforeTPUPackage(t *testing.T) {
+	var output []string
+	for _, name := range corePackages {
+		if name != "nanokvm-tpu" {
+			output = append(output, name+"-3.6.0-r0")
+		}
+	}
+	targets, err := stablePackageTargets(strings.Join(output, "\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined := " " + strings.Join(targets, " ") + " "; !strings.Contains(joined, " !nanokvm-tpu ") {
+		t.Fatalf("a release without nanokvm-tpu must remove it: %v", targets)
+	}
+	db := "P:nanokvm-tpu\nV:3.7.0-r0\n\nP:nanokvm-model-ocr\nV:1.0.0-r0\nD:nanokvm-os>=3.7.0 nanokvm-tpu-abi=1\n\n" +
+		"P:nanokvm-model-ocr-latin\nV:1.0.0-r0\nD:nanokvm-tpu-abi=1 nanokvm-model-ocr\n\nP:nanokvm-ipmi\nV:0.1.0-r2\nD:openrc\n\n"
+	if got := tpuDependents(targets, db); !slices.Equal(got, []string{"nanokvm-model-ocr", "nanokvm-model-ocr-latin"}) {
+		t.Fatalf("model add-ons must block the rollback: %v", got)
+	}
+	var current []string
+	for _, name := range corePackages {
+		current = append(current, name+"-3.7.0-r0")
+	}
+	if targets, err = stablePackageTargets(strings.Join(current, "\n")); err != nil || tpuDependents(targets, db) != nil {
+		t.Fatalf("a release with nanokvm-tpu keeps the model add-ons: %v %v", targets, err)
 	}
 }
 

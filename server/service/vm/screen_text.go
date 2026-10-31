@@ -38,6 +38,22 @@ var screenTextPicture = "/run/nanokvm/screen-text.bgr"
 // One reader at a time: the models take most of the TPU memory video leaves.
 var screenTextMutex sync.Mutex
 
+// The TPU driver is kept out at boot and loaded on first use
+// (docs/ACCELERATORS.md); without its device the runtime aborts.
+const tpuDevice = "/dev/cvi-tpu0"
+
+var loadTPUDriver = func(ctx context.Context) error {
+	if _, err := os.Stat(tpuDevice); err == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if output, err := exec.CommandContext(ctx, "modprobe", "cv181x_tpu").CombinedOutput(); err != nil {
+		return fmt.Errorf("cannot load the TPU driver: %v: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
 // screenTextLimit bounds one read: models, detection and every line.
 const screenTextLimit = 90 * time.Second
 
@@ -327,6 +343,10 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 		}
 	}
 
+	if err := loadTPUDriver(ctx); err != nil {
+		log.Errorf("screen text: %v", err)
+		return nil, screenTextError(-4, "text recognition failed")
+	}
 	cmd := exec.CommandContext(ctx, helper, args...)
 	cmd.Env = append(os.Environ(), "LD_LIBRARY_PATH="+screenTextRoot+"/lib")
 	cmd.Stdin = bytes.NewReader(input)

@@ -244,8 +244,10 @@ func mjpegRate(screenFPS int, videoActive bool) int {
 }
 
 func (s *Streamer) run() {
-	// Background OCR gives way before the JPEG encoder takes its memory.
-	defer videogate.Hold()()
+	// Background OCR has ended before the JPEG encoder takes its memory (the
+	// viewer snapshot that woke the capture held the gate already).
+	release, _ := videogate.Hold(nil)
+	defer release()
 	common.CheckScreen()
 	screen := common.GetCaptureScreen()
 	_, videoActive := stream.ActiveEncoderConfig()

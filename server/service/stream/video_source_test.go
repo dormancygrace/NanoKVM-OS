@@ -2,6 +2,8 @@ package stream
 
 import (
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/videogate"
+	"context"
 	"errors"
 	"runtime"
 	"sync"
@@ -195,6 +197,56 @@ func TestVideoSessionHoldsCaptureWhileItRuns(t *testing.T) {
 	<-session.done
 	if held.Load() != 1 || released.Load() != 1 {
 		t.Fatalf("held %d, released %d; want one hold for the session", held.Load(), released.Load())
+	}
+}
+
+// A video session wakes the capture (its lease) only after a background OCR
+// read it cancelled has ended; a session given up while waiting takes none.
+func TestVideoSessionWaitsForBackgroundOCR(t *testing.T) {
+	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
+	var ocrEnded atomic.Bool
+	woke := make(chan bool, 4)
+	hold := func() func() {
+		woke <- ocrEnded.Load()
+		return func() {}
+	}
+	source.holdCapture.Store(&hold)
+	ctx, end, ok := videogate.Begin(context.Background())
+	if !ok {
+		t.Fatal("background read refused")
+	}
+	go func() {
+		<-ctx.Done()
+		time.Sleep(50 * time.Millisecond) // the helper exits, its memory is freed
+		ocrEnded.Store(true)
+		end()
+	}()
+	subscription, err := source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !<-woke {
+		t.Fatal("the capture woke beside the OCR")
+	}
+	session := subscription.session
+	subscription.Close()
+	<-session.done
+
+	// A session whose viewer leaves while the OCR has not ended yet.
+	ctx, end, _ = videogate.Begin(context.Background())
+	subscription, err = source.subscribe(DefaultEncoderConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-ctx.Done()
+	session = subscription.session
+	subscription.Close()
+	<-session.done
+	end()
+	select {
+	case <-woke:
+		t.Fatal("a session given up woke the capture")
+	default:
 	}
 }
 

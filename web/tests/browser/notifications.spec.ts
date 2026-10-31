@@ -5,7 +5,8 @@ import { expect, test } from './fixtures';
 const events = (page: Page) => page.getByTestId('events');
 const save = (page: Page) => page.getByRole('button', { name: 'Save', exact: true });
 const complete = (page: Page) => page.getByRole('button', { name: 'Complete save' });
-const folds = (page: Page) => page.locator('button[aria-expanded]');
+// Count channel folds, excluding the standard preview and template editors.
+const folds = (page: Page) => page.locator('button[aria-expanded][aria-controls^="notify-k"]');
 const names = (page: Page) => page.getByRole('textbox', { name: 'Name', exact: true });
 
 const addTelegram = async (page: Page) => {

@@ -2194,11 +2194,13 @@ int kvmv_mjpeg_tiles_release(void)
         pthread_mutex_unlock(&jpeg_reader_mutex);
         return -5;
     }
-    mmf_enc_jpg_region_close();
+    // A channel that could not be destroyed stays with its frame; the next
+    // read or capture teardown tries again.
+    const int closed = mmf_enc_jpg_region_close();
     mmf_tile_map_close();
     pthread_mutex_unlock(&vi_mutex);
     pthread_mutex_unlock(&jpeg_reader_mutex);
-    return 0;
+    return closed;
 }
 
 void kvmv_deinit()

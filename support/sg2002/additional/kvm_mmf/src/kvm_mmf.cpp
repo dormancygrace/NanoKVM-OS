@@ -1,5 +1,6 @@
 #include "internal/capture_rate.hpp"
 #include "nanokvm_vi_buffering.h"
+#include <algorithm>
 #include <initializer_list>
 #include <stdint.h>
 #include <string.h>
@@ -330,9 +331,14 @@ static uint64_t vi_frame_generation[MMF_VI_MAX_CHN];
 static thread_local uint64_t own_jpeg_generation;
 static thread_local int own_jpeg_channel = -1;
 
+// Whether a region JPEG channel (tiled MJPEG) still holds a frame of vi_ch
+// after trying once more to destroy it.
+static bool _mmf_jpg_region_holds(int vi_ch);
+
 static int _mmf_release_jpeg_lease(void)
 {
 	if (vi_jpeg_ch < 0) return CVI_SUCCESS;
+	if (_mmf_jpg_region_holds(vi_jpeg_ch)) return CVI_ERR_VENC_BUSY;
 	const int released = CVI_VI_ReleaseChnFrame(0, 0, &vi_jpeg_frame);
 	if (released != CVI_SUCCESS) return released;
 	memset(&vi_jpeg_frame, 0, sizeof(vi_jpeg_frame));
@@ -487,6 +493,11 @@ static int _mmf_release_vi_frame(int ch)
 {
  if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
  if (!priv.vi_frame_valid[ch]) return CVI_SUCCESS;
+ // A region JPEG channel still holding this frame keeps it until the channel
+ // is destroyed, as a video encoder does below. Its state is safe to read
+ // here: the JPEG reader that owns it releases its own NV16 output itself,
+ // and a shared output is released under vi_mutex, which its regions hold.
+ if (_mmf_jpg_region_holds(ch)) return CVI_ERR_VENC_BUSY;
  // NV16 is exclusively JPEG-owned. Its reader may release outside vi_mutex
  // under jpg_hold_mutex; video encoder state belongs to vi_mutex, so do not
  // inspect it here. NV21/packed leases retain the encoder ownership guard.
@@ -1198,6 +1209,9 @@ static int _mmf_deinit(void)
 	mmf_tile_map_close();
 	const int vi_stopped = mmf_del_vi_channel_all();
 	if (vi_stopped != CVI_SUCCESS) return vi_stopped;
+	// A region channel whose destroy failed keeps its frame: try again now.
+	const int regions_closed = mmf_enc_jpg_region_close();
+	if (regions_closed != CVI_SUCCESS) return regions_closed;
 	if (priv.enc_jpg_destroy_failed) {
 		// A JPEG channel whose CVI_VENC_DestroyChn failed: its state was
 		// cleared (mmf_enc_jpg_deinit), retry once the encoders are gone.
@@ -2275,12 +2289,19 @@ int mmf_enc_jpg_free(int ch)
  * pictures); each has a fixed picture size and is created again only when
  * its region size changes. Caller holds the frame (vi_mutex or the JPEG
  * lease) and mmf_jpg_hold.
+ *
+ * A submitted region whose stream never came is retired by destroying the
+ * channel. Until a destroy succeeds the channel keeps its slot and the VI
+ * frame it was given: releasing that frame (_mmf_release_vi_frame,
+ * _mmf_release_jpeg_lease) is refused, as for a wedged video encoder, and
+ * every later region or close tries the destroy again.
  */
 #define MMF_JPG_REGION_FIRST_CHN 2
 static struct jpg_region_t {
 	bool init;
 	int w, h, format, quality;
-	bool running;
+	bool running; // a stream is held
+	int held_vi;  // VI channel + 1 of a frame the encoder may still read, or 0
 	VENC_STREAM_S stream;
 	VENC_PACK_S pack;
 } jpg_regions[MMF_VENC_MAX_CHN - MMF_JPG_REGION_FIRST_CHN];
@@ -2291,15 +2312,38 @@ static jpg_region_t *_mmf_jpg_region(int ch)
 	return &jpg_regions[ch - MMF_JPG_REGION_FIRST_CHN];
 }
 
-static void _mmf_jpg_region_destroy(int ch)
+static int _mmf_jpg_region_destroy(int ch);
+
+static bool _mmf_jpg_region_holds(int vi_ch)
+{
+	bool holds = false;
+	for (int ch = MMF_JPG_REGION_FIRST_CHN; ch < MMF_VENC_MAX_CHN; ++ch) {
+		const jpg_region_t &region = *_mmf_jpg_region(ch);
+		if (region.held_vi && region.held_vi - 1 == vi_ch && _mmf_jpg_region_destroy(ch) != CVI_SUCCESS)
+			holds = true;
+	}
+	return holds;
+}
+
+static int _mmf_jpg_region_destroy(int ch)
 {
 	jpg_region_t *region = _mmf_jpg_region(ch);
-	if (!region || !region->init) return;
-	if (region->running) CVI_VENC_ReleaseStream(ch, &region->stream);
+	if (!region || !region->init) return CVI_SUCCESS;
+	if (region->running) {
+		const int released = CVI_VENC_ReleaseStream(ch, &region->stream);
+		if (released != CVI_SUCCESS) printf("CVI_VENC_ReleaseStream region [%d] failed with %#x\n", ch, released);
+		region->running = false;
+	}
 	CVI_VENC_StopRecvFrame(ch);
 	CVI_VENC_ResetChn(ch);
-	CVI_VENC_DestroyChn(ch);
+	const int destroyed = CVI_VENC_DestroyChn(ch);
+	if (destroyed != CVI_SUCCESS) {
+		// The channel and any frame it holds stay; the next call retries.
+		printf("CVI_VENC_DestroyChn region [%d] failed with %#x\n", ch, destroyed);
+		return destroyed;
+	}
 	*region = {};
+	return CVI_SUCCESS;
 }
 
 static int _mmf_jpg_region_init(int ch, int w, int h, int format, int quality)
@@ -2341,11 +2385,16 @@ int mmf_enc_jpg_region(int ch, int vi_ch, int x, int y, int w, int h, int qualit
 {
 	if (recreated) *recreated = 0;
 	jpg_region_t *slot = _mmf_jpg_region(ch);
+	// A channel that kept a frame after a failed destroy: try again first.
+	if (slot && slot->held_vi) {
+		const int destroyed = _mmf_jpg_region_destroy(ch);
+		if (destroyed != CVI_SUCCESS) return destroyed;
+	}
 	const bool jpeg_lease = vi_ch >= 0 && vi_jpeg_ch == vi_ch;
 	// x a multiple of 16 keeps the plane addresses 16-byte aligned; y even
 	// keeps 4:2:0 chroma rows whole.
 	if (!slot || vi_ch < 0 || vi_ch >= MMF_VI_MAX_CHN || !data || !size
-		|| (!jpeg_lease && !priv.vi_frame_valid[vi_ch]) || slot->running
+		|| (!jpeg_lease && !priv.vi_frame_valid[vi_ch]) || slot->running || slot->held_vi
 		|| quality < 20 || quality > 99 || x < 0 || y < 0 || w < 16 || h < 16 || x % 16 || y % 2
 		|| w % 16 || h % 2)
 		return -1;
@@ -2355,8 +2404,10 @@ int mmf_enc_jpg_region(int ch, int vi_ch, int x, int y, int w, int h, int qualit
 	if ((format != PIXEL_FORMAT_NV21 && format != PIXEL_FORMAT_NV16)
 		|| x + w > (int)v.u32Width || y + h > (int)v.u32Height)
 		return -1;
-	if (slot->init && (slot->w != w || slot->h != h || slot->format != format))
-		_mmf_jpg_region_destroy(ch);
+	if (slot->init && (slot->w != w || slot->h != h || slot->format != format)) {
+		const int destroyed = _mmf_jpg_region_destroy(ch);
+		if (destroyed != CVI_SUCCESS) return destroyed;
+	}
 	if (!slot->init) {
 		const int ret = _mmf_jpg_region_init(ch, w, h, format, quality);
 		if (ret != CVI_SUCCESS) return ret;
@@ -2383,16 +2434,22 @@ int mmf_enc_jpg_region(int ch, int vi_ch, int x, int y, int w, int h, int qualit
 	r.s16OffsetTop = r.s16OffsetBottom = r.s16OffsetLeft = r.s16OffsetRight = 0;
 	int ret = CVI_VENC_SendFrame(ch, &region, 1000);
 	if (ret != CVI_SUCCESS) return ret;
-	slot->running = true;
+	// From here the encoder may read the frame until its stream comes.
+	slot->held_vi = vi_ch + 1;
 	memset(&slot->pack, 0, sizeof(slot->pack));
 	slot->stream = {};
 	slot->stream.pstPack = &slot->pack;
 	ret = CVI_VENC_GetStream(ch, &slot->stream, 1000);
-	if (ret != CVI_SUCCESS || slot->stream.u32PackCount != 1 || !slot->pack.pu8Addr
-		|| slot->pack.u32Offset > slot->pack.u32Len) {
-		if (ret == CVI_SUCCESS) CVI_VENC_ReleaseStream(ch, &slot->stream);
-		slot->running = false;
-		return ret != CVI_SUCCESS ? ret : -1;
+	if (ret != CVI_SUCCESS) {
+		// No stream: retire the submission with the channel.
+		_mmf_jpg_region_destroy(ch);
+		return ret;
+	}
+	slot->held_vi = 0;
+	slot->running = true;
+	if (slot->stream.u32PackCount != 1 || !slot->pack.pu8Addr || slot->pack.u32Offset > slot->pack.u32Len) {
+		mmf_enc_jpg_region_free(ch);
+		return -1;
 	}
 	*data = slot->pack.pu8Addr + slot->pack.u32Offset;
 	*size = slot->pack.u32Len - slot->pack.u32Offset;
@@ -2410,20 +2467,30 @@ int mmf_enc_jpg_region_free(int ch)
 
 int mmf_enc_jpg_region_close(void)
 {
-	for (int ch = MMF_JPG_REGION_FIRST_CHN; ch < MMF_VENC_MAX_CHN; ++ch) _mmf_jpg_region_destroy(ch);
-	return 0;
+	int result = CVI_SUCCESS;
+	for (int ch = MMF_JPG_REGION_FIRST_CHN; ch < MMF_VENC_MAX_CHN; ++ch) {
+		const int destroyed = _mmf_jpg_region_destroy(ch);
+		if (result == CVI_SUCCESS) result = destroyed;
+	}
+	return result;
 }
 
 /*
- * Change map of the frames a tiled MJPEG reader sends. IVE compares the luma
- * of a VI frame with its copy of the previous frame in 16x16 blocks (SAD) and
- * the CPU only reads one byte per block. HDMI pictures carry no noise, so any
- * difference counts, and an unchanged block equals its copy: the caller
- * copies (DMA) only the regions it sends into the previous frame, the whole
- * frame when it sends a whole picture.
- * Rows below the last whole block row are compared in a strip of their own
- * that ends at the bottom of the frame. The images follow the frame size and
- * row stride. Callers serialize (the JPEG reader lock) and hold the frame.
+ * Change map of the frames a tiled MJPEG reader sends. IVE compares a VI
+ * frame with its kept copy in 16x16 blocks (SAD) and the CPU only reads one
+ * byte per block. HDMI pictures carry no noise, so any difference counts, and
+ * an unchanged block equals its copy: the caller copies (DMA) only the
+ * regions it sends into the kept frame, the whole frame when it sends a whole
+ * picture.
+ * Each read compares every other row of both planes, even rows on one read
+ * and odd rows on the next (the row stride doubled): luma for brightness and
+ * chroma for a colour change with equal luma. A change one row high is found
+ * at most one read later; anything taller is found at once. Both planes cost
+ * about what every luma row alone did. Rows below the last whole block row
+ * of a view are compared in a strip of their own that ends at its bottom.
+ * The interleaved VU bytes of a chroma row line up with the pixel columns.
+ * The images follow the frame layout. Callers serialize (the JPEG reader
+ * lock) and hold the frame.
  */
 // bInstant FALSE: the IVE driver sleeps until the engine's interrupt
 // instead of polling with udelay; the result is in memory either way.
@@ -2432,18 +2499,23 @@ int mmf_enc_jpg_region_close(void)
 static struct {
 	IVE_HANDLE ive;
 	bool have_prev;
-	int width, height, stride;
+	int width, height, stride, chroma_stride, format;
+	int chroma_rows; // the height, or half of it for NV21
+	int parity;      // the chroma rows compared next: even (0) or odd (1)
 	IVE_IMAGE_S prev, sad, thr, strip_sad, strip_thr;
+	IVE_IMAGE_S prev_uv, uv_sad, uv_thr, uv_strip_sad, uv_strip_thr;
 } tile_map;
 
 static void _mmf_tile_map_free_images(void)
 {
-	for (IVE_IMAGE_S *image : {&tile_map.prev, &tile_map.sad, &tile_map.thr, &tile_map.strip_sad, &tile_map.strip_thr}) {
+	for (IVE_IMAGE_S *image : {&tile_map.prev, &tile_map.sad, &tile_map.thr, &tile_map.strip_sad, &tile_map.strip_thr,
+			&tile_map.prev_uv, &tile_map.uv_sad, &tile_map.uv_thr, &tile_map.uv_strip_sad, &tile_map.uv_strip_thr}) {
 		if (image->u64PhyAddr[0]) CVI_SYS_FreeI(tile_map.ive, image);
 		*image = {};
 	}
 	tile_map.have_prev = false;
-	tile_map.width = tile_map.height = tile_map.stride = 0;
+	tile_map.width = tile_map.height = tile_map.stride = tile_map.chroma_stride = 0;
+	tile_map.format = tile_map.chroma_rows = tile_map.parity = 0;
 }
 
 int mmf_tile_map_close(void)
@@ -2474,56 +2546,86 @@ static bool _mmf_ive_waits_long(void)
 	return timeout >= 20;
 }
 
-static int _mmf_tile_map_images(int width, int height, int stride)
+static int _mmf_tile_map_images(const VIDEO_FRAME_S &v)
 {
-	if (tile_map.ive && tile_map.width == width && tile_map.height == height && tile_map.stride == stride)
+	const int width = v.u32Width, height = v.u32Height, stride = v.u32Stride[0];
+	const int chroma_stride = v.u32Stride[1], format = v.enPixelFormat;
+	if (tile_map.ive && tile_map.width == width && tile_map.height == height && tile_map.stride == stride
+		&& tile_map.chroma_stride == chroma_stride && tile_map.format == format)
 		return 0;
 	if (!tile_map.ive && (!_mmf_ive_waits_long() || !(tile_map.ive = CVI_IVE_CreateHandle()))) return -1;
 	_mmf_tile_map_free_images();
-	const int columns = width / 16, rows = height / 16;
-	// The previous frame keeps the frame's row stride, so SAD and the copy
-	// see two images of one layout. SAD by 16x16 blocks writes one value per
-	// block: its outputs have a block's size (checked on the stand).
+	const int columns = width / 16, rows = (height + 1) / 2 / 16; // whole block rows of the larger parity
+	const int chroma_rows = format == PIXEL_FORMAT_NV21 ? height / 2 : height;
+	const int uv_rows = (chroma_rows + 1) / 2 / 16; // whole block rows of the larger parity
+	// The kept planes keep the frame's row strides, so SAD and the copy see
+	// images of one layout. SAD by 16x16 blocks writes one value per block:
+	// its outputs have a block's size (checked on the stand).
 	if (CVI_IVE_CreateImage(tile_map.ive, &tile_map.prev, IVE_IMAGE_TYPE_U8C1, stride, height)
 		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.sad, IVE_IMAGE_TYPE_U16C1, columns, rows)
 		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.thr, IVE_IMAGE_TYPE_U8C1, columns, rows)
-		|| (height % 16
-			&& (CVI_IVE_CreateImage(tile_map.ive, &tile_map.strip_sad, IVE_IMAGE_TYPE_U16C1, columns, 1)
-				|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.strip_thr, IVE_IMAGE_TYPE_U8C1, columns, 1)))) {
+		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.strip_sad, IVE_IMAGE_TYPE_U16C1, columns, 1)
+		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.strip_thr, IVE_IMAGE_TYPE_U8C1, columns, 1)
+		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.prev_uv, IVE_IMAGE_TYPE_U8C1, chroma_stride, chroma_rows)
+		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_sad, IVE_IMAGE_TYPE_U16C1, columns, uv_rows)
+		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_thr, IVE_IMAGE_TYPE_U8C1, columns, uv_rows)
+		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_strip_sad, IVE_IMAGE_TYPE_U16C1, columns, 1)
+		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_strip_thr, IVE_IMAGE_TYPE_U8C1, columns, 1)) {
 		_mmf_tile_map_free_images();
 		return -1;
 	}
-	tile_map.prev.u32Width = width;
 	tile_map.width = width;
 	tile_map.height = height;
 	tile_map.stride = stride;
+	tile_map.chroma_stride = chroma_stride;
+	tile_map.format = format;
+	tile_map.chroma_rows = chroma_rows;
 	return 0;
 }
 
-static void _mmf_tile_map_sad(const IVE_IMAGE_S &current, int y, int height, IVE_IMAGE_S *sad, IVE_IMAGE_S *thr,
-                              uint8_t *map, int columns, int first_row, int *changed)
+// A plane view: rows of an image from row `first`, every `step`-th row.
+static IVE_IMAGE_S _mmf_tile_view(CVI_U64 address, int stride, int width, int first, int step, int rows)
 {
-	IVE_IMAGE_S previous = tile_map.prev, frame = current;
-	for (IVE_IMAGE_S *image : {&previous, &frame}) {
-		image->u64PhyAddr[0] += (CVI_U64)y * image->u32Stride[0];
-		image->u32Height = height;
-	}
+	IVE_IMAGE_S view = {};
+	view.enType = IVE_IMAGE_TYPE_U8C1;
+	view.u64PhyAddr[0] = address + (CVI_U64)first * stride;
+	view.u32Stride[0] = stride * step;
+	view.u32Width = width;
+	view.u32Height = rows;
+	return view;
+}
+
+// SAD of a view of the frame against the same view of the kept plane. Block
+// row r of the view covers pixel rows [pixel_row + r * pixels, + pixels):
+// a changed block marks the map rows over them (the last map row covers the
+// bottom 16 rows).
+static void _mmf_tile_map_sad(const IVE_IMAGE_S &previous, const IVE_IMAGE_S &frame, IVE_IMAGE_S *sad,
+                              IVE_IMAGE_S *thr, uint8_t *map, int columns, int lines, int pixel_row, int pixels,
+                              int *changed)
+{
+	IVE_IMAGE_S a = previous, b = frame;
 	IVE_SAD_CTRL_S ctrl = {};
 	ctrl.enMode = IVE_SAD_MODE_MB_16X16;
 	ctrl.enOutCtrl = IVE_SAD_OUT_CTRL_16BIT_BOTH;
 	ctrl.u16Thr = 1;
 	ctrl.u8MinVal = 0;
 	ctrl.u8MaxVal = 1;
-	CVI_IVE_SAD(tile_map.ive, &previous, &frame, sad, thr, &ctrl, IVE_SLEEP);
+	CVI_IVE_SAD(tile_map.ive, &a, &b, sad, thr, &ctrl, IVE_SLEEP);
 	CVI_IVE_BufRequest(tile_map.ive, thr);
 	// One byte per block at (y / 16) * stride + x / 16.
 	const uint8_t *marks = (const uint8_t *)(uintptr_t)thr->u64VirAddr[0];
-	for (int row = 0; row < height / 16; ++row)
+	for (int row = 0; row < (int)frame.u32Height / 16; ++row) {
+		const int top = pixel_row + row * pixels;
+		const int bottom = std::min(top + pixels, tile_map.height);
+		if (top >= bottom) continue;
 		for (int column = 0; column < columns; ++column) {
-			const uint8_t mark = marks[row * thr->u32Stride[0] + column] ? 1 : 0;
-			map[(first_row + row) * columns + column] = mark;
-			*changed += mark;
+			if (!marks[row * thr->u32Stride[0] + column]) continue;
+			for (int line = top / 16; line <= std::min((bottom - 1) / 16, lines - 1); ++line) {
+				uint8_t &cell = map[line * columns + column];
+				if (!cell) { cell = 1; ++*changed; }
+			}
 		}
+	}
 }
 
 // The frame leased on vi_ch, or NULL.
@@ -2537,14 +2639,15 @@ static const VIDEO_FRAME_S *_mmf_tile_frame(int vi_ch)
 bool mmf_tile_frame_supported(int vi_ch)
 {
 	const VIDEO_FRAME_S *v = _mmf_tile_frame(vi_ch);
-	// Planar luma for the IVE and planes the JPEG encoder takes from a region
-	// (a frame straight from capture is packed 4:2:2). The vendor library
-	// cannot report an IVE failure (it ignores the ioctl result), so only
-	// layouts it was measured with go to the engine.
+	// Planar luma and chroma for the IVE and the planes the JPEG encoder takes
+	// from a region (a frame straight from capture is packed 4:2:2). The
+	// vendor library cannot report an IVE failure (it ignores the ioctl
+	// result), so only layouts it was measured with go to the engine.
 	return v && (v->enPixelFormat == PIXEL_FORMAT_NV21 || v->enPixelFormat == PIXEL_FORMAT_NV16)
 		&& v->u32Width % 16 == 0 && v->u32Width >= 128 && v->u32Width <= 1920
 		&& v->u32Height >= 128 && v->u32Height <= 1920 && v->u32Height % 2 == 0
-		&& v->u32Stride[0] >= v->u32Width && v->u32Stride[0] % 16 == 0 && v->u64PhyAddr[0];
+		&& v->u32Stride[0] >= v->u32Width && v->u32Stride[0] % 16 == 0 && v->u64PhyAddr[0]
+		&& v->u32Stride[1] >= v->u32Width && v->u32Stride[1] % 16 == 0 && v->u64PhyAddr[1];
 }
 
 int mmf_tile_map(int vi_ch, uint8_t *map, int map_size, int *cols, int *rows, int *changed)
@@ -2554,61 +2657,85 @@ int mmf_tile_map(int vi_ch, uint8_t *map, int map_size, int *cols, int *rows, in
 		return -1;
 	}
 	const VIDEO_FRAME_S &v = *_mmf_tile_frame(vi_ch);
-	const int width = v.u32Width, height = v.u32Height, stride = v.u32Stride[0];
+	const int width = v.u32Width, height = v.u32Height;
 	const int columns = width / 16, lines = (height + 15) / 16;
 	if (map_size < columns * lines) {
 		tile_map.have_prev = false;
 		return -1;
 	}
-	if (_mmf_tile_map_images(width, height, stride) != 0) return -1;
-	IVE_IMAGE_S current = {};
-	current.enType = IVE_IMAGE_TYPE_U8C1;
-	current.u64PhyAddr[0] = v.u64PhyAddr[0];
-	current.u32Stride[0] = stride;
-	current.u32Width = width;
-	current.u32Height = height;
-	int result = 1;
-	if (tile_map.have_prev) {
-		int count = 0;
-		const int whole = height / 16 * 16;
-		_mmf_tile_map_sad(current, 0, whole, &tile_map.sad, &tile_map.thr, map, columns, 0, &count);
-		if (whole != height)
-			_mmf_tile_map_sad(current, height - 16, 16, &tile_map.strip_sad, &tile_map.strip_thr,
-			                  map, columns, lines - 1, &count);
-		*cols = columns;
-		*rows = lines;
-		*changed = count;
-		result = 0;
+	if (_mmf_tile_map_images(v) != 0) return -1;
+	if (!tile_map.have_prev) return 1;
+	memset(map, 0, columns * lines);
+	int count = 0;
+	// Rows of one parity: block row r of a view covers plane rows from 32 r,
+	// pixel rows from 32 r (luma, NV16 chroma) or 64 r (NV21 chroma).
+	const int parity = tile_map.parity, scale = tile_map.format == PIXEL_FORMAT_NV21 ? 2 : 1;
+	const int stride = tile_map.stride;
+	const int luma_rows = (height - parity + 1) / 2, luma_whole = luma_rows / 16 * 16;
+	const CVI_U64 kept = tile_map.prev.u64PhyAddr[0], current = v.u64PhyAddr[0];
+	_mmf_tile_map_sad(_mmf_tile_view(kept, stride, width, parity, 2, luma_whole),
+		_mmf_tile_view(current, stride, width, parity, 2, luma_whole),
+		&tile_map.sad, &tile_map.thr, map, columns, lines, 0, 32, &count);
+	if (luma_whole != luma_rows) {
+		const int first = parity + 2 * (luma_rows - 16), top = first - parity;
+		_mmf_tile_map_sad(_mmf_tile_view(kept, stride, width, first, 2, 16),
+			_mmf_tile_view(current, stride, width, first, 2, 16),
+			&tile_map.strip_sad, &tile_map.strip_thr, map, columns, lines, top, height - top, &count);
 	}
-	return result;
+	const int view_rows = (tile_map.chroma_rows - parity + 1) / 2, view_whole = view_rows / 16 * 16;
+	const int chroma_stride = tile_map.chroma_stride;
+	const CVI_U64 kept_uv = tile_map.prev_uv.u64PhyAddr[0], current_uv = v.u64PhyAddr[1];
+	_mmf_tile_map_sad(_mmf_tile_view(kept_uv, chroma_stride, width, parity, 2, view_whole),
+		_mmf_tile_view(current_uv, chroma_stride, width, parity, 2, view_whole),
+		&tile_map.uv_sad, &tile_map.uv_thr, map, columns, lines, 0, 32 * scale, &count);
+	if (view_whole != view_rows) {
+		const int first = parity + 2 * (view_rows - 16), top = (first - parity) * scale;
+		_mmf_tile_map_sad(_mmf_tile_view(kept_uv, chroma_stride, width, first, 2, 16),
+			_mmf_tile_view(current_uv, chroma_stride, width, first, 2, 16),
+			&tile_map.uv_strip_sad, &tile_map.uv_strip_thr, map, columns, lines, top, height - top, &count);
+	}
+	tile_map.parity ^= 1;
+	*cols = columns;
+	*rows = lines;
+	*changed = count;
+	return 0;
 }
 
-int mmf_tile_map_keep(int vi_ch, int x, int y, int w, int h)
+static void _mmf_tile_map_copy(CVI_U64 from, CVI_U64 to, int stride, int x, int y, int w, int h)
 {
-	const bool jpeg_lease = vi_ch >= 0 && vi_jpeg_ch == vi_ch;
-	if (vi_ch < 0 || vi_ch >= MMF_VI_MAX_CHN || !tile_map.ive || (!jpeg_lease && !priv.vi_frame_valid[vi_ch]))
-		return -1;
-	const VIDEO_FRAME_S &v = (jpeg_lease ? &vi_jpeg_frame : &priv.vi_frame[vi_ch])->stVFrame;
-	const bool whole = x == 0 && y == 0 && w == tile_map.width && h == tile_map.height;
-	if ((int)v.u32Width != tile_map.width || (int)v.u32Height != tile_map.height
-		|| (int)v.u32Stride[0] != tile_map.stride || (!whole && !tile_map.have_prev)
-		|| x < 0 || y < 0 || w < 16 || h < 2 || x % 16 || w % 16 || x + w > tile_map.width || y + h > tile_map.height) {
-		tile_map.have_prev = false;
-		return -1;
-	}
-	const CVI_U64 offset = (CVI_U64)y * tile_map.stride + x;
+	const CVI_U64 offset = (CVI_U64)y * stride + x;
 	IVE_DATA_S source = {}, target = {};
-	source.u64PhyAddr = v.u64PhyAddr[0] + offset;
-	source.u32Stride = tile_map.stride;
+	source.u64PhyAddr = from + offset;
+	source.u32Stride = stride;
 	source.u32Width = w;
 	source.u32Height = h;
-	target.u64PhyAddr = tile_map.prev.u64PhyAddr[0] + offset;
-	target.u32Stride = tile_map.stride;
+	target.u64PhyAddr = to + offset;
+	target.u32Stride = stride;
 	target.u32Width = w;
 	target.u32Height = h;
 	IVE_DMA_CTRL_S copy = {};
 	copy.enMode = IVE_DMA_MODE_DIRECT_COPY;
 	CVI_IVE_DMA(tile_map.ive, &source, &target, &copy, IVE_SLEEP);
+}
+
+int mmf_tile_map_keep(int vi_ch, int x, int y, int w, int h)
+{
+	const VIDEO_FRAME_S *frame = _mmf_tile_frame(vi_ch);
+	if (!frame || !tile_map.ive) return -1;
+	const VIDEO_FRAME_S &v = *frame;
+	const bool whole = x == 0 && y == 0 && w == tile_map.width && h == tile_map.height;
+	if ((int)v.u32Width != tile_map.width || (int)v.u32Height != tile_map.height
+		|| (int)v.u32Stride[0] != tile_map.stride || (int)v.u32Stride[1] != tile_map.chroma_stride
+		|| (int)v.enPixelFormat != tile_map.format || (!whole && !tile_map.have_prev)
+		|| x < 0 || y < 0 || w < 16 || h < 2 || x % 16 || w % 16 || y % 2 || h % 2
+		|| x + w > tile_map.width || y + h > tile_map.height) {
+		tile_map.have_prev = false;
+		return -1;
+	}
+	const int scale = tile_map.format == PIXEL_FORMAT_NV21 ? 2 : 1;
+	_mmf_tile_map_copy(v.u64PhyAddr[0], tile_map.prev.u64PhyAddr[0], tile_map.stride, x, y, w, h);
+	_mmf_tile_map_copy(v.u64PhyAddr[1], tile_map.prev_uv.u64PhyAddr[0], tile_map.chroma_stride,
+		x, y / scale, w, h / scale);
 	if (whole) tile_map.have_prev = true;
 	return 0;
 }

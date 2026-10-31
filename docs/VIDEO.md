@@ -186,12 +186,13 @@ The device never advertises a monitor profile that its video memory cannot captu
 
 MJPEG used to send every frame whole: about 114 KB a frame at 1920 × 1080, 40 Mbit/s for a running stopwatch, and the encryption, TCP and copies of those bytes took most of the CPU. The web page now opens `GET /api/stream/mjpeg/tiles` (a WebSocket) and draws on a canvas; the server sends only the 128 × 128 tiles that changed since the previous message, each a JPEG, and nothing while the screen stands still.
 
-- **Finding changes.** The IVE compares the luma of each captured frame with a kept copy in 16 × 16 blocks (SAD, see [Accelerators](ACCELERATORS.md#ive)); the CPU reads one byte per block. A tile is sent when it covers a changed block; tiles of the last column and row move inward and overlap their neighbours. The kept copy takes only what was sent: HDMI pictures carry no noise, so an unchanged block is bit-identical to it.
+- **Finding changes.** The IVE compares each captured frame with a kept copy in 16 × 16 blocks (SAD, see [Accelerators](ACCELERATORS.md#ive)); the CPU reads one byte per block. Each read compares every other row of both planes, even rows on one read and odd rows on the next: luma for brightness, chroma for a colour change with equal brightness. A change one pixel row high is sent at most one frame later; anything taller at once. That costs about what comparing every luma row alone did (a tiled read 10.4 ms instead of 9.2 ms, the same frame rate through the server, about 2 % more device CPU); comparing every row of both planes took 13.7 ms and 2-3 frames per second. A tile is sent when it covers a changed block; tiles of the last column and row move inward and overlap their neighbours. The kept copy takes only what was sent: HDMI pictures carry no noise, so an unchanged block is bit-identical to it.
 - **Encoding.** A tile is a region of the captured frame handed to the JPEG encoder in place (plane addresses moved to the tile, row strides unchanged; no copy), on a JPEG channel of its own. A whole picture goes on another channel, so neither is created again when the kind changes.
 - **Whole pictures** go to a new viewer, after a failure or a viewer that fell behind (8 queued messages), every 5 s, and when more than 24 tiles changed (about the bytes and the encoder time of a whole picture).
 - **Message** (little-endian): `u8 version (1)`, `u8 flags (1: whole picture)`, `u16 count`, `u16 width`, `u16 height`, then `count` records `{u16 x, u16 y, u16 w, u16 h, u32 bytes}`, then the JPEGs in order (`kvm_vision.h`). The browser decodes the tiles of a message together and draws messages in order.
 - **Fallbacks.** With a classic MJPEG viewer connected, every read is a whole JPEG and tiled viewers get it as a whole-picture message. Where there is no change map, tiled viewers get whole pictures, sent like classic MJPEG only when they differ: without the IVE driver fix (osdrv patch 0020, the `timeout_ms` parameter of `cv181x_ive`), for inputs wider or taller than 1920, a width that is not a multiple of 16, a frame packed straight from capture, or a copied frame. The browser takes tiles where `stream.mjpeg.tiles` in the capabilities says the server sends them, and the classic stream otherwise.
-- **Memory.** The kept luma plane (2 MiB at 1080p) and the two JPEG channels are freed when the last MJPEG viewer leaves.
+- **Memory.** The kept planes (4 MiB at 1080p with 4:2:2, 3 MiB with 4:2:0) and the two JPEG channels are freed when the last MJPEG viewer leaves.
+- **Encoder faults.** A region whose stream never comes is retired by destroying its channel; until a destroy succeeds the channel keeps the captured frame it was given, as a wedged video encoder does, and every later read retries the destroy.
 
 Measured on a NanoKVM PCIe, 1920 × 1080 at 60 Hz, one browser viewer over Ethernet, a running stopwatch on screen:
 
@@ -201,7 +202,7 @@ Measured on a NanoKVM PCIe, 1920 × 1080 at 60 Hz, one browser viewer over Ether
 | Sent | 40.4 Mbit/s | 2.9 Mbit/s |
 | Device CPU busy | 88 % | 40-44 % |
 
-A tiled read takes about 10 ms: the IVE map 7 ms (the CPU sleeps meanwhile), about 0.7 ms per tile. Scrolling or a video changes most tiles and falls back to whole pictures at the classic rate.
+A tiled read takes about 10 ms: the IVE map 7-8 ms (the CPU sleeps meanwhile), about 0.7 ms per tile. Scrolling or a video changes most tiles and falls back to whole pictures at the classic rate.
 
 Next to a Direct H.265 viewer at 1080p60 (MJPEG at its 30 fps limit), same stand and screen:
 

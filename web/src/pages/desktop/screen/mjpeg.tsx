@@ -9,15 +9,12 @@ import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
 import { resolutionAtom, screenshotSourceAtom } from '@/jotai/screen.ts';
 
-import { parseMjpegTiles } from './mjpeg-tiles.ts';
+import { startTileStream } from './mjpeg-tiles.ts';
 import { ScreenViewport } from './viewport.tsx';
 
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_RETRY_DELAY = 10000;
 const STREAM_HEALTH_INTERVAL = 1000;
-// Messages waiting to be decoded before the viewer starts again from a whole
-// picture (the server sends one to every new connection).
-const MAX_PENDING_MESSAGES = 30;
 
 // Tiles over a WebSocket: only the parts of the picture that changed, where
 // the server says it sends them; otherwise the classic stream of whole JPEGs.
@@ -49,15 +46,7 @@ const MjpegTiles = () => {
     void stopFrameDetect(10).catch(() => {});
     setScreenshotSource(null);
 
-    let socket: WebSocket | null = null;
-    let disposed = false;
-    let retryDelay = INITIAL_RETRY_DELAY;
-    let retryTimer: number | undefined;
-    // Messages build on each other: decode in parallel, draw in order.
-    let drawn = Promise.resolve();
-    let pending = 0;
-
-    const publishSize = (width: number, height: number) => {
+    const publish = (width: number, height: number) => {
       canvas.width = width;
       canvas.height = height;
       canvas.dataset.mediaWidth = String(width);
@@ -75,70 +64,27 @@ const MjpegTiles = () => {
       });
     };
 
-    const connect = () => {
-      const generation = (socket = new WebSocket(`${getBaseUrl('ws')}/api/stream/mjpeg/tiles`));
-      let waitWhole = true;
-      generation.binaryType = 'arraybuffer';
-
-      generation.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-        if (disposed || socket !== generation) return;
-        const message = parseMjpegTiles(event.data);
-        if (!message || (waitWhole && !message.whole)) return;
-        waitWhole = false;
-        retryDelay = INITIAL_RETRY_DELAY;
-        if (++pending > MAX_PENDING_MESSAGES) {
-          // Decoding cannot keep up: start again from a whole picture.
-          generation.close();
-          return;
+    return startTileStream<ImageBitmap>({
+      connect: () => new WebSocket(`${getBaseUrl('ws')}/api/stream/mjpeg/tiles`),
+      decode: (tile) => createImageBitmap(new Blob([tile.jpeg], { type: 'image/jpeg' })),
+      draw: (message, decoded, first) => {
+        // The first picture of this effect publishes the screenshot source
+        // again, also when the canvas keeps its size.
+        if (first || canvas.width !== message.width || canvas.height !== message.height) {
+          publish(message.width, message.height);
         }
-        const bitmaps = Promise.all(
-          message.tiles.map((tile) =>
-            createImageBitmap(new Blob([tile.jpeg], { type: 'image/jpeg' })).then((bitmap) => ({
-              tile,
-              bitmap
-            }))
-          )
-        );
-        drawn = drawn
-          .then(() => bitmaps)
-          .then((decoded) => {
-            pending--;
-            if (disposed || socket !== generation) {
-              decoded.forEach(({ bitmap }) => bitmap.close());
-              return;
-            }
-            if (canvas.width !== message.width || canvas.height !== message.height) {
-              publishSize(message.width, message.height);
-            }
-            for (const { tile, bitmap } of decoded) {
-              context.drawImage(bitmap, tile.x, tile.y, tile.width, tile.height);
-              bitmap.close();
-            }
-          })
-          .catch(() => {
-            pending--;
-            // A tile that did not decode leaves the picture behind.
-            if (socket === generation) generation.close();
-          });
-      };
-
-      generation.onclose = () => {
-        if (disposed || socket !== generation) return;
-        socket = null;
-        retryTimer = window.setTimeout(connect, retryDelay);
-        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY);
-      };
-    };
-    connect();
-
-    return () => {
-      disposed = true;
-      window.clearTimeout(retryTimer);
-      socket?.close();
-      socket = null;
-      setScreenshotSource(null);
-    };
+        for (const { tile, bitmap } of decoded) {
+          context.drawImage(bitmap, tile.x, tile.y, tile.width, tile.height);
+        }
+      },
+      later: (callback, ms) => {
+        const timer = window.setTimeout(callback, ms);
+        return () => window.clearTimeout(timer);
+      }
+    });
   }, [resolution, setScreenshotSource]);
+
+  useEffect(() => () => setScreenshotSource(null), [setScreenshotSource]);
 
   return (
     <ScreenViewport>

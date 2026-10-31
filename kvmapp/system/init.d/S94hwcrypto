@@ -3,7 +3,10 @@
 # but is not loaded: nothing in the system uses it (`modprobe cryptodev`).
 case "$1" in
     start|restart)
-        if [ ! -e /etc/kvm/disable_hardware_aes ] && [ ! -d /sys/module/nanokvm_hwcrypto ]; then
+        # sg2002_aes_probe: the module before 3.7.0, still loaded until the
+        # reboot after the update. Never a second driver on the engine.
+        if [ ! -e /etc/kvm/disable_hardware_aes ] && [ ! -d /sys/module/nanokvm_hwcrypto ] &&
+           [ ! -d /sys/module/sg2002_aes_probe ]; then
             if [ -f "/lib/modules/$(uname -r)/extra/nanokvm_hwcrypto.ko" ]; then
                 modprobe nanokvm_hwcrypto || echo 'CryptoDMA unavailable; application fallback remains available' >&2
             fi

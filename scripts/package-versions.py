@@ -4,7 +4,7 @@
 A package keeps the version it was last published with while its content stays
 the same: its payload tree and its recipe directory. Otherwise it gets the
 release's APK version. nanokvm-release always changes, since it carries the
-release version. nanokvm-kernel-sg2002 and nanokvm-kmod-sg2002 change together,
+release version. nanokvm-kernel and nanokvm-kmod change together,
 because the kernel requires its modules at exactly its own version.
 
   select    write versions.json and versions.txt (NAME VERSION CHANGED) from the
@@ -25,10 +25,10 @@ from pathlib import Path
 PACKAGES = {
     'nanokvm-keys': 'keys',
     'nanokvm-base': 'base',
-    'nanokvm-kernel-sg2002': 'kernel-sg2002',
-    'nanokvm-kmod-sg2002': 'kmod-sg2002',
-    'nanokvm-firmware-sg2002': 'firmware-sg2002',
-    'nanokvm-bootloader-sg2002': 'bootloader-sg2002',
+    'nanokvm-kernel': 'kernel',
+    'nanokvm-kmod': 'kmod',
+    'nanokvm-firmware': 'firmware',
+    'nanokvm-bootloader': 'bootloader',
     'nanokvm': 'app',
     'nanokvm-web': 'web',
     'nanokvm-app': None,
@@ -38,8 +38,13 @@ PACKAGES = {
     'nanokvm-i2c-tools': 'i2c-tools',
     'nanokvm-tpu': 'tpu',
     'nanokvm-release': 'release',
+    # The names of nanokvm-kernel and the others before 3.7.0.
+    'nanokvm-kernel-sg2002': None,
+    'nanokvm-kmod-sg2002': None,
+    'nanokvm-firmware-sg2002': None,
+    'nanokvm-bootloader-sg2002': None,
 }
-GROUPS = [{'nanokvm-kernel-sg2002', 'nanokvm-kmod-sg2002'}]
+GROUPS = [{'nanokvm-kernel', 'nanokvm-kmod'}]
 ALWAYS = {'nanokvm-release'}
 PKGREL = 'r0'
 

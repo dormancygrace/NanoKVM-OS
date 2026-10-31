@@ -162,7 +162,7 @@ APK migration test inside an Alpine container.
 ### ECDSA release signing
 
 `test-ecdsa-packages.py` runs in the Alpine 3.24 CI container with `alpine-sdk`,
-Python 3, OpenSSL and coreutils. It builds all fifteen APK recipes with small
+Python 3, OpenSSL and coreutils. It builds all nineteen APK recipes with small
 synthetic payloads and temporary keys, verifies signatures directly and through
 apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
 index formats. No production key or device is used; package scripts are retained

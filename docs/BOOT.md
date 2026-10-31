@@ -16,7 +16,7 @@
 5. **Linux** from `boot.sd` (a FIT: lz4 kernel, initramfs, board device tree),
    then the root file system on `mmcblk0p2`.
 
-`nanokvm-bootloader-sg2002` carries `fip.bin`; its trigger puts it on the boot
+`nanokvm-bootloader` carries `fip.bin`; its trigger puts it on the boot
 partition (`activate-bootloader`), so devices get a new bootloader with an
 ordinary update. The kernel package rewrites `boot.sd`
 (`nanokvm-activate-kernel`). The new image is written as `boot.new`, read
@@ -102,7 +102,7 @@ the card. The U-Boot changes of #252 and #256 were measured this way.
 
 ## Updating fip.bin
 
-`nanokvm-bootloader-sg2002` installs `/usr/lib/nanokvm/bootloader/fip.bin`.
+`nanokvm-bootloader` installs `/usr/lib/nanokvm/bootloader/fip.bin`.
 After the transaction its trigger (`/usr/libexec/nanokvm/activate-bootloader`):
 
 1. does nothing when `/boot/fip.bin` already has the package's SHA-256, when

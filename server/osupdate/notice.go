@@ -336,7 +336,7 @@ type Components struct {
 }
 
 var componentOrder = []string{"nanokvm", "nanokvm-release", "nanokvm-app", "nanokvm-web", "nanokvm-base",
-	"nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002", "nanokvm-keys"}
+	"nanokvm-kernel", "nanokvm-kmod", "nanokvm-firmware", "nanokvm-keys"}
 
 var componentCache struct {
 	sync.Mutex

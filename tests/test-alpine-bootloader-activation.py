@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'firmware/alpine/packages/nanokvm-bootloader-sg2002/activate-bootloader'
+SOURCE = ROOT / 'firmware/alpine/packages/nanokvm-bootloader/activate-bootloader'
 NEW, OLD = b'new fip ' * 64, b'old fip ' * 64
 
 
@@ -52,7 +52,7 @@ class BootloaderActivationTests(unittest.TestCase):
         result = self.run_activation()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.files(), {'fip.bin': NEW, 'fip.prev': OLD})
-        self.assertIn('nanokvm-bootloader-sg2002', (self.root / 'run/reboot-required.pkgs').read_text())
+        self.assertIn('nanokvm-bootloader', (self.root / 'run/reboot-required.pkgs').read_text())
 
     def test_current_bootloader_is_left_alone(self):
         (self.boot / 'fip.bin').write_bytes(NEW)

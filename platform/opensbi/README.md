@@ -84,7 +84,7 @@ Loading a FIP into RAM through the ROM UART loader, and the SD pad setup it need
 
 ## Upgrade and recovery
 
-The `nanokvm-bootloader-sg2002` package replaces `/boot/fip.bin`; the new FIP
+The `nanokvm-bootloader` package replaces `/boot/fip.bin`; the new FIP
 takes effect at the next boot. How the ROM behaves with a missing or damaged `fip.bin`, how to
 replace it and how to recover without a card reader are in
 [docs/BOOT.md](../../docs/BOOT.md).

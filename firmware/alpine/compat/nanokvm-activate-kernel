@@ -102,6 +102,6 @@ rm -f /etc/kvm/video-memory-mode /boot/video-memory-mode
 sync /boot
 mkdir -p /run
 printf '%s\n' 'Kernel updated; reboot to use the installed kernel.' > /run/reboot-required
-printf '%s\n' nanokvm-kernel-sg2002 >> /run/reboot-required.pkgs
+printf '%s\n' nanokvm-kernel >> /run/reboot-required.pkgs
 rm -f /var/lib/nanokvm/firmware-activation-required
 echo "NanoKVM kernel $release activated for $profile; reboot required."

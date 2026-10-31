@@ -1,13 +1,12 @@
 pkgname=nanokvm-kmod-sg2002
 pkgver=${PKGVER:-0.1.0}
 pkgrel=0
-pkgdesc="NanoKVM SG2002 kernel modules"
-url="https://github.com/sipeed/NanoKVM"
+pkgdesc="NanoKVM kernel modules compatibility metapackage (now nanokvm-kmod)"
+url="https://github.com/dormancygrace/NanoKVM-OS"
 arch="riscv64"
-license="GPL-2.0-only"
-depends="kmod"
-source="$pkgname-$pkgver.tar.gz"
-options="!check !strip"
+license="GPL-3.0-only"
+depends="nanokvm-kmod>=${V_nanokvm_kmod:-$pkgver}-r0"
+options="!check !strip !tracedeps"
 
 build() {
 	:
@@ -15,7 +14,4 @@ build() {
 
 package() {
 	mkdir -p "$pkgdir"
-	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
 }
-
-sha256sums=""

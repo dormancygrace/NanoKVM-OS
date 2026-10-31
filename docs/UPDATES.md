@@ -18,13 +18,13 @@ reboot
 ```
 
 `apk update` refreshes repository indexes; `apk upgrade` installs the available
-updates. This release has fifteen core packages; optional add-ons and Alpine dependency
+updates. This release has nineteen core packages; optional add-ons and Alpine dependency
 updates are additional.
 
 Reboot when requested to activate updated kernel or bootloader files.
 Completed component transactions refresh affected services through
 **OpenRC**; an application update briefly disconnects video/control, and no
-separate apply command is required. Since v3.3.0, `nanokvm-bootloader-sg2002`
+separate apply command is required. Since v3.3.0, `nanokvm-bootloader`
 also updates the bootloader on the SD card. It verifies the written file and
 keeps `/boot/fip.prev` for recovery; see [bootloader updates](BOOT.md#updating-fipbin).
 
@@ -57,7 +57,7 @@ repository selections before upgrading:
 
 ```sh
 apk update
-apk add nanokvm-base nanokvm-app nanokvm-release nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002
+apk add nanokvm-base nanokvm-app nanokvm-release nanokvm-kernel nanokvm-kmod nanokvm-firmware
 apk upgrade
 reboot
 ```
@@ -79,7 +79,7 @@ or install the published EC key and current repository URL manually. The old
 RSA public key remains installed for historical packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The legacy index includes the fifteen core packages. The v3 index also
+The legacy index includes the nineteen core packages. The v3 index also
 includes RustDesk, whose APK v3 format cannot appear in a legacy index.
 RustDesk remains a separate add-on; install it from Software after updating
 the system. It is not installed in the full SD image.

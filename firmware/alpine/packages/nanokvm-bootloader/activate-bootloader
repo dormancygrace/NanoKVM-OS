@@ -94,5 +94,5 @@ sync /boot
 [ "$(oncard /boot/fip.bin)" = "$want" ] || { echo 'Installed bootloader does not match the package.' >&2; exit 1; }
 previous_saved=0
 printf '%s\n' 'Bootloader updated; reboot to use it.' > /run/reboot-required
-printf '%s\n' nanokvm-bootloader-sg2002 >> /run/reboot-required.pkgs
+printf '%s\n' nanokvm-bootloader >> /run/reboot-required.pkgs
 echo "NanoKVM bootloader $want installed; the previous one is /boot/fip.prev; reboot required."

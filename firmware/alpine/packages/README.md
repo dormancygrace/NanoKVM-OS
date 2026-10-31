@@ -16,9 +16,9 @@ Set `PAYLOAD_ROOT` to a directory containing these subdirectories:
 ```
 keys/                    etc/apk/keys/*.pub (default: firmware/alpine/keys)
 base/                    files installed below /
-kernel-sg2002/           FIT, DTB and kernel payload below /usr/lib/nanokvm/boot
-kmod-sg2002/             lib/modules/<kernel-release>/
-firmware-sg2002/         lib/firmware/ and optional usr/share/ data
+kernel/           FIT, DTB and kernel payload below /usr/lib/nanokvm/boot
+kmod/             lib/modules/<kernel-release>/
+firmware/         lib/firmware/ and optional usr/share/ data
 app/                      kvmapp/ and application files below /
 zlib/                     usr/lib/libz.so.1 (zlib-ng) and its license
 openssl/                  OpenSSL command, ABI3 libraries, engines, legacy provider and configuration
@@ -44,7 +44,7 @@ changes that identifier once, rebuilding every core package:
   published file instead of rebuilding it;
 - a changed package gets the release's APK version;
 - `nanokvm-release` always changes, since it carries the release version;
-- `nanokvm-kernel-sg2002` and `nanokvm-kmod-sg2002` change together, because
+- `nanokvm-kernel` and `nanokvm-kmod` change together, because
   the kernel requires its modules at exactly its own version.
 
 `nanokvm-app` and `nanokvm-release` depend on the versions chosen for the other
@@ -58,7 +58,7 @@ version, as before. It writes `packages.json` next to the indexes.
 
 ## Bootloader
 
-`nanokvm-bootloader-sg2002` carries `fip.bin` (Sophgo FSBL, OpenSBI, U-Boot)
+`nanokvm-bootloader` carries `fip.bin` (Sophgo FSBL, OpenSBI, U-Boot)
 and the licenses of its parts. Its trigger puts the file on the boot partition
 without ever leaving it with a partly written `fip.bin`; see
 [docs/BOOT.md](../../../docs/BOOT.md#updating-fipbin). A device opts out with

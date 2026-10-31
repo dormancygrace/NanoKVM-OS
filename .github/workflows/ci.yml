@@ -256,6 +256,7 @@ jobs:
             apk add --no-cache python3 openssl
             python3 tests/test-package-update-selections.py --apk /sbin/apk --worker-test /osupdate.test
             python3 tests/test-split-app-packages.py --apk /sbin/apk
+            python3 tests/test-sg2002-rename-apk.py --apk /sbin/apk
             python3 tests/test-settings-recovery-apk.py --apk /sbin/apk
             python3 tests/test-release-channels-apk.py --apk /sbin/apk --commands /rollback-commands.json
           '

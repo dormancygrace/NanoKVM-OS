@@ -209,6 +209,35 @@ func TestStableRollbackBeforeTPUPackage(t *testing.T) {
 	}
 }
 
+func TestStableRollbackBeforeSG2002Rename(t *testing.T) {
+	renamed := []string{"nanokvm-kernel", "nanokvm-kmod", "nanokvm-firmware", "nanokvm-bootloader"}
+	var output []string
+	for _, name := range corePackages {
+		if !slices.Contains(renamed, name) {
+			output = append(output, name+"-3.6.0-r0")
+		}
+	}
+	targets, err := stablePackageTargets(strings.Join(output, "\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range renamed {
+		if !slices.Contains(targets, "!"+name) || !slices.Contains(targets, name+"-sg2002=3.6.0-r0") {
+			t.Fatalf("%s must go back to %s-sg2002: %v", name, name, targets)
+		}
+	}
+	// Neither name: refused, the kernel is never just removed.
+	var without []string
+	for _, line := range output {
+		if !strings.HasPrefix(line, "nanokvm-kernel-sg2002-") {
+			without = append(without, line)
+		}
+	}
+	if _, err = stablePackageTargets(strings.Join(without, "\n")); err == nil {
+		t.Fatal("a release without any kernel package accepted")
+	}
+}
+
 func TestStableRollbackBeforeCustomOpenSSL(t *testing.T) {
 	var output []string
 	for _, name := range corePackages {

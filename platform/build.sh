@@ -9,12 +9,12 @@
 #   toolchain  Buildroot 2026.08.1: cross toolchain, host tools, initramfs userland
 #   kernel     Linux 7.3.1 with kernel/*.patch and kernel/config
 #              (NANOKVM_KERNEL_PROFILE=debug adds kernel/config-debug.fragment)
-#   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod-sg2002
+#   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
 #   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
 #   fip        fip.bin: stock FSBL/DDR with new OpenSBI and U-Boot
 #   initramfs  initramfs from boot/initramfs.list and the Buildroot userland
-#   boot       board device trees and boot.sd images like nanokvm-kernel-sg2002
+#   boot       board device trees and boot.sd images like nanokvm-kernel
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
 #   tpu        TPU runtime and the programs that run models on it
 #   system     kvm_system board service
@@ -24,8 +24,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the fifteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the fifteen packages
+#   payloads   contents of the nineteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the nineteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -445,7 +445,7 @@ fip() {
         --output "$f/fip.bin" --report "$f/manifest.json"
     cp "$f/fip.bin" "$img/fip.bin"
     cp "$f/manifest.json" "$img/fip-manifest.json"
-    # Licenses of what fip.bin contains, for nanokvm-bootloader-sg2002.
+    # Licenses of what fip.bin contains, for nanokvm-bootloader.
     local l=$img/fip-licenses
     rm -rf "$l"
     mkdir -p "$l"
@@ -490,7 +490,7 @@ initramfs() {
     # -19 on the stand, though /init starts only 0.08 s sooner because the
     # unpacking overlaps driver probing; the larger file costs U-Boot 16 ms.
     "$host/lz4" -q -f -l -12 "$i/initramfs.cpio" "$img/initramfs.cpio.lz4"
-    # Their licenses, from the toolchain step; nanokvm-kernel-sg2002 installs them.
+    # Their licenses, from the toolchain step; nanokvm-kernel installs them.
     rm -rf "${img:?}/licenses/initramfs"
     mkdir -p "$img/licenses"
     cp -r "$bo/nanokvm-licenses" "$img/licenses/initramfs"
@@ -1132,7 +1132,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the fifteen packages with abuild in an Alpine riscv64 tree.
+# Build the nineteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu

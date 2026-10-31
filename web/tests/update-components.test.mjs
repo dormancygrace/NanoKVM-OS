@@ -15,7 +15,7 @@ test('known packages get their component name, others keep the package name', ()
   const t = (key) => `t:${key}`;
   assert.equal(componentLabel(t, 'nanokvm-web'), 't:settings.updates.components.names.web');
   assert.equal(
-    componentLabel(t, 'nanokvm-kernel-sg2002'),
+    componentLabel(t, 'nanokvm-kernel'),
     't:settings.updates.components.names.kernel'
   );
   assert.equal(componentLabel(t, 'nanokvm-openssl'), 't:settings.updates.components.names.openssl');

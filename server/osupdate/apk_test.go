@@ -14,14 +14,14 @@ func TestNativeAPKWorker(t *testing.T) {
 	apkExecutable = filepath.Join(t.TempDir(), "apk")
 	worldPath = filepath.Join(apkStateDir, "world")
 	installedDBPath = filepath.Join(apkStateDir, "installed")
-	os.WriteFile(installedDBPath, []byte("P:nanokvm-kernel-sg2002\nV:2.0_alpha1-r1\n\n"), 0600)
+	os.WriteFile(installedDBPath, []byte("P:nanokvm-kernel\nV:2.0_alpha1-r1\n\n"), 0600)
 	install := func(script string) {
 		t.Helper()
 		if e := os.WriteFile(apkExecutable, []byte("#!/bin/sh\n"+script), 0700); e != nil {
 			t.Fatal(e)
 		}
 	}
-	install(`case "$1" in update) exit 0;; version) printf 'Installed: Available:\nnanokvm-kernel-sg2002-2.0_alpha1-r1 < 2.0_alpha2-r0\n';; upgrade) exit 0;; *) exit 99;; esac
+	install(`case "$1" in update) exit 0;; version) printf 'Installed: Available:\nnanokvm-kernel-2.0_alpha1-r1 < 2.0_alpha2-r0\n';; upgrade) exit 0;; *) exit 99;; esac
 `)
 	if e := RunAPK("check"); e != nil {
 		t.Fatal(e)

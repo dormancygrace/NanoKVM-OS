@@ -223,7 +223,7 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
                              "-d", "payloads"], env=debug_env, capture_output=True, text=True)
     expect(result, True, "debug payloads accept test keys")
     assert marker.read_text() == "debug\n"
-    assert (out / "payloads/kernel-sg2002/usr/lib/nanokvm/boot/kernel.release").read_bytes() == release_metadata.read_bytes()
+    assert (out / "payloads/kernel/usr/lib/nanokvm/boot/kernel.release").read_bytes() == release_metadata.read_bytes()
 
 # Exercise the real startup/mapping synchronization without creating namespaces.
 source = (REPO / "platform/build.sh").read_text()

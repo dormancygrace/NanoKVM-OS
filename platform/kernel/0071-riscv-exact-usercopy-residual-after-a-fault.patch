@@ -1,0 +1,74 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: exact usercopy residual after a fault in the word loop
+
+raw_copy_{to,from}_user() must leave everything past the copied prefix it
+reports unmodified (include/linux/uaccess.h). The unrolled word loop
+stores up to eight words before it advances a0, and a fault in it jumped
+to the common exit, which reports the residual from a0: bytes already
+stored in the block were reported as not copied. Since 30514aa420fd
+(0059) every copy of 72 bytes or more takes that loop where misaligned
+access is fast, as on the C906.
+
+Point the loop's exception entries at a replay instead: copy on from the
+block start byte by byte until the fault recurs, then leave through the
+byte loop's exit, whose residual is exact. 0053 did the same for this
+loop. The fault-free path is unchanged.
+
+--- a/arch/riscv/lib/uaccess.S
++++ b/arch/riscv/lib/uaccess.S
+@@ -94,22 +94,22 @@
+ 	 */
+ 	addi	t0, t0, -(8*SZREG) /* not to over run */
+ 2:
+-	fixup REG_L   a4,        0(a1), 10f
+-	fixup REG_L   a5,    SZREG(a1), 10f
+-	fixup REG_L   a6,  2*SZREG(a1), 10f
+-	fixup REG_L   a7,  3*SZREG(a1), 10f
+-	fixup REG_L   t1,  4*SZREG(a1), 10f
+-	fixup REG_L   t2,  5*SZREG(a1), 10f
+-	fixup REG_L   t3,  6*SZREG(a1), 10f
+-	fixup REG_L   t4,  7*SZREG(a1), 10f
+-	fixup REG_S   a4,        0(a0), 10f
+-	fixup REG_S   a5,    SZREG(a0), 10f
+-	fixup REG_S   a6,  2*SZREG(a0), 10f
+-	fixup REG_S   a7,  3*SZREG(a0), 10f
+-	fixup REG_S   t1,  4*SZREG(a0), 10f
+-	fixup REG_S   t2,  5*SZREG(a0), 10f
+-	fixup REG_S   t3,  6*SZREG(a0), 10f
+-	fixup REG_S   t4,  7*SZREG(a0), 10f
++	fixup REG_L   a4,        0(a1), .Lword_fault
++	fixup REG_L   a5,    SZREG(a1), .Lword_fault
++	fixup REG_L   a6,  2*SZREG(a1), .Lword_fault
++	fixup REG_L   a7,  3*SZREG(a1), .Lword_fault
++	fixup REG_L   t1,  4*SZREG(a1), .Lword_fault
++	fixup REG_L   t2,  5*SZREG(a1), .Lword_fault
++	fixup REG_L   t3,  6*SZREG(a1), .Lword_fault
++	fixup REG_L   t4,  7*SZREG(a1), .Lword_fault
++	fixup REG_S   a4,        0(a0), .Lword_fault
++	fixup REG_S   a5,    SZREG(a0), .Lword_fault
++	fixup REG_S   a6,  2*SZREG(a0), .Lword_fault
++	fixup REG_S   a7,  3*SZREG(a0), .Lword_fault
++	fixup REG_S   t1,  4*SZREG(a0), .Lword_fault
++	fixup REG_S   t2,  5*SZREG(a0), .Lword_fault
++	fixup REG_S   t3,  6*SZREG(a0), .Lword_fault
++	fixup REG_S   t4,  7*SZREG(a0), .Lword_fault
+ 	addi	a0, a0, 8*SZREG
+ 	addi	a1, a1, 8*SZREG
+ 	bleu	a0, t0, 2b
+@@ -117,6 +117,16 @@
+ 	addi	t0, t0, 8*SZREG /* revert to original value */
+ 	j	.Lbyte_copy_tail
+ 
++.Lword_fault:
++	/*
++	 * A fault inside the unrolled block: a0/a1 still point at its start,
++	 * and some of its words may be stored already. Copy on from there
++	 * byte by byte until the fault recurs, so the residual leaves no
++	 * stored byte past the reported copied prefix (raw_copy_*_user).
++	 */
++	addi	t0, t0, 8*SZREG /* revert to original value */
++	j	.Lbyte_copy_tail
++
+ #if !defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+ .Lalign_dst:
+ 	/*

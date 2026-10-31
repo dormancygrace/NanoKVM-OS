@@ -1,6 +1,7 @@
 #include "internal/capture_rate.hpp"
 #include "nanokvm_vi_buffering.h"
 #include <algorithm>
+#include <atomic>
 #include <initializer_list>
 #include <stdint.h>
 #include <string.h>
@@ -494,9 +495,9 @@ static int _mmf_release_vi_frame(int ch)
  if (ch < 0 || ch >= MMF_VI_MAX_CHN) return CVI_FAILURE;
  if (!priv.vi_frame_valid[ch]) return CVI_SUCCESS;
  // A region JPEG channel still holding this frame keeps it until the channel
- // is destroyed, as a video encoder does below. Its state is safe to read
- // here: the JPEG reader that owns it releases its own NV16 output itself,
- // and a shared output is released under vi_mutex, which its regions hold.
+ // is destroyed, as a video encoder does below. The ownership indicator is
+ // atomic: a video release also observes the separate NV16 JPEG output,
+ // whose encoder runs outside vi_mutex under jpg_hold_mutex.
  if (_mmf_jpg_region_holds(ch)) return CVI_ERR_VENC_BUSY;
  // NV16 is exclusively JPEG-owned. Its reader may release outside vi_mutex
  // under jpg_hold_mutex; video encoder state belongs to vi_mutex, so do not
@@ -2299,9 +2300,12 @@ int mmf_enc_jpg_free(int ch)
 #define MMF_JPG_REGION_FIRST_CHN 2
 static struct jpg_region_t {
 	bool init;
+	bool retiring; // created but not reusable until destruction succeeds
 	int w, h, format, quality;
 	bool running; // a stream is held
-	int held_vi;  // VI channel + 1 of a frame the encoder may still read, or 0
+	// VI channel + 1 of a frame the encoder may still read, or 0. Other
+	// capture outputs inspect this while NV16 JPEG runs outside vi_mutex.
+	std::atomic<int> held_vi{0};
 	VENC_STREAM_S stream;
 	VENC_PACK_S pack;
 } jpg_regions[MMF_VENC_MAX_CHN - MMF_JPG_REGION_FIRST_CHN];
@@ -2319,7 +2323,8 @@ static bool _mmf_jpg_region_holds(int vi_ch)
 	bool holds = false;
 	for (int ch = MMF_JPG_REGION_FIRST_CHN; ch < MMF_VENC_MAX_CHN; ++ch) {
 		const jpg_region_t &region = *_mmf_jpg_region(ch);
-		if (region.held_vi && region.held_vi - 1 == vi_ch && _mmf_jpg_region_destroy(ch) != CVI_SUCCESS)
+		const int held_vi = region.held_vi.load();
+		if (held_vi && held_vi - 1 == vi_ch && _mmf_jpg_region_destroy(ch) != CVI_SUCCESS)
 			holds = true;
 	}
 	return holds;
@@ -2329,6 +2334,7 @@ static int _mmf_jpg_region_destroy(int ch)
 {
 	jpg_region_t *region = _mmf_jpg_region(ch);
 	if (!region || !region->init) return CVI_SUCCESS;
+	region->retiring = true;
 	if (region->running) {
 		const int released = CVI_VENC_ReleaseStream(ch, &region->stream);
 		if (released != CVI_SUCCESS) printf("CVI_VENC_ReleaseStream region [%d] failed with %#x\n", ch, released);
@@ -2342,7 +2348,11 @@ static int _mmf_jpg_region_destroy(int ch)
 		printf("CVI_VENC_DestroyChn region [%d] failed with %#x\n", ch, destroyed);
 		return destroyed;
 	}
-	*region = {};
+	region->init = region->retiring = region->running = false;
+	region->w = region->h = region->format = region->quality = 0;
+	region->stream = {};
+	region->pack = {};
+	region->held_vi.store(0);
 	return CVI_SUCCESS;
 }
 
@@ -2359,6 +2369,9 @@ static int _mmf_jpg_region_init(int ch, int w, int h, int format, int quality)
 	attr.stRcAttr.enRcMode = VENC_RC_MODE_MJPEGFIXQP;
 	int ret = CVI_VENC_CreateChn(ch, &attr);
 	if (ret != CVI_SUCCESS) return ret;
+	// Own the channel as soon as it exists, including partial initialization.
+	jpg_region_t *region = _mmf_jpg_region(ch);
+	region->init = region->retiring = true;
 	VENC_JPEG_PARAM_S param = {};
 	if ((ret = CVI_VENC_GetJpegParam(ch, &param)) == CVI_SUCCESS) {
 		param.u32Qfactor = _mmf_jpg_qfactor(quality);
@@ -2368,11 +2381,10 @@ static int _mmf_jpg_region_init(int ch, int w, int h, int format, int quality)
 	recv.s32RecvPicNum = -1;
 	if (ret == CVI_SUCCESS) ret = CVI_VENC_StartRecvFrame(ch, &recv);
 	if (ret != CVI_SUCCESS) {
-		CVI_VENC_DestroyChn(ch);
+		_mmf_jpg_region_destroy(ch);
 		return ret;
 	}
-	jpg_region_t *region = _mmf_jpg_region(ch);
-	region->init = true;
+	region->retiring = false;
 	region->w = w;
 	region->h = h;
 	region->format = format;
@@ -2385,8 +2397,8 @@ int mmf_enc_jpg_region(int ch, int vi_ch, int x, int y, int w, int h, int qualit
 {
 	if (recreated) *recreated = 0;
 	jpg_region_t *slot = _mmf_jpg_region(ch);
-	// A channel that kept a frame after a failed destroy: try again first.
-	if (slot && slot->held_vi) {
+	// Failed setup, stream release or destruction must finish before reuse.
+	if (slot && (slot->retiring || slot->held_vi.load())) {
 		const int destroyed = _mmf_jpg_region_destroy(ch);
 		if (destroyed != CVI_SUCCESS) return destroyed;
 	}
@@ -2459,9 +2471,12 @@ int mmf_enc_jpg_region(int ch, int vi_ch, int x, int y, int w, int h, int qualit
 int mmf_enc_jpg_region_free(int ch)
 {
 	jpg_region_t *slot = _mmf_jpg_region(ch);
-	if (!slot || !slot->running) return 0;
+	if (!slot) return 0;
+	if (slot->retiring) return _mmf_jpg_region_destroy(ch);
+	if (!slot->running) return 0;
 	const int ret = CVI_VENC_ReleaseStream(ch, &slot->stream);
 	slot->running = false;
+	if (ret != CVI_SUCCESS) _mmf_jpg_region_destroy(ch);
 	return ret;
 }
 

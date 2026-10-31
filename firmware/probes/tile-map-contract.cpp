@@ -2,7 +2,9 @@
 // (kvm_mmf): the IVE is a CPU implementation of SAD (16x16 blocks) and DMA,
 // the encoder a fault-injected stub. No hardware is opened.
 #include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
+#include <atomic>
 #include <cassert>
+#include <thread>
 #include <cstdlib>
 #include <vector>
 
@@ -60,11 +62,18 @@ extern "C" FILE *__wrap_fopen(const char *path, const char *mode)
 
 // --- Encoder with injected faults.
 static int get_stream_error, destroy_error, destroys, sends, released_frames;
+static int get_param_error, set_param_error, start_error, release_error;
+static bool allocated[MMF_VENC_MAX_CHN];
 static uint8_t jpeg[] = {0xff, 0xd8, 0x01, 0xff, 0xd9};
-CVI_S32 CVI_VENC_CreateChn(VENC_CHN ch, const VENC_CHN_ATTR_S *) { assert(ch == 2 || ch == 3); return 0; }
-CVI_S32 CVI_VENC_GetJpegParam(VENC_CHN, VENC_JPEG_PARAM_S *param) { *param = {}; return 0; }
-CVI_S32 CVI_VENC_SetJpegParam(VENC_CHN, const VENC_JPEG_PARAM_S *) { return 0; }
-CVI_S32 CVI_VENC_StartRecvFrame(VENC_CHN, const VENC_RECV_PIC_PARAM_S *) { return 0; }
+CVI_S32 CVI_VENC_CreateChn(VENC_CHN ch, const VENC_CHN_ATTR_S *) {
+    assert(ch == 2 || ch == 3);
+    if (allocated[ch]) return CVI_ERR_VENC_EXIST;
+    allocated[ch] = true;
+    return 0;
+}
+CVI_S32 CVI_VENC_GetJpegParam(VENC_CHN, VENC_JPEG_PARAM_S *param) { *param = {}; return get_param_error; }
+CVI_S32 CVI_VENC_SetJpegParam(VENC_CHN, const VENC_JPEG_PARAM_S *) { return set_param_error; }
+CVI_S32 CVI_VENC_StartRecvFrame(VENC_CHN, const VENC_RECV_PIC_PARAM_S *) { return start_error; }
 CVI_S32 CVI_VENC_SendFrame(VENC_CHN, const VIDEO_FRAME_INFO_S *, CVI_S32) { ++sends; return 0; }
 CVI_S32 CVI_VENC_GetStream(VENC_CHN, VENC_STREAM_S *stream, CVI_S32)
 {
@@ -75,10 +84,14 @@ CVI_S32 CVI_VENC_GetStream(VENC_CHN, VENC_STREAM_S *stream, CVI_S32)
     stream->pstPack->u32Offset = 0;
     return 0;
 }
-CVI_S32 CVI_VENC_ReleaseStream(VENC_CHN, VENC_STREAM_S *) { return 0; }
+CVI_S32 CVI_VENC_ReleaseStream(VENC_CHN, VENC_STREAM_S *) { return release_error; }
 CVI_S32 CVI_VENC_StopRecvFrame(VENC_CHN) { return 0; }
 CVI_S32 CVI_VENC_ResetChn(VENC_CHN) { return 0; }
-CVI_S32 CVI_VENC_DestroyChn(VENC_CHN) { ++destroys; return destroy_error; }
+CVI_S32 CVI_VENC_DestroyChn(VENC_CHN ch) {
+    ++destroys;
+    if (!destroy_error) allocated[ch] = false;
+    return destroy_error;
+}
 CVI_S32 CVI_VPSS_ReleaseChnFrame(VPSS_GRP, VPSS_CHN, const VIDEO_FRAME_INFO_S *) { ++released_frames; return 0; }
 CVI_S32 CVI_VI_ReleaseChnFrame(VI_PIPE, VI_CHN, const VIDEO_FRAME_INFO_S *) { ++released_frames; return 0; }
 // Linked by the frame release; nothing is mapped and no pool is reclaimed here.
@@ -211,4 +224,73 @@ int main()
     assert(released_frames == 1 && !priv.vi_frame_valid[0] && destroys == 5);
     assert(mmf_enc_jpg_region_close() == 0 && destroys == 5);
     puts("PASS region JPEG channels: a stream that never comes retires the channel; its frame stays until it is destroyed.");
+
+    // Creation is already ownership, even if setup never reached StartRecvFrame.
+    for (int setup_step = 0; setup_step < 3; ++setup_step) {
+        frame(PIXEL_FORMAT_NV16);
+        get_param_error = setup_step == 0 ? CVI_FAILURE : 0;
+        set_param_error = setup_step == 1 ? CVI_FAILURE : 0;
+        start_error = setup_step == 2 ? CVI_FAILURE : 0;
+        destroy_error = CVI_FAILURE;
+        destroys = 0;
+        assert(mmf_enc_jpg_region(2, 0, 0, 0, 128, 128, 80, &data, &size, &recreated) != 0);
+        assert(allocated[2] && destroys == 1);
+        assert(mmf_enc_jpg_region_close() != 0 && allocated[2] && destroys == 2);
+        get_param_error = set_param_error = start_error = destroy_error = 0;
+        // A read must first retire the incomplete channel, then create a usable one.
+        assert(mmf_enc_jpg_region(2, 0, 0, 0, 128, 128, 80, &data, &size, &recreated) == 0);
+        assert(destroys == 3 && recreated == 1);
+        assert(mmf_enc_jpg_region_free(2) == 0 && mmf_enc_jpg_region_close() == 0);
+        assert(!allocated[2]);
+    }
+
+    // Failed output release also requires retirement before another submission.
+    frame(PIXEL_FORMAT_NV16);
+    assert(mmf_enc_jpg_region(3, 0, 0, 0, W, H, 80, &data, &size, &recreated) == 0);
+    release_error = destroy_error = CVI_FAILURE;
+    destroys = 0;
+    assert(mmf_enc_jpg_region_free(3) != 0 && allocated[3] && destroys == 1);
+    const int sent = sends;
+    assert(mmf_enc_jpg_region(3, 0, 0, 0, W, H, 80, &data, &size, &recreated) != 0);
+    assert(sends == sent && destroys == 2);
+    release_error = destroy_error = 0;
+    assert(mmf_enc_jpg_region(3, 0, 0, 0, W, H, 80, &data, &size, &recreated) == 0);
+    assert(sends == sent + 1 && recreated == 1 && destroys == 3);
+    assert(mmf_enc_jpg_region_free(3) == 0 && mmf_enc_jpg_region_close() == 0);
+    puts("PASS region setup/release faults: live channels stay tracked and retire before reuse.");
+
+    // Model the real locks: NV16 JPEG runs outside vi_mutex, while video
+    // releases another output under vi_mutex. Run this contract with TSan
+    // as well: the cross-output ownership indicator must not race.
+    frame(PIXEL_FORMAT_NV16);
+    priv.vi_frame[1] = priv.vi_frame[0];
+    priv.vi_frame_valid[1] = true;
+    for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
+    std::mutex capture_lock;
+    std::atomic<bool> start{false}, done{false};
+    std::thread jpeg_thread([&] {
+        while (!start.load()) std::this_thread::yield();
+        for (int i = 0; i < 10000; ++i) {
+            mmf_jpg_hold();
+            uint8_t *bytes = nullptr;
+            int length = 0, created = 0;
+            assert(mmf_enc_jpg_region(2, 1, 0, 0, 128, 128, 80, &bytes, &length, &created) == 0);
+            assert(mmf_enc_jpg_region_free(2) == 0);
+            mmf_jpg_unhold();
+        }
+        done.store(true);
+    });
+    std::thread video_thread([&] {
+        start.store(true);
+        do {
+            std::lock_guard<std::mutex> lock(capture_lock);
+            priv.vi_frame_valid[0] = true;
+            priv.vi_frame[0].stVFrame.enPixelFormat = PIXEL_FORMAT_NV21;
+            assert(_mmf_release_vi_frame(0) == 0);
+        } while (!done.load());
+    });
+    jpeg_thread.join();
+    video_thread.join();
+    assert(mmf_enc_jpg_region_close() == 0);
+    puts("PASS region ownership while NV16 JPEG encodes beside another video output.");
 }

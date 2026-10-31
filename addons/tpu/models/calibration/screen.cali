@@ -1,0 +1,21 @@
+# mlir version: v1.30.2-20260831 cali version 1.0
+# mlir: screen.mlir
+# genetated time: 2026-10-31 11:35:07.601116
+# quantization threshold calculation method: ['kl']
+# histogram number: 2048
+# sample number: 400
+###
+# tune number: 5
+###
+# op_name    threshold    min    max
+input 1.0000080 0.0000000 1.0000080
+/features/features.2/Relu_output_0_Relu 9.2610710 -0.0000000 14.2893057
+/features/features.5/Relu_output_0_Relu 10.8457067 -0.0000000 15.7845774
+/features/features.8/Relu_output_0_Relu 7.2714144 -0.0000000 12.5162134
+/features/features.11/Relu_output_0_Relu 7.3518611 -0.0000000 12.7514896
+/features/features.14/Relu_output_0_Relu 6.8995476 -0.0000000 11.3801613
+/features/features.17/Relu_output_0_Relu 6.8520718 -0.0000000 10.1889744
+/features/features.20/Relu_output_0_Relu 7.4104838 -0.0000000 7.4104838
+/head/head.0/Flatten_output_0_Flatten 7.4104838 -0.0000000 7.4104838
+/head/head.3/Relu_output_0_Relu 29.4482784 0.0000000 29.4482784
+scores_Gemm 5.4008970 -4.8927226 5.4008970

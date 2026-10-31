@@ -16,6 +16,7 @@ import (
 func notifyRouter(r *gin.Engine) {
 	service := notify.Default()
 	vm.StartNotifyWatch()
+	vm.StartScreenWatch()
 
 	api := r.Group("/api/notify").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	api.GET("/config", func(c *gin.Context) {

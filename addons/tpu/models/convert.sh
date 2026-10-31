@@ -96,6 +96,12 @@ recognizer latin-sure latin/ocr-sure.cvimodel
 recognizer chinese chinese/ocr-rec.cvimodel
 recognizer chinese-sure chinese/ocr-sure.cvimodel
 recognizer cyrillic cyrillic/ocr-rec.cvimodel
-sha256sum ocr-det.cvimodel */ocr-*.cvimodel */ocr-dict.txt > SHA256SUMS
+# The screen-state classifier, ours (screen/): trained on synthetic screens
+# by screen/train.sh; it takes the B, G and R planes scaled to 0..1.
+model_transform.py --model_name screen --model_def /models/screen/screen.onnx --input_shapes "[[1,3,128,224]]" \
+    --mean 0,0,0 --scale 0.0039216,0.0039216,0.0039216 --pixel_format bgr --mlir screen.mlir >/dev/null
+model_deploy.py --mlir screen.mlir --quantize INT8 --calibration_table /models/calibration/screen.cali --chip cv181x \
+    --fuse_preprocess --customization_format BGR_PLANAR --model screen.cvimodel >/dev/null
+sha256sum ocr-det.cvimodel screen.cvimodel */ocr-*.cvimodel */ocr-dict.txt > SHA256SUMS
 '
 cat "$out/SHA256SUMS"

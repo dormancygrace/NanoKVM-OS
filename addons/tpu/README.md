@@ -14,7 +14,11 @@ Everything goes to `/usr/lib/nanokvm-tpu`:
   toolchain's C++ runtime, which only these programs use (rpath).
 - `bin/nanokvm-ocr`: text detection and recognition on a picture (see the
   source for the protocol).
+- `bin/nanokvm-screen`: what the screen shows (a desktop, a Windows stop
+  screen, a text console, a blank screen, a firmware screen), for the
+  screen-crash notification.
 - `bin/model_runner`: Sophgo's tool to run and time a model.
+- `models/screen.cvimodel`: the screen-state classifier.
 - `models/ocr-det.cvimodel`, and per language `models/LANGUAGE/ocr-rec.cvimodel`,
   `ocr-dict.txt` and, for `latin` and `chinese`, `ocr-sure.cvimodel`.
 
@@ -73,6 +77,28 @@ Tried and dropped:
   and the next read loaded more from the SD card.
 - Korean (PP-OCRv5): needs 33 layers in BF16 to stay accurate; left for
   later.
+
+## Screen classifier
+
+`models/screen/`, ours (GPL-3.0-or-later): a small CNN (0.4 M weights, input
+224×128, INT8) that says what the screen shows: `normal` (a desktop or an
+application), `bsod` (a Windows stop screen, blue, green or black, old and
+new), `console` (a text console, where a kernel panic shows), `blank`, or
+`firmware` (BIOS setup, GRUB, a text installer: blue screens that are not a
+crash). The server's screen watcher runs it on a still screen and reads a
+`bsod` or `console` with the OCR before it reports a crash.
+
+There are no free pictures of real crash screens to learn from, so it is
+trained on screens drawn by `synth.py` (nothing copied from real screens)
+by `screen/train.sh`, which writes `screen.onnx` and
+`calibration/screen.cali`.
+
+- **Accuracy on synthetic screens:** 99.7 % right on 3 000 screens it had not seen, none of them a desktop taken for a crash. The INT8 model on the TPU agreed on 299 of 300.
+- **On a real screen:** a desktop in a dark browser read as `normal` at 0.89 in the server, which scales the capture by block means (0.72 when scaled bilinearly, with `console` at 0.12). The watcher reads a screen with the OCR from 0.7.
+- **Speed:** 16–18 ms with loading.
+- **The OCR check on full HD drawings:**
+  - stop screens: the crash words were found on 7 of 8. The miss had only Cyrillic text, which the Latin recognizer does not read; the stop code line is in English in every language of Windows.
+  - kernel panics: found on all 8 consoles, from 25 to 67 lines per screen.
 
 ## Build
 

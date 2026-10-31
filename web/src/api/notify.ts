@@ -1,6 +1,6 @@
 import { http } from '@/lib/http';
 
-export type NotifyKind = 'power' | 'hdmi' | 'security';
+export type NotifyKind = 'power' | 'hdmi' | 'security' | 'screen';
 
 export type NotifyField = {
   key: string;

@@ -196,18 +196,13 @@ export const Memory = () => {
     };
   }, [refresh]);
 
-  async function change(
-    kind: 'zram' | 'sd',
-    enabled: boolean,
-    sizeMiB: number,
-    recompress?: boolean
-  ) {
+  async function change(kind: 'zram' | 'sd', enabled: boolean, sizeMiB: number) {
     if (mutating.current) return;
     mutating.current = true;
     generation.current++;
     setBusy(kind);
     try {
-      const response = await api.setMemorySwap(kind, enabled, sizeMiB, recompress);
+      const response = await api.setMemorySwap(kind, enabled, sizeMiB);
       if (response.code !== 0) throw new Error(response.msg || t('settings.memory.changeError'));
       if (mounted.current) {
         setData(response.data);
@@ -328,33 +323,7 @@ export const Memory = () => {
           {swapCard('zram', data.zram)}
           {swapCard('sd', data.sd)}
           <Fold title={t('settings.memory.advanced')}>
-            <SettingRow
-              label={t('settings.memory.recompressTitle')}
-              description={t('settings.memory.recompressDescription')}
-              htmlFor="memory-recompress"
-            >
-              <Switch
-                id="memory-recompress"
-                aria-describedby="memory-recompress-description"
-                checked={!!data.zram.recompress}
-                loading={busy === 'zram'}
-                disabled={!!busy || (!data.zram.recompressAvailable && !data.zram.recompress)}
-                onChange={(enabled) =>
-                  void change(
-                    'zram',
-                    data.zram.enabled,
-                    swapRequestSize('zram', data.zram),
-                    enabled
-                  )
-                }
-              />
-            </SettingRow>
-            {data.zram.enabled && data.zram.recompress && !data.zram.recompressReady && (
-              <p className="text-warning m-0 text-xs">{t('settings.memory.recompressNotReady')}</p>
-            )}
-            <div className="border-line border-t pt-4">
-              <ServerMemoryLimit totalBytes={data.totalBytes} />
-            </div>
+            <ServerMemoryLimit totalBytes={data.totalBytes} />
           </Fold>
         </>
       )}

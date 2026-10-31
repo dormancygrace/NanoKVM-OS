@@ -5,11 +5,12 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 CONFIG=/etc/kvm/memory.conf
 mkdir -p /run
 exec 9>/run/nanokvm-memory.lock
+# Recompression (zstd) is gone; a server from before still runs this.
+[ "${1:-}" != recompress ] || exit 0
 if ! flock -n 9; then
-    [ "${1:-}" = recompress ] && exit 0
     echo 'Another memory operation is in progress.' >&2; exit 1
 fi
-ZRAM_ENABLED=0 ZRAM_SIZE=64 ZRAM_RECOMPRESS=0 SD_ENABLED=0 SD_SIZE=256
+ZRAM_ENABLED=0 ZRAM_SIZE=64 SD_ENABLED=0 SD_SIZE=256
 # While 2160p capture runs, Linux keeps about 130 MiB: with the shared video
 # region of the current boot images, and with the UHD carveout (104 MiB) of
 # earlier ones. Default to zram there.
@@ -22,7 +23,6 @@ if [ -f "$CONFIG" ]; then
     while IFS='=' read -r key value; do
         case "$key:$value" in
             ZRAM_ENABLED:0|ZRAM_ENABLED:1) ZRAM_ENABLED=$value ;;
-            ZRAM_RECOMPRESS:0|ZRAM_RECOMPRESS:1) ZRAM_RECOMPRESS=$value ;;
             SD_ENABLED:0|SD_ENABLED:1) SD_ENABLED=$value ;;
             ZRAM_SIZE:32|ZRAM_SIZE:64|ZRAM_SIZE:128|ZRAM_SIZE:162|ZRAM_SIZE:auto) ZRAM_SIZE=$value ;;
             SD_SIZE:128|SD_SIZE:256|SD_SIZE:512) SD_SIZE=$value ;;
@@ -60,20 +60,10 @@ apply_zram() {
     else
         target=$((ZRAM_SIZE * 1024 * 1024))
     fi
-    secondary=$(cat /sys/block/zram0/recomp_algorithm 2>/dev/null || true)
-    if [ "$ZRAM_RECOMPRESS" = 1 ]; then
-        [ -w /sys/block/zram0/recomp_algorithm ] && [ -w /sys/block/zram0/recompress ] && [ -w /sys/block/zram0/idle ] || fail 'This kernel does not support ZRAM recompression.'
-    fi
-    if active /dev/zram0 && [ "$(cat /sys/block/zram0/disksize)" = "$target" ]; then
-        if [ "$ZRAM_RECOMPRESS" = 0 ] && [ -z "$secondary" ]; then return; fi
-        if [ "$ZRAM_RECOMPRESS" = 1 ] && printf '%s\n' "$secondary" | grep -q '^#1:.*\[zstd\]'; then return; fi
-    fi
+    if active /dev/zram0 && [ "$(cat /sys/block/zram0/disksize)" = "$target" ]; then return; fi
     disable_device /dev/zram0
     echo 1 > /sys/block/zram0/reset
     echo lz4 > /sys/block/zram0/comp_algorithm
-    if [ "$ZRAM_RECOMPRESS" = 1 ]; then
-        echo 'algo=zstd priority=1' > /sys/block/zram0/recomp_algorithm
-    fi
     echo "$target" > /sys/block/zram0/disksize
     mkswap /dev/zram0 >/dev/null
     swapon -p 100 /dev/zram0 || fail 'Could not activate ZRAM.'
@@ -132,7 +122,7 @@ apply_sd() {
 save_settings() {
     mkdir -p /etc/kvm
     umask 077
-    printf 'ZRAM_ENABLED=%s\nZRAM_SIZE=%s\nZRAM_RECOMPRESS=%s\nSD_ENABLED=%s\nSD_SIZE=%s\n' "$ZRAM_ENABLED" "$ZRAM_SIZE" "$ZRAM_RECOMPRESS" "$SD_ENABLED" "$SD_SIZE" > "$CONFIG.tmp"
+    printf 'ZRAM_ENABLED=%s\nZRAM_SIZE=%s\nSD_ENABLED=%s\nSD_SIZE=%s\n' "$ZRAM_ENABLED" "$ZRAM_SIZE" "$SD_ENABLED" "$SD_SIZE" > "$CONFIG.tmp"
     mv "$CONFIG.tmp" "$CONFIG"
     # Replace legacy inittab startup with this service, without touching other swap.
     if grep -q '^si11::sysinit:/sbin/swapon /swapfile$' /etc/inittab; then
@@ -142,31 +132,12 @@ save_settings() {
     fi
 }
 
-recompress_once() {
-    [ "$ZRAM_RECOMPRESS" = 1 ] && active /dev/zram0 || return 0
-    [ -w /sys/block/zram0/recompress ] && [ -w /sys/block/zram0/idle ] || fail 'ZRAM recompression is unavailable.'
-    # Avoid work on tiny swaps or when reclaim is already short of workspace.
-    available=$(awk '$1 == "MemAvailable:" {print $2}' /proc/meminfo)
-    original=$(awk '{print $1}' /sys/block/zram0/mm_stat)
-    uptime=$(awk '{print int($1)}' /proc/uptime)
-    [ "$available" -ge 32768 ] && [ "$original" -ge 8388608 ] && [ "$uptime" -gt 60 ] || return 0
-    # max_pages bounds compression attempts, not the kernel's preceding scan.
-    echo 60 > /sys/block/zram0/idle
-    echo 'type=idle priority=1 max_pages=256' > /sys/block/zram0/recompress
-}
-
 case "${1:-}" in
-    recompress) recompress_once ;;
     start) apply_zram; apply_sd; apply_reclaim ;;
     stop) disable_device /swapfile; disable_device /dev/zram0; apply_reclaim ;;
     configure)
-        [ "$#" = 4 ] || [ "$#" = 5 ] || fail 'Expected: configure zram|sd 0|1 SIZE_MIB [RECOMPRESS_0_OR_1]'
-        if [ "$#" = 5 ]; then
-            case "$2:$5" in
-                zram:0|zram:1) ZRAM_RECOMPRESS=$5 ;;
-                *) fail 'Recompression is a ZRAM-only boolean setting.' ;;
-            esac
-        fi
+        # A fifth argument (recompression, gone) from a server from before.
+        [ "$#" = 4 ] || [ "$#" = 5 ] || fail 'Expected: configure zram|sd 0|1 SIZE_MIB'
         case "$2:$3:$4" in
             zram:0:32|zram:0:64|zram:0:128|zram:0:162|zram:0:auto|zram:1:32|zram:1:64|zram:1:128|zram:1:162|zram:1:auto)
                 ZRAM_ENABLED=$3 ZRAM_SIZE=$4; apply_zram ;;
@@ -177,5 +148,5 @@ case "${1:-}" in
         apply_reclaim
         save_settings
         ;;
-    *) fail 'Usage: S38memory start|stop|recompress|configure zram|sd 0|1 SIZE_MIB [RECOMPRESS_0_OR_1]' ;;
+    *) fail 'Usage: S38memory start|stop|configure zram|sd 0|1 SIZE_MIB' ;;
 esac

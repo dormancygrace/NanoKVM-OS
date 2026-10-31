@@ -946,9 +946,6 @@
     },
     "memory": {
       "zramAuto": "自动（{{size}} MiB）",
-      "recompressTitle": "使用 ZSTD 重新压缩冷页面",
-      "recompressDescription": "新页面仍使用快速的 LZ4。每 15 秒尝试重新压缩最多 1 MiB 一分钟内未访问的页面。会占用额外的 CPU 和压缩器内存；读取这些页面可能变慢。更改此模式会重建 ZRAM，并需要足够的可用内存。",
-      "recompressNotReady": "已保存的模式尚未生效。请在可用内存充足时重新应用。",
       "title": "内存",
       "ram": "已用内存",
       "available": "可用",

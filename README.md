@@ -146,7 +146,7 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 | Area | Controls and information |
 | --- | --- |
 | **Dashboard** | CPU load, RAM, SoC temperature, CPU frequency, storage, network, VPN and time-synchronization status |
-| **Memory** | One reusable 144 MiB video region shared with Linux (every resolution up to 2160p, no reboot); ZRAM with automatic sizing and optional ZSTD recompression; SD swap; a configurable Go runtime soft memory limit, defaulting to a quarter of the memory Linux keeps under 2160p capture |
+| **Memory** | One reusable 144 MiB video region shared with Linux (every resolution up to 2160p, no reboot); ZRAM (LZ4) with automatic sizing; SD swap; a configurable Go runtime soft memory limit, defaulting to a quarter of the memory Linux keeps under 2160p capture |
 | **CPU** | Frequency control, thermal protection and an explicit Apply at startup option; an incomplete overclocked startup triggers a 1000 MHz fallback on the next boot |
 | **Diagnostics** | Service, USB, firewall and package-operation status, plus system logs in the GUI |
 | **Terminal** | Browser shell and serial sessions, with shell command history |

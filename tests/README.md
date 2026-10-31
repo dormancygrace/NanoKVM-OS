@@ -91,31 +91,19 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   Bluetooth RX path:
   `gcc -fsanitize=address,undefined tests/test-aic8800-bt-rx.c && ./a.out`.
 
-## Kernel zstd and zram contracts
+## Kernel zram contracts
 
-`test-zram-zstd.py --source /path/to/patched-linux` compiles the actual kernel
-codec and zram backend on a 64-bit little-endian Linux host. It compares empty
-and real dictionaries, injects every allocation failure, checks cleanup and
-runs compression/decompression concurrently. Set `NANOKVM_SANITIZE=1` for
-ASan/UBSan. Release-build CI runs both modes against its prepared kernel source.
-The tests do not access a device or change the supplied source tree.
-NanoKVM uses LZ4 for primary zram compression. The zstd allocation savings
-apply when optional recompression is enabled (`ZRAM_RECOMPRESS=1`, off by
-default); they do not change the default LZ4 memory use.
-
-`test-zstd-c906.py` uses the same `--source` argument and sanitizer switch. It
-compares the original and patched codecs on generated 4 KiB pages and short
-buffers, checks bit-reader boundaries, cross-decodes identical compressed
-output, and probes guard pages and 300,000 random/mutated inputs plus truncated streams.
-
-`test-zram-pages.py` extracts the actual page-fill helper and checks all
-word-aligned lengths from 0 through 4 KiB, six fill patterns, prefix canaries,
-and an inaccessible following page. It accepts the same source/sanitizer options.
+`test-zram-pages.py --source /path/to/patched-linux` extracts the actual
+page-fill helper and checks all word-aligned lengths from 0 through 4 KiB, six
+fill patterns, prefix canaries, and an inaccessible following page, on a 64-bit
+little-endian Linux host. Set `NANOKVM_SANITIZE=1` for ASan/UBSan. Release-build
+CI runs both modes against its prepared kernel source. The tests do not access a
+device or change the supplied source tree.
 
 `test-zram-streams.py` compiles the actual zcomp frontend with pthread/CPUHP
 shims. It checks direction independence, same-direction serialization, nine
 allocation-failure points, concurrent calls, teardown waits, and migration to
-an online CPU. The real LZ4/zstd backends are additionally qualified on C906.
+an online CPU. The real LZ4 backend is additionally qualified on C906.
 
 ## Manual tools
 

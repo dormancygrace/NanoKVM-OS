@@ -19,18 +19,15 @@ const memoryService = "/etc/init.d/S38memory"
 var memoryMutation sync.Mutex
 
 type memorySwap struct {
-	Enabled             bool   `json:"enabled"`
-	Available           bool   `json:"available"`
-	SizeMiB             int64  `json:"sizeMiB"`
-	UsedBytes           uint64 `json:"usedBytes"`
-	Priority            int64  `json:"priority"`
-	MemoryBytes         uint64 `json:"memoryBytes,omitempty"`
-	CompressedBytes     uint64 `json:"compressedBytes,omitempty"`
-	OriginalBytes       uint64 `json:"originalBytes,omitempty"`
-	Algorithm           string `json:"algorithm,omitempty"`
-	Recompress          bool   `json:"recompress"`
-	RecompressAvailable bool   `json:"recompressAvailable"`
-	RecompressReady     bool   `json:"recompressReady"`
+	Enabled         bool   `json:"enabled"`
+	Available       bool   `json:"available"`
+	SizeMiB         int64  `json:"sizeMiB"`
+	UsedBytes       uint64 `json:"usedBytes"`
+	Priority        int64  `json:"priority"`
+	MemoryBytes     uint64 `json:"memoryBytes,omitempty"`
+	CompressedBytes uint64 `json:"compressedBytes,omitempty"`
+	OriginalBytes   uint64 `json:"originalBytes,omitempty"`
+	Algorithm       string `json:"algorithm,omitempty"`
 	// zram only: the size follows the memory (zramAutoMiB); sizeMiB is then
 	// the current size.
 	Auto bool `json:"auto"`
@@ -51,8 +48,7 @@ type memorySwapRequest struct {
 	Kind    string `json:"kind"`
 	Enabled bool   `json:"enabled"`
 	// zram: 0 selects "auto", half of the Linux memory.
-	SizeMiB    int64 `json:"sizeMiB"`
-	Recompress *bool `json:"recompress,omitempty"`
+	SizeMiB int64 `json:"sizeMiB"`
 }
 
 func parseMemoryCounters(text string) map[string]uint64 {
@@ -110,9 +106,6 @@ func validSwapRequest(req memorySwapRequest) bool {
 	case "zram":
 		return req.SizeMiB == 0 || req.SizeMiB == 32 || req.SizeMiB == 64 || req.SizeMiB == 128 || req.SizeMiB == 162
 	case "sd":
-		if req.Recompress != nil {
-			return false
-		}
 		return req.SizeMiB == 128 || req.SizeMiB == 256 || req.SizeMiB == 512
 	}
 	return false
@@ -151,12 +144,6 @@ func readMemoryStatus() (memoryStatus, error) {
 	}
 	// Persisted size selections do not imply that activation actually succeeded.
 	config, _ := os.ReadFile("/etc/kvm/memory.conf")
-	result.Zram.Recompress = parseRecompressionSetting(string(config))
-	_, recompErr := os.Stat("/sys/block/zram0/recompress")
-	_, idleErr := os.Stat("/sys/block/zram0/idle")
-	result.Zram.RecompressAvailable = recompErr == nil && idleErr == nil
-	secondary, _ := os.ReadFile("/sys/block/zram0/recomp_algorithm")
-	result.Zram.RecompressReady = result.Zram.Enabled && hasZstdRecompression(string(secondary))
 	for _, line := range strings.Split(string(config), "\n") {
 		key, value, ok := strings.Cut(line, "=")
 		if !ok {
@@ -227,13 +214,6 @@ func applyMemorySwap(req memorySwapRequest) error {
 		size = "auto"
 	}
 	args := []string{memoryService, "configure", kind, enabled, size}
-	if req.Recompress != nil {
-		flag := "0"
-		if *req.Recompress {
-			flag = "1"
-		}
-		args = append(args, flag)
-	}
 	output, err := exec.Command("sh", args...).CombinedOutput()
 	if err != nil {
 		message := strings.TrimSpace(string(output))

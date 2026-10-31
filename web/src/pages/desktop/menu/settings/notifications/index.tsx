@@ -26,13 +26,8 @@ import {
 } from '@/api/notify.ts';
 import { IconButton, Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
-import {
-  newTemplateId,
-  Previews,
-  templateOf,
-  Templates,
-  type TemplateDraft
-} from './templates.tsx';
+import { newTemplateId, templateOf, type TemplateDraft } from './template.ts';
+import { Previews, Templates } from './templates.tsx';
 
 // Product names stay as they are; the generic types are translated.
 const brandNames: Record<string, string> = {

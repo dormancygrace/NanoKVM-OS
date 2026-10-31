@@ -27,6 +27,9 @@ const (
 	maxTemplates  = 16
 	maxTitleBytes = 256
 	maxBodyBytes  = 2048
+	// Keep the encoded file within recovery.MaxFile so settings remain
+	// exportable and restorable, including JSON escaping and indentation.
+	maxConfigBytes = 512 << 10
 )
 
 type Config struct {
@@ -241,6 +244,9 @@ func Save(path string, c Config) error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
+	}
+	if len(data) > maxConfigBytes {
+		return fmt.Errorf("notification settings are larger than the %d-byte backup limit", maxConfigBytes)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err

@@ -118,7 +118,7 @@ The registers are those of the Synopsys NIST TRNG core, which the TRM documents 
 
 The block sits behind the efuse clock gates, which Linux turns off when nothing uses them. With the gates off, any access to its registers hangs the bus, and the board restarts through the watchdog. The device tree node names both clocks, so the driver enables them before it touches a register. Do not read its registers with `devmem` while the module is not loaded.
 
-While the driver is loaded, the hw_random core also feeds the kernel's entropy pool from it, with the full quality the core assumes for a device that names none. `/sys/class/misc/hw_random/rng_quality` lowers that. Nothing in NanoKVM OS loads the module or reads `/dev/hwrng`; the kernel's own random number generator does not need it.
+While the driver is loaded, the hw_random core also feeds the kernel's entropy pool from it, with the full quality the core assumes for a device that names none. `/sys/class/misc/hw_random/rng_quality` lowers that. That is what it is for at boot: OpenRC's modules service loads it (`modules-load.d/nanokvm-trng.conf`), the pool is ready a few milliseconds later instead of about 4 s, and `nanokvm-modules` unloads it again once `/dev/random` no longer blocks. Nothing in NanoKVM OS reads `/dev/hwrng`; `modprobe cv181x_trng` brings it back.
 
 Checked on the stand (Linux 7.3):
 - 1 MiB read in 3.6 s, across 64 seeds;

@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "主機已開機", "body": "主機的電源 LED 已亮起。" },
+  "power.off": { "title": "主機已關機", "body": "主機的電源 LED 已熄滅。" },
+  "hdmi.lost": { "title": "HDMI 訊號遺失", "body": "主機已停止輸出畫面。" },
+  "hdmi.restored": { "title": "HDMI 訊號恢復", "body": "主機重新輸出畫面。" },
+  "security.lockout": {
+    "title": "登入已被封鎖",
+    "body": "來自 {address} 的登入失敗 {failures} 次：該位址的登入已被封鎖 {minutes} 分鐘。"
+  },
+  "security.new-address": {
+    "title": "來自新位址的登入",
+    "body": "{user} 從 {address} 登入，此位址之前未出現過。"
+  },
+  "screen.bsod": { "title": "主機藍屏", "body": "Windows 因錯誤而停止運作。" },
+  "screen.panic": { "title": "主機 Kernel panic", "body": "主機的主控台顯示系統當機。" },
+  "test": { "title": "測試通知", "body": "此 NanoKVM 的通知可以送達此頻道。" }
+}

@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "המארח הופעל", "body": "נורית ההפעלה של המארח נדלקה." },
+  "power.off": { "title": "המארח כובה", "body": "נורית ההפעלה של המארח כבתה." },
+  "hdmi.lost": { "title": "אות HDMI אבד", "body": "המארח הפסיק לשדר תמונה." },
+  "hdmi.restored": { "title": "אות HDMI חזר", "body": "המארח משדר תמונה שוב." },
+  "security.lockout": {
+    "title": "כניסות נחסמו",
+    "body": "{failures} כניסות כושלות מהכתובת {address}: כניסות מכתובת זו חסומות למשך {minutes} דקות."
+  },
+  "security.new-address": {
+    "title": "כניסה מכתובת חדשה",
+    "body": "{user} נכנס מהכתובת {address}, כתובת שלא נראתה קודם."
+  },
+  "screen.bsod": { "title": "מסך כחול במארח", "body": "Windows נעצרה עם שגיאה." },
+  "screen.panic": { "title": "Kernel panic במארח", "body": "קונסולת המארח מציגה קריסה." },
+  "test": { "title": "התראת בדיקה", "body": "התראות מ-NanoKVM זה מגיעות לערוץ הזה." }
+}

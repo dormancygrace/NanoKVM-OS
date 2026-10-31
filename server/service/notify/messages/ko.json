@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "호스트 전원 켜짐", "body": "호스트의 전원 LED가 켜졌습니다." },
+  "power.off": { "title": "호스트 전원 꺼짐", "body": "호스트의 전원 LED가 꺼졌습니다." },
+  "hdmi.lost": { "title": "HDMI 신호 끊김", "body": "호스트가 화면 출력을 중단했습니다." },
+  "hdmi.restored": { "title": "HDMI 신호 복구됨", "body": "호스트가 다시 화면을 출력합니다." },
+  "security.lockout": {
+    "title": "로그인 차단됨",
+    "body": "{address}에서 로그인에 {failures}회 실패했습니다. 이 주소에서의 로그인은 {minutes}분 동안 차단됩니다."
+  },
+  "security.new-address": {
+    "title": "새 주소에서 로그인",
+    "body": "{user} 사용자가 이전에 없던 주소 {address}에서 로그인했습니다."
+  },
+  "screen.bsod": { "title": "호스트에 블루 스크린", "body": "Windows가 오류로 중단되었습니다." },
+  "screen.panic": { "title": "호스트에 Kernel panic", "body": "호스트 콘솔에 충돌이 표시됩니다." },
+  "test": { "title": "테스트 알림", "body": "이 NanoKVM의 알림이 이 채널로 전달됩니다." }
+}

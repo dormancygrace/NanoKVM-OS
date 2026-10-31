@@ -1,64 +1,163 @@
 package notify
 
-import "fmt"
+import (
+	"embed"
+	"encoding/json"
+	"path"
+	"regexp"
+	"strings"
+	"time"
+)
 
-// Languages are the languages of the messages; the first is the default.
-var Languages = []string{"en", "ru"}
+// Languages are the languages of the standard messages, those of the web
+// interface; the first is the default.
+var Languages = []string{"en", "ca", "cz", "da", "de", "es", "fr", "he", "hu", "id", "it", "ja", "ko", "nb", "nl",
+	"pl", "pt_br", "ru", "se", "th", "tr", "uk", "vi", "zh", "zh_tw"}
 
-type message struct{ title, text string }
-
-// messages holds every message in every language; the text is a format for
-// the event's Args.
-var messages = map[string]map[string]message{
-	"en": {
-		"test":                 {"Test notification", "Notifications from this NanoKVM reach this channel."},
-		"power.on":             {"Host powered on", "The host's power LED turned on."},
-		"power.off":            {"Host powered off", "The host's power LED turned off."},
-		"hdmi.lost":            {"HDMI signal lost", "The host stopped sending a picture."},
-		"hdmi.restored":        {"HDMI signal restored", "The host sends a picture again."},
-		"security.lockout":     {"Logins blocked", "%d failed logins from %s: logins from this address are blocked for %d min."},
-		"security.new-address": {"Login from a new address", "%s logged in from %s, an address not seen before."},
-		"screen.bsod":          {"Blue screen on the host", "Windows stopped with an error."},
-		"screen.panic":         {"Kernel panic on the host", "The host's console shows a crash."},
-	},
-	"ru": {
-		"test":                 {"Проверка уведомлений", "Уведомления от этого NanoKVM доходят до этого канала."},
-		"power.on":             {"Хост включился", "Загорелся индикатор питания хоста."},
-		"power.off":            {"Хост выключился", "Погас индикатор питания хоста."},
-		"hdmi.lost":            {"Пропал HDMI-сигнал", "Хост перестал передавать изображение."},
-		"hdmi.restored":        {"HDMI-сигнал вернулся", "Хост снова передаёт изображение."},
-		"security.lockout":     {"Вход заблокирован", "%d неудачных входов с %s: вход с этого адреса заблокирован на %d мин."},
-		"security.new-address": {"Вход с нового адреса", "Вход пользователя %s с %s: с этого адреса раньше не входили."},
-		"screen.bsod":          {"Синий экран на хосте", "Windows остановилась с ошибкой."},
-		"screen.panic":         {"Kernel panic на хосте", "На консоли хоста — сбой."},
-	},
+// Message is the title and body of one event, with {name} variables.
+type Message struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
 }
 
-func render(e Event, language string) Rendered {
-	catalogue, ok := messages[language]
-	if !ok {
-		catalogue = messages[Languages[0]]
+// MessageSpec is one message an event can send: its key, the kind of event
+// it is about and the variables of its own.
+type MessageSpec struct {
+	Key  string   `json:"key"`
+	Kind Kind     `json:"kind"`
+	Vars []string `json:"vars"`
+}
+
+// MessageSpecs are the messages, in the page's order.
+var MessageSpecs = []MessageSpec{
+	{Key: "power.on", Kind: KindPower},
+	{Key: "power.off", Kind: KindPower},
+	{Key: "hdmi.lost", Kind: KindHDMI},
+	{Key: "hdmi.restored", Kind: KindHDMI},
+	{Key: "security.lockout", Kind: KindSecurity, Vars: []string{"failures", "address", "minutes"}},
+	{Key: "security.new-address", Kind: KindSecurity, Vars: []string{"user", "address"}},
+	{Key: "screen.bsod", Kind: KindScreen},
+	{Key: "screen.panic", Kind: KindScreen},
+	{Key: "test", Kind: KindTest},
+}
+
+// CommonVars are the variables of every message: the device's name, the
+// event's time, and the details sent with it (the text read off the screen).
+// Details the body does not place go under it.
+var CommonVars = []string{"device", "time", "details"}
+
+func messageSpec(key string) (MessageSpec, bool) {
+	for _, spec := range MessageSpecs {
+		if spec.Key == key {
+			return spec, true
+		}
 	}
-	m, ok := catalogue[e.Message]
-	if !ok {
-		m = message{e.Message, ""}
+	return MessageSpec{}, false
+}
+
+//go:embed messages/*.json
+var messageFiles embed.FS
+
+// messages holds the standard messages of every language.
+var messages = func() map[string]map[string]Message {
+	all := map[string]map[string]Message{}
+	for _, language := range Languages {
+		data, err := messageFiles.ReadFile(path.Join("messages", language+".json"))
+		if err != nil {
+			panic(err)
+		}
+		catalogue := map[string]Message{}
+		if err := json.Unmarshal(data, &catalogue); err != nil {
+			panic(language + ": " + err.Error())
+		}
+		all[language] = catalogue
 	}
-	body := m.text
-	if len(e.Args) > 0 {
-		body = fmt.Sprintf(m.text, e.Args...)
+	return all
+}()
+
+// standardMessage is a message of the standard template, falling back to
+// English.
+func standardMessage(language, key string) Message {
+	if m, ok := messages[language][key]; ok {
+		return m
 	}
-	if e.Details != "" {
+	if m, ok := messages[Languages[0]][key]; ok {
+		return m
+	}
+	return Message{Title: key}
+}
+
+var variable = regexp.MustCompile(`\{([a-z]+)\}`)
+
+// fill replaces each {name} of vars; other braces stay as written.
+func fill(text string, vars map[string]string) string {
+	return variable.ReplaceAllStringFunc(text, func(match string) string {
+		if value, ok := vars[match[1:len(match)-1]]; ok {
+			return value
+		}
+		return match
+	})
+}
+
+// unknownVars lists the {name}s of text that the message does not have.
+func unknownVars(text string, spec MessageSpec) []string {
+	var unknown []string
+	for _, match := range variable.FindAllStringSubmatch(text, -1) {
+		name := match[1]
+		if !contains(spec.Vars, name) && !contains(CommonVars, name) && !contains(unknown, name) {
+			unknown = append(unknown, name)
+		}
+	}
+	return unknown
+}
+
+func contains(list []string, item string) bool {
+	for _, value := range list {
+		if value == item {
+			return true
+		}
+	}
+	return false
+}
+
+// render puts an event into words: the template's text where it has one,
+// the standard message of the language elsewhere.
+func render(e Event, language string, template *Template) Rendered {
+	m := standardMessage(language, e.Message)
+	if template != nil {
+		if own, ok := template.Messages[e.Message]; ok {
+			if strings.TrimSpace(own.Title) != "" {
+				m.Title = own.Title
+			}
+			if strings.TrimSpace(own.Body) != "" {
+				m.Body = own.Body
+			}
+		}
+	}
+	vars := map[string]string{
+		"device":  deviceName(),
+		"time":    e.Time.Format(time.DateTime + " MST"),
+		"details": e.Details,
+	}
+	for name, value := range e.Vars {
+		vars[name] = value
+	}
+	body := fill(m.Body, vars)
+	if e.Details != "" && !strings.Contains(m.Body, "{details}") {
 		if body != "" {
 			body += "\n\n"
 		}
 		body += e.Details
 	}
+	// A title stays one line whatever a variable holds (a user name comes
+	// from a login form).
+	title := strings.Join(strings.Fields(fill(m.Title, vars)), " ")
 	return Rendered{
 		Kind:     e.Kind,
 		Severity: e.Severity,
-		Title:    m.title,
+		Title:    title,
 		Body:     body,
-		Device:   deviceName(),
+		Device:   vars["device"],
 		Time:     e.Time,
 		Image:    e.Image,
 	}

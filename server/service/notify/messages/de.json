@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Host eingeschaltet", "body": "Die Betriebs-LED des Hosts hat sich eingeschaltet." },
+  "power.off": { "title": "Host ausgeschaltet", "body": "Die Betriebs-LED des Hosts hat sich ausgeschaltet." },
+  "hdmi.lost": { "title": "HDMI-Signal verloren", "body": "Der Host sendet kein Bild mehr." },
+  "hdmi.restored": { "title": "HDMI-Signal wiederhergestellt", "body": "Der Host sendet wieder ein Bild." },
+  "security.lockout": {
+    "title": "Anmeldungen gesperrt",
+    "body": "{failures} fehlgeschlagene Anmeldungen von {address}: Anmeldungen von dieser Adresse sind für {minutes} Min. gesperrt."
+  },
+  "security.new-address": {
+    "title": "Anmeldung von neuer Adresse",
+    "body": "{user} hat sich von {address} angemeldet, einer bisher unbekannten Adresse."
+  },
+  "screen.bsod": { "title": "Bluescreen auf dem Host", "body": "Windows wurde mit einem Fehler angehalten." },
+  "screen.panic": { "title": "Kernel Panic auf dem Host", "body": "Die Konsole des Hosts zeigt einen Absturz." },
+  "test": { "title": "Testbenachrichtigung", "body": "Benachrichtigungen dieses NanoKVM erreichen diesen Kanal." }
+}

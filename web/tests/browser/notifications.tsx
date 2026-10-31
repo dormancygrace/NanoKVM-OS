@@ -4,7 +4,12 @@ import axios, { type AxiosAdapter } from 'axios';
 import i18next from 'i18next';
 import { createRoot } from 'react-dom/client';
 
-import type { NotifyChannel, NotifyChannelUpdate, NotifyStatus } from '@/api/notify.ts';
+import type {
+  NotifyChannel,
+  NotifyChannelUpdate,
+  NotifyStatus,
+  NotifyTemplate
+} from '@/api/notify.ts';
 
 import '@/assets/styles/index.css';
 
@@ -33,6 +38,7 @@ let stored: NotifyChannel[] = [
   }
 ];
 let storedLanguage = 'en';
+let storedTemplates: NotifyTemplate[] = [];
 let nextId = 2;
 let completeSave: (() => void) | undefined;
 let report: (text: string) => void = () => undefined;
@@ -41,6 +47,11 @@ const status = (): NotifyStatus => ({
   language: storedLanguage,
   languages: ['en', 'ru'],
   channels: stored.map((channel) => ({ ...channel, settings: { ...channel.settings } })),
+  templates: storedTemplates,
+  messages: [
+    { key: 'power.off', kind: 'power', vars: null, title: 'Host powered off', body: 'Off.' }
+  ],
+  commonVars: ['device', 'time', 'details'],
   types,
   events: ['power', 'hdmi', 'security']
 });
@@ -54,10 +65,38 @@ const adapter: AxiosAdapter = async (config) => {
     config
   });
   if (config.method === 'get') return answer(status());
-  const sent = JSON.parse(config.data) as { language: string; channels: NotifyChannelUpdate[] };
+  if (config.url?.endsWith('/preview')) {
+    // The server's preview: the template's title, or the standard one.
+    const { language, template } = JSON.parse(config.data) as {
+      language: string;
+      template: NotifyTemplate | null;
+    };
+    const own = template?.messages['power.off'];
+    const title = own?.title || 'Host powered off';
+    report(`PREVIEW language=${language} template=${template?.name ?? 'standard'}`);
+    return answer([{ key: 'power.off', title, body: 'Off.', text: 'Off.\n\nkvm' }]);
+  }
+  const sent = JSON.parse(config.data) as {
+    language: string;
+    channels: NotifyChannelUpdate[];
+    templates: NotifyTemplate[];
+  };
   report(
     `PUT held language=${sent.language} ` +
       sent.channels.map((channel) => `${channel.id || 'new'}:${channel.name}`).join(',')
+  );
+  report(
+    'TEMPLATES ' +
+      sent.templates
+        .map((template) => `${template.name}=${JSON.stringify(template.messages)}`)
+        .join(';') +
+      ' USED ' +
+      sent.channels
+        .map((channel) => {
+          const used = sent.templates.find((template) => template.id === channel.template);
+          return used ? used.name : 'standard';
+        })
+        .join(',')
   );
   return new Promise((resolve) => {
     completeSave = () => {
@@ -74,9 +113,11 @@ const adapter: AxiosAdapter = async (config) => {
           enabled: channel.enabled,
           events: channel.events,
           settings,
-          secretsSet: token && !channel.clear.includes('token') ? ['token'] : []
+          secretsSet: token && !channel.clear.includes('token') ? ['token'] : [],
+          template: channel.template
         };
       });
+      storedTemplates = sent.templates;
       storedLanguage = sent.language;
       report('PUT committed');
       resolve(answer(status()));

@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Amfitrió engegat", "body": "El LED d'alimentació de l'amfitrió s'ha encès." },
+  "power.off": { "title": "Amfitrió apagat", "body": "El LED d'alimentació de l'amfitrió s'ha apagat." },
+  "hdmi.lost": { "title": "Senyal HDMI perdut", "body": "L'amfitrió ha deixat d'enviar imatge." },
+  "hdmi.restored": { "title": "Senyal HDMI restablert", "body": "L'amfitrió torna a enviar imatge." },
+  "security.lockout": {
+    "title": "Inicis de sessió bloquejats",
+    "body": "{failures} inicis de sessió fallits des de {address}: els accessos des d'aquesta adreça estan bloquejats durant {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Inici de sessió des d'una adreça nova",
+    "body": "{user} ha iniciat sessió des de {address}, una adreça no vista abans."
+  },
+  "screen.bsod": { "title": "Pantalla blava a l'amfitrió", "body": "Windows s'ha aturat amb un error." },
+  "screen.panic": { "title": "Kernel panic a l'amfitrió", "body": "La consola de l'amfitrió mostra una fallada." },
+  "test": { "title": "Notificació de prova", "body": "Les notificacions d'aquest NanoKVM arriben a aquest canal." }
+}

@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "ホストが起動しました", "body": "ホストの電源 LED が点灯しました。" },
+  "power.off": { "title": "ホストが停止しました", "body": "ホストの電源 LED が消灯しました。" },
+  "hdmi.lost": { "title": "HDMI 信号が途絶えました", "body": "ホストが映像を出力しなくなりました。" },
+  "hdmi.restored": { "title": "HDMI 信号が回復しました", "body": "ホストが再び映像を出力しています。" },
+  "security.lockout": {
+    "title": "ログインをブロックしました",
+    "body": "{address} からのログインが {failures} 回失敗しました。このアドレスからのログインは {minutes} 分間ブロックされます。"
+  },
+  "security.new-address": {
+    "title": "新しいアドレスからのログイン",
+    "body": "{user} が、これまで確認されていないアドレス {address} からログインしました。"
+  },
+  "screen.bsod": { "title": "ホストでブルースクリーン", "body": "Windows がエラーで停止しました。" },
+  "screen.panic": { "title": "ホストで Kernel panic", "body": "ホストのコンソールにクラッシュが表示されています。" },
+  "test": { "title": "テスト通知", "body": "この NanoKVM からの通知はこのチャンネルに届きます。" }
+}

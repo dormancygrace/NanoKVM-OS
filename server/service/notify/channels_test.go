@@ -153,7 +153,7 @@ func TestErrorsHideEchoedSecrets(t *testing.T) {
 	}
 	// The same through the page's Test button.
 	s := newService(t.TempDir() + "/config.json")
-	if err := s.Test(context.Background(), channel("telegram", map[string]string{"token": "3:SENTINEL", "chatId": "1", "apiUrl": server.URL})); err == nil || strings.Contains(err.Error(), "SENTINEL") {
+	if err := s.Test(context.Background(), channel("telegram", map[string]string{"token": "3:SENTINEL", "chatId": "1", "apiUrl": server.URL}), nil); err == nil || strings.Contains(err.Error(), "SENTINEL") {
 		t.Errorf("test: %v", err)
 	}
 }

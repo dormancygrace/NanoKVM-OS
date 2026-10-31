@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Värden är påslagen", "body": "Värdens strömlampa tändes." },
+  "power.off": { "title": "Värden är avstängd", "body": "Värdens strömlampa släcktes." },
+  "hdmi.lost": { "title": "HDMI-signal förlorad", "body": "Värden slutade skicka bild." },
+  "hdmi.restored": { "title": "HDMI-signal återställd", "body": "Värden skickar bild igen." },
+  "security.lockout": {
+    "title": "Inloggningar blockerade",
+    "body": "{failures} misslyckade inloggningar från {address}: inloggningar från den här adressen är blockerade i {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Inloggning från ny adress",
+    "body": "{user} loggade in från {address}, en adress som inte setts tidigare."
+  },
+  "screen.bsod": { "title": "Blåskärm på värden", "body": "Windows stoppades med ett fel." },
+  "screen.panic": { "title": "Kernel panic på värden", "body": "Värdens konsol visar en krasch." },
+  "test": { "title": "Testavisering", "body": "Aviseringar från den här NanoKVM når den här kanalen." }
+}

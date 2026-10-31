@@ -37,6 +37,22 @@ func notifyRouter(r *gin.Engine) {
 		}
 		response.OkRspWithData(c, service.Status())
 	})
+	// Writes every message with sample values, as a template on the page
+	// (saved or not) or the standard one would.
+	api.POST("/preview", func(c *gin.Context) {
+		var request notify.PreviewRequest
+		var response proto.Response
+		if err := c.ShouldBindJSON(&request); err != nil {
+			response.ErrRsp(c, -1, "invalid template")
+			return
+		}
+		previews, err := service.Preview(request)
+		if err != nil {
+			response.ErrRsp(c, -1, err.Error())
+			return
+		}
+		response.OkRspWithData(c, previews)
+	})
 	// Sends a test message through one channel as it is on the page.
 	api.POST("/test", func(c *gin.Context) {
 		var request notify.ChannelUpdate

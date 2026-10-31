@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Máy chủ đã bật", "body": "Đèn LED nguồn của máy chủ đã sáng." },
+  "power.off": { "title": "Máy chủ đã tắt", "body": "Đèn LED nguồn của máy chủ đã tắt." },
+  "hdmi.lost": { "title": "Mất tín hiệu HDMI", "body": "Máy chủ đã ngừng gửi hình ảnh." },
+  "hdmi.restored": { "title": "Đã có lại tín hiệu HDMI", "body": "Máy chủ lại gửi hình ảnh." },
+  "security.lockout": {
+    "title": "Đã chặn đăng nhập",
+    "body": "Đăng nhập thất bại {failures} lần từ {address}: đăng nhập từ địa chỉ này bị chặn trong {minutes} phút."
+  },
+  "security.new-address": {
+    "title": "Đăng nhập từ địa chỉ mới",
+    "body": "{user} đã đăng nhập từ {address}, một địa chỉ chưa từng thấy trước đây."
+  },
+  "screen.bsod": { "title": "Màn hình xanh trên máy chủ", "body": "Windows đã dừng do lỗi." },
+  "screen.panic": { "title": "Kernel panic trên máy chủ", "body": "Bảng điều khiển của máy chủ hiển thị sự cố." },
+  "test": { "title": "Thông báo thử nghiệm", "body": "Thông báo từ NanoKVM này đã đến được kênh này." }
+}

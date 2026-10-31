@@ -11,7 +11,7 @@ import {
   Spin,
   Switch
 } from 'antd';
-import { ChevronDownIcon, PlusIcon, SendIcon, Trash2Icon } from 'lucide-react';
+import { ChevronDownIcon, EyeIcon, PlusIcon, SendIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -25,6 +25,9 @@ import {
   type NotifyStatus
 } from '@/api/notify.ts';
 import { IconButton, Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
+
+import { newTemplateId, templateOf, type TemplateDraft } from './template.ts';
+import { Previews, Templates } from './templates.tsx';
 
 // Product names stay as they are; the generic types are translated.
 const brandNames: Record<string, string> = {
@@ -40,7 +43,41 @@ const brandNames: Record<string, string> = {
   syslog: 'Syslog'
 };
 
-const languageNames: Record<string, string> = { en: 'English', ru: 'Русский' };
+// Each language by its own name, as the language menu of the interface.
+const languageNames: Record<string, string> = {
+  en: 'English',
+  ca: 'Català',
+  cz: 'Čeština',
+  da: 'Dansk',
+  de: 'Deutsch',
+  es: 'Español',
+  fr: 'Français',
+  he: 'עברית',
+  hu: 'Magyar',
+  id: 'Bahasa Indonesia',
+  it: 'Italiano',
+  ja: '日本語',
+  ko: '한국어',
+  nb: 'Norsk bokmål',
+  nl: 'Nederlands',
+  pl: 'Polski',
+  pt_br: 'Português (Brasil)',
+  ru: 'Русский',
+  se: 'Svenska',
+  th: 'ไทย',
+  tr: 'Türkçe',
+  uk: 'Українська',
+  vi: 'Tiếng Việt',
+  zh: '简体中文',
+  zh_tw: '繁體中文'
+};
+
+const templateDraftsOf = (status: NotifyStatus, open = new Map<string, boolean>()) =>
+  status.templates.map((template) => ({
+    ...template,
+    messages: { ...template.messages },
+    open: open.get(template.id) ?? false
+  }));
 
 type Draft = NotifyChannelUpdate & {
   secretsSet: string[];
@@ -66,7 +103,8 @@ const update = (draft: Draft): NotifyChannelUpdate => ({
   enabled: draft.enabled,
   events: draft.events,
   settings: draft.settings,
-  clear: draft.clear
+  clear: draft.clear,
+  template: draft.template ?? ''
 });
 
 // Services > Notifications: channels that get messages about the host and
@@ -76,7 +114,9 @@ export const Notifications = () => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.notifications' });
   const [status, setStatus] = useState<NotifyStatus>();
   const [channels, setChannels] = useState<Draft[]>([]);
+  const [templates, setTemplates] = useState<TemplateDraft[]>([]);
   const [language, setLanguage] = useState('en');
+  const [standardPreview, setStandardPreview] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -93,6 +133,7 @@ export const Notifications = () => {
   const show = useCallback((next: NotifyStatus) => {
     setStatus(next);
     setChannels(draftOf(next));
+    setTemplates(templateDraftsOf(next));
     setLanguage(next.language);
     setDirty(false);
   }, []);
@@ -143,12 +184,35 @@ export const Notifications = () => {
     edited();
   };
 
+  const addTemplate = () => {
+    setTemplates((list) => [...list, { id: newTemplateId(), name: '', messages: {}, open: true }]);
+    edited();
+  };
+
+  const changeTemplate = (id: string, patch: Partial<TemplateDraft>) => {
+    setTemplates((list) => list.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+    if (Object.keys(patch).some((name) => name !== 'open')) edited();
+  };
+
+  // Channels that used a deleted template get the standard messages.
+  const removeTemplate = (id: string) => {
+    setTemplates((list) => list.filter((item) => item.id !== id));
+    setChannels((list) =>
+      list.map((item) => (item.template === id ? { ...item, template: '' } : item))
+    );
+    edited();
+  };
+
   const save = async () => {
     setSaving(true);
     const submitted = channels;
     const submittedRevision = revision.current;
     try {
-      const response = await saveNotifyConfig({ language, channels: submitted.map(update) });
+      const response = await saveNotifyConfig({
+        language,
+        channels: submitted.map(update),
+        templates: templates.map(templateOf)
+      });
       if (!mounted.current) return;
       if (response.code !== 0) throw new Error(response.msg);
       const saved = response.data;
@@ -163,9 +227,13 @@ export const Notifications = () => {
             open: open.get(submitted[i]?.key ?? '') ?? false
           }));
         });
+        setTemplates((list) =>
+          templateDraftsOf(saved, new Map(list.map((item) => [item.id, item.open])))
+        );
         setLanguage(saved.language);
         setDirty(false);
       } else {
+        // Templates keep the ids the page gave them: the drafts stay as they are.
         // Edits made while saving stay, still to be saved. The channels sent
         // take the ids and stored secrets the device gave them, so their
         // secrets are kept by the next save too.
@@ -218,6 +286,7 @@ export const Notifications = () => {
             type={status.types.find((type) => type.type === channel.type)}
             events={status.events}
             typeName={typeName(channel.type)}
+            templates={templates}
             onChange={(patch) => change(channel.key, patch)}
             onRemove={() => remove(channel.key)}
           />
@@ -228,7 +297,8 @@ export const Notifications = () => {
         <SettingRow label={t('language')} htmlFor="notify-language">
           <Select
             id="notify-language"
-            className="w-40"
+            className="w-48"
+            showSearch={{ optionFilterProp: 'label' }}
             value={language}
             options={status.languages.map((value) => ({
               value,
@@ -240,7 +310,29 @@ export const Notifications = () => {
             }}
           />
         </SettingRow>
+        <p className="text-fg-muted m-0 text-xs">{t('languageHelp')}</p>
+        <div>
+          <Button
+            size="small"
+            icon={<EyeIcon size={14} />}
+            aria-expanded={standardPreview}
+            onClick={() => setStandardPreview((open) => !open)}
+          >
+            {t('previewStandard')}
+          </Button>
+        </div>
+        {standardPreview && <Previews language={language} template={null} />}
       </SettingsSection>
+
+      <Templates
+        templates={templates}
+        messages={status.messages}
+        commonVars={status.commonVars}
+        language={language}
+        onAdd={addTemplate}
+        onChange={changeTemplate}
+        onRemove={removeTemplate}
+      />
 
       <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void save()}>
         {t('save')}
@@ -254,6 +346,7 @@ type ChannelPanelProps = {
   type?: NotifyChannelType;
   events: NotifyKind[];
   typeName: string;
+  templates: TemplateDraft[];
   onChange: (patch: Partial<Draft>) => void;
   onRemove: () => void;
 };
@@ -263,6 +356,7 @@ const ChannelPanel = ({
   type,
   events,
   typeName,
+  templates,
   onChange,
   onRemove
 }: ChannelPanelProps) => {
@@ -270,12 +364,17 @@ const ChannelPanel = ({
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string }>();
   const id = `notify-${channel.key}`;
+  const template = templates.find((item) => item.id === channel.template);
 
   const test = async () => {
     setTesting(true);
     setTestResult(undefined);
     try {
-      const response = await testNotifyChannel(update(channel));
+      // The test message is written by the template as it is on the page.
+      const response = await testNotifyChannel({
+        ...update(channel),
+        templateDraft: template && templateOf(template)
+      });
       setTestResult(
         response.code === 0
           ? { ok: true, text: t('testSent') }
@@ -363,6 +462,18 @@ const ChannelPanel = ({
               </li>
             ))}
           </ul>
+        </SettingRow>
+        <SettingRow label={t('template')} htmlFor={`${id}-template`}>
+          <Select
+            id={`${id}-template`}
+            className="w-48"
+            value={template ? template.id : ''}
+            options={[
+              { value: '', label: t('standardTemplate') },
+              ...templates.map((item) => ({ value: item.id, label: item.name || t('untitled') }))
+            ]}
+            onChange={(value) => onChange({ template: value })}
+          />
         </SettingRow>
         {type?.fields.map((field) => (
           <FieldInput

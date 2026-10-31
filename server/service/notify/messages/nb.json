@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Verten er slått på", "body": "Strøm-LED-en på verten lyser nå." },
+  "power.off": { "title": "Verten er slått av", "body": "Strøm-LED-en på verten sluknet." },
+  "hdmi.lost": { "title": "HDMI-signal mistet", "body": "Verten sender ikke lenger bilde." },
+  "hdmi.restored": { "title": "HDMI-signal gjenopprettet", "body": "Verten sender bilde igjen." },
+  "security.lockout": {
+    "title": "Innlogginger blokkert",
+    "body": "{failures} mislykkede innloggingsforsøk fra {address}: innlogging fra denne adressen er blokkert i {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Innlogging fra ny adresse",
+    "body": "{user} logget inn fra {address}, en adresse som ikke er sett før."
+  },
+  "screen.bsod": { "title": "Blåskjerm på verten", "body": "Windows stoppet med en feil." },
+  "screen.panic": { "title": "Kernel panic på verten", "body": "Vertens konsoll viser en krasj." },
+  "test": { "title": "Testvarsel", "body": "Varsler fra denne NanoKVM-en når denne kanalen." }
+}

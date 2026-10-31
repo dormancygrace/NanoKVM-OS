@@ -50,13 +50,14 @@ func (s Severity) String() string {
 	return "info"
 }
 
-// Event is one notification. Message is a key of the message catalogue
-// (messages.go), filled with Args in the configured language.
+// Event is one notification. Message is a key of MessageSpecs, written by
+// the channel's template or the standard message of the configured language,
+// with Vars filled in.
 type Event struct {
 	Kind     Kind
 	Severity Severity
 	Message  string
-	Args     []any
+	Vars     map[string]string
 	// Details is sent as it is, untranslated: for example the text read
 	// off the host's screen.
 	Details string
@@ -180,7 +181,7 @@ func (s *Service) run() {
 func (s *Service) dispatch(e Event) {
 	s.mu.Lock()
 	config := s.config
-	key := fmt.Sprint(e.Message, e.Args)
+	key := fmt.Sprint(e.Message, e.Vars) // fmt prints a map in key order
 	now := s.now()
 	for k, at := range s.recent {
 		if now.Sub(at) >= repeatWindow {
@@ -205,13 +206,12 @@ func (s *Service) dispatch(e Event) {
 	if len(targets) == 0 {
 		return
 	}
-	r := render(e, config.Language)
 	for _, ch := range targets {
 		if !s.admit(ch.ID) {
 			log.Warnf("notifications: %s %q is behind, dropped %s", ch.Type, ch.Name, e.Message)
 			continue
 		}
-		go s.deliver(ch, r)
+		go s.deliver(ch, render(e, config.Language, config.template(ch.Template)))
 	}
 }
 
@@ -258,12 +258,13 @@ func (s *Service) deliver(ch Channel, r Rendered) {
 	}
 }
 
-// Test sends a test message to one channel at once and reports the result.
-func (s *Service) Test(ctx context.Context, ch Channel) error {
+// Test sends a test message to one channel at once, written by template (nil:
+// the standard one), and reports the result.
+func (s *Service) Test(ctx context.Context, ch Channel, template *Template) error {
 	s.mu.Lock()
 	language := s.config.Language
 	s.mu.Unlock()
-	r := render(Event{Kind: KindTest, Message: "test", Time: s.now()}, language)
+	r := render(Event{Kind: KindTest, Message: "test", Time: s.now()}, language, template)
 	return s.send(ctx, ch, r)
 }
 

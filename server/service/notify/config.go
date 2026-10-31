@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -23,11 +24,79 @@ const ConfigPath = "/etc/kvm/notify/config.json"
 const (
 	maxChannels   = 16
 	maxValueBytes = 2048
+	maxTemplates  = 16
+	maxTitleBytes = 256
+	maxBodyBytes  = 2048
+	// Keep the encoded file within recovery.MaxFile so settings remain
+	// exportable and restorable, including JSON escaping and indentation.
+	maxConfigBytes = 512 << 10
 )
 
 type Config struct {
-	Language string    `json:"language"`
-	Channels []Channel `json:"channels"`
+	Language  string     `json:"language"`
+	Channels  []Channel  `json:"channels"`
+	Templates []Template `json:"templates"`
+}
+
+// Template is a named set of messages; a channel that picks it gets its
+// text for each message it has, the standard message elsewhere (an empty
+// title or body is the standard one too).
+type Template struct {
+	// ID is chosen by the page, so a channel can pick a template not saved
+	// yet: up to 32 lower case letters and digits.
+	ID       string             `json:"id"`
+	Name     string             `json:"name"`
+	Messages map[string]Message `json:"messages"`
+}
+
+var templateID = regexp.MustCompile(`^[a-z0-9]{1,32}$`)
+
+// template is the template of an id, nil for the standard one or an id
+// not stored.
+func (c Config) template(id string) *Template {
+	for i := range c.Templates {
+		if c.Templates[i].ID == id {
+			return &c.Templates[i]
+		}
+	}
+	return nil
+}
+
+func (t *Template) validate() error {
+	t.Name = strings.TrimSpace(t.Name)
+	if t.Name == "" || len(t.Name) > 64 {
+		return errors.New("a template needs a name of at most 64 characters")
+	}
+	if !templateID.MatchString(t.ID) {
+		return fmt.Errorf("%s: invalid id", t.Name)
+	}
+	kept := map[string]Message{}
+	for key, m := range t.Messages {
+		spec, ok := messageSpec(key)
+		if !ok {
+			return fmt.Errorf("%s: unknown message %q", t.Name, key)
+		}
+		m.Title, m.Body = strings.TrimSpace(m.Title), strings.TrimSpace(m.Body)
+		if m.Title == "" && m.Body == "" {
+			continue // the standard message
+		}
+		switch {
+		case len(m.Title) > maxTitleBytes || strings.ContainsAny(m.Title, "\r\n"):
+			return fmt.Errorf("%s: %s: the title is one line of at most %d bytes", t.Name, key, maxTitleBytes)
+		case len(m.Body) > maxBodyBytes:
+			return fmt.Errorf("%s: %s: the text is longer than %d bytes", t.Name, key, maxBodyBytes)
+		case strings.Contains(m.Title, "{details}"):
+			// The details are lines read off the screen; a title is a mail
+			// subject or a syslog header.
+			return fmt.Errorf("%s: %s: {details} goes in the text, not the title", t.Name, key)
+		}
+		if unknown := unknownVars(m.Title+" "+m.Body, spec); len(unknown) > 0 {
+			return fmt.Errorf("%s: %s: unknown variable {%s}", t.Name, key, strings.Join(unknown, "}, {"))
+		}
+		kept[key] = m
+	}
+	t.Messages = kept
+	return nil
 }
 
 // Channel is one destination. Settings holds the fields of its type
@@ -40,6 +109,8 @@ type Channel struct {
 	// Events are the kinds the channel gets.
 	Events   []Kind            `json:"events"`
 	Settings map[string]string `json:"settings"`
+	// Template is the id of the channel's template; "" is the standard one.
+	Template string `json:"template,omitempty"`
 }
 
 func (ch Channel) wants(kind Kind) bool {
@@ -163,6 +234,9 @@ func Load(path string) (Config, error) {
 	if err := json.Unmarshal(data, &c); err != nil {
 		return defaultConfig(), fmt.Errorf("read %s: %w", path, err)
 	}
+	if !slices.Contains(Languages, c.Language) {
+		c.Language = Languages[0]
+	}
 	return c, nil
 }
 
@@ -170,6 +244,9 @@ func Save(path string, c Config) error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
+	}
+	if len(data) > maxConfigBytes {
+		return fmt.Errorf("notification settings are larger than the %d-byte backup limit", maxConfigBytes)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
@@ -184,6 +261,26 @@ func (c *Config) Validate() error {
 	}
 	if len(c.Channels) > maxChannels {
 		return fmt.Errorf("at most %d channels", maxChannels)
+	}
+	if len(c.Templates) > maxTemplates {
+		return fmt.Errorf("at most %d templates", maxTemplates)
+	}
+	templates, names := map[string]bool{}, map[string]bool{}
+	for i := range c.Templates {
+		if err := c.Templates[i].validate(); err != nil {
+			return err
+		}
+		// A channel picks a template by its name on the page.
+		name := strings.ToLower(c.Templates[i].Name)
+		if templates[c.Templates[i].ID] || names[name] {
+			return fmt.Errorf("template %q appears twice", c.Templates[i].Name)
+		}
+		templates[c.Templates[i].ID], names[name] = true, true
+	}
+	for _, ch := range c.Channels {
+		if ch.Template != "" && !templates[ch.Template] {
+			return fmt.Errorf("%s: the channel's template does not exist", ch.Name)
+		}
 	}
 	ids := map[string]bool{}
 	for i := range c.Channels {

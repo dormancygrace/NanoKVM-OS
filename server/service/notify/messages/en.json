@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Host powered on", "body": "The host's power LED turned on." },
+  "power.off": { "title": "Host powered off", "body": "The host's power LED turned off." },
+  "hdmi.lost": { "title": "HDMI signal lost", "body": "The host stopped sending a picture." },
+  "hdmi.restored": { "title": "HDMI signal restored", "body": "The host sends a picture again." },
+  "security.lockout": {
+    "title": "Logins blocked",
+    "body": "{failures} failed logins from {address}: logins from this address are blocked for {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Login from a new address",
+    "body": "{user} logged in from {address}, an address not seen before."
+  },
+  "screen.bsod": { "title": "Blue screen on the host", "body": "Windows stopped with an error." },
+  "screen.panic": { "title": "Kernel panic on the host", "body": "The host's console shows a crash." },
+  "test": { "title": "Test notification", "body": "Notifications from this NanoKVM reach this channel." }
+}

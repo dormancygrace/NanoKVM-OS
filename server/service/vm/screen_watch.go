@@ -18,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/service/notify"
 )
 
@@ -85,9 +86,11 @@ type screenWatch struct {
 	thumb    func(ctx context.Context) ([]byte, bool)
 	classify func(ctx context.Context, planes []byte) (screenVerdict, error)
 	viewers  func() int
-	// read is the OCR of the whole screen, as lines.
-	read func(ctx context.Context) (string, error)
-	shot func(ctx context.Context) []byte
+	// begin admits a background read; its context is cancelled when video
+	// starts (videogate).
+	begin func(ctx context.Context) (context.Context, func(), bool)
+	// read is the OCR of the whole screen, with the frame it read.
+	read func(ctx context.Context) (screenRead, error)
 	now  func() time.Time
 
 	last     []byte
@@ -105,8 +108,8 @@ func newScreenWatch() *screenWatch {
 		thumb:     screenThumb,
 		classify:  classifyScreen,
 		viewers:   func() int { return HdmiState().ViewerCount },
+		begin:     videogate.Begin,
 		read:      readScreenLines,
-		shot:      screenShot,
 		now:       time.Now,
 	}
 }
@@ -154,12 +157,15 @@ func (w *screenWatch) step(ctx context.Context) {
 	if w.reported {
 		return
 	}
-	w.check(ctx, verdict)
+	w.check(ctx, verdict, planes)
 }
 
-// check reads a suspect screen and reports a crash it names. Somebody who
-// watches the video sees it: then nothing is read or reported.
-func (w *screenWatch) check(ctx context.Context, verdict screenVerdict) {
+// check reads a suspect screen, the thumbnail judged, and reports a crash it
+// names. Somebody who watches the video sees it: then nothing is read or
+// reported, and a viewer who comes during the read cancels it. A read that
+// failed is tried again while the screen stays (at once when the TPU was
+// busy, after the gap otherwise).
+func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged []byte) {
 	if w.viewers() > 0 {
 		return
 	}
@@ -169,25 +175,53 @@ func (w *screenWatch) check(ctx context.Context, verdict screenVerdict) {
 		w.pending = true
 		return
 	}
+	ctx, end, ok := w.begin(ctx)
+	if !ok {
+		return // video runs
+	}
+	previous := w.readAt
 	w.readAt = now
-	text, err := w.read(ctx)
-	if err != nil {
-		log.Warnf("screen watch: OCR: %v", err)
+	got, err := w.read(ctx)
+	cancelled := ctx.Err() != nil
+	end()
+	if cancelled {
+		// A viewer came; the read did not count.
+		w.readAt = previous
+		log.Infof("screen watch: OCR gave way to a viewer")
 		return
+	}
+	if err != nil {
+		var readErr *ScreenTextError
+		if errors.As(err, &readErr) && readErr.Code == -2 {
+			w.readAt = previous // somebody else was reading: no read happened
+		}
+		log.Warnf("screen watch: OCR: %v", err)
+		w.pending = true
+		return
+	}
+	// The text and the picture sent are those of the frame the OCR read; a
+	// frame that is no longer the screen judged is judged anew.
+	if got.planes != nil {
+		thumb := shrinkPlanes(got.planes, got.width, got.height, screenThumbWidth, screenThumbHeight)
+		if meanDifference(thumb, judged) > screenChangeLevel {
+			log.Infof("screen watch: the screen changed before it was read")
+			w.last, w.pending = thumb, true
+			return
+		}
 	}
 	bsod := verdict.Class == "bsod"
 	switch {
-	case screenBSODText.MatchString(text) && bsod:
-		w.report(ctx, "screen.bsod", crashLines(text, screenBSODText))
-	case screenPanicText.MatchString(text):
-		w.report(ctx, "screen.panic", crashLines(text, screenPanicText))
+	case screenBSODText.MatchString(got.text) && bsod:
+		w.report("screen.bsod", crashLines(got.text, screenBSODText), got)
+	case screenPanicText.MatchString(got.text):
+		w.report("screen.panic", crashLines(got.text, screenPanicText), got)
 	}
 }
 
-func (w *screenWatch) report(ctx context.Context, message, details string) {
+func (w *screenWatch) report(message, details string, got screenRead) {
 	w.reported = true
 	w.emit(notify.Event{Kind: notify.KindScreen, Severity: notify.SeverityCritical, Message: message,
-		Details: details, Image: w.shot(ctx)})
+		Details: details, Image: screenJPEG(got.planes, got.width, got.height)})
 }
 
 // crashLines are the lines of the screen from the first that names the
@@ -337,18 +371,25 @@ func classifyScreen(ctx context.Context, planes []byte) (screenVerdict, error) {
 	return verdict, nil
 }
 
-func readScreenLines(ctx context.Context) (string, error) {
-	reply, err := ReadScreenText(ctx, ScreenTextRequest{})
-	if err != nil {
-		return "", err
-	}
-	return ScreenTextLines(reply.Boxes), nil
+// screenRead is an OCR read: the lines, and the frame they were read from as
+// B, G and R planes of width x height (nil when it was not kept).
+type screenRead struct {
+	text          string
+	planes        []byte
+	width, height int
 }
 
-// screenShot is a JPEG of the screen at most screenShotWidth wide, or nil.
-func screenShot(ctx context.Context) []byte {
-	planes, width, height, ok := screenPlanes(ctx)
-	if !ok {
+func readScreenLines(ctx context.Context) (screenRead, error) {
+	reply, err := ReadScreenText(ctx, ScreenTextRequest{keepPlanes: true})
+	if err != nil {
+		return screenRead{}, err
+	}
+	return screenRead{text: ScreenTextLines(reply.Boxes), planes: reply.planes, width: reply.Width, height: reply.Height}, nil
+}
+
+// screenJPEG is a JPEG of a frame at most screenShotWidth wide, or nil.
+func screenJPEG(planes []byte, width, height int) []byte {
+	if len(planes) != width*height*3 || width == 0 {
 		return nil
 	}
 	if width > screenShotWidth {

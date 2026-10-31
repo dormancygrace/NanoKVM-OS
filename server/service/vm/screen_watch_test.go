@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/service/notify"
 )
 
@@ -19,11 +20,19 @@ type watchedScreen struct {
 	viewers     int
 	text        string
 	ocrErr      error
+	ocrErrs     []error // the next reads' errors, first first
 	classifyErr error
 	classify    int
 	reads       int
 	events      []notify.Event
 	clock       time.Time
+	// duringRead runs inside the OCR read, after its frame was taken.
+	duringRead func(ctx context.Context)
+}
+
+// thumbOf is a flat thumbnail of one value, at the classifier's size.
+func thumbOf(value byte) []byte {
+	return bytes.Repeat([]byte{value}, screenThumbWidth*screenThumbHeight*3)
 }
 
 func (s *watchedScreen) watch() *screenWatch {
@@ -32,7 +41,7 @@ func (s *watchedScreen) watch() *screenWatch {
 		emit:      func(e notify.Event) { s.events = append(s.events, e) },
 		available: func() bool { return true },
 		thumb: func(context.Context) ([]byte, bool) {
-			return bytes.Repeat([]byte{s.picture}, 64), s.signal
+			return thumbOf(s.picture), s.signal
 		},
 		classify: func(context.Context, []byte) (screenVerdict, error) {
 			s.classify++
@@ -43,13 +52,37 @@ func (s *watchedScreen) watch() *screenWatch {
 			return s.verdict, nil
 		},
 		viewers: func() int { return s.viewers },
-		read: func(context.Context) (string, error) {
+		begin:   videogate.Begin,
+		read: func(ctx context.Context) (screenRead, error) {
 			s.reads++
-			return s.text, s.ocrErr
+			// The frame is the screen as the read starts.
+			got := screenRead{text: s.text, planes: thumbOf(s.picture), width: screenThumbWidth, height: screenThumbHeight}
+			if s.duringRead != nil {
+				s.duringRead(ctx)
+			}
+			if len(s.ocrErrs) > 0 {
+				err := s.ocrErrs[0]
+				s.ocrErrs = s.ocrErrs[1:]
+				return screenRead{}, err
+			}
+			if s.ocrErr != nil {
+				return screenRead{}, s.ocrErr
+			}
+			return got, nil
 		},
-		shot: func(context.Context) []byte { return []byte("jpeg") },
-		now:  func() time.Time { return s.clock },
+		now: func() time.Time { return s.clock },
 	}
+}
+
+// imageValue is the mean of a JPEG's blue channel.
+func imageValue(t *testing.T, data []byte) int {
+	t.Helper()
+	img, err := jpeg.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, b, _ := img.At(img.Bounds().Dx()/2, img.Bounds().Dy()/2).RGBA()
+	return int(b >> 8)
 }
 
 // run looks n times, screenWatchInterval apart.
@@ -102,7 +135,7 @@ func TestScreenWatchReportsAPanicReadByOCR(t *testing.T) {
 	w := s.watch()
 	s.run(w, 4)
 	if len(s.events) != 1 || s.events[0].Message != "screen.panic" || s.events[0].Kind != notify.KindScreen ||
-		string(s.events[0].Image) != "jpeg" || !strings.HasPrefix(s.events[0].Details, "[ 12.3] VFS") {
+		len(s.events[0].Image) == 0 || !strings.HasPrefix(s.events[0].Details, "[ 12.3] VFS") {
 		t.Fatalf("events %+v", s.events)
 	}
 	// The same crash stays on the screen: reported once.
@@ -175,6 +208,102 @@ func TestScreenWatchStopScreen(t *testing.T) {
 	s.run(w, 4)
 	if len(s.events) != 0 {
 		t.Fatal("reported a stop screen without reading it")
+	}
+}
+
+// A read that failed is tried again while the crash stays on the screen: at
+// once when somebody else was reading, after the gap otherwise.
+func TestScreenWatchRetriesAFailedRead(t *testing.T) {
+	busy := screenTextError(-2, "the screen is being read")
+	s := &watchedScreen{picture: 0, signal: true, verdict: screenVerdict{Class: "console", Score: 0.95},
+		text: panicScreen, ocrErrs: []error{busy}}
+	w := s.watch()
+	s.run(w, 3)
+	if s.reads != 2 || len(s.events) != 1 {
+		t.Fatalf("after busy: reads %d, events %d", s.reads, len(s.events))
+	}
+
+	s = &watchedScreen{picture: 0, signal: true, verdict: screenVerdict{Class: "console", Score: 0.95},
+		text: panicScreen, ocrErrs: []error{errors.New("capture timeout")}}
+	w = s.watch()
+	s.run(w, 3)
+	if s.reads != 1 || len(s.events) != 0 {
+		t.Fatalf("within the gap: reads %d, events %d", s.reads, len(s.events))
+	}
+	s.run(w, 30) // five minutes of the same panic
+	if s.reads != 2 || len(s.events) != 1 {
+		t.Fatalf("after the gap: reads %d, events %d", s.reads, len(s.events))
+	}
+}
+
+// A viewer who comes while the OCR runs cancels it: the video waits until
+// the read has ended, and nothing is reported.
+func TestScreenWatchYieldsToAViewerDuringTheRead(t *testing.T) {
+	s := &watchedScreen{picture: 0, signal: true, verdict: screenVerdict{Class: "console", Score: 0.95}, text: panicScreen}
+	held := make(chan func(), 1)
+	var cancelled bool
+	s.duringRead = func(ctx context.Context) {
+		go func() { held <- videogate.Hold() }() // a video session starts
+		select {
+		case <-ctx.Done():
+			cancelled = true
+		case <-time.After(5 * time.Second):
+		}
+		select {
+		case release := <-held:
+			t.Error("the video went on before the read ended")
+			held <- release
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	w := s.watch()
+	s.run(w, 2)
+	release := <-held
+	if !cancelled || s.reads != 1 || len(s.events) != 0 {
+		t.Fatalf("cancelled %v, reads %d, events %d", cancelled, s.reads, len(s.events))
+	}
+	// While the video runs nothing is read.
+	s.duringRead = nil
+	s.picture = 100
+	s.run(w, 2)
+	s.picture = 0
+	s.run(w, 2)
+	if s.reads != 1 {
+		t.Fatalf("read beside video: %d", s.reads)
+	}
+	release()
+}
+
+// The picture sent is the frame the OCR read, not the screen after it; a
+// frame that differs from the screen judged is judged again.
+func TestScreenWatchSendsTheFrameRead(t *testing.T) {
+	s := &watchedScreen{picture: 20, signal: true, verdict: screenVerdict{Class: "console", Score: 0.95}, text: panicScreen}
+	// The host restarts while the OCR runs: the desktop is up after it.
+	s.duringRead = func(context.Context) { s.picture = 230 }
+	w := s.watch()
+	s.run(w, 2)
+	if len(s.events) != 1 {
+		t.Fatalf("events %d", len(s.events))
+	}
+	if v := imageValue(t, s.events[0].Image); v > 40 {
+		t.Fatalf("the image is the screen after the read (%d)", v)
+	}
+
+	// The screen changed between the verdict and the OCR's frame.
+	s = &watchedScreen{picture: 20, signal: true, verdict: screenVerdict{Class: "console", Score: 0.95}, text: panicScreen}
+	w = s.watch()
+	s.run(w, 1)
+	classify := w.classify
+	w.classify = func(ctx context.Context, planes []byte) (screenVerdict, error) {
+		s.picture = 230 // after the verdict, before the read
+		return classify(ctx, planes)
+	}
+	s.run(w, 1)
+	if s.reads != 1 || len(s.events) != 0 {
+		t.Fatalf("reported a frame other than the one judged: reads %d, events %d", s.reads, len(s.events))
+	}
+	if !w.pending {
+		t.Fatal("the new screen is not judged")
 	}
 }
 

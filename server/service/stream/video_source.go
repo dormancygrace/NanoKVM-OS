@@ -2,6 +2,7 @@ package stream
 
 import (
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/videogate"
 	"context"
 	"errors"
 	"fmt"
@@ -305,6 +306,8 @@ func (s *VideoSource) run(session *videoSession) {
 		release := (*hold)()
 		defer release()
 	}
+	// Background OCR gives way before the encoder takes its memory.
+	defer videogate.Hold()()
 
 	common.CheckScreen()
 	if s.startStream != nil && s.runStream(session) {

@@ -232,6 +232,9 @@ type ScreenTextRequest struct {
 	Language    string
 	Crop        *[4]float64
 	SavePicture bool // keep the picture the helper read (?save=1)
+	// keepPlanes hands the picture read back in the reply (the screen
+	// watcher attaches the very frame the text came from).
+	keepPlanes bool
 }
 
 // ScreenTextBox is a piece of a line the helper read, in pixels of the whole
@@ -257,6 +260,9 @@ type ScreenTextReply struct {
 	Stats     json.RawMessage `json:"stats"`
 	CaptureMS int64           `json:"capture_ms"`
 	TotalMS   int64           `json:"total_ms"`
+	// planes is the whole picture read, B, G and R planes of Width x
+	// Height, with keepPlanes only.
+	planes []byte
 }
 
 // ScreenTextError is a read that did not happen; Code is the API's.
@@ -266,6 +272,10 @@ type ScreenTextError struct {
 }
 
 func (e *ScreenTextError) Error() string { return e.Message }
+
+// errScreenTextCancelled is a read its caller cancelled (the screen watcher
+// giving way to a viewer): not a failure, so nothing is logged.
+var errScreenTextCancelled = screenTextError(-9, "the read was cancelled")
 
 func screenTextError(code int, format string, args ...any) error {
 	return &ScreenTextError{Code: code, Message: fmt.Sprintf(format, args...)}
@@ -323,6 +333,9 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	case errors.Is(err, common.ErrPlanarInputTooLarge):
 		return nil, screenTextError(-5, "text recognition works up to 1920x1080")
 	}
+	if err != nil && errors.Is(ctx.Err(), context.Canceled) {
+		return nil, errScreenTextCancelled
+	}
 	if err != nil {
 		log.Warnf("screen text: %v", err)
 		return nil, screenTextError(-8, "the picture of the screen could not be taken")
@@ -330,6 +343,7 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	captured := time.Since(start)
 
 	area := ScreenTextArea{W: width, H: height}
+	whole := planes
 	if req.Crop != nil {
 		area = screenTextCropArea(*req.Crop, width, height)
 		planes = cropPlanes(planes, width, height, area)
@@ -344,6 +358,9 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	}
 
 	if err := loadTPUDriver(ctx); err != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil, errScreenTextCancelled
+		}
 		log.Errorf("screen text: %v", err)
 		return nil, screenTextError(-4, "text recognition failed")
 	}
@@ -354,6 +371,9 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil, errScreenTextCancelled
+		}
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			err = ctx.Err()
 		}
@@ -361,10 +381,14 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 		return nil, screenTextError(-4, "text recognition failed")
 	}
 	boxes, done := parseScreenTextOutput(out, area.X, area.Y)
-	return &ScreenTextReply{
+	reply := &ScreenTextReply{
 		Language: lang, Width: width, Height: height, Area: area, Boxes: boxes, Stats: done,
 		CaptureMS: captured.Milliseconds(), TotalMS: time.Since(start).Milliseconds(),
-	}, nil
+	}
+	if req.keepPlanes {
+		reply.planes = whole
+	}
+	return reply, nil
 }
 
 // screenTextInput is the picture size for the current input, or the read's

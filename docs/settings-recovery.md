@@ -25,7 +25,9 @@ Choose one restore mode:
 
 - **Migrate to another device** is the default. It preserves the destination’s
   users, credentials, hostname/MAC, networking, VPN identities, certificates,
-  USB and monitor settings. Identity-bearing add-on configurations are excluded.
+  USB and monitor settings. Identity-bearing add-on configurations are excluded,
+  and so are notification channels (they hold tokens and passwords) and the
+  addresses each user has logged in from.
 - **Restore this device** replaces the managed settings, including network and
   access credentials. The detected board profile must match. This mode can change
   the address, SSH host keys and login; have physical/local access available.

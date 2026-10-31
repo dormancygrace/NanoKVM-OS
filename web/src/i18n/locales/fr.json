@@ -2132,6 +2132,89 @@
         "changeModel": "Changer de modèle",
         "changeModelDescription": "La clé d'API et l'URL de base ne sont plus affichées une fois enregistrées : saisissez les trois champs pour changer de modèle."
       }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Messages sur l'hôte et cet appareil : alimentation, signal HDMI, connexions. Chaque canal reçoit les événements cochés sur lui.",
+      "channels": "Canaux",
+      "add": "Ajouter un canal",
+      "empty": "Aucun canal pour l'instant.",
+      "name": "Nom",
+      "events": "Événements",
+      "enabled": "Canal activé",
+      "test": "Envoyer un message de test",
+      "testSent": "Message de test envoyé.",
+      "testFailed": "Non envoyé : {{error}}",
+      "remove": "Supprimer le canal",
+      "removeConfirm": "Supprimer ce canal ? Il disparaît à l'enregistrement.",
+      "secretKept": "Enregistré ; laisser vide pour le conserver",
+      "secretClear": "Retirer",
+      "messages": "Messages",
+      "language": "Langue des messages",
+      "save": "Enregistrer",
+      "saved": "Enregistré",
+      "failed": "Impossible de charger les réglages des notifications.",
+      "types": {
+        "email": "E-mail (SMTP)",
+        "webhook": "Webhook (JSON)"
+      },
+      "event": {
+        "power": "Alimentation de l'hôte",
+        "hdmi": "Signal HDMI",
+        "security": "Connexions"
+      },
+      "eventHint": {
+        "power": "l'hôte a été allumé ou éteint ; nécessite le contrôle ATX avec la LED d'alimentation branchée.",
+        "hdmi": "l'image a été perdue ou est revenue, y compris quand l'hôte éteint son écran ; détecté pendant la capture vidéo.",
+        "security": "une adresse bloquée après des connexions échouées, une connexion depuis une nouvelle adresse."
+      },
+      "field": {
+        "token": "Jeton",
+        "chatId": "ID du chat",
+        "threadId": "ID du sujet",
+        "apiUrl": "Serveur Bot API",
+        "host": "Serveur",
+        "port": "Port",
+        "security": "Chiffrement",
+        "username": "Nom d'utilisateur",
+        "password": "Mot de passe",
+        "from": "De",
+        "to": "À",
+        "url": "URL du webhook",
+        "hmacSecret": "Clé de signature",
+        "authorization": "En-tête Authorization",
+        "server": "Serveur",
+        "topic": "Sujet",
+        "appToken": "Jeton d'application",
+        "userKey": "Clé utilisateur",
+        "device": "Appareil",
+        "homeserver": "Serveur d'accueil",
+        "accessToken": "Jeton d'accès",
+        "roomId": "ID du salon",
+        "protocol": "Protocole",
+        "skipVerify": "Accepter tout certificat du serveur"
+      },
+      "option": {
+        "none": "Aucun",
+        "starttls": "STARTTLS",
+        "tls": "TLS",
+        "udp": "UDP",
+        "tcp": "TCP"
+      },
+      "help": {
+        "telegram": "Créez un bot avec @BotFather, collez son jeton et ajoutez le bot au chat. L'ID d'un groupe commence par -100. ID du sujet : pour un groupe à sujets. Serveur Bot API : seulement pour votre propre serveur Bot API.",
+        "email": "STARTTLS sur le port 587, TLS sur le 465. Sans chiffrement (port 25) seulement pour un relais interne qui accepte le courrier sans connexion.",
+        "webhook": "Un POST JSON avec event, severity, title, text, device et time. Avec une clé de signature, l'en-tête X-NanoKVM-Signature porte sha256= et le HMAC-SHA256 du corps.",
+        "slack": "Un webhook entrant. Mattermost et Rocket.Chat acceptent les mêmes messages.",
+        "teams": "Dans le canal, ajoutez le modèle Workflows « Send webhook alerts to a channel » et collez son URL. Les URL des connecteurs Office 365 ne fonctionnent plus.",
+        "googlechat": "Dans l'espace : Applications et intégrations > Webhooks.",
+        "discord": "Paramètres du salon > Intégrations > Webhooks.",
+        "ntfy": "ntfy.sh ou votre propre serveur. Sur un serveur public, quiconque connaît le sujet le lit : choisissez-en un long et aléatoire.",
+        "gotify": "Un jeton d'application de votre serveur Gotify.",
+        "pushover": "Votre clé utilisateur et le jeton d'une application créée sur pushover.net.",
+        "matrix": "Le jeton d'accès d'un compte présent dans le salon. Les messages ne sont pas chiffrés de bout en bout.",
+        "syslog": "Messages RFC 5424, facility daemon, vers un serveur syslog ou un SIEM."
+      }
     }
   },
   "picoclaw": {

@@ -9,6 +9,7 @@ import (
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/notify"
 	"NanoKVM-Server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -94,6 +95,7 @@ func (s *Service) Login(c *gin.Context) {
 		rsp.OkRsp(c)
 	}
 	log.Infof("user logged in: %s", user.Username)
+	go notify.LoginSucceeded(user.Username, clientIP)
 }
 
 // loginFailed records the failure before the delay, so the lockout counts it

@@ -8,6 +8,7 @@ import (
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/notify"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -240,6 +241,10 @@ func RecordLoginFailureFor(clientIP, username string) (bool, int, string) {
 	if attempt.failures >= conf.Security.LoginMaxFailures {
 		attempt.lockoutEnd = now.Add(time.Duration(conf.Security.LoginLockoutDuration) * time.Second)
 		log.Debugf("login failures reached threshold for IP %s, locking out until %s", clientIP, attempt.lockoutEnd)
+		// Once per lockout: a failure that raced in after it adds no news.
+		if attempt.failures == conf.Security.LoginMaxFailures {
+			notify.LoginLockedOut(clientIP, attempt.failures, (conf.Security.LoginLockoutDuration+59)/60)
+		}
 	}
 
 	return false, 0, ""

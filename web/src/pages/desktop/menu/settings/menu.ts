@@ -64,6 +64,12 @@ export const builtinMenu = [
   { id: 'services', order: 60, icon: 'server-cog', title: { key: 'settings.services.title' } },
   { id: 'services-bmc', order: 10, icon: 'server', title: { key: 'settings.bmc.title' } },
   { id: 'services-rustdesk', order: 20, icon: 'rustdesk', title: { text: 'RustDesk' } },
+  {
+    id: 'services-notifications',
+    order: 30,
+    icon: 'bell',
+    title: { key: 'settings.notifications.title' }
+  },
 
   { id: 'system', order: 70, icon: 'shield', title: { key: 'settings.system.title' } },
   { id: 'system-general', order: 10, icon: 'settings', title: { key: 'settings.system.device' } },

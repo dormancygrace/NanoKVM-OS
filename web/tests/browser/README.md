@@ -86,6 +86,17 @@ newer account edits during Save, stale polls, persistent refusal messages,
 credential redaction and the initial-password path. `bmc.spec.ts` repeats these
 cases in Chrome Main in CI. No device or add-on is contacted.
 
+### Notifications regressions
+
+`/tests/browser/notifications.html` uses the production Notifications page
+with a synthetic Telegram channel; Complete save releases a held save. Edit a
+channel name, add or delete channels, or pick another message language while
+Save is pending: after Complete save the newer edits stay, Save stays
+enabled, and the next save sends them with the ids the device gave the
+channels already sent. A save with no edit meanwhile disables Save, and
+folding a channel is not an edit. `notifications.spec.ts` runs these cases in
+CI. No device is contacted.
+
 ## Recovery
 
 Open /tests/browser/recovery.html. All recovery calls are synthetic, including

@@ -110,6 +110,54 @@ func TestErrorsHideTheURL(t *testing.T) {
 	}
 }
 
+// echo answers with status and the request's address, headers and body, as
+// an error page or a proxy can.
+func echo(t *testing.T, status int) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		w.WriteHeader(status)
+		fmt.Fprintf(w, "Upstream error at %s; %s; %v; %s", r.RequestURI, r.URL.Query().Get("sig"), r.Header, body)
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func TestErrorsHideEchoedSecrets(t *testing.T) {
+	refused, _ := net.Listen("tcp", "127.0.0.1:0")
+	closed := refused.Addr().String()
+	refused.Close()
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://"+closed+r.URL.RequestURI(), http.StatusFound)
+	}))
+	t.Cleanup(redirect.Close)
+
+	server := echo(t, http.StatusInternalServerError)
+	forbidden := echo(t, http.StatusUnauthorized)
+	for name, tc := range map[string]struct {
+		ch        Channel
+		permanent bool
+	}{
+		"telegram token in the path":    {channel("telegram", map[string]string{"token": "1:TEST_CREDENTIAL_SENTINEL", "chatId": "1", "apiUrl": server.URL}), false},
+		"slack address":                 {channel("slack", map[string]string{"url": server.URL + "/services/T0/B0/SENTINELSLACKPART?sig=SENTINELQUERY"}), false},
+		"gotify token in a header":      {channel("gotify", map[string]string{"server": forbidden.URL, "token": "SENTINEL-gotify"}), true},
+		"ntfy topic escaped":            {channel("ntfy", map[string]string{"server": server.URL, "topic": "a b+c/SENTINEL", "token": "tk_SENTINEL"}), false},
+		"matrix token in a header":      {channel("matrix", map[string]string{"homeserver": server.URL, "accessToken": "syt_SENTINEL", "roomId": "!r:x"}), false},
+		"redirect to a refused address": {channel("telegram", map[string]string{"token": "2:SENTINEL", "chatId": "1", "apiUrl": redirect.URL}), false},
+	} {
+		err := sendChannel(context.Background(), tc.ch, sample)
+		var perm permanentError
+		if err == nil || strings.Contains(err.Error(), "SENTINEL") || errors.As(err, &perm) != tc.permanent {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	// The same through the page's Test button.
+	s := newService(t.TempDir() + "/config.json")
+	if err := s.Test(context.Background(), channel("telegram", map[string]string{"token": "3:SENTINEL", "chatId": "1", "apiUrl": server.URL})); err == nil || strings.Contains(err.Error(), "SENTINEL") {
+		t.Errorf("test: %v", err)
+	}
+}
+
 func TestHTTPStatus(t *testing.T) {
 	for status, isPermanent := range map[int]bool{400: true, 401: true, 404: true, 429: false, 500: false, 503: false} {
 		server, _ := capture(t, status)

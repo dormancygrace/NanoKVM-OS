@@ -82,6 +82,13 @@ export const Notifications = () => {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const mounted = useRef(false);
+  // revision counts the edits; a save that returns after a newer edit must
+  // not replace it.
+  const revision = useRef(0);
+  const edited = () => {
+    revision.current++;
+    setDirty(true);
+  };
 
   const show = useCallback((next: NotifyStatus) => {
     setStatus(next);
@@ -108,7 +115,8 @@ export const Notifications = () => {
 
   const change = (key: string, patch: Partial<Draft>) => {
     setChannels((list) => list.map((item) => (item.key === key ? { ...item, ...patch } : item)));
-    setDirty(true);
+    // Folding a channel is not an edit.
+    if (Object.keys(patch).some((name) => name !== 'open')) edited();
   };
 
   const add = (type: string) => {
@@ -127,24 +135,49 @@ export const Notifications = () => {
         open: true
       }
     ]);
-    setDirty(true);
+    edited();
   };
 
   const remove = (key: string) => {
     setChannels((list) => list.filter((item) => item.key !== key));
-    setDirty(true);
+    edited();
   };
 
   const save = async () => {
     setSaving(true);
+    const submitted = channels;
+    const submittedRevision = revision.current;
     try {
-      const response = await saveNotifyConfig({ language, channels: channels.map(update) });
+      const response = await saveNotifyConfig({ language, channels: submitted.map(update) });
       if (!mounted.current) return;
       if (response.code !== 0) throw new Error(response.msg);
-      // Keep the folds the way they are: the order of the list is kept.
-      const open = channels.map((item) => item.open);
-      show(response.data);
-      setChannels((list) => list.map((item, i) => ({ ...item, open: open[i] ?? false })));
+      const saved = response.data;
+      if (revision.current === submittedRevision) {
+        // Nothing changed meanwhile: show what the device keeps, with the
+        // folds as they are (the server keeps the order of the list).
+        setStatus(saved);
+        setChannels((list) => {
+          const open = new Map(list.map((item) => [item.key, item.open]));
+          return draftOf(saved).map((item, i) => ({
+            ...item,
+            open: open.get(submitted[i]?.key ?? '') ?? false
+          }));
+        });
+        setLanguage(saved.language);
+        setDirty(false);
+      } else {
+        // Edits made while saving stay, still to be saved. The channels sent
+        // take the ids and stored secrets the device gave them, so their
+        // secrets are kept by the next save too.
+        setStatus(saved);
+        setChannels((list) =>
+          list.map((item) => {
+            const i = submitted.findIndex((sent) => sent.key === item.key);
+            const stored = i >= 0 ? saved.channels[i] : undefined;
+            return stored ? { ...item, id: stored.id, secretsSet: stored.secretsSet } : item;
+          })
+        );
+      }
       setSaveError('');
       void message.success(t('saved'));
     } catch (err) {
@@ -203,7 +236,7 @@ export const Notifications = () => {
             }))}
             onChange={(value) => {
               setLanguage(value);
-              setDirty(true);
+              edited();
             }}
           />
         </SettingRow>

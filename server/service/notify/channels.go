@@ -15,16 +15,28 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 )
 
-// sendTimeout bounds one attempt of one channel.
-const sendTimeout = 20 * time.Second
+const (
+	// sendTimeout bounds one attempt of one channel.
+	sendTimeout = 20 * time.Second
+	// maxAnswer is the longest answer to a failed request quoted in its error.
+	maxAnswer = 4096
+)
 
+// sendChannel sends to one channel. Its error goes to the page and the log,
+// so the channel's secrets are taken out of it, wherever they came from: a
+// server can echo the request's address or a token back in its answer.
 func sendChannel(ctx context.Context, ch Channel, r Rendered) error {
+	return redact(ch, sendRaw(ctx, ch, r))
+}
+
+func sendRaw(ctx context.Context, ch Channel, r Rendered) error {
 	switch ch.Type {
 	case "telegram":
 		return sendTelegram(ctx, ch, r)
@@ -54,6 +66,75 @@ func sendChannel(ctx context.Context, ch Channel, r Rendered) error {
 	return permanent(fmt.Errorf("unknown channel type %q", ch.Type))
 }
 
+// redact replaces the channel's secrets in err's text with "***" and then
+// shortens it, keeping whether it is permanent. The text is all that is kept
+// of err. Shortening last cannot leave the start of a secret.
+func redact(ch Channel, err error) error {
+	if err == nil {
+		return nil
+	}
+	text := err.Error()
+	for _, secret := range secretForms(ch) {
+		text = strings.ReplaceAll(text, secret, "***")
+	}
+	clean := errors.New(truncate(text, 400))
+	var perm permanentError
+	if errors.As(err, &perm) {
+		return permanent(clean)
+	}
+	return clean
+}
+
+// secretForms lists the channel's secret values as they may appear in an
+// answer, longest first: as stored, escaped for a path or a query, and for
+// a secret address its path, query and their longer parts too.
+func secretForms(ch Channel) []string {
+	t, _ := channelType(ch.Type)
+	seen := map[string]bool{}
+	var forms []string
+	add := func(s string) {
+		if s != "" && s != "/" && !seen[s] {
+			seen[s] = true
+			forms = append(forms, s)
+		}
+	}
+	for _, f := range t.Fields {
+		value := ch.get(f.Key)
+		if !f.Secret || value == "" {
+			continue
+		}
+		add(value)
+		add(url.PathEscape(value))
+		add(url.QueryEscape(value))
+		if f.Kind != "url" {
+			continue
+		}
+		u, err := url.Parse(value)
+		if err != nil {
+			continue
+		}
+		add(u.RequestURI())
+		add(u.EscapedPath())
+		add(u.Path)
+		add(u.RawQuery)
+		for _, part := range strings.Split(u.Path, "/") {
+			if len(part) >= 8 {
+				add(part)
+			}
+		}
+		for _, values := range u.Query() {
+			for _, v := range values {
+				if len(v) >= 8 {
+					add(v)
+					add(url.QueryEscape(v))
+				}
+			}
+		}
+	}
+	slices.SortFunc(forms, func(a, b string) int { return len(b) - len(a) })
+	return forms
+}
+
 func tlsConfig(ch Channel) *tls.Config {
 	// The user's choice, for an internal server with a certificate of its own.
 	return &tls.Config{InsecureSkipVerify: ch.flag("skipVerify")} //nolint:gosec
@@ -77,10 +158,17 @@ func do(ch Channel, req *http.Request) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxAnswer+1))
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
+	if len(body) > maxAnswer {
+		// A cut could split a secret that sendChannel then misses; an answer
+		// this long is an error page, of no use in a message anyway.
+		body = nil
+	}
+	// The answer helps tell a wrong chat id from a wrong token; sendChannel
+	// takes the secrets out of it.
 	err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode != http.StatusRequestTimeout {
 		return permanent(err)

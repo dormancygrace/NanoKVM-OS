@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -98,6 +99,79 @@ func TestDeliverRetries(t *testing.T) {
 	s.dispatch(Event{Kind: KindHDMI, Message: "hdmi.restored"})
 	// Gives up after the last retry: 1 + len(retryDelays) attempts, plus broken's one.
 	rec.wait(t, 1+len(retryDelays)+1)
+}
+
+// A destination that hangs holds at most maxChannelDeliveries deliveries of
+// its channel and maxDeliveries in all, retries included; distinct events
+// beyond them are dropped, and the slots come back when the sends end.
+func TestDeliveriesAreBounded(t *testing.T) {
+	// One channel meets its own bound; eight meet the bound of all first.
+	for _, tc := range []struct{ channels, peak, peakChannel int }{
+		{1, maxChannelDeliveries, maxChannelDeliveries},
+		{8, maxDeliveries, maxDeliveries / 8},
+	} {
+		t.Run(fmt.Sprint(tc.channels), func(t *testing.T) {
+			boundedDeliveries(t, tc.channels, tc.peak, tc.peakChannel)
+		})
+	}
+}
+
+func boundedDeliveries(t *testing.T, count, wantPeak, wantPeakChannel int) {
+	var channels []Channel
+	for i := 0; i < count; i++ {
+		channels = append(channels, Channel{ID: fmt.Sprint(i), Name: fmt.Sprint(i), Enabled: true, Events: []Kind{KindSecurity}})
+	}
+	s, _, _ := testService(t, channels...)
+	release := make(chan struct{})
+	var mu sync.Mutex
+	current, peak, peakChannel, calls := 0, 0, 0, 0
+	perChannel := map[string]int{}
+	s.send = func(_ context.Context, ch Channel, _ Rendered) error {
+		mu.Lock()
+		calls++
+		current++
+		perChannel[ch.ID]++
+		peak, peakChannel = max(peak, current), max(peakChannel, perChannel[ch.ID])
+		mu.Unlock()
+		<-release
+		mu.Lock()
+		current--
+		perChannel[ch.ID]--
+		mu.Unlock()
+		return errors.New("timeout")
+	}
+	lockout := func(i int) Event {
+		return Event{Kind: KindSecurity, Message: "security.lockout", Args: []any{5, fmt.Sprintf("10.0.%d.%d", i/256, i%256), 5}}
+	}
+	for i := 0; i < 200; i++ {
+		s.dispatch(lockout(i))
+	}
+	waitFor := func(what string, done func() bool) {
+		t.Helper()
+		for deadline := time.Now().Add(5 * time.Second); !done(); time.Sleep(time.Millisecond) {
+			if time.Now().After(deadline) {
+				t.Fatal(what)
+			}
+		}
+	}
+	waitFor("blocked sends", func() bool { mu.Lock(); defer mu.Unlock(); return current == wantPeak })
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	if peak != wantPeak || peakChannel != wantPeakChannel {
+		t.Fatalf("peak %d in all, %d per channel", peak, peakChannel)
+	}
+	mu.Unlock()
+	// Retries keep their slots: the failed sends retry at once here.
+	close(release)
+	waitFor("slots freed", func() bool { s.mu.Lock(); defer s.mu.Unlock(); return s.active == 0 && len(s.inFlight) == 0 })
+	sends := wantPeak * (1 + len(retryDelays))
+	mu.Lock()
+	if calls != sends || peak != wantPeak {
+		t.Fatalf("%d sends (want %d), peak %d", calls, sends, peak)
+	}
+	mu.Unlock()
+	s.dispatch(lockout(1000))
+	waitFor("delivery after the slots came back", func() bool { mu.Lock(); defer mu.Unlock(); return calls > sends })
 }
 
 func TestRenderLanguage(t *testing.T) {

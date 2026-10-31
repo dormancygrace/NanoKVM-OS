@@ -25,7 +25,7 @@ import (
 	"NanoKVM-Server/proto"
 )
 
-// The TPU programs (nanokvm-tpu-sg2002, tpu/) are in bin; the models, which
+// The TPU programs (nanokvm-tpu, tpu/) are in bin; the models, which
 // are add-ons, in models.
 const screenTextRoot = "/usr/lib/nanokvm-tpu"
 

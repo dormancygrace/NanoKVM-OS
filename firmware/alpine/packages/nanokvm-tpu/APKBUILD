@@ -1,4 +1,4 @@
-pkgname=nanokvm-tpu-sg2002
+pkgname=nanokvm-tpu
 pkgver=${PKGVER:-0.1.0}
 pkgrel=0
 pkgdesc="NanoKVM TPU programs: text recognition and screen classification"

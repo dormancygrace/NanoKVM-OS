@@ -19,7 +19,7 @@ const labels: Record<string, string> = {
   'nanokvm-openssl': 'openssl',
   'nanokvm-exfatprogs': 'exfatprogs',
   'nanokvm-i2c-tools': 'i2ctools',
-  'nanokvm-tpu-sg2002': 'tpu'
+  'nanokvm-tpu': 'tpu'
 };
 
 export function componentLabel(t: TFunction, name: string): string {

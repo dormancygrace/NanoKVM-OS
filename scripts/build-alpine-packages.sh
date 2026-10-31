@@ -7,7 +7,7 @@
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
 # contain package directories directly or below the profile directory:
-#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,bootloader-sg2002,app,web,zlib,openssl,exfatprogs,i2c-tools,tpu-sg2002,release}
+#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,bootloader-sg2002,app,web,zlib,openssl,exfatprogs,i2c-tools,tpu,release}
 # Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
 # a release marker is generated.
 #
@@ -86,7 +86,7 @@ else
 	PROFILE_ROOT=$PAYLOAD_ROOT
 fi
 
-for required in base kernel-sg2002 kmod-sg2002 firmware-sg2002 bootloader-sg2002 app web zlib openssl exfatprogs i2c-tools tpu-sg2002; do
+for required in base kernel-sg2002 kmod-sg2002 firmware-sg2002 bootloader-sg2002 app web zlib openssl exfatprogs i2c-tools tpu; do
 	if [ ! -d "$PROFILE_ROOT/$required" ]; then
 		echo "build-alpine-packages: missing payload $PROFILE_ROOT/$required" >&2
 		exit 1
@@ -158,7 +158,7 @@ archive_payload nanokvm-exfatprogs "$PROFILE_ROOT/exfatprogs"
 archive_payload nanokvm-i2c-tools "$PROFILE_ROOT/i2c-tools"
 archive_payload nanokvm-zlib "$PROFILE_ROOT/zlib"
 archive_payload nanokvm-openssl "$PROFILE_ROOT/openssl"
-archive_payload nanokvm-tpu-sg2002 "$PROFILE_ROOT/tpu-sg2002"
+archive_payload nanokvm-tpu "$PROFILE_ROOT/tpu"
 release_payload=$(make_release_payload)
 archive_payload nanokvm-release "$release_payload"
 
@@ -167,7 +167,7 @@ export REPODEST SRCDEST PKGVER
 # The versions of the other packages, for the dependencies of nanokvm-app and
 # nanokvm-release: V_nanokvm_web for nanokvm-web, and so on.
 for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002 \
-	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu-sg2002 nanokvm-release; do
+	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release; do
 	export "V_$(echo "$pkg" | tr - _)=$(pkg_version "$pkg")"
 done
 
@@ -227,7 +227,7 @@ prepare_recipe() {
 }
 
 for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002 \
-	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu-sg2002 nanokvm-release; do
+	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release; do
 	version=$(pkg_version "$pkg")
 	if ! pkg_changed "$pkg"; then
 		# abuild indexes every package in the directory, this one included.

@@ -9,7 +9,7 @@ add-ons, so that a model can be updated or added without a release.
 
 ## In the system
 
-The core package `nanokvm-tpu-sg2002` installs `/usr/lib/nanokvm-tpu/bin`:
+The core package `nanokvm-tpu` installs `/usr/lib/nanokvm-tpu/bin`:
 
 - `nanokvm-ocr`: text detection and recognition on a picture (see the
   source for the protocol).

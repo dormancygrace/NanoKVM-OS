@@ -60,7 +60,7 @@ The TPU runs neural networks: about 0.5 TOPS INT8, and BF16 too.
 
 **Driver.** `cv181x-tpu` (`/dev/cvi-tpu0`) is part of the kernel since r6. It is Armbian's mainline port of the vendor driver (kernel patches 0047 and 0048, from armbian/build#10760), with patch 0049 retaining DMA mappings until queued jobs finish and checking device initialization failures. The TPU has no IOMMU. The driver takes dma-buf buffers and gives the runtime their bus address, and its character-device interface is that of the vendor runtime.
 
-**Runtime.** Sophgo's cviruntime, ported to dma-buf heaps, is linked into the programs of the core package `nanokvm-tpu-sg2002`: `nanokvm-ocr` (text on the screen) and `nanokvm-screen` (the screen-crash classifier). Their models are add-ons; see [tpu/README.md](../tpu/README.md). Like the other SOPHGO components without a licence file, its source is fetched at build time ([DISTRIBUTION.md](DISTRIBUTION.md)).
+**Runtime.** Sophgo's cviruntime, ported to dma-buf heaps, is linked into the programs of the core package `nanokvm-tpu`: `nanokvm-ocr` (text on the screen) and `nanokvm-screen` (the screen-crash classifier). Their models are add-ons; see [tpu/README.md](../tpu/README.md). Like the other SOPHGO components without a licence file, its source is fetched at build time ([DISTRIBUTION.md](DISTRIBUTION.md)).
 
 **Measured:**
 

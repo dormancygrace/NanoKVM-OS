@@ -66,7 +66,7 @@ without ever leaving it with a partly written `fip.bin`; see
 
 ## zlib-ng in place of Alpine's zlib
 
-`nanokvm-tpu-sg2002` installs `nanokvm-ocr` and `nanokvm-screen`, the programs
+`nanokvm-tpu` installs `nanokvm-ocr` and `nanokvm-screen`, the programs
 that run models on the TPU, linked statically with Sophgo's runtime (the `tpu`
 step, `tpu/README.md`). It provides `nanokvm-tpu-abi=1`, which the model
 add-ons depend on; the release depends on it, so an update installs it.

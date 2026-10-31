@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Hôte allumé", "body": "Le voyant d'alimentation de l'hôte s'est allumé." },
+  "power.off": { "title": "Hôte éteint", "body": "Le voyant d'alimentation de l'hôte s'est éteint." },
+  "hdmi.lost": { "title": "Signal HDMI perdu", "body": "L'hôte n'envoie plus d'image." },
+  "hdmi.restored": { "title": "Signal HDMI rétabli", "body": "L'hôte envoie de nouveau une image." },
+  "security.lockout": {
+    "title": "Connexions bloquées",
+    "body": "{failures} échecs de connexion depuis {address} : les connexions depuis cette adresse sont bloquées pendant {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Connexion depuis une nouvelle adresse",
+    "body": "{user} s'est connecté depuis {address}, une adresse jamais vue auparavant."
+  },
+  "screen.bsod": { "title": "Écran bleu sur l'hôte", "body": "Windows s'est arrêté sur une erreur." },
+  "screen.panic": { "title": "Kernel panic sur l'hôte", "body": "La console de l'hôte affiche un plantage." },
+  "test": { "title": "Notification de test", "body": "Les notifications de ce NanoKVM arrivent bien sur ce canal." }
+}

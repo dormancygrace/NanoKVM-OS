@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "A gazdagép bekapcsolt", "body": "A gazdagép tápellátás-LED-je felkapcsolt." },
+  "power.off": { "title": "A gazdagép kikapcsolt", "body": "A gazdagép tápellátás-LED-je kialudt." },
+  "hdmi.lost": { "title": "HDMI-jel megszakadt", "body": "A gazdagép nem küld többé képet." },
+  "hdmi.restored": { "title": "HDMI-jel helyreállt", "body": "A gazdagép újra küld képet." },
+  "security.lockout": {
+    "title": "Bejelentkezések letiltva",
+    "body": "{failures} sikertelen bejelentkezés innen: {address}. Az erről a címről érkező bejelentkezések {minutes} percre le vannak tiltva."
+  },
+  "security.new-address": {
+    "title": "Bejelentkezés új címről",
+    "body": "{user} bejelentkezett innen: {address}, ez a cím korábban nem szerepelt."
+  },
+  "screen.bsod": { "title": "Kék képernyő a gazdagépen", "body": "A Windows hibával leállt." },
+  "screen.panic": { "title": "Kernel panic a gazdagépen", "body": "A gazdagép konzolja összeomlást mutat." },
+  "test": { "title": "Tesztértesítés", "body": "A NanoKVM értesítései eljutnak erre a csatornára." }
+}

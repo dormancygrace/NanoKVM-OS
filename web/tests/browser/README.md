@@ -94,8 +94,12 @@ channel name, add or delete channels, or pick another message language while
 Save is pending: after Complete save the newer edits stay, Save stays
 enabled, and the next save sends them with the ids the device gave the
 channels already sent. A save with no edit meanwhile disables Save, and
-folding a channel is not an edit. `notifications.spec.ts` runs these cases in
-CI. No device is contacted.
+folding a channel is not an edit. Add a template, set the title of "Host
+powered off" and pick it on the channel: Preview shows the template's title
+(PREVIEW in Test events) and Save sends the template with the channel using
+it (TEMPLATES ... USED). Deleting a template returns its channels to the
+standard messages; the standard preview follows the message language.
+`notifications.spec.ts` runs these cases in CI. No device is contacted.
 
 ## Recovery
 

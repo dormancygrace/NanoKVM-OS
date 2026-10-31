@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -42,7 +43,7 @@ func Wants(kind Kind) bool { return Default().Wants(kind) }
 // logins; logins from it are refused for minutes.
 func LoginLockedOut(address string, failures, minutes int) {
 	Emit(Event{Kind: KindSecurity, Severity: SeverityWarning, Message: "security.lockout",
-		Args: []any{failures, address, minutes}})
+		Vars: map[string]string{"failures": strconv.Itoa(failures), "address": address, "minutes": strconv.Itoa(minutes)}})
 }
 
 // LoginSucceeded reports a login from an address the user has not logged in
@@ -59,7 +60,7 @@ func LoginSucceeded(user, address string) {
 	}
 	if !known {
 		Emit(Event{Kind: KindSecurity, Severity: SeverityWarning, Message: "security.new-address",
-			Args: []any{user, address}})
+			Vars: map[string]string{"user": user, "address": address}})
 	}
 }
 

@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Hostitel zapnut", "body": "Kontrolka napájení hostitele se rozsvítila." },
+  "power.off": { "title": "Hostitel vypnut", "body": "Kontrolka napájení hostitele zhasla." },
+  "hdmi.lost": { "title": "Signál HDMI ztracen", "body": "Hostitel přestal vysílat obraz." },
+  "hdmi.restored": { "title": "Signál HDMI obnoven", "body": "Hostitel opět vysílá obraz." },
+  "security.lockout": {
+    "title": "Přihlášení zablokováno",
+    "body": "{failures} neúspěšných přihlášení z adresy {address}: přihlášení z této adresy jsou zablokována na {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Přihlášení z nové adresy",
+    "body": "Uživatel {user} se přihlásil z adresy {address}, která dosud nebyla vidět."
+  },
+  "screen.bsod": { "title": "Modrá obrazovka na hostiteli", "body": "Windows se zastavil s chybou." },
+  "screen.panic": { "title": "Kernel panic na hostiteli", "body": "Konzole hostitele zobrazuje pád systému." },
+  "test": { "title": "Zkušební oznámení", "body": "Oznámení z tohoto NanoKVM dorazí do tohoto kanálu." }
+}

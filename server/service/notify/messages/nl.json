@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Host ingeschakeld", "body": "De voedings-LED van de host is gaan branden." },
+  "power.off": { "title": "Host uitgeschakeld", "body": "De voedings-LED van de host is uitgegaan." },
+  "hdmi.lost": { "title": "HDMI-signaal verloren", "body": "De host stuurt geen beeld meer." },
+  "hdmi.restored": { "title": "HDMI-signaal hersteld", "body": "De host stuurt weer beeld." },
+  "security.lockout": {
+    "title": "Aanmeldingen geblokkeerd",
+    "body": "{failures} mislukte aanmeldingen vanaf {address}: aanmeldingen vanaf dit adres zijn {minutes} min geblokkeerd."
+  },
+  "security.new-address": {
+    "title": "Aanmelding vanaf nieuw adres",
+    "body": "{user} heeft zich aangemeld vanaf {address}, een eerder niet geziene adres."
+  },
+  "screen.bsod": { "title": "Blauw scherm op de host", "body": "Windows is gestopt met een fout." },
+  "screen.panic": { "title": "Kernel panic op de host", "body": "De console van de host toont een crash." },
+  "test": { "title": "Testmelding", "body": "Meldingen van deze NanoKVM bereiken dit kanaal." }
+}

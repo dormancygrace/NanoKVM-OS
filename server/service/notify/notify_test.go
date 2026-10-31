@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -76,8 +78,8 @@ func TestDispatchFollowsKindsAndRepeats(t *testing.T) {
 	}
 	// The same event again within the minute is dropped; other arguments pass.
 	s.dispatch(Event{Kind: KindPower, Message: "power.off"})
-	s.dispatch(Event{Kind: KindSecurity, Message: "security.lockout", Args: []any{5, "10.0.0.1", 5}})
-	s.dispatch(Event{Kind: KindSecurity, Message: "security.lockout", Args: []any{5, "10.0.0.2", 5}})
+	s.dispatch(Event{Kind: KindSecurity, Message: "security.lockout", Vars: map[string]string{"failures": "5", "address": "10.0.0.1", "minutes": "5"}})
+	s.dispatch(Event{Kind: KindSecurity, Message: "security.lockout", Vars: map[string]string{"failures": "5", "address": "10.0.0.2", "minutes": "5"}})
 	rec.wait(t, 2)
 	*now = now.Add(repeatWindow)
 	s.dispatch(Event{Kind: KindPower, Message: "power.off"})
@@ -141,7 +143,7 @@ func boundedDeliveries(t *testing.T, count, wantPeak, wantPeakChannel int) {
 		return errors.New("timeout")
 	}
 	lockout := func(i int) Event {
-		return Event{Kind: KindSecurity, Message: "security.lockout", Args: []any{5, fmt.Sprintf("10.0.%d.%d", i/256, i%256), 5}}
+		return Event{Kind: KindSecurity, Message: "security.lockout", Vars: map[string]string{"address": fmt.Sprintf("10.0.%d.%d", i/256, i%256)}}
 	}
 	for i := 0; i < 200; i++ {
 		s.dispatch(lockout(i))
@@ -174,19 +176,141 @@ func boundedDeliveries(t *testing.T, count, wantPeak, wantPeakChannel int) {
 	waitFor("delivery after the slots came back", func() bool { mu.Lock(); defer mu.Unlock(); return calls > sends })
 }
 
+var lockoutVars = map[string]string{"failures": "5", "address": "10.0.0.1", "minutes": "15"}
+
 func TestRenderLanguage(t *testing.T) {
-	r := render(Event{Message: "security.lockout", Args: []any{5, "10.0.0.1", 15}, Details: "extra"}, "ru")
+	r := render(Event{Message: "security.lockout", Vars: lockoutVars, Details: "extra"}, "ru", nil)
 	if r.Title != "Вход заблокирован" || r.Body != "5 неудачных входов с 10.0.0.1: вход с этого адреса заблокирован на 15 мин.\n\nextra" {
 		t.Fatalf("%q %q", r.Title, r.Body)
 	}
-	if render(Event{Message: "power.on"}, "xx").Title != "Host powered on" {
+	if render(Event{Message: "power.on"}, "xx", nil).Title != "Host powered on" {
 		t.Fatal("unknown language does not fall back to English")
 	}
+}
+
+// Every language has every message, each with the variables of the English
+// one and no others.
+func TestMessageCatalogues(t *testing.T) {
+	if len(messages) != len(Languages) {
+		t.Fatalf("%d catalogues for %d languages", len(messages), len(Languages))
+	}
+	names := func(text string) []string {
+		var found []string
+		for _, match := range variable.FindAllStringSubmatch(text, -1) {
+			found = append(found, match[1])
+		}
+		slices.Sort(found)
+		return found
+	}
 	for language, catalogue := range messages {
-		for key := range messages["en"] {
-			if _, ok := catalogue[key]; !ok {
-				t.Errorf("%s lacks %s", language, key)
+		if len(catalogue) != len(MessageSpecs) {
+			t.Errorf("%s: %d messages", language, len(catalogue))
+		}
+		for _, spec := range MessageSpecs {
+			m, ok := catalogue[spec.Key]
+			want := standardMessage("en", spec.Key)
+			switch {
+			case !ok || m.Title == "" || m.Body == "":
+				t.Errorf("%s lacks %s", language, spec.Key)
+			case !slices.Equal(names(m.Title+m.Body), names(want.Title+want.Body)):
+				t.Errorf("%s %s: variables %v, want %v", language, spec.Key, names(m.Title+m.Body), names(want.Title+want.Body))
+			case len(unknownVars(m.Title+m.Body, spec)) > 0:
+				t.Errorf("%s %s: unknown variables", language, spec.Key)
 			}
 		}
+	}
+}
+
+func TestTemplateRender(t *testing.T) {
+	template := &Template{ID: "short", Name: "Short", Messages: map[string]Message{
+		"security.lockout": {Title: "[{device}] blocked", Body: "{address} ({failures}x) for {minutes} min\n{details}\nend"},
+		"power.off":        {Body: "off"},
+	}}
+	if err := template.validate(); err != nil {
+		t.Fatal(err)
+	}
+	r := render(Event{Message: "security.lockout", Vars: lockoutVars, Details: "extra"}, "ru", template)
+	if r.Title != "["+deviceName()+"] blocked" || r.Body != "10.0.0.1 (5x) for 15 min\nextra\nend" {
+		t.Fatalf("%q %q", r.Title, r.Body)
+	}
+	// An empty title is the standard one; a message the template lacks is
+	// the standard message of the language.
+	if r := render(Event{Message: "power.off"}, "de", template); r.Body != "off" || r.Title != standardMessage("de", "power.off").Title {
+		t.Fatalf("%q %q", r.Title, r.Body)
+	}
+	if r, std := render(Event{Message: "hdmi.lost"}, "de", template), render(Event{Message: "hdmi.lost"}, "de", nil); r.Title != std.Title || r.Body != std.Body {
+		t.Fatal("a message the template lacks is not the standard one")
+	}
+	// Unknown braces stay as written.
+	if got := fill("{a} {user} {", map[string]string{"user": "x"}); got != "{a} x {" {
+		t.Fatal(got)
+	}
+}
+
+func TestTemplateValidation(t *testing.T) {
+	for name, tc := range map[string]Template{
+		"no name":            {ID: "a", Messages: map[string]Message{}},
+		"bad id":             {ID: "A B", Name: "x"},
+		"unknown message":    {ID: "a", Name: "x", Messages: map[string]Message{"power.of": {Body: "x"}}},
+		"unknown variable":   {ID: "a", Name: "x", Messages: map[string]Message{"power.off": {Body: "{user} turned it off"}}},
+		"another's variable": {ID: "a", Name: "x", Messages: map[string]Message{"hdmi.lost": {Title: "{address}"}}},
+		"two-line title":     {ID: "a", Name: "x", Messages: map[string]Message{"hdmi.lost": {Title: "a\nb"}}},
+		"long body":          {ID: "a", Name: "x", Messages: map[string]Message{"hdmi.lost": {Body: strings.Repeat("x", maxBodyBytes+1)}}},
+	} {
+		if err := tc.validate(); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	c := Config{Language: "en", Templates: []Template{{ID: "a", Name: "x"}},
+		Channels: []Channel{{ID: "c", Type: "slack", Settings: map[string]string{"url": "https://example.com/h"}, Template: "b"}}}
+	if err := c.Validate(); err == nil {
+		t.Fatal("a channel with a missing template accepted")
+	}
+	c.Channels[0].Template = "a"
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Each channel gets the event in its own template.
+func TestDispatchUsesTheChannelsTemplate(t *testing.T) {
+	s, rec, _ := testService(t,
+		Channel{ID: "1", Name: "plain", Enabled: true, Events: []Kind{KindPower}},
+		Channel{ID: "2", Name: "short", Enabled: true, Events: []Kind{KindPower}, Template: "t"},
+	)
+	s.config.Templates = []Template{{ID: "t", Name: "Short", Messages: map[string]Message{"power.off": {Title: "OFF"}}}}
+	s.dispatch(Event{Kind: KindPower, Message: "power.off"})
+	sent := rec.wait(t, 2)
+	slices.Sort(sent)
+	if !slices.Equal(sent, []string{"plain:Host powered off", "short:OFF"}) {
+		t.Fatal(sent)
+	}
+}
+
+func TestPreview(t *testing.T) {
+	s, _, _ := testService(t)
+	previews, err := s.Preview(PreviewRequest{Language: "ru", Template: &Template{Name: "x",
+		Messages: map[string]Message{"security.new-address": {Body: "{user}@{address}"}}}})
+	if err != nil || len(previews) != len(MessageSpecs) {
+		t.Fatal(previews, err)
+	}
+	for _, p := range previews {
+		switch p.Key {
+		case "security.new-address":
+			if p.Body != "admin@203.0.113.7" || p.Title != "Вход с нового адреса" || !strings.HasPrefix(p.Text, p.Body+"\n\n") {
+				t.Fatalf("%+v", p)
+			}
+		case "screen.panic":
+			if !strings.Contains(p.Body, "Kernel panic - not syncing") {
+				t.Fatalf("%+v", p)
+			}
+		}
+		if strings.Contains(p.Title+p.Body, "{") {
+			t.Fatalf("unfilled: %+v", p)
+		}
+	}
+	if _, err := s.Preview(PreviewRequest{Language: "ru", Template: &Template{Name: "x",
+		Messages: map[string]Message{"power.on": {Body: "{nope}"}}}}); err == nil {
+		t.Fatal("an unknown variable previewed")
 	}
 }

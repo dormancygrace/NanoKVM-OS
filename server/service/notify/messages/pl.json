@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Host włączony", "body": "Wskaźnik LED zasilania hosta zapalił się." },
+  "power.off": { "title": "Host wyłączony", "body": "Wskaźnik LED zasilania hosta zgasł." },
+  "hdmi.lost": { "title": "Utracono sygnał HDMI", "body": "Host przestał wysyłać obraz." },
+  "hdmi.restored": { "title": "Przywrócono sygnał HDMI", "body": "Host znów wysyła obraz." },
+  "security.lockout": {
+    "title": "Logowanie zablokowane",
+    "body": "Nieudane logowania: {failures}, adres {address}. Logowanie z tego adresu jest zablokowane na {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Logowanie z nowego adresu",
+    "body": "Użytkownik {user} zalogował się z adresu {address}, którego wcześniej nie widziano."
+  },
+  "screen.bsod": { "title": "Niebieski ekran na hoście", "body": "Windows zatrzymał się z błędem." },
+  "screen.panic": { "title": "Kernel panic na hoście", "body": "Konsola hosta pokazuje awarię." },
+  "test": { "title": "Powiadomienie testowe", "body": "Powiadomienia z tego NanoKVM docierają na ten kanał." }
+}

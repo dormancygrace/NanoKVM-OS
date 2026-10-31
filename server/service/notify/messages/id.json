@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Host menyala", "body": "LED daya host menyala." },
+  "power.off": { "title": "Host mati", "body": "LED daya host padam." },
+  "hdmi.lost": { "title": "Sinyal HDMI hilang", "body": "Host berhenti mengirim gambar." },
+  "hdmi.restored": { "title": "Sinyal HDMI pulih", "body": "Host kembali mengirim gambar." },
+  "security.lockout": {
+    "title": "Login diblokir",
+    "body": "{failures} kali login gagal dari {address}: login dari alamat ini diblokir selama {minutes} menit."
+  },
+  "security.new-address": {
+    "title": "Login dari alamat baru",
+    "body": "{user} login dari {address}, alamat yang belum pernah terlihat sebelumnya."
+  },
+  "screen.bsod": { "title": "Layar biru di host", "body": "Windows berhenti karena kesalahan." },
+  "screen.panic": { "title": "Kernel panic di host", "body": "Konsol host menampilkan crash." },
+  "test": { "title": "Notifikasi uji coba", "body": "Notifikasi dari NanoKVM ini sampai ke saluran ini." }
+}

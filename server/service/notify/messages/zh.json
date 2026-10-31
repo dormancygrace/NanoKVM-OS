@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "主机已开机", "body": "主机的电源 LED 已亮起。" },
+  "power.off": { "title": "主机已关机", "body": "主机的电源 LED 已熄灭。" },
+  "hdmi.lost": { "title": "HDMI 信号丢失", "body": "主机已停止输出画面。" },
+  "hdmi.restored": { "title": "HDMI 信号恢复", "body": "主机重新输出画面。" },
+  "security.lockout": {
+    "title": "登录已被阻止",
+    "body": "来自 {address} 的登录失败 {failures} 次：该地址的登录已被阻止 {minutes} 分钟。"
+  },
+  "security.new-address": {
+    "title": "来自新地址的登录",
+    "body": "{user} 从 {address} 登录，此地址之前未出现过。"
+  },
+  "screen.bsod": { "title": "主机蓝屏", "body": "Windows 因错误而停止运行。" },
+  "screen.panic": { "title": "主机 Kernel panic", "body": "主机的控制台显示系统崩溃。" },
+  "test": { "title": "测试通知", "body": "此 NanoKVM 的通知可以送达此渠道。" }
+}

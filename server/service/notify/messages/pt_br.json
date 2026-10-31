@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Host ligado", "body": "O LED de energia do host acendeu." },
+  "power.off": { "title": "Host desligado", "body": "O LED de energia do host apagou." },
+  "hdmi.lost": { "title": "Sinal HDMI perdido", "body": "O host parou de enviar imagem." },
+  "hdmi.restored": { "title": "Sinal HDMI restabelecido", "body": "O host voltou a enviar imagem." },
+  "security.lockout": {
+    "title": "Logins bloqueados",
+    "body": "{failures} logins com falha de {address}: logins desse endereço estão bloqueados por {minutes} min."
+  },
+  "security.new-address": {
+    "title": "Login de um novo endereço",
+    "body": "{user} fez login de {address}, um endereço nunca visto antes."
+  },
+  "screen.bsod": { "title": "Tela azul no host", "body": "O Windows parou com um erro." },
+  "screen.panic": { "title": "Kernel panic no host", "body": "O console do host mostra uma falha." },
+  "test": { "title": "Notificação de teste", "body": "As notificações deste NanoKVM chegam a este canal." }
+}

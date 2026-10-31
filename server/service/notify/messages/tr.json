@@ -1,0 +1,17 @@
+{
+  "power.on": { "title": "Ana bilgisayar açıldı", "body": "Ana bilgisayarın güç LED'i yandı." },
+  "power.off": { "title": "Ana bilgisayar kapandı", "body": "Ana bilgisayarın güç LED'i söndü." },
+  "hdmi.lost": { "title": "HDMI sinyali kayboldu", "body": "Ana bilgisayar görüntü göndermeyi durdurdu." },
+  "hdmi.restored": { "title": "HDMI sinyali geri geldi", "body": "Ana bilgisayar yeniden görüntü gönderiyor." },
+  "security.lockout": {
+    "title": "Girişler engellendi",
+    "body": "{address} adresinden {failures} başarısız giriş: bu adresten girişler {minutes} dk engellendi."
+  },
+  "security.new-address": {
+    "title": "Yeni adresten giriş",
+    "body": "{user}, daha önce görülmemiş {address} adresinden giriş yaptı."
+  },
+  "screen.bsod": { "title": "Ana bilgisayarda mavi ekran", "body": "Windows bir hatayla durdu." },
+  "screen.panic": { "title": "Ana bilgisayarda Kernel panic", "body": "Ana bilgisayarın konsolu bir çökme gösteriyor." },
+  "test": { "title": "Test bildirimi", "body": "Bu NanoKVM'den gelen bildirimler bu kanala ulaşıyor." }
+}

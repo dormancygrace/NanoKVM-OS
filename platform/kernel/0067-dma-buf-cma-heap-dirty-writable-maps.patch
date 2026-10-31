@@ -1,0 +1,41 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] dma-buf: heaps: cma: map writable buffers dirty
+
+The C906 does not set the accessed and dirty bits of a PTE itself: a store
+to a page whose PTE lacks D raises a page fault, and the kernel sets the bit.
+The CMA heap maps a whole buffer at mmap time (0064), with the protection of
+a shared writable mapping, which on RISC-V has A but not D. Every first store
+to a page of a buffer therefore still faulted: a TPU model load wrote its
+weights into such buffers at about 12 us a page.
+
+Map a writable buffer dirty. Nothing tracks the dirty pages of this PFN map
+(no page cache, no writeback), so the bit only spares the fault.
+
+---
+diff --git a/drivers/dma-buf/heaps/cma_heap.c b/drivers/dma-buf/heaps/cma_heap.c
+index 0e548b5..078d19f 100644
+--- a/drivers/dma-buf/heaps/cma_heap.c
++++ b/drivers/dma-buf/heaps/cma_heap.c
+@@ -181,9 +181,21 @@ static int cma_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+ 	 * one page per fault cost about 13 us a page on a C906, 0.2 s for
+ 	 * each 60 MiB a TPU model writes.
+ 	 */
++	pgprot_t prot = vma->vm_page_prot;
++
++#ifdef CONFIG_RISCV
++	/*
++	 * Writable, map it dirty too. A core that does not set the A and D bits
++	 * itself (the C906) faults on the first store to a page whose PTE lacks
++	 * D, and the kernel only sets the bit: about 12 us a page, the same
++	 * 0.2 s for 60 MiB. Nothing tracks dirty pages of this PFN map.
++	 */
++	if (vma->vm_flags & VM_WRITE)
++		prot = __pgprot(pgprot_val(prot) | _PAGE_DIRTY);
++#endif
+ 	return remap_pfn_range(vma, vma->vm_start,
+ 			       page_to_pfn(buffer->cma_pages) + vma->vm_pgoff,
+-			       vma->vm_end - vma->vm_start, vma->vm_page_prot);
++			       vma->vm_end - vma->vm_start, prot);
+ }
+ 
+ static void *cma_heap_do_vmap(struct cma_heap_buffer *buffer)

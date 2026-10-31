@@ -55,7 +55,17 @@ new_case() {
     DHCP_PID=$RUN_DIR/udhcpc.wlan0.pid
     CALL_LOG=$CASE_DIR/calls.log
     BIN_DIR=$CASE_DIR/bin
-    mkdir -p "$BOOT_DIR" "$ETC_DIR" "$KVM_DIR" "$BIN_DIR"
+    # wlan0 is there unless a case removes it; the driver loader logs its
+    # run and creates wlan0 unless DRIVER_FAILS is set.
+    NET_DIR=$CASE_DIR/net/wlan0
+    mkdir -p "$BOOT_DIR" "$ETC_DIR" "$KVM_DIR" "$BIN_DIR" "$NET_DIR"
+    cat > "$BIN_DIR/S25wifimod" <<'EOF'
+#!/bin/sh
+printf 'S25wifimod args=%s\n' "$*" >> "$CALL_LOG"
+[ "${DRIVER_FAILS:-0}" -eq 0 ] || exit 0
+mkdir -p "$NANOKVM_WIFI_NET_DIR"
+EOF
+    chmod +x "$BIN_DIR/S25wifimod"
     mkdir -p "$CASE_DIR/phy0"
     ln -s "$CASE_DIR/phy0" "$PHY_LINK"
     printf 'test-device-uid\n' > "$UID_FILE"
@@ -134,6 +144,10 @@ run_action() (
     export NANOKVM_CHOWN="$BIN_DIR/chown"
     export NANOKVM_IW="$BIN_DIR/iw"
     export NANOKVM_WIFI_PHY_LINK="$PHY_LINK"
+    export NANOKVM_WIFI_NET_DIR="$NET_DIR"
+    export NANOKVM_WIFI_DRIVER_LOADER="$BIN_DIR/S25wifimod"
+    export NANOKVM_WIFI_DRIVER_WAIT=3
+    export DRIVER_FAILS
     "$SCRIPT" "$@"
 )
 
@@ -597,4 +611,51 @@ assert_contains 'killall args=-9 wpa_supplicant' "$CALL_LOG"
 assert_file "$CASE_DIR/wpa_ctrl/wlan0"
 ALIVE_CHECKS=0
 echo "S30wifi restart wait tests passed"
+
+# Wi-Fi off: the driver is not loaded at boot (nanokvm-network), so there is
+# no wlan0. start, stop and disable leave it so and succeed.
+DRIVER_FAILS=0
+for action in start stop disable; do
+    new_case "driver_off_$action"
+    : > "$ETC_DIR/wifi.disabled"
+    rmdir "$NET_DIR"
+    run_action "$action" || fail "$action without wlan0 failed"
+    assert_not_contains 'S25wifimod' "$CALL_LOG"
+    assert_absent "$NET_DIR"
+done
+
+# Turned on (the web switch removes wifi.disabled and restarts): the driver
+# is loaded first and Wi-Fi starts on the new wlan0.
+new_case driver_on_restart
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+rmdir "$NET_DIR"
+run_action restart || fail "restart did not load the driver"
+assert_count 'S25wifimod args=start' 1 "$CALL_LOG"
+assert_contains 'ip args=link set dev wlan0 up' "$CALL_LOG"
+
+# The access point for provisioning loads the driver too, also with Wi-Fi off.
+new_case driver_ap
+: > "$ETC_DIR/wifi.disabled"
+rmdir "$NET_DIR"
+run_action ap || fail "ap did not load the driver"
+assert_count 'S25wifimod args=start' 1 "$CALL_LOG"
+assert_contains 'hostapd args=' "$CALL_LOG"
+
+# A driver that brings no wlan0: start fails after the wait, nothing runs.
+new_case driver_missing
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+rmdir "$NET_DIR"
+if DRIVER_FAILS=1 run_action start 2>/dev/null; then fail "start without wlan0 succeeded"; fi
+assert_not_contains 'wpa_supplicant args=' "$CALL_LOG"
+DRIVER_FAILS=0
+
+# Loaded already (wlan0 there): no second load.
+new_case driver_loaded
+printf 'Office' > "$ETC_DIR/wifi.ssid"
+printf 'secret123' > "$ETC_DIR/wifi.pass"
+run_action restart
+assert_not_contains 'S25wifimod' "$CALL_LOG"
+echo "S30wifi driver loading tests passed"
 

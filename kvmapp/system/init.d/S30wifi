@@ -24,6 +24,9 @@
 : "${NANOKVM_CHOWN:=chown}"
 : "${NANOKVM_IW:=iw}"
 : "${NANOKVM_WIFI_PHY_LINK:=/sys/class/net/wlan0/phy80211}"
+: "${NANOKVM_WIFI_NET_DIR:=/sys/class/net/wlan0}"
+: "${NANOKVM_WIFI_DRIVER_LOADER:=/usr/libexec/nanokvm/legacy/S25wifimod}"
+: "${NANOKVM_WIFI_DRIVER_WAIT:=50}"
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 
@@ -359,7 +362,31 @@ write_wpa_config() {
     mv "$config_tmp" "$WPA_CONFIG" || return 1
 }
 
+# The driver is loaded at boot only while Wi-Fi is on (nanokvm-network):
+# turning Wi-Fi on, or the access point for provisioning, loads it here.
+# wlan0 appears once the driver has uploaded the chip's firmware (about
+# 1.5 s); NANOKVM_WIFI_DRIVER_WAIT counts 0.2 s steps.
+load_driver() {
+    [ ! -d "$NANOKVM_WIFI_NET_DIR" ] || return 0
+    "$NANOKVM_WIFI_DRIVER_LOADER" start || return 1
+    waited=0
+    while [ ! -d "$NANOKVM_WIFI_NET_DIR" ]; do
+        if [ "$waited" -ge "$NANOKVM_WIFI_DRIVER_WAIT" ]; then
+            echo "wlan0 did not appear after loading the Wi-Fi driver" >&2
+            return 1
+        fi
+        sleep 0.2
+        waited=$((waited + 1))
+    done
+}
+
 start() {
+    if [ -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ]; then
+        # Off: the driver is not loaded at boot, and nothing to set down.
+        [ -d "$NANOKVM_WIFI_NET_DIR" ] || return 0
+    else
+        load_driver || return 1
+    fi
     if [ -x /etc/init.d/S29qdisc ]; then
         /etc/init.d/S29qdisc wlan0 || echo "Could not apply fq_codel to wlan0" >&2
     fi
@@ -606,19 +633,25 @@ stop() {
 }
 
 restart() {
-    stop
+    [ ! -d "$NANOKVM_WIFI_NET_DIR" ] || stop
     start
 }
 
 case "${1:-}" in
     start) start ;;
-    stop) stop ;;
+    stop)
+        # Without wlan0 (driver not loaded) nothing of Wi-Fi runs.
+        [ -d "$NANOKVM_WIFI_NET_DIR" ] || exit 0
+        stop
+        ;;
     disable)
+        [ -d "$NANOKVM_WIFI_NET_DIR" ] || exit 0
         stop
         "$NANOKVM_IP" addr flush dev wlan0 || exit 1
         "$NANOKVM_IP" link set dev wlan0 down
         ;;
     ap)
+        load_driver || exit 1
         stop
         ap_start
         ;;

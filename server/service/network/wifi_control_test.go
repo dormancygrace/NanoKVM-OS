@@ -169,6 +169,85 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 	}
 }
 
+// Wi-Fi off: the driver is not loaded, so there is no wlan0, only the chip
+// on the SDIO bus. Wi-Fi is still there to turn on; nothing else is read.
+func TestWifiChipWithoutDriver(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previous := wifiControl
+	defer func() { wifiControl = previous; wifiMu.Lock(); wifiBusy = false; wifiError = ""; wifiMu.Unlock() }()
+	root := t.TempDir()
+	function := filepath.Join(root, "sdio", "mmc1:0001:1")
+	if err := os.MkdirAll(function, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(function, "modalias"), []byte("sdio:c00vC8A1d0082\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "wifi.disabled"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	var ran []string
+	wifiControl = radioControl{etc: root, net: filepath.Join(root, "wlan0"), sdio: filepath.Join(root, "sdio"),
+		run: func(name string, args ...string) (string, error) {
+			ran = append(ran, name+" "+strings.Join(args, " "))
+			return "", nil
+		},
+		request: func(string) (string, error) { t.Fatal("wpa_supplicant asked without wlan0"); return "", nil }}
+	st := wifiControl.status()
+	if !st.Supported || st.Enabled || st.Model != "AIC8800D80" || len(st.Bands) != 0 {
+		t.Fatalf("status of the chip without its driver: %+v", st)
+	}
+	if len(ran) != 0 {
+		t.Fatalf("status ran %v", ran)
+	}
+	router := gin.New()
+	s := NewService()
+	router.POST("/enabled", s.SetWifiEnabled)
+	router.GET("/scan", s.ScanWifi)
+	code := func(method, path, body string) int {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(rec, req)
+		var rsp struct {
+			Code int `json:"code"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &rsp)
+		return rsp.Code
+	}
+	if code("GET", "/scan?band=all", "") == 0 {
+		t.Fatal("scan accepted without wlan0")
+	}
+	// Turning it on is S30wifi restart, which loads the driver.
+	if code("POST", "/enabled", `{"enabled":true}`) != 0 {
+		t.Fatal("the switch refused the chip without its driver")
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		wifiMu.Lock()
+		busy := wifiBusy
+		wifiMu.Unlock()
+		if !busy {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("switch did not finish")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(ran) != 1 || ran[0] != WiFiScript+" restart" {
+		t.Fatalf("turning on ran %v", ran)
+	}
+	if _, err := os.Stat(filepath.Join(root, "wifi.disabled")); !os.IsNotExist(err) {
+		t.Fatal("wifi.disabled kept")
+	}
+	// No chip and no wlan0: no Wi-Fi.
+	wifiControl.sdio = filepath.Join(root, "none")
+	if st := wifiControl.status(); st.Supported || st.Enabled {
+		t.Fatalf("status without a chip: %+v", st)
+	}
+}
+
 func TestWifiChannelOfFrequency(t *testing.T) {
 	for freq, channel := range map[int]int{2412: 1, 2437: 6, 2472: 13, 2484: 14, 5180: 36, 5745: 149, 5825: 165, 5955: 1, 6115: 33, 0: 0, 3000: 0} {
 		if got := channelFor(freq); got != channel {

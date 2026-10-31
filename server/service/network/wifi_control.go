@@ -27,11 +27,14 @@ import (
 var wifiMu sync.Mutex
 var wifiBusy bool
 var wifiError string
-var wifiControl = radioControl{etc: "/etc/kvm", net: "/sys/class/net/wlan0", runDir: wifiRunDir, run: runRadioCommand,
-	request: wpaControl(wpaControlSocket), bands: &bandCache{ttl: 30 * time.Second}}
+var wifiControl = radioControl{etc: "/etc/kvm", net: "/sys/class/net/wlan0", sdio: "/sys/bus/sdio/devices",
+	runDir: wifiRunDir, run: runRadioCommand, request: wpaControl(wpaControlSocket), bands: &bandCache{ttl: 30 * time.Second}}
 
 type radioControl struct {
 	etc, net string
+	// sdio lists the SDIO functions: the Wi-Fi chip is one while its driver
+	// is not loaded (Wi-Fi off, nanokvm-network), and wlan0 is missing.
+	sdio string
 	// runDir holds the network chosen in this boot (default /run/nanokvm-wifi).
 	runDir string
 	run    func(string, ...string) (string, error)
@@ -77,14 +80,39 @@ func runRadioCommand(name string, args ...string) (string, error) {
 	return string(out), err
 }
 
+// present: the driver is loaded and wlan0 exists.
 func (w radioControl) present() bool { _, err := os.Stat(w.net); return err == nil }
+
+// chipAlias is the modalias of the SDIO Wi-Fi chip, "" without one. The
+// boards have no other SDIO function (nanokvm-network loads the driver for
+// any).
+func (w radioControl) chipAlias() string {
+	if w.sdio == "" {
+		return ""
+	}
+	aliases, _ := filepath.Glob(filepath.Join(w.sdio, "*", "modalias"))
+	for _, path := range aliases {
+		if alias, err := os.ReadFile(path); err == nil {
+			return strings.TrimSpace(string(alias))
+		}
+	}
+	return ""
+}
+
+// hardware: the board has Wi-Fi, its driver loaded or not. S30wifi loads it
+// when Wi-Fi is turned on.
+func (w radioControl) hardware() bool { return w.present() || w.chipAlias() != "" }
+
 func (w radioControl) enabled() bool {
 	_, err := os.Stat(filepath.Join(w.etc, "wifi.disabled"))
 	return os.IsNotExist(err)
 }
 
 func (w radioControl) model() string {
-	alias, _ := os.ReadFile(filepath.Join(w.net, "device/modalias"))
+	alias, err := os.ReadFile(filepath.Join(w.net, "device/modalias"))
+	if err != nil {
+		alias = []byte(w.chipAlias())
+	}
 	id := strings.ToUpper(string(alias))
 	for _, pair := range [][2]string{{"V5449D0145", "AIC8801"}, {"V544AD0146", "AIC8801"}, {"VC8A1D0082", "AIC8800D80"}, {"VC8A1DC08D", "AIC8800D80"}, {"V024CDB73A", "RTL8733BS"}, {"V024CDB733", "RTL8733BS"}} {
 		if strings.Contains(id, pair[0]) {
@@ -373,8 +401,8 @@ func parseScan(output, band string) []wifiNetwork {
 
 func (w radioControl) status() *proto.GetWifiRsp {
 	// Without a radio Wi-Fi is not on, whatever the saved preference says.
-	present := w.present()
-	d := &proto.GetWifiRsp{Supported: present, Enabled: present && w.enabled(), Bands: []string{}, ApMode: isAPMode(), PreferredBand: w.preferredBand()}
+	hardware := w.hardware()
+	d := &proto.GetWifiRsp{Supported: hardware, Enabled: hardware && w.enabled(), Bands: []string{}, ApMode: isAPMode(), PreferredBand: w.preferredBand()}
 	wifiMu.Lock()
 	d.Busy = wifiBusy
 	d.Error = wifiError
@@ -383,6 +411,10 @@ func (w radioControl) status() *proto.GetWifiRsp {
 		return d
 	}
 	d.Model = w.model()
+	// Off, the driver is not loaded: no bands or connection to read.
+	if !w.present() {
+		return d
+	}
 	freqs := w.statusFrequencies()
 	for _, b := range []string{"2.4", "5"} {
 		if len(freqs[b]) > 0 {
@@ -566,9 +598,17 @@ func finishWifi(err error) {
 		wifiError = "operationFailed"
 	}
 }
+
+// checkRadio reserves the radio. enabled: the operation needs Wi-Fi on and
+// wlan0; otherwise (the switch, the band preference) the chip is enough, as
+// its driver loads only while Wi-Fi is on.
 func checkRadio(c *gin.Context, enabled bool) bool {
 	var rsp proto.Response
-	if !wifiControl.present() || isAPMode() || (enabled && !wifiControl.enabled()) {
+	available := wifiControl.hardware()
+	if enabled {
+		available = wifiControl.present() && wifiControl.enabled()
+	}
+	if !available || isAPMode() {
 		rsp.ErrRsp(c, -1, "Wi-Fi unavailable")
 		return false
 	}

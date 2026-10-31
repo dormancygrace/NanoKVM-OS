@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <linux/dma-heap.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <riscv_vector.h> // XTheadVector: build with -march=rv64gc_xtheadvector
@@ -44,6 +45,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <new>
 #include <optional>
 #include <string>
 #include <thread>
@@ -51,10 +53,35 @@
 
 namespace {
 
+// Zeroed memory paged in by the one mmap that takes it. A picture is written
+// whole as soon as it is taken; paging its 6 MB in a page at a time on first
+// touch was 1500 page faults, and a vector zeroed it before that.
+class Pages {
+public:
+    Pages() = default;
+    Pages(Pages &&other) noexcept : data_(other.data_), size_(other.size_) { other.data_ = nullptr; other.size_ = 0; }
+    Pages &operator=(Pages &&other) noexcept { std::swap(data_, other.data_); std::swap(size_, other.size_); return *this; }
+    ~Pages() { if (data_) munmap(data_, size_); }
+    void resize(size_t size) {
+        void *data = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+        if (data == MAP_FAILED) throw std::bad_alloc();
+        if (data_) munmap(data_, size_);
+        data_ = static_cast<uint8_t *>(data);
+        size_ = size;
+    }
+    uint8_t *data() { return data_; }
+    uint8_t &operator[](size_t i) { return data_[i]; }
+    const uint8_t &operator[](size_t i) const { return data_[i]; }
+
+private:
+    uint8_t *data_ = nullptr;
+    size_t size_ = 0;
+};
+
 // B, G and R planes, the models' layout; at() takes an RGB channel index.
 struct Picture {
     int width = 0, height = 0;
-    std::vector<uint8_t> bgr;
+    Pages bgr;
     const uint8_t *plane(int bgr_index) const { return &bgr[static_cast<size_t>(bgr_index) * width * height]; }
     uint8_t at(int x, int y, int c) const { return plane(2 - c)[static_cast<size_t>(y) * width + x]; }
 };
@@ -220,20 +247,27 @@ bool detect_tile(Model &det, const Picture &pic, int tx, int ty, std::vector<Reg
     const CVI_SHAPE shape = CVI_NN_TensorShape(out);
     const int oh = shape.dim[shape.dim_size - 2], ow = shape.dim[shape.dim_size - 1];
     if (oh != h || ow != w) return false;
-    std::vector<float> prob(static_cast<size_t>(h) * w);
-    if (out->fmt == CVI_FMT_FP32) std::memcpy(prob.data(), CVI_NN_TensorPtr(out), prob.size() * sizeof(float));
-    else for (size_t i = 0; i < prob.size(); ++i) prob[i] = get(out, i);
-    std::vector<int> label(prob.size(), -1);
+    // A float map is read where the TPU left it (cached memory the runtime
+    // invalidated after the run), other formats through a converted copy:
+    // 2 MB at 960 x 544 that would be paged in on every read.
+    const size_t size = static_cast<size_t>(h) * w;
+    std::vector<float> converted;
+    if (out->fmt != CVI_FMT_FP32) {
+        converted.resize(size);
+        for (size_t i = 0; i < size; ++i) converted[i] = get(out, i);
+    }
+    const float *prob = out->fmt == CVI_FMT_FP32 ? static_cast<const float *>(CVI_NN_TensorPtr(out)) : converted.data();
+    std::vector<uint8_t> seen(size, 0);
     std::vector<int> stack;
     const float bitmap_threshold = 0.3f, box_threshold = 0.6f;
-    for (int start = 0; start < static_cast<int>(prob.size()); ++start) {
-        if (label[start] >= 0 || prob[start] <= bitmap_threshold) continue;
+    for (int start = 0; start < static_cast<int>(size); ++start) {
+        if (seen[start] || prob[start] <= bitmap_threshold) continue;
         // One connected region (8-neighbours): bounding box, score, columns.
         int x0 = w, y0 = h, x1 = -1, y1 = -1, count = 0;
         double sum = 0;
         std::vector<int> pixels;
         stack.assign(1, start);
-        label[start] = start;
+        seen[start] = 1;
         while (!stack.empty()) {
             const int i = stack.back();
             stack.pop_back();
@@ -247,7 +281,7 @@ bool detect_tile(Model &det, const Picture &pic, int tx, int ty, std::vector<Reg
                     const int nx = x + dx, ny = y + dy;
                     if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
                     const int n = ny * w + nx;
-                    if (label[n] < 0 && prob[n] > bitmap_threshold) { label[n] = start; stack.push_back(n); }
+                    if (!seen[n] && prob[n] > bitmap_threshold) { seen[n] = 1; stack.push_back(n); }
                 }
         }
         const int rh = y1 - y0 + 1;
@@ -738,11 +772,12 @@ std::vector<std::string> model_paths(const char *list) {
     return paths;
 }
 
-// Has the page cache hold a file, read through a small buffer.
+// Has the page cache hold a file, read through a small buffer (each page of
+// it is a page fault in every reader: a 1 MB one cost 256 per thread).
 void warm(const std::string &path) {
     const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
     if (fd < 0) return;
-    std::vector<char> buffer(1 << 20);
+    std::vector<char> buffer(128 << 10);
     while (::read(fd, buffer.data(), buffer.size()) > 0) {}
     close(fd);
 }

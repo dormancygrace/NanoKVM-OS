@@ -58,9 +58,12 @@ start_interfaces() {
 
     # udev does not load the SDIO Wi-Fi drivers (modprobe.d/nanokvm-wifi.conf):
     # the legacy loader does, when an SDIO device exists but wlan0 is still
-    # missing. Also with Wi-Fi turned off: the web switch that turns it back on
-    # needs wlan0. On Ethernet-only boards there is no Wi-Fi hardware.
+    # missing, and only while Wi-Fi is on. Turned off, the driver (with
+    # cfg80211, about 1.8 MB) and its firmware upload (about 1.5 s of the one
+    # core) wait until S30wifi turns Wi-Fi or the access point on.
+    # On Ethernet-only boards there is no Wi-Fi hardware.
     if [ ! -d "$NANOKVM_NETWORK_NET_CLASS_DIR/wlan0" ] &&
+        [ ! -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ] &&
         sdio_device_present; then
         run_legacy S25wifimod || ewarn "Wi-Fi module initialization failed"
     fi

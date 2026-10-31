@@ -4,7 +4,7 @@ set -eu
 repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
-mkdir -p "$work/bin" "$work/boot" "$work/etc" "$work/kvm" "$work/run"
+mkdir -p "$work/bin" "$work/boot" "$work/etc" "$work/kvm" "$work/run" "$work/net/wlan0"
 
 cat > "$work/bin/ok" <<'EOF'
 #!/bin/sh
@@ -40,6 +40,7 @@ run_wifi() {
     NANOKVM_HOSTNAME_FILE=$work/hostname \
     NANOKVM_WIFI_BOOT_DIR=$work/boot \
     NANOKVM_WIFI_ETC_DIR=$work/etc \
+    NANOKVM_WIFI_NET_DIR=$work/net/wlan0 \
     NANOKVM_WIFI_KVM_DIR=$work/kvm \
     NANOKVM_WIFI_RUN_DIR=$work/run/wifi \
     NANOKVM_WIFI_DHCP_PID=$work/run/udhcpc.wlan0.pid \

@@ -2,7 +2,8 @@
 """Exercise IPv6 apply/rollback and service restarts with real Linux routes.
 
 No host/device interfaces are touched. Run with unshare support, or as root
-inside CI; the child refuses to execute outside its own network namespace.
+inside CI; the child requires private network and mount namespaces. A fresh
+sysfs mount makes interface existence checks see the test network namespace.
 """
 import json
 import os
@@ -45,6 +46,7 @@ class IPv6PolicyTest(unittest.TestCase):
         for name in ("eth0", "wlan0"):
             self.run_cmd("ip", "link", "add", name, "type", "dummy")
             self.addCleanup(self.run_cmd, "ip", "link", "del", name)
+            self.assertTrue(Path("/sys/class/net", name).is_dir())
             self.run_cmd("ip", "link", "set", name, "up")
 
     def run_cmd(self, *args, check=True):
@@ -145,12 +147,20 @@ class IPv6PolicyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     if "--in-netns" not in sys.argv:
-        env = dict(os.environ, NKOS_TEST_HOST_NETNS=os.readlink("/proc/self/ns/net"))
-        flags = ["--net"] if os.geteuid() == 0 else ["--user", "--map-root-user", "--net"]
+        env = dict(os.environ, NKOS_TEST_HOST_NETNS=os.readlink("/proc/self/ns/net"),
+            NKOS_TEST_HOST_MNTNS=os.readlink("/proc/self/ns/mnt"))
+        flags = ["--mount", "--net"] if os.geteuid() == 0 else ["--user", "--map-root-user", "--mount", "--net"]
         raise SystemExit(subprocess.call(["unshare", *flags, sys.executable,
             str(Path(__file__).resolve()), "--in-netns"], env=env))
     sys.argv.remove("--in-netns")
     original = os.environ.get("NKOS_TEST_HOST_NETNS")
     if not original or original == os.readlink("/proc/self/ns/net"):
         raise SystemExit("Refusing to change host routes: network namespace was not isolated.")
+    original_mount = os.environ.get("NKOS_TEST_HOST_MNTNS")
+    if not original_mount or original_mount == os.readlink("/proc/self/ns/mnt"):
+        raise SystemExit("Refusing to mount sysfs: mount namespace was not isolated.")
+    # /sys/class/net belongs to the network namespace in which sysfs was
+    # mounted; unshare --net alone leaves it showing the host interfaces.
+    subprocess.run(["mount", "--make-rprivate", "/"], check=True)
+    subprocess.run(["mount", "-t", "sysfs", "-o", "ro,nosuid,nodev,noexec", "sysfs", "/sys"], check=True)
     unittest.main(verbosity=2)

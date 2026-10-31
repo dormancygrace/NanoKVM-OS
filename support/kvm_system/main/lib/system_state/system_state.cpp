@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <glob.h>
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -326,10 +327,17 @@ void patch_eth_wifi(void)
 	// system("udhcpc -i eth0 &");
 }
 
+// wlan0, or with Wi-Fi off the chip on the SDIO bus: its driver loads only
+// while Wi-Fi is on (nanokvm-network), and provisioning loads it through
+// S30wifi ap. The boards have no other SDIO function.
 int kvm_wifi_exist()
 {
-	if (get_nic_state("wlan0") == NIC_STATE_NO_EXIST) return 0;
-	else return 1;
+	if (get_nic_state("wlan0") != NIC_STATE_NO_EXIST) return 1;
+	glob_t functions;
+	const int result = glob("/sys/bus/sdio/devices/*/modalias", 0, NULL, &functions);
+	const int found = result == 0 && functions.gl_pathc > 0;
+	if (result == 0) globfree(&functions);
+	return found;
 }
 
 void kvm_update_usb_state()

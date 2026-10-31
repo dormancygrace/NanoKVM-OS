@@ -911,7 +911,8 @@
           "zlib": "Biblioteca de compresión",
           "openssl": "OpenSSL",
           "exfatprogs": "Herramientas exFAT",
-          "i2ctools": "Herramientas I2C"
+          "i2ctools": "Herramientas I2C",
+          "tpu": "TPU"
         }
       },
       "notice": {
@@ -2118,7 +2119,7 @@
       "title": "IA",
       "screenText": {
         "title": "Reconocimiento de texto",
-        "notInstalled": "El reconocimiento de texto necesita el complemento TPU.",
+        "notInstalled": "El reconocimiento de texto necesita el complemento de modelo de un idioma.",
         "openAddons": "Complementos",
         "enabled": "Reconocimiento de texto",
         "enabledDescription": "Activado, un botón sobre la pantalla lee su texto, y MCP y PicoClaw también pueden leerlo. Desactivado, ninguno puede.",

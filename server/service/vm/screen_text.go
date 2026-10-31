@@ -25,12 +25,15 @@ import (
 	"NanoKVM-Server/proto"
 )
 
-// The TPU add-on (addons/tpu) installs the helper and its models here.
+// The TPU programs (nanokvm-tpu-sg2002, tpu/) are in bin; the models, which
+// are add-ons, in models.
 const screenTextRoot = "/usr/lib/nanokvm-tpu"
 
-// ScreenTextHelper is the add-on's program; its presence means the add-on
-// is installed.
+// ScreenTextHelper is the text recognition program.
 const ScreenTextHelper = screenTextRoot + "/bin/nanokvm-ocr"
+
+// screenTextDetector is the text detection model, which every language uses.
+const screenTextDetector = screenTextRoot + "/models/ocr-det.cvimodel"
 
 // screenTextPicture keeps the last picture for offline runs (?save=1).
 var screenTextPicture = "/run/nanokvm/screen-text.bgr"
@@ -66,8 +69,8 @@ const (
 	screenTextMaxSide   = 1920
 )
 
-// screenTextLanguages are the recognizers of the add-on, one directory of
-// models each (addons/tpu/models/convert.sh); the first is the default.
+// screenTextLanguages are the recognizers, one directory of models each
+// (tpu/models/convert.sh); the first is the default.
 var screenTextLanguages = []string{"latin", "chinese", "cyrillic"}
 
 // screenTextOffFile turns text recognition off (Settings > AI > Text
@@ -84,14 +87,28 @@ func ScreenTextEnabled() bool {
 	return err != nil
 }
 
-// ScreenTextAvailable: the TPU add-on is installed and text recognition is
-// on, so the tools that read the screen are offered.
-func ScreenTextAvailable() bool {
-	if !ScreenTextEnabled() {
+// ScreenTextInstalled: the program and the models of at least one language
+// are there. The program is part of the system; the models are add-ons, so
+// without them nothing offers to read the screen.
+func ScreenTextInstalled() bool {
+	if info, err := os.Stat(ScreenTextHelper); err != nil || !info.Mode().IsRegular() {
 		return false
 	}
-	info, err := os.Stat(ScreenTextHelper)
-	return err == nil && info.Mode().IsRegular()
+	if _, err := os.Stat(screenTextDetector); err != nil {
+		return false
+	}
+	for _, lang := range screenTextLanguages {
+		if _, err := screenTextArgs(screenTextRoot+"/models/", lang); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// ScreenTextAvailable: text recognition is installed and on, so the tools
+// that read the screen are offered.
+func ScreenTextAvailable() bool {
+	return ScreenTextEnabled() && ScreenTextInstalled()
 }
 
 // GetScreenTextSettings: the switch and which languages have their models
@@ -292,8 +309,8 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 		return nil, screenTextError(-7, "text recognition is off (Settings > AI > Text recognition)")
 	}
 	helper := ScreenTextHelper
-	if _, err := os.Stat(helper); err != nil {
-		return nil, screenTextError(-1, "the TPU add-on is not installed")
+	if !ScreenTextInstalled() {
+		return nil, screenTextError(-1, "no text recognition models are installed")
 	}
 	lang := req.Language
 	if lang == "" {
@@ -365,7 +382,6 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 		return nil, screenTextError(-4, "text recognition failed")
 	}
 	cmd := exec.CommandContext(ctx, helper, args...)
-	cmd.Env = append(os.Environ(), "LD_LIBRARY_PATH="+screenTextRoot+"/lib")
 	cmd.Stdin = bytes.NewReader(input)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

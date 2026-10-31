@@ -1,6 +1,6 @@
 #!/bin/bash
 # Train the screen-state classifier and measure its INT8 calibration table.
-#   addons/tpu/models/screen/train.sh WORK
+#   tpu/models/screen/train.sh WORK
 # Draws 30 000 synthetic screens to learn from and 3 000 to check against
 # (synth.py), trains on the CPU (train.py) and writes screen.onnx here and
 # ../calibration/screen.cali, both used by ../convert.sh. Runs in Sophgo's

@@ -36,6 +36,7 @@ PACKAGES = {
     'nanokvm-openssl': 'openssl',
     'nanokvm-exfatprogs': 'exfatprogs',
     'nanokvm-i2c-tools': 'i2c-tools',
+    'nanokvm-tpu-sg2002': 'tpu-sg2002',
     'nanokvm-release': 'release',
 }
 GROUPS = [{'nanokvm-kernel-sg2002', 'nanokvm-kmod-sg2002'}]

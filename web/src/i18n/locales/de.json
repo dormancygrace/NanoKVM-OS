@@ -911,7 +911,8 @@
           "zlib": "Kompressionsbibliothek",
           "openssl": "OpenSSL",
           "exfatprogs": "exFAT-Werkzeuge",
-          "i2ctools": "I2C-Werkzeuge"
+          "i2ctools": "I2C-Werkzeuge",
+          "tpu": "TPU"
         }
       },
       "notice": {
@@ -2118,7 +2119,7 @@
       "title": "KI",
       "screenText": {
         "title": "Texterkennung",
-        "notInstalled": "Die Texterkennung benötigt das TPU-Add-on.",
+        "notInstalled": "Die Texterkennung benötigt das Modell-Add-on einer Sprache.",
         "openAddons": "Add-ons",
         "enabled": "Texterkennung",
         "enabledDescription": "Wenn eingeschaltet, liest eine Schaltfläche über dem Bildschirm dessen Text, und auch MCP und PicoClaw können ihn lesen. Ausgeschaltet kann es keiner von ihnen.",

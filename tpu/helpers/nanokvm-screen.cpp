@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // nanokvm-screen: what the host's screen shows, by a small classifier on the
-// CV181x TPU (addons/tpu/models/screen): a desktop or an application, a
+// CV181x TPU (tpu/models/screen): a desktop or an application, a
 // Windows stop screen, a text console (where a kernel panic shows), a blank
 // screen, or a firmware or installer screen.
 //

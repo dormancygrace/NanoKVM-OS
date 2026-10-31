@@ -165,4 +165,4 @@ with tempfile.TemporaryDirectory(prefix='nkos-channels-') as directory:
     assert all(n + '-3.4.0-r0' in installed() for n in core)
     assert cfg.read_text() == 'user setting'
     httpd.shutdown()
-    print('PASS: signed stable -> beta -> stable rollback -> old-updater final, interrupted reboot recovery; 14 core packages, exact kernel/modules, config/data/world and independent packages preserved')
+    print(f'PASS: signed stable -> beta -> stable rollback -> old-updater final, interrupted reboot recovery; {len(core)} core packages, exact kernel/modules, config/data/world and independent packages preserved')

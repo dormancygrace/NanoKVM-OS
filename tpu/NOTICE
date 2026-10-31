@@ -1,0 +1,18 @@
+NanoKVM TPU programs (nanokvm-tpu-sg2002)
+
+nanokvm-ocr and nanokvm-screen (tpu/helpers): GPL-3.0-or-later, part of
+NanoKVM OS.
+
+They are linked statically with:
+
+- Sophgo's cviruntime and cvikernel, as ported to dma-buf heaps in
+  https://github.com/leafpmpmp/duo-buildroot-sdk-v2 (branch mainline-tpu).
+  Sophgo publishes them without a licence file; the source files carry
+  Sophgo or Cvitek copyright notices. As for the other SOPHGO components
+  without a licence grant (docs/DISTRIBUTION.md), the source is fetched
+  from that repository at build time and not redistributed here.
+- The model schema (cvibuilder) and flatbuffers headers: Apache-2.0.
+- LZ4 and xxHash, inside cviruntime: BSD-2-Clause.
+- libstdc++ and libgcc: GPL-3.0 with the GCC Runtime Library Exception.
+
+The models are separate add-ons, each with its own notice.

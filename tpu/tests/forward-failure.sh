@@ -1,14 +1,15 @@
 #!/bin/sh
-# On a NanoKVM with the TPU add-on: a failed TPU run must fail the read
+# On a NanoKVM with the Latin OCR models: a failed TPU run must fail the read
 # (exit status 1, no summary line), not report a screen without text.
-#   forward-failure.sh PRELOAD.so PICTURE   (PICTURE: "P W H\n" + B, G, R planes)
-# The first run is the detector, the second the first line's recognizer.
+#   forward-failure.sh HELPER PICTURE   (PICTURE: "P W H\n" + B, G, R planes)
+# HELPER is nanokvm-ocr built with forward-failure.c (tpu/README.md). The
+# first run is the detector, the second the first line's recognizer.
 set -u
-shim=$1 picture=$2
-root=/usr/lib/nanokvm-tpu models=/usr/lib/nanokvm-tpu/models
+helper=$1 picture=$2
+models=/usr/lib/nanokvm-tpu/models
 run() {
-	LD_LIBRARY_PATH=$root/lib LD_PRELOAD=$shim NANOKVM_OCR_FAIL_FORWARD=$1 \
-		$root/bin/nanokvm-ocr $models/ocr-det.cvimodel $models/latin/ocr-rec.cvimodel:3 \
+	NANOKVM_OCR_FAIL_FORWARD=$1 \
+		"$helper" $models/ocr-det.cvimodel $models/latin/ocr-rec.cvimodel:3 \
 		$models/latin/ocr-dict.txt <"$picture" >/tmp/forward-failure.out 2>/tmp/forward-failure.err
 }
 failed=0

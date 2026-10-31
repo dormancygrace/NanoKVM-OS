@@ -4,7 +4,7 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the fourteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the fifteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
 Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader-sg2002` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
@@ -27,7 +27,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/tools/xz/COPYING.0BSD` (liblzma license; zlib-ng and liblzma are also linked statically into NanoKVM-Server for its gzip and xz readers) | `nanokvm`, `/usr/share/licenses/nanokvm` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader-sg2002`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware-sg2002` |
-| `release/apk/` | the signed APK repository of the fourteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
+| `release/apk/` | the signed APK repository of the fifteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-Image-<image-version>-apps-<application-version>.img.zip`, `SHA256SUMS` | the SD card image |
 
@@ -129,7 +129,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `opensbi/` | upstream generic SG2002 configuration, M-mode DT, FDT handoff and C906 draft VS compatibility patches |
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
-| `packages.list` | The contents of the fourteen APK packages: each file, its mode and where it comes from |
+| `packages.list` | The contents of the fifteen APK packages: each file, its mode and where it comes from |
 | `kernel/` | `config` and patches for kernel.org Linux 7.3.1 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `sg2002-aes/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
@@ -296,7 +296,7 @@ Measured on a NanoKVM PCIe: about 0.63 MiB lower server PSS, no demonstrated CPU
 
 ### Application package split
 
-The build produces fourteen core APKs. `nanokvm` owns the server, board service,
+The build produces fifteen core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
 `/kvmapp/server/web`. `nanokvm-app` is a file-free compatibility metapackage
 (revision r2 for v3.0-a1) depending on both. Keep it while older installations

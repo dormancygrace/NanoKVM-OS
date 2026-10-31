@@ -13,7 +13,7 @@ var RecoveryService []byte
 var CorePackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release",
 	"nanokvm-base", "nanokvm-keys", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002",
 	"nanokvm-firmware-sg2002", "nanokvm-bootloader-sg2002", "nanokvm-zlib", "nanokvm-openssl",
-	"nanokvm-exfatprogs", "nanokvm-i2c-tools"}
+	"nanokvm-exfatprogs", "nanokvm-i2c-tools", "nanokvm-tpu-sg2002"}
 
 func Query(repo string) []string {
 	// Do not use --no-network: APK 3 can have a differently named cached index

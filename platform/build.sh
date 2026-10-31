@@ -16,6 +16,7 @@
 #   initramfs  initramfs from boot/initramfs.list and the Buildroot userland
 #   boot       board device trees and boot.sd images like nanokvm-kernel-sg2002
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
+#   tpu        TPU runtime and the programs that run models on it
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
 #              exfatprogs, i2c-tools, OpenSSL, zlib-ng and liblzma for the server
@@ -23,8 +24,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the fourteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the fourteen packages
+#   payloads   contents of the fifteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the fifteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -76,7 +77,7 @@ source "$here/compiler-cache.sh"
 configure_compiler_cache "$out"
 steps=("$@")
 [ "${#steps[@]}" -gt 0 ] || steps=(fetch toolchain kernel modules uboot opensbi fip initramfs boot
-    native system tools server web firmware hashes payloads packages rootfs image)
+    native tpu system tools server web firmware hashes payloads packages rootfs image)
 kernel_profile=${NANOKVM_KERNEL_PROFILE:-release}
 case "$kernel_profile" in
     release) ;;
@@ -569,6 +570,67 @@ native() {
     [ "$(find "$img/native" -name '*.so' | wc -l)" = 6 ]
 }
 
+# The TPU runtime (Sophgo cviruntime and cvikernel, ported to dma-buf heaps)
+# and the programs that run models on it: nanokvm-ocr and nanokvm-screen,
+# each linked statically with the runtime and the C++ library. The models
+# are add-ons (tpu/README.md).
+tpu() {
+    local t=$out/tpu p helper
+    local src=$t/src build=$t/build inst=$t/install
+    rm -rf "$t" "${img:?}/tpu"
+    mkdir -p "$src" "$build" "$inst" "$img/tpu"
+    for p in cviruntime cvikernel cvibuilder flatbuffers; do unpack_git tpu-runtime "$p" "$src/$p"; done
+    apply_patches "$src" "$repo/tpu/patches"
+    local cpu_flags
+    read -r -a cpu_flags <<< "$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)"
+    cat > "$build/toolchain.cmake" <<EOF
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR riscv64)
+set(CMAKE_C_COMPILER ${cross}gcc)
+set(CMAKE_CXX_COMPILER ${cross}g++)
+set(CMAKE_SYSROOT $("${cross}gcc" -print-sysroot))
+set(CMAKE_FIND_ROOT_PATH $inst)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$src=tpu" CACHE STRING "")
+set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$src=tpu" CACHE STRING "")
+EOF
+    # The runtime's CMake files predate CMake 3.5.
+    local cmake=("$host/cmake" -G Ninja -DCMAKE_MAKE_PROGRAM="$host/ninja" -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+    local target=("${cmake[@]}" -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE=-O2 -DCMAKE_CXX_FLAGS_RELEASE=-O2
+                  -DCMAKE_TOOLCHAIN_FILE="$build/toolchain.cmake" -DCMAKE_INSTALL_PREFIX="$inst")
+    # The model schema: a host flatc, then the generated headers.
+    "${cmake[@]}" -S "$src/flatbuffers" -B "$build/flatc" -DCMAKE_INSTALL_PREFIX="$build/flatc-install" \
+        -DFLATBUFFERS_BUILD_TESTS=OFF > "$build/flatc.log"
+    "$host/cmake" --build "$build/flatc" --target install >> "$build/flatc.log"
+    "${cmake[@]}" -S "$src/cvibuilder" -B "$build/cvibuilder" -DFLATBUFFERS_PATH="$build/flatc-install" \
+        -DCMAKE_INSTALL_PREFIX="$build/cvibuilder-install" > "$build/cvibuilder.log"
+    "$host/cmake" --build "$build/cvibuilder" --target install >> "$build/cvibuilder.log"
+    mkdir -p "$inst/flatbuffers/include"
+    cp -r "$src/flatbuffers/include/flatbuffers" "$inst/flatbuffers/include/"
+    "${target[@]}" -S "$src/cvikernel" -B "$build/cvikernel" -DCHIP=cv181x > "$build/cvikernel.log"
+    "$host/cmake" --build "$build/cvikernel" --target install -j "$jobs" >> "$build/cvikernel.log"
+    # Without the tools (model_runner and cnpy) and the PMU profiling.
+    "${target[@]}" -S "$src/cviruntime" -B "$build/cviruntime" -DCHIP=cv181x -DRUNTIME=SOC \
+        -DENABLE_TEST=OFF -DENABLE_TOOLS=OFF -DENABLE_PMU=OFF -DCVIKERNEL_PATH="$inst" \
+        -DRUNTIME_VERSION="$(lock tpu-runtime | awk '{ print substr($3, 1, 9) }')" \
+        -DFLATBUFFERS_PATH="$inst/flatbuffers" -DCVIBUILDER_PATH="$build/cvibuilder-install" > "$build/cviruntime.log"
+    "$host/cmake" --build "$build/cviruntime" --target install -j "$jobs" >> "$build/cviruntime.log"
+    # Static: the programs need no library of their own on the device. The
+    # runtime finds its CPU functions in a table (model.cpp), so linking only
+    # what is referenced keeps them.
+    for helper in nanokvm-ocr nanokvm-screen; do
+        "${cross}g++" -std=gnu++17 -O2 -Wall -Wextra -pthread "${cpu_flags[@]}" -I"$inst/include" \
+            -ffile-prefix-map="$repo"=. "$repo/tpu/helpers/$helper.cpp" \
+            "$inst/lib/libcviruntime-static.a" "$inst/lib/libcvikernel-static.a" \
+            -static-libstdc++ -static-libgcc -o "$t/$helper"
+        "${cross}strip" --remove-section=.comment --remove-section=.note -o "$img/tpu/$helper" "$t/$helper"
+        # Only the C library is loaded at run time.
+        [ "$("${cross}readelf" -d "$img/tpu/$helper" | awk '/NEEDED/ { print $NF }')" = "[libc.so]" ] || {
+            echo "tpu: $helper needs more than the C library" >&2; exit 1; }
+    done
+    cp "$repo/tpu/NOTICE" "$img/tpu/"
+}
+
 # kvm_system board service, from support/sg2002/kvm_system alone.
 system() {
     local s=$out/system
@@ -796,7 +858,7 @@ firmware() {
     cp "$out/firmware/wireless-regdb-2026.09.03/LICENSE" "$f/licenses/wireless-regdb-LICENSE"
 }
 
-# Assemble the fourteen package payloads from packages.list.
+# Assemble the fifteen package payloads from packages.list.
 payloads() {
     local p=$out/payloads gen pkg type path mode src dest file
     rm -rf "$p"
@@ -1070,7 +1132,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the fourteen packages with abuild in an Alpine riscv64 tree.
+# Build the fifteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -1312,7 +1374,7 @@ export CCACHE_NAMESPACE="nkos-$(toolchain_id)"
 
 for step in "${steps[@]}"; do
     case $step in
-        fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|system|server|web|tools|firmware|hashes|payloads)
+        fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|tpu|system|server|web|tools|firmware|hashes|payloads)
             log "$step"; "$step" ;;
         packages|rootfs|image|clean)
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;

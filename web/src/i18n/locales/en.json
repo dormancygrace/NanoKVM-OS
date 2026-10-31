@@ -911,7 +911,8 @@
           "zlib": "Compression library",
           "openssl": "OpenSSL",
           "exfatprogs": "exFAT tools",
-          "i2ctools": "I2C tools"
+          "i2ctools": "I2C tools",
+          "tpu": "TPU"
         }
       },
       "notice": {
@@ -2118,7 +2119,7 @@
       "title": "AI",
       "screenText": {
         "title": "Text recognition",
-        "notInstalled": "Text recognition needs the TPU add-on.",
+        "notInstalled": "Text recognition needs the model add-on of a language.",
         "openAddons": "Add-ons",
         "enabled": "Text recognition",
         "enabledDescription": "When on, a button above the screen reads the text on it, and MCP and PicoClaw can read it too. Off, none of them can.",

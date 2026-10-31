@@ -26,6 +26,9 @@ opensbi https://github.com/riscv-software-src/opensbi.git cbf9f6734dd85a982c63e3
 openssl    https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
 cvi-mpi    https://github.com/sophgo/cvi_mpi.git             693a72a1d52f2e08ea767e0a72905e81f10572a5  .=839006d556c5d57bed19aa2974a57470a5f7a900
 sensors    https://github.com/sophgo/SensorSupportList.git   e2824e1d07f516c41238e123fefbab71a34843bc  .=d64a3a80534b362db4811565e866652d709974c0
+# Sophgo cviruntime and cvikernel ported to dma-buf heaps for the mainline TPU
+# driver (armbian/build#10760), with the model schema and its flatbuffers.
+tpu-runtime  https://github.com/leafpmpmp/duo-buildroot-sdk-v2.git  431122d308de94d8463820f19735bce28d67c9d0  cviruntime=164a233a29de1cfd077520fcd76343ee0254b2e9 cvikernel=3a2b171ede7e61d71212958fb5435bbed8550ac9 cvibuilder=82698f17b5917b5ae4e02558ef158a61573ba339 flatbuffers=55089385d84cd6e80bc7bf236b93bc707e34d78a
 json-c     https://github.com/json-c/json-c.git              aa716cd8d663c976b99b0f30f102ee1d8ef63146  .=00e916a56cc3170c16771cc1f97d6eaef92fc578
 miniz      https://github.com/richgel999/miniz.git           2948eebafc5b9f1c69bebed80333e403a09bd62d  .=be9a59fa5e9ee793ea209ceb8843991e7515c83b
 inih  https://github.com/benhoyt/inih.git  2bbdec4a366c8c39746ee0982e7ca0febbb044b6  .=4d8c619037d693583d9d0f3eea6182c20a903a01

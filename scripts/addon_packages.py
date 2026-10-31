@@ -16,7 +16,8 @@ import subprocess
 # workflow, the others by the add-on workflow (addon.yml). Pages indexes
 # them without an OS release. No published release pins one from the
 # archived NanoKVM-OS-packages repository.
-ADDONS = ('nanokvm-rustdesk', 'nanokvm-ipmi')
+ADDONS = ('nanokvm-rustdesk', 'nanokvm-ipmi', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
+          'nanokvm-model-ocr-cyrillic', 'nanokvm-model-ocr-chinese', 'nanokvm-model-screen')
 RELEASES = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/'
 SOURCES = tuple(RELEASES + name + '-' for name in ADDONS)
 # A release tag, which is also the APK's name without .apk.

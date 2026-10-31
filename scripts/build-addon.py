@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Build a NanoKVM add-on APK from its recipe, addons/NAME/addon.json.
 
-The add-on is a static Go program in its own module (CGO off, so no device toolchain)
-with its files and lifecycle scripts, packed by apk-tools 3 mkpkg. It has the
-recipe's version and the given revision, never the OS release's. RustDesk has
-a builder of its own (scripts/build-rustdesk-addon.py).
+The add-on is either a static Go program in its own module (CGO off, so no
+device toolchain), or TPU models: files of a directory that
+tpu/models/convert.sh and stage.sh made, installed below MODELS_PREFIX. Its
+files and lifecycle scripts go with it, packed by apk-tools 3 mkpkg. It has
+the recipe's version and the given revision, never the OS release's.
+RustDesk has a builder of its own (scripts/build-rustdesk-addon.py).
 No device access, signing or publication.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -22,6 +25,11 @@ import addon_packages  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 ADDONS = ROOT / 'addons'
 SCRIPTS = ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade', 'pre-deinstall', 'post-deinstall')
+# Where model add-ons install their models: the TPU programs of the core
+# package nanokvm-tpu read them there.
+MODELS_PREFIX = '/usr/lib/nanokvm-tpu/models'
+# The TPU model converter (tpu/models/convert.sh), recorded with the models.
+CONVERTER = ROOT / 'tpu/models/convert.sh'
 
 
 def recipe(name, addons=ADDONS):
@@ -36,6 +44,15 @@ def recipe(name, addons=ADDONS):
     # APK version, or a beta's (3.5.0_beta1), which the stable release satisfies.
     if not re.fullmatch(r'\d+\.\d+\.\d+(_beta[1-9][0-9]*)?', r.get('os', '')) or 'nanokvm-os' in r['depends']:
         raise ValueError(f'{name}: addon.json needs "os", the minimum NanoKVM OS release')
+    # A program or models, not both.
+    if ('go' in r) == ('models' in r):
+        raise ValueError(f'{name}: addon.json needs "go" or "models"')
+    for path in r.get('models', []):
+        parts = Path(path).parts
+        if not path or path.startswith('/') or '..' in parts or '.' in parts:
+            raise ValueError(f'{name}: bad model {path}')
+    if 'models' in r and not r['models']:
+        raise ValueError(f'{name}: no models')
     for path, item in r['files'].items():
         if not path.startswith('/') or '..' in Path(path).parts or not (directory / item['source']).is_file():
             raise ValueError(f'{name}: bad file {path}')
@@ -64,14 +81,50 @@ def build_go(r, go, output):
     return binary, version
 
 
-def payload(r, binary, root, source):
-    """The package's files below root; source is recorded for the program."""
+def converter():
+    """The converter's pins, as convert.sh states them."""
+    text = CONVERTER.read_text()
+    image = re.search(r'sophgo/tpuc_dev:(\S+)', text)
+    mlir = re.search(r'tpu_mlir==(\S+)', text)
+    return {'image': f'sophgo/tpuc_dev:{image[1]}', 'tpu_mlir': mlir[1]}
+
+
+def convert_parts(r):
+    """The parts of tpu/models/convert.sh the recipe's models come from."""
+    parts = set()
+    for path in r.get('models', []):
+        if path == 'ocr-det.cvimodel':
+            parts.add('det')
+        elif path == 'screen.cvimodel':
+            parts.add('screen')
+        else:
+            parts.add(Path(path).parts[0])
+    return sorted(parts)
+
+
+def model_files(r, models):
+    """The recipe's models in the directory models, with their SHA-256."""
+    files = {}
+    for path in r['models']:
+        source = models / path
+        if not source.is_file():
+            raise SystemExit(f"{r['name']}: no model {path} in {models}")
+        files[path] = hashlib.sha256(source.read_bytes()).hexdigest()
+    return files
+
+
+def payload(r, binary, root, source, models=None):
+    """The package's files below root: its program (binary) or its models (the
+    directory models), the recipe's files and licences, and source."""
     def install(src, dest, mode):
         path = root / dest.lstrip('/')
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(Path(src).read_bytes())
         path.chmod(mode)
-    install(binary, r['go']['path'], 0o755)
+    if 'go' in r:
+        install(binary, r['go']['path'], 0o755)
+    for path in r.get('models', []):
+        install(models / path, f'{MODELS_PREFIX}/{path}', 0o644)
     for dest, item in r['files'].items():
         install(r['directory'] / item['source'], dest, int(item['mode'], 8))
     for license in r['licenses']:
@@ -102,7 +155,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--addon', required=True, help='the add-on, for example nanokvm-ipmi')
     parser.add_argument('--version-only', action='store_true', help='print the recipe version and stop')
-    parser.add_argument('--go', type=Path, help='bin/go of the NanoKVM Go runtime')
+    parser.add_argument('--parts-only', action='store_true',
+                        help='print the convert.sh parts of a model add-on (nothing for a program) and stop')
+    parser.add_argument('--go', type=Path, help='bin/go of the NanoKVM Go runtime (a program add-on)')
+    parser.add_argument('--models', type=Path,
+                        help='the staged models, OUTPUT/usr/lib/nanokvm-tpu/models of tpu/models/stage.sh (a model add-on)')
     parser.add_argument('--apk', type=Path, help='host apk-tools 3 with mkpkg')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--revision', type=int, default=0)
@@ -113,8 +170,15 @@ def main():
     if args.version_only:
         print(r['version'])
         return
-    if None in (args.go, args.apk, args.output, args.commit, args.source_url):
-        parser.error('--go, --apk, --output, --commit and --source-url are required to build')
+    if args.parts_only:
+        print(' '.join(convert_parts(r)))
+        return
+    if None in (args.apk, args.output, args.commit, args.source_url):
+        parser.error('--apk, --output, --commit and --source-url are required to build')
+    if 'go' in r and args.go is None:
+        parser.error('--go is required for a program add-on')
+    if 'models' in r and args.models is None:
+        parser.error('--models is required for a model add-on')
     if args.revision < 0 or not args.source_url.startswith('https://'):
         parser.error('bad --revision or --source-url')
     version = f"{r['version']}-r{args.revision}"
@@ -125,10 +189,15 @@ def main():
         raise SystemExit(f'refusing to overwrite {apkfile}')
     with tempfile.TemporaryDirectory(prefix=f"build-{r['name']}-") as stage:
         stage = Path(stage)
-        binary, go_version = build_go(r, args.go, stage)
+        source = {'commit': args.commit, 'url': args.source_url, 'package_version': version}
+        binary = None
+        if 'go' in r:
+            binary, source['go'] = build_go(r, args.go, stage)
+        else:
+            source['converter'] = converter()
+            source['models'] = model_files(r, args.models.resolve())
         files = stage / 'payload'
-        payload(r, binary, files, {'commit': args.commit, 'url': args.source_url, 'go': go_version,
-                                   'package_version': version})
+        payload(r, binary, files, source, args.models and args.models.resolve())
         # mkpkg records file owners: never ship a developer's UID. Run under
         # fakeroot, or as root.
         for path in [files, *files.rglob('*')]:

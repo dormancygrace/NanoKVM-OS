@@ -30,11 +30,31 @@ a new ABI number and new model add-ons.
 
 ## Model add-ons
 
-They install `/usr/lib/nanokvm-tpu/models`: `ocr-det.cvimodel`, per language
-`LANGUAGE/ocr-rec.cvimodel`, `ocr-dict.txt` and, for `latin` and `chinese`,
-`ocr-sure.cvimodel`; and `screen.cvimodel`, the screen-state classifier.
-Without them nothing offers to read the screen, and the crash event finds
-no classifier.
+They install `/usr/lib/nanokvm-tpu/models`. Each depends on
+`nanokvm-tpu-abi=1`:
+
+| Add-on | Models |
+|---|---|
+| `nanokvm-model-ocr` | `ocr-det.cvimodel`, the text detector every language uses |
+| `nanokvm-model-ocr-latin` | `latin/`: `ocr-rec.cvimodel`, `ocr-sure.cvimodel`, `ocr-dict.txt` |
+| `nanokvm-model-ocr-cyrillic` | `cyrillic/`: `ocr-rec.cvimodel`, `ocr-dict.txt` |
+| `nanokvm-model-ocr-chinese` | `chinese/`: `ocr-rec.cvimodel`, `ocr-sure.cvimodel`, `ocr-dict.txt` |
+| `nanokvm-model-screen` | `screen.cvimodel`, the screen-state classifier |
+
+A language depends on `nanokvm-model-ocr`, so installing one installs the
+detector too. Without a language nothing offers to read the screen; without
+the classifier the crash event has nothing to classify with.
+
+The add-on workflow (`.github/workflows/addon.yml`) builds them: `convert.sh`
+converts the parts the recipe needs (`build-addon.py --parts-only`),
+`stage.sh` lays them out, and `build-addon.py --models` packs them. The
+package records the converter (image and tpu-mlir) and the SHA-256 of every
+model in `/usr/share/NAME/source.json`.
+
+Conversion is reproducible: tpu-mlir stamps only the time of the conversion
+and an MD5 the runtime does not check, which `cvimodel-dmabuf` fixes. Two
+conversions of the screen classifier and the one checked on the device gave
+the same file.
 
 ## Models
 
@@ -121,17 +141,19 @@ the pin instead of Git and the build date.
 
 The models:
 
-    tpu/models/convert.sh MODELS
-    tpu/models/stage.sh PLATFORM_OUTPUT MODELS OUTPUT
+    tpu/models/convert.sh MODELS [PART...]
+    tpu/models/stage.sh MODELS OUTPUT
 
 `convert.sh` runs in the official `sophgo/tpuc_dev` container, so the host
-needs only Docker. `models/sources.txt` pins its inputs by SHA-256. INT8
+needs only Docker; a PART (`det`, `latin`, `chinese`, `cyrillic`, `screen`)
+limits it to those models. `models/sources.txt` pins its inputs by SHA-256. INT8
 needs calibration: the tables in `models/calibration/` were measured on
 synthetic screens and text lines, and fit these sources and this tpu-mlir
 only (they name layers). `stage.sh` stores the models' command buffers in
 the form the runtime would give them at load (`helpers/cvimodel-dmabuf.c`),
-which saves that step on the device; `PLATFORM_OUTPUT` is a
-`platform/build.sh` output with the tpu step done.
+which saves that step on the device. It takes the runtime's source from the
+`tpu-runtime` pin of `platform/sources.lock` (checked by tree id) and needs
+only Git and a C compiler on the host.
 
 A failed TPU run ends the read with exit status 1, never a partial or empty
 result. To check that on a device, link a test `nanokvm-ocr` with

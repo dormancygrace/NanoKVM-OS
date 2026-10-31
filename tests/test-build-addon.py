@@ -57,6 +57,75 @@ class RecipeTests(unittest.TestCase):
                         b.recipe('nanokvm-ipmi', d)
 
 
+class ModelRecipeTests(unittest.TestCase):
+    MODELS = ['nanokvm-model-ocr', 'nanokvm-model-ocr-latin', 'nanokvm-model-ocr-cyrillic',
+              'nanokvm-model-ocr-chinese', 'nanokvm-model-screen']
+
+    def test_model_add_ons_need_the_tpu_abi(self):
+        for name in self.MODELS:
+            r = b.recipe(name)
+            self.assertNotIn('go', r)
+            self.assertIn('nanokvm-tpu-abi=1', b.depends(r).split(), name)
+        # A language needs the detector.
+        for lang in ('latin', 'cyrillic', 'chinese'):
+            self.assertIn('nanokvm-model-ocr', b.recipe('nanokvm-model-ocr-' + lang)['depends'].split())
+
+    def test_convert_parts(self):
+        self.assertEqual(b.convert_parts(b.recipe('nanokvm-model-ocr')), ['det'])
+        self.assertEqual(b.convert_parts(b.recipe('nanokvm-model-ocr-latin')), ['latin'])
+        self.assertEqual(b.convert_parts(b.recipe('nanokvm-model-screen')), ['screen'])
+        self.assertEqual(b.convert_parts(b.recipe('nanokvm-ipmi')), [])
+
+    def test_every_model_is_in_one_add_on(self):
+        # The files the server and the helpers read (server/service/vm).
+        wanted = {'ocr-det.cvimodel', 'screen.cvimodel'} | {
+            f'{lang}/{f}' for lang in ('latin', 'cyrillic', 'chinese') for f in ('ocr-rec.cvimodel', 'ocr-dict.txt')} | {
+            'latin/ocr-sure.cvimodel', 'chinese/ocr-sure.cvimodel'}
+        shipped = [m for name in self.MODELS for m in b.recipe(name)['models']]
+        self.assertEqual(sorted(shipped), sorted(wanted))
+
+    def test_bad_model_recipes_are_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            good = json.loads((b.ADDONS / 'model-screen/addon.json').read_text())
+            (d / 'model-screen').mkdir()
+            for bad in [{'models': ['../x.cvimodel']}, {'models': ['/abs.cvimodel']}, {'models': []},
+                        {'go': {'package': '.', 'path': '/usr/bin/x'}}]:
+                (d / 'model-screen/addon.json').write_text(json.dumps({**good, **bad}))
+                with self.assertRaises(ValueError, msg=bad):
+                    b.recipe('nanokvm-model-screen', d)
+            without = dict(good)
+            del without['models']
+            (d / 'model-screen/addon.json').write_text(json.dumps(without))
+            with self.assertRaises(ValueError):
+                b.recipe('nanokvm-model-screen', d)
+
+    def test_model_payload(self):
+        r = b.recipe('nanokvm-model-ocr-latin')
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            models = d / 'models'
+            for path in r['models']:
+                (models / path).parent.mkdir(parents=True, exist_ok=True)
+                (models / path).write_bytes(path.encode())
+            files = b.model_files(r, models)
+            self.assertEqual(sorted(files), sorted(r['models']))
+            root = d / 'payload'
+            b.payload(r, None, root, {'models': files}, models)
+            for path in r['models']:
+                model = root / 'usr/lib/nanokvm-tpu/models' / path
+                self.assertEqual(model.read_bytes(), path.encode())
+                self.assertEqual(os.stat(model).st_mode & 0o777, 0o644)
+            self.assertTrue((root / 'usr/share/licenses/nanokvm-model-ocr-latin/LICENSE.PaddleOCR').is_file())
+            (models / r['models'][0]).unlink()
+            with self.assertRaises(SystemExit):
+                b.model_files(r, models)
+
+    def test_converter_pins_are_recorded(self):
+        self.assertEqual(set(b.converter()), {'image', 'tpu_mlir'})
+        self.assertTrue(b.converter()['image'].startswith('sophgo/tpuc_dev:'))
+
+
 class BuildTests(unittest.TestCase):
     def test_go_build_uses_the_addon_module(self):
         r = b.recipe('nanokvm-ipmi')

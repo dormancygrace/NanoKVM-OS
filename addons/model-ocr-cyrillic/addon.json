@@ -1,0 +1,18 @@
+{
+  "name": "nanokvm-model-ocr-cyrillic",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "NanoKVM text recognition in Cyrillic letters, with English (PaddleOCR PP-OCRv5)",
+  "url": "https://github.com/dormancygrace/NanoKVM-OS/blob/main/tpu/README.md",
+  "os": "3.7.0",
+  "depends": "nanokvm-model-ocr nanokvm-tpu-abi=1",
+  "models": [
+    "cyrillic/ocr-rec.cvimodel",
+    "cyrillic/ocr-dict.txt"
+  ],
+  "files": {},
+  "licenses": [
+    "tpu/models/LICENSE.PaddleOCR"
+  ],
+  "scripts": {}
+}

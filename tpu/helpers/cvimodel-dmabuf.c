@@ -9,6 +9,12 @@
 // command buffer section and the offsets of the sections after it. A field
 // the model does not store (it holds the default) cannot be changed so; the
 // model is then refused and stays as it is.
+//
+// The converter stamps the time of the conversion and an MD5 of the model,
+// which the runtime does not check (model.cpp: "TODO, verify md5"). Both are
+// fixed here, the time to the epoch and the digest to zeros, so the same
+// conversion gives the same file and a published model can be compared with
+// the one checked on a device.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,8 +24,11 @@ int cvi181x_dmabuf_size(uint8_t *cmdbuf, size_t sz, size_t *psize, size_t *pmu_s
 int cvi181x_dmabuf_convert(uint8_t *cmdbuf, size_t sz, uint8_t *dmabuf);
 
 enum { HEADER_SIZE = 48, SECTION_CMDBUF = 1, SECTION_DMABUF = 4 };
+// The header's MD5 (runtime/model.hpp MODEL_HEADER).
+enum { HEADER_MD5 = 14, MD5_SIZE = 16 };
 // Field indexes in cvibuilder/proto/cvimodel.fbs.
-enum { MODEL_SECTIONS = 7 };
+enum { MODEL_BUILD_TIME = 2, MODEL_SECTIONS = 7 };
+static const char build_time[] = "1970-01-01 00:00:00";
 enum { SECTION_TYPE, SECTION_NAME, SECTION_SIZE, SECTION_OFFSET, SECTION_ENCRYPT, SECTION_COMPRESS };
 
 static uint8_t *body;
@@ -113,6 +122,14 @@ int main(int argc, char **argv) {
         free(dmabuf);
     }
     if (!converted) fail("no command buffer to convert");
+
+    const size_t time_at = field(model, MODEL_BUILD_TIME);
+    if (time_at) {
+        const size_t time = time_at + u32(time_at);
+        if (u32(time) != sizeof(build_time) - 1) fail("the build time is not YYYY-MM-DD HH:MM:SS");
+        memcpy(body + time + 4, build_time, sizeof(build_time) - 1);
+    }
+    memset(file + HEADER_MD5, 0, MD5_SIZE);
 
     FILE *o = fopen(argv[2], "wb");
     if (!o || fwrite(file, 1, HEADER_SIZE + body_size, o) != HEADER_SIZE + body_size

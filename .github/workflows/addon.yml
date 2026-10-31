@@ -9,6 +9,10 @@ name: Add-on release
 # repository index. OS builds do not fetch or pin add-ons. RustDesk has a
 # workflow of its own.
 #
+# A model add-on (nanokvm-model-*) is converted here: tpu/models/convert.sh
+# runs Sophgo's tpu-mlir container on the parts the recipe needs, and
+# stage.sh lays the models out as the device installs them.
+#
 # Pull requests that change an add-on or this build, and dry runs, build and
 # check without publishing and keep the result as an artifact.
 on:
@@ -17,7 +21,8 @@ on:
       addon:
         description: 'Add-on'
         type: choice
-        options: [nanokvm-ipmi]
+        options: [nanokvm-ipmi, nanokvm-model-ocr, nanokvm-model-ocr-latin, nanokvm-model-ocr-cyrillic,
+                  nanokvm-model-ocr-chinese, nanokvm-model-screen]
       dry_run:
         description: 'Build and check only; publish nothing'
         type: boolean
@@ -48,7 +53,8 @@ jobs:
   build:
     name: Build and check
     runs-on: ubuntu-26.04
-    timeout-minutes: 30
+    # A model conversion takes most of it.
+    timeout-minutes: 120
     outputs:
       tag: ${{ steps.version.outputs.tag }}
     steps:
@@ -59,9 +65,35 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      - name: Kind
+        id: kind
+        run: |
+          set -euo pipefail
+          parts=$(python3 scripts/build-addon.py --addon "$ADDON" --parts-only)
+          echo "parts=$parts" >> "$GITHUB_OUTPUT"
+          echo "convert.sh parts: ${parts:-none (a program)}"
+
+      # The converter image takes about 10 GB unpacked.
+      - name: Free disk space
+        if: steps.kind.outputs.parts != ''
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Convert models
+        if: steps.kind.outputs.parts != ''
+        env:
+          PARTS: ${{ steps.kind.outputs.parts }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086 # one argument per part
+          tpu/models/convert.sh "$RUNNER_TEMP/models" $PARTS
+          tpu/models/stage.sh "$RUNNER_TEMP/models" "$RUNNER_TEMP/staged"
+
       # The OS build's Go: the pinned official toolchain (platform/sources.lock)
       # with the NanoKVM runtime (firmware/cpu/sysmon-runtime).
       - name: Go
+        if: steps.kind.outputs.parts == ''
         run: |
           set -euo pipefail
           read -r _ url sum < <(awk '$1 == "go" { print $1, $2, $3 }' platform/sources.lock)
@@ -124,17 +156,24 @@ jobs:
           REVISION: ${{ steps.version.outputs.revision }}
           TAG: ${{ steps.version.outputs.tag }}
           GOFLAGS: -mod=readonly
+          PARTS: ${{ steps.kind.outputs.parts }}
         run: |
           set -euo pipefail
-          fakeroot python3 scripts/build-addon.py --addon "$ADDON" --go "$RUNNER_TEMP/goroot/bin/go" \
+          if [ -n "$PARTS" ]; then
+            input=(--models "$RUNNER_TEMP/staged/usr/lib/nanokvm-tpu/models")
+          else
+            input=(--go "$RUNNER_TEMP/goroot/bin/go")
+          fi
+          fakeroot python3 scripts/build-addon.py --addon "$ADDON" "${input[@]}" \
             --apk "$RUNNER_TEMP/apk" --output "$RUNNER_TEMP/addon" --revision "$REVISION" \
             --commit "$GITHUB_SHA" --source-url "https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA"
           (cd "$RUNNER_TEMP/addon" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS" && mv "$RUNNER_TEMP/SHA256SUMS" .)
           ls -la "$RUNNER_TEMP/addon"
           cat "$RUNNER_TEMP/addon/SHA256SUMS"
 
-      # What devices get: the version, a static riscv64 program, the files and
-      # scripts of the recipe, and the source record.
+      # What devices get: the version, a static riscv64 program or the models
+      # with their checksums, the files and scripts of the recipe, and the
+      # source record.
       - name: Check the package
         env:
           TAG: ${{ steps.version.outputs.tag }}
@@ -152,13 +191,22 @@ jobs:
           # The minimum OS release is a dependency of the package.
           dump = subprocess.check_output(["apk", "adbdump", sys.argv[3]], text=True)
           assert "nanokvm-os>=" + recipe["os"] in dump.split(), recipe["os"]
-          program = root + recipe["go"]["path"]
-          out = subprocess.check_output(["file", program], text=True)
-          assert "RISC-V" in out and "statically linked" in out, out
-          for path, item in recipe["files"].items():
-              assert os.stat(root + path).st_mode & 0o777 == int(item["mode"], 8), path
           record = json.load(open(root + "/usr/share/" + recipe["name"] + "/source.json"))
           assert record["commit"] == os.environ["GITHUB_SHA"], record
+          if "go" in recipe:
+              program = root + recipe["go"]["path"]
+              out = subprocess.check_output(["file", program], text=True)
+              assert "RISC-V" in out and "statically linked" in out, out
+          else:
+              import hashlib
+              assert "nanokvm-tpu-abi=1" in dump.split(), "no TPU ABI dependency"
+              assert sorted(record["models"]) == sorted(recipe["models"]), record["models"]
+              for path in recipe["models"]:
+                  model = root + "/usr/lib/nanokvm-tpu/models/" + path
+                  assert os.stat(model).st_mode & 0o777 == 0o644, path
+                  assert hashlib.sha256(open(model, "rb").read()).hexdigest() == record["models"][path], path
+          for path, item in recipe["files"].items():
+              assert os.stat(root + path).st_mode & 0o777 == int(item["mode"], 8), path
           PY
             echo "package checked"' sh "$a"
 

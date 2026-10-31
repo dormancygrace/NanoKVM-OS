@@ -1,0 +1,17 @@
+{
+  "name": "nanokvm-model-ocr",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "NanoKVM text recognition: the text detection model (PaddleOCR PP-OCRv6 medium) for the TPU",
+  "url": "https://github.com/dormancygrace/NanoKVM-OS/blob/main/tpu/README.md",
+  "os": "3.7.0",
+  "depends": "nanokvm-tpu-abi=1",
+  "models": [
+    "ocr-det.cvimodel"
+  ],
+  "files": {},
+  "licenses": [
+    "tpu/models/LICENSE.PaddleOCR"
+  ],
+  "scripts": {}
+}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/internal/hwcrypto"
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
@@ -18,7 +18,7 @@ import (
 )
 
 type counted struct {
-	device      *sg2002aes.Device
+	device      *hwcrypto.Device
 	calls, hits int
 }
 
@@ -77,8 +77,8 @@ func benchmarkPayloads(list string, packets, rounds int) ([]int, error) {
 	seen := make(map[int]bool)
 	for _, field := range fields {
 		size, err := strconv.Atoi(strings.TrimSpace(field))
-		if err != nil || size < sg2002aes.MinPayload || size > sg2002aes.MaxPayload || seen[size] {
-			return nil, fmt.Errorf("payload sizes must be unique integers in %d..%d", sg2002aes.MinPayload, sg2002aes.MaxPayload)
+		if err != nil || size < hwcrypto.MinPayload || size > hwcrypto.MaxPayload || seen[size] {
+			return nil, fmt.Errorf("payload sizes must be unique integers in %d..%d", hwcrypto.MinPayload, hwcrypto.MaxPayload)
 		}
 		sizes = append(sizes, size)
 		seen[size] = true
@@ -107,7 +107,7 @@ func main() {
 		}
 	}
 
-	d, e := sg2002aes.Open(func(e error) { panic(e) })
+	d, e := hwcrypto.Open(func(e error) { panic(e) })
 	check(e)
 	defer d.Close()
 	hw := &counted{device: d}

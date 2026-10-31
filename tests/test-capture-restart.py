@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 
 repo = Path(__file__).resolve().parents[1]
-s = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+s = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
 functions = s[s.index('static std::atomic<bool> capture_stopped'):s.index('static bool write_hdmi_signal_file')]
 control = s[s.index('int kvmv_hdmi_control(uint8_t enabled)'):s.index('/* Caller holds vi_mutex. Parking')]
 park = s[s.index('int kvmv_set_capture_parked('):s.index('int kvmv_capture_reclaim_pending(')]
@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory() as tmp:
     cpp.write_text(harness.replace('// PRODUCTION_FUNCTIONS', functions + retry + control + park + read))
     binary = Path(tmp) / 'test'
     subprocess.run(['g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
-                    '-I' + str(repo / 'support/sg2002/additional/kvm/include'),
+                    '-I' + str(repo / 'support/additional/kvm/include'),
                     str(cpp), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=15)
 print('PASS: capture restart/disable serialize readers, release resources, block stale detector/park, retry cleanup and re-enable')

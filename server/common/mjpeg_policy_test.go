@@ -236,7 +236,7 @@ func TestNativeResultsOtherThanTheRefusalPassThrough(t *testing.T) {
 
 // The numbers cgo reads from the C header and the Go constants are one code.
 func TestNativeRefusalCodeMatchesTheHeaders(t *testing.T) {
-	for _, header := range []string{"../../support/sg2002/additional/kvm/include/kvm_vision.h"} {
+	for _, header := range []string{"../../support/additional/kvm/include/kvm_vision.h"} {
 		text, err := os.ReadFile(header)
 		if err != nil {
 			t.Fatal(err)

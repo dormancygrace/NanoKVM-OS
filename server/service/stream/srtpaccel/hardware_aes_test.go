@@ -7,23 +7,24 @@ import (
 	"sync"
 	"testing"
 
-	"NanoKVM-Server/internal/sg2002aes"
+	"NanoKVM-Server/internal/hwcrypto"
 )
 
 func TestHardwareAESRequiresExplicitOptIn(t *testing.T) {
-	oldOpen, oldCapability := openHardwareAES, hardwareAESCapabilityFile
+	oldOpen, oldCapability := openHardwareAES, hardwareAESCapabilityFiles
 	t.Cleanup(func() {
 		openHardwareAES = oldOpen
-		hardwareAESCapabilityFile = oldCapability
+		hardwareAESCapabilityFiles = oldCapability
 		hardwareAESOnce = sync.Once{}
 	})
-	hardwareAESCapabilityFile = filepath.Join(t.TempDir(), "out_of_place_burst4")
-	if err := os.WriteFile(hardwareAESCapabilityFile, []byte("Y\n"), 0600); err != nil {
+	capability := filepath.Join(t.TempDir(), "out_of_place_burst4")
+	hardwareAESCapabilityFiles = []string{capability}
+	if err := os.WriteFile(capability, []byte("Y\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
 	var opened int
-	openHardwareAES = func(func(error)) (*sg2002aes.Device, error) {
+	openHardwareAES = func(func(error)) (*hwcrypto.Device, error) {
 		opened++
 		return nil, errors.New("test hardware unavailable")
 	}
@@ -55,19 +56,22 @@ func TestHardwareAESRequiresExplicitOptIn(t *testing.T) {
 }
 
 func TestHardwareAESRejectsOldLoadedModule(t *testing.T) {
-	oldOpen, oldCapability := openHardwareAES, hardwareAESCapabilityFile
+	oldOpen, oldCapability := openHardwareAES, hardwareAESCapabilityFiles
 	t.Cleanup(func() {
 		openHardwareAES = oldOpen
-		hardwareAESCapabilityFile = oldCapability
+		hardwareAESCapabilityFiles = oldCapability
 		hardwareAESOnce = sync.Once{}
 	})
 	t.Setenv("NANOKVM_SRTP_AES", "hardware")
-	hardwareAESCapabilityFile = filepath.Join(t.TempDir(), "out_of_place_burst4")
+	// The module from before 3.7.0 is read when the new one is not loaded.
+	dir := t.TempDir()
+	capability := filepath.Join(dir, "sg2002_aes_probe")
+	hardwareAESCapabilityFiles = []string{filepath.Join(dir, "nanokvm_hwcrypto"), capability}
 	opened := 0
-	openHardwareAES = func(func(error)) (*sg2002aes.Device, error) { opened++; return nil, errors.New("test device") }
+	openHardwareAES = func(func(error)) (*hwcrypto.Device, error) { opened++; return nil, errors.New("test device") }
 	for _, value := range []string{"missing", "N\n", "", "unknown", "Y\n"} {
 		if value != "missing" {
-			if err := os.WriteFile(hardwareAESCapabilityFile, []byte(value), 0600); err != nil {
+			if err := os.WriteFile(capability, []byte(value), 0600); err != nil {
 				t.Fatal(err)
 			}
 		}

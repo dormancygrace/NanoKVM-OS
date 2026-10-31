@@ -60,7 +60,8 @@ func cpuThermalLimited() bool {
 	zones, _ := filepath.Glob(filepath.Join(cpuThermalRoot, "thermal_zone*"))
 	for _, zone := range zones {
 		kind, err := os.ReadFile(filepath.Join(zone, "type"))
-		if err != nil || strings.TrimSpace(string(kind)) != "sg2002-cpu" {
+		// sg2002-cpu: the device tree from before 3.7.0, until the reboot.
+		if k := strings.TrimSpace(string(kind)); err != nil || k != "nanokvm-cpu" && k != "sg2002-cpu" {
 			continue
 		}
 		devices, _ := filepath.Glob(filepath.Join(zone, "cdev[0-9]*"))
@@ -91,7 +92,8 @@ func cpuFrequencyState() cpuFrequencyStatus {
 		}
 	}
 	driver, err := readCPUFreq("scaling_driver")
-	if err != nil || driver != "sg2002-cpufreq" {
+	// sg2002-cpufreq: the kernel from before 3.7.0, until the reboot.
+	if err != nil || driver != "nanokvm-cpufreq" && driver != "sg2002-cpufreq" {
 		return state
 	}
 	text, err := readCPUFreq("cpuinfo_cur_freq")

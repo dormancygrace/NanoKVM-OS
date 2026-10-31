@@ -8,7 +8,7 @@ the build host. They need no device, except where a test says otherwise.
 Tests that sit next to the code they exercise stay there:
 
 - Go tests in `server/`;
-- C++ tests in `support/sg2002/additional/kvm/tests`;
+- C++ tests in `support/additional/kvm/tests`;
 - the serial service tests in `firmware/services`;
 - the EDID generator test in `firmware/probes/edid120`;
 - the web tests in `web/tests`;
@@ -162,7 +162,7 @@ APK migration test inside an Alpine container.
 ### ECDSA release signing
 
 `test-ecdsa-packages.py` runs in the Alpine 3.24 CI container with `alpine-sdk`,
-Python 3, OpenSSL and coreutils. It builds all fifteen APK recipes with small
+Python 3, OpenSSL and coreutils. It builds all nineteen APK recipes with small
 synthetic payloads and temporary keys, verifies signatures directly and through
 apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
 index formats. No production key or device is used; package scripts are retained

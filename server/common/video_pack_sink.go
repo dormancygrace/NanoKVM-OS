@@ -3,7 +3,7 @@
 package common
 
 /*
-#cgo CFLAGS: -I../../support/sg2002/additional/kvm/include
+#cgo CFLAGS: -I../../support/additional/kvm/include
 #include "kvm_vision.h"
 #include <dlfcn.h>
 extern int goVideoPack(uintptr_t context, void *data, uint32_t size, uint32_t offset, uint32_t total);

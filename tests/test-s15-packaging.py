@@ -8,7 +8,7 @@ removed_init_scripts = (
     'S00kmod S01fs S02config S10uuid S12temperature S13cpufreq '
     'S13nanokvm-watchdog S25wifimod S29qdisc S30eth S30usbnet S30wifi '
     'S34mssclamp S35flowoffload S38memory S49persistent-cron S50ssdpd '
-    'S50sshd S80dnsmasq S94sg2002aes S98tailscaled S50avahi-daemon'
+    'S50sshd S80dnsmasq S94hwcrypto S98tailscaled S50avahi-daemon'
 ).split()
 kept_init_scripts = {
     'S03usbdev', 'S03usbhid', 'S15kvmhwd',

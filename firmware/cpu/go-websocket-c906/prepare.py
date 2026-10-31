@@ -77,7 +77,7 @@ def prepare(go, project, output, tests=False):
                     ignore=shutil.ignore_patterns(".git", "__pycache__", "*.test"))
     # common's cgo directives use this sibling header tree in both normal
     # builds and teststub builds. Keep its relative layout in the private root.
-    headers = Path("support/sg2002/additional/kvm/include")
+    headers = Path("support/additional/kvm/include")
     shutil.copytree(project.parent / headers, output / headers, symlinks=True)
     modfile = staged_project / "go.mod"
     env = dict(os.environ, GOTOOLCHAIN="local", GOWORK="off")

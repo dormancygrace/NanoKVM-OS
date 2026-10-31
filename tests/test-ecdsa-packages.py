@@ -64,8 +64,8 @@ with tempfile.TemporaryDirectory() as directory:
     run('openssl', 'pkey', '-in', work / 'p384.key', '-pubout', '-out', work / 'p384.pub')
     run(validate, work / 'p384.key', work / 'p384.pub')
     payloads = work / 'payloads'
-    for name in ('base', 'kernel-sg2002', 'kmod-sg2002', 'firmware-sg2002',
-                 'bootloader-sg2002', 'app', 'web', 'zlib', 'openssl', 'exfatprogs', 'i2c-tools', 'tpu'):
+    for name in ('base', 'kernel', 'kmod', 'firmware',
+                 'bootloader', 'app', 'web', 'zlib', 'openssl', 'exfatprogs', 'i2c-tools', 'tpu'):
         path = payloads / name / 'usr/share/ec-test'
         path.mkdir(parents=True)
         (path / name).write_text(name)
@@ -88,14 +88,14 @@ with tempfile.TemporaryDirectory() as directory:
     shutil.copy2(ROOT / 'firmware/alpine/release.env', fixture / 'firmware/alpine/release.env')
     for filename in ('build-alpine-packages.sh', 'check-ec-key.sh'):
         shutil.copy2(ROOT / 'scripts' / filename, fixture / 'scripts' / filename)
-    for name in ('nanokvm-base', 'nanokvm-kernel-sg2002', 'nanokvm-kmod-sg2002', 'nanokvm-firmware-sg2002'):
+    for name in ('nanokvm-base', 'nanokvm-kernel', 'nanokvm-kmod', 'nanokvm-firmware'):
         recipe = fixture / 'firmware/alpine/packages' / name / 'APKBUILD'
         with recipe.open('a') as stream:
             stream.write('\noptions="$options !tracedeps"\n')
     run('sh', fixture / 'scripts/build-alpine-packages.sh', 'stock', env=env)
     repo = work / 'repo/stock/recipes/riscv64'
     packages = sorted(repo.glob('*.apk'))
-    assert len(packages) == 15
+    assert len(packages) == 19
     for path in packages + [repo / 'APKINDEX.tar.gz']:
         run('apk', '--keys-dir', ec, 'verify', path)
         run('apk', '--keys-dir', rsa, 'verify', path, ok=False)
@@ -164,4 +164,4 @@ with tempfile.TemporaryDirectory() as directory:
     run('apk', '--allow-untrusted', '--sign-key', key, 'adbsign', '--reset-signatures', repo / 'Packages.adb')
     run('apk', '--keys-dir', ec, 'verify', repo / 'Packages.adb')
     run('apk', '--keys-dir', rsa, 'verify', repo / 'Packages.adb', ok=False)
-    print('PASS: 15 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')
+    print('PASS: 19 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')

@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 repo = Path(__file__).resolve().parents[1]
-main = repo / 'support/sg2002/kvm_system/main'
+main = repo / 'support/kvm_system/main'
 source = (main / 'src/main.cpp').read_text()
 loop = source[source.index('static bool oled_shows_state(void)'):source.index('int main(int argc, char* argv[])')]
 preamble = r"""
@@ -81,7 +81,7 @@ int main() {
 with tempfile.TemporaryDirectory(prefix='nkos-system-polling-') as directory:
     out = Path(directory)
     (out / 'test.cpp').write_text(preamble + loop + test)
-    includes = [main / 'include', repo / 'support/sg2002/additional/kvm/include']
+    includes = [main / 'include', repo / 'support/additional/kvm/include']
     includes += sorted(p for p in (main / 'lib').iterdir() if p.is_dir())
     subprocess.run(['g++', '-std=c++17', '-O1', '-g', '-pthread',
                     '-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-no-pie',

@@ -1,5 +1,5 @@
 // Fault injection of the production VPSS setup; no hardware.
-#include "../../support/sg2002/additional/kvm_mmf/src/kvm_mmf.cpp"
+#include "../../support/additional/kvm_mmf/src/kvm_mmf.cpp"
 // The IVE (the tiled MJPEG change map) is not exercised here; teardown frees it.
 CVI_S32 CVI_SYS_FreeI(IVE_HANDLE, IVE_IMAGE_S *) { return 0; }
 CVI_S32 CVI_IVE_DestroyHandle(IVE_HANDLE) { return 0; }

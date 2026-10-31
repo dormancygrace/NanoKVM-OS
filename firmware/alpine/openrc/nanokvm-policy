@@ -12,7 +12,7 @@ start() {
     # Before the application: the MSS clamp (it acts on SYN only, so it must
     # precede the first connections), memory, and the CryptoDMA modules the
     # server probes.
-    for script in S34mssclamp S38memory S49persistent-cron S94sg2002aes; do
+    for script in S34mssclamp S38memory S49persistent-cron S94hwcrypto; do
         /usr/libexec/nanokvm/legacy/"$script" start || ewarn "Could not apply $script"
     done
     # Queueing and flow offload policy do not hold the application back.

@@ -3,7 +3,7 @@
 set -eu
 
 ROOT=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
-SOURCE=${1:-"$ROOT/support/sg2002/additional/kvm/src/kvm_vision.cpp"}
+SOURCE=${1:-"$ROOT/support/additional/kvm/src/kvm_vision.cpp"}
 CXX=${CXX:-g++}
 FORMAT_CXX=${FORMAT_CXX:-$CXX}
 

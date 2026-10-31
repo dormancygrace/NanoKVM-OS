@@ -1,12 +1,11 @@
 pkgname=nanokvm-bootloader-sg2002
 pkgver=${PKGVER:-0.1.0}
 pkgrel=0
-pkgdesc="NanoKVM SG2002 bootloader (FSBL, OpenSBI, U-Boot) and its activation"
+pkgdesc="NanoKVM bootloader compatibility metapackage (now nanokvm-bootloader)"
 url="https://github.com/dormancygrace/NanoKVM-OS"
 arch="riscv64"
-license="BSD-2-Clause AND GPL-2.0-or-later AND custom:NanoKVM-vendor"
-triggers="$pkgname.trigger=/usr/lib/nanokvm/bootloader"
-source="$pkgname-$pkgver.tar.gz"
+license="GPL-3.0-only"
+depends="nanokvm-bootloader>=${V_nanokvm_bootloader:-$pkgver}-r0"
 options="!check !strip !tracedeps"
 
 build() {
@@ -15,8 +14,4 @@ build() {
 
 package() {
 	mkdir -p "$pkgdir"
-	# The trigger copies fip.bin to the boot partition (activate-bootloader).
-	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
 }
-
-sha256sums=""

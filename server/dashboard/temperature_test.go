@@ -28,10 +28,15 @@ func TestTemperatureSourceAndUnavailableReadings(t *testing.T) {
 	if got := readTemperature(root); got == nil || *got != 45 {
 		t.Fatalf("thermal fallback: %v", got)
 	}
-	put("class/hwmon/hwmon1/name", "sg2002")
+	put("class/hwmon/hwmon1/name", "nanokvm")
 	put("class/hwmon/hwmon1/temp1_input", "52875")
 	if got := readTemperature(root); got == nil || *got != 52.875 {
 		t.Fatalf("board sensor: %v", got)
+	}
+	// The kernel from before 3.7.0, until the reboot.
+	put("class/hwmon/hwmon1/name", "sg2002")
+	if got := readTemperature(root); got == nil || *got != 52.875 {
+		t.Fatalf("board sensor, old name: %v", got)
 	}
 	for _, invalid := range []string{"", "NaN", "-273000", "151000", "not available"} {
 		put("class/hwmon/hwmon1/temp1_input", invalid)

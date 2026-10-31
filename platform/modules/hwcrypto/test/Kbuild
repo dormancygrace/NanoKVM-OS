@@ -1,0 +1,13 @@
+# Qualification of nanokvm-gcm-aes; build against the running kernel tree:
+#   make -C KERNEL_BUILD M=$PWD modules
+obj-m += hwcrypto_gcm_test.o
+hwcrypto_gcm_test-y := gcm_test.o
+obj-m += hwcrypto_ccm_test.o
+hwcrypto_ccm_test-y := ccm_test.o
+obj-m += hwcrypto_cmac_test.o
+hwcrypto_cmac_test-y := cmac_test.o
+ifneq ($(CIFS_SRC),)
+ccflags-y += -I$(CIFS_SRC)
+obj-m += hwcrypto_cifs_cmac_test.o
+hwcrypto_cifs_cmac_test-y := cifs_cmac_test.o
+endif

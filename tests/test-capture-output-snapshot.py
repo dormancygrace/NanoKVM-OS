@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 repo = Path(__file__).resolve().parents[1]
-s = (repo / 'support/sg2002/additional/kvm/src/kvm_vision.cpp').read_text()
+s = (repo / 'support/additional/kvm/src/kvm_vision.cpp').read_text()
 start = s.index('if (native_result != 0 || native_width !=')
 condition = s[start + 4:s.index(') {', start)]
 source = r'''#include <cassert>

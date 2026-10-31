@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include <openssl/crypto.h>
 #include <openssl/sha.h>
-#include "crypto/sg2002.h"
+#include "crypto/hwcrypto_transport.h"
 size_t base_sha256(SHA256_CTX *,const unsigned char *,size_t);
 size_t tail_sha256(SHA256_CTX *,const unsigned char *,size_t);
 void ossl_sha256_c906_blocks(void *,const void *,size_t);
@@ -20,15 +20,15 @@ static unsigned char input[16384];
 static const unsigned initial[8]={0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
 int main(void){
  for(unsigned i=0;i<sizeof input;i++)input[i]=(unsigned char)(i*29+3);
- int fd=ossl_sg2002_begin(SG2002_ALG_SHA256);assert(fd>=0);
+ int fd=ossl_hwcrypto_begin(HWCRYPTO_ALG_SHA256);assert(fd>=0);
  for(unsigned n=512;n<=4096;n+=64){
-  struct sg2002_crypto_request r={.version=1,.algorithm=SG2002_ALG_SHA256,.length=n,.input=(uintptr_t)input};
+  struct hwcrypto_request r={.version=1,.algorithm=HWCRYPTO_ALG_SHA256,.length=n,.input=(uintptr_t)input};
   unsigned want[8];memcpy(want,initial,32);
   for(int i=0;i<8;i++)for(int j=0;j<4;j++)r.state[4*i+j]=want[i]>>(24-8*j);
-  ossl_sha256_c906_blocks(want,input,n/64);assert(ossl_sg2002_run(fd,&r));
+  ossl_sha256_c906_blocks(want,input,n/64);assert(ossl_hwcrypto_run(fd,&r));
   for(int i=0;i<8;i++)for(int j=0;j<4;j++)assert(r.state[4*i+j]==(unsigned char)(want[i]>>(24-8*j)));
  }
- ossl_sg2002_end(fd);puts("{\"driver_cases\":57,\"pass\":true}");
+ ossl_hwcrypto_end(fd);puts("{\"driver_cases\":57,\"pass\":true}");
  size_t sizes[]={4096,4608,5120,6144,8192,8704,4160,4224,4352,4480};
  for(unsigned trial=0;trial<5;trial++)for(unsigned q=0;q<sizeof sizes/sizeof *sizes;q++)for(unsigned order=0;order<2;order++){
   unsigned candidate=(trial+order)&1;size_t n=sizes[q],loops=0;SHA256_CTX c,want;memset(&want,0,sizeof want);memcpy(want.h,initial,32);

@@ -1,6 +1,6 @@
 # SG2002 automatic first-boot profiles
 
-The full image initially boots `sg2002-nanokvm-detect.dts`. Before SysV services
+The full image initially boots `nanokvm-detect.dts`. Before SysV services
 start, initramfs mounts rootfs and invokes `nkos-board-select`. A positively
 identified OLED selects an electrical profile. No responding OLED selects a
 restricted base/Lite profile, not a claim about a commercial model. Bus errors

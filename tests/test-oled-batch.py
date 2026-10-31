@@ -6,7 +6,7 @@ oled_ctrl.cpp makes."""
 from pathlib import Path
 import subprocess, tempfile
 repo=Path(__file__).resolve().parents[1]
-main=repo/'support/sg2002/kvm_system/main'
+main=repo/'support/kvm_system/main'
 with tempfile.TemporaryDirectory() as directory:
     d=Path(directory)
     (d/'test.cpp').write_text(r"""

@@ -7,7 +7,7 @@
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
 # contain package directories directly or below the profile directory:
-#   PAYLOAD_ROOT/stock/{keys,base,kernel-sg2002,kmod-sg2002,firmware-sg2002,bootloader-sg2002,app,web,zlib,openssl,exfatprogs,i2c-tools,tpu,release}
+#   PAYLOAD_ROOT/stock/{keys,base,kernel,kmod,firmware,bootloader,app,web,zlib,openssl,exfatprogs,i2c-tools,tpu,release}
 # Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
 # a release marker is generated.
 #
@@ -86,7 +86,7 @@ else
 	PROFILE_ROOT=$PAYLOAD_ROOT
 fi
 
-for required in base kernel-sg2002 kmod-sg2002 firmware-sg2002 bootloader-sg2002 app web zlib openssl exfatprogs i2c-tools tpu; do
+for required in base kernel kmod firmware bootloader app web zlib openssl exfatprogs i2c-tools tpu; do
 	if [ ! -d "$PROFILE_ROOT/$required" ]; then
 		echo "build-alpine-packages: missing payload $PROFILE_ROOT/$required" >&2
 		exit 1
@@ -148,10 +148,10 @@ archive_payload() {
 keys_payload=$(make_keys_payload)
 archive_payload nanokvm-keys "$keys_payload"
 archive_payload nanokvm-base "$PROFILE_ROOT/base"
-archive_payload nanokvm-kernel-sg2002 "$PROFILE_ROOT/kernel-sg2002"
-archive_payload nanokvm-kmod-sg2002 "$PROFILE_ROOT/kmod-sg2002"
-archive_payload nanokvm-firmware-sg2002 "$PROFILE_ROOT/firmware-sg2002"
-archive_payload nanokvm-bootloader-sg2002 "$PROFILE_ROOT/bootloader-sg2002"
+archive_payload nanokvm-kernel "$PROFILE_ROOT/kernel"
+archive_payload nanokvm-kmod "$PROFILE_ROOT/kmod"
+archive_payload nanokvm-firmware "$PROFILE_ROOT/firmware"
+archive_payload nanokvm-bootloader "$PROFILE_ROOT/bootloader"
 archive_payload nanokvm "$PROFILE_ROOT/app"
 archive_payload nanokvm-web "$PROFILE_ROOT/web"
 archive_payload nanokvm-exfatprogs "$PROFILE_ROOT/exfatprogs"
@@ -166,8 +166,9 @@ export CARCH=riscv64
 export REPODEST SRCDEST PKGVER
 # The versions of the other packages, for the dependencies of nanokvm-app and
 # nanokvm-release: V_nanokvm_web for nanokvm-web, and so on.
-for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002 \
-	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release; do
+for pkg in nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
+	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
+	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002; do
 	export "V_$(echo "$pkg" | tr - _)=$(pkg_version "$pkg")"
 done
 
@@ -204,7 +205,10 @@ prepare_recipe() {
 	recipe_dir=$WORK/recipes/$pkg
 	mkdir -p "$recipe_dir"
 	cp -a "$ROOT/firmware/alpine/packages/$pkg/." "$recipe_dir/"
-	[ "$pkg" != nanokvm-app ] || return 0
+	# Metapackages have no payload.
+	case $pkg in
+	nanokvm-app | *-sg2002) return 0 ;;
+	esac
 	# A source name without an URL is local to the APKBUILD directory. Keep the
 	# generated archive there so both `abuild checksum` and the actual build read
 	# the same bytes; SRCDEST remains the persistent archive cache/output.
@@ -226,8 +230,9 @@ prepare_recipe() {
 	fi
 }
 
-for pkg in nanokvm-keys nanokvm-base nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002 \
-	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release; do
+for pkg in nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
+	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
+	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002; do
 	version=$(pkg_version "$pkg")
 	if ! pkg_changed "$pkg"; then
 		# abuild indexes every package in the directory, this one included.
@@ -270,8 +275,8 @@ mkdir -p "$verify_keys"
 cp "$PACKAGER_PUBKEY" "$verify_keys/"
 apk --keys-dir "$verify_keys" verify "$index"
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 15 ] || {
-	echo "build-alpine-packages: expected at least fifteen APKs, found $apk_count" >&2
+[ "$apk_count" -ge 19 ] || {
+	echo "build-alpine-packages: expected at least nineteen APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

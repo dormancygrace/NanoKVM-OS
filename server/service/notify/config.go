@@ -255,15 +255,17 @@ func (c *Config) Validate() error {
 	if len(c.Templates) > maxTemplates {
 		return fmt.Errorf("at most %d templates", maxTemplates)
 	}
-	templates := map[string]bool{}
+	templates, names := map[string]bool{}, map[string]bool{}
 	for i := range c.Templates {
 		if err := c.Templates[i].validate(); err != nil {
 			return err
 		}
-		if templates[c.Templates[i].ID] {
+		// A channel picks a template by its name on the page.
+		name := strings.ToLower(c.Templates[i].Name)
+		if templates[c.Templates[i].ID] || names[name] {
 			return fmt.Errorf("template %q appears twice", c.Templates[i].Name)
 		}
-		templates[c.Templates[i].ID] = true
+		templates[c.Templates[i].ID], names[name] = true, true
 	}
 	for _, ch := range c.Channels {
 		if ch.Template != "" && !templates[ch.Template] {

@@ -270,6 +270,10 @@ func TestTemplateValidation(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	c.Templates = append(c.Templates, Template{ID: "b", Name: "X"})
+	if err := c.Validate(); err == nil {
+		t.Fatal("two templates of one name accepted")
+	}
 }
 
 // Each channel gets the event in its own template.

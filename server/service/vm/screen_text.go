@@ -70,8 +70,20 @@ const (
 )
 
 // screenTextLanguages are the recognizers, one directory of models each
-// (tpu/models/convert.sh); the first is the default.
+// (tpu/models/convert.sh); the first installed is the default.
 var screenTextLanguages = []string{"latin", "chinese", "cyrillic"}
+
+// defaultScreenTextLanguage is the first language whose models are
+// installed (every recognizer also reads English, which the crash watch
+// looks for), or the first language when none is.
+func defaultScreenTextLanguage(models string) string {
+	for _, lang := range screenTextLanguages {
+		if _, err := os.Stat(models + lang + "/ocr-rec.cvimodel"); err == nil {
+			return lang
+		}
+	}
+	return screenTextLanguages[0]
+}
 
 // screenTextOffFile turns text recognition off (Settings > AI > Text
 // recognition): the toolbar button, MCP's screen_text and PicoClaw's
@@ -159,7 +171,7 @@ func (s *Service) SetScreenTextSettings(c *gin.Context) {
 // lines the small one is unsure of.
 func screenTextArgs(models, lang string) ([]string, error) {
 	if lang == "" {
-		lang = screenTextLanguages[0]
+		lang = defaultScreenTextLanguage(models)
 	}
 	i := slices.Index(screenTextLanguages, lang)
 	if i < 0 {
@@ -314,7 +326,7 @@ func ReadScreenText(ctx context.Context, req ScreenTextRequest) (*ScreenTextRepl
 	}
 	lang := req.Language
 	if lang == "" {
-		lang = screenTextLanguages[0]
+		lang = defaultScreenTextLanguage(screenTextRoot + "/models/")
 	}
 	args, err := screenTextArgs(screenTextRoot+"/models/", lang)
 	if err != nil {

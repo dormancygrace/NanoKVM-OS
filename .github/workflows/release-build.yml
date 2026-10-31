@@ -55,7 +55,7 @@ jobs:
           # No Git record of the patched trees: it serves local patch work only.
           NANOKVM_PATCH_GIT: '0'
         run: |
-          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native system tools server
+          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native tpu system tools server
           # The Go build cache (about 1 GB) is not reused within a run.
           rm -rf "$OUT/server/gocache"
           platform/build.sh -o "$OUT" web firmware

@@ -497,6 +497,7 @@
       "kind": "github-commit",
       "repo": "leafpmpmp/duo-buildroot-sdk-v2",
       "branch": "mainline-tpu",
+      "lock_entry": "tpu-runtime",
       "pull_request": {
         "id": "tpu-runtime",
         "mode": "review"

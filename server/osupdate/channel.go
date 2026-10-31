@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"NanoKVM-Server/internal/apkrollback"
@@ -170,4 +171,32 @@ func stablePackageTargets(output string) ([]string, error) {
 		targets = append(targets, name+"="+found[name])
 	}
 	return targets, nil
+}
+
+// tpuDependents are the installed packages that need the TPU runtime (the
+// model add-ons, by nanokvm-tpu-abi), when the targets remove it: a release
+// from before nanokvm-tpu cannot keep them, and a rollback does not remove
+// what was installed by hand.
+func tpuDependents(targets []string, installedDB string) []string {
+	if !slices.Contains(targets, "!nanokvm-tpu") {
+		return nil
+	}
+	var names []string
+	for _, record := range strings.Split(installedDB, "\n\n") {
+		name, needs := "", false
+		for _, line := range strings.Split(record, "\n") {
+			if v, ok := strings.CutPrefix(line, "P:"); ok {
+				name = v
+			}
+			if v, ok := strings.CutPrefix(line, "D:"); ok {
+				for _, dep := range strings.Fields(v) {
+					needs = needs || dep == "nanokvm-tpu-abi" || strings.HasPrefix(dep, "nanokvm-tpu-abi=")
+				}
+			}
+		}
+		if name != "" && needs {
+			names = append(names, name)
+		}
+	}
+	return names
 }

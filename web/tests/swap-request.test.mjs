@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { swapRequestSize } from '../src/lib/swap-request.ts';
 
-test('auto zram stays auto when toggled or recompression changes', () => {
+test('auto zram stays auto when toggled', () => {
   // 52 MiB is computed, not offered: sending it would be rejected.
   assert.equal(swapRequestSize('zram', { sizeMiB: 52, auto: true }), 0);
   // A computed size that happens to be an offered one must not become manual.

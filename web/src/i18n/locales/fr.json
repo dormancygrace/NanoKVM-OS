@@ -946,9 +946,6 @@
     },
     "memory": {
       "zramAuto": "Automatique ({{size}} MiB)",
-      "recompressTitle": "Recompresser les pages froides avec ZSTD",
-      "recompressDescription": "Conserve LZ4, rapide, pour les nouvelles pages. Toutes les 15 secondes, traite jusqu'à 1 MiB de pages inutilisées depuis une minute. Consomme davantage de CPU et de mémoire du compresseur ; la lecture de ces pages peut être plus lente. La modification de ce mode recrée la ZRAM et nécessite suffisamment de RAM libre.",
-      "recompressNotReady": "Le mode enregistré n'est pas actif. Appliquez-le de nouveau lorsque suffisamment de RAM sera disponible.",
       "title": "Mémoire",
       "ram": "RAM utilisée",
       "available": "Disponible",

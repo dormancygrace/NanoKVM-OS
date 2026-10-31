@@ -25,8 +25,16 @@ start() {
     # listening, at 22 MB/s while other services read the card too. Read it
     # now in the background, once the modules are in, so that the server and
     # the hardware daemon start from the page cache.
+    # Then, also in the background (modprobe -r takes about 90 ms): the TRNG
+    # seeds the kernel's random pool early (modules-load.d, nanokvm-trng.conf)
+    # and nothing reads it after. Once the pool is ready (/dev/random no
+    # longer blocks), unload it: the driver zeroizes the generator and its
+    # clocks stop. modprobe loads it again for /dev/hwrng.
     (
         cat /kvmapp/server/NanoKVM-Server /kvmapp/kvm_system/kvm_system             /kvmapp/server/dl_lib/*.so
+        if [ -d /sys/module/cv181x_trng ] && timeout 2 head -c 1 /dev/random; then
+            modprobe -r cv181x_trng
+        fi
     ) </dev/null >/dev/null 2>&1 &
     eend 0
 }

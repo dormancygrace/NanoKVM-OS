@@ -13,6 +13,7 @@ function fixture({ page } = {}) {
   const sockets = [];
   let expired = 0;
   class Socket {
+    static CONNECTING = 0;
     static OPEN = 1;
     readyState = 0;
     sent = [];
@@ -329,3 +330,29 @@ test('a close reported on return retries at once, also after background attempts
   assert.deepEqual(f.timeouts(), [3000]);
   c.close();
 });
+
+for (const inFlight of [false, true]) {
+  test(`return resets a background failure warning during a ${inFlight ? 'pending handshake' : 'pending retry'}`, () => {
+    const page = fakePage();
+    const f = fixture({ page }),
+      c = f.client;
+    c.connect();
+    f.sockets[0].open();
+    page.show('hidden');
+    f.sockets[0].close();
+    f.tick();
+    f.sockets.at(-1).close();
+    f.tick();
+    f.sockets.at(-1).close();
+    assert.equal(c.getConnectionStatus(), 'disconnected');
+    if (inFlight) f.tick();
+    page.show('visible');
+    assert.equal(c.getConnectionStatus(), 'reconnecting');
+    assert.equal(f.sockets.length, 4);
+    assert.deepEqual(f.timeouts(), []);
+    f.sockets.at(-1).open();
+    assert.equal(c.getConnectionStatus(), 'connected');
+    c.close();
+    assert.equal(f.timers.size, 0);
+  });
+}

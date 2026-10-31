@@ -99,7 +99,15 @@ export class WsClient {
   }
 
   private reconnectNow(): void {
-    if (!this.reconnectTimer || !this.shouldReconnect) return;
+    if (!this.shouldReconnect) return;
+    // The visible retry budget is fresh, including a handshake already in flight.
+    if (
+      this.connectionStatus === 'disconnected' &&
+      (this.reconnectTimer !== null || this.instance?.readyState === WebSocket.CONNECTING)
+    ) {
+      this.updateConnectionStatus('reconnecting');
+    }
+    if (!this.reconnectTimer) return;
     this.retryAtOnce = false;
     clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;

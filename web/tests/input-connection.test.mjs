@@ -138,7 +138,10 @@ test('acknowledged heartbeat detects a half-open connection; old server remains 
   f.tick(400);
   assert.equal(c.getConnectionStatus(), 'connected');
   f.sockets[0].reply();
-  f.tick(300);
+  // Three regular heartbeat windows, rather than one delayed timer callback.
+  f.tick(100);
+  f.tick(100);
+  f.tick(100);
   assert.equal(c.getConnectionStatus(), 'reconnecting');
   f.tick();
   assert.equal(f.sockets.length, 2);
@@ -149,6 +152,76 @@ test('acknowledged heartbeat detects a half-open connection; old server remains 
   f.tick(100);
   assert.equal(c.getConnectionStatus(), 'connected');
   c.close();
+});
+
+test('paused browser timers probe a healthy socket without reconnecting on return', () => {
+  const f = fixture(),
+    c = f.client;
+  c.connect();
+  const socket = f.sockets[0];
+  socket.open();
+  socket.reply();
+  const sent = socket.sent.length;
+  // The page resumes after 30 intervals; only one interval callback runs.
+  // The open socket can still answer as soon as the page services events.
+  f.tick(3000);
+  assert.equal(c.getConnectionStatus(), 'connected');
+  assert.equal(f.sockets.length, 1);
+  assert.equal(socket.readyState, 1);
+  assert.equal(socket.sent.length, sent + 1);
+  assert.deepEqual(Array.from(socket.sent.at(-1)), [0]);
+  socket.reply();
+  f.tick(100);
+  socket.reply();
+  assert.equal(c.getConnectionStatus(), 'connected');
+  assert.equal(f.sockets.length, 1);
+  c.close();
+  assert.equal(f.timers.size, 0);
+});
+
+test('resume probes again even when earlier heartbeat windows went unanswered', () => {
+  const f = fixture(),
+    c = f.client;
+  c.connect();
+  const socket = f.sockets[0];
+  socket.open();
+  socket.reply();
+  f.tick(100);
+  f.tick(100);
+  assert.equal(c.getConnectionStatus(), 'connected');
+  f.tick(3000);
+  assert.equal(c.getConnectionStatus(), 'connected');
+  assert.deepEqual(Array.from(socket.sent.at(-1)), [0]);
+  socket.reply();
+  f.tick(100);
+  assert.equal(c.getConnectionStatus(), 'connected');
+  assert.equal(f.sockets.length, 1);
+  c.close();
+});
+
+test('missing resume heartbeat replies still trigger recovery', () => {
+  const f = fixture(),
+    c = f.client;
+  c.connect();
+  const socket = f.sockets[0];
+  socket.open();
+  socket.reply();
+  f.tick(3000);
+  assert.equal(c.getConnectionStatus(), 'connected');
+  f.tick(100);
+  assert.equal(c.getConnectionStatus(), 'connected');
+  f.tick(100);
+  assert.equal(c.getConnectionStatus(), 'reconnecting');
+  f.tick();
+  assert.equal(f.sockets.length, 2);
+  f.sockets[1].open();
+  assert.equal(c.getConnectionStatus(), 'connected');
+  assert.deepEqual(
+    f.sockets[1].sent.map((x) => Array.from(x)),
+    [[4], [0]]
+  );
+  c.close();
+  assert.equal(f.timers.size, 0);
 });
 
 test('intentional close while connecting cannot reconnect or report a late open', () => {

@@ -45,7 +45,8 @@ export class WsClient {
   private connectionStatus: InputConnectionStatus = 'idle';
   private readonly statusListeners = new Set<() => void>();
   private readonly controlListeners = new Set<() => void>();
-  private lastResponseAt = 0;
+  private lastHeartbeatAt = 0;
+  private missedHeartbeats = 0;
   private heartbeatAcknowledged = false;
   private readonly holdKeepalive = new HoldKeepalive(() => {
     this.send(new Uint8Array([KEEPALIVE_MESSAGE]));
@@ -248,7 +249,8 @@ export class WsClient {
 
   private handleOpen(): void {
     this.reconnectAttempts = 0;
-    this.lastResponseAt = Date.now();
+    this.lastHeartbeatAt = Date.now();
+    this.missedHeartbeats = 0;
     this.heartbeatAcknowledged = false;
     this.send(new Uint8Array([KEEPALIVE_MESSAGE]));
     this.updateConnectionStatus('connected');
@@ -278,7 +280,7 @@ export class WsClient {
   private handleMessage(message: SocketMessageEvent): void {
     try {
       const data = JSON.parse(message.data as string);
-      this.lastResponseAt = Date.now();
+      this.missedHeartbeats = 0;
       if (data.type === 'heartbeat') this.heartbeatAcknowledged = true;
       if (data.type === 'control') {
         const status = JSON.parse(data.data as string) as { enabled?: unknown; lease?: unknown };
@@ -301,12 +303,17 @@ export class WsClient {
     this.stopHeartbeat();
     this.send(new Uint8Array([MessageEvent.Heartbeat]));
     this.heartbeatTimer = setInterval(() => {
-      // Older servers do not acknowledge heartbeats. Enable timeout recovery
-      // only after the server has demonstrated support for the reply.
-      if (
-        this.heartbeatAcknowledged &&
-        Date.now() - this.lastResponseAt >= 3 * this.options.heartbeatInterval
-      ) {
+      const now = Date.now();
+      // A suspended page did not send its scheduled probes. Give the open
+      // socket fresh heartbeat windows on return instead of closing it for
+      // time spent with paused or throttled browser timers.
+      if (now - this.lastHeartbeatAt >= 3 * this.options.heartbeatInterval) {
+        this.missedHeartbeats = 0;
+      }
+      this.lastHeartbeatAt = now;
+      // Count unanswered windows that actually ran. Older servers do not
+      // acknowledge heartbeats, so keep their existing behavior.
+      if (this.heartbeatAcknowledged && ++this.missedHeartbeats >= 3) {
         this.updateConnectionStatus('reconnecting');
         const previous = this.instance;
         this.instance = null;

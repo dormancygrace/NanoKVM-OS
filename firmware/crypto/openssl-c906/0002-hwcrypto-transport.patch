@@ -63,7 +63,7 @@
 +    algorithms = atomic_load_explicit(&cached_algorithms, memory_order_acquire);
 +    if (algorithms != 0 && !(algorithms & (1u << algorithm)))
 +        return -1;
-+    fd = open("/dev/sg2002-aes-probe", O_RDWR | O_CLOEXEC);
++    fd = open("/dev/nanokvm-hwcrypto", O_RDWR | O_CLOEXEC);
 +    if (fd < 0) {
 +        fault(errno);
 +        return -1;

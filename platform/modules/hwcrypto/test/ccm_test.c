@@ -136,7 +136,7 @@ static void parallel_worker(struct work_struct *work)
 {
 	struct parallel_job *job = container_of(work, struct parallel_job, work);
 	bool ccm = !(job->index & 1);
-	struct crypto_aead *t = crypto_alloc_aead(ccm ? "sg2002-ccm-aes" : "sg2002-gcm-aes", 0, 0);
+	struct crypto_aead *t = crypto_alloc_aead(ccm ? "nanokvm-ccm-aes" : "nanokvm-gcm-aes", 0, 0);
 	struct crypto_aead *ref = crypto_alloc_aead(ccm ? "ccm(aes)" : "gcm(aes)", 0,
 		CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
 	u8 *a = kmalloc(8240, GFP_KERNEL), *b = kmalloc(8240, GFP_KERNEL);
@@ -198,7 +198,7 @@ static int parallel_check(void)
 
 static int check(void)
 {
-	struct crypto_aead *t = crypto_alloc_aead("sg2002-ccm-aes", 0, 0);
+	struct crypto_aead *t = crypto_alloc_aead("nanokvm-ccm-aes", 0, 0);
 	struct crypto_aead *ref = crypto_alloc_aead("ccm(aes)", 0,
 					 CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
 	u8 *a = kmalloc(MAXLEN, GFP_KERNEL), *b = kmalloc(MAXLEN, GFP_KERNEL);
@@ -334,10 +334,10 @@ static int __init ccm_test_init(void)
 	if (err || !bench_ms)
 		return err;
 	for (i = 0; i < ARRAY_SIZE(sizes); i++) {
-		err = rate("sg2002-ccm-aes", true, sizes[i]) ?:
-			rate("sg2002-gcm-aes", true, sizes[i]) ?:
-			rate("sg2002-ccm-aes", false, sizes[i]) ?:
-			rate("sg2002-gcm-aes", false, sizes[i]);
+		err = rate("nanokvm-ccm-aes", true, sizes[i]) ?:
+			rate("nanokvm-gcm-aes", true, sizes[i]) ?:
+			rate("nanokvm-ccm-aes", false, sizes[i]) ?:
+			rate("nanokvm-gcm-aes", false, sizes[i]);
 		if (err)
 			return err;
 	}

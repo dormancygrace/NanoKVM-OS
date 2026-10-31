@@ -17,7 +17,7 @@
 static int mode, attempts, opens, closes, submits, infos;
 int fake_open(const char *path, int flags, ...)
 {
-    assert(!strcmp(path,"/dev/sg2002-aes-probe"));assert(flags&O_CLOEXEC);attempts++;
+    assert(!strcmp(path,"/dev/nanokvm-hwcrypto"));assert(flags&O_CLOEXEC);attempts++;
     if(mode==1||mode==10||mode==14){errno=mode==1?EACCES:mode==10?ENOENT:EMFILE;return -1;}
     opens++;return 37;
 }

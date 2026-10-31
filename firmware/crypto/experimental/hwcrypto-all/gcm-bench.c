@@ -73,7 +73,7 @@ int main(int argc,char **argv)
 {
  int kat_only=argc>1&&!strcmp(argv[1],"--kat");
  setvbuf(stdout,NULL,_IOLBF,0);
- fd=open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC);if(fd<0){perror("device");return 1;}
+ fd=open("/dev/nanokvm-hwcrypto",O_RDWR|O_CLOEXEC);if(fd<0){perror("device");return 1;}
  struct hwcrypto_info info;
  if(ioctl(fd,HWCRYPTO_INFO,&info)||info.poisoned)return 1;
  for(unsigned i=0;i<sizeof(input);i++)input[i]=(unsigned char)(i*31+7);

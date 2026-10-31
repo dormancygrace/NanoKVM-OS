@@ -99,7 +99,7 @@ base  file  /usr/libexec/nanokvm/legacy/S49persistent-cron 0755 kvmapp/system/in
 base  file  /usr/libexec/nanokvm/legacy/S50avahi-daemon   0755  firmware/alpine/compat/S50avahi-daemon
 base  file  /usr/libexec/nanokvm/legacy/S50sshd           0755  firmware/alpine/compat/S50sshd
 base  file  /usr/libexec/nanokvm/legacy/S80dnsmasq        0755  kvmapp/system/init.d/S80dnsmasq
-base  file  /usr/libexec/nanokvm/legacy/S94sg2002aes      0755  kvmapp/system/init.d/S94sg2002aes
+base  file  /usr/libexec/nanokvm/legacy/S94hwcrypto      0755  kvmapp/system/init.d/S94hwcrypto
 base  link  /usr/libexec/nanokvm/legacy/S95nanokvm        -     /kvmapp/system/init.d/S95nanokvm
 base  file  /usr/libexec/nanokvm/legacy/S96picoclaw       0755  kvmapp/system/init.d/S96picoclaw
 base  file  /usr/libexec/nanokvm/legacy/S98tailscaled     0755  kvmapp/system/init.d/S98tailscaled
@@ -122,7 +122,7 @@ base  link  /etc/init.d/S49persistent-cron                -     /usr/libexec/nan
 base  link  /etc/init.d/S50avahi-daemon                   -     /usr/libexec/nanokvm/legacy/S50avahi-daemon
 base  link  /etc/init.d/S50sshd                           -     /usr/libexec/nanokvm/legacy/S50sshd
 base  link  /etc/init.d/S80dnsmasq                        -     /usr/libexec/nanokvm/legacy/S80dnsmasq
-base  link  /etc/init.d/S94sg2002aes                      -     /usr/libexec/nanokvm/legacy/S94sg2002aes
+base  link  /etc/init.d/S94hwcrypto                      -     /usr/libexec/nanokvm/legacy/S94hwcrypto
 base  link  /etc/init.d/S95nanokvm                        -     /usr/libexec/nanokvm/legacy/S95nanokvm
 base  link  /etc/init.d/S96picoclaw                       -     /usr/libexec/nanokvm/legacy/S96picoclaw
 base  link  /etc/init.d/S98tailscaled                     -     /usr/libexec/nanokvm/legacy/S98tailscaled

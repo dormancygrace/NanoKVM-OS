@@ -217,7 +217,7 @@ func gather() snapshot {
 				}
 			}
 		case "nanokvm-policy":
-			for _, n := range []string{"S29qdisc", "S34mssclamp", "S38memory", "S49persistent-cron", "S94sg2002aes"} {
+			for _, n := range []string{"S29qdisc", "S34mssclamp", "S38memory", "S49persistent-cron", "S94hwcrypto"} {
 				t.Paths = append(t.Paths, "/usr/libexec/nanokvm/legacy/"+n)
 			}
 		case "nanokvm-watchdog":

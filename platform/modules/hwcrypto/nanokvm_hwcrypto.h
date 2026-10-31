@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-#ifndef SG2002_AES_PROBE_H
-#define SG2002_AES_PROBE_H
+#ifndef NANOKVM_HWCRYPTO_H
+#define NANOKVM_HWCRYPTO_H
 #include <linux/types.h>
 #include <linux/ioctl.h>
 #define HWCRYPTO_AES_MAX 4096

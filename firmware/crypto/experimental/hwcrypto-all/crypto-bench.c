@@ -14,7 +14,7 @@
 #include <time.h>
 #include <sys/ioctl.h>
 #include "hwcrypto.h"
-#include "sg2002_aes_probe.h"
+#include "nanokvm_hwcrypto.h"
 
 struct test_case { const char *name; unsigned alg, mode, keylen; EVP_CIPHER *cipher; };
 static struct test_case cases[] = {
@@ -244,7 +244,7 @@ int main(int argc,char **argv)
  }
  if(!iterations||iterations>256)return 2;
  setvbuf(stdout,NULL,_IOLBF,0);
- fd=open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC);if(fd<0){perror("device");return 1;}
+ fd=open("/dev/nanokvm-hwcrypto",O_RDWR|O_CLOEXEC);if(fd<0){perror("device");return 1;}
  struct hwcrypto_info info;
  if(ioctl(fd,HWCRYPTO_INFO,&info)||info.version!=1||info.poisoned){perror("crypto capabilities");return 1;}
  printf("OPENSSL %s\n",OpenSSL_version(OPENSSL_VERSION));

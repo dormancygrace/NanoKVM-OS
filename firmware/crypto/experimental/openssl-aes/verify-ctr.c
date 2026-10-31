@@ -58,7 +58,7 @@ int main(int argc,char **argv)
     for(unsigned i=0;i<sizeof key;i++)key[i]=(unsigned char)(i*7+3);
     for(unsigned i=0;i<sizeof in;i++)in[i]=(unsigned char)(i*13+11);
 #ifdef __linux__
-    int fd=native?open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC):-1;
+    int fd=native?open("/dev/nanokvm-hwcrypto",O_RDWR|O_CLOEXEC):-1;
     if(native)check(fd>=0,"native device");
 #else
     check(!native,"native requires Linux");

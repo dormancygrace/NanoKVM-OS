@@ -35,7 +35,7 @@ int main(int argc,char **argv){
   w=ns(CLOCK_MONOTONIC);c=ns(CLOCK_PROCESS_CPUTIME_ID);
   for(unsigned i=0;i<10000;i++){
    if(mode==0){sink^=i;continue;}
-   if(mode==1||mode==2){int f=open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC);ck(f>=0,"open");if(mode==2){struct stat st;ck(fstat(f,&st)==0&&S_ISCHR(st.st_mode),"fstat");}ck(close(f)==0,"close");}
+   if(mode==1||mode==2){int f=open("/dev/nanokvm-hwcrypto",O_RDWR|O_CLOEXEC);ck(f>=0,"open");if(mode==2){struct stat st;ck(fstat(f,&st)==0&&S_ISCHR(st.st_mode),"fstat");}ck(close(f)==0,"close");}
    else if(mode==3){int f=ossl_hwcrypto_begin(HWCRYPTO_ALG_SHA256);ck(f>=0,"warm begin");ossl_hwcrypto_end(f);}
    else if(mode==4){struct hwcrypto_request request={.version=HWCRYPTO_ABI,.algorithm=HWCRYPTO_ALG_SHA256,.length=sizeof input,.input=(uintptr_t)input};memcpy(request.state,initial,32);ck(ossl_hwcrypto_run(fd,&request),"run");sink^=request.state[0];}
    else hash(mode==6);

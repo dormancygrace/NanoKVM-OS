@@ -3,7 +3,6 @@
 package hwcrypto
 
 import (
-	"os"
 	"runtime"
 	"syscall"
 	"unsafe"
@@ -38,7 +37,7 @@ func ioc(dir, size, nr uintptr) uintptr { return dir<<30 | size<<16 | 'K'<<8 | n
 // openSHAEngine opens the module's device for SHA-256, or returns nil when it
 // is missing, poisoned or without SHA-256.
 func openSHAEngine() *shaEngine {
-	f, err := os.OpenFile("/dev/sg2002-aes-probe", os.O_RDWR, 0)
+	f, err := openDevice()
 	if err != nil {
 		return nil
 	}

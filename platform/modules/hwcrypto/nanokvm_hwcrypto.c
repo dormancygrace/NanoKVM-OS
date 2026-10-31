@@ -14,7 +14,7 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/of.h>
-#include "sg2002_aes_probe.h"
+#include "nanokvm_hwcrypto.h"
 
 #define BASE 0x02060000
 #define CTRL 0x00
@@ -141,7 +141,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
    * Retain mappings, buffers and module code until reset on any uncertainty. */
   poisoned = true;
   __module_get(THIS_MODULE);
-  pr_err("sg2002_aes_probe: DMA uncertain status=%#x timeout=%d; pinned until reboot\n", status, err);
+  pr_err("nanokvm_hwcrypto: DMA uncertain status=%#x timeout=%d; pinned until reboot\n", status, err);
   err = err ? err : -EIO;
   goto unlock;
  }
@@ -183,7 +183,7 @@ static const struct file_operations ops = {
  .owner = THIS_MODULE, .unlocked_ioctl = aes_ioctl, .open = nonseekable_open,
 };
 static struct miscdevice misc = {
- .minor = MISC_DYNAMIC_MINOR, .name = "sg2002-aes-probe", .fops = &ops, .mode = 0600,
+ .minor = MISC_DYNAMIC_MINOR, .name = "nanokvm-hwcrypto", .fops = &ops, .mode = 0600,
 };
 static const struct resource resources[] = {
  DEFINE_RES_MEM(BASE, 0x1000),
@@ -192,7 +192,7 @@ static const struct resource resources[] = {
 static int __init aes_init(void)
 {
  struct platform_device_info info = {
-  .name = "sg2002-aes-probe", .id = PLATFORM_DEVID_NONE,
+  .name = "nanokvm-hwcrypto", .id = PLATFORM_DEVID_NONE,
   .res = resources, .num_res = ARRAY_SIZE(resources), .dma_mask = DMA_BIT_MASK(32),
  };
  int err;
@@ -235,7 +235,7 @@ static int __init aes_init(void)
  if (err) goto crypto_gcm;
  err = misc_register(&misc);
  if (err) goto crypto_ccm;
- pr_info("sg2002_aes_probe: ready crypto-api=1 descriptor=streaming coherent=%d, status=%#x mask=%#x; Linux Crypto API registered\n", dev_is_dma_coherent(&pdev->dev), readl(regs + STATUS), initial_mask);
+ pr_info("nanokvm_hwcrypto: ready crypto-api=1 descriptor=streaming coherent=%d, status=%#x mask=%#x; Linux Crypto API registered\n", dev_is_dma_coherent(&pdev->dev), readl(regs + STATUS), initial_mask);
  return 0;
 crypto_ccm:
  crypto_unregister_aead(&sg2_ccm_alg);

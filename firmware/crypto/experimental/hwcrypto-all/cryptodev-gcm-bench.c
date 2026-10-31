@@ -37,7 +37,7 @@ int main(int argc,char **argv)
  const size_t sizes[]={128,512,1200,4096,16384,65536};
  const unsigned tags[]={16,12,8};
  setvbuf(stdout,NULL,_IOLBF,0);
- cfd=open("/dev/crypto",O_RDWR|O_CLOEXEC);fd=open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC);
+ cfd=open("/dev/crypto",O_RDWR|O_CLOEXEC);fd=open("/dev/nanokvm-hwcrypto",O_RDWR|O_CLOEXEC);
  if(cfd<0||fd<0){perror("open");return 1;}
  for(unsigned i=0;i<65536;i++)in[i]=(unsigned char)(i*31+7);
  memcpy(auth,aad,sizeof(auth));
@@ -50,7 +50,7 @@ int main(int argc,char **argv)
   struct session_info_op info={.ses=session.ses};
   if(ioctl(cfd,CIOCGSESSINFO,&info)){perror("CIOCGSESSINFO");return 1;}
   printf("DRIVER,%s,%s,flags=%u\n",name,info.cipher_info.cra_driver_name,info.flags);
-  if(!strstr(info.cipher_info.cra_driver_name,"sg2002-aes-ctr")){fputs("Not hardware AES\n",stderr);return 1;}
+  if(!strstr(info.cipher_info.cra_driver_name,"nanokvm-aes-ctr")){fputs("Not hardware AES\n",stderr);return 1;}
   EVP_CIPHER *cipher=EVP_CIPHER_fetch(NULL,name,"provider=default");
   EVP_CIPHER_CTX *ctx=EVP_CIPHER_CTX_new();
   if(!cipher||!ctx||!EVP_CipherInit_ex(ctx,cipher,NULL,key,nonce,1))return 1;

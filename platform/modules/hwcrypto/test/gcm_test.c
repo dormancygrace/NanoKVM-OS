@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * sg2002-gcm-aes against the synchronous software gcm(aes): random keys (128,
+ * nanokvm-gcm-aes against the synchronous software gcm(aes): random keys (128,
  * 192, 256 bits), IVs, associated data, lengths, tag sizes, in place and out of
  * place, encryption and decryption, tampered tags; then throughput of the
  * driver and of the gcm template over the engine's ctr(aes). Loading prints
@@ -17,7 +17,7 @@ static int cases = 3000;
 module_param(cases, int, 0444);
 static int bench_ms = 400;
 module_param(bench_ms, int, 0444);
-static char *drv = "sg2002-gcm-aes";
+static char *drv = "nanokvm-gcm-aes";
 module_param(drv, charp, 0444);
 
 #define MAXLEN (3 * 4096 + 100)
@@ -187,12 +187,12 @@ static int __init gcm_drv_init(void)
 		"bytes", "template-enc", "template-dec", "driver-enc", "driver-dec");
 	for (i = 0; i < ARRAY_SIZE(sizes); i++)
 		pr_info("gcm_drv: %6u %13llu %13llu %11llu %11llu\n", sizes[i],
-			rate("gcm_base(sg2002-aes-ctr,ghash-lib)", true, sizes[i]),
-			rate("gcm_base(sg2002-aes-ctr,ghash-lib)", false, sizes[i]),
+			rate("gcm_base(nanokvm-aes-ctr,ghash-lib)", true, sizes[i]),
+			rate("gcm_base(nanokvm-aes-ctr,ghash-lib)", false, sizes[i]),
 			rate(drv, true, sizes[i]), rate(drv, false, sizes[i]));
 	return -EAGAIN;
 }
 module_init(gcm_drv_init);
 
-MODULE_DESCRIPTION("sg2002-gcm-aes qualification");
+MODULE_DESCRIPTION("nanokvm-gcm-aes qualification");
 MODULE_LICENSE("GPL");

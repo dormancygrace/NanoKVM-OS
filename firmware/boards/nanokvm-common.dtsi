@@ -482,12 +482,12 @@
     };
 };
 
-/* The cooling state 6 is the 850 MHz entry in sg2002-cpufreq.
+/* The cooling state 6 is the 850 MHz entry in nanokvm-cpufreq.
  * The user-selected frequency remains the userspace governor's target.
  */
 / {
 	thermal-zones {
-		sg2002-cpu {
+		nanokvm-cpu {
 			polling-delay = <1000>;
 			polling-delay-passive = <1000>;
 			thermal-sensors = <&soc_temp>;

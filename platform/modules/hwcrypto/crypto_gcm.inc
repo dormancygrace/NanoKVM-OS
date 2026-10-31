@@ -233,14 +233,14 @@ static void sg2_gcm_exit(struct crypto_aead *tfm)
  memzero_explicit(ctx, sizeof(*ctx));
 }
 
-/* Above the gcm template over sg2002-aes-ctr (300), so rfc4106(gcm(aes)) and
+/* Above the gcm template over nanokvm-aes-ctr (300), so rfc4106(gcm(aes)) and
  * other users of gcm(aes) get the overlapped version. */
 static struct aead_alg sg2_gcm_alg = {
  .setkey = sg2_gcm_setkey, .setauthsize = sg2_gcm_setauthsize,
  .encrypt = sg2_gcm_encrypt, .decrypt = sg2_gcm_decrypt,
  .init = sg2_gcm_init, .exit = sg2_gcm_exit,
  .ivsize = GCM_AES_IV_SIZE, .maxauthsize = 16, .chunksize = 16,
- .base = { .cra_name = "gcm(aes)", .cra_driver_name = "sg2002-gcm-aes", .cra_priority = 400,
+ .base = { .cra_name = "gcm(aes)", .cra_driver_name = "nanokvm-gcm-aes", .cra_priority = 400,
   .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NEED_FALLBACK, .cra_blocksize = 1,
   .cra_ctxsize = sizeof(struct sg2_gcm_ctx), .cra_module = THIS_MODULE },
 };

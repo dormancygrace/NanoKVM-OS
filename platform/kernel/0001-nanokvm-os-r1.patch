@@ -342,7 +342,7 @@ index db83f3365..15bbd34ad 100644
  
  endmenu
 +
-+config SG2002_CPUFREQ
++config NANOKVM_CPUFREQ
 +    tristate "NanoKVM SG2002 CPU frequency control"
 +    depends on CPU_FREQ && RISCV && COMMON_CLK && OF
 +    help
@@ -357,12 +357,12 @@ index 6c7a39b7f..f8de38bd7 100644
  obj-$(CONFIG_SPARC_US2E_CPUFREQ)	+= sparc-us2e-cpufreq.o
  obj-$(CONFIG_SPARC_US3_CPUFREQ)		+= sparc-us3-cpufreq.o
 +
-+obj-$(CONFIG_SG2002_CPUFREQ) += sg2002-cpufreq.o
-diff --git a/drivers/cpufreq/sg2002-cpufreq.c b/drivers/cpufreq/sg2002-cpufreq.c
++obj-$(CONFIG_NANOKVM_CPUFREQ) += nanokvm-cpufreq.o
+diff --git a/drivers/cpufreq/nanokvm-cpufreq.c b/drivers/cpufreq/nanokvm-cpufreq.c
 new file mode 100644
 index 000000000..e63dc66fa
 --- /dev/null
-+++ b/drivers/cpufreq/sg2002-cpufreq.c
++++ b/drivers/cpufreq/nanokvm-cpufreq.c
 @@ -0,0 +1,175 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/* NanoKVM SG2002 runtime clock control. Requires the matching CV18xx mux/PLL fixes. */
@@ -437,7 +437,7 @@ index 000000000..e63dc66fa
 +    if (ret) {
 +        restore = clk_set_rate(mpll, before);
 +        if (restore || clk_get_rate(mpll) != before) {
-+            pr_err("sg2002-cpufreq: PLL recovery failed, CPU remains on stable SRC1\n");
++            pr_err("nanokvm-cpufreq: PLL recovery failed, CPU remains on stable SRC1\n");
 +            return ret;
 +        }
 +    }
@@ -466,7 +466,7 @@ index 000000000..e63dc66fa
 +}
 +
 +static struct cpufreq_driver nanokvm_driver = {
-+    .name = "sg2002-cpufreq",
++    .name = "nanokvm-cpufreq",
 +    .flags = CPUFREQ_IS_COOLING_DEV,
 +    .verify = cpufreq_generic_frequency_table_verify,
 +    .target_index = nanokvm_target,
@@ -560,7 +560,7 @@ index fecff8610..f9c0a3de5 100644
  
  if HWMON
  
-+config SENSORS_SG2002
++config SENSORS_NANOKVM
 +	tristate "Sophgo SG2002 temperature sensor"
 +	depends on OF && COMMON_CLK && THERMAL_OF && (ARCH_SOPHGO || COMPILE_TEST)
 +	help
@@ -579,12 +579,12 @@ index 1229b6b39..b593fbf9b 100644
  
  ccflags-$(CONFIG_HWMON_DEBUG_CHIP) := -DDEBUG
 +
-+obj-$(CONFIG_SENSORS_SG2002) += sg2002-temp.o
-diff --git a/drivers/hwmon/sg2002-temp.c b/drivers/hwmon/sg2002-temp.c
++obj-$(CONFIG_SENSORS_NANOKVM) += nanokvm-temp.o
+diff --git a/drivers/hwmon/nanokvm-temp.c b/drivers/hwmon/nanokvm-temp.c
 new file mode 100644
 index 000000000..34ff925a6
 --- /dev/null
-+++ b/drivers/hwmon/sg2002-temp.c
++++ b/drivers/hwmon/nanokvm-temp.c
 @@ -0,0 +1,179 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
@@ -738,7 +738,7 @@ index 000000000..34ff925a6
 +	/* Vendor CV181x driver exposes channel 0 only. */
 +	writel(value | FIELD_PREP(TS_CHANNELS, 1) | TS_ENABLE,
 +	       sensor->base + TS_CTRL);
-+	hwmon = devm_hwmon_device_register_with_info(dev, "sg2002", sensor,
++	hwmon = devm_hwmon_device_register_with_info(dev, "nanokvm", sensor,
 +						   &nanokvm_temp_chip, NULL);
 +	if (IS_ERR(hwmon))
 +		return PTR_ERR(hwmon);
@@ -758,7 +758,7 @@ index 000000000..34ff925a6
 +static struct platform_driver nanokvm_temp_driver = {
 +	.probe = nanokvm_temp_probe,
 +	.driver = {
-+		.name = "sg2002-tempsen",
++		.name = "nanokvm-temp",
 +		.of_match_table = nanokvm_temp_match,
 +	},
 +};

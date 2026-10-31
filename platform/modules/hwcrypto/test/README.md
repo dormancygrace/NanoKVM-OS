@@ -6,7 +6,7 @@ build output outside the source checkout. Load test modules from RAM on an
 exclusively owned stand, with no active users of the crypto module when replacing
 it. Restore the installed driver afterwards; no installed-file backups are needed.
 
-`hwcrypto_cmac_test.ko` checks `sg2002-cmac-aes` against the independent AES-CMAC
+`hwcrypto_cmac_test.ko` checks `nanokvm-cmac-aes` against the independent AES-CMAC
 library. For example, `insmod hwcrypto_cmac_test.ko cases=2000 bench_ms=700`
 checks RFC 4493's four vectors in 32 request modes, AES-128/192/256, empty and
 partial blocks, chained scatterlists and virtual input, synchronous and queued
@@ -16,7 +16,7 @@ cover 4 KiB DMA boundaries through 64 KiB. Successful insertion means all
 checks passed; inspect `cmac_test:` messages and unload afterwards. Setting
 `bench_ms=0` skips the comparison with the software `cmac-aes-lib` provider.
 
-`hwcrypto_ccm_test.ko` compares the explicitly selected `sg2002-ccm-aes` driver with
+`hwcrypto_ccm_test.ko` compares the explicitly selected `nanokvm-ccm-aes` driver with
 the synchronous software `ccm(aes)` implementation. Its default 3000 cases cover:
 
 - RFC 3610 packet vector 1, AES-128/192/256, every CCM tag and nonce length.

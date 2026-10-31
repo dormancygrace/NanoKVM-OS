@@ -170,9 +170,9 @@ kernel `fsconfig` values, never command arguments, settings or credential files.
 API status and error messages exclude credentials and the remote address.
 
 Kernel SMB3 signing and encryption use the Linux Crypto API. On SG2002, the
-`sg2002-gcm-aes` driver accelerates AES-CTR and overlaps it with the optimized
-CPU GHASH. The `sg2002-ccm-aes` driver accelerates both CBC-MAC and CTR, using
-the same shared engine in chunks of at most 4 KiB. The `sg2002-cmac-aes`
+`nanokvm-gcm-aes` driver accelerates AES-CTR and overlaps it with the optimized
+CPU GHASH. The `nanokvm-ccm-aes` driver accelerates both CBC-MAC and CTR, using
+the same shared engine in chunks of at most 4 KiB. The `nanokvm-cmac-aes`
 driver accelerates AES-CMAC signing, including subkey derivation and CBC-MAC.
 All three honor the existing hardware-AES setting and software fallback.
 Each CIFS signature calculation owns its transform and key; failed verification
@@ -180,7 +180,7 @@ rejects both read data and compound metadata responses. SMB2.1 HMAC signing
 is unchanged. For CMAC messages shorter than 320 bytes, CIFS selects the
 synchronous CPU provider before key setup, avoiding DMA overhead entirely.
 Messages of 320 bytes or more use the highest-priority provider, normally
-`sg2002-cmac-aes`; software remains available when hardware AES is disabled.
+`nanokvm-cmac-aes`; software remains available when hardware AES is disabled.
 The threshold counts all header vectors and payload bytes in the signature.
 Cipher negotiation is unchanged: the CCM driver is selected
 when the SMB server and client negotiate CCM; its presence does not force CCM

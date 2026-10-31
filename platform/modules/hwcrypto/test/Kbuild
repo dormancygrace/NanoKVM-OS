@@ -1,4 +1,4 @@
-# Qualification of sg2002-gcm-aes; build against the running kernel tree:
+# Qualification of nanokvm-gcm-aes; build against the running kernel tree:
 #   make -C KERNEL_BUILD M=$PWD modules
 obj-m += hwcrypto_gcm_test.o
 hwcrypto_gcm_test-y := gcm_test.o

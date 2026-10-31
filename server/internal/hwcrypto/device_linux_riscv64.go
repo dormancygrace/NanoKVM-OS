@@ -9,10 +9,20 @@ import (
 	"unsafe"
 )
 
-// Open opens the root-only sg2002-aes-probe device. onError runs once if a request
+// openDevice opens the module's device. Until the first boot of 3.7.0 the
+// loaded module is the one from before, named sg2002_aes_probe.
+func openDevice() (*os.File, error) {
+	f, err := os.OpenFile("/dev/nanokvm-hwcrypto", os.O_RDWR, 0)
+	if os.IsNotExist(err) {
+		f, err = os.OpenFile("/dev/sg2002-aes-probe", os.O_RDWR, 0)
+	}
+	return f, err
+}
+
+// Open opens the root-only nanokvm-hwcrypto device. onError runs once if a request
 // fails; subsequent packets use software without retrying poisoned hardware.
 func Open(onError func(error)) (*Device, error) {
-	f, err := os.OpenFile("/dev/sg2002-aes-probe", os.O_RDWR, 0)
+	f, err := openDevice()
 	if err != nil {
 		return nil, err
 	}

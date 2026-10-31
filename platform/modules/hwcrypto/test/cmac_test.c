@@ -152,7 +152,7 @@ out:
 
 static int check(void)
 {
-	struct crypto_ahash *tfm = crypto_alloc_ahash("sg2002-cmac-aes", 0, 0);
+	struct crypto_ahash *tfm = crypto_alloc_ahash("nanokvm-cmac-aes", 0, 0);
 	struct aes_cmac_key ref __cleanup(aes_cmac_zeroize_key);
 	u8 *buf = kmalloc(65536, GFP_KERNEL), key[32], expected[16], tag[16];
 	unsigned int i;
@@ -198,7 +198,7 @@ struct parallel_job { struct work_struct work; unsigned int index; int err; };
 static void parallel_worker(struct work_struct *work)
 {
 	struct parallel_job *job = container_of(work, struct parallel_job, work);
-	struct crypto_ahash *tfm = crypto_alloc_ahash("sg2002-cmac-aes", 0, 0);
+	struct crypto_ahash *tfm = crypto_alloc_ahash("nanokvm-cmac-aes", 0, 0);
 	struct aes_cmac_key ref __cleanup(aes_cmac_zeroize_key);
 	u8 key[32], expected[16], tag[16], *buf = kmalloc(8193, GFP_KERNEL);
 	unsigned int i;
@@ -293,7 +293,7 @@ out:
 
 static int failure(void)
 {
-	struct crypto_ahash *tfm = crypto_alloc_ahash("sg2002-cmac-aes", 0, 0);
+	struct crypto_ahash *tfm = crypto_alloc_ahash("nanokvm-cmac-aes", 0, 0);
 	struct ahash_request *survivor = NULL, *failed = NULL;
 	struct aes_cmac_key ref __cleanup(aes_cmac_zeroize_key);
 	struct scatterlist sg[4];
@@ -364,15 +364,15 @@ static int __init cmac_test_init(void)
 		/* Resolve the DMA crossover to one AES block, then verify the trend
 		 * through typical header sizes. Both paths allocate a request per MAC. */
 		for (i = 16; i <= 1024; i += i < 384 ? 16 : i < 512 ? 128 : 256) {
-			err = rate("sg2002-cmac-aes", i, false) ?: rate("cmac-aes-lib", i, false) ?:
-				rate("cmac-aes-lib", i, true) ?: rate("sg2002-cmac-aes", i, true);
+			err = rate("nanokvm-cmac-aes", i, false) ?: rate("cmac-aes-lib", i, false) ?:
+				rate("cmac-aes-lib", i, true) ?: rate("nanokvm-cmac-aes", i, true);
 			if (err)
 				return err;
 		}
 		return 0;
 	}
 	for (i = 0; i < ARRAY_SIZE(sizes); i++) {
-		err = rate("sg2002-cmac-aes", sizes[i], false) ?: rate("cmac-aes-lib", sizes[i], false);
+		err = rate("nanokvm-cmac-aes", sizes[i], false) ?: rate("cmac-aes-lib", sizes[i], false);
 		if (err)
 			return err;
 	}

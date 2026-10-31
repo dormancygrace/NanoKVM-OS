@@ -172,7 +172,7 @@ static void sg2_cipher_exit(struct crypto_skcipher *tfm)
 }
 #define SG2_CIPHER(mode_name, cipher_name, id, mode_id, bs, min_key, max_key) \
  { .hardware = id, .mode = mode_id, .block = bs, .alg = { \
- .base = { .cra_name = mode_name "(" cipher_name ")", .cra_driver_name = "sg2002-" cipher_name "-" mode_name, \
+ .base = { .cra_name = mode_name "(" cipher_name ")", .cra_driver_name = "nanokvm-" cipher_name "-" mode_name, \
  .cra_priority = 300, .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NEED_FALLBACK, \
  .cra_blocksize = mode_id == HWCRYPTO_MODE_CTR ? 1 : bs, .cra_ctxsize = sizeof(struct sg2_cipher_ctx), .cra_module = THIS_MODULE }, \
  .min_keysize = min_key, .max_keysize = max_key, .ivsize = mode_id ? bs : 0, .chunksize = bs, \
@@ -306,14 +306,14 @@ static int sg2_hash_import(struct ahash_request *req, const void *in)
 #define SG2_HASH(name, digest_len) { .init = sg2_hash_init, .update = sg2_hash_update, .final = sg2_hash_final, \
  .finup = sg2_hash_finup, .digest = sg2_hash_digest, .export = sg2_hash_export, .import = sg2_hash_import, \
  .halg = { .digestsize = digest_len, .statesize = sizeof(struct sg2_hash_state), .base = { \
- .cra_name = name, .cra_driver_name = "sg2002-" name, .cra_priority = 300, \
+ .cra_name = name, .cra_driver_name = "nanokvm-" name, .cra_priority = 300, \
  .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NO_FALLBACK, \
  .cra_blocksize = 64, .cra_reqsize = sizeof(struct sg2_hash_req), .cra_module = THIS_MODULE } } }
 static struct ahash_alg sg2_hashes[] = { SG2_HASH("sha1", 20), SG2_HASH("sha256", 32) };
 static int crypto_linux_register(void)
 {
  int err; unsigned int i;
- crypto_api_wq = alloc_ordered_workqueue("sg2002-crypto", WQ_MEM_RECLAIM);
+ crypto_api_wq = alloc_ordered_workqueue("nanokvm-crypto", WQ_MEM_RECLAIM);
  if (!crypto_api_wq) return -ENOMEM;
  for (i = 0; i < ARRAY_SIZE(sg2_ciphers); i++) {
   err = crypto_register_skcipher(&sg2_ciphers[i].alg); if (err) goto ciphers;

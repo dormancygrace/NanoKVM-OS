@@ -43,7 +43,7 @@ int main(int argc,char **argv)
   fprintf(stderr,"SG2_BENCH_COUNT must be 1..4096; SG2_BENCH_BYTES must be 0, 1200, 16384 or 65536\n");return 2;
  }
  setvbuf(stdout,NULL,_IOLBF,0);
- fd=open("/dev/sg2002-aes-probe",O_RDWR|O_CLOEXEC);devfd=open("/dev/crypto",O_RDWR|O_CLOEXEC);
+ fd=open("/dev/nanokvm-hwcrypto",O_RDWR|O_CLOEXEC);devfd=open("/dev/crypto",O_RDWR|O_CLOEXEC);
  if(fd<0||devfd<0){perror("devices");return 1;}
  unsigned seed=getenv("SG2_BENCH_SEED")?(unsigned)strtoul(getenv("SG2_BENCH_SEED"),NULL,10):0;
  cipher_ctx=EVP_CIPHER_CTX_new();if(!cipher_ctx)return 1;
@@ -62,7 +62,7 @@ int main(int argc,char **argv)
   struct session_info_op info={.ses=session.ses};
   if(ioctl(devfd,CIOCGSESSINFO,&info)||!(info.flags&SIOP_FLAG_KERNEL_DRIVER_ONLY))return 1;
   const char *driver=hash?info.hash_info.cra_driver_name:info.cipher_info.cra_driver_name;
-  if(strncmp(driver,"sg2002-",7)){fprintf(stderr,"unexpected driver %s\n",driver);return 1;}
+  if(strncmp(driver,"nanokvm-",8)){fprintf(stderr,"unexpected driver %s\n",driver);return 1;}
   printf("DRIVER,%s,%s\n",t->name,driver);
   if(t->alg==1){t->cipher=EVP_CIPHER_fetch(NULL,t->name,"provider=default");if(!t->cipher)return 1;}
   const size_t checks[]={0,1,15,16,17,55,56,63,64,65,1200,4095,4096,4097,8192,65536};

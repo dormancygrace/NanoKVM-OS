@@ -326,7 +326,7 @@ static struct aead_alg sg2_ccm_alg = {
 	.init = sg2_ccm_init, .exit = sg2_ccm_exit,
 	.ivsize = 16, .maxauthsize = 16, .chunksize = 16,
 	.base = {
-		.cra_name = "ccm(aes)", .cra_driver_name = "sg2002-ccm-aes",
+		.cra_name = "ccm(aes)", .cra_driver_name = "nanokvm-ccm-aes",
 		.cra_priority = 400,
 		.cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NEED_FALLBACK,
 		.cra_blocksize = 1, .cra_ctxsize = sizeof(struct sg2_ccm_ctx),

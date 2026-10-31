@@ -12,13 +12,20 @@ import (
 
 var hardwareAESOnce sync.Once
 var openHardwareAES = hwcrypto.Open
-var hardwareAESCapabilityFile = "/sys/module/sg2002_aes_probe/parameters/out_of_place_burst4"
+
+// The module, and until the first boot of 3.7.0 the one named before it.
+var hardwareAESCapabilityFiles = []string{"/sys/module/nanokvm_hwcrypto/parameters/out_of_place_burst4",
+	"/sys/module/sg2002_aes_probe/parameters/out_of_place_burst4"}
 
 // Read the loaded module, not its replacement on disk: component updates
 // must not send video traffic to an old CryptoDMA implementation before reboot.
 func hardwareAESDriverReady() bool {
-	data, err := os.ReadFile(hardwareAESCapabilityFile)
-	return err == nil && strings.TrimSpace(string(data)) == "Y"
+	for _, file := range hardwareAESCapabilityFiles {
+		if data, err := os.ReadFile(file); err == nil {
+			return strings.TrimSpace(string(data)) == "Y"
+		}
+	}
+	return false
 }
 
 func initializeHardwareAES() {

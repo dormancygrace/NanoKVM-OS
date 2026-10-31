@@ -303,7 +303,7 @@ static struct ahash_alg sg2_cmac_alg = {
 	.halg = {
 		.digestsize = 16, .statesize = sizeof(struct sg2_cmac_state),
 		.base = {
-			.cra_name = "cmac(aes)", .cra_driver_name = "sg2002-cmac-aes",
+			.cra_name = "cmac(aes)", .cra_driver_name = "nanokvm-cmac-aes",
 			.cra_priority = 400,
 			.cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY |
 				CRYPTO_ALG_REQ_VIRT | CRYPTO_ALG_NO_FALLBACK,

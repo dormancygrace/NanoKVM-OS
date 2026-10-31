@@ -47,7 +47,7 @@ static int check(unsigned int len)
 	DECLARE_CRYPTO_WAIT(wait);
 	u8 key[16] = {1}, tag[16], expected[16], *buf = kmalloc(len, GFP_KERNEL);
 	const char *expected_driver = hardware && len >= 320 ?
-		"sg2002-cmac-aes" : "cmac-aes-lib";
+		"nanokvm-cmac-aes" : "cmac-aes-lib";
 	int err = -ENOMEM;
 
 	if (IS_ERR(tfm)) { err = PTR_ERR(tfm); goto out; }

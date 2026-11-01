@@ -2308,7 +2308,8 @@
         "finish": "Finalizar",
         "cancel": "Cancelar",
         "failed": "Error al iniciar sesión: {{error}}",
-        "authError": "El inicio de sesión ya no funciona: {{error}}"
+        "authError": "El inicio de sesión ya no funciona: {{error}}",
+        "changed": "El servicio, el ID de cliente o el tenant cambiaron durante el inicio de sesión. Vuelva a iniciar sesión."
       }
     }
   },

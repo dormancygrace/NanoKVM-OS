@@ -1954,7 +1954,8 @@
         "finish": "Dokončit",
         "cancel": "Zrušit",
         "failed": "Přihlášení selhalo: {{error}}",
-        "authError": "Přihlášení už nefunguje: {{error}}"
+        "authError": "Přihlášení už nefunguje: {{error}}",
+        "changed": "Během přihlášení se změnila služba, ID klienta nebo tenant. Přihlaste se znovu."
       }
     }
   },

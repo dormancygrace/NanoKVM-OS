@@ -198,3 +198,35 @@ func TestEmailAuthSettings(t *testing.T) {
 		t.Fatalf("outlook: %v %v", err, ms.Settings)
 	}
 }
+
+// A Google revoke ends the whole grant: signing in again and an abandoned
+// sign-in revoke nothing; signing out of the last channel of the client does.
+func TestGoogleGrantRevokedOnlyWhenUnused(t *testing.T) {
+	var revoked []string
+	old := revokeLater
+	revokeLater = func(_ oauthClient, token string) { revoked = append(revoked, token) }
+	t.Cleanup(func() { revokeLater = old })
+	s := gmailService(t, "h", "465")
+	page := func(token string, clear ...string) Settings {
+		ch := s.config.Channels[0].view().Channel
+		ch.Settings["oauthToken"] = token
+		return Settings{Language: "en", Channels: []ChannelUpdate{{Channel: ch, Clear: clear}}}
+	}
+	oauth.mu.Lock()
+	oauth.pending["pending:again"] = &pendingSignIn{token: "R2", expires: time.Now().Add(time.Hour)}
+	oauth.pending["pending:abandoned"] = &pendingSignIn{token: "R3", expires: time.Now().Add(-time.Second)}
+	oauth.mu.Unlock()
+
+	if err := s.Configure(page("pending:again")); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.config.Channels[0].Settings["oauthToken"]; got != "R2" || len(revoked) != 0 {
+		t.Fatalf("sign in again: stored %q, revoked %v", got, revoked)
+	}
+	if err := s.Configure(page("", "oauthToken")); err != nil {
+		t.Fatal(err)
+	}
+	if len(revoked) != 1 || revoked[0] != "R2" {
+		t.Fatalf("sign out: revoked %v", revoked)
+	}
+}

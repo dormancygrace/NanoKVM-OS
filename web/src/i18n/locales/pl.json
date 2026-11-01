@@ -886,7 +886,8 @@
         "finish": "Zakończ",
         "cancel": "Anuluj",
         "failed": "Logowanie nie powiodło się: {{error}}",
-        "authError": "Logowanie już nie działa: {{error}}"
+        "authError": "Logowanie już nie działa: {{error}}",
+        "changed": "Podczas logowania zmieniono usługę, identyfikator klienta lub dzierżawę. Zaloguj się ponownie."
       }
     },
     "addonPage": {

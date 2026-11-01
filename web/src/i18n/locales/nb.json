@@ -886,7 +886,8 @@
         "finish": "Fullfør",
         "cancel": "Avbryt",
         "failed": "Innloggingen mislyktes: {{error}}",
-        "authError": "Innloggingen fungerer ikke lenger: {{error}}"
+        "authError": "Innloggingen fungerer ikke lenger: {{error}}",
+        "changed": "Tjenesten, klient-ID-en eller tenant ble endret under innloggingen. Logg inn på nytt."
       }
     },
     "addonPage": {

@@ -2308,7 +2308,8 @@
         "finish": "完成",
         "cancel": "取消",
         "failed": "登录失败：{{error}}",
-        "authError": "登录已失效：{{error}}"
+        "authError": "登录已失效：{{error}}",
+        "changed": "登录期间服务、客户端 ID 或租户已更改。请重新登录。"
       }
     }
   },

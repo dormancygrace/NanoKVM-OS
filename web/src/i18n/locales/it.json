@@ -885,7 +885,8 @@
         "finish": "Fine",
         "cancel": "Annulla",
         "failed": "Accesso non riuscito: {{error}}",
-        "authError": "L'accesso non funziona più: {{error}}"
+        "authError": "L'accesso non funziona più: {{error}}",
+        "changed": "Il servizio, l'ID client o il tenant sono cambiati durante l'accesso. Accedi di nuovo."
       }
     },
     "addonPage": {

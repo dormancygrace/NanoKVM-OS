@@ -886,7 +886,8 @@
         "finish": "Bitir",
         "cancel": "İptal",
         "failed": "Oturum açılamadı: {{error}}",
-        "authError": "Oturum artık çalışmıyor: {{error}}"
+        "authError": "Oturum artık çalışmıyor: {{error}}",
+        "changed": "Oturum açma sırasında hizmet, istemci kimliği veya kiracı değişti. Yeniden oturum açın."
       }
     },
     "addonPage": {

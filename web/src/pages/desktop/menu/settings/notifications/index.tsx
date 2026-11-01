@@ -167,10 +167,20 @@ export const Notifications = () => {
 
   const typeName = (type: string) => brandNames[type] ?? t(`types.${type}`);
 
-  const change = (key: string, patch: Partial<Draft>) => {
-    setChannels((list) => list.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  // A patch made from the channel as it is now (a function) keeps edits made
+  // since the caller last rendered, such as during a sign-in.
+  const change = (key: string, patch: Partial<Draft> | ((item: Draft) => Partial<Draft>)) => {
+    setChannels((list) =>
+      list.map((item) =>
+        item.key === key
+          ? { ...item, ...(typeof patch === 'function' ? patch(item) : patch) }
+          : item
+      )
+    );
     // Folding a channel is not an edit.
-    if (Object.keys(patch).some((name) => name !== 'open')) edited();
+    if (typeof patch === 'function' || Object.keys(patch).some((name) => name !== 'open')) {
+      edited();
+    }
   };
 
   const add = (type: string) => {
@@ -362,7 +372,7 @@ type ChannelPanelProps = {
   typeName: string;
   templates: TemplateDraft[];
   providers: NotifyProvider[];
-  onChange: (patch: Partial<Draft>) => void;
+  onChange: (patch: Partial<Draft> | ((item: Draft) => Partial<Draft>)) => void;
   onRemove: () => void;
 };
 
@@ -535,22 +545,22 @@ const ChannelPanel = ({
                   provider={provider(providers, channel)}
                   stored={stored}
                   onSignedIn={(token, account) =>
-                    onChange({
+                    onChange((item) => ({
                       settings: {
-                        ...channel.settings,
+                        ...item.settings,
                         [field.key]: token,
                         oauthAccount: account,
-                        username: channel.settings.username || account,
-                        from: channel.settings.from || account
+                        username: item.settings.username || account,
+                        from: item.settings.from || account
                       },
-                      clear: channel.clear.filter((item) => item !== field.key)
-                    })
+                      clear: item.clear.filter((key) => key !== field.key)
+                    }))
                   }
                   onSignOut={() =>
-                    onChange({
-                      clear: [...channel.clear.filter((item) => item !== field.key), field.key],
-                      settings: { ...channel.settings, [field.key]: '', oauthAccount: '' }
-                    })
+                    onChange((item) => ({
+                      clear: [...item.clear.filter((key) => key !== field.key), field.key],
+                      settings: { ...item.settings, [field.key]: '', oauthAccount: '' }
+                    }))
                   }
                 />
               );

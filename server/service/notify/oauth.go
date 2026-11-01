@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/big"
 	"net/http"
 	"net/smtp"
@@ -175,6 +176,9 @@ func refreshToken(ctx context.Context, c oauthClient, refresh string) (tokenResp
 	return answer, err
 }
 
+// revokeLater revokes in the background; tests record the calls instead.
+var revokeLater = func(c oauthClient, refresh string) { go revoke(c, refresh) }
+
 // revoke ends a Google sign-in. Microsoft has no revocation for a public
 // client: its users remove the app from their account.
 func revoke(c oauthClient, refresh string) {
@@ -240,13 +244,10 @@ type flow struct {
 	expires                   time.Time
 }
 
-// pendingSignIn is a finished sign-in the page has not saved yet. kept: it
-// was saved; the handle still resolves for a page that sends it again.
+// pendingSignIn is a finished sign-in for the page to save.
 type pendingSignIn struct {
-	client  oauthClient
 	token   string
 	expires time.Time
-	kept    bool
 }
 
 type oauthState struct {
@@ -339,7 +340,8 @@ func (o *oauthState) forget(ch Channel) {
 }
 
 // expire drops old flows and pending sign-ins; it holds o.mu. A sign-in
-// never saved is revoked.
+// never saved is not revoked: the grant it belongs to may be the one a
+// saved channel uses.
 func (o *oauthState) expire() {
 	now := o.now()
 	for id, f := range o.flows {
@@ -350,9 +352,6 @@ func (o *oauthState) expire() {
 	for handle, p := range o.pending {
 		if now.After(p.expires) {
 			delete(o.pending, handle)
-			if !p.kept {
-				go revoke(p.client, p.token)
-			}
 		}
 	}
 }
@@ -506,12 +505,9 @@ func (o *oauthState) finish(ctx context.Context, id, code string) (FlowResult, e
 				oldest = h
 			}
 		}
-		if p := o.pending[oldest]; !p.kept {
-			go revoke(p.client, p.token)
-		}
 		delete(o.pending, oldest)
 	}
-	o.pending[handle] = &pendingSignIn{client: c, token: answer.RefreshToken, expires: o.now().Add(pendingTTL)}
+	o.pending[handle] = &pendingSignIn{token: answer.RefreshToken, expires: o.now().Add(pendingTTL)}
 	o.mu.Unlock()
 	return FlowResult{Token: handle, Account: accountOf(answer.IDToken)}, nil
 }
@@ -523,37 +519,24 @@ func (o *oauthState) drop(id string) {
 }
 
 // claim puts the refresh token of a sign-in made on the page in its place.
-// The handle stays after the settings are saved (used): Test can use it
-// first, and a page with edits made during the save sends it again.
-func (o *oauthState) claim(ch *Channel) (string, error) {
+// The handle stays until it expires: Test can use it before Save, and a
+// page with edits made during a save sends it again.
+func (o *oauthState) claim(ch *Channel) error {
 	handle := ch.get("oauthToken")
 	if !strings.HasPrefix(handle, pendingPrefix) {
-		return "", nil
+		return nil
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.expire()
 	p := o.pending[handle]
 	if p == nil {
-		return "", errors.New("the sign-in has expired; sign in again")
+		return errors.New("the sign-in has expired; sign in again")
 	}
-	settings := map[string]string{}
-	for key, value := range ch.Settings {
-		settings[key] = value
-	}
+	settings := maps.Clone(ch.Settings)
 	settings["oauthToken"] = p.token
 	ch.Settings = settings
-	return handle, nil
-}
-
-func (o *oauthState) used(handles []string) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	for _, h := range handles {
-		if p := o.pending[h]; p != nil {
-			p.kept = true
-		}
-	}
+	return nil
 }
 
 // xoauth2 is the SASL XOAUTH2 login of Gmail and Exchange Online.

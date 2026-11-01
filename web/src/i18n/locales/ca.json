@@ -885,7 +885,8 @@
         "finish": "Acaba",
         "cancel": "Cancel·la",
         "failed": "Ha fallat l'inici de sessió: {{error}}",
-        "authError": "L'inici de sessió ja no funciona: {{error}}"
+        "authError": "L'inici de sessió ja no funciona: {{error}}",
+        "changed": "El servei, l'ID de client o el tenant han canviat durant l'inici de sessió. Torneu a iniciar la sessió."
       }
     },
     "addonPage": {

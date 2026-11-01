@@ -2308,7 +2308,8 @@
         "finish": "Abschließen",
         "cancel": "Abbrechen",
         "failed": "Anmeldung fehlgeschlagen: {{error}}",
-        "authError": "Die Anmeldung funktioniert nicht mehr: {{error}}"
+        "authError": "Die Anmeldung funktioniert nicht mehr: {{error}}",
+        "changed": "Dienst, Client-ID oder Tenant wurden während der Anmeldung geändert. Melden Sie sich erneut an."
       }
     }
   },

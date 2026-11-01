@@ -2308,7 +2308,8 @@
         "finish": "Finish",
         "cancel": "Cancel",
         "failed": "Sign-in failed: {{error}}",
-        "authError": "The sign-in no longer works: {{error}}"
+        "authError": "The sign-in no longer works: {{error}}",
+        "changed": "The service, client ID or tenant changed during the sign-in. Sign in again."
       }
     }
   },

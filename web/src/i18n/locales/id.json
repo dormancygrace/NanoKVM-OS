@@ -884,7 +884,8 @@
         "finish": "Selesai",
         "cancel": "Batal",
         "failed": "Gagal masuk: {{error}}",
-        "authError": "Login tidak lagi berfungsi: {{error}}"
+        "authError": "Login tidak lagi berfungsi: {{error}}",
+        "changed": "Layanan, ID klien, atau tenant berubah selama proses masuk. Masuk lagi."
       }
     },
     "addonPage": {

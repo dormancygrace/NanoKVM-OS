@@ -887,7 +887,8 @@
         "finish": "Voltooien",
         "cancel": "Annuleren",
         "failed": "Aanmelden mislukt: {{error}}",
-        "authError": "De aanmelding werkt niet meer: {{error}}"
+        "authError": "De aanmelding werkt niet meer: {{error}}",
+        "changed": "De dienst, client-ID of tenant is tijdens het aanmelden gewijzigd. Meld u opnieuw aan."
       }
     },
     "addonPage": {

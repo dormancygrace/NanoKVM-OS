@@ -883,7 +883,8 @@
         "finish": "完成",
         "cancel": "取消",
         "failed": "登入失敗：{{error}}",
-        "authError": "登入已失效：{{error}}"
+        "authError": "登入已失效：{{error}}",
+        "changed": "登入期間服務、用戶端 ID 或租用戶已變更。請重新登入。"
       }
     },
     "addonPage": {

@@ -887,7 +887,8 @@
         "finish": "Hoàn tất",
         "cancel": "Hủy",
         "failed": "Đăng nhập thất bại: {{error}}",
-        "authError": "Đăng nhập không còn hoạt động: {{error}}"
+        "authError": "Đăng nhập không còn hoạt động: {{error}}",
+        "changed": "Dịch vụ, Client ID hoặc tenant đã thay đổi trong khi đăng nhập. Hãy đăng nhập lại."
       }
     },
     "addonPage": {

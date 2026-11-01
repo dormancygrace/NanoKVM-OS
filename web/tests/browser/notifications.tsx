@@ -61,7 +61,8 @@ const types: NotifyStatus['types'] = [
     ]
   }
 ];
-// The e-mail sign-ins: Google pastes an address, Microsoft polls once.
+// The e-mail sign-ins: Google pastes an address; Microsoft stays pending
+// until Complete sign-in.
 const providers: NotifyStatus['providers'] = [
   {
     id: 'gmail',
@@ -83,7 +84,7 @@ const providers: NotifyStatus['providers'] = [
   { id: 'yahoo', host: 'smtp.mail.yahoo.com', port: '465', security: 'tls', auth: ['password'] },
   { id: 'custom', host: '', port: '', security: '', auth: ['password'] }
 ];
-let polls = 0;
+let signInDone = false;
 let stored: NotifyChannel[] = [
   {
     id: 'c1',
@@ -138,7 +139,7 @@ const adapter: AxiosAdapter = async (config) => {
   if (config.url?.endsWith('/oauth/start')) {
     const channel = JSON.parse(config.data) as NotifyChannelUpdate;
     report(`SIGN-IN start ${channel.settings.provider}`);
-    polls = 0;
+    signInDone = false;
     return answer(
       channel.settings.provider === 'gmail'
         ? { id: 'f1', kind: 'code', url: 'https://accounts.example/auth?long=1', expiresIn: 900 }
@@ -155,7 +156,7 @@ const adapter: AxiosAdapter = async (config) => {
   if (config.url?.endsWith('/oauth/finish')) {
     const { code } = JSON.parse(config.data) as { code: string };
     report(`SIGN-IN finish code=${code}`);
-    if (!code && polls++ < 1) return answer({ pending: true, interval: 1 });
+    if (!code && !signInDone) return answer({ pending: true, interval: 1 });
     return answer({ pending: false, token: 'pending:h1', account: 'me@example.com' });
   }
   const sent = JSON.parse(config.data) as {
@@ -220,6 +221,7 @@ export function Fixture() {
       <p>Synthetic local data only; no device requests.</p>
       <nav style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
         <button onClick={() => completeSave?.()}>Complete save</button>
+        <button onClick={() => (signInDone = true)}>Complete sign-in</button>
       </nav>
       <Notifications />
       <pre data-testid="events">{events.join('\n')}</pre>

@@ -911,7 +911,8 @@
         "finish": "Befejezés",
         "cancel": "Mégse",
         "failed": "A bejelentkezés nem sikerült: {{error}}",
-        "authError": "A bejelentkezés már nem működik: {{error}}"
+        "authError": "A bejelentkezés már nem működik: {{error}}",
+        "changed": "A bejelentkezés közben megváltozott a szolgáltatás, az ügyfél-azonosító vagy a tenant. Jelentkezzen be újra."
       }
     },
     "addonPage": {

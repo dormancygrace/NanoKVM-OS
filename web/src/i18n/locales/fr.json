@@ -2308,7 +2308,8 @@
         "finish": "Terminer",
         "cancel": "Annuler",
         "failed": "Échec de la connexion : {{error}}",
-        "authError": "La connexion ne fonctionne plus : {{error}}"
+        "authError": "La connexion ne fonctionne plus : {{error}}",
+        "changed": "Le service, l'ID client ou le tenant a changé pendant la connexion. Connectez-vous à nouveau."
       }
     }
   },

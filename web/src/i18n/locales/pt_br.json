@@ -887,7 +887,8 @@
         "finish": "Concluir",
         "cancel": "Cancelar",
         "failed": "Falha no login: {{error}}",
-        "authError": "O login não funciona mais: {{error}}"
+        "authError": "O login não funciona mais: {{error}}",
+        "changed": "O serviço, o ID do cliente ou o tenant mudou durante o login. Entre novamente."
       }
     },
     "addonPage": {

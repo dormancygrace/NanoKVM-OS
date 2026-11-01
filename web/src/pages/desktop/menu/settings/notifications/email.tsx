@@ -28,6 +28,12 @@ const providerNames: Record<string, string> = {
 // The value of the oauthToken field for a sign-in not saved yet.
 const pendingPrefix = 'pending:';
 
+// The settings a sign-in belongs to.
+const clientOf = (channel: NotifyChannelUpdate) =>
+  ['provider', 'oauthClientId', 'oauthTenant']
+    .map((key) => (channel.settings[key] ?? '').trim())
+    .join('\n');
+
 type ProviderSelectProps = {
   id: string;
   providers: NotifyProvider[];
@@ -98,6 +104,13 @@ export const SignIn = ({ channel, provider, stored, onSignedIn, onSignOut }: Sig
   const mounted = useRef(true);
   // The sign-in shown; an answer for a cancelled one is dropped.
   const active = useRef('');
+  // The page as it is now, for a sign-in that completes later, and the
+  // client the sign-in was started with.
+  const latest = useRef({ channel, onSignedIn });
+  useEffect(() => {
+    latest.current = { channel, onSignedIn };
+  });
+  const startedWith = useRef('');
 
   useEffect(() => {
     mounted.current = true;
@@ -130,8 +143,13 @@ export const SignIn = ({ channel, provider, stored, onSignedIn, onSignOut }: Sig
         timer.current = window.setTimeout(() => void finish(id, ''), (result.interval ?? 5) * 1000);
         return;
       }
+      // A sign-in for another service, client or tenant is not this one's.
+      if (clientOf(latest.current.channel) !== startedWith.current) {
+        stop(t('changed'));
+        return;
+      }
       stop();
-      onSignedIn(result.token ?? '', result.account ?? '');
+      latest.current.onSignedIn(result.token ?? '', result.account ?? '');
     } catch (err) {
       if (mounted.current && active.current === id) {
         stop(t('failed', { error: err instanceof Error ? err.message : '' }));
@@ -142,6 +160,7 @@ export const SignIn = ({ channel, provider, stored, onSignedIn, onSignOut }: Sig
   const start = async () => {
     stop();
     setBusy(true);
+    startedWith.current = clientOf(channel);
     try {
       const response = await startNotifySignIn(channel);
       if (!mounted.current) return;

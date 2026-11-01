@@ -881,7 +881,8 @@
         "finish": "Afslut",
         "cancel": "Annuller",
         "failed": "Login mislykkedes: {{error}}",
-        "authError": "Login virker ikke længere: {{error}}"
+        "authError": "Login virker ikke længere: {{error}}",
+        "changed": "Tjenesten, klient-id'et eller tenant blev ændret under login. Log ind igen."
       }
     },
     "addonPage": {

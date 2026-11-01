@@ -148,22 +148,22 @@ func (s *Service) Preview(request PreviewRequest) ([]Preview, error) {
 // resolve turns a channel from the page into a stored one: its secrets
 // filled in from the stored channel of the same id, the cleared ones
 // emptied, a sign-in made on the page put in, defaults applied and the
-// fields checked. handle is that sign-in's, "" for none.
-func resolve(update ChannelUpdate, stored []Channel) (ch Channel, handle string, err error) {
-	ch = withStoredSecrets(update.Channel, stored)
+// fields checked.
+func resolve(update ChannelUpdate, stored []Channel) (Channel, error) {
+	ch := withStoredSecrets(update.Channel, stored)
 	for _, key := range update.Clear {
 		delete(ch.Settings, key)
 	}
-	if handle, err = oauth.claim(&ch); err != nil {
-		return Channel{}, "", err
+	if err := oauth.claim(&ch); err != nil {
+		return Channel{}, err
 	}
 	if ch.ID == "" {
 		ch.ID = newID()
 	}
 	if err := ch.validate(); err != nil {
-		return Channel{}, "", err
+		return Channel{}, err
 	}
-	return ch, handle, nil
+	return ch, nil
 }
 
 // Configure stores the page's settings; they apply to the next event.
@@ -174,18 +174,14 @@ func (s *Service) Configure(settings Settings) error {
 	if next.Templates == nil {
 		next.Templates = []Template{}
 	}
-	var handles []string
 	for _, update := range settings.Channels {
-		ch, handle, err := resolve(update, s.config.Channels)
+		ch, err := resolve(update, s.config.Channels)
 		if err != nil {
 			name := update.Name
 			if name == "" {
 				name = update.Type
 			}
 			return errors.New(name + ": " + err.Error())
-		}
-		if handle != "" {
-			handles = append(handles, handle)
 		}
 		next.Channels = append(next.Channels, ch)
 	}
@@ -195,27 +191,40 @@ func (s *Service) Configure(settings Settings) error {
 	if err := Save(s.path, next); err != nil {
 		return err
 	}
-	oauth.used(handles)
 	s.dropSignIns(s.config, next)
 	s.config = next
 	return nil
 }
 
-// dropSignIns ends the sign-ins the new settings no longer hold (signed out,
-// replaced, the channel deleted) and forgets their failures. It holds s.mu.
+// dropSignIns forgets the failures of the sign-ins the new settings no
+// longer hold (signed out, replaced, the channel deleted) and revokes the
+// Google ones that end. Google revokes the whole grant of the account to the
+// client, tokens issued later included, so a token is revoked only when no
+// channel keeps a sign-in through the same client. It holds s.mu.
 func (s *Service) dropSignIns(old, next Config) {
-	kept := map[string]string{}
+	tokens := map[string]string{}
+	inUse := map[oauthClient]bool{}
 	for _, ch := range next.Channels {
-		kept[ch.ID] = ch.get("oauthToken")
+		tokens[ch.ID] = ch.get("oauthToken")
+		if client, err := clientOf(ch); err == nil && tokens[ch.ID] != "" {
+			client.secret = ""
+			inUse[client] = true
+		}
 	}
 	for _, ch := range old.Channels {
 		token := ch.get("oauthToken")
-		if token == "" || kept[ch.ID] == token {
+		if token == "" || tokens[ch.ID] == token {
 			continue
 		}
 		delete(s.authErrors, ch.ID)
-		if client, err := clientOf(ch); err == nil {
-			go revoke(client, token)
+		client, err := clientOf(ch)
+		if err != nil {
+			continue
+		}
+		key := client
+		key.secret = ""
+		if !inUse[key] {
+			revokeLater(client, token)
 		}
 	}
 }
@@ -248,7 +257,7 @@ func (s *Service) TestChannel(ctx context.Context, update ChannelUpdate) error {
 	// A new channel gets an id only to be checked: its sign-in failures are
 	// not kept.
 	saved := update.ID != ""
-	ch, _, err := resolve(update, stored)
+	ch, err := resolve(update, stored)
 	if err != nil {
 		return err
 	}

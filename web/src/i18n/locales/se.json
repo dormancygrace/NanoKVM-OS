@@ -886,7 +886,8 @@
         "finish": "Slutför",
         "cancel": "Avbryt",
         "failed": "Inloggningen misslyckades: {{error}}",
-        "authError": "Inloggningen fungerar inte längre: {{error}}"
+        "authError": "Inloggningen fungerar inte längre: {{error}}",
+        "changed": "Tjänsten, klient-ID:t eller tenant ändrades under inloggningen. Logga in igen."
       }
     },
     "addonPage": {

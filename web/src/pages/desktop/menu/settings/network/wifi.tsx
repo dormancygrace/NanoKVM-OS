@@ -10,6 +10,7 @@ import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { IPv6 } from './ipv6.tsx';
+import { WifiAccessPoint } from './wifi-ap.tsx';
 import { WifiBandTag } from './wifi-band';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { operationDone, type Pending } from './wifi-pending.ts';
@@ -143,7 +144,7 @@ export const Wifi = () => {
 
   const locked = busy || !!pending || !!state?.busy;
   const enabled = pending?.enabled ?? state?.enabled ?? true;
-  const canConfigure = !!state?.supported && !state.apMode && enabled;
+  const canConfigure = !!state?.supported && !state.apMode && !state.accessPoint && enabled;
 
   function track(operation: Omit<Pending, 'until'>) {
     const next = { ...operation, until: Date.now() + 60000 };
@@ -359,6 +360,124 @@ export const Wifi = () => {
     }
   }
 
+  // Joining a network: the ones in range and the ones the device knows.
+  const clientNetworks = state?.supported && !state.apMode && (
+    <Tabs
+      defaultActiveKey="available"
+      items={[
+        {
+          key: 'available',
+          label: tr('availableNetworks'),
+          children: canConfigure ? (
+            <SettingsSection
+              actions={
+                <Button
+                  size="small"
+                  onClick={scan}
+                  loading={scanning}
+                  disabled={locked || !state.bands?.length}
+                >
+                  {tr('scan')}
+                </Button>
+              }
+            >
+              {!state.bands?.length && (
+                <div className="text-fg-muted text-xs">{tr('bandsUnavailable')}</div>
+              )}
+              {groupedNetworks.length > 0 && (
+                <Panel flush className="divide-line divide-y">
+                  {groupedNetworks.map((network) => (
+                    <div
+                      key={`${network.ssid}-${network.security}`}
+                      className="flex items-center justify-between gap-3 px-4 py-3"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <WifiSignal signal={network.signal} />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="break-all">{network.ssid}</span>
+                            {network.bands.map((band) => (
+                              <WifiBandTag key={band} band={band} />
+                            ))}
+                            {saved.some((item) => item.ssid === network.ssid) && (
+                              <StatusBadge tone="neutral">{tr('savedTag')}</StatusBadge>
+                            )}
+                          </div>
+                          <div className="text-fg-muted text-xs">
+                            {Array.from(
+                              new Set(
+                                network.candidates.flatMap((item) =>
+                                  securityLabel(item.security).split('/')
+                                )
+                              )
+                            ).join(' / ')}
+                            {' · '}
+                            {Math.round(network.signal)} dBm
+                          </div>
+                        </div>
+                      </div>
+                      {state.connected && state.ssid === network.ssid ? (
+                        <Button size="small" danger disabled={locked} onClick={disconnect}>
+                          {tr('disconnectButton')}
+                        </Button>
+                      ) : saved.some((item) => item.ssid === network.ssid) ? (
+                        <Button
+                          size="small"
+                          disabled={locked}
+                          onClick={() => void joinSaved(network.ssid)}
+                        >
+                          {tr('joinBtn')}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="small"
+                          disabled={locked || network.security === 'unsupported'}
+                          onClick={() => open(network)}
+                        >
+                          {tr('joinBtn')}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </Panel>
+              )}
+              {scanned && networks.length === 0 && (
+                <div className="text-fg-muted text-xs">{tr('noNetworks')}</div>
+              )}
+              <div>
+                <Button
+                  size="small"
+                  disabled={locked || !state.bands?.length}
+                  onClick={() => open()}
+                >
+                  {tr('manual')}
+                </Button>
+              </div>
+            </SettingsSection>
+          ) : (
+            <div className="text-fg-muted text-xs">
+              {state.accessPoint ? t('settings.network.wifiAp.clientDisabled') : tr('disabled')}
+            </div>
+          )
+        },
+        {
+          key: 'saved',
+          label: t('settings.network.wifiSaved.title'),
+          children: (
+            <SavedWifi
+              networks={saved}
+              state={state}
+              locked={locked}
+              canJoin={canConfigure}
+              onJoin={(ssid) => void joinSaved(ssid)}
+              onChanged={() => void loadSaved()}
+            />
+          )
+        }
+      ]}
+    />
+  );
+
   return (
     <div className="space-y-6">
       {statusFailed && <Alert type="error" showIcon message={tr('statusFailed')} />}
@@ -406,28 +525,6 @@ export const Wifi = () => {
           />
         </SettingRow>
 
-        {canConfigure && (
-          <SettingRow
-            label={tr('preferredBand')}
-            description={tr('preferredBandHint')}
-            htmlFor="wifi-preferred-band"
-          >
-            <Select
-              id="wifi-preferred-band"
-              aria-describedby="wifi-preferred-band-description"
-              style={{ width: 180 }}
-              value={state.preferredBand}
-              disabled={locked}
-              options={(['2.4', '5'] as const).map((value) => ({
-                value,
-                label: value === '2.4' ? tr('band24') : tr('band5'),
-                disabled: !state.bands.includes(value)
-              }))}
-              onChange={setPreferredBand}
-            />
-          </SettingRow>
-        )}
-
         {!!pending && (
           <div role="status" className="text-fg-muted text-xs">
             {tr('applying')}
@@ -435,122 +532,54 @@ export const Wifi = () => {
         )}
       </SettingsSection>
 
-      {state?.supported && <IPv6 name="wlan0" />}
-
+      {/* The two roles of the radio: joining a network, or serving one. */}
       {state?.supported && !state.apMode && (
         <Tabs
-          defaultActiveKey="available"
+          defaultActiveKey={state.accessPoint ? 'ap' : 'client'}
           items={[
             {
-              key: 'available',
-              label: tr('availableNetworks'),
-              children: canConfigure ? (
-                <SettingsSection
-                  actions={
-                    <Button
-                      size="small"
-                      onClick={scan}
-                      loading={scanning}
-                      disabled={locked || !state.bands?.length}
-                    >
-                      {tr('scan')}
-                    </Button>
-                  }
-                >
-                  {!state.bands?.length && (
-                    <div className="text-fg-muted text-xs">{tr('bandsUnavailable')}</div>
+              key: 'client',
+              label: t('settings.network.wifiAp.client'),
+              children: (
+                <div className="space-y-6">
+                  {canConfigure && (
+                    <SettingsSection>
+                      <SettingRow
+                        label={tr('preferredBand')}
+                        description={tr('preferredBandHint')}
+                        htmlFor="wifi-preferred-band"
+                      >
+                        <Select
+                          id="wifi-preferred-band"
+                          aria-describedby="wifi-preferred-band-description"
+                          style={{ width: 180 }}
+                          value={state.preferredBand}
+                          disabled={locked}
+                          options={(['2.4', '5'] as const).map((value) => ({
+                            value,
+                            label: value === '2.4' ? tr('band24') : tr('band5'),
+                            disabled: !state.bands.includes(value)
+                          }))}
+                          onChange={setPreferredBand}
+                        />
+                      </SettingRow>
+                    </SettingsSection>
                   )}
-                  {groupedNetworks.length > 0 && (
-                    <Panel flush className="divide-line divide-y">
-                      {groupedNetworks.map((network) => (
-                        <div
-                          key={`${network.ssid}-${network.security}`}
-                          className="flex items-center justify-between gap-3 px-4 py-3"
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <WifiSignal signal={network.signal} />
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 text-sm">
-                                <span className="break-all">{network.ssid}</span>
-                                {network.bands.map((band) => (
-                                  <WifiBandTag key={band} band={band} />
-                                ))}
-                                {saved.some((item) => item.ssid === network.ssid) && (
-                                  <StatusBadge tone="neutral">{tr('savedTag')}</StatusBadge>
-                                )}
-                              </div>
-                              <div className="text-fg-muted text-xs">
-                                {Array.from(
-                                  new Set(
-                                    network.candidates.flatMap((item) =>
-                                      securityLabel(item.security).split('/')
-                                    )
-                                  )
-                                ).join(' / ')}
-                                {' · '}
-                                {Math.round(network.signal)} dBm
-                              </div>
-                            </div>
-                          </div>
-                          {state.connected && state.ssid === network.ssid ? (
-                            <Button size="small" danger disabled={locked} onClick={disconnect}>
-                              {tr('disconnectButton')}
-                            </Button>
-                          ) : saved.some((item) => item.ssid === network.ssid) ? (
-                            <Button
-                              size="small"
-                              disabled={locked}
-                              onClick={() => void joinSaved(network.ssid)}
-                            >
-                              {tr('joinBtn')}
-                            </Button>
-                          ) : (
-                            <Button
-                              size="small"
-                              disabled={locked || network.security === 'unsupported'}
-                              onClick={() => open(network)}
-                            >
-                              {tr('joinBtn')}
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </Panel>
-                  )}
-                  {scanned && networks.length === 0 && (
-                    <div className="text-fg-muted text-xs">{tr('noNetworks')}</div>
-                  )}
-                  <div>
-                    <Button
-                      size="small"
-                      disabled={locked || !state.bands?.length}
-                      onClick={() => open()}
-                    >
-                      {tr('manual')}
-                    </Button>
-                  </div>
-                </SettingsSection>
-              ) : (
-                <div className="text-fg-muted text-xs">{tr('disabled')}</div>
+                  <IPv6 name="wlan0" />
+                  {clientNetworks}
+                </div>
               )
             },
             {
-              key: 'saved',
-              label: t('settings.network.wifiSaved.title'),
-              children: (
-                <SavedWifi
-                  networks={saved}
-                  state={state}
-                  locked={locked}
-                  canJoin={canConfigure}
-                  onJoin={(ssid) => void joinSaved(ssid)}
-                  onChanged={() => void loadSaved()}
-                />
-              )
+              key: 'ap',
+              label: t('settings.network.wifiAp.title'),
+              children: <WifiAccessPoint />
             }
           ]}
         />
       )}
+
+      {state?.supported && state.apMode && <IPv6 name="wlan0" />}
 
       <Modal
         title={tr('connect')}

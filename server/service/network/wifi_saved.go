@@ -551,7 +551,7 @@ func (s *Service) ForgetSavedWifi(c *gin.Context) {
 		time.Sleep(300 * time.Millisecond)
 		var err error
 		// disable also drops the addresses of the left network.
-		if wifiControl.present() && !isAPMode() {
+		if wifiControl.present() && !wifiIsAccessPoint() {
 			if _, err = wifiControl.run(WiFiScript, "disable"); err == nil {
 				_, err = wifiControl.run(WiFiScript, "start")
 			}

@@ -133,6 +133,11 @@ func (s *Service) ConnectWifiNoAuth(c *gin.Context) {
 		return
 	}
 	defer finishWifi(nil)
+	// A network joined from the setup access point wins over the
+	// administrator's access point, which S30wifi would start instead.
+	if err := os.Remove(wifiAPFile("enabled")); err != nil && !os.IsNotExist(err) {
+		log.Warnf("failed to turn the Wi-Fi access point off: %s", err)
+	}
 	if err := connect(req.Ssid, req.Password); err != nil {
 		rsp.ErrRsp(c, -3, "failed to connect wifi")
 		return

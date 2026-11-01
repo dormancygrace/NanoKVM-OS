@@ -402,7 +402,7 @@ func parseScan(output, band string) []wifiNetwork {
 func (w radioControl) status() *proto.GetWifiRsp {
 	// Without a radio Wi-Fi is not on, whatever the saved preference says.
 	hardware := w.hardware()
-	d := &proto.GetWifiRsp{Supported: hardware, Enabled: hardware && w.enabled(), Bands: []string{}, ApMode: isAPMode(), PreferredBand: w.preferredBand()}
+	d := &proto.GetWifiRsp{Supported: hardware, Enabled: hardware && w.enabled(), Bands: []string{}, ApMode: isAPMode(), AccessPoint: wifiAPActive(), PreferredBand: w.preferredBand()}
 	wifiMu.Lock()
 	d.Busy = wifiBusy
 	d.Error = wifiError
@@ -421,7 +421,7 @@ func (w radioControl) status() *proto.GetWifiRsp {
 			d.Bands = append(d.Bands, b)
 		}
 	}
-	if !d.Enabled || d.ApMode {
+	if !d.Enabled || d.ApMode || d.AccessPoint {
 		return d
 	}
 	out, err := w.request("STATUS")
@@ -608,7 +608,9 @@ func checkRadio(c *gin.Context, enabled bool) bool {
 	if enabled {
 		available = wifiControl.present() && wifiControl.enabled()
 	}
-	if !available || isAPMode() {
+	// While Wi-Fi is the administrator's access point, it joins no network;
+	// the switch and the band preference still work.
+	if !available || isAPMode() || (enabled && wifiAPActive()) {
 		rsp.ErrRsp(c, -1, "Wi-Fi unavailable")
 		return false
 	}

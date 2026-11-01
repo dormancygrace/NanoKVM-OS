@@ -200,10 +200,57 @@ export function setIPv6(
 }
 
 export type WifiBand = '2.4' | '5';
+
+// The administrator's access point, instead of joining a network. password
+// is write-only: empty keeps the stored one. channel 0: chosen by a scan.
+// subnet: three octets of a private /24, empty for the derived one.
+export type WifiAP = {
+  enabled: boolean;
+  ssid: string;
+  password?: string;
+  band: WifiBand;
+  channel: number;
+  hidden: boolean;
+  subnet: string;
+  // Clients reach the internet through the device.
+  internet: boolean;
+  // DNS servers for its clients with internet (IPv4, up to three); empty:
+  // the device's own.
+  dns: string[];
+};
+export type WifiAPStatus = WifiAP & {
+  passwordSet: boolean;
+  running: boolean;
+  address: string;
+  stations: WifiAPStation[];
+};
+// A device on the access point; ip and hostname come with its lease.
+export type WifiAPStation = {
+  mac: string;
+  ip?: string;
+  hostname?: string;
+  signal?: number;
+  // Seconds.
+  connected: number;
+  // The last transmit rate to it, Mbit/s.
+  rate?: number;
+};
+
+export function getWifiAP() {
+  return http.get<WifiAPStatus>('/api/network/wifi/ap');
+}
+
+export function setWifiAP(ap: WifiAP) {
+  // No trial when the request did not come over Wi-Fi.
+  return http.post<{ trial?: NetworkTrial }>('/api/network/wifi/ap', ap);
+}
+
 export type WifiStatus = {
   supported: boolean;
   enabled: boolean;
   apMode: boolean;
+  // The administrator's access point is up; Wi-Fi joins no network.
+  accessPoint: boolean;
   connected: boolean;
   ssid: string;
   model: string;

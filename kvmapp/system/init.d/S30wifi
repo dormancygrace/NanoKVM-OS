@@ -29,6 +29,9 @@
 : "${NANOKVM_WIFI_DRIVER_WAIT:=50}"
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
+: "${NANOKVM_NFT:=nft}"
+: "${NANOKVM_RESOLV_CONF:=/etc/resolv.conf}"
+: "${NANOKVM_IPV4_CONF_DIR:=/proc/sys/net/ipv4/conf}"
 
 # Alpine's wpa_passphrase reads the password from its controlling TTY when no
 # argument is supplied. Keep the legacy stdin API used by this script when
@@ -52,6 +55,15 @@ SAVED_DIR=$NANOKVM_WIFI_ETC_DIR/wifi.saved
 SELECTED_FILE=$NANOKVM_WIFI_RUN_DIR/selected
 FALLBACK_BGSCAN=simple:30:-70:120
 HOSTAPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/hostapd.conf
+# The access point the administrator turns on instead of joining a network
+# (the server writes one file per setting). Unlike the setup access point of
+# the button, it leaves /tmp/wifiap alone: that flag opens the setup page.
+AP_PREFIX=$NANOKVM_WIFI_ETC_DIR/wifi.ap
+USER_AP_FLAG=$NANOKVM_WIFI_RUN_DIR/ap-user
+# Internet for its clients (wifi.ap.internet): the interfaces whose IPv4
+# forwarding it switched on, to switch off again.
+AP_FORWARDING=$NANOKVM_WIFI_RUN_DIR/ap-forwarding
+AP_NAT_TABLE=nkos_wifi_ap
 UDHCPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/udhcpd.conf
 UDHCPD_PID=$NANOKVM_WIFI_RUN_DIR/udhcpd.pid
 UDHCPD_LEASES=$NANOKVM_WIFI_RUN_DIR/udhcpd.leases
@@ -82,14 +94,24 @@ dhcp_hostname() {
     printf '%s\n' "$value"
 }
 
+# gen_hostapd_conf SSID PASS [BAND CHANNEL HIDDEN]: the SSID goes as hex, so
+# none of its bytes is read as configuration.
 gen_hostapd_conf() {
     ssid=$1
     pass=$2
+    hp_band=${3:-2.4}
+    hp_channel=${4:-1}
+    hp_hidden=${5:-0}
     echo "ctrl_interface=/var/run/hostapd"
     echo "ctrl_interface_group=0"
-    echo "ssid=${ssid}"
-    echo "hw_mode=g"
-    echo "channel=1"
+    echo "ssid2=$(hex_of "$ssid")"
+    if [ "$hp_band" = 5 ]; then
+        echo "hw_mode=a"
+    else
+        echo "hw_mode=g"
+    fi
+    echo "channel=${hp_channel}"
+    [ "$hp_hidden" != 1 ] || echo "ignore_broadcast_ssid=1"
     echo "beacon_int=100"
     echo "dtim_period=2"
     echo "max_num_sta=255"
@@ -99,9 +121,43 @@ gen_hostapd_conf() {
     echo "auth_algs=3"
     echo "wpa=2"
     echo "wpa_passphrase=${pass}"
+    # Without CCMP named, hostapd turns 802.11n off.
+    echo "wpa_key_mgmt=WPA-PSK"
+    echo "rsn_pairwise=CCMP"
     echo "ieee80211n=1"
 }
 
+# pick_channel BAND: the channel with the fewest networks in a scan, among
+# those without radar detection (the driver chooses none well itself: it
+# took channel 14 for 2.4 GHz). On 2.4 GHz neighbours within two channels
+# count, as they overlap. Without a scan: 6, or 36.
+pick_channel() {
+    case "$1" in
+        5) candidates="36 40 44 48" ;;
+        *) candidates="6 1 11" ;;
+    esac
+    freqs=$("$NANOKVM_IW" dev wlan0 scan 2>/dev/null | sed -n 's/^[[:space:]]*freq: \([0-9]*\).*/\1/p')
+    best=
+    best_count=
+    for candidate in $candidates; do
+        count=$(printf '%s\n' "$freqs" | awk -v c="$candidate" -v b="$1" '
+            $1 != "" {
+                ch = (b == "5") ? ($1 - 5000) / 5 : ($1 - 2407) / 5
+                d = ch - c; if (d < 0) d = -d
+                if ((b == "5" && d == 0) || (b != "5" && d <= 2)) n++
+            }
+            END { print n + 0 }')
+        if [ -z "$best_count" ] || [ "$count" -lt "$best_count" ]; then
+            best=$candidate
+            best_count=$count
+        fi
+    done
+    echo "$best"
+}
+
+# gen_udhcpd_conf INTERFACE PREFIX [internet [DNS...]]: with internet, the
+# device is the clients' router and hands them the DNS servers given, else
+# its own, on short leases so that they follow a change of those.
 gen_udhcpd_conf() {
     interface=$1
     ipv4_prefix=$2
@@ -110,8 +166,73 @@ gen_udhcpd_conf() {
     echo "interface ${interface}"
     echo "pidfile ${UDHCPD_PID}"
     echo "lease_file ${UDHCPD_LEASES}"
+    # In /run: fresh enough for the server's list of connected devices.
+    echo "auto_time 10"
     echo "option subnet 255.255.255.0"
-    echo "option lease 864000"
+    if [ "$3" = internet ]; then
+        echo "option router ${ipv4_prefix}.1"
+        dns=$4
+        [ -n "$dns" ] || dns=$(sed -n 's/^nameserver[[:space:]]*\([0-9.]*\)[[:space:]]*$/\1/p' "$NANOKVM_RESOLV_CONF" 2>/dev/null |
+            grep -v '^127\.' | head -3 | tr '\n' ' ')
+        [ -z "$dns" ] || echo "option dns ${dns% }"
+        echo "option lease 3600"
+    else
+        echo "option lease 864000"
+    fi
+}
+
+# The access point's subnet goes out masqueraded through any other
+# interface. IPv4 forwarding is decided on the receiving interface, so it is
+# switched on for wlan0 and the interfaces of the default routes (replies
+# come in there), never globally: net.ipv4.ip_forward resets every
+# interface's settings.
+ap_internet_start() {
+    ipv4_prefix=$1
+    "$NANOKVM_NFT" -f - <<EOF || return 1
+add table inet $AP_NAT_TABLE
+delete table inet $AP_NAT_TABLE
+table inet $AP_NAT_TABLE {
+ comment "NanoKVM Wi-Fi access point internet"
+ chain forward { type filter hook forward priority 30000; policy accept;
+  iifname "wlan0" meta nfproto ipv6 counter drop
+  oifname "wlan0" meta nfproto ipv6 counter drop
+  iifname "wlan0" ct state invalid counter drop
+  iifname "wlan0" oifname != "wlan0" ip saddr $ipv4_prefix.0/24 tcp flags syn tcp option maxseg size set rt mtu
+  iifname "wlan0" oifname != "wlan0" ip saddr $ipv4_prefix.0/24 counter accept
+  iifname != "wlan0" oifname "wlan0" ip daddr $ipv4_prefix.0/24 ct state { established, related } counter accept
+  iifname "wlan0" counter drop
+  oifname "wlan0" counter drop
+ }
+ chain nat { type nat hook postrouting priority srcnat; policy accept;
+  iifname "wlan0" oifname != "wlan0" ip saddr $ipv4_prefix.0/24 counter masquerade
+ }
+}
+EOF
+    : > "$AP_FORWARDING"
+    # Ethernet also when its lease comes after the access point.
+    for dev in wlan0 eth0 $("$NANOKVM_IP" -4 route show default | sed -n 's/.* dev \([^ ]*\).*/\1/p'); do
+        forwarding=$NANOKVM_IPV4_CONF_DIR/$dev/forwarding
+        if [ "$(cat "$forwarding" 2>/dev/null)" = 0 ] && echo 1 > "$forwarding"; then
+            echo "$dev" >> "$AP_FORWARDING"
+        fi
+    done
+}
+
+ap_internet_stop() {
+    if "$NANOKVM_NFT" list table inet "$AP_NAT_TABLE" >/dev/null 2>&1; then
+        "$NANOKVM_NFT" delete table inet "$AP_NAT_TABLE" || true
+    fi
+    [ -r "$AP_FORWARDING" ] || return 0
+    # USB internet sharing forwards through the same uplinks; leave them on
+    # while it runs.
+    usb_sharing=
+    "$NANOKVM_NFT" list table inet nkos_usb_internet >/dev/null 2>&1 && usb_sharing=1
+    while read -r dev; do
+        if [ "$dev" = wlan0 ] || [ -z "$usb_sharing" ]; then
+            echo 0 > "$NANOKVM_IPV4_CONF_DIR/$dev/forwarding" 2>/dev/null || true
+        fi
+    done < "$AP_FORWARDING"
+    rm -f "$AP_FORWARDING"
 }
 
 import_boot_credentials() {
@@ -390,11 +511,17 @@ start() {
     if [ -x /etc/init.d/S29qdisc ]; then
         /etc/init.d/S29qdisc wlan0 || echo "Could not apply fq_codel to wlan0" >&2
     fi
-    echo "wifi mode: sta"
     if [ -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ]; then
+        echo "wifi mode: sta"
         "$NANOKVM_IP" link set dev wlan0 down || return 1
         return 0
     fi
+    # The administrator's access point, instead of joining a network.
+    if [ -e "$AP_PREFIX.enabled" ]; then
+        ap_start user
+        return
+    fi
+    echo "wifi mode: sta"
     import_boot_credentials || return 1
     "$NANOKVM_IP" link set dev wlan0 up || return 1
     if [ -x "$NANOKVM_IPV6_INIT" ]; then
@@ -528,11 +655,15 @@ wifi_event() {
     start_dhcp
 }
 
+# ap_start [user]: the setup access point of the button (ap.ssid and ap.pass
+# from kvm_system, /tmp/wifiap), or with "user" the administrator's, from
+# the wifi.ap.* settings.
 ap_start() {
+    mode=${1:-setup}
     if [ -x /etc/init.d/S29qdisc ]; then
         /etc/init.d/S29qdisc wlan0 || echo "Could not apply fq_codel to wlan0" >&2
     fi
-    echo "wifi mode: ap"
+    echo "wifi mode: ap ($mode)"
     prepare_run_dir || return 1
 
     id2=$(printf "%d" "0x$(sha512sum "$NANOKVM_WIFI_UID_FILE" | head -c 2)")
@@ -549,19 +680,53 @@ ap_start() {
 
     ssid=
     pass=
-    if [ -e "$NANOKVM_WIFI_KVM_DIR/ap.ssid" ]; then
-        ssid=$(cat "$NANOKVM_WIFI_KVM_DIR/ap.ssid")
-    fi
-    if [ -e "$NANOKVM_WIFI_KVM_DIR/ap.pass" ]; then
-        pass=$(cat "$NANOKVM_WIFI_KVM_DIR/ap.pass")
-    fi
-
-    umask 077
-    gen_hostapd_conf "$ssid" "$pass" > "$HOSTAPD_CONFIG" || return 1
+    ap_band=2.4
+    ap_channel=1
+    ap_hidden=0
+    ap_internet=
+    ap_dns=
     ipv4_prefix=10.$id3.$id2
-    gen_udhcpd_conf wlan0 "$ipv4_prefix" > "$UDHCPD_CONFIG" || return 1
+    if [ "$mode" = user ]; then
+        ssid=$(cat "$AP_PREFIX.ssid" 2>/dev/null)
+        pass=$(cat "$AP_PREFIX.pass" 2>/dev/null)
+        [ "$(cat "$AP_PREFIX.band" 2>/dev/null)" != 5 ] || ap_band=5
+        ap_channel=$(cat "$AP_PREFIX.channel" 2>/dev/null)
+        [ ! -e "$AP_PREFIX.hidden" ] || ap_hidden=1
+        # Never for the setup access point.
+        [ ! -e "$AP_PREFIX.internet" ] || ap_internet=internet
+        # IPv4 addresses, which the server checked.
+        ap_dns=$(tr -cd '0-9. ' < "$AP_PREFIX.dns" 2>/dev/null)
+        # Three octets of a private network, which the server checked.
+        subnet=$(cat "$AP_PREFIX.subnet" 2>/dev/null)
+        case "$subnet" in
+            ''|*[!0-9.]*) ;;
+            *) ipv4_prefix=$subnet ;;
+        esac
+        if [ -z "$ssid" ] || [ -z "$pass" ]; then
+            echo "The access point has no name or password" >&2
+            return 1
+        fi
+        # A client lease of before leaves its source rule (98-nanokvm-wifi-source).
+        while "$NANOKVM_IP" -4 rule del pref 1000 2>/dev/null; do :; done
+        "$NANOKVM_IP" -4 route flush table 200 2>/dev/null || true
+    else
+        if [ -e "$NANOKVM_WIFI_KVM_DIR/ap.ssid" ]; then
+            ssid=$(cat "$NANOKVM_WIFI_KVM_DIR/ap.ssid")
+        fi
+        if [ -e "$NANOKVM_WIFI_KVM_DIR/ap.pass" ]; then
+            pass=$(cat "$NANOKVM_WIFI_KVM_DIR/ap.pass")
+        fi
+    fi
 
     "$NANOKVM_IFCONFIG" wlan0 up || return 1
+    case "$ap_channel" in
+        ''|0|*[!0-9]*) ap_channel=$(pick_channel "$ap_band") ;;
+    esac
+
+    umask 077
+    gen_hostapd_conf "$ssid" "$pass" "$ap_band" "$ap_channel" "$ap_hidden" > "$HOSTAPD_CONFIG" || return 1
+    gen_udhcpd_conf wlan0 "$ipv4_prefix" "$ap_internet" "$ap_dns" > "$UDHCPD_CONFIG" || return 1
+
     "$NANOKVM_IP" route del default dev wlan0 2>/dev/null || true
     "$NANOKVM_IP" addr flush dev wlan0 || return 1
     "$NANOKVM_IP" addr add "$ipv4_prefix.1/24" dev wlan0 || return 1
@@ -570,8 +735,16 @@ ap_start() {
     fi
     "$NANOKVM_HOSTAPD" -B -i wlan0 "$HOSTAPD_CONFIG" || return 1
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
+    if [ -n "$ap_internet" ]; then
+        ap_internet_start "$ipv4_prefix" ||
+            echo "Could not share the internet with the access point's clients" >&2
+    fi
 
-    touch "$NANOKVM_WIFI_AP_FLAG"
+    if [ "$mode" = user ]; then
+        touch "$USER_AP_FLAG"
+    else
+        touch "$NANOKVM_WIFI_AP_FLAG"
+    fi
 }
 
 # wpa_supplicant and hostapd deauthenticate through the SDIO driver before
@@ -601,6 +774,7 @@ stop() {
     if [ -x "$NANOKVM_IPV6_INIT" ]; then
         "$NANOKVM_IPV6_INIT" down wlan0 || return 1
     fi
+    ap_internet_stop
     "$NANOKVM_KILLALL" hostapd 2>/dev/null || true
     # The USB network runs a separate udhcpd. Stop only our AP instance.
     if [ -r "$UDHCPD_PID" ]; then
@@ -625,7 +799,7 @@ stop() {
     stop_dhcp || true
 
     rm -f "$UDHCPD_PID" "$UDHCPD_LEASES" "$WPA_CONFIG" \
-        "$HOSTAPD_CONFIG" "$UDHCPD_CONFIG" "$NANOKVM_WIFI_AP_FLAG"
+        "$HOSTAPD_CONFIG" "$UDHCPD_CONFIG" "$NANOKVM_WIFI_AP_FLAG" "$USER_AP_FLAG"
 
     if [ -e /sys/class/net/wlan0mon ] && command -v airmon-ng >/dev/null 2>&1; then
         airmon-ng stop wlan0mon || true

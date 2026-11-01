@@ -70,6 +70,7 @@ var (
 // The services whose settings run on trial, by the name in their record.
 var trialRestarts = map[string]func() error{
 	"ethernet": func() error { return restartEthernet() },
+	"wifi-ap":  func() error { return restartWifiAP() },
 }
 
 func randomHex(n int) string {
@@ -339,6 +340,11 @@ func trialPathAllowed(path string) bool {
 	switch path {
 	case ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile:
 		return true
+	}
+	for _, file := range wifiAPFiles() {
+		if path == file {
+			return true
+		}
 	}
 	return false
 }

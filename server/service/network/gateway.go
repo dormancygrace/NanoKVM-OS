@@ -21,6 +21,12 @@ const udhcpcGatewayHookName = "99-nanokvm-gateway"
 //go:embed scripts/99-nanokvm-gateway
 var udhcpcGatewayHook string
 
+// Replies from the Wi-Fi address leave through Wi-Fi (a rule per lease).
+const udhcpcWifiSourceHookName = "98-nanokvm-wifi-source"
+
+//go:embed scripts/98-nanokvm-wifi-source
+var udhcpcWifiSourceHook string
+
 var gatewayRouteCommand = func(args ...string) ([]byte, error) {
 	return exec.Command("ip", args...).Output()
 }

@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Replies from the Wi-Fi address leave through Wi-Fi. With Ethernet on the
+# same subnet the main table sends them through Ethernet: strict networks
+# (reverse-path checks, IP source guard) drop them there, and they go
+# nowhere while Ethernet keeps its link with no network behind it. A rule
+# for the lease's address looks up a table holding Wi-Fi's subnet and
+# default routes, copied from the main table after udhcpc set them;
+# Ethernet stays in the main table.
+# Alpine's udhcpc script runs this from /etc/udhcpc/post-bound/, post-renew/
+# and post-deconfig/ without arguments: the event is the directory name.
+ACTION="${1:-$(basename "$(dirname "$0")")}"
+ACTION="${ACTION#post-}"
+TABLE=200
+PREF=1000
+
+case "$interface" in wlan*) ;; *) exit 0 ;; esac
+
+clear_source() {
+    while ip -4 rule del pref "$PREF" 2>/dev/null; do :; done
+    ip -4 route flush table "$TABLE" 2>/dev/null
+    return 0
+}
+
+case "$ACTION" in
+    deconfig) clear_source ;;
+    bound|renew)
+        clear_source
+        [ -n "$ip" ] || exit 0
+        ip -4 route show table main dev "$interface" scope link | while read -r prefix rest; do
+            ip -4 route add "$prefix" dev "$interface" src "$ip" table "$TABLE"
+        done
+        gateway=$(ip -4 route show default dev "$interface" | sed -n 's/^default via \([0-9.]*\).*/\1/p' | head -n 1)
+        [ -z "$gateway" ] || ip -4 route add default via "$gateway" dev "$interface" table "$TABLE"
+        ip -4 rule add from "$ip" lookup "$TABLE" pref "$PREF"
+        ;;
+esac
+exit 0

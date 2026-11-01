@@ -1,0 +1,101 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: no RX buffer memset, no unused TX buffer
+
+Two leftovers around the SDIO data path, found while auditing what the
+driver builds:
+
+- Every SDIO read took a preallocated 32 KiB RX buffer and cleared all
+  of it first, although the read fills [data, end) and the frame parser
+  (aicwf_process_rxframes, bounded by patch 0010) never looks past end;
+  the path without preallocation uses an uncleared skb all the same.
+  At 41 Mbit/s of TCP receive on the AIC8801 the memset was 0.35% of
+  all CPU (perf, r9 kernel).
+- The copying TX path's 96 KiB aggregation buffer (an order-5, 128 KiB
+  skb) was still allocated with CONFIG_SDIO_ADMA, which sends frames
+  where they are (patch 0013) and never touches it. It is now allocated
+  only without ADMA, and aic8800_bsp allocates its reserved pool when
+  first asked for instead of at load, so with ADMA the 128 KiB are never
+  taken. aicwf_tx_deinit() frees tx_priv also when there is no buffer.
+
+diff --git a/aic8800_bsp/aic_bsp_driver.c b/aic8800_bsp/aic_bsp_driver.c
+index fa5e4d4..2dd1c59 100644
+--- a/aic8800_bsp/aic_bsp_driver.c
++++ b/aic8800_bsp/aic_bsp_driver.c
+@@ -2280,13 +2280,10 @@ static struct skb_buff_pool resv_skb[] = {
+ 	{AIC_RESV_MEM_TXDATA, 1536*64, "resv_mem_txdata", 0, NULL},
+ };
+ 
++/* Allocated when first asked for (aicbsp_resv_mem_alloc_skb): the driver
++ * loads right after this module, and with ADMA it never asks. */
+ int aicbsp_resv_mem_init(void)
+ {
+-    int i = 0;
+-	printk("%s \n",__func__);
+-    for (i = 0; i < sizeof(resv_skb) / sizeof(resv_skb[0]); i++) {
+-            resv_skb[i].skb = dev_alloc_skb(resv_skb[i].size);
+-    }
+     return 0;
+ }
+ 
+@@ -2314,7 +2311,6 @@ struct sk_buff *aicbsp_resv_mem_alloc_skb(unsigned int length, uint32_t id)
+     }
+ 
+     if (resv_skb[id].skb == NULL) {
+-            pr_err("aicbsp: %s, mem not initialazed\n", __func__);
+             resv_skb[id].skb = dev_alloc_skb(resv_skb[id].size);
+             if (resv_skb[id].skb == NULL) {
+                     pr_err("aicbsp: %s, mem reinitial still fail\n", __func__);
+diff --git a/aic8800_fdrv/aicwf_rx_prealloc.c b/aic8800_fdrv/aicwf_rx_prealloc.c
+index 59502b8..8760160 100644
+--- a/aic8800_fdrv/aicwf_rx_prealloc.c
++++ b/aic8800_fdrv/aicwf_rx_prealloc.c
+@@ -30,7 +30,8 @@ struct rx_buff *aicwf_prealloc_rxbuff_alloc(spinlock_t *lock)
+ 	}
+     spin_unlock_irqrestore(lock, flags);
+     //printk("len:%d\n", aic_rx_buff_list.rxbuff_list_len);
+-    memset(rxbuff->data, 0, aic_rxbuff_size);
++    /* No memset of the 32 KiB: a read fills [data, end) and the parser
++     * (aicwf_process_rxframes) stops at end. */
+     rxbuff->len = 0;
+     rxbuff->start = NULL;
+     rxbuff->read = NULL;
+diff --git a/aic8800_fdrv/aicwf_txrxif.c b/aic8800_fdrv/aicwf_txrxif.c
+index 07cd89a..ff1c729 100644
+--- a/aic8800_fdrv/aicwf_txrxif.c
++++ b/aic8800_fdrv/aicwf_txrxif.c
+@@ -234,6 +234,9 @@ struct aicwf_tx_priv *aicwf_tx_init(void *arg)
+ #endif
+ 
+ 	atomic_set(&tx_priv->aggr_count, 0);
++	/* The copying path's 96 KiB aggregation buffer: ADMA sends the frames
++	 * where they are and never uses it. */
++#ifndef CONFIG_SDIO_ADMA
+ #ifdef  CONFIG_RESV_MEM_SUPPORT
+ 	tx_priv->aggr_buf = aicbsp_resv_mem_alloc_skb(MAX_AGGR_TXPKT_LEN, AIC_RESV_MEM_TXDATA);
+ #else
+@@ -246,6 +249,7 @@ struct aicwf_tx_priv *aicwf_tx_init(void *arg)
+ 	}
+ 	tx_priv->head = tx_priv->aggr_buf->data;
+ 	tx_priv->tail = tx_priv->aggr_buf->data;
++#endif
+ 
+ #ifdef CONFIG_SDIO_ADMA
+ 	tx_priv->aggr_segcnt = 0;
+@@ -255,7 +259,6 @@ struct aicwf_tx_priv *aicwf_tx_init(void *arg)
+ 		sdio_tx_buf_fill = kzalloc(TXPKT_BLOCKSIZE, GFP_KERNEL);
+ 	if (!sdio_tx_buf_fill) {
+ 		txrx_err("Alloc tx fill failed!\n");
+-		dev_kfree_skb(tx_priv->aggr_buf);
+ 		kfree(tx_priv);
+ 		return NULL;
+ 	}
+@@ -278,8 +281,8 @@ void aicwf_tx_deinit(struct aicwf_tx_priv *tx_priv)
+ #else
+ 		dev_kfree_skb(tx_priv->aggr_buf);
+ #endif
+-		kfree(tx_priv);
+ 	}
++	kfree(tx_priv);
+ }
+ 
+ #ifdef AICWF_SDIO_SUPPORT

@@ -8,7 +8,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -121,26 +123,73 @@ type Service struct {
 	// active counts the deliveries alive, inFlight those of each channel id.
 	active   int
 	inFlight map[string]int
+	// authErrors are the failed sign-ins of each channel id, for the page.
+	authErrors map[string]string
 
 	startOnce sync.Once
 }
 
 func newService(path string) *Service {
 	s := &Service{
-		path:     path,
-		queue:    make(chan Event, queueSize),
-		send:     sendChannel,
-		now:      time.Now,
-		sleep:    sleepContext,
-		recent:   make(map[string]time.Time),
-		inFlight: make(map[string]int),
+		path:       path,
+		queue:      make(chan Event, queueSize),
+		send:       sendChannel,
+		now:        time.Now,
+		sleep:      sleepContext,
+		recent:     make(map[string]time.Time),
+		inFlight:   make(map[string]int),
+		authErrors: make(map[string]string),
 	}
 	config, err := Load(path)
 	if err != nil {
 		log.Errorf("notifications: %v", err)
 	}
 	s.config = config
+	oauth.mu.Lock()
+	oauth.persist = s.replaceToken
+	oauth.mu.Unlock()
 	return s
+}
+
+// replaceToken stores a renewed refresh token in the channel of id if the
+// channel still holds old. A failed save keeps the old token, which stays
+// valid for a while: the send goes on.
+func (s *Service) replaceToken(id, old, new string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, ch := range s.config.Channels {
+		if ch.ID != id || ch.get("oauthToken") != old {
+			continue
+		}
+		next := s.config
+		next.Channels = slices.Clone(s.config.Channels)
+		settings := maps.Clone(ch.Settings)
+		settings["oauthToken"] = new
+		next.Channels[i].Settings = settings
+		if err := Save(s.path, next); err != nil {
+			log.Warnf("notifications: keeping a renewed sign-in: %v", err)
+			return false
+		}
+		s.config = next
+		return true
+	}
+	return false
+}
+
+// noteAuth keeps or clears the sign-in failure of a saved channel.
+func (s *Service) noteAuth(id string, err error) {
+	if id == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var auth authError
+	switch {
+	case err == nil:
+		delete(s.authErrors, id)
+	case errors.As(err, &auth):
+		s.authErrors[id] = err.Error()
+	}
 }
 
 var (
@@ -244,11 +293,13 @@ func (s *Service) deliver(ch Channel, r Rendered) {
 		err := s.send(ctx, ch, r)
 		cancel()
 		if err == nil {
+			s.noteAuth(ch.ID, nil)
 			return
 		}
 		var perm permanentError
 		if errors.As(err, &perm) || attempt >= len(retryDelays) {
 			log.Warnf("notifications: %s %q: %v", ch.Type, ch.Name, err)
+			s.noteAuth(ch.ID, err)
 			return
 		}
 		log.Debugf("notifications: %s %q: %v; retrying", ch.Type, ch.Name, err)

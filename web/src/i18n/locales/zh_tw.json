@@ -825,14 +825,21 @@
         "accessToken": "存取權杖",
         "roomId": "房間 ID",
         "protocol": "通訊協定",
-        "skipVerify": "接受任何伺服器憑證"
+        "skipVerify": "接受任何伺服器憑證",
+        "provider": "郵件服務",
+        "auth": "登入方式",
+        "oauthClientId": "OAuth 用戶端 ID",
+        "oauthClientSecret": "OAuth 用戶端密鑰",
+        "oauthTenant": "租用戶"
       },
       "option": {
         "none": "無",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "密碼",
+        "oauth2": "OAuth 2.0 登入"
       },
       "help": {
         "telegram": "透過 @BotFather 建立機器人，貼上其權杖，並將機器人加入聊天。群組 ID 以 -100 開頭。主題 ID：用於啟用主題的群組。Bot API 伺服器：僅用於自行架設的 Bot API 伺服器。",
@@ -877,6 +884,46 @@
         "screen_bsod": "藍屏",
         "screen_panic": "Kernel panic",
         "test": "測試訊息"
+      },
+      "provider": {
+        "custom": "其他伺服器"
+      },
+      "providerHelp": {
+        "gmail": "透過您自己的 OAuth 用戶端使用 OAuth 2.0 登入，或使用應用程式密碼（需要開啟兩步驟驗證）。使用者名稱為您的電子郵件地址。",
+        "microsoft365": "透過您自己的應用程式註冊使用 OAuth 2.0 登入。信箱必須開啟已驗證的 SMTP。Microsoft 正在停用 SMTP 的密碼（Basic authentication）：只有在貴組織仍允許時，密碼才可使用。",
+        "outlook": "Outlook.com 不再接受郵件程式使用密碼登入：請透過您自己的、允許個人 Microsoft 帳戶的應用程式註冊，使用 OAuth 2.0 登入。",
+        "yahoo": "使用應用程式密碼（Account security > Generate app password）。使用者名稱為您的電子郵件地址。",
+        "icloud": "使用 App 專用密碼（Apple Account > Sign-In and Security；需要雙重認證）。使用者名稱為您完整的 iCloud Mail 地址。",
+        "zoho": "使用應用程式專用密碼。smtp.zoho.com 服務位於美國資料中心的帳戶；其他帳戶使用各自的伺服器，例如 smtp.zoho.eu 或 smtp.zoho.in，付費網域帳戶則使用 smtppro.zoho.com。",
+        "fastmail": "使用具有 SMTP 存取權的應用程式密碼（Settings > Privacy & Security > Manage app passwords）。使用者名稱為您的電子郵件地址。",
+        "yandex": "使用 Mail 的應用程式密碼（Yandex ID > Security > App passwords）。",
+        "mailru": "使用外部應用程式密碼（帳戶設定 > Security）。使用者名稱為您的電子郵件地址。",
+        "proton": "需要付費方案和您自己網域下的地址：建立 SMTP 權杖（Settings > IMAP/SMTP）並作為密碼輸入，使用者名稱填寫您網域下的地址。Proton Mail Bridge 執行於電腦上，而不是本裝置上。",
+        "custom": "您自己的郵件伺服器或中繼。連接埠 587 使用 STARTTLS，465 使用 TLS。"
+      },
+      "oauth": {
+        "account": "帳戶",
+        "clientHelpGoogle": "在 Google Cloud Console 中建立類型為 \"Desktop app\" 的 OAuth 用戶端，範圍為 https://mail.google.com/，並輸入其用戶端 ID 和密鑰。將同意畫面設為 \"In production\"：處於 \"Testing\" 狀態時，登入會在 7 天後過期。對於您自己的應用程式，Google 提示應用程式未經驗證屬於正常現象。",
+        "clientHelpMicrosoft": "在 Microsoft Entra ID 中註冊一個應用程式（用於 Outlook.com 時：需允許個人 Microsoft 帳戶），在 Authentication 下開啟 \"Allow public client flows\"，並新增委派權限 SMTP.Send。輸入其應用程式（用戶端）ID。租用戶：如果應用程式僅供貴組織使用，請填寫您的租用戶 ID。",
+        "signIn": "登入",
+        "signInAgain": "重新登入",
+        "signOut": "登出",
+        "signOutConfirm": "要登出嗎？儲存後生效。屆時 Google 的存取權會被撤銷；Microsoft 帳戶會將該應用程式保留在其應用程式權限中，直到您在那裡移除。",
+        "signedIn": "已登入為 {{account}}",
+        "signedInNoAccount": "已登入",
+        "saveToKeep": "儲存以保留登入狀態。",
+        "notSignedIn": "尚未登入。",
+        "deviceStep": "前往",
+        "waiting": "在那裡輸入此代碼並登入；本頁面正在等待。",
+        "codeStep": "在 Google 頁面登入：",
+        "openPage": "開啟登入頁面",
+        "codePaste": "登入後，瀏覽器會跳轉到 127.0.0.1 上一個無法載入的位址。請從網址列複製完整位址並貼到此處。",
+        "codeLabel": "登入後的位址",
+        "finish": "完成",
+        "cancel": "取消",
+        "failed": "登入失敗：{{error}}",
+        "authError": "登入已失效：{{error}}",
+        "changed": "登入期間服務、用戶端 ID 或租用戶已變更。請重新登入。"
       }
     },
     "addonPage": {

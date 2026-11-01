@@ -19,6 +19,8 @@ type Status struct {
 	CommonVars []string      `json:"commonVars"`
 	Types      []ChannelType `json:"types"`
 	Events     []Kind        `json:"events"`
+	// Providers are the mail services the e-mail channel fills in.
+	Providers []Provider `json:"providers"`
 }
 
 // MessageView is a message spec with its standard text in a language.
@@ -77,9 +79,13 @@ func (s *Service) Status() Status {
 	config := s.config
 	s.mu.Unlock()
 	views := make([]ChannelView, 0, len(config.Channels))
+	s.mu.Lock()
 	for _, ch := range config.Channels {
-		views = append(views, ch.view())
+		view := ch.view()
+		view.AuthError = s.authErrors[ch.ID]
+		views = append(views, view)
 	}
+	s.mu.Unlock()
 	templates := config.Templates
 	if templates == nil {
 		templates = []Template{}
@@ -93,6 +99,7 @@ func (s *Service) Status() Status {
 		CommonVars: CommonVars,
 		Types:      ChannelTypes,
 		Events:     Kinds,
+		Providers:  Providers,
 	}
 }
 
@@ -140,11 +147,15 @@ func (s *Service) Preview(request PreviewRequest) ([]Preview, error) {
 
 // resolve turns a channel from the page into a stored one: its secrets
 // filled in from the stored channel of the same id, the cleared ones
-// emptied, defaults applied and the fields checked.
+// emptied, a sign-in made on the page put in, defaults applied and the
+// fields checked.
 func resolve(update ChannelUpdate, stored []Channel) (Channel, error) {
 	ch := withStoredSecrets(update.Channel, stored)
 	for _, key := range update.Clear {
 		delete(ch.Settings, key)
+	}
+	if err := oauth.claim(&ch); err != nil {
+		return Channel{}, err
 	}
 	if ch.ID == "" {
 		ch.ID = newID()
@@ -180,8 +191,55 @@ func (s *Service) Configure(settings Settings) error {
 	if err := Save(s.path, next); err != nil {
 		return err
 	}
+	s.dropSignIns(s.config, next)
 	s.config = next
 	return nil
+}
+
+// dropSignIns forgets the failures of the sign-ins the new settings no
+// longer hold (signed out, replaced, the channel deleted) and revokes the
+// Google ones that end. Google revokes the account's grant to the whole
+// Cloud project, tokens issued later and other clients of the project
+// included, and the device cannot tell which project a client belongs to:
+// a token is revoked only when no channel keeps a Google sign-in. It holds
+// s.mu.
+func (s *Service) dropSignIns(old, next Config) {
+	tokens := map[string]string{}
+	googleKept := false
+	for _, ch := range next.Channels {
+		tokens[ch.ID] = ch.get("oauthToken")
+		if client, err := clientOf(ch); err == nil && tokens[ch.ID] != "" && client.kind == oauthGoogle {
+			googleKept = true
+		}
+	}
+	for _, ch := range old.Channels {
+		token := ch.get("oauthToken")
+		if token == "" || tokens[ch.ID] == token {
+			continue
+		}
+		delete(s.authErrors, ch.ID)
+		if client, err := clientOf(ch); err == nil && client.kind == oauthGoogle && !googleKept {
+			revokeLater(client, token)
+		}
+	}
+}
+
+// StartSignIn begins the OAuth sign-in of an e-mail channel as it is on the
+// page.
+func (s *Service) StartSignIn(ctx context.Context, update ChannelUpdate) (FlowStart, error) {
+	s.mu.Lock()
+	stored := slices.Clone(s.config.Channels)
+	s.mu.Unlock()
+	if update.Type != "email" {
+		return FlowStart{}, errors.New("only an e-mail channel signs in")
+	}
+	ch := withStoredSecrets(update.Channel, stored)
+	return oauth.start(ctx, ch)
+}
+
+// FinishSignIn completes a sign-in; see oauthState.finish.
+func (s *Service) FinishSignIn(ctx context.Context, id, code string) (FlowResult, error) {
+	return oauth.finish(ctx, id, code)
 }
 
 // TestChannel sends a test message through a channel as it is on the page,
@@ -191,9 +249,15 @@ func (s *Service) TestChannel(ctx context.Context, update ChannelUpdate) error {
 	stored := slices.Clone(s.config.Channels)
 	template := s.config.template(update.Template)
 	s.mu.Unlock()
+	// A new channel gets an id only to be checked: its sign-in failures are
+	// not kept.
+	saved := update.ID != ""
 	ch, err := resolve(update, stored)
 	if err != nil {
 		return err
+	}
+	if !saved {
+		ch.ID = ""
 	}
 	if draft := update.TemplateDraft; draft != nil {
 		copied := *draft
@@ -202,5 +266,7 @@ func (s *Service) TestChannel(ctx context.Context, update ChannelUpdate) error {
 		}
 		template = &copied
 	}
-	return s.Test(ctx, ch, template)
+	err = s.Test(ctx, ch, template)
+	s.noteAuth(ch.ID, err)
+	return err
 }

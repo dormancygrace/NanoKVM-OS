@@ -61,7 +61,11 @@ func sendEmail(ctx context.Context, ch Channel, r Rendered) error {
 			return err
 		}
 	}
-	if user := ch.get("username"); user != "" {
+	if ch.get("auth") == "oauth2" {
+		if err = loginOAuth(ctx, client, ch); err != nil {
+			return err
+		}
+	} else if user := ch.get("username"); user != "" {
 		if ch.get("security") == "none" {
 			return permanent(errors.New("a login needs STARTTLS or TLS"))
 		}
@@ -95,6 +99,35 @@ func sendEmail(ctx context.Context, ch Channel, r Rendered) error {
 		return smtpError(err)
 	}
 	return client.Quit()
+}
+
+// loginOAuth logs in with the channel's sign-in as the account it was made
+// with (the user name, if set, names a shared mailbox or an alias instead).
+// A refused token is dropped, so the next attempt renews it.
+func loginOAuth(ctx context.Context, client *smtp.Client, ch Channel) error {
+	if ch.get("security") == "none" {
+		return permanent(errors.New("a sign-in needs STARTTLS or TLS"))
+	}
+	user := ch.get("username")
+	if user == "" {
+		user = ch.get("oauthAccount")
+	}
+	if user == "" {
+		return permanent(errors.New("the user name is missing"))
+	}
+	token, err := oauth.accessToken(ctx, ch)
+	if err != nil {
+		return err
+	}
+	if err = client.Auth(xoauth2{user: user, token: token}); err != nil {
+		oauth.forget(ch)
+		var protoErr *textproto.Error
+		if errors.As(err, &protoErr) && protoErr.Code >= 500 {
+			return permanent(authError{err})
+		}
+		return err
+	}
+	return nil
 }
 
 // smtpAuth picks PLAIN, or LOGIN for servers that offer only it (older

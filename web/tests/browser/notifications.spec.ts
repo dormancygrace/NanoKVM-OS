@@ -119,3 +119,26 @@ test('the standard messages are previewed in the chosen language', async ({ page
   await page.getByRole('button', { name: 'Preview the standard messages' }).click();
   await expect(events(page)).toContainText('PREVIEW language=ru template=standard');
 });
+
+test('a sign-in completed later keeps the edits made meanwhile', async ({ page }) => {
+  const to = page.getByRole('textbox', { name: /^To\s*\*?$/ });
+  await page.getByRole('button', { name: 'Add channel' }).click();
+  await page.getByRole('menuitem', { name: 'E-mail (SMTP)' }).click();
+  await page.getByLabel('Mail service').click();
+  await page.getByTitle('Microsoft 365 · Exchange Online').click();
+  await page.getByLabel('OAuth client ID').fill('client');
+  await to.fill('before@example.com');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByText('ABCD-1234')).toBeVisible();
+  await to.fill('after@example.com');
+  await page.getByRole('button', { name: 'Complete sign-in' }).click();
+  await expect(page.getByText('Signed in as me@example.com')).toBeVisible();
+  await expect(to).toHaveValue('after@example.com');
+
+  // A sign-in started for another client is not applied.
+  await page.getByRole('button', { name: 'Sign in again' }).click();
+  await expect(page.getByText('ABCD-1234')).toBeVisible();
+  await page.getByLabel('OAuth client ID').fill('other');
+  await page.getByRole('button', { name: 'Complete sign-in' }).click();
+  await expect(page.getByText('changed during the sign-in')).toBeVisible();
+});

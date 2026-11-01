@@ -22,10 +22,12 @@ import {
   type NotifyChannelUpdate,
   type NotifyField,
   type NotifyKind,
+  type NotifyProvider,
   type NotifyStatus
 } from '@/api/notify.ts';
 import { IconButton, Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
+import { ProviderSelect, SignIn } from './email.tsx';
 import { newTemplateId, templateOf, type TemplateDraft } from './template.ts';
 import { Previews, Templates } from './templates.tsx';
 
@@ -79,8 +81,19 @@ const templateDraftsOf = (status: NotifyStatus, open = new Map<string, boolean>(
     open: open.get(template.id) ?? false
   }));
 
+// A field applies while the fields it names have one of the values, their
+// defaults counted.
+const shown = (field: NotifyField, fields: NotifyField[], settings: Record<string, string>) =>
+  Object.entries(field.show ?? {}).every(([key, values]) =>
+    values.includes(settings[key] || fields.find((f) => f.key === key)?.default || '')
+  );
+
+const provider = (providers: NotifyProvider[], channel: NotifyChannelUpdate) =>
+  providers.find((p) => p.id === (channel.settings.provider || 'custom'));
+
 type Draft = NotifyChannelUpdate & {
   secretsSet: string[];
+  authError?: string;
   // React key: a new channel has no id until it is saved.
   key: string;
   open: boolean;
@@ -154,10 +167,20 @@ export const Notifications = () => {
 
   const typeName = (type: string) => brandNames[type] ?? t(`types.${type}`);
 
-  const change = (key: string, patch: Partial<Draft>) => {
-    setChannels((list) => list.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  // A patch made from the channel as it is now (a function) keeps edits made
+  // since the caller last rendered, such as during a sign-in.
+  const change = (key: string, patch: Partial<Draft> | ((item: Draft) => Partial<Draft>)) => {
+    setChannels((list) =>
+      list.map((item) =>
+        item.key === key
+          ? { ...item, ...(typeof patch === 'function' ? patch(item) : patch) }
+          : item
+      )
+    );
     // Folding a channel is not an edit.
-    if (Object.keys(patch).some((name) => name !== 'open')) edited();
+    if (typeof patch === 'function' || Object.keys(patch).some((name) => name !== 'open')) {
+      edited();
+    }
   };
 
   const add = (type: string) => {
@@ -287,6 +310,7 @@ export const Notifications = () => {
             events={status.events}
             typeName={typeName(channel.type)}
             templates={templates}
+            providers={status.providers}
             onChange={(patch) => change(channel.key, patch)}
             onRemove={() => remove(channel.key)}
           />
@@ -347,7 +371,8 @@ type ChannelPanelProps = {
   events: NotifyKind[];
   typeName: string;
   templates: TemplateDraft[];
-  onChange: (patch: Partial<Draft>) => void;
+  providers: NotifyProvider[];
+  onChange: (patch: Partial<Draft> | ((item: Draft) => Partial<Draft>)) => void;
   onRemove: () => void;
 };
 
@@ -357,6 +382,7 @@ const ChannelPanel = ({
   events,
   typeName,
   templates,
+  providers,
   onChange,
   onRemove
 }: ChannelPanelProps) => {
@@ -438,8 +464,20 @@ const ChannelPanel = ({
           <Alert type={testResult.ok ? 'success' : 'error'} title={testResult.text} showIcon />
         </div>
       )}
+      {channel.authError && !testResult && (
+        <div className="px-4 pb-3">
+          <Alert
+            type="warning"
+            title={t('oauth.authError', { error: channel.authError })}
+            showIcon
+          />
+        </div>
+      )}
       <div id={`${id}-body`} hidden={!channel.open} className="space-y-4 px-4 pb-4">
-        <p className="text-fg-muted m-0 text-xs">{t(`help.${channel.type}`)}</p>
+        {/* The e-mail channel's help is its provider's, under the picker. */}
+        {channel.type !== 'email' && (
+          <p className="text-fg-muted m-0 text-xs">{t(`help.${channel.type}`)}</p>
+        )}
         <SettingRow label={t('name')} htmlFor={`${id}-name`} stacked>
           <Input
             id={`${id}-name`}
@@ -475,22 +513,75 @@ const ChannelPanel = ({
             onChange={(value) => onChange({ template: value })}
           />
         </SettingRow>
-        {type?.fields.map((field) => (
-          <FieldInput
-            key={field.key}
-            id={`${id}-${field.key}`}
-            field={field}
-            value={channel.settings[field.key] ?? ''}
-            stored={channel.secretsSet.includes(field.key) && !channel.clear.includes(field.key)}
-            onChange={(value) => setting(field.key, value)}
-            onClear={() =>
-              onChange({
-                clear: [...channel.clear, field.key],
-                settings: { ...channel.settings, [field.key]: '' }
-              })
+        {type?.fields
+          .filter((field) => field.kind !== 'hidden' && shown(field, type.fields, channel.settings))
+          // The sign-ins of the e-mail channel are the provider's; with one
+          // there is nothing to choose.
+          .map((field) =>
+            field.key === 'auth' && channel.type === 'email'
+              ? { ...field, options: provider(providers, channel)?.auth ?? field.options }
+              : field
+          )
+          .filter((field) => field.key !== 'auth' || (field.options?.length ?? 0) > 1)
+          .map((field) => {
+            const stored =
+              channel.secretsSet.includes(field.key) && !channel.clear.includes(field.key);
+            if (field.key === 'provider' && channel.type === 'email') {
+              return (
+                <ProviderSelect
+                  key={field.key}
+                  id={`${id}-${field.key}`}
+                  providers={providers}
+                  settings={channel.settings}
+                  onChange={(settings) => onChange({ settings })}
+                />
+              );
             }
-          />
-        ))}
+            if (field.kind === 'oauth') {
+              return (
+                <SignIn
+                  key={field.key}
+                  channel={update(channel)}
+                  provider={provider(providers, channel)}
+                  stored={stored}
+                  onSignedIn={(token, account) =>
+                    onChange((item) => ({
+                      settings: {
+                        ...item.settings,
+                        [field.key]: token,
+                        oauthAccount: account,
+                        username: item.settings.username || account,
+                        from: item.settings.from || account
+                      },
+                      clear: item.clear.filter((key) => key !== field.key)
+                    }))
+                  }
+                  onSignOut={() =>
+                    onChange((item) => ({
+                      clear: [...item.clear.filter((key) => key !== field.key), field.key],
+                      settings: { ...item.settings, [field.key]: '', oauthAccount: '' }
+                    }))
+                  }
+                />
+              );
+            }
+            return (
+              <FieldInput
+                key={field.key}
+                id={`${id}-${field.key}`}
+                field={field}
+                value={channel.settings[field.key] ?? ''}
+                stored={stored}
+                onChange={(value) => setting(field.key, value)}
+                onClear={() =>
+                  onChange({
+                    clear: [...channel.clear, field.key],
+                    settings: { ...channel.settings, [field.key]: '' }
+                  })
+                }
+              />
+            );
+          })}
       </div>
     </Panel>
   );

@@ -827,14 +827,21 @@
         "accessToken": "Token di accesso",
         "roomId": "ID stanza",
         "protocol": "Protocollo",
-        "skipVerify": "Accetta qualsiasi certificato del server"
+        "skipVerify": "Accetta qualsiasi certificato del server",
+        "provider": "Servizio di posta",
+        "auth": "Accesso",
+        "oauthClientId": "ID client OAuth",
+        "oauthClientSecret": "Segreto client OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Nessuna",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Password",
+        "oauth2": "Accesso con OAuth 2.0"
       },
       "help": {
         "telegram": "Crea un bot con @BotFather e incolla il suo token, poi aggiungi il bot alla chat. L'ID di un gruppo inizia con -100. ID argomento: per un gruppo con argomenti. Server Bot API: solo per un server Bot API tuo.",
@@ -879,6 +886,46 @@
         "screen_bsod": "Schermata blu",
         "screen_panic": "Kernel panic",
         "test": "Messaggio di prova"
+      },
+      "provider": {
+        "custom": "Altro server"
+      },
+      "providerHelp": {
+        "gmail": "Accedi con OAuth 2.0 tramite un client OAuth tuo, oppure usa una password per le app (richiede la verifica in due passaggi). Il nome utente è il tuo indirizzo.",
+        "microsoft365": "Accesso con OAuth 2.0 tramite una registrazione app tua. L'SMTP autenticato deve essere attivo per la casella. Microsoft sta eliminando le password (autenticazione Basic) per SMTP: una password funziona solo finché la tua organizzazione la consente.",
+        "outlook": "Outlook.com non accetta più password dai programmi di posta: accedi con OAuth 2.0 tramite una registrazione app tua che consenta gli account Microsoft personali.",
+        "yahoo": "Usa una password per le app (Account security > Generate app password). Il nome utente è il tuo indirizzo.",
+        "icloud": "Usa una password specifica per app (Apple Account > Sign-In and Security; richiede l'autenticazione a due fattori). Il nome utente è il tuo indirizzo iCloud Mail completo.",
+        "zoho": "Usa una password specifica per app. smtp.zoho.com serve gli account nel data center USA; gli altri usano il proprio, come smtp.zoho.eu o smtp.zoho.in, e gli account di dominio a pagamento smtppro.zoho.com.",
+        "fastmail": "Usa una password per le app con accesso SMTP (Settings > Privacy & Security > Manage app passwords). Il nome utente è il tuo indirizzo.",
+        "yandex": "Usa una password per le app per Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Usa una password per applicazioni esterne (impostazioni account > Sicurezza). Il nome utente è il tuo indirizzo.",
+        "proton": "Richiede un piano a pagamento e un indirizzo sul tuo dominio: crea un token SMTP (Settings > IMAP/SMTP) e inseriscilo come password, con l'indirizzo del tuo dominio come nome utente. Proton Mail Bridge funziona su un computer, non su questo dispositivo.",
+        "custom": "Il tuo server di posta o un relay. STARTTLS sulla porta 587, TLS sulla 465."
+      },
+      "oauth": {
+        "account": "Account",
+        "clientHelpGoogle": "In Google Cloud Console crea un client OAuth di tipo \"Desktop app\" con lo scope https://mail.google.com/ e inserisci il suo ID client e il segreto. Imposta la schermata di consenso su \"In production\": finché è in \"Testing\", l'accesso scade dopo 7 giorni. L'avviso di Google su un'app non verificata è normale per un'app tua.",
+        "clientHelpMicrosoft": "In Microsoft Entra ID registra un'app (per Outlook.com: una che consenta gli account Microsoft personali), attiva \"Allow public client flows\" in Authentication e aggiungi l'autorizzazione delegata SMTP.Send. Inserisci il suo ID applicazione (client). Tenant: il tuo ID tenant se l'app è solo per la tua organizzazione.",
+        "signIn": "Accedi",
+        "signInAgain": "Accedi di nuovo",
+        "signOut": "Esci",
+        "signOutConfirm": "Uscire? Ha effetto quando salvi. L'accesso a Google viene revocato allora; un account Microsoft mantiene l'app tra le sue autorizzazioni finché non la rimuovi lì.",
+        "signedIn": "Accesso eseguito come {{account}}",
+        "signedInNoAccount": "Accesso eseguito",
+        "saveToKeep": "Salva per mantenere l'accesso.",
+        "notSignedIn": "Accesso non eseguito.",
+        "deviceStep": "Vai a",
+        "waiting": "Inserisci qui il codice e accedi; questa pagina lo attende.",
+        "codeStep": "Accedi nella pagina di Google:",
+        "openPage": "apri la pagina di accesso",
+        "codePaste": "Dopo l'accesso il browser va a un indirizzo su 127.0.0.1 che non si carica. Copia l'intero indirizzo dalla barra degli indirizzi e incollalo qui.",
+        "codeLabel": "Indirizzo dopo l'accesso",
+        "finish": "Fine",
+        "cancel": "Annulla",
+        "failed": "Accesso non riuscito: {{error}}",
+        "authError": "L'accesso non funziona più: {{error}}",
+        "changed": "Il servizio, l'ID client o il tenant sono cambiati durante l'accesso. Accedi di nuovo."
       }
     },
     "addonPage": {

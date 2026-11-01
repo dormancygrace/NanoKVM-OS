@@ -2250,14 +2250,21 @@
         "accessToken": "Zugriffstoken",
         "roomId": "Raum-ID",
         "protocol": "Protokoll",
-        "skipVerify": "Jedes Serverzertifikat akzeptieren"
+        "skipVerify": "Jedes Serverzertifikat akzeptieren",
+        "provider": "Maildienst",
+        "auth": "Anmeldung",
+        "oauthClientId": "OAuth-Client-ID",
+        "oauthClientSecret": "OAuth-Client-Secret",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Keine",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Passwort",
+        "oauth2": "Anmeldung mit OAuth 2.0"
       },
       "help": {
         "telegram": "Erstellen Sie mit @BotFather einen Bot, fügen Sie sein Token ein und den Bot dem Chat hinzu. Die ID einer Gruppe beginnt mit -100. Themen-ID: für eine Gruppe mit Themen. Bot-API-Server: nur für einen eigenen Bot-API-Server.",
@@ -2302,6 +2309,46 @@
         "screen_bsod": "Bluescreen",
         "screen_panic": "Kernel panic",
         "test": "Testnachricht"
+      },
+      "provider": {
+        "custom": "Anderer Server"
+      },
+      "providerHelp": {
+        "gmail": "Melden Sie sich per OAuth 2.0 über einen eigenen OAuth-Client an oder verwenden Sie ein App-Passwort (dafür ist die Bestätigung in zwei Schritten nötig). Der Benutzername ist Ihre Adresse.",
+        "microsoft365": "Anmeldung mit OAuth 2.0 über eine eigene App-Registrierung. Für das Postfach muss authentifiziertes SMTP aktiviert sein. Microsoft schafft Passwörter (Basisauthentifizierung) für SMTP ab: Ein Passwort funktioniert nur, solange Ihre Organisation es noch erlaubt.",
+        "outlook": "Outlook.com akzeptiert von Mailprogrammen keine Passwörter mehr: Melden Sie sich per OAuth 2.0 über eine eigene App-Registrierung an, die persönliche Microsoft-Konten zulässt.",
+        "yahoo": "Verwenden Sie ein App-Passwort (Account security > Generate app password). Der Benutzername ist Ihre Adresse.",
+        "icloud": "Verwenden Sie ein app-spezifisches Passwort (Apple Account > Anmeldung und Sicherheit; dafür ist die Zwei-Faktor-Authentifizierung nötig). Der Benutzername ist Ihre vollständige iCloud-Mail-Adresse.",
+        "zoho": "Verwenden Sie ein app-spezifisches Passwort. smtp.zoho.com bedient Konten im US-Rechenzentrum; andere nutzen ihr eigenes, etwa smtp.zoho.eu oder smtp.zoho.in, und kostenpflichtige Domain-Konten smtppro.zoho.com.",
+        "fastmail": "Verwenden Sie ein App-Passwort mit SMTP-Zugriff (Settings > Privacy & Security > Manage app passwords). Der Benutzername ist Ihre Adresse.",
+        "yandex": "Verwenden Sie ein App-Passwort für Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Verwenden Sie ein Passwort für externe Anwendungen (Kontoeinstellungen > Security). Der Benutzername ist Ihre Adresse.",
+        "proton": "Erfordert einen kostenpflichtigen Tarif und eine Adresse mit eigener Domain: Erstellen Sie ein SMTP-Token (Settings > IMAP/SMTP) und geben Sie es als Passwort ein, Ihre Domain-Adresse als Benutzernamen. Proton Mail Bridge läuft auf einem Computer, nicht auf diesem Gerät.",
+        "custom": "Ihr eigener Mailserver oder ein Relay. STARTTLS auf Port 587, TLS auf 465."
+      },
+      "oauth": {
+        "account": "Konto",
+        "clientHelpGoogle": "Erstellen Sie in der Google Cloud Console einen OAuth-Client vom Typ \"Desktop app\" mit dem Scope https://mail.google.com/ und geben Sie dessen Client-ID und Secret ein. Setzen Sie den Zustimmungsbildschirm auf \"In production\": Bei \"Testing\" läuft die Anmeldung nach 7 Tagen ab. Googles Warnung vor einer nicht verifizierten App ist bei einer eigenen App normal.",
+        "clientHelpMicrosoft": "Registrieren Sie in Microsoft Entra ID eine App (für Outlook.com: eine, die persönliche Microsoft-Konten zulässt), aktivieren Sie unter Authentication die Option \"Allow public client flows\" und fügen Sie die delegierte Berechtigung SMTP.Send hinzu. Geben Sie ihre Anwendungs-ID (Client-ID) ein. Tenant: Ihre Tenant-ID, wenn die App nur für Ihre Organisation gilt.",
+        "signIn": "Anmelden",
+        "signInAgain": "Erneut anmelden",
+        "signOut": "Abmelden",
+        "signOutConfirm": "Abmelden? Das wird beim Speichern wirksam. Der Google-Zugriff wird dann widerrufen; ein Microsoft-Konto behält die App unter seinen App-Berechtigungen, bis Sie sie dort entfernen.",
+        "signedIn": "Angemeldet als {{account}}",
+        "signedInNoAccount": "Angemeldet",
+        "saveToKeep": "Speichern, um die Anmeldung zu behalten.",
+        "notSignedIn": "Nicht angemeldet.",
+        "deviceStep": "Gehen Sie zu",
+        "waiting": "Geben Sie dort diesen Code ein und melden Sie sich an; diese Seite wartet darauf.",
+        "codeStep": "Melden Sie sich auf der Google-Seite an:",
+        "openPage": "Anmeldeseite öffnen",
+        "codePaste": "Nach der Anmeldung öffnet der Browser eine Adresse auf 127.0.0.1, die nicht lädt. Kopieren Sie die ganze Adresse aus der Adressleiste und fügen Sie sie hier ein.",
+        "codeLabel": "Adresse nach der Anmeldung",
+        "finish": "Abschließen",
+        "cancel": "Abbrechen",
+        "failed": "Anmeldung fehlgeschlagen: {{error}}",
+        "authError": "Die Anmeldung funktioniert nicht mehr: {{error}}",
+        "changed": "Dienst, Client-ID oder Tenant wurden während der Anmeldung geändert. Melden Sie sich erneut an."
       }
     }
   },

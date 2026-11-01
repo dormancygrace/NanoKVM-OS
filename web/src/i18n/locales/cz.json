@@ -1896,14 +1896,21 @@
         "accessToken": "Přístupový token",
         "roomId": "ID místnosti",
         "protocol": "Protokol",
-        "skipVerify": "Přijmout jakýkoli certifikát serveru"
+        "skipVerify": "Přijmout jakýkoli certifikát serveru",
+        "provider": "Poštovní služba",
+        "auth": "Přihlášení",
+        "oauthClientId": "ID klienta OAuth",
+        "oauthClientSecret": "Tajný klíč klienta OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Žádné",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Heslo",
+        "oauth2": "Přihlášení přes OAuth 2.0"
       },
       "help": {
         "telegram": "Vytvořte bota přes @BotFather, vložte jeho token a přidejte bota do chatu. ID skupiny začíná -100. ID tématu: pro skupinu s tématy. Server Bot API: jen pro vlastní server Bot API.",
@@ -1948,6 +1955,46 @@
         "screen_bsod": "Modrá obrazovka",
         "screen_panic": "Kernel panic",
         "test": "Zkušební zpráva"
+      },
+      "provider": {
+        "custom": "Jiný server"
+      },
+      "providerHelp": {
+        "gmail": "Přihlaste se přes OAuth 2.0 pomocí vlastního klienta OAuth, nebo použijte heslo aplikace (vyžaduje dvoufázové ověření). Uživatelské jméno je vaše adresa.",
+        "microsoft365": "Přihlášení přes OAuth 2.0 pomocí vlastní registrace aplikace. Pro schránku musí být zapnuté ověřené SMTP. Microsoft ruší hesla (základní ověřování) pro SMTP: heslo funguje, jen dokud ho vaše organizace ještě povoluje.",
+        "outlook": "Outlook.com už od poštovních programů hesla nepřijímá: přihlaste se přes OAuth 2.0 pomocí vlastní registrace aplikace, která povoluje osobní účty Microsoft.",
+        "yahoo": "Použijte heslo aplikace (Account security > Generate app password). Uživatelské jméno je vaše adresa.",
+        "icloud": "Použijte heslo pro konkrétní aplikaci (Apple Account > Přihlášení a zabezpečení; vyžaduje dvoufaktorové ověření). Uživatelské jméno je vaše úplná adresa iCloud Mail.",
+        "zoho": "Použijte heslo pro konkrétní aplikaci. smtp.zoho.com obsluhuje účty v datovém centru v USA; ostatní používají své vlastní, například smtp.zoho.eu nebo smtp.zoho.in, a placené doménové účty smtppro.zoho.com.",
+        "fastmail": "Použijte heslo aplikace s přístupem SMTP (Settings > Privacy & Security > Manage app passwords). Uživatelské jméno je vaše adresa.",
+        "yandex": "Použijte heslo aplikace pro Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Použijte heslo pro externí aplikace (nastavení účtu > Security). Uživatelské jméno je vaše adresa.",
+        "proton": "Vyžaduje placený tarif a adresu na vlastní doméně: vytvořte token SMTP (Settings > IMAP/SMTP) a zadejte ho jako heslo, adresu své domény jako uživatelské jméno. Proton Mail Bridge běží na počítači, ne na tomto zařízení.",
+        "custom": "Váš vlastní poštovní server nebo relay. STARTTLS na portu 587, TLS na 465."
+      },
+      "oauth": {
+        "account": "Účet",
+        "clientHelpGoogle": "V Google Cloud Console vytvořte klienta OAuth typu \"Desktop app\" s oprávněním https://mail.google.com/ a zadejte jeho ID klienta a tajný klíč. Obrazovku souhlasu nastavte na \"In production\": ve stavu \"Testing\" přihlášení vyprší po 7 dnech. Varování Googlu o neověřené aplikaci je u vlastní aplikace normální.",
+        "clientHelpMicrosoft": "V Microsoft Entra ID zaregistrujte aplikaci (pro Outlook.com: takovou, která povoluje osobní účty Microsoft), v části Authentication zapněte \"Allow public client flows\" a přidejte delegované oprávnění SMTP.Send. Zadejte její ID aplikace (klienta). Tenant: ID vašeho tenantu, pokud je aplikace jen pro vaši organizaci.",
+        "signIn": "Přihlásit se",
+        "signInAgain": "Přihlásit se znovu",
+        "signOut": "Odhlásit se",
+        "signOutConfirm": "Odhlásit se? Projeví se po uložení. Přístup Google se pak zruší; účet Microsoft si aplikaci ponechá v oprávněních aplikací, dokud ji tam neodstraníte.",
+        "signedIn": "Přihlášen jako {{account}}",
+        "signedInNoAccount": "Přihlášeno",
+        "saveToKeep": "Uložením přihlášení zachováte.",
+        "notSignedIn": "Nepřihlášeno.",
+        "deviceStep": "Přejděte na",
+        "waiting": "Zadejte tam tento kód a přihlaste se; tato stránka na něj čeká.",
+        "codeStep": "Přihlaste se na stránce Google:",
+        "openPage": "otevřít přihlašovací stránku",
+        "codePaste": "Po přihlášení prohlížeč přejde na adresu na 127.0.0.1, která se nenačte. Zkopírujte celou tuto adresu z adresního řádku a vložte ji sem.",
+        "codeLabel": "Adresa po přihlášení",
+        "finish": "Dokončit",
+        "cancel": "Zrušit",
+        "failed": "Přihlášení selhalo: {{error}}",
+        "authError": "Přihlášení už nefunguje: {{error}}",
+        "changed": "Během přihlášení se změnila služba, ID klienta nebo tenant. Přihlaste se znovu."
       }
     }
   },

@@ -829,14 +829,21 @@
         "accessToken": "Token de acesso",
         "roomId": "ID da sala",
         "protocol": "Protocolo",
-        "skipVerify": "Aceitar qualquer certificado do servidor"
+        "skipVerify": "Aceitar qualquer certificado do servidor",
+        "provider": "Serviço de e-mail",
+        "auth": "Login",
+        "oauthClientId": "ID do cliente OAuth",
+        "oauthClientSecret": "Segredo do cliente OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Nenhuma",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Senha",
+        "oauth2": "Login com OAuth 2.0"
       },
       "help": {
         "telegram": "Crie um bot com @BotFather e cole o token dele, depois adicione o bot ao chat. O ID de um grupo começa com -100. ID do tópico: para um grupo com tópicos. Servidor Bot API: apenas para um servidor Bot API próprio.",
@@ -881,6 +888,46 @@
         "screen_bsod": "Tela azul",
         "screen_panic": "Kernel panic",
         "test": "Mensagem de teste"
+      },
+      "provider": {
+        "custom": "Outro servidor"
+      },
+      "providerHelp": {
+        "gmail": "Entre com OAuth 2.0 por meio de um cliente OAuth seu, ou use uma senha de app (exige a verificação em duas etapas). O nome de usuário é o seu endereço.",
+        "microsoft365": "Login com OAuth 2.0 por meio de um registro de app seu. O SMTP autenticado precisa estar ativado para a caixa de correio. A Microsoft está descontinuando senhas (autenticação Basic) para SMTP: uma senha só funciona enquanto a sua organização ainda a permitir.",
+        "outlook": "O Outlook.com não aceita mais senhas de programas de e-mail: entre com OAuth 2.0 por meio de um registro de app seu que permita contas pessoais da Microsoft.",
+        "yahoo": "Use uma senha de app (Account security > Generate app password). O nome de usuário é o seu endereço.",
+        "icloud": "Use uma senha específica de app (Apple Account > Sign-In and Security; exige autenticação de dois fatores). O nome de usuário é o seu endereço completo do iCloud Mail.",
+        "zoho": "Use uma senha específica de app. O smtp.zoho.com atende contas no data center dos EUA; as demais usam o seu próprio, como smtp.zoho.eu ou smtp.zoho.in, e contas de domínio pagas usam smtppro.zoho.com.",
+        "fastmail": "Use uma senha de app com acesso SMTP (Settings > Privacy & Security > Manage app passwords). O nome de usuário é o seu endereço.",
+        "yandex": "Use uma senha de app para o Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Use uma senha para aplicativos externos (configurações da conta > Segurança). O nome de usuário é o seu endereço.",
+        "proton": "Exige um plano pago e um endereço no seu próprio domínio: crie um token SMTP (Settings > IMAP/SMTP) e informe-o como senha, com o endereço do seu domínio como nome de usuário. O Proton Mail Bridge roda em um computador, não neste dispositivo.",
+        "custom": "Seu próprio servidor de e-mail ou um relay. STARTTLS na porta 587, TLS na 465."
+      },
+      "oauth": {
+        "account": "Conta",
+        "clientHelpGoogle": "No Google Cloud Console, crie um cliente OAuth do tipo \"Desktop app\" com o escopo https://mail.google.com/ e informe o ID e o segredo dele. Defina a tela de consentimento como \"In production\": enquanto estiver em \"Testing\", o login expira após 7 dias. O aviso do Google sobre um app não verificado é esperado para um app seu.",
+        "clientHelpMicrosoft": "No Microsoft Entra ID, registre um app (para o Outlook.com: um que permita contas pessoais da Microsoft), ative \"Allow public client flows\" em Authentication e adicione a permissão delegada SMTP.Send. Informe o ID do aplicativo (cliente). Tenant: o ID do seu tenant, se o app for apenas para a sua organização.",
+        "signIn": "Entrar",
+        "signInAgain": "Entrar novamente",
+        "signOut": "Sair",
+        "signOutConfirm": "Sair? Isso vale quando você salvar. O acesso do Google é revogado nesse momento; uma conta Microsoft mantém o app em suas permissões de app até você removê-lo lá.",
+        "signedIn": "Conectado como {{account}}",
+        "signedInNoAccount": "Conectado",
+        "saveToKeep": "Salve para manter o login.",
+        "notSignedIn": "Não conectado.",
+        "deviceStep": "Acesse",
+        "waiting": "Informe este código lá e entre; esta página aguarda por ele.",
+        "codeStep": "Entre na página do Google:",
+        "openPage": "abrir a página de login",
+        "codePaste": "Após o login, o navegador vai para um endereço em 127.0.0.1 que não carrega. Copie esse endereço inteiro da barra de endereços e cole aqui.",
+        "codeLabel": "Endereço após o login",
+        "finish": "Concluir",
+        "cancel": "Cancelar",
+        "failed": "Falha no login: {{error}}",
+        "authError": "O login não funciona mais: {{error}}",
+        "changed": "O serviço, o ID do cliente ou o tenant mudou durante o login. Entre novamente."
       }
     },
     "addonPage": {

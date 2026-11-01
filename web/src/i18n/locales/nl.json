@@ -829,14 +829,21 @@
         "accessToken": "Toegangstoken",
         "roomId": "Kamer-ID",
         "protocol": "Protocol",
-        "skipVerify": "Elk servercertificaat accepteren"
+        "skipVerify": "Elk servercertificaat accepteren",
+        "provider": "Mailservice",
+        "auth": "Aanmelden",
+        "oauthClientId": "OAuth-client-ID",
+        "oauthClientSecret": "OAuth-clientgeheim",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Geen",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Wachtwoord",
+        "oauth2": "Aanmelden met OAuth 2.0"
       },
       "help": {
         "telegram": "Maak een bot met @BotFather en plak het token, voeg de bot daarna toe aan de chat. De ID van een groep begint met -100. Onderwerp-ID: voor een groep met onderwerpen. Bot API-server: alleen voor een eigen Bot API-server.",
@@ -881,6 +888,46 @@
         "screen_bsod": "Blauw scherm",
         "screen_panic": "Kernel panic",
         "test": "Testbericht"
+      },
+      "provider": {
+        "custom": "Andere server"
+      },
+      "providerHelp": {
+        "gmail": "Meld je aan met OAuth 2.0 via een eigen OAuth-client, of gebruik een app-wachtwoord (vereist verificatie in twee stappen). De gebruikersnaam is je adres.",
+        "microsoft365": "Aanmelden met OAuth 2.0 via een eigen app-registratie. Geverifieerde SMTP moet aanstaan voor de mailbox. Microsoft schaft wachtwoorden (Basic-verificatie) voor SMTP af: een wachtwoord werkt alleen zolang je organisatie het nog toestaat.",
+        "outlook": "Outlook.com accepteert geen wachtwoorden meer van mailprogramma's: meld je aan met OAuth 2.0 via een eigen app-registratie die persoonlijke Microsoft-accounts toestaat.",
+        "yahoo": "Gebruik een app-wachtwoord (Account security > Generate app password). De gebruikersnaam is je adres.",
+        "icloud": "Gebruik een app-specifiek wachtwoord (Apple Account > Sign-In and Security; vereist tweefactorauthenticatie). De gebruikersnaam is je volledige iCloud Mail-adres.",
+        "zoho": "Gebruik een app-specifiek wachtwoord. smtp.zoho.com bedient accounts in het datacenter in de VS; andere gebruiken hun eigen, zoals smtp.zoho.eu of smtp.zoho.in, en betaalde domeinaccounts smtppro.zoho.com.",
+        "fastmail": "Gebruik een app-wachtwoord met SMTP-toegang (Settings > Privacy & Security > Manage app passwords). De gebruikersnaam is je adres.",
+        "yandex": "Gebruik een app-wachtwoord voor Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Gebruik een wachtwoord voor externe toepassingen (accountinstellingen > Beveiliging). De gebruikersnaam is je adres.",
+        "proton": "Vereist een betaald abonnement en een adres op je eigen domein: maak een SMTP-token (Settings > IMAP/SMTP) en voer dat in als wachtwoord, met je domeinadres als gebruikersnaam. Proton Mail Bridge draait op een computer, niet op dit apparaat.",
+        "custom": "Je eigen mailserver of een relay. STARTTLS op poort 587, TLS op 465."
+      },
+      "oauth": {
+        "account": "Account",
+        "clientHelpGoogle": "Maak in Google Cloud Console een OAuth-client van het type \"Desktop app\" met de scope https://mail.google.com/ en voer de client-ID en het geheim in. Zet het toestemmingsscherm op \"In production\": zolang het op \"Testing\" staat, verloopt het aanmelden na 7 dagen. De waarschuwing van Google over een niet-geverifieerde app is normaal voor een eigen app.",
+        "clientHelpMicrosoft": "Registreer in Microsoft Entra ID een app (voor Outlook.com: een die persoonlijke Microsoft-accounts toestaat), zet \"Allow public client flows\" aan onder Authentication en voeg de gedelegeerde machtiging SMTP.Send toe. Voer de toepassings-ID (client-ID) in. Tenant: je tenant-ID als de app alleen voor je organisatie is.",
+        "signIn": "Aanmelden",
+        "signInAgain": "Opnieuw aanmelden",
+        "signOut": "Afmelden",
+        "signOutConfirm": "Afmelden? Dit gaat in zodra je opslaat. Dan wordt de toegang tot Google ingetrokken; een Microsoft-account houdt de app bij zijn app-machtigingen tot je die daar verwijdert.",
+        "signedIn": "Aangemeld als {{account}}",
+        "signedInNoAccount": "Aangemeld",
+        "saveToKeep": "Sla op om de aanmelding te bewaren.",
+        "notSignedIn": "Niet aangemeld.",
+        "deviceStep": "Ga naar",
+        "waiting": "Voer daar deze code in en meld je aan; deze pagina wacht erop.",
+        "codeStep": "Meld je aan op de Google-pagina:",
+        "openPage": "open de aanmeldpagina",
+        "codePaste": "Na het aanmelden gaat de browser naar een adres op 127.0.0.1 dat niet laadt. Kopieer dat hele adres uit de adresbalk en plak het hier.",
+        "codeLabel": "Adres na het aanmelden",
+        "finish": "Voltooien",
+        "cancel": "Annuleren",
+        "failed": "Aanmelden mislukt: {{error}}",
+        "authError": "De aanmelding werkt niet meer: {{error}}",
+        "changed": "De dienst, client-ID of tenant is tijdens het aanmelden gewijzigd. Meld u opnieuw aan."
       }
     },
     "addonPage": {

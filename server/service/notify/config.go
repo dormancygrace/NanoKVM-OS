@@ -125,7 +125,9 @@ func (ch Channel) flag(key string) bool { return ch.get(key) == "true" }
 // translates its label by Key.
 type Field struct {
 	Key string `json:"key"`
-	// Kind: text, url, email, number, select or bool.
+	// Kind: text, url, email, number, select or bool; oauth is the stored
+	// sign-in (a refresh token) and hidden a value the page keeps but does
+	// not draw.
 	Kind     string   `json:"kind"`
 	Secret   bool     `json:"secret,omitempty"`
 	Required bool     `json:"required,omitempty"`
@@ -133,7 +135,32 @@ type Field struct {
 	Default  string   `json:"default,omitempty"`
 	// Placeholder is a literal example, not translated.
 	Placeholder string `json:"placeholder,omitempty"`
+	// Show: the field applies only while each named field (one before it)
+	// has one of the values; otherwise it is not drawn and not kept.
+	Show map[string][]string `json:"show,omitempty"`
+	// MaxBytes replaces maxValueBytes for a longer value.
+	MaxBytes int `json:"maxBytes,omitempty"`
 }
+
+// shown tells whether a field applies to the settings, defaults applied.
+func (f Field) shown(settings map[string]string) bool {
+	for key, values := range f.Show {
+		if !slices.Contains(values, settings[key]) {
+			return false
+		}
+	}
+	return true
+}
+
+var (
+	oauthOnly      = map[string][]string{"auth": {"oauth2"}}
+	passwordOnly   = map[string][]string{"auth": {"password"}}
+	googleOAuth    = map[string][]string{"auth": {"oauth2"}, "provider": {"gmail"}}
+	microsoftOAuth = map[string][]string{"auth": {"oauth2"}, "provider": {"microsoft365", "outlook"}}
+)
+
+// maxRefreshBytes: Microsoft's refresh tokens run past maxValueBytes.
+const maxRefreshBytes = 8192
 
 type ChannelType struct {
 	Type   string  `json:"type"`
@@ -153,11 +180,22 @@ var ChannelTypes = []ChannelType{
 		{Key: "apiUrl", Kind: "url", Placeholder: "https://api.telegram.org"},
 	}},
 	{Type: "email", Image: true, Fields: []Field{
+		// A provider fills host, port and security on the page; "custom"
+		// (also a channel stored before providers) is the user's own server.
+		{Key: "provider", Kind: "select", Options: providerIDs(), Default: "custom"},
 		{Key: "host", Kind: "text", Required: true, Placeholder: "smtp.example.com"},
 		{Key: "port", Kind: "number", Default: "587"},
 		{Key: "security", Kind: "select", Options: []string{"starttls", "tls", "none"}, Default: "starttls"},
+		{Key: "auth", Kind: "select", Options: []string{"password", "oauth2"}, Default: "password"},
 		{Key: "username", Kind: "text"},
-		{Key: "password", Kind: "text", Secret: true},
+		{Key: "password", Kind: "text", Secret: true, Show: passwordOnly},
+		// The OAuth client is the user's own: the device cannot carry a
+		// shared secret.
+		{Key: "oauthClientId", Kind: "text", Show: oauthOnly},
+		{Key: "oauthClientSecret", Kind: "text", Secret: true, Show: googleOAuth},
+		{Key: "oauthTenant", Kind: "text", Show: microsoftOAuth},
+		{Key: "oauthToken", Kind: "oauth", Secret: true, Show: oauthOnly, MaxBytes: maxRefreshBytes},
+		{Key: "oauthAccount", Kind: "hidden", Show: oauthOnly},
 		{Key: "from", Kind: "email", Required: true, Placeholder: "nanokvm@example.com"},
 		{Key: "to", Kind: "text", Required: true, Placeholder: "admin@example.com, ops@example.com"},
 		skipVerify,
@@ -316,6 +354,9 @@ func (ch *Channel) validate() error {
 	}
 	settings := map[string]string{}
 	for _, f := range t.Fields {
+		if !f.shown(settings) {
+			continue
+		}
 		value := strings.TrimSpace(ch.Settings[f.Key])
 		if value == "" {
 			value = f.Default
@@ -326,7 +367,11 @@ func (ch *Channel) validate() error {
 			}
 			continue
 		}
-		if len(value) > maxValueBytes {
+		limit := maxValueBytes
+		if f.MaxBytes > 0 {
+			limit = f.MaxBytes
+		}
+		if len(value) > limit {
 			return fmt.Errorf("%s is too long", f.Key)
 		}
 		if err := checkValue(f, value); err != nil {
@@ -334,13 +379,43 @@ func (ch *Channel) validate() error {
 		}
 		settings[f.Key] = value
 	}
-	// Fields of no field list (another type's, a typo) are dropped.
+	// Fields of no field list (another type's, a typo) and those that do
+	// not apply are dropped.
 	ch.Settings = settings
 	if ch.Type == "email" {
-		for _, to := range splitList(settings["to"]) {
-			if _, err := mail.ParseAddress(to); err != nil {
-				return fmt.Errorf("to: %q is not an address", to)
-			}
+		return validateEmail(settings)
+	}
+	return nil
+}
+
+var tenantName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$`)
+
+func validateEmail(settings map[string]string) error {
+	for _, to := range splitList(settings["to"]) {
+		if _, err := mail.ParseAddress(to); err != nil {
+			return fmt.Errorf("to: %q is not an address", to)
+		}
+	}
+	if settings["auth"] != "oauth2" {
+		return nil
+	}
+	p := providerByID(settings["provider"])
+	switch {
+	case p.OAuth == "":
+		return errors.New("OAuth sign-in is for Gmail and Microsoft accounts")
+	case settings["oauthClientId"] == "":
+		return errors.New("oauthClientId is required")
+	case p.OAuth == oauthGoogle && settings["oauthClientSecret"] == "":
+		return errors.New("oauthClientSecret is required")
+	case settings["security"] == "none":
+		return errors.New("a sign-in needs STARTTLS or TLS")
+	}
+	if p.OAuth == oauthMicrosoft {
+		if settings["oauthTenant"] == "" {
+			settings["oauthTenant"] = p.Tenant
+		}
+		if !tenantName.MatchString(settings["oauthTenant"]) {
+			return errors.New("oauthTenant: not a tenant ID or domain")
 		}
 	}
 	return nil
@@ -392,6 +467,8 @@ func splitList(value string) []string {
 type ChannelView struct {
 	Channel
 	SecretsSet []string `json:"secretsSet"`
+	// AuthError: the channel's sign-in failed (expired, revoked).
+	AuthError string `json:"authError,omitempty"`
 }
 
 func (ch Channel) view() ChannelView {

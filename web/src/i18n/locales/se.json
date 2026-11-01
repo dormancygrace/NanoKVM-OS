@@ -828,14 +828,21 @@
         "accessToken": "Åtkomsttoken",
         "roomId": "Rums-ID",
         "protocol": "Protokoll",
-        "skipVerify": "Acceptera valfritt servercertifikat"
+        "skipVerify": "Acceptera valfritt servercertifikat",
+        "provider": "E-posttjänst",
+        "auth": "Inloggning",
+        "oauthClientId": "OAuth-klient-ID",
+        "oauthClientSecret": "OAuth-klienthemlighet",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Ingen",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Lösenord",
+        "oauth2": "Inloggning med OAuth 2.0"
       },
       "help": {
         "telegram": "Skapa en bot med @BotFather och klistra in dess token, lägg sedan till boten i chatten. En grupps ID börjar med -100. Ämnes-ID: för en grupp med ämnen. Bot API-server: endast för en egen Bot API-server.",
@@ -880,6 +887,46 @@
         "screen_bsod": "Blåskärm",
         "screen_panic": "Kernel panic",
         "test": "Testmeddelande"
+      },
+      "provider": {
+        "custom": "Annan server"
+      },
+      "providerHelp": {
+        "gmail": "Logga in med OAuth 2.0 via en egen OAuth-klient, eller använd ett applösenord (kräver tvåstegsverifiering). Användarnamnet är din adress.",
+        "microsoft365": "Inloggning med OAuth 2.0 via en egen appregistrering. Autentiserad SMTP måste vara aktiverad för postlådan. Microsoft avvecklar lösenord (Basic authentication) för SMTP: ett lösenord fungerar bara så länge din organisation fortfarande tillåter det.",
+        "outlook": "Outlook.com tar inte längre emot lösenord från e-postprogram: logga in med OAuth 2.0 via en egen appregistrering som tillåter personliga Microsoft-konton.",
+        "yahoo": "Använd ett applösenord (Account security > Generate app password). Användarnamnet är din adress.",
+        "icloud": "Använd ett appspecifikt lösenord (Apple Account > Sign-In and Security; kräver tvåfaktorsautentisering). Användarnamnet är din fullständiga iCloud Mail-adress.",
+        "zoho": "Använd ett appspecifikt lösenord. smtp.zoho.com betjänar konton i datacentret i USA; andra använder sina egna, till exempel smtp.zoho.eu eller smtp.zoho.in, och betalda domänkonton smtppro.zoho.com.",
+        "fastmail": "Använd ett applösenord med SMTP-åtkomst (Settings > Privacy & Security > Manage app passwords). Användarnamnet är din adress.",
+        "yandex": "Använd ett applösenord för Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Använd ett lösenord för externa program (kontoinställningar > Security). Användarnamnet är din adress.",
+        "proton": "Kräver ett betalt abonnemang och en adress på din egen domän: skapa en SMTP-token (Settings > IMAP/SMTP) och ange den som lösenord, och din domänadress som användarnamn. Proton Mail Bridge körs på en dator, inte på den här enheten.",
+        "custom": "Din egen e-postserver eller ett relä. STARTTLS på port 587, TLS på 465."
+      },
+      "oauth": {
+        "account": "Konto",
+        "clientHelpGoogle": "Skapa i Google Cloud Console en OAuth-klient av typen \"Desktop app\" med omfånget https://mail.google.com/ och ange dess klient-ID och hemlighet. Ställ in samtyckesskärmen på \"In production\": i läget \"Testing\" upphör inloggningen efter 7 dagar. Googles varning om en overifierad app är väntad för en egen app.",
+        "clientHelpMicrosoft": "Registrera en app i Microsoft Entra ID (för Outlook.com: en som tillåter personliga Microsoft-konton), aktivera \"Allow public client flows\" under Authentication och lägg till den delegerade behörigheten SMTP.Send. Ange dess application (client) ID. Tenant: ditt tenant-ID om appen bara är för din organisation.",
+        "signIn": "Logga in",
+        "signInAgain": "Logga in igen",
+        "signOut": "Logga ut",
+        "signOutConfirm": "Logga ut? Det träder i kraft när du sparar. Google-åtkomsten återkallas då; ett Microsoft-konto behåller appen under sina apptillstånd tills du tar bort den där.",
+        "signedIn": "Inloggad som {{account}}",
+        "signedInNoAccount": "Inloggad",
+        "saveToKeep": "Spara för att behålla inloggningen.",
+        "notSignedIn": "Inte inloggad.",
+        "deviceStep": "Gå till",
+        "waiting": "Ange den här koden där och logga in; den här sidan väntar på den.",
+        "codeStep": "Logga in på Googles sida:",
+        "openPage": "öppna inloggningssidan",
+        "codePaste": "Efter inloggningen går webbläsaren till en adress på 127.0.0.1 som inte laddas. Kopiera hela adressen från adressfältet och klistra in den här.",
+        "codeLabel": "Adress efter inloggningen",
+        "finish": "Slutför",
+        "cancel": "Avbryt",
+        "failed": "Inloggningen misslyckades: {{error}}",
+        "authError": "Inloggningen fungerar inte längre: {{error}}",
+        "changed": "Tjänsten, klient-ID:t eller tenant ändrades under inloggningen. Logga in igen."
       }
     },
     "addonPage": {

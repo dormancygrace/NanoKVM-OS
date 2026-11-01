@@ -423,14 +423,21 @@
         "accessToken": "אסימון גישה",
         "roomId": "מזהה חדר",
         "protocol": "פרוטוקול",
-        "skipVerify": "קבלת כל אישור שרת"
+        "skipVerify": "קבלת כל אישור שרת",
+        "provider": "שירות דואר",
+        "auth": "התחברות",
+        "oauthClientId": "מזהה לקוח OAuth",
+        "oauthClientSecret": "סוד לקוח OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "ללא",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "סיסמה",
+        "oauth2": "התחברות באמצעות OAuth 2.0"
       },
       "help": {
         "telegram": "יש ליצור בוט באמצעות @BotFather, להדביק את האסימון שלו ולהוסיף את הבוט לצ'אט. מזהה של קבוצה מתחיל ב-‎-100. מזהה נושא: לקבוצה עם נושאים. שרת Bot API: רק לשרת Bot API עצמאי.",
@@ -475,6 +482,46 @@
         "screen_bsod": "מסך כחול",
         "screen_panic": "Kernel panic",
         "test": "הודעת בדיקה"
+      },
+      "provider": {
+        "custom": "שרת אחר"
+      },
+      "providerHelp": {
+        "gmail": "יש להתחבר באמצעות OAuth 2.0 דרך לקוח OAuth משלכם, או להשתמש בסיסמת אפליקציה (נדרש אימות דו-שלבי). שם המשתמש הוא הכתובת שלכם.",
+        "microsoft365": "התחברות באמצעות OAuth 2.0 דרך רישום אפליקציה משלכם. SMTP מאומת חייב להיות מופעל עבור תיבת הדואר. מיקרוסופט מבטלת סיסמאות (אימות בסיסי) עבור SMTP: סיסמה תעבוד רק כל עוד הארגון שלכם עדיין מאפשר זאת.",
+        "outlook": "Outlook.com כבר אינו מקבל סיסמאות מתוכנות דואר: יש להתחבר באמצעות OAuth 2.0 דרך רישום אפליקציה משלכם שמאפשר חשבונות Microsoft אישיים.",
+        "yahoo": "יש להשתמש בסיסמת אפליקציה (Account security > Generate app password). שם המשתמש הוא הכתובת שלכם.",
+        "icloud": "יש להשתמש בסיסמה ייעודית לאפליקציה (Apple Account > Sign-In and Security; נדרש אימות דו-גורמי). שם המשתמש הוא כתובת iCloud Mail המלאה שלכם.",
+        "zoho": "יש להשתמש בסיסמה ייעודית לאפליקציה. smtp.zoho.com משרת חשבונות במרכז הנתונים בארה\"ב; האחרים משתמשים בשרת משלהם, כמו smtp.zoho.eu או smtp.zoho.in, וחשבונות דומיין בתשלום משתמשים ב-smtppro.zoho.com.",
+        "fastmail": "יש להשתמש בסיסמת אפליקציה עם גישת SMTP (Settings > Privacy & Security > Manage app passwords). שם המשתמש הוא הכתובת שלכם.",
+        "yandex": "יש להשתמש בסיסמת אפליקציה עבור Mail (Yandex ID > Security > App passwords).",
+        "mailru": "יש להשתמש בסיסמה ליישומים חיצוניים (הגדרות החשבון > Security). שם המשתמש הוא הכתובת שלכם.",
+        "proton": "נדרשת מנה בתשלום וכתובת בדומיין משלכם: יש ליצור אסימון SMTP (Settings > IMAP/SMTP) ולהזין אותו כסיסמה, ואת כתובת הדומיין שלכם כשם המשתמש. Proton Mail Bridge פועל במחשב, לא במכשיר הזה.",
+        "custom": "שרת הדואר שלכם או ממסר. STARTTLS ביציאה 587, TLS ב-465."
+      },
+      "oauth": {
+        "account": "חשבון",
+        "clientHelpGoogle": "ב-Google Cloud Console יש ליצור לקוח OAuth מסוג \"Desktop app\" עם ההיקף https://mail.google.com/ ולהזין את מזהה הלקוח והסוד שלו. יש להגדיר את מסך ההסכמה ל-\"In production\": ב-\"Testing\" ההתחברות פגה אחרי 7 ימים. האזהרה של Google על אפליקציה לא מאומתת צפויה באפליקציה משלכם.",
+        "clientHelpMicrosoft": "ב-Microsoft Entra ID יש לרשום אפליקציה (עבור Outlook.com: כזו שמאפשרת חשבונות Microsoft אישיים), להפעיל את \"Allow public client flows\" תחת Authentication ולהוסיף את ההרשאה המואצלת SMTP.Send. יש להזין את מזהה האפליקציה (הלקוח) שלה. Tenant: מזהה ה-tenant שלכם אם האפליקציה מיועדת לארגון שלכם בלבד.",
+        "signIn": "התחברות",
+        "signInAgain": "התחברות מחדש",
+        "signOut": "התנתקות",
+        "signOutConfirm": "להתנתק? זה ייכנס לתוקף בעת השמירה. גישת Google תבוטל אז; חשבון Microsoft ישאיר את האפליקציה בהרשאות האפליקציות שלו עד שתסירו אותה שם.",
+        "signedIn": "מחובר כ-{{account}}",
+        "signedInNoAccount": "מחובר",
+        "saveToKeep": "יש לשמור כדי לשמור את ההתחברות.",
+        "notSignedIn": "לא מחובר.",
+        "deviceStep": "יש לעבור אל",
+        "waiting": "יש להזין שם את הקוד הזה ולהתחבר; הדף הזה ממתין לו.",
+        "codeStep": "יש להתחבר בדף של Google:",
+        "openPage": "פתיחת דף ההתחברות",
+        "codePaste": "אחרי ההתחברות הדפדפן עובר לכתובת ב-127.0.0.1 שאינה נטענת. יש להעתיק את הכתובת המלאה משורת הכתובת ולהדביק אותה כאן.",
+        "codeLabel": "הכתובת אחרי ההתחברות",
+        "finish": "סיום",
+        "cancel": "ביטול",
+        "failed": "ההתחברות נכשלה: {{error}}",
+        "authError": "ההתחברות כבר אינה פועלת: {{error}}",
+        "changed": "השירות, מזהה הלקוח או ה-tenant השתנו במהלך הכניסה. היכנסו שוב."
       }
     },
     "addonPage": {

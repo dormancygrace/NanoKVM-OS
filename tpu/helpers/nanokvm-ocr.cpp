@@ -772,14 +772,63 @@ std::vector<std::string> model_paths(const char *list) {
     return paths;
 }
 
-// Has the page cache hold a file, read through a small buffer (each page of
-// it is a page fault in every reader: a 1 MB one cost 256 per thread).
+// A read-only shared mapping of a whole file, for the calls below; nullptr
+// when it cannot be mapped.
+class FileMap {
+public:
+    explicit FileMap(int fd) {
+        struct stat st;
+        if (fstat(fd, &st) != 0 || st.st_size <= 0) return;
+        void *data = mmap(nullptr, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+        if (data == MAP_FAILED) return;
+        data_ = data;
+        size_ = st.st_size;
+    }
+    FileMap(const FileMap &) = delete;
+    FileMap &operator=(const FileMap &) = delete;
+    ~FileMap() { if (data_) munmap(data_, size_); }
+    void *data() const { return data_; }
+    size_t size() const { return size_; }
+
+private:
+    void *data_ = nullptr;
+    size_t size_ = 0;
+};
+
+// Has the page cache hold a file. The mapping is populated, which reads what
+// the cache misses without copying the file into the process (the copy cost
+// as much CPU as the reading). Without MADV_POPULATE_READ (Linux 5.14) it is
+// read through a small buffer (each page of it is a page fault in every
+// reader: a 1 MB one cost 256 per thread).
 void warm(const std::string &path) {
     const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
     if (fd < 0) return;
+    {
+        const FileMap map(fd);
+        if (map.data() && madvise(map.data(), map.size(), MADV_POPULATE_READ) == 0) {
+            close(fd);
+            return;
+        }
+    }
     std::vector<char> buffer(128 << 10);
     while (::read(fd, buffer.data(), buffer.size()) > 0) {}
     close(fd);
+}
+
+// Whether the page cache holds a file but for at most 1/64 of its pages.
+// mincore() reports every page resident to a caller that neither owns the
+// file nor may write it; the helper runs as root, the models' owner.
+bool cached(const std::string &path) {
+    const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return false;
+    const FileMap map(fd);
+    close(fd);
+    if (!map.data()) return false;
+    const size_t page = sysconf(_SC_PAGESIZE);
+    std::vector<unsigned char> resident((map.size() + page - 1) / page);
+    if (mincore(map.data(), map.size(), resident.data()) != 0) return false;
+    const size_t missing = std::count_if(resident.begin(), resident.end(), [](unsigned char r) { return !(r & 1); });
+    return missing <= resident.size() / 64;
 }
 
 // Takes `bytes` of the TPU's memory (the dma-buf heap the runtime uses: the
@@ -926,6 +975,12 @@ int main(int argc, char **argv) {
     // The files are read through the cache, not into the process: the
     // copies took the memory the cache needed (the detector's file came
     // from the card each time, about 1 s with a viewer).
+    //
+    // A detector file the cache already holds was read by an earlier run
+    // under the same hold, outside the TPU's memory: then nothing is held, as
+    // the kernel clears every byte of it it hands out (64 MiB) and the hold
+    // would only keep the file there. Between runs the cache loses a few of
+    // its pages (14 of 6427 on the stand); the runtime reads those itself.
     auto start = std::chrono::steady_clock::now();
     const int scale = pic.width > 1280 ? 2 : 1;
     const Picture half = scale == 2 ? half_size(pic) : Picture{};
@@ -933,7 +988,9 @@ int main(int argc, char **argv) {
     std::vector<Region> regions;
     std::unique_ptr<ModelFiles> rec_files, sure_files;
     {
-        {
+        if (cached(argv[1])) {
+            if (getenv("NANOKVM_OCR_DEBUG")) std::fprintf(stderr, "detector file cached: no memory held\n");
+        } else {
             const auto holding = std::chrono::steady_clock::now();
             const int held = hold_tpu_memory(det_memory);
             const long hold_ms = ms_since(holding);

@@ -1645,7 +1645,8 @@
         "internetDescription": "接続したデバイスは NanoKVM の接続を通じてインターネットに出られます。",
         "dns": "DNS サーバー",
         "dnsDescription": "IPv4 アドレスを最大 3 つ、カンマ区切りで入力します。空欄の場合は表示中のものを使います。",
-        "invalidDns": "IPv4 アドレスを最大 3 つ入力してください（例: 1.1.1.1）。"
+        "invalidDns": "IPv4 アドレスを最大 3 つ入力してください（例: 1.1.1.1）。",
+        "reconnect": "接続中のデバイスは一瞬切断され、新しい設定で再接続します。"
       },
       "tls": {
         "confirmEnable": "HTTPS をオンにしますか？",

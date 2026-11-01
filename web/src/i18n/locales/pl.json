@@ -541,7 +541,8 @@
         "internetDescription": "Połączone urządzenia wychodzą do internetu przez połączenie NanoKVM.",
         "dns": "Serwery DNS",
         "dnsDescription": "Do trzech adresów IPv4 oddzielonych przecinkami. Puste: wyświetlone.",
-        "invalidDns": "Wpisz do trzech adresów IPv4, np. 1.1.1.1."
+        "invalidDns": "Wpisz do trzech adresów IPv4, np. 1.1.1.1.",
+        "reconnect": "Połączone urządzenia rozłączą się na chwilę i połączą ponownie z nowymi ustawieniami."
       }
     },
     "tailscale": {

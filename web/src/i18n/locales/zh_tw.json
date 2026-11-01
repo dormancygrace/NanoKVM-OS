@@ -541,7 +541,8 @@
         "internetDescription": "已連線的裝置透過 NanoKVM 的網路連線存取網際網路。",
         "dns": "DNS 伺服器",
         "dnsDescription": "最多三個 IPv4 位址，以逗號分隔。留空：使用顯示的位址。",
-        "invalidDns": "請輸入最多三個 IPv4 位址，例如 1.1.1.1。"
+        "invalidDns": "請輸入最多三個 IPv4 位址，例如 1.1.1.1。",
+        "reconnect": "已連線的裝置會短暫中斷，然後以新設定重新連線。"
       }
     },
     "tailscale": {

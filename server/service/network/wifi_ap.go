@@ -362,6 +362,27 @@ func (s *Service) GetWifiAP(c *gin.Context) {
 	rsp.OkRspWithData(c, &state)
 }
 
+// saveWifiAPWithoutTrial writes settings that need no trial, unless a
+// network change is on trial: its revert would write the files back over
+// these. On failure it has answered and released Wi-Fi.
+func saveWifiAPWithoutTrial(c *gin.Context, req proto.WifiAP, keepPassword bool) error {
+	var rsp proto.Response
+	err := withoutTrial(func() error { return writeWifiAP(req, keepPassword) })
+	switch {
+	case errors.Is(err, errTrialPending) || errors.Is(err, errTrialUndoing):
+		finishWifi(nil)
+		rsp.ErrRsp(c, -3, err.Error())
+		return err
+	case err != nil:
+		log.Errorf("failed to write the Wi-Fi access point settings: %s", err)
+		finishWifi(err)
+		rsp.ErrRsp(c, -2, "failed to save the access point settings")
+		return err
+	}
+	_ = exec.Command("sync").Run()
+	return nil
+}
+
 func (s *Service) SetWifiAP(c *gin.Context) {
 	var req proto.WifiAP
 	var rsp proto.Response
@@ -389,13 +410,9 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 		old.SSID == req.SSID && old.Band == req.Band && old.Channel == req.Channel &&
 		old.Hidden == req.Hidden && old.Subnet == req.Subnet &&
 		(keepPassword || req.Password == readWifiAPFile("pass")) {
-		if err := writeWifiAP(req, keepPassword); err != nil {
-			log.Errorf("failed to write the Wi-Fi access point settings: %s", err)
-			finishWifi(err)
-			rsp.ErrRsp(c, -2, "failed to save the access point settings")
+		if err := saveWifiAPWithoutTrial(c, req, keepPassword); err != nil {
 			return
 		}
-		_ = exec.Command("sync").Run()
 		_, err := wifiControl.run(WiFiScript, "ap-internet")
 		finishWifi(err)
 		if err != nil {
@@ -411,13 +428,9 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 	// on trial, as the Ethernet settings (trial.go). Over another interface
 	// the page stays, and there is nothing to confirm.
 	if !requestOnInterface(c, "wlan0") {
-		if err := writeWifiAP(req, keepPassword); err != nil {
-			log.Errorf("failed to write the Wi-Fi access point settings: %s", err)
-			finishWifi(err)
-			rsp.ErrRsp(c, -2, "failed to save the access point settings")
+		if err := saveWifiAPWithoutTrial(c, req, keepPassword); err != nil {
 			return
 		}
-		_ = exec.Command("sync").Run()
 		rsp.OkRspWithData(c, gin.H{})
 		c.Writer.Flush()
 		releaseRestart := networktrial.Begin()

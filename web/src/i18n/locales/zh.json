@@ -1645,7 +1645,8 @@
         "internetDescription": "已连接的设备通过 NanoKVM 的网络连接访问互联网。",
         "dns": "DNS 服务器",
         "dnsDescription": "最多三个 IPv4 地址，用逗号分隔。留空：使用显示的地址。",
-        "invalidDns": "请输入最多三个 IPv4 地址，例如 1.1.1.1。"
+        "invalidDns": "请输入最多三个 IPv4 地址，例如 1.1.1.1。",
+        "reconnect": "已连接的设备会短暂断开，然后以新设置重新连接。"
       },
       "tls": {
         "confirmEnable": "开启 HTTPS？",

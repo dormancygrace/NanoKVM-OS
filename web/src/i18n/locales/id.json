@@ -541,7 +541,8 @@
         "internetDescription": "Perangkat yang terhubung mengakses internet melalui koneksi NanoKVM.",
         "dns": "Server DNS",
         "dnsDescription": "Hingga tiga alamat IPv4 dipisahkan koma. Kosong: yang ditampilkan.",
-        "invalidDns": "Masukkan hingga tiga alamat IPv4, misalnya 1.1.1.1."
+        "invalidDns": "Masukkan hingga tiga alamat IPv4, misalnya 1.1.1.1.",
+        "reconnect": "Perangkat yang terhubung terputus sesaat lalu tersambung kembali dengan pengaturan baru."
       }
     },
     "tailscale": {

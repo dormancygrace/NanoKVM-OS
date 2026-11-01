@@ -1645,7 +1645,8 @@
         "internetDescription": "Les appareils connectés accèdent à internet via la connexion du NanoKVM.",
         "dns": "Serveurs DNS",
         "dnsDescription": "Jusqu’à trois adresses IPv4 séparées par des virgules. Vide : celles affichées.",
-        "invalidDns": "Saisissez jusqu’à trois adresses IPv4, par exemple 1.1.1.1."
+        "invalidDns": "Saisissez jusqu’à trois adresses IPv4, par exemple 1.1.1.1.",
+        "reconnect": "Les appareils connectés se déconnectent un instant puis se reconnectent avec les nouveaux réglages."
       },
       "tls": {
         "confirmEnable": "Activer HTTPS ?",

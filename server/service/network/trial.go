@@ -142,15 +142,40 @@ func syncFiles() error { return exec.Command("sync").Run() }
 // beginTrial records the current contents of the files a change is about to
 // write. Only one change runs on trial at a time, and none while an earlier
 // one is being undone.
-func beginTrial(service string, paths []string) (*trial, error) {
-	trialMu.Lock()
-	defer trialMu.Unlock()
+var (
+	errTrialPending = errors.New("a network change is waiting for confirmation; confirm it or wait for it to be undone")
+	errTrialUndoing = errors.New("an earlier network change is still being undone; try again later")
+)
+
+// trialIdle: no change is on trial or being undone. Callers hold trialMu.
+func trialIdle() error {
 	if active != nil {
-		return nil, errors.New("a network change is waiting for confirmation; confirm it or wait for it to be undone")
+		return errTrialPending
 	}
 	// A record nobody owns is the only way back to the confirmed settings.
 	if _, err := os.Lstat(trialFile); !errors.Is(err, os.ErrNotExist) {
-		return nil, errors.New("an earlier network change is still being undone; try again later")
+		return errTrialUndoing
+	}
+	return nil
+}
+
+// withoutTrial makes a network change that needs no trial, while none is
+// on trial: under trialMu, so that none starts, and none reverting writes
+// its files back over this change.
+func withoutTrial(write func() error) error {
+	trialMu.Lock()
+	defer trialMu.Unlock()
+	if err := trialIdle(); err != nil {
+		return err
+	}
+	return write()
+}
+
+func beginTrial(service string, paths []string) (*trial, error) {
+	trialMu.Lock()
+	defer trialMu.Unlock()
+	if err := trialIdle(); err != nil {
+		return nil, err
 	}
 	files, err := snapshotFiles(paths)
 	if err != nil {

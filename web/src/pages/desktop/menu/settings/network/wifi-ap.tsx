@@ -101,6 +101,12 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
     form.hidden !== status.hidden ||
     form.subnet !== status.subnet ||
     password !== '';
+  // A new router or DNS servers reach the connected devices with a new
+  // lease: S30wifi disconnects them, and they rejoin at once.
+  const reconnects =
+    !restarts &&
+    (form.internet !== status.internet ||
+      (form.internet && dnsList(dns).join(' ') !== (status.dns ?? []).join(' ')));
 
   async function save() {
     if (!form || !valid || saving) return;
@@ -298,6 +304,7 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
         />
       </SettingRow>
       {restarts && <Alert type="warning" showIcon message={tr('warning')} />}
+      {reconnects && <Alert type="info" showIcon message={tr('reconnect')} />}
       <div>
         <Button type="primary" loading={saving} disabled={!valid} onClick={() => void save()}>
           {tr('save')}

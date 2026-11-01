@@ -541,7 +541,8 @@
         "internetDescription": "Các thiết bị đã kết nối truy cập internet qua kết nối của NanoKVM.",
         "dns": "Máy chủ DNS",
         "dnsDescription": "Tối đa ba địa chỉ IPv4, phân cách bằng dấu phẩy. Để trống: dùng các địa chỉ đang hiển thị.",
-        "invalidDns": "Nhập tối đa ba địa chỉ IPv4, ví dụ 1.1.1.1."
+        "invalidDns": "Nhập tối đa ba địa chỉ IPv4, ví dụ 1.1.1.1.",
+        "reconnect": "Các thiết bị đã kết nối sẽ ngắt kết nối trong giây lát rồi kết nối lại với cài đặt mới."
       }
     },
     "tailscale": {

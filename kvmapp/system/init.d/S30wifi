@@ -30,6 +30,7 @@
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 : "${NANOKVM_NFT:=nft}"
+: "${NANOKVM_HOSTAPD_CLI:=hostapd_cli}"
 : "${NANOKVM_RESOLV_CONF:=/etc/resolv.conf}"
 : "${NANOKVM_IPV4_CONF_DIR:=/proc/sys/net/ipv4/conf}"
 
@@ -181,13 +182,14 @@ gen_udhcpd_conf() {
     fi
 }
 
-# The administrator's access point always has its nft table: without
-# internet it only keeps wlan0 out of forwarding, in case something (a VPN)
-# turns forwarding on for every interface. With internet, its subnet goes out
-# masqueraded through any other interface. IPv4 forwarding is decided on the
-# receiving interface, so it is switched on for wlan0 and the interfaces of
-# the default routes (replies come in there), never globally:
-# net.ipv4.ip_forward resets every interface's settings.
+# The administrator's access point always has its nft table, installed
+# before it accepts clients and replaced in one transaction (never removed
+# while it runs): without internet it only keeps wlan0 out of forwarding, in
+# case something (a VPN) turns forwarding on for every interface. With
+# internet, its subnet goes out masqueraded through any other interface.
+# IPv4 forwarding is decided on the receiving interface, so it is switched on
+# for wlan0 and the interfaces of the default routes (replies come in there),
+# never globally: net.ipv4.ip_forward resets every interface's settings.
 ap_internet_start() {
     ipv4_prefix=$1
     allow=
@@ -216,8 +218,10 @@ $allow
 $nat
 }
 EOF
-    : > "$AP_FORWARDING"
-    [ "$2" = internet ] || return 0
+    if [ "$2" != internet ]; then
+        ap_forwarding_restore
+        return 0
+    fi
     # Ethernet also when its lease comes after the access point.
     for dev in wlan0 eth0 $("$NANOKVM_IP" -4 route show default | sed -n 's/.* dev \([^ ]*\).*/\1/p'); do
         forwarding=$NANOKVM_IPV4_CONF_DIR/$dev/forwarding
@@ -227,10 +231,8 @@ EOF
     done
 }
 
-ap_internet_stop() {
-    if "$NANOKVM_NFT" list table inet "$AP_NAT_TABLE" >/dev/null 2>&1; then
-        "$NANOKVM_NFT" delete table inet "$AP_NAT_TABLE" || true
-    fi
+# Switches off the forwarding the access point switched on.
+ap_forwarding_restore() {
     [ -r "$AP_FORWARDING" ] || return 0
     # USB internet sharing forwards through the same uplinks; leave them on
     # while it runs.
@@ -242,6 +244,15 @@ ap_internet_stop() {
         fi
     done < "$AP_FORWARDING"
     rm -f "$AP_FORWARDING"
+}
+
+# The access point is down or going down: forwarding off first, then the
+# guard.
+ap_internet_stop() {
+    ap_forwarding_restore
+    if "$NANOKVM_NFT" list table inet "$AP_NAT_TABLE" >/dev/null 2>&1; then
+        "$NANOKVM_NFT" delete table inet "$AP_NAT_TABLE" || true
+    fi
 }
 
 import_boot_credentials() {
@@ -742,12 +753,13 @@ ap_start() {
     if [ -x "$NANOKVM_IPV6_INIT" ]; then
         "$NANOKVM_IPV6_INIT" interface wlan0 || return 1
     fi
+    # The forwarding policy before any client can join; none, no access point.
+    if [ "$mode" = user ] && ! ap_internet_start "$ipv4_prefix" "$ap_internet"; then
+        echo "Could not set the access point's forwarding rules" >&2
+        return 1
+    fi
     "$NANOKVM_HOSTAPD" -B -i wlan0 "$HOSTAPD_CONFIG" || return 1
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
-    if [ "$mode" = user ]; then
-        ap_internet_start "$ipv4_prefix" "$ap_internet" ||
-            echo "Could not set the access point's forwarding rules" >&2
-    fi
 
     if [ "$mode" = user ]; then
         touch "$USER_AP_FLAG"
@@ -779,8 +791,11 @@ stop_ap_udhcpd() {
 }
 
 # ap-internet: a change of only internet or DNS servers, applied to the
-# running access point without restarting Wi-Fi. Its DHCP server restarts
-# with the new router and DNS options; the leases stay.
+# running access point without restarting Wi-Fi. The forwarding policy is
+# replaced in one step; its DHCP server restarts with the new router and DNS
+# options, the leases stay. A client takes new options only with a new
+# lease: when they changed, the connected clients are disconnected, and
+# rejoin and ask for one at once.
 ap_internet_apply() {
     [ -e "$USER_AP_FLAG" ] || return 0
     ipv4_prefix=$(sed -n 's/^start \(.*\)\.100$/\1/p' "$UDHCPD_CONFIG" 2>/dev/null)
@@ -788,12 +803,18 @@ ap_internet_apply() {
     ap_internet=
     [ ! -e "$AP_PREFIX.internet" ] || ap_internet=internet
     ap_dns=$(tr -cd '0-9. ' < "$AP_PREFIX.dns" 2>/dev/null)
-    ap_internet_stop
+    ap_internet_start "$ipv4_prefix" "$ap_internet" || return 1
+    old_options=$(grep -E '^option (router|dns|lease) ' "$UDHCPD_CONFIG" 2>/dev/null)
     stop_ap_udhcpd wait
     umask 077
     gen_udhcpd_conf wlan0 "$ipv4_prefix" "$ap_internet" "$ap_dns" > "$UDHCPD_CONFIG" || return 1
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
-    ap_internet_start "$ipv4_prefix" "$ap_internet"
+    if [ "$old_options" != "$(grep -E '^option (router|dns|lease) ' "$UDHCPD_CONFIG")" ]; then
+        for station in $("$NANOKVM_HOSTAPD_CLI" -p "$NANOKVM_HOSTAPD_CTRL_DIR" -i wlan0 list_sta 2>/dev/null |
+            grep -E '^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$'); do
+            "$NANOKVM_HOSTAPD_CLI" -p "$NANOKVM_HOSTAPD_CTRL_DIR" -i wlan0 deauthenticate "$station" >/dev/null 2>&1 || true
+        done
+    fi
 }
 
 # wpa_supplicant and hostapd deauthenticate through the SDIO driver before

@@ -541,7 +541,8 @@
         "internetDescription": "Els dispositius connectats surten a internet a través de la connexió del NanoKVM.",
         "dns": "Servidors DNS",
         "dnsDescription": "Fins a tres adreces IPv4 separades per comes. Si és buit, les que es mostren.",
-        "invalidDns": "Introduïu fins a tres adreces IPv4, com ara 1.1.1.1."
+        "invalidDns": "Introduïu fins a tres adreces IPv4, com ara 1.1.1.1.",
+        "reconnect": "Els dispositius connectats es desconnecten un moment i es tornen a connectar amb la nova configuració."
       }
     },
     "tailscale": {

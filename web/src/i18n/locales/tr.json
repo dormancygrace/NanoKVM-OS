@@ -541,7 +541,8 @@
         "internetDescription": "Bağlı cihazlar internete NanoKVM’in bağlantısı üzerinden çıkar.",
         "dns": "DNS sunucuları",
         "dnsDescription": "Virgülle ayrılmış en fazla üç IPv4 adresi. Boş: gösterilenler.",
-        "invalidDns": "En fazla üç IPv4 adresi girin, örneğin 1.1.1.1."
+        "invalidDns": "En fazla üç IPv4 adresi girin, örneğin 1.1.1.1.",
+        "reconnect": "Bağlı cihazların bağlantısı bir anlığına kesilir ve yeni ayarlarla yeniden bağlanırlar."
       }
     },
     "tailscale": {

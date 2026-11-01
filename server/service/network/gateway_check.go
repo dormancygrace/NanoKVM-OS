@@ -265,11 +265,16 @@ type gatewayHealth struct {
 
 type gatewayChecker struct {
 	mu     sync.Mutex
-	health map[string]*gatewayHealth // by interface
+	health map[string]*gatewayHealth // by interface; published snapshots, never changed after
 	now    func() time.Time
 }
 
 var gatewayWatch = &gatewayChecker{health: map[string]*gatewayHealth{}, now: time.Now}
+
+// gatewayCheckGeneration changes, under gatewayMu, each time the check is
+// turned off and its demotions undone: a round of probes started before
+// then must not act on its results afterwards.
+var gatewayCheckGeneration uint64
 
 // tick runs one round of checks and the route changes they call for.
 func (c *gatewayChecker) tick(config gatewayCheckConfig) {
@@ -278,22 +283,36 @@ func (c *gatewayChecker) tick(config gatewayCheckConfig) {
 		c.health = map[string]*gatewayHealth{}
 		c.mu.Unlock()
 		gatewayMu.Lock()
+		gatewayCheckGeneration++
 		restoreAllGateways()
 		gatewayMu.Unlock()
 		return
 	}
+	gatewayMu.Lock()
+	generation := gatewayCheckGeneration
+	gatewayMu.Unlock()
+	// current: the check was not turned off since the round started (callers
+	// hold gatewayMu, which turning it off takes; SetGatewayCheck turns it
+	// off through tick).
+	current := func() bool { return gatewayCheckGeneration == generation }
 	// The probes take seconds while a gateway is silent: outside gatewayMu,
-	// so that the preferred-gateway setting does not wait for them.
+	// so that the preferred-gateway setting does not wait for them. They
+	// work on copies, published when the round is done.
 	now := c.now()
 	results := map[string]*gatewayHealth{}
+	defer func() {
+		c.mu.Lock()
+		c.health = results
+		c.mu.Unlock()
+	}()
 	for _, route := range uniqueGatewayRoutes(defaultGatewayEntries()) {
 		if _, seen := results[route.Interface]; seen || gatewayKind(route.Interface) != "ethernet" || !gatewayCarrier(route.Interface) {
 			continue
 		}
+		health := &gatewayHealth{}
 		c.mu.Lock()
-		health := c.health[route.Interface]
-		if health == nil {
-			health = &gatewayHealth{}
+		if previous := c.health[route.Interface]; previous != nil {
+			*health = *previous
 		}
 		c.mu.Unlock()
 		gatewayOK := probeGateway(route.Interface, route.Gateway, config.Method)
@@ -311,12 +330,14 @@ func (c *gatewayChecker) tick(config gatewayCheckConfig) {
 		health.checked, health.reachable = true, ok
 		results[route.Interface] = health
 	}
-	c.mu.Lock()
-	c.health = results
-	c.mu.Unlock()
 
 	// The table again: routes may have moved while the probes ran.
 	gatewayMu.Lock()
+	if !current() {
+		gatewayMu.Unlock()
+		results = map[string]*gatewayHealth{}
+		return
+	}
 	entries := defaultGatewayEntries()
 	routes := uniqueGatewayRoutes(entries)
 	var silent []proto.GatewayRoute
@@ -366,7 +387,10 @@ func (c *gatewayChecker) tick(config gatewayCheckConfig) {
 	for _, route := range silent {
 		health := results[route.Interface]
 		pid := gatewayDHCPClient(route.Interface)
-		if pid == 0 {
+		gatewayMu.Lock()
+		stale := !current()
+		gatewayMu.Unlock()
+		if pid == 0 || stale {
 			continue
 		}
 		health.lastDHCP = now

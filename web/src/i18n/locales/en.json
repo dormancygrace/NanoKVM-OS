@@ -1613,8 +1613,6 @@
         "description": "Instead of joining a network, Wi-Fi becomes a network of its own. Devices that join it reach NanoKVM, and the internet when that is on.",
         "enable": "Access point",
         "enableDescription": "Turning it on disconnects Wi-Fi from its network.",
-        "state": "On · {{address}} · devices connected: {{count}}",
-        "starting": "Starting…",
         "ssid": "Network name",
         "password": "Password",
         "passwordKeep": "Unchanged",

@@ -1613,8 +1613,6 @@
         "description": "Wi‑Fi 不再加入其他网络，而是创建自己的网络。连接的设备可以访问 NanoKVM，开启后还可访问互联网。",
         "enable": "接入点",
         "enableDescription": "开启后，Wi-Fi 将断开与原网络的连接。",
-        "state": "已开启 · {{address}} · 已连接设备：{{count}}",
-        "starting": "正在启动…",
         "ssid": "网络名称",
         "password": "密码",
         "passwordKeep": "保持不变",

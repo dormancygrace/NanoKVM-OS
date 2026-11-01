@@ -509,8 +509,6 @@
         "description": "Invece di collegarsi a una rete, il Wi‑Fi ne crea una propria. I dispositivi connessi raggiungono il NanoKVM e, se attivato, internet.",
         "enable": "Punto di accesso",
         "enableDescription": "Quando lo attivi, il Wi-Fi si disconnette dalla sua rete.",
-        "state": "Attivo · {{address}} · dispositivi collegati: {{count}}",
-        "starting": "Avvio in corso…",
         "ssid": "Nome della rete",
         "password": "Password",
         "passwordKeep": "Invariata",

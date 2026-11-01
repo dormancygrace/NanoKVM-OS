@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/network.ts';
 import { startNetworkTrial } from '@/lib/network-trial.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
-import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
+import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 // The channels the server accepts (service/network/wifi_ap.go): those
 // without radar detection.
@@ -134,24 +134,14 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
     }
   }
 
-  let state = null;
-  if (status?.enabled) {
-    state = status.running ? (
-      <StatusBadge tone="success">
-        {tr('state', { address: status.address, count: status.stations.length })}
-      </StatusBadge>
-    ) : (
-      <StatusBadge tone="neutral">{tr('starting')}</StatusBadge>
-    );
-  }
-
   return (
     <SettingsSection title={tr('title')} description={tr('description')}>
       {error && <Alert type="error" showIcon message={error} />}
       <SettingRow
         htmlFor="wifi-ap-enabled"
         label={tr('enable')}
-        description={state ?? tr('enableDescription')}
+        // On, its state is in the main Wi-Fi row.
+        description={status?.enabled ? undefined : tr('enableDescription')}
       >
         <Switch
           id="wifi-ap-enabled"

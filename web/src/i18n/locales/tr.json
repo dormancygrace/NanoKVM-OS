@@ -509,8 +509,6 @@
         "description": "Bir ağa katılmak yerine Wi‑Fi kendi ağını oluşturur. Bağlanan cihazlar NanoKVM’e, açıksa internete de erişir.",
         "enable": "Erişim noktası",
         "enableDescription": "Açıldığında Wi-Fi kendi ağından bağlantısını keser.",
-        "state": "Açık · {{address}} · bağlı cihazlar: {{count}}",
-        "starting": "Başlatılıyor…",
         "ssid": "Ağ adı",
         "password": "Parola",
         "passwordKeep": "Değişmedi",

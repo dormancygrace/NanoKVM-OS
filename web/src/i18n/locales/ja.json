@@ -1613,8 +1613,6 @@
         "description": "ネットワークに参加する代わりに、Wi‑Fi が独自のネットワークを作ります。接続したデバイスは NanoKVM に、有効時はインターネットにもアクセスできます。",
         "enable": "アクセスポイント",
         "enableDescription": "有効にすると、Wi-Fi は接続中のネットワークから切断されます。",
-        "state": "オン · {{address}} · 接続中のデバイス: {{count}}",
-        "starting": "起動しています…",
         "ssid": "ネットワーク名",
         "password": "パスワード",
         "passwordKeep": "変更なし",

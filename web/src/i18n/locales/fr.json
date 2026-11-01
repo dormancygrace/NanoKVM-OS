@@ -1613,8 +1613,6 @@
         "description": "Au lieu de rejoindre un réseau, le Wi‑Fi crée le sien. Les appareils connectés accèdent au NanoKVM et, si l'option est activée, à internet.",
         "enable": "Point d'accès",
         "enableDescription": "À l'activation, le Wi-Fi se déconnecte de son réseau.",
-        "state": "Activé · {{address}} · appareils connectés : {{count}}",
-        "starting": "Démarrage…",
         "ssid": "Nom du réseau",
         "password": "Mot de passe",
         "passwordKeep": "Inchangé",

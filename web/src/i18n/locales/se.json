@@ -509,8 +509,6 @@
         "description": "I stället för att ansluta till ett nätverk skapar Wi‑Fi ett eget. Anslutna enheter når NanoKVM och, när det är påslaget, internet.",
         "enable": "Åtkomstpunkt",
         "enableDescription": "När den slås på kopplas Wi-Fi bort från sitt nätverk.",
-        "state": "På · {{address}} · anslutna enheter: {{count}}",
-        "starting": "Startar…",
         "ssid": "Nätverksnamn",
         "password": "Lösenord",
         "passwordKeep": "Oförändrat",

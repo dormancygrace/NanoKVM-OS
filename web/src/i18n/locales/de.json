@@ -1613,8 +1613,6 @@
         "description": "Statt einem Netzwerk beizutreten, stellt das WLAN ein eigenes bereit. Verbundene Geräte erreichen den NanoKVM und, wenn aktiviert, das Internet.",
         "enable": "Zugangspunkt",
         "enableDescription": "Beim Einschalten trennt sich Wi-Fi von seinem Netzwerk.",
-        "state": "Ein · {{address}} · verbundene Geräte: {{count}}",
-        "starting": "Wird gestartet…",
         "ssid": "Netzwerkname",
         "password": "Passwort",
         "passwordKeep": "Unverändert",

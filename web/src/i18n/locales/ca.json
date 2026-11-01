@@ -509,8 +509,6 @@
         "description": "En lloc d'unir-se a una xarxa, el Wi‑Fi crea la seva pròpia. Els dispositius connectats hi accedeixen al NanoKVM i, si està activat, a internet.",
         "enable": "Punt d'accés",
         "enableDescription": "En activar-lo, el Wi-Fi es desconnecta de la seva xarxa.",
-        "state": "Activat · {{address}} · dispositius connectats: {{count}}",
-        "starting": "S'està iniciant…",
         "ssid": "Nom de la xarxa",
         "password": "Contrasenya",
         "passwordKeep": "Sense canvis",

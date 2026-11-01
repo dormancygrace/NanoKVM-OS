@@ -509,8 +509,6 @@
         "description": "Thay vì tham gia một mạng, Wi‑Fi tạo mạng riêng. Thiết bị kết nối vào sẽ truy cập được NanoKVM, và cả internet khi bật.",
         "enable": "Điểm truy cập",
         "enableDescription": "Khi bật, Wi-Fi sẽ ngắt kết nối khỏi mạng của nó.",
-        "state": "Đang bật · {{address}} · thiết bị đã kết nối: {{count}}",
-        "starting": "Đang khởi động…",
         "ssid": "Tên mạng",
         "password": "Mật khẩu",
         "passwordKeep": "Không đổi",

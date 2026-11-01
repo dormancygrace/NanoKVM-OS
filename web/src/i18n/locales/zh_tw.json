@@ -509,8 +509,6 @@
         "description": "Wi‑Fi 不再加入其他網路，而是建立自己的網路。連線的裝置可存取 NanoKVM，開啟後也可存取網際網路。",
         "enable": "存取點",
         "enableDescription": "開啟後，Wi-Fi 將中斷與原網路的連線。",
-        "state": "已開啟 · {{address}} · 已連線裝置：{{count}}",
-        "starting": "正在啟動…",
         "ssid": "網路名稱",
         "password": "密碼",
         "passwordKeep": "保持不變",

@@ -509,8 +509,6 @@
         "description": "In plaats van met een netwerk te verbinden, maakt wifi een eigen netwerk. Verbonden apparaten bereiken de NanoKVM en, indien ingeschakeld, het internet.",
         "enable": "Toegangspunt",
         "enableDescription": "Bij het inschakelen wordt Wi-Fi losgekoppeld van zijn netwerk.",
-        "state": "Aan · {{address}} · verbonden apparaten: {{count}}",
-        "starting": "Starten…",
         "ssid": "Netwerknaam",
         "password": "Wachtwoord",
         "passwordKeep": "Ongewijzigd",

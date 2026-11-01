@@ -728,8 +728,6 @@
         "description": "Místo připojení k síti vytvoří Wi‑Fi vlastní síť. Připojená zařízení vidí NanoKVM a při zapnutí i internet.",
         "enable": "Přístupový bod",
         "enableDescription": "Po zapnutí se Wi-Fi odpojí od své sítě.",
-        "state": "Zapnuto · {{address}} · připojená zařízení: {{count}}",
-        "starting": "Spouští se…",
         "ssid": "Název sítě",
         "password": "Heslo",
         "passwordKeep": "Beze změny",

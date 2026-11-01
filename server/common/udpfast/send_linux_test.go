@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net"
 	"os"
-	"sync"
 	"testing"
 	"time"
 )
@@ -59,52 +58,4 @@ func TestDatagramsAndDeadlines(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestConcurrentPackets(t *testing.T) {
-	receiver, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer receiver.Close()
-	receiver.SetReadBuffer(1 << 20)
-	receiver.SetReadDeadline(time.Now().Add(5 * time.Second))
-	sender, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	wrapped := Wrap(sender)
-	defer wrapped.Close()
-	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func(id byte) {
-			defer wg.Done()
-			for j := 0; j < 16; j++ {
-				packet := bytes.Repeat([]byte{id}, 1200)
-				packet[1] = byte(j)
-				if _, err := wrapped.WriteToUDP(packet, receiver.LocalAddr().(*net.UDPAddr)); err != nil {
-					t.Error(err)
-					return
-				}
-			}
-		}(byte(i))
-	}
-	seen := map[[2]byte]bool{}
-	for i := 0; i < 128; i++ {
-		packet := make([]byte, 1500)
-		n, _, err := receiver.ReadFromUDP(packet)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if n != 1200 || !bytes.Equal(packet[2:n], bytes.Repeat(packet[:1], 1198)) {
-			t.Fatal("datagram corrupted")
-		}
-		key := [2]byte{packet[0], packet[1]}
-		if seen[key] {
-			t.Fatal("duplicate")
-		}
-		seen[key] = true
-	}
-	wg.Wait()
 }

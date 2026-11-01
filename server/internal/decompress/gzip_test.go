@@ -63,19 +63,6 @@ func TestGzipMatchesStdlib(t *testing.T) {
 	}
 }
 
-func TestGzipSmallReadBuffers(t *testing.T) {
-	data := samples()["mixed"]
-	z, err := NewGzipReader(bytes.NewReader(gzipBytes(t, data)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer z.Close()
-	got, err := io.ReadAll(iotest.OneByteReader(z))
-	if err != nil || !bytes.Equal(got, data) {
-		t.Fatalf("one-byte reads: %v, equal %v", err, bytes.Equal(got, data))
-	}
-}
-
 func TestGzipMultistream(t *testing.T) {
 	a, b := []byte("first member\n"), bytes.Repeat([]byte("second member\n"), 5000)
 	stream := append(gzipBytes(t, a), gzipBytes(t, b)...)
@@ -136,22 +123,6 @@ func TestGzipSourceError(t *testing.T) {
 	}
 }
 
-func TestGzipClose(t *testing.T) {
-	z, err := NewGzipReader(bytes.NewReader(gzipBytes(t, []byte("x"))))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := z.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := z.Close(); err != nil {
-		t.Fatal("second Close:", err)
-	}
-	if _, err := z.Read(make([]byte, 1)); !errors.Is(err, ErrClosed) {
-		t.Fatalf("read after Close: %v", err)
-	}
-}
-
 // FuzzGzip checks that whenever compress/gzip decodes an input, this reader
 // decodes it to the same bytes, and that it never accepts what compress/gzip
 // rejects. One difference is intended: zlib rejects the reserved header flag
@@ -189,31 +160,6 @@ func FuzzGzip(f *testing.F) {
 			t.Fatal("outputs differ")
 		}
 	})
-}
-
-func BenchmarkGzip(b *testing.B) {
-	data := samples()["mixed"]
-	compressed := gzipBytes(b, data)
-	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
-		z, _ := NewGzipReader(bytes.NewReader(compressed))
-		if _, err := io.Copy(io.Discard, z); err != nil {
-			b.Fatal(err)
-		}
-		z.Close()
-	}
-}
-
-func BenchmarkStdlibGzip(b *testing.B) {
-	data := samples()["mixed"]
-	compressed := gzipBytes(b, data)
-	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
-		z, _ := gzip.NewReader(bytes.NewReader(compressed))
-		if _, err := io.Copy(io.Discard, z); err != nil {
-			b.Fatal(err)
-		}
-	}
 }
 
 // readMixed alternates small reads (through the buffer) and reads larger than

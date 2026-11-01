@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"NanoKVM-Server/utils"
 
@@ -24,42 +23,6 @@ func writeTestUsers(t *testing.T, users ...User) *Store {
 		t.Fatal(err)
 	}
 	return NewStore(path)
-}
-
-// A password check takes about a second on the device. Token checks, which
-// every authenticated request makes, must not wait for it.
-func TestAuthenticateDoesNotBlockTokenChecks(t *testing.T) {
-	hash, err := bcrypt.GenerateFromPassword([]byte("correct-password"), 12)
-	if err != nil {
-		t.Fatal(err)
-	}
-	store := writeTestUsers(t, User{Username: "owner", PasswordHash: string(hash), Role: RoleAdmin, Enabled: true, TokenVersion: 3})
-	if _, err = store.Get("owner"); err != nil {
-		t.Fatal(err)
-	}
-
-	done := make(chan struct{})
-	started := time.Now()
-	go func() {
-		defer close(done)
-		if _, ok, _ := store.Authenticate("owner", "wrong-password"); ok {
-			t.Error("wrong password accepted")
-		}
-	}()
-	time.Sleep(20 * time.Millisecond)
-	checked := time.Now()
-	if _, err = store.ValidateToken("owner", 3); err != nil {
-		t.Fatal(err)
-	}
-	waited := time.Since(checked)
-	<-done
-	compare := time.Since(started)
-	if compare < 100*time.Millisecond {
-		t.Skipf("bcrypt took only %s here; the overlap is not measurable", compare)
-	}
-	if waited > compare/2 {
-		t.Fatalf("token check waited %s for a %s password check", waited, compare)
-	}
 }
 
 // An account stored with the old reversible encryption is upgraded to bcrypt

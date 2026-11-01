@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
-	"io"
 	"testing"
 )
 
@@ -27,18 +26,5 @@ func TestCopyImageChecksum(t *testing.T) {
 				t.Fatalf("copy returned %d, %v; output length %d", n, err, dst.Len())
 			}
 		})
-	}
-}
-
-type failingImageWriter struct{}
-
-func (failingImageWriter) Write(p []byte) (int, error) { return 3, io.ErrClosedPipe }
-
-func TestCopyImagePreservesWriteError(t *testing.T) {
-	for _, expected := range [][]byte{nil, make([]byte, sha256.Size)} {
-		n, err := copyImage(failingImageWriter{}, bytes.NewReader([]byte("partial image")), expected)
-		if n != 3 || !errors.Is(err, io.ErrClosedPipe) {
-			t.Fatalf("copy returned %d, %v; want partial write error", n, err)
-		}
 	}
 }

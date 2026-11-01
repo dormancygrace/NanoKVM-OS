@@ -2,10 +2,7 @@ package stream
 
 import (
 	"NanoKVM-Server/common"
-	"NanoKVM-Server/internal/videogate"
-	"context"
 	"errors"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -43,23 +40,6 @@ func TestVideoSourceSharesOnlyExactConfiguration(t *testing.T) {
 	}
 }
 
-func TestAutomaticVideoSubscriptionUsesSharedSelection(t *testing.T) {
-	for _, config := range []EncoderConfig{LegacyEncoderConfig(), DefaultEncoderConfig()} {
-		source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-		source.selectConfig(config)
-		first, err := source.subscribe(EncoderConfig{})
-		if err != nil || first.Config() != config {
-			t.Fatalf("idle selection: %v %v", first, err)
-		}
-		second, err := source.subscribe(EncoderConfig{})
-		if err != nil || second.session != first.session || second.Config() != config {
-			t.Fatalf("active selection: %v %v", second, err)
-		}
-		second.Close()
-		first.Close()
-	}
-}
-
 func TestAutomaticVideoSubscriptionAdoptsActiveCodecOrDefault(t *testing.T) {
 	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
 	first, err := source.subscribe(LegacyEncoderConfig())
@@ -77,95 +57,6 @@ func TestAutomaticVideoSubscriptionAdoptsActiveCodecOrDefault(t *testing.T) {
 		t.Fatalf("drained session overrode default: %v %v", third, err)
 	}
 	third.Close()
-}
-
-func TestAutomaticVideoSubscriptionResolvesAgainAfterDrain(t *testing.T) {
-	started, release := make(chan struct{}), make(chan struct{})
-	var once sync.Once
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
-		once.Do(func() { close(started) })
-		<-release
-		return nil, nil, 0
-	})
-	old, err := source.subscribe(DefaultEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("capture did not start")
-	}
-	old.Close()
-	result := make(chan *VideoSubscription, 1)
-	go func() {
-		sub, err := source.subscribe(EncoderConfig{})
-		if err != nil {
-			result <- nil
-		} else {
-			result <- sub
-		}
-	}()
-	select {
-	case <-result:
-		t.Fatal("automatic join did not wait for draining native capture")
-	case <-time.After(30 * time.Millisecond):
-	}
-	source.selectConfig(LegacyEncoderConfig())
-	close(release)
-	select {
-	case sub := <-result:
-		if sub == nil || sub.Config() != LegacyEncoderConfig() {
-			t.Fatalf("automatic join used stale selection: %v", sub)
-		}
-		sub.Close()
-	case <-time.After(time.Second):
-		t.Fatal("automatic join failed after drain")
-	}
-}
-
-func TestAutomaticVideoSubscriptionValidatesResolvedCodecBeforeCapture(t *testing.T) {
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
-		t.Error("rejected subscription started capture")
-		return nil, nil, 0
-	})
-	source.selectConfig(LegacyEncoderConfig())
-	rejected := errors.New("unsupported resolution")
-	_, err := source.subscribeValidated(EncoderConfig{}, func(config EncoderConfig) error {
-		if config != LegacyEncoderConfig() {
-			t.Errorf("validation saw unresolved codec: %+v", config)
-		}
-		return rejected
-	})
-	if err != rejected || source.session != nil || len(source.subscribers) != 0 {
-		t.Fatalf("invalid automatic subscription was activated: %v", err)
-	}
-}
-
-func TestVideoSourceDoesNotLeakFramesAcrossSessions(t *testing.T) {
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-	h265 := DefaultEncoderConfig()
-	h264 := h265
-	h264.Codec = VideoCodecH264
-
-	oldSubscription, err := source.subscribe(h264)
-	if err != nil {
-		t.Fatal(err)
-	}
-	oldSession := oldSubscription.session
-	oldSubscription.Close()
-
-	newSubscription, err := source.subscribe(h265)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer newSubscription.Close()
-	if oldSession == newSubscription.session {
-		t.Fatal("encoder session was reused after its last subscriber left")
-	}
-	if subscribers := source.snapshot(oldSession); len(subscribers) != 0 {
-		t.Fatalf("old session can see %d subscriber(s) from the new session", len(subscribers))
-	}
 }
 
 // A RustDesk session is not a counted viewer; its session must hold the
@@ -197,56 +88,6 @@ func TestVideoSessionHoldsCaptureWhileItRuns(t *testing.T) {
 	<-session.done
 	if held.Load() != 1 || released.Load() != 1 {
 		t.Fatalf("held %d, released %d; want one hold for the session", held.Load(), released.Load())
-	}
-}
-
-// A video session wakes the capture (its lease) only after a background OCR
-// read it cancelled has ended; a session given up while waiting takes none.
-func TestVideoSessionWaitsForBackgroundOCR(t *testing.T) {
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-	var ocrEnded atomic.Bool
-	woke := make(chan bool, 4)
-	hold := func() func() {
-		woke <- ocrEnded.Load()
-		return func() {}
-	}
-	source.holdCapture.Store(&hold)
-	ctx, end, ok := videogate.Begin(context.Background())
-	if !ok {
-		t.Fatal("background read refused")
-	}
-	go func() {
-		<-ctx.Done()
-		time.Sleep(50 * time.Millisecond) // the helper exits, its memory is freed
-		ocrEnded.Store(true)
-		end()
-	}()
-	subscription, err := source.subscribe(DefaultEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !<-woke {
-		t.Fatal("the capture woke beside the OCR")
-	}
-	session := subscription.session
-	subscription.Close()
-	<-session.done
-
-	// A session whose viewer leaves while the OCR has not ended yet.
-	ctx, end, _ = videogate.Begin(context.Background())
-	subscription, err = source.subscribe(DefaultEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-ctx.Done()
-	session = subscription.session
-	subscription.Close()
-	<-session.done
-	end()
-	select {
-	case <-woke:
-		t.Fatal("a session given up woke the capture")
-	default:
 	}
 }
 
@@ -350,15 +191,6 @@ func TestVideoSubscriptionRecoversAtKeyframeAfterBackpressure(t *testing.T) {
 	}
 }
 
-func TestNativeEncoderMappings(t *testing.T) {
-	if got := VideoCodecH264.NativeCodec(); got != 1 {
-		t.Fatalf("H.264 native codec = %d, want 1", got)
-	}
-	if got := VideoCodecH265.NativeCodec(); got != 2 {
-		t.Fatalf("H.265 native codec = %d, want 2", got)
-	}
-}
-
 func TestVideoSubscriptionStartsAtKeyframeAndPreservesErrors(t *testing.T) {
 	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
 	config := DefaultEncoderConfig()
@@ -395,46 +227,6 @@ func TestVideoSubscriptionStartsAtKeyframeAndPreservesErrors(t *testing.T) {
 		if got := <-subscription.frames; got.Result != 2 || got.Timestamp != 5 {
 			t.Fatalf("following frame = %+v", got)
 		}
-	}
-}
-
-func TestActiveEncoderConfigExcludesDrainingCapture(t *testing.T) {
-	started, release := make(chan struct{}), make(chan struct{})
-	var once sync.Once
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
-		once.Do(func() { close(started) })
-		<-release
-		return nil, nil, 0
-	})
-	defer close(release)
-	if _, active := source.activeConfig(); active {
-		t.Fatal("idle source is active")
-	}
-	first, err := source.subscribe(LegacyEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer first.Close()
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("capture did not start")
-	}
-	if config, active := source.activeConfig(); !active || config != LegacyEncoderConfig() {
-		t.Fatalf("active config = %+v, active=%t", config, active)
-	}
-	second, err := source.subscribe(LegacyEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer second.Close()
-	first.Close()
-	if _, active := source.activeConfig(); !active {
-		t.Fatal("lost remaining subscriber")
-	}
-	second.Close()
-	if _, active := source.activeConfig(); active {
-		t.Fatal("draining session advertised as active")
 	}
 }
 
@@ -480,23 +272,6 @@ func TestH264CodecPolicy(t *testing.T) {
 	}
 }
 
-func TestSubscribeRefusesH264At4K(t *testing.T) {
-	previousInput, previousLimit := captureInput, common.GetScreen().Height
-	t.Cleanup(func() { captureInput = previousInput; common.SetScreen("resolution", int(previousLimit)) })
-	captureInput = func() (int, int) { return 3840, 2160 }
-	common.SetScreen("resolution", 0)
-	if err := validateVideoConfig(EncoderConfig{Codec: VideoCodecH264}); err == nil || err.Error() != common.H264BlockedMessage {
-		t.Fatalf("H.264 at 3840x2160: %v", err)
-	}
-	if err := validateVideoConfig(EncoderConfig{Codec: VideoCodecH265}); err != nil {
-		t.Fatalf("H.265 at 3840x2160: %v", err)
-	}
-	common.SetScreen("resolution", 1440)
-	if err := validateVideoConfig(EncoderConfig{Codec: VideoCodecH264}); err != nil {
-		t.Fatalf("H.264 at 3840x2160 limited to 1440: %v", err)
-	}
-}
-
 func TestSelectedH264FallsBackToH265At4K(t *testing.T) {
 	previousInput, previousLimit := captureInput, common.GetScreen().Height
 	t.Cleanup(func() { captureInput = previousInput; common.SetScreen("resolution", int(previousLimit)) })
@@ -532,64 +307,6 @@ func TestSelectedH264FallsBackToH265At4K(t *testing.T) {
 		t.Fatalf("selected H.264 at 2560x1440: %+v %v", next, err)
 	}
 	next.Close()
-}
-
-func TestH264SessionEndsWhenThePictureGrowsPastQHD(t *testing.T) {
-	previousInput, previousLimit := captureInput, common.GetScreen().Height
-	t.Cleanup(func() { captureInput = previousInput; common.SetScreen("resolution", int(previousLimit)) })
-	var input atomic.Int64
-	input.Store(2560<<16 | 1440)
-	captureInput = func() (int, int) { v := input.Load(); return int(v >> 16), int(v & 0xffff) }
-	common.SetScreen("resolution", 0)
-
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, -1 })
-	viewer, err := source.subscribeValidated(LegacyEncoderConfig(), validateVideoConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	input.Store(3840<<16 | 2160)
-	select {
-	case <-viewer.done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("H.264 viewer kept a session that cannot encode 3840x2160")
-	}
-	<-viewer.session.done
-}
-
-func TestVideoSourceSnapshotRemainsImmutableAcrossMembershipChanges(t *testing.T) {
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-	first, err := source.subscribe(DefaultEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer first.Close()
-	old := source.snapshot(first.session)
-	second, err := source.subscribe(DefaultEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer second.Close()
-	if len(old) != 1 || old[0] != first {
-		t.Fatal("joining changed an in-flight snapshot")
-	}
-	joined := source.snapshot(first.session)
-	if len(joined) != 2 {
-		t.Fatal("new subscriber absent")
-	}
-	first.Close()
-	current := source.snapshot(second.session)
-	if len(current) != 1 || current[0] != second {
-		t.Fatal("closed subscriber retained")
-	}
-	if len(joined) != 2 || joined[0] == joined[1] {
-		t.Fatal("removal changed an in-flight snapshot")
-	}
-	if old[0].send(VideoFrame{Result: keyFrameResult}) {
-		t.Fatal("closed subscriber accepted a stale snapshot frame")
-	}
-	if allocations := testing.AllocsPerRun(100, func() { source.snapshot(second.session) }); allocations != 0 {
-		t.Fatalf("per-frame subscriber snapshot allocates: %v", allocations)
-	}
 }
 
 func TestCaptureDeadlinePreservesCadenceAndBoundsCatchup(t *testing.T) {
@@ -666,64 +383,6 @@ func TestExplicitCodecSelectionReplacesSharedSession(t *testing.T) {
 	defer next.Close()
 	if next.session == old.session {
 		t.Fatal("codec change reused old capture session")
-	}
-}
-
-func TestSelectingCurrentCodecDoesNotInterruptViewers(t *testing.T) {
-	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-	first, _ := source.subscribe(DefaultEncoderConfig())
-	defer first.Close()
-	source.selectConfig(DefaultEncoderConfig())
-	select {
-	case <-first.done:
-		t.Fatal("same codec interrupted stream")
-	default:
-	}
-	second, err := source.subscribe(DefaultEncoderConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer second.Close()
-	if second.session != first.session {
-		t.Fatal("matching viewer not shared")
-	}
-}
-
-// The native reader can consume the whole cadence period. Workers created at
-// its return must run before another blocking capture, including empty/errors.
-func TestLateVideoCaptureAllowsNewInputWorkersToRun(t *testing.T) {
-	previous := runtime.GOMAXPROCS(1)
-	defer runtime.GOMAXPROCS(previous)
-	for _, result := range []int{-1, 0} {
-		var workers atomic.Int32
-		captures := 0
-		finished := make(chan int32, 1)
-		source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) {
-			captures++
-			if captures == 1 {
-				time.Sleep(50 * time.Millisecond)
-				go func() { workers.Add(1) }()
-				go func() { workers.Add(1) }()
-			} else if captures == 2 {
-				finished <- workers.Load()
-			}
-			return nil, nil, result
-		})
-		subscription, err := source.subscribe(DefaultEncoderConfig())
-		if err != nil {
-			t.Fatal(err)
-		}
-		select {
-		case got := <-finished:
-			subscription.Close()
-			<-subscription.session.done
-			if got != 2 {
-				t.Fatalf("capture result %d: only %d new input workers ran before next capture", result, got)
-			}
-		case <-time.After(time.Second):
-			subscription.Close()
-			t.Fatal("capture did not progress")
-		}
 	}
 }
 

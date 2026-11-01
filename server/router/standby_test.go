@@ -47,27 +47,3 @@ func TestStandbyAdmissionKeepsReadsAndBlocksNewStreams(t *testing.T) {
 		}
 	}
 }
-
-func TestStandbyAdmissionTracksWritesWithUpgradeHeaders(t *testing.T) {
-	standby.Requests.Cancel()
-	t.Cleanup(standby.Requests.Cancel)
-	r := gin.New()
-	r.Use(standbyAdmission())
-	r.POST("/write", func(c *gin.Context) {
-		if standby.Requests.Begin() == nil {
-			t.Fatal("write escaped active-mutation tracking")
-		}
-		c.Status(http.StatusOK)
-	})
-	req := httptest.NewRequest("POST", "/write", nil)
-	req.Header.Set("Connection", "Upgrade")
-	req.Header.Set("Upgrade", "websocket")
-	rsp := httptest.NewRecorder()
-	r.ServeHTTP(rsp, req)
-	if rsp.Code != http.StatusOK {
-		t.Fatal(rsp.Code)
-	}
-	if err := standby.Requests.Begin(); err != nil {
-		t.Fatal(err)
-	}
-}

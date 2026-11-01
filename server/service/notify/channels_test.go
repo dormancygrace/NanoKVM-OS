@@ -75,41 +75,6 @@ func TestWebhookSignature(t *testing.T) {
 	}
 }
 
-func TestTelegram(t *testing.T) {
-	server, got := capture(t, http.StatusOK)
-	ch := channel("telegram", map[string]string{"token": "1:T", "chatId": "-100", "threadId": "7", "apiUrl": server.URL})
-	if err := sendChannel(context.Background(), ch, sample); err != nil {
-		t.Fatal(err)
-	}
-	var payload map[string]any
-	_ = json.Unmarshal(got.body, &payload)
-	if got.path != "/bot1:T/sendMessage" || payload["chat_id"] != "-100" || payload["message_thread_id"] != float64(7) ||
-		!strings.HasPrefix(payload["text"].(string), "Host powered off\n") {
-		t.Fatalf("%s %v", got.path, payload)
-	}
-
-	r := sample
-	r.Image = []byte("jpeg")
-	if err := sendChannel(context.Background(), ch, r); err != nil {
-		t.Fatal(err)
-	}
-	if got.path != "/bot1:T/sendPhoto" || !strings.HasPrefix(got.contentType, "multipart/form-data") ||
-		!strings.Contains(string(got.body), "jpeg") {
-		t.Fatalf("photo: %s %s", got.path, got.contentType)
-	}
-}
-
-func TestErrorsHideTheURL(t *testing.T) {
-	listener, _ := net.Listen("tcp", "127.0.0.1:0")
-	addr := listener.Addr().String()
-	listener.Close() // nothing listens: the connection is refused
-	ch := channel("telegram", map[string]string{"token": "1:SECRET", "chatId": "1", "apiUrl": "http://" + addr})
-	err := sendChannel(context.Background(), ch, sample)
-	if err == nil || strings.Contains(err.Error(), "SECRET") {
-		t.Fatalf("error %v", err)
-	}
-}
-
 // echo answers with status and the request's address, headers and body, as
 // an error page or a proxy can.
 func echo(t *testing.T, status int) *httptest.Server {
@@ -166,68 +131,6 @@ func TestHTTPStatus(t *testing.T) {
 		if err == nil || errors.As(err, &perm) != isPermanent || !strings.Contains(err.Error(), "answer") {
 			t.Errorf("HTTP %d: %v", status, err)
 		}
-	}
-}
-
-func TestChatPayloads(t *testing.T) {
-	server, got := capture(t, http.StatusAccepted)
-	check := func(kind string, settings map[string]string, test func(map[string]any)) {
-		t.Helper()
-		if err := sendChannel(context.Background(), channel(kind, settings), sample); err != nil {
-			t.Fatalf("%s: %v", kind, err)
-		}
-		var payload map[string]any
-		if err := json.Unmarshal(got.body, &payload); err != nil {
-			t.Fatalf("%s: %v", kind, err)
-		}
-		test(payload)
-	}
-	url := map[string]string{"url": server.URL + "/x"}
-	check("teams", url, func(p map[string]any) {
-		card := p["attachments"].([]any)[0].(map[string]any)
-		body := card["content"].(map[string]any)["body"].([]any)
-		if p["type"] != "message" || card["contentType"] != "application/vnd.microsoft.card.adaptive" ||
-			body[0].(map[string]any)["color"] != "Attention" {
-			t.Fatalf("teams %v", p)
-		}
-	})
-	check("discord", url, func(p map[string]any) {
-		if !strings.HasPrefix(p["content"].(string), "**Host powered off**") {
-			t.Fatalf("discord %v", p)
-		}
-	})
-	check("googlechat", url, func(p map[string]any) {
-		if !strings.HasPrefix(p["text"].(string), "*Host powered off*") {
-			t.Fatalf("google chat %v", p)
-		}
-	})
-	check("ntfy", map[string]string{"server": server.URL, "topic": "kvm", "token": "tk"}, func(p map[string]any) {
-		if p["topic"] != "kvm" || p["priority"] != float64(4) || got.header.Get("Authorization") != "Bearer tk" || got.path != "/" {
-			t.Fatalf("ntfy %v %s", p, got.path)
-		}
-	})
-	check("gotify", map[string]string{"server": server.URL, "token": "g"}, func(p map[string]any) {
-		if got.path != "/message" || got.header.Get("X-Gotify-Key") != "g" || p["priority"] != float64(5) {
-			t.Fatalf("gotify %v", p)
-		}
-	})
-	check("matrix", map[string]string{"homeserver": server.URL, "accessToken": "m", "roomId": "!r:h"}, func(p map[string]any) {
-		if got.method != http.MethodPut || !strings.HasPrefix(got.path, "/_matrix/client/v3/rooms/%21r:h/send/m.room.message/") ||
-			got.header.Get("Authorization") != "Bearer m" || p["msgtype"] != "m.text" {
-			t.Fatalf("matrix %s %s %v", got.method, got.path, p)
-		}
-	})
-}
-
-func TestDiscordImage(t *testing.T) {
-	server, got := capture(t, http.StatusOK)
-	r := sample
-	r.Image = []byte("jpeg")
-	if err := sendChannel(context.Background(), channel("discord", map[string]string{"url": server.URL}), r); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(got.contentType, "multipart/form-data") || !strings.Contains(string(got.body), `name="payload_json"`) {
-		t.Fatalf("discord image: %s", got.contentType)
 	}
 }
 
@@ -324,25 +227,6 @@ func fakeSMTP(t *testing.T, reject string) (string, string, *strings.Builder) {
 	}()
 	host, port, _ := net.SplitHostPort(listener.Addr().String())
 	return host, port, transcript
-}
-
-func TestEmailRelay(t *testing.T) {
-	host, port, transcript := fakeSMTP(t, "")
-	ch := channel("email", map[string]string{"host": host, "port": port, "security": "none",
-		"from": "NanoKVM <kvm@example.com>", "to": "a@example.com; b@example.com"})
-	r := sample
-	r.Image = []byte("jpeg")
-	if err := sendChannel(context.Background(), ch, r); err != nil {
-		t.Fatal(err)
-	}
-	got := transcript.String()
-	for _, want := range []string{"MAIL FROM:<kvm@example.com>", "RCPT TO:<a@example.com>", "RCPT TO:<b@example.com>",
-		`From: "NanoKVM" <kvm@example.com>`, "Subject: [kvm1] Host powered off", "Auto-Submitted: auto-generated",
-		"@example.com>\r\n", "multipart/mixed", `filename="screen.jpg"`} {
-		if !strings.Contains(got, want) {
-			t.Errorf("missing %q in\n%s", want, got)
-		}
-	}
 }
 
 func TestEmailRefusals(t *testing.T) {

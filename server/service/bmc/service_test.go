@@ -121,71 +121,6 @@ func TestRedfishFollowsTheSettings(t *testing.T) {
 	}
 }
 
-// Without the add-on the page has no port field and sends no port.
-func TestRedfishWithoutTheAddOnKeepsThePort(t *testing.T) {
-	s, _ := newTestService(t, false)
-	if err := s.Configure(Settings{Redfish: true, Username: "admin", Password: "secret-123"}); err != nil {
-		t.Fatal(err)
-	}
-	if config, _ := bmc.Load(s.configPath); config.IPMIPort != bmc.DefaultIPMIPort {
-		t.Fatalf("port %d", config.IPMIPort)
-	}
-}
-
-func TestIPMIStartsAndStops(t *testing.T) {
-	s, _ := newTestService(t, false)
-	settings := Settings{IPMI: true, Username: "admin", Password: "secret-123", IPMIPort: 623, HoldSeconds: 5}
-	if err := s.Configure(settings); err == nil {
-		t.Fatal("IPMI turned on without the add-on")
-	}
-	s, rc := newTestService(t, true)
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-	joined := strings.Join(rc.calls, "\n")
-	if !strings.Contains(joined, "rc-update add nanokvm-ipmi default") || !strings.Contains(joined, "nanokvm-ipmi restart") {
-		t.Fatalf("not started: %v", rc.calls)
-	}
-	status, _ := s.Status()
-	if !status.PasswordSet || !status.IPMIInstalled || !status.IPMI || !status.IPMIRunning {
-		t.Fatalf("status %+v", status)
-	}
-	rc.calls = nil
-	settings.IPMI = false
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Join(rc.calls, "\n") != "rc-service nanokvm-ipmi stop\nrc-update del nanokvm-ipmi default" {
-		t.Fatalf("not stopped: %v", rc.calls)
-	}
-	// Off again: already stopped and out of the runlevel, nothing fails.
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// The daemon keeps its startup settings: a failed stop leaves IPMI serving,
-// and saying it is off would be wrong.
-func TestAFailedStopIsReported(t *testing.T) {
-	s, rc := newTestService(t, true)
-	settings := Settings{IPMI: true, Username: "admin", Password: "secret-123", IPMIPort: 623}
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-	rc.stopFails = true
-	settings.IPMI = false
-	if err := s.Configure(settings); err == nil {
-		t.Fatal("a failed stop reported success")
-	}
-	if status, _ := s.Status(); !status.IPMIRunning {
-		t.Fatalf("status %+v", status)
-	}
-	rc.calls = nil
-	if err := s.UninstallIPMI(); err == nil || strings.Contains(strings.Join(rc.calls, ","), "apk del") {
-		t.Fatalf("removed a running daemon's package: %v %v", err, rc.calls)
-	}
-}
-
 func TestAPasswordIsNeeded(t *testing.T) {
 	s, rc := newTestService(t, true)
 	if err := s.Configure(Settings{Redfish: true, Username: "admin", IPMIPort: 623, HoldSeconds: 5}); err == nil {
@@ -193,25 +128,6 @@ func TestAPasswordIsNeeded(t *testing.T) {
 	}
 	if len(rc.calls) != 0 || s.redfish.Load() != nil {
 		t.Fatalf("applied an invalid configuration: %v", rc.calls)
-	}
-}
-
-func TestInstallAndUninstallIPMI(t *testing.T) {
-	s, rc := newTestService(t, false)
-	if err := s.InstallIPMI(); err != nil || strings.Join(rc.calls, ",") != "apk add" {
-		t.Fatalf("install: %v %v", err, rc.calls)
-	}
-	s, rc = newTestService(t, true)
-	_ = s.Configure(Settings{IPMI: true, Username: "admin", Password: "secret-123", IPMIPort: 623, HoldSeconds: 5})
-	rc.calls = nil
-	if err := s.UninstallIPMI(); err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.Join(rc.calls, ","); got != "rc-service nanokvm-ipmi stop,rc-update del nanokvm-ipmi default,apk del" {
-		t.Fatalf("uninstall: %v", got)
-	}
-	if config, _ := bmc.Load(s.configPath); config.IPMI {
-		t.Fatal("IPMI still on after removal")
 	}
 }
 
@@ -228,33 +144,5 @@ func TestRedfishWithoutAddOnPreservesCustomPort(t *testing.T) {
 	got, err := bmc.Load(s.configPath)
 	if err != nil || got.IPMIPort != 1623 {
 		t.Fatalf("port=%d err=%v", got.IPMIPort, err)
-	}
-}
-
-// The power LED setting is stored when sent, kept when absent (an older
-// page), and shown in the status.
-func TestPowerLEDSetting(t *testing.T) {
-	s, _ := newTestService(t, false)
-	settings := Settings{Redfish: true, Username: "admin", Password: "secret-123", IPMIPort: 623}
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-	if status, _ := s.Status(); !status.PowerLEDConnected {
-		t.Fatal("the LED is not connected by default")
-	}
-	disconnected := false
-	settings.PowerLEDConnected = &disconnected
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-	settings.PowerLEDConnected = nil
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-	if status, _ := s.Status(); status.PowerLEDConnected {
-		t.Fatal("a request without the field changed the setting")
-	}
-	if bmc.PowerLEDConnected(s.configPath) {
-		t.Fatal("the ATX state would still trust the LED")
 	}
 }

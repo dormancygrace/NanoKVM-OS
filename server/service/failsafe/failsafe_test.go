@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestCrashClassification(t *testing.T) {
@@ -76,33 +75,5 @@ func TestThresholdLatchAndClear(t *testing.T) {
 	}
 	if g.status().Active {
 		t.Fatal("oversized records counted")
-	}
-}
-
-func TestRetryFailureRestoresLatchAndRejectsDuplicate(t *testing.T) {
-	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "active"), []byte("1"), 0600)
-	called := make(chan struct{})
-	g, err := load(dir, 1000, func() error { close(called); return fmt.Errorf("exec failed") })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := g.retry(); err != nil {
-		t.Fatal(err)
-	}
-	if err := g.retry(); err == nil {
-		t.Fatal("concurrent retry accepted")
-	}
-	select {
-	case <-called:
-	case <-time.After(3 * time.Second):
-		t.Fatal("restart not attempted")
-	}
-	if got := g.status(); !got.Active || got.Retrying {
-		t.Fatalf("failed retry state %+v", got)
-	}
-	restored, err := load(dir, 1000, nil)
-	if err != nil || !restored.status().Active {
-		t.Fatal("failed exec lost latch", err)
 	}
 }

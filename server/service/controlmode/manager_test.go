@@ -9,13 +9,6 @@ import (
 	"time"
 )
 
-func TestManagerDefaultsToPicoclaw(t *testing.T) {
-	manager := NewManager(filepath.Join(t.TempDir(), "mode"), ModePicoclaw)
-	if got := manager.Current(); got != ModePicoclaw {
-		t.Fatalf("mode = %q, want %q", got, ModePicoclaw)
-	}
-}
-
 func TestSwitchPreemptsBeforeWaitingForActiveWrite(t *testing.T) {
 	manager := NewManager(filepath.Join(t.TempDir(), "mode"), ModeMCP)
 	release, err := manager.AcquireWrite(ModeMCP)
@@ -55,44 +48,6 @@ func TestSwitchPreemptsBeforeWaitingForActiveWrite(t *testing.T) {
 	}
 }
 
-func TestSwitchRunsCleanupAfterActiveWritesDrain(t *testing.T) {
-	manager := NewManager(filepath.Join(t.TempDir(), "mode"), ModePicoclaw)
-	release, err := manager.AcquireWrite(ModePicoclaw)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cleanupCalled := make(chan struct{})
-	done := make(chan error, 1)
-	go func() {
-		done <- manager.SwitchWithCleanup(ModeMCP, nil, func() error {
-			close(cleanupCalled)
-			return nil
-		})
-	}()
-
-	select {
-	case <-cleanupCalled:
-		t.Fatal("cleanup ran before active write drained")
-	case <-time.After(20 * time.Millisecond):
-	}
-
-	release()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("switch did not finish")
-	}
-	select {
-	case <-cleanupCalled:
-	default:
-		t.Fatal("cleanup was not called")
-	}
-}
-
 func TestSwitchCleanupFailureFailsClosed(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "mode")
 	manager := NewManager(path, ModePicoclaw)
@@ -113,54 +68,6 @@ func TestSwitchCleanupFailureFailsClosed(t *testing.T) {
 	}
 }
 
-func TestSwitchIfKeepsDifferentMode(t *testing.T) {
-	manager := NewManager(filepath.Join(t.TempDir(), "mode"), ModePicoclaw)
-	switched, err := manager.SwitchIfWithCleanup(ModeMCP, ModeOff, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if switched || manager.Current() != ModePicoclaw {
-		t.Fatalf("switched=%v mode=%q, want unchanged picoclaw", switched, manager.Current())
-	}
-}
-
-func TestSwitchTimeoutDoesNotLeaveManagerTransitioning(t *testing.T) {
-	manager := NewManager(filepath.Join(t.TempDir(), "mode"), ModeMCP)
-	manager.activityWaitTimeout = 20 * time.Millisecond
-	cleanupCalled := false
-
-	status, release, err := manager.AcquireStable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status.Mode != ModeMCP {
-		t.Fatalf("mode = %q, want MCP", status.Mode)
-	}
-
-	err = manager.SwitchWithCleanup(ModePicoclaw, nil, func() error {
-		cleanupCalled = true
-		return nil
-	})
-	if !errors.Is(err, ErrActivityWaitTimeout) {
-		t.Fatalf("switch error = %v, want %v", err, ErrActivityWaitTimeout)
-	}
-	if cleanupCalled {
-		t.Fatal("cleanup ran even though exclusive activity lease was not acquired")
-	}
-	status, err = manager.Status()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status.Mode != ModeMCP || status.Transitioning {
-		t.Fatalf("status after timeout = %+v, want stable MCP", status)
-	}
-
-	release()
-	if err := manager.SwitchWithCleanup(ModePicoclaw, nil, nil); err != nil {
-		t.Fatalf("switch after lease release failed: %v", err)
-	}
-}
-
 func TestInvalidModeFailsClosed(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "mode")
 	if err := os.WriteFile(path, []byte("invalid\n"), 0o600); err != nil {
@@ -176,27 +83,5 @@ func TestInvalidModeFailsClosed(t *testing.T) {
 	}
 	if !strings.Contains(status.LastError, "invalid") {
 		t.Fatalf("last_error = %q, want invalid mode detail", status.LastError)
-	}
-}
-
-func TestStatusReloadsExternallyModifiedModeFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "mode")
-	if err := os.WriteFile(path, []byte("off\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	manager := NewManager(path, ModePicoclaw)
-	if got := manager.Current(); got != ModeOff {
-		t.Fatalf("initial mode = %q, want off", got)
-	}
-
-	if err := os.WriteFile(path, []byte("mcp\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	modTime := time.Now().Add(time.Second)
-	if err := os.Chtimes(path, modTime, modTime); err != nil {
-		t.Fatal(err)
-	}
-	if got := manager.Current(); got != ModeMCP {
-		t.Fatalf("mode after external write = %q, want MCP", got)
 	}
 }

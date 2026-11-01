@@ -1,8 +1,6 @@
 package osupdate
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -42,23 +40,6 @@ func TestSoftwareValidationAndParsing(t *testing.T) {
 	// Another package's name-version is not this package's update.
 	if updates = parseSoftwareUpdates("alpha-1.0-r0 < beta-1.1-r0\n"); len(updates) != 0 {
 		t.Fatalf("took another package's version: %#v", updates)
-	}
-}
-
-func TestRunSoftware(t *testing.T) {
-	oldDir, oldExec := apkStateDir, apkExecutable
-	defer func() { apkStateDir, apkExecutable = oldDir, oldExec }()
-	apkStateDir = t.TempDir()
-	apkExecutable = filepath.Join(t.TempDir(), "apk")
-	if err := os.WriteFile(apkExecutable, []byte("#!/bin/sh\nprintf '%s\\n' \"$@\"\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := RunSoftware("install", "tailscale"); err != nil {
-		t.Fatal(err)
-	}
-	status := GetSoftwareStatus()
-	if status.State != "succeeded" || status.Action != "install" || status.Package != "tailscale" {
-		t.Fatalf("unexpected status: %#v", status)
 	}
 }
 

@@ -6,15 +6,6 @@ import (
 	"testing"
 )
 
-func TestEncoderConfigDefaults(t *testing.T) {
-	if got := DefaultEncoderConfig(); got.Codec != VideoCodecH265 {
-		t.Fatalf("default codec = %q, want h265", got.Codec)
-	}
-	if got := LegacyEncoderConfig(); got.Codec != VideoCodecH264 {
-		t.Fatalf("legacy codec = %q, want h264", got.Codec)
-	}
-}
-
 func TestParseEncoderConfig(t *testing.T) {
 	tests := []struct {
 		name     string

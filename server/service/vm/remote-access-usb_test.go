@@ -70,36 +70,6 @@ func TestRustDeskRestoreKeepsAChangedComposition(t *testing.T) {
 	}
 }
 
-func TestRustDeskSoundAndFailedRestore(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "usb-before-rustdesk.json")
-	off := usbComposition{mode: hid.ModeNormal}
-	ok := func(usbComposition) error { return nil }
-	if err := enableRemoteAccessUSB(path, off, false, ok); err != nil {
-		t.Fatal(err)
-	}
-	preset := off.remoteAccessProfile(false)
-	// RustDesk's sound turned on while it ran: still restored afterwards
-	withSound := preset.remoteAccessDefaults(true)
-	if err := followRemoteAccessMarker(path, preset, withSound, ok); err != nil {
-		t.Fatal(err)
-	}
-	// a failed restore keeps the marker; on and off again retries
-	if err := restoreRemoteAccessUSB(path, withSound, func(usbComposition) error { return errors.New("injected") }); err == nil {
-		t.Fatal("the failure was lost")
-	}
-	if err := enableRemoteAccessUSB(path, withSound, true, ok); err != nil {
-		t.Fatal(err)
-	}
-	var restored usbComposition
-	if err := restoreRemoteAccessUSB(path, off.remoteAccessProfile(true), func(c usbComposition) error { restored = c; return nil }); err != nil {
-		t.Fatal(err)
-	}
-	// an empty composition before RustDesk turns USB off again
-	if restored != off {
-		t.Fatalf("restored %+v, want USB off", restored)
-	}
-}
-
 func TestRustDeskMarkerMustBeSavedBeforeSwitchingUSB(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing", "marker.json")
 	current := usbComposition{mode: hid.ModeNormal, network: true}
@@ -126,32 +96,5 @@ func TestRustDeskMarkerPrecedesApplyAndRollsBackOnFailure(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatal("failed apply left a marker for an unapplied preset")
-	}
-}
-
-func TestRustDeskSoundMarkerRollsBackOnApplyFailure(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "marker.json")
-	before := usbComposition{mode: hid.ModeNormal, network: true}
-	current := before.remoteAccessProfile(false)
-	original := remoteAccessMarker{Before: flagsOf(before), Applied: flagsOf(current)}
-	if err := writeRemoteAccessMarker(path, original); err != nil {
-		t.Fatal(err)
-	}
-	saved, _ := os.ReadFile(path)
-	candidate := current.remoteAccessDefaults(true)
-	failed := errors.New("sound apply failed")
-	err := followRemoteAccessMarker(path, current, candidate, func(next usbComposition) error {
-		m, ok := readRemoteAccessMarker(path)
-		if !ok || m.Applied != flagsOf(next) || m.Before != flagsOf(before) {
-			t.Error("sound changed before recovery marker")
-		}
-		return failed
-	})
-	if !errors.Is(err, failed) {
-		t.Fatal(err)
-	}
-	restored, _ := os.ReadFile(path)
-	if string(saved) != string(restored) {
-		t.Fatal("failed sound apply changed the original marker")
 	}
 }

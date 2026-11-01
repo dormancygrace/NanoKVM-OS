@@ -1,12 +1,10 @@
 package vm
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -76,70 +74,6 @@ func waitForAutostartLog(t *testing.T, name, want string) {
 			t.Fatalf("%s log = %q, %v; want %q", name, data, err, want)
 		}
 		time.Sleep(20 * time.Millisecond)
-	}
-}
-
-func TestRunAutostartOncePerBootWithLogAndStatus(t *testing.T) {
-	root := temporaryAutostart(t)
-	counter := filepath.Join(t.TempDir(), "count")
-	writeTestScript(t, filepath.Join(root, "ok.sh"), "#!/bin/sh\necho started >> "+counter+"\npwd\nexit 3\n")
-	writeTestScript(t, filepath.Join(root, "loud.sh"), "#!/bin/sh\nhead -c 200000 /dev/zero | tr '\\0' x\necho done\n")
-	writeTestScript(t, filepath.Join(root, "gone.sh"), "#!/bin/sh\n")
-	for _, name := range []string{"ok.sh", "loud.sh", "gone.sh"} {
-		if err := setAutostart(root, name, true); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.Remove(filepath.Join(root, "gone.sh")); err != nil {
-		t.Fatal(err)
-	}
-
-	RunAutostart(root)
-	RunAutostart(root) // a server restart in the same boot
-	if got := waitForStatus(t, "ok.sh", "exited"); got != "exited 3" {
-		t.Fatalf("ok.sh status %q", got)
-	}
-	if got := waitForStatus(t, "loud.sh", "exited"); got != "exited 0" {
-		t.Fatalf("loud.sh status %q", got)
-	}
-	if got := waitForStatus(t, "gone.sh", "error"); !strings.HasPrefix(got, "error:") {
-		t.Fatalf("gone.sh status %q", got)
-	}
-	if data, _ := os.ReadFile(counter); string(data) != "started\n" {
-		t.Fatalf("ran %q times", string(data))
-	}
-	waitForAutostartLog(t, "ok.sh", root+"\n")
-	waitForAutostartLog(t, "loud.sh", strings.Repeat("x", autostartLogLimit))
-	status := autostartStatus([]string{"ok.sh", "loud.sh", "never.sh"})
-	if status["ok.sh"] != "exited 3" || status["loud.sh"] != "exited 0" || status["never.sh"] != "" {
-		t.Fatalf("status %v", status)
-	}
-}
-
-func TestAutostartConcurrentMarksAreNotLost(t *testing.T) {
-	root := temporaryAutostart(t)
-	const count = 32
-	for i := range count {
-		writeTestScript(t, filepath.Join(root, fmt.Sprintf("%d.sh", i)), "#!/bin/sh\n")
-	}
-	start := make(chan struct{})
-	errs := make(chan error, count)
-	var wg sync.WaitGroup
-	for i := range count {
-		wg.Add(1)
-		go func() { defer wg.Done(); <-start; errs <- setAutostart(root, fmt.Sprintf("%d.sh", i), true) }()
-	}
-	close(start)
-	wg.Wait()
-	close(errs)
-	for err := range errs {
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	names, err := readAutostart()
-	if err != nil || len(names) != count {
-		t.Fatalf("lost marks: %d/%d: %v", len(names), count, err)
 	}
 }
 

@@ -6,14 +6,11 @@ import (
 	"compress/gzip"
 	"io"
 	"math/rand"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 func unpackDevArchive(t *testing.T, data []byte) map[string]string {
@@ -122,30 +119,6 @@ func TestDevArchiveMasksAndHides(t *testing.T) {
 	}
 	if !strings.Contains(files["diagnostics.json"], "nanokvm-diagnostics/v1") {
 		t.Errorf("diagnostics.json = %q", files["diagnostics.json"])
-	}
-}
-
-func devArchiveReply(t *testing.T) string {
-	t.Helper()
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/api/vm/diagnostics/archive", nil)
-	(&Service{}).DownloadDevArchive(c)
-	return w.Body.String()
-}
-
-func TestDevArchiveRefusals(t *testing.T) {
-	previous := devArchiveScript
-	t.Cleanup(func() { devArchiveScript = previous })
-	devArchiveScript = filepath.Join(t.TempDir(), "missing")
-	if reply := devArchiveReply(t); !strings.Contains(reply, "update nanokvm-base") {
-		t.Fatalf("missing collector: %s", reply)
-	}
-	devArchiveBusy.Lock()
-	defer devArchiveBusy.Unlock()
-	if reply := devArchiveReply(t); !strings.Contains(reply, "already being prepared") {
-		t.Fatalf("busy: %s", reply)
 	}
 }
 

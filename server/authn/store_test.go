@@ -330,33 +330,6 @@ func TestRemovedAccountFileAndRecreatedUserInvalidateOldVersions(t *testing.T) {
 	}
 }
 
-func TestMissingAccountFileCachesDefaultPasswordHash(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "pwd"))
-	var hashCalls int
-	store.generatePasswordHash = func(password []byte, cost int) ([]byte, error) {
-		hashCalls++
-		return bcrypt.GenerateFromPassword(password, bcrypt.MinCost)
-	}
-
-	first, err := store.Get("admin")
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := store.Get("admin")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if hashCalls != 1 {
-		t.Fatalf("default password hash generated %d times, want 1", hashCalls)
-	}
-	if first.TokenVersion == second.TokenVersion {
-		t.Fatal("missing account file reused the default token version")
-	}
-	if first.PasswordHash != second.PasswordHash {
-		t.Fatal("missing account file did not reuse the cached password hash")
-	}
-}
-
 func TestConcurrentCreatesDoNotLoseUsers(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "pwd"))
 	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {

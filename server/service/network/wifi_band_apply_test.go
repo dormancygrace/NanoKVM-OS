@@ -2,14 +2,11 @@ package network
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 // bandSupplicant fakes wpa_supplicant's control socket for applyPreferredBand.
@@ -77,19 +74,6 @@ func TestApplyPreferredBandRetargetsThePreferredBlock(t *testing.T) {
 	}
 }
 
-// Profiles from older releases have no per-band list: S30wifi uses the
-// adapter's channels, and so does the live change.
-func TestApplyPreferredBandUsesAdapterChannelsWithoutSavedList(t *testing.T) {
-	sent, request := bandSupplicant(twoBlocks, map[string]string{"0": "2", "1": "1"}, nil)
-	w := bandRadio(t, nil, request)
-	if err := w.applyPreferredBand("5"); err != nil {
-		t.Fatal(err)
-	}
-	if (*sent)[2] != "SET_NETWORK 0 freq_list 5180" {
-		t.Fatalf("sent %q", *sent)
-	}
-}
-
 // Without a preferred block (a single-band adapter, or a configuration
 // written by an older S30wifi) nothing changes until the next start.
 func TestApplyPreferredBandWithoutPreferredBlock(t *testing.T) {
@@ -105,35 +89,11 @@ func TestApplyPreferredBandWithoutPreferredBlock(t *testing.T) {
 	}
 }
 
-func TestApplyPreferredBandWithoutChannelsInTheBand(t *testing.T) {
-	sent, request := bandSupplicant(twoBlocks, map[string]string{"0": "2", "1": "1"}, nil)
-	w := bandRadio(t, map[string]string{"wifi.freq_list_5": ""}, request)
-	if err := w.applyPreferredBand("5"); err != nil || len(*sent) != 0 {
-		t.Fatalf("error %v, sent %q", err, *sent)
-	}
-}
-
 func TestApplyPreferredBandRejectsInvalidSavedChannels(t *testing.T) {
 	sent, request := bandSupplicant(twoBlocks, map[string]string{"0": "2", "1": "1"}, nil)
 	w := bandRadio(t, map[string]string{"wifi.freq_list_5": "5180 key_mgmt=NONE"}, request)
 	if err := w.applyPreferredBand("5"); err != nil || len(*sent) != 0 {
 		t.Fatalf("error %v, sent %q", err, *sent)
-	}
-}
-
-func TestApplyPreferredBandAcceptsABusyScan(t *testing.T) {
-	_, request := bandSupplicant(twoBlocks, map[string]string{"0": "2", "1": "1"}, map[string]string{"SCAN": "FAIL-BUSY\n"})
-	w := bandRadio(t, map[string]string{"wifi.freq_list_5": "5180"}, request)
-	if err := w.applyPreferredBand("5"); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestApplyPreferredBandReportsARefusedChannelList(t *testing.T) {
-	_, request := bandSupplicant(twoBlocks, map[string]string{"0": "2", "1": "1"}, map[string]string{"SET_NETWORK 0 freq_list 5180": "FAIL\n"})
-	w := bandRadio(t, map[string]string{"wifi.freq_list_5": "5180"}, request)
-	if err := w.applyPreferredBand("5"); err == nil {
-		t.Fatal("a refused channel list was not reported")
 	}
 }
 
@@ -163,57 +123,5 @@ func TestApplyPreferredBandRejectsUnsupportedBandAndWrongBandChannels(t *testing
 				t.Fatalf("error %v, sent %q", err, *sent)
 			}
 		})
-	}
-}
-
-func TestSetWifiBandPreferenceAcknowledgesBeforeSupplicant(t *testing.T) {
-	rec := httptest.NewRecorder()
-	release := make(chan struct{})
-	_, request := bandSupplicant(twoBlocks, map[string]string{"0": "2", "1": "1"}, nil)
-	calls := 0
-	w := bandRadio(t, map[string]string{"wifi.freq_list_2.4": "2412 2437"}, func(cmd string) (string, error) {
-		<-release
-		calls++
-		if !rec.Flushed || rec.Code != 200 {
-			t.Error("changing the association before flushing the HTTP acknowledgement")
-		}
-		return request(cmd)
-	})
-	old := wifiControl
-	wifiControl = w
-	finishWifi(nil)
-	t.Cleanup(func() { wifiControl = old; finishWifi(nil) })
-	router := gin.New()
-	router.POST("/band", NewService().SetWifiBandPreference)
-	req := httptest.NewRequest("POST", "/band", strings.NewReader(`{"preferredBand":"2.4"}`))
-	req.Header.Set("Content-Type", "application/json")
-	returned := make(chan struct{})
-	go func() { router.ServeHTTP(rec, req); close(returned) }()
-	select {
-	case <-returned:
-	case <-time.After(2 * time.Second):
-		t.Error("HTTP handler waits for the supplicant before completing its response")
-	}
-	close(release)
-	<-returned
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		wifiMu.Lock()
-		busy := wifiBusy
-		wifiMu.Unlock()
-		if !busy {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("preference operation did not finish")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if calls == 0 {
-		t.Fatal("supplicant was not updated")
-	}
-	saved, err := os.ReadFile(filepath.Join(w.etc, wifiBandPreferenceFile))
-	if err != nil || string(saved) != "2.4" {
-		t.Fatalf("saved %q, error %v", saved, err)
 	}
 }

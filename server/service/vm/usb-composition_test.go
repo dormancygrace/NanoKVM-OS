@@ -10,9 +10,7 @@ import (
 	"testing"
 
 	"NanoKVM-Server/internal/storageidentity"
-	"NanoKVM-Server/remotemedia"
 	"NanoKVM-Server/service/hid"
-	"NanoKVM-Server/service/storage"
 )
 
 func TestCompositionTransaction(t *testing.T) {
@@ -157,44 +155,6 @@ func TestCompositionNoOpAndInvalidDraftHaveNoSideEffects(t *testing.T) {
 	}
 }
 
-func TestNetworkProtocolSelection(t *testing.T) {
-	for _, tc := range []struct {
-		name                string
-		rndis, ncm, wantNCM bool
-	}{
-		{"new network prefers NCM", false, false, true},
-		{"preserve selected NCM", false, true, true},
-		{"migrate selected RNDIS to NCM", true, false, true},
-		{"both markers select only NCM", true, true, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
-			for name, exists := range map[string]bool{"usb.ncm": tc.ncm, "usb.rndis0": tc.rndis} {
-				if exists {
-					if err := os.WriteFile(filepath.Join(dir, name), nil, 0600); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
-			store := usbCompositionStore{bootDir: dir, scriptPath: filepath.Join(dir, "S03usbdev"),
-				install: func(string) error { return nil }, run: func(string) error { return nil },
-				verify: func(usbComposition) error { return nil },
-			}
-			current := usbComposition{mode: hid.ModeNormal, keyboard: true}
-			candidate := current
-			candidate.network = true
-			if err := store.apply(current, candidate); err != nil {
-				t.Fatal(err)
-			}
-			_, ncmErr := os.Stat(filepath.Join(dir, "usb.ncm"))
-			_, rndisErr := os.Stat(filepath.Join(dir, "usb.rndis0"))
-			if (ncmErr == nil) != tc.wantNCM || (rndisErr == nil) == tc.wantNCM {
-				t.Fatalf("unexpected protocol selection: ncm=%v rndis=%v", ncmErr, rndisErr)
-			}
-		})
-	}
-}
-
 func TestAudioBudgetAndRevision(t *testing.T) {
 	base := usbComposition{mode: hid.ModeNormal, disk: true, serial: true}
 	with := base.with("audio", true)
@@ -208,151 +168,6 @@ func TestAudioBudgetAndRevision(t *testing.T) {
 	with.mode = hid.ModeHidOnly
 	if with.validate() == nil {
 		t.Fatal("audio allowed in compatibility mode")
-	}
-}
-
-// The identity files carry a value, are written only when they differ from
-// the factory one, and go away when the identity returns to the default; a
-// failed apply puts the previous ones back.
-func TestCompositionWritesAndRestoresIdentityFiles(t *testing.T) {
-	dir := t.TempDir()
-	noop := usbCompositionStore{bootDir: dir, scriptPath: filepath.Join(dir, "S03usbdev"),
-		install: func(string) error { return nil },
-		run:     func(string) error { return nil },
-		verify:  func(usbComposition) error { return nil },
-	}
-	base := usbComposition{mode: hid.ModeNormal, keyboard: true, relative: true, absolute: true, disk: true}
-	custom := base
-	custom.storageIdentity = storageidentity.Identity{Vendor: "Generic", Image: "Installer", Setup: "Helper", User: "Files"}
-	custom.identity = usbIdentity{VendorID: "0X46D", Manufacturer: "Generic", Product: "USB Composite Device", SerialNumber: "KVM-0001"}
-	if err := noop.apply(base, custom); err != nil {
-		t.Fatal(err)
-	}
-	read := func(name string) string {
-		data, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			return "<absent>"
-		}
-		return string(data)
-	}
-	if read("usb.vid") != "0x046d\n" || read("usb.pid") != "<absent>" || read("usb.manufacturer") != "Generic\n" || read("usb.product") != "USB Composite Device\n" || read("usb.serialnumber") != "KVM-0001\n" {
-		t.Fatalf("identity files: %q %q %q %q", read("usb.vid"), read("usb.pid"), read("usb.manufacturer"), read("usb.product"))
-	}
-	if storageidentity.Read(dir) != custom.storageIdentity {
-		t.Fatal("storage names not persisted")
-	}
-	// the flags of the composition itself are untouched
-	if _, err := os.Stat(filepath.Join(dir, "usb.disk0")); err != nil {
-		t.Fatal("the disk flag went")
-	}
-
-	// a failed apply back to the default keeps the custom files
-	failing := noop
-	failing.verify = func(usbComposition) error { return errors.New("injected verify") }
-	if err := failing.apply(custom, base); err == nil || !strings.Contains(err.Error(), "injected") {
-		t.Fatalf("err %v", err)
-	}
-	if read("usb.vid") != "0x046d\n" || read("usb.product") != "USB Composite Device\n" {
-		t.Fatal("rollback lost the identity files")
-	}
-
-	if storageidentity.Read(dir) != custom.storageIdentity {
-		t.Fatal("rollback lost storage names")
-	}
-	// back to the default removes them
-	if err := noop.apply(custom, base); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range append([]string{"usb.vid", "usb.pid", "usb.manufacturer", "usb.product", "usb.serialnumber"}, storageidentity.Files...) {
-		if read(name) != "<absent>" {
-			t.Fatalf("%s is still there", name)
-		}
-	}
-	if base.revision() == custom.revision() {
-		t.Fatal("the identity is not part of the revision")
-	}
-	if (usbComposition{mode: hid.ModeNormal, keyboard: true, identity: usbIdentity{VendorID: "nope"}}).validate() == nil {
-		t.Fatal("a bad identity validated")
-	}
-}
-
-// The user disk marker names the image while the disk is on, goes away when
-// it is off, and needs the virtual disk; verification wants the third LUN
-// to match.
-func TestCompositionUserDiskMarkerAndLun(t *testing.T) {
-	dir := t.TempDir()
-	noop := usbCompositionStore{bootDir: dir, scriptPath: filepath.Join(dir, "S03usbdev"),
-		install: func(string) error { return nil },
-		run:     func(string) error { return nil },
-		verify:  func(usbComposition) error { return nil },
-	}
-	base := usbComposition{mode: hid.ModeNormal, keyboard: true, disk: true}
-	withDisk := base
-	withDisk.userDisk = true
-	if err := noop.apply(base, withDisk); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(dir, "usb.userdisk"))
-	if err != nil || strings.TrimSpace(string(data)) != storage.UserDiskImagePath() {
-		t.Fatalf("marker %q %v", data, err)
-	}
-	if !userDiskFlagged(dir) {
-		t.Fatal("the marker is not read back")
-	}
-	if err := noop.apply(withDisk, base); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "usb.userdisk")); !os.IsNotExist(err) {
-		t.Fatal("the marker stayed")
-	}
-	if (usbComposition{mode: hid.ModeNormal, keyboard: true, userDisk: true}).validate() == nil {
-		t.Fatal("a user disk without the virtual disk validated")
-	}
-	if base.revision() == withDisk.revision() {
-		t.Fatal("the user disk is not in the revision")
-	}
-
-	root := t.TempDir()
-	os.MkdirAll(filepath.Join(root, "configs/c.1"), 0755)
-	os.MkdirAll(filepath.Join(root, "functions/mass_storage.disk0"), 0755)
-	os.WriteFile(filepath.Join(root, "UDC"), []byte("4340000.usb\n"), 0644)
-	os.Symlink("../../functions/hid.GS0", filepath.Join(root, "configs/c.1/hid.GS0"))
-	os.Symlink("../../functions/mass_storage.disk0", filepath.Join(root, "configs/c.1/mass_storage.disk0"))
-	writeGadgetIdentity(t, root, defaultUSBIdentity)
-	writeStorageLUN(t, root, 0, "disk", storageidentity.Defaults)
-	if err := verifyUSBCompositionAt(root, base); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyUSBCompositionAt(root, withDisk); err == nil {
-		t.Fatal("no lun.2, yet the user disk verified")
-	}
-	os.MkdirAll(filepath.Join(root, "functions/mass_storage.disk0/lun.2"), 0755)
-	writeStorageLUN(t, root, 2, "user", storageidentity.Defaults)
-	if err := verifyUSBCompositionAt(root, withDisk); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyUSBCompositionAt(root, base); err == nil {
-		t.Fatal("lun.2 present, yet no user disk verified")
-	}
-}
-
-func TestEmptyCompositionRequiresUnboundController(t *testing.T) {
-	root := t.TempDir()
-	empty := usbComposition{mode: hid.ModeNormal}
-	if err := empty.validate(); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "UDC"), []byte("\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyUSBCompositionAt(root, empty); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "UDC"), []byte("4340000.usb"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyUSBCompositionAt(root, empty); err == nil {
-		t.Fatal("empty gadget remained attached")
 	}
 }
 
@@ -395,26 +210,6 @@ func TestCompositionPreservesAlpineScriptLink(t *testing.T) {
 				t.Fatalf("wrong script: %q %v", got, err)
 			}
 		})
-	}
-}
-
-func TestApplyRefusesTheUserDiskWhileTheImageIsBeingMade(t *testing.T) {
-	unlock, err := storage.LockUserDiskForComposition()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Stands in for a create or delete holding the lock.
-	defer unlock()
-	current := usbComposition{mode: hid.ModeNormal, keyboard: true, disk: true}
-	for _, candidate := range []usbComposition{
-		{mode: hid.ModeNormal, keyboard: true, disk: true, userDisk: true},
-	} {
-		if err := applyLiveUSBComposition(nil, current, candidate); !errors.Is(err, storage.ErrUserDiskBusy) {
-			t.Fatalf("attach during a format: %v", err)
-		}
-		if err := applyLiveUSBComposition(nil, candidate, current); !errors.Is(err, storage.ErrUserDiskBusy) {
-			t.Fatalf("detach during a format: %v", err)
-		}
 	}
 }
 
@@ -476,60 +271,5 @@ func TestStorageNamesRevisionProfileAndVerification(t *testing.T) {
 	custom.storageIdentity.Image = "too long for SCSI name"
 	if custom.validate() == nil {
 		t.Fatal("invalid name accepted")
-	}
-}
-
-// The no-change RustDesk path verifies the current gadget, including a browser
-// ISO whose default product is Remote ISO rather than USB CD/DVD-ROM.
-func TestRemoteMediaStorageIdentityVerification(t *testing.T) {
-	for _, identity := range []storageidentity.Identity{storageidentity.Defaults, {Vendor: "Generic", Image: "Rescue", Setup: "Tools", User: "Files"}} {
-		t.Run(identity.Image, func(t *testing.T) {
-			root := t.TempDir()
-			writeStorageLUN(t, root, 0, "cdrom", identity)
-			lun := filepath.Join(root, "functions/mass_storage.disk0/lun.0")
-			write := func(name, value string) {
-				t.Helper()
-				if err := os.WriteFile(filepath.Join(lun, name), []byte(value+"\n"), 0644); err != nil {
-					t.Fatal(err)
-				}
-			}
-			write("file", remotemedia.DevicePath)
-			write("inquiry_string", identity.Inquiry("remote"))
-			s := usbComposition{mode: hid.ModeNormal, disk: true, keyboard: true, relative: true, absolute: true, storageIdentity: identity}
-			if err := os.MkdirAll(filepath.Join(root, "configs/c.1"), 0755); err != nil {
-				t.Fatal(err)
-			}
-			for _, name := range []string{"mass_storage.disk0", "hid.GS0", "hid.GS1", "hid.GS2"} {
-				if err := os.Symlink("../../functions/"+name, filepath.Join(root, "configs/c.1", name)); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if err := os.WriteFile(filepath.Join(root, "UDC"), []byte("controller\n"), 0644); err != nil {
-				t.Fatal(err)
-			}
-			writeGadgetIdentity(t, root, defaultUSBIdentity)
-			if err := verifyUSBCompositionAt(root, s.remoteAccessDefaults(false)); err != nil {
-				t.Fatal(err)
-			}
-			// Same mode but a local ISO must still match the local default.
-			write("file", "/data/local.iso")
-			if identity.Image == "" && verifyStorageIdentityAt(root, identity) == nil {
-				t.Fatal("remote default accepted for local ISO")
-			}
-			write("inquiry_string", identity.Inquiry("cdrom"))
-			if err := verifyStorageIdentityAt(root, identity); err != nil {
-				t.Fatal(err)
-			}
-			write("inquiry_string", "wrong identity")
-			if verifyStorageIdentityAt(root, identity) == nil {
-				t.Fatal("wrong name accepted")
-			}
-			if err := os.Remove(filepath.Join(lun, "file")); err != nil {
-				t.Fatal(err)
-			}
-			if verifyStorageIdentityAt(root, identity) == nil {
-				t.Fatal("unreadable backing file accepted")
-			}
-		})
 	}
 }

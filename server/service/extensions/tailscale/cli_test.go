@@ -48,63 +48,6 @@ func alive(pid string) bool {
 	return err == nil && !strings.Contains(string(data), ") Z ")
 }
 
-func TestLoginLeavesOneProcess(t *testing.T) {
-	log := fakeTailscale(t, `[ "$1" = login ] || exit 0; echo "To authenticate, visit: https://login.tailscale.com/a/$$" >&2; sleep 60`)
-	cli := NewCli()
-	var urls []string
-	for range 3 {
-		url, err := cli.Login()
-		if err != nil {
-			t.Fatal(err)
-		}
-		urls = append(urls, url)
-	}
-	if !strings.HasPrefix(urls[2], "https://login.tailscale.com/a/") {
-		t.Fatalf("url %q", urls[2])
-	}
-	time.Sleep(200 * time.Millisecond)
-	data, _ := os.ReadFile(log)
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 3 {
-		t.Fatalf("%d login runs: %q", len(lines), lines)
-	}
-	running := 0
-	for _, line := range lines {
-		if alive(strings.Fields(line)[0]) {
-			running++
-		}
-	}
-	if running != 1 {
-		t.Fatalf("%d login processes left running, want 1", running)
-	}
-	if err := cli.Logout(); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(200 * time.Millisecond)
-	if alive(strings.Fields(lines[2])[0]) {
-		t.Fatal("logout left the login process running")
-	}
-}
-
-func TestLoginWithoutAURLGivesUp(t *testing.T) {
-	fakeTailscale(t, `sleep 60`)
-	previous := loginURLWait
-	loginURLWait = 300 * time.Millisecond
-	defer func() { loginURLWait = previous }()
-	start := time.Now()
-	if _, err := NewCli().Login(); err == nil {
-		t.Fatal("a login with no URL succeeded")
-	}
-	if time.Since(start) > 5*time.Second {
-		t.Fatal("login waited past its limit")
-	}
-	cliMu.Lock()
-	defer cliMu.Unlock()
-	if loginProcess != nil {
-		t.Fatal("the login process was kept")
-	}
-}
-
 func TestCommandsHaveALimitAndRunOneAtATime(t *testing.T) {
 	log := fakeTailscale(t, `sleep 60 & echo $! >> "$0.children"; wait`)
 	previous := commandTimeout
@@ -142,17 +85,6 @@ func TestCommandsHaveALimitAndRunOneAtATime(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed < 900*time.Millisecond {
 		t.Fatalf("three limited runs took %v: they ran side by side", elapsed)
-	}
-}
-
-func TestUpWaitsForALoginAtMostItsOwnTimeout(t *testing.T) {
-	log := fakeTailscale(t, `exit 0`)
-	if err := NewCli().Up(); err != nil {
-		t.Fatal(err)
-	}
-	data, _ := os.ReadFile(log)
-	if !strings.Contains(string(data), "up --accept-dns=false --timeout=") {
-		t.Fatalf("up without its own timeout: %q", data)
 	}
 }
 

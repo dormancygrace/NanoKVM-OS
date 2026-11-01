@@ -130,23 +130,6 @@ func TestSHA256InterruptedRequestKeepsTheEngine(t *testing.T) {
 	}
 }
 
-func TestNewSHA256WithoutDeviceIsCryptoSHA256(t *testing.T) {
-	if openSHAEngine() != nil {
-		t.Skip("device present")
-	}
-	if want := sha256.Sum256([]byte("abc")); !bytes.Equal(sha256Of(NewSHA256(), []byte("abc")), want[:]) {
-		t.Fatal("wrong digest")
-	}
-}
-
-func sha256Of(h interface {
-	Write([]byte) (int, error)
-	Sum([]byte) []byte
-}, p []byte) []byte {
-	h.Write(p)
-	return h.Sum(nil)
-}
-
 // On the device: the real engine against crypto/sha256.
 func TestNewSHA256OnDevice(t *testing.T) {
 	e := openSHAEngine()

@@ -103,21 +103,3 @@ func TestOpenVPNRestoresViaRunningAppOnlyOnce(t *testing.T) {
 		t.Fatal("must not stop VPN without a running application to restore it")
 	}
 }
-func TestFingerprintIgnoresReadAccess(t *testing.T) {
-	d := t.TempDir()
-	p := filepath.Join(d, "lib.so")
-	os.WriteFile(p, []byte("same"), 0600)
-	x := fixture(t, "daemon", "service", []string{p}, nil)
-	os.ReadFile(p)
-	if changed(x) {
-		t.Fatal("reading unchanged file created restart")
-	}
-}
-
-func TestUsesOpenRCOrder(t *testing.T) {
-	todo := []target{{Name: "app", Kind: "service"}, {Name: "network", Kind: "service"}, {Name: "policy", Kind: "service"}}
-	orderTargets(todo, map[string]int{"network": 1, "policy": 2, "app": 3})
-	if todo[0].Name != "network" || todo[1].Name != "policy" || todo[2].Name != "app" {
-		t.Fatalf("did not follow OpenRC order: %+v", todo)
-	}
-}

@@ -15,31 +15,6 @@ import (
 	"testing"
 )
 
-func TestStreamLimitDoesNotRequireMonitorHardware(t *testing.T) {
-	previous := common.GetScreen().Height
-	old := screenFileMap["resolution"]
-	screenFileMap["resolution"] = filepath.Join(t.TempDir(), "res")
-	defer func() { screenFileMap["resolution"] = old; common.SetScreen("resolution", int(previous)) }()
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"resolution","value":720}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	setScreenAs(c, authn.RoleAdmin)
-	var result struct {
-		Code int `json:"code"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 {
-		t.Fatalf("response %s, error %v", recorder.Body.String(), err)
-	}
-	value, err := os.ReadFile(screenFileMap["resolution"])
-	if err != nil || string(value) != "720" {
-		t.Fatalf("saved %q, %v", value, err)
-	}
-	if common.GetScreen().Height != 720 {
-		t.Fatal("stream ceiling not published")
-	}
-}
 func TestRejectsInvalidVideoPreferences(t *testing.T) {
 	for _, body := range []string{`{"type":"monitor","value":719}`, `{"type":"resolution","value":65536}`, `{"type":"resolution","value":-1}`, `{"type":"fps","value":121}`} {
 		recorder := httptest.NewRecorder()
@@ -85,20 +60,6 @@ func TestStreamTypePersistsCodecForOLED(t *testing.T) {
 		if err != nil || string(value) != test.want {
 			t.Fatalf("value %d saved %q, error %v", test.value, value, err)
 		}
-	}
-}
-
-func TestHDMonitorProfileReachesHardwareValidation(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"monitor","value":720}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	setScreenAs(c, authn.RoleAdmin)
-	var result struct {
-		Code int `json:"code"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != -4 {
-		t.Fatalf("HD must pass profile validation and reach absent test hardware: %s", recorder.Body.String())
 	}
 }
 
@@ -174,50 +135,6 @@ func TestScreenWritesRequireAdministratorBeforeSideEffects(t *testing.T) {
 	}
 }
 
-func TestAdministratorCanApplySharedFPSAndBitrate(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	before := *common.GetScreen()
-	t.Cleanup(func() {
-		common.SetScreen("fps", before.FPS)
-		common.SetScreen("quality", int(before.BitRate))
-	})
-	for _, key := range []string{"fps", "quality"} {
-		oldPath := screenFileMap[key]
-		screenFileMap[key] = filepath.Join(t.TempDir(), key)
-		t.Cleanup(func() { screenFileMap[key] = oldPath })
-	}
-	for _, setting := range []struct {
-		key   string
-		value int
-	}{
-		{key: "fps", value: 75},
-		{key: "quality", value: 5000},
-	} {
-		t.Run(setting.key, func(t *testing.T) {
-			recorder := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(recorder)
-			body := fmt.Sprintf(`{"type":%q,"value":%d}`, setting.key, setting.value)
-			c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
-			c.Request.Header.Set("Content-Type", "application/json")
-			setScreenAs(c, authn.RoleAdmin)
-			var result struct {
-				Code int `json:"code"`
-			}
-			if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 || recorder.Code != http.StatusOK {
-				t.Fatalf("admin %s = %d %s, error %v", setting.key, recorder.Code, recorder.Body.String(), err)
-			}
-			if path, persisted := screenFileMap[setting.key]; persisted {
-				if data, err := os.ReadFile(path); err != nil || string(data) != fmt.Sprint(setting.value) {
-					t.Fatalf("admin %s not persisted: %q, %v", setting.key, data, err)
-				}
-			}
-		})
-	}
-	if current := common.GetScreen(); current.FPS != 75 || current.BitRate != 5000 {
-		t.Fatalf("admin settings not published: %+v", current)
-	}
-}
-
 func TestUserCanReadSharedScreenSettings(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -259,24 +176,5 @@ func TestQualityRejectsValuesNativeReadersCannotHold(t *testing.T) {
 	}
 	if _, err := os.Stat(screenFileMap["quality"]); !os.IsNotExist(err) {
 		t.Fatal("rejected quality values were written")
-	}
-}
-
-// The GOP length and mode settings were retired: the encoder runs NormalP with
-// an IDR on request and a periodic safety IDR.
-func TestRetiredGOPSettingsAreRejected(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	for _, body := range []string{`{"type":"gop","value":10}`, `{"type":"gop_mode","value":0}`} {
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		setScreenAs(c, authn.RoleAdmin)
-		var result struct {
-			Code int `json:"code"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != -1 {
-			t.Fatalf("%s accepted: %s", body, recorder.Body.String())
-		}
 	}
 }

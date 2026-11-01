@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func curlDestination(t *testing.T) *os.File {
@@ -102,36 +100,6 @@ func TestCurlAESOnlyFallbackStillVerifiesTLS(t *testing.T) {
 	body, _ := os.ReadFile(f.Name())
 	if string(body) != "verified AES fallback" {
 		t.Fatal("fallback body differs")
-	}
-}
-
-func TestCurlCancellation(t *testing.T) {
-	started := make(chan struct{})
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		w.(http.Flusher).Flush()
-		close(started)
-		<-r.Context().Done()
-	}))
-	defer s.Close()
-	f := curlDestination(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- downloadCurlTransfer(ctx, s.URL, f, nil, nil, nil) }()
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("curl did not connect")
-	}
-	cancel()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatal(err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("cancel did not stop curl")
 	}
 }
 

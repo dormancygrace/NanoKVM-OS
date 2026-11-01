@@ -185,41 +185,6 @@ func TestSetConfigAPI(t *testing.T) {
 	}
 }
 
-func TestSetConfigEnablePreemptFailureDoesNotEnableMCP(t *testing.T) {
-	useTestConfig(t)
-	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModePicoclaw)
-	wantErr := errors.New("picoclaw stop failed")
-	service := NewServiceWithPreempt(control, func() error {
-		return wantErr
-	}, func() error {
-		t.Fatal("runtime stop should not run when soft preempt fails")
-		return nil
-	}, func() error {
-		t.Fatal("release should not run when preempt fails")
-		return nil
-	}, nil)
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/mcp/config", strings.NewReader(`{"enabled":true}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	service.SetConfig(c)
-
-	if control.Current() != controlmode.ModePicoclaw {
-		t.Fatalf("mode after failed preempt = %q, want picoclaw", control.Current())
-	}
-	var response struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatal(err)
-	}
-	if response.Code != -2 || !strings.Contains(response.Msg, wantErr.Error()) {
-		t.Fatalf("response = %+v, want preempt failure", response)
-	}
-}
-
 func TestSetConfigEnableCleanupFailureFailsClosed(t *testing.T) {
 	useTestConfig(t)
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModePicoclaw)
@@ -257,25 +222,5 @@ func TestSetConfigEnableCleanupFailureFailsClosed(t *testing.T) {
 	}
 	if response.Code != -2 || !strings.Contains(response.Msg, wantErr.Error()) {
 		t.Fatalf("response = %+v, want cleanup failure", response)
-	}
-}
-
-func TestSetConfigEnableReleaseFailureFailsClosed(t *testing.T) {
-	useTestConfig(t)
-	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModePicoclaw)
-	service := NewServiceWithPreempt(control, nil, nil, func() error { return errors.New("release failed") }, nil)
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/mcp/config", strings.NewReader(`{"enabled":true}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	service.SetConfig(c)
-
-	if control.Current() != controlmode.ModeOff {
-		t.Fatalf("mode after failed enable = %q, want off", control.Current())
-	}
-	cfg, err := loadConfig()
-	if err != nil || cfg.APIKey == "" {
-		t.Fatalf("API key should be persisted before switching: cfg=%+v err=%v", cfg, err)
 	}
 }

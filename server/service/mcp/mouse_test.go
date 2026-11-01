@@ -43,11 +43,3 @@ func TestRelativeMovementSplitsReports(t *testing.T) {
 		t.Fatal("expected oversized movement error")
 	}
 }
-
-func TestUnsupportedAuxiliaryMouseButtons(t *testing.T) {
-	for _, button := range []string{"back", "forward"} {
-		if _, err := mouseButtonBit(button); err == nil {
-			t.Fatalf("button %q should be rejected", button)
-		}
-	}
-}

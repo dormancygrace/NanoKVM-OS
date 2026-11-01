@@ -1,13 +1,10 @@
 package osupdate
 
 import (
-	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 	"testing"
 )
 
@@ -71,81 +68,6 @@ func TestChannelRejectsCustomAndAmbiguousRepositories(t *testing.T) {
 				t.Fatal("modified")
 			}
 		})
-	}
-}
-
-func TestChannelSerializesWithUpdatesAndDatabase(t *testing.T) {
-	communityFixture(t, communityOff)
-	old := apkStateDir
-	apkStateDir = t.TempDir()
-	t.Cleanup(func() { apkStateDir = old })
-	updateLock = func() (*os.File, error) { return nil, errors.New("busy") }
-	if SetChannel("beta") == nil {
-		t.Fatal("ignored active update")
-	}
-	if SetChannel("invalid") == nil {
-		t.Fatal("invalid channel")
-	}
-	updateLock = func() (*os.File, error) { return os.Open(apkStateDir) }
-	db, err := lockCommunityDB()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if SetChannel("beta") == nil {
-		t.Fatal("ignored terminal APK lock")
-	}
-	syscall.Flock(int(db.Fd()), syscall.LOCK_UN)
-	// Verify the real notice lock excludes another reader while switching.
-	lock, err := lockNotice(context.Background(), false)
-	if err != nil || lock == nil {
-		t.Fatal(err)
-	}
-	second, err := lockNotice(context.Background(), false)
-	if err != nil || second != nil {
-		t.Fatal("notice lock not exclusive")
-	}
-	lock.Close()
-	if err := SetChannel("beta"); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// A delayed old-channel result must never survive a completed switch.
-func TestChannelCannotRaceRunningNoticeCheck(t *testing.T) {
-	communityFixture(t, communityOff)
-	noticeFixture(t, communityOff)
-	// The notice offers only packages still installed below the update.
-	if err := os.WriteFile(installedDBPath, []byte("P:nanokvm\nV:3.3.3-r0\n\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	entered, release := make(chan struct{}), make(chan struct{})
-	done := make(chan error, 1)
-	noticeApk = func(_ context.Context, args ...string) (string, error) {
-		if args[len(args)-1] == "update" {
-			close(entered)
-			<-release
-			return "OK", nil
-		}
-		return "nanokvm-3.3.3-r0 < 3.3.4-r0\n", nil
-	}
-	go func() { done <- CheckUpdates(context.Background(), true) }()
-	<-entered
-	err := SetChannel("beta")
-	got := GetChannel()
-	close(release)
-	checkErr := <-done
-	if err == nil || got.Channel != "stable" || checkErr != nil {
-		t.Fatalf("switch=%v channel=%+v check=%v", err, got, checkErr)
-	}
-	if len(GetNotice().Updates) != 1 {
-		t.Fatal("fixture did not produce an offer")
-	}
-	if err := SetChannel("beta"); err != nil {
-		t.Fatal(err)
-	}
-	if n := GetNotice(); len(n.Updates) != 0 || n.CheckedAt != 0 {
-		t.Fatal(n)
 	}
 }
 

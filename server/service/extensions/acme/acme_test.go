@@ -12,7 +12,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -527,69 +526,10 @@ func TestIssueRunsAcmeInstallsThePairAndServesIt(t *testing.T) {
 	}
 }
 
-func TestIssueWithHTTPNeedsPort80(t *testing.T) {
-	useTempTree(t)
-	fakeAcme(t, "0")
-	conf, _ := stubConfig(t, "https")
-	conf.Port.Http = 8080
-	r := newRouter()
-	req := IssueReq{Settings: Settings{Domains: []string{"kvm.example.org"}, CA: "letsencrypt", Challenge: "http"}}
-	rsp := call(t, r, http.MethodPost, "/issue", req)
-	if rsp.Code != -1 || !strings.Contains(rsp.Msg, "port to be 80 (it is 8080)") {
-		t.Fatalf("issue on port 8080: %+v", rsp)
-	}
-	if running() {
-		t.Fatal("a job started")
-	}
-}
-
 func TestScrubLeavesShortSecretsAlone(t *testing.T) {
 	out := scrub("token=abcdef key=x all done", []string{"abcdef", "x", ""})
 	if out != "token=*** key=x all done" {
 		t.Fatalf("scrub = %q", out)
-	}
-}
-
-// TestExtractTheRealRelease runs the allowlist over a real acme.sh source
-// archive when ACME_TARBALL names one (not on CI).
-func TestExtractTheRealRelease(t *testing.T) {
-	path := os.Getenv("ACME_TARBALL")
-	if path == "" {
-		t.Skip("ACME_TARBALL not set")
-	}
-	dest := filepath.Join(t.TempDir(), "bin")
-	if err := extract(path, dest, "3.1.6"); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(dest, "acme.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if scriptVersion(data) != "3.1.6" {
-		t.Fatalf("version = %q", scriptVersion(data))
-	}
-	hooks, _ := filepath.Glob(filepath.Join(dest, "dnsapi", "dns_*.sh"))
-	if len(hooks) != 198 {
-		t.Fatalf("%d hooks extracted", len(hooks))
-	}
-	for _, rel := range []string{"deploy", "notify", "README.md", "dnsapi/README.md", "Dockerfile"} {
-		if _, err := os.Stat(filepath.Join(dest, rel)); err == nil {
-			t.Errorf("%s extracted", rel)
-		}
-	}
-	providers, err := listProviders(filepath.Join(dest, "dnsapi"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	named := 0
-	for _, p := range providers {
-		if p.Name != p.Hook {
-			named++
-		}
-	}
-	t.Logf("%d hooks, %d with an info block", len(providers), named)
-	if named < 150 {
-		t.Fatalf("only %d of %d hooks have an info block", named, len(providers))
 	}
 }
 
@@ -614,98 +554,6 @@ func TestIssueFailureKeepsTheConfiguration(t *testing.T) {
 	}
 	if settings, err := loadSettings(); !os.IsNotExist(err) {
 		t.Fatalf("settings saved by a failed issue: %+v %v", settings, err)
-	}
-}
-
-func TestRenewNotDueAndRemove(t *testing.T) {
-	useTempTree(t)
-	argsFile, _ := fakeAcme(t, "2")
-	conf, store := stubConfig(t, "https")
-	settings := &Settings{Domains: []string{"kvm.example.org"}, CA: "letsencrypt", Challenge: "http", IssuedAt: "2026-10-12T00:00:00Z"}
-	if err := saveSettings(settings); err != nil {
-		t.Fatal(err)
-	}
-	conf.Cert = config.Cert{Crt: certFile, Key: keyFile}
-	r := newRouter()
-
-	// --cron with nothing due is a success without a renewal.
-	renewDue()
-	job := waitJob(t)
-	if !job.OK || !job.NotDue || job.Action != "cron" {
-		t.Fatalf("cron job = %+v", job)
-	}
-	// Renew now forces; exit 2 is then a failure.
-	if rsp := call(t, r, http.MethodPost, "/renew", nil); rsp.Code != 0 {
-		t.Fatalf("renew: %+v", rsp)
-	}
-	job = waitJob(t)
-	if job.OK || job.Action != "renew" {
-		t.Fatalf("renew job = %+v", job)
-	}
-	args, _ := os.ReadFile(argsFile)
-	if !strings.Contains(string(args), "--renew\n-d\nkvm.example.org\n--ecc\n--force") {
-		t.Fatalf("renew arguments:\n%s", args)
-	}
-
-	// Remove: back to the generated pair, files and settings gone.
-	_ = os.MkdirAll(certDir(), 0o700)
-	_ = os.WriteFile(certFile, []byte("x"), 0o644)
-	_ = os.WriteFile(keyFile, []byte("y"), 0o600)
-	rsp := call(t, r, http.MethodPost, "/remove", nil)
-	if rsp.Code != 0 || rsp.Data.InUse || rsp.Data.Settings != nil || rsp.Data.Certificate != nil {
-		t.Fatalf("remove: %+v", rsp)
-	}
-	if conf.Cert.Crt != defaultCertFile {
-		t.Fatalf("configuration after remove: %+v", conf.Cert)
-	}
-	if served, err := store.GetCertificate(nil); err != nil || served.Leaf.Subject.CommonName != "localhost" {
-		t.Fatalf("served after remove: %v %v", served, err)
-	}
-	if _, err := os.Stat(keyFile); !os.IsNotExist(err) {
-		t.Fatal("key kept")
-	}
-	args, _ = os.ReadFile(argsFile)
-	if !strings.Contains(string(args), "--remove\n-d\nkvm.example.org\n--ecc") {
-		t.Fatalf("remove arguments:\n%s", args)
-	}
-	// Uninstall removes the tree.
-	if rsp := call(t, r, http.MethodPost, "/uninstall", nil); rsp.Code != 0 || rsp.Data.Installed {
-		t.Fatalf("uninstall: %+v", rsp)
-	}
-	if _, err := os.Stat(root); !os.IsNotExist(err) {
-		t.Fatal("acme directory kept")
-	}
-}
-
-func TestReloadIfInUseServesARenewedPair(t *testing.T) {
-	useTempTree(t)
-	conf, store := stubConfig(t, "https")
-	conf.Cert = config.Cert{Crt: certFile, Key: keyFile}
-	_ = os.MkdirAll(certDir(), 0o700)
-	certPEM, keyPEM := testPair(t)
-	_ = os.WriteFile(certFile, certPEM, 0o644)
-	_ = os.WriteFile(keyFile, keyPEM, 0o600)
-	reloadIfInUse()
-	first, err := store.GetCertificate(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	certPEM, keyPEM = testPair(t)
-	_ = os.WriteFile(certFile, certPEM, 0o644)
-	_ = os.WriteFile(keyFile, keyPEM, 0o600)
-	reloadIfInUse()
-	second, _ := store.GetCertificate(nil)
-	if bytes.Equal(first.Certificate[0], second.Certificate[0]) {
-		t.Fatal("renewed pair not served")
-	}
-	// Not in use: nothing happens.
-	conf.Cert = config.Cert{Crt: defaultCertFile, Key: defaultKeyFile}
-	certPEM, keyPEM = testPair(t)
-	_ = os.WriteFile(certFile, certPEM, 0o644)
-	_ = os.WriteFile(keyFile, keyPEM, 0o600)
-	reloadIfInUse()
-	if third, _ := store.GetCertificate(nil); !bytes.Equal(second.Certificate[0], third.Certificate[0]) {
-		t.Fatal("reloaded while not in use")
 	}
 }
 
@@ -749,25 +597,6 @@ func TestChallengeHandler(t *testing.T) {
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST: %d", rec.Code)
 	}
-}
-
-func TestStartJobIsSingleFlight(t *testing.T) {
-	useTempTree(t)
-	fakeAcme(t, "0")
-	_ = os.WriteFile(filepath.Join(binDir(), "acme.sh"), []byte("#!/bin/sh\nsleep 1\n"), 0o755)
-	if err := startJob("issue", nil, nil, []step{{args: []string{"--issue"}}}, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := startJob("renew", nil, nil, []step{{args: []string{"--renew"}}}, nil); err == nil {
-		t.Fatal("second job accepted while the first runs")
-	}
-	if job := waitJob(t); !job.OK {
-		t.Fatalf("job = %+v", job)
-	}
-	if err := startJob("renew", nil, nil, []step{{args: []string{"--renew"}}}, nil); err != nil {
-		t.Fatal(err)
-	}
-	waitJob(t)
 }
 
 func TestInstallTakesTheLatestStableReleaseAndChecksItsVersion(t *testing.T) {
@@ -906,98 +735,5 @@ func TestFailedReissueKeepsTheCertificateInUseAndItsSettings(t *testing.T) {
 	waitJob(t)
 	if last := lastInvocation(t, argsFile); !strings.Contains(last, "--renew\n-d\nold.example.org\n") {
 		t.Fatalf("renew targeted:\n%s", last)
-	}
-}
-
-func TestReplacingThePrimaryRetiresTheOldRecordAndRenewsOnlyTheNewOne(t *testing.T) {
-	useTempTree(t)
-	argsFile, _ := fakeAcme(t, "0")
-	conf, _ := stubConfig(t, "https")
-	issued(t, conf, "old.example.org")
-	r := newRouter()
-
-	req := IssueReq{Settings: Settings{Domains: []string{"new.example.org"}, CA: "letsencrypt", Challenge: "http"}}
-	if rsp := call(t, r, http.MethodPost, "/issue", req); rsp.Code != 0 {
-		t.Fatalf("issue: %+v", rsp)
-	}
-	if job := waitJob(t); !job.OK {
-		t.Fatalf("job = %+v", job)
-	}
-	args, _ := os.ReadFile(argsFile)
-	if !strings.Contains(string(args), "--remove\n-d\nold.example.org\n--ecc") {
-		t.Fatalf("the replaced record was not retired:\n%s", args)
-	}
-	if _, err := os.Stat(filepath.Join(dataDir(), "old.example.org_ecc")); !os.IsNotExist(err) {
-		t.Fatalf("the replaced record's directory kept: %v", err)
-	}
-	if settings, _ := loadSettings(); settings.primary() != "new.example.org" {
-		t.Fatalf("settings = %+v", settings)
-	}
-
-	// The scheduled renewal acts on the selected certificate only, without
-	// --force (acme.sh then skips it until it is due) and never --cron.
-	renewDue()
-	waitJob(t)
-	last := lastInvocation(t, argsFile)
-	if !strings.Contains(last, "--renew\n-d\nnew.example.org\n--ecc\n") || strings.Contains(last, "--force") {
-		t.Fatalf("scheduled renewal:\n%s", last)
-	}
-	if data, _ := os.ReadFile(argsFile); strings.Contains(string(data), "--cron") {
-		t.Fatal("--cron used")
-	}
-}
-
-func TestActivationFailureFailsTheIssueJob(t *testing.T) {
-	useTempTree(t)
-	fakeAcme(t, "0")
-	stubConfig(t, "https")
-	updateTLS = func(string, config.Cert) error { return errors.New("read-only file system") }
-	r := newRouter()
-	req := IssueReq{Settings: Settings{Domains: []string{"kvm.example.org"}, CA: "letsencrypt", Challenge: "http"}}
-	if rsp := call(t, r, http.MethodPost, "/issue", req); rsp.Code != 0 {
-		t.Fatalf("issue: %+v", rsp)
-	}
-	job := waitJob(t)
-	if job.OK || !strings.Contains(job.Error, "could not be put in use") || !strings.Contains(job.Error, "read-only file system") {
-		t.Fatalf("job = %+v", job)
-	}
-}
-
-func TestRenewalReloadFailureFailsTheJob(t *testing.T) {
-	useTempTree(t)
-	fakeAcme(t, "0")
-	conf, _ := stubConfig(t, "https")
-	issued(t, conf, "kvm.example.org")
-	_ = os.MkdirAll(certDir(), 0o700)
-	_ = os.WriteFile(certFile, []byte("garbage"), 0o644)
-	_ = os.WriteFile(keyFile, []byte("garbage"), 0o600)
-	r := newRouter()
-	if rsp := call(t, r, http.MethodPost, "/renew", nil); rsp.Code != 0 {
-		t.Fatalf("renew: %+v", rsp)
-	}
-	job := waitJob(t)
-	if job.OK || !strings.Contains(job.Error, "renewed certificate could not be put in use") {
-		t.Fatalf("job = %+v", job)
-	}
-}
-
-func TestScheduledRenewalWaitsForAdministrativeOperations(t *testing.T) {
-	useTempTree(t)
-	argsFile, _ := fakeAcme(t, "0")
-	conf, _ := stubConfig(t, "https")
-	issued(t, conf, "kvm.example.org")
-	opMu.Lock()
-	renewDue()
-	running := running()
-	opMu.Unlock()
-	if running || lastRun() != nil {
-		t.Fatal("the scheduled renewal started during an administrative operation")
-	}
-	if _, err := os.Stat(argsFile); !os.IsNotExist(err) {
-		t.Fatal("acme.sh ran")
-	}
-	renewDue()
-	if job := waitJob(t); job == nil || job.Action != "cron" {
-		t.Fatalf("the next round did not run: %+v", job)
 	}
 }

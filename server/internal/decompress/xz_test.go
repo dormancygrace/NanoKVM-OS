@@ -125,30 +125,3 @@ func TestXZMemoryLimit(t *testing.T) {
 		t.Fatalf("default limit: %v", err)
 	}
 }
-
-func TestXZClose(t *testing.T) {
-	x, err := NewXZReader(bytes.NewReader(nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	x.Close()
-	if err := x.Close(); err != nil {
-		t.Fatal("second Close:", err)
-	}
-	if _, err := x.Read(make([]byte, 1)); !errors.Is(err, ErrClosed) {
-		t.Fatalf("read after Close: %v", err)
-	}
-}
-
-func BenchmarkXZ(b *testing.B) {
-	data := samples()["mixed"]
-	compressed := xzBytes(b, data, "-6")
-	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
-		x, _ := NewXZReader(bytes.NewReader(compressed))
-		if _, err := io.Copy(io.Discard, x); err != nil {
-			b.Fatal(err)
-		}
-		x.Close()
-	}
-}

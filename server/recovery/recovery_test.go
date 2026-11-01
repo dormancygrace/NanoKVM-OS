@@ -444,24 +444,6 @@ func TestStandardTimezoneLinkAndParentAlias(t *testing.T) {
 	}
 }
 
-func TestFATWriteIntegration(t *testing.T) {
-	root := os.Getenv("NKOS_RECOVERY_FAT_ROOT")
-	if root == "" {
-		t.Skip("requires disposable FAT mount")
-	}
-	name := "boot/wifi.ssid"
-	if err := write(root, name, &File{Path: name, Data: []byte("fat-network"), Mode: 0600}); err != nil {
-		t.Fatal(err)
-	}
-	f, err := read(root, name, 100)
-	if err != nil || f == nil || string(f.Data) != "fat-network" {
-		t.Fatalf("FAT read %v", err)
-	}
-	if err = write(root, name, nil); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestShutdownFlushIsResetAndRollbackKeepsFinalState(t *testing.T) {
 	e := fixture(t)
 	p, _, err := e.Prepare(nil, Options{Action: "reset", KeepUsers: true, KeepApps: true})

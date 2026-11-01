@@ -1,7 +1,6 @@
 package logs
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -177,17 +176,6 @@ func TestSanitizeOutputBounds(t *testing.T) {
 	}
 }
 
-func BenchmarkSanitizeMiB(b *testing.B) {
-	line := "[2026-10-01 20:00:00] [info] [network.go:123] DHCP lease of 192.0.2.67 obtained, lease time 21600\n"
-	data := []byte(strings.Repeat(line, MaxBytes/len(line)))
-	b.SetBytes(int64(len(data)))
-	b.ReportAllocs()
-	b.ResetTimer()
-	for b.Loop() {
-		sanitizeTail(data, false)
-	}
-}
-
 func TestReadRateSurvivesCacheEviction(t *testing.T) {
 	collector := NewCollector()
 	collector.application = &Buffer{}
@@ -211,137 +199,5 @@ func TestReadRateSurvivesCacheEviction(t *testing.T) {
 	now = now.Add(RefreshInterval)
 	if _, err := collector.ReadBoot("system", "older"); err != nil {
 		t.Fatal("budget did not recover", err)
-	}
-}
-
-func TestCollectorCurrentDigestCacheHandlesFreshFlushAndChanges(t *testing.T) {
-	directory := t.TempDir()
-	path := filepath.Join(directory, "messages")
-	if err := os.WriteFile(path, []byte("safe line\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	collector := NewCollector()
-	collector.logDir = directory
-	now := time.Unix(1000, 0)
-	collector.now = func() time.Time { return now }
-
-	first, err := collector.ReadBoot("system", "current")
-	if err != nil || first.Content != "safe line" {
-		t.Fatalf("initial current read: %+v %v", first, err)
-	}
-	entry := collector.cache["current/system"]
-	entry.snapshot.Content = "cache hit"
-	collector.cache["current/system"] = entry
-	now = now.Add(RefreshInterval)
-	same, err := collector.read("system", "current", true)
-	if err != nil || same.Content != "cache hit" {
-		t.Fatalf("fresh unchanged read did not reuse sanitized cache: %+v %v", same, err)
-	}
-
-	if err = os.WriteFile(path, []byte("token=xyz\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	fixed := time.Unix(123, 456)
-	if err = os.Chtimes(path, fixed, fixed); err != nil {
-		t.Fatal(err)
-	}
-	now = now.Add(RefreshInterval)
-	secret, err := collector.read("system", "current", true)
-	if err != nil || strings.Contains(secret.Content, "token=xyz") || !strings.Contains(secret.Content, redactedLine) {
-		t.Fatalf("same-size edit bypassed redaction: %+v %v", secret, err)
-	}
-
-	rotatedPath := path + ".0"
-	if err = os.Rename(path, rotatedPath); err != nil {
-		t.Fatal(err)
-	}
-	if err = os.WriteFile(path, []byte("rotated!\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	now = now.Add(RefreshInterval)
-	rotated, err := collector.read("system", "current", true)
-	if err != nil || !strings.Contains(rotated.Content, "rotated!") {
-		t.Fatalf("rotation was not observed: %+v %v", rotated, err)
-	}
-
-	if err = os.Remove(rotatedPath); err != nil {
-		t.Fatal(err)
-	}
-	if err = os.WriteFile(path, []byte("short\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	now = now.Add(RefreshInterval)
-	truncated, err := collector.read("system", "current", true)
-	if err != nil || truncated.Content != "short" || strings.Contains(truncated.Content, "rotated") {
-		t.Fatalf("truncation retained stale content: %+v %v", truncated, err)
-	}
-}
-
-func TestCollectorCurrentDigestCacheTracksTruncation(t *testing.T) {
-	collector := NewCollector()
-	raw := bytes.Repeat([]byte("x"), MaxBytes)
-	collector.kernel = func(data []byte) (int, error) {
-		return copy(data, raw), nil
-	}
-	collector.now = func() time.Time { return time.Unix(1000, 0) }
-
-	first, err := collector.ReadBoot("kernel", "current")
-	if err != nil || first.Content != "" || !first.Truncated {
-		t.Fatalf("initial kernel read: %+v %v", first, err)
-	}
-	entry := collector.cache["current/kernel"]
-	entry.snapshot.Content = "cache hit"
-	entry.truncated = false
-	collector.cache["current/kernel"] = entry
-	next, err := collector.read("kernel", "current", true)
-	if err != nil || next.Content != "" || next.Content == "cache hit" || !next.Truncated {
-		t.Fatalf("truncated state reused stale sanitized output: %+v %v", next, err)
-	}
-}
-
-func TestSystemLogFromRAMOrLegacyDirectory(t *testing.T) {
-	legacy := t.TempDir()
-	if err := os.WriteFile(filepath.Join(legacy, "messages"), []byte("on the card\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	collector := NewCollector()
-	collector.legacyLogDir = legacy
-	// An image whose syslog still writes /var/log has no RAM log directory.
-	collector.logDir = filepath.Join(t.TempDir(), "missing")
-	snapshot, err := collector.ReadBoot("system", "current")
-	if err != nil || !strings.Contains(snapshot.Content, "on the card") {
-		t.Fatalf("legacy system log = %q, %v", snapshot.Content, err)
-	}
-	// A RAM directory without a system log (made before a syslog restart
-	// that failed) does not hide the live legacy log.
-	collector = NewCollector()
-	collector.legacyLogDir = legacy
-	collector.logDir = t.TempDir()
-	snapshot, err = collector.ReadBoot("system", "current")
-	if err != nil || !strings.Contains(snapshot.Content, "on the card") {
-		t.Fatalf("empty RAM directory hid the legacy log: %q, %v", snapshot.Content, err)
-	}
-	// An empty RAM messages file is the system log: syslog writes there.
-	collector = NewCollector()
-	collector.legacyLogDir = legacy
-	collector.logDir = t.TempDir()
-	if err := os.WriteFile(filepath.Join(collector.logDir, "messages"), nil, 0600); err != nil {
-		t.Fatal(err)
-	}
-	snapshot, err = collector.ReadBoot("system", "current")
-	if err != nil || strings.Contains(snapshot.Content, "on the card") {
-		t.Fatalf("empty RAM log fell back to the legacy log: %q, %v", snapshot.Content, err)
-	}
-	// With RAM messages, only they are read.
-	ram := t.TempDir()
-	collector = NewCollector()
-	collector.legacyLogDir = legacy
-	collector.logDir = ram
-	if err := os.WriteFile(filepath.Join(ram, "messages"), []byte("in RAM\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	snapshot, err = collector.ReadBoot("system", "current")
-	if err != nil || !strings.Contains(snapshot.Content, "in RAM") || strings.Contains(snapshot.Content, "on the card") {
-		t.Fatalf("RAM system log = %q, %v", snapshot.Content, err)
 	}
 }

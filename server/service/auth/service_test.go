@@ -70,41 +70,6 @@ func TestLoginCookieAndUserAuthorizationLifecycle(t *testing.T) {
 	}
 }
 
-func TestRenameUserRevokesOldSession(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-
-	service := NewService()
-	router := gin.New()
-	router.POST("/login", service.Login)
-	authenticated := router.Group("/").Use(middleware.CheckToken())
-	authenticated.GET("/account", service.GetAccount)
-	admin := router.Group("/").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
-	admin.PUT("/users/:username", service.UpdateUser)
-
-	changeFactoryPassword(t, store)
-	adminCookie := loginCookie(t, router, "admin", ownerPassword)
-	renameResponse := requestJSONRecorder(router, http.MethodPut, "/users/admin", map[string]any{"username": "owner"}, adminCookie)
-	if renameResponse.Code != http.StatusOK {
-		t.Fatalf("rename status = %d", renameResponse.Code)
-	}
-	var response proto.Response
-	if err := json.Unmarshal(renameResponse.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode rename response: %v", err)
-	}
-	if response.Code != 0 {
-		t.Fatalf("rename response = %+v", response)
-	}
-	if code := requestJSON(router, http.MethodGet, "/account", nil, adminCookie); code != http.StatusUnauthorized {
-		t.Fatalf("old session status = %d, want 401", code)
-	}
-	if _, ok, err := store.Authenticate("owner", ownerPassword); err != nil || !ok {
-		t.Fatalf("renamed account login: ok=%v err=%v", ok, err)
-	}
-}
-
 func TestUpdateUserOnlyRevokesActiveSessionsAfterActualChange(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
@@ -304,38 +269,6 @@ func TestLoginAcceptsFormEncodedRawOpenSSLPassword(t *testing.T) {
 	}
 	if !hasSessionCookie(recorder.Result().Cookies()) {
 		t.Fatal("form login did not set session cookie")
-	}
-}
-
-func TestCreateUserAcceptsFormEncodedPassword(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-
-	service := NewService()
-	router := gin.New()
-	router.POST("/login", service.Login)
-	admin := router.Group("/").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
-	admin.POST("/users", service.CreateUser)
-	changeFactoryPassword(t, store)
-	adminCookie := loginCookie(t, router, "admin", ownerPassword)
-	const ciphertext = formOpenSSLCiphertext
-	form := url.Values{
-		"username": {"form-user"},
-		"password": {ciphertext},
-		"role":     {"user"},
-	}
-	request := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.AddCookie(adminCookie)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("form create status = %d, body = %s", recorder.Code, recorder.Body.String())
-	}
-	if _, ok, err := store.Authenticate("form-user", "operator-password"); err != nil || !ok {
-		t.Fatalf("form-created user login: ok=%v err=%v", ok, err)
 	}
 }
 

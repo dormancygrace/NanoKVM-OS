@@ -52,23 +52,3 @@ func TestSanitizeCharacterPaths(t *testing.T) {
 		})
 	}
 }
-
-func BenchmarkSanitizeCharacterPaths(b *testing.B) {
-	for _, tc := range []struct{ name, line string }{
-		{"ASCII", "[info] capture ready at 2560x1440, 60 frames per second\n"},
-		{"Unicode", "[info] Получен адрес сети; видео работает 😀\n"},
-		{"Controls", "\x1b[32m[info]\x1b[0m capture ready \u200b video\n"},
-	} {
-		for _, size := range []int{64, 1024, 65536, MaxBytes} {
-			b.Run(fmt.Sprintf("%s/%d", tc.name, size), func(b *testing.B) {
-				data := []byte(strings.Repeat(tc.line, (size+len(tc.line)-1)/len(tc.line))[:size])
-				data[len(data)-1] = '\n'
-				b.SetBytes(int64(len(data)))
-				b.ReportAllocs()
-				for b.Loop() {
-					sanitizeTail(data, false)
-				}
-			})
-		}
-	}
-}

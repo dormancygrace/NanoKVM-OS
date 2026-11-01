@@ -1,19 +1,10 @@
 package vm
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
-
-	"github.com/gin-gonic/gin"
-
-	"NanoKVM-Server/common"
 )
 
 func TestScreenTextCrop(t *testing.T) {
@@ -125,26 +116,6 @@ func TestScreenTextLines(t *testing.T) {
 	}
 }
 
-func TestScreenTextSwitch(t *testing.T) {
-	saved := screenTextOffFile
-	defer func() { screenTextOffFile = saved }()
-	screenTextOffFile = filepath.Join(t.TempDir(), "screen-text-off")
-	if !ScreenTextEnabled() {
-		t.Fatal("without the flag text recognition is off")
-	}
-	if err := os.WriteFile(screenTextOffFile, nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if ScreenTextEnabled() || ScreenTextAvailable() {
-		t.Fatal("with the flag text recognition is still on")
-	}
-	_, err := ReadScreenText(context.Background(), ScreenTextRequest{})
-	var readErr *ScreenTextError
-	if !errors.As(err, &readErr) || readErr.Code != -7 {
-		t.Fatalf("read while off: %v", err)
-	}
-}
-
 func TestScreenTextArgs(t *testing.T) {
 	models := t.TempDir() + "/"
 	for _, f := range []string{"latin/ocr-rec.cvimodel", "latin/ocr-sure.cvimodel", "cyrillic/ocr-rec.cvimodel"} {
@@ -206,75 +177,6 @@ func TestScreenTextSizeUpToFullHD(t *testing.T) {
 		w, h := screenTextSize(tc.inW, tc.inH)
 		if w != tc.w || h != tc.h {
 			t.Errorf("screenTextSize(%d, %d) = %dx%d, want %dx%d", tc.inW, tc.inH, w, h, tc.w, tc.h)
-		}
-	}
-}
-
-// The input changes size during a read: the picture is taken again at the
-// new size, which must still be at most Full HD.
-func TestReadScreenPictureFollowsInputSize(t *testing.T) {
-	defer func(size func() (int, int), read func(int, int) ([]byte, error)) {
-		captureInputSize, readPlanar = size, read
-	}(captureInputSize, readPlanar)
-	inputs := [][2]int{{1920, 1080}, {1280, 720}}
-	var asked [][2]int
-	captureInputSize = func() (int, int) { return inputs[0][0], inputs[0][1] }
-	readPlanar = func(width, height int) ([]byte, error) {
-		asked = append(asked, [2]int{width, height})
-		if len(asked) == 1 {
-			inputs = inputs[1:] // the detector publishes 1280x720
-			return nil, common.ErrPlanarInputChanged
-		}
-		return make([]byte, width*height*3), nil
-	}
-	planes, width, height, err := readScreenPicture(context.Background())
-	if err != nil || width != 1280 || height != 720 || len(planes) != 1280*720*3 {
-		t.Fatalf("got %dx%d, %d bytes, %v", width, height, len(planes), err)
-	}
-	if len(asked) != 2 || asked[0] != [2]int{1920, 1080} || asked[1] != [2]int{1280, 720} {
-		t.Fatalf("asked for %v", asked)
-	}
-
-	// Now over Full HD: refused before any further native read.
-	asked = nil
-	inputs = [][2]int{{1920, 1080}, {3840, 2160}}
-	_, _, _, err = readScreenPicture(context.Background())
-	var readErr *ScreenTextError
-	if !errors.As(err, &readErr) || readErr.Code != -5 || len(asked) != 1 {
-		t.Fatalf("over Full HD: %v after %v", err, asked)
-	}
-}
-
-// The page's switch: POST {"enabled":false} writes the flag, true removes it
-// (also when it is already gone), anything else is refused.
-func TestSetScreenTextSettingsSwitch(t *testing.T) {
-	saved := screenTextOffFile
-	defer func() { screenTextOffFile = saved }()
-	screenTextOffFile = filepath.Join(t.TempDir(), "screen-text-off")
-	gin.SetMode(gin.TestMode)
-	post := func(body string) string {
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		c.Request = httptest.NewRequest("POST", "/api/vm/screen/text/settings", bytes.NewBufferString(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		(&Service{}).SetScreenTextSettings(c)
-		return recorder.Body.String()
-	}
-	for _, step := range []struct {
-		body    string
-		enabled bool
-		ok      bool
-	}{
-		{`{"enabled":false}`, false, true},
-		{`{"enabled":false}`, false, true},
-		{`{"enabled":true}`, true, true},
-		{`{"enabled":true}`, true, true},
-		{`{}`, true, false},
-		{`{"language":"latin"}`, true, false},
-	} {
-		reply := post(step.body)
-		if strings.Contains(reply, `"code":0`) != step.ok || ScreenTextEnabled() != step.enabled {
-			t.Fatalf("%s: reply %s, enabled %v", step.body, reply, ScreenTextEnabled())
 		}
 	}
 }

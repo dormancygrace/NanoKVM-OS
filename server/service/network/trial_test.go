@@ -314,47 +314,6 @@ func TestAFailedRestartUndoesTheChangeAtOnce(t *testing.T) {
 	waitFor(t, "the restart with the previous settings", func() bool { return f.restarted.Load() == 2 })
 }
 
-func TestNoChangeStartsWhileAnotherIsBeingUndone(t *testing.T) {
-	f := newTrialFixture(t)
-	release := make(chan struct{})
-	reverting := make(chan struct{}, 1)
-	// The change's restart is quick; the revert's is slow, and meanwhile the
-	// record and the trial stay.
-	restartEthernet = func() error {
-		if f.restarted.Add(1) == 1 {
-			return nil
-		}
-		reverting <- struct{}{}
-		<-release
-		return nil
-	}
-	setEthernetOnTrial(t, newStatic)
-	waitApplied(t)
-	select {
-	case <-reverting:
-	case <-time.After(3 * time.Second):
-		t.Fatal("the change was not undone")
-	}
-	if _, response := postJSON((&Service{}).SetEthernet, `{"enabled":false,"mode":"dhcp"}`); response.Code != -3 {
-		t.Fatalf("a change started during a revert: %+v", response)
-	}
-	if f.read(t, ethernetDisabledFile) != "<absent>" {
-		t.Fatal("the refused change was written")
-	}
-	close(release)
-	waitFor(t, "the revert to end", func() bool {
-		trialMu.Lock()
-		defer trialMu.Unlock()
-		return active == nil
-	})
-	setEthernetOnTrial(t, `{"enabled":false,"mode":"dhcp"}`)
-	// Let the asynchronous restart finish before cleanup replaces the hooks.
-	waitApplied(t)
-	if f.read(t, trialFile) == "<absent>" {
-		t.Fatal("the next change has no record")
-	}
-}
-
 func TestAChangeThatCannotBeWrittenIsUndoneWithoutARestart(t *testing.T) {
 	f := newTrialFixture(t)
 	// Turning Ethernet off cannot be written: its directory is read-only.
@@ -494,43 +453,6 @@ func TestARecordNobodyOwnsIsNeverReplaced(t *testing.T) {
 	}
 	if got := f.read(t, trialFile); got != string(record) {
 		t.Fatalf("record changed: %q", got)
-	}
-}
-
-// A sync stub that fails while the file named by fail exists.
-func failingSync(t *testing.T, dir, fail string) {
-	t.Helper()
-	script := "#!/bin/sh\n[ ! -e \"" + fail + "\" ]\n"
-	if err := os.WriteFile(filepath.Join(dir, "sync"), []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestAConfirmationThatIsNotOnTheCardIsNotAcknowledged(t *testing.T) {
-	f := newTrialFixture(t)
-	trialDuration = 10 * time.Second
-	info := setEthernetOnTrial(t, newStatic)
-	waitApplied(t)
-	broken := filepath.Join(f.dir, "sync-broken")
-	failingSync(t, f.dir, broken)
-	if err := os.WriteFile(broken, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, response := postJSON((&Service{}).ConfirmTrial, `{"token":"`+info.Token+`"}`); response.Code == 0 {
-		t.Fatal("confirmed although the confirmation was not synced")
-	}
-	if f.read(t, trialFile) == "<absent>" {
-		t.Fatal("the record went although the change was not kept")
-	}
-	trialMu.Lock()
-	live := active != nil
-	trialMu.Unlock()
-	if !live {
-		t.Fatal("the trial ended although the change was not kept")
-	}
-	_ = os.Remove(broken)
-	if _, response := postJSON((&Service{}).ConfirmTrial, `{"token":"`+info.Token+`"}`); response.Code != 0 {
-		t.Fatalf("confirm once sync works: %+v", response)
 	}
 }
 

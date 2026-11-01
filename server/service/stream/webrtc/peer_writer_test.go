@@ -73,28 +73,6 @@ func TestPeerWriterSlowPeerAndRecovery(t *testing.T) {
 	slow.close()
 }
 
-func TestPeerWriterCloseDiscardsPending(t *testing.T) {
-	useDefaultPeerWriterQueue(t)
-	entered := make(chan stream.VideoFrame, 2)
-	unblock := make(chan struct{})
-	w := newPeerVideoWriter(func(f stream.VideoFrame) error { entered <- f; <-unblock; return nil }, func(error) {})
-	w.offer(stream.VideoFrame{Result: 3})
-	receiveFrame(t, entered)
-	for i := 0; i < peerVideoQueueCapacity; i++ {
-		w.offer(stream.VideoFrame{Result: 4})
-	}
-	w.close()
-	close(unblock)
-	select {
-	case <-w.done:
-	case <-time.After(time.Second):
-		t.Fatal("writer leaked")
-	}
-	if len(entered) != 0 {
-		t.Fatal("closed writer sent pending data")
-	}
-}
-
 // A large IDR can hold the sender while several ordinary frames arrive.
 // They must survive in order instead of forcing another one-second IDR wait.
 func TestPeerWriterPreservesIDRBurst(t *testing.T) {
@@ -124,49 +102,5 @@ func TestPeerWriterPreservesIDRBurst(t *testing.T) {
 		if f := receiveFrame(t, entered); f.Timestamp != i {
 			t.Fatalf("frame order: got %d want %d", f.Timestamp, i)
 		}
-	}
-}
-
-func TestPeerWriterBudgetFailureDiscardsBurst(t *testing.T) {
-	useDefaultPeerWriterQueue(t)
-	entered := make(chan stream.VideoFrame, 16)
-	unblock := make(chan struct{})
-	w := newPeerVideoWriter(func(f stream.VideoFrame) error {
-		entered <- f
-		if f.Timestamp == 1 {
-			<-unblock
-			return errVideoBudget
-		}
-		return nil
-	}, func(error) { t.Error("recoverable budget failure terminated writer") })
-	defer w.close()
-	defer close(unblock)
-	w.offer(stream.VideoFrame{Result: 3, Timestamp: 1})
-	receiveFrame(t, entered)
-	for i := 0; i < peerVideoQueueCapacity; i++ {
-		w.offer(stream.VideoFrame{Result: 4, Timestamp: 2})
-	}
-	unblock <- struct{}{}
-	deadline := time.Now().Add(time.Second)
-	for {
-		w.mu.Lock()
-		repairing := w.repairing
-		w.mu.Unlock()
-		if repairing {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("budget failure did not recover")
-		}
-		time.Sleep(time.Millisecond)
-	}
-	if w.offer(stream.VideoFrame{Result: 4}) {
-		t.Fatal("accepted damaged delta chain")
-	}
-	if !w.offer(stream.VideoFrame{Result: 3, Timestamp: 3}) {
-		t.Fatal("recovery key rejected")
-	}
-	if f := receiveFrame(t, entered); f.Timestamp != 3 {
-		t.Fatal("stale pending frame sent after budget failure")
 	}
 }

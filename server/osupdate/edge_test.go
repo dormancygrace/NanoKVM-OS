@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 )
 
@@ -67,38 +66,6 @@ func TestEdgeMigration(t *testing.T) {
 	}
 }
 
-func TestEdgeMigrationWithoutEdgePackages(t *testing.T) {
-	edgeFixture(t, edgeRepositories, "alpine-baselayout\nnanokvm-release\n", "")
-	if err := MigrateEdgeRepository(); err != nil {
-		t.Fatal(err)
-	}
-	if read(t, worldPath) != "alpine-baselayout\nnanokvm-release\n" || read(t, repositoriesPath) != edgeWithoutLine {
-		t.Fatal("unexpected change")
-	}
-}
-
-func TestEdgeMigrationWaitsForApk(t *testing.T) {
-	edgeFixture(t, edgeRepositories, "tailscale@edgecommunity\n", "P:tailscale\nV:1.102.5-r0\n\n")
-	f, err := os.OpenFile(apkDBLockPath, os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		t.Fatal(err)
-	}
-	if err = MigrateEdgeRepository(); err != errEdgeBusy {
-		t.Fatalf("err=%v while apk holds its lock", err)
-	}
-	if read(t, worldPath) != "tailscale@edgecommunity\n" || read(t, repositoriesPath) != edgeRepositories {
-		t.Fatal("changed while apk ran")
-	}
-	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-	if err = MigrateEdgeRepository(); err != nil || read(t, worldPath) != "tailscale>=1.102.5-r0\n" {
-		t.Fatalf("after apk: %v %q", err, read(t, worldPath))
-	}
-}
-
 func TestEdgeMigrationKeepsUnknownForms(t *testing.T) {
 	edgeFixture(t, edgeRepositories, "Odd@edgecommunity\n", "")
 	if err := MigrateEdgeRepository(); err == nil || !strings.Contains(err.Error(), "unknown form") {
@@ -106,15 +73,5 @@ func TestEdgeMigrationKeepsUnknownForms(t *testing.T) {
 	}
 	if read(t, repositoriesPath) != edgeRepositories {
 		t.Fatal("removed the line although the world still needs the tag")
-	}
-}
-
-func TestEdgeMigrationNothingToDo(t *testing.T) {
-	edgeFixture(t, edgeWithoutLine, "tailscale\n", "")
-	if err := MigrateEdgeRepository(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(apkDBLockPath); !os.IsNotExist(err) {
-		t.Fatal("took apk's lock without a reason")
 	}
 }

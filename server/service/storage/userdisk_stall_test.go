@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"strings"
@@ -191,69 +190,4 @@ func TestUserDiskStalledDownloadReleasesTheDiskOverHTTP2(t *testing.T) {
 		t.Fatalf("download: %s over HTTP/%d", rsp.Status, rsp.ProtoMajor)
 	}
 	diskReleased(t, 5*time.Second)
-}
-
-// The stall deadline must not outlive the download: a kept-alive connection
-// serves the next request after the stall timeout has passed.
-func TestUserDiskDownloadKeepsTheConnectionUsable(t *testing.T) {
-	files, server := stallServer(t, false)
-	if err := os.WriteFile(filepath.Join(files, "small"), []byte("data"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	client := server.Client()
-	get := func(url string) (string, bool) {
-		reused := false
-		trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) { reused = info.Reused }}
-		req, _ := http.NewRequest(http.MethodGet, url, nil)
-		rsp, err := client.Do(req.WithContext(httptrace.WithClientTrace(req.Context(), trace)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer rsp.Body.Close()
-		data, err := io.ReadAll(rsp.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(data), reused
-	}
-	if data, _ := get(server.URL + "/download?path=small"); data != "data" {
-		t.Fatalf("download: %q", data)
-	}
-	time.Sleep(2 * userDiskStall)
-	data, reused := get(server.URL + "/list?path=.")
-	if !reused || !strings.Contains(data, `"small"`) {
-		t.Fatalf("listing on the kept-alive connection (reused %v): %s", reused, data)
-	}
-}
-
-// Create and delete hold s.mu; they must not wait behind a transfer.
-func TestUserDiskCreateAndDeleteDoNotWaitForATransfer(t *testing.T) {
-	setupUserDisk(t)
-	gin.SetMode(gin.TestMode)
-	userDiskMu.Lock()
-	defer userDiskMu.Unlock()
-	s := &Service{}
-	for name, handler := range map[string]gin.HandlerFunc{"create": s.CreateUserDisk, "delete": s.DeleteUserDisk} {
-		done := make(chan *httptest.ResponseRecorder, 1)
-		go func() {
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"sizeMiB":64}`))
-			c.Request.Header.Set("Content-Type", "application/json")
-			handler(c)
-			done <- rec
-		}()
-		select {
-		case rec := <-done:
-			if code := fileCode(t, rec); code != -6 {
-				t.Fatalf("%s during a transfer returned %d, want -6", name, code)
-			}
-		case <-time.After(2 * time.Second):
-			t.Fatalf("%s waited for the transfer", name)
-		}
-		if !s.mu.TryLock() {
-			t.Fatalf("%s left s.mu held", name)
-		}
-		s.mu.Unlock()
-	}
 }

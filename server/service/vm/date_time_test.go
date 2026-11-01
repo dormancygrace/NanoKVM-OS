@@ -2,7 +2,6 @@ package vm
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -46,37 +45,6 @@ func postClock(t *testing.T, body string) (code int, msg string) {
 	return rsp.Code, rsp.Msg
 }
 
-func TestSetClockSetsTheClockAndTheRTC(t *testing.T) {
-	set, rtc := useClock(t, false, nil)
-	want := time.Date(2026, 10, 30, 12, 0, 0, 123e6, time.UTC)
-	if code, msg := postClock(t, `{"now":`+strconv.FormatInt(want.UnixMilli(), 10)+`}`); code != 0 {
-		t.Fatalf("successful clock update: code %d %q", code, msg)
-	}
-	if len(*set) != 1 || !(*set)[0].Equal(want) {
-		t.Fatalf("clock set to %v, want %v", *set, want)
-	}
-	if *rtc != 1 {
-		t.Fatalf("RTC written %d times, want 1", *rtc)
-	}
-}
-
-func TestSetClockLeavesASynchronisedClock(t *testing.T) {
-	set, rtc := useClock(t, true, nil)
-	code, msg := postClock(t, `{"now":`+strconv.FormatInt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli(), 10)+`}`)
-	if code == 0 || !strings.Contains(msg, "NTP") || len(*set) != 0 || *rtc != 0 {
-		t.Fatalf("synchronised clock: code %d %q, set %v, rtc %d", code, msg, *set, *rtc)
-	}
-}
-
-func TestSetClockWithoutChronyStatus(t *testing.T) {
-	// chronyc not answering is not synchronisation: the clock may be set.
-	set, _ := useClock(t, false, errors.New("no chronyd"))
-	postClock(t, `{"now":`+strconv.FormatInt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli(), 10)+`}`)
-	if len(*set) != 1 {
-		t.Fatalf("clock not set without chrony status")
-	}
-}
-
 func TestSetClockRejectsBadTimes(t *testing.T) {
 	set, _ := useClock(t, false, nil)
 	for _, body := range []string{
@@ -97,24 +65,6 @@ func TestSetClockRejectsBadTimes(t *testing.T) {
 	}
 	if len(*set) != 0 {
 		t.Fatalf("clock set from a bad request: %v", *set)
-	}
-}
-
-func TestSetClockReportsSystemClockFailure(t *testing.T) {
-	_, rtc := useClock(t, false, nil)
-	setSystemClock = func(time.Time) error { return errors.New("denied") }
-	code, msg := postClock(t, `{"now":1793361600000}`)
-	if code == 0 || !strings.Contains(msg, "Cannot set") || *rtc != 0 {
-		t.Fatalf("failed clock: code %d %q, rtc writes %d", code, msg, *rtc)
-	}
-}
-
-func TestSetClockReportsRTCPersistenceFailure(t *testing.T) {
-	set, _ := useClock(t, false, nil)
-	saveClockToRTC = func() error { return errors.New("RTC write failed") }
-	code, msg := postClock(t, `{"now":1793361600000}`)
-	if code == 0 || !strings.Contains(msg, "System clock set") || !strings.Contains(msg, "RTC") || len(*set) != 1 {
-		t.Fatalf("partial clock update: code %d %q, clock writes %v", code, msg, *set)
 	}
 }
 

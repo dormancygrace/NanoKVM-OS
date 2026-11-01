@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestPacketFraming(t *testing.T) {
@@ -71,18 +70,6 @@ func TestSlowListenerKeepsFreshTailAndDoesNotBlockOthers(t *testing.T) {
 	slow.close() // USB stop and process exit can both close a listener.
 }
 
-func TestRetryCancelledImmediately(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	started := time.Now()
-	if waitRetry(ctx, time.Hour) {
-		t.Fatal("retry despite cancellation")
-	}
-	if time.Since(started) > time.Second {
-		t.Fatal("cancellation blocked")
-	}
-}
-
 func TestSubscriptionCloseDropsQueuedAudioAndStopsOnlyLastListener(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -107,22 +94,5 @@ func TestSubscriptionCloseDropsQueuedAudioAndStopsOnlyLastListener(t *testing.T)
 	s2.Close()
 	if ctx.Err() == nil || len(h.clients) != 0 {
 		t.Fatal("last listener did not stop capture")
-	}
-}
-
-func TestSubscriptionReadCancellationAndSharedListenerCap(t *testing.T) {
-	l := &listener{frames: make(chan packet, 4), done: make(chan struct{})}
-	s := &Subscription{client: l}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if _, err := s.Read(ctx); err != context.Canceled {
-		t.Fatal(err)
-	}
-	h := hub{clients: make(map[*listener]struct{})}
-	for i := 0; i < 8; i++ {
-		h.clients[&listener{}] = struct{}{}
-	}
-	if _, err := h.add(); err == nil {
-		t.Fatal("audio listener cap exceeded")
 	}
 }

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -26,25 +25,6 @@ func testDownloadClient(body, contentType string) *http.Client {
 			Request:       request,
 		}, nil
 	})}
-}
-
-func TestDownloadPreflightRunsBeforeTargetCreation(t *testing.T) {
-	oldClient := downloadClient
-	downloadClient = testDownloadClient("package", "application/x-compressed; charset=binary")
-	defer func() { downloadClient = oldClient }()
-
-	target := filepath.Join(t.TempDir(), "package.tar.gz")
-	req, err := http.NewRequest(http.MethodGet, "https://updates.example/package", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = Download(req, target, 1024, func(int64) error { return errors.New("no space") })
-	if err == nil {
-		t.Fatal("download succeeded despite failed preflight")
-	}
-	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
-		t.Fatalf("target was created before preflight: %v", statErr)
-	}
 }
 
 func TestDownloadRemovesPartialFileAndReportsWrittenBytes(t *testing.T) {

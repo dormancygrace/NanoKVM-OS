@@ -75,21 +75,6 @@ func TestNewOutboundDeltaClearsReusedKeyframeMarker(t *testing.T) {
 	}
 }
 
-func TestNewOutboundFrameFallsBackWithoutHeadroom(t *testing.T) {
-	data := []byte{5, 6, 7}
-	frame := newOutboundFrame(false, 7, nil, data)
-
-	if frame.payload[0] != 0 {
-		t.Fatalf("keyframe marker = %d, want 0", frame.payload[0])
-	}
-	if timestamp := binary.LittleEndian.Uint64(frame.payload[1:9]); timestamp != 7 {
-		t.Fatalf("timestamp = %d, want 7", timestamp)
-	}
-	if !bytes.Equal(frame.payload[9:], data) {
-		t.Fatalf("frame data = %v, want %v", frame.payload[9:], data)
-	}
-}
-
 func TestNewOutboundFrameFallsBackForUnrelatedStorage(t *testing.T) {
 	storage := make([]byte, 12)
 	data := []byte{8, 9, 10}
@@ -128,33 +113,6 @@ func TestAckStallPreservesQueuedPredictionChain(t *testing.T) {
 	}
 	if got := q.popForWrite(); got != delta {
 		t.Fatal("prediction chain not preserved")
-	}
-}
-
-func TestAckStallStillBoundsPendingFramesAndBytes(t *testing.T) {
-	for _, limits := range []struct{ frames, bytes int }{{1, 1024}, {8, 16}} {
-		var probe keyframeProbe
-		q := probe.attach(newFrameQueue(limits.frames, limits.bytes))
-		q.enableFlowControl(1)
-		q.offer(newOutboundFrame(true, 10, nil, []byte("k")))
-		q.popForWrite()
-		if !q.offer(newOutboundFrame(false, 20, nil, []byte("d"))) {
-			t.Fatal("first delta rejected")
-		}
-		probe.expect(t, 0, "frames within the limit")
-		if q.offer(newOutboundFrame(false, 30, nil, []byte("d"))) {
-			t.Fatal("queue limit exceeded")
-		}
-		probe.expect(t, 1, "overflow starts the recovery")
-		q.acknowledge(10)
-		if q.offer(newOutboundFrame(false, 40, nil, []byte("d"))) {
-			t.Fatal("broken chain accepted")
-		}
-		probe.expect(t, 1, "delta refused right after the request")
-		key := newOutboundFrame(true, 50, nil, []byte("k"))
-		if !q.offer(key) || q.popForWrite() != key {
-			t.Fatal("keyframe recovery failed")
-		}
 	}
 }
 

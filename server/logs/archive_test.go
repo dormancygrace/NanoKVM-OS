@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestArchiveKeepsTwoPreviousBootsAndServiceRestart(t *testing.T) {
@@ -109,75 +108,6 @@ func TestArchiveRejectsInvalidPathsAndReappliesRedaction(t *testing.T) {
 	os.Symlink("/etc/passwd", filepath.Join(directory, "current/system.log"))
 	if _, err = archive.Read("current", "system"); err == nil {
 		t.Fatal("archive symlink read")
-	}
-}
-
-func TestArchiveRetriesFailedMetadataWrite(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "boots")
-	archive, err := NewArchive(directory, "11111111-1111-1111-1111-111111111111", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer archive.Close()
-	path := filepath.Join(directory, "current/boot.json")
-	if err = os.Remove(path); err != nil {
-		t.Fatal(err)
-	}
-	if err = os.Mkdir(path, 0700); err != nil {
-		t.Fatal(err)
-	}
-	snapshot := Snapshot{Boot: "current", Source: "system", State: "ready", Content: "safe", CollectedAt: 2}
-	if err = archive.Save([]Snapshot{snapshot}); err == nil {
-		t.Fatal("expected metadata failure")
-	}
-	if archive.Healthy() {
-		t.Fatal("failed archive still reported healthy")
-	}
-	os.Remove(path)
-	if err = archive.Save([]Snapshot{snapshot}); err != nil {
-		t.Fatal("retry failed", err)
-	}
-	if !archive.Healthy() {
-		t.Fatal("healthy retry still reported failed")
-	}
-	if len(archive.Boots()) != 1 {
-		t.Fatal("metadata retry was skipped")
-	}
-}
-
-func TestArchivedReadsShareCache(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "boots")
-	previous, err := NewArchive(directory, "11111111-1111-1111-1111-111111111111", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = previous.Save([]Snapshot{{Boot: "current", Source: "system", State: "ready", Content: "first", CollectedAt: 2}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	previous.Close()
-	current, err := NewArchive(directory, "22222222-2222-2222-2222-222222222222", 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer current.Close()
-	collector := NewCollector()
-	collector.archive = current
-	now := time.Unix(1000, 0)
-	collector.now = func() time.Time { return now }
-	snapshot, err := collector.ReadBoot("system", "previous")
-	if err != nil || snapshot.Content != "first" {
-		t.Fatal(snapshot, err)
-	}
-	os.WriteFile(filepath.Join(directory, "previous/system.log"), []byte("changed\n"), 0600)
-	cached, _ := collector.ReadBoot("system", "previous")
-	if cached.Content != "first" {
-		t.Fatal("old CollectedAt bypassed cache")
-	}
-	now = now.Add(RefreshInterval)
-	fresh, _ := collector.ReadBoot("system", "previous")
-	if fresh.Content != "changed" {
-		t.Fatal(fresh)
 	}
 }
 

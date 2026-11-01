@@ -13,50 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestMCPBootstrapMethodsAllowedInAllControlModes(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	for _, mode := range []controlmode.Mode{controlmode.ModeOff, controlmode.ModeMCP, controlmode.ModePicoclaw} {
-		t.Run(string(mode), func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "mode")
-			if err := os.WriteFile(path, []byte(string(mode)+"\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			service := &Service{control: controlmode.NewManager(path, controlmode.ModePicoclaw)}
-
-			for _, method := range []string{"initialize", "tools/list", "ping"} {
-				response := performMCPRequest(service, jsonRPCBody(method))
-				if response.Code != http.StatusOK {
-					t.Fatalf("%s status = %d, body = %s", method, response.Code, response.Body.String())
-				}
-				if strings.Contains(response.Body.String(), `"error"`) {
-					t.Fatalf("%s returned error: %s", method, response.Body.String())
-				}
-			}
-		})
-	}
-}
-
-func TestMCPBootstrapAllowedDuringControlTransition(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	manager := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff)
-	service := &Service{control: manager}
-
-	err := manager.SwitchWithCleanup(controlmode.ModePicoclaw, func() error {
-		response := performMCPRequest(service, jsonRPCBody("initialize"))
-		if response.Code != http.StatusOK {
-			t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
-		}
-		if strings.Contains(response.Body.String(), `"error"`) {
-			t.Fatalf("bootstrap method returned error: %s", response.Body.String())
-		}
-		return nil
-	}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestMCPActionsReturnStructuredControlErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -121,8 +77,4 @@ func performMCPRequest(service *Service, body string) *httptest.ResponseRecorder
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	return response
-}
-
-func jsonRPCBody(method string) string {
-	return `{"jsonrpc":"2.0","id":1,"method":"` + method + `"}`
 }

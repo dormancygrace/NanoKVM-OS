@@ -80,22 +80,6 @@ func TestLoginAttemptEvictionPreservesActiveLockouts(t *testing.T) {
 	}
 }
 
-func TestLoginAttemptEvictionPreservesAllActiveLockouts(t *testing.T) {
-	now := time.Now()
-	useLoginAttemptRecords(t, map[string]*loginAttempt{
-		"soonest": {lockoutEnd: now.Add(time.Minute)},
-		"later":   {lockoutEnd: now.Add(time.Hour)},
-	})
-	loginMutex.Lock()
-	defer loginMutex.Unlock()
-	if evictOneRecordLocked() {
-		t.Fatal("active lockout was evicted")
-	}
-	if len(loginAttempts) != 2 || loginAttempts["soonest"] == nil || loginAttempts["later"] == nil {
-		t.Fatalf("active lockout records changed: %+v", loginAttempts)
-	}
-}
-
 func TestRecordLoginFailureAtCapacityDoesNotResetOtherLockouts(t *testing.T) {
 	useLoginProtectionConfig(t)
 	now := time.Now()

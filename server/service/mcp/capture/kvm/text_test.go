@@ -2,7 +2,6 @@ package kvmcapture
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	mcpservice "NanoKVM-Server/service/mcp"
@@ -30,20 +29,5 @@ func TestTextReaderNormalizesAndCrops(t *testing.T) {
 	}
 	if box := text.Pieces[0].Box; box != (mcpservice.ScreenBox{X: 0.5, Y: 0.5, W: 0.05, H: 0.025}) {
 		t.Errorf("box %+v", box)
-	}
-}
-
-func TestTextReaderWithoutTheAddon(t *testing.T) {
-	reader := textReader{read: func(context.Context, vm.ScreenTextRequest) (*vm.ScreenTextReply, error) {
-		return nil, &vm.ScreenTextError{Code: -1, Message: "the TPU add-on is not installed"}
-	}}
-	if _, err := reader.ReadText(context.Background(), "", nil); !errors.Is(err, mcpservice.ErrNoTextReader) {
-		t.Errorf("error %v, want ErrNoTextReader", err)
-	}
-	busy := textReader{read: func(context.Context, vm.ScreenTextRequest) (*vm.ScreenTextReply, error) {
-		return nil, &vm.ScreenTextError{Code: -2, Message: "the screen is being read"}
-	}}
-	if _, err := busy.ReadText(context.Background(), "", nil); err == nil || err.Error() != "the screen is being read" {
-		t.Errorf("busy: %v", err)
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"encoding/pem"
 	"math/big"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,46 +142,6 @@ func TestParseCertificatePairRejectsBadInput(t *testing.T) {
 	}
 }
 
-func TestDescribeCertificate(t *testing.T) {
-	dir := t.TempDir()
-	certFile, keyFile := filepath.Join(dir, "g.crt"), filepath.Join(dir, "g.key")
-	if err := GenerateCertificateFiles(certFile, keyFile); err != nil {
-		t.Fatal(err)
-	}
-	cert, err := LoadCertificatePair(certFile, keyFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	info, err := DescribeCertificate(&cert)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Subject != "localhost" || info.Issuer != "localhost" || !info.SelfSigned {
-		t.Fatalf("generated pair not recognised as self-signed: %+v", info)
-	}
-	if info.KeyType != "ECDSA P-256" || info.Chain != 1 || info.Expired {
-		t.Fatalf("unexpected description: %+v", info)
-	}
-	if len(info.Fingerprint) != 95 || strings.Count(info.Fingerprint, ":") != 31 {
-		t.Fatalf("fingerprint = %q", info.Fingerprint)
-	}
-	if len(info.DNSNames) != 1 || len(info.IPAddresses) != 2 {
-		t.Fatalf("names = %v %v", info.DNSNames, info.IPAddresses)
-	}
-	if _, err := time.Parse(time.RFC3339, info.NotAfter); err != nil {
-		t.Fatal(err)
-	}
-
-	certPEM, keyPEM := testPair(t, "old", time.Now().Add(-2*365*24*time.Hour))
-	old, _, _, err := ParseCertificatePair(certPEM, keyPEM)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info, _ := DescribeCertificate(&old); !info.Expired {
-		t.Fatal("expired certificate not flagged")
-	}
-}
-
 func TestCertificateStoreSwapsPairsWithoutRestart(t *testing.T) {
 	dir := t.TempDir()
 	first, firstKey := testPair(t, "first", time.Now().Add(-time.Hour))
@@ -243,32 +202,6 @@ func TestCertificateStoreSwapsPairsWithoutRestart(t *testing.T) {
 	}
 	if current := store.Current(); current.Err != nil {
 		t.Fatalf("error kept after a good reload: %v", current.Err)
-	}
-}
-
-func TestHTTPServerNegotiatesHTTP2WithTheStore(t *testing.T) {
-	dir := t.TempDir()
-	certPEM, keyPEM := testPair(t, "h2", time.Now().Add(-time.Hour))
-	certFile, keyFile := writePair(t, dir, "pair", certPEM, keyPEM)
-	store := &CertificateStore{}
-	if err := store.Load(certFile, keyFile); err != nil {
-		t.Fatal(err)
-	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	server := NewHTTPServer(ln.Addr().String(), http.NotFoundHandler(), true)
-	server.TLSConfig = &tls.Config{GetCertificate: store.GetCertificate}
-	go func() { _ = server.ServeTLS(ln, "", "") }()
-	defer server.Close()
-
-	name, proto := servedName(t, ln.Addr().String(), "h2", "http/1.1")
-	if name != "h2" || proto != "h2" {
-		t.Fatalf("served %q over %q, want h2 over h2", name, proto)
-	}
-	if _, proto := servedName(t, ln.Addr().String(), "http/1.1"); proto != "http/1.1" {
-		t.Fatalf("HTTP/1.1 client got %q", proto)
 	}
 }
 

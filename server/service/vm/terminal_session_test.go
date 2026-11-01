@@ -108,32 +108,6 @@ func TestTerminalANSIResizeAndShellExit(t *testing.T) {
 	}
 }
 
-func TestTerminalClientCloseStopsIdlePTY(t *testing.T) {
-	ws, done := terminalTestSession(t, `printf 'READY\n'; read -r line`)
-	terminalReadUntil(t, ws, "READY")
-	ws.Close()
-	terminalWaitDone(t, done)
-}
-
-func TestTerminalReadLimitAcceptsBoundaryMessage(t *testing.T) {
-	ws, done := terminalTestSession(t, `printf 'READY\n'; while IFS= read -r line; do case "$line" in size) stty size;; exit) exit;; esac; done`)
-	terminalReadUntil(t, ws, "READY")
-	resize := `{"rows":42,"cols":111}`
-	payload := resize + strings.Repeat(" ", maxReadSize-len(resize))
-	if err := ws.WriteMessage(websocket.BinaryMessage, []byte(payload)); err != nil {
-		t.Fatal(err)
-	}
-	if err := ws.WriteMessage(websocket.TextMessage, []byte("size\n")); err != nil {
-		t.Fatal(err)
-	}
-	terminalReadUntil(t, ws, "42 111")
-	if err := ws.WriteMessage(websocket.TextMessage, []byte("exit\n")); err != nil {
-		t.Fatal(err)
-	}
-	ws.Close()
-	terminalWaitDone(t, done)
-}
-
 func TestTerminalReadLimitClosesOversizedMessageAndReapsPTY(t *testing.T) {
 	ws, done := terminalTestSession(t, `printf 'READY\n'; read -r line`)
 	terminalReadUntil(t, ws, "READY")

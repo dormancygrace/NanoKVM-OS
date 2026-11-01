@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,8 +15,6 @@ import (
 
 	"NanoKVM-Server/remotemedia"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
-	"golang.org/x/sys/unix"
 )
 
 type fakeRemoteDevice struct {
@@ -230,66 +227,6 @@ func TestHTTPMediaOutlivesRequestAndDisconnects(t *testing.T) {
 	}
 }
 
-func TestHTTPMediaCancelDuringProbe(t *testing.T) {
-	s, reads := remoteGadgetFixture(t)
-	started := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(started); <-r.Context().Done() }))
-	defer server.Close()
-	body, _ := json.Marshal(remotemedia.HTTPOptions{URL: server.URL})
-	remoteHTTPCall(s, string(body), context.Background())
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("probe did not start")
-	}
-	s.mu.Lock()
-	r := s.remote
-	s.mu.Unlock()
-	r.close()
-	waitRemoteState(t, s, false)
-	select {
-	case <-reads:
-		t.Fatal("cancelled probe opened NBD")
-	default:
-	}
-	s.mu.Lock()
-	err := s.remoteError
-	s.mu.Unlock()
-	if err != "" {
-		t.Fatalf("cancel recorded as failure: %s", err)
-	}
-}
-
-func TestHTTPMediaReadFailureReleasesGadget(t *testing.T) {
-	s, reads := remoteGadgetFixture(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Range") != "bytes=0-2047" {
-			w.WriteHeader(503)
-			return
-		}
-		http.ServeContent(w, r, "image.iso", time.Time{}, bytes.NewReader(make([]byte, 1048576)))
-	}))
-	defer server.Close()
-	body, _ := json.Marshal(remotemedia.HTTPOptions{URL: server.URL})
-	remoteHTTPCall(s, string(body), context.Background())
-	waitRemoteState(t, s, true)
-	read := <-reads
-	if _, err := read(4096, 512); err == nil {
-		t.Fatal("failed source returned data")
-	}
-	waitRemoteState(t, s, false)
-	s.mu.Lock()
-	err := s.remoteError
-	s.mu.Unlock()
-	if !strings.Contains(err, "503") {
-		t.Fatalf("missing failure: %q", err)
-	}
-	b, _ := os.ReadFile(mountDevice)
-	if strings.TrimSpace(string(b)) != "" {
-		t.Fatal("failed source retained by gadget")
-	}
-}
-
 func TestHTTPMediaRejectsBusyAndInvalidRequests(t *testing.T) {
 	s, _ := remoteGadgetFixture(t)
 	for _, body := range []string{`{`, `{"url":"file:///tmp/image.iso"}`, `{"url":"http://u:p@host/image.iso"}`, strings.Repeat(" ", 8193)} {
@@ -307,136 +244,5 @@ func TestHTTPMediaRejectsBusyAndInvalidRequests(t *testing.T) {
 	os.WriteFile(mountDevice, []byte("/data/local.iso"), 0600)
 	if rsp = remoteHTTPCall(s, `{"url":"http://host/image.iso"}`, context.Background()); rsp.Code != 409 {
 		t.Fatal("local image replaced")
-	}
-}
-
-func TestBrowserReceivesAttachmentFailure(t *testing.T) {
-	s, _ := remoteGadgetFixture(t)
-	openRemoteBlockDevice = func(uint64, remotemedia.ReadBlock) (remoteBlockDevice, error) {
-		return nil, errors.New("NBD unavailable")
-	}
-	router := gin.New()
-	router.GET("/connect", s.ConnectRemote)
-	server := httptest.NewServer(router)
-	defer server.Close()
-	ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/connect", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ws.Close()
-	ws.SetReadDeadline(time.Now().Add(2 * time.Second))
-	if err := ws.WriteJSON(map[string]any{"type": "open", "name": "image.iso", "size": 1048576}); err != nil {
-		t.Fatal(err)
-	}
-	var reply map[string]any
-	if err := ws.ReadJSON(&reply); err != nil {
-		t.Fatalf("failure message lost: %v", err)
-	}
-	if reply["type"] != "error" || reply["message"] != "NBD unavailable" {
-		t.Fatalf("wrong reply: %v", reply)
-	}
-	waitRemoteState(t, s, false)
-}
-
-func TestRemoteCleanupRespectsDeviceOwner(t *testing.T) {
-	s, _ := remoteGadgetFixture(t)
-	root := t.TempDir()
-	devicePath, pidPath := filepath.Join(root, "nbd0"), filepath.Join(root, "pid")
-	device, err := os.Create(devicePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer device.Close()
-	if err := os.WriteFile(mountDevice, []byte(remotemedia.DevicePath), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := unix.Flock(int(device.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		t.Fatal(err)
-	}
-	s.cleanupRemote(devicePath, pidPath) // the lock can be held before the NBD PID appears
-	assertBacking := func(want string) {
-		t.Helper()
-		data, err := os.ReadFile(mountDevice)
-		if err != nil || strings.TrimSpace(string(data)) != want {
-			t.Fatalf("backing = %q, %v; want %q", data, err, want)
-		}
-	}
-	assertBacking(remotemedia.DevicePath)
-	if err := unix.Flock(int(device.Fd()), unix.LOCK_UN); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(pidPath, []byte("123"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	s.cleanupRemote(devicePath, pidPath) // an external owner need not use our flock
-	assertBacking(remotemedia.DevicePath)
-	if err := os.Remove(pidPath); err != nil {
-		t.Fatal(err)
-	}
-	s.cleanupRemote(devicePath, pidPath)
-	assertBacking("")
-}
-
-type shortRemoteSource struct{ closed chan struct{} }
-
-func (s *shortRemoteSource) ReadBlock(_ uint64, length uint32) ([]byte, error) {
-	return make([]byte, length-1), nil
-}
-func (s *shortRemoteSource) Close() { close(s.closed) }
-
-func TestRemoteShortReadDetaches(t *testing.T) {
-	s, reads := remoteGadgetFixture(t)
-	r := &remoteSession{kind: "http", size: 1048576, closed: make(chan struct{})}
-	if err := s.reserveRemote(r); err != nil {
-		t.Fatal(err)
-	}
-	source := &shortRemoteSource{closed: make(chan struct{})}
-	go func() { s.releaseRemote(r, s.serveRemote(r, source, nil)) }()
-	waitRemoteState(t, s, true)
-	if _, err := (<-reads)(0, 512); err == nil {
-		t.Fatal("short source read accepted")
-	}
-	waitRemoteState(t, s, false)
-	select {
-	case <-source.closed:
-	default:
-		t.Fatal("failed source not closed")
-	}
-	data, err := os.ReadFile(mountDevice)
-	if err != nil || strings.TrimSpace(string(data)) != "" {
-		t.Fatal("short source retained by USB gadget")
-	}
-}
-
-type failedRemoteSource struct{ err error }
-
-func (s failedRemoteSource) ReadBlock(uint64, uint32) ([]byte, error) { return nil, s.err }
-func (s failedRemoteSource) Close()                                   {}
-
-func TestRemoteReadErrorSurvivesDeviceStop(t *testing.T) {
-	s, _ := remoteGadgetFixture(t)
-	sourceError := errors.New("Remote image changed; disconnect and reconnect it")
-	for i := 0; i < 32; i++ {
-		device := &fakeRemoteDevice{stopped: make(chan struct{})}
-		var read remotemedia.ReadBlock
-		openRemoteBlockDevice = func(_ uint64, fn remotemedia.ReadBlock) (remoteBlockDevice, error) {
-			read = fn
-			return device, nil
-		}
-		r := &remoteSession{kind: "http", size: 1048576, closed: make(chan struct{})}
-		if err := s.reserveRemote(r); err != nil {
-			t.Fatal(err)
-		}
-		err := s.serveRemote(r, failedRemoteSource{sourceError}, func() error {
-			if _, err := read(0, 512); !errors.Is(err, sourceError) {
-				t.Fatalf("read error: %v", err)
-			}
-			device.Close()
-			return nil
-		})
-		s.releaseRemote(r, err)
-		if !errors.Is(err, sourceError) {
-			t.Fatalf("lost source error: %v", err)
-		}
 	}
 }

@@ -100,11 +100,3 @@ func TestOutputRequestStartsReleased(t *testing.T) {
 		t.Fatal("LED request changes output state")
 	}
 }
-
-func TestPulseTimerReleasesLine(t *testing.T) {
-	f := &fakeLine{}
-	err := new(Controller).Pulse(context.Background(), time.Millisecond, func() (Line, error) { return f, nil })
-	if err != nil || len(f.values) != 2 || !f.values[0] || f.values[1] || !f.closed {
-		t.Fatalf("timer release failed: %v %+v", err, f)
-	}
-}

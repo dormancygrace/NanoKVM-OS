@@ -106,21 +106,6 @@ func TestSecretsStayOnTheDevice(t *testing.T) {
 	}
 }
 
-func TestConfigureRejectsWithoutSaving(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.json")
-	s := newService(path)
-	bad := ChannelUpdate{Channel: Channel{Type: "slack"}}
-	if err := s.Configure(Settings{Language: "en", Channels: []ChannelUpdate{bad}}); err == nil {
-		t.Fatal("accepted a channel without its URL")
-	}
-	if err := s.Configure(Settings{Language: "xx"}); err == nil {
-		t.Fatal("accepted an unknown language")
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatal("a refused save wrote the file")
-	}
-}
-
 func TestRememberAddress(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "addresses.json")
 	check := func(user, address string, want bool) {

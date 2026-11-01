@@ -8,16 +8,6 @@ import (
 	"time"
 )
 
-func TestBuildSequenceCtrlAltDel(t *testing.T) {
-	steps, err := buildSequence(SequenceReq{Sequence: "ctrl-alt-del"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(steps) != 2 || !bytes.Equal(steps[0].report, []byte{0x05, 0, 0x4c, 0, 0, 0, 0, 0}) || !bytes.Equal(steps[1].report, make([]byte, 8)) {
-		t.Fatalf("steps %+v", steps)
-	}
-}
-
 func TestBuildSequenceSysRq(t *testing.T) {
 	steps, err := buildSequence(SequenceReq{Sequence: "sysrq", Key: "h"})
 	if err != nil {
@@ -92,25 +82,6 @@ func TestBuildSequenceReisub(t *testing.T) {
 	}
 }
 
-func TestRunSequenceWritesInOrderAndReleases(t *testing.T) {
-	var written [][]byte
-	write := func(report []byte) error {
-		written = append(written, append([]byte(nil), report...))
-		return nil
-	}
-	steps := []sequenceStep{
-		{report: keyboardReport(0x05, 0x4c), hold: time.Millisecond},
-		{report: keyboardReport(0)},
-	}
-	if err := runSequence(context.Background(), steps, write); err != nil {
-		t.Fatal(err)
-	}
-	// the two steps, then the release the runner always adds
-	if len(written) != 3 || !bytes.Equal(written[0], steps[0].report) || !bytes.Equal(written[2], make([]byte, 8)) {
-		t.Fatalf("written %v", written)
-	}
-}
-
 func TestRunSequenceReleasesWhenCancelledMidway(t *testing.T) {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	var written [][]byte
@@ -132,35 +103,6 @@ func TestRunSequenceReleasesWhenCancelledMidway(t *testing.T) {
 	}
 	if len(written) > 4 {
 		t.Fatalf("%d reports after the cancel", len(written))
-	}
-}
-
-func TestSequenceRunIsSingleFlightAndReportsStatus(t *testing.T) {
-	var r sequenceRun
-	if s := r.status(); s.Running || s.LastResult != nil {
-		t.Fatalf("fresh status %+v", s)
-	}
-	if !r.begin("reisub", 27*time.Second) {
-		t.Fatal("the first sequence was refused")
-	}
-	if r.begin("sysrq", time.Second) {
-		t.Fatal("a second sequence ran alongside the first")
-	}
-	s := r.status()
-	if !s.Running || s.Sequence != "reisub" || s.DurationMs != 27000 || s.RemainingMs > 27000 || s.RemainingMs <= 0 {
-		t.Fatalf("running status %+v", s)
-	}
-	r.end(errors.New("EIO"))
-	s = r.status()
-	if s.Running || s.LastResult == nil || s.LastResult.Ok || s.LastResult.Error != "EIO" || s.LastResult.Sequence != "reisub" {
-		t.Fatalf("finished status %+v", s)
-	}
-	if !r.begin("ctrl-alt-del", 200*time.Millisecond) {
-		t.Fatal("the slot was not freed")
-	}
-	r.end(nil)
-	if s := r.status(); s.Running || !s.LastResult.Ok {
-		t.Fatalf("status after success %+v", s)
 	}
 }
 

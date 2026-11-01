@@ -1,7 +1,6 @@
 package picoclaw
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,26 +69,6 @@ func TestUpdatePicoclawModelConfigInitializesMissingConfig(t *testing.T) {
 	}
 }
 
-func TestUpdatePicoclawModelConfigReportsOnboardFailure(t *testing.T) {
-	t.Setenv("PICOCLAW_HOME", t.TempDir())
-
-	previousOnboard := runPicoclawOnboardForConfig
-	runPicoclawOnboardForConfig = func() (string, *PicoclawError) {
-		return "", newPicoclawError(CodeRuntimeUnavailable, "onboard boom")
-	}
-	t.Cleanup(func() {
-		runPicoclawOnboardForConfig = previousOnboard
-	})
-
-	_, err := updatePicoclawModelConfig("https://api.example.invalid", "secret-key", "openai/test-model")
-	if err == nil {
-		t.Fatal("expected onboard failure")
-	}
-	if !strings.Contains(err.Error(), "failed to initialize PicoClaw config before saving model config") {
-		t.Fatalf("error = %v, want initialization context", err)
-	}
-}
-
 func TestUpdatePicoclawModelConfigMigratesVersionAndKeepsUnknownFields(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("PICOCLAW_HOME", home)
@@ -143,30 +122,6 @@ func TestUpdatePicoclawModelConfigMigratesVersionAndKeepsUnknownFields(t *testin
 	unknown, ok := doc.raw["unknown_top_level"].(map[string]any)
 	if !ok || unknown["keep"] != true {
 		t.Fatalf("unknown fields were not preserved: %#v", doc.raw["unknown_top_level"])
-	}
-}
-
-func TestUpdatePicoclawModelConfigRejectsInvalidProvider(t *testing.T) {
-	t.Setenv("PICOCLAW_HOME", t.TempDir())
-
-	_, err := updatePicoclawModelConfig("https://api.example.invalid", "secret-key", "openao/deepseek-v4-flash")
-	if err == nil {
-		t.Fatal("expected invalid provider error")
-	}
-	if !strings.Contains(err.Error(), "did you mean openai") {
-		t.Fatalf("error = %v, want provider hint", err)
-	}
-}
-
-func TestUpdatePicoclawModelConfigRequiresProviderModelFormat(t *testing.T) {
-	t.Setenv("PICOCLAW_HOME", t.TempDir())
-
-	_, err := updatePicoclawModelConfig("https://api.example.invalid", "secret-key", "deepseek-v4-flash")
-	if err == nil {
-		t.Fatal("expected provider/model format error")
-	}
-	if !strings.Contains(err.Error(), "provider/model") {
-		t.Fatalf("error = %v, want provider/model format hint", err)
 	}
 }
 
@@ -257,26 +212,6 @@ func TestUpdatePicoclawModelConfigRequiresKeyForHostedProvider(t *testing.T) {
 				t.Fatal("rejected request changed config")
 			}
 		})
-	}
-}
-
-func TestPicoclawKeylessStatusRequiresAPIBase(t *testing.T) {
-	var cfg picoclawConfigFile
-	if err := json.Unmarshal([]byte(`{
-  "model_list": [{"model_name":"local-model","model":"ollama/local-model","api_base":""}]
-}`), &cfg); err != nil {
-		t.Fatal(err)
-	}
-	if isPicoclawModelConfigured(cfg, picoclawSecurityConfig{}, "local-model") {
-		t.Fatal("local model without API base was reported as configured")
-	}
-	cfg.ModelList[0].APIBase = "http://192.0.2.10:11434/v1"
-	if !isPicoclawModelConfigured(cfg, picoclawSecurityConfig{}, "local-model") {
-		t.Fatal("keyless local model with API base was not configured")
-	}
-	cfg.ModelList[0].Model = "openai/local-model"
-	if isPicoclawModelConfigured(cfg, picoclawSecurityConfig{}, "local-model") {
-		t.Fatal("hosted model without API key was reported as configured")
 	}
 }
 

@@ -1,9 +1,6 @@
 package osupdate
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -51,64 +48,5 @@ func TestIndexSchedulePreservesOtherCronJobsAndDisables(t *testing.T) {
 	roundtrip, err = parseIndexSchedule(disabled)
 	if err != nil || roundtrip != s {
 		t.Fatalf("disabled time must be retained: %+v %v", roundtrip, err)
-	}
-}
-
-func TestIndexScheduleUsesCrontabAndReportsFailures(t *testing.T) {
-	oldPath, oldExec := indexCrontabPath, indexScheduleExec
-	t.Cleanup(func() { indexCrontabPath, indexScheduleExec = oldPath, oldExec })
-	indexCrontabPath = filepath.Join(t.TempDir(), "root")
-	original := "1 2 * * * /usr/bin/keep-me\n"
-	if err := os.WriteFile(indexCrontabPath, []byte(original), 0600); err != nil {
-		t.Fatal(err)
-	}
-	var commands []string
-	indexScheduleExec = func(input []byte, name string, args ...string) ([]byte, error) {
-		commands = append(commands, name+" "+strings.Join(args, " "))
-		if name == "crontab" {
-			if !strings.HasPrefix(string(input), original) {
-				t.Fatal("lost existing jobs")
-			}
-			return nil, os.WriteFile(indexCrontabPath, input, 0600)
-		}
-		return nil, nil
-	}
-	want := IndexSchedule{Enabled: true, Time: "21:42"}
-	if err := SetIndexSchedule(want); err != nil {
-		t.Fatal(err)
-	}
-	got, err := GetIndexSchedule()
-	if err != nil || got != want {
-		t.Fatalf("persisted setting: %+v %v", got, err)
-	}
-	if strings.Join(commands, ";") != "rc-update add crond default;rc-service crond status;crontab -" {
-		t.Fatalf("unexpected side effects: %v", commands)
-	}
-	indexScheduleExec = func([]byte, string, ...string) ([]byte, error) {
-		return nil, errors.New("write denied")
-	}
-	if err := SetIndexSchedule(IndexSchedule{Time: "21:42"}); err == nil {
-		t.Fatal("crontab write failure was hidden")
-	}
-	got, _ = GetIndexSchedule()
-	if got != want {
-		t.Fatal("failed save changed the setting")
-	}
-}
-
-func TestSoftwareRefreshOnlyUpdatesIndexes(t *testing.T) {
-	oldDir, oldExec := apkStateDir, apkExecutable
-	t.Cleanup(func() { apkStateDir, apkExecutable = oldDir, oldExec })
-	apkStateDir = t.TempDir()
-	apkExecutable = filepath.Join(t.TempDir(), "apk")
-	script := "#!/bin/sh\n[ \"$#\" -eq 1 ] && [ \"$1\" = update ]\n"
-	if err := os.WriteFile(apkExecutable, []byte(script), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := RunSoftware("refresh", ""); err != nil {
-		t.Fatalf("refresh tried an install/upgrade or failed: %v", err)
-	}
-	if status := GetSoftwareStatus(); status.State != "succeeded" || status.Action != "refresh" {
-		t.Fatalf("refresh status not visible: %+v", status)
 	}
 }

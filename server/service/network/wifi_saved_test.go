@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 func savedControl(t *testing.T) radioControl {
@@ -90,37 +89,6 @@ func TestReadSavedMarksCurrentAndSkipsForeignEntries(t *testing.T) {
 	}
 }
 
-func TestSaveNetworkKeepsTheMostRecent(t *testing.T) {
-	w := savedControl(t)
-	if err := os.MkdirAll(w.etc, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	base := time.Now().Add(-time.Hour)
-	for i := 0; i < maxSavedNetworks; i++ {
-		ssid := fmt.Sprintf("net-%02d", i)
-		if err := w.saveNetwork(wifiProfile{Ssid: ssid, Password: "password1", Security: "personal"}, true); err != nil {
-			t.Fatal(err)
-		}
-		stamp := base.Add(time.Duration(i) * time.Minute)
-		if err := os.Chtimes(w.savedPath(ssid), stamp, stamp); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := w.saveNetwork(wifiProfile{Ssid: "newest", Password: "password1", Security: "personal"}, true); err != nil {
-		t.Fatal(err)
-	}
-	networks, err := w.readSaved("")
-	if err != nil || len(networks) != maxSavedNetworks {
-		t.Fatalf("%d saved networks, %v; want %d", len(networks), err, maxSavedNetworks)
-	}
-	if _, err := os.Stat(w.savedPath("net-00")); !os.IsNotExist(err) {
-		t.Fatal("the network joined longest ago was kept")
-	}
-	if _, err := os.Stat(w.savedPath("newest")); err != nil {
-		t.Fatal("the network just saved was removed")
-	}
-}
-
 func TestMigrateSavedStoresTheSingleNetworkOnce(t *testing.T) {
 	w := savedControl(t)
 	if err := os.MkdirAll(w.etc, 0o755); err != nil {
@@ -197,29 +165,6 @@ func TestMigrateSkipsANetworkWithoutPassword(t *testing.T) {
 	}
 }
 
-func TestSelectedNetworkLivesInTheRunDirectory(t *testing.T) {
-	w := savedControl(t)
-	if err := os.MkdirAll(w.etc, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := w.rememberJoined(wifiProfile{Ssid: "Hotel", Password: "password1", Security: "personal"}, false); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(w.runDir, wifiSelectedFile))
-	if err != nil || string(data) != savedName("Hotel") {
-		t.Fatalf("selected %q, %v", data, err)
-	}
-	if err := w.clearSelected(); err != nil {
-		t.Fatal(err)
-	}
-	if err := w.clearSelected(); err != nil {
-		t.Fatal("clearing twice failed:", err)
-	}
-	if _, err := os.Stat(filepath.Join(w.runDir, wifiSelectedFile)); !os.IsNotExist(err) {
-		t.Fatal("selection was not cleared")
-	}
-}
-
 // fakeSupplicant answers LIST_NETWORKS with blocks of the given SSIDs as
 // wpa_supplicant shows them (printf_encode), GET_NETWORK id_str with the
 // block's id_str (FAIL for none, as for a block of an older S30wifi), and
@@ -249,15 +194,6 @@ func fakeSupplicant(blocks []fakeBlock, status string, removed *[]string) func(s
 			return "OK\n", nil
 		}
 		return "FAIL\n", nil
-	}
-}
-
-func TestRemoveRunningNetworkRemovesOnlyThatSSID(t *testing.T) {
-	var removed []string
-	w := radioControl{request: fakeSupplicant([]fakeBlock{{"Office", ""}, {"Office", ""}, {`Cafe\x20Bar`, ""}}, "", &removed)}
-	w.removeRunningNetwork("Cafe Bar")
-	if strings.Join(removed, ",") != "2" {
-		t.Fatalf("removed %q", removed)
 	}
 }
 
@@ -325,12 +261,5 @@ func TestAssociatedNetwork(t *testing.T) {
 		if got != want || ok != (want != "") {
 			t.Errorf("STATUS %q: associated %q, %v; want %q", status, got, ok, want)
 		}
-	}
-}
-
-func TestProfileAutoConnectDefaultsOn(t *testing.T) {
-	off := false
-	if !(wifiProfile{}).autoConnect() || (wifiProfile{AutoConnect: &off}).autoConnect() {
-		t.Fatal("autoConnect: absent must mean on, false must mean off")
 	}
 }

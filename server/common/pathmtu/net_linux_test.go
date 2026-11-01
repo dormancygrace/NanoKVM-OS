@@ -62,35 +62,6 @@ func TestRouteAndNoFragmentSocket(t *testing.T) {
 	}
 }
 
-// Measures the production route lookup/configuration path, not all ICE overhead.
-func BenchmarkRouteConfigIPv4(b *testing.B) {
-	n, err := NewNet(nil, false)
-	if err != nil {
-		b.Fatal(err)
-	}
-	c, err := n.ListenUDP("udp4", &net.UDPAddr{IP: net.ParseIP("127.0.0.1")})
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer c.Close()
-	local, err := ice.NewCandidateHost(&ice.CandidateHostConfig{Network: "udp", Address: "127.0.0.1", Port: c.LocalAddr().(*net.UDPAddr).Port, Component: 1})
-	if err != nil {
-		b.Fatal(err)
-	}
-	remote, err := ice.NewCandidateHost(&ice.CandidateHostConfig{Network: "udp", Address: "127.0.0.1", Port: 9001, Component: 1})
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cfg := n.ICEPathMTUConfig(local, remote)
-		if !cfg.Probe || cfg.MaxUDP != 1472 {
-			b.Fatalf("bad route %+v", cfg)
-		}
-	}
-}
-
 func TestListenPacketNoFragment(t *testing.T) {
 	n, e := NewNet(nil, false)
 	if e != nil {

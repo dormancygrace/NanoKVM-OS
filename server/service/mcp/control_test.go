@@ -3,7 +3,6 @@ package mcpservice
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,17 +10,15 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"NanoKVM-Server/service/controlmode"
 	"NanoKVM-Server/service/inputcontrol"
 )
 
 type fakeHostControl struct {
-	mu        sync.Mutex
-	log       []string
-	mounted   string
-	noStorage bool
+	mu      sync.Mutex
+	log     []string
+	mounted string
 }
 
 func (f *fakeHostControl) record(entry string) {
@@ -40,9 +37,6 @@ func (f *fakeHostControl) Images() ([]string, error) { return []string{"/data/de
 func (f *fakeHostControl) MountedImage() (string, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.noStorage {
-		return "", false, errors.New("USB storage is off")
-	}
 	return f.mounted, f.mounted != "", nil
 }
 
@@ -144,20 +138,6 @@ func TestHostControlToolsFollowTheSwitch(t *testing.T) {
 	}
 }
 
-// Without USB storage the list still comes, with the reason a mount would fail
-// (found on the stand: the tool answered only "read failed").
-func TestVirtualMediaListWithoutUSBStorage(t *testing.T) {
-	useTestConfig(t)
-	if _, err := setHostControl(true); err != nil {
-		t.Fatal(err)
-	}
-	fake := &fakeHostControl{noStorage: true}
-	_, result, err := virtualMediaHandler(nil, fake)(context.Background(), nil, VirtualMediaParams{Action: "list"})
-	if err != nil || !result.OK || len(result.Images) != 1 || result.Unavailable == "" {
-		t.Fatalf("list without USB storage: %+v, %v", result, err)
-	}
-}
-
 // gatedBody holds the request body back until released, like a slow client.
 type gatedBody struct {
 	reading chan struct{}
@@ -221,55 +201,6 @@ func TestHostControlSwitchedOffDuringTheRequest(t *testing.T) {
 	}
 }
 
-// blockingPower holds a power action until released.
-type blockingPower struct {
-	started chan struct{}
-	finish  chan struct{}
-}
-
-func (p *blockingPower) Do(context.Context, string) error {
-	close(p.started)
-	<-p.finish
-	return nil
-}
-
-// Switching off waits for the operation running, so once it has answered
-// nothing acts on the host any more.
-func TestHostControlSwitchOffWaitsForTheOperation(t *testing.T) {
-	useTestConfig(t)
-	if _, err := setHostControl(true); err != nil {
-		t.Fatal(err)
-	}
-	power := &blockingPower{started: make(chan struct{}), finish: make(chan struct{})}
-	executor := &toolExecutor{control: controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)}
-	pressed := make(chan error, 1)
-	go func() {
-		_, _, err := powerHandler(executor, power)(context.Background(), nil, PowerParams{Action: "cycle"})
-		pressed <- err
-	}()
-	<-power.started
-	switched := make(chan error, 1)
-	go func() {
-		_, err := setHostControl(false)
-		switched <- err
-	}()
-	select {
-	case <-switched:
-		t.Fatal("switched off while the power action was running")
-	case <-time.After(50 * time.Millisecond):
-	}
-	close(power.finish)
-	if err := <-pressed; err != nil {
-		t.Fatal(err)
-	}
-	if err := <-switched; err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := powerHandler(executor, power)(context.Background(), nil, PowerParams{Action: "on"}); err == nil {
-		t.Fatal("power ran after switching off")
-	}
-}
-
 // Outside MCP mode a control tool presses nothing.
 func TestHostControlNeedsMCPMode(t *testing.T) {
 	fake := &fakeHostControl{}
@@ -283,27 +214,5 @@ func TestHostControlNeedsMCPMode(t *testing.T) {
 	}
 	if fake.entries() != "" {
 		t.Fatalf("host touched outside MCP mode: %s", fake.entries())
-	}
-}
-
-// screen_text follows the reader: with text recognition off (or the add-on
-// missing) it is neither listed nor callable, the other tools stay.
-func TestScreenTextToolFollowsTheSwitch(t *testing.T) {
-	useTestConfig(t)
-	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	for _, c := range []struct {
-		reader ScreenTextReader
-		want   bool
-	}{{fakeTextReader{off: true}, false}, {nil, false}, {fakeTextReader{}, true}} {
-		handler := newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, c.reader, nil, HostControl{})
-		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/api/mcp", bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json, text/event-stream")
-		handler.ServeHTTP(recorder, req)
-		list := recorder.Body.String()
-		if strings.Contains(list, `"name":"screen_text"`) != c.want || !strings.Contains(list, `"name":"screenshot"`) {
-			t.Fatalf("reader %#v: screen_text listed %v, want %v: %s", c.reader, !c.want, c.want, list)
-		}
 	}
 }

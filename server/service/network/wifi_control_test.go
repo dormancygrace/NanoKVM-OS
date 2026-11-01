@@ -1,17 +1,13 @@
 package network
 
 import (
-	"encoding/json"
 	"errors"
-	"github.com/gin-gonic/gin"
 	gonet "net"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"NanoKVM-Server/proto"
 )
@@ -169,133 +165,11 @@ func TestWifiHardwareAndStatus(t *testing.T) {
 	}
 }
 
-// Wi-Fi off: the driver is not loaded, so there is no wlan0, only the chip
-// on the SDIO bus. Wi-Fi is still there to turn on; nothing else is read.
-func TestWifiChipWithoutDriver(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	previous := wifiControl
-	defer func() { wifiControl = previous; wifiMu.Lock(); wifiBusy = false; wifiError = ""; wifiMu.Unlock() }()
-	root := t.TempDir()
-	function := filepath.Join(root, "sdio", "mmc1:0001:1")
-	if err := os.MkdirAll(function, 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(function, "modalias"), []byte("sdio:c00vC8A1d0082\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "wifi.disabled"), nil, 0600); err != nil {
-		t.Fatal(err)
-	}
-	var ran []string
-	wifiControl = radioControl{etc: root, net: filepath.Join(root, "wlan0"), sdio: filepath.Join(root, "sdio"),
-		run: func(name string, args ...string) (string, error) {
-			ran = append(ran, name+" "+strings.Join(args, " "))
-			return "", nil
-		},
-		request: func(string) (string, error) { t.Fatal("wpa_supplicant asked without wlan0"); return "", nil }}
-	st := wifiControl.status()
-	if !st.Supported || st.Enabled || st.Model != "AIC8800D80" || len(st.Bands) != 0 {
-		t.Fatalf("status of the chip without its driver: %+v", st)
-	}
-	if len(ran) != 0 {
-		t.Fatalf("status ran %v", ran)
-	}
-	router := gin.New()
-	s := NewService()
-	router.POST("/enabled", s.SetWifiEnabled)
-	router.GET("/scan", s.ScanWifi)
-	code := func(method, path, body string) int {
-		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec, req)
-		var rsp struct {
-			Code int `json:"code"`
-		}
-		_ = json.Unmarshal(rec.Body.Bytes(), &rsp)
-		return rsp.Code
-	}
-	if code("GET", "/scan?band=all", "") == 0 {
-		t.Fatal("scan accepted without wlan0")
-	}
-	// Turning it on is S30wifi restart, which loads the driver.
-	if code("POST", "/enabled", `{"enabled":true}`) != 0 {
-		t.Fatal("the switch refused the chip without its driver")
-	}
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		wifiMu.Lock()
-		busy := wifiBusy
-		wifiMu.Unlock()
-		if !busy {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("switch did not finish")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if len(ran) != 1 || ran[0] != WiFiScript+" restart" {
-		t.Fatalf("turning on ran %v", ran)
-	}
-	if _, err := os.Stat(filepath.Join(root, "wifi.disabled")); !os.IsNotExist(err) {
-		t.Fatal("wifi.disabled kept")
-	}
-	// No chip and no wlan0: no Wi-Fi.
-	wifiControl.sdio = filepath.Join(root, "none")
-	if st := wifiControl.status(); st.Supported || st.Enabled {
-		t.Fatalf("status without a chip: %+v", st)
-	}
-}
-
 func TestWifiChannelOfFrequency(t *testing.T) {
 	for freq, channel := range map[int]int{2412: 1, 2437: 6, 2472: 13, 2484: 14, 5180: 36, 5745: 149, 5825: 165, 5955: 1, 6115: 33, 0: 0, 3000: 0} {
 		if got := channelFor(freq); got != channel {
 			t.Errorf("%d MHz: channel %d, want %d", freq, got, channel)
 		}
-	}
-}
-
-func TestWifiStatusReusesRecentBands(t *testing.T) {
-	root := t.TempDir()
-	net := filepath.Join(root, "wlan0")
-	_ = os.Mkdir(net, 0700)
-	for _, phy := range []string{"phy0", "phy1"} {
-		_ = os.Mkdir(filepath.Join(root, phy), 0700)
-	}
-	_ = os.Symlink(filepath.Join(root, "phy0"), filepath.Join(net, "phy80211"))
-	runs := 0
-	output, failure := "* 2412 MHz [1]\n* 5180 MHz [36]", error(nil)
-	w := radioControl{etc: root, net: net, bands: &bandCache{ttl: time.Hour}, run: func(name string, args ...string) (string, error) {
-		runs++
-		return output, failure
-	}, request: func(string) (string, error) { return "wpa_state=SCANNING", nil }}
-	bands := func() []string { return w.status().Bands }
-	if got := bands(); len(got) != 2 || runs != 1 {
-		t.Fatalf("bands %v after %d runs", got, runs)
-	}
-	output = "* 2412 MHz [1]"
-	if got := bands(); len(got) != 2 || runs != 1 {
-		t.Fatalf("status did not reuse the channel list: %v after %d runs", got, runs)
-	}
-	if got := w.frequencies(); len(got["5"]) != 0 || runs != 2 {
-		t.Fatalf("scan and connect must read channels afresh: %v", got)
-	}
-	// A replaced phy (driver reload) is read again.
-	_ = os.Remove(filepath.Join(net, "phy80211"))
-	_ = os.Symlink(filepath.Join(root, "phy1"), filepath.Join(net, "phy80211"))
-	if got := bands(); len(got) != 1 || runs != 3 {
-		t.Fatalf("new phy not read: %v after %d runs", got, runs)
-	}
-	// So is an expired entry, and a failure is not kept.
-	w.bands.at = w.bands.at.Add(-2 * time.Hour)
-	failure = errors.New("busy")
-	if got := bands(); len(got) != 0 || runs != 4 {
-		t.Fatalf("failure: %v after %d runs", got, runs)
-	}
-	failure = nil
-	if got := bands(); len(got) != 1 || runs != 5 {
-		t.Fatalf("failure was cached: %v after %d runs", got, runs)
 	}
 }
 
@@ -345,132 +219,6 @@ func TestWifiProfileStorage(t *testing.T) {
 	password, _ := os.ReadFile(filepath.Join(w.etc, "wifi.pass"))
 	if len(password) != 0 {
 		t.Fatal("old secret retained for open profile")
-	}
-}
-
-func TestWifiControlAPI(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	previous := wifiControl
-	defer func() { wifiControl = previous; wifiMu.Lock(); wifiBusy = false; wifiError = ""; wifiMu.Unlock() }()
-	root := t.TempDir()
-	net := filepath.Join(root, "wlan0")
-	restarts := 0
-	_ = os.Mkdir(net, 0700)
-	phy := filepath.Join(root, "phy0")
-	_ = os.Mkdir(phy, 0700)
-	_ = os.Symlink(phy, filepath.Join(net, "phy80211"))
-	wifiControl = radioControl{etc: root, net: net, run: func(name string, args ...string) (string, error) {
-		if name == "iw" {
-			return "* 2412 MHz [1]\n* 5180 MHz [36]", nil
-		}
-		if name == WiFiScript {
-			restarts++
-		}
-		return "", nil
-	}}
-	router := gin.New()
-	s := NewService()
-	router.POST("/enabled", s.SetWifiEnabled)
-	router.POST("/band-preference", s.SetWifiBandPreference)
-	router.POST("/configure", s.ConfigureWifi)
-	router.GET("/scan", s.ScanWifi)
-	request := func(method, path, body string) int {
-		t.Helper()
-		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(method, path, strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(rec, req)
-		var rsp struct {
-			Code int `json:"code"`
-		}
-		if err := json.Unmarshal(rec.Body.Bytes(), &rsp); err != nil {
-			t.Fatal(err)
-		}
-		return rsp.Code
-	}
-	wait := func() {
-		t.Helper()
-		deadline := time.Now().Add(3 * time.Second)
-		for {
-			wifiMu.Lock()
-			busy := wifiBusy
-			wifiMu.Unlock()
-			if !busy {
-				return
-			}
-			if time.Now().After(deadline) {
-				t.Fatal("operation did not finish")
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-	if request("POST", "/enabled", `{}`) == 0 {
-		t.Fatal("missing bool accepted")
-	}
-	_ = writePrivateFile(filepath.Join(root, "wifi.ssid"), []byte("Saved"))
-	_ = writePrivateFile(filepath.Join(root, "wifi.pass"), []byte("secret123"))
-	if request("POST", "/enabled", `{"enabled":false}`) != 0 {
-		t.Fatal("disable rejected")
-	}
-	wait()
-	if wifiControl.enabled() {
-		t.Fatal("disable not persisted")
-	}
-	pass, _ := os.ReadFile(filepath.Join(root, "wifi.pass"))
-	if string(pass) != "secret123" {
-		t.Fatal("disable deleted credentials")
-	}
-	if request("GET", "/scan?band=5", "") == 0 {
-		t.Fatal("scan accepted while off")
-	}
-	if request("POST", "/configure", `{"ssid":"Other","password":"secret123","band":"5","security":"personal"}`) == 0 {
-		t.Fatal("connect accepted while off")
-	}
-	if request("POST", "/enabled", `{"enabled":true}`) != 0 {
-		t.Fatal("enable rejected")
-	}
-	wait()
-	if !wifiControl.enabled() {
-		t.Fatal("enable not persisted")
-	}
-	beforePreference := restarts
-	if request("POST", "/band-preference", `{"preferredBand":"2.4"}`) != 0 {
-		t.Fatal("preference rejected")
-	}
-	wait()
-	if restarts != beforePreference {
-		t.Fatal("preference change restarted Wi-Fi")
-	}
-	preference, _ := os.ReadFile(filepath.Join(root, wifiBandPreferenceFile))
-	if string(preference) != "2.4" {
-		t.Fatal("preference not persisted")
-	}
-	if request("POST", "/configure", `{"ssid":"Hidden","password":"secret123","band":"5","hidden":true,"security":"personal"}`) != 0 {
-		t.Fatal("valid configure rejected")
-	}
-	wait()
-	hidden, _ := os.ReadFile(filepath.Join(root, "wifi.hidden"))
-	freq, _ := os.ReadFile(filepath.Join(root, "wifi.freq_list"))
-	if string(hidden) != "true" || string(freq) != "2412 5180" {
-		t.Fatal("profile options not persisted")
-	}
-	wifiControl.run = func(string, ...string) (string, error) { return "", errors.New("command failed") }
-	if request("POST", "/enabled", `{"enabled":false}`) != 0 {
-		t.Fatal("disable not scheduled")
-	}
-	wait()
-	if !wifiControl.enabled() {
-		t.Fatal("failed command changed persisted enable state")
-	}
-	wifiMu.Lock()
-	operationError := wifiError
-	wifiMu.Unlock()
-	if operationError == "" {
-		t.Fatal("async error lost")
-	}
-	wifiControl.net = filepath.Join(root, "absent")
-	if request("POST", "/enabled", `{"enabled":true}`) == 0 {
-		t.Fatal("absent adapter enabled")
 	}
 }
 

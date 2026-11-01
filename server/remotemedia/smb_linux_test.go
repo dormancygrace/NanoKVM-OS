@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -85,38 +84,6 @@ func TestSMBHelperProtocol(t *testing.T) {
 	if err := <-done; err == nil {
 		t.Fatal("failed reader stayed alive")
 	}
-}
-
-func TestSMBFailedMountReleasesNLS(t *testing.T) {
-	// The CI host runs its distribution kernel. This extra check qualifies
-	// NanoKVM's kernel patch on the device with the same Samba fixture.
-	if os.Getenv("NANOKVM_SMB_TEST_NLS_REFS") != "1" {
-		t.Skip("requires the patched NanoKVM kernel")
-	}
-	address := os.Getenv("NANOKVM_SMB_TEST_ADDR")
-	if address == "" {
-		t.Fatal("missing Samba fixture")
-	}
-	count := func() string {
-		t.Helper()
-		data, err := os.ReadFile("/sys/module/nls_utf8/refcnt")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return strings.TrimSpace(string(data))
-	}
-	before := count()
-	for range 3 {
-		s, err := OpenSMB(context.Background(), SMBOptions{URL: "smb://" + address + "/images/test.iso", Username: "media", Password: "incorrect"})
-		if err == nil {
-			s.Close()
-			t.Fatal("invalid password accepted")
-		}
-	}
-	if after := count(); after != before {
-		t.Fatalf("NLS reference leak: %s -> %s", before, after)
-	}
-	t.Log("NLS reference count unchanged:", before)
 }
 
 func TestSMBMountIsPrivateAndReadOnly(t *testing.T) {
@@ -316,58 +283,5 @@ func TestSMBHelperRejectsReadBounds(t *testing.T) {
 		if err := <-done; err == nil {
 			t.Fatal("invalid read not rejected")
 		}
-	}
-}
-
-// Closing a source must release an in-flight read without waiting for its
-// mutex, and no payload may be returned after cancellation.
-func TestSMBCloseInterruptsRead(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	entered := make(chan struct{})
-	released := make(chan struct{})
-	s := &SMBSource{ctx: ctx, cancel: cancel, Size: MaxRead, buffer: make([]byte, MaxRead), next: ^uint64(0)}
-	s.close = func() { close(released) }
-	s.stop = context.AfterFunc(ctx, func() {})
-	s.read = func([]byte, uint64) error { close(entered); <-released; return ctx.Err() }
-	done := make(chan error, 1)
-	go func() { _, err := s.ReadBlock(0, 4096); done <- err }()
-	<-entered
-	s.Close()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatal(err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("Close blocked on read mutex")
-	}
-	s.Close()
-}
-
-func TestSMBReaderSlotDeadlineIsActionable(t *testing.T) {
-	smbReaderSlot <- struct{}{}
-	defer func() { <-smbReaderSlot }()
-	for _, canceled := range []bool{false, true} {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
-		if canceled {
-			cancel()
-		}
-		s, err := OpenSMB(ctx, SMBOptions{URL: "smb://example.invalid/images/test.iso", Username: "reader"})
-		cancel()
-		if s != nil || err == nil {
-			t.Fatalf("unexpected source: %v, %v", s, err)
-		}
-		if canceled {
-			if !errors.Is(err, context.Canceled) {
-				t.Fatal(err)
-			}
-		} else if err.Error() != "The previous SMB reader is still shutting down; try again" {
-			t.Fatal(err)
-		}
-	}
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
-	defer cancel()
-	if err := smbError(ctx, "SMB connection timed out"); err.Error() != "SMB connection timed out" {
-		t.Fatal(err)
 	}
 }

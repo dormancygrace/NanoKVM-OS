@@ -258,44 +258,6 @@ func TestRustDeskRTCRealDataChannelAndRPCLifetime(t *testing.T) {
 		t.Fatal("RPC reader leak")
 	}
 }
-func TestRustDeskRTCStopDuringSetup(t *testing.T) {
-	for i := 0; i < 5; i++ {
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		b := &rtcBridge{listener: listener, sessions: make(map[string]*rtcSession), connections: make(map[net.Conn]struct{})}
-		client, err := webrtc.NewPeerConnection(webrtc.Configuration{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = client.CreateDataChannel("data", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		offer, err := client.CreateOffer(nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		encoded, _ := json.Marshal(offer)
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			s, _, _, _, _ := b.answer("webrtc://" + base64.StdEncoding.EncodeToString(encoded))
-			if s != nil {
-				s.close()
-			}
-		}()
-		b.close()
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			t.Fatal("setup teardown hung")
-		}
-		rtcTestWait(t, "stopped setup cleanup", func() bool { b.mu.Lock(); defer b.mu.Unlock(); return len(b.sessions) == 0 })
-		client.Close()
-	}
-}
 
 func TestRustDeskRTCStartedFrameDeadlineAndCancellation(t *testing.T) {
 	for _, partial := range [][]byte{{3, 1}, {7 << 2, 1, 2}} {

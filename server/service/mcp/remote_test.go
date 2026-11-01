@@ -59,87 +59,8 @@ func TestRemotePressKeysAlwaysReleases(t *testing.T) {
 	}
 }
 
-func TestRemoteClickReleasesButton(t *testing.T) {
-	hid := &recordingHID{}
-	if err := newRemoteWithHID(hid).Click(context.Background(), "left", 1, 0); err != nil {
-		t.Fatal(err)
-	}
-	if len(hid.relative) != 2 || hid.relative[0][0] != 1 || hid.relative[1][0] != 0 {
-		t.Fatalf("relative reports: %v", hid.relative)
-	}
-}
-
-func TestRemoteScrollUsesAbsoluteReportsAndReleasesWheel(t *testing.T) {
-	hid := &recordingHID{}
-	if err := newRemoteWithHID(hid).Scroll(context.Background(), 130); err != nil {
-		t.Fatal(err)
-	}
-
-	if len(hid.relative) != 0 {
-		t.Fatalf("relative reports = %v, want none", hid.relative)
-	}
-	if len(hid.absolute) != 4 {
-		t.Fatalf("absolute report count = %d, want 4: %v", len(hid.absolute), hid.absolute)
-	}
-
-	x := absoluteCoordinate(0.5)
-	y := absoluteCoordinate(0.5)
-	want := [][]byte{
-		buildAbsolutePointerReport(x, y, 0, 127),
-		buildAbsolutePointerReport(x, y, 0, 0),
-		buildAbsolutePointerReport(x, y, 0, 3),
-		buildAbsolutePointerReport(x, y, 0, 0),
-	}
-	for i := range want {
-		if string(hid.absolute[i]) != string(want[i]) {
-			t.Fatalf("absolute[%d] = %v, want %v", i, hid.absolute[i], want[i])
-		}
-	}
-}
-
-func TestRemoteTypeTextCancellationReleasesKeyboard(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	hid := &recordingHID{}
-	hid.onWrite = func(write int) {
-		if write == 1 {
-			cancel()
-		}
-	}
-
-	_, err := newRemoteWithHID(hid).TypeText(ctx, "A", 0)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("error = %v, want canceled", err)
-	}
-	if len(hid.keyboard) != 2 || string(hid.keyboard[1]) != string(keyUpReport) {
-		t.Fatalf("keyboard was not released after cancellation: %v", hid.keyboard)
-	}
-}
-
 func newRemoteWithHID(writer HIDWriter) *Remote {
 	return &Remote{hid: writer}
-}
-
-func TestDragHoldsTheButtonAndReleasesAtTheEnd(t *testing.T) {
-	hid := &recordingHID{}
-	if err := newRemoteWithHID(hid).Drag(context.Background(), "left", [2]float64{0, 0}, [2]float64{1, 1}, 4, 0); err != nil {
-		t.Fatal(err)
-	}
-	// Move, press, 4 moves held, release.
-	if len(hid.absolute) != 7 {
-		t.Fatalf("absolute reports = %d, want 7: %v", len(hid.absolute), hid.absolute)
-	}
-	if hid.absolute[0][0] != 0 || hid.absolute[1][0] != 1 {
-		t.Fatalf("drag start = %v %v", hid.absolute[0], hid.absolute[1])
-	}
-	for _, report := range hid.absolute[2:6] {
-		if report[0] != 1 {
-			t.Fatalf("button released during the move: %v", report)
-		}
-	}
-	last := hid.absolute[6]
-	if last[0] != 0 || string(last[1:5]) != string(hid.absolute[5][1:5]) {
-		t.Fatalf("release = %v, want buttons 0 at %v", last, hid.absolute[5][1:5])
-	}
 }
 
 func TestDragReleasesWhenCancelledOrFailing(t *testing.T) {

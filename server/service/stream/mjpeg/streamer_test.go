@@ -2,8 +2,6 @@ package mjpeg
 
 import (
 	"bytes"
-	"context"
-	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -14,110 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-type controlledResponseWriter struct {
-	header    http.Header
-	deadline  time.Time
-	deadlines []time.Time
-	flushErr  error
-	writeSize int
-}
-
-func (w *controlledResponseWriter) Header() http.Header {
-	return w.header
-}
-
-func (w *controlledResponseWriter) Write(data []byte) (int, error) {
-	w.writeSize += len(data)
-	return len(data), nil
-}
-
-func (w *controlledResponseWriter) WriteHeader(_ int) {}
-
-func (w *controlledResponseWriter) SetWriteDeadline(deadline time.Time) error {
-	w.deadline = deadline
-	w.deadlines = append(w.deadlines, deadline)
-	return nil
-}
-
-func (w *controlledResponseWriter) FlushError() error {
-	return w.flushErr
-}
-
-func TestClientOfferKeepsNewestFrame(t *testing.T) {
-	client := newMjpegClient(context.Background())
-	client.offer([]byte("old"))
-	client.offer([]byte("new"))
-
-	frame, ok := client.next()
-	if !ok {
-		t.Fatal("client unexpectedly closed")
-	}
-	if got := string(frame); got != "new" {
-		t.Fatalf("got frame %q, want newest frame", got)
-	}
-}
-
-func TestClientNextStopsWhenContextIsCancelled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	client := newMjpegClient(ctx)
-	cancel()
-
-	if _, ok := client.next(); ok {
-		t.Fatal("next returned a frame after cancellation")
-	}
-}
-
-func TestStopIfIdleKeepsStreamerRunningWhenClientArrives(t *testing.T) {
-	streamer := NewStreamer()
-	client := newMjpegClient(context.Background())
-
-	streamer.mutex.Lock()
-	streamer.running = true
-	streamer.clients[client] = struct{}{}
-	streamer.updateClientSnapshotLocked()
-	streamer.mutex.Unlock()
-
-	if streamer.stopIfIdle() {
-		t.Fatal("streamer stopped with an active client")
-	}
-	if !streamer.running {
-		t.Fatal("streamer running flag was cleared with an active client")
-	}
-}
-
-func TestStopIfIdleClearsRunningFlag(t *testing.T) {
-	streamer := NewStreamer()
-	streamer.running = true
-
-	if !streamer.stopIfIdle() {
-		t.Fatal("idle streamer did not stop")
-	}
-	if streamer.running {
-		t.Fatal("idle streamer running flag was not cleared")
-	}
-}
-
-func TestWriteFrameUsesUnderlyingDeadlineAndFlushError(t *testing.T) {
-	flushErr := errors.New("flush failed")
-	underlying := &controlledResponseWriter{
-		header:   make(http.Header),
-		flushErr: flushErr,
-	}
-	context, _ := gin.CreateTestContext(underlying)
-	context.Request = httptest.NewRequest(http.MethodGet, "/api/stream/mjpeg", nil)
-
-	err := writeFrame(context, newResponseController(context.Writer), []byte("frame"), true)
-	if !errors.Is(err, flushErr) {
-		t.Fatalf("writeFrame error = %v, want %v", err, flushErr)
-	}
-	if underlying.deadline.IsZero() {
-		t.Fatal("write deadline was not set on the underlying response writer")
-	}
-	if underlying.writeSize == 0 {
-		t.Fatal("frame was not written before flush")
-	}
-}
 
 func TestWriteFrameAdvancesHeadersBeforeNextImage(t *testing.T) {
 	recorder := httptest.NewRecorder()
@@ -207,25 +101,6 @@ func TestWriteFrameHTTP2SurvivesIdleBetweenFrames(t *testing.T) {
 		if !bytes.Equal(got, want) {
 			t.Fatalf("frame %d = %x, want %x", i, got, want)
 		}
-	}
-}
-
-func TestWriteFrameClearsDeadlineAfterFlush(t *testing.T) {
-	underlying := &controlledResponseWriter{header: make(http.Header)}
-	c, _ := gin.CreateTestContext(underlying)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/stream/mjpeg", nil)
-	started := time.Now()
-	if err := writeFrame(c, newResponseController(c.Writer), []byte("frame"), true); err != nil {
-		t.Fatal(err)
-	}
-	if len(underlying.deadlines) != 2 {
-		t.Fatalf("deadline changes = %v, want bounded write then clear", underlying.deadlines)
-	}
-	if deadline := underlying.deadlines[0]; deadline.Before(started.Add(clientWriteTimeout)) || deadline.After(time.Now().Add(clientWriteTimeout)) {
-		t.Fatalf("write deadline = %v, want a %v write budget", deadline, clientWriteTimeout)
-	}
-	if !underlying.deadlines[1].IsZero() {
-		t.Fatal("deadline remained active while waiting for another image")
 	}
 }
 

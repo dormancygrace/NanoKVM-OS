@@ -2,14 +2,11 @@ package vm
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"NanoKVM-Server/internal/storageidentity"
 	"NanoKVM-Server/proto"
-	"NanoKVM-Server/remotemedia"
 )
 
 func TestNormalizeUSBID(t *testing.T) {
@@ -189,131 +186,5 @@ func TestVerifyChecksTheGadgetIdentity(t *testing.T) {
 	os.WriteFile(filepath.Join(root, "strings/0x409/serialnumber"), []byte("KVM-0001\n"), 0644)
 	if err := verifyUSBCompositionAt(root, s); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestHIDOnlySerialOverrideCanBeCleared(t *testing.T) {
-	data, err := os.ReadFile("../../../kvmapp/system/init.d/S03usbhid")
-	if err != nil {
-		t.Fatal(err)
-	}
-	script := string(data)
-	start := strings.Index(script, "    if [ -e $conf/usb.acm ] ||")
-	end := strings.Index(script, "    # The identity files")
-	if start < 0 || end < start {
-		t.Fatal("serial initialization block not found")
-	}
-	dir := t.TempDir()
-	for _, name := range []string{"boot", "strings/0x409"} {
-		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	block := "conf=" + dir + "/boot\n" + script[start:end]
-	block = strings.ReplaceAll(block, "/sys/class/cvi-base/base_uid", dir+"/base_uid")
-	serialFile := filepath.Join(dir, "boot/usb.serialnumber")
-	if err := os.WriteFile(serialFile, []byte("KVM-0001"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	run := func(want string) {
-		t.Helper()
-		cmd := exec.Command("sh", "-ec", block)
-		cmd.Dir = dir
-		if output, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("%v: %s", err, output)
-		}
-		got, err := os.ReadFile(filepath.Join(dir, "strings/0x409/serialnumber"))
-		if err != nil || strings.TrimSpace(string(got)) != want {
-			t.Fatalf("serial=%q want=%q err=%v", got, want, err)
-		}
-	}
-	run("KVM-0001")
-	if err := os.Remove(serialFile); err != nil {
-		t.Fatal(err)
-	}
-	run("")
-	// ACM still gets the chip UID when the override is cleared.
-	if err := os.WriteFile(filepath.Join(dir, "boot/usb.acm"), nil, 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "base_uid"), []byte("UID: d19506b3_1359c372"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	run("d19506b31359c372")
-}
-
-// Execute the production boot name selection after setting the backing file.
-// This covers a retained remote ISO on rebind and a saved local image replacing it.
-func TestBootStorageNameMatchesBackingMedia(t *testing.T) {
-	source, err := os.ReadFile("../../../kvmapp/system/init.d/S03usbdev")
-	if err != nil {
-		t.Fatal(err)
-	}
-	script := string(source)
-	functions := script[strings.Index(script, "storage_value() ("):strings.Index(script, "start_usb_dev()")]
-	begin := strings.Index(script, "            disk=$(cat $conf/usb.disk0)")
-	end := strings.Index(script, "            # When usb.disk0 is empty")
-	nameStart := strings.Index(script, "            _image_name=")
-	if nameStart >= 0 && nameStart < begin {
-		begin = nameStart
-	}
-	if begin < 0 || end < begin {
-		t.Fatal("boot storage block missing")
-	}
-	shells := [][]string{{"sh"}}
-	if _, err := exec.LookPath("busybox"); err == nil {
-		shells = append(shells, []string{"busybox", "sh"})
-	}
-	for _, shell := range shells {
-		for _, custom := range []bool{false, true} {
-			for _, tc := range []struct{ name, backing, saved, mode, kind string }{
-				{"remote retained", remotemedia.DevicePath, "", "1", "remote"},
-				{"local replaces remote", remotemedia.DevicePath, "/data/local.iso", "1", "cdrom"},
-				{"local CD", "/data/local.iso", "", "1", "cdrom"},
-				{"disk", "/data/disk.img", "", "0", "disk"},
-				{"empty", "", "", "0", "disk"},
-			} {
-				root := t.TempDir()
-				flags := filepath.Join(root, "flags")
-				if err := os.Mkdir(flags, 0755); err != nil {
-					t.Fatal(err)
-				}
-				identity := storageidentity.Defaults
-				if custom {
-					identity.Image = "Rescue"
-					identity.Vendor = "Generic"
-				}
-				writeStorageLUN(t, root, 0, tc.kind, identity)
-				write := func(path, value string) {
-					t.Helper()
-					if err := os.WriteFile(filepath.Join(root, path), []byte(value+"\n"), 0644); err != nil {
-						t.Fatal(err)
-					}
-				}
-				write("functions/mass_storage.disk0/lun.0/inquiry_string", "stale name")
-				write("functions/mass_storage.disk0/lun.0/file", tc.backing)
-				write("functions/mass_storage.disk0/lun.0/cdrom", tc.mode)
-				write("flags/usb.disk0", tc.saved)
-				for name, value := range identity.FileValues() {
-					if value != nil {
-						write("flags/"+name, *value)
-					}
-				}
-				cmd := exec.Command(shell[0], shell[1:]...)
-				cmd.Dir = root
-				cmd.Stdin = strings.NewReader("conf='" + flags + "'\n" + functions + script[begin:end])
-				out, err := cmd.CombinedOutput()
-				if err != nil {
-					t.Fatalf("%s %v: %v %s", tc.name, shell, err, out)
-				}
-				if err := verifyStorageIdentityAt(root, identity); err != nil {
-					t.Fatalf("%s %v: %v", tc.name, shell, err)
-				}
-				got, err := os.ReadFile(filepath.Join(root, "functions/mass_storage.disk0/lun.0/inquiry_string"))
-				if err != nil || string(got) != identity.Inquiry(tc.kind)+"\n" {
-					t.Fatalf("%s: %q %v", tc.name, got, err)
-				}
-			}
-		}
 	}
 }

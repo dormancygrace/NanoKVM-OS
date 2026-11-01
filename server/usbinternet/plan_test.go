@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/netip"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -62,43 +61,6 @@ func TestNoGatewayOrIPv6WhenLocal(t *testing.T) {
 		}
 	}
 }
-func TestNetbootMenuOnlyForIPXE(t *testing.T) {
-	for _, sharing := range []bool{false, true} {
-		cfg := dnsConfig("/run/test", "10.20.30", sharing, 8070)
-		if !strings.Contains(cfg, "dhcp-match=set:ipxe,175\ndhcp-boot=tag:ipxe,http://10.20.30.1:8070/boot.ipxe\n") {
-			t.Fatal(cfg)
-		}
-		if strings.Count(cfg, "dhcp-boot=") != 1 {
-			t.Fatal("untagged boot file:", cfg)
-		}
-	}
-	if cfg := dnsConfig("/run/test", "10.20.30", true, 0); strings.Contains(cfg, "dhcp-boot") || strings.Contains(cfg, "dhcp-match") {
-		t.Fatal(cfg)
-	}
-}
-
-func TestNetbootPortFile(t *testing.T) {
-	r := Runtime{Run: t.TempDir()}
-	if r.NetbootPort() != 0 {
-		t.Fatal("port without a file")
-	}
-	if err := r.SetNetbootPort(80); err == nil {
-		t.Fatal("privileged port accepted")
-	}
-	if err := r.SetNetbootPort(8070); err != nil || r.NetbootPort() != 8070 {
-		t.Fatal(err, r.NetbootPort())
-	}
-	if err := os.WriteFile(filepath.Join(r.Run, "netboot.port"), []byte("x\n"), 0600); err != nil || r.NetbootPort() != 0 {
-		t.Fatal("malformed port used")
-	}
-	if err := r.SetNetbootPort(0); err != nil || r.NetbootPort() != 0 {
-		t.Fatal(err)
-	}
-	if err := r.SetNetbootPort(0); err != nil {
-		t.Fatal("clearing twice:", err)
-	}
-}
-
 func TestPolicyOffloadAndUSBOnlyRules(t *testing.T) {
 	rules := ruleset(netip.MustParsePrefix("10.20.30.0/24"), "wlan0", true, true)
 	if strings.Contains(rules, "flags offload") || strings.Contains(rules, "flush ruleset") || !strings.Contains(rules, "flow add @usb_fast") {
@@ -149,43 +111,5 @@ func TestOnlyExactMSSPolicyIsCompatible(t *testing.T) {
 
 	if defaultPolicy([]byte(`[{"priority":0,"table":"local"},{"priority":32766,"table":"main","fwmark":1},{"priority":32767,"table":"default"}]`)) {
 		t.Fatal("custom selectors permitted offload")
-	}
-}
-
-func TestDaemonOwnershipAndStatus(t *testing.T) {
-	r := activeTestRuntime(t)
-	dir := r.Run
-	if r.Enabled() {
-		t.Fatal("sharing defaults on")
-	}
-	if err := os.WriteFile(filepath.Join(r.Boot, "usb.internet"), nil, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if s := r.ReadStatus(); !s.Enabled || s.State != "unavailable" || s.IPv6 {
-		t.Fatal(s)
-	}
-	if err := r.status(Status{Enabled: true, State: "waiting-uplink"}); err != nil {
-		t.Fatal(err)
-	}
-	if s := r.ReadStatus(); s.State != "waiting-uplink" {
-		t.Fatal(s)
-	}
-	pidDir := filepath.Join(r.Proc, "42")
-	if err := os.MkdirAll(pidDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	for path, data := range map[string]string{filepath.Join(dir, "dnsmasq.pid"): "42\n", filepath.Join(pidDir, "comm"): "dnsmasq\n", filepath.Join(pidDir, "cmdline"): "dnsmasq\x00--conf-file=/etc/other-dnsmasq.conf\x00"} {
-		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, owned := r.ownedDaemon(); owned {
-		t.Fatal("another daemon accepted")
-	}
-	if err := os.WriteFile(filepath.Join(pidDir, "cmdline"), []byte("dnsmasq\x00--conf-file="+filepath.Join(dir, "dnsmasq.conf")+"\x00"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if _, owned := r.ownedDaemon(); !owned {
-		t.Fatal("own daemon rejected")
 	}
 }

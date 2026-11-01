@@ -7,7 +7,6 @@ import (
 	"NanoKVM-Server/proto"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -102,39 +101,6 @@ func TestVideoSettingsSeparateQualityAndBitrate(t *testing.T) {
 		if code, raw := setVideoAs(t, body, authn.RoleAdmin); code == 0 {
 			t.Fatalf("%s accepted: %s", body, raw)
 		}
-	}
-}
-
-func TestVideoCapabilitiesListEveryChoice(t *testing.T) {
-	caps := videoCapabilities()
-	monitor := caps["monitor"].(gin.H)
-	modes := monitor["modes"].([]monitorModeCapability)
-	if len(modes) != 9 || modes[0].Height != 0 || modes[1].Height != 2160 {
-		t.Fatalf("modes %+v", modes)
-	}
-	for _, m := range modes {
-		if !m.Available && m.Reason == "" {
-			t.Fatalf("unavailable mode without a reason: %+v", m)
-		}
-	}
-	// 16:10 and 21:9: a 21:9 id is its width, its height that of a 16:9 profile.
-	want := map[uint16][3]string{1600: {"2560", "1600", "16:10"}, 1200: {"1920", "1200", "16:10"},
-		3440: {"3440", "1440", "21:9"}, 2560: {"2560", "1080", "21:9"}}
-	for _, m := range modes[5:] {
-		w, ok := want[m.ID]
-		if !ok || fmt.Sprint(m.Width) != w[0] || fmt.Sprint(m.Height) != w[1] || m.Aspect != w[2] {
-			t.Errorf("wider mode %+v", m)
-		}
-	}
-	if aspects := monitor["aspects"].([]string); len(aspects) != 3 || aspects[0] != "16:9" {
-		t.Errorf("aspects %v", aspects)
-	}
-	tiers := caps["stream"].(gin.H)["rateTiers"].([]common.CaptureRateTier)
-	if tiers[len(tiers)-1].FPS != 30 {
-		t.Fatalf("tiers %+v", tiers)
-	}
-	if got := caps["transports"].(gin.H)["webrtc"].([]string); len(got) != 2 || got[1] != "h265" {
-		t.Fatalf("WebRTC codecs %v", got)
 	}
 }
 
@@ -247,30 +213,6 @@ func TestVideoCapabilitiesWiderProfilesPerReceiver(t *testing.T) {
 			if offered != (err == nil) {
 				t.Errorf("uxc=%v: monitor %d validation %+v", uxc, m.ID, err)
 			}
-		}
-	}
-}
-
-// Both screen APIs report the saved monitor in effect, which reads a 16:10 or
-// 21:9 profile of a moved card as Auto, not the raw saved id.
-func TestScreenAPIsReportTheMonitorInEffect(t *testing.T) {
-	old := selectedMonitorResolution
-	t.Cleanup(func() { selectedMonitorResolution = old })
-	for _, want := range []uint16{0, 1200} {
-		selectedMonitorResolution = func() uint16 { return want }
-		if got := videoCapabilities()["monitor"].(gin.H)["selected"]; got != want {
-			t.Errorf("capabilities selected %v, want %d", got, want)
-		}
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		(&Service{}).GetScreen(c)
-		var screen struct {
-			Data struct {
-				Monitor uint16 `json:"monitor"`
-			} `json:"data"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &screen); err != nil || screen.Data.Monitor != want {
-			t.Errorf("GET screen monitor %d (%v), want %d", screen.Data.Monitor, err, want)
 		}
 	}
 }

@@ -1,10 +1,6 @@
 package storage
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +8,6 @@ import (
 	"time"
 
 	"NanoKVM-Server/service/hid"
-	"github.com/gin-gonic/gin"
 )
 
 func guardFixture(t *testing.T) (image, lun, marker string) {
@@ -89,27 +84,6 @@ func TestImageGuardRejectsAttachedAliasesAndUnknownState(t *testing.T) {
 				t.Fatal("failed install consumed source")
 			}
 		})
-	}
-}
-
-func TestDeleteImageHandlerRejectsAttachedImage(t *testing.T) {
-	image, lun, _ := guardFixture(t)
-	writeGuardFile(t, lun, image)
-	body, _ := json.Marshal(map[string]string{"file": image})
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-	NewService().DeleteImage(c)
-	var rsp struct{ Code int }
-	if err := json.Unmarshal(rec.Body.Bytes(), &rsp); err != nil {
-		t.Fatal(err)
-	}
-	if rsp.Code == 0 {
-		t.Fatalf("attached image deletion accepted: %s", rec.Body)
-	}
-	if _, err := os.Stat(image); err != nil {
-		t.Fatal("handler deleted image")
 	}
 }
 

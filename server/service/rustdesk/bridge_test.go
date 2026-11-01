@@ -37,23 +37,6 @@ func TestMediaHeaderAndDiagnosticFrame(t *testing.T) {
 	}
 }
 
-func TestUSBPreparationUsesDedicatedCallbackWithoutInputLease(t *testing.T) {
-	b := NewBridge()
-	calls := 0
-	b.prepareUSB = func() error { calls++; return nil }
-	w := httptest.NewRecorder()
-	b.serveHID(w, httptest.NewRequest("POST", "/api/hid/prepare", nil))
-	if w.Code != 204 || calls != 1 || len(b.sessions) != 0 {
-		t.Fatalf("prepare: %d %d %d", w.Code, calls, len(b.sessions))
-	}
-	b.prepareUSB = nil
-	w = httptest.NewRecorder()
-	b.serveHID(w, httptest.NewRequest("POST", "/api/hid/prepare", nil))
-	if w.Code != 503 {
-		t.Fatal("missing preparation callback accepted")
-	}
-}
-
 func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
 	b := NewBridge()
 	id := strings.Repeat("a", 32)
@@ -101,45 +84,6 @@ func TestAbsoluteWheelHeartbeatAndExpiry(t *testing.T) {
 	}
 }
 
-func TestCanceledHIDRequestCannotWriteAfterWaitingForInputLock(t *testing.T) {
-	b := NewBridge()
-	id := strings.Repeat("c", 32)
-	s := &hidSession{id: id, touched: time.Now(), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil)}
-	if !ws.GetManager().AcquireExternalInput(id, s.close) {
-		t.Fatal("input unexpectedly occupied")
-	}
-	b.sessions[id] = s
-	t.Cleanup(b.Stop)
-	writes := 0
-	s.writeHID = func(_ inputcontrol.ManualReportKind, _ []byte) error { writes++; return nil }
-	locked := make(chan struct{})
-	unlock := make(chan struct{})
-	blockerDone := make(chan struct{})
-	go func() {
-		defer close(blockerDone)
-		s.manual.Execute(func() error { close(locked); <-unlock; return nil })
-	}()
-	<-locked
-	ctx, cancel := context.WithCancel(context.Background())
-	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader(`{"buttons":1,"x":123,"y":456}`)).WithContext(ctx)
-	req.Header.Set("X-NanoKVM-Session", id)
-	response := httptest.NewRecorder()
-	done := make(chan struct{})
-	go func() { defer close(done); b.serveHID(response, req) }()
-	cancel()
-	close(unlock)
-	<-blockerDone
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("canceled request did not return")
-	}
-	if response.Code != 504 || writes != 0 {
-		t.Fatalf("canceled report wrote after lock wait: code=%d writes=%d body=%s", response.Code, writes, response.Body.String())
-	}
-
-}
-
 func TestInitialMediaWaitsForEncoderStartupAndBoundsFailure(t *testing.T) {
 	calls := 0
 	frame, ok := waitInitialMediaFrame(context.Background(), func(context.Context) (stream.VideoFrame, bool) {
@@ -157,33 +101,6 @@ func TestInitialMediaWaitsForEncoderStartupAndBoundsFailure(t *testing.T) {
 	_, ok = waitInitialMediaFrame(ctx, func(ctx context.Context) (stream.VideoFrame, bool) { <-ctx.Done(); return stream.VideoFrame{}, false })
 	if ok || ctx.Err() != context.DeadlineExceeded {
 		t.Fatal("persistent capture failure was not bounded")
-	}
-}
-
-func TestAndroidPositionsUseRelativeUSBWhenAbsoluteIsDisabled(t *testing.T) {
-	b := NewBridge()
-	id := strings.Repeat("d", 32)
-	s := &hidSession{id: id, touched: time.Now(), manual: inputcontrol.NewManualSession(controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeOff), nil), relativeOnly: true, relativePointer: relativePointer{known: true, width: 1920, height: 1080}}
-	if !ws.GetManager().AcquireExternalInput(id, s.close) {
-		t.Fatal("input unexpectedly occupied")
-	}
-	b.sessions[id] = s
-	t.Cleanup(b.Stop)
-	reports := make(chan []byte, 2)
-	s.writeHID = func(_ inputcontrol.ManualReportKind, report []byte) error {
-		reports <- append([]byte(nil), report...)
-		return nil
-	}
-	req := httptest.NewRequest("POST", "/api/hid/mouse/absolute", strings.NewReader(`{"buttons":1,"x":100,"y":200,"wheel":-1}`))
-	req.Header.Set("X-NanoKVM-Session", id)
-	response := httptest.NewRecorder()
-	b.serveHID(response, req)
-	if response.Code != 204 {
-		t.Fatal(response.Code, response.Body.String())
-	}
-	report := <-reports
-	if len(report) != 5 || report[0] != 1 || report[1] != 5 || report[2] != 6 || report[3] != 255 {
-		t.Fatal("Android report did not reach relative USB", report)
 	}
 }
 

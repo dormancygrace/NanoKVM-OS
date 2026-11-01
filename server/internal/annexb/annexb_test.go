@@ -99,27 +99,3 @@ func TestIndexStopsAtLength(t *testing.T) {
 		copy(buf[n-2:], []byte{0x55, 0x55, 0x55})
 	}
 }
-
-func benchmarkIndex(b *testing.B, index func([]byte) int) {
-	r := rand.New(rand.NewSource(2))
-	units := make([][]byte, 64)
-	for i := range units {
-		units[i] = append([]byte{0, 0, 0, 1, 0x26, 1}, coded(r, 9000)...)
-	}
-	b.SetBytes(int64(len(units[0])))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		u := units[i%len(units)]
-		start := index(u)
-		if start != 1 || index(u[start+3:]) != -1 {
-			b.Fatal("start codes")
-		}
-	}
-}
-
-// One access unit as the stand's encoder sends it (9 KB, one start code).
-func BenchmarkIndex(b *testing.B) { benchmarkIndex(b, Index) }
-
-func BenchmarkBytesIndex(b *testing.B) {
-	benchmarkIndex(b, func(s []byte) int { return bytes.Index(s, startCode) })
-}

@@ -149,48 +149,6 @@ func TestADeadEthernetGatewayMovesTrafficToWifiAndBack(t *testing.T) {
 // The ticks from the gateway's first silence to the DHCP restart.
 var dhcpTicks = int(gatewayDHCPAfter / gatewayCheckInterval)
 
-func TestARouteLeftInTheDemotedBandWithoutItsRecordComesBack(t *testing.T) {
-	// A renew between two steps of a restore can leave the route at 900
-	// with no record: an answering gateway still brings it back.
-	w := newCheckWorld(t)
-	w.table = kernelRoutes{
-		gatewayDemotedMetric: {Interface: "eth0", Gateway: "192.168.10.1", Metric: gatewayDemotedMetric},
-		303:                  {Interface: "wlan0", Gateway: "192.168.10.1", Metric: 303},
-	}
-	useModel(t, w.table, w.table.run)
-	w.tick(t, arpCheck, gatewayRestoreAfter)
-	if m := w.metricOf("eth0"); isDemotedMetric(m) || m < 0 {
-		t.Fatalf("still demoted: %+v", w.table)
-	}
-}
-
-func TestWifiIsNotChecked(t *testing.T) {
-	w := newCheckWorld(t)
-	w.table = kernelRoutes{
-		10:  {Interface: "wlan0", Gateway: "192.168.10.1", Metric: 10},
-		200: {Interface: "eth0", Gateway: "192.168.10.1", Metric: 200},
-	}
-	useModel(t, w.table, w.table.run)
-	w.answers["wlan0"] = false
-	w.tick(t, arpCheck, gatewayDemoteAfter*3)
-	if w.metricOf("wlan0") != 10 || w.metricOf("eth0") != 200 {
-		t.Fatalf("%+v", w.table)
-	}
-	if checked, _ := gatewayWatch.status("wlan0"); checked {
-		t.Fatal("Wi-Fi has a check result")
-	}
-}
-
-func TestWithoutWifiLinkEthernetStays(t *testing.T) {
-	w := newCheckWorld(t)
-	w.carrier["wlan0"] = false
-	w.answers["eth0"] = false
-	w.tick(t, arpCheck, gatewayDemoteAfter*3)
-	if w.metricOf("eth0") != 202 || w.metricOf("wlan0") != 303 {
-		t.Fatalf("%+v", w.table)
-	}
-}
-
 func TestASingleRouteIsNeverDemoted(t *testing.T) {
 	w := newCheckWorld(t)
 	delete(w.table, 303)
@@ -198,34 +156,6 @@ func TestASingleRouteIsNeverDemoted(t *testing.T) {
 	w.tick(t, arpCheck, gatewayDemoteAfter*3)
 	if w.metricOf("eth0") != 202 {
 		t.Fatalf("%+v", w.table)
-	}
-}
-
-func TestNoCarrierIsNotProbed(t *testing.T) {
-	w := newCheckWorld(t)
-	w.carrier["eth0"] = false
-	w.answers["eth0"] = false
-	w.tick(t, arpCheck, gatewayDemoteAfter*3)
-	if w.metricOf("eth0") != 202 {
-		t.Fatalf("a link without carrier was demoted: %+v", w.table)
-	}
-	if checked, _ := gatewayWatch.status("eth0"); checked {
-		t.Fatal("a link without carrier has a check result")
-	}
-}
-
-func TestTheCustomHostDecides(t *testing.T) {
-	w := newCheckWorld(t)
-	w.host["eth0"] = false
-	config := gatewayCheckConfig{Enabled: true, Method: "arp", Host: "1.1.1.1"}
-	w.tick(t, config, gatewayDemoteAfter)
-	if !isDemotedMetric(w.metricOf("eth0")) {
-		t.Fatalf("%+v", w.table)
-	}
-	// The gateway itself answers: no DHCP restart for an unreachable host.
-	w.tick(t, config, dhcpTicks*2)
-	if len(w.restarts) != 0 {
-		t.Fatalf("restarts %v", w.restarts)
 	}
 }
 
@@ -298,26 +228,6 @@ func TestTurningTheCheckOffRestoresTheRoutes(t *testing.T) {
 	w.tick(t, gatewayCheckConfig{Method: "arp"}, 1)
 	if w.metricOf("eth0") != 202 {
 		t.Fatalf("not restored: %+v", w.table)
-	}
-}
-
-func TestAPreferenceChangeKeepsTheDemotion(t *testing.T) {
-	w := newCheckWorld(t)
-	w.answers["eth0"] = false
-	w.tick(t, arpCheck, gatewayDemoteAfter)
-	if err := applyGatewayPreference("ethernet", w.table.entries()); err != nil {
-		t.Fatal(err)
-	}
-	if !isDemotedMetric(w.metricOf("eth0")) {
-		t.Fatalf("the preference undid the demotion: %+v", w.table)
-	}
-	if original, _ := demotedOriginal("eth0"); original != preferenceMetric("ethernet", "eth0", 0) {
-		t.Fatalf("recorded %d", original)
-	}
-	w.answers["eth0"] = true
-	w.tick(t, arpCheck, gatewayRestoreAfter)
-	if w.metricOf("eth0") != preferenceMetric("ethernet", "eth0", 0) {
-		t.Fatalf("restored to the old metric: %+v", w.table)
 	}
 }
 

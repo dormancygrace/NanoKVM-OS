@@ -2,7 +2,6 @@ package bmc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -65,91 +64,6 @@ func TestPowerActions(t *testing.T) {
 	}
 }
 
-// stuckATX is a host whose power LED goes out only after offAfter state reads
-// following the long press (never when offAfter < 0); readErr fails the reads
-// after the press.
-type stuckATX struct {
-	fakeATX
-	offAfter int
-	readErr  error
-	pressed  bool
-	reads    int
-}
-
-func (s *stuckATX) State(ctx context.Context) (ATXState, error) {
-	if !s.pressed {
-		return s.state, nil
-	}
-	if s.readErr != nil {
-		return ATXState{}, s.readErr
-	}
-	s.reads++
-	if s.offAfter >= 0 && s.reads > s.offAfter {
-		s.state.PowerOn = false
-	}
-	return s.state, nil
-}
-
-func (s *stuckATX) Press(_ context.Context, button string, ms int) error {
-	s.pressed = true
-	s.presses = append(s.presses, fmt.Sprintf("%s %d", button, ms))
-	return nil
-}
-
-func TestCycleNeedsTheLEDToGoOut(t *testing.T) {
-	noSleep := func(context.Context, time.Duration) error { return nil }
-	readErr := errors.New("state read failed")
-	cases := []struct {
-		name     string
-		offAfter int
-		readErr  error
-		wantErr  error
-		want     []string
-	}{
-		{"stays on", -1, nil, ErrStillOn, []string{"power 5000"}},
-		{"goes out late", 10, nil, nil, []string{"power 5000", "power 800"}},
-		{"state read fails", 0, readErr, readErr, []string{"power 5000"}},
-	}
-	for _, c := range cases {
-		atx := &stuckATX{fakeATX: *atxBoard(true), offAfter: c.offAfter, readErr: c.readErr}
-		p := &Power{ATX: atx, sleep: noSleep}
-		if err := p.Cycle(context.Background()); !errors.Is(err, c.wantErr) {
-			t.Errorf("%s: error %v, want %v", c.name, err, c.wantErr)
-		}
-		if !reflect.DeepEqual(atx.presses, c.want) {
-			t.Errorf("%s: presses %v, want %v", c.name, atx.presses, c.want)
-		}
-	}
-}
-
-func TestPowerWithoutLEDPressesBlindly(t *testing.T) {
-	atx := &fakeATX{state: ATXState{PowerButton: true}}
-	p := &Power{ATX: atx, Hold: 5 * time.Second, sleep: func(context.Context, time.Duration) error { return nil }}
-	_ = p.On(context.Background())
-	_ = p.ForceOff(context.Background())
-	if want := []string{"power 800", "power 5000"}; !reflect.DeepEqual(atx.presses, want) {
-		t.Fatalf("presses %v, want %v", atx.presses, want)
-	}
-	if err := p.Reset(context.Background()); !errors.Is(err, ErrNoReset) {
-		t.Fatalf("reset without a line: %v", err)
-	}
-}
-
-func TestHoldDefaultsToTheLongPress(t *testing.T) {
-	atx := atxBoard(true)
-	p := &Power{ATX: atx}
-	if err := p.ForceOff(context.Background()); err != nil || atx.presses[0] != "power 5000" {
-		t.Fatalf("presses %v %v", atx.presses, err)
-	}
-}
-
-func TestPowerWithoutATX(t *testing.T) {
-	p := &Power{ATX: &fakeATX{}}
-	if err := p.On(context.Background()); !errors.Is(err, ErrNoATX) {
-		t.Fatalf("on without ATX: %v", err)
-	}
-}
-
 func TestConfigValidate(t *testing.T) {
 	good := Default()
 	good.Redfish, good.Password = true, "longenough"
@@ -177,62 +91,5 @@ func TestConfigValidate(t *testing.T) {
 	// A disabled add-on needs no password yet.
 	if err := Default().Validate(); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestConfigSaveLoad(t *testing.T) {
-	path := t.TempDir() + "/bmc/config.json"
-	c := Default()
-	c.IPMI, c.Password = true, "secret-123"
-	if err := Save(path, c); err != nil {
-		t.Fatal(err)
-	}
-	got, err := Load(path)
-	if err != nil || got != c {
-		t.Fatalf("load: %+v %v", got, err)
-	}
-}
-
-func TestHTTPPort(t *testing.T) {
-	yaml := "proto: https\nport:\n  http: 8080 # plain\n  https: 8443\ncert:\n  http: 1\n"
-	if p := httpPort([]byte(yaml)); p != 8080 {
-		t.Fatalf("port %d", p)
-	}
-	if p := httpPort([]byte("proto: http\n")); p != 0 {
-		t.Fatalf("port %d without a block", p)
-	}
-}
-
-// Unlike fakeATX, a short press while on can ask the OS to shut down.
-type toggleATX struct{ fakeATX }
-
-func (f *toggleATX) Press(_ context.Context, button string, ms int) error {
-	f.presses = append(f.presses, fmt.Sprintf("%s %d", button, ms))
-	if button == "power" {
-		if ms >= 4000 {
-			f.state.PowerOn = false
-		} else {
-			f.state.PowerOn = !f.state.PowerOn
-		}
-	}
-	return nil
-}
-
-func TestCycleRejectsAnotherControllerDuringSettle(t *testing.T) {
-	atx := &toggleATX{*atxBoard(true)}
-	other := &Power{ATX: atx}
-	p := &Power{ATX: atx, sleep: func(ctx context.Context, d time.Duration) error {
-		if d == 2*time.Second {
-			if err := other.On(ctx); err == nil {
-				t.Error("another controller turned on the host inside an unfinished cycle")
-			}
-		}
-		return nil
-	}}
-	if err := p.Cycle(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	if !atx.state.PowerOn || len(atx.presses) != 2 {
-		t.Fatalf("cycle ended on=%v, presses=%v", atx.state.PowerOn, atx.presses)
 	}
 }

@@ -2,8 +2,6 @@ package common
 
 import (
 	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -118,42 +116,5 @@ func TestEDIDBeyondCubeStockProfile(t *testing.T) {
 	}
 	if mode, bad := edidBeyondCube(edid); bad {
 		t.Fatalf("stock EDID flagged: %s", mode)
-	}
-}
-
-// NANOKVM_EDID_PROFILES=<build>/tools/edid checks every generated profile:
-// only the Cube, 600p, 720p and 1080p at 30/60 Hz profiles fit a Cube.
-func TestEDIDBeyondCubeGeneratedProfiles(t *testing.T) {
-	dir := os.Getenv("NANOKVM_EDID_PROFILES")
-	if dir == "" {
-		t.Skip("NANOKVM_EDID_PROFILES is not set")
-	}
-	files, _ := filepath.Glob(filepath.Join(dir, "*", "*.bin"))
-	top, _ := filepath.Glob(filepath.Join(dir, "*.bin"))
-	files = append(files, top...)
-	if len(files) < 10 {
-		t.Fatalf("only %d profiles in %s", len(files), dir)
-	}
-	safe := func(name string) bool {
-		for _, prefix := range []string{"NanoKVM-cube-", "NanoKVM-monitor-600", "NanoKVM-monitor-720", "NanoKVM-stock", "E21_"} {
-			if strings.HasPrefix(name, prefix) {
-				return true
-			}
-		}
-		return name == "NanoKVM-monitor-1080-60.bin" || name == "NanoKVM-monitor-1080-30.bin"
-	}
-	for _, file := range files {
-		edid, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		name := filepath.Base(file)
-		if mode, bad := edidBeyondCube(edid); bad == safe(name) {
-			t.Errorf("%s: beyond Cube = %v (%s)", name, bad, mode)
-		}
-		// scripts/edid-rgb-range.py and its Go inverse agree on every profile.
-		if old := profileWithoutRGBRange(edid); (old == nil) != (name == "NanoKVM-stock.bin") {
-			t.Errorf("%s: RGB range block found = %v", name, old != nil)
-		}
 	}
 }

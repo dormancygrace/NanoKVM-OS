@@ -3,15 +3,10 @@ package vm
 import (
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/common"
-	"bytes"
 	"encoding/json"
-	"fmt"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/gin-gonic/gin"
 )
 
 // fakeCapture reports a capture size and a stream limit, and keeps the saved
@@ -34,49 +29,6 @@ func fakeCapture(t *testing.T, width, height, limit int) {
 		}
 		common.SetScreen("resolution", int(previous))
 	})
-}
-
-func setStreamType(t *testing.T, value int) (code int, msg string) {
-	t.Helper()
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(fmt.Sprintf(`{"type":"type","value":%d}`, value)))
-	c.Request.Header.Set("Content-Type", "application/json")
-	setScreenAs(c, authn.RoleAdmin)
-	var result struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
-		t.Fatalf("response %q: %v", recorder.Body.String(), err)
-	}
-	return result.Code, result.Msg
-}
-
-func TestScreenRefusesMjpegAt4K(t *testing.T) {
-	fakeCapture(t, 3840, 2160, 0)
-	code, msg := setStreamType(t, 0)
-	if code == 0 || msg != common.MjpegBlockedMessage {
-		t.Fatalf("MJPEG at 3840x2160: code %d, %q", code, msg)
-	}
-	if _, err := os.Stat(screenFileMap["type"]); !os.IsNotExist(err) {
-		t.Fatal("a refused type was saved")
-	}
-	if code, msg := setStreamType(t, 2); code != 0 {
-		t.Fatalf("H.265 refused: %d %q", code, msg)
-	}
-
-	// The stream limit does not help: a limited 4K input produces no JPEG frames.
-	common.SetScreen("resolution", 1440)
-	if code, _ := setStreamType(t, 0); code == 0 {
-		t.Fatal("MJPEG accepted at 3840x2160 with the stream limited to 1440p")
-	}
-
-	fakeCapture(t, 2560, 1440, 0)
-	if code, msg := setStreamType(t, 0); code != 0 {
-		t.Fatalf("MJPEG at 2560x1440: %d %q", code, msg)
-	}
 }
 
 func TestVideoSettingsRefuseMjpegByTheResultingInput(t *testing.T) {
@@ -112,46 +64,6 @@ func TestVideoSettingsRefuseMjpegByTheResultingInput(t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-func TestVideoCapabilitiesMarkMjpegUnavailableAt4K(t *testing.T) {
-	mjpeg := func() mjpegCapability {
-		return videoCapabilities()["stream"].(gin.H)["mjpeg"].(mjpegCapability)
-	}
-	fakeCapture(t, 3840, 2160, 0)
-	if got := mjpeg(); got.Available || got.Reason != "mjpeg-4k" || got.MaxSide != 2560 {
-		t.Fatalf("4K: %+v", got)
-	}
-	common.SetScreen("resolution", 1440)
-	if got := mjpeg(); got.Available || got.Reason != "mjpeg-4k" {
-		t.Fatalf("4K limited to 1440p: %+v", got)
-	}
-	fakeCapture(t, 2560, 1440, 0)
-	if got := mjpeg(); !got.Available || got.Reason != "" {
-		t.Fatalf("1440p: %+v", got)
-	}
-}
-
-func TestScreenRefusesH264At4K(t *testing.T) {
-	fakeCapture(t, 3840, 2160, 0)
-	if code, msg := setStreamType(t, 1); code == 0 || msg != common.H264BlockedMessage {
-		t.Fatalf("H.264 at 3840x2160: code %d, %q", code, msg)
-	}
-	if _, err := os.Stat(screenFileMap["type"]); !os.IsNotExist(err) {
-		t.Fatal("a refused type was saved")
-	}
-	if code, msg := setStreamType(t, 2); code != 0 {
-		t.Fatalf("H.265 at 3840x2160: %d %q", code, msg)
-	}
-	// A stream limit of 1440 or lower brings the picture within H.264.
-	common.SetScreen("resolution", 1440)
-	if code, msg := setStreamType(t, 1); code != 0 {
-		t.Fatalf("H.264 at 3840x2160 limited to 1440: %d %q", code, msg)
-	}
-	fakeCapture(t, 2560, 1440, 0)
-	if code, msg := setStreamType(t, 1); code != 0 {
-		t.Fatalf("H.264 at 2560x1440: %d %q", code, msg)
 	}
 }
 

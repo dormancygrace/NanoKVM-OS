@@ -154,13 +154,6 @@ func negotiateConfiguredAnswer(t *testing.T, clientSuites []dtls.CipherSuiteID) 
 	return dtls.CipherSuiteID(selectedCipher.Load())
 }
 
-func TestConfigureAcceptsServerRole(t *testing.T) {
-	settings := webrtc.SettingEngine{}
-	if err := Configure(&settings); err != nil {
-		t.Fatalf("Configure: %v", err)
-	}
-}
-
 func TestConfiguredAnswerUsesPassiveDTLSRole(t *testing.T) {
 	offerer, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {

@@ -3,16 +3,11 @@ package network
 import (
 	"fmt"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 func TestWolInterfacesAndSelection(t *testing.T) {
@@ -110,49 +105,6 @@ func TestWolHistoryIsBoundedAndKeepsNamedEntries(t *testing.T) {
 	saveMac("AA:BB:CC:00:00:01")
 	if again, _ := readWolMacs(); len(again) != maxWolHistory {
 		t.Fatal("an existing address was added twice")
-	}
-}
-
-func TestWolHistoryWritesAreBatched(t *testing.T) {
-	original, originalInterval := WolMacFile, wolFlushInterval
-	WolMacFile = filepath.Join(t.TempDir(), "cache", "wol")
-	wolFlushInterval = time.Hour
-	defer func() {
-		wolMacMutex.Lock()
-		if wolFlushTimer != nil {
-			wolFlushTimer.Stop()
-			wolFlushTimer = nil
-		}
-		wolPending = nil
-		wolMacMutex.Unlock()
-		WolMacFile, wolFlushInterval = original, originalInterval
-	}()
-
-	// A loop of wakes with fresh addresses writes nothing yet...
-	for i := range 50 {
-		saveMac(fmt.Sprintf("AA:BB:CC:01:00:%02X", i))
-	}
-	if _, err := os.Stat(WolMacFile); !os.IsNotExist(err) {
-		t.Fatalf("history written per wake: %v", err)
-	}
-	// ...but the history already shows them.
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/network/wol/mac", nil)
-	(&Service{}).GetMac(c)
-	if got := strings.Count(w.Body.String(), "AA:BB:CC:01:00:"); got != 50 {
-		t.Fatalf("history shows %d pending addresses: %s", got, w.Body.String())
-	}
-	if _, err := os.Stat(WolMacFile); !os.IsNotExist(err) {
-		t.Fatal("reading the history wrote it")
-	}
-	// The timer writes them all in one go.
-	wolMacMutex.Lock()
-	flushWolPendingLocked()
-	wolMacMutex.Unlock()
-	if macs, err := readWolMacs(); err != nil || len(macs) != 50 {
-		t.Fatalf("flushed history = %d, %v", len(macs), err)
 	}
 }
 

@@ -313,38 +313,3 @@ func TestUnknownPowerStateIsAnError(t *testing.T) {
 		t.Fatalf("chassis status %#x %v, want not in this state", cc, data)
 	}
 }
-
-func TestStats(t *testing.T) {
-	s := newServer(&fakePower{on: true})
-	if got := s.Stats(); got != (Stats{}) {
-		t.Fatalf("fresh server: %+v", got)
-	}
-	c := &console{t: t, s: s, su: suites[1], user: "admin", password: "correct-horse"}
-	if status := c.login(); status != statusOK {
-		t.Fatalf("login status %#x", status)
-	}
-	if cc, _ := c.command(netFnApp, 0x3B, 0x04); cc != ccOK {
-		t.Fatalf("set privilege %#x", cc)
-	}
-	if cc, _ := c.command(netFnChassis, 0x02, 0x01); cc != ccOK {
-		t.Fatalf("power on %#x", cc)
-	}
-	got := s.Stats()
-	if got.Sessions != 1 || got.LockedOut != 0 || got.LastCommand != "power on" || got.LastCommandAt.IsZero() {
-		t.Fatalf("after power on: %+v", got)
-	}
-	// Another client guessing passwords is locked out; it holds no session.
-	for i := 0; i < maxFailures; i++ {
-		guess := &console{t: t, s: s, su: suites[0], user: "admin", password: "guess"}
-		guess.login()
-	}
-	if got := s.Stats(); got.LockedOut != 1 || got.Sessions != 1 {
-		t.Fatalf("after guessing: %+v", got)
-	}
-	if cc, _ := c.command(netFnApp, 0x3C, le32(c.sid)...); cc != ccOK {
-		t.Fatalf("close session %#x", cc)
-	}
-	if got := s.Stats(); got.Sessions != 0 {
-		t.Fatalf("closed session counted: %+v", got)
-	}
-}

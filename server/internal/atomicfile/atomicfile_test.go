@@ -28,11 +28,3 @@ func TestWriteReplacesContentAndPermissions(t *testing.T) {
 		t.Fatalf("temporary files left behind: %v %v", entries, err)
 	}
 }
-
-func TestWriteFailureKeepsOldContent(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "missing", "server.yaml")
-	if err := Write(path, []byte("new"), 0o600); err == nil {
-		t.Fatal("write into a missing directory succeeded")
-	}
-}

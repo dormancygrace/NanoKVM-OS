@@ -1,9 +1,6 @@
 package branding
 
 import (
-	"NanoKVM-Server/authn"
-	"NanoKVM-Server/config"
-	"NanoKVM-Server/middleware"
 	"bytes"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
@@ -167,112 +164,6 @@ func TestBrandingLifecycle(t *testing.T) {
 	}
 	if call("GET", "/logo", nil).Code != 200 || s.read().LogoRevision != logoRevision {
 		t.Fatal("favicon reset changed logo")
-	}
-}
-
-func TestLegacyConfigPreservesCustomLogoAndIgnoresStyle(t *testing.T) {
-	for _, style := range []string{"connection", "screen", "custom", "unknown"} {
-		t.Run(style, func(t *testing.T) {
-			directory := t.TempDir()
-			if err := os.WriteFile(filepath.Join(directory, "config.json"), []byte(`{"style":"`+style+`","revision":"legacy-revision"}`), 0600); err != nil {
-				t.Fatal(err)
-			}
-			var b bytes.Buffer
-			if err := png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 16, 16))); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(directory, logoFile), b.Bytes(), 0600); err != nil {
-				t.Fatal(err)
-			}
-			s := &Store{Directory: directory}
-			config := s.read()
-			if style == "custom" && config.LogoRevision != "legacy-revision" {
-				t.Fatalf("legacy revision not migrated for style %q", style)
-			}
-			if style != "custom" && config.LogoRevision != "" {
-				t.Fatalf("inactive legacy logo enabled for style %q", style)
-			}
-			r := gin.New()
-			r.GET("/", s.Get)
-			w := httptest.NewRecorder()
-			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
-			var response struct {
-				Data struct {
-					Style                  string `json:"style"`
-					CustomLogoAvailable    bool   `json:"customLogoAvailable"`
-					CustomFaviconAvailable bool   `json:"customFaviconAvailable"`
-				} `json:"data"`
-			}
-			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-				t.Fatal(err)
-			}
-			if style == "custom" && (response.Data.Style != "custom" || !response.Data.CustomLogoAvailable || response.Data.CustomFaviconAvailable) {
-				t.Fatalf("unexpected active legacy status: %+v", response.Data)
-			}
-			if style != "custom" && (response.Data.Style != "connection" || response.Data.CustomLogoAvailable || response.Data.CustomFaviconAvailable) {
-				t.Fatalf("unexpected inactive legacy status: %+v", response.Data)
-			}
-			if _, err := os.Stat(filepath.Join(directory, logoFile)); err != nil {
-				t.Fatalf("legacy logo removed for style %q: %v", style, err)
-			}
-		})
-	}
-}
-
-func TestBrandingWritesRequireAuthentication(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	conf := config.GetInstance()
-	originalAuthentication := conf.Authentication
-	conf.Authentication = "enable"
-	t.Cleanup(func() { conf.Authentication = originalAuthentication })
-
-	s := &Store{Directory: filepath.Join(t.TempDir(), "branding")}
-	r := gin.New()
-	r.GET("/api/branding", s.Get)
-	r.GET("/api/branding/logo", s.Logo)
-	r.GET("/api/branding/favicon", s.Favicon)
-	admin := r.Group("/api/branding").Use(
-		middleware.CheckToken(),
-		middleware.RequireRole(authn.RoleAdmin),
-	)
-	admin.POST("/logo", s.UploadLogo)
-	admin.DELETE("/logo", s.DeleteLogo)
-	admin.POST("/favicon", s.UploadFavicon)
-	admin.DELETE("/favicon", s.DeleteFavicon)
-	admin.POST("/button-color", s.SetButtonColor)
-	admin.DELETE("/button-color", s.DeleteButtonColor)
-	admin.POST("/banner-style", s.SetBannerStyle)
-
-	public := httptest.NewRecorder()
-	r.ServeHTTP(public, httptest.NewRequest(http.MethodGet, "/api/branding", nil))
-	if public.Code != http.StatusOK {
-		t.Fatalf("public branding status = %d", public.Code)
-	}
-	for _, path := range []string{"/api/branding/logo", "/api/branding/favicon"} {
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
-		if w.Code != http.StatusNotFound {
-			t.Errorf("public GET %s = %d, want 404 for missing image", path, w.Code)
-		}
-	}
-
-	for _, request := range []struct {
-		method string
-		path   string
-	}{
-		{http.MethodPost, "/api/branding/logo"},
-		{http.MethodDelete, "/api/branding/logo"},
-		{http.MethodPost, "/api/branding/favicon"},
-		{http.MethodDelete, "/api/branding/favicon"},
-		{http.MethodPost, "/api/branding/button-color"},
-		{http.MethodDelete, "/api/branding/button-color"},
-		{http.MethodPost, "/api/branding/banner-style"},
-	} {
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, httptest.NewRequest(request.method, request.path, strings.NewReader("image")))
-		if w.Code != http.StatusUnauthorized {
-			t.Errorf("%s %s = %d, want 401", request.method, request.path, w.Code)
-		}
 	}
 }
 

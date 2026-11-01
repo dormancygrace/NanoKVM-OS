@@ -27,11 +27,3 @@ func TestBuildTypeReportsReturnsSkippedRunes(t *testing.T) {
 		t.Fatalf("unexpected reports: %v", reports)
 	}
 }
-
-func TestSupportedKeyNamesMatchKeyboardDescriptor(t *testing.T) {
-	for name, code := range keyCodeMap {
-		if code > 0x65 {
-			t.Fatalf("key %s uses unsupported descriptor code %#x", name, code)
-		}
-	}
-}

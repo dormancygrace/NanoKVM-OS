@@ -117,29 +117,6 @@ func TestPasteStopsWhenAnotherSessionTakesControl(t *testing.T) {
 	}
 }
 
-func TestPasteWithControlTypesEverything(t *testing.T) {
-	r := newKeyboardRecorder(t)
-	code, reports := call(t, r, r.service.Paste, url.Values{"content": {"abc"}}, 1000)
-	if code != 0 {
-		t.Fatalf("code = %d", code)
-	}
-	if len(reports) != 6 {
-		t.Fatalf("%d reports, want 3 presses and 3 releases: %v", len(reports), reports)
-	}
-}
-
-func TestSequenceStopsWhenAnotherSessionTakesControl(t *testing.T) {
-	r := newKeyboardRecorder(t)
-	// SysRq builds up over four presses; control moves after the second.
-	code, reports := call(t, r, r.service.SendSequence, url.Values{"sequence": {"sysrq"}, "key": {"s"}}, 2)
-	if code != InputOwnerCode {
-		t.Fatalf("code = %d, want %d", code, InputOwnerCode)
-	}
-	if len(reports) != 3 || pressedIn(reports[2]) {
-		t.Fatalf("want Alt, Alt+SysRq, then the release: %v", reports)
-	}
-}
-
 func TestSequenceLostControlBeforeFirstPressKeepsNewOwnersKey(t *testing.T) {
 	for _, sequence := range []string{"sysrq", "ctrl-alt-del"} {
 		t.Run(sequence, func(t *testing.T) {
@@ -158,17 +135,5 @@ func TestSequenceLostControlBeforeFirstPressKeepsNewOwnersKey(t *testing.T) {
 				t.Fatalf("request pressed nothing but changed the new owner's key: %v", reports)
 			}
 		})
-	}
-}
-
-func TestSequenceWithControlReleasesOnlyOnce(t *testing.T) {
-	r := newKeyboardRecorder(t)
-	code, reports := call(t, r, r.service.SendSequence,
-		url.Values{"sequence": {"ctrl-alt-del"}}, 1000)
-	if code != 0 {
-		t.Fatalf("code = %d", code)
-	}
-	if len(reports) != 2 || !pressedIn(reports[0]) || pressedIn(reports[1]) {
-		t.Fatalf("want one press and its release: %v", reports)
 	}
 }

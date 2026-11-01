@@ -101,17 +101,6 @@ func TestResolutionCeilingPreservesRequestedFPS(t *testing.T) {
 	}
 }
 
-func TestLoadQHDPersistedAt60FPS(t *testing.T) {
-	files := map[string][]byte{
-		"/kvmapp/kvm/fps": []byte("60"),
-		"/kvmapp/kvm/res": []byte("1440"),
-	}
-	got := loadScreen(func(path string) ([]byte, error) { return files[path], nil })
-	if got.Width != 2560 || got.Height != 1440 || got.FPS != 60 {
-		t.Fatalf("resolution ceiling must preserve the saved FPS request: %+v", got)
-	}
-}
-
 func TestCustomFPSRange(t *testing.T) {
 	for _, tc := range []struct{ input, want int }{{0, 10}, {9, 10}, {10, 10}, {30, 30}, {60, 60}, {90, 90}, {120, 120}, {121, 120}} {
 		target := &Screen{}

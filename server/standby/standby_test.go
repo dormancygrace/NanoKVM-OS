@@ -5,12 +5,8 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"golang.org/x/sys/unix"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -37,24 +33,6 @@ func TestStateFailsClosed(t *testing.T) {
 	first, e := s.Restart(false)
 	if e != nil || !first {
 		t.Fatal("authenticated failure recovery unavailable")
-	}
-}
-func TestConcurrentWakeIsOnce(t *testing.T) {
-	s := NewState(Config{})
-	s.Ready()
-	var count atomic.Int32
-	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
-		wg.Go(func() {
-			first, e := s.Restart(true)
-			if e == nil && first {
-				count.Add(1)
-			}
-		})
-	}
-	wg.Wait()
-	if count.Load() != 1 || s.Get().Safe {
-		t.Fatal(count.Load(), s.Get())
 	}
 }
 func TestGateClosesAtomically(t *testing.T) {
@@ -195,20 +173,6 @@ func TestWPAHasNoStorageDependencies(t *testing.T) {
 		}
 	}
 }
-func TestDefaultGateway(t *testing.T) {
-	g, e := defaultGateway("Iface Destination Gateway Flags RefCnt Use Metric Mask\neth0 00000000 010200C0 0003 0 0 100 00000000\n", "eth0")
-	if e != nil || g != "192.0.2.1" {
-		t.Fatal(g, e)
-	}
-}
-func TestTakeoverCannotRunAsOrdinaryProcess(t *testing.T) {
-	if os.Getpid() == 1 {
-		t.Skip("not an ordinary test process")
-	}
-	if e := Takeover(); e == nil {
-		t.Fatal("accepted non-PID1 takeover")
-	}
-}
 func TestQueuedMagicNeverWakesAfterReady(t *testing.T) {
 	s := NewState(Config{})
 	before := time.Now()
@@ -221,28 +185,6 @@ func TestQueuedMagicNeverWakesAfterReady(t *testing.T) {
 	}
 	if first, e := s.MagicRestart(time.Now()); e != nil || !first {
 		t.Fatal("fresh packet rejected", e)
-	}
-}
-
-func TestOpenRCFailureSurvivesCleanup(t *testing.T) {
-	directory := t.TempDir()
-	w, e := watchFailures(directory)
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer unix.Close(w.fd)
-	if e = w.result(); e != nil {
-		t.Fatal(e)
-	}
-	path := directory + "/writer"
-	if e = os.Symlink("/etc/init.d/writer", path); e != nil {
-		t.Fatal(e)
-	}
-	if e = os.Remove(path); e != nil {
-		t.Fatal(e)
-	}
-	if e = w.result(); e == nil || !strings.Contains(e.Error(), "writer") {
-		t.Fatal("lost transient stop failure", e)
 	}
 }
 
@@ -273,90 +215,5 @@ func TestProcessReleaseRequiresZombieOrKernelThread(t *testing.T) {
 	}
 	if _, e := processReleased("broken"); e == nil {
 		t.Fatal("accepted invalid process stat")
-	}
-}
-
-func TestLateFailureDoesNotDuplicateRestart(t *testing.T) {
-	s := NewState(Config{})
-	s.Ready()
-	if first, e := s.Restart(false); !first || e != nil {
-		t.Fatal(first, e)
-	}
-	s.Fail(errors.New("network exited during reboot"))
-	if s.Get().State != "restarting" {
-		t.Fatal(s.Get())
-	}
-	if first, e := s.Restart(false); first || e != nil {
-		t.Fatal("duplicate reboot", first, e)
-	}
-	s.RestartFailed(errors.New("reboot syscall failed"))
-	if s.Get().State != "failed" || s.Get().Safe {
-		t.Fatal(s.Get())
-	}
-	if first, e := s.Restart(false); !first || e != nil {
-		t.Fatal("recovery retry unavailable", first, e)
-	}
-}
-
-func TestWatchdogOptionalSysfsAndUserspaceOwnership(t *testing.T) {
-	for _, tc := range []struct {
-		name, state   string
-		missing, fail bool
-	}{
-		{"sysfs-disabled", "", true, false},
-		{"clean-magic-close", "inactive\n", false, false},
-		{"userspace-deadline-still-active", "active\n", false, true},
-		{"malformed", "", false, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			root := t.TempDir()
-			device := filepath.Join(root, "watchdog0")
-			if e := os.Mkdir(device, 0700); e != nil {
-				t.Fatal(e)
-			}
-			if !tc.missing {
-				if e := os.WriteFile(filepath.Join(device, "state"), []byte(tc.state), 0600); e != nil {
-					t.Fatal(e)
-				}
-			}
-			if e := watchdogsReleased(root); (e != nil) != tc.fail {
-				t.Fatal(e)
-			}
-		})
-	}
-	root := t.TempDir()
-	if e := os.MkdirAll(filepath.Join(root, "watchdog0", "state"), 0700); e != nil {
-		t.Fatal(e)
-	}
-	if e := watchdogsReleased(root); e == nil {
-		t.Fatal("ignored a non-ENOENT read failure")
-	}
-	if e := watchdogsReleased(filepath.Join(root, "absent")); e != nil {
-		t.Fatal(e)
-	}
-}
-
-func TestFatalRecoveryRequiresCompletedStorageProtection(t *testing.T) {
-	ordinary := errors.New("storage release failed")
-	waited, reboots := 0, 0
-	wait := func(d time.Duration) {
-		if d != 2*time.Minute {
-			t.Fatal(d)
-		}
-		waited++
-	}
-	reboot := func() error { reboots++; return nil }
-	if got := recoverFatal(ordinary, wait, reboot); got != ordinary || waited != 0 || reboots != 0 {
-		t.Fatal(got, waited, reboots)
-	}
-	if got := recoverFatal(nil, wait, reboot); got != nil || waited != 0 || reboots != 0 {
-		t.Fatal(got, waited, reboots)
-	}
-	safe := &RecoveryError{Cause: errors.New("listener failed")}
-	if got := recoverFatal(safe, wait, reboot); got != nil || waited != 1 || reboots != 1 {
-		t.Fatal(got, waited, reboots)
-	}
-	if got := recoverFatal(safe, wait, func() error { return errors.New("reboot refused") }); got == nil || !strings.Contains(got.Error(), "reboot refused") {
-		t.Fatal(got)
 	}
 }

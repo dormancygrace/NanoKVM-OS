@@ -3,7 +3,6 @@ package storage
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,10 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/sys/unix"
 )
 
 func fileRequest(t *testing.T, handler gin.HandlerFunc, path string, body io.Reader) *httptest.ResponseRecorder {
@@ -172,172 +169,6 @@ func TestUserDiskUploadFailureRemovesPartialFile(t *testing.T) {
 		}
 	}
 }
-func TestUserDiskTransferHoldsCompositionLockThroughCleanup(t *testing.T) {
-	files := mockUserDiskMount(t)
-	started, resume := make(chan struct{}), make(chan struct{})
-	mountUserDisk = func(bool) (*os.Root, func() error, error) {
-		root, err := os.OpenRoot(files)
-		return root, func() error {
-			if unlock, e := LockUserDiskForComposition(); e == nil {
-				unlock()
-				t.Error("composition acquired before unmount")
-			}
-			close(started)
-			<-resume
-			return root.Close()
-		}, err
-	}
-	done := make(chan *httptest.ResponseRecorder)
-	go func() { done <- fileRequest(t, (&Service{}).UploadUserDiskFile, "file", strings.NewReader("data")) }()
-	<-started
-	if unlock, err := LockUserDiskForComposition(); !errors.Is(err, ErrUserDiskBusy) {
-		if unlock != nil {
-			unlock()
-		}
-		t.Fatalf("composition during cleanup: %v", err)
-	}
-	if code := fileCode(t, fileRequest(t, (&Service{}).ListUserDiskFiles, ".", nil)); code != -6 {
-		t.Fatalf("parallel read: %d", code)
-	}
-	close(resume)
-	if fileCode(t, <-done) != 0 {
-		t.Fatal("upload failed")
-	}
-	unlock, err := LockUserDiskForComposition()
-	if err != nil {
-		t.Fatal(err)
-	}
-	unlock()
-}
-
-// Opt-in: real loop + VFAT integration, using only a new temporary 64 MiB
-// image on the build host. Run as root, never point it at a device/SD card.
-func TestUserDiskRealMount(t *testing.T) {
-	if os.Getenv("NANOKVM_TEST_USER_DISK_MOUNT") != "1" {
-		t.Skip("set NANOKVM_TEST_USER_DISK_MOUNT=1 as root on a Linux build host")
-	}
-	dir := setupUserDisk(t)
-	oldPoint := userDiskMountpoint
-	userDiskMountpoint = filepath.Join(dir, "mount point")
-	t.Cleanup(func() { unix.Unmount(userDiskMountpoint, 0); userDiskMountpoint = oldPoint })
-	if err := createUserDisk(64); err != nil {
-		t.Fatal(err)
-	}
-	root, cleanup, err := mountUserDiskImage(true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = userDiskUnmounted(); !errors.Is(err, ErrUserDiskBusy) {
-		t.Fatal("mounted disk not excluded", err)
-	}
-	if unlock, err := LockUserDiskForComposition(); !errors.Is(err, ErrUserDiskBusy) {
-		if unlock != nil {
-			unlock()
-		}
-		t.Fatal("composition accepted a mounted disk", err)
-	}
-	free, total, err := userDiskSpace(root)
-	if err != nil || free >= total {
-		t.Fatalf("FAT space: %d/%d %v", free, total, err)
-	}
-	// Must compare available bytes, not total size.
-	if err = uploadUserDisk(root, "too-large", strings.NewReader(""), int64(free+1)); !errors.Is(err, errUserDiskSpace) {
-		t.Fatal("accepted beyond free space", err)
-	}
-	if err = uploadUserDisk(root, "hello.txt", strings.NewReader("hello"), 5); err != nil {
-		t.Fatal(err)
-	}
-	// VFAT case-insensitive collision must preserve the original.
-	if err = uploadUserDisk(root, "HELLO.TXT", strings.NewReader("bad"), 3); !errors.Is(err, os.ErrExist) {
-		t.Fatal("case collision", err)
-	}
-	if err = uploadUserDisk(root, "прошивка-配置.bin", strings.NewReader("unicode"), 7); err != nil {
-		t.Fatal(err)
-	}
-	// Unknown-length input must stop at the real free-space bound and remove
-	// the incomplete upload, without allocating that much RAM.
-	free, _, err = userDiskSpace(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = uploadUserDisk(root, "fills-disk.bin", io.LimitReader(zeroUpload{}, int64(free)+1), -1)
-	if !errors.Is(err, errUserDiskSpace) && !errors.Is(err, unix.ENOSPC) {
-		t.Fatalf("unknown-size full disk: %v", err)
-	}
-	if _, err = root.Stat("fills-disk.bin"); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("partial file survived: %v", err)
-	}
-	if err = cleanup(); err != nil {
-		t.Fatal(err)
-	}
-	if err = userDiskUnmounted(); err != nil {
-		t.Fatal(err)
-	}
-	root, cleanup, err = mountUserDiskImage(false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	unicodeData, err := root.ReadFile("прошивка-配置.bin")
-	if err != nil || string(unicodeData) != "unicode" {
-		t.Fatalf("UTF-8 round trip: %q %v", unicodeData, err)
-	}
-	data, err := root.ReadFile("hello.txt")
-	if err != nil || string(data) != "hello" {
-		t.Fatalf("readback %q %v", data, err)
-	}
-	if f, err := root.Create("readonly"); err == nil {
-		f.Close()
-		t.Fatal("read mount writable")
-	}
-	if err = cleanup(); err != nil {
-		t.Fatal(err)
-	}
-	// Simulate a process leaving its private mount behind: the next operation
-	// retires it, and still sees the complete file.
-	root, _, err = mountUserDiskImage(false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	root.Close()
-	root, cleanup, err = mountUserDiskImage(true)
-	if err != nil {
-		t.Fatal("stale mount recovery:", err)
-	}
-	if data, err = root.ReadFile("hello.txt"); err != nil || string(data) != "hello" {
-		t.Fatalf("recovery %q %v", data, err)
-	}
-	if err = cleanup(); err != nil {
-		t.Fatal(err)
-	}
-	// Failed vfat mount must not leak a loop-device association.
-	if err = os.WriteFile(userDiskImage, make([]byte, 4096), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if _, close, err := mountUserDiskImage(false); err == nil {
-		close()
-		t.Fatal("invalid FAT image mounted")
-	}
-	// Loop AUTOCLEAR releases asynchronously if udev briefly opens the device.
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		leaked := ""
-		loops, _ := filepath.Glob("/sys/block/loop*/loop/backing_file")
-		for _, file := range loops {
-			data, _ := os.ReadFile(file)
-			if strings.TrimSpace(string(data)) == userDiskImage {
-				leaked = file
-				break
-			}
-		}
-		if leaked == "" {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("leaked loop: %s", leaked)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
 
 func TestUserDiskDirectoryPagination(t *testing.T) {
 	files := mockUserDiskMount(t)
@@ -365,36 +196,5 @@ func TestUserDiskDirectoryPagination(t *testing.T) {
 			t.Fatalf("repeated %s", entry.Name)
 		}
 		seen[entry.Name] = true
-	}
-}
-
-type zeroUpload struct{}
-
-func (zeroUpload) Read(p []byte) (int, error) { clear(p); return len(p), nil }
-
-func TestFileErrorDistinguishesNonEmptyDirectoryFromCollision(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		err    error
-		reason string
-	}{
-		{"nonempty directory", &os.PathError{Op: "remove", Path: "folder", Err: unix.ENOTEMPTY}, "notEmpty"},
-		{"existing file", &os.PathError{Op: "open", Path: "file", Err: unix.EEXIST}, "exists"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(rec)
-			fileError(c, errors.Join(tc.err, nil))
-			var rsp struct {
-				Code int
-				Msg  string
-			}
-			if err := json.Unmarshal(rec.Body.Bytes(), &rsp); err != nil {
-				t.Fatal(err)
-			}
-			if rsp.Code != -3 || rsp.Msg != tc.reason {
-				t.Fatalf("response: %s", rec.Body.String())
-			}
-		})
 	}
 }

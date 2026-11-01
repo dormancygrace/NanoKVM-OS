@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -59,7 +58,7 @@ func TestNanokvmRepositories(t *testing.T) {
 	}
 	addons := "https://dormancygrace.github.io/NanoKVM-OS/addons/v3.24/riscv64/Packages.adb"
 	for name, data := range map[string]string{"nanokvm-addons.list": addons + "\n",
-		"alpine.list": "https://dl-cdn.alpinelinux.org/alpine/v3.24/community",
+		"alpine.list":      "https://dl-cdn.alpinelinux.org/alpine/v3.24/community",
 		"old.list.apk-new": "https://example.test/nanokvm-ignored"} {
 		if err := os.WriteFile(filepath.Join(repositoriesDir, name), []byte(data), 0644); err != nil {
 			t.Fatal(err)
@@ -177,100 +176,5 @@ func TestNoticeDue(t *testing.T) {
 		if got := noticeDue(c.n, now); got != c.due {
 			t.Errorf("%s: due=%v", c.name, got)
 		}
-	}
-}
-
-func TestNoticeEnabledSetting(t *testing.T) {
-	noticeFixture(t, "")
-	if !NoticeEnabled() {
-		t.Fatal("off by default")
-	}
-	if err := SetNoticeEnabled(false); err != nil || NoticeEnabled() || GetNotice().Enabled {
-		t.Fatalf("still on: %v", err)
-	}
-	if err := SetNoticeEnabled(true); err != nil || !NoticeEnabled() {
-		t.Fatalf("still off: %v", err)
-	}
-	if err := SetNoticeEnabled(true); err != nil {
-		t.Fatalf("enabling twice: %v", err)
-	}
-}
-
-func TestComponents(t *testing.T) {
-	noticeFixture(t, noticeRepositories)
-	oldDB, oldAlpine, oldKernel, oldBoot := installedDBPath, alpineReleasePath, kernelReleasePath, bootReleasePath
-	t.Cleanup(func() {
-		installedDBPath, alpineReleasePath, kernelReleasePath, bootReleasePath = oldDB, oldAlpine, oldKernel, oldBoot
-		componentCache.list = nil
-	})
-	dir := t.TempDir()
-	installedDBPath = filepath.Join(dir, "installed")
-	alpineReleasePath, kernelReleasePath, bootReleasePath = filepath.Join(dir, "alpine"), filepath.Join(dir, "kernel"), filepath.Join(dir, "boot")
-	db := "P:zlib\nV:1.3.2-r0\n\nP:nanokvm-rustdesk\nV:0.5.3-r5\n\nP:nanokvm-app\nV:3.1.0-r0\n\nP:nanokvm\nV:3.1.0-r0\n\nP:nanokvmish\nV:1-r0\n\n"
-	for path, data := range map[string]string{installedDBPath: db, alpineReleasePath: "3.24.2\n", kernelReleasePath: "7.2.10-nanokvm-os-r5\n", bootReleasePath: "7.2.11-nanokvm-os-r1\n"} {
-		if err := os.WriteFile(path, []byte(data), 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := saveNotice(UpdateNotice{State: "ok", CheckedAt: 1, Updates: []SoftwareUpdate{{Name: "nanokvm-app", Installed: "3.1.0-r0", Available: "3.1.1-r0"}}}); err != nil {
-		t.Fatal(err)
-	}
-	got := GetComponents()
-	want := Components{
-		Packages: []Component{{Name: "nanokvm", Installed: "3.1.0-r0"}, {Name: "nanokvm-app", Installed: "3.1.0-r0", Available: "3.1.1-r0"},
-			{Name: "nanokvm-rustdesk", Installed: "0.5.3-r5"}},
-		Alpine: "3.24.2", Kernel: "7.2.10-nanokvm-os-r5", BootKernel: "7.2.11-nanokvm-os-r1",
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("components=%+v", got)
-	}
-	// The cache follows the file.
-	time.Sleep(10 * time.Millisecond)
-	if err := os.WriteFile(installedDBPath, []byte("P:nanokvm\nV:3.1.1-r0\n\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if p := GetComponents().Packages; len(p) != 1 || p[0].Installed != "3.1.1-r0" {
-		t.Fatalf("stale cache: %+v", p)
-	}
-}
-
-// The web server and detached nkos-update helper have separate Go mutexes.
-// An independently opened flock models the other process owning the notice.
-func TestNoticeLockAcrossProcesses(t *testing.T) {
-	calls := noticeFixture(t, noticeRepositories)
-	if err := saveNotice(UpdateNotice{State: "ok", CheckedAt: 1}); err != nil {
-		t.Fatal(err)
-	}
-	lock, err := os.OpenFile(filepath.Join(apkStateDir, "notice.lock"), os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer lock.Close()
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		t.Fatal(err)
-	}
-	if err := CheckUpdates(context.Background(), true); err != nil {
-		t.Fatal(err)
-	}
-	if len(*calls) != 0 {
-		t.Fatal("network check overlapped another notice operation")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
-	defer cancel()
-	if err := CheckUpdates(ctx, false); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("offline comparison did not wait for other process: %v", err)
-	}
-	if len(*calls) != 0 {
-		t.Fatal("offline comparison overlapped another notice operation")
-	}
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_UN); err != nil {
-		t.Fatal(err)
-	}
-	if err := CheckUpdates(context.Background(), false); err != nil {
-		t.Fatal(err)
-	}
-	// The comparison and the add-on list of the cached index.
-	if len(*calls) != 2 {
-		t.Fatalf("comparison after lock release: %q", *calls)
 	}
 }

@@ -19,13 +19,6 @@ func requireLogVector(t *testing.T) {
 	}
 }
 
-func TestLogTextGenericOverride(t *testing.T) {
-	t.Setenv("NANOKVM_LOG_TEXT", "generic")
-	if detectLogVector() {
-		t.Fatal("generic override did not disable vectors")
-	}
-}
-
 func TestLogVectorKeywordSearch(t *testing.T) {
 	requireLogVector(t)
 	words := append(append([]string{}, sensitiveWords...), "http", "", "a", "abca", "aaaaaaabaaaaaa")

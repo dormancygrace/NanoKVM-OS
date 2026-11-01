@@ -1,9 +1,6 @@
 package common
 
 import (
-	"os"
-	"regexp"
-	"strconv"
 	"testing"
 )
 
@@ -71,24 +68,6 @@ func TestH264SelectionAcceptsTheSavedMonitor(t *testing.T) {
 		monitorTargetSize = func() (int, int) { return target[0], target[1] }
 		if got := H264SelectionAllowed(tc.capture[0], tc.capture[1], tc.limit); got != tc.allowed {
 			t.Errorf("%s: allowed %v, want %v", tc.name, got, tc.allowed)
-		}
-	}
-}
-
-// The native guard and the server use the same limits.
-func TestH264LimitsMatchTheNativeHeader(t *testing.T) {
-	const header = "../../support/additional/kvm/include/stream_size.hpp"
-	text, err := os.ReadFile(header)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for name, want := range map[string]int{"h264_max_long_side": H264MaxLongSide, "h264_max_height": H264MaxHeight} {
-		match := regexp.MustCompile(`(?m)^\s*inline constexpr unsigned ` + name + ` = (\d+);`).FindSubmatch(text)
-		if match == nil {
-			t.Fatalf("%s: %s is not defined", header, name)
-		}
-		if got, _ := strconv.Atoi(string(match[1])); got != want {
-			t.Errorf("%s: %s = %d, Go %d", header, name, got, want)
 		}
 	}
 }

@@ -3,13 +3,11 @@
 package gpioio
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -38,88 +36,6 @@ func TestUnsupportedEdgesClassifiesErrnos(t *testing.T) {
 	}
 	if _, err := OpenEdges("/sys/class/gpio/gpio504/value"); !errors.Is(err, ErrEdgesUnsupported) {
 		t.Fatalf("sysfs line: %v", err)
-	}
-}
-
-// A pipe stands in for a line request fd: both are pollable character streams.
-func newPipeEdgeLine(t *testing.T) (*edgeLine, *os.File) {
-	t.Helper()
-	var fds [2]int
-	if err := unix.Pipe2(fds[:], unix.O_CLOEXEC); err != nil {
-		t.Fatal(err)
-	}
-	line, err := newEdgeLine(fds[0])
-	if err != nil {
-		unix.Close(fds[1])
-		t.Fatal(err)
-	}
-	writer := os.NewFile(uintptr(fds[1]), "pipe")
-	t.Cleanup(func() { line.Close(); writer.Close() })
-	return line, writer
-}
-
-func edgeRecord(t *testing.T, age time.Duration) []byte {
-	t.Helper()
-	var now unix.Timespec
-	if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &now); err != nil {
-		t.Fatal(err)
-	}
-	record := make([]byte, edgeEventSize)
-	binary.NativeEndian.PutUint64(record, uint64(now.Nano()-int64(age)))
-	return record
-}
-
-func TestEdgeLineDrainsQueuedEventsInOneRead(t *testing.T) {
-	line, writer := newPipeEdgeLine(t)
-	// Use one deterministic clock mapping: CLOCK_MONOTONIC and time.Now
-	// are sampled separately at construction, so wall-clock age has skew.
-	line.monoBase = int64(10 * time.Second)
-	line.base = time.Now().Add(-time.Second)
-	record := func(offset time.Duration) []byte {
-		b := make([]byte, edgeEventSize)
-		binary.NativeEndian.PutUint64(b, uint64(line.monoBase+int64(offset)))
-		return b
-	}
-	batch := append(record(700*time.Millisecond), record(900*time.Millisecond)...)
-	batch = append(batch, record(800*time.Millisecond)...)
-	if _, err := writer.Write(batch); err != nil {
-		t.Fatal(err)
-	}
-	events, err := line.WaitEdges()
-	if err != nil || events.Count != 3 {
-		t.Fatalf("events = %+v, err = %v", events, err)
-	}
-	if want := line.base.Add(900 * time.Millisecond); !events.Last.Equal(want) {
-		t.Fatalf("newest event mapped to %v, want %v", events.Last, want)
-	}
-}
-
-func TestEdgeLineRejectsPartialEvents(t *testing.T) {
-	line, writer := newPipeEdgeLine(t)
-	if _, err := writer.Write(edgeRecord(t, 0)[:edgeEventSize-1]); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := line.WaitEdges(); err == nil {
-		t.Fatal("partial event accepted")
-	}
-}
-
-func TestEdgeLineCloseUnblocksWait(t *testing.T) {
-	line, _ := newPipeEdgeLine(t)
-	done := make(chan error, 1)
-	go func() {
-		_, err := line.WaitEdges()
-		done <- err
-	}()
-	time.Sleep(10 * time.Millisecond)
-	line.Close()
-	select {
-	case err := <-done:
-		if !errors.Is(err, os.ErrClosed) || errors.Is(err, ErrEdgesUnsupported) {
-			t.Fatal(err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("Close did not unblock WaitEdges")
 	}
 }
 

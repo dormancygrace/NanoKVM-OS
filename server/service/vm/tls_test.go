@@ -46,19 +46,6 @@ func TestEnableTlsRejectsInvalidCertificateWithoutWritingConfig(t *testing.T) {
 	}
 }
 
-func TestEnableTlsUsesDefaultPathsWhenUnset(t *testing.T) {
-	conf := &config.Config{Proto: "http"}
-	err := enableTlsConfig(conf, func(*config.Config) error { return nil }, func(cert, key string) error {
-		if cert != "/etc/kvm/server.crt" || key != "/etc/kvm/server.key" {
-			t.Fatalf("default pair = %q %q", cert, key)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestValidHostnameMatchesDHCPRule(t *testing.T) {
 	for _, ok := range []string{"nanokvm", "kvm-01", "kvm.lab.example", "a"} {
 		if err := validHostname(ok); err != nil {

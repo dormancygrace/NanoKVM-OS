@@ -3,7 +3,6 @@ package webrtc
 import (
 	"NanoKVM-Server/service/stream"
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/pion/rtp"
@@ -48,52 +47,6 @@ func ownedPayloadPionPayloader(codec stream.VideoCodec) rtp.Payloader {
 		return &codecs.H265Payloader{}
 	}
 	return &codecs.H264Payloader{}
-}
-
-var ownedPayloadBenchmarkPackets []*rtp.Packet
-
-func BenchmarkOwnedFramePacketization(b *testing.B) {
-	for _, codec := range []stream.VideoCodec{stream.VideoCodecH264, stream.VideoCodecH265} {
-		codecName := "H264"
-		if codec == stream.VideoCodecH265 {
-			codecName = "H265"
-		}
-		for _, shape := range []struct {
-			name     string
-			keyframe bool
-			size     int
-		}{{"P24KiB", false, 24 << 10}, {"IDR192KiB", true, 192 << 10}} {
-			frame := ownedPayloadFixture(codec, shape.keyframe, shape.size)
-			for _, mtu := range []uint16{1216, 600} {
-				for _, peers := range []int{1, 4} {
-					for _, mode := range []string{"active", "pion"} {
-						name := fmt.Sprintf("%s/%s/MTU%d/peers%d/%s", codecName, shape.name, mtu, peers, mode)
-						b.Run(name, func(b *testing.B) {
-							active := make([]*adaptiveVideoPacketizer, peers)
-							pion := make([]rtp.Packetizer, peers)
-							for i := 0; i < peers; i++ {
-								active[i] = newAdaptiveVideoPacketizer(codec)
-								pion[i] = rtp.NewPacketizer(mtu, 100, 0x1234abcd,
-									ownedPayloadPionPayloader(codec), rtp.NewFixedSequencer(0), 90000)
-							}
-							b.SetBytes(int64(len(frame) * peers))
-							b.ReportAllocs()
-							b.ResetTimer()
-							for i := 0; i < b.N; i++ {
-								for peer := 0; peer < peers; peer++ {
-									if mode == "active" {
-										ownedPayloadBenchmarkPackets = active[peer].packetize(frame, int64(i)*20000, mtu)
-									} else {
-										ownedPayloadBenchmarkPackets = pion[peer].Packetize(frame, 1800)
-									}
-								}
-							}
-						})
-					}
-				}
-			}
-		}
-	}
 }
 
 // Compare full RTP bytes with pinned Pion for multi-NAL P/IDR traffic, sequence

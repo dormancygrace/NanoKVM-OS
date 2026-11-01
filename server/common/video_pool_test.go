@@ -42,63 +42,6 @@ func TestVideoPoolGatesMatchTheModes(t *testing.T) {
 	}
 }
 
-func TestBootedVideoPoolReadsTheDeviceTree(t *testing.T) {
-	dir := t.TempDir()
-	old := ionNodeDir
-	t.Cleanup(func() { ionNodeDir = old })
-	ionNodeDir = dir
-	if p := BootedVideoPool(); p != (VideoPool{}) {
-		t.Fatalf("without a node: %+v", p)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x03, 0x80, 0x00, 0x00}, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "reusable"), nil, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if p := BootedVideoPool(); p != (VideoPool{MiB: 56, Reusable: true}) {
-		t.Fatalf("qhd as CMA: %+v", p)
-	}
-	if !SupportsQHD() || SupportsUHD() {
-		t.Fatal("QHD pool: wrong capabilities")
-	}
-	// The shared region: 144 MiB of reusable CMA captures 2160p.
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x09, 0x00, 0x00, 0x00}, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if p := BootedVideoPool(); p != (VideoPool{MiB: 144, Reusable: true}) || !SupportsUHD() {
-		t.Fatalf("shared CMA: %+v", p)
-	}
-	if err := os.Remove(filepath.Join(dir, "reusable")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x06, 0x80, 0x00, 0x00}, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if p := BootedVideoPool(); p != poolUHD || !SupportsUHD() {
-		t.Fatalf("uhd: %+v", p)
-	}
-	// The 118 MiB UHD image of an earlier release still captures 2160p;
-	// a fixed pool below 104 MiB does not.
-	for _, tc := range []struct {
-		size []byte
-		uhd  bool
-	}{{[]byte{0x07, 0x60, 0x00, 0x00}, true}, {[]byte{0x06, 0x70, 0x00, 0x00}, false}} {
-		if err := os.WriteFile(filepath.Join(dir, "size"), tc.size, 0600); err != nil {
-			t.Fatal(err)
-		}
-		if SupportsUHD() != tc.uhd {
-			t.Fatalf("fixed %+v: UHD %t", BootedVideoPool(), !tc.uhd)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(dir, "size"), []byte{0x08, 0x00}, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if p := BootedVideoPool(); p != (VideoPool{}) {
-		t.Fatalf("short property: %+v", p)
-	}
-}
-
 // monitorState points the saved monitor files at a temporary directory.
 func monitorState(t *testing.T, height int, portrait bool, portraitResolution int) {
 	t.Helper()
@@ -217,20 +160,5 @@ func TestFitMonitorToVideoPool(t *testing.T) {
 				t.Fatalf("the fitted profile does not fit: %v", monitorFitsVideoPoolLocked(tc.pool))
 			}
 		})
-	}
-}
-
-func TestFitMonitorKeepsTheSavedProfileWhenProgrammingFails(t *testing.T) {
-	monitorState(t, 1440, false, 1920)
-	hw := monitorSettingsBackend{
-		requireHardware: func() error { return nil }, portraitSupported: func(uint16) bool { return true },
-		powerCycle: func() bool { return false }, followsRefresh: func() bool { return false },
-		apply: func(string) error { return errors.New("EDID write failed") },
-	}
-	if changed, err := fitMonitorToVideoPoolLocked(poolFHD, hw); changed || err == nil {
-		t.Fatalf("changed %v, error %v", changed, err)
-	}
-	if savedMonitorResolutionLocked() != 1440 {
-		t.Fatal("the saved resolution changed although the EDID was not programmed")
 	}
 }

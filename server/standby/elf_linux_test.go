@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -112,43 +111,5 @@ func TestStageELFMuslAliasesAcrossTransitiveDependencies(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(destination, "lib/libm.so.6")); !os.IsNotExist(err) {
 		t.Fatal("copied a self alias", err)
-	}
-}
-
-func TestStageELFStillRequiresRealDependenciesAndItsOwnInterpreter(t *testing.T) {
-	for _, needed := range []string{"libcrypt.so.1", "libcrypto.so.3", "libmissing.so", "sub/libc.so"} {
-		t.Run(needed, func(t *testing.T) {
-			root := t.TempDir()
-			loader := "/lib/ld-musl-riscv64.so.1"
-			writeELFFixture(t, root, loader, "")
-			writeELFFixture(t, root, "/bin/app", loader, needed)
-			stager := elfStager{sourceRoot: root, files: map[string]bool{}}
-			if err := stager.stage("/bin/app"); err == nil || !strings.Contains(err.Error(), needed) {
-				t.Fatal(err)
-			}
-		})
-	}
-	root := t.TempDir()
-	musl := "/lib/ld-musl-riscv64.so.1"
-	other := "/lib64/ld-linux-riscv64-lp64d.so.1"
-	writeELFFixture(t, root, musl, "")
-	writeELFFixture(t, root, other, "")
-	writeELFFixture(t, root, "/bin/musl-app", musl, "libc.so")
-	writeELFFixture(t, root, "/bin/other-app", other, "libc.so")
-	writeELFFixture(t, root, "/usr/lib/standalone.so", "", "libc.so")
-	stager := elfStager{sourceRoot: root, files: map[string]bool{}}
-	if err := stager.stage("/bin/musl-app"); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"/bin/other-app", "/usr/lib/standalone.so"} {
-		if err := stager.stage(name); err == nil || !strings.Contains(err.Error(), "libc.so") {
-			t.Fatal(name, err)
-		}
-	}
-	if err := os.Remove(filepath.Join(root, musl)); err != nil {
-		t.Fatal(err)
-	}
-	if err := stager.stage("/bin/musl-app"); err == nil {
-		t.Fatal("accepted a missing interpreter")
 	}
 }

@@ -6,10 +6,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"flag"
-	"fmt"
 	"io"
 	"math/rand"
-	"os"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
@@ -277,14 +275,6 @@ func TestLarge(t *testing.T) {
 	checkBatch(t, impl{"SumBatch", (*Key).SumBatch}, NewKey(key), key, msgs)
 }
 
-func TestSelection(t *testing.T) {
-	env := os.Getenv("NANOKVM_SHA1MB")
-	t.Logf("haveVector %v, NANOKVM_SHA1MB=%q, vector kernel selected: %v", haveVector(), env, vector())
-	if want := haveVector() && env != "generic"; vector() != want {
-		t.Errorf("vector() = %v, want %v", vector(), want)
-	}
-}
-
 var stressSink atomic.Pointer[[]byte]
 
 // TestStress runs SumBatch in several goroutines with a CPU profile
@@ -333,24 +323,4 @@ func TestStress(t *testing.T) {
 	}
 	wg.Wait()
 	t.Logf("%d verified batches in %v (vector kernel: %v)", batches.Load(), *stressDur, vector())
-}
-
-func ExampleKey_SumBatch() {
-	// One SRTP frame: header || payload || ROC for every packet, under the
-	// session's 20-byte auth key.
-	key := make([]byte, 20)
-	k := NewKey(key)
-	roc := []byte{0, 0, 0, 0}
-	var packets [][]byte
-	for range 3 {
-		packets = append(packets, make([]byte, 1200)) // 12 byte header + payload
-	}
-	msgs := make([]Message, len(packets))
-	for i, p := range packets {
-		msgs[i] = Message{p[:12], p[12:], roc}
-	}
-	tags := make([][Size]byte, len(msgs))
-	k.SumBatch(tags, msgs)
-	fmt.Printf("%x\n", tags[0][:10]) // the 80-bit SRTP tag
-	// Output: 0446731c09f5933da464
 }

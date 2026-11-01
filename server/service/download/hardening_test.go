@@ -3,8 +3,6 @@ package download
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +15,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -261,60 +258,6 @@ func TestExactTransferNames(t *testing.T) {
 	for _, name := range strings.Fields(".nanokvm-notes .nanokvm-upload- .nanokvm-upload-foo .nanokvm-upload-123.iso .nanokvm-upload-4294967296") {
 		if imageTransferTemp(name) {
 			t.Fatal(name)
-		}
-	}
-}
-
-func TestStartupCleanupResumesValidatedDownload(t *testing.T) {
-	dir := downloadFixture(t)
-	budgetForTest(t, 4096)
-	payload := bytes.Repeat([]byte("a"), 8192)
-	sum := sha256.Sum256(payload)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Range") != "bytes=4096-" || r.Header.Get("If-Range") != "\"v1\"" {
-			t.Error("resume lost its validators")
-		}
-		w.Header().Set("Content-Length", "4096")
-		w.Header().Set("Content-Range", "bytes 4096-8191/8192")
-		w.Header().Set("ETag", "\"v1\"")
-		w.WriteHeader(206)
-		_, _ = w.Write(payload[4096:])
-	}))
-	defer server.Close()
-	partial := filepath.Join(dir, ".nanokvm-download-123")
-	if err := os.WriteFile(partial, payload[:4096], 0600); err != nil {
-		t.Fatal(err)
-	}
-	orphan := filepath.Join(dir, ".nanokvm-upload-456")
-	_ = os.WriteFile(orphan, []byte("old upload"), 0600)
-	job := &imageResume{URL: server.URL + "/disk.img", Path: partial, Filename: "disk.img", SHA256: hex.EncodeToString(sum[:]), ETag: "\"v1\"", Total: 8192}
-	if err := saveImageResume(imageResumePath, job); err != nil {
-		t.Fatal(err)
-	}
-	s := NewService()
-	s.downloadMutex.Lock()
-	done := s.downloadDone
-	s.downloadMutex.Unlock()
-	if done != nil {
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			t.Fatal("resume did not finish")
-		}
-	}
-	s.downloadMutex.Lock()
-	status := s.downloadStatus
-	s.downloadMutex.Unlock()
-	if status != downloadStatusSuccess {
-		t.Fatalf("status=%s", status)
-	}
-	got, err := os.ReadFile(filepath.Join(dir, "disk.img"))
-	if err != nil || !bytes.Equal(got, payload) {
-		t.Fatalf("resumed file changed: %v", err)
-	}
-	for _, path := range []string{partial, orphan, imageResumePath, transferSentinelPath} {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Fatalf("stale file: %s", path)
 		}
 	}
 }

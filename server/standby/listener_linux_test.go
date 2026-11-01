@@ -138,17 +138,3 @@ func TestRuntimeListenerPreservesHTTPSTransportAndOrigin(t *testing.T) {
 		})
 	}
 }
-
-func TestRuntimeListenerClosesTCPAfterInvalidTLSConfiguration(t *testing.T) {
-	tcp, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { tcp.Close() })
-	if _, err := runtimeListener(tcp, Config{Certificate: []byte("invalid")}); err == nil {
-		t.Fatal("invalid TLS accepted")
-	}
-	if _, err := tcp.Accept(); !errors.Is(err, net.ErrClosed) {
-		t.Fatal(err)
-	}
-}

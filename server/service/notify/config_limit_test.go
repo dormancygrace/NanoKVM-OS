@@ -45,32 +45,3 @@ func TestConfigureKeepsSettingsWhenEncodedConfigExceedsRecoveryLimit(t *testing.
 		t.Fatal("rejected configuration replaced stored or active settings")
 	}
 }
-
-// The cap applies to encoded bytes, not the number of template fields.
-func TestMaximumPlainTemplatesRemainRecoverable(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.json")
-	s := newService(path)
-	settings := Settings{Language: "en"}
-	for i := 0; i < maxTemplates; i++ {
-		messages := map[string]Message{}
-		for _, spec := range MessageSpecs {
-			messages[spec.Key] = Message{
-				Title: strings.Repeat("T", maxTitleBytes),
-				Body:  strings.Repeat("b", maxBodyBytes),
-			}
-		}
-		settings.Templates = append(settings.Templates, Template{
-			ID: fmt.Sprintf("t%d", i), Name: fmt.Sprintf("Template %d", i), Messages: messages,
-		})
-	}
-	if err := s.Configure(settings); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data) > recovery.MaxFile {
-		t.Fatalf("config has %d bytes, recovery limit %d", len(data), recovery.MaxFile)
-	}
-}

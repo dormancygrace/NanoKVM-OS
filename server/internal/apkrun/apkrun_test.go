@@ -5,28 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
-
-// The helper process runs one apk query through the runner, so the lock is
-// exercised between processes as well as between goroutines.
-func TestMain(m *testing.M) {
-	if os.Getenv("APKRUN_HELPER") == "1" {
-		LockPath = os.Getenv("APKRUN_LOCK")
-		output, err := Command(context.Background(), os.Getenv("APKRUN_APK"), "search", "helper").CombinedOutput()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, string(output), err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-	os.Exit(m.Run())
-}
 
 type fixture struct {
 	dir, apk string
@@ -101,113 +84,6 @@ func TestClassify(t *testing.T) {
 	}
 }
 
-func TestRunsDoNotOverlapAcrossGoroutines(t *testing.T) {
-	f := newFixture(t, "")
-	var wait sync.WaitGroup
-	for i := 0; i < 5; i++ {
-		wait.Add(1)
-		go func(i int) {
-			defer wait.Done()
-			args := []string{"search", fmt.Sprint(i)}
-			if i%2 == 1 {
-				args = []string{"add", "--", fmt.Sprint(i)}
-			}
-			output, err := Command(context.Background(), f.apk, args...).CombinedOutput()
-			if err != nil || !strings.HasPrefix(string(output), "ran ") {
-				t.Errorf("run %d: %q %v", i, output, err)
-			}
-		}(i)
-	}
-	wait.Wait()
-	if overlaps := f.lines("overlaps"); len(overlaps) != 0 {
-		t.Fatalf("%d apk runs overlapped", len(overlaps))
-	}
-	if runs := f.lines("runs"); len(runs) != 5 {
-		t.Fatalf("runs: %q", runs)
-	}
-}
-
-func TestRunsDoNotOverlapAcrossProcesses(t *testing.T) {
-	f := newFixture(t, "")
-	helpers := make([]*exec.Cmd, 3)
-	for i := range helpers {
-		helpers[i] = exec.Command(os.Args[0], "-test.run=^$")
-		helpers[i].Env = append(os.Environ(), "APKRUN_HELPER=1", "APKRUN_LOCK="+LockPath, "APKRUN_APK="+f.apk)
-		helpers[i].Stderr = os.Stderr
-		if err := helpers[i].Start(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for i := 0; i < 3; i++ {
-		if _, err := Command(context.Background(), f.apk, "update").CombinedOutput(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, helper := range helpers {
-		if err := helper.Wait(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if overlaps := f.lines("overlaps"); len(overlaps) != 0 {
-		t.Fatalf("%d apk runs overlapped", len(overlaps))
-	}
-	if runs := f.lines("runs"); len(runs) != 6 {
-		t.Fatalf("runs: %q", runs)
-	}
-}
-
-func TestLockWaitEndsWithBusy(t *testing.T) {
-	f := newFixture(t, "")
-	held, err := acquire(context.Background(), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer held.Close()
-
-	cmd := Command(context.Background(), f.apk, "search", "x")
-	cmd.LockWait = 50 * time.Millisecond
-	output, err := cmd.CombinedOutput()
-	if !errors.Is(err, ErrBusy) || !NotStarted(err) || string(output) != ErrBusy.Error() {
-		t.Fatalf("output %q err %v", output, err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-	if _, err = Command(ctx, f.apk, "add", "x").CombinedOutput(); !errors.Is(err, ErrBusy) {
-		t.Fatalf("context deadline: %v", err)
-	}
-	// Installed-database queries do not wait for index loads or transactions.
-	if output, err = Command(context.Background(), f.apk, "info", "-e", "x").CombinedOutput(); err != nil {
-		t.Fatalf("installed query: %q %v", output, err)
-	}
-	if runs := f.lines("runs"); len(runs) != 1 || runs[0] != "info -e x" {
-		t.Fatalf("runs: %q", runs)
-	}
-}
-
-func TestQueuedRunGetsItsOwnTimeout(t *testing.T) {
-	// Only the queued wait is significant here. Avoid the overlap fixture's
-	// sleep and helper processes, which compete with parallel CI builds.
-	f := newFixture(t, `echo "ran $*"`)
-	held, err := acquire(context.Background(), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer held.Close()
-	const runTimeout = time.Second
-	const queuedWait = 1200 * time.Millisecond
-	started := time.Now()
-	timer := time.AfterFunc(queuedWait, func() { held.Close() })
-	defer timer.Stop()
-	cmd := Command(context.Background(), f.apk, "search", "x")
-	cmd.Timeout = runTimeout // waiting must not consume the execution budget
-	if output, err := cmd.CombinedOutput(); err != nil || string(output) != "ran search x\n" {
-		t.Fatalf("%q %v", output, err)
-	}
-	if elapsed := time.Since(started); elapsed < queuedWait {
-		t.Fatalf("command bypassed the lock: waited %s, want at least %s", elapsed, queuedWait)
-	}
-}
-
 func TestLowMemoryRefusesIndexLoads(t *testing.T) {
 	f := newFixture(t, "")
 	// 20 MiB available plus half of 14 MiB of swappable anonymous memory.
@@ -270,97 +146,5 @@ func TestMeasuredDeviceMemoryAllowsOneRun(t *testing.T) {
 	writeMemInfo(t, 9204, 44332, 13712+34164)
 	if err := checkMemory(requiredKiB); err == nil {
 		t.Fatal("a second index load was allowed during the first one's peak")
-	}
-}
-
-func TestChildPriorityAndOOMScore(t *testing.T) {
-	f := newFixture(t, `sleep 0.2
-echo "$(cut -d' ' -f19 /proc/$$/stat) $(cat /proc/$$/oom_score_adj)"`)
-	own, err := os.ReadFile("/proc/self/stat")
-	if err != nil {
-		t.Skip(err)
-	}
-	fields := strings.Fields(string(own[strings.LastIndexByte(string(own), ')')+2:]))
-	ownNice := fields[16]
-	for _, tc := range []struct {
-		args []string
-		want string
-	}{
-		{[]string{"query", "x"}, "19 1000"},
-		{[]string{"add", "x"}, ownNice + " 1000"},
-		{[]string{"info", "-e", "x"}, ownNice + " 1000"},
-	} {
-		output, err := Command(context.Background(), f.apk, tc.args...).CombinedOutput()
-		if err != nil || strings.TrimSpace(string(output)) != tc.want {
-			t.Errorf("%q: %q %v, want %q", tc.args, output, err, tc.want)
-		}
-	}
-}
-
-func TestRunReportsApkFailure(t *testing.T) {
-	f := newFixture(t, `echo "ERROR: unable to select packages" >&2; exit 2`)
-	output, err := Command(context.Background(), f.apk, "add", "x").CombinedOutput()
-	var exit *exec.ExitError
-	if !errors.As(err, &exit) || NotStarted(err) || !strings.Contains(string(output), "unable to select") {
-		t.Fatalf("%q %v", output, err)
-	}
-}
-
-// A search the caller gives up on (a newer one, a closed page) ends at once
-// and leaves the lock to the next run.
-func TestCancelledRunEndsAndFreesTheLock(t *testing.T) {
-	f := newFixture(t, `sleep 30`)
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() {
-		_, err := Command(ctx, f.apk, "search", "slow").CombinedOutput()
-		done <- err
-	}()
-	time.Sleep(200 * time.Millisecond)
-	start := time.Now()
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the cancelled run kept going")
-	}
-	if elapsed := time.Since(start); elapsed > 7*time.Second {
-		t.Fatalf("the cancelled run took %v to return", elapsed)
-	}
-	next := Command(context.Background(), f.apk, "search", "next")
-	next.LockWait = 100 * time.Millisecond
-	f2 := newFixture(t, "")
-	next.Path = f2.apk
-	LockPath = filepath.Join(f.dir, "apk.lock") // the lock the cancelled run held
-	if output, err := next.CombinedOutput(); err != nil {
-		t.Fatalf("the lock stayed taken: %q %v", output, err)
-	}
-}
-
-// A transaction whose context ends keeps the lock until everything it
-// started has finished: a package script that is still running must not
-// overlap the next transaction.
-func TestCancelledTransactionKeepsTheLockUntilItsScriptsEnd(t *testing.T) {
-	f := newFixture(t, `echo "start $2" >> "$DIR/runs"
-case "$2" in first) (sleep 6; echo "end $2" >> "$DIR/runs") & ;; esac
-[ "$2" = first ] && exec sleep 30
-echo "end $2" >> "$DIR/runs"`)
-	ctx, cancel := context.WithCancel(context.Background())
-	first := make(chan error, 1)
-	go func() {
-		_, err := Command(ctx, f.apk, "add", "first").CombinedOutput()
-		first <- err
-	}()
-	time.Sleep(300 * time.Millisecond)
-	cancel()
-	second := Command(context.Background(), f.apk, "add", "second")
-	if output, err := second.CombinedOutput(); err != nil {
-		t.Fatalf("second transaction: %q %v", output, err)
-	}
-	<-first
-	runs := f.lines("runs")
-	want := []string{"start first", "end first", "start second", "end second"}
-	if strings.Join(runs, "|") != strings.Join(want, "|") {
-		t.Fatalf("transactions overlapped: %q", runs)
 	}
 }

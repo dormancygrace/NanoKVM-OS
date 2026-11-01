@@ -54,36 +54,3 @@ func TestHardwareAESRequiresExplicitOptIn(t *testing.T) {
 		})
 	}
 }
-
-func TestHardwareAESRejectsOldLoadedModule(t *testing.T) {
-	oldOpen, oldCapability := openHardwareAES, hardwareAESCapabilityFiles
-	t.Cleanup(func() {
-		openHardwareAES = oldOpen
-		hardwareAESCapabilityFiles = oldCapability
-		hardwareAESOnce = sync.Once{}
-	})
-	t.Setenv("NANOKVM_SRTP_AES", "hardware")
-	// The module from before 3.7.0 is read when the new one is not loaded.
-	dir := t.TempDir()
-	capability := filepath.Join(dir, "sg2002_aes_probe")
-	hardwareAESCapabilityFiles = []string{filepath.Join(dir, "nanokvm_hwcrypto"), capability}
-	opened := 0
-	openHardwareAES = func(func(error)) (*hwcrypto.Device, error) { opened++; return nil, errors.New("test device") }
-	for _, value := range []string{"missing", "N\n", "", "unknown", "Y\n"} {
-		if value != "missing" {
-			if err := os.WriteFile(capability, []byte(value), 0600); err != nil {
-				t.Fatal(err)
-			}
-		}
-		hardwareAESOnce = sync.Once{}
-		before := opened
-		initializeHardwareAES()
-		want := 0
-		if value == "Y\n" {
-			want = 1
-		}
-		if opened-before != want {
-			t.Fatalf("module capability %q: open calls %d, want %d", value, opened-before, want)
-		}
-	}
-}

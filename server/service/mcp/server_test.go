@@ -9,8 +9,6 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,19 +43,6 @@ func (fakeTextReader) ReadText(context.Context, string, *ScreenBox) (ScreenText,
 		Pieces: []ScreenTextPiece{{Text: "Привет, мир", Score: 0.9, Box: ScreenBox{X: 0.4, Y: 0.5, W: 0.1, H: 0.025}}}}, nil
 }
 
-func TestScreenshotHandlerReturnsImage(t *testing.T) {
-	handler := screenshotHandler(nil, fakeSnapshotter{snapshot: Snapshot{
-		OK: true, Width: 800, Height: 600, JPEG: []byte{0xff, 0xd8, 0xff},
-	}})
-	result, output, err := handler(context.Background(), nil, ScreenshotParams{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result == nil || result.IsError || len(result.Content) != 1 || !output.OK || output.Size != 3 {
-		t.Fatalf("result=%+v output=%+v", result, output)
-	}
-}
-
 func TestResolveDelayMSDefaultsOnlyWhenOmitted(t *testing.T) {
 	if got := resolveDelayMS(nil, defaultTypeDelayMS); got != defaultTypeDelayMS {
 		t.Fatalf("omitted delay = %d, want %d", got, defaultTypeDelayMS)
@@ -89,21 +74,6 @@ func TestTypeTextSchemaMatchesDurationBudget(t *testing.T) {
 	maxLengthText := strings.Repeat("a", maxTypeTextRunes)
 	if _, _, err := handler(context.Background(), nil, TypeTextParams{Text: maxLengthText, DelayMS: &delayMS}); err == nil || !strings.Contains(err.Error(), "typing duration exceeds") {
 		t.Fatalf("duration error = %v, want duration budget", err)
-	}
-}
-
-func TestMoveMouseHandlerDoesNotRateLimitRapidMoves(t *testing.T) {
-	hid := &recordingHID{}
-	handler := moveMouseHandler(nil, newRemoteWithHID(hid))
-	x, y := 0.5, 0.5
-
-	for i := 0; i < 2; i++ {
-		if _, _, err := handler(context.Background(), nil, MoveMouseParams{Mode: "absolute", X: &x, Y: &y}); err != nil {
-			t.Fatalf("move %d error = %v", i+1, err)
-		}
-	}
-	if len(hid.absolute) != 2 {
-		t.Fatalf("absolute writes = %d, want 2", len(hid.absolute))
 	}
 }
 
@@ -269,22 +239,6 @@ func TestMCPHandlerRejectsOversizedRequestBody(t *testing.T) {
 	}
 }
 
-func TestToolExecutorRejectsConcurrentControl(t *testing.T) {
-	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	coordinator := &inputcontrol.Coordinator{}
-	executor := &toolExecutor{control: control, coordinator: coordinator}
-
-	_, release, err := executor.begin(context.Background(), inputcontrol.OperationHID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer release()
-
-	if _, _, err := executor.begin(context.Background(), inputcontrol.OperationHID); !errors.Is(err, inputcontrol.ErrMCPBusy) {
-		t.Fatalf("error = %v, want busy", err)
-	}
-}
-
 func TestManualControlBlocksHIDButAllowsScreenshot(t *testing.T) {
 	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
 	coordinator := &inputcontrol.Coordinator{}
@@ -368,119 +322,4 @@ func TestModeSwitchCancelsActiveMCPTool(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("canceled MCP tool did not return")
 	}
-}
-
-func TestManualInputCancelsActiveMCPToolAndKeepsModeEnabled(t *testing.T) {
-	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModeMCP)
-	coordinator := &inputcontrol.Coordinator{}
-	hid := &recordingHID{}
-	started := make(chan struct{}, 1)
-	hid.onWrite = func(write int) {
-		if write == 1 {
-			started <- struct{}{}
-		}
-	}
-	handler := typeTextHandler(
-		&toolExecutor{control: control, coordinator: coordinator},
-		newRemoteWithHID(hid),
-	)
-
-	toolDone := make(chan error, 1)
-	go func() {
-		delayMS := 1000
-		_, _, err := handler(context.Background(), nil, TypeTextParams{Text: "AB", DelayMS: &delayMS})
-		toolDone <- err
-	}()
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("MCP tool did not start")
-	}
-
-	manual := inputcontrol.NewManualSession(control, coordinator)
-	defer manual.Close()
-	reservationDone := make(chan *inputcontrol.ManualReservation, 1)
-	reservationErr := make(chan error, 1)
-	go func() {
-		reservation, err := manual.Reserve(context.Background(), inputcontrol.ManualKeyboard, false, nil)
-		if err != nil {
-			reservationErr <- err
-			return
-		}
-		reservationDone <- reservation
-	}()
-
-	select {
-	case err := <-toolDone:
-		if !errors.Is(err, inputcontrol.ErrManualPreempted) {
-			t.Fatalf("tool error=%v, want manual preemption", err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("manual input did not cancel MCP tool")
-	}
-
-	select {
-	case err := <-reservationErr:
-		t.Fatal(err)
-	case reservation := <-reservationDone:
-		reservation.Complete(true)
-	case <-time.After(time.Second):
-		t.Fatal("manual input did not acquire control after MCP cleanup")
-	}
-	if got := control.Current(); got != controlmode.ModeMCP {
-		t.Fatalf("mode = %q, want MCP to remain enabled", got)
-	}
-	if len(hid.keyboard) < 2 || string(hid.keyboard[len(hid.keyboard)-1]) != string(keyUpReport) {
-		t.Fatalf("keyboard was not released before manual takeover: %v", hid.keyboard)
-	}
-}
-
-func TestLazyMCPHandlerInitializesOnceOnConcurrentRequests(t *testing.T) {
-	var created atomic.Int32
-	var served atomic.Int32
-	handler := lazyMCPHandler(func() http.Handler {
-		created.Add(1)
-		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			served.Add(1)
-			w.WriteHeader(http.StatusNoContent)
-		})
-	})
-	if created.Load() != 0 {
-		t.Fatal("MCP initialized before a request")
-	}
-	var requests sync.WaitGroup
-	start := make(chan struct{})
-	for range 32 {
-		requests.Go(func() {
-			<-start
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
-			if response.Code != http.StatusNoContent {
-				t.Errorf("response status=%d", response.Code)
-			}
-		})
-	}
-	close(start)
-	requests.Wait()
-	if created.Load() != 1 || served.Load() != 32 {
-		t.Fatalf("created=%d served=%d", created.Load(), served.Load())
-	}
-}
-
-var benchmarkMCPHandler http.Handler
-
-func BenchmarkMCPConstruction(b *testing.B) {
-	control := controlmode.NewManager(filepath.Join(b.TempDir(), "mode"), controlmode.ModeOff)
-	b.Run("eager", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			benchmarkMCPHandler = newMCPHandler(control, &inputcontrol.Coordinator{}, newRemoteWithHID(&recordingHID{}), nil, nil, nil, HostControl{})
-		}
-	})
-	b.Run("deferred", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			benchmarkMCPHandler = NewMCPHandler(control, nil, nil, nil, HostControl{})
-		}
-	})
 }

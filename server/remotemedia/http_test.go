@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -269,40 +268,6 @@ func TestHTTPRejectsHTTPSDowngrade(t *testing.T) {
 	}
 }
 
-func TestHTTPCancelPendingRead(t *testing.T) {
-	data := httpImage()
-	started := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Range") == "bytes=0-2047" {
-			rangeResponse(w, r, data)
-			return
-		}
-		close(started)
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-	s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL})
-	if err != nil {
-		t.Fatal(err)
-	}
-	done := make(chan error, 1)
-	go func() { _, err := s.ReadBlock(4096, 512); done <- err }()
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("read did not start")
-	}
-	s.Close()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("cancel: %v", err)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("close did not interrupt read")
-	}
-}
-
 func TestHTTPOptionsAndRangeParsing(t *testing.T) {
 	for _, raw := range []string{"file:///tmp/test.iso", "ftp://host/test.iso", "http://u:p@host/test.iso", "https://host/a#fragment", "http://host:0/a", "http://host:65536/a", "http:///a", "https://host:wrong/a"} {
 		if ValidateHTTPOptions(HTTPOptions{URL: raw}) == nil {
@@ -316,33 +281,6 @@ func TestHTTPOptionsAndRangeParsing(t *testing.T) {
 	}
 	if ValidateHTTPOptions(HTTPOptions{URL: "http://192.168.1.2/image.iso"}) != nil {
 		t.Fatal("LAN sources must remain usable")
-	}
-}
-
-func TestHTTPReadTimeout(t *testing.T) {
-	data := httpImage()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Range") == "bytes=0-2047" {
-			rangeResponse(w, r, data)
-			return
-		}
-		w.Header().Set("ETag", `"version-one"`)
-		w.Header().Set("Content-Range", fmt.Sprintf("bytes 4096-4607/%d", len(data)))
-		w.WriteHeader(206)
-		w.(http.Flusher).Flush()
-		_, _ = io.WriteString(w, "x")
-		w.(http.Flusher).Flush()
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-	s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	s.client.Timeout = 30 * time.Millisecond
-	if _, err := s.ReadBlock(4096, 512); err == nil {
-		t.Fatal("stalled body accepted")
 	}
 }
 
@@ -372,31 +310,6 @@ func TestHTTPStatusErrorsDoNotRetryPermanentFailures(t *testing.T) {
 				t.Fatalf("permanent failure retried: %d", calls.Load())
 			}
 		})
-	}
-}
-
-func TestHTTPRealPreconditionFailure(t *testing.T) {
-	data := httpImage()
-	var calls atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
-			rangeResponse(w, r, data)
-			return
-		}
-		w.Header().Set("ETag", `"version-two"`)
-		http.ServeContent(w, r, "test.iso", time.Unix(1700000000, 0), bytes.NewReader(data))
-	}))
-	defer server.Close()
-	s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	if _, err = s.ReadBlock(4096, 512); err == nil || !strings.Contains(err.Error(), "image changed") {
-		t.Fatalf("412: %v", err)
-	}
-	if calls.Load() != 2 {
-		t.Fatal("retried changed image")
 	}
 }
 

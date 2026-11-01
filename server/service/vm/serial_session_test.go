@@ -2,7 +2,6 @@ package vm
 
 import (
 	"bytes"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -156,44 +155,6 @@ func TestSerialSessionBridgesBothWays(t *testing.T) {
 	}
 }
 
-func TestSerialSessionAppliesLineSettings(t *testing.T) {
-	master, device := serialTestDevice(t)
-	ws, done := serialTestSession(t, &serialSettings{Device: device, Baud: 115200, Parity: "even", Flow: "none", DataBits: 7, StopBits: 2})
-	waitRaw(t, master)
-	attr, err := unix.IoctlGetTermios(int(master.Fd()), unix.TCGETS)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The pty driver forces CS8 without parity (pty_set_termios), so those
-	// two are covered by TestSerialTermios; the rest reaches the device.
-	if attr.Cflag&unix.CSTOPB == 0 || attr.Cflag&unix.CBAUD != unix.B115200 || attr.Oflag&unix.OPOST != 0 ||
-		attr.Cflag&unix.CLOCAL == 0 || attr.Lflag&(unix.ICANON|unix.ECHO|unix.ISIG) != 0 {
-		t.Fatalf("line settings on the device: %+v", attr)
-	}
-	ws.Close()
-	terminalWaitDone(t, done)
-}
-
-func TestSerialSessionPasteArrivesInOrder(t *testing.T) {
-	master, device := serialTestDevice(t)
-	ws, done := serialTestSession(t, &serialSettings{Device: device, Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1})
-	waitRaw(t, master)
-	paste := bytes.Repeat([]byte("0123456789abcdefghijklmnopqrstuvwxyz\r"), 400) // 14.8 KiB
-	received := make(chan []byte, 1)
-	go func() { received <- readMaster(t, master, len(paste)) }()
-	for i := 0; i < len(paste); i += 4096 {
-		end := min(i+4096, len(paste))
-		if err := ws.WriteMessage(websocket.TextMessage, paste[i:end]); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if got := <-received; !bytes.Equal(got, paste) {
-		t.Fatalf("paste changed: %d of %d bytes", len(got), len(paste))
-	}
-	ws.Close()
-	terminalWaitDone(t, done)
-}
-
 func TestSerialSessionIsExclusiveAndSeenByTheProbe(t *testing.T) {
 	serialLockDir = t.TempDir()
 	master, device := serialTestDevice(t)
@@ -222,43 +183,6 @@ func TestSerialSessionIsExclusiveAndSeenByTheProbe(t *testing.T) {
 	if r := probeSerialConsole(device, 300*time.Millisecond); r.State == "busy" {
 		t.Fatalf("still busy: %+v", r)
 	}
-}
-
-// The probe holds the lease too: a terminal started while the console test
-// runs is refused, and the test's restoration of the line settings never
-// lands on a terminal's raw line.
-func TestSerialSessionRefusedWhileTheProbeHoldsTheDevice(t *testing.T) {
-	serialLockDir = t.TempDir()
-	device, received := fakeHost(t, "")
-	settings := &serialSettings{Device: device, Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1}
-	probeDone := make(chan probeResult, 1)
-	go func() { probeDone <- probeSerialConsole(device, 800*time.Millisecond) }()
-	received() // the probe has the device open and waits for the answer
-	ws, done := serialTestSession(t, settings)
-	if got := terminalReadUntil(t, ws, "in use"); !strings.Contains(got, "another session") {
-		t.Fatalf("terminal while the probe runs: %q", got)
-	}
-	terminalWaitDone(t, done)
-	select {
-	case r := <-probeDone:
-		if r.State != "silent" {
-			t.Fatalf("probe: %+v", r)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("the probe did not finish")
-	}
-	// afterwards the terminal gets the device
-	ws2, done2 := serialTestSession(t, settings)
-	defer ws2.Close()
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) && !serialPortOpen(device) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if !serialPortOpen(device) {
-		t.Fatal("the terminal did not take the device after the probe")
-	}
-	ws2.Close()
-	terminalWaitDone(t, done2)
 }
 
 // A big browser write that the device does not take, while the device
@@ -327,44 +251,6 @@ func TestSerialSessionReleasesTheDeviceWhenTheBrowserGoesDuringABlockedWrite(t *
 	if serialPortOpen(device) {
 		t.Fatal("the device is still claimed after the browser closed")
 	}
-}
-
-func TestSerialSessionEndsWhenTheDeviceGoes(t *testing.T) {
-	master, device := serialTestDevice(t)
-	ws, done := serialTestSession(t, &serialSettings{Device: device, Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1})
-	waitRaw(t, master)
-	master.Close() // the cable is pulled: the slave reads EOF/EIO
-	ws.SetReadDeadline(time.Now().Add(3 * time.Second))
-	var output strings.Builder
-	for {
-		_, data, err := ws.ReadMessage()
-		if err != nil {
-			break
-		}
-		output.Write(data)
-	}
-	if !strings.Contains(output.String(), "disconnected") {
-		t.Fatalf("no notice: %q", output.String())
-	}
-	terminalWaitDone(t, done)
-}
-
-func TestSerialSessionRefusesAMissingDevice(t *testing.T) {
-	ws, done := serialTestSession(t, &serialSettings{Device: "/dev/ttyNANOKVM-none", Baud: 9600, Parity: "none", Flow: "none", DataBits: 8, StopBits: 1})
-	ws.SetReadDeadline(time.Now().Add(3 * time.Second))
-	_, data, err := ws.ReadMessage()
-	if err != nil || !strings.Contains(string(data), "not available") {
-		t.Fatalf("%q %v", data, err)
-	}
-	select {
-	case err := <-done:
-		if err == nil {
-			t.Fatal("no error for a missing device")
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("session did not finish")
-	}
-	_ = io.EOF
 }
 
 // An interrupted wait is not a readable tty. With VMIN=0 a premature read

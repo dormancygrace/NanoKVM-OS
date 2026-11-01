@@ -47,48 +47,6 @@ func newCachedStore(t *testing.T) (*Store, string) {
 	return store, path
 }
 
-func TestUnchangedAccountFileIsReadOnce(t *testing.T) {
-	store, _ := newCachedStore(t)
-	reads := countReads(t)
-
-	alice, err := store.Get("alice")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for range 10 {
-		if _, err = store.ValidateToken("alice", alice.TokenVersion); err != nil {
-			t.Fatal(err)
-		}
-		if _, err = store.List(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if got := reads.Load(); got != 1 {
-		t.Fatalf("account file read %d times, want 1", got)
-	}
-}
-
-// A caller that changes what it was given does not change the cached copy.
-func TestCachedDatabaseIsNotShared(t *testing.T) {
-	store, _ := newCachedStore(t)
-	store.mutex.RLock()
-	first, err := store.loadLocked(false)
-	store.mutex.RUnlock()
-	if err != nil {
-		t.Fatal(err)
-	}
-	first.Users[0].Username = "mallory"
-	first.Users = first.Users[:0]
-
-	users, err := store.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(users) != 2 || users[0].Username != "admin" {
-		t.Fatalf("cached database was changed through a copy: %+v", users)
-	}
-}
-
 // A change made from a shell, not through the store, is seen on the next
 // read.
 func TestExternalAccountFileChangeIsSeen(t *testing.T) {

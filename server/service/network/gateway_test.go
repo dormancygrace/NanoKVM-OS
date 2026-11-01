@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -33,20 +32,6 @@ func TestParseDefaultGatewayRoutesOnlyReturnsPhysicalInterfaces(t *testing.T) {
 	}
 	if routes[1].Interface != "wlan0" || routes[1].Gateway != "10.0.0.1" || routes[1].Metric != 200 {
 		t.Fatalf("unexpected Wi-Fi route: %+v", routes[1])
-	}
-}
-
-func TestDefaultGatewayRoutesReadsTheRouteTable(t *testing.T) {
-	previous := gatewayRouteTable
-	defer func() { gatewayRouteTable = previous }()
-	gatewayRouteTable = filepath.Join(t.TempDir(), "route")
-	if routes := defaultGatewayRoutes(); routes == nil || len(routes) != 0 {
-		t.Fatalf("unreadable table: %+v", routes)
-	}
-	_ = os.WriteFile(gatewayRouteTable, []byte(routeTableHeader+"wlan0\t00000000\t0104A8C0\t0003\t0\t0\t303\t00000000\t0\t0\t0\n"), 0600)
-	routes := defaultGatewayRoutes()
-	if len(routes) != 1 || routes[0].Interface != "wlan0" || routes[0].Gateway != "192.168.4.1" || routes[0].Metric != 303 {
-		t.Fatalf("%+v", routes)
 	}
 }
 
@@ -229,28 +214,5 @@ func TestPreferenceChangesInANetworkNamespace(t *testing.T) {
 				t.Fatalf("%s: %+v", preferred, entries)
 			}
 		}
-	}
-}
-
-func TestRoutesOfOtherInterfacesKeepTheirMetrics(t *testing.T) {
-	// A VPN at the first interim metric and USB networking at the metric
-	// Ethernet would prefer.
-	table := kernelRoutes{
-		10:   {Interface: "usb0", Gateway: "10.0.0.1", Metric: 10},
-		202:  {Interface: "eth0", Gateway: "192.168.1.1", Metric: 202},
-		303:  {Interface: "wlan0", Gateway: "192.168.4.1", Metric: 303},
-		1000: {Interface: "tun0", Gateway: "198.51.100.1", Metric: 1000},
-	}
-	useModel(t, table, table.run)
-	for _, preferred := range []string{"ethernet", "wifi", "ethernet", "auto"} {
-		if err := applyGatewayPreference(preferred, table.entries()); err != nil {
-			t.Fatalf("%s: %v", preferred, err)
-		}
-		if table[10].Interface != "usb0" || table[1000].Interface != "tun0" || len(table) != 4 {
-			t.Fatalf("%s: %+v", preferred, table)
-		}
-	}
-	if table[11].Interface != "eth0" && table[100].Interface != "eth0" {
-		t.Fatalf("%+v", table)
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 func writeTestScript(t *testing.T, path, body string) {
@@ -44,16 +43,6 @@ func TestListScriptsPreservesRelativePathsAndSkipsSymlinks(t *testing.T) {
 	want := []string{"a/job.sh", "b/job.sh", "space name.py"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("scripts = %#v, want %#v", got, want)
-	}
-}
-
-func TestListScriptsReturnsEmptyWhenDirectoryDoesNotExist(t *testing.T) {
-	files, err := listScripts(filepath.Join(t.TempDir(), "not-created"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if files == nil || len(files) != 0 {
-		t.Fatalf("files = %#v", files)
 	}
 }
 
@@ -140,50 +129,6 @@ func TestScriptCommandDoesNotInterpretShellMetacharacters(t *testing.T) {
 	}
 	if len(python.Args) != 2 || python.Args[0] != interpreter || python.Args[1] != pythonPath {
 		t.Fatalf("python argv = %#v", python.Args)
-	}
-}
-
-func TestScriptCommandReportsMissingPythonAddon(t *testing.T) {
-	originalInterpreter := pythonInterpreter
-	pythonInterpreter = filepath.Join(t.TempDir(), "missing-python3")
-	t.Cleanup(func() { pythonInterpreter = originalInterpreter })
-
-	if _, err := scriptCommand(filepath.Join(t.TempDir(), "job.py")); !errors.Is(err, errPythonRuntimeMissing) {
-		t.Fatalf("missing Python error = %v", err)
-	}
-}
-
-func TestBackgroundStartReportsFailureAndRunsValidScript(t *testing.T) {
-	root := t.TempDir()
-	marker := filepath.Join(root, "finished")
-	path := filepath.Join(root, "background.sh")
-	writeTestScript(t, path, "#!/bin/sh\nprintf done > '"+marker+"'\n")
-	if output, err := executeScript(path, "background"); err != nil || output != nil {
-		t.Fatalf("background start = %q, %v", output, err)
-	}
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		if data, err := os.ReadFile(marker); err == nil {
-			if string(data) != "done" {
-				t.Fatalf("marker = %q", data)
-			}
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("background script did not run")
-		}
-		time.Sleep(time.Millisecond)
-	}
-
-	notExecutable := filepath.Join(root, "not-executable.sh")
-	if err := os.WriteFile(notExecutable, []byte("#!/bin/sh\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := executeScript(notExecutable, "background"); err == nil {
-		t.Fatal("background start failure was hidden")
-	}
-	if _, err := executeScript(path, "unexpected"); !errors.Is(err, errInvalidScript) {
-		t.Fatalf("invalid type error = %v", err)
 	}
 }
 

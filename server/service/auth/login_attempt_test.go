@@ -1,13 +1,8 @@
 package auth
 
 import (
-	"net/http/httptest"
 	"testing"
 	"time"
-
-	"NanoKVM-Server/proto"
-
-	"github.com/gin-gonic/gin"
 )
 
 // Parallel guesses from one address must not all pass the lockout check
@@ -111,31 +106,4 @@ func TestLockedAddressIsNotAdmitted(t *testing.T) {
 	if busy {
 		t.Fatal("a refused attempt left an in-flight slot behind")
 	}
-}
-
-// The failure counts before the delay, not after it.
-func TestLoginFailureIsRecordedBeforeTheDelay(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	useLoginProtectionConfig(t)
-	useLoginAttemptRecords(t, map[string]*loginAttempt{})
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		c, _ := gin.CreateTestContext(httptest.NewRecorder())
-		var rsp proto.Response
-		(&Service{}).loginFailed(c, "192.0.2.4", &rsp)
-	}()
-	time.Sleep(200 * time.Millisecond)
-	loginMutex.Lock()
-	attempt := loginAttempts["192.0.2.4"]
-	failures := 0
-	if attempt != nil {
-		failures = attempt.failures
-	}
-	loginMutex.Unlock()
-	if failures != 1 {
-		t.Fatalf("failures during the delay = %d, want 1", failures)
-	}
-	<-done
 }

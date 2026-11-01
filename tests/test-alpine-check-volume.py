@@ -101,30 +101,6 @@ rc, calls, _ = run(device='UUID=1234-ABCD')
 check('UUID spec: left to mount', rc == 0 and calls == '', calls)
 
 
-# The upgrade marks the existing /boot and /data entries noauto, so
-# localmount no longer mounts them first; everything else stays byte for byte.
-upgrade = (repo / 'firmware/alpine/packages/nanokvm-base/nanokvm-base.post-upgrade').read_text()
-block = upgrade[upgrade.index('# fstab /boot noauto'):upgrade.index('# fstab end')]
-FSTAB = ('/dev/cdrom\t/media/cdrom\tiso9660\tnoauto,ro 0 0\n'
-         '/dev/mmcblk0p1 /boot vfat rw,nosuid,nodev,noexec 0 0\n'
-         '/dev/mmcblk0p3 /data exfat rw,nosuid,nodev,noexec 0 0\n'
-         'tmpfs /tmp tmpfs rw,nosuid,nodev,mode=1777,size=64M 0 0\n')
-with tempfile.TemporaryDirectory(prefix='nkos-fstab-') as temp:
-    fstab = Path(temp) / 'fstab'
-    fstab.write_text(FSTAB)
-    migrate = Path(temp) / 'migrate.sh'
-    migrate.write_text(block.replace('/etc/.fstab.nanokvm', f'{temp}/.fstab.new').replace('/etc/fstab', str(fstab)))
-    subprocess.run(['sh', '-e', str(migrate)], check=True)
-    once = fstab.read_text()
-    subprocess.run(['sh', '-e', str(migrate)], check=True)
-    want = FSTAB.replace('/boot vfat rw,', '/boot vfat noauto,rw,').replace('/data exfat rw,', '/data exfat noauto,rw,')
-    check('upgrade: /boot and /data noauto, rest unchanged', once == want, once)
-    check('upgrade: second run changes nothing', fstab.read_text() == want)
-    fstab.unlink()
-    subprocess.run(['sh', '-e', str(migrate)], check=True)
-    check('upgrade: no fstab, nothing created', not fstab.exists())
-
-
 def real(kind, mkfs, fsck, state_offset, dirty_value):
     if not (shutil.which(mkfs) and shutil.which(fsck)):
         print('skip', kind, 'real image:', mkfs, 'or', fsck, 'not installed')

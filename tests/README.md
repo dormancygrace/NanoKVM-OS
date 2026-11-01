@@ -19,43 +19,7 @@ Tests that sit next to the code they exercise stay there:
 Most tests run with no arguments from the repository root:
 
     python3 tests/test-platform-build.py
-    sh tests/test-usb-profiles.sh
-
-The receiver session tests use fake I2C transfers and deterministic thread
-ordering, including the production maintenance/reset and EDID helpers, the real
-I2c transport with mocked Linux ioctls, readiness deadlines and UXC telemetry.
-They cover short-owner draining, bounded contention, fresh failure history after
-maintenance and publication while a real frame lease stays held:
-
-    python3 tests/test-hdmi-sessions.py
-    NANOKVM_SANITIZE=1 python3 tests/test-hdmi-sessions.py
-
-They need a C/C++ compiler and no device. The separate
-firmware/probes/hdmi-session-runtime.cpp requires exclusive device capture:
-stop nanokvm-app before running it. Its capture h264|h265 mode writes
-Annex-B video on fd 3; reset checks three recovery cycles; edid TOOL PROFILE
-pauses the detector around the programmer and verifies recovered frames.
-Keep the original EDID on the host and restore it after a mode-change trial.
-
-The GPIO event tests execute the production transport and detector service
-with fault injection for all three receiver models:
-
-    python3 tests/test-hdmi-events.py
-    NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
-
-See [LT6911 GPIO events](../docs/LT6911-GPIO.md) for event polarity, fallback
-and exclusive runtime qualification with hdmi-events-runtime.cpp.
-
-With a prepared patched Linux source and cpp/dtc/fdtget, the DT qualification
-compiles all five board profiles and checks the INT mux/voltage, variant pin
-ownership and absence of an INT GPIO hog:
-
-    python3 tests/test-hdmi-events-dt.py --kernel-source /path/to/patched-linux
-
-The platform boot stage also invokes the DT qualification with its prepared
-kernel tree, so release-build CI checks resolved properties for every profile.
-Event/session tests cover parked VI suppression and the C measurement cost of
-recovery versus full diagnostics.
+    python3 tests/test-usb-state.py
 
 The Makefile groups some of them, for example `make test-wifi-modules test-alpine-network`.
 CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no arguments and no root.
@@ -72,15 +36,10 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   - `test-mss-clamp.py`;
   - `test-network-multihome.py --netns` (CI runs it with `sudo`; without
     `--netns` it checks the shipped settings only);
-  - `test-usb-internet-netns.py`;
-  - `test-pmtu-netns.sh`.
+  - `test-usb-internet-netns.py`.
 - **Built or prepared sources, passed as arguments or environment:**
-  - the native contract tests (`test-mjpeg-native-contracts.py`, `test-venc-*.py`, `test-vi-yuv-stride.py`, `test-vi-damaged-frames.py`, …);
-  - `test-nanokvm-fip.py` and `test-opensbi-reservations.py` (platform images);
-  - `test-addon-apk-upgrade.py` and `test-rustdesk-apk.py` (APKs).
-  - `test-aic8800-command.py` and `test-aic8800-timeout.py`. Their `--driver`
-    is the patched `aic8800_fdrv` source, as `platform/build.sh modules`
-    prepares it.
+  - the native contract test `test-mjpeg-native-contracts.py`;
+  - `test-nanokvm-fip.py` (platform images).
 
   Each test's `--help` lists what it needs. The Release build workflow runs
   `test-mjpeg-native-contracts.py` against its patched `native/src/cvi_mpi` and
@@ -89,9 +48,6 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   ownership failures; they are required CI gates, not manual-only checks.
 - **`test-usb-prefix.py`** takes the S30usbnet script to test: `--script firmware/alpine/compat/S30usbnet`.
 - **`test-video-recovery-native.py`** needs `go`; CI runs it in the Go job.
-- **`test-aic8800-bt-rx.c`** is a standalone contract of the AIC8800
-  Bluetooth RX path:
-  `gcc -fsanitize=address,undefined tests/test-aic8800-bt-rx.c && ./a.out`.
 
 ## Kernel zram contracts
 
@@ -102,14 +58,16 @@ little-endian Linux host. Set `NANOKVM_SANITIZE=1` for ASan/UBSan. Release-build
 CI runs both modes against its prepared kernel source. The tests do not access a
 device or change the supplied source tree.
 
-`test-zram-streams.py` compiles the actual zcomp frontend with pthread/CPUHP
-shims. It checks direction independence, same-direction serialization, nine
-allocation-failure points, concurrent calls, teardown waits, and migration to
-an online CPU. The real LZ4 backend is additionally qualified on C906.
-
 ## Manual tools
 
 `manual/` holds tools that are run by hand and never by CI.
+
+- **`manual/standby/`** is the QEMU standby-mode driver; see its
+  [README](manual/standby/README.md).
+- **`manual/c906-lz4/`** holds `zram-bench.c`, the zram LZ4 benchmark;
+  **`manual/c906-profile-bench/`** holds `c906-profile-bench.c`, an integer
+  and float loop timer. Both are cross-built as static executables and run
+  on the device; see [c906-lz4](manual/c906-lz4/README.md).
 
 - **`manual/hang-recorder/`** records the last moments before a device hang.
   `heartbeat.sh` prints one `NKHB` line per second, with uptime and
@@ -158,44 +116,8 @@ apk, rejects tampering/wrong trust, and exercises RSA-to-EC upgrades with both
 index formats. No production key or device is used; package scripts are retained
 but not executed in the temporary installation root.
 
+SD storage checks:
 
-The second receiver probe, `firmware/probes/hdmi-receiver-runtime.cpp`, links
-only the I2C transport. Stop nanokvm-app and acquire exclusive device ownership
-before running it. `diagnostics c|d|ux` checks the selected model's hardware ID
-and prints its available telemetry. D internal identity is available only in
-this exclusive probe and is cached once per reset generation, including failed
-attempts. A failed ID/cleanup aborts the probe without retrying live control. `reset-ready c|d|ux` runs three reset cycles,
-checking that no receiver I2C happens before that model's minimum quiet window.
-Omitting the model retains the earlier UXC command syntax. C/D physical
-qualification is pending; host tests and a successful cross-build are not a
-substitute.
-
-`test-hdmi-sessions.py` exercises the actual production poll/reset/maintenance
-functions using a fake clock and controlled transport faults. It covers the
-2500/2500/250 ms C/D/UXC reset deadlines, the 250 ms maintenance gap without
-shortening pending reset readiness, separate silicon ID versus firmware bytes,
-C HDMI/CSI and D telemetry, mixed timing rejection, every session IO/cleanup
-failure, and capture isolation from optional diagnostics. The EDID C harness
-also checks normalized model-specific sleeps, EINTR and reset failures.
-`test-hdmi-receiver-start.py` verifies the startup delay before service probes.
-
-`test-capture-restart.py` exercises the production capture lifecycle around the
-receiver helper: disable waits for a frame owner, releases MMF, blocks stale
-detector restarts and park requests, retries incomplete cleanup while stopped,
-and rebuilds capture on enable. Repeated cycles and failed teardown/restart
-retain the appropriate retry state. The receiver tests above continue to
-cover the underlying reset, ownership and quiet-window behavior.
-
-The D live-poll regression injects the reviewed operation-6 failure, then runs
-100 healthy stale-dimension polls without an IRQ, plus IRQ/resume/reset
-transitions. It requires zero D writes and no internal E1 identity reads.
-Exclusive-probe tests cover per-generation identity caching and each ID/cleanup
-fault, including no further IO after a failed attempt in the same generation.
-
-SD storage policy checks:
-
-- `python3 tests/test-storage-mount-policy.py`: real remount policy, existing
-  settings, failure warnings and the unavailable-data placeholder.
 - `python3 tests/test-storage-recovery-layout.py`: both recovery guards accept
   legacy and aligned geometry and reject mixed or overlapping layouts.
 - `python3 tests/test-alpine-sd-image-boot.py`: MBR offsets, partition payloads,
@@ -223,7 +145,7 @@ memmove assembly on SG2002, including overlapping buffers, return values and
 unmapped page boundaries.
 
 The [C906 usercopy test](manual/c906-usercopy/README.md) validates the real raw,
-SUM-enabled and public usercopy paths, fault recovery, and pipe/socket timing.
+SUM-enabled and public usercopy paths and fault recovery.
 
 ### OpenSSL runtime transition
 
@@ -238,11 +160,3 @@ removing that dependency selects Alpine as a negative control. CI uses fixture p
 `--payload PATH` checks a cross-built runtime. No installed host or device
 files are changed. Native C906 benchmark sources and recorded results live
 in `firmware/crypto/experimental/openssl-c906`.
-
-`test-monitor-maintenance-native.py` runs the real Go EDID read/apply bindings
-against a recording native ABI. It checks enabled and disabled capture on PCIe
-and Cube, rejects full capture lifecycle calls during maintenance, propagates
-admission/utility/restore failures, and checks pending markers and file cleanup.
-Only filesystem paths are redirected; the Go control flow is unmodified.
-The HDMI session test also verifies native maintenance preserves MMF lifetime
-and capture state on PCIe/Cube/Lite and keeps detector reset off the frame lock.

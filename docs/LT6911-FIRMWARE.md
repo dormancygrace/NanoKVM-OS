@@ -91,13 +91,6 @@ is inferred. A matching version is a layout hint, not an image hash.
 
 ## Verification and remaining limits
 
-`python3 tests/test-hdmi-sessions.py` exercises the actual decoder, reader
-and production poll/control functions. It covers every diagnostic I/O and
-cleanup failure, late optional faults, both horizontal branches, unknown
-versions, raw C status, invalid sums/FFFF and changes during sampling.
-D diagnostics are asserted to issue no writes or internal-ID reads.
-C adds no writes beyond its existing access and timing-measurement session.
-
 Physical C/D validation remains necessary for NanoKVM firmware variants.
 The new fields cannot affect capture geometry, stream state or signal
 publication. Reading diagnostics never programs flash, trains PLLs, changes

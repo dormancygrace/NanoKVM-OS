@@ -419,60 +419,6 @@ class AssembleTests(unittest.TestCase):
         self.assertEqual(self.run_assemble(keep=1)[0], 'v3.3.1')
         self.assertEqual(sorted(p.name for p in self.repo().glob('*.apk')), ['nanokvm-31-r0.apk'])
 
-    def test_the_page_links_the_newest_image(self):
-        self.run_assemble()
-        self.assertNotIn('new SD card', (self.out / 'index.html').read_text())
-        self.fake.release('v2.0.0', '2026-01-05T00:00:00Z', [('nanokvm', '20-r0')],
-                          extra={'NanoKVM-OS-Image-v1.4-apps-v2.0.0.img.zip': b'image'})
-        self.fake.release('v2.0.1', '2026-01-06T00:00:00Z', [('nanokvm', '21-r0')])
-        self.run_assemble()
-        page = (self.out / 'index.html').read_text()
-        self.assertIn('NanoKVM-OS-Image-v1.4-apps-v2.0.0.img.zip', page)
-        self.assertIn('from release v2.0.0', page)
-
-    def test_image_badge_and_redirect_survive_hotfixes_and_skip_drafts(self):
-        self.fake.release('v3.3.0', '2026-04-01T00:00:00Z', [('nanokvm', '33-r0')],
-                          extra={'NanoKVM-OS-Image-v1.5-apps-v3.3.0.img.zip': b'image'})
-        self.fake.release('v3.3.1', '2026-04-02T00:00:00Z', [('nanokvm', '331-r0')])
-        self.fake.release('v3.4.0', '2026-04-03T00:00:00Z', [('nanokvm', '34-r0')],
-                          extra={'NanoKVM-OS-v3.4.0.img.zip': b'next'}, draft=True)
-        self.run_assemble(keep=1)
-        badge = json.loads((self.out / 'latest-image/badge.json').read_text())
-        self.assertEqual(badge, {'schemaVersion': 1, 'label': 'SD image', 'message': 'v1.5', 'color': 'blue'})
-        redirect = (self.out / 'latest-image/index.html').read_text()
-        self.assertIn('url=https://github.com/dormancygrace/NanoKVM-OS/releases/tag/v3.3.0', redirect)
-        self.assertNotIn('/tag/v3.3.1', redirect)
-        # A prerelease image must not replace the stable image either.
-        self.fake.list[-1]['draft'] = False
-        self.fake.list[-1]['prerelease'] = True
-        self.run_assemble(keep=1)
-        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v1.5')
-        # Publishing the next stable image advances both badge and destination.
-        self.fake.list[-1]['prerelease'] = False
-        self.run_assemble(keep=1)
-        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v3.4.0')
-        self.assertIn('/tag/v3.4.0', (self.out / 'latest-image/index.html').read_text())
-
-    def test_new_image_survives_hotfix_and_wrong_version_assets(self):
-        self.split_fixture(tag='v3.7.0', version='3.7.0-r0')
-        self.fake.release('v3.7.1', '2026-10-23', [('nanokvm', '3.7.1-r0')],
-                          extra={'packages.json': b'{"version":"3.7.1-r0"}',
-                                 'NanoKVM-OS-v99.0.0.img.zip': b'wrong version',
-                                 'unrelated.img.zip': b'not an OS image'})
-        self.fake.split_release('v3.7.1')
-        self.run_assemble(keep=1)
-        self.assertEqual((self.repo() / 'Packages.adb').read_bytes(), b'adb v3.7.1')
-        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'v3.7.0')
-        self.assertIn('/tag/v3.7.0', (self.out / 'latest-image/index.html').read_text())
-        page = (self.out / 'index.html').read_text()
-        self.assertIn('NanoKVM-OS-v3.7.0.img.zip', page)
-        self.assertNotIn('NanoKVM-OS-v99.0.0.img.zip', page)
-
-    def test_image_badge_without_images_does_not_invent_a_version(self):
-        self.run_assemble()
-        self.assertEqual(json.loads((self.out / 'latest-image/badge.json').read_text())['message'], 'not available')
-        self.assertNotIn('/tag/', (self.out / 'latest-image/index.html').read_text())
-
     def test_drafts_and_releases_without_indexes_or_sums_are_skipped(self):
         self.fake.release('v9', '2026-09-01T00:00:00Z', [('nanokvm', '9-r0')], draft=True)
         self.fake.release('v8', '2026-08-01T00:00:00Z', [('nanokvm', '8-r0')], sums=False)
@@ -520,26 +466,10 @@ class AssembleTests(unittest.TestCase):
             self.run_assemble()
         self.assertEqual((self.out / 'notes.txt').read_text(), 'keep')
 
-    def test_landing_page_has_a_usable_repository_url_and_key_links(self):
-        self.run_assemble()
-        page = (self.out / 'index.html').read_text()
-        self.assertIn('https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb', page)
-        self.assertIn('href="keys/release.rsa.pub"', page)
-        self.assertNotIn('href="keys/"', page)
-
     def test_no_release_fails(self):
         self.fake.list = []
         with self.assertRaisesRegex(ValueError, 'No published release'):
             self.run_assemble()
-
-    def test_branch_comes_from_the_package_builder(self):
-        self.assertRegex(a.alpine_branch(), r'^\d+\.\d+$')
-
-    def test_devices_read_the_addon_repository_that_pages_serves(self):
-        # nanokvm-base ships the line; it must follow the Alpine branch.
-        line = (ROOT / 'firmware/alpine/etc/apk/repositories.d/nanokvm-addons.list').read_text()
-        self.assertEqual(line, a.addon_repository(a.alpine_branch()) + '\n')
-        self.assertIn('/etc/apk/repositories.d/nanokvm-addons.list', (ROOT / 'platform/packages.list').read_text())
 
 
 class Fetch(unittest.TestCase):

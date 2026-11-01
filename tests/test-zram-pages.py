@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tests/kernel-zstd'))
+sys.path.insert(0, str(ROOT / 'tests/zram-pages'))
 import support
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -30,7 +30,7 @@ def check(output):
             raise RuntimeError('Cannot locate actual zram helper: ' + name)
         helpers.append(match.group(0))
     unit = output / 'helpers.c'
-    unit.write_text('#include "' + str(ROOT / 'tests/kernel-zstd/compat.h') + '"\n'
+    unit.write_text('#include "' + str(ROOT / 'tests/zram-pages/compat.h') + '"\n'
                     '#define PAGE_SIZE 4096\n'
                     '#define IS_ALIGNED(n, a) (((n) & ((a) - 1)) == 0)\n'
                     '#define WARN_ON_ONCE(c) assert(!(c))\n'

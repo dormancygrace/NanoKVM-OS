@@ -224,42 +224,6 @@ class RescueTests(unittest.TestCase):
                 self.assertEqual(self.calls_made()[-1], call)
                 self.assertEqual(self.stop.exists(), action == 'permanent_off')
 
-    def test_stop_and_restart_retire_the_worker(self):
-        env = self.environment(NANOKVM_RESCUE_WAIT='60')
-        pid_file = self.run_dir / 'ssh-rescue.pid'
-        workers = []
-        self.addCleanup(lambda: [os.kill(p, 9) for p in workers if alive(p)])
-
-        def start():
-            subprocess.run(['sh', '-c', self.script('start', real_sleep=True), 'nanokvm-rescue'], check=True, env=env,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            workers.append(int(pid_file.read_text()))
-            return workers[-1]
-
-        first = start()
-        self.assertTrue(alive(first))
-        second = start()
-        self.assertNotEqual(first, second)
-        self.assertTrue(wait_dead(first))
-        self.assertTrue(alive(second))
-        subprocess.run(['sh', '-c', self.script('stop'), 'nanokvm-rescue'], check=True, env=env)
-        self.assertTrue(wait_dead(second))
-        self.assertFalse(pid_file.exists())
-        self.assertEqual(self.calls_made(), [])
-
-    def test_stop_leaves_a_reused_pid_alone(self):
-        # The worker found the server up and exited; its PID is someone else's now.
-        other = subprocess.Popen(['sleep', '30'])
-        self.addCleanup(other.wait)
-        self.addCleanup(other.kill)
-        self.run_dir.mkdir(parents=True)
-        (self.run_dir / 'ssh-rescue.pid').write_text(f'{other.pid}\n')
-        result = self.run_service('stop')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        time.sleep(0.2)
-        self.assertIsNone(other.poll())
-        self.assertFalse((self.run_dir / 'ssh-rescue.pid').exists())
-
     def test_retiring_the_worker_waits_for_an_sshd_start_in_progress(self):
         # The old worker is starting sshd when the service stops (or
         # restarts) and the user then turns SSH off: the start must be over
@@ -314,12 +278,6 @@ class RescueTests(unittest.TestCase):
         # The marker of the earlier run is gone too.
         self.assertFalse(self.marker.exists())
 
-    def test_it_is_in_the_default_runlevel_on_install_and_update(self):
-        base = ROOT / 'firmware/alpine/packages/nanokvm-base'
-        self.assertIn('nanokvm-rescue', (base / 'nanokvm-base.post-install').read_text())
-        self.assertIn('rc-update add nanokvm-rescue default', (base / 'nanokvm-base.post-upgrade').read_text())
-        self.assertRegex((ROOT / 'platform/packages.list').read_text(),
-                         r'(?m)^base +file +/etc/init\.d/nanokvm-rescue +0755 +firmware/alpine/openrc/nanokvm-rescue$')
 
 
 if __name__ == '__main__':

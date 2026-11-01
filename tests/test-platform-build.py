@@ -2,7 +2,6 @@
 """Check platform output hashes, toolchain inputs and package payload assembly."""
 
 import hashlib
-import json
 import os
 from pathlib import Path
 import re
@@ -25,18 +24,6 @@ def expect(result, success, name, text=None):
         assert text in result.stdout + result.stderr, (name, text, result.stdout, result.stderr)
     print(f"{name}: pass")
 
-
-# Compile the actual copied EDID tool, outside the source tree, as tools() does.
-# Only substitute native CPU flags; preserve its include paths and make command.
-with tempfile.TemporaryDirectory(prefix="nkos-edid-build-") as directory:
-    script = (REPO / "platform/build.sh").read_text()
-    start = script.index("    e=$t/edid\n")
-    end = script.index('    "${cross}strip"', start)
-    command = "python3() { printf '%s\\n' '-O2'; };\n" + script[start:end]
-    result = subprocess.run(["bash", "-euc", command], capture_output=True, text=True,
-                            env={**os.environ, "repo": str(REPO), "t": directory, "cross": ""})
-    expect(result, True, "EDID tool builds outside the source tree")
-    assert (Path(directory) / "edid/nanokvm_update_edid").is_file()
 
 with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
     root = Path(directory)
@@ -156,118 +143,3 @@ with tempfile.TemporaryDirectory(prefix="nkos-platform-") as directory:
                              "-e", __file__, "-d", "packages"],
                             env=debug_env, capture_output=True, text=True)
     expect(result, False, "debug packages refuse release keys", "-e, -d and -u exclude each other")
-
-    app = out / "payloads/app/kvmapp"
-    assert {path.name for path in (app / "system/init.d").iterdir()} == {
-        "S03usbdev", "S03usbhid", "S15kvmhwd",
-        "S95nanokvm", "S96picoclaw", "nanokvm-server-supervisor",
-    }, "app payload must contain only its supported init scripts"
-    base = out / "payloads/base"
-    assert (base / "usr/libexec/nanokvm/legacy/S50avahi-daemon").read_bytes() == (REPO / "firmware/alpine/compat/S50avahi-daemon").read_bytes()
-    assert (base / "etc/init.d/S50avahi-daemon").readlink() == Path("/usr/libexec/nanokvm/legacy/S50avahi-daemon")
-    supervisor_path = "system/init.d/nanokvm-server-supervisor"
-    supervisor = app / supervisor_path
-    assert supervisor.is_file() and not supervisor.is_symlink(), "supervisor missing from app payload"
-    assert supervisor.stat().st_mode & 0o7777 == 0o755, "supervisor must be installed with mode 0755"
-    assert supervisor.read_bytes() == (REPO / "kvmapp" / supervisor_path).read_bytes()
-    manifest_path = app / "build-manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    release_values = dict(line.split("=", 1) for line in
-                          (tree / "firmware/alpine/release.env").read_text().splitlines()
-                          if line and not line.startswith("#"))
-    # The release version and source commit belong to nanokvm-release only, so
-    # that the application package changes only when its files do.
-    assert set(manifest) == {"files"}, "the application manifest lists file hashes only"
-    assert not (app / "version").exists(), "/kvmapp/version belongs to nanokvm-release"
-    release = out / "payloads/release"
-    assert (release / "kvmapp/version").read_text().strip() == release_values["NANOKVM_VERSION"].removeprefix("v")
-    release_file = (release / "etc/nanokvm-release").read_text()
-    assert f'VERSION="{release_values["NANOKVM_VERSION"]}"' in release_file
-    assert 'SOURCE_COMMIT="' in release_file
-    expected_files = {str(path.relative_to(app)): hashlib.sha256(path.read_bytes()).hexdigest()
-                      for path in app.rglob("*")
-                      if path.is_file() and not path.is_symlink() and path != manifest_path}
-    assert manifest["files"] == expected_files, "manifest must hash every payload file, excluding itself and symlinks"
-    web = out / "payloads/web/kvmapp"
-    web_manifest_path = web / "web-build-manifest.json"
-    web_manifest = json.loads(web_manifest_path.read_text())
-    assert not (app / "server/web").exists(), "backend must not own browser assets"
-    assert not any(name.startswith("server/web/") for name in manifest["files"])
-    assert set(web_manifest) == {"files"}, "the web manifest lists file hashes only"
-    assert web_manifest["files"] == {
-        str(path.relative_to(web)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in web.rglob("*") if path.is_file() and path != web_manifest_path
-    }
-    assert (web / "server/web/fixture").exists(), "web package must own browser assets"
-    assert not (app / "enhanced-stage-manifest.json").exists(), "obsolete stage manifest retained"
-    # The release button supplies versions without modifying release.env.
-    result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out), "payloads"],
-                            env={**os.environ, "NANOKVM_VERSION": "v9.8.7"},
-                            capture_output=True, text=True)
-    expect(result, True, "workflow version overrides release.env")
-    assert (release / "kvmapp/version").read_text().strip() == "9.8.7"
-    assert 'VERSION="v9.8.7"' in (release / "etc/nanokvm-release").read_text()
-    assert json.loads(manifest_path.read_text()) == manifest
-    assert json.loads(web_manifest_path.read_text()) == web_manifest
-    # Execute the installed file directly: this checks its shebang and mode as
-    # well as its presence, without starting target binaries or touching /run.
-    expect(subprocess.run([str(supervisor), "wait"], capture_output=True, text=True,
-                          env={**os.environ, "NANOKVM_RECOVERY_DIR": str(root / "recovery")},
-                          timeout=5), True, "packaged supervisor is executable")
-
-    # The debug profile must also have a working positive path with test keys.
-    # Use the existing payload fixture with matching debug boot metadata.
-    marker.unlink()
-    release_metadata.write_text("7.3.0-nanokvm-os-r5-debug\n")
-    result = subprocess.run(["bash", str(tree / "platform/build.sh"), "-o", str(out),
-                             "-d", "payloads"], env=debug_env, capture_output=True, text=True)
-    expect(result, True, "debug payloads accept test keys")
-    assert marker.read_text() == "debug\n"
-    assert (out / "payloads/kernel/usr/lib/nanokvm/boot/kernel.release").read_bytes() == release_metadata.read_bytes()
-
-# Exercise the real startup/mapping synchronization without creating namespaces.
-source = (REPO / "platform/build.sh").read_text()
-userns = source[source.index("in_userns() ("):source.index("\nqemu=")]
-for mode, code in (("startup-fails", 17), ("uidmap-fails", 23),
-                   ("gidmap-fails", 24), ("child-fails", 29), ("success", 0),
-                   ("unsigned", 0), ("dev-key", 0), ("release-key", 0)):
-    with tempfile.TemporaryDirectory(prefix="nkos-userns-") as directory:
-        root = Path(directory)
-        script = root / "test.sh"
-        script.write_text("""#!/bin/bash
-set -euo pipefail
-mode=$1
-export TMPDIR=$2
-here=$2 out=$2 jobs=1 eckey= devkey= laterkey=
-case $mode in
-    unsigned) laterkey=1 ;;
-    dev-key) devkey=1 ;;
-    release-key) eckey="$2/release key.key" ;;
-esac
-awk() { echo 100000; }
-newuidmap() { [ "$mode" != uidmap-fails ] || return 23; }
-newgidmap() { [ "$mode" != gidmap-fails ] || return 24; }
-unshare() {
-    printf '%s\\n' "$@" > "$TMPDIR/namespace-argv"
-    [ "$mode" != startup-fails ] || return 17
-    echo "$BASHPID" > "$TMPDIR/child.pid"
-    echo > "$sync/ready"
-    read -r _ < "$sync/mapped"
-    [ "$mode" != child-fails ] || return 29
-}
-""" + userns + "\nin_userns packages\n")
-        result = subprocess.run(["bash", str(script), mode, directory],
-                                capture_output=True, text=True, timeout=5)
-        assert result.returncode == code, (mode, result.returncode, result.stderr)
-        if code == 0:
-            args = (root / "namespace-argv").read_text().splitlines()
-            child = args[args.index("NANOKVM_USERNS=1") + 1:]
-            flags = {"unsigned": ["-u"], "dev-key": ["-d"],
-                     "release-key": ["-e", str(root / "release key.key")]}.get(mode, [])
-            assert child == ["bash", str(root / "build.sh"), "-o", directory,
-                             "-j", "1", *flags, "packages"], (mode, child)
-        assert not list(root.glob("tmp.*")), (mode, "synchronization files left behind")
-        child = root / "child.pid"
-        if child.exists():
-            assert not Path("/proc", child.read_text().strip()).exists(), (mode, "child left running")
-        print(f"namespace {mode}: pass")

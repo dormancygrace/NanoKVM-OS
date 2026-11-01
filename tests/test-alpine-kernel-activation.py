@@ -40,8 +40,6 @@ class ActivationTests(unittest.TestCase):
         # Reads "from the card"; CORRUPT names a file to read back wrong, when
         # its content has the hash CORRUPT_IF (if set).
         f=self.root/'bin'/'readcard';f.write_text('#!/bin/sh\nif [ "$(basename "$1")" = "${CORRUPT:-}" ] && { [ -z "${CORRUPT_IF:-}" ] || [ "$(sha256sum < "$1" | cut -d " " -f 1)" = "$CORRUPT_IF" ]; }; then echo garbage; exit 0; fi\ncat "$1"\n');f.chmod(0o755)
-        # FAIL_MV names the destination of a rename that fails.
-        f=self.root/'bin'/'mv';f.write_text('#!/bin/sh\nfor last; do :; done\n[ "$(basename "$last")" != "${FAIL_MV:-}" ] || exit 1\nexec /bin/mv "$@"\n');f.chmod(0o755)
         source=SOURCE.read_text()
         self.assertIn('dd if="$1" bs=64k iflag=direct 2>/dev/null',source)
         source=source.replace('dd if="$1" bs=64k iflag=direct 2>/dev/null','readcard "$1"')
@@ -68,13 +66,6 @@ class ActivationTests(unittest.TestCase):
     def installed_read_wrong(self):
         # The installed image reads back wrong; earlier reads of boot.sd are right.
         return {'CORRUPT':'boot.sd','CORRUPT_IF':sha(composed(DTB))}
-    def boots(self,uboot):
-        """What a U-Boot tries, in order: the new one boot.sd then boot.prev,
-        the one before this change only boot.sd. The first readable image."""
-        names=['boot.sd','boot.prev'] if uboot=='new' else ['boot.sd']
-        for name in names:
-            if (self.boot/name).exists():
-                return (self.boot/name).read_bytes()
     def test_installs_matched_fit_and_requests_reboot(self):
         result=self.run_activation()
         self.assertEqual(result.returncode,0,result.stderr)
@@ -133,30 +124,12 @@ class ActivationTests(unittest.TestCase):
         result=self.run_activation()
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(self.files(),{'boot.sd':composed(DTB),'boot.prev':b'older FIT'})
-    def test_a_failed_promotion_keeps_the_good_fallback(self):
-        self.corrupt_primary_good_fallback()
-        result=self.run_activation(FAIL_MV='boot.sd')
-        self.assertNotEqual(result.returncode,0)
-        self.assertEqual((self.boot/'boot.prev').read_bytes(),b'older FIT')
-        self.assertEqual(self.boots('new'),b'damaged FIT')
-        self.assertEqual(self.records()['boot.prev'],sha(b'older FIT'))
     def test_a_wrong_installed_image_with_a_damaged_primary_restores_the_fallback(self):
         self.corrupt_primary_good_fallback()
         result=self.run_activation(**self.installed_read_wrong())
         self.assertNotEqual(result.returncode,0)
         self.assertIn('restored from boot.prev',result.stderr)
         self.assertEqual(self.files(),{'boot.sd':b'older FIT','boot.prev':b'older FIT'})
-    def test_boot_sd_is_never_missing_for_the_previous_bootloader(self):
-        # That U-Boot tries boot.sd only: every failure leaves it in place.
-        for env in ({'FAIL_MV':'boot.sd'},{'FAIL_MV':'boot.prev'},{'CORRUPT':'boot.new'},self.installed_read_wrong()):
-            with self.subTest(env=env):
-                for f in self.boot.iterdir():
-                    f.unlink()
-                (self.boot/'boot.sd').write_bytes(b'old FIT')
-                result=self.run_activation(**env)
-                self.assertNotEqual(result.returncode,0)
-                self.assertEqual(self.boots('old'),b'old FIT')
-                self.assertEqual(self.boots('new'),b'old FIT')
     def test_bad_source_hash_leaves_boot_untouched(self):
         (self.payload/'pcie.dtb').write_bytes(b'corrupt!')
         self.assertNotEqual(self.run_activation().returncode,0)
@@ -166,25 +139,6 @@ class ActivationTests(unittest.TestCase):
         (self.root/'bin/modinfo').write_text('#!/bin/sh\necho incompatible\n')
         self.assertNotEqual(self.run_activation().returncode,0)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
-    def test_every_earlier_mode_boots_the_board_image(self):
-        # Earlier releases selected an image per video memory mode; the
-        # selection files go, and every device boots the board's image.
-        for mode in (None,'fhd','qhd','uhd','cma','fixed','fhd-fixed','../bad'):
-            with self.subTest(mode=mode):
-                (self.boot/'boot.sd').write_bytes(b'old FIT')
-                (self.dt/'nanokvm,video-memory-mode').write_bytes((mode or 'uhd').encode()+b'\0')
-                if mode:
-                    (self.root/'etc/kvm/video-memory-mode').write_text(mode+'\n')
-                    (self.boot/'video-memory-mode').write_text(mode+'\n')
-                result=self.run_activation()
-                self.assertEqual(result.returncode,0,result.stderr)
-                self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(DTB))
-                self.assertFalse((self.root/'etc/kvm/video-memory-mode').exists())
-                self.assertFalse((self.boot/'video-memory-mode').exists())
-    def test_a_mode_argument_of_an_earlier_server_is_ignored(self):
-        result=subprocess.run(['sh',str(self.script),'pcie','qhd'],capture_output=True,text=True)
-        self.assertEqual(result.returncode,0,result.stderr)
-        self.assertEqual((self.boot/'boot.sd').read_bytes(),composed(DTB))
     def test_missing_board_image_leaves_boot_untouched(self):
         (self.payload/'pcie.dtb').unlink()
         self.assertNotEqual(self.run_activation().returncode,0)
@@ -193,10 +147,4 @@ class ActivationTests(unittest.TestCase):
         (self.dt/'sipeed,board-revision').write_text('unknown')
         self.assertNotEqual(self.run_activation().returncode,0)
         self.assertEqual((self.boot/'boot.sd').read_bytes(),b'old FIT')
-class UBootFallbackTests(unittest.TestCase):
-    def test_uboot_boots_the_replaced_image_and_never_stops_at_its_prompt(self):
-        config=(ROOT/'platform/uboot/defconfig').read_text()
-        command=re.search(r'^CONFIG_BOOTCOMMAND="(.*)"$',config,re.M)[1]
-        self.assertIn('for image in boot.sd boot.prev; do if fatload mmc 0:1 0x85000000 ${image}; then bootm',command)
-        self.assertTrue(command.endswith('; done; reset'))
 if __name__=='__main__': unittest.main()

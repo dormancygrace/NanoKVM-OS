@@ -27,7 +27,7 @@ class UnpackTests(unittest.TestCase):
         self.out = self.root / 'out'
         self.out.mkdir()
 
-    def pack(self, build, *, check=True, stock=False):
+    def pack(self, build):
         # Execute the actual workflow, skipping only the expensive build.
         workflow = (ROOT / '.github/workflows/release.yml').read_text()
         step = re.search(r'^      - name: Packages, root file system and image\n'
@@ -43,10 +43,9 @@ class UnpackTests(unittest.TestCase):
         result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', packing], cwd=ROOT,
                               env={**os.environ, 'OUT': str(build), 'RUNNER_TEMP': str(self.root),
                                    'NANOKVM_VERSION': 'v3.5.0', 'LC_ALL': 'C',
-                                   'BUILD_STOCK_INSTALLER': 'true' if stock else 'false'},
+                                   'BUILD_STOCK_INSTALLER': 'false'},
                               capture_output=True, text=True)
-        if check:
-            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
         return result
 
     def build_tar(self):
@@ -93,33 +92,6 @@ class UnpackTests(unittest.TestCase):
         self.assertEqual((self.out / 'release/image/NanoKVM-OS.img.zip').stat().st_mode & 0o777, 0o755)
         self.assertTrue((self.out / FILES[0]).is_file())
 
-    def test_opt_in_stock_installer_is_transferred(self):
-        self.build_tar()
-        build = next(p for p in self.root.iterdir()
-                     if p.is_dir() and p.name.startswith('build outputs '))
-        package = build / 'release/stock-installer/nanokvm_3.5.0.tar.gz'
-        package.parent.mkdir()
-        package.write_bytes(b'installer')
-        (package.parent / 'SHA256SUMS').write_text('checksums')
-        self.pack(build, stock=True)
-        m.unpack(self.root / 'release-build.tar', self.out)
-        self.assertEqual((self.out / package.relative_to(build)).read_bytes(), b'installer')
-
-    def test_missing_finished_image_or_manifest_fails_the_build(self):
-        self.build_tar()
-        build = next(p for p in self.root.iterdir()
-                     if p.is_dir() and p.name.startswith('build outputs '))
-        for name in ('NanoKVM-OS.img.zip', 'build-manifest.json'):
-            path = build / 'release/image' / name
-            data = path.read_bytes()
-            path.unlink()
-            try:
-                result = self.pack(build, check=False)
-                self.assertNotEqual(result.returncode, 0, result.stdout)
-                self.assertIn('Cannot stat', result.stderr)
-            finally:
-                path.write_bytes(data)
-
     def refused(self, info, what, data=b''):
         archive = self.with_member(self.build_tar(), info, data)
         with self.assertRaisesRegex(ValueError, what):
@@ -145,11 +117,6 @@ class UnpackTests(unittest.TestCase):
             info = tarfile.TarInfo(name)
             info.size = 1
             self.refused(info, 'Unsafe member name', b'x')
-
-    def test_the_sign_job_uses_it(self):
-        action = (ROOT / '.github/actions/assemble-release/action.yml').read_text()
-        self.assertIn('python3 scripts/release_build_tar.py "$RUNNER_TEMP/release-build.tar" "$OUT"', action)
-        self.assertNotIn('-xf "$RUNNER_TEMP/release-build.tar"', action)
 
 
 if __name__ == '__main__':

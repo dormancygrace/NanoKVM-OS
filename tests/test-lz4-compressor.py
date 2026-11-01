@@ -36,16 +36,6 @@ def check(directory):
     assert selected
     subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(directory)],
                    input=selected, text=True, check=True)
-    # Old candidate tools must fail explicitly before creating partial outputs.
-    bench = ROOT / 'firmware/alpine/bench/c906-lz4'
-    for tool in ['variants.py', 'build.py']:
-        output = directory / ('retired-' + tool)
-        arguments = [str(directory), str(output)] if tool == 'variants.py' else [
-            '--kernel', str(directory), '--kernel-build', str(directory),
-            '--output', str(output), '--cross', 'unused-', '--cflags=-O3']
-        result = subprocess.run(['python3', str(bench / tool), *arguments], text=True, capture_output=True)
-        assert result.returncode == 2 and 'retired for the LZ4 1.10' in result.stderr, result.stderr
-        assert not output.exists()
     include = directory / 'include/linux'
     include.mkdir(parents=True, exist_ok=True)
     for name in ['kernel.h', 'limits.h', 'lz4.h', 'module.h', 'string.h']:

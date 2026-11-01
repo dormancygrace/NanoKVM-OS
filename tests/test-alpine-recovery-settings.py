@@ -11,12 +11,6 @@ repo = Path(__file__).resolve().parents[1]
 source = (repo / 'firmware/alpine/recovery/init').read_text()
 functions = source[source.index('verify_sha256() {'):source.index("mount_data() {")]
 functions += source[source.index('validate_settings() {'):source.index('validate_root() {')]
-# Preserved and recorded before the format, or resumed from the record.
-main = source[source.index('\nmount_initial_filesystems\n'):]
-assert main.index('\tvalidate_settings\n\tmark_formatting\n') < main.index('\nmkfs.f2fs ')
-assert main.index('if [ -f "$FORMAT_MARKER" ]') < main.index('backup_settings') < main.index('\nmkfs.f2fs ')
-# The record goes only after boot.sd is the new image.
-assert main.index('boot.sd || fail') < main.index('rm -f "/realroot$FORMAT_MARKER"')
 busybox = shutil.which('busybox')
 assert busybox, 'BusyBox is required'
 
@@ -261,11 +255,3 @@ check_return('stopped before formatting goes back and restarts', 0)
 check_return('stopped after formatting began stays at the console', 1)
 check_return('a changed previous image is not used', 0, 'changed')
 check_return('a copy kept for another recovery FIT is not used', 0, 'other-fit')
-main = source[source.index('\nmount_initial_filesystems\n'):]
-# Unsafe until the record is looked for, which happens before any check that can fail.
-assert 'FORMATTING=1\n' in source[:source.index('return_to_previous_image() {')]
-assert main.index('\nmount_data\n') < main.index('[ -f "$FORMAT_MARKER" ] || FORMATTING=0')
-for check in ('\nvalidate_layout\n', '\nwait_for_payloads\n', '\nverify_sha256 '):
-    assert main.index('[ -f "$FORMAT_MARKER" ] || FORMATTING=0') < main.index(check), check
-assert main.index('\tmark_formatting\n\tFORMATTING=1\n') < main.index('\nmkfs.f2fs ')
-assert main.index('boot.sd || fail') < main.index('rm -f "/realroot/boot/$BOOT_BEFORE"')

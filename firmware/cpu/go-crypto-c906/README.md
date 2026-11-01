@@ -124,12 +124,9 @@ reference Poly1305 test binaries and checks their 506-byte update symbols.
 guard-page tests on scalar RISC-V QEMU with RVV disabled; its deliberate
 corrupted-result control must fail. This tests correctness, not C906 timing.
 
-[Qualification results](../../../tests/manual/c906-poly1305/results.md)
-include 27 message sizes, independent big-integer and guard-page checks,
-three-process medians, real TLS 1.2/1.3 Ethernet tests, and a separate stock
-kernel WireGuard baseline. The measured AEAD CPU reduction is about 5–6% at
-1400 bytes and 7–8% at 16 KiB. These are incremental gains over the already
-accelerated NanoKVM code, unlike the older unpatched-Go comparison below.
+The measured AEAD CPU reduction is about 5–6% at 1400 bytes and 7–8% at
+16 KiB. These are incremental gains over the already accelerated NanoKVM
+code, unlike the older unpatched-Go comparison below.
 
 The Go change does not replace the kernel Poly1305 used by WireGuard.
 Linux uses its own RISC-V Cryptogams/OpenSSL assembly, which already folds
@@ -284,7 +281,6 @@ python3 ../firmware/cpu/go-crypto-c906/check-binary.py --binutils $B \
 # on the device, in /var/tmp:
 ./sha1mb.test -test.run 'RFC|Cross|Bound|Large|Selection' -test.v
 ./sha1mb.test -test.run Stress -sha1mb.stress=90s &   # twice, concurrently
-./sha1mb.test -test.run Measure -test.v -sha1mb.measure=7
 ```
 
 ## Annex-B start codes (`server/internal/annexb`)

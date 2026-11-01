@@ -23,50 +23,6 @@ the prefix detector only selects the standard implementation. After a false
 vector candidate on another line of at most 128 B, a bounded scalar scan finishes
 the search. Long lines fall back to strings.Contains.
 
-## Final-head device evidence
-
-An independent [device check of eec43187](https://github.com/dormancygrace/NanoKVM-OS/pull/500#discussion_r4387869446)
-compared the production runtime-gated head with the shipped #499 scalar code.
-The NanoKVM C906 ran at 1 GHz with the server running and GOMAXPROCS=1. Both
-revisions were built with the same prepared Go 1.27.2 toolchain; these are not
-measurements of the current Go 1.27.3 build. Default and generic modes used the
-same head binary in separate processes. Three rounds rotated the variant order.
-
-| Input | Shipped #499 | Head, generic override | Head, default |
-| --- | ---: | ---: | ---: |
-| DHCP fixture, about 1 MiB (ms/op) | 351.9 | 355.8 | 202.9 |
-| Real device logs, 2.2 MB (seconds, best of five per run) | 1.672 | 1.679 | 1.339 |
-
-These are medians: about 42% less time than #499 on the DHCP fixture and 20%
-on this real-log corpus. The corpus covered 17 MaxBytes windows from apk,
-dmesg, boot archives and RustDesk logs, with both truncation modes. Only
-output digests and timings left the device. All variants produced identical
-digests for identical input bytes; a log grew during round three, so changing
-inputs were excluded from cross-variant comparisons.
-
-All seven TestLogVector tests executed and passed with default dispatch.
-With NANOKVM_LOG_TEXT=generic, six hardware tests skipped and the remaining
-test and the whole package passed. The separate #499 package tests passed.
-
-The generic and #499 aggregate timings are close, but this does not establish
-zero dispatch cost for arbitrary short strings. Short-line measurements at
--benchtime=10x were too noisy for precise conclusions. Repeated-log fixtures
-varied by -0.7% to -5.2%; they are not presented as established speedups.
-These results concern log sanitization, not boot/video latency or all Go code.
-
-### Earlier prototype samples
-
-The retained prototype-short-lines.csv and prototype-whole-log.csv contain
-pre-integration Go 1.27.3 measurements. Their DHCP control was 362.331 ms/op
-and the hybrid prototype was 204.431 ms/op (-43.58%). That control was neither
-the final #499 build nor the control used for the final-head results above.
-The prototype's repeated-fixture differences of 0.73-2.37% overlap the sample
-spread and are not claimed as gains. Its isolated short-line overhead reached
-5.07%. Keep these samples as historical evidence, not as the final baseline.
-
-All 12 production assembly kernels were compared with the qualified prototype
-as linked Go ABI0 machine code: 912 bytes are identical (kernel-equivalence.json).
-
 ## Correctness and build checks
 
 The qualified prototype passed 112640 byte/alignment/length combinations for
@@ -105,13 +61,3 @@ skip them and still pass all architecture-neutral tests:
 
     GOMAXPROCS=1 ./logs.test -test.v
     NANOKVM_LOG_TEXT=generic GOMAXPROCS=1 ./logs.test -test.v
-
-Then run each mode in three separate processes, alternating mode order,
-using the same binary to avoid different instruction layouts. For short-line
-measurements use a time-based -benchtime=1s rather than ten iterations:
-
-    GOMAXPROCS=1 ./logs.test -test.run='^$' -test.bench='BenchmarkSanitizeMiB$|BenchmarkSanitizeRepetitive|BenchmarkSensitiveInputs/(16|32|64|95|128)/regular$' -test.benchtime=10x -test.cpu=1
-    NANOKVM_LOG_TEXT=generic GOMAXPROCS=1 ./logs.test -test.run='^$' -test.bench='BenchmarkSanitizeMiB$|BenchmarkSanitizeRepetitive|BenchmarkSensitiveInputs/(16|32|64|95|128)/regular$' -test.benchtime=10x -test.cpu=1
-
-Also compare against the separately built PR499 baseline to include the cost of
-feature dispatch and line selection.

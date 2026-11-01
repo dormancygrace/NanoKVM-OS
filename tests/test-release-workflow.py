@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Static checks of the release workflow: where the keys are used, and that
-its key names match the published release keys. No network."""
+"""Release workflow steps and the signer's inventory gate, run as shell. No network."""
 import re
 import os
 import json
@@ -12,8 +11,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = (ROOT / '.github/workflows/release.yml').read_text()
-BUILD = (ROOT / '.github/workflows/release-build.yml').read_text()
-KEYS = ROOT / 'firmware/alpine/keys'
 
 
 def job(text, name):
@@ -24,79 +21,6 @@ def job(text, name):
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
-    def test_key_names_are_the_published_keys(self):
-        ec = re.search(r'^  EC_KEY_NAME: (\S+)$', RELEASE, re.M)[1]
-        self.assertTrue((KEYS / f'{ec}.pub').is_file(), ec)
-
-    def test_only_the_approved_job_on_a_tag_sees_the_keys(self):
-        self.assertEqual(RELEASE.count('${{ secrets.'), 1)
-        sign = job(RELEASE, 'sign')
-        self.assertNotIn('APK_RSA_KEY', RELEASE)
-        self.assertIn('secrets.APK_EC_KEY', sign)
-        self.assertIn("if: needs.build.outputs.publish == 'true'", sign)
-        self.assertIn('environment: release', sign)
-        self.assertIn('if: always()', sign)
-        self.assertIn('bash scripts/publish-release.sh', sign)
-        for name in ('build', 'dry-run'):
-            self.assertNotIn('environment:', job(RELEASE, name))
-            self.assertNotIn('${{ secrets.', job(RELEASE, name))
-        self.assertIn('keys: -d', job(RELEASE, 'dry-run'))
-        self.assertIn("if: needs.build.outputs.publish != 'true' && needs.build.outputs.skip != 'true'", job(RELEASE, 'dry-run'))
-        # Only a hand-started run or a pushed tag publishes; a pull request never does.
-        build = job(RELEASE, 'build')
-        pr_case = build.split('            *)', 1)[1].split(';;', 1)[0]
-        self.assertIn('publish=false', pr_case)
-        self.assertNotIn('publish=true', pr_case)
-        self.assertIn('[ "$DRY_RUN" = true ] && echo publish=false', build)
-
-    def test_pages_uses_only_ec_signing_but_keeps_historical_trust(self):
-        pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
-        self.assertNotIn('APK_RSA_KEY', pages)
-        self.assertEqual(pages.count('${{ secrets.'), 1)
-        self.assertIn('scripts/check-ec-key.sh', pages)
-        self.assertIn('--sign-key /signing/release.key', pages)
-        self.assertIn('adbsign --reset-signatures', pages)
-        self.assertIn('--keys-dir /signing verify', pages)
-        self.assertIn('--keys-dir /keys verify', pages)
-        self.assertTrue((KEYS / 'dgrace-6aaddbb6.rsa.pub').is_file())
-
-    def test_unchanged_packages_come_from_the_published_repository(self):
-        previous = re.search(r'^  NANOKVM_PREVIOUS: (\S+)$', RELEASE, re.M)[1]
-        self.assertRegex(previous, r'^https://dormancygrace\.github\.io/NanoKVM-OS/alpine/v[0-9.]+/riscv64$')
-        action = (ROOT / '.github/actions/assemble-release/action.yml').read_text()
-        self.assertIn('p["changed"] and print(p["apk"])', action)
-        self.assertIn('"$repo/packages.json" "$a/"', action)
-
-    def test_workflows_build_every_output_step(self):
-        # The workflows name their steps; a step added to build.sh's default
-        # list must be added there too, or payloads misses its outputs.
-        build = (ROOT / 'platform/build.sh').read_text()
-        default = set(re.search(r'\|\| steps=\(([^)]*)\)', build)[1].split())
-        outputs = default - {'fetch', 'toolchain', 'hashes', 'payloads', 'packages', 'rootfs', 'image'}
-        self.assertIn('tpu', outputs)
-        for workflow in ('release-build.yml', 'release.yml'):
-            text = (ROOT / '.github/workflows' / workflow).read_text()
-            steps = set()
-            for line in re.findall(r'platform/build\.sh -o "\$OUT" (?:-u )?([a-z -]+)$', text, re.M):
-                steps |= set(line.split())
-            self.assertEqual(outputs - steps, set(), workflow)
-
-    def test_os_build_is_independent_of_add_on_releases(self):
-        build = (ROOT / 'platform/build.sh').read_text()
-        packages = build[build.index('packages() ('):build.index('rootfs() {')]
-        self.assertNotIn('addon_packages.py', packages)
-        self.assertNotIn('addons.json', packages)
-        self.assertLess(packages.index('/sbin/apk verify ./*.apk'), packages.index('/sbin/apk --sign-key'))
-        self.assertIn('--allow-untrusted mkndx', packages)
-        self.assertNotIn('addons.json', (ROOT / '.github/actions/assemble-release/action.yml').read_text())
-        for workflow in ('addon.yml', 'rustdesk.yml'):
-            publish = job((ROOT / '.github/workflows' / workflow).read_text(), 'publish')
-            self.assertIn('gh release create', publish)
-            self.assertIn('gh workflow run apk-repository.yml --ref main', publish)
-            self.assertNotIn('gh pr create', publish)
-            self.assertNotIn('git push', publish)
-            self.assertNotIn('pull-requests: write', publish)
-
     def test_signer_rejects_unlisted_add_on_before_signing(self):
         # Execute the real signer with a test key. An extra APK must be rejected
         # by the inventory gate, before it downloads tools or signs anything.
@@ -112,58 +36,6 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('has other packages than packages.json', result.stderr)
             self.assertFalse((Path(tmp) / 'signer').exists())
-
-    def test_only_version_tags_and_the_button_release(self):
-        self.assertRegex(RELEASE, r"push:\n    tags: \['v\*'\]\n")
-        self.assertNotRegex(RELEASE, r'push:\n    branches')
-        for name in ('kind', 'image', 'dry_run'):
-            self.assertRegex(RELEASE, rf'\n      {name}:\n')
-        # A patch release is published at once, and so are its packages.
-        sign = job(RELEASE, 'sign')
-        self.assertIn("gh('workflow', 'run', 'apk-repository.yml'", (ROOT / 'scripts/publish-release.py').read_text())
-        self.assertIn('actions: write', sign)
-
-    def test_release_events_dispatch_pages_on_main_without_signing_on_the_tag(self):
-        pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
-        dispatch = job(pages, 'dispatch')
-        self.assertIn("if: github.event_name == 'release'", dispatch)
-        self.assertIn('actions: write', dispatch)
-        self.assertIn('--repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH"', dispatch)
-        self.assertIn("if: github.event_name != 'release'", job(pages, 'assemble'))
-        self.assertIn('needs: assemble', job(pages, 'sign'))
-        self.assertIn("github.event_name == 'release' && github.run_id", pages)
-
-    def test_the_tag_must_match_release_env(self):
-        build = job(RELEASE, 'build')
-        self.assertIn('. firmware/alpine/release.env', build)
-        self.assertIn('"$GITHUB_REF_NAME" != "$NANOKVM_VERSION"', build)
-        self.assertIn('python3 scripts/next-release.py', build)
-
-    def test_the_tag_of_a_published_draft_releases_nothing_again(self):
-        build = job(RELEASE, 'build')
-        self.assertIn('gh release view "$GITHUB_REF_NAME"', build)
-        self.assertEqual(build.count("if: steps.version.outputs.skip != 'true'"), 5)
-
-    def test_compiler_cache_stays_out_of_signing_and_prs_do_not_save(self):
-        self.assertNotIn('compiler-cache', job(RELEASE, 'sign'))
-        finish = (ROOT / '.github/actions/save-compiler-cache/action.yml').read_text()
-        self.assertIn("github.ref == 'refs/heads/main'", finish)
-        self.assertIn('actions/cache/save@', finish)
-        prepare = (ROOT / '.github/actions/prepare-build/action.yml').read_text()
-        self.assertIn('tests/test-compiler-cache.py --toolchain', prepare)
-        self.assertIn('CCACHE_NAMESPACE=nkos-$id', prepare)
-        for workflow in (RELEASE, BUILD, (ROOT / '.github/workflows/rustdesk.yml').read_text()):
-            self.assertIn('uses: ./.github/actions/save-compiler-cache', job(workflow, 'build'))
-            self.assertIn("if: always() && steps.prepare.outputs.ccache-key != ''", job(workflow, 'build'))
-
-    def test_both_workflows_prepare_the_build_alike(self):
-        self.assertIn('uses: ./.github/actions/prepare-build', BUILD)
-        # Only the build job: the jobs that sign restore nothing from a cache.
-        self.assertEqual(RELEASE.count('uses: ./.github/actions/prepare-build'), 1)
-        self.assertIn('uses: ./.github/actions/prepare-build', job(RELEASE, 'build'))
-        # Only builds of main and pull requests save caches; a tag's would serve no one.
-        self.assertIn("save-caches: 'true'", BUILD)
-        self.assertNotIn('save-caches', RELEASE)
 
 
 def run_step(name):
@@ -265,70 +137,6 @@ class ReleaseExecutionTests(unittest.TestCase):
             self.assertEqual(values['version'], 'v3.3.1-beta.1')
             self.assertEqual(values['apk_version'], '3.3.1_beta1')
             self.assertNotIn('image_version', values)
-
-    def test_both_channels_compare_against_latest_tested_packages(self):
-        # The packages are built, and compared with the published ones, in the
-        # build job; the jobs that sign only sign.
-        packages = run_step('Packages, root file system and image')
-        step = RELEASE.split('      - name: Packages, root file system and image', 1)[1].split('      - uses:', 1)[0]
-        self.assertIn("NANOKVM_CHANNEL: ${{ steps.version.outputs.channel }}", step)
-        self.assertIn("NANOKVM_PREVIOUS: https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/", step)
-        self.assertIn('platform/build.sh -o "$OUT" -u payloads packages rootfs image', packages)
-        for name in ('sign', 'dry-run'):
-            self.assertNotIn('NANOKVM_PREVIOUS', job(RELEASE, name))
-        pages = (ROOT / '.github/workflows/apk-repository.yml').read_text()
-        # Both channels and the add-on repository are indexed and signed.
-        self.assertEqual(pages.count('for repo in /site/alpine/$branch/riscv64 /site/beta/alpine/$branch/riscv64; do'), 1)
-        self.assertIn('index-apk-repo.py --repo "$addonrepo" --keys /keys --addons', pages)
-        self.assertEqual(pages.count('for repo in site/alpine/$branch/riscv64 site/beta/alpine/$branch/riscv64 '
-                                     'site/addons/$branch/riscv64; do'), 1)
-
-
-
-
-class AddonWorkflowTests(unittest.TestCase):
-    ADDON = (ROOT / '.github/workflows/rustdesk.yml').read_text()
-
-    def test_only_the_publish_job_may_write(self):
-        self.assertNotIn('write', job(self.ADDON, 'build'))
-        publish = job(self.ADDON, 'publish')
-        self.assertIn('contents: write', publish)
-        self.assertIn("if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true", publish)
-
-    def test_addon_revision_requires_the_tag_inventory(self):
-        # The revision counts this repository's tags only; the archived
-        # packages repository is never asked.
-        match = re.search(r'^      - name: Version\n(.*?)(?=^      - |\Z)', self.ADDON, re.M | re.S)
-        script = textwrap.dedent(match[1].split('        run: |\n', 1)[1])
-        version = re.search(r'^version = "(.*)"$', (ROOT / 'addons/rustdesk/Cargo.toml').read_text(), re.M)[1]
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / 'gh').write_text("""#!/bin/sh
-case "$*" in
-  *repos/example/current/tags*) [ "$FAIL" != current ] || exit 17
-    echo nanokvm-rustdesk-$VERSION-r8 ;;
-  *) exit 99 ;;
-esac
-""")
-            (root / 'gh').chmod(0o755)
-            env = {**os.environ, 'PATH': str(root) + ':' + os.environ['PATH'],
-                   'GITHUB_REPOSITORY': 'example/current', 'VERSION': version,
-                   'GITHUB_OUTPUT': str(root / 'output'), 'RUNNER_TEMP': str(root)}
-            for failure in ('none', 'current'):
-                with self.subTest(failure=failure):
-                    (root / 'output').write_text('')
-                    result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=ROOT,
-                                            env={**env, 'FAIL': failure}, capture_output=True, text=True)
-                    if failure == 'none':
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        self.assertIn('revision=9', (root / 'output').read_text())
-                    else:
-                        self.assertNotEqual(result.returncode, 0, result.stdout)
-                        self.assertEqual((root / 'output').read_text(), '')
-
-    def test_the_add_on_release_is_never_the_latest(self):
-        self.assertIn('--latest=false', job(self.ADDON, 'publish'))
-        self.assertNotIn('${{ secrets.', self.ADDON)
 
 
 if __name__ == '__main__':

@@ -71,8 +71,7 @@ start_usb_dev(){
     # Keep the mode readable and reserve HID minors in the usual order;
     # a later enable fills the existing objects through the normal path.
     # When adding a USB function, update this enabling-flag guard, S03usbhid
-    # if the function is supported there, and the enabling cases in
-    # tests/test-usb-layout-start.py together.
+    # (if the function is supported there) together.
     if [ ! -d /sys/kernel/config/usb_gadget/g0 ] &&
         { [ -e "$conf/disable_hid" ] ||
           { [ -e "$conf/usb.disable_keyboard" ] &&

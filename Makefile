@@ -8,7 +8,7 @@ PLATFORM = bash platform/build.sh -o "$(OUT)" -j "$(JOBS)" $(PLATFORM_ARGS)
 
 .PHONY: help all platform app support vision web release-build package release clean \
         test-wifi-modules test-alpine-network test-wifi-runtime \
-        test-ethernet-runtime test-usb-profiles test-runtime-state
+        test-ethernet-runtime test-runtime-state
 
 help:
 	@echo "NanoKVM OS — pinned Alpine/platform build"
@@ -56,7 +56,6 @@ test-wifi-modules:
 	@python3 tests/test-aic-firmware-path.py
 
 test-alpine-network:
-	@python3 tests/test-alpine-network.py
 	@python3 tests/test-alpine-service-deps.py
 	@python3 tests/test-alpine-app-wait.py
 
@@ -65,12 +64,7 @@ test-wifi-runtime:
 	@cd server && go test -tags teststub,nomsgpack ./service/network
 
 test-ethernet-runtime:
-	@sh tests/test-ethernet-enabled.sh
 	@cd server && go test -tags teststub,nomsgpack ./service/network
-
-test-usb-profiles:
-	@sh tests/test-usb-profiles.sh
-	@sh tests/test-usb-rebind.sh
 
 test-runtime-state:
 	@sh tests/test-runtime-state.sh

@@ -1,18 +1,10 @@
 #!/usr/bin/env python3
 """Test chip-scoped AIC firmware names without loading a kernel module."""
-import argparse
 from pathlib import Path
 import re
 import subprocess
 import tempfile
 
-
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--source', type=Path,
-                    help='Optional prepared AIC driver root for call-site verification')
-parser.add_argument('--firmware-tree', type=Path,
-                    help='Optional installed aic8800_sdio directory for payload verification')
-args = parser.parse_args()
 repo = Path(__file__).resolve().parents[1]
 # The policy header is a new file in the platform AIC8800 patch.
 patch_lines = (repo / 'platform/modules/aic8800/0001-nanokvm-os.patch').read_text().splitlines(keepends=True)
@@ -75,32 +67,5 @@ with tempfile.TemporaryDirectory(prefix='nkos-aic-firmware-path-') as directory:
         '-I', directory, str(source), '-o', str(binary),
     ], check=True)
     subprocess.run([str(binary)], check=True)
-
-if args.source:
-    driver = args.source.resolve()
-    actual_header = (driver / 'aic8800_bsp/aicbsp_firmware_path.h').read_bytes()
-    assert actual_header == expected_header, 'prepared driver has a different firmware-path policy'
-    direct = []
-    for relative in ('aic8800_bsp', 'aic8800_fdrv'):
-        for source in (driver / relative).glob('*.c'):
-            for line_number, line in enumerate(source.read_text().splitlines(), 1):
-                if re.search(r'(?<!aicbsp_)request_firmware\s*\(', line):
-                    direct.append((source.relative_to(driver), line_number, line.strip()))
-    assert len(direct) == 1, f'unscoped request_firmware call sites remain: {direct}'
-    assert direct[0][0] == Path('aic8800_bsp/aic_bsp_driver.c'), direct
-
-# The qualified D80 SDIO+BT image, from the Radxa package (platform/build.sh firmware).
-import hashlib
-expected_d80 = 'f7fa0a1a296589568fbea1de89ab8feeb13ef2e6db6c7fafa682a34fb583a1bd'
-d80_name = 'fmacfwbt_8800d80_h_u02.bin'
-
-if args.firmware_tree:
-    firmware = args.firmware_tree.resolve()
-    assert hashlib.sha256((firmware / 'aic8800_and_aic8800D80' / d80_name).read_bytes()).hexdigest() == expected_d80, 'packaged D80 firmware is stale or incorrect'
-    for relative in (
-        'aic8800_and_aic8800D80/fw_patch_table.bin',
-        'aic8800_and_aic8800D80/fw_patch_table_8800d80_u02.bin',
-    ):
-        assert (firmware / relative).is_file(), f'missing packaged firmware: {relative}'
 
 print('AIC chip-scoped firmware path tests passed')

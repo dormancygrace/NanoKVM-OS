@@ -56,6 +56,7 @@ export const Screen = () => {
       </Button>
     </div>
   );
+  // Keep hidden content fresh so QuickVideo receives open=false and stops polling.
   return (
     <MenuItem
       title={
@@ -78,6 +79,7 @@ export const Screen = () => {
         </span>
       }
       content={content}
+      fresh
       onOpenChange={setOpen}
     />
   );

@@ -2,14 +2,14 @@ module github.com/pion/dtls/v3
 
 require (
 	github.com/pion/logging v0.2.4
-	github.com/pion/transport/v5 v5.1.3
+	github.com/pion/transport/v5 v5.1.4
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 )
 
 require (
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 )
 

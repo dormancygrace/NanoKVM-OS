@@ -30,12 +30,31 @@ var (
 // profile, the LT6911C and LT6911D take 720p and 1080p at 60 Hz until they are
 // measured beyond that. nanokvm_update_edid programs all three.
 func monitorBoard() string {
-	board, _ := os.ReadFile(monitorBoardFile)
-	return strings.TrimSpace(string(board))
+	return hardwareIdentity(monitorBoardFile, "alpha", "beta", "pcie")
 }
 func receiverChip() string {
-	chip, _ := os.ReadFile(monitorHDMIChipFile)
-	return strings.TrimSpace(string(chip))
+	return hardwareIdentity(monitorHDMIChipFile, "c", "ux", "d", "ue")
+}
+
+// S15kvmhwd publishes both before the server starts and keeps a known value
+// (only an explicit re-detect rewrites it), so a known value is read once per
+// file: the capability answer alone asks about 60 times, and a Go file read
+// costs nine system calls. Anything else is read again next time.
+var hardwareIdentities sync.Map
+
+func hardwareIdentity(path string, known ...string) string {
+	if value, ok := hardwareIdentities.Load(path); ok {
+		return value.(string)
+	}
+	data, _ := os.ReadFile(path)
+	value := strings.TrimSpace(string(data))
+	for _, k := range known {
+		if value == k {
+			hardwareIdentities.Store(path, value)
+			break
+		}
+	}
+	return value
 }
 
 // MonitorProfileSupported describes EDID programming, not capture timings.
@@ -54,8 +73,7 @@ func monitorHardwareSupported(board, chip string) bool {
 
 // HDMIReceiverModel names the HDMI receiver S15kvmhwd identified, or "".
 func HDMIReceiverModel() string {
-	chip, _ := os.ReadFile(monitorHDMIChipFile)
-	return hdmiReceiverModel(strings.TrimSpace(string(chip)))
+	return hdmiReceiverModel(receiverChip())
 }
 func hdmiReceiverModel(chip string) string {
 	switch chip {

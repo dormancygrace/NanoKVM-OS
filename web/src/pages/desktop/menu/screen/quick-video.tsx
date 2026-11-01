@@ -88,9 +88,10 @@ const Row = ({
 
 // The toolbar's video controls: what is streamed now, measured, and the mode,
 // codec, bitrate and transport. Everything else is in Settings → Video.
-export const QuickVideo = () => {
+// The popover keeps it mounted once opened: poll only while it is open.
+export const QuickVideo = ({ open }: { open: boolean }) => {
   const { t } = useTranslation();
-  const { admin, caps, browser, saved, status, refresh } = useVideoSettings(3000);
+  const { admin, caps, browser, saved, status, refresh } = useVideoSettings(open ? 3000 : 0);
   const syncAtoms = useSyncStreamAtoms();
   const [busy, setBusy] = useState(false);
   if (!caps || !browser || !saved || !status) return null;

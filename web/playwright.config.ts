@@ -14,7 +14,7 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:4317', viewport: { width: 1280, height: 900 } },
   webServer: {
     command: 'pnpm browser:fixture',
-    url: 'http://127.0.0.1:4317/tests/browser/index.html',
+    url: 'http://127.0.0.1:4317/tests/browser/recovery.html',
     reuseExistingServer: false,
     timeout: 30_000
   }

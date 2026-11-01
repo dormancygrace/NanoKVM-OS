@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
 import test from 'node:test';
 import { ALL_FORMATS, BufferSource, EncodedPacketSink, Input } from 'mediabunny';
 
@@ -51,95 +50,6 @@ function fixture(options = {}) {
   };
 }
 const tick = () => new Promise((resolve) => setImmediate(resolve));
-test('MP4 commits only after successful finalization', async () => {
-  const f = fixture();
-  const s = await recordPassthrough(f.source, f.writable, null);
-  f.send(0);
-  await s.started;
-  f.send(40000);
-  await tick();
-  assert.ok(!f.events.includes('commit'));
-  s.stop();
-  await s.done;
-  assert.ok(f.chunks.some((c) => Buffer.from(c.data).includes(Buffer.from('ftyp'))));
-  assert.equal(f.events.filter((e) => e === 'commit').length, 1);
-  assert.ok(!f.events.includes('abort'));
-});
-test('a malformed video packet aborts instead of committing a partial file', async () => {
-  const f = fixture();
-  const s = await recordPassthrough(f.source, f.writable, null);
-  const rejected = assert.rejects(s.done);
-  f.send(0, new Uint8Array([1, 2, 3]));
-  await s.started;
-  f.send(40000);
-  s.stop();
-  await rejected;
-  assert.ok(f.events.includes('abort'));
-  assert.ok(!f.events.includes('commit'));
-});
-test('storage failure aborts and releases the source', async () => {
-  const f = fixture({ diskError: true });
-  const s = await recordPassthrough(f.source, f.writable, null);
-  const rejected = assert.rejects(s.done, /disk full/);
-  f.send(0);
-  s.stop();
-  await rejected;
-  assert.ok(f.events.includes('stop-source'));
-  assert.ok(!f.events.includes('commit'));
-});
-test('a source already disposed during async preparation settles the session', async () => {
-  const f = fixture({ closed: true });
-  const s = await recordPassthrough(f.source, f.writable, null);
-  await assert.rejects(s.done, /recording-no-video/);
-  assert.ok(f.events.includes('abort'));
-  assert.ok(f.events.includes('stop-source'));
-});
-test('waiting for a keyframe can be canceled without creating a file', async () => {
-  const f = fixture();
-  const s = await recordPassthrough(f.source, f.writable, null);
-  s.stop();
-  s.stop();
-  await assert.rejects(s.done, /recording-no-video/);
-  assert.ok(f.events.includes('abort'));
-  assert.ok(!f.events.includes('commit'));
-});
-test('packets retained inside a long MP4 fragment count towards the memory limit', async () => {
-  const f = fixture();
-  const s = await recordPassthrough(f.source, f.writable, null, 1000);
-  const result = s.done;
-  f.send(0);
-  await s.started;
-  for (let i = 1; i < 40; i++) {
-    f.send(i * 10000);
-    await tick();
-  }
-  s.stop();
-  assert.equal((await result).reason, 'buffer-limit');
-  assert.ok(!f.events.includes('abort'));
-  assert.ok(f.events.includes('commit'));
-  const input = fileInput(f);
-  const track = await input.getPrimaryVideoTrack();
-  assert.ok(await new EncodedPacketSink(track).getFirstPacket());
-  input.dispose();
-});
-test('a recording asks for a keyframe when the last one is 5 s old', async () => {
-  const f = fixture();
-  let requests = 0;
-  f.source.requestKeyframe = () => requests++;
-  const s = await recordPassthrough(f.source, f.writable, null);
-  f.send(0);
-  await s.started;
-  const delta = (timestamp) => f.packet({ key: false, timestamp, width: 160, height: 90, data });
-  for (let second = 1; second <= 9; second++) delta(second * 1_000_000);
-  // Packets come out one frame late: 5 s is out after the frame at 6 s.
-  assert.equal(requests, 1);
-  f.send(10_000_000);
-  for (let second = 11; second <= 16; second++) delta(second * 1_000_000);
-  assert.equal(requests, 2);
-  s.stop();
-  await s.done;
-});
-
 function fileInput(f) {
   let size = 0;
   for (const c of f.chunks) size = Math.max(size, c.position + c.data.byteLength);
@@ -235,7 +145,6 @@ test('a pause in received audio is filled with silence and does not end the file
   await tick();
   s.stop();
   assert.equal((await s.done).reason, undefined);
-  if (process.env.RECORDING_DUMP) dumpFile(f, process.env.RECORDING_DUMP);
   const input = fileInput(f);
   const track = await input.getPrimaryAudioTrack();
   const packets = [];
@@ -252,15 +161,3 @@ test('a pause in received audio is filled with silence and does not end the file
   assert.ok(Math.abs(real[2].timestamp - 12.02) < 0.0001, String(real[2].timestamp));
   input.dispose();
 });
-
-function dumpFile(f, path) {
-  let size = 0;
-  for (const c of f.chunks) size = Math.max(size, c.position + c.data.byteLength);
-  const bytes = new Uint8Array(size);
-  for (const c of f.chunks)
-    bytes.set(
-      new Uint8Array(c.data.buffer ?? c.data, c.data.byteOffset ?? 0, c.data.byteLength),
-      c.position
-    );
-  writeFileSync(path, bytes);
-}

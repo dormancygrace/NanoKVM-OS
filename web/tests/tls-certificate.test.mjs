@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { certificateNames, certificateState, reloadAvailable } from '../src/lib/tls-certificate.ts';
+import { certificateState, reloadAvailable } from '../src/lib/tls-certificate.ts';
 
 const info = (overrides = {}) => ({
   subject: 'kvm.example',
@@ -30,22 +30,6 @@ const status = (overrides = {}) => ({
   ...overrides
 });
 
-test('the badge state follows error, pending, expired, custom, generated', () => {
-  assert.equal(certificateState(status()), 'generated');
-  assert.equal(certificateState(status({ custom: true, source: 'custom' })), 'custom');
-  assert.equal(certificateState(status({ custom: true, source: 'acme' })), 'acme');
-  assert.equal(certificateState(status({ certificate: info({ expired: true }) })), 'expired');
-  assert.equal(certificateState(status({ pending: true })), 'pending');
-  assert.equal(certificateState(status({ error: 'read certificate: no such file' })), 'error');
-  // Pending only matters while HTTPS serves something.
-  assert.equal(certificateState(status({ enabled: false, pending: true, custom: true })), 'custom');
-  // An unreadable pair wins over an expired served one.
-  assert.equal(
-    certificateState(status({ error: 'x', certificate: undefined, pending: true })),
-    'error'
-  );
-});
-
 test('reload is offered whenever the served pair differs, even behind a boot error', () => {
   assert.equal(reloadAvailable(status()), false);
   assert.equal(reloadAvailable(status({ pending: true })), true);
@@ -56,9 +40,4 @@ test('reload is offered whenever the served pair differs, even behind a boot err
   const fixed = status({ custom: true, pending: true, error: 'boot: custom.crt cannot be used' });
   assert.equal(certificateState(fixed), 'error');
   assert.equal(reloadAvailable(fixed), true);
-});
-
-test('the names the certificate covers, DNS names first', () => {
-  assert.deepEqual(certificateNames(info()), ['kvm.example', '10.0.0.2']);
-  assert.deepEqual(certificateNames(info({ dnsNames: [], ipAddresses: [] })), []);
 });

@@ -60,7 +60,7 @@ export const PicoclawInstall = ({
         }
         description={
           // A line, not antd's Progress: Progress in this lazy chunk makes the
-          // antd chunks import each other (tests/chunks.test.mjs).
+          // antd chunks import each other.
           status.installing ? (
             <span className="text-fg text-sm">
               {t(`picoclaw.install.stages.${status.install_stage || 'preparing'}`)} ·{' '}

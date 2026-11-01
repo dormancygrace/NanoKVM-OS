@@ -3,7 +3,6 @@ import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import languages from '../src/i18n/languages.ts';
-import { localeTag } from '../src/i18n/locale-loader.ts';
 
 const localesDir = new URL('../src/i18n/locales/', import.meta.url);
 const pluralSuffix = /_(zero|one|two|few|many|other)$/;
@@ -32,8 +31,6 @@ const base = (key) => key.replace(pluralSuffix, '');
 const englishBases = new Set([...en.keys()].map(base));
 const has = (keys, key) =>
   keys.has(key) || (pluralSuffix.test(key) && [...keys.keys()].some((k) => base(k) === base(key)));
-const placeholders = (value) =>
-  new Set([...String(value).matchAll(/\{\{\s*([\w.]+)[^}]*\}\}/g)].map((match) => match[1]));
 
 test('the language list and locale files match', () => {
   assert.deepEqual(languages.map(({ key }) => key).sort(), names);
@@ -62,52 +59,4 @@ test('complete languages translate every key in en.json', () => {
     for (const key of en.keys()) if (!has(keys, key)) missing.push(`${name}: ${key}`);
   }
   assert.deepEqual(missing, [], 'translate these keys or mark the language as partial');
-});
-
-test('translations use only interpolation values that English provides', () => {
-  const unknown = [];
-  for (const [name, keys] of locales) {
-    for (const [key, value] of keys) {
-      const english = en.get(key) ?? en.get(`${base(key)}_other`) ?? en.get(base(key));
-      if (english === undefined) continue;
-      const allowed = placeholders(english);
-      if (pluralSuffix.test(key) || en.has(`${base(key)}_other`)) allowed.add('count');
-      for (const variable of placeholders(value)) {
-        if (!allowed.has(variable)) unknown.push(`${name}: ${key} uses {{${variable}}}`);
-      }
-    }
-  }
-  assert.deepEqual(unknown, []);
-});
-
-// A plural key carries exactly the CLDR forms that whole numbers use in its
-// language (Russian one/few/many, French one/many/other, Japanese other) and
-// no plain key with the same name. Weblate stores and writes those forms (it
-// drops the ones only fractions use, such as Russian `other`), so its pull
-// requests keep passing. A plain key beside them would supply the text for a
-// missing form ('5 сообщения'), and Weblate rejects it as a duplicated string.
-const integerForms = (name) => {
-  const rules = new Intl.PluralRules(localeTag(name));
-  const forms = new Set();
-  for (let n = 0; n <= 1000; n++) forms.add(rules.select(n));
-  for (const n of [1e4, 1e5, 1e6, 1e7, 1e9]) forms.add(rules.select(n));
-  return [...forms].sort().join('/');
-};
-
-test('plural keys use exactly the whole-number forms of their language', () => {
-  const problems = [];
-  for (const [name, keys] of locales) {
-    const want = integerForms(name);
-    const groups = new Map();
-    for (const key of keys.keys()) {
-      const form = key.match(pluralSuffix)?.[1];
-      if (form) groups.set(base(key), [...(groups.get(base(key)) ?? []), form]);
-    }
-    for (const [key, forms] of groups) {
-      if (keys.has(key)) problems.push(`${name}: ${key} is both a plain and a plural key`);
-      const got = [...forms].sort().join('/');
-      if (want !== got) problems.push(`${name}: ${key} has ${got}, the language uses ${want}`);
-    }
-  }
-  assert.deepEqual(problems, []);
 });

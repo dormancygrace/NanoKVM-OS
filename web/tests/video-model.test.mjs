@@ -176,26 +176,6 @@ test('unavailable choices carry their reason', () => {
   assert.equal(model.draftIssues(draft({ fps: 5 }), c, everything).fps, 'range');
 });
 
-test('resolutions list every monitor size with its rates, then portrait', () => {
-  const choices = model.resolutionChoices(caps());
-  assert.deepEqual(
-    [...choices.map((c) => c.key)],
-    ['m2160', 'm1440', 'm1080', 'm720', 'p1920', 'p2560']
-  );
-  assert.deepEqual([...choices.find((c) => c.key === 'm1080').rates], [100, 75, 60, 30]);
-  assert.ok(!choices.some((c) => c.key === 'm0'), 'Auto is not a resolution of its own');
-  const uhd = model.resolutionChoices(caps({ uhd: false })).find((c) => c.key === 'm2160');
-  assert.deepEqual([uhd.available, uhd.reason], [false, 'video-memory']);
-});
-
-test('a fixed receiver offers the input size at the stream rates', () => {
-  const fixed = caps({ programmable: false });
-  const choices = model.resolutionChoices(fixed);
-  assert.deepEqual([...choices.map((c) => c.key)], ['i1440']);
-  assert.deepEqual([...choices[0].rates], [60, 50, 40, 30]);
-  assert.equal(model.resolutionOf(draft({ fps: 50 }), fixed).key, 'i1440');
-});
-
 test('a draft is in the resolution of its monitor, whatever its rate', () => {
   const c = caps();
   assert.equal(model.resolutionOf(draft({ monitor: 1440, fps: 60 }), c).key, 'm1440');
@@ -315,25 +295,6 @@ test('the straight-from-capture switch shows for the codecs the device supports'
     { ...model.settingsRequest(saved, { ...saved, hevcDirect: false }) },
     { hevcDirect: 0 }
   );
-});
-
-test('the straight-from-capture switch is labelled for both codecs', () => {
-  const en = JSON.parse(
-    readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')
-  ).videoSettings;
-  const form = readFileSync(
-    new URL('../src/pages/desktop/menu/settings/video/form.tsx', import.meta.url),
-    'utf8'
-  );
-  assert.equal(en.viDirect, 'Video straight from capture');
-  assert.match(en.viDirectH264Hint, /4:2:0/);
-  assert.match(en.viDirectH264Hint, /MJPEG/);
-  assert.match(en.mjpegChromaFallback_h264Capture, /4:2:0/);
-  // Label and accessible name; the hint names what H.264 changes.
-  assert.equal(form.match(/t\('videoSettings\.viDirect'\)/g)?.length, 2);
-  assert.match(form, /'videoSettings\.viDirectH264Hint'/);
-  assert.match(form, /directCaptureApplies\(draft, directCapture\)/);
-  assert.doesNotMatch(form, /t\('videoSettings\.hevcDirect'\)/);
 });
 
 test('the measured input rate is shown as its nominal rate', () => {

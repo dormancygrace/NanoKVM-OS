@@ -36,7 +36,7 @@ function mockServiceWorker(): Plugin {
 //   sets merged into a neighbour;
 // - app: the API wrappers and atoms, which are small and widely shared.
 // Merging small sets can create import cycles between chunks (it did for app
-// code split the same way); tests/chunks.test.mjs checks that there are none.
+// code split the same way); keep the chunks free of cycles.
 // Large optional parts (terminal, picoclaw, virtual keyboard, settings pages,
 // players, locales) stay lazily loaded chunks of their own.
 const htmlOrMain = /\.html$|[\\/]src[\\/]main\.tsx$/;
@@ -119,8 +119,7 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     // The vendor chunk holds all code the entry needs before the first render
-    // (React, antd core, router, i18n). The byte AND request budgets in
-    // tests/chunks.test.mjs cover complete page closures, including lazy roots.
+    // (React, antd core, router, i18n).
     chunkSizeWarningLimit: 800,
     rolldownOptions: {
       output: {

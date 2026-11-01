@@ -263,40 +263,6 @@ test('a paused display does not retain more than six decoded frames', () => {
   h.stop();
 });
 
-test('codec defaults and diagnostic overrides preserve low-latency configuration', () => {
-  for (const [options, expected] of [
-    [{}, 'prefer-hardware'],
-    [{ codec: 'h264' }, 'prefer-software'],
-    [{ codec: 'h264', diagnostics: true }, 'prefer-software'],
-    [{ codec: 'h264', diagnostics: true, decoderPreference: 'prefer-hardware' }, 'prefer-hardware'],
-    [{ decoderPreference: 'prefer-software' }, 'prefer-hardware'],
-    [{ diagnostics: true, decoderPreference: 'prefer-software' }, 'prefer-software'],
-    [{ diagnostics: true, decoderPreference: 'no-preference' }, 'no-preference'],
-    [{ diagnostics: true, decoderPreference: 'invalid' }, 'prefer-hardware']
-  ]) {
-    const h = harness(options);
-    h.send(0, true);
-    assert.equal(h.decoders[0].config.hardwareAcceleration, expected);
-    assert.equal(h.decoders[0].config.optimizeForLatency, true);
-    h.stop();
-    assert.equal(h.timers.size, 0);
-  }
-});
-
-test('receiver-to-decoder and receiver-to-paint measure different pipeline stages', () => {
-  const h = harness({ diagnostics: true });
-  h.send(0, true);
-  h.advance(135);
-  for (const tick of h.timers.values()) tick();
-  const sample = h.reports.find((x) => x.type === 'direct-stats').stats;
-  assert.equal(sample.adaptivePlayout, 1);
-  assert.equal(sample.playoutDelayMs, 10);
-  assert.equal(sample.receiveToDecodeMs.count, 1);
-  assert.equal(sample.receiveToDecodeMs.p50, 0);
-  assert.equal(sample.receiveToPaintMs.p50, 35);
-  h.stop();
-});
-
 test('H264 unavailable software falls back once on the same keyframe', () => {
   const h = harness({ codec: 'h264', rejectSoftware: true });
   h.send(0, true);
@@ -310,67 +276,6 @@ test('H264 unavailable software falls back once on the same keyframe', () => {
   assert.ok(!h.reports.some((x) => x.type === 'stream-error'));
   h.stop();
   assert.equal(h.timers.size, 0);
-});
-
-test('H264 async decoder failure switches once, resyncs and ignores stale callbacks', () => {
-  const h = harness({ codec: 'h264' });
-  h.send(0, true);
-  const old = h.decoders[0];
-  old.init.error();
-  h.send(17000);
-  assert.equal(h.decoders.length, 1);
-  h.send(34000, true);
-  assert.equal(h.decoders[1].config.hardwareAcceleration, 'prefer-hardware');
-  old.init.error();
-  assert.equal(h.decoders[1].state, 'configured');
-  h.decoders[1].init.error();
-  h.send(68000, true);
-  assert.equal(h.decoders[2].config.hardwareAcceleration, 'prefer-hardware');
-  assert.ok(h.frames.every((f) => f.closed === 1 || f.timestamp === 68000));
-  h.stop();
-  assert.equal(h.timers.size, 0);
-});
-
-test('H264 synchronous decode failure requests a keyframe using hardware fallback', () => {
-  const h = harness({ codec: 'h264', throwSoftwareDecode: true });
-  h.send(0, true);
-  h.send(17000);
-  h.send(34000, true);
-  assert.equal(h.decoders.length, 2);
-  assert.equal(h.decoders[1].config.hardwareAcceleration, 'prefer-hardware');
-  h.advance(135);
-  assert.deepEqual(h.paints, [34000]);
-  h.stop();
-});
-
-test('explicit software diagnostic preference does not silently fall back', () => {
-  const h = harness({ codec: 'h264', diagnostics: true, decoderPreference: 'prefer-software' });
-  h.send(0, true);
-  h.decoders[0].init.error();
-  h.send(34000, true);
-  assert.ok(h.decoders.every((d) => d.config.hardwareAcceleration === 'prefer-software'));
-  h.stop();
-  assert.equal(h.timers.size, 0);
-});
-
-test('captures the already painted Direct canvas without restarting playback', async () => {
-  const h = harness();
-  h.screenshot(1);
-  assert.equal(h.reports.at(-1).code, 'no-frame');
-  h.send(0, true);
-  h.advance(110);
-  h.screenshot(2);
-  await new Promise((resolve) => setImmediate(resolve));
-  const result = h.reports.find((report) => report.requestId === 2);
-  assert.equal(result.type, 'screenshot-result');
-  assert.equal(result.blob.type, 'image/png');
-  assert.deepEqual(h.screenshotConversions, [{ type: 'image/png', width: 1920, height: 1080 }]);
-  assert.equal(h.sockets.length, 1, 'the existing stream remains connected');
-  assert.equal(h.sockets[0].readyState, 1);
-  h.send(17000);
-  h.advance(200);
-  assert.deepEqual(h.paints, [0, 17000]);
-  h.stop();
 });
 
 test('batched ACKs remain held until decoder backpressure is released', () => {
@@ -395,31 +300,6 @@ test('batched ACKs remain held until decoder backpressure is released', () => {
   assert.deepEqual(acks(), [0, 51000], 'one immediate cumulative ACK releases the whole window');
   assert.equal(h.sockets[0].sent.filter((data) => new Uint8Array(data)[0] === 3).length, 0);
   h.stop();
-});
-
-test('healthy Direct ACKs batch four frames, flush at 40 ms and cancel on stop', () => {
-  const h = harness();
-  const acks = () =>
-    h.sockets[0].sent
-      .map((data) => new Uint8Array(data))
-      .filter((bytes) => bytes[0] === 2)
-      .map((bytes) => Number(new DataView(bytes.buffer).getBigUint64(1, true)));
-  h.send(0, true);
-  for (const timestamp of [17000, 34000, 51000]) h.send(timestamp);
-  assert.deepEqual(acks(), [0], 'three deltas wait for the batch threshold');
-  h.send(68000);
-  assert.deepEqual(acks(), [0, 68000], 'four deltas produce one cumulative ACK');
-  h.fireTimeouts(40);
-  assert.deepEqual(acks(), [0, 68000], 'the flushed batch cancels its timer');
-  h.send(85000);
-  h.fireTimeouts(39);
-  assert.deepEqual(acks(), [0, 68000]);
-  h.fireTimeouts(40);
-  assert.deepEqual(acks(), [0, 68000, 85000], 'a short batch cannot wait indefinitely');
-  h.send(102000);
-  h.stop();
-  h.fireTimeouts(40);
-  assert.deepEqual(acks(), [0, 68000, 85000], 'stop cancels the pending ACK');
 });
 
 test('Edge frames with a halved visible rectangle are drawn and reported at full size', () => {

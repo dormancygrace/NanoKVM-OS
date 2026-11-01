@@ -7,7 +7,7 @@ export const test = base.extend({
     // substitute profile locally. CI owns a disposable Main profile.
     if (process.env.GITHUB_ACTIONS !== 'true')
       throw new Error(
-        'Local browser checks require the existing Chrome Main profile; use pnpm browser:fixture and the documented manual cases.'
+        'Local browser checks require the existing Chrome Main profile; use pnpm browser:fixture and open /tests/browser/recovery.html in it.'
       );
     const context = await chromium.launchPersistentContext(info.outputPath('chrome-profile'), {
       channel: 'chrome',

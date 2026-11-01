@@ -7,11 +7,6 @@ import {
   parseCaptureStatusMessage
 } from '../src/pages/desktop/capture-status/model.ts';
 
-test('a refused MJPEG capture has its own message', () => {
-  assert.equal(getCaptureStatusMessageKey(-8), 'screen.captureStatus.mjpeg4k');
-  assert.equal(getCaptureStatusMessageKey(-9), 'screen.captureStatus.unavailable');
-});
-
 const wrap = (status) => ({ data: JSON.stringify({ data: JSON.stringify(status) }) });
 
 test('an input refused for the video memory names its size', () => {

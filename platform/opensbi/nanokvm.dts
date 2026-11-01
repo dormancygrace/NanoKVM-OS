@@ -22,8 +22,10 @@
 	pmu {
 		compatible = "riscv,pmu";
 		// SBI 3.0 event-info requires explicit fixed-counter mappings.
-		// Advertise only the architectural mcycle/minstret events.
 		riscv,event-to-mhpmcounters = <0x1 0x1 0x1>, <0x2 0x2 0x4>;
+		// C906 raw events 0x1-0x2a (perf rN) on mhpmcounter3-17. The mask
+		// must not be 0: OpenSBI would see it overlapping the entries above.
+		riscv,raw-event-to-mhpmcounters = <0x0 0x0 0xffffffff 0xffffffc0 0x3fff8>;
 	};
 	reserved-memory {
 		#address-cells = <1>;

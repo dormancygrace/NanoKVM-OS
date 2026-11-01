@@ -788,14 +788,21 @@
         "accessToken": "Token d'accés",
         "roomId": "ID de la sala",
         "protocol": "Protocol",
-        "skipVerify": "Accepta qualsevol certificat del servidor"
+        "skipVerify": "Accepta qualsevol certificat del servidor",
+        "provider": "Servei de correu",
+        "auth": "Inici de sessió",
+        "oauthClientId": "ID de client OAuth",
+        "oauthClientSecret": "Secret de client OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Cap",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Contrasenya",
+        "oauth2": "Inici de sessió amb OAuth 2.0"
       },
       "help": {
         "telegram": "Crea un bot amb @BotFather, enganxa'n el token i afegeix el bot al xat. L'ID d'un grup comença per -100. ID del tema: per a un grup amb temes. Servidor Bot API: només per a un servidor Bot API propi.",
@@ -840,6 +847,45 @@
         "screen_bsod": "Pantalla blava",
         "screen_panic": "Kernel panic",
         "test": "Missatge de prova"
+      },
+      "provider": {
+        "custom": "Un altre servidor"
+      },
+      "providerHelp": {
+        "gmail": "Inicia la sessió amb OAuth 2.0 mitjançant un client OAuth propi, o fes servir una contrasenya d'aplicació (cal la verificació en dos passos). El nom d'usuari és la teva adreça.",
+        "microsoft365": "Inici de sessió amb OAuth 2.0 mitjançant un registre d'aplicació propi. L'SMTP autenticat ha d'estar activat per a la bústia. Microsoft retira les contrasenyes (autenticació bàsica) per a SMTP: una contrasenya només funciona mentre la teva organització encara la permeti.",
+        "outlook": "Outlook.com ja no accepta contrasenyes de programes de correu: inicia la sessió amb OAuth 2.0 mitjançant un registre d'aplicació propi que permeti comptes personals de Microsoft.",
+        "yahoo": "Fes servir una contrasenya d'aplicació (Account security > Generate app password). El nom d'usuari és la teva adreça.",
+        "icloud": "Fes servir una contrasenya específica d'aplicació (Apple Account > Inici de sessió i seguretat; cal l'autenticació de dos factors). El nom d'usuari és la teva adreça completa d'iCloud Mail.",
+        "zoho": "Fes servir una contrasenya específica d'aplicació. smtp.zoho.com serveix els comptes del centre de dades dels EUA; els altres fan servir el seu, com smtp.zoho.eu o smtp.zoho.in, i els comptes de domini de pagament smtppro.zoho.com.",
+        "fastmail": "Fes servir una contrasenya d'aplicació amb accés SMTP (Settings > Privacy & Security > Manage app passwords). El nom d'usuari és la teva adreça.",
+        "yandex": "Fes servir una contrasenya d'aplicació per a Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Fes servir una contrasenya per a aplicacions externes (configuració del compte > Security). El nom d'usuari és la teva adreça.",
+        "proton": "Cal un pla de pagament i una adreça del teu propi domini: crea un testimoni SMTP (Settings > IMAP/SMTP) i introdueix-lo com a contrasenya, i l'adreça del domini com a nom d'usuari. Proton Mail Bridge s'executa en un ordinador, no en aquest dispositiu.",
+        "custom": "El teu propi servidor de correu o un relé. STARTTLS al port 587, TLS al 465."
+      },
+      "oauth": {
+        "account": "Compte",
+        "clientHelpGoogle": "A Google Cloud Console crea un client OAuth de tipus \"Desktop app\" amb l'scope https://mail.google.com/ i introdueix-ne l'ID de client i el secret. Posa la pantalla de consentiment en \"In production\": amb \"Testing\" l'inici de sessió caduca als 7 dies. L'avís de Google sobre una aplicació no verificada és normal en una aplicació pròpia.",
+        "clientHelpMicrosoft": "A Microsoft Entra ID registra una aplicació (per a Outlook.com: una que permeti comptes personals de Microsoft), activa \"Allow public client flows\" a Authentication i afegeix el permís delegat SMTP.Send. Introdueix-ne l'ID d'aplicació (client). Tenant: el teu ID de tenant si l'aplicació és només per a la teva organització.",
+        "signIn": "Inicia la sessió",
+        "signInAgain": "Torna a iniciar la sessió",
+        "signOut": "Tanca la sessió",
+        "signOutConfirm": "Tancar la sessió? Té efecte en desar. Aleshores es revoca l'accés de Google; un compte de Microsoft conserva l'aplicació als seus permisos d'aplicacions fins que la hi suprimeixis.",
+        "signedIn": "Sessió iniciada com a {{account}}",
+        "signedInNoAccount": "Sessió iniciada",
+        "saveToKeep": "Desa per conservar l'inici de sessió.",
+        "notSignedIn": "Sessió no iniciada.",
+        "deviceStep": "Ves a",
+        "waiting": "Introdueix-hi aquest codi i inicia la sessió; aquesta pàgina l'espera.",
+        "codeStep": "Inicia la sessió a la pàgina de Google:",
+        "openPage": "obre la pàgina d'inici de sessió",
+        "codePaste": "Després d'iniciar la sessió, el navegador va a una adreça a 127.0.0.1 que no es carrega. Copia aquesta adreça sencera de la barra d'adreces i enganxa-la aquí.",
+        "codeLabel": "Adreça després de l'inici de sessió",
+        "finish": "Acaba",
+        "cancel": "Cancel·la",
+        "failed": "Ha fallat l'inici de sessió: {{error}}",
+        "authError": "L'inici de sessió ja no funciona: {{error}}"
       }
     },
     "addonPage": {

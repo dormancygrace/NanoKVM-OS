@@ -2211,14 +2211,21 @@
         "accessToken": "Token de acceso",
         "roomId": "ID de la sala",
         "protocol": "Protocolo",
-        "skipVerify": "Aceptar cualquier certificado del servidor"
+        "skipVerify": "Aceptar cualquier certificado del servidor",
+        "provider": "Servicio de correo",
+        "auth": "Inicio de sesión",
+        "oauthClientId": "ID de cliente OAuth",
+        "oauthClientSecret": "Secreto de cliente OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Ninguno",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Contraseña",
+        "oauth2": "Inicio de sesión con OAuth 2.0"
       },
       "help": {
         "telegram": "Cree un bot con @BotFather, pegue su token y añada el bot al chat. El ID de un grupo empieza por -100. ID del tema: para un grupo con temas. Servidor de Bot API: solo para un servidor Bot API propio.",
@@ -2263,6 +2270,45 @@
         "screen_bsod": "Pantalla azul",
         "screen_panic": "Kernel panic",
         "test": "Mensaje de prueba"
+      },
+      "provider": {
+        "custom": "Otro servidor"
+      },
+      "providerHelp": {
+        "gmail": "Inicie sesión con OAuth 2.0 mediante un cliente OAuth propio, o use una contraseña de aplicación (requiere la verificación en dos pasos). El usuario es su dirección.",
+        "microsoft365": "Inicio de sesión con OAuth 2.0 mediante un registro de aplicación propio. El SMTP autenticado debe estar activado para el buzón. Microsoft está retirando las contraseñas (autenticación básica) para SMTP: una contraseña solo funciona mientras su organización aún la permita.",
+        "outlook": "Outlook.com ya no acepta contraseñas de programas de correo: inicie sesión con OAuth 2.0 mediante un registro de aplicación propio que permita cuentas personales de Microsoft.",
+        "yahoo": "Use una contraseña de aplicación (Account security > Generate app password). El usuario es su dirección.",
+        "icloud": "Use una contraseña específica de aplicación (Apple Account > Inicio de sesión y seguridad; requiere autenticación de dos factores). El usuario es su dirección completa de iCloud Mail.",
+        "zoho": "Use una contraseña específica de aplicación. smtp.zoho.com atiende cuentas del centro de datos de EE. UU.; las demás usan el suyo, como smtp.zoho.eu o smtp.zoho.in, y las cuentas de dominio de pago smtppro.zoho.com.",
+        "fastmail": "Use una contraseña de aplicación con acceso SMTP (Settings > Privacy & Security > Manage app passwords). El usuario es su dirección.",
+        "yandex": "Use una contraseña de aplicación para Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Use una contraseña para aplicaciones externas (ajustes de la cuenta > Security). El usuario es su dirección.",
+        "proton": "Requiere un plan de pago y una dirección en su propio dominio: cree un token SMTP (Settings > IMAP/SMTP) e introdúzcalo como contraseña, y su dirección del dominio como usuario. Proton Mail Bridge se ejecuta en un ordenador, no en este dispositivo.",
+        "custom": "Su propio servidor de correo o un relé. STARTTLS en el puerto 587, TLS en el 465."
+      },
+      "oauth": {
+        "account": "Cuenta",
+        "clientHelpGoogle": "En Google Cloud Console cree un cliente OAuth de tipo \"Desktop app\" con el scope https://mail.google.com/ e introduzca su ID de cliente y su secreto. Ponga la pantalla de consentimiento en \"In production\": con \"Testing\" el inicio de sesión caduca a los 7 días. La advertencia de Google sobre una aplicación no verificada es normal en una aplicación propia.",
+        "clientHelpMicrosoft": "En Microsoft Entra ID registre una aplicación (para Outlook.com: una que permita cuentas personales de Microsoft), active \"Allow public client flows\" en Authentication y añada el permiso delegado SMTP.Send. Introduzca su ID de aplicación (cliente). Tenant: su ID de tenant si la aplicación es solo para su organización.",
+        "signIn": "Iniciar sesión",
+        "signInAgain": "Volver a iniciar sesión",
+        "signOut": "Cerrar sesión",
+        "signOutConfirm": "¿Cerrar sesión? Surte efecto al guardar. Entonces se revoca el acceso de Google; una cuenta de Microsoft mantiene la aplicación en sus permisos de aplicaciones hasta que la quite allí.",
+        "signedIn": "Sesión iniciada como {{account}}",
+        "signedInNoAccount": "Sesión iniciada",
+        "saveToKeep": "Guarde para conservar el inicio de sesión.",
+        "notSignedIn": "Sin sesión iniciada.",
+        "deviceStep": "Vaya a",
+        "waiting": "Introduzca allí este código e inicie sesión; esta página lo espera.",
+        "codeStep": "Inicie sesión en la página de Google:",
+        "openPage": "abrir la página de inicio de sesión",
+        "codePaste": "Tras iniciar sesión, el navegador va a una dirección en 127.0.0.1 que no carga. Copie esa dirección completa de la barra de direcciones y péguela aquí.",
+        "codeLabel": "Dirección tras el inicio de sesión",
+        "finish": "Finalizar",
+        "cancel": "Cancelar",
+        "failed": "Error al iniciar sesión: {{error}}",
+        "authError": "El inicio de sesión ya no funciona: {{error}}"
       }
     }
   },

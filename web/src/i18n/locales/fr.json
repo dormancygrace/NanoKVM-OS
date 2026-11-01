@@ -2211,14 +2211,21 @@
         "accessToken": "Jeton d'accès",
         "roomId": "ID du salon",
         "protocol": "Protocole",
-        "skipVerify": "Accepter tout certificat du serveur"
+        "skipVerify": "Accepter tout certificat du serveur",
+        "provider": "Service de messagerie",
+        "auth": "Connexion",
+        "oauthClientId": "ID client OAuth",
+        "oauthClientSecret": "Secret client OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Aucun",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Mot de passe",
+        "oauth2": "Connexion OAuth 2.0"
       },
       "help": {
         "telegram": "Créez un bot avec @BotFather, collez son jeton et ajoutez le bot au chat. L'ID d'un groupe commence par -100. ID du sujet : pour un groupe à sujets. Serveur Bot API : seulement pour votre propre serveur Bot API.",
@@ -2263,6 +2270,45 @@
         "screen_bsod": "Écran bleu",
         "screen_panic": "Kernel panic",
         "test": "Message de test"
+      },
+      "provider": {
+        "custom": "Autre serveur"
+      },
+      "providerHelp": {
+        "gmail": "Connectez-vous avec OAuth 2.0 via un client OAuth à vous, ou utilisez un mot de passe d'application (il exige la validation en deux étapes). Le nom d'utilisateur est votre adresse.",
+        "microsoft365": "Connexion OAuth 2.0 via un enregistrement d'application à vous. Le SMTP authentifié doit être activé pour la boîte aux lettres. Microsoft supprime les mots de passe (authentification de base) pour SMTP : un mot de passe ne fonctionne que tant que votre organisation l'autorise encore.",
+        "outlook": "Outlook.com n'accepte plus les mots de passe des logiciels de messagerie : connectez-vous avec OAuth 2.0 via un enregistrement d'application à vous qui autorise les comptes Microsoft personnels.",
+        "yahoo": "Utilisez un mot de passe d'application (Account security > Generate app password). Le nom d'utilisateur est votre adresse.",
+        "icloud": "Utilisez un mot de passe spécifique à l'application (Apple Account > Connexion et sécurité ; il exige l'authentification à deux facteurs). Le nom d'utilisateur est votre adresse iCloud Mail complète.",
+        "zoho": "Utilisez un mot de passe spécifique à l'application. smtp.zoho.com sert les comptes du centre de données américain ; les autres utilisent le leur, comme smtp.zoho.eu ou smtp.zoho.in, et les comptes de domaine payants smtppro.zoho.com.",
+        "fastmail": "Utilisez un mot de passe d'application avec accès SMTP (Settings > Privacy & Security > Manage app passwords). Le nom d'utilisateur est votre adresse.",
+        "yandex": "Utilisez un mot de passe d'application pour Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Utilisez un mot de passe pour applications externes (paramètres du compte > Security). Le nom d'utilisateur est votre adresse.",
+        "proton": "Exige une offre payante et une adresse sur votre propre domaine : créez un jeton SMTP (Settings > IMAP/SMTP) et saisissez-le comme mot de passe, votre adresse de domaine comme nom d'utilisateur. Proton Mail Bridge s'exécute sur un ordinateur, pas sur cet appareil.",
+        "custom": "Votre propre serveur de messagerie ou un relais. STARTTLS sur le port 587, TLS sur le 465."
+      },
+      "oauth": {
+        "account": "Compte",
+        "clientHelpGoogle": "Dans Google Cloud Console, créez un client OAuth de type \"Desktop app\" avec le scope https://mail.google.com/ et saisissez son ID client et son secret. Réglez l'écran de consentement sur \"In production\" : en \"Testing\", la connexion expire après 7 jours. L'avertissement de Google sur une application non validée est normal pour une application à vous.",
+        "clientHelpMicrosoft": "Dans Microsoft Entra ID, enregistrez une application (pour Outlook.com : une qui autorise les comptes Microsoft personnels), activez \"Allow public client flows\" sous Authentication et ajoutez la permission déléguée SMTP.Send. Saisissez son ID d'application (client). Tenant : votre ID de tenant si l'application est réservée à votre organisation.",
+        "signIn": "Se connecter",
+        "signInAgain": "Se reconnecter",
+        "signOut": "Se déconnecter",
+        "signOutConfirm": "Se déconnecter ? Cela prend effet à l'enregistrement. L'accès Google est alors révoqué ; un compte Microsoft garde l'application dans ses autorisations d'application jusqu'à ce que vous l'y supprimiez.",
+        "signedIn": "Connecté en tant que {{account}}",
+        "signedInNoAccount": "Connecté",
+        "saveToKeep": "Enregistrez pour conserver la connexion.",
+        "notSignedIn": "Non connecté.",
+        "deviceStep": "Allez sur",
+        "waiting": "Saisissez ce code là-bas et connectez-vous ; cette page l'attend.",
+        "codeStep": "Connectez-vous sur la page Google :",
+        "openPage": "ouvrir la page de connexion",
+        "codePaste": "Après la connexion, le navigateur va vers une adresse en 127.0.0.1 qui ne se charge pas. Copiez cette adresse entière depuis la barre d'adresse et collez-la ici.",
+        "codeLabel": "Adresse après la connexion",
+        "finish": "Terminer",
+        "cancel": "Annuler",
+        "failed": "Échec de la connexion : {{error}}",
+        "authError": "La connexion ne fonctionne plus : {{error}}"
       }
     }
   },

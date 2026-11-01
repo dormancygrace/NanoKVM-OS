@@ -2211,14 +2211,21 @@
         "accessToken": "Access token",
         "roomId": "Room ID",
         "protocol": "Protocol",
-        "skipVerify": "Accept any server certificate"
+        "skipVerify": "Accept any server certificate",
+        "provider": "Mail service",
+        "auth": "Sign-in",
+        "oauthClientId": "OAuth client ID",
+        "oauthClientSecret": "OAuth client secret",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "None",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Password",
+        "oauth2": "OAuth 2.0 sign-in"
       },
       "help": {
         "telegram": "Create a bot with @BotFather and paste its token, then add the bot to the chat. A group's ID starts with -100. Topic ID: for a group with topics. Bot API server: only for a Bot API server of your own.",
@@ -2263,6 +2270,45 @@
         "screen_bsod": "Blue screen",
         "screen_panic": "Kernel panic",
         "test": "Test message"
+      },
+      "provider": {
+        "custom": "Other server"
+      },
+      "providerHelp": {
+        "gmail": "Sign in with OAuth 2.0 through an OAuth client of your own, or use an app password (it needs 2-Step Verification). The user name is your address.",
+        "microsoft365": "OAuth 2.0 sign-in through an app registration of your own. Authenticated SMTP must be on for the mailbox. Microsoft is retiring passwords (Basic authentication) for SMTP: a password works only while your organisation still allows it.",
+        "outlook": "Outlook.com no longer takes passwords from mail programs: sign in with OAuth 2.0 through an app registration of your own that allows personal Microsoft accounts.",
+        "yahoo": "Use an app password (Account security > Generate app password). The user name is your address.",
+        "icloud": "Use an app-specific password (Apple Account > Sign-In and Security; it needs two-factor authentication). The user name is your full iCloud Mail address.",
+        "zoho": "Use an app-specific password. smtp.zoho.com serves accounts in the US data centre; others use their own, such as smtp.zoho.eu or smtp.zoho.in, and paid domain accounts smtppro.zoho.com.",
+        "fastmail": "Use an app password with SMTP access (Settings > Privacy & Security > Manage app passwords). The user name is your address.",
+        "yandex": "Use an app password for Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Use a password for external applications (account settings > Security). The user name is your address.",
+        "proton": "Needs a paid plan and an address on your own domain: create an SMTP token (Settings > IMAP/SMTP) and enter it as the password, your domain address as the user name. Proton Mail Bridge runs on a computer, not on this device.",
+        "custom": "Your own mail server or a relay. STARTTLS on port 587, TLS on 465."
+      },
+      "oauth": {
+        "account": "Account",
+        "clientHelpGoogle": "In Google Cloud Console create an OAuth client of type \"Desktop app\" with the scope https://mail.google.com/ and enter its client ID and secret. Set the consent screen to \"In production\": while it is in \"Testing\" the sign-in expires after 7 days. Google's warning about an unverified app is expected for an app of your own.",
+        "clientHelpMicrosoft": "In Microsoft Entra ID register an app (for Outlook.com: one that allows personal Microsoft accounts), turn on \"Allow public client flows\" under Authentication, and add the delegated permission SMTP.Send. Enter its application (client) ID. Tenant: your tenant ID if the app is for your organisation only.",
+        "signIn": "Sign in",
+        "signInAgain": "Sign in again",
+        "signOut": "Sign out",
+        "signOutConfirm": "Sign out? It takes effect when you save. Google access is revoked then; a Microsoft account keeps the app under its app permissions until you remove it there.",
+        "signedIn": "Signed in as {{account}}",
+        "signedInNoAccount": "Signed in",
+        "saveToKeep": "Save to keep the sign-in.",
+        "notSignedIn": "Not signed in.",
+        "deviceStep": "Go to",
+        "waiting": "Enter this code there and sign in; this page waits for it.",
+        "codeStep": "Sign in on the Google page:",
+        "openPage": "open the sign-in page",
+        "codePaste": "After the sign-in the browser goes to an address on 127.0.0.1 that does not load. Copy that whole address from the address bar and paste it here.",
+        "codeLabel": "Address after the sign-in",
+        "finish": "Finish",
+        "cancel": "Cancel",
+        "failed": "Sign-in failed: {{error}}",
+        "authError": "The sign-in no longer works: {{error}}"
       }
     }
   },

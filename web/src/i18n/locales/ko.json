@@ -790,14 +790,21 @@
         "accessToken": "액세스 토큰",
         "roomId": "룸 ID",
         "protocol": "프로토콜",
-        "skipVerify": "모든 서버 인증서 허용"
+        "skipVerify": "모든 서버 인증서 허용",
+        "provider": "메일 서비스",
+        "auth": "로그인",
+        "oauthClientId": "OAuth 클라이언트 ID",
+        "oauthClientSecret": "OAuth 클라이언트 보안 비밀",
+        "oauthTenant": "테넌트"
       },
       "option": {
         "none": "없음",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "비밀번호",
+        "oauth2": "OAuth 2.0 로그인"
       },
       "help": {
         "telegram": "@BotFather로 봇을 만들어 토큰을 붙여넣은 다음, 봇을 채팅에 추가하세요. 그룹 ID는 -100으로 시작합니다. 토픽 ID: 토픽이 있는 그룹용. Bot API 서버: 직접 운영하는 Bot API 서버에만 사용합니다.",
@@ -842,6 +849,45 @@
         "screen_bsod": "블루 스크린",
         "screen_panic": "Kernel panic",
         "test": "테스트 메시지"
+      },
+      "provider": {
+        "custom": "기타 서버"
+      },
+      "providerHelp": {
+        "gmail": "직접 만든 OAuth 클라이언트로 OAuth 2.0 로그인을 하거나 앱 비밀번호를 사용하세요(2단계 인증이 필요합니다). 사용자 이름은 이메일 주소입니다.",
+        "microsoft365": "직접 등록한 앱으로 OAuth 2.0 로그인을 합니다. 사서함에서 인증된 SMTP가 켜져 있어야 합니다. Microsoft는 SMTP의 비밀번호(Basic 인증)를 단계적으로 폐지하고 있으며, 비밀번호는 조직에서 허용하는 동안에만 작동합니다.",
+        "outlook": "Outlook.com은 더 이상 메일 프로그램의 비밀번호를 받지 않습니다. 개인 Microsoft 계정을 허용하는 직접 등록한 앱으로 OAuth 2.0 로그인을 하세요.",
+        "yahoo": "앱 비밀번호를 사용하세요(Account security > Generate app password). 사용자 이름은 이메일 주소입니다.",
+        "icloud": "앱 암호를 사용하세요(Apple Account > Sign-In and Security, 2단계 인증이 필요합니다). 사용자 이름은 전체 iCloud Mail 주소입니다.",
+        "zoho": "앱 전용 비밀번호를 사용하세요. smtp.zoho.com은 미국 데이터 센터 계정용이며, 다른 지역은 smtp.zoho.eu, smtp.zoho.in 같은 자체 서버를, 유료 도메인 계정은 smtppro.zoho.com을 사용합니다.",
+        "fastmail": "SMTP 접근 권한이 있는 앱 비밀번호를 사용하세요(Settings > Privacy & Security > Manage app passwords). 사용자 이름은 이메일 주소입니다.",
+        "yandex": "Mail용 앱 비밀번호를 사용하세요(Yandex ID > Security > App passwords).",
+        "mailru": "외부 애플리케이션용 비밀번호를 사용하세요(계정 설정 > 보안). 사용자 이름은 이메일 주소입니다.",
+        "proton": "유료 요금제와 본인 도메인의 주소가 필요합니다. SMTP 토큰(Settings > IMAP/SMTP)을 만들어 비밀번호로 입력하고, 사용자 이름에는 도메인 주소를 입력하세요. Proton Mail Bridge는 컴퓨터에서 실행되며 이 장치에서는 실행되지 않습니다.",
+        "custom": "직접 운영하는 메일 서버 또는 릴레이입니다. 포트 587은 STARTTLS, 465는 TLS입니다."
+      },
+      "oauth": {
+        "account": "계정",
+        "clientHelpGoogle": "Google Cloud Console에서 유형이 \"Desktop app\"이고 범위가 https://mail.google.com/ 인 OAuth 클라이언트를 만들고, 클라이언트 ID와 보안 비밀을 입력하세요. 동의 화면을 \"In production\"으로 설정하세요. \"Testing\" 상태에서는 로그인이 7일 후 만료됩니다. 직접 만든 앱에서 Google의 확인되지 않은 앱 경고가 나타나는 것은 정상입니다.",
+        "clientHelpMicrosoft": "Microsoft Entra ID에서 앱을 등록하고(Outlook.com의 경우 개인 Microsoft 계정을 허용하는 앱), Authentication에서 \"Allow public client flows\"를 켜고 위임된 권한 SMTP.Send를 추가하세요. 해당 애플리케이션(클라이언트) ID를 입력하세요. 테넌트: 앱이 조직 전용이면 테넌트 ID를 입력하세요.",
+        "signIn": "로그인",
+        "signInAgain": "다시 로그인",
+        "signOut": "로그아웃",
+        "signOutConfirm": "로그아웃할까요? 저장하면 적용됩니다. 그때 Google 접근 권한이 취소되며, Microsoft 계정은 해당 계정에서 제거하기 전까지 앱 권한에 앱이 남아 있습니다.",
+        "signedIn": "{{account}} 계정으로 로그인됨",
+        "signedInNoAccount": "로그인됨",
+        "saveToKeep": "로그인을 유지하려면 저장하세요.",
+        "notSignedIn": "로그인되지 않았습니다.",
+        "deviceStep": "이동:",
+        "waiting": "그곳에 이 코드를 입력하고 로그인하세요. 이 페이지는 기다리는 중입니다.",
+        "codeStep": "Google 페이지에서 로그인하세요:",
+        "openPage": "로그인 페이지 열기",
+        "codePaste": "로그인 후 브라우저가 로드되지 않는 127.0.0.1 주소로 이동합니다. 주소 표시줄에서 그 주소 전체를 복사해 여기에 붙여넣으세요.",
+        "codeLabel": "로그인 후 주소",
+        "finish": "완료",
+        "cancel": "취소",
+        "failed": "로그인하지 못했습니다: {{error}}",
+        "authError": "로그인이 더 이상 작동하지 않습니다: {{error}}"
       }
     },
     "addonPage": {

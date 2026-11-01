@@ -789,14 +789,21 @@
         "accessToken": "Tilgangstoken",
         "roomId": "Rom-ID",
         "protocol": "Protokoll",
-        "skipVerify": "Godta alle servergodkjenninger"
+        "skipVerify": "Godta alle servergodkjenninger",
+        "provider": "E-posttjeneste",
+        "auth": "Innlogging",
+        "oauthClientId": "OAuth-klient-ID",
+        "oauthClientSecret": "OAuth-klienthemmelighet",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Ingen",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Passord",
+        "oauth2": "Innlogging med OAuth 2.0"
       },
       "help": {
         "telegram": "Lag en bot med @BotFather og lim inn tokenet, og legg deretter boten til i chatten. ID-en til en gruppe starter med -100. Emne-ID: for en gruppe med emner. Bot API-server: bare for en egen Bot API-server.",
@@ -841,6 +848,45 @@
         "screen_bsod": "Blåskjerm",
         "screen_panic": "Kernel panic",
         "test": "Testmelding"
+      },
+      "provider": {
+        "custom": "Annen server"
+      },
+      "providerHelp": {
+        "gmail": "Logg inn med OAuth 2.0 via en egen OAuth-klient, eller bruk et apppassord (krever tostegsbekreftelse). Brukernavnet er adressen din.",
+        "microsoft365": "Innlogging med OAuth 2.0 via en egen appregistrering. Autentisert SMTP må være slått på for postboksen. Microsoft utfaser passord (Basic-autentisering) for SMTP: et passord fungerer bare så lenge organisasjonen din fortsatt tillater det.",
+        "outlook": "Outlook.com godtar ikke lenger passord fra e-postprogrammer: logg inn med OAuth 2.0 via en egen appregistrering som tillater personlige Microsoft-kontoer.",
+        "yahoo": "Bruk et apppassord (Account security > Generate app password). Brukernavnet er adressen din.",
+        "icloud": "Bruk et appspesifikt passord (Apple Account > Sign-In and Security; krever tofaktorautentisering). Brukernavnet er hele iCloud Mail-adressen din.",
+        "zoho": "Bruk et appspesifikt passord. smtp.zoho.com betjener kontoer i datasenteret i USA; andre bruker sitt eget, for eksempel smtp.zoho.eu eller smtp.zoho.in, og betalte domenekontoer smtppro.zoho.com.",
+        "fastmail": "Bruk et apppassord med SMTP-tilgang (Settings > Privacy & Security > Manage app passwords). Brukernavnet er adressen din.",
+        "yandex": "Bruk et apppassord for Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Bruk et passord for eksterne programmer (kontoinnstillinger > Sikkerhet). Brukernavnet er adressen din.",
+        "proton": "Krever et betalt abonnement og en adresse på ditt eget domene: opprett et SMTP-token (Settings > IMAP/SMTP) og skriv det inn som passord, med domeneadressen din som brukernavn. Proton Mail Bridge kjører på en datamaskin, ikke på denne enheten.",
+        "custom": "Din egen e-postserver eller et relé. STARTTLS på port 587, TLS på 465."
+      },
+      "oauth": {
+        "account": "Konto",
+        "clientHelpGoogle": "Opprett en OAuth-klient av typen \"Desktop app\" i Google Cloud Console med omfanget https://mail.google.com/, og skriv inn klient-ID-en og hemmeligheten. Sett samtykkeskjermen til \"In production\": mens den står på \"Testing\", utløper innloggingen etter 7 dager. Googles advarsel om en ubekreftet app er forventet for en egen app.",
+        "clientHelpMicrosoft": "Registrer en app i Microsoft Entra ID (for Outlook.com: en som tillater personlige Microsoft-kontoer), slå på \"Allow public client flows\" under Authentication, og legg til den delegerte tillatelsen SMTP.Send. Skriv inn app-ID-en (klient-ID-en). Tenant: tenant-ID-en din hvis appen bare er for organisasjonen din.",
+        "signIn": "Logg inn",
+        "signInAgain": "Logg inn på nytt",
+        "signOut": "Logg ut",
+        "signOutConfirm": "Logge ut? Det trer i kraft når du lagrer. Google-tilgangen trekkes da tilbake; en Microsoft-konto beholder appen under apptillatelsene sine til du fjerner den der.",
+        "signedIn": "Logget inn som {{account}}",
+        "signedInNoAccount": "Logget inn",
+        "saveToKeep": "Lagre for å beholde innloggingen.",
+        "notSignedIn": "Ikke logget inn.",
+        "deviceStep": "Gå til",
+        "waiting": "Skriv inn denne koden der og logg inn; denne siden venter på den.",
+        "codeStep": "Logg inn på Google-siden:",
+        "openPage": "åpne innloggingssiden",
+        "codePaste": "Etter innloggingen går nettleseren til en adresse på 127.0.0.1 som ikke lastes. Kopier hele adressen fra adressefeltet og lim den inn her.",
+        "codeLabel": "Adresse etter innloggingen",
+        "finish": "Fullfør",
+        "cancel": "Avbryt",
+        "failed": "Innloggingen mislyktes: {{error}}",
+        "authError": "Innloggingen fungerer ikke lenger: {{error}}"
       }
     },
     "addonPage": {

@@ -789,14 +789,21 @@
         "accessToken": "Erişim belirteci",
         "roomId": "Oda kimliği",
         "protocol": "Protokol",
-        "skipVerify": "Herhangi bir sunucu sertifikasını kabul et"
+        "skipVerify": "Herhangi bir sunucu sertifikasını kabul et",
+        "provider": "E-posta hizmeti",
+        "auth": "Oturum açma",
+        "oauthClientId": "OAuth istemci kimliği",
+        "oauthClientSecret": "OAuth istemci gizli anahtarı",
+        "oauthTenant": "Kiracı"
       },
       "option": {
         "none": "Yok",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Parola",
+        "oauth2": "OAuth 2.0 ile oturum açma"
       },
       "help": {
         "telegram": "@BotFather ile bir bot oluşturun ve belirtecini yapıştırın, sonra botu sohbete ekleyin. Bir grubun kimliği -100 ile başlar. Konu kimliği: konulu bir grup için. Bot API sunucusu: yalnızca kendi Bot API sunucunuz için.",
@@ -841,6 +848,45 @@
         "screen_bsod": "Mavi ekran",
         "screen_panic": "Kernel panic",
         "test": "Test mesajı"
+      },
+      "provider": {
+        "custom": "Diğer sunucu"
+      },
+      "providerHelp": {
+        "gmail": "Kendi OAuth istemciniz üzerinden OAuth 2.0 ile oturum açın veya bir uygulama parolası kullanın (2 Adımlı Doğrulama gerekir). Kullanıcı adı e-posta adresinizdir.",
+        "microsoft365": "Kendi uygulama kaydınız üzerinden OAuth 2.0 ile oturum açma. Posta kutusu için kimliği doğrulanmış SMTP açık olmalıdır. Microsoft, SMTP için parolaları (Basic authentication) kaldırıyor: parola yalnızca kuruluşunuz izin verdiği sürece çalışır.",
+        "outlook": "Outlook.com artık posta programlarından parola kabul etmiyor: kişisel Microsoft hesaplarına izin veren, kendi uygulama kaydınız üzerinden OAuth 2.0 ile oturum açın.",
+        "yahoo": "Bir uygulama parolası kullanın (Account security > Generate app password). Kullanıcı adı e-posta adresinizdir.",
+        "icloud": "Uygulamaya özel bir parola kullanın (Apple Account > Sign-In and Security; iki faktörlü kimlik doğrulama gerekir). Kullanıcı adı tam iCloud Mail adresinizdir.",
+        "zoho": "Uygulamaya özel bir parola kullanın. smtp.zoho.com ABD veri merkezindeki hesaplara hizmet verir; diğerleri kendi sunucularını kullanır, örneğin smtp.zoho.eu veya smtp.zoho.in, ücretli alan adı hesapları ise smtppro.zoho.com.",
+        "fastmail": "SMTP erişimi olan bir uygulama parolası kullanın (Settings > Privacy & Security > Manage app passwords). Kullanıcı adı e-posta adresinizdir.",
+        "yandex": "Mail için bir uygulama parolası kullanın (Yandex ID > Security > App passwords).",
+        "mailru": "Harici uygulamalar için bir parola kullanın (hesap ayarları > Security). Kullanıcı adı e-posta adresinizdir.",
+        "proton": "Ücretli bir plan ve kendi alan adınızda bir adres gerekir: bir SMTP token oluşturun (Settings > IMAP/SMTP) ve parola olarak girin, kullanıcı adı olarak alan adınızdaki adresi girin. Proton Mail Bridge bu cihazda değil, bir bilgisayarda çalışır.",
+        "custom": "Kendi posta sunucunuz veya bir röle. 587 numaralı portta STARTTLS, 465'te TLS."
+      },
+      "oauth": {
+        "account": "Hesap",
+        "clientHelpGoogle": "Google Cloud Console'da https://mail.google.com/ kapsamıyla \"Desktop app\" türünde bir OAuth istemcisi oluşturun ve istemci kimliğini ile gizli anahtarını girin. Onay ekranını \"In production\" olarak ayarlayın: \"Testing\" durumundayken oturum 7 gün sonra sona erer. Google'ın doğrulanmamış uygulama uyarısı, kendi uygulamanız için beklenen bir durumdur.",
+        "clientHelpMicrosoft": "Microsoft Entra ID'de bir uygulama kaydedin (Outlook.com için: kişisel Microsoft hesaplarına izin veren bir uygulama), Authentication altında \"Allow public client flows\" seçeneğini açın ve SMTP.Send temsilci iznini ekleyin. Uygulamanın application (client) ID değerini girin. Tenant: uygulama yalnızca kuruluşunuz içinse tenant kimliğiniz.",
+        "signIn": "Oturum aç",
+        "signInAgain": "Yeniden oturum aç",
+        "signOut": "Oturumu kapat",
+        "signOutConfirm": "Oturum kapatılsın mı? Kaydettiğinizde geçerli olur. Google erişimi o zaman iptal edilir; Microsoft hesabı ise siz orada kaldırana kadar uygulamayı uygulama izinleri altında tutar.",
+        "signedIn": "{{account}} olarak oturum açıldı",
+        "signedInNoAccount": "Oturum açıldı",
+        "saveToKeep": "Oturumun korunması için kaydedin.",
+        "notSignedIn": "Oturum açılmadı.",
+        "deviceStep": "Şu adrese gidin:",
+        "waiting": "Bu kodu orada girip oturum açın; bu sayfa bekliyor.",
+        "codeStep": "Google sayfasında oturum açın:",
+        "openPage": "oturum açma sayfasını aç",
+        "codePaste": "Oturum açtıktan sonra tarayıcı 127.0.0.1 üzerindeki yüklenmeyen bir adrese gider. Bu adresin tamamını adres çubuğundan kopyalayıp buraya yapıştırın.",
+        "codeLabel": "Oturum açtıktan sonraki adres",
+        "finish": "Bitir",
+        "cancel": "İptal",
+        "failed": "Oturum açılamadı: {{error}}",
+        "authError": "Oturum artık çalışmıyor: {{error}}"
       }
     },
     "addonPage": {

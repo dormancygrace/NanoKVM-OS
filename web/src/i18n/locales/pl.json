@@ -789,14 +789,21 @@
         "accessToken": "Token dostępu",
         "roomId": "ID pokoju",
         "protocol": "Protokół",
-        "skipVerify": "Akceptuj dowolny certyfikat serwera"
+        "skipVerify": "Akceptuj dowolny certyfikat serwera",
+        "provider": "Usługa poczty",
+        "auth": "Logowanie",
+        "oauthClientId": "Identyfikator klienta OAuth",
+        "oauthClientSecret": "Klucz tajny klienta OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Brak",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Hasło",
+        "oauth2": "Logowanie przez OAuth 2.0"
       },
       "help": {
         "telegram": "Utwórz bota w @BotFather i wklej jego token, a następnie dodaj bota do czatu. ID grupy zaczyna się od -100. ID tematu: dla grupy z tematami. Serwer Bot API: tylko dla własnego serwera Bot API.",
@@ -841,6 +848,45 @@
         "screen_bsod": "Niebieski ekran",
         "screen_panic": "Kernel panic",
         "test": "Wiadomość testowa"
+      },
+      "provider": {
+        "custom": "Inny serwer"
+      },
+      "providerHelp": {
+        "gmail": "Zaloguj się przez OAuth 2.0 za pomocą własnego klienta OAuth lub użyj hasła aplikacji (wymaga weryfikacji dwuetapowej). Nazwa użytkownika to Twój adres.",
+        "microsoft365": "Logowanie przez OAuth 2.0 za pomocą własnej rejestracji aplikacji. Uwierzytelnione SMTP musi być włączone dla skrzynki. Microsoft wycofuje hasła (uwierzytelnianie Basic) dla SMTP: hasło działa tylko dopóki Twoja organizacja nadal na nie pozwala.",
+        "outlook": "Outlook.com nie przyjmuje już haseł z programów pocztowych: zaloguj się przez OAuth 2.0 za pomocą własnej rejestracji aplikacji, która dopuszcza osobiste konta Microsoft.",
+        "yahoo": "Użyj hasła aplikacji (Account security > Generate app password). Nazwa użytkownika to Twój adres.",
+        "icloud": "Użyj hasła do aplikacji (Apple Account > Sign-In and Security; wymaga uwierzytelniania dwuskładnikowego). Nazwa użytkownika to Twój pełny adres iCloud Mail.",
+        "zoho": "Użyj hasła do aplikacji. smtp.zoho.com obsługuje konta w centrum danych w USA; inne używają własnych, na przykład smtp.zoho.eu lub smtp.zoho.in, a płatne konta domenowe smtppro.zoho.com.",
+        "fastmail": "Użyj hasła aplikacji z dostępem SMTP (Settings > Privacy & Security > Manage app passwords). Nazwa użytkownika to Twój adres.",
+        "yandex": "Użyj hasła aplikacji do Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Użyj hasła dla aplikacji zewnętrznych (ustawienia konta > Bezpieczeństwo). Nazwa użytkownika to Twój adres.",
+        "proton": "Wymaga płatnego planu i adresu we własnej domenie: utwórz token SMTP (Settings > IMAP/SMTP) i wpisz go jako hasło, a adres w swojej domenie jako nazwę użytkownika. Proton Mail Bridge działa na komputerze, a nie na tym urządzeniu.",
+        "custom": "Własny serwer poczty lub przekaźnik. STARTTLS na porcie 587, TLS na 465."
+      },
+      "oauth": {
+        "account": "Konto",
+        "clientHelpGoogle": "W Google Cloud Console utwórz klienta OAuth typu \"Desktop app\" z zakresem https://mail.google.com/ i wpisz jego identyfikator oraz klucz tajny. Ustaw ekran zgody na \"In production\": gdy jest w trybie \"Testing\", logowanie wygasa po 7 dniach. Ostrzeżenie Google o niezweryfikowanej aplikacji jest normalne w przypadku własnej aplikacji.",
+        "clientHelpMicrosoft": "W Microsoft Entra ID zarejestruj aplikację (dla Outlook.com: taką, która dopuszcza osobiste konta Microsoft), włącz \"Allow public client flows\" w sekcji Authentication i dodaj delegowane uprawnienie SMTP.Send. Wpisz jej identyfikator aplikacji (klienta). Tenant: identyfikator Twojego tenanta, jeśli aplikacja jest tylko dla Twojej organizacji.",
+        "signIn": "Zaloguj się",
+        "signInAgain": "Zaloguj się ponownie",
+        "signOut": "Wyloguj się",
+        "signOutConfirm": "Wylogować? Zmiana zadziała po zapisaniu. Dostęp Google zostanie wtedy cofnięty; konto Microsoft zachowuje aplikację w swoich uprawnieniach aplikacji, dopóki jej tam nie usuniesz.",
+        "signedIn": "Zalogowano jako {{account}}",
+        "signedInNoAccount": "Zalogowano",
+        "saveToKeep": "Zapisz, aby zachować logowanie.",
+        "notSignedIn": "Nie zalogowano.",
+        "deviceStep": "Przejdź do",
+        "waiting": "Wpisz tam ten kod i zaloguj się; ta strona na niego czeka.",
+        "codeStep": "Zaloguj się na stronie Google:",
+        "openPage": "otwórz stronę logowania",
+        "codePaste": "Po zalogowaniu przeglądarka przejdzie pod adres na 127.0.0.1, który się nie załaduje. Skopiuj cały ten adres z paska adresu i wklej go tutaj.",
+        "codeLabel": "Adres po zalogowaniu",
+        "finish": "Zakończ",
+        "cancel": "Anuluj",
+        "failed": "Logowanie nie powiodło się: {{error}}",
+        "authError": "Logowanie już nie działa: {{error}}"
       }
     },
     "addonPage": {

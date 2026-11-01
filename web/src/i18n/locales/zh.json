@@ -2211,14 +2211,21 @@
         "accessToken": "访问令牌",
         "roomId": "房间 ID",
         "protocol": "协议",
-        "skipVerify": "接受任何服务器证书"
+        "skipVerify": "接受任何服务器证书",
+        "provider": "邮件服务",
+        "auth": "登录方式",
+        "oauthClientId": "OAuth 客户端 ID",
+        "oauthClientSecret": "OAuth 客户端密钥",
+        "oauthTenant": "租户"
       },
       "option": {
         "none": "无",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "密码",
+        "oauth2": "OAuth 2.0 登录"
       },
       "help": {
         "telegram": "通过 @BotFather 创建机器人，粘贴其令牌，并将机器人加入聊天。群组 ID 以 -100 开头。话题 ID：用于启用话题的群组。Bot API 服务器：仅用于自建的 Bot API 服务器。",
@@ -2263,6 +2270,45 @@
         "screen_bsod": "蓝屏",
         "screen_panic": "Kernel panic",
         "test": "测试消息"
+      },
+      "provider": {
+        "custom": "其他服务器"
+      },
+      "providerHelp": {
+        "gmail": "通过您自己的 OAuth 客户端使用 OAuth 2.0 登录，或使用应用专用密码（需要开启两步验证）。用户名为您的邮箱地址。",
+        "microsoft365": "通过您自己的应用注册使用 OAuth 2.0 登录。邮箱必须开启经过身份验证的 SMTP。Microsoft 正在停用 SMTP 的密码（Basic authentication）：只有在贵组织仍允许时，密码才可用。",
+        "outlook": "Outlook.com 不再接受邮件程序使用密码登录：请通过您自己的、允许个人 Microsoft 账户的应用注册，使用 OAuth 2.0 登录。",
+        "yahoo": "使用应用专用密码（Account security > Generate app password）。用户名为您的邮箱地址。",
+        "icloud": "使用 App 专用密码（Apple Account > Sign-In and Security；需要双重认证）。用户名为您完整的 iCloud Mail 地址。",
+        "zoho": "使用应用专用密码。smtp.zoho.com 服务于美国数据中心的账户；其他账户使用各自的服务器，例如 smtp.zoho.eu 或 smtp.zoho.in，付费域名账户使用 smtppro.zoho.com。",
+        "fastmail": "使用具有 SMTP 访问权限的应用密码（Settings > Privacy & Security > Manage app passwords）。用户名为您的邮箱地址。",
+        "yandex": "使用 Mail 的应用密码（Yandex ID > Security > App passwords）。",
+        "mailru": "使用外部应用密码（账户设置 > Security）。用户名为您的邮箱地址。",
+        "proton": "需要付费套餐和您自己域名下的地址：创建 SMTP 令牌（Settings > IMAP/SMTP）并作为密码输入，用户名填写您域名下的地址。Proton Mail Bridge 运行在计算机上，而不是本设备上。",
+        "custom": "您自己的邮件服务器或中继。587 端口使用 STARTTLS，465 端口使用 TLS。"
+      },
+      "oauth": {
+        "account": "账户",
+        "clientHelpGoogle": "在 Google Cloud Console 中创建类型为 \"Desktop app\" 的 OAuth 客户端，范围为 https://mail.google.com/，并输入其客户端 ID 和密钥。将同意屏幕设为 \"In production\"：处于 \"Testing\" 状态时，登录会在 7 天后过期。对于您自己的应用，Google 提示应用未经验证属于正常现象。",
+        "clientHelpMicrosoft": "在 Microsoft Entra ID 中注册一个应用（用于 Outlook.com 时：需允许个人 Microsoft 账户），在 Authentication 下开启 \"Allow public client flows\"，并添加委托权限 SMTP.Send。输入其应用程序（客户端）ID。租户：如果应用仅供贵组织使用，请填写您的租户 ID。",
+        "signIn": "登录",
+        "signInAgain": "重新登录",
+        "signOut": "退出登录",
+        "signOutConfirm": "退出登录？保存后生效。届时 Google 的访问权限将被撤销；Microsoft 账户会将该应用保留在其应用权限中，直到您在那里移除。",
+        "signedIn": "已登录为 {{account}}",
+        "signedInNoAccount": "已登录",
+        "saveToKeep": "保存以保留登录状态。",
+        "notSignedIn": "未登录。",
+        "deviceStep": "前往",
+        "waiting": "在那里输入此代码并登录；本页面正在等待。",
+        "codeStep": "在 Google 页面登录：",
+        "openPage": "打开登录页面",
+        "codePaste": "登录后，浏览器会跳转到 127.0.0.1 上一个无法加载的地址。请从地址栏复制完整地址并粘贴到此处。",
+        "codeLabel": "登录后的地址",
+        "finish": "完成",
+        "cancel": "取消",
+        "failed": "登录失败：{{error}}",
+        "authError": "登录已失效：{{error}}"
       }
     }
   },

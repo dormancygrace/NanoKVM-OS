@@ -4,12 +4,47 @@ export type NotifyKind = 'power' | 'hdmi' | 'security' | 'screen';
 
 export type NotifyField = {
   key: string;
-  kind: 'text' | 'url' | 'email' | 'number' | 'select' | 'bool';
+  // oauth: the stored sign-in; hidden: kept, not drawn.
+  kind: 'text' | 'url' | 'email' | 'number' | 'select' | 'bool' | 'oauth' | 'hidden';
   secret?: boolean;
   required?: boolean;
   options?: string[];
   default?: string;
   placeholder?: string;
+  // The field applies only while each named field has one of the values.
+  show?: Record<string, string[]>;
+  maxBytes?: number;
+};
+
+// A mail service the e-mail channel fills in; auth lists its sign-ins, the
+// one to use first.
+export type NotifyProvider = {
+  id: string;
+  host: string;
+  port: string;
+  security: string;
+  auth: string[];
+  oauth?: 'google' | 'microsoft';
+  tenant?: string;
+};
+
+// A sign-in to show: a code to enter at url (device), or url to open and
+// the address the browser ends on to paste back (code).
+export type NotifySignIn = {
+  id: string;
+  kind: 'device' | 'code';
+  url: string;
+  userCode?: string;
+  interval?: number;
+  expiresIn: number;
+};
+
+// token is the sign-in's handle for the oauthToken field until it is saved.
+export type NotifySignInResult = {
+  pending: boolean;
+  interval?: number;
+  token?: string;
+  account?: string;
 };
 
 export type NotifyChannelType = {
@@ -29,6 +64,8 @@ export type NotifyChannel = {
   secretsSet: string[];
   // The id of the channel's template; empty or absent: the standard one.
   template?: string;
+  // The channel's sign-in failed: expired or revoked.
+  authError?: string;
 };
 
 // A message's title and text, with {name} variables.
@@ -58,12 +95,13 @@ export type NotifyStatus = {
   commonVars: string[];
   types: NotifyChannelType[];
   events: NotifyKind[];
+  providers: NotifyProvider[];
 };
 
 // A channel as the page sends it: an empty secret keeps the stored value,
 // clear names the secrets to remove. templateDraft is its template as it is
 // on the page, for the Test button.
-export type NotifyChannelUpdate = Omit<NotifyChannel, 'secretsSet'> & {
+export type NotifyChannelUpdate = Omit<NotifyChannel, 'secretsSet' | 'authError'> & {
   clear: string[];
   templateDraft?: NotifyTemplate;
 };
@@ -92,6 +130,24 @@ export const saveNotifyConfig = (data: {
     url: '/api/notify/config',
     data,
     timeout: 15000,
+    sensitive: true
+  });
+
+export const startNotifySignIn = (data: NotifyChannelUpdate) =>
+  http.request<NotifySignIn>({
+    method: 'post',
+    url: '/api/notify/oauth/start',
+    data,
+    timeout: 40000,
+    sensitive: true
+  });
+
+export const finishNotifySignIn = (data: { id: string; code: string }) =>
+  http.request<NotifySignInResult>({
+    method: 'post',
+    url: '/api/notify/oauth/finish',
+    data,
+    timeout: 40000,
     sensitive: true
   });
 

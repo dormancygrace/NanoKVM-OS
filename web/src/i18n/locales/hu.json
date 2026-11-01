@@ -814,14 +814,21 @@
         "accessToken": "Hozzáférési token",
         "roomId": "Szoba azonosítója",
         "protocol": "Protokoll",
-        "skipVerify": "Bármely kiszolgálótanúsítvány elfogadása"
+        "skipVerify": "Bármely kiszolgálótanúsítvány elfogadása",
+        "provider": "Levelezési szolgáltatás",
+        "auth": "Bejelentkezés",
+        "oauthClientId": "OAuth-ügyfélazonosító",
+        "oauthClientSecret": "OAuth-ügyféltitok",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Nincs",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Jelszó",
+        "oauth2": "Bejelentkezés OAuth 2.0-val"
       },
       "help": {
         "telegram": "Hozzon létre egy botot a @BotFather segítségével, illessze be a tokenjét, majd adja hozzá a botot a csevegéshez. A csoport azonosítója -100-zal kezdődik. Témaazonosító: témákkal rendelkező csoporthoz. Bot API-kiszolgáló: csak saját Bot API-kiszolgálóhoz.",
@@ -866,6 +873,45 @@
         "screen_bsod": "Kék képernyő",
         "screen_panic": "Kernel panic",
         "test": "Tesztüzenet"
+      },
+      "provider": {
+        "custom": "Másik kiszolgáló"
+      },
+      "providerHelp": {
+        "gmail": "Jelentkezzen be OAuth 2.0-val egy saját OAuth-ügyfélen keresztül, vagy használjon alkalmazásjelszót (kétlépcsős azonosítás szükséges hozzá). A felhasználónév az Ön címe.",
+        "microsoft365": "Bejelentkezés OAuth 2.0-val egy saját alkalmazásregisztráción keresztül. A postafiókhoz be kell kapcsolni a hitelesített SMTP-t. A Microsoft megszünteti a jelszavakat (alapszintű hitelesítés) az SMTP-nél: a jelszó csak addig működik, amíg a szervezete még engedélyezi.",
+        "outlook": "Az Outlook.com már nem fogad el jelszót levelezőprogramoktól: jelentkezzen be OAuth 2.0-val egy saját alkalmazásregisztráción keresztül, amely engedélyezi a személyes Microsoft-fiókokat.",
+        "yahoo": "Használjon alkalmazásjelszót (Account security > Generate app password). A felhasználónév az Ön címe.",
+        "icloud": "Használjon alkalmazásspecifikus jelszót (Apple Account > Bejelentkezés és biztonság; kétfaktoros hitelesítés szükséges hozzá). A felhasználónév az Ön teljes iCloud Mail-címe.",
+        "zoho": "Használjon alkalmazásspecifikus jelszót. Az smtp.zoho.com az amerikai adatközpont fiókjait szolgálja ki; a többiek a sajátjukat használják, például az smtp.zoho.eu vagy smtp.zoho.in címet, a fizetős domainfiókok pedig az smtppro.zoho.com címet.",
+        "fastmail": "Használjon SMTP-hozzáféréssel rendelkező alkalmazásjelszót (Settings > Privacy & Security > Manage app passwords). A felhasználónév az Ön címe.",
+        "yandex": "Használjon alkalmazásjelszót a Mailhez (Yandex ID > Security > App passwords).",
+        "mailru": "Használjon külső alkalmazásokhoz való jelszót (fiókbeállítások > Security). A felhasználónév az Ön címe.",
+        "proton": "Fizetős csomag és saját domainen lévő cím kell hozzá: hozzon létre SMTP-tokent (Settings > IMAP/SMTP), és adja meg jelszóként, a domainhez tartozó címét pedig felhasználónévként. A Proton Mail Bridge számítógépen fut, nem ezen az eszközön.",
+        "custom": "Saját levelezőkiszolgáló vagy relé. STARTTLS a 587-es porton, TLS a 465-ösön."
+      },
+      "oauth": {
+        "account": "Fiók",
+        "clientHelpGoogle": "A Google Cloud Console-ban hozzon létre \"Desktop app\" típusú OAuth-ügyfelet a https://mail.google.com/ hatókörrel, és adja meg az ügyfélazonosítóját és titkát. Állítsa a hozzájárulási képernyőt \"In production\" állapotra: \"Testing\" állapotban a bejelentkezés 7 nap után lejár. A Google figyelmeztetése az ellenőrizetlen alkalmazásról saját alkalmazásnál várható.",
+        "clientHelpMicrosoft": "A Microsoft Entra ID-ban regisztráljon egy alkalmazást (Outlook.com esetén olyat, amely engedélyezi a személyes Microsoft-fiókokat), kapcsolja be az \"Allow public client flows\" beállítást az Authentication alatt, és adja hozzá a delegált SMTP.Send engedélyt. Adja meg az alkalmazás (ügyfél) azonosítóját. Tenant: a tenant azonosítója, ha az alkalmazás csak az Ön szervezetéhez tartozik.",
+        "signIn": "Bejelentkezés",
+        "signInAgain": "Bejelentkezés újra",
+        "signOut": "Kijelentkezés",
+        "signOutConfirm": "Kijelentkezik? Mentéskor lép életbe. A Google-hozzáférést ekkor visszavonja; a Microsoft-fiók megtartja az alkalmazást az alkalmazásengedélyei között, amíg ott el nem távolítja.",
+        "signedIn": "Bejelentkezve mint {{account}}",
+        "signedInNoAccount": "Bejelentkezve",
+        "saveToKeep": "Mentse a bejelentkezés megtartásához.",
+        "notSignedIn": "Nincs bejelentkezve.",
+        "deviceStep": "Lépjen ide:",
+        "waiting": "Adja meg ott ezt a kódot, és jelentkezzen be; ez az oldal várja.",
+        "codeStep": "Jelentkezzen be a Google oldalán:",
+        "openPage": "a bejelentkezési oldal megnyitása",
+        "codePaste": "A bejelentkezés után a böngésző egy 127.0.0.1-es címre lép, amely nem töltődik be. Másolja ki a teljes címet a címsorból, és illessze be ide.",
+        "codeLabel": "A bejelentkezés utáni cím",
+        "finish": "Befejezés",
+        "cancel": "Mégse",
+        "failed": "A bejelentkezés nem sikerült: {{error}}",
+        "authError": "A bejelentkezés már nem működik: {{error}}"
       }
     },
     "addonPage": {

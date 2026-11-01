@@ -24,8 +24,66 @@ const types: NotifyStatus['types'] = [
       { key: 'token', kind: 'text', secret: true, required: true },
       { key: 'chatId', kind: 'text', required: true }
     ]
+  },
+  {
+    type: 'email',
+    image: true,
+    fields: [
+      {
+        key: 'provider',
+        kind: 'select',
+        options: ['gmail', 'microsoft365', 'yahoo', 'custom'],
+        default: 'custom'
+      },
+      { key: 'host', kind: 'text', required: true },
+      { key: 'port', kind: 'number', default: '587' },
+      {
+        key: 'security',
+        kind: 'select',
+        options: ['starttls', 'tls', 'none'],
+        default: 'starttls'
+      },
+      { key: 'auth', kind: 'select', options: ['password', 'oauth2'], default: 'password' },
+      { key: 'username', kind: 'text' },
+      { key: 'password', kind: 'text', secret: true, show: { auth: ['password'] } },
+      { key: 'oauthClientId', kind: 'text', show: { auth: ['oauth2'] } },
+      {
+        key: 'oauthClientSecret',
+        kind: 'text',
+        secret: true,
+        show: { auth: ['oauth2'], provider: ['gmail'] }
+      },
+      { key: 'oauthTenant', kind: 'text', show: { auth: ['oauth2'], provider: ['microsoft365'] } },
+      { key: 'oauthToken', kind: 'oauth', secret: true, show: { auth: ['oauth2'] } },
+      { key: 'oauthAccount', kind: 'hidden', show: { auth: ['oauth2'] } },
+      { key: 'from', kind: 'email', required: true },
+      { key: 'to', kind: 'text', required: true }
+    ]
   }
 ];
+// The e-mail sign-ins: Google pastes an address, Microsoft polls once.
+const providers: NotifyStatus['providers'] = [
+  {
+    id: 'gmail',
+    host: 'smtp.gmail.com',
+    port: '587',
+    security: 'starttls',
+    auth: ['oauth2', 'password'],
+    oauth: 'google'
+  },
+  {
+    id: 'microsoft365',
+    host: 'smtp.office365.com',
+    port: '587',
+    security: 'starttls',
+    auth: ['oauth2', 'password'],
+    oauth: 'microsoft',
+    tenant: 'organizations'
+  },
+  { id: 'yahoo', host: 'smtp.mail.yahoo.com', port: '465', security: 'tls', auth: ['password'] },
+  { id: 'custom', host: '', port: '', security: '', auth: ['password'] }
+];
+let polls = 0;
 let stored: NotifyChannel[] = [
   {
     id: 'c1',
@@ -53,7 +111,8 @@ const status = (): NotifyStatus => ({
   ],
   commonVars: ['device', 'time', 'details'],
   types,
-  events: ['power', 'hdmi', 'security']
+  events: ['power', 'hdmi', 'security'],
+  providers
 });
 
 const adapter: AxiosAdapter = async (config) => {
@@ -75,6 +134,29 @@ const adapter: AxiosAdapter = async (config) => {
     const title = own?.title || 'Host powered off';
     report(`PREVIEW language=${language} template=${template?.name ?? 'standard'}`);
     return answer([{ key: 'power.off', title, body: 'Off.', text: 'Off.\n\nkvm' }]);
+  }
+  if (config.url?.endsWith('/oauth/start')) {
+    const channel = JSON.parse(config.data) as NotifyChannelUpdate;
+    report(`SIGN-IN start ${channel.settings.provider}`);
+    polls = 0;
+    return answer(
+      channel.settings.provider === 'gmail'
+        ? { id: 'f1', kind: 'code', url: 'https://accounts.example/auth?long=1', expiresIn: 900 }
+        : {
+            id: 'f1',
+            kind: 'device',
+            url: 'https://microsoft.example/devicelogin',
+            userCode: 'ABCD-1234',
+            interval: 1,
+            expiresIn: 900
+          }
+    );
+  }
+  if (config.url?.endsWith('/oauth/finish')) {
+    const { code } = JSON.parse(config.data) as { code: string };
+    report(`SIGN-IN finish code=${code}`);
+    if (!code && polls++ < 1) return answer({ pending: true, interval: 1 });
+    return answer({ pending: false, token: 'pending:h1', account: 'me@example.com' });
   }
   const sent = JSON.parse(config.data) as {
     language: string;

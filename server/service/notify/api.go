@@ -19,6 +19,8 @@ type Status struct {
 	CommonVars []string      `json:"commonVars"`
 	Types      []ChannelType `json:"types"`
 	Events     []Kind        `json:"events"`
+	// Providers are the mail services the e-mail channel fills in.
+	Providers []Provider `json:"providers"`
 }
 
 // MessageView is a message spec with its standard text in a language.
@@ -77,9 +79,13 @@ func (s *Service) Status() Status {
 	config := s.config
 	s.mu.Unlock()
 	views := make([]ChannelView, 0, len(config.Channels))
+	s.mu.Lock()
 	for _, ch := range config.Channels {
-		views = append(views, ch.view())
+		view := ch.view()
+		view.AuthError = s.authErrors[ch.ID]
+		views = append(views, view)
 	}
+	s.mu.Unlock()
 	templates := config.Templates
 	if templates == nil {
 		templates = []Template{}
@@ -93,6 +99,7 @@ func (s *Service) Status() Status {
 		CommonVars: CommonVars,
 		Types:      ChannelTypes,
 		Events:     Kinds,
+		Providers:  Providers,
 	}
 }
 
@@ -140,19 +147,23 @@ func (s *Service) Preview(request PreviewRequest) ([]Preview, error) {
 
 // resolve turns a channel from the page into a stored one: its secrets
 // filled in from the stored channel of the same id, the cleared ones
-// emptied, defaults applied and the fields checked.
-func resolve(update ChannelUpdate, stored []Channel) (Channel, error) {
-	ch := withStoredSecrets(update.Channel, stored)
+// emptied, a sign-in made on the page put in, defaults applied and the
+// fields checked. handle is that sign-in's, "" for none.
+func resolve(update ChannelUpdate, stored []Channel) (ch Channel, handle string, err error) {
+	ch = withStoredSecrets(update.Channel, stored)
 	for _, key := range update.Clear {
 		delete(ch.Settings, key)
+	}
+	if handle, err = oauth.claim(&ch); err != nil {
+		return Channel{}, "", err
 	}
 	if ch.ID == "" {
 		ch.ID = newID()
 	}
 	if err := ch.validate(); err != nil {
-		return Channel{}, err
+		return Channel{}, "", err
 	}
-	return ch, nil
+	return ch, handle, nil
 }
 
 // Configure stores the page's settings; they apply to the next event.
@@ -163,14 +174,18 @@ func (s *Service) Configure(settings Settings) error {
 	if next.Templates == nil {
 		next.Templates = []Template{}
 	}
+	var handles []string
 	for _, update := range settings.Channels {
-		ch, err := resolve(update, s.config.Channels)
+		ch, handle, err := resolve(update, s.config.Channels)
 		if err != nil {
 			name := update.Name
 			if name == "" {
 				name = update.Type
 			}
 			return errors.New(name + ": " + err.Error())
+		}
+		if handle != "" {
+			handles = append(handles, handle)
 		}
 		next.Channels = append(next.Channels, ch)
 	}
@@ -180,8 +195,47 @@ func (s *Service) Configure(settings Settings) error {
 	if err := Save(s.path, next); err != nil {
 		return err
 	}
+	oauth.used(handles)
+	s.dropSignIns(s.config, next)
 	s.config = next
 	return nil
+}
+
+// dropSignIns ends the sign-ins the new settings no longer hold (signed out,
+// replaced, the channel deleted) and forgets their failures. It holds s.mu.
+func (s *Service) dropSignIns(old, next Config) {
+	kept := map[string]string{}
+	for _, ch := range next.Channels {
+		kept[ch.ID] = ch.get("oauthToken")
+	}
+	for _, ch := range old.Channels {
+		token := ch.get("oauthToken")
+		if token == "" || kept[ch.ID] == token {
+			continue
+		}
+		delete(s.authErrors, ch.ID)
+		if client, err := clientOf(ch); err == nil {
+			go revoke(client, token)
+		}
+	}
+}
+
+// StartSignIn begins the OAuth sign-in of an e-mail channel as it is on the
+// page.
+func (s *Service) StartSignIn(ctx context.Context, update ChannelUpdate) (FlowStart, error) {
+	s.mu.Lock()
+	stored := slices.Clone(s.config.Channels)
+	s.mu.Unlock()
+	if update.Type != "email" {
+		return FlowStart{}, errors.New("only an e-mail channel signs in")
+	}
+	ch := withStoredSecrets(update.Channel, stored)
+	return oauth.start(ctx, ch)
+}
+
+// FinishSignIn completes a sign-in; see oauthState.finish.
+func (s *Service) FinishSignIn(ctx context.Context, id, code string) (FlowResult, error) {
+	return oauth.finish(ctx, id, code)
 }
 
 // TestChannel sends a test message through a channel as it is on the page,
@@ -191,9 +245,15 @@ func (s *Service) TestChannel(ctx context.Context, update ChannelUpdate) error {
 	stored := slices.Clone(s.config.Channels)
 	template := s.config.template(update.Template)
 	s.mu.Unlock()
-	ch, err := resolve(update, stored)
+	// A new channel gets an id only to be checked: its sign-in failures are
+	// not kept.
+	saved := update.ID != ""
+	ch, _, err := resolve(update, stored)
 	if err != nil {
 		return err
+	}
+	if !saved {
+		ch.ID = ""
 	}
 	if draft := update.TemplateDraft; draft != nil {
 		copied := *draft
@@ -202,5 +262,7 @@ func (s *Service) TestChannel(ctx context.Context, update ChannelUpdate) error {
 		}
 		template = &copied
 	}
-	return s.Test(ctx, ch, template)
+	err = s.Test(ctx, ch, template)
+	s.noteAuth(ch.ID, err)
+	return err
 }

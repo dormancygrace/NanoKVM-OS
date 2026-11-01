@@ -787,14 +787,21 @@
         "accessToken": "Token akses",
         "roomId": "ID ruang",
         "protocol": "Protokol",
-        "skipVerify": "Terima sertifikat server apa pun"
+        "skipVerify": "Terima sertifikat server apa pun",
+        "provider": "Layanan email",
+        "auth": "Masuk",
+        "oauthClientId": "ID klien OAuth",
+        "oauthClientSecret": "Rahasia klien OAuth",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Tidak ada",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Kata sandi",
+        "oauth2": "Masuk dengan OAuth 2.0"
       },
       "help": {
         "telegram": "Buat bot dengan @BotFather dan tempel tokennya, lalu tambahkan bot ke chat. ID grup diawali -100. ID topik: untuk grup dengan topik. Server Bot API: hanya untuk server Bot API milik Anda sendiri.",
@@ -839,6 +846,45 @@
         "screen_bsod": "Layar biru",
         "screen_panic": "Kernel panic",
         "test": "Pesan uji"
+      },
+      "provider": {
+        "custom": "Server lain"
+      },
+      "providerHelp": {
+        "gmail": "Masuk dengan OAuth 2.0 melalui klien OAuth milik Anda sendiri, atau gunakan sandi aplikasi (memerlukan Verifikasi 2 Langkah). Nama pengguna adalah alamat Anda.",
+        "microsoft365": "Masuk dengan OAuth 2.0 melalui pendaftaran aplikasi milik Anda sendiri. SMTP terautentikasi harus aktif untuk kotak surat. Microsoft menghentikan sandi (autentikasi Basic) untuk SMTP: sandi hanya berfungsi selama organisasi Anda masih mengizinkannya.",
+        "outlook": "Outlook.com tidak lagi menerima sandi dari program email: masuk dengan OAuth 2.0 melalui pendaftaran aplikasi milik Anda sendiri yang mengizinkan akun Microsoft pribadi.",
+        "yahoo": "Gunakan sandi aplikasi (Account security > Generate app password). Nama pengguna adalah alamat Anda.",
+        "icloud": "Gunakan sandi khusus aplikasi (Apple Account > Sign-In and Security; memerlukan autentikasi dua faktor). Nama pengguna adalah alamat iCloud Mail lengkap Anda.",
+        "zoho": "Gunakan sandi khusus aplikasi. smtp.zoho.com melayani akun di pusat data AS; yang lain memakai milik mereka sendiri, seperti smtp.zoho.eu atau smtp.zoho.in, dan akun domain berbayar memakai smtppro.zoho.com.",
+        "fastmail": "Gunakan sandi aplikasi dengan akses SMTP (Settings > Privacy & Security > Manage app passwords). Nama pengguna adalah alamat Anda.",
+        "yandex": "Gunakan sandi aplikasi untuk Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Gunakan sandi untuk aplikasi eksternal (pengaturan akun > Keamanan). Nama pengguna adalah alamat Anda.",
+        "proton": "Memerlukan paket berbayar dan alamat di domain Anda sendiri: buat token SMTP (Settings > IMAP/SMTP) dan masukkan sebagai kata sandi, dengan alamat domain Anda sebagai nama pengguna. Proton Mail Bridge berjalan di komputer, bukan di perangkat ini.",
+        "custom": "Server email Anda sendiri atau relay. STARTTLS di port 587, TLS di 465."
+      },
+      "oauth": {
+        "account": "Akun",
+        "clientHelpGoogle": "Di Google Cloud Console, buat klien OAuth bertipe \"Desktop app\" dengan scope https://mail.google.com/ lalu masukkan ID klien dan rahasianya. Atur layar persetujuan ke \"In production\": selama masih \"Testing\", login kedaluwarsa setelah 7 hari. Peringatan Google tentang aplikasi yang belum diverifikasi adalah hal wajar untuk aplikasi milik sendiri.",
+        "clientHelpMicrosoft": "Di Microsoft Entra ID, daftarkan aplikasi (untuk Outlook.com: yang mengizinkan akun Microsoft pribadi), aktifkan \"Allow public client flows\" di bawah Authentication, dan tambahkan izin delegasi SMTP.Send. Masukkan ID aplikasi (klien)-nya. Tenant: ID tenant Anda jika aplikasi hanya untuk organisasi Anda.",
+        "signIn": "Masuk",
+        "signInAgain": "Masuk lagi",
+        "signOut": "Keluar",
+        "signOutConfirm": "Keluar? Berlaku saat Anda menyimpan. Akses Google dicabut saat itu; akun Microsoft tetap menyimpan aplikasi di izin aplikasinya sampai Anda menghapusnya di sana.",
+        "signedIn": "Masuk sebagai {{account}}",
+        "signedInNoAccount": "Sudah masuk",
+        "saveToKeep": "Simpan untuk mempertahankan login.",
+        "notSignedIn": "Belum masuk.",
+        "deviceStep": "Buka",
+        "waiting": "Masukkan kode ini di sana dan masuk; halaman ini menunggunya.",
+        "codeStep": "Masuk di halaman Google:",
+        "openPage": "buka halaman masuk",
+        "codePaste": "Setelah masuk, browser membuka alamat di 127.0.0.1 yang tidak termuat. Salin seluruh alamat itu dari bilah alamat dan tempel di sini.",
+        "codeLabel": "Alamat setelah masuk",
+        "finish": "Selesai",
+        "cancel": "Batal",
+        "failed": "Gagal masuk: {{error}}",
+        "authError": "Login tidak lagi berfungsi: {{error}}"
       }
     },
     "addonPage": {

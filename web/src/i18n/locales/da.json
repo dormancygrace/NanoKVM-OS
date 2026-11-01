@@ -784,14 +784,21 @@
         "accessToken": "Adgangstoken",
         "roomId": "Rum-ID",
         "protocol": "Protokol",
-        "skipVerify": "Accepter ethvert servercertifikat"
+        "skipVerify": "Accepter ethvert servercertifikat",
+        "provider": "Mailtjeneste",
+        "auth": "Login",
+        "oauthClientId": "OAuth-klient-id",
+        "oauthClientSecret": "OAuth-klienthemmelighed",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Ingen",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Adgangskode",
+        "oauth2": "Login med OAuth 2.0"
       },
       "help": {
         "telegram": "Opret en bot med @BotFather, indsæt dens token, og føj botten til chatten. En gruppes ID begynder med -100. Emne-ID: for en gruppe med emner. Bot API-server: kun til din egen Bot API-server.",
@@ -836,6 +843,45 @@
         "screen_bsod": "Blå skærm",
         "screen_panic": "Kernel panic",
         "test": "Testbesked"
+      },
+      "provider": {
+        "custom": "Anden server"
+      },
+      "providerHelp": {
+        "gmail": "Log ind med OAuth 2.0 via en OAuth-klient, du selv har oprettet, eller brug en app-adgangskode (kræver totrinsbekræftelse). Brugernavnet er din adresse.",
+        "microsoft365": "Login med OAuth 2.0 via en appregistrering, du selv har oprettet. Godkendt SMTP skal være slået til for postkassen. Microsoft udfaser adgangskoder (grundlæggende godkendelse) til SMTP: en adgangskode virker kun, så længe din organisation stadig tillader det.",
+        "outlook": "Outlook.com tager ikke længere imod adgangskoder fra mailprogrammer: log ind med OAuth 2.0 via en appregistrering, du selv har oprettet, som tillader personlige Microsoft-konti.",
+        "yahoo": "Brug en app-adgangskode (Account security > Generate app password). Brugernavnet er din adresse.",
+        "icloud": "Brug en appspecifik adgangskode (Apple Account > Log ind og sikkerhed; kræver tofaktorgodkendelse). Brugernavnet er din fulde iCloud Mail-adresse.",
+        "zoho": "Brug en appspecifik adgangskode. smtp.zoho.com betjener konti i det amerikanske datacenter; andre bruger deres eget, f.eks. smtp.zoho.eu eller smtp.zoho.in, og betalte domænekonti smtppro.zoho.com.",
+        "fastmail": "Brug en app-adgangskode med SMTP-adgang (Settings > Privacy & Security > Manage app passwords). Brugernavnet er din adresse.",
+        "yandex": "Brug en app-adgangskode til Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Brug en adgangskode til eksterne programmer (kontoindstillinger > Security). Brugernavnet er din adresse.",
+        "proton": "Kræver et betalt abonnement og en adresse på dit eget domæne: opret et SMTP-token (Settings > IMAP/SMTP), og indtast det som adgangskode og din domæneadresse som brugernavn. Proton Mail Bridge kører på en computer, ikke på denne enhed.",
+        "custom": "Din egen mailserver eller et relay. STARTTLS på port 587, TLS på 465."
+      },
+      "oauth": {
+        "account": "Konto",
+        "clientHelpGoogle": "Opret i Google Cloud Console en OAuth-klient af typen \"Desktop app\" med scope https://mail.google.com/, og indtast dens klient-id og hemmelighed. Sæt samtykkeskærmen til \"In production\": i \"Testing\" udløber login efter 7 dage. Googles advarsel om en ikke-verificeret app er forventet for en app, du selv har oprettet.",
+        "clientHelpMicrosoft": "Registrer en app i Microsoft Entra ID (til Outlook.com: en, der tillader personlige Microsoft-konti), slå \"Allow public client flows\" til under Authentication, og tilføj den delegerede tilladelse SMTP.Send. Indtast dens program-id (klient-id). Tenant: dit tenant-id, hvis appen kun er til din organisation.",
+        "signIn": "Log ind",
+        "signInAgain": "Log ind igen",
+        "signOut": "Log ud",
+        "signOutConfirm": "Log ud? Det træder i kraft, når du gemmer. Google-adgangen tilbagekaldes da; en Microsoft-konto beholder appen under sine apptilladelser, indtil du fjerner den dér.",
+        "signedIn": "Logget ind som {{account}}",
+        "signedInNoAccount": "Logget ind",
+        "saveToKeep": "Gem for at beholde login.",
+        "notSignedIn": "Ikke logget ind.",
+        "deviceStep": "Gå til",
+        "waiting": "Indtast denne kode dér, og log ind; denne side venter på den.",
+        "codeStep": "Log ind på Googles side:",
+        "openPage": "åbn loginsiden",
+        "codePaste": "Efter login går browseren til en adresse på 127.0.0.1, som ikke indlæses. Kopiér hele adressen fra adressefeltet, og indsæt den her.",
+        "codeLabel": "Adresse efter login",
+        "finish": "Afslut",
+        "cancel": "Annuller",
+        "failed": "Login mislykkedes: {{error}}",
+        "authError": "Login virker ikke længere: {{error}}"
       }
     },
     "addonPage": {

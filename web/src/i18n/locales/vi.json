@@ -790,14 +790,21 @@
         "accessToken": "Token truy cập",
         "roomId": "ID phòng",
         "protocol": "Giao thức",
-        "skipVerify": "Chấp nhận mọi chứng chỉ máy chủ"
+        "skipVerify": "Chấp nhận mọi chứng chỉ máy chủ",
+        "provider": "Dịch vụ email",
+        "auth": "Đăng nhập",
+        "oauthClientId": "OAuth client ID",
+        "oauthClientSecret": "OAuth client secret",
+        "oauthTenant": "Tenant"
       },
       "option": {
         "none": "Không",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "Mật khẩu",
+        "oauth2": "Đăng nhập bằng OAuth 2.0"
       },
       "help": {
         "telegram": "Tạo bot bằng @BotFather và dán token của bot, sau đó thêm bot vào cuộc trò chuyện. ID của nhóm bắt đầu bằng -100. ID chủ đề: dành cho nhóm có chủ đề. Máy chủ Bot API: chỉ dùng cho máy chủ Bot API riêng của bạn.",
@@ -842,6 +849,45 @@
         "screen_bsod": "Màn hình xanh",
         "screen_panic": "Kernel panic",
         "test": "Tin nhắn thử"
+      },
+      "provider": {
+        "custom": "Máy chủ khác"
+      },
+      "providerHelp": {
+        "gmail": "Đăng nhập bằng OAuth 2.0 qua OAuth client của riêng bạn, hoặc dùng mật khẩu ứng dụng (cần bật Xác minh 2 bước). Tên người dùng là địa chỉ của bạn.",
+        "microsoft365": "Đăng nhập bằng OAuth 2.0 qua một app registration của riêng bạn. Authenticated SMTP phải được bật cho hộp thư. Microsoft đang loại bỏ mật khẩu (Basic authentication) cho SMTP: mật khẩu chỉ dùng được khi tổ chức của bạn còn cho phép.",
+        "outlook": "Outlook.com không còn nhận mật khẩu từ các chương trình email: hãy đăng nhập bằng OAuth 2.0 qua một app registration của riêng bạn có cho phép tài khoản Microsoft cá nhân.",
+        "yahoo": "Dùng mật khẩu ứng dụng (Account security > Generate app password). Tên người dùng là địa chỉ của bạn.",
+        "icloud": "Dùng mật khẩu dành riêng cho ứng dụng (Apple Account > Sign-In and Security; cần bật xác thực hai yếu tố). Tên người dùng là địa chỉ iCloud Mail đầy đủ của bạn.",
+        "zoho": "Dùng mật khẩu dành riêng cho ứng dụng. smtp.zoho.com phục vụ các tài khoản ở trung tâm dữ liệu Hoa Kỳ; các tài khoản khác dùng máy chủ riêng, chẳng hạn smtp.zoho.eu hoặc smtp.zoho.in, và tài khoản tên miền trả phí dùng smtppro.zoho.com.",
+        "fastmail": "Dùng mật khẩu ứng dụng có quyền truy cập SMTP (Settings > Privacy & Security > Manage app passwords). Tên người dùng là địa chỉ của bạn.",
+        "yandex": "Dùng mật khẩu ứng dụng cho Mail (Yandex ID > Security > App passwords).",
+        "mailru": "Dùng mật khẩu cho ứng dụng bên ngoài (cài đặt tài khoản > Security). Tên người dùng là địa chỉ của bạn.",
+        "proton": "Cần gói trả phí và một địa chỉ trên tên miền riêng của bạn: tạo SMTP token (Settings > IMAP/SMTP) và nhập làm mật khẩu, địa chỉ trên tên miền của bạn làm tên người dùng. Proton Mail Bridge chạy trên máy tính, không chạy trên thiết bị này.",
+        "custom": "Máy chủ email của riêng bạn hoặc một relay. STARTTLS ở cổng 587, TLS ở cổng 465."
+      },
+      "oauth": {
+        "account": "Tài khoản",
+        "clientHelpGoogle": "Trong Google Cloud Console, tạo một OAuth client loại \"Desktop app\" với scope https://mail.google.com/ rồi nhập client ID và secret của nó. Đặt màn hình đồng ý ở trạng thái \"In production\": khi ở trạng thái \"Testing\", đăng nhập hết hạn sau 7 ngày. Cảnh báo của Google về ứng dụng chưa được xác minh là bình thường với ứng dụng của riêng bạn.",
+        "clientHelpMicrosoft": "Trong Microsoft Entra ID, đăng ký một ứng dụng (với Outlook.com: ứng dụng cho phép tài khoản Microsoft cá nhân), bật \"Allow public client flows\" trong Authentication và thêm quyền delegated SMTP.Send. Nhập application (client) ID của ứng dụng. Tenant: tenant ID của bạn nếu ứng dụng chỉ dành cho tổ chức của bạn.",
+        "signIn": "Đăng nhập",
+        "signInAgain": "Đăng nhập lại",
+        "signOut": "Đăng xuất",
+        "signOutConfirm": "Đăng xuất? Có hiệu lực khi bạn lưu. Khi đó quyền truy cập Google sẽ bị thu hồi; tài khoản Microsoft vẫn giữ ứng dụng trong phần quyền ứng dụng cho đến khi bạn xóa ở đó.",
+        "signedIn": "Đã đăng nhập với tên {{account}}",
+        "signedInNoAccount": "Đã đăng nhập",
+        "saveToKeep": "Lưu để giữ đăng nhập.",
+        "notSignedIn": "Chưa đăng nhập.",
+        "deviceStep": "Truy cập",
+        "waiting": "Nhập mã này ở đó và đăng nhập; trang này đang chờ mã.",
+        "codeStep": "Đăng nhập trên trang của Google:",
+        "openPage": "mở trang đăng nhập",
+        "codePaste": "Sau khi đăng nhập, trình duyệt chuyển đến một địa chỉ trên 127.0.0.1 không tải được. Hãy sao chép toàn bộ địa chỉ đó từ thanh địa chỉ và dán vào đây.",
+        "codeLabel": "Địa chỉ sau khi đăng nhập",
+        "finish": "Hoàn tất",
+        "cancel": "Hủy",
+        "failed": "Đăng nhập thất bại: {{error}}",
+        "authError": "Đăng nhập không còn hoạt động: {{error}}"
       }
     },
     "addonPage": {

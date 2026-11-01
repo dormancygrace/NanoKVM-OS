@@ -2211,14 +2211,21 @@
         "accessToken": "アクセストークン",
         "roomId": "ルーム ID",
         "protocol": "プロトコル",
-        "skipVerify": "すべてのサーバー証明書を受け入れる"
+        "skipVerify": "すべてのサーバー証明書を受け入れる",
+        "provider": "メールサービス",
+        "auth": "サインイン",
+        "oauthClientId": "OAuth クライアント ID",
+        "oauthClientSecret": "OAuth クライアントシークレット",
+        "oauthTenant": "テナント"
       },
       "option": {
         "none": "なし",
         "starttls": "STARTTLS",
         "tls": "TLS",
         "udp": "UDP",
-        "tcp": "TCP"
+        "tcp": "TCP",
+        "password": "パスワード",
+        "oauth2": "OAuth 2.0 でサインイン"
       },
       "help": {
         "telegram": "@BotFather でボットを作成してトークンを貼り付け、ボットをチャットに追加します。グループの ID は -100 で始まります。トピック ID：トピック付きグループ用。Bot API サーバー：独自の Bot API サーバーの場合のみ。",
@@ -2263,6 +2270,45 @@
         "screen_bsod": "ブルースクリーン",
         "screen_panic": "Kernel panic",
         "test": "テストメッセージ"
+      },
+      "provider": {
+        "custom": "その他のサーバー"
+      },
+      "providerHelp": {
+        "gmail": "ご自身の OAuth クライアントを使って OAuth 2.0 でサインインするか、アプリパスワードを使います（2 段階認証プロセスが必要です）。ユーザー名はメールアドレスです。",
+        "microsoft365": "ご自身のアプリ登録を使って OAuth 2.0 でサインインします。メールボックスで認証済み SMTP を有効にしてください。Microsoft は SMTP のパスワード（Basic 認証）を廃止中です。パスワードは、組織が許可している間だけ使えます。",
+        "outlook": "Outlook.com はメールソフトからのパスワードを受け付けなくなりました。個人の Microsoft アカウントを許可するご自身のアプリ登録を使って、OAuth 2.0 でサインインしてください。",
+        "yahoo": "アプリパスワードを使います（Account security > Generate app password）。ユーザー名はメールアドレスです。",
+        "icloud": "アプリ用パスワードを使います（Apple Account > Sign-In and Security。2 ファクタ認証が必要です）。ユーザー名は iCloud メールのメールアドレス全体です。",
+        "zoho": "アプリ専用パスワードを使います。smtp.zoho.com は米国データセンターのアカウント用です。それ以外は各自のサーバー（smtp.zoho.eu や smtp.zoho.in など）を使い、有料のドメインアカウントは smtppro.zoho.com を使います。",
+        "fastmail": "SMTP アクセス付きのアプリパスワードを使います（Settings > Privacy & Security > Manage app passwords）。ユーザー名はメールアドレスです。",
+        "yandex": "メール用のアプリパスワードを使います（Yandex ID > Security > App passwords）。",
+        "mailru": "外部アプリケーション用のパスワードを使います（アカウント設定 > セキュリティ）。ユーザー名はメールアドレスです。",
+        "proton": "有料プランと、ご自身のドメインのアドレスが必要です。SMTP トークン（Settings > IMAP/SMTP）を作成してパスワードとして入力し、ユーザー名にはドメインのアドレスを入力します。Proton Mail Bridge はコンピューター上で動作し、このデバイスでは動作しません。",
+        "custom": "ご自身のメールサーバーまたはリレー。ポート 587 は STARTTLS、465 は TLS です。"
+      },
+      "oauth": {
+        "account": "アカウント",
+        "clientHelpGoogle": "Google Cloud Console で、種類「Desktop app」、スコープ https://mail.google.com/ の OAuth クライアントを作成し、そのクライアント ID とシークレットを入力します。同意画面は「In production」にしてください。「Testing」のままだと、サインインは 7 日で失効します。未確認アプリに関する Google の警告は、ご自身のアプリでは想定どおりです。",
+        "clientHelpMicrosoft": "Microsoft Entra ID でアプリを登録し（Outlook.com の場合は個人の Microsoft アカウントを許可するもの）、Authentication で「Allow public client flows」をオンにして、委任されたアクセス許可 SMTP.Send を追加します。そのアプリケーション（クライアント）ID を入力します。テナント：アプリが組織専用の場合は、テナント ID を入力します。",
+        "signIn": "サインイン",
+        "signInAgain": "再度サインイン",
+        "signOut": "サインアウト",
+        "signOutConfirm": "サインアウトしますか？保存すると反映されます。その時点で Google のアクセスは取り消されます。Microsoft アカウントでは、そこで削除するまでアプリがアプリのアクセス許可に残ります。",
+        "signedIn": "{{account}} でサインイン中",
+        "signedInNoAccount": "サインイン済み",
+        "saveToKeep": "サインインを保持するには保存してください。",
+        "notSignedIn": "サインインしていません。",
+        "deviceStep": "移動先：",
+        "waiting": "そのページでこのコードを入力してサインインしてください。このページは待機しています。",
+        "codeStep": "Google のページでサインインします：",
+        "openPage": "サインインページを開く",
+        "codePaste": "サインイン後、ブラウザーは 127.0.0.1 のアドレスに移動しますが、読み込まれません。アドレスバーからそのアドレス全体をコピーして、ここに貼り付けてください。",
+        "codeLabel": "サインイン後のアドレス",
+        "finish": "完了",
+        "cancel": "キャンセル",
+        "failed": "サインインに失敗しました：{{error}}",
+        "authError": "サインインが使えなくなりました：{{error}}"
       }
     }
   },

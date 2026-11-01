@@ -78,6 +78,10 @@ func redact(ch Channel, err error) error {
 		text = strings.ReplaceAll(text, secret, "***")
 	}
 	clean := errors.New(truncate(text, 400))
+	var auth authError
+	if errors.As(err, &auth) {
+		clean = authError{clean}
+	}
 	var perm permanentError
 	if errors.As(err, &perm) {
 		return permanent(clean)

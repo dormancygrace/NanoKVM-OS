@@ -792,7 +792,26 @@
         "disconnectWarning": "Uložení okamžitě ukončí spojení využívající ethernet. Zajistěte, aby bylo k dispozici jiné připojení pro správu.",
         "vlanDescription": "Použít zvolené nastavení DHCP nebo statické IPv4 na eth0.<ID>",
         "vlanWarning": "Změna VLAN může vést k odpojení této relace přes ethernet. Ujistěte se, že port na přepínači umožňuje zvolenou tagovanou VLAN.",
-        "retry": "Zkusit znovu"
+        "retry": "Zkusit znovu",
+        "gatewayCheck": {
+          "title": "Kontrola brány",
+          "description": "Každých 5 sekund. Dokud brána neodpovídá a Wi-Fi je připojené, NanoKVM používá Wi-Fi; po 2 minutách bez odpovědi si Ethernet vyžádá novou adresu přes DHCP.",
+          "descriptionNoWifi": "Každých 5 sekund. Po 2 minutách bez odpovědi si Ethernet vyžádá novou adresu přes DHCP.",
+          "enable": "Kontrolovat bránu Ethernet",
+          "gateway": "Brána {{address}}",
+          "noGateway": "Ethernet teď nemá bránu.",
+          "method": "Kontrolovat pomocí",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Kontrolovat také hostitele",
+          "hostDescription": "Volitelné: adresa nebo název za bránou, pingovaný přes Ethernet, např. 1.1.1.1.",
+          "hostInvalid": "Zadejte IP adresu nebo název hostitele.",
+          "answers": "odpovídá",
+          "silent": "neodpovídá",
+          "bypassed": "přes Wi-Fi",
+          "loadFailed": "Kontrolu brány se nepodařilo načíst.",
+          "saveFailed": "Kontrolu brány se nepodařilo uložit."
+        }
       },
       "dns": {
         "title": "DNS",

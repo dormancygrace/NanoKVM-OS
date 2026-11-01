@@ -70,6 +70,8 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
 - **Root, in a disposable network namespace:**
   - `test-dhcp-gateway.py` (CI runs it with `sudo`);
   - `test-mss-clamp.py`;
+  - `test-network-multihome.py --netns` (CI runs it with `sudo`; without
+    `--netns` it checks the shipped settings only);
   - `test-usb-internet-netns.py`;
   - `test-pmtu-netns.sh`.
 - **Built or prepared sources, passed as arguments or environment:**

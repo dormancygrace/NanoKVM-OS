@@ -475,7 +475,26 @@
         "unsaved": "Perubahan belum disimpan",
         "saveFailed": "Gagal menyimpan konfigurasi.",
         "loadFailed": "Gagal memuat konfigurasi.",
-        "disabled": "Nonaktif"
+        "disabled": "Nonaktif",
+        "gatewayCheck": {
+          "title": "Pemeriksaan gateway",
+          "description": "Setiap 5 detik. Selama gateway tidak menjawab dan Wi-Fi tersambung, NanoKVM memakai Wi-Fi; setelah 2 menit tanpa jawaban, Ethernet meminta alamat baru melalui DHCP.",
+          "descriptionNoWifi": "Setiap 5 detik. Setelah 2 menit tanpa jawaban, Ethernet meminta alamat baru melalui DHCP.",
+          "enable": "Periksa gateway Ethernet",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "Ethernet saat ini tidak punya gateway.",
+          "method": "Periksa dengan",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Periksa juga sebuah host",
+          "hostDescription": "Opsional: alamat atau nama di balik gateway, di-ping melalui Ethernet, misalnya 1.1.1.1.",
+          "hostInvalid": "Masukkan alamat IP atau nama host.",
+          "answers": "menjawab",
+          "silent": "tidak menjawab",
+          "bypassed": "memakai Wi-Fi",
+          "loadFailed": "Tidak dapat membaca pemeriksaan gateway.",
+          "saveFailed": "Tidak dapat menyimpan pemeriksaan gateway."
+        }
       },
       "dns": {
         "title": "DNS",

@@ -1764,7 +1764,26 @@
         "unsaved": "Cambios sin guardar",
         "saveFailed": "No se pudo guardar la configuración.",
         "loadFailed": "No se pudo cargar la configuración.",
-        "retry": "Reintentar"
+        "retry": "Reintentar",
+        "gatewayCheck": {
+          "title": "Comprobación de la puerta de enlace",
+          "description": "Cada 5 segundos. Mientras no responda y el Wi-Fi esté conectado, NanoKVM usa el Wi-Fi; tras 2 minutos sin respuesta, Ethernet pide una nueva dirección por DHCP.",
+          "descriptionNoWifi": "Cada 5 segundos. Tras 2 minutos sin respuesta, Ethernet pide una nueva dirección por DHCP.",
+          "enable": "Comprobar la puerta de enlace Ethernet",
+          "gateway": "Puerta de enlace {{address}}",
+          "noGateway": "Ethernet no tiene puerta de enlace ahora.",
+          "method": "Comprobar con",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Comprobar también un host",
+          "hostDescription": "Opcional: una dirección o un nombre detrás de la puerta de enlace, comprobado con ping por Ethernet, por ejemplo 1.1.1.1.",
+          "hostInvalid": "Introduce una dirección IP o un nombre de host.",
+          "answers": "responde",
+          "silent": "no responde",
+          "bypassed": "usa el Wi-Fi",
+          "loadFailed": "No se pudo leer la comprobación de la puerta de enlace.",
+          "saveFailed": "No se pudo guardar la comprobación de la puerta de enlace."
+        }
       },
       "dns": {
         "title": "DNS",

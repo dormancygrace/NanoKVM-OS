@@ -115,11 +115,36 @@ type GatewayRoute struct {
 	Interface string `json:"interface"`
 	Gateway   string `json:"gateway"`
 	Metric    int    `json:"metric"`
+	// The gateway check's last result; absent when it is off or the
+	// interface has no carrier.
+	Reachable *bool `json:"reachable,omitempty"`
+	// The route is below every other until its check passes again.
+	Demoted bool `json:"demoted"`
 }
 
 type GatewayPreferenceRsp struct {
 	Preferred string         `json:"preferred"`
 	Routes    []GatewayRoute `json:"routes"`
+}
+
+// The Ethernet gateway check: its setting and the Ethernet default route's
+// state (Gateway empty without one).
+type GatewayCheckRsp struct {
+	Enabled   bool   `json:"enabled"`
+	Method    string `json:"method"`
+	Host      string `json:"host"`
+	Gateway   string `json:"gateway"`
+	Carrier   bool   `json:"carrier"`
+	Reachable *bool  `json:"reachable,omitempty"`
+	Demoted   bool   `json:"demoted"`
+	// The device has Wi-Fi to move to; without it only DHCP restarts.
+	Wifi bool `json:"wifi"`
+}
+
+type SetGatewayCheckReq struct {
+	Enabled bool   `json:"enabled"`
+	Method  string `json:"method" validate:"omitempty,oneof=arp icmp"`
+	Host    string `json:"host" validate:"max=253"`
 }
 
 type SetGatewayPreferenceReq struct {

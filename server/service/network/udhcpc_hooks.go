@@ -20,10 +20,11 @@ import (
 // script ran /usr/share/udhcpc/default.script.d/ instead, which Alpine never
 // reads.
 var (
-	udhcpcHookDirs   = []string{"/etc/udhcpc/post-bound", "/etc/udhcpc/post-renew"}
-	legacyHookDir    = "/usr/share/udhcpc/default.script.d"
-	udhcpcConfFile   = "/etc/udhcpc/udhcpc.conf"
-	resolvconfRunner = runResolvconf
+	udhcpcHookDirs    = []string{"/etc/udhcpc/post-bound", "/etc/udhcpc/post-renew"}
+	udhcpcDeconfigDir = "/etc/udhcpc/post-deconfig"
+	legacyHookDir     = "/usr/share/udhcpc/default.script.d"
+	udhcpcConfFile    = "/etc/udhcpc/udhcpc.conf"
+	resolvconfRunner  = runResolvconf
 )
 
 // udhcpc's script must leave /etc/resolv.conf to openresolv. The base DNS,
@@ -32,7 +33,11 @@ var (
 const udhcpcResolvLine = `RESOLV_CONF="no" # NanoKVM: openresolv owns /etc/resolv.conf`
 
 func installUDHCPCHook(name, script string) error {
-	for _, dir := range udhcpcHookDirs {
+	return installUDHCPCHookIn(udhcpcHookDirs, name, script)
+}
+
+func installUDHCPCHookIn(dirs []string, name, script string) error {
+	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("create DHCP hook directory: %w", err)
 		}
@@ -105,6 +110,10 @@ func EnsureDHCPIntegration() error {
 		errs = append(errs, err)
 	}
 	if err := installUDHCPCHook(udhcpcGatewayHookName, udhcpcGatewayHook); err != nil {
+		errs = append(errs, err)
+	}
+	// Also on deconfig: the rule goes with the lease.
+	if err := installUDHCPCHookIn(append(udhcpcHookDirs, udhcpcDeconfigDir), udhcpcWifiSourceHookName, udhcpcWifiSourceHook); err != nil {
 		errs = append(errs, err)
 	}
 	if err := ensureUDHCPCLeavesResolvConf(); err != nil {

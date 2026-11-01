@@ -475,7 +475,26 @@
         "unsaved": "Modifiche non salvate",
         "saveFailed": "Impossibile salvare la configurazione.",
         "loadFailed": "Impossibile caricare la configurazione.",
-        "disabled": "Disabilitato"
+        "disabled": "Disabilitato",
+        "gatewayCheck": {
+          "title": "Controllo del gateway",
+          "description": "Ogni 5 secondi. Finché non risponde e il Wi-Fi è connesso, il NanoKVM usa il Wi-Fi; dopo 2 minuti senza risposta, l'Ethernet richiede un nuovo indirizzo via DHCP.",
+          "descriptionNoWifi": "Ogni 5 secondi. Dopo 2 minuti senza risposta, l'Ethernet richiede un nuovo indirizzo via DHCP.",
+          "enable": "Controlla il gateway Ethernet",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "L'Ethernet al momento non ha un gateway.",
+          "method": "Controlla con",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Controlla anche un host",
+          "hostDescription": "Facoltativo: un indirizzo o un nome dietro il gateway, controllato con ping tramite Ethernet, ad esempio 1.1.1.1.",
+          "hostInvalid": "Inserisci un indirizzo IP o un nome host.",
+          "answers": "risponde",
+          "silent": "non risponde",
+          "bypassed": "usa il Wi-Fi",
+          "loadFailed": "Impossibile leggere il controllo del gateway.",
+          "saveFailed": "Impossibile salvare il controllo del gateway."
+        }
       },
       "dns": {
         "title": "DNS",

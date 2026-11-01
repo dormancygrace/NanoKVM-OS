@@ -475,7 +475,26 @@
         "unsaved": "Niet-opgeslagen wijzigingen",
         "saveFailed": "Ethernetinstellingen opslaan mislukt",
         "loadFailed": "Ethernetinstellingen laden mislukt",
-        "disabled": "Uitgeschakeld"
+        "disabled": "Uitgeschakeld",
+        "gatewayCheck": {
+          "title": "Gatewaycontrole",
+          "description": "Elke 5 seconden. Zolang de gateway niet antwoordt en Wi-Fi verbonden is, gebruikt de NanoKVM Wi-Fi; na 2 minuten zonder antwoord vraagt Ethernet via DHCP een nieuw adres aan.",
+          "descriptionNoWifi": "Elke 5 seconden. Na 2 minuten zonder antwoord vraagt Ethernet via DHCP een nieuw adres aan.",
+          "enable": "Ethernet-gateway controleren",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "Ethernet heeft nu geen gateway.",
+          "method": "Controleren met",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Ook een host controleren",
+          "hostDescription": "Optioneel: een adres of naam achter de gateway, via Ethernet gepingd, bijvoorbeeld 1.1.1.1.",
+          "hostInvalid": "Voer een IP-adres of hostnaam in.",
+          "answers": "antwoordt",
+          "silent": "antwoordt niet",
+          "bypassed": "via Wi-Fi",
+          "loadFailed": "De gatewaycontrole kon niet worden gelezen.",
+          "saveFailed": "De gatewaycontrole kon niet worden opgeslagen."
+        }
       },
       "dns": {
         "title": "DNS",

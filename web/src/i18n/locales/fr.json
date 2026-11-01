@@ -1764,7 +1764,26 @@
         "unsaved": "Modifications non enregistrées",
         "saveFailed": "Impossible d'enregistrer la configuration.",
         "loadFailed": "Impossible de charger la configuration.",
-        "retry": "Réessayer"
+        "retry": "Réessayer",
+        "gatewayCheck": {
+          "title": "Vérification de la passerelle",
+          "description": "Toutes les 5 secondes. Tant qu'elle ne répond pas et que le Wi-Fi est connecté, le NanoKVM utilise le Wi-Fi ; après 2 minutes sans réponse, l'Ethernet demande une nouvelle adresse par DHCP.",
+          "descriptionNoWifi": "Toutes les 5 secondes. Après 2 minutes sans réponse, l'Ethernet demande une nouvelle adresse par DHCP.",
+          "enable": "Vérifier la passerelle Ethernet",
+          "gateway": "Passerelle {{address}}",
+          "noGateway": "L'Ethernet n'a pas de passerelle pour le moment.",
+          "method": "Vérifier par",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Vérifier aussi un hôte",
+          "hostDescription": "Facultatif : une adresse ou un nom derrière la passerelle, interrogé par ping via l'Ethernet, par exemple 1.1.1.1.",
+          "hostInvalid": "Saisissez une adresse IP ou un nom d'hôte.",
+          "answers": "répond",
+          "silent": "ne répond pas",
+          "bypassed": "passe par le Wi-Fi",
+          "loadFailed": "Impossible de lire la vérification de la passerelle.",
+          "saveFailed": "Impossible d'enregistrer la vérification de la passerelle."
+        }
       },
       "dns": {
         "title": "DNS",

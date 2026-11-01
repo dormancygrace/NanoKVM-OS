@@ -1764,7 +1764,26 @@
         "unsaved": "未保存の変更",
         "saveFailed": "設定を保存できませんでした。",
         "loadFailed": "設定を読み込めませんでした。",
-        "retry": "再試行"
+        "retry": "再試行",
+        "gatewayCheck": {
+          "title": "ゲートウェイの確認",
+          "description": "5 秒ごとに確認します。応答がなく Wi-Fi が接続されている間は、NanoKVM は Wi-Fi を使います。2 分間応答がないと、Ethernet は DHCP で新しいアドレスを取得し直します。",
+          "descriptionNoWifi": "5 秒ごとに確認します。2 分間応答がないと、Ethernet は DHCP で新しいアドレスを取得し直します。",
+          "enable": "Ethernet ゲートウェイを確認",
+          "gateway": "ゲートウェイ {{address}}",
+          "noGateway": "現在 Ethernet にゲートウェイはありません。",
+          "method": "確認方法",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "ホストも確認",
+          "hostDescription": "任意: ゲートウェイの先にあるアドレスまたは名前。Ethernet 経由で ping します（例: 1.1.1.1）。",
+          "hostInvalid": "IP アドレスまたはホスト名を入力してください。",
+          "answers": "応答あり",
+          "silent": "応答なし",
+          "bypassed": "Wi-Fi を使用中",
+          "loadFailed": "ゲートウェイ確認を読み込めませんでした。",
+          "saveFailed": "ゲートウェイ確認を保存できませんでした。"
+        }
       },
       "dns": {
         "title": "DNS",

@@ -475,7 +475,26 @@
         "unsaved": "Niezapisane zmiany",
         "saveFailed": "Nie udało się zapisać ustawień Ethernet",
         "loadFailed": "Nie udało się wczytać ustawień Ethernet",
-        "disabled": "Wyłączone"
+        "disabled": "Wyłączone",
+        "gatewayCheck": {
+          "title": "Sprawdzanie bramy",
+          "description": "Co 5 sekund. Dopóki brama nie odpowiada, a Wi-Fi jest połączone, NanoKVM korzysta z Wi-Fi; po 2 minutach bez odpowiedzi Ethernet prosi DHCP o nowy adres.",
+          "descriptionNoWifi": "Co 5 sekund. Po 2 minutach bez odpowiedzi Ethernet prosi DHCP o nowy adres.",
+          "enable": "Sprawdzaj bramę Ethernet",
+          "gateway": "Brama {{address}}",
+          "noGateway": "Ethernet nie ma teraz bramy.",
+          "method": "Metoda sprawdzania",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Sprawdzaj też host",
+          "hostDescription": "Opcjonalnie: adres lub nazwa za bramą, pingowane przez Ethernet, np. 1.1.1.1.",
+          "hostInvalid": "Wpisz adres IP lub nazwę hosta.",
+          "answers": "odpowiada",
+          "silent": "nie odpowiada",
+          "bypassed": "przez Wi-Fi",
+          "loadFailed": "Nie udało się odczytać sprawdzania bramy.",
+          "saveFailed": "Nie udało się zapisać sprawdzania bramy."
+        }
       },
       "dns": {
         "title": "DNS",

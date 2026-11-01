@@ -475,7 +475,26 @@
         "unsaved": "Незбережені зміни",
         "saveFailed": "Не вдалося зберегти налаштування Ethernet",
         "loadFailed": "Не вдалося завантажити налаштування Ethernet",
-        "disabled": "Вимкнено"
+        "disabled": "Вимкнено",
+        "gatewayCheck": {
+          "title": "Перевірка шлюзу",
+          "description": "Кожні 5 секунд. Поки шлюз не відповідає і Wi-Fi підключено, NanoKVM працює через Wi-Fi; після 2 хвилин без відповіді Ethernet знову запитує адресу через DHCP.",
+          "descriptionNoWifi": "Кожні 5 секунд. Якщо шлюз 2 хвилини не відповідає, Ethernet знову запитує адресу через DHCP.",
+          "enable": "Перевіряти шлюз Ethernet",
+          "gateway": "Шлюз {{address}}",
+          "noGateway": "Зараз у Ethernet немає шлюзу.",
+          "method": "Спосіб перевірки",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Перевіряти також хост",
+          "hostDescription": "Необов’язково: адреса або ім’я за шлюзом, яке пінгується через Ethernet, наприклад 1.1.1.1.",
+          "hostInvalid": "Введіть IP-адресу або ім’я хоста.",
+          "answers": "відповідає",
+          "silent": "не відповідає",
+          "bypassed": "працює через Wi-Fi",
+          "loadFailed": "Не вдалося прочитати перевірку шлюзу.",
+          "saveFailed": "Не вдалося зберегти перевірку шлюзу."
+        }
       },
       "dns": {
         "title": "DNS",

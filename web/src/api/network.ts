@@ -145,6 +145,10 @@ export type GatewayRoute = {
   interface: string;
   gateway: string;
   metric: number;
+  // The Ethernet gateway check's last result; absent when it is off.
+  reachable?: boolean;
+  // Below Wi-Fi until the check passes again.
+  demoted: boolean;
 };
 export type GatewayStatus = {
   preferred: GatewayPreference;
@@ -157,6 +161,32 @@ export function getGatewayPreference() {
 
 export function setGatewayPreference(preferred: GatewayPreference) {
   return http.post<null>('/api/network/gateway', { preferred });
+}
+
+export type GatewayCheckMethod = 'arp' | 'icmp';
+export type GatewayCheck = {
+  enabled: boolean;
+  method: GatewayCheckMethod;
+  // Optional host behind the gateway, pinged through Ethernet.
+  host: string;
+};
+// The setting and the Ethernet default route's state: gateway is empty
+// without one, reachable absent while the check is off or without carrier.
+export type GatewayCheckStatus = GatewayCheck & {
+  gateway: string;
+  carrier: boolean;
+  reachable?: boolean;
+  demoted: boolean;
+  // The device has Wi-Fi to move to; without it only DHCP restarts.
+  wifi: boolean;
+};
+
+export function getGatewayCheck() {
+  return http.get<GatewayCheckStatus>('/api/network/ethernet/gateway-check');
+}
+
+export function setGatewayCheck(check: GatewayCheck) {
+  return http.post<null>('/api/network/ethernet/gateway-check', check);
 }
 
 // Ethernet and Wi-Fi each have an IPv6 setting of their own: automatic

@@ -482,7 +482,26 @@
         "linkUpNoAddress": "Engedélyezve - kábel csatlakoztatva - nincs IPv4 cím",
         "noCable": "Engedélyezve - kábel nincs csatlakoztatva",
         "disconnectWarning": "A mentés azonnal lecsatlakoztatja az Ethernet-et. Győződjön meg, hogy más management kapcsolat elérhető.",
-        "name": "Ethernet"
+        "name": "Ethernet",
+        "gatewayCheck": {
+          "title": "Átjáró ellenőrzése",
+          "description": "5 másodpercenként. Amíg az átjáró nem válaszol és a Wi-Fi csatlakozik, a NanoKVM a Wi-Fit használja; 2 perc válasz nélkül az Ethernet DHCP-n új címet kér.",
+          "descriptionNoWifi": "5 másodpercenként. 2 perc válasz nélkül az Ethernet DHCP-n új címet kér.",
+          "enable": "Ethernet-átjáró ellenőrzése",
+          "gateway": "Átjáró: {{address}}",
+          "noGateway": "Az Ethernetnek most nincs átjárója.",
+          "method": "Ellenőrzés módja",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Egy gép ellenőrzése is",
+          "hostDescription": "Nem kötelező: az átjáró mögötti cím vagy név, amelyet Etherneten pingel, például 1.1.1.1.",
+          "hostInvalid": "Adjon meg egy IP-címet vagy gépnevet.",
+          "answers": "válaszol",
+          "silent": "nem válaszol",
+          "bypassed": "Wi-Fit használ",
+          "loadFailed": "Nem sikerült beolvasni az átjáró ellenőrzését.",
+          "saveFailed": "Nem sikerült menteni az átjáró ellenőrzését."
+        }
       },
       "dns": {
         "title": "DNS",

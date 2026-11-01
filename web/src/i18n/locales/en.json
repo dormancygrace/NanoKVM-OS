@@ -1764,7 +1764,26 @@
         "unsaved": "Unsaved changes",
         "saveFailed": "Failed to save Ethernet settings",
         "loadFailed": "Failed to load Ethernet settings",
-        "retry": "Retry"
+        "retry": "Retry",
+        "gatewayCheck": {
+          "title": "Gateway check",
+          "description": "Every 5 seconds. While it does not answer and Wi-Fi is connected, NanoKVM uses Wi-Fi; after 2 minutes without an answer, Ethernet asks DHCP for a new address.",
+          "descriptionNoWifi": "Every 5 seconds. After 2 minutes without an answer, Ethernet asks DHCP for a new address.",
+          "enable": "Check the Ethernet gateway",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "Ethernet has no gateway now.",
+          "method": "Check with",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Also check a host",
+          "hostDescription": "Optional: an address or name behind the gateway, pinged over Ethernet, such as 1.1.1.1.",
+          "hostInvalid": "Enter an IP address or a host name.",
+          "answers": "answers",
+          "silent": "not answering",
+          "bypassed": "using Wi-Fi",
+          "loadFailed": "Could not read the gateway check.",
+          "saveFailed": "Could not save the gateway check."
+        }
       },
       "dns": {
         "title": "DNS",

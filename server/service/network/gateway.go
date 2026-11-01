@@ -21,6 +21,12 @@ const udhcpcGatewayHookName = "99-nanokvm-gateway"
 //go:embed scripts/99-nanokvm-gateway
 var udhcpcGatewayHook string
 
+// Replies from the Wi-Fi address leave through Wi-Fi (a rule per lease).
+const udhcpcWifiSourceHookName = "98-nanokvm-wifi-source"
+
+//go:embed scripts/98-nanokvm-wifi-source
+var udhcpcWifiSourceHook string
+
 var gatewayRouteCommand = func(args ...string) ([]byte, error) {
 	return exec.Command("ip", args...).Output()
 }
@@ -29,7 +35,7 @@ func (s *Service) GetGatewayPreference(c *gin.Context) {
 	var rsp proto.Response
 	rsp.OkRspWithData(c, &proto.GatewayPreferenceRsp{
 		Preferred: readGatewayPreference(),
-		Routes:    defaultGatewayRoutes(),
+		Routes:    gatewayStatusRoutes(),
 	})
 }
 
@@ -49,7 +55,10 @@ func (s *Service) SetGatewayPreference(c *gin.Context) {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
-	if err := applyGatewayPreference(req.Preferred, defaultGatewayEntries()); err != nil {
+	gatewayMu.Lock()
+	err := applyGatewayPreference(req.Preferred, defaultGatewayEntries())
+	gatewayMu.Unlock()
+	if err != nil {
 		rsp.ErrRsp(c, -3, err.Error())
 		return
 	}
@@ -233,6 +242,14 @@ func applyGatewayPreference(preferred string, entries []proto.GatewayRoute) erro
 	taken := map[int]bool{}
 	for index, route := range routes {
 		metric := preferenceMetric(preferred, route.Interface, index)
+		// A route the gateway check demoted stays demoted; the metric of
+		// the preference is what it gets back.
+		if _, demoted := demotedOriginal(route.Interface); demoted {
+			if err := writeDemotedOriginal(route.Interface, metric); err != nil {
+				return fmt.Errorf("record the route for %s: %w", route.Interface, err)
+			}
+			metric = gatewayDemotedMetric
+		}
 		for taken[metric] || (used[metric] && !managed[metric]) {
 			metric++
 		}

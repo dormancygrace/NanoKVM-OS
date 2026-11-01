@@ -475,7 +475,26 @@
         "unsaved": "Thay đổi chưa lưu",
         "saveFailed": "Không thể lưu cài đặt Ethernet",
         "loadFailed": "Không thể tải cài đặt Ethernet",
-        "disabled": "Đã tắt"
+        "disabled": "Đã tắt",
+        "gatewayCheck": {
+          "title": "Kiểm tra cổng mạng",
+          "description": "Mỗi 5 giây. Khi cổng mạng không phản hồi và Wi-Fi đang kết nối, NanoKVM dùng Wi-Fi; sau 2 phút không phản hồi, Ethernet xin địa chỉ mới qua DHCP.",
+          "descriptionNoWifi": "Mỗi 5 giây. Sau 2 phút không phản hồi, Ethernet xin địa chỉ mới qua DHCP.",
+          "enable": "Kiểm tra cổng mạng Ethernet",
+          "gateway": "Cổng mạng {{address}}",
+          "noGateway": "Ethernet hiện không có cổng mạng.",
+          "method": "Kiểm tra bằng",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Kiểm tra thêm một máy",
+          "hostDescription": "Tùy chọn: địa chỉ hoặc tên phía sau cổng mạng, được ping qua Ethernet, ví dụ 1.1.1.1.",
+          "hostInvalid": "Nhập địa chỉ IP hoặc tên máy.",
+          "answers": "có phản hồi",
+          "silent": "không phản hồi",
+          "bypassed": "đang dùng Wi-Fi",
+          "loadFailed": "Không thể đọc kiểm tra cổng mạng.",
+          "saveFailed": "Không thể lưu kiểm tra cổng mạng."
+        }
       },
       "dns": {
         "title": "DNS",

@@ -1764,7 +1764,26 @@
         "unsaved": "未保存的更改",
         "saveFailed": "保存以太网设置失败",
         "loadFailed": "加载以太网设置失败",
-        "retry": "重试"
+        "retry": "重试",
+        "gatewayCheck": {
+          "title": "网关检查",
+          "description": "每 5 秒检查一次。网关无响应且 Wi-Fi 已连接时，NanoKVM 改用 Wi-Fi；2 分钟无响应后，以太网通过 DHCP 重新获取地址。",
+          "descriptionNoWifi": "每 5 秒检查一次。2 分钟无响应后，以太网通过 DHCP 重新获取地址。",
+          "enable": "检查以太网网关",
+          "gateway": "网关 {{address}}",
+          "noGateway": "以太网当前没有网关。",
+          "method": "检查方式",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "同时检查主机",
+          "hostDescription": "可选：网关之后的地址或名称，通过以太网 ping，例如 1.1.1.1。",
+          "hostInvalid": "请输入 IP 地址或主机名。",
+          "answers": "有响应",
+          "silent": "无响应",
+          "bypassed": "正在使用 Wi-Fi",
+          "loadFailed": "无法读取网关检查。",
+          "saveFailed": "无法保存网关检查。"
+        }
       },
       "dns": {
         "title": "DNS",

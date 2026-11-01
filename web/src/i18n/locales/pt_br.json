@@ -475,7 +475,26 @@
         "unsaved": "Alterações não salvas",
         "saveFailed": "Falha ao salvar as configurações de Ethernet",
         "loadFailed": "Falha ao carregar as configurações de Ethernet",
-        "disabled": "Desativado"
+        "disabled": "Desativado",
+        "gatewayCheck": {
+          "title": "Verificação do gateway",
+          "description": "A cada 5 segundos. Enquanto ele não responder e o Wi-Fi estiver conectado, o NanoKVM usa o Wi-Fi; após 2 minutos sem resposta, a Ethernet pede um novo endereço por DHCP.",
+          "descriptionNoWifi": "A cada 5 segundos. Após 2 minutos sem resposta, a Ethernet pede um novo endereço por DHCP.",
+          "enable": "Verificar o gateway Ethernet",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "A Ethernet não tem gateway no momento.",
+          "method": "Verificar com",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Verificar também um host",
+          "hostDescription": "Opcional: um endereço ou nome atrás do gateway, verificado com ping pela Ethernet, por exemplo 1.1.1.1.",
+          "hostInvalid": "Digite um endereço IP ou um nome de host.",
+          "answers": "responde",
+          "silent": "não responde",
+          "bypassed": "usando Wi-Fi",
+          "loadFailed": "Não foi possível ler a verificação do gateway.",
+          "saveFailed": "Não foi possível salvar a verificação do gateway."
+        }
       },
       "dns": {
         "title": "DNS",

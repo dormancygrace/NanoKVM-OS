@@ -475,7 +475,26 @@
         "unsaved": "Osparade ändringar",
         "saveFailed": "Det gick inte att spara Ethernet-inställningarna",
         "loadFailed": "Det gick inte att läsa in Ethernet-inställningarna",
-        "disabled": "Inaktiverad"
+        "disabled": "Inaktiverad",
+        "gatewayCheck": {
+          "title": "Gateway-kontroll",
+          "description": "Var 5:e sekund. Så länge den inte svarar och Wi-Fi är anslutet använder NanoKVM Wi-Fi; efter 2 minuter utan svar begär Ethernet en ny adress via DHCP.",
+          "descriptionNoWifi": "Var 5:e sekund. Efter 2 minuter utan svar begär Ethernet en ny adress via DHCP.",
+          "enable": "Kontrollera Ethernet-gatewayen",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "Ethernet har ingen gateway just nu.",
+          "method": "Kontrollera med",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Kontrollera även en värd",
+          "hostDescription": "Valfritt: en adress eller ett namn bakom gatewayen som pingas via Ethernet, till exempel 1.1.1.1.",
+          "hostInvalid": "Ange en IP-adress eller ett värdnamn.",
+          "answers": "svarar",
+          "silent": "svarar inte",
+          "bypassed": "använder Wi-Fi",
+          "loadFailed": "Det gick inte att läsa gateway-kontrollen.",
+          "saveFailed": "Det gick inte att spara gateway-kontrollen."
+        }
       },
       "dns": {
         "title": "DNS",

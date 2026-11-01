@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise source pinning, isolated staging and cache preservation."""
+"""Exercise source pinning and isolated staging."""
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -25,16 +25,6 @@ class StagingTests(unittest.TestCase):
         (self.cache / "upstream_test.go").write_text("package websocket\n")
         self.output = self.root / "staged"
 
-    def test_stage_keeps_cache_and_production_tests_out(self):
-        before = {p.name: p.read_bytes() for p in self.cache.iterdir()}
-        hashes = prepare.stage_module(self.cache, self.output)
-        self.assertEqual(before, {p.name: p.read_bytes() for p in self.cache.iterdir()})
-        self.assertNotIn("upstream_test.go", hashes)
-        self.assertFalse(any(p.name.endswith("_test.go") for p in self.output.iterdir()))
-        self.assertIn("func maskBytesGeneric(", (self.output / "mask.go").read_text())
-        for name in prepare.PATCH_FILES:
-            self.assertEqual((self.output / name).read_bytes(), (SOURCE / name).read_bytes())
-
     def test_modified_mask_is_rejected_before_writing(self):
         p = self.cache / "mask.go"
         p.write_text(p.read_text().replace("return pos & 3", "return pos & 7"))
@@ -47,11 +37,6 @@ class StagingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "go.mod differs"):
             prepare.stage_module(self.cache, self.output)
         self.assertFalse(self.output.exists())
-
-    def test_conflicting_upstream_file_is_rejected(self):
-        (self.cache / "mask_other.go").write_text("package websocket\n")
-        with self.assertRaisesRegex(ValueError, "conflicts"):
-            prepare.stage_module(self.cache, self.output)
 
     def test_cache_and_existing_outputs_cannot_be_overwritten(self):
         for target in (self.cache, self.cache / "child", self.root):

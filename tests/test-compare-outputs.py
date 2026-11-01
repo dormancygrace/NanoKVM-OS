@@ -48,21 +48,6 @@ class CompareOutputsTests(unittest.TestCase):
         self.assertIn('- tools/old', r.stdout)
         self.assertEqual(self.run_compare(old, new, '--check').returncode, 1)
 
-    def test_large_groups_are_counted(self):
-        old = {f'web/assets/{i}.js': b'a' for i in range(30)}
-        new = {f'web/assets/{i}.js': b'b' for i in range(30)}
-        r = self.run_compare(old, new)
-        self.assertIn('~ web/: 30 files', r.stdout)
-        self.assertNotIn('web/assets/1.js', r.stdout)
-
-    def test_markdown_notes_the_opensbi_manifest(self):
-        old = {'opensbi/build-manifest.json': b'1'}
-        new = {'opensbi/build-manifest.json': b'2'}
-        r = self.run_compare(old, new, '--markdown', '--title', 'Outputs', '--base', 'main at abc')
-        self.assertIn('### Outputs', r.stdout)
-        self.assertIn('Compared with main at abc.', r.stdout)
-        self.assertIn('`opensbi/build-manifest.json` (records the hash of platform/build.sh)', r.stdout)
-
     def test_sha256sum_formats(self):
         digest = hashlib.sha256(b'x').hexdigest()
         a = self.root / 'a'

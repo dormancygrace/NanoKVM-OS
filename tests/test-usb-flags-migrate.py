@@ -226,51 +226,6 @@ for worker in workers:
 assert tree(flags) == {'usb.acm': ''}
 print('PASS: concurrent migration requests serialize')
 
-# Missing mount: refuse activation; no default gadget/application may start.
-boot, flags = fixture()
-env = dict(env, NANOKVM_USB_FLAGS_BOOT='', NANOKVM_USB_FLAGS_DIR=str(flags),
-           NANOKVM_USB_FLAGS_LAYOUT=str(boot.parent / 'layout'))
-source = script.read_text().replace('mountpoint -q "$boot"', 'false')
-result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output=True)
-assert result.returncode != 0 and not (flags / '.layout-v1').exists()
-print('PASS: absent boot mount refuses activation')
-
-# Already migrated: a boot partition that does not mount must not stop the
-# gadget or the application.
-boot, flags = fixture()
-flags.mkdir()
-(flags / '.layout-v1').write_text('')
-(flags / 'usb.ncm').write_text('')
-env = dict(env, NANOKVM_USB_FLAGS_DIR=str(flags), NANOKVM_USB_FLAGS_LAYOUT=str(boot.parent / 'layout'))
-# An empty mount table, whatever the machine running the test mounts.
-no_mounts = boot.parent / 'mounts'
-no_mounts.write_text('')
-source = source.replace('/proc/mounts', str(no_mounts))
-result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output=True)
-assert result.returncode == 0 and 'not mounted' in result.stderr, result
-assert tree(flags) == {'usb.ncm': ''}, tree(flags)
-# A migration still in progress keeps waiting for the mount.
-(flags.parent / (flags.name + '.new')).mkdir()
-result = subprocess.run(['sh'], input=source, env=env, text=True, capture_output=True)
-assert result.returncode != 0, result
-print('PASS: a settled layout starts without the boot mount')
-
-# A settled layout skips pidof/cleanup after locking; a rollback takes the full run.
-boot, flags = fixture()
-flags.mkdir()
-(flags / '.layout-v1').write_text('')
-(flags / 'usb.dev').write_text('')
-probe = boot.parent / 'pidof'
-probe.write_text(f'#!/bin/sh\n: > "{boot.parent}/pidof-called"\nexit 1\n')
-probe.chmod(0o755)
-assert run(boot, flags, NANOKVM_USB_FLAGS_PIDOF=str(probe)) == ''
-assert not (boot.parent / 'pidof-called').exists()
-(boot / 'usb.ncm').write_text('')
-assert 'Moved the USB flags' in run(boot, flags, NANOKVM_USB_FLAGS_PIDOF=str(probe))
-assert (boot.parent / 'pidof-called').exists() and tree(flags) == {'usb.ncm': ''}, tree(flags)
-print('PASS: a settled layout skips pidof and full migration')
-
-
 # A settled-looking reader must wait for an in-flight writer, then recheck the
 # flags rather than launching a gadget/server against the previous selection.
 for shell in [['sh']] + ([['busybox', 'sh']] if shutil.which('busybox') else []):

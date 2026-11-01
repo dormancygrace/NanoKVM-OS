@@ -48,17 +48,6 @@ The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and 
 
 `images/opensbi/build-manifest.json` records the source/tree pin, patches/config/DT hashes, compiler, optimization, binary hash, ELF symbols and PMP extents. `images/fip-manifest.json` records component hashes and checks. Neither manifest establishes successful hardware boot.
 
-Reservation propagation can be checked using unchanged pinned U-Boot functions and libfdt with all five Linux board DTBs (one per board):
-
-```sh
-python3 tests/test-opensbi-reservations.py \
-  --uboot-source build/platform/uboot/src \
-  --firmware-dtb build/platform/images/opensbi/nanokvm.dtb \
-  --linux-dtbs build/platform/images/dtb
-```
-
-This uses calculated PMP fixtures, native scalar cell-decoding adapters and the real U-Boot copy/deduplication code. It verifies exact-range deduplication, the additional RW range, stable repeated copies, detection of an oversized overlapping static range, that neither the firmware DT nor any of the Linux DTBs has a reservation in the small-core range and that the copy adds none (the pre-change firmware DT, or a board DT with a `c906l` node, fails). It does not execute OpenSBI or simulate C906 hardware.
-
 ## Hardware status
 
 OpenSBI 1.9 boots on a NanoKVM PCIe from the SD card: SBI 3.0

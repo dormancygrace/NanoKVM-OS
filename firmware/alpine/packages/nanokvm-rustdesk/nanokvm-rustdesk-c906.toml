@@ -1,8 +1,7 @@
 # The qualified C906 build for the native Alpine recipe, passed with
 # `cargo --config`, so it applies to whichever source archive the recipe
 # pins: the same settings as addons/rustdesk/Cargo.toml [profile.release]
-# and addons/rustdesk/.cargo/config.toml. tests/
-# test-rustdesk-c906-config.py keeps the three equal.
+# and addons/rustdesk/.cargo/config.toml. Keep the three equal.
 [profile.release]
 opt-level = 3
 lto = "fat"

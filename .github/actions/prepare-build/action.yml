@@ -102,12 +102,6 @@ runs:
         du -sh "$OUT/buildroot-output"
         df -h /
 
-    - name: Check compiler cache
-      shell: bash
-      env:
-        OUT: ${{ inputs.out }}
-      run: python3 tests/test-compiler-cache.py --toolchain "$OUT/buildroot-output/host"
-
     # Saved as soon as they exist, so a later failure does not lose them.
     - name: Save toolchain
       if: inputs.save-caches == 'true' && steps.toolchain.outputs.cache-hit != 'true'

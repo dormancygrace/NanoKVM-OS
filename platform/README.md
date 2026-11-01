@@ -265,10 +265,6 @@ misses and cleanup statistics in its job summary. The 5 GB limit applies to
 each compiler cache; retained GitHub snapshots also consume repository cache
 storage and are subject to GitHub's cache eviction policy.
 
-`tests/test-compiler-cache.py` checks cold/warm/bypassed object equality and
-header/flag invalidation. CI additionally runs it against the real RISC-V SDK
-wrapper after preparing the toolchain. These small checks establish cache
-correctness; they do not measure the speedup of a full firmware build.
 
 ## Buildroot scope
 

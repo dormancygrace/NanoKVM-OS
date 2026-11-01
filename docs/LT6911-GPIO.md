@@ -75,29 +75,6 @@ register-service writes, and all three models retain event-only healthy reads.
 
 ## Verification and remaining qualification
 
-Run the actual transport and detector-service fault tests without a device:
-
-```sh
-python3 tests/test-hdmi-events.py
-NANOKVM_SANITIZE=1 python3 tests/test-hdmi-events.py
-```
-
-They cover C/D/UXC polarity, zero healthy periodic reads, coalescing, retained
-edges, reset/I2C retries, missing/busy GPIO, reconnects, syscall failures,
-descriptor zero, cleanup, sequence gaps and wrap, and bounded interrupt storms.
-The Python harness also checks the runtime probe's C++ syntax and executes
-silent-INT VI recovery cases for all models, including fresh versus stale
-reports, parked VI suppression and retained recovery after failed/coalesced
-reads. Receiver-session tests count the actual C measurement writes on repeated
-ready/no-signal recovery samples and on real diagnostic events.
-
-With a prepared patched Linux source and cpp/dtc/fdtget on PATH, compile and
-inspect every board DT, including variant overrides and free input ownership:
-
-    python3 tests/test-hdmi-events-dt.py --kernel-source /path/to/patched-linux
-
-The platform boot build stage invokes this test using its prepared kernel tree
-and host tools, including in PR release-build CI.
 The UXC/PCIe stand (mainline 7.3.0-nanokvm-os-r3) was exercised on 2026-10-24
 with a RAM-only test library and `firmware/probes/hdmi-events-runtime.cpp`.
 Installed services were stopped during exclusive capture and restored afterward.

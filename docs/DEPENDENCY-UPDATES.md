@@ -64,7 +64,7 @@ These are source-update proposals: kernel patches, olddefconfig changes, drivers
 
 The publisher jobs have contents/pull-requests write permissions; the report job remains read-only. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
 
-Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publish` explicitly enables draft PR creation. Offline tests are in `tests/test-kernel-update-pr.py` and run in CI.
+Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publish` explicitly enables draft PR creation.
 
 ## Native dependencies and integration notifications
 
@@ -91,7 +91,7 @@ Each component/candidate has a deterministic branch, `deps/upstream-<component>-
 
 QEMU and stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
-Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary. tests/test-upstream-update-prs.py checks policy coverage, pin preparation, notification deduplication and publication; it runs in CI.
+Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary.
 
 ## Which BusyBox and QEMU?
 

@@ -150,7 +150,7 @@ unchanged.
 The production helper is exercised in an isolated x86-64 QEMU guest with real
 BusyBox init and OpenRC, F2FS root, FAT boot and exFAT data disks. It uses the
 actual prepare/acknowledge/shutdown/pivot/unmount/network/reboot code, with no
-production preflight bypass. See [the fixture instructions](../tests/standby/README.md).
+production preflight bypass. See [the fixture instructions](../tests/manual/standby/README.md).
 
 The matrix covers static Ethernet and DHCP, web and UDP magic restart, a
 retained persistent mount (including one hidden by the eventual chroot), and an

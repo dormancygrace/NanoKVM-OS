@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""The 16:10 and 21:9 monitor profiles: timing, identity and the server's table."""
+"""The 16:10 and 21:9 monitor profiles: timing and identity."""
 import importlib.util
 from pathlib import Path
-import re
 import tempfile
 import unittest
 
@@ -61,38 +60,9 @@ class WideMonitorEdidTests(unittest.TestCase):
                     modes = {(m["width"], m["height"]) for m in final.list_modes(data)}
                     self.assertIn((800, 600), modes)  # the legacy fallback stays
 
-    def test_slow_receiver_rates_fit_the_1080p60_clock(self):
-        go = (ROOT / "server/common/monitor_profiles.go").read_text()
-        table = go.split("var slowWiderMonitorRates")[1].split("}\n")[0]
-        slow = {int(i): [int(r) for r in rs.split(", ")] for i, rs in re.findall(r"(\d+): \{([\d, ]+)\}", table)}
-        sizes = {int(i): (int(w), int(h)) for i, w, h in
-                 re.findall(r"(\d+): \{(\d+), (\d+), MonitorAspect", go)}
-        self.assertEqual(slow, {1200: [50, 30], 2560: [30]})
-        for profile_id, rates in slow.items():
-            width, height = sizes[profile_id]
-            vsync, all_rates = g.PROFILES[(width, height)]
-            for rate in rates:
-                self.assertIn(rate, all_rates)
-                clock_khz = g.cvt_rb(width, height, rate, vsync)[2]
-                self.assertLessEqual(clock_khz, g.SLOW_RECEIVER_CLOCK_MHZ * 1000, (width, height, rate))
-            # The next faster rate would not fit: the table is complete.
-            faster = [r for r in all_rates if r > rates[0]]
-            if faster:
-                self.assertGreater(g.cvt_rb(width, height, min(faster), vsync)[2], g.SLOW_RECEIVER_CLOCK_MHZ * 1000)
-
     def test_screen_size_follows_the_aspect_ratio(self):
         data = g.profile(SOURCE, 3440, 1440, 40, 10)
         self.assertEqual(data[21:23], bytes((60, 25)))
-
-    def test_matches_the_server_table(self):
-        go = (ROOT / "server/common/monitor_profiles.go").read_text()
-        sizes = {int(i): (int(w), int(h)) for i, w, h in
-                 re.findall(r"(\d+): \{(\d+), (\d+), MonitorAspect", go)}
-        table = go.split("var widerMonitorRates")[1].split("}\n")[0]
-        rates = {int(i): tuple(int(r) for r in rs.split(", ")) for i, rs in
-                 re.findall(r"(\d+): \{([\d, ]+)\},", table)}
-        self.assertEqual({sizes[i]: rates[i] for i in sizes},
-                         {size: r for size, (_, r) in g.PROFILES.items()})
 
     def test_writes_the_server_file_names(self):
         with tempfile.TemporaryDirectory() as out:

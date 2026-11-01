@@ -50,7 +50,6 @@ updates:
       - /server/third_party/pion-dtls
       - /server/third_party/pion-ice
       - /server/third_party/pion-srtp
-      - /tests/manual/c906-poly1305/wireguard
     schedule:
       interval: daily
       time: "06:00"

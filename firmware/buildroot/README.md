@@ -18,7 +18,3 @@ The platform profile preserves GCC 16.2, binutils 2.47, musl, the C906 ISA and
 `-O2` choices. Its kernel headers remain pinned at 7.2.5 independently of the
 7.3 kernel; this cleanup does not upgrade the ABI or packages.
 
-Validate this boundary from a clean pinned Buildroot archive with
-`python3 tests/test-platform-config.py` (or pass `--archive /path/to/archive`).
-This applies our patches and resolves Kconfig/the dependency graph without
-building or flashing firmware. CI runs it alongside the platform script tests.

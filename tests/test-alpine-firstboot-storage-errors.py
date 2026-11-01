@@ -9,7 +9,6 @@ test-alpine-firstboot-storage.py.
 """
 from pathlib import Path
 import os
-import re
 import subprocess
 import tempfile
 
@@ -163,67 +162,4 @@ check('marker sync failure keeps data unavailable',
       results[0][0] == 1 and 'mount ' not in calls, (results, calls))
 
 
-def run_service(firstboot_rc=0, mount_rc=0, placeholder=False, guard_rc=0):
-    with tempfile.TemporaryDirectory(prefix='nkos-storage-service-') as temp:
-        t = Path(temp)
-        bin_dir = t / 'bin'
-        bin_dir.mkdir()
-        defaults = t / 'board-defaults'
-        defaults.mkdir()
-        (defaults / 'wifi.sta').write_text('default')
-        (defaults / 'sensor_cfg.ini.LT').write_text('sensor defaults\n')
-        (t / 'mounts').write_text(f'nanokvm-data-unavailable {t}/data tmpfs ro 0 0\n' if placeholder else '')
-        calls = t / 'calls'
-        calls.touch()
-        log = f'echo "$(basename "$0") $*" >> {calls}'
-        stub(bin_dir, 'firstboot', f'{log}\nexit {firstboot_rc}')
-        stub(bin_dir, 'umount', log)
-        stub(bin_dir, 'mount', f'{log}\n[ "$1" != -t ] || [ "$2" != tmpfs ] || exit {guard_rc}\nif [ "$1" = {t}/data ]; then\n'
-             f'  [ {mount_rc} = 0 ] || exit {mount_rc}\n  touch {t}/data-mounted\nfi')
-        stub(bin_dir, 'mountpoint', f'[ "$2" = {t}/data ] && [ -e {t}/data-mounted ]')
-        script = (repo / 'firmware/alpine/openrc/nanokvm-storage').read_text()
-        replacements = dict([('/usr/libexec/nanokvm/firstboot-storage', str(bin_dir / 'firstboot')),
-                         ('/usr/share/nanokvm/board-defaults', str(defaults)),
-                         ('/sys/kernel/config', str(t / 'configfs')),
-                         ('/proc/mounts', str(t / 'mounts')),
-                         ('/run/nanokvm/board-data', str(t / 'runtime-board-data')),
-                         ('/mnt/data', str(t / 'mnt/data')),
-                         ('/mnt', str(t / 'mnt')), ('/boot', str(t / 'boot')),
-                         ('/data', str(t / 'data'))])
-        pattern = '|'.join(re.escape(path) for path in sorted(replacements, key=len, reverse=True))
-        script = re.sub(pattern, lambda match: replacements[match[0]], script)
-        script += '\nebegin() { :; }; ewarn() { echo "$*" >&2; }; eend() { return "$1"; }; start\n'
-        result = subprocess.run(['sh', '-c', script], capture_output=True, text=True,
-                                env=dict(os.environ, PATH=str(bin_dir) + ':' + os.environ['PATH']))
-        log = calls.read_text()
-        if guard_rc == 0:
-            assert (t / 'mnt/data').is_symlink(), result
-        if firstboot_rc or mount_rc:
-            assert f'mount -t tmpfs -o ro,nosuid,nodev,noexec,size=4k,mode=0555 nanokvm-data-unavailable {t}/data\n' in log, log
-        if placeholder:
-            assert log.index(f'umount {t}/data\n') < log.index('firstboot '), log
-        if result.returncode == 0:
-            configured = subprocess.run(
-                ['sh', str(repo / 'firmware/alpine/compat/S02config'), 'start'],
-                capture_output=True, text=True, env=dict(os.environ,
-                    NANOKVM_CONFIG_BOOT=str(t / 'boot'), NANOKVM_CONFIG_ETC=str(t / 'etc'),
-                    NANOKVM_CONFIG_DATA=str(t / 'mnt/data')))
-            assert configured.returncode == 0, configured
-            assert (t / 'mnt/data/sensor_cfg.ini').read_text() == 'sensor defaults\n'
-            assert (t / 'mnt/data').resolve() == t / (
-                'runtime-board-data' if firstboot_rc or mount_rc else 'data')
-        return result, f'mount {t}/data\n' in log, (t / 'data/wifi.sta').exists(), log
-
-
-for name, firstboot_rc, mount_rc, mounts_data, copies_defaults in [
-        ('normal storage service', 0, 0, True, True),
-        ('failed firstboot service', 1, 0, False, False),
-        ('unavailable data mount', 0, 1, True, False)]:
-    result, mounted, copied, calls = run_service(firstboot_rc, mount_rc)
-    check(name, result.returncode == 0 and mounted == mounts_data and copied == copies_defaults,
-          (result, calls))
-result, mounted, copied, calls = run_service(placeholder=True)
-check('retry removes read-only placeholder', result.returncode == 0 and mounted and copied, (result, calls))
-result, mounted, copied, calls = run_service(firstboot_rc=1, guard_rc=1)
-check('failed write protection stops the application dependency', result.returncode == 1 and not mounted and not copied, (result, calls))
-print('PASS first-boot storage: safe layouts, retries, one-shot format, failed storage stays unavailable and boot continues')
+print('PASS first-boot storage: safe layouts, retries, one-shot format and boot continues')

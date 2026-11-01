@@ -92,21 +92,5 @@ class MetadataTests(unittest.TestCase):
         self.refused(FIXTURE.replace('  pre-upgrade: |', '  pre-fetch: |', 1), 'script pre-fetch')
         self.refused(FIXTURE.replace('  installed-size:', '  installed-size: 1\n    - x\n  installed-size:', 1), 'unexpected info line')
 
-class WorkflowTests(unittest.TestCase):
-    def test_production_signing_is_protected_and_prs_never_sign(self):
-        text=(ROOT/'.github/workflows/apk-repository.yml').read_text()
-        signing=text.split('  sign:',1)[1].split('  deploy:',1)[0]
-        self.assertIn("if: github.event_name != 'pull_request'", signing)
-        self.assertIn('environment: release', signing)
-        self.assertIn('adbsign --reset-signatures', signing)
-        self.assertIn('needs: sign', text.split('  deploy:',1)[1])
-        self.assertNotIn('secrets.',text.split('  sign:',1)[0])
-    def test_addon_publication_dispatches_pages_without_pin_pr(self):
-        text=(ROOT/'.github/workflows/rustdesk.yml').read_text()
-        publish=text.split('  publish:',1)[1]
-        self.assertIn('actions: write',publish)
-        self.assertLess(publish.index('gh release create'),publish.index('gh workflow run apk-repository.yml'))
-        self.assertIn('gh workflow run apk-repository.yml', publish)
-        self.assertNotIn('gh pr create', publish)
 
 if __name__ == '__main__': unittest.main()

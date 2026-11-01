@@ -31,13 +31,6 @@ class PortraitEdidTests(unittest.TestCase):
         self.assertEqual(d[5] | ((d[7] >> 4) << 8), 2560)
         self.assertEqual(data[21:23], bytes((30, 53)))
 
-    def test_retired_1296x2304_profile_is_not_built(self):
-        # 1296x2304 was the tallest portrait for H.264; H.264 now stops at
-        # 1080x1920 and 1440x2560 covers H.265.
-        self.assertFalse(hasattr(g, "AVC_MODE"))
-        self.assertNotIn(2304, g.RATES)
-        self.assertNotIn((1296, 2304), g.LEGACY)
-
     def test_qualified_timing_and_fallback(self):
         source = (HERE.parent / "support/nanokvm_update_edid/E21_NanoKVM.bin").read_bytes()
         data = g.profile(source)

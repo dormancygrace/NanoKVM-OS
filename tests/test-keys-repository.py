@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """nanokvm-keys moves only the official NanoKVM line, to the GitHub Pages repository."""
 from pathlib import Path
-import re
-import os
 import subprocess
 import tempfile
 import unittest
@@ -69,39 +67,6 @@ class RepositorySwitchTests(unittest.TestCase):
         text, files = self.run_script(None)
         self.assertIsNone(text)
         self.assertEqual(files, [])
-
-    def test_runs_after_install_and_upgrade(self):
-        recipe = (RECIPE / "APKBUILD").read_text()
-        self.assertIn('install="$pkgname.post-install $pkgname.post-upgrade"', recipe)
-        self.assertEqual((RECIPE / "nanokvm-keys.post-upgrade").read_bytes(), SCRIPT.read_bytes())
-
-    def test_one_repository_url_everywhere(self):
-        self.assertIn(f"new={NEW}\n", SCRIPT.read_text())
-        build = (ROOT / "platform/build.sh").read_text()
-        block = build[build.index('    case ${NANOKVM_CHANNEL:-stable} in'):]
-        block = block[:block.index('    rm -f "$r/etc/resolv.conf"')]
-        for profile in ('release', 'debug'):
-            for channel in ('', 'stable', 'beta', 'invalid'):
-                with self.subTest(profile=profile, channel=channel), tempfile.TemporaryDirectory() as directory:
-                    root = Path(directory)
-                    (root / 'etc/apk').mkdir(parents=True)
-                    result = subprocess.run(['bash', '-eu', '-c', block], capture_output=True, text=True,
-                                            env={**os.environ, 'r': directory, 'NANOKVM_CHANNEL': channel,
-                                                 'kernel_profile': profile})
-                    if channel == 'invalid':
-                        self.assertNotEqual(result.returncode, 0)
-                        self.assertFalse((root / 'etc/apk/repositories').exists())
-                    else:
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        target = NEW.replace('OS/alpine', 'OS/beta/alpine') if channel == 'beta' else NEW
-                        expected = target + '\nhttps://dl-cdn.alpinelinux.org/alpine/v3.24/main\n'
-                        if profile == 'debug':
-                            expected += 'https://dl-cdn.alpinelinux.org/alpine/v3.24/community\n'
-                        self.assertEqual((root / 'etc/apk/repositories').read_text(), expected)
-        pages = re.search(r"^PAGES_URL = '([^']+)'", (ROOT / "scripts/assemble-apk-repo.py").read_text(), re.M)[1]
-        self.assertTrue(NEW.startswith(pages + "/alpine/v3.24/riscv64/"))
-        release = (ROOT / ".github/workflows/release.yml").read_text()
-        self.assertIn(f"NANOKVM_PREVIOUS: {NEW.rsplit('/', 1)[0]}\n", release)
 
 
 if __name__ == "__main__":

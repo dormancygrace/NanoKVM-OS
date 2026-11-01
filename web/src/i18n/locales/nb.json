@@ -540,8 +540,7 @@
         "internet": "Internettilgang",
         "internetDescription": "Tilkoblede enheter kommer ut på internett via NanoKVMs tilkobling.",
         "dns": "DNS-servere",
-        "dnsDescription": "Opptil tre IPv4-adresser for tilkoblede enheter. Tom: NanoKVMs egne.",
-        "dnsPlaceholder": "NanoKVMs egne",
+        "dnsDescription": "Opptil tre IPv4-adresser atskilt med komma. Tom: de som vises.",
         "invalidDns": "Skriv inn opptil tre IPv4-adresser, f.eks. 1.1.1.1."
       }
     },

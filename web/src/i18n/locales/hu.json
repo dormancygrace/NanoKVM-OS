@@ -564,8 +564,7 @@
         "internet": "Internet-hozzáférés",
         "internetDescription": "A csatlakozott eszközök a NanoKVM kapcsolatán keresztül érik el az internetet.",
         "dns": "DNS-kiszolgálók",
-        "dnsDescription": "Legfeljebb három IPv4-cím a csatlakozott eszközöknek. Üresen: a NanoKVM sajátjai.",
-        "dnsPlaceholder": "A NanoKVM sajátjai",
+        "dnsDescription": "Legfeljebb három IPv4-cím vesszővel elválasztva. Üresen: a megjelenítettek.",
         "invalidDns": "Adjon meg legfeljebb három IPv4-címet, például 1.1.1.1."
       }
     },

@@ -540,8 +540,7 @@
         "internet": "網際網路存取",
         "internetDescription": "已連線的裝置透過 NanoKVM 的網路連線存取網際網路。",
         "dns": "DNS 伺服器",
-        "dnsDescription": "提供給已連線裝置的 IPv4 位址，最多三個。留空：使用 NanoKVM 自己的。",
-        "dnsPlaceholder": "NanoKVM 自己的",
+        "dnsDescription": "最多三個 IPv4 位址，以逗號分隔。留空：使用顯示的位址。",
         "invalidDns": "請輸入最多三個 IPv4 位址，例如 1.1.1.1。"
       }
     },

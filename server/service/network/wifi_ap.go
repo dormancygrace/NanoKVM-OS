@@ -28,10 +28,11 @@ import (
 // (kvm_system, /tmp/wifiap, /kvmapp/kvm/ap.*) is separate: only it opens the
 // unauthenticated setup page.
 var (
-	wifiAPPrefix  = "/etc/kvm/wifi.ap"
-	wifiAPRunning = "/run/nanokvm-wifi/ap-user"
-	wifiAPLeases  = "/run/nanokvm-wifi/udhcpd.leases"
-	wifiAPUIDFile = "/sys/class/cvi-base/base_uid"
+	wifiAPPrefix     = "/etc/kvm/wifi.ap"
+	wifiAPRunning    = "/run/nanokvm-wifi/ap-user"
+	wifiAPLeases     = "/run/nanokvm-wifi/udhcpd.leases"
+	wifiAPResolvConf = "/etc/resolv.conf"
+	wifiAPUIDFile    = "/sys/class/cvi-base/base_uid"
 )
 
 func wifiAPFile(name string) string { return wifiAPPrefix + "." + name }
@@ -278,6 +279,26 @@ func wifiAPStations() []proto.WifiAPStation {
 	return stations
 }
 
+// wifiAPDeviceDNS: the IPv4 servers of /etc/resolv.conf that S30wifi hands
+// the clients (gen_udhcpd_conf), at most three, none on loopback.
+func wifiAPDeviceDNS() []string {
+	servers := []string{}
+	data, err := os.ReadFile(wifiAPResolvConf)
+	if err != nil {
+		return servers
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		f := strings.Fields(line)
+		if len(f) != 2 || f[0] != "nameserver" || len(servers) == 3 {
+			continue
+		}
+		if addr, err := netip.ParseAddr(f[1]); err == nil && addr.Is4() && !addr.IsLoopback() {
+			servers = append(servers, f[1])
+		}
+	}
+	return servers
+}
+
 // parseAllSta reads hostapd_cli all_sta: per station its address on a
 // line of its own, then key=value lines.
 func parseAllSta(out string) []proto.WifiAPStation {
@@ -334,7 +355,7 @@ func parseDumpLeases(out string) map[string][2]string {
 func (s *Service) GetWifiAP(c *gin.Context) {
 	var rsp proto.Response
 	ap, passwordSet := readWifiAP()
-	state := proto.WifiAPRsp{WifiAP: ap, PasswordSet: passwordSet, Running: wifiAPActive(), Address: wifiAPAddress(ap.Subnet), Stations: []proto.WifiAPStation{}}
+	state := proto.WifiAPRsp{WifiAP: ap, PasswordSet: passwordSet, Running: wifiAPActive(), Address: wifiAPAddress(ap.Subnet), Stations: []proto.WifiAPStation{}, DeviceDNS: wifiAPDeviceDNS()}
 	if state.Running {
 		state.Stations = wifiAPStations()
 	}
@@ -360,6 +381,30 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 	}
 	if !reserveWifi() {
 		rsp.ErrRsp(c, -2, "Wi-Fi busy")
+		return
+	}
+	// Only internet or DNS servers changed on the running access point: its
+	// clients stay associated, only the DHCP server and NAT are redone.
+	if old, _ := readWifiAP(); wifiAPActive() && old.Enabled && req.Enabled &&
+		old.SSID == req.SSID && old.Band == req.Band && old.Channel == req.Channel &&
+		old.Hidden == req.Hidden && old.Subnet == req.Subnet &&
+		(keepPassword || req.Password == readWifiAPFile("pass")) {
+		if err := writeWifiAP(req, keepPassword); err != nil {
+			log.Errorf("failed to write the Wi-Fi access point settings: %s", err)
+			finishWifi(err)
+			rsp.ErrRsp(c, -2, "failed to save the access point settings")
+			return
+		}
+		_ = exec.Command("sync").Run()
+		_, err := wifiControl.run(WiFiScript, "ap-internet")
+		finishWifi(err)
+		if err != nil {
+			log.Errorf("failed to apply the access point's internet setting: %s", err)
+			rsp.ErrRsp(c, -2, "failed to apply the internet setting")
+			return
+		}
+		rsp.OkRspWithData(c, gin.H{})
+		log.Infof("set the Wi-Fi access point's internet: %t dns=%v", req.Internet, req.DNS)
 		return
 	}
 	// Over Wi-Fi, turning the access point on or off can cut this page off:

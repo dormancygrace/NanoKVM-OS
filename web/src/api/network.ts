@@ -223,6 +223,8 @@ export type WifiAPStatus = WifiAP & {
   running: boolean;
   address: string;
   stations: WifiAPStation[];
+  // The device's DNS servers, which its clients get without a list.
+  deviceDns: string[];
 };
 // A device on the access point; ip and hostname come with its lease.
 export type WifiAPStation = {

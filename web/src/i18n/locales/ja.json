@@ -1644,8 +1644,7 @@
         "internet": "インターネット接続",
         "internetDescription": "接続したデバイスは NanoKVM の接続を通じてインターネットに出られます。",
         "dns": "DNS サーバー",
-        "dnsDescription": "接続したデバイスに渡す IPv4 アドレス（最大 3 つ）。空欄の場合は NanoKVM のものを使います。",
-        "dnsPlaceholder": "NanoKVM のもの",
+        "dnsDescription": "IPv4 アドレスを最大 3 つ、カンマ区切りで入力します。空欄の場合は表示中のものを使います。",
         "invalidDns": "IPv4 アドレスを最大 3 つ入力してください（例: 1.1.1.1）。"
       },
       "tls": {

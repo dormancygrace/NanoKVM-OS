@@ -540,8 +540,7 @@
         "internet": "İnternet erişimi",
         "internetDescription": "Bağlı cihazlar internete NanoKVM’in bağlantısı üzerinden çıkar.",
         "dns": "DNS sunucuları",
-        "dnsDescription": "Bağlı cihazlar için en fazla üç IPv4 adresi. Boş: NanoKVM’inkiler.",
-        "dnsPlaceholder": "NanoKVM’inkiler",
+        "dnsDescription": "Virgülle ayrılmış en fazla üç IPv4 adresi. Boş: gösterilenler.",
         "invalidDns": "En fazla üç IPv4 adresi girin, örneğin 1.1.1.1."
       }
     },

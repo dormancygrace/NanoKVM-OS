@@ -747,6 +747,48 @@ ap_start() {
     fi
 }
 
+# The USB network runs a separate udhcpd. Stop only our AP instance; with
+# wait, until it has exited (and written its leases).
+stop_ap_udhcpd() {
+    [ -r "$UDHCPD_PID" ] || return 0
+    ap_pid=$(cat "$UDHCPD_PID")
+    case "$ap_pid" in
+        ''|*[!0-9]*) return 0 ;;
+    esac
+    if [ "$ap_pid" -gt 1 ] &&
+        [ "$(cat "/proc/$ap_pid/comm" 2>/dev/null)" = udhcpd ] &&
+        tr '\000' '\n' < "/proc/$ap_pid/cmdline" 2>/dev/null | grep -Fqx -- "$UDHCPD_CONFIG"; then
+        kill "$ap_pid" 2>/dev/null || true
+        if [ "$1" = wait ]; then
+            tries=0
+            while [ -d "/proc/$ap_pid" ] && [ "$tries" -lt 30 ]; do
+                tries=$((tries + 1))
+                sleep 0.1
+            done
+        fi
+    fi
+}
+
+# ap-internet: a change of only internet or DNS servers, applied to the
+# running access point without restarting Wi-Fi. Its DHCP server restarts
+# with the new router and DNS options; the leases stay.
+ap_internet_apply() {
+    [ -e "$USER_AP_FLAG" ] || return 0
+    ipv4_prefix=$(sed -n 's/^start \(.*\)\.100$/\1/p' "$UDHCPD_CONFIG" 2>/dev/null)
+    [ -n "$ipv4_prefix" ] || return 1
+    ap_internet=
+    [ ! -e "$AP_PREFIX.internet" ] || ap_internet=internet
+    ap_dns=$(tr -cd '0-9. ' < "$AP_PREFIX.dns" 2>/dev/null)
+    ap_internet_stop
+    stop_ap_udhcpd wait
+    umask 077
+    gen_udhcpd_conf wlan0 "$ipv4_prefix" "$ap_internet" "$ap_dns" > "$UDHCPD_CONFIG" || return 1
+    "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
+    if [ -n "$ap_internet" ]; then
+        ap_internet_start "$ipv4_prefix" || return 1
+    fi
+}
+
 # wpa_supplicant and hostapd deauthenticate through the SDIO driver before
 # they exit, which can take a few seconds. One started meanwhile finds the
 # control socket in use and fails, and Wi-Fi stays down. Wait for the old
@@ -776,20 +818,7 @@ stop() {
     fi
     ap_internet_stop
     "$NANOKVM_KILLALL" hostapd 2>/dev/null || true
-    # The USB network runs a separate udhcpd. Stop only our AP instance.
-    if [ -r "$UDHCPD_PID" ]; then
-        ap_pid=$(cat "$UDHCPD_PID")
-        case "$ap_pid" in
-            ''|*[!0-9]*) ;;
-            *)
-                if [ "$ap_pid" -gt 1 ] &&
-                    [ "$(cat "/proc/$ap_pid/comm" 2>/dev/null)" = udhcpd ] &&
-                    tr '\000' '\n' < "/proc/$ap_pid/cmdline" 2>/dev/null | grep -Fqx -- "$UDHCPD_CONFIG"; then
-                    kill "$ap_pid" 2>/dev/null || true
-                fi
-                ;;
-        esac
-    fi
+    stop_ap_udhcpd
     # Before wpa_supplicant: its last events must not start DHCP again.
     stop_event_handler || true
     "$NANOKVM_KILLALL" wpa_supplicant 2>/dev/null || true
@@ -830,6 +859,7 @@ case "${1:-}" in
         ap_start
         ;;
     restart) restart ;;
+    ap-internet) ap_internet_apply ;;
     # Run by wpa_cli -a (start_event_handler).
     wlan0) wifi_event "${2:-}" ;;
 esac

@@ -1644,8 +1644,7 @@
         "internet": "Acceso a internet",
         "internetDescription": "Los dispositivos conectados salen a internet a través de la conexión del NanoKVM.",
         "dns": "Servidores DNS",
-        "dnsDescription": "Hasta tres direcciones IPv4 para los dispositivos conectados. Vacío: los del NanoKVM.",
-        "dnsPlaceholder": "Los del NanoKVM",
+        "dnsDescription": "Hasta tres direcciones IPv4 separadas por comas. Vacío: las que se muestran.",
         "invalidDns": "Introduzca hasta tres direcciones IPv4, como 1.1.1.1."
       },
       "tls": {

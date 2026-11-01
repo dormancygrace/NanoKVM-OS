@@ -540,8 +540,7 @@
         "internet": "인터넷 연결",
         "internetDescription": "연결된 장치가 NanoKVM의 연결을 통해 인터넷에 접속합니다.",
         "dns": "DNS 서버",
-        "dnsDescription": "연결된 장치에 제공할 IPv4 주소(최대 3개). 비워 두면 NanoKVM의 서버를 사용합니다.",
-        "dnsPlaceholder": "NanoKVM의 서버",
+        "dnsDescription": "IPv4 주소를 쉼표로 구분해 최대 3개 입력합니다. 비워 두면 표시된 주소를 사용합니다.",
         "invalidDns": "IPv4 주소를 최대 3개 입력하세요(예: 1.1.1.1)."
       }
     },

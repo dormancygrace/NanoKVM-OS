@@ -89,6 +89,18 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
   const dns = dnsText ?? (form.dns ?? []).join(', ');
   const dnsValid = validDns(dns);
   const valid = ssidValid && passwordValid && subnetValid && dnsValid;
+  // Internet and DNS servers apply to the running access point without
+  // restarting Wi-Fi (the server tells the same apart).
+  const restarts =
+    !status?.running ||
+    !status.enabled ||
+    !form.enabled ||
+    form.ssid !== status.ssid ||
+    form.band !== status.band ||
+    form.channel !== status.channel ||
+    form.hidden !== status.hidden ||
+    form.subnet !== status.subnet ||
+    password !== '';
 
   async function save() {
     if (!form || !valid || saving) return;
@@ -259,7 +271,9 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
           <Input
             id="wifi-ap-dns"
             aria-describedby="wifi-ap-dns-description"
-            placeholder={tr('dnsPlaceholder')}
+            placeholder={
+              status?.deviceDns?.length ? status.deviceDns.join(', ') : '1.1.1.1, 8.8.8.8'
+            }
             value={dns}
             status={dnsValid ? undefined : 'error'}
             disabled={saving}
@@ -283,7 +297,7 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
           onChange={(event) => set({ subnet: event.target.value.trim() })}
         />
       </SettingRow>
-      <Alert type="warning" showIcon message={tr('warning')} />
+      {restarts && <Alert type="warning" showIcon message={tr('warning')} />}
       <div>
         <Button type="primary" loading={saving} disabled={!valid} onClick={() => void save()}>
           {tr('save')}

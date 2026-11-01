@@ -540,8 +540,7 @@
         "internet": "Internettoegang",
         "internetDescription": "Verbonden apparaten gaan via de verbinding van de NanoKVM het internet op.",
         "dns": "DNS-servers",
-        "dnsDescription": "Maximaal drie IPv4-adressen voor verbonden apparaten. Leeg: die van de NanoKVM.",
-        "dnsPlaceholder": "Die van de NanoKVM",
+        "dnsDescription": "Maximaal drie IPv4-adressen, gescheiden door komma’s. Leeg: de getoonde.",
         "invalidDns": "Voer maximaal drie IPv4-adressen in, zoals 1.1.1.1."
       }
     },

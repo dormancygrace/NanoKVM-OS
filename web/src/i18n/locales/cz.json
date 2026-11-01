@@ -759,8 +759,7 @@
         "internet": "Přístup k internetu",
         "internetDescription": "Připojená zařízení se dostanou na internet přes připojení NanoKVM.",
         "dns": "Servery DNS",
-        "dnsDescription": "Až tři adresy IPv4 pro připojená zařízení. Prázdné: servery NanoKVM.",
-        "dnsPlaceholder": "Servery NanoKVM",
+        "dnsDescription": "Až tři adresy IPv4 oddělené čárkami. Když je prázdné, použijí se zobrazené.",
         "invalidDns": "Zadejte až tři adresy IPv4, například 1.1.1.1."
       },
       "tls": {

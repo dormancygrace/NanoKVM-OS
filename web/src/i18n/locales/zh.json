@@ -1644,8 +1644,7 @@
         "internet": "互联网访问",
         "internetDescription": "已连接的设备通过 NanoKVM 的网络连接访问互联网。",
         "dns": "DNS 服务器",
-        "dnsDescription": "分配给已连接设备的 IPv4 地址，最多三个。留空：使用 NanoKVM 自身的。",
-        "dnsPlaceholder": "NanoKVM 自身的",
+        "dnsDescription": "最多三个 IPv4 地址，用逗号分隔。留空：使用显示的地址。",
         "invalidDns": "请输入最多三个 IPv4 地址，例如 1.1.1.1。"
       },
       "tls": {

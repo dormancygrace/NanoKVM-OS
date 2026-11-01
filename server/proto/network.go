@@ -154,6 +154,8 @@ type WifiAPRsp struct {
 	Running     bool            `json:"running"`
 	Address     string          `json:"address"`
 	Stations    []WifiAPStation `json:"stations"`
+	// The device's DNS servers, which its clients get without a list.
+	DeviceDNS []string `json:"deviceDns"`
 }
 
 // A device on the access point. IP and Hostname are empty until it has a

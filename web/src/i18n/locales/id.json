@@ -540,8 +540,7 @@
         "internet": "Akses internet",
         "internetDescription": "Perangkat yang terhubung mengakses internet melalui koneksi NanoKVM.",
         "dns": "Server DNS",
-        "dnsDescription": "Hingga tiga alamat IPv4 untuk perangkat yang terhubung. Kosong: milik NanoKVM.",
-        "dnsPlaceholder": "Milik NanoKVM",
+        "dnsDescription": "Hingga tiga alamat IPv4 dipisahkan koma. Kosong: yang ditampilkan.",
         "invalidDns": "Masukkan hingga tiga alamat IPv4, misalnya 1.1.1.1."
       }
     },

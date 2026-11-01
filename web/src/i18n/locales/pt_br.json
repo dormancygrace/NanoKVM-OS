@@ -540,8 +540,7 @@
         "internet": "Acesso à internet",
         "internetDescription": "Os dispositivos conectados acessam a internet pela conexão do NanoKVM.",
         "dns": "Servidores DNS",
-        "dnsDescription": "Até três endereços IPv4 para os dispositivos conectados. Vazio: os do NanoKVM.",
-        "dnsPlaceholder": "Os do NanoKVM",
+        "dnsDescription": "Até três endereços IPv4 separados por vírgulas. Vazio: os mostrados.",
         "invalidDns": "Digite até três endereços IPv4, como 1.1.1.1."
       }
     },

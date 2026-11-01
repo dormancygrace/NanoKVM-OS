@@ -198,17 +198,18 @@ func (s *Service) Configure(settings Settings) error {
 
 // dropSignIns forgets the failures of the sign-ins the new settings no
 // longer hold (signed out, replaced, the channel deleted) and revokes the
-// Google ones that end. Google revokes the whole grant of the account to the
-// client, tokens issued later included, so a token is revoked only when no
-// channel keeps a sign-in through the same client. It holds s.mu.
+// Google ones that end. Google revokes the account's grant to the whole
+// Cloud project, tokens issued later and other clients of the project
+// included, and the device cannot tell which project a client belongs to:
+// a token is revoked only when no channel keeps a Google sign-in. It holds
+// s.mu.
 func (s *Service) dropSignIns(old, next Config) {
 	tokens := map[string]string{}
-	inUse := map[oauthClient]bool{}
+	googleKept := false
 	for _, ch := range next.Channels {
 		tokens[ch.ID] = ch.get("oauthToken")
-		if client, err := clientOf(ch); err == nil && tokens[ch.ID] != "" {
-			client.secret = ""
-			inUse[client] = true
+		if client, err := clientOf(ch); err == nil && tokens[ch.ID] != "" && client.kind == oauthGoogle {
+			googleKept = true
 		}
 	}
 	for _, ch := range old.Channels {
@@ -217,13 +218,7 @@ func (s *Service) dropSignIns(old, next Config) {
 			continue
 		}
 		delete(s.authErrors, ch.ID)
-		client, err := clientOf(ch)
-		if err != nil {
-			continue
-		}
-		key := client
-		key.secret = ""
-		if !inUse[key] {
+		if client, err := clientOf(ch); err == nil && client.kind == oauthGoogle && !googleKept {
 			revokeLater(client, token)
 		}
 	}

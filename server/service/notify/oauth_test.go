@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"errors"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
@@ -199,18 +200,30 @@ func TestEmailAuthSettings(t *testing.T) {
 	}
 }
 
-// A Google revoke ends the whole grant: signing in again and an abandoned
-// sign-in revoke nothing; signing out of the last channel of the client does.
+// A Google revoke ends the account's grant to the whole project: signing in
+// again, an abandoned sign-in and signing out while another channel keeps a
+// Google sign-in (even through another client) revoke nothing; signing out of
+// the last one does.
 func TestGoogleGrantRevokedOnlyWhenUnused(t *testing.T) {
 	var revoked []string
 	old := revokeLater
 	revokeLater = func(_ oauthClient, token string) { revoked = append(revoked, token) }
 	t.Cleanup(func() { revokeLater = old })
 	s := gmailService(t, "h", "465")
-	page := func(token string, clear ...string) Settings {
-		ch := s.config.Channels[0].view().Channel
-		ch.Settings["oauthToken"] = token
-		return Settings{Language: "en", Channels: []ChannelUpdate{{Channel: ch, Clear: clear}}}
+	// The page's channels, each with its oauthToken field as given: "" keeps
+	// the stored sign-in, "-" signs out.
+	page := func(tokens ...string) Settings {
+		settings := Settings{Language: "en"}
+		for i, token := range tokens {
+			ch := s.config.Channels[i].view().Channel
+			var clear []string
+			if token == "-" {
+				token, clear = "", []string{"oauthToken"}
+			}
+			ch.Settings["oauthToken"] = token
+			settings.Channels = append(settings.Channels, ChannelUpdate{Channel: ch, Clear: clear})
+		}
+		return settings
 	}
 	oauth.mu.Lock()
 	oauth.pending["pending:again"] = &pendingSignIn{token: "R2", expires: time.Now().Add(time.Hour)}
@@ -223,10 +236,22 @@ func TestGoogleGrantRevokedOnlyWhenUnused(t *testing.T) {
 	if got := s.config.Channels[0].Settings["oauthToken"]; got != "R2" || len(revoked) != 0 {
 		t.Fatalf("sign in again: stored %q, revoked %v", got, revoked)
 	}
-	if err := s.Configure(page("", "oauthToken")); err != nil {
+	// A second channel signed in through another client, maybe of the same
+	// project.
+	other := s.config.Channels[0]
+	other.ID, other.Settings = "c2", maps.Clone(other.Settings)
+	other.Settings["oauthClientId"], other.Settings["oauthToken"] = "id2", "R9"
+	s.config.Channels = append(s.config.Channels, other)
+	if err := s.Configure(page("-", "")); err != nil {
 		t.Fatal(err)
 	}
-	if len(revoked) != 1 || revoked[0] != "R2" {
-		t.Fatalf("sign out: revoked %v", revoked)
+	if got := s.config.Channels[1].Settings["oauthToken"]; got != "R9" || len(revoked) != 0 {
+		t.Fatalf("sign out beside another Google sign-in: kept %q, revoked %v", got, revoked)
+	}
+	if err := s.Configure(page("-", "-")); err != nil {
+		t.Fatal(err)
+	}
+	if len(revoked) != 1 || revoked[0] != "R9" {
+		t.Fatalf("sign out of the last one: revoked %v", revoked)
 	}
 }

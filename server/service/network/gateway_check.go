@@ -279,11 +279,13 @@ var gatewayCheckGeneration uint64
 // tick runs one round of checks and the route changes they call for.
 func (c *gatewayChecker) tick(config gatewayCheckConfig) {
 	if !config.Enabled {
+		// Health is cleared under gatewayMu, as a round publishes it: a round
+		// that was running cannot bring it back afterwards.
+		gatewayMu.Lock()
+		gatewayCheckGeneration++
 		c.mu.Lock()
 		c.health = map[string]*gatewayHealth{}
 		c.mu.Unlock()
-		gatewayMu.Lock()
-		gatewayCheckGeneration++
 		restoreAllGateways()
 		gatewayMu.Unlock()
 		return
@@ -297,13 +299,18 @@ func (c *gatewayChecker) tick(config gatewayCheckConfig) {
 	current := func() bool { return gatewayCheckGeneration == generation }
 	// The probes take seconds while a gateway is silent: outside gatewayMu,
 	// so that the preferred-gateway setting does not wait for them. They
-	// work on copies, published when the round is done.
+	// work on copies, published when the round is done, unless the check was
+	// turned off meanwhile.
 	now := c.now()
 	results := map[string]*gatewayHealth{}
 	defer func() {
-		c.mu.Lock()
-		c.health = results
-		c.mu.Unlock()
+		gatewayMu.Lock()
+		defer gatewayMu.Unlock()
+		if current() {
+			c.mu.Lock()
+			c.health = results
+			c.mu.Unlock()
+		}
 	}()
 	for _, route := range uniqueGatewayRoutes(defaultGatewayEntries()) {
 		if _, seen := results[route.Interface]; seen || gatewayKind(route.Interface) != "ethernet" || !gatewayCarrier(route.Interface) {
@@ -335,7 +342,6 @@ func (c *gatewayChecker) tick(config gatewayCheckConfig) {
 	gatewayMu.Lock()
 	if !current() {
 		gatewayMu.Unlock()
-		results = map[string]*gatewayHealth{}
 		return
 	}
 	entries := defaultGatewayEntries()
@@ -401,8 +407,17 @@ func (c *gatewayChecker) tick(config gatewayCheckConfig) {
 			health.keptLease = true
 			continue
 		}
+		// The check may have been turned off during the discover: the restart
+		// under gatewayMu, so that turning it off waits for it or prevents it.
+		gatewayMu.Lock()
+		if !current() {
+			gatewayMu.Unlock()
+			return
+		}
 		health.silentSince, health.keptLease = time.Time{}, false
-		if err := restartGatewayDHCP(pid); err != nil {
+		err := restartGatewayDHCP(pid)
+		gatewayMu.Unlock()
+		if err != nil {
 			log.Warnf("gateway check: restart DHCP on %s: %v", route.Interface, err)
 		} else {
 			log.Warnf("gateway check: gateway %s silent for 2 minutes, DHCP on %s starts again", route.Gateway, route.Interface)

@@ -542,7 +542,8 @@
         "dns": "DNS-servrar",
         "dnsDescription": "Upp till tre IPv4-adresser åtskilda med kommatecken. Tomt: de som visas.",
         "invalidDns": "Ange upp till tre IPv4-adresser, t.ex. 1.1.1.1.",
-        "reconnect": "Anslutna enheter kopplas från en kort stund och ansluter igen med de nya inställningarna."
+        "reconnect": "Anslutna enheter får de nya inställningarna inom 5 minuter, eller direkt när de ansluter igen.",
+        "stationsCount": "Anslutna enheter: {{count}}"
       }
     },
     "tailscale": {

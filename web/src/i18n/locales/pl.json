@@ -542,7 +542,8 @@
         "dns": "Serwery DNS",
         "dnsDescription": "Do trzech adresów IPv4 oddzielonych przecinkami. Puste: wyświetlone.",
         "invalidDns": "Wpisz do trzech adresów IPv4, np. 1.1.1.1.",
-        "reconnect": "Połączone urządzenia rozłączą się na chwilę i połączą ponownie z nowymi ustawieniami."
+        "reconnect": "Połączone urządzenia otrzymają nowe ustawienia w ciągu 5 minut, a po ponownym połączeniu od razu.",
+        "stationsCount": "Połączone urządzenia: {{count}}"
       }
     },
     "tailscale": {

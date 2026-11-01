@@ -1646,7 +1646,8 @@
         "dns": "DNS 服务器",
         "dnsDescription": "最多三个 IPv4 地址，用逗号分隔。留空：使用显示的地址。",
         "invalidDns": "请输入最多三个 IPv4 地址，例如 1.1.1.1。",
-        "reconnect": "已连接的设备会短暂断开，然后以新设置重新连接。"
+        "reconnect": "已连接的设备会在 5 分钟内获得新设置，重新连接后立即生效。",
+        "stationsCount": "已连接设备：{{count}}"
       },
       "tls": {
         "confirmEnable": "开启 HTTPS？",

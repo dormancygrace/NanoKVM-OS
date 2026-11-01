@@ -1646,7 +1646,8 @@
         "dns": "DNS servers",
         "dnsDescription": "Up to three IPv4 addresses, separated by commas. Empty: the ones shown.",
         "invalidDns": "Enter up to three IPv4 addresses, such as 1.1.1.1.",
-        "reconnect": "Connected devices disconnect for a moment and rejoin with the new settings."
+        "reconnect": "Connected devices get the new settings within 5 minutes, or at once when they rejoin.",
+        "stationsCount": "Devices connected: {{count}}"
       },
       "tls": {
         "confirmEnable": "Turn on HTTPS?",

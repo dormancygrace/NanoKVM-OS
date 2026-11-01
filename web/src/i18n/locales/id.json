@@ -542,7 +542,8 @@
         "dns": "Server DNS",
         "dnsDescription": "Hingga tiga alamat IPv4 dipisahkan koma. Kosong: yang ditampilkan.",
         "invalidDns": "Masukkan hingga tiga alamat IPv4, misalnya 1.1.1.1.",
-        "reconnect": "Perangkat yang terhubung terputus sesaat lalu tersambung kembali dengan pengaturan baru."
+        "reconnect": "Perangkat yang terhubung mendapat pengaturan baru dalam 5 menit, atau langsung saat tersambung ulang.",
+        "stationsCount": "Perangkat terhubung: {{count}}"
       }
     },
     "tailscale": {

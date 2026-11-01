@@ -1646,7 +1646,8 @@
         "dns": "DNS-Server",
         "dnsDescription": "Bis zu drei IPv4-Adressen, durch Kommas getrennt. Leer: die angezeigten.",
         "invalidDns": "Geben Sie bis zu drei IPv4-Adressen ein, z. B. 1.1.1.1.",
-        "reconnect": "Verbundene Geräte werden kurz getrennt und verbinden sich mit den neuen Einstellungen wieder."
+        "reconnect": "Verbundene Geräte erhalten die neuen Einstellungen innerhalb von 5 Minuten, nach einem erneuten Verbinden sofort.",
+        "stationsCount": "Verbundene Geräte: {{count}}"
       },
       "tls": {
         "confirmEnable": "HTTPS einschalten?",

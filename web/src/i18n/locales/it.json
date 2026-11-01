@@ -542,7 +542,8 @@
         "dns": "Server DNS",
         "dnsDescription": "Fino a tre indirizzi IPv4 separati da virgole. Vuoto: quelli mostrati.",
         "invalidDns": "Inserisci fino a tre indirizzi IPv4, ad esempio 1.1.1.1.",
-        "reconnect": "I dispositivi connessi si disconnettono per un attimo e si riconnettono con le nuove impostazioni."
+        "reconnect": "I dispositivi connessi ricevono le nuove impostazioni entro 5 minuti, o subito se si riconnettono.",
+        "stationsCount": "Dispositivi connessi: {{count}}"
       }
     },
     "tailscale": {

@@ -421,6 +421,10 @@ func (w radioControl) status() *proto.GetWifiRsp {
 			d.Bands = append(d.Bands, b)
 		}
 	}
+	if d.Enabled && d.AccessPoint {
+		ap, _ := readWifiAP()
+		d.Ssid, d.APStations = ap.SSID, len(wifiAPStations())
+	}
 	if !d.Enabled || d.ApMode || d.AccessPoint {
 		return d
 	}

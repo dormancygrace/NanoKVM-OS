@@ -1646,7 +1646,8 @@
         "dns": "Servidores DNS",
         "dnsDescription": "Hasta tres direcciones IPv4 separadas por comas. Vacío: las que se muestran.",
         "invalidDns": "Introduzca hasta tres direcciones IPv4, como 1.1.1.1.",
-        "reconnect": "Los dispositivos conectados se desconectan un momento y vuelven a conectarse con la nueva configuración."
+        "reconnect": "Los dispositivos conectados reciben la nueva configuración en 5 minutos como máximo, o al instante si se vuelven a conectar.",
+        "stationsCount": "Dispositivos conectados: {{count}}"
       },
       "tls": {
         "confirmEnable": "¿Activar HTTPS?",

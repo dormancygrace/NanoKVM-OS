@@ -30,7 +30,6 @@
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 : "${NANOKVM_NFT:=nft}"
-: "${NANOKVM_HOSTAPD_CLI:=hostapd_cli}"
 : "${NANOKVM_RESOLV_CONF:=/etc/resolv.conf}"
 : "${NANOKVM_IPV4_CONF_DIR:=/proc/sys/net/ipv4/conf}"
 
@@ -156,9 +155,11 @@ pick_channel() {
     echo "$best"
 }
 
-# gen_udhcpd_conf INTERFACE PREFIX [internet [DNS...]]: with internet, the
-# device is the clients' router and hands them the DNS servers given, else
-# its own, on short leases so that they follow a change of those.
+# gen_udhcpd_conf INTERFACE PREFIX [internet|local [DNS...]]: the
+# administrator's access point (internet or local) leases for 10 minutes,
+# so that its clients take a change of router or DNS servers when they renew,
+# within 5, without being disconnected. With internet the device is their
+# router and hands them the DNS servers given, else its own.
 gen_udhcpd_conf() {
     interface=$1
     ipv4_prefix=$2
@@ -176,10 +177,11 @@ gen_udhcpd_conf() {
         [ -n "$dns" ] || dns=$(sed -n 's/^nameserver[[:space:]]*\([0-9.]*\)[[:space:]]*$/\1/p' "$NANOKVM_RESOLV_CONF" 2>/dev/null |
             grep -v '^127\.' | head -3 | tr '\n' ' ')
         [ -z "$dns" ] || echo "option dns ${dns% }"
-        echo "option lease 3600"
-    else
-        echo "option lease 864000"
     fi
+    case "$3" in
+        internet|local) echo "option lease 600" ;;
+        *) echo "option lease 864000" ;;
+    esac
 }
 
 # The administrator's access point always has its nft table, installed
@@ -713,6 +715,7 @@ ap_start() {
         ap_channel=$(cat "$AP_PREFIX.channel" 2>/dev/null)
         [ ! -e "$AP_PREFIX.hidden" ] || ap_hidden=1
         # Never for the setup access point.
+        ap_internet=local
         [ ! -e "$AP_PREFIX.internet" ] || ap_internet=internet
         # IPv4 addresses, which the server checked.
         ap_dns=$(tr -cd '0-9. ' < "$AP_PREFIX.dns" 2>/dev/null)
@@ -793,28 +796,21 @@ stop_ap_udhcpd() {
 # ap-internet: a change of only internet or DNS servers, applied to the
 # running access point without restarting Wi-Fi. The forwarding policy is
 # replaced in one step; its DHCP server restarts with the new router and DNS
-# options, the leases stay. A client takes new options only with a new
-# lease: when they changed, the connected clients are disconnected, and
-# rejoin and ask for one at once.
+# options, the leases stay, and the clients take the options when they renew
+# (gen_udhcpd_conf). Disconnecting them instead sends phones to another
+# network they know.
 ap_internet_apply() {
     [ -e "$USER_AP_FLAG" ] || return 0
     ipv4_prefix=$(sed -n 's/^start \(.*\)\.100$/\1/p' "$UDHCPD_CONFIG" 2>/dev/null)
     [ -n "$ipv4_prefix" ] || return 1
-    ap_internet=
+    ap_internet=local
     [ ! -e "$AP_PREFIX.internet" ] || ap_internet=internet
     ap_dns=$(tr -cd '0-9. ' < "$AP_PREFIX.dns" 2>/dev/null)
     ap_internet_start "$ipv4_prefix" "$ap_internet" || return 1
-    old_options=$(grep -E '^option (router|dns|lease) ' "$UDHCPD_CONFIG" 2>/dev/null)
     stop_ap_udhcpd wait
     umask 077
     gen_udhcpd_conf wlan0 "$ipv4_prefix" "$ap_internet" "$ap_dns" > "$UDHCPD_CONFIG" || return 1
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
-    if [ "$old_options" != "$(grep -E '^option (router|dns|lease) ' "$UDHCPD_CONFIG")" ]; then
-        for station in $("$NANOKVM_HOSTAPD_CLI" -p "$NANOKVM_HOSTAPD_CTRL_DIR" -i wlan0 list_sta 2>/dev/null |
-            grep -E '^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$'); do
-            "$NANOKVM_HOSTAPD_CLI" -p "$NANOKVM_HOSTAPD_CTRL_DIR" -i wlan0 deauthenticate "$station" >/dev/null 2>&1 || true
-        done
-    fi
 }
 
 # wpa_supplicant and hostapd deauthenticate through the SDIO driver before

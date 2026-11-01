@@ -1646,7 +1646,8 @@
         "dns": "Serveurs DNS",
         "dnsDescription": "Jusqu’à trois adresses IPv4 séparées par des virgules. Vide : celles affichées.",
         "invalidDns": "Saisissez jusqu’à trois adresses IPv4, par exemple 1.1.1.1.",
-        "reconnect": "Les appareils connectés se déconnectent un instant puis se reconnectent avec les nouveaux réglages."
+        "reconnect": "Les appareils connectés reçoivent les nouveaux réglages en 5 minutes au plus, ou aussitôt s’ils se reconnectent.",
+        "stationsCount": "Appareils connectés : {{count}}"
       },
       "tls": {
         "confirmEnable": "Activer HTTPS ?",

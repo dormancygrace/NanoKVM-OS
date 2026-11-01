@@ -542,7 +542,8 @@
         "dns": "Máy chủ DNS",
         "dnsDescription": "Tối đa ba địa chỉ IPv4, phân cách bằng dấu phẩy. Để trống: dùng các địa chỉ đang hiển thị.",
         "invalidDns": "Nhập tối đa ba địa chỉ IPv4, ví dụ 1.1.1.1.",
-        "reconnect": "Các thiết bị đã kết nối sẽ ngắt kết nối trong giây lát rồi kết nối lại với cài đặt mới."
+        "reconnect": "Các thiết bị đã kết nối nhận cài đặt mới trong vòng 5 phút, hoặc ngay khi kết nối lại.",
+        "stationsCount": "Thiết bị đã kết nối: {{count}}"
       }
     },
     "tailscale": {

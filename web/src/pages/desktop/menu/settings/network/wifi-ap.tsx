@@ -101,8 +101,8 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
     form.hidden !== status.hidden ||
     form.subnet !== status.subnet ||
     password !== '';
-  // A new router or DNS servers reach the connected devices with a new
-  // lease: S30wifi disconnects them, and they rejoin at once.
+  // A new router or DNS servers reach the connected devices with their next
+  // lease: within 5 minutes (S30wifi leases for 10), or when they rejoin.
   const reconnects =
     !restarts &&
     (form.internet !== status.internet ||
@@ -161,155 +161,169 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
           onChange={(enabled) => set({ enabled })}
         />
       </SettingRow>
-      {status?.running && (
-        <div className="space-y-2">
-          <div className="text-sm">{tr('stations')}</div>
-          {status.stations.length === 0 ? (
-            <div className="text-fg-muted text-xs">{tr('noStations')}</div>
-          ) : (
-            <Panel flush className="divide-line divide-y">
-              {status.stations.map((station) => (
-                <div
-                  key={station.mac}
-                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm break-all">
-                      {station.hostname || station.ip || station.mac}
+      {/* Turned off, only the switch: its settings stay for next time. */}
+      {form.enabled && (
+        <>
+          {status?.running && status.enabled && (
+            <div className="space-y-2">
+              <div className="text-sm">{tr('stations')}</div>
+              {status.stations.length === 0 ? (
+                <div className="text-fg-muted text-xs">{tr('noStations')}</div>
+              ) : (
+                <Panel flush className="divide-line divide-y">
+                  {status.stations.map((station) => (
+                    <div
+                      key={station.mac}
+                      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm break-all">
+                          {station.hostname || station.ip || station.mac}
+                        </div>
+                        <div className="text-fg-muted text-xs">
+                          {[station.hostname && station.ip, station.mac]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
+                      </div>
+                      <div className="text-fg-muted text-xs tabular-nums">
+                        {[
+                          station.signal !== undefined && `${station.signal} dBm`,
+                          station.rate && `${station.rate} Mbit/s`,
+                          duration(station.connected)
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
                     </div>
-                    <div className="text-fg-muted text-xs">
-                      {[station.hostname && station.ip, station.mac].filter(Boolean).join(' · ')}
-                    </div>
-                  </div>
-                  <div className="text-fg-muted text-xs tabular-nums">
-                    {[
-                      station.signal !== undefined && `${station.signal} dBm`,
-                      station.rate && `${station.rate} Mbit/s`,
-                      duration(station.connected)
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </div>
-                </div>
-              ))}
-            </Panel>
+                  ))}
+                </Panel>
+              )}
+            </div>
           )}
+          <SettingRow
+            stacked
+            htmlFor="wifi-ap-ssid"
+            label={tr('ssid')}
+            description={ssidValid ? undefined : tr('invalidSsid')}
+          >
+            <Input
+              id="wifi-ap-ssid"
+              value={form.ssid}
+              status={ssidValid ? undefined : 'error'}
+              disabled={saving}
+              onChange={(event) => set({ ssid: event.target.value })}
+            />
+          </SettingRow>
+          <SettingRow
+            stacked
+            htmlFor="wifi-ap-password"
+            label={tr('password')}
+            description={passwordValid ? tr('passwordHint') : tr('invalidPassword')}
+          >
+            <Input.Password
+              id="wifi-ap-password"
+              aria-describedby="wifi-ap-password-description"
+              autoComplete="new-password"
+              placeholder={status?.passwordSet ? tr('passwordKeep') : undefined}
+              value={password}
+              status={passwordValid ? undefined : 'error'}
+              disabled={saving}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </SettingRow>
+          <SettingRow label={tr('band')}>
+            <Segmented
+              value={form.band}
+              disabled={saving}
+              onChange={(band) => set({ band: band as api.WifiBand, channel: 0 })}
+              options={[
+                { label: tr('band24'), value: '2.4' },
+                { label: tr('band5'), value: '5' }
+              ]}
+            />
+          </SettingRow>
+          <SettingRow htmlFor="wifi-ap-channel" label={tr('channel')}>
+            <Select
+              id="wifi-ap-channel"
+              className="min-w-36"
+              value={form.channel}
+              disabled={saving}
+              onChange={(channel) => set({ channel })}
+              options={[
+                { label: tr('channelAuto'), value: 0 },
+                ...channels[form.band].map((channel) => ({
+                  label: String(channel),
+                  value: channel
+                }))
+              ]}
+            />
+          </SettingRow>
+          <SettingRow label={tr('hidden')} description={tr('hiddenDescription')}>
+            <Checkbox
+              checked={form.hidden}
+              disabled={saving}
+              aria-label={tr('hidden')}
+              onChange={(event) => set({ hidden: event.target.checked })}
+            />
+          </SettingRow>
+          <SettingRow label={tr('internet')} description={tr('internetDescription')}>
+            <Checkbox
+              checked={form.internet}
+              disabled={saving}
+              aria-label={tr('internet')}
+              onChange={(event) => set({ internet: event.target.checked })}
+            />
+          </SettingRow>
+          {form.internet && (
+            <SettingRow
+              stacked
+              htmlFor="wifi-ap-dns"
+              label={tr('dns')}
+              description={dnsValid ? tr('dnsDescription') : tr('invalidDns')}
+            >
+              <Input
+                id="wifi-ap-dns"
+                aria-describedby="wifi-ap-dns-description"
+                placeholder={
+                  status?.deviceDns?.length ? status.deviceDns.join(', ') : '1.1.1.1, 8.8.8.8'
+                }
+                value={dns}
+                status={dnsValid ? undefined : 'error'}
+                disabled={saving}
+                onChange={(event) => setDnsText(event.target.value)}
+              />
+            </SettingRow>
+          )}
+          <SettingRow
+            stacked
+            htmlFor="wifi-ap-subnet"
+            label={tr('subnet')}
+            description={subnetValid ? tr('subnetDescription') : tr('invalidSubnet')}
+          >
+            <Input
+              id="wifi-ap-subnet"
+              aria-describedby="wifi-ap-subnet-description"
+              placeholder={tr('subnetPlaceholder')}
+              value={form.subnet}
+              status={subnetValid ? undefined : 'error'}
+              disabled={saving}
+              onChange={(event) => set({ subnet: event.target.value.trim() })}
+            />
+          </SettingRow>
+        </>
+      )}
+      {restarts && (form.enabled || status?.enabled) && (
+        <Alert type="warning" showIcon message={tr('warning')} />
+      )}
+      {reconnects && <Alert type="info" showIcon message={tr('reconnect')} />}
+      {(form.enabled || status?.enabled) && (
+        <div>
+          <Button type="primary" loading={saving} disabled={!valid} onClick={() => void save()}>
+            {tr('save')}
+          </Button>
         </div>
       )}
-      <SettingRow
-        stacked
-        htmlFor="wifi-ap-ssid"
-        label={tr('ssid')}
-        description={ssidValid ? undefined : tr('invalidSsid')}
-      >
-        <Input
-          id="wifi-ap-ssid"
-          value={form.ssid}
-          status={ssidValid ? undefined : 'error'}
-          disabled={saving}
-          onChange={(event) => set({ ssid: event.target.value })}
-        />
-      </SettingRow>
-      <SettingRow
-        stacked
-        htmlFor="wifi-ap-password"
-        label={tr('password')}
-        description={passwordValid ? tr('passwordHint') : tr('invalidPassword')}
-      >
-        <Input.Password
-          id="wifi-ap-password"
-          aria-describedby="wifi-ap-password-description"
-          autoComplete="new-password"
-          placeholder={status?.passwordSet ? tr('passwordKeep') : undefined}
-          value={password}
-          status={passwordValid ? undefined : 'error'}
-          disabled={saving}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </SettingRow>
-      <SettingRow label={tr('band')}>
-        <Segmented
-          value={form.band}
-          disabled={saving}
-          onChange={(band) => set({ band: band as api.WifiBand, channel: 0 })}
-          options={[
-            { label: tr('band24'), value: '2.4' },
-            { label: tr('band5'), value: '5' }
-          ]}
-        />
-      </SettingRow>
-      <SettingRow htmlFor="wifi-ap-channel" label={tr('channel')}>
-        <Select
-          id="wifi-ap-channel"
-          className="min-w-36"
-          value={form.channel}
-          disabled={saving}
-          onChange={(channel) => set({ channel })}
-          options={[
-            { label: tr('channelAuto'), value: 0 },
-            ...channels[form.band].map((channel) => ({ label: String(channel), value: channel }))
-          ]}
-        />
-      </SettingRow>
-      <SettingRow label={tr('hidden')} description={tr('hiddenDescription')}>
-        <Checkbox
-          checked={form.hidden}
-          disabled={saving}
-          aria-label={tr('hidden')}
-          onChange={(event) => set({ hidden: event.target.checked })}
-        />
-      </SettingRow>
-      <SettingRow label={tr('internet')} description={tr('internetDescription')}>
-        <Checkbox
-          checked={form.internet}
-          disabled={saving}
-          aria-label={tr('internet')}
-          onChange={(event) => set({ internet: event.target.checked })}
-        />
-      </SettingRow>
-      {form.internet && (
-        <SettingRow
-          stacked
-          htmlFor="wifi-ap-dns"
-          label={tr('dns')}
-          description={dnsValid ? tr('dnsDescription') : tr('invalidDns')}
-        >
-          <Input
-            id="wifi-ap-dns"
-            aria-describedby="wifi-ap-dns-description"
-            placeholder={
-              status?.deviceDns?.length ? status.deviceDns.join(', ') : '1.1.1.1, 8.8.8.8'
-            }
-            value={dns}
-            status={dnsValid ? undefined : 'error'}
-            disabled={saving}
-            onChange={(event) => setDnsText(event.target.value)}
-          />
-        </SettingRow>
-      )}
-      <SettingRow
-        stacked
-        htmlFor="wifi-ap-subnet"
-        label={tr('subnet')}
-        description={subnetValid ? tr('subnetDescription') : tr('invalidSubnet')}
-      >
-        <Input
-          id="wifi-ap-subnet"
-          aria-describedby="wifi-ap-subnet-description"
-          placeholder={tr('subnetPlaceholder')}
-          value={form.subnet}
-          status={subnetValid ? undefined : 'error'}
-          disabled={saving}
-          onChange={(event) => set({ subnet: event.target.value.trim() })}
-        />
-      </SettingRow>
-      {restarts && <Alert type="warning" showIcon message={tr('warning')} />}
-      {reconnects && <Alert type="info" showIcon message={tr('reconnect')} />}
-      <div>
-        <Button type="primary" loading={saving} disabled={!valid} onClick={() => void save()}>
-          {tr('save')}
-        </Button>
-      </div>
     </SettingsSection>
   );
 };

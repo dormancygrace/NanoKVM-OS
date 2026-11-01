@@ -253,6 +253,8 @@ export type WifiStatus = {
   apMode: boolean;
   // The administrator's access point is up; Wi-Fi joins no network.
   accessPoint: boolean;
+  // With accessPoint: the devices on it; ssid is its name.
+  apStations?: number;
   connected: boolean;
   ssid: string;
   model: string;

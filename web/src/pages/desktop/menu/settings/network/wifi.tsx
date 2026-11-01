@@ -492,6 +492,16 @@ export const Wifi = () => {
               <StatusBadge tone="neutral">{tr('notDetected')}</StatusBadge>
             ) : state.apMode ? (
               tr('apMode')
+            ) : state.accessPoint && enabled ? (
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge tone="success">{t('settings.network.wifiAp.title')}</StatusBadge>
+                  <span className="break-words">{state.ssid}</span>
+                </div>
+                <div>
+                  {t('settings.network.wifiAp.stationsCount', { count: state.apStations ?? 0 })}
+                </div>
+              </div>
             ) : state.connected && enabled ? (
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">

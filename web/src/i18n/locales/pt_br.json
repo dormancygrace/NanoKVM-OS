@@ -542,7 +542,8 @@
         "dns": "Servidores DNS",
         "dnsDescription": "Até três endereços IPv4 separados por vírgulas. Vazio: os mostrados.",
         "invalidDns": "Digite até três endereços IPv4, como 1.1.1.1.",
-        "reconnect": "Os dispositivos conectados se desconectam por um instante e se reconectam com as novas configurações."
+        "reconnect": "Os dispositivos conectados recebem as novas configurações em até 5 minutos, ou na hora se reconectarem.",
+        "stationsCount": "Dispositivos conectados: {{count}}"
       }
     },
     "tailscale": {

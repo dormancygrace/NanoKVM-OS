@@ -542,7 +542,8 @@
         "dns": "Servidors DNS",
         "dnsDescription": "Fins a tres adreces IPv4 separades per comes. Si és buit, les que es mostren.",
         "invalidDns": "Introduïu fins a tres adreces IPv4, com ara 1.1.1.1.",
-        "reconnect": "Els dispositius connectats es desconnecten un moment i es tornen a connectar amb la nova configuració."
+        "reconnect": "Els dispositius connectats reben la nova configuració en 5 minuts com a màxim, o de seguida si es tornen a connectar.",
+        "stationsCount": "Dispositius connectats: {{count}}"
       }
     },
     "tailscale": {

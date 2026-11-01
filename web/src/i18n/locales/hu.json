@@ -566,7 +566,8 @@
         "dns": "DNS-kiszolgálók",
         "dnsDescription": "Legfeljebb három IPv4-cím vesszővel elválasztva. Üresen: a megjelenítettek.",
         "invalidDns": "Adjon meg legfeljebb három IPv4-címet, például 1.1.1.1.",
-        "reconnect": "A csatlakozott eszközök egy pillanatra lekapcsolódnak, majd az új beállításokkal újracsatlakoznak."
+        "reconnect": "A csatlakozott eszközök legfeljebb 5 percen belül megkapják az új beállításokat, újracsatlakozáskor azonnal.",
+        "stationsCount": "Csatlakozott eszközök: {{count}}"
       }
     },
     "tailscale": {

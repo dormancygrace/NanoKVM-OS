@@ -541,7 +541,8 @@
         "dns": "DNS-servere",
         "dnsDescription": "Op til tre IPv4-adresser adskilt af kommaer. Tom: de viste.",
         "invalidDns": "Angiv op til tre IPv4-adresser, f.eks. 1.1.1.1.",
-        "reconnect": "Tilsluttede enheder afbrydes et øjeblik og tilslutter sig igen med de nye indstillinger."
+        "reconnect": "Tilsluttede enheder får de nye indstillinger inden for 5 minutter, eller med det samme, når de tilslutter sig igen.",
+        "stationsCount": "Tilsluttede enheder: {{count}}"
       }
     },
     "tailscale": {

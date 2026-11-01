@@ -542,7 +542,8 @@
         "dns": "DNS-servere",
         "dnsDescription": "Opptil tre IPv4-adresser atskilt med komma. Tom: de som vises.",
         "invalidDns": "Skriv inn opptil tre IPv4-adresser, f.eks. 1.1.1.1.",
-        "reconnect": "Tilkoblede enheter kobles fra et øyeblikk og kobler seg til igjen med de nye innstillingene."
+        "reconnect": "Tilkoblede enheter får de nye innstillingene innen 5 minutter, eller med en gang når de kobler til på nytt.",
+        "stationsCount": "Tilkoblede enheter: {{count}}"
       }
     },
     "tailscale": {

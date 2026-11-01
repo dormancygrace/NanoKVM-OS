@@ -33,9 +33,11 @@ type GetWifiRsp struct {
 	ApMode    bool     `json:"apMode"`
 	// AccessPoint: the administrator's access point is up (not the setup one
 	// of ApMode); Wi-Fi joins no network meanwhile.
-	AccessPoint bool   `json:"accessPoint"`
-	Connected   bool   `json:"connected"`
-	Ssid        string `json:"ssid"`
+	AccessPoint bool `json:"accessPoint"`
+	// With AccessPoint: the devices associated with it; Ssid is its name.
+	APStations int    `json:"apStations"`
+	Connected  bool   `json:"connected"`
+	Ssid       string `json:"ssid"`
 	// PreferredBand affects subsequent association attempts only. Reading or
 	// changing it never tears down an existing Wi-Fi connection.
 	PreferredBand string `json:"preferredBand"`

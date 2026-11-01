@@ -9,6 +9,9 @@ its own JPEG, so this ran a few hundred times a second. Take the arrays
 from the slab instead (kcalloc, zeroed as before) and check the
 allocation, which vzalloc's callers never did.
 
+Propagate table-generation failures to JPU_EncStartOneFrame before
+writing the Huffman registers or starting a picture.
+
 ---
 diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
 --- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
@@ -77,4 +80,17 @@ diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c b/interdrv/cvi_vc_drv/
 +	kfree(huffcode);
  	return 1;
  }
+ 
+@@ -2098,8 +2104,10 @@ int JpgEncLoadHuffTab(JpgEncInfo *pEncInfo)
+ 	int i, j, t;
+ 	int huffData;
+ 
+-	for (i = 0; i < 4; i++)
+-		JpgEncGenHuffTab(pEncInfo, i);
++	for (i = 0; i < 4; i++) {
++		if (!JpgEncGenHuffTab(pEncInfo, i))
++			return 0;
++	}
+ 
+ 	JpuWriteReg(MJPEG_HUFF_CTRL_REG, 0x3);
  

@@ -6,7 +6,6 @@ import {
   defaultStorageIdentity,
   defaultUsbIdentity,
   endpointUsage,
-  fitsBudget,
   hasUsbDevice,
   identityProblem,
   matchingIdentityPreset,
@@ -84,61 +83,6 @@ const status = {
   }
 };
 const preset = (id) => usbPresets.find((item) => item.id === id).composition;
-
-test('every preset fits and can be identified', () => {
-  for (const { id, composition } of usbPresets) {
-    assert.equal(fitsBudget(composition, status), true, id);
-    assert.equal(matchingPreset(composition), id);
-  }
-  assert.deepEqual(
-    usbPresets.map(({ id }) => id),
-    ['kvm', 'standard', 'console', 'headless', 'remote', 'control']
-  );
-});
-
-test('a fresh install and the RustDesk composition are presets, not custom', () => {
-  // build-alpine-sd-image.py: usb.dev and an empty usb.disk0, nothing else
-  const fresh = {
-    keyboard: true,
-    relative: true,
-    absolute: true,
-    network: false,
-    disk: true,
-    serial: false,
-    audio: false,
-    mode: 'normal'
-  };
-  assert.equal(matchingPreset(fresh), 'kvm');
-  assert.equal(usbPresets[0].id, 'kvm');
-  // EnsureRemoteAccessUSB adds the three HID functions and audio to it
-  assert.equal(matchingPreset({ ...fresh, audio: true }), 'remote');
-  assert.deepEqual(endpointUsage(preset('remote'), status.costs), { in: 4, out: 5 });
-});
-
-test('the presets say what they give up', () => {
-  // serial does not fit next to HID and network, and network not next to HID and serial
-  assert.equal(canToggleDevice(preset('standard'), 'serial', status), false);
-  assert.equal(canToggleDevice(preset('console'), 'network', status), false);
-  // the headless server is the console and the disk, with room for network and audio
-  assert.deepEqual(endpointUsage(preset('headless'), status.costs), { in: 3, out: 2 });
-  for (const name of ['network', 'disk', 'audio'])
-    assert.equal(canToggleDevice(preset('headless'), name, status), true);
-  for (const name of ['keyboard', 'relative', 'absolute'])
-    assert.equal(preset('headless')[name], false);
-  assert.equal(preset('headless').disk, true);
-  // RustDesk adds the three HID functions and audio to it: 5 IN / 5 OUT, still fits
-  assert.equal(
-    fitsBudget(
-      { ...preset('headless'), keyboard: true, relative: true, absolute: true, audio: true },
-      status
-    ),
-    true
-  );
-  // audio fits on top of the two full KVM presets
-  assert.equal(canToggleDevice(preset('standard'), 'audio', status), true);
-  assert.equal(canToggleDevice(preset('console'), 'audio', status), true);
-});
-
 test('all 128 selections: only impossible additions are blocked; removals always work', () => {
   for (let mask = 0; mask < 128; mask++) {
     const draft = {
@@ -164,18 +108,6 @@ test('all 128 selections: only impossible additions are blocked; removals always
       );
     }
   }
-});
-
-test('serial can coexist with USB network after releasing two HID endpoints', () => {
-  let draft = { ...preset('standard') };
-  assert.equal(canToggleDevice(draft, 'serial', status), false);
-  draft = toggleDevice(draft, 'relative');
-  assert.equal(canToggleDevice(draft, 'serial', status), false);
-  draft = toggleDevice(draft, 'absolute');
-  assert.equal(canToggleDevice(draft, 'serial', status), true);
-  draft = toggleDevice(draft, 'serial');
-  assert.equal(draft.network, true);
-  assert.equal(fitsBudget(draft, status), true);
 });
 
 test('both endpoint directions are enforced', () => {

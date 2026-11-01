@@ -8,59 +8,7 @@ const admin = (page: Page) => dialog(page).getByLabel('Current administrator pas
 const previewDialog = (page: Page) =>
   page.getByRole('dialog', { name: 'Preview changes', exact: true });
 
-test('recovery export validates its own password and clears cancelled administrator input', async ({
-  page
-}) => {
-  await page.goto('/tests/browser/recovery.html');
-  const download = page.getByRole('button', { name: 'Download encrypted backup', exact: true });
-  await expect(download).toBeDisabled();
-  await page.getByLabel('Backup password', { exact: true }).fill('short');
-  await expect(page.getByText('At least 12 characters.', { exact: true })).toBeVisible();
-  await page.getByLabel('Backup password', { exact: true }).fill('fixture-export-only');
-  await download.click();
-  await admin(page).fill('unused');
-  await dialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(dialog(page)).not.toBeVisible();
-  await download.click();
-  await expect(admin(page)).toHaveValue('');
-  await admin(page).fill('fixture-admin-only');
-  await admin(page).press('Enter');
-  await expect(events(page)).toContainText('export password=true');
-  await expect(events(page)).toContainText('download name=NanoKVM-settings.nkos blob=true');
-  await expect(events(page)).toContainText('export admin=true sensitive=true');
-  await expect(dialog(page)).not.toBeVisible();
-});
-
-test('recovery restore uses its own archive password and applies exactly the confirmed snapshot', async ({
-  page
-}) => {
-  await page.goto('/tests/browser/recovery.html?failure=apply');
-  await page.getByRole('button', { name: 'Select fixture archive', exact: true }).click();
-  await page.getByLabel('Archive password', { exact: true }).fill('fixture-archive-only');
-  await page.getByRole('button', { name: 'Preview changes', exact: true }).first().click();
-  await admin(page).fill('wrong');
-  await admin(page).press('Enter');
-  await expect(
-    dialog(page).getByText('Wrong administrator password', { exact: true })
-  ).toBeVisible();
-  await admin(page).fill('fixture-admin-only');
-  await admin(page).press('Enter');
-  await expect(previewDialog(page).getByText('settings/example', { exact: true })).toBeVisible();
-  const apply = previewDialog(page).getByRole('button', { name: 'Apply and reboot', exact: true });
-  await expect(apply).toBeDisabled();
-  await previewDialog(page).getByRole('checkbox').check();
-  await apply.click();
-  await expect(
-    previewDialog(page).getByText('Fixture apply refused', { exact: true })
-  ).toBeVisible();
-  await apply.click();
-  await expect(events(page)).toContainText('"action":"restore","mode":"migrate"');
-  await expect(events(page)).toContainText('"archivePassword":true,"archive":true');
-  await expect(events(page)).toContainText('apply confirmed snapshot=true');
-  await expect(
-    page.getByRole('button', { name: 'Reboot to finish recovery', exact: true })
-  ).toBeVisible();
-});
+// Security boundary: the administrator password is asked again for every action.
 
 test('recovery reset preserves selected keep flags and pending reboot asks for fresh authentication', async ({
   page

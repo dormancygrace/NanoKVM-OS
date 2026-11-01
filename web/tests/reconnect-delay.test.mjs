@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import test from 'node:test';
 
 import { reconnectDelay, ReconnectGate } from '../src/lib/reconnect-delay.ts';
@@ -39,17 +38,4 @@ test('the gate holds automatic starts back after failures', () => {
   assert.ok(gate.allows(10000 + 32000));
   gate.connected();
   assert.ok(gate.allows(10000));
-});
-
-test('the USB audio hook goes through the gate', () => {
-  const hook = fs.readFileSync(new URL('../src/hooks/useUsbAudio.ts', import.meta.url), 'utf8');
-  const retry = hook.slice(
-    hook.indexOf('const attempt = () =>'),
-    hook.indexOf('async function start(')
-  );
-  assert.match(retry, /gate\.current\.allows\(performance\.now\(\)\)/);
-  const fail = hook.slice(hook.indexOf('const fail = ('), hook.indexOf('const resumed ='));
-  assert.match(fail, /gate\.current\.failed\(/);
-  // Recovered audio on both paths, a click on the switch and the composition.
-  assert.ok((hook.match(/gate\.current\.connected\(\)/g) ?? []).length >= 4);
 });

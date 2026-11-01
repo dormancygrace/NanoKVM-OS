@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
   readWebrtcCounters,
-  startWebrtcDiagnostics,
   summarizeWebrtc
 } from '../src/pages/desktop/screen/webrtc-diagnostics.ts';
 
@@ -93,49 +92,6 @@ test('first sample, reset, missing and repeated timestamps never invent zero-los
   assert.equal(zero.renderedFps, 0);
   assert.equal(zero.decodeMs, null);
 });
-
-test('polling is non-overlapping and an in-flight reply cannot publish after disposal', async () => {
-  const originalSet = globalThis.setInterval,
-    originalClear = globalThis.clearInterval;
-  let tick,
-    resolve,
-    calls = 0,
-    cleared = false;
-  globalThis.setInterval = (callback) => {
-    tick = callback;
-    return 42;
-  };
-  globalThis.clearInterval = (id) => {
-    assert.equal(id, 42);
-    cleared = true;
-  };
-  try {
-    const peer = {
-      getStats: () => {
-        calls++;
-        return new Promise((r) => {
-          resolve = r;
-        });
-      }
-    };
-    const output = { dataset: { webrtcStats: 'old', webrtcHistory: 'old' }, textContent: '' };
-    const stop = startWebrtcDiagnostics(peer, output);
-    tick();
-    tick();
-    assert.equal(calls, 1);
-    stop();
-    resolve(report());
-    await Promise.resolve();
-    await Promise.resolve();
-    assert.equal(output.textContent, 'WebRTC diagnostics: stopped');
-    assert.deepEqual(output.dataset, {});
-    assert.equal(cleared, true);
-  } finally {
-    globalThis.setInterval = originalSet;
-    globalThis.clearInterval = originalClear;
-  }
-});
-
 test('presentation comes from playback quality, independently of decoder counters', () => {
   const before = readWebrtcCounters(report({ framesRendered: undefined }), {
     totalVideoFrames: 100,

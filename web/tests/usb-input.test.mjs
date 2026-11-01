@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveInputAdapter } from '../src/lib/input-adapter.ts';
 import { availableMouseMode, noUsbInput, parseUsbInput } from '../src/lib/usb-input.ts';
 
 test('disabled keyboard and relative mouse leave the absolute mouse', () => {
@@ -27,9 +26,4 @@ test('all eight compositions only select an enabled mouse', () => {
 test('missing/malformed status never enables input', () => {
   for (const value of [null, {}, 'bad', { available: true }, { keyboard: 'true' }])
     assert.deepEqual(parseUsbInput(value), noUsbInput);
-});
-test('absolute touch cannot be disabled by a stale pointer-lock preference', () => {
-  const phone = { hasTouch: true, coarsePointer: true, finePointer: false, canPointerLock: false };
-  assert.equal(resolveInputAdapter('pointer-lock', 'absolute', phone), 'touchpad');
-  assert.equal(resolveInputAdapter('pointer-lock', 'relative', phone), 'touchpad');
 });

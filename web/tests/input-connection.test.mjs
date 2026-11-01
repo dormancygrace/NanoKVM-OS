@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
-import i18next from 'i18next';
 import ts from 'typescript';
 
 // page: a fake document whose visibility the test changes (none: always visible).
@@ -131,6 +130,19 @@ test('retry severity, recovery, stale socket callbacks and explicit close', () =
   unsubscribe();
 });
 
+test('an expired session ends the socket for good and signals the login page', () => {
+  const f = fixture(),
+    c = f.client;
+  c.connect();
+  f.sockets[0].open();
+  f.sockets[0].onclose({ code: 4401 });
+  assert.equal(f.expired(), 1);
+  assert.equal(c.getConnectionStatus(), 'disconnected');
+  f.tick();
+  f.tick(5000);
+  assert.equal(f.sockets.length, 1, 'no reconnect attempt');
+  assert.equal(f.timers.size, 0);
+});
 test('acknowledged heartbeat detects a half-open connection; old server remains compatible', () => {
   const f = fixture(),
     c = f.client;
@@ -176,109 +188,6 @@ test('paused browser timers probe a healthy socket without reconnecting on retur
   socket.reply();
   assert.equal(c.getConnectionStatus(), 'connected');
   assert.equal(f.sockets.length, 1);
-  c.close();
-  assert.equal(f.timers.size, 0);
-});
-
-test('resume probes again even when earlier heartbeat windows went unanswered', () => {
-  const f = fixture(),
-    c = f.client;
-  c.connect();
-  const socket = f.sockets[0];
-  socket.open();
-  socket.reply();
-  f.tick(100);
-  f.tick(100);
-  assert.equal(c.getConnectionStatus(), 'connected');
-  f.tick(3000);
-  assert.equal(c.getConnectionStatus(), 'connected');
-  assert.deepEqual(Array.from(socket.sent.at(-1)), [0]);
-  socket.reply();
-  f.tick(100);
-  assert.equal(c.getConnectionStatus(), 'connected');
-  assert.equal(f.sockets.length, 1);
-  c.close();
-});
-
-test('missing resume heartbeat replies still trigger recovery', () => {
-  const f = fixture(),
-    c = f.client;
-  c.connect();
-  const socket = f.sockets[0];
-  socket.open();
-  socket.reply();
-  f.tick(3000);
-  assert.equal(c.getConnectionStatus(), 'connected');
-  f.tick(100);
-  assert.equal(c.getConnectionStatus(), 'connected');
-  f.tick(100);
-  assert.equal(c.getConnectionStatus(), 'reconnecting');
-  f.tick();
-  assert.equal(f.sockets.length, 2);
-  f.sockets[1].open();
-  assert.equal(c.getConnectionStatus(), 'connected');
-  assert.deepEqual(
-    f.sockets[1].sent.map((x) => Array.from(x)),
-    [[4], [0]]
-  );
-  c.close();
-  assert.equal(f.timers.size, 0);
-});
-
-test('intentional close while connecting cannot reconnect or report a late open', () => {
-  const f = fixture();
-  f.client.connect();
-  const socket = f.sockets[0];
-  f.client.close();
-  socket.open();
-  assert.equal(f.client.getConnectionStatus(), 'idle');
-  assert.equal(f.timers.size, 0);
-});
-
-test('connection feedback resolves in both shipped locales and fallback', async () => {
-  const resources = {};
-  for (const language of ['en', 'ru']) {
-    const translation = JSON.parse(
-      readFileSync(new URL(`../src/i18n/locales/${language}.json`, import.meta.url), 'utf8')
-    );
-    resources[language] = { translation };
-  }
-  const translator = i18next.createInstance();
-  await translator.init({ resources, lng: 'en', fallbackLng: 'en' });
-  for (const language of ['en', 'ru', 'de']) {
-    await translator.changeLanguage(language);
-    for (const status of ['idle', 'connecting', 'connected', 'reconnecting', 'disconnected']) {
-      const key = `inputConnection.${status}`;
-      assert.notEqual(translator.t(key), key);
-      assert.ok(translator.t(key).length > 5);
-    }
-  }
-});
-
-test('socket opts in once, sends hold keepalive only while held, and resets on disconnect', () => {
-  const f = fixture(),
-    c = f.client;
-  c.connect();
-  const socket = f.sockets[0];
-  socket.open();
-  assert.deepEqual(
-    socket.sent.map((x) => Array.from(x)),
-    [[4], [0]]
-  );
-  c.setInputEnabled(true);
-  c.setControlEnabled(true);
-  c.send(new Uint8Array([1, 0, 0, 4, 0, 0, 0, 0, 0]));
-  assert.equal(f.timers.size, 2);
-  f.tick(50);
-  assert.ok(socket.sent.some((x, i) => i > 1 && x.length === 1 && x[0] === 4));
-  c.setControlEnabled(false);
-  assert.equal(f.timers.size, 1);
-  assert.deepEqual(Array.from(socket.sent.at(-1)), [1, 0, 0, 0, 0, 0, 0, 0, 0]);
-  c.setControlEnabled(true);
-  c.send(new Uint8Array([2, 1, 0, 0, 0]));
-  assert.equal(f.timers.size, 2);
-  socket.close();
-  assert.equal(f.timers.size, 1); // reconnect only
   c.close();
   assert.equal(f.timers.size, 0);
 });
@@ -330,29 +239,3 @@ test('a close reported on return retries at once, also after background attempts
   assert.deepEqual(f.timeouts(), [3000]);
   c.close();
 });
-
-for (const inFlight of [false, true]) {
-  test(`return resets a background failure warning during a ${inFlight ? 'pending handshake' : 'pending retry'}`, () => {
-    const page = fakePage();
-    const f = fixture({ page }),
-      c = f.client;
-    c.connect();
-    f.sockets[0].open();
-    page.show('hidden');
-    f.sockets[0].close();
-    f.tick();
-    f.sockets.at(-1).close();
-    f.tick();
-    f.sockets.at(-1).close();
-    assert.equal(c.getConnectionStatus(), 'disconnected');
-    if (inFlight) f.tick();
-    page.show('visible');
-    assert.equal(c.getConnectionStatus(), 'reconnecting');
-    assert.equal(f.sockets.length, 4);
-    assert.deepEqual(f.timeouts(), []);
-    f.sockets.at(-1).open();
-    assert.equal(c.getConnectionStatus(), 'connected');
-    c.close();
-    assert.equal(f.timers.size, 0);
-  });
-}

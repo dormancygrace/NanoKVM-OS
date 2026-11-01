@@ -1,0 +1,96 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] jpeg: build the Huffman tables without vmalloc
+
+JpgEncGenHuffTab runs for each of the four tables at the start of every
+JPEG and took two 1 KiB scratch arrays from vzalloc: eight page
+allocations, zeroings, kernel mappings and vfrees (with their TLB
+flushes) per picture. Tiled MJPEG encodes every changed 128x128 tile as
+its own JPEG, so this ran a few hundred times a second. Take the arrays
+from the slab instead (kcalloc, zeroed as before) and check the
+allocation, which vzalloc's callers never did.
+
+Propagate table-generation failures to JPU_EncStartOneFrame before
+writing the Huffman registers or starting a picture.
+
+---
+diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+--- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
++++ b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+@@ -2018,13 +2018,19 @@ static int JpgEncGenHuffTab(JpgEncInfo *
+ {
+ 	int p, i, l, lastp, si, maxsymbol;
+ 
+-	int *huffsize = vzalloc(sizeof(int) * 256);
+-	int *huffcode = vzalloc(sizeof(int) * 256);
++	int *huffsize = kcalloc(256, sizeof(int), GFP_KERNEL);
++	int *huffcode = kcalloc(256, sizeof(int), GFP_KERNEL);
+ 	int code;
+ 
+ 	BYTE *bitleng, *huffval;
+ 	unsigned int *ehufco, *ehufsi;
+ 
++	if (!huffsize || !huffcode) {
++		kfree(huffsize);
++		kfree(huffcode);
++		return 0;
++	}
++
+ 	bitleng = pEncInfo->pHuffBits[tabNum];
+ 	huffval = pEncInfo->pHuffVal[tabNum];
+ 	ehufco = pEncInfo->huffCode[tabNum];
+@@ -2038,8 +2044,8 @@ static int JpgEncGenHuffTab(JpgEncInfo *
+ 	for (l = 1; l <= 16; l++) {
+ 		i = bitleng[l - 1];
+ 		if (i < 0 || p + i > maxsymbol) {
+-			vfree(huffsize);
+-			vfree(huffcode);
++			kfree(huffsize);
++			kfree(huffcode);
+ 			return 0;
+ 		}
+ 		while (i--)
+@@ -2060,8 +2066,8 @@ static int JpgEncGenHuffTab(JpgEncInfo *
+ 			code++;
+ 		}
+ 		if (code >= (1 << si)) {
+-			vfree(huffsize);
+-			vfree(huffcode);
++			kfree(huffsize);
++			kfree(huffcode);
+ 			return 0;
+ 		}
+ 		code <<= 1;
+@@ -2080,16 +2086,16 @@ static int JpgEncGenHuffTab(JpgEncInfo *
+ 	for (p = 0; p < lastp; p++) {
+ 		i = huffval[p];
+ 		if (i < 0 || i >= maxsymbol || ehufsi[i]) {
+-			vfree(huffsize);
+-			vfree(huffcode);
++			kfree(huffsize);
++			kfree(huffcode);
+ 			return 0;
+ 		}
+ 		ehufco[i] = huffcode[p];
+ 		ehufsi[i] = huffsize[p];
+ 	}
+ 
+-	vfree(huffsize);
+-	vfree(huffcode);
++	kfree(huffsize);
++	kfree(huffcode);
+ 	return 1;
+ }
+ 
+@@ -2098,8 +2104,10 @@ int JpgEncLoadHuffTab(JpgEncInfo *pEncInfo)
+ 	int i, j, t;
+ 	int huffData;
+ 
+-	for (i = 0; i < 4; i++)
+-		JpgEncGenHuffTab(pEncInfo, i);
++	for (i = 0; i < 4; i++) {
++		if (!JpgEncGenHuffTab(pEncInfo, i))
++			return 0;
++	}
+ 
+ 	JpuWriteReg(MJPEG_HUFF_CTRL_REG, 0x3);
+ 

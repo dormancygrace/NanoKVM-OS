@@ -95,7 +95,10 @@ func inspectRules(data []byte) (exists, foreign bool, err error) {
 		if c := r.Chain; c != nil && !(c.Family == "inet" && c.Table == Table) {
 			switch c.Hook {
 			case "ingress", "prerouting", "forward", "postrouting":
-				if !(c.Family == "inet" && c.Table == "nkos_mss" && trustedMSS(data)) {
+				// The Wi-Fi access point's table (S30wifi) matches only wlan0
+				// traffic, which USB flows never take.
+				if !(c.Family == "inet" && c.Table == "nkos_mss" && trustedMSS(data)) &&
+					!(c.Family == "inet" && c.Table == "nkos_wifi_ap") {
 					foreign = true
 				}
 			}

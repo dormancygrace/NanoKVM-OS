@@ -31,8 +31,13 @@ type GetWifiRsp struct {
 	Error     string   `json:"error"`
 	Supported bool     `json:"supported"`
 	ApMode    bool     `json:"apMode"`
-	Connected bool     `json:"connected"`
-	Ssid      string   `json:"ssid"`
+	// AccessPoint: the administrator's access point is up (not the setup one
+	// of ApMode); Wi-Fi joins no network meanwhile.
+	AccessPoint bool `json:"accessPoint"`
+	// With AccessPoint: the devices associated with it; Ssid is its name.
+	APStations int    `json:"apStations"`
+	Connected  bool   `json:"connected"`
+	Ssid       string `json:"ssid"`
 	// PreferredBand affects subsequent association attempts only. Reading or
 	// changing it never tears down an existing Wi-Fi connection.
 	PreferredBand string `json:"preferredBand"`
@@ -149,4 +154,46 @@ type SetGatewayCheckReq struct {
 
 type SetGatewayPreferenceReq struct {
 	Preferred string `json:"preferred" validate:"required,oneof=auto ethernet wifi"`
+}
+
+// WifiAP: the administrator's Wi-Fi access point. Password is write-only:
+// empty in a request keeps the stored one.
+type WifiAP struct {
+	Enabled  bool   `json:"enabled"`
+	SSID     string `json:"ssid"`
+	Password string `json:"password,omitempty"`
+	Band     string `json:"band"`
+	// 0: chosen by a scan when the access point starts.
+	Channel int  `json:"channel"`
+	Hidden  bool `json:"hidden"`
+	// Three octets of a private /24; empty: derived from the serial number.
+	Subnet string `json:"subnet"`
+	// Clients reach the internet through the device (masqueraded).
+	Internet bool `json:"internet"`
+	// The DNS servers handed to its clients with internet (IPv4, up to
+	// three); empty: the device's own.
+	DNS []string `json:"dns"`
+}
+
+type WifiAPRsp struct {
+	WifiAP
+	PasswordSet bool            `json:"passwordSet"`
+	Running     bool            `json:"running"`
+	Address     string          `json:"address"`
+	Stations    []WifiAPStation `json:"stations"`
+	// The device's DNS servers, which its clients get without a list.
+	DeviceDNS []string `json:"deviceDns"`
+}
+
+// A device on the access point. IP and Hostname are empty until it has a
+// lease; Signal is in dBm, Connected in seconds, Rate (the last transmit
+// rate to it) in Mbit/s. No byte counts: aic8800 reports the whole
+// interface's for every station.
+type WifiAPStation struct {
+	MAC       string  `json:"mac"`
+	IP        string  `json:"ip,omitempty"`
+	Hostname  string  `json:"hostname,omitempty"`
+	Signal    int     `json:"signal,omitempty"`
+	Connected int     `json:"connected"`
+	Rate      float64 `json:"rate,omitempty"`
 }

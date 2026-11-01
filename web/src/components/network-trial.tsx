@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Modal, Spin } from 'antd';
+import { Alert, Button, message, Modal, Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import { confirmNetworkTrial } from '@/api/network.ts';
@@ -113,6 +113,15 @@ export const NetworkTrialHost = () => {
     setPending(null);
     finishNetworkTrial(state);
   };
+
+  // Nothing to decide when the change is kept: a notice instead of a dialog
+  // to close. An undone change still waits to be read.
+  useEffect(() => {
+    if (state !== 'kept') return;
+    setPending(null);
+    finishNetworkTrial('kept');
+    void message.success(t('settings.network.trial.kept'));
+  }, [state, t]);
   return (
     <Modal
       open={!!pending}

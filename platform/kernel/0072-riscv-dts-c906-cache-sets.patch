@@ -1,0 +1,43 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: dts: sophgo: C906 L1 caches have 256 sets each
+
+The C906 L1 data cache is 64 KiB, 4-way, and the instruction cache 32 KiB,
+2-way, both with 64-byte lines: 256 sets each. The device tree had 512
+data and 128 instruction sets, from which the kernel's cacheinfo derives
+the associativities the other way round (data 2-way, instructions 4-way)
+and reports them in /sys/devices/system/cpu/cpu0/cache.
+
+Measured on an SG2002 (NanoKVM):
+
+- Data, by pointer chasing in physically contiguous memory with
+  interrupts off: a hit costs 3 ns, a miss 161 ns (no L2). Random sets of
+  up to 32 KiB hit, 128 KiB miss (64 KiB). Sequential loads cost twice as
+  much per doubling of the stride up to 64 bytes (line). Lines 16, 32 or
+  64 KiB apart all hit for up to 4 lines and miss from 5 or 6; 8 KiB
+  apart up to 8 (4 ways of 16 KiB).
+- Instructions, by chasing jumps through code generated in user space
+  (virtual addresses, arbitrary physical pages; the exact thresholds
+  at virtual strides mean the index is virtual): up to 32 KiB of
+  lines hit (3 ns per block), 64 KiB miss (120-165 ns). Blocks 16, 32 or
+  64 KiB apart hit for up to 2 and miss from 3; 8 KiB apart up to 4,
+  4 KiB apart up to 8 (2 ways of 16 KiB).
+---
+ arch/riscv/boot/dts/sophgo/cv180x-cpus.dtsi | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/boot/dts/sophgo/cv180x-cpus.dtsi b/arch/riscv/boot/dts/sophgo/cv180x-cpus.dtsi
+--- a/arch/riscv/boot/dts/sophgo/cv180x-cpus.dtsi
++++ b/arch/riscv/boot/dts/sophgo/cv180x-cpus.dtsi
+@@ -15,10 +15,10 @@
+ 			device_type = "cpu";
+ 			reg = <0>;
+ 			d-cache-block-size = <64>;
+-			d-cache-sets = <512>;
++			d-cache-sets = <256>;
+ 			d-cache-size = <65536>;
+ 			i-cache-block-size = <64>;
+-			i-cache-sets = <128>;
++			i-cache-sets = <256>;
+ 			i-cache-size = <32768>;
+ 			mmu-type = "riscv,sv39";
+ 			riscv,isa = "rv64imafdc";

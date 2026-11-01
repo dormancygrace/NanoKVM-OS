@@ -100,6 +100,15 @@ These are the values the ROM leaves after a normal SD boot (the CLK pad
 `0x03001a00` reads 0x48 in both cases). Then `run bootcmd` boots Linux from
 the card. The U-Boot changes of #252 and #256 were measured this way.
 
+Our U-Boot has `CONFIG_BOOTDELAY=-2`; the delay comes from `uEnv.txt` on
+the card, which this U-Boot cannot read before the pads are set. It
+therefore cannot be stopped: its `bootcmd` fails, it resets, and the board
+boots the card's own FIP, which looks like a successful test. For a test
+that needs the prompt, build the candidate once more with
+`CONFIG_BOOTDELAY=5` (OpenSBI and the other components stay byte-identical;
+compare `images/opensbi/fw_dynamic.bin`) and check the console for
+`Hit any key to stop autoboot` and no second `FSBL` line.
+
 ## Updating fip.bin
 
 `nanokvm-bootloader` installs `/usr/lib/nanokvm/bootloader/fip.bin`.

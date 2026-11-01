@@ -32,7 +32,7 @@ The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNA
 | C906 cache/CSR setup | Retain the original FSBL. Pinned `fsbl/lib/cpu/riscv/bl1_entrypoint.S` and `bl2_entrypoint.S` initialize mxstatus/mhcr/mcor and PLIC delegation before MONITOR. |
 | C906 draft vector VS | Patch `0002` restores SG2002 mstatus[24:23] after generic hart initialization, including warm-hart startup. Vendor 0.9 used `0x01800000`; ratified upstream uses `0x600`. Without the SG2002 handoff, the installed Linux 7.2.9 faults at CSR_VLENB in `riscv_v_setup_vsize`. Standard VS and other SoCs are unchanged; firmware remains scalar. |
 | Vendor custom PMU SBI extension `0x09000001` | Use upstream SBI PMU with the SG2002 override in `platform/generic/thead/thead-generic.c`. Current mainline Linux uses standard SBI PMU. |
-| SBI 3.0 PMU event discovery | The M-mode DT explicitly maps event 1 to counter 0 (mcycle) and event 2 to counter 2 (minstret). Without this table, EVENT_GET_INFO makes Linux reject cycles/instructions despite registering the PMU. No platform-specific raw/cache events are advertised. |
+| SBI 3.0 PMU event discovery | The M-mode DT explicitly maps event 1 to counter 0 (mcycle) and event 2 to counter 2 (minstret). Without this table, EVENT_GET_INFO makes Linux reject cycles/instructions despite registering the PMU. Raw events (`perf stat -e rN`, the C906 mhpmevent codes 0x1-0x2a) may use any programmable counter the hart has (the bitmap allows mhpmcounter3-17; on SG2002 eight raw events count at once, more are multiplexed); the mask is non-zero so the entry does not overlap the two fixed ones. Generic cache events are not mapped. |
 | Old CLINT binding / access width | Use mainline `thead,c900-clint`: 32-bit MMIO accesses and time CSR instead of an MMIO mtime. |
 | PLIC | Use mainline `thead,c900-plic`, 101 sources, M/S contexts. Upstream handles T-Head delegation. |
 | Vendor `thead,reset-sample` ebreak reset | Do not carry the sample reset handler; it is not matched by the stock DT. System reset is advertised only if an upstream backend supports it. Linux/U-Boot have the SoC reset driver. |
@@ -52,14 +52,18 @@ The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and 
 
 OpenSBI 1.9 boots on a NanoKVM PCIe from the SD card: SBI 3.0
 (implementation 0x10009), timer and PLIC interrupts, both firmware
-reservations in Linux, and the SBI PMU cycle and instruction counters. Not
-covered: PMU overflow sampling, raw events, multicore IPI/RFENCE and vector
+reservations in Linux, the SBI PMU cycle and instruction counters, and raw
+C906 events (L1 I/D-cache accesses and misses, fetch stalls) in counting
+mode. Not covered: PMU overflow sampling, multicore IPI/RFENCE and vector
 context switching.
 
 Loading a FIP into RAM through the ROM UART loader, and the SD pad setup it needs, are described in [docs/BOOT.md](../../docs/BOOT.md#testing-a-fip-without-writing-it).
 
 ## Known limitations
 
+- The C906 has no Sscofpmf: perf's `:u`/`:k` modifiers have no effect and
+  every count covers both modes (measured: `r2:u` = `r2:k` = `r2`). Overflow
+  sampling (`perf record` on a raw event) is untested.
 - The draft vector `mstatus.VS` field is restored in the platform
   `final_init` hook. A non-retentive suspend resume goes through
   `sbi_hart_reinit()` and `mstatus_init()` without `final_init`, so VS would

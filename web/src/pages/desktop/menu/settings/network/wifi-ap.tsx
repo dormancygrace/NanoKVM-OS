@@ -135,13 +135,21 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
   }
 
   return (
-    <SettingsSection title={tr('title')} description={tr('description')}>
+    // The tab names it: no section title.
+    <SettingsSection>
       {error && <Alert type="error" showIcon message={error} />}
       <SettingRow
         htmlFor="wifi-ap-enabled"
         label={tr('enable')}
         // On, its state is in the main Wi-Fi row.
-        description={status?.enabled ? undefined : tr('enableDescription')}
+        description={
+          status?.enabled ? undefined : (
+            <div className="space-y-1">
+              <div>{tr('description')}</div>
+              <div>{tr('enableDescription')}</div>
+            </div>
+          )
+        }
       >
         <Switch
           id="wifi-ap-enabled"

@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Tilgangspunkt",
         "description": "I stedet for å koble seg til et nettverk lager Wi‑Fi sitt eget. Tilkoblede enheter når NanoKVM og, når det er slått på, internett.",
-        "enable": "Tilgangspunkt",
+        "enable": "Slått på",
         "enableDescription": "Når det slås på, kobles Wi-Fi fra nettverket sitt.",
         "ssid": "Nettverksnavn",
         "password": "Passord",

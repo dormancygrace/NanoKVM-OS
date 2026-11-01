@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Punt d'accés",
         "description": "En lloc d'unir-se a una xarxa, el Wi‑Fi crea la seva pròpia. Els dispositius connectats hi accedeixen al NanoKVM i, si està activat, a internet.",
-        "enable": "Punt d'accés",
+        "enable": "Activat",
         "enableDescription": "En activar-lo, el Wi-Fi es desconnecta de la seva xarxa.",
         "ssid": "Nom de la xarxa",
         "password": "Contrasenya",

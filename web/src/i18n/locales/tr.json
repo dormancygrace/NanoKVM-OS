@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Erişim noktası",
         "description": "Bir ağa katılmak yerine Wi‑Fi kendi ağını oluşturur. Bağlanan cihazlar NanoKVM’e, açıksa internete de erişir.",
-        "enable": "Erişim noktası",
+        "enable": "Etkin",
         "enableDescription": "Açıldığında Wi-Fi kendi ağından bağlantısını keser.",
         "ssid": "Ağ adı",
         "password": "Parola",

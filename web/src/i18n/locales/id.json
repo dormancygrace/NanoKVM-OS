@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Titik akses",
         "description": "Alih-alih bergabung ke jaringan, Wi‑Fi membuat jaringannya sendiri. Perangkat yang terhubung dapat menjangkau NanoKVM, dan internet bila diaktifkan.",
-        "enable": "Titik akses",
+        "enable": "Aktif",
         "enableDescription": "Saat diaktifkan, Wi-Fi terputus dari jaringannya.",
         "ssid": "Nama jaringan",
         "password": "Kata sandi",

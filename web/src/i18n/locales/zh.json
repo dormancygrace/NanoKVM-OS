@@ -1611,7 +1611,7 @@
       "wifiAp": {
         "title": "接入点",
         "description": "Wi‑Fi 不再加入其他网络，而是创建自己的网络。连接的设备可以访问 NanoKVM，开启后还可访问互联网。",
-        "enable": "接入点",
+        "enable": "启用",
         "enableDescription": "开启后，Wi-Fi 将断开与原网络的连接。",
         "ssid": "网络名称",
         "password": "密码",

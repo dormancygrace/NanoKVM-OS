@@ -1611,7 +1611,7 @@
       "wifiAp": {
         "title": "Punto de acceso",
         "description": "En lugar de unirse a una red, el Wi‑Fi crea la suya propia. Los dispositivos conectados acceden al NanoKVM y, si está activado, a internet.",
-        "enable": "Punto de acceso",
+        "enable": "Activado",
         "enableDescription": "Al activarlo, el Wi-Fi se desconecta de su red.",
         "ssid": "Nombre de la red",
         "password": "Contraseña",

@@ -531,7 +531,7 @@
       "wifiAp": {
         "title": "Hozzáférési pont",
         "description": "Hálózathoz csatlakozás helyett a Wi‑Fi saját hálózatot hoz létre. A csatlakozó eszközök a NanoKVM-et, bekapcsolva pedig az internetet is elérik.",
-        "enable": "Hozzáférési pont",
+        "enable": "Bekapcsolva",
         "enableDescription": "Bekapcsolásakor a Wi-Fi leválik a saját hálózatáról.",
         "ssid": "Hálózat neve",
         "password": "Jelszó",

@@ -506,7 +506,7 @@
       "wifiAp": {
         "title": "Adgangspunkt",
         "description": "I stedet for at tilslutte sig et netværk opretter Wi‑Fi sit eget. Tilsluttede enheder når NanoKVM og, når det er slået til, internettet.",
-        "enable": "Adgangspunkt",
+        "enable": "Slået til",
         "enableDescription": "Når det slås til, afbrydes Wi-Fi fra sit netværk.",
         "ssid": "Netværksnavn",
         "password": "Adgangskode",

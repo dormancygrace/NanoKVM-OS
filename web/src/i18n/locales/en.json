@@ -1611,7 +1611,7 @@
       "wifiAp": {
         "title": "Access point",
         "description": "Instead of joining a network, Wi-Fi becomes a network of its own. Devices that join it reach NanoKVM, and the internet when that is on.",
-        "enable": "Access point",
+        "enable": "Enabled",
         "enableDescription": "Turning it on disconnects Wi-Fi from its network.",
         "ssid": "Network name",
         "password": "Password",

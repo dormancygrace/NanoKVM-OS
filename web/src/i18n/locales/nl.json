@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Toegangspunt",
         "description": "In plaats van met een netwerk te verbinden, maakt wifi een eigen netwerk. Verbonden apparaten bereiken de NanoKVM en, indien ingeschakeld, het internet.",
-        "enable": "Toegangspunt",
+        "enable": "Ingeschakeld",
         "enableDescription": "Bij het inschakelen wordt Wi-Fi losgekoppeld van zijn netwerk.",
         "ssid": "Netwerknaam",
         "password": "Wachtwoord",

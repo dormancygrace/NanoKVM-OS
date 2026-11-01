@@ -1611,7 +1611,7 @@
       "wifiAp": {
         "title": "Zugangspunkt",
         "description": "Statt einem Netzwerk beizutreten, stellt das WLAN ein eigenes bereit. Verbundene Geräte erreichen den NanoKVM und, wenn aktiviert, das Internet.",
-        "enable": "Zugangspunkt",
+        "enable": "Aktiviert",
         "enableDescription": "Beim Einschalten trennt sich Wi-Fi von seinem Netzwerk.",
         "ssid": "Netzwerkname",
         "password": "Passwort",

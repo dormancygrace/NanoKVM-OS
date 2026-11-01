@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "액세스 포인트",
         "description": "네트워크에 연결하는 대신 Wi‑Fi가 자체 네트워크를 만듭니다. 연결된 장치는 NanoKVM에, 켜져 있으면 인터넷에도 접속할 수 있습니다.",
-        "enable": "액세스 포인트",
+        "enable": "사용",
         "enableDescription": "켜면 Wi-Fi가 기존 네트워크에서 연결 해제됩니다.",
         "ssid": "네트워크 이름",
         "password": "비밀번호",

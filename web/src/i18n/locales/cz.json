@@ -726,7 +726,7 @@
       "wifiAp": {
         "title": "Přístupový bod",
         "description": "Místo připojení k síti vytvoří Wi‑Fi vlastní síť. Připojená zařízení vidí NanoKVM a při zapnutí i internet.",
-        "enable": "Přístupový bod",
+        "enable": "Zapnuto",
         "enableDescription": "Po zapnutí se Wi-Fi odpojí od své sítě.",
         "ssid": "Název sítě",
         "password": "Heslo",

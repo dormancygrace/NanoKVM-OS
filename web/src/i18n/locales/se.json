@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Åtkomstpunkt",
         "description": "I stället för att ansluta till ett nätverk skapar Wi‑Fi ett eget. Anslutna enheter når NanoKVM och, när det är påslaget, internet.",
-        "enable": "Åtkomstpunkt",
+        "enable": "Påslagen",
         "enableDescription": "När den slås på kopplas Wi-Fi bort från sitt nätverk.",
         "ssid": "Nätverksnamn",
         "password": "Lösenord",

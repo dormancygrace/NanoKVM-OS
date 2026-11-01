@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Điểm truy cập",
         "description": "Thay vì tham gia một mạng, Wi‑Fi tạo mạng riêng. Thiết bị kết nối vào sẽ truy cập được NanoKVM, và cả internet khi bật.",
-        "enable": "Điểm truy cập",
+        "enable": "Bật",
         "enableDescription": "Khi bật, Wi-Fi sẽ ngắt kết nối khỏi mạng của nó.",
         "ssid": "Tên mạng",
         "password": "Mật khẩu",

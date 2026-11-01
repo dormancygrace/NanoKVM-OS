@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "Punkt dostępu",
         "description": "Zamiast łączyć się z siecią, Wi‑Fi tworzy własną. Podłączone urządzenia widzą NanoKVM, a po włączeniu także internet.",
-        "enable": "Punkt dostępu",
+        "enable": "Włączony",
         "enableDescription": "Po włączeniu Wi-Fi rozłącza się ze swoją siecią.",
         "ssid": "Nazwa sieci",
         "password": "Hasło",

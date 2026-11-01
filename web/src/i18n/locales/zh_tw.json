@@ -507,7 +507,7 @@
       "wifiAp": {
         "title": "存取點",
         "description": "Wi‑Fi 不再加入其他網路，而是建立自己的網路。連線的裝置可存取 NanoKVM，開啟後也可存取網際網路。",
-        "enable": "存取點",
+        "enable": "啟用",
         "enableDescription": "開啟後，Wi-Fi 將中斷與原網路的連線。",
         "ssid": "網路名稱",
         "password": "密碼",

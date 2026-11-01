@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from 'antd';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { ClapperboardIcon, MonitorIcon, SettingsIcon } from 'lucide-react';
@@ -26,6 +27,7 @@ export const Screen = () => {
   const closeMenu = useSetAtom(menuCloseSignalAtom);
   const dismissMobileMenu = useDismissMobileMenu();
   const { isMobilePortrait } = useResponsiveDevice();
+  const [open, setOpen] = useState(false);
   const content = (
     <div className="flex! w-max max-w-full min-w-0 flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 py-2 text-sm">
@@ -35,7 +37,7 @@ export const Screen = () => {
         </span>
         <span className="font-medium whitespace-nowrap text-sky-300">{streamLabel}</span>
       </div>
-      <QuickVideo />
+      <QuickVideo open={open} />
       <Scale />
       <div className="my-1 border-t border-neutral-700" />
       <Button
@@ -76,6 +78,7 @@ export const Screen = () => {
         </span>
       }
       content={content}
+      onOpenChange={setOpen}
     />
   );
 };

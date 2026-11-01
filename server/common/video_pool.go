@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 var ionNodeDir = "/proc/device-tree/reserved-memory/ion"
@@ -21,9 +22,23 @@ type VideoPool struct {
 // earlier release keeps its fixed carveout until it restarts.
 var SharedVideoPool = VideoPool{MiB: 144, Reusable: true}
 
+// bootedVideoPools: the Device Tree does not change while the system runs.
+var bootedVideoPools sync.Map
+
 // BootedVideoPool reads the Device Tree of the running boot image,
 // independently of debugfs being mounted. A missing node is an empty pool.
 func BootedVideoPool() VideoPool {
+	if pool, ok := bootedVideoPools.Load(ionNodeDir); ok {
+		return pool.(VideoPool)
+	}
+	pool := readBootedVideoPool()
+	if pool.MiB > 0 {
+		bootedVideoPools.Store(ionNodeDir, pool)
+	}
+	return pool
+}
+
+func readBootedVideoPool() VideoPool {
 	data, err := os.ReadFile(filepath.Join(ionNodeDir, "size"))
 	if err != nil || len(data) != 4 {
 		return VideoPool{}

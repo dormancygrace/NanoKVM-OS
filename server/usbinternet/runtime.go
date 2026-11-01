@@ -330,14 +330,23 @@ func (r Runtime) forwarding(a *applied, uplink string, foreign bool) error {
 	if a.Forward == nil {
 		a.Forward = map[string]string{}
 	}
+	// The Wi-Fi access point's internet (S30wifi) forwards through the same
+	// uplinks, and finds their forwarding already on when sharing came first.
+	// Its table is no offload hazard (inspectRules) but needs it kept.
+	keep := foreign
 	for dev, original := range a.Forward {
 		if wanted[dev] {
 			continue
 		}
+		if !keep {
+			if _, err := r.command("", "nft", "list", "table", "inet", "nkos_wifi_ap"); err == nil {
+				keep = true
+			}
+		}
 		// If another forwarding policy appeared while sharing was active, keep its
 		// forwarding available. Never toggle global ip_forward (it resets sysctls).
 		current, err := os.ReadFile(r.sysctlPath(dev))
-		if err == nil && strings.TrimSpace(string(current)) == "1" && !foreign {
+		if err == nil && strings.TrimSpace(string(current)) == "1" && !keep {
 			if err = os.WriteFile(r.sysctlPath(dev), []byte(original), 0600); err != nil {
 				return err
 			}

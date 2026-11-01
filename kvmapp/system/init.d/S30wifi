@@ -181,34 +181,43 @@ gen_udhcpd_conf() {
     fi
 }
 
-# The access point's subnet goes out masqueraded through any other
-# interface. IPv4 forwarding is decided on the receiving interface, so it is
-# switched on for wlan0 and the interfaces of the default routes (replies
-# come in there), never globally: net.ipv4.ip_forward resets every
-# interface's settings.
+# The administrator's access point always has its nft table: without
+# internet it only keeps wlan0 out of forwarding, in case something (a VPN)
+# turns forwarding on for every interface. With internet, its subnet goes out
+# masqueraded through any other interface. IPv4 forwarding is decided on the
+# receiving interface, so it is switched on for wlan0 and the interfaces of
+# the default routes (replies come in there), never globally:
+# net.ipv4.ip_forward resets every interface's settings.
 ap_internet_start() {
     ipv4_prefix=$1
+    allow=
+    nat=
+    if [ "$2" = internet ]; then
+        allow="  iifname \"wlan0\" ct state invalid counter drop
+  iifname \"wlan0\" oifname != \"wlan0\" ip saddr $ipv4_prefix.0/24 tcp flags syn tcp option maxseg size set rt mtu
+  iifname \"wlan0\" oifname != \"wlan0\" ip saddr $ipv4_prefix.0/24 counter accept
+  iifname != \"wlan0\" oifname \"wlan0\" ip daddr $ipv4_prefix.0/24 ct state { established, related } counter accept"
+        nat=" chain nat { type nat hook postrouting priority srcnat; policy accept;
+  iifname \"wlan0\" oifname != \"wlan0\" ip saddr $ipv4_prefix.0/24 counter masquerade
+ }"
+    fi
     "$NANOKVM_NFT" -f - <<EOF || return 1
 add table inet $AP_NAT_TABLE
 delete table inet $AP_NAT_TABLE
 table inet $AP_NAT_TABLE {
- comment "NanoKVM Wi-Fi access point internet"
+ comment "NanoKVM Wi-Fi access point"
  chain forward { type filter hook forward priority 30000; policy accept;
   iifname "wlan0" meta nfproto ipv6 counter drop
   oifname "wlan0" meta nfproto ipv6 counter drop
-  iifname "wlan0" ct state invalid counter drop
-  iifname "wlan0" oifname != "wlan0" ip saddr $ipv4_prefix.0/24 tcp flags syn tcp option maxseg size set rt mtu
-  iifname "wlan0" oifname != "wlan0" ip saddr $ipv4_prefix.0/24 counter accept
-  iifname != "wlan0" oifname "wlan0" ip daddr $ipv4_prefix.0/24 ct state { established, related } counter accept
+$allow
   iifname "wlan0" counter drop
   oifname "wlan0" counter drop
  }
- chain nat { type nat hook postrouting priority srcnat; policy accept;
-  iifname "wlan0" oifname != "wlan0" ip saddr $ipv4_prefix.0/24 counter masquerade
- }
+$nat
 }
 EOF
     : > "$AP_FORWARDING"
+    [ "$2" = internet ] || return 0
     # Ethernet also when its lease comes after the access point.
     for dev in wlan0 eth0 $("$NANOKVM_IP" -4 route show default | sed -n 's/.* dev \([^ ]*\).*/\1/p'); do
         forwarding=$NANOKVM_IPV4_CONF_DIR/$dev/forwarding
@@ -735,9 +744,9 @@ ap_start() {
     fi
     "$NANOKVM_HOSTAPD" -B -i wlan0 "$HOSTAPD_CONFIG" || return 1
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
-    if [ -n "$ap_internet" ]; then
-        ap_internet_start "$ipv4_prefix" ||
-            echo "Could not share the internet with the access point's clients" >&2
+    if [ "$mode" = user ]; then
+        ap_internet_start "$ipv4_prefix" "$ap_internet" ||
+            echo "Could not set the access point's forwarding rules" >&2
     fi
 
     if [ "$mode" = user ]; then
@@ -784,9 +793,7 @@ ap_internet_apply() {
     umask 077
     gen_udhcpd_conf wlan0 "$ipv4_prefix" "$ap_internet" "$ap_dns" > "$UDHCPD_CONFIG" || return 1
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
-    if [ -n "$ap_internet" ]; then
-        ap_internet_start "$ipv4_prefix" || return 1
-    fi
+    ap_internet_start "$ipv4_prefix" "$ap_internet"
 }
 
 # wpa_supplicant and hostapd deauthenticate through the SDIO driver before

@@ -474,7 +474,26 @@
         "unsaved": "Ikke-gemte ændringer",
         "saveFailed": "Konfigurationen kunne ikke gemmes.",
         "loadFailed": "Konfigurationen kunne ikke indlæses.",
-        "disabled": "Deaktiveret"
+        "disabled": "Deaktiveret",
+        "gatewayCheck": {
+          "title": "Gateway-kontrol",
+          "description": "Hvert 5. sekund. Så længe den ikke svarer og Wi-Fi er forbundet, bruger NanoKVM Wi-Fi; efter 2 minutter uden svar beder Ethernet om en ny adresse via DHCP.",
+          "descriptionNoWifi": "Hvert 5. sekund. Efter 2 minutter uden svar beder Ethernet om en ny adresse via DHCP.",
+          "enable": "Kontrollér Ethernet-gatewayen",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "Ethernet har ingen gateway lige nu.",
+          "method": "Kontrollér med",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Kontrollér også en vært",
+          "hostDescription": "Valgfrit: en adresse eller et navn bag gatewayen, der pinges via Ethernet, f.eks. 1.1.1.1.",
+          "hostInvalid": "Angiv en IP-adresse eller et værtsnavn.",
+          "answers": "svarer",
+          "silent": "svarer ikke",
+          "bypassed": "bruger Wi-Fi",
+          "loadFailed": "Gateway-kontrollen kunne ikke læses.",
+          "saveFailed": "Gateway-kontrollen kunne ikke gemmes."
+        }
       },
       "dns": {
         "title": "DNS",

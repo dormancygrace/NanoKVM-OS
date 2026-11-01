@@ -475,7 +475,26 @@
         "unsaved": "저장되지 않은 변경 사항",
         "saveFailed": "구성을 저장하지 못했습니다.",
         "loadFailed": "구성을 불러오지 못했습니다.",
-        "disabled": "비활성화됨"
+        "disabled": "비활성화됨",
+        "gatewayCheck": {
+          "title": "게이트웨이 확인",
+          "description": "5초마다 확인합니다. 응답이 없고 Wi-Fi가 연결되어 있는 동안 NanoKVM은 Wi-Fi를 사용합니다. 2분 동안 응답이 없으면 이더넷이 DHCP로 새 주소를 요청합니다.",
+          "descriptionNoWifi": "5초마다 확인합니다. 2분 동안 응답이 없으면 이더넷이 DHCP로 새 주소를 요청합니다.",
+          "enable": "이더넷 게이트웨이 확인",
+          "gateway": "게이트웨이 {{address}}",
+          "noGateway": "현재 이더넷에 게이트웨이가 없습니다.",
+          "method": "확인 방법",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "호스트도 확인",
+          "hostDescription": "선택 사항: 게이트웨이 뒤의 주소 또는 이름으로, 이더넷을 통해 ping합니다(예: 1.1.1.1).",
+          "hostInvalid": "IP 주소나 호스트 이름을 입력하세요.",
+          "answers": "응답함",
+          "silent": "응답 없음",
+          "bypassed": "Wi-Fi 사용 중",
+          "loadFailed": "게이트웨이 확인을 읽지 못했습니다.",
+          "saveFailed": "게이트웨이 확인을 저장하지 못했습니다."
+        }
       },
       "dns": {
         "title": "DNS",

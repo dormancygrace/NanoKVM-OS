@@ -475,7 +475,26 @@
         "unsaved": "有未儲存的變更",
         "saveFailed": "儲存有線網路設定失敗",
         "loadFailed": "讀取有線網路設定失敗",
-        "disabled": "已停用"
+        "disabled": "已停用",
+        "gatewayCheck": {
+          "title": "閘道檢查",
+          "description": "每 5 秒檢查一次。閘道無回應且 Wi-Fi 已連線時，NanoKVM 改用 Wi-Fi；2 分鐘無回應後，乙太網路會透過 DHCP 重新取得位址。",
+          "descriptionNoWifi": "每 5 秒檢查一次。2 分鐘無回應後，乙太網路會透過 DHCP 重新取得位址。",
+          "enable": "檢查乙太網路閘道",
+          "gateway": "閘道 {{address}}",
+          "noGateway": "乙太網路目前沒有閘道。",
+          "method": "檢查方式",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "同時檢查主機",
+          "hostDescription": "選用：閘道後方的位址或名稱，透過乙太網路 ping，例如 1.1.1.1。",
+          "hostInvalid": "請輸入 IP 位址或主機名稱。",
+          "answers": "有回應",
+          "silent": "無回應",
+          "bypassed": "正在使用 Wi-Fi",
+          "loadFailed": "無法讀取閘道檢查。",
+          "saveFailed": "無法儲存閘道檢查。"
+        }
       },
       "dns": {
         "title": "DNS",

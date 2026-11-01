@@ -51,6 +51,9 @@ func networkRouter(r *gin.Engine) {
 	admin.POST("/network/ethernet", service.SetEthernet) // set Ethernet IPv4 configuration
 	admin.GET("/network/gateway", service.GetGatewayPreference)
 	admin.POST("/network/gateway", service.SetGatewayPreference)
+	admin.GET("/network/ethernet/gateway-check", service.GetGatewayCheck)
+	admin.POST("/network/ethernet/gateway-check", service.SetGatewayCheck)
+	network.StartGatewayCheck()
 	admin.GET("/network/webrtc", service.GetWebRTCServers)  // STUN and TURN servers
 	admin.POST("/network/webrtc", service.SetWebRTCServers) // set STUN and TURN servers
 }

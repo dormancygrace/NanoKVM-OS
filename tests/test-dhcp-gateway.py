@@ -37,6 +37,9 @@ class GatewayHookTest(unittest.TestCase):
         hook = (ROOT / "server/service/network/scripts/99-nanokvm-gateway").read_text()
         hook = hook.replace("/etc/kvm/network/gateway.preferred", str(self.preference))
         hook = hook.replace("/etc/udhcpc/udhcpc.conf", str(self.conf))
+        self.demoted = self.root / "gateway-demoted"
+        self.demoted.mkdir()
+        hook = hook.replace("/run/nanokvm/gateway-demoted", str(self.demoted))
         for event in ("bound", "renew"):
             directory = self.config / ("post-" + event)
             directory.mkdir()
@@ -77,6 +80,24 @@ class GatewayHookTest(unittest.TestCase):
     def test_router_option(self):
         self.lease()
         self.assert_gateways(["192.0.2.1"])
+
+    def test_renew_keeps_a_demotion(self):
+        # The gateway check demoted eth0; a renew keeps the route below the
+        # others and records the preference's metric for the restore.
+        self.lease()
+        (self.demoted / "eth0").write_text("10\n")
+        self.preference.write_text("ethernet\n")
+        self.lease("renew")
+        self.assert_gateways(["192.0.2.1"], metric=900)
+        self.assertEqual((self.demoted / "eth0").read_text().strip(), "10")
+
+    def test_auto_renew_keeps_a_demotion(self):
+        self.preference.write_text("auto\n")
+        self.lease()
+        (self.demoted / "eth0").write_text("202\n")
+        self.lease("renew")
+        self.assert_gateways(["192.0.2.1"], metric=900)
+        self.assertEqual((self.demoted / "eth0").read_text().strip(), "202")
 
     def test_one_default_route_per_gateway(self):
         # udhcpc installs the route with its own metric (202); the preference

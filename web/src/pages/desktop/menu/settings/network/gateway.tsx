@@ -77,6 +77,7 @@ export const Gateway = () => {
           {routes.map((route) => (
             <div key={`${route.interface}-${route.gateway}`}>
               {labelFor(route)} · {t('settings.network.gateway.metric', { value: route.metric })}
+              {route.demoted && ` · ${t('settings.network.ethernet.gatewayCheck.bypassed')}`}
             </div>
           ))}
         </div>

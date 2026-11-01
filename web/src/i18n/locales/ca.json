@@ -475,7 +475,26 @@
         "unsaved": "Canvis no desats",
         "saveFailed": "No s'ha pogut desar la configuració.",
         "loadFailed": "No s'ha pogut carregar la configuració.",
-        "disabled": "Desactivat"
+        "disabled": "Desactivat",
+        "gatewayCheck": {
+          "title": "Comprovació de la passarel·la",
+          "description": "Cada 5 segons. Mentre no respongui i el Wi-Fi estigui connectat, el NanoKVM fa servir el Wi-Fi; després de 2 minuts sense resposta, l'Ethernet demana una adreça nova per DHCP.",
+          "descriptionNoWifi": "Cada 5 segons. Després de 2 minuts sense resposta, l'Ethernet demana una adreça nova per DHCP.",
+          "enable": "Comprova la passarel·la Ethernet",
+          "gateway": "Passarel·la {{address}}",
+          "noGateway": "L'Ethernet ara no té passarel·la.",
+          "method": "Comprova amb",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Comprova també un amfitrió",
+          "hostDescription": "Opcional: una adreça o un nom darrere la passarel·la, comprovat amb ping per Ethernet, per exemple 1.1.1.1.",
+          "hostInvalid": "Introduïu una adreça IP o un nom d'amfitrió.",
+          "answers": "respon",
+          "silent": "no respon",
+          "bypassed": "fa servir el Wi-Fi",
+          "loadFailed": "No s'ha pogut llegir la comprovació de la passarel·la.",
+          "saveFailed": "No s'ha pogut desar la comprovació de la passarel·la."
+        }
       },
       "dns": {
         "title": "DNS",

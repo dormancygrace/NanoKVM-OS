@@ -247,7 +247,26 @@
       },
       "ethernet": {
         "disabled": "מושבת",
-        "save": "שמירה"
+        "save": "שמירה",
+        "gatewayCheck": {
+          "title": "בדיקת שער",
+          "description": "כל 5 שניות. כל עוד השער אינו עונה ו-Wi-Fi מחובר, NanoKVM משתמש ב-Wi-Fi; אחרי 2 דקות ללא מענה, ה-Ethernet מבקש כתובת חדשה ב-DHCP.",
+          "descriptionNoWifi": "כל 5 שניות. אחרי 2 דקות ללא מענה, ה-Ethernet מבקש כתובת חדשה ב-DHCP.",
+          "enable": "בדיקת שער ה-Ethernet",
+          "gateway": "שער {{address}}",
+          "noGateway": "כרגע אין שער ל-Ethernet.",
+          "method": "שיטת בדיקה",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "לבדוק גם מארח",
+          "hostDescription": "אופציונלי: כתובת או שם מאחורי השער, שנבדקים ב-ping דרך Ethernet, למשל 1.1.1.1.",
+          "hostInvalid": "הזינו כתובת IP או שם מארח.",
+          "answers": "עונה",
+          "silent": "לא עונה",
+          "bypassed": "משתמש ב-Wi-Fi",
+          "loadFailed": "לא ניתן לקרוא את בדיקת השער.",
+          "saveFailed": "לא ניתן לשמור את בדיקת השער."
+        }
       },
       "dns": {
         "save": "שמירה"

@@ -475,7 +475,26 @@
         "unsaved": "Kaydedilmemiş değişiklikler",
         "saveFailed": "Ethernet ayarları kaydedilemedi",
         "loadFailed": "Ethernet ayarları yüklenemedi",
-        "disabled": "Devre dışı"
+        "disabled": "Devre dışı",
+        "gatewayCheck": {
+          "title": "Ağ geçidi denetimi",
+          "description": "5 saniyede bir. Ağ geçidi yanıt vermediği ve Wi-Fi bağlı olduğu sürece NanoKVM Wi-Fi kullanır; 2 dakika yanıt gelmezse Ethernet DHCP ile yeni adres ister.",
+          "descriptionNoWifi": "5 saniyede bir. 2 dakika yanıt gelmezse Ethernet DHCP ile yeni adres ister.",
+          "enable": "Ethernet ağ geçidini denetle",
+          "gateway": "Ağ geçidi {{address}}",
+          "noGateway": "Ethernet'in şu anda ağ geçidi yok.",
+          "method": "Denetleme yöntemi",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Bir ana bilgisayarı da denetle",
+          "hostDescription": "İsteğe bağlı: ağ geçidinin arkasında, Ethernet üzerinden ping atılan bir adres veya ad; örneğin 1.1.1.1.",
+          "hostInvalid": "Bir IP adresi veya ana bilgisayar adı girin.",
+          "answers": "yanıt veriyor",
+          "silent": "yanıt vermiyor",
+          "bypassed": "Wi-Fi kullanılıyor",
+          "loadFailed": "Ağ geçidi denetimi okunamadı.",
+          "saveFailed": "Ağ geçidi denetimi kaydedilemedi."
+        }
       },
       "dns": {
         "title": "DNS",

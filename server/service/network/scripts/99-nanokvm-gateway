@@ -23,8 +23,22 @@ case "$preference:$interface" in
     ethernet:eth*) metric=10 ;;
     wifi:wlan*) metric=10 ;;
     ethernet:wlan*|wifi:eth*) metric=200 ;;
-    *) exit 0 ;;
+    *) metric= ;;
 esac
+
+# The gateway check (gateway_check.go) demoted this interface's route: it
+# keeps a metric from 900 up, below every other route, and the file holds
+# the metric the route gets back, the preference's or (automatic) udhcpc's.
+DEMOTED=/run/nanokvm/gateway-demoted/$interface
+[ -n "$metric" ] || [ -e "$DEMOTED" ] || exit 0
+if [ -e "$DEMOTED" ]; then
+    if [ -z "$metric" ]; then
+        metric=$(ip -4 route show default dev "$interface" | sed -n 's/.* metric \([0-9][0-9]*\).*/\1/p' |
+            awk '$1 < 900 || $1 >= 1000 { print; exit }')
+    fi
+    [ -z "$metric" ] || echo "$metric" > "$DEMOTED"
+    metric=900
+fi
 
 # RFC3442: when option 121 is present, ignore option 3 entirely, even if
 # option 121 contains no default route. Match Alpine's zero-gateway filter.

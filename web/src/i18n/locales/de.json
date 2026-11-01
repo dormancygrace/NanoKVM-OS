@@ -1764,7 +1764,26 @@
         "unsaved": "Ungespeicherte Änderungen",
         "saveFailed": "Konfiguration konnte nicht gespeichert werden.",
         "loadFailed": "Konfiguration konnte nicht geladen werden.",
-        "retry": "Erneut versuchen"
+        "retry": "Erneut versuchen",
+        "gatewayCheck": {
+          "title": "Gateway-Prüfung",
+          "description": "Alle 5 Sekunden. Solange es nicht antwortet und Wi-Fi verbunden ist, nutzt der NanoKVM Wi-Fi; nach 2 Minuten ohne Antwort fordert Ethernet per DHCP eine neue Adresse an.",
+          "descriptionNoWifi": "Alle 5 Sekunden. Nach 2 Minuten ohne Antwort fordert Ethernet per DHCP eine neue Adresse an.",
+          "enable": "Ethernet-Gateway prüfen",
+          "gateway": "Gateway {{address}}",
+          "noGateway": "Ethernet hat derzeit kein Gateway.",
+          "method": "Prüfen mit",
+          "methodArp": "ARP",
+          "methodIcmp": "Ping",
+          "host": "Zusätzlich einen Host prüfen",
+          "hostDescription": "Optional: eine Adresse oder ein Name hinter dem Gateway, per Ping über Ethernet geprüft, z. B. 1.1.1.1.",
+          "hostInvalid": "Geben Sie eine IP-Adresse oder einen Hostnamen ein.",
+          "answers": "antwortet",
+          "silent": "antwortet nicht",
+          "bypassed": "nutzt Wi-Fi",
+          "loadFailed": "Die Gateway-Prüfung konnte nicht gelesen werden.",
+          "saveFailed": "Die Gateway-Prüfung konnte nicht gespeichert werden."
+        }
       },
       "dns": {
         "title": "DNS",

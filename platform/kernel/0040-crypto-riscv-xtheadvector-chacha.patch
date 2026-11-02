@@ -12,7 +12,7 @@ so the toolchain needs no XTheadVector support.
 
 CRYPTO_LIB_CHACHA_ARCH now also defaults to y with RISCV_ISA_XTHEADVECTOR; the
 Zvkb backend keeps its previous conditions. Messages shorter than 129 bytes
-stay generic. Requires the xtheadvector status fixes (0034, 0035, 0068).
+stay generic. Requires the xtheadvector status fixes (0034, 0035).
 
 diff --git a/lib/crypto/Kconfig b/lib/crypto/Kconfig
 index 83d4c95..9d8ba6f 100644

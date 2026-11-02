@@ -8,7 +8,8 @@ second, and neither writes the FILTEROP or background-model blocks, so
 after one of them those blocks still hold the defaults. ive_reset now
 skips them (about 150 writes) when the previous operation was SAD or DMA;
 any other operation, a hardware reset and the first operation after the
-module loads rewrite them as before.
+module loads rewrite them as before. CMDQ bypasses ive_reset and writes
+FILTEROP coefficients directly, so it invalidates the cached state too.
 
 ---
 diff --git a/interdrv/ive/common/cvi_ive_interface.h b/interdrv/ive/common/cvi_ive_interface.h
@@ -56,7 +57,17 @@ diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181
  	usleep_range(3, 5);
  	vip_sys_reg_write_mask(VIP_SYS_REG_RST_IVE_TOP,
  		VIP_SYS_REG_RST_IVE_TOP_MASK, 0x1);
-@@ -4388,6 +4398,7 @@ CVI_S32 cvi_ive_DMA(struct cvi_ive_devic
+@@ -4243,6 +4253,9 @@ CVI_S32 cvi_ive_CmdQ(struct cvi_ive_device *ndev)
+ 	CVI_DBG_INFO("CVI_MPI_IVE_CMDQ\n");
+ 	cmdq_printk(&ive_cmdq_c);
+ 
++	/* CMDQ writes FILTEROP directly without going through ive_reset. */
++	ndev->filterop_bg_clean = false;
++
+ 	ive_cmdq_c.INT_EN.reg_cmdq_int_en = 1;
+ 	ive_cmdq_c.INT_EN.reg_cmdq_end_en = 1;
+ 	ive_cmdq_c.INT_EN.reg_cmdq_wait_en = 1;
+@@ -4388,6 +4401,7 @@ CVI_S32 cvi_ive_DMA(struct cvi_ive_devic
  
  	CVI_DBG_INFO("CVI_MPI_IVE_DMA\n");
  	ive_reset(ndev, &ive_top_c);
@@ -64,7 +75,7 @@ diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181
  	if (g_dump_image_info == CVI_TRUE) {
  		dump_ive_data("pstSrc", pstSrc);
  		dump_ive_data("pstDst", pstDst);
-@@ -8640,6 +8651,7 @@ CVI_S32 cvi_ive_SAD(struct cvi_ive_devic
+@@ -8640,6 +8654,7 @@ CVI_S32 cvi_ive_SAD(struct cvi_ive_devic
  
  	CVI_DBG_INFO("CVI_MPI_IVE_SAD\n");
  	ive_reset(ndev, &ive_top_c);

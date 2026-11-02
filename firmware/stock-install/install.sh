@@ -17,7 +17,7 @@ case "$(cat /etc/kvm/hw)" in alpha|beta|pcie) ;; *) fail "unsupported stock boar
 stock_version=$(cat /kvmapp/version)
 stock_version=${stock_version#v}
 awk -v v="$stock_version" 'BEGIN { n = split(v, p, ".")
-    exit !(n == 3 && (p[1] > 2 || (p[1] == 2 && (p[2] > 5 || (p[2] == 5 && p[3] >= 1))))) }' ||
+    exit !(v ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ && n == 3 && (p[1] > 2 || (p[1] == 2 && (p[2] > 5 || (p[2] == 5 && p[3] >= 1))))) }' ||
     fail "stock 2.5.1 or newer is required (found ${stock_version:-unknown}); update the stock application first"
 [ -r /proc/device-tree/compatible ] || fail "device tree is unavailable"
 # The stock SG2002 SDK exposes the CV181x family name here. Board/application

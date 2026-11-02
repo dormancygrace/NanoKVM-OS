@@ -166,10 +166,27 @@ def build(build_root, output, version):
         entry = package / 'system/init.d/S95nanokvm'
         entry.parent.mkdir(parents=True)
         shutil.copy2(source / 'S95nanokvm', entry)
-        for name in ('server/NanoKVM-Server', 'kvm_system/kvm_system'):
+        # Stock 2.5.1 and newer start the package's S95nanokvm. Older stock
+        # restarts its own /etc/init.d/S95nanokvm copy, which runs these two
+        # programs instead (so does a boot before the handover): kvm_system
+        # then puts the stock application back, once the copy has started.
+        stubs = {
+            'server/NanoKVM-Server': '#!/bin/sh\necho "NanoKVM OS migration package; use S95nanokvm" >&2\nexit 1\n',
+            'kvm_system/kvm_system': '''#!/bin/sh
+[ -f /kvmapp/migration/offline-run.sh ] && [ -x /root/old/system/init.d/S95nanokvm ] || exit 1
+sleep 3
+refused=$(mktemp -d /root/.nanokvm-stock-refused.XXXXXX) || exit 1
+if ! mv /kvmapp "$refused/package"; then rmdir "$refused"; exit 1; fi
+if ! mv /root/old /kvmapp; then mv "$refused/package" /kvmapp; exit 1; fi
+rm -rf "$refused"
+echo 'NanoKVM OS installation needs stock 2.5.1 or newer; stock application restored.' >/var/log/nanokvm-stock-install.log
+exec /kvmapp/system/init.d/S95nanokvm restart
+''',
+        }
+        for name, text in stubs.items():
             stub = package / name
             stub.parent.mkdir(parents=True)
-            stub.write_text('#!/bin/sh\necho "NanoKVM OS migration package; use S95nanokvm" >&2\nexit 1\n')
+            stub.write_text(text)
             stub.chmod(0o755)
         run(host / 'riscv64-buildroot-linux-musl-gcc', '-Os', '-static', '-s',
             '-Wall', '-Wextra', '-Werror', '-march=rv64imafdc', '-mabi=lp64d',

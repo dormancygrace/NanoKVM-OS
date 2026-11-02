@@ -5,6 +5,7 @@ kvm_oled_state_t kvm_oled_state;
 
 void* thread_oled_handle(void *)
 {
+	oled_publish_default_layout();
 	OLED_Init();
 	OLED_ColorTurn(0);		//0正常显示 1 反色显示
 	// The PCIe panel needs A0/C0; the roaming renderer no longer calls

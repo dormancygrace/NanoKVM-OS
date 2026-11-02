@@ -4,3 +4,4 @@
 dist/
 pnpm-lock.yaml
 msw/mockServiceWorker.js
+src/lib/oled/font.ts

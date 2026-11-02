@@ -390,6 +390,22 @@ void layout_values(OledValues *values)
     values->date = text;
 }
 
+} // namespace
+
+// The server reads the panel and the built-in layout here, for the editor.
+void oled_publish_default_layout(void)
+{
+    const char path[] = "/run/nanokvm/oled_default", temporary[] = "/run/nanokvm/oled_default.tmp";
+    mkdir("/run/nanokvm", 0755);
+    FILE *fp = fopen(temporary, "w");
+    if (fp == NULL) return;
+    const bool written = fputs(oled_layout_default(kvm_hw_ver == 2), fp) >= 0;
+    if (fclose(fp) == 0 && written) rename(temporary, path);
+    else unlink(temporary);
+}
+
+namespace {
+
 // Drawn every pass; only the bytes that differ from the last frame go out.
 // Once a minute, with the burn-in move, all of it goes out again, in case
 // the display lost its RAM.

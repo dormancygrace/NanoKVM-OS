@@ -2,6 +2,7 @@ import type { ControlRegionConfig } from '@/types';
 import { ControlRegionMode, InputRegion, OriginalResolution } from '@/types';
 import { http } from '@/lib/http.ts';
 import { inputLeaseHeaders } from '@/lib/input-lease.ts';
+import type { OledLayout } from '@/lib/oled/layout.ts';
 import type { ScreenTextResult } from '@/lib/screen-text';
 import type { TlsStatus } from '@/lib/tls-certificate';
 import type { VideoCapabilities } from '@/lib/video-model';
@@ -197,6 +198,32 @@ export function getOLED() {
 // set OLED configuration
 export function setOLED(sleep: number) {
   return http.post('/api/vm/oled', { sleep });
+}
+
+// The OLED main page: the panel (empty without an OLED), its built-in
+// layout and the saved one, if any.
+export function getOLEDLayout() {
+  return http.get<{ panel: string; builtIn: OledLayout | null; saved: OledLayout | null }>(
+    '/api/vm/oled/layout'
+  );
+}
+
+export function setOLEDLayout(layout: OledLayout) {
+  return http.post('/api/vm/oled/layout', { layout });
+}
+
+// Back to the built-in layout.
+export function deleteOLEDLayout() {
+  return http.delete('/api/vm/oled/layout');
+}
+
+// Shown on the panel for 15 s: send it again to keep it there.
+export function setOLEDPreview(layout: OledLayout) {
+  return http.post('/api/vm/oled/preview', { layout });
+}
+
+export function deleteOLEDPreview() {
+  return http.delete('/api/vm/oled/preview');
 }
 
 // reset HDMI

@@ -215,6 +215,44 @@ type GetOLEDRsp struct {
 	Sleep int  `json:"sleep"`
 }
 
+// OLEDLayout is the OLED main page, as the web editor edits it. Coordinates
+// are pixels of the panel as rotated.
+type OLEDLayout struct {
+	Panel      string     `json:"panel"` // wide (128x64) or narrow (64x32)
+	Rotation   int        `json:"rotation"`
+	Burnin     string     `json:"burnin"` // none, shift or roam
+	RoamWidth  int        `json:"roamWidth,omitempty"`
+	RoamHeight int        `json:"roamHeight,omitempty"`
+	Items      []OLEDItem `json:"items"`
+}
+
+type OLEDItem struct {
+	Type   string `json:"type"` // text, line, rect or image
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	X2     int    `json:"x2,omitempty"`
+	Y2     int    `json:"y2,omitempty"`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
+	Font   int    `json:"font,omitempty"`
+	Align  string `json:"align,omitempty"`
+	Fill   bool   `json:"fill,omitempty"`
+	Off    bool   `json:"off,omitempty"`  // clears pixels instead of lighting them
+	When   string `json:"when,omitempty"` // eth, wifi, hdmi, hid or stream, "!" negates
+	Text   string `json:"text,omitempty"`
+	Data   string `json:"data,omitempty"` // image rows, hex, most significant bit first
+}
+
+type GetOLEDLayoutRsp struct {
+	Panel   string      `json:"panel"` // empty without an OLED
+	BuiltIn *OLEDLayout `json:"builtIn"`
+	Saved   *OLEDLayout `json:"saved"`
+}
+
+type SetOLEDLayoutReq struct {
+	Layout OLEDLayout `json:"layout"`
+}
+
 type GetGetHdmiStateRsp struct {
 	ViewerCount int  `json:"viewerCount"`
 	Enabled     bool `json:"enabled"`

@@ -246,7 +246,9 @@ toolchain() {
         rm -rf "$br" "$bo"
         mkdir -p "$br"
         tar -xf "$dl/buildroot-2026.08.1.tar.xz" -C "$br" --strip-components=1
-        for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do patch -s -d "$br" -p1 < "$patch"; done
+        for patch in "$repo"/firmware/buildroot/source-patches/*.patch; do
+            patch -s --batch --forward --fuzz=0 -d "$br" -p1 < "$patch"
+        done
         echo "$id" > "$br/.platform-patched"
     fi
     local make=(make -C "$br" O="$bo" BR2_EXTERNAL="$repo/firmware/buildroot" BR2_JLEVEL="$jobs" BR2_CCACHE_DIR="$BR_CACHE_DIR")

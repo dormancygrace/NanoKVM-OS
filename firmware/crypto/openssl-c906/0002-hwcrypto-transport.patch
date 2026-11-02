@@ -1,14 +1,13 @@
 --- a/crypto/build.info
 +++ b/crypto/build.info
-@@ -143,3 +143,9 @@
+@@ -143,3 +143,8 @@
  IF[{- $config{target} =~ /^(?:Cygwin|mingw|VC-|BC-)/ -}]
    SHARED_SOURCE[../libcrypto]=dllmain.c
  ENDIF
 +
-+# NanoKVM direct DMA access is private to the normal/legacy providers.
++# NanoKVM direct DMA access is private to the normal provider.
 +IF[{- $target{asm_arch} eq "riscv64" -}]
 +  SOURCE[../libcrypto]=hwcrypto.c
-+  SOURCE[../providers/liblegacy.a]=hwcrypto.c
 +ENDIF
 --- /dev/null
 +++ b/crypto/hwcrypto.c

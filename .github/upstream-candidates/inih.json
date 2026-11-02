@@ -1,0 +1,21 @@
+{
+  "component": "inih",
+  "current": "2bbdec4a366c8c39746ee0982e7ca0febbb044b6",
+  "candidate": "r63 (611ab51f8dd7)",
+  "candidate_key": "r63 (611ab51f8dd7)",
+  "status": "accepted",
+  "upstream": "https://github.com/benhoyt/inih/releases/tag/r63",
+  "source_path": "platform/sources.lock",
+  "strategy": "git-pin",
+  "evidence": {
+    "commit": "611ab51f8dd7ec583543815b0de693495045fbf8",
+    "objects": {
+      ".": "536971fbdd998b5095ff996fdc24395f3e023e6d"
+    },
+    "review": "Five upstream commits since the previous pin; C parser API retained, read errors now reported as -3."
+  },
+  "pin_files_updated": [
+    "firmware/sources.json",
+    "platform/sources.lock"
+  ]
+}

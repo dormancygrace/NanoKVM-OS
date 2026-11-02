@@ -53,9 +53,9 @@
     "scope": "MPI BIN/ISP_BIN source build"
   },
   "inih": {
-    "version": "r62 + upstream fixes (2026-10-03)",
+    "version": "r63",
     "url": "https://github.com/benhoyt/inih.git",
-    "commit": "2bbdec4a366c8c39746ee0982e7ca0febbb044b6"
+    "commit": "611ab51f8dd7ec583543815b0de693495045fbf8"
   },
   "sophgo_sensors": {
     "url": "https://github.com/sophgo/SensorSupportList.git",

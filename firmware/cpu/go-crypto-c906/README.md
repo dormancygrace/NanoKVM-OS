@@ -14,13 +14,24 @@ exact match; the base toolchain is not modified.
 iteration:
 
 - four blocks in XTheadVector (RVV 0.7.1 draft, VLEN 128) lanes, SEW 32,
-  LMUL 1, one state word per vector register (v0-v15, lane j = block j), v16-v19
-  for the rotates (shift left, shift right, or; there is no vector rotate),
-  v20 for the lane counters;
-- a fifth block in scalar registers X5-X20, its 160 instructions per double
-  round interleaved one to one with the 160 vector instructions. The C906 has
-  a 64-bit vector datapath, so a 128-bit vector instruction occupies it for two
-  cycles; the in-order core issues the scalar instruction in between.
+  LMUL 1, one state word per vector register (v0-v15, lane j = block j), v20
+  for the lane counters. There is no vector rotate: rotl(x, k) is
+  `th.vsrl.vi` by 32 - k into a second register plus `th.vmacc.vx` of x times
+  2^k (the low 32 bits of x * 2^k are x << k, and the two parts share no
+  bits), two instructions where shift, shift and or take three. A rotated
+  word (4-7, 12-15) alternates between its own register and a partner
+  (v16-v19, v21-v24), so every word is back home after each round; with four
+  shared temporaries the registers would only return after three double
+  rounds, which does not divide ten;
+- a fifth block in scalar registers X5-X20, rotated with XTheadBb `th.srriw`
+  (one instruction; every T-Head core implements XTheadBb, and only a T-Head
+  core reports XTheadVector). Its 96 instructions per double round are
+  interleaved evenly with the 128 vector ones. The C906 has a 64-bit vector
+  datapath, so a 128-bit vector instruction occupies it for two cycles; the
+  in-order core issues scalar instructions in between.
+
+During the rounds KEY, NONCE, DST and SRC are spilled to the frame and hold
+the `vmacc` multipliers 1<<16, 1<<12, 1<<8 and 1<<7.
 
 The key stream goes to a 320-byte stack buffer with two strided segment
 stores (`th.vssseg8e.v`, stride 64), then `dst = src ^ key stream` with byte
@@ -40,15 +51,31 @@ device is quieter):
 | RV64I scalar assembly, 1 block | 32 |
 | XTheadVector, 4 blocks | 65 |
 | XTheadVector 4 + scalar 1, 16 strided stores (`th.vsse.v`) | 75 |
-| XTheadVector 4 + scalar 1, 2 segment stores (shipped) | 79 |
+| XTheadVector 4 + scalar 1, 2 segment stores | 79 |
 | same, rounds only (no add/store/XOR) | 91 |
 
-The rounds run at the vector datapath limit (1600 vector instructions of two
-cycles per 320 bytes). `th.vrgather.vv` costs four cycles, so byte permutes
-for the 16 and 8 bit rotates do not pay, and LMUL 2 or 4 has the same
-throughput per element. XTheadBb's `th.srriw` would shorten the scalar
-rotates, but the NanoKVM device tree does not advertise `xtheadbb`, so it is
-not used.
+Those rounds ran at the vector datapath limit (1600 vector instructions of
+two cycles per 320 bytes). `th.vrgather.vv` costs four cycles, so byte
+permutes for the 16 and 8 bit rotates do not pay, and LMUL 2 or 4 has the
+same throughput per element. On the C906 `th.vmacc.vx` issues every two
+cycles like `th.vadd.vv`, so the two-instruction rotate cuts the vector
+instructions to 1280 per 320 bytes, and `th.srriw` keeps the scalar block
+below the vector one (224 issue slots per double round against 256 vector
+cycles).
+
+The shipped kernel against the previous one (the rows above), stand,
+2026-11-02, `go test -bench`, `src`/`dst` at offset 5, two rounds:
+
+| bytes | 64 | 256 | 1024 | 1400 | 4096 | 16384 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| previous, MB/s | 10.9 | 32.4 | 50.5 | 58.7 | 77.0 | 73.0 |
+| vmacc rotates, MB/s | 13.3 | 37.4 | 63.0 | 70.2 | 98.2 | 91.9 |
+| generic Go, MB/s | 4.7 | 16.4 | 20.0 | 22.0 | 26.4 | 26.0 |
+
+Through `crypto/tls` (TLS 1.2 ChaCha20-Poly1305 over `net.Pipe`, CPU per
+record for Seal plus Open, three alternating rounds): 16 KiB 731 -> 644 us
+(-12%), 4 KiB -10%, 1400 bytes -7.5%, 64-512 bytes -1 to -3% (the record
+overhead dominates).
 
 With `NANOKVM_CHACHA20=generic` the generic code still fills five-block
 buffers, which wastes up to four blocks per message: its key stream is about
@@ -195,9 +222,9 @@ python3 gen_chacha_linux.py --binutils $B --check ../../../platform/kernel/0040-
 ```
 
 `linux-test/` is a module that carries the same assembly and glue, checks
-them against `chacha_block_generic()` and times them on the device: 81 MB/s
-for a 1420-byte WireGuard packet and 93 MB/s for 16 KiB, against 42 for the
-generic kernel code. Poly1305 stays scalar: at 211-249 MB/s it is not the
+them against `chacha_block_generic()` and times them on the device: 98 MB/s
+for a 1420-byte WireGuard packet and 116 MB/s for 16 KiB (81 and 93 with
+the three-instruction rotates), against 47-49 for the generic kernel code. Poly1305 stays scalar: at 211-249 MB/s it is not the
 limit, and a 64-bit vector datapath multiplies no faster than scalar
 `mul`/`mulhu`.
 

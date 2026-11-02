@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Generate chacha_riscv64.s, the C906 ChaCha20 kernel for Go's vendored x/crypto.
 
-Go's assembler has no XTheadVector (RVV 0.7.1) instructions, so every vector
-instruction is emitted as WORD with its mnemonic in a comment. Each word is
+Go's assembler has no XTheadVector (RVV 0.7.1) or XTheadBb instructions, so
+every such instruction is emitted as WORD with its mnemonic in a comment. Each word is
 computed twice: by the field encoder below, written from the T-Head
 XTheadVector / RVV 0.7.1 instruction formats, and by GNU as from the Buildroot
-toolchain (-march=rv64gc_xtheadvector). Generation fails if they differ or if
+toolchain (-march=rv64gc_xtheadvector_xtheadbb). Generation fails if they differ or if
 objdump does not decode a word back to the same th.* mnemonic.
 
 Usage: gen_chacha_riscv64.py --binutils PREFIX (--output FILE | --check FILE)
@@ -21,8 +21,8 @@ ABI = {5: 't0', 6: 't1', 7: 't2', 8: 's0', 9: 's1', 10: 'a0', 11: 'a1', 12: 'a2'
 
 # ---------------------------------------------------------------- encoder ---
 OP_V, LOAD_FP, STORE_FP = 0x57, 0x07, 0x27
-OPIVV, OPMVV, OPIVI, OPIVX = 0, 2, 3, 4
-FUNCT6 = {'vadd': 0b000000, 'vand': 0b001001, 'vor': 0b001010, 'vxor': 0b001011,
+OPIVV, OPMVV, OPIVI, OPIVX, OPMVX = 0, 2, 3, 4, 6
+FUNCT6 = {'vmacc': 0b101101, 'vadd': 0b000000, 'vand': 0b001001, 'vor': 0b001010, 'vxor': 0b001011,
           'vrgather': 0b001100, 'vmv': 0b010111, 'vsll': 0b100101, 'vsrl': 0b101000}
 SEW = {8: 0, 16: 1, 32: 2, 64: 3}
 LMUL = {1: 0, 2: 1, 4: 2, 8: 3}
@@ -50,6 +50,18 @@ def vi(op, vd, vs2, imm):
 
 def vx(op, vd, vs2, rs1):
     return V(f'th.{op}.vx v{vd},v{vs2},{ABI[rs1]}', opv(FUNCT6[op], 1, vs2, rs1, OPIVX, vd))
+
+
+def vmacc_vx(vd, rs1, vs2):
+    # vd += x[rs1] * vs2 (low SEW bits of the product), OPMVX.
+    return V(f'th.vmacc.vx v{vd},{ABI[rs1]},v{vs2}', opv(FUNCT6['vmacc'], 1, vs2, rs1, OPMVX, vd))
+
+
+def srriw(rd, rs1, imm):
+    # XTheadBb rotate right word: custom-0, funct7 0001010, funct3 001; the
+    # result is sign-extended like the other W instructions.
+    assert 0 <= imm < 32
+    return V(f'th.srriw {ABI[rd]},{ABI[rs1]},{imm}', 0b0001010 << 25 | imm << 20 | rs1 << 15 | 0b001 << 12 | rd << 7 | 0x0b)
 
 
 def vmv_v_x(vd, rs1):
@@ -101,30 +113,56 @@ SIGMA = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574]
 # X27 (g), X31 (assembler temporary) and X1..X4 are not used.
 S = list(range(5, 21))
 TMP, ROUNDS, DST, SRC, LEN, CTR, KEY, NONCE, BUF = 21, 22, 23, 24, 25, 26, 28, 29, 30
-# Vector registers: v0..v15 state words (lane j = block j), v16..v19 rotate
-# temporaries, v20 the initial counters.
-VTMP, VCTR = 16, 20
+# Vector registers: v0..v15 state words (lane j = block j), v16..v19 and
+# v21..v24 the rotated words' partners, v20 the initial counters.
+VCTR = 20
 NAME = 'xorKeyStreamC906'
 BLOCKS = 5
 SIZE = 64 * BLOCKS
 
 
-def vector_round(quads):
-    """One ChaCha round, four quarter rounds, for the four vector blocks."""
+# Rotate multipliers for vmacc.vx: KEY, NONCE, DST and SRC are spilled to the
+# frame while the rounds run and hold 1<<16, 1<<12, 1<<8 and 1<<7.
+MULREG = {16: KEY, 12: NONCE, 8: DST, 7: SRC}
+SPILL = [DST, SRC, KEY, NONCE]
+
+
+class Regs:
+    """Which vector register holds each state word. A rotate writes its
+    result to the word's other register: words 4..7 and 12..15, rotated
+    twice per round, alternate between their own register and a partner
+    (v16..v19, v21..v24; v20 holds the counters), so every word is back
+    in its own register after each round."""
+
+    def __init__(self):
+        self.word = list(range(16))
+        self.partner = {12: 16, 13: 17, 14: 18, 15: 19, 4: 21, 5: 22, 6: 23, 7: 24}
+
+    def other(self, w):
+        return self.partner[w] if self.word[w] == w else w
+
+
+def vector_round(quads, r, mulreg=None):
+    """One ChaCha round, four quarter rounds, for the four vector blocks.
+
+    XTheadVector has no rotate. rotl(x, k) = (x >> (32 - k)) + x * 2^k
+    mod 2^32: vsrl into a temporary, then vmacc.vx adds x times 2^k, two
+    instructions where shift, shift and or take three."""
+    mulreg = mulreg or MULREG
     out = []
 
     def step(add, xor, rot):
+        w = r.word
         for q in quads:
-            out.append(vv('vadd', q[add[0]], q[add[0]], q[add[1]]))
+            out.append(vv('vadd', w[q[add[0]]], w[q[add[0]]], w[q[add[1]]]))
         for q in quads:
-            out.append(vv('vxor', q[xor], q[xor], q[add[0]]))
-        # XTheadVector has no rotate: shift left, shift right, or.
-        for i, q in enumerate(quads):
-            out.append(vi('vsll', VTMP + i, q[xor], rot))
+            out.append(vv('vxor', w[q[xor]], w[q[xor]], w[q[add[0]]]))
         for q in quads:
-            out.append(vi('vsrl', q[xor], q[xor], 32 - rot))
-        for i, q in enumerate(quads):
-            out.append(vv('vor', q[xor], q[xor], VTMP + i))
+            out.append(vi('vsrl', r.other(q[xor]), w[q[xor]], 32 - rot))
+        for q in quads:
+            out.append(vmacc_vx(r.other(q[xor]), mulreg[rot], w[q[xor]]))
+        for q in quads:
+            w[q[xor]] = r.other(q[xor])
     step((0, 1), 3, 16)
     step((2, 3), 1, 12)
     step((0, 1), 3, 8)
@@ -132,23 +170,43 @@ def vector_round(quads):
     return out
 
 
-def scalar_round(quads):
-    """The same round for the scalar block, with base RV64I rotates."""
+def scalar_round(quads, add=None, xor=None):
+    """The same round for the scalar block. XTheadBb rotates in one
+    instruction: th.srriw, rotate right by 32 - k. add and xor format the
+    other two instructions (Go assembler syntax by default)."""
+    add = add or (lambda d, s: f'ADDW\tX{S[s]}, X{S[d]}')
+    xor = xor or (lambda d, s: f'XOR\tX{S[s]}, X{S[d]}')
     out = []
 
-    def step(add, xor, rot):
+    def step(a, x, rot):
         for q in quads:
-            out.append(f'ADDW\tX{S[q[add[1]]]}, X{S[q[add[0]]]}')
+            out.append(add(q[a[0]], q[a[1]]))
         for q in quads:
-            out.append(f'XOR\tX{S[q[add[0]]]}, X{S[q[xor]]}')
+            out.append(xor(q[x], q[a[0]]))
         for q in quads:
-            r = S[q[xor]]
-            out.extend([f'SLLIW\t${rot}, X{r}, X{TMP}', f'SRLIW\t${32 - rot}, X{r}', f'OR\tX{TMP}, X{r}'])
+            out.append(srriw(S[q[x]], S[q[x]], 32 - rot))
     step((0, 1), 3, 16)
     step((2, 3), 1, 12)
     step((0, 1), 3, 8)
     step((2, 3), 1, 7)
     return out
+
+
+def double_round(mulreg=None, **scalar):
+    """One double round: vector and scalar instructions interleaved evenly. The
+    C906 issues scalar ones while the 64-bit vector datapath still works on a
+    128-bit vector one. Every state word ends in its own vector register."""
+    r = Regs()
+    vec = vector_round(COLUMNS, r, mulreg) + vector_round(DIAGONALS, r, mulreg)
+    sca = scalar_round(COLUMNS, **scalar) + scalar_round(DIAGONALS, **scalar)
+    assert r.word == list(range(16)) and len(vec) == 128 and len(sca) == 96
+    out, k = [], 0
+    for n, v in enumerate(vec):
+        out.append(v)
+        while k < len(sca) and k * len(vec) < (n + 1) * len(sca):
+            out.append(sca[k])
+            k += 1
+    return out + sca[k:]
 
 
 class Asm:
@@ -192,7 +250,7 @@ def initial(a, i, r):
 def build():
     a = Asm()
     a(f'// func {NAME}(dst, src []byte, key *[8]uint32, nonce *[3]uint32, counter *uint32)')
-    a(f'TEXT ·{NAME}(SB), 0, ${SIZE}-72')
+    a(f'TEXT ·{NAME}(SB), 0, ${SIZE + 8 * len(SPILL)}-72')
     a(f'MOV\tdst_base+0(FP), X{DST}', f'MOV\tsrc_base+24(FP), X{SRC}', f'MOV\tsrc_len+32(FP), X{LEN}',
       f'MOV\tkey+48(FP), X{KEY}', f'MOV\tnonce+56(FP), X{NONCE}', f'MOV\tcounter+64(FP), X{TMP}',
       f'MOVWU\t(X{TMP}), X{CTR}', f'ADD\t$8, X2, X{BUF}')  # BUF: SIZE bytes of key stream
@@ -205,16 +263,16 @@ def build():
         if i != 12:
             a(vmv_v_x(i, S[i]))
     a(vid(VCTR), vx('vadd', VCTR, VCTR, CTR), vmv_v_v(12, VCTR))
+    for k, reg in enumerate(SPILL):
+        a(f'MOV\tX{reg}, {SIZE + 8 * k}(X{BUF})')
+    for rot, reg in MULREG.items():
+        a(f'MOV\t${1 << rot}, X{reg}')
     a(f'MOV\t$10, X{ROUNDS}')
     a.label('round')
-    # One vector, one scalar instruction: the C906 issues the scalar one while
-    # the 64-bit vector datapath still works on the 128-bit vector one.
-    vec = vector_round(COLUMNS) + vector_round(DIAGONALS)
-    sca = scalar_round(COLUMNS) + scalar_round(DIAGONALS)
-    assert len(vec) == len(sca) == 160
-    for v, s in zip(vec, sca):
-        a(v, s)
+    a(*double_round())
     a(f'SUB\t$1, X{ROUNDS}', f'BNEZ\tX{ROUNDS}, round')
+    for k, reg in enumerate(SPILL):
+        a(f'MOV\t{SIZE + 8 * k}(X{BUF}), X{reg}')
     # Add the initial state.
     for i in range(16):
         initial(a, i, TMP)
@@ -250,15 +308,19 @@ HEADER = '''\
 // ChaCha20 for the T-Head C906 (SG2002): five blocks per iteration. Four
 // blocks are in XTheadVector lanes (VLEN 128, SEW 32, LMUL 1) with one state
 // word per vector register; the fifth block is in scalar registers, its
-// instructions interleaved with the vector ones.
+// instructions interleaved with the vector ones. XTheadVector has no rotate:
+// a vector rotate left by k is a shift right by 32 - k plus vmacc.vx of the
+// word times 2^k. The scalar block rotates with XTheadBb th.srriw, which every
+// T-Head core implements.
 //
 // Vector registers are not preserved across calls, so all vector state is
 // set up and consumed within this call, which calls nothing. Assembly
 // functions are not asynchronously preempted; the kernel saves vector state
 // across context switches and signals.
 //
-// Go's assembler has no RVV 0.7.1 encodings, so vector instructions are WORDs.
-// The generator checks each against GNU as/objdump -march=rv64gc_xtheadvector.
+// Go's assembler has no RVV 0.7.1 or XTheadBb encodings, so these are WORDs.
+// The generator checks each against GNU as/objdump
+// -march=rv64gc_xtheadvector_xtheadbb.
 
 #include "textflag.h"
 
@@ -273,7 +335,7 @@ def verify(prefix, vectors):
         src = Path(d) / 'v.s'
         src.write_text(''.join(t + '\n' for t in unique))
         obj = Path(d) / 'v.o'
-        subprocess.run([prefix + 'as', '-march=rv64gc_xtheadvector', '-o', str(obj), str(src)], check=True)
+        subprocess.run([prefix + 'as', '-march=rv64gc_xtheadvector_xtheadbb', '-o', str(obj), str(src)], check=True)
         dump = subprocess.run([prefix + 'objdump', '-d', str(obj)], check=True, capture_output=True, text=True).stdout
     got = [(int(m.group(1), 16), ' '.join(m.group(2).split()))
            for m in re.finditer(r'^\s*[0-9a-f]+:\s+([0-9a-f]{8})\s+(.*)$', dump, re.M)]

@@ -184,13 +184,11 @@
  #endif
 --- a/crypto/build.info
 +++ b/crypto/build.info
-@@ -146,6 +146,5 @@
+@@ -146,5 +146,5 @@
  
--# NanoKVM direct DMA access is private to the normal/legacy providers.
-+# NanoKVM direct DMA access is private to the normal provider.
+ # NanoKVM direct DMA access is private to the normal provider.
  IF[{- $target{asm_arch} eq "riscv64" -}]
 -  SOURCE[../libcrypto]=hwcrypto.c
--  SOURCE[../providers/liblegacy.a]=hwcrypto.c
 +  SOURCE[../libcrypto]=hwcrypto.c hwcrypto_cipher.c
  ENDIF
 --- a/providers/implementations/ciphers/cipher_aes.h

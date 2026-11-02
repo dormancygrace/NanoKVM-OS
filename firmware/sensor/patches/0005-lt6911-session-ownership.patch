@@ -3,7 +3,7 @@ Subject: [PATCH] lt6911: coordinate register sessions and always attempt cleanup
 
 --- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
 +++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
-@@ -11,6 +11,9 @@
+@@ -10,6 +10,9 @@
  #include <linux/cvi_comm_video.h>
  #include "cvi_sns_ctrl.h"
  #include "lt6911_cmos_ex.h"
@@ -13,7 +13,7 @@ Subject: [PATCH] lt6911: coordinate register sessions and always attempt cleanup
  
  extern ISP_SNS_COMMBUS_U g_aunLt6911_BusInfo[VI_MAX_PIPE_NUM];
  #define LT6911_I2C_BANK_ADDR 0xff
-@@ -160,22 +163,37 @@
+@@ -159,22 +162,37 @@
  
  int lt6911_read(VI_PIPE ViPipe, int addr)
  {
@@ -63,7 +63,7 @@ Subject: [PATCH] lt6911: coordinate register sessions and always attempt cleanup
  }
  
  static int lt6911_read_id(VI_PIPE ViPipe, int base)
-@@ -213,11 +231,18 @@
+@@ -198,11 +216,18 @@
  
  static int lt6911_d_read_pair(VI_PIPE ViPipe, unsigned char reg, unsigned char values[2])
  {

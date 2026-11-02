@@ -10,8 +10,6 @@ Subject: [PATCH] aic8800: build without warnings
   ignores "/* fall-through */" comments; use the fallthrough keyword.
 - aic8800d80{,x2}_compat.c: a "defined" produced by a macro expansion is
   undefined in #if; IS_ENABLED() gives the same 0 or 1.
-- rwnx_msg_tx.c: the length check that 0001 adds was indented with
-  spaces, so the next statement looked guarded by it.
 
 No functional change.
 
@@ -81,18 +79,3 @@ index a4451e4..11fd305 100644
  	case WLAN_TDLS_SETUP_REQUEST:
  	case WLAN_TDLS_TEARDOWN:
  	case WLAN_TDLS_DISCOVERY_REQUEST:
-diff --git a/aic8800_fdrv/rwnx_msg_tx.c b/aic8800_fdrv/rwnx_msg_tx.c
-index 80517a9..c9bade2 100644
---- a/aic8800_fdrv/rwnx_msg_tx.c
-+++ b/aic8800_fdrv/rwnx_msg_tx.c
-@@ -2184,8 +2184,8 @@ int rwnx_sdio_bt_send_req(struct rwnx_hw *rwnx_hw,uint32_t len, struct sk_buff *
- 	struct mm_bt_send_cfm cfm;
- 	int error;
- 
--    if (!skb || len > skb->len || len > sizeof(req->bt_data))
--        return -EMSGSIZE;
-+	if (!skb || len > skb->len || len > sizeof(req->bt_data))
-+		return -EMSGSIZE;
- 
- 	if(testmode) {
- 		AICWFDBG(LOGERROR, "%s testmode can not send\n", __func__);

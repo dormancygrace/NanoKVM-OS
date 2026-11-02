@@ -2576,16 +2576,23 @@ static int _mmf_tile_map_images(const VIDEO_FRAME_S &v)
 	// The kept planes keep the frame's row strides, so SAD and the copy see
 	// images of one layout. SAD by 16x16 blocks writes one value per block:
 	// its outputs have a block's size (checked on the stand).
+	// The marks are read by the CPU, byte by byte, after every SAD: they are
+	// cached (CVI_IVE_CreateImage maps uncached memory, where each byte read
+	// went to DRAM). The engine writes them and the CPU only reads them, after
+	// CVI_IVE_BufRequest invalidates them; the flush below writes back the
+	// zeroing done at creation so no dirty line can later overwrite a map.
 	if (CVI_IVE_CreateImage(tile_map.ive, &tile_map.prev, IVE_IMAGE_TYPE_U8C1, stride, height)
 		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.sad, IVE_IMAGE_TYPE_U16C1, columns, rows)
-		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.thr, IVE_IMAGE_TYPE_U8C1, columns, rows)
+		|| CVI_IVE_CreateImage_Cached(tile_map.ive, &tile_map.thr, IVE_IMAGE_TYPE_U8C1, columns, rows)
 		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.strip_sad, IVE_IMAGE_TYPE_U16C1, columns, 1)
-		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.strip_thr, IVE_IMAGE_TYPE_U8C1, columns, 1)
+		|| CVI_IVE_CreateImage_Cached(tile_map.ive, &tile_map.strip_thr, IVE_IMAGE_TYPE_U8C1, columns, 1)
 		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.prev_uv, IVE_IMAGE_TYPE_U8C1, chroma_stride, chroma_rows)
 		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_sad, IVE_IMAGE_TYPE_U16C1, columns, uv_rows)
-		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_thr, IVE_IMAGE_TYPE_U8C1, columns, uv_rows)
+		|| CVI_IVE_CreateImage_Cached(tile_map.ive, &tile_map.uv_thr, IVE_IMAGE_TYPE_U8C1, columns, uv_rows)
 		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_strip_sad, IVE_IMAGE_TYPE_U16C1, columns, 1)
-		|| CVI_IVE_CreateImage(tile_map.ive, &tile_map.uv_strip_thr, IVE_IMAGE_TYPE_U8C1, columns, 1)) {
+		|| CVI_IVE_CreateImage_Cached(tile_map.ive, &tile_map.uv_strip_thr, IVE_IMAGE_TYPE_U8C1, columns, 1)
+		|| CVI_IVE_BufFlush(tile_map.ive, &tile_map.thr) || CVI_IVE_BufFlush(tile_map.ive, &tile_map.strip_thr)
+		|| CVI_IVE_BufFlush(tile_map.ive, &tile_map.uv_thr) || CVI_IVE_BufFlush(tile_map.ive, &tile_map.uv_strip_thr)) {
 		_mmf_tile_map_free_images();
 		return -1;
 	}

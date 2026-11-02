@@ -136,8 +136,13 @@ Go's `update`, written by the generator, adapts the state:
 - `useMisalignedLoads` (`cpu.RISCV64.HasFastMisaligned`) picks the 64-bit
   unaligned loads or the aligned-load variant.
 
-The blocks functions save s0-s3 32 bytes below the stack pointer, within the
-space Go guarantees there.
+CRYPTOGAMS saves s0-s3 in a 32-byte frame of its own. Go's ABI0 does not need
+them preserved, and an SP change the Go assembler cannot see breaks traceback
+inside the function (CPU profiles lose the callers), so the generator turns
+those 10 instructions into nops: the blocks functions are frameless leaves
+and their branch offsets stay valid. `TestC906ProfileUnwind` takes a CPU
+profile while hashing and requires every sample in either blocks function to
+unwind to the test.
 
 The pinned x/crypto v0.57.0 `sum_riscv64.s` remains the reference:
 `build-tests.py --poly1305-reference` builds it with fast unaligned loads in

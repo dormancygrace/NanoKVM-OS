@@ -18,8 +18,9 @@
 // at 8..55(SP) (Go keeps s, the final key half, where CRYPTOGAMS keeps s1). A
 // final partial block (from Sum) is copied to 56(SP), followed by 0x01 and
 // zeros, and hashed with padbit 0. The blocks functions take the context,
-// message, length and padbit in a0-a3 and clobber a0-a7, t0-t6 and, saved
-// and restored 32 bytes below the stack pointer, s0-s3.
+// message, length and padbit in a0-a3 and clobber a0-a7, t0-t6 and s0-s3;
+// they do not touch the stack pointer (the 10 instructions of CRYPTOGAMS'
+// own s0-s3 frame are nops), so Go's traceback sees frameless leaves.
 //
 // CRYPTOGAMS reduces h2 when the next block starts, so h2 can be large after
 // the last one; finalize needs h < 2 * (2^130 - 5). update folds
@@ -101,11 +102,11 @@ done:
 TEXT ·poly1305BlocksFast(SB), NOSPLIT|NOFRAME, $0-0
 	WORD	$0xff067613	// andi a2,a2,-16
 	WORD	$0x10060463	// beqz a2,.+264
-	WORD	$0xfe010113	// addi sp,sp,-32
-	WORD	$0x00813c23	// sd s0,24(sp)
-	WORD	$0x00913823	// sd s1,16(sp)
-	WORD	$0x01213423	// sd s2,8(sp)
-	WORD	$0x01313023	// sd s3,0(sp)
+	WORD	$0x00000013	// nop (was addi sp,sp,-32)
+	WORD	$0x00000013	// nop (was sd s0,24(sp))
+	WORD	$0x00000013	// nop (was sd s1,16(sp))
+	WORD	$0x00000013	// nop (was sd s2,8(sp))
+	WORD	$0x00000013	// nop (was sd s3,0(sp))
 	WORD	$0x00053403	// ld s0,0(a0)
 	WORD	$0x00853483	// ld s1,8(a0)
 	WORD	$0x01053903	// ld s2,16(a0)
@@ -161,22 +162,22 @@ TEXT ·poly1305BlocksFast(SB), NOSPLIT|NOFRAME, $0-0
 	WORD	$0x00853023	// sd s0,0(a0)
 	WORD	$0x00953423	// sd s1,8(a0)
 	WORD	$0x01253823	// sd s2,16(a0)
-	WORD	$0x01813403	// ld s0,24(sp)
-	WORD	$0x01013483	// ld s1,16(sp)
-	WORD	$0x00813903	// ld s2,8(sp)
-	WORD	$0x00013983	// ld s3,0(sp)
-	WORD	$0x02010113	// addi sp,sp,32
+	WORD	$0x00000013	// nop (was ld s0,24(sp))
+	WORD	$0x00000013	// nop (was ld s1,16(sp))
+	WORD	$0x00000013	// nop (was ld s2,8(sp))
+	WORD	$0x00000013	// nop (was ld s3,0(sp))
+	WORD	$0x00000013	// nop (was addi sp,sp,32)
 	WORD	$0x00008067	// ret
 
 // poly1305BlocksAligned: CRYPTOGAMS poly1305_blocks with aligned loads only.
 TEXT ·poly1305BlocksAligned(SB), NOSPLIT|NOFRAME, $0-0
 	WORD	$0xff067613	// andi a2,a2,-16
 	WORD	$0x12060c63	// beqz a2,.+312
-	WORD	$0xfe010113	// addi sp,sp,-32
-	WORD	$0x00813c23	// sd s0,24(sp)
-	WORD	$0x00913823	// sd s1,16(sp)
-	WORD	$0x01213423	// sd s2,8(sp)
-	WORD	$0x01313023	// sd s3,0(sp)
+	WORD	$0x00000013	// nop (was addi sp,sp,-32)
+	WORD	$0x00000013	// nop (was sd s0,24(sp))
+	WORD	$0x00000013	// nop (was sd s1,16(sp))
+	WORD	$0x00000013	// nop (was sd s2,8(sp))
+	WORD	$0x00000013	// nop (was sd s3,0(sp))
 	WORD	$0x0075ff13	// andi t5,a1,7
 	WORD	$0xff85f593	// andi a1,a1,-8
 	WORD	$0x003f1f13	// slli t5,t5,0x3
@@ -244,9 +245,9 @@ TEXT ·poly1305BlocksAligned(SB), NOSPLIT|NOFRAME, $0-0
 	WORD	$0x00853023	// sd s0,0(a0)
 	WORD	$0x00953423	// sd s1,8(a0)
 	WORD	$0x01253823	// sd s2,16(a0)
-	WORD	$0x01813403	// ld s0,24(sp)
-	WORD	$0x01013483	// ld s1,16(sp)
-	WORD	$0x00813903	// ld s2,8(sp)
-	WORD	$0x00013983	// ld s3,0(sp)
-	WORD	$0x02010113	// addi sp,sp,32
+	WORD	$0x00000013	// nop (was ld s0,24(sp))
+	WORD	$0x00000013	// nop (was ld s1,16(sp))
+	WORD	$0x00000013	// nop (was ld s2,8(sp))
+	WORD	$0x00000013	// nop (was ld s3,0(sp))
+	WORD	$0x00000013	// nop (was addi sp,sp,32)
 	WORD	$0x00008067	// ret

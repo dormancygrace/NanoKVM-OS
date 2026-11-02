@@ -28,10 +28,15 @@ URL = 'https://raw.githubusercontent.com/gregkh/linux/v7.3.1/lib/crypto/riscv/po
 SHA256 = '9a75fc04cd61e8fbd7f7e7cafec070158fb2d964d33c1d3da3d028e10a0a1a72'
 
 # Registers the CRYPTOGAMS code may use: Go keeps g in x27 and gp/tp fixed;
-# everything else is caller-saved in Go's ABI0. s0-s3 are saved and restored
-# by the code itself, 32 bytes below the stack pointer.
+# everything else is caller-saved in Go's ABI0.
 ALLOWED = set('zero ra sp a0 a1 a2 a3 a4 a5 a6 a7 t0 t1 t2 t3 t4 t5 t6 s0 s1 s2 s3'.split())
 REG = re.compile(r'\b(zero|ra|sp|gp|tp|[ast][0-9]+|x[0-9]+)\b')
+# CRYPTOGAMS saves s0-s3 in a 32-byte frame of its own. Go's ABI0 does not
+# need them preserved, and an SP change the Go assembler cannot see would
+# break traceback (CPU profiles) inside the function: these become nops, so
+# the functions are frameless leaves and the branch offsets stay valid.
+FRAME = re.compile(r'^(addi sp,sp,-?32|[sl]d s[0-3],\d+\(sp\))$')
+NOP = 0x00000013
 
 
 def blocks(pl, binutils, fast):
@@ -68,11 +73,18 @@ def blocks(pl, binutils, fast):
         bad = set(REG.findall(ins)) - ALLOWED
         if bad:
             sys.exit(f'poly1305_blocks uses {sorted(bad)}: {ins}')
+        if FRAME.match(ins):
+            out.append((NOP, f'nop (was {ins})'))
+            continue
+        if re.search(r'\bsp\b', ins):
+            sys.exit(f'poly1305_blocks uses the stack pointer: {ins}')
         out.append((int(word, 16), ins))
     if len(out) * 4 != size:
         sys.exit('poly1305_blocks has instructions that are not 32 bits wide')
     if out[-1][1] != 'ret' or sum(i == 'ret' for _, i in out) != 1:
         sys.exit('poly1305_blocks must end in its only ret')
+    if sum(w == NOP for w, _ in out) != 10:
+        sys.exit('expected the 10 instructions of the s0-s3 frame')
     return out
 
 
@@ -97,8 +109,9 @@ HEADER = '''\
 // at 8..55(SP) (Go keeps s, the final key half, where CRYPTOGAMS keeps s1). A
 // final partial block (from Sum) is copied to 56(SP), followed by 0x01 and
 // zeros, and hashed with padbit 0. The blocks functions take the context,
-// message, length and padbit in a0-a3 and clobber a0-a7, t0-t6 and, saved
-// and restored 32 bytes below the stack pointer, s0-s3.
+// message, length and padbit in a0-a3 and clobber a0-a7, t0-t6 and s0-s3;
+// they do not touch the stack pointer (the 10 instructions of CRYPTOGAMS'
+// own s0-s3 frame are nops), so Go's traceback sees frameless leaves.
 //
 // CRYPTOGAMS reduces h2 when the next block starts, so h2 can be large after
 // the last one; finalize needs h < 2 * (2^130 - 5). update folds

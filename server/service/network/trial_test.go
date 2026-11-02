@@ -362,6 +362,19 @@ func TestARestoreThatFailsKeepsTheRecord(t *testing.T) {
 	if _, response := postJSON((&Service{}).SetEthernet, newStatic); response.Code != -3 {
 		t.Fatalf("a change replaced the only record: %+v", response)
 	}
+	// Let the retry finish before cleanup replaces the global hooks and
+	// removes this fixture. Timer.Stop cannot join a callback already running.
+	if err := os.Remove(blocker); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the startup restore to finish", func() bool {
+		trialMu.Lock()
+		defer trialMu.Unlock()
+		return active == nil
+	})
+	if got := f.read(t, ethernetConfigFile); got != previous {
+		t.Fatalf("config not restored after removing the blocker: %q", got)
+	}
 }
 
 func TestAnUnusableRecordIsKeptAsideLoudly(t *testing.T) {

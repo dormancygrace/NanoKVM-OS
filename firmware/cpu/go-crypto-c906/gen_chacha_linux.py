@@ -3,7 +3,7 @@
 
 The same five-block kernel as the Go one (gen_chacha_riscv64.py): four blocks
 in XTheadVector lanes, a fifth in scalar registers, their instructions
-interleaved one to one. This output follows the kernel's C calling convention
+interleaved. This output follows the kernel's C calling convention
 and lib/crypto's ChaCha interface:
 
     void chacha_xtheadvector(struct chacha_state *state, const u8 *in, u8 *out,
@@ -15,9 +15,9 @@ counter and nonce from the state, supports any even nrounds (20 for ChaCha20,
 kernel_vector_begin(). The key stream buffer on the stack is wiped before
 returning.
 
-Vector instructions are emitted as .4byte words with their mnemonics in
-comments, so the kernel needs no assembler support for XTheadVector. Every
-word is checked against GNU as/objdump -march=rv64gc_xtheadvector.
+Vector and XTheadBb instructions are emitted as .4byte words with their
+mnemonics in comments, so the kernel needs no assembler support for them.
+Every word is checked against GNU as/objdump -march=rv64gc_xtheadvector_xtheadbb.
 
 Usage: gen_chacha_linux.py --binutils PREFIX (--output FILE | --check FILE)
 For --check, FILE may also be platform/kernel/0040-*.patch.
@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gen_chacha_riscv64 as G  # noqa: E402
 
 G.ABI.update({0: 'zero', 1: 'ra', 2: 'sp', 27: 's11', 31: 't6'})
-from gen_chacha_riscv64 import (COLUMNS, DIAGONALS, V, vector_round, vv, vx,  # noqa: E402
+from gen_chacha_riscv64 import (V, double_round, vv, vx,  # noqa: E402
                                 vmv_v_x, vmv_v_v, vid, vsetvli, vle, vse, vssseg, verify)
 
 R = G.ABI
@@ -47,25 +47,18 @@ NAME = 'chacha_xtheadvector'
 assert FRAME % 16 == 0 and len(set(S + [TMP, ROUNDS, CTR, XREM, XVL, XKS, STATE, IN, OUT, NGROUPS, NROUNDS])) == 27
 
 
-def scalar_round(quads):
-    """One ChaCha round for the scalar block, with base RV64I rotates."""
-    out = []
+# vmacc.vx multipliers 1<<16, 1<<12, 1<<8, 1<<7 while the rounds run: t3 is
+# free there (th.srriw needs no temporary), s10, s11 and t6 serve the XOR loop.
+MULREG = {16: TMP, 12: XREM, 8: XVL, 7: XKS}
+G.S = S  # the scalar block's registers for the shared round schedule
 
-    def step(add, xor, rot):
-        for q in quads:
-            a, b = R[S[q[add[0]]]], R[S[q[add[1]]]]
-            out.append(f'addw\t{a}, {a}, {b}')
-        for q in quads:
-            x, a = R[S[q[xor]]], R[S[q[add[0]]]]
-            out.append(f'xor\t{x}, {x}, {a}')
-        for q in quads:
-            r = R[S[q[xor]]]
-            out.extend([f'slliw\t{R[TMP]}, {r}, {rot}', f'srliw\t{r}, {r}, {32 - rot}', f'or\t{r}, {r}, {R[TMP]}'])
-    step((0, 1), 3, 16)
-    step((2, 3), 1, 12)
-    step((0, 1), 3, 8)
-    step((2, 3), 1, 7)
-    return out
+
+def addw(d, s):
+    return f'addw\t{R[S[d]]}, {R[S[d]]}, {R[S[s]]}'
+
+
+def xor(d, s):
+    return f'xor\t{R[S[d]]}, {R[S[d]]}, {R[S[s]]}'
 
 
 class Asm:
@@ -118,14 +111,10 @@ def build():
             a(vmv_v_x(i, S[i]))
     a(vid(VCTR), vx('vadd', VCTR, VCTR, CTR), vmv_v_v(12, VCTR))
     a(f'srli\t{R[ROUNDS]}, {R[NROUNDS]}, 1')
+    for rot, reg in MULREG.items():
+        a(f'li\t{R[reg]}, {1 << rot}')
     a.label('.Ldoubleround')
-    # One vector, one scalar instruction: the C906 issues the scalar one while
-    # its 64-bit vector datapath still works on the 128-bit vector one.
-    vec = vector_round(COLUMNS) + vector_round(DIAGONALS)
-    sca = scalar_round(COLUMNS) + scalar_round(DIAGONALS)
-    assert len(vec) == len(sca) == 160
-    for v, s in zip(vec, sca):
-        a(v, s)
+    a(*double_round(MULREG, add=addw, xor=xor))
     a(f'addi\t{R[ROUNDS]}, {R[ROUNDS]}, -1', f'bnez\t{R[ROUNDS]}, .Ldoubleround')
     # Add the initial state.
     for i in range(16):
@@ -166,15 +155,18 @@ HEADER = '''\
  * ChaCha for the T-Head C906: five 64-byte blocks per iteration. Four blocks
  * are in XTheadVector lanes (VLEN 128, SEW 32, LMUL 1), one state word per
  * vector register; the fifth block is in scalar registers, its instructions
- * interleaved with the vector ones. XTheadVector has no rotate, so rotates
- * are shift left, shift right, or.
+ * interleaved with the vector ones. XTheadVector has no rotate: a vector
+ * rotate left by k is a shift right by 32 - k plus vmacc.vx of the word times
+ * 2^k, two instructions. The scalar block rotates with XTheadBb th.srriw,
+ * which every T-Head core implements (the kernel is built with XTheadBb).
  *
  * void chacha_xtheadvector(struct chacha_state *state, const u8 *in, u8 *out,
  *                          size_t ngroups, int nrounds);
  *
  * Processes ngroups * 320 bytes, advances state->x[12] by 5 per group. The
- * caller holds kernel_vector_begin(). Vector instructions are .4byte words,
- * checked by the generator against GNU as/objdump -march=rv64gc_xtheadvector.
+ * caller holds kernel_vector_begin(). Vector and XTheadBb instructions are
+ * .4byte words, checked by the generator against GNU as/objdump
+ * -march=rv64gc_xtheadvector_xtheadbb.
  */
 
 #include <linux/linkage.h>

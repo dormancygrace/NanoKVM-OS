@@ -28,7 +28,9 @@ func c906() bool {
 
 // detectC906 selects the XTheadVector kernel only if /proc/cpuinfo lists
 // xtheadvector and the kernel enables vector state for this thread.
-// NANOKVM_CHACHA20=generic selects the generic code.
+// NANOKVM_CHACHA20=generic selects the generic code. The kernel also uses
+// XTheadBb (th.srriw), which needs no check: only T-Head cores report
+// xtheadvector, and every T-Head core implements XTheadBb.
 func detectC906() bool {
 	if env, _ := syscall.Getenv("NANOKVM_CHACHA20"); env == "generic" {
 		return false

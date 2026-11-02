@@ -209,3 +209,20 @@ The native SSH test also caught a separate lazy-initialization issue: OpenSSL's
 kills `getgid`. The C906 wrapper uses musl `secure_getenv` directly, preserving
 secure-execution handling without those syscalls. The native seccomp regression
 now kills `getgid`/`getegid` as well as file/probe syscalls.
+
+## Two-instruction vector rotates (2026-11-02)
+
+The regenerated assembly (vector rotate = shift plus `vmacc.vx`, scalar
+block with XTheadBb `th.srriw`, see `go-crypto-c906/README.md`) against the
+previous one, same OpenSSL 3.5.9 source and flags, `openssl speed -evp`,
+`NANOKVM_OPENSSL_CHACHA20=auto`, best of two rounds, MB/s:
+
+| bytes | 640 | 1024 | 1400 | 4096 | 16384 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ChaCha20, previous | 83.7 | 77.7 | 75.8 | 82.2 | 87.2 |
+| ChaCha20, new | 107.1 | 99.8 | 93.4 | 105.0 | 115.6 |
+| ChaCha20-Poly1305, previous | 53.1 | 50.5 | 49.9 | 53.6 | 56.7 |
+| ChaCha20-Poly1305, new | 61.6 | 59.5 | 57.3 | 61.5 | 67.0 |
+
+Below the unchanged 640-byte minimum both use the generic code (about 40 and
+32 MB/s).

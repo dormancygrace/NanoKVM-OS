@@ -9,20 +9,24 @@
 // ChaCha20 for the T-Head C906 (SG2002): five blocks per iteration. Four
 // blocks are in XTheadVector lanes (VLEN 128, SEW 32, LMUL 1) with one state
 // word per vector register; the fifth block is in scalar registers, its
-// instructions interleaved with the vector ones.
+// instructions interleaved with the vector ones. XTheadVector has no rotate:
+// a vector rotate left by k is a shift right by 32 - k plus vmacc.vx of the
+// word times 2^k. The scalar block rotates with XTheadBb th.srriw, which every
+// T-Head core implements.
 //
 // Vector registers are not preserved across calls, so all vector state is
 // set up and consumed within this call, which calls nothing. Assembly
 // functions are not asynchronously preempted; the kernel saves vector state
 // across context switches and signals.
 //
-// Go's assembler has no RVV 0.7.1 encodings, so vector instructions are WORDs.
-// The generator checks each against GNU as/objdump -march=rv64gc_xtheadvector.
+// Go's assembler has no RVV 0.7.1 or XTheadBb encodings, so these are WORDs.
+// The generator checks each against GNU as/objdump
+// -march=rv64gc_xtheadvector_xtheadbb.
 
 #include "textflag.h"
 
 // func xorKeyStreamC906(dst, src []byte, key *[8]uint32, nonce *[3]uint32, counter *uint32)
-TEXT ·xorKeyStreamC906(SB), 0, $320-72
+TEXT ·xorKeyStreamC906(SB), 0, $352-72
 	MOV	dst_base+0(FP), X23
 	MOV	src_base+24(FP), X24
 	MOV	src_len+32(FP), X25
@@ -69,6 +73,14 @@ loop:
 	WORD	$0x5a08aa57	// th.vid.v v20
 	WORD	$0x034d4a57	// th.vadd.vx v20,v20,s10
 	WORD	$0x5e0a0657	// th.vmv.v.v v12,v20
+	MOV	X23, 320(X30)
+	MOV	X24, 328(X30)
+	MOV	X28, 336(X30)
+	MOV	X29, 344(X30)
+	MOV	$65536, X28
+	MOV	$4096, X29
+	MOV	$256, X23
+	MOV	$128, X24
 	MOV	$10, X22
 round:
 	WORD	$0x02020057	// th.vadd.vv v0,v0,v4
@@ -78,119 +90,83 @@ round:
 	WORD	$0x02230157	// th.vadd.vv v2,v2,v6
 	ADDW	X11, X7
 	WORD	$0x023381d7	// th.vadd.vv v3,v3,v7
-	ADDW	X12, X8
 	WORD	$0x2ec00657	// th.vxor.vv v12,v12,v0
-	XOR	X5, X17
+	ADDW	X12, X8
 	WORD	$0x2ed086d7	// th.vxor.vv v13,v13,v1
-	XOR	X6, X18
+	XOR	X5, X17
 	WORD	$0x2ee10757	// th.vxor.vv v14,v14,v2
-	XOR	X7, X19
+	XOR	X6, X18
 	WORD	$0x2ef187d7	// th.vxor.vv v15,v15,v3
+	WORD	$0xa2c83857	// th.vsrl.vi v16,v12,16
+	XOR	X7, X19
+	WORD	$0xa2d838d7	// th.vsrl.vi v17,v13,16
 	XOR	X8, X20
-	WORD	$0x96c83857	// th.vsll.vi v16,v12,16
-	SLLIW	$16, X17, X21
-	WORD	$0x96d838d7	// th.vsll.vi v17,v13,16
-	SRLIW	$16, X17
-	WORD	$0x96e83957	// th.vsll.vi v18,v14,16
-	OR	X21, X17
-	WORD	$0x96f839d7	// th.vsll.vi v19,v15,16
-	SLLIW	$16, X18, X21
-	WORD	$0xa2c83657	// th.vsrl.vi v12,v12,16
-	SRLIW	$16, X18
-	WORD	$0xa2d836d7	// th.vsrl.vi v13,v13,16
-	OR	X21, X18
-	WORD	$0xa2e83757	// th.vsrl.vi v14,v14,16
-	SLLIW	$16, X19, X21
-	WORD	$0xa2f837d7	// th.vsrl.vi v15,v15,16
-	SRLIW	$16, X19
-	WORD	$0x2ac80657	// th.vor.vv v12,v12,v16
-	OR	X21, X19
-	WORD	$0x2ad886d7	// th.vor.vv v13,v13,v17
-	SLLIW	$16, X20, X21
-	WORD	$0x2ae90757	// th.vor.vv v14,v14,v18
-	SRLIW	$16, X20
-	WORD	$0x2af987d7	// th.vor.vv v15,v15,v19
-	OR	X21, X20
-	WORD	$0x02860457	// th.vadd.vv v8,v8,v12
+	WORD	$0xa2e83957	// th.vsrl.vi v18,v14,16
+	WORD	$0x1508988b	// th.srriw a7,a7,16
+	WORD	$0xa2f839d7	// th.vsrl.vi v19,v15,16
+	WORD	$0xb6ce6857	// th.vmacc.vx v16,t3,v12
+	WORD	$0x1509190b	// th.srriw s2,s2,16
+	WORD	$0xb6de68d7	// th.vmacc.vx v17,t3,v13
+	WORD	$0x1509998b	// th.srriw s3,s3,16
+	WORD	$0xb6ee6957	// th.vmacc.vx v18,t3,v14
+	WORD	$0x150a1a0b	// th.srriw s4,s4,16
+	WORD	$0xb6fe69d7	// th.vmacc.vx v19,t3,v15
+	WORD	$0x02880457	// th.vadd.vv v8,v8,v16
 	ADDW	X17, X13
-	WORD	$0x029684d7	// th.vadd.vv v9,v9,v13
+	WORD	$0x029884d7	// th.vadd.vv v9,v9,v17
 	ADDW	X18, X14
-	WORD	$0x02a70557	// th.vadd.vv v10,v10,v14
+	WORD	$0x02a90557	// th.vadd.vv v10,v10,v18
 	ADDW	X19, X15
-	WORD	$0x02b785d7	// th.vadd.vv v11,v11,v15
-	ADDW	X20, X16
+	WORD	$0x02b985d7	// th.vadd.vv v11,v11,v19
 	WORD	$0x2e440257	// th.vxor.vv v4,v4,v8
-	XOR	X13, X9
+	ADDW	X20, X16
 	WORD	$0x2e5482d7	// th.vxor.vv v5,v5,v9
-	XOR	X14, X10
+	XOR	X13, X9
 	WORD	$0x2e650357	// th.vxor.vv v6,v6,v10
-	XOR	X15, X11
+	XOR	X14, X10
 	WORD	$0x2e7583d7	// th.vxor.vv v7,v7,v11
+	WORD	$0xa24a3ad7	// th.vsrl.vi v21,v4,20
+	XOR	X15, X11
+	WORD	$0xa25a3b57	// th.vsrl.vi v22,v5,20
 	XOR	X16, X12
-	WORD	$0x96463857	// th.vsll.vi v16,v4,12
-	SLLIW	$12, X9, X21
-	WORD	$0x965638d7	// th.vsll.vi v17,v5,12
-	SRLIW	$20, X9
-	WORD	$0x96663957	// th.vsll.vi v18,v6,12
-	OR	X21, X9
-	WORD	$0x967639d7	// th.vsll.vi v19,v7,12
-	SLLIW	$12, X10, X21
-	WORD	$0xa24a3257	// th.vsrl.vi v4,v4,20
-	SRLIW	$20, X10
-	WORD	$0xa25a32d7	// th.vsrl.vi v5,v5,20
-	OR	X21, X10
-	WORD	$0xa26a3357	// th.vsrl.vi v6,v6,20
-	SLLIW	$12, X11, X21
-	WORD	$0xa27a33d7	// th.vsrl.vi v7,v7,20
-	SRLIW	$20, X11
-	WORD	$0x2a480257	// th.vor.vv v4,v4,v16
-	OR	X21, X11
-	WORD	$0x2a5882d7	// th.vor.vv v5,v5,v17
-	SLLIW	$12, X12, X21
-	WORD	$0x2a690357	// th.vor.vv v6,v6,v18
-	SRLIW	$20, X12
-	WORD	$0x2a7983d7	// th.vor.vv v7,v7,v19
-	OR	X21, X12
-	WORD	$0x02020057	// th.vadd.vv v0,v0,v4
+	WORD	$0xa26a3bd7	// th.vsrl.vi v23,v6,20
+	WORD	$0x1544948b	// th.srriw s1,s1,20
+	WORD	$0xa27a3c57	// th.vsrl.vi v24,v7,20
+	WORD	$0xb64eead7	// th.vmacc.vx v21,t4,v4
+	WORD	$0x1545150b	// th.srriw a0,a0,20
+	WORD	$0xb65eeb57	// th.vmacc.vx v22,t4,v5
+	WORD	$0x1545958b	// th.srriw a1,a1,20
+	WORD	$0xb66eebd7	// th.vmacc.vx v23,t4,v6
+	WORD	$0x1546160b	// th.srriw a2,a2,20
+	WORD	$0xb67eec57	// th.vmacc.vx v24,t4,v7
+	WORD	$0x020a8057	// th.vadd.vv v0,v0,v21
 	ADDW	X9, X5
-	WORD	$0x021280d7	// th.vadd.vv v1,v1,v5
+	WORD	$0x021b00d7	// th.vadd.vv v1,v1,v22
 	ADDW	X10, X6
-	WORD	$0x02230157	// th.vadd.vv v2,v2,v6
+	WORD	$0x022b8157	// th.vadd.vv v2,v2,v23
 	ADDW	X11, X7
-	WORD	$0x023381d7	// th.vadd.vv v3,v3,v7
+	WORD	$0x023c01d7	// th.vadd.vv v3,v3,v24
+	WORD	$0x2f000857	// th.vxor.vv v16,v16,v0
 	ADDW	X12, X8
-	WORD	$0x2ec00657	// th.vxor.vv v12,v12,v0
+	WORD	$0x2f1088d7	// th.vxor.vv v17,v17,v1
 	XOR	X5, X17
-	WORD	$0x2ed086d7	// th.vxor.vv v13,v13,v1
+	WORD	$0x2f210957	// th.vxor.vv v18,v18,v2
 	XOR	X6, X18
-	WORD	$0x2ee10757	// th.vxor.vv v14,v14,v2
+	WORD	$0x2f3189d7	// th.vxor.vv v19,v19,v3
+	WORD	$0xa30c3657	// th.vsrl.vi v12,v16,24
 	XOR	X7, X19
-	WORD	$0x2ef187d7	// th.vxor.vv v15,v15,v3
+	WORD	$0xa31c36d7	// th.vsrl.vi v13,v17,24
 	XOR	X8, X20
-	WORD	$0x96c43857	// th.vsll.vi v16,v12,8
-	SLLIW	$8, X17, X21
-	WORD	$0x96d438d7	// th.vsll.vi v17,v13,8
-	SRLIW	$24, X17
-	WORD	$0x96e43957	// th.vsll.vi v18,v14,8
-	OR	X21, X17
-	WORD	$0x96f439d7	// th.vsll.vi v19,v15,8
-	SLLIW	$8, X18, X21
-	WORD	$0xa2cc3657	// th.vsrl.vi v12,v12,24
-	SRLIW	$24, X18
-	WORD	$0xa2dc36d7	// th.vsrl.vi v13,v13,24
-	OR	X21, X18
-	WORD	$0xa2ec3757	// th.vsrl.vi v14,v14,24
-	SLLIW	$8, X19, X21
-	WORD	$0xa2fc37d7	// th.vsrl.vi v15,v15,24
-	SRLIW	$24, X19
-	WORD	$0x2ac80657	// th.vor.vv v12,v12,v16
-	OR	X21, X19
-	WORD	$0x2ad886d7	// th.vor.vv v13,v13,v17
-	SLLIW	$8, X20, X21
-	WORD	$0x2ae90757	// th.vor.vv v14,v14,v18
-	SRLIW	$24, X20
-	WORD	$0x2af987d7	// th.vor.vv v15,v15,v19
-	OR	X21, X20
+	WORD	$0xa32c3757	// th.vsrl.vi v14,v18,24
+	WORD	$0x1588988b	// th.srriw a7,a7,24
+	WORD	$0xa33c37d7	// th.vsrl.vi v15,v19,24
+	WORD	$0xb70be657	// th.vmacc.vx v12,s7,v16
+	WORD	$0x1589190b	// th.srriw s2,s2,24
+	WORD	$0xb71be6d7	// th.vmacc.vx v13,s7,v17
+	WORD	$0x1589998b	// th.srriw s3,s3,24
+	WORD	$0xb72be757	// th.vmacc.vx v14,s7,v18
+	WORD	$0x158a1a0b	// th.srriw s4,s4,24
+	WORD	$0xb73be7d7	// th.vmacc.vx v15,s7,v19
 	WORD	$0x02860457	// th.vadd.vv v8,v8,v12
 	ADDW	X17, X13
 	WORD	$0x029684d7	// th.vadd.vv v9,v9,v13
@@ -198,39 +174,27 @@ round:
 	WORD	$0x02a70557	// th.vadd.vv v10,v10,v14
 	ADDW	X19, X15
 	WORD	$0x02b785d7	// th.vadd.vv v11,v11,v15
+	WORD	$0x2f540ad7	// th.vxor.vv v21,v21,v8
 	ADDW	X20, X16
-	WORD	$0x2e440257	// th.vxor.vv v4,v4,v8
+	WORD	$0x2f648b57	// th.vxor.vv v22,v22,v9
 	XOR	X13, X9
-	WORD	$0x2e5482d7	// th.vxor.vv v5,v5,v9
+	WORD	$0x2f750bd7	// th.vxor.vv v23,v23,v10
 	XOR	X14, X10
-	WORD	$0x2e650357	// th.vxor.vv v6,v6,v10
+	WORD	$0x2f858c57	// th.vxor.vv v24,v24,v11
+	WORD	$0xa35cb257	// th.vsrl.vi v4,v21,25
 	XOR	X15, X11
-	WORD	$0x2e7583d7	// th.vxor.vv v7,v7,v11
+	WORD	$0xa36cb2d7	// th.vsrl.vi v5,v22,25
 	XOR	X16, X12
-	WORD	$0x9643b857	// th.vsll.vi v16,v4,7
-	SLLIW	$7, X9, X21
-	WORD	$0x9653b8d7	// th.vsll.vi v17,v5,7
-	SRLIW	$25, X9
-	WORD	$0x9663b957	// th.vsll.vi v18,v6,7
-	OR	X21, X9
-	WORD	$0x9673b9d7	// th.vsll.vi v19,v7,7
-	SLLIW	$7, X10, X21
-	WORD	$0xa24cb257	// th.vsrl.vi v4,v4,25
-	SRLIW	$25, X10
-	WORD	$0xa25cb2d7	// th.vsrl.vi v5,v5,25
-	OR	X21, X10
-	WORD	$0xa26cb357	// th.vsrl.vi v6,v6,25
-	SLLIW	$7, X11, X21
-	WORD	$0xa27cb3d7	// th.vsrl.vi v7,v7,25
-	SRLIW	$25, X11
-	WORD	$0x2a480257	// th.vor.vv v4,v4,v16
-	OR	X21, X11
-	WORD	$0x2a5882d7	// th.vor.vv v5,v5,v17
-	SLLIW	$7, X12, X21
-	WORD	$0x2a690357	// th.vor.vv v6,v6,v18
-	SRLIW	$25, X12
-	WORD	$0x2a7983d7	// th.vor.vv v7,v7,v19
-	OR	X21, X12
+	WORD	$0xa37cb357	// th.vsrl.vi v6,v23,25
+	WORD	$0x1594948b	// th.srriw s1,s1,25
+	WORD	$0xa38cb3d7	// th.vsrl.vi v7,v24,25
+	WORD	$0xb75c6257	// th.vmacc.vx v4,s8,v21
+	WORD	$0x1595150b	// th.srriw a0,a0,25
+	WORD	$0xb76c62d7	// th.vmacc.vx v5,s8,v22
+	WORD	$0x1595958b	// th.srriw a1,a1,25
+	WORD	$0xb77c6357	// th.vmacc.vx v6,s8,v23
+	WORD	$0x1596160b	// th.srriw a2,a2,25
+	WORD	$0xb78c63d7	// th.vmacc.vx v7,s8,v24
 	WORD	$0x02028057	// th.vadd.vv v0,v0,v5
 	ADDW	X10, X5
 	WORD	$0x021300d7	// th.vadd.vv v1,v1,v6
@@ -238,119 +202,83 @@ round:
 	WORD	$0x02238157	// th.vadd.vv v2,v2,v7
 	ADDW	X12, X7
 	WORD	$0x023201d7	// th.vadd.vv v3,v3,v4
-	ADDW	X9, X8
 	WORD	$0x2ef007d7	// th.vxor.vv v15,v15,v0
-	XOR	X5, X20
+	ADDW	X9, X8
 	WORD	$0x2ec08657	// th.vxor.vv v12,v12,v1
-	XOR	X6, X17
+	XOR	X5, X20
 	WORD	$0x2ed106d7	// th.vxor.vv v13,v13,v2
-	XOR	X7, X18
+	XOR	X6, X17
 	WORD	$0x2ee18757	// th.vxor.vv v14,v14,v3
+	WORD	$0xa2f839d7	// th.vsrl.vi v19,v15,16
+	XOR	X7, X18
+	WORD	$0xa2c83857	// th.vsrl.vi v16,v12,16
 	XOR	X8, X19
-	WORD	$0x96f83857	// th.vsll.vi v16,v15,16
-	SLLIW	$16, X20, X21
-	WORD	$0x96c838d7	// th.vsll.vi v17,v12,16
-	SRLIW	$16, X20
-	WORD	$0x96d83957	// th.vsll.vi v18,v13,16
-	OR	X21, X20
-	WORD	$0x96e839d7	// th.vsll.vi v19,v14,16
-	SLLIW	$16, X17, X21
-	WORD	$0xa2f837d7	// th.vsrl.vi v15,v15,16
-	SRLIW	$16, X17
-	WORD	$0xa2c83657	// th.vsrl.vi v12,v12,16
-	OR	X21, X17
-	WORD	$0xa2d836d7	// th.vsrl.vi v13,v13,16
-	SLLIW	$16, X18, X21
-	WORD	$0xa2e83757	// th.vsrl.vi v14,v14,16
-	SRLIW	$16, X18
-	WORD	$0x2af807d7	// th.vor.vv v15,v15,v16
-	OR	X21, X18
-	WORD	$0x2ac88657	// th.vor.vv v12,v12,v17
-	SLLIW	$16, X19, X21
-	WORD	$0x2ad906d7	// th.vor.vv v13,v13,v18
-	SRLIW	$16, X19
-	WORD	$0x2ae98757	// th.vor.vv v14,v14,v19
-	OR	X21, X19
-	WORD	$0x02a78557	// th.vadd.vv v10,v10,v15
+	WORD	$0xa2d838d7	// th.vsrl.vi v17,v13,16
+	WORD	$0x150a1a0b	// th.srriw s4,s4,16
+	WORD	$0xa2e83957	// th.vsrl.vi v18,v14,16
+	WORD	$0xb6fe69d7	// th.vmacc.vx v19,t3,v15
+	WORD	$0x1508988b	// th.srriw a7,a7,16
+	WORD	$0xb6ce6857	// th.vmacc.vx v16,t3,v12
+	WORD	$0x1509190b	// th.srriw s2,s2,16
+	WORD	$0xb6de68d7	// th.vmacc.vx v17,t3,v13
+	WORD	$0x1509998b	// th.srriw s3,s3,16
+	WORD	$0xb6ee6957	// th.vmacc.vx v18,t3,v14
+	WORD	$0x02a98557	// th.vadd.vv v10,v10,v19
 	ADDW	X20, X15
-	WORD	$0x02b605d7	// th.vadd.vv v11,v11,v12
+	WORD	$0x02b805d7	// th.vadd.vv v11,v11,v16
 	ADDW	X17, X16
-	WORD	$0x02868457	// th.vadd.vv v8,v8,v13
+	WORD	$0x02888457	// th.vadd.vv v8,v8,v17
 	ADDW	X18, X13
-	WORD	$0x029704d7	// th.vadd.vv v9,v9,v14
-	ADDW	X19, X14
+	WORD	$0x029904d7	// th.vadd.vv v9,v9,v18
 	WORD	$0x2e5502d7	// th.vxor.vv v5,v5,v10
-	XOR	X15, X10
+	ADDW	X19, X14
 	WORD	$0x2e658357	// th.vxor.vv v6,v6,v11
-	XOR	X16, X11
+	XOR	X15, X10
 	WORD	$0x2e7403d7	// th.vxor.vv v7,v7,v8
-	XOR	X13, X12
+	XOR	X16, X11
 	WORD	$0x2e448257	// th.vxor.vv v4,v4,v9
+	WORD	$0xa25a3b57	// th.vsrl.vi v22,v5,20
+	XOR	X13, X12
+	WORD	$0xa26a3bd7	// th.vsrl.vi v23,v6,20
 	XOR	X14, X9
-	WORD	$0x96563857	// th.vsll.vi v16,v5,12
-	SLLIW	$12, X10, X21
-	WORD	$0x966638d7	// th.vsll.vi v17,v6,12
-	SRLIW	$20, X10
-	WORD	$0x96763957	// th.vsll.vi v18,v7,12
-	OR	X21, X10
-	WORD	$0x964639d7	// th.vsll.vi v19,v4,12
-	SLLIW	$12, X11, X21
-	WORD	$0xa25a32d7	// th.vsrl.vi v5,v5,20
-	SRLIW	$20, X11
-	WORD	$0xa26a3357	// th.vsrl.vi v6,v6,20
-	OR	X21, X11
-	WORD	$0xa27a33d7	// th.vsrl.vi v7,v7,20
-	SLLIW	$12, X12, X21
-	WORD	$0xa24a3257	// th.vsrl.vi v4,v4,20
-	SRLIW	$20, X12
-	WORD	$0x2a5802d7	// th.vor.vv v5,v5,v16
-	OR	X21, X12
-	WORD	$0x2a688357	// th.vor.vv v6,v6,v17
-	SLLIW	$12, X9, X21
-	WORD	$0x2a7903d7	// th.vor.vv v7,v7,v18
-	SRLIW	$20, X9
-	WORD	$0x2a498257	// th.vor.vv v4,v4,v19
-	OR	X21, X9
-	WORD	$0x02028057	// th.vadd.vv v0,v0,v5
+	WORD	$0xa27a3c57	// th.vsrl.vi v24,v7,20
+	WORD	$0x1545150b	// th.srriw a0,a0,20
+	WORD	$0xa24a3ad7	// th.vsrl.vi v21,v4,20
+	WORD	$0xb65eeb57	// th.vmacc.vx v22,t4,v5
+	WORD	$0x1545958b	// th.srriw a1,a1,20
+	WORD	$0xb66eebd7	// th.vmacc.vx v23,t4,v6
+	WORD	$0x1546160b	// th.srriw a2,a2,20
+	WORD	$0xb67eec57	// th.vmacc.vx v24,t4,v7
+	WORD	$0x1544948b	// th.srriw s1,s1,20
+	WORD	$0xb64eead7	// th.vmacc.vx v21,t4,v4
+	WORD	$0x020b0057	// th.vadd.vv v0,v0,v22
 	ADDW	X10, X5
-	WORD	$0x021300d7	// th.vadd.vv v1,v1,v6
+	WORD	$0x021b80d7	// th.vadd.vv v1,v1,v23
 	ADDW	X11, X6
-	WORD	$0x02238157	// th.vadd.vv v2,v2,v7
+	WORD	$0x022c0157	// th.vadd.vv v2,v2,v24
 	ADDW	X12, X7
-	WORD	$0x023201d7	// th.vadd.vv v3,v3,v4
+	WORD	$0x023a81d7	// th.vadd.vv v3,v3,v21
+	WORD	$0x2f3009d7	// th.vxor.vv v19,v19,v0
 	ADDW	X9, X8
-	WORD	$0x2ef007d7	// th.vxor.vv v15,v15,v0
+	WORD	$0x2f008857	// th.vxor.vv v16,v16,v1
 	XOR	X5, X20
-	WORD	$0x2ec08657	// th.vxor.vv v12,v12,v1
+	WORD	$0x2f1108d7	// th.vxor.vv v17,v17,v2
 	XOR	X6, X17
-	WORD	$0x2ed106d7	// th.vxor.vv v13,v13,v2
+	WORD	$0x2f218957	// th.vxor.vv v18,v18,v3
+	WORD	$0xa33c37d7	// th.vsrl.vi v15,v19,24
 	XOR	X7, X18
-	WORD	$0x2ee18757	// th.vxor.vv v14,v14,v3
+	WORD	$0xa30c3657	// th.vsrl.vi v12,v16,24
 	XOR	X8, X19
-	WORD	$0x96f43857	// th.vsll.vi v16,v15,8
-	SLLIW	$8, X20, X21
-	WORD	$0x96c438d7	// th.vsll.vi v17,v12,8
-	SRLIW	$24, X20
-	WORD	$0x96d43957	// th.vsll.vi v18,v13,8
-	OR	X21, X20
-	WORD	$0x96e439d7	// th.vsll.vi v19,v14,8
-	SLLIW	$8, X17, X21
-	WORD	$0xa2fc37d7	// th.vsrl.vi v15,v15,24
-	SRLIW	$24, X17
-	WORD	$0xa2cc3657	// th.vsrl.vi v12,v12,24
-	OR	X21, X17
-	WORD	$0xa2dc36d7	// th.vsrl.vi v13,v13,24
-	SLLIW	$8, X18, X21
-	WORD	$0xa2ec3757	// th.vsrl.vi v14,v14,24
-	SRLIW	$24, X18
-	WORD	$0x2af807d7	// th.vor.vv v15,v15,v16
-	OR	X21, X18
-	WORD	$0x2ac88657	// th.vor.vv v12,v12,v17
-	SLLIW	$8, X19, X21
-	WORD	$0x2ad906d7	// th.vor.vv v13,v13,v18
-	SRLIW	$24, X19
-	WORD	$0x2ae98757	// th.vor.vv v14,v14,v19
-	OR	X21, X19
+	WORD	$0xa31c36d7	// th.vsrl.vi v13,v17,24
+	WORD	$0x158a1a0b	// th.srriw s4,s4,24
+	WORD	$0xa32c3757	// th.vsrl.vi v14,v18,24
+	WORD	$0xb73be7d7	// th.vmacc.vx v15,s7,v19
+	WORD	$0x1588988b	// th.srriw a7,a7,24
+	WORD	$0xb70be657	// th.vmacc.vx v12,s7,v16
+	WORD	$0x1589190b	// th.srriw s2,s2,24
+	WORD	$0xb71be6d7	// th.vmacc.vx v13,s7,v17
+	WORD	$0x1589998b	// th.srriw s3,s3,24
+	WORD	$0xb72be757	// th.vmacc.vx v14,s7,v18
 	WORD	$0x02a78557	// th.vadd.vv v10,v10,v15
 	ADDW	X20, X15
 	WORD	$0x02b605d7	// th.vadd.vv v11,v11,v12
@@ -358,41 +286,33 @@ round:
 	WORD	$0x02868457	// th.vadd.vv v8,v8,v13
 	ADDW	X18, X13
 	WORD	$0x029704d7	// th.vadd.vv v9,v9,v14
+	WORD	$0x2f650b57	// th.vxor.vv v22,v22,v10
 	ADDW	X19, X14
-	WORD	$0x2e5502d7	// th.vxor.vv v5,v5,v10
+	WORD	$0x2f758bd7	// th.vxor.vv v23,v23,v11
 	XOR	X15, X10
-	WORD	$0x2e658357	// th.vxor.vv v6,v6,v11
+	WORD	$0x2f840c57	// th.vxor.vv v24,v24,v8
 	XOR	X16, X11
-	WORD	$0x2e7403d7	// th.vxor.vv v7,v7,v8
+	WORD	$0x2f548ad7	// th.vxor.vv v21,v21,v9
+	WORD	$0xa36cb2d7	// th.vsrl.vi v5,v22,25
 	XOR	X13, X12
-	WORD	$0x2e448257	// th.vxor.vv v4,v4,v9
+	WORD	$0xa37cb357	// th.vsrl.vi v6,v23,25
 	XOR	X14, X9
-	WORD	$0x9653b857	// th.vsll.vi v16,v5,7
-	SLLIW	$7, X10, X21
-	WORD	$0x9663b8d7	// th.vsll.vi v17,v6,7
-	SRLIW	$25, X10
-	WORD	$0x9673b957	// th.vsll.vi v18,v7,7
-	OR	X21, X10
-	WORD	$0x9643b9d7	// th.vsll.vi v19,v4,7
-	SLLIW	$7, X11, X21
-	WORD	$0xa25cb2d7	// th.vsrl.vi v5,v5,25
-	SRLIW	$25, X11
-	WORD	$0xa26cb357	// th.vsrl.vi v6,v6,25
-	OR	X21, X11
-	WORD	$0xa27cb3d7	// th.vsrl.vi v7,v7,25
-	SLLIW	$7, X12, X21
-	WORD	$0xa24cb257	// th.vsrl.vi v4,v4,25
-	SRLIW	$25, X12
-	WORD	$0x2a5802d7	// th.vor.vv v5,v5,v16
-	OR	X21, X12
-	WORD	$0x2a688357	// th.vor.vv v6,v6,v17
-	SLLIW	$7, X9, X21
-	WORD	$0x2a7903d7	// th.vor.vv v7,v7,v18
-	SRLIW	$25, X9
-	WORD	$0x2a498257	// th.vor.vv v4,v4,v19
-	OR	X21, X9
+	WORD	$0xa38cb3d7	// th.vsrl.vi v7,v24,25
+	WORD	$0x1595150b	// th.srriw a0,a0,25
+	WORD	$0xa35cb257	// th.vsrl.vi v4,v21,25
+	WORD	$0xb76c62d7	// th.vmacc.vx v5,s8,v22
+	WORD	$0x1595958b	// th.srriw a1,a1,25
+	WORD	$0xb77c6357	// th.vmacc.vx v6,s8,v23
+	WORD	$0x1596160b	// th.srriw a2,a2,25
+	WORD	$0xb78c63d7	// th.vmacc.vx v7,s8,v24
+	WORD	$0x1594948b	// th.srriw s1,s1,25
+	WORD	$0xb75c6257	// th.vmacc.vx v4,s8,v21
 	SUB	$1, X22
 	BNEZ	X22, round
+	MOV	320(X30), X23
+	MOV	328(X30), X24
+	MOV	336(X30), X28
+	MOV	344(X30), X29
 	MOV	$0x61707865, X21
 	WORD	$0x020ac057	// th.vadd.vx v0,v0,s5
 	ADDW	X21, X5

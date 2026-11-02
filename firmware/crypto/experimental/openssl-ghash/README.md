@@ -86,7 +86,8 @@ original identities and are not measurements of the new tail behavior.
   capability, current-thread and opt-in gates. Preprocessing tests prove
   integration with the scalar baseline ISA and reject the old vector-macro gate.
 - `verify-path.c` checks 32 boundaries/alignment cases against test-only atomic
-  counters at the actual assembly entry: 12 hits with opt-in, zero with generic,
+  counters at the actual assembly entry (recorded with the 3072-byte minimum; the
+  size list now has one more eligible size): 12 hits with opt-in, zero with generic,
   thread vectors off, or default policy under a fatal syscall filter.
   That test-library qualification is pinned separately in `validation.json`;
   the GHASH patch is unchanged in the selected-parent integration run.

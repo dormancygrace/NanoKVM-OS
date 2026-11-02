@@ -41,7 +41,8 @@ Six rotated final-build trials are in `native-policy-bench.jsonl` and
 `native-policy-https.jsonl`, with identities/limits in `native-policy-validation.json`.
 At 16 KiB, AEAD open measures 48.14 versus 29.38 MiB/CPU-s for the same binary's
 generic path. The full-build 64-byte result remains slower than base (6.39 versus
-6.84); no small-input gain is claimed. The 640-byte minimum is retained.
+6.84); no small-input gain is claimed. The 640-byte minimum was retained then
+(superseded: see "Threshold 320" below).
 
 | Final HTTPS, median of six | C906/O3 base | ChaCha candidate |
 | --- | ---: | ---: |
@@ -109,7 +110,7 @@ Medians of six placement-controlled trials, MiB per process CPU second:
 | AEAD open | 1400 | 25.02 | 30.04 | 29.91 |
 | AEAD open | 16384 | 29.52 | 48.26 | 48.34 |
 
-Keep **640 bytes**. The standalone primitive benefits at 320 bytes, but full
+Kept **640 bytes** then (superseded: see "Threshold 320" below). The standalone primitive benefits at 320 bytes, but full
 AEAD open loses about 8% at 320 and 7% at 512. At 16 KiB the selected path gains
 about 63.5% over the same library's generic mode. Small-record speedups are not
 claimed: in the separate complete-build comparison, AEAD open at 64 bytes was

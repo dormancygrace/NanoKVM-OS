@@ -347,6 +347,7 @@ func (k *KvmVision) Close() {
 		k.captureWorker.close()
 		k.captureWorker = nil
 	}
+	closeJpegWorkerLocked()
 	C.kvmv_deinit()
 	log.Debugf("stop kvm vision...")
 }

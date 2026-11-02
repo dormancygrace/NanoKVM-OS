@@ -85,3 +85,30 @@ The AES PR is based directly on the SHA-256 patch. SHA-1, DES, TDES and SM4
 OpenSSL offloads are not included. The AES helper rejects other algorithm IDs,
 and the legacy provider does not link the SG2002 transport. AES block-mode
 verification is self-contained in `experimental/openssl-aes/verify.c`.
+
+## Poly1305
+
+OpenSSL 3.5 has no RISC-V Poly1305 assembly, so it ran the generic C code.
+`0011-poly1305-riscv.patch` adds `crypto/poly1305/asm/poly1305-riscv.pl`
+from CRYPTOGAMS (Andy Polyakov, written for OpenSSL's `poly1305_init`,
+`poly1305_blocks`, `poly1305_emit` interface), byte for byte the file Linux
+7.3.1 builds for `lib/crypto` (SHA-256 `9a75fc04cd61e8fb...`), so OpenSSL
+and the kernel run the same Poly1305. It is used under its BSD-3-Clause
+option; the runtime carries `CRYPTOGAMS-BSD-3-Clause.txt`. `build.info`
+selects it for `riscv64` like the other architectures' assembly; it is
+outside the FIPS module, and the dynamic symbol table is unchanged (5808
+definitions).
+
+Stand, `openssl speed -evp chacha20-poly1305`, best of three, MB/s:
+
+| | 1400 B | 16 KiB |
+| --- | ---: | ---: |
+| generic Poly1305, C906 ChaCha20 | 50.8 | 56.8 |
+| CRYPTOGAMS Poly1305, C906 ChaCha20 | 54.4 | 62.4 |
+| generic Poly1305, generic ChaCha20 | 32.4 | 33.4 |
+| CRYPTOGAMS Poly1305, generic ChaCha20 | 33.8 | 34.9 |
+
+From the ChaCha20-only rate of the same build, Poly1305 goes from about 163
+to about 219 MB/s at 16 KiB (the kernel's copy measures 228). OpenSSL's
+`test_poly1305` and `experimental/openssl-c906/evp-bench.c 0` (408 AEAD
+known answers and rejected tags) pass on the device.

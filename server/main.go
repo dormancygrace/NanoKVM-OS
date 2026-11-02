@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -200,8 +201,11 @@ func run() {
 			// The pair comes from ServerCertificate, so an uploaded or renewed
 			// certificate applies to new connections without a restart.
 			server.TLSConfig = &tls.Config{GetCertificate: utils.ServerCertificate.GetCertificate}
-			err := server.ListenAndServeTLS("", "")
+			listener, err := net.Listen("tcp", server.Addr)
 			if err != nil {
+				panic("start https server failed")
+			}
+			if err := server.ServeTLS(utils.RawListener(listener), "", ""); err != nil {
 				panic("start https server failed")
 			}
 		}()

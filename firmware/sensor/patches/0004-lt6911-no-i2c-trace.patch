@@ -12,7 +12,7 @@ what the traces were useful for.
 ---
 --- a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
 +++ b/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c
-@@ -102,7 +102,6 @@
+@@ -101,7 +101,6 @@
  		data = buf[0];
  	}
  
@@ -20,7 +20,7 @@ what the traces were useful for.
  	return data;
  }
  
-@@ -136,7 +135,6 @@
+@@ -135,7 +134,6 @@
  		return CVI_FAILURE;
  	}
  	// ret = read(g_fd[ViPipe], buf, lt6911_addr_byte + lt6911_data_byte);
@@ -28,7 +28,7 @@ what the traces were useful for.
  	return CVI_SUCCESS;
  }
  
-@@ -231,7 +229,7 @@
+@@ -216,7 +214,7 @@
  		CVI_TRACE_SNS(CVI_DBG_ERR, "LT6911D bank E0 probe failed.\n");
  		return CVI_FAILURE;
  	}
@@ -37,7 +37,7 @@ what the traces were useful for.
  	       horizontal[0], horizontal[1], vertical[0], vertical[1]);
  	return CVI_SUCCESS;
  }
-@@ -254,13 +252,13 @@
+@@ -237,13 +235,13 @@
  	/* The legacy LT6911 and the NanoKVM UXC use different ID banks. */
  	int legacy_id = lt6911_read_id(ViPipe, 0xa000);
  	if (legacy_id == 0x1605) {

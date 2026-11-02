@@ -25,6 +25,9 @@ func IngressInterface(r *http.Request) (string, error) {
 	if tlsConn, ok := conn.(*tls.Conn); ok {
 		conn = tlsConn.NetConn()
 	}
+	if wrapped, ok := conn.(interface{ TCP() *net.TCPConn }); ok {
+		conn = wrapped.TCP()
+	}
 	tcp, ok := conn.(*net.TCPConn)
 	if !ok {
 		return "", errors.New("not a TCP connection")

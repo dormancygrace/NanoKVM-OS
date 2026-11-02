@@ -10,6 +10,7 @@ BOOT_HASH='@BOOT_HASH@'
 BOOT_RAW_HASH='@BOOT_RAW_HASH@'
 stage=/data/.nanokvm-stock-install
 formatting=0
+replaced=0
 fail() {
     trap - EXIT
     echo "NanoKVM OS migration stopped: $*" >&2
@@ -22,18 +23,26 @@ fail() {
         mkdir -p /oldboot
         if mount -t vfat /dev/mmcblk0p1 /oldboot; then
             # A stock Cube's boot partition holds only one of the two images.
-            # This one runs from RAM: without room beside it, it goes first.
-            if ! cp "$stage/stock-boot.sd" /oldboot/.stock-boot.new 2>/dev/null; then
-                rm -f /oldboot/.stock-boot.new /oldboot/boot.sd
-                sync
+            # Only when the stock one does not fit beside this image (which
+            # runs from RAM) does it go first; any other failure keeps it.
+            size=$(wc -c <"$stage/stock-boot.sd" 2>/dev/null) || size=
+            free=$(df -k /oldboot 2>/dev/null | awk 'NR==2 {print $4}') || free=
+            rm -f /oldboot/.stock-boot.new
+            if [ -n "$size" ] && [ -n "$free" ] && [ "$free" -lt "$(( (size + 1023) / 1024 + 64 ))" ]; then
+                rm -f /oldboot/boot.sd && sync && replaced=1
             fi
-            if { [ -f /oldboot/.stock-boot.new ] || cp "$stage/stock-boot.sd" /oldboot/.stock-boot.new; } && sync &&
+            if cp "$stage/stock-boot.sd" /oldboot/.stock-boot.new && sync &&
                cmp "$stage/stock-boot.sd" /oldboot/.stock-boot.new &&
                mv -f /oldboot/.stock-boot.new /oldboot/boot.sd && sync; then
                 echo 'Stock boot restored. Read /data/.nanokvm-stock-install/status over SSH.' >&2
                 reboot -f
             fi
+            rm -f /oldboot/.stock-boot.new
         fi
+    fi
+    if [ "$replaced" = 1 ]; then
+        echo 'Partition 1 has no boot image now: with a card reader, copy .nanokvm-stock-install/stock-boot.sd from partition 3 to partition 1 as boot.sd.' >&2
+        exec /bin/sh </dev/console >/dev/console 2>&1
     fi
     echo 'Keep staging files intact. A power cycle resumes this migration.' >&2
     exec /bin/sh </dev/console >/dev/console 2>&1

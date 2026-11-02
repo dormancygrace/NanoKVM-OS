@@ -246,7 +246,7 @@ exec /kvmapp/system/init.d/S95nanokvm restart
         copy_elf(target / 'bin/busybox', '/busybox')
         copy_elf(target / 'usr/sbin/mkfs.f2fs', '/sbin/mkfs.f2fs')
         lines.append('slink /lib/ld-musl-riscv64.so.1 libc.so 777 0 0')
-        for applet in ('awk cat chmod cmp cp dd echo grep gzip losetup mkdir mount mv reboot rm sha256sum sh sleep sync tar touch umount wc') .split():
+        for applet in ('awk cat chmod cmp cp dd df echo grep gzip losetup mkdir mount mv reboot rm sha256sum sh sleep sync tar touch umount wc') .split():
             lines.append(f'slink /bin/{applet} ../busybox 777 0 0')
         listing = work / 'initramfs.list'
         listing.write_text('\n'.join(lines) + '\n')

@@ -418,6 +418,12 @@ losetup() { echo detach >>"$TEST_ROOT/actions"; }
 sync() { :; }
 sleep() { :; }
 reboot() { echo reboot >>"$TEST_ROOT/actions"; trap - EXIT; exit 80; }
+cp() { [ -z "${FAIL_COPY:-}" ] || return 1; command cp "$@"; }
+df() {
+    if [ -n "${OLDBOOT_FREE_KIB:-}" ]; then
+        echo 'Filesystem 1K-blocks Used Available Use% Mounted'; echo "disk 16334 1 $OLDBOOT_FREE_KIB 1% /oldboot"
+    else command df "$@"; fi
+}
 format_root() {
     printf '%s\n' "$*" >"$TEST_ROOT/mkfs-arguments"
     echo format >>"$TEST_ROOT/actions"
@@ -486,6 +492,23 @@ format_root() {
         self.assertNotIn('format', (self.root / 'actions').read_text().splitlines())
         self.assertFalse((self.stage / 'formatting').exists())
         self.assertEqual(self.command('state', self.card, self.stage / 'mbr.old').stdout, b'stock\n')
+
+    def test_failed_rollback_copy_keeps_recovery_unless_out_of_room(self):
+        self.prepare()
+        (self.stage / 'boot.img.gz').write_bytes(b'broken')
+        (self.root / 'oldboot').mkdir(exist_ok=True)
+        (self.root / 'oldboot/boot.sd').write_text('recovery image')
+        self.env['FAIL_COPY'] = '1'  # an error unrelated to space, such as EIO
+        result = self.recover()
+        self.assertEqual(result.returncode, 81, result.stderr)
+        self.assertEqual((self.root / 'oldboot/boot.sd').read_text(), 'recovery image')
+        self.assertIn('power cycle resumes', result.stderr)
+        self.env['OLDBOOT_FREE_KIB'] = '1'  # the stock image does not fit beside it
+        result = self.recover()
+        self.assertEqual(result.returncode, 81, result.stderr)
+        self.assertFalse((self.root / 'oldboot/boot.sd').exists())
+        self.assertIn('with a card reader', result.stderr)
+        self.assertNotIn('power cycle resumes', result.stderr)
 
     def test_settings_link_is_rejected_before_formatting(self):
         self.prepare()

@@ -3,10 +3,15 @@
   "current": "v0.0.0-20261008204034-5d834403882d",
   "candidate": "v0.0.0-20261101222852-7ca5fe28f7d5",
   "candidate_key": "v0.0.0-20261101222852-7ca5fe28f7d5",
-  "status": "pending-review",
+  "status": "accepted",
   "upstream": "https://proxy.golang.org/github.com/rs/cors/wrapper/gin/@latest",
   "source_path": "server/go.mod",
   "strategy": "review",
-  "evidence": {},
-  "pin_files_updated": []
+  "evidence": {
+    "review": "One upstream documentation/test-only commit; all nested gin module files byte-identical to previous revision. Root cors remains v1.11.1."
+  },
+  "pin_files_updated": [
+    "server/go.mod",
+    "server/go.sum"
+  ]
 }

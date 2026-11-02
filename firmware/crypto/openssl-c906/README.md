@@ -27,7 +27,8 @@ occurs on the cipher path. Missing headers, an unsupported syscall/key or
 an `OPENSSL_riscvcap` override that skips automatic probing leaves this path
 disabled. Standard RVV 1.0 alone does not enable draft XTheadVector code.
 
-Inputs below the single `OSSL_CHACHA_C906_MIN_BYTES` threshold (640 bytes) use
+Inputs below the single `OSSL_CHACHA_C906_MIN_BYTES` threshold (320 bytes, one
+five-block group; the C glue only hands whole groups to the vector code) use
 upstream code. Every eligible call checks the calling thread's vector permission
 with `PR_RISCV_V_GET_CONTROL`; the result is never cached across threads.
 A failed query returning errno uses software. Fatal seccomp rules cannot be

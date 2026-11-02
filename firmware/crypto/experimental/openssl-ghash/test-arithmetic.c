@@ -62,7 +62,7 @@ static u64 rng=UINT64_C(88172645463325252);
 static u64 random_word(void){rng^=rng<<13;rng^=rng>>7;rng^=rng<<17;return rng;}
 static u8 input[16400+16],original[sizeof input];
 int main(void) {
-    static const size_t lengths[]={3072,3088,3104,3120,3136,3200,3216,4096,6144,16384,16400};
+    static const size_t lengths[]={2048,2064,3072,3088,3104,3120,3136,3200,3216,4096,6144,16384,16400};
     /* NIST GCM zero-key test: first ciphertext block times its hash subkey. */
     u8 kat[16]={0x03,0x88,0xda,0xce,0x60,0xb6,0xa3,0x92,0xf3,0x28,0xc2,0xb9,0x71,0xb2,0xfe,0x78};
     const u8 hkat[16]={0x66,0xe9,0x4b,0xd4,0xef,0x8a,0x2c,0x3b,0x88,0x4c,0xfa,0x59,0xca,0x34,0x2b,0x2e};
@@ -103,5 +103,5 @@ int main(void) {
 #ifdef GHASH_NATIVE
     printf("PASS: %d actual XTheadVector GHASH cases; keys, Xi, 0-4 scalar tails, offsets and guards\n",cases);
 #endif
-    return cases==3520?0:3;
+    return cases==4160?0:3;
 }

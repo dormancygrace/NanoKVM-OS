@@ -41,7 +41,8 @@ Six rotated final-build trials are in `native-policy-bench.jsonl` and
 `native-policy-https.jsonl`, with identities/limits in `native-policy-validation.json`.
 At 16 KiB, AEAD open measures 48.14 versus 29.38 MiB/CPU-s for the same binary's
 generic path. The full-build 64-byte result remains slower than base (6.39 versus
-6.84); no small-input gain is claimed. The 640-byte minimum is retained.
+6.84); no small-input gain is claimed. The 640-byte minimum was retained then
+(superseded: see "Threshold 320" below).
 
 | Final HTTPS, median of six | C906/O3 base | ChaCha candidate |
 | --- | ---: | ---: |
@@ -109,7 +110,7 @@ Medians of six placement-controlled trials, MiB per process CPU second:
 | AEAD open | 1400 | 25.02 | 30.04 | 29.91 |
 | AEAD open | 16384 | 29.52 | 48.26 | 48.34 |
 
-Keep **640 bytes**. The standalone primitive benefits at 320 bytes, but full
+Kept **640 bytes** then (superseded: see "Threshold 320" below). The standalone primitive benefits at 320 bytes, but full
 AEAD open loses about 8% at 320 and 7% at 512. At 16 KiB the selected path gains
 about 63.5% over the same library's generic mode. Small-record speedups are not
 claimed: in the separate complete-build comparison, AEAD open at 64 bytes was
@@ -226,3 +227,21 @@ previous one, same OpenSSL 3.5.9 source and flags, `openssl speed -evp`,
 
 Below the unchanged 640-byte minimum both use the generic code (about 40 and
 32 MB/s).
+
+## Threshold 320 with the two-instruction rotates (2026-11-02)
+
+The 640-byte minimum above was chosen with the previous assembly, when AEAD
+open at 320-512 bytes lost 7-8%. With the current kernel (vector rotates in
+two instructions) the same OpenSSL 3.5.9 build with the minimum at 320 bytes,
+against 640, `openssl speed -evp`, `NANOKVM_OPENSSL_CHACHA20=auto`, best of
+two rounds, MB/s:
+
+| bytes | 320 | 384 | 448 | 512 | 576 | 640 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| ChaCha20, minimum 640 | 40.4 | 40.4 | 40.9 | 41.1 | 40.8 | 104.4 |
+| ChaCha20, minimum 320 | 91.3 | 74.2 | 68.0 | 62.0 | 61.5 | 105.9 |
+| ChaCha20-Poly1305, minimum 640 | 33.1 | 33.7 | 33.6 | 33.8 | 33.9 | 68.3 |
+| ChaCha20-Poly1305, minimum 320 | 62.3 | 54.2 | 50.7 | 48.2 | 46.4 | 66.7 |
+
+The minimum is now 320 bytes, one five-block group; below it the glue has no
+whole group to give the vector code.

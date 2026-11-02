@@ -274,23 +274,41 @@ int qrencode(char *string)
 	return 0;
 }
 
-// The main page's layout: one the web editor is previewing (written again
-// while the preview runs, so a closed editor stops it), else the saved one,
-// else the panel's built-in layout. A file is read again when it changes.
+// The main page's layout: the first usable of the one the web editor is
+// previewing (written again while the preview runs, so a closed editor stops
+// it), the saved one and the panel's built-in layout. The choice is made
+// again when either file changes or the preview expires.
 namespace {
 
 const char OLED_LAYOUT_FILE[] = "/etc/kvm/oled_layout";
 const char OLED_PREVIEW_FILE[] = "/run/nanokvm/oled_preview";
 constexpr time_t OLED_PREVIEW_SECONDS = 15;
 
-struct oled_layout_cache_t {
-    std::string path;
+struct oled_layout_file_t {
+    bool present = false;
     struct stat stamp = {};
-    OledLayout layout;
+};
+
+struct oled_layout_cache_t {
     bool loaded = false;
+    bool preview_fresh = false;
+    oled_layout_file_t preview, saved;
+    int chosen = -2;
+    OledLayout layout;
 };
 
 oled_layout_cache_t oled_layout_cache;
+
+// Whether the file changed since last seen (appeared, went, or another stamp).
+bool layout_file_changed(const char *path, oled_layout_file_t *file)
+{
+    struct stat stamp = {};
+    const bool present = stat(path, &stamp) == 0;
+    const bool changed = present != file->present || (present && !same_settings_stamp(stamp, file->stamp));
+    file->present = present;
+    file->stamp = stamp;
+    return changed;
+}
 
 bool read_layout_file(const char *path, std::string *text)
 {
@@ -307,30 +325,25 @@ bool read_layout_file(const char *path, std::string *text)
 
 const OledLayout &current_layout()
 {
-    const bool narrow = kvm_hw_ver == 2;
-    struct stat stamp = {};
-    const char *path = NULL;
-    if (stat(OLED_PREVIEW_FILE, &stamp) == 0 && time(NULL) - stamp.st_mtime <= OLED_PREVIEW_SECONDS)
-        path = OLED_PREVIEW_FILE;
-    else if (stat(OLED_LAYOUT_FILE, &stamp) == 0)
-        path = OLED_LAYOUT_FILE;
     oled_layout_cache_t &cache = oled_layout_cache;
-    const std::string wanted = path ? path : "";
-    if (cache.loaded && cache.path == wanted && (!path || same_settings_stamp(cache.stamp, stamp)))
+    const bool preview_changed = layout_file_changed(OLED_PREVIEW_FILE, &cache.preview);
+    const bool saved_changed = layout_file_changed(OLED_LAYOUT_FILE, &cache.saved);
+    const bool preview_fresh = cache.preview.present && time(NULL) - cache.preview.stamp.st_mtime <= OLED_PREVIEW_SECONDS;
+    if (cache.loaded && !preview_changed && !saved_changed && preview_fresh == cache.preview_fresh)
         return cache.layout;
-    cache.path = wanted;
-    cache.stamp = stamp;
     cache.loaded = true;
-    std::string text, error;
-    if (path && read_layout_file(path, &text)) {
-        if (oled_layout_parse(text.c_str(), &cache.layout, &error) && cache.layout.narrow == narrow) {
-            fprintf(stderr, "OLED: layout %s\n", path);
-            return cache.layout;
-        }
-        fprintf(stderr, "OLED: %s not used: %s\n", path, error.empty() ? "for the other panel" : error.c_str());
-    }
-    fprintf(stderr, "OLED: layout built in\n");
-    oled_layout_parse(oled_layout_default(narrow), &cache.layout, NULL);
+    cache.preview_fresh = preview_fresh;
+    static const char *const paths[] = {OLED_PREVIEW_FILE, OLED_LAYOUT_FILE};
+    std::string texts[2];
+    const char *candidates[2] = {};
+    if (preview_fresh && read_layout_file(OLED_PREVIEW_FILE, &texts[0])) candidates[0] = texts[0].c_str();
+    if (cache.saved.present && read_layout_file(OLED_LAYOUT_FILE, &texts[1])) candidates[1] = texts[1].c_str();
+    std::vector<std::pair<int, std::string>> errors;
+    const int chosen = oled_layout_pick(candidates, 2, kvm_hw_ver == 2, &cache.layout, &errors);
+    for (const auto &error : errors)
+        fprintf(stderr, "OLED: %s not used: %s\n", paths[error.first], error.second.c_str());
+    if (chosen != cache.chosen) fprintf(stderr, "OLED: layout %s\n", chosen < 0 ? "built in" : paths[chosen]);
+    cache.chosen = chosen;
     return cache.layout;
 }
 
@@ -378,8 +391,6 @@ void layout_values(OledValues *values)
 // the display lost its RAM.
 void oled_layout_status(bool force)
 {
-    static uint8_t shown[OLED_FRAME_BYTES];
-    static bool shown_known = false;
     static uint64_t moved = 0;
     static unsigned step = 0;
     const uint64_t now = oled_monotonic_ms();
@@ -393,9 +404,7 @@ void oled_layout_status(bool force)
     layout_values(&values);
     uint8_t frame[OLED_FRAME_BYTES];
     oled_layout_render(layout, values, step, frame);
-    OLED_ShowFrame(frame, force || !shown_known ? NULL : shown, layout.narrow ? 64 : 128, layout.narrow ? 4 : 8);
-    memcpy(shown, frame, sizeof(shown));
-    shown_known = true;
+    OLED_ShowFrame(frame, layout.narrow ? 64 : 128, layout.narrow ? 4 : 8, force);
 }
 
 } // namespace

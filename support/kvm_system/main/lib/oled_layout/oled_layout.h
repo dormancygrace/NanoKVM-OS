@@ -21,16 +21,20 @@
 // aligned in (left, center or right) and cut to. COLOR 1 lights pixels, 0
 // clears them. WHEN is "-" (always) or one of eth, wifi, hdmi, hid, stream,
 // optionally after "!". Image rows are whole bytes, most significant bit
-// first. Text may hold {name} or {name:N} (right-aligned in N characters;
-// -N left-aligned): ip eth_ip wifi_ip hostname codec width height fps uptime
+// first. Text may hold {name} or {name:N} (right-aligned in N characters,
+// -N left-aligned, N up to 32): ip eth_ip wifi_ip hostname codec width height fps uptime
 // time date. Burn-in protection moves everything every minute: "shift" by a
 // pixel, "roam" a WIDTH x HEIGHT block across the panel in whole pages.
 
 #include <stdint.h>
 #include <string>
+#include <utility>
 #include <vector>
 
-enum { OLED_LAYOUT_MAX_ITEMS = 64, OLED_LAYOUT_MAX_TEXT = 128 };
+// A text's template, a {name:N} width (the widest panel holds 32 characters)
+// and the text once expanded.
+enum { OLED_LAYOUT_MAX_ITEMS = 64, OLED_LAYOUT_MAX_TEXT = 128, OLED_LAYOUT_MAX_PAD = 32,
+       OLED_LAYOUT_MAX_EXPANDED = 256 };
 enum { OLED_FRAME_BYTES = 128 * 64 / 8 };
 
 struct OledItem {
@@ -66,6 +70,15 @@ bool oled_layout_parse(const char *text, OledLayout *layout, std::string *error)
 
 // The built-in layout of each panel.
 const char *oled_layout_default(bool narrow);
+
+// A layout that parses and is for this panel.
+bool oled_layout_usable(const char *text, bool narrow, OledLayout *layout, std::string *error);
+
+// The first usable of texts (NULL: absent or unreadable), in order; -1 and
+// the built-in layout when none is. errors gets the index and reason of each
+// refused text.
+int oled_layout_pick(const char *const texts[], int count, bool narrow, OledLayout *layout,
+                     std::vector<std::pair<int, std::string>> *errors);
 
 // Draws into frame (128x64 or 64x32 pixels, display pages of one byte per
 // column, the low bit at the top). step counts the burn-in moves; it is the

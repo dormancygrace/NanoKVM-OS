@@ -83,6 +83,67 @@ bool condition(const char *&rest, OledItem *item)
     return false;
 }
 
+// {name} or {name:N} starting at text[i]; pad_valid when N is -32..32 written
+// plainly (an optional minus and at most two digits).
+struct Placeholder {
+    size_t close = 0;
+    std::string name;
+    bool has_pad = false, pad_valid = false;
+    long pad = 0;
+};
+
+bool find_placeholder(const std::string &text, size_t i, Placeholder *placeholder)
+{
+    if (text[i] != '{') return false;
+    const size_t close = text.find('}', i);
+    if (close == std::string::npos) return false;
+    placeholder->close = close;
+    placeholder->name = text.substr(i + 1, close - i - 1);
+    const size_t colon = placeholder->name.find(':');
+    if (colon == std::string::npos) return true;
+    const std::string number = placeholder->name.substr(colon + 1);
+    placeholder->name.resize(colon);
+    placeholder->has_pad = true;
+    const size_t digits = number.size() - (number[0] == '-' ? 1 : 0);
+    if (number.empty() || digits == 0 || digits > 2) return true;
+    for (size_t k = number.size() - digits; k < number.size(); k++)
+        if (!isdigit((unsigned char)number[k])) return true;
+    placeholder->pad = strtol(number.c_str(), nullptr, 10);
+    placeholder->pad_valid = placeholder->pad >= -OLED_LAYOUT_MAX_PAD && placeholder->pad <= OLED_LAYOUT_MAX_PAD;
+    return true;
+}
+
+bool variable_value(const std::string &name, const OledValues &values, std::string *value)
+{
+    if (name == "ip") *value = values.ip;
+    else if (name == "eth_ip") *value = values.eth_ip;
+    else if (name == "wifi_ip") *value = values.wifi_ip;
+    else if (name == "hostname") *value = values.hostname;
+    else if (name == "codec") *value = values.codec;
+    else if (name == "uptime") *value = values.uptime;
+    else if (name == "time") *value = values.time;
+    else if (name == "date") *value = values.date;
+    else if (name == "width") *value = std::to_string(values.width);
+    else if (name == "height") *value = std::to_string(values.height);
+    else if (name == "fps") *value = std::to_string(values.fps);
+    else return false;
+    return true;
+}
+
+// Every variable's width can be drawn; scanned as oled_layout_expand scans.
+bool placeholders_valid(const std::string &text)
+{
+    const OledValues none;
+    for (size_t i = 0; i < text.size(); i++) {
+        Placeholder placeholder;
+        std::string value;
+        if (!find_placeholder(text, i, &placeholder) || !variable_value(placeholder.name, none, &value)) continue;
+        if (placeholder.has_pad && !placeholder.pad_valid) return false;
+        i = placeholder.close;
+    }
+    return true;
+}
+
 // Coordinates may start off the panel, a little.
 const int LOW = -128, HIGH = 255;
 
@@ -98,7 +159,7 @@ bool parse_item(const std::string &kind, const char *rest, OledItem *item)
             return false;
         item->align = word[0];
         item->text = rest;
-        return item->text.size() <= OLED_LAYOUT_MAX_TEXT;
+        return item->text.size() <= OLED_LAYOUT_MAX_TEXT && placeholders_valid(item->text);
     }
     if (kind == "line") {
         item->kind = 'l';
@@ -302,43 +363,48 @@ bool oled_layout_parse(const char *text, OledLayout *layout, std::string *error)
 std::string oled_layout_expand(const std::string &text, const OledValues &values)
 {
     std::string out;
-    for (size_t i = 0; i < text.size(); i++) {
-        const size_t close = text[i] == '{' ? text.find('}', i) : std::string::npos;
-        if (close == std::string::npos) {
-            out += text[i];
-            continue;
-        }
-        std::string name = text.substr(i + 1, close - i - 1);
-        int pad = 0;
-        const size_t colon = name.find(':');
-        if (colon != std::string::npos) {
-            pad = atoi(name.c_str() + colon + 1);
-            name.resize(colon);
-        }
+    for (size_t i = 0; i < text.size() && out.size() < OLED_LAYOUT_MAX_EXPANDED; i++) {
+        Placeholder placeholder;
         std::string value;
-        if (name == "ip") value = values.ip;
-        else if (name == "eth_ip") value = values.eth_ip;
-        else if (name == "wifi_ip") value = values.wifi_ip;
-        else if (name == "hostname") value = values.hostname;
-        else if (name == "codec") value = values.codec;
-        else if (name == "uptime") value = values.uptime;
-        else if (name == "time") value = values.time;
-        else if (name == "date") value = values.date;
-        else if (name == "width") value = std::to_string(values.width);
-        else if (name == "height") value = std::to_string(values.height);
-        else if (name == "fps") value = std::to_string(values.fps);
-        else {
+        if (!find_placeholder(text, i, &placeholder) || !variable_value(placeholder.name, values, &value)) {
             out += text[i];
             continue;
         }
-        const size_t wanted = size_t(abs(pad));
+        // The parser refuses other widths; a layout given straight to this
+        // function is clamped, never allowed to ask for a huge string.
+        int pad = placeholder.has_pad ? int(placeholder.pad) : 0;
+        if (pad > OLED_LAYOUT_MAX_PAD) pad = OLED_LAYOUT_MAX_PAD;
+        if (pad < -OLED_LAYOUT_MAX_PAD) pad = -OLED_LAYOUT_MAX_PAD;
+        const size_t wanted = size_t(pad < 0 ? -pad : pad);
         if (value.size() > wanted && pad) value.resize(wanted);
         if (pad > 0) value.insert(0, wanted - value.size(), ' ');
         else if (pad < 0) value.append(wanted - value.size(), ' ');
         out += value;
-        i = close;
+        i = placeholder.close;
     }
+    if (out.size() > OLED_LAYOUT_MAX_EXPANDED) out.resize(OLED_LAYOUT_MAX_EXPANDED);
     return out;
+}
+
+bool oled_layout_usable(const char *text, bool narrow, OledLayout *layout, std::string *error)
+{
+    if (!oled_layout_parse(text, layout, error)) return false;
+    if (layout->narrow == narrow) return true;
+    if (error) *error = "for the other panel";
+    return false;
+}
+
+int oled_layout_pick(const char *const texts[], int count, bool narrow, OledLayout *layout,
+                     std::vector<std::pair<int, std::string>> *errors)
+{
+    for (int i = 0; i < count; i++) {
+        if (!texts[i]) continue;
+        std::string error;
+        if (oled_layout_usable(texts[i], narrow, layout, &error)) return i;
+        if (errors) errors->emplace_back(i, error);
+    }
+    oled_layout_parse(oled_layout_default(narrow), layout, nullptr);
+    return -1;
 }
 
 void oled_layout_render(const OledLayout &layout, const OledValues &values, unsigned step,

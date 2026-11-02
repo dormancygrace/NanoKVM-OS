@@ -69,9 +69,9 @@ void OLED_ShowString(uint8_t x, uint8_t y, const char *chr, uint8_t sizey);
 void OLED_ShowStringTurn(uint8_t x, uint8_t y, const char *chr, uint8_t sizey);
 void OLED_ShowString_AlignRight(uint8_t x_end, uint8_t y, const char *chr, uint8_t size);
 void OLED_ShowIMG(uint8_t x,uint8_t y,const char *chr,uint8_t width,uint8_t height);
-// A frame in display pages; previous (the frame last shown, or NULL for all
-// of it) limits the writes to what changed.
-void OLED_ShowFrame(const uint8_t *frame, const uint8_t *previous, int width, int pages);
+// A frame in display pages. Only what changed since the frame last shown is
+// written, unless all is set or a transfer failed since.
+void OLED_ShowFrame(const uint8_t *frame, int width, int pages, bool all);
 
 bool OLED_IsDisabled(void);
 #endif // OLED_CTRL_H_

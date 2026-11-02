@@ -125,6 +125,37 @@ int main()
     assert(!parses("nanokvm-oled 1 wide\nline 0 0 1 1 1 - extra\n"));
     std::string long_text = "nanokvm-oled 1 wide\ntext 0 0 8 left 0 1 - " + std::string(129, 'x') + "\n";
     assert(!parses(long_text.c_str()));
+    // Variable widths: at most 32, written plainly; nothing a layout holds
+    // makes the expanded text large.
+    assert(parses("nanokvm-oled 1 wide\ntext 0 0 8 left 0 1 - {fps:32}{fps:-32}{nope:99999}\n"));
+    for (const char *width : {"33", "-33", "1000000000", "-2147483648", "+3", "", "-", "3x", "003"}) {
+        const std::string text = std::string("nanokvm-oled 1 wide\ntext 0 0 8 left 0 1 - {fps:") + width + "}\n";
+        assert(!parses(text.c_str()));
+    }
+    // Given straight to the expansion, a width it would refuse is ignored.
+    assert(oled_layout_expand("{fps:-2147483648}{fps:1000000000}", v) == "55");
+    std::string wide_text;
+    for (int i = 0; i < 4; i++) wide_text += "{hostname:32}";
+    v.hostname = std::string(64, 'h');
+    assert(oled_layout_expand(wide_text + wide_text + wide_text, v).size() == OLED_LAYOUT_MAX_EXPANDED);
+    v.hostname = "kvm-1234";
+
+    // The first usable source applies: a broken or other-panel preview falls
+    // through to the saved layout, then to the built-in one.
+    {
+        const char *saved = "nanokvm-oled 1 wide\ntext 0 0 8 left 0 1 - SAVED\n";
+        const char *garbage = "garbage", *narrow_preview = "nanokvm-oled 1 narrow\n";
+        OledLayout picked;
+        std::vector<std::pair<int, std::string>> errors;
+        const char *order1[] = {garbage, saved};
+        assert(oled_layout_pick(order1, 2, false, &picked, &errors) == 1 && picked.items[0].text == "SAVED");
+        assert(errors.size() == 1 && errors[0].first == 0);
+        const char *order2[] = {narrow_preview, saved};
+        assert(oled_layout_pick(order2, 2, false, &picked, nullptr) == 1);
+        const char *order3[] = {nullptr, garbage};
+        assert(oled_layout_pick(order3, 2, false, &picked, nullptr) == -1 && picked.burnin == 'r');
+    }
+
     std::string many = "nanokvm-oled 1 wide\n";
     for (int i = 0; i < 64; i++) many += "line 0 0 1 1 1 -\n";
     assert(parses(many.c_str()));

@@ -35,6 +35,8 @@ static std::recursive_mutex oled_lock;
 static int oled_batch_depth = 0;
 static uint8_t oled_run[1 + 128];
 static int oled_run_len = 0;
+// Transfers that did not go through, for OLED_ShowFrame.
+static unsigned oled_transfer_failures = 0;
 
 // SSD1306 page addressing has eight RAM pages; after column 127 the cursor
 // wraps to column 0 of the same page. The legacy PCIe layout sends B8..BB:
@@ -66,6 +68,7 @@ static void oled_run_flush(void)
 	if (len > 1 && OLED_state && oled_i2c && oled_i2c->writeto(oled_address, oled_run, len) != len) {
 		oled_ram_lost = true;
 		oled_at_known = false;
+		++oled_transfer_failures;
 	}
 	// While the RAM copy is wrong (a lost transfer, a line past the last
 	// column) nothing is skipped; once the drawing is done it is dropped.
@@ -462,24 +465,32 @@ void OLED_Revolve(void)
 	oled_write_register(OLED_CMD, 0xC0);
 }
 
-// A frame of width columns and pages pages; with the last one shown, only
-// the runs of bytes that changed are written. The narrow panel's window is
-// not in the RAM copy (oled_cursor), so this is what keeps its writes small.
-void OLED_ShowFrame(const uint8_t *frame, const uint8_t *previous, int width, int pages)
+// A frame of width columns and pages pages. Only the runs of bytes that
+// differ from the frame last shown are written, so the narrow panel's window,
+// which is not in the RAM copy (oled_cursor), gets small writes too. After a
+// failed transfer, here or in a batch that ended since, all of it is sent.
+void OLED_ShowFrame(const uint8_t *frame, int width, int pages, bool all)
 {
+	static uint8_t shown[OLED_PAGES * OLED_COLUMNS];
+	static bool shown_known = false;
+	static unsigned failures_seen = 0;
 	OledBatch batch;
+	if (!shown_known || failures_seen != oled_transfer_failures) all = true;
+	failures_seen = oled_transfer_failures;
 	for (int page = 0; page < pages; page++) {
 		const uint8_t *row = frame + page * width;
-		const uint8_t *before = previous ? previous + page * width : NULL;
+		const uint8_t *before = shown + page * width;
 		for (int x = 0; x < width;) {
-			if (before && row[x] == before[x]) {
+			if (!all && row[x] == before[x]) {
 				x++;
 				continue;
 			}
 			OLED_Set_Pos(x, page);
-			while (x < width && (!before || row[x] != before[x])) oled_write_register(OLED_DATA, row[x++]);
+			while (x < width && (all || row[x] != before[x])) oled_write_register(OLED_DATA, row[x++]);
 		}
 	}
+	memcpy(shown, frame, size_t(width) * pages);
+	shown_known = true;
 }
 
 void OLED_ShowIMG(uint8_t x,uint8_t y,const char *chr,uint8_t width,uint8_t height)

@@ -581,23 +581,6 @@ index 071f53d..41d07e0 100644
  	struct aicwf_bus *bus_if;
  
  	struct aicwf_rx_priv *rx_priv;
-diff --git a/aic8800_btlpm/rfkill.c b/aic8800_btlpm/rfkill.c
-index 5caf3f8..bba9619 100644
---- a/aic8800_btlpm/rfkill.c
-+++ b/aic8800_btlpm/rfkill.c
-@@ -18,8 +18,11 @@
- #include <linux/gpio.h>
- #include <linux/ioport.h>
- #include <linux/clk.h>
--#include <linux/of_gpio.h>
- #include <linux/version.h>
-+/* of_gpio.h is gone in 7.1, and nothing here ever used it. */
-+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 0)
-+#include <linux/of_gpio.h>
-+#endif
- #include "aic_bsp_export.h"
- 
- static struct rfkill *bt_rfk;
 diff --git a/aic8800_fdrv/Makefile b/aic8800_fdrv/Makefile
 index 033b8b4..c74d8f1 100644
 --- a/aic8800_fdrv/Makefile
@@ -1584,8 +1567,8 @@ index 7435c74..a87f21b 100644
  	struct mm_bt_send_cfm cfm;
  	int error;
  
-+    if (!skb || len > skb->len || len > sizeof(req->bt_data))
-+        return -EMSGSIZE;
++	if (!skb || len > skb->len || len > sizeof(req->bt_data))
++		return -EMSGSIZE;
 +
  	if(testmode) {
  		AICWFDBG(LOGERROR, "%s testmode can not send\n", __func__);

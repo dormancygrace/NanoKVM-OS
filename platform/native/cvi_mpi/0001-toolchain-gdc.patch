@@ -6,8 +6,7 @@ Subject: [PATCH] Support GCC 16 and fix GDC buffer-wrap result lifetime
 ---
  include/linux/cvi_defines.h | 2 +-
  modules/gdc/src/cvi_gdc.c   | 7 +++++--
- mpi_param.mk                | 3 +++
- 3 files changed, 9 insertions(+), 3 deletions(-)
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/cvi_defines.h b/include/linux/cvi_defines.h
 index de72c86..0f34d02 100644
@@ -50,20 +49,6 @@ index 10217cc..6b46ef2 100644
  	return s32Ret;
  }
  
-diff --git a/mpi_param.mk b/mpi_param.mk
-index 8bc9d04..b4d137e 100644
---- a/mpi_param.mk
-+++ b/mpi_param.mk
-@@ -41,6 +41,9 @@ ifeq ($(TARGET_MACHINE), arm-linux-gnueabihf)
-   OPT_LEVEL := -O3
- else ifeq ($(TARGET_MACHINE), aarch64-linux-gnu)
-   OPT_LEVEL := -O3
-+else ifeq ($(TARGET_MACHINE), riscv64-buildroot-linux-musl)
-+  # Upstream GCC spelling for C906 vendor-vector instructions; not RVV 1.0.
-+  OPT_LEVEL := -Os -march=rv64gc_xtheadvector -mtune=thead-c906 -mno-fence-tso -mcmodel=medany -mabi=lp64d
- else ifeq ($(TARGET_MACHINE), riscv64-unknown-linux-gnu)
-   OPT_LEVEL := -Os
-   OPT_LEVEL += -mno-ldd -mcpu=c906fdv -march=rv64imafdcv0p7xthead -mcmodel=medany -mabi=lp64d
 -- 
 2.43.0
 

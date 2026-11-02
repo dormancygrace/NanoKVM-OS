@@ -80,7 +80,8 @@ vendor_files = [f'{chacha}/chacha_noasm.go', f'{chacha}/chacha_generic.go']
 for name, pkg in [('chacha_riscv64.go', chacha), ('chacha_riscv64.s', chacha)]:
     shutil.copyfile(crypto / name, out / 'src' / pkg / name)
     vendor_files.append(f'{pkg}/{name}')
-# Poly1305: keep the pinned upstream reference, install the C906 reduction.
+# Poly1305: keep the pinned upstream reference, install CRYPTOGAMS (the
+# kernel's and OpenSSL's Poly1305) behind Go's update.
 poly = 'vendor/golang.org/x/crypto/internal/poly1305'
 materialize(poly)
 if sha256(crypto / 'sum_riscv64.s') != pin['x_crypto_v0.57.0_sum_riscv64_s_sha256']:
@@ -90,7 +91,9 @@ edit(f'{poly}/mac_noasm.go', '(!amd64 && !loong64 && !ppc64le && !ppc64 && !s390
 edit(f'{poly}/sum_asm.go', '(amd64 || loong64 || ppc64 || ppc64le)', '(amd64 || loong64 || ppc64 || ppc64le || riscv64)')
 shutil.copyfile(crypto / 'sum_c906_riscv64.s', out / 'src' / poly / 'sum_riscv64.s')
 shutil.copyfile(crypto / 'sum_misaligned_riscv64.go', out / 'src' / poly / 'sum_misaligned_riscv64.go')
-vendor_files += [f'{poly}/mac_noasm.go', f'{poly}/sum_asm.go', f'{poly}/sum_riscv64.s', f'{poly}/sum_misaligned_riscv64.go']
+shutil.copyfile(crypto / 'sum_c906_riscv64.go', out / 'src' / poly / 'sum_c906_riscv64.go')
+vendor_files += [f'{poly}/mac_noasm.go', f'{poly}/sum_asm.go', f'{poly}/sum_riscv64.s', f'{poly}/sum_misaligned_riscv64.go',
+                 f'{poly}/sum_c906_riscv64.go']
 # Short substring search without Rabin-Karp (go-bytes-index): where Index
 # falls back to Rabin-Karp, a sep of at most 255 bytes uses Horspool.
 index = source.parent / 'go-bytes-index'

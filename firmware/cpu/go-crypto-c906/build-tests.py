@@ -50,6 +50,10 @@ if args.poly1305_reference:
     reference_path = args.output / 'poly1305-reference_riscv64.s'
     reference_path.write_text(reference)
     overlay[str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/sum_riscv64.s')] = str(reference_path.absolute())
+    # The reference has no CRYPTOGAMS blocks functions to declare.
+    empty = args.output / 'poly1305-reference_c906.go'
+    empty.write_text('package poly1305\n')
+    overlay[str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/sum_c906_riscv64.go')] = str(empty.absolute())
 STD = {}
 sha3 = goroot / 'src/crypto/internal/fips140/sha3'
 if (sha3 / 'keccak_c906_riscv64.s').exists():

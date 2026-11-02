@@ -156,6 +156,8 @@ jobs:
           python3 ../../../tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
           curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
           python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
+          curl -fsSL "$(python3 gen_poly1305_c906.py --print-url)" -o "$RUNNER_TEMP/poly1305-riscv.pl"
+          python3 gen_poly1305_c906.py --cryptogams "$RUNNER_TEMP/poly1305-riscv.pl" --binutils riscv64-linux-gnu- --check sum_c906_riscv64.s
       - name: Log XTheadVector instruction encodings
         run: python3 tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
       - name: OpenSSL C906 ChaCha dispatch

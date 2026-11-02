@@ -314,7 +314,7 @@ class Staging(LayoutFixture):
         shims.mkdir()
         write(shims, 'id', '#!/bin/sh\necho 0\n', 0o755)
         write(shims, 'uname', '#!/bin/sh\necho riscv64\n', 0o755)
-        write(shims, 'df', '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted"\necho "disk 9999999 1 ${TEST_FREE_KIB:-9999998} 1% mount"\n', 0o755)
+        write(shims, 'df', '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted"\ncase "$2" in *boot) f=${TEST_BOOT_FREE_KIB:-${TEST_FREE_KIB:-9999998}} ;; *) f=${TEST_FREE_KIB:-9999998} ;; esac\necho "disk 9999999 1 $f 1% mount"\n', 0o755)
         write(shims, 'sync', '#!/bin/sh\nexit 0\n', 0o755)
         write(shims, 'reboot', '#!/bin/sh\necho reboot >"$TEST_ROOT/rebooted"\n', 0o755)
         source = (SOURCE / 'install.sh').read_text()
@@ -326,7 +326,10 @@ class Staging(LayoutFixture):
         # those too. In particular a test must never run the host reboot applet.
         overrides = """id() { echo 0; }
 uname() { echo riscv64; }
-df() { echo 'Filesystem 1024-blocks Used Available Capacity Mounted'; echo "disk 9999999 1 ${TEST_FREE_KIB:-9999998} 1% mount"; }
+df() {
+    case "$2" in *boot) f=${TEST_BOOT_FREE_KIB:-${TEST_FREE_KIB:-9999998}} ;; *) f=${TEST_FREE_KIB:-9999998} ;; esac
+    echo 'Filesystem 1024-blocks Used Available Capacity Mounted'; echo "disk 9999999 1 $f 1% mount"
+}
 sync() { :; }
 reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
 """
@@ -337,6 +340,24 @@ reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
     def invoke(self, mode='--check'):
         return subprocess.run(['busybox', 'sh', str(self.script), str(self.bundle), mode],
                               env=self.env, text=True, capture_output=True, timeout=30)
+
+
+class StockCube(LayoutFixture):
+    def test_shared_data_disk_and_full_boot_volume(self):
+        # A stock Cube shares partition 3 over USB, and its boot volume has no
+        # room for recovery beside the stock image (the fixture needs 1025 KiB).
+        Staging.prepare(self)
+        lun = write(self.root, 'sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/file',
+                    str(self.root / 'dev/mmcblk0p3') + '\n')
+        self.env['TEST_BOOT_FREE_KIB'] = '1024'
+        result = Staging.invoke(self, '--check')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('will be detached', result.stdout)
+        result = Staging.invoke(self, '--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(lun.read_text().strip(), '')
+        self.assertEqual((self.root / 'boot/boot.sd').read_text(), 'recovery.sd fixture')
+        self.assertEqual((self.root / 'data/.nanokvm-stock-install/stock-boot.sd').read_text(), 'stock boot')
 
 
 class Recovery(LayoutFixture):

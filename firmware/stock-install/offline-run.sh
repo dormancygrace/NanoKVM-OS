@@ -14,7 +14,8 @@ cleanup() {
     if [ "$locked" = 1 ]; then rmdir "$lock"; fi
 }
 trap cleanup EXIT
-/kvmapp/system/init.d/S95nanokvm restart
+# The stock services would inherit this log and fill it; it keeps only ours.
+/kvmapp/system/init.d/S95nanokvm restart >/dev/null 2>&1
 mkdir "$lock" || { echo 'Another offline installer is running.' >&2; exit 1; }
 locked=1
 [ ! -e /run/nanokvm-stock-install.lock ] || {

@@ -21,7 +21,13 @@ fail() {
     if [ "$formatting" = 0 ] && [ -f "$stage/stock-boot.sd" ]; then
         mkdir -p /oldboot
         if mount -t vfat /dev/mmcblk0p1 /oldboot; then
-            if cp "$stage/stock-boot.sd" /oldboot/.stock-boot.new && sync &&
+            # A stock Cube's boot partition holds only one of the two images.
+            # This one runs from RAM: without room beside it, it goes first.
+            if ! cp "$stage/stock-boot.sd" /oldboot/.stock-boot.new 2>/dev/null; then
+                rm -f /oldboot/.stock-boot.new /oldboot/boot.sd
+                sync
+            fi
+            if { [ -f /oldboot/.stock-boot.new ] || cp "$stage/stock-boot.sd" /oldboot/.stock-boot.new; } && sync &&
                cmp "$stage/stock-boot.sd" /oldboot/.stock-boot.new &&
                mv -f /oldboot/.stock-boot.new /oldboot/boot.sd && sync; then
                 echo 'Stock boot restored. Read /data/.nanokvm-stock-install/status over SSH.' >&2

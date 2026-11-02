@@ -28,28 +28,36 @@ Differences from the vendor driver:
   file handles, and profiling-timer teardown cannot race the handler
   re-arming it.
 
+NanoKVM OS changes (formerly patch 0049, by Gleb Pesin
+<dormancygrace@gmail.com>):
+Keep imported buffer mappings alive while queued jobs use their bus addresses,
+including after RELEASE_DMABUF or process exit. Descriptor jobs retain the
+registered set at submission; PIO jobs retain both validated mappings.
+Initialize the worker before publishing the character device and propagate
+clock acquisition/enable failures instead of touching unclocked registers.
+
 Signed-off-by: Wellken Chen <wellken.chen@cvitek.com.tw>
 ---
- drivers/soc/sophgo/Kconfig                 |    2 ++
+ drivers/soc/sophgo/Kconfig                 |    2 +
  drivers/soc/sophgo/Makefile                |    1 +
- drivers/soc/sophgo/tpu/Kconfig             |   13 +++++++++++++
- drivers/soc/sophgo/tpu/Makefile            |    3 +++
- drivers/soc/sophgo/tpu/cvi_tpu_interface.c | 1342 ++++++++++++++++++++++++++++++
- drivers/soc/sophgo/tpu/cvi_tpu_interface.h |   74 ++
- drivers/soc/sophgo/tpu/cvi_tpu_ioctl.h     |   69 ++++++++++++++++++++
+ drivers/soc/sophgo/tpu/Kconfig             |   13 +
+ drivers/soc/sophgo/tpu/Makefile            |    3 +
+ drivers/soc/sophgo/tpu/cvi_tpu_interface.c | 1408 ++++++++++++++++++++
+ drivers/soc/sophgo/tpu/cvi_tpu_interface.h |   74 +
+ drivers/soc/sophgo/tpu/cvi_tpu_ioctl.h     |   69 +
  drivers/soc/sophgo/tpu/reg_tdma.h          |   75 ++
  drivers/soc/sophgo/tpu/reg_tiu.h           |   35 +
- drivers/soc/sophgo/tpu/tpu_platform.c      |  791 ++++++++++++++++++++
- drivers/soc/sophgo/tpu/tpu_platform.h      |   72 ++
- drivers/soc/sophgo/tpu/tpu_pmu.c           |   87 ++++++++++++++++++++
- drivers/soc/sophgo/tpu/tpu_pmu.h           |   41 ++++++++++++++++++++
- 13 files changed, 2605 insertions(+)
+ drivers/soc/sophgo/tpu/tpu_platform.c      |  796 +++++++++++
+ drivers/soc/sophgo/tpu/tpu_platform.h      |   72 +
+ drivers/soc/sophgo/tpu/tpu_pmu.c           |   87 ++
+ drivers/soc/sophgo/tpu/tpu_pmu.h           |   41 +
+ 13 files changed, 2676 insertions(+)
 
 diff --git a/drivers/soc/sophgo/Kconfig b/drivers/soc/sophgo/Kconfig
-index 111111111111..222222222222 100644
+index 6c3e65d8268c..03f3f4e55db0 100644
 --- a/drivers/soc/sophgo/Kconfig
 +++ b/drivers/soc/sophgo/Kconfig
-@@ -30,5 +30,7 @@ config SOPHGO_SG2044_TOPSYS
+@@ -31,5 +31,7 @@ config SOPHGO_SG2044_TOPSYS
  	  This driver can also be built as a module.  If so, the module
  	  will be called sg2044-topsys.
  
@@ -58,7 +66,7 @@ index 111111111111..222222222222 100644
  endmenu
  endif
 diff --git a/drivers/soc/sophgo/Makefile b/drivers/soc/sophgo/Makefile
-index 111111111111..222222222222 100644
+index 27f68df22c4d..e5ac181529df 100644
 --- a/drivers/soc/sophgo/Makefile
 +++ b/drivers/soc/sophgo/Makefile
 @@ -2,3 +2,4 @@
@@ -68,7 +76,7 @@ index 111111111111..222222222222 100644
 +obj-$(CONFIG_SOPHGO_CV181X_TPU)		+= tpu/
 diff --git a/drivers/soc/sophgo/tpu/Kconfig b/drivers/soc/sophgo/tpu/Kconfig
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..8eb29c7b782a
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/Kconfig
 @@ -0,0 +1,13 @@
@@ -87,7 +95,7 @@ index 000000000000..111111111111
 +	  If unsure, say N.
 diff --git a/drivers/soc/sophgo/tpu/Makefile b/drivers/soc/sophgo/tpu/Makefile
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..74abbe4eeff1
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/Makefile
 @@ -0,0 +1,3 @@
@@ -96,10 +104,10 @@ index 000000000000..111111111111
 +cv181x_tpu-y := cvi_tpu_interface.o tpu_platform.o tpu_pmu.o
 diff --git a/drivers/soc/sophgo/tpu/cvi_tpu_interface.c b/drivers/soc/sophgo/tpu/cvi_tpu_interface.c
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..95a20d2b2f04
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/cvi_tpu_interface.c
-@@ -0,0 +1,1342 @@
+@@ -0,0 +1,1408 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Sophgo/Cvitek CV181x (SG200x) TPU driver - chardev interface.
@@ -146,6 +154,7 @@ index 000000000000..111111111111
 +#include <linux/sched/signal.h>
 +#include <linux/proc_fs.h>
 +#include <linux/seq_file.h>
++#include <linux/refcount.h>
 +
 +#include "cvi_tpu_interface.h"
 +#include "cvi_tpu_ioctl.h"
@@ -182,12 +191,15 @@ index 000000000000..111111111111
 +	 */
 +	struct dma_hdr_t hdr;
 +	/* Pins on the buffers a PIO copy reads and writes. */
-+	struct dma_buf *pio_src_buf;
-+	struct dma_buf *pio_dst_buf;
++	struct cvi_tpu_buf *pio_src_buf;
++	struct cvi_tpu_buf *pio_dst_buf;
++	struct cvi_tpu_buf **registered_bufs;
++	unsigned int registered_count;
 +};
 +
 +/* One imported buffer registered through CVITPU_GET_DMABUF_PADDR. */
 +struct cvi_tpu_buf {
++	refcount_t refs;
 +	struct list_head list;
 +	struct dma_buf *dmabuf;
 +	struct dma_buf_attachment *attach;
@@ -201,6 +213,57 @@ index 000000000000..111111111111
 +	struct list_head bufs;
 +	struct mutex bufs_lock;
 +};
++
++/* A registry entry owns both the pages and their DMA mapping. Jobs retain
++ * entries independently of RELEASE_DMABUF and closing the device. */
++static void cvi_tpu_buf_put(struct cvi_tpu_buf *buf)
++{
++	if (!refcount_dec_and_test(&buf->refs))
++		return;
++	dma_buf_unmap_attachment_unlocked(buf->attach, buf->sgt,
++					  DMA_BIDIRECTIONAL);
++	dma_buf_detach(buf->dmabuf, buf->attach);
++	dma_buf_put(buf->dmabuf);
++	kfree(buf);
++}
++
++static void cvi_tpu_unpin_registered(struct cvi_list_node *node)
++{
++	unsigned int i;
++
++	for (i = 0; i < node->registered_count; i++)
++		cvi_tpu_buf_put(node->registered_bufs[i]);
++	kfree(node->registered_bufs);
++	node->registered_bufs = NULL;
++	node->registered_count = 0;
++}
++
++/* Descriptor commands contain runtime-relocated bus addresses. Keep this
++ * open's registered mappings alive until the job has stopped using them. */
++static int cvi_tpu_pin_registered(struct cvi_tpu_ctx *ctx,
++				  struct cvi_list_node *node)
++{
++	struct cvi_tpu_buf *buf;
++	unsigned int count = 0;
++
++	mutex_lock(&ctx->bufs_lock);
++	list_for_each_entry(buf, &ctx->bufs, list)
++		count++;
++	if (count) {
++		node->registered_bufs = kcalloc(count, sizeof(*node->registered_bufs),
++					       GFP_KERNEL);
++		if (!node->registered_bufs) {
++			mutex_unlock(&ctx->bufs_lock);
++			return -ENOMEM;
++		}
++		list_for_each_entry(buf, &ctx->bufs, list) {
++			refcount_inc(&buf->refs);
++			node->registered_bufs[node->registered_count++] = buf;
++		}
++	}
++	mutex_unlock(&ctx->bufs_lock);
++	return 0;
++}
 +
 +struct tpu_profiling_info {
 +	uint32_t enable_usage_profiling;
@@ -449,11 +512,12 @@ index 000000000000..111111111111
 +
 +static void cvi_tpu_cleanup_buffer(struct cvi_list_node *node)
 +{
++	cvi_tpu_unpin_registered(node);
 +	if (node->tpu_path == TPU_PATH_PIOTDMA) {
 +		if (node->pio_src_buf)
-+			dma_buf_put(node->pio_src_buf);
++			cvi_tpu_buf_put(node->pio_src_buf);
 +		if (node->pio_dst_buf)
-+			dma_buf_put(node->pio_dst_buf);
++			cvi_tpu_buf_put(node->pio_dst_buf);
 +		node->pio_src_buf = NULL;
 +		node->pio_dst_buf = NULL;
 +		return;
@@ -534,8 +598,9 @@ index 000000000000..111111111111
 +	spin_unlock(&ndev->kernel_work.task_list_lock);
 +}
 +
-+static int cvi_tpu_submit(struct cvi_tpu_device *ndev, unsigned long arg)
++static int cvi_tpu_submit(struct cvi_tpu_ctx *ctx, unsigned long arg)
 +{
++	struct cvi_tpu_device *ndev = ctx->ndev;
 +	int ret = 0;
 +	struct cvi_submit_dma_arg run_dmabuf_arg;
 +	struct cvi_list_node *node;
@@ -564,6 +629,13 @@ index 000000000000..111111111111
 +	node->tpu_path = TPU_PATH_DESNORMAL;
 +	ret = cvi_tpu_prepare_buffer(node);
 +	if (ret) {
++		vfree(node);
++		return ret;
++	}
++
++	ret = cvi_tpu_pin_registered(ctx, node);
++	if (ret) {
++		cvi_tpu_cleanup_buffer(node);
 +		vfree(node);
 +		return ret;
 +	}
@@ -603,7 +675,7 @@ index 000000000000..111111111111
 +		info.run_sum_us += info.run_current_us;
 +	}
 +
-+	if (ret == -ETIMEDOUT)
++	if (ret < 0)
 +		platform_tpu_reset(ndev);
 +	mutex_unlock(&ndev->dev_lock);
 +
@@ -653,11 +725,11 @@ index 000000000000..111111111111
 + * CVITPU_GET_DMABUF_PADDR, and take a reference so the pages cannot
 + * be freed and reused while the copy is still queued or running.
 + */
-+static struct dma_buf *cvi_tpu_pin_pio_range(struct cvi_tpu_ctx *ctx,
++static struct cvi_tpu_buf *cvi_tpu_pin_pio_range(struct cvi_tpu_ctx *ctx,
 +					     u64 paddr, u64 len)
 +{
 +	struct cvi_tpu_buf *pos;
-+	struct dma_buf *found = NULL;
++	struct cvi_tpu_buf *found = NULL;
 +
 +	mutex_lock(&ctx->bufs_lock);
 +	list_for_each_entry(pos, &ctx->bufs, list) {
@@ -666,8 +738,8 @@ index 000000000000..111111111111
 +
 +		if (paddr >= base && len <= size &&
 +		    paddr - base <= size - len) {
-+			found = pos->dmabuf;
-+			get_dma_buf(found);
++			found = pos;
++			refcount_inc(&found->refs);
 +			break;
 +		}
 +	}
@@ -682,7 +754,7 @@ index 000000000000..111111111111
 +	int ret = 0;
 +	struct cvi_tdma_copy_arg ioctl_arg;
 +	struct cvi_list_node *node;
-+	struct dma_buf *src_buf, *dst_buf;
++	struct cvi_tpu_buf *src_buf, *dst_buf;
 +	u64 src_len, dst_len;
 +
 +	ret = copy_from_user(&ioctl_arg,
@@ -761,9 +833,9 @@ index 000000000000..111111111111
 +
 +err_put:
 +	if (src_buf)
-+		dma_buf_put(src_buf);
++		cvi_tpu_buf_put(src_buf);
 +	if (dst_buf)
-+		dma_buf_put(dst_buf);
++		cvi_tpu_buf_put(dst_buf);
 +	return ret;
 +}
 +
@@ -816,7 +888,12 @@ index 000000000000..111111111111
 +	 * running_cnt set, the handler touches TDMA registers, and a
 +	 * register access while the clocks are gated stalls the bus.
 +	 */
-+	platform_tpu_init(ndev);
++	ret = platform_tpu_init(ndev);
++	if (ret) {
++		first_node->ret = ret;
++		cvi_tpu_cleanup_buffer(first_node);
++		goto done;
++	}
 +	WRITE_ONCE(tpu_suspend.running_cnt, 1);
 +
 +	ret = cvi_tpu_run_dmabuf(ndev, first_node);
@@ -826,6 +903,7 @@ index 000000000000..111111111111
 +	WRITE_ONCE(tpu_suspend.running_cnt, 0);
 +	platform_tpu_deinit(ndev);
 +
++done:
 +	spin_lock(&kernel_work->done_list_lock);
 +	list_add_tail(&first_node->list, &kernel_work->done_list);
 +	spin_unlock(&kernel_work->done_list_lock);
@@ -929,11 +1007,7 @@ index 000000000000..111111111111
 +static void cvi_tpu_release_buf(struct cvi_tpu_buf *buf)
 +{
 +	list_del(&buf->list);
-+	dma_buf_unmap_attachment_unlocked(buf->attach, buf->sgt,
-+					  DMA_BIDIRECTIONAL);
-+	dma_buf_detach(buf->dmabuf, buf->attach);
-+	dma_buf_put(buf->dmabuf);
-+	kfree(buf);
++	cvi_tpu_buf_put(buf);
 +}
 +
 +static int cvi_tpu_get_paddr(struct cvi_tpu_ctx *ctx, unsigned long arg)
@@ -968,6 +1042,7 @@ index 000000000000..111111111111
 +		goto err_put;
 +	}
 +
++	refcount_set(&buf->refs, 1);
 +	buf->dmabuf = dmabuf;
 +	buf->attach = dma_buf_attach(dmabuf, ndev->dev);
 +	if (IS_ERR(buf->attach)) {
@@ -1158,7 +1233,7 @@ index 000000000000..111111111111
 +
 +	switch (cmd) {
 +	case CVITPU_SUBMIT_DMABUF:
-+		ret = cvi_tpu_submit(ndev, arg);
++		ret = cvi_tpu_submit(ctx, arg);
 +		break;
 +	case CVITPU_DMABUF_FLUSH_FD:
 +		ret = cvi_tpu_map_dmabuf(ndev, arg, DMA_TO_DEVICE);
@@ -1323,27 +1398,25 @@ index 000000000000..111111111111
 +		return ret;
 +
 +	ndev->clk_tpu_axi = devm_clk_get(dev, "clk_tpu_axi");
-+	if (IS_ERR(ndev->clk_tpu_axi)) {
-+		dev_warn(dev, "cannot get clk_tpu_axi\n");
-+		ndev->clk_tpu_axi = NULL;
-+	}
++	if (IS_ERR(ndev->clk_tpu_axi))
++		return dev_err_probe(dev, PTR_ERR(ndev->clk_tpu_axi),
++				     "cannot get clk_tpu_axi\n");
 +
 +	ndev->clk_tpu_fab = devm_clk_get(dev, "clk_tpu_fab");
-+	if (IS_ERR(ndev->clk_tpu_fab)) {
-+		dev_warn(dev, "cannot get clk_tpu_fab\n");
-+		ndev->clk_tpu_fab = NULL;
-+	}
++	if (IS_ERR(ndev->clk_tpu_fab))
++		return dev_err_probe(dev, PTR_ERR(ndev->clk_tpu_fab),
++				     "cannot get clk_tpu_fab\n");
 +
 +	/* Resets are only used for timeout recovery; optional. */
 +	ndev->rst_tdma = devm_reset_control_get_optional(dev, "res_tdma");
 +	if (IS_ERR(ndev->rst_tdma))
-+		ndev->rst_tdma = NULL;
++		return PTR_ERR(ndev->rst_tdma);
 +	ndev->rst_tpu = devm_reset_control_get_optional(dev, "res_tpu");
 +	if (IS_ERR(ndev->rst_tpu))
-+		ndev->rst_tpu = NULL;
++		return PTR_ERR(ndev->rst_tpu);
 +	ndev->rst_tpusys = devm_reset_control_get_optional(dev, "res_tpusys");
 +	if (IS_ERR(ndev->rst_tpusys))
-+		ndev->rst_tpusys = NULL;
++		return PTR_ERR(ndev->rst_tpusys);
 +
 +	spin_lock_init(&tpu_suspend.spin_lock);
 +	tpu_suspend.running_cnt = 0;
@@ -1353,13 +1426,14 @@ index 000000000000..111111111111
 +	init_completion(&ndev->tdma_done);
 +	mutex_init(&ndev->dev_lock);
 +
-+	ret = cvi_tpu_register_cdev(ndev);
++	ret = work_thread_init(ndev);
 +	if (ret < 0)
 +		return ret;
 +
-+	ret = work_thread_init(ndev);
++	/* Users may submit as soon as device_create publishes the node. */
++	ret = cvi_tpu_register_cdev(ndev);
 +	if (ret < 0) {
-+		cvi_tpu_unregister_cdev(ndev);
++		kthread_stop(ndev->kernel_work.work_thread);
 +		return ret;
 +	}
 +
@@ -1444,7 +1518,7 @@ index 000000000000..111111111111
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/soc/sophgo/tpu/cvi_tpu_interface.h b/drivers/soc/sophgo/tpu/cvi_tpu_interface.h
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..0b7e64b14c64
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/cvi_tpu_interface.h
 @@ -0,0 +1,74 @@
@@ -1524,7 +1598,7 @@ index 000000000000..111111111111
 +#endif /* __CVI_TPU_INTERFACE_H__ */
 diff --git a/drivers/soc/sophgo/tpu/cvi_tpu_ioctl.h b/drivers/soc/sophgo/tpu/cvi_tpu_ioctl.h
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..8646fa74ce6c
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/cvi_tpu_ioctl.h
 @@ -0,0 +1,69 @@
@@ -1599,7 +1673,7 @@ index 000000000000..111111111111
 +#endif /* __CVI_TPU_IOCTL_H__ */
 diff --git a/drivers/soc/sophgo/tpu/reg_tdma.h b/drivers/soc/sophgo/tpu/reg_tdma.h
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..db9633f0291b
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/reg_tdma.h
 @@ -0,0 +1,75 @@
@@ -1680,7 +1754,7 @@ index 000000000000..111111111111
 +#endif /* REG_TDMA_H */
 diff --git a/drivers/soc/sophgo/tpu/reg_tiu.h b/drivers/soc/sophgo/tpu/reg_tiu.h
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..71c53a33eb78
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/reg_tiu.h
 @@ -0,0 +1,35 @@
@@ -1721,10 +1795,10 @@ index 000000000000..111111111111
 +#endif /* __REG_TIU_H__ */
 diff --git a/drivers/soc/sophgo/tpu/tpu_platform.c b/drivers/soc/sophgo/tpu/tpu_platform.c
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..c46fbd8c12c2
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/tpu_platform.c
-@@ -0,0 +1,791 @@
+@@ -0,0 +1,796 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Copyright (C) Cvitek Co., Ltd. 2019-2021. All rights reserved.
@@ -2322,11 +2396,16 @@ index 000000000000..111111111111
 +
 +int platform_tpu_init(struct cvi_tpu_device *ndev)
 +{
-+	if (ndev->clk_tpu_axi && ndev->clk_tpu_fab) {
-+		clk_prepare_enable(ndev->clk_tpu_axi);
-+		clk_prepare_enable(ndev->clk_tpu_fab);
-+	}
++	int ret;
 +
++	ret = clk_prepare_enable(ndev->clk_tpu_axi);
++	if (ret)
++		return ret;
++	ret = clk_prepare_enable(ndev->clk_tpu_fab);
++	if (ret) {
++		clk_disable_unprepare(ndev->clk_tpu_axi);
++		return ret;
++	}
 +	platform_tpu_reset(ndev);
 +	return 0;
 +}
@@ -2518,7 +2597,7 @@ index 000000000000..111111111111
 +}
 diff --git a/drivers/soc/sophgo/tpu/tpu_platform.h b/drivers/soc/sophgo/tpu/tpu_platform.h
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..50efa44cca02
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/tpu_platform.h
 @@ -0,0 +1,72 @@
@@ -2596,7 +2675,7 @@ index 000000000000..111111111111
 +#endif
 diff --git a/drivers/soc/sophgo/tpu/tpu_pmu.c b/drivers/soc/sophgo/tpu/tpu_pmu.c
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..e93c3a3204fa
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/tpu_pmu.c
 @@ -0,0 +1,87 @@
@@ -2689,7 +2768,7 @@ index 000000000000..111111111111
 +}
 diff --git a/drivers/soc/sophgo/tpu/tpu_pmu.h b/drivers/soc/sophgo/tpu/tpu_pmu.h
 new file mode 100644
-index 000000000000..111111111111
+index 000000000000..3a8ed528265a
 --- /dev/null
 +++ b/drivers/soc/sophgo/tpu/tpu_pmu.h
 @@ -0,0 +1,41 @@
@@ -2734,5 +2813,3 @@ index 000000000000..111111111111
 +
 +
 +#endif
--- 
-Armbian

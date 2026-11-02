@@ -27,10 +27,9 @@ CONFIG_IRQSOFF_TRACER=y
 CONFIG_BLK_DEV_IO_TRACE=y
 CONFIG_KPROBES=y
 CONFIG_KPROBE_EVENTS=y
-# Hangs: SysRq on the console, hung tasks, soft lockups, stuck workqueues.
+# Hangs: SysRq on the console and stuck workqueues (the release kernel
+# already detects hung tasks and soft lockups).
 CONFIG_MAGIC_SYSRQ=y
-CONFIG_DETECT_HUNG_TASK=y
-CONFIG_SOFTLOCKUP_DETECTOR=y
 CONFIG_WQ_WATCHDOG=y
 # pr_debug on demand, all symbols, /proc/config.gz, per-task accounting
 # (pidstat -d), scheduler statistics.

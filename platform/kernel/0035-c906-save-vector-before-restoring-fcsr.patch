@@ -1,3 +1,13 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: switch XTheadVector state before restoring the next FCSR
+
+On the C906 (XTheadVector) the vector fixed-point fields VXRM and VXSAT are
+part of FCSR. __switch_to_fpu() loads the next task's FCSR, so a vector
+switch after it would save the previous task's vxrm/vxsat from the next
+task's FCSR. Switch the vector state first on XTheadVector cores; other
+cores keep the upstream order.
+
+---
 diff --git a/arch/riscv/include/asm/switch_to.h b/arch/riscv/include/asm/switch_to.h
 index 123c89b69..34e13993b 100644
 --- a/arch/riscv/include/asm/switch_to.h

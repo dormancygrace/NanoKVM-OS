@@ -1,3 +1,16 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: csum: unroll the word loop for long buffers
+
+The Internet checksum is computed in software whenever the device does
+not offload it (Wi-Fi, WireGuard/Tailscale inner packets, USB NCM). On the
+single-issue C906 the loop control of do_csum_common is a third of the
+instructions of the plain word loop. From four remaining words on, add an
+eight-word loop and one four-word step in front of it. The order of the
+additions, and so every result, is unchanged. The block sits behind
+unlikely() for code layout only: short buffers fall through to the plain
+loop without a taken branch.
+
+---
 diff --git a/arch/riscv/lib/csum.c b/arch/riscv/lib/csum.c
 --- a/arch/riscv/lib/csum.c
 +++ b/arch/riscv/lib/csum.c

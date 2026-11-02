@@ -1,3 +1,20 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] wifi: cfg80211: deliver a requested disconnect before the reply
+
+A driver may report the disconnection while it handles the request, but
+cfg80211_disconnected() only queues the event for the event work, which
+needs the wiphy lock. wpa_supplicant ignores the event for its own
+disconnect by matching it against a marker it sends on its event socket
+after the request. On the busy single-core C906 the marker came first;
+the DISCONNECT event then arrived after the next CONNECT request and was
+taken as the end of that attempt (SAE found no network and timed out), so
+moving between access points failed intermittently.
+
+cfg80211_disconnect() now processes the events already queued for the
+interface after the driver's disconnect returns, under the wiphy lock it
+holds, as cfg80211_unregister_wdev() does.
+
+---
 diff --git a/net/wireless/sme.c b/net/wireless/sme.c
 index 2a719b5..341539d 100644
 --- a/net/wireless/sme.c

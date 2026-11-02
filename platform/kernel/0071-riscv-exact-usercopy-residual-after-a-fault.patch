@@ -11,8 +11,9 @@ access is fast, as on the C906.
 
 Point the loop's exception entries at a replay instead: copy on from the
 block start byte by byte until the fault recurs, then leave through the
-byte loop's exit, whose residual is exact. 0053 did the same for this
-loop. The fault-free path is unchanged.
+byte loop's exit, whose residual is exact. Our own usercopy (0053),
+which 0058 and 0059 replaced, did the same for this loop. The fault-free
+path is unchanged.
 
 --- a/arch/riscv/lib/uaccess.S
 +++ b/arch/riscv/lib/uaccess.S

@@ -1,0 +1,74 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] ive: do not rewrite blocks SAD and DMA never touch
+
+ive_reset rewrote the IVE TOP, FILTEROP, IMG_IN and background-model
+register blocks with their defaults before every operation, about 300
+MMIO writes. Tiled MJPEG runs a few hundred SAD and DMA operations a
+second, and neither writes the FILTEROP or background-model blocks, so
+after one of them those blocks still hold the defaults. ive_reset now
+skips them (about 150 writes) when the previous operation was SAD or DMA;
+any other operation, a hardware reset and the first operation after the
+module loads rewrite them as before.
+
+---
+diff --git a/interdrv/ive/common/cvi_ive_interface.h b/interdrv/ive/common/cvi_ive_interface.h
+--- a/interdrv/ive/common/cvi_ive_interface.h
++++ b/interdrv/ive/common/cvi_ive_interface.h
+@@ -35,6 +35,8 @@ struct cvi_ive_device {
+ 	int total_tile;
+ 	int use_count;
+ 	uintptr_t *private_data;
++	/* FILTEROP and background-model registers hold ive_reset's defaults */
++	bool filterop_bg_clean;
+ };
+ 
+ struct ive_profiling_info {
+diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+--- a/interdrv/ive/hal/cv181x/cvi_ive_platform.c
++++ b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+@@ -3177,10 +3177,19 @@ static void ive_reset(struct cvi_ive_dev
+ 	ndev->total_tile = 0;
+ 	ndev->tile_num = 0;
+ 
++	/*
++	 * SAD and DMA never write the FILTEROP or background-model blocks, so
++	 * after them those blocks still hold the defaults written here; skip
++	 * rewriting about 150 registers. Any other operation, a hardware reset
++	 * and the first operation after load write them all.
++	 */
+ 	ive_reset_reg(1, ive_top_c);
+-	ive_reset_reg(2, ive_top_c);
++	if (!ndev->filterop_bg_clean)
++		ive_reset_reg(2, ive_top_c);
+ 	ive_reset_reg(3, ive_top_c);
+-	ive_reset_reg(4, ive_top_c);
++	if (!ndev->filterop_bg_clean)
++		ive_reset_reg(4, ive_top_c);
++	ndev->filterop_bg_clean = false;
+ 	// disable
+ 	ive_set_int(ive_top_c, 0);
+ 	ive_top_c->REG_3.reg_imgmux_img0_sel = 1;
+@@ -3834,6 +3843,7 @@ CVI_S32 cvi_ive_reset(struct cvi_ive_dev
+ {
+ 	//DEFINE_IVE_TOP_C(ive_top_c);
+ 	IVE_TOP_C ive_top_c = _DEFINE_IVE_TOP_C;
++	ndev->filterop_bg_clean = false; /* the hardware reset sets its own values */
+ 	usleep_range(3, 5);
+ 	vip_sys_reg_write_mask(VIP_SYS_REG_RST_IVE_TOP,
+ 		VIP_SYS_REG_RST_IVE_TOP_MASK, 0x1);
+@@ -4388,6 +4398,7 @@ CVI_S32 cvi_ive_DMA(struct cvi_ive_devic
+ 
+ 	CVI_DBG_INFO("CVI_MPI_IVE_DMA\n");
+ 	ive_reset(ndev, &ive_top_c);
++	ndev->filterop_bg_clean = true; /* DMA writes neither block */
+ 	if (g_dump_image_info == CVI_TRUE) {
+ 		dump_ive_data("pstSrc", pstSrc);
+ 		dump_ive_data("pstDst", pstDst);
+@@ -8640,6 +8651,7 @@ CVI_S32 cvi_ive_SAD(struct cvi_ive_devic
+ 
+ 	CVI_DBG_INFO("CVI_MPI_IVE_SAD\n");
+ 	ive_reset(ndev, &ive_top_c);
++	ndev->filterop_bg_clean = true; /* SAD writes neither block */
+ 	if (g_dump_image_info == CVI_TRUE) {
+ 		dump_ive_image("pstSrc1", pstSrc1);
+ 		dump_ive_image("pstSrc2", pstSrc2);

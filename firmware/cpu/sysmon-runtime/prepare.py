@@ -63,8 +63,14 @@ def materialize(rel):
 def edit(rel, old, new):
     p = out / 'src' / rel
     t = p.read_text()
-    assert t.count(old) == 1, rel
+    if t.count(old) != 1:
+        parser.error(f'{rel}: expected exactly one match of {old!r}')
     p.write_text(t.replace(old, new))
+
+
+def require_once(text, needle, where='runtime/proc.go'):
+    if text.count(needle) != 1:
+        parser.error(f'{where}: expected exactly one match of {needle!r}')
 
 
 # ChaCha20 for the std-vendored x/crypto used by crypto/tls.
@@ -181,21 +187,27 @@ vendor_files += ['internal/cpu/cpu.go', 'internal/cpu/cpu_riscv64.go', 'internal
 text = original.decode()
 # memmove: misaligned 8-byte loads where riscv_hwprobe reports them fast.
 zbb = '\t\triscv64HasZbb = cpu.RISCV64.HasZbb\n'
-assert text.count(zbb) == 1
+require_once(text, zbb)
 text = text.replace(zbb, zbb + '\t\tnanokvmFastMisaligned = cpu.RISCV64.HasFastMisaligned\n'
                     '\t\tnanokvmVectorMemmove = cpu.RISCV64.HasXTheadVector && nanokvmVectorEnabled()\n'
                     '\t\tnanokvmVectorMemclr = nanokvmVectorMemmove\n')
 anchor = 'func sysmon() {\n'
-assert text.count(anchor) == 1
+require_once(text, anchor)
 text = text.replace(anchor, anchor + '\tnanokvmSysmonInit()\n')
 # The sleep hook leaves sysmon's delay/idle backoff state untouched.
 sleep = ('\t\tif delay > 10*1000 { // up to 10ms\n'
          '\t\t\tdelay = 10 * 1000\n'
          '\t\t}\n'
          '\t\tusleep(delay)\n')
-assert text.count(sleep) == 1 and text.count('usleep(delay)') == 1
+require_once(text, sleep)
+require_once(text, 'usleep(delay)')
 text = text.replace(sleep, sleep.replace('usleep(delay)', 'usleep(nanokvmSysmonDelay(delay))'))
-pos = text.index('\tminit()\n', text.index('func mstart1() {')) + len('\tminit()\n')
+# nanokvmThreadInit runs right after minit() in mstart1, on every new M.
+require_once(text, 'func mstart1() {\n')
+start = text.index('func mstart1() {\n')
+end = text.index('\n}\n', start)
+require_once(text[start:end], '\tminit()\n', 'runtime/proc.go mstart1')
+pos = text.index('\tminit()\n', start) + len('\tminit()\n')
 text = text[:pos] + '\tnanokvmThreadInit()\n' + text[pos:]
 (out / 'src/runtime/proc.go').write_text(text)
 # A source and destination of different alignment go straight to the 8-byte
@@ -249,6 +261,10 @@ manifest = {'source_go': str(base), 'goroot': str(out), 'source_pin': pin,
                                 for p in [out / 'src/runtime/proc.go', out / 'src/runtime/memmove_riscv64.s', out / 'src/runtime/memclr_riscv64.s', *sorted((out / 'src/runtime').glob('nanokvm_*'))]},
             'vendor_sources': {rel: sha256(out / 'src' / rel) for rel in vendor_files}}
 (out / 'nanokvm-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-assert hashlib.sha256((base / 'src/runtime/proc.go').read_bytes()).hexdigest() == pin['proc_go_sha256']
-assert all(sha256(base / 'src' / rel) == digest for rel, digest in pin['vendor_sha256'].items())
+# The base toolchain is only read, never edited.
+if hashlib.sha256((base / 'src/runtime/proc.go').read_bytes()).hexdigest() != pin['proc_go_sha256']:
+    parser.error('base runtime/proc.go changed while preparing')
+for rel, digest in pin['vendor_sha256'].items():
+    if sha256(base / 'src' / rel) != digest:
+        parser.error(f'base {rel} changed while preparing')
 print(json.dumps(manifest, indent=2))

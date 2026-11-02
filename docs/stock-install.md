@@ -20,8 +20,11 @@ The first implementation supports SG2002 NanoKVM Cube/Full, Lite and PCIe with
 an MBR card, FAT partition 1, the running stock ext4 root on partition 2, and an
 existing, writable exFAT partition 3 mounted at `/data`. It refuses other
 layouts, a fourth partition, an unexpected boot device, an existing `dbg.sd`,
-insufficient space, or a mounted USB virtual disk/image. Detach virtual media
-in the stock UI first; the installer does not disconnect USB networking for you.
+insufficient space, or a mounted USB virtual disk/image. Stock shares
+partition 3 itself as a USB disk by default: the installer detaches that disk
+before it writes there, and refuses when the USB host keeps it locked (eject
+the NanoKVM disk on the host and try again). Detach any other virtual media in
+the stock UI first; the installer does not disconnect USB networking for you.
 
 Partition 3 and its files stay at their existing sectors. Wi-Fi credentials,
 boot network configuration, hostname, the root password, SSH host keys and
@@ -157,7 +160,12 @@ new p1 begins at 20 MiB and new p2 begins at 84 MiB.
 
 The stock-side installer stores verified payloads, one small settings archive,
 the original MBR and the stock boot image on partition 3. It replaces `boot.sd`
-with a recovery FIT only after staging and readback succeed. Stock `fip.bin`
+with a recovery FIT only after staging and readback succeed. A stock Cube's
+16 MiB boot volume cannot hold both images: there the stock `boot.sd` is
+compared with its saved copy and removed first, so a power cut in the few
+seconds until recovery is written leaves no `boot.sd` (restore it with the
+[card-reader procedure](#recover-with-a-card-reader)). A rollback from recovery
+likewise removes the recovery image before it writes the stock one back. Stock `fip.bin`
 stays in place for that boot. Recovery runs from RAM, checks its embedded
 payload hashes, and maps only the planned new filesystem ranges with loop
 devices whose kernel-enforced size limits are checked. It formats those ranges,
@@ -239,7 +247,8 @@ test ! -e formatting &&
 ```
 
 Copy `.nanokvm-stock-install/stock-boot.sd` from partition 3 onto partition 1
-(the original FAT boot volume), replacing its `boot.sd`. Leave `fip.bin` and
+(the original FAT boot volume), replacing its `boot.sd` (or as `boot.sd`
+where the card has none). Leave `fip.bin` and
 the partition table unchanged. Flush writes, safely eject the card, reinsert it
 in the NanoKVM and power on. This restores the original boot path to the untouched
 stock root, even if the interrupted stage was unknown when power was cut.

@@ -314,7 +314,7 @@ class Staging(LayoutFixture):
         shims.mkdir()
         write(shims, 'id', '#!/bin/sh\necho 0\n', 0o755)
         write(shims, 'uname', '#!/bin/sh\necho riscv64\n', 0o755)
-        write(shims, 'df', '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted"\necho "disk 9999999 1 ${TEST_FREE_KIB:-9999998} 1% mount"\n', 0o755)
+        write(shims, 'df', '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted"\ncase "$2" in *boot) f=${TEST_BOOT_FREE_KIB:-${TEST_FREE_KIB:-9999998}} ;; *) f=${TEST_FREE_KIB:-9999998} ;; esac\necho "disk 9999999 1 $f 1% mount"\n', 0o755)
         write(shims, 'sync', '#!/bin/sh\nexit 0\n', 0o755)
         write(shims, 'reboot', '#!/bin/sh\necho reboot >"$TEST_ROOT/rebooted"\n', 0o755)
         source = (SOURCE / 'install.sh').read_text()
@@ -326,7 +326,10 @@ class Staging(LayoutFixture):
         # those too. In particular a test must never run the host reboot applet.
         overrides = """id() { echo 0; }
 uname() { echo riscv64; }
-df() { echo 'Filesystem 1024-blocks Used Available Capacity Mounted'; echo "disk 9999999 1 ${TEST_FREE_KIB:-9999998} 1% mount"; }
+df() {
+    case "$2" in *boot) f=${TEST_BOOT_FREE_KIB:-${TEST_FREE_KIB:-9999998}} ;; *) f=${TEST_FREE_KIB:-9999998} ;; esac
+    echo 'Filesystem 1024-blocks Used Available Capacity Mounted'; echo "disk 9999999 1 $f 1% mount"
+}
 sync() { :; }
 reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
 """
@@ -337,6 +340,24 @@ reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
     def invoke(self, mode='--check'):
         return subprocess.run(['busybox', 'sh', str(self.script), str(self.bundle), mode],
                               env=self.env, text=True, capture_output=True, timeout=30)
+
+
+class StockCube(LayoutFixture):
+    def test_shared_data_disk_and_full_boot_volume(self):
+        # A stock Cube shares partition 3 over USB, and its boot volume has no
+        # room for recovery beside the stock image (the fixture needs 1025 KiB).
+        Staging.prepare(self)
+        lun = write(self.root, 'sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/file',
+                    str(self.root / 'dev/mmcblk0p3') + '\n')
+        self.env['TEST_BOOT_FREE_KIB'] = '1024'
+        result = Staging.invoke(self, '--check')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('will be detached', result.stdout)
+        result = Staging.invoke(self, '--yes')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(lun.read_text().strip(), '')
+        self.assertEqual((self.root / 'boot/boot.sd').read_text(), 'recovery.sd fixture')
+        self.assertEqual((self.root / 'data/.nanokvm-stock-install/stock-boot.sd').read_text(), 'stock boot')
 
 
 class Recovery(LayoutFixture):
@@ -397,6 +418,12 @@ losetup() { echo detach >>"$TEST_ROOT/actions"; }
 sync() { :; }
 sleep() { :; }
 reboot() { echo reboot >>"$TEST_ROOT/actions"; trap - EXIT; exit 80; }
+cp() { [ -z "${FAIL_COPY:-}" ] || return 1; command cp "$@"; }
+df() {
+    if [ -n "${OLDBOOT_FREE_KIB:-}" ]; then
+        echo 'Filesystem 1K-blocks Used Available Use% Mounted'; echo "disk 16334 1 $OLDBOOT_FREE_KIB 1% /oldboot"
+    else command df "$@"; fi
+}
 format_root() {
     printf '%s\n' "$*" >"$TEST_ROOT/mkfs-arguments"
     echo format >>"$TEST_ROOT/actions"
@@ -465,6 +492,23 @@ format_root() {
         self.assertNotIn('format', (self.root / 'actions').read_text().splitlines())
         self.assertFalse((self.stage / 'formatting').exists())
         self.assertEqual(self.command('state', self.card, self.stage / 'mbr.old').stdout, b'stock\n')
+
+    def test_failed_rollback_copy_keeps_recovery_unless_out_of_room(self):
+        self.prepare()
+        (self.stage / 'boot.img.gz').write_bytes(b'broken')
+        (self.root / 'oldboot').mkdir(exist_ok=True)
+        (self.root / 'oldboot/boot.sd').write_text('recovery image')
+        self.env['FAIL_COPY'] = '1'  # an error unrelated to space, such as EIO
+        result = self.recover()
+        self.assertEqual(result.returncode, 81, result.stderr)
+        self.assertEqual((self.root / 'oldboot/boot.sd').read_text(), 'recovery image')
+        self.assertIn('power cycle resumes', result.stderr)
+        self.env['OLDBOOT_FREE_KIB'] = '1'  # the stock image does not fit beside it
+        result = self.recover()
+        self.assertEqual(result.returncode, 81, result.stderr)
+        self.assertFalse((self.root / 'oldboot/boot.sd').exists())
+        self.assertIn('with a card reader', result.stderr)
+        self.assertNotIn('power cycle resumes', result.stderr)
 
     def test_settings_link_is_rejected_before_formatting(self):
         self.prepare()

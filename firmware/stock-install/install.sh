@@ -48,12 +48,19 @@ mounted /dev/mmcblk0p3 /data exfat || fail "/data must be writable exFAT partiti
 awk '$2=="/" && $3=="ext4" && ($1=="/dev/mmcblk0p2" || $1=="/dev/root") {found=1} END {exit !found}' /proc/mounts ||
     fail "the running root must be stock ext4 on partition 2"
 case " $(cat /proc/cmdline) " in *' root=/dev/mmcblk0p2 '*) ;; *) fail "root boot device is not mmcblk0p2" ;; esac
-# A mounted ISO or a raw data LUN can still be written by the USB host. Ask the
-# operator to detach it; do not silently drop USB networking used for SSH.
+# A mounted ISO or a raw data LUN can still be written by the USB host. Stock
+# shares partition 3 itself by default; that disk is detached below, before
+# staging writes there. Ask the operator to detach anything else; do not
+# silently drop USB networking used for SSH.
+data_luns=
 for file in /sys/kernel/config/usb_gadget/*/functions/mass_storage.*/lun.*/file; do
     [ -e "$file" ] || continue
     medium=$(cat "$file") || fail "cannot inspect USB virtual media"
-    [ -z "$medium" ] || fail "detach every USB virtual disk/image before installation"
+    case "$medium" in
+        '') ;;
+        /dev/mmcblk0p3) data_luns="$data_luns $file" ;;
+        *) fail "detach every USB virtual disk/image before installation" ;;
+    esac
 done
 plan=$("$bundle/stock-layout" plan /dev/mmcblk0) || fail "unsupported SD layout"
 # Only the compiled helper emits these nine decimal integers, never shell code.
@@ -68,9 +75,18 @@ root_kib=$(cat "$bundle/rootfs-kib")
 case "$root_kib" in ''|*[!0-9]*) fail "invalid root size" ;; esac
 [ "$(( $3 / 2 ))" -ge "$((root_kib + 131072))" ] || fail "new root lacks 128 MiB of free headroom"
 free_kib() { df -Pk "$1" | awk 'NR==2 {print $4}'; }
-need_boot=$(( ($(wc -c <"$bundle/recovery.sd") + 1023) / 1024 + 1024 ))
-[ "$(free_kib /boot)" -ge "$need_boot" ] || fail "/boot lacks space for recovery beside the stock boot image (need $need_boot KiB)"
 [ -f /boot/boot.sd ] && [ ! -L /boot/boot.sd ] || fail "stock boot image is missing"
+# Recovery goes beside the stock boot image where there is room. The stock
+# 16 MiB boot partition of a Cube has none: there the stock image, saved and
+# compared on partition 3 first, is removed before recovery is written.
+need_boot=$(( ($(wc -c <"$bundle/recovery.sd") + 1023) / 1024 + 1024 ))
+stock_boot_kib=$(( ($(wc -c </boot/boot.sd) + 1023) / 1024 ))
+replace_boot=0
+if [ "$(free_kib /boot)" -lt "$need_boot" ]; then
+    [ "$(( $(free_kib /boot) + stock_boot_kib ))" -ge "$need_boot" ] ||
+        fail "/boot lacks space for recovery (need $need_boot KiB)"
+    replace_boot=1
+fi
 need_data=$(( $(du -sk "$bundle" | awk '{print $1}') + ($(wc -c </boot/boot.sd) + 1023) / 1024 + 8192 ))
 [ "$(free_kib /data)" -ge "$need_data" ] || fail "/data needs $need_data KiB free"
 [ ! -e /boot/dbg.sd ] || fail "remove the existing debug boot override first"
@@ -79,9 +95,16 @@ stage=/data/.nanokvm-stock-install
 echo "Ready: keep partition 3; build a 64 MiB boot and $(( $3 / 2048 )) MiB root inside old partition 2."
 echo "The stock OS and installed applications will be replaced. Network and SSH access settings are retained."
 echo "The web login becomes admin/admin and requires a new password. Keep power connected."
+[ -z "$data_luns" ] || echo "Partition 3, shared as a USB disk, will be detached from the USB host."
 [ "$mode" = --yes ] || exit 0
 mkdir /run/nanokvm-stock-install.lock || fail "another installation is running"
 trap 'rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' EXIT
+for file in $data_luns; do
+    # An empty name ejects the medium; a host that locked it refuses.
+    echo >"$file" 2>/dev/null && [ -z "$(cat "$file")" ] ||
+        fail "the USB host keeps partition 3 in use; eject the NanoKVM disk on the host and try again"
+    echo "Detached the USB disk ${file%/file}."
+done
 mkdir "$stage" || fail "cannot create staging directory"
 # Keep failed preparation available for diagnosis; only this fixed directory is
 # owned by the installer. Never erase somebody else's directory on a retry.
@@ -138,10 +161,21 @@ printf 'prepared\n' >"$stage/status"
 sync
 (cd "$stage" && sha256sum -c transaction.sha256) || fail "staged settings failed readback"
 [ "$("$bundle/stock-layout" state /dev/mmcblk0 "$stage/mbr.old")" = stock ] || fail "partition table changed"
-cp "$stage/recovery.sd" /boot/.nanokvm-recovery.new || fail "cannot write recovery"
+restore_boot() {
+    [ "$replace_boot" = 1 ] || return 0
+    rm -f /boot/.nanokvm-recovery.new
+    cp "$stage/stock-boot.sd" /boot/boot.sd && sync && cmp "$stage/stock-boot.sd" /boot/boot.sd ||
+        echo "NanoKVM OS installation: restore /boot/boot.sd from $stage/stock-boot.sd before rebooting" >&2
+}
+if [ "$replace_boot" = 1 ]; then
+    cmp /boot/boot.sd "$stage/stock-boot.sd" || fail "saved stock boot image differs"
+    rm -f /boot/boot.sd || fail "cannot remove the stock boot image"
+    sync
+fi
+cp "$stage/recovery.sd" /boot/.nanokvm-recovery.new || { restore_boot; fail "cannot write recovery"; }
 sync
-cmp "$stage/recovery.sd" /boot/.nanokvm-recovery.new || fail "recovery readback failed"
-mv -f /boot/.nanokvm-recovery.new /boot/boot.sd || fail "cannot activate recovery"
+cmp "$stage/recovery.sd" /boot/.nanokvm-recovery.new || { restore_boot; fail "recovery readback failed"; }
+mv -f /boot/.nanokvm-recovery.new /boot/boot.sd || { restore_boot; fail "cannot activate recovery"; }
 sync
 echo "Recovery activated. Rebooting; installation continues without the SSH connection."
 reboot

@@ -98,6 +98,8 @@ def build(archive, output, cross, jobs):
     shutil.copy2(source / 'LICENSE.txt', license_dir / 'LICENSE.txt')
     shutil.copy2(ROOT / 'firmware/cpu/go-crypto-c906/LICENSE',
                  license_dir / 'C906-BSD-3-Clause.txt')
+    shutil.copy2(ROOT / 'firmware/cpu/go-crypto-c906/CRYPTOGAMS-LICENSE',
+                 license_dir / 'CRYPTOGAMS-BSD-3-Clause.txt')
     info_dir = runtime / 'usr/share/nanokvm/openssl'
     info_dir.mkdir(parents=True)
     shutil.copy2(output / 'cpu-profile.json', info_dir / 'cpu-profile.json')

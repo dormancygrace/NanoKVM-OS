@@ -103,7 +103,7 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +}
 +
 +/* Keep the expanded key and its powers on a temporary stack frame, reached
-+ * only for a 3 KiB or larger input. No context growth or persistent key cache.
++ * only for a 2 KiB or larger input. No context growth or persistent key cache.
 + */
 +static __attribute__((noinline)) size_t vector_prefix(
 +    u64 xi[2], const u128 *table, const u8 *in, size_t len)

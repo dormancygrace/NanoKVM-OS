@@ -81,11 +81,18 @@ After a release has been qualified and includes the installer:
 
 1. Download `nanokvm_X.Y.Z.tar.gz` and `SHA256SUMS` from that NanoKVM OS release.
    Verify the package against the published checksum. Keep its original filename.
-2. In stock Sipeed **2.4.0 or newer**, open the offline application update,
+2. In stock Sipeed **2.5.1 or newer**, open the offline application update,
    upload the package, and start the update. This authorizes installation and
    the required reboots.
 3. Wait for NanoKVM OS to start and finish board selection. Open
    `https://DEVICE-IP/`, sign in, and change the initial web password.
+
+Stock 2.5.1 and newer start the package's `system/init.d/S95nanokvm` after the
+update. Older stock restarts its own `/etc/init.d/S95nanokvm` copy instead; the
+package then puts the stock application back a few seconds later and the
+migration does not start. The same happens if the device restarts before the
+handover. Update the stock application first. The SSH installer
+also refuses stock older than 2.5.1.
 
 The package restores the stock updater's own `/root/old` application before
 preflight. If preflight refuses the migration, the stock UI remains available.

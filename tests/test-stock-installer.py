@@ -283,7 +283,7 @@ class Staging(LayoutFixture):
         self.bundle.mkdir()
         shutil.copyfile(self.bin, self.bundle / 'stock-layout')
         (self.bundle / 'stock-layout').chmod(0o755)
-        for path, content in {'etc/kvm/hw': 'pcie\n', 'kvmapp/version': '2.5.0\n',
+        for path, content in {'etc/kvm/hw': 'pcie\n', 'kvmapp/version': '2.5.1\n',
                               'etc/shadow': 'root:TESTHASH:1::::::\ndaemon:*:1::::::\n',
                               'etc/kvm/wifi.ssid': 'my network', 'etc/kvm/wifi.pass': 'password',
                               'root/.ssh/authorized_keys': 'ssh-ed25519 fixture\n',

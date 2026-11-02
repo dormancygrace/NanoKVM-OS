@@ -13,6 +13,12 @@ case "$2" in --check|--yes) mode=$2 ;; *) usage ;; esac
 [ ! -e /etc/alpine-release ] || fail "NanoKVM OS is already installed; use package updates"
 [ -f /etc/kvm/hw ] && [ -f /kvmapp/version ] || fail "stock NanoKVM identity is missing"
 case "$(cat /etc/kvm/hw)" in alpha|beta|pcie) ;; *) fail "unsupported stock board" ;; esac
+# Older stock updaters never start this package's S95nanokvm.
+stock_version=$(cat /kvmapp/version)
+stock_version=${stock_version#v}
+awk -v v="$stock_version" 'BEGIN { n = split(v, p, ".")
+    exit !(n == 3 && (p[1] > 2 || (p[1] == 2 && (p[2] > 5 || (p[2] == 5 && p[3] >= 1))))) }' ||
+    fail "stock 2.5.1 or newer is required (found ${stock_version:-unknown}); update the stock application first"
 [ -r /proc/device-tree/compatible ] || fail "device tree is unavailable"
 # The stock SG2002 SDK exposes the CV181x family name here. Board/application
 # identity above and the card-layout checks below still restrict the target.
@@ -64,9 +70,9 @@ case "$root_kib" in ''|*[!0-9]*) fail "invalid root size" ;; esac
 free_kib() { df -Pk "$1" | awk 'NR==2 {print $4}'; }
 need_boot=$(( ($(wc -c <"$bundle/recovery.sd") + 1023) / 1024 + 1024 ))
 [ "$(free_kib /boot)" -ge "$need_boot" ] || fail "/boot lacks space for recovery beside the stock boot image (need $need_boot KiB)"
+[ -f /boot/boot.sd ] && [ ! -L /boot/boot.sd ] || fail "stock boot image is missing"
 need_data=$(( $(du -sk "$bundle" | awk '{print $1}') + ($(wc -c </boot/boot.sd) + 1023) / 1024 + 8192 ))
 [ "$(free_kib /data)" -ge "$need_data" ] || fail "/data needs $need_data KiB free"
-[ -f /boot/boot.sd ] && [ ! -L /boot/boot.sd ] || fail "stock boot image is missing"
 [ ! -e /boot/dbg.sd ] || fail "remove the existing debug boot override first"
 stage=/data/.nanokvm-stock-install
 [ ! -e "$stage" ] || fail "$stage already exists; inspect its status before starting another migration"

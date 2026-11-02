@@ -26,8 +26,8 @@ fail() {
             # Only when the stock one does not fit beside this image (which
             # runs from RAM) does it go first; any other failure keeps it.
             size=$(wc -c <"$stage/stock-boot.sd" 2>/dev/null) || size=
-            free=$(df -k /oldboot 2>/dev/null | awk 'NR==2 {print $4}') || free=
             rm -f /oldboot/.stock-boot.new
+            free=$(df -k /oldboot 2>/dev/null | awk 'NR==2 {print $4}') || free=
             if [ -n "$size" ] && [ -n "$free" ] && [ "$free" -lt "$(( (size + 1023) / 1024 + 64 ))" ]; then
                 rm -f /oldboot/boot.sd && sync && replaced=1
             fi

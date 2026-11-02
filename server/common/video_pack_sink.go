@@ -67,6 +67,10 @@ func readVideoIntoOwnedStorage(width, height uint16, codec uint8, rate uint16, f
 // JPEG is one borrowed pack. The returned bytes are owned by Go before the
 // native callback returns, allowing JPU and VI leases to be released promptly.
 func readMjpegIntoOwnedStorage(width, height, quality uint16) ([]byte, int) {
+	if w := jpegWorkerLocked(); w != nil {
+		state, result := w.readPicture(width, height, quality)
+		return state.mjpegResult(result)
+	}
 	state := &videoPackStorage{}
 	handle := cgo.NewHandle(state)
 	defer handle.Delete()
@@ -76,6 +80,10 @@ func readMjpegIntoOwnedStorage(width, height, quality uint16) ([]byte, int) {
 
 // Tiled MJPEG: one message (result 6) or a bare JPEG (0), copied like a JPEG.
 func readMjpegTilesIntoOwnedStorage(width, height, quality uint16, key bool, maxTiles uint16) ([]byte, int) {
+	if w := jpegWorkerLocked(); w != nil {
+		state, result := w.readTiles(width, height, quality, key, maxTiles)
+		return state.mjpegTilesResult(result)
+	}
 	state := &videoPackStorage{}
 	handle := cgo.NewHandle(state)
 	defer handle.Delete()

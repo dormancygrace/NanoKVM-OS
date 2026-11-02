@@ -1,0 +1,21 @@
+{
+  "component": "RustDesk protocol reference",
+  "current": "1.5.0",
+  "candidate": "1.5.1",
+  "candidate_key": "1.5.1:23e5bb471a040d62f0a6ad52591fb30784265b73:fae47e024dd83cef6aaecde0aa7d11731df11649",
+  "status": "accepted",
+  "upstream": "https://github.com/rustdesk/rustdesk/releases/tag/1.5.1",
+  "source_path": "addons/rustdesk/upstream.json",
+  "strategy": "review",
+  "evidence": {
+    "reference": {
+      "rustdesk_version": "1.5.1",
+      "rustdesk_commit": "23e5bb471a040d62f0a6ad52591fb30784265b73",
+      "hbb_common_commit": "fae47e024dd83cef6aaecde0aa7d11731df11649"
+    },
+    "protocol_review": "Optional trusted-device v2/OS-login fields and USB permission bit; existing KX, rendezvous signatures and framing unchanged. New optional features remain unsupported and unadvertised. PublicKey v0/v1 fixtures round-trip with both upstream schemas."
+  },
+  "pin_files_updated": [
+    "addons/rustdesk/upstream.json"
+  ]
+}

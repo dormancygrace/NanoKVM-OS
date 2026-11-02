@@ -5,11 +5,15 @@ The original media/control transport was replaced; RustDesk protocol, cryptograp
 Corresponding source: this addons/rustdesk directory and Cargo.lock; build instructions in README.md.
 Do not distribute a binary without its corresponding source and dependency sources required by AGPL.
 
-Protocol reference audited against RustDesk 1.5.0 (fada664df7a294d1d1a9ca3e7cd3637069122f17),
-hbb_common 229b904508364c8997aad0fb5af57effac859f60, the submodule pinned by that release.
-The previously audited 94ec710894ecd548b4fe174ef781eca5c1a318c0 differs only in
-upstream Cargo patches; the protobuf definitions are unchanged. This is a partial
-protocol endpoint derived via OneKVM, not a complete RustDesk client fork.
+Protocol reference audited against RustDesk 1.5.1 (23e5bb471a040d62f0a6ad52591fb30784265b73),
+hbb_common fae47e024dd83cef6aaecde0aa7d11731df11649, the submodule pinned by that release.
+Relative to 1.5.0, message.proto adds optional trusted-device v2 and OS-login
+fields; rendezvous.proto adds the USB permission bit. Existing field numbers,
+KX, signed rendezvous and WebRTC framing are unchanged. The partial endpoint
+does not advertise trusted-device v2, handle OS-login messages or implement
+remote-USB control; it continues to authenticate using the password challenge.
+The original 1.5.0 KX wire fixtures round-trip unchanged through the 1.5.1 schema.
+This is a partial protocol endpoint derived via OneKVM, not a complete RustDesk client fork.
 RustDesk 1.5.0 KX v1, signed rendezvous parameters, DTLS identity binding,
 WebRTC data-channel framing and temporary-password rotation are adapted from
 the pinned RustDesk/hbb_common commits. The application bridge uses Pion v4.2.22;

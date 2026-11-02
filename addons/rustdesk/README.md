@@ -190,9 +190,12 @@ before relying on the add-on.
 ## Versions and upstream reference
 
 The add-on has its own Cargo/APK version. `upstream.json` records the audited
-RustDesk 1.5.0 protocol reference and exact source commits; it is embedded in
+RustDesk 1.5.1 protocol reference and exact source commits; it is embedded in
 the daemon and installed alongside it so the UI follows the installed package.
 This is a partial protocol endpoint, not a full RustDesk fork.
+The 1.5.1 protocol additions are optional. Trusted-device v2 credentials,
+OS-login messages and remote-USB control are not implemented or advertised;
+password authentication and the existing KX v0/v1 paths remain in use.
 `nanokvm-rustdesk --version` prints both versions without starting the service.
 The network version remains the reference version, not the newest client release.
 

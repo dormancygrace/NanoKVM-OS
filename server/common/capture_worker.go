@@ -28,6 +28,7 @@ type videoCaptureWorker struct {
 	native   *C.nk_capture_worker
 	shared   *C.nk_capture_shared
 	ready    *os.File
+	readyRaw syscall.RawConn
 	doorbell uintptr
 	next     int // consumer slot; used only by the active VideoCapture
 
@@ -50,7 +51,13 @@ func newVideoCaptureWorker() (*videoCaptureWorker, error) {
 		ready.Close()
 		return nil, fmt.Errorf("capture notification is not pollable: %w", err)
 	}
-	return &videoCaptureWorker{native: native, shared: shared, ready: ready, doorbell: uintptr(doorbellFD)}, nil
+	readyRaw, err := ready.SyscallConn()
+	if err != nil {
+		C.nk_capture_destroy(native)
+		ready.Close()
+		return nil, fmt.Errorf("capture notification: %w", err)
+	}
+	return &videoCaptureWorker{native: native, shared: shared, ready: ready, readyRaw: readyRaw, doorbell: uintptr(doorbellFD)}, nil
 }
 
 func (w *videoCaptureWorker) slotState(index int) *int32 {
@@ -101,13 +108,36 @@ func (w *videoCaptureWorker) wait() error {
 			atomic.StoreInt32(waiting, 0)
 			break
 		}
-		if _, err := w.ready.Read(signal[:]); err != nil {
+		if err := w.readSignal(&signal); err != nil {
 			atomic.StoreInt32(waiting, 0)
 			return err
 		}
 		w.waits.Add(1)
 	}
 	return nil
+}
+
+// readSignal consumes the ready eventfd. The netpoller does the waiting; the
+// read itself is a raw syscall, as the doorbell write is. os.File.Read enters
+// the runtime's syscall state, and with the only P idle between frames sysmon
+// sleeps deeply; entersyscall wakes it, which cost a futex wake and a sysmon
+// run every frame.
+func (w *videoCaptureWorker) readSignal(signal *[8]byte) error {
+	var readErr error
+	err := w.readyRaw.Read(func(fd uintptr) bool {
+		_, _, errno := syscall.RawSyscall(syscall.SYS_READ, fd, uintptr(unsafe.Pointer(&signal[0])), uintptr(len(signal)))
+		if errno == syscall.EAGAIN {
+			return false
+		}
+		if errno != 0 && errno != syscall.EINTR {
+			readErr = os.NewSyscallError("read", errno)
+		}
+		return true
+	})
+	if err != nil {
+		return err
+	}
+	return readErr
 }
 
 // Drops slots completed after the consumer stopped. The thread is stopped.

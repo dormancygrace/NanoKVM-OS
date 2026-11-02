@@ -12,9 +12,9 @@ the encoder of gen_chacha_riscv64.py (same directory).
 Usage: gen_sha1mb_riscv64.py --binutils PREFIX (--output FILE | --check FILE)
 """
 from pathlib import Path
-import argparse, itertools, sys
+import argparse, sys
 
-from gen_chacha_riscv64 import Asm, vv, vi, vx, vmv_v_v, vid, vsetvli, vle, vse, verify
+from gen_chacha_riscv64 import Asm, vv, vi, vx, vmacc_vx, vmv_v_v, vid, vsetvli, vle, vse, verify
 
 # How the message words get big-endian: 'scalar' byte loads in the staging
 # copy (shipped), or 'vrgather' (measurement only): the staging copies
@@ -28,6 +28,8 @@ NXT, CUR = 13, 14         # staging buffer being filled / being hashed
 K = [15, 16, 17, 18]      # round constants
 NSTEPS, FR, SCRATCH, MSGS, SEGS, INIT = 19, 20, 21, 22, 23, 24
 A0, A1, A2, A3, A4 = 25, 26, 28, 29, 30  # temporaries outside the rounds
+# In the rounds A2, A3 and A4 hold the vmacc.vx multipliers 2, 1<<5 and 1<<30.
+MUL = {1: A2, 5: A3, 30: A4}
 # X27 (g), X31 (assembler temporary) and X1..X4 are not used.
 
 W = list(range(16))               # message schedule ring, v0..v15
@@ -73,22 +75,43 @@ def o_vx(op, d, a, r):
     return Op(vx(op, d, a, r), d, [a])
 
 
+def o_rotacc(d, k, a):
+    """d += a << k (mod 2^32) with vmacc.vx: vd is read as well."""
+    return Op(vmacc_vx(d, MUL[k], a), d, [d, a])
+
+
+class Pool:
+    """Round-robin temporaries; a renamed state word swaps in for one."""
+
+    def __init__(self, regs):
+        self.regs, self.i = list(regs), 0
+
+    def __next__(self):
+        r = self.regs[self.i % len(self.regs)]
+        self.i += 1
+        return r
+
+    def swap(self, out, back):
+        self.regs[self.regs.index(out)] = back
+
+
 def step_ops(dist):
     """Vector ops of one 64-byte step (80 rounds) in priority order."""
     ops = []
-    tmp = itertools.cycle(TMPS)
+    tmp = Pool(TMPS)
     st = list(STATE)
     ops += [Op(vmv_v_v(st[i], H[i]), st[i], [H[i]]) for i in range(5)]
 
     def sched(u):
-        # W[u] = rol1(W[u-3] ^ W[u-8] ^ W[u-14] ^ W[u-16]), in W[u-16]'s register.
-        r, x, y = W[u % 16], next(tmp), next(tmp)
+        # W[u] = rol1(W[u-3] ^ W[u-8] ^ W[u-14] ^ W[u-16]), in W[u-16]'s register:
+        # the xor in a temporary x, then W[u] = (x >> 31) + x * 2 (vmacc.vx;
+        # XTheadVector has no rotate).
+        r, x = W[u % 16], next(tmp)
         ops.extend([o_vv('vxor', x, W[(u - 3) % 16], W[(u - 8) % 16]),
                     o_vv('vxor', r, r, W[(u - 14) % 16]),
-                    o_vv('vxor', r, r, x),
-                    o_vi('vsll', y, r, 1),
-                    o_vi('vsrl', r, r, 31),
-                    o_vv('vor', r, r, y)])
+                    o_vv('vxor', x, x, r),
+                    o_vi('vsrl', r, x, 31),
+                    o_rotacc(r, 1, x)])
 
     for t in range(80):
         a, b, c, d, e = st
@@ -105,15 +128,17 @@ def step_ops(dist):
                     o_vv('vxor', y, b, c), o_vv('vand', y, y, d), o_vv('vadd', e, e, y)]
         else:         # f = b ^ c ^ d
             ops += [o_vv('vxor', x, b, c), o_vv('vxor', x, x, d), o_vv('vadd', e, e, x)]
-        # e += rol5(a): the two shifted halves are disjoint, so add both.
-        x, y = next(tmp), next(tmp)
-        ops += [o_vi('vsrl', x, a, 27), o_vv('vadd', e, e, x),
-                o_vi('vsll', y, a, 5), o_vv('vadd', e, e, y)]
-        # b = rol30(b): shift left, shift right, or (no vector rotate).
+        # e += rol5(a): the two halves are disjoint, so add both; vmacc.vx
+        # adds a << 5.
         x = next(tmp)
-        ops += [o_vi('vsll', x, b, 30), o_vi('vsrl', b, b, 2), o_vv('vor', b, b, x)]
-        st = [e, a, b, c, d]
-    assert st == STATE
+        ops += [o_vi('vsrl', x, a, 27), o_vv('vadd', e, e, x), o_rotacc(e, 5, a)]
+        # b = rol30(b) = (b >> 2) + b * 2^30, into a temporary x, which then
+        # holds the word; b's register becomes a temporary. The next step
+        # starts from H again, so the registers need not return to STATE.
+        x = next(tmp)
+        ops += [o_vi('vsrl', x, b, 2), o_rotacc(x, 30, b)]
+        tmp.swap(x, b)
+        st = [e, a, x, c, d]
     ops += [o_vv('vadd', H[i], H[i], st[i]) for i in range(5)]
     return ops
 
@@ -326,6 +351,8 @@ def build(lat, dist, stage=True):
             a(vv('vrgather', x, W[t], IDX), vmv_v_v(W[t], x))
     a(f'MOV\t$4, X{A0}', vsetvli(A1, A0, 32, 1))
     advance(a, 'l')
+    for k, r in MUL.items():
+        a(f'MOV\t${1 << k}, X{r}')
     # 80 rounds; the scalar staging of the next step fills the issue slots
     # between vector instructions, which occupy the 64-bit datapath for two
     # cycles each.
@@ -351,8 +378,9 @@ HEADER = '''\
 
 // Multi-buffer SHA-1 for the T-Head C906 (SG2002): four block streams in
 // XTheadVector lanes (VLEN 128, SEW 32, LMUL 1), one SHA-1 word per vector
-// register: v0-v15 message schedule, v16-v20 a-e, v21-v25 chaining value,
-// v26-v31 temporaries. Rotates are shift left, shift right, or/add.
+// register: v0-v15 message schedule, v21-v25 chaining value; a-e start in
+// v16-v20 and move among v16-v20 and the temporaries v26-v31. XTheadVector
+// has no rotate: rol(x, k) is x >> (32 - k) plus vmacc.vx of x times 2^k.
 //
 // Each step hashes one 64-byte block per lane. While the vector unit runs
 // the 80 rounds, scalar code interleaved with them copies the next step's

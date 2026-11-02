@@ -262,10 +262,15 @@ lives in the server module, not in the prepared GOROOT.
 
 - `sha1x4` hashes four block streams in the 32-bit lanes of XTheadVector
   registers, one SHA-1 word per register (v0-v15 schedule, v16-v20 a-e,
-  v21-v25 chaining value). Rotates are shift, shift, or (or two adds when
-  the result is added anyway). The 1414 vector instructions of a step are
-  list-scheduled for an assumed result latency of 6 cycles; in program
-  order the kernel took about 1.6 times as long.
+  v21-v25 chaining value). XTheadVector has no rotate: rol(x, k) is
+  `th.vsrl.vi` by 32 - k plus `th.vmacc.vx` of x times 2^k, which issues
+  every two cycles like an add. `e += rol5(a)` takes three instructions,
+  `W[t] = rol1(...)` one fewer than shift, shift, or, and `rol30(b)` two,
+  its result in a temporary that then holds b (a-e move among v16-v20 and
+  v26-v31; each step starts from the chaining value again). The 1190 vector
+  instructions of a step (1414 with shift, shift, or) are list-scheduled
+  for an assumed result latency of 6 cycles; in program order the kernel
+  took about 1.6 times as long.
 - Scalar code interleaved with the rounds copies the next step's four
   blocks into a stack buffer with byte loads, as big-endian words and
   transposed, so W is loaded with two LMUL 8 loads; no alignment is needed.
@@ -294,6 +299,11 @@ ROC; crypto/hmac is used as pion/srtp does (Reset, Write, Write, Sum):
 | 4 x 4096 B | 148.9 us | 44.5 us | 3.3x |
 
 The Go part (scheduling, segments, copies) takes about 1.4 us per packet.
+
+`vmacc.vx` rotates against shift, shift, or (2026-11-02, stand, server
+stopped, thread CPU per packet, medians of five interleaved rounds): video
+13 x 1200 B + 600 B 17.5 -> 15.9 us (-9%), audio 4 x 172 B 8.5 -> 7.6 us
+(-11%).
 A vector instruction costs about two cycles whatever `vl` is, so idle lanes
 cost as much as busy ones: 14 video packets fill 271 of 320 lane steps.
 

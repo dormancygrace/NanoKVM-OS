@@ -4,8 +4,9 @@
 
 // Multi-buffer SHA-1 for the T-Head C906 (SG2002): four block streams in
 // XTheadVector lanes (VLEN 128, SEW 32, LMUL 1), one SHA-1 word per vector
-// register: v0-v15 message schedule, v16-v20 a-e, v21-v25 chaining value,
-// v26-v31 temporaries. Rotates are shift left, shift right, or/add.
+// register: v0-v15 message schedule, v21-v25 chaining value; a-e start in
+// v16-v20 and move among v16-v20 and the temporaries v26-v31. XTheadVector
+// has no rotate: rol(x, k) is x >> (32 - k) plus vmacc.vx of x times 2^k.
 //
 // Each step hashes one 64-byte block per lane. While the vector unit runs
 // the 80 rounds, scalar code interleaved with them copies the next step's
@@ -1591,2124 +1592,1903 @@ idle3l:
 	MOV	X0, 296(X13)
 done3l:
 	MOV	X8, 304(X13)
+	MOV	$2, X28
+	MOV	$32, X29
+	MOV	$1073741824, X30
 	WORD	$0x5e0a8857	// th.vmv.v.v v16,v21
 	MOVBU	0(X9), X5
 	WORD	$0x5e0b08d7	// th.vmv.v.v v17,v22
-	WORD	$0x5e0b8957	// th.vmv.v.v v18,v23
 	MOVBU	1(X9), X6
+	WORD	$0x5e0b8957	// th.vmv.v.v v18,v23
 	WORD	$0x5e0c09d7	// th.vmv.v.v v19,v24
-	WORD	$0x5e0c8a57	// th.vmv.v.v v20,v25
 	MOVBU	2(X9), X7
+	WORD	$0x5e0c8a57	// th.vmv.v.v v20,v25
 	WORD	$0xa30dbe57	// th.vsrl.vi v28,v16,27
-	WORD	$0x2f298d57	// th.vxor.vv v26,v18,v19
 	MOVBU	3(X9), X8
-	WORD	$0x03400a57	// th.vadd.vv v20,v20,v0
-	WORD	$0x9702bed7	// th.vsll.vi v29,v16,5
+	WORD	$0x2f298d57	// th.vxor.vv v26,v18,v19
 	SLL	$24, X5
+	WORD	$0x03400a57	// th.vadd.vv v20,v20,v0
+	WORD	$0xa3113ed7	// th.vsrl.vi v29,v17,2
+	SLL	$16, X6
 	WORD	$0x27a88d57	// th.vand.vv v26,v26,v17
 	WORD	$0x0347ca57	// th.vadd.vx v20,v20,a5
-	SLL	$16, X6
-	WORD	$0x971f3f57	// th.vsll.vi v30,v17,30
+	SLL	$8, X7
+	WORD	$0xb71f6ed7	// th.vmacc.vx v29,t5,v17
+	OR	X6, X5
 	WORD	$0x2fa98d57	// th.vxor.vv v26,v26,v19
-	SLL	$8, X7
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
 	WORD	$0x033089d7	// th.vadd.vv v19,v19,v1
-	OR	X6, X5
+	OR	X8, X7
+	WORD	$0x2fd90f57	// th.vxor.vv v30,v29,v18
 	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	WORD	$0x2b1f08d7	// th.vor.vv v17,v17,v30
-	OR	X8, X7
-	WORD	$0x0337c9d7	// th.vadd.vx v19,v19,a5
-	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
 	OR	X7, X5
-	WORD	$0x2f190fd7	// th.vxor.vv v31,v17,v18
-	WORD	$0x2e010057	// th.vxor.vv v0,v0,v2
+	WORD	$0x0337c9d7	// th.vadd.vx v19,v19,a5
 	MOVW	X5, 0(X13)
-	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
-	WORD	$0x27f80fd7	// th.vand.vv v31,v31,v16
-	MOVBU	0(X10), X5
-	WORD	$0x970f3ed7	// th.vsll.vi v29,v16,30
-	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
-	MOVBU	1(X10), X6
-	WORD	$0x2ff90fd7	// th.vxor.vv v31,v31,v18
-	WORD	$0x9742be57	// th.vsll.vi v28,v20,5
-	MOVBU	2(X10), X7
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
-	MOVBU	3(X10), X8
-	WORD	$0x03210957	// th.vadd.vv v18,v18,v2
-	WORD	$0x2b0e8857	// th.vor.vv v16,v16,v29
-	SLL	$24, X5
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	WORD	$0x0327c957	// th.vadd.vx v18,v18,a5
-	SLL	$16, X6
-	WORD	$0x2f088f57	// th.vxor.vv v30,v16,v17
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	SLL	$8, X7
-	WORD	$0x974f3e57	// th.vsll.vi v28,v20,30
-	WORD	$0x27ea0f57	// th.vand.vv v30,v30,v20
-	OR	X6, X5
-	WORD	$0xa33dbd57	// th.vsrl.vi v26,v19,27
-	WORD	$0x9732bdd7	// th.vsll.vi v27,v19,5
-	OR	X8, X7
-	WORD	$0x2fe88f57	// th.vxor.vv v30,v30,v17
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	OR	X7, X5
-	WORD	$0x031188d7	// th.vadd.vv v17,v17,v3
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
-	MOVW	X5, 4(X13)
-	WORD	$0x2b4e0a57	// th.vor.vv v20,v20,v28
-	WORD	$0x0317c8d7	// th.vadd.vx v17,v17,a5
-	MOVBU	0(X11), X5
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
-	WORD	$0x2f480ed7	// th.vxor.vv v29,v20,v16
-	MOVBU	1(X11), X6
-	WORD	$0x2e1180d7	// th.vxor.vv v1,v1,v3
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	MOVBU	2(X11), X7
-	WORD	$0x27d98ed7	// th.vand.vv v29,v29,v19
-	WORD	$0x973f3dd7	// th.vsll.vi v27,v19,30
-	MOVBU	3(X11), X8
-	WORD	$0xa32dbfd7	// th.vsrl.vi v31,v18,27
-	WORD	$0x2fd80ed7	// th.vxor.vv v29,v29,v16
-	SLL	$24, X5
-	WORD	$0x9722bd57	// th.vsll.vi v26,v18,5
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	SLL	$16, X6
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0x03020857	// th.vadd.vv v16,v16,v4
-	SLL	$8, X7
-	WORD	$0x2b3d89d7	// th.vor.vv v19,v19,v27
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	OR	X6, X5
-	WORD	$0x0307c857	// th.vadd.vx v16,v16,a5
-	WORD	$0x2f3a0e57	// th.vxor.vv v28,v19,v20
-	OR	X8, X7
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	WORD	$0x972f3d57	// th.vsll.vi v26,v18,30
-	OR	X7, X5
-	WORD	$0x27c90e57	// th.vand.vv v28,v28,v18
-	WORD	$0xa31dbf57	// th.vsrl.vi v30,v17,27
-	MOVW	X5, 8(X13)
-	WORD	$0x9712bfd7	// th.vsll.vi v31,v17,5
-	WORD	$0x2fca0e57	// th.vxor.vv v28,v28,v20
-	MOVBU	0(X12), X5
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x03428a57	// th.vadd.vv v20,v20,v5
-	MOVBU	1(X12), X6
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
-	WORD	$0x2b2d0957	// th.vor.vv v18,v18,v26
-	MOVBU	2(X12), X7
-	WORD	$0x0347ca57	// th.vadd.vx v20,v20,a5
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	MOVBU	3(X12), X8
-	WORD	$0x2f298dd7	// th.vxor.vv v27,v18,v19
-	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
-	SLL	$24, X5
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	WORD	$0x27b88dd7	// th.vand.vv v27,v27,v17
-	SLL	$16, X6
-	WORD	$0x971f3fd7	// th.vsll.vi v31,v17,30
-	WORD	$0xa30dbed7	// th.vsrl.vi v29,v16,27
-	SLL	$8, X7
-	WORD	$0x2fb98dd7	// th.vxor.vv v27,v27,v19
-	WORD	$0x9702bf57	// th.vsll.vi v30,v16,5
-	OR	X6, X5
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	OR	X8, X7
-	WORD	$0x033309d7	// th.vadd.vv v19,v19,v6
-	WORD	$0x2b1f88d7	// th.vor.vv v17,v17,v31
-	OR	X7, X5
-	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
-	WORD	$0x0337c9d7	// th.vadd.vx v19,v19,a5
-	MOVW	X5, 12(X13)
-	WORD	$0x2f190d57	// th.vxor.vv v26,v17,v18
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
-	MOVBU	4(X9), X5
-	WORD	$0x970f3f57	// th.vsll.vi v30,v16,30
-	WORD	$0x27a80d57	// th.vand.vv v26,v26,v16
-	MOVBU	5(X9), X6
-	WORD	$0xa34dbe57	// th.vsrl.vi v28,v20,27
-	WORD	$0x9742bed7	// th.vsll.vi v29,v20,5
-	MOVBU	6(X9), X7
-	WORD	$0x2fa90d57	// th.vxor.vv v26,v26,v18
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	MOVBU	7(X9), X8
-	WORD	$0x03238957	// th.vadd.vv v18,v18,v7
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
-	SLL	$24, X5
-	WORD	$0x2b0f0857	// th.vor.vv v16,v16,v30
-	WORD	$0x0327c957	// th.vadd.vx v18,v18,a5
-	SLL	$16, X6
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	WORD	$0x2f088fd7	// th.vxor.vv v31,v16,v17
-	SLL	$8, X7
-	WORD	$0x2e3281d7	// th.vxor.vv v3,v3,v5
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
-	OR	X6, X5
-	WORD	$0x27fa0fd7	// th.vand.vv v31,v31,v20
-	WORD	$0x974f3ed7	// th.vsll.vi v29,v20,30
-	OR	X8, X7
-	WORD	$0xa33dbdd7	// th.vsrl.vi v27,v19,27
-	WORD	$0x2ff88fd7	// th.vxor.vv v31,v31,v17
-	OR	X7, X5
-	WORD	$0x9732be57	// th.vsll.vi v28,v19,5
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	MOVW	X5, 16(X13)
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	WORD	$0x031408d7	// th.vadd.vv v17,v17,v8
-	MOVBU	4(X10), X5
-	WORD	$0x2b4e8a57	// th.vor.vv v20,v20,v29
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	MOVBU	5(X10), X6
-	WORD	$0x0317c8d7	// th.vadd.vx v17,v17,a5
-	WORD	$0x2f480f57	// th.vxor.vv v30,v20,v16
-	MOVBU	6(X10), X7
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	WORD	$0x973f3e57	// th.vsll.vi v28,v19,30
-	MOVBU	7(X10), X8
-	WORD	$0x27e98f57	// th.vand.vv v30,v30,v19
-	WORD	$0xa32dbd57	// th.vsrl.vi v26,v18,27
-	SLL	$24, X5
-	WORD	$0x9722bdd7	// th.vsll.vi v27,v18,5
-	WORD	$0x2fe80f57	// th.vxor.vv v30,v30,v16
-	SLL	$16, X6
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x03048857	// th.vadd.vv v16,v16,v9
-	SLL	$8, X7
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	WORD	$0x2b3e09d7	// th.vor.vv v19,v19,v28
-	OR	X6, X5
-	WORD	$0x0307c857	// th.vadd.vx v16,v16,a5
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	OR	X8, X7
-	WORD	$0x2f3a0ed7	// th.vxor.vv v29,v19,v20
-	WORD	$0x2e430257	// th.vxor.vv v4,v4,v6
-	OR	X7, X5
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
-	WORD	$0x27d90ed7	// th.vand.vv v29,v29,v18
-	MOVW	X5, 20(X13)
-	WORD	$0x972f3dd7	// th.vsll.vi v27,v18,30
-	WORD	$0xa31dbfd7	// th.vsrl.vi v31,v17,27
-	MOVBU	4(X11), X5
-	WORD	$0x2fda0ed7	// th.vxor.vv v29,v29,v20
-	WORD	$0x9712bd57	// th.vsll.vi v26,v17,5
-	MOVBU	5(X11), X6
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	MOVBU	6(X11), X7
-	WORD	$0x03450a57	// th.vadd.vv v20,v20,v10
-	WORD	$0x2b2d8957	// th.vor.vv v18,v18,v27
-	MOVBU	7(X11), X8
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	WORD	$0x0347ca57	// th.vadd.vx v20,v20,a5
-	SLL	$24, X5
-	WORD	$0x2f298e57	// th.vxor.vv v28,v18,v19
-	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
-	SLL	$16, X6
-	WORD	$0x971f3d57	// th.vsll.vi v26,v17,30
-	WORD	$0x27c88e57	// th.vand.vv v28,v28,v17
-	SLL	$8, X7
-	WORD	$0xa30dbf57	// th.vsrl.vi v30,v16,27
-	WORD	$0x9702bfd7	// th.vsll.vi v31,v16,5
-	OR	X6, X5
-	WORD	$0x2fc98e57	// th.vxor.vv v28,v28,v19
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	OR	X8, X7
-	WORD	$0x033589d7	// th.vadd.vv v19,v19,v11
+	WORD	$0x27e80f57	// th.vand.vv v30,v30,v16
 	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
-	OR	X7, X5
-	WORD	$0x2b1d08d7	// th.vor.vv v17,v17,v26
-	WORD	$0x0337c9d7	// th.vadd.vx v19,v19,a5
-	MOVW	X5, 24(X13)
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
-	WORD	$0x2f190dd7	// th.vxor.vv v27,v17,v18
-	MOVBU	4(X12), X5
-	WORD	$0x2ed40d57	// th.vxor.vv v26,v13,v8
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	MOVBU	5(X12), X6
-	WORD	$0x27b80dd7	// th.vand.vv v27,v27,v16
-	WORD	$0x970f3fd7	// th.vsll.vi v31,v16,30
-	MOVBU	6(X12), X7
-	WORD	$0xa34dbed7	// th.vsrl.vi v29,v20,27
-	WORD	$0x2fb90dd7	// th.vxor.vv v27,v27,v18
-	MOVBU	7(X12), X8
-	WORD	$0x9742bf57	// th.vsll.vi v30,v20,5
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	SLL	$24, X5
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	WORD	$0x2e0d0057	// th.vxor.vv v0,v0,v26
-	SLL	$16, X6
-	WORD	$0x2b0f8857	// th.vor.vv v16,v16,v31
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
-	SLL	$8, X7
-	WORD	$0x9600bdd7	// th.vsll.vi v27,v0,1
-	WORD	$0xa20fb057	// th.vsrl.vi v0,v0,31
-	OR	X6, X5
+	MOVBU	0(X10), X5
+	WORD	$0xa3013dd7	// th.vsrl.vi v27,v16,2
+	WORD	$0x2fe90f57	// th.vxor.vv v30,v30,v18
+	MOVBU	1(X10), X6
+	WORD	$0xb70eea57	// th.vmacc.vx v20,t4,v16
+	MOVBU	2(X10), X7
+	WORD	$0xb70f6dd7	// th.vmacc.vx v27,t5,v16
 	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	WORD	$0x03260957	// th.vadd.vv v18,v18,v12
-	OR	X8, X7
-	WORD	$0x2a0d8057	// th.vor.vv v0,v0,v27
-	WORD	$0x2f088e57	// th.vxor.vv v28,v16,v17
-	OR	X7, X5
+	MOVBU	3(X10), X8
+	WORD	$0xa34dbd57	// th.vsrl.vi v26,v20,27
+	WORD	$0x03210957	// th.vadd.vv v18,v18,v2
+	SLL	$24, X5
+	WORD	$0x2fbe8e57	// th.vxor.vv v28,v27,v29
+	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
+	SLL	$16, X6
 	WORD	$0x0327c957	// th.vadd.vx v18,v18,a5
-	WORD	$0xa33dbf57	// th.vsrl.vi v30,v19,27
-	MOVW	X5, 28(X13)
+	SLL	$8, X7
 	WORD	$0x27ca0e57	// th.vand.vv v28,v28,v20
-	WORD	$0x9732bfd7	// th.vsll.vi v31,v19,5
-	MOVBU	8(X9), X5
-	WORD	$0x974f3d57	// th.vsll.vi v26,v20,30
-	WORD	$0x2fc88e57	// th.vxor.vv v28,v28,v17
-	MOVBU	9(X9), X6
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x2ee48dd7	// th.vxor.vv v27,v14,v9
-	MOVBU	10(X9), X7
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	WORD	$0x2b4d0a57	// th.vor.vv v20,v20,v26
-	MOVBU	11(X9), X8
-	WORD	$0x2e1d80d7	// th.vxor.vv v1,v1,v27
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
-	SLL	$24, X5
-	WORD	$0x031688d7	// th.vadd.vv v17,v17,v13
-	WORD	$0x9610be57	// th.vsll.vi v28,v1,1
-	SLL	$16, X6
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	WORD	$0xa21fb0d7	// th.vsrl.vi v1,v1,31
-	SLL	$8, X7
-	WORD	$0x0317c8d7	// th.vadd.vx v17,v17,a5
-	WORD	$0x2f480ed7	// th.vxor.vv v29,v20,v16
+	WORD	$0xb74ee9d7	// th.vmacc.vx v19,t4,v20
 	OR	X6, X5
-	WORD	$0x2a1e00d7	// th.vor.vv v1,v1,v28
-	WORD	$0xa32dbfd7	// th.vsrl.vi v31,v18,27
+	WORD	$0xa3413fd7	// th.vsrl.vi v31,v20,2
+	WORD	$0x2fce8e57	// th.vxor.vv v28,v28,v29
 	OR	X8, X7
-	WORD	$0x27d98ed7	// th.vand.vv v29,v29,v19
-	WORD	$0x9722bd57	// th.vsll.vi v26,v18,5
+	WORD	$0xa33dbf57	// th.vsrl.vi v30,v19,27
 	OR	X7, X5
-	WORD	$0x973f3dd7	// th.vsll.vi v27,v19,30
-	WORD	$0x2fd80ed7	// th.vxor.vv v29,v29,v16
-	MOVW	X5, 32(X13)
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x2ef50e57	// th.vxor.vv v28,v15,v10
-	MOVBU	8(X10), X5
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0x2b3d89d7	// th.vor.vv v19,v19,v27
-	MOVBU	9(X10), X6
-	WORD	$0x2e2e0157	// th.vxor.vv v2,v2,v28
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	MOVBU	10(X10), X7
-	WORD	$0x03070857	// th.vadd.vv v16,v16,v14
-	WORD	$0x9620bed7	// th.vsll.vi v29,v2,1
-	MOVBU	11(X10), X8
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	WORD	$0xa22fb157	// th.vsrl.vi v2,v2,31
+	WORD	$0xb74f6fd7	// th.vmacc.vx v31,t5,v20
+	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
+	MOVW	X5, 4(X13)
+	WORD	$0x03d18ed7	// th.vadd.vv v29,v29,v3
+	WORD	$0x2ffd8d57	// th.vxor.vv v26,v31,v27
+	MOVBU	0(X11), X5
+	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
+	MOVBU	1(X11), X6
+	WORD	$0x03d7ced7	// th.vadd.vx v29,v29,a5
+	WORD	$0x27a98d57	// th.vand.vv v26,v26,v19
+	MOVBU	2(X11), X7
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
+	WORD	$0xa33138d7	// th.vsrl.vi v17,v19,2
+	MOVBU	3(X11), X8
+	WORD	$0x2fad8d57	// th.vxor.vv v26,v26,v27
 	SLL	$24, X5
-	WORD	$0x0307c857	// th.vadd.vx v16,v16,a5
-	WORD	$0x2f3a0f57	// th.vxor.vv v30,v19,v20
+	WORD	$0xa32dbe57	// th.vsrl.vi v28,v18,27
+	WORD	$0xb73f68d7	// th.vmacc.vx v17,t5,v19
 	SLL	$16, X6
-	WORD	$0x2a2e8157	// th.vor.vv v2,v2,v29
-	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	WORD	$0x03dd0ed7	// th.vadd.vv v29,v29,v26
+	WORD	$0x03b20dd7	// th.vadd.vv v27,v27,v4
 	SLL	$8, X7
-	WORD	$0x27e90f57	// th.vand.vv v30,v30,v18
-	WORD	$0x9712bdd7	// th.vsll.vi v27,v17,5
+	WORD	$0x2f1f8f57	// th.vxor.vv v30,v17,v31
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
 	OR	X6, X5
-	WORD	$0x972f3e57	// th.vsll.vi v28,v18,30
+	WORD	$0x03b7cdd7	// th.vadd.vx v27,v27,a5
+	OR	X8, X7
+	WORD	$0x27e90f57	// th.vand.vv v30,v30,v18
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
+	OR	X7, X5
+	WORD	$0xa3213857	// th.vsrl.vi v16,v18,2
+	WORD	$0x2fef8f57	// th.vxor.vv v30,v30,v31
+	MOVW	X5, 8(X13)
+	WORD	$0xa3ddbd57	// th.vsrl.vi v26,v29,27
+	MOVBU	0(X12), X5
+	WORD	$0xb72f6857	// th.vmacc.vx v16,t5,v18
+	WORD	$0x03bf0dd7	// th.vadd.vv v27,v27,v30
+	MOVBU	1(X12), X6
+	WORD	$0x03f28fd7	// th.vadd.vv v31,v31,v5
+	WORD	$0x2f088e57	// th.vxor.vv v28,v16,v17
+	MOVBU	2(X12), X7
+	WORD	$0x03bd0dd7	// th.vadd.vv v27,v27,v26
+	MOVBU	3(X12), X8
+	WORD	$0x03f7cfd7	// th.vadd.vx v31,v31,a5
+	WORD	$0x27ce8e57	// th.vand.vv v28,v28,v29
+	SLL	$24, X5
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
+	WORD	$0xa3d13a57	// th.vsrl.vi v20,v29,2
+	SLL	$16, X6
+	WORD	$0x2fc88e57	// th.vxor.vv v28,v28,v17
+	SLL	$8, X7
+	WORD	$0xa3bdbf57	// th.vsrl.vi v30,v27,27
+	WORD	$0xb7df6a57	// th.vmacc.vx v20,t5,v29
+	OR	X6, X5
+	WORD	$0x03fe0fd7	// th.vadd.vv v31,v31,v28
+	WORD	$0x031308d7	// th.vadd.vv v17,v17,v6
+	OR	X8, X7
+	WORD	$0x2f480d57	// th.vxor.vv v26,v20,v16
+	OR	X7, X5
+	WORD	$0x03ff0fd7	// th.vadd.vv v31,v31,v30
+	WORD	$0x0317c8d7	// th.vadd.vx v17,v17,a5
+	MOVW	X5, 12(X13)
+	WORD	$0x27ad8d57	// th.vand.vv v26,v26,v27
+	WORD	$0xb7beefd7	// th.vmacc.vx v31,t4,v27
+	MOVBU	4(X9), X5
+	WORD	$0xa3b139d7	// th.vsrl.vi v19,v27,2
+	WORD	$0x2fa80d57	// th.vxor.vv v26,v26,v16
+	MOVBU	5(X9), X6
+	WORD	$0xa3fdbe57	// th.vsrl.vi v28,v31,27
+	MOVBU	6(X9), X7
+	WORD	$0xb7bf69d7	// th.vmacc.vx v19,t5,v27
+	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
+	MOVBU	7(X9), X8
+	WORD	$0x03038857	// th.vadd.vv v16,v16,v7
+	WORD	$0x2f3a0f57	// th.vxor.vv v30,v19,v20
+	SLL	$24, X5
+	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
+	SLL	$16, X6
+	WORD	$0x0307c857	// th.vadd.vx v16,v16,a5
+	WORD	$0x27ef8f57	// th.vand.vv v30,v30,v31
+	SLL	$8, X7
+	WORD	$0xb7fee8d7	// th.vmacc.vx v17,t4,v31
+	WORD	$0xa3f13957	// th.vsrl.vi v18,v31,2
+	OR	X6, X5
 	WORD	$0x2fea0f57	// th.vxor.vv v30,v30,v20
 	OR	X8, X7
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x2e058ed7	// th.vxor.vv v29,v0,v11
+	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	WORD	$0xb7ff6957	// th.vmacc.vx v18,t5,v31
 	OR	X7, X5
 	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0x2b2e0957	// th.vor.vv v18,v18,v28
-	MOVW	X5, 36(X13)
-	WORD	$0x2e3e81d7	// th.vxor.vv v3,v3,v29
+	WORD	$0x03440a57	// th.vadd.vv v20,v20,v8
+	MOVW	X5, 16(X13)
+	WORD	$0x2f298e57	// th.vxor.vv v28,v18,v19
+	MOVBU	4(X10), X5
 	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
-	MOVBU	8(X11), X5
-	WORD	$0x03478a57	// th.vadd.vv v20,v20,v15
-	WORD	$0x9630bf57	// th.vsll.vi v30,v3,1
-	MOVBU	9(X11), X6
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	WORD	$0xa23fb1d7	// th.vsrl.vi v3,v3,31
-	MOVBU	10(X11), X7
 	WORD	$0x0347ca57	// th.vadd.vx v20,v20,a5
-	WORD	$0x2f298fd7	// th.vxor.vv v31,v18,v19
-	MOVBU	11(X11), X8
-	WORD	$0x2a3f01d7	// th.vor.vv v3,v3,v30
-	WORD	$0xa30dbdd7	// th.vsrl.vi v27,v16,27
+	MOVBU	5(X10), X6
+	WORD	$0x27c88e57	// th.vand.vv v28,v28,v17
+	WORD	$0xb71ee857	// th.vmacc.vx v16,t4,v17
+	MOVBU	6(X10), X7
+	WORD	$0xa3113ed7	// th.vsrl.vi v29,v17,2
+	WORD	$0x2fc98e57	// th.vxor.vv v28,v28,v19
+	MOVBU	7(X10), X8
+	WORD	$0xa30dbf57	// th.vsrl.vi v30,v16,27
 	SLL	$24, X5
-	WORD	$0x27f88fd7	// th.vand.vv v31,v31,v17
-	WORD	$0x9702be57	// th.vsll.vi v28,v16,5
-	SLL	$16, X6
-	WORD	$0x971f3ed7	// th.vsll.vi v29,v17,30
-	WORD	$0x2ff98fd7	// th.vxor.vv v31,v31,v19
-	SLL	$8, X7
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x2e160f57	// th.vxor.vv v30,v1,v12
-	OR	X6, X5
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0x2b1e88d7	// th.vor.vv v17,v17,v29
-	WORD	$0x2e4f0257	// th.vxor.vv v4,v4,v30
-	OR	X8, X7
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	WORD	$0x033009d7	// th.vadd.vv v19,v19,v0
-	OR	X7, X5
-	WORD	$0x9640bfd7	// th.vsll.vi v31,v4,1
+	WORD	$0xb71f6ed7	// th.vmacc.vx v29,t5,v17
 	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
-	MOVW	X5, 40(X13)
-	WORD	$0xa24fb257	// th.vsrl.vi v4,v4,31
+	SLL	$16, X6
+	WORD	$0x033489d7	// th.vadd.vv v19,v19,v9
+	WORD	$0x2fd90d57	// th.vxor.vv v26,v29,v18
+	SLL	$8, X7
+	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
+	OR	X6, X5
 	WORD	$0x0337c9d7	// th.vadd.vx v19,v19,a5
-	MOVBU	8(X12), X5
-	WORD	$0x2f190d57	// th.vxor.vv v26,v17,v18
-	WORD	$0x2a4f8257	// th.vor.vv v4,v4,v31
-	MOVBU	9(X12), X6
-	WORD	$0xa34dbe57	// th.vsrl.vi v28,v20,27
 	WORD	$0x27a80d57	// th.vand.vv v26,v26,v16
-	MOVBU	10(X12), X7
-	WORD	$0x9742bed7	// th.vsll.vi v29,v20,5
-	WORD	$0x970f3f57	// th.vsll.vi v30,v16,30
-	MOVBU	11(X12), X8
+	OR	X8, X7
+	WORD	$0xb70eea57	// th.vmacc.vx v20,t4,v16
+	WORD	$0xa3013dd7	// th.vsrl.vi v27,v16,2
+	OR	X7, X5
 	WORD	$0x2fa90d57	// th.vxor.vv v26,v26,v18
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
+	MOVW	X5, 20(X13)
+	WORD	$0xa34dbe57	// th.vsrl.vi v28,v20,27
+	WORD	$0xb70f6dd7	// th.vmacc.vx v27,t5,v16
+	MOVBU	4(X11), X5
+	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
+	WORD	$0x03250957	// th.vadd.vv v18,v18,v10
+	MOVBU	5(X11), X6
+	WORD	$0x2fbe8f57	// th.vxor.vv v30,v27,v29
+	MOVBU	6(X11), X7
+	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
+	WORD	$0x0327c957	// th.vadd.vx v18,v18,a5
+	MOVBU	7(X11), X8
+	WORD	$0x27ea0f57	// th.vand.vv v30,v30,v20
+	WORD	$0xb74ee9d7	// th.vmacc.vx v19,t4,v20
+	SLL	$24, X5
+	WORD	$0xa3413fd7	// th.vsrl.vi v31,v20,2
+	WORD	$0x2fee8f57	// th.vxor.vv v30,v30,v29
+	SLL	$16, X6
+	WORD	$0xa33dbd57	// th.vsrl.vi v26,v19,27
+	SLL	$8, X7
+	WORD	$0xb74f6fd7	// th.vmacc.vx v31,t5,v20
+	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
+	OR	X6, X5
+	WORD	$0x03d58ed7	// th.vadd.vv v29,v29,v11
+	WORD	$0x2ffd8e57	// th.vxor.vv v28,v31,v27
+	OR	X8, X7
+	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
+	OR	X7, X5
+	WORD	$0x03d7ced7	// th.vadd.vx v29,v29,a5
+	WORD	$0x27c98e57	// th.vand.vv v28,v28,v19
+	MOVW	X5, 24(X13)
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
+	WORD	$0xa33138d7	// th.vsrl.vi v17,v19,2
+	MOVBU	4(X12), X5
+	WORD	$0x2fcd8e57	// th.vxor.vv v28,v28,v27
+	MOVBU	5(X12), X6
+	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
+	WORD	$0xb73f68d7	// th.vmacc.vx v17,t5,v19
+	MOVBU	6(X12), X7
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
+	WORD	$0x2ed40d57	// th.vxor.vv v26,v13,v8
+	MOVBU	7(X12), X8
+	WORD	$0x2e010057	// th.vxor.vv v0,v0,v2
+	SLL	$24, X5
+	WORD	$0x03df0ed7	// th.vadd.vv v29,v29,v30
+	WORD	$0x03b60dd7	// th.vadd.vv v27,v27,v12
+	SLL	$16, X6
+	WORD	$0x2fa00d57	// th.vxor.vv v26,v26,v0
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
+	SLL	$8, X7
+	WORD	$0x03b7cdd7	// th.vadd.vx v27,v27,a5
+	OR	X6, X5
+	WORD	$0xa3afb057	// th.vsrl.vi v0,v26,31
+	WORD	$0x2f1f8a57	// th.vxor.vv v20,v17,v31
+	OR	X8, X7
+	WORD	$0xa3ddb857	// th.vsrl.vi v16,v29,27
+	WORD	$0xb7ae6057	// th.vmacc.vx v0,t3,v26
+	OR	X7, X5
+	WORD	$0x27490a57	// th.vand.vv v20,v20,v18
+	WORD	$0xa3213f57	// th.vsrl.vi v30,v18,2
+	MOVW	X5, 28(X13)
+	WORD	$0x2ee489d7	// th.vxor.vv v19,v14,v9
+	MOVBU	8(X9), X5
+	WORD	$0x2f4f8a57	// th.vxor.vv v20,v20,v31
+	WORD	$0xb72f6f57	// th.vmacc.vx v30,t5,v18
+	MOVBU	9(X9), X6
+	WORD	$0x2e1180d7	// th.vxor.vv v1,v1,v3
+	WORD	$0x03ba0dd7	// th.vadd.vv v27,v27,v20
+	MOVBU	10(X9), X7
+	WORD	$0x03f68fd7	// th.vadd.vv v31,v31,v13
+	MOVBU	11(X9), X8
+	WORD	$0x2f3089d7	// th.vxor.vv v19,v19,v1
+	WORD	$0x03b80dd7	// th.vadd.vv v27,v27,v16
+	SLL	$24, X5
+	WORD	$0x03f7cfd7	// th.vadd.vx v31,v31,a5
+	WORD	$0xa33fb0d7	// th.vsrl.vi v1,v19,31
+	SLL	$16, X6
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
+	SLL	$8, X7
+	WORD	$0x2fe88d57	// th.vxor.vv v26,v30,v17
+	WORD	$0xb73e60d7	// th.vmacc.vx v1,t3,v19
+	OR	X6, X5
+	WORD	$0xa3bdbe57	// th.vsrl.vi v28,v27,27
+	WORD	$0x27ae8d57	// th.vand.vv v26,v26,v29
+	OR	X8, X7
+	WORD	$0xa3d13857	// th.vsrl.vi v16,v29,2
+	OR	X7, X5
+	WORD	$0x2ef50957	// th.vxor.vv v18,v15,v10
+	WORD	$0x2fa88d57	// th.vxor.vv v26,v26,v17
+	MOVW	X5, 32(X13)
+	WORD	$0xb7df6857	// th.vmacc.vx v16,t5,v29
+	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
+	MOVBU	8(X10), X5
+	WORD	$0x03fd0fd7	// th.vadd.vv v31,v31,v26
+	WORD	$0x031708d7	// th.vadd.vv v17,v17,v14
+	MOVBU	9(X10), X6
+	WORD	$0x2f210957	// th.vxor.vv v18,v18,v2
+	MOVBU	10(X10), X7
+	WORD	$0x03fe0fd7	// th.vadd.vv v31,v31,v28
+	WORD	$0x0317c8d7	// th.vadd.vx v17,v17,a5
+	MOVBU	11(X10), X8
+	WORD	$0xa32fb157	// th.vsrl.vi v2,v18,31
+	WORD	$0xb7beefd7	// th.vmacc.vx v31,t4,v27
+	SLL	$24, X5
+	WORD	$0x2f0f09d7	// th.vxor.vv v19,v16,v30
+	SLL	$16, X6
+	WORD	$0xb72e6157	// th.vmacc.vx v2,t3,v18
+	WORD	$0xa3fdba57	// th.vsrl.vi v20,v31,27
+	SLL	$8, X7
+	WORD	$0x273d89d7	// th.vand.vv v19,v19,v27
+	WORD	$0xa3b13e57	// th.vsrl.vi v28,v27,2
+	OR	X6, X5
+	WORD	$0x2e058ed7	// th.vxor.vv v29,v0,v11
+	OR	X8, X7
+	WORD	$0x2f3f09d7	// th.vxor.vv v19,v19,v30
+	WORD	$0xb7bf6e57	// th.vmacc.vx v28,t5,v27
+	OR	X7, X5
+	WORD	$0x2e3281d7	// th.vxor.vv v3,v3,v5
+	WORD	$0x031988d7	// th.vadd.vv v17,v17,v19
+	MOVW	X5, 36(X13)
+	WORD	$0x03e78f57	// th.vadd.vv v30,v30,v15
+	MOVBU	8(X11), X5
+	WORD	$0x2fd18ed7	// th.vxor.vv v29,v29,v3
+	WORD	$0x031a08d7	// th.vadd.vv v17,v17,v20
+	MOVBU	9(X11), X6
+	WORD	$0x03e7cf57	// th.vadd.vx v30,v30,a5
+	WORD	$0xa3dfb1d7	// th.vsrl.vi v3,v29,31
+	MOVBU	10(X11), X7
+	WORD	$0xb7fee8d7	// th.vmacc.vx v17,t4,v31
+	WORD	$0x2fc80957	// th.vxor.vv v18,v28,v16
+	MOVBU	11(X11), X8
+	WORD	$0xb7de61d7	// th.vmacc.vx v3,t3,v29
+	SLL	$24, X5
+	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	WORD	$0x272f8957	// th.vand.vv v18,v18,v31
+	SLL	$16, X6
+	WORD	$0xa3f13a57	// th.vsrl.vi v20,v31,2
+	WORD	$0x2e160dd7	// th.vxor.vv v27,v1,v12
+	SLL	$8, X7
+	WORD	$0x2f280957	// th.vxor.vv v18,v18,v16
+	OR	X6, X5
+	WORD	$0xb7ff6a57	// th.vmacc.vx v20,t5,v31
+	WORD	$0x2e430257	// th.vxor.vv v4,v4,v6
+	OR	X8, X7
+	WORD	$0x03e90f57	// th.vadd.vv v30,v30,v18
+	WORD	$0x03000857	// th.vadd.vv v16,v16,v0
+	OR	X7, X5
+	WORD	$0x2fb20dd7	// th.vxor.vv v27,v27,v4
+	MOVW	X5, 40(X13)
+	WORD	$0x03ed0f57	// th.vadd.vv v30,v30,v26
+	WORD	$0x0307c857	// th.vadd.vx v16,v16,a5
+	MOVBU	8(X12), X5
+	WORD	$0xa3bfb257	// th.vsrl.vi v4,v27,31
+	WORD	$0xb71eef57	// th.vmacc.vx v30,t4,v17
+	MOVBU	9(X12), X6
+	WORD	$0x2f4e0ed7	// th.vxor.vv v29,v20,v28
+	MOVBU	10(X12), X7
+	WORD	$0xb7be6257	// th.vmacc.vx v4,t3,v27
+	WORD	$0xa3edb9d7	// th.vsrl.vi v19,v30,27
+	MOVBU	11(X12), X8
+	WORD	$0x27d88ed7	// th.vand.vv v29,v29,v17
+	WORD	$0xa3113d57	// th.vsrl.vi v26,v17,2
 	SLL	$24, X5
 	WORD	$0x2e268fd7	// th.vxor.vv v31,v2,v13
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
 	SLL	$16, X6
-	WORD	$0x2b0f0857	// th.vor.vv v16,v16,v30
+	WORD	$0x2fde0ed7	// th.vxor.vv v29,v29,v28
+	WORD	$0xb71f6d57	// th.vmacc.vx v26,t5,v17
+	SLL	$8, X7
 	WORD	$0x2e5382d7	// th.vxor.vv v5,v5,v7
-	SLL	$8, X7
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	WORD	$0x03208957	// th.vadd.vv v18,v18,v1
-	OR	X6, X5
-	WORD	$0x2e5f82d7	// th.vxor.vv v5,v5,v31
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
-	OR	X8, X7
-	WORD	$0x0327c957	// th.vadd.vx v18,v18,a5
-	WORD	$0x9650bd57	// th.vsll.vi v26,v5,1
-	OR	X7, X5
-	WORD	$0xa25fb2d7	// th.vsrl.vi v5,v5,31
-	WORD	$0x2f088dd7	// th.vxor.vv v27,v16,v17
-	MOVW	X5, 44(X13)
-	WORD	$0xa33dbed7	// th.vsrl.vi v29,v19,27
-	WORD	$0x2a5d02d7	// th.vor.vv v5,v5,v26
-	MOVBU	12(X9), X5
-	WORD	$0x27ba0dd7	// th.vand.vv v27,v27,v20
-	WORD	$0x9732bf57	// th.vsll.vi v30,v19,5
-	MOVBU	13(X9), X6
-	WORD	$0x974f3fd7	// th.vsll.vi v31,v20,30
-	WORD	$0x2fb88dd7	// th.vxor.vv v27,v27,v17
-	MOVBU	14(X9), X7
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x2e370d57	// th.vxor.vv v26,v3,v14
-	MOVBU	15(X9), X8
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	WORD	$0x2b4f8a57	// th.vor.vv v20,v20,v31
-	SLL	$24, X5
-	WORD	$0x2e640357	// th.vxor.vv v6,v6,v8
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	SLL	$16, X6
-	WORD	$0x031108d7	// th.vadd.vv v17,v17,v2
-	WORD	$0x2e6d0357	// th.vxor.vv v6,v6,v26
-	SLL	$8, X7
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
-	WORD	$0x0317c8d7	// th.vadd.vx v17,v17,a5
-	OR	X6, X5
-	WORD	$0x9660bdd7	// th.vsll.vi v27,v6,1
-	WORD	$0xa26fb357	// th.vsrl.vi v6,v6,31
-	OR	X8, X7
-	WORD	$0x2f480e57	// th.vxor.vv v28,v20,v16
-	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
-	OR	X7, X5
-	WORD	$0x2a6d8357	// th.vor.vv v6,v6,v27
-	WORD	$0x27c98e57	// th.vand.vv v28,v28,v19
-	MOVW	X5, 48(X13)
-	WORD	$0x9722bfd7	// th.vsll.vi v31,v18,5
-	WORD	$0x973f3d57	// th.vsll.vi v26,v19,30
-	MOVBU	12(X10), X5
-	WORD	$0x2fc80e57	// th.vxor.vv v28,v28,v16
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	MOVBU	13(X10), X6
-	WORD	$0x2e478dd7	// th.vxor.vv v27,v4,v15
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	MOVBU	14(X10), X7
-	WORD	$0x2b3d09d7	// th.vor.vv v19,v19,v26
-	WORD	$0x2e7483d7	// th.vxor.vv v7,v7,v9
-	MOVBU	15(X10), X8
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	WORD	$0x03018857	// th.vadd.vv v16,v16,v3
-	SLL	$24, X5
-	WORD	$0x2e7d83d7	// th.vxor.vv v7,v7,v27
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	SLL	$16, X6
-	WORD	$0x0307c857	// th.vadd.vx v16,v16,a5
-	WORD	$0x9670be57	// th.vsll.vi v28,v7,1
-	SLL	$8, X7
-	WORD	$0xa27fb3d7	// th.vsrl.vi v7,v7,31
-	WORD	$0x2f3a0ed7	// th.vxor.vv v29,v19,v20
-	OR	X6, X5
-	WORD	$0xa31dbfd7	// th.vsrl.vi v31,v17,27
-	WORD	$0x2a7e03d7	// th.vor.vv v7,v7,v28
-	OR	X8, X7
-	WORD	$0x27d90ed7	// th.vand.vv v29,v29,v18
-	WORD	$0x9712bd57	// th.vsll.vi v26,v17,5
-	OR	X7, X5
-	WORD	$0x972f3dd7	// th.vsll.vi v27,v18,30
-	WORD	$0x2fda0ed7	// th.vxor.vv v29,v29,v20
-	MOVW	X5, 52(X13)
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x2e500e57	// th.vxor.vv v28,v5,v0
-	MOVBU	12(X11), X5
 	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	WORD	$0x2b2d8957	// th.vor.vv v18,v18,v27
+	OR	X6, X5
+	WORD	$0x03c08e57	// th.vadd.vv v28,v28,v1
+	WORD	$0x2ff28fd7	// th.vxor.vv v31,v31,v5
+	OR	X8, X7
+	WORD	$0x03098857	// th.vadd.vv v16,v16,v19
+	OR	X7, X5
+	WORD	$0x03c7ce57	// th.vadd.vx v28,v28,a5
+	WORD	$0xa3ffb2d7	// th.vsrl.vi v5,v31,31
+	MOVW	X5, 44(X13)
+	WORD	$0xb7eee857	// th.vmacc.vx v16,t4,v30
+	WORD	$0x2faa0dd7	// th.vxor.vv v27,v26,v20
+	MOVBU	12(X9), X5
+	WORD	$0xb7fe62d7	// th.vmacc.vx v5,t3,v31
+	MOVBU	13(X9), X6
+	WORD	$0xa30db957	// th.vsrl.vi v18,v16,27
+	WORD	$0x27bf0dd7	// th.vand.vv v27,v27,v30
+	MOVBU	14(X9), X7
+	WORD	$0xa3e139d7	// th.vsrl.vi v19,v30,2
+	WORD	$0x2e3708d7	// th.vxor.vv v17,v3,v14
+	MOVBU	15(X9), X8
+	WORD	$0x2fba0dd7	// th.vxor.vv v27,v27,v20
+	SLL	$24, X5
+	WORD	$0xb7ef69d7	// th.vmacc.vx v19,t5,v30
+	WORD	$0x2e640357	// th.vxor.vv v6,v6,v8
+	SLL	$16, X6
+	WORD	$0x03cd8e57	// th.vadd.vv v28,v28,v27
+	WORD	$0x03410a57	// th.vadd.vv v20,v20,v2
+	SLL	$8, X7
+	WORD	$0x2f1308d7	// th.vxor.vv v17,v17,v6
+	OR	X6, X5
+	WORD	$0x03c90e57	// th.vadd.vv v28,v28,v18
+	WORD	$0x0347ca57	// th.vadd.vx v20,v20,a5
+	OR	X8, X7
+	WORD	$0xa31fb357	// th.vsrl.vi v6,v17,31
+	WORD	$0xb70eee57	// th.vmacc.vx v28,t4,v16
+	OR	X7, X5
+	WORD	$0x2f3d0fd7	// th.vxor.vv v31,v19,v26
+	WORD	$0xb71e6357	// th.vmacc.vx v6,t3,v17
+	MOVW	X5, 48(X13)
+	WORD	$0xa3cdbed7	// th.vsrl.vi v29,v28,27
+	MOVBU	12(X10), X5
+	WORD	$0x27f80fd7	// th.vand.vv v31,v31,v16
+	WORD	$0xa3013957	// th.vsrl.vi v18,v16,2
+	MOVBU	13(X10), X6
+	WORD	$0x2e478f57	// th.vxor.vv v30,v4,v15
+	WORD	$0x2ffd0fd7	// th.vxor.vv v31,v31,v26
+	MOVBU	14(X10), X7
+	WORD	$0xb70f6957	// th.vmacc.vx v18,t5,v16
+	MOVBU	15(X10), X8
+	WORD	$0x2e7483d7	// th.vxor.vv v7,v7,v9
+	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
+	SLL	$24, X5
+	WORD	$0x03a18d57	// th.vadd.vv v26,v26,v3
+	WORD	$0x2fe38f57	// th.vxor.vv v30,v30,v7
+	SLL	$16, X6
+	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
+	SLL	$8, X7
+	WORD	$0x03a7cd57	// th.vadd.vx v26,v26,a5
+	WORD	$0xa3efb3d7	// th.vsrl.vi v7,v30,31
+	OR	X6, X5
+	WORD	$0xb7ceea57	// th.vmacc.vx v20,t4,v28
+	WORD	$0x2f2988d7	// th.vxor.vv v17,v18,v19
+	OR	X8, X7
+	WORD	$0xb7ee63d7	// th.vmacc.vx v7,t3,v30
+	OR	X7, X5
+	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
+	WORD	$0x271e08d7	// th.vand.vv v17,v17,v28
+	MOVW	X5, 52(X13)
+	WORD	$0xa3c13ed7	// th.vsrl.vi v29,v28,2
+	WORD	$0x2e500857	// th.vxor.vv v16,v5,v0
+	MOVBU	12(X11), X5
+	WORD	$0x2f1988d7	// th.vxor.vv v17,v17,v19
+	WORD	$0xb7cf6ed7	// th.vmacc.vx v29,t5,v28
 	MOVBU	13(X11), X6
 	WORD	$0x2e850457	// th.vxor.vv v8,v8,v10
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
 	MOVBU	14(X11), X7
-	WORD	$0x03420a57	// th.vadd.vv v20,v20,v4
-	WORD	$0x2e8e0457	// th.vxor.vv v8,v8,v28
+	WORD	$0x03a88d57	// th.vadd.vv v26,v26,v17
+	WORD	$0x033209d7	// th.vadd.vv v19,v19,v4
 	MOVBU	15(X11), X8
-	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
-	WORD	$0x03484a57	// th.vadd.vx v20,v20,a6
+	WORD	$0x2f040857	// th.vxor.vv v16,v16,v8
+	WORD	$0x03ad8d57	// th.vadd.vv v26,v26,v27
 	SLL	$24, X5
-	WORD	$0x9680bed7	// th.vsll.vi v29,v8,1
-	WORD	$0xa28fb457	// th.vsrl.vi v8,v8,31
-	SLL	$16, X6
-	WORD	$0x2f190f57	// th.vxor.vv v30,v17,v18
-	WORD	$0xa30dbd57	// th.vsrl.vi v26,v16,27
-	SLL	$8, X7
-	WORD	$0x2a8e8457	// th.vor.vv v8,v8,v29
-	WORD	$0x2fe98f57	// th.vxor.vv v30,v30,v19
-	OR	X6, X5
-	WORD	$0x9702bdd7	// th.vsll.vi v27,v16,5
-	WORD	$0x971f3e57	// th.vsll.vi v28,v17,30
-	OR	X8, X7
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	OR	X7, X5
-	WORD	$0x2e608ed7	// th.vxor.vv v29,v6,v1
-	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	MOVW	X5, 56(X13)
-	WORD	$0x2b1e08d7	// th.vor.vv v17,v17,v28
-	WORD	$0x2e9584d7	// th.vxor.vv v9,v9,v11
-	MOVBU	12(X12), X5
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	WORD	$0x033289d7	// th.vadd.vv v19,v19,v5
-	MOVBU	13(X12), X6
-	WORD	$0x2e9e84d7	// th.vxor.vv v9,v9,v29
-	WORD	$0x2f088fd7	// th.vxor.vv v31,v16,v17
-	MOVBU	14(X12), X7
 	WORD	$0x033849d7	// th.vadd.vx v19,v19,a6
-	WORD	$0x9690bf57	// th.vsll.vi v30,v9,1
-	MOVBU	15(X12), X8
-	WORD	$0xa29fb4d7	// th.vsrl.vi v9,v9,31
-	WORD	$0x2ff90fd7	// th.vxor.vv v31,v31,v18
-	SLL	$24, X5
-	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
-	WORD	$0x2a9f04d7	// th.vor.vv v9,v9,v30
 	SLL	$16, X6
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
-	WORD	$0x9742be57	// th.vsll.vi v28,v20,5
+	WORD	$0xa30fb457	// th.vsrl.vi v8,v16,31
+	WORD	$0xb74eed57	// th.vmacc.vx v26,t4,v20
 	SLL	$8, X7
-	WORD	$0x970f3ed7	// th.vsll.vi v29,v16,30
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
+	WORD	$0x2f4e8f57	// th.vxor.vv v30,v20,v29
+	WORD	$0xb70e6457	// th.vmacc.vx v8,t3,v16
 	OR	X6, X5
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x2e710f57	// th.vxor.vv v30,v7,v2
+	WORD	$0xa3adbfd7	// th.vsrl.vi v31,v26,27
 	OR	X8, X7
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	WORD	$0x2b0e8857	// th.vor.vv v16,v16,v29
-	OR	X7, X5
-	WORD	$0x2ea60557	// th.vxor.vv v10,v10,v12
-	WORD	$0x03230957	// th.vadd.vv v18,v18,v6
-	MOVW	X5, 60(X13)
-	WORD	$0x2f480d57	// th.vxor.vv v26,v20,v16
-	WORD	$0x2eaf0557	// th.vxor.vv v10,v10,v30
-	MOVBU	16(X9), X5
-	WORD	$0x03284957	// th.vadd.vx v18,v18,a6
-	WORD	$0x2fa88d57	// th.vxor.vv v26,v26,v17
-	MOVBU	17(X9), X6
-	WORD	$0x96a0bfd7	// th.vsll.vi v31,v10,1
-	WORD	$0xa2afb557	// th.vsrl.vi v10,v10,31
-	MOVBU	18(X9), X7
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
-	WORD	$0xa33dbe57	// th.vsrl.vi v28,v19,27
-	MOVBU	19(X9), X8
-	WORD	$0x2aaf8557	// th.vor.vv v10,v10,v31
-	WORD	$0x9732bed7	// th.vsll.vi v29,v19,5
-	SLL	$24, X5
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	WORD	$0x974f3f57	// th.vsll.vi v30,v20,30
-	SLL	$16, X6
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	SLL	$8, X7
-	WORD	$0x2e818fd7	// th.vxor.vv v31,v8,v3
-	WORD	$0x2b4f0a57	// th.vor.vv v20,v20,v30
-	OR	X6, X5
-	WORD	$0x2eb685d7	// th.vxor.vv v11,v11,v13
-	WORD	$0x031388d7	// th.vadd.vv v17,v17,v7
-	OR	X8, X7
-	WORD	$0x2f3a0dd7	// th.vxor.vv v27,v19,v20
-	WORD	$0x2ebf85d7	// th.vxor.vv v11,v11,v31
-	OR	X7, X5
-	WORD	$0x031848d7	// th.vadd.vx v17,v17,a6
-	WORD	$0x2fb80dd7	// th.vxor.vv v27,v27,v16
-	MOVW	X5, 64(X13)
-	WORD	$0x96b0bd57	// th.vsll.vi v26,v11,1
-	WORD	$0xa2bfb5d7	// th.vsrl.vi v11,v11,31
-	MOVBU	16(X10), X5
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
-	WORD	$0xa32dbed7	// th.vsrl.vi v29,v18,27
-	MOVBU	17(X10), X6
-	WORD	$0x2abd05d7	// th.vor.vv v11,v11,v26
-	WORD	$0x9722bf57	// th.vsll.vi v30,v18,5
-	MOVBU	18(X10), X7
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0x973f3fd7	// th.vsll.vi v31,v19,30
-	MOVBU	19(X10), X8
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	SLL	$24, X5
-	WORD	$0x2e920d57	// th.vxor.vv v26,v9,v4
-	WORD	$0x2b3f89d7	// th.vor.vv v19,v19,v31
-	SLL	$16, X6
-	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
-	WORD	$0x03040857	// th.vadd.vv v16,v16,v8
-	SLL	$8, X7
-	WORD	$0x2f298e57	// th.vxor.vv v28,v18,v19
-	WORD	$0x2ecd0657	// th.vxor.vv v12,v12,v26
-	OR	X6, X5
-	WORD	$0x03084857	// th.vadd.vx v16,v16,a6
-	WORD	$0x2fca0e57	// th.vxor.vv v28,v28,v20
-	OR	X8, X7
-	WORD	$0x96c0bdd7	// th.vsll.vi v27,v12,1
-	WORD	$0xa2cfb657	// th.vsrl.vi v12,v12,31
-	OR	X7, X5
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
-	WORD	$0xa31dbf57	// th.vsrl.vi v30,v17,27
-	MOVW	X5, 68(X13)
-	WORD	$0x2acd8657	// th.vor.vv v12,v12,v27
-	WORD	$0x9712bfd7	// th.vsll.vi v31,v17,5
-	MOVBU	16(X11), X5
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0x972f3d57	// th.vsll.vi v26,v18,30
-	MOVBU	17(X11), X6
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	MOVBU	18(X11), X7
-	WORD	$0x2ea28dd7	// th.vxor.vv v27,v10,v5
-	WORD	$0x2b2d0957	// th.vor.vv v18,v18,v26
-	MOVBU	19(X11), X8
-	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
-	WORD	$0x03448a57	// th.vadd.vv v20,v20,v9
-	SLL	$24, X5
-	WORD	$0x2f190ed7	// th.vxor.vv v29,v17,v18
-	WORD	$0x2edd86d7	// th.vxor.vv v13,v13,v27
-	SLL	$16, X6
-	WORD	$0x03484a57	// th.vadd.vx v20,v20,a6
-	WORD	$0x2fd98ed7	// th.vxor.vv v29,v29,v19
-	SLL	$8, X7
-	WORD	$0x96d0be57	// th.vsll.vi v28,v13,1
-	WORD	$0xa2dfb6d7	// th.vsrl.vi v13,v13,31
-	OR	X6, X5
-	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
-	WORD	$0xa30dbfd7	// th.vsrl.vi v31,v16,27
-	OR	X8, X7
-	WORD	$0x2ade06d7	// th.vor.vv v13,v13,v28
-	WORD	$0x9702bd57	// th.vsll.vi v26,v16,5
-	OR	X7, X5
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0x971f3dd7	// th.vsll.vi v27,v17,30
-	MOVW	X5, 72(X13)
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	MOVBU	16(X12), X5
-	WORD	$0x2eb30e57	// th.vxor.vv v28,v11,v6
-	WORD	$0x2b1d88d7	// th.vor.vv v17,v17,v27
-	MOVBU	17(X12), X6
-	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
-	WORD	$0x033509d7	// th.vadd.vv v19,v19,v10
-	MOVBU	18(X12), X7
-	WORD	$0x2f088f57	// th.vxor.vv v30,v16,v17
-	WORD	$0x2eee0757	// th.vxor.vv v14,v14,v28
-	MOVBU	19(X12), X8
-	WORD	$0x033849d7	// th.vadd.vx v19,v19,a6
 	WORD	$0x2fe90f57	// th.vxor.vv v30,v30,v18
-	SLL	$24, X5
-	WORD	$0x96e0bed7	// th.vsll.vi v29,v14,1
-	WORD	$0xa2efb757	// th.vsrl.vi v14,v14,31
-	SLL	$16, X6
+	WORD	$0xa3413dd7	// th.vsrl.vi v27,v20,2
+	OR	X7, X5
+	WORD	$0x2e608e57	// th.vxor.vv v28,v6,v1
 	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	WORD	$0xa34dbd57	// th.vsrl.vi v26,v20,27
-	SLL	$8, X7
-	WORD	$0x2aee8757	// th.vor.vv v14,v14,v29
-	WORD	$0x9742bdd7	// th.vsll.vi v27,v20,5
-	OR	X6, X5
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
-	WORD	$0x970f3e57	// th.vsll.vi v28,v16,30
-	OR	X8, X7
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	OR	X7, X5
-	WORD	$0x2ec38ed7	// th.vxor.vv v29,v12,v7
-	WORD	$0x2b0e0857	// th.vor.vv v16,v16,v28
-	MOVW	X5, 76(X13)
-	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
-	WORD	$0x03258957	// th.vadd.vv v18,v18,v11
-	MOVBU	20(X9), X5
-	WORD	$0x2f480fd7	// th.vxor.vv v31,v20,v16
-	WORD	$0x2efe87d7	// th.vxor.vv v15,v15,v29
-	MOVBU	21(X9), X6
+	MOVW	X5, 56(X13)
+	WORD	$0xb74f6dd7	// th.vmacc.vx v27,t5,v20
+	MOVBU	12(X12), X5
+	WORD	$0x2e9584d7	// th.vxor.vv v9,v9,v11
+	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
+	MOVBU	13(X12), X6
+	WORD	$0x03228957	// th.vadd.vv v18,v18,v5
+	WORD	$0x2fc48e57	// th.vxor.vv v28,v28,v9
+	MOVBU	14(X12), X7
+	WORD	$0xb7aee9d7	// th.vmacc.vx v19,t4,v26
+	MOVBU	15(X12), X8
 	WORD	$0x03284957	// th.vadd.vx v18,v18,a6
-	WORD	$0x2ff88fd7	// th.vxor.vv v31,v31,v17
-	MOVBU	22(X9), X7
-	WORD	$0x96f0bf57	// th.vsll.vi v30,v15,1
-	WORD	$0xa2ffb7d7	// th.vsrl.vi v15,v15,31
-	MOVBU	23(X9), X8
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	WORD	$0xa33dbdd7	// th.vsrl.vi v27,v19,27
+	WORD	$0xa3cfb4d7	// th.vsrl.vi v9,v28,31
 	SLL	$24, X5
-	WORD	$0x2aff07d7	// th.vor.vv v15,v15,v30
-	WORD	$0x9732be57	// th.vsll.vi v28,v19,5
+	WORD	$0x2fad8857	// th.vxor.vv v16,v26,v27
+	WORD	$0xa33db8d7	// th.vsrl.vi v17,v19,27
 	SLL	$16, X6
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	WORD	$0x974f3ed7	// th.vsll.vi v29,v20,30
+	WORD	$0xb7ce64d7	// th.vmacc.vx v9,t3,v28
+	WORD	$0x2f0e8857	// th.vxor.vv v16,v16,v29
 	SLL	$8, X7
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
+	WORD	$0xa3a13fd7	// th.vsrl.vi v31,v26,2
 	OR	X6, X5
-	WORD	$0x2ed40f57	// th.vxor.vv v30,v13,v8
-	WORD	$0x2b4e8a57	// th.vor.vv v20,v20,v29
+	WORD	$0x2e710a57	// th.vxor.vv v20,v7,v2
+	WORD	$0x03280957	// th.vadd.vv v18,v18,v16
 	OR	X8, X7
-	WORD	$0x2e010057	// th.vxor.vv v0,v0,v2
-	WORD	$0x031608d7	// th.vadd.vv v17,v17,v12
+	WORD	$0xb7af6fd7	// th.vmacc.vx v31,t5,v26
+	WORD	$0x2ea60557	// th.vxor.vv v10,v10,v12
 	OR	X7, X5
-	WORD	$0x2f3a0d57	// th.vxor.vv v26,v19,v20
-	WORD	$0x2e0f0057	// th.vxor.vv v0,v0,v30
-	MOVW	X5, 80(X13)
+	WORD	$0x03288957	// th.vadd.vv v18,v18,v17
+	MOVW	X5, 60(X13)
+	WORD	$0x03d30ed7	// th.vadd.vv v29,v29,v6
+	WORD	$0x2f450a57	// th.vxor.vv v20,v20,v10
+	MOVBU	16(X9), X5
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
+	WORD	$0x03d84ed7	// th.vadd.vx v29,v29,a6
+	MOVBU	17(X9), X6
+	WORD	$0xa34fb557	// th.vsrl.vi v10,v20,31
+	MOVBU	18(X9), X7
+	WORD	$0x2f3f8e57	// th.vxor.vv v28,v19,v31
+	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
+	MOVBU	19(X9), X8
+	WORD	$0xb74e6557	// th.vmacc.vx v10,t3,v20
+	WORD	$0x2fcd8e57	// th.vxor.vv v28,v28,v27
+	SLL	$24, X5
+	WORD	$0xa33138d7	// th.vsrl.vi v17,v19,2
+	SLL	$16, X6
+	WORD	$0x2e818d57	// th.vxor.vv v26,v8,v3
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
+	SLL	$8, X7
+	WORD	$0xb73f68d7	// th.vmacc.vx v17,t5,v19
+	WORD	$0x2eb685d7	// th.vxor.vv v11,v11,v13
+	OR	X6, X5
+	WORD	$0x03df0ed7	// th.vadd.vv v29,v29,v30
+	WORD	$0x03b38dd7	// th.vadd.vv v27,v27,v7
+	OR	X8, X7
+	WORD	$0x2fa58d57	// th.vxor.vv v26,v26,v11
+	OR	X7, X5
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
+	WORD	$0x03b84dd7	// th.vadd.vx v27,v27,a6
+	MOVW	X5, 64(X13)
+	WORD	$0xa3afb5d7	// th.vsrl.vi v11,v26,31
+	WORD	$0x2f288a57	// th.vxor.vv v20,v18,v17
+	MOVBU	16(X10), X5
+	WORD	$0xa3ddb857	// th.vsrl.vi v16,v29,27
+	MOVBU	17(X10), X6
+	WORD	$0xb7ae65d7	// th.vmacc.vx v11,t3,v26
+	WORD	$0x2f4f8a57	// th.vxor.vv v20,v20,v31
+	MOVBU	18(X10), X7
+	WORD	$0xa3213f57	// th.vsrl.vi v30,v18,2
+	WORD	$0x2e9209d7	// th.vxor.vv v19,v9,v4
+	MOVBU	19(X10), X8
+	WORD	$0x03ba0dd7	// th.vadd.vv v27,v27,v20
+	SLL	$24, X5
+	WORD	$0xb72f6f57	// th.vmacc.vx v30,t5,v18
+	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
+	SLL	$16, X6
+	WORD	$0x03b80dd7	// th.vadd.vv v27,v27,v16
+	WORD	$0x03f40fd7	// th.vadd.vv v31,v31,v8
+	SLL	$8, X7
+	WORD	$0x2f3609d7	// th.vxor.vv v19,v19,v12
+	OR	X6, X5
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
+	WORD	$0x03f84fd7	// th.vadd.vx v31,v31,a6
+	OR	X8, X7
+	WORD	$0xa33fb657	// th.vsrl.vi v12,v19,31
+	WORD	$0x2fdf0d57	// th.vxor.vv v26,v29,v30
+	OR	X7, X5
+	WORD	$0xa3bdbe57	// th.vsrl.vi v28,v27,27
+	MOVW	X5, 68(X13)
+	WORD	$0xb73e6657	// th.vmacc.vx v12,t3,v19
+	WORD	$0x2fa88d57	// th.vxor.vv v26,v26,v17
+	MOVBU	16(X11), X5
+	WORD	$0xa3d13857	// th.vsrl.vi v16,v29,2
+	WORD	$0x2ea28957	// th.vxor.vv v18,v10,v5
+	MOVBU	17(X11), X6
+	WORD	$0x03fd0fd7	// th.vadd.vv v31,v31,v26
+	WORD	$0xb7df6857	// th.vmacc.vx v16,t5,v29
+	MOVBU	18(X11), X7
+	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
+	MOVBU	19(X11), X8
+	WORD	$0x03fe0fd7	// th.vadd.vv v31,v31,v28
+	WORD	$0x031488d7	// th.vadd.vv v17,v17,v9
+	SLL	$24, X5
+	WORD	$0x2f268957	// th.vxor.vv v18,v18,v13
+	WORD	$0xb7beefd7	// th.vmacc.vx v31,t4,v27
+	SLL	$16, X6
 	WORD	$0x031848d7	// th.vadd.vx v17,v17,a6
-	WORD	$0x2fa80d57	// th.vxor.vv v26,v26,v16
-	MOVBU	20(X10), X5
-	WORD	$0x9600bfd7	// th.vsll.vi v31,v0,1
-	WORD	$0xa20fb057	// th.vsrl.vi v0,v0,31
-	MOVBU	21(X10), X6
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	WORD	$0xa32dbe57	// th.vsrl.vi v28,v18,27
-	MOVBU	22(X10), X7
-	WORD	$0x2a0f8057	// th.vor.vv v0,v0,v31
-	WORD	$0x9722bed7	// th.vsll.vi v29,v18,5
-	MOVBU	23(X10), X8
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	WORD	$0x973f3f57	// th.vsll.vi v30,v19,30
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	SLL	$24, X5
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0x2ee48fd7	// th.vxor.vv v31,v14,v9
-	SLL	$16, X6
-	WORD	$0x2b3f09d7	// th.vor.vv v19,v19,v30
-	WORD	$0x2e1180d7	// th.vxor.vv v1,v1,v3
 	SLL	$8, X7
-	WORD	$0x03068857	// th.vadd.vv v16,v16,v13
-	WORD	$0x2f298dd7	// th.vxor.vv v27,v18,v19
+	WORD	$0xa32fb6d7	// th.vsrl.vi v13,v18,31
+	WORD	$0x2fb809d7	// th.vxor.vv v19,v27,v16
 	OR	X6, X5
-	WORD	$0x2e1f80d7	// th.vxor.vv v1,v1,v31
+	WORD	$0xa3fdba57	// th.vsrl.vi v20,v31,27
+	WORD	$0xb72e66d7	// th.vmacc.vx v13,t3,v18
+	OR	X8, X7
+	WORD	$0x2f3f09d7	// th.vxor.vv v19,v19,v30
+	OR	X7, X5
+	WORD	$0xa3b13e57	// th.vsrl.vi v28,v27,2
+	WORD	$0x2eb30ed7	// th.vxor.vv v29,v11,v6
+	MOVW	X5, 72(X13)
+	WORD	$0x031988d7	// th.vadd.vv v17,v17,v19
+	WORD	$0xb7bf6e57	// th.vmacc.vx v28,t5,v27
+	MOVBU	16(X12), X5
+	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
+	MOVBU	17(X12), X6
+	WORD	$0x031a08d7	// th.vadd.vv v17,v17,v20
+	WORD	$0x03e50f57	// th.vadd.vv v30,v30,v10
+	MOVBU	18(X12), X7
+	WORD	$0x2fd70ed7	// th.vxor.vv v29,v29,v14
+	WORD	$0xb7fee8d7	// th.vmacc.vx v17,t4,v31
+	MOVBU	19(X12), X8
+	WORD	$0x03e84f57	// th.vadd.vx v30,v30,a6
+	WORD	$0xa3dfb757	// th.vsrl.vi v14,v29,31
+	SLL	$24, X5
+	WORD	$0x2ffe0957	// th.vxor.vv v18,v31,v28
+	SLL	$16, X6
+	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	WORD	$0xb7de6757	// th.vmacc.vx v14,t3,v29
+	SLL	$8, X7
+	WORD	$0x2f280957	// th.vxor.vv v18,v18,v16
+	WORD	$0xa3f13a57	// th.vsrl.vi v20,v31,2
+	OR	X6, X5
+	WORD	$0x2ec38dd7	// th.vxor.vv v27,v12,v7
+	OR	X8, X7
+	WORD	$0x03e90f57	// th.vadd.vv v30,v30,v18
+	WORD	$0xb7ff6a57	// th.vmacc.vx v20,t5,v31
+	OR	X7, X5
+	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
+	WORD	$0x03ed0f57	// th.vadd.vv v30,v30,v26
+	MOVW	X5, 76(X13)
+	WORD	$0x03058857	// th.vadd.vv v16,v16,v11
+	MOVBU	20(X9), X5
+	WORD	$0x2fb78dd7	// th.vxor.vv v27,v27,v15
+	WORD	$0xb71eef57	// th.vmacc.vx v30,t4,v17
+	MOVBU	21(X9), X6
 	WORD	$0x03084857	// th.vadd.vx v16,v16,a6
-	OR	X8, X7
-	WORD	$0x2fba0dd7	// th.vxor.vv v27,v27,v20
-	WORD	$0x9610bd57	// th.vsll.vi v26,v1,1
-	OR	X7, X5
-	WORD	$0xa21fb0d7	// th.vsrl.vi v1,v1,31
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	MOVW	X5, 84(X13)
-	WORD	$0xa31dbed7	// th.vsrl.vi v29,v17,27
-	WORD	$0x2a1d00d7	// th.vor.vv v1,v1,v26
-	MOVBU	20(X11), X5
-	WORD	$0x9712bf57	// th.vsll.vi v30,v17,5
-	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	MOVBU	21(X11), X6
-	WORD	$0x972f3fd7	// th.vsll.vi v31,v18,30
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	MOVBU	22(X11), X7
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0x2ef50d57	// th.vxor.vv v26,v15,v10
-	MOVBU	23(X11), X8
-	WORD	$0x2b2f8957	// th.vor.vv v18,v18,v31
-	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
+	WORD	$0xa3bfb7d7	// th.vsrl.vi v15,v27,31
+	MOVBU	22(X9), X7
+	WORD	$0x2f1a0ed7	// th.vxor.vv v29,v17,v20
+	MOVBU	23(X9), X8
+	WORD	$0xa3edb9d7	// th.vsrl.vi v19,v30,27
+	WORD	$0xb7be67d7	// th.vmacc.vx v15,t3,v27
 	SLL	$24, X5
-	WORD	$0x03470a57	// th.vadd.vv v20,v20,v14
-	WORD	$0x2f190e57	// th.vxor.vv v28,v17,v18
+	WORD	$0x2fde0ed7	// th.vxor.vv v29,v29,v28
+	WORD	$0xa3113d57	// th.vsrl.vi v26,v17,2
 	SLL	$16, X6
-	WORD	$0x2e2d0157	// th.vxor.vv v2,v2,v26
-	WORD	$0x03484a57	// th.vadd.vx v20,v20,a6
+	WORD	$0x2ed40fd7	// th.vxor.vv v31,v13,v8
+	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
 	SLL	$8, X7
-	WORD	$0x2fc98e57	// th.vxor.vv v28,v28,v19
-	WORD	$0x9620bdd7	// th.vsll.vi v27,v2,1
+	WORD	$0xb71f6d57	// th.vmacc.vx v26,t5,v17
 	OR	X6, X5
-	WORD	$0xa22fb157	// th.vsrl.vi v2,v2,31
-	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
+	WORD	$0x2e010057	// th.vxor.vv v0,v0,v2
+	WORD	$0x03098857	// th.vadd.vv v16,v16,v19
 	OR	X8, X7
-	WORD	$0xa30dbf57	// th.vsrl.vi v30,v16,27
-	WORD	$0x2a2d8157	// th.vor.vv v2,v2,v27
+	WORD	$0x03c60e57	// th.vadd.vv v28,v28,v12
+	WORD	$0x2ff00fd7	// th.vxor.vv v31,v31,v0
 	OR	X7, X5
-	WORD	$0x9702bfd7	// th.vsll.vi v31,v16,5
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
-	MOVW	X5, 88(X13)
-	WORD	$0x971f3d57	// th.vsll.vi v26,v17,30
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	MOVBU	20(X12), X5
+	WORD	$0xb7eee857	// th.vmacc.vx v16,t4,v30
+	MOVW	X5, 80(X13)
+	WORD	$0x03c84e57	// th.vadd.vx v28,v28,a6
+	WORD	$0xa3ffb057	// th.vsrl.vi v0,v31,31
+	MOVBU	20(X10), X5
+	WORD	$0x2fed0dd7	// th.vxor.vv v27,v30,v26
+	WORD	$0xa30db957	// th.vsrl.vi v18,v16,27
+	MOVBU	21(X10), X6
+	WORD	$0xb7fe6057	// th.vmacc.vx v0,t3,v31
+	MOVBU	22(X10), X7
+	WORD	$0x2fba0dd7	// th.vxor.vv v27,v27,v20
+	WORD	$0xa3e139d7	// th.vsrl.vi v19,v30,2
+	MOVBU	23(X10), X8
+	WORD	$0x2ee488d7	// th.vxor.vv v17,v14,v9
+	WORD	$0x03cd8e57	// th.vadd.vv v28,v28,v27
+	SLL	$24, X5
+	WORD	$0xb7ef69d7	// th.vmacc.vx v19,t5,v30
+	SLL	$16, X6
+	WORD	$0x2e1180d7	// th.vxor.vv v1,v1,v3
+	WORD	$0x03c90e57	// th.vadd.vv v28,v28,v18
+	SLL	$8, X7
+	WORD	$0x03468a57	// th.vadd.vv v20,v20,v13
+	WORD	$0x2f1088d7	// th.vxor.vv v17,v17,v1
+	OR	X6, X5
+	WORD	$0xb70eee57	// th.vmacc.vx v28,t4,v16
+	OR	X8, X7
+	WORD	$0x03484a57	// th.vadd.vx v20,v20,a6
+	WORD	$0xa31fb0d7	// th.vsrl.vi v1,v17,31
+	OR	X7, X5
+	WORD	$0x2f098fd7	// th.vxor.vv v31,v16,v19
+	WORD	$0xa3cdbed7	// th.vsrl.vi v29,v28,27
+	MOVW	X5, 84(X13)
+	WORD	$0xb71e60d7	// th.vmacc.vx v1,t3,v17
+	WORD	$0x2ffd0fd7	// th.vxor.vv v31,v31,v26
+	MOVBU	20(X11), X5
+	WORD	$0xa3013957	// th.vsrl.vi v18,v16,2
+	MOVBU	21(X11), X6
+	WORD	$0x2ef50f57	// th.vxor.vv v30,v15,v10
 	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0x2e058dd7	// th.vxor.vv v27,v0,v11
-	MOVBU	21(X12), X6
-	WORD	$0x2b1d08d7	// th.vor.vv v17,v17,v26
+	MOVBU	22(X11), X7
+	WORD	$0xb70f6957	// th.vmacc.vx v18,t5,v16
+	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
+	MOVBU	23(X11), X8
+	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
+	SLL	$24, X5
+	WORD	$0x03a70d57	// th.vadd.vv v26,v26,v14
+	WORD	$0x2fe10f57	// th.vxor.vv v30,v30,v2
+	SLL	$16, X6
+	WORD	$0xb7ceea57	// th.vmacc.vx v20,t4,v28
+	WORD	$0x03a84d57	// th.vadd.vx v26,v26,a6
+	SLL	$8, X7
+	WORD	$0xa3efb157	// th.vsrl.vi v2,v30,31
+	OR	X6, X5
+	WORD	$0x2fc908d7	// th.vxor.vv v17,v28,v18
+	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
+	OR	X8, X7
+	WORD	$0xb7ee6157	// th.vmacc.vx v2,t3,v30
+	WORD	$0x2f1988d7	// th.vxor.vv v17,v17,v19
+	OR	X7, X5
+	WORD	$0xa3c13ed7	// th.vsrl.vi v29,v28,2
+	MOVW	X5, 88(X13)
+	WORD	$0x2e058857	// th.vxor.vv v16,v0,v11
+	WORD	$0x03a88d57	// th.vadd.vv v26,v26,v17
+	MOVBU	20(X12), X5
+	WORD	$0xb7cf6ed7	// th.vmacc.vx v29,t5,v28
 	WORD	$0x2e3281d7	// th.vxor.vv v3,v3,v5
-	MOVBU	22(X12), X7
+	MOVBU	21(X12), X6
+	WORD	$0x03ad8d57	// th.vadd.vv v26,v26,v27
 	WORD	$0x033789d7	// th.vadd.vv v19,v19,v15
-	WORD	$0x2f088ed7	// th.vxor.vv v29,v16,v17
+	MOVBU	22(X12), X7
+	WORD	$0x2f018857	// th.vxor.vv v16,v16,v3
 	MOVBU	23(X12), X8
-	WORD	$0x2e3d81d7	// th.vxor.vv v3,v3,v27
+	WORD	$0xb74eed57	// th.vmacc.vx v26,t4,v20
 	WORD	$0x033849d7	// th.vadd.vx v19,v19,a6
 	SLL	$24, X5
-	WORD	$0x2fd90ed7	// th.vxor.vv v29,v29,v18
-	WORD	$0x9630be57	// th.vsll.vi v28,v3,1
+	WORD	$0xa30fb1d7	// th.vsrl.vi v3,v16,31
+	WORD	$0x2f4e8f57	// th.vxor.vv v30,v20,v29
 	SLL	$16, X6
-	WORD	$0xa23fb1d7	// th.vsrl.vi v3,v3,31
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
+	WORD	$0xa3adbfd7	// th.vsrl.vi v31,v26,27
 	SLL	$8, X7
-	WORD	$0xa34dbfd7	// th.vsrl.vi v31,v20,27
-	WORD	$0x2a3e01d7	// th.vor.vv v3,v3,v28
+	WORD	$0xb70e61d7	// th.vmacc.vx v3,t3,v16
+	WORD	$0x2fe90f57	// th.vxor.vv v30,v30,v18
 	OR	X6, X5
-	WORD	$0x9742bd57	// th.vsll.vi v26,v20,5
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
-	OR	X8, X7
-	WORD	$0x970f3dd7	// th.vsll.vi v27,v16,30
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	OR	X7, X5
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
+	WORD	$0xa3413dd7	// th.vsrl.vi v27,v20,2
 	WORD	$0x2e160e57	// th.vxor.vv v28,v1,v12
-	MOVW	X5, 92(X13)
-	WORD	$0x2b0d8857	// th.vor.vv v16,v16,v27
+	OR	X8, X7
+	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
+	OR	X7, X5
+	WORD	$0xb74f6dd7	// th.vmacc.vx v27,t5,v20
 	WORD	$0x2e430257	// th.vxor.vv v4,v4,v6
-	MOVBU	24(X9), X5
+	MOVW	X5, 92(X13)
+	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
 	WORD	$0x03200957	// th.vadd.vv v18,v18,v0
-	WORD	$0x2f480f57	// th.vxor.vv v30,v20,v16
+	MOVBU	24(X9), X5
+	WORD	$0x2fc20e57	// th.vxor.vv v28,v28,v4
 	MOVBU	25(X9), X6
-	WORD	$0x2e4e0257	// th.vxor.vv v4,v4,v28
+	WORD	$0xb7aee9d7	// th.vmacc.vx v19,t4,v26
 	WORD	$0x03284957	// th.vadd.vx v18,v18,a6
 	MOVBU	26(X9), X7
-	WORD	$0x2fe88f57	// th.vxor.vv v30,v30,v17
-	WORD	$0x9640bed7	// th.vsll.vi v29,v4,1
+	WORD	$0xa3cfb257	// th.vsrl.vi v4,v28,31
+	WORD	$0x2fad8857	// th.vxor.vv v16,v26,v27
 	MOVBU	27(X9), X8
-	WORD	$0xa24fb257	// th.vsrl.vi v4,v4,31
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
+	WORD	$0xa33db8d7	// th.vsrl.vi v17,v19,27
+	WORD	$0xb7ce6257	// th.vmacc.vx v4,t3,v28
 	SLL	$24, X5
-	WORD	$0xa33dbd57	// th.vsrl.vi v26,v19,27
-	WORD	$0x2a4e8257	// th.vor.vv v4,v4,v29
+	WORD	$0x2f0e8857	// th.vxor.vv v16,v16,v29
 	SLL	$16, X6
-	WORD	$0x9732bdd7	// th.vsll.vi v27,v19,5
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
+	WORD	$0xa3a13fd7	// th.vsrl.vi v31,v26,2
+	WORD	$0x2e268a57	// th.vxor.vv v20,v2,v13
 	SLL	$8, X7
-	WORD	$0x974f3e57	// th.vsll.vi v28,v20,30
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
+	WORD	$0x03280957	// th.vadd.vv v18,v18,v16
+	WORD	$0xb7af6fd7	// th.vmacc.vx v31,t5,v26
 	OR	X6, X5
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	WORD	$0x2e268ed7	// th.vxor.vv v29,v2,v13
-	OR	X8, X7
-	WORD	$0x2b4e0a57	// th.vor.vv v20,v20,v28
 	WORD	$0x2e5382d7	// th.vxor.vv v5,v5,v7
-	OR	X7, X5
-	WORD	$0x031088d7	// th.vadd.vv v17,v17,v1
-	WORD	$0x2f3a0fd7	// th.vxor.vv v31,v19,v20
-	MOVW	X5, 96(X13)
-	WORD	$0x2e5e82d7	// th.vxor.vv v5,v5,v29
-	WORD	$0x031848d7	// th.vadd.vx v17,v17,a6
-	MOVBU	24(X10), X5
-	WORD	$0x2ff80fd7	// th.vxor.vv v31,v31,v16
-	WORD	$0x9650bf57	// th.vsll.vi v30,v5,1
-	MOVBU	25(X10), X6
-	WORD	$0xa25fb2d7	// th.vsrl.vi v5,v5,31
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	MOVBU	26(X10), X7
-	WORD	$0xa32dbdd7	// th.vsrl.vi v27,v18,27
-	WORD	$0x2a5f02d7	// th.vor.vv v5,v5,v30
-	MOVBU	27(X10), X8
-	WORD	$0x9722be57	// th.vsll.vi v28,v18,5
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
-	SLL	$24, X5
-	WORD	$0x973f3ed7	// th.vsll.vi v29,v19,30
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	SLL	$16, X6
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	WORD	$0x2e370f57	// th.vxor.vv v30,v3,v14
-	SLL	$8, X7
-	WORD	$0x2b3e89d7	// th.vor.vv v19,v19,v29
-	WORD	$0x2e640357	// th.vxor.vv v6,v6,v8
-	OR	X6, X5
-	WORD	$0x03010857	// th.vadd.vv v16,v16,v2
-	WORD	$0x2f298d57	// th.vxor.vv v26,v18,v19
 	OR	X8, X7
-	WORD	$0x2e6f0357	// th.vxor.vv v6,v6,v30
-	WORD	$0x03084857	// th.vadd.vx v16,v16,a6
+	WORD	$0x03288957	// th.vadd.vv v18,v18,v17
+	WORD	$0x03d08ed7	// th.vadd.vv v29,v29,v1
 	OR	X7, X5
-	WORD	$0x2faa0d57	// th.vxor.vv v26,v26,v20
-	WORD	$0x9660bfd7	// th.vsll.vi v31,v6,1
-	MOVW	X5, 100(X13)
-	WORD	$0xa26fb357	// th.vsrl.vi v6,v6,31
-	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
-	MOVBU	24(X11), X5
-	WORD	$0xa31dbe57	// th.vsrl.vi v28,v17,27
-	WORD	$0x2a6f8357	// th.vor.vv v6,v6,v31
-	MOVBU	25(X11), X6
-	WORD	$0x9712bed7	// th.vsll.vi v29,v17,5
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
-	MOVBU	26(X11), X7
-	WORD	$0x972f3f57	// th.vsll.vi v30,v18,30
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	MOVBU	27(X11), X8
-	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	WORD	$0x2e478fd7	// th.vxor.vv v31,v4,v15
+	WORD	$0x2f428a57	// th.vxor.vv v20,v20,v5
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
+	MOVW	X5, 96(X13)
+	WORD	$0x03d84ed7	// th.vadd.vx v29,v29,a6
+	MOVBU	24(X10), X5
+	WORD	$0xa34fb2d7	// th.vsrl.vi v5,v20,31
+	WORD	$0x2f3f8e57	// th.vxor.vv v28,v19,v31
+	MOVBU	25(X10), X6
+	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
+	WORD	$0xb74e62d7	// th.vmacc.vx v5,t3,v20
+	MOVBU	26(X10), X7
+	WORD	$0x2fcd8e57	// th.vxor.vv v28,v28,v27
+	MOVBU	27(X10), X8
+	WORD	$0xa33138d7	// th.vsrl.vi v17,v19,2
+	WORD	$0x2e370d57	// th.vxor.vv v26,v3,v14
 	SLL	$24, X5
-	WORD	$0x2b2f0957	// th.vor.vv v18,v18,v30
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
+	WORD	$0xb73f68d7	// th.vmacc.vx v17,t5,v19
+	SLL	$16, X6
+	WORD	$0x2e640357	// th.vxor.vv v6,v6,v8
+	SLL	$8, X7
+	WORD	$0x03df0ed7	// th.vadd.vv v29,v29,v30
+	WORD	$0x03b10dd7	// th.vadd.vv v27,v27,v2
+	OR	X6, X5
+	WORD	$0x2fa30d57	// th.vxor.vv v26,v26,v6
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
+	OR	X8, X7
+	WORD	$0x03b84dd7	// th.vadd.vx v27,v27,a6
+	WORD	$0xa3afb357	// th.vsrl.vi v6,v26,31
+	OR	X7, X5
+	WORD	$0x2f288a57	// th.vxor.vv v20,v18,v17
+	MOVW	X5, 100(X13)
+	WORD	$0xa3ddb857	// th.vsrl.vi v16,v29,27
+	WORD	$0xb7ae6357	// th.vmacc.vx v6,t3,v26
+	MOVBU	24(X11), X5
+	WORD	$0x2f4f8a57	// th.vxor.vv v20,v20,v31
+	WORD	$0xa3213f57	// th.vsrl.vi v30,v18,2
+	MOVBU	25(X11), X6
+	WORD	$0x2e4789d7	// th.vxor.vv v19,v4,v15
+	MOVBU	26(X11), X7
+	WORD	$0x03ba0dd7	// th.vadd.vv v27,v27,v20
+	WORD	$0xb72f6f57	// th.vmacc.vx v30,t5,v18
+	MOVBU	27(X11), X8
+	WORD	$0x2e7483d7	// th.vxor.vv v7,v7,v9
+	WORD	$0x03b80dd7	// th.vadd.vv v27,v27,v16
+	SLL	$24, X5
+	WORD	$0x03f18fd7	// th.vadd.vv v31,v31,v3
+	SLL	$16, X6
+	WORD	$0x2f3389d7	// th.vxor.vv v19,v19,v7
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
+	SLL	$8, X7
+	WORD	$0x03f84fd7	// th.vadd.vx v31,v31,a6
+	WORD	$0xa33fb3d7	// th.vsrl.vi v7,v19,31
+	OR	X6, X5
+	WORD	$0x2fdf0d57	// th.vxor.vv v26,v29,v30
+	OR	X8, X7
+	WORD	$0xa3bdbe57	// th.vsrl.vi v28,v27,27
+	WORD	$0xb73e63d7	// th.vmacc.vx v7,t3,v19
+	OR	X7, X5
+	WORD	$0x2fa88d57	// th.vxor.vv v26,v26,v17
+	WORD	$0xa3d13857	// th.vsrl.vi v16,v29,2
+	MOVW	X5, 104(X13)
+	WORD	$0x2e500957	// th.vxor.vv v18,v5,v0
+	WORD	$0x03fd0fd7	// th.vadd.vv v31,v31,v26
+	MOVBU	24(X12), X5
+	WORD	$0xb7df6857	// th.vmacc.vx v16,t5,v29
+	MOVBU	25(X12), X6
+	WORD	$0x2e850457	// th.vxor.vv v8,v8,v10
+	WORD	$0x03fe0fd7	// th.vadd.vv v31,v31,v28
+	MOVBU	26(X12), X7
+	WORD	$0x031208d7	// th.vadd.vv v17,v17,v4
+	WORD	$0x2f240957	// th.vxor.vv v18,v18,v8
+	MOVBU	27(X12), X8
+	WORD	$0xb7beefd7	// th.vmacc.vx v31,t4,v27
+	SLL	$24, X5
+	WORD	$0x031848d7	// th.vadd.vx v17,v17,a6
+	WORD	$0xa32fb457	// th.vsrl.vi v8,v18,31
+	SLL	$16, X6
+	WORD	$0x2fb809d7	// th.vxor.vv v19,v27,v16
+	WORD	$0xa3fdba57	// th.vsrl.vi v20,v31,27
+	SLL	$8, X7
+	WORD	$0xb72e6457	// th.vmacc.vx v8,t3,v18
+	OR	X6, X5
+	WORD	$0x2f3f09d7	// th.vxor.vv v19,v19,v30
+	WORD	$0xa3b13e57	// th.vsrl.vi v28,v27,2
+	OR	X8, X7
+	WORD	$0x2e608ed7	// th.vxor.vv v29,v6,v1
+	WORD	$0x031988d7	// th.vadd.vv v17,v17,v19
+	OR	X7, X5
+	WORD	$0xb7bf6e57	// th.vmacc.vx v28,t5,v27
+	MOVW	X5, 108(X13)
+	WORD	$0x2e9584d7	// th.vxor.vv v9,v9,v11
+	WORD	$0x031a08d7	// th.vadd.vv v17,v17,v20
+	MOVBU	28(X9), X5
+	WORD	$0x03e28f57	// th.vadd.vv v30,v30,v5
+	WORD	$0x2fd48ed7	// th.vxor.vv v29,v29,v9
+	MOVBU	29(X9), X6
+	WORD	$0xb7fee8d7	// th.vmacc.vx v17,t4,v31
+	WORD	$0x03e84f57	// th.vadd.vx v30,v30,a6
+	MOVBU	30(X9), X7
+	WORD	$0xa3dfb4d7	// th.vsrl.vi v9,v29,31
+	MOVBU	31(X9), X8
+	WORD	$0x2ffe0957	// th.vxor.vv v18,v31,v28
+	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	SLL	$24, X5
+	WORD	$0xb7de64d7	// th.vmacc.vx v9,t3,v29
+	WORD	$0x2f280957	// th.vxor.vv v18,v18,v16
+	SLL	$16, X6
+	WORD	$0xa3f13a57	// th.vsrl.vi v20,v31,2
+	SLL	$8, X7
+	WORD	$0x2e710dd7	// th.vxor.vv v27,v7,v2
+	WORD	$0x03e90f57	// th.vadd.vv v30,v30,v18
+	OR	X6, X5
+	WORD	$0xb7ff6a57	// th.vmacc.vx v20,t5,v31
+	WORD	$0x2ea60557	// th.vxor.vv v10,v10,v12
+	OR	X8, X7
+	WORD	$0x03ed0f57	// th.vadd.vv v30,v30,v26
+	OR	X7, X5
+	WORD	$0x03030857	// th.vadd.vv v16,v16,v6
+	WORD	$0x2fb50dd7	// th.vxor.vv v27,v27,v10
+	MOVW	X5, 112(X13)
+	WORD	$0xb71eef57	// th.vmacc.vx v30,t4,v17
+	WORD	$0x03084857	// th.vadd.vx v16,v16,a6
+	MOVBU	28(X10), X5
+	WORD	$0xa3bfb557	// th.vsrl.vi v10,v27,31
+	MOVBU	29(X10), X6
+	WORD	$0x2f1a0ed7	// th.vxor.vv v29,v17,v20
+	WORD	$0xa3edb9d7	// th.vsrl.vi v19,v30,27
+	MOVBU	30(X10), X7
+	WORD	$0xb7be6557	// th.vmacc.vx v10,t3,v27
+	WORD	$0x2fde0ed7	// th.vxor.vv v29,v29,v28
+	MOVBU	31(X10), X8
+	WORD	$0xa3113d57	// th.vsrl.vi v26,v17,2
+	SLL	$24, X5
+	WORD	$0x2e818fd7	// th.vxor.vv v31,v8,v3
+	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
+	SLL	$16, X6
+	WORD	$0xb71f6d57	// th.vmacc.vx v26,t5,v17
+	WORD	$0x2eb685d7	// th.vxor.vv v11,v11,v13
+	SLL	$8, X7
+	WORD	$0x03098857	// th.vadd.vv v16,v16,v19
+	WORD	$0x03c38e57	// th.vadd.vv v28,v28,v7
+	OR	X6, X5
+	WORD	$0x2ff58fd7	// th.vxor.vv v31,v31,v11
+	OR	X8, X7
+	WORD	$0xb7eee857	// th.vmacc.vx v16,t4,v30
+	WORD	$0x03c84e57	// th.vadd.vx v28,v28,a6
+	OR	X7, X5
+	WORD	$0xa3ffb5d7	// th.vsrl.vi v11,v31,31
+	WORD	$0x2fed0dd7	// th.vxor.vv v27,v30,v26
+	MOVW	X5, 116(X13)
+	WORD	$0xa30db957	// th.vsrl.vi v18,v16,27
+	MOVBU	28(X11), X5
+	WORD	$0xb7fe65d7	// th.vmacc.vx v11,t3,v31
+	WORD	$0x2fba0dd7	// th.vxor.vv v27,v27,v20
+	MOVBU	29(X11), X6
+	WORD	$0xa3e139d7	// th.vsrl.vi v19,v30,2
+	WORD	$0x2e9208d7	// th.vxor.vv v17,v9,v4
+	MOVBU	30(X11), X7
+	WORD	$0x03cd8e57	// th.vadd.vv v28,v28,v27
+	MOVBU	31(X11), X8
+	WORD	$0xb7ef69d7	// th.vmacc.vx v19,t5,v30
+	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
+	SLL	$24, X5
+	WORD	$0x03c90e57	// th.vadd.vv v28,v28,v18
+	WORD	$0x03440a57	// th.vadd.vv v20,v20,v8
+	SLL	$16, X6
+	WORD	$0x2f1608d7	// th.vxor.vv v17,v17,v12
+	SLL	$8, X7
+	WORD	$0xb70eee57	// th.vmacc.vx v28,t4,v16
+	WORD	$0x0348ca57	// th.vadd.vx v20,v20,a7
+	OR	X6, X5
+	WORD	$0xa31fb657	// th.vsrl.vi v12,v17,31
+	WORD	$0x27098fd7	// th.vand.vv v31,v16,v19
+	OR	X8, X7
+	WORD	$0x2f098dd7	// th.vxor.vv v27,v16,v19
+	WORD	$0xb71e6657	// th.vmacc.vx v12,t3,v17
+	OR	X7, X5
+	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
+	MOVW	X5, 120(X13)
+	WORD	$0x27bd0dd7	// th.vand.vv v27,v27,v26
+	WORD	$0xa3cdbed7	// th.vsrl.vi v29,v28,27
+	MOVBU	28(X12), X5
+	WORD	$0xa3013957	// th.vsrl.vi v18,v16,2
+	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
+	MOVBU	29(X12), X6
+	WORD	$0x2ea28f57	// th.vxor.vv v30,v10,v5
+	MOVBU	30(X12), X7
+	WORD	$0xb70f6957	// th.vmacc.vx v18,t5,v16
+	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
+	MOVBU	31(X12), X8
+	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
+	WORD	$0x03a48d57	// th.vadd.vv v26,v26,v9
+	SLL	$24, X5
+	WORD	$0xb7ceea57	// th.vmacc.vx v20,t4,v28
+	SLL	$16, X6
+	WORD	$0x2fe68f57	// th.vxor.vv v30,v30,v13
+	WORD	$0x03a8cd57	// th.vadd.vx v26,v26,a7
+	SLL	$8, X7
+	WORD	$0x27c908d7	// th.vand.vv v17,v28,v18
+	WORD	$0xa3efb6d7	// th.vsrl.vi v13,v30,31
+	OR	X6, X5
+	WORD	$0x2fc90fd7	// th.vxor.vv v31,v28,v18
+	OR	X8, X7
+	WORD	$0x03a88d57	// th.vadd.vv v26,v26,v17
+	WORD	$0xb7ee66d7	// th.vmacc.vx v13,t3,v30
+	OR	X7, X5
+	WORD	$0x27f98fd7	// th.vand.vv v31,v31,v19
+	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
+	MOVW	X5, 124(X13)
+	WORD	$0xa3c13ed7	// th.vsrl.vi v29,v28,2
+	WORD	$0x03af8d57	// th.vadd.vv v26,v26,v31
+	MOVBU	32(X9), X5
+	WORD	$0x2eb30857	// th.vxor.vv v16,v11,v6
+	MOVBU	33(X9), X6
+	WORD	$0xb7cf6ed7	// th.vmacc.vx v29,t5,v28
+	WORD	$0x03ad8d57	// th.vadd.vv v26,v26,v27
+	MOVBU	34(X9), X7
+	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
+	WORD	$0x033509d7	// th.vadd.vv v19,v19,v10
+	MOVBU	35(X9), X8
+	WORD	$0xb74eed57	// th.vmacc.vx v26,t4,v20
+	SLL	$24, X5
+	WORD	$0x2f070857	// th.vxor.vv v16,v16,v14
+	WORD	$0x0338c9d7	// th.vadd.vx v19,v19,a7
+	SLL	$16, X6
+	WORD	$0x274e8f57	// th.vand.vv v30,v20,v29
+	WORD	$0xa30fb757	// th.vsrl.vi v14,v16,31
+	SLL	$8, X7
+	WORD	$0x2f4e88d7	// th.vxor.vv v17,v20,v29
+	OR	X6, X5
+	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
+	WORD	$0xb70e6757	// th.vmacc.vx v14,t3,v16
+	OR	X8, X7
+	WORD	$0x271908d7	// th.vand.vv v17,v17,v18
+	WORD	$0xa3adbfd7	// th.vsrl.vi v31,v26,27
+	OR	X7, X5
+	WORD	$0xa3413dd7	// th.vsrl.vi v27,v20,2
+	MOVW	X5, 128(X13)
+	WORD	$0x033889d7	// th.vadd.vv v19,v19,v17
+	WORD	$0x2ec38e57	// th.vxor.vv v28,v12,v7
+	MOVBU	32(X10), X5
+	WORD	$0xb74f6dd7	// th.vmacc.vx v27,t5,v20
+	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
+	MOVBU	33(X10), X6
+	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
+	MOVBU	34(X10), X7
+	WORD	$0x03258957	// th.vadd.vv v18,v18,v11
+	WORD	$0xb7aee9d7	// th.vmacc.vx v19,t4,v26
+	MOVBU	35(X10), X8
+	WORD	$0x2fc78e57	// th.vxor.vv v28,v28,v15
+	WORD	$0x0328c957	// th.vadd.vx v18,v18,a7
+	SLL	$24, X5
+	WORD	$0x27ad8857	// th.vand.vv v16,v26,v27
+	WORD	$0xa3cfb7d7	// th.vsrl.vi v15,v28,31
+	SLL	$16, X6
+	WORD	$0x2fad8f57	// th.vxor.vv v30,v26,v27
+	SLL	$8, X7
+	WORD	$0x03280957	// th.vadd.vv v18,v18,v16
+	WORD	$0xb7ce67d7	// th.vmacc.vx v15,t3,v28
+	OR	X6, X5
+	WORD	$0x27ee8f57	// th.vand.vv v30,v30,v29
+	WORD	$0xa33db8d7	// th.vsrl.vi v17,v19,27
+	OR	X8, X7
+	WORD	$0xa3a13fd7	// th.vsrl.vi v31,v26,2
+	OR	X7, X5
+	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
+	WORD	$0x2ed40a57	// th.vxor.vv v20,v13,v8
+	MOVW	X5, 132(X13)
+	WORD	$0xb7af6fd7	// th.vmacc.vx v31,t5,v26
+	WORD	$0x03288957	// th.vadd.vv v18,v18,v17
+	MOVBU	32(X11), X5
+	WORD	$0x2e010057	// th.vxor.vv v0,v0,v2
+	MOVBU	33(X11), X6
+	WORD	$0x03d60ed7	// th.vadd.vv v29,v29,v12
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
+	MOVBU	34(X11), X7
+	WORD	$0x2f400a57	// th.vxor.vv v20,v20,v0
+	WORD	$0x03d8ced7	// th.vadd.vx v29,v29,a7
+	MOVBU	35(X11), X8
+	WORD	$0x273f8e57	// th.vand.vv v28,v19,v31
+	SLL	$24, X5
+	WORD	$0xa34fb057	// th.vsrl.vi v0,v20,31
+	WORD	$0x2f3f8857	// th.vxor.vv v16,v19,v31
+	SLL	$16, X6
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
+	WORD	$0xb74e6057	// th.vmacc.vx v0,t3,v20
+	SLL	$8, X7
+	WORD	$0x270d8857	// th.vand.vv v16,v16,v27
+	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
+	OR	X6, X5
+	WORD	$0xa33138d7	// th.vsrl.vi v17,v19,2
+	OR	X8, X7
+	WORD	$0x03d80ed7	// th.vadd.vv v29,v29,v16
+	WORD	$0x2ee48d57	// th.vxor.vv v26,v14,v9
+	OR	X7, X5
+	WORD	$0xb73f68d7	// th.vmacc.vx v17,t5,v19
+	WORD	$0x03df0ed7	// th.vadd.vv v29,v29,v30
+	MOVW	X5, 136(X13)
+	WORD	$0x2e1180d7	// th.vxor.vv v1,v1,v3
+	MOVBU	32(X12), X5
+	WORD	$0x03b68dd7	// th.vadd.vv v27,v27,v13
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
+	MOVBU	33(X12), X6
+	WORD	$0x2fa08d57	// th.vxor.vv v26,v26,v1
+	WORD	$0x03b8cdd7	// th.vadd.vx v27,v27,a7
+	MOVBU	34(X12), X7
+	WORD	$0x27288a57	// th.vand.vv v20,v18,v17
+	MOVBU	35(X12), X8
+	WORD	$0xa3afb0d7	// th.vsrl.vi v1,v26,31
+	WORD	$0x2f288e57	// th.vxor.vv v28,v18,v17
+	SLL	$24, X5
+	WORD	$0x03ba0dd7	// th.vadd.vv v27,v27,v20
+	WORD	$0xb7ae60d7	// th.vmacc.vx v1,t3,v26
+	SLL	$16, X6
+	WORD	$0x27cf8e57	// th.vand.vv v28,v28,v31
+	SLL	$8, X7
+	WORD	$0xa3ddb857	// th.vsrl.vi v16,v29,27
+	WORD	$0xa3213f57	// th.vsrl.vi v30,v18,2
+	OR	X6, X5
+	WORD	$0x03be0dd7	// th.vadd.vv v27,v27,v28
+	WORD	$0x2ef509d7	// th.vxor.vv v19,v15,v10
+	OR	X8, X7
+	WORD	$0xb72f6f57	// th.vmacc.vx v30,t5,v18
+	OR	X7, X5
+	WORD	$0x03b80dd7	// th.vadd.vv v27,v27,v16
+	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
+	MOVW	X5, 140(X13)
+	WORD	$0x03f70fd7	// th.vadd.vv v31,v31,v14
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
+	MOVBU	36(X9), X5
+	WORD	$0x2f3109d7	// th.vxor.vv v19,v19,v2
+	WORD	$0x03f8cfd7	// th.vadd.vx v31,v31,a7
+	MOVBU	37(X9), X6
+	WORD	$0x27df0d57	// th.vand.vv v26,v29,v30
+	MOVBU	38(X9), X7
+	WORD	$0xa33fb157	// th.vsrl.vi v2,v19,31
+	WORD	$0x2fdf0a57	// th.vxor.vv v20,v29,v30
+	MOVBU	39(X9), X8
+	WORD	$0x03fd0fd7	// th.vadd.vv v31,v31,v26
+	WORD	$0xb73e6157	// th.vmacc.vx v2,t3,v19
+	SLL	$24, X5
+	WORD	$0x27488a57	// th.vand.vv v20,v20,v17
+	SLL	$16, X6
+	WORD	$0xa3bdbe57	// th.vsrl.vi v28,v27,27
+	WORD	$0xa3d13857	// th.vsrl.vi v16,v29,2
+	SLL	$8, X7
+	WORD	$0x03fa0fd7	// th.vadd.vv v31,v31,v20
+	WORD	$0x2e058957	// th.vxor.vv v18,v0,v11
+	OR	X6, X5
+	WORD	$0xb7df6857	// th.vmacc.vx v16,t5,v29
+	OR	X8, X7
+	WORD	$0x03fe0fd7	// th.vadd.vv v31,v31,v28
+	WORD	$0x2e3281d7	// th.vxor.vv v3,v3,v5
+	OR	X7, X5
+	WORD	$0x031788d7	// th.vadd.vv v17,v17,v15
+	WORD	$0xb7beefd7	// th.vmacc.vx v31,t4,v27
+	MOVW	X5, 144(X13)
+	WORD	$0x2f218957	// th.vxor.vv v18,v18,v3
+	MOVBU	36(X10), X5
+	WORD	$0x0318c8d7	// th.vadd.vx v17,v17,a7
+	WORD	$0x27b809d7	// th.vand.vv v19,v27,v16
+	MOVBU	37(X10), X6
+	WORD	$0xa32fb1d7	// th.vsrl.vi v3,v18,31
+	WORD	$0x2fb80d57	// th.vxor.vv v26,v27,v16
+	MOVBU	38(X10), X7
+	WORD	$0x031988d7	// th.vadd.vv v17,v17,v19
+	WORD	$0xb72e61d7	// th.vmacc.vx v3,t3,v18
+	MOVBU	39(X10), X8
+	WORD	$0x27af0d57	// th.vand.vv v26,v26,v30
+	SLL	$24, X5
+	WORD	$0xa3fdba57	// th.vsrl.vi v20,v31,27
+	WORD	$0xa3b13e57	// th.vsrl.vi v28,v27,2
+	SLL	$16, X6
+	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
+	WORD	$0x2e160ed7	// th.vxor.vv v29,v1,v12
+	SLL	$8, X7
+	WORD	$0xb7bf6e57	// th.vmacc.vx v28,t5,v27
+	OR	X6, X5
+	WORD	$0x031a08d7	// th.vadd.vv v17,v17,v20
+	WORD	$0x2e430257	// th.vxor.vv v4,v4,v6
+	OR	X8, X7
+	WORD	$0x03e00f57	// th.vadd.vv v30,v30,v0
+	WORD	$0xb7fee8d7	// th.vmacc.vx v17,t4,v31
+	OR	X7, X5
+	WORD	$0x2fd20ed7	// th.vxor.vv v29,v29,v4
+	MOVW	X5, 148(X13)
+	WORD	$0x03e8cf57	// th.vadd.vx v30,v30,a7
+	WORD	$0x27fe0957	// th.vand.vv v18,v31,v28
+	MOVBU	36(X11), X5
+	WORD	$0xa3dfb257	// th.vsrl.vi v4,v29,31
+	WORD	$0x2ffe09d7	// th.vxor.vv v19,v31,v28
+	MOVBU	37(X11), X6
+	WORD	$0x03e90f57	// th.vadd.vv v30,v30,v18
+	MOVBU	38(X11), X7
+	WORD	$0xb7de6257	// th.vmacc.vx v4,t3,v29
+	WORD	$0x273809d7	// th.vand.vv v19,v19,v16
+	MOVBU	39(X11), X8
+	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	WORD	$0xa3f13a57	// th.vsrl.vi v20,v31,2
+	SLL	$24, X5
+	WORD	$0x03e98f57	// th.vadd.vv v30,v30,v19
+	WORD	$0x2e268dd7	// th.vxor.vv v27,v2,v13
+	SLL	$16, X6
+	WORD	$0xb7ff6a57	// th.vmacc.vx v20,t5,v31
+	SLL	$8, X7
+	WORD	$0x03ed0f57	// th.vadd.vv v30,v30,v26
+	WORD	$0x2e5382d7	// th.vxor.vv v5,v5,v7
+	OR	X6, X5
+	WORD	$0x03008857	// th.vadd.vv v16,v16,v1
+	WORD	$0xb71eef57	// th.vmacc.vx v30,t4,v17
+	OR	X8, X7
+	WORD	$0x2fb28dd7	// th.vxor.vv v27,v27,v5
+	OR	X7, X5
+	WORD	$0x0308c857	// th.vadd.vx v16,v16,a7
+	WORD	$0x271a0ed7	// th.vand.vv v29,v17,v20
+	MOVW	X5, 152(X13)
+	WORD	$0xa3bfb2d7	// th.vsrl.vi v5,v27,31
+	WORD	$0x2f1a0957	// th.vxor.vv v18,v17,v20
+	MOVBU	36(X12), X5
+	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
+	MOVBU	37(X12), X6
+	WORD	$0xb7be62d7	// th.vmacc.vx v5,t3,v27
+	WORD	$0x272e0957	// th.vand.vv v18,v18,v28
+	MOVBU	38(X12), X7
+	WORD	$0xa3edb9d7	// th.vsrl.vi v19,v30,27
+	WORD	$0xa3113d57	// th.vsrl.vi v26,v17,2
+	MOVBU	39(X12), X8
+	WORD	$0x03090857	// th.vadd.vv v16,v16,v18
+	SLL	$24, X5
+	WORD	$0x2e370fd7	// th.vxor.vv v31,v3,v14
+	WORD	$0xb71f6d57	// th.vmacc.vx v26,t5,v17
+	SLL	$16, X6
+	WORD	$0x03098857	// th.vadd.vv v16,v16,v19
+	WORD	$0x2e640357	// th.vxor.vv v6,v6,v8
+	SLL	$8, X7
+	WORD	$0x03c10e57	// th.vadd.vv v28,v28,v2
+	OR	X6, X5
+	WORD	$0xb7eee857	// th.vmacc.vx v16,t4,v30
+	WORD	$0x2ff30fd7	// th.vxor.vv v31,v31,v6
+	OR	X8, X7
+	WORD	$0x03c8ce57	// th.vadd.vx v28,v28,a7
+	WORD	$0x27ed0dd7	// th.vand.vv v27,v30,v26
+	OR	X7, X5
+	WORD	$0xa3ffb357	// th.vsrl.vi v6,v31,31
+	WORD	$0x2fed0ed7	// th.vxor.vv v29,v30,v26
+	MOVW	X5, 156(X13)
+	WORD	$0x03cd8e57	// th.vadd.vv v28,v28,v27
+	MOVBU	40(X9), X5
+	WORD	$0xb7fe6357	// th.vmacc.vx v6,t3,v31
+	WORD	$0x27da0ed7	// th.vand.vv v29,v29,v20
+	MOVBU	41(X9), X6
+	WORD	$0xa30db957	// th.vsrl.vi v18,v16,27
+	WORD	$0xa3e139d7	// th.vsrl.vi v19,v30,2
+	MOVBU	42(X9), X7
+	WORD	$0x03ce8e57	// th.vadd.vv v28,v28,v29
+	MOVBU	43(X9), X8
+	WORD	$0x2e4788d7	// th.vxor.vv v17,v4,v15
+	WORD	$0xb7ef69d7	// th.vmacc.vx v19,t5,v30
+	SLL	$24, X5
+	WORD	$0x03c90e57	// th.vadd.vv v28,v28,v18
 	WORD	$0x2e7483d7	// th.vxor.vv v7,v7,v9
 	SLL	$16, X6
 	WORD	$0x03418a57	// th.vadd.vv v20,v20,v3
-	WORD	$0x2f190dd7	// th.vxor.vv v27,v17,v18
 	SLL	$8, X7
-	WORD	$0x2e7f83d7	// th.vxor.vv v7,v7,v31
-	WORD	$0x03484a57	// th.vadd.vx v20,v20,a6
+	WORD	$0xb70eee57	// th.vmacc.vx v28,t4,v16
+	WORD	$0x2f1388d7	// th.vxor.vv v17,v17,v7
 	OR	X6, X5
-	WORD	$0x2fb98dd7	// th.vxor.vv v27,v27,v19
-	WORD	$0x9670bd57	// th.vsll.vi v26,v7,1
-	OR	X8, X7
-	WORD	$0xa27fb3d7	// th.vsrl.vi v7,v7,31
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	OR	X7, X5
-	WORD	$0xa30dbed7	// th.vsrl.vi v29,v16,27
-	WORD	$0x2a7d03d7	// th.vor.vv v7,v7,v26
-	MOVW	X5, 104(X13)
-	WORD	$0x9702bf57	// th.vsll.vi v30,v16,5
-	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
-	MOVBU	24(X12), X5
-	WORD	$0x971f3fd7	// th.vsll.vi v31,v17,30
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	MOVBU	25(X12), X6
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
-	WORD	$0x2e500d57	// th.vxor.vv v26,v5,v0
-	MOVBU	26(X12), X7
-	WORD	$0x2b1f88d7	// th.vor.vv v17,v17,v31
-	WORD	$0x2e850457	// th.vxor.vv v8,v8,v10
-	MOVBU	27(X12), X8
-	WORD	$0x033209d7	// th.vadd.vv v19,v19,v4
-	WORD	$0x2f088e57	// th.vxor.vv v28,v16,v17
-	SLL	$24, X5
-	WORD	$0x2e8d0457	// th.vxor.vv v8,v8,v26
-	WORD	$0x033849d7	// th.vadd.vx v19,v19,a6
-	SLL	$16, X6
-	WORD	$0x2fc90e57	// th.vxor.vv v28,v28,v18
-	WORD	$0x9680bdd7	// th.vsll.vi v27,v8,1
-	SLL	$8, X7
-	WORD	$0xa28fb457	// th.vsrl.vi v8,v8,31
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	OR	X6, X5
-	WORD	$0xa34dbf57	// th.vsrl.vi v30,v20,27
-	WORD	$0x2a8d8457	// th.vor.vv v8,v8,v27
-	OR	X8, X7
-	WORD	$0x9742bfd7	// th.vsll.vi v31,v20,5
-	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	OR	X7, X5
-	WORD	$0x970f3d57	// th.vsll.vi v26,v16,30
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	MOVW	X5, 108(X13)
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
-	WORD	$0x2e608dd7	// th.vxor.vv v27,v6,v1
-	MOVBU	28(X9), X5
-	WORD	$0x2b0d0857	// th.vor.vv v16,v16,v26
-	WORD	$0x2e9584d7	// th.vxor.vv v9,v9,v11
-	MOVBU	29(X9), X6
-	WORD	$0x03228957	// th.vadd.vv v18,v18,v5
-	WORD	$0x2f480ed7	// th.vxor.vv v29,v20,v16
-	MOVBU	30(X9), X7
-	WORD	$0x2e9d84d7	// th.vxor.vv v9,v9,v27
-	WORD	$0x03284957	// th.vadd.vx v18,v18,a6
-	MOVBU	31(X9), X8
-	WORD	$0x2fd88ed7	// th.vxor.vv v29,v29,v17
-	WORD	$0x9690be57	// th.vsll.vi v28,v9,1
-	SLL	$24, X5
-	WORD	$0xa29fb4d7	// th.vsrl.vi v9,v9,31
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	SLL	$16, X6
-	WORD	$0xa33dbfd7	// th.vsrl.vi v31,v19,27
-	WORD	$0x2a9e04d7	// th.vor.vv v9,v9,v28
-	SLL	$8, X7
-	WORD	$0x9732bd57	// th.vsll.vi v26,v19,5
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	OR	X6, X5
-	WORD	$0x974f3dd7	// th.vsll.vi v27,v20,30
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	OR	X8, X7
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
-	WORD	$0x2e710e57	// th.vxor.vv v28,v7,v2
-	OR	X7, X5
-	WORD	$0x2b4d8a57	// th.vor.vv v20,v20,v27
-	WORD	$0x2ea60557	// th.vxor.vv v10,v10,v12
-	MOVW	X5, 112(X13)
-	WORD	$0x031308d7	// th.vadd.vv v17,v17,v6
-	WORD	$0x2f3a0f57	// th.vxor.vv v30,v19,v20
-	MOVBU	28(X10), X5
-	WORD	$0x2eae0557	// th.vxor.vv v10,v10,v28
-	WORD	$0x031848d7	// th.vadd.vx v17,v17,a6
-	MOVBU	29(X10), X6
-	WORD	$0x2fe80f57	// th.vxor.vv v30,v30,v16
-	WORD	$0x96a0bed7	// th.vsll.vi v29,v10,1
-	MOVBU	30(X10), X7
-	WORD	$0xa2afb557	// th.vsrl.vi v10,v10,31
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	MOVBU	31(X10), X8
-	WORD	$0xa32dbd57	// th.vsrl.vi v26,v18,27
-	WORD	$0x2aae8557	// th.vor.vv v10,v10,v29
-	SLL	$24, X5
-	WORD	$0x9722bdd7	// th.vsll.vi v27,v18,5
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	SLL	$16, X6
-	WORD	$0x973f3e57	// th.vsll.vi v28,v19,30
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	SLL	$8, X7
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
-	WORD	$0x2e818ed7	// th.vxor.vv v29,v8,v3
-	OR	X6, X5
-	WORD	$0x2b3e09d7	// th.vor.vv v19,v19,v28
-	WORD	$0x2eb685d7	// th.vxor.vv v11,v11,v13
-	OR	X8, X7
-	WORD	$0x03038857	// th.vadd.vv v16,v16,v7
-	WORD	$0x2f298fd7	// th.vxor.vv v31,v18,v19
-	OR	X7, X5
-	WORD	$0x2ebe85d7	// th.vxor.vv v11,v11,v29
-	WORD	$0x03084857	// th.vadd.vx v16,v16,a6
-	MOVW	X5, 116(X13)
-	WORD	$0x2ffa0fd7	// th.vxor.vv v31,v31,v20
-	WORD	$0x96b0bf57	// th.vsll.vi v30,v11,1
-	MOVBU	28(X11), X5
-	WORD	$0xa2bfb5d7	// th.vsrl.vi v11,v11,31
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	MOVBU	29(X11), X6
-	WORD	$0xa31dbdd7	// th.vsrl.vi v27,v17,27
-	WORD	$0x2abf05d7	// th.vor.vv v11,v11,v30
-	MOVBU	30(X11), X7
-	WORD	$0x9712be57	// th.vsll.vi v28,v17,5
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	MOVBU	31(X11), X8
-	WORD	$0x972f3ed7	// th.vsll.vi v29,v18,30
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	SLL	$24, X5
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
-	WORD	$0x2e920f57	// th.vxor.vv v30,v9,v4
-	SLL	$16, X6
-	WORD	$0x2b2e8957	// th.vor.vv v18,v18,v29
-	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
-	SLL	$8, X7
-	WORD	$0x03440a57	// th.vadd.vv v20,v20,v8
-	WORD	$0x27190d57	// th.vand.vv v26,v17,v18
-	OR	X6, X5
-	WORD	$0x2ecf0657	// th.vxor.vv v12,v12,v30
 	WORD	$0x0348ca57	// th.vadd.vx v20,v20,a7
+	WORD	$0x27098fd7	// th.vand.vv v31,v16,v19
 	OR	X8, X7
-	WORD	$0x2f190dd7	// th.vxor.vv v27,v17,v18
-	WORD	$0x96c0bfd7	// th.vsll.vi v31,v12,1
+	WORD	$0xa31fb3d7	// th.vsrl.vi v7,v17,31
 	OR	X7, X5
-	WORD	$0xa2cfb657	// th.vsrl.vi v12,v12,31
-	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	MOVW	X5, 120(X13)
-	WORD	$0x27b98dd7	// th.vand.vv v27,v27,v19
-	WORD	$0x2acf8657	// th.vor.vv v12,v12,v31
-	MOVBU	28(X12), X5
-	WORD	$0xa30dbe57	// th.vsrl.vi v28,v16,27
+	WORD	$0x2f098dd7	// th.vxor.vv v27,v16,v19
+	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
+	MOVW	X5, 160(X13)
+	WORD	$0xb71e63d7	// th.vmacc.vx v7,t3,v17
+	WORD	$0x27bd0dd7	// th.vand.vv v27,v27,v26
+	MOVBU	40(X10), X5
+	WORD	$0xa3cdbed7	// th.vsrl.vi v29,v28,27
+	WORD	$0xa3013957	// th.vsrl.vi v18,v16,2
+	MOVBU	41(X10), X6
 	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	MOVBU	29(X12), X6
-	WORD	$0x9702bed7	// th.vsll.vi v29,v16,5
-	WORD	$0x971f3f57	// th.vsll.vi v30,v17,30
-	MOVBU	30(X12), X7
-	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	MOVBU	31(X12), X8
-	WORD	$0x2ea28fd7	// th.vxor.vv v31,v10,v5
+	MOVBU	42(X10), X7
+	WORD	$0x2e500f57	// th.vxor.vv v30,v5,v0
+	WORD	$0xb70f6957	// th.vmacc.vx v18,t5,v16
+	MOVBU	43(X10), X8
 	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
+	WORD	$0x2e850457	// th.vxor.vv v8,v8,v10
 	SLL	$24, X5
-	WORD	$0x2b1f08d7	// th.vor.vv v17,v17,v30
-	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
+	WORD	$0x03a20d57	// th.vadd.vv v26,v26,v4
 	SLL	$16, X6
-	WORD	$0x033489d7	// th.vadd.vv v19,v19,v9
-	WORD	$0x27088dd7	// th.vand.vv v27,v16,v17
+	WORD	$0xb7ceea57	// th.vmacc.vx v20,t4,v28
+	WORD	$0x2fe40f57	// th.vxor.vv v30,v30,v8
 	SLL	$8, X7
-	WORD	$0x2edf86d7	// th.vxor.vv v13,v13,v31
+	WORD	$0x03a8cd57	// th.vadd.vx v26,v26,a7
+	WORD	$0x27c908d7	// th.vand.vv v17,v28,v18
+	OR	X6, X5
+	WORD	$0xa3efb457	// th.vsrl.vi v8,v30,31
+	OR	X8, X7
+	WORD	$0x2fc90fd7	// th.vxor.vv v31,v28,v18
+	WORD	$0x03a88d57	// th.vadd.vv v26,v26,v17
+	OR	X7, X5
+	WORD	$0xb7ee6457	// th.vmacc.vx v8,t3,v30
+	WORD	$0x27f98fd7	// th.vand.vv v31,v31,v19
+	MOVW	X5, 164(X13)
+	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
+	MOVBU	40(X11), X5
+	WORD	$0xa3c13ed7	// th.vsrl.vi v29,v28,2
+	WORD	$0x03af8d57	// th.vadd.vv v26,v26,v31
+	MOVBU	41(X11), X6
+	WORD	$0x2e608857	// th.vxor.vv v16,v6,v1
+	WORD	$0xb7cf6ed7	// th.vmacc.vx v29,t5,v28
+	MOVBU	42(X11), X7
+	WORD	$0x03ad8d57	// th.vadd.vv v26,v26,v27
+	WORD	$0x2e9584d7	// th.vxor.vv v9,v9,v11
+	MOVBU	43(X11), X8
+	WORD	$0x033289d7	// th.vadd.vv v19,v19,v5
+	SLL	$24, X5
+	WORD	$0xb74eed57	// th.vmacc.vx v26,t4,v20
+	WORD	$0x2f048857	// th.vxor.vv v16,v16,v9
+	SLL	$16, X6
 	WORD	$0x0338c9d7	// th.vadd.vx v19,v19,a7
+	WORD	$0x274e8f57	// th.vand.vv v30,v20,v29
+	SLL	$8, X7
+	WORD	$0xa30fb4d7	// th.vsrl.vi v9,v16,31
 	OR	X6, X5
-	WORD	$0x2f088e57	// th.vxor.vv v28,v16,v17
-	WORD	$0x96d0bd57	// th.vsll.vi v26,v13,1
-	OR	X8, X7
-	WORD	$0xa2dfb6d7	// th.vsrl.vi v13,v13,31
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	OR	X7, X5
-	WORD	$0x27c90e57	// th.vand.vv v28,v28,v18
-	WORD	$0x2add06d7	// th.vor.vv v13,v13,v26
-	MOVW	X5, 124(X13)
-	WORD	$0xa34dbed7	// th.vsrl.vi v29,v20,27
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	WORD	$0x9742bf57	// th.vsll.vi v30,v20,5
-	MOVBU	32(X9), X5
-	WORD	$0x970f3fd7	// th.vsll.vi v31,v16,30
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
-	MOVBU	33(X9), X6
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x2eb30d57	// th.vxor.vv v26,v11,v6
-	MOVBU	34(X9), X7
+	WORD	$0x2f4e88d7	// th.vxor.vv v17,v20,v29
 	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	WORD	$0x2b0f8857	// th.vor.vv v16,v16,v31
-	MOVBU	35(X9), X8
-	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
-	WORD	$0x03250957	// th.vadd.vv v18,v18,v10
+	OR	X8, X7
+	WORD	$0xb70e64d7	// th.vmacc.vx v9,t3,v16
+	WORD	$0x271908d7	// th.vand.vv v17,v17,v18
+	OR	X7, X5
+	WORD	$0xa3adbfd7	// th.vsrl.vi v31,v26,27
+	MOVW	X5, 168(X13)
+	WORD	$0xa3413dd7	// th.vsrl.vi v27,v20,2
+	WORD	$0x033889d7	// th.vadd.vv v19,v19,v17
+	MOVBU	40(X12), X5
+	WORD	$0x2e710e57	// th.vxor.vv v28,v7,v2
+	WORD	$0xb74f6dd7	// th.vmacc.vx v27,t5,v20
+	MOVBU	41(X12), X6
+	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
+	MOVBU	42(X12), X7
+	WORD	$0x2ea60557	// th.vxor.vv v10,v10,v12
+	WORD	$0x03230957	// th.vadd.vv v18,v18,v6
+	MOVBU	43(X12), X8
+	WORD	$0xb7aee9d7	// th.vmacc.vx v19,t4,v26
+	WORD	$0x2fc50e57	// th.vxor.vv v28,v28,v10
 	SLL	$24, X5
-	WORD	$0x27480e57	// th.vand.vv v28,v20,v16
-	WORD	$0x2eed0757	// th.vxor.vv v14,v14,v26
-	SLL	$16, X6
 	WORD	$0x0328c957	// th.vadd.vx v18,v18,a7
-	WORD	$0x2f480ed7	// th.vxor.vv v29,v20,v16
-	SLL	$8, X7
-	WORD	$0x96e0bdd7	// th.vsll.vi v27,v14,1
-	WORD	$0xa2efb757	// th.vsrl.vi v14,v14,31
-	OR	X6, X5
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	WORD	$0x27d88ed7	// th.vand.vv v29,v29,v17
-	OR	X8, X7
-	WORD	$0x2aed8757	// th.vor.vv v14,v14,v27
-	WORD	$0xa33dbf57	// th.vsrl.vi v30,v19,27
-	OR	X7, X5
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	WORD	$0x9732bfd7	// th.vsll.vi v31,v19,5
-	MOVW	X5, 128(X13)
-	WORD	$0x974f3d57	// th.vsll.vi v26,v20,30
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
-	MOVBU	32(X10), X5
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x2ec38dd7	// th.vxor.vv v27,v12,v7
-	MOVBU	33(X10), X6
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	WORD	$0x2b4d0a57	// th.vor.vv v20,v20,v26
-	MOVBU	34(X10), X7
-	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
-	WORD	$0x031588d7	// th.vadd.vv v17,v17,v11
-	MOVBU	35(X10), X8
-	WORD	$0x273a0ed7	// th.vand.vv v29,v19,v20
-	WORD	$0x2efd87d7	// th.vxor.vv v15,v15,v27
-	SLL	$24, X5
-	WORD	$0x0318c8d7	// th.vadd.vx v17,v17,a7
-	WORD	$0x2f3a0f57	// th.vxor.vv v30,v19,v20
 	SLL	$16, X6
-	WORD	$0x96f0be57	// th.vsll.vi v28,v15,1
-	WORD	$0xa2ffb7d7	// th.vsrl.vi v15,v15,31
+	WORD	$0x27ad8857	// th.vand.vv v16,v26,v27
+	WORD	$0xa3cfb557	// th.vsrl.vi v10,v28,31
 	SLL	$8, X7
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0x27e80f57	// th.vand.vv v30,v30,v16
+	WORD	$0x2fad8f57	// th.vxor.vv v30,v26,v27
+	WORD	$0x03280957	// th.vadd.vv v18,v18,v16
 	OR	X6, X5
-	WORD	$0x2afe07d7	// th.vor.vv v15,v15,v28
-	WORD	$0xa32dbfd7	// th.vsrl.vi v31,v18,27
+	WORD	$0xb7ce6557	// th.vmacc.vx v10,t3,v28
+	WORD	$0x27ee8f57	// th.vand.vv v30,v30,v29
 	OR	X8, X7
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	WORD	$0x9722bd57	// th.vsll.vi v26,v18,5
+	WORD	$0xa33db8d7	// th.vsrl.vi v17,v19,27
 	OR	X7, X5
-	WORD	$0x973f3dd7	// th.vsll.vi v27,v19,30
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	MOVW	X5, 132(X13)
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x2ed40e57	// th.vxor.vv v28,v13,v8
-	MOVBU	32(X11), X5
+	WORD	$0xa3a13fd7	// th.vsrl.vi v31,v26,2
+	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
+	MOVW	X5, 172(X13)
+	WORD	$0x2e818a57	// th.vxor.vv v20,v8,v3
+	WORD	$0xb7af6fd7	// th.vmacc.vx v31,t5,v26
+	MOVBU	44(X9), X5
+	WORD	$0x03288957	// th.vadd.vv v18,v18,v17
+	MOVBU	45(X9), X6
+	WORD	$0x2eb685d7	// th.vxor.vv v11,v11,v13
+	WORD	$0x03d38ed7	// th.vadd.vv v29,v29,v7
+	MOVBU	46(X9), X7
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
+	WORD	$0x2f458a57	// th.vxor.vv v20,v20,v11
+	MOVBU	47(X9), X8
+	WORD	$0x03d8ced7	// th.vadd.vx v29,v29,a7
+	SLL	$24, X5
+	WORD	$0x273f8e57	// th.vand.vv v28,v19,v31
+	WORD	$0xa34fb5d7	// th.vsrl.vi v11,v20,31
+	SLL	$16, X6
+	WORD	$0x2f3f8857	// th.vxor.vv v16,v19,v31
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
+	SLL	$8, X7
+	WORD	$0xb74e65d7	// th.vmacc.vx v11,t3,v20
+	OR	X6, X5
+	WORD	$0x270d8857	// th.vand.vv v16,v16,v27
+	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
+	OR	X8, X7
+	WORD	$0xa33138d7	// th.vsrl.vi v17,v19,2
+	WORD	$0x03d80ed7	// th.vadd.vv v29,v29,v16
+	OR	X7, X5
+	WORD	$0x2e920d57	// th.vxor.vv v26,v9,v4
+	WORD	$0xb73f68d7	// th.vmacc.vx v17,t5,v19
+	MOVW	X5, 176(X13)
+	WORD	$0x03df0ed7	// th.vadd.vv v29,v29,v30
+	MOVBU	44(X10), X5
+	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
+	WORD	$0x03b40dd7	// th.vadd.vv v27,v27,v8
+	MOVBU	45(X10), X6
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
+	WORD	$0x2fa60d57	// th.vxor.vv v26,v26,v12
+	MOVBU	46(X10), X7
+	WORD	$0x03b8cdd7	// th.vadd.vx v27,v27,a7
+	MOVBU	47(X10), X8
+	WORD	$0x27288a57	// th.vand.vv v20,v18,v17
+	WORD	$0xa3afb657	// th.vsrl.vi v12,v26,31
+	SLL	$24, X5
+	WORD	$0x2f288e57	// th.vxor.vv v28,v18,v17
+	WORD	$0x03ba0dd7	// th.vadd.vv v27,v27,v20
+	SLL	$16, X6
+	WORD	$0xb7ae6657	// th.vmacc.vx v12,t3,v26
+	SLL	$8, X7
+	WORD	$0x27cf8e57	// th.vand.vv v28,v28,v31
+	WORD	$0xa3ddb857	// th.vsrl.vi v16,v29,27
+	OR	X6, X5
+	WORD	$0xa3213f57	// th.vsrl.vi v30,v18,2
+	WORD	$0x03be0dd7	// th.vadd.vv v27,v27,v28
+	OR	X8, X7
+	WORD	$0x2ea289d7	// th.vxor.vv v19,v10,v5
+	OR	X7, X5
+	WORD	$0xb72f6f57	// th.vmacc.vx v30,t5,v18
+	WORD	$0x03b80dd7	// th.vadd.vv v27,v27,v16
+	MOVW	X5, 180(X13)
+	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
+	WORD	$0x03f48fd7	// th.vadd.vv v31,v31,v9
+	MOVBU	44(X11), X5
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
+	WORD	$0x2f3689d7	// th.vxor.vv v19,v19,v13
+	MOVBU	45(X11), X6
+	WORD	$0x03f8cfd7	// th.vadd.vx v31,v31,a7
+	MOVBU	46(X11), X7
+	WORD	$0x27df0d57	// th.vand.vv v26,v29,v30
+	WORD	$0xa33fb6d7	// th.vsrl.vi v13,v19,31
+	MOVBU	47(X11), X8
+	WORD	$0x2fdf0a57	// th.vxor.vv v20,v29,v30
+	WORD	$0x03fd0fd7	// th.vadd.vv v31,v31,v26
+	SLL	$24, X5
+	WORD	$0xb73e66d7	// th.vmacc.vx v13,t3,v19
+	SLL	$16, X6
+	WORD	$0x27488a57	// th.vand.vv v20,v20,v17
+	WORD	$0xa3bdbe57	// th.vsrl.vi v28,v27,27
+	SLL	$8, X7
+	WORD	$0xa3d13857	// th.vsrl.vi v16,v29,2
+	WORD	$0x03fa0fd7	// th.vadd.vv v31,v31,v20
+	OR	X6, X5
+	WORD	$0x2eb30957	// th.vxor.vv v18,v11,v6
+	OR	X8, X7
+	WORD	$0xb7df6857	// th.vmacc.vx v16,t5,v29
+	WORD	$0x03fe0fd7	// th.vadd.vv v31,v31,v28
+	OR	X7, X5
+	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
+	WORD	$0x031508d7	// th.vadd.vv v17,v17,v10
+	MOVW	X5, 184(X13)
+	WORD	$0xb7beefd7	// th.vmacc.vx v31,t4,v27
+	MOVBU	44(X12), X5
+	WORD	$0x2f270957	// th.vxor.vv v18,v18,v14
+	WORD	$0x0318c8d7	// th.vadd.vx v17,v17,a7
+	MOVBU	45(X12), X6
+	WORD	$0x27b809d7	// th.vand.vv v19,v27,v16
+	WORD	$0xa32fb757	// th.vsrl.vi v14,v18,31
+	MOVBU	46(X12), X7
+	WORD	$0x2fb80d57	// th.vxor.vv v26,v27,v16
+	MOVBU	47(X12), X8
+	WORD	$0x031988d7	// th.vadd.vv v17,v17,v19
+	WORD	$0xb72e6757	// th.vmacc.vx v14,t3,v18
+	SLL	$24, X5
+	WORD	$0x27af0d57	// th.vand.vv v26,v26,v30
+	WORD	$0xa3fdba57	// th.vsrl.vi v20,v31,27
+	SLL	$16, X6
+	WORD	$0xa3b13e57	// th.vsrl.vi v28,v27,2
 	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	WORD	$0x2b3d89d7	// th.vor.vv v19,v19,v27
-	MOVBU	33(X11), X6
+	SLL	$8, X7
+	WORD	$0x2ec38ed7	// th.vxor.vv v29,v12,v7
+	OR	X6, X5
+	WORD	$0xb7bf6e57	// th.vmacc.vx v28,t5,v27
+	WORD	$0x031a08d7	// th.vadd.vv v17,v17,v20
+	OR	X8, X7
+	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
+	WORD	$0x03e58f57	// th.vadd.vv v30,v30,v11
+	OR	X7, X5
+	WORD	$0xb7fee8d7	// th.vmacc.vx v17,t4,v31
+	MOVW	X5, 188(X13)
+	WORD	$0x2fd78ed7	// th.vxor.vv v29,v29,v15
+	WORD	$0x03e8cf57	// th.vadd.vx v30,v30,a7
+	MOVBU	48(X9), X5
+	WORD	$0x27fe0957	// th.vand.vv v18,v31,v28
+	WORD	$0xa3dfb7d7	// th.vsrl.vi v15,v29,31
+	MOVBU	49(X9), X6
+	WORD	$0x2ffe09d7	// th.vxor.vv v19,v31,v28
+	MOVBU	50(X9), X7
+	WORD	$0x03e90f57	// th.vadd.vv v30,v30,v18
+	WORD	$0xb7de67d7	// th.vmacc.vx v15,t3,v29
+	MOVBU	51(X9), X8
+	WORD	$0x273809d7	// th.vand.vv v19,v19,v16
+	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	SLL	$24, X5
+	WORD	$0xa3f13a57	// th.vsrl.vi v20,v31,2
+	SLL	$16, X6
+	WORD	$0x03e98f57	// th.vadd.vv v30,v30,v19
+	WORD	$0x2ed40dd7	// th.vxor.vv v27,v13,v8
+	SLL	$8, X7
+	WORD	$0xb7ff6a57	// th.vmacc.vx v20,t5,v31
+	WORD	$0x03ed0f57	// th.vadd.vv v30,v30,v26
+	OR	X6, X5
 	WORD	$0x2e010057	// th.vxor.vv v0,v0,v2
 	WORD	$0x03060857	// th.vadd.vv v16,v16,v12
-	MOVBU	34(X11), X7
-	WORD	$0x27298f57	// th.vand.vv v30,v18,v19
-	WORD	$0x2e0e0057	// th.vxor.vv v0,v0,v28
-	MOVBU	35(X11), X8
-	WORD	$0x0308c857	// th.vadd.vx v16,v16,a7
-	WORD	$0x2f298fd7	// th.vxor.vv v31,v18,v19
-	SLL	$24, X5
-	WORD	$0x9600bed7	// th.vsll.vi v29,v0,1
-	WORD	$0xa20fb057	// th.vsrl.vi v0,v0,31
-	SLL	$16, X6
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0x27fa0fd7	// th.vand.vv v31,v31,v20
-	SLL	$8, X7
-	WORD	$0x2a0e8057	// th.vor.vv v0,v0,v29
-	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
-	OR	X6, X5
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	WORD	$0x9712bdd7	// th.vsll.vi v27,v17,5
 	OR	X8, X7
-	WORD	$0x972f3e57	// th.vsll.vi v28,v18,30
-	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
+	WORD	$0xb71eef57	// th.vmacc.vx v30,t4,v17
 	OR	X7, X5
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x2ee48ed7	// th.vxor.vv v29,v14,v9
-	MOVW	X5, 136(X13)
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	WORD	$0x2b2e0957	// th.vor.vv v18,v18,v28
-	MOVBU	32(X12), X5
-	WORD	$0x2e1180d7	// th.vxor.vv v1,v1,v3
-	WORD	$0x03468a57	// th.vadd.vv v20,v20,v13
-	MOVBU	33(X12), X6
-	WORD	$0x27190fd7	// th.vand.vv v31,v17,v18
-	WORD	$0x2e1e80d7	// th.vxor.vv v1,v1,v29
-	MOVBU	34(X12), X7
-	WORD	$0x0348ca57	// th.vadd.vx v20,v20,a7
-	WORD	$0x2f190d57	// th.vxor.vv v26,v17,v18
-	MOVBU	35(X12), X8
-	WORD	$0x9610bf57	// th.vsll.vi v30,v1,1
-	WORD	$0xa21fb0d7	// th.vsrl.vi v1,v1,31
-	SLL	$24, X5
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0x27a98d57	// th.vand.vv v26,v26,v19
-	SLL	$16, X6
-	WORD	$0x2a1f00d7	// th.vor.vv v1,v1,v30
-	WORD	$0xa30dbdd7	// th.vsrl.vi v27,v16,27
-	SLL	$8, X7
-	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	WORD	$0x9702be57	// th.vsll.vi v28,v16,5
-	OR	X6, X5
-	WORD	$0x971f3ed7	// th.vsll.vi v29,v17,30
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	OR	X8, X7
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x2ef50f57	// th.vxor.vv v30,v15,v10
-	OR	X7, X5
-	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
-	WORD	$0x2b1e88d7	// th.vor.vv v17,v17,v29
-	MOVW	X5, 140(X13)
-	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
-	WORD	$0x033709d7	// th.vadd.vv v19,v19,v14
-	MOVBU	36(X9), X5
-	WORD	$0x27088d57	// th.vand.vv v26,v16,v17
-	WORD	$0x2e2f0157	// th.vxor.vv v2,v2,v30
-	MOVBU	37(X9), X6
-	WORD	$0x0338c9d7	// th.vadd.vx v19,v19,a7
-	WORD	$0x2f088dd7	// th.vxor.vv v27,v16,v17
-	MOVBU	38(X9), X7
-	WORD	$0x9620bfd7	// th.vsll.vi v31,v2,1
-	WORD	$0xa22fb157	// th.vsrl.vi v2,v2,31
-	MOVBU	39(X9), X8
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
-	WORD	$0x27b90dd7	// th.vand.vv v27,v27,v18
-	SLL	$24, X5
-	WORD	$0x2a2f8157	// th.vor.vv v2,v2,v31
-	WORD	$0xa34dbe57	// th.vsrl.vi v28,v20,27
-	SLL	$16, X6
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	WORD	$0x9742bed7	// th.vsll.vi v29,v20,5
-	SLL	$8, X7
-	WORD	$0x970f3f57	// th.vsll.vi v30,v16,30
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	OR	X6, X5
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x2e058fd7	// th.vxor.vv v31,v0,v11
-	OR	X8, X7
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
-	WORD	$0x2b0f0857	// th.vor.vv v16,v16,v30
-	OR	X7, X5
-	WORD	$0x2e3281d7	// th.vxor.vv v3,v3,v5
-	WORD	$0x03278957	// th.vadd.vv v18,v18,v15
-	MOVW	X5, 144(X13)
-	WORD	$0x27480dd7	// th.vand.vv v27,v20,v16
-	WORD	$0x2e3f81d7	// th.vxor.vv v3,v3,v31
-	MOVBU	36(X10), X5
-	WORD	$0x0328c957	// th.vadd.vx v18,v18,a7
-	WORD	$0x2f480e57	// th.vxor.vv v28,v20,v16
-	MOVBU	37(X10), X6
-	WORD	$0x9630bd57	// th.vsll.vi v26,v3,1
-	WORD	$0xa23fb1d7	// th.vsrl.vi v3,v3,31
-	MOVBU	38(X10), X7
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	WORD	$0x27c88e57	// th.vand.vv v28,v28,v17
-	MOVBU	39(X10), X8
-	WORD	$0x2a3d01d7	// th.vor.vv v3,v3,v26
-	WORD	$0xa33dbed7	// th.vsrl.vi v29,v19,27
-	SLL	$24, X5
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	WORD	$0x9732bf57	// th.vsll.vi v30,v19,5
-	SLL	$16, X6
-	WORD	$0x974f3fd7	// th.vsll.vi v31,v20,30
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	SLL	$8, X7
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x2e160d57	// th.vxor.vv v26,v1,v12
-	OR	X6, X5
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
-	WORD	$0x2b4f8a57	// th.vor.vv v20,v20,v31
-	OR	X8, X7
-	WORD	$0x2e430257	// th.vxor.vv v4,v4,v6
-	WORD	$0x031008d7	// th.vadd.vv v17,v17,v0
-	OR	X7, X5
-	WORD	$0x273a0e57	// th.vand.vv v28,v19,v20
-	WORD	$0x2e4d0257	// th.vxor.vv v4,v4,v26
-	MOVW	X5, 148(X13)
-	WORD	$0x0318c8d7	// th.vadd.vx v17,v17,a7
-	WORD	$0x2f3a0ed7	// th.vxor.vv v29,v19,v20
-	MOVBU	36(X11), X5
-	WORD	$0x9640bdd7	// th.vsll.vi v27,v4,1
-	WORD	$0xa24fb257	// th.vsrl.vi v4,v4,31
-	MOVBU	37(X11), X6
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	WORD	$0x27d80ed7	// th.vand.vv v29,v29,v16
-	MOVBU	38(X11), X7
-	WORD	$0x2a4d8257	// th.vor.vv v4,v4,v27
-	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
-	MOVBU	39(X11), X8
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0x9722bfd7	// th.vsll.vi v31,v18,5
-	SLL	$24, X5
-	WORD	$0x973f3d57	// th.vsll.vi v26,v19,30
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	SLL	$16, X6
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x2e268dd7	// th.vxor.vv v27,v2,v13
-	SLL	$8, X7
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	WORD	$0x2b3d09d7	// th.vor.vv v19,v19,v26
-	OR	X6, X5
-	WORD	$0x2e5382d7	// th.vxor.vv v5,v5,v7
-	WORD	$0x03008857	// th.vadd.vv v16,v16,v1
-	OR	X8, X7
-	WORD	$0x27298ed7	// th.vand.vv v29,v18,v19
-	WORD	$0x2e5d82d7	// th.vxor.vv v5,v5,v27
-	OR	X7, X5
-	WORD	$0x0308c857	// th.vadd.vx v16,v16,a7
-	WORD	$0x2f298f57	// th.vxor.vv v30,v18,v19
-	MOVW	X5, 152(X13)
-	WORD	$0x9650be57	// th.vsll.vi v28,v5,1
-	WORD	$0xa25fb2d7	// th.vsrl.vi v5,v5,31
-	MOVBU	36(X12), X5
-	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	WORD	$0x27ea0f57	// th.vand.vv v30,v30,v20
-	MOVBU	37(X12), X6
-	WORD	$0x2a5e02d7	// th.vor.vv v5,v5,v28
-	WORD	$0xa31dbfd7	// th.vsrl.vi v31,v17,27
-	MOVBU	38(X12), X7
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0x9712bd57	// th.vsll.vi v26,v17,5
-	MOVBU	39(X12), X8
-	WORD	$0x972f3dd7	// th.vsll.vi v27,v18,30
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	SLL	$24, X5
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x2e370e57	// th.vxor.vv v28,v3,v14
-	SLL	$16, X6
-	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
-	WORD	$0x2b2d8957	// th.vor.vv v18,v18,v27
-	SLL	$8, X7
-	WORD	$0x2e640357	// th.vxor.vv v6,v6,v8
-	WORD	$0x03410a57	// th.vadd.vv v20,v20,v2
-	OR	X6, X5
-	WORD	$0x27190f57	// th.vand.vv v30,v17,v18
-	WORD	$0x2e6e0357	// th.vxor.vv v6,v6,v28
-	OR	X8, X7
-	WORD	$0x0348ca57	// th.vadd.vx v20,v20,a7
-	WORD	$0x2f190fd7	// th.vxor.vv v31,v17,v18
-	OR	X7, X5
-	WORD	$0x9660bed7	// th.vsll.vi v29,v6,1
-	WORD	$0xa26fb357	// th.vsrl.vi v6,v6,31
-	MOVW	X5, 156(X13)
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
-	WORD	$0x27f98fd7	// th.vand.vv v31,v31,v19
-	MOVBU	40(X9), X5
-	WORD	$0x2a6e8357	// th.vor.vv v6,v6,v29
-	WORD	$0xa30dbd57	// th.vsrl.vi v26,v16,27
-	MOVBU	41(X9), X6
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0x9702bdd7	// th.vsll.vi v27,v16,5
-	MOVBU	42(X9), X7
-	WORD	$0x971f3e57	// th.vsll.vi v28,v17,30
-	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	MOVBU	43(X9), X8
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x2e478ed7	// th.vxor.vv v29,v4,v15
-	SLL	$24, X5
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	WORD	$0x2b1e08d7	// th.vor.vv v17,v17,v28
-	SLL	$16, X6
-	WORD	$0x2e7483d7	// th.vxor.vv v7,v7,v9
-	WORD	$0x033189d7	// th.vadd.vv v19,v19,v3
-	SLL	$8, X7
-	WORD	$0x27088fd7	// th.vand.vv v31,v16,v17
-	WORD	$0x2e7e83d7	// th.vxor.vv v7,v7,v29
-	OR	X6, X5
-	WORD	$0x0338c9d7	// th.vadd.vx v19,v19,a7
-	WORD	$0x2f088d57	// th.vxor.vv v26,v16,v17
-	OR	X8, X7
-	WORD	$0x9670bf57	// th.vsll.vi v30,v7,1
-	WORD	$0xa27fb3d7	// th.vsrl.vi v7,v7,31
-	OR	X7, X5
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
-	WORD	$0x27a90d57	// th.vand.vv v26,v26,v18
-	MOVW	X5, 160(X13)
-	WORD	$0x2a7f03d7	// th.vor.vv v7,v7,v30
-	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
-	MOVBU	40(X10), X5
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
-	WORD	$0x9742be57	// th.vsll.vi v28,v20,5
-	MOVBU	41(X10), X6
-	WORD	$0x970f3ed7	// th.vsll.vi v29,v16,30
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	MOVBU	42(X10), X7
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x2e500f57	// th.vxor.vv v30,v5,v0
-	MOVBU	43(X10), X8
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	WORD	$0x2b0e8857	// th.vor.vv v16,v16,v29
-	SLL	$24, X5
-	WORD	$0x2e850457	// th.vxor.vv v8,v8,v10
-	WORD	$0x03220957	// th.vadd.vv v18,v18,v4
-	SLL	$16, X6
-	WORD	$0x27480d57	// th.vand.vv v26,v20,v16
-	WORD	$0x2e8f0457	// th.vxor.vv v8,v8,v30
-	SLL	$8, X7
-	WORD	$0x0328c957	// th.vadd.vx v18,v18,a7
-	WORD	$0x2f480dd7	// th.vxor.vv v27,v20,v16
-	OR	X6, X5
-	WORD	$0x9680bfd7	// th.vsll.vi v31,v8,1
-	WORD	$0xa28fb457	// th.vsrl.vi v8,v8,31
-	OR	X8, X7
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
-	WORD	$0x27b88dd7	// th.vand.vv v27,v27,v17
-	OR	X7, X5
-	WORD	$0x2a8f8457	// th.vor.vv v8,v8,v31
-	WORD	$0xa33dbe57	// th.vsrl.vi v28,v19,27
-	MOVW	X5, 164(X13)
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	WORD	$0x9732bed7	// th.vsll.vi v29,v19,5
-	MOVBU	40(X11), X5
-	WORD	$0x974f3f57	// th.vsll.vi v30,v20,30
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	MOVBU	41(X11), X6
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x2e608fd7	// th.vxor.vv v31,v6,v1
-	MOVBU	42(X11), X7
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	WORD	$0x2b4f0a57	// th.vor.vv v20,v20,v30
-	MOVBU	43(X11), X8
-	WORD	$0x2e9584d7	// th.vxor.vv v9,v9,v11
-	WORD	$0x031288d7	// th.vadd.vv v17,v17,v5
-	SLL	$24, X5
-	WORD	$0x273a0dd7	// th.vand.vv v27,v19,v20
-	WORD	$0x2e9f84d7	// th.vxor.vv v9,v9,v31
-	SLL	$16, X6
-	WORD	$0x0318c8d7	// th.vadd.vx v17,v17,a7
-	WORD	$0x2f3a0e57	// th.vxor.vv v28,v19,v20
-	SLL	$8, X7
-	WORD	$0x9690bd57	// th.vsll.vi v26,v9,1
-	WORD	$0xa29fb4d7	// th.vsrl.vi v9,v9,31
-	OR	X6, X5
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
-	WORD	$0x27c80e57	// th.vand.vv v28,v28,v16
-	WORD	$0x2a9d04d7	// th.vor.vv v9,v9,v26
-	OR	X8, X7
-	WORD	$0xa32dbed7	// th.vsrl.vi v29,v18,27
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	OR	X7, X5
-	WORD	$0x9722bf57	// th.vsll.vi v30,v18,5
-	WORD	$0x973f3fd7	// th.vsll.vi v31,v19,30
-	MOVW	X5, 168(X13)
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	MOVBU	40(X12), X5
-	WORD	$0x2e710d57	// th.vxor.vv v26,v7,v2
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	MOVBU	41(X12), X6
-	WORD	$0x2b3f89d7	// th.vor.vv v19,v19,v31
-	WORD	$0x2ea60557	// th.vxor.vv v10,v10,v12
-	MOVBU	42(X12), X7
-	WORD	$0x03030857	// th.vadd.vv v16,v16,v6
-	WORD	$0x27298e57	// th.vand.vv v28,v18,v19
-	MOVBU	43(X12), X8
-	WORD	$0x2ead0557	// th.vxor.vv v10,v10,v26
-	WORD	$0x0308c857	// th.vadd.vx v16,v16,a7
-	SLL	$24, X5
-	WORD	$0x2f298ed7	// th.vxor.vv v29,v18,v19
-	WORD	$0x96a0bdd7	// th.vsll.vi v27,v10,1
-	SLL	$16, X6
-	WORD	$0xa2afb557	// th.vsrl.vi v10,v10,31
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
-	SLL	$8, X7
-	WORD	$0x27da0ed7	// th.vand.vv v29,v29,v20
-	WORD	$0x2aad8557	// th.vor.vv v10,v10,v27
-	OR	X6, X5
-	WORD	$0xa31dbf57	// th.vsrl.vi v30,v17,27
-	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	OR	X8, X7
-	WORD	$0x9712bfd7	// th.vsll.vi v31,v17,5
-	WORD	$0x972f3d57	// th.vsll.vi v26,v18,30
-	OR	X7, X5
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	MOVW	X5, 172(X13)
-	WORD	$0x2e818dd7	// th.vxor.vv v27,v8,v3
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	MOVBU	44(X9), X5
-	WORD	$0x2b2d0957	// th.vor.vv v18,v18,v26
-	WORD	$0x2eb685d7	// th.vxor.vv v11,v11,v13
-	MOVBU	45(X9), X6
-	WORD	$0x03438a57	// th.vadd.vv v20,v20,v7
-	WORD	$0x27190ed7	// th.vand.vv v29,v17,v18
-	MOVBU	46(X9), X7
-	WORD	$0x2ebd85d7	// th.vxor.vv v11,v11,v27
-	WORD	$0x0348ca57	// th.vadd.vx v20,v20,a7
-	MOVBU	47(X9), X8
-	WORD	$0x2f190f57	// th.vxor.vv v30,v17,v18
-	WORD	$0x96b0be57	// th.vsll.vi v28,v11,1
-	SLL	$24, X5
-	WORD	$0xa2bfb5d7	// th.vsrl.vi v11,v11,31
-	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
-	SLL	$16, X6
-	WORD	$0x27e98f57	// th.vand.vv v30,v30,v19
-	WORD	$0x2abe05d7	// th.vor.vv v11,v11,v28
-	SLL	$8, X7
-	WORD	$0xa30dbfd7	// th.vsrl.vi v31,v16,27
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
-	OR	X6, X5
-	WORD	$0x9702bd57	// th.vsll.vi v26,v16,5
-	WORD	$0x971f3dd7	// th.vsll.vi v27,v17,30
-	OR	X8, X7
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	OR	X7, X5
-	WORD	$0x2e920e57	// th.vxor.vv v28,v9,v4
-	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	MOVW	X5, 176(X13)
-	WORD	$0x2b1d88d7	// th.vor.vv v17,v17,v27
-	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
-	MOVBU	44(X10), X5
-	WORD	$0x033409d7	// th.vadd.vv v19,v19,v8
-	WORD	$0x27088f57	// th.vand.vv v30,v16,v17
-	MOVBU	45(X10), X6
-	WORD	$0x2ece0657	// th.vxor.vv v12,v12,v28
-	WORD	$0x0338c9d7	// th.vadd.vx v19,v19,a7
-	MOVBU	46(X10), X7
-	WORD	$0x2f088fd7	// th.vxor.vv v31,v16,v17
-	WORD	$0x96c0bed7	// th.vsll.vi v29,v12,1
-	MOVBU	47(X10), X8
-	WORD	$0xa2cfb657	// th.vsrl.vi v12,v12,31
-	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	SLL	$24, X5
-	WORD	$0x27f90fd7	// th.vand.vv v31,v31,v18
-	WORD	$0x2ace8657	// th.vor.vv v12,v12,v29
-	SLL	$16, X6
-	WORD	$0xa34dbd57	// th.vsrl.vi v26,v20,27
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
-	SLL	$8, X7
-	WORD	$0x9742bdd7	// th.vsll.vi v27,v20,5
-	WORD	$0x970f3e57	// th.vsll.vi v28,v16,30
-	OR	X6, X5
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	OR	X8, X7
-	WORD	$0x2ea28ed7	// th.vxor.vv v29,v10,v5
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	OR	X7, X5
-	WORD	$0x2b0e0857	// th.vor.vv v16,v16,v28
-	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
-	MOVW	X5, 180(X13)
-	WORD	$0x03248957	// th.vadd.vv v18,v18,v9
-	WORD	$0x27480fd7	// th.vand.vv v31,v20,v16
-	MOVBU	44(X11), X5
-	WORD	$0x2ede86d7	// th.vxor.vv v13,v13,v29
-	WORD	$0x0328c957	// th.vadd.vx v18,v18,a7
-	MOVBU	45(X11), X6
-	WORD	$0x2f480d57	// th.vxor.vv v26,v20,v16
-	WORD	$0x96d0bf57	// th.vsll.vi v30,v13,1
-	MOVBU	46(X11), X7
-	WORD	$0xa2dfb6d7	// th.vsrl.vi v13,v13,31
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	MOVBU	47(X11), X8
-	WORD	$0x27a88d57	// th.vand.vv v26,v26,v17
-	WORD	$0x2adf06d7	// th.vor.vv v13,v13,v30
-	SLL	$24, X5
-	WORD	$0xa33dbdd7	// th.vsrl.vi v27,v19,27
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
-	SLL	$16, X6
-	WORD	$0x9732be57	// th.vsll.vi v28,v19,5
-	WORD	$0x974f3ed7	// th.vsll.vi v29,v20,30
-	SLL	$8, X7
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	OR	X6, X5
-	WORD	$0x2eb30f57	// th.vxor.vv v30,v11,v6
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	OR	X8, X7
-	WORD	$0x2b4e8a57	// th.vor.vv v20,v20,v29
-	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
-	OR	X7, X5
-	WORD	$0x031508d7	// th.vadd.vv v17,v17,v10
-	WORD	$0x273a0d57	// th.vand.vv v26,v19,v20
-	MOVW	X5, 184(X13)
-	WORD	$0x2eef0757	// th.vxor.vv v14,v14,v30
-	WORD	$0x0318c8d7	// th.vadd.vx v17,v17,a7
-	MOVBU	44(X12), X5
-	WORD	$0x2f3a0dd7	// th.vxor.vv v27,v19,v20
-	WORD	$0x96e0bfd7	// th.vsll.vi v31,v14,1
-	MOVBU	45(X12), X6
-	WORD	$0xa2efb757	// th.vsrl.vi v14,v14,31
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	MOVBU	46(X12), X7
-	WORD	$0x27b80dd7	// th.vand.vv v27,v27,v16
-	WORD	$0x2aef8757	// th.vor.vv v14,v14,v31
-	MOVBU	47(X12), X8
-	WORD	$0xa32dbe57	// th.vsrl.vi v28,v18,27
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
-	SLL	$24, X5
-	WORD	$0x9722bed7	// th.vsll.vi v29,v18,5
-	WORD	$0x973f3f57	// th.vsll.vi v30,v19,30
-	SLL	$16, X6
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	SLL	$8, X7
-	WORD	$0x2ec38fd7	// th.vxor.vv v31,v12,v7
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	OR	X6, X5
-	WORD	$0x2b3f09d7	// th.vor.vv v19,v19,v30
-	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
-	OR	X8, X7
-	WORD	$0x03058857	// th.vadd.vv v16,v16,v11
-	WORD	$0x27298dd7	// th.vand.vv v27,v18,v19
-	OR	X7, X5
-	WORD	$0x2eff87d7	// th.vxor.vv v15,v15,v31
-	WORD	$0x0308c857	// th.vadd.vx v16,v16,a7
-	MOVW	X5, 188(X13)
-	WORD	$0x2f298e57	// th.vxor.vv v28,v18,v19
-	WORD	$0x96f0bd57	// th.vsll.vi v26,v15,1
-	MOVBU	48(X9), X5
-	WORD	$0xa2ffb7d7	// th.vsrl.vi v15,v15,31
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	MOVBU	49(X9), X6
-	WORD	$0x27ca0e57	// th.vand.vv v28,v28,v20
-	WORD	$0x2afd07d7	// th.vor.vv v15,v15,v26
-	MOVBU	50(X9), X7
-	WORD	$0xa31dbed7	// th.vsrl.vi v29,v17,27
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
-	MOVBU	51(X9), X8
-	WORD	$0x9712bf57	// th.vsll.vi v30,v17,5
-	WORD	$0x972f3fd7	// th.vsll.vi v31,v18,30
-	SLL	$24, X5
-	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	SLL	$16, X6
-	WORD	$0x2ed40d57	// th.vxor.vv v26,v13,v8
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	SLL	$8, X7
-	WORD	$0x2b2f8957	// th.vor.vv v18,v18,v31
-	WORD	$0x2e010057	// th.vxor.vv v0,v0,v2
-	OR	X6, X5
-	WORD	$0x03460a57	// th.vadd.vv v20,v20,v12
-	WORD	$0x2f190e57	// th.vxor.vv v28,v17,v18
-	OR	X8, X7
-	WORD	$0x2e0d0057	// th.vxor.vv v0,v0,v26
-	WORD	$0x03494a57	// th.vadd.vx v20,v20,s2
-	OR	X7, X5
-	WORD	$0x2fc98e57	// th.vxor.vv v28,v28,v19
-	WORD	$0x9600bdd7	// th.vsll.vi v27,v0,1
+	WORD	$0x2fb00dd7	// th.vxor.vv v27,v27,v0
+	WORD	$0x03094857	// th.vadd.vx v16,v16,s2
 	MOVW	X5, 192(X13)
-	WORD	$0xa20fb057	// th.vsrl.vi v0,v0,31
-	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
+	WORD	$0x2f1a0ed7	// th.vxor.vv v29,v17,v20
+	WORD	$0xa3bfb057	// th.vsrl.vi v0,v27,31
 	MOVBU	48(X10), X5
-	WORD	$0xa30dbf57	// th.vsrl.vi v30,v16,27
-	WORD	$0x2a0d8057	// th.vor.vv v0,v0,v27
+	WORD	$0xa3edb9d7	// th.vsrl.vi v19,v30,27
 	MOVBU	49(X10), X6
-	WORD	$0x9702bfd7	// th.vsll.vi v31,v16,5
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
+	WORD	$0x2fde0ed7	// th.vxor.vv v29,v29,v28
+	WORD	$0xb7be6057	// th.vmacc.vx v0,t3,v27
 	MOVBU	50(X10), X7
-	WORD	$0x971f3d57	// th.vsll.vi v26,v17,30
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
+	WORD	$0xa3113d57	// th.vsrl.vi v26,v17,2
+	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
 	MOVBU	51(X10), X8
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0x2ee48dd7	// th.vxor.vv v27,v14,v9
+	WORD	$0x2ee48fd7	// th.vxor.vv v31,v14,v9
 	SLL	$24, X5
-	WORD	$0x2b1d08d7	// th.vor.vv v17,v17,v26
+	WORD	$0xb71f6d57	// th.vmacc.vx v26,t5,v17
+	WORD	$0x03098857	// th.vadd.vv v16,v16,v19
+	SLL	$16, X6
 	WORD	$0x2e1180d7	// th.vxor.vv v1,v1,v3
-	SLL	$16, X6
-	WORD	$0x033689d7	// th.vadd.vv v19,v19,v13
-	WORD	$0x2f088ed7	// th.vxor.vv v29,v16,v17
+	WORD	$0x03c68e57	// th.vadd.vv v28,v28,v13
 	SLL	$8, X7
-	WORD	$0x2e1d80d7	// th.vxor.vv v1,v1,v27
-	WORD	$0x033949d7	// th.vadd.vx v19,v19,s2
+	WORD	$0xb7eee857	// th.vmacc.vx v16,t4,v30
 	OR	X6, X5
-	WORD	$0x2fd90ed7	// th.vxor.vv v29,v29,v18
-	WORD	$0x9610be57	// th.vsll.vi v28,v1,1
+	WORD	$0x2ff08fd7	// th.vxor.vv v31,v31,v1
+	WORD	$0x03c94e57	// th.vadd.vx v28,v28,s2
 	OR	X8, X7
-	WORD	$0xa21fb0d7	// th.vsrl.vi v1,v1,31
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
+	WORD	$0x2fed0dd7	// th.vxor.vv v27,v30,v26
+	WORD	$0xa3ffb0d7	// th.vsrl.vi v1,v31,31
 	OR	X7, X5
-	WORD	$0xa34dbfd7	// th.vsrl.vi v31,v20,27
-	WORD	$0x2a1e00d7	// th.vor.vv v1,v1,v28
+	WORD	$0xa30db957	// th.vsrl.vi v18,v16,27
 	MOVW	X5, 196(X13)
-	WORD	$0x9742bd57	// th.vsll.vi v26,v20,5
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
+	WORD	$0x2fba0dd7	// th.vxor.vv v27,v27,v20
+	WORD	$0xb7fe60d7	// th.vmacc.vx v1,t3,v31
 	MOVBU	48(X11), X5
-	WORD	$0x970f3dd7	// th.vsll.vi v27,v16,30
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
+	WORD	$0xa3e139d7	// th.vsrl.vi v19,v30,2
+	WORD	$0x03cd8e57	// th.vadd.vv v28,v28,v27
 	MOVBU	49(X11), X6
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
-	WORD	$0x2ef50e57	// th.vxor.vv v28,v15,v10
+	WORD	$0x2ef508d7	// th.vxor.vv v17,v15,v10
+	WORD	$0xb7ef69d7	// th.vmacc.vx v19,t5,v30
 	MOVBU	50(X11), X7
-	WORD	$0x2b0d8857	// th.vor.vv v16,v16,v27
-	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
+	WORD	$0x03c90e57	// th.vadd.vv v28,v28,v18
 	MOVBU	51(X11), X8
-	WORD	$0x03270957	// th.vadd.vv v18,v18,v14
-	WORD	$0x2f480f57	// th.vxor.vv v30,v20,v16
+	WORD	$0x2e220157	// th.vxor.vv v2,v2,v4
+	WORD	$0x03470a57	// th.vadd.vv v20,v20,v14
 	SLL	$24, X5
-	WORD	$0x2e2e0157	// th.vxor.vv v2,v2,v28
-	WORD	$0x03294957	// th.vadd.vx v18,v18,s2
+	WORD	$0xb70eee57	// th.vmacc.vx v28,t4,v16
+	WORD	$0x2f1108d7	// th.vxor.vv v17,v17,v2
 	SLL	$16, X6
-	WORD	$0x2fe88f57	// th.vxor.vv v30,v30,v17
-	WORD	$0x9620bed7	// th.vsll.vi v29,v2,1
+	WORD	$0x03494a57	// th.vadd.vx v20,v20,s2
 	SLL	$8, X7
-	WORD	$0xa22fb157	// th.vsrl.vi v2,v2,31
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
+	WORD	$0x2f098fd7	// th.vxor.vv v31,v16,v19
+	WORD	$0xa31fb157	// th.vsrl.vi v2,v17,31
 	OR	X6, X5
-	WORD	$0xa33dbd57	// th.vsrl.vi v26,v19,27
-	WORD	$0x2a2e8157	// th.vor.vv v2,v2,v29
+	WORD	$0xa3cdbed7	// th.vsrl.vi v29,v28,27
+	WORD	$0x2ffd0fd7	// th.vxor.vv v31,v31,v26
 	OR	X8, X7
-	WORD	$0x9732bdd7	// th.vsll.vi v27,v19,5
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
+	WORD	$0xb71e6157	// th.vmacc.vx v2,t3,v17
 	OR	X7, X5
-	WORD	$0x974f3e57	// th.vsll.vi v28,v20,30
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
+	WORD	$0xa3013957	// th.vsrl.vi v18,v16,2
+	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
 	MOVW	X5, 200(X13)
-	WORD	$0x032d8957	// th.vadd.vv v18,v18,v27
-	WORD	$0x2e058ed7	// th.vxor.vv v29,v0,v11
+	WORD	$0x2e058f57	// th.vxor.vv v30,v0,v11
+	WORD	$0xb70f6957	// th.vmacc.vx v18,t5,v16
 	MOVBU	48(X12), X5
-	WORD	$0x2b4e0a57	// th.vor.vv v20,v20,v28
-	WORD	$0x2e3281d7	// th.vxor.vv v3,v3,v5
+	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
 	MOVBU	49(X12), X6
-	WORD	$0x031788d7	// th.vadd.vv v17,v17,v15
-	WORD	$0x2f3a0fd7	// th.vxor.vv v31,v19,v20
+	WORD	$0x2e3281d7	// th.vxor.vv v3,v3,v5
+	WORD	$0x03a78d57	// th.vadd.vv v26,v26,v15
 	MOVBU	50(X12), X7
-	WORD	$0x2e3e81d7	// th.vxor.vv v3,v3,v29
-	WORD	$0x031948d7	// th.vadd.vx v17,v17,s2
+	WORD	$0xb7ceea57	// th.vmacc.vx v20,t4,v28
+	WORD	$0x2fe18f57	// th.vxor.vv v30,v30,v3
 	MOVBU	51(X12), X8
-	WORD	$0x2ff80fd7	// th.vxor.vv v31,v31,v16
-	WORD	$0x9630bf57	// th.vsll.vi v30,v3,1
+	WORD	$0x03a94d57	// th.vadd.vx v26,v26,s2
+	WORD	$0x2fc908d7	// th.vxor.vv v17,v28,v18
 	SLL	$24, X5
-	WORD	$0xa23fb1d7	// th.vsrl.vi v3,v3,31
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
+	WORD	$0xa3efb1d7	// th.vsrl.vi v3,v30,31
 	SLL	$16, X6
-	WORD	$0xa32dbdd7	// th.vsrl.vi v27,v18,27
-	WORD	$0x2a3f01d7	// th.vor.vv v3,v3,v30
+	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
+	WORD	$0x2f1988d7	// th.vxor.vv v17,v17,v19
 	SLL	$8, X7
-	WORD	$0x9722be57	// th.vsll.vi v28,v18,5
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
+	WORD	$0xb7ee61d7	// th.vmacc.vx v3,t3,v30
+	WORD	$0xa3c13ed7	// th.vsrl.vi v29,v28,2
 	OR	X6, X5
-	WORD	$0x973f3ed7	// th.vsll.vi v29,v19,30
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
+	WORD	$0x03a88d57	// th.vadd.vv v26,v26,v17
 	OR	X8, X7
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	WORD	$0x2e160f57	// th.vxor.vv v30,v1,v12
+	WORD	$0x2e160857	// th.vxor.vv v16,v1,v12
+	WORD	$0xb7cf6ed7	// th.vmacc.vx v29,t5,v28
 	OR	X7, X5
-	WORD	$0x2b3e89d7	// th.vor.vv v19,v19,v29
+	WORD	$0x03ad8d57	// th.vadd.vv v26,v26,v27
 	WORD	$0x2e430257	// th.vxor.vv v4,v4,v6
 	MOVW	X5, 204(X13)
-	WORD	$0x03000857	// th.vadd.vv v16,v16,v0
-	WORD	$0x2f298d57	// th.vxor.vv v26,v18,v19
+	WORD	$0x033009d7	// th.vadd.vv v19,v19,v0
 	MOVBU	52(X9), X5
-	WORD	$0x2e4f0257	// th.vxor.vv v4,v4,v30
-	WORD	$0x03094857	// th.vadd.vx v16,v16,s2
+	WORD	$0xb74eed57	// th.vmacc.vx v26,t4,v20
+	WORD	$0x2f020857	// th.vxor.vv v16,v16,v4
 	MOVBU	53(X9), X6
-	WORD	$0x2faa0d57	// th.vxor.vv v26,v26,v20
-	WORD	$0x9640bfd7	// th.vsll.vi v31,v4,1
+	WORD	$0x033949d7	// th.vadd.vx v19,v19,s2
+	WORD	$0x2f4e8f57	// th.vxor.vv v30,v20,v29
 	MOVBU	54(X9), X7
-	WORD	$0xa24fb257	// th.vsrl.vi v4,v4,31
-	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
+	WORD	$0xa30fb257	// th.vsrl.vi v4,v16,31
 	MOVBU	55(X9), X8
-	WORD	$0xa31dbe57	// th.vsrl.vi v28,v17,27
-	WORD	$0x2a4f8257	// th.vor.vv v4,v4,v31
+	WORD	$0xa3adbfd7	// th.vsrl.vi v31,v26,27
+	WORD	$0x2fe90f57	// th.vxor.vv v30,v30,v18
 	SLL	$24, X5
-	WORD	$0x9712bed7	// th.vsll.vi v29,v17,5
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
+	WORD	$0xb70e6257	// th.vmacc.vx v4,t3,v16
+	WORD	$0xa3413dd7	// th.vsrl.vi v27,v20,2
 	SLL	$16, X6
-	WORD	$0x972f3f57	// th.vsll.vi v30,v18,30
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
+	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
+	WORD	$0x2e268e57	// th.vxor.vv v28,v2,v13
 	SLL	$8, X7
-	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
-	WORD	$0x2e268fd7	// th.vxor.vv v31,v2,v13
+	WORD	$0xb74f6dd7	// th.vmacc.vx v27,t5,v20
 	OR	X6, X5
-	WORD	$0x2b2f0957	// th.vor.vv v18,v18,v30
+	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
 	WORD	$0x2e5382d7	// th.vxor.vv v5,v5,v7
 	OR	X8, X7
-	WORD	$0x03408a57	// th.vadd.vv v20,v20,v1
-	WORD	$0x2f190dd7	// th.vxor.vv v27,v17,v18
+	WORD	$0x03208957	// th.vadd.vv v18,v18,v1
+	WORD	$0xb7aee9d7	// th.vmacc.vx v19,t4,v26
 	OR	X7, X5
-	WORD	$0x2e5f82d7	// th.vxor.vv v5,v5,v31
-	WORD	$0x03494a57	// th.vadd.vx v20,v20,s2
+	WORD	$0x2fc28e57	// th.vxor.vv v28,v28,v5
 	MOVW	X5, 208(X13)
-	WORD	$0x2fb98dd7	// th.vxor.vv v27,v27,v19
-	WORD	$0x9650bd57	// th.vsll.vi v26,v5,1
+	WORD	$0x03294957	// th.vadd.vx v18,v18,s2
+	WORD	$0x2fad8857	// th.vxor.vv v16,v26,v27
 	MOVBU	52(X10), X5
-	WORD	$0xa25fb2d7	// th.vsrl.vi v5,v5,31
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
+	WORD	$0xa3cfb2d7	// th.vsrl.vi v5,v28,31
+	WORD	$0xa33db8d7	// th.vsrl.vi v17,v19,27
 	MOVBU	53(X10), X6
-	WORD	$0xa30dbed7	// th.vsrl.vi v29,v16,27
-	WORD	$0x2a5d02d7	// th.vor.vv v5,v5,v26
+	WORD	$0x2f0e8857	// th.vxor.vv v16,v16,v29
 	MOVBU	54(X10), X7
-	WORD	$0x9702bf57	// th.vsll.vi v30,v16,5
-	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
+	WORD	$0xb7ce62d7	// th.vmacc.vx v5,t3,v28
+	WORD	$0xa3a13fd7	// th.vsrl.vi v31,v26,2
 	MOVBU	55(X10), X8
-	WORD	$0x971f3fd7	// th.vsll.vi v31,v17,30
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x034f0a57	// th.vadd.vv v20,v20,v30
+	WORD	$0x03280957	// th.vadd.vv v18,v18,v16
+	WORD	$0x2e370a57	// th.vxor.vv v20,v3,v14
 	SLL	$24, X5
-	WORD	$0x2e370d57	// th.vxor.vv v26,v3,v14
-	WORD	$0x2b1f88d7	// th.vor.vv v17,v17,v31
+	WORD	$0xb7af6fd7	// th.vmacc.vx v31,t5,v26
 	SLL	$16, X6
+	WORD	$0x03288957	// th.vadd.vv v18,v18,v17
 	WORD	$0x2e640357	// th.vxor.vv v6,v6,v8
-	WORD	$0x033109d7	// th.vadd.vv v19,v19,v2
 	SLL	$8, X7
-	WORD	$0x2f088e57	// th.vxor.vv v28,v16,v17
-	WORD	$0x2e6d0357	// th.vxor.vv v6,v6,v26
+	WORD	$0x03d10ed7	// th.vadd.vv v29,v29,v2
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
 	OR	X6, X5
-	WORD	$0x033949d7	// th.vadd.vx v19,v19,s2
-	WORD	$0x2fc90e57	// th.vxor.vv v28,v28,v18
+	WORD	$0x2f430a57	// th.vxor.vv v20,v20,v6
 	OR	X8, X7
-	WORD	$0x9660bdd7	// th.vsll.vi v27,v6,1
-	WORD	$0xa26fb357	// th.vsrl.vi v6,v6,31
+	WORD	$0x03d94ed7	// th.vadd.vx v29,v29,s2
+	WORD	$0x2f3f8e57	// th.vxor.vv v28,v19,v31
 	OR	X7, X5
-	WORD	$0x033e09d7	// th.vadd.vv v19,v19,v28
-	WORD	$0xa34dbf57	// th.vsrl.vi v30,v20,27
+	WORD	$0xa34fb357	// th.vsrl.vi v6,v20,31
+	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
 	MOVW	X5, 212(X13)
-	WORD	$0x2a6d8357	// th.vor.vv v6,v6,v27
-	WORD	$0x9742bfd7	// th.vsll.vi v31,v20,5
+	WORD	$0x2fcd8e57	// th.vxor.vv v28,v28,v27
+	WORD	$0xb74e6357	// th.vmacc.vx v6,t3,v20
 	MOVBU	52(X11), X5
-	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	WORD	$0x970f3d57	// th.vsll.vi v26,v16,30
+	WORD	$0xa33138d7	// th.vsrl.vi v17,v19,2
 	MOVBU	53(X11), X6
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
+	WORD	$0x2e478d57	// th.vxor.vv v26,v4,v15
 	MOVBU	54(X11), X7
-	WORD	$0x2e478dd7	// th.vxor.vv v27,v4,v15
-	WORD	$0x2b0d0857	// th.vor.vv v16,v16,v26
+	WORD	$0xb73f68d7	// th.vmacc.vx v17,t5,v19
+	WORD	$0x03df0ed7	// th.vadd.vv v29,v29,v30
 	MOVBU	55(X11), X8
 	WORD	$0x2e7483d7	// th.vxor.vv v7,v7,v9
-	WORD	$0x03218957	// th.vadd.vv v18,v18,v3
 	SLL	$24, X5
-	WORD	$0x2f480ed7	// th.vxor.vv v29,v20,v16
-	WORD	$0x2e7d83d7	// th.vxor.vv v7,v7,v27
+	WORD	$0x03b18dd7	// th.vadd.vv v27,v27,v3
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
 	SLL	$16, X6
-	WORD	$0x03294957	// th.vadd.vx v18,v18,s2
-	WORD	$0x2fd88ed7	// th.vxor.vv v29,v29,v17
+	WORD	$0x2fa38d57	// th.vxor.vv v26,v26,v7
+	WORD	$0x03b94dd7	// th.vadd.vx v27,v27,s2
 	SLL	$8, X7
-	WORD	$0x9670be57	// th.vsll.vi v28,v7,1
-	WORD	$0xa27fb3d7	// th.vsrl.vi v7,v7,31
+	WORD	$0x2f288a57	// th.vxor.vv v20,v18,v17
 	OR	X6, X5
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	WORD	$0xa33dbfd7	// th.vsrl.vi v31,v19,27
+	WORD	$0xa3afb3d7	// th.vsrl.vi v7,v26,31
+	WORD	$0xa3ddb857	// th.vsrl.vi v16,v29,27
 	OR	X8, X7
-	WORD	$0x2a7e03d7	// th.vor.vv v7,v7,v28
-	WORD	$0x9732bd57	// th.vsll.vi v26,v19,5
+	WORD	$0x2f4f8a57	// th.vxor.vv v20,v20,v31
+	WORD	$0xb7ae63d7	// th.vmacc.vx v7,t3,v26
 	OR	X7, X5
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	WORD	$0x974f3dd7	// th.vsll.vi v27,v20,30
+	WORD	$0xa3213f57	// th.vsrl.vi v30,v18,2
 	MOVW	X5, 216(X13)
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
+	WORD	$0x03ba0dd7	// th.vadd.vv v27,v27,v20
+	WORD	$0x2e5009d7	// th.vxor.vv v19,v5,v0
 	MOVBU	52(X12), X5
-	WORD	$0x2e500e57	// th.vxor.vv v28,v5,v0
-	WORD	$0x2b4d8a57	// th.vor.vv v20,v20,v27
+	WORD	$0xb72f6f57	// th.vmacc.vx v30,t5,v18
+	WORD	$0x03b80dd7	// th.vadd.vv v27,v27,v16
 	MOVBU	53(X12), X6
 	WORD	$0x2e850457	// th.vxor.vv v8,v8,v10
-	WORD	$0x031208d7	// th.vadd.vv v17,v17,v4
+	WORD	$0x03f20fd7	// th.vadd.vv v31,v31,v4
 	MOVBU	54(X12), X7
-	WORD	$0x2f3a0f57	// th.vxor.vv v30,v19,v20
-	WORD	$0x2e8e0457	// th.vxor.vv v8,v8,v28
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
 	MOVBU	55(X12), X8
-	WORD	$0x031948d7	// th.vadd.vx v17,v17,s2
-	WORD	$0x2fe80f57	// th.vxor.vv v30,v30,v16
+	WORD	$0x2f3409d7	// th.vxor.vv v19,v19,v8
+	WORD	$0x03f94fd7	// th.vadd.vx v31,v31,s2
 	SLL	$24, X5
-	WORD	$0x9680bed7	// th.vsll.vi v29,v8,1
-	WORD	$0xa28fb457	// th.vsrl.vi v8,v8,31
+	WORD	$0x2fdf0d57	// th.vxor.vv v26,v29,v30
+	WORD	$0xa33fb457	// th.vsrl.vi v8,v19,31
 	SLL	$16, X6
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	WORD	$0xa32dbd57	// th.vsrl.vi v26,v18,27
+	WORD	$0xa3bdbe57	// th.vsrl.vi v28,v27,27
 	SLL	$8, X7
-	WORD	$0x2a8e8457	// th.vor.vv v8,v8,v29
-	WORD	$0x9722bdd7	// th.vsll.vi v27,v18,5
+	WORD	$0x2fa88d57	// th.vxor.vv v26,v26,v17
+	WORD	$0xb73e6457	// th.vmacc.vx v8,t3,v19
 	OR	X6, X5
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	WORD	$0x973f3e57	// th.vsll.vi v28,v19,30
+	WORD	$0xa3d13857	// th.vsrl.vi v16,v29,2
+	WORD	$0x03fd0fd7	// th.vadd.vv v31,v31,v26
 	OR	X8, X7
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x031d88d7	// th.vadd.vv v17,v17,v27
+	WORD	$0x2e608957	// th.vxor.vv v18,v6,v1
 	OR	X7, X5
-	WORD	$0x2e608ed7	// th.vxor.vv v29,v6,v1
-	WORD	$0x2b3e09d7	// th.vor.vv v19,v19,v28
+	WORD	$0xb7df6857	// th.vmacc.vx v16,t5,v29
+	WORD	$0x03fe0fd7	// th.vadd.vv v31,v31,v28
 	MOVW	X5, 220(X13)
 	WORD	$0x2e9584d7	// th.vxor.vv v9,v9,v11
-	WORD	$0x03028857	// th.vadd.vv v16,v16,v5
+	WORD	$0x031288d7	// th.vadd.vv v17,v17,v5
 	MOVBU	56(X9), X5
-	WORD	$0x2f298fd7	// th.vxor.vv v31,v18,v19
-	WORD	$0x2e9e84d7	// th.vxor.vv v9,v9,v29
+	WORD	$0xb7beefd7	// th.vmacc.vx v31,t4,v27
 	MOVBU	57(X9), X6
-	WORD	$0x03094857	// th.vadd.vx v16,v16,s2
-	WORD	$0x2ffa0fd7	// th.vxor.vv v31,v31,v20
+	WORD	$0x2f248957	// th.vxor.vv v18,v18,v9
+	WORD	$0x031948d7	// th.vadd.vx v17,v17,s2
 	MOVBU	58(X9), X7
-	WORD	$0x9690bf57	// th.vsll.vi v30,v9,1
-	WORD	$0xa29fb4d7	// th.vsrl.vi v9,v9,31
+	WORD	$0x2fb809d7	// th.vxor.vv v19,v27,v16
+	WORD	$0xa32fb4d7	// th.vsrl.vi v9,v18,31
 	MOVBU	59(X9), X8
-	WORD	$0x030f8857	// th.vadd.vv v16,v16,v31
-	WORD	$0xa31dbdd7	// th.vsrl.vi v27,v17,27
+	WORD	$0xa3fdba57	// th.vsrl.vi v20,v31,27
+	WORD	$0x2f3f09d7	// th.vxor.vv v19,v19,v30
 	SLL	$24, X5
-	WORD	$0x2a9f04d7	// th.vor.vv v9,v9,v30
-	WORD	$0x9712be57	// th.vsll.vi v28,v17,5
+	WORD	$0xb72e64d7	// th.vmacc.vx v9,t3,v18
 	SLL	$16, X6
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	WORD	$0x972f3ed7	// th.vsll.vi v29,v18,30
+	WORD	$0xa3b13e57	// th.vsrl.vi v28,v27,2
+	WORD	$0x031988d7	// th.vadd.vv v17,v17,v19
 	SLL	$8, X7
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x030e0857	// th.vadd.vv v16,v16,v28
+	WORD	$0x2e710ed7	// th.vxor.vv v29,v7,v2
+	WORD	$0xb7bf6e57	// th.vmacc.vx v28,t5,v27
 	OR	X6, X5
-	WORD	$0x2e710f57	// th.vxor.vv v30,v7,v2
-	WORD	$0x2b2e8957	// th.vor.vv v18,v18,v29
+	WORD	$0x031a08d7	// th.vadd.vv v17,v17,v20
 	OR	X8, X7
 	WORD	$0x2ea60557	// th.vxor.vv v10,v10,v12
-	WORD	$0x03430a57	// th.vadd.vv v20,v20,v6
+	WORD	$0x03e30f57	// th.vadd.vv v30,v30,v6
 	OR	X7, X5
-	WORD	$0x2f190d57	// th.vxor.vv v26,v17,v18
-	WORD	$0x2eaf0557	// th.vxor.vv v10,v10,v30
+	WORD	$0xb7fee8d7	// th.vmacc.vx v17,t4,v31
+	WORD	$0x2fd50ed7	// th.vxor.vv v29,v29,v10
 	MOVW	X5, 224(X13)
-	WORD	$0x03494a57	// th.vadd.vx v20,v20,s2
-	WORD	$0x2fa98d57	// th.vxor.vv v26,v26,v19
+	WORD	$0x03e94f57	// th.vadd.vx v30,v30,s2
 	MOVBU	56(X10), X5
-	WORD	$0x96a0bfd7	// th.vsll.vi v31,v10,1
-	WORD	$0xa2afb557	// th.vsrl.vi v10,v10,31
+	WORD	$0x2ffe0957	// th.vxor.vv v18,v31,v28
+	WORD	$0xa3dfb557	// th.vsrl.vi v10,v29,31
 	MOVBU	57(X10), X6
-	WORD	$0x034d0a57	// th.vadd.vv v20,v20,v26
-	WORD	$0xa30dbe57	// th.vsrl.vi v28,v16,27
+	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
+	WORD	$0x2f280957	// th.vxor.vv v18,v18,v16
 	MOVBU	58(X10), X7
-	WORD	$0x2aaf8557	// th.vor.vv v10,v10,v31
-	WORD	$0x9702bed7	// th.vsll.vi v29,v16,5
+	WORD	$0xb7de6557	// th.vmacc.vx v10,t3,v29
 	MOVBU	59(X10), X8
-	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
-	WORD	$0x971f3f57	// th.vsll.vi v30,v17,30
+	WORD	$0xa3f13a57	// th.vsrl.vi v20,v31,2
+	WORD	$0x03e90f57	// th.vadd.vv v30,v30,v18
 	SLL	$24, X5
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
+	WORD	$0x2e818dd7	// th.vxor.vv v27,v8,v3
+	WORD	$0xb7ff6a57	// th.vmacc.vx v20,t5,v31
 	SLL	$16, X6
-	WORD	$0x2e818fd7	// th.vxor.vv v31,v8,v3
-	WORD	$0x2b1f08d7	// th.vor.vv v17,v17,v30
+	WORD	$0x03ed0f57	// th.vadd.vv v30,v30,v26
 	SLL	$8, X7
 	WORD	$0x2eb685d7	// th.vxor.vv v11,v11,v13
-	WORD	$0x033389d7	// th.vadd.vv v19,v19,v7
+	WORD	$0x03038857	// th.vadd.vv v16,v16,v7
 	OR	X6, X5
-	WORD	$0x2f088dd7	// th.vxor.vv v27,v16,v17
-	WORD	$0x2ebf85d7	// th.vxor.vv v11,v11,v31
+	WORD	$0xb71eef57	// th.vmacc.vx v30,t4,v17
+	WORD	$0x2fb58dd7	// th.vxor.vv v27,v27,v11
 	OR	X8, X7
-	WORD	$0x033949d7	// th.vadd.vx v19,v19,s2
-	WORD	$0x2fb90dd7	// th.vxor.vv v27,v27,v18
+	WORD	$0x03094857	// th.vadd.vx v16,v16,s2
+	WORD	$0x2f1a0ed7	// th.vxor.vv v29,v17,v20
 	OR	X7, X5
-	WORD	$0x96b0bd57	// th.vsll.vi v26,v11,1
-	WORD	$0xa2bfb5d7	// th.vsrl.vi v11,v11,31
+	WORD	$0xa3bfb5d7	// th.vsrl.vi v11,v27,31
 	MOVW	X5, 228(X13)
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	WORD	$0xa34dbed7	// th.vsrl.vi v29,v20,27
+	WORD	$0xa3edb9d7	// th.vsrl.vi v19,v30,27
+	WORD	$0x2fde0ed7	// th.vxor.vv v29,v29,v28
 	MOVBU	56(X11), X5
-	WORD	$0x2abd05d7	// th.vor.vv v11,v11,v26
-	WORD	$0x9742bf57	// th.vsll.vi v30,v20,5
+	WORD	$0xb7be65d7	// th.vmacc.vx v11,t3,v27
+	WORD	$0xa3113d57	// th.vsrl.vi v26,v17,2
 	MOVBU	57(X11), X6
-	WORD	$0x033e89d7	// th.vadd.vv v19,v19,v29
-	WORD	$0x970f3fd7	// th.vsll.vi v31,v16,30
-	MOVBU	58(X11), X7
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	MOVBU	59(X11), X8
-	WORD	$0x2e920d57	// th.vxor.vv v26,v9,v4
-	WORD	$0x2b0f8857	// th.vor.vv v16,v16,v31
-	SLL	$24, X5
-	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
-	WORD	$0x03240957	// th.vadd.vv v18,v18,v8
-	SLL	$16, X6
-	WORD	$0x2f480e57	// th.vxor.vv v28,v20,v16
-	WORD	$0x2ecd0657	// th.vxor.vv v12,v12,v26
-	SLL	$8, X7
-	WORD	$0x03294957	// th.vadd.vx v18,v18,s2
-	WORD	$0x2fc88e57	// th.vxor.vv v28,v28,v17
-	OR	X6, X5
-	WORD	$0x96c0bdd7	// th.vsll.vi v27,v12,1
-	WORD	$0xa2cfb657	// th.vsrl.vi v12,v12,31
-	OR	X8, X7
-	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
-	WORD	$0xa33dbf57	// th.vsrl.vi v30,v19,27
-	OR	X7, X5
-	WORD	$0x2acd8657	// th.vor.vv v12,v12,v27
-	WORD	$0x9732bfd7	// th.vsll.vi v31,v19,5
-	MOVW	X5, 232(X13)
-	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
-	WORD	$0x974f3d57	// th.vsll.vi v26,v20,30
-	MOVBU	56(X12), X5
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	MOVBU	57(X12), X6
-	WORD	$0x2ea28dd7	// th.vxor.vv v27,v10,v5
-	WORD	$0x2b4d0a57	// th.vor.vv v20,v20,v26
-	MOVBU	58(X12), X7
-	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
-	WORD	$0x031488d7	// th.vadd.vv v17,v17,v9
-	MOVBU	59(X12), X8
-	WORD	$0x2f3a0ed7	// th.vxor.vv v29,v19,v20
-	WORD	$0x2edd86d7	// th.vxor.vv v13,v13,v27
-	SLL	$24, X5
-	WORD	$0x031948d7	// th.vadd.vx v17,v17,s2
-	WORD	$0x2fd80ed7	// th.vxor.vv v29,v29,v16
-	SLL	$16, X6
-	WORD	$0x96d0be57	// th.vsll.vi v28,v13,1
-	WORD	$0xa2dfb6d7	// th.vsrl.vi v13,v13,31
-	SLL	$8, X7
-	WORD	$0x031e88d7	// th.vadd.vv v17,v17,v29
-	WORD	$0xa32dbfd7	// th.vsrl.vi v31,v18,27
-	OR	X6, X5
-	WORD	$0x2ade06d7	// th.vor.vv v13,v13,v28
-	WORD	$0x9722bd57	// th.vsll.vi v26,v18,5
-	OR	X8, X7
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	WORD	$0x973f3dd7	// th.vsll.vi v27,v19,30
-	OR	X7, X5
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x031d08d7	// th.vadd.vv v17,v17,v26
-	MOVW	X5, 236(X13)
-	WORD	$0x2eb30e57	// th.vxor.vv v28,v11,v6
-	WORD	$0x2b3d89d7	// th.vor.vv v19,v19,v27
-	MOVBU	60(X9), X5
-	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
-	WORD	$0x03050857	// th.vadd.vv v16,v16,v10
-	MOVBU	61(X9), X6
-	WORD	$0x2f298f57	// th.vxor.vv v30,v18,v19
-	WORD	$0x2eee0757	// th.vxor.vv v14,v14,v28
-	MOVBU	62(X9), X7
-	WORD	$0x03094857	// th.vadd.vx v16,v16,s2
-	WORD	$0x2fea0f57	// th.vxor.vv v30,v30,v20
-	MOVBU	63(X9), X8
-	WORD	$0x96e0bed7	// th.vsll.vi v29,v14,1
-	WORD	$0xa2efb757	// th.vsrl.vi v14,v14,31
-	SLL	$24, X5
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0xa31dbd57	// th.vsrl.vi v26,v17,27
-	SLL	$16, X6
-	WORD	$0x2aee8757	// th.vor.vv v14,v14,v29
-	WORD	$0x9712bdd7	// th.vsll.vi v27,v17,5
-	SLL	$8, X7
-	WORD	$0x030d0857	// th.vadd.vv v16,v16,v26
-	WORD	$0x972f3e57	// th.vsll.vi v28,v18,30
-	OR	X6, X5
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	OR	X8, X7
-	WORD	$0x2ec38ed7	// th.vxor.vv v29,v12,v7
-	WORD	$0x2b2e0957	// th.vor.vv v18,v18,v28
-	OR	X7, X5
-	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
-	WORD	$0x03458a57	// th.vadd.vv v20,v20,v11
-	MOVW	X5, 240(X13)
-	WORD	$0x2f190fd7	// th.vxor.vv v31,v17,v18
-	WORD	$0x2efe87d7	// th.vxor.vv v15,v15,v29
-	MOVBU	60(X10), X5
-	WORD	$0x03494a57	// th.vadd.vx v20,v20,s2
-	WORD	$0x2ff98fd7	// th.vxor.vv v31,v31,v19
-	MOVBU	61(X10), X6
-	WORD	$0x96f0bf57	// th.vsll.vi v30,v15,1
-	WORD	$0xa2ffb7d7	// th.vsrl.vi v15,v15,31
-	MOVBU	62(X10), X7
-	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
-	WORD	$0xa30dbdd7	// th.vsrl.vi v27,v16,27
-	MOVBU	63(X10), X8
-	WORD	$0x2aff07d7	// th.vor.vv v15,v15,v30
-	WORD	$0x9702be57	// th.vsll.vi v28,v16,5
-	SLL	$24, X5
-	WORD	$0x034d8a57	// th.vadd.vv v20,v20,v27
-	WORD	$0x971f3ed7	// th.vsll.vi v29,v17,30
-	SLL	$16, X6
-	WORD	$0xa31138d7	// th.vsrl.vi v17,v17,2
-	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
-	SLL	$8, X7
-	WORD	$0x033609d7	// th.vadd.vv v19,v19,v12
-	WORD	$0x2b1e88d7	// th.vor.vv v17,v17,v29
-	OR	X6, X5
-	WORD	$0xa34dbd57	// th.vsrl.vi v26,v20,27
-	WORD	$0x033949d7	// th.vadd.vx v19,v19,s2
-	OR	X8, X7
-	WORD	$0x2f088f57	// th.vxor.vv v30,v16,v17
-	WORD	$0x9742bdd7	// th.vsll.vi v27,v20,5
-	OR	X7, X5
-	WORD	$0x970f3e57	// th.vsll.vi v28,v16,30
-	WORD	$0x2fe90f57	// th.vxor.vv v30,v30,v18
-	MOVW	X5, 244(X13)
-	WORD	$0xa3013857	// th.vsrl.vi v16,v16,2
-	WORD	$0x03268957	// th.vadd.vv v18,v18,v13
-	MOVBU	60(X11), X5
-	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
-	WORD	$0x2b0e0857	// th.vor.vv v16,v16,v28
-	MOVBU	61(X11), X6
-	WORD	$0x03294957	// th.vadd.vx v18,v18,s2
-	WORD	$0x033d09d7	// th.vadd.vv v19,v19,v26
-	MOVBU	62(X11), X7
-	WORD	$0x2f480ed7	// th.vxor.vv v29,v20,v16
-	WORD	$0x033d89d7	// th.vadd.vv v19,v19,v27
-	MOVBU	63(X11), X8
-	WORD	$0x2fd88ed7	// th.vxor.vv v29,v29,v17
-	WORD	$0x974f3dd7	// th.vsll.vi v27,v20,30
-	SLL	$24, X5
-	WORD	$0xa33dbfd7	// th.vsrl.vi v31,v19,27
-	WORD	$0x032e8957	// th.vadd.vv v18,v18,v29
-	SLL	$16, X6
-	WORD	$0x9732bd57	// th.vsll.vi v26,v19,5
-	WORD	$0xa3413a57	// th.vsrl.vi v20,v20,2
-	SLL	$8, X7
-	WORD	$0x032f8957	// th.vadd.vv v18,v18,v31
-	WORD	$0x031708d7	// th.vadd.vv v17,v17,v14
-	OR	X6, X5
-	WORD	$0x2b4d8a57	// th.vor.vv v20,v20,v27
-	WORD	$0x032d0957	// th.vadd.vv v18,v18,v26
-	OR	X8, X7
-	WORD	$0x031948d7	// th.vadd.vx v17,v17,s2
-	WORD	$0x2f3a0e57	// th.vxor.vv v28,v19,v20
-	OR	X7, X5
-	WORD	$0xa32dbf57	// th.vsrl.vi v30,v18,27
-	WORD	$0x9722bfd7	// th.vsll.vi v31,v18,5
-	MOVW	X5, 248(X13)
-	WORD	$0x2fc80e57	// th.vxor.vv v28,v28,v16
-	WORD	$0x973f3d57	// th.vsll.vi v26,v19,30
-	MOVBU	60(X12), X5
-	WORD	$0xa33139d7	// th.vsrl.vi v19,v19,2
-	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
-	MOVBU	61(X12), X6
-	WORD	$0x03078857	// th.vadd.vv v16,v16,v15
-	WORD	$0x2b3d09d7	// th.vor.vv v19,v19,v26
-	MOVBU	62(X12), X7
-	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
-	WORD	$0x03094857	// th.vadd.vx v16,v16,s2
-	MOVBU	63(X12), X8
-	WORD	$0x2f298dd7	// th.vxor.vv v27,v18,v19
-	WORD	$0x031f88d7	// th.vadd.vv v17,v17,v31
-	SLL	$24, X5
-	WORD	$0x972f3fd7	// th.vsll.vi v31,v18,30
-	WORD	$0x2fba0dd7	// th.vxor.vv v27,v27,v20
-	SLL	$16, X6
-	WORD	$0xa31dbed7	// th.vsrl.vi v29,v17,27
-	WORD	$0x9712bf57	// th.vsll.vi v30,v17,5
-	SLL	$8, X7
-	WORD	$0x030d8857	// th.vadd.vv v16,v16,v27
-	WORD	$0xa3213957	// th.vsrl.vi v18,v18,2
-	OR	X6, X5
-	WORD	$0x03688b57	// th.vadd.vv v22,v22,v17
 	WORD	$0x030e8857	// th.vadd.vv v16,v16,v29
+	MOVBU	58(X11), X7
+	WORD	$0x2e920fd7	// th.vxor.vv v31,v9,v4
+	WORD	$0xb71f6d57	// th.vmacc.vx v26,t5,v17
+	MOVBU	59(X11), X8
+	WORD	$0x03098857	// th.vadd.vv v16,v16,v19
+	WORD	$0x2ec70657	// th.vxor.vv v12,v12,v14
+	SLL	$24, X5
+	WORD	$0x03c40e57	// th.vadd.vv v28,v28,v8
+	SLL	$16, X6
+	WORD	$0xb7eee857	// th.vmacc.vx v16,t4,v30
+	WORD	$0x2ff60fd7	// th.vxor.vv v31,v31,v12
+	SLL	$8, X7
+	WORD	$0x03c94e57	// th.vadd.vx v28,v28,s2
+	WORD	$0x2fed0dd7	// th.vxor.vv v27,v30,v26
+	OR	X6, X5
+	WORD	$0xa3ffb657	// th.vsrl.vi v12,v31,31
 	OR	X8, X7
-	WORD	$0x2b2f8957	// th.vor.vv v18,v18,v31
-	WORD	$0x03898c57	// th.vadd.vv v24,v24,v19
+	WORD	$0xa30db957	// th.vsrl.vi v18,v16,27
+	WORD	$0x2fba0dd7	// th.vxor.vv v27,v27,v20
 	OR	X7, X5
-	WORD	$0x030f0857	// th.vadd.vv v16,v16,v30
-	WORD	$0x03790bd7	// th.vadd.vv v23,v23,v18
+	WORD	$0xb7fe6657	// th.vmacc.vx v12,t3,v31
+	WORD	$0xa3e139d7	// th.vsrl.vi v19,v30,2
+	MOVW	X5, 232(X13)
+	WORD	$0x03cd8e57	// th.vadd.vv v28,v28,v27
+	WORD	$0x2ea288d7	// th.vxor.vv v17,v10,v5
+	MOVBU	56(X12), X5
+	WORD	$0xb7ef69d7	// th.vmacc.vx v19,t5,v30
+	MOVBU	57(X12), X6
+	WORD	$0x03c90e57	// th.vadd.vv v28,v28,v18
+	WORD	$0x2ed786d7	// th.vxor.vv v13,v13,v15
+	MOVBU	58(X12), X7
+	WORD	$0x03448a57	// th.vadd.vv v20,v20,v9
+	WORD	$0xb70eee57	// th.vmacc.vx v28,t4,v16
+	MOVBU	59(X12), X8
+	WORD	$0x2f1688d7	// th.vxor.vv v17,v17,v13
+	SLL	$24, X5
+	WORD	$0x03494a57	// th.vadd.vx v20,v20,s2
+	WORD	$0x2f098fd7	// th.vxor.vv v31,v16,v19
+	SLL	$16, X6
+	WORD	$0xa31fb6d7	// th.vsrl.vi v13,v17,31
+	WORD	$0xa3cdbed7	// th.vsrl.vi v29,v28,27
+	SLL	$8, X7
+	WORD	$0x2ffd0fd7	// th.vxor.vv v31,v31,v26
+	OR	X6, X5
+	WORD	$0xb71e66d7	// th.vmacc.vx v13,t3,v17
+	WORD	$0xa3013957	// th.vsrl.vi v18,v16,2
+	OR	X8, X7
+	WORD	$0x034f8a57	// th.vadd.vv v20,v20,v31
+	WORD	$0x2eb30f57	// th.vxor.vv v30,v11,v6
+	OR	X7, X5
+	WORD	$0xb70f6957	// th.vmacc.vx v18,t5,v16
+	MOVW	X5, 236(X13)
+	WORD	$0x034e8a57	// th.vadd.vv v20,v20,v29
+	WORD	$0x2ee00757	// th.vxor.vv v14,v14,v0
+	MOVBU	60(X9), X5
+	WORD	$0x03a50d57	// th.vadd.vv v26,v26,v10
+	WORD	$0xb7ceea57	// th.vmacc.vx v20,t4,v28
+	MOVBU	61(X9), X6
+	WORD	$0x2fe70f57	// th.vxor.vv v30,v30,v14
+	WORD	$0x03a94d57	// th.vadd.vx v26,v26,s2
+	MOVBU	62(X9), X7
+	WORD	$0x2fc908d7	// th.vxor.vv v17,v28,v18
+	MOVBU	63(X9), X8
+	WORD	$0xa3efb757	// th.vsrl.vi v14,v30,31
+	WORD	$0xa34dbdd7	// th.vsrl.vi v27,v20,27
+	SLL	$24, X5
+	WORD	$0x2f1988d7	// th.vxor.vv v17,v17,v19
+	WORD	$0xb7ee6757	// th.vmacc.vx v14,t3,v30
+	SLL	$16, X6
+	WORD	$0xa3c13ed7	// th.vsrl.vi v29,v28,2
+	SLL	$8, X7
+	WORD	$0x03a88d57	// th.vadd.vv v26,v26,v17
+	WORD	$0x2ec38857	// th.vxor.vv v16,v12,v7
+	OR	X6, X5
+	WORD	$0xb7cf6ed7	// th.vmacc.vx v29,t5,v28
+	WORD	$0x03ad8d57	// th.vadd.vv v26,v26,v27
+	OR	X8, X7
+	WORD	$0x2ef087d7	// th.vxor.vv v15,v15,v1
+	OR	X7, X5
+	WORD	$0x033589d7	// th.vadd.vv v19,v19,v11
+	WORD	$0xb74eed57	// th.vmacc.vx v26,t4,v20
+	MOVW	X5, 240(X13)
+	WORD	$0x2f078857	// th.vxor.vv v16,v16,v15
+	WORD	$0x033949d7	// th.vadd.vx v19,v19,s2
+	MOVBU	60(X10), X5
+	WORD	$0x2f4e8f57	// th.vxor.vv v30,v20,v29
+	MOVBU	61(X10), X6
+	WORD	$0xa30fb7d7	// th.vsrl.vi v15,v16,31
+	WORD	$0xa3adbfd7	// th.vsrl.vi v31,v26,27
+	MOVBU	62(X10), X7
+	WORD	$0x2fe90f57	// th.vxor.vv v30,v30,v18
+	WORD	$0xb70e67d7	// th.vmacc.vx v15,t3,v16
+	MOVBU	63(X10), X8
+	WORD	$0xa3413dd7	// th.vsrl.vi v27,v20,2
+	SLL	$24, X5
+	WORD	$0x033f09d7	// th.vadd.vv v19,v19,v30
+	WORD	$0x03260957	// th.vadd.vv v18,v18,v12
+	SLL	$16, X6
+	WORD	$0xb74f6dd7	// th.vmacc.vx v27,t5,v20
+	WORD	$0x033f89d7	// th.vadd.vv v19,v19,v31
+	SLL	$8, X7
+	WORD	$0x03294957	// th.vadd.vx v18,v18,s2
+	WORD	$0x2fad8e57	// th.vxor.vv v28,v26,v27
+	OR	X6, X5
+	WORD	$0xb7aee9d7	// th.vmacc.vx v19,t4,v26
+	OR	X8, X7
+	WORD	$0xa3a138d7	// th.vsrl.vi v17,v26,2
+	WORD	$0x2fce8e57	// th.vxor.vv v28,v28,v29
+	OR	X7, X5
+	WORD	$0xa33dbf57	// th.vsrl.vi v30,v19,27
+	WORD	$0xb7af68d7	// th.vmacc.vx v17,t5,v26
+	MOVW	X5, 244(X13)
+	WORD	$0x032e0957	// th.vadd.vv v18,v18,v28
+	MOVBU	60(X11), X5
+	WORD	$0x03d68ed7	// th.vadd.vv v29,v29,v13
+	WORD	$0x2f388fd7	// th.vxor.vv v31,v19,v17
+	MOVBU	61(X11), X6
+	WORD	$0x032f0957	// th.vadd.vv v18,v18,v30
+	WORD	$0x03d94ed7	// th.vadd.vx v29,v29,s2
+	MOVBU	62(X11), X7
+	WORD	$0x2ffd8fd7	// th.vxor.vv v31,v31,v27
+	MOVBU	63(X11), X8
+	WORD	$0xb73ee957	// th.vmacc.vx v18,t4,v19
+	WORD	$0xa3313857	// th.vsrl.vi v16,v19,2
+	SLL	$24, X5
+	WORD	$0x03df8ed7	// th.vadd.vv v29,v29,v31
+	WORD	$0xa32dbe57	// th.vsrl.vi v28,v18,27
+	SLL	$16, X6
+	WORD	$0xb73f6857	// th.vmacc.vx v16,t5,v19
+	SLL	$8, X7
+	WORD	$0x03b70dd7	// th.vadd.vv v27,v27,v14
+	WORD	$0x03de0ed7	// th.vadd.vv v29,v29,v28
+	OR	X6, X5
+	WORD	$0x2f280f57	// th.vxor.vv v30,v18,v16
+	WORD	$0x03b94dd7	// th.vadd.vx v27,v27,s2
+	OR	X8, X7
+	WORD	$0xb72eeed7	// th.vmacc.vx v29,t4,v18
+	WORD	$0x2fe88f57	// th.vxor.vv v30,v30,v17
+	OR	X7, X5
+	WORD	$0xa3213a57	// th.vsrl.vi v20,v18,2
+	MOVW	X5, 248(X13)
+	WORD	$0xa3ddbfd7	// th.vsrl.vi v31,v29,27
+	WORD	$0x03bf0dd7	// th.vadd.vv v27,v27,v30
+	MOVBU	60(X12), X5
+	WORD	$0xb72f6a57	// th.vmacc.vx v20,t5,v18
+	WORD	$0x031788d7	// th.vadd.vv v17,v17,v15
+	MOVBU	61(X12), X6
+	WORD	$0x03bf8dd7	// th.vadd.vv v27,v27,v31
+	MOVBU	62(X12), X7
+	WORD	$0x2fda0e57	// th.vxor.vv v28,v29,v20
+	WORD	$0x031948d7	// th.vadd.vx v17,v17,s2
+	MOVBU	63(X12), X8
+	WORD	$0xb7deedd7	// th.vmacc.vx v27,t4,v29
+	WORD	$0x2fc80e57	// th.vxor.vv v28,v28,v16
+	SLL	$24, X5
+	WORD	$0xa3d13d57	// th.vsrl.vi v26,v29,2
+	SLL	$16, X6
+	WORD	$0xa3bdbf57	// th.vsrl.vi v30,v27,27
+	WORD	$0x031e08d7	// th.vadd.vv v17,v17,v28
+	SLL	$8, X7
+	WORD	$0xb7df6d57	// th.vmacc.vx v26,t5,v29
+	WORD	$0x036d8b57	// th.vadd.vv v22,v22,v27
+	OR	X6, X5
+	WORD	$0x031f08d7	// th.vadd.vv v17,v17,v30
+	OR	X8, X7
+	WORD	$0x037d0bd7	// th.vadd.vv v23,v23,v26
+	WORD	$0x038a0c57	// th.vadd.vv v24,v24,v20
+	OR	X7, X5
+	WORD	$0xb7bee8d7	// th.vmacc.vx v17,t4,v27
+	WORD	$0x03980cd7	// th.vadd.vv v25,v25,v16
 	MOVW	X5, 252(X13)
-	WORD	$0x039a0cd7	// th.vadd.vv v25,v25,v20
-	WORD	$0x03580ad7	// th.vadd.vv v21,v21,v16
+	WORD	$0x03588ad7	// th.vadd.vv v21,v21,v17
 	MOV	304(X14), X25
 	MOV	304(X13), X26
 	OR	X25, X26

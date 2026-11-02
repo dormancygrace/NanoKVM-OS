@@ -1,3 +1,20 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: memcpy with misaligned words on the C906
+
+The assembly memcpy copies byte by byte below 128 bytes and whenever the
+source and the destination differ in alignment. The C906 does misaligned
+loads and stores in hardware, and word copies are up to ten times faster.
+__memcpy is now C (memcpy_misaligned.c): overlapping accesses below 8
+bytes, misaligned words below 128 bytes, and from 128 bytes an overlapping
+head that aligns the destination; aligned copies of 128 bytes or more
+keep the assembly loop (__memcpy_asm), and so do the early-boot (PI)
+aliases.
+
+No runtime misalignment probe check: the platform contract is 0052's
+(SG2002/C906 with native misaligned access enabled by the firmware before
+Linux starts), so the copy is safe before the probe has run.
+
+---
 diff --git a/arch/riscv/lib/Makefile b/arch/riscv/lib/Makefile
 index f668b9897..11c4b44e3 100644
 --- a/arch/riscv/lib/Makefile

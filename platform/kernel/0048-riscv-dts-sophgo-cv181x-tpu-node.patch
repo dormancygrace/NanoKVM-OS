@@ -14,7 +14,7 @@ Signed-off-by: morikon <leafpmpmp@gmail.com>
  1 file changed, 17 insertions(+)
 
 diff --git a/arch/riscv/boot/dts/sophgo/cv181x.dtsi b/arch/riscv/boot/dts/sophgo/cv181x.dtsi
-index 111111111111..222222222222 100644
+index bbdb30653e9a..a1a812d91261 100644
 --- a/arch/riscv/boot/dts/sophgo/cv181x.dtsi
 +++ b/arch/riscv/boot/dts/sophgo/cv181x.dtsi
 @@ -17,5 +17,22 @@ emmc: mmc@4300000 {
@@ -40,6 +40,3 @@ index 111111111111..222222222222 100644
 +		};
  	};
  };
--- 
-Armbian
-

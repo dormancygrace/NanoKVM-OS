@@ -15,29 +15,21 @@ args = parser.parse_args()
 
 def check(directory):
     directory.mkdir(parents=True, exist_ok=True)
-    # Reconstruct the private core from PR1, then apply the actual PR2 patch.
-    first = ROOT / 'platform/kernel/0054-lz4-update-compressor-1.10.patch'
-    second = ROOT / 'platform/kernel/0055-lz4-zram-small-table.patch'
-    for part in first.read_text().split('diff --git ')[1:]:
+    # The actual private core and small-table instance, both new files in 0054.
+    patch = (ROOT / 'platform/kernel/0054-lz4-update-compressor-1.10.patch').read_text()
+    sources = {'lib/lz4/lz4_110.h', 'lib/lz4/lz4_compress_4k.c'}
+    extracted = set()
+    for part in patch.split('diff --git ')[1:]:
         name = part.splitlines()[0].split(' b/')[1]
-        if name != 'lib/lz4/lz4_110.h':
+        if name not in sources:
             continue
+        assert '\nnew file mode 100644\n' in part, name
         target = directory / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text('\n'.join(line[1:] for line in part.splitlines()
                                     if line.startswith('+') and not line.startswith('+++')) + '\n')
-    (directory / 'lib/lz4/lz4_compress_4k.c').unlink(missing_ok=True)
-    selected = ''.join('diff --git ' + part for part in second.read_text().split('diff --git ')[1:]
-                       if part.splitlines()[0].split(' b/')[1] in {
-                           'lib/lz4/lz4_110.h', 'lib/lz4/lz4_compress_4k.c'})
-    subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(directory)],
-                   input=selected, text=True, check=True)
-    scalar = ROOT / 'platform/kernel/0056-lz4-c906-scalar-paths.patch'
-    selected = ''.join('diff --git ' + part for part in scalar.read_text().split('diff --git ')[1:]
-                       if part.splitlines()[0].split(' b/')[1] == 'lib/lz4/lz4_110.h')
-    assert selected
-    subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(directory)],
-                   input=selected, text=True, check=True)
+        extracted.add(name)
+    assert extracted == sources
     include = directory / 'include/linux'
     include.mkdir(parents=True, exist_ok=True)
     for name in ['kernel.h', 'limits.h', 'lz4.h', 'module.h', 'string.h']:

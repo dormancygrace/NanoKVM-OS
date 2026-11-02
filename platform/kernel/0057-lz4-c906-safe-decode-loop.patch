@@ -1,3 +1,15 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] lib: lz4: LZ4 1.10 full-block decoder for the C906
+
+Full decodes without a dictionary (and the empty-dictionary and
+first-block streaming wrappers) use a decoder adapted from LZ4 1.10.0:
+eight-byte literal and match copies instead of upstream's 32-byte ones,
+short repeated patterns kept in a register, each length byte bounds
+checked, and the last sequence required to consume exactly the remaining
+input. Overlapping copies keep in-place decoding working. Partial,
+nonempty-dictionary and unsafe decodes keep the generic decoder.
+
+---
 diff --git a/lib/lz4/lz4_decompress.c b/lib/lz4/lz4_decompress.c
 --- a/lib/lz4/lz4_decompress.c
 +++ b/lib/lz4/lz4_decompress.c

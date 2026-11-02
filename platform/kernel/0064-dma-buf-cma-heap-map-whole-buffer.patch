@@ -16,12 +16,27 @@ Registering a model from memory on the NanoKVM: the 20 MB Latin text
 recognizer 300 -> 255 ms, the 24 MB Chinese one 353 -> 268 ms, a 4 MB one
 59 -> 49 ms; the 26 MB text detector unchanged (440 ms).
 
+Map writable buffers dirty too (formerly 0067):
+The C906 does not set the accessed and dirty bits of a PTE itself: a store
+to a page whose PTE lacks D raises a page fault, and the kernel sets the bit.
+Mapped whole at mmap time, a buffer had the protection of a shared
+writable mapping, which on RISC-V has A but not D. Every first store
+to a page of a buffer therefore still faulted: a TPU model load wrote its
+weights into such buffers at about 12 us a page.
+
+Map a writable buffer dirty. Nothing tracks the dirty pages of this PFN map
+(no page cache, no writeback), so the bit only spares the fault.
+
 Signed-off-by: Gleb Pesin <dormancygrace@gmail.com>
 ---
+ drivers/dma-buf/heaps/cma_heap.c | 42 +++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 20 deletions(-)
+
 diff --git a/drivers/dma-buf/heaps/cma_heap.c b/drivers/dma-buf/heaps/cma_heap.c
+index 3fb4b946c91a..078d19fdcb49 100644
 --- a/drivers/dma-buf/heaps/cma_heap.c
 +++ b/drivers/dma-buf/heaps/cma_heap.c
-@@ -166,21 +166,6 @@
+@@ -166,21 +166,6 @@ static int cma_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
  	return 0;
  }
  
@@ -43,7 +58,7 @@ diff --git a/drivers/dma-buf/heaps/cma_heap.c b/drivers/dma-buf/heaps/cma_heap.c
  static int cma_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
  {
  	struct cma_heap_buffer *buffer = dmabuf->priv;
-@@ -188,12 +173,17 @@
+@@ -188,12 +173,29 @@ static int cma_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
  	if ((vma->vm_flags & (VM_SHARED | VM_MAYSHARE)) == 0)
  		return -EINVAL;
  
@@ -60,9 +75,21 @@ diff --git a/drivers/dma-buf/heaps/cma_heap.c b/drivers/dma-buf/heaps/cma_heap.c
 +	 * one page per fault cost about 13 us a page on a C906, 0.2 s for
 +	 * each 60 MiB a TPU model writes.
 +	 */
++	pgprot_t prot = vma->vm_page_prot;
++
++#ifdef CONFIG_RISCV
++	/*
++	 * Writable, map it dirty too. A core that does not set the A and D bits
++	 * itself (the C906) faults on the first store to a page whose PTE lacks
++	 * D, and the kernel only sets the bit: about 12 us a page, the same
++	 * 0.2 s for 60 MiB. Nothing tracks dirty pages of this PFN map.
++	 */
++	if (vma->vm_flags & VM_WRITE)
++		prot = __pgprot(pgprot_val(prot) | _PAGE_DIRTY);
++#endif
 +	return remap_pfn_range(vma, vma->vm_start,
 +			       page_to_pfn(buffer->cma_pages) + vma->vm_pgoff,
-+			       vma->vm_end - vma->vm_start, vma->vm_page_prot);
++			       vma->vm_end - vma->vm_start, prot);
  }
  
  static void *cma_heap_do_vmap(struct cma_heap_buffer *buffer)

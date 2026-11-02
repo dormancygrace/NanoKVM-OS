@@ -1,3 +1,12 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: bitops: use the XTheadBb builtins
+
+__ffs, __fls, ffs and fls use Zbb alternatives that fall back to the
+generic C code on the C906, which has no Zbb. Code built with XTheadBb
+uses the compiler builtins instead, which GCC implements with th.ff1;
+ffs() is built from ctz because GCC turns __builtin_ffs() into a libcall.
+
+---
 diff --git a/arch/riscv/include/asm/bitops.h b/arch/riscv/include/asm/bitops.h
 index 3c1a15b..d51386b 100644
 --- a/arch/riscv/include/asm/bitops.h

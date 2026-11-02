@@ -9,8 +9,8 @@ implementation serves the kernel and early-boot PI aliases.
 
 Platform contract: this NanoKVM-only patch requires SG2002/C906 with native
 misaligned scalar accesses enabled by platform firmware, including early boot.
-It intentionally bypasses the generic runtime misalignment probe used by patch
-0045 for memcpy. Do not reuse this implementation on another RISC-V target
+Like the memcpy of patch 0045, it does not consult the runtime misalignment
+probe. Do not reuse this implementation on another RISC-V target
 without a safe dispatch/fallback or independent hardware qualification.
 
 --- a/arch/riscv/lib/memmove.S

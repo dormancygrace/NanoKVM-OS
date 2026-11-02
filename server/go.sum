@@ -108,8 +108,8 @@ github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZV
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
 github.com/rs/cors v1.11.1 h1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=
 github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
-github.com/rs/cors/wrapper/gin v0.0.0-20261008204034-5d834403882d h1:NOMR2Xi+RJj6vDDf6Npx5F+Rl4VbPXuUIzz+676HONo=
-github.com/rs/cors/wrapper/gin v0.0.0-20261008204034-5d834403882d/go.mod h1:UkcVz4d5PVHMbLZcN5lqy4KOGXiO9vVdxlITo+boMCE=
+github.com/rs/cors/wrapper/gin v0.0.0-20261101222852-7ca5fe28f7d5 h1:MxS/kMbJQ+JVHkO6Ck1vqG3YdJHCHad5uyHPCpCSI+M=
+github.com/rs/cors/wrapper/gin v0.0.0-20261101222852-7ca5fe28f7d5/go.mod h1:UkcVz4d5PVHMbLZcN5lqy4KOGXiO9vVdxlITo+boMCE=
 github.com/sagikazarmark/locafero v0.12.0 h1:/NQhBAkUb4+fH1jivKHWusDYFjMOOKU88eegjfxfHb4=
 github.com/sagikazarmark/locafero v0.12.0/go.mod h1:sZh36u/YSZ918v0Io+U9ogLYQJ9tLLBmM4eneO6WwsI=
 github.com/segmentio/asm v1.2.1 h1:DTNbBqs57ioxAD4PrArqftgypG4/qNpXoJx8TVXxPR0=

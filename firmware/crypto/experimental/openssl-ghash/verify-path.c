@@ -40,11 +40,11 @@ int main(int argc, char **argv){
   ck(prctl(PR_SET_NO_NEW_PRIVS,1L,0L,0L,0L)==0,"no new privileges");
   ck(prctl(PR_SET_SECCOMP,SECCOMP_MODE_FILTER,&prog)==0,"seccomp");
  }
- const size_t sizes[]={0,16,64,1024,3071,3072,4096,16384};unsigned checks=0;
+ const size_t sizes[]={0,16,64,1024,2047,2048,3072,4096,16384};unsigned checks=0;
  for(size_t off=0;off<16;off+=5)for(size_t i=0;i<sizeof(sizes)/sizeof(*sizes);++i){
   CRYPTO_gcm128_setiv(ctx,iv,sizeof(iv));unsigned long before=hits();
   ck(CRYPTO_gcm128_aad(ctx,data+off,sizes[i])==0,"AAD");CRYPTO_gcm128_tag(ctx,tag,sizeof(tag));
-  ck((hits()>before)==(enabled&&sizes[i]>=3072),"actual assembly-entry count");checks++;
+  ck((hits()>before)==(enabled&&sizes[i]>=2048),"actual assembly-entry count");checks++;
  }
  CRYPTO_gcm128_release(ctx);
  printf("PASS %u GHASH entry proofs; vector_enabled=%d actual_asm_hits=%lu\n",checks,enabled,hits());return 0;

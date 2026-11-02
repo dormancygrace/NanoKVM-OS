@@ -93,7 +93,7 @@ static void verify_hits(int vector_on)
         int got; check(EVP_EncryptInit_ex2(ctx, EVP_chacha20(), key, iv, NULL) == 1, "counter init");
         unsigned long before = hits();
         check(EVP_EncryptUpdate(ctx, out, &got, in, sizes[i]) == 1 && got == sizes[i], "counter update");
-        check((hits() > before) == (enabled && sizes[i] >= 640), "actual assembly-entry hits");
+        check((hits() > before) == (enabled && sizes[i] >= 320), "actual assembly-entry hits");
     }
     EVP_CIPHER_CTX_free(ctx);
     puts("PASS actual assembly-entry counts at threshold boundaries");

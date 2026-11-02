@@ -4,7 +4,7 @@
 its BSD-3-Clause license. Four vector lanes and one scalar block process a
 prefix; the remaining 0–4 whole blocks reuse the already expanded scalar key.
 OpenSSL retains AAD, padding, lengths, tags and the operation boundaries.
-The vector path starts at 3072 bytes. Short inputs and single-block
+The vector path starts at 2048 bytes. Short inputs and single-block
 multiplication retain upstream code. FIPS and no-assembly paths are unchanged.
 
 Acceleration requires `NANOKVM_OPENSSL_GHASH=auto`, the all-online-CPU
@@ -16,7 +16,7 @@ explicit operator overrides. Scalar XTheadBb is part of the base C906 profile.
 
 This does not make all OpenSSL GHASH constant-time. The upstream data-indexed
 4-bit tables remain in every single-block `gmult` (including tag work), inputs
-under 3072 B, and processes without the opt-in or vector permission. Only an
+under 2048 B, and processes without the opt-in or vector permission. Only an
 eligible call's complete blocks use the constant-time C906 arithmetic, now
 including its scalar remainder. The curl downloader first requests ChaCha;
 GHASH acceleration therefore matters on its second, generic cipher attempt.
@@ -136,3 +136,13 @@ EVP SHA-224/256 answers cover 4 KiB plus continuation tails with DMA on/off
 against Python hashlib. Exact patch/library/helper identities and outputs are
 in `scalar-tail-validation.json`. These are correctness checks; the historical
 throughput table above was not remeasured for this revision.
+
+## Threshold 2048 (2026-11-02)
+
+Between 1024 and 3071 bytes the vector path had not been measured. The same
+OpenSSL 3.5.9 build with the vector prefix from 1024 bytes against 3072,
+`openssl speed -evp aes-128-gcm` (CryptoDMA AES as shipped,
+`NANOKVM_OPENSSL_GHASH=auto`), best of two rounds, MB/s: 1024 B 11.5 -> 11.0
+(-4.3%), 1536 B 11.9 -> 12.2 (+2.5%), 2048 B 12.1 -> 12.7 (+5.0%), 2560 B
+12.1 -> 13.0 (+7.4%), 3072 B 13.4 -> 13.4. The vector path now starts at 2048
+bytes.

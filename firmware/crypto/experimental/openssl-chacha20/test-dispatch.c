@@ -36,25 +36,25 @@ int main(void) {
     unsigned char in[1024], out[1024]; memset(in, 0x5a, sizeof(in));
     unsigned int key[8] = {7}, ctr[4] = {1, 0, 0, 9};
     reset();
-    for (size_t n = 0; n < 640; ++n)
+    for (size_t n = 0; n < 320; ++n)
         assert(!ossl_chacha20_c906(out, in, n, key, ctr));
     assert(!queries && !calls);
-    assert(ossl_chacha20_c906(out, in, 640, key, ctr));
-    assert(calls == 1 && queries == 1 && tails == 0 && !memcmp(out, in, 640));
+    assert(ossl_chacha20_c906(out, in, 320, key, ctr));
+    assert(calls == 1 && queries == 1 && tails == 0 && !memcmp(out, in, 320));
     assert(ossl_chacha20_c906(out, in, 641, key, ctr));
     assert(calls == 2 && queries == 2 && tails == 1 && !memcmp(out, in, 641));
     for (int m = -1; m <= 7; ++m) {
         mode = m; int before = calls;
-        assert(ossl_chacha20_c906(out, in, 640, key, ctr) == (m >= 0 && (m & 3) == 2));
+        assert(ossl_chacha20_c906(out, in, 320, key, ctr) == (m >= 0 && (m & 3) == 2));
         assert(calls == before + (m >= 0 && (m & 3) == 2));
     }
     reset(); ossl_riscv_has_xtheadvector = 0;
-    assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
+    assert(!ossl_chacha20_c906(out, in, 320, key, ctr)); assert(!calls && !queries);
     reset(); assert(setenv("NANOKVM_OPENSSL_CHACHA20", "generic", 1) == 0);
-    assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
+    assert(!ossl_chacha20_c906(out, in, 320, key, ctr)); assert(!calls && !queries);
     reset(); assert(unsetenv("NANOKVM_OPENSSL_CHACHA20") == 0);
-    assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
+    assert(!ossl_chacha20_c906(out, in, 320, key, ctr)); assert(!calls && !queries);
     reset(); assert(setenv("NANOKVM_OPENSSL_CHACHA20", "unknown", 1) == 0);
-    assert(!ossl_chacha20_c906(out, in, 640, key, ctr)); assert(!calls && !queries);
+    assert(!ossl_chacha20_c906(out, in, 320, key, ctr)); assert(!calls && !queries);
     puts("PASS real ChaCha dispatch: threshold, hwprobe capability, thread modes, override, tail");
 }

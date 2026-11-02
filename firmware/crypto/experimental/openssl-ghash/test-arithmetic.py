@@ -61,7 +61,7 @@ def main():
                                    str(binary)], timeout=120, check=False).returncode
         if execute() != 0:
             raise SystemExit('GHASH arithmetic or scalar-remainder mismatch')
-        print('PASS: 3520 GHASH cases, 40 keys, 11 lengths, 8 offsets, all 0-4 block tails; '
+        print('PASS: 4160 GHASH cases, 40 keys, 13 lengths, 8 offsets, all 0-4 block tails; '
               'real key layout/Xi conversion, input/context/table guards, independent GCM KAT')
         if args.negative_control:
             if execute(['-DNEGATIVE_DIGEST']) != 1:

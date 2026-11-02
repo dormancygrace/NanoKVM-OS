@@ -12,7 +12,7 @@ diff --git a/crypto/modes/gcm128.c b/crypto/modes/gcm128.c
 +    const u8 *in, size_t len)
 +{
 +    size_t done = 0;
-+    if (len >= 3072)
++    if (len >= 2048)
 +        done = ossl_gcm_c906_prefix(xi, table, in, len);
 +    if (done != len)
 +        gcm_ghash_4bit(xi, table, in + done, len - done);
@@ -154,7 +154,7 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +    const u8 *in, size_t len)
 +{
 +    int control;
-+    if (len < 3072 || !ossl_riscv_has_xtheadvector
++    if (len < 2048 || !ossl_riscv_has_xtheadvector
 +        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled)
 +        return 0;
 +    /* The current thread may disable vectors or inherit different control.

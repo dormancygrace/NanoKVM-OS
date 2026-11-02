@@ -75,7 +75,7 @@
 +#ifndef OSSL_CHACHA_C906_H
 +#define OSSL_CHACHA_C906_H
 +#include <stddef.h>
-+#define OSSL_CHACHA_C906_MIN_BYTES 640
++#define OSSL_CHACHA_C906_MIN_BYTES 320
 +#define OSSL_CHACHA_C906_GROUP_BYTES 320
 +int ossl_chacha20_c906(unsigned char *out, const unsigned char *in, size_t len,
 +    const unsigned int key[8], const unsigned int counter[4]);

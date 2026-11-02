@@ -53,8 +53,8 @@ int main(void)
         assert(!vector_calls && !scalar_calls);
     }
     reset(1,"auto",2);
-    assert(ossl_gcm_c906_prefix(xi,table,input,3071)==0 && !controls);
-    assert(ossl_gcm_c906_prefix(xi,table,input+5,3072)==3072);
+    assert(ossl_gcm_c906_prefix(xi,table,input,2047)==0 && !controls);
+    assert(ossl_gcm_c906_prefix(xi,table,input+5,2048)==2048);
     assert(vector_calls==1 && scalar_calls==5 && controls==1);
     memcpy(copy,table,sizeof(copy));
     control=1; assert(ossl_gcm_c906_prefix(xi,copy,input,16384)==0);

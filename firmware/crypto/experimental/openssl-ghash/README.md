@@ -141,9 +141,18 @@ throughput table above was not remeasured for this revision.
 ## Threshold 2048 (2026-11-02)
 
 Between 1024 and 3071 bytes the vector path had not been measured. The same
-OpenSSL 3.5.9 build with the vector prefix from 1024 bytes against 3072,
-`openssl speed -evp aes-128-gcm` (CryptoDMA AES as shipped,
-`NANOKVM_OPENSSL_GHASH=auto`), best of two rounds, MB/s: 1024 B 11.5 -> 11.0
-(-4.3%), 1536 B 11.9 -> 12.2 (+2.5%), 2048 B 12.1 -> 12.7 (+5.0%), 2560 B
-12.1 -> 13.0 (+7.4%), 3072 B 13.4 -> 13.4. The vector path now starts at 2048
-bytes.
+OpenSSL 3.5.9 build with the vector prefix from 2048 bytes against 3072,
+`openssl speed -elapsed -evp aes-128-gcm`, `NANOKVM_OPENSSL_GHASH=auto`, wall
+MB/s, median of three rounds:
+
+| bytes | 1024 | 1536 | 2048 | 2560 | 3072 | 16384 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| software AES, from 3072 | 11.48 | 11.82 | 11.96 | 12.08 | 13.22 | 13.75 |
+| software AES, from 2048 | 11.51 | 11.86 | 12.44 | 12.95 | 13.24 | 13.88 |
+| CryptoDMA AES, from 3072 | 11.51 | 11.97 | 12.89 | 14.34 | 16.26 | 17.94 |
+| CryptoDMA AES, from 2048 | 11.53 | 11.83 | 12.61 | 14.48 | 16.14 | 18.01 |
+
+With software AES (no engine module, or `NANOKVM_OPENSSL_DMA=off`) 2048-2560
+bytes gain 4-7%; with the CryptoDMA AES the difference stays within the
+rounds' spread (main 12.82-13.50 at 2048 B). A 1024-byte prefix lost 2.6-4.3%
+in either case, so the vector path now starts at 2048 bytes.

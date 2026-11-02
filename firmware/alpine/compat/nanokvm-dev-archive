@@ -135,7 +135,7 @@ done
 copy hardware /etc/kvm/hw /etc/kvm/board-profile /etc/kvm/hdmi_version /etc/kvm/hdmi_mode \
 	/etc/kvm/video-memory-mode /etc/kvm/atx \
 	/etc/kvm/frame_detect /etc/kvm/encoder_codec /etc/kvm/monitor_resolution \
-	/etc/kvm/monitor_portrait /etc/kvm/monitor_portrait_resolution /etc/kvm/oled_exist /etc/kvm/oled_sleep
+	/etc/kvm/monitor_portrait /etc/kvm/monitor_portrait_resolution /etc/kvm/oled_exist /etc/kvm/oled_sleep /etc/kvm/oled_layout
 # Labelled: a bare 64-character hash line would be hidden as a possible key.
 run hardware/edid-hashes sh -c 'for f in monitor_edid_sha256 monitor_edid_verified; do echo "$f: $(cat /etc/kvm/$f 2>/dev/null)"; done'
 run hardware/usb-gadget sh -c 'cd /sys/kernel/config/usb_gadget 2>/dev/null && find . -type f ! -name serialnumber | sort | while read -r f; do printf "%s: %s\n" "$f" "$(head -c 256 "$f" 2>/dev/null | tr "\n" " ")"; done'

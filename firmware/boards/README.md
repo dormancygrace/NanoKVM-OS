@@ -60,6 +60,17 @@ The file holds `off`, or lines of `bus=N`, `address=0xNN` and
 file is ignored as a whole, including files containing NUL bytes, exceeding
 4096 bytes, or failing to read completely.
 
+### Main page layout
+
+The main page is drawn from a layout: `/run/nanokvm/oled_preview` while it
+was written in the last 15 seconds, else `/etc/kvm/oled_layout`, else the
+panel's built-in layout (the address, the stream, the frame rate and link
+marks, moved every minute against burn-in). A layout for the other panel
+or one that does not parse is not used. The format is described in
+`support/kvm_system/main/lib/oled_layout/oled_layout.h`. The IP window, the
+Wi-Fi setup pages and the sleep settings are unchanged. Earlier boot logos,
+including `/boot/logo.bin`, are no longer drawn.
+
 Known limit: first boot cannot tell a Lite with a 0x3c module from a PCIe
 board. No second signal for PCIe is known. Such a Lite gets the PCIe profile
 (and its ATX mapping) until the card is reflashed without the module.

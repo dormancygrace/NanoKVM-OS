@@ -251,7 +251,7 @@ jobs:
           for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-bootloader-activation alpine-sd-image-boot alpine-app-wait \
                    alpine-recovery-password alpine-recovery-settings stock-installer alpine-firstboot-storage-errors storage-recovery-layout \
                    alpine-check-volume alpine-service-deps board-selection usb-state kvm-file-inputs mmf-light-link monitor-edids edid-rgb-range \
-                   net-probe oled-detect wifi-ap-key platform-build compare-outputs release-build-tar apk-resign release-workflow release-storage \
+                   net-probe oled-detect oled-layout wifi-ap-key platform-build compare-outputs release-build-tar apk-resign release-workflow release-storage \
                    next-release next-addon-revision addon-packages build-addon assemble-apk-repo package-versions portrait-edid wide-monitor-edids \
                    serial-console-disk wifi-selector upstream-watch keys-repository s95-start-prelude ssh-rescue trng usb-flags-migrate; do
             echo "::group::tests/test-$t.py"; python3 "tests/test-$t.py"; echo "::endgroup::"

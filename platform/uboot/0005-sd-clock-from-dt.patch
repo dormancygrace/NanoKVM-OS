@@ -9,13 +9,14 @@ register and DMA clock, "core". Any clock error keeps the old 375 MHz.
 
 ---
 diff --git a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
-index f3d9ba1..d03430b 100644
 --- a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
 +++ b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
-@@ -6,5 +6,12 @@
+@@ -4,3 +4,13 @@
+ 		compatible = "sophgo,cv1800b-sysreset";
+ 	};
  };
- 
- &sdhci0 {
++
++&sdhci0 {
 +	/*
 +	 * The base clock the controller divides for the card is the functional
 +	 * CLK_SD0; CLK_AXI4_SD0 clocks the registers and DMA. cv18xx.dtsi names
@@ -23,8 +24,7 @@ index f3d9ba1..d03430b 100644
 +	 */
 +	clocks = <&clk CLK_SD0>, <&clk CLK_AXI4_SD0>;
 +	clock-names = "core", "bus";
- 	max-frequency = <25000000>;
- };
++};
 diff --git a/drivers/mmc/cv1800b_sdhci.c b/drivers/mmc/cv1800b_sdhci.c
 index cf1c57a..7503ff4 100644
 --- a/drivers/mmc/cv1800b_sdhci.c

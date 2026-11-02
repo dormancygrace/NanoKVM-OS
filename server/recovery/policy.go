@@ -15,7 +15,7 @@ import (
 // kernel/boot binaries, package databases, disks and arbitrary /etc are excluded.
 var settings = strings.Fields(`
  etc/kvm/frame_detect etc/kvm/encoder_codec etc/kvm/input-region.json etc/kvm/leader-key
- etc/kvm/mouse-jiggler etc/kvm/oled_sleep etc/kvm/memory.conf etc/kvm/GOMEMLIMIT
+ etc/kvm/mouse-jiggler etc/kvm/oled_sleep etc/kvm/oled_layout etc/kvm/memory.conf etc/kvm/GOMEMLIMIT
  etc/kvm/web-title etc/kvm/update-check.disabled etc/kvm/cpufreq etc/kvm/cpufreq.boot
  etc/kvm/monitor_resolution etc/kvm/monitor_portrait
  etc/kvm/monitor_portrait_resolution etc/kvm/monitor_edid_sha256

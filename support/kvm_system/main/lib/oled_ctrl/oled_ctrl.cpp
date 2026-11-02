@@ -35,6 +35,8 @@ static std::recursive_mutex oled_lock;
 static int oled_batch_depth = 0;
 static uint8_t oled_run[1 + 128];
 static int oled_run_len = 0;
+// Transfers that did not go through, for OLED_ShowFrame.
+static unsigned oled_transfer_failures = 0;
 
 // SSD1306 page addressing has eight RAM pages; after column 127 the cursor
 // wraps to column 0 of the same page. The legacy PCIe layout sends B8..BB:
@@ -66,6 +68,7 @@ static void oled_run_flush(void)
 	if (len > 1 && OLED_state && oled_i2c && oled_i2c->writeto(oled_address, oled_run, len) != len) {
 		oled_ram_lost = true;
 		oled_at_known = false;
+		++oled_transfer_failures;
 	}
 	// While the RAM copy is wrong (a lost transfer, a line past the last
 	// column) nothing is skipped; once the drawing is done it is dropped.
@@ -339,54 +342,6 @@ void OLED_ShowCharTurn(uint8_t x,uint8_t y,char chr,uint8_t sizey)
 	}
 }
 
-void OLED_ShowError(uint8_t x,uint8_t y,uint8_t _state)
-{
-	OledBatch batch;
-	uint8_t i;
-	if(_state){
-		OLED_Set_Pos(x, y);
-		for(i=0; i<6; i++)
-		{
-			oled_write_register(OLED_DATA, etherror[i]);
-		}
-	} else {
-		OLED_ShowString(28, 3, " ", 8);
-	}
-}
-
-uint32_t oled_pow(uint8_t m,uint8_t n)
-{
-	uint32_t result=1;	 
-	while(n--)result*=m;    
-	return result;
-}
-
-//显示数字
-//x,y :起点坐标
-//num:要显示的数字
-//len :数字的位数
-//sizey:字体大小		  
-void OLED_ShowNum(uint8_t x, uint8_t y, uint8_t num, uint8_t len, uint8_t sizey)
-{         	
-	OledBatch batch;
-	uint8_t t, temp, m = 0;
-	uint8_t enshow = 0;
-	if(sizey == 8) m = 2;
-	for(t=0; t<len; t++)
-	{
-		temp = (num / oled_pow(10,len-t-1)) % 10;
-		if(enshow == 0 && t < (len-1))
-		{
-			if(temp == 0)
-			{
-				OLED_ShowChar(x+(sizey/2+m)*t, y, ' ',sizey);
-				continue;
-			} else enshow=1;
-		}
-	 	OLED_ShowChar(x+(sizey/2+m)*t, y, temp+'0', sizey);
-	}
-}
-
 //显示一个字符号串
 void OLED_ShowString(uint8_t x, uint8_t y, const char *chr, uint8_t sizey)
 {
@@ -486,152 +441,6 @@ void OLED_Init(void)
     else OLED_Display_On(); // respects persistent display-off before first frame
 }
 
-void OLED_ShowStringtoend(uint8_t x, uint8_t y, const char *chr, uint8_t sizey, uint8_t end)
-{
-	OledBatch batch;
-	uint8_t j=0;
-	while (chr[j] != end)
-	{		
-		OLED_ShowChar(x, y, chr[j++], sizey);
-		if(sizey==8)x+=6;
-		else x+=sizey/2;
-	}
-}
-
-void OLED_ROW(uint8_t _EN)
-{
-	OledBatch batch;
-	// Scrolling moves the RAM contents: send everything again afterwards.
-	OLED_ForgetRAM();
-    if(_EN){
-        oled_write_register(OLED_CMD, 0x2e);    //关闭滚动
-        oled_write_register(OLED_CMD, 0x27);    //水平向左或者右滚动 26/27
-        oled_write_register(OLED_CMD, 0x00);    //虚拟字节
-        oled_write_register(OLED_CMD, 0x00);    //起始页 0
-        oled_write_register(OLED_CMD, 0x07);    //滚动时间间隔
-        oled_write_register(OLED_CMD, 0x07);    //终止页 7
-        oled_write_register(OLED_CMD, 0x0f);    //虚拟字节
-        oled_write_register(OLED_CMD, 0x7f);    //虚拟字节
-
-        oled_write_register(OLED_CMD, 0x2f);    //开启滚动
-    } else {
-        oled_write_register(OLED_CMD, 0x2e);    //关闭滚动
-    }
-}
-
-void OLED_ShowState(uint8_t x,uint8_t y,char chr,uint8_t size)
-{
-	OledBatch batch;
-    const unsigned int index = static_cast<unsigned char>(chr);
-    if (index >= sizeof(oled_kvm_0621) / sizeof(oled_kvm_0621[0]) ||
-        size > sizeof(oled_kvm_0621[0])) return;
-	uint16_t i=0;
-	OLED_Set_Pos(x, y);
-	for(i=0; i<size; i++)
-	{
-		oled_write_register(OLED_DATA, oled_kvm_0621[index][i]);
-	}
-}
-
-void OLED_ShowKVMLogo()
-{
-	OledBatch batch;
-	uint16_t i=0;
-    uint8_t x = 20;
-    uint8_t y = 0;
-	for(i=0; i<116; i++)
-	{   
-        if(i%2==0){
-            x++;
-            y = 0;
-        } else {
-            y = 1;
-        }
-        OLED_Set_Pos(x, y);
-		oled_write_register(OLED_DATA, oled_kvm_logo[i]);
-	}
-}
-
-void OLED_Showline_1()
-{
-	OledBatch batch;
-	uint16_t i=0;
-    uint8_t x = 18;
-    uint8_t y = 0;
-	for(i=112; i<116; i++)
-	{   
-        if(i%2==0){
-            x++;
-            y = 0;
-        } else {
-            y = 1;
-        }
-        OLED_Set_Pos(x, y);
-		oled_write_register(OLED_DATA, oled_kvm_logo[i]);
-	}
-}
-
-void OLED_ShowLogo()
-{
-	OledBatch batch;
-	uint16_t i=0;
-    uint8_t x = 0;
-    uint8_t y = 0;
-	uint8_t start_position = 0;
-	// if(kvm_hw_ver == 2) start_position = 2;
-	
-	// 检测/boot/logo.bin 文件是否存在且大小为 32byte
-	uint8_t logo_data[32];
-	uint8_t use_file = 0;
-	FILE *fp = fopen("/boot/logo.bin", "rb");
-	if(fp != NULL){
-		fseek(fp, 0, SEEK_END);
-		long file_size = ftell(fp);
-		rewind(fp);
-		if(file_size == 32){
-			if(fread(logo_data, sizeof(uint8_t), 32, fp) == 32){
-				use_file = 1;
-			}
-		}
-		fclose(fp);
-	}
-	
-	for(i = start_position; i < 32; i++)
-	{
-        if(i%2==0){
-            x++;
-            y = 0;
-        } else {
-            y = 1;
-        }
-        OLED_Set_Pos(x, y);
-		if(use_file){
-			oled_write_register(OLED_DATA, logo_data[i]);
-		} else {
-			oled_write_register(OLED_DATA, oled_sipeed_logo[i]);
-		}
-	}
-}
-
-void OLED_Showline()
-{
-	OledBatch batch;
-    uint8_t x = 3;
-    uint8_t y = 2;
-    for(y = 2; y < 8; y++){
-        OLED_Set_Pos(x, y);
-        if(y == 2){
-            oled_write_register(OLED_DATA, 0xC0);
-            oled_write_register(OLED_DATA, 0xC0);
-            oled_write_register(OLED_DATA, 0xC0);
-        } else {
-            oled_write_register(OLED_DATA, 0xFF);
-            oled_write_register(OLED_DATA, 0xFF);
-            oled_write_register(OLED_DATA, 0xFF);
-        }
-    }
-}
-
 void OLED_ShowString_AlignRight(uint8_t x_end, uint8_t y, const char *chr, uint8_t size)
 {
 	OledBatch batch;
@@ -656,6 +465,34 @@ void OLED_Revolve(void)
 	oled_write_register(OLED_CMD, 0xC0);
 }
 
+// A frame of width columns and pages pages. Only the runs of bytes that
+// differ from the frame last shown are written, so the narrow panel's window,
+// which is not in the RAM copy (oled_cursor), gets small writes too. After a
+// failed transfer, here or in a batch that ended since, all of it is sent.
+void OLED_ShowFrame(const uint8_t *frame, int width, int pages, bool all)
+{
+	static uint8_t shown[OLED_PAGES * OLED_COLUMNS];
+	static bool shown_known = false;
+	static unsigned failures_seen = 0;
+	OledBatch batch;
+	if (!shown_known || failures_seen != oled_transfer_failures) all = true;
+	failures_seen = oled_transfer_failures;
+	for (int page = 0; page < pages; page++) {
+		const uint8_t *row = frame + page * width;
+		const uint8_t *before = shown + page * width;
+		for (int x = 0; x < width;) {
+			if (!all && row[x] == before[x]) {
+				x++;
+				continue;
+			}
+			OLED_Set_Pos(x, page);
+			while (x < width && (all || row[x] != before[x])) oled_write_register(OLED_DATA, row[x++]);
+		}
+	}
+	memcpy(shown, frame, size_t(width) * pages);
+	shown_known = true;
+}
+
 void OLED_ShowIMG(uint8_t x,uint8_t y,const char *chr,uint8_t width,uint8_t height)
 {
 	OledBatch batch;
@@ -665,239 +502,5 @@ void OLED_ShowIMG(uint8_t x,uint8_t y,const char *chr,uint8_t width,uint8_t heig
 			OLED_Set_Pos(x, y+(count/width));
 		}
 		oled_write_register(OLED_DATA, chr[count]);
-	}
-}
-
-void OLED_ShowKVMStreamState(uint8_t kvm_state_s, void* pdata)
-{
-	OledBatch batch;
-    switch(kvm_state_s){
-        case KVM_INIT:
-			if(kvm_hw_ver != 2){
-				OLED_ShowString(10, 3, "IP:                ", 8);
-				OLED_ShowString(10, 4, "RES:               ", 8);
-				OLED_ShowString(10, 5, "TYPE:              ", 8);
-				OLED_ShowString(10, 6, "STREAM:            ", 8);
-				OLED_ShowString(10, 7, "QUALITY:           ", 8);
-			}
-        break;
-        case KVM_ETH_IP:
-			if(kvm_hw_ver != 2)
-            	OLED_ShowString(10, 3, "IP:                ", 8);
-            	// OLED_ShowString(10, 3, "ETH:               ", 8);
-			else
-				OLED_ShowString_AlignRight(AlignRightEND_P, 2, "               ", 4);
-			if(*(char*)pdata != 0){
-				if(kvm_hw_ver != 2)
-            		OLED_ShowString_AlignRight(AlignRightEND, 3, (char*)pdata, 8);
-				else{
-					OLED_ShowString(0, 2, "E", 4);
-					OLED_ShowString_AlignRight(AlignRightEND_P, 2, (char*)pdata, 4);
-				}
-			} else {
-				if(kvm_hw_ver != 2)
-					OLED_ShowString_AlignRight(AlignRightEND, 3, "--", 8);
-				else{
-					OLED_ShowString(0, 2, "E", 4);
-					OLED_ShowString_AlignRight(AlignRightEND_P, 2, "--", 4);
-				}
-					
-			}
-        break;
-        case KVM_WIFI_IP:
-			if(kvm_hw_ver != 2)
-            	OLED_ShowString(10, 3, "W:               ", 8);
-			else
-				OLED_ShowString_AlignRight(AlignRightEND_P, 2, "               ", 4);
-			if(*(char*)pdata != 0){
-				if(kvm_hw_ver != 2)
-            		OLED_ShowString_AlignRight(AlignRightEND, 3, (char*)pdata, 8);
-				else{
-					OLED_ShowString(0, 2, "W", 4);
-					OLED_ShowString_AlignRight(AlignRightEND_P, 2, (char*)pdata, 4);
-				}
-			} else {
-				if(kvm_hw_ver != 2)
-					OLED_ShowString_AlignRight(AlignRightEND, 3, "--", 8);
-				else {
-					OLED_ShowString(0, 2, "W", 4);
-					OLED_ShowString_AlignRight(AlignRightEND_P, 2, "--", 4);
-				}
-			}
-        break;
-        case KVM_HDMI_RES:
-        break;
-			// if(kvm_hw_ver != 2){
-			// 	OLED_ShowString(10, 4, "RES:               ", 8);
-			// 	switch (*(uint8_t*)pdata)
-			// 	{
-			// 	case KVM_RES_none:
-			// 		OLED_ShowString_AlignRight(AlignRightEND, 4, "--", 8);
-			// 	break;
-			// 	case KVM_RES_480P:
-			// 		OLED_ShowString_AlignRight(AlignRightEND, 4, "480P", 8);
-			// 	break;
-			// 	case KVM_RES_600P:
-			// 		OLED_ShowString_AlignRight(AlignRightEND, 4, "600P", 8);
-			// 	break;
-			// 	case KVM_RES_720P:
-			// 		OLED_ShowString_AlignRight(AlignRightEND, 4, "720P", 8);
-			// 	break;
-			// 	case KVM_RES_1080P:
-			// 		OLED_ShowString_AlignRight(AlignRightEND, 4, "1080P", 8);
-			// 	break;
-				
-			// 	default:
-			// 		OLED_ShowString_AlignRight(AlignRightEND, 4, "--", 8);
-			// 	break;
-			// 	}
-			// }
-        break;
-        case KVM_STEAM_TYPE:
-			if(kvm_hw_ver != 2){
-				OLED_ShowString(10, 5, "TYPE:              ", 8);
-				switch (*(uint8_t*)pdata)
-				{
-				case KVM_TYPE_MJPG:
-					OLED_ShowString_AlignRight(AlignRightEND, 5, "MJPG", 8);
-				break;
-				case KVM_TYPE_H264:
-					OLED_ShowString_AlignRight(AlignRightEND, 5, "H264", 8);
-				break;
-				case KVM_TYPE_H265:
-					OLED_ShowString_AlignRight(AlignRightEND, 5, "H265", 8);
-				break;
-				
-				default:
-					OLED_ShowString_AlignRight(AlignRightEND, 5, "--", 8);
-					break;
-				}
-			}
-        break;
-        case KVM_STEAM_FPS:
-            // OLED_ShowString(10, 6, "STREAM:            ", 8);
-			if(kvm_hw_ver != 2){
-				OLED_ShowString_AlignRight(AlignRightEND, 6, "FPS", 8);
-				OLED_ShowNum(88, 6, *(uint8_t*)pdata, 3, 8);
-			} else {
-				OLED_ShowString_AlignRight(AlignRightEND_P, 3, "  FPS", 4);
-				OLED_ShowNum(42, 3, *(uint8_t*)pdata, 3, 4);
-				char fps_num[10];
-				sprintf(fps_num, "%d", *(uint8_t*)pdata);
-				OLED_ShowString_AlignRight(AlignRightEND_P-13, 3, fps_num, 4);
-			}
-        break;
-        case KVM_JPG_QLTY:
-			if(kvm_hw_ver != 2){
-				OLED_ShowString(10, 7, "QUALITY:           ", 8);
-				// OLED_ShowString_AlignRight(AlignRightEND, 7, "%", 8);
-				// OLED_ShowNum(AlignRightEND - 26, 7, *(uint8_t*)pdata, 3, 8);
-				switch (*(uint8_t*)pdata)
-				{
-					// LOW Middle HIGH EXTRA
-				case 0:
-					OLED_ShowString_AlignRight(AlignRightEND, 7, "--", 8);
-				break;
-				case 1:
-					OLED_ShowString_AlignRight(AlignRightEND, 7, "LOW", 8);
-				break;
-				case 2:
-					OLED_ShowString_AlignRight(AlignRightEND, 7, "Middle", 8);
-				break;
-				case 3:
-					OLED_ShowString_AlignRight(AlignRightEND, 7, "HIGH", 8);
-				break;
-				case 4:
-					OLED_ShowString_AlignRight(AlignRightEND, 7, "EXTRA", 8);
-				break;
-				
-				default:
-					OLED_ShowString_AlignRight(AlignRightEND, 7, "--", 8);
-				break;
-				}
-			}
-        break;
-        case KVM_CPU_IDLE:
-			if(kvm_hw_ver != 2){
-				OLED_ShowString(10, 7, "CPU IDLE:          ", 8);
-				OLED_ShowString_AlignRight(AlignRightEND, 7, "%", 8);
-				OLED_ShowNum(AlignRightEND - 26, 7, *(uint8_t*)pdata, 3, 8);
-			}
-        break;
-    }
-}
-
-void OLED_Show_Res(uint16_t _w, uint16_t _h)
-{
-	OledBatch batch;
-	// PCIe
-	if(_w != 0 || _h != 0){
-		char res_char[20]={0};
-		sprintf(res_char,"%d*%d", _w, _h);
-		
-		if(kvm_hw_ver != 2){
-			// cube
-			OLED_ShowString(10, 4, "RES:               ", 8);
-			OLED_ShowString_AlignRight(AlignRightEND, 4, res_char, 8);
-		} else {
-			// pcie
-			res_char[10]=0;
-			OLED_ShowString_AlignRight(36, 3, "         ", 4);
-			OLED_ShowString_AlignRight(36, 3, res_char, 4);
-		}
-	} else {
-		if(kvm_hw_ver != 2){
-			// cube
-			OLED_ShowString(10, 4, "RES:             --", 8);
-		} else {
-			// pcie
-			OLED_ShowString_AlignRight(36, 3, "         ", 4);
-		}
-	}
-}
-
-void OLED_ShowKVMState(uint8_t _Interface, int8_t _EN)
-{
-	OledBatch batch;
-	uint8_t x0 = 84;
-	uint8_t x1 = 104;
-	
-	if(kvm_hw_ver == 2){
-		x0 -= 60;
-		x1 -= 61;
-	}
-    if(_Interface & HDMI_STATE){
-        if(_EN) OLED_ShowState(x1, 1, 1, 21);
-        else    OLED_ShowState(x1, 1, 0, 21);
-    }
-    if(_Interface & HID_STATE){
-        if(_EN) OLED_ShowState(x0, 1, 3, 15);
-        else    OLED_ShowState(x0, 1, 2, 15);
-    }
-    if(_Interface & ETH_STATE){
-        if(_EN) OLED_ShowState(x0, 0, 5, 15);
-        else    OLED_ShowState(x0, 0, 4, 15);
-    }
-    if(_Interface & WIFI_STATE){
-        if(_EN == 1) OLED_ShowState(x1, 0, 7, 15);
-        else if(_EN == 0) OLED_ShowState(x1, 0, 6, 15);
-		else  OLED_ShowString(x1, 0, " -- ", 4);
-    }
-}
-
-void OLED_Show_Network_Error(uint8_t _state)
-{
-	OledBatch batch;
-	if(_state){
-		if(kvm_hw_ver != 2)
-			OLED_ShowError(28, 3, 1);	// [!]
-		// else
-			// OLED_ShowString_AlignRight(5, 2, "!", 4);
-
-	} else {
-		if(kvm_hw_ver != 2)
-			OLED_ShowError(28, 3, 0);
-		// else
-			// OLED_ShowString_AlignRight(5, 2, " ", 4);
 	}
 }

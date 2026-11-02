@@ -1,0 +1,143 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] jpeg: write the encoder tables only when they change
+
+Every JPEG started with JpgEncLoadHuffTab and JpgEncLoadQMatTab writing
+all four Huffman tables and the three quantization tables into the JPU:
+about 750 of the ~960 register writes of a picture, although the tables
+rarely change. The JPU keeps them across pictures: the per-picture
+software reset (JPU_SWReset) only restores the bitstream registers.
+Remember the values last written and skip the writes when the next
+picture's are the same. A hardware reset (JPU_HWReset, also on an encode
+timeout) or a decoder loading its own tables makes the next picture write
+them again.
+
+---
+diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+--- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
++++ b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+@@ -551,6 +551,7 @@ int JpgDecHuffTabSetUp(JpgDecInfo *jpg)
+ 	int HuffLength;
+ 	int v;
+ 
++	JpgEncForgetTables();
+ 	// MIN Tables
+ 	JpuWriteReg(MJPEG_HUFF_CTRL_REG, 0x003);
+ 
+@@ -795,6 +796,7 @@ int JpgDecQMatTabSetUp(JpgDecInfo *jpg)
+ 
+ 	// SetPeriQMatTab
+ 	// Comp 0
++	JpgEncForgetTables();
+ 	JpuWriteReg(MJPEG_QMAT_CTRL_REG, 0x03);
+ 	table = jpg->cInfoTab[0][3];
+ 	for (i = 0; i < 64; i++) {
+@@ -2099,6 +2101,22 @@ static int JpgEncGenHuffTab(JpgEncInfo *
+ 	return 1;
+ }
+ 
++/*
++ * The JPU keeps the tables it was given until a hardware reset or a decoder
++ * loads its own. Encoders mostly use the same tables, so they are written
++ * only when they change instead of about 750 register writes per picture;
++ * JpgEncForgetTables makes the next picture write them again.
++ */
++static bool enc_huff_loaded, enc_qmat_loaded;
++static Uint32 enc_huff_code[4][256], enc_huff_size[4][256];
++static Uint32 enc_qmat[3][64];
++
++void JpgEncForgetTables(void)
++{
++	enc_huff_loaded = false;
++	enc_qmat_loaded = false;
++}
++
+ int JpgEncLoadHuffTab(JpgEncInfo *pEncInfo)
+ {
+ 	int i, j, t;
+@@ -2109,6 +2127,11 @@ int JpgEncLoadHuffTab(JpgEncInfo *pEncIn
+ 			return 0;
+ 	}
+ 
++	if (enc_huff_loaded &&
++	    !memcmp(enc_huff_code, pEncInfo->huffCode, sizeof(enc_huff_code)) &&
++	    !memcmp(enc_huff_size, pEncInfo->huffSize, sizeof(enc_huff_size)))
++		return 1;
++
+ 	JpuWriteReg(MJPEG_HUFF_CTRL_REG, 0x3);
+ 
+ 	for (j = 0; j < 4; j++) {
+@@ -2137,6 +2160,9 @@ int JpgEncLoadHuffTab(JpgEncInfo *pEncIn
+ 		}
+ 	}
+ 	JpuWriteReg(MJPEG_HUFF_CTRL_REG, 0x0);
++	memcpy(enc_huff_code, pEncInfo->huffCode, sizeof(enc_huff_code));
++	memcpy(enc_huff_size, pEncInfo->huffSize, sizeof(enc_huff_size));
++	enc_huff_loaded = true;
+ 	return 1;
+ }
+ 
+@@ -2149,27 +2175,35 @@ int JpgEncLoadQMatTab(JpgEncInfo *pEncIn
+ 	unsigned long long dividend = 0x80000, divisor = 0;
+ 	unsigned long long quotient;
+ #endif
++	Uint32 qmat[3][64];
+ 	int comp, i, t;
+ 	for (comp = 0; comp < 3; comp++) {
+ 		int quantID = pEncInfo->pCInfoTab[comp][3];
+ 		if (quantID >= 4)
+ 			return 0;
+-		t = (comp == 0) ? Q_COMPONENT0 :
+-		    (comp == 1) ? Q_COMPONENT1 :
+-					Q_COMPONENT2;
+-		JpuWriteReg(MJPEG_QMAT_CTRL_REG, 0x3 + t);
+ 		for (i = 0; i < 64; i++) {
+ 			divisor = pEncInfo->pQMatTab[quantID][i];
+ 			do_div(dividend, divisor);
+ 			quotient = dividend;
+ 			dividend = 0x80000;
+ 			// enhace bit precision & rounding Q
+-			JpuWriteReg(MJPEG_QMAT_DATA_REG,
+-				    (divisor << 20) |
+-					(quotient & 0xFFFFF));
++			qmat[comp][i] = (divisor << 20) | (quotient & 0xFFFFF);
+ 		}
++	}
++	if (enc_qmat_loaded && !memcmp(enc_qmat, qmat, sizeof(qmat)))
++		return 1;
++
++	for (comp = 0; comp < 3; comp++) {
++		t = (comp == 0) ? Q_COMPONENT0 :
++		    (comp == 1) ? Q_COMPONENT1 :
++					Q_COMPONENT2;
++		JpuWriteReg(MJPEG_QMAT_CTRL_REG, 0x3 + t);
++		for (i = 0; i < 64; i++)
++			JpuWriteReg(MJPEG_QMAT_DATA_REG, qmat[comp][i]);
+ 		JpuWriteReg(MJPEG_QMAT_CTRL_REG, t);
+ 	}
++	memcpy(enc_qmat, qmat, sizeof(qmat));
++	enc_qmat_loaded = true;
+ 
+ 	return 1;
+ }
+diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.h b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.h
+--- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.h
++++ b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.h
+@@ -333,6 +333,7 @@ void JpgDecGramSetup(JpgDecInfo *jpg);
+ JpgRet CheckJpgEncOpenParam(JpgEncOpenParam *pop);
+ JpgRet CheckJpgEncParam(JpgEncHandle handle, JpgEncParam *param);
+ int JpgEncLoadHuffTab(JpgEncInfo *pJpgEncInfo);
++void JpgEncForgetTables(void);
+ int JpgEncLoadQMatTab(JpgEncInfo *pJpgEncInfo);
+ int JpgEncEncodeHeader(JpgEncHandle handle, JpgEncParamSet *para);
+ 
+diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapi.c b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapi.c
+--- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapi.c
++++ b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapi.c
+@@ -155,6 +155,7 @@ JpgRet JPU_SWReset(void)
+ 
+ JpgRet JPU_HWReset(void)
+ {
++	JpgEncForgetTables();
+ 	if (jdi_hw_reset() < 0)
+ 		return JPG_RET_FAILURE;
+ 

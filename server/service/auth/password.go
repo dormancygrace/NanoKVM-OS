@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"errors"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"NanoKVM-Server/authn"
@@ -30,45 +32,88 @@ func (s *Service) ChangePassword(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "invalid session")
 		return
 	}
-	currentPassword, err := utils.DecodeCredentialPassword(req.CurrentPassword, req.PasswordEncoding)
-	if err != nil || currentPassword == "" {
-		rsp.ErrRsp(c, -3, "current password is required")
-		return
-	}
-	// The current password is a password check like a login: one at a time
-	// per address, failures counted, the lockout applied. Otherwise any
-	// session could run bcrypt back to back (about a second each on the
-	// device's one core) and guess its own account's password.
-	clientIP := GetClientIP(c)
-	release, admitted, code, msg := BeginLoginAttempt(clientIP)
-	if !admitted {
-		time.Sleep(3 * time.Second)
-		rsp.ErrRsp(c, code, msg)
-		return
-	}
-	defer release()
-	if _, authenticated, authErr := authn.DefaultStore.Authenticate(principal.Username, currentPassword); authErr != nil {
-		rsp.ErrRsp(c, -4, "authentication unavailable")
-		return
-	} else if !authenticated {
-		locked, code, msg := RecordLoginFailureFor(clientIP, principal.Username)
-		time.Sleep(2 * time.Second)
-		if locked {
+	// The forced change follows a login with the factory password, which
+	// every device shares: asking for it again proves nothing, and the new
+	// session below spares a second login.
+	forced := principal.MustChangePassword
+	if !forced {
+		currentPassword, err := utils.DecodeCredentialPassword(req.CurrentPassword, req.PasswordEncoding)
+		if err != nil || currentPassword == "" {
+			rsp.ErrRsp(c, -3, "current password is required")
+			return
+		}
+		// The current password is a password check like a login: one at a
+		// time per address, failures counted, the lockout applied. Otherwise
+		// any session could run bcrypt back to back (about a second each on
+		// the device's one core) and guess its own account's password.
+		clientIP := GetClientIP(c)
+		release, admitted, code, msg := BeginLoginAttempt(clientIP)
+		if !admitted {
+			time.Sleep(3 * time.Second)
 			rsp.ErrRsp(c, code, msg)
 			return
 		}
-		rsp.ErrRsp(c, -3, "current password is incorrect")
+		defer release()
+		if _, authenticated, authErr := authn.DefaultStore.Authenticate(principal.Username, currentPassword); authErr != nil {
+			rsp.ErrRsp(c, -4, "authentication unavailable")
+			return
+		} else if !authenticated {
+			locked, code, msg := RecordLoginFailureFor(clientIP, principal.Username)
+			time.Sleep(2 * time.Second)
+			if locked {
+				rsp.ErrRsp(c, code, msg)
+				return
+			}
+			rsp.ErrRsp(c, -3, "current password is incorrect")
+			return
+		}
+	}
+	// The request was admitted with the factory session before its body was
+	// read. The change applies only while that session is still the current
+	// one and the account still has the factory password: checked with the
+	// commit, so an earlier change by the owner cannot be overwritten.
+	var expect func(authn.User) error
+	if forced {
+		version, ok := middleware.CurrentTokenVersion(c)
+		expect = func(user authn.User) error {
+			if !ok || !user.MustChangePassword || user.TokenVersion != version {
+				return errStaleSession
+			}
+			return nil
+		}
+	}
+	user, err := changeUserPassword(principal.Username, req.Password, req.PasswordEncoding, expect)
+	if errors.Is(err, errStaleSession) {
+		rsp.ErrRsp(c, -2, "invalid session")
 		return
 	}
-	if err := changeUserPassword(principal.Username, req.Password, req.PasswordEncoding); err != nil {
+	if err != nil {
 		rsp.ErrRsp(c, -5, err.Error())
 		return
 	}
 
+	// Every earlier session of this user ends (the token version changed).
 	middleware.RevokeUserSessions(principal.Username)
-	clearSessionCookie(c)
-	rsp.OkRsp(c)
 	log.Infof("password changed for user: %s", principal.Username)
+	if !forced {
+		clearSessionCookie(c)
+		rsp.OkRsp(c)
+		return
+	}
+	token, err := middleware.GenerateJWT(user.Username, user.TokenVersion)
+	if err != nil {
+		// The password is changed; the user signs in with it.
+		clearSessionCookie(c)
+		rsp.OkRsp(c)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	setSessionCookie(c, token)
+	data := &proto.ChangePasswordRsp{SignedIn: true}
+	if strings.EqualFold(strings.TrimSpace(c.GetHeader(ReturnTokenHeader)), "true") {
+		data.Token = token
+	}
+	rsp.OkRspWithData(c, data)
 }
 
 func (s *Service) IsPasswordUpdated(c *gin.Context) {
@@ -90,26 +135,28 @@ func (s *Service) IsPasswordUpdated(c *gin.Context) {
 	rsp.OkRspWithData(c, &proto.IsPasswordUpdatedRsp{IsUpdated: !user.MustChangePassword})
 }
 
-func changeUserPassword(username, encodedPassword, encoding string) error {
+var errStaleSession = errors.New("the session is no longer current")
+
+// changeUserPassword sets a password; expect, when set, must accept the
+// account at the moment of the change (authn.Store.SetPasswordAndRunIf).
+func changeUserPassword(username, encodedPassword, encoding string, expect func(authn.User) error) (*authn.User, error) {
 	password, err := utils.DecodeCredentialPassword(encodedPassword, encoding)
 	if err != nil || password == "" {
-		return errInvalidPassword
+		return nil, errInvalidPassword
 	}
 	if err = authn.ValidatePassword(password); err != nil {
-		return err
+		return nil, err
 	}
 	user, err := authn.DefaultStore.Get(username)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if user.SystemAccount && user.Role == authn.RoleAdmin && user.Enabled {
-		_, err = authn.DefaultStore.SetPasswordAndRun(username, password, func() error {
+		return authn.DefaultStore.SetPasswordAndRunIf(username, password, expect, func() error {
 			return systemPasswordUpdater(password)
 		})
-		return err
 	}
-	_, err = authn.DefaultStore.SetPassword(username, password)
-	return err
+	return authn.DefaultStore.SetPasswordAndRunIf(username, password, expect, nil)
 }
 
 func changeRootPassword(password string) error {

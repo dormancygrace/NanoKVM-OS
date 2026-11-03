@@ -33,7 +33,7 @@ export const Password = () => {
       setMsg(t('auth.differentPassword'));
       return;
     }
-    const currentPassword = values.currentPassword;
+    const currentPassword = forced ? '' : values.currentPassword;
     const password = values.password;
 
     api
@@ -50,7 +50,13 @@ export const Password = () => {
           return;
         }
 
-        // The server ended every session of this user; sign in again.
+        // A forced change signs this browser in with the new password; the
+        // reload reads the account again. Otherwise the server ended every
+        // session of this user: sign in again.
+        if (rsp.data?.signedIn) {
+          window.location.replace('/');
+          return;
+        }
         void message.success(t('auth.passwordChanged'));
         notifyAuthExpired();
         navigate('/auth/login', { replace: true });
@@ -93,17 +99,20 @@ export const Password = () => {
         )}
 
         <Form style={{ minWidth: 300, maxWidth: 500 }} onFinish={changePassword}>
-          <Form.Item
-            name="currentPassword"
-            rules={[{ required: true, message: t('auth.noEmptyPassword') }]}
-          >
-            <Input
-              prefix={<LockIcon size={14} />}
-              type="password"
-              autoComplete="current-password"
-              placeholder={t('auth.placeholderCurrentPassword')}
-            />
-          </Form.Item>
+          {/* The factory password is known; a forced change does not ask for it. */}
+          {!forced && (
+            <Form.Item
+              name="currentPassword"
+              rules={[{ required: true, message: t('auth.noEmptyPassword') }]}
+            >
+              <Input
+                prefix={<LockIcon size={14} />}
+                type="password"
+                autoComplete="current-password"
+                placeholder={t('auth.placeholderCurrentPassword')}
+              />
+            </Form.Item>
+          )}
 
           <Form.Item
             name="password"

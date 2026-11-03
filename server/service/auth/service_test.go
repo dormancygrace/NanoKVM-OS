@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -326,7 +327,7 @@ func TestNormalUserPasswordNeverChangesSystemPassword(t *testing.T) {
 	}
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if err := changeUserPassword("alice", encryptForRequest(t, "new-password"), ""); err != nil {
+	if _, err := changeUserPassword("alice", encryptForRequest(t, "new-password"), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	if updates != 0 {
@@ -442,7 +443,7 @@ func TestSystemPasswordFailureRollsBackWebPassword(t *testing.T) {
 	systemPasswordUpdater = func(string) error { return errors.New("passwd failed") }
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if err := changeUserPassword("admin", encryptForRequest(t, "new-password"), ""); err == nil {
+	if _, err := changeUserPassword("admin", encryptForRequest(t, "new-password"), "", nil); err == nil {
 		t.Fatal("system password failure was ignored")
 	}
 	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
@@ -622,5 +623,132 @@ func TestLoginAttemptKeyGroupsIPv6Prefix(t *testing.T) {
 		if got := loginAttemptKey(test.ip); got != test.want {
 			t.Errorf("loginAttemptKey(%q) = %q, want %q", test.ip, got, test.want)
 		}
+	}
+}
+
+// The forced change of the factory password asks for no current password and
+// signs the browser in with the new one; the factory session ends.
+func TestForcedPasswordChangeSignsIn(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+	originalUpdater := systemPasswordUpdater
+	systemPasswordUpdater = func(string) error { return nil }
+	defer func() { systemPasswordUpdater = originalUpdater }()
+
+	service := NewService()
+	router := gin.New()
+	router.POST("/login", service.Login)
+	api := router.Group("/api/auth").Use(middleware.CheckToken())
+	api.POST("/password", service.ChangePassword)
+	api.GET("/account", service.GetAccount)
+
+	factory := loginCookie(t, router, "admin", "admin")
+	recorder := requestJSONRecorder(router, http.MethodPost, "/api/auth/password", map[string]any{
+		"password": encryptForRequest(t, ownerPassword),
+	}, factory)
+	var response struct {
+		Code int                     `json:"code"`
+		Data proto.ChangePasswordRsp `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || response.Code != 0 || !response.Data.SignedIn || response.Data.Token != "" {
+		t.Fatalf("forced change = %d %s", recorder.Code, recorder.Body.String())
+	}
+	var session *http.Cookie
+	for _, cookie := range recorder.Result().Cookies() {
+		if (cookie.Name == middleware.CookieName || cookie.Name == middleware.HTTPCookieName) && cookie.Value != "" {
+			session = cookie
+		}
+	}
+	if session == nil {
+		t.Fatalf("forced change set no session: %v", recorder.Result().Cookies())
+	}
+	if code := requestJSON(router, http.MethodGet, "/api/auth/account", nil, session); code != http.StatusOK {
+		t.Fatalf("new session = %d", code)
+	}
+	if code := requestJSON(router, http.MethodGet, "/api/auth/account", nil, factory); code != http.StatusUnauthorized {
+		t.Fatalf("factory session after change = %d, want 401", code)
+	}
+	if _, ok, err := store.Authenticate("admin", ownerPassword); err != nil || !ok {
+		t.Fatalf("new password: ok=%v err=%v", ok, err)
+	}
+
+	// Once changed, a change needs the current password again.
+	recorder = requestJSONRecorder(router, http.MethodPost, "/api/auth/password", map[string]any{
+		"password": encryptForRequest(t, "another-password"),
+	}, session)
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || response.Code != -3 {
+		t.Fatalf("unforced change without current password = %s", recorder.Body.String())
+	}
+}
+
+// A request admitted with the factory session whose body arrives after the
+// owner's first change must not change the password again or sign in.
+func TestDelayedFactoryRequestCannotChangeAgain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+	originalUpdater := systemPasswordUpdater
+	systemPasswordUpdater = func(string) error { return nil }
+	defer func() { systemPasswordUpdater = originalUpdater }()
+
+	service := NewService()
+	router := gin.New()
+	router.POST("/login", service.Login)
+	api := router.Group("/api/auth").Use(middleware.CheckToken())
+	api.POST("/password", service.ChangePassword)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	factory := loginCookie(t, router, "admin", "admin")
+	post := func(body io.Reader) *http.Request {
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api/auth/password", body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(request), Value: factory.Value})
+		return request
+	}
+	body := func(password string) []byte {
+		data, _ := json.Marshal(map[string]any{"password": encryptForRequest(t, password)})
+		return data
+	}
+
+	reader, writer := io.Pipe()
+	delayed := make(chan *http.Response, 1)
+	go func() {
+		response, err := http.DefaultClient.Do(post(reader))
+		if err != nil {
+			t.Error(err)
+		}
+		delayed <- response
+	}()
+	time.Sleep(300 * time.Millisecond) // admitted, waiting for its body
+
+	response, err := http.DefaultClient.Do(post(bytes.NewReader(body(ownerPassword))))
+	if err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("owner change: %v %v", response, err)
+	}
+	_ = response.Body.Close()
+
+	_, _ = writer.Write(body("attacker-password"))
+	_ = writer.Close()
+	late := <-delayed
+	if late == nil {
+		t.FailNow()
+	}
+	defer late.Body.Close()
+	var result proto.Response
+	if err := json.NewDecoder(late.Body).Decode(&result); err != nil || result.Code == 0 {
+		t.Fatalf("delayed factory request = %+v %v", result, err)
+	}
+	if hasSessionCookie(late.Cookies()) {
+		t.Fatal("delayed factory request got a session")
+	}
+	if _, ok, err := store.Authenticate("admin", ownerPassword); err != nil || !ok {
+		t.Fatalf("owner password replaced: ok=%v err=%v", ok, err)
 	}
 }

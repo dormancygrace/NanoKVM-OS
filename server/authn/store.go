@@ -367,6 +367,13 @@ func (s *Store) SetPassword(username, password string) (*User, error) {
 // system-side update. If that update fails, the account record is rolled back
 // while the store lock is still held.
 func (s *Store) SetPasswordAndRun(username, password string, afterCommit func() error) (*User, error) {
+	return s.SetPasswordAndRunIf(username, password, nil, afterCommit)
+}
+
+// SetPasswordAndRunIf is SetPasswordAndRun when the account passes expect,
+// checked under the store lock with the change, so the account cannot
+// change between the check and the commit.
+func (s *Store) SetPasswordAndRunIf(username, password string, expect func(User) error, afterCommit func() error) (*User, error) {
 	if err := ValidatePassword(password); err != nil {
 		return nil, err
 	}
@@ -384,6 +391,11 @@ func (s *Store) SetPasswordAndRun(username, password string, afterCommit func() 
 	index := userIndex(db.Users, username)
 	if index < 0 {
 		return nil, ErrUserNotFound
+	}
+	if expect != nil {
+		if err = expect(db.Users[index]); err != nil {
+			return nil, err
+		}
 	}
 	previous := *db
 	previous.Users = append([]User(nil), db.Users...)

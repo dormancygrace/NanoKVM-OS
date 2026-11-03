@@ -39,21 +39,25 @@ func publishOLEDATX() {
 	writeOLEDValue(oledATXFile, value)
 }
 
-// publishOLEDViewers runs under viewerGateMutex.
+// publishOLEDViewers runs under viewerGateMutex. A count not written is
+// written again with the next update, even when it is the same.
 func publishOLEDViewers(count int) {
 	if count == oledViewers {
 		return
 	}
-	oledViewers = count
-	writeOLEDValue(oledViewersFile, count)
+	if writeOLEDValue(oledViewersFile, count) {
+		oledViewers = count
+	}
 }
 
-func writeOLEDValue(path string, value int) {
+func writeOLEDValue(path string, value int) bool {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		log.Debugf("OLED state: %v", err)
-		return
+		return false
 	}
 	if err := atomicfile.Write(path, []byte(strconv.Itoa(value)+"\n"), 0o644); err != nil {
 		log.Debugf("OLED state: %v", err)
+		return false
 	}
+	return true
 }

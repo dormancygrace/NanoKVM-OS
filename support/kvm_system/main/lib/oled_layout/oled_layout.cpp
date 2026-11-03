@@ -12,7 +12,8 @@ namespace {
 // with the header at the bottom, so no line, mark or label stays lit in one
 // place. PCIe (narrow): two pages, five seconds each, the mark and the
 // addresses on one, the video and the links on the other. A link box is lit
-// while the link is up; the Wi-Fi row is there only with a Wi-Fi module.
+// while the link is up; the Wi-Fi row is there only with a Wi-Fi module, and
+// then the link boxes are small, in place of the uptime.
 const char wide_default[] =
     "nanokvm-oled 1 wide\n"
     "rotation 0\n"
@@ -20,7 +21,17 @@ const char wide_default[] =
     "pages 2 60\n"
     "image 0 0 24 24 1 page1 00000000c00001e00003e00007e3000fc7801f87c03f07e07e03f0fc01f8f83cfcfc3c7e7e3c3f3f3c1f1f803f0fc07e07e0fc03e1f801e3f000c7e00007c0000780000300000000\n"
     "text 28 2 8 left 0 1 page1 {hostname}\n"
-    "text 28 13 4 left 0 1 page1 UP {uptime}\n"
+    "text 28 13 4 left 0 1 page1,!wifi_module UP {uptime}\n"
+    "rect 28 11 19 11 1 1 page1,wifi_module,hdmi\n"
+    "text 30 13 4 left 0 0 page1,wifi_module,hdmi HDMI\n"
+    "rect 28 11 19 11 0 1 page1,wifi_module,!hdmi\n"
+    "text 30 13 4 left 0 1 page1,wifi_module,!hdmi HDMI\n"
+    "rect 50 11 15 11 1 1 page1,wifi_module,hid\n"
+    "text 52 13 4 left 0 0 page1,wifi_module,hid USB\n"
+    "rect 50 11 15 11 0 1 page1,wifi_module,!hid\n"
+    "text 52 13 4 left 0 1 page1,wifi_module,!hid USB\n"
+    "rect 68 11 15 11 1 1 page1,wifi_module,atx\n"
+    "text 70 13 4 left 0 0 page1,wifi_module,atx ATX\n"
     "line 0 26 126 26 1 page1\n"
     "image 100 13 11 7 1 page1 0e0031804e409f204e4031800e00\n"
     "text 113 13 8 left 0 1 page1 {viewers}\n"
@@ -95,9 +106,19 @@ const char wide_default[] =
     "line 0 38 126 38 1 page2\n"
     "image 103 40 24 24 1 page2 00000000c00001e00003e00007e3000fc7801f87c03f07e07e03f0fc01f8f83cfcfc3c7e7e3c3f3f3c1f1f803f0fc07e07e0fc03e1f801e3f000c7e00007c0000780000300000000\n"
     "text 0 42 8 left 0 1 page2 {hostname}\n"
-    "text 0 53 4 left 0 1 page2 UP {uptime}\n"
-    "image 56 53 11 7 1 page2 0e0031804e409f204e4031800e00\n"
-    "text 69 53 8 left 0 1 page2 {viewers}\n";
+    "text 0 53 4 left 0 1 page2,!wifi_module UP {uptime}\n"
+    "rect 0 51 19 11 1 1 page2,wifi_module,hdmi\n"
+    "text 2 53 4 left 0 0 page2,wifi_module,hdmi HDMI\n"
+    "rect 0 51 19 11 0 1 page2,wifi_module,!hdmi\n"
+    "text 2 53 4 left 0 1 page2,wifi_module,!hdmi HDMI\n"
+    "rect 22 51 15 11 1 1 page2,wifi_module,hid\n"
+    "text 24 53 4 left 0 0 page2,wifi_module,hid USB\n"
+    "rect 22 51 15 11 0 1 page2,wifi_module,!hid\n"
+    "text 24 53 4 left 0 1 page2,wifi_module,!hid USB\n"
+    "rect 40 51 15 11 1 1 page2,wifi_module,atx\n"
+    "text 42 53 4 left 0 0 page2,wifi_module,atx ATX\n"
+    "image 59 53 11 7 1 page2 0e0031804e409f204e4031800e00\n"
+    "text 72 53 8 left 0 1 page2 {viewers}\n";
 const char narrow_default[] =
     "nanokvm-oled 1 narrow\n"
     "rotation 0\n"

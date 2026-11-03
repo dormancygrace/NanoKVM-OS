@@ -181,29 +181,22 @@ func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
 
 // A beta Cube with an LT6911D applies a new EDID without a power cycle, so its
 // first start programs the saved profile over the stock EDID, which declares
-// no RGB range, unless the profile is smaller than the input: that receiver
-// then keeps the old timing until the HDMI cable is reconnected. An LT6911C,
-// or an alpha, still keeps the stock EDID that fits it.
+// no RGB range. An LT6911C, or an alpha, still keeps the stock EDID that fits
+// it.
 func TestCubeLT6911DFirstStartProgramsProfile(t *testing.T) {
 	for _, tc := range []struct {
 		name, board, chip string
-		inputW, inputH    int
 		want              bool
 		powerCycle        bool
 	}{
-		{"beta d, stock 1080p input", "beta", "d", 1920, 1080, true, false},
-		{"beta d, unknown input", "beta", "d", 0, 0, true, false},
-		{"beta d, larger input", "beta", "d", 2560, 1440, false, false},
-		{"beta c", "beta", "c", 1920, 1080, false, true},
+		{"beta d", "beta", "d", true, false},
+		{"beta c", "beta", "c", false, true},
 		// Not measured on an alpha: it keeps the power cycle and the check.
-		{"alpha d", "alpha", "d", 1920, 1080, false, true},
+		{"alpha d", "alpha", "d", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 0, false, 1920)
 			selectBoard(t, tc.board, tc.chip)
-			old := currentInputSize
-			currentInputSize = func() (int, int) { return tc.inputW, tc.inputH }
-			t.Cleanup(func() { currentInputSize = old })
 			if MonitorRequiresPowerCycle() != tc.powerCycle {
 				t.Fatalf("power cycle = %v", MonitorRequiresPowerCycle())
 			}

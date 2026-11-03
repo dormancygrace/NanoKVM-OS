@@ -29,7 +29,8 @@ var (
 // receiver decides what the monitor may advertise: the LT6911UXC, and the
 // LT6911D of a beta Cube, take every profile; the LT6911C, and the LT6911D
 // elsewhere, take 720p and 1080p at 60 Hz until they are measured beyond that.
-// A beta Cube with an LT6911D applies a new EDID without a power cycle. nanokvm_update_edid programs all three.
+// A beta Cube with an LT6911D applies a new EDID without a power cycle.
+// nanokvm_update_edid programs all three.
 func monitorBoard() string {
 	return hardwareIdentity(monitorBoardFile, "alpha", "beta", "pcie")
 }
@@ -89,25 +90,23 @@ func hdmiReceiverModel(chip string) string {
 }
 func MonitorRequiresPowerCycle() bool {
 	board := monitorBoard()
-	// A beta Cube with an LT6911D takes a new EDID at once: the source
-	// switched to the written profile without a power cycle or a replug.
-	// Only that pair is measured; an alpha keeps the power cycle.
+	// A beta Cube with an LT6911D takes a new EDID at once: the EDID tool
+	// replugs HDMI in software after the write. Only that pair is measured;
+	// an alpha keeps the power cycle.
 	return board == "alpha" || (board == "beta" && receiverChip() != "d")
 }
 
 // MonitorHighRefreshSupported reports a receiver that takes the full profile
 // set (above 1080p60, QHD, UHD, portrait): the LT6911UXC, on any board.
 func MonitorHighRefreshSupported() bool {
-	return MonitorProfileSupported() && (receiverChip() == "ux" || MonitorReplugWhenSmaller())
+	return MonitorProfileSupported() && (receiverChip() == "ux" || betaCubeLT6911D())
 }
 
-// MonitorReplugWhenSmaller reports a beta Cube with an LT6911D. Measured
-// there: it captured every profile tried (3840x2160 at 30 Hz, 2560x1440 at
-// 60, 1920x1080 at 90) and applied each EDID at once, without a power cycle.
-// A profile of the same or a larger size follows by itself; after one smaller
-// than the input the receiver kept the old timing and sent no frames until
-// the HDMI cable was reconnected.
-func MonitorReplugWhenSmaller() bool {
+// betaCubeLT6911D reports a beta Cube with an LT6911D. Measured there: it
+// captured every profile tried (3840x2160 at 30 Hz, 2560x1440 at 60,
+// 1920x1080 at 90), and the source followed each EDID write without a power
+// cycle, after the software replug nanokvm_update_edid makes on that board.
+func betaCubeLT6911D() bool {
 	return monitorBoard() == "beta" && receiverChip() == "d"
 }
 

@@ -137,7 +137,7 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 		// power cycle, so it is checked like a PCIe receiver: its stock EDID
 		// declares no RGB range, and a source sends limited RGB at 1080p60 that
 		// the receiver takes as full range (a pale picture).
-		if receiverChip() == "d" && !MonitorReplugWhenSmaller() {
+		if receiverChip() == "d" && !betaCubeLT6911D() {
 			return "", nil
 		}
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
@@ -174,13 +174,6 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	path := monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
 	if monitorPortraitEnabledLocked() {
 		path = portraitProfilePathAt(savedPortraitResolutionLocked(), GetScreen().FPS)
-	}
-	// That receiver keeps the old timing after a profile smaller than the
-	// input, until the HDMI cable is reconnected: no such write without the
-	// user. Nothing is recorded, so a later start tries again.
-	if MonitorReplugWhenSmaller() && profileSmallerThanInputLocked() {
-		log.Warnf("not programming %s at start: smaller than the current HDMI input", filepath.Base(path))
-		return "", nil
 	}
 	// On failure no profile is recorded, so the next start tries again.
 	if err := hw.apply(path); err != nil {
@@ -396,32 +389,4 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 		return persistMonitorPortraitLocked(portrait)
 	}
 	return nil
-}
-
-// currentInputSize is the HDMI input now; a variable so tests can set it.
-var currentInputSize = func() (int, int) {
-	return ReadVideoValue("/run/nanokvm/width"), ReadVideoValue("/run/nanokvm/height")
-}
-
-// profileSmallerThanInputLocked reports a saved monitor (portrait or
-// landscape, Auto as the size it stands for) smaller in either direction than
-// the HDMI input now. An unknown input is not larger.
-func profileSmallerThanInputLocked() bool {
-	width, height := currentInputSize()
-	if width <= 0 || height <= 0 {
-		return false
-	}
-	var w, h int
-	if monitorPortraitEnabledLocked() {
-		resolution := savedPortraitResolutionLocked()
-		w, h = int(PortraitWidth(resolution)), int(resolution)
-	} else {
-		monitor := savedMonitorResolutionLocked()
-		if monitor == 0 {
-			monitor = AutoMonitorHeight()
-		}
-		mw, mh := MonitorSize(monitor)
-		w, h = int(mw), int(mh)
-	}
-	return w > 0 && h > 0 && (w < width || h < height)
 }

@@ -203,14 +203,12 @@ func videoCapabilities() gin.H {
 		"monitor": gin.H{
 			"programmable":       programmable,
 			"requiresPowerCycle": common.MonitorRequiresPowerCycle(),
-			// A profile smaller than the input needs the HDMI cable reconnected.
-			"replugWhenSmaller": common.MonitorReplugWhenSmaller(),
-			"powerCyclePending": common.MonitorPowerCyclePending(),
-			"followsStreamRate": common.MonitorRefreshFollowsStream(),
-			"selected":          selectedMonitorResolution(),
-			"refreshHz":         common.MonitorRefreshHz(),
-			"modes":             monitorModes,
-			"aspects":           common.MonitorAspects,
+			"powerCyclePending":  common.MonitorPowerCyclePending(),
+			"followsStreamRate":  common.MonitorRefreshFollowsStream(),
+			"selected":           selectedMonitorResolution(),
+			"refreshHz":          common.MonitorRefreshHz(),
+			"modes":              monitorModes,
+			"aspects":            common.MonitorAspects,
 			"portrait": gin.H{
 				"enabled": portrait, "resolution": common.PortraitResolution(),
 				"profiles": portraitProfiles,

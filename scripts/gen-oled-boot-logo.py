@@ -28,8 +28,9 @@ WIDE_TURN = [0xC8, 0xA1]   # OLED_DisplayTurn(0)
 NARROW_TURN = [0xA0, 0xC0]  # OLED_Revolve()
 DISPLAY_ON = [0x8D, 0x14, 0xAF]
 # The narrow (PCIe) panel is a 64x32 window: OLED_Set_Pos adds 32 to the
-# column and 8 to the page.
-BOARDS = {'beta': 'wide', 'lite': 'wide', 'pcie': 'narrow'}
+# column and 8 to the page. The address is the one kvm_system tries first
+# (firmware/boards/README.md); nkoled falls back to the other.
+BOARDS = {'beta': ('wide', 0x3D), 'lite': ('wide', 0x3D), 'pcie': ('narrow', 0x3C)}
 
 # The NanoKVM OS mark (web/public/nanokvm-os-connection.svg): two chevrons
 # drawn with a 10-unit round stroke and a rounded square, in a 64x64 box.
@@ -121,8 +122,8 @@ def logo(panel):
     return frame
 
 
-def image(panel):
-    out = bytearray(b'NKOL' + bytes([1, 0, 0x3C, 0]))
+def image(panel, address):
+    out = bytearray(b'NKOL' + bytes([1, 0, address, 0]))
 
     def record(control, data):
         for i in range(0, len(data), 255):
@@ -143,8 +144,8 @@ def image(panel):
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    for board, panel in BOARDS.items():
-        (out / f'{board}.bin').write_bytes(image(panel))
+    for board, (panel, address) in BOARDS.items():
+        (out / f'{board}.bin').write_bytes(image(panel, address))
 
 
 if __name__ == '__main__':

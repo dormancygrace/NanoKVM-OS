@@ -7,7 +7,7 @@ test('auto zram stays auto when toggled', () => {
   // 52 MiB is computed, not offered: sending it would be rejected.
   assert.equal(swapRequestSize('zram', { sizeMiB: 52, auto: true }), 0);
   // A computed size that happens to be an offered one must not become manual.
-  assert.equal(swapRequestSize('zram', { sizeMiB: 128, auto: true }), 0);
+  assert.equal(swapRequestSize('zram', { sizeMiB: 64, auto: true }), 0);
 });
 
 test('manual sizes are sent as they are', () => {

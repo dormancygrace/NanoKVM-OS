@@ -117,7 +117,7 @@ func zramAutoDefault() bool {
 func validSwapRequest(req memorySwapRequest) bool {
 	switch req.Kind {
 	case "zram":
-		return req.SizeMiB == 0 || req.SizeMiB == 32 || req.SizeMiB == 64 || req.SizeMiB == 128 || req.SizeMiB == 162
+		return req.SizeMiB == 0 || req.SizeMiB == 32 || req.SizeMiB == 64
 	case "sd":
 		return req.SizeMiB == 128 || req.SizeMiB == 256 || req.SizeMiB == 512
 	}
@@ -164,7 +164,8 @@ func readMemoryStatus() (memoryStatus, error) {
 		if !ok {
 			continue
 		}
-		if key == "ZRAM_SIZE" && value == "auto" {
+		// S38memory reads the sizes above auto offered before (128, 162) as auto.
+		if key == "ZRAM_SIZE" && (value == "auto" || value == "128" || value == "162") {
 			result.Zram.Auto = true
 			continue
 		}

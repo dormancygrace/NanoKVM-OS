@@ -223,7 +223,7 @@ export const Memory = () => {
 
   function swapCard(kind: 'zram' | 'sd', swap: MemorySwap) {
     // zram 0: "auto", half of the Linux memory.
-    const sizes = kind === 'zram' ? [0, 32, 64, 128, 162] : [128, 256, 512];
+    const sizes = kind === 'zram' ? [0, 32, 64] : [128, 256, 512];
     // Auto zram is size 0 in requests; sizeMiB is then the computed size.
     const requestSize = swapRequestSize(kind, swap);
     return (

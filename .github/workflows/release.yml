@@ -10,7 +10,8 @@ name: Release
 # environment, so the signing keys are used only after a maintainer approves
 # the run. It signs the packages that changed and both indexes, and attaches
 # them to immutable os-packages-v* technical releases. Public OS releases
-# contain corresponding source, checksums and the SD image only when asked.
+# contain corresponding source and checksums; SD image releases also include
+# the stock Sipeed migration package.
 # A patch release is published at once, which publishes its packages (apk-repository.yml); a minor release and a pushed tag
 # stay drafts for their notes.
 #
@@ -34,7 +35,7 @@ on:
         type: boolean
         default: false
       stock_installer:
-        description: 'Include experimental stock migration package (requires stock-device qualification)'
+        description: 'Also include the stock migration package without publishing an SD image'
         type: boolean
         default: false
       dry_run:
@@ -201,7 +202,7 @@ jobs:
       - name: Packages, root file system and image
         if: steps.version.outputs.skip != 'true'
         env:
-          BUILD_STOCK_INSTALLER: ${{ inputs.stock_installer == true || github.event_name == 'pull_request' }}
+          BUILD_STOCK_INSTALLER: ${{ inputs.stock_installer == true || steps.version.outputs.image == 'true' || github.event_name == 'pull_request' }}
           NANOKVM_CHANNEL: ${{ steps.version.outputs.channel }}
           # Compare with the newest tested set, including betas; package-versions.py
           # rebuilds every prerelease package when producing a stable release.

@@ -3,8 +3,10 @@
 **Development preview.** The offline package and SSH installer are implemented
 and tested on host fixtures. Booting the migration FIT through stock Sipeed
 U-Boot, cold boot after the partition switch, and real device migration still
-need qualification. No migration package is included in releases by default.
-Use the [full SD image](INSTALL.md) for a qualified installation today.
+need qualification for the v4.0.0 candidate. Publication remains pending device
+testing. Starting with v4.0.0, releases with a full SD image also include the
+migration package. The [full SD image](INSTALL.md) remains available for a
+clean installation.
 
 Both methods install the same `nanokvm_X.Y.Z.tar.gz` release asset. This is a
 stock **offline application update package**, not an APK. It replaces the stock
@@ -301,10 +303,11 @@ provides both `config-sg2002_licheervnano_sd` (the
 and `config-sg2002_licheervnano_sd_minimal` (the NanoKVM OS loader selection).
 These source and artifact checks still require physical boot qualification.
 
-The Release workflow builds the installer in pull-request dry runs. Publishing
-it requires the explicit `stock_installer` input, disabled by default. Public
-release checksums include it, and publication retries retain the original
-asset bytes. Enabling that input is for after stock-device qualification.
+The Release workflow builds the installer in pull-request dry runs and whenever
+an SD image is included, including releases triggered by a tag. For a release
+without an image, `stock_installer` can include the migration package separately.
+Public release checksums cover it, and publication retries retain the original
+asset bytes. Qualify the candidate on stock hardware before publishing it.
 
 Host checks:
 

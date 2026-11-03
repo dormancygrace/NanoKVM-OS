@@ -6,25 +6,33 @@ uses it for the filename and original-installation metadata.
 
 | Artifact | Stable example | Beta example |
 |---|---|---|
-| OS release / Git tag | `v3.7.0` | `v3.7.0-beta.2` |
-| GitHub release title | `NanoKVM OS v3.7.0` | `NanoKVM OS v3.7.0-beta.2` |
-| Full SD image | `NanoKVM-OS-v3.7.0.img.zip` | `NanoKVM-OS-v3.7.0-beta.2.img.zip` |
-| APK upstream version | `3.7.0` | `3.7.0_beta2` |
-| Corresponding source | `NanoKVM-OS-v3.7.0-source.tar.xz` | `NanoKVM-OS-v3.7.0-beta.2-source.tar.xz` |
+| OS release / Git tag | `v4.0.0` | `v4.0.0-beta.2` |
+| GitHub release title | `NanoKVM OS v4.0.0` | `NanoKVM OS v4.0.0-beta.2` |
+| Full SD image | `NanoKVM-OS-v4.0.0.img.zip` | `NanoKVM-OS-v4.0.0-beta.2.img.zip` |
+| APK upstream version | `4.0.0` | `4.0.0_beta2` |
+| Corresponding source | `NanoKVM-OS-v4.0.0-source.tar.xz` | `NanoKVM-OS-v4.0.0-beta.2-source.tar.xz` |
+| Stock migration package | `nanokvm_4.0.0.tar.gz` | `nanokvm_4.0.0.tar.gz` (for `v4.0.0-beta.2`) |
 
 The ZIP contains the same stem with `.img`. Checksums use `SHA256SUMS`.
+
+Starting with v4.0.0, releases that include an SD image also include the
+[stock migration package](stock-install.md). Its numeric `nanokvm_X.Y.Z.tar.gz`
+filename is required by the Sipeed offline updater; do not rename it. The
+archive records the complete target version internally, including a beta
+suffix. It is a public download alongside the image and corresponding source;
+APK packages and indexes remain in technical package storage.
 A local debug image adds `-debug` before `.img.zip`; this is a build-profile
 qualifier, not an independent release version.
 
-A patch such as `v3.7.1` may publish only packages and corresponding source.
+A patch such as `v4.0.1` may publish only packages and corresponding source.
 The latest-image badge and download link then remain on the newest release
 that actually includes an image. Stable excludes beta images; the beta channel
 can offer either stable or beta releases according to its existing ordering.
 
 `firmware/alpine/release.env` defines the OS baseline and its APK-comparable
 version. `/boot/image.json` records the original installation and is not replaced
-by package updates. About can therefore show OS `v3.7.1` installed from image
-`v3.7.0` without implying that the SD card was reflashed.
+by package updates. About can therefore show OS `v4.0.1` installed from image
+`v4.0.0` without implying that the SD card was reflashed.
 
 ## Historical independent image versions
 

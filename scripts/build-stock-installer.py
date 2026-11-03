@@ -226,13 +226,15 @@ exec /kvmapp/system/init.d/S95nanokvm restart
                  'dir /dev 755 0 0', 'nod /dev/console 600 0 0 c 5 1', 'nod /dev/null 666 0 0 c 1 3',
                  f'file /init {work / "init"} 755 0 0',
                  f'file /sbin/stock-layout {payload / "stock-layout"} 755 0 0']
-        # The detection DTB used under stock OpenSBI exposes only RV64IMAFDC.
+        # The recovery DTB does not enable XTheadVector under stock OpenSBI.
         # Buildroot's C906 tools can use XTheadVector (mkfs.f2fs SIGILLs while
         # parsing -l). Keep recovery tools and their loader/libraries together
         # from the portable Alpine rootfs that this package already installs.
         with tarfile.open(rootfs, 'r:gz') as root:
             members = {m.name.removeprefix('./'): m for m in root.getmembers()}
-            copied = set()
+            # Alpine's libc name aliases its loader; preserve one musl copy.
+            copied = {'/lib/libc.musl-riscv64.so.1'}
+            lines.append('slink /lib/libc.musl-riscv64.so.1 ld-musl-riscv64.so.1 777 0 0')
             def copy_elf(name, destination):
                 if destination in copied:
                     return
@@ -251,9 +253,9 @@ exec /kvmapp/system/init.d/S95nanokvm restart
                     if name is None:
                         raise ValueError(f'missing recovery library {library}')
                     copy_elf(name, '/lib/' + library)
+            copy_elf('lib/ld-musl-riscv64.so.1', '/lib/ld-musl-riscv64.so.1')
             copy_elf('bin/busybox', '/busybox')
             copy_elf('usr/sbin/mkfs.f2fs', '/sbin/mkfs.f2fs')
-            copy_elf('lib/ld-musl-riscv64.so.1', '/lib/ld-musl-riscv64.so.1')
         for applet in ('awk cat chmod cmp cp dd df echo grep gzip losetup mkdir mount mv reboot rm sha256sum sh sleep sync tar touch umount wc') .split():
             lines.append(f'slink /bin/{applet} ../busybox 777 0 0')
         listing = work / 'initramfs.list'

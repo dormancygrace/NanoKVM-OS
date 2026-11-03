@@ -52,6 +52,7 @@ func vmRouter(r *gin.Engine) {
 
 	// ATX switch: the board's default is written at the first start.
 	vm.EnsureATXSetting()
+	vm.PublishOLEDState()
 	api.GET("/vm/atx", service.GetATX)
 	admin.POST("/vm/atx", service.SetATX)
 

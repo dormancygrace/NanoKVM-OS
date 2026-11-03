@@ -57,6 +57,8 @@ struct kvm_sys_state_t {
 	int16_t hdmi_height = 0;		// cat /run/nanokvm/height
 	int8_t type = 0;				// cat /kvmapp/kvm/type
 	int8_t now_fps = 0;				// cat /run/nanokvm/now_fps
+	int16_t viewers = 0;			// cat /run/nanokvm/viewers
+	int8_t atx = -1;				// cat /run/nanokvm/atx: 1 on, 0 off, -1 not written yet
 	int16_t qlty = 0;				// cat /kvmapp/kvm/qlty
 	int8_t oled_thread_running = 0;
 	int8_t key_thread_running = 0;

@@ -1,40 +1,141 @@
 #include "oled_layout.h"
 #include "oled_font.h"
 
+#include <algorithm>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
 namespace {
 
-// The screen the roaming status drew before layouts: the address, the
-// stream, then the frame rate and link marks, moved a page at a time.
-// The roaming status was inspired by IronKVM / yuzi-co (Vadim), 3eb019f5
-// and 5c248538.
+// The built-in layouts. Cube (wide): two screens a minute each, the second
+// with the header at the bottom, so no line, mark or label stays lit in one
+// place. PCIe (narrow): two pages, five seconds each, the mark and the
+// addresses on one, the video and the links on the other. A link box is lit
+// while the link is up; the Wi-Fi row is there only with a Wi-Fi module.
 const char wide_default[] =
     "nanokvm-oled 1 wide\n"
     "rotation 0\n"
-    "burnin roam 120 32\n"
-    "text 0 0 16 left 0 1 - {ip:-15}\n"
-    "text 0 16 8 left 0 1 - {codec:-4} {width:4}X{height:-4}\n"
-    "text 0 24 8 left 0 1 - {fps:3} FPS E  W\n"
-    "text 54 24 8 left 0 1 eth +\n"
-    "text 54 24 8 left 0 1 !eth -\n"
-    "text 72 24 8 left 0 1 wifi +\n"
-    "text 72 24 8 left 0 1 !wifi -\n";
-
+    "burnin shift\n"
+    "pages 2 60\n"
+    "image 0 0 24 24 1 page1 00000000c00001e00003e00007e3000fc7801f87c03f07e07e03f0fc01f8f83cfcfc3c7e7e3c3f3f3c1f1f803f0fc07e07e0fc03e1f801e3f000c7e00007c0000780000300000000\n"
+    "text 28 2 8 left 0 1 page1 {hostname}\n"
+    "text 28 13 4 left 0 1 page1 UP {uptime}\n"
+    "line 0 26 126 26 1 page1\n"
+    "image 100 13 11 7 1 page1 0e0031804e409f204e4031800e00\n"
+    "text 113 13 8 left 0 1 page1 {viewers}\n"
+    "rect 0 29 9 11 1 1 page1,eth\n"
+    "text 1 31 8 left 0 0 page1,eth E\n"
+    "rect 0 29 9 11 0 1 page1,!eth\n"
+    "text 1 31 8 left 0 1 page1,!eth E\n"
+    "text 13 31 8 left 0 1 page1,eth {eth_ip}\n"
+    "text 13 31 8 left 0 1 page1,!eth not connected\n"
+    "rect 0 41 9 11 1 1 page1,wifi_module,wifi\n"
+    "text 1 43 8 left 0 0 page1,wifi_module,wifi W\n"
+    "rect 0 41 9 11 0 1 page1,wifi_module,!wifi\n"
+    "text 1 43 8 left 0 1 page1,wifi_module,!wifi W\n"
+    "text 13 43 8 left 0 1 page1,wifi {wifi_ip}\n"
+    "text 13 43 8 left 0 1 page1,wifi_module,!wifi not connected\n"
+    "rect 25 41 27 11 1 1 page1,!wifi_module,atx,hdmi\n"
+    "text 26 43 8 left 0 0 page1,!wifi_module,atx,hdmi HDMI\n"
+    "rect 25 41 27 11 0 1 page1,!wifi_module,atx,!hdmi\n"
+    "text 26 43 8 left 0 1 page1,!wifi_module,atx,!hdmi HDMI\n"
+    "rect 56 41 21 11 1 1 page1,!wifi_module,atx,hid\n"
+    "text 57 43 8 left 0 0 page1,!wifi_module,atx,hid USB\n"
+    "rect 56 41 21 11 0 1 page1,!wifi_module,atx,!hid\n"
+    "text 57 43 8 left 0 1 page1,!wifi_module,atx,!hid USB\n"
+    "rect 81 41 21 11 1 1 page1,!wifi_module,atx\n"
+    "text 82 43 8 left 0 0 page1,!wifi_module,atx ATX\n"
+    "rect 37 41 27 11 1 1 page1,!wifi_module,!atx,hdmi\n"
+    "text 38 43 8 left 0 0 page1,!wifi_module,!atx,hdmi HDMI\n"
+    "rect 37 41 27 11 0 1 page1,!wifi_module,!atx,!hdmi\n"
+    "text 38 43 8 left 0 1 page1,!wifi_module,!atx,!hdmi HDMI\n"
+    "rect 69 41 21 11 1 1 page1,!wifi_module,!atx,hid\n"
+    "text 70 43 8 left 0 0 page1,!wifi_module,!atx,hid USB\n"
+    "rect 69 41 21 11 0 1 page1,!wifi_module,!atx,!hid\n"
+    "text 70 43 8 left 0 1 page1,!wifi_module,!atx,!hid USB\n"
+    "line 0 53 126 53 1 page1\n"
+    "text 0 56 8 left 0 1 page1,stream {codec} {width}x{height}\n"
+    "text 66 56 8 right 60 1 page1,stream {fps} FPS\n"
+    "text 0 56 8 left 0 1 page1,!stream no video\n"
+    "text 0 1 8 left 0 1 page2,stream {codec} {width}x{height}\n"
+    "text 66 1 8 right 60 1 page2,stream {fps} FPS\n"
+    "text 0 1 8 left 0 1 page2,!stream no video\n"
+    "line 0 10 126 10 1 page2\n"
+    "rect 0 13 9 11 1 1 page2,eth\n"
+    "text 1 15 8 left 0 0 page2,eth E\n"
+    "rect 0 13 9 11 0 1 page2,!eth\n"
+    "text 1 15 8 left 0 1 page2,!eth E\n"
+    "text 13 15 8 left 0 1 page2,eth {eth_ip}\n"
+    "text 13 15 8 left 0 1 page2,!eth not connected\n"
+    "rect 0 25 9 11 1 1 page2,wifi_module,wifi\n"
+    "text 1 27 8 left 0 0 page2,wifi_module,wifi W\n"
+    "rect 0 25 9 11 0 1 page2,wifi_module,!wifi\n"
+    "text 1 27 8 left 0 1 page2,wifi_module,!wifi W\n"
+    "text 13 27 8 left 0 1 page2,wifi {wifi_ip}\n"
+    "text 13 27 8 left 0 1 page2,wifi_module,!wifi not connected\n"
+    "rect 25 25 27 11 1 1 page2,!wifi_module,atx,hdmi\n"
+    "text 26 27 8 left 0 0 page2,!wifi_module,atx,hdmi HDMI\n"
+    "rect 25 25 27 11 0 1 page2,!wifi_module,atx,!hdmi\n"
+    "text 26 27 8 left 0 1 page2,!wifi_module,atx,!hdmi HDMI\n"
+    "rect 56 25 21 11 1 1 page2,!wifi_module,atx,hid\n"
+    "text 57 27 8 left 0 0 page2,!wifi_module,atx,hid USB\n"
+    "rect 56 25 21 11 0 1 page2,!wifi_module,atx,!hid\n"
+    "text 57 27 8 left 0 1 page2,!wifi_module,atx,!hid USB\n"
+    "rect 81 25 21 11 1 1 page2,!wifi_module,atx\n"
+    "text 82 27 8 left 0 0 page2,!wifi_module,atx ATX\n"
+    "rect 37 25 27 11 1 1 page2,!wifi_module,!atx,hdmi\n"
+    "text 38 27 8 left 0 0 page2,!wifi_module,!atx,hdmi HDMI\n"
+    "rect 37 25 27 11 0 1 page2,!wifi_module,!atx,!hdmi\n"
+    "text 38 27 8 left 0 1 page2,!wifi_module,!atx,!hdmi HDMI\n"
+    "rect 69 25 21 11 1 1 page2,!wifi_module,!atx,hid\n"
+    "text 70 27 8 left 0 0 page2,!wifi_module,!atx,hid USB\n"
+    "rect 69 25 21 11 0 1 page2,!wifi_module,!atx,!hid\n"
+    "text 70 27 8 left 0 1 page2,!wifi_module,!atx,!hid USB\n"
+    "line 0 38 126 38 1 page2\n"
+    "image 103 40 24 24 1 page2 00000000c00001e00003e00007e3000fc7801f87c03f07e07e03f0fc01f8f83cfcfc3c7e7e3c3f3f3c1f1f803f0fc07e07e0fc03e1f801e3f000c7e00007c0000780000300000000\n"
+    "text 0 42 8 left 0 1 page2 {hostname}\n"
+    "text 0 53 4 left 0 1 page2 UP {uptime}\n"
+    "image 56 53 11 7 1 page2 0e0031804e409f204e4031800e00\n"
+    "text 69 53 8 left 0 1 page2 {viewers}\n";
 const char narrow_default[] =
     "nanokvm-oled 1 narrow\n"
     "rotation 0\n"
-    "burnin roam 60 24\n"
-    "text 0 0 4 left 0 1 - {ip:-15}\n"
-    "text 0 8 4 left 0 1 - {codec:-4} {width:4}X{height:-4}\n"
-    "text 0 16 4 left 0 1 - {fps:3} FPS E  W\n"
-    "text 36 16 4 left 0 1 eth +\n"
-    "text 36 16 4 left 0 1 !eth -\n"
-    "text 48 16 4 left 0 1 wifi +\n"
-    "text 48 16 4 left 0 1 !wifi -\n";
-
+    "burnin shift\n"
+    "pages 2 5\n"
+    "image 0 0 16 16 1 page1 0000000007000e001ce038707038e39c738e3b871c0e0e1c0738007000e00000\n"
+    "text 19 0 4 left 45 1 page1 {hostname}\n"
+    "text 19 8 4 left 45 1 page1 UP {uptime}\n"
+    "text 0 16 4 left 0 1 page1 E\n"
+    "text 7 16 4 left 57 1 page1,eth {eth_ip}\n"
+    "text 7 16 4 left 57 1 page1,!eth --\n"
+    "text 0 24 4 left 0 1 page1,wifi_module W\n"
+    "text 7 24 4 left 57 1 page1,wifi {wifi_ip}\n"
+    "text 7 24 4 left 57 1 page1,wifi_module,!wifi --\n"
+    "text 0 0 4 left 0 1 page2,stream {codec} {width}X{height}\n"
+    "text 0 0 4 left 0 1 page2,!stream NO VIDEO\n"
+    "text 0 8 4 left 0 1 page2,stream {fps} FPS\n"
+    "image 44 9 9 5 1 page2 3e0049009c8049003e00\n"
+    "text 55 8 4 left 0 1 page2 {viewers}\n"
+    "text 0 24 4 left 0 1 page2,eth ETH\n"
+    "text 15 24 4 left 0 1 page2,hdmi HDMI\n"
+    "text 34 24 4 left 0 1 page2,hid USB\n"
+    "text 50 24 4 left 0 1 page2,atx ATX\n";
+// The boot logo, which U-Boot draws first (scripts/gen-oled-boot-logo.py
+// writes the same pixels), kept until the system is up.
+const char wide_splash[] =
+    "nanokvm-oled 1 wide\n"
+    "rotation 0\n"
+    "burnin none\n"
+    "image 44 2 40 40 1 - 000000000000000000000003c000000007c00000000fe00000001fe00000003fc00000007fc3c00000ff83e00001ff07f00003fe07f80007fc03fc000ff803fe001ff001ff003fe000ff807fc0007fc0ff807e3fe0ff00ff1ff0ff80ff0ff87fc0ff07fc3fe0ff03fe1ff0ff01ff0ff8ff00ff07fc7e01ff03fe0003fe01ff0007fc00ff800ff8007fc01ff0003fc03fe0001fe07fc0000fe0ff800007c1ff000003c3fe00000003fc00000007f800000007f000000003e000000003c00000000000000000000000\n"
+    "text 33 48 8 left 0 1 - NanoKVM\n"
+    "rect 79 46 15 11 1 1 -\n"
+    "text 80 48 8 left 0 0 - OS\n";
+const char narrow_splash[] =
+    "nanokvm-oled 1 narrow\n"
+    "rotation 0\n"
+    "burnin none\n"
+    "image 16 0 32 32 1 - 0000000000080000003e0000007e000000fe000001fe100003fc7c0007f87e000ff07f001fe07f803fc03fc07f801fe0ff000ff0fe07e7f8fe07e3fcff07e1fe7f87e0ff3fc7e07f1fe7e07f0ff000ff07f801fe03fc03fc01fe07f800fe0ff0007e1fe0003e3fc000087f8000007f0000007e0000007c000000100000000000\n";
 // Splits off the next space-separated field; rest keeps the remainder.
 bool field(const char *&rest, std::string *value)
 {
@@ -71,14 +172,18 @@ bool condition(const char *&rest, OledItem *item)
     std::string text;
     if (!field(rest, &text)) return false;
     if (text == "-") return true;
-    item->when_not = text[0] == '!';
-    const std::string name = text.substr(item->when_not ? 1 : 0);
-    static const char *const names[] = {"eth", "wifi", "hdmi", "hid", "stream"};
-    for (int i = 0; i < 5; i++) {
-        if (name == names[i]) {
-            item->when = i + 1;
-            return true;
-        }
+    static const char *const names[] = {"eth", "wifi", "hdmi", "hid", "stream", "wifi_module", "atx",
+                                         "page1", "page2", "page3", "page4"};
+    size_t start = 0;
+    for (int n = 0; n < OLED_LAYOUT_MAX_CONDITIONS; n++) {
+        const size_t end = std::min(text.find(',', start), text.size());
+        item->when_not[n] = text[start] == '!';
+        const std::string name = text.substr(start + item->when_not[n], end - start - item->when_not[n]);
+        for (int i = 0; i < 11 && !item->when[n]; i++)
+            if (name == names[i]) item->when[n] = i + 1;
+        if (!item->when[n]) return false;
+        if (end == text.size()) return true;
+        start = end + 1;
     }
     return false;
 }
@@ -126,6 +231,7 @@ bool variable_value(const std::string &name, const OledValues &values, std::stri
     else if (name == "width") *value = std::to_string(values.width);
     else if (name == "height") *value = std::to_string(values.height);
     else if (name == "fps") *value = std::to_string(values.fps);
+    else if (name == "viewers") *value = std::to_string(values.viewers);
     else return false;
     return true;
 }
@@ -295,9 +401,11 @@ void draw_image(const Canvas &canvas, const OledItem &item)
 
 bool condition_holds(const OledItem &item, const OledValues &values)
 {
-    if (!item.when) return true;
-    const bool state[] = {values.eth, values.wifi, values.hdmi, values.hid, values.stream};
-    return state[item.when - 1] != item.when_not;
+    const bool state[] = {values.eth, values.wifi, values.hdmi, values.hid, values.stream, values.wifi_module,
+                          values.atx, values.page == 0, values.page == 1, values.page == 2, values.page == 3};
+    for (int n = 0; n < OLED_LAYOUT_MAX_CONDITIONS && item.when[n]; n++)
+        if (state[item.when[n] - 1] == item.when_not[n]) return false;
+    return true;
 }
 
 } // namespace
@@ -305,6 +413,11 @@ bool condition_holds(const OledItem &item, const OledValues &values)
 const char *oled_layout_default(bool narrow)
 {
     return narrow ? narrow_default : wide_default;
+}
+
+const char *oled_layout_splash(bool narrow)
+{
+    return narrow ? narrow_splash : wide_splash;
 }
 
 bool oled_layout_parse(const char *text, OledLayout *layout, std::string *error)
@@ -342,6 +455,8 @@ bool oled_layout_parse(const char *text, OledLayout *layout, std::string *error)
                 parsed.burnin = mode == "shift" ? 's' : 'n';
                 ok = (mode == "shift" || mode == "none") && !*rest;
             }
+        } else if (kind == "pages") {
+            ok = number(rest, 1, 4, &parsed.pages) && number(rest, 1, 60, &parsed.page_seconds) && !*rest;
         } else if (parsed.items.size() < OLED_LAYOUT_MAX_ITEMS) {
             OledItem item;
             ok = parse_item(kind, rest, &item);

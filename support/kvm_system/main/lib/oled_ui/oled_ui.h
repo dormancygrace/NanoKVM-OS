@@ -8,6 +8,10 @@ void kvm_wifi_config_ui_disp(uint8_t first_disp, uint8_t subpage_changed);
 void oled_auto_sleep_time_update(void);
 void oled_auto_sleep(void);
 void kvm_show_UE(void);
+// The boot logo (oled_layout_splash), until the server has started (it
+// writes /run/nanokvm/atx) or for two minutes; then the display goes off if
+// the user switched it off.
+void kvm_oled_splash(void);
 
 // A non-persistent, bounded wakeup used only when the user has disabled the
 // panel and a usable IPv4 address is newly acquired. The system-state worker

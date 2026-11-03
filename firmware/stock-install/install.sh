@@ -29,7 +29,8 @@ for cmd in sha256sum awk tar df sync cmp find mount umount; do
 done
 # Verify before executing any payload program. This manifest travels inside the
 # offline package, whose download is checked against the release SHA256SUMS.
-for name in stock-layout recovery.sd boot.img.gz alpine-rootfs.tar.gz rootfs-kib target-version install.sh offline-run.sh; do
+for name in stock-layout recovery.sd boot.img.gz alpine-rootfs.tar.gz rootfs-kib target-version install.sh offline-run.sh \
+    stock-oled oled-wide-prepare.bin oled-wide-restart.bin oled-narrow-prepare.bin oled-narrow-restart.bin; do
     [ -f "$bundle/$name" ] && [ ! -L "$bundle/$name" ] || fail "missing regular payload: $name"
     expected=$(awk -v wanted="$name" '$2==wanted && NF==2 {n++; hash=$1} END {if(n==1) print hash; else exit 1}' "$bundle/SHA256SUMS") ||
         fail "missing or duplicate checksum: $name"
@@ -109,7 +110,16 @@ echo "The web login becomes admin/admin and requires a new password. Keep power 
 [ -z "$data_luns" ] || echo "Partition 3, shared as a USB disk, will be detached from the USB host."
 [ "$mode" = --yes ] || exit 0
 mkdir /run/nanokvm-stock-install.lock || fail "another installation is running"
-trap 'rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' EXIT
+# The OLED shows the preparation (stock-oled, gen-stock-oled.py) while the
+# stock kvm_system, which draws it, is stopped: SIGSTOP and not exit, so a
+# failure resumes it as it was. The screen never stops the installation.
+case "$(cat /etc/kvm/hw)" in pcie) panel=narrow ;; *) panel=wide ;; esac
+oled() { "$bundle/stock-oled" "$(cat /etc/kvm/hw)" "$bundle/oled-$panel-$1.bin" >/dev/null 2>&1 || true; }
+screen_owner=$(pidof kvm_system 2>/dev/null) || screen_owner=
+resume_screen() { [ -z "$screen_owner" ] || kill -CONT $screen_owner 2>/dev/null || true; }
+trap 'resume_screen; rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' EXIT
+[ -z "$screen_owner" ] || kill -STOP $screen_owner 2>/dev/null || true
+oled prepare
 for file in $data_luns; do
     # An empty name ejects the medium; a host that locked it refuses.
     echo >"$file" 2>/dev/null && [ -z "$(cat "$file")" ] ||
@@ -142,7 +152,7 @@ cp /boot/boot.sd "$stage/stock-boot.sd" || fail "cannot retain stock boot for pr
 # databases, executables, service configuration or arbitrary symlink targets.
 umask 077
 settings=$(mktemp -d /tmp/nanokvm-settings.XXXXXX)
-trap 'rm -f "$settings.paths"; rm -rf "$settings"; rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' EXIT
+trap 'rm -f "$settings.paths"; rm -rf "$settings"; resume_screen; rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' EXIT
 paths='etc/hostname etc/kvm/wifi.ssid etc/kvm/wifi.pass root/.ssh/authorized_keys
 boot/eth.nodhcp boot/wifi.nodhcp boot/wifi.ssid boot/wifi.pass boot/hostname boot/hostname.prefix boot/hostname.suffix
 boot/eth.mac boot/eth.disabled boot/resolv.conf boot/usb.dev boot/usb.disk0
@@ -203,5 +213,10 @@ sync
 cmp "$stage/recovery.sd" /boot/.nanokvm-recovery.new || { restore_boot; fail "recovery readback failed"; }
 mv -f /boot/.nanokvm-recovery.new /boot/boot.sd || { restore_boot; fail "cannot activate recovery"; }
 sync
+# A stopped kvm_system ignores the INT and TERM of stock shutdown, which
+# would wait 25 s for it; it also must not redraw the last screen.
+[ -z "$screen_owner" ] || kill -KILL $screen_owner 2>/dev/null || true
+screen_owner=
+oled restart
 echo "Recovery activated. Rebooting; installation continues without the SSH connection."
 reboot

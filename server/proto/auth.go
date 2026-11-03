@@ -27,6 +27,15 @@ type ChangePasswordReq struct {
 	Password         string `json:"password" form:"password" validate:"required"`
 }
 
+// ChangePasswordRsp answers a forced change of the factory password: the
+// change signs the browser in with a new session cookie (Token only with the
+// X-NanoKVM-Return-Token header). Other changes end every session instead
+// and return no data.
+type ChangePasswordRsp struct {
+	SignedIn bool   `json:"signedIn"`
+	Token    string `json:"token,omitempty"`
+}
+
 type IsPasswordUpdatedRsp struct {
 	IsUpdated bool `json:"isUpdated"`
 }

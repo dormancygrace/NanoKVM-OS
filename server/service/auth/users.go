@@ -111,7 +111,7 @@ func (s *Service) ChangeUserPassword(c *gin.Context) {
 		rsp.ErrRsp(c, -3, "the device owner must change its own password")
 		return
 	}
-	if err := changeUserPassword(username, req.Password, req.PasswordEncoding); err != nil {
+	if _, err := changeUserPassword(username, req.Password, req.PasswordEncoding); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
 	}

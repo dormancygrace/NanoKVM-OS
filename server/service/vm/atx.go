@@ -129,6 +129,7 @@ func (s *Service) SetATX(c *gin.Context) {
 	if !*req.Enabled {
 		stopGPIOMonitor()
 	}
+	publishOLEDATX()
 	log.Infof("ATX power control %s", map[bool]string{true: "on", false: "off"}[*req.Enabled])
 	rsp.OkRspWithData(c, gin.H{"enabled": ATXEnabled()})
 }

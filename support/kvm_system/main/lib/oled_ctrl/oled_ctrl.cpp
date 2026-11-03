@@ -255,6 +255,15 @@ void OLED_Display_On()
 	oled_write_register(OLED_CMD, 0XAF);
 }
 
+// On even when the user switched the display off: the boot logo.
+void OLED_Display_Wake()
+{
+	OledBatch batch;
+	oled_write_register(OLED_CMD, 0X8D);
+	oled_write_register(OLED_CMD, 0X14);
+	oled_write_register(OLED_CMD, 0XAF);
+}
+
 //关闭OLED显示     
 void OLED_Display_Off()
 {

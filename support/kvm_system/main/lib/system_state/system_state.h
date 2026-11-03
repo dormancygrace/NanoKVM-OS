@@ -24,6 +24,7 @@ bool wifi_presence_due(uint64_t& last_look_ms, uint64_t now_ms);
 void kvm_update_usb_state(void);
 void kvm_update_hdmi_state(void);
 void kvm_update_stream_fps(void);
+void kvm_update_server_state(void);
 void kvm_update_stream_type(void);
 void kvm_update_stream_qlty(void);
 void kvm_update_hdmi_res(void);

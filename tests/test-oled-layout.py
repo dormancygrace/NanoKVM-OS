@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""OLED layouts: parsing limits, drawing, and the built-in layouts drawing
-exactly what the roaming status drew before them."""
+"""OLED layouts: parsing limits, drawing, conditions and pages, and the
+built-in layouts."""
 from pathlib import Path
 import subprocess, tempfile
 repo = Path(__file__).resolve().parents[1]
@@ -12,49 +12,6 @@ source = r'''
 #include <stdio.h>
 #include <string.h>
 
-// The roaming status as oled_ui drew it, in display pages.
-static void put_string(uint8_t *frame, int width, int x, int page, const char *text, int font)
-{
-    for (; *text; text++) {
-        char chr = *text;
-        if (font == 4 && chr >= 'a' && chr <= 'z') chr = chr - 'a' + 'A';
-        unsigned index = (unsigned char)chr - ' ';
-        if (font == 4) {
-            if (index >= sizeof(oled_asc2_0804) / 4) index = 0;
-            for (int i = 0; i < 4; i++) if (x + i < width) frame[page * width + x + i] = oled_asc2_0804[index][i];
-            x += 4;
-        } else if (font == 8) {
-            if (index >= sizeof(oled_asc2_0806) / 6) index = 0;
-            for (int i = 0; i < 6; i++) if (x + i < width) frame[page * width + x + i] = oled_asc2_0806[index][i];
-            x += 6;
-        } else {
-            if (index >= sizeof(oled_asc2_1608) / 16) index = 0;
-            for (int i = 0; i < 8; i++) if (x + i < width) {
-                frame[page * width + x + i] = oled_asc2_1608[index][i];
-                frame[(page + 1) * width + x + i] = oled_asc2_1608[index][8 + i];
-            }
-            x += 8;
-        }
-    }
-}
-
-static void roaming(bool narrow, const OledValues &v, unsigned step, uint8_t *frame)
-{
-    memset(frame, 0, OLED_FRAME_BYTES);
-    const unsigned width = narrow ? 64 : 128, pages = narrow ? 4 : 8, font = narrow ? 4 : 8;
-    const unsigned block_width = narrow ? 60 : 120, block_pages = narrow ? 3 : 4;
-    const unsigned x = (step * 13) % (width - block_width + 1);
-    const unsigned page = step % (pages - block_pages + 1);
-    char lines[3][32] = {};
-    snprintf(lines[0], sizeof(lines[0]), "%-15.15s", v.ip.c_str());
-    snprintf(lines[1], sizeof(lines[1]), "%-4s %4dX%-4d", v.codec.c_str(), v.width, v.height);
-    snprintf(lines[2], sizeof(lines[2]), "%3d FPS E%c W%c  ", v.fps, v.eth ? '+' : '-', v.wifi ? '+' : '-');
-    for (unsigned i = 0; i < 3; ++i) {
-        lines[i][15] = 0;
-        put_string(frame, width, x, page + (narrow || i == 0 ? i : i + 1), lines[i], !narrow && i == 0 ? 16 : font);
-    }
-}
-
 static bool pixel(const uint8_t *frame, int width, int x, int y) { return frame[(y / 8) * width + x] >> (y % 8) & 1; }
 
 static bool parses(const char *text)
@@ -65,24 +22,23 @@ static bool parses(const char *text)
 
 int main()
 {
-    uint8_t frame[OLED_FRAME_BYTES], expected[OLED_FRAME_BYTES];
-    OledValues states[3];
-    states[0].ip = "--"; states[0].codec = "VID";
-    states[1].ip = "192.168.100.200"; states[1].codec = "H264"; states[1].width = 1920; states[1].height = 1080;
-    states[1].fps = 60; states[1].eth = true;
-    states[2].ip = "10.0.0.7"; states[2].codec = "MJPG"; states[2].width = 640; states[2].height = 480;
-    states[2].fps = 7; states[2].wifi = true;
+    uint8_t frame[OLED_FRAME_BYTES];
+    // The built-in layouts and boot logos are for their panels, and draw every
+    // page of every state inside the frame (the sanitizers watch).
     for (int narrow = 0; narrow < 2; narrow++) {
         OledLayout layout;
         std::string error;
         assert(oled_layout_parse(oled_layout_default(narrow), &layout, &error));
-        assert(layout.narrow == bool(narrow));
-        for (const OledValues &v : states)
-            for (unsigned step = 1; step < 12; step++) {
-                oled_layout_render(layout, v, step, frame);
-                roaming(narrow, v, step, expected);
-                assert(!memcmp(frame, expected, OLED_FRAME_BYTES));
-            }
+        assert(layout.narrow == bool(narrow) && layout.pages == 2);
+        assert(oled_layout_parse(oled_layout_splash(narrow), &layout, &error) && layout.narrow == bool(narrow));
+        assert(oled_layout_parse(oled_layout_default(narrow), &layout, &error));
+        for (int bits = 0; bits < 256; bits++) {
+            OledValues v;
+            v.eth = bits & 1; v.wifi = bits & 2; v.hdmi = bits & 4; v.hid = bits & 8;
+            v.stream = bits & 16; v.wifi_module = bits & 32; v.atx = bits & 64; v.page = bits >> 7;
+            v.ip = v.eth_ip = v.wifi_ip = "192.168.100.200"; v.hostname = std::string(40, 'h');
+            for (unsigned step = 0; step < 4; step++) oled_layout_render(layout, v, step, frame);
+        }
     }
 
     OledValues v;
@@ -110,6 +66,27 @@ int main()
     assert(oled_layout_parse("nanokvm-oled 1 wide\nburnin shift\nline 0 0 0 0 1 -\n", &layout, nullptr));
     oled_layout_render(layout, v, 2, frame);
     assert(pixel(frame, 128, 1, 1) && !pixel(frame, 128, 0, 0));
+    // Conditions joined by ",": all must hold. Pages: page{N} on page N only.
+    assert(oled_layout_parse("nanokvm-oled 1 wide\npages 2 9\nline 0 0 0 0 1 eth,!wifi,page2\n", &layout, nullptr));
+    assert(layout.pages == 2 && layout.page_seconds == 9);
+    v = OledValues(); v.eth = true; v.page = 1;
+    oled_layout_render(layout, v, 0, frame);
+    assert(pixel(frame, 128, 0, 0));
+    v.page = 0;
+    oled_layout_render(layout, v, 0, frame);
+    assert(!pixel(frame, 128, 0, 0));
+    v.page = 1; v.wifi = true;
+    oled_layout_render(layout, v, 0, frame);
+    assert(!pixel(frame, 128, 0, 0));
+    assert(parses("nanokvm-oled 1 wide\nline 0 0 0 0 1 eth,wifi,atx,!wifi_module\n"));
+    assert(!parses("nanokvm-oled 1 wide\nline 0 0 0 0 1 eth,wifi,atx,hdmi,hid\n"));
+    assert(!parses("nanokvm-oled 1 wide\nline 0 0 0 0 1 eth,\n"));
+    assert(!parses("nanokvm-oled 1 wide\nline 0 0 0 0 1 eth,,wifi\n"));
+    assert(!parses("nanokvm-oled 1 wide\npages 5 5\n"));
+    assert(!parses("nanokvm-oled 1 wide\npages 2 0\n"));
+    v.viewers = 3;
+    assert(oled_layout_expand("{viewers:2}", v) == " 3");
+    v.hostname = "kvm-1234"; v.fps = 5;
 
     // What the server must never get past: the parser refuses it too.
     assert(!parses(""));
@@ -153,15 +130,15 @@ int main()
         const char *order2[] = {narrow_preview, saved};
         assert(oled_layout_pick(order2, 2, false, &picked, nullptr) == 1);
         const char *order3[] = {nullptr, garbage};
-        assert(oled_layout_pick(order3, 2, false, &picked, nullptr) == -1 && picked.burnin == 'r');
+        assert(oled_layout_pick(order3, 2, false, &picked, nullptr) == -1 && picked.burnin == 's');
     }
 
     std::string many = "nanokvm-oled 1 wide\n";
-    for (int i = 0; i < 64; i++) many += "line 0 0 1 1 1 -\n";
+    for (int i = 0; i < 128; i++) many += "line 0 0 1 1 1 -\n";
     assert(parses(many.c_str()));
     many += "line 0 0 1 1 1 -\n";
     assert(!parses(many.c_str()));
-    puts("PASS oled layouts: built-in layouts draw the roaming status; parsing limits; drawing");
+    puts("PASS oled layouts: built-in layouts; parsing limits; drawing; conditions and pages");
     return 0;
 }
 '''

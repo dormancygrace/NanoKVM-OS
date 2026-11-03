@@ -161,6 +161,7 @@ extern kvm_sys_state_t kvm_sys_state;
 extern kvm_oled_state_t kvm_oled_state;
 void OLED_Display_On(void);
 void OLED_Display_Off(void);
+void OLED_Display_Wake(void);
 
 bool OLED_IPWindowActive(void)
 {
@@ -360,6 +361,9 @@ void layout_values(OledValues *values)
     values->hdmi = kvm_sys_state.hdmi_state == 1;
     values->hid = kvm_sys_state.usb_state == 1;
     values->stream = kvm_sys_state.now_fps > 0;
+    values->wifi_module = kvm_sys_state.wifi_state >= 0;
+    values->atx = kvm_sys_state.atx == 1;
+    values->viewers = kvm_sys_state.viewers;
     values->eth_ip = state_address(kvm_sys_state.eth_addr);
     values->wifi_ip = state_address(kvm_sys_state.wifi_addr);
     values->ip = values->eth && kvm_sys_state.eth_addr[0] ? values->eth_ip
@@ -402,6 +406,7 @@ void oled_layout_status(bool force)
     const OledLayout &layout = current_layout();
     OledValues values;
     layout_values(&values);
+    values.page = int(now / 1000U / unsigned(layout.page_seconds) % unsigned(layout.pages));
     uint8_t frame[OLED_FRAME_BYTES];
     oled_layout_render(layout, values, step, frame);
     OLED_ShowFrame(frame, layout.narrow ? 64 : 128, layout.narrow ? 4 : 8, force);
@@ -553,4 +558,20 @@ void kvm_show_UE(void)
 		// OLED_ShowString_AlignRight(AlignRightEND_P, 3, "  FPS", 4);
 		// kvm_init_pcie_ui();
 	}
+}
+
+void kvm_oled_splash(void)
+{
+    if (access("/run/nanokvm/atx", F_OK) == 0) return;  // a restart, not a boot
+    const bool narrow = kvm_hw_ver == 2;
+    OledLayout layout;
+    oled_layout_parse(oled_layout_splash(narrow), &layout, nullptr);
+    uint8_t frame[OLED_FRAME_BYTES];
+    oled_layout_render(layout, OledValues(), 0, frame);
+    OLED_ShowFrame(frame, narrow ? 64 : 128, narrow ? 4 : 8, true);
+    OLED_Display_Wake();
+    const uint64_t until = oled_monotonic_ms() + 120000U;
+    while (kvm_sys_state.oled_thread_running && access("/run/nanokvm/atx", F_OK) != 0 && oled_monotonic_ms() < until)
+        kvms::sleep_ms(250);
+    if (OLED_IsDisabled() && !OLED_IPWindowActive()) OLED_Display_Off();
 }

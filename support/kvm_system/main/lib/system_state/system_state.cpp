@@ -441,6 +441,13 @@ void kvm_update_stream_fps(void)
 	kvm_sys_state.now_fps = read_integer_file("/run/nanokvm/now_fps", 0);
 }
 
+void kvm_update_server_state(void)
+{
+	// The server writes both when it starts and when they change.
+	kvm_sys_state.viewers = read_integer_file("/run/nanokvm/viewers", 0);
+	kvm_sys_state.atx = read_integer_file("/run/nanokvm/atx", -1);
+}
+
 void kvm_update_stream_type(void)
 {
 	FILE *fp;

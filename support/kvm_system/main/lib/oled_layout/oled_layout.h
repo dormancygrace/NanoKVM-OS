@@ -11,6 +11,7 @@
 //   nanokvm-oled 1 wide|narrow
 //   rotation 0|90|180|270
 //   burnin none|shift|roam WIDTH HEIGHT
+//   pages N SECONDS
 //   text X Y FONT ALIGN WIDTH COLOR WHEN TEXT
 //   line X0 Y0 X1 Y1 COLOR WHEN
 //   rect X Y WIDTH HEIGHT FILL COLOR WHEN
@@ -19,10 +20,14 @@
 // Coordinates are pixels of the panel as rotated. FONT is 4 (4x8, capitals
 // only), 8 (6x8) or 16 (8x16). A text WIDTH above 0 is a box the text is
 // aligned in (left, center or right) and cut to. COLOR 1 lights pixels, 0
-// clears them. WHEN is "-" (always) or one of eth, wifi, hdmi, hid, stream,
-// optionally after "!". Image rows are whole bytes, most significant bit
-// first. Text may hold {name} or {name:N} (right-aligned in N characters,
-// -N left-aligned, N up to 32): ip eth_ip wifi_ip hostname codec width height fps uptime
+// clears them. WHEN is "-" (always) or up to four conditions joined by ","
+// that must all hold, each optionally after "!": eth, wifi, hdmi, hid, stream,
+// wifi_module (the board has Wi-Fi, connected or not), atx (the ATX switch
+// is on) and page1 to page4. With "pages", N pages (up to 4) are shown in
+// turn for SECONDS each; an item with a page condition is on that page only.
+// Image rows are whole bytes, most significant bit first. Text may hold
+// {name} or {name:N} (right-aligned in N characters, -N left-aligned, N up
+// to 32): ip eth_ip wifi_ip hostname codec width height fps viewers uptime
 // time date. Burn-in protection moves everything every minute: "shift" by a
 // pixel, "roam" a WIDTH x HEIGHT block across the panel in whole pages.
 
@@ -33,8 +38,8 @@
 
 // A text's template, a {name:N} width (the widest panel holds 32 characters)
 // and the text once expanded.
-enum { OLED_LAYOUT_MAX_ITEMS = 64, OLED_LAYOUT_MAX_TEXT = 128, OLED_LAYOUT_MAX_PAD = 32,
-       OLED_LAYOUT_MAX_EXPANDED = 256 };
+enum { OLED_LAYOUT_MAX_ITEMS = 128, OLED_LAYOUT_MAX_TEXT = 128, OLED_LAYOUT_MAX_PAD = 32,
+       OLED_LAYOUT_MAX_EXPANDED = 256, OLED_LAYOUT_MAX_CONDITIONS = 4 };
 enum { OLED_FRAME_BYTES = 128 * 64 / 8 };
 
 struct OledItem {
@@ -43,8 +48,8 @@ struct OledItem {
     int font = 8;
     char align = 'l';
     bool fill = false, color = true;
-    int when = 0;          // OledCondition, 0 = always
-    bool when_not = false;
+    int when[OLED_LAYOUT_MAX_CONDITIONS] = {};  // OledCondition each, 0 = none
+    bool when_not[OLED_LAYOUT_MAX_CONDITIONS] = {};
     std::string text;      // text, or the image's bits
 };
 
@@ -53,16 +58,21 @@ struct OledLayout {
     int rotation = 0;
     char burnin = 'n';     // 'n'one, 's'hift, 'r'oam
     int roam_width = 0, roam_height = 0;
+    int pages = 1, page_seconds = 5;
     std::vector<OledItem> items;
 };
 
-enum OledCondition { OLED_WHEN_ETH = 1, OLED_WHEN_WIFI, OLED_WHEN_HDMI, OLED_WHEN_HID, OLED_WHEN_STREAM };
+enum OledCondition { OLED_WHEN_ETH = 1, OLED_WHEN_WIFI, OLED_WHEN_HDMI, OLED_WHEN_HID, OLED_WHEN_STREAM,
+                     OLED_WHEN_WIFI_MODULE, OLED_WHEN_ATX, OLED_WHEN_PAGE1, OLED_WHEN_PAGE2,
+                     OLED_WHEN_PAGE3, OLED_WHEN_PAGE4 };
 
 // What the layout's text and conditions read.
 struct OledValues {
     std::string ip, eth_ip, wifi_ip, hostname, codec, uptime, time, date;
-    int width = 0, height = 0, fps = 0;
-    bool eth = false, wifi = false, hdmi = false, hid = false, stream = false;
+    int width = 0, height = 0, fps = 0, viewers = 0;
+    int page = 0;  // the page shown, from 0 (the caller counts the time)
+    bool eth = false, wifi = false, hdmi = false, hid = false, stream = false, wifi_module = false,
+         atx = false;
 };
 
 // False with a reason when the text is not a layout.
@@ -70,6 +80,9 @@ bool oled_layout_parse(const char *text, OledLayout *layout, std::string *error)
 
 // The built-in layout of each panel.
 const char *oled_layout_default(bool narrow);
+
+// The boot logo of each panel, as a layout.
+const char *oled_layout_splash(bool narrow);
 
 // A layout that parses and is for this panel.
 bool oled_layout_usable(const char *text, bool narrow, OledLayout *layout, std::string *error);

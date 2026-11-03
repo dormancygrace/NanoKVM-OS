@@ -12,6 +12,8 @@ void* thread_oled_handle(void *)
 	if (kvm_hw_ver == 2) OLED_Revolve();
 	else OLED_DisplayTurn(0);	//0正常显示 1 屏幕翻转显示
 	OLED_Clear();
+	// U-Boot drew the boot logo; it stays until the server is up.
+	kvm_oled_splash();
 	if(kvm_oled_state.ue_patch_state == 1){
 		kvm_show_UE();
 		while(kvm_sys_state.oled_thread_running){
@@ -174,6 +176,7 @@ void* thread_sys_handle(void *)
 				kvm_update_usb_state();
 				kvm_update_hdmi_state();
 				kvm_update_stream_fps();
+				kvm_update_server_state();
 				kvm_update_hdmi_res();
 				kvm_update_stream_type();
 				kvm_update_stream_qlty();

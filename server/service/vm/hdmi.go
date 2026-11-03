@@ -211,6 +211,7 @@ func withViewerGate(count int, update func()) {
 	update()
 	viewers := hdmiDemand.ViewerCount()
 	hdmiMutex.Unlock()
+	publishOLEDViewers(viewers)
 	if viewers == 0 && viewerGate != nil {
 		viewerGate()
 		viewerGate = nil

@@ -168,8 +168,8 @@ The models:
 
 `convert.sh` runs in the official `sophgo/tpuc_dev` container, so the host
 needs only Docker; a PART (`det`, `latin`, `chinese`, `cyrillic`, `screen`)
-limits it to those models. Conversion uses the host's available CPU count;
-`NANOKVM_TPU_JOBS` overrides it. Pip downloads are cached in the
+limits it to those models. `NANOKVM_TPU_JOBS` sets the OpenMP, OpenBLAS and
+MKL thread limits (default: `nproc`). Pip downloads are cached in the
 `nanokvm-tpu-pip` Docker volume, or in the host directory set by
 `NANOKVM_TPU_PIP_CACHE` (cached between GitHub Actions runs). `models/sources.txt` pins its inputs by SHA-256. INT8
 needs calibration: the tables in `models/calibration/` were measured on

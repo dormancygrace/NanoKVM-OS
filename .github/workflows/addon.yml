@@ -87,7 +87,7 @@ jobs:
               else:
                   raise SystemExit('Unknown add-on: ' + requested)
           else:
-              refs = [os.environ['BASE'], os.environ['HEAD']]
+              refs = [os.environ['BASE'] + '...' + os.environ['HEAD']]
               paths = subprocess.check_output(['git', 'diff', '--name-only', *refs], text=True).splitlines()
               diff = subprocess.check_output(['git', 'diff', '--unified=0', *refs, '--', 'platform/sources.lock'], text=True)
               pins = {line[1:].split()[0] for line in diff.splitlines()

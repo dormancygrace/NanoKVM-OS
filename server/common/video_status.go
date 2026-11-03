@@ -26,10 +26,10 @@ var (
 
 // The board decides how a new EDID takes effect: PCIe boards reset the
 // receiver, Cube and Lite boards (alpha, beta) need a power cycle. The
-// receiver decides what the monitor may advertise: the LT6911UXC takes every
-// profile, the LT6911D 720p, 1080p and 1440p at 60 Hz, the LT6911C 720p and
-// 1080p at 60 Hz until it is measured beyond that. A beta Cube with an
-// LT6911D applies a new EDID without a power cycle. nanokvm_update_edid programs all three.
+// receiver decides what the monitor may advertise: the LT6911UXC, and the
+// LT6911D of a beta Cube, take every profile; the LT6911C, and the LT6911D
+// elsewhere, take 720p and 1080p at 60 Hz until they are measured beyond that.
+// A beta Cube with an LT6911D applies a new EDID without a power cycle. nanokvm_update_edid programs all three.
 func monitorBoard() string {
 	return hardwareIdentity(monitorBoardFile, "alpha", "beta", "pcie")
 }
@@ -98,14 +98,17 @@ func MonitorRequiresPowerCycle() bool {
 // MonitorHighRefreshSupported reports a receiver that takes the full profile
 // set (above 1080p60, QHD, UHD, portrait): the LT6911UXC, on any board.
 func MonitorHighRefreshSupported() bool {
-	return MonitorProfileSupported() && receiverChip() == "ux"
+	return MonitorProfileSupported() && (receiverChip() == "ux" || MonitorReplugWhenSmaller())
 }
 
-// MonitorQHDSupported reports a receiver that takes the 2560x1440 profile:
-// the LT6911UXC, and the LT6911D at 60 Hz. Measured on a Cube with an
-// LT6911D: 2560x1440 captured at 60 fps; 3840x2160 at 30 Hz gave no picture.
-func MonitorQHDSupported() bool {
-	return MonitorHighRefreshSupported() || (MonitorProfileSupported() && receiverChip() == "d")
+// MonitorReplugWhenSmaller reports a beta Cube with an LT6911D. Measured
+// there: it captured every profile tried (3840x2160 at 30 Hz, 2560x1440 at
+// 60, 1920x1080 at 90) and applied each EDID at once, without a power cycle.
+// A profile of the same or a larger size follows by itself; after one smaller
+// than the input the receiver kept the old timing and sent no frames until
+// the HDMI cable was reconnected.
+func MonitorReplugWhenSmaller() bool {
+	return monitorBoard() == "beta" && receiverChip() == "d"
 }
 
 // Persist across software reboots: a reboot cannot prove a Cube power cycle.

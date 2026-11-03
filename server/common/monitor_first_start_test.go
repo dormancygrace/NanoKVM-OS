@@ -181,28 +181,37 @@ func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
 
 // A beta Cube with an LT6911D applies a new EDID without a power cycle, so its
 // first start programs the saved profile over the stock EDID, which declares
-// no RGB range; an LT6911C, or an alpha, still keeps the stock EDID that fits.
+// no RGB range, unless the profile is smaller than the input: that receiver
+// then keeps the old timing until the HDMI cable is reconnected. An LT6911C,
+// or an alpha, still keeps the stock EDID that fits it.
 func TestCubeLT6911DFirstStartProgramsProfile(t *testing.T) {
 	for _, tc := range []struct {
-		board, chip, want string
+		name, board, chip string
+		inputW, inputH    int
+		want              bool
 		powerCycle        bool
 	}{
-		{"beta", "d", "NanoKVM-cube-monitor-1080.bin", false},
-		{"beta", "c", "", true},
+		{"beta d, stock 1080p input", "beta", "d", 1920, 1080, true, false},
+		{"beta d, unknown input", "beta", "d", 0, 0, true, false},
+		{"beta d, larger input", "beta", "d", 2560, 1440, false, false},
+		{"beta c", "beta", "c", 1920, 1080, false, true},
 		// Not measured on an alpha: it keeps the power cycle and the check.
-		{"alpha", "d", "", true},
+		{"alpha d", "alpha", "d", 1920, 1080, false, true},
 	} {
-		t.Run(tc.board+"/"+tc.chip, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 0, false, 1920)
 			selectBoard(t, tc.board, tc.chip)
+			old := currentInputSize
+			currentInputSize = func() (int, int) { return tc.inputW, tc.inputH }
+			t.Cleanup(func() { currentInputSize = old })
 			if MonitorRequiresPowerCycle() != tc.powerCycle {
 				t.Fatalf("power cycle = %v", MonitorRequiresPowerCycle())
 			}
 			var applied []string
 			hw := firstStartBackend(true, MonitorRequiresPowerCycle(), &applied, nil)
 			path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
-			if err != nil || filepath.Base(path) != filepath.Base(tc.want) && tc.want != "" || (tc.want == "") != (len(applied) == 0) {
-				t.Fatalf("programmed %q (%v), applied %v; want %q", path, err, applied, tc.want)
+			if err != nil || (len(applied) == 1) != tc.want {
+				t.Fatalf("programmed %q (%v), applied %v; want a write: %v", path, err, applied, tc.want)
 			}
 		})
 	}

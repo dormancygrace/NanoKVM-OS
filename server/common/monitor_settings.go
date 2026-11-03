@@ -133,11 +133,11 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 			return checkCubeMonitorEDIDLocked(hw)
 		}
 		// The LT6911D on PCIe is programmed only when the user applies a profile:
-		// its EDID write has not yet run on that board. On a beta Cube it
-		// needs no power cycle, so it is checked like a PCIe receiver: the
-		// stock EDID there declares no RGB range, and a source sends limited
-		// RGB at 1080p60 that the receiver takes as full (a pale picture).
-		if receiverChip() == "d" && monitorBoard() != "beta" {
+		// its EDID write has not yet run on that board. A beta Cube's needs no
+		// power cycle, so it is checked like a PCIe receiver: its stock EDID
+		// declares no RGB range, and a source sends limited RGB at 1080p60 that
+		// the receiver takes as full range (a pale picture).
+		if receiverChip() == "d" && !MonitorReplugWhenSmaller() {
 			return "", nil
 		}
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
@@ -174,6 +174,13 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	path := monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
 	if monitorPortraitEnabledLocked() {
 		path = portraitProfilePathAt(savedPortraitResolutionLocked(), GetScreen().FPS)
+	}
+	// That receiver keeps the old timing after a profile smaller than the
+	// input, until the HDMI cable is reconnected: no such write without the
+	// user. Nothing is recorded, so a later start tries again.
+	if MonitorReplugWhenSmaller() && profileSmallerThanInputLocked() {
+		log.Warnf("not programming %s at start: smaller than the current HDMI input", filepath.Base(path))
+		return "", nil
 	}
 	// On failure no profile is recorded, so the next start tries again.
 	if err := hw.apply(path); err != nil {
@@ -343,9 +350,8 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 			if !WiderMonitorProfileOffered(height) {
 				return fmt.Errorf("this HDMI receiver does not take that 16:10 or 21:9 monitor profile")
 			}
-		} else if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 &&
-			(height != 1440 || !MonitorQHDSupported()) {
-			return fmt.Errorf("this HDMI receiver takes the 720p and 1080p profiles at 60 Hz (the LT6911D also 1440p)")
+		} else if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 {
+			return fmt.Errorf("HDMI receiver EDID profiles are limited to 720p/1080p at 60 Hz")
 		}
 	}
 	if update.Portrait != nil {
@@ -390,4 +396,32 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 		return persistMonitorPortraitLocked(portrait)
 	}
 	return nil
+}
+
+// currentInputSize is the HDMI input now; a variable so tests can set it.
+var currentInputSize = func() (int, int) {
+	return ReadVideoValue("/run/nanokvm/width"), ReadVideoValue("/run/nanokvm/height")
+}
+
+// profileSmallerThanInputLocked reports a saved monitor (portrait or
+// landscape, Auto as the size it stands for) smaller in either direction than
+// the HDMI input now. An unknown input is not larger.
+func profileSmallerThanInputLocked() bool {
+	width, height := currentInputSize()
+	if width <= 0 || height <= 0 {
+		return false
+	}
+	var w, h int
+	if monitorPortraitEnabledLocked() {
+		resolution := savedPortraitResolutionLocked()
+		w, h = int(PortraitWidth(resolution)), int(resolution)
+	} else {
+		monitor := savedMonitorResolutionLocked()
+		if monitor == 0 {
+			monitor = AutoMonitorHeight()
+		}
+		mw, mh := MonitorSize(monitor)
+		w, h = int(mw), int(mh)
+	}
+	return w > 0 && h > 0 && (w < width || h < height)
 }

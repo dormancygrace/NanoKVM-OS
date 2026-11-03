@@ -573,7 +573,40 @@ static int finish_receiver(chip_version_t chip, int result)
     return result;
 }
 
-int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t edid_size)
+// The LT6911D's firmware drives HPD (0xE808 bit 6) together with the input
+// termination (0xE29D: 0x04 on, 0xA4 off), as it does on plug and unplug.
+static int lt6911d_set_hpd(int high)
+{
+    uint8_t value = 0;
+    int ret = i2c_write_byte(LT6911D_MANAGE_OFFSET, 0xEE, 0x01);
+    if (ret == 0) ret = i2c_read_byte(0xE8, 0x08, &value);
+    if (ret == 0) ret = i2c_write_byte(0xE8, 0x08, high ? (value | 0x40) : (value & ~0x40));
+    if (ret == 0) ret = i2c_write_byte(0xE2, 0x9D, high ? 0x04 : 0xA4);
+    if (i2c_write_byte(LT6911D_MANAGE_OFFSET, 0xEE, 0x00) != 0) ret = -1;
+    return ret;
+}
+
+// A software cable replug of an LT6911D. Register access (0xEE = 1) holds off
+// the firmware's handling of input events: a mode change the source made
+// during an EDID write was missed, and the receiver kept the old timing and
+// sent no frames until the cable was reconnected (measured on a beta Cube,
+// in either direction). With the firmware running, HPD and the termination
+// are dropped for two seconds and restored: the source disconnects, reads
+// the EDID again on return, and the firmware measures the mode it sends.
+static int lt6911d_replug(void)
+{
+    if (i2c_write_byte(LT6911D_MANAGE_OFFSET, 0xEE, 0x00) != 0) return -1;
+    // After the flash write the firmware needs a moment before it handles a
+    // replug (at 0.2 s it did not; from a settled receiver it always did).
+    sleep(3);
+    int ret = lt6911d_set_hpd(0);
+    sleep(2);
+    // Raised even when lowering failed half way: never leave the source out.
+    if (lt6911d_set_hpd(1) != 0) ret = -1;
+    return ret;
+}
+
+int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t edid_size, int replug)
 {
     if (chip_version == CHIP_UNKNOWN)
     {
@@ -679,6 +712,10 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
         return finish_receiver(chip_version, -1);
     } else {
         fprintf(stdout, "EDID data verified successfully\n");
+        if (replug && chip_version == CHIP_LT6911D && lt6911d_replug() != 0) {
+            fprintf(stderr, "Failed to reconnect HDMI; reconnect the HDMI cable\n");
+            return finish_receiver(chip_version, -1);
+        }
     }
 
     // close client
@@ -925,7 +962,10 @@ int main(int argc, char *argv[]) {
     }
 
     // configure lt6911 edid
-    if (lt6911_edid_config(chip_version, edid_data, edid_size) != 0) {
+    // A beta Cube's LT6911D has no reset line: a software replug follows the
+    // write (lt6911d_replug).
+    int replug = product_version == PRODUCT_CUBE_B && chip_version == CHIP_LT6911D;
+    if (lt6911_edid_config(chip_version, edid_data, edid_size, replug) != 0) {
         fprintf(stderr, "Failed to configure LT6911 EDID\n");
         return EXIT_FAILURE;
     }

@@ -40,7 +40,6 @@ var viDirectH264Supported = common.ViDirectH264Supported
 // for tests.
 var monitorProgrammable = common.MonitorProfileSupported
 var monitorHighRefresh = common.MonitorHighRefreshSupported
-var monitorQHD = common.MonitorQHDSupported
 var widerMonitorProfileOffered = common.WiderMonitorProfileOffered
 var selectedMonitorResolution = common.SelectedMonitorResolution
 var applyMjpegChroma = func(value uint16) int { return common.GetKvmVision().SetMjpegChroma(value) }

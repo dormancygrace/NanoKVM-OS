@@ -144,8 +144,7 @@ func videoCapabilities() gin.H {
 	monitorModes := []monitorModeCapability{
 		mode(0, false, true),
 		mode(2160, true, uhd),
-		// QHD also with an LT6911D, which takes it at 60 Hz.
-		mode(1440, !monitorQHD(), qhd),
+		mode(1440, true, qhd),
 		mode(1080, false, true),
 		mode(720, false, true),
 		// 16:10 and 21:9: every size with an LT6911UXC, 1920x1200 and
@@ -204,12 +203,14 @@ func videoCapabilities() gin.H {
 		"monitor": gin.H{
 			"programmable":       programmable,
 			"requiresPowerCycle": common.MonitorRequiresPowerCycle(),
-			"powerCyclePending":  common.MonitorPowerCyclePending(),
-			"followsStreamRate":  common.MonitorRefreshFollowsStream(),
-			"selected":           selectedMonitorResolution(),
-			"refreshHz":          common.MonitorRefreshHz(),
-			"modes":              monitorModes,
-			"aspects":            common.MonitorAspects,
+			// A profile smaller than the input needs the HDMI cable reconnected.
+			"replugWhenSmaller": common.MonitorReplugWhenSmaller(),
+			"powerCyclePending": common.MonitorPowerCyclePending(),
+			"followsStreamRate": common.MonitorRefreshFollowsStream(),
+			"selected":          selectedMonitorResolution(),
+			"refreshHz":         common.MonitorRefreshHz(),
+			"modes":             monitorModes,
+			"aspects":           common.MonitorAspects,
 			"portrait": gin.H{
 				"enabled": portrait, "resolution": common.PortraitResolution(),
 				"profiles": portraitProfiles,

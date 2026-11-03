@@ -207,3 +207,39 @@ func TestCubeLT6911DFirstStartProgramsProfile(t *testing.T) {
 		})
 	}
 }
+
+// An LT6911D write on a Cube or Lite whose replug did not complete leaves the
+// profile in flash, recorded and readable as held: the next start applies it
+// again so the EDID tool can finish the replug, unless HDMI is disabled.
+func TestPendingReplugAppliesTheHeldProfileAgain(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		pending     bool
+		readAtStart bool
+		writes      int
+	}{
+		{"pending", true, true, 1},
+		{"no pending replug", false, true, 0},
+		{"HDMI disabled", true, false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, 1080, false, 1920)
+			selectBoard(t, "beta", "d")
+			if err := os.WriteFile(monitorEDIDHashFile, []byte(edidHash(heldEDID())+"\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if tc.pending {
+				if err := os.WriteFile(monitorReplugPendingFile, nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var applied []string
+			hw := firstStartBackend(true, false, &applied, nil)
+			hw.readAtStart = tc.readAtStart
+			hw.read = func() ([]byte, error) { return heldEDID(), nil }
+			if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || len(applied) != tc.writes {
+				t.Fatalf("error %v, applied %v; want %d writes", err, applied, tc.writes)
+			}
+		})
+	}
+}

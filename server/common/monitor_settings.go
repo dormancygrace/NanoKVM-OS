@@ -47,6 +47,23 @@ var (
 	monitorSystemVersionFile    = "/kvmapp/version"
 )
 
+// nanokvm_update_edid keeps this file from before an LT6911D write on a Cube
+// or Lite until the software replug after it completes.
+var monitorReplugPendingFile = "/etc/kvm/monitor_edid_replug_pending"
+
+// monitorReplugPendingLocked reports such a write whose replug did not
+// complete: the profile may be in flash already, but the source has not read
+// it again. Applying it again makes the EDID tool replug without rewriting
+// flash; the recorded-profile checks would skip that. Not while HDMI capture
+// is disabled, when the receiver is left alone.
+func monitorReplugPendingLocked(hw monitorSettingsBackend) bool {
+	if !hw.readAtStart || receiverChip() != "d" {
+		return false
+	}
+	_, err := os.Stat(monitorReplugPendingFile)
+	return err == nil
+}
+
 func receiverVerifiedTag(hash string) string {
 	version, _ := os.ReadFile(monitorSystemVersionFile)
 	return strings.TrimSpace(hash + " " + strings.TrimSpace(string(version)))
@@ -122,7 +139,9 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	}
 	// A confirmed memory switch is an explicit request, unlike first-install
 	// maintenance. It must finish on Cube/Lite too, after the new pool boots.
-	if !deferred {
+	if monitorReplugPendingLocked(hw) {
+		log.Infof("the last HDMI reconnect after an EDID write did not complete; applying the profile again")
+	} else if !deferred {
 		// Before the recorded-profile check: an image that identified a Cube as
 		// PCIe recorded the 100 Hz profile it programmed there. A Cube or Lite
 		// with an LT6911UXC captures every profile it can hold.

@@ -568,7 +568,9 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       ? wireguardNames.get(iface.name) || 'WireGuard'
                       : iface.name}
                   </span>
-                  <span className="ml-auto">
+                  {/* Beside the name: in a half-width column a right-aligned
+                      badge ends up far from its interface. */}
+                  <span className="ml-1 shrink-0">
                     <StatusBadge tone={iface.up && iface.connected ? 'success' : 'neutral'}>
                       {t(
                         iface.up && iface.connected

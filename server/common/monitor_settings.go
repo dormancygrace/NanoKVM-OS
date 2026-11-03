@@ -133,8 +133,11 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 			return checkCubeMonitorEDIDLocked(hw)
 		}
 		// The LT6911D on PCIe is programmed only when the user applies a profile:
-		// its EDID write has not yet run on that board.
-		if receiverChip() == "d" {
+		// its EDID write has not yet run on that board. On a Cube or Lite it
+		// needs no power cycle, so it is checked like a PCIe receiver: the
+		// stock EDID there declares no RGB range, and a source sends limited
+		// RGB at 1080p60 that the receiver takes as full (a pale picture).
+		if receiverChip() == "d" && monitorBoard() == "pcie" {
 			return "", nil
 		}
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
@@ -340,8 +343,9 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 			if !WiderMonitorProfileOffered(height) {
 				return fmt.Errorf("this HDMI receiver does not take that 16:10 or 21:9 monitor profile")
 			}
-		} else if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 {
-			return fmt.Errorf("HDMI receiver EDID profiles are limited to 720p/1080p at 60 Hz")
+		} else if !MonitorHighRefreshSupported() && height != 0 && height != 720 && height != 1080 &&
+			(height != 1440 || !MonitorQHDSupported()) {
+			return fmt.Errorf("this HDMI receiver takes the 720p and 1080p profiles at 60 Hz (the LT6911D also 1440p)")
 		}
 	}
 	if update.Portrait != nil {

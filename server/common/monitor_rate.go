@@ -76,9 +76,9 @@ var (
 // (0 is Auto), fastest first; nil when the refresh rate is fixed.
 func MonitorRates(height uint16) []int {
 	if MonitorProfileSupported() && !MonitorHighRefreshSupported() {
-		// The LT6911C and LT6911D keep their single 60 Hz profiles, and take
-		// the slower 16:10 and 21:9 ones.
-		if height == 0 || height == 720 || height == 1080 {
+		// The LT6911C and LT6911D keep their single 60 Hz profiles (the
+		// LT6911D also 1440p), and take the slower 16:10 and 21:9 ones.
+		if height == 0 || height == 720 || height == 1080 || (height == 1440 && MonitorQHDSupported()) {
 			return []int{60}
 		}
 		return append([]int(nil), widerMonitorRatesFor(height)...)

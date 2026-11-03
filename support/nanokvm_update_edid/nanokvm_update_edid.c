@@ -710,13 +710,20 @@ static int lt6911_edid_dump(chip_version_t chip_version, uint8_t *edid_data)
 
 // =======================================================================================================
 
-void print_warning(product_version_t product_version) {
+// A Cube or Lite applies a new EDID only after a power cycle, except with an
+// LT6911D: there the source switched to it at once (measured on a Cube).
+static int needs_power_cycle(product_version_t product_version, chip_version_t chip_version) {
+    return (product_version == PRODUCT_CUBE_A || product_version == PRODUCT_CUBE_B) &&
+           chip_version != CHIP_LT6911D;
+}
+
+void print_warning(int power_cycle) {
     printf("\n=========================================================\n");
     printf("Incorrect EDID may cause issues such as \n");
     printf("inability to display images, please modify with caution\n");
     printf("=========================================================\n\n");
 
-    if (product_version == PRODUCT_CUBE_A || product_version == PRODUCT_CUBE_B) {
+    if (power_cycle) {
         printf("\n==========================================================\n");
         printf("⚠️  WARNING: Hardware version detected as Cube/Lite!\n");
         printf("==========================================================\n");
@@ -727,10 +734,10 @@ void print_warning(product_version_t product_version) {
     }
 }
 
-void print_success(product_version_t product_version) {
+void print_success(int power_cycle) {
     printf("\n=========================================================\n");
     printf("✅  EDID update successful!\n");
-    if (product_version == PRODUCT_CUBE_A || product_version == PRODUCT_CUBE_B) {
+    if (power_cycle) {
         printf("Please manually power cycle the device to apply changes.\n");
     }
     printf("=========================================================\n\n");
@@ -886,8 +893,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    print_warning(product_version);
-    if (product_version == PRODUCT_CUBE_A || product_version == PRODUCT_CUBE_B) {
+    int power_cycle = needs_power_cycle(product_version, chip_version);
+    print_warning(power_cycle);
+    if (power_cycle) {
         if (!accept_power_cycle && get_user_confirmation() == 0) {
             return EXIT_FAILURE;
         }
@@ -927,7 +935,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    print_success(product_version);
+    print_success(power_cycle);
 
     return EXIT_SUCCESS;
 }

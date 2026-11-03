@@ -144,7 +144,8 @@ func videoCapabilities() gin.H {
 	monitorModes := []monitorModeCapability{
 		mode(0, false, true),
 		mode(2160, true, uhd),
-		mode(1440, true, qhd),
+		// QHD also with an LT6911D, which takes it at 60 Hz.
+		mode(1440, !monitorQHD(), qhd),
 		mode(1080, false, true),
 		mode(720, false, true),
 		// 16:10 and 21:9: every size with an LT6911UXC, 1920x1200 and

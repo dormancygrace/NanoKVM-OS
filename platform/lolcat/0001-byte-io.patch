@@ -1,0 +1,300 @@
+lolcat: byte I/O instead of wide stdio
+
+lolcat 1.4 reads with fgetwc, writes with putwchar and formats every colour
+change with wprintf; on musl these are most of its time. The characters
+are now read with read(2) into a buffer and decoded as UTF-8 here, written
+as their own bytes through an output buffer flushed when full and before
+waiting for input (so a partial line or tail -f shows at once), and the
+256-colour escapes are made once. Printable ASCII skips wcwidth.
+
+The output is the same byte for byte, with two exceptions: a malformed
+UTF-8 sequence passes through instead of ending the input, and with
+--invert non-ASCII text is no longer turned into "?" (the original
+oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
+3.13 s -> 0.21 s, 25 KB 104 -> 32 ms.
+
+--- a/lolcat.c
++++ b/lolcat.c
+@@ -16,6 +16,7 @@
+ #define _XOPEN_SOURCE
+ 
+ #include <ctype.h>
++#include <stdarg.h>
+ #include <err.h>
+ #include <errno.h>
+ #include <locale.h>
+@@ -170,6 +171,113 @@
+     }
+ }
+ 
++/* Output: our own buffer written with write(2), not wide stdio. It is
++ * flushed when full and before waiting for input, so a partial line or a
++ * slow producer (tail -f) shows at once. */
++static unsigned char obuf[1 << 16];
++static size_t olen;
++
++static void out_flush(void)
++{
++    size_t done = 0;
++    while (done < olen) {
++        ssize_t n = write(STDOUT_FILENO, obuf + done, olen - done);
++        if (n < 0) {
++            if (errno == EINTR)
++                continue;
++            exit(1);
++        }
++        done += n;
++    }
++    olen = 0;
++}
++
++static void out_bytes(const void *p, size_t n)
++{
++    if (olen + n > sizeof(obuf))
++        out_flush();
++    memcpy(obuf + olen, p, n);
++    olen += n;
++}
++
++#define out_lit(s) out_bytes(s, sizeof(s) - 1)
++
++static void out_fmt(const char *fmt, ...)
++{
++    char tmp[64];
++    va_list ap;
++    va_start(ap, fmt);
++    int n = vsnprintf(tmp, sizeof(tmp), fmt, ap);
++    va_end(ap);
++    if (n > 0)
++        out_bytes(tmp, MIN((size_t)n, sizeof(tmp) - 1));
++}
++
++/* The 256-colour escapes, foreground and background, made once. */
++static char esc256[2][256][12];
++static unsigned char esc256len[2][256];
++
++static void out_256(int invert, unsigned char code)
++{
++    out_bytes(esc256[invert][code], esc256len[invert][code]);
++}
++
++/* Input: bytes read with read(2), decoded as UTF-8 here. A character's own
++ * bytes are copied to the output, so a malformed sequence passes through
++ * unchanged (as U+FFFD for the width) instead of ending the input. */
++struct reader {
++    int fd, eof, err;
++    size_t pos, len;
++    unsigned char buf[1 << 16];
++};
++
++static int reader_peek(struct reader *r)
++{
++    if (r->pos == r->len) {
++        if (r->eof)
++            return -1;
++        out_flush();
++        ssize_t n;
++        do {
++            n = read(r->fd, r->buf, sizeof(r->buf));
++        } while (n < 0 && errno == EINTR);
++        if (n <= 0) {
++            r->eof = 1;
++            if (n < 0)
++                r->err = errno;
++            return -1;
++        }
++        r->pos = 0;
++        r->len = n;
++    }
++    return r->buf[r->pos];
++}
++
++static wint_t reader_char(struct reader *r, unsigned char raw[4], int *rawlen)
++{
++    int b = reader_peek(r);
++    if (b < 0)
++        return WEOF;
++    r->pos++;
++    raw[0] = b;
++    *rawlen = 1;
++    if (b < 0x80)
++        return b;
++    int more = b >= 0xc2 && b <= 0xdf ? 1 : b >= 0xe0 && b <= 0xef ? 2 : b >= 0xf0 && b <= 0xf4 ? 3 : -1;
++    if (more < 0)
++        return 0xfffd;
++    wint_t c = b & (0x3f >> more);
++    for (int k = 0; k < more; k++) {
++        int n = reader_peek(r);
++        if (n < 0x80 || n > 0xbf)
++            return 0xfffd;
++        r->pos++;
++        raw[(*rawlen)++] = n;
++        c = c << 6 | (n & 0x3f);
++    }
++    return c;
++}
++
+ static void usage(void)
+ {
+     wprintf(L"Usage: lolcat [-h horizontal_speed] [-v vertical_speed] [--] [FILES...]\n");
+@@ -195,6 +303,14 @@
+     return WEOF;
+ }
+ 
++static wint_t help_char(unsigned char raw[4], int *rawlen)
++{
++    wint_t c = helpstr_hack(NULL);
++    raw[0] = c;
++    *rawlen = 1;
++    return c;
++}
++
+ int main(int argc, char** argv)
+ {
+     char* default_argv[] = { "-" };
+@@ -320,11 +436,16 @@
+         }
+     }
+ 
++    for (int k = 0; k < 256; k++) {
++        esc256len[0][k] = snprintf(esc256[0][k], sizeof(esc256[0][k]), "\033[38;5;%dm", k);
++        esc256len[1][k] = snprintf(esc256[1][k], sizeof(esc256[1][k]), "\033[48;5;%dm", k);
++    }
++
+     if (invert) {
+         if (ansi16) {
+-            wprintf(L"\033[30m\n");
++            out_lit("\033[30m\n");
+         } else {
+-            wprintf(L"\033[38;5;16m\n");
++            out_lit("\033[38;5;16m\n");
+         }
+     }
+ 
+@@ -354,6 +475,9 @@
+     for (char** filename = inputs; filename < inputs_end; filename++) {
+         wint_t (*this_file_read_wchar)(FILE*); /* Used for --help because fmemopen is universally broken when used with fgetwc */
+         FILE* f;
++        static struct reader r;
++        unsigned char raw[4];
++        int rawlen = 1;
+         int escape_state = ST_NONE;
+ 
+         if (!strcmp(*filename, "--help")) {
+@@ -361,11 +485,11 @@
+             f = 0;
+ 
+         } else if (!strcmp(*filename, "-")) {
+-            this_file_read_wchar = &fgetwc;
++            this_file_read_wchar = 0;
+             f = stdin;
+ 
+         } else {
+-            this_file_read_wchar = &fgetwc;
++            this_file_read_wchar = 0;
+             f = fopen(*filename, "r");
+             if (!f) {
+                 fwprintf(stderr, L"Cannot open input file \"%s\": %s\n", *filename, strerror(errno));
+@@ -373,7 +497,10 @@
+             }
+         }
+ 
+-        while ((c = this_file_read_wchar(f)) != WEOF) {
++        r.fd = f ? fileno(f) : -1;
++        r.eof = r.err = 0;
++        r.pos = r.len = 0;
++        while ((c = this_file_read_wchar ? help_char(raw, &rawlen) : reader_char(&r, raw, &rawlen)) != WEOF) {
+             if (colors) {
+ 
+ 
+@@ -383,7 +510,7 @@
+ #endif
+ 
+                 if (escape_state == ST_ESC_CSI_TERM) {
+-                    putwchar(c);
++                    out_bytes(raw, rawlen);
+                 }
+ 
+                 if (escape_state == ST_NONE || escape_state == ST_ESC_CSI_TERM) {
+@@ -391,12 +518,12 @@
+                         l++;
+                         i = 0;
+                         if (invert) {
+-                            wprintf(L"\033[49m");
++                            out_lit("\033[49m");
+                         }
+ 
+                     } else {
+                         if (escape_state == ST_NONE) {
+-                            i += wcwidth(c);
++                            i += c >= 0x20 && c < 0x7f ? 1 : wcwidth(c);
+                         }
+ 
+                         if (rgb) {
+@@ -415,12 +542,12 @@
+                                 c.g = lrintf((offset + (1.0f - offset) * (0.5f + 0.5f * sin(theta + 2 * M_PI / 3 ))) * 255.0f);
+                                 c.b = lrintf((offset + (1.0f - offset) * (0.5f + 0.5f * sin(theta + 4 * M_PI / 3 ))) * 255.0f);
+                             }
+-                            wprintf(L"\033[%d;2;%d;%d;%dm", (invert ? 48 : 38), c.r, c.g, c.b);
++                            out_fmt("\033[%d;2;%d;%d;%dm", (invert ? 48 : 38), c.r, c.g, c.b);
+ 
+                         } else if (ansi16) {
+                             int ncc = offx * ARRAY_SIZE(codes16) + (int)(i * freq_h + l * freq_v);
+                             if (cc != ncc || escape_state == ST_ESC_CSI_TERM) {
+-                                wprintf(L"\033[%hhum", (invert ? 10 : 0) + codes16[(rand_offset + start_color + (cc = ncc)) % ARRAY_SIZE(codes16)]);
++                                out_fmt("\033[%hhum", (unsigned char)((invert ? 10 : 0) + codes16[(rand_offset + start_color + (cc = ncc)) % ARRAY_SIZE(codes16)]));
+                             }
+ 
+                         } else {
+@@ -431,13 +558,13 @@
+                                     if (lookup >= ARRAY_SIZE(codes_gradient)) {
+                                         lookup = 2*ARRAY_SIZE(codes_gradient) - 1 - lookup;
+                                     }
+-                                    wprintf(L"\033[%d;5;%hhum", (invert ? 48 : 38), codes_gradient[lookup]);
++                                    out_256(invert, (unsigned char)codes_gradient[lookup]);
+                                 }
+ 
+                             } else {
+                                 int ncc = offx * ARRAY_SIZE(codes) + (int)(i * freq_h + l * freq_v);
+                                 if (cc != ncc || escape_state == ST_ESC_CSI_TERM) {
+-                                    wprintf(L"\033[%d;5;%hhum", (invert ? 48 : 38), codes[(rand_offset + start_color + (cc = ncc)) % ARRAY_SIZE(codes)]);
++                                    out_256(invert, codes[(rand_offset + start_color + (cc = ncc)) % ARRAY_SIZE(codes)]);
+                                 }
+                             }
+                         }
+@@ -446,27 +573,31 @@
+             }
+ 
+             if (escape_state != ST_ESC_CSI_TERM) {
+-                putwchar(c);
++                out_bytes(raw, rawlen);
+             }
+         }
+ 
+         if (colors) {
+-            wprintf(L"\033[0m");
++            out_lit("\033[0m");
+         }
+ 
+         cc = -1;
+ 
+         if (f) {
+-            if (ferror(f)) {
+-                fwprintf(stderr, L"Error reading input file \"%s\": %s\n", *filename, strerror(errno));
++            if (r.err) {
++                out_flush();
++                fwprintf(stderr, L"Error reading input file \"%s\": %s\n", *filename, strerror(r.err));
+                 fclose(f);
+                 return 2;
+             }
+ 
+             if (fclose(f)) {
++                out_flush();
+                 fwprintf(stderr, L"Error closing input file \"%s\": %s\n", *filename, strerror(errno));
+                 return 2;
+             }
+         }
+     }
++    out_flush();
++    return 0;
+ }

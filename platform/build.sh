@@ -771,6 +771,7 @@ tools() {
     lol=$(lock lolcat | awk '{ print $2 }')
     mkdir -p "$t/lolcat" "$img/tools/lolcat"
     tar -xzf "$dl/${lol##*/}" -C "$t/lolcat" --strip-components=1
+    apply_patches "$t/lolcat" "$here/lolcat"
     "${cross}gcc" "${cpu_flags[@]}" -std=c11 -g0 -Wall -static "$t/lolcat/lolcat.c" -lm -o "$t/lolcat/lolcat"
     "${cross}strip" --remove-section=.comment --remove-section=.note \
         -o "$img/tools/lolcat/lolcat" "$t/lolcat/lolcat"

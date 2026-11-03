@@ -227,6 +227,19 @@
       }
     },
     {
+      "name": "lolcat",
+      "path": "platform/sources.lock",
+      "pattern": "(?m)^lolcat\\s+\\S*/v([0-9.]+)\\.tar\\.gz",
+      "kind": "github-tags",
+      "repo": "jaseg/lolcat",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)$",
+      "lock_entry": "lolcat",
+      "pull_request": {
+        "id": "lolcat",
+        "mode": "archive-pin"
+      }
+    },
+    {
       "name": "tinyalsa",
       "path": "platform/sources.lock",
       "pattern": "^tinyalsa\\s+\\S+\\s+([0-9a-f]{40})",

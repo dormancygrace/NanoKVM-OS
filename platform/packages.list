@@ -135,6 +135,8 @@ base  file  /usr/sbin/nanokvm-wifi-tx-policy              0755  firmware/alpine/
 base  file  /usr/sbin/nanokvm_update_edid                 0755  @tools/nanokvm_update_edid
 base  file  /usr/sbin/nkos-apply-updates                  0755  @server/nkos-apply-updates
 base  file  /usr/sbin/nkos-board-probe                    0755  @tools/nkos-board-probe
+base  file  /usr/bin/lolcat                               0755  @tools/lolcat/lolcat
+base  file  /usr/share/licenses/lolcat/LICENSE            0644  @tools/lolcat/LICENSE
 base  file  /usr/sbin/nkos-board-select                   0755  firmware/alpine/compat/nkos-board-select
 base  file  /usr/sbin/nkos-update                         0755  @server/nkos-update
 base  link  /usr/sbin/watchdog                            -     /sbin/watchdog

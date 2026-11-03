@@ -1198,7 +1198,7 @@
       },
       "bannerStyle": {
         "title": "SSH 欢迎横幅",
-        "description": "选择新的交互式 SSH 会话开始时显示的横幅。",
+        "description": "选择新的交互式 SSH 会话开始时显示的横幅。彩虹样式还会通过 lolcat 为提示符和常用命令（ls、cat、df、ps 等）着色。",
         "default": "默认",
         "rainbow": "彩虹",
         "failed": "无法保存 SSH 横幅样式。"

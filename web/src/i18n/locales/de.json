@@ -1198,7 +1198,7 @@
       },
       "bannerStyle": {
         "title": "SSH-Banner",
-        "description": "Wählen Sie das Banner, das beim Start einer neuen interaktiven SSH-Sitzung angezeigt wird.",
+        "description": "Wählen Sie das Banner, das beim Start einer neuen interaktiven SSH-Sitzung angezeigt wird. Regenbogen färbt außerdem die Eingabeaufforderung und alltägliche Befehle (ls, cat, df, ps...) mit lolcat.",
         "default": "Standard",
         "rainbow": "Regenbogen",
         "failed": "Der Stil des SSH-Banners konnte nicht gespeichert werden."

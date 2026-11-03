@@ -39,7 +39,8 @@ jobs:
         run: |
           files=$RUNNER_TEMP/changed-files
           if [ -n "$PR" ]; then
-            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' > "$files"
+            # A rename changes both the old and the new area.
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[] | .filename, (.previous_filename // empty)' > "$files"
             # The API lists at most 3000 files: test everything beyond that.
             [ "$(wc -l < "$files")" -lt 3000 ] || echo .github/ > "$files"
           else
@@ -57,8 +58,8 @@ jobs:
           done
           {
             echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$|^tests/test-(video-recovery-native|websocket-c906)\.py$|^tests/test-remote-smb\.sh$|^tests/fixtures/remote-smb/|^tests/upstream-mask\.go\.txt$')"
-            echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/go-crypto-c906/|^tests/test-c906-poly1305\.py$')"
-            echo "web=$(changed '^web/')"
+            echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
+            echo "web=$(changed '^web/|^\.nvmrc$')"
             echo "rustdesk=$(changed '^addons/rustdesk/')"
             echo "modules=$(printf '%s\n' "${modules[@]}" | jq -Rsc 'split("\n") | map(select(. != ""))')"
           } | tee -a "$GITHUB_OUTPUT"

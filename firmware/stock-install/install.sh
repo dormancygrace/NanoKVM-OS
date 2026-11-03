@@ -57,7 +57,6 @@ case " $(cat /proc/cmdline) " in *' root=/dev/mmcblk0p2 '*) ;; *) fail "root boo
 # staging writes there. Ask the operator to detach anything else; do not
 # silently drop USB networking used for SSH.
 data_luns=
-data_writer=0
 for file in /sys/kernel/config/usb_gadget/*/functions/mass_storage.*/lun.*/file; do
     [ -e "$file" ] || continue
     medium=$(cat "$file") || fail "cannot inspect USB virtual media"
@@ -65,21 +64,15 @@ for file in /sys/kernel/config/usb_gadget/*/functions/mass_storage.*/lun.*/file;
         '') ;;
         /dev/mmcblk0p3)
             data_luns="$data_luns $file"
-            if [ "$data_readonly" = 1 ]; then
-                case "$(cat "${file%file}ro")" in
-                    0) data_writer=1 ;;
-                    1) ;;
-                    *) fail "cannot inspect USB virtual disk write access" ;;
-                esac
-            fi
             ;;
         *) fail "detach every USB virtual disk/image before installation" ;;
     esac
 done
-# Stock mounts /data read-only while exporting the raw partition writable.
+# Stock keeps /data read-only while exporting the raw partition, including
+# read-only shares attached from the stock UI.
 # Do not override an unexplained read-only mount (for example, a filesystem error).
-[ "$data_readonly" = 0 ] || [ "$data_writer" = 1 ] ||
-    fail "/data is read-only without a writable USB data disk; check its filesystem first"
+[ "$data_readonly" = 0 ] || [ -n "$data_luns" ] ||
+    fail "/data is read-only without a USB data disk; check its filesystem first"
 plan=$("$bundle/stock-layout" plan /dev/mmcblk0) || fail "unsupported SD layout"
 # Only the compiled helper emits these nine decimal integers, never shell code.
 set -- $plan
@@ -127,7 +120,7 @@ if [ -n "$data_luns" ]; then
     # The host may have changed exFAT metadata. A fresh mount drops the stale
     # view; remount,rw alone would retain it. Eject every data LUN first, while
     # leaving HID and USB networking connected.
-    umount /data || fail "cannot release /data after ejecting the USB disk; close files there and try again"
+    umount /data || fail "cannot release /data; the USB disk is already detached. Close files there, then reboot stock and retry"
     mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /data ||
         fail "cannot mount /data writable after ejecting the USB disk"
 fi

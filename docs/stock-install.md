@@ -22,12 +22,15 @@ existing exFAT partition 3 mounted at `/data`. It refuses other
 layouts, a fourth partition, an unexpected boot device, an existing `dbg.sd`,
 insufficient space, or a mounted USB virtual disk/image. Stock shares
 partition 3 itself as a USB disk by default and can mount `/data` read-only
-while the host has write access. The installer detaches that disk, unmounts
+while it is exported, including read-only shares created from the stock UI.
+The installer detaches that disk, unmounts
 `/data` and mounts it writable with a fresh view of the filesystem before
 staging files. It refuses when the USB host keeps the disk locked (eject the
 NanoKVM disk on the host and try again), `/data` is busy or cannot be mounted
-writable, or it is read-only without a writable raw USB disk explaining that
-state. No filesystem repair or formatting is attempted during this step.
+writable, or it is read-only without a raw USB disk explaining that
+state. If unmounting fails because `/data` is busy, the USB disk has already
+been detached: close files there, then reboot stock before retrying. No
+filesystem repair or formatting is attempted during this step.
 Detach any other virtual media in the stock UI first; the installer does not
 disconnect USB networking for you. `--check` leaves mounts and USB media unchanged.
 

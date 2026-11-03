@@ -3,6 +3,7 @@ package network
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -79,6 +80,11 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		}
 	}
 
+	if req.Force {
+		setEthernetForced(c, config, req.VLANEnabled != nil)
+		return
+	}
+
 	// The change can cut the device off: it runs on trial (trial.go).
 	trial, err := beginTrial("ethernet", []string{ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile})
 	if err != nil {
@@ -111,6 +117,48 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		trial.restarted(restartEthernet())
 	}()
 	log.Infof("set ethernet config on trial: enabled=%t mode=%s address=%s gateway=%s", config.Enabled, config.Mode, config.Address, config.Gateway)
+}
+
+// setEthernetForced applies the settings at once and keeps them: the owner
+// asked to skip the trial, so nothing is undone when this page loses the
+// device. A write that fails half way still puts the previous files back.
+func setEthernetForced(c *gin.Context, config proto.EthernetConfig, vlan bool) {
+	var rsp proto.Response
+	paths := []string{ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile}
+	err := withoutTrial(func() error {
+		previous, err := snapshotFiles(paths)
+		if err != nil {
+			return fmt.Errorf("cannot record the current network settings: %w", err)
+		}
+		if err = writeEthernet(config, vlan); err != nil {
+			if restoreErr := restoreFiles(previous); restoreErr != nil {
+				log.Errorf("failed to restore the ethernet config: %s", restoreErr)
+			}
+			return err
+		}
+		return syncFiles()
+	})
+	if errors.Is(err, errTrialPending) || errors.Is(err, errTrialUndoing) {
+		rsp.ErrRsp(c, -3, err.Error())
+		return
+	}
+	if err != nil {
+		log.Errorf("failed to write ethernet config: %s", err)
+		rsp.ErrRsp(c, -2, err.Error())
+		return
+	}
+
+	rsp.OkRspWithData(c, gin.H{})
+	c.Writer.Flush()
+	releaseRestart := networktrial.Begin()
+	go func() {
+		defer releaseRestart()
+		time.Sleep(restartDelay)
+		if err := restartEthernet(); err != nil {
+			log.Errorf("failed to restart ethernet: %s", err)
+		}
+	}()
+	log.Infof("set ethernet config without trial: enabled=%t mode=%s address=%s gateway=%s", config.Enabled, config.Mode, config.Address, config.Gateway)
 }
 
 func writeEthernet(config proto.EthernetConfig, vlan bool) error {

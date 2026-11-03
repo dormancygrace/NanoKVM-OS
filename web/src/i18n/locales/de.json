@@ -1914,7 +1914,10 @@
           "bypassed": "nutzt Wi-Fi",
           "loadFailed": "Die Gateway-Prüfung konnte nicht gelesen werden.",
           "saveFailed": "Die Gateway-Prüfung konnte nicht gespeichert werden."
-        }
+        },
+        "forceSave": "Ohne Prüfung speichern",
+        "forceTitle": "Ohne Verbindungsprüfung speichern?",
+        "forceContent": "Die Einstellungen gelten sofort und bleiben, auch wenn diese Seite das Gerät danach nicht mehr erreicht: Nichts wird zurückgenommen. Ist das Gerät dann nicht erreichbar, verbinden Sie sich über WLAN oder die serielle Konsole oder bearbeiten Sie eth.nodhcp auf der Boot-Partition der SD-Karte."
       },
       "dns": {
         "title": "DNS",

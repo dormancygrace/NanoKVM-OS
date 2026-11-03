@@ -118,8 +118,13 @@ export function getEthernet() {
   return http.get<EthernetConfig>('/api/network/ethernet');
 }
 
-export function setEthernet(config: Omit<EthernetConfig, 'interface' | 'adminUp' | 'linkUp'>) {
-  return http.post<{ trial: NetworkTrial }>('/api/network/ethernet', config);
+// force: applied without the trial, so nothing is undone if the device is
+// lost; the response then carries no trial.
+export function setEthernet(
+  config: Omit<EthernetConfig, 'interface' | 'adminUp' | 'linkUp'>,
+  force = false
+) {
+  return http.post<{ trial?: NetworkTrial }>('/api/network/ethernet', { ...config, force });
 }
 
 // A network change on trial: the device undoes it unless it is confirmed

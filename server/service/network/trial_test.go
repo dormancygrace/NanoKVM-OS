@@ -500,3 +500,30 @@ func TestAFailedRestartDuringTheRevertKeepsTheRecordAndRetries(t *testing.T) {
 		return active == nil
 	})
 }
+
+// A forced change skips the trial: it applies, leaves no record and stays
+// after the trial's time; it still waits for a change already on trial.
+func TestForcedEthernetChangeSkipsTheTrial(t *testing.T) {
+	f := newTrialFixture(t)
+	setEthernetOnTrial(t, `{"enabled":true,"mode":"dhcp"}`)
+	_, response := postJSON((&Service{}).SetEthernet, `{"enabled":true,"mode":"static","address":"10.0.0.9","subnetMask":"255.255.255.0","force":true}`)
+	if response.Code != -3 {
+		t.Fatalf("forced change during a trial = %+v, want -3", response)
+	}
+	endTrialForTest()
+
+	_, response = postJSON((&Service{}).SetEthernet, `{"enabled":true,"mode":"static","address":"10.0.0.9","subnetMask":"255.255.255.0","force":true}`)
+	if response.Code != 0 {
+		t.Fatalf("forced change = %+v", response)
+	}
+	if _, err := os.Lstat(trialFile); !os.IsNotExist(err) {
+		t.Fatalf("forced change left a trial record: %v", err)
+	}
+	time.Sleep(3 * trialDuration)
+	if got := f.read(t, ethernetConfigFile); !strings.HasPrefix(got, "10.0.0.9/24") {
+		t.Fatalf("forced settings = %q", got)
+	}
+	if f.restarted.Load() == 0 {
+		t.Fatal("forced change did not restart the interface")
+	}
+}

@@ -19,10 +19,11 @@ on:
   workflow_dispatch:
     inputs:
       addon:
-        description: 'Add-on'
+        description: 'Add-on, or all five model add-ons'
+        default: nanokvm-ipmi
         type: choice
         options: [nanokvm-ipmi, nanokvm-model-ocr, nanokvm-model-ocr-latin, nanokvm-model-ocr-cyrillic,
-                  nanokvm-model-ocr-chinese, nanokvm-model-screen]
+                  nanokvm-model-ocr-chinese, nanokvm-model-screen, models]
       dry_run:
         description: 'Build and check only; publish nothing'
         type: boolean
@@ -34,6 +35,14 @@ on:
       - scripts/addon_packages.py
       - scripts/next-addon-revision.py
       - addons/ipmi/**
+      - addons/model-*/**
+      - tpu/models/**
+      - tpu/helpers/cvimodel-dmabuf.c
+      - platform/sources.lock
+      - tests/test-addon-packages.py
+      - tests/test-build-addon.py
+      - tests/test-next-addon-revision.py
+      - LICENSE
       - firmware/cpu/sysmon-runtime/**
       - server/pkg/bmc/**
       - server/go.mod
@@ -46,17 +55,63 @@ concurrency:
   group: addon-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  ADDON: ${{ inputs.addon || 'nanokvm-ipmi' }}
-
 jobs:
+  plan:
+    name: Select add-ons
+    runs-on: ubuntu-26.04
+    outputs:
+      addons: ${{ steps.select.outputs.addons }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select affected recipes
+        id: select
+        env:
+          REQUESTED: ${{ inputs.addon }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+          sys.path.insert(0, 'scripts')
+          import addon_packages as registry
+          if os.environ['GITHUB_EVENT_NAME'] == 'workflow_dispatch':
+              requested = os.environ['REQUESTED']
+              if requested == 'models':
+                  addons = list(registry.MODEL_ADDONS)
+              elif requested in registry.BUILD_ADDONS:
+                  addons = [requested]
+              else:
+                  raise SystemExit('Unknown add-on: ' + requested)
+          else:
+              refs = [os.environ['BASE'] + '...' + os.environ['HEAD']]
+              paths = subprocess.check_output(['git', 'diff', '--name-only', *refs], text=True).splitlines()
+              diff = subprocess.check_output(['git', 'diff', '--unified=0', *refs, '--', 'platform/sources.lock'], text=True)
+              pins = {line[1:].split()[0] for line in diff.splitlines()
+                      if line.startswith(('+', '-')) and not line.startswith(('+++', '---'))
+                      and line[1:].strip() and not line[1:].lstrip().startswith('#')}
+              addons = registry.selected_builds(paths, pins)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('addons=' + json.dumps(addons) + '\n')
+          print('Selected: ' + ', '.join(addons))
+          PY
+
   build:
-    name: Build and check
+    name: Build and check (${{ matrix.addon }})
+    needs: plan
+    if: needs.plan.outputs.addons != '[]'
     runs-on: ubuntu-26.04
     # A model conversion takes most of it.
     timeout-minutes: 120
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: ${{ fromJSON(needs.plan.outputs.addons) }}
+    env:
+      ADDON: ${{ matrix.addon }}
     steps:
       # A dry run may build any branch: a model add-on is checked so before
       # it merges.
@@ -82,10 +137,18 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h /
 
+      - name: Cache converter downloads
+        if: steps.kind.outputs.parts != ''
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/tpu-pip
+          key: tpu-pip-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tpu/models/convert.sh') }}
+
       - name: Convert models
         if: steps.kind.outputs.parts != ''
         env:
           PARTS: ${{ steps.kind.outputs.parts }}
+          NANOKVM_TPU_PIP_CACHE: ${{ runner.temp }}/tpu-pip
         run: |
           set -euo pipefail
           # shellcheck disable=SC2086 # one argument per part
@@ -215,32 +278,61 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: addon
+          name: addon-${{ matrix.addon }}
           path: ${{ runner.temp }}/addon
           retention-days: 14
 
   publish:
-    name: Publish release
+    name: Publish release (${{ matrix.addon }})
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
-    needs: build
+    needs: [plan, build]
     runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        addon: ${{ fromJSON(needs.plan.outputs.addons) }}
+    env:
+      ADDON: ${{ matrix.addon }}
     permissions:
       contents: write
-      actions: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/download-artifact@v8
         with:
-          name: addon
+          name: addon-${{ matrix.addon }}
           path: ${{ runner.temp }}/addon
+
+      - name: Validate the release files
+        run: |
+          python3 - <<'PY'
+          import hashlib, os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts')
+          import addon_packages as registry
+          root = Path(os.environ['RUNNER_TEMP']) / 'addon'
+          packages = list(root.glob('*.apk'))
+          if len(packages) != 1 or registry.addon(packages[0].name) != os.environ['ADDON']:
+              raise SystemExit('Expected one APK for ' + os.environ['ADDON'])
+          package = packages[0]
+          if {p.name for p in root.iterdir()} != {package.name, 'SHA256SUMS'}:
+              raise SystemExit('Unexpected release files')
+          if any(p.is_symlink() or not p.is_file() for p in root.iterdir()):
+              raise SystemExit('Release artifacts must be regular files')
+          digest = hashlib.sha256(package.read_bytes()).hexdigest()
+          if (root / 'SHA256SUMS').read_text() != f'{digest}  {package.name}\n':
+              raise SystemExit('APK checksum mismatch')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('TAG=' + package.stem + '\n')
+          PY
 
       # If a run fails after the release exists, dispatch Pages separately: a rerun
       # would count that release and build the next revision.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.build.outputs.tag }}
         run: |
           set -euo pipefail
           a=$RUNNER_TEMP/addon
@@ -249,5 +341,19 @@ jobs:
             --title "Add-on $TAG" \
             --notes "Optional NanoKVM OS add-on $TAG, built from $GITHUB_SHA. Devices can install or update it independently of OS releases once the APK repository index has been signed and deployed." \
             "$a"/*
-          # GITHUB_TOKEN release events do not start another workflow.
-          gh workflow run apk-repository.yml --ref main
+
+  repository:
+    name: Update the signed APK repository
+    if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
+    needs: publish
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: write
+    steps:
+      # GITHUB_TOKEN release events do not start another workflow. Wait until
+      # all selected releases exist, then request one index rebuild.
+      - name: Dispatch repository publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run apk-repository.yml --ref main

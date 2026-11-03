@@ -26,12 +26,47 @@ class RegistryTests(unittest.TestCase):
                     'nanokvm-ipmi-0.1-r0', 'nanokvm-ipmi-0.1.0', 'nanokvm-tpu-0.1.0-r0', 'xnanokvm-ipmi-0.1.0-r0']:
             self.assertFalse(addon_packages.TAG.fullmatch(tag), tag)
 
+    def test_multiline_description_keeps_metadata_checks(self):
+        dump = ('info:\n  name: nanokvm-model-ocr\n  version: 1.0.0-r0\n'
+                '  arch: riscv64\n  description: |\n    Text detection\n    for the TPU\n')
+        for suffix, valid in [
+                ('  depends:\n    - nanokvm-tpu-abi=1\n', True),
+                ('  provides:\n    - nanokvm-os=4.0.0\n', False),
+                ('  depends:\n    - !nanokvm\n', False),
+                ('   invalid indentation\n', False)]:
+            with self.subTest(suffix=suffix):
+                if valid:
+                    info = addon_packages.metadata(dump + suffix, 'nanokvm-model-ocr-1.0.0-r0.apk')
+                    self.assertEqual(info['description'], 'Text detection\nfor the TPU')
+                    self.assertEqual(info['depends'], 'nanokvm-tpu-abi=1')
+                else:
+                    with self.assertRaises(ValueError):
+                        addon_packages.metadata(dump + suffix, 'nanokvm-model-ocr-1.0.0-r0.apk')
+
     def test_every_add_on_has_a_release_source(self):
         for name in addon_packages.ADDONS:
             filename = f'{name}-1.0.0-r0.apk'
             self.assertEqual(addon_packages.addon(filename), name)
             self.assertIn(filename, addon_packages.manifest(json.dumps({'packages': {filename: entry(filename)}})))
         self.assertIsNone(addon_packages.addon('nanokvm-ipmi-1.0.0-r0.tar.gz'))
+
+    def test_ci_selects_affected_addons(self):
+        cases = [
+            (['README.md', 'addons/rustdesk/src/main.rs'], [], []),
+            (['addons/ipmi/go.mod'], [], ['nanokvm-ipmi']),
+            (['addons/model-ocr-latin/addon.json'], [], ['nanokvm-model-ocr-latin']),
+            (['addons/model-ocr-latin-extra/addon.json'], [], []),
+            (['tpu/models/calibration/chinese-sure.cali'], [], ['nanokvm-model-ocr-chinese']),
+            (['tpu/models/screen/screen.onnx'], [], ['nanokvm-model-screen']),
+            (['tpu/models/convert.sh'], [], list(addon_packages.MODEL_ADDONS)),
+            (['platform/sources.lock'], ['node'], []),
+            (['platform/sources.lock'], ['tpu-runtime'], list(addon_packages.MODEL_ADDONS)),
+            (['platform/sources.lock'], ['go'], ['nanokvm-ipmi']),
+            (['scripts/build-addon.py'], [], list(addon_packages.BUILD_ADDONS)),
+        ]
+        for paths, pins, expected in cases:
+            with self.subTest(paths=paths, pins=pins):
+                self.assertEqual(addon_packages.selected_builds(paths, pins), sorted(expected))
 
 
 if __name__ == '__main__':

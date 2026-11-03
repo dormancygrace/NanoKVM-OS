@@ -24,6 +24,46 @@ SOURCES = tuple(RELEASES + name + '-' for name in ADDONS)
 TAG = re.compile('(' + '|'.join(map(re.escape, ADDONS)) + r')-(\d+\.\d+\.\d+)-r(\d+)')
 
 
+MODEL_ADDONS = tuple(name for name in ADDONS if name.startswith('nanokvm-model-'))
+BUILD_ADDONS = tuple(name for name in ADDONS if name != 'nanokvm-rustdesk')
+
+
+def selected_builds(paths, changed_pins=()):
+    """Add-on CI targets for repository paths and changed sources.lock entries."""
+    selected = set()
+    common = {'.github/workflows/addon.yml', 'scripts/build-addon.py',
+              'scripts/addon_packages.py', 'scripts/next-addon-revision.py',
+              'tests/test-addon-packages.py', 'tests/test-build-addon.py',
+              'tests/test-next-addon-revision.py', 'LICENSE'}
+    calibration = {'det': 'ocr', 'latin': 'ocr-latin', 'latin-sure': 'ocr-latin',
+                   'cyrillic': 'ocr-cyrillic', 'chinese': 'ocr-chinese',
+                   'chinese-sure': 'ocr-chinese', 'screen': 'screen'}
+    for path in paths:
+        if path in common:
+            selected.update(BUILD_ADDONS)
+        elif path.startswith(('addons/ipmi/', 'firmware/cpu/sysmon-runtime/', 'server/pkg/bmc/')) or path in {'server/go.mod', 'server/go.sum'}:
+            selected.add('nanokvm-ipmi')
+        elif path.startswith('addons/model-'):
+            name = 'nanokvm-' + path.split('/')[1]
+            if name in MODEL_ADDONS:
+                selected.add(name)
+        elif path.startswith('tpu/models/calibration/') and path.endswith('.cali') and path.rsplit('/', 1)[1][:-5] in calibration:
+            selected.add('nanokvm-model-' + calibration[path.rsplit('/', 1)[1][:-5]])
+        elif path.startswith('tpu/models/screen/'):
+            selected.add('nanokvm-model-screen')
+        elif path == 'tpu/models/latin_head.py':
+            selected.add('nanokvm-model-ocr-latin')
+        elif path == 'tpu/models/fold_affine.py':
+            selected.add('nanokvm-model-ocr-cyrillic')
+        elif path.startswith('tpu/models/') or path == 'tpu/helpers/cvimodel-dmabuf.c':
+            selected.update(MODEL_ADDONS)
+    if 'tpu-runtime' in changed_pins:
+        selected.update(MODEL_ADDONS)
+    if 'go' in changed_pins:
+        selected.add('nanokvm-ipmi')
+    return sorted(selected)
+
+
 def addon(filename):
     """The add-on name of an add-on APK file name, or None."""
     match = TAG.fullmatch(filename.removesuffix('.apk'))
@@ -73,6 +113,7 @@ def metadata(dump, filename):
     def refuse(what):
         raise ValueError(f'Add-on {filename} declares {what}')
     section = field = None
+    description_block = False
     info = {}
     for line in dump.splitlines():
         if not line.strip() or line.startswith('#'):
@@ -89,7 +130,13 @@ def metadata(dump, filename):
                 field = entry[1]
                 if field not in INFO_FIELDS:
                     refuse(field)
-                info[field] = '' if field == 'depends' else entry[2] or ''
+                description_block = field == 'description' and entry[2] == '|'
+                info[field] = '' if field == 'depends' or description_block else entry[2] or ''
+                continue
+            # apk-tools renders long descriptions as YAML literal blocks.
+            # Only that descriptive field may consume indented free text.
+            if description_block and line.startswith('    '):
+                info[field] += ('\n' if info[field] else '') + line[4:]
                 continue
             item = re.fullmatch(r"    - '?([^']+)'?", line)
             if field != 'depends' or not item:

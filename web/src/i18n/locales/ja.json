@@ -239,9 +239,7 @@
     "frameRateFixedHint": "レシーバーは独自のリフレッシュレートを保ちます。ストリームは最大 {{value}} fps です。",
     "modeCustom": "カスタム：{{value}}",
     "modeHint": "NanoKVM モニターが通知する、コンピューターが描画する解像度とリフレッシュレートです。ストリームも同じレートで送信されます。変更すると HDMI が一時的に再接続されます。",
-    "bitrateAuto": "自動 · {{value}} Mbit/s",
-    "bitrateEconomy": "節約 · {{value}} Mbit/s",
-    "bitrateCeiling": "動きのある映像（動画、スクロール）の上限です。静止画面でははるかに少なくなります。「自動」はモードに従い、「節約」はリモート接続やモバイル接続に適しています。",
+    "bitrateCeiling": "動きのある映像（動画、スクロール）の上限です。静止画面でははるかに少なくなります。リモート接続やモバイル接続には 3 Mbit/s が適しています。",
     "bitrateLimit": "上限 {{value}} Mbit/s",
     "measuredBitrate": "≈ {{value}} Mbit/s",
     "codecHint": "H.265 は同じ画質で通信量が約 3 分の 1 少なくなります。H.264 はより多くのブラウザで再生できます。",
@@ -1021,7 +1019,7 @@
         "collected": "収集日時：{{time}}",
         "versions": "バージョンと互換性",
         "application": "アプリケーション",
-        "image": "イメージ",
+        "image": "初回インストール",
         "alpine": "Alpine",
         "kernel": "実行中のカーネル",
         "modules": "カーネルモジュール",
@@ -1118,8 +1116,6 @@
     },
     "about": {
       "applicationVersion": "NanoKVM OS",
-      "imageVersion": "初回インストール",
-      "bundledVersion": "イメージに同梱のアプリケーション",
       "title": "NanoKVM について",
       "description": "NanoKVM 用のコミュニティファームウェア。",
       "specialThanksTitle": "スペシャルサンクス",
@@ -1164,7 +1160,6 @@
       "documentation": "ドキュメント",
       "reportIssue": "問題を報告",
       "ip": "IP",
-      "image": "イメージバージョン",
       "hostname": "ホスト名",
       "hostnameEdit": "ホスト名を編集",
       "hostnameSave": "ホスト名を保存",
@@ -1917,7 +1912,10 @@
           "bypassed": "Wi-Fi を使用中",
           "loadFailed": "ゲートウェイ確認を読み込めませんでした。",
           "saveFailed": "ゲートウェイ確認を保存できませんでした。"
-        }
+        },
+        "forceSave": "確認せずに保存",
+        "forceTitle": "接続を確認せずに保存しますか？",
+        "forceContent": "設定はすぐに適用され、その後このページからデバイスに接続できなくなっても元に戻りません。デバイスに接続できなくなった場合は、Wi-Fi またはシリアルコンソールから接続するか、SD カードのブートパーティションにある eth.nodhcp を編集してください。"
       },
       "dns": {
         "title": "DNS",

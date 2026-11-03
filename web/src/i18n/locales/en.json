@@ -239,9 +239,7 @@
     "frameRateFixedHint": "The receiver keeps its own refresh rate; the stream carries at most {{value}} fps.",
     "modeCustom": "Custom: {{value}}",
     "modeHint": "The resolution and refresh rate the computer renders, advertised by the NanoKVM monitor; the stream carries the same rate. Changing it briefly reconnects HDMI.",
-    "bitrateAuto": "Auto · {{value}} Mbit/s",
-    "bitrateEconomy": "Economy · {{value}} Mbit/s",
-    "bitrateCeiling": "A ceiling for motion (video, scrolling); a still screen sends far less. Auto follows the mode; Economy suits remote and mobile connections.",
+    "bitrateCeiling": "A ceiling for motion (video, scrolling); a still screen sends far less. 3 Mbit/s suits remote and mobile connections.",
     "bitrateLimit": "limit {{value}} Mbit/s",
     "measuredBitrate": "≈ {{value}} Mbit/s",
     "codecHint": "H.265 needs about a third less traffic for the same picture; H.264 plays in more browsers.",
@@ -1021,7 +1019,7 @@
         "collected": "Collected: {{time}}",
         "versions": "Versions and compatibility",
         "application": "Application",
-        "image": "Image",
+        "image": "Initial installation",
         "alpine": "Alpine",
         "kernel": "Running kernel",
         "modules": "Kernel modules",
@@ -1118,8 +1116,6 @@
     },
     "about": {
       "applicationVersion": "NanoKVM OS",
-      "imageVersion": "Initial installation",
-      "bundledVersion": "Applications bundled with image",
       "title": "About",
       "description": "Independent community firmware for NanoKVM.",
       "specialThanksTitle": "Special thanks",
@@ -1164,7 +1160,6 @@
       "documentation": "Documentation",
       "reportIssue": "Report an issue",
       "ip": "IP",
-      "image": "Image version",
       "hostname": "Hostname",
       "hostnameEdit": "Edit hostname",
       "hostnameSave": "Save hostname",
@@ -1917,7 +1912,10 @@
           "bypassed": "using Wi-Fi",
           "loadFailed": "Could not read the gateway check.",
           "saveFailed": "Could not save the gateway check."
-        }
+        },
+        "forceSave": "Save without check",
+        "forceTitle": "Save without the connection check?",
+        "forceContent": "The settings apply at once and stay, even if this page cannot reach the device afterwards: nothing is undone. If they cut the device off, reach it over Wi-Fi or the serial console, or edit eth.nodhcp on the boot partition of its SD card."
       },
       "dns": {
         "title": "DNS",

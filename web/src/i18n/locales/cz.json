@@ -467,7 +467,6 @@
     "about": {
       "title": "O NanoKVM",
       "ip": "IP adresa",
-      "image": "Verze obrazu (prvotní instalace)",
       "hostname": "Název hostitele",
       "hostnameUpdated": "Název hostitele aktualizován. Pro použití restartujte.",
       "credits": {
@@ -513,9 +512,7 @@
       "hostnameEdit": "Upravit název hostitele",
       "hostnameCancel": "Zrušit upravování",
       "hostnameSave": "Uložit název hostitele",
-      "imageVersion": "Původní instalace",
       "reportIssue": "Nahlásit problém",
-      "bundledVersion": "Aplikace, které byly obsažené v tomto obrazu",
       "description": "Nezávislý komunitní firmware pro NanoKVM.",
       "specialThanksWife": "Mé ženě – za její trpělivost, podporu a za to, že snášela mou nepřítomnost během nejintenzivnější fáze vývoje."
     },
@@ -945,7 +942,10 @@
           "bypassed": "přes Wi-Fi",
           "loadFailed": "Kontrolu brány se nepodařilo načíst.",
           "saveFailed": "Kontrolu brány se nepodařilo uložit."
-        }
+        },
+        "forceSave": "Uložit bez kontroly",
+        "forceTitle": "Uložit bez kontroly spojení?",
+        "forceContent": "Nastavení platí okamžitě a zůstane, i když se tato stránka k zařízení potom nedostane: nic se nevrátí. Pokud zařízení přestane být dostupné, připojte se přes Wi-Fi nebo sériovou konzoli, případně upravte eth.nodhcp na zaváděcím oddílu jeho SD karty."
       },
       "dns": {
         "title": "DNS",
@@ -1231,7 +1231,7 @@
         "output": "Výstup",
         "overview": "Stav",
         "capture": "Zachytávání",
-        "image": "Obraz (prvotní instalace)",
+        "image": "Původní instalace",
         "firewall": "nftables",
         "collected": "Shromážděno: {{time}}",
         "kernel": "Spuštěné jádro systému",
@@ -1947,7 +1947,7 @@
       "secretKept": "Uloženo; ponechte prázdné, aby zůstalo",
       "secretClear": "Odebrat",
       "messages": "Zprávy",
-      "language": "Jazyk zpráv",
+      "language": "Jazyk zprávy",
       "save": "Uložit",
       "saved": "Uloženo",
       "failed": "Nastavení oznámení se nepodařilo načíst.",
@@ -2327,8 +2327,6 @@
       "video-memory": "vyžaduje více videopaměti: aby byl použit aktualizovaný systém, zařízení restartujte",
       "h264-4k": "není k dispozici nad 2560 × 1440, použijte H.265 nebo rozlišení proudu 1440p nebo nižší"
     },
-    "bitrateAuto": "Automatická · {{value}} Mbit/s",
-    "bitrateEconomy": "Úsporná · {{value}} Mbit/s",
     "mjpegChroma420": "4:2:0 – méně objemné snímky",
     "powerCycleTitle": "Je zapotřebí fyzicky odpojit od napájení a poté znovu připojit",
     "invalid": "Některé z vybraných předvoleb nejsou k dispozici",
@@ -2352,7 +2350,7 @@
     "mjpegChromaFallback_resolution": "Pokud chcete zachovat kódování barev 4:2:2, pak v případě MJPEG je rozlišení omezené na 1920 pixelů na šířku, zatímco H.264/H.265 umožňují více. Zvolené rozlišení se vrátí až proud videa skončí.",
     "imageHint": "Nastaveno stejně každému prohlížeči.",
     "modeHint": "Rozlišení a obnovovací frekvence, kterými počítač vykresluje, propagované NanoKVM monitorem (proud nese stejnou frekvenci). Při provedení změny nakrátko odpojí a znovu připojí HDMI.",
-    "bitrateCeiling": "Horní hranice pro pohyb (video, posouvání) – nehybný obraz posílá mnohem méně. „Automaticky“ se řídí režimem, „Úsporné“ se hodí pro připojení na dálku nebo přes mobilní síť.",
+    "bitrateCeiling": "Horní hranice pro pohyb (video, posouvání) – nehybný obraz posílá mnohem méně. Pro připojení na dálku nebo přes mobilní síť se hodí 3 Mbit/s.",
     "bitrateLimit": "omezit na {{value}} Mbit/s",
     "codecHint": "Pro ten stejný obraz vytváří H.265 o přibližně třetinu nižší objem datového toku. U H.264 je zase vyšší pravděpodobnost, že ho prohlížeč umí přehrávat.",
     "browserSectionHint": "Uloženo v tomto prohlížeči (ostatní prohlížející si ponechají svá).",

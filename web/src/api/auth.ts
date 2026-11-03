@@ -31,8 +31,10 @@ export function getAccount() {
   return http.get<Account>('/api/auth/account');
 }
 
+// A forced change of the factory password sends no current password and
+// returns signedIn: the browser has a new session.
 export function changePassword(currentPassword: string, password: string) {
-  return http.post<null>(
+  return http.post<{ signedIn?: boolean } | null>(
     '/api/auth/password',
     { currentPassword, password, passwordEncoding: 'plain' },
     { sensitive: true }

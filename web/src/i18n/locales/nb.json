@@ -327,7 +327,6 @@
     "about": {
       "title": "Om NanoKVM",
       "ip": "IP",
-      "image": "Arkivfil-versjon",
       "hostname": "Vertsnavn",
       "hostnameUpdated": "Vertsnavn oppdatert. Start på nytt for å søke.",
       "credits": {

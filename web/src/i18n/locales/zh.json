@@ -239,9 +239,7 @@
     "frameRateFixedHint": "接收器保持自身的刷新率；视频流最多 {{value}} fps。",
     "modeCustom": "自定义：{{value}}",
     "modeHint": "由 NanoKVM 虚拟显示器声明、电脑实际输出的分辨率和刷新率；视频流使用相同的帧率。更改后 HDMI 会短暂重新连接。",
-    "bitrateAuto": "自动 · {{value}} Mbit/s",
-    "bitrateEconomy": "节省 · {{value}} Mbit/s",
-    "bitrateCeiling": "这是画面运动（视频、滚动）时的上限；静止画面的流量要小得多。“自动”随模式调整；“节省”适合远程和移动网络连接。",
+    "bitrateCeiling": "这是画面运动（视频、滚动）时的上限；静止画面的流量要小得多。远程和移动网络连接适合使用 3 Mbit/s。",
     "bitrateLimit": "上限 {{value}} Mbit/s",
     "measuredBitrate": "≈ {{value}} Mbit/s",
     "codecHint": "相同画质下 H.265 约可节省三分之一流量；H.264 兼容更多浏览器。",
@@ -1021,7 +1019,7 @@
         "collected": "收集时间：{{time}}",
         "versions": "版本与兼容性",
         "application": "应用",
-        "image": "镜像",
+        "image": "初始安装",
         "alpine": "Alpine",
         "kernel": "运行中的内核",
         "modules": "内核模块",
@@ -1118,8 +1116,6 @@
     },
     "about": {
       "applicationVersion": "NanoKVM OS",
-      "imageVersion": "初始安装",
-      "bundledVersion": "镜像内置的应用",
       "title": "关于 NanoKVM",
       "description": "NanoKVM 社区固件。",
       "specialThanksTitle": "特别感谢",
@@ -1164,7 +1160,6 @@
       "documentation": "文档",
       "reportIssue": "报告问题",
       "ip": "IP",
-      "image": "镜像版本",
       "hostname": "主机名",
       "hostnameEdit": "编辑主机名",
       "hostnameSave": "保存主机名",
@@ -1917,7 +1912,10 @@
           "bypassed": "正在使用 Wi-Fi",
           "loadFailed": "无法读取网关检查。",
           "saveFailed": "无法保存网关检查。"
-        }
+        },
+        "forceSave": "不检查直接保存",
+        "forceTitle": "不检查连接直接保存？",
+        "forceContent": "设置会立即生效并保留，即使之后本页面无法连接到设备也不会撤销。如果设备因此无法访问，请通过 Wi-Fi 或串口控制台连接，或编辑 SD 卡启动分区上的 eth.nodhcp。"
       },
       "dns": {
         "title": "DNS",

@@ -327,7 +327,6 @@
     "about": {
       "title": "Tentang NanoKVM",
       "ip": "IP",
-      "image": "Version Gambar",
       "hostname": "Nama Host",
       "hostnameUpdated": "Nama host diperbarui. Nyalakan ulang untuk menerapkan.",
       "credits": {

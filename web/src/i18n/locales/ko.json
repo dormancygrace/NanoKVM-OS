@@ -327,7 +327,6 @@
     "about": {
       "title": "NanoKVM 정보",
       "ip": "IP",
-      "image": "이미지 버전",
       "hostname": "호스트 이름",
       "hostnameUpdated": "호스트 이름이 업데이트되었습니다. 적용하려면 재부팅하세요.",
       "credits": {

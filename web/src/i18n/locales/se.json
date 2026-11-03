@@ -327,7 +327,6 @@
     "about": {
       "title": "Om NanoKVM",
       "ip": "IP",
-      "image": "Systemversion",
       "hostname": "Värdnamn",
       "hostnameUpdated": "Värdnamn uppdaterat. Starta om för att tillämpa.",
       "credits": {

@@ -13,5 +13,5 @@ func (s *Service) GetDashboard(c *gin.Context) {
 	if value, err := readMemoryStatus(); err == nil {
 		memory = value
 	}
-	rsp.OkRspWithData(c, gin.H{"system": dashboard.Read(), "memory": memory, "hardware": config.GetInstance().Hardware.Version.String(), "application": getApplicationVersion(), "image": getImageVersion()})
+	rsp.OkRspWithData(c, gin.H{"system": dashboard.Read(), "memory": memory, "hardware": config.GetInstance().Hardware.Version.String(), "application": getApplicationVersion()})
 }

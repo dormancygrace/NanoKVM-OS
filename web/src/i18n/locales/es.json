@@ -239,9 +239,7 @@
     "frameRateFixedHint": "El receptor mantiene su propia frecuencia de actualización; la transmisión lleva como máximo {{value}} fps.",
     "modeCustom": "Personalizado: {{value}}",
     "modeHint": "La resolución y la frecuencia de actualización que genera el equipo, anunciadas por el monitor del NanoKVM; el flujo usa la misma frecuencia. Al cambiarlo, HDMI se reconecta brevemente.",
-    "bitrateAuto": "Automático · {{value}} Mbit/s",
-    "bitrateEconomy": "Ahorro · {{value}} Mbit/s",
-    "bitrateCeiling": "Un límite para el movimiento (vídeo, desplazamiento); una pantalla estática envía mucho menos. Automático sigue el modo; Ahorro es adecuado para conexiones remotas y móviles.",
+    "bitrateCeiling": "Un límite para el movimiento (vídeo, desplazamiento); una pantalla estática envía mucho menos. 3 Mbit/s es adecuado para conexiones remotas y móviles.",
     "bitrateLimit": "límite {{value}} Mbit/s",
     "measuredBitrate": "≈ {{value}} Mbit/s",
     "codecHint": "H.265 necesita alrededor de un tercio menos de tráfico para la misma imagen; H.264 se reproduce en más navegadores.",
@@ -1021,7 +1019,7 @@
         "collected": "Recopilado: {{time}}",
         "versions": "Versiones y compatibilidad",
         "application": "Aplicación",
-        "image": "Imagen",
+        "image": "Instalación inicial",
         "alpine": "Alpine",
         "kernel": "Kernel en ejecución",
         "modules": "Módulos del kernel",
@@ -1118,8 +1116,6 @@
     },
     "about": {
       "applicationVersion": "NanoKVM OS",
-      "imageVersion": "Instalación inicial",
-      "bundledVersion": "Aplicaciones incluidas en la imagen",
       "title": "Sobre NanoKVM",
       "description": "Firmware comunitario para NanoKVM.",
       "specialThanksTitle": "Agradecimientos especiales",
@@ -1164,7 +1160,6 @@
       "documentation": "Documentación",
       "reportIssue": "Informar de un problema",
       "ip": "IP",
-      "image": "Versión de la imagen",
       "hostname": "Nombre del host",
       "hostnameEdit": "Editar nombre del host",
       "hostnameSave": "Guardar nombre del host",
@@ -1917,7 +1912,10 @@
           "bypassed": "usa el Wi-Fi",
           "loadFailed": "No se pudo leer la comprobación de la puerta de enlace.",
           "saveFailed": "No se pudo guardar la comprobación de la puerta de enlace."
-        }
+        },
+        "forceSave": "Guardar sin comprobar",
+        "forceTitle": "¿Guardar sin comprobar la conexión?",
+        "forceContent": "La configuración se aplica de inmediato y se mantiene aunque esta página no pueda llegar después al dispositivo: no se deshace nada. Si el dispositivo queda inaccesible, conéctese por Wi-Fi o por la consola serie, o edite eth.nodhcp en la partición de arranque de su tarjeta SD."
       },
       "dns": {
         "title": "DNS",

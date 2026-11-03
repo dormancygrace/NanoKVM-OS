@@ -313,31 +313,6 @@ test('portrait refresh follows the frame rate like landscape', () => {
   assert.equal(model.draftChanges(saved, { ...saved, fps: 60 }, c).monitorRewrite, true);
 });
 
-test('the automatic bitrate follows the size and rate', () => {
-  assert.equal(model.autoBitrate(2560, 1440, 60, 'h265'), 20000);
-  assert.equal(model.autoBitrate(3840, 2160, 30, 'h265'), 20000);
-  assert.equal(model.autoBitrate(1920, 1080, 100, 'h265'), 20000);
-  assert.equal(model.autoBitrate(1920, 1080, 60, 'h265'), 12000);
-  assert.equal(model.autoBitrate(1920, 1080, 30, 'h265'), 8000);
-  assert.equal(model.autoBitrate(1280, 720, 120, 'h265'), 10000);
-  assert.equal(model.autoBitrate(1920, 1080, 60, 'h264'), 15000);
-  assert.equal(model.autoBitrate(2560, 1440, 60, 'h264'), 20000);
-});
-
-test('the automatic bitrate of a draft uses the monitor it writes', () => {
-  const c = caps({ input: [1920, 1080] });
-  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60 }), c), 20000);
-  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60, height: 720 }), c), 5000);
-  assert.equal(model.draftAutoBitrate(draft({ monitor: 720, fps: 120 }), c), 10000);
-});
-
-test('the automatic bitrate of a draft uses the frame rate of the mode it switches to', () => {
-  // From a 3840x2160 input (30 fps) to 2560x1440 at 60 fps: the QHD rate.
-  const c = caps({ input: [3840, 2160] });
-  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60 }), c), 20000);
-  assert.equal(model.draftAutoBitrate(draft({ monitor: 1440, fps: 60, codec: 'h264' }), c), 20000);
-});
-
 test('a transport is offered with a codec that plays, or not at all', () => {
   const c = caps();
   const noWebrtcH265 = { ...everything, webrtcH265: false };

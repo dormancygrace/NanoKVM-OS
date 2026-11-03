@@ -127,20 +127,6 @@ export type VideoDraft = {
 export const FPS_CHOICES = [120, 75, 60, 50, 40, 30];
 export const BITRATE_CHOICES = [20000, 15000, 12000, 10000, 8000, 5000, 3000, 2000, 1000];
 
-// The automatic bitrate: a ceiling for motion (video, scrolling), about 0.09
-// bit per pixel for H.265 and 1.3 times that for H.264, rounded up to an
-// offered value. A still screen sends far less whatever the ceiling: the
-// encoder stops at its quality floor. 2560x1440@60 and 3840x2160@30: 20
-// Mbit/s; 1920x1080@60: 12; 1280x720@120: 10. Measured on the SG2002 at
-// 2560x1440@60, 20 Mbit/s keeps the encoder within its frame time.
-export function autoBitrate(width: number, height: number, fps: number, codec: Codec) {
-  const kbps = (width * height * fps * 0.09 * (codec === 'h264' ? 1.3 : 1)) / 1000;
-  return [...BITRATE_CHOICES].reverse().find((b) => b >= kbps) ?? BITRATE_CHOICES[0];
-}
-
-// The economy bitrate: remote access and mobile connections.
-export const ECONOMY_BITRATE = 3000;
-
 // The size a monitor setting stands for (Auto included).
 export function monitorSize(mode: MonitorMode | undefined) {
   if (!mode) return { width: 0, height: 0 };
@@ -533,15 +519,6 @@ function prospectiveCaps(draft: VideoDraft, caps: VideoCapabilities): VideoCapab
 // current input, within the stream limit.
 export function draftSize(draft: VideoDraft, caps: VideoCapabilities) {
   return streamSize(draft, prospectiveCaps(draft, caps));
-}
-
-// The automatic bitrate of a draft (autoBitrate of what it streams). Size and
-// frame-rate limit both come from the resolution the draft switches to, not from the
-// current input (a 3840x2160 input would cap a 1440p60 draft at 30 fps).
-export function draftAutoBitrate(draft: VideoDraft, caps: VideoCapabilities) {
-  const prospective = prospectiveCaps(draft, caps);
-  const out = streamSize(draft, prospective);
-  return autoBitrate(out.width, out.height, effectiveFps(draft, prospective), draft.codec);
 }
 
 export type DraftChange = {

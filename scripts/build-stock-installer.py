@@ -190,11 +190,16 @@ exec /kvmapp/system/init.d/S95nanokvm restart
         run(host / 'riscv64-buildroot-linux-musl-gcc', '-Os', '-static', '-s',
             '-Wall', '-Wextra', '-Werror', '-march=rv64imafdc', '-mabi=lp64d',
             source / 'layout.c', '-o', payload / 'stock-layout')
-        # The recovery's OLED progress: the player and its screens.
+        # The OLED progress: the player and its screens, for the recovery and
+        # for install.sh's preparation on stock.
         run(host / 'riscv64-buildroot-linux-musl-gcc', '-Os', '-static', '-s',
             '-Wall', '-Wextra', '-Werror', '-march=rv64imafdc', '-mabi=lp64d',
             source / 'oled.c', '-o', work / 'stock-oled')
         run(sys.executable, REPO / 'scripts/gen-stock-oled.py', work / 'oled')
+        shutil.copy2(work / 'stock-oled', payload / 'stock-oled')
+        for panel in ('wide', 'narrow'):
+            for step in ('prepare', 'restart'):
+                shutil.copyfile(work / 'oled' / f'{panel}-{step}.bin', payload / f'oled-{panel}-{step}.bin')
         # A fresh 64 MiB boot filesystem is written inside old p2. Its old FAT
         # filesystem stays bootable until the final partition-table commit.
         boot_img = work / 'boot.img'

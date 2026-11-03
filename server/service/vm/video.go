@@ -147,8 +147,8 @@ func videoCapabilities() gin.H {
 		mode(1440, true, qhd),
 		mode(1080, false, true),
 		mode(720, false, true),
-		// 16:10 and 21:9: every size with an LT6911UXC, 1920x1200 and
-		// 2560x1080 at the 1080p60 pixel clock with an LT6911C or LT6911D.
+		// 16:10 and 21:9: every size with an LT6911UXC or LT6911D, 1920x1200
+		// and 2560x1080 at the 1080p60 pixel clock with an LT6911C.
 		mode(1600, false, fits(1600)),
 		mode(1200, false, fits(1200)),
 		mode(3440, false, fits(3440)),

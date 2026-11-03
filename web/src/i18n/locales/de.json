@@ -239,9 +239,7 @@
     "frameRateFixedHint": "Der Empfänger behält seine eigene Bildwiederholrate; der Stream überträgt höchstens {{value}} fps.",
     "modeCustom": "Benutzerdefiniert: {{value}}",
     "modeHint": "Die Auflösung und Bildwiederholrate, die der Computer ausgibt und die der NanoKVM-Monitor meldet; der Stream verwendet dieselbe Rate. Eine Änderung verbindet HDMI kurz neu.",
-    "bitrateAuto": "Automatisch · {{value}} Mbit/s",
-    "bitrateEconomy": "Sparsam · {{value}} Mbit/s",
-    "bitrateCeiling": "Eine Obergrenze für Bewegung (Video, Scrollen); ein statischer Bildschirm sendet deutlich weniger. „Automatisch“ richtet sich nach dem Modus; „Sparsam“ eignet sich für Fern- und Mobilverbindungen.",
+    "bitrateCeiling": "Eine Obergrenze für Bewegung (Video, Scrollen); ein statischer Bildschirm sendet deutlich weniger. Für Fern- und Mobilverbindungen eignen sich 3 Mbit/s.",
     "bitrateLimit": "Limit {{value}} Mbit/s",
     "measuredBitrate": "≈ {{value}} Mbit/s",
     "codecHint": "H.265 benötigt für dasselbe Bild etwa ein Drittel weniger Datenverkehr; H.264 wird in mehr Browsern abgespielt.",
@@ -1021,7 +1019,7 @@
         "collected": "Erfasst: {{time}}",
         "versions": "Versionen und Kompatibilität",
         "application": "Anwendung",
-        "image": "Image",
+        "image": "Ursprüngliche Installation",
         "alpine": "Alpine",
         "kernel": "Laufender Kernel",
         "modules": "Kernel-Module",
@@ -1118,8 +1116,6 @@
     },
     "about": {
       "applicationVersion": "NanoKVM OS",
-      "imageVersion": "Ursprüngliche Installation",
-      "bundledVersion": "Mit dem Image ausgelieferte Anwendungen",
       "title": "Über NanoKVM",
       "description": "Community-Firmware für NanoKVM.",
       "specialThanksTitle": "Besonderer Dank",
@@ -1164,7 +1160,6 @@
       "documentation": "Dokumentation",
       "reportIssue": "Problem melden",
       "ip": "IP",
-      "image": "Systemabbild-Version",
       "hostname": "Hostname",
       "hostnameEdit": "Hostname bearbeiten",
       "hostnameSave": "Hostname speichern",
@@ -1917,7 +1912,10 @@
           "bypassed": "nutzt Wi-Fi",
           "loadFailed": "Die Gateway-Prüfung konnte nicht gelesen werden.",
           "saveFailed": "Die Gateway-Prüfung konnte nicht gespeichert werden."
-        }
+        },
+        "forceSave": "Ohne Prüfung speichern",
+        "forceTitle": "Ohne Verbindungsprüfung speichern?",
+        "forceContent": "Die Einstellungen gelten sofort und bleiben, auch wenn diese Seite das Gerät danach nicht mehr erreicht: Nichts wird zurückgenommen. Ist das Gerät dann nicht erreichbar, verbinden Sie sich über WLAN oder die serielle Konsole oder bearbeiten Sie eth.nodhcp auf der Boot-Partition der SD-Karte."
       },
       "dns": {
         "title": "DNS",

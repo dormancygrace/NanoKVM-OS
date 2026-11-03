@@ -139,6 +139,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `kernel/` | `config` and patches for kernel.org Linux 7.3.1 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
+| `lolcat/` | Byte I/O for lolcat 1.4, the rainbow SSH shell's filter (15 times faster on the C906) |
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces OpenSBI and U-Boot while retaining the vendor first-stage loader |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 | `native/cvi_mpi/` | Patches for the SOPHGO media libraries (`cvi_mpi`) |

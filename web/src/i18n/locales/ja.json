@@ -1198,7 +1198,7 @@
       },
       "bannerStyle": {
         "title": "SSH バナー",
-        "description": "新しい対話型 SSH セッションの開始時に表示されるバナーを選択します。",
+        "description": "新しい対話型 SSH セッションの開始時に表示されるバナーを選択します。レインボーではプロンプトと日常的なコマンド（ls、cat、df、ps など）も lolcat で色付けされます。",
         "default": "デフォルト",
         "rainbow": "レインボー",
         "failed": "SSH バナーのスタイルを保存できませんでした。"

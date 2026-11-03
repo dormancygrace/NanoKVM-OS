@@ -4,11 +4,12 @@ pkgrel=0
 pkgdesc="NanoKVM Alpine integration and OpenRC services"
 url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"
-license="GPL-3.0-only AND GPL-2.0-only"
+license="GPL-3.0-only AND GPL-2.0-only AND WTFPL"
 depends="nanokvm-keys dnsmasq iproute2 bash chrony-openrc avahi-openrc dbus-openrc busybox-openrc openssh-server openssh-server-common nftables>=1.1.6-r0 iproute2-tc util-linux openrc eudev kmod nanokvm-exfatprogs dosfstools f2fs-tools"
 provides="nanokvm-usb-flags-layout=1 nanokvm-standby=1"
 source="$pkgname-$pkgver.tar.gz
-	nanokvm-banner.sh"
+	nanokvm-banner.sh
+	nanokvm-rainbow.sh"
 options="!check !strip"
 install="$pkgname.post-install $pkgname.post-upgrade $pkgname.pre-deinstall"
 
@@ -21,6 +22,8 @@ package() {
 	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
 	install -Dm0755 "$srcdir/nanokvm-banner.sh" \
 		"$pkgdir/etc/profile.d/nanokvm-banner.sh"
+	install -Dm0755 "$srcdir/nanokvm-rainbow.sh" \
+		"$pkgdir/etc/profile.d/nanokvm-rainbow.sh"
 }
 
 sha256sums=""

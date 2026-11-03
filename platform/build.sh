@@ -19,7 +19,7 @@
 #   tpu        TPU runtime and the programs that run models on it
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
-#              exfatprogs, i2c-tools, OpenSSL, zlib-ng and liblzma for the server
+#              exfatprogs, i2c-tools, lolcat, OpenSSL, zlib-ng and liblzma for the server
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
@@ -678,7 +678,7 @@ web() {
 }
 
 # Board tools: BusyBox devmem, nanokvm_update_edid and the EDID profiles,
-# nkos-board-probe, usb-audio-capture and zlib-ng.
+# nkos-board-probe, usb-audio-capture, lolcat and zlib-ng.
 tools() {
     local t=$out/tools e py=$host/python3
     rm -rf "$t" "${img:?}/tools"
@@ -766,6 +766,18 @@ tools() {
             -o "$img/tools/i2c-tools/$b" "$i2c/tools/$b"
     done
     cp "$i2c/COPYING" "$i2c/COPYING.LGPL" "$img/tools/i2c-tools/"
+
+    # lolcat for the rainbow SSH style (nanokvm-base's nanokvm-rainbow.sh),
+    # static; Alpine has it only in edge/testing.
+    local lol
+    lol=$(lock lolcat | awk '{ print $2 }')
+    mkdir -p "$t/lolcat" "$img/tools/lolcat"
+    tar -xzf "$dl/${lol##*/}" -C "$t/lolcat" --strip-components=1
+    apply_patches "$t/lolcat" "$here/lolcat"
+    "${cross}gcc" "${cpu_flags[@]}" -std=c11 -g0 -Wall -static "$t/lolcat/lolcat.c" -lm -o "$t/lolcat/lolcat"
+    "${cross}strip" --remove-section=.comment --remove-section=.note \
+        -o "$img/tools/lolcat/lolcat" "$t/lolcat/lolcat"
+    cp "$t/lolcat/LICENSE" "$img/tools/lolcat/"
 
     unpack_git tinyalsa . "$t/tinyalsa"
     "$py" "$repo/scripts/build-usb-audio.py" --output "$t/usb-audio" --buildroot-output "$bo" \

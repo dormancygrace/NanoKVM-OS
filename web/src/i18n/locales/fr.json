@@ -1198,7 +1198,7 @@
       },
       "bannerStyle": {
         "title": "Bannière SSH",
-        "description": "Choisissez la bannière affichée au démarrage d'une nouvelle session SSH interactive.",
+        "description": "Choisissez la bannière affichée au démarrage d'une nouvelle session SSH interactive. L'arc-en-ciel colore aussi l'invite et les commandes courantes (ls, cat, df, ps...) avec lolcat.",
         "default": "Par défaut",
         "rainbow": "Arc-en-ciel",
         "failed": "Impossible d'enregistrer le style de la bannière SSH."

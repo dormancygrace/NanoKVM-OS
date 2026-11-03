@@ -557,7 +557,7 @@
       "bannerStyle": {
         "rainbow": "Duhový",
         "default": "Výchozí",
-        "description": "Zvolte uvítací pruh zobrazovaný při spouštění nové interaktivní SSH relace.",
+        "description": "Zvolte uvítací pruh zobrazovaný při spouštění nové interaktivní SSH relace. Duha také obarví výzvu a běžné příkazy (ls, cat, df, ps...) pomocí lolcat.",
         "failed": "Styl SSH uvítacího pruhu nebylo možné uložit.",
         "title": "SSH banner"
       },

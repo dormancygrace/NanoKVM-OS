@@ -1198,7 +1198,7 @@
       },
       "bannerStyle": {
         "title": "Banner de SSH",
-        "description": "Elige el banner que se muestra al iniciar una nueva sesión SSH interactiva.",
+        "description": "Elige el banner que se muestra al iniciar una nueva sesión SSH interactiva. El arcoíris también colorea el prompt y los comandos habituales (ls, cat, df, ps...) con lolcat.",
         "default": "Predeterminado",
         "rainbow": "Arcoíris",
         "failed": "No se pudo guardar el estilo del banner de SSH."

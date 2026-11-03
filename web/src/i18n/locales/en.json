@@ -1198,7 +1198,7 @@
       },
       "bannerStyle": {
         "title": "SSH banner",
-        "description": "Choose the banner shown when a new interactive SSH session starts.",
+        "description": "Choose the banner shown when a new interactive SSH session starts. Rainbow also colours the prompt and everyday commands (ls, cat, df, ps...) through lolcat.",
         "default": "Default",
         "rainbow": "Rainbow",
         "failed": "Could not save the SSH banner style."

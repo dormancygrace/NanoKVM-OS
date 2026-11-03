@@ -606,6 +606,21 @@ static int lt6911d_replug(void)
     return ret;
 }
 
+// A replug whose raise failed leaves HPD and the termination off; a retry of
+// the same profile skips the write, so it raises them here if they are off.
+static int lt6911d_ensure_connected(void)
+{
+    uint8_t hpd = 0, termination = 0;
+    int ret = i2c_write_byte(LT6911D_MANAGE_OFFSET, 0xEE, 0x01);
+    if (ret == 0) ret = i2c_read_byte(0xE8, 0x08, &hpd);
+    if (ret == 0) ret = i2c_read_byte(0xE2, 0x9D, &termination);
+    if (i2c_write_byte(LT6911D_MANAGE_OFFSET, 0xEE, 0x00) != 0) ret = -1;
+    if (ret != 0) return -1;
+    if ((hpd & 0x40) && termination == 0x04) return 0;
+    fprintf(stderr, "HDMI input was left disconnected; reconnecting\n");
+    return lt6911d_set_hpd(1);
+}
+
 int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t edid_size, int replug)
 {
     if (chip_version == CHIP_UNKNOWN)
@@ -643,6 +658,10 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
     }
     if (memcmp(current_edid, edid_data, EDID_BUFFER_SIZE) == 0) {
         puts("Requested EDID already installed; flash write skipped");
+        if (replug && chip_version == CHIP_LT6911D && lt6911d_ensure_connected() != 0) {
+            fprintf(stderr, "Failed to reconnect HDMI; reconnect the HDMI cable\n");
+            return finish_receiver(chip_version, -1);
+        }
         return finish_receiver(chip_version, 0);
     }
 

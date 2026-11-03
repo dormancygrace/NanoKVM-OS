@@ -24,7 +24,7 @@ awk -v v="$stock_version" 'BEGIN { n = split(v, p, ".")
 # identity above and the card-layout checks below still restrict the target.
 tr '\000' '\n' </proc/device-tree/compatible | grep -Eq '^(cvitek,cv181x|sophgo,sg2002|sophgo,cv181x|sipeed,licheerv-nano)$' ||
     fail "not an SG2002 device tree"
-for cmd in sha256sum awk tar df sync cmp find; do
+for cmd in sha256sum awk tar df sync cmp find mount umount; do
     command -v "$cmd" >/dev/null || fail "required command is missing: $cmd"
 done
 # Verify before executing any payload program. This manifest travels inside the
@@ -39,12 +39,16 @@ for name in stock-layout recovery.sd boot.img.gz alpine-rootfs.tar.gz rootfs-kib
     [ "${actual%% *}" = "$expected" ] || fail "damaged installation bundle: $name"
 done
 mounted() {
-    awk -v d="$1" -v p="$2" -v t="$3" '
-        $1==d && $2==p && $3==t && ("," $4 ",") ~ /,rw,/ { found=1 }
+    awk -v d="$1" -v p="$2" -v t="$3" -v mode="${4:-rw}" '
+        $1==d && $2==p && $3==t && index("," $4 ",", "," mode ",") { found=1 }
         END { exit !found }' /proc/mounts
 }
 mounted /dev/mmcblk0p1 /boot vfat || fail "/boot must be the writable FAT partition 1"
-mounted /dev/mmcblk0p3 /data exfat || fail "/data must be writable exFAT partition 3; detach the stock virtual disk first"
+data_readonly=0
+if ! mounted /dev/mmcblk0p3 /data exfat; then
+    mounted /dev/mmcblk0p3 /data exfat ro || fail "/data must be exFAT partition 3"
+    data_readonly=1
+fi
 awk '$2=="/" && $3=="ext4" && ($1=="/dev/mmcblk0p2" || $1=="/dev/root") {found=1} END {exit !found}' /proc/mounts ||
     fail "the running root must be stock ext4 on partition 2"
 case " $(cat /proc/cmdline) " in *' root=/dev/mmcblk0p2 '*) ;; *) fail "root boot device is not mmcblk0p2" ;; esac
@@ -58,10 +62,17 @@ for file in /sys/kernel/config/usb_gadget/*/functions/mass_storage.*/lun.*/file;
     medium=$(cat "$file") || fail "cannot inspect USB virtual media"
     case "$medium" in
         '') ;;
-        /dev/mmcblk0p3) data_luns="$data_luns $file" ;;
+        /dev/mmcblk0p3)
+            data_luns="$data_luns $file"
+            ;;
         *) fail "detach every USB virtual disk/image before installation" ;;
     esac
 done
+# Stock keeps /data read-only while exporting the raw partition, including
+# read-only shares attached from the stock UI.
+# Do not override an unexplained read-only mount (for example, a filesystem error).
+[ "$data_readonly" = 0 ] || [ -n "$data_luns" ] ||
+    fail "/data is read-only without a USB data disk; check its filesystem first"
 plan=$("$bundle/stock-layout" plan /dev/mmcblk0) || fail "unsupported SD layout"
 # Only the compiled helper emits these nine decimal integers, never shell code.
 set -- $plan
@@ -105,6 +116,18 @@ for file in $data_luns; do
         fail "the USB host keeps partition 3 in use; eject the NanoKVM disk on the host and try again"
     echo "Detached the USB disk ${file%/file}."
 done
+if [ -n "$data_luns" ]; then
+    # The host may have changed exFAT metadata. A fresh mount drops the stale
+    # view; remount,rw alone would retain it. Eject every data LUN first, while
+    # leaving HID and USB networking connected.
+    umount /data || fail "cannot release /data; the USB disk is already detached. Close files there, then reboot stock and retry"
+    mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /data ||
+        fail "cannot mount /data writable after ejecting the USB disk"
+fi
+mounted /dev/mmcblk0p3 /data exfat || fail "/data is not writable after ejecting the USB disk"
+# Recheck against the freshly mounted volume before creating any transaction.
+[ "$(free_kib /data)" -ge "$need_data" ] || fail "/data needs $need_data KiB free"
+[ ! -e "$stage" ] || fail "$stage already exists; inspect its status before starting another migration"
 mkdir "$stage" || fail "cannot create staging directory"
 # Keep failed preparation available for diagnosis; only this fixed directory is
 # owned by the installer. Never erase somebody else's directory on a retry.

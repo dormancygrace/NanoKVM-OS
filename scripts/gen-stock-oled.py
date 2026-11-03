@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""The OLED screens of the stock migration's recovery boot.
+"""The OLED screens of the stock migration.
 
 usage: gen-stock-oled.py OUTPUT_DIR
 
 Writes PANEL-STEP.bin for both panels (wide: Cube/Full, narrow: PCIe), in the
 image format of gen-oled-boot-logo.py, which stock-oled (firmware/stock-install/
-oled.c) sends to the panel. Steps follow firmware/stock-install/init."""
+oled.c) sends to the panel. prepare and restart are shown on stock by
+firmware/stock-install/install.sh, the others by the recovery boot's init."""
 import importlib.util
 import sys
 from pathlib import Path
@@ -19,6 +20,8 @@ FOOTER = 'Keep power on'
 # Step: the wide panel's two lines and footer. The narrow panel shows them in
 # capitals (its font has no others).
 STEPS = {
+    'prepare': ('Preparing', 'Copying files', FOOTER),
+    'restart': ('Prepared', 'Restarting', FOOTER),
     'check': ('Checking files', '', FOOTER),
     'boot': ('Step 1 of 3', 'Boot partition', FOOTER),
     'root': ('Step 2 of 3', 'System files', FOOTER),

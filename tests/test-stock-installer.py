@@ -304,7 +304,8 @@ class Staging(LayoutFixture):
             f'{root}/dev/mmcblk0p1 {root}/boot vfat rw 0 0',
             f'{root}/dev/mmcblk0p3 {root}/data exfat rw 0 0',
             f'{root}/dev/mmcblk0p2 / ext4 rw 0 0']) + '\n')
-        for name in ['recovery.sd', 'boot.img.gz', 'alpine-rootfs.tar.gz', 'install.sh', 'offline-run.sh']:
+        for name in ['recovery.sd', 'boot.img.gz', 'alpine-rootfs.tar.gz', 'install.sh', 'offline-run.sh', 'stock-oled',
+                     'oled-wide-prepare.bin', 'oled-wide-restart.bin', 'oled-narrow-prepare.bin', 'oled-narrow-restart.bin']:
             write(self.bundle, name, name + ' fixture')
         write(self.bundle, 'rootfs-kib', '1024\n')
         write(self.bundle, 'target-version', '3.6.0\n')

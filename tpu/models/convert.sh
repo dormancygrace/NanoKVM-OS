@@ -32,10 +32,18 @@ for part in $parts; do
     case $part in det|latin|chinese|cyrillic|screen) ;; *) echo "convert.sh: unknown part $part" >&2; exit 2 ;; esac
 done
 here=$(dirname "$(realpath "$0")")
+jobs=${NANOKVM_TPU_JOBS:-$(nproc)}
+[[ $jobs =~ ^[1-9][0-9]*$ ]] || { echo 'NANOKVM_TPU_JOBS must be positive' >&2; exit 2; }
+pip_cache=nanokvm-tpu-pip
+if [ -n "${NANOKVM_TPU_PIP_CACHE:-}" ]; then
+    pip_cache=$(realpath -m "$NANOKVM_TPU_PIP_CACHE")
+    mkdir -p "$pip_cache"
+fi
 mkdir -p "$out"
 cp "$here/sources.txt" "$out/"
-# The pip downloads (about 1 GB) stay in a Docker volume between runs.
-docker run --rm -v "$out:/work" -v "$here:/models:ro" -v nanokvm-tpu-pip:/root/.cache/pip -w /work \
+# Cache pip downloads locally in a Docker volume, or in the CI cache directory.
+docker run --rm -v "$out:/work" -v "$here:/models:ro" -v "$pip_cache:/root/.cache/pip" -w /work \
+    -e OMP_NUM_THREADS="$jobs" -e OPENBLAS_NUM_THREADS="$jobs" -e MKL_NUM_THREADS="$jobs" \
     -e PARTS="$parts" sophgo/tpuc_dev:v3.4 bash -euo pipefail -c '
 want() { case " $PARTS " in *" $1 "*) return 0 ;; esac; return 1; }
 # The PaddleOCR inputs each part needs (sources.txt).

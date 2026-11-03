@@ -33,6 +33,24 @@ class RegistryTests(unittest.TestCase):
             self.assertIn(filename, addon_packages.manifest(json.dumps({'packages': {filename: entry(filename)}})))
         self.assertIsNone(addon_packages.addon('nanokvm-ipmi-1.0.0-r0.tar.gz'))
 
+    def test_ci_selects_affected_addons(self):
+        cases = [
+            (['README.md', 'addons/rustdesk/src/main.rs'], [], []),
+            (['addons/ipmi/go.mod'], [], ['nanokvm-ipmi']),
+            (['addons/model-ocr-latin/addon.json'], [], ['nanokvm-model-ocr-latin']),
+            (['addons/model-ocr-latin-extra/addon.json'], [], []),
+            (['tpu/models/calibration/chinese-sure.cali'], [], ['nanokvm-model-ocr-chinese']),
+            (['tpu/models/screen/screen.onnx'], [], ['nanokvm-model-screen']),
+            (['tpu/models/convert.sh'], [], list(addon_packages.MODEL_ADDONS)),
+            (['platform/sources.lock'], ['node'], []),
+            (['platform/sources.lock'], ['tpu-runtime'], list(addon_packages.MODEL_ADDONS)),
+            (['platform/sources.lock'], ['go'], ['nanokvm-ipmi']),
+            (['scripts/build-addon.py'], [], list(addon_packages.BUILD_ADDONS)),
+        ]
+        for paths, pins, expected in cases:
+            with self.subTest(paths=paths, pins=pins):
+                self.assertEqual(addon_packages.selected_builds(paths, pins), sorted(expected))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -51,6 +51,24 @@ converts the parts the recipe needs (`build-addon.py --parts-only`),
 package records the converter (image and tpu-mlir) and the SHA-256 of every
 model in `/usr/share/NAME/source.json`.
 
+Pull requests build the affected recipes and retain checked APKs for 14 days.
+Changes to shared conversion inputs build all five model add-ons; a language
+recipe or calibration change builds that language only. Changes to the pinned
+TPU runtime also rebuild every model. IPMI keeps its own build target.
+
+For a release, run **Add-on release** from `main`, selecting one add-on or
+`models` for all five. With **Build and check only** enabled, any branch can
+be checked without publishing. Otherwise each selected package gets its own
+`NAME-VERSION-rN` release, and one APK repository rebuild is requested after
+all selected releases have been published. The existing repository signing and
+deployment approval still applies; no OS release is created or made latest.
+If publication stops after some releases exist, release only the remaining
+add-ons, then rerun the repository workflow if needed.
+
+The first model packages are version `1.0.0` and require NanoKVM OS 4.0.0 or
+newer, which includes the TPU runtime. Their versions and APK revisions are
+independent of the OS version.
+
 Conversion gives the models checked on the device. tpu-mlir stamps the time
 of the conversion and an MD5 the runtime does not check; `cvimodel-dmabuf`
 fixes both. Then a conversion from scratch gave byte for byte the detector,
@@ -150,7 +168,10 @@ The models:
 
 `convert.sh` runs in the official `sophgo/tpuc_dev` container, so the host
 needs only Docker; a PART (`det`, `latin`, `chinese`, `cyrillic`, `screen`)
-limits it to those models. `models/sources.txt` pins its inputs by SHA-256. INT8
+limits it to those models. Conversion uses the host's available CPU count;
+`NANOKVM_TPU_JOBS` overrides it. Pip downloads are cached in the
+`nanokvm-tpu-pip` Docker volume, or in the host directory set by
+`NANOKVM_TPU_PIP_CACHE` (cached between GitHub Actions runs). `models/sources.txt` pins its inputs by SHA-256. INT8
 needs calibration: the tables in `models/calibration/` were measured on
 synthetic screens and text lines, and fit these sources and this tpu-mlir
 only (they name layers). `stage.sh` stores the models' command buffers in

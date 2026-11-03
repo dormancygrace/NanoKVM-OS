@@ -370,6 +370,7 @@ export type MemorySwap = {
   originalBytes?: number;
   algorithm?: string;
   auto?: boolean;
+  autoMiB?: number;
 };
 
 export type MemoryStatus = {

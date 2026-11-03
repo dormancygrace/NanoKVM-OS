@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"NanoKVM-Server/internal/networktrial"
@@ -80,6 +81,12 @@ func (s *Service) SetEthernet(c *gin.Context) {
 		}
 	}
 
+	// One Ethernet change at a time, until its interface restart is over:
+	// S30eth's stop and start share the DHCP and VLAN state.
+	if !reserveEthernetApply() {
+		rsp.ErrRsp(c, -3, errEthernetApplying.Error())
+		return
+	}
 	if req.Force {
 		setEthernetForced(c, config, req.VLANEnabled != nil)
 		return
@@ -88,12 +95,14 @@ func (s *Service) SetEthernet(c *gin.Context) {
 	// The change can cut the device off: it runs on trial (trial.go).
 	trial, err := beginTrial("ethernet", []string{ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile})
 	if err != nil {
+		releaseEthernetApply()
 		rsp.ErrRsp(c, -3, err.Error())
 		return
 	}
 	if err := writeEthernet(config, req.VLANEnabled != nil); err != nil {
 		log.Errorf("failed to write ethernet config: %s", err)
 		trial.abandon()
+		releaseEthernetApply()
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
@@ -113,15 +122,41 @@ func (s *Service) SetEthernet(c *gin.Context) {
 	releaseRestart := networktrial.Begin()
 	go func() {
 		defer releaseRestart()
+		defer releaseEthernetApply()
 		time.Sleep(restartDelay)
 		trial.restarted(restartEthernet())
 	}()
 	log.Infof("set ethernet config on trial: enabled=%t mode=%s address=%s gateway=%s", config.Enabled, config.Mode, config.Address, config.Gateway)
 }
 
+var (
+	errEthernetApplying = errors.New("the previous Ethernet change is still being applied; try again in a moment")
+	ethernetApplyMu     sync.Mutex
+	ethernetApplying    bool
+)
+
+// reserveEthernetApply takes the one Ethernet change slot, held from the
+// write until the interface restart has returned.
+func reserveEthernetApply() bool {
+	ethernetApplyMu.Lock()
+	defer ethernetApplyMu.Unlock()
+	if ethernetApplying {
+		return false
+	}
+	ethernetApplying = true
+	return true
+}
+
+func releaseEthernetApply() {
+	ethernetApplyMu.Lock()
+	defer ethernetApplyMu.Unlock()
+	ethernetApplying = false
+}
+
 // setEthernetForced applies the settings at once and keeps them: the owner
 // asked to skip the trial, so nothing is undone when this page loses the
-// device. A write that fails half way still puts the previous files back.
+// device. A write or sync that fails puts the previous files back, synced,
+// before the failure is reported. The caller holds the Ethernet apply slot.
 func setEthernetForced(c *gin.Context, config proto.EthernetConfig, vlan bool) {
 	var rsp proto.Response
 	paths := []string{ethernetConfigFile, ethernetDisabledFile, ethernetVLANFile}
@@ -130,19 +165,28 @@ func setEthernetForced(c *gin.Context, config proto.EthernetConfig, vlan bool) {
 		if err != nil {
 			return fmt.Errorf("cannot record the current network settings: %w", err)
 		}
-		if err = writeEthernet(config, vlan); err != nil {
-			if restoreErr := restoreFiles(previous); restoreErr != nil {
-				log.Errorf("failed to restore the ethernet config: %s", restoreErr)
+		if err = writeEthernet(config, vlan); err == nil {
+			err = syncFiles()
+		}
+		if err != nil {
+			restoreErr := restoreFiles(previous)
+			if restoreErr == nil {
+				restoreErr = syncFiles()
+			}
+			if restoreErr != nil {
+				return fmt.Errorf("%w; the previous settings could not be restored: %v", err, restoreErr)
 			}
 			return err
 		}
-		return syncFiles()
+		return nil
 	})
 	if errors.Is(err, errTrialPending) || errors.Is(err, errTrialUndoing) {
+		releaseEthernetApply()
 		rsp.ErrRsp(c, -3, err.Error())
 		return
 	}
 	if err != nil {
+		releaseEthernetApply()
 		log.Errorf("failed to write ethernet config: %s", err)
 		rsp.ErrRsp(c, -2, err.Error())
 		return
@@ -153,6 +197,7 @@ func setEthernetForced(c *gin.Context, config proto.EthernetConfig, vlan bool) {
 	releaseRestart := networktrial.Begin()
 	go func() {
 		defer releaseRestart()
+		defer releaseEthernetApply()
 		time.Sleep(restartDelay)
 		if err := restartEthernet(); err != nil {
 			log.Errorf("failed to restart ethernet: %s", err)

@@ -527,3 +527,48 @@ func TestForcedEthernetChangeSkipsTheTrial(t *testing.T) {
 		t.Fatal("forced change did not restart the interface")
 	}
 }
+
+// A forced save waits for the interface restart of the change before it;
+// one whose sync fails leaves the previous settings, synced.
+func TestForcedEthernetChangeIsSerializedAndRolledBack(t *testing.T) {
+	f := newTrialFixture(t)
+	hold := make(chan struct{})
+	restartEthernet = func() error { <-hold; f.restarted.Add(1); return nil }
+	body := `{"enabled":true,"mode":"static","address":"10.0.0.9","subnetMask":"255.255.255.0","force":true}`
+	if _, response := postJSON((&Service{}).SetEthernet, body); response.Code != 0 {
+		t.Fatalf("first forced change = %+v", response)
+	}
+	if _, response := postJSON((&Service{}).SetEthernet, body); response.Code != -3 {
+		t.Fatalf("forced change during a restart = %+v, want -3", response)
+	}
+	if _, response := postJSON((&Service{}).SetEthernet, `{"enabled":true,"mode":"dhcp"}`); response.Code != -3 {
+		t.Fatalf("trial change during a restart = %+v, want -3", response)
+	}
+	close(hold)
+	deadline := time.Now().Add(2 * time.Second)
+	for f.restarted.Load() == 0 || !reserveEthernetApply() {
+		if time.Now().After(deadline) {
+			t.Fatal("the apply slot was not released after the restart")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	releaseEthernetApply()
+
+	// sync fails once: the first one, right after the write.
+	before := f.read(t, ethernetConfigFile)
+	failOnce := filepath.Join(f.dir, "sync-failed")
+	script := "#!/bin/sh\n[ -e " + failOnce + " ] && exit 0\n: > " + failOnce + "\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(f.dir, "sync"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, response := postJSON((&Service{}).SetEthernet, strings.Replace(body, "10.0.0.9", "10.0.0.20", 1)); response.Code != -2 {
+		t.Fatalf("forced change with a failed sync = %+v, want -2", response)
+	}
+	if got := f.read(t, ethernetConfigFile); got != before {
+		t.Fatalf("settings after a failed sync = %q, want %q", got, before)
+	}
+	if !reserveEthernetApply() {
+		t.Fatal("a failed save kept the apply slot")
+	}
+	releaseEthernetApply()
+}

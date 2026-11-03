@@ -100,7 +100,7 @@ func monitorProfilePath(height uint16) string {
 		return monitorRateProfilePath(height, rates[0])
 	}
 	if MonitorProfileSupported() && !MonitorHighRefreshSupported() {
-		// The LT6911C and LT6911D: the 720p and 1080p profiles at 60 Hz.
+		// The LT6911C: the 720p and 1080p profiles at 60 Hz.
 		return cubeMonitorProfilePath(height)
 	}
 	profile := fmt.Sprintf("NanoKVM-monitor-%d.bin", height)

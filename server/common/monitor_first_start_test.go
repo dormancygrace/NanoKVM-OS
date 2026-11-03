@@ -80,7 +80,7 @@ func TestProgramMonitorProfileOnFirstStart(t *testing.T) {
 
 // With a profile recorded but not yet verified, startup reads the receiver. The saved profile is
 // programmed again only when the receiver holds another EDID, and an unreadable
-// receiver is left alone. The LT6911D on PCIe is not read.
+// receiver is left alone.
 func TestFirstStartChecksTheReceiver(t *testing.T) {
 	other := testEDID(1920, 160, 1080, 53, 23550, 16)
 	oneBlock := testEDID(1280, 370, 720, 30, 7425)[:128]
@@ -100,7 +100,7 @@ func TestFirstStartChecksTheReceiver(t *testing.T) {
 		{"one-block profile in a 256-byte copy", "ux", oneBlock, padded, nil, 1, 0},
 		{"read failure", "ux", heldEDID(), nil, errors.New("i2c"), 1, 0},
 		{"read returned zeros", "ux", heldEDID(), make([]byte, 256), nil, 1, 0},
-		{"LT6911D", "d", heldEDID(), other, nil, 0, 0},
+		{"LT6911D holds another EDID", "d", heldEDID(), other, nil, 1, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 1080, false, 1920)
@@ -179,10 +179,9 @@ func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
 	}
 }
 
-// A beta Cube with an LT6911D applies a new EDID without a power cycle, so its
-// first start programs the saved profile over the stock EDID, which declares
-// no RGB range. An LT6911C, or an alpha, still keeps the stock EDID that fits
-// it.
+// A Cube or Lite with an LT6911D applies a new EDID without a power cycle, so
+// its first start programs the saved profile over the stock EDID, which
+// declares no RGB range. An LT6911C still keeps the stock EDID that fits it.
 func TestCubeLT6911DFirstStartProgramsProfile(t *testing.T) {
 	for _, tc := range []struct {
 		name, board, chip string
@@ -190,9 +189,8 @@ func TestCubeLT6911DFirstStartProgramsProfile(t *testing.T) {
 		powerCycle        bool
 	}{
 		{"beta d", "beta", "d", true, false},
+		{"alpha d", "alpha", "d", true, false},
 		{"beta c", "beta", "c", false, true},
-		// Not measured on an alpha: it keeps the power cycle and the check.
-		{"alpha d", "alpha", "d", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 0, false, 1920)

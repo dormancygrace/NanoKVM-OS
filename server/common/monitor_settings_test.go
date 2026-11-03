@@ -104,10 +104,10 @@ func TestMonitorSettingsReceiverLimits(t *testing.T) {
 					var paths []string
 					hw := firstStartBackend(true, MonitorRequiresPowerCycle(), &paths, nil)
 					hw.requireHardware = requireMonitorHardwareLocked
-					full := chip == "ux" || (chip == "d" && board == "beta")
+					full := chip == "ux" || chip == "d"
 					wantOK := MonitorProfileSupported() && (full || height == 0 || height == 720 || height == 1080)
 					// 1920x1200 and 2560x1080 with every receiver, at slower rates
-					// with an LT6911C or LT6911D.
+					// with an LT6911C.
 					if widerMonitorProfile(height) {
 						wantOK = MonitorProfileSupported()
 					}

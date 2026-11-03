@@ -132,14 +132,6 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 			}
 			return checkCubeMonitorEDIDLocked(hw)
 		}
-		// The LT6911D on PCIe is programmed only when the user applies a profile:
-		// its EDID write has not yet run on that board. A beta Cube's needs no
-		// power cycle, so it is checked like a PCIe receiver: its stock EDID
-		// declares no RGB range, and a source sends limited RGB at 1080p60 that
-		// the receiver takes as full range (a pale picture).
-		if receiverChip() == "d" && !betaCubeLT6911D() {
-			return "", nil
-		}
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
 			hash := strings.TrimSpace(string(recorded))
 			if retiredMonitorProfiles[hash] {

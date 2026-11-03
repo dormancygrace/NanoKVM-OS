@@ -589,8 +589,8 @@ static int lt6911d_set_hpd(int high)
 // A software cable replug of an LT6911D. Register access (0xEE = 1) holds off
 // the firmware's handling of input events: a mode change the source made
 // during an EDID write was missed, and the receiver kept the old timing and
-// sent no frames until the cable was reconnected (measured on a beta Cube,
-// in either direction). With the firmware running, HPD and the termination
+// sent no frames until the cable was reconnected (measured on a Cube, in
+// either direction). With the firmware running, HPD and the termination
 // are dropped for two seconds and restored: the source disconnects, reads
 // the EDID again on return, and the firmware measures the mode it sends.
 static int lt6911d_replug(void)
@@ -747,11 +747,11 @@ static int lt6911_edid_dump(chip_version_t chip_version, uint8_t *edid_data)
 
 // =======================================================================================================
 
-// A Cube or Lite applies a new EDID only after a power cycle, except a beta
-// Cube with an LT6911D: there the source switched to it at once (measured).
+// A Cube or Lite applies a new EDID only after a power cycle, except with an
+// LT6911D, which the software replug covers (lt6911d_replug).
 static int needs_power_cycle(product_version_t product_version, chip_version_t chip_version) {
-    return product_version == PRODUCT_CUBE_A ||
-           (product_version == PRODUCT_CUBE_B && chip_version != CHIP_LT6911D);
+    return (product_version == PRODUCT_CUBE_A || product_version == PRODUCT_CUBE_B) &&
+           chip_version != CHIP_LT6911D;
 }
 
 void print_warning(int power_cycle) {
@@ -962,9 +962,9 @@ int main(int argc, char *argv[]) {
     }
 
     // configure lt6911 edid
-    // A beta Cube's LT6911D has no reset line: a software replug follows the
-    // write (lt6911d_replug).
-    int replug = product_version == PRODUCT_CUBE_B && chip_version == CHIP_LT6911D;
+    // A Cube or Lite has no receiver reset line: a software replug follows
+    // an LT6911D write (lt6911d_replug).
+    int replug = product_version != PRODUCT_PCIE_A && chip_version == CHIP_LT6911D;
     if (lt6911_edid_config(chip_version, edid_data, edid_size, replug) != 0) {
         fprintf(stderr, "Failed to configure LT6911 EDID\n");
         return EXIT_FAILURE;

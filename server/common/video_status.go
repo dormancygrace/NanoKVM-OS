@@ -25,11 +25,10 @@ var (
 )
 
 // The board decides how a new EDID takes effect: PCIe boards reset the
-// receiver, Cube and Lite boards (alpha, beta) need a power cycle. The
-// receiver decides what the monitor may advertise: the LT6911UXC, and the
-// LT6911D of a beta Cube, take every profile; the LT6911C, and the LT6911D
-// elsewhere, take 720p and 1080p at 60 Hz until they are measured beyond that.
-// A beta Cube with an LT6911D applies a new EDID without a power cycle.
+// receiver; on Cube and Lite boards (alpha, beta) the EDID tool replugs an
+// LT6911D in software, and the other receivers need a power cycle. The
+// receiver decides what the monitor may advertise: the LT6911UXC and the
+// LT6911D take every profile, the LT6911C 720p and 1080p at 60 Hz.
 // nanokvm_update_edid programs all three.
 func monitorBoard() string {
 	return hardwareIdentity(monitorBoardFile, "alpha", "beta", "pcie")
@@ -90,24 +89,18 @@ func hdmiReceiverModel(chip string) string {
 }
 func MonitorRequiresPowerCycle() bool {
 	board := monitorBoard()
-	// A beta Cube with an LT6911D takes a new EDID at once: the EDID tool
-	// replugs HDMI in software after the write. Only that pair is measured;
-	// an alpha keeps the power cycle.
-	return board == "alpha" || (board == "beta" && receiverChip() != "d")
+	// An LT6911D takes a new EDID at once there: the EDID tool replugs HDMI
+	// in software after the write.
+	return (board == "alpha" || board == "beta") && receiverChip() != "d"
 }
 
 // MonitorHighRefreshSupported reports a receiver that takes the full profile
-// set (above 1080p60, QHD, UHD, portrait): the LT6911UXC, on any board.
+// set (above 1080p60, QHD, UHD, portrait): the LT6911UXC and the LT6911D, on
+// any board. An LT6911D captured 3840x2160 at 30 Hz, 2560x1440 at 60 and
+// 1920x1080 at 90.
 func MonitorHighRefreshSupported() bool {
-	return MonitorProfileSupported() && (receiverChip() == "ux" || betaCubeLT6911D())
-}
-
-// betaCubeLT6911D reports a beta Cube with an LT6911D. Measured there: it
-// captured every profile tried (3840x2160 at 30 Hz, 2560x1440 at 60,
-// 1920x1080 at 90), and the source followed each EDID write without a power
-// cycle, after the software replug nanokvm_update_edid makes on that board.
-func betaCubeLT6911D() bool {
-	return monitorBoard() == "beta" && receiverChip() == "d"
+	chip := receiverChip()
+	return MonitorProfileSupported() && (chip == "ux" || chip == "d")
 }
 
 // Persist across software reboots: a reboot cannot prove a Cube power cycle.

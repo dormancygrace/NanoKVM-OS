@@ -113,6 +113,7 @@ def metadata(dump, filename):
     def refuse(what):
         raise ValueError(f'Add-on {filename} declares {what}')
     section = field = None
+    description_block = False
     info = {}
     for line in dump.splitlines():
         if not line.strip() or line.startswith('#'):
@@ -129,7 +130,13 @@ def metadata(dump, filename):
                 field = entry[1]
                 if field not in INFO_FIELDS:
                     refuse(field)
-                info[field] = '' if field == 'depends' else entry[2] or ''
+                description_block = field == 'description' and entry[2] == '|'
+                info[field] = '' if field == 'depends' or description_block else entry[2] or ''
+                continue
+            # apk-tools renders long descriptions as YAML literal blocks.
+            # Only that descriptive field may consume indented free text.
+            if description_block and line.startswith('    '):
+                info[field] += ('\n' if info[field] else '') + line[4:]
                 continue
             item = re.fullmatch(r"    - '?([^']+)'?", line)
             if field != 'depends' or not item:

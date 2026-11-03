@@ -106,6 +106,17 @@ func RequireRole(roles ...authn.Role) gin.HandlerFunc {
 	}
 }
 
+// CurrentTokenVersion is the token version of the request's session, known
+// once CheckToken accepted a token.
+func CurrentTokenVersion(c *gin.Context) (uint64, bool) {
+	value, ok := c.Get(tokenContextKey)
+	token, isToken := value.(*Token)
+	if !ok || !isToken || token == nil {
+		return 0, false
+	}
+	return token.TokenVersion, true
+}
+
 func CurrentPrincipal(c *gin.Context) (Principal, bool) {
 	value, exists := c.Get(principalContextKey)
 	if !exists {

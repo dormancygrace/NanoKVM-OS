@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -326,7 +327,7 @@ func TestNormalUserPasswordNeverChangesSystemPassword(t *testing.T) {
 	}
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if _, err := changeUserPassword("alice", encryptForRequest(t, "new-password"), ""); err != nil {
+	if _, err := changeUserPassword("alice", encryptForRequest(t, "new-password"), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	if updates != 0 {
@@ -442,7 +443,7 @@ func TestSystemPasswordFailureRollsBackWebPassword(t *testing.T) {
 	systemPasswordUpdater = func(string) error { return errors.New("passwd failed") }
 	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	if _, err := changeUserPassword("admin", encryptForRequest(t, "new-password"), ""); err == nil {
+	if _, err := changeUserPassword("admin", encryptForRequest(t, "new-password"), "", nil); err == nil {
 		t.Fatal("system password failure was ignored")
 	}
 	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
@@ -679,5 +680,75 @@ func TestForcedPasswordChangeSignsIn(t *testing.T) {
 	}, session)
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || response.Code != -3 {
 		t.Fatalf("unforced change without current password = %s", recorder.Body.String())
+	}
+}
+
+// A request admitted with the factory session whose body arrives after the
+// owner's first change must not change the password again or sign in.
+func TestDelayedFactoryRequestCannotChangeAgain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
+	restore := useTestStore(store)
+	defer restore()
+	originalUpdater := systemPasswordUpdater
+	systemPasswordUpdater = func(string) error { return nil }
+	defer func() { systemPasswordUpdater = originalUpdater }()
+
+	service := NewService()
+	router := gin.New()
+	router.POST("/login", service.Login)
+	api := router.Group("/api/auth").Use(middleware.CheckToken())
+	api.POST("/password", service.ChangePassword)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	factory := loginCookie(t, router, "admin", "admin")
+	post := func(body io.Reader) *http.Request {
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api/auth/password", body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(request), Value: factory.Value})
+		return request
+	}
+	body := func(password string) []byte {
+		data, _ := json.Marshal(map[string]any{"password": encryptForRequest(t, password)})
+		return data
+	}
+
+	reader, writer := io.Pipe()
+	delayed := make(chan *http.Response, 1)
+	go func() {
+		response, err := http.DefaultClient.Do(post(reader))
+		if err != nil {
+			t.Error(err)
+		}
+		delayed <- response
+	}()
+	time.Sleep(300 * time.Millisecond) // admitted, waiting for its body
+
+	response, err := http.DefaultClient.Do(post(bytes.NewReader(body(ownerPassword))))
+	if err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("owner change: %v %v", response, err)
+	}
+	_ = response.Body.Close()
+
+	_, _ = writer.Write(body("attacker-password"))
+	_ = writer.Close()
+	late := <-delayed
+	if late == nil {
+		t.FailNow()
+	}
+	defer late.Body.Close()
+	var result proto.Response
+	if err := json.NewDecoder(late.Body).Decode(&result); err != nil || result.Code == 0 {
+		t.Fatalf("delayed factory request = %+v %v", result, err)
+	}
+	if hasSessionCookie(late.Cookies()) {
+		t.Fatal("delayed factory request got a session")
+	}
+	if _, ok, err := store.Authenticate("admin", ownerPassword); err != nil || !ok {
+		t.Fatalf("owner password replaced: ok=%v err=%v", ok, err)
 	}
 }

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -67,7 +68,25 @@ func (s *Service) ChangePassword(c *gin.Context) {
 			return
 		}
 	}
-	user, err := changeUserPassword(principal.Username, req.Password, req.PasswordEncoding)
+	// The request was admitted with the factory session before its body was
+	// read. The change applies only while that session is still the current
+	// one and the account still has the factory password: checked with the
+	// commit, so an earlier change by the owner cannot be overwritten.
+	var expect func(authn.User) error
+	if forced {
+		version, ok := middleware.CurrentTokenVersion(c)
+		expect = func(user authn.User) error {
+			if !ok || !user.MustChangePassword || user.TokenVersion != version {
+				return errStaleSession
+			}
+			return nil
+		}
+	}
+	user, err := changeUserPassword(principal.Username, req.Password, req.PasswordEncoding, expect)
+	if errors.Is(err, errStaleSession) {
+		rsp.ErrRsp(c, -2, "invalid session")
+		return
+	}
 	if err != nil {
 		rsp.ErrRsp(c, -5, err.Error())
 		return
@@ -116,7 +135,11 @@ func (s *Service) IsPasswordUpdated(c *gin.Context) {
 	rsp.OkRspWithData(c, &proto.IsPasswordUpdatedRsp{IsUpdated: !user.MustChangePassword})
 }
 
-func changeUserPassword(username, encodedPassword, encoding string) (*authn.User, error) {
+var errStaleSession = errors.New("the session is no longer current")
+
+// changeUserPassword sets a password; expect, when set, must accept the
+// account at the moment of the change (authn.Store.SetPasswordAndRunIf).
+func changeUserPassword(username, encodedPassword, encoding string, expect func(authn.User) error) (*authn.User, error) {
 	password, err := utils.DecodeCredentialPassword(encodedPassword, encoding)
 	if err != nil || password == "" {
 		return nil, errInvalidPassword
@@ -129,11 +152,11 @@ func changeUserPassword(username, encodedPassword, encoding string) (*authn.User
 		return nil, err
 	}
 	if user.SystemAccount && user.Role == authn.RoleAdmin && user.Enabled {
-		return authn.DefaultStore.SetPasswordAndRun(username, password, func() error {
+		return authn.DefaultStore.SetPasswordAndRunIf(username, password, expect, func() error {
 			return systemPasswordUpdater(password)
 		})
 	}
-	return authn.DefaultStore.SetPassword(username, password)
+	return authn.DefaultStore.SetPasswordAndRunIf(username, password, expect, nil)
 }
 
 func changeRootPassword(password string) error {

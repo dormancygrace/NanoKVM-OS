@@ -59,6 +59,16 @@ cleanup() {
 trap cleanup EXIT
 awk '$1 == "/dev/mmcblk0p1" && $2 == "/boot" && $3 == "vfat" { found=1 } END { exit !found }' /proc/mounts
 [ ! -e /boot/rec ] || { echo 'Recovery is active; bootloader update refused' >&2; exit 1; }
+# The OLED boot logo U-Boot draws, for this board's panel; there is none
+# for Alpha, nor before the board is selected (detect).
+board=$(tr -d '\000' < /proc/device-tree/sipeed,board-revision 2>/dev/null || true)
+logo=/usr/lib/nanokvm/bootloader/oled/$board.bin
+if [ -n "$board" ] && [ -f "$logo" ] && ! cmp -s "$logo" /boot/oled-logo.bin; then
+    cp "$logo" /boot/oled-logo.new
+    sync /boot/oled-logo.new
+    mv /boot/oled-logo.new /boot/oled-logo.bin
+    sync /boot
+fi
 want=$(sha256sum "$payload" | cut -d ' ' -f 1)
 # The card's own bytes, not the page cache.
 oncard() { dd if="$1" bs=64k iflag=direct 2>/dev/null | sha256sum | cut -d ' ' -f 1; }

@@ -21,6 +21,7 @@ keys  tree  /etc/apk/keys                                 0644  firmware/alpine/
 # puts it on the boot partition (docs/BOOT.md)
 bootloader file /usr/lib/nanokvm/bootloader/fip.bin  0644  @fip.bin
 bootloader file /usr/libexec/nanokvm/activate-bootloader 0755 firmware/alpine/packages/nanokvm-bootloader/activate-bootloader
+bootloader tree /usr/lib/nanokvm/bootloader/oled 0644 @oled-logo
 bootloader tree /usr/share/licenses/nanokvm-bootloader 0644 @fip-licenses
 
 # nanokvm-zlib: zlib-ng in zlib-compatible mode, in place of Alpine's zlib

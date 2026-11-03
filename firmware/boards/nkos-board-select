@@ -15,6 +15,9 @@ cp "$profile.sd" /boot/boot.sd.new
 sync
 mv -f /boot/boot.sd.new /boot/boot.sd
 sync
+# The boot logo is optional: without it U-Boot leaves the OLED dark.
+logo=/usr/lib/nanokvm/bootloader/oled/$profile.bin
+if [ -f "$logo" ]; then { cp "$logo" /boot/oled-logo.bin && sync; } || true; fi
 echo "NanoKVM selected $profile; rebooting with its Device Tree"
 umount /boot
 trap - EXIT

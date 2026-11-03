@@ -28,7 +28,7 @@ var (
 // receiver, Cube and Lite boards (alpha, beta) need a power cycle. The
 // receiver decides what the monitor may advertise: the LT6911UXC takes every
 // profile, the LT6911D 720p, 1080p and 1440p at 60 Hz, the LT6911C 720p and
-// 1080p at 60 Hz until it is measured beyond that. A Cube or Lite with an
+// 1080p at 60 Hz until it is measured beyond that. A beta Cube with an
 // LT6911D applies a new EDID without a power cycle. nanokvm_update_edid programs all three.
 func monitorBoard() string {
 	return hardwareIdentity(monitorBoardFile, "alpha", "beta", "pcie")
@@ -89,9 +89,10 @@ func hdmiReceiverModel(chip string) string {
 }
 func MonitorRequiresPowerCycle() bool {
 	board := monitorBoard()
-	// An LT6911D takes a new EDID at once: on a Cube (beta) the source
+	// A beta Cube with an LT6911D takes a new EDID at once: the source
 	// switched to the written profile without a power cycle or a replug.
-	return (board == "alpha" || board == "beta") && receiverChip() != "d"
+	// Only that pair is measured; an alpha keeps the power cycle.
+	return board == "alpha" || (board == "beta" && receiverChip() != "d")
 }
 
 // MonitorHighRefreshSupported reports a receiver that takes the full profile

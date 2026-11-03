@@ -179,20 +179,22 @@ func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
 	}
 }
 
-// A Cube with an LT6911D applies a new EDID without a power cycle, so its
+// A beta Cube with an LT6911D applies a new EDID without a power cycle, so its
 // first start programs the saved profile over the stock EDID, which declares
-// no RGB range; an LT6911C still keeps the stock EDID that fits it.
+// no RGB range; an LT6911C, or an alpha, still keeps the stock EDID that fits.
 func TestCubeLT6911DFirstStartProgramsProfile(t *testing.T) {
 	for _, tc := range []struct {
-		chip, want string
-		powerCycle bool
+		board, chip, want string
+		powerCycle        bool
 	}{
-		{"d", "NanoKVM-cube-monitor-1080.bin", false},
-		{"c", "", true},
+		{"beta", "d", "NanoKVM-cube-monitor-1080.bin", false},
+		{"beta", "c", "", true},
+		// Not measured on an alpha: it keeps the power cycle and the check.
+		{"alpha", "d", "", true},
 	} {
-		t.Run(tc.chip, func(t *testing.T) {
+		t.Run(tc.board+"/"+tc.chip, func(t *testing.T) {
 			monitorState(t, 0, false, 1920)
-			selectBoard(t, "beta", tc.chip)
+			selectBoard(t, tc.board, tc.chip)
 			if MonitorRequiresPowerCycle() != tc.powerCycle {
 				t.Fatalf("power cycle = %v", MonitorRequiresPowerCycle())
 			}

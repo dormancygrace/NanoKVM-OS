@@ -133,11 +133,11 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 			return checkCubeMonitorEDIDLocked(hw)
 		}
 		// The LT6911D on PCIe is programmed only when the user applies a profile:
-		// its EDID write has not yet run on that board. On a Cube or Lite it
+		// its EDID write has not yet run on that board. On a beta Cube it
 		// needs no power cycle, so it is checked like a PCIe receiver: the
 		// stock EDID there declares no RGB range, and a source sends limited
 		// RGB at 1080p60 that the receiver takes as full (a pale picture).
-		if receiverChip() == "d" && monitorBoard() == "pcie" {
+		if receiverChip() == "d" && monitorBoard() != "beta" {
 			return "", nil
 		}
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {

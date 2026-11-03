@@ -710,11 +710,11 @@ static int lt6911_edid_dump(chip_version_t chip_version, uint8_t *edid_data)
 
 // =======================================================================================================
 
-// A Cube or Lite applies a new EDID only after a power cycle, except with an
-// LT6911D: there the source switched to it at once (measured on a Cube).
+// A Cube or Lite applies a new EDID only after a power cycle, except a beta
+// Cube with an LT6911D: there the source switched to it at once (measured).
 static int needs_power_cycle(product_version_t product_version, chip_version_t chip_version) {
-    return (product_version == PRODUCT_CUBE_A || product_version == PRODUCT_CUBE_B) &&
-           chip_version != CHIP_LT6911D;
+    return product_version == PRODUCT_CUBE_A ||
+           (product_version == PRODUCT_CUBE_B && chip_version != CHIP_LT6911D);
 }
 
 void print_warning(int power_cycle) {

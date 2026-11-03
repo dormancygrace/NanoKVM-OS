@@ -142,10 +142,15 @@ func checkScreen(target *Screen) {
 	}
 
 	if target.BitRate <= 100 || target.BitRate > MaxQualityValue {
-		target.BitRate = 12000
+		target.BitRate = DefaultBitRate
 	}
 
 }
+
+// DefaultBitRate is the H.26x ceiling (kbit/s) of a new device: the most the
+// list offers, which keeps 2560x1440@60 sharp in motion; a still screen sends
+// far less.
+const DefaultBitRate = 20000
 
 func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 	target := &Screen{
@@ -153,7 +158,7 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		Height:      0,
 		Quality:     80,
 		FPS:         90,
-		BitRate:     12000, // recommended for 1080p90 H.265 with motion
+		BitRate:     DefaultBitRate,
 		MjpegChroma: 422,
 	}
 

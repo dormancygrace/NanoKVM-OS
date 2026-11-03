@@ -6,10 +6,8 @@ import { useTranslation } from 'react-i18next';
 import {
   BITRATE_CHOICES,
   DEFAULT_ASPECT,
-  draftAutoBitrate,
   draftIssues,
   draftPlayable,
-  ECONOMY_BITRATE,
   QUALITY_CHOICES,
   resolutionChoices,
   resolutionOf,
@@ -146,8 +144,6 @@ export const QuickVideo = ({ open }: { open: boolean }) => {
   // A Cube receiver applies a monitor change only after a power cycle, which
   // Settings → Video confirms first.
   const current = resolutionOf(saved, caps);
-  const auto = draftAutoBitrate(saved, caps);
-  const autoBitrate = saved.bitRate === auto;
   const codecNames: Record<Codec, string> = { h264: 'H.264', h265: 'H.265' };
   // The codec a resolution switches to, when it is not the current one.
   const modeCodec = (choice: ReturnType<typeof resolutionChoices>[number]) => {
@@ -180,10 +176,7 @@ export const QuickVideo = ({ open }: { open: boolean }) => {
         ),
         pick: () => {
           if (choice.key === current?.key) return;
-          const draft = withResolution(saved, choice, caps);
-          // An automatic bitrate follows the mode.
-          if (autoBitrate) draft.bitRate = draftAutoBitrate(draft, caps);
-          void apply(draft);
+          void apply(withResolution(saved, choice, caps));
         }
       };
     });
@@ -199,42 +192,19 @@ export const QuickVideo = ({ open }: { open: boolean }) => {
         label: `${quality}%`,
         pick: () => void apply({ ...saved, quality })
       }))
-    : [
-        {
-          key: 'auto',
-          checked: autoBitrate,
-          disabled: busy,
-          label: t('videoSettings.bitrateAuto', { value: auto / 1000 }),
-          pick: () => void apply({ ...saved, bitRate: auto })
-        },
-        {
-          key: 'economy',
-          checked: !autoBitrate && saved.bitRate === ECONOMY_BITRATE,
-          disabled: busy,
-          label: t('videoSettings.bitrateEconomy', { value: ECONOMY_BITRATE / 1000 }),
-          pick: () => void apply({ ...saved, bitRate: ECONOMY_BITRATE })
-        },
-        ...BITRATE_CHOICES.map((bitRate) => ({
-          key: `b${bitRate}`,
-          checked: !autoBitrate && saved.bitRate !== ECONOMY_BITRATE && saved.bitRate === bitRate,
-          disabled: busy,
-          label: mbps(bitRate),
-          pick: () => void apply({ ...saved, bitRate })
-        }))
-      ];
-  const bitrateValue = mjpeg
-    ? `${saved.quality}%`
-    : autoBitrate
-      ? t('videoSettings.bitrateAuto', { value: saved.bitRate / 1000 })
-      : saved.bitRate === ECONOMY_BITRATE
-        ? t('videoSettings.bitrateEconomy', { value: saved.bitRate / 1000 })
-        : mbps(saved.bitRate);
+    : BITRATE_CHOICES.map((bitRate) => ({
+        key: `b${bitRate}`,
+        checked: saved.bitRate === bitRate,
+        disabled: busy,
+        label: mbps(bitRate),
+        pick: () => void apply({ ...saved, bitRate })
+      }));
+  const bitrateValue = mjpeg ? `${saved.quality}%` : mbps(saved.bitRate);
 
   // Codec: either one where the current picture, transport and browser take
-  // it; an unavailable one says why. An automatic bitrate follows the codec.
+  // it; an unavailable one says why.
   const codecItems: Item[] = (['h265', 'h264'] as const).map((codec) => {
     const draft = { ...saved, codec };
-    if (autoBitrate) draft.bitRate = draftAutoBitrate(draft, caps);
     const reason = codec === saved.codec ? undefined : draftIssues(draft, caps, browser).codec;
     return {
       key: codec,

@@ -19,8 +19,8 @@ func TestCheckScreenRejectsOutOfRangeVideoBitRate(t *testing.T) {
 	for _, bitRate := range []uint16{0, 100, 20001, 65535} {
 		screen := &Screen{Height: 1080, Quality: 80, BitRate: bitRate}
 		checkScreen(screen)
-		if screen.BitRate != 12000 {
-			t.Fatalf("bit rate = %d; want 12000 for out-of-range input %d", screen.BitRate, bitRate)
+		if screen.BitRate != DefaultBitRate {
+			t.Fatalf("bit rate = %d; want 20000 for out-of-range input %d", screen.BitRate, bitRate)
 		}
 	}
 }
@@ -68,8 +68,8 @@ func TestLoadScreenKeepsDefaultsForMissingOrInvalidSettings(t *testing.T) {
 	if got.FPS != 90 {
 		t.Fatalf("FPS = %d, want default 90", got.FPS)
 	}
-	if got.Quality != 80 || got.BitRate != 12000 {
-		t.Fatalf("quality = %d, bitrate = %d; want 80 and 12000", got.Quality, got.BitRate)
+	if got.Quality != 80 || got.BitRate != DefaultBitRate {
+		t.Fatalf("quality = %d, bitrate = %d; want 80 and 20000", got.Quality, got.BitRate)
 	}
 	if got.Width != 0 || got.Height != 0 {
 		t.Fatalf("resolution = %dx%d, want default 0x0", got.Width, got.Height)
@@ -180,7 +180,7 @@ func TestLoadScreenPreservesAcceptedQualityAndBitrate(t *testing.T) {
 		saved            string
 		quality, bitrate uint16
 	}{
-		{"70", 70, 12000}, {"7500", 80, 7500},
+		{"70", 70, DefaultBitRate}, {"7500", 80, 7500},
 	} {
 		got := loadScreen(func(path string) ([]byte, error) {
 			if path == screenFileMap["quality"] {

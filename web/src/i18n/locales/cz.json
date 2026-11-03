@@ -2324,8 +2324,6 @@
       "video-memory": "vyžaduje více videopaměti: aby byl použit aktualizovaný systém, zařízení restartujte",
       "h264-4k": "není k dispozici nad 2560 × 1440, použijte H.265 nebo rozlišení proudu 1440p nebo nižší"
     },
-    "bitrateAuto": "Automatická · {{value}} Mbit/s",
-    "bitrateEconomy": "Úsporná · {{value}} Mbit/s",
     "mjpegChroma420": "4:2:0 – méně objemné snímky",
     "powerCycleTitle": "Je zapotřebí fyzicky odpojit od napájení a poté znovu připojit",
     "invalid": "Některé z vybraných předvoleb nejsou k dispozici",
@@ -2349,7 +2347,7 @@
     "mjpegChromaFallback_resolution": "Pokud chcete zachovat kódování barev 4:2:2, pak v případě MJPEG je rozlišení omezené na 1920 pixelů na šířku, zatímco H.264/H.265 umožňují více. Zvolené rozlišení se vrátí až proud videa skončí.",
     "imageHint": "Nastaveno stejně každému prohlížeči.",
     "modeHint": "Rozlišení a obnovovací frekvence, kterými počítač vykresluje, propagované NanoKVM monitorem (proud nese stejnou frekvenci). Při provedení změny nakrátko odpojí a znovu připojí HDMI.",
-    "bitrateCeiling": "Horní hranice pro pohyb (video, posouvání) – nehybný obraz posílá mnohem méně. „Automaticky“ se řídí režimem, „Úsporné“ se hodí pro připojení na dálku nebo přes mobilní síť.",
+    "bitrateCeiling": "Horní hranice pro pohyb (video, posouvání) – nehybný obraz posílá mnohem méně. Pro připojení na dálku nebo přes mobilní síť se hodí 3 Mbit/s.",
     "bitrateLimit": "omezit na {{value}} Mbit/s",
     "codecHint": "Pro ten stejný obraz vytváří H.265 o přibližně třetinu nižší objem datového toku. U H.264 je zase vyšší pravděpodobnost, že ho prohlížeč umí přehrávat.",
     "browserSectionHint": "Uloženo v tomto prohlížeči (ostatní prohlížející si ponechají svá).",

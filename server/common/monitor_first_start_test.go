@@ -80,7 +80,7 @@ func TestProgramMonitorProfileOnFirstStart(t *testing.T) {
 
 // With a profile recorded but not yet verified, startup reads the receiver. The saved profile is
 // programmed again only when the receiver holds another EDID, and an unreadable
-// receiver is left alone. The LT6911D on PCIe is not read.
+// receiver is left alone.
 func TestFirstStartChecksTheReceiver(t *testing.T) {
 	other := testEDID(1920, 160, 1080, 53, 23550, 16)
 	oneBlock := testEDID(1280, 370, 720, 30, 7425)[:128]
@@ -100,7 +100,7 @@ func TestFirstStartChecksTheReceiver(t *testing.T) {
 		{"one-block profile in a 256-byte copy", "ux", oneBlock, padded, nil, 1, 0},
 		{"read failure", "ux", heldEDID(), nil, errors.New("i2c"), 1, 0},
 		{"read returned zeros", "ux", heldEDID(), make([]byte, 256), nil, 1, 0},
-		{"LT6911D", "d", heldEDID(), other, nil, 0, 0},
+		{"LT6911D holds another EDID", "d", heldEDID(), other, nil, 1, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			monitorState(t, 1080, false, 1920)
@@ -174,6 +174,71 @@ func TestCubeFirstStartChecksReceiverEDID(t *testing.T) {
 				if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 1 {
 					t.Fatalf("second start: error %v, reads %d", err, reads)
 				}
+			}
+		})
+	}
+}
+
+// A Cube or Lite with an LT6911D applies a new EDID without a power cycle, so
+// its first start programs the saved profile over the stock EDID, which
+// declares no RGB range. An LT6911C still keeps the stock EDID that fits it.
+func TestCubeLT6911DFirstStartProgramsProfile(t *testing.T) {
+	for _, tc := range []struct {
+		name, board, chip string
+		want              bool
+		powerCycle        bool
+	}{
+		{"beta d", "beta", "d", true, false},
+		{"alpha d", "alpha", "d", true, false},
+		{"beta c", "beta", "c", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, 0, false, 1920)
+			selectBoard(t, tc.board, tc.chip)
+			if MonitorRequiresPowerCycle() != tc.powerCycle {
+				t.Fatalf("power cycle = %v", MonitorRequiresPowerCycle())
+			}
+			var applied []string
+			hw := firstStartBackend(true, MonitorRequiresPowerCycle(), &applied, nil)
+			path, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD)
+			if err != nil || (len(applied) == 1) != tc.want {
+				t.Fatalf("programmed %q (%v), applied %v; want a write: %v", path, err, applied, tc.want)
+			}
+		})
+	}
+}
+
+// An LT6911D write on a Cube or Lite whose replug did not complete leaves the
+// profile in flash, recorded and readable as held: the next start applies it
+// again so the EDID tool can finish the replug, unless HDMI is disabled.
+func TestPendingReplugAppliesTheHeldProfileAgain(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		pending     bool
+		readAtStart bool
+		writes      int
+	}{
+		{"pending", true, true, 1},
+		{"no pending replug", false, true, 0},
+		{"HDMI disabled", true, false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			monitorState(t, 1080, false, 1920)
+			selectBoard(t, "beta", "d")
+			if err := os.WriteFile(monitorEDIDHashFile, []byte(edidHash(heldEDID())+"\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if tc.pending {
+				if err := os.WriteFile(monitorReplugPendingFile, nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var applied []string
+			hw := firstStartBackend(true, false, &applied, nil)
+			hw.readAtStart = tc.readAtStart
+			hw.read = func() ([]byte, error) { return heldEDID(), nil }
+			if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || len(applied) != tc.writes {
+				t.Fatalf("error %v, applied %v; want %d writes", err, applied, tc.writes)
 			}
 		})
 	}

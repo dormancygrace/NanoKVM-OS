@@ -76,7 +76,8 @@ test('conditions joined by "," must all hold; page{N} is on page N only', () => 
 test('an imported layout is taken only when the renderer can draw it', () => {
   const base = { panel: 'wide', rotation: 0, burnin: 'none' };
   const line = { type: 'line', x: 0, y: 0, x2: 5, y2: 0, when: 'eth,page2' };
-  assert.ok(checkedLayout({ ...base, items: [line] }));
+  for (const when of [undefined, '', 'eth,page2'])
+    assert.ok(checkedLayout({ ...base, items: [{ ...line, when }] }));
   for (const items of [
     [{ ...line, x2: 0.5 }], // never reached in whole pixels: the drawing would not end
     [null],

@@ -118,7 +118,7 @@ export function checkedLayout(value: unknown): OledLayout | null {
     if (!whole(item.x, -128, 255) || !whole(item.y, -128, 255)) return false;
     if (!optional(item.x2, -128, 255) || !optional(item.y2, -128, 255)) return false;
     if (!optional(item.width, 0, 128) || !optional(item.height, 0, 128)) return false;
-    if (item.when !== undefined) {
+    if (item.when !== undefined && item.when !== '') {
       const names = typeof item.when === 'string' ? item.when.split(',') : [];
       if (!names.length || names.length > maxConditions) return false;
       if (!names.every((name) => known.has(name.replace(/^!/, '')))) return false;

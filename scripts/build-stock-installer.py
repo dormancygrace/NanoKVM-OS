@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 
@@ -189,6 +190,11 @@ exec /kvmapp/system/init.d/S95nanokvm restart
         run(host / 'riscv64-buildroot-linux-musl-gcc', '-Os', '-static', '-s',
             '-Wall', '-Wextra', '-Werror', '-march=rv64imafdc', '-mabi=lp64d',
             source / 'layout.c', '-o', payload / 'stock-layout')
+        # The recovery's OLED progress: the player and its screens.
+        run(host / 'riscv64-buildroot-linux-musl-gcc', '-Os', '-static', '-s',
+            '-Wall', '-Wextra', '-Werror', '-march=rv64imafdc', '-mabi=lp64d',
+            source / 'oled.c', '-o', work / 'stock-oled')
+        run(sys.executable, REPO / 'scripts/gen-stock-oled.py', work / 'oled')
         # A fresh 64 MiB boot filesystem is written inside old p2. Its old FAT
         # filesystem stays bootable until the final partition-table commit.
         boot_img = work / 'boot.img'
@@ -225,7 +231,9 @@ exec /kvmapp/system/init.d/S95nanokvm restart
         lines = ['dir /bin 755 0 0', 'dir /sbin 755 0 0', 'dir /lib 755 0 0',
                  'dir /dev 755 0 0', 'nod /dev/console 600 0 0 c 5 1', 'nod /dev/null 666 0 0 c 1 3',
                  f'file /init {work / "init"} 755 0 0',
-                 f'file /sbin/stock-layout {payload / "stock-layout"} 755 0 0']
+                 f'file /sbin/stock-layout {payload / "stock-layout"} 755 0 0',
+                 f'file /sbin/stock-oled {work / "stock-oled"} 755 0 0', 'dir /oled 755 0 0']
+        lines += [f'file /oled/{image.name} {image} 644 0 0' for image in sorted((work / 'oled').iterdir())]
         # The recovery DTB does not enable XTheadVector under stock OpenSBI.
         # Buildroot's C906 tools can use XTheadVector (mkfs.f2fs SIGILLs while
         # parsing -l). Keep recovery tools and their loader/libraries together

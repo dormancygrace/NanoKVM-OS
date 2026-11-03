@@ -145,6 +145,9 @@ done
 umask 077
 awk -F: '$1=="root" {if (NF!=9 || ++n!=1) exit 1; print} END {if(n!=1) exit 1}' /etc/shadow >"$stage/root.shadow" || fail "cannot preserve root password"
 if [ -e /etc/kvm/ssh_stop ]; then echo off; else echo on; fi >"$stage/ssh-state"
+# Only the recovery's OLED progress reads the board (checked above); it is
+# no part of the transaction, and without it the screen stays as it is.
+cp /etc/kvm/hw "$stage/board" || true
 # Record regular files only; tar directory entries must not replace the new
 # root's /etc and /root directory permissions with staging-directory modes.
 (cd "$settings" && find . -type f) >"$settings.paths"

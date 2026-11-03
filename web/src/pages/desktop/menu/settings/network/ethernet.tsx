@@ -36,6 +36,9 @@ function parseCIDR(value: string) {
   };
 }
 
+// The placeholder of the subnet mask, and what an empty field saves.
+const defaultSubnetMask = '255.255.255.0';
+
 export const Ethernet = () => {
   const { t } = useTranslation();
   const [config, setConfig] = useState<EthernetConfig>({
@@ -45,7 +48,7 @@ export const Ethernet = () => {
     mode: 'dhcp',
     interface: 'eth0',
     address: '',
-    subnetMask: '255.255.255.0',
+    subnetMask: defaultSubnetMask,
     gateway: '',
     vlanEnabled: false,
     vlanId: 0
@@ -142,7 +145,9 @@ export const Ethernet = () => {
           mode: config.mode,
           address: config.mode === 'static' ? (cidr?.address ?? config.address.trim()) : '',
           subnetMask:
-            config.mode === 'static' ? (cidr?.subnetMask ?? config.subnetMask.trim()) : '',
+            config.mode === 'static'
+              ? (cidr?.subnetMask ?? (config.subnetMask.trim() || defaultSubnetMask))
+              : '',
           gateway: config.mode === 'static' ? config.gateway.trim() : '',
           vlanEnabled: config.vlanEnabled,
           vlanId: config.vlanId

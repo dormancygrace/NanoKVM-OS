@@ -15,8 +15,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # What a pull request touches, so the jobs it cannot affect are skipped
+  # (none is a required check). A change under .github and a push to main run
+  # everything; the patterns include the files outside each job's directory
+  # that its tests read.
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      server: ${{ steps.areas.outputs.server }}
+      poly1305: ${{ steps.areas.outputs.poly1305 }}
+      web: ${{ steps.areas.outputs.web }}
+      rustdesk: ${{ steps.areas.outputs.rustdesk }}
+      modules: ${{ steps.areas.outputs.modules }}
+    steps:
+      - id: areas
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          files=$RUNNER_TEMP/changed-files
+          if [ -n "$PR" ]; then
+            # A rename changes both the old and the new area.
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[] | .filename, (.previous_filename // empty)' > "$files"
+            # The API lists at most 3000 files: test everything beyond that.
+            [ "$(wc -l < "$files")" -lt 3000 ] || echo .github/ > "$files"
+          else
+            echo .github/ > "$files"
+          fi
+          all='^\.github/'
+          changed() { grep -qE "$all|$1" "$files" && echo true || echo false; }
+          modules=()
+          for m in addons/ipmi server/third_party/pion-dtls server/third_party/pion-ice \
+                   server/third_party/pion-srtp firmware/crypto/experimental/hwcrypto-all/ghash-go; do
+            pattern="^$m/"
+            # The IPMI add-on builds against the server module.
+            [ "$m" = addons/ipmi ] && pattern="$pattern|^server/"
+            [ "$(changed "$pattern")" = true ] && modules+=("$m")
+          done
+          {
+            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$|^tests/test-(video-recovery-native|websocket-c906)\.py$|^tests/test-remote-smb\.sh$|^tests/fixtures/remote-smb/|^tests/upstream-mask\.go\.txt$')"
+            echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
+            echo "web=$(changed '^web/|^\.nvmrc$')"
+            echo "rustdesk=$(changed '^addons/rustdesk/')"
+            echo "modules=$(printf '%s\n' "${modules[@]}" | jq -Rsc 'split("\n") | map(select(. != ""))')"
+          } | tee -a "$GITHUB_OUTPUT"
+
   server:
     name: Go server
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -40,6 +91,24 @@ jobs:
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
+
+  # Beside the unit tests, not after them: the job above is the longest.
+  server-media:
+    name: Go server SMB media and C906 WebSocket
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.x'
+          cache-dependency-path: server/go.sum
+      - name: Compression headers
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev liblzma-dev xz-utils
       - name: Signed and encrypted SMB media
         run: bash ../tests/test-remote-smb.sh
 
@@ -59,6 +128,8 @@ jobs:
 
   poly1305:
     name: Prepared RISC-V Poly1305
+    needs: changes
+    if: needs.changes.outputs.poly1305 == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -76,6 +147,8 @@ jobs:
 
   web:
     name: Web UI
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -265,23 +338,22 @@ jobs:
           python3 tests/test-usb-prefix.py \
             --script firmware/alpine/compat/S30usbnet
           for t in tests/test-*.sh; do
-            # The Bash SMB fixture runs in the Go server job with Docker/sudo.
+            # The Bash SMB fixture runs in the Go server media job with Docker/sudo.
             [ "$t" = tests/test-remote-smb.sh ] && continue
             echo "::group::$t"; sh "$t"; echo "::endgroup::"
           done
 
+  # Each module only when it (or for IPMI, the server) changes: the vendored
+  # pion tests alone take minutes.
   additional-go-modules:
     name: Additional Go modules (${{ matrix.directory }})
+    needs: changes
+    if: needs.changes.outputs.modules != '[]'
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        directory:
-          - addons/ipmi
-          - server/third_party/pion-dtls
-          - server/third_party/pion-ice
-          - server/third_party/pion-srtp
-          - firmware/crypto/experimental/hwcrypto-all/ghash-go
+        directory: ${{ fromJSON(needs.changes.outputs.modules) }}
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -303,6 +375,8 @@ jobs:
 
   rustdesk:
     name: RustDesk host tests
+    needs: changes
+    if: needs.changes.outputs.rustdesk == 'true'
     runs-on: ubuntu-24.04
     defaults:
       run:

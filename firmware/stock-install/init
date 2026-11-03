@@ -11,6 +11,13 @@ BOOT_RAW_HASH='@BOOT_RAW_HASH@'
 stage=/data/.nanokvm-stock-install
 formatting=0
 replaced=0
+# The OLED shows each step (stock-oled, gen-stock-oled.py) once the board is
+# known; it is a courtesy and never stops the migration.
+board=
+panel=
+oled() {
+    [ -z "$board" ] || /sbin/stock-oled "$board" "/oled/$panel-$1.bin" >/dev/null 2>&1 || true
+}
 fail() {
     trap - EXIT
     echo "NanoKVM OS migration stopped: $*" >&2
@@ -35,6 +42,7 @@ fail() {
                cmp "$stage/stock-boot.sd" /oldboot/.stock-boot.new &&
                mv -f /oldboot/.stock-boot.new /oldboot/boot.sd && sync; then
                 echo 'Stock boot restored. Read /data/.nanokvm-stock-install/status over SSH.' >&2
+                oled stock
                 reboot -f
             fi
             rm -f /oldboot/.stock-boot.new
@@ -42,9 +50,11 @@ fail() {
     fi
     if [ "$replaced" = 1 ]; then
         echo 'Partition 1 has no boot image now: with a card reader, copy .nanokvm-stock-install/stock-boot.sd from partition 3 to partition 1 as boot.sd.' >&2
+        oled card
         exec /bin/sh </dev/console >/dev/console 2>&1
     fi
     echo 'Keep staging files intact. A power cycle resumes this migration.' >&2
+    oled resume
     exec /bin/sh </dev/console >/dev/console 2>&1
 }
 trap 'fail "an installation command failed"' EXIT
@@ -60,6 +70,9 @@ for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
     sleep 1
 done
 mount -t exfat -o rw,nosuid,nodev,noexec /dev/mmcblk0p3 /data || fail "cannot mount data partition"
+board=$(cat "$stage/board" 2>/dev/null) || board=
+case "$board" in alpha|beta) panel=wide ;; pcie) panel=narrow ;; *) board= ;; esac
+oled check
 # A missing/corrupt record must never allow formatting or an unverified rollback.
 formatting=1
 for name in mbr.old stock-boot.sd root.shadow ssh-state settings.tar; do
@@ -71,6 +84,7 @@ done
 state=$(/sbin/stock-layout state /dev/mmcblk0 "$stage/mbr.old") || fail "SD layout changed"
 if [ "$state" = installed ]; then
     # Commit completed before power failed. The new boot is already on p1.
+    oled installed
     sync
     reboot -f
     fail "reboot failed"
@@ -113,6 +127,7 @@ printf 'formatting\n' >"$stage/formatting"
 sync
 formatting=1
 printf 'installing boot filesystem\n' >"$stage/status"
+oled boot
 gzip -dc "$stage/boot.img.gz" >"$boot_loop"
 sync
 verify "$BOOT_RAW_HASH" "$boot_loop"
@@ -125,6 +140,7 @@ dd if="$boot_loop" of=/realroot/.boot-sector.readback bs=512 count=1 2>/dev/null
 cmp /realroot/.boot-sector /realroot/.boot-sector.readback || fail "boot FAT header readback failed"
 rm -f /realroot/.boot-sector /realroot/.boot-sector.readback
 printf 'installing root filesystem\n' >"$stage/status"
+oled root
 /sbin/mkfs.f2fs -f -t 0 -l rootfs "$root_loop"
 mount -t f2fs -o noatime "$root_loop" /realroot
 umask 022
@@ -163,9 +179,11 @@ umount /realroot
 losetup -d "$boot_loop"
 losetup -d "$root_loop"
 printf 'committing partition table\n' >"$stage/status"
+oled table
 sync
 /sbin/stock-layout commit /dev/mmcblk0 "$stage/mbr.old"
 printf 'installed\n' >"$stage/status"
+oled installed
 sync
 umount /data
 trap - EXIT

@@ -122,7 +122,9 @@ def logo(panel):
     return frame
 
 
-def image(panel, address):
+def image(panel, address, frame=None):
+    """The image of the logo, or of another frame of the panel's size
+    (scripts/gen-stock-oled.py)."""
     out = bytearray(b'NKOL' + bytes([1, 0, address, 0]))
 
     def record(control, data):
@@ -130,9 +132,9 @@ def image(panel, address):
             chunk = data[i:i + 255]
             out.extend(bytes([control, len(chunk)]) + bytes(chunk))
     record(0x00, INIT + (WIDE_TURN if panel == 'wide' else NARROW_TURN) + [0xA6])
-    # The logo frame covers all the panel shows, so the RAM is not cleared
-    # first (OLED_Clear): that would double the bytes sent before Linux.
-    frame = logo(panel)
+    # The frame covers all the panel shows, so the RAM is not cleared first
+    # (OLED_Clear): that would double the bytes sent before Linux.
+    frame = frame or logo(panel)
     column, first_page = (0, 0xB0) if panel == 'wide' else (32, 0xB8)
     for page in range(frame.pages):
         record(0x00, [first_page + page, 0x10 | column >> 4, column & 0x0F])

@@ -60,10 +60,18 @@ partition 3, install the full SD image instead.
 
 ## Recovery progress
 
-During the recovery boot there is no network, web UI or SSH, and no migration
-progress indication on the LED or OLED. Diagnostic output is on the UART
-console; the last step or error is also saved in partition 3 as
-`.nanokvm-stock-install/status`. Board selection can require another reboot.
+During the recovery boot there is no network, web UI or SSH. On a board with
+an OLED (Cube/Full and PCIe) the screen shows the step:
+- checking the files;
+- steps 1 to 3 (boot partition, system files, partitions);
+- "Installed" before the restart;
+- "Back to stock" when the migration stopped before formatting and stock was
+  restored;
+- "Power cycle resumes" or "Use a card reader" when it stopped later.
+
+The LEDs show nothing. Diagnostic output is on the UART console; the last step
+or error is also saved in partition 3 as `.nanokvm-stock-install/status`.
+Board selection can require another reboot.
 
 Allow the migration to finish with power connected. If the device remains
 unreachable after a generous wait, power it off and use the

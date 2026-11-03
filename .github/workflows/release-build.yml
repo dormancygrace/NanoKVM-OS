@@ -5,12 +5,19 @@ name: Release build
 # pull request it also comments with the outputs that differ from the build
 # of main the pull request merges into. No signing keys are involved: the
 # packages, rootfs and image steps follow with signing in CI.
+#
+# Changes the outputs cannot depend on are not built: documentation, tests
+# (but those this workflow runs) and the other workflows of CI.
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**', '*.md', '**/README.md']
+    paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**', 'tests/test-mjpeg-native-contracts.py',
+            'tests/test-zram-pages.py', 'tests/test-lz4-decompressor.py', '!.github/workflows/ci.yml',
+            '!.github/workflows/codeql.yml']
   pull_request:
-    paths-ignore: ['docs/**', '*.md', '**/README.md']
+    paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**', 'tests/test-mjpeg-native-contracts.py',
+            'tests/test-zram-pages.py', 'tests/test-lz4-decompressor.py', '!.github/workflows/ci.yml',
+            '!.github/workflows/codeql.yml']
   workflow_dispatch:
 
 permissions:

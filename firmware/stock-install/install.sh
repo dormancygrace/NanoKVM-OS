@@ -111,13 +111,24 @@ echo "The web login becomes admin/admin and requires a new password. Keep power 
 [ "$mode" = --yes ] || exit 0
 mkdir /run/nanokvm-stock-install.lock || fail "another installation is running"
 # The OLED shows the preparation (stock-oled, gen-stock-oled.py) while the
-# stock kvm_system, which draws it, is stopped: SIGSTOP and not exit, so a
-# failure resumes it as it was. The screen never stops the installation.
+# stock kvm_system, which draws it, is stopped. The screen never stops the
+# installation.
 case "$(cat /etc/kvm/hw)" in pcie) panel=narrow ;; *) panel=wide ;; esac
 oled() { "$bundle/stock-oled" "$(cat /etc/kvm/hw)" "$bundle/oled-$panel-$1.bin" >/dev/null 2>&1 || true; }
 screen_owner=$(pidof kvm_system 2>/dev/null) || screen_owner=
-resume_screen() { [ -z "$screen_owner" ] || kill -CONT $screen_owner 2>/dev/null || true; }
+# kvm_system redraws only what changed in its own state, so after a failure
+# it would leave Preparing up: stock's services restart for a full screen.
+# Resumed first, it can take the INT of that stop.
+resume_screen() {
+    [ -n "$screen_owner" ] || return 0
+    kill -CONT $screen_owner 2>/dev/null || true
+    screen_owner=
+    [ ! -x /kvmapp/system/init.d/S95nanokvm ] || /kvmapp/system/init.d/S95nanokvm restart >/dev/null 2>&1 || true
+}
 trap 'resume_screen; rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' EXIT
+# Ends a signalled installer through the EXIT trap too (a signal ignored
+# when it started, as under nohup, stays ignored).
+trap 'exit 1' HUP INT TERM
 [ -z "$screen_owner" ] || kill -STOP $screen_owner 2>/dev/null || true
 oled prepare
 for file in $data_luns; do

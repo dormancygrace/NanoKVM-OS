@@ -70,7 +70,8 @@ partition 3, install the full SD image instead.
 
 While stock prepares the migration, before its restart, the OLED (Cube/Full
 and PCIe) shows "Preparing", then "Restarting". Stock's own screen program is
-paused meanwhile and resumes if preparation stops.
+paused meanwhile. If preparation stops, the stock services restart (the web UI
+reconnects) so that their screen is drawn again in full.
 
 During the recovery boot there is no network, web UI or SSH. On a board with
 an OLED the screen shows the step:

@@ -6,11 +6,9 @@ import {
   BITRATE_CHOICES,
   DEFAULT_ASPECT,
   directCaptureApplies,
-  draftAutoBitrate,
   draftChanges,
   draftIssues,
   draftSize,
-  ECONOMY_BITRATE,
   effectiveFps,
   h264BlockReason,
   mjpegBlocked,
@@ -41,13 +39,6 @@ type Props = {
   setIsLocked: (locked: boolean) => void;
 };
 
-type BitrateChoice = 'auto' | 'economy' | 'manual';
-
-function bitrateChoice(draft: VideoDraft, caps: VideoCapabilities): BitrateChoice {
-  if (draft.bitRate === draftAutoBitrate(draft, caps)) return 'auto';
-  return draft.bitRate === ECONOMY_BITRATE ? 'economy' : 'manual';
-}
-
 /*
  * The video settings in two parts. The picture (mode, bitrate, codec) is
  * shared by every viewer and set by administrators; the transport and the
@@ -65,7 +56,6 @@ export const VideoForm = ({
 }: Props) => {
   const { t } = useTranslation();
   const [draft, setDraft] = useState<VideoDraft>(saved);
-  const [bitrate, setBitrate] = useState<BitrateChoice>(() => bitrateChoice(saved, caps));
   const [busy, setBusy] = useState(false);
   const applying = useRef(false);
   const syncAtoms = useSyncStreamAtoms();
@@ -77,17 +67,8 @@ export const VideoForm = ({
   useEffect(() => {
     if (savedKey === baseline) return;
     setBaseline(savedKey);
-    if (!dirty || applying.current) {
-      setDraft(saved);
-      setBitrate(bitrateChoice(saved, caps));
-    }
-  }, [savedKey, baseline, dirty, saved, caps]);
-
-  // The automatic bitrate follows the mode and the codec.
-  const auto = draftAutoBitrate(draft, caps);
-  useEffect(() => {
-    if (bitrate === 'auto' && draft.bitRate !== auto) setDraft((d) => ({ ...d, bitRate: auto }));
-  }, [bitrate, auto, draft.bitRate]);
+    if (!dirty || applying.current) setDraft(saved);
+  }, [savedKey, baseline, dirty, saved]);
 
   const issues = draftIssues(draft, caps, browser);
   const valid = Object.keys(issues).length === 0;
@@ -345,25 +326,10 @@ export const VideoForm = ({
               <Select
                 className="w-full"
                 aria-label={t('videoSettings.bitrate')}
-                value={bitrate === 'manual' ? draft.bitRate : bitrate}
+                value={draft.bitRate}
                 disabled={busy || !admin}
-                onChange={(value: 'auto' | 'economy' | number) => {
-                  if (typeof value === 'number') {
-                    setBitrate('manual');
-                    change('bitRate', value);
-                  } else {
-                    setBitrate(value);
-                    change('bitRate', value === 'auto' ? auto : ECONOMY_BITRATE);
-                  }
-                }}
-                options={[
-                  { value: 'auto', label: t('videoSettings.bitrateAuto', { value: auto / 1000 }) },
-                  {
-                    value: 'economy',
-                    label: t('videoSettings.bitrateEconomy', { value: ECONOMY_BITRATE / 1000 })
-                  },
-                  ...BITRATE_CHOICES.map((value) => ({ value, label: mbps(value) }))
-                ]}
+                onChange={(value: number) => change('bitRate', value)}
+                options={BITRATE_CHOICES.map((value) => ({ value, label: mbps(value) }))}
               />,
               t('videoSettings.bitrateCeiling')
             )}
@@ -588,13 +554,7 @@ export const VideoForm = ({
           >
             {t('videoSettings.apply')}
           </Button>
-          <Button
-            disabled={!dirty || busy}
-            onClick={() => {
-              setDraft(saved);
-              setBitrate(bitrateChoice(saved, caps));
-            }}
-          >
+          <Button disabled={!dirty || busy} onClick={() => setDraft(saved)}>
             {t('videoSettings.discard')}
           </Button>
           <span className="text-fg-muted text-xs" role="status">

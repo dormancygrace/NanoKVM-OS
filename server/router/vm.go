@@ -102,6 +102,11 @@ func vmRouter(r *gin.Engine) {
 
 	admin.GET("/vm/oled", service.GetOLED)  // get OLED configuration
 	admin.POST("/vm/oled", service.SetOLED) // set OLED configuration
+	admin.GET("/vm/oled/layout", service.GetOLEDLayout)
+	admin.POST("/vm/oled/layout", service.SetOLEDLayout)
+	admin.DELETE("/vm/oled/layout", service.DeleteOLEDLayout)
+	admin.POST("/vm/oled/preview", service.SetOLEDPreview)
+	admin.DELETE("/vm/oled/preview", service.DeleteOLEDPreview)
 
 	// Only supported by PCIe version
 	api.GET("/vm/hdmi", service.GetHdmiState)                                  // get HDMI state

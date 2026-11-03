@@ -12,6 +12,8 @@ void kvm_show_UE(void);
 // writes /run/nanokvm/atx) or for two minutes; then the display goes off if
 // the user switched it off.
 void kvm_oled_splash(void);
+// Writes the panel's built-in layout to /run/nanokvm/oled_default.
+void oled_publish_default_layout(void);
 
 // A non-persistent, bounded wakeup used only when the user has disabled the
 // panel and a usable IPv4 address is newly acquired. The system-state worker

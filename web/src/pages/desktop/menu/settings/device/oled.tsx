@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Select, Switch } from 'antd';
+import { Alert, Button, Select, Switch } from 'antd';
 import { ScreenShareOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,8 @@ import * as api from '@/api/vm.ts';
 import { LatestValueQueue } from '@/lib/latest-value-queue.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
+
+import { OledEditor } from './oled-editor.tsx';
 
 const KEY_FAILED = 'settings.device.oled.failed';
 
@@ -16,6 +18,7 @@ export const Oled = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [sleep, setSleep] = useState(-1);
   const [loadError, setLoadError] = useState(false);
+  const [editing, setEditing] = useState(false);
   const lastTimeout = useRef(60);
   const updateQueue = useRef<LatestValueQueue<number> | null>(null);
 
@@ -85,6 +88,15 @@ export const Oled = () => {
           </span>
         )}
       </SettingRow>
+      {isOLEDExist && (
+        <SettingRow
+          label={t('settings.device.oled.layout')}
+          description={t('settings.device.oled.layoutDescription')}
+        >
+          <Button onClick={() => setEditing(true)}>{t('settings.device.oled.edit')}</Button>
+        </SettingRow>
+      )}
+      <OledEditor open={editing} onClose={() => setEditing(false)} displayOff={sleep < 0} />
       {isOLEDExist && sleep >= 0 && (
         <SettingRow label={t('settings.device.oled.description')} htmlFor="device-oled-sleep">
           <Select

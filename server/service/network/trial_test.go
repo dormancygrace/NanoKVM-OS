@@ -29,8 +29,19 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// endTrialForTest drops a trial a test left running, without restoring.
+// endTrialForTest drops a trial a test left running, without restoring. It
+// first waits for an apply still holding the Ethernet slot, so the next test
+// does not find it busy.
 func endTrialForTest() {
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		ethernetApplyMu.Lock()
+		busy := ethernetApplying
+		ethernetApplyMu.Unlock()
+		if !busy {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 	trialMu.Lock()
 	defer trialMu.Unlock()
 	if active != nil && active.timer != nil {

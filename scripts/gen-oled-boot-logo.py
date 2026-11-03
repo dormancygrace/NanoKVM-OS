@@ -7,8 +7,8 @@ Writes one image per board whose panel is on GPIO I2C (BOARD.bin for beta,
 lite and pcie). Alpha has its panel on a hardware I2C controller that nkoled
 does not drive, so it gets none and boots without a logo.
 
-An image is "NKOL", version 1, board class 0, the I2C address, four zero
-bytes, then records: a control byte (0x00 commands, 0x40 data), a length and
+An image is "NKOL", version 1, board class 0, the I2C address and one reserved zero
+byte, then records: a control byte (0x00 commands, 0x40 data), a length and
 that many bytes. The records are the commands kvm_system sends
 (support/kvm_system/main/lib/oled_ctrl/oled_ctrl.cpp: OLED_Init, the
 orientation, the position commands of OLED_Set_Pos), so the

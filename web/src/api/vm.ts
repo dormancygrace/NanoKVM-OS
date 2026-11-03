@@ -460,9 +460,7 @@ export function importSSHKeys(keys: string, password: string) {
 export type DeviceInfo = {
   ips: { type: string; addr: string }[];
   mdns: string;
-  image: string;
   application: string;
-  bundledApplication?: string;
   deviceKey: string;
 };
 

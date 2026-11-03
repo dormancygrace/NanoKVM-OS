@@ -74,7 +74,6 @@ type Snapshot = {
   };
   memory: MemoryStatus | null;
   application: string;
-  image: string;
 };
 type Video = {
   inputWidth: number;
@@ -409,7 +408,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               t('dashboard.application'),
               data?.application ? formatVersion(data.application) : undefined
             )}
-            {line(t('settings.about.image'), data?.image)}
             {line(t('dashboard.kernel'), sys?.kernel)}
             {line(t('dashboard.load'), sys?.load?.join(' / '))}
           </dl>,

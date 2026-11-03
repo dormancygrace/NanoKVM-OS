@@ -327,7 +327,6 @@
     "about": {
       "title": "關於 NanoKVM",
       "ip": "IP",
-      "image": "韌體版本",
       "hostname": "主機名稱",
       "hostnameUpdated": "已更新主機名稱. 請重新啟動以生效",
       "credits": {

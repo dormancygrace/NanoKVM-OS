@@ -34,7 +34,7 @@ body:
     id: image
     attributes:
       label: Initial installation
-      description: Copy Initial installation from Settings → About, if available (Installed image in older versions). This identifies the original installation and can differ from the currently running version.
+      description: Copy Initial installation from Settings → System → Diagnostics, if available (Settings → About, or Installed image, in older versions). This identifies the original installation and can differ from the currently running version.
       placeholder: e.g. v1.6, or unknown
   - type: dropdown
     id: channel

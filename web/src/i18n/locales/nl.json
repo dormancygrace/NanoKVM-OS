@@ -327,7 +327,6 @@
     "about": {
       "title": "Over NanoKVM",
       "ip": "IP",
-      "image": "Image versie",
       "hostname": "Hostnaam",
       "hostnameUpdated": "Hostnaam bijgewerkt. Start opnieuw op om toe te passen.",
       "credits": {

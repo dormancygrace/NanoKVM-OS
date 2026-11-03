@@ -1912,7 +1912,10 @@
           "bypassed": "正在使用 Wi-Fi",
           "loadFailed": "无法读取网关检查。",
           "saveFailed": "无法保存网关检查。"
-        }
+        },
+        "forceSave": "不检查直接保存",
+        "forceTitle": "不检查连接直接保存？",
+        "forceContent": "设置会立即生效并保留，即使之后本页面无法连接到设备也不会撤销。如果设备因此无法访问，请通过 Wi-Fi 或串口控制台连接，或编辑 SD 卡启动分区上的 eth.nodhcp。"
       },
       "dns": {
         "title": "DNS",

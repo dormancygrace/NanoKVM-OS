@@ -942,7 +942,10 @@
           "bypassed": "přes Wi-Fi",
           "loadFailed": "Kontrolu brány se nepodařilo načíst.",
           "saveFailed": "Kontrolu brány se nepodařilo uložit."
-        }
+        },
+        "forceSave": "Uložit bez kontroly",
+        "forceTitle": "Uložit bez kontroly spojení?",
+        "forceContent": "Nastavení platí okamžitě a zůstane, i když se tato stránka k zařízení potom nedostane: nic se nevrátí. Pokud zařízení přestane být dostupné, připojte se přes Wi-Fi nebo sériovou konzoli, případně upravte eth.nodhcp na zaváděcím oddílu jeho SD karty."
       },
       "dns": {
         "title": "DNS",

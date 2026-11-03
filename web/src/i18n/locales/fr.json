@@ -1912,7 +1912,10 @@
           "bypassed": "passe par le Wi-Fi",
           "loadFailed": "Impossible de lire la vérification de la passerelle.",
           "saveFailed": "Impossible d'enregistrer la vérification de la passerelle."
-        }
+        },
+        "forceSave": "Enregistrer sans vérification",
+        "forceTitle": "Enregistrer sans vérifier la connexion ?",
+        "forceContent": "Les réglages s'appliquent immédiatement et restent, même si cette page ne peut plus joindre l'appareil ensuite : rien n'est annulé. Si l'appareil devient injoignable, connectez-vous par Wi-Fi ou par la console série, ou modifiez eth.nodhcp sur la partition de démarrage de sa carte SD."
       },
       "dns": {
         "title": "DNS",

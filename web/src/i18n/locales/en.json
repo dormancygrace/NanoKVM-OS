@@ -1912,7 +1912,10 @@
           "bypassed": "using Wi-Fi",
           "loadFailed": "Could not read the gateway check.",
           "saveFailed": "Could not save the gateway check."
-        }
+        },
+        "forceSave": "Save without check",
+        "forceTitle": "Save without the connection check?",
+        "forceContent": "The settings apply at once and stay, even if this page cannot reach the device afterwards: nothing is undone. If they cut the device off, reach it over Wi-Fi or the serial console, or edit eth.nodhcp on the boot partition of its SD card."
       },
       "dns": {
         "title": "DNS",

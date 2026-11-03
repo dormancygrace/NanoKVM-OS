@@ -114,6 +114,8 @@ type SetEthernetReq struct {
 	Gateway     string `json:"gateway"`
 	VLANEnabled *bool  `json:"vlanEnabled"`
 	VLANID      int    `json:"vlanId"`
+	// Applied without the trial: nothing is undone if the device is lost.
+	Force bool `json:"force"`
 }
 
 type GatewayRoute struct {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Checkbox, Input, InputNumber, Segmented, Switch } from 'antd';
+import { Alert, Button, Checkbox, Input, InputNumber, Modal, Segmented, Switch } from 'antd';
 import { CheckIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -131,20 +131,24 @@ export const Ethernet = () => {
     config.vlanEnabled &&
     (!Number.isInteger(config.vlanId) || config.vlanId < 1 || config.vlanId > 4094);
 
-  async function save() {
+  async function save(force = false) {
     if (isSaving || invalidStatic || invalidVLAN) return;
     setIsSaving(true);
     setMessage('');
     try {
-      const rsp = await api.setEthernet({
-        enabled: config.enabled,
-        mode: config.mode,
-        address: config.mode === 'static' ? (cidr?.address ?? config.address.trim()) : '',
-        subnetMask: config.mode === 'static' ? (cidr?.subnetMask ?? config.subnetMask.trim()) : '',
-        gateway: config.mode === 'static' ? config.gateway.trim() : '',
-        vlanEnabled: config.vlanEnabled,
-        vlanId: config.vlanId
-      });
+      const rsp = await api.setEthernet(
+        {
+          enabled: config.enabled,
+          mode: config.mode,
+          address: config.mode === 'static' ? (cidr?.address ?? config.address.trim()) : '',
+          subnetMask:
+            config.mode === 'static' ? (cidr?.subnetMask ?? config.subnetMask.trim()) : '',
+          gateway: config.mode === 'static' ? config.gateway.trim() : '',
+          vlanEnabled: config.vlanEnabled,
+          vlanId: config.vlanId
+        },
+        force
+      );
       if (rsp.code !== 0) {
         showRequestError(rsp, 'settings.network.ethernet.saveFailed');
         return;
@@ -161,6 +165,17 @@ export const Ethernet = () => {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  // Without the trial nothing comes back if the settings lose the device.
+  function forceSave() {
+    Modal.confirm({
+      title: t('settings.network.ethernet.forceTitle'),
+      content: t('settings.network.ethernet.forceContent'),
+      okText: t('settings.network.ethernet.forceSave'),
+      okButtonProps: { danger: true },
+      onOk: () => save(true)
+    });
   }
 
   // The check of a change on trial runs app-wide (NetworkTrialHost).
@@ -326,15 +341,26 @@ export const Ethernet = () => {
           <span className={`text-xs ${message ? 'text-success' : 'text-warning'}`}>
             {message || t('settings.network.ethernet.unsaved')}
           </span>
-          <Button
-            type={hasChanges ? 'primary' : 'default'}
-            icon={message ? <CheckIcon size={14} /> : undefined}
-            loading={isSaving}
-            disabled={isLoading || !original || !hasChanges || invalidStatic || invalidVLAN}
-            onClick={save}
-          >
-            {t('settings.network.ethernet.save')}
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            {hasChanges && (
+              <Button
+                danger
+                disabled={isSaving || isLoading || !original || invalidStatic || invalidVLAN}
+                onClick={forceSave}
+              >
+                {t('settings.network.ethernet.forceSave')}
+              </Button>
+            )}
+            <Button
+              type={hasChanges ? 'primary' : 'default'}
+              icon={message ? <CheckIcon size={14} /> : undefined}
+              loading={isSaving}
+              disabled={isLoading || !original || !hasChanges || invalidStatic || invalidVLAN}
+              onClick={() => void save()}
+            >
+              {t('settings.network.ethernet.save')}
+            </Button>
+          </div>
         </div>
       )}
 

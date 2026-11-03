@@ -33,6 +33,17 @@ nanokvm_prompt_apply
 # status is kept (pipefail); errors stay uncoloured on stderr.
 nanokvm_rainbow() {
     if [ -t 1 ]; then
+        # These forms launch arbitrary programs, which must keep their tty.
+        # shellcheck disable=SC3043 # BusyBox ash and bash both have local.
+        local arg
+        for arg; do
+            case "${2-}:$arg" in
+                find:-exec|find:-execdir|find:-ok|find:-okdir|ip:exec)
+                    "$@"
+                    return
+                    ;;
+            esac
+        done
         # shellcheck disable=SC3040 # BusyBox ash and bash have pipefail.
         (set -o pipefail; "$@" | lolcat)
     else

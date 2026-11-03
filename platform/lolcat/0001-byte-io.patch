@@ -262,7 +262,7 @@ oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
                                  }
                              }
                          }
-@@ -446,27 +573,31 @@
+@@ -446,27 +573,32 @@
              }
  
              if (escape_state != ST_ESC_CSI_TERM) {
@@ -275,6 +275,7 @@ oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
 -            wprintf(L"\033[0m");
 +            out_lit("\033[0m");
          }
++        out_flush();
  
          cc = -1;
  

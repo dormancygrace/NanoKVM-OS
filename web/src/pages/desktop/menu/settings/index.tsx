@@ -435,6 +435,12 @@ export const Settings = ({
   }, [picoclawStatus, setInventory]);
 
   useEffect(() => {
+    if (!hasWifi && currentTab === 'network-wifi') {
+      setCurrentTab('network-general');
+    }
+  }, [currentTab, hasWifi]);
+
+  useEffect(() => {
     if (currentTab === 'services-rustdesk' && inventory?.rustdesk.installed === false) {
       setCurrentTab('software-addons');
       setDetailOpen(true);

@@ -95,6 +95,58 @@ export const maxText = 128;
 export const maxPad = 32;
 export const maxExpanded = 256;
 
+// An imported file: a layout only when every field is what the editor and
+// the server take (whole coordinates in range, known kinds and conditions,
+// image data of its size); null otherwise. A drawing of anything else could
+// fail or never end.
+export function checkedLayout(value: unknown): OledLayout | null {
+  const object = (v: unknown): v is Record<string, unknown> =>
+    typeof v === 'object' && v !== null && !Array.isArray(v);
+  const whole = (v: unknown, min: number, max: number) =>
+    Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
+  const optional = (v: unknown, min: number, max: number) => v === undefined || whole(v, min, max);
+  if (!object(value) || (value.panel !== 'wide' && value.panel !== 'narrow')) return null;
+  if (![0, 90, 180, 270].includes(value.rotation as number)) return null;
+  if (!['none', 'shift', 'roam'].includes(value.burnin as string)) return null;
+  if (!optional(value.roamWidth, 1, 128) || !optional(value.roamHeight, 1, 128)) return null;
+  if (!optional(value.pages, 1, maxPages) || !optional(value.pageSeconds, 1, 60)) return null;
+  if (!Array.isArray(value.items) || value.items.length > maxItems) return null;
+  const known = new Set<string>([...conditions, 'page1', 'page2', 'page3', 'page4']);
+  const itemOk = (item: unknown) => {
+    if (!object(item) || !['text', 'line', 'rect', 'image'].includes(item.type as string))
+      return false;
+    if (!whole(item.x, -128, 255) || !whole(item.y, -128, 255)) return false;
+    if (!optional(item.x2, -128, 255) || !optional(item.y2, -128, 255)) return false;
+    if (!optional(item.width, 0, 128) || !optional(item.height, 0, 128)) return false;
+    if (item.when !== undefined) {
+      const names = typeof item.when === 'string' ? item.when.split(',') : [];
+      if (!names.length || names.length > maxConditions) return false;
+      if (!names.every((name) => known.has(name.replace(/^!/, '')))) return false;
+    }
+    for (const flag of [item.fill, item.off])
+      if (flag !== undefined && typeof flag !== 'boolean') return false;
+    if (item.type === 'text') {
+      if (![undefined, 4, 8, 16].includes(item.font as number)) return false;
+      if (![undefined, 'left', 'center', 'right'].includes(item.align as string)) return false;
+      const text = item.text ?? '';
+      return typeof text === 'string' && text.length <= maxText && /^[\x20-\x7e]*$/.test(text);
+    }
+    if (item.type === 'image') {
+      const w = item.width as number | undefined;
+      const h = item.height as number | undefined;
+      return (
+        typeof item.data === 'string' &&
+        !!w &&
+        !!h &&
+        /^([0-9a-f]{2})*$/i.test(item.data) &&
+        item.data.length === Math.ceil(w / 8) * h * 2
+      );
+    }
+    return item.type === 'line' || (!!item.width && !!item.height);
+  };
+  return value.items.every(itemOk) ? (value as OledLayout) : null;
+}
+
 export const panelSize = (panel: OledPanel) =>
   panel === 'narrow' ? { width: 64, height: 32 } : { width: 128, height: 64 };
 

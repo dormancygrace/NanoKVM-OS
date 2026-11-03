@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/vm.ts';
 import { icons } from '@/lib/oled/font.ts';
 import {
+  checkedLayout,
   conditions,
   holds,
   imageFromPixels,
@@ -379,8 +380,10 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
   const importLayout = async (file: File | undefined) => {
     if (!file || !layout) return;
     try {
-      const parsed = JSON.parse(await file.text()) as OledLayout;
-      if (parsed.panel !== layout.panel || !Array.isArray(parsed.items)) throw new Error('panel');
+      // The server takes requests up to 256 KiB.
+      if (file.size > 256 * 1024) throw new Error('size');
+      const parsed = checkedLayout(JSON.parse(await file.text()));
+      if (!parsed || parsed.panel !== layout.panel) throw new Error('layout');
       change(parsed);
       setSelected(-1);
     } catch {

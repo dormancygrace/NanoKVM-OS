@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/proto"
 
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,7 @@ const (
 	oledMaxText       = 128
 	oledMaxConditions = 4
 	oledMaxPages      = 4
+	oledMaxBytes      = 65536 // the file, as kvm_system's read_layout_file reads it
 	oledLow           = -128
 	oledHigh          = 255
 )
@@ -140,6 +142,9 @@ func compileOLEDLayout(layout *proto.OLEDLayout) (string, error) {
 		}
 		out.WriteString(line)
 		out.WriteByte('\n')
+	}
+	if out.Len() > oledMaxBytes {
+		return "", fmt.Errorf("the layout is larger than %d bytes", oledMaxBytes)
 	}
 	return out.String(), nil
 }
@@ -324,25 +329,19 @@ func readOLEDLayout(path string) (*proto.OLEDLayout, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > 65536 {
+	if len(data) > oledMaxBytes {
 		return nil, errors.New("layout file too large")
 	}
 	return parseOLEDLayout(string(data))
 }
 
+// Each write has its own temporary file, so overlapping ones (the preview
+// resent, two editors) never publish a part of a layout.
 func writeOLEDFile(path string, data string, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(data), mode); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
+	return atomicfile.Write(path, []byte(data), mode)
 }
 
 // The request's layout, checked for this device's panel.

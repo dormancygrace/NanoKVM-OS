@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { expand, render, sampleValues } from '../src/lib/oled/layout.ts';
+import { checkedLayout, expand, render, sampleValues } from '../src/lib/oled/layout.ts';
 
 // The cases tests/test-oled-layout.py checks in kvm_system's drawing.
 const values = { ...sampleValues, hostname: 'kvm-1234', fps: 5, eth: false };
@@ -71,6 +71,25 @@ test('conditions joined by "," must all hold; page{N} is on page N only', () => 
   assert.ok(!lit(render(layout, { ...on, page: 0 }), 0, 0));
   assert.ok(!lit(render(layout, { ...on, wifi: true }), 0, 0));
   assert.equal(expand('{viewers:2}', { ...values, viewers: 3 }), ' 3');
+});
+
+test('an imported layout is taken only when the renderer can draw it', () => {
+  const base = { panel: 'wide', rotation: 0, burnin: 'none' };
+  const line = { type: 'line', x: 0, y: 0, x2: 5, y2: 0, when: 'eth,page2' };
+  assert.ok(checkedLayout({ ...base, items: [line] }));
+  for (const items of [
+    [{ ...line, x2: 0.5 }], // never reached in whole pixels: the drawing would not end
+    [null],
+    [{ ...line, when: 'ethernet' }],
+    [{ ...line, when: 'eth,wifi,hdmi,hid,stream' }],
+    [{ type: 'image', x: 0, y: 0, width: 9, height: 2, data: '808040' }],
+    [{ type: 'text', x: 0, y: 0, text: 'привет' }],
+    [{ type: 'rect', x: 0, y: 0, width: 0, height: 4 }],
+    Array(129).fill(line)
+  ])
+    assert.equal(checkedLayout({ ...base, items }), null);
+  assert.equal(checkedLayout({ ...base, rotation: 45, items: [] }), null);
+  assert.equal(checkedLayout({ ...base, pages: 5, items: [] }), null);
 });
 
 test('a rotated panel is drawn in its rotated size', () => {

@@ -98,6 +98,13 @@ func TestOLEDLayoutRefusesWhatKvmSystemWould(t *testing.T) {
 		many.Items = append(many.Items, proto.OLEDItem{Type: "line"})
 	}
 	bad["items"] = many
+	// Within the item limit, but beyond the file size the readers take.
+	large := &proto.OLEDLayout{Panel: "wide"}
+	for i := 0; i < 32; i++ {
+		large.Items = append(large.Items, proto.OLEDItem{Type: "image", Width: 128, Height: 64,
+			Data: strings.Repeat("ff", 16*64)})
+	}
+	bad["bytes"] = large
 	for name, layout := range bad {
 		if _, err := compileOLEDLayout(layout); err == nil {
 			t.Errorf("%s: accepted", name)

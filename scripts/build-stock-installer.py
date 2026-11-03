@@ -139,13 +139,11 @@ def build(build_root, output, version):
     source = REPO / 'firmware/stock-install'
     images = build_root / 'images'
     host = build_root / 'buildroot-output/host/bin'
-    target = build_root / 'buildroot-output/target'
     rootfs = build_root / 'release/alpine-rootfs.tar.gz'
     required = [rootfs, images / 'Image', images / 'dtb/detect.dtb',
                 images / 'boot-fit/detect.sd', images / 'fip.bin',
                 build_root / 'kernel/build/usr/gen_init_cpio',
-                host / 'riscv64-buildroot-linux-musl-gcc', host / 'mkimage',
-                target / 'bin/busybox', target / 'usr/sbin/mkfs.f2fs']
+                host / 'riscv64-buildroot-linux-musl-gcc', host / 'mkimage']
     for file in required:
         if not file.is_file():
             raise ValueError(f'missing platform output: {file}')
@@ -228,24 +226,36 @@ exec /kvmapp/system/init.d/S95nanokvm restart
                  'dir /dev 755 0 0', 'nod /dev/console 600 0 0 c 5 1', 'nod /dev/null 666 0 0 c 1 3',
                  f'file /init {work / "init"} 755 0 0',
                  f'file /sbin/stock-layout {payload / "stock-layout"} 755 0 0']
-        copied = set()
-        def copy_elf(src, destination):
-            if destination in copied:
-                return
-            copied.add(destination)
-            file = ram / Path(destination).name
-            shutil.copyfile(src, file)
-            run(host / 'riscv64-buildroot-linux-musl-strip', '--strip-unneeded', file)
-            lines.append(f'file {destination} {file} 755 0 0')
-            deps = subprocess.check_output([str(host / 'riscv64-buildroot-linux-musl-readelf'), '-d', str(file)], text=True)
-            for name in re.findall(r'\(NEEDED\).*?\[(.*?)\]', deps):
-                library = next((d / name for d in (target / 'lib', target / 'usr/lib') if (d / name).is_file()), None)
-                if library is None:
-                    raise ValueError(f'missing library {name}')
-                copy_elf(library, '/lib/' + name)
-        copy_elf(target / 'bin/busybox', '/busybox')
-        copy_elf(target / 'usr/sbin/mkfs.f2fs', '/sbin/mkfs.f2fs')
-        lines.append('slink /lib/ld-musl-riscv64.so.1 libc.so 777 0 0')
+        # The recovery DTB does not enable XTheadVector under stock OpenSBI.
+        # Buildroot's C906 tools can use XTheadVector (mkfs.f2fs SIGILLs while
+        # parsing -l). Keep recovery tools and their loader/libraries together
+        # from the portable Alpine rootfs that this package already installs.
+        with tarfile.open(rootfs, 'r:gz') as root:
+            members = {m.name.removeprefix('./'): m for m in root.getmembers()}
+            # Alpine's libc name aliases its loader; preserve one musl copy.
+            copied = {'/lib/libc.musl-riscv64.so.1'}
+            lines.append('slink /lib/libc.musl-riscv64.so.1 ld-musl-riscv64.so.1 777 0 0')
+            def copy_elf(name, destination):
+                if destination in copied:
+                    return
+                copied.add(destination)
+                if name not in members:
+                    raise ValueError(f'root archive lacks recovery file {name}')
+                file = ram / Path(destination).name
+                with root.extractfile(members[name]) as src, file.open('wb') as dst:
+                    shutil.copyfileobj(src, dst)
+                run(host / 'riscv64-buildroot-linux-musl-strip', '--strip-unneeded', file)
+                lines.append(f'file {destination} {file} 755 0 0')
+                deps = subprocess.check_output([str(host / 'riscv64-buildroot-linux-musl-readelf'), '-d', str(file)], text=True)
+                for library in re.findall(r'\(NEEDED\).*?\[(.*?)\]', deps):
+                    name = next((d + '/' + library for d in ('lib', 'usr/lib')
+                                 if d + '/' + library in members), None)
+                    if name is None:
+                        raise ValueError(f'missing recovery library {library}')
+                    copy_elf(name, '/lib/' + library)
+            copy_elf('lib/ld-musl-riscv64.so.1', '/lib/ld-musl-riscv64.so.1')
+            copy_elf('bin/busybox', '/busybox')
+            copy_elf('usr/sbin/mkfs.f2fs', '/sbin/mkfs.f2fs')
         for applet in ('awk cat chmod cmp cp dd df echo grep gzip losetup mkdir mount mv reboot rm sha256sum sh sleep sync tar touch umount wc') .split():
             lines.append(f'slink /bin/{applet} ../busybox 777 0 0')
         listing = work / 'initramfs.list'

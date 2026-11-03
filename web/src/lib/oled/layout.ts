@@ -71,6 +71,9 @@ export const variables = [
 
 export const maxItems = 64;
 export const maxText = 128;
+// A {name:N} width, and the text once expanded (oled_layout.h).
+export const maxPad = 32;
+export const maxExpanded = 256;
 
 export const panelSize = (panel: OledPanel) =>
   panel === 'narrow' ? { width: 64, height: 32 } : { width: 128, height: 64 };
@@ -86,7 +89,7 @@ export const advance = (font: OledFont) => (font === 4 ? 4 : font === 16 ? 8 : 6
 // {name} or {name:N}, character by character as oled_layout_expand does.
 export function expand(text: string, values: OledValues): string {
   let out = '';
-  for (let i = 0; i < text.length; i++) {
+  for (let i = 0; i < text.length && out.length < maxExpanded; i++) {
     const close = text[i] === '{' ? text.indexOf('}', i) : -1;
     if (close < 0) {
       out += text[i];
@@ -96,7 +99,9 @@ export function expand(text: string, values: OledValues): string {
     let pad = 0;
     const colon = name.indexOf(':');
     if (colon >= 0) {
-      pad = parseInt(name.slice(colon + 1), 10) || 0;
+      const width = name.slice(colon + 1);
+      // kvm_system takes -32..32 written plainly; the server refuses others.
+      if (/^-?\d{1,2}$/.test(width) && Math.abs(Number(width)) <= maxPad) pad = Number(width);
       name = name.slice(0, colon);
     }
     if (!(variables as readonly string[]).includes(name)) {
@@ -111,7 +116,7 @@ export function expand(text: string, values: OledValues): string {
     out += value;
     i = close;
   }
-  return out;
+  return out.slice(0, maxExpanded);
 }
 
 function glyphColumn(chr: string, font: OledFont, column: number): number {

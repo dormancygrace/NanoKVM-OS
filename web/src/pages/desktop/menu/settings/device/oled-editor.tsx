@@ -118,18 +118,36 @@ const Preview = ({
   onMove: (dx: number, dy: number) => void;
 }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const area = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const frame = useMemo(() => render(layout, values), [layout, values]);
-  const { width, height } = frame;
+  // With burn-in "roam" only the block is shown and edited: the device
+  // moves it around the panel.
+  const roam = layout.burnin === 'roam';
+  const width = roam ? Math.min(layout.roamWidth ?? frame.width, frame.width) : frame.width;
+  const height = roam ? Math.min(layout.roamHeight ?? frame.height, frame.height) : frame.height;
+  // The panel at a whole multiple of its pixels, as large as fits.
+  const [scale, setScale] = useState(4);
+
+  useEffect(() => {
+    const element = area.current;
+    if (!element) return;
+    const fit = () => setScale(Math.max(1, Math.min(10, Math.floor(element.clientWidth / width))));
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [width]);
 
   useEffect(() => {
     const context = canvas.current?.getContext('2d');
     if (!context) return;
     const image = context.createImageData(width, height);
-    frame.pixels.forEach((lit, i) => {
-      const [r, g, b] = lit ? [150, 205, 255] : [8, 10, 14];
-      image.data.set([r, g, b, 255], i * 4);
-    });
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const [r, g, b] = frame.pixels[y * frame.width + x] ? [150, 205, 255] : [8, 10, 14];
+        image.data.set([r, g, b, 255], (y * width + x) * 4);
+      }
     context.putImageData(image, 0, 0);
   }, [frame, width, height]);
 
@@ -185,42 +203,36 @@ const Preview = ({
     selected >= 0 && layout.items[selected] ? itemBox(layout.items[selected], values) : null;
 
   return (
-    <div className="relative w-full select-none" style={{ aspectRatio: `${width} / ${height}` }}>
-      <canvas
-        ref={canvas}
-        width={width}
-        height={height}
-        tabIndex={0}
-        className="block h-full w-full cursor-crosshair rounded outline-none focus-visible:ring-2"
-        style={{ imageRendering: 'pixelated', touchAction: 'none' }}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={() => (drag.current = null)}
-        onPointerCancel={() => (drag.current = null)}
-        onKeyDown={key}
-      />
-      {layout.burnin === 'roam' && (
-        <div
-          className="pointer-events-none absolute border border-dashed border-amber-400/70"
-          style={{
-            left: 0,
-            top: 0,
-            width: percent(Math.min(layout.roamWidth ?? width, width), width),
-            height: percent(Math.min(layout.roamHeight ?? height, height), height)
-          }}
+    <div ref={area} className="flex w-full justify-center">
+      <div
+        className="relative shrink-0 select-none"
+        style={{ width: width * scale, height: height * scale }}
+      >
+        <canvas
+          ref={canvas}
+          width={width}
+          height={height}
+          tabIndex={0}
+          className="block h-full w-full cursor-crosshair outline-none focus-visible:ring-2"
+          style={{ imageRendering: 'pixelated', touchAction: 'none' }}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={() => (drag.current = null)}
+          onPointerCancel={() => (drag.current = null)}
+          onKeyDown={key}
         />
-      )}
-      {box && (
-        <div
-          className="pointer-events-none absolute border border-sky-400"
-          style={{
-            left: percent(box.x, width),
-            top: percent(box.y, height),
-            width: percent(box.width, width),
-            height: percent(box.height, height)
-          }}
-        />
-      )}
+        {box && (
+          <div
+            className="pointer-events-none absolute border border-sky-400"
+            style={{
+              left: percent(box.x, width),
+              top: percent(box.y, height),
+              width: percent(box.width, width),
+              height: percent(box.height, height)
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 };
@@ -483,6 +495,7 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
               onMove={(dx, dy) => item && changeItem(moved(item, dx, dy))}
             />
             <div className="text-fg-muted text-xs">
+              {layout.burnin === 'roam' && `${t(`${KEY}.roamHint`)} `}
               {t(`${KEY}.hint`, { width: size.width, height: size.height })}
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -506,7 +519,7 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
             {live && displayOff && (
               <Alert type="warning" showIcon message={t(`${KEY}.displayOff`)} />
             )}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3">
               <label className="text-fg-muted flex flex-col gap-1 text-xs">
                 {t(`${KEY}.rotation`)}
                 <Select
@@ -608,12 +621,16 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
                 </Button>
               </Dropdown>
             </div>
-            <ul className="max-h-52 space-y-1 overflow-y-auto">
+            <ul className="m-0 max-h-[50vh] list-none space-y-1 overflow-y-auto p-0">
               {layout.items.map((entry, index) => {
                 const Icon = typeIcon[entry.type];
                 return (
                   <li
                     key={index}
+                    ref={(element) => {
+                      if (element && index === selected)
+                        element.scrollIntoView({ block: 'nearest' });
+                    }}
                     className={clsx(
                       'flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm',
                       index === selected ? 'bg-surface-raised text-fg' : 'text-fg-muted'

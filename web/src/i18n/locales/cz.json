@@ -692,7 +692,8 @@
             "when": "Zobrazit",
             "fill": "Vyplněný",
             "off": "Mazat pixely (kreslit černě)"
-          }
+          },
+          "roamHint": "Zobrazen je jen pohyblivý blok: zařízení jej jednou za minutu posune po obrazovce."
         }
       },
       "mouseJiggler": {

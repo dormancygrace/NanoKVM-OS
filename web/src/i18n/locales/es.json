@@ -1363,7 +1363,8 @@
             "when": "Mostrar",
             "fill": "Relleno",
             "off": "Borrar píxeles (dibujar en negro)"
-          }
+          },
+          "roamHint": "Solo se muestra el bloque móvil: una vez por minuto el dispositivo lo mueve por la pantalla."
         }
       },
       "mouseJiggler": {

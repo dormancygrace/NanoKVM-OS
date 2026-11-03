@@ -1363,7 +1363,8 @@
             "when": "Anzeigen",
             "fill": "Gefüllt",
             "off": "Pixel löschen (schwarz zeichnen)"
-          }
+          },
+          "roamHint": "Gezeigt wird nur der bewegte Block: Das Gerät verschiebt ihn einmal pro Minute über den Bildschirm."
         }
       },
       "mouseJiggler": {

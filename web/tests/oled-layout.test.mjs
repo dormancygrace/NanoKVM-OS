@@ -12,6 +12,12 @@ test('variables expand as kvm_system expands them', () => {
     expand('{hostname}|{fps:3}|{fps:-3}|{hostname:3}|{nope}|{{fps}}', values),
     'kvm-1234|  5|5  |kvm|{nope}|{5}'
   );
+  // Widths kvm_system would refuse are ignored; the text stays bounded.
+  assert.equal(expand('{fps:1000000000}{fps:-2147483648}{fps:33}{fps:003}', values), '5555');
+  assert.equal(
+    expand('{hostname:32}'.repeat(12), { ...values, hostname: 'h'.repeat(64) }).length,
+    256
+  );
 });
 
 test('images, text boxes and conditions draw as on the panel', () => {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,34 @@ const (
 )
 
 var oledConditions = map[string]bool{"eth": true, "wifi": true, "hdmi": true, "hid": true, "stream": true}
+
+var oledVariables = map[string]bool{"ip": true, "eth_ip": true, "wifi_ip": true, "hostname": true, "codec": true,
+	"width": true, "height": true, "fps": true, "uptime": true, "time": true, "date": true}
+
+var oledWidth = regexp.MustCompile(`^-?[0-9]{1,2}$`)
+
+// The {name:N} widths of known variables, scanned as kvm_system scans them:
+// -32..32, an optional minus and at most two digits.
+func oledWidthsValid(text string) bool {
+	for i := 0; i < len(text); i++ {
+		end := strings.IndexByte(text[i:], '}')
+		if text[i] != '{' || end < 0 {
+			continue
+		}
+		name, number, padded := strings.Cut(text[i+1:i+end], ":")
+		if !oledVariables[name] {
+			continue
+		}
+		if padded {
+			width, err := strconv.Atoi(number)
+			if !oledWidth.MatchString(number) || err != nil || width < -32 || width > 32 {
+				return false
+			}
+		}
+		i += end
+	}
+	return true
+}
 
 func oledBool(value bool) string {
 	if value {
@@ -123,6 +152,9 @@ func compileOLEDItem(item *proto.OLEDItem) (string, error) {
 			if chr < ' ' || chr > '~' {
 				return "", errors.New("text must be printable ASCII")
 			}
+		}
+		if !oledWidthsValid(item.Text) {
+			return "", errors.New("a variable width must be -32 to 32")
 		}
 		if err := oledCoordinates(item.X, item.Y); err != nil {
 			return "", err

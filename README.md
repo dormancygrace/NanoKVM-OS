@@ -200,7 +200,7 @@ The [latest SD image page](https://dormancygrace.github.io/NanoKVM-OS/latest-ima
 
 The image uses a **64 MiB boot partition** and **768 MiB F2FS root**; first boot creates an exFAT data partition in the remaining space. See [installation details](docs/INSTALL.md).
 
-SD images use the version of the OS release they contain. **About** shows the current OS version and the image used for the initial installation; package updates preserve that installation history. Older images retain their historical image number and bundled application version.
+SD images use the version of the OS release they contain. **About** shows the current OS version, and **Diagnostics** the image used for the initial installation; package updates preserve that installation history. Older images retain their historical image number and bundled application version.
 
 <a id="updates"></a>
 

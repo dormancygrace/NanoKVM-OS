@@ -327,7 +327,6 @@
     "about": {
       "title": "NanoKVM Névjegy",
       "ip": "IP",
-      "image": "Képfájl verzió",
       "hostname": "Gazdanév",
       "hostnameUpdated": "Gazdanév frissítve. Az alkalmazáshoz indítsa újra.",
       "credits": {

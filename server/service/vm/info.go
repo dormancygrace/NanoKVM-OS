@@ -18,8 +18,7 @@ var imageMetadataPath = "/boot/image.json"
 var legacyImageVersionPath = "/boot/ver"
 
 type imageMetadata struct {
-	ImageVersion              string `json:"image_version"`
-	BundledApplicationVersion string `json:"bundled_application_version"`
+	ImageVersion string `json:"image_version"`
 }
 
 func readImageMetadata() imageMetadata {
@@ -45,12 +44,10 @@ func (s *Service) GetInfo(c *gin.Context) {
 	var rsp proto.Response
 
 	data := &proto.GetInfoRsp{
-		IPs:                getIPs(),
-		Mdns:               getMdns(),
-		Image:              getImageVersion(),
-		Application:        getApplicationVersion(),
-		DeviceKey:          getDeviceKey(),
-		BundledApplication: readImageMetadata().BundledApplicationVersion,
+		IPs:         getIPs(),
+		Mdns:        getMdns(),
+		Application: getApplicationVersion(),
+		DeviceKey:   getDeviceKey(),
 	}
 
 	rsp.OkRspWithData(c, data)

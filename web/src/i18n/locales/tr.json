@@ -327,7 +327,6 @@
     "about": {
       "title": "NanoKVM Hakkında",
       "ip": "IP",
-      "image": "İmaj Sürümü",
       "hostname": "Ana makine adı",
       "hostnameUpdated": "Hostname güncellendi. Uygulamak için yeniden başlatın.",
       "credits": {

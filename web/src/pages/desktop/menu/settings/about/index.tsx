@@ -13,16 +13,12 @@ import { Credits } from './credits';
 export const About = () => {
   const { t } = useTranslation();
   const [version, setVersion] = useState('');
-  const [imageVersion, setImageVersion] = useState('');
-  const [bundledVersion, setBundledVersion] = useState('');
   useEffect(() => {
     let active = true;
     getInfo()
       .then((rsp) => {
         if (active && rsp.code === 0) {
           setVersion(rsp.data.application);
-          setImageVersion(rsp.data.image || '');
-          setBundledVersion(rsp.data.bundledApplication || '');
         }
       })
       .catch(() => {});
@@ -45,16 +41,6 @@ export const About = () => {
             {t('settings.about.applicationVersion')}:{' '}
             {version ? `v${formatVersion(version.replace(/^v/, ''))}` : '—'}
           </p>
-          {imageVersion && (
-            <p>
-              {t('settings.about.imageVersion')}: {imageVersion}
-            </p>
-          )}
-          {bundledVersion && bundledVersion !== imageVersion.replace(/-debug$/, '') && (
-            <p>
-              {t('settings.about.bundledVersion')}: {bundledVersion}
-            </p>
-          )}
         </div>
         <p className="text-fg max-w-xl text-sm leading-relaxed">
           {t('settings.about.description')}

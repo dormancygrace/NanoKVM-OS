@@ -87,8 +87,8 @@ tens of thousands of small files take tens of seconds.
 ## Versions
 
 New SD images use their NanoKVM OS release version. **About** shows the current
-OS version and the image used for the initial installation, which stays unchanged
-after package updates. Historical images keep their original image number and
+OS version; **Diagnostics** shows the image used for the initial installation,
+which stays unchanged after package updates. Historical images keep their original image number and
 bundled application version; they do not need to be reflashed.
 
 Board detection and the supported models are described in

@@ -467,7 +467,6 @@
     "about": {
       "title": "O NanoKVM",
       "ip": "IP adresa",
-      "image": "Verze obrazu (prvotní instalace)",
       "hostname": "Název hostitele",
       "hostnameUpdated": "Název hostitele aktualizován. Pro použití restartujte.",
       "credits": {
@@ -513,9 +512,7 @@
       "hostnameEdit": "Upravit název hostitele",
       "hostnameCancel": "Zrušit upravování",
       "hostnameSave": "Uložit název hostitele",
-      "imageVersion": "Původní instalace",
       "reportIssue": "Nahlásit problém",
-      "bundledVersion": "Aplikace, které byly obsažené v tomto obrazu",
       "description": "Nezávislý komunitní firmware pro NanoKVM.",
       "specialThanksWife": "Mé ženě – za její trpělivost, podporu a za to, že snášela mou nepřítomnost během nejintenzivnější fáze vývoje."
     },
@@ -1231,7 +1228,7 @@
         "output": "Výstup",
         "overview": "Stav",
         "capture": "Zachytávání",
-        "image": "Obraz (prvotní instalace)",
+        "image": "Původní instalace",
         "firewall": "nftables",
         "collected": "Shromážděno: {{time}}",
         "kernel": "Spuštěné jádro systému",

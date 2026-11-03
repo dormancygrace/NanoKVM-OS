@@ -327,7 +327,6 @@
     "about": {
       "title": "Om NanoKVM",
       "ip": "IP",
-      "image": "Firmware version",
       "hostname": "Værtsnavn",
       "hostnameUpdated": "Værtsnavn opdateret. Genstart for at anvende.",
       "credits": {

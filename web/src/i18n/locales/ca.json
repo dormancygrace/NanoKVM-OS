@@ -327,7 +327,6 @@
     "about": {
       "title": "Sobre NanoKVM",
       "ip": "IP",
-      "image": "Versió de la imatge",
       "hostname": "Nom del dispositiu",
       "hostnameUpdated": "Nom actualitzat. Reinicia per aplicar.",
       "credits": {

@@ -606,10 +606,37 @@ static int lt6911d_replug(void)
     return ret;
 }
 
-// A replug whose raise failed leaves HPD and the termination off; a retry of
-// the same profile skips the write, so it raises them here if they are off.
-static int lt6911d_ensure_connected(void)
+// Present from before an LT6911D write until its replug completes. A retry of
+// the same profile skips the flash write; with this file present it replugs
+// again instead of reporting success while the source may still hold the old
+// EDID. Kept on flash: a reboot does not reset a Cube's receiver.
+#define LT6911D_REPLUG_PENDING "/etc/kvm/monitor_edid_replug_pending"
+
+static int lt6911d_mark_replug_pending(void)
 {
+    int fd = open(LT6911D_REPLUG_PENDING, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (fd < 0) return -1;
+    int ret = fsync(fd);
+    if (close(fd) != 0) ret = -1;
+    return ret;
+}
+
+static void lt6911d_clear_replug_pending(void)
+{
+    if (unlink(LT6911D_REPLUG_PENDING) != 0 && errno != ENOENT)
+        perror("Failed to clear the pending HDMI reconnect");
+}
+
+// Completes a replug a failed earlier call left pending, or raises HPD and
+// the termination when they were left off.
+static int lt6911d_finish_pending_replug(void)
+{
+    if (access(LT6911D_REPLUG_PENDING, F_OK) == 0) {
+        fprintf(stderr, "Previous HDMI reconnect did not complete; reconnecting\n");
+        if (lt6911d_replug() != 0) return -1;
+        lt6911d_clear_replug_pending();
+        return 0;
+    }
     uint8_t hpd = 0, termination = 0;
     int ret = i2c_write_byte(LT6911D_MANAGE_OFFSET, 0xEE, 0x01);
     if (ret == 0) ret = i2c_read_byte(0xE8, 0x08, &hpd);
@@ -658,11 +685,16 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
     }
     if (memcmp(current_edid, edid_data, EDID_BUFFER_SIZE) == 0) {
         puts("Requested EDID already installed; flash write skipped");
-        if (replug && chip_version == CHIP_LT6911D && lt6911d_ensure_connected() != 0) {
+        if (replug && chip_version == CHIP_LT6911D && lt6911d_finish_pending_replug() != 0) {
             fprintf(stderr, "Failed to reconnect HDMI; reconnect the HDMI cable\n");
             return finish_receiver(chip_version, -1);
         }
         return finish_receiver(chip_version, 0);
+    }
+
+    if (replug && chip_version == CHIP_LT6911D && lt6911d_mark_replug_pending() != 0) {
+        perror("Cannot record the pending HDMI reconnect; refusing to program");
+        return finish_receiver(chip_version, -1);
     }
 
     // edid write
@@ -731,9 +763,12 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
         return finish_receiver(chip_version, -1);
     } else {
         fprintf(stdout, "EDID data verified successfully\n");
-        if (replug && chip_version == CHIP_LT6911D && lt6911d_replug() != 0) {
-            fprintf(stderr, "Failed to reconnect HDMI; reconnect the HDMI cable\n");
-            return finish_receiver(chip_version, -1);
+        if (replug && chip_version == CHIP_LT6911D) {
+            if (lt6911d_replug() != 0) {
+                fprintf(stderr, "Failed to reconnect HDMI; reconnect the HDMI cable\n");
+                return finish_receiver(chip_version, -1);
+            }
+            lt6911d_clear_replug_pending();
         }
     }
 

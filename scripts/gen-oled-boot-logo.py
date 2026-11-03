@@ -87,12 +87,18 @@ class Frame:
         for px, py in pixels:
             self.pixel(x + px, y + py)
 
-    def text(self, y, string, glyphs, advance):
-        """string centred, on page y / 8."""
-        x = (self.width - len(string) * advance) // 2
+    def box(self, x, y, width, height):
+        for py in range(y, y + height):
+            for px in range(x, x + width):
+                self.pixel(px, py)
+
+    def text(self, x, y, string, glyphs, advance):
+        """string from column x, on page y / 8; lit pixels below it are cleared
+        where the glyphs are lit (text on a box)."""
+        row = y // 8 * self.width
         for char in string:
-            column = glyphs[ord(char) - ord(' ')]
-            self.bytes[y // 8 * self.width + x:y // 8 * self.width + x + advance] = bytes(column[:advance])
+            for i, column in enumerate(glyphs[ord(char) - ord(' ')][:advance]):
+                self.bytes[row + x + i] ^= column
             x += advance
 
 
@@ -100,7 +106,14 @@ def logo(panel):
     if panel == 'wide':
         frame = Frame(128, 64)
         frame.image(44, 2, mark(40))
-        frame.text(48, 'NanoKVM OS', font('oled_asc2_0806', 6), 6)
+        # "NanoKVM" and "OS" dark on a lit box, centred together.
+        glyphs = font('oled_asc2_0806', 6)
+        # The glyphs are 5x7 after a blank column, on rows 0-6 of their page:
+        # the box leaves 2 pixels on every side.
+        x = (128 - (7 * 6 + 4 + 15)) // 2
+        frame.text(x, 48, 'NanoKVM', glyphs, 6)
+        frame.box(x + 46, 46, 15, 11)
+        frame.text(x + 47, 48, 'OS', glyphs, 6)
     else:
         # 32 rows leave no room for legible text beside the mark.
         frame = Frame(64, 32)

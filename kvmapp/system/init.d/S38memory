@@ -24,7 +24,9 @@ if [ -f "$CONFIG" ]; then
         case "$key:$value" in
             ZRAM_ENABLED:0|ZRAM_ENABLED:1) ZRAM_ENABLED=$value ;;
             SD_ENABLED:0|SD_ENABLED:1) SD_ENABLED=$value ;;
-            ZRAM_SIZE:32|ZRAM_SIZE:64|ZRAM_SIZE:128|ZRAM_SIZE:162|ZRAM_SIZE:auto) ZRAM_SIZE=$value ;;
+            ZRAM_SIZE:32|ZRAM_SIZE:64|ZRAM_SIZE:auto) ZRAM_SIZE=$value ;;
+            # Sizes above auto, offered before; auto is the most that makes sense.
+            ZRAM_SIZE:128|ZRAM_SIZE:162) ZRAM_SIZE=auto ;;
             SD_SIZE:128|SD_SIZE:256|SD_SIZE:512) SD_SIZE=$value ;;
         esac
     done < "$CONFIG"
@@ -139,7 +141,7 @@ case "${1:-}" in
         # A fifth argument (recompression, gone) from a server from before.
         [ "$#" = 4 ] || [ "$#" = 5 ] || fail 'Expected: configure zram|sd 0|1 SIZE_MIB'
         case "$2:$3:$4" in
-            zram:0:32|zram:0:64|zram:0:128|zram:0:162|zram:0:auto|zram:1:32|zram:1:64|zram:1:128|zram:1:162|zram:1:auto)
+            zram:0:32|zram:0:64|zram:0:auto|zram:1:32|zram:1:64|zram:1:auto)
                 ZRAM_ENABLED=$3 ZRAM_SIZE=$4; apply_zram ;;
             sd:0:128|sd:0:256|sd:0:512|sd:1:128|sd:1:256|sd:1:512)
                 SD_ENABLED=$3 SD_SIZE=$4; apply_sd ;;

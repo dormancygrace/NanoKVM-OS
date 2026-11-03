@@ -31,6 +31,8 @@ type memorySwap struct {
 	// zram only: the size follows the memory (zramAutoMiB); sizeMiB is then
 	// the current size.
 	Auto bool `json:"auto"`
+	// zram only: the size "auto" selects on this device.
+	AutoMiB int64 `json:"autoMiB,omitempty"`
 }
 type memoryStatus struct {
 	VideoMemory    videoMemoryStatus `json:"videoMemory"`
@@ -101,10 +103,21 @@ func zramAutoMiB(counters map[string]uint64) int64 {
 	return int64(linux / 2 >> 20)
 }
 
+// zramAutoDefault is the ZRAM_SIZE of S38memory without memory.conf: images
+// with shared or UHD video memory start with auto zram.
+func zramAutoDefault() bool {
+	mode, _ := os.ReadFile("/proc/device-tree/nanokvm,video-memory-mode")
+	switch strings.TrimRight(string(mode), "\x00") {
+	case "shared", "uhd":
+		return true
+	}
+	return false
+}
+
 func validSwapRequest(req memorySwapRequest) bool {
 	switch req.Kind {
 	case "zram":
-		return req.SizeMiB == 0 || req.SizeMiB == 32 || req.SizeMiB == 64 || req.SizeMiB == 128 || req.SizeMiB == 162
+		return req.SizeMiB == 0 || req.SizeMiB == 32 || req.SizeMiB == 64
 	case "sd":
 		return req.SizeMiB == 128 || req.SizeMiB == 256 || req.SizeMiB == 512
 	}
@@ -142,6 +155,8 @@ func readMemoryStatus() (memoryStatus, error) {
 	if !result.SD.Enabled {
 		result.SD.SizeMiB = 256
 	}
+	result.Zram.AutoMiB = zramAutoMiB(counters)
+	result.Zram.Auto = zramAutoDefault()
 	// Persisted size selections do not imply that activation actually succeeded.
 	config, _ := os.ReadFile("/etc/kvm/memory.conf")
 	for _, line := range strings.Split(string(config), "\n") {
@@ -149,20 +164,24 @@ func readMemoryStatus() (memoryStatus, error) {
 		if !ok {
 			continue
 		}
-		if key == "ZRAM_SIZE" && value == "auto" {
+		// S38memory reads the sizes above auto offered before (128, 162) as auto.
+		if key == "ZRAM_SIZE" && (value == "auto" || value == "128" || value == "162") {
 			result.Zram.Auto = true
-			if !result.Zram.Enabled {
-				result.Zram.SizeMiB = zramAutoMiB(counters)
-			}
 			continue
 		}
 		size, _ := strconv.ParseInt(value, 10, 64)
-		if key == "ZRAM_SIZE" && !result.Zram.Enabled && size > 0 && validSwapRequest(memorySwapRequest{Kind: "zram", SizeMiB: size}) {
-			result.Zram.SizeMiB = size
+		if key == "ZRAM_SIZE" && size > 0 && validSwapRequest(memorySwapRequest{Kind: "zram", SizeMiB: size}) {
+			result.Zram.Auto = false
+			if !result.Zram.Enabled {
+				result.Zram.SizeMiB = size
+			}
 		}
 		if key == "SD_SIZE" && !result.SD.Enabled && validSwapRequest(memorySwapRequest{Kind: "sd", SizeMiB: size}) {
 			result.SD.SizeMiB = size
 		}
+	}
+	if result.Zram.Auto && !result.Zram.Enabled {
+		result.Zram.SizeMiB = result.Zram.AutoMiB
 	}
 	_, helperErr := os.Stat(memoryService)
 	result.SD.Available = helperErr == nil

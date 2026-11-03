@@ -1,0 +1,167 @@
+diff -ruN a/board/sophgo/licheerv_nano/Makefile b/board/sophgo/licheerv_nano/Makefile
+--- a/board/sophgo/licheerv_nano/Makefile
++++ b/board/sophgo/licheerv_nano/Makefile
+@@ -3,3 +3,4 @@
+ # Copyright (c) 2024, Kongyang Liu <seashell11234455@gmail.com>
+ 
+ obj-y += board.o
++obj-y += oled.o
+diff -ruN a/board/sophgo/licheerv_nano/oled.c b/board/sophgo/licheerv_nano/oled.c
+--- a/board/sophgo/licheerv_nano/oled.c
++++ b/board/sophgo/licheerv_nano/oled.c
+@@ -0,0 +1,155 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * nkoled ADDR LEN: draw the NanoKVM boot logo on the OLED before Linux.
++ *
++ * The image (scripts/gen-oled-boot-logo.py) is an 8-byte header, "NKOL",
++ * version 1, the board class and the I2C address, then records of a control
++ * byte (0x00 commands, 0x40 data), a length and that many bytes, each sent as
++ * one I2C write. All panel knowledge (initialization, orientation, where the
++ * logo goes) is in the image; this only moves bytes.
++ *
++ * Class 0 (Beta, PCIe, Lite) has the panel on GPIO bit-banged I2C, as Linux
++ * drives it (i2c-gpio): SCL XGPIOA[15] (SPK_EN), SDA XGPIOA[27] (EMMC_DAT3),
++ * reset XGPIOA[22] (EMMC_CLK, active low). Open drain is the direction
++ * register: an output driving 0 pulls the line low, an input lets the
++ * board's pull-up take it high.
++ */
++
++#include <command.h>
++#include <linux/delay.h>
++#include <linux/string.h>
++#include <asm/io.h>
++#include <vsprintf.h>
++
++#define FMUX		((void __iomem *)0x03001000)
++#define GPIOA		((void __iomem *)0x03020000)
++#define GPIO_DR		0x00
++#define GPIO_DDR	0x04
++#define GPIO_EXT	0x50
++
++#define SCL		15
++#define SDA		27
++#define RST		22
++#define HALF_US		2
++
++static void gpio_bit(unsigned int reg, unsigned int bit, bool set)
++{
++	u32 v = readl(GPIOA + reg);
++
++	writel(set ? v | BIT(bit) : v & ~BIT(bit), GPIOA + reg);
++}
++
++/* Low drives the line, high releases it. */
++static void line(unsigned int bit, bool high)
++{
++	gpio_bit(GPIO_DDR, bit, !high);
++	udelay(HALF_US);
++}
++
++static bool level(unsigned int bit)
++{
++	return readl(GPIOA + GPIO_EXT) & BIT(bit);
++}
++
++static void start(void)
++{
++	line(SDA, true);
++	line(SCL, true);
++	line(SDA, false);
++	line(SCL, false);
++}
++
++static void stop(void)
++{
++	line(SDA, false);
++	line(SCL, true);
++	line(SDA, true);
++}
++
++/* True when the byte was acknowledged. */
++static bool put(u8 byte)
++{
++	bool ack;
++	int i;
++
++	for (i = 7; i >= 0; i--) {
++		line(SDA, byte >> i & 1);
++		line(SCL, true);
++		line(SCL, false);
++	}
++	line(SDA, true);
++	line(SCL, true);
++	ack = !level(SDA);
++	line(SCL, false);
++	return ack;
++}
++
++static bool transfer(u8 address, u8 control, const u8 *data, unsigned int len)
++{
++	bool ok;
++
++	start();
++	ok = put(address << 1) && put(control);
++	while (ok && len--)
++		ok = put(*data++);
++	stop();
++	return ok;
++}
++
++static void class0_setup(void)
++{
++	/* Pins to GPIO (function 3) with Linux's pad settings. */
++	writel(3, FMUX + 0x03c);
++	writel(3, FMUX + 0x058);
++	writel(3, FMUX + 0x050);
++	writel(0x48, FMUX + 0x908);
++	writel(0x44, FMUX + 0x924);
++	writel(0x48, FMUX + 0x91c);
++	/* Idle bus: both lines released, driving 0 once made outputs. */
++	gpio_bit(GPIO_DDR, SCL, false);
++	gpio_bit(GPIO_DDR, SDA, false);
++	gpio_bit(GPIO_DR, SCL, false);
++	gpio_bit(GPIO_DR, SDA, false);
++	/* A reset pulse, then the controller is out of reset as Linux keeps it. */
++	gpio_bit(GPIO_DR, RST, false);
++	gpio_bit(GPIO_DDR, RST, true);
++	udelay(1000);
++	gpio_bit(GPIO_DR, RST, true);
++	udelay(1000);
++}
++
++static int do_nkoled(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
++{
++	const u8 *image, *at, *end;
++	unsigned int sent = 0;
++	u8 address;
++
++	if (argc != 3)
++		return CMD_RET_USAGE;
++	image = (const u8 *)hextoul(argv[1], NULL);
++	end = image + hextoul(argv[2], NULL);
++	if (end - image < 8 || memcmp(image, "NKOL", 4) || image[4] != 1 || image[5] != 0) {
++		printf("oled: not a class 0 logo image\n");
++		return CMD_RET_FAILURE;
++	}
++	address = image[6];
++	class0_setup();
++	/* The other of the two addresses in use if this one does not answer. */
++	if (!transfer(address, 0x00, NULL, 0))
++		address ^= 1;
++	for (at = image + 8; at < end; at += 2 + at[1]) {
++		if (end - at < 2 || end - at < 2 + at[1] || (at[0] != 0x00 && at[0] != 0x40)) {
++			printf("oled: malformed record at %ld\n", (long)(at - image));
++			return CMD_RET_FAILURE;
++		}
++		if (!transfer(address, at[0], at + 2, at[1])) {
++			printf("oled: no ack at 0x%02x\n", address);
++			return CMD_RET_FAILURE;
++		}
++		sent += at[1];
++	}
++	printf("oled: 0x%02x, %u bytes\n", address, sent);
++	return CMD_RET_SUCCESS;
++}
++
++U_BOOT_CMD(nkoled, 3, 0, do_nkoled, "draw the boot logo on the OLED", "addr len");

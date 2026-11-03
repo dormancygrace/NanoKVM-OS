@@ -444,6 +444,9 @@ fip() {
         --output "$f/fip.bin" --report "$f/manifest.json"
     cp "$f/fip.bin" "$img/fip.bin"
     cp "$f/manifest.json" "$img/fip-manifest.json"
+    # The boot logos U-Boot draws on the OLED (nkoled), one per board.
+    rm -rf "$img/oled-logo"
+    "$host/python3" "$repo/scripts/gen-oled-boot-logo.py" "$img/oled-logo"
     # Licenses of what fip.bin contains, for nanokvm-bootloader.
     local l=$img/fip-licenses
     rm -rf "$l"

@@ -81,6 +81,21 @@ partition and takes two variables from it, ignoring any other:
 The file can be edited from Linux or, with the card in a reader, from a PC.
 Images write a commented template. U-Boot from earlier images does not read it.
 
+## Boot logo
+
+After `uEnv.txt`, U-Boot loads `oled-logo.bin` from the boot partition and
+draws it on the OLED with `nkoled`, about 0.6 s after the FSBL starts
+(1.5 to 2 s after power-on, behind the ROM's UART window); the logo
+stays until kvm_system takes over the display. Without the file the display
+stays dark. The file holds the panel's initialization and the logo frame as
+I2C writes (`scripts/gen-oled-boot-logo.py`, the same commands as
+kvm_system). `nanokvm-bootloader` carries one per board in
+`/usr/lib/nanokvm/bootloader/oled`; the board selection and
+`activate-bootloader` copy the board's own. Beta, Lite and PCIe have their
+panel on GPIO I2C, which `nkoled` drives; Alpha's is on a hardware I2C
+controller, so Alpha has no logo yet. On the PCIe stand the logo costs about
+15 ms of boot (301 bytes).
+
 ## Testing a FIP without writing it
 
 The SDK's ROM UART download tool (target `cv181x`, 1500000 baud), given a

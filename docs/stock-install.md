@@ -18,13 +18,18 @@ must use [package updates](UPDATES.md). The stock updater accepts only numeric
 
 The first implementation supports SG2002 NanoKVM Cube/Full, Lite and PCIe with
 an MBR card, FAT partition 1, the running stock ext4 root on partition 2, and an
-existing, writable exFAT partition 3 mounted at `/data`. It refuses other
+existing exFAT partition 3 mounted at `/data`. It refuses other
 layouts, a fourth partition, an unexpected boot device, an existing `dbg.sd`,
 insufficient space, or a mounted USB virtual disk/image. Stock shares
-partition 3 itself as a USB disk by default: the installer detaches that disk
-before it writes there, and refuses when the USB host keeps it locked (eject
-the NanoKVM disk on the host and try again). Detach any other virtual media in
-the stock UI first; the installer does not disconnect USB networking for you.
+partition 3 itself as a USB disk by default and can mount `/data` read-only
+while the host has write access. The installer detaches that disk, unmounts
+`/data` and mounts it writable with a fresh view of the filesystem before
+staging files. It refuses when the USB host keeps the disk locked (eject the
+NanoKVM disk on the host and try again), `/data` is busy or cannot be mounted
+writable, or it is read-only without a writable raw USB disk explaining that
+state. No filesystem repair or formatting is attempted during this step.
+Detach any other virtual media in the stock UI first; the installer does not
+disconnect USB networking for you. `--check` leaves mounts and USB media unchanged.
 
 Partition 3 and its files stay at their existing sectors. Wi-Fi credentials,
 boot network configuration, hostname, the root password, SSH host keys and

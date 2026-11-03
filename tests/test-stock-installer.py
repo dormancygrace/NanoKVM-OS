@@ -324,7 +324,7 @@ class Staging(LayoutFixture):
         source = source.replace('PATH=/usr/sbin:/usr/bin:/sbin:/bin', 'PATH=' + str(shims) + ':/usr/sbin:/usr/bin:/sbin:/bin')
         # BusyBox ash may prefer internal applets to PATH; functions override
         # those too. In particular a test must never run the host reboot applet.
-        overrides = """id() { echo 0; }
+        overrides = r"""id() { echo 0; }
 uname() { echo riscv64; }
 df() {
     case "$2" in *boot) f=${TEST_BOOT_FREE_KIB:-${TEST_FREE_KIB:-9999998}} ;; *) f=${TEST_FREE_KIB:-9999998} ;; esac
@@ -332,6 +332,14 @@ df() {
 }
 sync() { :; }
 reboot() { echo reboot >"$TEST_ROOT/rebooted"; }
+umount() {
+    [ "$*" = "$TEST_ROOT/data" ] || return 1
+    sed -i "\| $TEST_ROOT/data |d" "$TEST_ROOT/proc/mounts"
+}
+mount() {
+    [ "$*" = "-t exfat -o rw,nosuid,nodev,noexec $TEST_ROOT/dev/mmcblk0p3 $TEST_ROOT/data" ] || return 1
+    printf '%s %s exfat rw 0 0\n' "$TEST_ROOT/dev/mmcblk0p3" "$TEST_ROOT/data" >>"$TEST_ROOT/proc/mounts"
+}
 """
         source = source.replace('export PATH\n', 'export PATH\n' + overrides)
         self.script = write(root, 'install-isolated.sh', source)
@@ -349,10 +357,15 @@ class StockCube(LayoutFixture):
         Staging.prepare(self)
         lun = write(self.root, 'sys/kernel/config/usb_gadget/g0/functions/mass_storage.disk0/lun.0/file',
                     str(self.root / 'dev/mmcblk0p3') + '\n')
+        write(self.root, str(lun.relative_to(self.root).with_name('ro')), '0\n')
+        mounts = self.root / 'proc/mounts'
+        mounts.write_text(mounts.read_text().replace('data exfat rw', 'data exfat ro'))
         self.env['TEST_BOOT_FREE_KIB'] = '1024'
         result = Staging.invoke(self, '--check')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('will be detached', result.stdout)
+        self.assertIn('data exfat ro', mounts.read_text())
+        self.assertEqual(lun.read_text().strip(), str(self.root / 'dev/mmcblk0p3'))
         result = Staging.invoke(self, '--yes')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(lun.read_text().strip(), '')

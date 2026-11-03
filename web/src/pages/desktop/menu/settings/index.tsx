@@ -50,6 +50,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
 import { getAddonInventory, type AddonManifest } from '@/api/addons';
+import { getWiFi } from '@/api/network.ts';
 import { getBluetoothState } from '@/api/vm.ts';
 import { addonTabId, localized } from '@/lib/addon-form.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
@@ -238,6 +239,9 @@ export const Settings = ({
   const [currentTab, setCurrentTab] = useState('dashboard');
   // Network > Bluetooth is listed only where the Wi-Fi chip has Bluetooth.
   const [hasBluetooth, setHasBluetooth] = useState(false);
+  // Network > Wi-Fi is left out only once the device reports no adapter:
+  // until then (and when the request fails) it stays, so a link to it works.
+  const [hasWifi, setHasWifi] = useState(true);
 
   useEffect(() => {
     if (!isModalOpen || !isAdmin) return;
@@ -245,6 +249,11 @@ export const Settings = ({
     getBluetoothState()
       .then((rsp) => {
         if (active && rsp.code === 0) setHasBluetooth(!!rsp.data?.available);
+      })
+      .catch(() => {});
+    getWiFi()
+      .then((rsp) => {
+        if (active && rsp.code === 0) setHasWifi(rsp.data?.supported !== false);
       })
       .catch(() => {});
     return () => {
@@ -264,7 +273,7 @@ export const Settings = ({
   const setSubmenuOpenCount = useSetAtom(submenuOpenCountAtom);
 
   // What each menu entry opens. An entry without a page here (not an admin,
-  // no Bluetooth chip, add-on not installed) is not shown; a group (null)
+  // no Wi-Fi adapter or Bluetooth chip, add-on not installed) is not shown; a group (null)
   // shows only with something inside.
   // Typed object literals: a misspelt id is a type error, also here.
   const adminPages: Partial<Record<BuiltinMenuId, ReactNode>> = isAdmin
@@ -274,7 +283,7 @@ export const Settings = ({
         'usb-identity': <Usb part="identity" />,
         network: null,
         'network-general': <Network />,
-        'network-wifi': <WifiSettings />,
+        'network-wifi': hasWifi ? <WifiSettings /> : undefined,
         'network-ethernet': <EthernetSettings />,
         'network-bluetooth': hasBluetooth ? <BluetoothSettings /> : undefined,
         'network-webrtc': <WebRTCSettings />,
@@ -424,6 +433,12 @@ export const Settings = ({
       );
     }
   }, [picoclawStatus, setInventory]);
+
+  useEffect(() => {
+    if (!hasWifi && currentTab === 'network-wifi') {
+      setCurrentTab('network-general');
+    }
+  }, [currentTab, hasWifi]);
 
   useEffect(() => {
     if (currentTab === 'services-rustdesk' && inventory?.rustdesk.installed === false) {

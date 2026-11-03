@@ -563,8 +563,9 @@ func monitorProfile() string {
 	if value == "720" || value == "1080" || value == "1440" || value == "2160" {
 		return value
 	}
-	// 16:10 and 21:9 profiles by their size (a 21:9 id is its width).
-	if id, err := strconv.Atoi(value); err == nil && common.ValidMonitorProfile(id) {
+	// 16:10 and 21:9 profiles by their size (a 21:9 id is its width). An id
+	// is 16 bits; parsing it as such leaves no wider value to narrow.
+	if id, err := strconv.ParseUint(value, 10, 16); err == nil && common.ValidMonitorProfile(int(id)) {
 		width, height := common.MonitorSize(uint16(id))
 		return fmt.Sprintf("%dx%d", width, height)
 	}

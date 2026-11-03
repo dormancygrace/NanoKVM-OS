@@ -1289,6 +1289,10 @@
           "displayOff": "Das Display ist in den OLED-Einstellungen ausgeschaltet und zeigt die Vorschau daher nicht.",
           "rotation": "Drehung",
           "burnin": "Schutz vor Einbrennen",
+          "pages": "Seiten",
+          "pageSeconds": "Sekunden pro Seite",
+          "pageN": "Seite {{page}}",
+          "allPages": "Alle Seiten",
           "items": "Elemente",
           "add": "Hinzufügen",
           "picture": "Grafik…",
@@ -1346,7 +1350,9 @@
             "wifi": "WLAN verbunden",
             "hdmi": "HDMI-Signal",
             "hid": "USB verbunden",
-            "stream": "Stream läuft"
+            "stream": "Stream läuft",
+            "wifi_module": "WLAN-Modul vorhanden",
+            "atx": "ATX aktiviert"
           },
           "field": {
             "x": "X",
@@ -1361,6 +1367,7 @@
             "font": "Schrift",
             "align": "Ausrichtung",
             "when": "Anzeigen",
+            "page": "Seite",
             "fill": "Gefüllt",
             "off": "Pixel löschen (schwarz zeichnen)"
           },

@@ -9,6 +9,7 @@ import {
   message,
   Modal,
   Popconfirm,
+  Segmented,
   Select,
   Spin,
   Switch
@@ -31,16 +32,21 @@ import * as api from '@/api/vm.ts';
 import { icons } from '@/lib/oled/font.ts';
 import {
   conditions,
+  holds,
   imageFromPixels,
   itemBox,
+  joinWhen,
   logicalSize,
+  maxConditions,
   maxItems,
+  maxPages,
   maxText,
   OledItem,
   OledLayout,
   OledValues,
   render,
   sampleValues,
+  splitWhen,
   variables
 } from '@/lib/oled/layout.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
@@ -163,6 +169,7 @@ const Preview = ({
     const p = point(event);
     let hit = -1;
     for (let i = layout.items.length - 1; i >= 0; i--) {
+      if (!holds(layout.items[i], values)) continue;
       const box = itemBox(layout.items[i], values);
       if (p.x >= box.x && p.x < box.x + box.width && p.y >= box.y && p.y < box.y + box.height) {
         hit = i;
@@ -199,8 +206,9 @@ const Preview = ({
   };
 
   const percent = (value: number, total: number) => `${(value / total) * 100}%`;
-  const box =
-    selected >= 0 && layout.items[selected] ? itemBox(layout.items[selected], values) : null;
+  // No frame around an item the state previewed does not draw.
+  const shown = selected >= 0 && layout.items[selected] && holds(layout.items[selected], values);
+  const box = shown ? itemBox(layout.items[selected], values) : null;
 
   return (
     <div ref={area} className="flex w-full justify-center">
@@ -294,6 +302,8 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
 
   const size = layout ? logicalSize(layout) : { width: 128, height: 64 };
   const item = layout && selected >= 0 ? layout.items[selected] : undefined;
+  const pages = layout?.pages && layout.pages > 1 ? layout.pages : 1;
+  const itemWhen = splitWhen(item?.when);
 
   const change = (next: OledLayout) => setLayout(next);
   const changeItem = (patch: Partial<OledItem>) => {
@@ -302,13 +312,16 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
     items[selected] = { ...items[selected], ...patch };
     change({ ...layout, items });
   };
-  const add = (next: OledItem) => {
+  // A new item goes on the page shown; a duplicate keeps its original's.
+  const add = (next: OledItem, duplicate = false) => {
     if (!layout) return;
     if (layout.items.length >= maxItems) {
       message.warning(t(`${KEY}.tooMany`, { count: maxItems }));
       return;
     }
-    change({ ...layout, items: [...layout.items, next] });
+    const when =
+      pages > 1 && !duplicate ? joinWhen(splitWhen(next.when).states, values.page + 1) : next.when;
+    change({ ...layout, items: [...layout.items, { ...next, when }] });
     setSelected(layout.items.length);
   };
   const reorder = (from: number, to: number) => {
@@ -407,13 +420,17 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
     }
   };
 
-  const whenOptions = [
-    { value: '', label: t(`${KEY}.always`) },
-    ...conditions.flatMap((name) => [
-      { value: name, label: t(`${KEY}.when`, { state: t(`${KEY}.state.${name}`) }) },
-      { value: `!${name}`, label: t(`${KEY}.whenNot`, { state: t(`${KEY}.state.${name}`) }) }
-    ])
-  ];
+  // A state and its negation exclude each other.
+  const whenOptions = conditions.flatMap((name) =>
+    [name, `!${name}`].map((value) => ({
+      value,
+      label: t(value === name ? `${KEY}.when` : `${KEY}.whenNot`, {
+        state: t(`${KEY}.state.${name}`)
+      }),
+      disabled: itemWhen.states.includes(value.startsWith('!') ? name : `!${name}`)
+    }))
+  );
+  const pageLabel = (page: number) => t(`${KEY}.pageN`, { page });
   const label = (entry: OledItem) =>
     entry.type === 'text' ? entry.text || t(`${KEY}.emptyText`) : t(`${KEY}.type.${entry.type}`);
   const typeIcon = { text: TypeIcon, line: MinusIcon, rect: SquareIcon, image: ImageIcon };
@@ -509,6 +526,17 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
                   {t(`${KEY}.state.${name}`)}
                 </Checkbox>
               ))}
+              {pages > 1 && (
+                <Segmented
+                  size="small"
+                  value={values.page + 1}
+                  options={Array.from({ length: pages }, (_, i) => ({
+                    value: i + 1,
+                    label: pageLabel(i + 1)
+                  }))}
+                  onChange={(page) => setValues({ ...values, page: Number(page) - 1 })}
+                />
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Switch id="oled-live" size="small" checked={live} onChange={setLive} />
@@ -548,6 +576,39 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
                   }
                 />
               </label>
+              <label className="text-fg-muted flex flex-col gap-1 text-xs">
+                {t(`${KEY}.pages`)}
+                <Select
+                  size="small"
+                  value={pages}
+                  options={Array.from({ length: maxPages }, (_, i) => ({
+                    value: i + 1,
+                    label: String(i + 1)
+                  }))}
+                  onChange={(count) => {
+                    change({
+                      ...layout,
+                      pages: count > 1 ? count : undefined,
+                      pageSeconds: count > 1 ? (layout.pageSeconds ?? 5) : undefined
+                    });
+                    if (values.page >= count) setValues({ ...values, page: 0 });
+                  }}
+                />
+              </label>
+              {pages > 1 && (
+                <label className="text-fg-muted flex flex-col gap-1 text-xs">
+                  {t(`${KEY}.pageSeconds`)}
+                  <InputNumber
+                    size="small"
+                    min={1}
+                    max={60}
+                    value={layout.pageSeconds ?? 5}
+                    onChange={(value) =>
+                      change({ ...layout, pageSeconds: Math.round(Number(value ?? 5)) })
+                    }
+                  />
+                </label>
+              )}
               {layout.burnin === 'roam' &&
                 (['roamWidth', 'roamHeight'] as const).map((name) => (
                   <label key={name} className="text-fg-muted flex flex-col gap-1 text-xs">
@@ -633,7 +694,9 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
                     }}
                     className={clsx(
                       'flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm',
-                      index === selected ? 'bg-surface-raised text-fg' : 'text-fg-muted'
+                      index === selected ? 'bg-surface-raised text-fg' : 'text-fg-muted',
+                      // Not drawn in the state previewed (another page, say).
+                      !holds(entry, values) && 'opacity-50'
                     )}
                     onClick={() => setSelected(index)}
                   >
@@ -664,7 +727,7 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
                     size="small"
                     icon={<CopyIcon size={14} />}
                     aria-label={t(`${KEY}.duplicate`)}
-                    onClick={() => add(moved(item, 2, 2))}
+                    onClick={() => add(moved(item, 2, 2), true)}
                   />
                   <Button
                     size="small"
@@ -752,11 +815,40 @@ export const OledEditor = ({ open, onClose, displayOff }: Props) => {
                   {t(`${KEY}.field.when`)}
                   <Select
                     size="small"
-                    value={item.when ?? ''}
+                    mode="multiple"
+                    placeholder={t(`${KEY}.always`)}
+                    value={itemWhen.states}
                     options={whenOptions}
-                    onChange={(when) => changeItem({ when: when || undefined })}
+                    maxCount={maxConditions - (itemWhen.page ? 1 : 0)}
+                    onChange={(states: string[]) =>
+                      changeItem({ when: joinWhen(states, itemWhen.page) })
+                    }
                   />
                 </label>
+                {(pages > 1 || itemWhen.page > 0) && (
+                  <label className="text-fg-muted flex flex-col gap-1 text-xs">
+                    {t(`${KEY}.field.page`)}
+                    <Select
+                      size="small"
+                      value={itemWhen.page}
+                      options={[
+                        { value: 0, label: t(`${KEY}.allPages`) },
+                        ...Array.from({ length: maxPages }, (_, i) => ({
+                          value: i + 1,
+                          label: pageLabel(i + 1),
+                          disabled: i + 1 > pages
+                        }))
+                      ]}
+                      onChange={(page) => {
+                        // The page counts as one of the conditions.
+                        const states = page
+                          ? itemWhen.states.slice(0, maxConditions - 1)
+                          : itemWhen.states;
+                        changeItem({ when: joinWhen(states, page) });
+                      }}
+                    />
+                  </label>
+                )}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                   {item.type === 'rect' && (
                     <Checkbox

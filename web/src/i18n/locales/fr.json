@@ -1289,6 +1289,10 @@
           "displayOff": "L'écran est éteint dans les réglages OLED, il n'affiche donc pas l'aperçu.",
           "rotation": "Rotation",
           "burnin": "Protection contre le marquage",
+          "pages": "Pages",
+          "pageSeconds": "Secondes par page",
+          "pageN": "Page {{page}}",
+          "allPages": "Toutes les pages",
           "items": "Éléments",
           "add": "Ajouter",
           "picture": "Image depuis un fichier…",
@@ -1346,7 +1350,9 @@
             "wifi": "Wi-Fi connecté",
             "hdmi": "Signal HDMI",
             "hid": "USB connecté",
-            "stream": "Diffusion en cours"
+            "stream": "Diffusion en cours",
+            "wifi_module": "Module Wi-Fi présent",
+            "atx": "ATX activé"
           },
           "field": {
             "x": "X",
@@ -1361,6 +1367,7 @@
             "font": "Police",
             "align": "Alignement",
             "when": "Afficher",
+            "page": "Page",
             "fill": "Rempli",
             "off": "Effacer les pixels (dessiner en noir)"
           },

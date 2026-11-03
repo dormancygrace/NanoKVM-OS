@@ -28,16 +28,19 @@ var (
 
 // The limits of kvm_system's parser.
 const (
-	oledMaxItems = 64
-	oledMaxText  = 128
-	oledLow      = -128
-	oledHigh     = 255
+	oledMaxItems      = 128
+	oledMaxText       = 128
+	oledMaxConditions = 4
+	oledMaxPages      = 4
+	oledLow           = -128
+	oledHigh          = 255
 )
 
-var oledConditions = map[string]bool{"eth": true, "wifi": true, "hdmi": true, "hid": true, "stream": true}
+var oledConditions = map[string]bool{"eth": true, "wifi": true, "hdmi": true, "hid": true, "stream": true,
+	"wifi_module": true, "atx": true, "page1": true, "page2": true, "page3": true, "page4": true}
 
 var oledVariables = map[string]bool{"ip": true, "eth_ip": true, "wifi_ip": true, "hostname": true, "codec": true,
-	"width": true, "height": true, "fps": true, "uptime": true, "time": true, "date": true}
+	"width": true, "height": true, "fps": true, "viewers": true, "uptime": true, "time": true, "date": true}
 
 var oledWidth = regexp.MustCompile(`^-?[0-9]{1,2}$`)
 
@@ -84,8 +87,14 @@ func oledWhen(when string) (string, error) {
 	if when == "" {
 		return "-", nil
 	}
-	if !oledConditions[strings.TrimPrefix(when, "!")] {
-		return "", fmt.Errorf("unknown condition %q", when)
+	names := strings.Split(when, ",")
+	if len(names) > oledMaxConditions {
+		return "", fmt.Errorf("more than %d conditions", oledMaxConditions)
+	}
+	for _, name := range names {
+		if !oledConditions[strings.TrimPrefix(name, "!")] {
+			return "", fmt.Errorf("unknown condition %q", name)
+		}
 	}
 	return when, nil
 }
@@ -117,6 +126,12 @@ func compileOLEDLayout(layout *proto.OLEDLayout) (string, error) {
 		fmt.Fprintf(&out, "burnin roam %d %d\n", layout.RoamWidth, layout.RoamHeight)
 	default:
 		return "", errors.New("unknown burn-in protection")
+	}
+	if layout.Pages > 1 {
+		if layout.Pages > oledMaxPages || layout.PageSeconds < 1 || layout.PageSeconds > 60 {
+			return "", errors.New("invalid pages")
+		}
+		fmt.Fprintf(&out, "pages %d %d\n", layout.Pages, layout.PageSeconds)
 	}
 	for i, item := range layout.Items {
 		line, err := compileOLEDItem(&item)
@@ -242,6 +257,12 @@ func parseOLEDLayout(text string) (*proto.OLEDLayout, error) {
 				}
 				layout.RoamWidth, layout.RoamHeight = values[0], values[1]
 			}
+		case "pages":
+			values, ok := numbers(2)
+			if !ok || len(fields) != 3 {
+				return nil, fail
+			}
+			layout.Pages, layout.PageSeconds = values[0], values[1]
 		case "text":
 			values, ok := numbers(3)
 			if !ok || len(fields) < 8 {

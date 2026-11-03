@@ -1289,6 +1289,10 @@
           "displayOff": "The display is switched off in the OLED settings, so it does not show the preview.",
           "rotation": "Rotation",
           "burnin": "Burn-in protection",
+          "pages": "Pages",
+          "pageSeconds": "Seconds per page",
+          "pageN": "Page {{page}}",
+          "allPages": "All pages",
           "items": "Items",
           "add": "Add",
           "picture": "Picture…",
@@ -1346,7 +1350,9 @@
             "wifi": "Wi-Fi connected",
             "hdmi": "HDMI signal",
             "hid": "USB connected",
-            "stream": "Streaming"
+            "stream": "Streaming",
+            "wifi_module": "Wi-Fi module present",
+            "atx": "ATX enabled"
           },
           "field": {
             "x": "X",
@@ -1361,6 +1367,7 @@
             "font": "Font",
             "align": "Alignment",
             "when": "Show",
+            "page": "Page",
             "fill": "Filled",
             "off": "Clear pixels (draw in black)"
           },

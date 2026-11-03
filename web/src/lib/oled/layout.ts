@@ -4,7 +4,7 @@
 import { fonts } from './font.ts';
 
 export type OledPanel = 'wide' | 'narrow';
-export type OledCondition = '' | 'eth' | 'wifi' | 'hdmi' | 'hid' | 'stream';
+export type OledCondition = '' | 'eth' | 'wifi' | 'hdmi' | 'hid' | 'stream' | 'wifi_module' | 'atx';
 export type OledFont = 4 | 8 | 16;
 export type OledAlign = 'left' | 'center' | 'right';
 
@@ -31,6 +31,9 @@ export type OledLayout = {
   burnin: 'none' | 'shift' | 'roam';
   roamWidth?: number;
   roamHeight?: number;
+  // Pages (2 to 4) shown in turn for pageSeconds each; absent or 1: one page.
+  pages?: number;
+  pageSeconds?: number;
   items: OledItem[];
 };
 
@@ -46,14 +49,27 @@ export type OledValues = {
   width: number;
   height: number;
   fps: number;
+  viewers: number;
+  // The page shown, from 0.
+  page: number;
   eth: boolean;
   wifi: boolean;
   hdmi: boolean;
   hid: boolean;
   stream: boolean;
+  wifi_module: boolean;
+  atx: boolean;
 };
 
-export const conditions: Exclude<OledCondition, ''>[] = ['eth', 'wifi', 'hdmi', 'hid', 'stream'];
+export const conditions: Exclude<OledCondition, ''>[] = [
+  'eth',
+  'wifi',
+  'hdmi',
+  'hid',
+  'stream',
+  'wifi_module',
+  'atx'
+];
 
 export const variables = [
   'ip',
@@ -64,12 +80,16 @@ export const variables = [
   'width',
   'height',
   'fps',
+  'viewers',
   'uptime',
   'time',
   'date'
 ] as const;
 
-export const maxItems = 64;
+export const maxItems = 128;
+// Conditions an item holds at once (page{N} counts), and pages.
+export const maxConditions = 4;
+export const maxPages = 4;
 export const maxText = 128;
 // A {name:N} width, and the text once expanded (oled_layout.h).
 export const maxPad = 32;
@@ -129,11 +149,35 @@ function glyphColumn(chr: string, font: OledFont, column: number): number {
   return font === 16 ? glyph[column] | (glyph[8 + column] << 8) : glyph[column];
 }
 
+// An item's conditions: the states ("!" negates) and its page (from 1; 0 on
+// every page). The format joins them by ",": page{N} is one of them.
+export function splitWhen(when: string | undefined): { states: string[]; page: number } {
+  const states: string[] = [];
+  let page = 0;
+  for (const name of when ? when.split(',') : []) {
+    const match = /^page([1-4])$/.exec(name);
+    if (match) page = Number(match[1]);
+    else states.push(name);
+  }
+  return { states, page };
+}
+
+export function joinWhen(states: string[], page: number): string | undefined {
+  const names = page ? [...states, `page${page}`] : states;
+  return names.length ? names.join(',') : undefined;
+}
+
 export function holds(item: OledItem, values: OledValues): boolean {
   if (!item.when) return true;
-  const negated = item.when.startsWith('!');
-  const name = (negated ? item.when.slice(1) : item.when) as Exclude<OledCondition, ''>;
-  return values[name] !== negated;
+  return item.when.split(',').every((condition) => {
+    const negated = condition.startsWith('!');
+    const name = negated ? condition.slice(1) : condition;
+    const page = /^page([1-4])$/.exec(name);
+    const value = page
+      ? values.page === Number(page[1]) - 1
+      : values[name as Exclude<OledCondition, ''>];
+    return value !== negated;
+  });
 }
 
 // The text as drawn: its position and size in pixels.
@@ -274,9 +318,13 @@ export const sampleValues: OledValues = {
   width: 1920,
   height: 1080,
   fps: 30,
+  viewers: 1,
+  page: 0,
   eth: true,
   wifi: false,
   hdmi: true,
   hid: true,
-  stream: true
+  stream: true,
+  wifi_module: false,
+  atx: true
 };

@@ -1289,6 +1289,10 @@
           "displayOff": "OLED 设置中已关闭显示屏，因此不会显示预览。",
           "rotation": "旋转",
           "burnin": "防烧屏",
+          "pages": "页数",
+          "pageSeconds": "每页秒数",
+          "pageN": "第 {{page}} 页",
+          "allPages": "所有页",
           "items": "项目",
           "add": "添加",
           "picture": "从文件导入图片…",
@@ -1346,7 +1350,9 @@
             "wifi": "Wi-Fi 已连接",
             "hdmi": "有 HDMI 信号",
             "hid": "USB 已连接",
-            "stream": "正在推流"
+            "stream": "正在推流",
+            "wifi_module": "有 Wi-Fi 模块",
+            "atx": "ATX 已启用"
           },
           "field": {
             "x": "X",
@@ -1361,6 +1367,7 @@
             "font": "字体",
             "align": "对齐",
             "when": "显示条件",
+            "page": "页",
             "fill": "填充",
             "off": "清除像素（以黑色绘制）"
           },

@@ -1289,6 +1289,10 @@
           "displayOff": "OLED 設定でディスプレイがオフになっているため、プレビューは表示されません。",
           "rotation": "回転",
           "burnin": "焼き付き防止",
+          "pages": "ページ数",
+          "pageSeconds": "1ページの秒数",
+          "pageN": "ページ {{page}}",
+          "allPages": "すべてのページ",
           "items": "項目",
           "add": "追加",
           "picture": "ファイルから画像…",
@@ -1346,7 +1350,9 @@
             "wifi": "Wi-Fi 接続中",
             "hdmi": "HDMI 信号あり",
             "hid": "USB 接続中",
-            "stream": "配信中"
+            "stream": "配信中",
+            "wifi_module": "Wi-Fiモジュールあり",
+            "atx": "ATX有効"
           },
           "field": {
             "x": "X",
@@ -1361,6 +1367,7 @@
             "font": "フォント",
             "align": "配置",
             "when": "表示条件",
+            "page": "ページ",
             "fill": "塗りつぶし",
             "off": "ピクセルを消去 (黒で描画)"
           },

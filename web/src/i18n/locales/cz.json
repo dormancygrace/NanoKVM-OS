@@ -618,6 +618,10 @@
           "displayOff": "Displej je v nastavení OLED vypnutý, a proto náhled nezobrazí.",
           "rotation": "Otočení",
           "burnin": "Ochrana proti vypálení",
+          "pages": "Stránky",
+          "pageSeconds": "Sekund na stránku",
+          "pageN": "Stránka {{page}}",
+          "allPages": "Všechny stránky",
           "items": "Prvky",
           "add": "Přidat",
           "picture": "Obrázek ze souboru…",
@@ -675,7 +679,9 @@
             "wifi": "Wi-Fi připojena",
             "hdmi": "Signál HDMI",
             "hid": "USB připojeno",
-            "stream": "Probíhá přenos"
+            "stream": "Probíhá přenos",
+            "wifi_module": "Modul Wi-Fi přítomen",
+            "atx": "ATX zapnuto"
           },
           "field": {
             "x": "X",
@@ -690,6 +696,7 @@
             "font": "Písmo",
             "align": "Zarovnání",
             "when": "Zobrazit",
+            "page": "Stránka",
             "fill": "Vyplněný",
             "off": "Mazat pixely (kreslit černě)"
           },

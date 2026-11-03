@@ -1289,6 +1289,10 @@
           "displayOff": "La pantalla está apagada en los ajustes OLED, así que no muestra la vista previa.",
           "rotation": "Rotación",
           "burnin": "Protección contra quemado",
+          "pages": "Páginas",
+          "pageSeconds": "Segundos por página",
+          "pageN": "Página {{page}}",
+          "allPages": "Todas las páginas",
           "items": "Elementos",
           "add": "Añadir",
           "picture": "Imagen desde archivo…",
@@ -1346,7 +1350,9 @@
             "wifi": "Wi-Fi conectado",
             "hdmi": "Señal HDMI",
             "hid": "USB conectado",
-            "stream": "Transmitiendo"
+            "stream": "Transmitiendo",
+            "wifi_module": "Módulo Wi-Fi presente",
+            "atx": "ATX activado"
           },
           "field": {
             "x": "X",
@@ -1361,6 +1367,7 @@
             "font": "Fuente",
             "align": "Alineación",
             "when": "Mostrar",
+            "page": "Página",
             "fill": "Relleno",
             "off": "Borrar píxeles (dibujar en negro)"
           },

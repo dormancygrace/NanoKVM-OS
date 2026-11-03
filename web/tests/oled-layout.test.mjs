@@ -57,6 +57,22 @@ test('images, text boxes and conditions draw as on the panel', () => {
   assert.ok(lit(frame, 8, 1));
 });
 
+test('conditions joined by "," must all hold; page{N} is on page N only', () => {
+  const layout = {
+    panel: 'wide',
+    rotation: 0,
+    burnin: 'none',
+    pages: 2,
+    pageSeconds: 9,
+    items: [{ type: 'line', x: 0, y: 0, x2: 0, y2: 0, when: 'eth,!wifi,page2' }]
+  };
+  const on = { ...values, eth: true, wifi: false, page: 1 };
+  assert.ok(lit(render(layout, on), 0, 0));
+  assert.ok(!lit(render(layout, { ...on, page: 0 }), 0, 0));
+  assert.ok(!lit(render(layout, { ...on, wifi: true }), 0, 0));
+  assert.equal(expand('{viewers:2}', { ...values, viewers: 3 }), ' 3');
+});
+
 test('a rotated panel is drawn in its rotated size', () => {
   const frame = render({ panel: 'wide', rotation: 90, burnin: 'none', items: [] }, values);
   assert.deepEqual([frame.width, frame.height], [64, 128]);

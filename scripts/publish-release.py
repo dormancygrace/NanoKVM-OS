@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Publish OS downloads only. Signed package candidates are transported to Pages."""
+import argparse
 import json
 import os
 from pathlib import Path
@@ -73,25 +74,36 @@ def verify_public_downloads(version, current):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--prepare', action='store_true',
+                        help='upload and verify a draft before its package candidate is staged')
+    args = parser.parse_args()
     env = os.environ
     version, repository = env['NANOKVM_VERSION'], env['GITHUB_REPOSITORY']
     current = release(repository, version)
-    if current:
-        if current.get('target_commitish') != env['SHA']:
-            raise ValueError('Existing OS release targets a different commit; use a new version')
-        verify_public_downloads(version, current)
-        if current['draft'] and env['DRAFT'] != 'true':
-            gh('release', 'edit', version, '--draft=false')
-        return
-    directory = Path(env['OUT']) / 'assets'
-    validate_public_names(version, list(validate(directory / 'public')))
-    flags = ['--generate-notes']
-    if '-beta.' in version:
-        flags += ['--prerelease', '--latest=false']
-    if env.get('PREVIOUS'):
-        flags += ['--notes-start-tag', env['PREVIOUS']]
-    stage(version, current, directory / 'public', env['SHA'], f'NanoKVM OS {version}', flags)
-    if env['DRAFT'] != 'true':
+    if current and current.get('target_commitish') != env['SHA']:
+        raise ValueError('Existing OS release targets a different commit; use a new version')
+    if args.prepare:
+        if current and not current['draft']:
+            raise ValueError('A published OS release requires its original package candidate')
+        # The workflow calls this only when no package candidate exists yet.
+        # An interrupted upload can then replace the whole draft with this
+        # assembly's downloads before the matching packages become immutable.
+        directory = Path(env['OUT']) / 'assets' / 'public'
+        validate_public_names(version, list(validate(directory)))
+        flags = ['--generate-notes']
+        if '-beta.' in version:
+            flags += ['--prerelease', '--latest=false']
+        if env.get('PREVIOUS'):
+            flags += ['--notes-start-tag', env['PREVIOUS']]
+        stage(version, current, directory, env['SHA'], f'NanoKVM OS {version}', flags)
+        current = release(repository, version)
+    if current is None:
+        raise ValueError('Prepare the OS draft before staging its package candidate')
+    # After candidate upload, only the original complete pair may be reused.
+    # Never fill gaps with downloads from a freshly signed assembly.
+    verify_public_downloads(version, current)
+    if not args.prepare and current['draft'] and env['DRAFT'] != 'true':
         gh('release', 'edit', version, '--draft=false')
 
 

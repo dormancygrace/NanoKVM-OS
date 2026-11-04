@@ -98,9 +98,12 @@ class ReleaseStorageTests(unittest.TestCase):
                     'IMAGE': 'true', 'DRAFT': 'false', 'PREVIOUS': 'v3.3.0',
                     'SHA': 'a' * 40, 'DEFAULT_BRANCH': 'main'}
 
-    def invoke(self, **overrides):
-        result = subprocess.run(['bash', str(ROOT / 'scripts/publish-release.sh')],
-                                env={**self.env, **overrides}, capture_output=True, text=True)
+    def invoke(self, prepare=True, **overrides):
+        for args in (['--prepare'], []) if prepare else ([],):
+            result = subprocess.run(['bash', str(ROOT / 'scripts/publish-release.sh'), *args],
+                                    env={**self.env, **overrides}, capture_output=True, text=True)
+            if result.returncode:
+                break
         return result, json.loads(self.state.read_text())
 
     def test_split_public_downloads_and_separate_hashes(self):
@@ -154,13 +157,13 @@ class ReleaseStorageTests(unittest.TestCase):
         result, state = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
         count = len(state['calls'])
-        result, state = self.invoke()
+        result, state = self.invoke(prepare=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(any(c[:2] in (['release', 'edit'], ['release', 'upload'])
                              for c in state['calls'][count:]))
         next(a for a in state['releases']['v3.3.1']['assets'] if a['name'].endswith('.img.zip'))['data'] = 'corrupt'
         self.state.write_text(json.dumps(state))
-        result, _ = self.invoke()
+        result, _ = self.invoke(prepare=False)
         self.assertNotEqual(result.returncode, 0)
 
     def test_draft_recut_does_not_publish_another_commits_downloads(self):

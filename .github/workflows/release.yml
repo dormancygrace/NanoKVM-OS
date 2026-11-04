@@ -291,6 +291,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/pages_store.py --stage "$OUT/assets/packages" --kind os --tag "$NANOKVM_VERSION"
 
+      # Prepare the complete public draft before freezing its matching package
+      # candidate. A retry before candidate upload can repair a partial draft;
+      # afterwards both sets must be reused without re-signing their contents.
+      - name: Prepare OS draft
+        if: steps.candidate.outputs.upload == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          PREVIOUS: ${{ needs.build.outputs.previous }}
+        run: bash scripts/publish-release.sh --prepare
+
       - uses: actions/upload-artifact@v7
         if: steps.candidate.outputs.upload == 'true'
         with:

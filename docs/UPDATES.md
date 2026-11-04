@@ -158,6 +158,10 @@ never replace the already deployed version's bytes. Publish a new version.
 Candidates and catalog snapshots record their full source commit. A signing
 retry can reuse the original candidate only for the same commit; rebuilding
 the same version from another commit is refused before public release upload.
+The complete public draft is uploaded and verified before its package candidate
+is uploaded. An interrupted draft upload can therefore be retried with the
+matching new assembly. Once the candidate exists, retries only verify and
+publish the original downloads; they never mix newly signed files into that pair.
 
 ### First migration from release assets
 

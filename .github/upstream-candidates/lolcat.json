@@ -1,0 +1,17 @@
+{
+  "component": "lolcat",
+  "current": "1.4",
+  "candidate": "1.5",
+  "candidate_key": "1.5",
+  "status": "pending-review",
+  "upstream": "https://github.com/jaseg/lolcat/tags",
+  "source_path": "platform/sources.lock",
+  "strategy": "archive-pin",
+  "evidence": {
+    "archive": "https://github.com/jaseg/lolcat/archive/refs/tags/v1.5.tar.gz",
+    "sha256": "2af79bed90e0bda52ae500d16e7e7022037fad10c487c317e7f0ff17ec4b14f5"
+  },
+  "pin_files_updated": [
+    "platform/sources.lock"
+  ]
+}

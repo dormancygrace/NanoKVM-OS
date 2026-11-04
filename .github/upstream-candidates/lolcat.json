@@ -10,7 +10,7 @@
   "evidence": {
     "archive": "https://github.com/jaseg/lolcat/archive/refs/tags/v1.5.tar.gz",
     "sha256": "2af79bed90e0bda52ae500d16e7e7022037fad10c487c317e7f0ff17ec4b14f5",
-    "review": "Reviewed both upstream commits since v1.4 and verified the archive SHA-256. Refreshed the byte-I/O patch, preserving the end-of-line colour reset and cc reset. Host output comparisons, ASan/UBSan checks and the production RISC-V/musl cross-build pass."
+    "review": "Reviewed all 41 issues and 25 PRs in upstream jaseg/lolcat. Refreshed byte I/O for 1.5 line resets; fixed complete ESC/OSC/DCS handling, invert line count and seed help. Verified archive hash, 56 host behavior groups and 210 upstream regression cases with ASan/UBSan, plus the production RISC-V/musl cross-build."
   },
   "pin_files_updated": [
     "platform/sources.lock"

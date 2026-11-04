@@ -26,6 +26,9 @@ type SignalingMessage = {
 const WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY = 'webrtc_connection_failed';
 const WEBRTC_CONNECTION_TIMEOUT = 10 * 1000;
 const WEBRTC_RECONNECT_DELAY = 3 * 1000;
+// A failed peer retries sooner: after a device reboot, a new peer connects as
+// soon as the server is back.
+const WEBRTC_FAST_RECONNECT_DELAY = 500;
 
 const parseSignalingData = <T,>(data?: string): T | null => {
   if (!data) {
@@ -124,7 +127,7 @@ export const H264Webrtc = ({
       reconnectTimer = null;
     };
 
-    const scheduleReconnect = (reason: string, error?: unknown) => {
+    const scheduleReconnect = (reason: string, error?: unknown, fast = false) => {
       if (disposed || terminalFailure) {
         return;
       }
@@ -137,10 +140,13 @@ export const H264Webrtc = ({
         return;
       }
 
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        setConnectionAttempt((attempt) => attempt + 1);
-      }, WEBRTC_RECONNECT_DELAY);
+      reconnectTimer = setTimeout(
+        () => {
+          reconnectTimer = null;
+          setConnectionAttempt((attempt) => attempt + 1);
+        },
+        fast ? WEBRTC_FAST_RECONNECT_DELAY : WEBRTC_RECONNECT_DELAY
+      );
     };
 
     const sendMsg = (event: string, data: string) => {
@@ -197,7 +203,7 @@ export const H264Webrtc = ({
         }
 
         if (peer.connectionState === 'failed') {
-          scheduleReconnect('peer connection state is failed');
+          scheduleReconnect('peer connection state is failed', undefined, true);
         } else if (peer.connectionState === 'connected') {
           cancelReconnect();
           notificationApi.destroy(WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY);

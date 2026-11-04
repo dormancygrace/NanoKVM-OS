@@ -15,7 +15,7 @@ const bundle = inlineWorkerSource(readFileSync(new URL(chunkName, assets), 'utf8
 function inlineWorkerSource(chunk) {
   const blob = /new Blob\(\[[^\]]*?,\s*([\w$]+)\]/.exec(chunk);
   assert.ok(blob, 'The player chunk has no inline worker');
-  const name = blob[1].replace(/\$/g, '\\$');
+  const name = RegExp.escape(blob[1]);
   const start = new RegExp('[\\s,;{(]' + name + '=(["\'`])').exec(chunk);
   assert.ok(start, 'The inline worker source was not found');
   const quote = start[1];

@@ -3,13 +3,14 @@
   "current": "1.4",
   "candidate": "1.5",
   "candidate_key": "1.5",
-  "status": "pending-review",
+  "status": "accepted",
   "upstream": "https://github.com/jaseg/lolcat/tags",
   "source_path": "platform/sources.lock",
   "strategy": "archive-pin",
   "evidence": {
     "archive": "https://github.com/jaseg/lolcat/archive/refs/tags/v1.5.tar.gz",
-    "sha256": "2af79bed90e0bda52ae500d16e7e7022037fad10c487c317e7f0ff17ec4b14f5"
+    "sha256": "2af79bed90e0bda52ae500d16e7e7022037fad10c487c317e7f0ff17ec4b14f5",
+    "review": "Reviewed both upstream commits since v1.4 and verified the archive SHA-256. Refreshed the byte-I/O patch, preserving the end-of-line colour reset and cc reset. Host output comparisons, ASan/UBSan checks and the production RISC-V/musl cross-build pass."
   },
   "pin_files_updated": [
     "platform/sources.lock"

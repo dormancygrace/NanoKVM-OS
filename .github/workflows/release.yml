@@ -8,8 +8,8 @@ name: Release
 #
 # The build job has no secrets. The sign job runs in the protected `release`
 # environment, so the signing keys are used only after a maintainer approves
-# the run. It signs the packages that changed and both indexes, and attaches
-# them to immutable os-packages-v* technical releases. Public OS releases
+# the run. It signs the packages that changed and both indexes, then
+# stages them as temporary Actions artifacts for Pages. Public OS releases
 # contain corresponding source and checksums; SD image releases also include
 # the stock Sipeed migration package.
 # A patch release is published at once, which publishes its packages (apk-repository.yml); a minor release and a pushed tag
@@ -47,6 +47,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/release.yml
+      - scripts/pages_store.py
       - .github/actions/**
       - scripts/next-release.py
       - scripts/publish-release.sh
@@ -283,6 +284,19 @@ jobs:
       - name: Remove the keys
         if: always()
         run: rm -rf "$RUNNER_TEMP/keys"
+
+      - name: Stage signed packages for Pages
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/pages_store.py --stage "$OUT/assets/packages" --kind os --tag "$NANOKVM_VERSION"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.candidate.outputs.upload == 'true'
+        with:
+          name: pages-candidate-os-${{ needs.build.outputs.version }}
+          path: ${{ env.OUT }}/assets/packages
+          retention-days: 90
 
       - name: Release
         env:

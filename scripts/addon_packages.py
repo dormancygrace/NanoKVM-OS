@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Validate independent add-ons while assembling the signed Pages repository.
 
-Pages discovers add-on releases and verifies bytes against their published
-checksums. Its generated addons.json records those checks for index signing;
+Pages verifies retained add-on objects and incoming production candidates
+against their checksums. Legacy release URLs are accepted only for import. Its generated addons.json records those checks for index signing;
 OS builds neither consume nor produce an add-on version snapshot.
 """
 import hashlib
@@ -11,8 +11,7 @@ import re
 import subprocess
 
 
-# The add-ons released apart from NanoKVM OS, each as releases of its own,
-# NAME-VERSION-rN, of this repository: RustDesk by the RustDesk add-on
+# Add-ons published apart from NanoKVM OS, with NAME-VERSION-rN version tags: RustDesk by the RustDesk add-on
 # workflow, the others by the add-on workflow (addon.yml). Pages indexes
 # them without an OS release. No published release pins one from the
 # archived NanoKVM-OS-packages repository.
@@ -75,7 +74,8 @@ def manifest(data):
     for name, item in packages.items():
         if not re.fullmatch(r'[a-z0-9][a-z0-9+_.-]*[.]apk', name):
             raise ValueError(f'Invalid add-on filename: {name}')
-        if not item['url'].startswith(SOURCES):
+        if not (item['url'].startswith(SOURCES) or re.fullmatch(
+                r'https://dormancygrace[.]github[.]io/NanoKVM-OS/package-store/objects/[a-f0-9]{64}/' + re.escape(name), item['url'])):
             raise ValueError(f'Invalid add-on source: {name}')
         if not re.fullmatch(r'[a-f0-9]{64}', item['sha256']):
             raise ValueError(f'Invalid add-on SHA256: {name}')

@@ -11,6 +11,12 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import release_assets as assets
+import pages_store as store
+import hashlib
+import io
+import zipfile
+import importlib.util
+from unittest import mock
 
 STUB = r"""#!/usr/bin/env python3
 import json, os, sys
@@ -60,8 +66,6 @@ elif cmd == 'edit':
     if '--notes-file' in a:
         r['body'] = Path(a[a.index('--notes-file')+1]).read_text()
     if '--draft=false' in a:
-        if tag.startswith('v'):
-            assert not state['releases']['os-packages-' + tag]['draft']
         r['draft'] = False
 else:
     raise AssertionError(a)
@@ -134,80 +138,30 @@ class ReleaseStorageTests(unittest.TestCase):
             assets.split(self.directory)
         self.assertFalse((self.directory / 'public').exists())
 
-    def test_publish_orders_storage_before_os_and_dispatches_last(self):
+    def test_only_os_downloads_are_published(self):
         assets.split(self.directory)
         result, state = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        public, storage = state['releases']['v3.3.1'], state['releases']['os-packages-v3.3.1']
+        self.assertEqual(set(state['releases']), {'v3.3.1'})
+        public = state['releases']['v3.3.1']
         self.assertFalse(public['draft'])
-        self.assertFalse(storage['draft'])
-        self.assertTrue(storage['prerelease'])
-        self.assertFalse(storage['latest'])
-        self.assertIn(assets.marker('v3.3.1'), public['body'])
         self.assertEqual({a['name'] for a in public['assets']}, {
             'SHA256SUMS', 'NanoKVM-OS-v3.3.1-source.tar.xz', 'NanoKVM-OS-v3.3.1.img.zip'})
-        self.assertEqual(state['calls'][-1], ['workflow', 'run', 'apk-repository.yml', '--ref', 'main'])
-        create = next(c for c in state['calls'] if c[:3] == ['release', 'create', 'v3.3.1'])
-        self.assertIn(self.env['SHA'], create)
-        self.assertIn(self.env['PREVIOUS'], create)
+        self.assertFalse(any(c[0] == 'workflow' for c in state['calls']))
 
-    def manually_publish_os_after_failed_storage(self):
+    def test_published_assets_are_verified_and_never_replaced(self):
         assets.split(self.directory)
-        result, state = self.invoke(DRAFT='true', FAIL_PUBLISH='os-packages-v3.3.1')
-        self.assertNotEqual(result.returncode, 0)
-        self.assertTrue(state['releases']['os-packages-v3.3.1']['draft'])
-        state['releases']['v3.3.1']['draft'] = False
-        self.state.write_text(json.dumps(state))
-        return state
-
-    def test_manual_publication_refuses_missing_incomplete_or_corrupt_storage(self):
-        state = self.manually_publish_os_after_failed_storage()
-        snapshot = json.dumps(state)
-        for problem in ('missing', 'missing-index', 'published-missing-index', 'bad-hash', 'missing-apk-with-valid-checksums'):
-            with self.subTest(problem=problem):
-                state = json.loads(snapshot)
-                storage = state['releases']['os-packages-v3.3.1']
-                if problem == 'missing':
-                    del state['releases']['os-packages-v3.3.1']
-                elif problem in ('missing-index', 'published-missing-index'):
-                    storage['draft'] = problem != 'published-missing-index'
-                    storage['assets'] = [a for a in storage['assets'] if a['name'] != 'Packages.adb']
-                elif problem == 'bad-hash':
-                    next(a for a in storage['assets'] if a['name'].endswith('.apk'))['data'] = 'corrupt'
-                else:
-                    storage['assets'] = [a for a in storage['assets'] if not a['name'].endswith('.apk')]
-                    sums = next(a for a in storage['assets'] if a['name'] == 'SHA256SUMS')
-                    sums['data'] = ''.join(line + '\n' for line in sums['data'].splitlines()
-                                           if not line.endswith('.apk'))
-                count = len(state['calls'])
-                self.state.write_text(json.dumps(state))
-                result, after = self.invoke()
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn('os-packages-v3.3.1', result.stderr)
-                self.assertFalse(any(c[0] == 'workflow' or c[:2] == ['release', 'edit']
-                                     for c in after['calls'][count:]))
-
-    def test_resume_rejects_corrupt_original_storage_or_public_downloads(self):
-        assets.split(self.directory)
-        result, state = self.invoke(DRAFT='true')
+        result, state = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)
-        snapshot = json.dumps(state)
-        for tag, name in [('os-packages-v3.3.1', 'nanokvm-3.3.1-r0.apk'),
-                          ('v3.3.1', 'NanoKVM-OS-v3.3.1.img.zip')]:
-            for corruption in ('bytes', 'missing'):
-                with self.subTest(tag=tag, corruption=corruption):
-                    state = json.loads(snapshot)
-                    if corruption == 'bytes':
-                        next(a for a in state['releases'][tag]['assets'] if a['name'] == name)['data'] = 'corrupt'
-                    else:
-                        state['releases'][tag]['assets'] = [a for a in state['releases'][tag]['assets'] if a['name'] != name]
-                    self.state.write_text(json.dumps(state))
-                    count = len(state['calls'])
-                    result, state = self.invoke()
-                    self.assertNotEqual(result.returncode, 0)
-                    self.assertTrue(state['releases']['v3.3.1']['draft'])
-                    self.assertFalse(any(c[0] == 'workflow' or c[:2] in (['release', 'edit'], ['release', 'upload'])
-                                         for c in state['calls'][count:]))
+        count = len(state['calls'])
+        result, state = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(c[:2] in (['release', 'edit'], ['release', 'upload'])
+                             for c in state['calls'][count:]))
+        next(a for a in state['releases']['v3.3.1']['assets'] if a['name'].endswith('.img.zip'))['data'] = 'corrupt'
+        self.state.write_text(json.dumps(state))
+        result, _ = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
 
     def test_beta_never_becomes_latest(self):
         for suffix in ('source.tar.xz', 'img.zip'):
@@ -226,6 +180,107 @@ class ReleaseStorageTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(state['releases'], {})
         self.assertEqual(len(state['calls']), 1)
+
+
+class PagesStoreTests(unittest.TestCase):
+    def test_retention_separates_channels_and_addons(self):
+        items = {}
+        published = set()
+        for kind, tags in [('os', ['v4.0.0', 'v4.0.1', 'v4.0.2', 'v4.0.3',
+                                  'v4.1.0-beta.1', 'v4.1.0-beta.2']),
+                           ('addon', ['nanokvm-ipmi-0.1.0-r0', 'nanokvm-ipmi-0.1.0-r1',
+                                      'nanokvm-ipmi-0.1.0-r2', 'nanokvm-ipmi-0.1.0-r3'])]:
+            for tag in tags:
+                items[store.identity(kind, tag)] = dict(kind=kind, tag=tag, files={})
+                if kind == 'os':
+                    published.add(tag)
+        result = store.retained(items, published)
+        self.assertEqual(set(result), {'os/v4.0.1', 'os/v4.0.2', 'os/v4.0.3', 'os/v4.1.0-beta.2',
+                                      'addon/nanokvm-ipmi-0.1.0-r1', 'addon/nanokvm-ipmi-0.1.0-r2',
+                                      'addon/nanokvm-ipmi-0.1.0-r3'})
+        # A draft cannot evict the current stable release set.
+        items['os/v5.0.0'] = dict(kind='os', tag='v5.0.0', files={})
+        self.assertEqual(set(store.retained(items, published)), set(result) | {'os/v5.0.0'})
+
+    def test_cleanup_preserves_os_releases_and_user_downloads(self):
+        spec = importlib.util.spec_from_file_location('cleanup', ROOT / 'scripts/cleanup-release-packages.py')
+        cleanup = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cleanup)
+        releases = [dict(id=1, tag_name='v4.0.0', draft=False, assets=[
+            dict(id=10, name='nanokvm-4.0.0-r0.apk'), dict(id=11, name='NanoKVM-OS-v4.0.0.img.zip'),
+            dict(id=12, name='NanoKVM-OS-v4.0.0-source.tar.xz'), dict(id=13, name='nanokvm_4.0.0.tar.gz')]),
+            dict(id=2, tag_name='os-packages-v4.0.0', draft=False, assets=[]),
+            dict(id=3, tag_name='nanokvm-ipmi-0.1.0-r0', draft=False, assets=[])]
+        changes = cleanup.plan(releases)
+        self.assertEqual(changes, [dict(tag='v4.0.0', assets=[dict(id=10, name='nanokvm-4.0.0-r0.apk')]),
+                                   dict(release=2, tag='os-packages-v4.0.0'),
+                                   dict(release=3, tag='nanokvm-ipmi-0.1.0-r0')])
+
+    def test_only_production_workflow_provenance_is_accepted(self):
+        run = dict(path='.github/workflows/release.yml', event='workflow_dispatch', head_branch='main',
+                   head_repository={'full_name': store.a.REPOSITORY})
+        self.assertTrue(store.trusted_run(run, 'os'))
+        for change in [dict(event='pull_request'), dict(head_branch='feature/foo'),
+                       dict(head_repository={'full_name': 'someone/fork'}), dict(path='.github/workflows/ci.yml')]:
+            with self.subTest(change=change):
+                self.assertFalse(store.trusted_run({**run, **change}))
+        self.assertFalse(store.trusted_run(run, 'addon'))
+
+    def test_object_paths_and_hashes_are_verified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = store.Store(tmp)
+            item = s.put('test.apk', b'payload')
+            self.assertEqual(s.get(item), b'payload')
+            for change in [{'path': '../outside'}, {'path': 'https://example.org/key'},
+                           {'sha256': '0' * 64}, {'size': 900}]:
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    s.get({**item, **change})
+            s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {'test.apk': item})
+            with self.assertRaisesRegex(ValueError, 'immutable'):
+                s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {})
+
+    def test_candidate_checksums_paths_and_producer_kind(self):
+        tag = 'nanokvm-ipmi-0.1.0-r0'
+        def archive(extra=None, checksum=None):
+            data = io.BytesIO()
+            with zipfile.ZipFile(data, 'w') as z:
+                z.writestr('snapshot.json', json.dumps(dict(kind='addon', tag=tag)))
+                z.writestr(tag + '.apk', b'payload')
+                z.writestr('SHA256SUMS', (checksum or hashlib.sha256(b'payload').hexdigest()) + '  ' + tag + '.apk\n')
+                if extra:
+                    z.writestr(extra, b'bad')
+            return data.getvalue()
+        with tempfile.TemporaryDirectory() as tmp:
+            s = store.Store(tmp)
+            s.candidate(archive(), 'addon')
+            self.assertIn('addon/' + tag, s.snapshots)
+            for data, kind in [(archive('../escape'), 'addon'), (archive(checksum='0' * 64), 'addon'),
+                               (archive(), 'os')]:
+                with self.assertRaises(ValueError):
+                    s.candidate(data, kind)
+    def test_ingest_checks_provenance_and_consumes_all_completed_candidates(self):
+        # Independent producer runs must survive a superseded Pages dispatch.
+        artifacts = [dict(id=i, name='pages-candidate-test', expired=False,
+                          workflow_run={'id': i}, archive_download_url=f'https://api.github.com/artifact/{i}')
+                     for i in (1, 2, 3, 4)]
+        def fetch(url, *args):
+            if '/actions/artifacts?' in url:
+                return json.dumps(dict(artifacts=artifacts)).encode()
+            if '/actions/runs/' in url:
+                i = int(url.rsplit('/', 1)[1])
+                return json.dumps(dict(path='.github/workflows/addon.yml',
+                    event='pull_request' if i == 3 else 'workflow_dispatch',
+                    head_branch='main', head_repository={'full_name': store.a.REPOSITORY},
+                    status='in_progress' if i == 4 else 'completed')).encode()
+            return url.encode()
+        with tempfile.TemporaryDirectory() as tmp:
+            s = store.Store(tmp)
+            with mock.patch.object(store.a, 'fetch', side_effect=fetch), mock.patch.object(s, 'candidate') as candidate:
+                s.ingest()
+            self.assertEqual(candidate.call_args_list, [mock.call(b'https://api.github.com/artifact/1', 'addon'),
+                                                       mock.call(b'https://api.github.com/artifact/2', 'addon')])
+            self.assertEqual(s.seen, {1, 2, 3})
+
 
 
 if __name__ == '__main__':

@@ -123,7 +123,7 @@ those releases remains in 3.4 and 3.5; removal is planned for 3.6 after an audit
 
 ## Package publication and retention
 
-GitHub Releases contain OS releases only: corresponding source, checksums,
+New GitHub Releases contain OS releases only: corresponding source, checksums,
 and, when built, the SD image and stock migration archive. APKs, indexes and
 add-on downloads live on GitHub Pages, including RustDesk's corresponding
 source and APKBUILD. Add-on version tags reserve package revisions without
@@ -131,7 +131,9 @@ creating GitHub Releases.
 
 Pages retains the current stable OS release and two previous stable releases,
 only the latest beta, and the current version plus two previous versions of
-each add-on. Packages shared by retained releases remain available even when
+each add-on. RustDesk corresponding sources and APKBUILDs are exempt from
+retention and remain available for installed binaries. Packages shared by
+retained releases remain available even when
 originally built earlier. The stable and beta repository URLs do not change.
 The beta feed selects the newer of the current stable and beta releases;
 switching back to stable still uses the stable index and permits downgrades.
@@ -148,11 +150,14 @@ channel is retained in addition to the published releases.
 
 Deployments are serialized, and losing a pending workflow dispatch does not
 lose a candidate: the next assembly scans all outstanding artifacts. A missing
-catalog, corrupted object, reused version with different bytes, or site larger
-than 950 MB stops publication and leaves the existing site intact. Resolve a
+catalog, corrupted object, version reused from a different source commit,
+or site larger than 950 MB stops publication and leaves the existing site intact. Resolve a
 failed Pages deployment within the artifact retention period. For a rejected
 rebuild of an existing version, remove the conflicting transport artifact;
 never replace the already deployed version's bytes. Publish a new version.
+Candidates and catalog snapshots record their full source commit. A signing
+retry can reuse the original candidate only for the same commit; rebuilding
+the same version from another commit is refused before public release upload.
 
 ### First migration from release assets
 
@@ -164,16 +169,19 @@ as their source and fail if the catalog is missing; bootstrap is never an
 implicit fallback.
 
 Verify the deployed catalog, signed stable/beta/add-on indexes and their APKs
-before separately removing legacy technical/add-on releases. Keep the add-on
-Git tags, which prevent reusing package revisions. Historical source records
-inside already shipped RustDesk APKs still name their original release URL;
-the migrated sources are available under `package-store/sources/<tag>/`.
-This PR does not delete existing releases or change a running device.
+before separately removing legacy technical/add-on releases. Existing RustDesk
+Releases remain as source-only archives so already installed APK source links
+continue working; their APKs are removed. Keep the add-on
+Git tags, which prevent reusing package revisions. Corresponding sources are also archived permanently under
+`package-store/sources/<tag>/`, including versions older than the binary
+retention window.
+Migration and cleanup are separate operator actions; ordinary publication
+does not delete existing GitHub Releases or change a running device.
 
 To review the one-time cleanup, run `python3 scripts/cleanup-release-packages.py`.
 After verification, `--apply` checks every retained Pages object and verifies
 all three deployed indexes with apk-tools 3 before deleting legacy technical
-and add-on releases. It also removes APKs and package metadata from older
+and add-on releases (except legacy RustDesk source archives). It also removes APKs and package metadata from older
 all-in-one OS releases and filters their SHA256SUMS, preserving every public
 OS release, image, source archive and migration download. Git tags remain.
 The script needs authenticated `gh`, `GH_TOKEN` for API reads, and host `apk`.

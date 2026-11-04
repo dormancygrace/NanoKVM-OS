@@ -128,7 +128,8 @@ production candidates. Retry a Pages failure by rerunning APK repository on
 main, without rebuilding the add-on.
 
 Pages keeps the current version and two previous versions of each add-on,
-including corresponding sources. Users update through Software → Add-ons;
+with corresponding sources and APKBUILDs retained permanently. Existing legacy
+RustDesk Releases keep their source assets so installed source links remain valid. Users update through Software → Add-ons;
 APK checks compatibility with their installed OS. OS publication does not pin
 or roll back independent add-ons. See [publication and retention](../../docs/UPDATES.md#package-publication-and-retention).
 

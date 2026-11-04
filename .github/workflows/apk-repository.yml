@@ -50,7 +50,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: gh workflow run apk-repository.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH"
+          TRIGGER_RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          if [ -n "$TRIGGER_RUN" ]; then
+            # Dry runs have build artifacts, never production candidates.
+            gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$TRIGGER_RUN/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.expired == false) | .name' > "$RUNNER_TEMP/candidates"
+            grep -q '^pages-candidate-' "$RUNNER_TEMP/candidates" || exit 0
+          fi
+          gh workflow run apk-repository.yml --repo "$GITHUB_REPOSITORY" --ref "$DEFAULT_BRANCH"
 
   assemble:
     name: Assemble and check

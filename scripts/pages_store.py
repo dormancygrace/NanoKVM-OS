@@ -17,6 +17,7 @@ import stat
 import tempfile
 import urllib.error
 import zipfile
+import uuid
 
 import addon_packages
 from release_assets import REQUIRED, TECHNICAL
@@ -80,7 +81,7 @@ class Store:
     def __init__(self, cache):
         self.cache = Path(cache)
         self.cache.mkdir(parents=True, exist_ok=True)
-        self.snapshots, self.seen = {}, set()
+        self.snapshots, self.seen, self.sources = {}, set(), {}
 
     def put(self, name, data, path=None):
         filename(name)
@@ -107,7 +108,7 @@ class Store:
         return data
 
     def load(self):
-        data = json.loads(a.fetch(BASE + '/' + CATALOG))
+        data = read_catalog()
         if data['schema'] != 1:
             raise ValueError('Unsupported Pages catalog schema')
         for key, item in data['snapshots'].items():
@@ -116,16 +117,21 @@ class Store:
             for name in item['files']:
                 filename(name)
         self.snapshots = data['snapshots']
+        self.sources = data.get('sources', {})
         self.seen = set(data['artifacts'])
 
-    def add(self, kind, tag, files):
+    def add(self, kind, tag, files, commit):
         key = identity(kind, tag)
-        item = {'kind': kind, 'tag': tag, 'files': files}
+        commit_sha(commit)
+        item = {'kind': kind, 'tag': tag, 'files': files, 'commit': commit}
         if key in self.snapshots and self.snapshots[key] != item:
             raise ValueError(f'Refusing to replace immutable snapshot {key}')
         self.snapshots[key] = item
+        for f in files.values():
+            if f['path'].startswith('package-store/sources/'):
+                self.sources[f['path']] = f
 
-    def candidate(self, data, expected_kind):
+    def candidate(self, data, expected_kind, expected_commit=None):
         # Never extract an untrusted ZIP onto the host filesystem.
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             names = z.namelist()
@@ -136,9 +142,11 @@ class Store:
                 mode = entry.external_attr >> 16
                 if entry.is_dir() or (stat.S_IFMT(mode) and not stat.S_ISREG(mode)):
                     raise ValueError('Candidate contains a non-regular file')
-            meta = json.loads(z.read('snapshot.json'))
+            meta = snapshot_meta(z)
             kind, tag = meta['kind'], meta['tag']
             identity(kind, tag)
+            if expected_commit is not None and meta['commit'] != expected_commit:
+                raise ValueError('Candidate commit differs from its producer run')
             if kind != expected_kind:
                 raise ValueError('Candidate kind differs from its producer workflow')
             sums = a.checksums(z.read('SHA256SUMS').decode())
@@ -177,7 +185,7 @@ class Store:
                 raise ValueError('Missing add-on APK')
             if kind == 'addon' and tag.startswith('nanokvm-rustdesk-') and len(files) != 3:
                 raise ValueError('RustDesk requires corresponding source and APKBUILD')
-            self.add(kind, tag, files)
+            self.add(kind, tag, files, meta['commit'])
 
     def ingest(self):
         # Scan ALL pending production artifacts. GitHub concurrency replaces
@@ -205,7 +213,7 @@ class Store:
                 continue
             if run['status'] != 'completed':
                 continue  # Its workflow_run event schedules another pass.
-            self.candidate(a.fetch(artifact['archive_download_url']), WORKFLOWS[workflow])
+            self.candidate(a.fetch(artifact['archive_download_url']), WORKFLOWS[workflow], run['head_sha'])
             self.seen.add(artifact['id'])
 
     def bootstrap(self):
@@ -231,7 +239,7 @@ class Store:
                 files[name] = self.put(name, old_file(source, name))
                 if files[name]['size'] != size:
                     raise ValueError('Legacy package size mismatch')
-            self.add('os', r['tag_name'], files)
+            self.add('os', r['tag_name'], files, tag_commit(r['tag_name']))
         pins = a.independent_addons(a.REPOSITORY, keep=3)
         by_tag = {r['tag_name']: r for r in inventory()}
         for name, pin in pins.items():
@@ -240,7 +248,17 @@ class Store:
             if tag.startswith('nanokvm-rustdesk-'):
                 for n in ('APKBUILD', f'nanokvm-rustdesk-{addon_packages.TAG.fullmatch(tag)[2]}-source.tar.gz'):
                     files[n] = self.put(n, old_file(by_tag[tag], n), f'package-store/sources/{tag}/{n}')
-            self.add('addon', tag, files)
+            self.add('addon', tag, files, tag_commit(tag))
+
+        # Corresponding sources outlive binary retention and installed devices.
+        for tag, release in by_tag.items():
+            match = addon_packages.TAG.fullmatch(tag)
+            if not match or match[1] != 'nanokvm-rustdesk' or release['draft']:
+                continue
+            for name in ('APKBUILD', f'nanokvm-rustdesk-{match[2]}-source.tar.gz'):
+                path = f'package-store/sources/{tag}/{name}'
+                if path not in self.sources:
+                    self.sources[path] = self.put(name, old_file(release, name), path)
 
     def render(self, output):
         public = {r['tag_name']: r for r in inventory() if not r['draft'] and r.get('published_at') and a.VERSION.fullmatch(r['tag_name'])}
@@ -286,13 +304,55 @@ class Store:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if not target.exists():
                     shutil.copyfile(self.cache / f['path'], target)
+        for f in self.sources.values():
+            data = self.get(f)
+            target = output / f['path']
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
         catalog = output / CATALOG
         catalog.parent.mkdir(parents=True, exist_ok=True)
-        catalog.write_text(json.dumps({'schema': 1, 'snapshots': self.snapshots, 'artifacts': sorted(self.seen)}, sort_keys=True) + '\n')
+        catalog.write_text(json.dumps({'schema': 1, 'snapshots': self.snapshots, 'sources': self.sources, 'artifacts': sorted(self.seen)}, sort_keys=True) + '\n')
         total = sum(p.stat().st_size for p in output.rglob('*') if p.is_file())
         if total > LIMIT:
             raise ValueError(f'Pages site {total} bytes exceeds {LIMIT}; deployment refused')
         print(f'Pages: {len(self.snapshots)} snapshots, {total:,} bytes')
+
+
+def read_catalog():
+    # Pages caches the mutable catalog for ten minutes. Immutable object URLs
+    # can remain cached; each catalog read must observe the latest deployment.
+    return json.loads(a.fetch(BASE + '/' + CATALOG + '?fresh=' + uuid.uuid4().hex))
+
+
+def commit_sha(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{40}', value):
+        raise ValueError('A full source commit is required')
+    return value
+
+
+def snapshot_meta(archive):
+    if archive.getinfo('snapshot.json').file_size > 4096:
+        raise ValueError('Oversized snapshot metadata')
+    meta = json.loads(archive.read('snapshot.json'))
+    identity(meta['kind'], meta['tag'])
+    commit_sha(meta['commit'])
+    return meta
+
+
+def tag_commit(tag):
+    ref = json.loads(a.fetch(f'https://api.github.com/repos/{a.REPOSITORY}/git/ref/tags/{tag}', 'application/vnd.github+json'))['object']
+    for _ in range(8):
+        if ref['type'] == 'commit':
+            return commit_sha(ref['sha'])
+        if ref['type'] != 'tag':
+            break
+        ref = json.loads(a.fetch(f'https://api.github.com/repos/{a.REPOSITORY}/git/tags/{ref["sha"]}', 'application/vnd.github+json'))['object']
+    raise ValueError(f'Tag does not resolve to a commit: {tag}')
+
+
+def same_commit(actual, expected):
+    if commit_sha(actual) != commit_sha(expected):
+        raise ValueError('Version is already staged from a different commit; use a new version')
 
 
 def trusted_run(run, kind=None):
@@ -304,11 +364,12 @@ def trusted_run(run, kind=None):
                  re.fullmatch(r'(release/\d+\.\d+|v\d+\.\d+\.\d+(?:-beta\.\d+)?)', run['head_branch']))))
 
 
-def already_staged(tag):
+def already_staged(tag, commit):
     # Only production uses this; dry runs never call --stage.
     try:
-        catalog = json.loads(a.fetch(BASE + '/' + CATALOG))
+        catalog = read_catalog()
         if 'os/' + tag in catalog['snapshots']:
+            same_commit(catalog['snapshots']['os/' + tag]['commit'], commit)
             return True
     except urllib.error.HTTPError as error:
         if error.code != 404:
@@ -321,16 +382,23 @@ def already_staged(tag):
                 run_id = artifact['workflow_run']['id']
                 run = json.loads(a.fetch(f'https://api.github.com/repos/{a.REPOSITORY}/actions/runs/{run_id}', 'application/vnd.github+json'))
                 if trusted_run(run, 'os'):
+                    with zipfile.ZipFile(io.BytesIO(a.fetch(artifact['archive_download_url']))) as archive:
+                        meta = snapshot_meta(archive)
+                    if meta['kind'] != 'os' or meta['tag'] != tag:
+                        raise ValueError('Candidate metadata differs from its artifact name')
+                    same_commit(meta['commit'], run['head_sha'])
+                    same_commit(meta['commit'], commit)
                     return True
         if len(batch) < 100:
             return False
         page += 1
 
 
-def stage(directory, kind, tag):
+def stage(directory, kind, tag, commit):
     """Add transport metadata only after the production build has passed checks."""
     identity(kind, tag)
-    if kind == 'os' and os.environ.get('GITHUB_ACTIONS') == 'true' and already_staged(tag):
+    commit_sha(commit)
+    if kind == 'os' and os.environ.get('GITHUB_ACTIONS') == 'true' and already_staged(tag, commit):
         print(f'{tag}: reusing the original staged packages')
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write('upload=false\n')
@@ -348,7 +416,7 @@ def stage(directory, kind, tag):
     for name, sha in sums.items():
         if hashlib.sha256((directory / name).read_bytes()).hexdigest() != sha:
             raise ValueError(f'Candidate checksum mismatch: {name}')
-    (directory / 'snapshot.json').write_text(json.dumps({'kind': kind, 'tag': tag}) + '\n')
+    (directory / 'snapshot.json').write_text(json.dumps({'kind': kind, 'tag': tag, 'commit': commit}) + '\n')
     if os.environ.get('GITHUB_OUTPUT'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write('upload=true\n')
@@ -362,9 +430,10 @@ def main():
     parser.add_argument('--stage', type=Path)
     parser.add_argument('--kind', choices=['os', 'addon'])
     parser.add_argument('--tag')
+    parser.add_argument('--commit', default=os.environ.get('GITHUB_SHA'))
     args = parser.parse_args()
     if args.stage:
-        stage(args.stage, args.kind, args.tag)
+        stage(args.stage, args.kind, args.tag, args.commit)
         return
     if not args.output:
         parser.error('--output required')

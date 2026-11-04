@@ -43,7 +43,7 @@ cmd, tag = a[1:3]
 r = state['releases'].get(tag)
 if cmd == 'create':
     assert r is None and '--draft' in a
-    state['releases'][tag] = dict(tag_name=tag, draft=True, assets=[],
+    state['releases'][tag] = dict(tag_name=tag, draft=True, assets=[], target_commitish=a[a.index('--target')+1],
         body=a[a.index('--notes')+1] if '--notes' in a else 'Generated notes',
         prerelease='--prerelease' in a, latest='--latest=false' not in a)
 elif cmd == 'upload':
@@ -163,6 +163,17 @@ class ReleaseStorageTests(unittest.TestCase):
         result, _ = self.invoke()
         self.assertNotEqual(result.returncode, 0)
 
+    def test_draft_recut_does_not_publish_another_commits_downloads(self):
+        assets.split(self.directory)
+        result, state = self.invoke(DRAFT='true')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        count = len(state['calls'])
+        result, state = self.invoke(SHA='b' * 40)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('different commit', result.stderr)
+        self.assertTrue(state['releases']['v3.3.1']['draft'])
+        self.assertFalse(any(c[:2] in (['release', 'edit'], ['release', 'upload']) for c in state['calls'][count:]))
+
     def test_beta_never_becomes_latest(self):
         for suffix in ('source.tar.xz', 'img.zip'):
             old = 'NanoKVM-OS-v3.3.1' + ('-' if suffix.startswith('source') else '.') + suffix
@@ -210,11 +221,15 @@ class PagesStoreTests(unittest.TestCase):
             dict(id=10, name='nanokvm-4.0.0-r0.apk'), dict(id=11, name='NanoKVM-OS-v4.0.0.img.zip'),
             dict(id=12, name='NanoKVM-OS-v4.0.0-source.tar.xz'), dict(id=13, name='nanokvm_4.0.0.tar.gz')]),
             dict(id=2, tag_name='os-packages-v4.0.0', draft=False, assets=[]),
-            dict(id=3, tag_name='nanokvm-ipmi-0.1.0-r0', draft=False, assets=[])]
+            dict(id=3, tag_name='nanokvm-ipmi-0.1.0-r0', draft=False, assets=[]),
+            dict(id=4, tag_name='nanokvm-rustdesk-0.5.3-r6', draft=False, assets=[
+                dict(id=40, name='nanokvm-rustdesk-0.5.3-r6.apk'),
+                dict(id=41, name='nanokvm-rustdesk-0.5.3-source.tar.gz'), dict(id=42, name='APKBUILD')])]
         changes = cleanup.plan(releases)
         self.assertEqual(changes, [dict(tag='v4.0.0', assets=[dict(id=10, name='nanokvm-4.0.0-r0.apk')]),
                                    dict(release=2, tag='os-packages-v4.0.0'),
-                                   dict(release=3, tag='nanokvm-ipmi-0.1.0-r0')])
+                                   dict(release=3, tag='nanokvm-ipmi-0.1.0-r0'),
+                                   dict(tag='nanokvm-rustdesk-0.5.3-r6', assets=[dict(id=40, name='nanokvm-rustdesk-0.5.3-r6.apk')])])
 
     def test_only_production_workflow_provenance_is_accepted(self):
         run = dict(path='.github/workflows/release.yml', event='workflow_dispatch', head_branch='main',
@@ -235,16 +250,16 @@ class PagesStoreTests(unittest.TestCase):
                            {'sha256': '0' * 64}, {'size': 900}]:
                 with self.subTest(change=change), self.assertRaises(ValueError):
                     s.get({**item, **change})
-            s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {'test.apk': item})
+            s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {'test.apk': item}, 'a' * 40)
             with self.assertRaisesRegex(ValueError, 'immutable'):
-                s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {})
+                s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {}, 'a' * 40)
 
     def test_candidate_checksums_paths_and_producer_kind(self):
         tag = 'nanokvm-ipmi-0.1.0-r0'
         def archive(extra=None, checksum=None):
             data = io.BytesIO()
             with zipfile.ZipFile(data, 'w') as z:
-                z.writestr('snapshot.json', json.dumps(dict(kind='addon', tag=tag)))
+                z.writestr('snapshot.json', json.dumps(dict(kind='addon', tag=tag, commit='a' * 40)))
                 z.writestr(tag + '.apk', b'payload')
                 z.writestr('SHA256SUMS', (checksum or hashlib.sha256(b'payload').hexdigest()) + '  ' + tag + '.apk\n')
                 if extra:
@@ -254,6 +269,8 @@ class PagesStoreTests(unittest.TestCase):
             s = store.Store(tmp)
             s.candidate(archive(), 'addon')
             self.assertIn('addon/' + tag, s.snapshots)
+            with self.assertRaisesRegex(ValueError, 'commit differs'):
+                s.candidate(archive(), 'addon', 'b' * 40)
             for data, kind in [(archive('../escape'), 'addon'), (archive(checksum='0' * 64), 'addon'),
                                (archive(), 'os')]:
                 with self.assertRaises(ValueError):
@@ -270,16 +287,56 @@ class PagesStoreTests(unittest.TestCase):
                 i = int(url.rsplit('/', 1)[1])
                 return json.dumps(dict(path='.github/workflows/addon.yml',
                     event='pull_request' if i == 3 else 'workflow_dispatch',
-                    head_branch='main', head_repository={'full_name': store.a.REPOSITORY},
+                    head_branch='main', head_sha='a' * 40, head_repository={'full_name': store.a.REPOSITORY},
                     status='in_progress' if i == 4 else 'completed')).encode()
             return url.encode()
         with tempfile.TemporaryDirectory() as tmp:
             s = store.Store(tmp)
             with mock.patch.object(store.a, 'fetch', side_effect=fetch), mock.patch.object(s, 'candidate') as candidate:
                 s.ingest()
-            self.assertEqual(candidate.call_args_list, [mock.call(b'https://api.github.com/artifact/1', 'addon'),
-                                                       mock.call(b'https://api.github.com/artifact/2', 'addon')])
+            self.assertEqual(candidate.call_args_list, [mock.call(b'https://api.github.com/artifact/1', 'addon', 'a' * 40),
+                                                       mock.call(b'https://api.github.com/artifact/2', 'addon', 'a' * 40)])
             self.assertEqual(s.seen, {1, 2, 3})
+
+    def test_staged_os_reuse_requires_the_same_commit(self):
+        tag = 'v4.1.0'
+        catalog = {'snapshots': {'os/' + tag: {'commit': 'a' * 40}}}
+        with mock.patch.object(store, 'read_catalog', return_value=catalog):
+            self.assertTrue(store.already_staged(tag, 'a' * 40))
+            with self.assertRaisesRegex(ValueError, 'different commit'):
+                store.already_staged(tag, 'b' * 40)
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, 'w') as z:
+            z.writestr('snapshot.json', json.dumps(dict(kind='os', tag=tag, commit='a' * 40)))
+        def fetch(url, *args):
+            if '/actions/artifacts?' in url:
+                return json.dumps({'artifacts': [dict(name='pages-candidate-os-' + tag, expired=False,
+                    workflow_run={'id': 1}, archive_download_url='https://api.github.com/file')]}).encode()
+            if '/actions/runs/' in url:
+                return json.dumps(dict(path='.github/workflows/release.yml', event='workflow_dispatch',
+                    head_branch='main', head_sha='a' * 40, head_repository={'full_name': store.a.REPOSITORY})).encode()
+            return data.getvalue()
+        with mock.patch.object(store, 'read_catalog', return_value={'snapshots': {}}), mock.patch.object(store.a, 'fetch', side_effect=fetch):
+            self.assertTrue(store.already_staged(tag, 'a' * 40))
+            with self.assertRaisesRegex(ValueError, 'different commit'):
+                store.already_staged(tag, 'b' * 40)
+
+    def test_sources_survive_binary_retention_and_catalog_is_uncached(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = store.Store(tmp)
+            for n in range(4):
+                tag = f'nanokvm-rustdesk-0.5.6-r{n}'
+                path = f'package-store/sources/{tag}/APKBUILD'
+                s.add('addon', tag, {'APKBUILD': s.put('APKBUILD', str(n).encode(), path)}, 'a' * 40)
+            s.snapshots = store.retained(s.snapshots, set())
+            self.assertEqual(len(s.snapshots), 3)
+            self.assertEqual(len(s.sources), 4)
+        with mock.patch.object(store.a, 'fetch', return_value=b'{}') as fetch:
+            store.read_catalog()
+            store.read_catalog()
+            urls = [call.args[0] for call in fetch.call_args_list]
+            self.assertNotEqual(urls[0], urls[1])
+            self.assertTrue(all(url.startswith(store.BASE + '/' + store.CATALOG + '?fresh=') for url in urls))
 
 
 

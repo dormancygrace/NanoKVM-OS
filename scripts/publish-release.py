@@ -77,6 +77,8 @@ def main():
     version, repository = env['NANOKVM_VERSION'], env['GITHUB_REPOSITORY']
     current = release(repository, version)
     if current:
+        if current.get('target_commitish') != env['SHA']:
+            raise ValueError('Existing OS release targets a different commit; use a new version')
         verify_public_downloads(version, current)
         if current['draft'] and env['DRAFT'] != 'true':
             gh('release', 'edit', version, '--draft=false')

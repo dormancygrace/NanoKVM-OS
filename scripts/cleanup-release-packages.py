@@ -20,7 +20,13 @@ def plan(releases):
         tag = release['tag_name']
         if release['draft']:
             continue
-        if (addon_packages.TAG.fullmatch(tag) or
+        if tag.startswith('nanokvm-rustdesk-') and addon_packages.TAG.fullmatch(tag):
+            # Already installed APKs have immutable GitHub source URLs.
+            # Preserve these legacy source releases; remove binary assets only.
+            assets = [a for a in release['assets'] if a['name'] in TECHNICAL or a['name'].endswith('.apk')]
+            if assets:
+                result.append({'tag': tag, 'assets': assets})
+        elif (addon_packages.TAG.fullmatch(tag) or
                 (tag.startswith(STORAGE_PREFIX) and store.a.VERSION.fullmatch(tag[len(STORAGE_PREFIX):]))):
             result.append({'release': release['id'], 'tag': tag})
         elif re.fullmatch(r'v[0-9][A-Za-z0-9.-]*', tag):
@@ -66,6 +72,14 @@ def main():
         for item in s.snapshots.values():
             for f in item['files'].values():
                 s.get(f)
+        for f in s.sources.values():
+            s.get(f)
+        for release in releases:
+            match = addon_packages.TAG.fullmatch(release['tag_name'])
+            if match and match[1] == 'nanokvm-rustdesk' and not release['draft']:
+                for name in ('APKBUILD', f'nanokvm-rustdesk-{match[2]}-source.tar.gz'):
+                    if f'package-store/sources/{release["tag_name"]}/{name}' not in s.sources:
+                        raise ValueError('Permanent RustDesk source migration is incomplete')
         branch = store.a.alpine_branch()
         for prefix in ('alpine', 'beta/alpine', 'addons'):
             data = store.a.fetch(f'{store.BASE}/{prefix}/v{branch}/riscv64/Packages.adb')

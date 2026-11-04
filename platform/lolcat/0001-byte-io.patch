@@ -1,7 +1,8 @@
 lolcat: byte I/O instead of wide stdio
 
-lolcat 1.4 reads with fgetwc, writes with putwchar and formats every colour
-change with wprintf; on musl these are most of its time. The characters
+Introduced for lolcat 1.4, which reads with fgetwc, writes with putwchar
+and formats every colour change with wprintf; on musl these are most of
+its time. The characters
 are now read with read(2) into a buffer and decoded as UTF-8 here, written
 as their own bytes through an output buffer flushed when full and before
 waiting for input (so a partial line or tail -f shows at once), and the
@@ -12,6 +13,9 @@ UTF-8 sequence passes through instead of ending the input, and with
 --invert non-ASCII text is no longer turned into "?" (the original
 oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
 3.13 s -> 0.21 s, 25 KB 104 -> 32 ms.
+
+Refreshed for 1.5: keep the upstream end-of-line colour reset and reset
+cc so the next line starts coloured. Both reset escapes use our byte buffer.
 
 --- a/lolcat.c
 +++ b/lolcat.c
@@ -216,12 +220,15 @@ oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
                  }
  
                  if (escape_state == ST_NONE || escape_state == ST_ESC_CSI_TERM) {
-@@ -391,12 +518,12 @@
-                         l++;
+@@ -392,14 +519,14 @@
                          i = 0;
+                         cc = -1;
                          if (invert) {
 -                            wprintf(L"\033[49m");
 +                            out_lit("\033[49m");
+                         } else {
+-                            wprintf(L"\033[0m");
++                            out_lit("\033[0m");
                          }
  
                      } else {
@@ -231,7 +238,7 @@ oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
                          }
  
                          if (rgb) {
-@@ -415,12 +542,12 @@
+@@ -418,12 +545,12 @@
                                  c.g = lrintf((offset + (1.0f - offset) * (0.5f + 0.5f * sin(theta + 2 * M_PI / 3 ))) * 255.0f);
                                  c.b = lrintf((offset + (1.0f - offset) * (0.5f + 0.5f * sin(theta + 4 * M_PI / 3 ))) * 255.0f);
                              }
@@ -246,7 +253,7 @@ oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
                              }
  
                          } else {
-@@ -431,13 +558,13 @@
+@@ -434,13 +561,13 @@
                                      if (lookup >= ARRAY_SIZE(codes_gradient)) {
                                          lookup = 2*ARRAY_SIZE(codes_gradient) - 1 - lookup;
                                      }
@@ -262,7 +269,7 @@ oriented stdout before setlocale). On the C906 (1 GHz): 1 MB of dmesg
                                  }
                              }
                          }
-@@ -446,27 +573,32 @@
+@@ -449,27 +576,32 @@
              }
  
              if (escape_state != ST_ESC_CSI_TERM) {

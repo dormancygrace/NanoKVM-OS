@@ -1,0 +1,76 @@
+lolcat: keep complete terminal escape sequences together
+
+Addresses https://github.com/jaseg/lolcat/issues/50 and the idea in PR #53.
+ESC ( B must not receive a colour escape between ( and B. Unlike CSI,
+ordinary ESC sequences accept final bytes from 0x30, so ESC ( 0 must
+also finish correctly. Recognize a new ESC immediately after a complete
+ordinary sequence, preserving adjacent charset/colour sequences.
+
+Do not insert colour escapes before the BEL or ST terminating an OSC/DCS
+string; these bytes still belong to the sequence (upstream issue #42).
+
+--- a/lolcat.c
++++ b/lolcat.c
+@@ -108,6 +108,7 @@
+     ST_ESC_BEGIN,
+     ST_ESC_STRING,
+     ST_ESC_CSI,
++    ST_ESC_INTERMEDIATE,
+     ST_ESC_STRING_TERM,
+     ST_ESC_CSI_TERM,
+     ST_ESC_TERM,
+@@ -119,6 +120,7 @@
+     [ST_ESC_BEGIN]          = "BEGIN",
+     [ST_ESC_STRING]         = "STRING",
+     [ST_ESC_CSI]            = "CSI",
++    [ST_ESC_INTERMEDIATE]   = "INTERMEDIATE",
+     [ST_ESC_STRING_TERM]    = "STRING_TERM",
+     [ST_ESC_CSI_TERM]       = "CSI_TERM",
+     [ST_ESC_TERM]           = "TERM",
+@@ -127,7 +129,7 @@
+ static enum esc_st find_escape_sequences(wint_t c, enum esc_st st)
+ {
+ 
+-    if (st == ST_NONE || st == ST_ESC_CSI_TERM) {
++    if (st == ST_NONE || st == ST_ESC_CSI_TERM || st == ST_ESC_TERM) {
+         if (c == '\033') { /* Escape sequence YAY */
+             return ST_ESC_BEGIN;
+         } else {
+@@ -139,9 +141,19 @@
+             return ST_ESC_CSI;
+         } else if (c == 'P' || c == ']' || c == 'X' || c == '^' || c == '_') {
+             return ST_ESC_STRING;
++        } else if (0x20 <= c && c <= 0x2f) {
++            return ST_ESC_INTERMEDIATE;
+         } else {
+             return ST_ESC_TERM;
+         }
++
++    } else if (st == ST_ESC_INTERMEDIATE) {
++        /* ESC intermediate bytes are followed by a 0x30..0x7e final byte,
++         * e.g. ESC ( B (ASCII) or ESC ( 0 (line drawing). */
++        if (0x30 <= c && c <= 0x7e) {
++            return ST_ESC_TERM;
++        }
++        return st;
+ 
+     } else if (st == ST_ESC_CSI) {
+         if (0x40 <= c && c <= 0x7e) {
+@@ -152,7 +164,7 @@
+ 
+     } else if (st == ST_ESC_STRING) {
+         if (c == '\007') {
+-            return ST_NONE;
++            return ST_ESC_TERM;
+         } else if (c == '\033') {
+             return ST_ESC_STRING_TERM;
+         } else {
+@@ -161,7 +173,7 @@
+ 
+     } else if (st == ST_ESC_STRING_TERM) {
+         if (c == '\\') {
+-            return ST_NONE;
++            return ST_ESC_TERM;
+         } else {
+             return ST_ESC_STRING;
+         }

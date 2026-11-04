@@ -1,0 +1,34 @@
+lolcat: preserve line count with --invert and document the seed flag
+
+Addresses the remaining --invert newline reported in upstream issue #26.
+Do not add a blank line, or emit the initial foreground escape when colour
+is disabled for redirected output. For PR #65, correct the help to -S;
+retain the existing parser flag and Ruby-compatible spelling.
+
+--- a/lolcat.c
++++ b/lolcat.c
+@@ -44,7 +44,7 @@
+                         "             --no-force-locale, -l: Use encoding from system locale instead of\n"
+                         "                                    assuming UTF-8\n"
+                         "                      --random, -r: Random colors\n"
+-                        "                --seed <d>, -s <d>: Random colors based on given seed,\n"
++                        "                --seed <d>, -S <d>: Random colors based on given seed,\n"
+                         "                                    implies --random\n"
+                         "        --color_offset <d>, -o <d>: Start with a different color\n"
+                         "            --gradient <g>, -g <g>: Use color gradient from given start to end color,\n"
+@@ -453,11 +453,11 @@
+         esc256len[1][k] = snprintf(esc256[1][k], sizeof(esc256[1][k]), "\033[48;5;%dm", k);
+     }
+ 
+-    if (invert) {
++    if (invert && colors) {
+         if (ansi16) {
+-            out_lit("\033[30m\n");
+-        } else {
+-            out_lit("\033[38;5;16m\n");
++            out_lit("\033[30m");
++        } else {
++            out_lit("\033[38;5;16m");
+         }
+     }
+ 

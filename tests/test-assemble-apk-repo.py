@@ -482,7 +482,7 @@ class Fetch(unittest.TestCase):
                 raise a.urllib.error.HTTPError(request.full_url, answer, 'status', {}, None)
             return io.BytesIO(answer)
         answers_left = iter(answers)
-        return mock.patch.object(a.urllib.request, 'urlopen', urlopen)
+        return mock.patch.object(a.urllib.request, 'build_opener', return_value=mock.Mock(open=urlopen))
 
     def test_a_missing_file_is_retried_until_it_appears(self):
         sleeps = []
@@ -496,6 +496,16 @@ class Fetch(unittest.TestCase):
             with self.assertRaises(a.urllib.error.HTTPError):
                 a.fetch('https://example.invalid/x', sleep=sleeps.append)
         self.assertEqual(sleeps, list(a.RETRY_DELAYS))
+
+    def test_api_token_is_not_forwarded_to_download_storage(self):
+        request = a.urllib.request.Request('https://api.github.com/repos/example/actions/artifacts/1/zip',
+                                           headers={'Authorization': 'Bearer secret'})
+        redirect = a.DownloadRedirect()
+        for url, expected in [('https://api.github.com/other', 'Bearer secret'),
+                              ('https://storage.example/artifact.zip', None)]:
+            with self.subTest(url=url):
+                result = redirect.redirect_request(request, None, 302, 'Found', {}, url)
+                self.assertEqual(result.get_header('Authorization'), expected)
 
     def test_other_errors_fail_at_once(self):
         sleeps = []

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# Publish split release assets and dispatch the Pages repository workflow.
+# Publish public OS assets only; the workflow stages packages for Pages.
 set -euo pipefail
-exec python3 "$(dirname "$0")/publish-release.py"
+exec python3 "$(dirname "$0")/publish-release.py" "$@"

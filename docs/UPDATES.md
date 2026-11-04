@@ -79,10 +79,9 @@ or install the published EC key and current repository URL manually. The old
 RSA public key remains installed for historical packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The legacy index includes the nineteen core packages. The v3 index also
-includes RustDesk, whose APK v3 format cannot appear in a legacy index.
-RustDesk remains a separate add-on; install it from Software after updating
-the system. It is not installed in the full SD image.
+The OS indexes contain core packages only. RustDesk, IPMI and model packages
+come from the separately signed add-on index on Pages. Add-ons update
+independently of OS releases; RustDesk is not installed in the full SD image.
 
 ## Other migration cases
 
@@ -121,3 +120,73 @@ That repository stays at 3.3.0; subsequent releases are served on Pages.
 
 Releases before 3.3 receive no further fixes. Compatibility for upgrading from
 those releases remains in 3.4 and 3.5; removal is planned for 3.6 after an audit.
+
+## Package publication and retention
+
+New GitHub Releases contain OS releases only: corresponding source, checksums,
+and, when built, the SD image and stock migration archive. APKs, indexes and
+add-on downloads live on GitHub Pages, including RustDesk's corresponding
+source and APKBUILD. Add-on version tags reserve package revisions without
+creating GitHub Releases.
+
+Pages retains the current stable OS release and two previous stable releases,
+only the latest beta, and the current version plus two previous versions of
+each add-on. RustDesk corresponding sources and APKBUILDs are exempt from
+retention and remain available for installed binaries. Packages shared by
+retained releases remain available even when
+originally built earlier. The stable and beta repository URLs do not change.
+The beta feed selects the newer of the current stable and beta releases;
+switching back to stable still uses the stable index and permits downgrades.
+There is no general historical rollback selector.
+
+The Pages catalog (`package-store/catalog.json`) and its hash-checked files
+are the durable input to the next deployment. Completed production jobs stage
+`pages-candidate-*` Actions artifacts (90 days) as transport. The Pages workflow
+consumes all outstanding candidates, including those from a completed run
+whose later step failed. PR and dry-run artifacts are never candidates. An OS
+candidate is stored while its release is a draft, but enters an update index
+only after the public OS release is published. At most one pending draft per
+channel is retained in addition to the published releases.
+
+Deployments are serialized, and losing a pending workflow dispatch does not
+lose a candidate: the next assembly scans all outstanding artifacts. A missing
+catalog, corrupted object, version reused from a different source commit,
+or site larger than 950 MB stops publication and leaves the existing site intact. Resolve a
+failed Pages deployment within the artifact retention period. For a rejected
+rebuild of an existing version, remove the conflicting transport artifact;
+never replace the already deployed version's bytes. Publish a new version.
+Candidates and catalog snapshots record their full source commit. A signing
+retry can reuse the original candidate only for the same commit; rebuilding
+the same version from another commit is refused before public release upload.
+The complete public draft is uploaded and verified before its package candidate
+is uploaded. An interrupted draft upload can therefore be retried with the
+matching new assembly. Once the candidate exists, retries only verify and
+publish the original downloads; they never mix newly signed files into that pair.
+
+### First migration from release assets
+
+After merging the publication change, run **APK repository** on `main` with
+`bootstrap=true`. This imports the retained OS and add-on versions, their
+complete package sets and RustDesk source archives from the existing Releases.
+It does not delete or change those releases. Subsequent deployments use Pages
+as their source and fail if the catalog is missing; bootstrap is never an
+implicit fallback.
+
+Verify the deployed catalog, signed stable/beta/add-on indexes and their APKs
+before separately removing legacy technical/add-on releases. Existing RustDesk
+Releases remain as source-only archives so already installed APK source links
+continue working; their APKs are removed. Keep the add-on
+Git tags, which prevent reusing package revisions. Corresponding sources are also archived permanently under
+`package-store/sources/<tag>/`, including versions older than the binary
+retention window.
+Migration and cleanup are separate operator actions; ordinary publication
+does not delete existing GitHub Releases or change a running device.
+
+To review the one-time cleanup, run `python3 scripts/cleanup-release-packages.py`.
+After verification, `--apply` checks every retained Pages object and verifies
+all three deployed indexes with apk-tools 3 before deleting legacy technical
+and add-on releases (except legacy RustDesk source archives). It also removes APKs and package metadata from older
+all-in-one OS releases and filters their SHA256SUMS, preserving every public
+OS release, image, source archive and migration download. Git tags remain.
+The script needs authenticated `gh`, `GH_TOKEN` for API reads, and host `apk`.
+Cleanup is never run automatically by CI or by a normal Pages deployment.

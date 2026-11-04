@@ -1,17 +1,8 @@
 name: RustDesk add-on
 
-# Builds the optional RustDesk add-on (addons/rustdesk) and publishes it as a
-# release of its own, nanokvm-rustdesk-VERSION-rN: the APK, its corresponding
-# source with the vendored crates, the production APKBUILD and SHA256SUMS.
-# Run it by hand (Actions → RustDesk add-on → Run workflow) after merging a
-# change to the add-on. Nothing is signed here: the APK is an apk-tools 3
-# package that devices trust through the signed APK repository index. Pages
-# verifies each add-on release by its published checksum and signs the common
-# add-on repository index independently of OS releases. OS builds do not fetch
-# or pin add-ons.
-#
-# Pull requests that change the add-on's build, and dry runs, build and test
-# without publishing and keep the result as an artifact.
+# Builds RustDesk and its corresponding source, then stages them for Pages.
+# Lightweight version tags reserve revisions; no add-on Releases are created.
+# PRs and dry runs build only.
 on:
   workflow_dispatch:
     inputs:
@@ -22,6 +13,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/rustdesk.yml
+      - scripts/pages_store.py
       - scripts/build-rustdesk-addon.py
       - scripts/next-addon-revision.py
 
@@ -91,7 +83,7 @@ jobs:
             echo "version=$version"
             echo "revision=$revision"
             echo "tag=$tag"
-            echo "url=https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/nanokvm-rustdesk-$version-source.tar.gz"
+            echo "url=https://dormancygrace.github.io/NanoKVM-OS/package-store/sources/$tag/nanokvm-rustdesk-$version-source.tar.gz"
           } >> "$GITHUB_OUTPUT"
           echo "$tag"
 
@@ -177,7 +169,7 @@ jobs:
           key: ${{ steps.prepare.outputs.ccache-key }}
 
   publish:
-    name: Publish release
+    name: Stage for Pages
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
     needs: build
     runs-on: ubuntu-26.04
@@ -192,20 +184,19 @@ jobs:
           name: rustdesk-addon
           path: ${{ runner.temp }}/addon
 
-      # If a run fails after the release exists, dispatch Pages separately: a rerun
-      # would count that release and build the next revision.
-      - name: Publish release
+      - name: Reserve version and stage Pages candidate
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.build.outputs.tag }}
-          VERSION: ${{ needs.build.outputs.version }}
-          REVISION: ${{ needs.build.outputs.revision }}
         run: |
-          a=$RUNNER_TEMP/addon
-          # Not the repository's latest release: that is NanoKVM OS.
-          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
-            --title "RustDesk add-on $VERSION-r$REVISION" \
-            --notes "Optional RustDesk add-on for NanoKVM OS, built from $GITHUB_SHA. Devices can update it independently once the APK repository index has been signed and deployed." \
-            "$a"/*
-          # GITHUB_TOKEN release events do not start another workflow.
-          gh workflow run apk-repository.yml --ref main
+          set -euo pipefail
+          # create-ref fails on an existing tag: never replace a package version.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
+          python3 scripts/pages_store.py --stage "$RUNNER_TEMP/addon" --kind addon --tag "$TAG"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pages-candidate-${{ needs.build.outputs.tag }}
+          path: ${{ runner.temp }}/addon
+          retention-days: 90

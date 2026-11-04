@@ -1,20 +1,8 @@
 name: Add-on release
 
-# Builds an optional add-on from its recipe (addons/NAME/
-# addon.json, scripts/build-addon.py) and publishes it as a release of its
-# own, NAME-VERSION-rN: the APK and SHA256SUMS. Run it by hand (Actions →
-# Add-on release → Run workflow) after merging a change to the add-on. The APK
-# repository workflow then indexes it on Pages: devices get it without an OS
-# release. Nothing is signed here; devices trust the APK through the signed
-# repository index. OS builds do not fetch or pin add-ons. RustDesk has a
-# workflow of its own.
-#
-# A model add-on (nanokvm-model-*) is converted here: tpu/models/convert.sh
-# runs Sophgo's tpu-mlir container on the parts the recipe needs, and
-# stage.sh lays the models out as the device installs them.
-#
-# Pull requests that change an add-on or this build, and dry runs, build and
-# check without publishing and keep the result as an artifact.
+# Builds independent add-ons and stages validated candidates for Pages.
+# Lightweight version tags reserve revisions; no add-on Releases are created.
+# PRs and dry runs build only.
 on:
   workflow_dispatch:
     inputs:
@@ -31,6 +19,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/addon.yml
+      - scripts/pages_store.py
       - scripts/build-addon.py
       - scripts/addon_packages.py
       - scripts/next-addon-revision.py
@@ -283,7 +272,7 @@ jobs:
           retention-days: 14
 
   publish:
-    name: Publish release (${{ matrix.addon }})
+    name: Stage for Pages (${{ matrix.addon }})
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
     needs: [plan, build]
     runs-on: ubuntu-26.04
@@ -328,32 +317,18 @@ jobs:
               output.write('TAG=' + package.stem + '\n')
           PY
 
-      # If a run fails after the release exists, dispatch Pages separately: a rerun
-      # would count that release and build the next revision.
-      - name: Publish release
+      - name: Reserve version and stage Pages candidate
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          a=$RUNNER_TEMP/addon
-          # Not the repository's latest release: that is NanoKVM OS.
-          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
-            --title "Add-on $TAG" \
-            --notes "Optional NanoKVM OS add-on $TAG, built from $GITHUB_SHA. Devices can install or update it independently of OS releases once the APK repository index has been signed and deployed." \
-            "$a"/*
+          # create-ref fails on an existing tag: never replace a package version.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
+          python3 scripts/pages_store.py --stage "$RUNNER_TEMP/addon" --kind addon --tag "$TAG"
 
-  repository:
-    name: Update the signed APK repository
-    if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
-    needs: publish
-    runs-on: ubuntu-26.04
-    permissions:
-      actions: write
-    steps:
-      # GITHUB_TOKEN release events do not start another workflow. Wait until
-      # all selected releases exist, then request one index rebuild.
-      - name: Dispatch repository publication
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: gh workflow run apk-repository.yml --ref main
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pages-candidate-${{ matrix.addon }}
+          path: ${{ runner.temp }}/addon
+          retention-days: 90

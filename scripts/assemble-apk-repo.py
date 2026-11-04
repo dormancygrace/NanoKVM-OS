@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble the NanoKVM OS APK repository that GitHub Pages serves, from the
-packages and indexes attached to the GitHub releases.
+"""Shared repository rendering and legacy release import for pages_store.py.
 
 The newest eligible published OS release supplies each channel's core packages
 and legacy index. Stable excludes prereleases; beta includes stable and beta.
@@ -25,7 +24,6 @@ The result, below OUTPUT:
   index.html             the repository lines
   latest-image/          automatic README badge and redirect to its image release
 """
-import argparse
 import gzip
 import hashlib
 from html import escape
@@ -40,7 +38,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import addon_packages
 from release_assets import STORAGE_PREFIX, STORAGE_MARKER, storage_tag, image_versions
@@ -59,6 +57,14 @@ RETRY_DELAYS = (5, 10, 20, 30, 60)
 RETRY_STATUS = {404, 429, 500, 502, 503, 504}
 
 
+class DownloadRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, url):
+        redirected = super().redirect_request(request, fp, code, message, headers, url)
+        if redirected is not None and urlsplit(url).netloc != urlsplit(request.full_url).netloc:
+            redirected.remove_header('Authorization')
+        return redirected
+
+
 def fetch(url, accept='application/octet-stream', sleep=time.sleep):
     headers = {'Accept': accept, 'User-Agent': 'nanokvm-apk-repo'}
     token = os.environ.get('GH_TOKEN')
@@ -68,7 +74,7 @@ def fetch(url, accept='application/octet-stream', sleep=time.sleep):
     # starts this script, can answer 404 for a while; so can a busy server.
     for delay in (*RETRY_DELAYS, None):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=120) as response:
+            with urllib.request.build_opener(DownloadRedirect()).open(urllib.request.Request(url, headers=headers), timeout=120) as response:
                 return response.read()
         except urllib.error.HTTPError as error:
             if delay is None or error.code not in RETRY_STATUS:
@@ -330,25 +336,10 @@ def assemble_addons(output, branch, independent, fetch=fetch):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--keep', type=int, default=6, help='releases whose packages stay available (default 6)')
-    parser.add_argument('--repository', default=REPOSITORY)
-    args = parser.parse_args()
-    if args.keep < 1:
-        parser.error('--keep must be at least 1')
-    published = releases(args.repository, channel='beta')
-    addons = independent_addons(args.repository, args.keep)
-    for channel, output in [('stable', args.output), ('beta', args.output / 'beta')]:
-        tag, names = assemble(output, published, args.keep, alpine_branch(),
-                              ROOT / 'firmware/alpine/keys', channel=channel)
-        print(f'{channel}: indexes of {tag}, {len(names)} packages')
-        for name in names:
-            print(f'  {name}')
-    names = assemble_addons(args.output, alpine_branch(), addons)
-    print(f'add-ons: {len(names)} packages')
-    for name in names:
-        print(f'  {name}')
+    # Kept as a compatible command entry point. Legacy release readers above
+    # are used only by the explicit first migration in pages_store.
+    from pages_store import main as assemble_pages
+    assemble_pages()
 
 
 if __name__ == '__main__':

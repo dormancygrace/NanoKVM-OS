@@ -2,7 +2,9 @@ import { registerRecordingAudio, type AudioPacket } from '@/lib/recording-audio.
 import { RtpClock, type RecordingEnd } from '@/lib/recording-source.ts';
 
 import type { ReceivedAudio } from './audio-record.worker.ts';
-import AudioWorker from './audio-record.worker.ts?worker';
+// Inline: a tab left open across a device reboot would fetch a worker script
+// over its stale connection and hold every frame until that fetch failed.
+import AudioWorker from './audio-record.worker.ts?worker&inline';
 
 let unavailable = false;
 // Install before negotiation, for bundled video audio and standalone USB audio.

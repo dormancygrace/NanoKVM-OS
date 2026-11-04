@@ -15,7 +15,9 @@ import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse';
 import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
-import DirectWorker from './direct.worker.ts?worker';
+// Inline: a tab left open across a device reboot would fetch the worker script
+// over its stale connection, and the player would wait until that fetch failed.
+import DirectWorker from './direct.worker.ts?worker&inline';
 import { ScreenViewport } from './viewport.tsx';
 
 export const H264Direct = ({

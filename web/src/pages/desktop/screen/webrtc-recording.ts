@@ -1,7 +1,9 @@
 import { RtpClock, type RecordingEnd, type RecordingSource } from '@/lib/recording-source.ts';
 
 import type { ReceivedFrame } from './webrtc-record.worker.ts';
-import RecordWorker from './webrtc-record.worker.ts?worker';
+// Inline: a tab left open across a device reboot would fetch a worker script
+// over its stale connection and hold every frame until that fetch failed.
+import RecordWorker from './webrtc-record.worker.ts?worker&inline';
 
 // A transform worker that fails (its chunk gone after an update) holds every
 // frame; the player then reconnects, and this page stays without transforms.

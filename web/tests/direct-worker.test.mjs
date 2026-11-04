@@ -6,9 +6,26 @@ import vm from 'node:vm';
 // Exercise the actual production worker bundle with deterministic browser API
 // doubles. This does not qualify a hardware decoder or real browser playback.
 const assets = new URL('../dist/assets/', import.meta.url);
-const bundleName = readdirSync(assets).find((n) => /^direct\.worker-.*\.js$/.test(n));
-assert.ok(bundleName, 'Build the web app before running the worker tests');
-const bundle = readFileSync(new URL(bundleName, assets), 'utf8');
+const chunkName = readdirSync(assets).find((n) => /^h264-direct-.*\.js$/.test(n));
+assert.ok(chunkName, 'Build the web app before running the worker tests');
+const bundle = inlineWorkerSource(readFileSync(new URL(chunkName, assets), 'utf8'));
+
+// The player imports the worker with ?worker&inline: its bundle is the string
+// literal that the player chunk wraps in a Blob for the worker's URL.
+function inlineWorkerSource(chunk) {
+  const blob = /new Blob\(\[[^\]]*?,\s*([\w$]+)\]/.exec(chunk);
+  assert.ok(blob, 'The player chunk has no inline worker');
+  const name = blob[1].replace(/\$/g, '\\$');
+  const start = new RegExp('[\\s,;{(]' + name + '=(["\'`])').exec(chunk);
+  assert.ok(start, 'The inline worker source was not found');
+  const quote = start[1];
+  const from = start.index + start[0].length - 1;
+  let end = from + 1;
+  while (chunk[end] !== quote) end += chunk[end] === '\\' ? 2 : 1;
+  const source = vm.runInNewContext(chunk.slice(from, end + 1));
+  assert.equal(typeof source, 'string');
+  return source;
+}
 
 function harness(options = {}) {
   let now = 100;

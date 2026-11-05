@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { Alert, Button, Input, Progress } from 'antd';
 import { DownloadIcon, FileIcon, FolderIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as storage from '@/api/storage.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
+
+import { dropEntries, planFromDrop, planFromFiles, type UploadPlan } from './user-disk-upload.ts';
 
 const bytes = (value: number) =>
   value >= 1048576 ? (value / 1048576).toFixed(1) + ' MiB' : (value / 1024).toFixed(1) + ' KiB';
@@ -25,9 +27,13 @@ export const UserDiskFiles = ({
   const [error, setError] = useState('');
   const [progress, setProgress] = useState<number>();
   const [uploadName, setUploadName] = useState('');
+  const [count, setCount] = useState({ done: 0, total: 0 });
+  const [summary, setSummary] = useState('');
+  const [dragging, setDragging] = useState(false);
   const running = useRef(false);
   const abort = useRef<AbortController | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const folderPicker = useRef<HTMLInputElement>(null);
   const key = 'settings.usb.userDisk.files.';
   const blocked = host || busy;
   const join = (name: string) => (folder === '.' ? name : folder + '/' + name);
@@ -71,26 +77,74 @@ export const UserDiskFiles = ({
     }
   }
 
-  async function upload(files: File[]) {
+  // A name that exists or is invalid on FAT32 is skipped, so the same folder
+  // can be uploaded again after a partial failure. Disk-level errors stop.
+  async function upload(plan: UploadPlan) {
+    if (!plan.files.length && !plan.dirs.length) return;
+    setSummary('');
     await run(async () => {
-      abort.current = new AbortController();
-      for (const file of files) {
-        setUploadName(file.name);
-        setProgress(0);
-        const rsp = await storage.uploadUserDiskFile(
-          join(file.name),
-          file,
-          abort.current.signal,
-          setProgress
-        );
-        if (rsp.code !== 0) {
-          failure(rsp.msg);
-          break;
+      const signal = (abort.current = new AbortController()).signal;
+      const skipped: string[] = [];
+      const under = (path: string) => skipped.some((dir) => path.startsWith(dir + '/'));
+      const skip = (msg: string) => msg === 'exists' || msg === 'path';
+      let done = 0;
+      setCount({ done, total: plan.files.length });
+      try {
+        for (const dir of plan.dirs) {
+          if (under(dir)) continue;
+          setUploadName(dir + '/');
+          setProgress(0);
+          const rsp = await storage.makeUserDiskDirectory(join(dir), true);
+          if (rsp.code === 0) continue;
+          if (!skip(rsp.msg)) return failure(rsp.msg);
+          skipped.push(dir);
         }
+        for (const { path, file } of plan.files) {
+          if (under(path)) continue;
+          setUploadName(path);
+          setProgress(0);
+          const rsp = await storage.uploadUserDiskFile(join(path), file, signal, setProgress);
+          if (rsp.code === 0) setCount({ done: ++done, total: plan.files.length });
+          else if (skip(rsp.msg)) skipped.push(path);
+          else return failure(rsp.msg);
+        }
+      } finally {
+        if (plan.files.length > 1 || skipped.length) {
+          const names = skipped.slice(0, 10).join(', ') + (skipped.length > 10 ? ', …' : '');
+          setSummary(
+            t(key + 'uploaded', { done, total: plan.files.length }) +
+              (skipped.length ? ' ' + t(key + 'skipped', { names }) : '')
+          );
+        }
+        if (!signal.aborted) await refresh(folder);
       }
-      await refresh(folder);
     });
   }
+
+  // Keep the browser from opening a dropped file in place of this page, even
+  // while uploads are not possible.
+  const dropProps = {
+    onDragOver: (event: DragEvent) => {
+      if (!event.dataTransfer.types.includes('Files')) return;
+      event.preventDefault();
+      const ok = !blocked && !!listing;
+      event.dataTransfer.dropEffect = ok ? 'copy' : 'none';
+      setDragging(ok);
+    },
+    onDragLeave: (event: DragEvent) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+    },
+    onDrop: (event: DragEvent) => {
+      if (!event.dataTransfer.types.includes('Files')) return;
+      event.preventDefault();
+      setDragging(false);
+      if (blocked || !listing || running.current) return;
+      const dropped = dropEntries(event.dataTransfer);
+      void planFromDrop(dropped)
+        .then(upload)
+        .catch(() => failure('io'));
+    }
+  };
 
   async function remove(entry: storage.UserDiskEntry) {
     const ok = await confirmAction({
@@ -107,7 +161,13 @@ export const UserDiskFiles = ({
   }
 
   return (
-    <section className="text-fg border-line min-w-0 space-y-3 border-t pt-4">
+    <section
+      className={
+        'text-fg border-line min-w-0 space-y-3 rounded-sm border-t pt-4' +
+        (dragging ? ' outline-2 outline-offset-4 outline-blue-500 outline-dashed' : '')
+      }
+      {...dropProps}
+    >
       <div className="font-medium">{t(key + 'title')}</div>
       {host ? (
         <Alert type="info" showIcon title={t(key + 'host')} />
@@ -144,12 +204,34 @@ export const UserDiskFiles = ({
               onChange={(event) => {
                 const files = Array.from(event.target.files ?? []);
                 event.target.value = '';
-                if (files.length) void upload(files);
+                if (files.length) void upload(planFromFiles(files));
+              }}
+            />
+            <Button disabled={blocked || !listing} onClick={() => folderPicker.current?.click()}>
+              {t(key + 'uploadFolder')}
+            </Button>
+            <input
+              ref={folderPicker}
+              type="file"
+              multiple
+              {...{ webkitdirectory: '' }}
+              className="hidden"
+              aria-label={t(key + 'uploadFolder')}
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                event.target.value = '';
+                if (files.length) void upload(planFromFiles(files));
               }}
             />
           </div>
+          {listing && <p className="text-fg-muted m-0 text-xs">{t(key + 'dropHint')}</p>}
           {progress !== undefined && (
             <div className="space-y-2">
+              {count.total > 1 && (
+                <div className="text-fg-muted text-xs">
+                  {t(key + 'progress', { done: count.done, total: count.total })}
+                </div>
+              )}
               <div className="text-sm break-all">{uploadName}</div>
               <Progress percent={progress} status="active" />
               <div className="text-fg-muted text-xs">{t(key + 'transferring')}</div>
@@ -158,7 +240,27 @@ export const UserDiskFiles = ({
           )}
           {listing && (
             <>
-              <div className="text-sm break-all">/{folder === '.' ? '' : folder}</div>
+              <nav className="flex flex-wrap items-center gap-1 text-sm break-all">
+                {['', ...(folder === '.' ? [] : folder.split('/'))].map((part, i, parts) => {
+                  const target = parts.slice(1, i + 1).join('/') || '.';
+                  return (
+                    <span key={i} className="flex items-center gap-1">
+                      {i > 1 && <span className="text-fg-muted">/</span>}
+                      {i === parts.length - 1 ? (
+                        <span>{part || '/'}</span>
+                      ) : (
+                        <button
+                          className="nanokvm-button-base cursor-pointer underline underline-offset-4 disabled:cursor-default disabled:opacity-50"
+                          disabled={blocked}
+                          onClick={() => void run(() => refresh(target))}
+                        >
+                          {part || '/'}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </nav>
               <div className="text-fg-muted text-xs">
                 {t(key + 'space', { free: bytes(listing.free), total: bytes(listing.total) })}
               </div>
@@ -257,6 +359,9 @@ export const UserDiskFiles = ({
             </>
           )}
         </>
+      )}
+      {summary && (
+        <Alert type="info" showIcon closable title={summary} onClose={() => setSummary('')} />
       )}
       {error && <Alert type="error" showIcon title={error} />}
     </section>

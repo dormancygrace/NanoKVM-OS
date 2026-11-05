@@ -143,8 +143,11 @@ export function uploadUserDiskFile(
       progress(total ? Math.floor((loaded * 100) / total) : 0)
   });
 }
-export function makeUserDiskDirectory(path: string) {
-  return http.post(userFilesUrl + '/mkdir', null, { params: { path } });
+// existsOk: an existing folder of that name is success (a folder upload).
+export function makeUserDiskDirectory(path: string, existsOk = false) {
+  return http.post(userFilesUrl + '/mkdir', null, {
+    params: existsOk ? { path, existsOk: 1 } : { path }
+  });
 }
 export function deleteUserDiskFile(path: string) {
   return http.post(userFilesUrl + '/delete', null, { params: { path } });

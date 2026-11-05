@@ -10,7 +10,7 @@ in [docs/BUILD.md](../docs/BUILD.md) and [platform/README.md](../platform/README
 | [boards/](boards/README.md) | SG2002 device trees for alpha, beta and PCIe, and the first-boot board detection |
 | [buildroot/](buildroot/README.md) | Buildroot external tree: cross toolchain, host tools and initramfs utilities only |
 | `cpu/` | C906 assembly for Go's TLS ChaCha20-Poly1305 and `bytes.Index`, and opt-in Go sysmon policies |
-| `crypto/` | cryptodev-linux with the NanoKVM patch, and SG2002 crypto benchmarks |
+| `crypto/` | OpenSSL code for the C906 and the SG2002 crypto engine, and crypto benchmarks |
 | `mpi/` | Media library compatibility code and the vendor ISP object list |
 | `probes/` | Capture and encoder probes built by `scripts/build-capture-qualification.py` |
 | `sensor/` | LT6911 HDMI receiver driver patches |

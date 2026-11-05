@@ -62,19 +62,6 @@
       }
     },
     {
-      "name": "cryptodev",
-      "path": "platform/sources.lock",
-      "pattern": "^cryptodev\\s+\\S+\\s+([0-9a-f]{40})",
-      "kind": "github-commit",
-      "repo": "cryptodev-linux/cryptodev-linux",
-      "branch": null,
-      "lock_entry": "cryptodev",
-      "pull_request": {
-        "id": "cryptodev",
-        "mode": "git-pin"
-      }
-    },
-    {
       "name": "sipeed-sdk",
       "path": "platform/sources.lock",
       "pattern": "^sipeed-sdk\\s+\\S+\\s+([0-9a-f]{40})",

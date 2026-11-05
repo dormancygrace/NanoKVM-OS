@@ -91,6 +91,7 @@ export const UserDiskFiles = ({
       setCount({ done, total: plan.files.length });
       try {
         for (const dir of plan.dirs) {
+          if (signal.aborted) break;
           if (under(dir)) continue;
           setUploadName(dir + '/');
           setProgress(0);

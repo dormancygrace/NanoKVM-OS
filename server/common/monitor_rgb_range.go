@@ -48,6 +48,29 @@ func profileWithoutRGBRange(edid []byte) []byte {
 	return nil
 }
 
+// edidDeclaresRGBRange reports a CTA Video Capability Data Block with QS=1 in
+// a valid EDID: the source may then send full-range RGB, and says so.
+func edidDeclaresRGBRange(edid []byte) bool {
+	for block := 1; block <= int(edid[126]) && (block+1)*128 <= len(edid); block++ {
+		x := edid[block*128 : (block+1)*128]
+		end := int(x[2])
+		if x[0] != 2 || end < 4 || end > 127 {
+			continue
+		}
+		for i := 4; i < end; {
+			tag, length := x[i]>>5, int(x[i]&31)
+			if i+1+length > end {
+				break
+			}
+			if tag == 7 && length >= 2 && x[i+1] == 0 && x[i+2]&0x40 != 0 {
+				return true
+			}
+			i += 1 + length
+		}
+	}
+	return false
+}
+
 // rgbRangeSuccessorLocked finds the shipped profile whose earlier version,
 // without the RGB range block, has the recorded hash: the receiver then holds
 // that profile as an earlier release programmed it. Same resolution and rate,

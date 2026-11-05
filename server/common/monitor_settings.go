@@ -85,6 +85,10 @@ func readMonitorEDIDLocked() ([]byte, error) { return GetKvmVision().ReadMonitor
 // Set once the first start found a Cube receiver EDID within 720p/1080p at 60 Hz.
 var monitorEDIDCheckedFile = "/etc/kvm/monitor_edid_checked"
 
+// Set once the first start found a Cube or Lite receiver EDID declaring the
+// RGB range selectable, or programmed a profile that does.
+var monitorRGBRangeCheckedFile = "/etc/kvm/monitor_rgb_range_checked"
+
 // ApplyMonitorSettings resolves all requested fields before programming the
 // receiver. Intermediate orientations/resolutions are never sent to HDMI.
 func ApplyMonitorSettings(update MonitorSettings) error {
@@ -111,9 +115,10 @@ var monitorDeferredFile = "/etc/kvm/monitor_edid_deferred"
 // start after an installation or an update of the system reads the receiver
 // and programs the saved profile again only when the
 // receiver holds another EDID (receiverHoldsLocked). It returns the programmed
-// profile, or "" when nothing was programmed. A Cube is checked
-// once instead and only reprogrammed when its receiver advertises modes it
-// cannot capture (checkCubeMonitorEDIDLocked).
+// profile, or "" when nothing was programmed. A Cube or Lite that needs a
+// power cycle after a write is checked once instead, and reprogrammed only
+// when its receiver advertises modes it cannot capture or does not declare
+// the RGB range selectable (checkCubeMonitorEDIDLocked).
 func ProgramMonitorProfileOnFirstStart(hdmiDisabled bool) (string, error) {
 	monitorMutex.Lock()
 	defer monitorMutex.Unlock()
@@ -128,7 +133,7 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	if hw.requireHardware() != nil {
 		return "", nil
 	}
-	deferred := false
+	deferred, rgbRange := false, false
 	if data, err := os.ReadFile(monitorDeferredFile); err == nil {
 		if strings.TrimSpace(string(data)) != "1" {
 			return "", fmt.Errorf("invalid deferred monitor request")
@@ -141,16 +146,15 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	// maintenance. It must finish on Cube/Lite too, after the new pool boots.
 	if monitorReplugPendingLocked(hw) {
 		log.Infof("the last HDMI reconnect after an EDID write did not complete; applying the profile again")
-	} else if !deferred {
+	} else if !deferred && hw.powerCycle() {
 		// Before the recorded-profile check: an image that identified a Cube as
-		// PCIe recorded the 100 Hz profile it programmed there. A Cube or Lite
-		// with an LT6911UXC captures every profile it can hold.
-		if hw.powerCycle() {
-			if receiverChip() == "ux" {
-				return "", nil
-			}
-			return checkCubeMonitorEDIDLocked(hw)
+		// PCIe recorded the 100 Hz profile it programmed there.
+		path, missing, err := checkCubeMonitorEDIDLocked(hw)
+		if path != "" || err != nil || !missing {
+			return path, err
 		}
+		rgbRange = true
+	} else if !deferred {
 		if recorded, err := os.ReadFile(monitorEDIDHashFile); err == nil {
 			hash := strings.TrimSpace(string(recorded))
 			if retiredMonitorProfiles[hash] {
@@ -194,6 +198,9 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 		if err := os.Remove(monitorDeferredFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return path, fmt.Errorf("clearing deferred monitor request: %w", err)
 		}
+	}
+	if rgbRange {
+		return path, markMonitorRGBRangeCheckedLocked()
 	}
 	return path, nil
 }
@@ -287,50 +294,81 @@ func heldProfileNameLocked(hash string) string {
 	return names[0]
 }
 
-// A Cube receiver keeps its EDID in flash across reinstalls, and writing it
-// needs a power cycle, so the first start does not program it. An EDID left by
-// another system or by an image that identified the board as PCIe can still
-// advertise 1920x1080 at 100 Hz or larger modes, which the source then sends
-// and the Cube cannot capture. Read it once and program the saved Cube profile
-// only then; the power-cycle reminder follows from the write.
-func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (string, error) {
-	if _, err := os.Stat(monitorEDIDCheckedFile); err == nil {
-		return "", nil
+// A Cube or Lite receiver keeps its EDID in flash across reinstalls, and
+// writing it needs a power cycle, so the first start programs it only for a
+// reason, found by reading it once:
+//   - An EDID left by another system or by an image that identified the board
+//     as PCIe can advertise 1920x1080 at 100 Hz or larger modes, which the
+//     source then sends and an LT6911C cannot capture.
+//   - An EDID without the RGB range declaration, such as the factory one, makes
+//     the source send limited-range RGB at 1920x1080 60 Hz, which the receiver
+//     reads as full range: the picture is washed out.
+//
+// An LT6911C gets the saved Cube profile here. For an LT6911UXC, which takes
+// every profile, rgbRangeMissing asks the caller to program the saved profile
+// and then to call markMonitorRGBRangeCheckedLocked. The power-cycle reminder
+// follows from the write.
+func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (path string, rgbRangeMissing bool, err error) {
+	_, statErr := os.Stat(monitorEDIDCheckedFile)
+	modesChecked := statErr == nil || receiverChip() == "ux"
+	_, statErr = os.Stat(monitorRGBRangeCheckedFile)
+	rangeChecked := statErr == nil
+	if modesChecked && rangeChecked {
+		return "", false, nil
 	}
 	edid, err := hw.read()
 	if err == nil && !edidValid(edid) {
 		err = errors.New("invalid EDID header or checksum")
 	}
 	if err != nil {
-		return "", fmt.Errorf("checking the Cube receiver EDID: %w", err)
+		return "", false, fmt.Errorf("checking the Cube receiver EDID: %w", err)
 	}
 	mode, beyond := edidBeyondCube(edid)
-	if !beyond {
-		return "", markMonitorEDIDCheckedLocked()
+	switch {
+	case !modesChecked && beyond:
+		mode = "advertises " + mode + ", beyond the Cube's 720p/1080p at 60 Hz"
+	case rangeChecked || edidDeclaresRGBRange(edid):
+		if !rangeChecked {
+			err = markMonitorRGBRangeCheckedLocked()
+		}
+		if !modesChecked {
+			err = errors.Join(err, markMonitorEDIDCheckedLocked())
+		}
+		return "", false, err
+	case receiverChip() == "ux":
+		log.Warnf("the HDMI receiver EDID does not declare the RGB range selectable, so sources send limited-range RGB and the picture is washed out; programming the saved profile, which takes effect after the next power cycle")
+		return "", true, nil
+	default:
+		mode = "does not declare the RGB range selectable, so sources send limited-range RGB and the picture is washed out"
 	}
 	height := savedMonitorResolutionLocked()
 	if height != 720 && height != 1080 && !widerMonitorProfile(height) {
 		height = 0 // Auto: the Cube's 1080p profile
 	}
-	path := cubeMonitorProfilePath(height)
+	path = cubeMonitorProfilePath(height)
 	if widerMonitorProfile(height) {
 		// A 16:10 or 21:9 profile the receiver takes (saved only then) stays.
 		path = monitorProfilePath(height)
 	}
-	log.Warnf("the HDMI receiver EDID advertises %s, beyond the Cube's 720p/1080p at 60 Hz; programming %s", mode, path)
+	log.Warnf("the HDMI receiver EDID %s; programming %s, which takes effect after the next power cycle", mode, path)
 	if err := hw.apply(path); err != nil {
-		return "", err
+		return "", false, err
 	}
 	if height != savedMonitorResolutionLocked() {
 		if err := atomicWriteMonitorFile(monitorResolutionFile, []byte(fmt.Sprint(height)), ".monitor_resolution-*"); err != nil {
-			return path, fmt.Errorf("saving monitor resolution failed: %w", err)
+			return path, false, fmt.Errorf("saving monitor resolution failed: %w", err)
 		}
 	}
-	return path, markMonitorEDIDCheckedLocked()
+	// Every Cube profile declares the RGB range.
+	return path, false, errors.Join(markMonitorEDIDCheckedLocked(), markMonitorRGBRangeCheckedLocked())
 }
 
 func markMonitorEDIDCheckedLocked() error {
 	return atomicWriteMonitorFile(monitorEDIDCheckedFile, []byte("1\n"), ".monitor_edid_checked-*")
+}
+
+func markMonitorRGBRangeCheckedLocked() error {
+	return atomicWriteMonitorFile(monitorRGBRangeCheckedFile, []byte("1\n"), ".monitor_rgb_range_checked-*")
 }
 
 func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBackend) error {

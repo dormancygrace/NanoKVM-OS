@@ -128,6 +128,15 @@ the gadget too, so the computer loses and regains the user disk for a
 moment; what it wrote is on the image, which the NanoKVM does not touch
 while the disk is on.
 
+While the disk is off, the file list under the card browses, uploads,
+downloads and deletes its files. Files and whole folders can be picked or
+dropped onto the list; folders are created first (`mkdir` with
+`existsOk=1`), and a name that exists or that FAT32 rejects is skipped and
+reported, so an interrupted folder upload can simply be repeated. Existing
+files are never overwritten. Dropping a folder preserves empty subfolders;
+the folder picker only reports paths containing files. Each request mounts
+and unmounts the image, about 0.1 s per small file on a Cube.
+
 The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
 fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET; an
 optional `userDisk` boolean turns the user disk on or off (omitted keeps it; on

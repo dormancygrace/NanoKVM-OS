@@ -314,12 +314,21 @@ func (s *Service) UploadUserDiskFile(c *gin.Context) {
 		return nil, uploadUserDisk(root, name, body, c.Request.ContentLength)
 	})
 }
+// existsOk=1 lets a folder upload recreate a tree that is already there. A
+// file with that name is still an error.
 func (s *Service) MakeUserDiskDirectory(c *gin.Context) {
+	existsOk := c.Query("existsOk") == "1"
 	s.userDiskFiles(c, true, func(root *os.Root, name string) (any, error) {
 		if name == "." {
 			return nil, errUserDiskPath
 		}
-		return nil, root.Mkdir(name, 0700)
+		err := root.Mkdir(name, 0700)
+		if existsOk && errors.Is(err, os.ErrExist) {
+			if info, statErr := root.Lstat(name); statErr == nil && info.IsDir() {
+				return nil, nil
+			}
+		}
+		return nil, err
 	})
 }
 func (s *Service) DeleteUserDiskFile(c *gin.Context) {

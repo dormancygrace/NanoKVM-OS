@@ -101,6 +101,28 @@ func TestUserDiskFilesRoundTripAndNoOverwrite(t *testing.T) {
 		t.Fatal(entries)
 	}
 }
+func TestUserDiskMkdirExistsOk(t *testing.T) {
+	files := mockUserDiskMount(t)
+	s := &Service{}
+	if err := os.WriteFile(filepath.Join(files, "notes"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	mkdir := func(name string) int {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/?existsOk=1&path="+url.QueryEscape(name), nil)
+		s.MakeUserDiskDirectory(c)
+		return fileCode(t, rec)
+	}
+	for _, name := range []string{"BIOS", "BIOS"} {
+		if code := mkdir(name); code != 0 {
+			t.Fatalf("mkdir %s: %d", name, code)
+		}
+	}
+	if code := mkdir("notes"); code == 0 {
+		t.Fatal("a file passed as an existing folder")
+	}
+}
 func TestUserDiskFilesRefuseHostAndUnreadableState(t *testing.T) {
 	mockUserDiskMount(t)
 	s := &Service{}

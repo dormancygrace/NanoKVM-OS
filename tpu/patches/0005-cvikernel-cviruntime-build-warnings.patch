@@ -1,0 +1,104 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] cvikernel, cviruntime: fix the build warnings
+
+The quantized matrix multiplication (tiu_matrix_multiplication_qm.c)
+checked its parameters into a status it never read: stop on a wrong
+parameter like the plain matrix multiplication does. Remove two debug
+counters from the YOLO detection. getChipType() reads the header through
+a stack stream: with a heap BaseStream GCC inlined each derived
+destructor into the virtual delete and warned (-Warray-bounds) that
+~FdStream reaches past a 24-byte BufferStream.
+---
+--- a/cvikernel/src/cv181x/tiu_matrix_multiplication_qm.c
++++ b/cvikernel/src/cv181x/tiu_matrix_multiplication_qm.c
+@@ -1,4 +1,6 @@
+ #include "cvkcv181x.h"
++#include <assert.h>
++#include <stdio.h>
+ 
+ static int8_t check_matrix(cvk_context_t *ctx, const cvk_ml_t *m)
+ {
+@@ -149,5 +151,11 @@
+ 
+   reg.layer_info = p->layer_id;
+ 
++  if (status) {
++    printf("cvkcv181x tiu matrix qm: wrong parameter");
++    assert(0);
++    return;
++  }
++
+   (void *)emit_tiu_cmdbuf(ctx, &reg);
+ }
+--- a/cviruntime/src/common/cpu_function/yolo_detection.cpp
++++ b/cviruntime/src/common/cpu_function/yolo_detection.cpp
+@@ -106,8 +106,6 @@
+   // int box_dim = 5 + num_of_class;
+ 
+   int idx = *det_idx;
+-  int hit = 0, hit2 = 0;
+-  ;
+   for (int i = 0; i < num_cell; i++) {
+     for (int j = 0; j < num_boxes_per_cell; j++) {
+       float box_confidence =
+@@ -115,7 +113,6 @@
+       if (box_confidence < obj_threshold) {
+         continue;
+       }
+-      hit++;
+       float box_class_probs[num_of_class];
+       int box_max_cls = -1;
+       float box_max_prob =
+@@ -141,7 +138,6 @@
+       float box_h = std::exp(feature[GET_INDEX(i, j, COORD_H_INDEX, num_cell, num_of_class)]);
+       box_h *= anchor[j * 2 + 1];
+       box_h /= yolo_h;
+-      hit2++;
+       // DBG("  hit2 %d, conf = %f, cls = %d, coord = [%f, %f, %f, %f]\n",
+       //    hit2, box_max_score, box_max_cls, box_x, box_y, box_w, box_h);
+       det[idx].bbox = box{box_x, box_y, box_w, box_h};
+--- a/cviruntime/src/common/model.cpp
++++ b/cviruntime/src/common/model.cpp
+@@ -468,27 +468,28 @@
+   return CVI_RC_SUCCESS;
+ }
+ 
+-std::string CviModel::getChipType(
+-    const std::string &modelFile,
+-    const int8_t *buf, size_t size) {
+-  BaseStream *stream;
+-  if (!modelFile.empty()) {
+-    stream = new FileStream(modelFile);
+-  } else if (buf) {
+-    stream = new BufferStream(buf, size);
+-  } else {
+-    assert(0);
+-  }
+-  if (stream->length() <= sizeof(MODEL_HEADER)) {
++static std::string chipTypeOf(BaseStream &stream) {
++  if (stream.length() <= sizeof(MODEL_HEADER)) {
+     TPU_LOG_ERROR("Error, invalid cvimodel file\n");
+     assert(0);
+   }
+   MODEL_HEADER header;
+-  stream->read((uint8_t *)&header, 0, sizeof(header));
+-  delete stream;
++  stream.read((uint8_t *)&header, 0, sizeof(header));
+   return std::string(header.chip);
+ }
+ 
++std::string CviModel::getChipType(
++    const std::string &modelFile,
++    const int8_t *buf, size_t size) {
++  if (!modelFile.empty()) {
++    FileStream stream(modelFile);
++    return chipTypeOf(stream);
++  }
++  assert(buf);
++  BufferStream stream(buf, size);
++  return chipTypeOf(stream);
++}
++
+ CVI_RC CviModel::acquire(const int8_t *buf, size_t size) {
+   BaseStream *stream = new BufferStream(buf, size);
+   CVI_RC ret = this->parse(stream);

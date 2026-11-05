@@ -595,8 +595,8 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_C_FLAGS "\${CMAKE_C_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$t=tpu" CACHE STRING "")
 set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$t=tpu" CACHE STRING "")
 EOF
-    # The runtime's CMake files predate CMake 3.5.
-    local cmake=("$host/cmake" -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+    # The runtime's CMake files ask for CMake 2.8-3.1; CMake 4 warns below 3.10.
+    local cmake=("$host/cmake" -DCMAKE_POLICY_VERSION_MINIMUM=3.10)
     local target=("${cmake[@]}" -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE=-O2 -DCMAKE_CXX_FLAGS_RELEASE=-O2
                   -DCMAKE_TOOLCHAIN_FILE="$build/toolchain.cmake" -DCMAKE_INSTALL_PREFIX="$inst")
     # The model schema: a host flatc, then the generated headers.
@@ -745,8 +745,10 @@ tools() {
     # Link the SONAME directly: libtool's libblkid.la injects an absolute
     # sysroot RPATH. Removing its tag later leaves the path in .dynstr and
     # makes mkfs.exfat differ between hosts even after stripping.
-    (cd "$exf" &&
-        ./configure --host=riscv64-buildroot-linux-musl --prefix=/usr CC="${cross}gcc" AR="${cross}ar" \
+    # The toolchain directory in PATH: libtool then finds the prefixed nm and
+    # objdump instead of the build host's; file and mt have no cross version.
+    (cd "$exf" && export PATH="$host:$PATH" &&
+        ./configure --host=riscv64-buildroot-linux-musl FILECMD=file MANIFEST_TOOL=: --prefix=/usr CC="${cross}gcc" AR="${cross}ar" \
             RANLIB="${cross}ranlib" STRIP="${cross}strip" PKG_CONFIG="$host/pkg-config" \
             BLKID_LIBS="-l:libblkid.so.1" CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
         make -j"$jobs" > "$t/exfatprogs-make.log")

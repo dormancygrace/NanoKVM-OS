@@ -1,0 +1,1060 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] osdrv: build without W=1 warnings
+
+The drivers build with -Werror, so make W=1 failed: 43 warnings in the code and 11
+missing include directories.
+
+- Makefiles: drop include directories that do not exist (sys, cif, ive,
+  cvi_vc_drv). LDDINCDIR is never set, so "-I$(LDDINCDIR)" was a bare -I
+  that took the next flag as a directory: -DCNM_FPGA_PLATFORM (vcodec),
+  -DCHIP_BM1880 (jpeg) and -Wno-date-time (cvi_vc_drv) never reached the
+  compiler. The two defines are dropped with it, so the code stays as
+  built; nothing in these modules tests them. -Wno-date-time now applies.
+- Variables that were set but never read are removed. Where only disabled
+  code (VC_DRIVER_TEST, CVIDEBUG_V, REDUNDENT_CODE, !CONFIG_SUSPEND) reads
+  one, it is marked __maybe_unused instead.
+- LogMsg and jdi_LogMsg take printf formats; with __printf the compiler
+  checks their callers, and the 64-bit addresses printed with %x, %lx, %d
+  or %p now use %llx, and pointers use %p.
+- vb_print_pool: strncat with the whole buffer size could write past the
+  64-byte line; it now uses snprintf and strlcat.
+
+Machine code changes only in vb_qbuf (no longer calls sys_get_chipid for
+an unused value), vb_print_pool and DecRegisterFrameBuffer (no longer
+computes an unused buffer size). Everything else differs only in line
+number and string offset constants.
+
+---
+diff --git a/interdrv/base/base_context.c b/interdrv/base/base_context.c
+index c6a102a..ae157ba 100644
+--- a/interdrv/base/base_context.c
++++ b/interdrv/base/base_context.c
+@@ -658,11 +658,8 @@ CVI_S32 vb_qbuf(MMF_CHN_S chn, enum CHN_TYPE_E chn_type, VB_BLK blk)
+ 	struct vb_jobs_t *jobs = base_get_jobs_by_chn(chn, chn_type);
+ 	struct vb_s *vb = (struct vb_s *)blk;
+ 	CVI_S32 ret = CVI_SUCCESS;
+-	CVI_U32 chip = 0;
+ 	CVI_U32 cb_param = 0;
+ 
+-	chip = sys_get_chipid();
+-
+ 	CVI_TRACE_BASE(CVI_BASE_DBG_INFO, ":%s dev(%d) chn(%d) chnType(%d): phy-addr(%lld) cnt(%d)\n",
+ 			sys_get_modname(chn.enModId), chn.s32DevId, chn.s32ChnId, chn_type,
+ 		     vb->phy_addr, vb->usr_cnt.counter);
+@@ -744,12 +741,10 @@ CVI_S32 vb_dqbuf(MMF_CHN_S chn, enum CHN_TYPE_E chn_type, VB_BLK *blk)
+ 	struct vb_jobs_t *jobs;
+ 	struct vb_s *p;
+ 	//struct cvi_buffer buf;
+-	CVI_U32 cb_param = 0;
+ 
+ 	*blk = VB_INVALID_HANDLE;
+ 
+ 	///<TODO:
+-	cb_param = 0xFF;
+ 	//if (base_dqbuf_cb[chn.enModId])
+ 	//	(*base_dqbuf_cb[chn.enModId])(&buf, cb_param);
+ 	jobs = base_get_jobs_by_chn(chn, chn_type);
+diff --git a/interdrv/base/vb.c b/interdrv/base/vb.c
+index 35f04e5..84a6b42 100644
+--- a/interdrv/base/vb.c
++++ b/interdrv/base/vb.c
+@@ -117,13 +117,13 @@ CVI_S32 vb_print_pool(VB_POOL poolId)
+ 	mutex_lock(&vbPool[poolId].lock);
+ 	hash_for_each_safe(vb_hash, bkt, tmp, vb, node) {
+ 		if (vb->vb_pool == poolId) {
+-			sprintf(str, "Pool[%d] vb paddr(%#llx) usr_cnt(%d) /",
++			snprintf(str, sizeof(str), "Pool[%d] vb paddr(%#llx) usr_cnt(%d) /",
+ 				vb->vb_pool, vb->phy_addr, vb->usr_cnt.counter);
+ 
+ 			for (i = 0; i < CVI_ID_BUTT; ++i) {
+ 				if (vb->mod_ids & BIT(i)) {
+-					strncat(str, sys_get_modname(i), sizeof(str));
+-					strcat(str, "/");
++					strlcat(str, sys_get_modname(i), sizeof(str));
++					strlcat(str, "/", sizeof(str));
+ 				}
+ 			}
+ 			CVI_TRACE_BASE(CVI_BASE_DBG_INFO, "%s\n", str);
+diff --git a/interdrv/cif/Makefile b/interdrv/cif/Makefile
+index 9b7b971..ffdce80 100644
+--- a/interdrv/cif/Makefile
++++ b/interdrv/cif/Makefile
+@@ -5,9 +5,8 @@ include $(PWD)/chip/$(CVIARCH_L)/chip.mk
+ 
+ obj-m += cvi_mipi_rx.o
+ 
+-ccflags-y += -I$(PWD)/chip/$(CVIARCH_L)/ -I$(PWD)/common/
++ccflags-y += -I$(PWD)/chip/$(CVIARCH_L)/
+ ccflags-y += -I$(PWD)/../include/common/uapi/ -I$(PWD)/../include/chip/$(CVIARCH_L)/uapi/
+-ccflags-y += -I$(srctree)/drivers/pinctrl/cvitek/
+ ccflags-y += -I$(PWD)/../include/common/kapi/
+ ccflags-y += -I$(PWD)/../base/chip/$(CVIARCH_L)/
+ 
+diff --git a/interdrv/cvi_vc_drv/Makefile b/interdrv/cvi_vc_drv/Makefile
+index 80d8c4a..bb03d4e 100644
+--- a/interdrv/cvi_vc_drv/Makefile
++++ b/interdrv/cvi_vc_drv/Makefile
+@@ -89,8 +89,7 @@ ccflags-y += -I$(PWD)/../base/chip/$(CVIARCH_L)
+ ccflags-y += -I$(PWD)/../sys/common/ -I$(PWD)/../sys/common/uapi
+ ccflags-y += -I$(srctree)/drivers/tee
+ ccflags-y += -I$(srctree)/drivers/staging/android
+-ccflags-y += -I$(PWD)/../base/$(CVIARCH_L)
+-ccflags-y += -I$(LDDINCDIR) -Wno-date-time -Wno-error=date-time
++ccflags-y += -Wno-date-time -Wno-error=date-time
+ ccflags-y += $(VCODEC_DRIVER_HEADER)
+ ccflags-y += -I$(PWD)/../include/
+ ccflags-y += -DUSE_KERNEL_MODE -DCVI_H26X_USE_ION_MEM -DCVI_JPG_USE_ION_MEM -DBITSTREAM_ION_CACHED_MEM -DMJPEG_INTERFACE_API -DCVI_H26X_ES_BUFFER_QUEUE_ENABLE -DCVI_H26X_USE_ION_FW_BUFFER -DENV_SET_ADDR_REMAP
+diff --git a/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c b/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c
+index 813ebc1..e25ceb5 100644
+--- a/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c
++++ b/interdrv/cvi_vc_drv/cvi_vc_drv_proc.c
+@@ -1191,7 +1191,6 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 			CVI_U32 u32IQp = 0;
+ 			CVI_U32 u32PQp = 0;
+ 			CVI_U32 u32BQp = 0;
+-			CVI_U32 u32Qfactor = 0;
+ 			CVI_U32 u32MinIprop = 0;
+ 			CVI_U32 u32MaxIprop = 0;
+ 			CVI_U32 u32MaxQp = 0;
+@@ -1204,14 +1203,11 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 			CVI_U32 u32SPInterval = 0;
+ 			CVI_S32 s32SPQpDelta = 0;
+ 			CVI_U32 u32BgInterval = 0;
+-			CVI_S32 s32BgQpDelta = 0;
+ 			CVI_S32 s32ViQpDelta = 0;
+ 			CVI_U32 u32BFrmNum = 0;
+ 			CVI_S32 s32BQpDelta = 0;
+ 			CVI_S32 s32MaxReEncodeTimes = 0;
+ 			CVI_S32 s32ChangePos = 0;
+-			CVI_U32 u32MaxQfactor = 0;
+-			CVI_U32 u32MinQfactor = 0;
+ 			VENC_RC_QPMAP_MODE_E enQpMapMode =
+ 				VENC_RC_QPMAP_MODE_BUTT + 1;
+ 			CVI_S32 s32MinStillPercent = 0;
+@@ -1256,8 +1252,6 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 			case VENC_GOPMODE_SMARTP:
+ 				u32BgInterval = pstChnAttr->stGopAttr.stSmartP
+ 							.u32BgInterval;
+-				s32BgQpDelta = pstChnAttr->stGopAttr.stSmartP
+-						       .s32BgQpDelta;
+ 				s32ViQpDelta = pstChnAttr->stGopAttr.stSmartP
+ 						       .s32ViQpDelta;
+ 				break;
+@@ -1265,8 +1259,6 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 				u32BgInterval =
+ 					pstChnAttr->stGopAttr.stAdvSmartP
+ 						.u32BgInterval;
+-				s32BgQpDelta = pstChnAttr->stGopAttr.stAdvSmartP
+-						       .s32BgQpDelta;
+ 				s32ViQpDelta = pstChnAttr->stGopAttr.stAdvSmartP
+ 						       .s32ViQpDelta;
+ 				break;
+@@ -1339,11 +1331,6 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 						     .u32BitRate;
+ 				bVariFpsEn = pstChnAttr->stRcAttr.stMjpegCbr
+ 						     .bVariFpsEn;
+-
+-				u32MaxQfactor =
+-					pRcParam->stParamMjpegCbr.u32MaxQfactor;
+-				u32MinQfactor =
+-					pRcParam->stParamMjpegCbr.u32MinQfactor;
+ 			} else if (pstChnAttr->stRcAttr.enRcMode ==
+ 				   VENC_RC_MODE_H264VBR) {
+ 				strcpy(cRcMode, "VBR");
+@@ -1406,10 +1393,6 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 
+ 				s32ChangePos =
+ 					pRcParam->stParamMjpegVbr.s32ChangePos;
+-				u32MaxQfactor =
+-					pRcParam->stParamMjpegVbr.u32MaxQfactor;
+-				u32MinQfactor =
+-					pRcParam->stParamMjpegVbr.u32MinQfactor;
+ 			} else if (pstChnAttr->stRcAttr.enRcMode ==
+ 				   VENC_RC_MODE_H264FIXQP) {
+ 				strcpy(cRcMode, "FIXQP");
+@@ -1439,8 +1422,6 @@ static int rc_proc_show(struct seq_file *m, void *v)
+ 			} else if (pstChnAttr->stRcAttr.enRcMode ==
+ 				   VENC_RC_MODE_MJPEGFIXQP) {
+ 				strcpy(cRcMode, "FIXQP");
+-				u32Qfactor = pstChnAttr->stRcAttr.stMjpegFixQp
+-						     .u32Qfactor;
+ 				bVariFpsEn = pstChnAttr->stRcAttr.stMjpegFixQp
+ 						     .bVariFpsEn;
+ 			} else if (pstChnAttr->stRcAttr.enRcMode ==
+diff --git a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_dec_internal.c b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_dec_internal.c
+index a3240bc..ed7095b 100644
+--- a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_dec_internal.c
++++ b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_dec_internal.c
+@@ -15,7 +15,7 @@ int cviJpgDecOpen(CVIJpgHandle *pHandle, CVIDecConfigParam *pConfig)
+ 	JpgRet ret = JPG_RET_SUCCESS;
+ 	CVIJpgHandle handle;
+ 	JpgInst *pJpgInst = 0;
+-	JpgDecInfo *pDecInfo = 0;
++	JpgDecInfo *pDecInfo __maybe_unused = 0;
+ 	JpgDecOpenParam decOP = { 0 };
+ 	jpu_buffer_t vbStream = { 0 };
+ 	int usePartialMode = 0;
+@@ -128,7 +128,7 @@ int cviJpgDecOpen(CVIJpgHandle *pHandle, CVIDecConfigParam *pConfig)
+ 	CVI_JPG_DBG_FLOW("iDataLen = 0x%X\n", pConfig->iDataLen);
+ 	if (pConfig->iDataLen > STREAM_BUF_SIZE) {
+ 		JLOG(ERR,
+-		     "The length 0f the input stream is greater than the length of the JPU input buffer!, vbStream addr = 0x%lX\n",
++		     "The length 0f the input stream is greater than the length of the JPU input buffer!, vbStream addr = 0x%llX\n",
+ 		     vbStream.phys_addr);
+ 		goto ERR_DEC_INIT;
+ 	} else {
+@@ -272,7 +272,7 @@ int cviJpgDecSendFrameData(CVIJpgHandle handle, void *data, int length)
+ {
+ 	JpgRet ret = JPG_RET_SUCCESS;
+ 	JpgDecParam decParam = { 0 };
+-	Uint32 needFrameBufCount = 1;
++	Uint32 needFrameBufCount __maybe_unused = 1;
+ 	Uint32 regFrameBufCount = 0;
+ 	Uint32 framebufWidth = 0;
+ 	Uint32 framebufHeight = 0;
+diff --git a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c
+index 30096e4..ecae08d 100644
+--- a/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c
++++ b/interdrv/cvi_vc_drv/jpeg/cvi_jpg_interface/src/cvi_jpg_enc_internal.c
+@@ -704,7 +704,7 @@ int cviJpgEncOpen(CVIJpgHandle *pHandle, CVIEncConfigParam *pConfig)
+ #endif
+ #endif
+ 	Uint32 framebufWidth = 0;
+-	Uint32 framebufHeight = 0;
++	Uint32 framebufHeight __maybe_unused = 0;
+ 	Uint32 framebufStride = 0;
+ 	int srcFrameFormat = 0;
+ 	Uint32 framebufFormat = FORMAT_420;
+diff --git a/interdrv/cvi_vc_drv/jpeg/include/jpulog.h b/interdrv/cvi_vc_drv/jpeg/include/jpulog.h
+index 2dcfd2a..0da8fc0 100644
+--- a/interdrv/cvi_vc_drv/jpeg/include/jpulog.h
++++ b/interdrv/cvi_vc_drv/jpeg/include/jpulog.h
+@@ -61,7 +61,7 @@ void jdi_SetLogDecor(int decor);
+ int jdi_GetLogDecor(void);
+ #endif
+ 
+-void jdi_LogMsg(int level, const char *format, ...);
++__printf(2, 3) void jdi_LogMsg(int level, const char *format, ...);
+ 
+ #ifdef REDUNDENT_CODE
+ #if defined(linux) || defined(__linux) || defined(ANDROID)
+diff --git a/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c b/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
+index f9cb3de..a005539 100644
+--- a/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
++++ b/interdrv/cvi_vc_drv/jpeg/jdi/linux/jdi.c
+@@ -236,11 +236,6 @@ int jdi_get_enc_task_num(void)
+ int jdi_init(void)
+ {
+ 	jdi_info_t *jdi = &s_jdi_info[0];
+-#ifdef USE_VMALLOC_FOR_INSTANCE_POOL_MEMORY
+-	unsigned long page_size = VMEM_PAGE_SIZE;
+-	unsigned long page_mask = (~(page_size - 1));
+-#endif
+-	PhysicalAddress pgoff;
+ 	int ret;
+ 
+ 	if (jdi->jpu_fd != -1 && jdi->jpu_fd != 0x00) {
+@@ -336,10 +331,8 @@ int jdi_init(void)
+ 		goto ERR_JDI_INIT;
+ 	}
+ 
+-	pgoff = jdi->jdb_register.phys_addr & page_mask;
+ #else
+ 	jdi->jdb_register.size = JPU_BIT_REG_SIZE;
+-	pgoff = 0;
+ #endif
+ 
+ #ifdef JPU_FPGA_PLATFORM
+@@ -365,8 +358,6 @@ int jdi_release(void)
+ {
+ 	jdi_info_t *jdi = &s_jdi_info[0];
+ 	int ret;
+-	int i;
+-	BOOL bCloseIonFd = TRUE;
+ 
+ 	if (jdi->jpu_fd == -1 || jdi->jpu_fd == 0x00)
+ 		return 0;
+@@ -412,14 +403,6 @@ int jdi_release(void)
+ #endif
+ 
+ 	memset(jdi, 0, sizeof(jdi_info_t));
+-
+-	for (i = 0; i < MAX_NUM_JPU_CORE; i++) {
+-		jdi = &s_jdi_info[i];
+-		if (jdi->jpu_fd > 0) {
+-			bCloseIonFd = FALSE;
+-			break;
+-		}
+-	}
+ 	return 0;
+ }
+ 
+@@ -1098,7 +1081,7 @@ int jdi_free_ion_memory(jpu_buffer_t *vb)
+ 	}
+ 
+ 	if (vb->size == 0) {
+-		JLOG(ERR, "addr=%p\n", vb->phys_addr);
++		JLOG(ERR, "addr=0x%llx\n", vb->phys_addr);
+ 		return -1;
+ 	}
+ 
+@@ -1119,13 +1102,13 @@ int jdi_free_ion_memory(jpu_buffer_t *vb)
+ 	}
+ 
+ 	if (!p_jdb->size) {
+-		JLOG(ERR, "Invalid buffer to free! address=0x%lx\n",
++		JLOG(ERR, "Invalid buffer to free! address=%p\n",
+ 		     p_jdb->virt_addr);
+ 		jdi_unlock();
+ 		return -1;
+ 	}
+ 
+-	JLOG(INFO, "phys_addr %llx, virt_addr %p, fd %d\n", p_jdb->phys_addr,
++	JLOG(INFO, "phys_addr %llx, virt_addr %p, base 0x%llx\n", p_jdb->phys_addr,
+ 	     p_jdb->virt_addr, p_jdb->base);
+ 	ret = sys_ion_free_nofd((CVI_U64)vb->phys_addr);
+ 	if (ret != 0) {
+diff --git a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+index 31656bf..191b72f 100644
+--- a/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
++++ b/interdrv/cvi_vc_drv/jpeg/jpuapi/jpuapifunc.c
+@@ -493,7 +493,6 @@ void FreeJpgInstance(JpgInst *pJpgInst)
+ 
+ JpgRet CheckJpgInstValidity(JpgInst *pci)
+ {
+-	JpgInst *pJpgInst = 0;
+ 	int i;
+ 	jpu_instance_pool_t *jip;
+ 
+@@ -501,7 +500,7 @@ JpgRet CheckJpgInstValidity(JpgInst *pci)
+ 	if (!jip)
+ 		return JPG_RET_FAILURE;
+ 
+-	for (i = 0; i < MAX_NUM_INSTANCE; ++i, ++pJpgInst) {
++	for (i = 0; i < MAX_NUM_INSTANCE; ++i) {
+ 		if ((JpgInst *)jip->jpgInstPool[i] == pci)
+ 			return JPG_RET_SUCCESS;
+ 	}
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_venc.c b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+index cffa31a..1d21ad7 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+@@ -616,7 +616,6 @@ static int h26x_event_handler(CVI_VOID *data)
+ 	VENC_CHN VencChn;
+ 	venc_chn_vars *pChnVars = NULL;
+ 	//VENC_CHN_STATUS_S stStat;
+-	venc_enc_ctx *pEncCtx;
+ 	CVI_S32 ret;
+ 	//CVI_S32 s32MilliSec = -1;
+ 	MMF_CHN_S chn = { .enModId = CVI_ID_VENC,
+@@ -638,7 +637,6 @@ static int h26x_event_handler(CVI_VOID *data)
+ 	memset(&stVFrame, 0, sizeof(VIDEO_FRAME_INFO_S));
+ 
+ 	pChnVars = pChnHandle->pChnVars;
+-	pEncCtx = &pChnHandle->encCtx;
+ 	pVbCtx = pChnHandle->pVbCtx;
+ 	VencChn = pChnHandle->VeChn;
+ 
+@@ -1081,7 +1079,6 @@ static CVI_S32 cviInitChnCtx(VENC_CHN VeChn, const VENC_CHN_ATTR_S *pstAttr)
+ {
+ 	CVI_S32 s32Ret = CVI_SUCCESS;
+ 	venc_chn_context *pChnHandle;
+-	venc_sbm_context *pSbmhandle;
+ 	venc_enc_ctx *pEncCtx;
+ 
+ 	s32Ret = _cviVencInitCtxHandle();
+@@ -1101,7 +1098,6 @@ static CVI_S32 cviInitChnCtx(VENC_CHN VeChn, const VENC_CHN_ATTR_S *pstAttr)
+ 	}
+ 
+ 	pChnHandle = handle->chn_handle[VeChn];
+-	pSbmhandle = &handle->sbm_context;
+ 	pChnHandle->VeChn = VeChn;
+ 
+ 	MUTEX_INIT(&pChnHandle->chnMutex, 0);
+@@ -3743,7 +3739,6 @@ CVI_S32 CVI_VENC_DestroyChn(VENC_CHN VeChn)
+ 	venc_sbm_context *pSbmHandle = NULL;
+ 	venc_enc_ctx *pEncCtx = NULL;
+ 	venc_chn_vars *pChnVars = NULL;
+-	struct cvi_venc_vb_ctx *pVbCtx = NULL;
+ 	MMF_CHN_S chn = { .enModId = CVI_ID_VENC,
+ 			  .s32DevId = 0,
+ 			  .s32ChnId = 0};
+@@ -3760,7 +3755,6 @@ CVI_S32 CVI_VENC_DestroyChn(VENC_CHN VeChn)
+ 	pSbmHandle = &handle->sbm_context;
+ 	pEncCtx = &pChnHandle->encCtx;
+ 	pChnVars = pChnHandle->pChnVars;
+-	pVbCtx = pChnHandle->pVbCtx;
+ 
+ 	chn.s32ChnId = pChnHandle->VeChn;
+ 	base_mod_jobs_exit(chn, CHN_TYPE_IN);
+@@ -6513,8 +6507,6 @@ static CVI_S32 cviSbSkipOneFrm(VENC_CHN VeChn, cviVencSbSetting *pstSbSetting)
+ 	venc_enc_ctx *pEncCtx;
+ 	CVI_S32 s32Count = 0;
+ 	CVI_S32 s32MaxCount = 0;
+-	venc_chn_context *pChnHandleDummy = NULL;
+-	venc_enc_ctx *pEncCtxDummy;
+ 	CVI_U32 u32Reg94;
+ 	CVI_U32 u32Reg90;
+ 	CVI_U32 u32Reg80;
+@@ -6538,9 +6530,6 @@ static CVI_S32 cviSbSkipOneFrm(VENC_CHN VeChn, cviVencSbSetting *pstSbSetting)
+ 
+ 	pEncCtx = &pChnHandle->encCtx;
+ 
+-	pChnHandleDummy = handle->chn_handle[2];
+-	pEncCtxDummy = &pChnHandleDummy->encCtx;
+-
+ #if 0
+ 	memset(&stFrame, 0, sizeof(VIDEO_FRAME_INFO_S));
+ 	memset(&stStream, 0, sizeof(VENC_STREAM_S));
+@@ -6793,7 +6782,6 @@ CVI_S32 cvi_VENC_CB_SendFrame(CVI_S32 VpssGrp, CVI_S32 VpssChn, CVI_S32 VpssChn1
+ 	MMF_CHN_S encChn = {0};
+ 	CVI_S32 priChn = -1;
+ 	CVI_S32 secChn = -1;
+-	CVI_BOOL SnapEnable = false;
+ 	MMF_CHN_S chn = {.enModId = CVI_ID_VPSS, .s32DevId = VpssGrp, .s32ChnId = VpssChn};
+ 	MMF_BIND_DEST_S stBindDest;
+ 
+@@ -6868,8 +6856,6 @@ CVI_S32 cvi_VENC_CB_SendFrame(CVI_S32 VpssGrp, CVI_S32 VpssChn, CVI_S32 VpssChn1
+ 		}
+ 	}
+ 
+-	SnapEnable = false;
+-
+ 	if (secChn != -1) {
+ 		s32Ret = check_chn_handle(secChn);
+ 		if (s32Ret == CVI_SUCCESS) {
+@@ -6878,7 +6864,6 @@ CVI_S32 cvi_VENC_CB_SendFrame(CVI_S32 VpssGrp, CVI_S32 VpssChn, CVI_S32 VpssChn1
+ 
+ 			if (pSecChnHandle->jpgFrmSkipCnt > 0) {
+ 				stSbSetting.codec |= 0x4;
+-				SnapEnable = true;
+ 			}
+ 		}
+ 	}
+@@ -7017,7 +7002,6 @@ CVI_S32 cvi_VENC_CB_SkipFrame(CVI_S32 VpssGrp, CVI_S32 VpssChn, CVI_U32 srcImgHe
+ 	venc_chn_context *pChnHandle;
+ 	CVI_S32 priChn = -1;
+ 	CVI_S32 secChn = -1;
+-	venc_enc_ctx *pEncCtx;
+ #if BYPASS_SB_MODE == 0
+ 	cviVencSbSetting *pstSbSetting;
+ #endif
+@@ -7117,7 +7101,6 @@ CVI_S32 cvi_VENC_CB_SkipFrame(CVI_S32 VpssGrp, CVI_S32 VpssChn, CVI_U32 srcImgHe
+ 	}
+ #endif
+ 
+-	pEncCtx = &pChnHandle->encCtx;
+ 
+ 	if (pChnHandle->pChnAttr->stVencAttr.enType == PT_H265) {
+ 		stSbSetting.codec = 0x1; // h265
+@@ -7275,7 +7258,6 @@ CVI_S32 CVI_VENC_SetSvcParam(VENC_CHN VeChn, VENC_SVC_PARAM_S *pstSvcParam)
+ 	CVI_S32 s32Ret = CVI_FAILURE;
+ 	venc_chn_context *pChnHandle;
+ 	venc_enc_ctx *pEncCtx;
+-	PAYLOAD_TYPE_E enType;
+ 
+ 	s32Ret = check_chn_handle(VeChn);
+ 	if (s32Ret != CVI_SUCCESS) {
+@@ -7308,7 +7290,6 @@ CVI_S32 CVI_VENC_SetSvcParam(VENC_CHN VeChn, VENC_SVC_PARAM_S *pstSvcParam)
+ 
+ 	pChnHandle = handle->chn_handle[VeChn];
+ 	pEncCtx = &pChnHandle->encCtx;
+-	enType = pChnHandle->pChnAttr->stVencAttr.enType;
+ 
+ 	if (!pEncCtx->base.ioctl) {
+ 		CVI_VENC_ERR("base.ioctl is NULL\n");
+@@ -7337,7 +7318,6 @@ CVI_S32 CVI_VENC_GetSvcParam(VENC_CHN VeChn, VENC_SVC_PARAM_S *pstSvcParam)
+ {
+ 	CVI_S32 s32Ret = CVI_FAILURE;
+ 	venc_chn_context *pChnHandle;
+-	PAYLOAD_TYPE_E enType;
+ 
+ 	s32Ret = check_chn_handle(VeChn);
+ 	if (s32Ret != CVI_SUCCESS) {
+@@ -7352,7 +7332,6 @@ CVI_S32 CVI_VENC_GetSvcParam(VENC_CHN VeChn, VENC_SVC_PARAM_S *pstSvcParam)
+ 	}
+ 
+ 	pChnHandle = handle->chn_handle[VeChn];
+-	enType = pChnHandle->pChnAttr->stVencAttr.enType;
+ 	memcpy(pstSvcParam, &pChnHandle->svcParam, sizeof(VENC_SVC_PARAM_S));
+ 	return CVI_SUCCESS;
+ }
+diff --git a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
+index ce43aa4..f321f00 100644
+--- a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
++++ b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
+@@ -478,7 +478,7 @@ static int _cviH264_InitDecoder(cviVideoDecoder *pvdec)
+ 	     pdeccfg->coda9.enableTiled2Linear);
+ 	VLOG(INFO, "[wtlEnable          ]: %d\n", pdop->wtlEnable);
+ 	VLOG(INFO, "[wtlMode            ]: %d\n", pdop->wtlMode);
+-	VLOG(INFO, "[bitstreamBuffer    ]: 0x%08x\n", pdop->bitstreamBuffer);
++	VLOG(INFO, "[bitstreamBuffer    ]: 0x%08llx\n", pdop->bitstreamBuffer);
+ 	VLOG(INFO, "[bitstreamBufferSize]: %d\n", pdop->bitstreamBufferSize);
+ 	VLOG(INFO, "[bitstreamMode      ]: %d\n", pdop->bitstreamMode);
+ 	VLOG(INFO, "[cbcrInterleave     ]: %d\n", pdop->cbcrInterleave);
+@@ -2248,7 +2248,7 @@ static int _cviH265_GetDecodedData(cviVideoDecoder *pvdec)
+ 			void *decodedData = NULL;
+ 			Uint32 decodedDataSize = 0;
+ #endif
+-			VpuRect rcDisplay;
++			VpuRect rcDisplay __maybe_unused;
+ 
+ 			rcDisplay.left = 0;
+ 			rcDisplay.top = 0;
+@@ -2336,7 +2336,7 @@ static int _cviH265_GetDecodedData(cviVideoDecoder *pvdec)
+ 
+ 	if (pdoi->indexFrameDisplay == DISPLAY_IDX_FLAG_SEQ_END) {
+ 		if (Queue_Peek(pvdec->displayQ) != NULL) {
+-			VLOG(ERR, "Queue_Peek=%d\n",
++			VLOG(ERR, "Queue_Peek=%p\n",
+ 			     Queue_Peek(pvdec->displayQ));
+ 			pvdec->success = FALSE;
+ 		}
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c
+index e1f1375..bee5061 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/main_helper.c
+@@ -278,7 +278,7 @@ static void DisplayDecodedInformationForHevc(DecHandle handle, Uint32 frameNo,
+ #endif
+ 		{
+ 			VLOG(logLevel,
+-			     "%02d %5d %d %4d(%4d) %3d %2d(%2d) %2d(%2d) %7d %08x %08x %08x %08x %08x %4dx%-4d %4d %4d %d\n",
++			     "%02d %5d %d %4d(%4d) %3d %2d(%2d) %2d(%2d) %7d %08x %08x %08x %08llx %08llx %4dx%-4d %4d %4d %d\n",
+ 			     handle->instIndex, frameNo, decodedInfo->picType,
+ 			     decodedInfo->h265Info.decodedPOC,
+ 			     decodedInfo->h265Info.displayPOC,
+@@ -447,7 +447,7 @@ static void Wave4DisplayEncodedInformation(EncHandle handle,
+ 	} else {
+ #ifdef REPORT_PIC_SUM_VAR
+ 		VLOG(INFO,
+-		     "HEVC %02d %5d %5d %5d    %08x  %08x %8x     %2d        %2d    %8d   %8d\n",
++		     "HEVC %02d %5d %5d %5d    %08llx  %08llx %8x     %2d        %2d    %8d   %8d\n",
+ 		     handle->instIndex, encodedInfo->encPicCnt,
+ 		     encodedInfo->picType, encodedInfo->reconFrameIndex,
+ 		     encodedInfo->rdPtr, encodedInfo->wrPtr,
+@@ -457,7 +457,7 @@ static void Wave4DisplayEncodedInformation(EncHandle handle,
+ 		     encodedInfo->sumPicVar);
+ #else
+ 		VLOG(INFO,
+-		     "HEVC %02d %5d %5d %5d    %08x  %08x %8x     %2d        %2d    %8d\n",
++		     "HEVC %02d %5d %5d %5d    %08llx  %08llx %8x     %2d        %2d    %8d\n",
+ 		     handle->instIndex, encodedInfo->encPicCnt,
+ 		     encodedInfo->picType, encodedInfo->reconFrameIndex,
+ 		     encodedInfo->rdPtr, encodedInfo->wrPtr,
+@@ -517,7 +517,7 @@ static void Coda9DisplayEncodedInformation(DecHandle handle, CodStd codec,
+ 		else
+ 			strPicType = picTypeArray[encodedInfo->picType];
+ 		// Print informations
+-		VLOG(INFO, "AVC  %02d %5d %5s %5d    %08x %08x\n",
++		VLOG(INFO, "AVC  %02d %5d %5s %5d    %08llx %08llx\n",
+ 		     handle->instIndex, encodedInfo->encPicCnt, strPicType,
+ 		     encodedInfo->reconFrameIndex, encodedInfo->rdPtr,
+ 		     encodedInfo->wrPtr);
+diff --git a/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c
+index 3968b75..3df430d 100644
+--- a/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/helper/yuv/yuvfeeder.c
+@@ -120,7 +120,7 @@ static BOOL yuvYuvFeeder_Feed(YuvFeederImpl *impl, Int32 coreIdx,
+ 	if (!osal_fread(pYuv, 1, frameSize, ctx->fp)) {
+ 		if (osal_feof(ctx->fp) == 0)
+ 			VLOG(ERR,
+-			     "Yuv Data osal_fread failed file handle is 0x%x\n",
++			     "Yuv Data osal_fread failed file handle is %p\n",
+ 			     ctx->fp);
+ 		return FALSE;
+ 	}
+diff --git a/interdrv/cvi_vc_drv/vcodec/vdi/vdi_osal.h b/interdrv/cvi_vc_drv/vcodec/vdi/vdi_osal.h
+index 8e0d07a..265d691 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vdi/vdi_osal.h
++++ b/interdrv/cvi_vc_drv/vcodec/vdi/vdi_osal.h
+@@ -598,7 +598,7 @@ int GetLogDecor(void);
+ #endif
+ 
+ // log print
+-void LogMsg(int level, const char *format, ...);
++__printf(2, 3) void LogMsg(int level, const char *format, ...);
+ 
+ // math
+ int math_div(int number, int denom);
+diff --git a/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/coda9.c b/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/coda9.c
+index 998d412..8f30b3c 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/coda9.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/coda9/coda9.c
+@@ -5131,13 +5131,6 @@ void rcLibUpdateRc(CodecInst *pCodecInst, EncOutputInfo *info, int avg_qp,
+ {
+ 	EncInfo *pEncInfo = &pCodecInst->CodecInfo->encInfo;
+ 	stRcInfo *pRcInfo = &pCodecInst->rcInfo;
+-#ifdef AUTO_FRM_SKIP_DROP
+-	int frame_skip;
+-	frame_skip = pEncInfo->frm_rc.rc_pic.frame_skip;
+-#else
+-	frame_skip = 0;
+-#endif
+-
+ 	CVI_VC_RC("frame_drop = %d\n", pEncInfo->frm_rc.rc_pic.frame_drop);
+ 
+ 	if (pEncInfo->frm_rc.rc_pic.frame_drop) {
+diff --git a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+index 959d122..3b517d8 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+@@ -859,7 +859,6 @@ static RetCode DecRegisterFrameBuffer(DecHandle handle, FrameBuffer *bufArray,
+ 	CodecInst *pCodecInst;
+ 	DecInfo *pDecInfo;
+ 	Int32 i;
+-	Uint32 size, totalAllocSize;
+ 	RetCode ret;
+ 	FrameBuffer *fb, nullFb;
+ 	vpu_buffer_t *vb;
+@@ -937,23 +936,10 @@ static RetCode DecRegisterFrameBuffer(DecHandle handle, FrameBuffer *bufArray,
+ 			return ret;
+ 		}
+ 	}
+-	totalAllocSize = 0;
+ 	if (pCodecInst->productId != PRODUCT_ID_960) {
+ 		pDecInfo->mapCfg.tiledBaseAddr = pDecInfo->frameBufPool[0].bufY;
+ 	}
+ 
+-	if (numFbsForDecoding == 1) {
+-		size = ProductCalculateFrameBufSize(
+-			handle->productId, stride, height,
+-			(TiledMapType)mapType, format,
+-			pDecInfo->openParam.cbcrInterleave, &pDecInfo->dramCfg);
+-	} else {
+-		size = pDecInfo->frameBufPool[1].bufY -
+-		       pDecInfo->frameBufPool[0].bufY;
+-	}
+-	size *= numFbsForDecoding;
+-	totalAllocSize += size;
+-
+ 	/* LinearMap */
+ 	if (pDecInfo->wtlEnable == TRUE || numFbsForWTL != 0) {
+ 		pDecInfo->stride = stride;
+@@ -979,19 +965,6 @@ static RetCode DecRegisterFrameBuffer(DecHandle handle, FrameBuffer *bufArray,
+ 				return ret;
+ 			}
+ 		}
+-		if (numFbsForWTL == 1) {
+-			size = ProductCalculateFrameBufSize(
+-				handle->productId, stride, height,
+-				(TiledMapType)mapType, format,
+-				pDecInfo->openParam.cbcrInterleave,
+-				&pDecInfo->dramCfg);
+-		} else {
+-			size = pDecInfo->frameBufPool[numFbsForDecoding + 1]
+-				       .bufY -
+-			       pDecInfo->frameBufPool[numFbsForDecoding].bufY;
+-		}
+-		size *= numFbsForWTL;
+-		totalAllocSize += size;
+ 	}
+ 
+ 	ret = ProductVpuRegisterFramebuffer(pCodecInst);
+diff --git a/interdrv/ive/Makefile b/interdrv/ive/Makefile
+index 2d802bc..8d88be9 100644
+--- a/interdrv/ive/Makefile
++++ b/interdrv/ive/Makefile
+@@ -9,7 +9,7 @@ $(CVIARCH_L)_ive-y += hal/$(CVIARCH_L)/cvi_ive_platform.o
+ 
+ ccflags-y += -I$(PWD)/../include/common/uapi -I$(PWD)/../include/chip/$(CVIARCH_L)/uapi/
+ ccflags-y += -I$(PWD)/../include/common/kapi -I$(PWD)/../sys/common/uapi/
+-ccflags-y += -I$(src)/common -I$(src)/hal/$(CVIARCH_L) -I$(src)/hal/$(CVIARCH_L)/include
++ccflags-y += -I$(src)/common -I$(src)/hal/$(CVIARCH_L)
+ ccflags-y += -I$(PWD)/../base/ -I$(srctree)/drivers/staging/android
+ ccflags-y += -I$(PWD)/../base/chip/$(CVIARCH_L)
+ 
+diff --git a/interdrv/ive/hal/cv181x/cvi_ive_platform.c b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+index 2984124..19e7032 100644
+--- a/interdrv/ive/hal/cv181x/cvi_ive_platform.c
++++ b/interdrv/ive/hal/cv181x/cvi_ive_platform.c
+@@ -1797,7 +1797,6 @@ inline CVI_S32 cvi_ive_go(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ {
+ 	CVI_S32 cnt = 0;
+ 	CVI_S32 ret = CVI_SUCCESS;
+-	CVI_S32 int_mask = 0;
+ 	IVE_FILTEROP_REG_h10_C REG_h10;
+ 	IVE_FILTEROP_REG_h14_C REG_h14;
+ 	IVE_FILTEROP_REG_28_C  REG_28;
+@@ -1807,27 +1806,18 @@ inline CVI_S32 cvi_ive_go(struct cvi_ive_device *ndev, IVE_TOP_C *ive_top_c,
+ 		done_mask = IVE_TOP_REG_FRAME_DONE_FILTEROP_WDMA_Y_MASK;
+ 
+ 	if (optype == MOD_HIST) {
+-		int_mask = IVE_TOP_REG_INTR_STATUS_HIST_MASK;
+ 		ive_top_c->REG_94.reg_intr_en_hist = !bInstant;
+ 	} else if (optype == MOD_NCC) {
+-		int_mask = IVE_TOP_REG_INTR_STATUS_NCC_MASK;
+ 		ive_top_c->REG_94.reg_intr_en_ncc = !bInstant;
+ 	} else if (optype == MOD_INTEG) {
+-		int_mask = IVE_TOP_REG_INTR_STATUS_INTG_MASK;
+ 		ive_top_c->REG_94.reg_intr_en_intg = !bInstant;
+ 	} else if (optype == MOD_DMA) {
+-		int_mask = IVE_TOP_REG_INTR_STATUS_DMAF_MASK;
+ 		ive_top_c->REG_94.reg_intr_en_dmaf = !bInstant;
+ 	} else if (optype == MOD_GRADFG) {
+-		int_mask = IVE_TOP_REG_INTR_STATUS_FILTEROP_WDMA_Y_MASK;
+ 		ive_top_c->REG_94.reg_intr_en_filterop_wdma_y = !bInstant;
+ 	} else if (optype == MOD_SAD) {
+-		int_mask = IVE_TOP_REG_INTR_STATUS_SAD_MASK;
+ 		ive_top_c->REG_94.reg_intr_en_sad = !bInstant;
+ 	} else {
+-		int_mask = IVE_TOP_REG_INTR_STATUS_FILTEROP_ODMA_MASK |
+-			   IVE_TOP_REG_INTR_STATUS_FILTEROP_WDMA_Y_MASK |
+-			   IVE_TOP_REG_INTR_STATUS_FILTEROP_WDMA_C_MASK;
+ 		ive_top_c->REG_94.reg_intr_en_filterop_odma = !bInstant;
+ 		ive_top_c->REG_94.reg_intr_en_filterop_wdma_y = !bInstant;
+ 		ive_top_c->REG_94.reg_intr_en_filterop_wdma_c = !bInstant;
+@@ -7375,7 +7365,6 @@ CVI_S32 cvi_ive_Map(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 	CVI_U16 u16Word;
+ 	CVI_U16 *_pu16Ptr = NULL;
+ 	CVI_U8 *pu8Ptr = NULL;
+-	CVI_U16 *pu16Ptr = NULL;
+ 	//DEFINE_IMG_IN_C(img_in_c);
+ 	IMG_IN_C img_in_c = _DEFINE_IMG_IN_C;
+ 	//DEFINE_IVE_FILTEROP_C(ive_filterop_c);
+@@ -7419,7 +7408,6 @@ CVI_S32 cvi_ive_Map(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 				 (void __user *)(unsigned long)pstMap->u64VirAddr,
+ 				 pstMap->u32Size);
+ 	pu8Ptr = (CVI_U8 *)_pu16Ptr;
+-	pu16Ptr = (CVI_U16 *)_pu16Ptr;
+ 
+ 	ive_map_c.REG_1.reg_lut_prog_en = 1;
+ 	ive_map_c.REG_2.reg_lut_st_addr = 0;
+@@ -7434,12 +7422,10 @@ CVI_S32 cvi_ive_Map(struct cvi_ive_device *ndev, IVE_SRC_IMAGE_S *pstSrc,
+ 			u16Word = (0x00ff & *pu8Ptr);
+ 			pu8Ptr++;
+ 		} else {
+-			// u16Word = *pu16Ptr;
+ 			if (l >= 0xB0 && l <= 0xBF)
+ 				u16Word = 0x470 + (l - 0xB0);
+ 			else
+ 				u16Word = (0x00ff & l);
+-			pu16Ptr++;
+ 		}
+ 		ive_map_c.REG_3.reg_lut_wdata = u16Word;
+ 		ive_map_c.REG_3.reg_lut_w1t = 1;
+@@ -9508,7 +9494,7 @@ static CVI_S32 ive_st_candi_corner(struct cvi_ive_device *ndev,
+ 				  CVI_BOOL bInstant, bool user_result)
+ {
+ 	CVI_S32 ret = CVI_SUCCESS;
+-	CVI_U32 u32SizeS8C2, u32SizeU8C1;
++	CVI_U32 u32SizeS8C2;
+ 	CVI_U16 u16MaxEig;
+ 	IVE_DST_IMAGE_S stEigenMap = { 0 };
+ 	CVI_S8 as8Mask[25] = { 0, 0, 0, 0,  0, 0, -1, 0, 1, 0, 0, -2, 0,
+@@ -9582,7 +9568,6 @@ static CVI_S32 ive_st_candi_corner(struct cvi_ive_device *ndev,
+ 	}
+ 
+ 	u32SizeS8C2 = pstSrc->u32Height * pstSrc->u32Stride[0] * 2;
+-	u32SizeU8C1 = pstSrc->u32Height * pstSrc->u32Stride[0];
+ 	stEigenMap.u64PhyAddr[0] =
+ 		pstStCandiCornerCtrl->stMem.u64PhyAddr + u32SizeS8C2;
+ 	stEigenMap.enType = IVE_IMAGE_TYPE_S8C2_PACKAGE;
+diff --git a/interdrv/jpeg/Makefile b/interdrv/jpeg/Makefile
+index b8f4ffe..dd9f083 100644
+--- a/interdrv/jpeg/Makefile
++++ b/interdrv/jpeg/Makefile
+@@ -2,7 +2,6 @@ include $(PWD)/../Makefile.interdrv.param
+ 
+ HAL_PATH = hal/$(CVIARCH_L)
+ 
+-CHIP_TYPE = CHIP_BM1880
+ SUB_TYPE = ASIC_EVB
+ 
+ # Add your debugging flag (or not) to CFLAGS
+@@ -12,7 +11,7 @@ else
+   DEBFLAGS = # Optimization is selected by platform KCFLAGS.
+ endif
+ 
+-ccflags-y += $(DEBFLAGS) -I$(PWD) -I$(LDDINCDIR) -D$(CHIP_TYPE) -D$(SUB_TYPE) -DUSE_KERNEL_MODE -Wno-date-time -Werror
++ccflags-y += $(DEBFLAGS) -I$(PWD) -D$(SUB_TYPE) -DUSE_KERNEL_MODE -Wno-date-time -Werror
+ 
+ KBUILD_EXTRA_SYMBOLS += $(PWD)/../vcodec/Module.symvers
+ 
+diff --git a/interdrv/rgn/chip/cv181x/rgn.c b/interdrv/rgn/chip/cv181x/rgn.c
+index b0909d9..1675e52 100644
+--- a/interdrv/rgn/chip/cv181x/rgn.c
++++ b/interdrv/rgn/chip/cv181x/rgn.c
+@@ -1871,7 +1871,7 @@ CVI_S32 rgn_update_canvas(RGN_HANDLE Handle)
+ 	struct cvi_rgn_ctx *ctx = NULL;
+ 	CVI_S32 ret = -EINVAL;
+ 	CVI_S32 s32Ret;
+-	CVI_U32 proc_idx;
++	CVI_U32 proc_idx __maybe_unused;
+ 
+ 	s32Ret = CHECK_RGN_HANDLE(&ctx, Handle);
+ 	if (s32Ret != CVI_SUCCESS)
+diff --git a/interdrv/sys/Makefile b/interdrv/sys/Makefile
+index 6fd4d6e..96a264b 100644
+--- a/interdrv/sys/Makefile
++++ b/interdrv/sys/Makefile
+@@ -1,13 +1,9 @@
+ include $(PWD)/../Makefile.interdrv.param
+ 
+ ccflags-y += -I$(PWD)/../include/common/uapi/ -I$(PWD)/../include/common/kapi/
+-ccflags-y += -I$(src)/../base/mw/ \
+-             -I$(src)/../base/ \
++ccflags-y += -I$(src)/../base/ \
+              -I$(src)/common/uapi \
+-             -I$(src)/common/kapi \
+              -I$(src)/common \
+-             -I$(src)/hal/$(CVIARCH_L)/uapi \
+-             -I$(src)/hal/$(CVIARCH_L) \
+              -I$(srctree)/drivers/staging/android \
+              -I$(src)/../include/chip/$(CVIARCH_L)/uapi
+ 
+diff --git a/interdrv/vcodec/Makefile b/interdrv/vcodec/Makefile
+index 87bc0dc..02669b4 100644
+--- a/interdrv/vcodec/Makefile
++++ b/interdrv/vcodec/Makefile
+@@ -4,7 +4,7 @@ HAL_PATH = hal/$(CVIARCH_L)
+ 
+ ccflags-y += -I$(PWD)/../include/common/uapi/ -I$(PWD)/../include/chip/$(CVIARCH_L)/uapi/
+ ccflags-y += -I$(PWD)/../include/common/kapi/
+-ccflags-y += -I$(PWD) -I$(LDDINCDIR) -DCNM_FPGA_PLATFORM -DCNM_FPGA_PCI_INTERFACE -DCVI_H26X_USE_ION_FW_BUFFER -DUSE_KERNEL_MODE -Wno-date-time -Werror
++ccflags-y += -I$(PWD) -DCNM_FPGA_PCI_INTERFACE -DCVI_H26X_USE_ION_FW_BUFFER -DUSE_KERNEL_MODE -Wno-date-time -Werror
+ 
+ PWD	:= $(shell pwd)
+ obj-m += $(CVIARCH_L)_vcodec.o
+diff --git a/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c b/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
+index 17a7182..b4f15f8 100644
+--- a/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
++++ b/interdrv/vi/chip/cv181x/proc/vi_dbg_proc.c
+@@ -22,15 +22,12 @@ static inline void _vi_dbg_proc_show(struct seq_file *m, void *v)
+ 	struct cvi_vi_dev *vdev = m->private;
+ 	struct isp_ctx *ctx = &vdev->ctx;
+ 	enum cvi_isp_raw raw_num = ISP_PRERAW_A;
+-	enum cvi_isp_raw raw_max = ISP_PRERAW_MAX - 1;
+ 	
+ 	u32 frmCnt_start[ISP_PRERAW_VIRT_MAX], sofCnt_start[ISP_PRERAW_VIRT_MAX];
+ 	u32 frmCnt_end[ISP_PRERAW_VIRT_MAX], sofCnt_end[ISP_PRERAW_VIRT_MAX];
+ 	u64 t2 = 0, t1 = 0;
+ 	char raw_char;
+ 
+-	raw_max = gViCtx->total_dev_num;
+-
+ 	for (raw_num = ISP_PRERAW_A; raw_num < ISP_PRERAW_VIRT_MAX; raw_num++) {
+ 		if (!ctx->isp_pipe_enable[raw_num])
+ 			continue;
+diff --git a/interdrv/vi/chip/cv181x/vi_sdk_layer.c b/interdrv/vi/chip/cv181x/vi_sdk_layer.c
+index 69cf333..8a40c22 100644
+--- a/interdrv/vi/chip/cv181x/vi_sdk_layer.c
++++ b/interdrv/vi/chip/cv181x/vi_sdk_layer.c
+@@ -141,7 +141,6 @@ void vi_fill_dis_info(struct vb_s *blk)
+ {
+ 	CVI_U8 snr_num = blk->buf.dev_num;
+ 	CVI_U32 frm_num = blk->buf.frm_num;
+-	CVI_BOOL isSetDisInfo = false;
+ 	static struct crop_size_s dis_i[VI_MAX_DEV_NUM] = { 0 };
+ 
+ 	if (gViCtx->isDisEnable[snr_num]) {
+@@ -152,7 +151,6 @@ void vi_fill_dis_info(struct vb_s *blk)
+ 		if (dis_flag[snr_num] == 1) {
+ 			if (dis_i_frm_num[snr_num] == frm_num) {
+ 				dis_i[snr_num] = dis_i_data[snr_num];
+-				isSetDisInfo = true;
+ 			}
+ 
+ 			vi_pr(VI_DBG, "fill dis snr(%d), frm(%d), dis_frm(%d), crop(%d, %d, %d, %d)\n"
+@@ -1097,15 +1095,9 @@ static CVI_S32 _vi_update_rotation_mesh(VI_CHN ViChn, ROTATION_E enRotation)
+ static CVI_S32 _vi_update_ldc_mesh(VPSS_CHN ViChn, const VI_LDC_ATTR_S *pstLDCAttr
+ 	, ROTATION_E enRotation, CVI_U64 paddr)
+ {
+-	CVI_U64 paddr_old;
+ 	struct cvi_gdc_mesh *pmesh = &g_vi_mesh[ViChn];
+ 
+ 	mutex_lock(&pmesh->lock);
+-	if (pmesh->paddr) {
+-		paddr_old = pmesh->paddr;
+-	} else {
+-		paddr_old = 0;
+-	}
+ 	pmesh->paddr = paddr;
+ 	pmesh->vaddr = NULL;
+ 
+diff --git a/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c b/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c
+index a08bf44..2e28baa 100644
+--- a/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_fe_ip_ctrl.c
+@@ -240,7 +240,7 @@ void ispblk_csibdg_update_size(struct isp_ctx *ctx, enum cvi_isp_raw raw_num)
+ void ispblk_csibdg_crop_update(struct isp_ctx *ctx, enum cvi_isp_raw raw_num, bool en)
+ {
+ 	uintptr_t csibdg;
+-	struct vi_rect crop, crop_se;
++	struct vi_rect crop;
+ 	enum cvi_isp_raw raw;
+ 
+ 	raw = find_hw_raw_num(raw_num);
+@@ -272,11 +272,6 @@ void ispblk_csibdg_crop_update(struct isp_ctx *ctx, enum cvi_isp_raw raw_num, bo
+ 	ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CH0_VERT_CROP, CH0_VERT_CROP_END, crop.h);
+ 
+ 	if (ctx->isp_pipe_cfg[raw_num].is_hdr_on) {
+-		crop_se.x = (ctx->isp_pipe_cfg[raw_num].crop_se.x == 0) ? 0 : ctx->isp_pipe_cfg[raw_num].crop_se.x;
+-		crop_se.y = (ctx->isp_pipe_cfg[raw_num].crop_se.y == 0) ? 0 : ctx->isp_pipe_cfg[raw_num].crop_se.y;
+-		crop_se.w = (ctx->isp_pipe_cfg[raw_num].crop_se.x + ctx->isp_pipe_cfg[raw_num].crop_se.w) - 1;
+-		crop_se.h = (ctx->isp_pipe_cfg[raw_num].crop_se.y + ctx->isp_pipe_cfg[raw_num].crop_se.h) - 1;
+-
+ 		ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CH1_CROP_EN, CH1_CROP_EN, en);
+ 		ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CH1_HORZ_CROP, CH1_HORZ_CROP_START, crop.x);
+ 		ISP_WR_BITS(csibdg, REG_ISP_CSI_BDG_T, CH1_HORZ_CROP, CH1_HORZ_CROP_END, crop.w);
+diff --git a/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c b/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
+index 89edd24..be592af 100644
+--- a/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
+@@ -41,7 +41,6 @@ void vi_tuning_gamma_ips_update(
+ 	u8 tun_idx = 0;
+ 	static int stop_update_gamma_ip = -1;
+ 	struct cvi_vip_isp_post_cfg     *post_cfg;
+-	struct cvi_vip_isp_post_tun_cfg *post_tun;
+ 
+ 	struct cvi_vip_isp_ygamma_config  *ygamma_cfg;
+ 	struct cvi_vip_isp_gamma_config   *gamma_cfg;
+@@ -53,7 +52,6 @@ void vi_tuning_gamma_ips_update(
+ 	if ((tun_idx >= TUNING_NODE_NUM) || (post_cfg->tun_update[tun_idx] == 0))
+ 		return;
+ 
+-	post_tun = &post_cfg->tun_cfg[tun_idx];
+ 
+ 	if (tuning_dis[3]) {
+ 		if (stop_update_gamma_ip > 0)
+@@ -83,7 +81,6 @@ void vi_tuning_dci_update(
+ 	u8 tun_idx = 0;
+ 	static int stop_update_dci = -1;
+ 	struct cvi_vip_isp_post_cfg     *post_cfg;
+-	struct cvi_vip_isp_post_tun_cfg *post_tun;
+ 	struct cvi_vip_isp_dci_config   *dci_cfg;
+ 
+ 	post_cfg = (struct cvi_vip_isp_post_cfg *)tuning_buf_addr.post_vir[raw_num];
+@@ -92,7 +89,6 @@ void vi_tuning_dci_update(
+ 	if ((tun_idx >= TUNING_NODE_NUM) || (post_cfg->tun_update[tun_idx] == 0))
+ 		return;
+ 
+-	post_tun = &post_cfg->tun_cfg[tun_idx];
+ 
+ 	if (tuning_dis[3]) {
+ 		if (stop_update_dci > 0)
+@@ -116,7 +112,6 @@ void vi_tuning_cacp_update(
+ 	u8 tun_idx = 0;
+ 	static int stop_update_cacp = -1;
+ 	struct cvi_vip_isp_post_cfg     *post_cfg;
+-	struct cvi_vip_isp_post_tun_cfg *post_tun;
+ 	struct cvi_vip_isp_cacp_config   *cacp_cfg;
+ 
+ 	post_cfg = (struct cvi_vip_isp_post_cfg *)tuning_buf_addr.post_vir[raw_num];
+@@ -125,7 +120,6 @@ void vi_tuning_cacp_update(
+ 	if ((tun_idx >= TUNING_NODE_NUM) || (post_cfg->tun_update[tun_idx] == 0))
+ 		return;
+ 
+-	post_tun = &post_cfg->tun_cfg[tun_idx];
+ 
+ 	if (tuning_dis[3]) {
+ 		if (stop_update_cacp > 0)
+@@ -149,7 +143,6 @@ void vi_tuning_drc_update(
+ 	u8 tun_idx = 0;
+ 	static int stop_update_drc = -1;
+ 	struct cvi_vip_isp_post_cfg     *post_cfg;
+-	struct cvi_vip_isp_post_tun_cfg *post_tun;
+ 	struct cvi_vip_isp_drc_config   *drc_cfg;
+ 
+ 	post_cfg = (struct cvi_vip_isp_post_cfg *)tuning_buf_addr.post_vir[raw_num];
+@@ -159,7 +152,6 @@ void vi_tuning_drc_update(
+ 	if ((tun_idx >= TUNING_NODE_NUM) || (post_cfg->tun_update[tun_idx] == 0))
+ 		return;
+ 
+-	post_tun = &post_cfg->tun_cfg[tun_idx];
+ 
+ 	if (tuning_dis[3]) {
+ 		if (stop_update_drc > 0)
+@@ -183,7 +175,6 @@ void vi_tuning_clut_update(
+ 	int ret;
+ 	static int stop_update_clut = -1;
+ 	struct cvi_vip_isp_post_cfg     *post_cfg;
+-	struct cvi_vip_isp_post_tun_cfg *post_tun;
+ 	struct cvi_vip_isp_clut_config  *clut_cfg;
+ 	unsigned long flags;
+ 
+@@ -196,7 +187,6 @@ void vi_tuning_clut_update(
+ 	if ((tun_idx >= TUNING_NODE_NUM) || (post_cfg->tun_update[tun_idx] == 0))
+ 		return;
+ 
+-	post_tun = &post_cfg->tun_cfg[tun_idx];
+ 
+ 	if (tuning_dis[3]) {
+ 		if (stop_update_clut > 0)
+diff --git a/interdrv/vpss/common/vpss.c b/interdrv/vpss/common/vpss.c
+index d98af8e..28f5ae1 100644
+--- a/interdrv/vpss/common/vpss.c
++++ b/interdrv/vpss/common/vpss.c
+@@ -2436,7 +2436,6 @@ cmd_err:
+  */
+ static CVI_S32 vpss_try_schedule_online(struct vpss_handler_ctx *ctx)
+ {
+-	MMF_CHN_S chn = {.enModId = CVI_ID_VPSS, .s32DevId = VPSS_ONLINE_GRP_0, .s32ChnId = 0};
+ 	CVI_U8 workingMask = ctx->workingMask;
+ 	CVI_U8 u8ChnMask = 0;
+ 	VPSS_GRP workingGrp = 0;
+@@ -2468,7 +2467,6 @@ static CVI_S32 vpss_try_schedule_online(struct vpss_handler_ctx *ctx)
+ 		// sc's mask
+ 		u8ChnMask = getWorkMask(vpss_ctx);
+ 
+-		chn.s32DevId = workingGrp;
+ 		vc_sbm_enabled = _is_vc_sbm_enabled(workingGrp, vpss_ctx);
+ 
+ 		// commit hw settings of this vpss-grp.
+@@ -2744,7 +2742,6 @@ static CVI_VOID vpss_sbm_err_handle(struct vpss_handler_ctx *ctx)
+ static CVI_VOID vpss_handle_online(struct vpss_handler_ctx *ctx)
+ {
+ 	VPSS_GRP workingGrp;
+-	struct cvi_vpss_ctx *vpss_ctx;
+ 	CVI_U64 duration64;
+ 	struct timespec64 time;
+ 	CVI_U32 state;
+@@ -2764,7 +2761,6 @@ static CVI_VOID vpss_handle_online(struct vpss_handler_ctx *ctx)
+ 		return;
+ 	}
+ 
+-	vpss_ctx = &ctx->vpssCtxWork[workingGrp];
+ 	state = vpssExtCtx[workingGrp].grp_state;
+ 	CVI_TRACE_VPSS(CVI_DBG_DEBUG, "ctx[%d] event=0x%x, Grp(%d) state=0x%x\n",
+ 			ctx->u8VpssDev, events, workingGrp,
+@@ -3257,15 +3253,9 @@ static CVI_S32 _vpss_update_rotation_mesh(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, RO
+ static CVI_S32 _vpss_update_ldc_mesh(VPSS_GRP VpssGrp, VPSS_CHN VpssChn,
+ 	const VPSS_LDC_ATTR_S *pstLDCAttr, ROTATION_E enRotation, CVI_U64 paddr)
+ {
+-	CVI_U64 paddr_old;
+ 	struct cvi_gdc_mesh *pmesh = &mesh[VpssGrp][VpssChn];
+ 
+ 	mutex_lock(&pmesh->lock);
+-	if (pmesh->paddr) {
+-		paddr_old = pmesh->paddr;
+-	} else {
+-		paddr_old = 0;
+-	}
+ 	pmesh->paddr = paddr;
+ 	pmesh->vaddr = NULL;
+ 	mutex_unlock(&pmesh->lock);
+@@ -3276,9 +3266,6 @@ static CVI_S32 _vpss_update_ldc_mesh(VPSS_GRP VpssGrp, VPSS_CHN VpssChn,
+ 	mutex_unlock(&vpssCtx[VpssGrp]->lock);
+ 	//mutex_unlock(&pmesh->lock);
+ 
+-	//if (paddr_old)
+-	//	CVI_SYS_IonFree(paddr_old, vaddr_old);
+-
+ 	CVI_TRACE_VPSS(CVI_DBG_DEBUG, "Grp(%d) Chn(%d) mesh base(0x%llx)\n"
+ 		      , VpssGrp, VpssChn, (unsigned long long)paddr);
+ 	CVI_TRACE_VPSS(CVI_DBG_DEBUG, "bEnable=%d, apect=%d, xyratio=%d, xoffset=%d, yoffset=%d, ratio=%d\n",
+@@ -5366,7 +5353,6 @@ int vpss_set_grp_sbm(struct vpss_grp_sbm_cfg *cb_cfg)
+ 	u8 sb_nb = cb_cfg->sb_nb;
+ 	CVI_U32 ion_size = cb_cfg->ion_size;
+ 	struct vpss_grp_sbm_cfg *sbm_cfg;
+-	VPSS_GRP_ATTR_S *pstGrpAttr;
+ 	CVI_S32 ret;
+ 	CVI_U32 *ion_vaddr = NULL;
+ 	CVI_U64 ion_paddr = 0;
+@@ -5407,7 +5393,6 @@ int vpss_set_grp_sbm(struct vpss_grp_sbm_cfg *cb_cfg)
+ 		return CVI_FAILURE;
+ 	}
+ 
+-	pstGrpAttr = &vpssCtx[VpssGrp]->stGrpAttr;
+ 
+ 	sprintf(ion_name, "VpssGrp%dWrapBuf", VpssGrp);
+ 	ret = sys_ion_alloc(&ion_paddr, (void *)&ion_vaddr, ion_name, ion_size, true);

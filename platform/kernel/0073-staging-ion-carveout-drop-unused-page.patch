@@ -1,0 +1,46 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] staging: ion: carveout heap without the unused page
+
+ion_carveout_heap_create kept the heap's first page only for the
+ENABLE_DATA_ZERO block, which is never defined and could not build (it
+uses an undeclared ret). Drop the block and the page, which W=1 reported
+as set but not used. The object code is unchanged.
+
+---
+diff --git a/drivers/staging/android/ion/ion_carveout_heap.c b/drivers/staging/android/ion/ion_carveout_heap.c
+--- a/drivers/staging/android/ion/ion_carveout_heap.c
++++ b/drivers/staging/android/ion/ion_carveout_heap.c
+@@ -232,7 +232,6 @@
+ {
+ 	struct ion_carveout_heap *carveout_heap;
+ 
+-	struct page *page;
+ 	size_t size;
+ #ifdef CONFIG_ION_CVITEK
+ 	size_t rtos_ion_size;
+@@ -272,7 +271,6 @@
+ 		return &carveout_heap->heap;
+ 	}
+ #endif
+-	page = pfn_to_page(PFN_DOWN(heap_data->base));
+ 	size = heap_data->size;
+ 
+ 	pr_info("%s, size=0x%lx\n", __func__, size);
+@@ -284,17 +282,10 @@
+ 		heap_end_addr = heap_data->base + size;
+ 		rtos_end_page = pfn_to_page(PFN_UP(heap_data->base + rtos_ion_size));
+ 		size = heap_end_addr - page_to_phys(rtos_end_page);
+-		page = rtos_end_page;
+ 		pr_info("%s, size(exclusion of rtos_ion_size)=0x%lx\n", __func__, size);
+ 	}
+ #endif
+ 
+-#ifdef ENABLE_DATA_ZERO
+-	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
+-	if (ret)
+-		return ERR_PTR(ret);
+-#endif
+-
+ 	carveout_heap = kzalloc(sizeof(*carveout_heap), GFP_KERNEL);
+ 	if (!carveout_heap)
+ 		return ERR_PTR(-ENOMEM);

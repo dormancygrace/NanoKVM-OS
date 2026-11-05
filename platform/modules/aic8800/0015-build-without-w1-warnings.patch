@@ -1,0 +1,438 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: build without W=1 warnings
+
+- Variables that were set but never read are removed; calls made only for
+  such a variable stay as plain calls. Where only "#if 0" code reads one,
+  it is marked __maybe_unused. rwnx_rxbuff_pattern was unused; the
+  s_conn_state table in rwnx_defs.h is used by one of the files that
+  include it.
+- fdrv Makefile: -I$(srctree)/$(src) and its aic8800_bsp sibling point
+  into the kernel tree, which has no such directories; removed.
+- rwnx_plat_userconfig_parsing: a key name that does not fit is skipped
+  instead of overflowing keyname with sprintf, and a value kstrtol cannot
+  parse is no longer stored (val kept the previous key's value).
+
+Machine code changes only in rwnx_plat_userconfig_parsing; everything else
+differs only in line number and string offset constants.
+
+---
+diff --git a/aic8800_bsp/aicsdio.c b/aic8800_bsp/aicsdio.c
+index d6a3905..01bc1b1 100644
+--- a/aic8800_bsp/aicsdio.c
++++ b/aic8800_bsp/aicsdio.c
+@@ -976,7 +976,6 @@ int aicwf_sdio_pwr_stctl(struct aic_sdio_dev *sdiodev, uint target)
+ int aicwf_sdio_txpkt(struct aic_sdio_dev *sdiodev, struct sk_buff *pkt)
+ {
+ 	int ret = 0;
+-	u8 *frame;
+ 	u32 len = 0;
+ 	struct aicwf_bus *bus_if = dev_get_drvdata(sdiodev->dev);
+ 
+@@ -985,7 +984,6 @@ int aicwf_sdio_txpkt(struct aic_sdio_dev *sdiodev, struct sk_buff *pkt)
+ 		return -EINVAL;
+ 	}
+ 
+-	frame = (u8 *) (pkt->data);
+ 	len = pkt->len;
+ 	len = (len + SDIOWIFI_FUNC_BLOCKSIZE - 1) / SDIOWIFI_FUNC_BLOCKSIZE * SDIOWIFI_FUNC_BLOCKSIZE;
+ 	ret = aicwf_sdio_send_pkt(sdiodev, pkt->data, len);
+@@ -1147,7 +1145,6 @@ static int aicwf_sdio_tx_msg(struct aic_sdio_dev *sdiodev)
+ 
+ static void aicwf_sdio_tx_process(struct aic_sdio_dev *sdiodev)
+ {
+-	int err = 0;
+ 
+ 	if (sdiodev->bus_if->state == BUS_DOWN_ST) {
+ 		sdio_err("Bus is down\n");
+@@ -1172,7 +1169,7 @@ static void aicwf_sdio_tx_process(struct aic_sdio_dev *sdiodev)
+ 			return;
+ 		}
+ 
+-		err = aicwf_sdio_tx_msg(sdiodev);
++		aicwf_sdio_tx_msg(sdiodev);
+ 		up(&sdiodev->tx_priv->txctl_sema);
+ 		if (waitqueue_active(&sdiodev->tx_priv->cmd_txdone_wait))
+ 			wake_up(&sdiodev->tx_priv->cmd_txdone_wait);
+@@ -1675,7 +1672,6 @@ void aicwf_sdio_hal_irqhandler_func2(struct sdio_func *func)
+ 	#else
+ 	struct sk_buff *pkt = NULL;
+ 	#endif
+-    int ret;
+ 
+     if (!bus_if || bus_if->state == BUS_DOWN_ST) {
+         sdio_err("bus err\n");
+@@ -1689,7 +1685,7 @@ void aicwf_sdio_hal_irqhandler_func2(struct sdio_func *func)
+     }
+ 	#endif
+ 
+-    ret = aicwf_sdio_readb_func2(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
++    aicwf_sdio_readb_func2(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
+ 
+ 	while(intstatus) {
+ 	    sdiodev->rx_priv->data_len = intstatus * SDIOWIFI_FUNC_BLOCKSIZE;
+@@ -1711,7 +1707,7 @@ void aicwf_sdio_hal_irqhandler_func2(struct sdio_func *func)
+ 	    if (pkt){
+ 	        aicwf_sdio_enq_rxpkt(sdiodev, pkt);
+ 	    }
+-		ret = aicwf_sdio_readb_func2(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
++		aicwf_sdio_readb_func2(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
+ 	}
+ 
+ 	complete(&bus_if->busrx_trgg);
+@@ -1991,7 +1987,7 @@ int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev)
+ 
+ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
+ {
+-	struct mmc_host *host;
++	struct mmc_host *host __maybe_unused;
+ 	u8 byte_mode_disable = 0x1;//1: no byte mode
+ 	int ret = 0;
+     //u8 val;
+diff --git a/aic8800_bsp/aicsdio_txrxif.c b/aic8800_bsp/aicsdio_txrxif.c
+index 84e6ca7..dd14cb6 100644
+--- a/aic8800_bsp/aicsdio_txrxif.c
++++ b/aic8800_bsp/aicsdio_txrxif.c
+@@ -67,7 +67,6 @@ fail:
+ void aicwf_bus_deinit(struct device *dev)
+ {
+ 	struct aicwf_bus *bus_if;
+-	struct aic_sdio_dev *sdiodev;
+ 
+ 	if (!dev) {
+ 		txrx_err("device not found\n");
+@@ -77,8 +76,6 @@ void aicwf_bus_deinit(struct device *dev)
+ 	bus_if = aicbsp_get_drvdata(dev);
+ 	aicwf_bus_stop(bus_if);
+ 
+-	sdiodev = bus_if->bus_priv.sdio;
+-
+ 	if (bus_if->cmd_buf) {
+ 		kfree(bus_if->cmd_buf);
+ 		bus_if->cmd_buf = NULL;
+@@ -131,13 +128,11 @@ void aicwf_tx_deinit(struct aicwf_tx_priv *tx_priv)
+ 
+ static bool aicwf_another_ptk(struct sk_buff *skb)
+ {
+-	u8 *data;
+ 	u16 aggr_len = 0;
+ 
+ 	if (skb->data == NULL || skb->len == 0) {
+ 		return false;
+ 	}
+-	data = skb->data;
+ 	aggr_len = (*skb->data | (*(skb->data + 1) << 8));
+ 	if (aggr_len == 0) {
+ 		return false;
+diff --git a/aic8800_fdrv/Makefile b/aic8800_fdrv/Makefile
+index 8816155..a6b725a 100644
+--- a/aic8800_fdrv/Makefile
++++ b/aic8800_fdrv/Makefile
+@@ -266,8 +266,6 @@ ccflags-$(CONFIG_COEX) += -DCONFIG_COEX
+ 
+ ccflags-y += -DCONFIG_RWNX_FULLMAC
+ ccflags-y += -I$(srctree)
+-ccflags-y += -I$(srctree)/$(src)
+-ccflags-y += -I$(srctree)/$(src)/../aic8800_bsp
+ ccflags-y += -DCONFIG_AIC_FW_PATH=\"$(CONFIG_AIC_FW_PATH)\"
+ ccflags-$(CONFIG_RWNX_RADAR) += -DCONFIG_RWNX_RADAR
+ ccflags-$(CONFIG_RWNX_MON_DATA) += -DCONFIG_RWNX_MON_DATA
+diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
+index 99a9d13..ec55317 100644
+--- a/aic8800_fdrv/aicwf_sdio.c
++++ b/aic8800_fdrv/aicwf_sdio.c
+@@ -1478,7 +1478,7 @@ module_param(align_param, int, 0660);
+ int aicwf_sdio_txpkt(struct aic_sdio_dev *sdiodev, struct sk_buff *pkt)
+ {
+ 	int ret = 0;
+-	u8 *frame;
++	u8 *frame __maybe_unused;
+ 	u32 len = 0;
+ 	struct aicwf_bus *bus_if = dev_get_drvdata(sdiodev->dev);
+ #if 0
+@@ -1861,7 +1861,6 @@ static int aicwf_sdio_tx_msg(struct aic_sdio_dev *sdiodev)
+ 
+ static void aicwf_sdio_tx_process(struct aic_sdio_dev *sdiodev)
+ {
+-	int err = 0;
+ #ifdef CONFIG_TX_NETIF_FLOWCTRL
+ 	unsigned long flags;
+ #endif
+@@ -1888,7 +1887,7 @@ static void aicwf_sdio_tx_process(struct aic_sdio_dev *sdiodev)
+ 			txrx_err("txctl up bus->txctl_sema fail\n");
+ 			return;
+ 		}
+-		err = aicwf_sdio_tx_msg(sdiodev);
++		aicwf_sdio_tx_msg(sdiodev);
+ 		up(&sdiodev->tx_priv->txctl_sema);
+ 		if (waitqueue_active(&sdiodev->tx_priv->cmd_txdone_wait))
+ 			wake_up(&sdiodev->tx_priv->cmd_txdone_wait);
+@@ -3211,7 +3210,7 @@ int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev)
+ 
+ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
+ {
+-	struct mmc_host *host;
++	struct mmc_host *host __maybe_unused;
+ 	u8 byte_mode_disable = 0x1;//1: no byte mode
+ 	int ret = 0;
+ 	struct aicbsp_feature_t feature;
+diff --git a/aic8800_fdrv/rwnx_cmds.c b/aic8800_fdrv/rwnx_cmds.c
+index 001c661..dbaf44a 100644
+--- a/aic8800_fdrv/rwnx_cmds.c
++++ b/aic8800_fdrv/rwnx_cmds.c
+@@ -62,7 +62,6 @@ static void cmd_complete(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
+ 
+ int cmd_mgr_queue_force_defer(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
+ {
+-	bool defer_push = false;
+ 
+ 	RWNX_DBG(RWNX_FN_ENTRY_STR);
+ #ifdef CREATE_TRACE_POINTS
+@@ -90,7 +89,6 @@ int cmd_mgr_queue_force_defer(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd
+ 	#endif
+ 
+ 	cmd->flags |= RWNX_CMD_FLAG_WAIT_PUSH;
+-	defer_push = true;
+ 
+ 	if (cmd->flags & RWNX_CMD_FLAG_REQ_CFM)
+ 		cmd->flags |= RWNX_CMD_FLAG_WAIT_CFM;
+diff --git a/aic8800_fdrv/rwnx_defs.h b/aic8800_fdrv/rwnx_defs.h
+index 2f603d7..fcc1d42 100644
+--- a/aic8800_fdrv/rwnx_defs.h
++++ b/aic8800_fdrv/rwnx_defs.h
+@@ -677,7 +677,7 @@ enum rwnx_drv_connect_status {
+ 	RWNX_DRV_STATUS_ROAMING,
+ };
+ 
+-static const char *const s_conn_state[] = {
++static const char *const s_conn_state[] __maybe_unused = {
+     "RWNX_DRV_STATUS_DISCONNECTED",
+     "RWNX_DRV_STATUS_DISCONNECTING",
+     "RWNX_DRV_STATUS_CONNECTING",
+diff --git a/aic8800_fdrv/rwnx_main.c b/aic8800_fdrv/rwnx_main.c
+index 7044580..9fb59eb 100644
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -3602,10 +3602,8 @@ static int rwnx_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *d
+ 	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
+ 	struct rwnx_vif *vif = netdev_priv(dev);
+ 	struct rwnx_bcn *bcn = &vif->ap.bcn;
+-	struct rwnx_ipc_elem_var elem;
+ 	u8 *buf;
+ 	int error = 0;
+-	elem.dma_addr = 0;
+ 
+ 	RWNX_DBG(RWNX_FN_ENTRY_STR);
+ 
+@@ -3639,7 +3637,6 @@ static int rwnx_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
+ {
+ 	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
+ 	struct rwnx_vif *rwnx_vif = netdev_priv(dev);
+-	struct rwnx_sta *sta;
+ 
+ 	RWNX_DBG(RWNX_FN_ENTRY_STR);
+ 
+@@ -3678,7 +3675,6 @@ static int rwnx_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
+ 	spin_unlock_bh(&rwnx_hw->cb_lock);
+ 
+ 	/* delete BC/MC STA */
+-	sta = &rwnx_hw->sta_table[rwnx_vif->ap.bcmc_index];
+ 	rwnx_txq_vif_deinit(rwnx_hw, rwnx_vif);
+ 	rwnx_del_bcn(&rwnx_vif->ap.bcn);
+ 	rwnx_del_csa(rwnx_vif);
+diff --git a/aic8800_fdrv/rwnx_msg_rx.c b/aic8800_fdrv/rwnx_msg_rx.c
+index 536dc6d..7b0f65c 100644
+--- a/aic8800_fdrv/rwnx_msg_rx.c
++++ b/aic8800_fdrv/rwnx_msg_rx.c
+@@ -832,11 +832,9 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
+ 	const struct ieee_types_extcap *extcap;
+ 	struct ieee80211_channel *chan;
+ 	//struct cfg80211_bss *bss = NULL;
+-    struct wireless_dev *wdev = NULL;
+     //int retry_counter = 10;
+ 
+ 	RWNX_DBG(RWNX_FN_ENTRY_STR);
+-	wdev = dev->ieee80211_ptr;
+ 
+ 	/* Retrieve IE addresses and lengths */
+ 	req_ie = (const u8 *)ind->assoc_ie_buf;
+diff --git a/aic8800_fdrv/rwnx_platform.c b/aic8800_fdrv/rwnx_platform.c
+index 85f8fcf..22843ed 100644
+--- a/aic8800_fdrv/rwnx_platform.c
++++ b/aic8800_fdrv/rwnx_platform.c
+@@ -1829,7 +1829,7 @@ void rwnx_plat_userconfig_parsing(struct rwnx_hw *rwnx_hw, char *buffer, int siz
+ 	char conf[100], keyname[64];
+ 	char *line;
+         char *data;
+-        int  i = 0, err, len = 0;
++        int  i = 0, len = 0;
+ 	long val;
+ 
+         if (size <= 0) {
+@@ -1871,9 +1871,11 @@ void rwnx_plat_userconfig_parsing(struct rwnx_hw *rwnx_hw, char *buffer, int siz
+ 
+ 		// store value to data struct
+ 		for (i = 0; i < sizeof(parse_match_tab) / sizeof(parse_match_tab[0]); i++) {
+-			sprintf(&keyname[0], "%s%s", parse_key_prefix[rwnx_hw->vendor_info], parse_match_tab[i].keyname);
++			if (snprintf(keyname, sizeof(keyname), "%s%s", parse_key_prefix[rwnx_hw->vendor_info], parse_match_tab[i].keyname) >= sizeof(keyname))
++				continue;
+ 			if (parse_key_val(line, keyname, conf) == 0) {
+-				err = kstrtol(conf, 0, &val);
++				if (kstrtol(conf, 0, &val))
++					break;
+ 				*(unsigned long *)((unsigned long)&nvram_info + parse_match_tab[i].offset) = val;
+ 				printk("%s, %s = %ld\n",  __func__, parse_match_tab[i].keyname, val);
+ 				break;
+diff --git a/aic8800_fdrv/rwnx_rx.c b/aic8800_fdrv/rwnx_rx.c
+index e94cae1..5113132 100644
+--- a/aic8800_fdrv/rwnx_rx.c
++++ b/aic8800_fdrv/rwnx_rx.c
+@@ -343,12 +343,10 @@ void rwnx_rx_data_skb_resend(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
+ 							 struct sk_buff *skb,  struct hw_rxhdr *rxhdr)
+ {
+ 	struct sk_buff *rx_skb = skb;
+-	const struct ethhdr *eth;
+ 	struct sk_buff *skb_copy;
+ 
+ 	rx_skb->dev = rwnx_vif->ndev;
+ 	skb_reset_mac_header(rx_skb);
+-	eth = eth_hdr(rx_skb);
+ 
+ 	//printk("resend\n");
+ 	/* resend pkt on wireless interface */
+@@ -1615,7 +1613,6 @@ int reord_flush_tid(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u8 tid)
+ 	u8 found = 0;
+ 	struct list_head *phead, *plist;
+ 	struct recv_msdu *prframe;
+-	int ret;
+ 
+ 	if ((rwnx_vif->wdev.iftype == NL80211_IFTYPE_STATION) || (rwnx_vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT))
+ 		mac = eh->h_dest;
+@@ -1660,9 +1657,9 @@ int reord_flush_tid(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u8 tid)
+ 	spin_unlock_irqrestore(&preorder_ctrl->reord_list_lock, flags);
+ 	if (timer_pending(&preorder_ctrl->reord_timer))
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+-		ret = timer_delete_sync(&preorder_ctrl->reord_timer);
++		timer_delete_sync(&preorder_ctrl->reord_timer);
+ #else
+-		ret = del_timer_sync(&preorder_ctrl->reord_timer);
++		del_timer_sync(&preorder_ctrl->reord_timer);
+ #endif
+ 	cancel_work_sync(&preorder_ctrl->reord_timer_work);
+ 
+@@ -1675,7 +1672,6 @@ void reord_deinit_sta(struct aicwf_rx_priv *rx_priv, struct reord_ctrl_info *reo
+ 	u8 i = 0;
+ 	unsigned long flags;
+ 	struct reord_ctrl *preorder_ctrl = NULL;
+-	int ret;
+ 
+ 	if (rx_priv == NULL) {
+ 		txrx_err("bad rx_priv!\n");
+@@ -1689,9 +1685,9 @@ void reord_deinit_sta(struct aicwf_rx_priv *rx_priv, struct reord_ctrl_info *reo
+ 			preorder_ctrl->enable = false;
+ 			if (timer_pending(&preorder_ctrl->reord_timer)) {
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+- 				ret = timer_delete_sync(&preorder_ctrl->reord_timer);
++ 				timer_delete_sync(&preorder_ctrl->reord_timer);
+ #else
+-				ret = del_timer_sync(&preorder_ctrl->reord_timer);
++				del_timer_sync(&preorder_ctrl->reord_timer);
+ #endif
+ 			}
+ 			cancel_work_sync(&preorder_ctrl->reord_timer_work);
+@@ -2258,7 +2254,6 @@ u8 rwnx_rxdataind_aicwf(struct rwnx_hw *rwnx_hw, void *hostid, void *rx_priv)
+ 	struct defrag_ctrl_info *defrag_info = NULL;
+ 	struct defrag_ctrl_info *defrag_info_tmp = NULL;
+ 	struct sk_buff *skb_tmp = NULL;
+-	int ret;
+ 	u8 sta_idx = 0;
+ 	u16_l frame_ctrl;
+ 	u8 is_amsdu = 0;
+@@ -2689,7 +2684,7 @@ check_len_update:
+ #else
+ 						timer_setup(&defrag_info->defrag_timer, defrag_timeout_cb, 0);
+ #endif
+-						ret = mod_timer(&defrag_info->defrag_timer, jiffies + msecs_to_jiffies(DEFRAG_MAX_WAIT));
++						mod_timer(&defrag_info->defrag_timer, jiffies + msecs_to_jiffies(DEFRAG_MAX_WAIT));
+ 						dev_kfree_skb(skb);
+ 						return 0;
+ 					}
+@@ -2735,9 +2730,9 @@ check_len_update:
+ 							list_del_init(&defrag_info->list);
+ 							if (timer_pending(&defrag_info->defrag_timer)) {
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+-								ret = timer_delete(&defrag_info->defrag_timer);
++								timer_delete(&defrag_info->defrag_timer);
+ #else
+-								ret = del_timer(&defrag_info->defrag_timer);
++								del_timer(&defrag_info->defrag_timer);
+ #endif
+ 							}
+ 							kfree(defrag_info);
+diff --git a/aic8800_fdrv/rwnx_tx.c b/aic8800_fdrv/rwnx_tx.c
+index b4b5be9..7a36ce7 100644
+--- a/aic8800_fdrv/rwnx_tx.c
++++ b/aic8800_fdrv/rwnx_tx.c
+@@ -1240,7 +1240,7 @@ int intf_tx(struct rwnx_hw *priv,struct msg_buf *msg)
+ 	int hdr_pads;
+ 
+ 	u16 frame_len;
+-	u16 frame_oft;
++	u16 frame_oft __maybe_unused;
+ 	u8 tid;
+ 	struct sk_buff *skb=msg->skb;
+ 	struct ethhdr eth_t;
+@@ -1418,7 +1418,7 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int hdr_pads;
+ 
+ 	u16 frame_len;
+-	u16 frame_oft;
++	u16 frame_oft __maybe_unused;
+ 	u8 tid;
+ 
+ 	struct ethhdr eth_t;
+@@ -2146,7 +2146,8 @@ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
+ 	struct rwnx_sw_txhdr *sw_txhdr;
+ 	struct txdesc_api *desc;
+ 	struct sk_buff *skb;
+-	u16 frame_len, headroom, frame_oft;
++	u16 frame_len, headroom;
++	u16 frame_oft __maybe_unused;
+ 	u8 *data;
+ 	int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
+ 	struct rwnx_txq *txq;
+diff --git a/aic8800_fdrv/rwnx_txq.c b/aic8800_fdrv/rwnx_txq.c
+index 9bdc072..2d56c89 100644
+--- a/aic8800_fdrv/rwnx_txq.c
++++ b/aic8800_fdrv/rwnx_txq.c
+@@ -1235,7 +1235,7 @@ end:
+ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
+ {
+ 	struct rwnx_txq *txq, *next;
+-	int user, credit_map = 0;
++	int user;
+ 	bool mu_enable;
+ #ifdef CREATE_TRACE_POINTS
+ 	trace_process_hw_queue(hwq);
+@@ -1243,9 +1243,6 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
+ 	hwq->need_processing = false;
+ 
+ 	mu_enable = rwnx_txq_take_mu_lock(rwnx_hw);
+-	if (!mu_enable)
+-		credit_map = ALL_HWQ_MASK - 1;
+-
+ 	list_for_each_entry_safe(txq, next, &hwq->list, sched_list) {
+ 		struct rwnx_txhdr *txhdr = NULL;
+ 		struct sk_buff_head sk_list_push;
+diff --git a/aic8800_fdrv/rwnx_utils.h b/aic8800_fdrv/rwnx_utils.h
+index f71a601..ed49d12 100644
+--- a/aic8800_fdrv/rwnx_utils.h
++++ b/aic8800_fdrv/rwnx_utils.h
+@@ -82,8 +82,6 @@ struct rwnx_ipc_dbgdump_elem {
+ 	struct rwnx_ipc_elem_var buf;
+ };
+ 
+-static const u32 rwnx_rxbuff_pattern = 0xCAFEFADE;
+-
+ /*
+  * Maximum Length of Radiotap header vendor specific data(in bytes)
+  */

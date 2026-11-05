@@ -10,7 +10,9 @@ Subject: [PATCH] aic8800: build without W=1 warnings
   into the kernel tree, which has no such directories; removed.
 - rwnx_plat_userconfig_parsing: a key name that does not fit is skipped
   instead of overflowing keyname with sprintf, and a value kstrtol cannot
-  parse is no longer stored (val kept the previous key's value).
+  parse is no longer stored (val kept the previous key's value). Bound
+  the copied value too, and store only a u8_l: the destination fields are
+  u8_l/s8_l, not unsigned long (which overwrote adjacent fields on RV64).
 
 Machine code changes only in rwnx_plat_userconfig_parsing; everything else
 differs only in line number and string offset constants.
@@ -256,10 +258,36 @@ index 536dc6d..7b0f65c 100644
  	/* Retrieve IE addresses and lengths */
  	req_ie = (const u8 *)ind->assoc_ie_buf;
 diff --git a/aic8800_fdrv/rwnx_platform.c b/aic8800_fdrv/rwnx_platform.c
-index 85f8fcf..22843ed 100644
+index 85f8fcf..1ad9979 100644
 --- a/aic8800_fdrv/rwnx_platform.c
 +++ b/aic8800_fdrv/rwnx_platform.c
-@@ -1829,7 +1829,7 @@ void rwnx_plat_userconfig_parsing(struct rwnx_hw *rwnx_hw, char *buffer, int siz
+@@ -1184,14 +1184,14 @@
+ 	MATCH_NODE(nvram_info_t, xtal_cap.xtal_cap_fine,    "xtal_cap_fine"),
+ };
+ 
+-static int parse_key_val(const char *str, const char *key, char *val)
++static int parse_key_val(const char *str, const char *key, char *val, size_t val_size)
+ {
+ 	const char *p = NULL;
+ 	const char *dst = NULL;
+ 	int keysize = 0;
+ 	int bufsize = 0;
+ 
+-	if (str == NULL || key == NULL || val == NULL)
++	if (str == NULL || key == NULL || val == NULL || !val_size)
+ 		return -1;
+ 
+ 	keysize = strlen(key);
+@@ -1247,6 +1247,8 @@
+ 	 * longer string, so strncpy() never reached its NUL and never padded;
+ 	 * the terminator is the line below. That is a plain memcpy().
+ 	 */
++	if (p < dst || (size_t)(p - dst) >= val_size)
++		return -1;
+ 	memcpy(val, dst, p - dst);
+ 	val[p - dst] = 0;
+ 	return 0;
+@@ -1829,7 +1831,7 @@
  	char conf[100], keyname[64];
  	char *line;
          char *data;
@@ -268,20 +296,23 @@ index 85f8fcf..22843ed 100644
  	long val;
  
          if (size <= 0) {
-@@ -1871,9 +1871,11 @@ void rwnx_plat_userconfig_parsing(struct rwnx_hw *rwnx_hw, char *buffer, int siz
+@@ -1871,10 +1873,12 @@
  
  		// store value to data struct
  		for (i = 0; i < sizeof(parse_match_tab) / sizeof(parse_match_tab[0]); i++) {
 -			sprintf(&keyname[0], "%s%s", parse_key_prefix[rwnx_hw->vendor_info], parse_match_tab[i].keyname);
+-			if (parse_key_val(line, keyname, conf) == 0) {
+-				err = kstrtol(conf, 0, &val);
+-				*(unsigned long *)((unsigned long)&nvram_info + parse_match_tab[i].offset) = val;
 +			if (snprintf(keyname, sizeof(keyname), "%s%s", parse_key_prefix[rwnx_hw->vendor_info], parse_match_tab[i].keyname) >= sizeof(keyname))
 +				continue;
- 			if (parse_key_val(line, keyname, conf) == 0) {
--				err = kstrtol(conf, 0, &val);
++			if (parse_key_val(line, keyname, conf, sizeof(conf)) == 0) {
 +				if (kstrtol(conf, 0, &val))
 +					break;
- 				*(unsigned long *)((unsigned long)&nvram_info + parse_match_tab[i].offset) = val;
++				*(u8_l *)((char *)&nvram_info + parse_match_tab[i].offset) = (u8_l)val;
  				printk("%s, %s = %ld\n",  __func__, parse_match_tab[i].keyname, val);
  				break;
+ 			}
 diff --git a/aic8800_fdrv/rwnx_rx.c b/aic8800_fdrv/rwnx_rx.c
 index e94cae1..5113132 100644
 --- a/aic8800_fdrv/rwnx_rx.c

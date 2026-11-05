@@ -1,15 +1,15 @@
 {
   "component": "Alpine minirootfs",
-  "current": "3.24.2",
-  "candidate": "3.24.3",
-  "candidate_key": "3.24.3",
+  "current": "3.24.3",
+  "candidate": "3.24.4",
+  "candidate_key": "3.24.4",
   "status": "qualified",
   "upstream": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/",
   "source_path": "platform/sources.lock",
   "strategy": "archive-pin",
   "evidence": {
-    "archive": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.3-riscv64.tar.gz",
-    "sha256": "9714553757e7bf645eff5dcc52bdd206f358a7bed77874842567852e8326a51d"
+    "archive": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.4-riscv64.tar.gz",
+    "sha256": "010683db6c73b3ad1c334fc8f93f64ae748ef67ae6d69e964929aeaf8517bff3"
   },
   "pin_files_updated": [
     "platform/build.sh",
@@ -18,23 +18,24 @@
   "verification": {
     "official_archive_sha256_verified": true,
     "architecture": "riscv64",
-    "production_rootfs_step": "passed with QEMU and signed NanoKVM 3.4.0 packages",
-    "nanokvm_packages_installed": 13,
-    "total_packages_installed": 167,
+    "apk_tools": "3.0.9-r0",
+    "production_rootfs_step": "passed with QEMU and published-key-signed NanoKVM 4.0.0 packages",
+    "nanokvm_packages_installed": 19,
+    "total_packages_installed": 170,
     "package_scripts_and_triggers": "passed",
-    "kernel_release": "7.3.0-nanokvm-os-r2",
+    "kernel_release": "7.3.1-nanokvm-os-r10",
+    "nanokvm_openssl_exclusive_provider": true,
     "nanokvm_zlib_replacement": "passed",
     "trusted_key_ownership": "passed",
+    "root_directory_mode": "0755",
     "mdns_disabled_default": true,
     "release_community_repository_enabled": false,
     "local_tests": [
       "platform-build",
-      "stock-profile",
       "keys-repository",
       "alpine-sd-image-boot",
-      "upstream-update-prs",
       "alpine-recovery-settings",
-      "release-build"
+      "upstream-watch"
     ],
     "device_boot_tested": false
   }

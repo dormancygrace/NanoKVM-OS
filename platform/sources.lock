@@ -50,7 +50,7 @@ pnpm       https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.8.1
 
 # Alpine packages and the root file system. qemu runs the riscv64 package
 # scripts on the build host.
-alpine https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.3-riscv64.tar.gz 9714553757e7bf645eff5dcc52bdd206f358a7bed77874842567852e8326a51d
+alpine https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.4-riscv64.tar.gz 010683db6c73b3ad1c334fc8f93f64ae748ef67ae6d69e964929aeaf8517bff3
 qemu       https://launchpad.net/ubuntu/+archive/primary/+files/qemu-user-static_8.2.2+ds-0ubuntu1.19_amd64.deb  ec80ee896fe8f57f7420f4d4076164cb0fa613df6848568cdf5d1a2dbe2347cb
 # The release signer (scripts/sign-release.sh): apk-tools and abuild-sign on the
 # x86_64 CI host. dl-cdn publishes a .sha256 for it, no signature.

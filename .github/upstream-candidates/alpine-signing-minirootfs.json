@@ -1,0 +1,17 @@
+{
+  "component": "Alpine signing minirootfs",
+  "current": "3.24.3",
+  "candidate": "3.24.4",
+  "candidate_key": "3.24.4",
+  "status": "pending-review",
+  "upstream": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/",
+  "source_path": "platform/sources.lock",
+  "strategy": "archive-pin",
+  "evidence": {
+    "archive": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.4-x86_64.tar.gz",
+    "sha256": "cdaa38cb8de3537967ee5b6c9b6cd00cc962da2b018e6eea48696bb274923012"
+  },
+  "pin_files_updated": [
+    "platform/sources.lock"
+  ]
+}

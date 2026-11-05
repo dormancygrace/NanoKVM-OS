@@ -3,7 +3,7 @@
   "current": "3.24.3",
   "candidate": "3.24.4",
   "candidate_key": "3.24.4",
-  "status": "pending-review",
+  "status": "qualified",
   "upstream": "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/",
   "source_path": "platform/sources.lock",
   "strategy": "archive-pin",
@@ -13,5 +13,24 @@
   },
   "pin_files_updated": [
     "platform/sources.lock"
-  ]
+  ],
+  "verification": {
+    "official_archive_sha256_verified": true,
+    "architecture": "x86_64",
+    "apk_tools": "3.0.9-r0",
+    "production_signer": "passed with a temporary EC test key",
+    "changed_package": "nanokvm-release-4.0.0-r0.apk",
+    "reused_package": "nanokvm-keys-3.4.0-r0.apk",
+    "control_and_data_streams_preserved": true,
+    "reused_package_byte_identical": true,
+    "ecdsa_package_and_v2_v3_indexes": "verified",
+    "untrusted_key_and_corrupt_index": "rejected",
+    "local_tests": [
+      "apk-resign",
+      "release-workflow",
+      "upstream-watch"
+    ],
+    "release_keys_used": false,
+    "published": false
+  }
 }

@@ -138,7 +138,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `build.sh` | All build steps |
 | `packages.list` | The contents of the fifteen APK packages: each file, its mode and where it comes from |
 | `kernel/` | `config` and patches for kernel.org Linux 7.3.1 |
-| `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi and cryptodev; `hwcrypto/` is the CryptoDMA driver source |
+| `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
 | `lolcat/` | Byte I/O and terminal-output fixes for lolcat 1.5, the rainbow SSH shell's filter (original 1.4 optimization: 15 times faster on the C906) |
 | `fip/base-fip.bin` | First-stage boot firmware; the build replaces OpenSBI and U-Boot while retaining the vendor first-stage loader |
@@ -216,7 +216,7 @@ The image contains GPL-licensed code:
 - Alpine packages.
 
 `platform/build.sh source` writes `build/platform/NanoKVM-OS-<version>-source.tar.xz` after a build. Run it on a clean checkout. The archive contains:
-- the GPL-licensed inputs from `sources.lock`: Buildroot, Linux, U-Boot, `osdrv`, the AIC8800 package, cryptodev, the Sipeed SDK paths and BusyBox, plus the BSD-licensed upstream OpenSBI source;
+- the GPL-licensed inputs from `sources.lock`: Buildroot, Linux, U-Boot, `osdrv`, the AIC8800 package, the Sipeed SDK paths and BusyBox, plus the BSD-licensed upstream OpenSBI source;
 - the Buildroot downloads of the initramfs packages;
 - this repository at the release commit, the source commit and `SHA256SUMS`.
 

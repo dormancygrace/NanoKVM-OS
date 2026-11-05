@@ -4,7 +4,7 @@ These are opt-in developer diagnostics for the current driver in `platform/modul
 
 This extends the existing serialized `nanokvm_hwcrypto` owner with AES-128/192/256, DES, two-key and three-key Triple DES, SM4 (ECB/CBC/CTR), SHA-1, SHA-256 and Base64 encode/decode. All 24 algorithm/mode variants passed short physical-device differential checks. AES-GCM is demonstrated by a userspace hybrid: hardware AES + software GHASH.
 
-The existing AES-128-CTR ioctl remains unchanged and has a compatibility check. The driver also registers Linux Crypto API algorithms, exposed to userspace through standard cryptodev-linux `/dev/crypto`. The private diagnostic ioctl remains root-only. OpenSSL is built with an opt-in `devcrypto` engine; Go/Pion do not automatically use it. Build the current driver through `platform/build.sh`; these diagnostics are built separately.
+The existing AES-128-CTR ioctl remains unchanged and has a compatibility check. The driver also registers Linux Crypto API algorithms for kernel users. The private diagnostic ioctl remains root-only. Build the current driver through `platform/build.sh`; these diagnostics are built separately.
 
 ## ABI and ownership
 
@@ -43,34 +43,10 @@ These are functional checks and bounded microbenchmarks with capture disabled, n
 - [Pinned SOPHGO driver](https://github.com/sophgo/linux_5.10/blob/382af279605297cbe3d0181a3e46dc5d004cee3e/drivers/crypto/cvitek-spacc.c) for descriptor field conventions. Its unbounded/global completion handling is not copied.
 - [OpenSSL 3.6.4 GCM core](https://github.com/openssl/openssl/blob/openssl-3.6.4/crypto/modes/gcm128.c).
 
-## Standard interface and OpenSSL
+## Linux Crypto API
 
 `crypto_linux_api.inc` supplies 12 skciphers and two asynchronous hashes. Sleepable callers execute inline; atomic callers use an ordered workqueue. Each operation releases shared DMA ownership between 4 KiB chunks. Hash requests own their streaming state, final padding and export/import data. No caller can supply a DMA address.
 
-`/dev/crypto` uses unmodified public cryptodev IDs and has the upstream access mode 0666. Sessions copy keys and hold algorithm references. `CIOCGSESSINFO` reports the selected driver. `hwcrypto-info` reads native completion/poison counters without submitting DMA. Build the utility separately with the firmware cross compiler from `crypto-info.c`; its presence on a device depends on explicit installation or image staging.
+`hwcrypto-info` reads native completion/poison counters without submitting DMA. Build the utility separately with the firmware cross compiler from `crypto-info.c`; its presence on a device depends on explicit installation or image staging.
 
-```sh
-openssl engine -t -c devcrypto
-openssl speed -elapsed -seconds 3 -bytes 16384 -engine devcrypto -evp aes-256-ctr
-openssl dgst -engine devcrypto -engine_impl -sha256 example.bin
-```
-
-The OpenSSL engine advertises AES-128/192/256 ECB/CBC/CTR, DES/3DES CBC, SHA1/SHA256. It does not implement AES-GCM. Standard `CIOCAUTHCRYPT` **does** provide AES-GCM using Linux `gcm(aes)` with hardware AES-CTR and software GHASH. Use `cryptodev-gcm-bench.c` to reproduce that path; use `cryptodev-bench.c` for the other standard algorithms. Compile either with the cross compiler, `-O2 -Wall -Wextra -Werror -Iplatform/modules/hwcrypto -Ifirmware/crypto/cryptodev-linux -lcrypto`.
-
-### Longer matched standard-API batches
-
-`cryptodev-bench --bench` still defaults to 32 operations and all three block
-sizes. For a longer comparison without running every size, use:
-
-```sh
-SG2_BENCH_COUNT=1024 SG2_BENCH_BYTES=16384 ./cryptodev-bench --bench
-```
-
-Count accepts 1–4096; bytes accepts 0 (all), 1200, 16384 or 65536. Malformed
-settings exit with status 2 before opening either crypto device. Every invocation
-retains all 14 standard-API correctness cases and checks hardware/software DMA
-completion counters around the timed batches. Stop video services in each
-comparison leg to exclude unrelated SRTP work. `BENCH_CONFIG` records the chosen
-controls; `RESULT` records the actual operation count. Do not compare short
-32-operation medians directly with long-batch results as though workload and
-background services were identical.
+The `/dev/crypto` (cryptodev) benchmarks were removed with the cryptodev module in 4.0.0.

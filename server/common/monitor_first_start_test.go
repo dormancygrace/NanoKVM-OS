@@ -255,6 +255,22 @@ func TestCubeLT6911UXCFirstStartChecksRGBRange(t *testing.T) {
 			}
 		})
 	}
+	// With HDMI capture disabled the receiver is not read, and the check waits.
+	t.Run("HDMI disabled", func(t *testing.T) {
+		monitorState(t, 1080, false, 1920)
+		selectBoard(t, "beta", "ux")
+		var applied []string
+		reads := 0
+		hw := firstStartBackend(true, true, &applied, nil)
+		hw.readAtStart = false
+		hw.read = func() ([]byte, error) { reads++; return edid, nil }
+		if _, err := programMonitorProfileOnFirstStartLocked(hw, poolUHD); err != nil || reads != 0 || len(applied) != 0 {
+			t.Fatalf("error %v, reads %d, applied %v", err, reads, applied)
+		}
+		if _, err := os.Stat(monitorRGBRangeCheckedFile); err == nil {
+			t.Fatal("marked as checked")
+		}
+	})
 }
 
 // An LT6911D write on a Cube or Lite whose replug did not complete leaves the

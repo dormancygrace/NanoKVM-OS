@@ -313,7 +313,9 @@ func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (path string, rgbRang
 	modesChecked := statErr == nil || receiverChip() == "ux"
 	_, statErr = os.Stat(monitorRGBRangeCheckedFile)
 	rangeChecked := statErr == nil
-	if modesChecked && rangeChecked {
+	// With HDMI capture disabled, a read would release the receiver from reset;
+	// the check waits for a start with capture on.
+	if (modesChecked && rangeChecked) || !hw.readAtStart {
 		return "", false, nil
 	}
 	edid, err := hw.read()
@@ -336,7 +338,7 @@ func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (path string, rgbRang
 		}
 		return "", false, err
 	case receiverChip() == "ux":
-		log.Warnf("the HDMI receiver EDID does not declare the RGB range selectable, so sources send limited-range RGB and the picture is washed out; programming the saved profile, which takes effect after the next power cycle")
+		log.Warnf("the HDMI receiver EDID does not declare the RGB range selectable, so sources send limited-range RGB and the picture is washed out; the saved profile will be programmed and take effect after the next power cycle")
 		return "", true, nil
 	default:
 		mode = "does not declare the RGB range selectable, so sources send limited-range RGB and the picture is washed out"

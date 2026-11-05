@@ -158,8 +158,9 @@ by `screen/train.sh`, which writes `screen.onnx` and
 The programs: `platform/build.sh tpu`. The runtime's source is the
 `tpu-runtime` entry of `platform/sources.lock` (cviruntime, cvikernel, the
 model schema and flatbuffers, pinned by Git tree ids); `patches/` holds two
-fixes for musl, makes the tools optional and takes the runtime version from
-the pin instead of Git and the build date.
+fixes for musl, makes the tools optional, takes the runtime version from
+the pin instead of Git and the build date, and fixes the compiler warnings
+(the build has none).
 
 The models:
 

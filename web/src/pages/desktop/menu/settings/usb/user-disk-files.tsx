@@ -79,11 +79,18 @@ export const UserDiskFiles = ({
 
   // A name that exists or is invalid on FAT32 is skipped, so the same folder
   // can be uploaded again after a partial failure. Disk-level errors stop.
-  async function upload(plan: UploadPlan) {
-    if (!plan.files.length && !plan.dirs.length) return;
-    setSummary('');
+  async function upload(source: UploadPlan | ((signal: AbortSignal) => Promise<UploadPlan>)) {
     await run(async () => {
       const signal = (abort.current = new AbortController()).signal;
+      setSummary('');
+      setUploadName('');
+      setCount({ done: 0, total: 0 });
+      setProgress(0);
+      // Traversing a dropped folder is part of the upload: block other disk
+      // actions and allow cancellation before any files have been discovered.
+      const plan = typeof source === 'function' ? await source(signal) : source;
+      signal.throwIfAborted();
+      if (!plan.files.length && !plan.dirs.length) return;
       const skipped: string[] = [];
       const under = (path: string) => skipped.some((dir) => path.startsWith(dir + '/'));
       const skip = (msg: string) => msg === 'exists' || msg === 'path';
@@ -101,6 +108,7 @@ export const UserDiskFiles = ({
           skipped.push(dir);
         }
         for (const { path, file } of plan.files) {
+          if (signal.aborted) break;
           if (under(path)) continue;
           setUploadName(path);
           setProgress(0);
@@ -141,9 +149,7 @@ export const UserDiskFiles = ({
       setDragging(false);
       if (blocked || !listing || running.current) return;
       const dropped = dropEntries(event.dataTransfer);
-      void planFromDrop(dropped)
-        .then(upload)
-        .catch(() => failure('io'));
+      void upload((signal) => planFromDrop(dropped, signal));
     }
   };
 

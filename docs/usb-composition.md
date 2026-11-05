@@ -133,8 +133,9 @@ downloads and deletes its files. Files and whole folders can be picked or
 dropped onto the list; folders are created first (`mkdir` with
 `existsOk=1`), and a name that exists or that FAT32 rejects is skipped and
 reported, so an interrupted folder upload can simply be repeated. Existing
-files are never overwritten. Each request mounts and unmounts the image,
-about 0.1 s per small file on a Cube.
+files are never overwritten. Dropping a folder preserves empty subfolders;
+the folder picker only reports paths containing files. Each request mounts
+and unmounts the image, about 0.1 s per small file on a Cube.
 
 The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
 fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET; an

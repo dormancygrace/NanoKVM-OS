@@ -27,12 +27,14 @@ export function planFromFiles(list: File[]): UploadPlan {
 }
 
 // readEntries returns at most 100 entries per call in Chrome: read until empty.
-async function readAll(reader: FileSystemDirectoryReader) {
+async function readAll(reader: FileSystemDirectoryReader, signal: AbortSignal) {
   const all: FileSystemEntry[] = [];
   for (;;) {
+    signal.throwIfAborted();
     const batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
       reader.readEntries(resolve, reject)
     );
+    signal.throwIfAborted();
     if (!batch.length) return all;
     all.push(...batch);
   }
@@ -42,19 +44,24 @@ async function walk(
   entry: FileSystemEntry,
   prefix: string,
   dirs: Set<string>,
-  files: UploadPlan['files']
+  files: UploadPlan['files'],
+  signal: AbortSignal
 ) {
+  signal.throwIfAborted();
   const path = prefix ? prefix + '/' + entry.name : entry.name;
   if (entry.isFile) {
     const file = await new Promise<File>((resolve, reject) =>
       (entry as FileSystemFileEntry).file(resolve, reject)
     );
+    signal.throwIfAborted();
     files.push({ path, file });
   } else if (entry.isDirectory) {
     // Empty folders are created too.
     dirs.add(path);
     const reader = (entry as FileSystemDirectoryEntry).createReader();
-    for (const child of await readAll(reader)) await walk(child, path, dirs, files);
+    for (const child of await readAll(reader, signal)) {
+      await walk(child, path, dirs, files, signal);
+    }
   }
 }
 
@@ -69,10 +76,14 @@ export function dropEntries(data: DataTransfer) {
   return { entries, files: Array.from(data.files) };
 }
 
-export async function planFromDrop({ entries, files }: ReturnType<typeof dropEntries>) {
+export async function planFromDrop(
+  { entries, files }: ReturnType<typeof dropEntries>,
+  signal: AbortSignal
+) {
+  signal.throwIfAborted();
   if (!entries.length) return planFromFiles(files);
   const dirs = new Set<string>();
   const planned: UploadPlan['files'] = [];
-  for (const entry of entries) await walk(entry, '', dirs, planned);
+  for (const entry of entries) await walk(entry, '', dirs, planned, signal);
   return finish(dirs, planned);
 }

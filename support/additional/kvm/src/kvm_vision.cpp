@@ -1479,6 +1479,12 @@ int kvmv_set_capture_fps(uint8_t fps)
     return 0;
 }
 
+int kvmv_set_first_capture_yuv420(uint8_t want)
+{
+    mmf_vi_yuv420_want_first(want);
+    return 0;
+}
+
 static void apply_capture_rate(void)
 {
     static uint64_t last_ms = 0;

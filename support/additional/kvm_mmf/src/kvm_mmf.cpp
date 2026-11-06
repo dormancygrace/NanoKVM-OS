@@ -422,6 +422,14 @@ static void _mmf_vi_yuv420_follow(const mmf_venc_cfg_t *cfg)
 	vi_yuv420_wanted = want;
 }
 
+// The first start has no encoder to follow: the server states the mode its
+// own first stream will want (mmf_vi_yuv420_want_first), so that stream's
+// first client does not restart the capture. Later starts follow the encoder.
+void mmf_vi_yuv420_want_first(int want)
+{
+	vi_yuv420_wanted = want != 0;
+}
+
 // At every capture start, before the VI starts streaming: write the wanted
 // mode to the driver and read back what the VI will do.
 static void _mmf_vi_yuv420_start(SIZE_S size)

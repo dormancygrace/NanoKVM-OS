@@ -5,7 +5,7 @@ Requires prepared NANOKVM_MPI_SOURCE, NANOKVM_SENSOR_SOURCE,
 NANOKVM_INIH_SOURCE, NANOKVM_BUILDROOT_OUTPUT and an empty or new
 NANOKVM_HDMI_LIGHT_OUTPUT directory. NANOKVM_MPI_THIRDPARTY_OUTPUT supplies
 the prepared BIN build's json-c/miniz license notices. Production builds
-use this same six-library bundle.
+use this same two-library bundle.
 """
 from pathlib import Path
 import hashlib
@@ -14,7 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
-from nanokvm_mmf_link import VENDOR_LIBRARIES, audit_bundle
+from nanokvm_mmf_link import audit_bundle
 
 repo = Path(__file__).resolve().parent.parent
 mpi = Path(os.environ['NANOKVM_MPI_SOURCE']).resolve()
@@ -40,7 +40,6 @@ for script in ('build-mmf.py', 'build-capture.py'):
 bundle = output / 'dl_lib'
 bundle.mkdir()
 inputs = [output / 'mmf/libkvm_mmf.so', output / 'capture/libkvm.so']
-inputs += [mpi / 'lib' / ('lib' + n + '.so') for n in VENDOR_LIBRARIES]
 for path in inputs:
     subprocess.run([cross + 'strip', '--strip-unneeded', '-o', str(bundle / path.name), str(path)], check=True)
 closure = audit_bundle(cross, bundle)
@@ -57,7 +56,7 @@ manifest = {
               for p in sorted(bundle.glob('*.so'))},
     'elf_dependencies': closure,
     'note': 'Complete HDMI-light media set, not an overlay for a running process. '
-            'No algorithm removal, ISA rewriting, RTOS dependency or device installation.',
+            'No closed ISP/3A library, ISA rewriting, RTOS dependency or device installation.',
 }
 manifest['total_bytes'] = sum(p['bytes'] for p in manifest['files'].values())
 (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

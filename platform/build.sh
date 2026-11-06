@@ -553,7 +553,7 @@ native() {
                NANOKVM_KERNEL_SOURCE="$ksrc" NANOKVM_BUILDROOT_OUTPUT="$bo" NANOKVM_CMAKE="$host/cmake"
                JOBS="$jobs")
     env "${env[@]}" bash "$repo/scripts/build-mpi.sh"
-    env "${env[@]}" "$host/python3" "$repo/scripts/build-isp-vendor.py"
+    env "${env[@]}" "$host/python3" "$repo/scripts/build-isp.py"
     env "${env[@]}" NANOKVM_JSON_C_SOURCE="$n/src/json-c" NANOKVM_MINIZ_SOURCE="$n/src/miniz" \
         NANOKVM_MPI_THIRDPARTY_OUTPUT="$n/bin" "$host/python3" "$repo/scripts/build-mpi-bin.py"
     # Always ship one coherent HDMI-light bundle, regardless of inherited profile.
@@ -565,7 +565,7 @@ native() {
     for lib in "$n/hdmi-light"/cvi-mpi-*; do
         [ ! -f "$lib" ] || cp "$lib" "$img/native-licenses/"
     done
-    [ "$(find "$img/native" -name '*.so' | wc -l)" = 6 ]
+    [ "$(find "$img/native" -name '*.so' | wc -l)" = 2 ]
 }
 
 # The TPU runtime (Sophgo cviruntime and cvikernel, ported to dma-buf heaps)

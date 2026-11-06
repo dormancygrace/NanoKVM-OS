@@ -1,0 +1,45 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] lt6911: no AE registration in NanoKVM builds
+
+The LT6911 output bypasses the ISP: register the sensor with the ISP,
+which passes its geometry to VI, but not with the AE or AWB library.
+---
+diff --git a/sensor/cv182x/lontium_lt6911/lt6911_cmos.c b/sensor/cv182x/lontium_lt6911/lt6911_cmos.c
+index b4865d4..ae847da 100644
+--- a/sensor/cv182x/lontium_lt6911/lt6911_cmos.c
++++ b/sensor/cv182x/lontium_lt6911/lt6911_cmos.c
+@@ -357,6 +357,10 @@ static CVI_S32 sensor_register_callback(VI_PIPE ViPipe, ALG_LIB_S *pstAeLib, ALG
+ 		return s32Ret;
+ 	}
+ 
++#ifdef NANOKVM_OS
++	/* The output bypasses the ISP: no AE library. */
++	(void)stAeRegister;
++#else
+ 	s32Ret  = cmos_init_ae_exp_function(&stAeRegister.stAeExp);
+ 	s32Ret |= CVI_AE_SensorRegCallBack(ViPipe, pstAeLib, &stSnsAttrInfo, &stAeRegister);
+ 
+@@ -364,6 +368,7 @@ static CVI_S32 sensor_register_callback(VI_PIPE ViPipe, ALG_LIB_S *pstAeLib, ALG
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "sensor register callback function to ae lib failed!\n");
+ 		return s32Ret;
+ 	}
++#endif
+ 
+ 	return CVI_SUCCESS;
+ }
+@@ -381,6 +386,7 @@ static CVI_S32 sensor_unregister_callback(VI_PIPE ViPipe, ALG_LIB_S *pstAeLib, A
+ 		return s32Ret;
+ 	}
+ 
++#ifndef NANOKVM_OS
+ 	s32Ret = CVI_AE_SensorUnRegCallBack(ViPipe, pstAeLib, LT6911_ID);
+ 	if (s32Ret != CVI_SUCCESS) {
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "sensor unregister callback function to ae lib failed!\n");
+@@ -392,6 +398,7 @@ static CVI_S32 sensor_unregister_callback(VI_PIPE ViPipe, ALG_LIB_S *pstAeLib, A
+ 		CVI_TRACE_SNS(CVI_DBG_ERR, "sensor unregister callback function to awb lib failed!\n");
+ 		return s32Ret;
+ 	}
++#endif
+ 
+ 	sensor_ctx_exit(ViPipe);
+ 

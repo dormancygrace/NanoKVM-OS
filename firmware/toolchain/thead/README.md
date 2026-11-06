@@ -35,8 +35,8 @@ is guarded by CPU feature checks and is not the C906 legacy vector path.
 **RVV and XTheadVector machine encodings overlap:** a `th.v` mnemonic decoded
 from a mixed Go/C binary does not by itself establish a T-Head implementation.
 
-Pinned closed ISP/3A algorithm objects are relinked, not recompiled. Their
-hashes and provenance remain in `firmware/mpi/vendor-isp-objects.json`.
+The closed ISP/3A algorithm objects of the SDK are not used: the HDMI
+receiver's YUV bypasses the ISP's image processing.
 JavaScript runs in the user's browser and has no C906 compiler ISA flags.
 OpenSBI and bootloader firmware are outside this optimization change.
 

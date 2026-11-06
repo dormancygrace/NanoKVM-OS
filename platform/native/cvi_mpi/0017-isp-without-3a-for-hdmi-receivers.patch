@@ -1,0 +1,104 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] nanokvm: ISP without 3A or IQ blocks for the HDMI receiver
+
+The LT6911 delivers YUV on the ISP bypass path. The ISP runtime is still
+needed: isp_sns_info_init passes the sensor geometry to VI
+(VI_IOCTL_SET_SNR_INFO), without which the pre-raw front end never takes
+a frame. Nothing else of it is used. NanoKVM builds:
+- bind no AE, AWB or AF library;
+- register no IQ block and set no IQ defaults;
+- take the sensor response period as one frame instead of asking AE.
+So the closed 3A and algorithm libraries are not linked.
+---
+diff --git a/modules/isp/cv181x/isp/src/isp_feature_ctrl.c b/modules/isp/cv181x/isp/src/isp_feature_ctrl.c
+index 9addf5f..59d0c95 100644
+--- a/modules/isp/cv181x/isp/src/isp_feature_ctrl.c
++++ b/modules/isp/cv181x/isp/src/isp_feature_ctrl.c
+@@ -17,7 +17,9 @@
+ #include "isp_main_local.h"
+ 
+ #ifndef ARCH_RTOS_CV181X
+-#ifdef ENABLE_ISP_C906L
++#if 1 /* NanoKVM: the HDMI receiver's YUV bypasses every IQ block. */
++static const struct isp_module_ctrl *mod[ISP_IQ_BLOCK_MAX];
++#elif defined(ENABLE_ISP_C906L)
+ static const struct isp_module_ctrl *mod[ISP_IQ_BLOCK_MAX] = {
+ 	[ISP_IQ_BLOCK_BLC] = &blc_mod,
+ 	//[ISP_IQ_BLOCK_DPC] = &dpc_mod,
+diff --git a/modules/isp/cv181x/isp/src/isp_param_default.c b/modules/isp/cv181x/isp/src/isp_param_default.c
+index 81ec397..bd6fb6a 100644
+--- a/modules/isp/cv181x/isp/src/isp_param_default.c
++++ b/modules/isp/cv181x/isp/src/isp_param_default.c
+@@ -131,6 +131,10 @@ CVI_S32 isp_iqParam_addr_initDefault(VI_PIPE ViPipe)
+ 
+ static CVI_S32 setIspIqParamDefault(VI_PIPE ViPipe, CVI_U32 wdrEn)
+ {
++	/* NanoKVM: no IQ block or AE library runs on the HDMI receiver's YUV. */
++	UNUSED(ViPipe);
++	UNUSED(wdrEn);
++	return CVI_SUCCESS;
+ #ifdef ARCH_RTOS_CV181X
+ 	setExposureAttrDefault(ViPipe);
+ #else
+diff --git a/modules/isp/cv181x/isp/src/isp_sensor.c b/modules/isp/cv181x/isp/src/isp_sensor.c
+index e32ad4a..d91e97b 100644
+--- a/modules/isp/cv181x/isp/src/isp_sensor.c
++++ b/modules/isp/cv181x/isp/src/isp_sensor.c
+@@ -304,13 +304,10 @@ CVI_S32 isp_snsSync_info_set(VI_PIPE ViPipe, ISP_SNS_SYNC_INFO_S *syncCfg, CVI_U
+ 	}
+ 	snr_update.raw_num = ViPipe;
+ 	snr_update.snr_cfg_node.snsr.regs_num = reg_num = syncCfg->snsCfg.u32RegNum;
+-	if (pstIspCtx->stAeResult.u8MeterFramePeriod == 0) {
+-		pstIspCtx->stAeResult.u8MeterFramePeriod = AE_GetSensorPeriod(ViPipe);
+-	}
+-	if (!AE_GetSensorExpGainPeriod(ViPipe))
+-		u8SnsResponseFrame = pstIspCtx->stAeResult.u8MeterFramePeriod;
+-	else
+-		u8SnsResponseFrame = AE_GetSensorExpGainPeriod(ViPipe);
++	/* NanoKVM: no AE library; the HDMI receiver takes settings at once. */
++	if (pstIspCtx->stAeResult.u8MeterFramePeriod == 0)
++		pstIspCtx->stAeResult.u8MeterFramePeriod = 1;
++	u8SnsResponseFrame = pstIspCtx->stAeResult.u8MeterFramePeriod;
+ 
+ 	snr_update.snr_cfg_node.snsr.magic_num = be_frm_idx + 5 - u8SnsResponseFrame;
+ 	snr_update.snr_cfg_node.snsr.magic_num_vblank = be_frm_idx + 5 - u8SnsResponseFrame;
+diff --git a/sample/common/sample_common_isp.c b/sample/common/sample_common_isp.c
+index 4b2f042..fb9698a 100644
+--- a/sample/common/sample_common_isp.c
++++ b/sample/common/sample_common_isp.c
+@@ -483,11 +483,13 @@ CVI_VOID SAMPLE_COMM_ISP_Stop(CVI_U8 IspDev)
+ 		pthread_join(g_IspPid[IspDev], NULL);
+ 		g_IspPid[IspDev] = 0;
+ 		SAMPLE_COMM_ISP_Sensor_UnRegiter_callback(IspDev);
++#ifndef NANOKVM_OS
+ 		SAMPLE_COMM_ISP_Aelib_UnCallback(IspDev);
+ 		SAMPLE_COMM_ISP_Awblib_UnCallback(IspDev);
+ 		#if ENABLE_AF_LIB
+ 		SAMPLE_COMM_ISP_Aflib_UnCallback(IspDev);
+ 		#endif
++#endif
+ 	}
+ }
+ 
+diff --git a/sample/common/sample_common_vi.c b/sample/common/sample_common_vi.c
+index 1124c4f..58433c8 100644
+--- a/sample/common/sample_common_vi.c
++++ b/sample/common/sample_common_vi.c
+@@ -907,6 +907,9 @@ CVI_S32 SAMPLE_COMM_VI_StartIsp(SAMPLE_VI_INFO_S *pstViInfo)
+ 			pstViInfo->stPipeInfo.aPipe[i] < VI_MAX_PIPE_NUM) {
+ 			ViPipe = pstViInfo->stPipeInfo.aPipe[0];
+ 
++			/* An HDMI receiver delivers YUV on the ISP bypass path: the ISP
++			 * only passes the sensor geometry to VI, without AE/AWB/AF. */
++			if (!NANOKVM_OS_BUILD) {
+ 			SAMPLE_COMM_ISP_Aelib_Callback(ViPipe);
+ 			SAMPLE_COMM_ISP_Awblib_Callback(ViPipe);
+ 			#if ENABLE_AF_LIB
+@@ -926,6 +929,7 @@ CVI_S32 SAMPLE_COMM_VI_StartIsp(SAMPLE_VI_INFO_S *pstViInfo)
+ 			if (s32Ret != CVI_SUCCESS) {
+ 				CVI_TRACE_LOG(CVI_DBG_ERR, "Bind Algo failed with %#x!\n", s32Ret);
+ 			}
++			}
+ 			s32Ret = CVI_ISP_MemInit(ViPipe);
+ 			if (s32Ret != CVI_SUCCESS) {
+ 				CVI_TRACE_LOG(CVI_DBG_ERR, "Init Ext memory failed with %#x!\n", s32Ret);

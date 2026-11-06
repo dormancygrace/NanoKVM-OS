@@ -1,8 +1,9 @@
 """Compact linkage of the existing LT6911 MMF source set.
 
-Open MPI is linked from archives and localized. Vendor GCC10 ISP algorithms
-remain shared: their legacy vector attributes cannot be merged with GCC16
-xtheadvector objects. No ISA attributes or algorithm implementations are changed.
+Open MPI is linked from archives and localized. The LT6911 output bypasses the
+ISP's image processing: the open ISP runtime only passes the sensor geometry to
+VI and binds no 3A library or IQ block (platform/native/cvi_mpi/0017,
+firmware/sensor/patches/0006), so no closed ISP/3A library is linked.
 """
 from pathlib import Path
 import hashlib
@@ -10,7 +11,6 @@ import json
 import re
 import subprocess
 
-VENDOR_LIBRARIES = ('ae', 'awb', 'af', 'isp_algo')
 OPEN_LIBRARIES = ('sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'cvi_ive', 'venc', 'vdec',
                   'misc', 'isp', 'cvi_bin', 'cvi_bin_isp')
 
@@ -49,15 +49,12 @@ def needed(cross, path):
 
 def link_hdmi_light(cross, mpi, objects, shared, output):
     archives = [mpi / 'lib' / ('lib' + name + '.a') for name in OPEN_LIBRARIES]
-    vendor = [mpi / 'lib' / ('lib' + name + '.so') for name in VENDOR_LIBRARIES]
-    for path in [*archives, *vendor]:
+    for path in archives:
         if not path.is_file():
             raise FileNotFoundError('Prepared MPI input is missing: ' + str(path))
     defined = set(symbols(cross, [*objects, *archives]))
-    # Vendor callbacks into open ISP must remain visible after localization.
-    callbacks = defined & set(symbols(cross, vendor, dynamic=True, undefined=True))
     public = mmf_symbols(cross, next(p for p in objects if p.stem == 'kvm_mmf'))
-    exports = public | callbacks
+    exports = public
     missing = exports - defined
     if missing:
         raise ValueError('Required exports missing: ' + ', '.join(sorted(missing)))
@@ -69,22 +66,21 @@ def link_hdmi_light(cross, mpi, objects, shared, output):
         '-Wl,--gc-sections', '-Wl,--version-script=' + str(export_file),
         '-Wl,-Map,' + str(output / 'hdmi-light.map'),
         '-Wl,--start-group', *map(str, objects), *map(str, archives), '-Wl,--end-group',
-        '-L' + str(mpi / 'lib'), '-Wl,--as-needed',
-        *['-l' + name for name in VENDOR_LIBRARIES], '-pthread', '-lm', '-ldl',
+        '-Wl,--as-needed', '-pthread', '-lm', '-ldl',
         '-o', str(shared)], check=True)
     actual = set(symbols(cross, [shared], dynamic=True))
     if actual != exports:
         raise ValueError('Unexpected compact MMF export set: ' + repr(actual ^ exports))
     dependencies = needed(cross, shared)
-    allowed = {p.name for p in vendor} | {'libc.so', 'libstdc++.so.6', 'libgcc_s.so.1'}
+    allowed = {'libc.so', 'libstdc++.so.6', 'libgcc_s.so.1'}
     if set(dependencies) - allowed:
         raise ValueError('Unexpected compact MMF dependencies: ' + repr(dependencies))
     metadata = {
         'profile': 'hdmi-light', 'hardware_qualified': False,
-        'mmf_api_symbols': sorted(public), 'vendor_callback_exports': sorted(callbacks),
+        'mmf_api_symbols': sorted(public),
         'needed': dependencies,
         'inputs_sha256': {str(p.relative_to(mpi)): hashlib.sha256(p.read_bytes()).hexdigest()
-                          for p in [*archives, *vendor]},
+                          for p in archives},
         'algorithm_changes': False, 'small_core_required': False,
     }
     (output / 'link-profile.json').write_text(json.dumps(metadata, indent=2) + '\n')

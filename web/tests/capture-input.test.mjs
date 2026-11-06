@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 
+import * as connectRecovery from '../src/lib/connect-recovery.ts';
 import * as holdKeepalive from '../src/lib/hold-keepalive.ts';
 
 const sent = [];
@@ -27,6 +28,7 @@ new Function('exports', 'require', 'WebSocket', js)(
     if (name.endsWith('service.ts')) return { getBaseUrl: () => 'ws://test' };
     if (name.endsWith('auth-events.ts')) return { notifyAuthExpired() {} };
     if (name.endsWith('hold-keepalive.ts')) return holdKeepalive;
+    if (name.endsWith('connect-recovery.ts')) return connectRecovery;
     throw new Error(name);
   },
   Socket

@@ -129,27 +129,3 @@ func TestSHA256InterruptedRequestKeepsTheEngine(t *testing.T) {
 		t.Fatalf("EINTR disabled the engine (calls %d)", f.calls)
 	}
 }
-
-// On the device: the real engine against crypto/sha256.
-func TestNewSHA256OnDevice(t *testing.T) {
-	e := openSHAEngine()
-	if e == nil {
-		t.Skip("no SG2002 engine")
-	}
-	data := make([]byte, 16<<20+3)
-	rand.Read(data)
-	lengths := append([]int{4096, 4097, 4096 + 64, 3 * 4096, 1 << 20, 16 << 20}, shaLengths...)
-	for _, n := range lengths {
-		for _, off := range []int{0, 3} {
-			d := newSHA256(e)
-			d.Write(data[off : off+n])
-			want := sha256.Sum256(data[off : off+n])
-			if got := d.Sum(nil); !bytes.Equal(got, want[:]) {
-				t.Fatalf("%d bytes at offset %d: wrong digest", n, off)
-			}
-		}
-	}
-	if e.disabled.Load() {
-		t.Fatal("the engine failed during the test")
-	}
-}

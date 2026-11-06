@@ -1,5 +1,7 @@
 // NanoKVM OS adaptation, 2026-10-03. SPDX-License-Identifier: AGPL-3.0-only
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, time::Duration};
+
+use tokio::time::Instant;
 
 use crate::{
     nanokvm::HidClient,
@@ -13,6 +15,22 @@ const MOUSE_TYPE_UP: i32 = 2;
 const MOUSE_TYPE_WHEEL: i32 = 3;
 const MOUSE_TYPE_TRACKPAD: i32 = 4;
 const MOUSE_TYPE_MOVE_RELATIVE: i32 = 5;
+
+// A viewer that reconnects is admitted while its old session may still hold
+// the one HID lease: until that session's reader gives up on the old
+// connection (PEER_IDLE_TIMEOUT) and its release reports and close went out
+// (up to 3 s each, with margin). Input waits that long for the lease instead
+// of being given up at once.
+const LEASE_WAIT: Duration = Duration::from_secs(crate::server::PEER_IDLE_TIMEOUT.as_secs() + 15);
+const LEASE_RETRY: Duration = Duration::from_millis(500);
+const LEASE_RETRY_MAX: Duration = Duration::from_secs(4);
+
+#[derive(Clone, Copy)]
+struct LeaseWait {
+    until: Instant,
+    retry_at: Instant,
+    delay: Duration,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum PointerMode {
@@ -37,6 +55,7 @@ pub struct InputState {
     y: u16,
     pointer_mode: PointerMode,
     pointer_mode_announced: bool,
+    lease_wait: Option<LeaseWait>,
 }
 
 impl InputState {
@@ -52,10 +71,86 @@ impl InputState {
             y: 0,
             pointer_mode: PointerMode::Absolute,
             pointer_mode_announced: false,
+            lease_wait: None,
         }
     }
 
+    // While another session holds the HID lease, events are dropped and the
+    // lease is asked for again when due.
     pub async fn handle_mouse(&mut self, event: MouseEvent) -> std::io::Result<()> {
+        if !self.lease_ready().await? {
+            return Ok(());
+        }
+        let result = self.mouse(event).await;
+        self.wait_if_lease_held(result)
+    }
+
+    pub async fn handle_key(&mut self, event: KeyEvent) -> std::io::Result<()> {
+        if !self.lease_ready().await? {
+            return Ok(());
+        }
+        let result = self.key(event).await;
+        self.wait_if_lease_held(result)
+    }
+
+    // Waiting for another session to release HID: the controller is told its
+    // keyboard is off meanwhile, so it does not type into nothing.
+    pub fn waiting_for_lease(&self) -> bool {
+        self.lease_wait.is_some()
+    }
+
+    pub async fn heartbeat(&mut self) -> std::io::Result<()> {
+        if self.lease_wait.is_some() {
+            return self.lease_ready().await.map(|_| ());
+        }
+        self.hid.heartbeat().await
+    }
+
+    async fn lease_ready(&mut self) -> std::io::Result<bool> {
+        let Some(mut wait) = self.lease_wait else {
+            return Ok(true);
+        };
+        let now = Instant::now();
+        if now < wait.retry_at {
+            return Ok(false);
+        }
+        // An empty keyboard report takes the lease and presses nothing.
+        match self.hid.keyboard(0, &[]).await {
+            Ok(()) => {
+                // Nothing tracked as held since the refusal reached the target.
+                self.modifiers = 0;
+                self.keys.clear();
+                self.buttons = 0;
+                self.lease_wait = None;
+                Ok(true)
+            }
+            Err(error) if is_lease_held(&error) && now < wait.until => {
+                wait.retry_at = now + wait.delay;
+                wait.delay = (wait.delay * 2).min(LEASE_RETRY_MAX);
+                self.lease_wait = Some(wait);
+                Ok(false)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn wait_if_lease_held(&mut self, result: std::io::Result<()>) -> std::io::Result<()> {
+        match result {
+            Err(error) if is_lease_held(&error) => {
+                eprintln!("RustDesk input waits for another session to release HID");
+                let now = Instant::now();
+                self.lease_wait = Some(LeaseWait {
+                    until: now + LEASE_WAIT,
+                    retry_at: now + LEASE_RETRY,
+                    delay: LEASE_RETRY * 2,
+                });
+                Ok(())
+            }
+            result => result,
+        }
+    }
+
+    async fn mouse(&mut self, event: MouseEvent) -> std::io::Result<()> {
         let event_type = event.mask & MOUSE_TYPE_MASK;
         let button = (event.mask >> 3) as u16;
         match event_type {
@@ -128,7 +223,7 @@ impl InputState {
         }
     }
 
-    pub async fn handle_key(&mut self, event: KeyEvent) -> std::io::Result<()> {
+    async fn key(&mut self, event: KeyEvent) -> std::io::Result<()> {
         let mode = KeyboardMode::try_from(event.mode).unwrap_or(KeyboardMode::Legacy);
         // Map events, and Chr fallbacks in Translate mode, carry Linux physical
         // keycodes. Their modifier list only describes lock state, so preserve
@@ -190,10 +285,6 @@ impl InputState {
         Ok(())
     }
 
-    pub async fn heartbeat(&self) -> std::io::Result<()> {
-        self.hid.heartbeat().await
-    }
-
     pub async fn release_all(&mut self) {
         self.modifiers = 0;
         self.keys.clear();
@@ -249,6 +340,10 @@ impl InputState {
         self.modifiers = previous_modifiers;
         self.send_keyboard().await
     }
+}
+
+fn is_lease_held(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::ResourceBusy
 }
 
 fn clamp_i8(value: i32) -> i8 {

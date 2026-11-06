@@ -49,6 +49,8 @@ const MAX_PASSWORD_ATTEMPTS: usize = 5;
 const MAX_EMPTY_PROBES: usize = 3;
 const EMPTY_PROBE_DELAY: Duration = Duration::from_millis(300);
 const MEDIA_TIMEOUT: Duration = Duration::from_secs(5);
+// A peer that sends nothing this long is taken as gone (see input.rs).
+pub(crate) const PEER_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const INPUT_FLUSH_INTERVAL: Duration = Duration::from_millis(16);
 // A connected viewer keeps its temporary-password reconnect grace alive;
 // refreshing it once a second is plenty for a 30 s grace.
@@ -694,6 +696,8 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let (input_sender, mut input_receiver) = mpsc::channel(64);
     let (input_result_sender, mut input_result_receiver) = mpsc::channel(1);
     let (input_shutdown_sender, mut input_shutdown) = watch::channel(false);
+    // true while input waits for another session to release HID.
+    let (lease_wait_sender, mut lease_wait) = watch::channel(false);
     let input_task = tokio::spawn(async move {
         let mut enabled = input_allowed;
         let mut active = false;
@@ -710,6 +714,12 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         tokio::pin!(flush_timer);
         let mut flush_armed = false;
         let result = loop {
+            let waiting = input.waiting_for_lease();
+            lease_wait_sender.send_if_modified(|current| {
+                let changed = *current != waiting;
+                *current = waiting;
+                changed
+            });
             arm_pending_flush(
                 flush_timer.as_mut(),
                 flush_grid,
@@ -845,7 +855,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         loop {
             // A stalled/half-open peer releases HID and its viewer slot. The
             // whole stream ends on timeout, so partial reads are never reused.
-            let message = time::timeout(Duration::from_secs(30), reader.read::<Message>())
+            let message = time::timeout(PEER_IDLE_TIMEOUT, reader.read::<Message>())
                 .await
                 .unwrap_or_else(|_| {
                     Err(io::Error::new(io::ErrorKind::TimedOut, "peer idle timeout"))
@@ -942,6 +952,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let mut audio_permission = None;
     let mut audio_generation = 0;
     let mut input_updates_open = true;
+    let mut lease_updates_open = input_allowed;
     let result = loop {
         tokio::select! {
             changed=audio_state.changed(), if audio_updates_open => {
@@ -990,6 +1001,14 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                     Some(Err(error)) => break Err(error),
                     None => break Ok(()),
                 }
+            }
+            changed = lease_wait.changed(), if lease_updates_open => {
+                if changed.is_err() { lease_updates_open = false; continue; }
+                // Keyboard off while another session holds HID, on again once
+                // this one has it.
+                let enabled = !*lease_wait.borrow_and_update();
+                let permission=crate::protocol::PermissionInfo{permission:0,enabled};
+                if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::PermissionInfo(permission))})).await{break Err(error);}
             }
             input = input_result_receiver.recv(), if input_updates_open => {
                 input_updates_open = false;

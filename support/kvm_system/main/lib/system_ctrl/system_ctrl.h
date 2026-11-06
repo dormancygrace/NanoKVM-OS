@@ -2,9 +2,6 @@
 #define SYSTEM_CTRL_H_
 #include "config.h"
 
-void gen_hostapd_conf(char* ap_ssid);
-void gen_udhcpd_conf();
-void gen_dnsmasq_conf();
 bool gen_wifi_ap_key(char *out, size_t size);
 bool write_private_file(const char *path, const char *text);
 uint8_t sta_connect_ap(void);

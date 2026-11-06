@@ -98,6 +98,12 @@ const (
 	maxChannelDeliveries = 4
 )
 
+// opposite pairs the messages of the host's states.
+var opposite = map[string]string{
+	"power.on": "power.off", "power.off": "power.on",
+	"hdmi.lost": "hdmi.restored", "hdmi.restored": "hdmi.lost",
+}
+
 // retryDelays are the waits before the second, third and fourth attempts.
 var retryDelays = []time.Duration{10 * time.Second, time.Minute, 5 * time.Minute}
 
@@ -239,6 +245,11 @@ func (s *Service) dispatch(e Event) {
 	}
 	_, repeated := s.recent[key]
 	if !repeated {
+		// A state change ends the repeats of the state before it: off, on,
+		// off within the window must still report the last off.
+		if before, ok := opposite[e.Message]; ok {
+			delete(s.recent, fmt.Sprint(before, e.Vars))
+		}
 		s.recent[key] = now
 	}
 	s.mu.Unlock()

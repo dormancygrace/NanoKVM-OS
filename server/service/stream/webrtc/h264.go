@@ -51,10 +51,6 @@ func Connect(c *gin.Context) {
 	connect(c, encoderConfig)
 }
 
-func ConnectLegacy(c *gin.Context) {
-	connect(c, stream.LegacyEncoderConfig())
-}
-
 func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 	// create WebSocket connection
 	wsConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)

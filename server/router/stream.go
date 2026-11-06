@@ -28,8 +28,6 @@ func streamRouter(r *gin.Engine) {
 	api.POST("/stream/state", stream.SetEncoderState)
 	api.GET("/stream/audio", audio.Connect)
 
-	api.GET("/stream/video", middleware.RequireVideo, webrtc.Connect)             // configurable video stream (webrtc)
-	api.GET("/stream/video/direct", middleware.RequireVideo, direct.Connect)      // configurable video stream (direct)
-	api.GET("/stream/h264", middleware.RequireVideo, webrtc.ConnectLegacy)        // legacy h264 stream (webrtc)
-	api.GET("/stream/h264/direct", middleware.RequireVideo, direct.ConnectLegacy) // legacy h264 stream (direct)
+	api.GET("/stream/video", middleware.RequireVideo, webrtc.Connect)        // configurable video stream (webrtc)
+	api.GET("/stream/video/direct", middleware.RequireVideo, direct.Connect) // configurable video stream (direct)
 }

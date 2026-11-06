@@ -213,10 +213,8 @@ mod tests {
             ..Default::default()
         };
         let mut state = Credentials::new(&config);
-        state.path = std::env::temp_dir().join(format!(
-            "nanokvm-auth-never-written-{}",
-            std::process::id()
-        ));
+        state.path =
+            std::env::temp_dir().join(format!("nanokvm-auth-never-written-{}", std::process::id()));
         let hash = Hash {
             salt: "salt".into(),
             challenge: "challenge".into(),

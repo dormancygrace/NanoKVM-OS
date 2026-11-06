@@ -105,7 +105,9 @@ pub(crate) fn spawn(
                 if *shutdown.borrow() {
                     return;
                 }
-                crate::connlog::connection_log!("RustDesk direct TCP unavailable: {error}; using relay");
+                crate::connlog::connection_log!(
+                    "RustDesk direct TCP unavailable: {error}; using relay"
+                );
                 rendezvous::spawn_fallback_relay(
                     request.peer,
                     request.peer_v6,

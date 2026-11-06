@@ -570,7 +570,9 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             }
         };
         let Some(message::Union::LoginRequest(login)) = login.union else {
-            crate::connlog::connection_log!("rejecting RustDesk client {peer}: expected LoginRequest");
+            crate::connlog::connection_log!(
+                "rejecting RustDesk client {peer}: expected LoginRequest"
+            );
             send_error(&mut writer, "Expected LoginRequest").await?;
             return Ok(());
         };
@@ -1203,10 +1205,7 @@ impl KeyframeRequests {
     }
 }
 
-async fn forward_media(
-    mut media: MediaSubscriber,
-    sender: mpsc::Sender<io::Result<MediaFrame>>,
-) {
+async fn forward_media(mut media: MediaSubscriber, sender: mpsc::Sender<io::Result<MediaFrame>>) {
     let mut dropping = false;
     let mut requests = KeyframeRequests::default();
     loop {
@@ -1422,8 +1421,8 @@ async fn identity_handshake<S: AsyncRead + AsyncWrite + Unpin>(
         HANDSHAKE_TIMEOUT,
         read_message_within(stream, MAX_LOGIN_PACKET_LENGTH),
     )
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "secure handshake timed out"))??;
+    .await
+    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "secure handshake timed out"))??;
     let Some(message::Union::PublicKey(public_key)) = response.union else {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -1718,7 +1717,10 @@ mod tests {
             }
             time::sleep(Duration::from_millis(10)).await;
         };
-        assert!(admitted.is_some(), "the slot was not freed after the cleanup");
+        assert!(
+            admitted.is_some(),
+            "the slot was not freed after the cleanup"
+        );
     }
 
     #[tokio::test(start_paused = true)]
@@ -1856,7 +1858,10 @@ mod tests {
         let PendingPointerMove::Relative { mut x, mut y, .. } = pending else {
             panic!("relative movement changed pointer mode");
         };
-        assert_eq!((x, y), (super::MAX_RELATIVE_MOVE, -super::MAX_RELATIVE_MOVE));
+        assert_eq!(
+            (x, y),
+            (super::MAX_RELATIVE_MOVE, -super::MAX_RELATIVE_MOVE)
+        );
         let mut chunks = 0;
         while x != 0 || y != 0 {
             take_relative_chunk(&mut x, &mut y);
@@ -2884,7 +2889,11 @@ mod tests {
         limits: &ClientLimits,
         rustdesk_identity: &Arc<RustDeskIdentity>,
         shutdown: watch::Receiver<bool>,
-    ) -> (TcpStream, Hash, tokio::task::JoinHandle<std::io::Result<()>>) {
+    ) -> (
+        TcpStream,
+        Hash,
+        tokio::task::JoinHandle<std::io::Result<()>>,
+    ) {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let client = tokio::spawn(TcpStream::connect(listener.local_addr().unwrap()));
         let (server_stream, peer) = listener.accept().await.unwrap();
@@ -2956,11 +2965,16 @@ mod tests {
         let (mut client, hash, server) =
             login_connection(&config, &limits, &rustdesk_identity, shutdown.clone()).await;
         send_login(&mut client, password_hash("rustdesk-test", &hash)).await;
-        let response = time::timeout(Duration::from_secs(5), read_message::<_, Message>(&mut client))
-            .await
-            .expect("a correct password must not wait")
-            .unwrap();
-        assert!(login_error(response).unwrap().starts_with("NanoKVM video unavailable"));
+        let response = time::timeout(
+            Duration::from_secs(5),
+            read_message::<_, Message>(&mut client),
+        )
+        .await
+        .expect("a correct password must not wait")
+        .unwrap();
+        assert!(login_error(response)
+            .unwrap()
+            .starts_with("NanoKVM video unavailable"));
         server.await.unwrap().unwrap();
 
         // A wrong one waits, holding its pending permit, until shutdown.
@@ -2968,11 +2982,12 @@ mod tests {
         let (mut client, _, server) =
             login_connection(&config, &limits, &rustdesk_identity, shutdown.clone()).await;
         send_login(&mut client, vec![0; 32]).await;
-        assert!(
-            time::timeout(Duration::from_secs(1), read_message::<_, Message>(&mut client))
-                .await
-                .is_err()
-        );
+        assert!(time::timeout(
+            Duration::from_secs(1),
+            read_message::<_, Message>(&mut client)
+        )
+        .await
+        .is_err());
         assert_eq!(limits.pending.available_permits(), 3);
         shutdown_sender.send(true).unwrap();
         time::timeout(Duration::from_secs(5), server)
@@ -3036,11 +3051,14 @@ mod tests {
         )
         .await
         .unwrap();
-        time::timeout_at(started + super::LOGIN_TIMEOUT + Duration::from_millis(100), server)
-            .await
-            .expect("the wait outlived the login deadline")
-            .unwrap()
-            .unwrap();
+        time::timeout_at(
+            started + super::LOGIN_TIMEOUT + Duration::from_millis(100),
+            server,
+        )
+        .await
+        .expect("the wait outlived the login deadline")
+        .unwrap()
+        .unwrap();
         assert_eq!(limits.pending.available_permits(), 4);
         std::fs::remove_dir_all(directory).unwrap();
     }
@@ -3093,7 +3111,12 @@ mod tests {
         };
         let profile = crate::nanokvm::VideoProfile { codec: Codec::H264 };
         let (subscriber, accepted) = tokio::join!(
-            crate::nanokvm::MediaSubscriber::connect(path.to_str().unwrap(), &identity, "encoded", Some(&profile)),
+            crate::nanokvm::MediaSubscriber::connect(
+                path.to_str().unwrap(),
+                &identity,
+                "encoded",
+                Some(&profile)
+            ),
             listener.accept()
         );
         let (mut bridge, _) = accepted.unwrap();

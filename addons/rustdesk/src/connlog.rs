@@ -102,7 +102,10 @@ mod tests {
             .filter(|_| limit.allow_at(start + Duration::from_secs(1)).0)
             .count();
         assert_eq!(allowed, LINES_PER_WINDOW as usize);
-        assert_eq!(limit.allow_at(start + WINDOW), (true, 1000 - LINES_PER_WINDOW));
+        assert_eq!(
+            limit.allow_at(start + WINDOW),
+            (true, 1000 - LINES_PER_WINDOW)
+        );
         assert_eq!(limit.allow_at(start + WINDOW), (true, 0));
         // A count is reported when the window ends without another message.
         for _ in 0..LINES_PER_WINDOW + 3 {

@@ -52,9 +52,40 @@ apply_mount_policy() {
     done
 }
 
+# A kernel oops panics and reboots; ramoops (the board DT) keeps the dump and
+# the last console output across that reboot. Keep the newest five crashes in
+# /var/log/nanokvm-crash and free the region for the next one.
+# Each crash gets the next sequence number: the clock at boot may be wrong
+# or step back, so it only labels the directory. Removing a pstore file
+# erases its record, so the copy is synced to the card first.
+collect_crash() {
+    pstore=/sys/fs/pstore
+    crashes=/var/log/nanokvm-crash
+    [ -d "$pstore" ] || return 0
+    mountpoint -q "$pstore" || mount -t pstore pstore "$pstore" || return 1
+    set -- "$pstore"/*
+    [ -e "$1" ] || return 0
+    mkdir -p "$crashes" || return 1
+    last=$(find "$crashes" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*-*' |
+        sed 's|.*/||; s|-.*||' | awk '$1 + 0 > n { n = $1 + 0 } END { print n + 0 }')
+    crash=$crashes/$(printf '%06d' $((last + 1)))-$(date -u +%Y%m%dT%H%M%SZ)
+    mkdir "$crash" || return 1
+    if ! cp "$@" "$crash"/ || ! sync "$crash"/* "$crash" "$crashes" "${crashes%/*}"; then
+        # An incomplete attempt must not count as another retained crash.
+        # mkdir above succeeded, so this directory belongs to this attempt.
+        rm -rf "$crash"
+        return 1
+    fi
+    rm -f "$@"
+    ewarn "The kernel crashed before this boot; its log is in $crash"
+    find "$crashes" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*-*' | sed 's|.*/||' |
+        sort -rn | tail -n +6 | while read -r old; do rm -rf "${crashes:?}/$old"; done
+}
+
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
+    collect_crash || ewarn "Could not keep the kernel crash log"
     # First: the board identity lives on /boot, the USB flags an older release
     # left there move from it (nanokvm-usb), and the data
     # steps below may give up.

@@ -24,6 +24,10 @@ const ReturnTokenHeader = "X-NanoKVM-Return-Token"
 // loginBodyTimeout bounds how long a login request may take to send its body.
 var loginBodyTimeout = 15 * time.Second
 
+// loginPenalty is the unit of the delays before a failed login or password
+// check replies.
+var loginPenalty = time.Second
+
 func (s *Service) Login(c *gin.Context) {
 	// Cover early replies too: HTTP/1 may drain an unread request body
 	// before writing a response, including a lockout or auth-disabled reply.
@@ -46,12 +50,12 @@ func (s *Service) Login(c *gin.Context) {
 
 	clientIP := GetClientIP(c)
 	if locked, code, msg := CheckLoginAttempt(clientIP); locked {
-		time.Sleep(3 * time.Second)
+		time.Sleep(3 * loginPenalty)
 		rsp.ErrRsp(c, code, msg)
 		return
 	}
 	if err := proto.ParseFormRequest(c, &req); err != nil {
-		time.Sleep(3 * time.Second)
+		time.Sleep(3 * loginPenalty)
 		rsp.ErrRsp(c, -1, "invalid parameters")
 		return
 	}
@@ -59,7 +63,7 @@ func (s *Service) Login(c *gin.Context) {
 	// Recheck lockout on admission: failures can arrive while parsing.
 	release, admitted, code, msg := BeginLoginAttempt(clientIP)
 	if !admitted {
-		time.Sleep(3 * time.Second)
+		time.Sleep(3 * loginPenalty)
 		rsp.ErrRsp(c, code, msg)
 		return
 	}
@@ -72,7 +76,7 @@ func (s *Service) Login(c *gin.Context) {
 	user, ok, err := authn.DefaultStore.Authenticate(req.Username, password)
 	if err != nil {
 		log.Errorf("load account during login: %s", err)
-		time.Sleep(2 * time.Second)
+		time.Sleep(2 * loginPenalty)
 		rsp.ErrRsp(c, -3, "authentication unavailable")
 		return
 	}
@@ -84,7 +88,7 @@ func (s *Service) Login(c *gin.Context) {
 	ClearLoginAttempt(clientIP, req.Username)
 	token, err := middleware.GenerateJWT(user.Username, user.TokenVersion)
 	if err != nil {
-		time.Sleep(time.Second)
+		time.Sleep(loginPenalty)
 		rsp.ErrRsp(c, -3, "generate token failed")
 		return
 	}
@@ -107,7 +111,7 @@ func (s *Service) loginFailed(c *gin.Context, clientIP string, rsp *proto.Respon
 // loginFailedFor is loginFailed for a known user name.
 func (s *Service) loginFailedFor(c *gin.Context, clientIP, username string, rsp *proto.Response) {
 	locked, code, msg := RecordLoginFailureFor(clientIP, username)
-	time.Sleep(2 * time.Second)
+	time.Sleep(2 * loginPenalty)
 	if locked {
 		rsp.ErrRsp(c, code, msg)
 		return

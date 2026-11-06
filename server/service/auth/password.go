@@ -49,7 +49,7 @@ func (s *Service) ChangePassword(c *gin.Context) {
 		clientIP := GetClientIP(c)
 		release, admitted, code, msg := BeginLoginAttempt(clientIP)
 		if !admitted {
-			time.Sleep(3 * time.Second)
+			time.Sleep(3 * loginPenalty)
 			rsp.ErrRsp(c, code, msg)
 			return
 		}
@@ -59,7 +59,7 @@ func (s *Service) ChangePassword(c *gin.Context) {
 			return
 		} else if !authenticated {
 			locked, code, msg := RecordLoginFailureFor(clientIP, principal.Username)
-			time.Sleep(2 * time.Second)
+			time.Sleep(2 * loginPenalty)
 			if locked {
 				rsp.ErrRsp(c, code, msg)
 				return

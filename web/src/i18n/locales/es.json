@@ -2323,7 +2323,7 @@
       "eventHint": {
         "power": "el host se encendió o se apagó; requiere control ATX con el LED de encendido conectado.",
         "hdmi": "la imagen se perdió o volvió, también cuando el host apaga su pantalla; se detecta mientras la captura de vídeo está activa.",
-        "security": "una dirección bloqueada tras inicios de sesión fallidos, un inicio de sesión desde una dirección nueva.",
+        "security": "una dirección bloqueada tras inicios de sesión fallidos, demasiados intentos de inicio de sesión IPMI, un inicio de sesión desde una dirección nueva.",
         "screen": "una pantalla azul o un kernel panic, reconocidos por el complemento TPU; el texto se lee cuando nadie ve el vídeo y se envía con una captura."
       },
       "field": {
@@ -2405,6 +2405,7 @@
         "hdmi_lost": "Señal HDMI perdida",
         "hdmi_restored": "Señal HDMI restablecida",
         "security_lockout": "Inicios de sesión bloqueados",
+        "security_attempt-limit": "Intentos de inicio de sesión limitados",
         "security_new-address": "Inicio de sesión desde una dirección nueva",
         "screen_bsod": "Pantalla azul",
         "screen_panic": "Kernel panic",

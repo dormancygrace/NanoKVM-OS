@@ -8,6 +8,10 @@
     "title": "Logins blocked",
     "body": "{failures} failed logins from {address}: logins from this address are blocked for {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Login attempts limited",
+    "body": "{attempts} login attempts from {address} in a minute: further attempts from this address are refused for {minutes} min."
+  },
   "security.new-address": {
     "title": "Login from a new address",
     "body": "{user} logged in from {address}, an address not seen before."

@@ -797,7 +797,7 @@
       "eventHint": {
         "power": "主機被開啟或關閉；需要啟用 ATX 控制並連接電源指示燈。",
         "hdmi": "畫面遺失或恢復，包括主機關閉顯示器時；僅在視訊擷取執行時偵測。",
-        "security": "登入失敗後被封鎖的位址、從新位址登入。",
+        "security": "登入失敗後被封鎖的位址、IPMI 登入嘗試過多、從新位址登入。",
         "screen": "由 TPU 附加元件辨識的藍屏或 kernel panic；無人觀看視訊時讀取畫面文字，並隨截圖一起傳送。"
       },
       "field": {
@@ -879,6 +879,7 @@
         "hdmi_lost": "HDMI 訊號遺失",
         "hdmi_restored": "HDMI 訊號恢復",
         "security_lockout": "登入已被封鎖",
+        "security_attempt-limit": "登入嘗試受限",
         "security_new-address": "從新位址登入",
         "screen_bsod": "藍屏",
         "screen_panic": "Kernel panic",

@@ -795,7 +795,7 @@
       "eventHint": {
         "power": "værten blev tændt eller slukket; kræver ATX-styring med tilsluttet strøm-LED.",
         "hdmi": "billedet gik tabt eller kom tilbage, også når værten slukker sin skærm; registreres, mens videooptagelsen kører.",
-        "security": "en adresse blokeret efter mislykkede logins, et login fra en ny adresse.",
+        "security": "en adresse blokeret efter mislykkede logins, for mange IPMI-loginforsøg, et login fra en ny adresse.",
         "screen": "en blå skærm eller en kernel panic, genkendt af TPU-tilføjelsen; teksten læses, når ingen ser videoen, og sendes med et skærmbillede."
       },
       "field": {
@@ -877,6 +877,7 @@
         "hdmi_lost": "HDMI-signal mistet",
         "hdmi_restored": "HDMI-signal genoprettet",
         "security_lockout": "Logins blokeret",
+        "security_attempt-limit": "Loginforsøg begrænset",
         "security_new-address": "Login fra en ny adresse",
         "screen_bsod": "Blå skærm",
         "screen_panic": "Kernel panic",

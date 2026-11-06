@@ -8,6 +8,10 @@
     "title": "로그인 차단됨",
     "body": "{address}에서 로그인에 {failures}회 실패했습니다. 이 주소에서의 로그인은 {minutes}분 동안 차단됩니다."
   },
+  "security.attempt-limit": {
+    "title": "로그인 시도 제한됨",
+    "body": "{address}에서 1분 동안 로그인 시도 {attempts}회: 이 주소의 추가 시도는 {minutes}분 동안 거부됩니다."
+  },
   "security.new-address": {
     "title": "새 주소에서 로그인",
     "body": "{user} 사용자가 이전에 없던 주소 {address}에서 로그인했습니다."

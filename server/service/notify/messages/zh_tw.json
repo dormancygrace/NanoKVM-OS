@@ -8,6 +8,10 @@
     "title": "登入已被封鎖",
     "body": "來自 {address} 的登入失敗 {failures} 次：該位址的登入已被封鎖 {minutes} 分鐘。"
   },
+  "security.attempt-limit": {
+    "title": "登入嘗試受限",
+    "body": "{address} 在一分鐘內嘗試登入 {attempts} 次：該位址的後續嘗試將在 {minutes} 分鐘內被拒絕。"
+  },
   "security.new-address": {
     "title": "來自新位址的登入",
     "body": "{user} 從 {address} 登入，此位址之前未出現過。"

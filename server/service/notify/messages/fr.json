@@ -8,6 +8,10 @@
     "title": "Connexions bloquées",
     "body": "{failures} échecs de connexion depuis {address} : les connexions depuis cette adresse sont bloquées pendant {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Tentatives de connexion limitées",
+    "body": "{attempts} tentatives de connexion depuis {address} en une minute : les suivantes depuis cette adresse sont refusées pendant {minutes} min."
+  },
   "security.new-address": {
     "title": "Connexion depuis une nouvelle adresse",
     "body": "{user} s'est connecté depuis {address}, une adresse jamais vue auparavant."

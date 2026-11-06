@@ -800,7 +800,7 @@
       "eventHint": {
         "power": "ana bilgisayar açıldı veya kapatıldı; güç LED'i bağlı ATX denetimi gerekir.",
         "hdmi": "görüntü kayboldu veya geri geldi, ana bilgisayar ekranını kapattığında da; video yakalama çalışırken algılanır.",
-        "security": "başarısız girişlerden sonra engellenen bir adres, yeni bir adresten giriş.",
+        "security": "başarısız girişlerden sonra engellenen bir adres, çok fazla IPMI giriş denemesi, yeni bir adresten giriş.",
         "screen": "TPU eklentisinin tanıdığı mavi ekran veya kernel panic; kimse videoyu izlemezken metin okunur ve yanında bir ekran görüntüsü gönderilir."
       },
       "field": {
@@ -882,6 +882,7 @@
         "hdmi_lost": "HDMI sinyali kayboldu",
         "hdmi_restored": "HDMI sinyali geri geldi",
         "security_lockout": "Girişler engellendi",
+        "security_attempt-limit": "Giriş denemeleri sınırlandı",
         "security_new-address": "Yeni adresten giriş",
         "screen_bsod": "Mavi ekran",
         "screen_panic": "Kernel panic",

@@ -28,7 +28,7 @@ type ipmiEvent struct {
 	Kind     string `json:"kind"`
 	User     string `json:"user"`
 	Address  string `json:"address"`
-	Failures int    `json:"failures"`
+	Attempts int    `json:"attempts"`
 	Minutes  int    `json:"minutes"`
 }
 
@@ -70,7 +70,8 @@ func newIPMIEventReader(socket string) *ipmiEventReader {
 func emitIPMIEvent(e ipmiEvent) {
 	switch e.Kind {
 	case "lockout":
-		notify.LoginLockedOut(e.Address, e.Failures, e.Minutes)
+		// IPMI counts every login, failed or not: its own message.
+		notify.LoginAttemptsLimited(e.Address, e.Attempts, e.Minutes)
 	case "login":
 		// Its own list, apart from a web or Redfish user of the same name.
 		notify.LoginSucceeded(e.User+" (IPMI)", e.Address)

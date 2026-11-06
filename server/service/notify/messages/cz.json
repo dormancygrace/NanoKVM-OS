@@ -8,6 +8,10 @@
     "title": "Přihlášení zablokováno",
     "body": "{failures} neúspěšných přihlášení z adresy {address}: přihlášení z této adresy jsou zablokována na {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Pokusy o přihlášení omezeny",
+    "body": "{attempts} pokusů o přihlášení z {address} za minutu: další pokusy z této adresy jsou {minutes} min odmítány."
+  },
   "security.new-address": {
     "title": "Přihlášení z nové adresy",
     "body": "Uživatel {user} se přihlásil z adresy {address}, která dosud nebyla vidět."

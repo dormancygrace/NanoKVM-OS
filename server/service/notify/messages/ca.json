@@ -8,6 +8,10 @@
     "title": "Inicis de sessió bloquejats",
     "body": "{failures} inicis de sessió fallits des de {address}: els accessos des d'aquesta adreça estan bloquejats durant {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Intents d'inici de sessió limitats",
+    "body": "{attempts} intents d'inici de sessió des de {address} en un minut: els següents des d'aquesta adreça es rebutgen durant {minutes} min."
+  },
   "security.new-address": {
     "title": "Inici de sessió des d'una adreça nova",
     "body": "{user} ha iniciat sessió des de {address}, una adreça no vista abans."

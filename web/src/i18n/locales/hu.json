@@ -825,7 +825,7 @@
       "eventHint": {
         "power": "a gazdagépet be- vagy kikapcsolták; ATX-vezérlést igényel, csatlakoztatott bekapcsolás-LED-del.",
         "hdmi": "a kép elveszett vagy visszatért, akkor is, ha a gazdagép kikapcsolja a kijelzőjét; a videórögzítés futása alatt észlelhető.",
-        "security": "sikertelen bejelentkezések után blokkolt cím, bejelentkezés új címről.",
+        "security": "sikertelen bejelentkezések után blokkolt cím, túl sok IPMI-bejelentkezési kísérlet, bejelentkezés új címről.",
         "screen": "kék képernyő vagy kernel panic, amelyet a TPU-bővítmény ismer fel; a szöveget akkor olvassa ki, amikor senki sem nézi a videót, és képernyőképpel együtt küldi el."
       },
       "field": {
@@ -907,6 +907,7 @@
         "hdmi_lost": "HDMI-jel elveszett",
         "hdmi_restored": "HDMI-jel helyreállt",
         "security_lockout": "Bejelentkezések blokkolva",
+        "security_attempt-limit": "Bejelentkezési kísérletek korlátozva",
         "security_new-address": "Bejelentkezés új címről",
         "screen_bsod": "Kék képernyő",
         "screen_panic": "Kernel panic",

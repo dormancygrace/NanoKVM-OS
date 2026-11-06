@@ -8,6 +8,10 @@
     "title": "כניסות נחסמו",
     "body": "{failures} כניסות כושלות מהכתובת {address}: כניסות מכתובת זו חסומות למשך {minutes} דקות."
   },
+  "security.attempt-limit": {
+    "title": "ניסיונות הכניסה הוגבלו",
+    "body": "{attempts} ניסיונות כניסה מ-{address} בדקה: ניסיונות נוספים מכתובת זו נדחים למשך {minutes} דק׳."
+  },
   "security.new-address": {
     "title": "כניסה מכתובת חדשה",
     "body": "{user} נכנס מהכתובת {address}, כתובת שלא נראתה קודם."

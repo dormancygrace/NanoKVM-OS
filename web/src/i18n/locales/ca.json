@@ -799,7 +799,7 @@
       "eventHint": {
         "power": "l'amfitrió s'ha encès o apagat; requereix control ATX amb el LED d'alimentació connectat.",
         "hdmi": "s'ha perdut la imatge o ha tornat, també quan l'amfitrió apaga la pantalla; es detecta mentre la captura de vídeo està activa.",
-        "security": "una adreça bloquejada després d'inicis de sessió fallits, un inici de sessió des d'una adreça nova.",
+        "security": "una adreça bloquejada després d'inicis de sessió fallits, massa intents d'inici de sessió IPMI, un inici de sessió des d'una adreça nova.",
         "screen": "una pantalla blava o un kernel panic, reconeguts pel complement TPU; el text es llegeix quan ningú mira el vídeo i s'envia amb una captura de pantalla."
       },
       "field": {
@@ -881,6 +881,7 @@
         "hdmi_lost": "Senyal HDMI perdut",
         "hdmi_restored": "Senyal HDMI restablert",
         "security_lockout": "Inicis de sessió bloquejats",
+        "security_attempt-limit": "Intents d'inici de sessió limitats",
         "security_new-address": "Inici de sessió des d'una adreça nova",
         "screen_bsod": "Pantalla blava",
         "screen_panic": "Kernel panic",

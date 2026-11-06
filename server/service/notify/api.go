@@ -107,10 +107,11 @@ func (s *Service) Status() Status {
 // previewEvents are the sample events of a preview, one per message.
 func previewEvents(now time.Time) []Event {
 	samples := map[string]Event{
-		"security.lockout":     {Vars: map[string]string{"failures": "5", "address": "203.0.113.7", "minutes": "15"}},
-		"security.new-address": {Vars: map[string]string{"user": "admin", "address": "203.0.113.7"}},
-		"screen.bsod":          {Details: "Your PC ran into a problem and needs to restart.\nStop code: CRITICAL_PROCESS_DIED"},
-		"screen.panic":         {Details: "Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)\nCall Trace:\n dump_stack+0x10"},
+		"security.lockout":       {Vars: map[string]string{"failures": "5", "address": "203.0.113.7", "minutes": "15"}},
+		"security.attempt-limit": {Vars: map[string]string{"attempts": "20", "address": "203.0.113.7", "minutes": "1"}},
+		"security.new-address":   {Vars: map[string]string{"user": "admin", "address": "203.0.113.7"}},
+		"screen.bsod":            {Details: "Your PC ran into a problem and needs to restart.\nStop code: CRITICAL_PROCESS_DIED"},
+		"screen.panic":           {Details: "Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)\nCall Trace:\n dump_stack+0x10"},
 	}
 	events := make([]Event, 0, len(MessageSpecs))
 	for _, spec := range MessageSpecs {

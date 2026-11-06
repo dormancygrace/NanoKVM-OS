@@ -8,6 +8,10 @@
     "title": "Đã chặn đăng nhập",
     "body": "Đăng nhập thất bại {failures} lần từ {address}: đăng nhập từ địa chỉ này bị chặn trong {minutes} phút."
   },
+  "security.attempt-limit": {
+    "title": "Đã giới hạn lần đăng nhập",
+    "body": "{attempts} lần đăng nhập từ {address} trong một phút: các lần tiếp theo từ địa chỉ này bị từ chối trong {minutes} phút."
+  },
   "security.new-address": {
     "title": "Đăng nhập từ địa chỉ mới",
     "body": "{user} đã đăng nhập từ {address}, một địa chỉ chưa từng thấy trước đây."

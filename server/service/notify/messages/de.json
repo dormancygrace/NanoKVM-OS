@@ -8,6 +8,10 @@
     "title": "Anmeldungen gesperrt",
     "body": "{failures} fehlgeschlagene Anmeldungen von {address}: Anmeldungen von dieser Adresse sind für {minutes} Min. gesperrt."
   },
+  "security.attempt-limit": {
+    "title": "Anmeldeversuche begrenzt",
+    "body": "{attempts} Anmeldeversuche von {address} in einer Minute: weitere Versuche von dieser Adresse werden {minutes} Min. lang abgewiesen."
+  },
   "security.new-address": {
     "title": "Anmeldung von neuer Adresse",
     "body": "{user} hat sich von {address} angemeldet, einer bisher unbekannten Adresse."

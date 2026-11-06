@@ -800,7 +800,7 @@
       "eventHint": {
         "power": "host został włączony lub wyłączony; wymaga sterowania ATX z podłączoną diodą zasilania.",
         "hdmi": "obraz zniknął lub wrócił, także gdy host wyłącza swój ekran; wykrywane, gdy trwa przechwytywanie wideo.",
-        "security": "adres zablokowany po nieudanych logowaniach, logowanie z nowego adresu.",
+        "security": "adres zablokowany po nieudanych logowaniach, zbyt wiele prób logowania IPMI, logowanie z nowego adresu.",
         "screen": "niebieski ekran lub kernel panic, rozpoznane przez dodatek TPU; tekst jest odczytywany, gdy nikt nie ogląda wideo, i wysyłany razem ze zrzutem ekranu."
       },
       "field": {
@@ -882,6 +882,7 @@
         "hdmi_lost": "Utracono sygnał HDMI",
         "hdmi_restored": "Przywrócono sygnał HDMI",
         "security_lockout": "Logowania zablokowane",
+        "security_attempt-limit": "Próby logowania ograniczone",
         "security_new-address": "Logowanie z nowego adresu",
         "screen_bsod": "Niebieski ekran",
         "screen_panic": "Kernel panic",

@@ -8,6 +8,10 @@
     "title": "Girişler engellendi",
     "body": "{address} adresinden {failures} başarısız giriş: bu adresten girişler {minutes} dk engellendi."
   },
+  "security.attempt-limit": {
+    "title": "Giriş denemeleri sınırlandı",
+    "body": "{address} adresinden bir dakikada {attempts} giriş denemesi: bu adresten sonraki denemeler {minutes} dk reddedilir."
+  },
   "security.new-address": {
     "title": "Yeni adresten giriş",
     "body": "{user}, daha önce görülmemiş {address} adresinden giriş yaptı."

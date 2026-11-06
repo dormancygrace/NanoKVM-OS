@@ -11,9 +11,10 @@ type Event struct {
 	// User is the IPMI user name of a login.
 	User    string `json:"user,omitempty"`
 	Address string `json:"address"`
-	// Failures and Minutes describe a lockout: the logins counted, and how
-	// long further ones are refused.
-	Failures int       `json:"failures,omitempty"`
+	// Attempts and Minutes describe a lockout: the logins counted (failed
+	// or not; each hands out a password hash), and how long further ones
+	// are refused. A lockout's address is the rate-limit key: an IPv6 /64.
+	Attempts int       `json:"attempts,omitempty"`
 	Minutes  int       `json:"minutes,omitempty"`
 	At       time.Time `json:"at"`
 }

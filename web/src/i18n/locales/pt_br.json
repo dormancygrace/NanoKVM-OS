@@ -801,7 +801,7 @@
       "eventHint": {
         "power": "o host foi ligado ou desligado; requer controle ATX com o LED de energia conectado.",
         "hdmi": "a imagem foi perdida ou voltou, também quando o host desliga a tela; detectado enquanto a captura de vídeo está ativa.",
-        "security": "um endereço bloqueado após logins malsucedidos, um login a partir de um novo endereço.",
+        "security": "um endereço bloqueado após logins malsucedidos, tentativas de login IPMI em excesso, um login a partir de um novo endereço.",
         "screen": "uma tela azul ou um kernel panic, reconhecidos pelo complemento TPU; o texto é lido quando ninguém está assistindo ao vídeo, e uma captura de tela é enviada junto."
       },
       "field": {
@@ -883,6 +883,7 @@
         "hdmi_lost": "Sinal HDMI perdido",
         "hdmi_restored": "Sinal HDMI restaurado",
         "security_lockout": "Logins bloqueados",
+        "security_attempt-limit": "Tentativas de login limitadas",
         "security_new-address": "Login a partir de um novo endereço",
         "screen_bsod": "Tela azul",
         "screen_panic": "Kernel panic",

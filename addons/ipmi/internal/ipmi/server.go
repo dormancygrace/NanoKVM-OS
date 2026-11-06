@@ -320,6 +320,14 @@ func cipherSuites(data []byte) (byte, []byte) {
 
 // clientKey is the login counter of a packet's source: its host, and for
 // IPv6 its /64, so that one host cannot rotate through its prefix.
+// hostOf is the address of addr without its port.
+func hostOf(addr string) string {
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
+}
+
 func clientKey(addr string) string {
 	host, _, _ := net.SplitHostPort(addr)
 	if ip, err := netip.ParseAddr(host); err == nil && ip.Is6() && !ip.Is4In6() {
@@ -356,7 +364,7 @@ func (s *Server) recordFailure(addr string) {
 	f.count++
 	if f.count == maxFailures {
 		// Refused until the window that started at f.since ends.
-		s.event(Event{Kind: "lockout", Address: host, Failures: f.count,
+		s.event(Event{Kind: "lockout", Address: host, Attempts: f.count,
 			Minutes: int((failWindow + time.Minute - 1) / time.Minute)})
 	}
 }
@@ -606,7 +614,9 @@ func (s *Server) rakp3(p []byte, addr string) []byte {
 	se.active = true
 	se.priv = se.role & 0x0F
 	se.lastUsed = s.now()
-	s.event(Event{Kind: "login", User: string(se.name), Address: clientKey(addr)})
+	// The full address: clientKey's /64 would make every host of a network
+	// look like one already seen.
+	s.event(Event{Kind: "login", User: string(se.name), Address: hostOf(addr)})
 	icv := se.suite.mac(se.sik, se.rm[:], le32(se.managedID), s.GUID[:])[:se.suite.rakp4Len]
 	reply := append([]byte{tag, statusOK, 0, 0}, le32(se.consoleID)...)
 	return s.preSession(payloadRAKP4, append(reply, icv...))

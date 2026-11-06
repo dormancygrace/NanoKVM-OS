@@ -799,7 +799,7 @@
       "eventHint": {
         "power": "l'host è stato acceso o spento; richiede il controllo ATX con il LED di alimentazione collegato.",
         "hdmi": "l'immagine è andata persa o è tornata, anche quando l'host spegne il display; rilevato mentre l'acquisizione video è in corso.",
-        "security": "un indirizzo bloccato dopo accessi falliti, un accesso da un nuovo indirizzo.",
+        "security": "un indirizzo bloccato dopo accessi falliti, troppi tentativi di accesso IPMI, un accesso da un nuovo indirizzo.",
         "screen": "una schermata blu o un kernel panic, riconosciuti dal componente aggiuntivo TPU; il testo viene letto quando nessuno guarda il video e con esso viene inviato uno screenshot."
       },
       "field": {
@@ -881,6 +881,7 @@
         "hdmi_lost": "Segnale HDMI perso",
         "hdmi_restored": "Segnale HDMI ripristinato",
         "security_lockout": "Accessi bloccati",
+        "security_attempt-limit": "Tentativi di accesso limitati",
         "security_new-address": "Accesso da un nuovo indirizzo",
         "screen_bsod": "Schermata blu",
         "screen_panic": "Kernel panic",

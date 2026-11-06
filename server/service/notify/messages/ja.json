@@ -8,6 +8,10 @@
     "title": "ログインをブロックしました",
     "body": "{address} からのログインが {failures} 回失敗しました。このアドレスからのログインは {minutes} 分間ブロックされます。"
   },
+  "security.attempt-limit": {
+    "title": "ログイン試行を制限",
+    "body": "{address} から 1 分間に {attempts} 回のログイン試行：このアドレスからの以降の試行を {minutes} 分間拒否します。"
+  },
   "security.new-address": {
     "title": "新しいアドレスからのログイン",
     "body": "{user} が、これまで確認されていないアドレス {address} からログインしました。"

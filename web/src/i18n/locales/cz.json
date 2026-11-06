@@ -1969,7 +1969,7 @@
       "eventHint": {
         "power": "hostitel byl zapnut nebo vypnut; vyžaduje ovládání ATX s připojenou LED napájení.",
         "hdmi": "obraz zmizel nebo se vrátil, i když hostitel vypne obrazovku; zjišťuje se, dokud běží záznam videa.",
-        "security": "adresa zablokovaná po neúspěšných přihlášeních, přihlášení z nové adresy.",
+        "security": "adresa zablokovaná po neúspěšných přihlášeních, příliš mnoho pokusů o přihlášení přes IPMI, přihlášení z nové adresy.",
         "screen": "modrá obrazovka nebo kernel panic rozpoznané doplňkem TPU; text se čte, když se nikdo nedívá na video, a posílá se se snímkem obrazovky."
       },
       "field": {
@@ -2051,6 +2051,7 @@
         "hdmi_lost": "Signál HDMI ztracen",
         "hdmi_restored": "Signál HDMI obnoven",
         "security_lockout": "Přihlášení zablokována",
+        "security_attempt-limit": "Pokusy o přihlášení omezeny",
         "security_new-address": "Přihlášení z nové adresy",
         "screen_bsod": "Modrá obrazovka",
         "screen_panic": "Kernel panic",

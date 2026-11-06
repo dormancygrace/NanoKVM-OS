@@ -2323,7 +2323,7 @@
       "eventHint": {
         "power": "the host was switched on or off; needs ATX control with the power LED connected.",
         "hdmi": "the picture was lost or came back, also when the host turns its display off; seen while video capture runs.",
-        "security": "an address blocked after failed logins, a login from a new address.",
+        "security": "an address blocked after failed logins, too many IPMI login attempts, a login from a new address.",
         "screen": "a blue screen or a kernel panic, recognised by the TPU add-on; the text is read when nobody watches the video, and a screenshot is sent with it."
       },
       "field": {
@@ -2405,6 +2405,7 @@
         "hdmi_lost": "HDMI signal lost",
         "hdmi_restored": "HDMI signal restored",
         "security_lockout": "Logins blocked",
+        "security_attempt-limit": "Login attempts limited",
         "security_new-address": "Login from a new address",
         "screen_bsod": "Blue screen",
         "screen_panic": "Kernel panic",

@@ -1,0 +1,150 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: build with the platform's upstream GCC
+
+The SDK builds the FSBL with T-Head's GCC, which knows the C906 extensions
+as -march=...vxthead and the C906 CSRs and cache instructions by name. The
+platform toolchain is upstream GCC 16 and binutils for riscv64 Linux:
+- -march names the standard ISA plus XTheadCmo and XTheadSync, the two
+  T-Head extensions the code uses (th.icache.iall, th.sync.i); no draft
+  vector code is generated, as with the SDK compiler at -Os.
+- mxstatus, mhcr, mcor and mhint are written by number (0x7c0, 0x7c1,
+  0x7c2, 0x7c5): upstream binutils has no names for them.
+- -fno-stack-protector, -fno-pic and -fno-pie (also for the assembler, so
+  la in the entry code is auipc+addi as before, not a GOT load): the Linux
+  toolchain enables them by default, and BL2 has no __stack_chk_guard.
+- ld no longer accepts -Os; BL2 is one RWX segment in TPU SRAM, so its
+  RWX warning (fatal with --fatal-warnings) is disabled.
+---
+diff --git a/lib/cpu/riscv/bl1_entrypoint.S b/lib/cpu/riscv/bl1_entrypoint.S
+--- a/lib/cpu/riscv/bl1_entrypoint.S
++++ b/lib/cpu/riscv/bl1_entrypoint.S
+@@ -67,7 +67,7 @@ bl1_entrypoint_rel:
+ 
+   # set mxstatus to init value
+   li x3, 0xc0638000
+-  csrw mxstatus, x3
++  csrw 0x7c0, x3
+ 
+   # set plic_ctrl = 1 for linux plic
+   li x3, 0x701FFFFC # plic_base + 0x1FFFFC
+@@ -76,13 +76,13 @@ bl1_entrypoint_rel:
+ 
+   // invalidate all memory for BTB,BHT,DCACHE,ICACHE
+   li x3, 0x30013
+-  csrs mcor, x3
++  csrs 0x7c2, x3
+   // enable ICACHE,DCACHE,BHT,BTB,RAS,WA
+   li x3, 0x7f
+-  csrs mhcr, x3
++  csrs 0x7c1, x3
+   // enable data_cache_prefetch, amr
+   li x3, 0x610c
+-  csrs mhint, x3 #mhint
++  csrs 0x7c5, x3 #mhint
+ 
+   # enable fp
+   li x3, 0x1 << 13
+diff --git a/lib/cpu/riscv/bl2_entrypoint.S b/lib/cpu/riscv/bl2_entrypoint.S
+--- a/lib/cpu/riscv/bl2_entrypoint.S
++++ b/lib/cpu/riscv/bl2_entrypoint.S
+@@ -57,7 +57,7 @@ bl2_entrypoint_real:
+ 
+   # set mxstatus to init value
+   li x3, 0xc0638000
+-  csrw mxstatus, x3
++  csrw 0x7c0, x3
+ 
+   # set plic_ctrl = 1
+   li x3, 0x701FFFFC # plic_base + 0x1FFFFC
+@@ -66,20 +66,20 @@ bl2_entrypoint_real:
+ 
+   # invalid I-cache
+   li x3, 0x33
+-  csrc mcor, x3
++  csrc 0x7c2, x3
+   li x3, 0x11
+-  csrs mcor, x3
++  csrs 0x7c2, x3
+   # enable I-cache
+   li x3, 0x1
+-  csrs mhcr, x3
++  csrs 0x7c1, x3
+   # invalid D-cache
+   li x3, 0x33
+-  csrc mcor, x3
++  csrc 0x7c2, x3
+   li x3, 0x12
+-  csrs mcor, x3
++  csrs 0x7c2, x3
+   # enable D-cache
+   li x3, 0x2
+-  csrs mhcr, x3
++  csrs 0x7c1, x3
+ 
+   la sp, __STACKS_END__
+ 
+diff --git a/lib/cpu/riscv/cache.c b/lib/cpu/riscv/cache.c
+--- a/lib/cpu/riscv/cache.c
++++ b/lib/cpu/riscv/cache.c
+@@ -57,14 +57,14 @@ void flush_dcache_range(uintptr_t start, size_t size)
+ void enable_dcache(void)
+ {
+ 	asm volatile(
+-		"csrs mhcr, %0;" ::"rI"(0x2)
++		"csrs 0x7c1, %0;" ::"rI"(0x2)
+ 	);
+ }
+ 
+ void disable_dcache(void)
+ {
+ 	asm volatile(
+-		"csrc mhcr, %0;" ::"rI"(0x2)
++		"csrc 0x7c1, %0;" ::"rI"(0x2)
+ 	);
+ }
+ 
+diff --git a/lib/cpu/riscv/cpu.mk b/lib/cpu/riscv/cpu.mk
+--- a/lib/cpu/riscv/cpu.mk
++++ b/lib/cpu/riscv/cpu.mk
+@@ -4,7 +4,7 @@ ASFLAGS +=\
+ 	$(CPPFLAGS) \
+ 	-DRISCV \
+ 	-D__ASSEMBLY__ \
+-	-march=rv64imafdcvxthead -mstrict-align \
++	-march=rv64imafdc_zicsr_zifencei_xtheadcmo_xtheadsync -mstrict-align -fno-pic -fno-pie \
+ 	-mcmodel=medany \
+ 	-mabi=lp64d \
+ 	-ffreestanding  \
+@@ -13,15 +13,15 @@ ASFLAGS +=\
+ TF_CFLAGS += \
+ 	$(CPPFLAGS) \
+ 	-DRISCV \
+-	-march=rv64imafdcvxthead \
++	-march=rv64imafdc_zicsr_zifencei_xtheadcmo_xtheadsync \
+ 	-mcmodel=medany \
+ 	-mabi=lp64d \
+ 	-ffreestanding -fno-builtin -Wall -std=gnu99 \
+ 	-Os -ffunction-sections -fdata-sections \
+-	-fno-delete-null-pointer-checks
++	-fno-delete-null-pointer-checks -fno-stack-protector -fno-pic -fno-pie
+ 
+ TF_LDFLAGS += \
+-	--fatal-warnings -Os \
++	--fatal-warnings --no-warn-rwx-segments \
+ 	--gc-sections \
+ 	${TF_LDFLAGS_aarch64}
+ 
+diff --git a/lib/cpu/riscv/cpu_helper.c b/lib/cpu/riscv/cpu_helper.c
+--- a/lib/cpu/riscv/cpu_helper.c
++++ b/lib/cpu/riscv/cpu_helper.c
+@@ -11,8 +11,8 @@
+ void sync_cache(void)
+ {
+ 	asm volatile(
+-			"icache.iall\n"
+-			"sync.i\n"
++			"th.icache.iall\n"
++			"th.sync.i\n"
+ 			:
+ 			:
+ 			: "memory");

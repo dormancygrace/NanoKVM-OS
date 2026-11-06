@@ -1,0 +1,33 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] cv181x: set the C906 PLL to 1000 MHz
+
+The FSBL sets mpll to 850 MHz and Linux raises it to 1000 MHz in the
+initramfs. Program 0x04508101, the value Linux's clk-cv18xx-pll writes for
+1000 MHz (integer mode, div 40, ictrl 4, read back on a running system), so
+OpenSBI, U-Boot and early Linux already run at the clock and core voltage
+Linux keeps; cpufreq then finds 1000 MHz and does not reprogram it. This
+replaces the one-instruction binary patch scripts/nanokvm-fip.py applied to
+the stock BL2.
+---
+diff --git a/plat/cv181x/platform.c b/plat/cv181x/platform.c
+--- a/plat/cv181x/platform.c
++++ b/plat/cv181x/platform.c
+@@ -324,14 +324,15 @@ void sys_pll_nd(int vc_overdrive)
+ 	mmio_write_32(REG_PLL_G2_CTRL, value); //clear all pll PD
+ 
+ #ifdef __riscv
+-	// set mpll = 850MHz
+-	mmio_write_32(0x03002908, 0x00448101);
++	// set mpll = 1000MHz: integer mode, div 40, ictrl 4, the value
++	// Linux's clk-cv18xx-pll programs, so cpufreq keeps it unchanged
++	mmio_write_32(0x03002908, 0x04508101);
+ 
+ 	// set clk_sel_23: [23] clk_sel for clk_c906_0 = 1 (DIV_IN0_SRC_MUX)
+ 	// set clk_sel_24: [24] clk_sel for clk_c906_1 = 1 (DIV_IN0_SRC_MUX)
+ 	mmio_write_32(0x03002020, 0x01800000);
+ 
+-	// set div, src_mux of clk_c906_0: [20:16]div_factor=1, [9:8]clk_src = 3 (mpll), 850/1 = 850MHz
++	// set div, src_mux of clk_c906_0: [20:16]div_factor=1, [9:8]clk_src = 3 (mpll), 1000/1 = 1000MHz
+ 	mmio_write_32(0x03002130, 0x00010309);
+ 
+ 	// set div, src_mux of clk_c906_1: [20:16]div_factor=2, [9:8]clk_src = 2 (disppll), 1188/2 = 594MHz

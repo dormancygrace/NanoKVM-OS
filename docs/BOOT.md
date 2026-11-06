@@ -4,8 +4,10 @@
 
 1. **Boot ROM** (SG2002 mask ROM). It loads `fip.bin` from the FAT boot
    partition of the SD card (`/boot` in Linux) by that file name.
-2. **FSBL** (BL2, in `fip.bin`): DDR init, then OpenSBI and U-Boot from the
-   same file.
+2. **FSBL** (BL2, in `fip.bin`, built from source: `platform/fsbl/README.md`):
+   DDR init, then OpenSBI and U-Boot from the same file. Its console banner
+   is `FSBL Jb2829:nanokvm-os:sipeed-sdk <commit>`; the stock FSBL prints a
+   Git hash and a build time instead.
 3. **OpenSBI** (M-mode, see `platform/opensbi/README.md`). It boots without
    a banner (`FW_OPTIONS=0x1`); Linux logs the SBI version.
 4. **U-Boot** (S-mode). It reads `uEnv.txt`, loads `boot.sd` from the boot

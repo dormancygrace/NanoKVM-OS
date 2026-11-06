@@ -140,7 +140,8 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
 | `lolcat/` | Byte I/O and terminal-output fixes for lolcat 1.5, the rainbow SSH shell's filter (original 1.4 optimization: 15 times faster on the C906) |
-| `fip/base-fip.bin` | First-stage boot firmware; the build replaces OpenSBI and U-Boot while retaining the vendor first-stage loader |
+| `fsbl/` | Patches for the Sipeed SDK's FSBL (BL2) and its board memory map; see [fsbl/README.md](fsbl/README.md) |
+| `fip/base-fip.bin` | Stock first-stage boot firmware; the build keeps its chip configuration and DDR parameters and replaces BL2, OpenSBI and U-Boot |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 | `native/cvi_mpi/` | Patches for the SOPHGO media libraries (`cvi_mpi`) |
 
@@ -209,7 +210,7 @@ Identical hashes show that a build reproduces, not that it works on hardware. Bo
 ## Corresponding source
 
 The image contains GPL-licensed code:
-- Linux and its modules, U-Boot;
+- Linux and its modules, U-Boot, the FSBL (BL2);
 - BusyBox, e2fsprogs, util-linux and f2fs-tools in the initramfs, and the BusyBox `devmem` applet;
 - the NanoKVM application (GPL-3.0);
 - Alpine packages.
@@ -221,7 +222,7 @@ The image contains GPL-licensed code:
 
 The other inputs of `sources.lock` are not redistributed; see [docs/DISTRIBUTION.md](../docs/DISTRIBUTION.md). Attach the archive to the GitHub release next to the image. The v2.0-b7 archive (`NanoKVM-OS-v2.0-b7-platform-source.tar.xz`) covers the kernel, modules and boot images only; it also contains util-linux 2.41.5 and `B7-INITRAMFS.txt`, because that initramfs was assembled before this build existed.
 
-The reference `fip/base-fip.bin` contains stock FSBL/BL2 (BSD-3-Clause), OpenSBI 0.9 (BSD-2-Clause), DDR parameters and small-core fields. The output `images/fip.bin` preserves BLCP, DDR parameters and BLCP_2ND bytes, patches one BL2 instruction so the FSBL sets the C906 PLL to 1000 MHz instead of 850 MHz (`scripts/nanokvm-fip.py`), and replaces MONITOR with pinned upstream OpenSBI 1.9 and LOADER_2ND with U-Boot. Vendor reference source is in [sipeed/LicheeRV-Nano-Build](https://github.com/sipeed/LicheeRV-Nano-Build) at the `sipeed-sdk` commit in `sources.lock` (`fsbl/`, `opensbi/`). OpenSBI source is separately pinned and included by the source step. See [the OpenSBI port and recovery procedure](opensbi/README.md).
+The reference `fip/base-fip.bin` contains a stock FSBL/BL2, OpenSBI 0.9 (BSD-2-Clause), chip configuration, DDR parameters and small-core fields. The output `images/fip.bin` keeps its chip configuration, BLCP, DDR parameters and BLCP_2ND bytes, and replaces BL2 with the FSBL built from `fsbl/` of the Sipeed SDK at the `sipeed-sdk` commit in `sources.lock` plus `fsbl/*.patch`, MONITOR with pinned upstream OpenSBI 1.9 and LOADER_2ND with U-Boot (`scripts/nanokvm-fip.py`). The FSBL's upstream, [sophgo/fsbl](https://github.com/sophgo/fsbl), is licensed under GPL-2.0; the Sipeed SDK paths in the source archive contain its source. OpenSBI source is separately pinned and included by the source step. See [the OpenSBI port and recovery procedure](opensbi/README.md).
 
 Alpine publishes the build recipes ([aports](https://gitlab.alpinelinux.org/alpine/aports)) and source archives of its packages. The installed versions are listed in `/lib/apk/db/installed` of each image and in `release/installed-packages.txt`.
 

@@ -60,13 +60,17 @@ func (s *Service) reserveRemote(r *remoteSession) error {
 	return nil
 }
 
+// errRemoteEjected ends a session normally: installers eject their medium
+// when they finish, so the status does not keep it as an error.
+var errRemoteEjected = errors.New("Remote ISO was ejected or USB storage was disabled")
+
 func (s *Service) releaseRemote(r *remoteSession, err error) {
 	r.close()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.remote == r {
 		s.remote = nil
-		if err != nil && !errors.Is(err, context.Canceled) {
+		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, errRemoteEjected) {
 			s.remoteError = err.Error()
 		}
 	}
@@ -192,7 +196,7 @@ func (s *Service) serveRemote(r *remoteSession, source remotemedia.Source, mount
 			activeErr := requireActiveUSBStorage()
 			h.Unlock()
 			if readErr != nil || activeErr != nil || strings.TrimSpace(string(data)) != remotemedia.DevicePath {
-				return errors.New("Remote ISO was ejected or USB storage was disabled")
+				return errRemoteEjected
 			}
 		}
 	}

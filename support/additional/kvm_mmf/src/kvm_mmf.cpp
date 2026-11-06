@@ -105,9 +105,7 @@ static VENC_PACK_S *venc_pack_storage[MMF_VENC_MAX_CHN];
 static CVI_U32 venc_pack_capacity[MMF_VENC_MAX_CHN];
 
 /*
- * H.26x encoder tuning. /run/nanokvm-venc-tune, a volatile key=value file,
- * overrides the defaults below for A/B measurements and is read when a channel
- * is created.
+ * H.26x encoder tuning, fixed values.
  *
  * Every viewer asks for an IDR when it needs one (a new subscriber, WebRTC
  * PLI, Direct and RustDesk recovery), so periodic IDRs only cost bits and
@@ -142,44 +140,12 @@ struct venc_tuning_t {
 	int ip_qp_delta = 2;
 	int row_qp_delta = -1; // -1: driver default
 	int thrd_lv = -1;
-	int stats = 0;        // 1: per-second statistics in /run/nanokvm-venc-stats
 	int buf_kb = 0;       // stream buffer; 0: sized from the picture (venc_stream_buffer)
 	int jpeg_buf_kb = 0;  // JPEG bitstream buffer; 0: sized from the picture (jpeg_stream_buffer)
 };
 
-static venc_tuning_t venc_tuning;
+static const venc_tuning_t venc_tuning;
 static constexpr uint64_t venc_pending_limit_ms = 3000;
-
-static venc_tuning_t load_venc_tuning(void)
-{
-	venc_tuning_t t;
-	FILE *f = fopen("/run/nanokvm-venc-tune", "r");
-	if (!f) return t;
-	char key[64];
-	int value;
-	while (fscanf(f, " %63[a-z0-9_] = %d", key, &value) == 2) {
-		if (!strcmp(key, "idr_seconds")) t.idr_seconds = value;
-		else if (!strcmp(key, "h264_high")) t.h264_high = value;
-		else if (!strcmp(key, "min_qp")) t.min_qp = value;
-		else if (!strcmp(key, "min_iqp")) t.min_iqp = value;
-		else if (!strcmp(key, "max_qp")) t.max_qp = value;
-		else if (!strcmp(key, "max_iqp")) t.max_iqp = value;
-		else if (!strcmp(key, "max_iprop")) t.max_iprop = value;
-		else if (!strcmp(key, "ip_qp_delta")) t.ip_qp_delta = value;
-		else if (!strcmp(key, "row_qp_delta")) t.row_qp_delta = value;
-		else if (!strcmp(key, "thrd_lv")) t.thrd_lv = value;
-		else if (!strcmp(key, "stats")) t.stats = value;
-		else if (!strcmp(key, "buf_kb")) t.buf_kb = value;
-		else if (!strcmp(key, "jpeg_buf_kb")) t.jpeg_buf_kb = value;
-	}
-	fclose(f);
-	fprintf(stderr, "[kvm_mmf] VENC tuning override: idr_seconds=%d h264_high=%d qp=%d..%d iqp=%d..%d "
-		"max_iprop=%d ip_qp_delta=%d row_qp_delta=%d thrd_lv=%d stats=%d buf_kb=%d jpeg_buf_kb=%d\n",
-		t.idr_seconds, t.h264_high, t.min_qp, t.max_qp, t.min_iqp, t.max_iqp,
-		t.max_iprop, t.ip_qp_delta, t.row_qp_delta, t.thrd_lv, t.stats, t.buf_kb, t.jpeg_buf_kb);
-	fflush(stderr);
-	return t;
-}
 
 /*
  * Video memory shortage. The pools are sized to the measured peak, so their
@@ -208,68 +174,11 @@ static void note_video_memory(bool short_now)
 	video_memory_short_last_ms = now;
 }
 
-// Per-second encoder statistics for measurements (venc_tuning.stats).
-struct venc_stats_t {
-	uint64_t start_us;
-	unsigned frames, keyframes;
-	uint64_t bytes, key_bytes, max_bytes;
-	uint64_t qp_sum, key_qp_sum, mse_sum;
-};
-
-static venc_stats_t venc_stats;
-
 static uint64_t venc_now_us(void)
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return (uint64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
-}
-
-static void venc_stats_frame(const VENC_STREAM_S *stream, const VENC_CHN_STATUS_S *status, int type)
-{
-	uint64_t bytes = 0;
-	bool key = false;
-	for (CVI_U32 i = 0; i < stream->u32PackCount; i++) {
-		const VENC_PACK_S *pack = &stream->pstPack[i];
-		bytes += pack->u32Len - pack->u32Offset;
-		if (type == 1 ? (pack->DataType.enH265EType == H265E_NALU_IDRSLICE ||
-				pack->DataType.enH265EType == H265E_NALU_ISLICE)
-			: (pack->DataType.enH264EType == H264E_NALU_IDRSLICE ||
-				pack->DataType.enH264EType == H264E_NALU_ISLICE))
-			key = true;
-	}
-	venc_stats_t &s = venc_stats;
-	const uint64_t now = venc_now_us();
-	if (s.start_us == 0) s.start_us = now;
-	s.frames++;
-	s.bytes += bytes;
-	s.max_bytes = MAX(s.max_bytes, bytes);
-	s.qp_sum += status->stVencStrmInfo.u32MeanQp;
-	s.mse_sum += status->stVencStrmInfo.u32MseSum;
-	if (key) {
-		s.keyframes++;
-		s.key_bytes += bytes;
-		s.key_qp_sum += status->stVencStrmInfo.u32MeanQp;
-	}
-	if (now - s.start_us < 1000000) return;
-	FILE *f = fopen("/run/nanokvm-venc-stats.tmp", "w");
-	if (f) {
-		const unsigned deltas = s.frames - s.keyframes;
-		fprintf(f, "frames=%u keyframes=%u kbps=%llu key_kb=%llu max_kb=%llu "
-			"delta_kb=%.2f qp=%.2f delta_qp=%.2f key_qp=%.2f mse_sum=%llu\n",
-			s.frames, s.keyframes,
-			(unsigned long long)(s.bytes * 8 * 1000 / (now - s.start_us)),
-			(unsigned long long)(s.keyframes ? s.key_bytes / s.keyframes / 1024 : 0),
-			(unsigned long long)(s.max_bytes / 1024),
-			deltas ? (double)(s.bytes - s.key_bytes) / deltas / 1024 : 0.0,
-			(double)s.qp_sum / s.frames,
-			deltas ? (double)(s.qp_sum - s.key_qp_sum) / deltas : 0.0,
-			s.keyframes ? (double)s.key_qp_sum / s.keyframes : 0.0,
-			(unsigned long long)(s.mse_sum / s.frames));
-		fclose(f);
-		rename("/run/nanokvm-venc-stats.tmp", "/run/nanokvm-venc-stats");
-	}
-	s = venc_stats_t{};
 }
 
 /*
@@ -1895,7 +1804,7 @@ void mmf_vi_frame_release(int ch) {
  */
 static CVI_U32 jpeg_stream_buffer(int w, int h)
 {
-	const venc_tuning_t t = load_venc_tuning();
+	const venc_tuning_t &t = venc_tuning;
 	CVI_U32 bytes = t.jpeg_buf_kb > 0 ? (CVI_U32)t.jpeg_buf_kb << 10 : (CVI_U32)w * (CVI_U32)h / 2;
 	if (t.jpeg_buf_kb <= 0) bytes = MAX(bytes, 512u << 10);
 	return (bytes + 0x3ff) & ~0x3ffu; // the driver needs a multiple of 1 KiB
@@ -2881,7 +2790,6 @@ int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg) {
 	stVencChnAttr.stVencAttr.enType = cfg->type == 1 ? PT_H265 : PT_H264;
 	stVencChnAttr.stVencAttr.u32MaxPicWidth = cfg->w;
 	stVencChnAttr.stVencAttr.u32MaxPicHeight = cfg->h;
-	venc_tuning = load_venc_tuning();
 	stVencChnAttr.stVencAttr.u32BufSize = venc_stream_buffer(cfg);
 	stVencChnAttr.stVencAttr.bByFrame = CVI_TRUE;
 	stVencChnAttr.stVencAttr.u32PicWidth = cfg->w;
@@ -3485,9 +3393,6 @@ int mmf_venc_pop(int ch, mmf_stream_t *stream) {
 			return s32Ret;
 		}
 		priv.venc_stream_acquired[ch] = true;
-		if (venc_tuning.stats && info->type != 0) {
-			venc_stats_frame(venc_stream, &stStatus, info->type);
-		}
 	} else {
 		printf("CVI_VENC_QueryStatus find not pack\r\n");
 		return -1;

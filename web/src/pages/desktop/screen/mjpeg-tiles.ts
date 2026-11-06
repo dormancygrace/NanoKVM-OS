@@ -4,6 +4,8 @@
 //   u16 picture width, u16 picture height,
 //   count x {u16 x, u16 y, u16 w, u16 h, u32 bytes}, then the JPEGs in order.
 
+import { ConnectRecovery } from '@/lib/connect-recovery.ts';
+
 export type MjpegTile = {
   x: number;
   y: number;
@@ -56,7 +58,10 @@ export function parseMjpegTiles(buffer: ArrayBuffer): MjpegTilesMessage | null {
   return { whole: (view.getUint8(1) & 1) !== 0, width, height, tiles };
 }
 
-export type TileSocket = Pick<WebSocket, 'binaryType' | 'onmessage' | 'onclose' | 'close'>;
+export type TileSocket = Pick<
+  WebSocket,
+  'binaryType' | 'onopen' | 'onmessage' | 'onclose' | 'close' | 'readyState'
+>;
 export type DecodedTile<B> = { tile: MjpegTile; bitmap: B };
 
 type TileStreamOptions<B extends { close: () => void }> = {
@@ -65,6 +70,7 @@ type TileStreamOptions<B extends { close: () => void }> = {
   // first: the first picture drawn since the stream started.
   draw: (message: MjpegTilesMessage, decoded: DecodedTile<B>[], first: boolean) => void;
   later: (callback: () => void, ms: number) => () => void;
+  now?: () => number;
   // Messages of one connection waiting to be decoded before it starts again
   // from a whole picture (the server sends one to every new connection).
   maxPending?: number;
@@ -76,7 +82,9 @@ const MAX_RETRY_DELAY = 10000;
 // The tiled MJPEG connection: messages build on each other, so a connection
 // decodes in parallel and draws in order, and starts with a whole picture.
 // The queue belongs to its connection: a new one never waits for the
-// decodes of an old one. It reconnects with backoff until stopped.
+// decodes of an old one. It reconnects with backoff until stopped; soon after a
+// lost connection, attempts time out and retry without growing the backoff
+// (see ConnectRecovery).
 export function startTileStream<B extends { close: () => void }>(options: TileStreamOptions<B>) {
   const maxPending = options.maxPending ?? 30;
   let socket: TileSocket | null = null;
@@ -84,14 +92,31 @@ export function startTileStream<B extends { close: () => void }>(options: TileSt
   let first = true;
   let retryDelay = INITIAL_RETRY_DELAY;
   let cancelRetry: (() => void) | undefined;
+  const now = options.now ?? Date.now;
+  const recovery = new ConnectRecovery();
 
   const connect = () => {
+    const createdAt = now();
     const current = (socket = options.connect());
+    let opened = false;
+    const timeout = recovery.connectTimeout(createdAt);
+    const cancelTimeout =
+      timeout === null
+        ? undefined
+        : options.later(() => {
+            if (current.readyState === WebSocket.CONNECTING) current.close();
+          }, timeout);
     const live = () => !stopped && socket === current;
     let drawn = Promise.resolve();
     let pending = 0;
     let waitWhole = true;
     current.binaryType = 'arraybuffer';
+
+    current.onopen = () => {
+      cancelTimeout?.();
+      opened = true;
+      recovery.opened(now() - createdAt);
+    };
 
     current.onmessage = (event) => {
       if (!live()) return;
@@ -128,10 +153,13 @@ export function startTileStream<B extends { close: () => void }>(options: TileSt
     };
 
     current.onclose = () => {
+      cancelTimeout?.();
       if (!live()) return;
       socket = null;
-      cancelRetry = options.later(connect, retryDelay);
-      retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY);
+      if (opened) recovery.lost(now());
+      const recovering = recovery.recovering(now());
+      cancelRetry = options.later(connect, recovering ? INITIAL_RETRY_DELAY : retryDelay);
+      if (!recovering) retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY);
     };
   };
   connect();

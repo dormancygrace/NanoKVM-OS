@@ -107,6 +107,7 @@ for boot in current previous older; do
 	copy "logs/$boot" /var/log/nanokvm-boots/$boot/boot.json /var/log/nanokvm-boots/$boot/system.log \
 		/var/log/nanokvm-boots/$boot/kernel.log /var/log/nanokvm-boots/$boot/application.log
 done
+run logs/kernel-crashes sh -c 'for f in /var/log/nanokvm-crash/*/*; do [ -f "$f" ] || continue; echo "== $f"; cat "$f"; done'
 run logs/dmesg dmesg
 run logs/messages tail -n 2000 /var/log/messages
 run logs/logread logread

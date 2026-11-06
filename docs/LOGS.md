@@ -21,6 +21,14 @@ lines of each log, sanitized, to `/var/log/nanokvm-boots`:
 A new boot moves `current` to `previous` and `previous` to `older`; the
 oldest is deleted.
 
+**Kernel crashes.** A kernel oops panics and reboots after 10 s, before
+the minute's archive write. The kernel keeps the dump and its last
+console output in 128 KiB of RAM (pstore/ramoops at `0x8d000000`, set in
+`firmware/boards/nanokvm-common.dtsi`), which a reboot keeps and a power
+loss clears. At the next boot `nanokvm-storage` moves them to
+`/var/log/nanokvm-crash/<UTC time>/` (the newest five crashes) and warns in
+the boot log; the diagnostics archive includes them.
+
 An image installed before this setup keeps its `/etc/conf.d/syslog`
 unless it is Alpine's default (`SYSLOGD_OPTS="-t"`). The package update
 then moves syslog to `/run/log` and removes the old `/var/log/messages*`.

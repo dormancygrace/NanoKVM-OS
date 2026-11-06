@@ -319,23 +319,6 @@ An explicit RVV 0.7.1 Salsa prototype was correct on C906 but mostly slower
 than the scalar in-place path. Production uses RustCrypto scalar
 XSalsa20-Poly1305; no vector feature or extra assembly compiler is required.
 
-With a static musl linker and the release profile:
-
-```sh
-cargo build --locked --release \
-  --target riscv64gc-unknown-linux-musl --features performance-probes \
-  --bin c906-crypto-perf
-```
-
-The tool's `qualify` command checks tag-prefix byte equality, decryption,
-modified-tag handling, input/output guards and size/alignment boundaries.
-`bench` compares the allocation API, detached scalar API and current adapter.
-`frame-bench` compares the original protobuf/allocating encrypted writer with
-the actual current writer, using an observable sink. It records process CPU
-time, wall time and heap allocations. Run measurements on an otherwise idle
-device. These
-measurements do not include the encoder, network or client video decoder.
-
 On the qualified C906 build (then the `performance` profile), the actual writer benchmark measured
 34–37% less process CPU time for 16–256 KiB messages than the previous
 protobuf-plus-allocating-secretbox writer. After buffer warm-up, payload

@@ -37,15 +37,12 @@ CI (`.github/workflows/ci.yml`, "Script tests") runs the tests that need no argu
   - `test-network-multihome.py --netns` (CI runs it with `sudo`; without
     `--netns` it checks the shipped settings only);
   - `test-usb-internet-netns.py`.
+- **An output directory:** the native contract test
+  `test-mjpeg-native-contracts.py --output DIR [--sanitize]` builds the MJPEG
+  policy, geometry gate, capture pacing and capture parking tests with the host
+  g++. CI ("Native capture contracts") runs it normally and with ASan/UBSan.
 - **Built or prepared sources, passed as arguments or environment:**
-  - the native contract test `test-mjpeg-native-contracts.py`;
-  - `test-nanokvm-fip.py` (platform images).
-
-  Each test's `--help` lists what it needs. The Release build workflow runs
-  `test-mjpeg-native-contracts.py` against its patched `native/src/cvi_mpi` and
-  `native/src/sensors` after the build, both normally and with ASan/UBSan.
-  This includes buffering, pool reclamation, capture parking and injected
-  ownership failures; they are required CI gates, not manual-only checks.
+  `test-nanokvm-fip.py` (platform images). Its `--help` lists what it needs.
 - **`test-usb-prefix.py`** takes the S30usbnet script to test: `--script firmware/alpine/compat/S30usbnet`.
 - **`test-video-recovery-native.py`** needs `go`; CI runs it in the Go job.
 

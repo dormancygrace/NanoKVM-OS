@@ -28,7 +28,6 @@ def dependabot_directories(text):
 UNMONITORED = {
     'server/third_party/pion-dtls/e2e/Dockerfile': 'upstream test image of the vendored fork; never built here',
     'server/third_party/pion-ice/examples/nat-rules/Dockerfile': 'upstream example of the vendored fork; never built here',
-    'firmware/crypto/experimental/hwcrypto-all/ghash-go/go.mod': 'experimental benchmark module; not in the firmware',
 }
 
 
@@ -93,7 +92,7 @@ def npm_sources(root):
 
 
 BUILDROOT_FEATURES = {
-    'HOST_LINUX_HEADERS_CUSTOM_7_1', 'E2FSPROGS_RESIZE2FS', 'HOST_PYTHON3_XZ',
+    'HOST_LINUX_HEADERS_CUSTOM_7_1', 'HOST_PYTHON3_XZ',
     'HOST_UBOOT_TOOLS_FIT_SUPPORT',
 }
 BUILDROOT_RECIPES = {

@@ -13,11 +13,6 @@ import subprocess
 VENDOR_LIBRARIES = ('ae', 'awb', 'af', 'isp_algo')
 OPEN_LIBRARIES = ('sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'cvi_ive', 'venc', 'vdec',
                   'misc', 'isp', 'cvi_bin', 'cvi_bin_isp')
-PROBE_EXPORTS = {
-    'nanokvm_read_capture_size', 'ini_parse_string', 'g_pastLt6911',
-    'stSnsLT6911_Obj', 'SAMPLE_COMM_VI_ParseIni',
-    'SAMPLE_COMM_VI_GetSizeBySensor', 'SAMPLE_COMM_SYS_GetPicSize',
-}
 
 
 def symbols(cross, paths, *, dynamic=False, undefined=False):
@@ -62,7 +57,7 @@ def link_hdmi_light(cross, mpi, objects, shared, output):
     # Vendor callbacks into open ISP must remain visible after localization.
     callbacks = defined & set(symbols(cross, vendor, dynamic=True, undefined=True))
     public = mmf_symbols(cross, next(p for p in objects if p.stem == 'kvm_mmf'))
-    exports = public | callbacks | PROBE_EXPORTS
+    exports = public | callbacks
     missing = exports - defined
     if missing:
         raise ValueError('Required exports missing: ' + ', '.join(sorted(missing)))
@@ -87,7 +82,7 @@ def link_hdmi_light(cross, mpi, objects, shared, output):
     metadata = {
         'profile': 'hdmi-light', 'hardware_qualified': False,
         'mmf_api_symbols': sorted(public), 'vendor_callback_exports': sorted(callbacks),
-        'probe_exports': sorted(PROBE_EXPORTS), 'needed': dependencies,
+        'needed': dependencies,
         'inputs_sha256': {str(p.relative_to(mpi)): hashlib.sha256(p.read_bytes()).hexdigest()
                           for p in [*archives, *vendor]},
         'algorithm_changes': False, 'small_core_required': False,

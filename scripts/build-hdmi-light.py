@@ -33,8 +33,7 @@ for key in ('NANOKVM_MPI_SOURCE', 'NANOKVM_SENSOR_SOURCE', 'NANOKVM_INIH_SOURCE'
     if output == source or output in source.parents or source in output.parents:
         raise SystemExit('Experiment output must be separate from prepared inputs')
 output.mkdir(parents=True, exist_ok=True)
-env = dict(os.environ, NANOKVM_MMF_PROFILE='hdmi-light',
-           NANOKVM_MMF_OUTPUT=str(output / 'mmf'),
+env = dict(os.environ, NANOKVM_MMF_OUTPUT=str(output / 'mmf'),
            NANOKVM_CAPTURE_OUTPUT=str(output / 'capture'))
 for script in ('build-mmf.py', 'build-capture.py'):
     subprocess.run([sys.executable, str(repo / 'scripts' / script)], env=env, check=True)

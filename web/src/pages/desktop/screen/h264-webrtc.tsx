@@ -5,6 +5,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { stereoOffer } from '@/lib/audio-sdp.ts';
+import { ConnectRecovery } from '@/lib/connect-recovery.ts';
 import { encoderCodecQuery, getEncoderCodec, supportsWebRTCH265 } from '@/lib/encoder.ts';
 import { publishRecordingSource } from '@/lib/recording-source.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
@@ -26,9 +27,13 @@ type SignalingMessage = {
 const WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY = 'webrtc_connection_failed';
 const WEBRTC_CONNECTION_TIMEOUT = 10 * 1000;
 const WEBRTC_RECONNECT_DELAY = 3 * 1000;
-// A failed peer retries sooner: after a device reboot, a new peer connects as
+// A failed peer, and a signaling socket soon after a lost connection (see
+// ConnectRecovery), retry sooner: after a device reboot, a new peer connects as
 // soon as the server is back.
 const WEBRTC_FAST_RECONNECT_DELAY = 500;
+// In video recovery mode the server answers each signaling attempt with 503, so for
+// the recovery window a visible page costs it about two TLS handshakes a second.
+const signalingRecovery = new ConnectRecovery();
 
 const parseSignalingData = <T,>(data?: string): T | null => {
   if (!data) {
@@ -75,7 +80,16 @@ export const H264Webrtc = ({
     const codec = requestedCodec === 'h265' && !supportsWebRTCH265() ? 'h264' : requestedCodec;
     const query = encoderCodecQuery(codec);
     const url = `${getBaseUrl('ws')}/api/stream/video?${query}`;
+    const signalingCreatedAt = Date.now();
     const ws = new WebSocket(url);
+    let signalingOpened = false;
+    const connectTimeout = signalingRecovery.connectTimeout(signalingCreatedAt);
+    const signalingConnectTimer =
+      connectTimeout === null
+        ? undefined
+        : setTimeout(() => {
+            if (ws.readyState === WebSocket.CONNECTING) ws.close();
+          }, connectTimeout);
     const videoElement = videoRef.current;
 
     let video: RTCPeerConnection | null = null;
@@ -127,6 +141,12 @@ export const H264Webrtc = ({
       reconnectTimer = null;
     };
 
+    // A signaling socket that had opened ended, or the peer on it failed; a socket this
+    // page closed itself (unmount, codec change) was not lost.
+    const signalingLost = () => {
+      if (signalingOpened && !disposed) signalingRecovery.lost(Date.now());
+    };
+
     const scheduleReconnect = (reason: string, error?: unknown, fast = false) => {
       if (disposed || terminalFailure) {
         return;
@@ -145,7 +165,10 @@ export const H264Webrtc = ({
           reconnectTimer = null;
           setConnectionAttempt((attempt) => attempt + 1);
         },
-        fast ? WEBRTC_FAST_RECONNECT_DELAY : WEBRTC_RECONNECT_DELAY
+        // Like WsClient, a hidden page keeps the backoff while recovering.
+        fast || (document.visibilityState === 'visible' && signalingRecovery.recovering(Date.now()))
+          ? WEBRTC_FAST_RECONNECT_DELAY
+          : WEBRTC_RECONNECT_DELAY
       );
     };
 
@@ -203,6 +226,7 @@ export const H264Webrtc = ({
         }
 
         if (peer.connectionState === 'failed') {
+          signalingLost();
           scheduleReconnect('peer connection state is failed', undefined, true);
         } else if (peer.connectionState === 'connected') {
           cancelReconnect();
@@ -301,6 +325,9 @@ export const H264Webrtc = ({
     };
 
     ws.onopen = () => {
+      signalingOpened = true;
+      clearTimeout(signalingConnectTimer);
+      signalingRecovery.opened(Date.now() - signalingCreatedAt);
       if (disposed) {
         ws.close();
         return;
@@ -312,10 +339,12 @@ export const H264Webrtc = ({
     };
 
     ws.onerror = (error) => {
+      signalingLost();
       scheduleReconnect('the signaling WebSocket returned an error', error);
     };
 
     ws.onclose = () => {
+      signalingLost();
       if (!terminalFailure) {
         scheduleReconnect('the signaling WebSocket closed');
       }
@@ -427,6 +456,7 @@ export const H264Webrtc = ({
       }
       clearTimeout(loadingTimer);
       clearTimeout(connectionTimeoutTimer);
+      clearTimeout(signalingConnectTimer);
     };
   }, [connectionAttempt, notificationApi, diagnostics, onEncoderConflict, setScreenshotSource]);
 

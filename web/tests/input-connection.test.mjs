@@ -69,9 +69,20 @@ function fixture({ page } = {}) {
   vm.runInNewContext(holdCode, sandbox);
   sandbox.HoldKeepalive = sandbox.exports.HoldKeepalive;
   sandbox.KEEPALIVE_MESSAGE = sandbox.exports.KEEPALIVE_MESSAGE;
+  const recoverySource = readFileSync(
+    new URL('../src/lib/connect-recovery.ts', import.meta.url),
+    'utf8'
+  );
+  const recoveryCode = ts.transpileModule(recoverySource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
+  }).outputText;
+  vm.runInNewContext(recoveryCode, sandbox);
+  sandbox.ConnectRecovery = sandbox.exports.ConnectRecovery;
+  sandbox.RECOVERY_RECONNECT_DELAY = sandbox.exports.RECOVERY_RECONNECT_DELAY;
   vm.runInNewContext(code, sandbox);
   return {
     client: new sandbox.exports.WsClient({ heartbeatInterval: 100 }),
+    ConnectRecovery: sandbox.ConnectRecovery,
     sockets,
     tick(ms = 100) {
       now += ms;
@@ -116,6 +127,10 @@ test('retry severity, recovery, stale socket callbacks and explicit close', () =
   f.sockets.at(-1).close();
   f.tick();
   f.sockets.at(-1).close();
+  // Retries come soon after a lost connection; the banner waits as long as before.
+  assert.equal(c.getConnectionStatus(), 'reconnecting');
+  f.tick(6000);
+  f.sockets.at(-1).close();
   assert.equal(c.getConnectionStatus(), 'disconnected');
   f.tick();
   f.sockets.at(-1).open();
@@ -158,6 +173,11 @@ test('acknowledged heartbeat detects a half-open connection; old server remains 
   assert.equal(c.getConnectionStatus(), 'reconnecting');
   f.tick();
   assert.equal(f.sockets.length, 2);
+  // A connection lost this way is lost like a closed one: the retry has a connect timeout.
+  assert.deepEqual(
+    f.timeouts().filter((ms) => ms !== 100),
+    [2000]
+  );
   f.sockets[1].open();
   f.sockets[1].reply();
   f.tick(100);
@@ -202,10 +222,11 @@ test('a socket the browser cut in the background is replaced at once on return',
   // Lost while hidden: the backoff stays.
   f.sockets[0].onclose({ code: 1006 });
   assert.deepEqual(f.timeouts(), [3000]);
-  // On return the pending retry goes now, without waiting for a timer.
+  // On return the pending retry goes now, without waiting for a timer;
+  // only the new socket's connect timeout is pending.
   page.show('visible');
   assert.equal(f.sockets.length, 2);
-  assert.deepEqual(f.timeouts(), []);
+  assert.deepEqual(f.timeouts(), [2000]);
   f.sockets[1].open();
   assert.equal(c.getConnectionStatus(), 'connected');
   c.close();
@@ -224,18 +245,50 @@ test('a close reported on return retries at once, also after background attempts
   // browser reports closed only once the tab is back.
   assert.equal(f.sockets.length, 2);
   page.show('visible');
-  assert.deepEqual(f.timeouts(), []);
+  assert.deepEqual(f.timeouts(), [2000]);
   f.sockets[1].onclose({ code: 1006 });
   assert.deepEqual(f.timeouts(), [0]);
   assert.equal(c.getConnectionStatus(), 'reconnecting');
   f.tick();
   f.sockets[2].open();
   assert.equal(c.getConnectionStatus(), 'connected');
-  // A visible page that keeps failing still backs off after its first retry.
+  // A visible page that keeps failing retries soon after its first retry
+  // while its sockets never open.
   f.sockets[2].onclose({ code: 1006 });
   assert.deepEqual(f.timeouts(), [0]);
   f.tick();
   f.sockets[3].onclose({ code: 1006 });
+  assert.deepEqual(f.timeouts(), [500]);
+  c.close();
+});
+
+test('the first connect of a page waits as long as the browser does', () => {
+  const f = fixture({ page: fakePage() }),
+    c = f.client;
+  c.connect();
+  // No open time is known yet, so a slow link is never cut off.
+  assert.deepEqual(f.timeouts(), []);
+  f.sockets[0].onclose({ code: 1006 });
+  assert.deepEqual(f.timeouts(), [0]);
+  f.tick();
+  f.sockets[1].onclose({ code: 1006 });
+  // A page that never connected keeps the backoff.
   assert.deepEqual(f.timeouts(), [3000]);
   c.close();
+});
+
+test('ConnectRecovery: an error and its close are one loss, and the window ends', () => {
+  const { ConnectRecovery } = fixture({});
+  const recovery = new ConnectRecovery();
+  assert.equal(recovery.connectTimeout(0), null);
+  recovery.opened(1800);
+  assert.equal(recovery.recovering(5000), false);
+  // An error and the close that follows it are one loss, timed from the first.
+  recovery.lost(5000);
+  recovery.lost(6000);
+  assert.equal(recovery.connectTimeout(5100), 3600);
+  assert.equal(recovery.recovering(34_999), true);
+  assert.equal(recovery.connectTimeout(35_000), null);
+  recovery.opened(30);
+  assert.equal(recovery.recovering(36_000), false);
 });

@@ -3,10 +3,11 @@ package router
 import (
 	"crypto/subtle"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/standby"
+	"NanoKVM-Server/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -136,19 +138,15 @@ func standbyRouter(r *gin.Engine) {
 		}
 		cfg := standby.Config{Address: host, ClientAddress: client, Port: conf.Port.Http, MagicWake: request.MagicWake}
 		if conf.Proto == "https" {
-			// Preserve the configured transport and certificate; never fall back
-			// to plaintext if staging the administrator's TLS pair fails.
+			// Preserve the transport and the certificate the browser accepted;
+			// never fall back to plaintext if staging the served pair fails.
 			if c.Request.TLS == nil {
 				rsp.ErrRsp(c, -1, "open the direct HTTPS address before shutdown")
 				return
 			}
 			var err error
 			cfg.Port = conf.Port.Https
-			cert := conf.Cert.WithDefaults()
-			cfg.Certificate, err = os.ReadFile(cert.Crt)
-			if err == nil {
-				cfg.PrivateKey, err = os.ReadFile(cert.Key)
-			}
+			cfg.Certificate, cfg.PrivateKey, err = servedCertificatePEM()
 			if err == nil {
 				_, err = tls.X509KeyPair(cfg.Certificate, cfg.PrivateKey)
 			}
@@ -179,4 +177,21 @@ func standbyRouter(r *gin.Engine) {
 		c.Header("Cache-Control", "no-store")
 		rsp.OkRspWithData(c, gin.H{"token": prepared.Config.Token, "mac": prepared.Config.MAC})
 	})
+}
+
+// servedCertificatePEM encodes the pair the HTTPS listener presents, which
+// differs from the configured files after a fallback or an unreloaded change.
+func servedCertificatePEM() (certPEM, keyPEM []byte, err error) {
+	cert := utils.ServerCertificate.Current().Cert
+	if cert == nil {
+		return nil, nil, errors.New("no served certificate")
+	}
+	for _, der := range cert.Certificate {
+		certPEM = append(certPEM, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})...)
+	}
+	key, err := x509.MarshalPKCS8PrivateKey(cert.PrivateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return certPEM, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}), nil
 }

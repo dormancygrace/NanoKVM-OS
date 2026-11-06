@@ -112,7 +112,10 @@ export class StallProbe {
     const { stall, host } = this;
     if (this.disposed) return;
     if (this.probe) {
-      if (!host.inputConnected() && this.probe.readyState === WebSocket.CONNECTING) {
+      if (
+        (!host.canCheck() || !host.inputConnected()) &&
+        this.probe.readyState === WebSocket.CONNECTING
+      ) {
         this.probe.close();
       }
       return;
@@ -128,7 +131,14 @@ export class StallProbe {
     const timeout = setTimeout(() => current.close(), stall.probeTimeout());
     current.onopen = () => {
       current.close();
-      if (!this.disposed && stall.confirmsDead(host.now())) host.dead();
+      if (
+        !this.disposed &&
+        host.canCheck() &&
+        host.inputConnected() &&
+        stall.confirmsDead(host.now())
+      ) {
+        host.dead();
+      }
     };
     current.onclose = () => {
       clearTimeout(timeout);

@@ -209,6 +209,10 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -Isupport/additional/kvm/include \
             support/additional/kvm/tests/stream_size_test.cpp -o "$RUNNER_TEMP/stream-size-test"
           "$RUNNER_TEMP/stream-size-test"
+      - name: Native capture contracts
+        run: |
+          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts"
+          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts-sanitize" --sanitize
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
       # Check C906 .4byte/WORD encodings against GNU as/objdump for XTheadVector.

@@ -23,6 +23,7 @@ import (
 	"NanoKVM-Server/service/extensions/acme"
 	"NanoKVM-Server/service/failsafe"
 	"NanoKVM-Server/service/network"
+	"NanoKVM-Server/service/notify"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
 	"NanoKVM-Server/service/vm/jiggler"
@@ -142,6 +143,12 @@ func initialize(stopMemory context.CancelFunc) {
 			logrus.Errorf("failed to program the monitor profile on the first start: %v", err)
 		} else if path != "" {
 			logrus.Infof("programmed the monitor profile %s on the first start", path)
+			if common.MonitorPowerCyclePending() {
+				// Nobody watched this write: a Cube or Lite takes the new EDID,
+				// such as the RGB range that corrects pale colours, only after
+				// a power cycle.
+				notify.Emit(notify.Event{Kind: notify.KindHDMI, Severity: notify.SeverityWarning, Message: "hdmi.power-cycle"})
+			}
 		}
 	}()
 

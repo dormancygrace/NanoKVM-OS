@@ -3,6 +3,7 @@
   "power.off": { "title": "Hostitel vypnut", "body": "Kontrolka napájení hostitele zhasla." },
   "hdmi.lost": { "title": "Signál HDMI ztracen", "body": "Hostitel přestal vysílat obraz." },
   "hdmi.restored": { "title": "Signál HDMI obnoven", "body": "Hostitel opět vysílá obraz." },
+  "hdmi.power-cycle": { "title": "Doporučeno odpojit napájení", "body": "Přijímač HDMI dostal aktualizovaný EDID, například pro správné barvy. Aby se projevil, odpojte NanoKVM od všech zdrojů napájení a znovu jej připojte." },
   "security.lockout": {
     "title": "Přihlášení zablokováno",
     "body": "{failures} neúspěšných přihlášení z adresy {address}: přihlášení z této adresy jsou zablokována na {minutes} min."

@@ -3,6 +3,7 @@
   "power.off": { "title": "Host wyłączony", "body": "Wskaźnik LED zasilania hosta zgasł." },
   "hdmi.lost": { "title": "Utracono sygnał HDMI", "body": "Host przestał wysyłać obraz." },
   "hdmi.restored": { "title": "Przywrócono sygnał HDMI", "body": "Host znów wysyła obraz." },
+  "hdmi.power-cycle": { "title": "Zalecane odłączenie zasilania", "body": "Odbiornik HDMI otrzymał zaktualizowany EDID, na przykład dla poprawnych kolorów. Aby go zastosować, odłącz NanoKVM od wszystkich źródeł zasilania i podłącz ponownie." },
   "security.lockout": {
     "title": "Logowanie zablokowane",
     "body": "Nieudane logowania: {failures}, adres {address}. Logowanie z tego adresu jest zablokowane na {minutes} min."

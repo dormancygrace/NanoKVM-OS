@@ -3,6 +3,7 @@
   "power.off": { "title": "主機已關機", "body": "主機的電源 LED 已熄滅。" },
   "hdmi.lost": { "title": "HDMI 訊號遺失", "body": "主機已停止輸出畫面。" },
   "hdmi.restored": { "title": "HDMI 訊號恢復", "body": "主機重新輸出畫面。" },
+  "hdmi.power-cycle": { "title": "建議斷電重新啟動", "body": "HDMI 接收器已取得更新的 EDID（例如用於修正顏色）。請中斷 NanoKVM 的所有電源後重新接上以使其生效。" },
   "security.lockout": {
     "title": "登入已被封鎖",
     "body": "來自 {address} 的登入失敗 {failures} 次：該位址的登入已被封鎖 {minutes} 分鐘。"

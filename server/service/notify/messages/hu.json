@@ -3,6 +3,7 @@
   "power.off": { "title": "A gazdagép kikapcsolt", "body": "A gazdagép tápellátás-LED-je kialudt." },
   "hdmi.lost": { "title": "HDMI-jel megszakadt", "body": "A gazdagép nem küld többé képet." },
   "hdmi.restored": { "title": "HDMI-jel helyreállt", "body": "A gazdagép újra küld képet." },
+  "hdmi.power-cycle": { "title": "Áramtalanítás javasolt", "body": "A HDMI-vevő frissített EDID-et kapott, például a helyes színekhez. Az érvényesítéshez válassza le a NanoKVM-et minden áramforrásról, majd csatlakoztassa újra." },
   "security.lockout": {
     "title": "Bejelentkezések letiltva",
     "body": "{failures} sikertelen bejelentkezés innen: {address}. Az erről a címről érkező bejelentkezések {minutes} percre le vannak tiltva."

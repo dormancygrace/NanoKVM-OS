@@ -197,11 +197,14 @@ func (s *Service) stopIPMI() error {
 	return nil
 }
 
-// InstallIPMI adds the package; IPMI stays off until turned on.
+// InstallIPMI adds the package; IPMI stays off until turned on. The apk
+// transaction can take minutes and has its own lock, so status polls and
+// settings do not wait for it on s.mu.
 func (s *Service) InstallIPMI() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.ipmiInstalled() {
+	installed := s.ipmiInstalled()
+	s.mu.Unlock()
+	if installed {
 		return nil
 	}
 	return s.install()

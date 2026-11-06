@@ -36,6 +36,9 @@ func TestStateFailsClosed(t *testing.T) {
 	}
 }
 func TestGateClosesAtomically(t *testing.T) {
+	saved := beginWait
+	beginWait = 100 * time.Millisecond
+	t.Cleanup(func() { beginWait = saved })
 	var g Gate
 	if !g.Enter(true) {
 		t.Fatal("first operation")
@@ -43,7 +46,17 @@ func TestGateClosesAtomically(t *testing.T) {
 	if g.Begin() == nil {
 		t.Fatal("ignored active operation")
 	}
+	if !g.Enter(true) {
+		t.Fatal("a failed shutdown kept admission closed")
+	}
 	g.Leave(true)
+	// A request that finishes within the wait does not fail the shutdown,
+	// and none admitted meanwhile can extend it.
+	time.AfterFunc(20*time.Millisecond, func() { g.Leave(true) })
+	if e := g.Begin(); e != nil || g.Enter(true) {
+		t.Fatal("draining did not close admission", e)
+	}
+	g.Cancel()
 	if e := g.Begin(); e != nil {
 		t.Fatal(e)
 	}

@@ -76,6 +76,13 @@ func InstallAddon(name string) error {
 	if !packageName.MatchString(name) {
 		return errors.New("invalid APK package name")
 	}
+	// The list is in /run, empty after a reboot until a check, and System >
+	// Redfish and IPMI installs without opening the Add-ons page.
+	if osupdate.GetAddonCatalog().CheckedAt == 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		_ = osupdate.CheckUpdates(ctx, true)
+		cancel()
+	}
 	lock, err := osupdate.Lock()
 	if err != nil {
 		return err

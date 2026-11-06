@@ -101,7 +101,7 @@ tar -tvf "$stage/settings.tar" | awk 'substr($0,1,1)!="-" && substr($0,1,1)!="d"
 while IFS= read -r path; do
     case "$path" in
         ./|./etc/|./etc/kvm/|./etc/ssh/|./root/|./root/.ssh/|./boot/|\
-        ./etc/hostname|./etc/kvm/wifi.ssid|./etc/kvm/wifi.pass|./root/.ssh/authorized_keys|\
+        ./etc/hostname|./etc/kvm/wifi.ssid|./etc/kvm/wifi.pass|./etc/kvm/atx|./root/.ssh/authorized_keys|\
         ./boot/eth.nodhcp|./boot/wifi.nodhcp|./boot/wifi.ssid|./boot/wifi.pass|\
         ./boot/hostname|./boot/hostname.prefix|./boot/hostname.suffix|\
         ./boot/eth.mac|./boot/eth.disabled|./boot/resolv.conf|./boot/usb.dev|\

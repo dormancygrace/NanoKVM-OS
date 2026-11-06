@@ -21,13 +21,16 @@ type Manager struct {
 }
 
 type Client struct {
-	ws                 *websocket.Conn
-	hid                *hid.Hid
-	manual             *inputcontrol.ManualSession
-	keyboard           chan hid.QueuedReport
-	mouse              chan hid.QueuedReport
-	heartbeatTimeout   time.Duration
-	lastHeartbeat      time.Time
+	ws               *websocket.Conn
+	hid              *hid.Hid
+	manual           *inputcontrol.ManualSession
+	keyboard         chan hid.QueuedReport
+	mouse            chan hid.QueuedReport
+	heartbeatTimeout time.Duration
+	lastHeartbeat    time.Time
+	// lastMessage is the last frame from the page itself; a transport Pong,
+	// which a frozen background tab still answers, does not count.
+	lastMessage        time.Time
 	mutex              sync.Mutex
 	keyboardLedMutex   sync.Mutex
 	keyboardLedStatus  *hid.KeyboardLedStatus

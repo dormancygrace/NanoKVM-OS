@@ -101,6 +101,12 @@ type screenWatch struct {
 	readAt   time.Time
 }
 
+// While the watch is on, the HDMI idle timeout leaves capture running: a
+// crash matters most when nobody is watching.
+func init() {
+	hdmiKeepCapture = func() bool { return notify.Wants(notify.KindScreen) && ScreenWatchAvailable() }
+}
+
 func newScreenWatch() *screenWatch {
 	return &screenWatch{
 		wants:     notify.Wants,
@@ -265,11 +271,14 @@ func screenPlanes(ctx context.Context) (planes []byte, width, height int, ok boo
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	release, _, err := AcquireHdmiCaptureLeaseForRead(ctx)
-	if err != nil {
+	// Not a viewer: the look neither wakes capture stopped for idle nor keeps
+	// it from parking or stopping.
+	release, ok := acquireHdmiBackgroundRead(ctx)
+	if !ok {
 		return nil, 0, 0, false
 	}
 	defer release()
+	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		width, height, err = screenTextInput()
 		if err != nil {

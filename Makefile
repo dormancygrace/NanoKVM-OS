@@ -8,7 +8,7 @@ PLATFORM = bash platform/build.sh -o "$(OUT)" -j "$(JOBS)" $(PLATFORM_ARGS)
 
 .PHONY: help all platform app support vision web release-build package release clean \
         test-wifi-modules test-alpine-network test-wifi-runtime \
-        test-ethernet-runtime test-runtime-state
+        test-runtime-state
 
 help:
 	@echo "NanoKVM OS — pinned Alpine/platform build"
@@ -61,9 +61,6 @@ test-alpine-network:
 
 test-wifi-runtime:
 	@sh tests/test-s30wifi-runtime.sh
-	@cd server && go test -tags teststub,nomsgpack ./service/network
-
-test-ethernet-runtime:
 	@cd server && go test -tags teststub,nomsgpack ./service/network
 
 test-runtime-state:

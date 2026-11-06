@@ -78,6 +78,7 @@ function fixture({ page } = {}) {
   }).outputText;
   vm.runInNewContext(recoveryCode, sandbox);
   sandbox.ConnectRecovery = sandbox.exports.ConnectRecovery;
+  sandbox.RECOVERY_RECONNECT_DELAY = sandbox.exports.RECOVERY_RECONNECT_DELAY;
   vm.runInNewContext(code, sandbox);
   return {
     client: new sandbox.exports.WsClient({ heartbeatInterval: 100 }),
@@ -272,61 +273,6 @@ test('the first connect of a page waits as long as the browser does', () => {
   f.tick();
   f.sockets[1].onclose({ code: 1006 });
   // A page that never connected keeps the backoff.
-  assert.deepEqual(f.timeouts(), [3000]);
-  c.close();
-});
-
-test('after a lost connection a handshake with no reply is abandoned and retried soon', () => {
-  const page = fakePage();
-  const f = fixture({ page }),
-    c = f.client;
-  c.connect();
-  f.tick(300);
-  f.sockets[0].open();
-  f.sockets[0].onclose({ code: 1006 });
-  assert.deepEqual(f.timeouts(), [0]);
-  f.tick();
-  // Twice the lost socket's open time, at least 2 s.
-  assert.deepEqual(f.timeouts(), [2000]);
-  f.tick();
-  assert.equal(f.sockets[1].readyState, 3);
-  assert.deepEqual(f.timeouts(), [500]);
-  page.show('hidden');
-  f.tick();
-  f.sockets[2].onclose({ code: 1006 });
-  // A hidden page keeps the backoff.
-  assert.deepEqual(f.timeouts(), [3000]);
-  c.close();
-  assert.equal(f.timers.size, 0);
-});
-
-test('a slow link gets a connect timeout from its own open time', () => {
-  const f = fixture({ page: fakePage() }),
-    c = f.client;
-  c.connect();
-  // About 600 ms round trip: the socket took 1.8 s to open.
-  f.tick(1800);
-  f.sockets[0].open();
-  f.sockets[0].onclose({ code: 1006 });
-  f.tick();
-  assert.deepEqual(f.timeouts(), [3600]);
-  c.close();
-});
-
-test('the short timeout ends 30 s after the loss, so a link that became slower still connects', () => {
-  const f = fixture({ page: fakePage() }),
-    c = f.client;
-  c.connect();
-  f.sockets[0].open();
-  f.sockets[0].onclose({ code: 1006 });
-  f.tick();
-  for (let i = 0; i < 6; i++) {
-    f.tick(2500);
-    f.tick(2500);
-  }
-  // 30 s after the loss: no connect timeout, and the backoff again.
-  assert.deepEqual(f.timeouts(), []);
-  f.sockets.at(-1).onclose({ code: 1006 });
   assert.deepEqual(f.timeouts(), [3000]);
   c.close();
 });

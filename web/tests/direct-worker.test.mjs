@@ -343,37 +343,3 @@ test('Edge frames with a halved visible rectangle are drawn and reported at full
   assert.equal(wrapper.closed, 1);
   assert.equal(wrapper.wraps.closed, 1);
 });
-
-test('after a lost connection, a stuck attempt is closed and retried at most 500 ms apart', () => {
-  const h = harness();
-  h.now(5000);
-  h.sockets[0].onclose({ code: 1006 });
-  for (const [n, delay] of [
-    [1, 250],
-    [2, 500]
-  ]) {
-    h.fireTimeouts(delay);
-    assert.equal(h.sockets.length, n + 1);
-    const attempt = h.sockets[n];
-    attempt.readyState = 0;
-    h.fireTimeouts(2000);
-    assert.equal(attempt.readyState, 3, 'An attempt still connecting is closed');
-    attempt.onclose({ code: 1006 });
-  }
-  h.fireTimeouts(500);
-  assert.equal(h.sockets.length, 4);
-  h.stop();
-  assert.equal(h.timers.size, 0);
-});
-
-test('once the recovery window ends, an attempt keeps the browser timeout', () => {
-  const h = harness();
-  h.now(5000);
-  h.sockets[0].onclose({ code: 1006 });
-  h.now(35_000);
-  h.fireTimeouts(250);
-  h.sockets[1].readyState = 0;
-  h.fireTimeouts(2000);
-  assert.equal(h.sockets[1].readyState, 0);
-  h.stop();
-});

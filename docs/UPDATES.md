@@ -155,8 +155,10 @@ are the durable input to the next deployment. Completed production jobs stage
 consumes all outstanding candidates, including those from a completed run
 whose later step failed. PR and dry-run artifacts are never candidates. An OS
 candidate is stored while its release is a draft, but enters an update index
-only after the public OS release is published. At most one pending draft per
-channel is retained in addition to the published releases.
+only after the public OS release is published. Every pending draft newer than
+its channel's published release is retained, and of older ones only the newest.
+An APK that a feed serves is stored once, as that feed file; the catalog
+records where.
 
 Deployments are serialized, and losing a pending workflow dispatch does not
 lose a candidate: the next assembly scans all outstanding artifacts. A missing

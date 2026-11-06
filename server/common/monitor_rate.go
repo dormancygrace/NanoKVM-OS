@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -188,10 +189,28 @@ func programmedMonitorProfileLocked(path string, height uint16) bool {
 	}
 	recorded, err := os.ReadFile(monitorEDIDHashFile)
 	if err != nil {
+		// A Cube or Lite without a recorded write has an unknown EDID:
+		// do not infer its rate from the saved setting.
+		if MonitorRequiresPowerCycle() {
+			return false
+		}
 		legacy, legacyErr := fileSHA256(monitorProfilePath(height))
 		return legacyErr == nil && legacy == want
 	}
 	return strings.TrimSpace(string(recorded)) == want
+}
+
+// MonitorStockProfile reports a Cube or Lite without a recorded EDID profile.
+// It may hold stock EDID or an unrecorded older write; neither justifies
+// inferring the size and rate from the profile Auto stands for elsewhere.
+func MonitorStockProfile() bool {
+	if !MonitorRequiresPowerCycle() {
+		return false
+	}
+	monitorMutex.Lock()
+	defer monitorMutex.Unlock()
+	_, err := os.Stat(monitorEDIDHashFile)
+	return errors.Is(err, os.ErrNotExist)
 }
 
 func recordMonitorProfileLocked(path string) {

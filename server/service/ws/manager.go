@@ -3,6 +3,7 @@ package ws
 import (
 	"crypto/subtle"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -52,7 +53,9 @@ func (m *Manager) RemoveClient(ws *websocket.Conn) {
 	var next *Client
 	if client != nil && m.controller == nil && m.externalLease == "" && len(m.clients) == 1 {
 		for _, remaining := range m.clients {
-			if !remaining.manualViewOnly {
+			// A frozen background tab, kept open only by transport Pongs, does
+			// not inherit control: the tab that reloads takes it when it is back.
+			if !remaining.manualViewOnly && remaining.pageAlive(time.Now()) {
 				next = remaining
 				m.controller = next
 			}

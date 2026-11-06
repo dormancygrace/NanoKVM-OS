@@ -57,7 +57,7 @@ jobs:
             [ "$(changed "$pattern")" = true ] && modules+=("$m")
           done
           {
-            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$|^tests/test-(video-recovery-native|websocket-c906)\.py$|^tests/test-remote-smb\.sh$|^tests/fixtures/remote-smb/|^tests/upstream-mask\.go\.txt$')"
+            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$|^tests/test-(video-recovery-native|websocket-c906)\.py$|^tests/test-remote-smb\.sh$|^tests/fixtures/remote-smb/')"
             echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
             echo "web=$(changed '^web/|^\.nvmrc$')"
             echo "rustdesk=$(changed '^addons/rustdesk/')"

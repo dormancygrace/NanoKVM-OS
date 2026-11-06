@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -51,7 +50,9 @@ func main() {
 func run(index int, host string, seconds int, output string) (r result) {
 	r.Client = index
 	var stats sync.Mutex
-	dial := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	// Verify TLS before sending the login cookie. For a private or self-signed
+	// certificate, set SSL_CERT_FILE to a trusted PEM certificate bundle.
+	dial := websocket.Dialer{}
 	ws, _, err := dial.Dial("wss://"+host+"/api/stream/audio", http.Header{"Cookie": []string{"nano-kvm-token=" + os.Getenv("NANOKVM_TOKEN")}})
 	if err != nil {
 		r.Error = err.Error()

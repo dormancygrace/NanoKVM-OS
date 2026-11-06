@@ -83,9 +83,12 @@ func (d *frameDelivery) offer(clients []*mjpegClient, data []byte, now time.Time
 	return sent
 }
 
+// viewersReady reports whether a viewer can take the next picture. A tiled
+// viewer may have one message waiting behind the one being written, since its
+// messages cannot be skipped; more would only make the picture lag.
 func viewersReady(clients []*mjpegClient) bool {
 	for _, c := range clients {
-		if c.ctx.Err() == nil && (len(c.frames) == 0 || c.tiled && len(c.frames) < cap(c.frames)/2) {
+		if c.ctx.Err() == nil && (len(c.frames) == 0 || c.tiled && len(c.frames) < 2) {
 			return true
 		}
 	}

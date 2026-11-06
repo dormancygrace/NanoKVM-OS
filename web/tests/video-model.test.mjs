@@ -1,18 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
-import ts from 'typescript';
 
-const source = readFileSync(new URL('../src/lib/video-model.ts', import.meta.url), 'utf8');
-const code = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
-}).outputText;
-const model = (() => {
-  const sandbox = { exports: {}, module: {} };
-  vm.runInNewContext(code, sandbox);
-  return sandbox.exports;
-})();
+import * as model from '../src/lib/video-model.ts';
 
 // The server table (server/common/video_status.go).
 const tiers = [

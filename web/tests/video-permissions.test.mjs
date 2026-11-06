@@ -4,6 +4,8 @@ import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
 
+import * as model from '../src/lib/video-model.ts';
+
 function transpile(file, jsx = false) {
   return ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), {
     compilerOptions: {
@@ -27,8 +29,6 @@ function load(file, modules, globals = {}, jsx = false) {
   });
   return exports;
 }
-
-const model = load('../src/lib/video-model.ts', {});
 
 const caps = {
   input: { width: 1920, height: 1080, fps: 60, maxFps: 75 },

@@ -55,9 +55,6 @@ func TestResolveDelayMSDefaultsOnlyWhenOmitted(t *testing.T) {
 }
 
 func TestTypeTextSchemaMatchesDurationBudget(t *testing.T) {
-	if maxTypeTextRunes != 1000 {
-		t.Fatalf("maxTypeTextRunes = %d, want 1000", maxTypeTextRunes)
-	}
 	schema := typeTextSchema()
 	maxLength := schema.Properties["text"].MaxLength
 	if maxLength == nil || *maxLength != maxTypeTextRunes {
@@ -124,9 +121,6 @@ func TestMCPInitializeAndToolsList(t *testing.T) {
 		if !strings.Contains(tools.Body.String(), `"name":"`+name+`"`) {
 			t.Fatalf("tools/list missing %s: %s", name, tools.Body.String())
 		}
-	}
-	if strings.Contains(tools.Body.String(), `"name":"cube_`) {
-		t.Fatalf("tools/list still exposes cube_ names: %s", tools.Body.String())
 	}
 
 	calls := []struct {

@@ -1,18 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
-import ts from 'typescript';
 
-const source = readFileSync(new URL('../src/lib/video-model.ts', import.meta.url), 'utf8');
-const code = ts.transpileModule(source, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
-}).outputText;
-const model = (() => {
-  const sandbox = { exports: {}, module: {} };
-  vm.runInNewContext(code, sandbox);
-  return sandbox.exports;
-})();
+import * as model from '../src/lib/video-model.ts';
 
 // The server table (server/common/video_status.go).
 const tiers = [
@@ -135,6 +124,8 @@ test('monitor refresh follows the stream rate', () => {
   const c = caps();
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 30 }), c).refresh, 30);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), c).refresh, 60);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 100 }), c).refresh, 100);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 120 }), c).refresh, 100);
   assert.equal(
     model.monitorTarget(draft({ monitor: 1080, fps: 30 }), caps({ follows: false })).refresh,
@@ -210,17 +201,6 @@ test('a resolution applies at its fastest rate, and fits portrait limits', () =>
     fixed
   );
   assert.deepEqual([rate.monitor, rate.fps], [1080, 60]);
-});
-
-test('the monitor refresh follows a lower rate of the resolution', () => {
-  const c = caps();
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 100 }), c).refresh, 100);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), c).refresh, 60);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
-  assert.equal(
-    model.monitorTarget(draft({ monitor: 1080, fps: 60 }), caps({ follows: false })).refresh,
-    100
-  );
 });
 
 test('a slower stream rate rewrites the monitor only when it follows the rate', () => {

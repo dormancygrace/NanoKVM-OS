@@ -108,9 +108,12 @@ func useLoginProtectionConfig(t *testing.T) {
 	t.Helper()
 	conf := config.GetInstance()
 	previousDuration, previousFailures := conf.Security.LoginLockoutDuration, conf.Security.LoginMaxFailures
+	previousPenalty := loginPenalty
 	conf.Security.LoginLockoutDuration, conf.Security.LoginMaxFailures = 3600, 5
+	loginPenalty = time.Millisecond
 	t.Cleanup(func() {
 		conf.Security.LoginLockoutDuration, conf.Security.LoginMaxFailures = previousDuration, previousFailures
+		loginPenalty = previousPenalty
 	})
 }
 

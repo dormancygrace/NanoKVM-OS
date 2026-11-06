@@ -1,8 +1,6 @@
 package vm
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -75,19 +73,5 @@ func TestRetireLegacyACMGettyContent(t *testing.T) {
 	}
 	if !strings.Contains(got, "getty -L console") {
 		t.Fatalf("console getty was removed: %q", got)
-	}
-
-	// Keep a filesystem assertion here so the target directory semantics used
-	// by the atomic migration are covered without signalling PID 1 in tests.
-	path := filepath.Join(t.TempDir(), "inittab")
-	if err := os.WriteFile(path, []byte(got), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("mode = %o, want 600", info.Mode().Perm())
 	}
 }

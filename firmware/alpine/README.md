@@ -91,27 +91,9 @@ and every apk run would parse its index too. The Software page switches it on
 NetBird does so itself. The page refuses to switch it off while installed
 packages come only from it, and names them.
 
-Devices from releases up to 3.2 list `community`. The server decides once
-(`server/osupdate/community.go`), after the edge migration below: it removes
-the line when `apk list --orphaned` shows no installed package that only
-`community` provides, and keeps it otherwise. It waits while `exfatprogs` or
-`i2c-tools` from `community` are still installed, until `nanokvm-base` replaces
-them, and while an index cannot be read (apk then warns and reports every
-package as orphaned). `/etc/kvm/apk-community.chosen` records that the decision
-is made, by the server or by the user, and it is not made again.
-
 Tailscale and NetBird come from the stable Alpine `community` repository,
 OpenVPN from `main`. They are optional and absent from the default
 `nanokvm-release` dependency set.
-
-Releases up to 3.1 also listed Alpine `edge/community`, tagged as
-`@edgecommunity`, for Tailscale and NetBird. Every apk run then parsed its index
-too: about 30% of the time of an `apk version` and 10 MB of memory on the
-device. The server removes that line once (`server/osupdate/edge.go`): world
-entries `NAME@edgecommunity` become `NAME>=INSTALLED`, so a package installed
-from edge is not downgraded to the older stable build and follows the stable
-branch once it catches up, and only then does the line go. A world entry with a
-tag that no repository has would stop every apk transaction.
 
 The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary

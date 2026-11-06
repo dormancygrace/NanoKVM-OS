@@ -13,7 +13,6 @@ optimization level. These defaults follow measurements on the C906.
 | zlib-ng (nanokvm-zlib, libz.so.1; static in NanoKVM-Server) | GCC -O2, thead-c906, lp64d, -mno-strict-align, without xtheadvector | Compiler vectorization off; RVV and Zbc code off |
 | OpenSSL 3.5.9 LTS (nanokvm-openssl) | GCC -O3, thead-c906, lp64d, without xtheadvector | Compiler vectorization and LTO off; scalar inline memory operations; upstream crypto code |
 | TPU runtime (cviruntime, cvikernel; static in nanokvm-ocr and nanokvm-screen) | GCC -O2, thead-c906, lp64d, with xtheadvector | Upstream flags otherwise; the C++ library linked statically |
-| liblzma (xz, static in NanoKVM-Server) | GCC -O2, thead-c906, lp64d, without xtheadvector | Compiler vectorization off; the flags do not change its decoder speed (10.5 MB/s with or without) |
 | Optional RustDesk performance build | Rust opt-level=3, scalar XTHead | fat LTO; codegen-units=1 |
 | RustDesk generic release | Existing Rust release profile | Remains available |
 | U-Boot/FIP and official Alpine packages (except zlib and OpenSSL) | Existing policies | Outside this optimization change |

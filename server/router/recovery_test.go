@@ -14,7 +14,7 @@ import (
 func TestRecoveryAuthorization(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "accounts.json"))
-	admin, err := store.SetPassword("admin", "owner-password")
+	admin, err := store.SetPasswordAndRunIf("admin", "owner-password", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -79,30 +79,6 @@ func ioctl(fd int, command uint, p unsafe.Pointer) error {
 	return nil
 }
 
-// ChipInfo reads metadata only; it never requests or changes a GPIO line.
-func ChipInfo(path string) (unix.GPIOChipInfo, error) {
-	var info unix.GPIOChipInfo
-	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return info, err
-	}
-	defer unix.Close(fd)
-	err = ioctl(fd, unix.GPIO_GET_CHIPINFO_IOCTL, unsafe.Pointer(&info))
-	return info, err
-}
-
-// LineInfo reads ABI-v2 metadata only, including whether a line is in use.
-func LineInfo(path string, offset uint32) (unix.GPIOV2LineInfo, error) {
-	info := unix.GPIOV2LineInfo{Offset: offset}
-	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
-	if err != nil {
-		return info, err
-	}
-	defer unix.Close(fd)
-	err = ioctl(fd, unix.GPIO_V2_GET_LINEINFO_IOCTL, unsafe.Pointer(&info))
-	return info, err
-}
-
 func Open(device string, output bool) (Line, error) {
 	if !strings.HasPrefix(device, "gpio-v2:") {
 		if !strings.HasPrefix(device, "/sys/class/gpio/gpio") || !strings.HasSuffix(device, "/value") {

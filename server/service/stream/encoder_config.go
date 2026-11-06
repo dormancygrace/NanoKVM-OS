@@ -27,10 +27,6 @@ func DefaultEncoderConfig() EncoderConfig {
 	return EncoderConfig{Codec: VideoCodecH265}
 }
 
-func LegacyEncoderConfig() EncoderConfig {
-	return EncoderConfig{Codec: VideoCodecH264}
-}
-
 func ParseEncoderConfig(values url.Values, fallback EncoderConfig) (EncoderConfig, error) {
 	config := fallback
 

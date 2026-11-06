@@ -1,15 +1,12 @@
 package osupdate
 
 import (
-	"encoding/hex"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 
-	"NanoKVM-Server/internal/hwcrypto"
 	"NanoKVM-Server/standby"
 )
 
@@ -62,20 +59,6 @@ func syncDir(name string) error {
 func InstalledVersion() string {
 	v, _ := os.ReadFile(versionFile)
 	return strings.TrimSpace(string(v))
-}
-
-// HashFile returns the hex SHA-256 digest of a file.
-func HashFile(name string) (string, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	h := hwcrypto.NewSHA256()
-	if _, err = io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // Lock takes the exclusive, non-blocking update lock shared by every package

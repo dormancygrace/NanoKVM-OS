@@ -11,8 +11,8 @@ import (
 const MaxPayload = 4096
 
 // Smaller payloads use software: the fixed ioctl and request copy costs win
-// below this. srtp-aes-qualify on the C906, CPU time per protected RTP packet
-// (software against hardware): 192 bytes 54.0 against 55.1 us, 256 bytes 65.9
+// below this. Measured on the C906 (commit a0fe2a62), CPU time per protected
+// RTP packet (software against hardware): 192 bytes 54.0 against 55.1 us, 256 bytes 65.9
 // against 58.5 us, 384 bytes 88.1 against 69.9 us, 1188 bytes 231 against
 // 125 us. Audio (Opus, about 100-200 bytes) stays in software.
 const MinPayload = 256

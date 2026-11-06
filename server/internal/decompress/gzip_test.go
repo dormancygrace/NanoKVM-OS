@@ -190,12 +190,4 @@ func TestMixedReadSizes(t *testing.T) {
 	if got, err := readMixed(z); err != nil || !bytes.Equal(got, data) {
 		t.Fatalf("gzip: %v, equal %v", err, bytes.Equal(got, data))
 	}
-	x, err := NewXZReader(bytes.NewReader(xzBytes(t, data, "-6")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer x.Close()
-	if got, err := readMixed(x); err != nil || !bytes.Equal(got, data) {
-		t.Fatalf("xz: %v, equal %v", err, bytes.Equal(got, data))
-	}
 }

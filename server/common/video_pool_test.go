@@ -100,7 +100,7 @@ func TestMonitorFitsVideoPool(t *testing.T) {
 			monitorState(t, tc.height, tc.portrait, tc.portraitResolution)
 			pools := map[string]VideoPool{"fhd": poolFHD, "qhd": poolQHD, "uhd": poolUHD}
 			for mode, want := range tc.fits {
-				err := MonitorFitsVideoPool(pools[mode])
+				err := monitorFitsVideoPoolLocked(pools[mode])
 				if (err == nil) != want {
 					t.Errorf("%s: error %v, want fit %v", mode, err, want)
 				}

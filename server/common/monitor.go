@@ -34,14 +34,6 @@ func MonitorPortraitStatus() (enabled bool, supported bool) {
 	return monitorPortraitEnabledLocked(), portraitSupportedLocked()
 }
 
-// PortraitSupported reports whether the portrait monitor profile can be
-// applied on this device. The native extended capture path requires the
-// QHD video memory (at least 54 MiB, see VideoPool).
-func PortraitSupported() bool {
-	_, supported := MonitorPortraitStatus()
-	return supported
-}
-
 // PortraitResolution returns the persisted portrait profile choice. Invalid
 // or missing state falls back to the known 1080x1920 profile.
 func PortraitResolution() uint16 {
@@ -60,8 +52,10 @@ func PortraitMaxSupported() bool {
 	return portraitMaxSupportedLocked()
 }
 
-// PortraitSupportedFor and PortraitMaxSupportedFor are PortraitSupported and
-// PortraitMaxSupported with another video pool than the booted one: the pool
+// PortraitSupportedFor and PortraitMaxSupportedFor report whether the portrait
+// and the maximum portrait profiles can be applied with another video pool
+// than the booted one (the native extended capture path requires the QHD
+// video memory, at least 54 MiB, see VideoPool): the pool
 // of a video memory mode the device would restart into.
 func PortraitSupportedFor(p VideoPool) bool {
 	monitorMutex.Lock()

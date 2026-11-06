@@ -359,20 +359,11 @@ func (s *Store) Delete(actor, username string) error {
 	return s.saveLocked(db)
 }
 
-func (s *Store) SetPassword(username, password string) (*User, error) {
-	return s.SetPasswordAndRun(username, password, nil)
-}
-
-// SetPasswordAndRun commits the web password before running the optional
+// SetPasswordAndRunIf commits the web password before running the optional
 // system-side update. If that update fails, the account record is rolled back
-// while the store lock is still held.
-func (s *Store) SetPasswordAndRun(username, password string, afterCommit func() error) (*User, error) {
-	return s.SetPasswordAndRunIf(username, password, nil, afterCommit)
-}
-
-// SetPasswordAndRunIf is SetPasswordAndRun when the account passes expect,
-// checked under the store lock with the change, so the account cannot
-// change between the check and the commit.
+// while the store lock is still held. A non-nil expect must accept the
+// account, checked under the store lock with the change, so the account
+// cannot change between the check and the commit.
 func (s *Store) SetPasswordAndRunIf(username, password string, expect func(User) error, afterCommit func() error) (*User, error) {
 	if err := ValidatePassword(password); err != nil {
 		return nil, err

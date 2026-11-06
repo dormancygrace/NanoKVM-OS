@@ -98,6 +98,16 @@ const (
 	maxChannelDeliveries = 4
 )
 
+// coalesced are the messages an outsider can repeat at will, with the time
+// in which only one of them is sent.
+var coalesced = map[string]time.Duration{"security.lockout": 10 * time.Minute}
+
+// heldEvents are the events of a coalesced message held back since.
+type heldEvents struct {
+	since, until time.Time
+	dropped      int
+}
+
 // opposite pairs the messages of the host's states.
 var opposite = map[string]string{
 	"power.on": "power.off", "power.off": "power.on",
@@ -126,6 +136,7 @@ type Service struct {
 	mu     sync.Mutex
 	config Config
 	recent map[string]time.Time
+	held   map[string]heldEvents
 	// active counts the deliveries alive, inFlight those of each channel id.
 	active   int
 	inFlight map[string]int
@@ -143,6 +154,7 @@ func newService(path string) *Service {
 		now:        time.Now,
 		sleep:      sleepContext,
 		recent:     make(map[string]time.Time),
+		held:       make(map[string]heldEvents),
 		inFlight:   make(map[string]int),
 		authErrors: make(map[string]string),
 	}
@@ -244,7 +256,22 @@ func (s *Service) dispatch(e Event) {
 		}
 	}
 	_, repeated := s.recent[key]
-	if !repeated {
+	held := false
+	if window, ok := coalesced[e.Message]; ok && !repeated {
+		// Each address an attacker gets locked out would be a message of its
+		// own: one goes out per window, the next one counts the rest.
+		c := s.held[e.Message]
+		if held = now.Before(c.until); held {
+			c.dropped++
+		} else {
+			if c.dropped > 0 {
+				e.Details = fmt.Sprintf("%d more addresses blocked since %s.", c.dropped, c.since.Format("15:04"))
+			}
+			c = heldEvents{since: now, until: now.Add(window)}
+		}
+		s.held[e.Message] = c
+	}
+	if !repeated && !held {
 		// A state change ends the repeats of the state before it: off, on,
 		// off within the window must still report the last off.
 		if before, ok := opposite[e.Message]; ok {
@@ -253,8 +280,8 @@ func (s *Service) dispatch(e Event) {
 		s.recent[key] = now
 	}
 	s.mu.Unlock()
-	if repeated {
-		log.Debugf("notifications: repeated %s dropped", e.Message)
+	if repeated || held {
+		log.Debugf("notifications: repeated %s held back", e.Message)
 		return
 	}
 	var targets []Channel
@@ -267,7 +294,7 @@ func (s *Service) dispatch(e Event) {
 		return
 	}
 	for _, ch := range targets {
-		if !s.admit(ch.ID) {
+		if !s.admit(ch.ID, e.Kind) {
 			log.Warnf("notifications: %s %q is behind, dropped %s", ch.Type, ch.Name, e.Message)
 			continue
 		}
@@ -275,11 +302,17 @@ func (s *Service) dispatch(e Event) {
 	}
 }
 
-// admit takes a delivery slot for a channel; false when none is free.
-func (s *Service) admit(id string) bool {
+// admit takes a delivery slot for a channel; false when none is free. Login
+// events, which outsiders can cause, leave the last slot of a channel to the
+// host's events.
+func (s *Service) admit(id string, kind Kind) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.active >= maxDeliveries || s.inFlight[id] >= maxChannelDeliveries {
+	limit := maxChannelDeliveries
+	if kind == KindSecurity {
+		limit--
+	}
+	if s.active >= maxDeliveries || s.inFlight[id] >= limit {
 		return false
 	}
 	s.active++

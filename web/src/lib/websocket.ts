@@ -15,7 +15,11 @@ export enum MessageEvent {
   Heartbeat = 0,
   Keyboard = 1,
   Mouse = 2,
-  Control = 3
+  Control = 3,
+  // [4] is the hold keepalive (hold-keepalive.ts).
+  // [5, 1] the page is visible, [5, 0] hidden: crash-screen notifications go
+  // out while nobody is looking.
+  Visibility = 5
 }
 
 interface WsClientOptions {
@@ -93,6 +97,7 @@ export class WsClient {
     // afresh: the first goes at once, whatever happened in the background.
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
+        this.sendVisibility();
         if (document.visibilityState !== 'visible') return;
         this.reconnectAttempts = 0;
         this.retryAtOnce = true;
@@ -102,6 +107,11 @@ export class WsClient {
   }
 
   private retryAtOnce = true;
+
+  private sendVisibility(): void {
+    if (this.instance?.readyState !== WebSocket.OPEN) return;
+    this.instance.send(new Uint8Array([MessageEvent.Visibility, WsClient.pageVisible() ? 1 : 0]));
+  }
 
   private static pageVisible(): boolean {
     return typeof document === 'undefined' || document.visibilityState === 'visible';
@@ -282,6 +292,7 @@ export class WsClient {
     this.missedHeartbeats = 0;
     this.heartbeatAcknowledged = false;
     this.send(new Uint8Array([KEEPALIVE_MESSAGE]));
+    this.sendVisibility();
     this.updateConnectionStatus('connected');
     this.startHeartbeat();
   }

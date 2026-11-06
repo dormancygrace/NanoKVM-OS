@@ -18,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/attention"
 	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/service/notify"
 )
@@ -50,7 +51,19 @@ var (
 	// The least time between two OCR reads: a server console that scrolls
 	// and settles again and again must not keep the TPU busy.
 	screenReadGap = 2 * time.Minute
+	// A viewer counts as watching while a page is visible and keyboard or
+	// mouse input came within this long; an open tab alone does not.
+	screenAttentionWindow = 5 * time.Minute
 )
+
+// watchingViewers is the video viewers when somebody is actually looking at
+// them, else 0: a crash then goes to the notifications.
+func watchingViewers() int {
+	if viewers := HdmiState().ViewerCount; viewers > 0 && attention.Watching(time.Now(), screenAttentionWindow) {
+		return viewers
+	}
+	return 0
+}
 
 // Text that names a crash. Stop codes are upper case words joined by
 // underscores in every language of Windows; the rest is English in any
@@ -114,7 +127,7 @@ func newScreenWatch() *screenWatch {
 		available: ScreenWatchAvailable,
 		thumb:     screenThumb,
 		classify:  classifyScreen,
-		viewers:   func() int { return HdmiState().ViewerCount },
+		viewers:   watchingViewers,
 		begin:     videogate.Begin,
 		read:      readScreenLines,
 		now:       time.Now,

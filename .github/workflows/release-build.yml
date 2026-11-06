@@ -11,14 +11,14 @@ name: Release build
 on:
   push:
     branches: [main]
-    paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**', 'tests/test-mjpeg-native-contracts.py',
+    paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**',
             'tests/test-zram-pages.py', 'tests/test-lz4-decompressor.py', 'tests/zram-pages/**',
-            'tests/lz4-compressor/**', '!.github/workflows/ci.yml',
+            'tests/lz4-compressor/decoder-*', '!.github/workflows/ci.yml',
             '!.github/workflows/codeql.yml']
   pull_request:
-    paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**', 'tests/test-mjpeg-native-contracts.py',
+    paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**',
             'tests/test-zram-pages.py', 'tests/test-lz4-decompressor.py', 'tests/zram-pages/**',
-            'tests/lz4-compressor/**', '!.github/workflows/ci.yml',
+            'tests/lz4-compressor/decoder-*', '!.github/workflows/ci.yml',
             '!.github/workflows/codeql.yml']
   workflow_dispatch:
 
@@ -70,11 +70,6 @@ jobs:
           platform/build.sh -o "$OUT" web firmware
           du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
-
-      - name: Check native capture contracts
-        run: |
-          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts"
-          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts-sanitize" --sanitize
 
       - name: Check zram page primitives
         run: |

@@ -12,9 +12,11 @@ import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { createVideoAudioChannel, getVideoAudio, publishVideoAudio } from '@/lib/video-audio.ts';
 import { recordAudioReceiver } from '@/lib/webrtc-audio-recording.ts';
+import { client } from '@/lib/websocket.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
 import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
+import { StallCheck, StallProbe } from './stall-check.ts';
 import { ScreenViewport } from './viewport.tsx';
 import { startWebrtcDiagnostics } from './webrtc-diagnostics.ts';
 import { canRecordReceiver, receiverRecording } from './webrtc-recording.ts';
@@ -34,6 +36,9 @@ const WEBRTC_FAST_RECONNECT_DELAY = 500;
 // In video recovery mode the server answers each signaling attempt with 503, so for
 // the recovery window a visible page costs it about two TLS handshakes a second.
 const signalingRecovery = new ConnectRecovery();
+// How often a frozen video is checked, so a probe starts soon after its reply window
+// ends (StallProbe paces probes).
+const STALL_PROBE_EVERY = 100;
 
 const parseSignalingData = <T,>(data?: string): T | null => {
   if (!data) {
@@ -120,6 +125,7 @@ export const H264Webrtc = ({
     let stopDiagnostics: (() => void) | null = null;
     let disposed = false;
     let terminalFailure = false;
+    const stall = new StallCheck();
 
     const showConnectionFailureNotification = () => {
       notificationApi.error({
@@ -147,7 +153,24 @@ export const H264Webrtc = ({
       if (signalingOpened && !disposed) signalingRecovery.lost(Date.now());
     };
 
-    const scheduleReconnect = (reason: string, error?: unknown, fast = false) => {
+    // now: the stall probe showed the old connection dead and the server up.
+    // fast: a failed peer, as before. A signaling socket lost soon before (see
+    // ConnectRecovery) also retries fast. Like WsClient, a hidden page otherwise keeps
+    // the backoff.
+    const reconnectDelay = (pace: 'now' | 'fast' | 'normal') => {
+      if (pace === 'fast') return WEBRTC_FAST_RECONNECT_DELAY;
+      if (document.visibilityState !== 'visible') return WEBRTC_RECONNECT_DELAY;
+      if (pace === 'now') return 0;
+      return signalingRecovery.recovering(Date.now())
+        ? WEBRTC_FAST_RECONNECT_DELAY
+        : WEBRTC_RECONNECT_DELAY;
+    };
+
+    const scheduleReconnect = (
+      reason: string,
+      error?: unknown,
+      pace: 'now' | 'fast' | 'normal' = 'normal'
+    ) => {
       if (disposed || terminalFailure) {
         return;
       }
@@ -160,16 +183,10 @@ export const H264Webrtc = ({
         return;
       }
 
-      reconnectTimer = setTimeout(
-        () => {
-          reconnectTimer = null;
-          setConnectionAttempt((attempt) => attempt + 1);
-        },
-        // Like WsClient, a hidden page keeps the backoff while recovering.
-        fast || (document.visibilityState === 'visible' && signalingRecovery.recovering(Date.now()))
-          ? WEBRTC_FAST_RECONNECT_DELAY
-          : WEBRTC_RECONNECT_DELAY
-      );
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        setConnectionAttempt((attempt) => attempt + 1);
+      }, reconnectDelay(pace));
     };
 
     const sendMsg = (event: string, data: string) => {
@@ -227,7 +244,7 @@ export const H264Webrtc = ({
 
         if (peer.connectionState === 'failed') {
           signalingLost();
-          scheduleReconnect('peer connection state is failed', undefined, true);
+          scheduleReconnect('peer connection state is failed', undefined, 'fast');
         } else if (peer.connectionState === 'connected') {
           cancelReconnect();
           notificationApi.destroy(WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY);
@@ -327,11 +344,13 @@ export const H264Webrtc = ({
     ws.onopen = () => {
       signalingOpened = true;
       clearTimeout(signalingConnectTimer);
-      signalingRecovery.opened(Date.now() - signalingCreatedAt);
+      const openMs = Date.now() - signalingCreatedAt;
+      signalingRecovery.opened(openMs);
       if (disposed) {
         ws.close();
         return;
       }
+      stall.opened(openMs);
 
       heartbeatTimer = setInterval(() => {
         sendMsg('heartbeat', '');
@@ -406,6 +425,7 @@ export const H264Webrtc = ({
             audioChannel?.emit('error', msg.data);
             break;
           case 'heartbeat':
+            stall.reply(Date.now());
             break;
           default:
             console.log('Unhandled event:', msg.event);
@@ -423,6 +443,42 @@ export const H264Webrtc = ({
       }
     }, 5 * 1000);
 
+    // A power cut leaves this page's sockets open with no FIN, so they only fail when TCP
+    // retransmits (backing off to several seconds apart) reach the rebooted device, and a
+    // fetch rides the same HTTP/2 connection. A new WebSocket opens its own connection and
+    // works as soon as the device is up. StallCheck decides when the old one is dead.
+    // currentTime keeps advancing for a while after the frames stop, so time the frames.
+    const onVideoFrame = () => {
+      stall.frame(Date.now());
+      if (!disposed) videoElement?.requestVideoFrameCallback?.(onVideoFrame);
+    };
+    videoElement?.requestVideoFrameCallback?.(onVideoFrame);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') stall.shown(Date.now());
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const stallProbe = new StallProbe(stall, {
+      now: Date.now,
+      canCheck: () =>
+        !reconnectTimer &&
+        !terminalFailure &&
+        ws.readyState === WebSocket.OPEN &&
+        document.visibilityState === 'visible',
+      inputConnected: () => client.isConnected,
+      heartbeat: () => sendMsg('heartbeat', ''),
+      openProbe: () => new WebSocket(url),
+      dead: () => {
+        if (disposed) return;
+        // Closing a dead connection reports onclose only after this effect is gone, so
+        // record the loss now: the next signaling attempt gets the recovery timeout.
+        signalingLost();
+        ws.close();
+        // The probe reached the server, so the new connection need not wait.
+        scheduleReconnect('the video froze and its connection is silent', undefined, 'now');
+      }
+    });
+    const stallProbeTimer = setInterval(() => stallProbe.tick(), STALL_PROBE_EVERY);
+
     const connectionTimeoutTimer = setTimeout(() => {
       if (!video || video.connectionState !== 'connected') {
         scheduleReconnect(
@@ -433,6 +489,9 @@ export const H264Webrtc = ({
 
     return () => {
       disposed = true;
+      clearInterval(stallProbeTimer);
+      stallProbe.dispose();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       setScreenshotSource(null);
       stopDiagnostics?.();
       cancelReconnect();

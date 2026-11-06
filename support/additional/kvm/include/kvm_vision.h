@@ -116,6 +116,9 @@ int kvmv_hdmi_control(uint8_t _en);
 int kvmv_edid_maintenance(uint8_t pause);
 /* Stream rate the server will request; VPSS drops surplus input frames. */
 int kvmv_set_capture_fps(uint8_t fps);
+/* Capture mode of the first capture start (1: 4:2:0), which has no encoder
+   to follow. Called by the server before kvmv_init. */
+int kvmv_set_first_capture_yuv420(uint8_t want);
 uint8_t kvmv_hdmi_signal_active(void);
 /* Parks (1) or resumes (0) the VPSS outputs while nobody reads frames. A
    read resumes them by itself. */

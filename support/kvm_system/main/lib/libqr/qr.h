@@ -274,12 +274,6 @@ typedef struct qrcode_sa_t {
   qr_param_t param;         /* 出力パラメータ */
 } QRStructured;
 
-/*
- * QRコード出力関数型
- */
-typedef qr_byte_t *(*QRConverter)(QRCode *, int, int, int *);
-typedef qr_byte_t *(*QRsConverter)(QRStructured *, int, int, int, int *);
-
 #define qrIsBlacke(qr, i, j) (((qr)->symbol[(i)][(j)] & QR_MM_BLACK) != 0)
 
 /*
@@ -309,30 +303,6 @@ QR_API int qrsFinalize(QRStructured *st);
 QR_API int qrsIsFinalized(const QRStructured *st);
 QR_API int qrsHasData(const QRStructured *st);
 QR_API QRStructured *qrsClone(const QRStructured *st, int *errcode);
-
-/*
- * 出力用関数のプロトタイプ
- */
-QR_API int qrOutputSymbol(QRCode *qr, FILE *fp, int fmt, int sep, int mag);
-QR_API int qrOutputSymbol2(QRCode *qr, const char *pathname, int fmt, int sep, int mag);
-QR_API qr_byte_t *qrGetSymbol(QRCode *qr, int fmt, int sep, int mag, int *size);
-QR_API qr_byte_t *qrSymbolToDigit(QRCode *qr, int sep, int mag, int *size);
-QR_API qr_byte_t *qrSymbolToASCII(QRCode *qr, int sep, int mag, int *size);
-QR_API qr_byte_t *qrSymbolToJSON(QRCode *qr, int sep, int mag, int *size);
-QR_API qr_byte_t *qrSymbolToPBM(QRCode *qr, int sep, int mag, int *size);
-QR_API qr_byte_t *qrSymbolToBMP(QRCode *qr, int sep, int mag, int *size);
-
-/*
- * 構造的連接出力用関数のプロトタイプ
- */
-QR_API int qrsOutputSymbols(QRStructured *st, FILE *fp, int fmt, int sep, int mag, int order);
-QR_API int qrsOutputSymbols2(QRStructured *st, const char *pathname, int fmt, int sep, int mag, int order);
-QR_API qr_byte_t *qrsGetSymbols(QRStructured *st, int fmt, int sep, int mag, int order, int *size);
-QR_API qr_byte_t *qrsSymbolsToDigit(QRStructured *st, int sep, int mag, int order, int *size);
-QR_API qr_byte_t *qrsSymbolsToASCII(QRStructured *st, int sep, int mag, int order, int *size);
-QR_API qr_byte_t *qrsSymbolsToJSON(QRStructured *st, int sep, int mag, int order, int *size);
-QR_API qr_byte_t *qrsSymbolsToPBM(QRStructured *st, int sep, int mag, int order, int *size);
-QR_API qr_byte_t *qrsSymbolsToBMP(QRStructured *st, int sep, int mag, int order, int *size);
 
 #ifdef __cplusplus
 } // extern "C"

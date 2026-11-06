@@ -838,7 +838,7 @@
         "saved": "Nastavení přístupového bodu bylo uloženo.",
         "saveFailed": "Nastavení přístupového bodu se nepodařilo uložit.",
         "loadFailed": "Nastavení přístupového bodu se nepodařilo načíst.",
-        "warning": "Uložením se Wi-Fi restartuje. Pokud jste připojeni přes Wi-Fi, tato stránka zařízení ztratí: připojte se k přístupovému bodu a do 2 minut změnu potvrďte, jinak se vrátí předchozí nastavení.",
+        "warning": "Uložením se Wi-Fi restartuje. Pokud jste připojeni přes Wi-Fi nebo přes VPN, která přes ni vede, tato stránka zařízení ztratí: připojte se k přístupovému bodu a do 2 minut změnu potvrďte, jinak se vrátí předchozí nastavení.",
         "invalidSsid": "Zadejte název dlouhý 1 až 32 bajtů.",
         "invalidPassword": "Zadejte 8 až 63 znaků: písmena, číslice nebo symboly.",
         "invalidSubnet": "Zadejte tři čísla privátní sítě, například 192.168.50.",

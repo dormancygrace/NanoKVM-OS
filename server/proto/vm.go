@@ -278,14 +278,6 @@ type EnableSSHReq struct {
 	Password         string `json:"password" validate:"required"`
 }
 
-type GetSwapRsp struct {
-	Size int64 `json:"size"` // unit: MB
-}
-
-type SetSwapReq struct {
-	Size int64 `validate:"omitempty"` // unit: MB
-}
-
 type GetMouseJigglerRsp struct {
 	Enabled bool   `json:"enabled"`
 	Mode    string `json:"mode"`
@@ -388,11 +380,6 @@ type SetInputRegionReq struct {
 
 type GetInputRegionRsp struct {
 	InputRegion
-}
-
-type GetInputResolutionRsp struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
 }
 
 // Explicit false is valid; omitted fields are rejected.

@@ -16,8 +16,8 @@ in [docs/BUILD.md](../docs/BUILD.md) and [platform/README.md](../platform/README
 | `sensor/` | LT6911 HDMI receiver driver patches |
 | `services/` | Serial console and serial bridge services with their tests |
 | `sources/` | BusyBox 1.36.1 source, kept for the GPL while v2.0-b4 is supported |
-| `toolchain/` | T-Head instruction probe and profile |
-| `sources.json` | Pinned upstream sources |
+| [toolchain/](toolchain/thead/README.md) | C906 compiler and instruction notes |
+| `sources.json` | Kernel, json-c and miniz details that the MPI build and update scripts read; the pins themselves are in `platform/sources.lock` |
 
 ## C906 notes
 

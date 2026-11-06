@@ -51,7 +51,7 @@ jobs:
               - server/third_party
       - if: matrix.language == 'go'
         name: Compression headers
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev liblzma-dev
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - if: matrix.language == 'go'
         name: Build Go server (teststub)
         working-directory: server

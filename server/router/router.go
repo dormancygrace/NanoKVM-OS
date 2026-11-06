@@ -103,7 +103,6 @@ func server(r *gin.Engine) {
 
 func LoopbackHTTPAllowedPaths() []string {
 	paths := PicoclawLoopbackHTTPAllowedPaths()
-	paths = append(paths, HIDLoopbackHTTPAllowedPaths()...)
 	paths = append(paths, BMCLoopbackHTTPAllowedPaths()...)
 	return paths
 }

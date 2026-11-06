@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { defaultTimePreferences, formatDeviceDay, formatDeviceTime } from '../src/lib/date-time.ts';
+import { defaultTimePreferences, formatDeviceTime } from '../src/lib/date-time.ts';
 
 test('24-hour default ignores en-US browser preference and uses 00 at midnight', () => {
   assert.equal(
@@ -26,14 +26,22 @@ test('a chosen date order applies in every language, in the device time zone', (
       formatDeviceTime(time, { ...zone, dateFormat: 'mdy' }, locale, true),
       '10/10/2026 01:30:05'
     );
-    assert.equal(formatDeviceDay(time, { ...zone, dateFormat: 'ymd' }, locale), '2026-10-10');
+    assert.equal(
+      formatDeviceTime(time, { ...zone, dateFormat: 'ymd' }, locale, true),
+      '2026-10-10 01:30:05'
+    );
   }
   assert.equal(
-    formatDeviceDay(Date.parse('2026-03-05T12:00:00Z'), { ...zone, dateFormat: 'dmy' }, 'en-US'),
-    '05.03.2026'
+    formatDeviceTime(
+      Date.parse('2026-03-05T12:00:00Z'),
+      { ...zone, dateFormat: 'dmy' },
+      'en-US',
+      true
+    ),
+    '05.03.2026 14:00:00'
   );
   // Without a choice the language decides, as before.
-  assert.equal(formatDeviceDay(time, zone, 'en-US'), 'Oct 10, 2026');
+  assert.match(formatDeviceTime(time, zone, 'en-US', true), /^Oct 10, 2026/);
   assert.equal(
     formatDeviceTime(time, { ...zone, dateFormat: 'auto' }, 'en-US', true),
     formatDeviceTime(time, zone, 'en-US', true)

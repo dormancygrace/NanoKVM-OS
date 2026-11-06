@@ -18,18 +18,30 @@ const communityOff = `https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/ri
 https://dl-cdn.alpinelinux.org/alpine/v3.24/main
 `
 
-// communityFixture points the repositories, locks and marker at a temporary
-// directory and installs a fake apk whose `list --orphaned` prints $WITH or
-// $WITHOUT, depending on whether the repositories file lists community, and
-// $WARN on stderr.
+func read(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// communityFixture points the repositories and locks at a temporary directory
+// and installs a fake apk whose `list --orphaned` prints $WITH or $WITHOUT,
+// depending on whether the repositories file lists community, and $WARN on
+// stderr.
 func communityFixture(t *testing.T, repositories string) string {
 	t.Helper()
-	dir := edgeFixture(t, repositories, "", "")
-	oldMarker, oldTmp, oldExec, oldLock, oldApkLock := communityMarkerPath, communityTmpDir, apkExecutable, updateLock, apkrun.LockPath
+	oldRepos, oldDBLock, oldTmp, oldExec, oldLock, oldApkLock := repositoriesPath, apkDBLockPath, communityTmpDir, apkExecutable, updateLock, apkrun.LockPath
 	t.Cleanup(func() {
-		communityMarkerPath, communityTmpDir, apkExecutable, updateLock, apkrun.LockPath = oldMarker, oldTmp, oldExec, oldLock, oldApkLock
+		repositoriesPath, apkDBLockPath, communityTmpDir, apkExecutable, updateLock, apkrun.LockPath = oldRepos, oldDBLock, oldTmp, oldExec, oldLock, oldApkLock
 	})
-	communityMarkerPath = filepath.Join(dir, "kvm", "apk-community.chosen")
+	dir := t.TempDir()
+	repositoriesPath, apkDBLockPath = filepath.Join(dir, "repositories"), filepath.Join(dir, "lock")
+	if err := os.WriteFile(repositoriesPath, []byte(repositories), 0644); err != nil {
+		t.Fatal(err)
+	}
 	communityTmpDir = t.TempDir()
 	apkrun.LockPath = filepath.Join(dir, "apk.lock")
 	updateLock = func() (*os.File, error) { return os.Open(dir) }
@@ -88,8 +100,5 @@ func TestSetCommunityRefusesWhileNeeded(t *testing.T) {
 	}
 	if got := read(t, filepath.Join(dir, "repositories")); got != communityRepositories {
 		t.Fatalf("repositories changed: %q", got)
-	}
-	if _, err := os.Stat(communityMarkerPath); err == nil {
-		t.Fatal("a refused change was recorded as chosen")
 	}
 }

@@ -15,14 +15,6 @@ void* thread_oled_handle(void *)
 	OLED_Clear();
 	// U-Boot drew the boot logo; it stays until the server is up.
 	kvm_oled_splash();
-	if(kvm_oled_state.ue_patch_state == 1){
-		kvm_show_UE();
-		while(kvm_sys_state.oled_thread_running){
-            oled_auto_sleep();
-			kvms::sleep_ms(100);
-		}
-		OLED_Clear();
-	}
 
     while(kvm_sys_state.oled_thread_running)
     {
@@ -171,8 +163,6 @@ void* thread_sys_handle(void *)
 			kvm_update_wifi_state();
 			if (oled_shows_state()) {
 				kvm_update_eth_state();
-				// kvm_update_rndis_state();
-				// kvm_update_tailscale_state();
 				// sys_state
 				kvm_update_usb_state();
 				kvm_update_hdmi_state();
@@ -231,12 +221,6 @@ int main(int argc, char* argv[])
 	pthread_t display_thread;
 	bool display_thread_started = false;
 	pthread_t key_thread;
-
-	// only for production testing
-	if (access("/tmp/S49kvmtest", F_OK) == 0){
-		printf("Production testing patch\n");
-		Production_testing_patch();
-	}
 
 	system("sync");
 

@@ -20,7 +20,7 @@ import (
 func TestCheckTokenUsesLiveRoleAndVersion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	admin, err := store.SetPassword("admin", "owner-password")
+	admin, err := store.SetPasswordAndRunIf("admin", "owner-password", nil, nil)
 	if err != nil {
 		t.Fatalf("set owner password: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestCheckTokenUsesLiveRoleAndVersion(t *testing.T) {
 func TestCheckTokenAcceptsBearerAndRejectsInvalidBearerOverCookie(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	admin, err := store.SetPassword("admin", "owner-password")
+	admin, err := store.SetPasswordAndRunIf("admin", "owner-password", nil, nil)
 	if err != nil {
 		t.Fatalf("set owner password: %v", err)
 	}

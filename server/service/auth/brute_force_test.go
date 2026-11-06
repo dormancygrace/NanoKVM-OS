@@ -90,7 +90,7 @@ func TestRecordLoginFailureAtCapacityDoesNotResetOtherLockouts(t *testing.T) {
 		records[fmt.Sprintf("unlocked-%d", index)] = &loginAttempt{failures: 2, lastFailed: now.Add(-time.Minute)}
 	}
 	useLoginAttemptRecords(t, records)
-	RecordLoginFailure("192.0.2.2")
+	RecordLoginFailureFor("192.0.2.2", "")
 	if blocked, _, _ := CheckLoginAttempt("192.0.2.1"); !blocked {
 		t.Fatal("existing lockout was lost at capacity")
 	}
@@ -137,7 +137,7 @@ func TestLoginAttemptSaturationDeniesNewAddressesAndPreservesAllLockouts(t *test
 			t.Fatalf("new IP check = blocked:%v code:%d, want temporary denial", blocked, code)
 		}
 		// Also covers saturation between the initial check and failure write.
-		if blocked, code, _ := RecordLoginFailure(ip); !blocked || code != -5 {
+		if blocked, code, _ := RecordLoginFailureFor(ip, ""); !blocked || code != -5 {
 			t.Fatalf("new IP failure = blocked:%v code:%d, want temporary denial", blocked, code)
 		}
 	}
@@ -168,7 +168,7 @@ func TestLoginAttemptSaturationExpiresAndAdmitsNewAddress(t *testing.T) {
 	if blocked, _, _ := CheckLoginAttempt("192.0.2.10"); blocked {
 		t.Fatal("expired lockout did not restore admission")
 	}
-	if blocked, _, _ := RecordLoginFailure("192.0.2.10"); blocked {
+	if blocked, _, _ := RecordLoginFailureFor("192.0.2.10", ""); blocked {
 		t.Fatal("expired capacity could not record a new failure")
 	}
 	loginMutex.Lock()
@@ -219,7 +219,7 @@ func TestLoginAttemptNormalFailureLockoutAndRecovery(t *testing.T) {
 		if blocked, _, _ := CheckLoginAttempt(ip); blocked {
 			t.Fatalf("blocked before failure threshold: %d", failure)
 		}
-		RecordLoginFailure(ip)
+		RecordLoginFailureFor(ip, "")
 	}
 	if blocked, _, _ := CheckLoginAttempt(ip); !blocked {
 		t.Fatal("failure threshold did not lock out address")
@@ -252,7 +252,7 @@ func TestLoginAttemptDisabledProtectionDoesNotDenySaturation(t *testing.T) {
 	if blocked, _, _ := CheckLoginAttempt("192.0.2.10"); blocked {
 		t.Fatal("disabled protection denied login")
 	}
-	if blocked, _, _ := RecordLoginFailure("192.0.2.10"); blocked {
+	if blocked, _, _ := RecordLoginFailureFor("192.0.2.10", ""); blocked {
 		t.Fatal("disabled protection denied failed login")
 	}
 }
@@ -283,7 +283,7 @@ func TestSuccessfulLoginClearsOnlyItsOwnFailures(t *testing.T) {
 
 	// Mixed or unreadable failures stay until they expire or lock out.
 	RecordLoginFailureFor(ip, "viewer")
-	RecordLoginFailure(ip)
+	RecordLoginFailureFor(ip, "")
 	ClearLoginAttempt(ip, "viewer")
 	loginMutex.Lock()
 	kept = loginAttempts[ip]

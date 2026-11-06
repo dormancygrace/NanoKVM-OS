@@ -43,7 +43,6 @@ func main() {
 	go logs.RunArchive(ctx)
 	go acme.RunRenewal(ctx)
 	go osupdate.RunNoticeSchedule(ctx)
-	go osupdate.RunRepositoryMigrations(ctx)
 	go vm.ReconcileMdnsAfterBoot(ctx)
 	defer func() { stopMemory(); dispose() }()
 

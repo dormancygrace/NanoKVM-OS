@@ -1,0 +1,37 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034
+description="NanoKVM clock floor"
+# A NanoKVM keeps no time without power, so after a power loss the kernel
+# starts the clock in 1970. Until chrony reaches a server, SSH host keys,
+# the HTTPS certificate and logs made at boot would carry that date: a
+# certificate made then expired in 1980. The clock starts instead at the
+# newest of the installed release, the last package change and the last
+# shutdown with a synchronised clock; chrony corrects it from there.
+stamp=/var/lib/nanokvm/clock
+
+depend() {
+    after clock
+}
+
+start() {
+    floor=0
+    for file in /etc/nanokvm-release /lib/apk/db/installed "$stamp"; do
+        mtime=$(stat -c %Y "$file" 2>/dev/null) || continue
+        [ "$mtime" -le "$floor" ] || floor=$mtime
+    done
+    [ "$(date +%s)" -lt "$floor" ] || return 0
+    ebegin "Starting the clock at $(date -u -d "@$floor" '+%Y-%m-%d %H:%M') UTC"
+    date -u -s "@$floor" >/dev/null
+    eend $?
+}
+
+# At shutdown, remember the time of a synchronised clock for the next boot.
+# An unsynchronised clock is not kept: it may be the floor itself or wrong.
+stop() {
+    yesno "$RC_GOINGDOWN" || return 0
+    status=$(adjtimex 2>/dev/null | awk '$1 == "status:" { print $2 }')
+    [ -n "$status" ] && [ $((status & 64)) -eq 0 ] || return 0
+    if ! { mkdir -p "${stamp%/*}" && touch "$stamp"; }; then
+        ewarn "Could not keep the time for the next boot"
+    fi
+}

@@ -15,7 +15,7 @@ import (
 func TestClockRequiresAdministrator(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "accounts.json"))
-	admin, err := store.SetPassword("admin", "owner-password")
+	admin, err := store.SetPasswordAndRunIf("admin", "owner-password", nil, nil)
 	if err != nil {
 		t.Fatalf("admin account: %v", err)
 	}

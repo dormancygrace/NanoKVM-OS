@@ -88,7 +88,7 @@ func checkPausedLoginBody(t *testing.T, lockWhileReading bool) {
 
 	if lockWhileReading {
 		for range 5 {
-			RecordLoginFailure("192.0.2.90")
+			RecordLoginFailureFor("192.0.2.90", "")
 		}
 		resumeBody()
 		select {

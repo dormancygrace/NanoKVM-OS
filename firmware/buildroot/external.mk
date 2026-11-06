@@ -1,5 +1,3 @@
-include $(sort $(wildcard $(BR2_EXTERNAL_NANOKVM_PATH)/package/*/*.mk))
-
 # Buildroot applies BR2_TARGET_OPTIMIZATION through its compiler wrapper, but
 # GCC builds libstdc++/libgomp with xgcc directly. Propagate the same C906 flags
 # there too; otherwise those runtime libraries still contain fence.tso.

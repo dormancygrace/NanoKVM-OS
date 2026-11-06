@@ -90,8 +90,8 @@ stays until kvm_system takes over the display. Without the file the display
 stays dark. The file holds the panel's initialization and the logo frame as
 I2C writes (`scripts/gen-oled-boot-logo.py`, the same commands as
 kvm_system). `nanokvm-bootloader` carries one per board in
-`/usr/lib/nanokvm/bootloader/oled`; the board selection and
-`activate-bootloader` copy the board's own. Beta, Lite and PCIe have their
+`/usr/lib/nanokvm/bootloader/oled`; `activate-bootloader` copies the
+board's own when the package is installed or upgraded on a selected board. Beta, Lite and PCIe have their
 panel on GPIO I2C, which `nkoled` drives; Alpha's is on a hardware I2C
 controller, so Alpha has no logo yet. On the PCIe stand the logo costs about
 15 ms of boot (301 bytes).

@@ -22,9 +22,8 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm`, `nanokvm-base` |
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware` |
-| `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license) | `nanokvm-zlib`, in place of Alpine's `zlib` |
+| `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license; zlib-ng is also linked statically into NanoKVM-Server for its gzip reader) | `nanokvm-zlib`, in place of Alpine's `zlib`; the license also in `nanokvm`, `/usr/share/licenses/nanokvm` |
 | `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.3 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs`, `nanokvm-i2c-tools` |
-| `images/tools/xz/COPYING.0BSD` (liblzma license; zlib-ng and liblzma are also linked statically into NanoKVM-Server for its gzip and xz readers) | `nanokvm`, `/usr/share/licenses/nanokvm` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
 | `release/apk/` | the signed APK repository of the nineteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
@@ -291,7 +290,7 @@ RustDesk performance build, measurement limits and release checksum policy.
 
 ## HDMI-light media runtime
 
-The standard build and `nanokvm` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle. `NANOKVM_MMF_PROFILE=full` is retained only for explicit comparison builds through the lower-level MMF script.
+The standard build and `nanokvm` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle.
 
 APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
 

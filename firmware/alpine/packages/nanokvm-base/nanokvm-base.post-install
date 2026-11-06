@@ -9,8 +9,9 @@ for service in devfs dmesg procfs sysfs; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" sysinit
 done
 # NanoKVM services load their drivers explicitly; the kernel set the clock
-# from the RTC (osclock provides "clock" instead of hwclock).
-for service in loopback bootmisc hostname localmount modules osclock sysctl udev udev-trigger; do
+# from the RTC (osclock provides "clock" instead of hwclock), and
+# nanokvm-clock keeps it from starting in 1970.
+for service in loopback bootmisc hostname localmount modules osclock nanokvm-clock sysctl udev udev-trigger; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" boot
 done
 for service in nanokvm-storage nanokvm-modules nanokvm-board \
@@ -36,6 +37,7 @@ done
 #   kept from udev anyway). On the stand the server started 1 s sooner. An
 #   rc_coldplug the user set stays.
 if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd; then
+    # shellcheck disable=SC2016 # literal text
     printf '%s\n' '# NanoKVM: no `sshd -G` while OpenRC builds its dependency tree' 'rc_need=""' >> /etc/conf.d/sshd
 fi
 if [ -f /etc/conf.d/bootmisc ]; then
@@ -44,6 +46,7 @@ fi
 # NanoKVM udev coldplug default: evaluated when OpenRC sources the config.
 # Preserve service-local, exported, global and legacy-uppercase preferences.
 udev_trigger=/etc/conf.d/udev-trigger
+# shellcheck disable=SC2016 # written verbatim, expanded by OpenRC
 udev_default=': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"'
 if [ -f "$udev_trigger" ] && ! grep -Fqx "$udev_default" "$udev_trigger"; then
     printf '\n%s\n%s\n' '# NanoKVM: default to device-node and network replay' "$udev_default" >> "$udev_trigger"
@@ -65,15 +68,13 @@ touch /etc/kvm/ssh_stop
 # setting stay as they are.
 syslog_conf=/etc/conf.d/syslog
 syslog_marker='# NanoKVM: the live system log in RAM'
-syslog_changed=no
 if [ ! -e "$syslog_conf" ] || [ "$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$syslog_conf")" = 'SYSLOGD_OPTS="-t"' ]; then
     mkdir -p "$(dirname "$syslog_conf")"
     printf '%s\n%s\n%s\n' "$syslog_marker" 'mkdir -p /run/log' \
         'SYSLOGD_OPTS="-t -O /run/log/messages -s 512 -b 1"' > "$syslog_conf"
-    syslog_changed=yes
 fi
 # A fresh image starts syslog with the RAM log; nothing was written to the card.
-unset syslog_conf syslog_marker syslog_changed
+unset syslog_conf syslog_marker
 mkdir -p /etc/kvm/cron/crontabs
 if [ ! -L /etc/crontabs ]; then
     cp -an /etc/crontabs/. /etc/kvm/cron/crontabs/ 2>/dev/null || true

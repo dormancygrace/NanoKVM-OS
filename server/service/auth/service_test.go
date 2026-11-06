@@ -247,7 +247,7 @@ func TestLoginAcceptsFormEncodedRawOpenSSLPassword(t *testing.T) {
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
 	restore := useTestStore(store)
 	defer restore()
-	if _, err := store.SetPassword("admin", "operator-password"); err != nil {
+	if _, err := store.SetPasswordAndRunIf("admin", "operator-password", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -551,7 +551,7 @@ const ownerPassword = "owner-password"
 // owner does before using the device.
 func changeFactoryPassword(t *testing.T, store *authn.Store) {
 	t.Helper()
-	if _, err := store.SetPassword("admin", ownerPassword); err != nil {
+	if _, err := store.SetPasswordAndRunIf("admin", ownerPassword, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 }

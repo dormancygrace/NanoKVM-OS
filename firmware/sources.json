@@ -1,38 +1,8 @@
 {
-  "product": "NanoKVM OS",
-  "status": "in-development-not-a-qualified-image",
-  "verified_on": "2026-09-05",
-  "buildroot": {
-    "version": "2026.08.1",
-    "url": "https://buildroot.org/downloads/buildroot-2026.08.1.tar.xz",
-    "sha256": "34fb7bea8a213ffde39cc02e61703391560f26e0850f03138c722d0b09880f2b"
-  },
   "linux": {
     "version": "7.3.1",
     "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.3.1.tar.xz",
     "sha256": "fa595aad93734f829c963c2a90ef7c3673224fd7fdae7b49406e397cde2de231"
-  },
-  "gcc": {
-    "version": "16.2.0",
-    "source": "Buildroot pinned package"
-  },
-  "xuantie": {
-    "latest_documented_toolchain": "3.4.1",
-    "gcc_base": "14.3",
-    "availability": "release documented; exact downloadable build/source not yet established",
-    "public_github_toolchain": "3.0.1",
-    "public_github_gcc_commit": "c2e0bcc86d1f6eb59051cba8efdcca165fa3e858",
-    "public_github_gcc_base": "14.1.1"
-  },
-  "sophgo_osdrv": {
-    "url": "https://github.com/sophgo/osdrv.git",
-    "commit": "1b3a49649d18488ecf54fb4fcb6c27599e433fdc",
-    "branch": "sg200x-dev"
-  },
-  "sophgo_cvi_mpi": {
-    "url": "https://github.com/sophgo/cvi_mpi.git",
-    "commit": "693a72a1d52f2e08ea767e0a72905e81f10572a5",
-    "branch": "sg200x-dev"
   },
   "sophgo_kernel_port_reference": {
     "url": "https://github.com/sophgo/linux_5.10.git",
@@ -47,20 +17,6 @@
     "scope": "MPI BIN/ISP_BIN source build; independent of Alpine and the platform Buildroot profile"
   },
   "miniz": {
-    "version": "3.1.2+git2948eeb",
-    "url": "https://github.com/richgel999/miniz.git",
-    "commit": "2948eebafc5b9f1c69bebed80333e403a09bd62d",
-    "scope": "MPI BIN/ISP_BIN source build"
-  },
-  "inih": {
-    "version": "r63",
-    "url": "https://github.com/benhoyt/inih.git",
-    "commit": "611ab51f8dd7ec583543815b0de693495045fbf8"
-  },
-  "sophgo_sensors": {
-    "url": "https://github.com/sophgo/SensorSupportList.git",
-    "branch": "sg200x-dev",
-    "commit": "e2824e1d07f516c41238e123fefbab71a34843bc",
-    "qualification": "LT6911 callbacks tested; UXC hardware probe integration pending"
+    "version": "3.1.2+git2948eeb"
   }
 }

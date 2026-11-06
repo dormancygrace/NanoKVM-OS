@@ -23,6 +23,34 @@ var apkStateDir = "/run/nanokvm-apk-ui"
 
 var apkExecutable = "/sbin/apk"
 
+var (
+	worldPath     = "/etc/apk/world"
+	apkDBLockPath = "/lib/apk/db/lock"
+)
+
+// errAPKDBBusy means apk holds its database lock.
+var errAPKDBBusy = errors.New("apk database is in use")
+
+func installedVersions() (map[string]string, error) {
+	data, err := os.ReadFile(installedDBPath)
+	if err != nil {
+		return nil, err
+	}
+	versions := map[string]string{}
+	name := ""
+	for _, line := range strings.Split(string(data), "\n") {
+		switch {
+		case line == "":
+			name = ""
+		case strings.HasPrefix(line, "P:"):
+			name = line[2:]
+		case strings.HasPrefix(line, "V:") && name != "":
+			versions[name] = line[2:]
+		}
+	}
+	return versions, nil
+}
+
 type APKStatus struct {
 	State    string `json:"state"`
 	Message  string `json:"message,omitempty"`

@@ -1,8 +1,8 @@
-// Package decompress reads gzip and xz streams with zlib-ng and liblzma.
+// Package decompress reads gzip streams with zlib-ng.
 //
-// The image build links both libraries statically from the tools step
+// The image build links the library statically from the tools step
 // (platform/build.sh): on the C906 zlib-ng inflates about three times as fast
-// as compress/gzip, and liblzma about four times as fast as pure-Go xz.
+// as compress/gzip.
 //
 // The C stream state lives in C memory. Go buffers reach C only as arguments
 // of one call, and the C side clears its pointers to them before it returns,
@@ -21,8 +21,6 @@ var (
 	ErrChecksum = errors.New("decompress: checksum mismatch")
 	// ErrCorrupt reports compressed data that cannot be decoded.
 	ErrCorrupt = errors.New("decompress: corrupt data")
-	// ErrMemoryLimit reports an xz stream that needs more memory than allowed.
-	ErrMemoryLimit = errors.New("decompress: memory limit exceeded")
 	// ErrClosed reports a read after Close.
 	ErrClosed = errors.New("decompress: reader closed")
 )

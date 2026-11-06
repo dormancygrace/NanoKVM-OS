@@ -2,5 +2,4 @@ import { setupWorker } from 'msw/browser';
 
 import { handlers } from './handlers';
 
-export { handlers } from './handlers';
 export const worker = setupWorker(...handlers);

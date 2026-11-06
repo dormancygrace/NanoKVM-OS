@@ -8,7 +8,6 @@ import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
 import { getRuntimeStatus } from '@/api/picoclaw.ts';
-import { atxFromHardware } from '@/lib/atx.ts';
 import { subscribeLiveStatus } from '@/lib/live-status.ts';
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
@@ -124,7 +123,9 @@ export const Menu = () => {
   useEffect(
     () =>
       subscribeLiveStatus((status, startedAt) => {
-        if (status && startedAt >= atxLocalChange.at) setAtxEnabled(atxFromHardware(status));
+        if (typeof status?.atx === 'boolean' && startedAt >= atxLocalChange.at) {
+          setAtxEnabled(status.atx);
+        }
       }),
     [setAtxEnabled]
   );

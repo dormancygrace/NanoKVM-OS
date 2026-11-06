@@ -75,7 +75,9 @@ https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 From v3.4.0, new core packages and both indexes are signed only with ECDSA P-256.
 Devices on 3.3.x already trust this key and update normally. Devices that trust
 only the old RSA key must first install a transition release (2.5 through 3.3.x)
-or install the published EC key and current repository URL manually. The old
+or install the published EC key and current repository URL manually. A device
+on a release before 3.3 should use 3.3.0; see
+[Component versions and support](#component-versions-and-support). The old
 RSA public key remains installed for historical packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
@@ -118,8 +120,16 @@ The v3.3.0 transition is also published on the previous `nkos.pesin.pro`
 repository so existing devices can obtain the automatic switch to Pages.
 That repository stays at 3.3.0; subsequent releases are served on Pages.
 
-Releases before 3.3 receive no further fixes. Compatibility for upgrading from
-those releases remains in 3.4 and 3.5; removal is planned for 3.6 after an audit.
+Releases before 3.3 receive no further fixes, and direct updates from them are
+not supported. Releases after 4.0 no longer contain the one-time repository
+migrations for them: the removal of Alpine `edge/community` (`@edgecommunity`)
+and the decision to switch Alpine `community` off when nothing needs it. A
+device on a release before 3.3 must first update to 3.3.0 from the
+`nkos.pesin.pro` repository and boot it once with network access, so that
+3.3.0 finishes those migrations; it can then update to the current release.
+A device that skips this step keeps the edge and community repository lines,
+and every apk run parses their indexes. Community can still be switched off on
+the Software page.
 
 ## Package publication and retention
 

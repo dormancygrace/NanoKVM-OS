@@ -336,6 +336,7 @@
     "monitor": "Monitor HDMI",
     "portrait": "Monitor vertical",
     "automatic": "Automático",
+    "stockProfile": "Perfil propio del receptor (sin programar)",
     "monitorUnavailable": "No es posible cambiar el perfil del monitor virtual en este dispositivo. La detección de la entrada sigue siendo automática.",
     "advanced": "Avanzado y recuperación",
     "fpsLimited": "La entrada actual limita la captura a {{fps}} fps. La solicitud guardada se conserva para el siguiente modo de la fuente.",

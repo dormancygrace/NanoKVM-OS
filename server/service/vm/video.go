@@ -207,6 +207,7 @@ func videoCapabilities() gin.H {
 			"followsStreamRate":  common.MonitorRefreshFollowsStream(),
 			"selected":           selectedMonitorResolution(),
 			"refreshHz":          common.MonitorRefreshHz(),
+			"stockProfile":       common.MonitorStockProfile(),
 			"modes":              monitorModes,
 			"aspects":            common.MonitorAspects,
 			"portrait": gin.H{

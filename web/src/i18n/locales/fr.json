@@ -336,6 +336,7 @@
     "monitor": "Moniteur HDMI",
     "portrait": "Moniteur portrait",
     "automatic": "Automatique",
+    "stockProfile": "Profil propre au récepteur (non programmé)",
     "monitorUnavailable": "La modification du profil du moniteur virtuel n'est pas disponible sur cet appareil. La détection de l'entrée reste automatique.",
     "advanced": "Avancé et récupération",
     "fpsLimited": "L'entrée actuelle limite la capture à {{fps}} fps. La valeur demandée est conservée pour le prochain mode de la source.",

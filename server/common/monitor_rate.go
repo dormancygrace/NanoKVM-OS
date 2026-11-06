@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -188,10 +189,28 @@ func programmedMonitorProfileLocked(path string, height uint16) bool {
 	}
 	recorded, err := os.ReadFile(monitorEDIDHashFile)
 	if err != nil {
+		// A Cube or Lite keeps its receiver's own EDID until a profile is
+		// written: nothing is assumed for it.
+		if MonitorRequiresPowerCycle() {
+			return false
+		}
 		legacy, legacyErr := fileSHA256(monitorProfilePath(height))
 		return legacyErr == nil && legacy == want
 	}
 	return strings.TrimSpace(string(recorded)) == want
+}
+
+// MonitorStockProfile reports a Cube or Lite whose receiver still holds its
+// own EDID: no NanoKVM profile was written to it, so Auto is that EDID and
+// not the profile Auto stands for elsewhere.
+func MonitorStockProfile() bool {
+	if !MonitorRequiresPowerCycle() {
+		return false
+	}
+	monitorMutex.Lock()
+	defer monitorMutex.Unlock()
+	_, err := os.Stat(monitorEDIDHashFile)
+	return errors.Is(err, os.ErrNotExist)
 }
 
 func recordMonitorProfileLocked(path string) {

@@ -336,6 +336,7 @@
     "monitor": "HDMI 显示器",
     "portrait": "纵向显示器",
     "automatic": "自动",
+    "stockProfile": "接收器自带配置（未编程）",
     "monitorUnavailable": "此设备无法更改虚拟显示器配置。输入检测仍为自动。",
     "advanced": "高级与恢复",
     "fpsLimited": "当前输入将采集限制为 {{fps}} fps。已保存的设置会保留，供下一个信号源模式使用。",

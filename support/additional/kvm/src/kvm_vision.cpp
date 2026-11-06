@@ -1626,13 +1626,13 @@ void kvmv_init(uint8_t _debug_info_en)
     else                    debug_en = 1;
 
     // The HDMI source may already be stable before the detection thread starts.
-    // Read UXC dimensions before MMF allocates VI pools; waiting for a new edge
-    // can leave the provisional FHD sensor geometry active on a QHD input.
-    // The later detection thread still handles hot-plug/resolution changes.
+    // Read the receiver's dimensions before MMF allocates VI pools: starting at
+    // the provisional FHD geometry on another input fails every frame (CSI
+    // bridge size errors, pre-raw retries) until detection restarts the
+    // capture. The later detection thread still handles hot-plug/resolution
+    // changes, and a failed read here leaves the provisional geometry.
     get_hdmi_version();
-    if (kvmv_cfg.hdmi_version == 1) {
-        poll_hdmi_receiver(false, true);
-    }
+    poll_hdmi_receiver(false, true);
 
     cam->hmirror(1);
     cam->vflip(1);

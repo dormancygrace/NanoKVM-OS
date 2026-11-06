@@ -52,7 +52,7 @@ func openPair(t *testing.T, network string) (*Conn, *net.UDPConn, *net.UDPAddr) 
 		receiver.Close()
 		t.Fatal(err)
 	}
-	sender, ok := Wrap(raw, false, nil)
+	sender, ok := Wrap(raw, nil)
 	if !ok {
 		raw.Close()
 		receiver.Close()

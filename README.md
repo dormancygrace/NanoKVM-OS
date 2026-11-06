@@ -7,7 +7,6 @@
 **Browser KVM, Internet over USB, remote access and a full Alpine system — on SG2002 NanoKVM hardware.**
 
 [![Latest NanoKVM OS](https://img.shields.io/github/v/release/dormancygrace/NanoKVM-OS?filter=v*&label=NanoKVM%20OS&color=blue)](https://github.com/dormancygrace/NanoKVM-OS/releases/latest)
-[![Latest SD image](https://img.shields.io/endpoint?url=https%3A%2F%2Fdormancygrace.github.io%2FNanoKVM-OS%2Flatest-image%2Fbadge.json)](https://dormancygrace.github.io/NanoKVM-OS/latest-image/)
 ![Platform: SG2002 RISC-V](https://img.shields.io/badge/platform-SG2002%20RISC--V-6366f1)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-green)](LICENSE)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa)](https://github.com/sponsors/dormancygrace)
@@ -286,15 +285,19 @@ Testing, bug reports, translations and code contributions are just as valuable. 
 
 Help improve NanoKVM OS on supported devices and explore new ports! I’m looking for donated hardware:
 
-- ~~**Sipeed NanoKVM Cube**~~ — 💚 **Funded by [Pavel Borecki](https://github.com/p-bo). Thank you for your generous donation!**
+- ~~**Sipeed NanoKVM Lite/Cube — LT6911D**~~ — 💚 **Funded by [Pavel Borecki](https://github.com/p-bo). Thank you for your generous donation!**
+- **Sipeed NanoKVM Lite/Cube — LT6911C**
+- **Sipeed NanoKVM PCIe — LT6911C**
+- **Sipeed NanoKVM Lite/Cube — LT6911UXC**
+- **Sipeed NanoKVM PCIe — LT6911D**
 - **Sipeed NanoKVM-GO**
 - **Sipeed NanoKVM Pro (Desk WiFi)**
 - **Sipeed NanoKVM Pro (ATX+WiFi)**
 - **Sipeed NanoKVM-USB**
 
-Working used devices and manufacturer development samples are welcome. If you have one to contribute, please [email me](mailto:dormancygrace@gmail.com) with the model and hardware revision before shipping so we can arrange delivery to Israel.
+Working used devices and manufacturer development samples are welcome. If you have one to contribute, please [email me](mailto:dormancygrace@gmail.com) with the model, hardware revision and HDMI receiver chip, if known, before shipping so we can arrange delivery to Israel.
 
-Cube is part of the [supported SG2002 family](#compatibility). The GO, Pro and USB models above are targets for exploration and cannot use the current image. A donated device helps make development possible, but a new port and its timeline depend on the hardware, documentation and available source code. Progress will be shared openly, and hardware contributors will be credited unless they prefer to remain anonymous.
+Lite, Cube and PCIe are part of the [supported SG2002 family](#compatibility). Different HDMI receiver variants are needed to test hardware-specific behaviour and fixes. The GO, Pro and USB models above are targets for exploration and cannot use the current image. A donated device helps make development possible, but a new port and its timeline depend on the hardware, documentation and available source code. Progress will be shared openly, and hardware contributors will be credited unless they prefer to remain anonymous.
 
 ## ❤️ Credits and licenses
 

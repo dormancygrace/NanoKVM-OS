@@ -110,6 +110,7 @@ type screenWatch struct {
 	last     []byte
 	pending  bool // changed since the last verdict
 	reported bool // the crash on the screen was reported
+	deferred bool // a crash was left unread while somebody watched or video held the TPU
 	judged   bool // a verdict was logged since the start
 	readAt   time.Time
 }
@@ -135,7 +136,7 @@ func newScreenWatch() *screenWatch {
 }
 
 func (w *screenWatch) reset() {
-	w.last, w.pending, w.reported = nil, false, false
+	w.last, w.pending, w.reported, w.deferred = nil, false, false, false
 }
 
 func (w *screenWatch) step(ctx context.Context) {
@@ -150,11 +151,15 @@ func (w *screenWatch) step(ctx context.Context) {
 	}
 	if w.last == nil || meanDifference(w.last, planes) > screenChangeLevel {
 		// Changed (or the first look): judge it once it holds still.
-		w.last, w.pending = planes, true
+		w.last, w.pending, w.deferred = planes, true, false
 		return
 	}
 	if !w.pending {
-		return
+		// A crash left while somebody watched is judged again once nobody does.
+		if !w.deferred || w.viewers() > 0 {
+			return
+		}
+		w.deferred = false
 	}
 	verdict, err := w.classify(ctx, planes)
 	if err != nil {
@@ -187,6 +192,7 @@ func (w *screenWatch) step(ctx context.Context) {
 // busy, after the gap otherwise).
 func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged []byte) {
 	if w.viewers() > 0 {
+		w.deferred = true
 		return
 	}
 	now := w.now()
@@ -197,7 +203,8 @@ func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged [
 	}
 	ctx, end, ok := w.begin(ctx)
 	if !ok {
-		return // video runs
+		w.deferred = true // video holds the TPU
+		return
 	}
 	previous := w.readAt
 	w.readAt = now

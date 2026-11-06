@@ -1057,17 +1057,59 @@ async fn retire_input(input_task: tokio::task::JoinHandle<()>, permit: SessionPe
 // session of any viewer slower than the encoder. A frame the session writer
 // is not ready for within MEDIA_GRACE is dropped here instead, and so are
 // the frames after it until a keyframe, so the bridge socket keeps being
-// drained. A keyframe is requested when that starts, and again every
-// second while it lasts, in case the requested one was dropped too.
+// drained. A keyframe is requested when that starts, and again while it
+// lasts, in case the requested one was dropped too.
 const MEDIA_GRACE: Duration = Duration::from_millis(250);
 const KEYFRAME_REQUEST_INTERVAL: Duration = Duration::from_secs(1);
+const KEYFRAME_REQUEST_MAX_INTERVAL: Duration = Duration::from_secs(8);
+
+// The encoder is shared, so a keyframe one viewer asks for costs every
+// viewer an IDR. As in the WebRTC peer writer, the first request goes at
+// once and one that keeps recurring waits 1, 2, 4 and then 8 s. The wait
+// starts over only once a repair held: its keyframe went out and frames
+// still went out a second after it.
+#[derive(Default)]
+struct KeyframeRequests {
+    last: Option<time::Instant>,
+    wait: Duration,
+    repaired: Option<time::Instant>,
+}
+
+impl KeyframeRequests {
+    // A frame was dropped; whether to ask for a keyframe now.
+    fn dropped(&mut self, now: time::Instant) -> bool {
+        self.repaired = None;
+        if self.last.is_some_and(|last| now - last < self.wait) {
+            return false;
+        }
+        self.last = Some(now);
+        self.wait = if self.wait.is_zero() {
+            KEYFRAME_REQUEST_INTERVAL
+        } else {
+            (self.wait * 2).min(KEYFRAME_REQUEST_MAX_INTERVAL)
+        };
+        true
+    }
+
+    fn sent(&mut self, now: time::Instant, keyframe: bool, repairing: bool) {
+        if repairing && keyframe {
+            self.repaired = Some(now);
+        } else if self
+            .repaired
+            .is_some_and(|at| now - at >= KEYFRAME_REQUEST_INTERVAL)
+        {
+            self.repaired = None;
+            self.wait = Duration::ZERO;
+        }
+    }
+}
 
 async fn forward_media(
     mut media: MediaSubscriber,
     sender: mpsc::Sender<io::Result<MediaFrame>>,
 ) {
     let mut dropping = false;
-    let mut requested: Option<time::Instant> = None;
+    let mut requests = KeyframeRequests::default();
     loop {
         let frame = match media.read_frame().await {
             Ok(frame) => frame,
@@ -1077,18 +1119,18 @@ async fn forward_media(
             }
         };
         if !dropping || frame.keyframe {
+            let keyframe = frame.keyframe;
             match sender.send_timeout(Ok(frame), MEDIA_GRACE).await {
                 Ok(()) => {
+                    requests.sent(time::Instant::now(), keyframe, dropping);
                     dropping = false;
-                    requested = None;
                     continue;
                 }
                 Err(mpsc::error::SendTimeoutError::Timeout(_)) => dropping = true,
                 Err(mpsc::error::SendTimeoutError::Closed(_)) => return,
             }
         }
-        if requested.is_none_or(|at| at.elapsed() >= KEYFRAME_REQUEST_INTERVAL) {
-            requested = Some(time::Instant::now());
+        if requests.dropped(time::Instant::now()) {
             if let Err(error) = media.request_key_frame().await {
                 let _ = sender.send(Err(error)).await;
                 return;
@@ -1595,6 +1637,26 @@ mod tests {
             time::advance(delay).await;
             timer.as_mut().await;
         }
+    }
+
+    #[test]
+    fn keyframe_requests_back_off_until_a_repair_holds() {
+        let start = time::Instant::now();
+        let at = |ms: u64| start + Duration::from_millis(ms);
+        let mut requests = super::KeyframeRequests::default();
+        let asked: Vec<u64> = (0..=23_000)
+            .step_by(250)
+            .filter(|&ms| requests.dropped(at(ms)))
+            .collect();
+        assert_eq!(asked, [0, 1_000, 3_000, 7_000, 15_000, 23_000]);
+        // A repair that fails again within a second keeps the wait...
+        requests.sent(at(23_100), true, true);
+        requests.sent(at(23_500), false, false);
+        assert!(!requests.dropped(at(23_600)));
+        // ...one that holds starts it over.
+        requests.sent(at(24_000), true, true);
+        requests.sent(at(25_100), false, false);
+        assert!(requests.dropped(at(25_200)));
     }
 
     #[test]
@@ -2963,17 +3025,22 @@ mod tests {
         assert_eq!(resumed.payload[5], 41);
         write_media_frame(&mut bridge, &frame(42), false).await;
         assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 42);
-        // A requested keyframe that never comes is asked for again a second
-        // later, while deltas keep being dropped.
+        // Once that repair held, a new stall asks at once. A requested
+        // keyframe that never comes is asked for again after 1 s, then 2 s,
+        // while deltas keep being dropped.
         while keyframe_request(&mut bridge, Duration::from_millis(50)).await {}
+        time::sleep(super::KEYFRAME_REQUEST_INTERVAL).await;
         write_media_frame(&mut bridge, &frame(50), true).await;
         write_media_frame(&mut bridge, &frame(51), false).await;
         assert!(keyframe_request(&mut bridge, Duration::from_secs(5)).await);
-        write_media_frame(&mut bridge, &frame(52), false).await;
-        assert!(!keyframe_request(&mut bridge, Duration::from_millis(200)).await);
-        time::sleep(super::KEYFRAME_REQUEST_INTERVAL).await;
-        write_media_frame(&mut bridge, &frame(53), false).await;
-        assert!(keyframe_request(&mut bridge, Duration::from_secs(5)).await);
+        for (marker, asked) in [(52, false), (53, true), (54, false), (55, true)] {
+            if marker != 52 {
+                time::sleep(super::KEYFRAME_REQUEST_INTERVAL).await;
+            }
+            write_media_frame(&mut bridge, &frame(marker), false).await;
+            let wait = Duration::from_millis(if asked { 5_000 } else { 200 });
+            assert_eq!(keyframe_request(&mut bridge, wait).await, asked, "{marker}");
+        }
         assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 50);
         // A closed bridge still reaches the session as an error.
         drop(bridge);

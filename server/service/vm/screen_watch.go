@@ -48,6 +48,10 @@ var (
 	screenChangeLevel = 2.0
 	// The classifier's score for a stop screen or a console to be read.
 	screenAlarmScore = 0.7
+	// A stop screen the classifier is this sure of is reported without its
+	// text while video streams to a page nobody looks at: the OCR then has
+	// to give way to the video (videogate).
+	screenUnreadBSODScore = 0.9
 	// The least time between two OCR reads: a server console that scrolls
 	// and settles again and again must not keep the TPU busy.
 	screenReadGap = 2 * time.Minute
@@ -103,6 +107,9 @@ type screenWatch struct {
 	// begin admits a background read; its context is cancelled when video
 	// starts (videogate).
 	begin func(ctx context.Context) (context.Context, func(), bool)
+	// shot is a picture of the screen to send with a crash, when the OCR
+	// cannot run.
+	shot func(ctx context.Context) ([]byte, bool)
 	// read is the OCR of the whole screen, with the frame it read.
 	read func(ctx context.Context) (screenRead, error)
 	now  func() time.Time
@@ -131,6 +138,7 @@ func newScreenWatch() *screenWatch {
 		viewers:   watchingViewers,
 		begin:     videogate.Begin,
 		read:      readScreenLines,
+		shot:      screenShot,
 		now:       time.Now,
 	}
 }
@@ -159,7 +167,8 @@ func (w *screenWatch) step(ctx context.Context) {
 		if !w.deferred || w.viewers() > 0 {
 			return
 		}
-		w.deferred = false
+		// Pending until a verdict: a classifier that fails now tries again.
+		w.deferred, w.pending = false, true
 	}
 	verdict, err := w.classify(ctx, planes)
 	if err != nil {
@@ -203,7 +212,18 @@ func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged [
 	}
 	ctx, end, ok := w.begin(ctx)
 	if !ok {
-		w.deferred = true // video holds the TPU
+		// Video holds the TPU, for a page nobody looks at. The OCR must not
+		// take the video's memory, so a sure stop screen goes out unread
+		// with its picture; anything else waits until the video stops.
+		if verdict.Class == "bsod" && verdict.Score >= screenUnreadBSODScore {
+			if shot, ok := w.shot(ctx); ok {
+				w.reported = true
+				w.emit(notify.Event{Kind: notify.KindScreen, Severity: notify.SeverityCritical, Message: "screen.bsod",
+					Details: "The text was not read: video is streaming to a page nobody is looking at.", Image: shot})
+				return
+			}
+		}
+		w.deferred = true
 		return
 	}
 	previous := w.readAt
@@ -417,6 +437,15 @@ func readScreenLines(ctx context.Context) (screenRead, error) {
 }
 
 // screenJPEG is a JPEG of a frame at most screenShotWidth wide, or nil.
+// screenShot is the screen as screenJPEG sends it.
+func screenShot(ctx context.Context) ([]byte, bool) {
+	planes, width, height, ok := screenPlanes(ctx)
+	if !ok {
+		return nil, false
+	}
+	return screenJPEG(planes, width, height), true
+}
+
 func screenJPEG(planes []byte, width, height int) []byte {
 	if len(planes) != width*height*3 || width == 0 {
 		return nil

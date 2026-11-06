@@ -333,11 +333,9 @@ func acquireHdmiBackgroundRead(ctx context.Context) (func(), bool) {
 			hdmiBackgroundReads--
 			if hdmiBackgroundReads == 0 && !hdmiHasCaptureDemandLocked() && hdmiParkTimer == nil &&
 				!hdmiStoppedForIdle && !isHdmiDisabled() {
-				if unparked {
-					parkCaptureLocked()
-				} else {
-					scheduleHdmiParkTimerLocked()
-				}
+				// Unparked for the read, or its park deadline passed during
+				// it (the timer left that to this release): park now.
+				parkCaptureLocked()
 			}
 			hdmiMutex.Unlock()
 			<-hdmiCaptureReadSlot

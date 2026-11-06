@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	WiFiExistFile  = "/etc/kvm/wifi_exist"
 	WiFiApModeFile = "/tmp/wifiap"
 	WiFiSSID       = "/etc/kvm/wifi.ssid"
 	WiFiPasswd     = "/etc/kvm/wifi.pass"

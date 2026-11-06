@@ -1,0 +1,22 @@
+{
+  "component": "sipeed-sdk",
+  "current": "d4003f15b35d43ad4842f427050ab2bba0114fa5",
+  "candidate": "dbbad1938aae31ed145ab0e5786953110e9dd4ed",
+  "candidate_key": "dbbad1938aae31ed145ab0e5786953110e9dd4ed",
+  "status": "pending-review",
+  "upstream": "https://github.com/sipeed/LicheeRV-Nano-Build/compare/d4003f15b35d43ad4842f427050ab2bba0114fa5...dbbad1938aae31ed145ab0e5786953110e9dd4ed",
+  "source_path": "platform/sources.lock",
+  "strategy": "git-pin",
+  "evidence": {
+    "commit": "dbbad1938aae31ed145ab0e5786953110e9dd4ed",
+    "objects": {
+      "osdrv/extdrv/wireless/rtl8733bs": "f4282244c91fd7852a7b24c6bda24075e8cbfe47",
+      "fsbl": "c6cc4db0149fca477f7b835a56e38a866eeadfab",
+      "opensbi": "21bbe9fa4ada20c2e8fa8c9ca09396584e0ea656",
+      "ramdisk/rootfs/common_musl_riscv64/usr/share/fw_vcodec": "60cc76a9d6afbe4d38a623ff81ae55bd1cd08362"
+    }
+  },
+  "pin_files_updated": [
+    "platform/sources.lock"
+  ]
+}

@@ -34,20 +34,6 @@ export function formatDeviceTime(
   return `${formatDeviceDate(value, preferences.timezone, dateFormat)} ${new Intl.DateTimeFormat(locale, timeOptions).format(value)}`;
 }
 
-// The date alone, for a preview of the date format.
-export function formatDeviceDay(value: number, preferences: TimePreferences, locale?: string) {
-  const dateFormat = preferences.dateFormat ?? 'auto';
-  if (dateFormat === 'auto') {
-    return new Intl.DateTimeFormat(locale, {
-      timeZone: preferences.timezone,
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    }).format(value);
-  }
-  return formatDeviceDate(value, preferences.timezone, dateFormat);
-}
-
 // A fixed order needs fixed digits: the parts come from a numeric format.
 function formatDeviceDate(
   value: number,

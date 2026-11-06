@@ -10,6 +10,8 @@ export type LiveStatus = {
   input: unknown;
   audio: { audio: boolean };
   usb: { disk?: boolean; mode?: string } | null;
+  // ATX power control is on. A server from before this field omits it.
+  atx?: boolean;
 };
 
 // status is null when the request failed. startedAt (performance.now() when

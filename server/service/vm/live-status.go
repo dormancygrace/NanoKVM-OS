@@ -19,14 +19,18 @@ type liveStatus struct {
 	Input    gin.H                      `json:"input"`
 	Audio    gin.H                      `json:"audio"`
 	USB      *proto.GetVirtualDeviceRsp `json:"usb"` // administrators only
+	// ATX power control is on (System > Device), as GET /api/vm/hardware
+	// reports it; the page shows the power button by it.
+	ATX bool `json:"atx"`
 }
 
 // GetLiveStatus serves GET /api/vm/live-status. The USB composition is
 // included only for administrators, like GET /api/vm/device/virtual.
 func (s *Service) GetLiveStatus(c *gin.Context, admin bool) {
-	status := liveStatus{Recovery: failsafe.Status(), HDMI: hdmiState(), Input: hid.InputStatus(), Audio: audio.StatusData()}
+	status := liveStatus{Recovery: failsafe.Status(), HDMI: hdmiState(), Input: hid.InputStatus(), Audio: audio.StatusData(),
+		ATX: ATXEnabled()}
 	// With ATX off the LED monitor is not started: no gpio.
-	if ATXEnabled() {
+	if status.ATX {
 		if leds, err := gpioMonitor().Current(c.Request.Context()); err == nil {
 			status.GPIO = &proto.GetGpioRsp{PWR: leds.Power, HDD: leds.HDD}
 		}

@@ -8,11 +8,10 @@ import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
 import { getRuntimeStatus } from '@/api/picoclaw.ts';
-import { getHardware } from '@/api/vm.ts';
-import { atxFromHardware } from '@/lib/atx.ts';
+import { subscribeLiveStatus } from '@/lib/live-status.ts';
 import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
-import { atxEnabledAtom } from '@/jotai/atx.ts';
+import { atxEnabledAtom, atxLocalChange } from '@/jotai/atx.ts';
 import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
@@ -117,32 +116,19 @@ export const Menu = () => {
   const mobileRailRef = useRef<HTMLDivElement | null>(null);
 
   const menuDisabledItems = useAtomValue(menuDisabledItemsAtom);
-  // The power button needs ATX power control on (System > Device).
+  // The power button needs ATX power control on (System > Device). The shared
+  // live status follows a change made in another tab or by another admin, and
+  // a request that failed is simply answered by the next one.
   const [atxEnabled, setAtxEnabled] = useAtom(atxEnabledAtom);
-  useEffect(() => {
-    if (atxEnabled !== null) return;
-    let disposed = false;
-    let pending = false;
-    // Without the answer the power button stays hidden, so ask until it comes.
-    const load = () => {
-      if (pending) return;
-      pending = true;
-      getHardware()
-        .then((rsp) => {
-          if (!disposed && rsp.code === 0) setAtxEnabled(atxFromHardware(rsp.data));
-        })
-        .catch(() => {})
-        .finally(() => {
-          pending = false;
-        });
-    };
-    load();
-    const stop = pollWhileVisible(load, 15000);
-    return () => {
-      disposed = true;
-      stop();
-    };
-  }, [atxEnabled, setAtxEnabled]);
+  useEffect(
+    () =>
+      subscribeLiveStatus((status, startedAt) => {
+        if (typeof status?.atx === 'boolean' && startedAt >= atxLocalChange.at) {
+          setAtxEnabled(status.atx);
+        }
+      }),
+    [setAtxEnabled]
+  );
   const menuCloseSignal = useAtomValue(menuCloseSignalAtom);
   const isKeyboardLedStatusVisible = useAtomValue(keyboardLedStatusVisibleAtom);
   const [isMobileRailCollapsed, setIsMobileRailCollapsed] = useState(false);

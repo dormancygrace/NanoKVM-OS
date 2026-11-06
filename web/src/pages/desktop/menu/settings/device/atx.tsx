@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
 import { isMissingEndpoint } from '@/lib/atx.ts';
+import { refreshLiveStatus } from '@/lib/live-status.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
-import { atxEnabledAtom } from '@/jotai/atx.ts';
+import { atxEnabledAtom, atxLocalChange } from '@/jotai/atx.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
 const KEY_FAILED = 'settings.device.atx.failed';
@@ -51,7 +52,9 @@ export const Atx = () => {
         return;
       }
       setState({ ...state, enabled: rsp.data.enabled });
+      atxLocalChange.at = performance.now();
       setAtxEnabled(rsp.data.enabled);
+      void refreshLiveStatus({ force: true });
     } catch (err) {
       showRequestError(err, KEY_FAILED);
     } finally {

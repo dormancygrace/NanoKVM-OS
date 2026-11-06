@@ -1,4 +1,5 @@
-// ATX power control (System > Device) as GET /api/vm/hardware reports it.
+// ATX power control (System > Device) as GET /api/vm/hardware and the live
+// status report it.
 // A server from before the switch answers only {version} and always offers
 // the power button, so a missing field counts as on.
 export function atxFromHardware(data: { atx?: boolean } | null | undefined): boolean {

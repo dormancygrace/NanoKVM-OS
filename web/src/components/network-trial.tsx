@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { confirmNetworkTrial } from '@/api/network.ts';
 import {
+  bareHost,
   finishNetworkTrial,
   forgetNetworkTrial,
   networkConfirmURL,
@@ -43,7 +44,7 @@ export const NetworkTrialHost = () => {
     if (!pending) return;
     const { trial, deadline } = pending;
     setState('waiting');
-    const here = window.location.hostname;
+    const here = bareHost(window.location.hostname);
     const hosts = [here, ...trial.hosts.filter((host) => host !== here)];
     let stopped = false;
     let busy = false;

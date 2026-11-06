@@ -287,10 +287,11 @@ func AddonInstallSpec(name string) (string, error) {
 }
 
 // IsInstalledAddon: name is installed and is not part of the OS. Before the
-// first list since boot nothing counts as an add-on.
+// first list since boot only the installed release's dependencies tell the OS
+// apart: knownCore may lack an OS package of a later release.
 func IsInstalledAddon(name string) bool {
 	c := GetAddonCatalog()
-	if c.CheckedAt == 0 {
+	if c.CheckedAt == 0 && len(installedReleaseCore()) == 0 {
 		return false
 	}
 	for _, a := range c.Addons {

@@ -75,7 +75,8 @@ def manifest(data):
         if not re.fullmatch(r'[a-z0-9][a-z0-9+_.-]*[.]apk', name):
             raise ValueError(f'Invalid add-on filename: {name}')
         if not (item['url'].startswith(SOURCES) or re.fullmatch(
-                r'https://dormancygrace[.]github[.]io/NanoKVM-OS/package-store/objects/[a-f0-9]{64}/' + re.escape(name), item['url'])):
+                r'https://dormancygrace[.]github[.]io/NanoKVM-OS/(?:package-store/objects/[a-f0-9]{64}|addons/v[0-9.]+/riscv64)/'
+                + re.escape(name), item['url'])):
             raise ValueError(f'Invalid add-on source: {name}')
         if not re.fullmatch(r'[a-f0-9]{64}', item['sha256']):
             raise ValueError(f'Invalid add-on SHA256: {name}')

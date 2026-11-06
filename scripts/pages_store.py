@@ -95,7 +95,10 @@ class Store:
     def __init__(self, cache):
         self.cache = Path(cache)
         self.cache.mkdir(parents=True, exist_ok=True)
-        self.snapshots, self.seen, self.sources = {}, set(), {}
+        self.snapshots, self.seen = {}, set()
+        # Object path -> the feed file that holds the same bytes, deployed
+        # instead of a second copy under package-store/objects.
+        self.served = {}
 
     def put(self, name, data, path=None):
         filename(name)
@@ -111,10 +114,18 @@ class Store:
     def get(self, item):
         path, sha, size = item['path'], item['sha256'], item['size']
         if (not re.fullmatch(r'[a-f0-9]{64}', sha) or type(size) is not int or not 0 < size <= LIMIT
-                or not re.fullmatch(r'package-store/(?:objects/[a-f0-9]{64}|sources/nanokvm-rustdesk-[0-9.]+-r[0-9]+)/[A-Za-z0-9][A-Za-z0-9+_.-]*', path)):
+                or not re.fullmatch(r'package-store/objects/[a-f0-9]{64}/[A-Za-z0-9][A-Za-z0-9+_.-]*', path)):
             raise ValueError('Invalid catalog object')
         target = self.cache / path
-        data = target.read_bytes() if target.exists() else a.fetch(BASE + '/' + path)
+        url = BASE + '/' + path
+        if path in self.served:
+            feed = self.served[path]
+            if (not re.fullmatch(r'(?:(?:beta/)?alpine|' + a.ADDON_DIR + r')/v[0-9.]+/riscv64/[A-Za-z0-9][A-Za-z0-9+_.-]*[.]apk', feed)
+                    or feed.rsplit('/', 1)[1] != path.rsplit('/', 1)[1]):
+                raise ValueError('Invalid catalog feed path')
+            # Feed names are not content addresses: key the cached copy by hash.
+            url = BASE + '/' + feed + '?sha256=' + sha
+        data = target.read_bytes() if target.exists() else a.fetch(url)
         if len(data) != size or hashlib.sha256(data).hexdigest() != sha:
             raise ValueError(f'Corrupt Pages object: {path}')
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -131,7 +142,7 @@ class Store:
             for name in item['files']:
                 filename(name)
         self.snapshots = data['snapshots']
-        self.sources = data.get('sources', {})
+        self.served = data.get('served', {})
         self.seen = set(data['artifacts'])
 
     def add(self, kind, tag, files, commit):
@@ -141,9 +152,6 @@ class Store:
         if key in self.snapshots and self.snapshots[key] != item:
             raise ValueError(f'Refusing to replace immutable snapshot {key}')
         self.snapshots[key] = item
-        for f in files.values():
-            if f['path'].startswith('package-store/sources/'):
-                self.sources[f['path']] = f
 
     def candidate(self, data, expected_kind, expected_commit=None):
         # Never extract an untrusted ZIP onto the host filesystem.
@@ -174,11 +182,9 @@ class Store:
                 if kind == 'os':
                     if name not in TECHNICAL and not name.endswith('.apk'):
                         raise ValueError('Unexpected OS file')
-                elif name not in {tag + '.apk', 'APKBUILD',
-                                  f'nanokvm-rustdesk-{addon_packages.TAG.fullmatch(tag)[2]}-source.tar.gz'}:
+                elif name != tag + '.apk':
                     raise ValueError('Unexpected add-on file')
-                source = f'package-store/sources/{tag}/{name}' if kind == 'addon' and not name.endswith('.apk') else None
-                files[name] = self.put(name, payload, source)
+                files[name] = self.put(name, payload)
             if kind == 'os':
                 if not REQUIRED <= files.keys():
                     raise ValueError('Incomplete OS metadata')
@@ -197,8 +203,6 @@ class Store:
                         raise ValueError(f'Incorrect OS package closure: {name}')
             elif tag + '.apk' not in files:
                 raise ValueError('Missing add-on APK')
-            if kind == 'addon' and tag.startswith('nanokvm-rustdesk-') and len(files) != 3:
-                raise ValueError('RustDesk requires corresponding source and APKBUILD')
             self.add(kind, tag, files, meta['commit'])
 
     def ingest(self):
@@ -255,24 +259,12 @@ class Store:
                     raise ValueError('Legacy package size mismatch')
             self.add('os', r['tag_name'], files, tag_commit(r['tag_name']))
         pins = a.independent_addons(a.REPOSITORY, keep=3)
-        by_tag = {r['tag_name']: r for r in inventory()}
+        # Legacy RustDesk source archives stay in their Releases, where the
+        # installed source links point (cleanup keeps them).
         for name, pin in pins.items():
             tag = name[:-4]
             files = {name: self.put(name, addon_packages.checked(name, pin, a.fetch))}
-            if tag.startswith('nanokvm-rustdesk-'):
-                for n in ('APKBUILD', f'nanokvm-rustdesk-{addon_packages.TAG.fullmatch(tag)[2]}-source.tar.gz'):
-                    files[n] = self.put(n, old_file(by_tag[tag], n), f'package-store/sources/{tag}/{n}')
             self.add('addon', tag, files, tag_commit(tag))
-
-        # Corresponding sources outlive binary retention and installed devices.
-        for tag, release in by_tag.items():
-            match = addon_packages.TAG.fullmatch(tag)
-            if not match or match[1] != 'nanokvm-rustdesk' or release['draft']:
-                continue
-            for name in ('APKBUILD', f'nanokvm-rustdesk-{match[2]}-source.tar.gz'):
-                path = f'package-store/sources/{tag}/{name}'
-                if path not in self.sources:
-                    self.sources[path] = self.put(name, old_file(release, name), path)
 
     def render(self, output):
         public = {r['tag_name']: r for r in inventory() if not r['draft'] and r.get('published_at') and a.VERSION.fullmatch(r['tag_name'])}
@@ -285,6 +277,7 @@ class Store:
                     raise ValueError(f'Published OS release {head} has no staged packages')
         self.snapshots = retained(self.snapshots, public)
         releases, pins, payloads = [], {}, {}
+        branch = a.alpine_branch()
         for item in self.snapshots.values():
             files = item['files']
             for name, f in files.items():
@@ -300,9 +293,11 @@ class Store:
             elif item['kind'] == 'addon':
                 name = item['tag'] + '.apk'
                 f = files[name]
-                pins[name] = {'url': BASE + '/' + f['path'], 'sha256': f['sha256'], 'size': f['size']}
+                # addons.json names where the add-on is served: its feed.
+                url = f'{BASE}/{a.ADDON_DIR}/v{branch}/riscv64/{name}'
+                payloads[url] = payloads[BASE + '/' + f['path']]
+                pins[name] = {'url': url, 'sha256': f['sha256'], 'size': f['size']}
         releases.sort(key=a.order, reverse=True)
-        branch = a.alpine_branch()
         # The beta channel remains the newer of latest stable and latest beta.
         # The stable feed keeps its three releases; beta keeps just its head.
         for channel, directory, keep in [('stable', output, 3), ('beta', output / 'beta', 1)]:
@@ -312,20 +307,29 @@ class Store:
             shutil.rmtree(directory / 'latest-image')
             a.image_badge(directory, sorted(public.values(), key=a.order, reverse=True), include_beta)
         a.assemble_addons(output, branch, pins, fetch=lambda url: payloads[url])
+        # An APK a feed serves byte for byte is stored once, as that feed
+        # file; the rest (pending OS releases, indexes, metadata) as objects.
+        # Pages has no links or redirects, so the catalog records the feed
+        # path. The sign job rewrites only Packages.adb, never an APK.
+        feeds = [output / d / ('v' + branch) / 'riscv64' for d in ('alpine', 'beta/alpine', a.ADDON_DIR)]
+        self.served = {}
         for item in self.snapshots.values():
             for f in item['files'].values():
+                name = f['path'].rsplit('/', 1)[1]
+                feed = next((p for p in (d / name for d in feeds) if name.endswith('.apk') and p.is_file()
+                             and p.stat().st_size == f['size']
+                             and hashlib.sha256(p.read_bytes()).hexdigest() == f['sha256']), None)
+                if feed:
+                    self.served[f['path']] = feed.relative_to(output).as_posix()
+                    continue
                 target = output / f['path']
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if not target.exists():
                     shutil.copyfile(self.cache / f['path'], target)
-        for f in self.sources.values():
-            data = self.get(f)
-            target = output / f['path']
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
         catalog = output / CATALOG
         catalog.parent.mkdir(parents=True, exist_ok=True)
-        catalog.write_text(json.dumps({'schema': 1, 'snapshots': self.snapshots, 'sources': self.sources, 'artifacts': sorted(self.seen)}, sort_keys=True) + '\n')
+        catalog.write_text(json.dumps({'schema': 1, 'snapshots': self.snapshots,
+                                       'served': self.served, 'artifacts': sorted(self.seen)}, sort_keys=True) + '\n')
         total = sum(p.stat().st_size for p in output.rglob('*') if p.is_file())
         if total > LIMIT:
             raise ValueError(f'Pages site {total} bytes exceeds {LIMIT}; deployment refused')

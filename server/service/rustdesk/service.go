@@ -508,8 +508,9 @@ func (s *Service) Status() (Status, error) {
 	return status, nil
 }
 
-// SourceURL returns the immutable public source archive recorded by the APK.
-// No source archive is stored or served by the device.
+// SourceURL returns the public source location recorded by the APK: a legacy
+// release archive, or the Git tree of the version's tag. The device stores
+// and serves no source.
 func (s *Service) SourceURL() string {
 	data, err := os.ReadFile(s.sourceFile)
 	if err != nil {

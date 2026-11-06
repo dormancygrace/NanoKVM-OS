@@ -83,7 +83,8 @@ jobs:
             echo "version=$version"
             echo "revision=$revision"
             echo "tag=$tag"
-            echo "url=https://dormancygrace.github.io/NanoKVM-OS/package-store/sources/$tag/nanokvm-rustdesk-$version-source.tar.gz"
+            # The installed source link: the Git tree of the reserved tag.
+            echo "url=https://github.com/$GITHUB_REPOSITORY/tree/$tag/addons/rustdesk"
           } >> "$GITHUB_OUTPUT"
           echo "$tag"
 
@@ -129,7 +130,7 @@ jobs:
           cat "$RUNNER_TEMP/addon/SHA256SUMS"
 
       # What devices get: the version, the static riscv64 daemon and its init
-      # script, and a source record that names this release's source archive.
+      # script, and a source record that names the Git tree of its tag.
       - name: Check the package
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -146,11 +147,11 @@ jobs:
             # Rust links a static musl binary as static-pie.
             file "$d/usr/bin/nanokvm-rustdesk" | grep -qE "RISC-V.*(statically|static-pie) linked"
             test -x "$d/etc/init.d/nanokvm-rustdesk"
-            python3 - "$d/usr/share/nanokvm-rustdesk/source.json" "$1/nanokvm-rustdesk-$VERSION-source.tar.gz" <<"PY"
-          import hashlib, json, os, sys
+            python3 - "$d/usr/share/nanokvm-rustdesk/source.json" <<"PY"
+          import json, os, sys
           record = json.load(open(sys.argv[1]))
           assert record["url"] == os.environ["SOURCE_URL"], record
-          assert record["sha256"] == hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest(), record
+          assert record["publication"] == "git-tree" and "sha256" not in record, record
           assert record["package_version"] == os.environ["VERSION"] + "-r" + os.environ["REVISION"], record
           PY
             echo "package checked"' sh "$a"
@@ -193,6 +194,12 @@ jobs:
           # create-ref fails on an existing tag: never replace a package version.
           gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
             -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
+          # Pages gets the APK only: the source link names the Git tag, and the
+          # archive and APKBUILD stay in the build artifact.
+          cd "$RUNNER_TEMP/addon"
+          find . -maxdepth 1 -type f ! -name "$TAG.apk" -delete
+          sha256sum -- "$TAG.apk" > SHA256SUMS
+          cd "$GITHUB_WORKSPACE"
           python3 scripts/pages_store.py --stage "$RUNNER_TEMP/addon" --kind addon --tag "$TAG"
 
       - uses: actions/upload-artifact@v7

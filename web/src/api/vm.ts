@@ -362,7 +362,8 @@ export function uploadTLSCertificate(formData: FormData) {
     headers: {
       'Content-Type': 'multipart/form-data'
     },
-    data: formData
+    data: formData,
+    sensitive: true
   });
 }
 
@@ -449,7 +450,7 @@ export function setMemoryLimit(enabled: boolean, limit: number) {
 }
 
 export function importSSHKeys(keys: string, password: string) {
-  return http.post('/api/vm/ssh/keys/import', { keys, password });
+  return http.post('/api/vm/ssh/keys/import', { keys, password }, { sensitive: true });
 }
 
 export type DeviceInfo = {

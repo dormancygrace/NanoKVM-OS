@@ -120,7 +120,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
     }
     const data = new FormData();
     Array.from(files).forEach((f) => data.append('files', f));
-    void run(() => http.post('/api/extensions/openvpn/import', data));
+    void run(() => http.post('/api/extensions/openvpn/import', data, { sensitive: true }));
   }
   function install() {
     void run(() =>
@@ -136,13 +136,17 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
     if (!editing) return;
     if (
       await run(() =>
-        http.post('/api/extensions/openvpn/profile', {
-          id: editing.id,
-          action: 'credentials',
-          username,
-          password,
-          passphrase
-        })
+        http.post(
+          '/api/extensions/openvpn/profile',
+          {
+            id: editing.id,
+            action: 'credentials',
+            username,
+            password,
+            passphrase
+          },
+          { sensitive: true }
+        )
       )
     )
       clearCredentials();

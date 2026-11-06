@@ -2,6 +2,8 @@ package tailscale
 
 import (
 	"net"
+	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -206,5 +208,26 @@ func (s *Service) GetStatus(c *gin.Context) {
 			ipv4 = ip.String()
 		}
 	}
-	rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: state, Busy: busy, IP: ipv4, Name: status.Self.HostName, Account: status.CurrentTailnet.Name})
+	rsp.OkRspWithData(c, &proto.GetTailscaleStatusRsp{State: state, Busy: busy, IP: ipv4, Name: status.Self.HostName, Account: status.CurrentTailnet.Name,
+		ThisConnection: requestToAddress(c, status.Self.TailscaleIPs)})
+}
+
+// requestToAddress reports whether the connection of this request ends at
+// one of addresses, so the page can warn before Tailscale goes down.
+func requestToAddress(c *gin.Context, addresses []string) bool {
+	local, ok := c.Request.Context().Value(http.LocalAddrContextKey).(net.Addr)
+	if !ok {
+		return false
+	}
+	host, _, err := net.SplitHostPort(local.String())
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(strings.Split(host, "%")[0])
+	for _, address := range addresses {
+		if ip != nil && ip.Equal(net.ParseIP(address)) {
+			return true
+		}
+	}
+	return false
 }

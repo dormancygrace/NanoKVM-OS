@@ -54,6 +54,19 @@ test('the BMC password write is marked sensitive', () => {
   assert.equal(calls[0][2].sensitive, true);
 });
 
+test('Wi-Fi, AP, TURN, SSH key import and AI model secrets are marked sensitive', () => {
+  const calls = [];
+  const network = loadApi('network', calls);
+  network.connectWifiNoAuth('ssid', 'psk', 'ap-key');
+  network.verifyApLogin('ap-key');
+  network.setWebRTCServers({});
+  network.setWifiAP({});
+  network.configureWifi({});
+  loadApi('vm', calls).importSSHKeys('', 'password');
+  loadApi('picoclaw', calls).setPicoclawModelConfig({});
+  for (const [url, , config] of calls) assert.equal(config?.sensitive, true, url);
+});
+
 // The HTTP error interceptor must not print requests that carry credentials,
 // and a 401 must reach the login redirect.
 test('failed sensitive requests stay out of the console; 401 signals expiry', async () => {

@@ -18,6 +18,9 @@ type GetTailscaleStatusRsp struct {
 	Name    string `json:"name"`
 	IP      string `json:"ip"`
 	Account string `json:"account"`
+	// ThisConnection: the request reached one of the device's Tailscale
+	// addresses, whatever name the browser used for it.
+	ThisConnection bool `json:"thisConnection,omitempty"`
 }
 
 type LoginTailscaleRsp struct {

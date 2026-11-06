@@ -130,26 +130,25 @@ export function startTileStream<B extends { close: () => void }>(options: TileSt
       waitWhole = false;
       retryDelay = INITIAL_RETRY_DELAY;
       pending++;
-      const bitmaps = Promise.all(
+      const bitmaps = Promise.allSettled(
         message.tiles.map((tile) => options.decode(tile).then((bitmap) => ({ tile, bitmap })))
       );
       drawn = drawn
         .then(() => bitmaps)
-        .then(
-          (decoded) => {
-            pending--;
-            if (live()) {
-              options.draw(message, decoded, first);
-              first = false;
-            }
-            decoded.forEach(({ bitmap }) => bitmap.close());
-          },
-          () => {
-            pending--;
+        .then((results) => {
+          pending--;
+          const decoded = results.flatMap((result) =>
+            result.status === 'fulfilled' ? [result.value] : []
+          );
+          if (decoded.length < results.length) {
             // A tile that did not decode leaves the picture behind.
             if (live()) current.close();
+          } else if (live()) {
+            options.draw(message, decoded, first);
+            first = false;
           }
-        );
+          decoded.forEach(({ bitmap }) => bitmap.close());
+        });
     };
 
     current.onclose = () => {

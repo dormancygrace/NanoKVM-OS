@@ -23,7 +23,8 @@ export type PicoclawSessionListItem = {
 export function setPicoclawModelConfig(data: ModelConfigRequest) {
   return http.post<{ status: PicoclawRuntimeStatus; installed?: boolean }>(
     '/api/picoclaw/model/config',
-    data
+    data,
+    { sensitive: true }
   );
 }
 

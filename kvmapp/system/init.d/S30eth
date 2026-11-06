@@ -7,6 +7,7 @@ RESERVE_INET="192.168.90.1/22"
 : "${NANOKVM_ETH_DHCP_PID:=/run/udhcpc.eth0.pid}"
 : "${NANOKVM_ETH_VLAN:=/boot/eth.vlan}"
 : "${NANOKVM_ETH_VLAN_STATE:=/run/nanokvm-eth-vlan}"
+: "${NANOKVM_WIFI_SCRIPT:=/etc/init.d/S30wifi}"
 : "${NANOKVM_IP:=ip}"
 : "${NANOKVM_IPV6_INIT:=/etc/init.d/S02ipv6}"
 : "${NANOKVM_ETH_RX_TUNER:=/usr/libexec/nanokvm/ethernet-rx-batching}"
@@ -166,6 +167,11 @@ start() {
     # Restarting an existing link does not generate a udev add event.
     if [ -x "$NANOKVM_IPV6_INIT" ]; then
         "$NANOKVM_IPV6_INIT" interface eth0 || return 1
+    fi
+    # A running access point with internet forwards through Ethernet: a new
+    # VLAN interface needs its forwarding and NAT (S30wifi ap-uplinks).
+    if [ -x "$NANOKVM_WIFI_SCRIPT" ]; then
+        "$NANOKVM_WIFI_SCRIPT" ap-uplinks || echo "Could not update the access point's uplinks" >&2
     fi
 }
 

@@ -69,8 +69,6 @@
  * policy is used only with shared CMA >=144 MiB; see docs/VIDEO.md. */
 #define qhd_ion_mib             54U
 
-#define LT6911_ADDR 	0x2B
-
 pthread_mutex_t vi_mutex;
 pthread_mutex_t hdmi_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t vi_detection_thread;

@@ -159,7 +159,13 @@ func validateWifiAP(ap proto.WifiAP, keepPassword bool) error {
 			return fmt.Errorf("%q is not an IPv4 address", server)
 		}
 	}
-	return validWifiAPSubnet(ap.Subnet)
+	// The derived network (10.x.y, from the chip ID) can clash with the
+	// Ethernet network too: check it as a chosen one.
+	subnet := ap.Subnet
+	if subnet == "" && ap.Enabled {
+		subnet = strings.TrimSuffix(wifiAPAddress(""), ".1")
+	}
+	return validWifiAPSubnet(subnet)
 }
 
 func writeWifiAP(ap proto.WifiAP, keepPassword bool) error {
@@ -399,6 +405,15 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 	if !wifiControl.hardware() || isAPMode() {
 		rsp.ErrRsp(c, -1, "Wi-Fi unavailable")
 		return
+	}
+	// An adapter without 5 GHz would leave Wi-Fi down at every start. With
+	// Wi-Fi off the driver is not loaded and the bands are unknown.
+	if wifiControl.present() {
+		freqs := wifiControl.statusFrequencies()
+		if len(freqs["2.4"])+len(freqs["5"]) > 0 && len(freqs[req.Band]) == 0 {
+			rsp.ErrRsp(c, -1, "this Wi-Fi adapter has no "+req.Band+" GHz band")
+			return
+		}
 	}
 	if !reserveWifi() {
 		rsp.ErrRsp(c, -2, "Wi-Fi busy")

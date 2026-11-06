@@ -5,6 +5,7 @@ Requires NANOKVM_MPI_SOURCE, NANOKVM_SENSOR_SOURCE, NANOKVM_INIH_SOURCE,
 NANOKVM_BUILDROOT_OUTPUT and a dedicated NANOKVM_MMF_OUTPUT. No device install.
 """
 from nanokvm_cpu_profile import flags as cpu_flags, record as record_cpu_profile
+from nanokvm_mmf_link import link_hdmi_light
 from pathlib import Path
 import hashlib
 import json
@@ -20,9 +21,6 @@ sensor = Path(os.environ['NANOKVM_SENSOR_SOURCE']).resolve()
 inih = Path(os.environ['NANOKVM_INIH_SOURCE']).resolve()
 output = Path(os.environ['NANOKVM_MMF_OUTPUT']).resolve()
 cross = str(Path(os.environ['NANOKVM_BUILDROOT_OUTPUT']).resolve() / 'host/bin/riscv64-buildroot-linux-musl-')
-profile = os.environ.get('NANOKVM_MMF_PROFILE', 'hdmi-light')
-if profile not in ('full', 'hdmi-light'):
-    raise SystemExit('Unknown NANOKVM_MMF_PROFILE: ' + profile)
 # platform/build.sh checks the source trees against platform/sources.lock.
 if subprocess.check_output([cross + 'gcc', '-dumpfullversion'], text=True).strip() != '16.2.0':
     raise SystemExit('Expected GCC 16.2')
@@ -47,8 +45,6 @@ sources += [inih / 'ini.c', repo / 'firmware/mpi/nanokvm_capture_size.c',
             repo / 'support/additional/kvm_mmf/src/kvm_mmf.cpp']
 if len(sources) != 21 or len({path.stem for path in sources}) != len(sources):
     raise SystemExit('Unexpected MMF source set; review before updating the build')
-names = ['sys', 'vi', 'vpss', 'vo', 'rgn', 'gdc', 'cvi_ive', 'venc', 'vdec', 'misc',
-         'isp', 'isp_algo', 'ae', 'awb', 'af', 'cvi_bin', 'cvi_bin_isp']
 output.mkdir(parents=True, exist_ok=True)
 record_cpu_profile(output/'cpu-profile.json', cross+'gcc', effective_flags=flags)
 with tempfile.TemporaryDirectory(prefix='mmf-objects-', dir=output) as temp:
@@ -62,23 +58,11 @@ with tempfile.TemporaryDirectory(prefix='mmf-objects-', dir=output) as temp:
                         *flags, '-c', str(source), '-o', str(obj)], check=True)
         objects.append(obj)
     shared = temp / 'libkvm_mmf.so'
-    if profile == 'hdmi-light':
-        from nanokvm_mmf_link import link_hdmi_light
-        link_hdmi_light(cross, mpi, objects, shared, output)
-    else:
-        subprocess.run([cross + 'g++', '-shared', '-Wl,-z,defs', '-Wl,-soname,libkvm_mmf.so',
-                        '-L' + str(mpi / 'lib'), '-Wl,--no-as-needed', '-Wl,--start-group',
-                        *map(str, objects), *['-l' + name for name in names],
-                        '-Wl,--end-group', '-Wl,--as-needed', '-o', str(shared)], check=True)
-        (output / 'link-profile.json').write_text(json.dumps({'profile': 'full'}) + '\n')
+    link_hdmi_light(cross, mpi, objects, shared, output)
     shutil.copy2(shared, output / shared.name)
-subprocess.run([cross + 'gcc', '-std=gnu11', *flags, str(repo / 'firmware/probes/mmf-config.c'),
-                '-L' + str(output), '-lkvm_mmf', '-Wl,-rpath-link,' + str(mpi / 'lib'),
-                '-o', str(output / 'mmf-config-probe')], check=True)
 license_dir = output / 'licenses/inih'
 license_dir.mkdir(parents=True, exist_ok=True)
 shutil.copy2(inih / 'LICENSE.txt', license_dir / 'LICENSE.txt')
-manifest = {name: hashlib.sha256((output / name).read_bytes()).hexdigest()
-            for name in ['libkvm_mmf.so', 'mmf-config-probe']}
+manifest = {'libkvm_mmf.so': hashlib.sha256((output / 'libkvm_mmf.so').read_bytes()).hexdigest()}
 (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 print('MMF compiled and linked. Hardware qualification is separate; LT6911UXC identification is supported.')

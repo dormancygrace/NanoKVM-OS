@@ -291,7 +291,7 @@ RustDesk performance build, measurement limits and release checksum policy.
 
 ## HDMI-light media runtime
 
-The standard build and `nanokvm` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle. `NANOKVM_MMF_PROFILE=full` is retained only for explicit comparison builds through the lower-level MMF script.
+The standard build and `nanokvm` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle.
 
 APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
 

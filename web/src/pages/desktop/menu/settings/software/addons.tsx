@@ -43,17 +43,24 @@ export const Addons = ({
   // one appears here without an OS release.
   const [catalog, setCatalog] = useState<AddonCatalog>();
   const [checking, setChecking] = useState(false);
+  const catalogPending = useRef(false);
   const loadCatalog = useCallback(async () => {
+    catalogPending.current = true;
     try {
       const response = await getAddonCatalog();
       if (response.code === 0) setCatalog(response.data);
     } catch {
       // The cards below work without the list; the next poll retries.
+    } finally {
+      catalogPending.current = false;
     }
   }, []);
   useEffect(() => {
     void loadCatalog();
-    return pollWhileVisible(() => void loadCatalog(), 5000);
+    // A slow answer must not stack polls behind it.
+    return pollWhileVisible(() => {
+      if (!catalogPending.current) void loadCatalog();
+    }, 5000);
   }, [loadCatalog]);
   const checkCatalog = async () => {
     setChecking(true);

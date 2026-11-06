@@ -87,29 +87,7 @@ func addonCorePackages(catalogCore []string) map[string]bool {
 // installedReleaseCore: the NanoKVM packages the installed nanokvm-release
 // depends on, from its D: line in the package database.
 func installedReleaseCore() []string {
-	data, err := os.ReadFile(installedDBPath)
-	if err != nil {
-		return nil
-	}
-	var core []string
-	release := false
-	for _, line := range strings.Split(string(data), "\n") {
-		switch {
-		case line == "":
-			release = false
-		case strings.HasPrefix(line, "P:"):
-			release = line == "P:nanokvm-release"
-		case release && strings.HasPrefix(line, "D:"):
-			for _, dep := range strings.Fields(line[2:]) {
-				if strings.HasPrefix(dep, "!") {
-					continue // a conflict, not a dependency
-				}
-				if name := dependencyName(dep); name == "nanokvm" || strings.HasPrefix(name, "nanokvm-") {
-					core = append(core, name)
-				}
-			}
-		}
-	}
+	_, core, _ := readInstalledDB()
 	return core
 }
 

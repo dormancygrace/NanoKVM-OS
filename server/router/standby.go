@@ -62,7 +62,16 @@ func standbyRouter(r *gin.Engine) {
 	}
 	var mu sync.RWMutex
 	var pending *standby.Prepared
+	var pendingState *standby.State
 	var committed bool
+	// abandon ends an uncommitted preparation. Its status handler stays, so a
+	// page opened with the key learns that NanoKVM kept running.
+	abandon := func(reason string) {
+		pending.Close()
+		pending = nil
+		standby.Requests.Cancel()
+		pendingState.Fail(errors.New(reason))
+	}
 	handler := standby.Handler(standby.Config{}, standby.NewState(standby.Config{}), func() error { return errors.New("not ready") })
 	serve := func(c *gin.Context) { mu.RLock(); h := handler; mu.RUnlock(); h.ServeHTTP(c.Writer, c.Request) }
 	r.GET("/standby", serve)
@@ -93,17 +102,13 @@ func standbyRouter(r *gin.Engine) {
 					rsp.ErrRsp(c, -1, "shutdown already committed")
 					return
 				}
-				pending.Close()
-				pending = nil
-				standby.Requests.Cancel()
+				abandon("shutdown cancelled; NanoKVM is still running")
 				rsp.OkRsp(c)
 				return
 			}
 			if !committed {
 				if err := pending.Arm(); err != nil {
-					pending.Close()
-					pending = nil
-					standby.Requests.Cancel()
+					abandon("shutdown failed; NanoKVM is still running: " + err.Error())
 					rsp.ErrRsp(c, -1, err.Error())
 					return
 				}
@@ -162,15 +167,12 @@ func standbyRouter(r *gin.Engine) {
 		}
 		state := standby.NewState(prepared.Config)
 		handler = standby.Handler(prepared.Config, state, func() error { return errors.New("shutdown is still running") })
-		pending = prepared
+		pending, pendingState = prepared, state
 		time.AfterFunc(time.Minute, func() {
 			mu.Lock()
 			defer mu.Unlock()
 			if pending == prepared && !committed {
-				prepared.Close()
-				pending = nil
-				standby.Requests.Cancel()
-				state.Fail(errors.New("shutdown preparation expired; ordinary services remain running"))
+				abandon("shutdown preparation expired; ordinary services remain running")
 			}
 		})
 		ok = true

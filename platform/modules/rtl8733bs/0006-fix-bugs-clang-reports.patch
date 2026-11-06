@@ -1,0 +1,149 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] rtl8733bs: fix bugs that clang reports
+
+Found by building the module with clang (LLVM 22); all are in the GCC
+build too:
+- proc tx_sa_query: copied sizeof(tmp) (16) bytes from a write of at most
+  2, unterminated, and on a failed copy sent deauth frames with an
+  uninitialized key type. It now copies count bytes, terminates them and
+  fails with -EFAULT.
+- issue_action_ba(): without a station entry the ADDBA request carried an
+  uninitialized starting sequence control; now 0.
+- MP txpower and tsside: sscanf("%7s") into char[7] wrote 8 bytes.
+- Trailing [0] and [1] arrays that are read past their size: with the
+  kernel's -fstrict-flex-arrays=3 only [] is a flexible array, so those
+  reads were undefined. They are [] now; no code takes the size of
+  NDIS_802_11_VARIABLE_IEs, and [0] -> [] keeps every other size.
+---
+diff --git a/core/rtw_debug.c b/core/rtw_debug.c
+index 54d240a..b188c94 100755
+--- a/core/rtw_debug.c
++++ b/core/rtw_debug.c
+@@ -7091,7 +7091,7 @@ ssize_t proc_set_tx_sa_query(struct file *file, const char __user *buffer, size_
+ 	_irqL	 irqL;
+ 	char tmp[16];
+ 	u8	mac_addr[NUM_STA][ETH_ALEN];
+-	u32 key_type;
++	u32 key_type = 0;
+ 	u8 index;
+ 
+ 	if (count > 2) {
+@@ -7099,7 +7099,11 @@ ssize_t proc_set_tx_sa_query(struct file *file, const char __user *buffer, size_
+ 		return -EFAULT;
+ 	}
+ 
+-	if (buffer && !copy_from_user(tmp, buffer, sizeof(tmp))) {
++	/* count is at most 2: read that much, terminated, not sizeof(tmp). */
++	if (!buffer || copy_from_user(tmp, buffer, count))
++		return -EFAULT;
++	tmp[count] = '\0';
++	{
+ 
+ 		int num = sscanf(tmp, "%x", &key_type);
+ 
+diff --git a/core/rtw_mlme_ext.c b/core/rtw_mlme_ext.c
+index 7b498a8..491a3ff 100755
+--- a/core/rtw_mlme_ext.c
++++ b/core/rtw_mlme_ext.c
+@@ -10653,7 +10653,7 @@ static int issue_action_ba(_adapter *padapter, unsigned char *raddr, unsigned ch
+ 	u16	start_seq;
+ 	u16	BA_para_set;
+ 	u16	BA_timeout_value;
+-	u16	BA_starting_seqctrl;
++	u16	BA_starting_seqctrl = 0;
+ 	struct xmit_frame		*pmgntframe;
+ 	struct pkt_attrib		*pattrib;
+ 	u8					*pframe;
+diff --git a/include/ieee80211.h b/include/ieee80211.h
+index 0710406..55665f7 100755
+--- a/include/ieee80211.h
++++ b/include/ieee80211.h
+@@ -335,7 +335,7 @@ typedef struct ieee_param {
+ 		struct {
+ 			u32 len;
+ 			u8 reserved[32];
+-			u8 data[0];
++			u8 data[];
+ 		} wpa_ie;
+ 		struct {
+ 			int command;
+@@ -348,7 +348,7 @@ typedef struct ieee_param {
+ 			u8 idx;
+ 			u8 seq[8]; /* sequence counter (set: RX, get: TX) */
+ 			u16 key_len;
+-			u8 key[0];
++			u8 key[];
+ 		} crypt;
+ #ifdef CONFIG_AP_MODE
+ 		struct {
+@@ -360,7 +360,7 @@ typedef struct ieee_param {
+ 		} add_sta;
+ 		struct {
+ 			u8	reserved[2];/* for set max_num_sta */
+-			u8	buf[0];
++			u8	buf[];
+ 		} bcn_ie;
+ #endif
+ 
+@@ -371,7 +371,7 @@ typedef struct ieee_param {
+ typedef struct ieee_param_ex {
+ 	u32 cmd;
+ 	u8 sta_addr[ETH_ALEN];
+-	u8 data[0];
++	u8 data[];
+ } ieee_param_ex;
+ 
+ struct sta_data {
+@@ -1182,7 +1182,7 @@ struct ieee80211_info_element_hdr {
+ struct ieee80211_info_element {
+ 	u8 id;
+ 	u8 len;
+-	u8 data[0];
++	u8 data[];
+ } __attribute__((packed));
+ #endif
+ 
+diff --git a/include/wlan_bssdef.h b/include/wlan_bssdef.h
+index 38de05c..061728b 100644
+--- a/include/wlan_bssdef.h
++++ b/include/wlan_bssdef.h
+@@ -65,7 +65,7 @@ typedef struct _NDIS_802_11_FIXED_IEs {
+ typedef struct _NDIS_802_11_VARIABLE_IEs {
+ 	u8  ElementID;
+ 	u8  Length;
+-	u8  data[1];
++	u8  data[];
+ } NDIS_802_11_VARIABLE_IEs, *PNDIS_802_11_VARIABLE_IEs;
+ 
+ typedef enum _NDIS_802_11_AUTHENTICATION_MODE {
+@@ -150,7 +150,7 @@ typedef struct _NDIS_802_11_FIXED_IEs {
+ typedef struct _NDIS_802_11_VARIABLE_IEs {
+ 	u8  ElementID;
+ 	u8  Length;
+-	u8  data[1];
++	u8  data[];
+ } NDIS_802_11_VARIABLE_IEs, *PNDIS_802_11_VARIABLE_IEs;
+ 
+ typedef enum _NDIS_802_11_AUTHENTICATION_MODE {
+diff --git a/os_dep/linux/ioctl_mp.c b/os_dep/linux/ioctl_mp.c
+index f3f5422..ad13a6f 100755
+--- a/os_dep/linux/ioctl_mp.c
++++ b/os_dep/linux/ioctl_mp.c
+@@ -701,7 +701,7 @@ int rtw_mp_txpower(struct net_device *dev,
+ 	u32 idx_a = 0, idx_b = 0, idx_c = 0, idx_d = 0;
+ 	int MsetPower = 1;
+ 	u8 input[RTW_IWD_MAX_LEN];
+-	char pout_str_buf[7];
++	char pout_str_buf[8];
+ 	u8 res = 0;
+ 	char *pextra;
+ 
+@@ -1972,7 +1972,7 @@ int rtw_mp_get_tsside(struct net_device *dev,
+ 
+ 	u8 legal_param_num = 1;
+ 	int param_num;
+-	char pout_str_buf[7];
++	char pout_str_buf[8];
+ 	u8 signed_flag = 0;
+ 	int integer_num;
+ 	u32 decimal_num;

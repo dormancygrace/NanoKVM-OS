@@ -89,16 +89,17 @@ func echo(t *testing.T, status int) *httptest.Server {
 }
 
 func TestErrorsHideEchoedSecrets(t *testing.T) {
-	refused, _ := net.Listen("tcp", "127.0.0.1:0")
-	closed := refused.Addr().String()
-	refused.Close()
+	server := echo(t, http.StatusInternalServerError)
+	forbidden := echo(t, http.StatusUnauthorized)
+	var closed string
 	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "http://"+closed+r.URL.RequestURI(), http.StatusFound)
 	}))
 	t.Cleanup(redirect.Close)
-
-	server := echo(t, http.StatusInternalServerError)
-	forbidden := echo(t, http.StatusUnauthorized)
+	// The port is freed after the servers are up: one of them took it once.
+	refused, _ := net.Listen("tcp", "127.0.0.1:0")
+	closed = refused.Addr().String()
+	refused.Close()
 	for name, tc := range map[string]struct {
 		ch        Channel
 		permanent bool

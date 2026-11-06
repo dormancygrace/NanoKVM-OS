@@ -308,7 +308,7 @@ func (s *Service) dispatch(e Event) {
 			log.Warnf("notifications: %s %q is behind, dropped %s", ch.Type, ch.Name, e.Message)
 			continue
 		}
-		r := render(e, config.Language, config.template(ch.Template))
+		r := renderFor(e, config.Language, config.template(ch.Template), markup(ch.Type))
 		r.delivery = &delivery{id: newID()}
 		go s.deliver(ch, r)
 	}

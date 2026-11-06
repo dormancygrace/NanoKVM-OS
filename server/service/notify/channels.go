@@ -66,6 +66,38 @@ func sendRaw(ctx context.Context, ch Channel, r Rendered) error {
 	return permanent(fmt.Errorf("unknown channel type %q", ch.Type))
 }
 
+var (
+	// Slack takes &, < and > as entities; <!channel> and <url|label> are
+	// its markup.
+	slackEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+	// Discord shows a markdown character after a backslash as it is.
+	discordEscaper = strings.NewReplacer(`\`, `\\`, "*", `\*`, "_", `\_`, "~", `\~`, "`", "\\`", "|", `\|`,
+		">", `\>`, "<", `\<`, "[", `\[`, "]", `\]`, "(", `\(`, ")", `\)`, "#", `\#`, "@", `\@`)
+	// Google Chat documents no escape: a zero-width space breaks its
+	// <users/all>, <url|label> and [label](url) and stays unseen.
+	googleChatEscaper = strings.NewReplacer("<", "<\u200b", "](", "]\u200b(")
+	// Teams cards take a small markdown whose only active part is a
+	// [label](url) link; a zero-width space breaks it and stays unseen.
+	teamsEscaper = strings.NewReplacer("](", "]\u200b(")
+)
+
+// markup is how a channel type's text is escaped, nil for plain text. The
+// admin's own template keeps its markup; only the values put into it (and
+// the text read off the screen) are escaped.
+func markup(channelType string) func(string) string {
+	switch channelType {
+	case "teams":
+		return teamsEscaper.Replace
+	case "slack":
+		return slackEscaper.Replace
+	case "discord":
+		return discordEscaper.Replace
+	case "googlechat":
+		return googleChatEscaper.Replace
+	}
+	return nil
+}
+
 // redact replaces the channel's secrets in err's text with "***" and then
 // shortens it, keeping whether it is permanent. The text is all that is kept
 // of err. Shortening last cannot leave the start of a secret.
@@ -347,22 +379,25 @@ func sendWebhook(ctx context.Context, ch Channel, r Rendered) error {
 
 // sendTeams posts an Adaptive Card to a Teams Workflows webhook ("When a
 // Teams webhook request is received"), which replaced the retired Office 365
-// connectors.
+// connectors. The body keeps the template's markdown; the values put into it
+// are escaped (markup), so a link read off the host's screen cannot hide
+// behind a label.
 func sendTeams(ctx context.Context, ch Channel, r Rendered) error {
 	title := map[string]any{"type": "TextBlock", "text": r.Title, "weight": "Bolder", "size": "Medium", "wrap": true}
 	if r.Severity != SeverityInfo {
 		title["color"] = "Attention"
 	}
+	body := []any{
+		title,
+		map[string]any{"type": "TextBlock", "text": r.Body, "wrap": true},
+		map[string]any{"type": "TextBlock", "text": r.Device + " · " + r.Time.Format("2006-01-02 15:04:05 MST"),
+			"isSubtle": true, "size": "Small", "wrap": true},
+	}
 	card := map[string]any{
 		"$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
 		"type":    "AdaptiveCard",
 		"version": "1.4",
-		"body": []any{
-			title,
-			map[string]any{"type": "TextBlock", "text": r.Body, "wrap": true},
-			map[string]any{"type": "TextBlock", "text": r.Device + " · " + r.Time.Format("2006-01-02 15:04:05 MST"),
-				"isSubtle": true, "size": "Small", "wrap": true},
-		},
+		"body":    body,
 	}
 	payload := map[string]any{
 		"type": "message",
@@ -375,11 +410,16 @@ func sendTeams(ctx context.Context, ch Channel, r Rendered) error {
 }
 
 func sendDiscord(ctx context.Context, ch Channel, r Rendered) error {
-	content := truncate("**"+r.Title+"**\n"+r.Text(), 2000)
-	if r.Image == nil {
-		return postJSON(ctx, ch, ch.get("url"), map[string]string{"content": content}, nil)
+	// Mentions the admin wrote into a template ping; @everyone and @here never
+	// do. Text read off the screen is escaped, so it pings nobody.
+	message := map[string]any{
+		"content":          truncate("**"+r.Title+"**\n"+r.Text(), 2000),
+		"allowed_mentions": map[string]any{"parse": []string{"users", "roles"}},
 	}
-	payload, _ := json.Marshal(map[string]string{"content": content})
+	if r.Image == nil {
+		return postJSON(ctx, ch, ch.get("url"), message, nil)
+	}
+	payload, _ := json.Marshal(message)
 	f := form{fields: [][2]string{{"payload_json", string(payload)}},
 		fileField: "files[0]", fileName: "screen.jpg", file: r.Image}
 	return f.post(ctx, ch, ch.get("url"))

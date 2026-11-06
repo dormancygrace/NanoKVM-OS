@@ -76,6 +76,27 @@ func TestWebhookSignature(t *testing.T) {
 	}
 }
 
+// Text read off the host's screen mentions no one and hides no link.
+func TestScreenTextIsPlain(t *testing.T) {
+	e := Event{Kind: KindScreen, Message: "screen.panic", Details: "@everyone <!channel> [reset](https://e.example)"}
+	for kind, want := range map[string]string{
+		"discord": "allowed_mentions:map[parse:[users roles]]",
+		"slack":   `&lt;!channel&gt; [reset](`, // Slack has no such links
+	} {
+		server, got := capture(t, http.StatusNoContent)
+		ch := channel(kind, map[string]string{"url": server.URL})
+		if err := sendChannel(context.Background(), ch, renderFor(e, "en", nil, markup(kind))); err != nil {
+			t.Fatal(err)
+		}
+		var payload any
+		_ = json.Unmarshal(got.body, &payload)
+		body := fmt.Sprint(payload)
+		if !strings.Contains(body, want) || strings.Contains(body, "<!channel>") || kind == "discord" && strings.Contains(body, "[reset](") {
+			t.Errorf("%s: %s", kind, body)
+		}
+	}
+}
+
 // echo answers with status and the request's address, headers and body, as
 // an error page or a proxy can.
 func echo(t *testing.T, status int) *httptest.Server {

@@ -2341,7 +2341,7 @@
     "changeReload": "Pro přepnutí přehrávače se stránka znovu načte.",
     "mjpegChromaFallback_frameDetection": "Pro použití 4:2:2 vypněte zjišťování snímků.",
     "directImmediateHint": "Zobrazuje snímky, jakmile jsou dekódovány. Nepravidelnosti v jejich doručování ale mohou způsobovat chvilková zadrhávání obrazu.",
-    "stockProfile": "Vlastní profil přijímače (nenaprogramováno)",
+    "stockProfile": "Profil přijímače (nezaznamenán)",
     "monitorUnavailable": "Měnění profilu virtuálního monitoru není na tomto zařízení k dispozici. Zjišťování vstupu zůstává automatické.",
     "transportHint": {
       "direct": "H.264/H.265 přes HTTPS, dekódováno prohlížečem. Nejkratší prodlevy.",

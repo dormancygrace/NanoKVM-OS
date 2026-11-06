@@ -189,8 +189,8 @@ func programmedMonitorProfileLocked(path string, height uint16) bool {
 	}
 	recorded, err := os.ReadFile(monitorEDIDHashFile)
 	if err != nil {
-		// A Cube or Lite keeps its receiver's own EDID until a profile is
-		// written: nothing is assumed for it.
+		// A Cube or Lite without a recorded write has an unknown EDID:
+		// do not infer its rate from the saved setting.
 		if MonitorRequiresPowerCycle() {
 			return false
 		}
@@ -200,9 +200,9 @@ func programmedMonitorProfileLocked(path string, height uint16) bool {
 	return strings.TrimSpace(string(recorded)) == want
 }
 
-// MonitorStockProfile reports a Cube or Lite whose receiver still holds its
-// own EDID: no NanoKVM profile was written to it, so Auto is that EDID and
-// not the profile Auto stands for elsewhere.
+// MonitorStockProfile reports a Cube or Lite without a recorded EDID profile.
+// It may hold stock EDID or an unrecorded older write; neither justifies
+// inferring the size and rate from the profile Auto stands for elsewhere.
 func MonitorStockProfile() bool {
 	if !MonitorRequiresPowerCycle() {
 		return false

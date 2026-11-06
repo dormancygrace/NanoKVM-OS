@@ -169,7 +169,7 @@ run network/vpn-presence sh -c 'for d in /var/lib/tailscale /etc/wireguard /etc/
 # Settings: an allow-list. Not read: .jwt_secret, .picoclaw_internal_token,
 # pwd, server.key, server.crt, scripts/, Wi-Fi and VPN configuration.
 copy config /etc/kvm/server.yaml /etc/kvm/date-time.json /etc/kvm/memory.conf \
-	/etc/kvm/ai-control.mode /etc/kvm/apk-community.chosen /etc/kvm/screen-text-language \
+	/etc/kvm/ai-control.mode /etc/kvm/screen-text-language \
 	/etc/kvm/mcp.json /etc/kvm/picoclaw-runtime.json
 run config/usb-flags ls -la /etc/kvm/usb
 

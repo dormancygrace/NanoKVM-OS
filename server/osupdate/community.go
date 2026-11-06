@@ -6,13 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/internal/apkrun"
 )
@@ -21,17 +18,9 @@ import (
 // nothing from it (exfatprogs and i2c-tools are NanoKVM packages), and every
 // apk run would parse its index. The Software page switches it on, and the
 // Tailscale and NetBird installs do so themselves.
-//
-// Devices from earlier releases list it. A one-time migration removes it when
-// no installed package needs it, and keeps it otherwise; the marker records
-// that the decision is made, by the migration or by the user, so it is never
-// made again.
 
 var (
-	communityMarkerPath = "/etc/kvm/apk-community.chosen"
-	communityTmpDir     = "/run"
-
-	communityRetry = 10 * time.Minute
+	communityTmpDir = "/run"
 
 	// updateLock is Lock, which tests replace.
 	updateLock = Lock
@@ -40,14 +29,6 @@ var (
 // errCommunityUnknown means the needed packages cannot be determined now,
 // usually because an index is missing and the device is offline.
 var errCommunityUnknown = errors.New("cannot determine which packages need the community repository")
-
-// errCommunityHold means the device still runs community packages that the
-// installed NanoKVM release replaces; the decision waits for that upgrade.
-var errCommunityHold = errors.New("waiting for the NanoKVM packages that replace community packages")
-
-// Releases up to 3.1 installed these from community; nanokvm-base 3.2
-// replaces them with nanokvm-exfatprogs and nanokvm-i2c-tools.
-var communityReplacedByNanoKVM = map[string]bool{"exfatprogs": true, "i2c-tools": true}
 
 type CommunityStatus struct {
 	Enabled bool `json:"enabled"`
@@ -194,7 +175,7 @@ func lockCommunityDB() (*os.File, error) {
 	}
 	if err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		syscall.Close(fd)
-		return nil, errEdgeBusy
+		return nil, errAPKDBBusy
 	}
 	return os.NewFile(uintptr(fd), apkDBLockPath), nil
 }
@@ -209,13 +190,6 @@ func writeCommunity(url string, enabled bool) error {
 		return nil
 	}
 	return writeAtomic(repositoriesPath, []byte(withCommunity(string(data), url, enabled)), 0644)
-}
-
-func markCommunityChosen() error {
-	if err := os.MkdirAll(filepath.Dir(communityMarkerPath), 0755); err != nil {
-		return err
-	}
-	return writeAtomic(communityMarkerPath, []byte("chosen\n"), 0644)
 }
 
 func lockedCommunityURL() (string, error) {
@@ -265,9 +239,6 @@ func SetCommunity(enabled bool) (CommunityChange, error) {
 	if err = writeCommunity(url, enabled); err != nil {
 		return CommunityChange{}, err
 	}
-	if err = markCommunityChosen(); err != nil {
-		return CommunityChange{}, err
-	}
 	return CommunityChange{Enabled: enabled}, nil
 }
 
@@ -283,89 +254,5 @@ func EnableCommunityLocked() error {
 	if err != nil {
 		return err
 	}
-	if err = writeCommunity(url, true); err != nil {
-		return err
-	}
-	return markCommunityChosen()
-}
-
-// MigrateCommunityDefault makes the one-time decision on a device from an
-// earlier release. It returns nil once the decision is made.
-func MigrateCommunityDefault(ctx context.Context) error {
-	if _, err := os.Stat(communityMarkerPath); err == nil {
-		return nil
-	}
-	lock, err := updateLock()
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
-	// A user request may have completed between the fast path and Lock().
-	if _, err := os.Stat(communityMarkerPath); err == nil {
-		return nil
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	dbLock, err := lockCommunityDB()
-	if err != nil {
-		return err
-	}
-	defer dbLock.Close()
-	data, err := os.ReadFile(repositoriesPath)
-	if err != nil {
-		return err
-	}
-	url := communityURL(string(data))
-	if url == "" || !hasRepository(string(data), url) {
-		return markCommunityChosen()
-	}
-	needed, err := communityNeeded(ctx, string(data), url)
-	if err != nil {
-		return err
-	}
-	for _, name := range needed {
-		if communityReplacedByNanoKVM[name] {
-			return errCommunityHold
-		}
-	}
-	if len(needed) > 0 {
-		log.Infof("Alpine community repository kept; needed by: %s", strings.Join(needed, " "))
-		return markCommunityChosen()
-	}
-	if err = writeCommunity(url, false); err != nil {
-		return err
-	}
-	log.Info("removed the Alpine community repository; no installed package needs it")
-	return markCommunityChosen()
-}
-
-// RunCommunityMigration retries the decision until it is made. An offline
-// device fails the same way on every try: each message is logged once, so the
-// retries do not fill the boot log archives.
-func RunCommunityMigration(ctx context.Context) {
-	logged := ""
-	for {
-		err := MigrateCommunityDefault(ctx)
-		if err == nil {
-			return
-		}
-		if !errors.Is(err, errCommunityHold) && !errors.Is(err, errEdgeBusy) && err.Error() != logged {
-			logged = err.Error()
-			log.Warnf("Alpine community repository: %s", err)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(communityRetry):
-		}
-	}
-}
-
-// RunRepositoryMigrations removes the edge repository first: with it, the
-// orphan check of the community decision would load the edge index.
-func RunRepositoryMigrations(ctx context.Context) {
-	RunEdgeMigration(ctx)
-	if ctx.Err() == nil {
-		RunCommunityMigration(ctx)
-	}
+	return writeCommunity(url, true)
 }

@@ -329,6 +329,9 @@ class Store:
         total = sum(p.stat().st_size for p in output.rglob('*') if p.is_file())
         if total > LIMIT:
             raise ValueError(f'Pages site {total} bytes exceeds {LIMIT}; deployment refused')
+        if total > LIMIT * 7 // 10:
+            # Sources are never pruned: act before the limit blocks every update.
+            print(f'::warning::Pages site {total:,} bytes is over 70% of the {LIMIT:,} byte limit')
         print(f'Pages: {len(self.snapshots)} snapshots, {total:,} bytes')
 
 

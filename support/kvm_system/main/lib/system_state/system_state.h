@@ -10,7 +10,6 @@ enum ip_addr_t
 #define NIC_STATE_UP 				1
 #define NIC_STATE_DOWN 				0
 #define NIC_STATE_RUNNING	 		2
-#define NIC_STATE_UNKNOWN			-1
 #define NIC_STATE_NO_EXIST			-2
 
 
@@ -18,7 +17,6 @@ enum ip_addr_t
 int get_ip_addr(ip_addr_t ip_type);
 int chack_net_state(ip_addr_t use_ip_type);
 int get_ping_allow_state(void);
-void patch_eth_wifi(void);
 int kvm_wifi_exist(void);
 bool wifi_presence_due(uint64_t& last_look_ms, uint64_t now_ms);
 void kvm_update_usb_state(void);

@@ -23,7 +23,6 @@ static uint64_t clock_ms(clockid_t clock)
 }
 
 uint64_t ticks_ms() { return clock_ms(CLOCK_MONOTONIC); }
-uint64_t time_ms() { return clock_ms(CLOCK_REALTIME); }
 
 void sleep_ms(uint64_t ms)
 {

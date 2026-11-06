@@ -314,13 +314,6 @@ int chack_net_state(ip_addr_t use_ip_type)
 	return WIFEXITED(status) && WEXITSTATUS(status) == 0 ? 1 : 0;
 }
 
-void patch_eth_wifi(void)
-{
-	// system("ip link set eth0 down");
-	// system("ip link set eth0 up");
-	// system("udhcpc -i eth0 &");
-}
-
 // wlan0, or with Wi-Fi off the chip on the SDIO bus: its driver loads only
 // while Wi-Fi is on (nanokvm-network), and provisioning loads it through
 // S30wifi ap. The boards have no other SDIO function.
@@ -538,7 +531,6 @@ void kvm_update_eth_state(void)
 
 	} else {
 		kvm_sys_state.eth_state = 0;
-		patch_eth_wifi();
 	}
 }
 

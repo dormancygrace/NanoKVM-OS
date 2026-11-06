@@ -584,10 +584,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             return Ok(());
         }
     };
-    // A controller sends only input, options and pings; nothing it sends
-    // comes near the login limit. A larger packet of repeated empty fields
-    // would decode into far more memory than its size.
+    // A controller sends only input, options and pings; nothing this endpoint
+    // uses comes near the login limit. A larger packet of repeated empty
+    // fields would decode into far more memory than its size. A larger
+    // packet, such as a clipboard a controller syncs anyway, is dropped
+    // unread instead of ending the session.
     reader.set_max_length(MAX_LOGIN_PACKET_LENGTH);
+    reader.skip_oversized();
 
     let video_info = time::timeout(
         MEDIA_TIMEOUT,
@@ -640,18 +643,22 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 
     // Re-establish negotiated input permission on every login. Mobile clients
     // can retain the denial sent after an earlier HID failure across reconnects.
-    write_union(
-        &mut writer,
-        message::Union::Misc(crate::protocol::Misc {
-            union: Some(crate::protocol::misc::Union::PermissionInfo(
-                crate::protocol::PermissionInfo {
-                    permission: 0,
-                    enabled: limits.input_allowed,
-                },
-            )),
-        }),
-    )
-    .await?;
+    // The clipboard (2) is not supported; a controller told so does not sync
+    // its clipboard, which can be far over the packet limit.
+    for (permission, enabled) in [(0, limits.input_allowed), (2, false)] {
+        write_union(
+            &mut writer,
+            message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::PermissionInfo(
+                    crate::protocol::PermissionInfo {
+                        permission,
+                        enabled,
+                    },
+                )),
+            }),
+        )
+        .await?;
+    }
 
     drop(pending_permit);
     eprintln!(
@@ -834,6 +841,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         let mut enabled = input_allowed;
         // Admission has just refreshed the reconnect grace.
         let mut last_touch = time::Instant::now();
+        let mut skip_logged = false;
         loop {
             // A stalled/half-open peer releases HID and its viewer slot. The
             // whole stream ends on timeout, so partial reads are never reused.
@@ -842,6 +850,12 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 .unwrap_or_else(|_| {
                     Err(io::Error::new(io::ErrorKind::TimedOut, "peer idle timeout"))
                 });
+            if !skip_logged && reader.skipped() > 0 {
+                skip_logged = true;
+                crate::connlog::connection_log!(
+                    "RustDesk client {peer}: dropping packets over the size limit"
+                );
+            }
             if let Some(session) = incoming_session.as_ref() {
                 if message.is_ok() && last_touch.elapsed() >= SESSION_TOUCH_INTERVAL {
                     last_touch = time::Instant::now();
@@ -2240,6 +2254,18 @@ mod tests {
                     crate::protocol::PermissionInfo { permission: 0, enabled }
                 ))
             })) if enabled == can_control
+        ));
+        let clipboard_permission: Message = read_message(&mut client).await.unwrap();
+        assert!(matches!(
+            clipboard_permission.union,
+            Some(message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::PermissionInfo(
+                    crate::protocol::PermissionInfo {
+                        permission: 2,
+                        enabled: false
+                    }
+                ))
+            }))
         ));
         let permission: Message = read_message(&mut client).await.unwrap();
         assert!(matches!(

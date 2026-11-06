@@ -92,6 +92,8 @@ pub struct FrameReader<R> {
     sequence: u64,
     buffer: Vec<u8>,
     max_length: usize,
+    skip_oversized: bool,
+    skipped: u64,
 }
 
 pub struct FrameWriter<W> {
@@ -112,6 +114,8 @@ where
             sequence: 0,
             buffer: Vec::new(),
             max_length: MAX_PACKET_LENGTH,
+            skip_oversized: false,
+            skipped: 0,
         }
     }
 
@@ -120,31 +124,65 @@ where
         self.max_length = max_length.min(MAX_PACKET_LENGTH);
     }
 
+    // From now on a packet longer than the limit but within the protocol's
+    // is read past and dropped instead of ending the stream.
+    pub fn skip_oversized(&mut self) {
+        self.skip_oversized = true;
+    }
+
+    // How many packets were dropped for their length.
+    pub fn skipped(&self) -> u64 {
+        self.skipped
+    }
+
     pub async fn read<M>(&mut self) -> io::Result<M>
     where
         M: ProstMessage + Default,
     {
-        let result = self.read_plaintext().await.and_then(|offset| {
-            M::decode(&self.buffer[offset..])
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
-        });
+        let result = loop {
+            match self.read_plaintext().await {
+                Ok(Some(offset)) => {
+                    break M::decode(&self.buffer[offset..])
+                        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+                }
+                Ok(None) => self.skipped += 1,
+                Err(error) => break Err(error),
+            }
+        };
         release_oversized_buffer(&mut self.buffer);
         result
     }
 
     // Reads and decrypts one packet into the buffer and returns where the
-    // plaintext starts.
-    async fn read_plaintext(&mut self) -> io::Result<usize> {
-        read_payload_into(&mut self.inner, &mut self.buffer, self.max_length).await?;
+    // plaintext starts, or None for a packet dropped for its length.
+    async fn read_plaintext(&mut self) -> io::Result<Option<usize>> {
+        let length = read_length(&mut self.inner).await?;
+        if length > self.max_length {
+            if !self.skip_oversized || length > MAX_PACKET_LENGTH {
+                return Err(too_large());
+            }
+            // Drained through a small fixed buffer, so the packet costs no
+            // memory. It used up a nonce all the same: without the count the
+            // next packet would not decrypt. Its content is never decrypted,
+            // so a forged one can only end the session, as a cut stream can.
+            let length = length as u64;
+            let drained =
+                tokio::io::copy(&mut (&mut self.inner).take(length), &mut tokio::io::sink())
+                    .await?;
+            if drained != length {
+                return Err(io::ErrorKind::UnexpectedEof.into());
+            }
+            if self.cipher.is_some() {
+                next_sequence(&mut self.sequence)?;
+            }
+            return Ok(None);
+        }
+        self.buffer.resize(length, 0);
+        self.inner.read_exact(&mut self.buffer).await?;
         let Some(cipher) = &self.cipher else {
-            return Ok(0);
+            return Ok(Some(0));
         };
-        self.sequence = self.sequence.checked_add(1).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "session nonce counter exhausted",
-            )
-        })?;
+        next_sequence(&mut self.sequence)?;
         if self.buffer.len() < XSalsa20Poly1305::TAG_SIZE {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -156,8 +194,22 @@ where
         cipher
             .decrypt(&nonce(self.sequence), &mut self.buffer[offset..], &tag)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "frame decryption failed"))?;
-        Ok(offset)
+        Ok(Some(offset))
     }
+}
+
+fn next_sequence(sequence: &mut u64) -> io::Result<()> {
+    *sequence = sequence.checked_add(1).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "session nonce counter exhausted",
+        )
+    })?;
+    Ok(())
+}
+
+fn too_large() -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, "packet is too large")
 }
 
 impl<W> FrameWriter<W>
@@ -268,10 +320,7 @@ async fn read_payload_into<R: AsyncRead + Unpin>(
 ) -> io::Result<()> {
     let length = read_length(reader).await?;
     if length > max_length {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "packet is too large",
-        ));
+        return Err(too_large());
     }
     payload.resize(length, 0);
     reader.read_exact(payload).await?;
@@ -556,5 +605,28 @@ mod tests {
         let mut reader = super::FrameReader::new(right, None);
         reader.set_max_length(super::MAX_LOGIN_PACKET_LENGTH);
         assert_eq!(reader.read::<Message>().await.unwrap(), expected);
+    }
+
+    #[tokio::test]
+    async fn skipped_oversized_packet_keeps_the_nonce_sequence() {
+        let packet = |size: usize| Message {
+            union: Some(message::Union::Hash(Hash {
+                salt: "s".repeat(size),
+                challenge: String::new(),
+            })),
+        };
+        let key = super::SessionKey::new([7; 32]);
+        let mut writer = super::FrameWriter::new(Writes::default(), Some(key.clone()));
+        for size in [10, super::MAX_LOGIN_PACKET_LENGTH * 2, 20] {
+            writer.write(&packet(size)).await.unwrap();
+        }
+        let wire = writer.inner.0.concat();
+        let mut reader = super::FrameReader::new(wire.as_slice(), Some(key));
+        reader.set_max_length(super::MAX_LOGIN_PACKET_LENGTH);
+        reader.skip_oversized();
+        assert_eq!(reader.read::<Message>().await.unwrap(), packet(10));
+        assert_eq!(reader.read::<Message>().await.unwrap(), packet(20));
+        assert_eq!(reader.skipped(), 1);
+        assert!(reader.buffer.capacity() < super::MAX_LOGIN_PACKET_LENGTH);
     }
 }

@@ -144,10 +144,21 @@ func tlsConfig(ch Channel) *tls.Config {
 	return &tls.Config{InsecureSkipVerify: ch.flag("skipVerify")} //nolint:gosec
 }
 
-func httpClient(ch Channel) *http.Client {
+// The clients are shared so sends to one service reuse a connection instead
+// of a new TLS handshake each, and leave no idle connection of their own.
+var verifyingClient, trustingClient = newHTTPClient(false), newHTTPClient(true)
+
+func newHTTPClient(skipVerify bool) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = tlsConfig(ch)
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipVerify} //nolint:gosec // see tlsConfig
 	return &http.Client{Transport: transport, Timeout: sendTimeout}
+}
+
+func httpClient(ch Channel) *http.Client {
+	if ch.flag("skipVerify") {
+		return trustingClient
+	}
+	return verifyingClient
 }
 
 // do sends a request and turns the answer into an error. The request's URL

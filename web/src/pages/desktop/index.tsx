@@ -163,9 +163,11 @@ export const Desktop = () => {
     };
   }, [admin, videoModeKnown]);
   // A Cube or Lite takes a new EDID, such as the RGB range that corrects pale
-  // colours, only after a power cycle. The reminder lives in Settings > Video;
-  // say it once per tab here, where everyone looks.
+  // colours, only after a power cycle. The reminder lives in Settings > Video,
+  // where only an admin can dismiss it; tell the admin once per tab here.
+  const [notifier, notifierHolder] = notification.useNotification();
   useEffect(() => {
+    if (!admin) return;
     let active = true;
     getVideoCapabilities()
       .then((rsp) => {
@@ -176,7 +178,7 @@ export const Desktop = () => {
         } catch {
           // Without session storage the notice shows on every load.
         }
-        notification.warning({
+        notifier.warning({
           key: powerCycleNoticeKey,
           message: t('videoSettings.powerCyclePending'),
           description: t('videoSettings.powerCycleNotice'),
@@ -187,7 +189,7 @@ export const Desktop = () => {
     return () => {
       active = false;
     };
-  }, [t]);
+  }, [admin, notifier, t]);
   const [mjpegRefused, setMjpegRefused] = useState(false);
   const [encoderReady, setEncoderReady] = useState(false);
   const [encoderError, setEncoderError] = useState<string | null>(null);
@@ -423,6 +425,7 @@ export const Desktop = () => {
   return (
     <div className="h-dvh w-full overflow-hidden bg-neutral-950">
       <Head title={t('head.desktop')} />
+      {notifierHolder}
 
       <UpdateNotification />
       <ControlNotice />

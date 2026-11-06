@@ -71,3 +71,28 @@ func TestH264SelectionAcceptsTheSavedMonitor(t *testing.T) {
 		}
 	}
 }
+
+func TestStreamScaledFollowsNativeStreamSize(t *testing.T) {
+	for _, c := range []struct {
+		w, h   int
+		limit  uint16
+		scaled bool
+	}{
+		{1920, 1080, 0, false},
+		{1920, 1080, 1080, false},
+		{1920, 1080, 720, true},
+		{2560, 1440, 1080, true},
+		{1080, 1920, 1080, false},
+		// Native keeps the 1088-wide portrait at FHD limits and above.
+		{1088, 1920, 1080, false},
+		{1088, 1920, 1440, false},
+		{1088, 1920, 720, true},
+		{1440, 2560, 1440, false},
+		// Native rounds the stream to even sizes.
+		{1919, 1080, 0, true},
+	} {
+		if got := StreamScaled(c.w, c.h, c.limit); got != c.scaled {
+			t.Errorf("StreamScaled(%dx%d, %d) = %v, want %v", c.w, c.h, c.limit, got, c.scaled)
+		}
+	}
+}

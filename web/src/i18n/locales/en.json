@@ -308,6 +308,7 @@
     "powerCycleWritten": "EDID written and verified. Disconnect and reconnect NanoKVM power to apply.",
     "powerCyclePending": "EDID maintenance: power cycle required",
     "powerCyclePendingHint": "An EDID write was attempted. Disconnect all power sources and reconnect the NanoKVM. This reminder survives software reboots; dismiss it only after the physical power cycle.",
+    "powerCycleNotice": "The HDMI receiver got an updated EDID, for example for correct colours. Unplug the NanoKVM from all power and plug it back in, then dismiss the reminder in Settings > Video.",
     "powerCycleAck": "I have power-cycled the device",
     "powerCycleAckConfirm": "Confirm that you physically disconnected all power sources and reconnected the NanoKVM. This only dismisses the reminder; it does not restart the device.",
     "directSmooth": "Smooth picture",

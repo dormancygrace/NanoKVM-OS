@@ -3,6 +3,7 @@
   "power.off": { "title": "Ana bilgisayar kapandı", "body": "Ana bilgisayarın güç LED'i söndü." },
   "hdmi.lost": { "title": "HDMI sinyali kayboldu", "body": "Ana bilgisayar görüntü göndermeyi durdurdu." },
   "hdmi.restored": { "title": "HDMI sinyali geri geldi", "body": "Ana bilgisayar yeniden görüntü gönderiyor." },
+  "hdmi.power-cycle": { "title": "Gücü kesip yeniden vermeniz önerilir", "body": "HDMI alıcısı, örneğin doğru renkler için güncellenmiş bir EDID aldı. Uygulamak için NanoKVM’in tüm güç bağlantılarını çıkarıp yeniden takın." },
   "security.lockout": {
     "title": "Girişler engellendi",
     "body": "{address} adresinden {failures} başarısız giriş: bu adresten girişler {minutes} dk engellendi."

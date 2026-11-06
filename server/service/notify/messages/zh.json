@@ -3,6 +3,7 @@
   "power.off": { "title": "主机已关机", "body": "主机的电源 LED 已熄灭。" },
   "hdmi.lost": { "title": "HDMI 信号丢失", "body": "主机已停止输出画面。" },
   "hdmi.restored": { "title": "HDMI 信号恢复", "body": "主机重新输出画面。" },
+  "hdmi.power-cycle": { "title": "建议断电重启", "body": "HDMI 接收器已获得更新的 EDID（例如用于修正颜色）。请断开 NanoKVM 的所有电源后重新接通以使其生效。" },
   "security.lockout": {
     "title": "登录已被阻止",
     "body": "来自 {address} 的登录失败 {failures} 次：该地址的登录已被阻止 {minutes} 分钟。"

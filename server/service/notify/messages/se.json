@@ -3,6 +3,7 @@
   "power.off": { "title": "Värden är avstängd", "body": "Värdens strömlampa släcktes." },
   "hdmi.lost": { "title": "HDMI-signal förlorad", "body": "Värden slutade skicka bild." },
   "hdmi.restored": { "title": "HDMI-signal återställd", "body": "Värden skickar bild igen." },
+  "hdmi.power-cycle": { "title": "Rekommenderat att bryta strömmen", "body": "HDMI-mottagaren har fått en uppdaterad EDID, till exempel för korrekta färger. Koppla bort NanoKVM från all ström och anslut den igen för att tillämpa den." },
   "security.lockout": {
     "title": "Inloggningar blockerade",
     "body": "{failures} misslyckade inloggningar från {address}: inloggningar från den här adressen är blockerade i {minutes} min."

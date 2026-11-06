@@ -2372,6 +2372,7 @@
     "powerCycleWritten": "EDID zapsáno a ověřeno. Odpojte NanoKVM od napájení (a připojte ho pak nazpět).",
     "powerCyclePending": "Údržba EDID: je zapotřebí úplné vypnutí/zapnutí",
     "powerCyclePendingHint": "Proveden pokus o zápis EDID. Odpojte veškeré zdroje napájení od NanoKVM (a připojte je pak nazpět). Tato připomínka přetrvá napříč softwarovými restarty, zavřete ji teprve poté, až provedete úplné fyzické vypnutí a zapnutí zařízení.",
+    "powerCycleNotice": "Přijímač HDMI dostal aktualizovaný EDID, například pro správné barvy. Odpojte NanoKVM od všech zdrojů napájení, znovu jej připojte a potom připomínku zavřete v Nastavení > Video.",
     "powerCycleAck": "Provedl/a jsem úplné fyzické vypnutí a zapnutí zařízení",
     "powerCycleAckConfirm": "Potvrďte, že jste fyzicky odpojili veškeré zdroje napájení od NanoKVM (a připojili je pak nazpět). Toto pouze zavře připomínku, nikoli restartuje zařízení.",
     "directSmoothHint": "Přizpůsobivě ukládá snímky do vyrovnávací paměti a kompenzuje tím nepravidelnosti v jejich doručování (to ale přidává drobnou prodlevu).",

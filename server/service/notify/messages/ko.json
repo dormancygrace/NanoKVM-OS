@@ -3,6 +3,7 @@
   "power.off": { "title": "호스트 전원 꺼짐", "body": "호스트의 전원 LED가 꺼졌습니다." },
   "hdmi.lost": { "title": "HDMI 신호 끊김", "body": "호스트가 화면 출력을 중단했습니다." },
   "hdmi.restored": { "title": "HDMI 신호 복구됨", "body": "호스트가 다시 화면을 출력합니다." },
+  "hdmi.power-cycle": { "title": "전원 재연결 권장", "body": "HDMI 수신기의 EDID가 업데이트되었습니다(예: 올바른 색상). 적용하려면 NanoKVM의 모든 전원을 분리했다가 다시 연결하세요." },
   "security.lockout": {
     "title": "로그인 차단됨",
     "body": "{address}에서 로그인에 {failures}회 실패했습니다. 이 주소에서의 로그인은 {minutes}분 동안 차단됩니다."

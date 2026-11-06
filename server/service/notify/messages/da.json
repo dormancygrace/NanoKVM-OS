@@ -3,6 +3,7 @@
   "power.off": { "title": "Værten er slukket", "body": "Værtens strøm-LED slukkede." },
   "hdmi.lost": { "title": "HDMI-signal mistet", "body": "Værten sendte ikke længere noget billede." },
   "hdmi.restored": { "title": "HDMI-signal genoprettet", "body": "Værten sender billede igen." },
+  "hdmi.power-cycle": { "title": "Strømafbrydelse anbefales", "body": "HDMI-modtageren har fået en opdateret EDID, for eksempel for korrekte farver. Afbryd NanoKVM fra al strøm, og tilslut den igen for at anvende den." },
   "security.lockout": {
     "title": "Logins blokeret",
     "body": "{failures} mislykkede logins fra {address}: logins fra denne adresse er blokeret i {minutes} min."

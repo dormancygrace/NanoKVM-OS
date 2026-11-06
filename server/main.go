@@ -23,6 +23,7 @@ import (
 	"NanoKVM-Server/service/extensions/acme"
 	"NanoKVM-Server/service/failsafe"
 	"NanoKVM-Server/service/network"
+	"NanoKVM-Server/service/notify"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/vm"
 	"NanoKVM-Server/service/vm/jiggler"
@@ -142,6 +143,12 @@ func initialize(stopMemory context.CancelFunc) {
 			logrus.Errorf("failed to program the monitor profile on the first start: %v", err)
 		} else if path != "" {
 			logrus.Infof("programmed the monitor profile %s on the first start", path)
+			if common.MonitorPowerCyclePending() {
+				// Nobody watched this write: a Cube or Lite takes the new EDID,
+				// such as the RGB range that corrects pale colours, only after
+				// a power cycle.
+				notify.Emit(notify.Event{Kind: notify.KindHDMI, Severity: notify.SeverityWarning, Message: "hdmi.power-cycle"})
+			}
 		}
 	}()
 
@@ -170,8 +177,10 @@ func run() {
 		// Every request is the administrator: other sites must not read
 		// the API or post to the device from the user's browser. Only the
 		// origins in security.allowedOrigins (a development web server)
-		// get cross-origin access.
-		r.Use(middleware.AllowedOriginCORS(), middleware.RejectCrossOriginWrites())
+		// get cross-origin access, and over plain HTTP only the device's
+		// own names: another site's name rebound to the device's address
+		// would pass the origin checks.
+		r.Use(middleware.RequireDeviceHost(), middleware.AllowedOriginCORS(), middleware.RejectCrossOriginWrites())
 	}
 
 	router.Init(r)

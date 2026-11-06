@@ -308,6 +308,7 @@
     "powerCycleWritten": "EDID を書き込んで検証しました。適用するには NanoKVM の電源を切断して再接続してください。",
     "powerCyclePending": "EDID メンテナンス：電源の再投入が必要です",
     "powerCyclePendingHint": "EDID の書き込みが試行されました。すべての電源を切断し、NanoKVM を再接続してください。この通知はソフトウェアによる再起動後も表示されます。物理的な電源の再投入後にのみ閉じてください。",
+    "powerCycleNotice": "HDMI レシーバーの EDID が更新されました（色を正しくするためなど）。NanoKVM をすべての電源から外して再接続し、その後「設定 > ビデオ」でリマインダーを閉じてください。",
     "powerCycleAck": "デバイスの電源を再投入しました",
     "powerCycleAckConfirm": "すべての電源を物理的に切断し、NanoKVM を再接続したことを確認してください。この操作は通知を閉じるだけで、デバイスは再起動しません。",
     "directSmooth": "滑らかな映像",

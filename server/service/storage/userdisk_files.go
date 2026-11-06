@@ -314,6 +314,7 @@ func (s *Service) UploadUserDiskFile(c *gin.Context) {
 		return nil, uploadUserDisk(root, name, body, c.Request.ContentLength)
 	})
 }
+
 // existsOk=1 lets a folder upload recreate a tree that is already there. A
 // file with that name is still an error.
 func (s *Service) MakeUserDiskDirectory(c *gin.Context) {

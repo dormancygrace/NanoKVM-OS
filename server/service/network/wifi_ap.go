@@ -424,10 +424,10 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 		log.Infof("set the Wi-Fi access point's internet: %t dns=%v", req.Internet, req.DNS)
 		return
 	}
-	// Over Wi-Fi, turning the access point on or off can cut this page off:
-	// on trial, as the Ethernet settings (trial.go). Over another interface
-	// the page stays, and there is nothing to confirm.
-	if !requestOnInterface(c, "wlan0") {
+	// Over Wi-Fi, or a VPN that may run over it, turning the access point on
+	// or off can cut this page off: on trial, as the Ethernet settings
+	// (trial.go). Over Ethernet or USB the page stays, with nothing to confirm.
+	if !requestMayRideWifi(c) {
 		if err := saveWifiAPWithoutTrial(c, req, keepPassword); err != nil {
 			return
 		}

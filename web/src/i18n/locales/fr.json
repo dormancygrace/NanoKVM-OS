@@ -308,6 +308,7 @@
     "powerCycleWritten": "EDID écrit et vérifié. Débranchez puis rebranchez l'alimentation du NanoKVM pour l'appliquer.",
     "powerCyclePending": "Maintenance EDID : coupure de l'alimentation requise",
     "powerCyclePendingHint": "Une écriture de l'EDID a été tentée. Débranchez toutes les sources d'alimentation et rebranchez le NanoKVM. Ce rappel persiste après les redémarrages logiciels ; ne le fermez qu'après la coupure physique de l'alimentation.",
+    "powerCycleNotice": "Le récepteur HDMI a reçu un EDID mis à jour, par exemple pour des couleurs correctes. Débranchez le NanoKVM de toute alimentation, rebranchez-le, puis fermez le rappel dans Paramètres > Vidéo.",
     "powerCycleAck": "J'ai coupé et rétabli l'alimentation de l'appareil",
     "powerCycleAckConfirm": "Confirmez que vous avez physiquement débranché toutes les sources d'alimentation et rebranché le NanoKVM. Cette action ferme uniquement le rappel ; elle ne redémarre pas l'appareil.",
     "directSmooth": "Image fluide",

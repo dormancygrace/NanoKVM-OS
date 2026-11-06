@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -263,6 +264,19 @@ func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(contex
 	rsp.OkRsp(c)
 }
 
+// nbdOwnerRunning reports whether the PID the kernel keeps for /dev/nbd0 is
+// another running server. The kernel keeps the PID of the server that served
+// the disk for as long as anything holds nbd0 open, and the USB gadget does
+// while its LUN names nbd0: after a crash or a restart, the PID is the dead
+// server's.
+func nbdOwnerRunning(pid string) bool {
+	if pid == "" || pid == strconv.Itoa(os.Getpid()) {
+		return false
+	}
+	comm, err := os.ReadFile(filepath.Join("/proc", pid, "comm"))
+	return err == nil && strings.TrimSpace(string(comm)) == "NanoKVM-Server"
+}
+
 // A crashed server closes its NBD socket, but configfs can still name the dead
 // disk. Never detach an NBD device that belongs to a currently running owner.
 func (s *Service) CleanupRemote() {
@@ -284,7 +298,7 @@ func (s *Service) cleanupRemote(devicePath, pidPath string) {
 	h.Lock()
 	defer h.Unlock()
 	pid, err := os.ReadFile(pidPath)
-	if (err != nil && !errors.Is(err, os.ErrNotExist)) || strings.TrimSpace(string(pid)) != "" {
+	if (err != nil && !errors.Is(err, os.ErrNotExist)) || nbdOwnerRunning(strings.TrimSpace(string(pid))) {
 		return
 	}
 	if data, _ := os.ReadFile(mountDevice); strings.TrimSpace(string(data)) == remotemedia.DevicePath {

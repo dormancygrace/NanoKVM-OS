@@ -135,6 +135,8 @@ test('monitor refresh follows the stream rate', () => {
   const c = caps();
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 30 }), c).refresh, 30);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), c).refresh, 60);
+  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 100 }), c).refresh, 100);
   assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 120 }), c).refresh, 100);
   assert.equal(
     model.monitorTarget(draft({ monitor: 1080, fps: 30 }), caps({ follows: false })).refresh,
@@ -210,17 +212,6 @@ test('a resolution applies at its fastest rate, and fits portrait limits', () =>
     fixed
   );
   assert.deepEqual([rate.monitor, rate.fps], [1080, 60]);
-});
-
-test('the monitor refresh follows a lower rate of the resolution', () => {
-  const c = caps();
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 100 }), c).refresh, 100);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 60 }), c).refresh, 60);
-  assert.equal(model.monitorTarget(draft({ monitor: 1080, fps: 50 }), c).refresh, 60);
-  assert.equal(
-    model.monitorTarget(draft({ monitor: 1080, fps: 60 }), caps({ follows: false })).refresh,
-    100
-  );
 });
 
 test('a slower stream rate rewrites the monitor only when it follows the rate', () => {

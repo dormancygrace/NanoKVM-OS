@@ -49,7 +49,10 @@ func RejectCrossOriginWrites() gin.HandlerFunc {
 		crossSite := strings.EqualFold(strings.TrimSpace(c.GetHeader("Sec-Fetch-Site")), "cross-site")
 		switch c.Request.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
-			if crossSite && strings.HasPrefix(c.Request.URL.Path, "/api/") && !allowedCrossSiteRead(c.Request) {
+			// A page at the previous network address discovers this public
+			// ID-only probe across origins; it exposes no confirmation token.
+			publicProbe := c.Request.Method == http.MethodGet && c.Request.URL.Path == "/api/network/trial/probe"
+			if crossSite && strings.HasPrefix(c.Request.URL.Path, "/api/") && !publicProbe && !allowedCrossSiteRead(c.Request) {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": -1, "msg": "cross-origin request refused"})
 				return
 			}

@@ -782,8 +782,6 @@ func (s *Service) DisconnectWifi(c *gin.Context) {
 	}()
 }
 
-// requestOnInterface reports whether the connection of this request ends at
-// an address of the interface, so the page can warn before cutting it.
 // requestMayRideWifi reports whether a Wi-Fi change can cut this page off: the
 // request ends at wlan0, or at an address whose traffic can run over Wi-Fi,
 // such as a VPN (Tailscale, NetBird, WireGuard, OpenVPN) or a local proxy.
@@ -798,6 +796,8 @@ func requestMayRideWifi(c *gin.Context) bool {
 	return true
 }
 
+// requestOnInterface reports whether the connection of this request ends at
+// an address of the interface, so the page can warn before cutting it.
 func requestOnInterface(c *gin.Context, name string) bool {
 	local, ok := c.Request.Context().Value(http.LocalAddrContextKey).(net.Addr)
 	if !ok {

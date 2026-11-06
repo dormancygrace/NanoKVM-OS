@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -244,9 +245,14 @@ func TestEmailRefusals(t *testing.T) {
 		t.Fatalf("STARTTLS asked of a server without it: %v", err)
 	}
 
+	// A password over a plain connection: refused on save, and on send if
+	// stored before that.
 	host, port, _ = fakeSMTP(t, "")
-	ch = channel("email", map[string]string{"host": host, "port": port, "security": "none", "username": "u", "password": "p",
-		"from": "k@example.com", "to": "a@example.com"})
+	ch = Channel{Type: "email", Settings: map[string]string{"host": host, "port": port, "security": "none", "username": "u", "password": "p",
+		"from": "k@example.com", "to": "a@example.com"}}
+	if saved := (Channel{Type: "email", Settings: maps.Clone(ch.Settings)}); saved.validate() == nil {
+		t.Fatal("a password over a plain connection saved")
+	}
 	if err := sendChannel(context.Background(), ch, sample); !errors.As(err, &perm) {
 		t.Fatalf("a password over a plain connection: %v", err)
 	}

@@ -397,6 +397,10 @@ func validateEmail(settings map[string]string) error {
 		}
 	}
 	if settings["auth"] != "oauth2" {
+		// The send would refuse it every time, out of the page's sight.
+		if settings["username"] != "" && settings["security"] == "none" {
+			return errors.New("a login needs STARTTLS or TLS")
+		}
 		return nil
 	}
 	p := providerByID(settings["provider"])

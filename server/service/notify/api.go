@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 )
@@ -161,6 +162,10 @@ func resolve(update ChannelUpdate, stored []Channel) (Channel, error) {
 		ch.ID = newID()
 	}
 	if err := ch.validate(); err != nil {
+		// The page saves every channel at once: name the one to fix.
+		if ch.Name != "" {
+			err = fmt.Errorf("%s: %w", ch.Name, err)
+		}
 		return Channel{}, err
 	}
 	return ch, nil

@@ -53,7 +53,7 @@ func (s *watchedScreen) watch() *screenWatch {
 		},
 		viewers: func() int { return s.viewers },
 		begin:   videogate.Begin,
-		shot:    func(context.Context) ([]byte, bool) { return []byte{0xff, 0xd8}, true },
+		shot:    func(context.Context, []byte) ([]byte, bool) { return []byte{0xff, 0xd8}, true },
 		read: func(ctx context.Context) (screenRead, error) {
 			s.reads++
 			// The frame is the screen as the read starts.

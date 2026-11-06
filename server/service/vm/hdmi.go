@@ -324,10 +324,11 @@ func acquireHdmiBackgroundRead(ctx context.Context) (func(), bool) {
 	if unparked {
 		resumeParkedCaptureLocked()
 	}
+	readyAt := hdmiDemand.ReadyAt()
 	hdmiMutex.Unlock()
 
 	var once sync.Once
-	return func() {
+	release := func() {
 		once.Do(func() {
 			hdmiMutex.Lock()
 			hdmiBackgroundReads--
@@ -340,7 +341,18 @@ func acquireHdmiBackgroundRead(ctx context.Context) (func(), bool) {
 			hdmiMutex.Unlock()
 			<-hdmiCaptureReadSlot
 		})
-	}, true
+	}
+	if wait := time.Until(readyAt); wait > 0 {
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			release()
+			return nil, false
+		case <-timer.C:
+		}
+	}
+	return release, true
 }
 
 func acquireHdmiCaptureLease() (func(), time.Time) {

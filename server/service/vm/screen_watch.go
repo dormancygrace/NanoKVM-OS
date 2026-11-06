@@ -28,8 +28,9 @@ import (
 // changed and then held still, the TPU classifier (nanokvm-screen, with its
 // model add-on) says what it shows. A stop screen or a text console is then read by the
 // OCR, when nobody watches the video (its models take the memory a viewer's
-// video needs), and only text that names a crash makes a notification,
-// with the lines read and a screenshot.
+// video needs). Crash text produces a notification with the lines read and a
+// screenshot; a high-confidence stop screen can be reported without OCR when
+// an unattended video stream holds its memory.
 const (
 	screenHelper = screenTextRoot + "/bin/nanokvm-screen"
 	screenModel  = screenTextRoot + "/models/screen.cvimodel"
@@ -108,8 +109,8 @@ type screenWatch struct {
 	// starts (videogate).
 	begin func(ctx context.Context) (context.Context, func(), bool)
 	// shot is a picture of the screen to send with a crash, when the OCR
-	// cannot run.
-	shot func(ctx context.Context) ([]byte, bool)
+	// cannot run. It must still match the thumbnail judged.
+	shot func(ctx context.Context, judged []byte) ([]byte, bool)
 	// read is the OCR of the whole screen, with the frame it read.
 	read func(ctx context.Context) (screenRead, error)
 	now  func() time.Time
@@ -210,13 +211,13 @@ func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged [
 		w.pending = true
 		return
 	}
-	ctx, end, ok := w.begin(ctx)
+	readCtx, end, ok := w.begin(ctx)
 	if !ok {
 		// Video holds the TPU, for a page nobody looks at. The OCR must not
 		// take the video's memory, so a sure stop screen goes out unread
 		// with its picture; anything else waits until the video stops.
 		if verdict.Class == "bsod" && verdict.Score >= screenUnreadBSODScore {
-			if shot, ok := w.shot(ctx); ok {
+			if shot, ok := w.shot(ctx, judged); ok && ctx.Err() == nil && w.viewers() == 0 {
 				w.reported = true
 				w.emit(notify.Event{Kind: notify.KindScreen, Severity: notify.SeverityCritical, Message: "screen.bsod",
 					Details: "The text was not read: video is streaming to a page nobody is looking at.", Image: shot})
@@ -228,12 +229,13 @@ func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged [
 	}
 	previous := w.readAt
 	w.readAt = now
-	got, err := w.read(ctx)
-	cancelled := ctx.Err() != nil
+	got, err := w.read(readCtx)
+	cancelled := readCtx.Err() != nil
 	end()
 	if cancelled {
 		// A viewer came; the read did not count.
 		w.readAt = previous
+		w.deferred = true
 		log.Infof("screen watch: OCR gave way to a viewer")
 		return
 	}
@@ -303,21 +305,18 @@ func meanDifference(a, b []byte) float64 {
 // no other) while capture runs; ok is false without a signal or capture,
 // and for an input over Full HD, which VPSS cannot hand out as planes.
 func screenPlanes(ctx context.Context) (planes []byte, width, height int, ok bool) {
-	if signal, ok := notifyHDMISignal(); !ok || !signal {
-		return nil, 0, 0, false
-	}
-	if _, _, err := screenTextInput(); err != nil {
-		return nil, 0, 0, false
-	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	// Not a viewer: the look neither wakes capture stopped for idle nor keeps
-	// it from parking or stopping.
+	// Resume idle capture before checking its signal: the watch may have
+	// been enabled after capture stopped. This read does not extend parking.
 	release, ok := acquireHdmiBackgroundRead(ctx)
 	if !ok {
 		return nil, 0, 0, false
 	}
 	defer release()
+	if signal, ok := notifyHDMISignal(); !ok || !signal {
+		return nil, 0, 0, false
+	}
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		width, height, err = screenTextInput()
@@ -436,16 +435,22 @@ func readScreenLines(ctx context.Context) (screenRead, error) {
 	return screenRead{text: ScreenTextLines(reply.Boxes), planes: reply.planes, width: reply.Width, height: reply.Height}, nil
 }
 
-// screenJPEG is a JPEG of a frame at most screenShotWidth wide, or nil.
-// screenShot is the screen as screenJPEG sends it.
-func screenShot(ctx context.Context) ([]byte, bool) {
+// screenShot takes a screenshot only while it still matches the verdict's
+// frame; a later desktop must not be sent as a crash.
+func screenShot(ctx context.Context, judged []byte) ([]byte, bool) {
 	planes, width, height, ok := screenPlanes(ctx)
 	if !ok {
 		return nil, false
 	}
-	return screenJPEG(planes, width, height), true
+	thumb := shrinkPlanes(planes, width, height, screenThumbWidth, screenThumbHeight)
+	if meanDifference(thumb, judged) > screenChangeLevel {
+		return nil, false
+	}
+	shot := screenJPEG(planes, width, height)
+	return shot, len(shot) != 0
 }
 
+// screenJPEG is a JPEG of a frame at most screenShotWidth wide, or nil.
 func screenJPEG(planes []byte, width, height int) []byte {
 	if len(planes) != width*height*3 || width == 0 {
 		return nil

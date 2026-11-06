@@ -13,12 +13,12 @@ on:
     branches: [main]
     paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**',
             'tests/test-zram-pages.py', 'tests/test-lz4-decompressor.py', 'tests/zram-pages/**',
-            'tests/lz4-compressor/**', '!.github/workflows/ci.yml',
+            'tests/lz4-compressor/decoder-*', '!.github/workflows/ci.yml',
             '!.github/workflows/codeql.yml']
   pull_request:
     paths: ['**', '!docs/**', '!*.md', '!**/README.md', '!tests/**',
             'tests/test-zram-pages.py', 'tests/test-lz4-decompressor.py', 'tests/zram-pages/**',
-            'tests/lz4-compressor/**', '!.github/workflows/ci.yml',
+            'tests/lz4-compressor/decoder-*', '!.github/workflows/ci.yml',
             '!.github/workflows/codeql.yml']
   workflow_dispatch:
 

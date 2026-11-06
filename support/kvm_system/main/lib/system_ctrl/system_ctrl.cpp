@@ -8,7 +8,6 @@
 
 
 extern kvm_sys_state_t kvm_sys_state;
-extern kvm_oled_state_t kvm_oled_state;
 
 // The AP key is the access point's WPA2 passphrase and the X-AP-Key of the
 // server's provisioning routes. 8 characters fit the OLED's 64-pixel line;

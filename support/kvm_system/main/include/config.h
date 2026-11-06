@@ -20,8 +20,6 @@
 #include "oled_ctrl.h"
 #include "oled_ui.h"
 
-#define IP_Change_time 				5000
-#define QR_Change_time 				5000
 #define STATE_DELAY 				1000
 #define OLED_DELAY 					1000
 #define KEY_DELAY 					100
@@ -32,7 +30,6 @@
 // How often a missing wlan0 is looked for again: the driver loads later.
 #define WIFI_PRESENCE_INTERVAL 		5000
 #define OLED_SLEEP_DELAY_MIN 		10
-#define OLED_SLEEP_DELAY_DEFAULT 	30
 
 struct kvm_sys_state_t {
 	int8_t page = 0;
@@ -47,7 +44,6 @@ struct kvm_sys_state_t {
 	int8_t  usb_state = -1;			// cat /sys/class/udc/4340000.usb/state
 	int8_t  hid_state = -1;			// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GSn(n=012)
 	int8_t  udisk_state = -1;		// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/mass_storage.disk0
-	int8_t  host_pwr_state = -1;	// cat /sys/class/gpio/gpio504/value
 	int16_t hdmi_width = 0;			// cat /run/nanokvm/width
 	int16_t hdmi_height = 0;		// cat /run/nanokvm/height
 	int8_t type = 0;				// cat /kvmapp/kvm/type
@@ -60,31 +56,12 @@ struct kvm_sys_state_t {
 	int8_t sys_thread_running = 0;
 	int8_t wifi_config_process = -1;	// 1:QR;2:Test;3:IP;
 	char wifi_ap_pass[9] = {0};
-    uint8_t oled_sleep_state = 0;	// 0:wakeup; 1:sleep;
-	int8_t reconvery_update = 0;	// 0:Undetected; 1:Needs Update; 2:Update finish; -1:not need to update
 	uint8_t ping_allow = 1;
 };
 
 struct kvm_oled_state_t {
 	int8_t page = -1;
 	int8_t sub_page = -1;
-	uint8_t eth_route[16] = {0};	// route ip
-	uint8_t wifi_route[16] = {0};	// route ip
-	uint8_t eth_addr[16] = {0};		// ETH ip
-	uint8_t wifi_addr[16] = {0};	// WiFi ip
-	int8_t  eth_state = -1;			// cat /sys/class/net/eth0/carrier
-	int8_t  wifi_state = -1;		// cat /sys/class/net/wlan0/carrier
-	int8_t  hdmi_state = -1;		// Shared VI state, with a native fallback on failure
-	int8_t  usb_state = -1;			// cat /sys/class/udc/4340000.usb/state
-	int8_t  hid_state = -1;			// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GSn(n=012)
-	int8_t  udisk_state = -1;		// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/mass_storage.disk0
-	int8_t  host_pwr_state = -1;	// cat /sys/class/gpio/gpio504/value
-	int16_t hdmi_width = -1;		// cat /run/nanokvm/width
-	int16_t hdmi_height = -1;		// cat /run/nanokvm/height
-	int8_t type = -1;				// cat /kvmapp/kvm/type
-	int8_t now_fps = -1;			// cat /run/nanokvm/now_fps
-	int16_t qlty = -1;				// cat /kvmapp/kvm/qlty
-    uint16_t oled_sleep_param = 0;
     uint8_t oled_sleep_state = 0;	// 0:wakeup; 1:sleep;
 	uint64_t oled_sleep_start = 0;
 };

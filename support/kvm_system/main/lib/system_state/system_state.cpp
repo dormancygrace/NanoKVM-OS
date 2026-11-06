@@ -15,7 +15,6 @@
 
 
 extern kvm_sys_state_t kvm_sys_state;
-extern kvm_oled_state_t kvm_oled_state;
 
 static const char *USB_HID0_LINK = "/sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GS0";
 static const char *USB_HID1_LINK = "/sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GS1";

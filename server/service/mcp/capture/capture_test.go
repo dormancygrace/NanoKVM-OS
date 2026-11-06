@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"sync"
 	"testing"
+	"time"
 
 	mcpservice "NanoKVM-Server/service/mcp"
 )
@@ -83,7 +84,9 @@ func TestCaptureRejectsCropAndEmptyData(t *testing.T) {
 		t.Fatalf("vision called for rejected crop: %d", vision.calls)
 	}
 
-	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{})
+	snapshotter.retryDelay = time.Millisecond
+	timeoutMS := 20
+	snapshot, err := snapshotter.Capture(context.Background(), mcpservice.SnapshotRequest{TimeoutMS: &timeoutMS})
 	if err != nil || snapshot.OK || snapshot.Message == "" {
 		t.Fatalf("snapshot=%+v err=%v", snapshot, err)
 	}

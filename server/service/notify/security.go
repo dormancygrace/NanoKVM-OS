@@ -46,6 +46,14 @@ func LoginLockedOut(address string, failures, minutes int) {
 		Vars: map[string]string{"failures": strconv.Itoa(failures), "address": address, "minutes": strconv.Itoa(minutes)}})
 }
 
+// LoginAttemptsLimited reports that an address made attempts logins, failed
+// or not, and further ones are refused for minutes: the IPMI limit, which
+// counts every login because each hands out a password hash.
+func LoginAttemptsLimited(address string, attempts, minutes int) {
+	Emit(Event{Kind: KindSecurity, Severity: SeverityWarning, Message: "security.attempt-limit",
+		Vars: map[string]string{"attempts": strconv.Itoa(attempts), "address": address, "minutes": strconv.Itoa(minutes)}})
+}
+
 // LoginSucceeded reports a login from an address the user has not logged in
 // from before. A user's first login is remembered without a report. The
 // addresses are kept also while no channel wants these events, so turning

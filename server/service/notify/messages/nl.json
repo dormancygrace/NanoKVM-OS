@@ -8,6 +8,10 @@
     "title": "Aanmeldingen geblokkeerd",
     "body": "{failures} mislukte aanmeldingen vanaf {address}: aanmeldingen vanaf dit adres zijn {minutes} min geblokkeerd."
   },
+  "security.attempt-limit": {
+    "title": "Aanmeldpogingen beperkt",
+    "body": "{attempts} aanmeldpogingen vanaf {address} in een minuut: verdere pogingen vanaf dit adres worden {minutes} min geweigerd."
+  },
   "security.new-address": {
     "title": "Aanmelding vanaf nieuw adres",
     "body": "{user} heeft zich aangemeld vanaf {address}, een eerder niet geziene adres."

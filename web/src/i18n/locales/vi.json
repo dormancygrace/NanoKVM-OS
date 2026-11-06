@@ -801,7 +801,7 @@
       "eventHint": {
         "power": "máy tính chủ được bật hoặc tắt; cần điều khiển ATX có nối đèn LED nguồn.",
         "hdmi": "mất hình hoặc có lại hình, kể cả khi máy tính chủ tắt màn hình; chỉ phát hiện khi đang thu video.",
-        "security": "địa chỉ bị chặn sau nhiều lần đăng nhập thất bại, đăng nhập từ địa chỉ mới.",
+        "security": "địa chỉ bị chặn sau nhiều lần đăng nhập thất bại, quá nhiều lần đăng nhập IPMI, đăng nhập từ địa chỉ mới.",
         "screen": "màn hình xanh hoặc kernel panic, do tiện ích bổ sung TPU nhận dạng; văn bản được đọc khi không ai xem video và kèm theo ảnh chụp màn hình."
       },
       "field": {
@@ -883,6 +883,7 @@
         "hdmi_lost": "Mất tín hiệu HDMI",
         "hdmi_restored": "Đã có lại tín hiệu HDMI",
         "security_lockout": "Đăng nhập bị chặn",
+        "security_attempt-limit": "Đã giới hạn lần đăng nhập",
         "security_new-address": "Đăng nhập từ địa chỉ mới",
         "screen_bsod": "Màn hình xanh",
         "screen_panic": "Kernel panic",

@@ -8,6 +8,10 @@
     "title": "Login diblokir",
     "body": "{failures} kali login gagal dari {address}: login dari alamat ini diblokir selama {minutes} menit."
   },
+  "security.attempt-limit": {
+    "title": "Percobaan masuk dibatasi",
+    "body": "{attempts} percobaan masuk dari {address} dalam satu menit: percobaan berikutnya dari alamat ini ditolak selama {minutes} menit."
+  },
   "security.new-address": {
     "title": "Login dari alamat baru",
     "body": "{user} login dari {address}, alamat yang belum pernah terlihat sebelumnya."

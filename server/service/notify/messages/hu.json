@@ -8,6 +8,10 @@
     "title": "Bejelentkezések letiltva",
     "body": "{failures} sikertelen bejelentkezés innen: {address}. Az erről a címről érkező bejelentkezések {minutes} percre le vannak tiltva."
   },
+  "security.attempt-limit": {
+    "title": "Bejelentkezési kísérletek korlátozva",
+    "body": "{attempts} bejelentkezési kísérlet {address} címről egy perc alatt: a további kísérleteket erről a címről {minutes} percig elutasítja."
+  },
   "security.new-address": {
     "title": "Bejelentkezés új címről",
     "body": "{user} bejelentkezett innen: {address}, ez a cím korábban nem szerepelt."

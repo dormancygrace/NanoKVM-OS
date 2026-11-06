@@ -8,6 +8,10 @@
     "title": "登录已被阻止",
     "body": "来自 {address} 的登录失败 {failures} 次：该地址的登录已被阻止 {minutes} 分钟。"
   },
+  "security.attempt-limit": {
+    "title": "登录尝试受限",
+    "body": "{address} 在一分钟内尝试登录 {attempts} 次：该地址的后续尝试将在 {minutes} 分钟内被拒绝。"
+  },
   "security.new-address": {
     "title": "来自新地址的登录",
     "body": "{user} 从 {address} 登录，此地址之前未出现过。"

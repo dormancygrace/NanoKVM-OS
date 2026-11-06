@@ -36,6 +36,7 @@ var MessageSpecs = []MessageSpec{
 	{Key: "hdmi.restored", Kind: KindHDMI},
 	{Key: "hdmi.power-cycle", Kind: KindHDMI},
 	{Key: "security.lockout", Kind: KindSecurity, Vars: []string{"failures", "address", "minutes"}},
+	{Key: "security.attempt-limit", Kind: KindSecurity, Vars: []string{"attempts", "address", "minutes"}},
 	{Key: "security.new-address", Kind: KindSecurity, Vars: []string{"user", "address"}},
 	{Key: "screen.bsod", Kind: KindScreen},
 	{Key: "screen.panic", Kind: KindScreen},

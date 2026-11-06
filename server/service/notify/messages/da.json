@@ -8,6 +8,10 @@
     "title": "Logins blokeret",
     "body": "{failures} mislykkede logins fra {address}: logins fra denne adresse er blokeret i {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Loginforsøg begrænset",
+    "body": "{attempts} loginforsøg fra {address} på et minut: yderligere forsøg fra denne adresse afvises i {minutes} min."
+  },
   "security.new-address": {
     "title": "Login fra en ny adresse",
     "body": "{user} loggede ind fra {address}, en adresse der ikke er set før."

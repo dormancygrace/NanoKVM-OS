@@ -8,6 +8,10 @@
     "title": "Inloggningar blockerade",
     "body": "{failures} misslyckade inloggningar från {address}: inloggningar från den här adressen är blockerade i {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Inloggningsförsök begränsade",
+    "body": "{attempts} inloggningsförsök från {address} på en minut: fler försök från denna adress avvisas i {minutes} min."
+  },
   "security.new-address": {
     "title": "Inloggning från ny adress",
     "body": "{user} loggade in från {address}, en adress som inte setts tidigare."

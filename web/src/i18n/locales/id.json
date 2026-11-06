@@ -798,7 +798,7 @@
       "eventHint": {
         "power": "host dinyalakan atau dimatikan; memerlukan kontrol ATX dengan LED daya terhubung.",
         "hdmi": "gambar hilang atau kembali, juga saat host mematikan layarnya; terdeteksi selama penangkapan video berjalan.",
-        "security": "alamat diblokir setelah login gagal, login dari alamat baru.",
+        "security": "alamat diblokir setelah login gagal, terlalu banyak percobaan login IPMI, login dari alamat baru.",
         "screen": "layar biru atau kernel panic, dikenali oleh add-on TPU; teks dibaca saat tidak ada yang menonton video, dan tangkapan layar dikirim bersamanya."
       },
       "field": {
@@ -880,6 +880,7 @@
         "hdmi_lost": "Sinyal HDMI hilang",
         "hdmi_restored": "Sinyal HDMI pulih",
         "security_lockout": "Login diblokir",
+        "security_attempt-limit": "Percobaan masuk dibatasi",
         "security_new-address": "Login dari alamat baru",
         "screen_bsod": "Layar biru",
         "screen_panic": "Kernel panic",

@@ -2323,7 +2323,7 @@
       "eventHint": {
         "power": "主机被开启或关闭；需要启用 ATX 控制并连接电源指示灯。",
         "hdmi": "画面丢失或恢复，包括主机关闭显示器时；仅在视频采集运行时检测。",
-        "security": "登录失败后被封锁的地址、从新地址登录。",
+        "security": "登录失败后被封锁的地址、IPMI 登录尝试过多、从新地址登录。",
         "screen": "由 TPU 附加组件识别的蓝屏或内核崩溃；无人观看视频时读取屏幕文字，并随截图一起发送。"
       },
       "field": {
@@ -2405,6 +2405,7 @@
         "hdmi_lost": "HDMI 信号丢失",
         "hdmi_restored": "HDMI 信号恢复",
         "security_lockout": "登录已被封锁",
+        "security_attempt-limit": "登录尝试受限",
         "security_new-address": "从新地址登录",
         "screen_bsod": "蓝屏",
         "screen_panic": "Kernel panic",

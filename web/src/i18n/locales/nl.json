@@ -801,7 +801,7 @@
       "eventHint": {
         "power": "de host is in- of uitgeschakeld; vereist ATX-besturing met aangesloten voedings-LED.",
         "hdmi": "het beeld viel weg of kwam terug, ook als de host zijn scherm uitzet; wordt gezien terwijl videoopname loopt.",
-        "security": "een adres geblokkeerd na mislukte aanmeldingen, een aanmelding vanaf een nieuw adres.",
+        "security": "een adres geblokkeerd na mislukte aanmeldingen, te veel IPMI-aanmeldpogingen, een aanmelding vanaf een nieuw adres.",
         "screen": "een blauw scherm of een kernel panic, herkend door de TPU-add-on; de tekst wordt gelezen als niemand naar de video kijkt, en er wordt een screenshot bij gestuurd."
       },
       "field": {
@@ -883,6 +883,7 @@
         "hdmi_lost": "HDMI-signaal verloren",
         "hdmi_restored": "HDMI-signaal hersteld",
         "security_lockout": "Aanmeldingen geblokkeerd",
+        "security_attempt-limit": "Aanmeldpogingen beperkt",
         "security_new-address": "Aanmelding vanaf een nieuw adres",
         "screen_bsod": "Blauw scherm",
         "screen_panic": "Kernel panic",

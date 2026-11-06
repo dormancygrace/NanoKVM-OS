@@ -8,6 +8,10 @@
     "title": "Logowanie zablokowane",
     "body": "Nieudane logowania: {failures}, adres {address}. Logowanie z tego adresu jest zablokowane na {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Próby logowania ograniczone",
+    "body": "{attempts} prób logowania z {address} w ciągu minuty: kolejne próby z tego adresu są odrzucane przez {minutes} min."
+  },
   "security.new-address": {
     "title": "Logowanie z nowego adresu",
     "body": "Użytkownik {user} zalogował się z adresu {address}, którego wcześniej nie widziano."

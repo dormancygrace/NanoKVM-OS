@@ -801,7 +801,7 @@
       "eventHint": {
         "power": "호스트가 켜지거나 꺼졌을 때. 전원 LED가 연결된 ATX 제어가 필요합니다.",
         "hdmi": "화면이 끊기거나 돌아왔을 때(호스트가 디스플레이를 끈 경우 포함). 비디오 캡처가 실행되는 동안 감지됩니다.",
-        "security": "로그인 실패 후 차단된 주소, 새 주소에서의 로그인.",
+        "security": "로그인 실패 후 차단된 주소, 너무 많은 IPMI 로그인 시도, 새 주소에서의 로그인.",
         "screen": "TPU 애드온이 인식한 블루 스크린 또는 kernel panic. 아무도 비디오를 보지 않을 때 텍스트를 읽고, 스크린샷을 함께 보냅니다."
       },
       "field": {
@@ -883,6 +883,7 @@
         "hdmi_lost": "HDMI 신호 끊김",
         "hdmi_restored": "HDMI 신호 복구됨",
         "security_lockout": "로그인 차단됨",
+        "security_attempt-limit": "로그인 시도 제한됨",
         "security_new-address": "새 주소에서 로그인",
         "screen_bsod": "블루 스크린",
         "screen_panic": "Kernel panic",

@@ -130,6 +130,9 @@ type Server struct {
 	// The last power command accepted, for Stats.
 	lastCommand   string
 	lastCommandAt time.Time
+	// Logins and lockouts for the server's notifications (events.go).
+	events   []Event
+	eventSeq uint64
 }
 
 // Stats is what the add-on's settings page shows.
@@ -317,6 +320,14 @@ func cipherSuites(data []byte) (byte, []byte) {
 
 // clientKey is the login counter of a packet's source: its host, and for
 // IPv6 its /64, so that one host cannot rotate through its prefix.
+// hostOf is the address of addr without its port.
+func hostOf(addr string) string {
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
+}
+
 func clientKey(addr string) string {
 	host, _, _ := net.SplitHostPort(addr)
 	if ip, err := netip.ParseAddr(host); err == nil && ip.Is6() && !ip.Is4In6() {
@@ -351,6 +362,11 @@ func (s *Server) recordFailure(addr string) {
 		s.failed[host] = f
 	}
 	f.count++
+	if f.count == maxFailures {
+		// Refused until the window that started at f.since ends.
+		s.event(Event{Kind: "lockout", Address: host, Attempts: f.count,
+			Minutes: int((failWindow + time.Minute - 1) / time.Minute)})
+	}
 }
 
 // maxTracked bounds the login counters: UDP source addresses are easy to
@@ -598,6 +614,9 @@ func (s *Server) rakp3(p []byte, addr string) []byte {
 	se.active = true
 	se.priv = se.role & 0x0F
 	se.lastUsed = s.now()
+	// The full address: clientKey's /64 would make every host of a network
+	// look like one already seen.
+	s.event(Event{Kind: "login", User: string(se.name), Address: hostOf(addr)})
 	icv := se.suite.mac(se.sik, se.rm[:], le32(se.managedID), s.GUID[:])[:se.suite.rakp4Len]
 	reply := append([]byte{tag, statusOK, 0, 0}, le32(se.consoleID)...)
 	return s.preSession(payloadRAKP4, append(reply, icv...))

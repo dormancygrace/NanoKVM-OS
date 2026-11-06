@@ -8,6 +8,10 @@
     "title": "Accessi bloccati",
     "body": "{failures} accessi falliti da {address}: gli accessi da questo indirizzo sono bloccati per {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Tentativi di accesso limitati",
+    "body": "{attempts} tentativi di accesso da {address} in un minuto: i successivi da questo indirizzo sono rifiutati per {minutes} min."
+  },
   "security.new-address": {
     "title": "Accesso da un nuovo indirizzo",
     "body": "{user} ha effettuato l'accesso da {address}, un indirizzo mai visto prima."

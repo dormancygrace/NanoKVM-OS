@@ -8,6 +8,10 @@
     "title": "Inicios de sesión bloqueados",
     "body": "{failures} inicios de sesión fallidos desde {address}: los accesos desde esta dirección están bloqueados durante {minutes} min."
   },
+  "security.attempt-limit": {
+    "title": "Intentos de inicio de sesión limitados",
+    "body": "{attempts} intentos de inicio de sesión desde {address} en un minuto: los siguientes desde esta dirección se rechazan durante {minutes} min."
+  },
   "security.new-address": {
     "title": "Inicio de sesión desde una dirección nueva",
     "body": "{user} ha iniciado sesión desde {address}, una dirección no vista antes."

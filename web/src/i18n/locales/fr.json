@@ -2323,7 +2323,7 @@
       "eventHint": {
         "power": "l'hôte a été allumé ou éteint ; nécessite le contrôle ATX avec la LED d'alimentation branchée.",
         "hdmi": "l'image a été perdue ou est revenue, y compris quand l'hôte éteint son écran ; détecté pendant la capture vidéo.",
-        "security": "une adresse bloquée après des connexions échouées, une connexion depuis une nouvelle adresse.",
+        "security": "une adresse bloquée après des connexions échouées, trop de tentatives de connexion IPMI, une connexion depuis une nouvelle adresse.",
         "screen": "un écran bleu ou un kernel panic, reconnus par le module TPU ; le texte est lu quand personne ne regarde la vidéo et envoyé avec une capture."
       },
       "field": {
@@ -2405,6 +2405,7 @@
         "hdmi_lost": "Signal HDMI perdu",
         "hdmi_restored": "Signal HDMI rétabli",
         "security_lockout": "Connexions bloquées",
+        "security_attempt-limit": "Tentatives de connexion limitées",
         "security_new-address": "Connexion depuis une nouvelle adresse",
         "screen_bsod": "Écran bleu",
         "screen_panic": "Kernel panic",

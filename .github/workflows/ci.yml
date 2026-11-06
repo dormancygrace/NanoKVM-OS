@@ -50,7 +50,7 @@ jobs:
           changed() { grep -qE "$all|$1" "$files" && echo true || echo false; }
           modules=()
           for m in addons/ipmi server/third_party/pion-dtls server/third_party/pion-ice \
-                   server/third_party/pion-srtp firmware/crypto/experimental/hwcrypto-all/ghash-go; do
+                   server/third_party/pion-srtp; do
             pattern="^$m/"
             # The IPMI add-on builds against the server module.
             [ "$m" = addons/ipmi ] && pattern="$pattern|^server/"

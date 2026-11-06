@@ -1,6 +1,6 @@
 # SG2002 CryptoDMA diagnostic tools and experiments
 
-These are opt-in developer diagnostics for the current driver in `platform/modules/hwcrypto`, plus historical measurements and a standalone Go experiment. Restoring this directory does not install the tools, enable algorithms in applications, apply the Go patch, or change firmware outputs.
+These are opt-in developer diagnostics for the current driver in `platform/modules/hwcrypto`, plus historical measurements. Restoring this directory does not install the tools, enable algorithms in applications, or change firmware outputs.
 
 This extends the existing serialized `nanokvm_hwcrypto` owner with AES-128/192/256, DES, two-key and three-key Triple DES, SM4 (ECB/CBC/CTR), SHA-1, SHA-256 and Base64 encode/decode. All 24 algorithm/mode variants passed short physical-device differential checks. AES-GCM is demonstrated by a userspace hybrid: hardware AES + software GHASH.
 
@@ -27,7 +27,7 @@ H=-Iplatform/modules/hwcrypto
 
 After installing on the matching device, `crypto-bench --kat` checks boundaries, encryption/decryption, SHA padding/chaining, Base64 and invalid requests. `crypto-bench --bench 32` also measures 64/256/1200/4096/65536-byte inputs. `gcm-bench --kat` checks the AES-GCM hybrid; without arguments it measures hybrid versus software AES-GCM and software ChaCha20-Poly1305. These programs use synthetic keys/nonces and are measurement tools, not application encryption APIs. DES/TDES and SHA-1 are included to test the hardware ABI against a software reference; their presence is not a recommendation to use them for application security. Invalid GCM tags must be rejected; decrypted output must not be consumed before authentication succeeds.
 
-`python3 summarize.py RESULT_DIRECTORY` produces medians and tables from the saved CSV outputs. The Go experiment and a narrowly scoped runtime patch are in `ghash-go/`.
+`python3 summarize.py RESULT_DIRECTORY` produces medians and tables from the saved CSV outputs.
 
 ## Measurements and limits
 

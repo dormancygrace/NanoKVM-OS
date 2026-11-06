@@ -49,6 +49,7 @@ record() { printf '%s\n' "$2" > "$1.sha256.new" && mv "$1.sha256.new" "$1.sha256
 # Copy $1 to $2 through $2.new, checked on the card against hash $3. Every
 # step is chained: callers test the result, which turns set -e off inside.
 copy_checked() {
+    # shellcheck disable=SC2015 # the cleanup runs when any step fails
     rm -f "$2.new" && cp "$1" "$2.new" && sync "$2.new" &&
         [ "$(oncard "$2.new")" = "$3" ] && mv "$2.new" "$2" && record "$2" "$3" && sync /boot ||
         { rm -f "$2.new"; return 1; }
@@ -96,6 +97,17 @@ if [ "$current" != "$want" ]; then
 elif [ ! -f /boot/boot.sd.sha256 ] || [ "$(cat /boot/boot.sd.sha256)" != "$want" ]; then
     record /boot/boot.sd "$want"
     sync /boot
+fi
+# The OLED boot logo U-Boot draws, for this board's panel (none for Alpha).
+# activate-bootloader installs it too, but a new card selects its board here,
+# after that package was set up: without this the logo would wait for the
+# next bootloader update. A logo that cannot be written is not worth failing
+# the kernel for.
+logo=/usr/lib/nanokvm/bootloader/oled/$profile.bin
+if [ -f "$logo" ] && ! cmp -s "$logo" /boot/oled-logo.bin; then
+    { cp "$logo" /boot/oled-logo.new && sync /boot/oled-logo.new &&
+        mv /boot/oled-logo.new /boot/oled-logo.bin && sync /boot; } ||
+        { rm -f /boot/oled-logo.new; echo 'Could not install the OLED boot logo' >&2; }
 fi
 printf '%s\n' "$release" > /boot/kernel.release
 rm -f /etc/kvm/video-memory-mode /boot/video-memory-mode

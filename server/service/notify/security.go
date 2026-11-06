@@ -55,8 +55,8 @@ func LoginSucceeded(user, address string) {
 	}
 	known, err := rememberAddress(AddressesPath, user, address)
 	if err != nil {
+		// A new address is still reported when it could not be stored.
 		log.Warnf("notifications: login addresses: %v", err)
-		return
 	}
 	if !known {
 		Emit(Event{Kind: KindSecurity, Severity: SeverityWarning, Message: "security.new-address",
@@ -65,7 +65,8 @@ func LoginSucceeded(user, address string) {
 }
 
 // rememberAddress adds address to the user's list and reports whether it was
-// there already; a user with no list yet counts as known.
+// there already, also when the list could not be stored; a user with no list
+// yet counts as known.
 func rememberAddress(path, user, address string) (bool, error) {
 	addressesMu.Lock()
 	defer addressesMu.Unlock()
@@ -91,10 +92,10 @@ func rememberAddress(path, user, address string) (bool, error) {
 	lists[user] = list
 	data, err = json.Marshal(lists)
 	if err != nil {
-		return true, err
+		return !seen, err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return true, err
+		return !seen, err
 	}
 	return !seen, atomicfile.Write(path, data, 0o600)
 }

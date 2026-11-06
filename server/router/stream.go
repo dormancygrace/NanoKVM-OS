@@ -27,7 +27,6 @@ func streamRouter(r *gin.Engine) {
 	api.GET("/stream/state", stream.GetEncoderState)
 	api.POST("/stream/state", stream.SetEncoderState)
 	api.GET("/stream/audio", audio.Connect)
-	api.GET("/stream/audio/status", audio.Status)
 
 	api.GET("/stream/video", middleware.RequireVideo, webrtc.Connect)             // configurable video stream (webrtc)
 	api.GET("/stream/video/direct", middleware.RequireVideo, direct.Connect)      // configurable video stream (direct)

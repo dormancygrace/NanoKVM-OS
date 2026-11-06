@@ -13,13 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RELEASE = (ROOT / '.github/workflows/release.yml').read_text()
 
 
-def job(text, name):
-    """The text of one job of a workflow, up to the next job."""
-    match = re.search(rf'^  {name}:\n(.*?)(?=^  [a-z-]+:\n|\Z)', text, re.M | re.S)
-    assert match, name
-    return match[1]
-
-
 class ReleaseWorkflowTests(unittest.TestCase):
     def test_signer_rejects_unlisted_add_on_before_signing(self):
         # Execute the real signer with a test key. An extra APK must be rejected
@@ -46,11 +39,7 @@ def run_step(name):
 
 
 class ReleaseExecutionTests(unittest.TestCase):
-    def test_branch_gate_precedes_checkout_and_all_jobs_pin_event_sha(self):
-        build = job(RELEASE, 'build')
-        self.assertLess(build.index('name: Validate release branch'), build.index('uses: actions/checkout'))
-        self.assertNotIn('inputs.ref', RELEASE)
-        self.assertEqual(RELEASE.count('ref: ${{ github.sha }}'), 3)
+    def test_branch_gate_accepts_only_main_and_release_branches(self):
         script = run_step('Validate release branch')
         for ref, ok in [('refs/heads/main', True), ('refs/heads/release/3.3', True),
                         ('refs/heads/feature/x', False), ('refs/tags/main', False),

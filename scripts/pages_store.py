@@ -52,7 +52,13 @@ def version(item):
 
 
 def retained(snapshots, published):
-    """Three stable, ONE beta, three per add-on; latest pending OS per channel."""
+    """Three stable, ONE beta, three per add-on; latest pending OS per channel,
+    and every pending OS snapshot newer than its channel's published head."""
+    heads = {}
+    for tag in published:
+        if m := a.VERSION.fullmatch(tag):
+            v = version({'kind': 'os', 'tag': tag})
+            heads[bool(m[4])] = max(heads.get(bool(m[4]), v), v)
     groups = {}
     for item in snapshots.values():
         if item['kind'] == 'addon':
@@ -63,8 +69,16 @@ def retained(snapshots, published):
             group = ('beta' if beta else 'stable') + ('' if active else '-pending')
             keep = 1 if beta or not active else 3
         groups.setdefault((group, keep), []).append(item)
-    return {identity(i['kind'], i['tag']): i for (_, keep), items in groups.items()
-            for i in sorted(items, key=version, reverse=True)[:keep]}
+    result = {}
+    for (group, keep), items in groups.items():
+        items = sorted(items, key=version, reverse=True)
+        if group.endswith('-pending'):
+            # Any of these drafts may be published next and become the head,
+            # and its artifact id stays in `seen`: a pruned one never returns.
+            head = heads.get(group.startswith('beta'))
+            keep = max(keep, sum(head is None or version(i) > head for i in items))
+        result.update((identity(i['kind'], i['tag']), i) for i in items[:keep])
+    return result
 
 
 def inventory():
@@ -315,6 +329,9 @@ class Store:
         total = sum(p.stat().st_size for p in output.rglob('*') if p.is_file())
         if total > LIMIT:
             raise ValueError(f'Pages site {total} bytes exceeds {LIMIT}; deployment refused')
+        if total > LIMIT * 7 // 10:
+            # Sources are never pruned: act before the limit blocks every update.
+            print(f'::warning::Pages site {total:,} bytes is over 70% of the {LIMIT:,} byte limit')
         print(f'Pages: {len(self.snapshots)} snapshots, {total:,} bytes')
 
 

@@ -122,15 +122,25 @@ export const Menu = () => {
   useEffect(() => {
     if (atxEnabled !== null) return;
     let disposed = false;
-    getHardware()
-      .then((rsp) => {
-        if (!disposed && rsp.code === 0) setAtxEnabled(atxFromHardware(rsp.data));
-      })
-      .catch(() => {
-        /* Without the answer the power button stays hidden. */
-      });
+    let pending = false;
+    // Without the answer the power button stays hidden, so ask until it comes.
+    const load = () => {
+      if (pending) return;
+      pending = true;
+      getHardware()
+        .then((rsp) => {
+          if (!disposed && rsp.code === 0) setAtxEnabled(atxFromHardware(rsp.data));
+        })
+        .catch(() => {})
+        .finally(() => {
+          pending = false;
+        });
+    };
+    load();
+    const stop = pollWhileVisible(load, 15000);
     return () => {
       disposed = true;
+      stop();
     };
   }, [atxEnabled, setAtxEnabled]);
   const menuCloseSignal = useAtomValue(menuCloseSignalAtom);

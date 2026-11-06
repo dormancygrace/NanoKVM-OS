@@ -83,6 +83,10 @@ func TestAddonCatalogUsesInstalledRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Offline after a boot, the installed release alone decides.
+	if IsInstalledAddon("nanokvm-openssl") || !IsInstalledAddon("nanokvm-i2c-tools") {
+		t.Fatal("removal before the first list")
+	}
 	writeStored(t, stored)
 	if IsInstalledAddon("nanokvm-openssl") || IsInstalledAddon("nanokvm-web") {
 		t.Fatal("an OS package of the installed release is removable as an add-on")

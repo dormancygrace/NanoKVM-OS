@@ -67,4 +67,6 @@ export type TailscaleStatus = {
   ip: string;
   account: string;
   busy?: boolean;
+  // This page reaches the device over Tailscale, by address or MagicDNS name.
+  thisConnection?: boolean;
 };

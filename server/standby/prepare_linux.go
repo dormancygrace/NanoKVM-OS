@@ -455,6 +455,25 @@ func Probe(root string) error {
 	return nil
 }
 
+// RemoveStale drops a preparation left by a server process that ended before
+// closing it, whose marker would block package operations until reboot. A
+// handoff that reached init has its files bind-mounted and is left alone.
+func RemoveStale() error {
+	if _, err := os.Lstat(Directory); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	mounts, err := ReadMounts()
+	if err != nil {
+		return err
+	}
+	for _, m := range mounts {
+		if m.Point == "/etc/inittab" || m.Point == "/etc/rc.conf" {
+			return errors.New("the standby handoff is armed; reboot to clear it")
+		}
+	}
+	return os.RemoveAll(Directory)
+}
+
 // Pending is checked after package locks are acquired, including by queued helpers.
 func Pending() error {
 	if _, err := os.Stat(Marker); errors.Is(err, os.ErrNotExist) {

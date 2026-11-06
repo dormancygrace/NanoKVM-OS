@@ -3,6 +3,7 @@ package mjpeg
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,8 +20,11 @@ const (
 	tilesPingPeriod = tilesPongWait / 2
 )
 
+// The pool lends the 256 KB write buffer only while a message is written,
+// instead of for the life of every connection.
 var tilesUpgrader = websocket.Upgrader{
 	WriteBufferSize: 256 * 1024,
+	WriteBufferPool: &sync.Pool{},
 	CheckOrigin:     middleware.CheckWebSocketOrigin,
 }
 

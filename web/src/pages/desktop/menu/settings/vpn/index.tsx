@@ -112,7 +112,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
     }
     const data = new FormData();
     Array.from(files).forEach((f) => data.append('files', f));
-    void run(() => http.post('/api/extensions/wireguard/import', data));
+    void run(() => http.post('/api/extensions/wireguard/import', data, { sensitive: true }));
   }
   function rename(profile: Profile) {
     const name = nameDraft.trim();

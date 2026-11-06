@@ -134,17 +134,36 @@ func (g *Gate) Leave(mutating bool) {
 		g.mu.Unlock()
 	}
 }
+
+// beginWait covers the slowest request admitted before authentication: a
+// login can take 15 s for its body, 10 s for its slot and 3 s of penalty.
+var beginWait = 30 * time.Second
+
+// Begin closes admission first and then waits for the running requests, so
+// requests that keep arriving, such as failed logins, cannot hold it open.
 func (g *Gate) Begin() error {
 	g.mu.Lock()
-	defer g.mu.Unlock()
 	if g.closed {
+		g.mu.Unlock()
 		return errors.New("shutdown already requested")
 	}
-	if g.active != 0 {
-		return errors.New("another operation is running; finish it before shutdown")
-	}
 	g.closed = true
-	return nil
+	g.mu.Unlock()
+	deadline := time.Now().Add(beginWait)
+	for {
+		g.mu.Lock()
+		if g.active == 0 {
+			g.mu.Unlock()
+			return nil
+		}
+		if time.Now().After(deadline) {
+			g.closed = false
+			g.mu.Unlock()
+			return errors.New("another operation is running; finish it before shutdown")
+		}
+		g.mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 func (g *Gate) Cancel() { g.mu.Lock(); g.closed = false; g.mu.Unlock() }
 

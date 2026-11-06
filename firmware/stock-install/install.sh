@@ -76,6 +76,7 @@ done
     fail "/data is read-only without a USB data disk; check its filesystem first"
 plan=$("$bundle/stock-layout" plan /dev/mmcblk0) || fail "unsupported SD layout"
 # Only the compiled helper emits these nine decimal integers, never shell code.
+# shellcheck disable=SC2086 # split into its nine values
 set -- $plan
 [ "$#" = 9 ] || fail "invalid layout plan"
 for part in 1 2 3; do
@@ -121,6 +122,7 @@ screen_owner=$(pidof kvm_system 2>/dev/null) || screen_owner=
 # Resumed first, it can take the INT of that stop.
 resume_screen() {
     [ -n "$screen_owner" ] || return 0
+    # shellcheck disable=SC2086 # pidof may list several PIDs
     kill -CONT $screen_owner 2>/dev/null || true
     screen_owner=
     [ ! -x /kvmapp/system/init.d/S95nanokvm ] || /kvmapp/system/init.d/S95nanokvm restart >/dev/null 2>&1 || true
@@ -129,6 +131,7 @@ trap 'resume_screen; rmdir /run/nanokvm-stock-install.lock 2>/dev/null || true' 
 # Ends a signalled installer through the EXIT trap too (a signal ignored
 # when it started, as under nohup, stays ignored).
 trap 'exit 1' HUP INT TERM
+# shellcheck disable=SC2086 # pidof may list several PIDs
 [ -z "$screen_owner" ] || kill -STOP $screen_owner 2>/dev/null || true
 oled prepare
 for file in $data_luns; do
@@ -192,6 +195,15 @@ if [ -e /etc/kvm/ssh_stop ]; then echo off; else echo on; fi >"$stage/ssh-state"
 # Only the recovery's OLED progress reads the board (checked above); it is
 # no part of the transaction, and without it the screen stays as it is.
 cp /etc/kvm/hw "$stage/board" || true
+# Stock firmware drove the ATX lines on Alpha and Beta (a Lite reports beta);
+# keep ATX power control on there, as an upgrade from an earlier NanoKVM OS
+# does (nanokvm.post-upgrade). A new image otherwise turns it off.
+case "$(cat /etc/kvm/hw 2>/dev/null || true)" in
+    alpha | beta)
+        mkdir -p "$settings/etc/kvm"
+        printf 'on\n' >"$settings/etc/kvm/atx"
+        ;;
+esac
 # Record regular files only; tar directory entries must not replace the new
 # root's /etc and /root directory permissions with staging-directory modes.
 (cd "$settings" && find . -type f) >"$settings.paths"
@@ -226,6 +238,7 @@ mv -f /boot/.nanokvm-recovery.new /boot/boot.sd || { restore_boot; fail "cannot 
 sync
 # A stopped kvm_system ignores the INT and TERM of stock shutdown, which
 # would wait 25 s for it; it also must not redraw the last screen.
+# shellcheck disable=SC2086 # pidof may list several PIDs
 [ -z "$screen_owner" ] || kill -KILL $screen_owner 2>/dev/null || true
 screen_owner=
 oled restart

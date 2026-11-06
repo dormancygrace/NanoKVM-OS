@@ -40,7 +40,8 @@ export const configureRustDesk = (data: RustDeskConfig) =>
     method: 'put',
     url: '/api/addons/rustdesk/config',
     data,
-    timeout: 190000
+    timeout: 190000,
+    sensitive: true
   });
 export const rustDeskPackageAction = (
   action: 'install' | 'upgrade' | 'remove' | 'check' | 'regenerate-password'

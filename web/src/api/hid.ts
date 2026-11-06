@@ -3,7 +3,15 @@ import { inputLeaseHeaders } from '@/lib/input-lease.ts';
 
 // paste
 export function paste(content: string, langue: string) {
-  return http.post('/api/hid/paste', { content, langue }, { headers: inputLeaseHeaders() });
+  return http.post(
+    '/api/hid/paste',
+    { content, langue },
+    {
+      headers: inputLeaseHeaders(),
+      // Pasted text is often a password typed into the host.
+      sensitive: true
+    }
+  );
 }
 
 // press a fixed key sequence on the host: Ctrl+Alt+Del, one SysRq key, REISUB

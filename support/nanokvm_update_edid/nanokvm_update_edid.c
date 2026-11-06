@@ -684,6 +684,7 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
         return finish_receiver(chip_version, -1);
     }
     if (memcmp(current_edid, edid_data, EDID_BUFFER_SIZE) == 0) {
+        // The server matches this line (edidWriteSkipped in kvm_vision.go).
         puts("Requested EDID already installed; flash write skipped");
         if (replug && chip_version == CHIP_LT6911D && lt6911d_finish_pending_replug() != 0) {
             fprintf(stderr, "Failed to reconnect HDMI; reconnect the HDMI cable\n");

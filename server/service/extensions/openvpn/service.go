@@ -71,7 +71,12 @@ func NewService() *Service {
 			ps, _ := s.profiles()
 			for _, p := range ps {
 				if p.ID == id && s.pid(id) == 0 {
-					_ = s.start(p)
+					// Right after a power cut resolvconf can fail before
+					// OpenVPN runs: retry as for a tunnel that exited.
+					generation := s.nextGeneration(id)
+					if s.startAttempt(p, 0, generation) != nil {
+						go s.supervise(id, generation, 0, 0)
+					}
 				}
 			}
 		}

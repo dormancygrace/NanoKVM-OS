@@ -68,6 +68,22 @@
 		 * a page is busy (a pool sized to the peak failed on cold
 		 * boots). Outside the region Linux keeps about 90 MiB for
 		 * unmovable kernel memory. */
+		/* Kernel crash log (pstore/ramoops): an oops panics and reboots,
+		 * and the dump and the last console output are kept here across
+		 * that reboot for /var/log/nanokvm-crash. The stock small-core
+		 * range at 0x8d000000 is unused (platform/opensbi/README.md): it
+		 * lies above where U-Boot puts the DT and the initramfs (fdt_high
+		 * and initrd_high 0x8cffffff) and below its relocated copy at the
+		 * top of RAM. A power loss clears it. */
+		ramoops@8d000000 {
+			compatible = "ramoops";
+			reg = <0x8d000000 0x20000>;
+			record-size = <0x8000>;
+			console-size = <0x8000>;
+			/* A region a reset left half rewritten is rejected, not read. */
+			ecc-size = <16>;
+			no-map;
+		};
 		ion_region: ion {
 			compatible = "shared-dma-pool";
 			size = <0x09000000>;

@@ -1,0 +1,178 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] osdrv: fix bugs that clang reports
+
+Found by building the modules with clang (LLVM 22); all are in the GCC
+build too, which does not warn about them:
+- vi isp_fill_rgbmap(): a raw and channel with no rgbmap DMA indexed
+  phys_regs[] with an uninitialized dmaid. It now returns.
+- vcodec free_common_memory(): a common buffer missing from the pool left
+  p_vdb uninitialized, and memset() wrote through it.
+- dwa mesh_gdc_do_ldc(): a failed vmalloc() returned an uninitialized
+  value instead of an error; now -ENOMEM.
+- venc cviSetSBMEnable()/cviSetSBMStSetting(): without an ioctl handler
+  they returned an uninitialized value; now success, as nothing was set.
+- vcodec _cviH264_GetDecodedData(): a sequence change outside SDK mode
+  returned an uninitialized value; now CVI_SEQ_CHANGE, what the test
+  build's branch returns.
+- vdec vdec_event_handler(): logged the channel before reading it.
+- vpuapi ProductCheckEncOpenParam(): four range checks were written with
+  && (x < 0 && x > 3) and could never fail: entropyCodingMode,
+  useRecommendEncParam, intraQpOffset and bitAllocMode out of range are
+  now rejected as intended.
+---
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_vdec.c b/interdrv/cvi_vc_drv/module/src/cvi_vdec.c
+index 770a112..1680f12 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_vdec.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_vdec.c
+@@ -728,12 +728,11 @@ static int vdec_event_handler(CVI_VOID *data)
+ 	MMF_CHN_S chn = {.enModId = CVI_ID_VDEC, .s32DevId = 0, .s32ChnId = 0};
+ 	struct vb_s *vb;
+ 
+-	CVI_VDEC_INFO("thread %d enter\n", VdecChn);
+-
+ 	if (pChnHandle == NULL)
+ 		return CVI_ERR_VDEC_NULL_PTR;
+ 
+ 	VdecChn = pChnHandle->VdChn;
++	CVI_VDEC_INFO("thread %d enter\n", VdecChn);
+ 	pVbCtx = pChnHandle->pVbCtx;
+ 
+ 	pBindFrmQueue = (VDEC_BIND_FRM_S *)MEM_MALLOC(sizeof(VDEC_BIND_FRM_S) * MAX_VDEC_FRM_NUM);
+diff --git a/interdrv/cvi_vc_drv/module/src/cvi_venc.c b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+index 1d21ad7..b7f2d4e 100644
+--- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
++++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
+@@ -6664,7 +6664,7 @@ CVI_S32 cviResetSb(cviVencSbSetting *pstSbSetting)
+ static CVI_S32 cviSetSBMEnable(venc_chn_context *pChnHandle,
+ 			      CVI_BOOL bSBMEn)
+ {
+-	CVI_S32 ret;
++	CVI_S32 ret = CVI_SUCCESS;
+ 	venc_enc_ctx *pEncCtx = &pChnHandle->encCtx;
+ 
+ 	if (MUTEX_LOCK(&pChnHandle->chnMutex) != 0) {
+@@ -6702,7 +6702,7 @@ static CVI_S32 cviSetSBMEnable(venc_chn_context *pChnHandle,
+ static CVI_S32 cviSetSBMStSetting(venc_chn_context *pChnHandle,
+ 				cviVencSbSetting *pstSbSetting)
+ {
+-	CVI_S32 ret;
++	CVI_S32 ret = CVI_SUCCESS;
+ 	venc_enc_ctx *pEncCtx = &pChnHandle->encCtx;
+ 
+ 	if (MUTEX_LOCK(&pChnHandle->chnMutex) != 0) {
+diff --git a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
+index f321f00..c07920a 100644
+--- a/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
++++ b/interdrv/cvi_vc_drv/vcodec/cvi/cvi_dec_internal.c
+@@ -2529,7 +2529,7 @@ static int _cviH264_GetDecodedData(cviVideoDecoder *pvdec)
+ 
+ 	if (pdoi->indexFrameDisplay == DISPLAY_IDX_FLAG_SEQ_END) {
+ 		if (pvdec->seqChangeRequest == TRUE) {
+-			int ret;
++			int ret = CVI_SEQ_CHANGE;
+ 
+ 			pvdec->seqChangeRequest = FALSE;
+ 
+diff --git a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
+index bc74959..4f7d9a2 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vdi/linux/vdi.c
+@@ -740,7 +740,7 @@ int free_common_memory(unsigned long core_idx)
+ {
+ 	vdi_info_t *vdi;
+ 	vpudrv_buffer_t vdb;
+-	vpudrv_buffer_t *p_vdb;
++	vpudrv_buffer_t *p_vdb = NULL;
+ 	int i;
+ 
+ 	vdi = vdi_get_vdi_info(core_idx);
+@@ -787,7 +787,9 @@ int free_common_memory(unsigned long core_idx)
+ 		}
+ 	}
+ 
+-	osal_memset(p_vdb, 0x0, sizeof(vpudrv_buffer_t));
++	/* A buffer missing from the pool left p_vdb pointing anywhere. */
++	if (p_vdb)
++		osal_memset(p_vdb, 0x0, sizeof(vpudrv_buffer_t));
+ 	osal_memset(&vdi->pvip->vpu_common_buffer, 0x0, sizeof(vpu_buffer_t));
+ 	osal_memset(&vdi->vpu_common_memory, 0x0, sizeof(vpu_buffer_t));
+ 
+diff --git a/interdrv/cvi_vc_drv/vcodec/vpuapi/product.c b/interdrv/cvi_vc_drv/vcodec/vpuapi/product.c
+index 77cbc43..a12a483 100644
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/product.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/product.c
+@@ -1442,7 +1442,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam *pop)
+ 				CVI_VC_ERR("picHeight = %d\n", picHeight);
+ 				return RETCODE_INVALID_PARAM;
+ 			}
+-			if (ActivePPS->entropyCodingMode > 2 &&
++			if (ActivePPS->entropyCodingMode > 2 ||
+ 			    ActivePPS->entropyCodingMode < 0)
+ 				return RETCODE_INVALID_PARAM;
+ 			if (ActivePPS->cabacInitIdc < 0 ||
+@@ -1566,7 +1566,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam *pop)
+ 			}
+ 		}
+ 
+-		if (param->useRecommendEncParam < 0 &&
++		if (param->useRecommendEncParam < 0 ||
+ 		    param->useRecommendEncParam > 3) {
+ 			CVI_VC_ERR("\n");
+ 			return RETCODE_INVALID_PARAM;
+@@ -1703,7 +1703,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam *pop)
+ 				CVI_VC_ERR("RC must disable as ctuQp enable\n");
+ 				return RETCODE_INVALID_PARAM;
+ 			}
+-			if (param->intraQpOffset < -10 &&
++			if (param->intraQpOffset < -10 ||
+ 			    param->intraQpOffset > 10) {
+ 				CVI_VC_ERR("\n");
+ 				return RETCODE_INVALID_PARAM;
+@@ -1760,7 +1760,7 @@ RetCode ProductCheckEncOpenParam(EncOpenParam *pop)
+ 				return RETCODE_INVALID_PARAM;
+ 			}
+ */
+-			if (param->bitAllocMode < 0 &&
++			if (param->bitAllocMode < 0 ||
+ 			    param->bitAllocMode > 2) {
+ 				CVI_VC_ERR("\n");
+ 				return RETCODE_INVALID_PARAM;
+diff --git a/interdrv/dwa/chip/cv181x/mesh.c b/interdrv/dwa/chip/cv181x/mesh.c
+index 2bfb0f5..648cb04 100644
+--- a/interdrv/dwa/chip/cv181x/mesh.c
++++ b/interdrv/dwa/chip/cv181x/mesh.c
+@@ -280,8 +280,10 @@ static s32 mesh_gdc_do_ldc(struct cvi_dwa_vdev *wdev, const void *pUsageParam,
+ 
+ 	pstTask[0] = vmalloc(sizeof(struct gdc_task_attr));
+ 	pstTask[1] = vmalloc(sizeof(struct gdc_task_attr));
+-	if (!pstTask[0] || !pstTask[1])
++	if (!pstTask[0] || !pstTask[1]) {
++		ret = -ENOMEM;
+ 		goto LDC_FAIL_EXIT;
++	}
+ 
+ 	// get buf for gdc output.
+ 	buf_size = vb_in->buf.length[0] + vb_in->buf.length[1] +
+diff --git a/interdrv/vi/chip/cv181x/vi.c b/interdrv/vi/chip/cv181x/vi.c
+index dc12791..d966031 100644
+--- a/interdrv/vi/chip/cv181x/vi.c
++++ b/interdrv/vi/chip/cv181x/vi.c
+@@ -467,7 +467,7 @@ static void cvi_isp_rdy_buf_remove(struct cvi_vi_dev *vdev, const u8 chn_num)
+ void isp_fill_rgbmap(struct isp_ctx *ctx, enum cvi_isp_raw raw_num, const u8 chn_num)
+ {
+ 	uintptr_t ba;
+-	uint32_t dmaid;
++	uint32_t dmaid = U32_MAX;
+ 	uint32_t seglen, stride, max_size;
+ 	uint8_t i = 0;
+ 	void *vaddr = NULL;
+@@ -493,6 +493,9 @@ void isp_fill_rgbmap(struct isp_ctx *ctx, enum cvi_isp_raw raw_num, const u8 chn
+ 		if (chn_num == ISP_FE_CH0)
+ 			dmaid = ISP_BLK_ID_DMA_CTL20;
+ 	}
++	/* No rgbmap DMA for this raw and channel. */
++	if (dmaid == U32_MAX)
++		return;
+ 
+ 	ba = ctx->phys_regs[dmaid];
+ 	seglen = ISP_RD_BITS(ba, REG_ISP_DMA_CTL_T, DMA_SEGLEN, SEGLEN);

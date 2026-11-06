@@ -244,6 +244,7 @@ int qrencode(char *string)
 	qrAddData(p, (const qr_byte_t*)string, strlen(string));
 	if (!qrFinalize(p)) {
 		printf("finalize error\n");
+		qrDestroy(p);
 		return -1;
 	}
 
@@ -258,20 +259,7 @@ int qrencode(char *string)
 			OLED_ShowStringTurn(3, 1, "WiKi", 8);
 		}
 	}
-	int size = 0;
-	// width = height = qr_vertable[version] * mag + sep * mag * 2
-	qr_byte_t * buffer = qrSymbolToBMP(p, 5, 5, &size);
-	if (buffer == NULL) {
-		printf("error %s", qrGetErrorInfo(p));
-		return -1;
-	}
-	// output qrcode to file
-	// ofstream f("/etc/kvm/wifi_config.bmp");
-	// if (f.fail()) {
-	// 	return -1;
-	// }
-	// f.write((const char *)buffer, size);
-	// f.close();
+	qrDestroy(p);
 	return 0;
 }
 

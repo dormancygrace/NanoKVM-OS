@@ -1,1 +1,3 @@
-This is a C library and a command line tool to make a QR Code.
+This is a C library to make a QR Code.
+NanoKVM OS keeps only the encoder (qr.c and its headers); the command line
+tool and the image converters of the original release are not included.

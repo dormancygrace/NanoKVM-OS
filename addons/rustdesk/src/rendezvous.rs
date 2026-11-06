@@ -386,7 +386,7 @@ async fn connect_relay(
         ));
     }
     let pending_permit = limits
-        .try_pending()
+        .try_requested(peer.ip())
         .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "too many pending handshakes"))?;
     let target = time::timeout(CONNECT_TIMEOUT, relay_target(&config, &relay))
         .await

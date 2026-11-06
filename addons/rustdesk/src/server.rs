@@ -2,7 +2,7 @@
 use std::{
     collections::HashMap,
     io,
-    net::SocketAddr,
+    net::{IpAddr, Ipv6Addr, SocketAddr},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -85,7 +85,52 @@ pub(crate) struct ClientLimits {
     pub(crate) audio_allowed: bool,
     sessions: Arc<Mutex<SessionRegistry>>,
     pending: Arc<Semaphore>,
+    requested: Arc<Semaphore>,
+    requested_sources: Arc<Mutex<HashMap<IpAddr, usize>>>,
     credentials: Arc<Mutex<Option<crate::auth::Credentials>>>,
+}
+
+// Held by a handshake until its login is accepted or it ends.
+pub(crate) struct PendingPermit {
+    _source: Option<RequestedSource>,
+    _permit: OwnedSemaphorePermit,
+}
+
+struct RequestedSource {
+    sources: Arc<Mutex<HashMap<IpAddr, usize>>>,
+    source: IpAddr,
+}
+
+impl Drop for RequestedSource {
+    fn drop(&mut self) {
+        let mut sources = self
+            .sources
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(held) = sources.get_mut(&self.source) {
+            *held -= 1;
+            if *held == 0 {
+                sources.remove(&self.source);
+            }
+        }
+    }
+}
+
+// One viewer's attempts overlap in at most two handshakes: a punch or
+// WebRTC attempt and a relay it requested meanwhile. A fallback relay
+// starts only after its punch attempt gave up its permit.
+const MAX_REQUESTED_PER_SOURCE: usize = 2;
+
+// The controller address a cap applies to; an IPv6 host usually has a
+// whole /64 to pick addresses from.
+fn requested_source(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(ip) => match ip.to_ipv4_mapped() {
+            Some(ip) => IpAddr::V4(ip),
+            None => IpAddr::V6(Ipv6Addr::from(u128::from(ip) & !u128::from(u64::MAX))),
+        },
+        ip => ip,
+    }
 }
 
 struct SessionRegistry {
@@ -115,6 +160,11 @@ impl Drop for SessionPermit {
 
 impl ClientLimits {
     pub(crate) fn new(max_clients: usize) -> Self {
+        // RustDesk races direct, hole-punch, and relay candidates for one
+        // logical connection. Keep those short-lived handshakes separate
+        // from the configured limit, which applies to authenticated
+        // sessions. The pending cap still bounds unauthenticated work.
+        let pending = max_clients.saturating_mul(2).max(4);
         Self {
             input_allowed: true,
             audio_allowed: true,
@@ -122,17 +172,47 @@ impl ClientLimits {
                 max_clients,
                 clients: HashMap::new(),
             })),
-            // RustDesk races direct, hole-punch, and relay candidates for one
-            // logical connection. Keep those short-lived handshakes separate
-            // from the configured limit, which applies to authenticated
-            // sessions. The pending cap still bounds unauthenticated work.
-            pending: Arc::new(Semaphore::new(max_clients.saturating_mul(2).max(4))),
+            pending: Arc::new(Semaphore::new(pending)),
+            // Anyone who knows the device ID can have the ID server ask for
+            // handshakes and hold each for over a minute. Those come from a
+            // pool of their own, so they cannot use up the one of viewers
+            // that connect directly, and each controller address gets only
+            // a share of it: filling it takes several addresses.
+            requested: Arc::new(Semaphore::new(pending)),
+            requested_sources: Arc::new(Mutex::new(HashMap::new())),
             credentials: Arc::new(Mutex::new(None)),
         }
     }
 
-    pub(crate) fn try_pending(&self) -> Option<OwnedSemaphorePermit> {
-        Arc::clone(&self.pending).try_acquire_owned().ok()
+    // A handshake with a viewer that connected to the listener.
+    pub(crate) fn try_pending(&self) -> Option<PendingPermit> {
+        Some(PendingPermit {
+            _source: None,
+            _permit: Arc::clone(&self.pending).try_acquire_owned().ok()?,
+        })
+    }
+
+    // A handshake the ID server asked for on behalf of the controller at
+    // `peer`, as the ID server saw it.
+    pub(crate) fn try_requested(&self, peer: IpAddr) -> Option<PendingPermit> {
+        let source = requested_source(peer);
+        let mut sources = self
+            .requested_sources
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let held = sources.get(&source).copied().unwrap_or(0);
+        if held >= MAX_REQUESTED_PER_SOURCE {
+            return None;
+        }
+        let permit = Arc::clone(&self.requested).try_acquire_owned().ok()?;
+        sources.insert(source, held + 1);
+        Some(PendingPermit {
+            _source: Some(RequestedSource {
+                sources: Arc::clone(&self.requested_sources),
+                source,
+            }),
+            _permit: permit,
+        })
     }
     pub(crate) fn with_permissions(
         &self,
@@ -395,7 +475,7 @@ pub(crate) async fn serve(
     secure: bool,
     shutdown: watch::Receiver<bool>,
     limits: ClientLimits,
-    pending_permit: OwnedSemaphorePermit,
+    pending_permit: PendingPermit,
 ) -> io::Result<()> {
     stream.set_nodelay(true)?;
     serve_io(
@@ -422,7 +502,7 @@ pub(crate) async fn serve_webrtc(
     rustdesk_identity: Arc<RustDeskIdentity>,
     shutdown: watch::Receiver<bool>,
     limits: ClientLimits,
-    pending_permit: OwnedSemaphorePermit,
+    pending_permit: PendingPermit,
 ) -> io::Result<()> {
     if fingerprint.is_empty() {
         return Err(io::Error::new(
@@ -454,7 +534,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     secure: Option<String>,
     mut shutdown: watch::Receiver<bool>,
     limits: ClientLimits,
-    pending_permit: OwnedSemaphorePermit,
+    pending_permit: PendingPermit,
 ) -> io::Result<()> {
     let is_relay = secure.is_some();
     let session_key = match secure {
@@ -1593,6 +1673,23 @@ mod tests {
         assert!(limits.try_session("id:client-b".to_owned()).is_none());
         drop(second_path);
         assert!(limits.try_session("id:client-b".to_owned()).is_some());
+    }
+
+    #[test]
+    fn requested_handshakes_cannot_crowd_out_other_viewers() {
+        let limits = ClientLimits::new(1);
+        let ip = |text: &str| text.parse::<std::net::IpAddr>().unwrap();
+        // One address, even spread over its IPv6 /64, holds two at most.
+        let first = limits.try_requested(ip("2001:db8::1")).unwrap();
+        let _second = limits.try_requested(ip("2001:db8::2")).unwrap();
+        assert!(limits.try_requested(ip("2001:db8::3")).is_none());
+        let _other = limits.try_requested(ip("192.0.2.1")).unwrap();
+        let _another = limits.try_requested(ip("::ffff:192.0.2.2")).unwrap();
+        assert!(limits.try_requested(ip("192.0.2.3")).is_none());
+        // Direct viewers have a pool of their own.
+        assert!(limits.try_pending().is_some());
+        drop(first);
+        assert!(limits.try_requested(ip("2001:db8::3")).is_some());
     }
 
     #[tokio::test]

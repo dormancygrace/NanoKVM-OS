@@ -79,7 +79,7 @@ pub(crate) fn spawn(
     limits: server::ClientLimits,
 ) {
     // Acquire before spawning: the cap includes network setup, listeners and authentication.
-    let Some(pending) = limits.try_pending() else {
+    let Some(pending) = limits.try_requested(rendezvous::decode_address(&request.peer).ip()) else {
         return;
     };
     tokio::spawn(async move {

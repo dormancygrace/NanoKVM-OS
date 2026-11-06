@@ -130,6 +130,9 @@ type Server struct {
 	// The last power command accepted, for Stats.
 	lastCommand   string
 	lastCommandAt time.Time
+	// Logins and lockouts for the server's notifications (events.go).
+	events   []Event
+	eventSeq uint64
 }
 
 // Stats is what the add-on's settings page shows.
@@ -351,6 +354,11 @@ func (s *Server) recordFailure(addr string) {
 		s.failed[host] = f
 	}
 	f.count++
+	if f.count == maxFailures {
+		// Refused until the window that started at f.since ends.
+		s.event(Event{Kind: "lockout", Address: host, Failures: f.count,
+			Minutes: int((failWindow + time.Minute - 1) / time.Minute)})
+	}
 }
 
 // maxTracked bounds the login counters: UDP source addresses are easy to
@@ -598,6 +606,7 @@ func (s *Server) rakp3(p []byte, addr string) []byte {
 	se.active = true
 	se.priv = se.role & 0x0F
 	se.lastUsed = s.now()
+	s.event(Event{Kind: "login", User: string(se.name), Address: clientKey(addr)})
 	icv := se.suite.mac(se.sik, se.rm[:], le32(se.managedID), s.GUID[:])[:se.suite.rakp4Len]
 	reply := append([]byte{tag, statusOK, 0, 0}, le32(se.consoleID)...)
 	return s.preSession(payloadRAKP4, append(reply, icv...))

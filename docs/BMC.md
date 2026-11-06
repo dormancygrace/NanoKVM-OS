@@ -45,6 +45,7 @@ From version 0.2.0 the IPMI add-on also adds an "IPMI status" section to that pa
   - Redfish refuses a client for a minute after 5 failed logins. The client is the connection's address (for IPv6, its /64); an `X-Forwarded-For` header is ignored. Each attempt is counted before the password is compared, so parallel requests cannot get more guesses. Behind a reverse proxy of your own (nginx, Tailscale Serve), all clients share the proxy's address and its limit.
   - Redfish refuses state-changing requests that are not JSON (`Content-Type: application/json`) or that a browser marks as cross-site, so another web page cannot use credentials the browser has cached.
   - IPMI refuses a client for a minute after 20 logins in a minute, failed or not. A wrong password shows only on the client's side, and each login hands out a hash. The table of clients is bounded, since UDP addresses can be forged.
+- **Security notifications** (Settings > Notifications, Logins) cover both protocols, as the web login: a lockout, and a login from an address the BMC user has not logged in from before (`admin (Redfish)`, `admin (IPMI)`). The IPMI add-on keeps its last 32 events; the server reads them from the add-on's socket every 5 s while it runs. Events from before the server started are not reported, and the IPMI lockout counts all logins (see above), not only failed ones.
 - **Power control does not wait for the browser's input control.** A fence agent must be able to switch the host off whoever holds the keyboard.
 
 ## How it works

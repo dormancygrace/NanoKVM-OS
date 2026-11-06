@@ -23,6 +23,8 @@ func bmcRouter(r *gin.Engine) {
 	localAPI.POST("/atx", atx.PressATXInternal)
 
 	service := bmcservice.NewService(vm.ATX{})
+	// The security notifications for the IPMI add-on's logins and lockouts.
+	go bmcservice.WatchIPMIEvents()
 	// Redfish has its own account (the BMC account of the settings page) and
 	// checks it itself, as on any BMC: these routes take no web login. With
 	// Redfish off they answer 404.

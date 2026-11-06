@@ -1,26 +1,17 @@
 # C906 instruction profile
 
 This profile targets the SG2002 C906 used by NanoKVM OS. It is not a generic
-RISC-V or standard RVV 1.0 target. `profile.json` records the kernel and user
-ISA selections. Buildroot and the native component builders use the user
-profile; Linux C code excludes automatic floating-point/vector instructions.
+RISC-V or standard RVV 1.0 target. The ISA selections and compiler flags come
+from `platform/cpu-profile.json` through `scripts/nanokvm_cpu_profile.py`;
+Linux C code excludes automatic floating-point/vector instructions.
 The original kernel Zacas/Zabha assembler support is retained for runtime-gated
 alternatives, not as a claim that C906 implements those extensions.
 
 ## Evidence required
 
 1. Compile from clean target outputs, including libc and compiler runtimes.
-2. Run `scripts/audit-riscv-instructions.py` on shipped ELF files. The report
-   records binary SHA-256, individual machine encodings, symbols and addresses.
-   ELF ISA attributes or compiler flags alone are insufficient.
-3. Compare the installed firmware with the previous build on the same device.
+2. Compare the installed firmware with the previous build on the same device.
    Static instruction counts do not measure speed or execution frequency.
-
-The isolated device probe executes ten extension families: XTheadBa, Bb, Bs,
-CondMov, Mac, MemIdx, MemPair, FMemIdx, Sync and Vector. It catches process
-SIGILL/SIGSEGV/SIGBUS. CMO already has kernel support; interrupt-only operations
-and RV32-only floating-point move operations are not user-process probes.
-No protected system registers are accessed by these probes.
 
 ## Compiler limits
 
@@ -43,7 +34,6 @@ patches remain selected explicitly through GOROOT. Standard RVV assembly in Go
 is guarded by CPU feature checks and is not the C906 legacy vector path.
 **RVV and XTheadVector machine encodings overlap:** a `th.v` mnemonic decoded
 from a mixed Go/C binary does not by itself establish a T-Head implementation.
-The audit therefore reports those sites separately from scalar custom opcodes.
 
 Pinned closed ISP/3A algorithm objects are relinked, not recompiled. Their
 hashes and provenance remain in `firmware/mpi/vendor-isp-objects.json`.

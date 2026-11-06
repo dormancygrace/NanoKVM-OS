@@ -135,14 +135,16 @@ the Software page.
 
 New GitHub Releases contain OS releases only: corresponding source, checksums,
 and, when built, the SD image and stock migration archive. APKs, indexes and
-add-on downloads live on GitHub Pages, including RustDesk's corresponding
-source and APKBUILD. Add-on version tags reserve package revisions without
-creating GitHub Releases.
+add-on downloads live on GitHub Pages. Add-on version tags reserve package
+revisions without creating GitHub Releases. The source link an add-on installs
+names the Git tree it was built from; for RustDesk that is its
+`nanokvm-rustdesk-VERSION-rN` tag (`addons/rustdesk`), whose third-party
+crates and Go modules are pinned by `Cargo.lock` and `go.sum`. No source
+archive is published.
 
 Pages retains the current stable OS release and two previous stable releases,
 only the latest beta, and the current version plus two previous versions of
-each add-on. RustDesk corresponding sources and APKBUILDs are exempt from
-retention and remain available for installed binaries. Packages shared by
+each add-on. Packages shared by
 retained releases remain available even when
 originally built earlier. The stable and beta repository URLs do not change.
 The beta feed selects the newer of the current stable and beta releases;
@@ -178,8 +180,8 @@ publish the original downloads; they never mix newly signed files into that pair
 ### First migration from release assets
 
 After merging the publication change, run **APK repository** on `main` with
-`bootstrap=true`. This imports the retained OS and add-on versions, their
-complete package sets and RustDesk source archives from the existing Releases.
+`bootstrap=true`. This imports the retained OS and add-on versions and their
+complete package sets from the existing Releases.
 It does not delete or change those releases. Subsequent deployments use Pages
 as their source and fail if the catalog is missing; bootstrap is never an
 implicit fallback.
@@ -188,9 +190,8 @@ Verify the deployed catalog, signed stable/beta/add-on indexes and their APKs
 before separately removing legacy technical/add-on releases. Existing RustDesk
 Releases remain as source-only archives so already installed APK source links
 continue working; their APKs are removed. Keep the add-on
-Git tags, which prevent reusing package revisions. Corresponding sources are also archived permanently under
-`package-store/sources/<tag>/`, including versions older than the binary
-retention window.
+Git tags, which prevent reusing package revisions and hold the source of the
+versions built for Pages.
 Migration and cleanup are separate operator actions; ordinary publication
 does not delete existing GitHub Releases or change a running device.
 

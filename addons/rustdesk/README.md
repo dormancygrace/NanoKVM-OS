@@ -115,7 +115,7 @@ NANOKVM_RUSTDESK_DATA overrides the identity directory for isolated tests.
 Run Actions → RustDesk add-on → Run workflow on main after merging a change to
 the add-on (`.github/workflows/rustdesk.yml`). It builds and checks the APK,
 corresponding source with vendored crates, APKBUILD and checksums, then stages
-them for Pages. A lightweight `nanokvm-rustdesk-VERSION-rN` Git tag reserves the
+the APK for Pages; the archive and APKBUILD stay in the run's artifact. A lightweight `nanokvm-rustdesk-VERSION-rN` Git tag reserves the
 revision; no add-on GitHub Release is created. N is one more than the highest
 tagged revision of VERSION.
 
@@ -127,9 +127,10 @@ the add-on available; no OS release is required. PRs and `dry_run` never stage
 production candidates. Retry a Pages failure by rerunning APK repository on
 main, without rebuilding the add-on.
 
-Pages keeps the current version and two previous versions of each add-on,
-with corresponding sources and APKBUILDs retained permanently. Existing legacy
-RustDesk Releases keep their source assets so installed source links remain valid. Users update through Software → Add-ons;
+Pages keeps the current version and two previous versions of each add-on.
+Its installed source link opens the Git tree of the version's tag, which
+stays. Existing legacy RustDesk Releases keep their source assets so their
+installed source links remain valid. Users update through Software → Add-ons;
 APK checks compatibility with their installed OS. OS publication does not pin
 or roll back independent add-ons. See [publication and retention](../../docs/UPDATES.md#package-publication-and-retention).
 
@@ -152,7 +153,7 @@ minimum version); rustup is not required for those distribution builds.
 
 For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
-fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://dormancygrace.github.io/NanoKVM-OS/package-store/sources/nanokvm-rustdesk-VERSION-rN/nanokvm-rustdesk-VERSION-source.tar.gz
+fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS/tree/nanokvm-rustdesk-VERSION-rN/addons/rustdesk
 
 The exported source can also cross-build directly without repository scripts:
 CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
@@ -161,10 +162,10 @@ Install the Rust riscv64gc-unknown-linux-musl target first. Keep the linker
 symlink name intact for Buildroot wrappers. The builder produces a static RV64GC
 binary without vector instructions and root:root payload ownership. It exports
 adapted source, Cargo.lock, vendored dependencies and packaging recipes as a
-separate source archive published alongside the add-on on Pages. The APK installs only
-LICENSE, NOTICE, upstream.json and source.json (public URL and SHA-256), alongside
+separate source archive, kept with the build; it is not published. The APK installs only
+LICENSE, NOTICE, upstream.json and source.json (the Git tree URL), alongside
 the binary and lifecycle files. It never installs the source archive or vendored
-crates. The installed web link opens the source for the exact package revision.
+crates. The installed web link opens the source tree of the exact package revision.
 The builder performs no signing, publication or installation.
 
 For Alpine repository builds, place the exported source archive next to

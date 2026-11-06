@@ -22,7 +22,7 @@ parser.add_argument("--apk",type=Path,required=True,help="host apk-tools 3 with 
 parser.add_argument("--output",type=Path,required=True)
 parser.add_argument("--package-revision", type=int, help="package revision for this fresh source/build; defaults to the recipe for the same version, otherwise zero")
 source_group=parser.add_mutually_exclusive_group(required=True)
-source_group.add_argument("--source-url",help="immutable public URL for this package revision source archive")
+source_group.add_argument("--source-url",help="public URL of the Git tree this package revision is built from")
 source_group.add_argument("--local-only",action="store_true",help="local unpublished package with corresponding source beside the APK")
 args=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
@@ -109,7 +109,7 @@ not a production download checksum (an archive cannot contain its own digest). T
 preserved as a record of the NanoKVM firmware repository's packaging script;
 it expects that repository's addons/rustdesk and firmware/alpine layout.
 The APK contains binary, lifecycle hooks, license, upstream metadata and a
-source URL/digest record. It does not contain this archive or vendored crates.
+source URL record. It does not contain this archive or vendored crates.
 """)
 # Export the new Go transport as a independently buildable component as well.
 # The integrated application is packaged separately; this records its exact IPC hook.
@@ -181,11 +181,11 @@ shutil.copyfile(root/"scripts/nanokvm_cpu_profile.py",go_transport/"nanokvm_cpu_
 shutil.copyfile(root/"server/service/rustdesk/webrtc_socket_test.go",go_transport/"webrtc_socket_test.go.integration")
 archive=output/f"nanokvm-rustdesk-{version}-source.tar.gz"
 with tarfile.open(archive,"w:gz") as tar:tar.add(stage,arcname=stage.name)
-# Publish/commit this external production recipe after computing the archive.
+# The recipe for a native Alpine build: it takes the archive from beside it.
 checksum_block="sha512sums=\""+hashlib.sha512(archive.read_bytes()).hexdigest()+"  "+archive.name+"\n"+"\n".join(hashlib.sha512((pkg/name).read_bytes()).hexdigest()+"  "+name for name in ["nanokvm-rustdesk.initd","nanokvm-rustdesk-c906.toml"])+"\"\n"
 production_recipe_input=re.sub(
     r"(?m)^sourceurl=.*$",
-    lambda _: "sourceurl="+shlex.quote(archive.name if args.local_only else args.source_url),
+    lambda _: "sourceurl="+shlex.quote(archive.name),
     recipe,
 )
 production_recipe=re.sub(r"(?ms)^sha512sums=.*\Z", "",production_recipe_input).rstrip()+"\n\n"+checksum_block
@@ -201,7 +201,11 @@ install(pkg/"nanokvm-rustdesk.initd","etc/init.d/nanokvm-rustdesk",0o755)
 install(source/"LICENSE","usr/share/licenses/nanokvm-rustdesk/LICENSE")
 install(source/"NOTICE","usr/share/licenses/nanokvm-rustdesk/NOTICE")
 source_record=staging_root/"source.json"
-source_record.write_text(json.dumps({"url":args.source_url,"archive":archive.name,"publication":"local-unpublished" if args.local_only else "external-immutable-url","sha256":hashlib.sha256(archive.read_bytes()).hexdigest(),"package_version":package_version,"build_profile":"release"},indent=2)+"\n")
+# A published build links the Git tree of its tag; its archive is not published.
+record={"url":args.source_url,"publication":"git-tree","package_version":package_version,"build_profile":"release"}
+if args.local_only:
+    record.update(archive=archive.name,publication="local-unpublished",sha256=hashlib.sha256(archive.read_bytes()).hexdigest())
+source_record.write_text(json.dumps(record,indent=2)+"\n")
 install(source_record,"usr/share/nanokvm-rustdesk/source.json")
 install(source/"upstream.json","usr/share/nanokvm-rustdesk/upstream.json")
 install(stage/"build-profile.json","usr/share/nanokvm-rustdesk/build-profile.json")

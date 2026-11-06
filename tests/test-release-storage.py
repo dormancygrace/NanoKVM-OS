@@ -336,16 +336,7 @@ class PagesStoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'different commit'):
                 store.already_staged(tag, 'b' * 40)
 
-    def test_sources_survive_binary_retention_and_catalog_is_uncached(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            s = store.Store(tmp)
-            for n in range(4):
-                tag = f'nanokvm-rustdesk-0.5.6-r{n}'
-                path = f'package-store/sources/{tag}/APKBUILD'
-                s.add('addon', tag, {'APKBUILD': s.put('APKBUILD', str(n).encode(), path)}, 'a' * 40)
-            s.snapshots = store.retained(s.snapshots, set())
-            self.assertEqual(len(s.snapshots), 3)
-            self.assertEqual(len(s.sources), 4)
+    def test_catalog_is_uncached(self):
         with mock.patch.object(store.a, 'fetch', return_value=b'{}') as fetch:
             store.read_catalog()
             store.read_catalog()

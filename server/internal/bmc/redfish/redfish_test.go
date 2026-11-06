@@ -118,8 +118,16 @@ func TestSessions(t *testing.T) {
 
 func TestFailedLoginsLockOut(t *testing.T) {
 	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	var heard []string
+	h.OnLockout = func(addr string, failures int, _ time.Duration) { heard = append(heard, addr) }
+	h.OnLogin = func(user, addr string) { heard = append(heard, user+"@"+addr) }
+	do(h, "GET", "/redfish/v1/Systems/1", "", admin)
+	do(h, "GET", "/redfish/v1/Systems/1", "", admin) // heard once
 	for i := 0; i < maxFailures; i++ {
 		do(h, "GET", "/redfish/v1/Systems/1", "", map[string]string{"basic": "admin:guess"})
+	}
+	if !reflect.DeepEqual(heard, []string{"admin@192.0.2.7", "192.0.2.7"}) {
+		t.Fatalf("heard %q", heard)
 	}
 	if rec := do(h, "GET", "/redfish/v1/Systems/1", "", admin); rec.Code != 429 {
 		t.Fatalf("locked out client got %d", rec.Code)
@@ -237,7 +245,7 @@ func TestOldSuccessDoesNotRefundReplacement(t *testing.T) {
 					t.Fatal("new window reservation refused")
 				}
 			}
-			h.loginSucceeded(addr, old)
+			h.loginSucceeded("admin", addr, old)
 			if !h.lockedOut(addr) || h.beginLogin(addr) != nil {
 				t.Fatal("an old successful login refunded a failure from its replacement")
 			}

@@ -18,6 +18,7 @@ import (
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/pkg/bmc"
 	"NanoKVM-Server/service/extensions/apkpkg"
+	"NanoKVM-Server/service/notify"
 )
 
 // Status is what the settings page shows. The password never leaves the
@@ -92,7 +93,16 @@ func (s *Service) useRedfish(config bmc.Config) {
 		return
 	}
 	power := &bmc.Power{ATX: s.atx, Hold: time.Duration(config.HoldSeconds) * time.Second} // 0: the long press
-	s.redfish.Store(redfish.New(config.Username, config.Password, s.info, power))
+	h := redfish.New(config.Username, config.Password, s.info, power)
+	// The security events cover the BMC account as the web login.
+	h.OnLockout = func(addr string, failures int, lock time.Duration) {
+		notify.LoginLockedOut(addr, failures, int((lock+time.Minute-1)/time.Minute))
+	}
+	h.OnLogin = func(user, addr string) {
+		// Its own list, apart from a web user of the same name.
+		go notify.LoginSucceeded(user+" (Redfish)", addr)
+	}
+	s.redfish.Store(h)
 }
 
 // ServeRedfish answers /redfish/; with Redfish off the service does not exist.

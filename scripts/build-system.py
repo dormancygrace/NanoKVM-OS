@@ -17,7 +17,7 @@ if subprocess.check_output([cross+'gcc','-dumpfullversion'],text=True).strip()!=
 # turns the repository into ./nanokvm-os, so the output does not depend on it.
 os.chdir(repo)
 main=repo/'support/kvm_system/main'
-sources=sorted(p for p in main.rglob('*.c') if p.name != 'qrcmd.c')+sorted(main.rglob('*.cpp'))
+sources=sorted(main.rglob('*.c'))+sorted(main.rglob('*.cpp'))
 sources += [repo/'support/additional/kvm/src/vi_state_shared.cpp']
 flags=['-g','-Wall','-Wextra','-ffunction-sections','-fdata-sections',
        *cpu_flags(),
@@ -38,10 +38,8 @@ with tempfile.TemporaryDirectory(prefix='system-',dir=output) as directory:
     for i,source in enumerate(sources):
         obj=tmp/(str(i)+'.o')
         cpp=source.suffix=='.cpp'
-        # The bundled QR library keeps dimension variables it does not read.
-        quiet=['-Wno-unused-but-set-variable'] if 'libqr' in source.parts else []
         subprocess.run([cross+('g++' if cpp else 'gcc'),
-            '-std='+('gnu++17' if cpp else 'gnu11'),*flags,*quiet,*path_flags,*inc,'-MD','-MF',str(tmp/(str(i)+'.d')),
+            '-std='+('gnu++17' if cpp else 'gnu11'),*flags,*path_flags,*inc,'-MD','-MF',str(tmp/(str(i)+'.d')),
             '-c',str(source),'-o',str(obj)],check=True)
         objects.append(str(obj))
     subprocess.run([cross+'g++',*objects,'-Wl,--gc-sections','-Wl,-z,defs',

@@ -8,39 +8,13 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#define OLED_DISABLE 	0
-#define OLED_ENABLE		1
 #define OLED_CMD		0x00
 #define OLED_DATA		0x40
-
-#define HDMI_STATE      0x01
-#define HID_STATE       0x02
-#define ETH_STATE       0x04
-#define WIFI_STATE      0x08
-
-#define KVM_INIT        0x00
-#define KVM_ETH_IP      0x01
-#define KVM_WIFI_IP     0x02
-#define KVM_HDMI_STATE  0x03
-#define KVM_HDMI_RES    0x04
-#define KVM_STEAM_TYPE  0x05
-#define KVM_STEAM_FPS   0x06
-#define KVM_JPG_QLTY    0x07
-#define KVM_CPU_IDLE    0x08
-
-#define KVM_RES_none    0x00
-#define KVM_RES_480P    0x01
-#define KVM_RES_600P    0x02
-#define KVM_RES_720P    0x03
-#define KVM_RES_1080P   0x04
 
 #define KVM_TYPE_none   0x00
 #define KVM_TYPE_MJPG   0x01
 #define KVM_TYPE_H264   0x02
 #define KVM_TYPE_H265   0x03
-
-#define AlignRightEND   127
-#define AlignRightEND_P 63
 
 extern uint8_t OLED_state;
 extern uint8_t kvm_hw_ver;

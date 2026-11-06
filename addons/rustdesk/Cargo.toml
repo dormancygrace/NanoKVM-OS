@@ -7,9 +7,6 @@ description = "RustDesk HDMI and USB HID endpoint for NanoKVM OS"
 license = "AGPL-3.0-only"
 publish = false
 
-[features]
-performance-probes = []
-
 [[bin]]
 name = "nanokvm-rustdesk"
 path = "src/main.rs"
@@ -38,8 +35,3 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 strip = "symbols"
-
-[[bin]]
-name = "c906-crypto-perf"
-path = "src/bin/c906-crypto-perf.rs"
-required-features = ["performance-probes"]

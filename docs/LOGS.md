@@ -24,10 +24,15 @@ oldest is deleted.
 **Kernel crashes.** A kernel oops panics and reboots after 10 s, before
 the minute's archive write. The kernel keeps the dump and its last
 console output in 128 KiB of RAM (pstore/ramoops at `0x8d000000`, set in
-`firmware/boards/nanokvm-common.dtsi`), which a reboot keeps and a power
-loss clears. At the next boot `nanokvm-storage` moves them to
-`/var/log/nanokvm-crash/<UTC time>/` (the newest five crashes) and warns in
-the boot log; the diagnostics archive includes them.
+`firmware/boards/nanokvm-common.dtsi`), which a power loss clears. That a
+reboot keeps it is how ramoops works, but the board's reset path is not
+measured yet; ECC (16 bytes per block) corrects or flags damaged blocks,
+and a record may still arrive with blocks marked unrecoverable. At the next
+boot `nanokvm-storage` copies them to
+`/var/log/nanokvm-crash/<sequence>-<UTC time>/`, syncs the copy and only
+then frees the records, keeps the newest five crashes by sequence (the
+clock at boot may be wrong) and warns in the boot log; the diagnostics
+archive includes them.
 
 An image installed before this setup keeps its `/etc/conf.d/syslog`
 unless it is Alpine's default (`SYSLOGD_OPTS="-t"`). The package update

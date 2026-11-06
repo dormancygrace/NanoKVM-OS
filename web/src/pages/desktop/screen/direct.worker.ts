@@ -1,5 +1,6 @@
 import Queue from 'yocto-queue';
 
+import { ConnectRecovery, RECOVERY_RECONNECT_DELAY } from '@/lib/connect-recovery.ts';
 import { DIRECT_H264_CODEC, DIRECT_H265_CODEC } from '@/lib/encoder.ts';
 
 import { DirectMetrics } from './direct-metrics.ts';
@@ -14,7 +15,11 @@ let decoder: VideoDecoder | null = null;
 let streamUrl: string | null = null;
 let socket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let reconnectDelayMs = 250;
+const initialReconnectDelayMs = 250;
+let reconnectDelayMs = initialReconnectDelayMs;
+// After a lost connection, attempts time out and retry soon (see ConnectRecovery).
+const recovery = new ConnectRecovery();
+let connectTimer: ReturnType<typeof setTimeout> | null = null;
 let stopped = false;
 let resyncRequested = false;
 let pendingAckTimestamp: number | null = null;
@@ -185,16 +190,28 @@ function connect() {
   try {
     const url = new URL(streamUrl);
     if (flowControl) url.searchParams.set('flow', String(flowControlWindow));
+    const createdAt = performance.now();
     const nextSocket = new WebSocket(url);
     nextSocket.binaryType = 'arraybuffer';
     socket = nextSocket;
+    let opened = false;
+    const timeout = recovery.connectTimeout(createdAt);
+    if (timeout !== null) {
+      connectTimer = setTimeout(() => {
+        connectTimer = null;
+        if (nextSocket.readyState === WebSocket.CONNECTING) nextSocket.close();
+      }, timeout);
+    }
 
     nextSocket.onopen = () => {
       if (socket !== nextSocket || stopped) {
         return;
       }
 
-      reconnectDelayMs = 250;
+      clearConnectTimer();
+      opened = true;
+      recovery.opened(performance.now() - createdAt);
+      reconnectDelayMs = initialReconnectDelayMs;
       resyncRequested = false;
       pendingAckTimestamp = null;
       clearAcks();
@@ -221,6 +238,8 @@ function connect() {
       }
 
       socket = null;
+      clearConnectTimer();
+      if (opened) recovery.lost(performance.now());
       resyncRequested = false;
       pendingAckTimestamp = null;
       clearAcks();
@@ -243,6 +262,7 @@ function connect() {
 function disconnect() {
   const currentSocket = socket;
   socket = null;
+  clearConnectTimer();
 
   if (currentSocket && currentSocket.readyState !== WebSocket.CLOSED) {
     currentSocket.close();
@@ -254,12 +274,24 @@ function scheduleReconnect() {
     return;
   }
 
-  const delay = reconnectDelayMs;
+  // Soon after a lost connection each attempt already takes up to the connect timeout,
+  // so the delay is capped there instead of growing.
+  const recovering = recovery.recovering(performance.now());
+  const delay = recovering
+    ? Math.min(reconnectDelayMs, RECOVERY_RECONNECT_DELAY)
+    : reconnectDelayMs;
   reconnectDelayMs = Math.min(reconnectDelayMs * 2, maxReconnectDelayMs);
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     connect();
   }, delay);
+}
+
+function clearConnectTimer() {
+  if (connectTimer !== null) {
+    clearTimeout(connectTimer);
+    connectTimer = null;
+  }
 }
 
 function clearReconnectTimer() {

@@ -3,6 +3,7 @@
   "power.off": { "title": "Amfitrió apagat", "body": "El LED d'alimentació de l'amfitrió s'ha apagat." },
   "hdmi.lost": { "title": "Senyal HDMI perdut", "body": "L'amfitrió ha deixat d'enviar imatge." },
   "hdmi.restored": { "title": "Senyal HDMI restablert", "body": "L'amfitrió torna a enviar imatge." },
+  "hdmi.power-cycle": { "title": "Es recomana desconnectar l’alimentació", "body": "El receptor HDMI ha rebut un EDID actualitzat, per exemple per corregir els colors. Desconnecteu el NanoKVM de tota alimentació i torneu-lo a connectar per aplicar-lo." },
   "security.lockout": {
     "title": "Inicis de sessió bloquejats",
     "body": "{failures} inicis de sessió fallits des de {address}: els accessos des d'aquesta adreça estan bloquejats durant {minutes} min."

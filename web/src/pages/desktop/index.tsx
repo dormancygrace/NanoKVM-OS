@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth';
-import { Alert, Button, Spin, Splitter } from 'antd';
+import { Alert, Button, notification, Spin, Splitter } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -69,6 +69,8 @@ function getVideoMode() {
 
   return ['direct', 'h264', 'mjpeg'].includes(cookieVideoMode) ? cookieVideoMode : defaultVideoMode;
 }
+
+const powerCycleNoticeKey = 'nanokvm-power-cycle-notice';
 
 // Whether the device refuses MJPEG now (it does at 3840x2160). An unreadable
 // answer is not a refusal: the stream decides.
@@ -160,6 +162,34 @@ export const Desktop = () => {
       active = false;
     };
   }, [admin, videoModeKnown]);
+  // A Cube or Lite takes a new EDID, such as the RGB range that corrects pale
+  // colours, only after a power cycle. The reminder lives in Settings > Video,
+  // where only an admin can dismiss it; tell the admin once per tab here.
+  const [notifier, notifierHolder] = notification.useNotification();
+  useEffect(() => {
+    if (!admin) return;
+    let active = true;
+    getVideoCapabilities()
+      .then((rsp) => {
+        if (!active || rsp.code !== 0 || !rsp.data?.monitor?.powerCyclePending) return;
+        try {
+          if (sessionStorage.getItem(powerCycleNoticeKey)) return;
+          sessionStorage.setItem(powerCycleNoticeKey, '1');
+        } catch {
+          // Without session storage the notice shows on every load.
+        }
+        notifier.warning({
+          key: powerCycleNoticeKey,
+          message: t('videoSettings.powerCyclePending'),
+          description: t('videoSettings.powerCycleNotice'),
+          duration: 0
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [admin, notifier, t]);
   const [mjpegRefused, setMjpegRefused] = useState(false);
   const [encoderReady, setEncoderReady] = useState(false);
   const [encoderError, setEncoderError] = useState<string | null>(null);
@@ -395,6 +425,7 @@ export const Desktop = () => {
   return (
     <div className="h-dvh w-full overflow-hidden bg-neutral-950">
       <Head title={t('head.desktop')} />
+      {notifierHolder}
 
       <UpdateNotification />
       <ControlNotice />

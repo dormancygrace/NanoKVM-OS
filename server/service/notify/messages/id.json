@@ -3,6 +3,7 @@
   "power.off": { "title": "Host mati", "body": "LED daya host padam." },
   "hdmi.lost": { "title": "Sinyal HDMI hilang", "body": "Host berhenti mengirim gambar." },
   "hdmi.restored": { "title": "Sinyal HDMI pulih", "body": "Host kembali mengirim gambar." },
+  "hdmi.power-cycle": { "title": "Disarankan memutus lalu menyambung daya", "body": "Penerima HDMI mendapat EDID yang diperbarui, misalnya untuk warna yang benar. Cabut NanoKVM dari semua sumber daya lalu pasang kembali untuk menerapkannya." },
   "security.lockout": {
     "title": "Login diblokir",
     "body": "{failures} kali login gagal dari {address}: login dari alamat ini diblokir selama {minutes} menit."

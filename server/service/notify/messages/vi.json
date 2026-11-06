@@ -3,6 +3,7 @@
   "power.off": { "title": "Máy chủ đã tắt", "body": "Đèn LED nguồn của máy chủ đã tắt." },
   "hdmi.lost": { "title": "Mất tín hiệu HDMI", "body": "Máy chủ đã ngừng gửi hình ảnh." },
   "hdmi.restored": { "title": "Đã có lại tín hiệu HDMI", "body": "Máy chủ lại gửi hình ảnh." },
+  "hdmi.power-cycle": { "title": "Nên ngắt và cấp lại nguồn", "body": "Bộ thu HDMI đã nhận EDID cập nhật, ví dụ để hiển thị đúng màu. Hãy rút NanoKVM khỏi mọi nguồn điện rồi cắm lại để áp dụng." },
   "security.lockout": {
     "title": "Đã chặn đăng nhập",
     "body": "Đăng nhập thất bại {failures} lần từ {address}: đăng nhập từ địa chỉ này bị chặn trong {minutes} phút."

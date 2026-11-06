@@ -50,9 +50,9 @@ func monitorState(t *testing.T, height int, portrait bool, portraitResolution in
 	oldDir, oldHash, oldChecked := monitorEDIDDir, monitorEDIDHashFile, monitorEDIDCheckedFile
 	oldDeferred, oldReceiver := monitorDeferredFile, monitorReceiverCheckedFile
 	oldVerified, oldVersion := monitorReceiverVerifiedFile, monitorSystemVersionFile
-	oldPending := monitorReplugPendingFile
+	oldPending, oldRange := monitorReplugPendingFile, monitorRGBRangeCheckedFile
 	t.Cleanup(func() {
-		monitorReplugPendingFile = oldPending
+		monitorReplugPendingFile, monitorRGBRangeCheckedFile = oldPending, oldRange
 		monitorResolutionFile, monitorPortraitFile, monitorPortraitResolutionFile = oldRes, oldPortrait, oldPortraitRes
 		monitorEDIDDir, monitorEDIDHashFile, monitorEDIDCheckedFile = oldDir, oldHash, oldChecked
 		monitorDeferredFile, monitorReceiverCheckedFile = oldDeferred, oldReceiver
@@ -64,6 +64,7 @@ func monitorState(t *testing.T, height int, portrait bool, portraitResolution in
 	monitorEDIDDir, monitorEDIDHashFile, monitorEDIDCheckedFile = dir, filepath.Join(dir, "hash"), filepath.Join(dir, "checked")
 	monitorDeferredFile = filepath.Join(dir, "deferred")
 	monitorReplugPendingFile = filepath.Join(dir, "replug_pending")
+	monitorRGBRangeCheckedFile = filepath.Join(dir, "rgb_range_checked")
 	on := "0"
 	if portrait {
 		on = "1"

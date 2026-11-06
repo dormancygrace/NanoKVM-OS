@@ -3,6 +3,7 @@
   "power.off": { "title": "Host powered off", "body": "The host's power LED turned off." },
   "hdmi.lost": { "title": "HDMI signal lost", "body": "The host stopped sending a picture." },
   "hdmi.restored": { "title": "HDMI signal restored", "body": "The host sends a picture again." },
+  "hdmi.power-cycle": { "title": "Power cycle recommended", "body": "The HDMI receiver got an updated EDID, for example for correct colours. Unplug the NanoKVM from all power and plug it back in to apply it." },
   "security.lockout": {
     "title": "Logins blocked",
     "body": "{failures} failed logins from {address}: logins from this address are blocked for {minutes} min."

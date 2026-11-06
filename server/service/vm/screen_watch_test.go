@@ -3,6 +3,7 @@ package vm
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image/jpeg"
 	"strings"
 	"testing"
@@ -52,6 +53,7 @@ func (s *watchedScreen) watch() *screenWatch {
 		},
 		viewers: func() int { return s.viewers },
 		begin:   videogate.Begin,
+		shot:    func(context.Context, []byte) ([]byte, bool) { return []byte{0xff, 0xd8}, true },
 		read: func(ctx context.Context) (screenRead, error) {
 			s.reads++
 			// The frame is the screen as the read starts.
@@ -143,6 +145,28 @@ func TestScreenWatchLeavesAWatchedScreenAlone(t *testing.T) {
 		if s.reads != 0 || len(s.events) != 0 {
 			t.Fatalf("%s with a viewer: reads %d, events %d", class, s.reads, len(s.events))
 		}
+	}
+}
+
+// A crash left while somebody watched is reported once nobody does, also
+// when the first verdict after that fails; a sure stop screen goes out unread
+// while video holds the TPU for a page nobody looks at.
+func TestScreenWatchReportsACrashLeftWhileWatched(t *testing.T) {
+	s := &watchedScreen{picture: 0, signal: true, viewers: 1, verdict: screenVerdict{Class: "console", Score: 0.95}, text: panicScreen}
+	w := s.watch()
+	s.run(w, 3)
+	s.viewers, s.classifyErr = 0, errors.New("busy")
+	s.run(w, 3)
+	if len(s.events) != 1 || s.events[0].Message != "screen.panic" {
+		t.Fatalf("events %+v", s.events)
+	}
+
+	s = &watchedScreen{picture: 0, signal: true, verdict: screenVerdict{Class: "bsod", Score: 0.95}}
+	release, _ := videogate.Hold(nil)
+	defer release()
+	s.run(s.watch(), 3)
+	if len(s.events) != 1 || s.events[0].Message != "screen.bsod" || s.reads != 0 {
+		t.Fatalf("events %+v, reads %d", s.events, s.reads)
 	}
 }
 

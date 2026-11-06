@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"NanoKVM-Server/internal/attention"
 	"NanoKVM-Server/service/controlmode"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/inputcontrol"
@@ -25,6 +26,8 @@ const (
 	MouseEvent
 	ControlEvent
 	HoldKeepaliveEvent
+	// VisibilityEvent: [5, 1] the page is visible, [5, 0] hidden.
+	VisibilityEvent
 )
 
 const (
@@ -75,8 +78,14 @@ func (c *Client) Start() {
 		c.hid.MouseReports(c.mouse)
 	}()
 
+	// A page counts as visible until it says otherwise.
+	c.pageVisible = true
+	attention.PageShown()
 	_ = c.Read()
 	c.Close()
+	if c.pageVisible {
+		attention.PageHidden()
+	}
 }
 
 func (c *Client) Read() error {
@@ -113,7 +122,18 @@ func (c *Client) Read() error {
 			if len(data) == 1 {
 				c.keepHeldInputAlive()
 			}
+		case VisibilityEvent:
+			if len(data) == 2 && (data[1] == 1) != c.pageVisible {
+				c.pageVisible = data[1] == 1
+				if c.pageVisible {
+					attention.PageShown()
+				} else {
+					attention.PageHidden()
+				}
+			}
 		case KeyboardEvent:
+			// Input from any page shows somebody is there, with control or not.
+			attention.NoteInput(time.Now())
 			if !GetManager().CanControl(c) {
 				continue
 			}
@@ -124,6 +144,7 @@ func (c *Client) Read() error {
 			}
 			c.queueManualReport(c.keyboard, inputcontrol.ManualKeyboard, report, keyboardReportHeld(report), true)
 		case MouseEvent:
+			attention.NoteInput(time.Now())
 			if !GetManager().CanControl(c) {
 				continue
 			}

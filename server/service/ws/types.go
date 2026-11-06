@@ -49,6 +49,8 @@ type Client struct {
 	inputLease string
 	inputMutex sync.Mutex
 	hold       holdLease
+	// pageVisible: the page last said it is visible. Used by the read loop only.
+	pageVisible bool
 }
 
 type Message struct {

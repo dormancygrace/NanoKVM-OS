@@ -18,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/attention"
 	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/service/notify"
 )
@@ -27,8 +28,9 @@ import (
 // changed and then held still, the TPU classifier (nanokvm-screen, with its
 // model add-on) says what it shows. A stop screen or a text console is then read by the
 // OCR, when nobody watches the video (its models take the memory a viewer's
-// video needs), and only text that names a crash makes a notification,
-// with the lines read and a screenshot.
+// video needs). Crash text produces a notification with the lines read and a
+// screenshot; a high-confidence stop screen can be reported without OCR when
+// an unattended video stream holds its memory.
 const (
 	screenHelper = screenTextRoot + "/bin/nanokvm-screen"
 	screenModel  = screenTextRoot + "/models/screen.cvimodel"
@@ -47,10 +49,26 @@ var (
 	screenChangeLevel = 2.0
 	// The classifier's score for a stop screen or a console to be read.
 	screenAlarmScore = 0.7
+	// A stop screen the classifier is this sure of is reported without its
+	// text while video streams to a page nobody looks at: the OCR then has
+	// to give way to the video (videogate).
+	screenUnreadBSODScore = 0.9
 	// The least time between two OCR reads: a server console that scrolls
 	// and settles again and again must not keep the TPU busy.
 	screenReadGap = 2 * time.Minute
+	// A viewer counts as watching while a page is visible and keyboard or
+	// mouse input came within this long; an open tab alone does not.
+	screenAttentionWindow = 5 * time.Minute
 )
+
+// watchingViewers is the video viewers when somebody is actually looking at
+// them, else 0: a crash then goes to the notifications.
+func watchingViewers() int {
+	if viewers := HdmiState().ViewerCount; viewers > 0 && attention.Watching(time.Now(), screenAttentionWindow) {
+		return viewers
+	}
+	return 0
+}
 
 // Text that names a crash. Stop codes are upper case words joined by
 // underscores in every language of Windows; the rest is English in any
@@ -90,6 +108,9 @@ type screenWatch struct {
 	// begin admits a background read; its context is cancelled when video
 	// starts (videogate).
 	begin func(ctx context.Context) (context.Context, func(), bool)
+	// shot is a picture of the screen to send with a crash, when the OCR
+	// cannot run. It must still match the thumbnail judged.
+	shot func(ctx context.Context, judged []byte) ([]byte, bool)
 	// read is the OCR of the whole screen, with the frame it read.
 	read func(ctx context.Context) (screenRead, error)
 	now  func() time.Time
@@ -97,8 +118,15 @@ type screenWatch struct {
 	last     []byte
 	pending  bool // changed since the last verdict
 	reported bool // the crash on the screen was reported
+	deferred bool // a crash was left unread while somebody watched or video held the TPU
 	judged   bool // a verdict was logged since the start
 	readAt   time.Time
+}
+
+// While the watch is on, the HDMI idle timeout leaves capture running: a
+// crash matters most when nobody is watching.
+func init() {
+	hdmiKeepCapture = func() bool { return notify.Wants(notify.KindScreen) && ScreenWatchAvailable() }
 }
 
 func newScreenWatch() *screenWatch {
@@ -108,15 +136,16 @@ func newScreenWatch() *screenWatch {
 		available: ScreenWatchAvailable,
 		thumb:     screenThumb,
 		classify:  classifyScreen,
-		viewers:   func() int { return HdmiState().ViewerCount },
+		viewers:   watchingViewers,
 		begin:     videogate.Begin,
 		read:      readScreenLines,
+		shot:      screenShot,
 		now:       time.Now,
 	}
 }
 
 func (w *screenWatch) reset() {
-	w.last, w.pending, w.reported = nil, false, false
+	w.last, w.pending, w.reported, w.deferred = nil, false, false, false
 }
 
 func (w *screenWatch) step(ctx context.Context) {
@@ -131,11 +160,16 @@ func (w *screenWatch) step(ctx context.Context) {
 	}
 	if w.last == nil || meanDifference(w.last, planes) > screenChangeLevel {
 		// Changed (or the first look): judge it once it holds still.
-		w.last, w.pending = planes, true
+		w.last, w.pending, w.deferred = planes, true, false
 		return
 	}
 	if !w.pending {
-		return
+		// A crash left while somebody watched is judged again once nobody does.
+		if !w.deferred || w.viewers() > 0 {
+			return
+		}
+		// Pending until a verdict: a classifier that fails now tries again.
+		w.deferred, w.pending = false, true
 	}
 	verdict, err := w.classify(ctx, planes)
 	if err != nil {
@@ -168,6 +202,7 @@ func (w *screenWatch) step(ctx context.Context) {
 // busy, after the gap otherwise).
 func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged []byte) {
 	if w.viewers() > 0 {
+		w.deferred = true
 		return
 	}
 	now := w.now()
@@ -176,18 +211,31 @@ func (w *screenWatch) check(ctx context.Context, verdict screenVerdict, judged [
 		w.pending = true
 		return
 	}
-	ctx, end, ok := w.begin(ctx)
+	readCtx, end, ok := w.begin(ctx)
 	if !ok {
-		return // video runs
+		// Video holds the TPU, for a page nobody looks at. The OCR must not
+		// take the video's memory, so a sure stop screen goes out unread
+		// with its picture; anything else waits until the video stops.
+		if verdict.Class == "bsod" && verdict.Score >= screenUnreadBSODScore {
+			if shot, ok := w.shot(ctx, judged); ok && ctx.Err() == nil && w.viewers() == 0 {
+				w.reported = true
+				w.emit(notify.Event{Kind: notify.KindScreen, Severity: notify.SeverityCritical, Message: "screen.bsod",
+					Details: "The text was not read: video is streaming to a page nobody is looking at.", Image: shot})
+				return
+			}
+		}
+		w.deferred = true
+		return
 	}
 	previous := w.readAt
 	w.readAt = now
-	got, err := w.read(ctx)
-	cancelled := ctx.Err() != nil
+	got, err := w.read(readCtx)
+	cancelled := readCtx.Err() != nil
 	end()
 	if cancelled {
 		// A viewer came; the read did not count.
 		w.readAt = previous
+		w.deferred = true
 		log.Infof("screen watch: OCR gave way to a viewer")
 		return
 	}
@@ -257,19 +305,19 @@ func meanDifference(a, b []byte) float64 {
 // no other) while capture runs; ok is false without a signal or capture,
 // and for an input over Full HD, which VPSS cannot hand out as planes.
 func screenPlanes(ctx context.Context) (planes []byte, width, height int, ok bool) {
-	if signal, ok := notifyHDMISignal(); !ok || !signal {
-		return nil, 0, 0, false
-	}
-	if _, _, err := screenTextInput(); err != nil {
-		return nil, 0, 0, false
-	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	release, _, err := AcquireHdmiCaptureLeaseForRead(ctx)
-	if err != nil {
+	// Resume idle capture before checking its signal: the watch may have
+	// been enabled after capture stopped. This read does not extend parking.
+	release, ok := acquireHdmiBackgroundRead(ctx)
+	if !ok {
 		return nil, 0, 0, false
 	}
 	defer release()
+	if signal, ok := notifyHDMISignal(); !ok || !signal {
+		return nil, 0, 0, false
+	}
+	var err error
 	for attempt := 0; attempt < 3; attempt++ {
 		width, height, err = screenTextInput()
 		if err != nil {
@@ -385,6 +433,21 @@ func readScreenLines(ctx context.Context) (screenRead, error) {
 		return screenRead{}, err
 	}
 	return screenRead{text: ScreenTextLines(reply.Boxes), planes: reply.planes, width: reply.Width, height: reply.Height}, nil
+}
+
+// screenShot takes a screenshot only while it still matches the verdict's
+// frame; a later desktop must not be sent as a crash.
+func screenShot(ctx context.Context, judged []byte) ([]byte, bool) {
+	planes, width, height, ok := screenPlanes(ctx)
+	if !ok {
+		return nil, false
+	}
+	thumb := shrinkPlanes(planes, width, height, screenThumbWidth, screenThumbHeight)
+	if meanDifference(thumb, judged) > screenChangeLevel {
+		return nil, false
+	}
+	shot := screenJPEG(planes, width, height)
+	return shot, len(shot) != 0
 }
 
 // screenJPEG is a JPEG of a frame at most screenShotWidth wide, or nil.

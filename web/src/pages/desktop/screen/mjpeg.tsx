@@ -9,6 +9,7 @@ import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
 import { resolutionAtom, screenshotSourceAtom } from '@/jotai/screen.ts';
 
+import { mjpegTilesSupported } from './mjpeg-mode.ts';
 import { startTileStream } from './mjpeg-tiles.ts';
 import { ScreenViewport } from './viewport.tsx';
 
@@ -19,8 +20,9 @@ const STREAM_HEALTH_INTERVAL = 1000;
 // Tiles over a WebSocket: only the parts of the picture that changed, where
 // the server says it sends them; otherwise the classic stream of whole JPEGs.
 export const Mjpeg = () => {
-  const [tiles, setTiles] = useState<boolean | null>(null);
+  const [tiles, setTiles] = useState<boolean | null>(mjpegTilesSupported);
   useEffect(() => {
+    if (tiles !== null) return;
     let active = true;
     getVideoCapabilities()
       .then((rsp) => active && setTiles(rsp.code === 0 && rsp.data?.stream?.mjpeg?.tiles === true))
@@ -28,7 +30,7 @@ export const Mjpeg = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [tiles]);
   if (tiles === null) return null;
   return tiles ? <MjpegTiles /> : <MjpegImage />;
 };

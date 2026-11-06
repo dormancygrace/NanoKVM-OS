@@ -35,11 +35,18 @@ func newTiledClient(ctx context.Context) *mjpegClient {
 	}
 }
 
-// offerTile queues a message. A full queue is dropped: the viewer then takes
-// nothing but the next whole picture.
+// offerTile queues a message. A whole picture replaces the queued messages it
+// makes stale. A full queue is dropped: the viewer then takes nothing but the
+// next whole picture.
 func (c *mjpegClient) offerTile(message []byte, whole bool) bool {
 	if c.resync && !whole {
 		return false
+	}
+	if whole {
+		c.drainFrames()
+		c.frames <- message
+		c.resync = false
+		return true
 	}
 	select {
 	case c.frames <- message:
@@ -47,20 +54,19 @@ func (c *mjpegClient) offerTile(message []byte, whole bool) bool {
 		return true
 	default:
 	}
-	for drained := false; !drained; {
+	c.drainFrames()
+	c.resync = true
+	return false
+}
+
+func (c *mjpegClient) drainFrames() {
+	for {
 		select {
 		case <-c.frames:
 		default:
-			drained = true
+			return
 		}
 	}
-	c.resync = true
-	if whole {
-		c.frames <- message
-		c.resync = false
-		return true
-	}
-	return false
 }
 
 // tilesOnly: every viewer takes tiles and the device can find changes. With

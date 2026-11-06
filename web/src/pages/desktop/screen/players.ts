@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react';
 
+import { prepareMjpeg } from './mjpeg-mode.ts';
+
 export type PlayerProps = { onEncoderConflict: () => boolean };
 type Player = ComponentType<PlayerProps>;
 
@@ -37,9 +39,13 @@ export function loadPlayer(mode: string): Promise<Player> | undefined {
   return promise;
 }
 
+// What a player must know before it can render its stream element: MJPEG asks
+// whether the server sends tiles, which decides between a canvas and an image.
+const prepares = new Map<string, () => Promise<void>>([['mjpeg', prepareMjpeg]]);
+
 // Resolves (never rejects) once the player for `mode` can render synchronously.
 export function preloadPlayer(mode: string): Promise<void> {
-  return Promise.resolve(loadPlayer(mode)).then(
+  return Promise.all([loadPlayer(mode), prepares.get(mode)?.()]).then(
     () => undefined,
     () => undefined
   );

@@ -350,7 +350,25 @@ func (s *Service) deliver(ch Channel, r Rendered) {
 		if !s.sleep(context.Background(), retryDelays[attempt]) {
 			return
 		}
+		// The channel may have been deleted, turned off or changed meanwhile:
+		// a retry goes by its settings of now.
+		var ok bool
+		if ch, ok = s.channel(ch.ID, r.Kind); !ok {
+			return
+		}
 	}
+}
+
+// channel is the enabled channel of id if it still takes events of kind.
+func (s *Service) channel(id string, kind Kind) (Channel, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, ch := range s.config.Channels {
+		if ch.ID == id && ch.Enabled && ch.wants(kind) {
+			return ch, true
+		}
+	}
+	return Channel{}, false
 }
 
 // Test sends a test message to one channel at once, written by template (nil:

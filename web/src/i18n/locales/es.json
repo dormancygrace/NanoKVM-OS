@@ -1727,7 +1727,7 @@
         "saved": "Configuración del punto de acceso guardada.",
         "saveFailed": "No se pudo guardar la configuración del punto de acceso.",
         "loadFailed": "No se pudo leer la configuración del punto de acceso.",
-        "warning": "Al guardar, el Wi-Fi se reinicia. Si está conectado por Wi-Fi, esta página perderá el dispositivo: conéctese al punto de acceso y confirme en 2 minutos, o volverá la configuración anterior.",
+        "warning": "Al guardar, el Wi-Fi se reinicia. Si está conectado por Wi-Fi o por una VPN que va sobre él, esta página perderá el dispositivo: conéctese al punto de acceso y confirme en 2 minutos, o volverá la configuración anterior.",
         "invalidSsid": "Introduzca un nombre de 1 a 32 bytes.",
         "invalidPassword": "Introduzca de 8 a 63 caracteres: letras, dígitos o símbolos.",
         "invalidSubnet": "Introduzca tres números de una red privada, como 192.168.50.",

@@ -46,6 +46,48 @@ func h264OutputSize(inputWidth, inputHeight int, streamHeight uint16) (width, he
 	return inputWidth * boxHeight / inputHeight, boxHeight
 }
 
+// StreamScaled reports whether native capture streams an input at another
+// size under a stream limit (0 is the input size).
+func StreamScaled(inputWidth, inputHeight int, streamHeight uint16) bool {
+	width, height := streamSize(inputWidth, inputHeight,
+		int(ResolutionMap[streamHeight]), int(streamHeight))
+	return width != inputWidth || height != inputHeight
+}
+
+// streamSize mirrors native stream_size (support/additional/kvm/include/
+// stream_size.hpp): the stream size for an input and a landscape limit box
+// (0x0 is none), including its portrait rules and its rounding.
+func streamSize(inputWidth, inputHeight, boxWidth, boxHeight int) (width, height int) {
+	if inputWidth <= 0 || inputHeight <= 0 {
+		return 0, 0
+	}
+	if portraitProfileInput(inputWidth, inputHeight) && boxWidth > 0 && boxHeight > 0 {
+		if inputWidth == 1088 && inputHeight == 1920 && boxWidth >= 1920 && boxHeight >= 1080 {
+			return inputWidth, inputHeight
+		}
+		// The box turned upright.
+		width = boxHeight
+		if width*inputHeight > boxWidth*inputWidth {
+			width = boxWidth * inputWidth / inputHeight
+		}
+		mask := ^1
+		if inputWidth == 1088 {
+			mask = ^63
+		}
+		width = min(width, inputWidth) & mask
+		return width, (width * inputHeight / inputWidth) &^ 1
+	}
+	width, height = inputWidth, inputHeight
+	if boxWidth > 0 && boxHeight > 0 && (width > boxWidth || height > boxHeight) {
+		if boxWidth*height <= boxHeight*width {
+			width, height = boxWidth, height*boxWidth/width
+		} else {
+			width, height = width*boxHeight/height, boxHeight
+		}
+	}
+	return width &^ 1, height &^ 1
+}
+
 func portraitProfileInput(width, height int) bool {
 	switch [2]int{width, height} {
 	case [2]int{720, 1280}, [2]int{1080, 1920}, [2]int{1088, 1920}, [2]int{1440, 2560}:

@@ -35,6 +35,12 @@ func HevcDirectSupported() bool {
 	return err == nil && strings.TrimSpace(string(data)) == "1"
 }
 
+// FirstCaptureYUV420 reports whether the device's own first stream will want
+// 4:2:0 capture. The first capture start has no encoder to follow, so the
+// native binding passes this to it before starting capture. Set by the stream
+// settings owner (service/vm); false until then.
+var FirstCaptureYUV420 = func() bool { return false }
+
 // ViDirectH264Supported reports whether the loaded VI driver can capture
 // 4:2:0 (osdrv patch 0013), so the setting has an effect on H.264.
 func ViDirectH264Supported() bool {

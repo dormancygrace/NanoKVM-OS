@@ -11,7 +11,6 @@
 namespace kvms {
 
 uint64_t ticks_ms();         // CLOCK_MONOTONIC
-uint64_t time_ms();          // CLOCK_REALTIME
 void sleep_ms(uint64_t ms);
 
 // Interface name -> dotted IPv4 address, without lo. An interface with

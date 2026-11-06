@@ -69,8 +69,6 @@
  * policy is used only with shared CMA >=144 MiB; see docs/VIDEO.md. */
 #define qhd_ion_mib             54U
 
-#define LT6911_ADDR 	0x2B
-
 pthread_mutex_t vi_mutex;
 pthread_mutex_t hdmi_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t vi_detection_thread;
@@ -1476,6 +1474,12 @@ static std::atomic<int> capture_input_fps{0};
 int kvmv_set_capture_fps(uint8_t fps)
 {
     capture_target_fps.store(fps, std::memory_order_relaxed);
+    return 0;
+}
+
+int kvmv_set_first_capture_yuv420(uint8_t want)
+{
+    mmf_vi_yuv420_want_first(want);
     return 0;
 }
 

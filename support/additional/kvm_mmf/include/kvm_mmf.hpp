@@ -156,6 +156,9 @@ int mmf_vi_chn_set_jfif(int ch, int jfif);
 // is 4:2:0; pending: the video encoder wants the other mode, applied by the
 // next capture start (restart).
 int mmf_vi_yuv420_active(void);
+// The mode of the next capture start (nonzero: 4:2:0), for the first start,
+// which has no encoder to follow; the server sets it before that start.
+void mmf_vi_yuv420_want_first(int want);
 // Whether a VI output is read straight from capture (its VPSS channel off).
 int mmf_vi_chn_direct(int ch);
 int mmf_vi_yuv420_pending(void);

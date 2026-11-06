@@ -41,6 +41,7 @@ package common
 */
 import "C"
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -383,7 +384,10 @@ func (k *KvmVision) ApplyMonitorProfile(path string) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	args := []string{path}
+	pendingBefore := false
 	if cube {
+		_, statErr := os.Stat(monitorPowerCyclePendingFile)
+		pendingBefore = statErr == nil
 		// Marker is durable before writing: even a timeout or process crash can
 		// leave receiver flash changed. Do not erase it on uncertain failure.
 		if err := atomicWriteMonitorFile(monitorPowerCyclePendingFile, []byte("1\n"), ".monitor_pending-*"); err != nil {
@@ -396,8 +400,19 @@ func (k *KvmVision) ApplyMonitorProfile(path string) (err error) {
 		log.Errorf("monitor EDID programming failed: %v: %s", err, output)
 		return fmt.Errorf("monitor EDID programming failed")
 	}
+	// The receiver already held this EDID and its flash was not written: no
+	// power cycle is needed for it, so the reminder this call raised goes.
+	if cube && !pendingBefore && bytes.Contains(output, []byte(edidWriteSkipped)) {
+		if err := os.Remove(monitorPowerCyclePendingFile); err != nil && !os.IsNotExist(err) {
+			log.Warnf("cannot clear the power-cycle reminder: %v", err)
+		}
+	}
 	return nil
 }
+
+// edidWriteSkipped is what nanokvm_update_edid prints when the receiver
+// already holds the requested EDID.
+const edidWriteSkipped = "Requested EDID already installed; flash write skipped"
 
 // ReadMonitorEDID copies the HDMI receiver's EDID (256 bytes) under the same
 // serialization as ApplyMonitorProfile: nanokvm_update_edid reads it with the

@@ -219,8 +219,8 @@ impl ClientLimits {
         permissions: Option<&crate::protocol::ControlPermissions>,
     ) -> Self {
         let mut limits = self.clone();
-        limits.input_allowed = self.input_allowed && permissions.map_or(true, |p| p.allows(0));
-        limits.audio_allowed = self.audio_allowed && permissions.map_or(true, |p| p.allows(4));
+        limits.input_allowed = self.input_allowed && permissions.is_none_or(|p| p.allows(0));
+        limits.audio_allowed = self.audio_allowed && permissions.is_none_or(|p| p.allows(4));
         limits
     }
 
@@ -923,7 +923,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let (incoming_sender, mut incoming_receiver) = mpsc::channel(16);
     let can_audio = limits.audio_allowed && config.audio_enabled;
     let (audio_desired, audio_setting) =
-        watch::channel(can_audio && login.option.as_ref().map_or(true, |o| o.disable_audio != 2));
+        watch::channel(can_audio && login.option.as_ref().is_none_or(|o| o.disable_audio != 2));
     let audio_current = audio_setting.clone();
     let (audio_task, mut audio_state) =
         crate::audio::start(config.audio_socket.clone(), can_audio, audio_setting);
@@ -1296,7 +1296,7 @@ fn client_supports_codec(login: &LoginRequest, codec: Codec) -> bool {
     match codec {
         // Older RustDesk clients predate SupportedDecoding but can decode
         // H.264, so preserve the existing compatibility fallback.
-        Codec::H264 => supported.map_or(true, |ability| ability.ability_h264 > 0),
+        Codec::H264 => supported.is_none_or(|ability| ability.ability_h264 > 0),
         // H.265 is optional and must be explicitly advertised by the client.
         Codec::H265 => supported.is_some_and(|ability| ability.ability_h265 > 0),
         Codec::Mjpeg => false,

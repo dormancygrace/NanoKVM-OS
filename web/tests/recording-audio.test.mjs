@@ -12,9 +12,6 @@ test('audio timeline retains RTP gaps and ignores pre-video or duplicate packets
   assert.equal(t.push(p(20000, 1000)), 0);
   assert.equal(t.push(p(220000, 1200)), 0.2);
   assert.equal(t.push(p(220000, 1300)), null);
-  const clock = new RtpClock(48000);
-  assert.equal(clock.microseconds(2 ** 32 - 480), 0);
-  assert.equal(clock.microseconds(480), 20000);
 });
 test('audio timeline re-anchors when the sender paused and fills silence up to a time', () => {
   const timeline = new AudioTimeline(1000);

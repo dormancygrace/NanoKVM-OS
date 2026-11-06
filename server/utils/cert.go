@@ -22,15 +22,16 @@ import (
 )
 
 // EnsureServerCertificate creates a device-specific certificate on first boot.
-// Keep existing certificates and explicitly configured custom paths intact.
+// Keep existing certificates and explicitly configured custom paths intact;
+// only an expired generated pair is replaced.
 func EnsureServerCertificate(certFile, keyFile string) error {
-	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err == nil {
-		return nil
+	if certFile == defaultCertFile && keyFile == defaultKeyFile {
+		return ensureGeneratedCertificate(certFile, keyFile)
 	}
-	if certFile != defaultCertFile || keyFile != defaultKeyFile {
+	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
 		return fmt.Errorf("custom TLS certificate is missing or invalid")
 	}
-	return ensureGeneratedCertificate(certFile, keyFile)
+	return nil
 }
 
 // PrepareServerCertificate loads the configured pair into ServerCertificate
@@ -61,8 +62,23 @@ func PrepareServerCertificate(certFile, keyFile string) error {
 }
 
 func ensureGeneratedCertificate(certFile, keyFile string) error {
-	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err == nil {
-		return nil
+	if pair, err := tls.LoadX509KeyPair(certFile, keyFile); err == nil {
+		// A pair made while the clock still stood in 1970 (before the boot clock
+		// floor) expired in 1980: browsers refuse it with a date error.
+		if !certNow().After(pair.Leaf.NotAfter) {
+			return nil
+		}
+		log.Warnf("the generated HTTPS certificate expired on %s; generating a new one",
+			pair.Leaf.NotAfter.UTC().Format("2006-01-02"))
+		// Without the old certificate, a power cut while the new pair is written
+		// leaves the state of an interrupted first boot, repaired at the next start.
+		if err := os.Remove(certFile); err != nil {
+			return err
+		}
+		if err := atomicfile.SyncDir(filepath.Dir(certFile)); err != nil {
+			return err
+		}
+		return GenerateCertificateFiles(certFile, keyFile)
 	}
 	// Only a complete pair counts as existing: generation publishes the key
 	// first, so a lone key is an interrupted first boot and is regenerated.
@@ -81,6 +97,7 @@ func ensureGeneratedCertificate(certFile, keyFile string) error {
 var (
 	defaultCertFile = config.DefaultCertFile
 	defaultKeyFile  = config.DefaultKeyFile
+	certNow         = time.Now
 )
 
 // GenerateCertificateFiles writes a fresh self-signed pair.
@@ -109,13 +126,14 @@ func GenerateCertificateFiles(certFile, keyFile string) error {
 		return err
 	}
 
+	now := certNow()
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName: host,
 		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(validFor),
+		NotBefore:             now,
+		NotAfter:              now.Add(validFor),
 		KeyUsage:              x509.KeyUsageDigitalSignature, // ECDSA keys only sign
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,

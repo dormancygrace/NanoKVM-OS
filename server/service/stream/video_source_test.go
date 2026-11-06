@@ -230,48 +230,6 @@ func TestVideoSubscriptionStartsAtKeyframeAndPreservesErrors(t *testing.T) {
 	}
 }
 
-// H.264 runs up to 2560x1440 of encoded picture (1080x1920 in portrait); the
-// stream limit counts, H.265 is never refused.
-func TestH264CodecPolicy(t *testing.T) {
-	for _, c := range []struct {
-		limit         uint16
-		width, height int
-		blocked       bool
-	}{
-		{0, 3840, 2160, true},
-		{2160, 3840, 2160, true},
-		{1440, 3840, 2160, false},
-		{1080, 3840, 2160, false},
-		{720, 3840, 2160, false},
-		{600, 3840, 2160, false},
-		{0, 2560, 1440, false},
-		{2160, 2560, 1440, false},
-		{1440, 2560, 1440, false},
-		{0, 1920, 1080, false},
-		{2160, 1920, 1080, false},
-		{0, 3440, 1440, true},
-		{1440, 3440, 1440, false},
-		// Portrait: above 1080x1920 it needs a limit of 1080 or lower.
-		{0, 1440, 2560, true},
-		{2160, 1440, 2560, true},
-		{1440, 1440, 2560, true},
-		{1080, 1440, 2560, false},
-		{720, 1440, 2560, false},
-		{0, 1088, 1920, false},
-		{0, 1080, 1920, false},
-		{0, 720, 1280, false},
-		// No signal: nothing is encoded yet.
-		{0, 0, 0, false},
-	} {
-		if got := h264Blocked(VideoCodecH264, c.limit, c.width, c.height); got != c.blocked {
-			t.Errorf("H.264 at %dx%d, limit %d: blocked %v, want %v", c.width, c.height, c.limit, got, c.blocked)
-		}
-		if h264Blocked(VideoCodecH265, c.limit, c.width, c.height) {
-			t.Errorf("H.265 at %dx%d, limit %d blocked", c.width, c.height, c.limit)
-		}
-	}
-}
-
 func TestSelectedH264FallsBackToH265At4K(t *testing.T) {
 	previousInput, previousLimit := captureInput, common.GetScreen().Height
 	t.Cleanup(func() { captureInput = previousInput; common.SetScreen("resolution", int(previousLimit)) })

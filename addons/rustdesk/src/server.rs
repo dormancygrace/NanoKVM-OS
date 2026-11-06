@@ -1034,7 +1034,8 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let mut audio_permission = None;
     let mut audio_generation = 0;
     let mut input_updates_open = true;
-    let mut lease_updates_open = input_allowed;
+    // Input may be enabled by the controller after login.
+    let mut lease_updates_open = can_control;
     let result = loop {
         tokio::select! {
             changed=audio_state.changed(), if audio_updates_open => {
@@ -1094,6 +1095,8 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             }
             input = input_result_receiver.recv(), if input_updates_open => {
                 input_updates_open = false;
+                // A queued lease recovery must not re-enable a failed worker.
+                lease_updates_open = false;
                 if let Some(Err(error)) = input {
                     eprintln!("RustDesk input unavailable for {peer}; continuing video: {error}");
                     let permission=crate::protocol::PermissionInfo{permission:0,enabled:false};

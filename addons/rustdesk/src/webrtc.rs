@@ -196,6 +196,7 @@ impl Manager {
         let (tx, mut rx) = mpsc::channel::<String>(32);
         let token = rand::random::<u64>();
         let mut slot = None;
+        let controller = crate::rendezvous::decode_address(&request.socket_addr).ip();
         let existing = {
             let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(e) = entries.get(&key) {
@@ -231,7 +232,7 @@ impl Manager {
         if let Some(existing) = existing {
             // hbbs retries offers while setup is pending. One answerer owns each SDP.
             if let Some(answer) = existing {
-                let _pending = limits.try_pending().ok_or_else(|| {
+                let _pending = limits.try_requested(controller).ok_or_else(|| {
                     io::Error::new(io::ErrorKind::WouldBlock, "pending handshake limit")
                 })?;
                 let mut signal = setup_step(
@@ -251,7 +252,7 @@ impl Manager {
         }
         let _slot = slot;
         let pending = limits
-            .try_pending()
+            .try_requested(controller)
             .ok_or_else(|| io::Error::new(io::ErrorKind::WouldBlock, "pending handshake limit"))?;
         let mut signal = setup_step(
             &mut shutdown,

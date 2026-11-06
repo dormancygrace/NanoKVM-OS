@@ -171,7 +171,14 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 				}
 				return path, nil
 			} else if receiverHoldsLocked(hw, hash) {
-				return "", nil
+				// The receiver holds what was recorded; it is enough only when that
+				// is still what the saved setting asks for (a release may map a
+				// setting to another profile, such as a faster rate for a D).
+				want, err := fileSHA256(savedMonitorProfilePathLocked())
+				if err != nil || want == hash {
+					return "", nil
+				}
+				log.Infof("the HDMI receiver holds an earlier profile for this setting; programming the current one")
 			}
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return "", nil
@@ -186,10 +193,7 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	if monitorPortraitEnabledLocked() && !hw.portraitSupported(savedPortraitResolutionLocked()) {
 		return "", fmt.Errorf("portrait monitor profile is unavailable")
 	}
-	path := monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
-	if monitorPortraitEnabledLocked() {
-		path = portraitProfilePathAt(savedPortraitResolutionLocked(), GetScreen().FPS)
-	}
+	path := savedMonitorProfilePathLocked()
 	// On failure no profile is recorded, so the next start tries again.
 	if err := hw.apply(path); err != nil {
 		return "", err
@@ -203,6 +207,15 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 		return path, markMonitorRGBRangeCheckedLocked()
 	}
 	return path, nil
+}
+
+// savedMonitorProfilePathLocked is the profile file the saved setting asks
+// for at the saved stream rate.
+func savedMonitorProfilePathLocked() string {
+	if monitorPortraitEnabledLocked() {
+		return portraitProfilePathAt(savedPortraitResolutionLocked(), GetScreen().FPS)
+	}
+	return monitorProfilePathAt(savedMonitorResolutionLocked(), GetScreen().FPS)
 }
 
 // Profiles that earlier releases programmed and this one no longer ships:

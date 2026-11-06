@@ -150,9 +150,11 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
             monitor &&
             line(
               t('videoSettings.monitor'),
-              `${saved?.portrait ? t('videoSettings.portrait') : saved?.monitor ? '' : t('videoSettings.automatic')}${
-                monitor.width ? ` ${size(monitor.width, monitor.height)}` : ''
-              }${caps.monitor.refreshHz || monitor.refresh ? ` · ${t('videoSettings.hz', { value: caps.monitor.refreshHz || monitor.refresh })}` : ''}`.trim()
+              caps.monitor.stockProfile
+                ? t('videoSettings.stockProfile')
+                : `${saved?.portrait ? t('videoSettings.portrait') : saved?.monitor ? '' : t('videoSettings.automatic')}${
+                    monitor.width ? ` ${size(monitor.width, monitor.height)}` : ''
+                  }${caps.monitor.refreshHz || monitor.refresh ? ` · ${t('videoSettings.hz', { value: caps.monitor.refreshHz || monitor.refresh })}` : ''}`.trim()
             )}
           {enabled && status && status.effectiveFps < status.fps && (
             <p className="text-warning mt-3 text-xs">

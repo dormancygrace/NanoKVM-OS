@@ -347,10 +347,11 @@ export class WsClient {
     this.heartbeatTimer = setInterval(() => {
       const now = Date.now();
       // A suspended page did not send its scheduled probes. Give the open
-      // socket fresh heartbeat windows on return instead of closing it for
-      // time spent with paused or throttled browser timers.
+      // socket one fresh heartbeat window on return instead of closing it for
+      // time spent with paused or throttled browser timers; a socket that
+      // died meanwhile (a new network after sleep) never reports a close.
       if (now - this.lastHeartbeatAt >= 3 * this.options.heartbeatInterval) {
-        this.missedHeartbeats = 0;
+        this.missedHeartbeats = 1;
       }
       this.lastHeartbeatAt = now;
       // Count unanswered windows that actually ran. Older servers do not

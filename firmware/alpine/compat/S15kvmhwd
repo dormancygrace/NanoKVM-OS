@@ -92,6 +92,10 @@ case "${1:-}" in
     start|re-init|re-detect)
         check_board
         detect_board
+        # The board is known now: publish it before the receiver, so a receiver
+        # that does not answer never costs ATX and the board-dependent paths.
+        publish hw "$board"
+        if [ "$profiled" = 1 ]; then publish board-profile "$declared_board"; fi
         # The receiver model is fixed hardware. At boot, a receiver that does
         # not answer once (busy, a bus glitch) keeps the model identified on an
         # earlier boot; an explicit re-detect or re-init still fails. The board
@@ -109,10 +113,13 @@ case "${1:-}" in
         elif [ "$1" != start ]; then
             detect_hdmi
             detected=$hdmi
+        elif [ "$detected" = d ] && [ "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" = ux ]; then
+            # A UXC that missed one answer at 0x44 reads as a D; a receiver
+            # does not change between boots, and the D EDID writer must never
+            # reach a UXC. An explicit re-detect still reclassifies it.
+            detected=ux
         fi
         hdmi=$detected
-        publish hw "$board"
-        if [ "$profiled" = 1 ]; then publish board-profile "$declared_board"; fi
         publish hdmi_version "$hdmi"
         echo "NanoKVM OS: board=$board HDMI=$hdmi"
         ;;

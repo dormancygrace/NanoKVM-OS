@@ -31,7 +31,8 @@ export const Device = ({ status, onLogout }: DeviceProps) => {
     // Off stays off across restarts, and whoever reaches NanoKVM through
     // Tailscale, possibly this page, loses it.
     if (isRunning) {
-      const overTailscale = !!status.ip && window.location.hostname === status.ip;
+      const overTailscale =
+        status.thisConnection === true || (!!status.ip && window.location.hostname === status.ip);
       const confirmed = await confirmAction({
         title: t('settings.tailscale.downConfirm'),
         content: (

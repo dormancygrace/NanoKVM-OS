@@ -42,7 +42,7 @@ type IssueRequest = {
 
 // Starts the issue job; poll getStatus for the result.
 export function issue(req: IssueRequest) {
-  return http.post('/api/extensions/acme/issue', req);
+  return http.post('/api/extensions/acme/issue', req, { sensitive: true });
 }
 
 export function renew() {

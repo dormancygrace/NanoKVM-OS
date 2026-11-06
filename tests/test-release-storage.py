@@ -216,6 +216,12 @@ class PagesStoreTests(unittest.TestCase):
         items['os/v5.0.0'] = dict(kind='os', tag='v5.0.0', files={})
         self.assertEqual(set(store.retained(items, published)), set(result) | {'os/v5.0.0'})
 
+    def test_every_pending_os_snapshot_above_its_head_is_kept(self):
+        for published, pending, kept in [({'v4.2.0'}, {'v4.1.0', 'v4.3.0', 'v4.4.0'}, {'v4.3.0', 'v4.4.0'}),
+                                         ({'v4.1.0'}, {'v4.2.0-beta.1', 'v4.2.0-beta.2'}, {'v4.2.0-beta.1', 'v4.2.0-beta.2'})]:
+            items = {store.identity('os', t): dict(kind='os', tag=t, files={}) for t in published | pending}
+            self.assertEqual({k[3:] for k in store.retained(items, published)} - published, kept)
+
     def test_cleanup_preserves_os_releases_and_user_downloads(self):
         spec = importlib.util.spec_from_file_location('cleanup', ROOT / 'scripts/cleanup-release-packages.py')
         cleanup = importlib.util.module_from_spec(spec)

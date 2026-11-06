@@ -79,7 +79,7 @@ pub(crate) fn spawn(
     limits: server::ClientLimits,
 ) {
     // Acquire before spawning: the cap includes network setup, listeners and authentication.
-    let Some(pending) = limits.try_pending() else {
+    let Some(pending) = limits.try_requested(rendezvous::decode_address(&request.peer).ip()) else {
         return;
     };
     tokio::spawn(async move {
@@ -105,7 +105,9 @@ pub(crate) fn spawn(
                 if *shutdown.borrow() {
                     return;
                 }
-                crate::connlog::connection_log!("RustDesk direct TCP unavailable: {error}; using relay");
+                crate::connlog::connection_log!(
+                    "RustDesk direct TCP unavailable: {error}; using relay"
+                );
                 rendezvous::spawn_fallback_relay(
                     request.peer,
                     request.peer_v6,

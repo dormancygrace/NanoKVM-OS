@@ -3,10 +3,11 @@ package router
 import (
 	"crypto/subtle"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,9 +17,11 @@ import (
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/standby"
+	"NanoKVM-Server/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 // Installed before the other routes: admission closes atomically against
@@ -54,9 +57,21 @@ func standbyAdmission() gin.HandlerFunc {
 	}
 }
 func standbyRouter(r *gin.Engine) {
+	if err := standby.RemoveStale(); err != nil {
+		log.Errorf("standby: %v", err)
+	}
 	var mu sync.RWMutex
 	var pending *standby.Prepared
+	var pendingState *standby.State
 	var committed bool
+	// abandon ends an uncommitted preparation. Its status handler stays, so a
+	// page opened with the key learns that NanoKVM kept running.
+	abandon := func(reason string) {
+		pending.Close()
+		pending = nil
+		standby.Requests.Cancel()
+		pendingState.Fail(errors.New(reason))
+	}
 	handler := standby.Handler(standby.Config{}, standby.NewState(standby.Config{}), func() error { return errors.New("not ready") })
 	serve := func(c *gin.Context) { mu.RLock(); h := handler; mu.RUnlock(); h.ServeHTTP(c.Writer, c.Request) }
 	r.GET("/standby", serve)
@@ -87,17 +102,13 @@ func standbyRouter(r *gin.Engine) {
 					rsp.ErrRsp(c, -1, "shutdown already committed")
 					return
 				}
-				pending.Close()
-				pending = nil
-				standby.Requests.Cancel()
+				abandon("shutdown cancelled; NanoKVM is still running")
 				rsp.OkRsp(c)
 				return
 			}
 			if !committed {
 				if err := pending.Arm(); err != nil {
-					pending.Close()
-					pending = nil
-					standby.Requests.Cancel()
+					abandon("shutdown failed; NanoKVM is still running: " + err.Error())
 					rsp.ErrRsp(c, -1, err.Error())
 					return
 				}
@@ -132,19 +143,15 @@ func standbyRouter(r *gin.Engine) {
 		}
 		cfg := standby.Config{Address: host, ClientAddress: client, Port: conf.Port.Http, MagicWake: request.MagicWake}
 		if conf.Proto == "https" {
-			// Preserve the configured transport and certificate; never fall back
-			// to plaintext if staging the administrator's TLS pair fails.
+			// Preserve the transport and the certificate the browser accepted;
+			// never fall back to plaintext if staging the served pair fails.
 			if c.Request.TLS == nil {
 				rsp.ErrRsp(c, -1, "open the direct HTTPS address before shutdown")
 				return
 			}
 			var err error
 			cfg.Port = conf.Port.Https
-			cert := conf.Cert.WithDefaults()
-			cfg.Certificate, err = os.ReadFile(cert.Crt)
-			if err == nil {
-				cfg.PrivateKey, err = os.ReadFile(cert.Key)
-			}
+			cfg.Certificate, cfg.PrivateKey, err = servedCertificatePEM()
 			if err == nil {
 				_, err = tls.X509KeyPair(cfg.Certificate, cfg.PrivateKey)
 			}
@@ -160,19 +167,33 @@ func standbyRouter(r *gin.Engine) {
 		}
 		state := standby.NewState(prepared.Config)
 		handler = standby.Handler(prepared.Config, state, func() error { return errors.New("shutdown is still running") })
-		pending = prepared
+		pending, pendingState = prepared, state
 		time.AfterFunc(time.Minute, func() {
 			mu.Lock()
 			defer mu.Unlock()
 			if pending == prepared && !committed {
-				prepared.Close()
-				pending = nil
-				standby.Requests.Cancel()
-				state.Fail(errors.New("shutdown preparation expired; ordinary services remain running"))
+				abandon("shutdown preparation expired; ordinary services remain running")
 			}
 		})
 		ok = true
 		c.Header("Cache-Control", "no-store")
 		rsp.OkRspWithData(c, gin.H{"token": prepared.Config.Token, "mac": prepared.Config.MAC})
 	})
+}
+
+// servedCertificatePEM encodes the pair the HTTPS listener presents, which
+// differs from the configured files after a fallback or an unreloaded change.
+func servedCertificatePEM() (certPEM, keyPEM []byte, err error) {
+	cert := utils.ServerCertificate.Current().Cert
+	if cert == nil {
+		return nil, nil, errors.New("no served certificate")
+	}
+	for _, der := range cert.Certificate {
+		certPEM = append(certPEM, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})...)
+	}
+	key, err := x509.MarshalPKCS8PrivateKey(cert.PrivateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return certPEM, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}), nil
 }

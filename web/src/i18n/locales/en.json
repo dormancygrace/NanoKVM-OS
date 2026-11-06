@@ -336,6 +336,7 @@
     "monitor": "HDMI monitor",
     "portrait": "Portrait monitor",
     "automatic": "Automatic",
+    "stockProfile": "Receiver profile (not recorded)",
     "monitorUnavailable": "Changing the virtual monitor profile is unavailable on this device. Input detection remains automatic.",
     "advanced": "Advanced and recovery",
     "fpsLimited": "The current input limits capture to {{fps}} fps. The saved request is kept for the next source mode.",

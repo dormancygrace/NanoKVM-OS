@@ -482,6 +482,8 @@ func (b *Bridge) session(id string, create bool) (*hidSession, error) {
 	}
 	s := &hidSession{id: id, touched: time.Now(), writeHID: writeUSBReport, manual: inputcontrol.NewManualSession(nil, nil)}
 	if !ws.GetManager().AcquireExternalInput(id, s.close) {
+		// The RustDesk add-on matches this text (addons/rustdesk/src/nanokvm.rs)
+		// and waits for the lease after a quick reconnect.
 		return nil, errors.New("another session holds input control")
 	}
 	device := hid.GetHid()

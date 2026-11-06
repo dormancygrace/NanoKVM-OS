@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -32,13 +34,46 @@ var (
 var errAPKDBBusy = errors.New("apk database is in use")
 
 func installedVersions() (map[string]string, error) {
-	data, err := os.ReadFile(installedDBPath)
+	versions, _, err := readInstalledDB()
+	return versions, err
+}
+
+var installedDBCache struct {
+	sync.Mutex
+	path        string
+	mtime       time.Time
+	size        int64
+	versions    map[string]string
+	releaseCore []string
+}
+
+// readInstalledDB: the version of every installed package and the NanoKVM
+// packages the installed nanokvm-release depends on. The Add-ons page asks
+// for both every few seconds, so the file is parsed once per change.
+func readInstalledDB() (map[string]string, []string, error) {
+	info, err := os.Stat(installedDBPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	c := &installedDBCache
+	c.Lock()
+	defer c.Unlock()
+	if c.versions == nil || c.path != installedDBPath || !info.ModTime().Equal(c.mtime) || info.Size() != c.size {
+		data, err := os.ReadFile(installedDBPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		c.versions, c.releaseCore = parseInstalledDB(string(data))
+		c.path, c.mtime, c.size = installedDBPath, info.ModTime(), info.Size()
+	}
+	return maps.Clone(c.versions), slices.Clone(c.releaseCore), nil
+}
+
+func parseInstalledDB(data string) (map[string]string, []string) {
 	versions := map[string]string{}
+	var releaseCore []string
 	name := ""
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(data, "\n") {
 		switch {
 		case line == "":
 			name = ""
@@ -46,9 +81,18 @@ func installedVersions() (map[string]string, error) {
 			name = line[2:]
 		case strings.HasPrefix(line, "V:") && name != "":
 			versions[name] = line[2:]
+		case strings.HasPrefix(line, "D:") && name == "nanokvm-release":
+			for _, dep := range strings.Fields(line[2:]) {
+				if strings.HasPrefix(dep, "!") {
+					continue // a conflict, not a dependency
+				}
+				if dep := dependencyName(dep); dep == "nanokvm" || strings.HasPrefix(dep, "nanokvm-") {
+					releaseCore = append(releaseCore, dep)
+				}
+			}
 		}
 	}
-	return versions, nil
+	return versions, releaseCore
 }
 
 type APKStatus struct {

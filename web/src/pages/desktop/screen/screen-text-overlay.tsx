@@ -269,7 +269,7 @@ export const ScreenTextOverlay = () => {
     <Select
       size="small"
       value={language}
-      aria-label={t('settings.ai.screenText.language')}
+      aria-label={t('screenText.language')}
       onChange={(value: ScreenTextLanguage) => {
         setLanguage(value);
         storeScreenTextLanguage(value);

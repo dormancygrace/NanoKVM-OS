@@ -1,4 +1,5 @@
 #!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034,SC3043 # OpenRC reads description; its sh has local
 
 description="NanoKVM Ethernet and Wi-Fi setup"
 
@@ -7,6 +8,7 @@ description="NanoKVM Ethernet and Wi-Fi setup"
 : "${NANOKVM_NETWORK_LEGACY_DIR:=/usr/libexec/nanokvm/legacy}"
 : "${NANOKVM_ETH_DISABLED:=/boot/eth.disabled}"
 : "${NANOKVM_WIFI_ETC_DIR:=/etc/kvm}"
+: "${NANOKVM_BLUETOOTH_CONF:=/etc/modprobe.d/nanokvm-bluetooth.conf}"
 : "${NANOKVM_NETWORK_PENDING:=/run/nanokvm-network.pending}"
 
 depend() {
@@ -61,9 +63,11 @@ start_interfaces() {
     # missing, and only while Wi-Fi is on. Turned off, the driver (with
     # cfg80211, about 1.8 MB) and its firmware upload (about 1.5 s of the one
     # core) wait until S30wifi turns Wi-Fi or the access point on.
-    # On Ethernet-only boards there is no Wi-Fi hardware.
+    # On Ethernet-only boards there is no Wi-Fi hardware. Bluetooth turned on
+    # rides on the same driver (its module loads after it), so it loads the
+    # driver with Wi-Fi off too; S30wifi then keeps Wi-Fi itself off.
     if [ ! -d "$NANOKVM_NETWORK_NET_CLASS_DIR/wlan0" ] &&
-        [ ! -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ] &&
+        { [ ! -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ] || [ -e "$NANOKVM_BLUETOOTH_CONF" ]; } &&
         sdio_device_present; then
         run_legacy S25wifimod || ewarn "Wi-Fi module initialization failed"
     fi

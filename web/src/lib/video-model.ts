@@ -76,6 +76,9 @@ export type VideoCapabilities = {
     followsStreamRate: boolean;
     selected: number;
     refreshHz: number;
+    // A Cube or Lite without a recorded receiver profile. Its EDID is unknown,
+    // including unrecorded writes by older software. Absent on older servers.
+    stockProfile?: boolean;
     modes: MonitorMode[];
     // Absent on older servers, which offer 16:9 only.
     aspects?: string[];

@@ -212,6 +212,16 @@ test('paused browser timers probe a healthy socket without reconnecting on retur
   assert.equal(f.timers.size, 0);
 });
 
+test('a socket that died while timers were paused is replaced one window after return', () => {
+  const f = fixture();
+  f.client.connect();
+  f.sockets[0].open();
+  f.sockets[0].reply();
+  f.tick(3000);
+  f.tick(100);
+  assert.equal(f.client.getConnectionStatus(), 'reconnecting');
+});
+
 test('a socket the browser cut in the background is replaced at once on return', () => {
   const page = fakePage();
   const f = fixture({ page }),

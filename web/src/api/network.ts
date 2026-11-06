@@ -62,7 +62,8 @@ export function connectWifiNoAuth(ssid: string, password: string, apPassword?: s
   return http.post('/api/network/wifi', data, {
     headers: {
       'X-AP-Key': apPassword || ''
-    }
+    },
+    sensitive: true
   });
 }
 
@@ -74,7 +75,8 @@ export function verifyApLogin(apPassword: string) {
     {
       headers: {
         'X-AP-Key': apPassword || ''
-      }
+      },
+      sensitive: true
     }
   );
 }
@@ -111,7 +113,7 @@ export function setWebRTCServers(body: {
   turn: { address: string; username: string; credential: string };
   dtlsCipher: DTLSCipher;
 }) {
-  return http.post('/api/network/webrtc', body);
+  return http.post('/api/network/webrtc', body, { sensitive: true });
 }
 
 export function getEthernet() {
@@ -138,11 +140,7 @@ export type NetworkTrial = {
 };
 
 export function confirmNetworkTrial(token: string, timeout?: number) {
-  return http.post<null>(
-    '/api/network/trial/confirm',
-    { token },
-    timeout ? { timeout } : undefined
-  );
+  return http.post<null>('/api/network/trial/confirm', { token }, { timeout, sensitive: true });
 }
 
 export type GatewayPreference = 'auto' | 'ethernet' | 'wifi';
@@ -279,7 +277,7 @@ export function getWifiAP() {
 
 export function setWifiAP(ap: WifiAP) {
   // No trial when the request did not come over Wi-Fi.
-  return http.post<{ trial?: NetworkTrial }>('/api/network/wifi/ap', ap);
+  return http.post<{ trial?: NetworkTrial }>('/api/network/wifi/ap', ap, { sensitive: true });
 }
 
 export type WifiStatus = {
@@ -362,5 +360,5 @@ export function scanWifi(band: WifiBand | 'all' = 'all') {
   return http.get<WifiNetwork[]>('/api/network/wifi/scan', { band });
 }
 export function configureWifi(profile: WifiProfile) {
-  return http.post('/api/network/wifi/configure', profile);
+  return http.post('/api/network/wifi/configure', profile, { sensitive: true });
 }

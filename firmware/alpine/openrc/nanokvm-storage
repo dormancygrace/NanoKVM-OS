@@ -69,7 +69,13 @@ collect_crash() {
     last=$(find "$crashes" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*-*' |
         sed 's|.*/||; s|-.*||' | awk '$1 + 0 > n { n = $1 + 0 } END { print n + 0 }')
     crash=$crashes/$(printf '%06d' $((last + 1)))-$(date -u +%Y%m%dT%H%M%SZ)
-    mkdir "$crash" && cp "$@" "$crash"/ && sync "$crash"/* "$crash" "$crashes" || return 1
+    mkdir "$crash" || return 1
+    if ! cp "$@" "$crash"/ || ! sync "$crash"/* "$crash" "$crashes" "${crashes%/*}"; then
+        # An incomplete attempt must not count as another retained crash.
+        # mkdir above succeeded, so this directory belongs to this attempt.
+        rm -rf "$crash"
+        return 1
+    fi
     rm -f "$@"
     ewarn "The kernel crashed before this boot; its log is in $crash"
     find "$crashes" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*-*' | sed 's|.*/||' |

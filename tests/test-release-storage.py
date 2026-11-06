@@ -259,6 +259,12 @@ class PagesStoreTests(unittest.TestCase):
                            {'sha256': '0' * 64}, {'size': 900}]:
                 with self.subTest(change=change), self.assertRaises(ValueError):
                     s.get({**item, **change})
+            for feed, ok in [('beta/alpine/v3.24/riscv64/test.apk', True), ('addons/v3.24/riscv64/other.apk', False),
+                             ('package-store/catalog.json', False), ('alpine/v3.24/riscv64/../test.apk', False)]:
+                s.cache, s.served = Path(tmp) / feed.replace('/', '_'), {item['path']: feed}
+                with self.subTest(feed=feed), mock.patch.object(store.a, 'fetch', return_value=b'payload') as fetch:
+                    self.assertEqual(s.get(item), b'payload') if ok else self.assertRaises(ValueError, s.get, item)
+                    self.assertEqual(fetch.call_args_list, [mock.call(f"{store.BASE}/{feed}?sha256={item['sha256']}")] if ok else [])
             s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {'test.apk': item}, 'a' * 40)
             with self.assertRaisesRegex(ValueError, 'immutable'):
                 s.add('addon', 'nanokvm-ipmi-0.1.0-r0', {}, 'a' * 40)

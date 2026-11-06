@@ -2,6 +2,7 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strconv"
 	"strings"
@@ -99,6 +100,45 @@ func TestLockoutsCoalesce(t *testing.T) {
 	slices.Sort(bodies)
 	if len(sent) > 0 || !strings.HasPrefix(bodies[0], "power: ") || !strings.HasSuffix(bodies[2], "9 more addresses blocked since "+start.Format("15:04")+".") {
 		t.Fatalf("%q, %d more", bodies, len(sent))
+	}
+}
+
+// A retry after the channel became Slack is escaped for Slack.
+func TestRetryEscapesForTheChannelOfNow(t *testing.T) {
+	s := newService(t.TempDir() + "/config.json")
+	s.config.Channels = []Channel{{ID: "a", Type: "webhook", Enabled: true, Events: []Kind{KindScreen}}}
+	var bodies []string
+	s.send = func(_ context.Context, ch Channel, r Rendered) error {
+		bodies = append(bodies, ch.Type+": "+r.Body)
+		if ch.Type == "webhook" {
+			return errors.New("500")
+		}
+		return nil
+	}
+	s.sleep = func(context.Context, time.Duration) bool {
+		s.config.Channels[0].Type = "slack"
+		return true
+	}
+	s.active[0], s.inFlight["a"] = 1, 1
+	s.deliver(s.config.Channels[0], Event{Kind: KindScreen, Message: "screen.bsod", Details: "<!channel>"})
+	if len(bodies) != 2 || !strings.Contains(bodies[0], "<!channel>") || strings.Contains(bodies[1], "<!channel>") {
+		t.Fatalf("%q", bodies)
+	}
+}
+
+// Login events to every channel leave the host's events a slot on each.
+func TestLoginFloodLeavesHostSlots(t *testing.T) {
+	s := newService(t.TempDir() + "/config.json")
+	for i := range maxChannels {
+		id := strconv.Itoa(i)
+		for range maxChannelDeliveries {
+			s.admit(id, KindSecurity)
+		}
+	}
+	for i := range maxChannels {
+		if !s.admit(strconv.Itoa(i), KindPower) {
+			t.Fatalf("channel %d has no slot for a power event", i)
+		}
 	}
 }
 

@@ -300,7 +300,8 @@ func sendTelegram(ctx context.Context, ch Channel, r Rendered) error {
 	base := api + "/bot" + ch.get("token") + "/"
 	text := r.Title + "\n" + r.Text()
 	thread := ch.get("threadId")
-	if r.Image != nil && (r.delivery == nil || !r.delivery.photoSent) {
+	destination := base + "\x00" + ch.get("chatId") + "\x00" + thread
+	if r.Image != nil && (r.delivery == nil || r.delivery.photoTo != destination) {
 		// A caption holds 1024 characters: a longer text follows the picture.
 		caption := text
 		if utf8.RuneCountInString(text) > 1024 {
@@ -314,9 +315,10 @@ func sendTelegram(ctx context.Context, ch Channel, r Rendered) error {
 		if err := f.post(ctx, ch, base+"sendPhoto"); err != nil || caption == text {
 			return err
 		}
-		// A retry of the text must not post the picture again.
+		// A retry of the text to the same chat must not post the picture
+		// again.
 		if r.delivery != nil {
-			r.delivery.photoSent = true
+			r.delivery.photoTo = destination
 		}
 	}
 	payload := map[string]any{

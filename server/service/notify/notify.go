@@ -85,8 +85,10 @@ type Rendered struct {
 // delivery is what the attempts of one delivery share, so a retry does not
 // repeat what an earlier attempt got through.
 type delivery struct {
-	id        string
-	photoSent bool
+	id string
+	// photoTo is the Telegram destination (API, bot, chat and topic) that
+	// got the picture: a retry to another one sends it again.
+	photoTo string
 }
 
 // Text is the body with the device and the time under it, for channels with
@@ -104,7 +106,10 @@ const (
 	// waits included, so a destination that hangs or is down cannot pile up
 	// goroutines and requests. maxChannelDeliveries keeps one such channel
 	// from taking every slot. A delivery beyond either is dropped and logged.
-	maxDeliveries        = 16
+	// Login events, which outsiders can cause, have a pool of their own of
+	// the same size, so they never take the host's slots: each pool holds a
+	// delivery to every one of the maxChannels channels.
+	maxDeliveries        = maxChannels
 	maxChannelDeliveries = 4
 )
 
@@ -147,8 +152,9 @@ type Service struct {
 	config Config
 	recent map[string]time.Time
 	held   map[string]heldEvents
-	// active counts the deliveries alive, inFlight those of each channel id.
-	active   int
+	// active counts the deliveries alive of the host's events and of login
+	// events, inFlight those of each channel id.
+	active   [2]int
 	inFlight map[string]int
 	// authErrors are the failed sign-ins of each channel id, for the page.
 	authErrors map[string]string
@@ -308,10 +314,17 @@ func (s *Service) dispatch(e Event) {
 			log.Warnf("notifications: %s %q is behind, dropped %s", ch.Type, ch.Name, e.Message)
 			continue
 		}
-		r := renderFor(e, config.Language, config.template(ch.Template), markup(ch.Type))
-		r.delivery = &delivery{id: newID()}
-		go s.deliver(ch, r)
+		go s.deliver(ch, e)
 	}
+}
+
+// pool is the slot pool of an event's kind: 1 for login events, 0 for the
+// host's.
+func pool(kind Kind) int {
+	if kind == KindSecurity {
+		return 1
+	}
+	return 0
 }
 
 // admit takes a delivery slot for a channel; false when none is free. Login
@@ -324,27 +337,39 @@ func (s *Service) admit(id string, kind Kind) bool {
 	if kind == KindSecurity {
 		limit--
 	}
-	if s.active >= maxDeliveries || s.inFlight[id] >= limit {
+	if s.active[pool(kind)] >= maxDeliveries || s.inFlight[id] >= limit {
 		return false
 	}
-	s.active++
+	s.active[pool(kind)]++
 	s.inFlight[id]++
 	return true
 }
 
-func (s *Service) release(id string) {
+func (s *Service) release(id string, kind Kind) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.active--
+	s.active[pool(kind)]--
 	if s.inFlight[id]--; s.inFlight[id] <= 0 {
 		delete(s.inFlight, id)
 	}
 }
 
+// renderFor writes the event for a channel by the settings of now: a retry
+// after the channel changed type is escaped for its new type.
+func (s *Service) renderFor(ch Channel, e Event) Rendered {
+	s.mu.Lock()
+	config := s.config
+	s.mu.Unlock()
+	return renderFor(e, config.Language, config.template(ch.Template), markup(ch.Type))
+}
+
 // deliver sends an admitted delivery, retrying, and then frees its slot.
-func (s *Service) deliver(ch Channel, r Rendered) {
-	defer s.release(ch.ID)
+func (s *Service) deliver(ch Channel, e Event) {
+	defer s.release(ch.ID, e.Kind)
+	d := &delivery{id: newID()}
 	for attempt := 0; ; attempt++ {
+		r := s.renderFor(ch, e)
+		r.delivery = d
 		ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 		err := s.send(ctx, ch, r)
 		cancel()
@@ -365,7 +390,7 @@ func (s *Service) deliver(ch Channel, r Rendered) {
 		// The channel may have been deleted, turned off or changed meanwhile:
 		// a retry goes by its settings of now.
 		var ok bool
-		if ch, ok = s.channel(ch.ID, r.Kind); !ok {
+		if ch, ok = s.channel(ch.ID, e.Kind); !ok {
 			return
 		}
 	}

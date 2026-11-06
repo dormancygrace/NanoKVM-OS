@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build/validate SG2002 FIP; independently check vendor format, CRCs, preservation and the BL2 patch."""
+"""Build/validate SG2002 FIP; independently check vendor format, CRCs, preservation and the built BL2."""
 import argparse
 import binascii
 import hashlib
@@ -16,17 +16,9 @@ MONITOR_ADDR = 0x80000000
 UBOOT_ADDR = 0x80200000
 SMALL_CORE_ADDR = 0x8d000000
 SMALL_CORE_SIZE = 0x200000
-# The stock BL2 sets the C906 PLL (mpll) to 850 MHz: sys_pll_nd() in the pinned
-# fsbl/plat/cv181x/platform.c writes 0x00448101 to 0x03002908, and Linux raises
-# it to 1000 MHz in the initramfs. Replace that one constant with 0x04508101,
-# the value Linux's clk-cv18xx-pll writes for 1000 MHz (integer mode, div 40,
-# ictrl 4, read back on a running system), so OpenSBI, U-Boot and early Linux
-# already run at the PLL setting, clock and core voltage Linux keeps; cpufreq
-# then finds 1000 MHz and does not reprogram it.
-BL2_SHA256 = "8ca7f9d6bd72107842fa768467350c76e7278b99e5c5623b1b8346990f8a7cba"
-BL2_MPLL_OFFSET = 0x8f0
-BL2_MPLL_STOCK = bytes.fromhex("b7874400")  # lui a5, 0x448  (0x00448101, 850 MHz)
-BL2_MPLL_1000 = bytes.fromhex("b7875004")   # lui a5, 0x4508 (0x04508101, 1000 MHz)
+# PARAM1 fields that change when BL2 is replaced; everything else in the
+# first 4 KiB (chip configuration, NAND/NOR info, BLCP) stays the base FIP's.
+P1_BL2_KEYS = ("BL2_IMG_CKSUM", "BL2_IMG_SIZE", "PARAM2_LOADADDR")
 # Layout from pinned Sipeed fsbl/plat/cv181x/fiptool.py (BSD-3-Clause FSBL).
 P1_FIELDS = [
     ("MAGIC1", 8), ("MAGIC2", 4), ("PARAM_CKSUM", 4), ("NAND_INFO", 128),
@@ -122,32 +114,29 @@ def inspect(data):
     return p1, p2, parts, spans
 
 
-def patch_bl2(base):
-    """Return the base FIP with the 1000 MHz BL2 and updated first-stage CRCs."""
-    p1, _, parts, _ = inspect(base)
-    bl2 = parts["BL2"]
-    require(sha(bl2) == BL2_SHA256, "BL2 is not the stock image the patch was written for")
-    require(bl2[BL2_MPLL_OFFSET:BL2_MPLL_OFFSET + 4] == BL2_MPLL_STOCK, "unexpected BL2 mpll instruction")
-    out = bytearray(base)
-    start = 4096 + p1["BLCP_IMG_SIZE"]
-    out[start + BL2_MPLL_OFFSET:start + BL2_MPLL_OFFSET + 4] = BL2_MPLL_1000
-    offset = sum(size for name, size in P1_FIELDS[:[n for n, _ in P1_FIELDS].index("BL2_IMG_CKSUM")])
-    struct.pack_into("<I", out, offset, crc(out[start:start + p1["BL2_IMG_SIZE"]]))
-    struct.pack_into("<I", out, 12, crc(out[16:2048]))
+def param1_without_bl2(data):
+    """PARAM1 with the BL2-dependent fields and its CRC zeroed."""
+    out = bytearray(data[:4096])
+    names = [n for n, _ in P1_FIELDS]
+    for key in P1_BL2_KEYS + ("PARAM_CKSUM",):
+        index = names.index(key)
+        offset = sum(size for _, size in P1_FIELDS[:index])
+        out[offset:offset + P1_FIELDS[index][1]] = bytes(P1_FIELDS[index][1])
     return bytes(out)
 
 
-def validate(base, candidate, monitor, uboot, manifest):
-    base_sha256 = sha(base)
-    base = patch_bl2(base)
+def validate(base, candidate, bl2, monitor, uboot, manifest):
     old1, old2, old, _ = inspect(base)
     new1, new2, new, spans = inspect(candidate)
-    require(old1 == new1 and base[:old1["PARAM2_LOADADDR"]] == candidate[:new1["PARAM2_LOADADDR"]],
-            "first-stage firmware or parameters changed")
-    for name in ("BLCP", "BL2", "DDR_PARAM", "BLCP_2ND"):
+    require(param1_without_bl2(base) == param1_without_bl2(candidate),
+            "first-stage parameters changed")
+    require(new["BL2"] == bl2 + bytes((-len(bl2)) % ALIGN), "packaged BL2 differs from the built FSBL")
+    for name in ("BLCP", "DDR_PARAM", "BLCP_2ND"):
         require(old[name] == new[name], name + " changed")
-    for key in ("DDR_PARAM_CKSUM", "DDR_PARAM_LOADADDR", "DDR_PARAM_SIZE", "DDR_PARAM_RESERVED",
-                "BLCP_2ND_CKSUM", "BLCP_2ND_LOADADDR", "BLCP_2ND_SIZE", "BLCP_2ND_RUNADDR"):
+    # The FIP tool lays the second stage out after BL2, so its offsets move
+    # with the BL2 size; contents, sizes and run addresses must not.
+    for key in ("DDR_PARAM_CKSUM", "DDR_PARAM_SIZE", "DDR_PARAM_RESERVED",
+                "BLCP_2ND_CKSUM", "BLCP_2ND_SIZE", "BLCP_2ND_RUNADDR"):
         require(old2[key] == new2[key], key + " changed")
     # The M-mode DT reserves no memory at SMALL_CORE_ADDR (platform/opensbi/nanokvm.dts),
     # so a small-core image there would be overwritten by Linux.
@@ -170,21 +159,19 @@ def validate(base, candidate, monitor, uboot, manifest):
     require(dec.decompress(loader[32:], max_length=len(uboot) + 1) == uboot and dec.eof and not any(dec.unused_data),
             "packaged U-Boot differs or has extra compressed data")
     return {
-        "schema": 2, "base_fip_sha256": base_sha256, "fip_sha256": sha(candidate),
+        "schema": 3, "base_fip_sha256": sha(base), "fip_sha256": sha(candidate),
         "fip_bytes": len(candidate), "opensbi_version": manifest["version"],
         "opensbi_commit": manifest["upstream_commit"], "monitor_sha256": sha(monitor),
         "uboot_sha256": sha(uboot), "monitor_run_address": MONITOR_ADDR,
         "uboot_entry_address": UBOOT_ADDR, "pmp_bytes": manifest["pmp_bytes"],
         "pmp_regions": manifest["pmp_regions"],
         "preserved_components": ["BLCP", "DDR_PARAM", "BLCP_2ND"],
-        "bl2_patch": {"stock_sha256": BL2_SHA256, "offset": BL2_MPLL_OFFSET,
-                      "before": BL2_MPLL_STOCK.hex(), "after": BL2_MPLL_1000.hex(),
-                      "effect": "C906 mpll 850 -> 1000 MHz in sys_pll_nd"},
+        "bl2_sha256": sha(bl2), "bl2_bytes": len(bl2),
         "components": {name: {"sha256": sha(new[name]), "bytes": len(new[name])}
                        for name in sorted(new)},
         "file_spans": [{"name": n, "offset": start, "end": end} for n, start, end in spans],
         "checks": ["parameter CRCs", "all image CRCs", "512-byte alignment", "no file overlaps",
-                   "first-stage bytes (BL2 1000 MHz patch only)", "DDR/small-core bytes", "no small-core image", "monitor bytes", "U-Boot decompression",
+                   "first-stage parameters", "BL2 bytes", "DDR/small-core bytes", "no small-core image", "monitor bytes", "U-Boot decompression",
                    "load/run addresses", "192 KiB split RO/RW PMP contract"],
         "hardware_validation": "pending",
         "apk_updates_fip": False
@@ -194,7 +181,7 @@ def validate(base, candidate, monitor, uboot, manifest):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("action", choices=("build", "verify"))
-    for name in ("base", "monitor", "uboot", "opensbi-manifest", "output", "report"):
+    for name in ("base", "bl2", "monitor", "uboot", "opensbi-manifest", "output", "report"):
         p.add_argument("--" + name, type=Path, required=True)
     p.add_argument("--tool", type=Path)
     a = p.parse_args()
@@ -202,22 +189,21 @@ def main():
     if a.action == "build":
         require(a.tool is not None and a.tool.is_file(), "missing pinned FIP tool")
         with tempfile.TemporaryDirectory(prefix="nkos-fip-", dir=a.output.parent) as directory:
-            # The vendor tool copies PARAM1 and BL2 from OLD_FIP: give it the patched base.
-            base = Path(directory) / "base-fip.bin"
-            base.write_bytes(patch_bl2(a.base.read_bytes()))
             raw = Path(directory) / "u-boot-raw.bin"
             raw.write_bytes(struct.pack("<I4sIIQII", 0, b"BL33", 0, 32 + a.uboot.stat().st_size,
                                         UBOOT_ADDR - 32, 0, 0) + a.uboot.read_bytes())
-            result = subprocess.run([sys.executable, str(a.tool), "genfip", "--OLD_FIP", str(base),
+            # PARAM1, BLCP, DDR parameters and BLCP_2ND come from OLD_FIP.
+            result = subprocess.run([sys.executable, str(a.tool), "genfip", "--OLD_FIP", str(a.base),
+                            "--BL2", str(a.bl2),
                             "--MONITOR", str(a.monitor), "--MONITOR_RUNADDR", hex(MONITOR_ADDR),
                             "--LOADER_2ND", str(raw), "--compress", "lzma", str(a.output)],
                            capture_output=True)
             (a.output.parent / "fiptool.log").write_bytes(result.stdout + result.stderr)
             require(result.returncode == 0, "vendor FIP tool failed; see fiptool.log")
-    report = validate(a.base.read_bytes(), a.output.read_bytes(), a.monitor.read_bytes(),
-                      a.uboot.read_bytes(), manifest)
+    report = validate(a.base.read_bytes(), a.output.read_bytes(), a.bl2.read_bytes(),
+                      a.monitor.read_bytes(), a.uboot.read_bytes(), manifest)
     a.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    print(f"FIP verified: {len(a.output.read_bytes())} bytes; OpenSBI {manifest['version']}; BL2 at 1000 MHz; DDR/small core preserved")
+    print(f"FIP verified: {len(a.output.read_bytes())} bytes; OpenSBI {manifest['version']}; built BL2; DDR/small core preserved")
 
 
 if __name__ == "__main__":

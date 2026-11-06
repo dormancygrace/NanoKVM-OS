@@ -29,7 +29,7 @@ The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNA
 
 | Vendor behavior | Decision and evidence |
 |---|---|
-| C906 cache/CSR setup | Retain the original FSBL. Pinned `fsbl/lib/cpu/riscv/bl1_entrypoint.S` and `bl2_entrypoint.S` initialize mxstatus/mhcr/mcor and PLIC delegation before MONITOR. |
+| C906 cache/CSR setup | Retain the FSBL's. Pinned `fsbl/lib/cpu/riscv/bl1_entrypoint.S` and `bl2_entrypoint.S` initialize mxstatus/mhcr/mcor and PLIC delegation before MONITOR. |
 | C906 draft vector VS | Patch `0002` restores SG2002 mstatus[24:23] after generic hart initialization, including warm-hart startup. Vendor 0.9 used `0x01800000`; ratified upstream uses `0x600`. Without the SG2002 handoff, the installed Linux 7.2.9 faults at CSR_VLENB in `riscv_v_setup_vsize`. Standard VS and other SoCs are unchanged; firmware remains scalar. |
 | Vendor custom PMU SBI extension `0x09000001` | Use upstream SBI PMU with the SG2002 override in `platform/generic/thead/thead-generic.c`. Current mainline Linux uses standard SBI PMU. |
 | SBI 3.0 PMU event discovery | The M-mode DT explicitly maps event 1 to counter 0 (mcycle) and event 2 to counter 2 (minstret). Without this table, EVENT_GET_INFO makes Linux reject cycles/instructions despite registering the PMU. Raw events (`perf stat -e rN`, the C906 mhpmevent codes 0x1-0x2a) may use any programmable counter the hart has (the bitmap allows mhpmcounter3-17; on SG2002 eight raw events count at once, more are multiplexed); the mask is non-zero so the entry does not overlap the two fixed ones. Generic cache events are not mapped. |
@@ -37,14 +37,14 @@ The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNA
 | PLIC | Use mainline `thead,c900-plic`, 101 sources, M/S contexts. Upstream handles T-Head delegation. |
 | Vendor `thead,reset-sample` ebreak reset | Do not carry the sample reset handler; it is not matched by the stock DT. System reset is advertised only if an upstream backend supports it. Linux/U-Boot have the SoC reset driver. |
 | T-Head TH1520 TLB erratum | Retain upstream's model-specific selection; do not apply an unrelated workaround to SG2002. |
-| DDR, BLCP and BLCP_2ND | Preserve their bytes and relevant parameter fields from base FIP. No OTP/eFuse changes or new signing flow. |
-| BL2 | The verified stock image receives only the MPLL immediate change from `0x00448101` to `0x04508101` (850 to 1000 MHz), plus its required CRC updates. All other first-stage bytes are preserved. |
+| Chip configuration, DDR, BLCP and BLCP_2ND | Preserve their bytes and parameter fields from base FIP; only offsets that follow BL2 move. No OTP/eFuse changes or new signing flow. |
+| BL2 | Built from source with `../fsbl/*.patch` (see [../fsbl/README.md](../fsbl/README.md)), including the C906 PLL at 1000 MHz. |
 
 The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and v1.9; not every vendor/upstream diff is an SG2002 requirement.
 
 ## Validation
 
-`scripts/nanokvm-fip.py` independently checks both parameter CRCs, component CRCs, 512-byte alignment, file overlaps, load/run addresses, first-stage/DDR/small-core preservation and absence of a BLCP_2ND image, exact MONITOR and decompressed U-Boot bytes. The vendor FIP generator includes zero padding in the compressed loader size; the validator accepts only zero trailing padding.
+`scripts/nanokvm-fip.py` independently checks both parameter CRCs, component CRCs, 512-byte alignment, file overlaps, load/run addresses, the built BL2 bytes, first-stage parameter/DDR/small-core preservation and absence of a BLCP_2ND image, exact MONITOR and decompressed U-Boot bytes. The vendor FIP generator includes zero padding in the compressed loader size; the validator accepts only zero trailing padding.
 
 `images/opensbi/build-manifest.json` records the source/tree pin, patches/config/DT hashes, compiler, optimization, binary hash, ELF symbols and PMP extents. `images/fip-manifest.json` records component hashes and checks. Neither manifest establishes successful hardware boot.
 

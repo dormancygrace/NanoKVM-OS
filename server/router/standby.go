@@ -19,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 // Installed before the other routes: admission closes atomically against
@@ -54,6 +55,9 @@ func standbyAdmission() gin.HandlerFunc {
 	}
 }
 func standbyRouter(r *gin.Engine) {
+	if err := standby.RemoveStale(); err != nil {
+		log.Errorf("standby: %v", err)
+	}
 	var mu sync.RWMutex
 	var pending *standby.Prepared
 	var committed bool

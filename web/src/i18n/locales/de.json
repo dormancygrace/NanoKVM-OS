@@ -308,6 +308,7 @@
     "powerCycleWritten": "EDID geschrieben und überprüft. Trennen Sie die Stromversorgung des NanoKVM und schließen Sie sie wieder an, um sie zu übernehmen.",
     "powerCyclePending": "EDID-Wartung: Stromzyklus erforderlich",
     "powerCyclePendingHint": "Es wurde versucht, die EDID zu schreiben. Trennen Sie alle Stromquellen und schließen Sie den NanoKVM wieder an. Diese Erinnerung bleibt auch nach Software-Neustarts bestehen; schließen Sie sie erst nach dem physischen Stromzyklus.",
+    "powerCycleNotice": "Der HDMI-Empfänger hat eine aktualisierte EDID erhalten, zum Beispiel für korrekte Farben. Trennen Sie den NanoKVM von allen Stromquellen, schließen Sie ihn wieder an und bestätigen Sie danach die Erinnerung unter Einstellungen > Video.",
     "powerCycleAck": "Ich habe das Gerät vom Strom getrennt und wieder angeschlossen",
     "powerCycleAckConfirm": "Bestätigen Sie, dass Sie alle Stromquellen physisch getrennt und den NanoKVM wieder angeschlossen haben. Dadurch wird nur die Erinnerung geschlossen; das Gerät wird nicht neu gestartet.",
     "directSmooth": "Flüssiges Bild",

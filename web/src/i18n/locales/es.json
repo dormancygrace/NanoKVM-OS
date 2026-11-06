@@ -308,6 +308,7 @@
     "powerCycleWritten": "EDID escrito y verificado. Desconecta y vuelve a conectar la alimentación del NanoKVM para aplicarlo.",
     "powerCyclePending": "Mantenimiento de EDID: se requiere un ciclo de apagado",
     "powerCyclePendingHint": "Se intentó escribir el EDID. Desconecta todas las fuentes de alimentación y vuelve a conectar el NanoKVM. Este aviso persiste tras los reinicios por software; descártalo solo después del ciclo de apagado físico.",
+    "powerCycleNotice": "El receptor HDMI recibió un EDID actualizado, por ejemplo para corregir los colores. Desconecta el NanoKVM de toda fuente de alimentación, vuelve a conectarlo y después descarta el aviso en Ajustes > Vídeo.",
     "powerCycleAck": "He apagado y encendido el dispositivo",
     "powerCycleAckConfirm": "Confirma que desconectaste físicamente todas las fuentes de alimentación y volviste a conectar el NanoKVM. Esto solo descarta el aviso; no reinicia el dispositivo.",
     "directSmooth": "Imagen fluida",

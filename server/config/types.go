@@ -62,9 +62,9 @@ type Hardware struct {
 	Version HWVersion `yaml:"-"`
 	// Board is the first-boot profile: alpha, beta, pcie, lite, or "" when
 	// unknown (no ATX lines then). The ATX switch's default follows it.
-	Board        string    `yaml:"-"`
-	GPIOReset    string    `yaml:"-"`
-	GPIOPower    string    `yaml:"-"`
-	GPIOPowerLED string    `yaml:"-"`
-	GPIOHDDLed   string    `yaml:"-"`
+	Board        string `yaml:"-"`
+	GPIOReset    string `yaml:"-"`
+	GPIOPower    string `yaml:"-"`
+	GPIOPowerLED string `yaml:"-"`
+	GPIOHDDLed   string `yaml:"-"`
 }

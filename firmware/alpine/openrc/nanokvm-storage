@@ -1,4 +1,5 @@
 #!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034,SC3043 # OpenRC reads description; its sh has local
 
 description="NanoKVM boot, data and compatibility mounts"
 
@@ -78,7 +79,7 @@ start() {
         migration=/data/.nanokvm-stock-install
         if [ ! -L "$migration" ]; then
             for file in boot.img.gz alpine-rootfs.tar.gz recovery.sd mbr.old stock-boot.sd \
-                        root.shadow ssh-state settings.tar transaction.sha256 status formatting; do
+                        root.shadow ssh-state settings.tar transaction.sha256 status formatting board; do
                 rm -f "$migration/$file" || break
             done
             if [ ! -e "$migration" ] || rmdir "$migration"; then

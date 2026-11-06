@@ -111,11 +111,6 @@ func defaultGatewayEntries() []proto.GatewayRoute {
 	return parseDefaultGatewayEntries(string(table))
 }
 
-// parseDefaultGatewayRoutes lists each gateway of an interface once.
-func parseDefaultGatewayRoutes(table string) []proto.GatewayRoute {
-	return uniqueGatewayRoutes(parseDefaultGatewayEntries(table))
-}
-
 // parseDefaultGatewayEntries reads /proc/net/route: Iface, Destination,
 // Gateway, Flags, RefCnt, Use, Metric, Mask, ... with addresses in hex. The
 // same gateway can be there more than once, with different metrics.

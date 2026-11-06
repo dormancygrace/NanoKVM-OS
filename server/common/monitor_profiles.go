@@ -51,10 +51,6 @@ var slowWiderMonitorRates = map[uint16][]int{
 	2560: {30},
 }
 
-// MonitorProfileIDs lists every landscape profile id with its size, Auto
-// first, then by aspect ratio and size, largest first.
-var MonitorProfileIDs = []uint16{0, 2160, 1440, 1080, 720, 1600, 1200, 3440, 2560}
-
 // validMonitorProfile reports whether id names a landscape monitor profile
 // (0 is Auto). The legacy 600 of the stream limits is not one.
 func validMonitorProfile(id uint16) bool {

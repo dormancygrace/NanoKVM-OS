@@ -42,12 +42,7 @@ func AcquireSession() bool {
 
 func ReleaseSession() { sessions.Add(-1) }
 
-func Status(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"code": 0, "data": StatusData()})
-}
-
-// StatusData is the GET /api/stream/audio/status payload, also part of the
-// combined live status.
+// StatusData is the audio part of the combined live status.
 func StatusData() gin.H {
 	return gin.H{"audio": enabled(), "bitrate": 192000, "complexity": 3}
 }

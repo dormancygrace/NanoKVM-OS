@@ -79,10 +79,10 @@ jobs:
           # Releases use a patched go1.27.3 (firmware/cpu/sysmon-runtime).
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
-      # internal/decompress links zlib and liblzma through cgo; the device
-      # build uses zlib-ng and liblzma from platform/build.sh.
+      # internal/decompress links zlib through cgo; the device build uses
+      # zlib-ng from platform/build.sh.
       - name: Compression headers
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev liblzma-dev xz-utils
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - name: Build
         run: go build -tags teststub,nomsgpack ./...
       - name: Video recovery native-call guard
@@ -108,7 +108,7 @@ jobs:
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
       - name: Compression headers
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev liblzma-dev xz-utils
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - name: Signed and encrypted SMB media
         run: bash ../tests/test-remote-smb.sh
 

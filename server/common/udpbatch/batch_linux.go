@@ -22,7 +22,6 @@ import (
 	"time"
 	"unsafe"
 
-	"NanoKVM-Server/common/udpfast"
 	"github.com/pion/transport/v5"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -85,7 +84,7 @@ type Conn struct {
 
 // Wrap returns a frame-aware wrapper when c is an IPv4/IPv6 UDP socket with
 // an accessible RawConn. The bool reports whether the wrapper was installed.
-func Wrap(c *net.UDPConn, fast bool, onClose func()) (*Conn, bool) {
+func Wrap(c *net.UDPConn, onClose func()) (*Conn, bool) {
 	if c == nil || c.RemoteAddr() != nil {
 		return nil, false
 	}
@@ -101,12 +100,8 @@ func Wrap(c *net.UDPConn, fast bool, onClose func()) (*Conn, bool) {
 		return nil, false
 	}
 
-	var direct transport.UDPConn = c
-	if fast {
-		direct = udpfast.Wrap(c)
-	}
 	wrapped := &Conn{
-		UDPConn:       direct,
+		UDPConn:       c,
 		udp:           c,
 		raw:           raw,
 		family:        family,

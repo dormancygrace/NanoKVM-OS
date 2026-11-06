@@ -19,7 +19,7 @@
 #   tpu        TPU runtime and the programs that run models on it
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
-#              exfatprogs, i2c-tools, lolcat, OpenSSL, zlib-ng and liblzma for the server
+#              exfatprogs, i2c-tools, lolcat, OpenSSL and zlib-ng (also for the server)
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
@@ -817,26 +817,12 @@ tools() {
     [ -z "$missing" ] || { echo "zlib-ng does not export these zlib 1.3.2 symbols:" $missing >&2; exit 1; }
     cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
 
-    # liblzma for the server's xz decoder, from the release commit: the 2024
-    # backdoor was in generated files of release tarballs, not in Git. C906
-    # flags do not speed up its decoder; the profile is kept for uniformity.
-    unpack_git xz . "$t/xz"
-    "$host/cmake" -S "$t/xz" -B "$t/xz/build" -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=riscv64 \
-        -DCMAKE_C_COMPILER="${cross}gcc" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG \
-        -DCMAKE_C_FLAGS="${cpu_flags[*]/_xtheadvector/} -ffile-prefix-map=$t/xz=xz" \
-        -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DXZ_NLS=OFF -DXZ_DOC=OFF -DXZ_TOOL_XZ=OFF -DXZ_TOOL_XZDEC=OFF \
-        -DXZ_TOOL_LZMADEC=OFF -DXZ_TOOL_LZMAINFO=OFF
-    "$host/cmake" --build "$t/xz/build" -j "$jobs"
-    mkdir -p "$img/tools/xz"
-    cp "$t/xz/COPYING.0BSD" "$img/tools/xz/"
-
-    # Headers and static libraries that the server step links its gzip and xz
-    # readers against (server/internal/decompress).
+    # Headers and static library that the server step links its gzip reader
+    # against (server/internal/decompress).
     local dev=$t/compress
     mkdir -p "$dev/include" "$dev/lib"
     cp "$t/zlib-ng/build/zlib.h" "$t/zlib-ng/build/zconf.h" "$t/zlib-ng/build/zlib_name_mangling.h" "$dev/include/"
-    cp -r "$t/xz/src/liblzma/api/lzma.h" "$t/xz/src/liblzma/api/lzma" "$dev/include/"
-    cp "$t/zlib-ng/build/libz.a" "$t/xz/build/liblzma.a" "$dev/lib/"
+    cp "$t/zlib-ng/build/libz.a" "$dev/lib/"
 }
 
 # Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the

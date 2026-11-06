@@ -282,12 +282,6 @@ func (c *Cli) Logout() error {
 	return command(commandTimeout, tailscaleBinary, "logout")
 }
 
-// IsRunning is true only when tailscaled is known to run.
-func (c *Cli) IsRunning() bool {
-	running, err := tailscaledRunning()
-	return err == nil && running
-}
-
 func isInstalled() bool {
 	client, clientErr := os.Stat(TailscalePath)
 	daemon, daemonErr := os.Stat(TailscaledPath)

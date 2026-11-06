@@ -15,7 +15,7 @@ import (
 func TestSessionCookieAuthenticationAcrossProtocols(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	admin, err := store.SetPassword("admin", "owner-password")
+	admin, err := store.SetPasswordAndRunIf("admin", "owner-password", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

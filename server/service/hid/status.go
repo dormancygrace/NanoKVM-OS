@@ -48,29 +48,7 @@ var modeMap = map[string]string{
 	"0x0721": ModeHidOnly,
 }
 
-func (s *Service) GetHidMode(c *gin.Context) {
-	var rsp proto.Response
-
-	mode, err := GetMode()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "get HID mode failed")
-		return
-	}
-
-	rsp.OkRspWithData(c, &proto.GetHidModeRsp{
-		Mode: mode,
-	})
-	log.Debugf("get hid mode: %s", mode)
-}
-
-// GetInputStatus is read-only and available to every authenticated KVM viewer.
-func (s *Service) GetInputStatus(c *gin.Context) {
-	var rsp proto.Response
-	rsp.OkRspWithData(c, InputStatus())
-}
-
-// InputStatus is the GET /api/hid/input-status payload, also part of the
-// combined live status.
+// InputStatus is the HID part of the combined live status.
 func InputStatus() gin.H {
 	h := GetHid()
 	h.Lock()
@@ -98,44 +76,6 @@ func (s *Service) GetKeyboardLedStatus(c *gin.Context) {
 		Known:           status.Known,
 		UpdatedAt:       updatedAt,
 	})
-}
-
-func (s *Service) SetHidMode(c *gin.Context) {
-	var req proto.SetHidModeReq
-	var rsp proto.Response
-
-	if err := proto.ParseFormRequest(c, &req); err != nil {
-		rsp.ErrRsp(c, -1, "invalid arguments")
-		return
-	}
-	if req.Mode != ModeNormal && req.Mode != ModeHidOnly {
-		rsp.ErrRsp(c, -2, "invalid arguments")
-		return
-	}
-
-	if mode, _ := GetMode(); req.Mode == mode {
-		rsp.OkRsp(c)
-		return
-	}
-
-	h := GetHid()
-	h.Lock()
-	h.CloseNoLock()
-	defer func() {
-		h.OpenNoLock()
-		h.Unlock()
-	}()
-
-	if err := InstallModeScript(req.Mode); err != nil {
-		rsp.ErrRsp(c, -3, "operation failed")
-		return
-	}
-
-	rsp.OkRsp(c)
-
-	log.Println("reboot system...")
-	time.Sleep(500 * time.Millisecond)
-	_ = exec.Command("reboot").Run()
 }
 
 // InstallModeScript refreshes the active init script from the current
@@ -172,19 +112,6 @@ func (s *Service) ResetHid(c *gin.Context) {
 
 	rsp.OkRsp(c)
 	log.Debugf("reset hid success")
-}
-
-func (s *Service) RecoverUSB(c *gin.Context) {
-	var rsp proto.Response
-
-	if err := ResetUSBPHY(); err != nil {
-		log.Errorf("failed to recover usb: %v", err)
-		rsp.ErrRsp(c, -1, "failed to recover usb")
-		return
-	}
-
-	rsp.OkRsp(c)
-	log.Debugf("recover usb success")
 }
 
 func ResetUSBPHY() error {

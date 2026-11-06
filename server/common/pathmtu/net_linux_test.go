@@ -19,7 +19,7 @@ func TestRouteAndNoFragmentSocket(t *testing.T) {
 		{"udp6", "::1", unix.IPPROTO_IPV6, unix.IPV6_MTU_DISCOVER, 1452},
 	} {
 		t.Run(tc.network, func(t *testing.T) {
-			n, err := NewNet(nil, false)
+			n, err := NewNet(nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -63,7 +63,7 @@ func TestRouteAndNoFragmentSocket(t *testing.T) {
 }
 
 func TestListenPacketNoFragment(t *testing.T) {
-	n, e := NewNet(nil, false)
+	n, e := NewNet(nil)
 	if e != nil {
 		t.Fatal(e)
 	}

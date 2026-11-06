@@ -7,7 +7,6 @@ import (
 	"NanoKVM-Server/service/rustdesk"
 	"context"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 func rustdeskRouter(r *gin.Engine) {
@@ -16,15 +15,6 @@ func rustdeskRouter(r *gin.Engine) {
 	service := rustdesk.NewService(bridge)
 	service.FollowVideoTransport()
 	api := r.Group("/api/addons/rustdesk").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
-	api.GET("/source", func(c *gin.Context) {
-		source := service.SourceURL()
-		if source == "" {
-			c.Status(http.StatusNotFound)
-			return
-		}
-		c.Header("Cache-Control", "no-store")
-		c.Redirect(http.StatusTemporaryRedirect, source)
-	})
 	api.GET("/status", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
 		data, err := service.Status()

@@ -4,17 +4,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (h *Hid) Mouse(queue <-chan []byte) {
-	legacy := make(chan QueuedReport)
-	go func() {
-		defer close(legacy)
-		for report := range queue {
-			legacy <- QueuedReport{Data: report}
-		}
-	}()
-	h.MouseReports(legacy)
-}
-
 func (h *Hid) MouseReports(queue <-chan QueuedReport) {
 	h.mouseReports(queue, HID1, HID2)
 }

@@ -233,9 +233,7 @@ const (
 )
 
 const (
-	CloseCodePicoclawLockHeld    = 4001
 	CloseCodeRuntimeUnavailable  = 4002
-	CloseCodeAuthFailed          = 4003
 	CloseCodePicoclawTakenOver   = 4004
 	CloseCodeUpstreamClosed      = 4005
 	CloseCodeControlModeSwitched = 4006

@@ -16,14 +16,14 @@ import (
 const routeTableHeader = "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n"
 
 func TestParseDefaultGatewayRoutesOnlyReturnsPhysicalInterfaces(t *testing.T) {
-	routes := parseDefaultGatewayRoutes(routeTableHeader +
+	routes := uniqueGatewayRoutes(parseDefaultGatewayEntries(routeTableHeader +
 		"eth0\t00000000\t0101A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\n" +
 		"wlan0\t00000000\t0100000A\t0003\t0\t0\t200\t00000000\t0\t0\t0\n" +
 		"tun0\t00000000\t00000000\t0001\t0\t0\t50\t00000000\t0\t0\t0\n" +
 		"wg0\t00000000\t0100070A\t0003\t0\t0\t10\t00000000\t0\t0\t0\n" +
 		"*\t00000000\t00000000\t0201\t0\t0\t0\t00000000\t0\t0\t0\n" +
 		"eth0\t0001A8C0\t00000000\t0001\t0\t0\t0\t00FFFFFF\t0\t0\t0\n" +
-		"eth0\t00000000\t0101A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\n")
+		"eth0\t00000000\t0101A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\n"))
 	if len(routes) != 2 {
 		t.Fatalf("got %d routes, want 2: %+v", len(routes), routes)
 	}

@@ -5,7 +5,6 @@ package pathmtu
 
 import (
 	"NanoKVM-Server/common/udpbatch"
-	"NanoKVM-Server/common/udpfast"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -26,7 +25,6 @@ type socketKey struct {
 	ipv6 bool
 }
 type Net struct {
-	fast bool
 	transport.Net
 	mu           sync.Mutex
 	dontFragment map[socketKey]bool
@@ -35,12 +33,12 @@ type Net struct {
 	batchConns   map[*udpbatch.Conn]struct{}
 }
 
-func NewNet(callback func(ice.PathMTUResult), fast bool) (*Net, error) {
+func NewNet(callback func(ice.PathMTUResult)) (*Net, error) {
 	base, err := stdnet.NewNet()
 	if err != nil {
 		return nil, err
 	}
-	return &Net{Net: base, dontFragment: make(map[socketKey]bool), callback: callback, fast: fast, batchConns: make(map[*udpbatch.Conn]struct{})}, nil
+	return &Net{Net: base, dontFragment: make(map[socketKey]bool), callback: callback, batchConns: make(map[*udpbatch.Conn]struct{})}, nil
 }
 
 func (n *Net) ListenUDP(network string, addr *net.UDPAddr) (transport.UDPConn, error) {
@@ -74,13 +72,10 @@ func (n *Net) ListenUDP(network string, addr *net.UDPAddr) (transport.UDPConn, e
 	n.mu.Unlock()
 	if n.batchEnabled() {
 		var wrapped *udpbatch.Conn
-		wrapped, ok = udpbatch.Wrap(udp, n.fast, func() { n.removeBatchConn(wrapped) })
+		wrapped, ok = udpbatch.Wrap(udp, func() { n.removeBatchConn(wrapped) })
 		if ok && n.addBatchConn(wrapped) {
 			return wrapped, nil
 		}
-	}
-	if n.fast {
-		return udpfast.Wrap(udp), nil
 	}
 	return conn, nil
 }

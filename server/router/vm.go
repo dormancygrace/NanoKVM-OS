@@ -69,7 +69,6 @@ func vmRouter(r *gin.Engine) {
 
 	api.GET("/vm/input-region", service.GetInputRegion)
 	api.POST("/vm/input-region", service.SetInputRegion)
-	api.GET("/vm/input-resolution", service.GetInputResolution)
 
 	admin.GET("/vm/terminal", service.Terminal) // web terminal
 
@@ -119,9 +118,6 @@ func vmRouter(r *gin.Engine) {
 	admin.GET("/vm/ssh", service.GetSSHState)                // get SSH state
 	admin.POST("/vm/ssh/enable", service.EnableSSH)          // enable SSH
 	admin.POST("/vm/ssh/disable", service.DisableSSH)        // disable SSH
-
-	admin.GET("/vm/swap", service.GetSwap)  // get swap file size
-	admin.POST("/vm/swap", service.SetSwap) // set swap file size
 
 	admin.GET("/vm/mouse-jiggler", service.GetMouseJiggler)   // get mouse jiggler
 	admin.POST("/vm/mouse-jiggler/", service.SetMouseJiggler) // set mouse jiggler

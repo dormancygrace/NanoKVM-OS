@@ -13,7 +13,7 @@ import sys
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--libraries', type=Path, required=True)
 p.add_argument('--compression', type=Path, required=True,
-               help='zlib-ng and liblzma headers (include/) and static libraries (lib/) from the tools step')
+               help='zlib-ng headers (include/) and static library (lib/) from the tools step')
 p.add_argument('--buildroot-output', type=Path, required=True)
 p.add_argument('--go', type=Path, required=True)
 p.add_argument('--output', type=Path, required=True)
@@ -62,10 +62,10 @@ for library, required in required_native_dependencies.items():
     missing = sorted(required - dependencies)
     if missing:
         p.error(f'Native bundle mismatch: {library} does not require {", ".join(missing)}')
-# server/internal/decompress links zlib-ng and liblzma statically: only the
-# .a files are in this lib directory, so -lz and -llzma cannot pick a .so.
+# server/internal/decompress links zlib-ng statically: only the .a file is in
+# this lib directory, so -lz cannot pick a .so.
 compression = a.compression.resolve()
-for name in ('include/zlib.h', 'include/lzma.h', 'lib/libz.a', 'lib/liblzma.a'):
+for name in ('include/zlib.h', 'lib/libz.a'):
     if not (compression/name).is_file():
         p.error(f'Missing {name} in {compression}; run the tools step first')
 if any(compression.glob('lib/*.so*')):

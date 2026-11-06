@@ -18,7 +18,7 @@ import (
 // "login from a new address" event.
 const AddressesPath = "/etc/kvm/notify/addresses.json"
 
-// maxAddresses per user; the oldest is forgotten first.
+// maxAddresses per user; one not used for long is forgotten first.
 const maxAddresses = 32
 
 var addressesMu sync.Mutex
@@ -47,16 +47,17 @@ func LoginLockedOut(address string, failures, minutes int) {
 }
 
 // LoginSucceeded reports a login from an address the user has not logged in
-// from before. A user's first login is remembered without a report: the
-// list starts when someone wants these events.
+// from before. A user's first login is remembered without a report. The
+// addresses are kept also while no channel wants these events, so turning
+// them on later does not trust the next login, which may be an attacker's.
 func LoginSucceeded(user, address string) {
-	if address == "" || !Wants(KindSecurity) {
+	if address == "" {
 		return
 	}
 	known, err := rememberAddress(AddressesPath, user, address)
 	if err != nil {
+		// A new address is still reported when it could not be stored.
 		log.Warnf("notifications: login addresses: %v", err)
-		return
 	}
 	if !known {
 		Emit(Event{Kind: KindSecurity, Severity: SeverityWarning, Message: "security.new-address",
@@ -65,7 +66,8 @@ func LoginSucceeded(user, address string) {
 }
 
 // rememberAddress adds address to the user's list and reports whether it was
-// there already; a user with no list yet counts as known.
+// there already, also when the list could not be stored; a user with no list
+// yet counts as known.
 func rememberAddress(path, user, address string) (bool, error) {
 	addressesMu.Lock()
 	defer addressesMu.Unlock()
@@ -81,20 +83,29 @@ func rememberAddress(path, user, address string) (bool, error) {
 		}
 	}
 	list, seen := lists[user]
-	if slices.Contains(list, address) {
-		return true, nil
+	known := false
+	if i := slices.Index(list, address); i >= 0 {
+		// An address in use moves to the newest end, so it is not forgotten
+		// before those left behind. Only one in the older half moves, so
+		// logins switching between a few addresses do not write each time.
+		if i >= len(list)-maxAddresses/2 {
+			return true, nil
+		}
+		list = slices.Delete(list, i, i+1)
+		known = true
 	}
 	list = append(list, address)
 	if len(list) > maxAddresses {
 		list = list[len(list)-maxAddresses:]
 	}
 	lists[user] = list
+	known = known || !seen
 	data, err = json.Marshal(lists)
 	if err != nil {
-		return true, err
+		return known, err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return true, err
+		return known, err
 	}
-	return !seen, atomicfile.Write(path, data, 0o600)
+	return known, atomicfile.Write(path, data, 0o600)
 }

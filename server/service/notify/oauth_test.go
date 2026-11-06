@@ -159,8 +159,8 @@ func TestRevokedSignInShowsOnTheChannel(t *testing.T) {
 	if !errors.As(err, &perm) {
 		t.Fatalf("a revoked sign-in is retried: %v", err)
 	}
-	s.active, s.inFlight["c1"] = 1, 1
-	s.deliver(s.config.Channels[0], sample)
+	s.active[0], s.inFlight["c1"] = 1, 1
+	s.deliver(s.config.Channels[0], Event{Kind: KindPower, Message: "power.off", Time: sample.Time})
 	got := s.Status().Channels[0].AuthError
 	if !strings.Contains(got, "sign in again") || strings.Contains(got, "R-revoked") {
 		t.Fatalf("channel status %q", got)

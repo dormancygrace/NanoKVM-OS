@@ -98,7 +98,10 @@ func sendEmail(ctx context.Context, ch Channel, r Rendered) error {
 	if err = w.Close(); err != nil {
 		return smtpError(err)
 	}
-	return client.Quit()
+	// The server has taken the message: a failed goodbye must not have it
+	// sent again.
+	_ = client.Quit()
+	return nil
 }
 
 // loginOAuth logs in with the channel's sign-in as the account it was made

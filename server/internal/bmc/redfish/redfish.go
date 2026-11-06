@@ -62,8 +62,9 @@ type session struct {
 }
 
 type failures struct {
-	count int
-	since time.Time
+	count    int
+	since    time.Time
+	reported bool // the lockout went to OnLockout
 }
 
 // Handler is the Redfish service.
@@ -73,15 +74,24 @@ type Handler struct {
 	power              Power
 	now                func() time.Time
 
+	// OnLockout and OnLogin, when set, hear of a client locked out after
+	// failures failed logins and of a login, for the security events.
+	// OnLogin hears of each client once while it keeps logging in.
+	OnLockout func(addr string, failures int, lock time.Duration)
+	OnLogin   func(user, addr string)
+
 	mu       sync.Mutex
 	sessions map[string]*session // by token
 	failed   map[string]*failures
+	// loggedIn are the clients OnLogin heard of; Basic auth logs in on
+	// every request.
+	loggedIn map[string]bool
 }
 
 func New(username, password string, info Info, power Power) *Handler {
 	return &Handler{
 		username: username, password: password, info: info, power: power, now: time.Now,
-		sessions: map[string]*session{}, failed: map[string]*failures{},
+		sessions: map[string]*session{}, failed: map[string]*failures{}, loggedIn: map[string]bool{},
 	}
 }
 
@@ -153,9 +163,8 @@ func (h *Handler) beginLogin(addr string) *failures {
 	return f
 }
 
-func (h *Handler) loginSucceeded(addr string, reservation *failures) {
+func (h *Handler) loginSucceeded(user, addr string, reservation *failures) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	// A delayed success must not refund a newer window or a replacement
 	// record after eviction. Only return the attempt that we reserved.
 	if f := h.failed[addr]; f != nil && f == reservation {
@@ -163,6 +172,31 @@ func (h *Handler) loginSucceeded(addr string, reservation *failures) {
 		if f.count--; f.count <= 0 {
 			delete(h.failed, addr)
 		}
+	}
+	first := !h.loggedIn[addr]
+	if first {
+		if len(h.loggedIn) >= maxTracked {
+			clear(h.loggedIn)
+		}
+		h.loggedIn[addr] = true
+	}
+	h.mu.Unlock()
+	if first && h.OnLogin != nil {
+		h.OnLogin(user, addr)
+	}
+}
+
+// loginFailed tells OnLockout once when a failed login locks addr out.
+func (h *Handler) loginFailed(addr string, reservation *failures) {
+	h.mu.Lock()
+	f := h.failed[addr]
+	lockout := f != nil && f == reservation && f.count >= maxFailures && !f.reported
+	if lockout {
+		f.reported = true
+	}
+	h.mu.Unlock()
+	if lockout && h.OnLockout != nil {
+		h.OnLockout(addr, maxFailures, failWindow)
 	}
 }
 
@@ -234,9 +268,10 @@ func (h *Handler) authenticate(w http.ResponseWriter, r *http.Request) bool {
 			return false
 		}
 		if h.credentialsMatch(user, password) {
-			h.loginSucceeded(addr, reservation)
+			h.loginSucceeded(user, addr, reservation)
 			return true
 		}
+		h.loginFailed(addr, reservation)
 	}
 	w.Header().Set("WWW-Authenticate", `Basic realm="NanoKVM BMC"`)
 	writeError(w, http.StatusUnauthorized, "NoValidSession", "Authentication is required.")
@@ -541,10 +576,11 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.credentialsMatch(body.UserName, body.Password) {
+		h.loginFailed(addr, reservation)
 		writeError(w, http.StatusUnauthorized, "NoValidSession", "Invalid user name or password.")
 		return
 	}
-	h.loginSucceeded(addr, reservation)
+	h.loginSucceeded(body.UserName, addr, reservation)
 	s := &session{id: randomHex(8), token: randomHex(24), lastUsed: h.now()}
 	h.mu.Lock()
 	for token, old := range h.sessions {

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -75,6 +76,27 @@ func TestWebhookSignature(t *testing.T) {
 	}
 }
 
+// Text read off the host's screen mentions no one and hides no link.
+func TestScreenTextIsPlain(t *testing.T) {
+	e := Event{Kind: KindScreen, Message: "screen.panic", Details: "@everyone <!channel> [reset](https://e.example)"}
+	for kind, want := range map[string]string{
+		"discord": "allowed_mentions:map[parse:[users roles]]",
+		"slack":   `&lt;!channel&gt; [reset](`, // Slack has no such links
+	} {
+		server, got := capture(t, http.StatusNoContent)
+		ch := channel(kind, map[string]string{"url": server.URL})
+		if err := sendChannel(context.Background(), ch, renderFor(e, "en", nil, markup(kind))); err != nil {
+			t.Fatal(err)
+		}
+		var payload any
+		_ = json.Unmarshal(got.body, &payload)
+		body := fmt.Sprint(payload)
+		if !strings.Contains(body, want) || strings.Contains(body, "<!channel>") || kind == "discord" && strings.Contains(body, "[reset](") {
+			t.Errorf("%s: %s", kind, body)
+		}
+	}
+}
+
 // echo answers with status and the request's address, headers and body, as
 // an error page or a proxy can.
 func echo(t *testing.T, status int) *httptest.Server {
@@ -89,16 +111,17 @@ func echo(t *testing.T, status int) *httptest.Server {
 }
 
 func TestErrorsHideEchoedSecrets(t *testing.T) {
-	refused, _ := net.Listen("tcp", "127.0.0.1:0")
-	closed := refused.Addr().String()
-	refused.Close()
+	server := echo(t, http.StatusInternalServerError)
+	forbidden := echo(t, http.StatusUnauthorized)
+	var closed string
 	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "http://"+closed+r.URL.RequestURI(), http.StatusFound)
 	}))
 	t.Cleanup(redirect.Close)
-
-	server := echo(t, http.StatusInternalServerError)
-	forbidden := echo(t, http.StatusUnauthorized)
+	// The port is freed after the servers are up: one of them took it once.
+	refused, _ := net.Listen("tcp", "127.0.0.1:0")
+	closed = refused.Addr().String()
+	refused.Close()
 	for name, tc := range map[string]struct {
 		ch        Channel
 		permanent bool
@@ -243,9 +266,14 @@ func TestEmailRefusals(t *testing.T) {
 		t.Fatalf("STARTTLS asked of a server without it: %v", err)
 	}
 
+	// A password over a plain connection: refused on save, and on send if
+	// stored before that.
 	host, port, _ = fakeSMTP(t, "")
-	ch = channel("email", map[string]string{"host": host, "port": port, "security": "none", "username": "u", "password": "p",
-		"from": "k@example.com", "to": "a@example.com"})
+	ch = Channel{Type: "email", Settings: map[string]string{"host": host, "port": port, "security": "none", "username": "u", "password": "p",
+		"from": "k@example.com", "to": "a@example.com"}}
+	if saved := (Channel{Type: "email", Settings: maps.Clone(ch.Settings)}); saved.validate() == nil {
+		t.Fatal("a password over a plain connection saved")
+	}
 	if err := sendChannel(context.Background(), ch, sample); !errors.As(err, &perm) {
 		t.Fatalf("a password over a plain connection: %v", err)
 	}

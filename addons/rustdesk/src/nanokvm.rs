@@ -299,10 +299,25 @@ impl HidClient {
         if status_line.starts_with(b"HTTP/1.1 2") || status_line.starts_with(b"HTTP/1.0 2") {
             return Ok(());
         }
-        Err(io::Error::other(format!(
-            "HID request failed: {}",
-            String::from_utf8_lossy(status_line).trim()
-        )))
+        // The bridge's answer when another session holds input control. That
+        // may end soon, unlike the other failures, so it gets its own kind.
+        const LEASE_HELD: &[u8] = b"another session holds input control";
+        let kind = if status_line.starts_with(b"HTTP/1.1 409")
+            && response
+                .windows(LEASE_HELD.len())
+                .any(|part| part == LEASE_HELD)
+        {
+            io::ErrorKind::ResourceBusy
+        } else {
+            io::ErrorKind::Other
+        };
+        Err(io::Error::new(
+            kind,
+            format!(
+                "HID request failed: {}",
+                String::from_utf8_lossy(status_line).trim()
+            ),
+        ))
     }
 }
 

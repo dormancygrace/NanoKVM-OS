@@ -112,7 +112,7 @@ There are two separate build inputs: Buildroot's BusyBox for the early-boot init
 
 The same contracts run in CI. Adding a new input without its monitor fails CI. New Python/Ruby/PHP/Maven manifest families also fail visibly until coverage is implemented.
 
-This is comprehensive coverage of the declared inputs above, **not a claim to discover every upstream vulnerability or unversioned binary**. Transitive native recipes are maintained through Buildroot; the watcher does not independently audit every C library's upstream/CVEs. Opaque base FIP and vendor blobs follow their SDK source pins; local patches require review. Historical experiments that are not active manifests/build inputs are not production dependencies. Additions must be reflected in the coverage contracts.
+This is comprehensive coverage of the declared inputs above, **not a claim to discover every upstream vulnerability or unversioned binary**. Transitive native recipes are maintained through Buildroot; the watcher does not independently audit every C library's upstream/CVEs. Vendor blobs follow their SDK source pins; local patches require review. Historical experiments that are not active manifests/build inputs are not production dependencies. Additions must be reflected in the coverage contracts.
 
 ## Validation and integration
 

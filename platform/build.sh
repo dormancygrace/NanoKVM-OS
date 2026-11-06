@@ -12,8 +12,7 @@
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
 #   opensbi    OpenSBI 1.9: SG2002 FW_DYNAMIC with embedded M-mode DT
-#   fip        fip.bin: FSBL built with fsbl/*.patch, stock DDR parameters,
-#              OpenSBI and U-Boot
+#   fip        fip.bin: FSBL built with fsbl/*.patch, OpenSBI and U-Boot
 #   initramfs  initramfs from boot/initramfs.list and the Buildroot userland
 #   boot       board device trees and boot.sd images like nanokvm-kernel
 #   native     SOPHGO media libraries, libkvm_mmf and libkvm
@@ -449,9 +448,13 @@ fip() {
         BUILD_STRING=nanokvm-os \
         BUILD_MESSAGE_TIMESTAMP="\"sipeed-sdk $(lock sipeed-sdk | awk '{ print substr($3, 1, 8) }')\"" \
         "$f/build/bl2.bin"
+    # The register writes the ROM performs before BL2 (fip.mk gen-chip-conf).
+    "$host/python3" "$f/fsbl/plat/cv181x/chip_conf.py" "$f/build/chip_conf.bin"
+    # The DDR parameter block is the SDK's (fip.mk DDR_PARAM_TEST_PATH); this
+    # BL2 loads and CRC-checks it but only logs its first word.
     "$host/python3" "$repo/scripts/nanokvm-fip.py" build \
-        --tool "$f/fsbl/plat/cv181x/fiptool.py" --base "$here/fip/base-fip.bin" \
-        --bl2 "$f/build/bl2.bin" \
+        --tool "$f/fsbl/plat/cv181x/fiptool.py" --chip-conf "$f/build/chip_conf.bin" \
+        --bl2 "$f/build/bl2.bin" --ddr-param "$f/fsbl/test/cv181x/ddr_param.bin" \
         --monitor "$img/opensbi/fw_dynamic.bin" --uboot "$img/u-boot.bin" \
         --opensbi-manifest "$img/opensbi/build-manifest.json" \
         --output "$f/fip.bin" --report "$f/manifest.json"
@@ -459,7 +462,7 @@ fip() {
     cp "$f/manifest.json" "$img/fip-manifest.json"
     rm -rf "$img/fsbl"
     mkdir -p "$img/fsbl"
-    cp "$f/build/bl2.bin" "$img/fsbl/"
+    cp "$f/build/bl2.bin" "$f/build/chip_conf.bin" "$f/fsbl/test/cv181x/ddr_param.bin" "$img/fsbl/"
     # The boot logos U-Boot draws on the OLED (nkoled), one per board.
     rm -rf "$img/oled-logo"
     "$host/python3" "$repo/scripts/gen-oled-boot-logo.py" "$img/oled-logo"
@@ -473,7 +476,7 @@ fip() {
     printf '%s\n' 'The FSBL (BL2) in fip.bin is built from fsbl/ in the Sipeed SDK pinned in' \
         'platform/sources.lock (sipeed-sdk) with platform/fsbl/*.patch. Its upstream,' \
         'https://github.com/sophgo/fsbl, is licensed under GPL-2.0 (u-boot-gpl-2.0.txt' \
-        'has the text). The DDR parameters are the Sophgo binary of platform/fip/base-fip.bin.' \
+        'has the text). The chip configuration and DDR parameters come from the same tree.' \
         > "$l/fsbl-NOTICE"
 }
 

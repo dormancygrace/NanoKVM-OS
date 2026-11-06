@@ -16,16 +16,16 @@ spec.loader.exec_module(fip)
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--images", type=Path, required=True)
 a = p.parse_args()
-base = (REPO / "platform/fip/base-fip.bin").read_bytes()
 candidate = (a.images / "fip.bin").read_bytes()
 bl2 = (a.images / "fsbl/bl2.bin").read_bytes()
+chip_conf = (a.images / "fsbl/chip_conf.bin").read_bytes()
+ddr_param = (a.images / "fsbl/ddr_param.bin").read_bytes()
 monitor = (a.images / "opensbi/fw_dynamic.bin").read_bytes()
 uboot = (a.images / "u-boot.bin").read_bytes()
 manifest = json.loads((a.images / "opensbi/build-manifest.json").read_text())
-report = fip.validate(base, candidate, bl2, monitor, uboot, manifest)
-assert report["base_fip_sha256"] == hashlib.sha256(base).hexdigest(), "base provenance must identify the original input"
-assert json.loads((a.images / "fip-manifest.json").read_text())["base_fip_sha256"] == report["base_fip_sha256"]
-print("built candidate and original base provenance: pass")
+report = fip.validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest)
+assert json.loads((a.images / "fip-manifest.json").read_text())["fip_sha256"] == hashlib.sha256(candidate).hexdigest()
+print("built candidate: pass")
 
 
 def rejected(name, action, message):
@@ -74,11 +74,11 @@ rejected("overlapping components",
 rejected("unexpected suffix", lambda: fip.inspect(candidate + b"X" + bytes(511)), "FIP suffix")
 bad = copy.deepcopy(manifest)
 bad["pmp_regions"][1]["bytes"] = 0x8000
-rejected("undersized RW reservation", lambda: fip.validate(base, candidate, bl2, monitor, uboot, bad), "PMP contract")
+rejected("undersized RW reservation", lambda: fip.validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, bad), "PMP contract")
 bad = copy.deepcopy(manifest)
 bad["fdt_destination"] = 0x80011000
-rejected("old FDT destination", lambda: fip.validate(base, candidate, bl2, monitor, uboot, bad), "FDT relocation")
-rejected("wrong U-Boot payload", lambda: fip.validate(base, candidate, bl2, monitor, uboot + b"X", manifest), "U-Boot differs")
+rejected("old FDT destination", lambda: fip.validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, bad), "FDT relocation")
+rejected("wrong U-Boot payload", lambda: fip.validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot + b"X", manifest), "U-Boot differs")
 out = bytearray(candidate)
 bl2start = 4096 + p1["BLCP_IMG_SIZE"]
 out[bl2start + 100] ^= 1
@@ -86,12 +86,12 @@ struct.pack_into("<I", out, field_offset(fip.P1_FIELDS, "BL2_IMG_CKSUM"),
                  fip.crc(out[bl2start:bl2start + p1["BL2_IMG_SIZE"]]))
 struct.pack_into("<I", out, 12, fip.crc(out[16:2048]))
 rejected("valid-CRC BL2 modification",
-         lambda: fip.validate(base, bytes(out), bl2, monitor, uboot, manifest), "BL2 differs")
+         lambda: fip.validate(bytes(out), bl2, chip_conf, ddr_param, monitor, uboot, manifest), "BL2 differs")
 out = bytearray(candidate)
-out[1024] ^= 1  # chip configuration, not a BL2 field
+out[fip.CHIP_CONF_OFFSET + 8] ^= 1  # second chip configuration write
 struct.pack_into("<I", out, 12, fip.crc(out[16:2048]))
 rejected("valid-CRC chip configuration change",
-         lambda: fip.validate(base, bytes(out), bl2, monitor, uboot, manifest), "first-stage parameters")
+         lambda: fip.validate(bytes(out), bl2, chip_conf, ddr_param, monitor, uboot, manifest), "chip configuration differs")
 real_inspect = fip.inspect
 
 
@@ -103,6 +103,6 @@ def with_small_core(data):
 fip.inspect = with_small_core
 try:
     rejected("small-core image without DT reservation",
-             lambda: fip.validate(base, candidate, bl2, monitor, uboot, manifest), "small-core reservation")
+             lambda: fip.validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest), "small-core reservation")
 finally:
     fip.inspect = real_inspect

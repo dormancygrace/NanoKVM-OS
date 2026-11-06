@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 
 	"github.com/gin-gonic/gin"
@@ -257,8 +258,17 @@ func TestTheProbeShowsOnlyTheTrialID(t *testing.T) {
 	probe := func() (string, string) {
 		recorder := httptest.NewRecorder()
 		router := gin.New()
-		router.GET("/", (&Service{}).ProbeTrial)
-		router.ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+		// With authentication disabled, a page at the old address must
+		// still discover the trial at the new one through the global guards.
+		router.Use(middleware.RequireDeviceHost(), middleware.AllowedOriginCORS(), middleware.RejectCrossOriginWrites())
+		router.GET("/api/network/trial/probe", (&Service{}).ProbeTrial)
+		request := httptest.NewRequest("GET", "https://192.168.7.8/api/network/trial/probe", nil)
+		request.Header.Set("Origin", "https://192.168.7.7")
+		request.Header.Set("Sec-Fetch-Site", "cross-site")
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != 200 {
+			t.Fatalf("cross-site trial probe = %d: %s", recorder.Code, recorder.Body.String())
+		}
 		return recorder.Header().Get("Access-Control-Allow-Origin"), recorder.Body.String()
 	}
 	if origin, body := probe(); origin != "*" || !strings.Contains(body, `"id":""`) {

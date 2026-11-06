@@ -124,6 +124,14 @@ the original host, `security.allowedOrigins` may list explicit full origins such
 `https://kvm.example.com` (exact scheme, host, and port match only). Prefer the forwarded headers;
 `allowedOrigins` is an exception list, not a wildcard or a replacement for proxy trust.
 
+With `authentication: disable` every request acts as the administrator, so the server refuses
+browser requests from other sites: writes with a foreign `Origin`, and API reads the browser marks
+`cross-site`. Over plain HTTP it also answers only the device's own names: an IP address,
+`localhost`, the device name and `<name>.local`, the hosts of `security.allowedOrigins`, and
+requests from a trusted proxy. A page on another site could otherwise rebind its own DNS name to the
+device's address and pass the origin checks. Another name, such as a router's DNS name for the
+device, gets `421 Misdirected Request` until its origin is added to `security.allowedOrigins`.
+
 ## API and Automation Authentication
 
 `POST /api/auth/login` is a browser login by default: it sets an HttpOnly session cookie and returns

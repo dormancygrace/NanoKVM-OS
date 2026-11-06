@@ -3,6 +3,7 @@
   "power.off": { "title": "Host uitgeschakeld", "body": "De voedings-LED van de host is uitgegaan." },
   "hdmi.lost": { "title": "HDMI-signaal verloren", "body": "De host stuurt geen beeld meer." },
   "hdmi.restored": { "title": "HDMI-signaal hersteld", "body": "De host stuurt weer beeld." },
+  "hdmi.power-cycle": { "title": "Stroom loskoppelen aanbevolen", "body": "De HDMI-ontvanger heeft een bijgewerkte EDID gekregen, bijvoorbeeld voor juiste kleuren. Koppel de NanoKVM los van alle stroombronnen en sluit hem opnieuw aan om deze toe te passen." },
   "security.lockout": {
     "title": "Aanmeldingen geblokkeerd",
     "body": "{failures} mislukte aanmeldingen vanaf {address}: aanmeldingen vanaf dit adres zijn {minutes} min geblokkeerd."

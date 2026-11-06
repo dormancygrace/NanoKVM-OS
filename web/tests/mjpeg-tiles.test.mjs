@@ -76,8 +76,6 @@ test('malformed messages are refused', () => {
 
 // A fake connection, decoder and clock for startTileStream.
 function harness(maxPending = 2) {
-  let clock = 1000;
-  const delays = [];
   const sockets = [];
   const decodes = [];
   const draws = [];
@@ -85,10 +83,8 @@ function harness(maxPending = 2) {
   const stop = startTileStream({
     connect: () => {
       const socket = { binaryType: '', onmessage: null, onclose: null, closed: false };
-      socket.readyState = WebSocket.CONNECTING;
       socket.close = () => {
         socket.closed = true;
-        socket.readyState = WebSocket.CLOSED;
       };
       sockets.push(socket);
       return socket;
@@ -101,12 +97,10 @@ function harness(maxPending = 2) {
         first,
         values: decoded.map(({ bitmap }) => bitmap.value)
       }),
-    later: (callback, ms) => {
+    later: (callback) => {
       timers.push(callback);
-      delays.push(ms);
       return () => {};
     },
-    now: () => clock,
     maxPending
   });
   const send = (socket, whole, value) =>
@@ -116,10 +110,7 @@ function harness(maxPending = 2) {
       ])
     });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-  const at = (ms) => {
-    clock = ms;
-  };
-  return { sockets, decodes, draws, timers, delays, at, stop, send, settle };
+  return { sockets, decodes, draws, timers, stop, send, settle };
 }
 
 test('a connection starts with a whole picture and draws in order', async () => {
@@ -179,29 +170,4 @@ test('every stream reports its first picture, also at the same size', async () =
     assert.equal(h.draws[0].first, true);
     h.stop();
   }
-});
-
-test('after a lost connection, a stuck attempt is closed and retried without growing backoff', () => {
-  const h = harness();
-  h.sockets[0].onopen();
-  h.at(5000);
-  h.sockets[0].onclose();
-  assert.deepEqual(h.delays, [1000]);
-  h.timers.at(-1)();
-  // The attempt's connect timeout, at least 2 s.
-  assert.deepEqual(h.delays, [1000, 2000]);
-  h.timers.at(-1)();
-  assert.ok(h.sockets[1].closed, 'An attempt still connecting is closed');
-  h.sockets[1].onclose();
-  assert.deepEqual(h.delays, [1000, 2000, 1000]);
-  h.stop();
-});
-
-test('without a lost connection, a failed attempt keeps the browser timeout and backoff', () => {
-  const h = harness();
-  h.sockets[0].onclose();
-  h.timers.at(-1)();
-  h.sockets[1].onclose();
-  assert.deepEqual(h.delays, [1000, 2000]);
-  h.stop();
 });

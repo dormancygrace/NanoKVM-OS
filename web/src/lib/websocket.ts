@@ -1,5 +1,5 @@
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
-import { ConnectRecovery } from '@/lib/connect-recovery.ts';
+import { ConnectRecovery, RECOVERY_RECONNECT_DELAY } from '@/lib/connect-recovery.ts';
 import { HoldKeepalive, KEEPALIVE_MESSAGE } from '@/lib/hold-keepalive.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
@@ -31,7 +31,7 @@ const DEFAULT_OPTIONS: Required<WsClientOptions> = {
   heartbeatInterval: 10 * 1000,
   reconnectInterval: 3 * 1000,
   // Retries soon after a lost connection: see ConnectRecovery.
-  recoveryReconnectInterval: 500,
+  recoveryReconnectInterval: RECOVERY_RECONNECT_DELAY,
   maxReconnectAttempts: Number.POSITIVE_INFINITY
 };
 

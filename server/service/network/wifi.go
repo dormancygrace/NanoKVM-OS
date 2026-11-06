@@ -30,7 +30,7 @@ func (s *Service) GetWifi(c *gin.Context) {
 	var rsp proto.Response
 
 	status := wifiControl.status()
-	status.ThisConnection = requestOnInterface(c, "wlan0")
+	status.ThisConnection = requestMayRideWifi(c)
 	rsp.OkRspWithData(c, status)
 }
 

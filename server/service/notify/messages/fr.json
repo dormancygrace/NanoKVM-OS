@@ -3,6 +3,7 @@
   "power.off": { "title": "Hôte éteint", "body": "Le voyant d'alimentation de l'hôte s'est éteint." },
   "hdmi.lost": { "title": "Signal HDMI perdu", "body": "L'hôte n'envoie plus d'image." },
   "hdmi.restored": { "title": "Signal HDMI rétabli", "body": "L'hôte envoie de nouveau une image." },
+  "hdmi.power-cycle": { "title": "Coupure d’alimentation recommandée", "body": "Le récepteur HDMI a reçu un EDID mis à jour, par exemple pour des couleurs correctes. Débranchez le NanoKVM de toute alimentation puis rebranchez-le pour l’appliquer." },
   "security.lockout": {
     "title": "Connexions bloquées",
     "body": "{failures} échecs de connexion depuis {address} : les connexions depuis cette adresse sont bloquées pendant {minutes} min."

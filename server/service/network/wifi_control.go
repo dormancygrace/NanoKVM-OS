@@ -782,6 +782,20 @@ func (s *Service) DisconnectWifi(c *gin.Context) {
 	}()
 }
 
+// requestMayRideWifi reports whether a Wi-Fi change can cut this page off: the
+// request ends at wlan0, or at an address whose traffic can run over Wi-Fi,
+// such as a VPN (Tailscale, NetBird, WireGuard, OpenVPN) or a local proxy.
+// Only a request that ends at an Ethernet or USB network address survives.
+func requestMayRideWifi(c *gin.Context) bool {
+	interfaces, _ := net.Interfaces()
+	for _, iface := range interfaces {
+		if requestOnInterface(c, iface.Name) {
+			return !(strings.HasPrefix(iface.Name, "eth") || strings.HasPrefix(iface.Name, "usb"))
+		}
+	}
+	return true
+}
+
 // requestOnInterface reports whether the connection of this request ends at
 // an address of the interface, so the page can warn before cutting it.
 func requestOnInterface(c *gin.Context, name string) bool {

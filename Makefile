@@ -2,13 +2,13 @@
 .DEFAULT_GOAL := help
 OUT ?= build/platform
 JOBS ?= $(shell nproc)
-# Pass -d for local test signing, or -k RSA_KEY -e EC_KEY for release signing.
+# Pass -d for local test signing, or -e EC_KEY for release signing.
 PLATFORM_ARGS ?=
 PLATFORM = bash platform/build.sh -o "$(OUT)" -j "$(JOBS)" $(PLATFORM_ARGS)
 
 .PHONY: help all platform app support vision web release-build package release clean \
         test-wifi-modules test-alpine-network test-wifi-runtime \
-        test-ethernet-runtime test-runtime-state
+        test-runtime-state
 
 help:
 	@echo "NanoKVM OS — pinned Alpine/platform build"
@@ -21,7 +21,7 @@ help:
 	@echo "  test-*               - Host-side network, USB and filesystem checks"
 	@echo "  OUT=$(OUT) JOBS=$(JOBS)"
 	@echo "Example: make platform PLATFORM_ARGS=-d"
-	@echo "Official signing: PLATFORM_ARGS='-k path/to/key.rsa -e path/to/key.key'"
+	@echo "Official signing: PLATFORM_ARGS='-e path/to/key.key'"
 	@echo "Versions come from firmware/alpine/release.env; see platform/README.md."
 
 all release: platform
@@ -40,7 +40,7 @@ vision:
 	@$(PLATFORM) native
 
 release-build:
-	@$(PLATFORM) fetch toolchain kernel modules uboot opensbi fip initramfs boot native system tools server web firmware hashes
+	@$(PLATFORM) fetch toolchain kernel modules uboot opensbi fip initramfs boot native tpu system tools server web firmware hashes
 
 package:
 	@$(PLATFORM) payloads packages
@@ -61,9 +61,6 @@ test-alpine-network:
 
 test-wifi-runtime:
 	@sh tests/test-s30wifi-runtime.sh
-	@cd server && go test -tags teststub,nomsgpack ./service/network
-
-test-ethernet-runtime:
 	@cd server && go test -tags teststub,nomsgpack ./service/network
 
 test-runtime-state:

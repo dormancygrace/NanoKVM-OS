@@ -4,17 +4,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (h *Hid) Keyboard(queue <-chan []byte) {
-	legacy := make(chan QueuedReport)
-	go func() {
-		defer close(legacy)
-		for report := range queue {
-			legacy <- QueuedReport{Data: report}
-		}
-	}()
-	h.KeyboardReports(legacy)
-}
-
 func (h *Hid) KeyboardReports(queue <-chan QueuedReport) {
 	h.keyboardReports(queue, HID0)
 }

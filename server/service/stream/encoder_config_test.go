@@ -27,7 +27,7 @@ func TestParseEncoderConfig(t *testing.T) {
 		{
 			name:     "explicit cbr compatibility marker",
 			query:    "codec=h265&rc=cbr",
-			fallback: LegacyEncoderConfig(),
+			fallback: EncoderConfig{Codec: VideoCodecH264},
 			want:     EncoderConfig{Codec: VideoCodecH265},
 		},
 	}

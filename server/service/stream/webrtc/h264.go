@@ -3,7 +3,6 @@ package webrtc
 import (
 	"NanoKVM-Server/common/pathmtu"
 	"NanoKVM-Server/common/rtpmtu"
-	"NanoKVM-Server/common/udpfast"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/stream/iceservers"
@@ -49,10 +48,6 @@ func Connect(c *gin.Context) {
 		return
 	}
 	connect(c, encoderConfig)
-}
-
-func ConnectLegacy(c *gin.Context) {
-	connect(c, stream.LegacyEncoderConfig())
 }
 
 func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
@@ -190,10 +185,9 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 
 func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
 	settingEngine := webrtc.SettingEngine{}
-	configureDiagnosticICEInterface(&settingEngine)
 	// Keep a fixed-budget override for controlled comparisons and recovery.
 	if len(budgets) > 0 && budgets[0] != nil && os.Getenv("NANOKVM_WEBRTC_PMTU") != "0" {
-		network, err := pathmtu.NewNet(budgets[0].receive, os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1")
+		network, err := pathmtu.NewNet(budgets[0].receive)
 		if err != nil {
 			return nil, err
 		}
@@ -202,12 +196,6 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 			network.EnableFrameBatching()
 			budgets[0].setBatcher(network)
 		}
-	} else if os.Getenv("NANOKVM_WEBRTC_UDP_FAST") == "1" {
-		network, err := udpfast.NewNet()
-		if err != nil {
-			return nil, err
-		}
-		settingEngine.SetNet(network)
 	}
 	srtpaccel.Configure(&settingEngine)
 	if err := webrtcdtls.Configure(&settingEngine); err != nil {

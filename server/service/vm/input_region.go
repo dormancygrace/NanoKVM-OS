@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
 
 	"NanoKVM-Server/proto"
@@ -19,29 +17,6 @@ var (
 	inputRegionFile = "/etc/kvm/input-region.json"
 	inputRegionMu   sync.RWMutex
 )
-
-func (s *Service) GetInputResolution(c *gin.Context) {
-	var rsp proto.Response
-	width, widthErr := readPositiveInt("/run/nanokvm/width")
-	height, heightErr := readPositiveInt("/run/nanokvm/height")
-	if widthErr != nil || heightErr != nil {
-		rsp.ErrRsp(c, -1, "failed to read input resolution")
-		return
-	}
-	rsp.OkRspWithData(c, &proto.GetInputResolutionRsp{Width: width, Height: height})
-}
-
-func readPositiveInt(path string) (int, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return 0, err
-	}
-	value, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || value <= 0 {
-		return 0, errors.New("invalid positive integer")
-	}
-	return value, nil
-}
 
 func (s *Service) GetInputRegion(c *gin.Context) {
 	var rsp proto.Response

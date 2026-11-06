@@ -70,18 +70,11 @@ func (p VideoPool) PortraitMax() bool { return p.MiB >= 54 }
 // page cache and anonymous memory.
 func (p VideoPool) UHD() bool { return p.MiB >= 104 && (!p.Reusable || p.MiB >= 144) }
 
-// MonitorFitsVideoPool reports why the saved HDMI monitor profile cannot be
-// captured with a video pool, or nil when it can: the EDID advertises the
+// monitorFitsVideoPoolLocked reports why the saved HDMI monitor profile cannot
+// be captured with a video pool, or nil when it can: the EDID advertises the
 // profile to the computer, which then sends a picture that the capture path
 // rejects ("Current resolution is not supported"). The landscape resolution
 // counts even while portrait is on, because turning portrait off restores it.
-func MonitorFitsVideoPool(p VideoPool) error {
-	monitorMutex.Lock()
-	defer monitorMutex.Unlock()
-
-	return monitorFitsVideoPoolLocked(p)
-}
-
 func monitorFitsVideoPoolLocked(p VideoPool) error {
 	return savedMonitorStateLocked().FitsVideoPool(p)
 }

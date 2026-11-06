@@ -10,7 +10,6 @@ const (
 	CodePicoclawLockHeld     = "AI_LOCK_HELD"
 	CodeScreenshotFailed     = "SCREENSHOT_FAILED"
 	CodeScreenshotNoSignal   = "SCREENSHOT_NO_SIGNAL"
-	CodeHIDWriteFailed       = "HID_WRITE_FAILED"
 	CodeInvalidAction        = "INVALID_ACTION"
 	CodeRuntimeUnavailable   = "RUNTIME_UNAVAILABLE"
 	CodeRuntimeStartFailed   = "RUNTIME_START_FAILED"

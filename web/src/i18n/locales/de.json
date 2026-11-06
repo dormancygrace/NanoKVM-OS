@@ -1727,7 +1727,7 @@
         "saved": "Einstellungen des Zugangspunkts gespeichert.",
         "saveFailed": "Die Einstellungen des Zugangspunkts konnten nicht gespeichert werden.",
         "loadFailed": "Die Einstellungen des Zugangspunkts konnten nicht gelesen werden.",
-        "warning": "Beim Speichern wird Wi-Fi neu gestartet. Wenn Sie über Wi-Fi verbunden sind, verliert diese Seite das Gerät: Verbinden Sie sich mit dem Zugangspunkt und bestätigen Sie innerhalb von 2 Minuten, sonst kehren die vorherigen Einstellungen zurück.",
+        "warning": "Beim Speichern wird Wi-Fi neu gestartet. Wenn Sie über Wi-Fi oder ein VPN darüber verbunden sind, verliert diese Seite das Gerät: Verbinden Sie sich mit dem Zugangspunkt und bestätigen Sie innerhalb von 2 Minuten, sonst kehren die vorherigen Einstellungen zurück.",
         "invalidSsid": "Geben Sie einen Namen mit 1 bis 32 Bytes ein.",
         "invalidPassword": "Geben Sie 8 bis 63 Zeichen ein: Buchstaben, Ziffern oder Symbole.",
         "invalidSubnet": "Geben Sie drei Zahlen eines privaten Netzwerks ein, z. B. 192.168.50.",

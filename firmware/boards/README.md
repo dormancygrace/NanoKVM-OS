@@ -32,9 +32,10 @@ with a failed identity OLED cannot be reliably distinguished this way from
 hardware without that daughterboard. This is not a general discovery scheme
 for arbitrary third-party carrier boards.
 
-`nkos-board-select` verifies the selected FIT input, writes `boot.sd.new`, syncs,
-renames it to `boot.sd`, syncs and reboots. There is no post-write full-image
-readback, backup image or automatic rollback. The selected FIT contains the
+`nkos-board-select` passes the profile to `activate-kernel`, which writes the
+board's boot image beside `boot.sd`, checks it on the card, keeps a known-good
+`boot.sd` as `boot.prev` and renames the new image over `boot.sd`
+([docs/BOOT.md](../../docs/BOOT.md)); then it reboots. The selected FIT contains the
 same accepted kernel/initramfs and the appropriate DT. Normal init trusts this
 DT profile, while `/etc/kvm/hw` retains legacy naming for native application
 compatibility. `/etc/kvm/board-profile` controls the server's ATX mapping.

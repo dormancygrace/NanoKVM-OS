@@ -17,11 +17,6 @@ func (r *Response) Ok() {
 	r.Msg = "success"
 }
 
-func (r *Response) OkWithData(data interface{}) {
-	r.Ok()
-	r.Data = data
-}
-
 func (r *Response) Err(code int, msg string) {
 	r.Code = code
 	r.Msg = msg

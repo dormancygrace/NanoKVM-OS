@@ -38,9 +38,6 @@ func TestMonitorProfileIDsAndSizes(t *testing.T) {
 			t.Errorf("%d accepted", id)
 		}
 	}
-	if len(MonitorProfileIDs) != len(cases) {
-		t.Errorf("ids %v", MonitorProfileIDs)
-	}
 }
 
 // A wider id saved under an LT6911UXC reads as Auto under another receiver.

@@ -42,12 +42,12 @@ func TestVideoSourceSharesOnlyExactConfiguration(t *testing.T) {
 
 func TestAutomaticVideoSubscriptionAdoptsActiveCodecOrDefault(t *testing.T) {
 	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-	first, err := source.subscribe(LegacyEncoderConfig())
+	first, err := source.subscribe(EncoderConfig{Codec: VideoCodecH264})
 	if err != nil {
 		t.Fatal(err)
 	}
 	second, err := source.subscribe(EncoderConfig{})
-	if err != nil || second.Config() != LegacyEncoderConfig() || first.session != second.session {
+	if err != nil || second.Config() != (EncoderConfig{Codec: VideoCodecH264}) || first.session != second.session {
 		t.Fatalf("active codec was not shared: %v %v", second, err)
 	}
 	second.Close()
@@ -280,7 +280,7 @@ func TestSelectedH264FallsBackToH265At4K(t *testing.T) {
 	common.SetScreen("resolution", 0)
 
 	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-	source.selectConfig(LegacyEncoderConfig())
+	source.selectConfig(EncoderConfig{Codec: VideoCodecH264})
 	if config, selected := source.selectedConfig(); !selected || config != DefaultEncoderConfig() {
 		t.Fatalf("selected H.264 at 3840x2160 reports %+v", config)
 	}
@@ -288,7 +288,7 @@ func TestSelectedH264FallsBackToH265At4K(t *testing.T) {
 	if err != nil || viewer.Config() != DefaultEncoderConfig() {
 		t.Fatalf("automatic join at 3840x2160: %+v %v", viewer, err)
 	}
-	if _, err := source.subscribeValidated(LegacyEncoderConfig(), validateVideoConfig); err == nil {
+	if _, err := source.subscribeValidated(EncoderConfig{Codec: VideoCodecH264}, validateVideoConfig); err == nil {
 		t.Fatal("explicit H.264 joined at 3840x2160")
 	}
 
@@ -303,7 +303,7 @@ func TestSelectedH264FallsBackToH265At4K(t *testing.T) {
 	second.Close()
 	<-viewer.session.done
 	next, err := source.subscribeValidated(EncoderConfig{}, validateVideoConfig)
-	if err != nil || next.Config() != LegacyEncoderConfig() {
+	if err != nil || next.Config() != (EncoderConfig{Codec: VideoCodecH264}) {
 		t.Fatalf("selected H.264 at 2560x1440: %+v %v", next, err)
 	}
 	next.Close()
@@ -357,7 +357,7 @@ func TestKeyframeRequestsCoalesceWithoutLosingDeferredIntent(t *testing.T) {
 
 func TestExplicitCodecSelectionReplacesSharedSession(t *testing.T) {
 	source := newVideoSource(func(EncoderConfig) ([]byte, []byte, int) { return nil, nil, 0 })
-	old, err := source.subscribe(LegacyEncoderConfig())
+	old, err := source.subscribe(EncoderConfig{Codec: VideoCodecH264})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +372,7 @@ func TestExplicitCodecSelectionReplacesSharedSession(t *testing.T) {
 	if !selected || config != DefaultEncoderConfig() {
 		t.Fatal("new selection not visible while draining")
 	}
-	if stale, err := source.subscribe(LegacyEncoderConfig()); err == nil {
+	if stale, err := source.subscribe(EncoderConfig{Codec: VideoCodecH264}); err == nil {
 		stale.Close()
 		t.Fatal("stale viewer reclaimed the encoder")
 	}

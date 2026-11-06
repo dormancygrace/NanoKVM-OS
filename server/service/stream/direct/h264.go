@@ -31,10 +31,6 @@ func Connect(c *gin.Context) {
 	connect(c, config)
 }
 
-func ConnectLegacy(c *gin.Context) {
-	connect(c, stream.LegacyEncoderConfig())
-}
-
 func connect(c *gin.Context, config stream.EncoderConfig) {
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

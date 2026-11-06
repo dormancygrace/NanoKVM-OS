@@ -67,7 +67,7 @@ func TestQueuedAttemptMeetsTheLockout(t *testing.T) {
 	}()
 	time.Sleep(50 * time.Millisecond)
 	for range 5 {
-		RecordLoginFailure("192.0.2.5")
+		RecordLoginFailureFor("192.0.2.5", "")
 	}
 	release()
 	if code := <-result; code != -5 {

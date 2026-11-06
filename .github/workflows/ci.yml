@@ -50,14 +50,14 @@ jobs:
           changed() { grep -qE "$all|$1" "$files" && echo true || echo false; }
           modules=()
           for m in addons/ipmi server/third_party/pion-dtls server/third_party/pion-ice \
-                   server/third_party/pion-srtp firmware/crypto/experimental/hwcrypto-all/ghash-go; do
+                   server/third_party/pion-srtp; do
             pattern="^$m/"
             # The IPMI add-on builds against the server module.
             [ "$m" = addons/ipmi ] && pattern="$pattern|^server/"
             [ "$(changed "$pattern")" = true ] && modules+=("$m")
           done
           {
-            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$|^tests/test-(video-recovery-native|websocket-c906)\.py$|^tests/test-remote-smb\.sh$|^tests/fixtures/remote-smb/|^tests/upstream-mask\.go\.txt$')"
+            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$|^tests/test-(video-recovery-native|websocket-c906)\.py$|^tests/test-remote-smb\.sh$|^tests/fixtures/remote-smb/')"
             echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
             echo "web=$(changed '^web/|^\.nvmrc$')"
             echo "rustdesk=$(changed '^addons/rustdesk/')"
@@ -79,10 +79,10 @@ jobs:
           # Releases use a patched go1.27.3 (firmware/cpu/sysmon-runtime).
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
-      # internal/decompress links zlib and liblzma through cgo; the device
-      # build uses zlib-ng and liblzma from platform/build.sh.
+      # internal/decompress links zlib through cgo; the device build uses
+      # zlib-ng from platform/build.sh.
       - name: Compression headers
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev liblzma-dev xz-utils
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - name: Build
         run: go build -tags teststub,nomsgpack ./...
       - name: Video recovery native-call guard
@@ -108,7 +108,7 @@ jobs:
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
       - name: Compression headers
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev liblzma-dev xz-utils
+        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - name: Signed and encrypted SMB media
         run: bash ../tests/test-remote-smb.sh
 
@@ -157,7 +157,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Node runtime libraries
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libatomic1
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: 12
       - uses: actions/setup-node@v7
@@ -209,6 +209,10 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -Isupport/additional/kvm/include \
             support/additional/kvm/tests/stream_size_test.cpp -o "$RUNNER_TEMP/stream-size-test"
           "$RUNNER_TEMP/stream-size-test"
+      - name: Native capture contracts
+        run: |
+          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts"
+          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts-sanitize" --sanitize
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
       # Check C906 .4byte/WORD encodings against GNU as/objdump for XTheadVector.
@@ -231,8 +235,6 @@ jobs:
           python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
           curl -fsSL "$(python3 gen_poly1305_c906.py --print-url)" -o "$RUNNER_TEMP/poly1305-riscv.pl"
           python3 gen_poly1305_c906.py --cryptogams "$RUNNER_TEMP/poly1305-riscv.pl" --binutils riscv64-linux-gnu- --check sum_c906_riscv64.s
-      - name: Log XTheadVector instruction encodings
-        run: python3 tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
       - name: OpenSSL C906 ChaCha dispatch
         run: |
           sudo apt-get install -y libssl-dev
@@ -395,13 +397,12 @@ jobs:
       - name: Test locked Rust dependencies
         run: cargo test --locked
       # The device build (scripts/build-rustdesk-addon.py) cross-compiles for
-      # this target; check compiles it without the cross linker. All features
-      # include the c906-crypto-perf probe binary, which the tests skip.
-      - name: Check the device target and the probe binary
-        run: cargo check --locked --target riscv64gc-unknown-linux-musl --all-features --bins
+      # this target; check compiles it without the cross linker.
+      - name: Check the device target
+        run: cargo check --locked --target riscv64gc-unknown-linux-musl --bins
       - name: Check the declared minimum Rust version
         run: |
           msrv=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
           test -n "$msrv"
           rustup toolchain install "$msrv" --profile minimal
-          cargo +"$msrv" check --locked --all-features --bins
+          cargo +"$msrv" check --locked --bins

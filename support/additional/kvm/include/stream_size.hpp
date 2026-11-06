@@ -1,12 +1,6 @@
 #pragma once
 #include <cstdint>
 namespace nanokvm {
-inline bool above_fhd(uint16_t w, uint16_t h) {
-    if (w == 1088 && h == 1920) return false;
-    const auto longer = w > h ? w : h;
-    const auto shorter = w > h ? h : w;
-    return longer > 1920 || shorter > 1080;
-}
 // Portrait profiles share the ordinary landscape rate for their pixel tier.
 inline unsigned portrait_fps_limit(unsigned w, unsigned h) {
     if (w == 720 && h == 1280) return 120;

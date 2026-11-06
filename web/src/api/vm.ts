@@ -62,11 +62,6 @@ export function setGpio(type: string, duration: number) {
   return http.post('/api/vm/gpio', data, { headers: inputLeaseHeaders() });
 }
 
-// get gpio value
-export function getGpio() {
-  return http.get<{ pwr: boolean; hdd: boolean }>('/api/vm/gpio');
-}
-
 // Read the text on the screen with the TPU add-on: one recognition takes a
 // few seconds, up to 90 on the server. Aborting the request stops it there.
 // crop, fractions of the picture, reads only that area (at full size).

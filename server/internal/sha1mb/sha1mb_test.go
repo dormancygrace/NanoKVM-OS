@@ -282,6 +282,9 @@ var stressSink atomic.Pointer[[]byte]
 // two copies of the test binary at once to also exercise context switches
 // between processes using vector state.
 func TestStress(t *testing.T) {
+	if !vector() {
+		t.Skip("no vector kernel: SumBatch runs only the generic code, which TestCrossCheck covers")
+	}
 	if err := pprof.StartCPUProfile(io.Discard); err == nil {
 		defer pprof.StopCPUProfile()
 	}

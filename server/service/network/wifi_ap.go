@@ -407,8 +407,9 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 		return
 	}
 	// An adapter without 5 GHz would leave Wi-Fi down at every start. With
-	// Wi-Fi off the driver is not loaded and the bands are unknown.
-	if wifiControl.present() {
+	// Wi-Fi off the driver is not loaded and the bands are unknown. Turning
+	// such an access point off must stay possible.
+	if req.Enabled && wifiControl.present() {
 		freqs := wifiControl.statusFrequencies()
 		if len(freqs["2.4"])+len(freqs["5"]) > 0 && len(freqs[req.Band]) == 0 {
 			rsp.ErrRsp(c, -1, "this Wi-Fi adapter has no "+req.Band+" GHz band")

@@ -47,10 +47,11 @@ func LoginLockedOut(address string, failures, minutes int) {
 }
 
 // LoginSucceeded reports a login from an address the user has not logged in
-// from before. A user's first login is remembered without a report: the
-// list starts when someone wants these events.
+// from before. A user's first login is remembered without a report. The
+// addresses are kept also while no channel wants these events, so turning
+// them on later does not trust the next login, which may be an attacker's.
 func LoginSucceeded(user, address string) {
-	if address == "" || !Wants(KindSecurity) {
+	if address == "" {
 		return
 	}
 	known, err := rememberAddress(AddressesPath, user, address)

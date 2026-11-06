@@ -177,12 +177,6 @@ func CheckLoginAttempt(clientIP string) (bool, int, string) {
 	return false, 0, ""
 }
 
-// RecordLoginFailure records a failed login attempt for the given IP address
-// whose user name is unknown.
-func RecordLoginFailure(clientIP string) (bool, int, string) {
-	return RecordLoginFailureFor(clientIP, "")
-}
-
 // RecordLoginFailureFor records a failed login attempt of username ("" when
 // unknown) from the given IP address.
 func RecordLoginFailureFor(clientIP, username string) (bool, int, string) {

@@ -85,7 +85,7 @@ func TestUserLifecycleAndTokenRevocation(t *testing.T) {
 	if _, err = store.ValidateToken("alice", alice.TokenVersion); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.SetPassword("alice", "new-password"); err != nil {
+	if _, err = store.SetPasswordAndRunIf("alice", "new-password", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = store.ValidateToken("alice", alice.TokenVersion); err == nil {

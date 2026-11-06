@@ -77,7 +77,7 @@ func TestPlainLoginFormDoesNotUnescapePasswordTwice(t *testing.T) {
 	restore := useTestStore(store)
 	defer restore()
 	const password = "päss+%20密碼"
-	if _, err := store.SetPassword("admin", password); err != nil {
+	if _, err := store.SetPasswordAndRunIf("admin", password, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	router := gin.New()

@@ -3,7 +3,11 @@ import { Alert, Button, Checkbox, Input, message, Segmented, Select, Switch } fr
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
-import { startNetworkTrial } from '@/lib/network-trial.ts';
+import {
+  networkTrialDone,
+  startNetworkTrial,
+  type NetworkTrialResult
+} from '@/lib/network-trial.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
@@ -70,6 +74,20 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  // A trial that was not kept brought the previous settings back: show them,
+  // not the edits that were rolled back.
+  useEffect(() => {
+    const done = (event: Event) => {
+      if ((event as CustomEvent<NetworkTrialResult>).detail === 'kept') return;
+      setForm(undefined);
+      setPassword('');
+      setDnsText(undefined);
+      void load();
+    };
+    window.addEventListener(networkTrialDone, done);
+    return () => window.removeEventListener(networkTrialDone, done);
   }, [load]);
 
   // Follow the access point coming up and the devices joining it.

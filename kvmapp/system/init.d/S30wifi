@@ -32,6 +32,7 @@
 : "${NANOKVM_NFT:=nft}"
 : "${NANOKVM_RESOLV_CONF:=/etc/resolv.conf}"
 : "${NANOKVM_IPV4_CONF_DIR:=/proc/sys/net/ipv4/conf}"
+: "${NANOKVM_ETH_VLAN_STATE:=/run/nanokvm-eth-vlan}"
 
 # Alpine's wpa_passphrase reads the password from its controlling TTY when no
 # argument is supplied. Keep the legacy stdin API used by this script when
@@ -188,21 +189,35 @@ gen_udhcpd_conf() {
 # before it accepts clients and replaced in one transaction (never removed
 # while it runs): without internet it only keeps wlan0 out of forwarding, in
 # case something (a VPN) turns forwarding on for every interface. With
-# internet, its subnet goes out masqueraded through any other interface.
+# internet, its subnet goes out masqueraded through the uplinks only: never
+# into a VPN or USB network that happens to forward too.
 # IPv4 forwarding is decided on the receiving interface, so it is switched on
-# for wlan0 and the interfaces of the default routes (replies come in there),
-# never globally: net.ipv4.ip_forward resets every interface's settings.
+# for wlan0 and the uplinks (replies come in there), never globally:
+# net.ipv4.ip_forward resets every interface's settings. S30eth runs
+# ap-uplinks after it brings Ethernet up, so a VLAN made later counts too.
+ap_uplinks() {
+    vlan=$(cat "$NANOKVM_ETH_VLAN_STATE" 2>/dev/null)
+    for dev in eth0 $vlan $("$NANOKVM_IP" -4 route show default | sed -n 's/.* dev \([^ ]*\).*/\1/p'); do
+        case "$dev" in wlan0|"") ;; *) echo "$dev" ;; esac
+    done | sort -u
+}
+
 ap_internet_start() {
     ipv4_prefix=$1
     allow=
     nat=
-    if [ "$2" = internet ]; then
+    uplinks=
+    [ "$2" != internet ] || uplinks=$(ap_uplinks)
+    if [ -n "$uplinks" ]; then
+        # shellcheck disable=SC2086 # one word per uplink
+        oifs=$(printf '"%s", ' $uplinks)
+        oifs="{ ${oifs%, } }"
         allow="  iifname \"wlan0\" ct state invalid counter drop
-  iifname \"wlan0\" oifname != \"wlan0\" ip saddr $ipv4_prefix.0/24 tcp flags syn tcp option maxseg size set rt mtu
-  iifname \"wlan0\" oifname != \"wlan0\" ip saddr $ipv4_prefix.0/24 counter accept
-  iifname != \"wlan0\" oifname \"wlan0\" ip daddr $ipv4_prefix.0/24 ct state { established, related } counter accept"
+  iifname \"wlan0\" oifname $oifs ip saddr $ipv4_prefix.0/24 tcp flags syn tcp option maxseg size set rt mtu
+  iifname \"wlan0\" oifname $oifs ip saddr $ipv4_prefix.0/24 counter accept
+  iifname $oifs oifname \"wlan0\" ip daddr $ipv4_prefix.0/24 ct state { established, related } counter accept"
         nat=" chain nat { type nat hook postrouting priority srcnat; policy accept;
-  iifname \"wlan0\" oifname != \"wlan0\" ip saddr $ipv4_prefix.0/24 counter masquerade
+  iifname \"wlan0\" oifname $oifs ip saddr $ipv4_prefix.0/24 counter masquerade
  }"
     fi
     "$NANOKVM_NFT" -f - <<EOF || return 1
@@ -220,12 +235,12 @@ $allow
 $nat
 }
 EOF
-    if [ "$2" != internet ]; then
+    if [ -z "$uplinks" ]; then
         ap_forwarding_restore
         return 0
     fi
     # Ethernet also when its lease comes after the access point.
-    for dev in wlan0 eth0 $("$NANOKVM_IP" -4 route show default | sed -n 's/.* dev \([^ ]*\).*/\1/p'); do
+    for dev in wlan0 $uplinks; do
         forwarding=$NANOKVM_IPV4_CONF_DIR/$dev/forwarding
         if [ "$(cat "$forwarding" 2>/dev/null)" = 0 ] && echo 1 > "$forwarding"; then
             echo "$dev" >> "$AP_FORWARDING"
@@ -813,6 +828,16 @@ ap_internet_apply() {
     "$NANOKVM_UDHCPD" -S "$UDHCPD_CONFIG" || return 1
 }
 
+# ap-uplinks: Ethernet came up again (S30eth), perhaps on a new VLAN
+# interface: the running access point's forwarding and NAT follow it. The
+# clients and the DHCP server stay as they are.
+ap_uplinks_apply() {
+    [ -e "$USER_AP_FLAG" ] && [ -e "$AP_PREFIX.internet" ] || return 0
+    ipv4_prefix=$(sed -n 's/^start \(.*\)\.100$/\1/p' "$UDHCPD_CONFIG" 2>/dev/null)
+    [ -n "$ipv4_prefix" ] || return 0
+    ap_internet_start "$ipv4_prefix" internet
+}
+
 # wpa_supplicant and hostapd deauthenticate through the SDIO driver before
 # they exit, which can take a few seconds. One started meanwhile finds the
 # control socket in use and fails, and Wi-Fi stays down. Wait for the old
@@ -892,6 +917,7 @@ case "${1:-}" in
         ;;
     restart) restart ;;
     ap-internet) ap_internet_apply ;;
+    ap-uplinks) ap_uplinks_apply ;;
     # Run by wpa_cli -a (start_event_handler).
     wlan0) wifi_event "${2:-}" ;;
 esac

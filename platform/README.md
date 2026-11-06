@@ -17,7 +17,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel`, `/usr/share/licenses/nanokvm-kernel/initramfs` |
 | `images/u-boot.bin`, `images/fip.bin` | boot partition of the SD image |
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
-| `images/native/*.so` (6 HDMI-light libraries) | `nanokvm`, `/kvmapp/server/dl_lib` |
+| `images/native/*.so` (2 HDMI-light libraries) | `nanokvm`, `/kvmapp/server/dl_lib` |
 | `images/system/kvm_system` | `nanokvm`, `/kvmapp/kvm_system` |
 | `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm`, `nanokvm-base` |
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
@@ -148,7 +148,7 @@ The build also uses these parts of the repository:
 - `firmware/buildroot/`: platform-only source patches and `configs/nanokvm_platform_defconfig` for the toolchain, host tools and initramfs userland;
 - `firmware/boards/`: the board device trees and the board probe;
 - `firmware/sensor/patches/`: NanoKVM I2C/MIPI wiring and LT6911UXC/LT6911D identification; applied before compiling MMF;
-- `firmware/mpi/`: the MMF capture-size helper, compatibility headers and the hashes of the SOPHGO ISP objects (`vendor-isp-objects.json`);
+- `firmware/mpi/`: the MMF capture-size helper and compatibility headers;
 - `firmware/alpine/`: the APK recipes, OpenRC services and compatibility scripts, `release.env` with the version;
 - `server/`, `web/`, `support/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
 - `scripts/`: the component builders that `build.sh` calls.
@@ -190,7 +190,7 @@ scripts/compare-outputs.py --check ci/SHA256SUMS build/platform/images/SHA256SUM
 
 The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO and with `-mno-strict-align` (the C906 handles misaligned access in hardware), while source-owned userspace uses scalar `-O2`.
 
-Kernel, device trees and modules change with the reviewed C906 vector-context, video-clock and memory-profile updates. The AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools are built from the pinned inputs. Closed SOPHGO ISP/3A objects remain pinned binary inputs: relinking does not recompile those objects. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
+Kernel, device trees and modules change with the reviewed C906 vector-context, video-clock and memory-profile updates. The AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools are built from the pinned inputs. The closed SOPHGO ISP/3A objects are not used: the HDMI receiver's YUV bypasses the ISP's image processing. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
 
 Audit the effective compiler commands as well as the supplied flags:
 
@@ -290,7 +290,7 @@ RustDesk performance build, measurement limits and release checksum policy.
 
 ## HDMI-light media runtime
 
-The standard build and `nanokvm` ship the complete six-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the four vendor algorithm DSOs remain separate. `platform/build.sh native` always selects this bundle.
+The standard build and `nanokvm` ship the two-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the HDMI receiver's YUV bypasses the ISP's image processing, so no ISP/3A algorithm library is linked or shipped. `platform/build.sh native` always selects this bundle.
 
 APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
 

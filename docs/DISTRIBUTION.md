@@ -17,7 +17,7 @@ These components are published by their authors in public repositories but carry
 
 | Component | Publisher | Used for |
 |---|---|---|
-| `cvi_mpi`, including about 900 prebuilt ISP and audio objects | [SOPHGO](https://github.com/sophgo/cvi_mpi) | the media libraries in `/kvmapp/server/dl_lib` |
+| `cvi_mpi` (its prebuilt ISP/3A and audio objects are not built or shipped) | [SOPHGO](https://github.com/sophgo/cvi_mpi) | the media libraries in `/kvmapp/server/dl_lib` |
 | `SensorSupportList` | [SOPHGO](https://github.com/sophgo/SensorSupportList) | the LT6911 HDMI receiver driver in `libkvm_mmf` |
 | `cviruntime`, `cvikernel` and the model schema `cvibuilder`, the TPU runtime | [SOPHGO](https://github.com/sophgo/cviruntime), as ported to dma-buf heaps in [duo-buildroot-sdk-v2](https://github.com/leafpmpmp/duo-buildroot-sdk-v2/tree/mainline-tpu) | `nanokvm-ocr` and `nanokvm-screen` in `nanokvm-tpu` (linked statically) |
 | `coda980.bin`, `monet.bin` video codec firmware | [Sipeed LicheeRV-Nano-Build](https://github.com/sipeed/LicheeRV-Nano-Build) | `/usr/share/fw_vcodec` |

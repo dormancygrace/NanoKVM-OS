@@ -5,7 +5,7 @@ It calls these component builders:
 
 | Script | Builds |
 |---|---|
-| build-mpi.sh, build-isp-vendor.py, build-mpi-bin.py | the SOPHGO media libraries |
+| build-mpi.sh, build-isp.py, build-mpi-bin.py | the SOPHGO media libraries |
 | build-mmf.py, build-capture.py | `libkvm_mmf.so` and `libkvm.so` |
 | build-system.py | `kvm_system` |
 | build-server-existing-libs.py | `NanoKVM-Server`, `nkos-update` and `nkos-apply-updates` |

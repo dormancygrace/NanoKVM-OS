@@ -77,6 +77,16 @@ type Rendered struct {
 	Device   string
 	Time     time.Time
 	Image    []byte
+
+	// delivery is shared by the attempts of one delivery; nil for a test.
+	delivery *delivery
+}
+
+// delivery is what the attempts of one delivery share, so a retry does not
+// repeat what an earlier attempt got through.
+type delivery struct {
+	id        string
+	photoSent bool
 }
 
 // Text is the body with the device and the time under it, for channels with
@@ -298,7 +308,9 @@ func (s *Service) dispatch(e Event) {
 			log.Warnf("notifications: %s %q is behind, dropped %s", ch.Type, ch.Name, e.Message)
 			continue
 		}
-		go s.deliver(ch, render(e, config.Language, config.template(ch.Template)))
+		r := render(e, config.Language, config.template(ch.Template))
+		r.delivery = &delivery{id: newID()}
+		go s.deliver(ch, r)
 	}
 }
 

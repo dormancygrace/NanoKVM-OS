@@ -257,7 +257,7 @@ func sendTelegram(ctx context.Context, ch Channel, r Rendered) error {
 	base := api + "/bot" + ch.get("token") + "/"
 	text := r.Title + "\n" + r.Text()
 	thread := ch.get("threadId")
-	if r.Image != nil {
+	if r.Image != nil && (r.delivery == nil || !r.delivery.photoSent) {
 		// A caption holds 1024 characters: a longer text follows the picture.
 		caption := text
 		if utf8.RuneCountInString(text) > 1024 {
@@ -270,6 +270,10 @@ func sendTelegram(ctx context.Context, ch Channel, r Rendered) error {
 		}
 		if err := f.post(ctx, ch, base+"sendPhoto"); err != nil || caption == text {
 			return err
+		}
+		// A retry of the text must not post the picture again.
+		if r.delivery != nil {
+			r.delivery.photoSent = true
 		}
 	}
 	payload := map[string]any{
@@ -415,8 +419,14 @@ func sendPushover(ctx context.Context, ch Channel, r Rendered) error {
 }
 
 func sendMatrix(ctx context.Context, ch Channel, r Rendered) error {
+	// The transaction id makes a retry of a request whose answer was lost
+	// a no-op, so it stays the same for every attempt of a delivery.
+	txn := newID()
+	if r.delivery != nil {
+		txn = r.delivery.id
+	}
 	target := strings.TrimRight(ch.get("homeserver"), "/") + "/_matrix/client/v3/rooms/" +
-		url.PathEscape(ch.get("roomId")) + "/send/m.room.message/nanokvm-" + newID()
+		url.PathEscape(ch.get("roomId")) + "/send/m.room.message/nanokvm-" + txn
 	body, err := json.Marshal(map[string]string{"msgtype": "m.text", "body": r.Title + "\n" + r.Text()})
 	if err != nil {
 		return permanent(err)

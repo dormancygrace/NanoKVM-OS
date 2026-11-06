@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestFirstBootCertificateAndReuse(t *testing.T) {
@@ -66,5 +67,27 @@ func TestExistingInvalidAndCustomCertificatesArePreserved(t *testing.T) {
 	after, _ := os.ReadFile(key)
 	if string(after) != "existing key" {
 		t.Fatal("overwrote existing key")
+	}
+}
+
+func TestExpiredGeneratedCertificateIsReplaced(t *testing.T) {
+	dir := t.TempDir()
+	cert, key := filepath.Join(dir, "cert"), filepath.Join(dir, "key")
+	// Made at a first boot with the clock in 1970.
+	certNow = func() time.Time { return time.Unix(0, 0) }
+	defer func() { certNow = time.Now }()
+	if err := ensureGeneratedCertificate(cert, key); err != nil {
+		t.Fatal(err)
+	}
+	certNow = time.Now
+	if err := ensureGeneratedCertificate(cert, key); err != nil {
+		t.Fatal(err)
+	}
+	pair, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if time.Now().After(pair.Leaf.NotAfter) {
+		t.Fatal("expired certificate kept, valid until", pair.Leaf.NotAfter)
 	}
 }

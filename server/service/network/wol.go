@@ -18,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/internal/atomicfile"
+	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 )
 
@@ -32,8 +33,25 @@ const maxWolHistory = 100
 var wolMacMutex sync.Mutex
 
 // Any user may wake, and every wake runs ether-wake and broadcasts on the
-// LAN: one a second on average, five at once.
-var wolLimiter = &wakeLimiter{burst: 5, every: time.Second}
+// LAN: each user one a second on average, five at once, and all users
+// together twice that. One user filling a single shared budget used to
+// starve the others, the administrator included.
+var (
+	wolLimiter      = &wakeLimiter{burst: 10, every: time.Second / 2}
+	wolUserMu       sync.Mutex
+	wolUserLimiters = map[string]*wakeLimiter{}
+)
+
+func wolUserLimiter(user string) *wakeLimiter {
+	wolUserMu.Lock()
+	defer wolUserMu.Unlock()
+	limiter := wolUserLimiters[user]
+	if limiter == nil {
+		limiter = &wakeLimiter{burst: 5, every: time.Second}
+		wolUserLimiters[user] = limiter
+	}
+	return limiter
+}
 
 // Wakes add new addresses to the history in memory, and the file is
 // rewritten at most once per wolFlushInterval: a loop of wakes with fresh
@@ -99,7 +117,11 @@ func (s *Service) WakeOnLAN(c *gin.Context) {
 		return
 	}
 
-	if err := Wake(req.Mac, req.Interface); err != nil {
+	user := ""
+	if principal, ok := middleware.CurrentPrincipal(c); ok {
+		user = principal.Username
+	}
+	if err := WakeAs(user, req.Mac, req.Interface); err != nil {
 		var wakeErr *WakeError
 		if errors.As(err, &wakeErr) {
 			rsp.ErrRsp(c, wakeErr.Code, wakeErr.Message)
@@ -120,8 +142,12 @@ type WakeError struct {
 func (e *WakeError) Error() string { return e.Message }
 
 // Wake sends a magic packet to mac through iface ("" picks one), with the
-// web page's checks and rate limit, and remembers the address.
-func Wake(macAddress, iface string) error {
+// web page's checks and rate limit, and remembers the address. The MCP tools
+// call it and share one user's part of the limit.
+func Wake(macAddress, iface string) error { return WakeAs("", macAddress, iface) }
+
+// WakeAs is Wake within user's own share of the rate limit.
+func WakeAs(user, macAddress, iface string) error {
 	mac, err := parseMAC(macAddress)
 	if err != nil {
 		return &WakeError{-2, "invalid MAC address"}
@@ -132,7 +158,8 @@ func Wake(macAddress, iface string) error {
 		return &WakeError{-2, "invalid network interface"}
 	}
 
-	if !wolLimiter.allow(time.Now()) {
+	now := time.Now()
+	if !wolUserLimiter(user).allow(now) || !wolLimiter.allow(now) {
 		return &WakeError{-4, "too many wake requests, try again in a second"}
 	}
 

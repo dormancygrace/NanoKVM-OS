@@ -40,6 +40,7 @@ function harness(options = {}) {
     animation;
   const screenshotConversions = [];
   class Socket {
+    static CONNECTING = 0;
     static OPEN = 1;
     static CLOSED = 3;
     readyState = 1;

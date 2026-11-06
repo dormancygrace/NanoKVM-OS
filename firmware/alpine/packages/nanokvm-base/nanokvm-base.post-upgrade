@@ -16,6 +16,8 @@ rc-update add loopback boot
 # NanoKVM services load their drivers; the kernel set the clock from the RTC.
 rc-update del hwdrivers boot >/dev/null 2>&1 || true
 [ ! -x /etc/init.d/osclock ] || rc-update add osclock boot
+# The clock no longer starts in 1970 after a power loss (added after 4.0.0).
+[ ! -x /etc/init.d/nanokvm-clock ] || rc-update add nanokvm-clock boot
 # OpenRC builds its dependency tree from all init scripts at every boot (about
 # 2 s) unless savecache kept it at shutdown; it rebuilds the tree by itself
 # when a script or a setting changed since.
@@ -34,6 +36,7 @@ rc-update del hwdrivers boot >/dev/null 2>&1 || true
 #   kept from udev anyway). On the stand the server started 1 s sooner. An
 #   rc_coldplug the user set stays.
 if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd; then
+    # shellcheck disable=SC2016 # literal text
     printf '%s\n' '# NanoKVM: no `sshd -G` while OpenRC builds its dependency tree' 'rc_need=""' >> /etc/conf.d/sshd
 fi
 if [ -f /etc/conf.d/bootmisc ]; then
@@ -42,6 +45,7 @@ fi
 # NanoKVM udev coldplug default: evaluated when OpenRC sources the config.
 # Preserve service-local, exported, global and legacy-uppercase preferences.
 udev_trigger=/etc/conf.d/udev-trigger
+# shellcheck disable=SC2016 # written verbatim, expanded by OpenRC
 udev_default=': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"'
 if [ -f "$udev_trigger" ] && ! grep -Fqx "$udev_default" "$udev_trigger"; then
     printf '\n%s\n%s\n' '# NanoKVM: default to device-node and network replay' "$udev_default" >> "$udev_trigger"
@@ -58,6 +62,7 @@ fi
 # fstab /boot noauto: nanokvm-storage mounts the boot and data partitions
 # itself, checking a volume left dirty by a power loss; localmount would mount
 # them before that. Only the two NanoKVM entries change.
+# shellcheck disable=SC2016 # an awk program
 nanokvm_fstab_entry='($1 == "/dev/mmcblk0p1" && $2 == "/boot" || $1 == "/dev/mmcblk0p3" && $2 == "/data") && $4 !~ /(^|,)noauto(,|$)/'
 if [ -f /etc/fstab ] && awk "$nanokvm_fstab_entry { found = 1 } END { exit !found }" /etc/fstab; then
     awk "$nanokvm_fstab_entry"' { $4 = "noauto," $4 } { print }' \

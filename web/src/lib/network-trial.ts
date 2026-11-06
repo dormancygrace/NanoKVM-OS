@@ -46,9 +46,16 @@ export function finishNetworkTrial(result: NetworkTrialResult) {
   window.dispatchEvent(new CustomEvent<NetworkTrialResult>(networkTrialDone, { detail: result }));
 }
 
+// A host without the brackets that location.hostname keeps around an IPv6
+// address, as the server lists the trial's hosts.
+export function bareHost(host: string) {
+  return host.replace(/^\[(.*)\]$/, '$1');
+}
+
 // The device's page at another address, with this page's scheme and port.
 export function originOf(host: string) {
-  const name = host.includes(':') ? `[${host}]` : host;
+  const bare = bareHost(host);
+  const name = bare.includes(':') ? `[${bare}]` : bare;
   const port = window.location.port ? `:${window.location.port}` : '';
   return `${window.location.protocol}//${name}${port}`;
 }

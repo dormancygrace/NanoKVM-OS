@@ -115,7 +115,10 @@ const (
 
 // coalesced are the messages an outsider can repeat at will, with the time
 // in which only one of them is sent.
-var coalesced = map[string]time.Duration{"security.lockout": 10 * time.Minute}
+var coalesced = map[string]time.Duration{
+	"security.lockout":       10 * time.Minute,
+	"security.attempt-limit": 10 * time.Minute,
+}
 
 // heldEvents are the events of a coalesced message held back since.
 type heldEvents struct {

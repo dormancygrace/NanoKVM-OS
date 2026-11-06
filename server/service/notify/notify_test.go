@@ -79,27 +79,31 @@ func TestTemplateRender(t *testing.T) {
 // Lockouts of many addresses send one message, then one with the count of
 // the rest, and the host's events still go out meanwhile.
 func TestLockoutsCoalesce(t *testing.T) {
-	s := newService(t.TempDir() + "/config.json")
-	s.config.Channels = []Channel{{ID: "a", Type: "webhook", Enabled: true, Events: []Kind{KindSecurity, KindPower}}}
-	sent := make(chan string, 16)
-	s.send = func(_ context.Context, _ Channel, r Rendered) error {
-		sent <- string(r.Kind) + ": " + r.Body
-		return nil
-	}
-	start := time.Now()
-	s.now = func() time.Time { return start }
-	for i := 0; i <= 10; i++ {
-		if i == 10 {
-			s.dispatch(Event{Kind: KindPower, Message: "power.off"})
-			s.now = func() time.Time { return start.Add(11 * time.Minute) }
-		}
-		s.dispatch(Event{Kind: KindSecurity, Message: "security.lockout", Vars: map[string]string{"address": strconv.Itoa(i)}})
-	}
-	time.Sleep(200 * time.Millisecond)
-	bodies := []string{<-sent, <-sent, <-sent}
-	slices.Sort(bodies)
-	if len(sent) > 0 || !strings.HasPrefix(bodies[0], "power: ") || !strings.HasSuffix(bodies[2], "9 more addresses blocked since "+start.Format("15:04")+".") {
-		t.Fatalf("%q, %d more", bodies, len(sent))
+	for _, message := range []string{"security.lockout", "security.attempt-limit"} {
+		t.Run(message, func(t *testing.T) {
+			s := newService(t.TempDir() + "/config.json")
+			s.config.Channels = []Channel{{ID: "a", Type: "webhook", Enabled: true, Events: []Kind{KindSecurity, KindPower}}}
+			sent := make(chan string, 16)
+			s.send = func(_ context.Context, _ Channel, r Rendered) error {
+				sent <- string(r.Kind) + ": " + r.Body
+				return nil
+			}
+			start := time.Now()
+			s.now = func() time.Time { return start }
+			for i := 0; i <= 10; i++ {
+				if i == 10 {
+					s.dispatch(Event{Kind: KindPower, Message: "power.off"})
+					s.now = func() time.Time { return start.Add(11 * time.Minute) }
+				}
+				s.dispatch(Event{Kind: KindSecurity, Message: message, Vars: map[string]string{"address": strconv.Itoa(i)}})
+			}
+			time.Sleep(200 * time.Millisecond)
+			bodies := []string{<-sent, <-sent, <-sent}
+			slices.Sort(bodies)
+			if len(sent) > 0 || !strings.HasPrefix(bodies[0], "power: ") || !strings.HasSuffix(bodies[2], "9 more addresses blocked since "+start.Format("15:04")+".") {
+				t.Fatalf("%q, %d more", bodies, len(sent))
+			}
+		})
 	}
 }
 

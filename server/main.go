@@ -170,8 +170,10 @@ func run() {
 		// Every request is the administrator: other sites must not read
 		// the API or post to the device from the user's browser. Only the
 		// origins in security.allowedOrigins (a development web server)
-		// get cross-origin access.
-		r.Use(middleware.AllowedOriginCORS(), middleware.RejectCrossOriginWrites())
+		// get cross-origin access, and over plain HTTP only the device's
+		// own names: another site's name rebound to the device's address
+		// would pass the origin checks.
+		r.Use(middleware.RequireDeviceHost(), middleware.AllowedOriginCORS(), middleware.RejectCrossOriginWrites())
 	}
 
 	router.Init(r)

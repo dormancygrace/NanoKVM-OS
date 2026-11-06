@@ -372,14 +372,17 @@ assets; local build output is not needed on this recovery path. Missing or
 corrupt storage stops with its tag in the error; restore its original files
 before retrying. The public OS release is not modified.
 
-To discard and rebuild an **OS version that has never been published**, discard
-both its OS draft and its `os-packages-<version>` release, plus both associated
-tags if present. Check that no published OS version used this storage first.
-Removing only the OS draft is insufficient: the allocator proposes the same
-version again, while the surviving published storage rejects a rebuilt set of
-bytes. This is a deliberate manual cleanup, never an automatic deletion by the
-publisher. Do not apply this procedure to a version that has ever been published;
-issue a new patch/beta version instead, retaining its existing files for clients.
+An **OS version that has never been published** cannot be rebuilt from another
+commit: its packages stay staged for that commit, as the
+`pages-candidate-os-<version>` Actions artifact for 90 days and, once the APK
+repository workflow has run, as the pending `os/<version>` snapshot in the Pages
+catalog, and staging refuses that version from any other commit. To abandon it,
+keep its draft and tag and release the next version instead. Deleting the draft
+does not free the version: the allocator then proposes it again, and the build
+fails at staging. Delete an abandoned draft only once a newer release of its
+channel exists. For a pushed tag, set the next version in `release.env`. Do not
+delete a version that has ever been published; issue a new patch/beta version
+instead, retaining its existing files for clients.
 
 If only the Pages dispatch failed after OS publication, rerunning the publisher
 or dispatching `apk-repository.yml` from main is sufficient. Existing published

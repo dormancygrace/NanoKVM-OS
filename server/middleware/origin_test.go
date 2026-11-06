@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -122,5 +123,13 @@ func TestRequireDeviceHost(t *testing.T) {
 		if recorder.Code != test.want {
 			t.Errorf("Host %q from %s = %d, want %d", test.host, test.remote, recorder.Code, test.want)
 		}
+	}
+	// Over HTTPS the certificate already refuses a rebound name.
+	request := httptest.NewRequest(http.MethodPost, "/api/x", nil)
+	request.Host, request.TLS = "kvm.example.com", &tls.ConnectionState{}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("HTTPS with a custom name = %d", recorder.Code)
 	}
 }

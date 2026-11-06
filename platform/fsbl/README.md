@@ -2,8 +2,12 @@
 
 The `fip` step builds BL2 from `fsbl/` of the Sipeed SDK at the `sipeed-sdk`
 commit in `../sources.lock`, with the patches of this directory, and puts it
-into `fip.bin` in place of the stock BL2 of `../fip/base-fip.bin`. The chip
-configuration and DDR parameters stay those of the base FIP.
+into `fip.bin` with the chip configuration (`plat/cv181x/chip_conf.py`) and
+DDR parameter block (`test/cv181x/ddr_param.bin`) of the same tree, as the
+SDK's `make_helpers/fip.mk` does. This BL2 loads and CRC-checks the DDR
+parameter block but only logs its first word: the DDR setup is compiled in.
+The result is byte-identical to the stock FIP's chip configuration and DDR
+parameters, which the build used before.
 
 ## Source of the stock BL2
 

@@ -7,7 +7,6 @@ NanoKVM OS retains component-specific upstream licenses. The root GPL-3.0 licens
 - The application, web UI, board service, packaging, OpenRC services and build recipes.
 - Patches to upstream components (`platform/kernel`, `platform/uboot`, `platform/fsbl`, `platform/modules`, `platform/native`).
 - Pins of every upstream input in `platform/sources.lock`, with their hashes.
-- `platform/fip/base-fip.bin`, the stock Sipeed first-stage boot firmware; the build takes its chip configuration and DDR parameters (see [platform/README.md](../platform/README.md#corresponding-source)).
 - The public APK signing key of NanoKVM OS releases (`firmware/alpine/keys`).
 
 Upstream sources are not copied into this repository. `platform/build.sh` downloads each one from its own publisher and checks it against `sources.lock`.

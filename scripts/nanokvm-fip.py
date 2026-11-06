@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build/validate SG2002 FIP; independently check vendor format, CRCs, preservation and the built BL2."""
+"""Build/validate SG2002 FIP from built parts; independently check vendor format, CRCs and every part."""
 import argparse
 import binascii
 import hashlib
@@ -16,10 +16,15 @@ MONITOR_ADDR = 0x80000000
 UBOOT_ADDR = 0x80200000
 SMALL_CORE_ADDR = 0x8d000000
 SMALL_CORE_SIZE = 0x200000
-# PARAM1 fields that change when BL2 is replaced; everything else in the
-# first 4 KiB (chip configuration, NAND/NOR info, BLCP) stays the base FIP's.
-P1_BL2_KEYS = ("BL2_IMG_CKSUM", "BL2_IMG_SIZE", "PARAM2_LOADADDR")
-# Layout from pinned Sipeed fsbl/plat/cv181x/fiptool.py (BSD-3-Clause FSBL).
+# PARAM1 values of the SDK's fip.mk (fip-all) for an SD boot with no small
+# core: no NAND, NOR info unset (all 0xff), an empty BLCP image at the SDK's
+# run address. CHIP_CONF is a fixed 760-byte field followed by key and
+# signature fields, all zero without secure boot.
+NOR_INFO = bytes([0xff]) * 36
+BLCP_IMG_RUNADDR = 0x05200200
+CHIP_CONF_OFFSET = 232
+CHIP_CONF_FIELD = 760
+# Layout from pinned Sipeed fsbl/plat/cv181x/fiptool.py (GPL-2.0 FSBL, sophgo/fsbl).
 P1_FIELDS = [
     ("MAGIC1", 8), ("MAGIC2", 4), ("PARAM_CKSUM", 4), ("NAND_INFO", 128),
     ("NOR_INFO", 36), ("FIP_FLAGS", 8), ("CHIP_CONF_SIZE", 4),
@@ -114,30 +119,23 @@ def inspect(data):
     return p1, p2, parts, spans
 
 
-def param1_without_bl2(data):
-    """PARAM1 with the BL2-dependent fields and its CRC zeroed."""
-    out = bytearray(data[:4096])
-    names = [n for n, _ in P1_FIELDS]
-    for key in P1_BL2_KEYS + ("PARAM_CKSUM",):
-        index = names.index(key)
-        offset = sum(size for _, size in P1_FIELDS[:index])
-        out[offset:offset + P1_FIELDS[index][1]] = bytes(P1_FIELDS[index][1])
-    return bytes(out)
-
-
-def validate(base, candidate, bl2, monitor, uboot, manifest):
-    old1, old2, old, _ = inspect(base)
-    new1, new2, new, spans = inspect(candidate)
-    require(param1_without_bl2(base) == param1_without_bl2(candidate),
-            "first-stage parameters changed")
+def validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest):
+    p1, p2, new, spans = inspect(candidate)
+    for key, value in (("MAGIC2", 0), ("NAND_INFO", 0), ("NOR_INFO", int.from_bytes(NOR_INFO, "little")),
+                       ("FIP_FLAGS", 0), ("CHIP_CONF_SIZE", CHIP_CONF_FIELD), ("BLCP_IMG_SIZE", 0),
+                       ("BLCP_IMG_RUNADDR", BLCP_IMG_RUNADDR), ("BLCP_PARAM_LOADADDR", 0),
+                       ("BLCP_PARAM_SIZE", 0)):
+        require(p1[key] == value, "unexpected first-stage parameter " + key)
+    require(len(chip_conf) <= CHIP_CONF_FIELD and
+            candidate[CHIP_CONF_OFFSET:CHIP_CONF_OFFSET + CHIP_CONF_FIELD] ==
+            chip_conf + bytes(CHIP_CONF_FIELD - len(chip_conf)), "packaged chip configuration differs")
+    require(not any(candidate[CHIP_CONF_OFFSET - 4:CHIP_CONF_OFFSET]) and
+            not any(candidate[CHIP_CONF_OFFSET + CHIP_CONF_FIELD:4096]),
+            "unexpected first-stage keys or signatures")
     require(new["BL2"] == bl2 + bytes((-len(bl2)) % ALIGN), "packaged BL2 differs from the built FSBL")
-    for name in ("BLCP", "DDR_PARAM", "BLCP_2ND"):
-        require(old[name] == new[name], name + " changed")
-    # The FIP tool lays the second stage out after BL2, so its offsets move
-    # with the BL2 size; contents, sizes and run addresses must not.
-    for key in ("DDR_PARAM_CKSUM", "DDR_PARAM_SIZE", "DDR_PARAM_RESERVED",
-                "BLCP_2ND_CKSUM", "BLCP_2ND_SIZE", "BLCP_2ND_RUNADDR"):
-        require(old2[key] == new2[key], key + " changed")
+    require(new["DDR_PARAM"] == ddr_param + bytes((-len(ddr_param)) % ALIGN), "packaged DDR parameters differ")
+    require(p2["DDR_PARAM_SIZE"] == len(new["DDR_PARAM"]), "unexpected DDR parameter size")
+    require(not new["BLCP"], "unexpected BLCP image")
     # The M-mode DT reserves no memory at SMALL_CORE_ADDR (platform/opensbi/nanokvm.dts),
     # so a small-core image there would be overwritten by Linux.
     require(not new["BLCP_2ND"], "BLCP_2ND image requires a small-core reservation in the OpenSBI DT")
@@ -159,19 +157,19 @@ def validate(base, candidate, bl2, monitor, uboot, manifest):
     require(dec.decompress(loader[32:], max_length=len(uboot) + 1) == uboot and dec.eof and not any(dec.unused_data),
             "packaged U-Boot differs or has extra compressed data")
     return {
-        "schema": 3, "base_fip_sha256": sha(base), "fip_sha256": sha(candidate),
+        "schema": 4, "fip_sha256": sha(candidate),
         "fip_bytes": len(candidate), "opensbi_version": manifest["version"],
         "opensbi_commit": manifest["upstream_commit"], "monitor_sha256": sha(monitor),
         "uboot_sha256": sha(uboot), "monitor_run_address": MONITOR_ADDR,
         "uboot_entry_address": UBOOT_ADDR, "pmp_bytes": manifest["pmp_bytes"],
         "pmp_regions": manifest["pmp_regions"],
-        "preserved_components": ["BLCP", "DDR_PARAM", "BLCP_2ND"],
         "bl2_sha256": sha(bl2), "bl2_bytes": len(bl2),
+        "chip_conf_sha256": sha(chip_conf), "ddr_param_sha256": sha(ddr_param),
         "components": {name: {"sha256": sha(new[name]), "bytes": len(new[name])}
                        for name in sorted(new)},
         "file_spans": [{"name": n, "offset": start, "end": end} for n, start, end in spans],
         "checks": ["parameter CRCs", "all image CRCs", "512-byte alignment", "no file overlaps",
-                   "first-stage parameters", "BL2 bytes", "DDR/small-core bytes", "no small-core image", "monitor bytes", "U-Boot decompression",
+                   "first-stage parameters", "chip configuration bytes", "BL2 bytes", "DDR parameter bytes", "no BLCP or small-core image", "monitor bytes", "U-Boot decompression",
                    "load/run addresses", "192 KiB split RO/RW PMP contract"],
         "hardware_validation": "pending",
         "apk_updates_fip": False
@@ -181,7 +179,7 @@ def validate(base, candidate, bl2, monitor, uboot, manifest):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("action", choices=("build", "verify"))
-    for name in ("base", "bl2", "monitor", "uboot", "opensbi-manifest", "output", "report"):
+    for name in ("chip-conf", "bl2", "ddr-param", "monitor", "uboot", "opensbi-manifest", "output", "report"):
         p.add_argument("--" + name, type=Path, required=True)
     p.add_argument("--tool", type=Path)
     a = p.parse_args()
@@ -192,18 +190,23 @@ def main():
             raw = Path(directory) / "u-boot-raw.bin"
             raw.write_bytes(struct.pack("<I4sIIQII", 0, b"BL33", 0, 32 + a.uboot.stat().st_size,
                                         UBOOT_ADDR - 32, 0, 0) + a.uboot.read_bytes())
-            # PARAM1, BLCP, DDR parameters and BLCP_2ND come from OLD_FIP.
-            result = subprocess.run([sys.executable, str(a.tool), "genfip", "--OLD_FIP", str(a.base),
-                            "--BL2", str(a.bl2),
+            empty = Path(directory) / "empty.bin"
+            empty.write_bytes(b"")
+            # The arguments of the SDK's fip.mk (fip-all), without a small core.
+            result = subprocess.run([sys.executable, str(a.tool), "genfip", str(a.output),
+                            "--CHIP_CONF", str(a.chip_conf), "--NOR_INFO", NOR_INFO.hex(),
+                            "--NAND_INFO", "00000000", "--BL2", str(a.bl2),
+                            "--BLCP_IMG_RUNADDR", hex(BLCP_IMG_RUNADDR), "--BLCP_PARAM_LOADADDR", "0",
+                            "--BLCP", str(empty), "--DDR_PARAM", str(a.ddr_param),
                             "--MONITOR", str(a.monitor), "--MONITOR_RUNADDR", hex(MONITOR_ADDR),
-                            "--LOADER_2ND", str(raw), "--compress", "lzma", str(a.output)],
+                            "--LOADER_2ND", str(raw), "--compress", "lzma"],
                            capture_output=True)
             (a.output.parent / "fiptool.log").write_bytes(result.stdout + result.stderr)
             require(result.returncode == 0, "vendor FIP tool failed; see fiptool.log")
-    report = validate(a.base.read_bytes(), a.output.read_bytes(), a.bl2.read_bytes(),
-                      a.monitor.read_bytes(), a.uboot.read_bytes(), manifest)
+    report = validate(a.output.read_bytes(), a.bl2.read_bytes(), a.chip_conf.read_bytes(),
+                      a.ddr_param.read_bytes(), a.monitor.read_bytes(), a.uboot.read_bytes(), manifest)
     a.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    print(f"FIP verified: {len(a.output.read_bytes())} bytes; OpenSBI {manifest['version']}; built BL2; DDR/small core preserved")
+    print(f"FIP verified: {len(a.output.read_bytes())} bytes; OpenSBI {manifest['version']}; all parts built")
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -124,4 +125,9 @@ func TestRememberAddress(t *testing.T) {
 		check("admin", "192.0.2."+string(rune('a'+i%26))+string(rune('a'+i/26)), false)
 	}
 	check("admin", "10.0.0.1", false) // forgotten: the list holds the newest
+	// An address in use stays while newer ones push the others out.
+	for i := 0; i < maxAddresses; i++ {
+		check("admin", "198.51.100."+strconv.Itoa(i), false)
+		check("admin", "10.0.0.1", true)
+	}
 }

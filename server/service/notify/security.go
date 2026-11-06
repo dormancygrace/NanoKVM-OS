@@ -18,7 +18,7 @@ import (
 // "login from a new address" event.
 const AddressesPath = "/etc/kvm/notify/addresses.json"
 
-// maxAddresses per user; the oldest is forgotten first.
+// maxAddresses per user; one not used for long is forgotten first.
 const maxAddresses = 32
 
 var addressesMu sync.Mutex
@@ -82,20 +82,29 @@ func rememberAddress(path, user, address string) (bool, error) {
 		}
 	}
 	list, seen := lists[user]
-	if slices.Contains(list, address) {
-		return true, nil
+	known := false
+	if i := slices.Index(list, address); i >= 0 {
+		// An address in use moves to the newest end, so it is not forgotten
+		// before those left behind. Only one in the older half moves, so
+		// logins switching between a few addresses do not write each time.
+		if i >= len(list)-maxAddresses/2 {
+			return true, nil
+		}
+		list = slices.Delete(list, i, i+1)
+		known = true
 	}
 	list = append(list, address)
 	if len(list) > maxAddresses {
 		list = list[len(list)-maxAddresses:]
 	}
 	lists[user] = list
+	known = known || !seen
 	data, err = json.Marshal(lists)
 	if err != nil {
-		return !seen, err
+		return known, err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return !seen, err
+		return known, err
 	}
-	return !seen, atomicfile.Write(path, data, 0o600)
+	return known, atomicfile.Write(path, data, 0o600)
 }

@@ -53,6 +53,7 @@ base  file  /etc/sysctl.d/40-nanokvm-multihome.conf      0644  firmware/alpine/e
 # /etc/profile.d/nanokvm-banner.sh is added by the nanokvm-base APKBUILD.
 base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/openrc/nanokvm-app
 base  file  /etc/init.d/nanokvm-board                     0755  firmware/alpine/openrc/nanokvm-board
+base  file  /etc/init.d/nanokvm-clock                     0755  firmware/alpine/openrc/nanokvm-clock
 base  file  /etc/init.d/nanokvm-mdns                      0755  firmware/alpine/openrc/nanokvm-mdns
 base  file  /etc/init.d/nanokvm-modules                   0755  firmware/alpine/openrc/nanokvm-modules
 base  file  /etc/modprobe.d/nanokvm-media.conf            0644  firmware/alpine/modprobe.d/nanokvm-media.conf

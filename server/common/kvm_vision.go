@@ -16,6 +16,10 @@ package common
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_capture_fps");
         return fn ? fn(fps) : -1;
     }
+    static int set_first_capture_yuv420(unsigned char want) {
+        int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_first_capture_yuv420");
+        return fn ? fn(want) : -1;
+    }
     static int capture_reclaim_pending(void) {
         int (*fn)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "kvmv_capture_reclaim_pending");
         // An older library cannot report completion: retain conservative retries.
@@ -85,6 +89,11 @@ func GetKvmVision() *KvmVision {
 			log.Info("native capture worker disabled; using Go-paced blocking frame reads")
 		}
 
+		// kvmv_init starts the first capture; older libraries lack the symbol
+		// and start in 4:2:2. FirstCaptureYUV420 takes monitorMutex, so no
+		// monitorMutex holder may be first to call GetKvmVision: main calls it
+		// (Enable/DisableHdmiCapture) before the monitor profile goroutine.
+		C.set_first_capture_yuv420(C.uchar(boolToInt(FirstCaptureYUV420())))
 		logLevel := C.uint8_t(0)
 		C.kvmv_init(logLevel)
 		// Native VI mutex is ready; apply intent before HDMI readers start.

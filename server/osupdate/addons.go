@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"NanoKVM-Server/internal/apkrollback"
@@ -329,10 +330,24 @@ func CoreChanges(simulation, addon string) []string {
 
 var addonCheckTimeout = 2*noticeTimeout + 10*time.Second
 
+// addonCatalogRetry spaces the checks EnsureAddonCatalog starts: the page
+// polls every few seconds, and an offline device would otherwise run a full
+// update check on each poll. The page's check button is not limited.
+var (
+	addonCatalogRetry       = 10 * time.Minute
+	addonCatalogAutoAttempt atomic.Int64
+)
+
 // EnsureAddonCatalog starts a check when there is no list since boot and the
 // daily check is on, so the Add-ons page fills by itself after a reboot.
 func EnsureAddonCatalog() {
 	if _, ok := readCatalog(); ok || !NoticeEnabled() || noticeChecking.Load() {
+		return
+	}
+	now := time.Now().Unix()
+	last := addonCatalogAutoAttempt.Load()
+	if last != 0 && now-last < int64(addonCatalogRetry/time.Second) ||
+		!addonCatalogAutoAttempt.CompareAndSwap(last, now) {
 		return
 	}
 	go func() {

@@ -212,14 +212,9 @@ int get_ip_addr(ip_addr_t ip_type)
 	const std::string eth_interface = ethernet_interface();
 	switch (ip_type){
         case ETH_IP:
-        case WiFi_IP:
-        case Tailscale_IP:
-        case RNDIS_IP: {
-            const char *interface = ip_type == ETH_IP ? eth_interface.c_str() :
-                ip_type == WiFi_IP ? "wlan0" : ip_type == Tailscale_IP ? "tailscale0" : "usb0";
-            uint8_t *destination = ip_type == ETH_IP ? kvm_sys_state.eth_addr :
-                ip_type == WiFi_IP ? kvm_sys_state.wifi_addr :
-                ip_type == Tailscale_IP ? kvm_sys_state.tail_addr : kvm_sys_state.rndis_addr;
+        case WiFi_IP: {
+            const char *interface = ip_type == ETH_IP ? eth_interface.c_str() : "wlan0";
+            uint8_t *destination = ip_type == ETH_IP ? kvm_sys_state.eth_addr : kvm_sys_state.wifi_addr;
             const auto addresses = kvms::ip_address();
             const auto found = addresses.find(interface);
             memset(destination, 0, 16);
@@ -342,7 +337,7 @@ int kvm_wifi_exist()
 
 void kvm_update_usb_state()
 {
-	// usb_state, hid_state, rndis_state, udisk_state
+	// usb_state, hid_state, udisk_state
 	// sysfs reports a nominal size, not the length of its current value.
 	// Only the first character is needed; never seek or trust st_size/ftell.
 	kvm_sys_state.usb_state = -1;
@@ -355,7 +350,7 @@ void kvm_update_usb_state()
 		}
 		fclose(fp);
 	}
-	// hid_state & udisk_state (rndis_state单独处理)
+	// hid_state & udisk_state
 	if(kvm_sys_state.usb_state == 1){
 		kvm_sys_state.hid_state =
 			path_exists(USB_HID0_LINK) ||
@@ -624,30 +619,6 @@ void kvm_update_wifi_state(void)
 		// default:
 		// 	kvm_sys_state.wifi_state = -1;
 	}
-}
-
-void kvm_update_rndis_state(void)
-{
-	if (get_nic_state("usb0") == NIC_STATE_RUNNING) {
-		if(kvm_sys_state.rndis_state != 1) {
-			if (get_ip_addr(RNDIS_IP)) {
-				kvm_sys_state.rndis_state = 1;
-			}
-		}
-	}
-	else kvm_sys_state.rndis_state = 0;
-}
-
-void kvm_update_tailscale_state(void)
-{
-	if (get_nic_state("tailscale0") == NIC_STATE_RUNNING) {
-		if(kvm_sys_state.tail_state != 1){
-			if (get_ip_addr(Tailscale_IP)) {
-				kvm_sys_state.tail_state = 1;
-			}
-		}
-	}
-	else kvm_sys_state.tail_state = 0;
 }
 
 //============================================================================

@@ -163,8 +163,6 @@ void* thread_sys_handle(void *)
 			kvm_update_wifi_state();
 			if (oled_shows_state()) {
 				kvm_update_eth_state();
-				// kvm_update_rndis_state();
-				// kvm_update_tailscale_state();
 				// sys_state
 				kvm_update_usb_state();
 				kvm_update_hdmi_state();

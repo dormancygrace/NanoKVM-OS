@@ -41,15 +41,11 @@ struct kvm_sys_state_t {
 	uint8_t wifi_route[16] = {0};	// route ip
 	uint8_t eth_addr[16] = {0};		// ETH ip
 	uint8_t wifi_addr[16] = {0};	// WiFi ip
-	uint8_t tail_addr[16] = {0};	// Tailscale ip
-	uint8_t rndis_addr[16] = {0};	// RNDIS ip
 	int8_t  eth_state = -1;			// cat /sys/class/net/eth0/carrier
 	int8_t  wifi_state = -1;		// cat /sys/class/net/wlan0/carrier
-	int8_t  tail_state = -1;		// ifconfig tailscale0 | grep 'inet addr' | awk '{print $2}'
 	int8_t  hdmi_state = -1;		// Shared VI state, with a native fallback on failure
 	int8_t  usb_state = -1;			// cat /sys/class/udc/4340000.usb/state
 	int8_t  hid_state = -1;			// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GSn(n=012)
-	int8_t  rndis_state = -1;		// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/rndis.usb0
 	int8_t  udisk_state = -1;		// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/mass_storage.disk0
 	int8_t  host_pwr_state = -1;	// cat /sys/class/gpio/gpio504/value
 	int16_t hdmi_width = 0;			// cat /run/nanokvm/width
@@ -76,15 +72,11 @@ struct kvm_oled_state_t {
 	uint8_t wifi_route[16] = {0};	// route ip
 	uint8_t eth_addr[16] = {0};		// ETH ip
 	uint8_t wifi_addr[16] = {0};	// WiFi ip
-	uint8_t tail_addr[16] = {0};	// Tailscale ip
-	uint8_t rndis_addr[16] = {0};	// RNDIS ip
 	int8_t  eth_state = -1;			// cat /sys/class/net/eth0/carrier
 	int8_t  wifi_state = -1;		// cat /sys/class/net/wlan0/carrier
-	int8_t  tail_state = -1;		// ifconfig tailscale0 | grep inet\ addr | awk '{print $2}'
 	int8_t  hdmi_state = -1;		// Shared VI state, with a native fallback on failure
 	int8_t  usb_state = -1;			// cat /sys/class/udc/4340000.usb/state
 	int8_t  hid_state = -1;			// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/hid.GSn(n=012)
-	int8_t  rndis_state = -1;		// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/rndis.usb0
 	int8_t  udisk_state = -1;		// (exist?) /sys/kernel/config/usb_gadget/g0/configs/c.1/mass_storage.disk0
 	int8_t  host_pwr_state = -1;	// cat /sys/class/gpio/gpio504/value
 	int16_t hdmi_width = -1;		// cat /run/nanokvm/width

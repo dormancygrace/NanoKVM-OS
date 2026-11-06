@@ -4,7 +4,7 @@
 
 enum ip_addr_t
 {
-    ETH_IP=1, WiFi_IP, Tailscale_IP, RNDIS_IP, ETH_ROUTE, WiFi_ROUTE, NULL_IP
+    ETH_IP=1, WiFi_IP, ETH_ROUTE, WiFi_ROUTE, NULL_IP
 };
 
 #define NIC_STATE_UP 				1
@@ -31,8 +31,6 @@ void kvm_update_hdmi_res(void);
 void kvm_update_eth_state(void);
 void kvm_update_wifi_state(void);
 void kvm_observe_oled_ip_window(void);
-void kvm_update_rndis_state(void);
-void kvm_update_tailscale_state(void);
 int get_nic_state(const char* interface_name);
 
 #endif // SYSTEM_STATE_H_

@@ -75,15 +75,35 @@ tomllib.loads((stage/".cargo/config.toml").read_text())
 target="riscv64gc-unknown-linux-musl"
 target_dir=root/"work"/"rust-target"
 rust_flags=tomllib.loads(cargo_config)["target"][target]["rustflags"]
-# No RUSTFLAGS: it would override the flags of .cargo/config.toml.
+# .cargo/config.toml links the linker's musl (1.2.6), not rustup's older
+# self-contained copy (link-self-contained=no). Of the self-contained files
+# only LLVM's libunwind.a is still needed; it does not depend on the C library.
+# It goes into a directory of its own, so rustup's libc.a stays out of the
+# search path.
+rust_sysroot=Path(subprocess.check_output(["rustc","--print","sysroot"],cwd=source,text=True).strip())
+unwind_dir=root/"work"/"rust-unwind"
+unwind_dir.mkdir(parents=True,exist_ok=True)
+shutil.copyfile(rust_sysroot/"lib/rustlib"/target/"lib/self-contained/libunwind.a",unwind_dir/"libunwind.a")
+build_flags=rust_flags+["-C",f"link-arg=-L{unwind_dir}"]
+# No RUSTFLAGS: it would override the flags of .cargo/config.toml. The
+# target-specific variable replaces them too, so it repeats them in full.
 env={k:v for k,v in os.environ.items() if k not in ("RUSTFLAGS","CARGO_ENCODED_RUSTFLAGS")}
-env.update(CARGO_TARGET_DIR=str(target_dir),CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=str(args.linker.absolute()))
+env.update(CARGO_TARGET_DIR=str(target_dir),CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=str(args.linker.absolute()),
+           CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_RUSTFLAGS=" ".join(build_flags))
 subprocess.run(["cargo","build","--locked","--release","--target",target],cwd=source,env=env,check=True)
 binary=target_dir/target/"release"/"nanokvm-rustdesk"
+# musl 1.2.6 rounds the new thread's stack down to 16 bytes before __clone stores
+# fn and arg: c.andi a1,-16 (c1 99) before c.addi a1,-16 (c1 15) and the stores
+# c.sd a0,0(a1); c.sd a3,8(a1) (88 e1 94 e5). Refuse a binary without it.
+image=binary.read_bytes()
+clone_sites=[m.start() for m in re.finditer(re.escape(bytes.fromhex("c11588e194e5")),image)]
+if not clone_sites or any(image[i-2:i]!=bytes.fromhex("c199") for i in clone_sites):
+    raise SystemExit(f"{binary}: __clone does not align the thread stack (musl older than 1.2.6 linked)")
 build_profile={
     "profile":"release",
     "target":target,
     "rustflags":rust_flags,
+    "libc":"the linker's musl (link-self-contained=no); __clone stack alignment checked",
     "cargo_profile":tomllib.loads((source/"Cargo.toml").read_text()).get("profile",{}).get("release",{}),
     "rustc":subprocess.check_output(["rustc","-vV"],cwd=source,text=True),
     "binary_sha256":hashlib.sha256(binary.read_bytes()).hexdigest(),

@@ -231,7 +231,7 @@ class Store:
                 continue
             if run['status'] != 'completed':
                 continue  # Its workflow_run event schedules another pass.
-            self.candidate(a.fetch(artifact['archive_download_url']), WORKFLOWS[workflow], run['head_sha'])
+            self.candidate(a.fetch(artifact['archive_download_url'], 'application/vnd.github+json'), WORKFLOWS[workflow], run['head_sha'])
             self.seen.add(artifact['id'])
 
     def bootstrap(self):
@@ -403,7 +403,7 @@ def already_staged(tag, commit):
                 run_id = artifact['workflow_run']['id']
                 run = json.loads(a.fetch(f'https://api.github.com/repos/{a.REPOSITORY}/actions/runs/{run_id}', 'application/vnd.github+json'))
                 if trusted_run(run, 'os'):
-                    with zipfile.ZipFile(io.BytesIO(a.fetch(artifact['archive_download_url']))) as archive:
+                    with zipfile.ZipFile(io.BytesIO(a.fetch(artifact['archive_download_url'], 'application/vnd.github+json'))) as archive:
                         meta = snapshot_meta(archive)
                     if meta['kind'] != 'os' or meta['tag'] != tag:
                         raise ValueError('Candidate metadata differs from its artifact name')

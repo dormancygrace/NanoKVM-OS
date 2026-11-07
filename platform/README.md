@@ -10,8 +10,8 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 
 | Output | Shipped in |
 |---|---|
-| `images/Image` (Linux `7.3.1-nanokvm-os-r10`) | every `boot.sd` |
-| `images/lib/modules/7.3.1-nanokvm-os-r10/` (84 in-tree and 19 out-of-tree modules, `modules.*`) | `nanokvm-kmod` |
+| `images/Image` (Linux `7.3.3-nanokvm-os-r10`) | every `boot.sd` |
+| `images/lib/modules/7.3.3-nanokvm-os-r10/` (83 in-tree and 18 out-of-tree modules, `modules.*`) | `nanokvm-kmod` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (one per board, `NAME.dtb`, each with the 144 MiB CMA video region) | `nanokvm-kernel`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.lz4` | inside the `boot.sd` images |
 | `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel`, `/usr/share/licenses/nanokvm-kernel/initramfs` |
@@ -136,7 +136,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
 | `packages.list` | The contents of the fifteen APK packages: each file, its mode and where it comes from |
-| `kernel/` | `config` and patches for kernel.org Linux 7.3.1 |
+| `kernel/` | `config` and patches for kernel.org Linux 7.3.3 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
 | `lolcat/` | Byte I/O and terminal-output fixes for lolcat 1.5, the rainbow SSH shell's filter (original 1.4 optimization: 15 times faster on the C906) |

@@ -7,9 +7,9 @@ The SG2002 has engines beside the CPU:
 - DWA, for dewarp and rotation;
 - RGN, for overlays;
 - the AXI monitors in front of the DDR controller;
-- the true random number generator.
+- the true random number generator, which U-Boot reads to seed Linux ([Random numbers](#random-numbers)).
 
-NanoKVM OS builds and installs their drivers, but loads them only when something uses them. MJPEG uses the IVE to send only the parts of the screen that changed ([Video](VIDEO.md#mjpeg-changed-tiles-only)); the server loads its driver for the first tiled viewer. All numbers on this page are from a NanoKVM PCIe with a 1920 × 1080 input at 90 Hz.
+NanoKVM OS builds and installs drivers for the others, but loads them only when something uses them. MJPEG uses the IVE to send only the parts of the screen that changed ([Video](VIDEO.md#mjpeg-changed-tiles-only)); the server loads its driver for the first tiled viewer. All numbers on this page are from a NanoKVM PCIe with a 1920 × 1080 input at 90 Hz.
 
 ## Loading
 
@@ -22,7 +22,6 @@ The device tree describes every engine. Without a rule, udev would load their dr
 | `cv181x_dwa` | `/dev/cvi-dwa` |
 | `cv181x_rgn` | `/dev/cvi-rgn` |
 | `cv181x_aximon` | `/proc/ddr_bandwidth` |
-| `cv181x_trng` | `/dev/hwrng` |
 
 For example, `modprobe cv181x_tpu`. The media modules load first at boot (`nanokvm-modules`), so their dependencies are already present.
 
@@ -108,23 +107,18 @@ Measured at 1920 × 1080, 90 Hz:
 
 ## Random numbers
 
-The TRNG of the security subsystem (SG2002 TRM, section 22.2) seeds a DRBG from its noise source and returns 128 bits per command. `cv181x_trng`, a small driver of our own, registers it with the kernel's hw_random core as `/dev/hwrng`:
+The TRNG of the security subsystem (SG2002 TRM, section 22.2) seeds a DRBG from its noise source and returns 128 bits per command. Linux has no driver for it: U-Boot reads it once per boot (`platform/uboot/0010-rng-cv181x-trng.patch`) and puts two values into `/chosen` before it starts Linux:
 
-- it seeds on load, then again after every 1024 outputs (16 KiB), and zeroizes the generator when it is unloaded;
-- `/sys/class/misc/hw_random/rng_current` names `cv181x-trng` while it is loaded;
-- use blocking reads for fresh output. An `O_NONBLOCK` read uses only bytes already buffered by hw_random, or returns `EAGAIN`; it does not wait for generation or reseeding.
+- `rng-seed`, 32 bytes: the 256 bits the kernel needs to count its CRNG as seeded. Linux credits a boot loader's seed by default (`random.trust_bootloader`), so `random: crng init done` is printed at 0.000000, before any driver runs; without it, about 2 to 4 s. From then on the kernel reseeds from interrupt timing and CPU jitter, as on any board without a hardware generator;
+- `kaslr-seed`, 8 bytes, for a kernel built with `RANDOMIZE_BASE`.
 
-The registers are those of the Synopsys NIST TRNG core, which the TRM documents only in part. A second seed on a running generator is an illegal command sequence for that core: it raises an alarm, and the core then ignores every command. Each seed therefore clears the alarms, zeroizes the core and instantiates it from fresh noise.
+Linux clears both properties once it has read them. If the TRNG fails in U-Boot, U-Boot prints `No RNG device` or `dm_rng_read failed` and boots as before, without the seeds.
 
-The block sits behind the efuse clock gates, which Linux turns off when nothing uses them. With the gates off, any access to its registers hangs the bus, and the board restarts through the watchdog. The device tree node names both clocks, so the driver enables them before it touches a register. Do not read its registers with `devmem` while the module is not loaded.
+The registers are those of the Synopsys NIST TRNG core, which the TRM documents only in part. A second seed on a running generator is an illegal command sequence for that core: it raises an alarm, and the core then ignores every command; a zeroize with an alarm pending hung the bus. The driver therefore clears the alarms and the status, zeroizes the core, instantiates it from fresh noise, checks the alarms after every command, and zeroizes it again after its read. Every wait has a timeout. `tests/test-trng.py` runs that code against a model with alarms and timeouts.
 
-While the driver is loaded, the hw_random core also feeds the kernel's entropy pool from it, with the full quality the core assumes for a device that names none. `/sys/class/misc/hw_random/rng_quality` lowers that. That is what it is for at boot: OpenRC's modules service loads it (`modules-load.d/nanokvm-trng.conf`), the pool is ready a few milliseconds later instead of about 4 s, and `nanokvm-modules` unloads it again once `/dev/random` no longer blocks. Nothing in NanoKVM OS reads `/dev/hwrng`; `modprobe cv181x_trng` brings it back.
+The block sits behind the efuse clock gates. With the gates off, any access to its registers hangs the bus, and the board restarts through the watchdog. U-Boot's device tree node names both clocks, so the driver enables them before it touches a register; Linux turns them off again at boot as unused. Do not read its registers with `devmem`.
 
-Checked on the stand (Linux 7.3):
-- 1 MiB read in 3.6 s, across 64 seeds;
-- 256 KiB does not compress (gzip -9 output is larger than its input);
-- three unloads and loads in a row, each followed by new output;
-- the efuse clocks are on only while the module is loaded.
+Checked on the NanoKVM PCIe stand: three boots, `crng init done` at 0.000000 each time; with a `RANDOMIZE_BASE` kernel, `_text` at a different address each boot. The Linux driver this replaces, with the same command sequence, read 1 MiB without an alarm across 64 seeds, and gzip -9 did not compress its output.
 
 ## CryptoDMA
 

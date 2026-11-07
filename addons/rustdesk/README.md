@@ -155,8 +155,14 @@ For an unsigned local test package from the repository root, with cargo,
 fakeroot, a riscv64 musl GCC and apk-tools 3 mkpkg available:
 fakeroot python3 scripts/build-rustdesk-addon.py --linker /path/to/riscv64-linux-gcc --apk /path/to/host-apk --output work/rustdesk-artifacts --source-url https://github.com/dormancygrace/NanoKVM-OS/tree/nanokvm-rustdesk-VERSION-rN/addons/rustdesk
 
-The exported source can also cross-build directly without repository scripts:
-CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
+The exported source can also cross-build directly without repository scripts.
+The binary links the linker's musl, which must be 1.2.6 or later (Buildroot's
+is): rustup's own musl for this target starts threads on a misaligned stack, so
+`.cargo/config.toml` turns self-contained linking off. Put rustup's
+`libunwind.a` alone in a directory and repeat the configured flags with that
+directory added:
+mkdir -p /tmp/rust-unwind && cp "$(rustc --print sysroot)/lib/rustlib/riscv64gc-unknown-linux-musl/lib/self-contained/libunwind.a" /tmp/rust-unwind/
+CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_RUSTFLAGS="<the rustflags of .cargo/config.toml> -C link-arg=-L/tmp/rust-unwind" cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl
 
 Install the Rust riscv64gc-unknown-linux-musl target first. Keep the linker
 symlink name intact for Buildroot wrappers. The builder produces a static RV64GC

@@ -4,8 +4,18 @@
 # recipe both produce the qualified binary. No RVV 0.7.1 code is generated;
 # host builds and tests are unaffected. Build with an explicit --target, so the
 # flags reach only target code and not build scripts or proc-macros.
+#
+# The musl that rustup ships for riscv64gc-unknown-linux-musl (its self-contained
+# libc.a and crt objects) predates musl 1.2.6: depending on the TLS size, its
+# __clone can start threads with a stack that is 8 mod 16, against the psABI.
+# LLVM code may then compute wrong stack addresses (sipeed/NanoKVM#983,
+# musl commit 5e03c03f). So the cross
+# build links the linker's own musl (Buildroot's 1.2.6 crt objects and libc.a):
+# link-self-contained=no. Rust's libunwind.a must then be found by the linker;
+# scripts/build-rustdesk-addon.py provides it (see README, "Build and source").
+# The Alpine target always links Alpine's system musl.
 [target.riscv64gc-unknown-linux-musl]
-rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]
+rustflags = ["-C", "link-self-contained=no", "-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]
 
 [target.riscv64-alpine-linux-musl]
 rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]

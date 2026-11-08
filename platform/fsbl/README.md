@@ -41,6 +41,9 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | `0008-drop-unused-paths.patch` | No overdrive PLL path; a FIP with a small-core image is refused |
 | `0009-clear-small-bss.patch` | The startup code clears `.sbss` too (GCC's small zero-initialized variables) |
 | `0010-read-fip-directly.patch` | BL2 reads fip.bin itself (FAT lookup, SDMA/PIO); three tries per load on an SD boot (see below) |
+| `0011-ddr-from-sophgo-fsbl-2026.11.06.patch` | The DDR setup of sophgo/fsbl 2026.11.06: more SIP DDR parts, shorter write-DQ leveling (see "DDR") |
+| `0012-ddr3-1866-periodic-zq-calibration.patch` | DDR3-1866: ZQ short calibration every 128 ms |
+| `0013-pll-before-ddr.patch` | The PLLs are set up before the parameter loads and DDR init |
 
 ## Size and console
 
@@ -160,13 +163,58 @@ the U-Boot header; other content is copied as before. BL2 from start to
 exit: 210 ms with LZMA U-Boot and plain OpenSBI, 173-174 ms with both as
 LZ4 (three boots).
 
+## DDR
+
+`0011` takes the DDR part of sophgo/fsbl 2026.11.06 (`plat/cv181x/ddr`,
+`plat/cv181x/include/ddr`) without `ddr_suspend.c` (DDR self-refresh
+suspend, not used), with the DDR step marks at INFO as `0007` made them.
+FSBL reads the package from `efuse_leakage` (bits 31:29) and the SIP DDR
+from `conf_info` (bits 30:28). Besides the parts the pinned tree knew, it
+sets up the SIP DDR of package types 0x8 to 0xB (UniIC N25 1 Gbit and N21
+2 Gbit, ESMT N21 2 Gbit QFN and ESMT 2 Gbit BGA) with their PHY pin maps,
+and external DDR on the CV1815J/K packages. A NanoKVM PCIe reads
+`conf_info` 0x570003AB (package type 5: QFN, Nanya 2 Gbit DDR3) and
+`efuse_leakage` 0x2C400022 (package 1, QFN88); the Cube reads the same
+package type. For it the controller and PHY settings are unchanged.
+
+DDR init takes 9 ms instead of 31 ms. The write-DQ leveling runs a
+shorter BIST at each delay it tries (`cvx16_bist_wdqlvl_init`: no command
+repeats, no GOTO loop; about 20 ms) and tries every third delay
+(`piwdqlvl_dly_step` 2 -> 6, written after `phy_init()`; about 2 ms).
+Read back from the PHY after three boots each, the write DQ delays the new
+code chooses (0x44/0x47) lie inside the range the old code chose from
+boot to boot (0x40-0x48), in a window about 110 codes wide; the new
+results repeat exactly. The other training steps vary between boots the
+same way with both.
+
+Its DDR3-1866 settings (`ddr_config/ddr3_1866_x16`) were checked against
+the Nanya 2 Gbit DDR3 J-die datasheet (NT5CB128M16JR, -EK: 1866 13-13-13,
+2 KB pages): CL 13, CWL 9, tRCD and tRP 13.91 ns, tRAS 34 ns, tRC
+47.91 ns, tRRD max(4 tCK, 6 ns), tFAW 35 ns, tWR 15 ns, tRFC 160 ns and
+tREFI 7.8 us are met with at most one clock of margin, from the
+controller's 1:2 clock ratio. Commands use 2T timing. Above 85 °C case
+temperature the part needs refresh every 3.9 us, which the controller
+does not do by itself; the SoC slows down at 75 °C.
+
+`0012` lets the controller calibrate ZQ every 128 ms (ZQCS, ZQCTL1 in
+units of 1024 DFI clocks): it ran the long calibration at initialization
+only, so the DRAM's output driver and ODT impedance were never corrected
+for temperature and voltage drift. Each ZQCS takes 64 tCK.
+
+`0013` calls `sys_pll_init()` first in `load_ddr()` instead of in
+`load_rest()`: until then the C906 ran about 40 times slower, and the FAT
+lookup, the parameter loads and their CRCs ran in that phase. DDR init
+itself waits on the hardware and does not get faster.
+
+BL2 start to exit with `0010`-`0013`: 46 ms (81 ms with `0010`; DDR init
+7 ms). memtester on 96 MB passes with each step.
+
 ## Upstream changes not taken
 
-From sophgo/fsbl up to the 2026.10.28 release:
-- New SIP DDR vendors (package types 0x8 to 0xB). A Cube reads package type
-  5 (`conf_info` 0x570003AB: QFN, 2 Gbit DDR3), which the pinned FSBL knows.
-- `FSBL_FASTBOOT` (AXI at 500 MHz while loading, shorter BIST): a separate
-  change, to be measured.
+From sophgo/fsbl up to the 2026.11.06 release (its DDR part is `0011`):
+- `ddr_suspend.c`: DDR self-refresh suspend, which NanoKVM OS does not use.
+- `FSBL_FASTBOOT` (AXI at 500 MHz while loading): a separate change, to be
+  measured.
 - APLL 614440960 instead of 614400000 (-66.7 ppm from 98.304 MHz), with no
   stated reason; it would change the audio clock.
 - eMMC clock 375 MHz: these boards have no eMMC.

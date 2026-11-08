@@ -1,0 +1,110 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: set up the PLLs before the parameter loads and DDR init
+
+sys_pll_init() ran in load_rest(), after DDR init: until then the C906
+and the buses ran at the ROM's clocks, about 40 times slower (the ROM's
+CRC of the 4 KB param2 took 1.8 ms, 88 MB/s after the PLL switch).
+Calling it first in load_ddr() runs the FAT lookup, the parameter loads
+and their CRCs at full speed. DDR init itself waits on the hardware and
+does not get faster (31 -> 30 ms measured). The clock mode is chosen in
+bl2_main() before load_ddr(), as before load_rest().
+---
+ plat/cv181x/bl2/bl2_main.c     |  5 ++---
+ plat/cv181x/bl2/bl2_opt.c      | 14 +++++++++-----
+ plat/cv181x/bl2/sd_fast.c      |  4 ++--
+ plat/cv181x/include/platform.h |  4 ++--
+ 4 files changed, 15 insertions(+), 12 deletions(-)
+diff --git a/plat/cv181x/bl2/bl2_main.c b/plat/cv181x/bl2/bl2_main.c
+index a4f1aec..b255f12 100644
+--- a/plat/cv181x/bl2/bl2_main.c
++++ b/plat/cv181x/bl2/bl2_main.c
+@@ -75,8 +75,6 @@ void bl2_main(void)
+ 
+ 	set_rtc_en_registers();
+ 
+-	load_ddr();
+-
+ #ifdef OD_CLK_SEL
+ 	mode = CLK_OD;
+ #else
+@@ -86,7 +84,8 @@ void bl2_main(void)
+ 	mode = CLK_ND;
+ #endif
+ #endif
+-	load_rest(mode);
++	load_ddr(mode);
++	load_rest();
+ 	NOTICE("BL2 end.\n");
+ 
+ 	while (1)
+diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
+index 6897a1c..20a55ad 100644
+--- a/plat/cv181x/bl2/bl2_opt.c
++++ b/plat/cv181x/bl2/bl2_opt.c
+@@ -176,11 +176,18 @@ int load_ddr_param(int retry)
+ 	return 0;
+ }
+ 
+-int load_ddr(void)
++int load_ddr(enum CHIP_CLK_MODE mode)
+ {
+ 	int retry = 0;
+ 
+ 	sd_fast_enable();
++	/*
++	 * Init sys PLL and switch clocks to PLL before the parameter loads and
++	 * DDR init, which ran at the ROM's clocks (the ROM's CRC of param2 took
++	 * 1.8 ms there, 0.05 ms after). CLK_SD0 goes from 25 to 100 MHz.
++	 */
++	sd_fast_pll();
++	sys_pll_init(mode);
+ 
+ retry_from_flash:
+ 	for (retry = 0; retry < load_tries(); retry++) {
+@@ -409,15 +416,12 @@ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ 	return 0;
+ }
+ 
+-int load_rest(enum CHIP_CLK_MODE mode)
++int load_rest(void)
+ {
+ 	int retry = 0;
+ 	uint64_t monitor_entry = 0;
+ 	uint64_t loader_2nd_entry = 0;
+ 
+-	// Init sys PLL and switch clocks to PLL; CLK_SD0 goes from 25 to 100 MHz
+-	sd_fast_pll();
+-	sys_pll_init(mode);
+ 
+ retry_from_flash:
+ 	for (retry = 0; retry < load_tries(); retry++) {
+diff --git a/plat/cv181x/bl2/sd_fast.c b/plat/cv181x/bl2/sd_fast.c
+index 75d1cce..09d97ed 100644
+--- a/plat/cv181x/bl2/sd_fast.c
++++ b/plat/cv181x/bl2/sd_fast.c
+@@ -513,8 +513,8 @@ void sd_fast_enable(void)
+ 	}
+ 	/*
+ 	 * Before sys_pll_init() CLK_SD0 is the 25 MHz crystal (bypass):
+-	 * divider 1 gives 12.5 MHz for the parameter blocks and 50 MHz once
+-	 * sys_pll_init() has switched CLK_SD0 to 100 MHz. Divider 0 (the base
++	 * divider 1 gives 12.5 MHz until sys_pll_init() switches CLK_SD0 to
++	 * 100 MHz, then 50 MHz. Divider 0 (the base
+ 	 * clock undivided) made each ROM load take seconds.
+ 	 */
+ 	if (sd_set_div(sd_hs ? 1 : 2) < 0) {
+diff --git a/plat/cv181x/include/platform.h b/plat/cv181x/include/platform.h
+index b899e88..3266cfd 100644
+--- a/plat/cv181x/include/platform.h
++++ b/plat/cv181x/include/platform.h
+@@ -122,8 +122,8 @@ void sys_pll_init(enum CHIP_CLK_MODE mode);
+ void sys_switch_all_to_pll(void);
+ 
+ void lock_efuse_chipsn(void);
+-int load_ddr(void);
+-int load_rest(enum CHIP_CLK_MODE mode);
++int load_ddr(enum CHIP_CLK_MODE mode);
++int load_rest(void);
+ 
+ #endif /* __ASSEMBLY__ */
+ 

@@ -1,0 +1,25 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] ddr: DDR3-1866 calibrates ZQ every 128 ms
+
+The controller ran the long ZQ calibration at initialization only
+(ZQCTL0.dis_auto_zq set), so the DRAM's output driver and ODT impedance
+were never corrected for temperature and voltage drift afterwards. The SIP
+DDR shares the package with the SoC and follows its temperature. Let the
+controller issue ZQCS every 128 ms (ZQCTL1, in units of 1024 DFI clocks);
+each takes tZQCS = 64 tCK (76 programmed) and blocks that rank only.
+---
+--- a/plat/cv181x/ddr/ddr_config/ddr3_1866_x16/ddrc_init.c
++++ b/plat/cv181x/ddr/ddr_config/ddr3_1866_x16/ddrc_init.c
+@@ -71,8 +71,10 @@
+ 	mmio_wr32(0x08004000 + 0x114, 0x05050303);
+ 	mmio_wr32(0x08004000 + 0x120, 0x00000907);
+ 	mmio_wr32(0x08004000 + 0x13c, 0x00000000);
+-	mmio_wr32(0x08004000 + 0x180, 0xC0960026);
+-	mmio_wr32(0x08004000 + 0x184, 0x00000001);
++	// ZQCTL0: periodic ZQCS (dis_auto_zq off); ZQCL stays off at self-refresh exit.
++	mmio_wr32(0x08004000 + 0x180, 0x40960026);
++	// ZQCTL1.t_zq_short_interval_x1024: 0xE3C9 x 1024 DFI clocks = 128 ms at DDR3-1866.
++	mmio_wr32(0x08004000 + 0x184, 0x0000E3C9);
+ 	// phyd related
+ 	mmio_wr32(0x08004000 + 0x190, 0x048a8305);
+ 	// DFITMG0.dfi_t_ctrl_delay:24:5:=0x4

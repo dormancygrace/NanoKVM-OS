@@ -23,12 +23,12 @@ never reached. An SD boot now tries each round three times: fip.bin
 read directly, then the ROM loader, then the ROM loader at the ROM's
 bus settings. The ROM's retry number (a backup copy on flash) is 0.
 ---
- plat/cv181x/bl2/bl2_opt.c |  52 +++++++++---
- plat/cv181x/bl2/fip_fat.c | 166 ++++++++++++++++++++++++++++++++++++++
- plat/cv181x/bl2/fip_fat.h |  29 +++++++
- plat/cv181x/bl2/sd_fast.c | 197 ++++++++++++++++++++++++++++++++++++++++++++++
+ plat/cv181x/bl2/bl2_opt.c |  52 ++++++++---
+ plat/cv181x/bl2/fip_fat.c | 166 +++++++++++++++++++++++++++++++++
+ plat/cv181x/bl2/fip_fat.h |  29 ++++++
+ plat/cv181x/bl2/sd_fast.c | 231 +++++++++++++++++++++++++++++++++++++++++++++-
  plat/cv181x/platform.mk   |   1 +
- 5 files changed, 434 insertions(+), 11 deletions(-)
+ 5 files changed, 466 insertions(+), 13 deletions(-)
 diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
 index 8cc1081..6897a1c 100644
 --- a/plat/cv181x/bl2/bl2_opt.c
@@ -363,7 +363,7 @@ index 0000000..a1dc8e4
 +
 +#endif
 diff --git a/plat/cv181x/bl2/sd_fast.c b/plat/cv181x/bl2/sd_fast.c
-index 459398c..3c299d5 100644
+index 459398c..75d1cce 100644
 --- a/plat/cv181x/bl2/sd_fast.c
 +++ b/plat/cv181x/bl2/sd_fast.c
 @@ -26,7 +26,12 @@
@@ -379,13 +379,16 @@ index 459398c..3c299d5 100644
  #define SD_BLKSIZE 0x04
  #define SD_ARG 0x08
  #define SD_XFER 0x0c
-@@ -51,6 +56,20 @@
+@@ -51,6 +56,23 @@
  #define HOST_CTRL_4BIT (1 << 1)
  #define HOST_CTRL_HS (1 << 2)
  #define HOST_CTRL_8BIT (1 << 5)
 +#define SD_HOST_CTRL2 0x3e
 +#define HOST_VER4_ENABLE (1 << 12)
 +#define PSTATE_DAT_ACTIVE (1 << 2)
++/* CMD12 as an abort command (type 11) with an R1b response, CRC and index checked */
++#define CMD_R1B_ABORT (0x1b | (3 << 6))
++#define SD_STATE_TRAN 4
 +#define XFER_DMA (1 << 0)
 +#define XFER_BLKCNT_EN (1 << 1)
 +#define XFER_AUTO_CMD12 (1 << 2)
@@ -400,10 +403,58 @@ index 459398c..3c299d5 100644
  #define CLK_STABLE (1 << 1)
  #define CLK_SD_EN (1 << 2)
  #define RESET_CMD (1 << 1)
-@@ -220,6 +239,183 @@ out:
+@@ -133,7 +155,7 @@ static int sd_set_div(uint32_t div)
  	return ret;
  }
  
+-static int sd_cmd(uint32_t idx, uint32_t arg, uint32_t *resp)
++static int sd_cmd_f(uint32_t idx, uint32_t arg, uint32_t flags, uint32_t *resp)
+ {
+ 	uint32_t t0, st;
+ 
+@@ -141,7 +163,7 @@ static int sd_cmd(uint32_t idx, uint32_t arg, uint32_t *resp)
+ 		return -1;
+ 	mmio_write_32(SDIO_BASE + SD_INT_STAT, 0xffffffff);
+ 	mmio_write_32(SDIO_BASE + SD_ARG, arg);
+-	mmio_write_16(SDIO_BASE + SD_CMD, (idx << 8) | CMD_R1);
++	mmio_write_16(SDIO_BASE + SD_CMD, (idx << 8) | flags);
+ 	t0 = read_time_ms();
+ 	for (;;) {
+ 		st = mmio_read_32(SDIO_BASE + SD_INT_STAT);
+@@ -167,6 +189,8 @@ static int sd_cmd(uint32_t idx, uint32_t arg, uint32_t *resp)
+ 	return 0;
+ }
+ 
++#define sd_cmd(idx, arg, resp) sd_cmd_f(idx, arg, CMD_R1, resp)
++
+ static int sd_int_wait(uint32_t bit, uint32_t ms)
+ {
+ 	uint32_t t0 = read_time_ms(), st;
+@@ -220,6 +244,208 @@ out:
+ 	return ret;
+ }
+ 
++/*
++ * A multi-block read that failed may have stopped before Auto CMD12: the
++ * card can still be sending data. Reset the host's lines, stop the card
++ * (CMD12, abort type, R1b), wait for its busy to end, and check with CMD13
++ * that it is back in the transfer state, as Linux's SDHCI driver does.
++ */
++static int sd_abort_read(void)
++{
++	uint32_t r = 0;
++
++	sd_reset_lines();
++	sd_cmd_f(12, 0, CMD_R1B_ABORT, &r);
++	if (sd_wait(PSTATE_DAT_INHIBIT | PSTATE_DAT_ACTIVE, 250) < 0)
++		sd_reset_lines();
++	if (sd_cmd(13, (uint32_t)sd_rca << 16, &r) < 0 || ((r >> 9) & 0xf) != SD_STATE_TRAN) {
++		NOTICE("SDR/card not back in transfer state (%08x)\n", r);
++		return -1;
++	}
++	return 0;
++}
++
 +/* Program block count, size and argument, and send CMD17 or CMD18 (Auto CMD12) with data. */
 +static int sd_start_read(uint32_t lba, uint32_t count, uint32_t dma)
 +{
@@ -503,8 +554,12 @@ index 459398c..3c299d5 100644
 +		ret = sd_read_dma(lba, count, dst);
 +	else
 +		ret = sd_read_pio(lba, count, dst);
-+	if (ret < 0)
-+		sd_reset_lines();
++	if (ret < 0) {
++		if (count > 1)
++			sd_abort_read();
++		else
++			sd_reset_lines();
++	}
 +	mmio_write_32(SDIO_BASE + SD_BLKSIZE, blk);
 +	mmio_write_32(SDIO_BASE + SD_BLKCNT32, cnt);
 +	mmio_write_32(SDIO_BASE + SD_ADMA_SA_LOW, sa_lo);
@@ -584,7 +639,7 @@ index 459398c..3c299d5 100644
  static void sd_set_hs(int on)
  {
  	uint8_t hc = mmio_read_8(SDIO_BASE + SD_HOST_CTRL);
-@@ -311,6 +507,7 @@ void sd_fast_pll(void)
+@@ -311,6 +537,7 @@ void sd_fast_pll(void)
  /* Back to the ROM's settings; stays armed (sd_wide) until every step succeeded. */
  void sd_fast_disable(void)
  {

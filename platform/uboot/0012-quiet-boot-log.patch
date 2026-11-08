@@ -1,0 +1,335 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] boot: print the banner and errors only
+
+At 115 200 baud every character on the console costs 87 us, and U-Boot
+printed about 1 300 of them on each boot: the DRAM, driver model and MMC
+summaries, the environment source, "N bytes read", four lines per FIT
+image, the relocation lines and "Starting kernel". They are debug() now;
+errors are not touched, and a FIT hash failure names the image, since
+the line before it is gone. image-fit.c and image.c are also built into
+mkimage, which keeps their output.
+
+---
+ board/sophgo/licheerv_nano/oled.c |  2 +-
+ boot/bootm.c                      |  2 +-
+ boot/image-board.c                |  4 ++--
+ boot/image-fdt.c                  |  6 +++---
+ boot/image-fit.c                  | 24 +++++++++++++-----------
+ boot/image.c                      |  4 ++++
+ cmd/fdt.c                         |  2 +-
+ common/board_f.c                  | 17 ++++++++++-------
+ common/board_r.c                  |  4 ++--
+ drivers/mmc/mmc.c                 |  3 ++-
+ env/env.c                         |  4 ++--
+ fs/fs.c                           | 14 ++++++++------
+ 12 files changed, 49 insertions(+), 37 deletions(-)
+diff --git a/board/sophgo/licheerv_nano/oled.c b/board/sophgo/licheerv_nano/oled.c
+index 6a88633..118861f 100644
+--- a/board/sophgo/licheerv_nano/oled.c
++++ b/board/sophgo/licheerv_nano/oled.c
+@@ -148,7 +148,7 @@ static int do_nkoled(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv
+ 		}
+ 		sent += at[1];
+ 	}
+-	printf("oled: 0x%02x, %u bytes\n", address, sent);
++	debug("oled: 0x%02x, %u bytes\n", address, sent);
+ 	return CMD_RET_SUCCESS;
+ }
+ 
+diff --git a/boot/bootm.c b/boot/bootm.c
+index 3bce858..9f0223d 100644
+--- a/boot/bootm.c
++++ b/boot/bootm.c
+@@ -1244,7 +1244,7 @@ void __weak switch_to_non_secure_mode(void)
+ 
+ void bootm_final(int flag)
+ {
+-	printf("\nStarting kernel ...%s\n\n",
++	debug("\nStarting kernel ...%s\n\n",
+ 	       (flag & BOOTM_STATE_OS_FAKE_GO) ?
+ 	       " (fake run for tracing)" : "");
+ 
+diff --git a/boot/image-board.c b/boot/image-board.c
+index 67938fd..9bcf10c 100644
+--- a/boot/image-board.c
++++ b/boot/image-board.c
+@@ -588,7 +588,7 @@ int boot_ramdisk_high(ulong rd_data, ulong rd_len, ulong *initrd_start,
+ 			bootstage_mark(BOOTSTAGE_ID_COPY_RAMDISK);
+ 
+ 			*initrd_end = *initrd_start + rd_len;
+-			printf("   Loading Ramdisk to %08lx, end %08lx ... ",
++			debug("   Loading Ramdisk to %08lx, end %08lx ... ",
+ 			       *initrd_start, *initrd_end);
+ 
+ 			memmove_wd((void *)*initrd_start,
+@@ -603,7 +603,7 @@ int boot_ramdisk_high(ulong rd_data, ulong rd_len, ulong *initrd_start,
+ 				flush_cache((unsigned long)*initrd_start,
+ 					    ALIGN(rd_len, ARCH_DMA_MINALIGN));
+ 			}
+-			puts("OK\n");
++			debug("OK\n");
+ 		}
+ 	} else {
+ 		*initrd_start = 0;
+diff --git a/boot/image-fdt.c b/boot/image-fdt.c
+index 956a3d9..f1675c4 100644
+--- a/boot/image-fdt.c
++++ b/boot/image-fdt.c
+@@ -310,7 +310,7 @@ int boot_relocate_fdt(char **of_flat_tree, ulong *of_size)
+ 		debug("## device tree at %p ... %p (len=%ld [0x%lX])\n",
+ 		      fdt_blob, fdt_blob + *of_size - 1, of_len, of_len);
+ 
+-		printf("   Loading Device Tree to %p, end %p ... ",
++		debug("   Loading Device Tree to %p, end %p ... ",
+ 		       of_start, of_start + of_len - 1);
+ 
+ 		err = fdt_open_into(fdt_blob, of_start, of_len);
+@@ -318,7 +318,7 @@ int boot_relocate_fdt(char **of_flat_tree, ulong *of_size)
+ 			fdt_error("fdt move failed");
+ 			goto error;
+ 		}
+-		puts("OK\n");
++		debug("OK\n");
+ 	}
+ 
+ 	*of_flat_tree = of_start;
+@@ -517,7 +517,7 @@ int boot_get_fdt(void *buf, const char *select, uint arch,
+ 			goto no_fdt;
+ 		else if (ret)
+ 			return 1;
+-		printf("   Booting using the fdt blob at %#08lx\n", fdt_addr);
++		debug("   Booting using the fdt blob at %#08lx\n", fdt_addr);
+ 		fdt_blob = map_sysmem(fdt_addr, 0);
+ 	} else if (images->legacy_hdr_valid &&
+ 			image_check_type(&images->legacy_hdr_os_copy,
+diff --git a/boot/image-fit.c b/boot/image-fit.c
+index 26e9323..9c9fce7 100644
+--- a/boot/image-fit.c
++++ b/boot/image-fit.c
+@@ -1366,7 +1366,8 @@ static int fit_image_check_hash(const void *fit, int noffset, const void *data,
+ 		*err_msgp = "Can't get hash algo property";
+ 		return -1;
+ 	}
+-	printf("%s", algo);
++	if (tools_build())
++		printf("%s", algo);
+ 
+ 	if (!tools_build()) {
+ 		fit_image_hash_get_ignore(fit, noffset, &ignore);
+@@ -1429,7 +1430,8 @@ int fit_image_verify_with_data(const void *fit, int image_noffset,
+ 			if (fit_image_check_hash(fit, noffset, data, size,
+ 						 &err_msg))
+ 				goto error;
+-			puts("+ ");
++			if (tools_build())
++				puts("+ ");
+ 		} else if (FIT_IMAGE_ENABLE_VERIFY && verify_all &&
+ 				!strncmp(name, FIT_SIG_NODENAME,
+ 					strlen(FIT_SIG_NODENAME))) {
+@@ -2055,12 +2057,12 @@ static int fit_image_select(const void *fit, int rd_noffset, int verify)
+ 	fit_image_print(fit, rd_noffset, "   ");
+ 
+ 	if (verify) {
+-		puts("   Verifying Hash Integrity ... ");
++		debug("   Verifying Hash Integrity ... ");
+ 		if (!fit_image_verify(fit, rd_noffset)) {
+-			puts("Bad Data Hash\n");
++			printf("%s: Bad Data Hash\n", fit_get_name(fit, rd_noffset, NULL));
+ 			return -EACCES;
+ 		}
+-		puts("OK\n");
++		debug("OK\n");
+ 	}
+ 
+ 	return 0;
+@@ -2156,7 +2158,7 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
+ 	fit_uname_config = fit_uname_configp ? *fit_uname_configp : NULL;
+ 	fit_base_uname_config = NULL;
+ 	prop_name = fit_get_image_type_property(ph_type);
+-	printf("## Loading %s (%s) from FIT Image at %08lx ...\n",
++	debug("## Loading %s (%s) from FIT Image at %08lx ...\n",
+ 	       prop_name, genimg_get_phase_name(image_ph_phase(ph_type)), addr);
+ 
+ 	bootstage_mark(bootstage_id + BOOTSTAGE_SUB_FORMAT);
+@@ -2195,20 +2197,20 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
+ 		cfg_noffset = ret;
+ 
+ 		fit_base_uname_config = fdt_get_name(fit, cfg_noffset, NULL);
+-		printf("   Using '%s' configuration\n", fit_base_uname_config);
++		debug("   Using '%s' configuration\n", fit_base_uname_config);
+ 		/* Remember this config */
+ 		if (image_type == IH_TYPE_KERNEL)
+ 			images->fit_uname_cfg = fit_base_uname_config;
+ 
+ 		if (FIT_IMAGE_ENABLE_VERIFY && images->verify) {
+-			puts("   Verifying Hash Integrity ... ");
++			debug("   Verifying Hash Integrity ... ");
+ 			if (fit_config_verify(fit, cfg_noffset)) {
+-				puts("Bad Data Hash\n");
++				printf("%s: Bad Data Hash\n", fit_base_uname_config);
+ 				bootstage_error(bootstage_id +
+ 					BOOTSTAGE_SUB_HASH);
+ 				return -EACCES;
+ 			}
+-			puts("OK\n");
++			debug("OK\n");
+ 		}
+ 
+ 		bootstage_mark(BOOTSTAGE_ID_FIT_CONFIG);
+@@ -2225,7 +2227,7 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
+ 	if (!fit_uname)
+ 		fit_uname = fit_get_name(fit, noffset, NULL);
+ 
+-	printf("   Trying '%s' %s subimage\n", fit_uname, prop_name);
++	debug("   Trying '%s' %s subimage\n", fit_uname, prop_name);
+ 
+ 	ret = fit_image_select(fit, noffset, images->verify);
+ 	if (ret) {
+diff --git a/boot/image.c b/boot/image.c
+index 185d52b..5df1b09 100644
+--- a/boot/image.c
++++ b/boot/image.c
+@@ -418,6 +418,10 @@ static void print_decomp_msg(int comp_type, int type, bool is_xip,
+ {
+ 	const char *name = genimg_get_type_name(type);
+ 
++#ifndef USE_HOSTCC
++	if (!_DEBUG)
++		return;
++#endif
+ 	/* Shows "Loading Kernel Image" for example */
+ 	if (comp_type == IH_COMP_NONE)
+ 		printf("   %s %s", is_xip ? "XIP" : "Loading", name);
+diff --git a/cmd/fdt.c b/cmd/fdt.c
+index 7e2abf9..c25e6fb 100644
+--- a/cmd/fdt.c
++++ b/cmd/fdt.c
+@@ -47,7 +47,7 @@ static void set_working_fdt_addr_quiet(ulong addr)
+ 
+ void set_working_fdt_addr(ulong addr)
+ {
+-	printf("Working FDT set to %lx\n", addr);
++	debug("Working FDT set to %lx\n", addr);
+ 	set_working_fdt_addr_quiet(addr);
+ }
+ 
+diff --git a/common/board_f.c b/common/board_f.c
+index 9efcd94..2dc134e 100644
+--- a/common/board_f.c
++++ b/common/board_f.c
+@@ -183,7 +183,7 @@ static int print_cpuinfo(void)
+ 
+ static int announce_dram_init(void)
+ {
+-	puts("DRAM:  ");
++	debug("DRAM:  ");
+ 	return 0;
+ }
+ 
+@@ -233,13 +233,16 @@ static int show_dram_config(void)
+ 	}
+ 	debug("\nDRAM:  ");
+ 
+-	print_size(gd->ram_size, "");
+-	if (!sizes_near(gd->ram_size, size)) {
+-		printf(" (total ");
+-		print_size(size, ")");
++	/* the boot log shows the banner and errors only */
++	if (_DEBUG) {
++		print_size(gd->ram_size, "");
++		if (!sizes_near(gd->ram_size, size)) {
++			printf(" (total ");
++			print_size(size, ")");
++		}
++		board_add_ram_info(0);
++		putc('\n');
+ 	}
+-	board_add_ram_info(0);
+-	putc('\n');
+ 
+ 	return 0;
+ }
+diff --git a/common/board_r.c b/common/board_r.c
+index a397e20..f1ef4c5 100644
+--- a/common/board_r.c
++++ b/common/board_r.c
+@@ -410,7 +410,7 @@ static int initr_onenand(void)
+ #ifdef CONFIG_MMC
+ static int initr_mmc(void)
+ {
+-	puts("MMC:   ");
++	debug("MMC:   ");
+ 	mmc_initialize(gd->bd);
+ 	return 0;
+ }
+@@ -547,7 +547,7 @@ static int dm_announce(void)
+ 	int device_count;
+ 	int uclass_count;
+ 
+-	if (IS_ENABLED(CONFIG_DM)) {
++	if (IS_ENABLED(CONFIG_DM) && _DEBUG) {
+ 		dm_get_stats(&device_count, &uclass_count);
+ 		printf("Core:  %d devices, %d uclasses", device_count,
+ 		       uclass_count);
+diff --git a/drivers/mmc/mmc.c b/drivers/mmc/mmc.c
+index 670e92e..2970324 100644
+--- a/drivers/mmc/mmc.c
++++ b/drivers/mmc/mmc.c
+@@ -3290,7 +3290,8 @@ int mmc_initialize(struct bd_info *bis)
+ 		return ret;
+ 
+ #ifndef CONFIG_XPL_BUILD
+-	print_mmc_devices(',');
++	if (_DEBUG)
++		print_mmc_devices(',');
+ #endif
+ 
+ 	mmc_do_preinit();
+diff --git a/env/env.c b/env/env.c
+index 404e8b7..c2ba277 100644
+--- a/env/env.c
++++ b/env/env.c
+@@ -189,7 +189,7 @@ int env_load(void)
+ 		if (!env_has_inited(drv->location))
+ 			continue;
+ 
+-		printf("Loading Environment from %s...\r", drv->name);
++		debug("Loading Environment from %s...\r", drv->name);
+ 		/*
+ 		 * In error case, the error message must be printed during
+ 		 * drv->load() in some underlying API, and it must be exactly
+@@ -197,7 +197,7 @@ int env_load(void)
+ 		 */
+ 		ret = drv->load();
+ 		if (!ret) {
+-			printf("Loading Environment from %s... OK\n", drv->name);
++			debug("Loading Environment from %s... OK\n", drv->name);
+ 			gd->env_load_prio = prio;
+ 
+ 			return 0;
+diff --git a/fs/fs.c b/fs/fs.c
+index 2824c7d..d69f799 100644
+--- a/fs/fs.c
++++ b/fs/fs.c
+@@ -897,13 +897,15 @@ int do_load(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[],
+ 			(argc > 4) ? argv[4] : "", map_sysmem(addr, 0),
+ 			len_read);
+ 
+-	printf("%llu bytes read in %lu ms", len_read, time);
+-	if (time > 0) {
+-		puts(" (");
+-		print_size(div_u64(len_read, time) * 1000, "/s");
+-		puts(")");
++	if (_DEBUG) {
++		printf("%llu bytes read in %lu ms", len_read, time);
++		if (time > 0) {
++			puts(" (");
++			print_size(div_u64(len_read, time) * 1000, "/s");
++			puts(")");
++		}
++		puts("\n");
+ 	}
+-	puts("\n");
+ 
+ 	env_set_hex("fileaddr", addr);
+ 	env_set_hex("filesize", len_read);

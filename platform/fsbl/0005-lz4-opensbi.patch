@@ -12,16 +12,42 @@ before.
 decompress_lz4() checked the context status instead of the
 LZ4F_decompress() result, so a corrupt or truncated frame passed. It now
 requires the whole frame to be decoded.
+
+SzAlloc() checked comp_alloc_buf >= comp_alloc_buf + size, which never
+fails: LZ4F allocates two buffers of the frame's block size (4 MiB each
+for lz4's default) from the 1 MiB area, overlapping the buffers after it.
+The test is now against the end of the area, and the FIP's LZ4 frames use
+256 KiB blocks.
 ---
- lib/utils/decompress.c    |  4 +++-
+ lib/utils/decompress.c    | 13 +++++++-----
  lib/utils/decompress.h    |  1 +
  plat/cv181x/bl2/bl2_opt.c | 53 ++++++++++++++++++++++++++++++++++++++++++-----
- 3 files changed, 52 insertions(+), 6 deletions(-)
+ 3 files changed, 57 insertions(+), 10 deletions(-)
 diff --git a/lib/utils/decompress.c b/lib/utils/decompress.c
-index 12c7452..1f2f99d 100644
+index 12c7452..74fb468 100644
 --- a/lib/utils/decompress.c
 +++ b/lib/utils/decompress.c
-@@ -114,7 +114,9 @@ int decompress_lz4(void *dst, size_t *dst_size, const void *src, size_t src_size
+@@ -18,14 +18,15 @@ static void *SzAlloc(ISzAllocPtr p, size_t size)
+ {
+ 	void *x;
+ 
+-	x = (void *)comp_alloc_buf;
+-	comp_alloc_buf += size;
+-
+-	if (comp_alloc_buf >= (comp_alloc_buf + comp_alloc_size)) {
++	// The area is DECOMP_ALLOC_SIZE bytes; the old test here could never fail.
++	if (size > DECOMP_ALLOC_ADDR + comp_alloc_size - comp_alloc_buf) {
+ 		ERROR("%s can't alloc %lu bytes\n", __func__, size);
+ 		return NULL;
+ 	}
+ 
++	x = (void *)comp_alloc_buf;
++	comp_alloc_buf += size;
++
+ 	return x;
+ }
+ 
+@@ -114,7 +115,9 @@ int decompress_lz4(void *dst, size_t *dst_size, const void *src, size_t src_size
  
  	ret = LZ4F_decompress(dctx, dst, dst_size, src, &src_size, NULL);
  	INFO("dst_size=%lu src_size=%lu ret=%zd\n", *dst_size, src_size, ret);

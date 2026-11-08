@@ -92,6 +92,56 @@ out[fip.CHIP_CONF_OFFSET + 8] ^= 1  # second chip configuration write
 struct.pack_into("<I", out, 12, fip.crc(out[16:2048]))
 rejected("valid-CRC chip configuration change",
          lambda: fip.validate(bytes(out), bl2, chip_conf, ddr_param, monitor, uboot, manifest), "chip configuration differs")
+
+
+def with_monitor(change):
+    """The candidate with its MONITOR bytes changed and every outer CRC recomputed."""
+    out = bytearray(candidate)
+    start, size = p2["MONITOR_LOADADDR"], p2["MONITOR_SIZE"]
+    body = bytearray(out[start:start + size])
+    change(body)
+    out[start:start + size] = body
+    p2start = p1["PARAM2_LOADADDR"]
+    struct.pack_into("<I", out, p2start + field_offset(fip.P2_FIELDS, "MONITOR_CKSUM"), fip.crc(bytes(body)))
+    struct.pack_into("<I", out, p2start + 8, fip.crc(out[p2start + 12:p2start + 4096]))
+    fip.inspect(bytes(out))  # the outer CRCs are valid
+    return bytes(out)
+
+
+def flip(offset):
+    def change(body):
+        body[offset] ^= 1
+    return change
+
+
+def frame(block):
+    """An LZ4 frame of the build's layout around one compressed block."""
+    head = bytes([fip.LZ4_FLG, fip.LZ4_BD])
+    return (fip.LZ4_FRAME_MAGIC + head + bytes([(fip.xxh32(head) >> 8) & 0xff]) +
+            struct.pack("<I", len(block)) + block + bytes(4))
+
+
+def validate(data):
+    return fip.validate(data, bl2, chip_conf, ddr_param, monitor, uboot, manifest)
+
+
+# The FSBL's LZ4F decoder rejects these frames; the FIP must not certify them.
+rejected("monitor LZ4 header checksum", lambda: validate(with_monitor(flip(6))), "header checksum")
+rejected("monitor LZ4 dictionary flag", lambda: validate(with_monitor(flip(4))), "frame flags")
+rejected("monitor LZ4 4 MiB blocks", lambda: validate(with_monitor(lambda b: b.__setitem__(5, 0x70))), "frame flags")
+rejected("monitor LZ4 block cut short", lambda: validate(with_monitor(flip(8))), "LZ4")
+content, end = fip.lz4_frame(parts["MONITOR"], 1 << 30)
+assert content == monitor
+rejected("monitor larger than its destination", lambda: fip.lz4_frame(parts["MONITOR"], len(monitor) - 1), "destination")
+# 12 literals, then a match of 4 at offset 8 that ends the block
+rejected("block ending in a match", lambda: fip.lz4_frame(frame(bytes([0xc0]) + b"abcdefghijkl" + b"\x08\x00"), 1 << 20),
+         "block end")
+# a match inside the last 12 bytes, then 5 literals
+rejected("match too close to the block end",
+         lambda: fip.lz4_frame(frame(bytes([0x80]) + b"abcdefgh" + b"\x08\x00" + bytes([0x50]) + b"vwxyz"), 1 << 20),
+         "too close")
+assert fip.lz4_frame(frame(bytes([0x50]) + b"vwxyz"), 1 << 20)[0] == b"vwxyz"
+print("literal-only block: pass")
 real_inspect = fip.inspect
 
 

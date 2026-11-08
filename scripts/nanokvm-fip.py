@@ -56,53 +56,104 @@ def require(condition, message):
 
 
 LZ4_FRAME_MAGIC = b"\x04\x22\x4d\x18"
+# The one frame layout the build produces (lz4 -12 -B5 --no-frame-crc) and the FIP accepts:
+# FLG: version 01, independent blocks, no block/content checksum, no content size, no
+# dictionary; BD: 256 KiB blocks. The FSBL's LZ4F decoder allocates two buffers of the block
+# size from its 1 MiB allocation area, so larger blocks are refused.
+LZ4_FLG = 0x60
+LZ4_BD = 0x50
+LZ4_BLOCK_MAX = 256 << 10
+# LZ4 block format: the last 5 bytes are literals and the last match starts at least 12 bytes
+# before the end of the block; LZ4_decompress_safe() keeps 8 input bytes after a non-final
+# literal run (token, offset, last literals).
+LZ4_LASTLITERALS = 5
+LZ4_MFLIMIT = 12
 
 
-def lz4_block(block, out):
-    i = 0
-    while i < len(block):
-        token = block[i]
+def xxh32(data, seed=0):
+    p1, p2, p3, p4, p5 = 2654435761, 2246822519, 3266489917, 668265263, 374761393
+    m = 0xffffffff
+
+    def rotl(x, r):
+        return ((x << r) | (x >> (32 - r))) & m
+
+    i, n = 0, len(data)
+    if n >= 16:
+        v = [(seed + p1 + p2) & m, (seed + p2) & m, seed, (seed - p1) & m]
+        while i + 16 <= n:
+            for k in range(4):
+                lane = int.from_bytes(data[i + 4 * k:i + 4 * k + 4], "little")
+                v[k] = rotl((v[k] + lane * p2) & m, 13) * p1 & m
+            i += 16
+        h = (rotl(v[0], 1) + rotl(v[1], 7) + rotl(v[2], 12) + rotl(v[3], 18)) & m
+    else:
+        h = (seed + p5) & m
+    h = (h + n) & m
+    while i + 4 <= n:
+        h = rotl((h + int.from_bytes(data[i:i + 4], "little") * p3) & m, 17) * p4 & m
+        i += 4
+    while i < n:
+        h = rotl((h + data[i] * p5) & m, 11) * p1 & m
         i += 1
-        length = token >> 4
-        if length == 15:
-            while True:
-                require(i < len(block), "truncated LZ4 literal length")
-                length += block[i]
-                i += 1
-                if block[i - 1] != 255:
-                    break
+    h ^= h >> 15
+    h = h * p2 & m
+    h ^= h >> 13
+    h = h * p3 & m
+    return h ^ (h >> 16)
+
+
+def lz4_length(block, i, length):
+    if length == 15:
+        while True:
+            require(i < len(block), "truncated LZ4 length")
+            length += block[i]
+            i += 1
+            if block[i - 1] != 255:
+                break
+    return i, length
+
+
+def lz4_block(block):
+    """Decode one independent LZ4 block under the rules of LZ4_decompress_safe() and the format."""
+    out = bytearray()
+    i = 0
+    last_match = None
+    while True:
+        require(i < len(block), "LZ4 block does not end with literals")
+        token = block[i]
+        i, length = lz4_length(block, i + 1, token >> 4)
         require(i + length <= len(block), "truncated LZ4 literals")
+        if i + length == len(block):  # the last sequence: literals only
+            out += block[i:]
+            break
+        require(i + length <= len(block) - (2 + 1 + LZ4_LASTLITERALS), "LZ4 literals too close to the block end")
         out += block[i:i + length]
         i += length
-        if i == len(block):
-            return
-        require(i + 2 <= len(block), "truncated LZ4 offset")
         offset = block[i] | block[i + 1] << 8
-        i += 2
-        require(0 < offset <= len(out), "invalid LZ4 match offset")
-        length = token & 15
-        if length == 15:
-            while True:
-                require(i < len(block), "truncated LZ4 match length")
-                length += block[i]
-                i += 1
-                if block[i - 1] != 255:
-                    break
+        i, length = lz4_length(block, i + 2, token & 15)
         length += 4
+        require(0 < offset <= len(out), "LZ4 match outside its block")
         start = len(out) - offset
         if offset >= length:
             out += out[start:start + length]
         else:
             for k in range(length):
                 out.append(out[start + k])
+        require(len(out) <= LZ4_BLOCK_MAX, "LZ4 block larger than the frame's block size")
+        last_match = (start + offset, len(out))
+    if last_match:
+        require(last_match[0] <= len(out) - LZ4_MFLIMIT and last_match[1] <= len(out) - LZ4_LASTLITERALS,
+                "LZ4 match too close to the block end")
+    require(len(out) <= LZ4_BLOCK_MAX, "LZ4 block larger than the frame's block size")
+    return out
 
 
-def lz4_frame(data):
-    """Decode one LZ4 frame (as the FSBL's LZ4F_decompress does); return the content and the frame length."""
+def lz4_frame(data, limit):
+    """Decode one LZ4 frame of the build's layout; return the content and the frame length."""
     require(data[:4] == LZ4_FRAME_MAGIC, "not an LZ4 frame")
-    flg = data[4]
-    require(flg >> 6 == 1, "unsupported LZ4 frame version")
-    pos = 7 + (8 if flg & 0x08 else 0) + (4 if flg & 0x01 else 0)
+    require(len(data) >= 7 and data[4] == LZ4_FLG and data[5] == LZ4_BD, "unexpected LZ4 frame flags or block size")
+    require(data[6] == (xxh32(data[4:6]) >> 8) & 0xff, "LZ4 frame header checksum mismatch")
+    pos = 7
     out = bytearray()
     while True:
         require(pos + 4 <= len(data), "truncated LZ4 frame")
@@ -111,19 +162,16 @@ def lz4_frame(data):
         if not size:
             break
         raw, size = size & 0x80000000, size & 0x7fffffff
+        require(size <= LZ4_BLOCK_MAX, "LZ4 block larger than the frame's block size")
         require(pos + size <= len(data), "truncated LZ4 block")
-        if raw:
-            out += data[pos:pos + size]
-        else:
-            lz4_block(data[pos:pos + size], out)
-        pos += size + (4 if flg & 0x10 else 0)
-    pos += 4 if flg & 0x04 else 0
-    require(pos <= len(data), "truncated LZ4 frame")
+        out += data[pos:pos + size] if raw else lz4_block(data[pos:pos + size])
+        require(len(out) <= limit, "LZ4 content larger than its destination")
+        pos += size
     return bytes(out), pos
 
 
-def lz4_payload(data, expected, name):
-    content, end = lz4_frame(data)
+def lz4_payload(data, expected, name, limit):
+    content, end = lz4_frame(data, limit)
     require(content == expected and not any(data[end:]),
             "packaged " + name + " differs or has extra compressed data")
 
@@ -213,7 +261,8 @@ def validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest):
     # so a small-core image there would be overwritten by Linux.
     require(not new["BLCP_2ND"], "BLCP_2ND image requires a small-core reservation in the OpenSBI DT")
     # OpenSBI is an LZ4 frame; the FSBL (platform/fsbl patch 0005) decompresses it to MONITOR_RUNADDR.
-    lz4_payload(new["MONITOR"], monitor, "MONITOR")
+    # finish_monitor() decodes up to the U-Boot header
+    lz4_payload(new["MONITOR"], monitor, "MONITOR", UBOOT_ADDR - 32 - MONITOR_ADDR)
     require(sha(monitor) == manifest["binary_sha256"], "OpenSBI manifest hash mismatch")
     require(manifest["pmp_regions"] == [
         {"base": MONITOR_ADDR, "bytes": 0x20000, "m_permissions": "RX"},
@@ -226,7 +275,8 @@ def validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest):
             "unexpected FDT relocation contract")
     loader = new["LOADER_2ND"]
     require(loader[4:8] == b"B3Z4", "expected LZ4 U-Boot")
-    lz4_payload(loader[32:], uboot, "U-Boot")
+    # load_loader_2nd() decodes into DECOMP_DST_SIZE (16 MiB)
+    lz4_payload(loader[32:], uboot, "U-Boot", 16 << 20)
     return {
         "schema": 5, "fip_sha256": sha(candidate),
         "fip_bytes": len(candidate), "opensbi_version": manifest["version"],
@@ -261,8 +311,9 @@ def main():
         require(a.lz4 is not None and a.lz4.is_file(), "missing lz4 command")
         with tempfile.TemporaryDirectory(prefix="nkos-fip-", dir=a.output.parent) as directory:
             # The FSBL decodes an LZ4 frame in one LZ4F_decompress call; no
-            # frame checksum (the FIP CRCs cover the compressed bytes).
-            lz4 = [str(a.lz4), "-12", "--no-frame-crc", "-c", "-q"]
+            # frame checksum (the FIP CRCs cover the compressed bytes); 256 KiB
+            # blocks (LZ4_BD).
+            lz4 = [str(a.lz4), "-12", "-B5", "--no-frame-crc", "-c", "-q"]
             monitor = Path(directory) / "fw_dynamic.bin.lz4"
             monitor.write_bytes(subprocess.run(lz4 + [str(a.monitor)], check=True, capture_output=True).stdout)
             # The vendor tool compresses U-Boot with the Python lz4 module;

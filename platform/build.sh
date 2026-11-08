@@ -451,7 +451,7 @@ fip() {
     # The DDR parameter block is the SDK's (fip.mk DDR_PARAM_TEST_PATH); this
     # BL2 loads and CRC-checks it but only logs its first word.
     "$host/python3" "$repo/scripts/nanokvm-fip.py" build \
-        --tool "$f/fsbl/plat/cv181x/fiptool.py" --chip-conf "$f/build/chip_conf.bin" \
+        --tool "$f/fsbl/plat/cv181x/fiptool.py" --lz4 "$host/lz4" --chip-conf "$f/build/chip_conf.bin" \
         --bl2 "$f/build/bl2.bin" --ddr-param "$f/fsbl/test/cv181x/ddr_param.bin" \
         --monitor "$img/opensbi/fw_dynamic.bin" --uboot "$img/u-boot.bin" \
         --opensbi-manifest "$img/opensbi/build-manifest.json" \

@@ -4,7 +4,7 @@ import argparse
 import binascii
 import hashlib
 import json
-import lzma
+import os
 import struct
 import subprocess
 import sys
@@ -53,6 +53,79 @@ def crc(data):
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+LZ4_FRAME_MAGIC = b"\x04\x22\x4d\x18"
+
+
+def lz4_block(block, out):
+    i = 0
+    while i < len(block):
+        token = block[i]
+        i += 1
+        length = token >> 4
+        if length == 15:
+            while True:
+                require(i < len(block), "truncated LZ4 literal length")
+                length += block[i]
+                i += 1
+                if block[i - 1] != 255:
+                    break
+        require(i + length <= len(block), "truncated LZ4 literals")
+        out += block[i:i + length]
+        i += length
+        if i == len(block):
+            return
+        require(i + 2 <= len(block), "truncated LZ4 offset")
+        offset = block[i] | block[i + 1] << 8
+        i += 2
+        require(0 < offset <= len(out), "invalid LZ4 match offset")
+        length = token & 15
+        if length == 15:
+            while True:
+                require(i < len(block), "truncated LZ4 match length")
+                length += block[i]
+                i += 1
+                if block[i - 1] != 255:
+                    break
+        length += 4
+        start = len(out) - offset
+        if offset >= length:
+            out += out[start:start + length]
+        else:
+            for k in range(length):
+                out.append(out[start + k])
+
+
+def lz4_frame(data):
+    """Decode one LZ4 frame (as the FSBL's LZ4F_decompress does); return the content and the frame length."""
+    require(data[:4] == LZ4_FRAME_MAGIC, "not an LZ4 frame")
+    flg = data[4]
+    require(flg >> 6 == 1, "unsupported LZ4 frame version")
+    pos = 7 + (8 if flg & 0x08 else 0) + (4 if flg & 0x01 else 0)
+    out = bytearray()
+    while True:
+        require(pos + 4 <= len(data), "truncated LZ4 frame")
+        size = int.from_bytes(data[pos:pos + 4], "little")
+        pos += 4
+        if not size:
+            break
+        raw, size = size & 0x80000000, size & 0x7fffffff
+        require(pos + size <= len(data), "truncated LZ4 block")
+        if raw:
+            out += data[pos:pos + size]
+        else:
+            lz4_block(data[pos:pos + size], out)
+        pos += size + (4 if flg & 0x10 else 0)
+    pos += 4 if flg & 0x04 else 0
+    require(pos <= len(data), "truncated LZ4 frame")
+    return bytes(out), pos
+
+
+def lz4_payload(data, expected, name):
+    content, end = lz4_frame(data)
+    require(content == expected and not any(data[end:]),
+            "packaged " + name + " differs or has extra compressed data")
 
 
 def fields(data, layout):
@@ -139,8 +212,8 @@ def validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest):
     # The M-mode DT reserves no memory at SMALL_CORE_ADDR (platform/opensbi/nanokvm.dts),
     # so a small-core image there would be overwritten by Linux.
     require(not new["BLCP_2ND"], "BLCP_2ND image requires a small-core reservation in the OpenSBI DT")
-    padded_monitor = monitor + bytes((-len(monitor)) % ALIGN)
-    require(new["MONITOR"] == padded_monitor, "packaged MONITOR differs")
+    # OpenSBI is an LZ4 frame; the FSBL (platform/fsbl patch 0005) decompresses it to MONITOR_RUNADDR.
+    lz4_payload(new["MONITOR"], monitor, "MONITOR")
     require(sha(monitor) == manifest["binary_sha256"], "OpenSBI manifest hash mismatch")
     require(manifest["pmp_regions"] == [
         {"base": MONITOR_ADDR, "bytes": 0x20000, "m_permissions": "RX"},
@@ -152,12 +225,10 @@ def validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest):
     require(manifest["fdt_destination"] == 0x80100000 and manifest["fdt_max_bytes"] == 0x10000,
             "unexpected FDT relocation contract")
     loader = new["LOADER_2ND"]
-    require(loader[4:8] == b"B3MA", "expected LZMA U-Boot")
-    dec = lzma.LZMADecompressor(format=lzma.FORMAT_ALONE)
-    require(dec.decompress(loader[32:], max_length=len(uboot) + 1) == uboot and dec.eof and not any(dec.unused_data),
-            "packaged U-Boot differs or has extra compressed data")
+    require(loader[4:8] == b"B3Z4", "expected LZ4 U-Boot")
+    lz4_payload(loader[32:], uboot, "U-Boot")
     return {
-        "schema": 4, "fip_sha256": sha(candidate),
+        "schema": 5, "fip_sha256": sha(candidate),
         "fip_bytes": len(candidate), "opensbi_version": manifest["version"],
         "opensbi_commit": manifest["upstream_commit"], "monitor_sha256": sha(monitor),
         "uboot_sha256": sha(uboot), "monitor_run_address": MONITOR_ADDR,
@@ -169,7 +240,7 @@ def validate(candidate, bl2, chip_conf, ddr_param, monitor, uboot, manifest):
                        for name in sorted(new)},
         "file_spans": [{"name": n, "offset": start, "end": end} for n, start, end in spans],
         "checks": ["parameter CRCs", "all image CRCs", "512-byte alignment", "no file overlaps",
-                   "first-stage parameters", "chip configuration bytes", "BL2 bytes", "DDR parameter bytes", "no BLCP or small-core image", "monitor bytes", "U-Boot decompression",
+                   "first-stage parameters", "chip configuration bytes", "BL2 bytes", "DDR parameter bytes", "no BLCP or small-core image", "monitor LZ4 decompression", "U-Boot LZ4 decompression",
                    "load/run addresses", "192 KiB split RO/RW PMP contract"],
         "hardware_validation": "pending",
         "apk_updates_fip": False
@@ -182,11 +253,26 @@ def main():
     for name in ("chip-conf", "bl2", "ddr-param", "monitor", "uboot", "opensbi-manifest", "output", "report"):
         p.add_argument("--" + name, type=Path, required=True)
     p.add_argument("--tool", type=Path)
+    p.add_argument("--lz4", type=Path, help="lz4 command (build only)")
     a = p.parse_args()
     manifest = json.loads(a.opensbi_manifest.read_text())
     if a.action == "build":
         require(a.tool is not None and a.tool.is_file(), "missing pinned FIP tool")
+        require(a.lz4 is not None and a.lz4.is_file(), "missing lz4 command")
         with tempfile.TemporaryDirectory(prefix="nkos-fip-", dir=a.output.parent) as directory:
+            # The FSBL decodes an LZ4 frame in one LZ4F_decompress call; no
+            # frame checksum (the FIP CRCs cover the compressed bytes).
+            lz4 = [str(a.lz4), "-12", "--no-frame-crc", "-c", "-q"]
+            monitor = Path(directory) / "fw_dynamic.bin.lz4"
+            monitor.write_bytes(subprocess.run(lz4 + [str(a.monitor)], check=True, capture_output=True).stdout)
+            # The vendor tool compresses U-Boot with the Python lz4 module;
+            # this one runs the same lz4 command instead.
+            shim = Path(directory) / "lz4"
+            shim.mkdir()
+            (shim / "__init__.py").write_text("")
+            (shim / "frame.py").write_text(
+                "import subprocess\n\n\ndef compress(data):\n"
+                f"    return subprocess.run({lz4!r}, input=data, check=True, capture_output=True).stdout\n")
             raw = Path(directory) / "u-boot-raw.bin"
             raw.write_bytes(struct.pack("<I4sIIQII", 0, b"BL33", 0, 32 + a.uboot.stat().st_size,
                                         UBOOT_ADDR - 32, 0, 0) + a.uboot.read_bytes())
@@ -198,9 +284,9 @@ def main():
                             "--NAND_INFO", "00000000", "--BL2", str(a.bl2),
                             "--BLCP_IMG_RUNADDR", hex(BLCP_IMG_RUNADDR), "--BLCP_PARAM_LOADADDR", "0",
                             "--BLCP", str(empty), "--DDR_PARAM", str(a.ddr_param),
-                            "--MONITOR", str(a.monitor), "--MONITOR_RUNADDR", hex(MONITOR_ADDR),
-                            "--LOADER_2ND", str(raw), "--compress", "lzma"],
-                           capture_output=True)
+                            "--MONITOR", str(monitor), "--MONITOR_RUNADDR", hex(MONITOR_ADDR),
+                            "--LOADER_2ND", str(raw), "--compress", "lz4"],
+                           capture_output=True, env={**os.environ, "PYTHONPATH": directory})
             (a.output.parent / "fiptool.log").write_bytes(result.stdout + result.stderr)
             require(result.returncode == 0, "vendor FIP tool failed; see fiptool.log")
     report = validate(a.output.read_bytes(), a.bl2.read_bytes(), a.chip_conf.read_bytes(),

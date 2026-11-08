@@ -1,0 +1,144 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: LZ4 OpenSBI; check the LZ4 result
+
+With the SD bus at 4 bits and 50 MHz (0004), reading is cheap and
+decompressing is not: LZMA U-Boot takes 39 ms to decode, LZ4 2.5 ms for
+46 KB more to read. The FIP now carries U-Boot and OpenSBI as LZ4
+frames. OpenSBI is loaded into a buffer; an LZ4 frame there is decoded
+to monitor_runaddr after load_loader_2nd() has switched the clocks to
+the PLLs, bounded by the U-Boot header; anything else is copied as
+before.
+
+decompress_lz4() checked the context status instead of the
+LZ4F_decompress() result, so a corrupt or truncated frame passed. It now
+requires the whole frame to be decoded.
+---
+ lib/utils/decompress.c    |  4 +++-
+ lib/utils/decompress.h    |  1 +
+ plat/cv181x/bl2/bl2_opt.c | 53 ++++++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 52 insertions(+), 6 deletions(-)
+diff --git a/lib/utils/decompress.c b/lib/utils/decompress.c
+index 12c7452..1f2f99d 100644
+--- a/lib/utils/decompress.c
++++ b/lib/utils/decompress.c
+@@ -114,7 +114,9 @@ int decompress_lz4(void *dst, size_t *dst_size, const void *src, size_t src_size
+ 
+ 	ret = LZ4F_decompress(dctx, dst, dst_size, src, &src_size, NULL);
+ 	INFO("dst_size=%lu src_size=%lu ret=%zd\n", *dst_size, src_size, ret);
+-	if (LZ4F_isError(dctxStatus)) {
++	// 0: the whole frame was decoded; anything else is an error or a frame
++	// that did not fit into dst_size or was cut short.
++	if (LZ4F_isError(ret) || ret != 0) {
+ 		ERROR("LZ4F_decompress=%lu\n", ret);
+ 		return -1;
+ 	}
+diff --git a/lib/utils/decompress.h b/lib/utils/decompress.h
+index cc6a2c4..e4422c3 100644
+--- a/lib/utils/decompress.h
++++ b/lib/utils/decompress.h
+@@ -4,5 +4,6 @@
+ enum COMPRESS_TYPE { COMP_NONE, COMP_LZMA, COMP_LZ4 };
+ 
+ int decompress(void *dst, size_t *dst_size, const void *src, size_t src_size, enum COMPRESS_TYPE type);
++int decompress_lz4(void *dst, size_t *dst_size, const void *src, size_t src_size);
+ 
+ #endif /* __DECOMPRESS_H__ */
+diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
+index 4e516ee..23b4d15 100644
+--- a/plat/cv181x/bl2/bl2_opt.c
++++ b/plat/cv181x/bl2/bl2_opt.c
+@@ -28,6 +28,13 @@ static union {
+ void sd_fast_enable(void);
+ void sd_fast_disable(void);
+ 
++// OpenSBI is loaded here first; U-Boot's compressed image is at DECOMP_BUF_ADDR.
++#define MONITOR_LOAD_BUF (DECOMP_BUF_ADDR + (8 << 20))
++#define MONITOR_LOAD_BUF_SIZE (DECOMP_BUF_SIZE - (8 << 20))
++#define LZ4F_FRAME_MAGIC 0x184D2204
++
++static int monitor_lz4;
++
+ int init_comm_info(int ret) __attribute__((weak));
+ int init_comm_info(int ret)
+ {
+@@ -259,25 +266,36 @@ int load_monitor(int retry, uint64_t *monitor_entry)
+ 		panic_handler();
+ 	}
+ 
+-	ret = p_rom_api_load_image((void *)(uintptr_t)fip_param2.monitor_runaddr, fip_param2.monitor_loadaddr,
+-				   fip_param2.monitor_size, retry);
++	if (fip_param2.monitor_size > MONITOR_LOAD_BUF_SIZE) {
++		ERROR("monitor_size (0x%x) exceeds the load buffer.\n", fip_param2.monitor_size);
++		panic_handler();
++	}
++
++	// Load into a buffer: an LZ4 frame is decompressed to monitor_runaddr by
++	// finish_monitor() after the clocks are switched to the PLLs.
++	ret = p_rom_api_load_image((void *)MONITOR_LOAD_BUF, fip_param2.monitor_loadaddr, fip_param2.monitor_size,
++				   retry);
+ 	if (ret < 0) {
+ 		return ret;
+ 	}
+ 
+-	crc = p_rom_api_image_crc((void *)(uintptr_t)fip_param2.monitor_runaddr, fip_param2.monitor_size);
++	crc = p_rom_api_image_crc((void *)MONITOR_LOAD_BUF, fip_param2.monitor_size);
+ 	if (crc != fip_param2.monitor_cksum) {
+ 		ERROR("monitor_cksum (0x%x/0x%x)\n", crc, fip_param2.monitor_cksum);
+ 		return -1;
+ 	}
+ 
+-	ret = dec_verify_image((void *)(uintptr_t)fip_param2.monitor_runaddr, fip_param2.monitor_size, 0, fip_param1);
++	ret = dec_verify_image((void *)MONITOR_LOAD_BUF, fip_param2.monitor_size, 0, fip_param1);
+ 	if (ret < 0) {
+ 		ERROR("verify monitor (%d)\n", ret);
+ 		return ret;
+ 	}
+ 
+-	flush_dcache_range(fip_param2.monitor_runaddr, fip_param2.monitor_size);
++	monitor_lz4 = *(volatile uint32_t *)MONITOR_LOAD_BUF == LZ4F_FRAME_MAGIC;
++	if (!monitor_lz4) {
++		memcpy((void *)(uintptr_t)fip_param2.monitor_runaddr, (void *)MONITOR_LOAD_BUF, fip_param2.monitor_size);
++		flush_dcache_range(fip_param2.monitor_runaddr, fip_param2.monitor_size);
++	}
+ 	NOTICE("ME.\n");
+ 
+ 	*monitor_entry = fip_param2.monitor_runaddr;
+@@ -285,6 +303,28 @@ int load_monitor(int retry, uint64_t *monitor_entry)
+ 	return 0;
+ }
+ 
++// The monitor may not reach the loader_2nd header in front of U-Boot.
++static int finish_monitor(uint64_t monitor_entry, uint64_t loader_2nd_entry)
++{
++	size_t dst_size;
++	int ret;
++
++	if (!monitor_lz4)
++		return 0;
++
++	dst_size = loader_2nd_entry - sizeof(struct loader_2nd_header) - monitor_entry;
++	ret = decompress_lz4((void *)monitor_entry, &dst_size, (void *)MONITOR_LOAD_BUF, fip_param2.monitor_size);
++	if (ret < 0) {
++		ERROR("Failed to decompress monitor (%d/%lu)\n", ret, dst_size);
++		return -1;
++	}
++
++	flush_dcache_range(monitor_entry, dst_size);
++	NOTICE("MZ/0x%lx.\n", dst_size);
++
++	return 0;
++}
++
+ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ {
+ 	struct loader_2nd_header *loader_2nd_header = &sram_union_buf.loader_2nd_header;
+@@ -403,6 +443,9 @@ retry_from_flash:
+ 		if (load_loader_2nd(retry, &loader_2nd_entry) < 0)
+ 			continue;
+ 
++		if (monitor_entry && finish_monitor(monitor_entry, loader_2nd_entry) < 0)
++			continue;
++
+ 		break;
+ 	}
+ 

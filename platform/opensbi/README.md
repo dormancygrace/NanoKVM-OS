@@ -44,7 +44,7 @@ The source audit compares the pinned vendor OpenSBI tree with upstream v0.9 and 
 
 ## Validation
 
-`scripts/nanokvm-fip.py` independently checks both parameter CRCs, component CRCs, 512-byte alignment, file overlaps, load/run addresses, the built BL2 bytes, first-stage parameter/DDR/small-core preservation and absence of a BLCP_2ND image, exact MONITOR and decompressed U-Boot bytes. The vendor FIP generator includes zero padding in the compressed loader size; the validator accepts only zero trailing padding.
+`scripts/nanokvm-fip.py` independently checks both parameter CRCs, component CRCs, 512-byte alignment, file overlaps, load/run addresses, the built BL2 bytes, first-stage parameter/DDR/small-core preservation and absence of a BLCP_2ND image, and the exact OpenSBI and U-Boot bytes, decoding both LZ4 frames with its own decoder. The vendor FIP generator includes zero padding in the compressed loader size; the validator accepts only zero trailing padding. The FSBL decodes the OpenSBI frame (`../fsbl/README.md`, "Compression").
 
 `images/opensbi/build-manifest.json` records the source/tree pin, patches/config/DT hashes, compiler, optimization, binary hash, ELF symbols and PMP extents. `images/fip-manifest.json` records component hashes and checks. Neither manifest establishes successful hardware boot.
 

@@ -35,6 +35,7 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | `0002-c906-mpll-1000mhz.patch` | C906 PLL 1000 MHz instead of 850 MHz (previously a one-instruction binary patch of the stock BL2) |
 | `0003-ddr3-reset-low-200us.patch` | DDR3 RESET# low for 200 us (JESD79-3), from sophgo/fsbl 2026.10.28 |
 | `0004-sd-fast-boot-read.patch` | OpenSBI and U-Boot read from SD at 4 bits and 50 MHz instead of the ROM's 1 bit (see below) |
+| `0005-lz4-opensbi.patch` | OpenSBI as an LZ4 frame, decoded after the clock switch; `decompress_lz4()` checks the decoder's result |
 
 ## SD read speed
 
@@ -69,6 +70,19 @@ own work (FAT lookup, setup), whatever the bus.
 
 A FIP loaded over the ROM's UART window does not exercise this: the ROM
 then reports UART as the boot source and BL2 leaves the SD bus alone.
+
+## Compression
+
+With reading at that speed, decoding dominates: U-Boot as LZMA (145 KB)
+took 39 ms to decode, as LZ4 (191 KB) 2.5 ms, for about 6 ms more
+reading. `scripts/nanokvm-fip.py` therefore packs U-Boot (`B3Z4`) and
+OpenSBI as LZ4 frames (`lz4 -12 --no-frame-crc`; the FIP CRCs cover the
+compressed bytes). BL2 loads OpenSBI into a buffer and, when it starts
+with the LZ4 frame magic, decodes it to its run address after
+`load_loader_2nd()` has switched the clocks to the PLLs, at most up to
+the U-Boot header; other content is copied as before. BL2 from start to
+exit: 210 ms with LZMA U-Boot and plain OpenSBI, 173-174 ms with both as
+LZ4 (three boots).
 
 ## Upstream changes not taken
 

@@ -1130,6 +1130,8 @@
         "close": "Cerrar",
         "madePossibleBy": "Hecho posible gracias a",
         "projectLead": "Concepto, arquitectura, desarrollo de NanoKVM OS, integración del sistema, validación en dispositivos e ingeniería de versiones.",
+        "possiblyneal": "Mejoras en la reconexión de vídeo y la captura inicial, respaldadas por mediciones de recuperación tras reinicios y cortes de alimentación.",
+        "ladyGaladriel": "Informó de fechas incorrectas en las claves de host SSH tras un arranque en frío, ayudando a detectar y corregir problemas del reloj inicial y de caducidad de los certificados HTTPS generados.",
         "wenjie": "Mantenimiento de la aplicación NanoKVM original; H.264 Direct, correcciones del arranque de Tailscale y de red; e integración de la interfaz y la localización.",
         "z2zGuGu": "Componentes nativos de KVM, MMF y visión; herramientas de compilación, watchdog, herramientas de EDID y PID/VID USB; y las bases de la personalización del dispositivo.",
         "alexanderGerReich": "Flujos de aplicación, actualización y descarga; mejoras de HID, pegado y teclado virtual; y mantenimiento de la interfaz en alemán e inglés.",

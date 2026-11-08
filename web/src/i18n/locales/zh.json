@@ -1130,6 +1130,8 @@
         "close": "关闭",
         "madePossibleBy": "特别鸣谢",
         "projectLead": "概念与架构设计、NanoKVM OS 开发、系统集成、设备验证及发布工程。",
+        "possiblyneal": "改进视频重连和首次采集，并通过重启及断电恢复测试验证效果。",
+        "ladyGaladriel": "报告冷启动后 SSH 主机密钥日期不正确的问题，帮助发现并修复启动时钟和自动生成的 HTTPS 证书过期问题。",
         "wenjie": "原 NanoKVM 应用的维护；Direct H.264、Tailscale 启动与网络修复；以及界面与本地化集成。",
         "z2zGuGu": "原生 KVM、MMF 与视觉组件；构建工具、看门狗、EDID 及 USB PID/VID 工具；以及设备定制基础。",
         "alexanderGerReich": "应用、更新与下载流程；HID、粘贴和虚拟键盘改进；以及德语和英语界面维护。",

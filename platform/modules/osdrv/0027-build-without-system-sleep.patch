@@ -1,0 +1,66 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] osdrv: build without system sleep (CONFIG_PM_SLEEP=n)
+
+A NanoKVM never suspends, and the kernel is built without SUSPEND. The
+suspend and resume callbacks of cif, vi and ive are then referenced by
+nothing, and -Werror=unused-function stopped the build. They are
+__maybe_unused now; with PM_SLEEP the driver behaves as before.
+---
+--- a/interdrv/cif/chip/cv181x/cif.c
++++ b/interdrv/cif/chip/cv181x/cif.c
+@@ -3499,14 +3499,14 @@
+ 	return 0;
+ }
+ 
+-static int cif_pm_suspend(struct device *dev)
++static int __maybe_unused cif_pm_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	cvi_cif_suspend(pdev);
+ 	return 0;
+ }
+ 
+-static int cif_pm_resume(struct device *dev)
++static int __maybe_unused cif_pm_resume(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	cvi_cif_resume(pdev);
+--- a/interdrv/vi/common/vi_core.c
++++ b/interdrv/vi/common/vi_core.c
+@@ -296,7 +296,7 @@
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+-static int vi_pm_suspend(struct device *dev)
++static int __maybe_unused vi_pm_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct cvi_vi_dev *vdev = dev_get_drvdata(&pdev->dev);
+@@ -306,7 +306,7 @@
+ 	return 0;
+ }
+ 
+-static int vi_pm_resume(struct device *dev)
++static int __maybe_unused vi_pm_resume(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+ 	struct cvi_vi_dev *vdev = dev_get_drvdata(&pdev->dev);
+--- a/interdrv/ive/common/cvi_ive_interface.c
++++ b/interdrv/ive/common/cvi_ive_interface.c
+@@ -995,14 +995,14 @@
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
+-static int cvi_ive_suspend(struct device *dev)
++static int __maybe_unused cvi_ive_suspend(struct device *dev)
+ {
+ 	//[TODO]
+ 	pr_debug("[IVE] ive_suspend\n");
+ 	return 0;
+ }
+ 
+-static int cvi_ive_resume(struct device *dev)
++static int __maybe_unused cvi_ive_resume(struct device *dev)
+ {
+ 	//[TODO]
+ 	pr_debug("[IVE] ive_resume\n");

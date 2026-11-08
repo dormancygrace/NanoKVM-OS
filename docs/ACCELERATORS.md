@@ -4,7 +4,7 @@ The SG2002 has engines beside the CPU:
 
 - the IVE, for image comparisons and filters;
 - the TPU, for neural networks;
-- DWA, for dewarp and rotation;
+- DWA, for dewarp and rotation (no driver is built);
 - RGN, for overlays;
 - the AXI monitors in front of the DDR controller;
 - the true random number generator, which U-Boot reads to seed Linux ([Random numbers](#random-numbers)).
@@ -19,7 +19,6 @@ The device tree describes every engine. Without a rule, udev would load their dr
 |---|---|
 | `cv181x_ive` | `/dev/cvi-ive` |
 | `cv181x_tpu` | `/dev/cvi-tpu0` |
-| `cv181x_dwa` | `/dev/cvi-dwa` |
 | `cv181x_rgn` | `/dev/cvi-rgn` |
 | `cv181x_aximon` | `/proc/ddr_bandwidth` |
 
@@ -72,10 +71,7 @@ Either takes about 5 % of a core. 1080p90 H.265 keeps 90 fps while yolov5s runs 
 
 ## DWA and RGN
 
-`cv181x_dwa` and `cv181x_rgn` are the dewarp and region engines:
-
-- DWA: rotation, mirroring and lens correction;
-- RGN: overlays and masks in the encoded picture.
+DWA (rotation, mirroring and lens correction) and RGN (overlays and masks in the encoded picture) are the dewarp and region engines. Only `cv181x_rgn` is built: nothing in NanoKVM OS rotates or dewarps the picture, and the `dwa` module is not in the osdrv list of `platform/build.sh`. A feature that needs DWA adds it back there.
 
 The media library in the image does not open their devices: `CVI_SYS_Init` skips them (cvi_mpi patch 0012). A feature that uses them loads the module and enables them in that patch.
 

@@ -1,0 +1,48 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: build without system sleep (CONFIG_PM_SLEEP=n)
+
+A NanoKVM never suspends, and the kernel is built without SUSPEND.
+SET_SYSTEM_SLEEP_PM_OPS() then drops the SDIO suspend and resume
+callbacks, and -Werror=unused-function stopped the build. They are
+__maybe_unused now; with PM_SLEEP the driver behaves as before.
+---
+--- a/aic8800_fdrv/aicwf_sdio.c
++++ b/aic8800_fdrv/aicwf_sdio.c
+@@ -996,7 +996,7 @@
+ }
+ #endif
+ 
+-static int aicwf_sdio_suspend(struct device *dev)
++static int __maybe_unused aicwf_sdio_suspend(struct device *dev)
+ {
+ 	int ret = 0;
+ 	struct aicwf_bus *bus_if = dev_get_drvdata(dev);
+@@ -1106,7 +1106,7 @@
+ 	return 0;
+ }
+ 
+-static int aicwf_sdio_resume(struct device *dev)
++static int __maybe_unused aicwf_sdio_resume(struct device *dev)
+ {
+ 	struct aicwf_bus *bus_if = dev_get_drvdata(dev);
+ 	struct aic_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
+--- a/aic8800_bsp/aicsdio.c
++++ b/aic8800_bsp/aicsdio.c
+@@ -508,7 +508,7 @@
+ }
+ 
+ 
+-static int aicbsp_sdio_suspend(struct device *dev)
++static int __maybe_unused aicbsp_sdio_suspend(struct device *dev)
+ {
+ 	struct sdio_func *func = dev_to_sdio_func(dev);
+ 	int err;
+@@ -557,7 +557,7 @@
+ 	return 0;
+ }
+ 
+-static int aicbsp_sdio_resume(struct device *dev)
++static int __maybe_unused aicbsp_sdio_resume(struct device *dev)
+ {
+ 	sdio_dbg("%s\n", __func__);
+ 

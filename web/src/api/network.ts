@@ -258,6 +258,13 @@ export type WifiAPStatus = WifiAP & {
   stations: WifiAPStation[];
   // The device's DNS servers, which its clients get without a list.
   deviceDns: string[];
+  // Per band, the channels the Wi-Fi country allows an access point now;
+  // missing while Wi-Fi is off.
+  channels?: Partial<Record<WifiBand, number[]>>;
+  // The band it runs on (or would start on). A 5 GHz access point runs on
+  // 2.4 GHz until a country allows it: bandFallback says why.
+  bandInUse?: WifiBand;
+  bandFallback?: 'country_unset' | 'country_disallows';
 };
 // A device on the access point; ip and hostname come with its lease.
 export type WifiAPStation = {
@@ -355,6 +362,20 @@ export function setWifiEnabled(enabled: boolean) {
 }
 export function setWifiBandPreference(preferredBand: WifiBand) {
   return http.post('/api/network/wifi/band-preference', { preferredBand });
+}
+// The regulatory country: ISO 3166-1 alpha-2 in capitals, or '00' (world).
+// active is the one in force, empty while Wi-Fi is off. supported: the
+// countries of the kernel's regulatory database (missing when the device
+// cannot read it); no other comes into force.
+export type WifiCountry = { country: string; active: string; supported?: string[] };
+export function getWifiCountry() {
+  return http.get<WifiCountry>('/api/network/wifi/country');
+}
+export function setWifiCountry(country: string) {
+  // A trial when the request came over Wi-Fi and Wi-Fi restarts.
+  return http.post<WifiCountry & { trial?: NetworkTrial }>('/api/network/wifi/country', {
+    country
+  });
 }
 export function scanWifi(band: WifiBand | 'all' = 'all') {
   return http.get<WifiNetwork[]>('/api/network/wifi/scan', { band });

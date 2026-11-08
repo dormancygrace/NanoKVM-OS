@@ -27,6 +27,8 @@
 : "${NANOKVM_WIFI_NET_DIR:=/sys/class/net/wlan0}"
 : "${NANOKVM_WIFI_DRIVER_LOADER:=/usr/libexec/nanokvm/legacy/S25wifimod}"
 : "${NANOKVM_WIFI_DRIVER_WAIT:=50}"
+: "${NANOKVM_WIFI_REG_WAIT:=20}"
+: "${NANOKVM_LOGGER:=logger}"
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
 : "${NANOKVM_HOSTNAME_FILE:=/etc/hostname}"
 : "${NANOKVM_NFT:=nft}"
@@ -61,6 +63,9 @@ HOSTAPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/hostapd.conf
 # the button, it leaves /tmp/wifiap alone: that flag opens the setup page.
 AP_PREFIX=$NANOKVM_WIFI_ETC_DIR/wifi.ap
 USER_AP_FLAG=$NANOKVM_WIFI_RUN_DIR/ap-user
+# The band the access point runs on, for the server: 2.4 while a 5 GHz one
+# waits for a country that allows it.
+AP_BAND_FILE=$NANOKVM_WIFI_RUN_DIR/ap-band
 # Internet for its clients (wifi.ap.internet): the interfaces whose IPv4
 # forwarding it switched on, to switch off again.
 AP_FORWARDING=$NANOKVM_WIFI_RUN_DIR/ap-forwarding
@@ -73,6 +78,72 @@ WLAN_DHCP_PID=$NANOKVM_WIFI_DHCP_PID
 # (hex of its SSID, the id_str of its blocks) last associated in this start.
 WPA_CLI_PID=$NANOKVM_WIFI_RUN_DIR/wpa_cli.pid
 ASSOCIATED_FILE=$NANOKVM_WIFI_RUN_DIR/associated
+# The regulatory country (ISO 3166-1 alpha-2, uppercase), set in the web
+# interface; missing or invalid: 00, the world domain.
+COUNTRY_FILE=$NANOKVM_WIFI_ETC_DIR/wifi.country
+
+wifi_country() {
+    value=$(sed -n '1{s/\r$//;p;}' "$COUNTRY_FILE" 2>/dev/null)
+    case "$value" in
+        00|[ABCDEFGHIJKLMNOPQRSTUVWXYZ][ABCDEFGHIJKLMNOPQRSTUVWXYZ]) echo "$value" ;;
+        *) echo 00 ;;
+    esac
+}
+
+# The country of the global regulatory domain in force ("iw reg get": the
+# global section, or the first country of an iw without sections).
+reg_country() {
+    "$NANOKVM_IW" reg get 2>/dev/null | awk '
+        /^phy#/ { exit }
+        /^country [0-9A-Z][0-9A-Z]:/ { print substr($2, 1, 2); exit }
+    '
+}
+
+# The country the configuration names (apply_country): the saved one once it
+# is in force, else 00, which names none. Never one that is not in force:
+# hostapd would advertise it over another domain's channels and power.
+COUNTRY_IN_FORCE=00
+
+# set_regdomain CODE: iw requests the domain; succeeds once it is in force.
+set_regdomain() {
+    "$NANOKVM_IW" reg set "$1" || return 1
+    waited=0
+    while [ "$(reg_country)" != "$1" ]; do
+        [ "$waited" -lt "$NANOKVM_WIFI_REG_WAIT" ] || return 1
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+}
+
+# apply_country: the country in force before hostapd or wpa_supplicant
+# starts. The AIC8800 driver leaves regulation to cfg80211 (0017), which
+# applies the request asynchronously: wait until it is in force, as a
+# hostapd started with another country_code stalls in COUNTRY_UPDATE
+# (radxa-pkg/aic8800#98). A module option (cfg80211 ieee80211_regdom) would
+# be read only when cfg80211 loads, which Bluetooth may have done already,
+# and never on a change: iw covers both.
+# A country that does not come into force (iw failed, or the regulatory
+# database lacks it and iw leaves the previous domain) falls back to the
+# world domain, so that no earlier country's rules stay either.
+apply_country() {
+    country=$(wifi_country)
+    COUNTRY_IN_FORCE=00
+    if set_regdomain "$country"; then
+        COUNTRY_IN_FORCE=$country
+        return 0
+    fi
+    if [ "$country" = 00 ]; then
+        echo "The world domain 00 is not in force" >&2
+        return 1
+    fi
+    message="The Wi-Fi country $country did not come into force; using the world domain 00"
+    echo "$message" >&2
+    "$NANOKVM_LOGGER" -t nanokvm-wifi "$message" 2>/dev/null || true
+    if ! set_regdomain 00; then
+        echo "The world domain 00 is not in force either" >&2
+        return 1
+    fi
+}
 
 prepare_run_dir() {
     mkdir -p "$NANOKVM_WIFI_RUN_DIR" || return 1
@@ -106,6 +177,13 @@ gen_hostapd_conf() {
     echo "ctrl_interface=/var/run/hostapd"
     echo "ctrl_interface_group=0"
     echo "ssid2=$(hex_of "$ssid")"
+    # The country apply_country put in force; the world domain (00)
+    # advertises none.
+    hp_country=$COUNTRY_IN_FORCE
+    if [ "$hp_country" != 00 ]; then
+        echo "country_code=${hp_country}"
+        echo "ieee80211d=1"
+    fi
     if [ "$hp_band" = 5 ]; then
         echo "hw_mode=a"
     else
@@ -128,15 +206,52 @@ gen_hostapd_conf() {
     echo "ieee80211n=1"
 }
 
-# pick_channel BAND: the channel with the fewest networks in a scan, among
-# those without radar detection (the driver chooses none well itself: it
-# took channel 14 for 2.4 GHz). On 2.4 GHz neighbours within two channels
-# count, as they overlap. Without a scan: 6, or 36.
+# ap_channels BAND: the channels of the band an access point may use in the
+# country in force ("iw phy info"): not disabled, without "no IR" (passive
+# scanning in older iw) and radar detection. Empty when iw lists none.
+ap_channels() {
+    phy=$(basename "$(readlink -f "$NANOKVM_WIFI_PHY_LINK" 2>/dev/null)")
+    [ -n "$phy" ] || return 0
+    "$NANOKVM_IW" phy "$phy" info 2>/dev/null | awk -v band="$1" '
+        /\*[[:space:]]+[0-9]+(\.[0-9]+)?[[:space:]]+MHz/ {
+            frequency = $2 + 0
+            if (!((band == "2.4" && frequency >= 2400 && frequency < 2500) ||
+                (band == "5" && frequency >= 5150 && frequency < 5925)))
+                next
+            # Channel 14 (2484 MHz) is 802.11b only: not for hw_mode=g.
+            if ($0 ~ /disabled|no IR|radar|passive scanning|no IBSS/ || frequency == 2484)
+                next
+            if (band == "2.4")
+                printf "%d ", (frequency - 2407) / 5
+            else
+                printf "%d ", (frequency - 5000) / 5
+        }
+    ' | sed 's/[[:space:]]*$//'
+}
+
+# channel_in CHANNEL LIST
+channel_in() {
+    case " $2 " in *" $1 "*) return 0 ;; esac
+    return 1
+}
+
+# pick_channel BAND [ALLOWED]: the channel with the fewest networks in a
+# scan, among those without radar detection (the driver chooses none well
+# itself: it took channel 14 for 2.4 GHz). On 2.4 GHz neighbours within two
+# channels count, as they overlap. Without a scan: 6, or 36. With ALLOWED
+# (ap_channels) only those: the usual ones it has, else any of them.
 pick_channel() {
     case "$1" in
         5) candidates="36 40 44 48" ;;
         *) candidates="6 1 11" ;;
     esac
+    if [ -n "${2:-}" ]; then
+        usable=
+        for candidate in $candidates; do
+            channel_in "$candidate" "$2" && usable="$usable $candidate"
+        done
+        candidates=${usable:-$2}
+    fi
     freqs=$("$NANOKVM_IW" dev wlan0 scan 2>/dev/null | sed -n 's/^[[:space:]]*freq: \([0-9]*\).*/\1/p')
     best=
     best_count=
@@ -471,8 +586,12 @@ write_wpa_config() {
 
     skipped=0
     umask 077
+    country=$COUNTRY_IN_FORCE
     {
         echo "ctrl_interface=/var/run/wpa_supplicant"
+        # The country apply_country put in force, which wpa_supplicant
+        # requests again; the world domain (00) needs none.
+        [ "$country" = 00 ] || echo "country=$country"
         # The last chosen network first: wpa_supplicant selects the
         # higher-priority block when both match. The unrestricted
         # lower-priority block preserves a usable fallback on another band
@@ -553,6 +672,7 @@ start() {
         "$NANOKVM_IP" link set dev wlan0 down || return 1
         return 0
     fi
+    apply_country || return 1
     # The administrator's access point, instead of joining a network.
     if [ -e "$AP_PREFIX.enabled" ]; then
         ap_start user
@@ -733,7 +853,8 @@ ap_start() {
         ap_internet=local
         [ ! -e "$AP_PREFIX.internet" ] || ap_internet=internet
         # IPv4 addresses, which the server checked.
-        ap_dns=$(tr -cd '0-9. ' < "$AP_PREFIX.dns" 2>/dev/null)
+        # The redirections run in order: 2> first, so a missing file is quiet.
+        ap_dns=$(tr -cd '0-9. ' 2>/dev/null < "$AP_PREFIX.dns")
         # Three octets of a private network, which the server checked.
         subnet=$(cat "$AP_PREFIX.subnet" 2>/dev/null)
         case "$subnet" in
@@ -757,12 +878,53 @@ ap_start() {
     fi
 
     "$NANOKVM_IFCONFIG" wlan0 up || return 1
+    # A channel the country no longer allows (it changed since) is chosen
+    # again. With no channel listed at all (iw unavailable), as before.
+    # Without a country in force (00, the world domain) no 5 GHz channel
+    # allows an access point; nor in a country that allows none. It runs on
+    # 2.4 GHz meanwhile; the saved band stays, for the start after a country
+    # is set.
+    if [ "$ap_band" = 5 ]; then
+        reason=
+        if [ "$(wifi_country)" = 00 ]; then
+            reason="no Wi-Fi country is set"
+        elif [ "$COUNTRY_IN_FORCE" = 00 ]; then
+            reason="the Wi-Fi country $(wifi_country) is not in force"
+        elif [ -z "$(ap_channels 5)" ] && [ -n "$(adapter_frequencies 5)" ]; then
+            reason="the Wi-Fi country $COUNTRY_IN_FORCE allows none of its channels"
+        fi
+        if [ -n "$reason" ]; then
+            message="The 5 GHz access point runs on 2.4 GHz: $reason"
+            echo "$message" >&2
+            "$NANOKVM_LOGGER" -t nanokvm-wifi "$message" 2>/dev/null || true
+            ap_band=2.4
+            ap_channel=
+        fi
+    fi
+    allowed=$(ap_channels "$ap_band")
+    if [ -n "$allowed" ]; then
+        case "$ap_channel" in
+            ''|0|*[!0-9]*) ;;
+            *)
+                if ! channel_in "$ap_channel" "$allowed"; then
+                    echo "Channel $ap_channel is not allowed in the Wi-Fi country $COUNTRY_IN_FORCE; choosing another" >&2
+                    ap_channel=
+                fi
+                ;;
+        esac
+    elif [ -n "$(adapter_frequencies "$ap_band")" ]; then
+        # The band is there, but the country allows an access point on none
+        # of its channels (the world domain 00 on 5 GHz).
+        echo "No channel of the $ap_band GHz band allows an access point in the Wi-Fi country $COUNTRY_IN_FORCE" >&2
+        return 1
+    fi
     case "$ap_channel" in
-        ''|0|*[!0-9]*) ap_channel=$(pick_channel "$ap_band") ;;
+        ''|0|*[!0-9]*) ap_channel=$(pick_channel "$ap_band" "$allowed") ;;
     esac
 
     umask 077
     gen_hostapd_conf "$ssid" "$pass" "$ap_band" "$ap_channel" "$ap_hidden" > "$HOSTAPD_CONFIG" || return 1
+    printf '%s\n' "$ap_band" > "$AP_BAND_FILE" || return 1
     gen_udhcpd_conf wlan0 "$ipv4_prefix" "$ap_internet" "$ap_dns" > "$UDHCPD_CONFIG" || return 1
 
     "$NANOKVM_IP" route del default dev wlan0 2>/dev/null || true
@@ -885,7 +1047,7 @@ stop() {
     stop_dhcp || true
 
     rm -f "$UDHCPD_PID" "$UDHCPD_LEASES" "$WPA_CONFIG" \
-        "$HOSTAPD_CONFIG" "$UDHCPD_CONFIG" "$NANOKVM_WIFI_AP_FLAG" "$USER_AP_FLAG"
+        "$HOSTAPD_CONFIG" "$UDHCPD_CONFIG" "$NANOKVM_WIFI_AP_FLAG" "$USER_AP_FLAG" "$AP_BAND_FILE"
 
     if [ -e /sys/class/net/wlan0mon ] && command -v airmon-ng >/dev/null 2>&1; then
         airmon-ng stop wlan0mon || true
@@ -913,6 +1075,7 @@ case "${1:-}" in
     ap)
         load_driver || exit 1
         stop
+        apply_country || exit 1
         ap_start
         ;;
     restart) restart ;;

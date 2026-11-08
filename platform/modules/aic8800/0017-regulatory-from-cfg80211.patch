@@ -1,0 +1,79 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: regulatory from cfg80211 and regulatory.db
+
+custregd defaulted to true (its description said 0): the driver registered
+as self-managed with a built-in "00" table that allows 2.4 GHz channels
+1-14 and 5 GHz 36-165 at 20 dBm with no NO_IR or DFS rules, and ignored
+every country change. It now defaults to false, so cfg80211 applies the
+signed regulatory.db and the country set with iw, wpa_supplicant or
+hostapd. The notifier no longer sends each change back as a driver hint
+(that made the next user change an intersection cfg80211 could refuse)
+and no longer skips the firmware channel update for changes 100 ms apart.
+Stopping the last interface sends the country last applied instead of
+dereferencing wiphy->regd, which is RCU-managed and may be NULL.
+---
+--- a/aic8800_fdrv/rwnx_mod_params.c
++++ b/aic8800_fdrv/rwnx_mod_params.c
+@@ -55,8 +55,9 @@
+ 	COMMON_PARAM(mutx, true, true)
+ 	COMMON_PARAM(mutx_on, true, true)
+ 	COMMON_PARAM(use_80, false, false)
+-/* false: use crda(iw reg set CN); true: drive self-management(wifi_test wlan0 country_set CN) */
+-	COMMON_PARAM(custregd, true, true)
++/* false: cfg80211 and regulatory.db (iw reg set, wpa_supplicant/hostapd country);
++ * true: the driver's own permissive table, self-managed */
++	COMMON_PARAM(custregd, false, false)
+ 	COMMON_PARAM(custchan, false, false)
+ 	COMMON_PARAM(roc_dur_max, 500, 500)
+ 	COMMON_PARAM(listen_itv, 0, 0)
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -1387,7 +1387,7 @@
+ 			if (testmode == 0) {
+ 				rwnx_send_me_config_req(rwnx_hw);
+ 				// Set channel parameters to firmware
+-				rwnx_send_me_chan_config_req(rwnx_hw, (char *)rwnx_hw->wiphy->regd->alpha2);
++				rwnx_send_me_chan_config_req(rwnx_hw, rwnx_hw->last_alpha2[0] ? rwnx_hw->last_alpha2 : (char *)"00");
+ 			}
+ 		}
+ #endif
+@@ -5619,13 +5619,11 @@
+ {
+ 	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
+ 	const char *alpha2 = request->alpha2;
+-	int delta_min;
+ 	ktime_t now;
+ 	enum nl80211_reg_initiator initiator = request->initiator;
+ 
+ 	printk("%s Enter\r\n", __func__);
+ 
+-	delta_min = 100;
+ 	now = ktime_get();
+ 
+ 	AICWFDBG(LOGINFO, "%s\n", __func__);
+@@ -5633,19 +5631,12 @@
+ 	if (!rwnx_hw->mod_params->custregd) {
+ 		AICWFDBG(LOGINFO, "regulatory domain set to %c%c, initiator: %d\n", alpha2[0], alpha2[1], initiator);
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
+-		if (rwnx_hw->last_alpha2[0]) {
+-			s64 delta = ktime_ms_delta(now, rwnx_hw->last_time);
+-			if (delta < 0 || delta > INT_MAX)
+-				delta = delta_min + 1;
+-			if (delta < delta_min) {
+-				AICWFDBG(LOGDEBUG, "suspicious rapid reg change: %s -> %s\n", rwnx_hw->last_alpha2, request->alpha2);
+-				return;
+-			}
+-		}
+-#endif
+-
+-		regulatory_hint(wiphy, alpha2);
++		/*
++		 * cfg80211 has applied this request already. Feeding it back as a
++		 * driver hint turned a user's country into an intersection that a
++		 * later change could not replace, and the 100 ms shortcut skipped
++		 * the firmware channel update below.
++		 */
+ 		memcpy(rwnx_hw->last_alpha2, request->alpha2, 2);
+ 		rwnx_hw->last_time = now;
+ 

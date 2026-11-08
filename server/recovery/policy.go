@@ -22,7 +22,7 @@ var settings = strings.Fields(`
  etc/kvm/shortcuts.json etc/kvm/server.yaml etc/kvm/ssh_stop etc/kvm/mdns_disabled
  etc/kvm/hevc_vi_direct etc/kvm/hdmi_disable etc/kvm/hdmi_idle_timeout etc/kvm/atx etc/kvm/screen-text-off
  etc/kvm/mcp.json etc/kvm/ai-control.mode etc/kvm/autostart.list
- etc/kvm/wifi.ssid etc/kvm/wifi.pass etc/kvm/wifi.disabled etc/kvm/wifi.band_preference
+ etc/kvm/wifi.ssid etc/kvm/wifi.pass etc/kvm/wifi.disabled etc/kvm/wifi.band_preference etc/kvm/wifi.country
  etc/kvm/usb-before-rustdesk.json
  etc/kvm/picoclaw-runtime.json etc/kvm/pwd
  kvmapp/kvm/fps kvmapp/kvm/qlty kvmapp/kvm/res kvmapp/kvm/type

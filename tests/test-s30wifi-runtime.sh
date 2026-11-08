@@ -72,7 +72,7 @@ printf 'pidof args=%s\n' "$*" >> "$CALL_LOG"
 exit 1
 EOF
     chmod +x "$BIN_DIR/pidof"
-    for command in wpa_supplicant wpa_cli udhcpc hostapd udhcpd ifconfig ip killall chown iw
+    for command in wpa_supplicant wpa_cli udhcpc hostapd udhcpd ifconfig ip killall chown iw nft logger
     do
         cat > "$BIN_DIR/$command" <<EOF
 #!/bin/sh
@@ -81,6 +81,13 @@ exit 0
 EOF
         chmod +x "$BIN_DIR/$command"
     done
+    # The default fixture has the built-in world domain in force.
+    cat > "$BIN_DIR/iw" <<'EOF'
+#!/bin/sh
+printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
+[ "$*" != 'reg get' ] || printf '%s\n' global 'country 00: DFS-UNSET'
+exit 0
+EOF
 }
 
 run_action() (
@@ -108,8 +115,60 @@ run_action() (
     export NANOKVM_IW="$BIN_DIR/iw"
     export NANOKVM_WIFI_PHY_LINK="$PHY_LINK"
     export NANOKVM_WIFI_NET_DIR="$NET_DIR"
+    export NANOKVM_NFT="$BIN_DIR/nft"
+    export NANOKVM_LOGGER="$BIN_DIR/logger"
+    # The stub iw applies the requested domain synchronously.
+    export NANOKVM_WIFI_REG_WAIT=0
     "$SCRIPT" "$@"
 )
+
+# iw with a regulatory domain (DE) and the channels it allows: 12 and 13
+# without IR, 52 with radar detection, 144 disabled.
+fake_iw_de() {
+    cat > "$BIN_DIR/iw" <<'EOF'
+#!/bin/sh
+printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
+case "$*" in
+    'reg get')
+        printf '%s\n' global 'country DE: DFS-ETSI' \
+            '	(2400 - 2483 @ 40), (N/A, 20), (N/A)' \
+            '	(5250 - 5350 @ 80), (N/A, 20), (0 ms), DFS, AUTO-BW' '' \
+            'phy#0' 'country 99: DFS-UNSET'
+        ;;
+    'phy phy0 info')
+        printf '%s\n' 'Wiphy phy0' '	Band 1:' '		Frequencies:' \
+            '			* 2412.0 MHz [1] (20.0 dBm)' \
+            '			* 2437.0 MHz [6] (20.0 dBm)' \
+            '			* 2467.0 MHz [12] (20.0 dBm) (no IR)' \
+            '			* 2472.0 MHz [13] (20.0 dBm) (no IR)' \
+            '	Band 2:' '		Frequencies:' \
+            '			* 5180.0 MHz [36] (20.0 dBm)' \
+            '			* 5200.0 MHz [40] (20.0 dBm)' \
+            '			* 5260.0 MHz [52] (20.0 dBm) (no IR, radar detection)' \
+            '			* 5720.0 MHz [144] (disabled)'
+        ;;
+esac
+exit 0
+EOF
+    chmod +x "$BIN_DIR/iw"
+}
+
+# The administrator's access point on 5 GHz at channel CHANNEL.
+user_ap() {
+    printf 'Lab\n' > "$ETC_DIR/wifi.ap.ssid"
+    printf 'secret123\n' > "$ETC_DIR/wifi.ap.pass"
+    printf '5\n' > "$ETC_DIR/wifi.ap.band"
+    printf '%s\n' "$1" > "$ETC_DIR/wifi.ap.channel"
+    : > "$ETC_DIR/wifi.ap.enabled"
+    # ap_start removes source rules until there is none left.
+    cat > "$BIN_DIR/ip" <<'EOF'
+#!/bin/sh
+printf 'ip args=%s\n' "$*" >> "$CALL_LOG"
+case "$*" in *'rule del'*) exit 1 ;; esac
+exit 0
+EOF
+    chmod +x "$BIN_DIR/ip"
+}
 
 # With no credentials, boot must not launch idle WPA/DHCP processes or create
 # persistent/runtime configuration.
@@ -188,4 +247,146 @@ do
             assert_contains 'key_mgmt=WPA-PSK SAE' "$RUN_DIR/wpa_supplicant.conf" ;;
     esac
 done
+
+# Without a country (or with an invalid one) the world domain is set and the
+# configuration names none, as before.
+new_case country_world
+printf Office > "$ETC_DIR/wifi.ssid"
+printf secret123 > "$ETC_DIR/wifi.pass"
+printf 'de\n' > "$ETC_DIR/wifi.country"
+run_action start
+assert_contains 'iw args=reg set 00' "$CALL_LOG"
+assert_not_contains 'country=' "$RUN_DIR/wpa_supplicant.conf"
+
+# The country is in force before wpa_supplicant starts, which gets it too.
+new_case country_station
+fake_iw_de
+printf Office > "$ETC_DIR/wifi.ssid"
+printf secret123 > "$ETC_DIR/wifi.pass"
+printf 'DE\n' > "$ETC_DIR/wifi.country"
+run_action start
+assert_contains 'country=DE' "$RUN_DIR/wpa_supplicant.conf"
+[ "$(sed -n 2p "$RUN_DIR/wpa_supplicant.conf")" = country=DE ] || fail 'country is not global'
+grep -n -e '^iw args=reg set DE$' -e '^wpa_supplicant args=' "$CALL_LOG" | head -1 |
+    grep -q 'iw args=reg set DE' || fail 'wpa_supplicant started before the country was set'
+
+# The access point advertises the country; a stored channel the country does
+# not allow (52, radar detection) is chosen again among the allowed ones.
+new_case country_access_point
+fake_iw_de
+printf 'DE\n' > "$ETC_DIR/wifi.country"
+user_ap 52
+run_action start
+assert_contains 'country_code=DE' "$RUN_DIR/hostapd.conf"
+assert_contains 'ieee80211d=1' "$RUN_DIR/hostapd.conf"
+assert_contains 'hw_mode=a' "$RUN_DIR/hostapd.conf"
+assert_contains 'channel=36' "$RUN_DIR/hostapd.conf"
+[ "$(cat "$RUN_DIR/ap-band")" = 5 ] || fail 'the access point band in use is not 5'
+grep -n -e '^iw args=reg set DE$' -e '^hostapd args=' "$CALL_LOG" | head -1 |
+    grep -q 'iw args=reg set DE' || fail 'hostapd started before the country was set'
+
+# An allowed channel stays.
+new_case country_access_point_channel
+fake_iw_de
+printf 'DE\n' > "$ETC_DIR/wifi.country"
+user_ap 40
+run_action start
+assert_contains 'channel=40' "$RUN_DIR/hostapd.conf"
+
+# The world domain allows no access point on 5 GHz: it runs on 2.4 GHz, with
+# no country_code, says why, and keeps the saved band for when a country is
+# set.
+new_case world_access_point_5ghz
+cat > "$BIN_DIR/iw" <<'EOF'
+#!/bin/sh
+printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
+[ "$*" != 'reg get' ] || printf '%s\n' global 'country 00: DFS-UNSET'
+[ "$*" != 'phy phy0 info' ] || printf '%s\n' \
+    '			* 2412.0 MHz [1] (20.0 dBm)' \
+    '			* 5180.0 MHz [36] (20.0 dBm) (no IR)'
+exit 0
+EOF
+user_ap 40
+run_action start 2> "$CASE_DIR/stderr"
+assert_contains 'hw_mode=g' "$RUN_DIR/hostapd.conf"
+assert_contains 'channel=1' "$RUN_DIR/hostapd.conf"
+assert_not_contains 'country_code=' "$RUN_DIR/hostapd.conf"
+assert_contains 'hostapd args=' "$CALL_LOG"
+assert_contains 'The 5 GHz access point runs on 2.4 GHz: no Wi-Fi country is set' "$CASE_DIR/stderr"
+assert_contains 'logger args=-t nanokvm-wifi The 5 GHz access point runs on 2.4 GHz' "$CALL_LOG"
+[ "$(cat "$RUN_DIR/ap-band")" = 2.4 ] || fail 'the band in use is not 2.4'
+[ "$(cat "$ETC_DIR/wifi.ap.band")" = 5 ] || fail 'the saved band was rewritten'
+
+# A country that allows no 5 GHz access point (none of its channels without
+# radar or IR): 2.4 GHz too.
+new_case country_without_5ghz_access_point
+cat > "$BIN_DIR/iw" <<'EOF'
+#!/bin/sh
+printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
+case "$*" in
+    'reg get') printf '%s\n' global 'country XX: DFS-ETSI' ;;
+    'phy phy0 info') printf '%s\n' '* 2437.0 MHz [6] (20.0 dBm)' \
+        '* 5260.0 MHz [52] (20.0 dBm) (no IR, radar detection)' ;;
+esac
+exit 0
+EOF
+printf 'XX\n' > "$ETC_DIR/wifi.country"
+user_ap 0
+run_action start 2> "$CASE_DIR/stderr"
+assert_contains 'hw_mode=g' "$RUN_DIR/hostapd.conf"
+assert_contains 'channel=6' "$RUN_DIR/hostapd.conf"
+assert_contains 'country_code=XX' "$RUN_DIR/hostapd.conf"
+assert_contains 'the Wi-Fi country XX allows none of its channels' "$CASE_DIR/stderr"
+
+# iw with DE in force that takes only the world domain: any other country
+# fails with IW_SET_STATUS, or (0) is accepted and never comes into force, as
+# a country the regulatory database lacks.
+fake_iw_unapplied() {
+    printf 'DE\n' > "$CASE_DIR/iw-domain"
+    cat > "$BIN_DIR/iw" <<EOF
+#!/bin/sh
+printf 'iw args=%s\n' "\$*" >> "\$CALL_LOG"
+case "\$*" in
+    'reg set 00') printf '00\n' > "$CASE_DIR/iw-domain" ;;
+    'reg set '*) exit ${IW_SET_STATUS:-0} ;;
+    'reg get') printf '%s\n' global "country \$(cat "$CASE_DIR/iw-domain"): DFS-ETSI" ;;
+    'phy phy0 info') printf '%s\n' '* 2437.0 MHz [6] (20.0 dBm)' '* 5180.0 MHz [36] (20.0 dBm)' ;;
+esac
+exit 0
+EOF
+    chmod +x "$BIN_DIR/iw"
+}
+
+# A country that does not come into force is never advertised: the world
+# domain is set instead, and a 5 GHz access point runs on 2.4 GHz as without
+# a country, saying why.
+new_case country_unapplied_access_point
+IW_SET_STATUS=0 fake_iw_unapplied
+printf 'IQ\n' > "$ETC_DIR/wifi.country"
+user_ap 36
+run_action start 2> "$CASE_DIR/stderr"
+assert_contains 'iw args=reg set IQ' "$CALL_LOG"
+assert_contains 'iw args=reg set 00' "$CALL_LOG"
+[ "$(cat "$CASE_DIR/iw-domain")" = 00 ] || fail 'the previous domain stayed in force'
+assert_not_contains 'country_code=' "$RUN_DIR/hostapd.conf"
+assert_not_contains 'ieee80211d=' "$RUN_DIR/hostapd.conf"
+assert_contains 'hw_mode=g' "$RUN_DIR/hostapd.conf"
+assert_contains 'hostapd args=' "$CALL_LOG"
+[ "$(cat "$RUN_DIR/ap-band")" = 2.4 ] || fail 'the band in use is not 2.4'
+assert_contains 'The Wi-Fi country IQ did not come into force; using the world domain 00' "$CASE_DIR/stderr"
+assert_contains 'logger args=-t nanokvm-wifi The Wi-Fi country IQ did not come into force' "$CALL_LOG"
+assert_contains 'The 5 GHz access point runs on 2.4 GHz: the Wi-Fi country IQ is not in force' "$CASE_DIR/stderr"
+
+# iw failing to set the country: wpa_supplicant is not given it either.
+new_case country_unapplied_station
+IW_SET_STATUS=1 fake_iw_unapplied
+printf Office > "$ETC_DIR/wifi.ssid"
+printf secret123 > "$ETC_DIR/wifi.pass"
+printf 'IQ\n' > "$ETC_DIR/wifi.country"
+run_action start 2> "$CASE_DIR/stderr"
+assert_contains 'iw args=reg set 00' "$CALL_LOG"
+assert_not_contains 'country=' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains "wpa_supplicant args=-B -i wlan0 -c $RUN_DIR/wpa_supplicant.conf" "$CALL_LOG"
+assert_contains 'The Wi-Fi country IQ did not come into force' "$CASE_DIR/stderr"
+
 echo 'S30wifi runtime-state tests passed'

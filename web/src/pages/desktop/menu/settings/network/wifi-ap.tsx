@@ -11,9 +11,10 @@ import {
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
-// The channels the server accepts (service/network/wifi_ap.go): those
-// without radar detection.
-const channels: Record<api.WifiBand, number[]> = {
+// While Wi-Fi is off the radio cannot tell the channels its country allows
+// (status.channels): the usual ones without radar detection. S30wifi
+// chooses another at start when the country does not allow the one saved.
+const fallbackChannels: Record<api.WifiBand, number[]> = {
   '2.4': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
   '5': [36, 40, 44, 48]
 };
@@ -100,13 +101,29 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
   if (!form) return error ? <Alert type="error" showIcon message={error} /> : null;
 
   const set = (patch: Partial<api.WifiAP>) => setForm({ ...form, ...patch });
+  // The channels the country allows now; a saved one it no longer allows
+  // shows as automatic, which S30wifi already falls back to.
+  const channels = status?.channels
+    ? (status.channels[form.band] ?? [])
+    : fallbackChannels[form.band];
+  const channel = form.channel !== 0 && !channels.includes(form.channel) ? 0 : form.channel;
+  const bandAllowed = channels.length > 0;
   const ssidValid = ssidBytes(form.ssid) >= 1 && ssidBytes(form.ssid) <= 32;
   const passwordNeeded = !status?.passwordSet;
   const passwordValid = password === '' ? !passwordNeeded : validPassword(password);
   const subnetValid = validSubnet(form.subnet);
   const dns = dnsText ?? (form.dns ?? []).join(', ');
   const dnsValid = validDns(dns);
-  const valid = ssidValid && passwordValid && subnetValid && dnsValid;
+  // A 5 GHz band the country allows no channel of is saved all the same: the
+  // access point runs on 2.4 GHz until a country allows it.
+  const valid =
+    ssidValid &&
+    passwordValid &&
+    subnetValid &&
+    dnsValid &&
+    (!form.enabled || bandAllowed || form.band === '5');
+  const fallback =
+    (form.band === '5' && !bandAllowed) || (form.band === status?.band && !!status.bandFallback);
   // Internet and DNS servers apply to the running access point without
   // restarting Wi-Fi (the server tells the same apart).
   const restarts =
@@ -115,7 +132,7 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
     !form.enabled ||
     form.ssid !== status.ssid ||
     form.band !== status.band ||
-    form.channel !== status.channel ||
+    channel !== status.channel ||
     form.hidden !== status.hidden ||
     form.subnet !== status.subnet ||
     password !== '';
@@ -132,6 +149,7 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
     try {
       const rsp = await api.setWifiAP({
         ...form,
+        channel,
         password: password || undefined,
         dns: dnsList(dns)
       });
@@ -248,7 +266,7 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
               onChange={(event) => setPassword(event.target.value)}
             />
           </SettingRow>
-          <SettingRow label={tr('band')}>
+          <SettingRow label={tr('band')} description={fallback ? tr('bandFallback') : undefined}>
             <Segmented
               value={form.band}
               disabled={saving}
@@ -263,12 +281,12 @@ export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
             <Select
               id="wifi-ap-channel"
               className="min-w-36"
-              value={form.channel}
-              disabled={saving}
+              value={channel}
+              disabled={saving || !bandAllowed}
               onChange={(channel) => set({ channel })}
               options={[
                 { label: tr('channelAuto'), value: 0 },
-                ...channels[form.band].map((channel) => ({
+                ...channels.map((channel) => ({
                   label: String(channel),
                   value: channel
                 }))

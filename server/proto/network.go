@@ -64,6 +64,21 @@ type SetWifiBandPreferenceReq struct {
 	PreferredBand string `json:"preferredBand" validate:"required,oneof=2.4 5"`
 }
 
+// The regulatory country of Wi-Fi: ISO 3166-1 alpha-2 in capitals, or 00
+// (world). Country is the saved one; Active the one in force (iw reg get),
+// empty when it cannot be read (Wi-Fi off). Supported lists the countries
+// the kernel's regulatory database has, 00 among them; missing when it
+// cannot be read.
+type WifiCountryRsp struct {
+	Country   string   `json:"country"`
+	Active    string   `json:"active"`
+	Supported []string `json:"supported,omitempty"`
+}
+
+type SetWifiCountryReq struct {
+	Country string `json:"country"`
+}
+
 type ConnectWifiReq struct {
 	Ssid     string `validate:"required"`
 	Password string `validate:"required"`
@@ -185,6 +200,17 @@ type WifiAPRsp struct {
 	Stations    []WifiAPStation `json:"stations"`
 	// The device's DNS servers, which its clients get without a list.
 	DeviceDNS []string `json:"deviceDns"`
+	// Channels: per band, those the Wi-Fi country allows an access point
+	// now (without "no IR" or radar detection). Absent while unknown: Wi-Fi
+	// is off.
+	Channels map[string][]int `json:"channels,omitempty"`
+	// BandInUse: the band the access point runs on (or would start on);
+	// BandFallback says why it is not Band: "country_unset" (no Wi-Fi
+	// country, 00) or "country_disallows" (the country allows no 5 GHz
+	// channel). A 5 GHz access point then runs on 2.4 GHz until a country
+	// allows it; Band stays 5.
+	BandInUse    string `json:"bandInUse"`
+	BandFallback string `json:"bandFallback,omitempty"`
 }
 
 // A device on the access point. IP and Hostname are empty until it has a

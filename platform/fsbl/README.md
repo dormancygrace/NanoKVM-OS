@@ -34,6 +34,41 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | `0001-build-with-upstream-gcc.patch` | Standard ISA names, C906 CSRs by number, no stack protector or PIE, linker flags |
 | `0002-c906-mpll-1000mhz.patch` | C906 PLL 1000 MHz instead of 850 MHz (previously a one-instruction binary patch of the stock BL2) |
 | `0003-ddr3-reset-low-200us.patch` | DDR3 RESET# low for 200 us (JESD79-3), from sophgo/fsbl 2026.10.28 |
+| `0004-sd-fast-boot-read.patch` | OpenSBI and U-Boot read from SD at 4 bits and 50 MHz instead of the ROM's 1 bit (see below) |
+
+## SD read speed
+
+BL2 loads OpenSBI and U-Boot through the boot ROM's loader
+(`p_rom_api_load_image`), which finds them inside `fip.bin` on the FAT
+partition and reads each with one SDMA multi-block command. The ROM leaves
+the bus at 1 bit with a 16.7 MHz card clock (divider 3 of the 100 MHz
+`CLK_SD0`, after `sys_pll_init`), about 1.75 MB/s: the two images
+(282 KB) took 161 ms.
+
+Patch `0004` switches the card first: ACMD6 to a 4-bit bus, then CMD6 to
+SD High Speed and the host to divider 1 (50 MHz) with the PHY settings
+U-Boot's and Linux's `cv1800b` driver use in that mode. The card's RCA
+comes from the ROM's last command (CMD13 with RCA << 16 in the argument
+register); the ROM keeps the host settings between loads, so it goes on
+loading the same way. When the High Speed switch fails it stays at 25 MHz;
+when the 4-bit switch fails it changes nothing. A failed load is retried
+at the ROM settings. It runs only when the ROM booted from SD.
+
+Measured on a NanoKVM PCIe (console log, read time of each image):
+
+| Bus | OpenSBI (136 704 B) | U-Boot (145 408 B) |
+|---|---|---|
+| ROM: 1 bit, 16.7 MHz | 78 ms | 83 ms |
+| 4 bits, 16.7 MHz | 30 ms | 31 ms |
+| 4 bits, 25 MHz | 24 ms | 25 ms |
+| 4 bits, 50 MHz High Speed | 17 ms | 18 ms |
+
+From BL2 start to its exit (time records at `0x0E000010`): 333 ms before,
+210-211 ms after, over four boots. About 10 ms of each load is the ROM's
+own work (FAT lookup, setup), whatever the bus.
+
+A FIP loaded over the ROM's UART window does not exercise this: the ROM
+then reports UART as the boot source and BL2 leaves the SD bus alone.
 
 ## Upstream changes not taken
 

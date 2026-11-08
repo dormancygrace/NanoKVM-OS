@@ -12,6 +12,7 @@ import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui
 import { IPv6 } from './ipv6.tsx';
 import { WifiAccessPoint } from './wifi-ap.tsx';
 import { WifiBandTag } from './wifi-band';
+import { WifiCountry } from './wifi-country.tsx';
 import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { operationDone, type Pending } from './wifi-pending.ts';
 import { SavedWifi } from './wifi-saved.tsx';
@@ -539,6 +540,15 @@ export const Wifi = () => {
           <div role="status" className="text-fg-muted text-xs">
             {tr('applying')}
           </div>
+        )}
+
+        {/* Both roles of the radio: joining networks and the access point. */}
+        {state?.supported && !state.apMode && (
+          <WifiCountry
+            state={state}
+            locked={locked}
+            onRestarting={() => track({ enabled: true })}
+          />
         )}
       </SettingsSection>
 

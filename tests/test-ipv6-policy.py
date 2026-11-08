@@ -42,7 +42,9 @@ class IPv6PolicyTest(unittest.TestCase):
             NANOKVM_WIFI_ETC_DIR=str(self.work / "etc"),
             NANOKVM_WIFI_RUN_DIR=str(self.work / "run/wifi"),
             NANOKVM_WIFI_DHCP_PID=str(self.work / "run/udhcpc.wlan0.pid"),
-            NANOKVM_WIFI_AP_FLAG=str(self.work / "run/ap"), NANOKVM_KILLALL="/bin/true")
+            NANOKVM_WIFI_AP_FLAG=str(self.work / "run/ap"), NANOKVM_KILLALL="/bin/true",
+            # S30wifi sets the Wi-Fi country: never the host's.
+            NANOKVM_IW="/bin/true", NANOKVM_WIFI_REG_WAIT="0")
         for name in ("eth0", "wlan0"):
             self.run_cmd("ip", "link", "add", name, "type", "dummy")
             self.addCleanup(self.run_cmd, "ip", "link", "del", name)

@@ -28,8 +28,10 @@ import (
 // (kvm_system, /tmp/wifiap, /kvmapp/kvm/ap.*) is separate: only it opens the
 // unauthenticated setup page.
 var (
-	wifiAPPrefix     = "/etc/kvm/wifi.ap"
-	wifiAPRunning    = "/run/nanokvm-wifi/ap-user"
+	wifiAPPrefix  = "/etc/kvm/wifi.ap"
+	wifiAPRunning = "/run/nanokvm-wifi/ap-user"
+	// The band the running access point uses (S30wifi ap_start).
+	wifiAPBandInUse  = "/run/nanokvm-wifi/ap-band"
 	wifiAPLeases     = "/run/nanokvm-wifi/udhcpd.leases"
 	wifiAPResolvConf = "/etc/resolv.conf"
 	wifiAPUIDFile    = "/sys/class/cvi-base/base_uid"
@@ -46,10 +48,26 @@ func wifiAPFiles() []string {
 	return files
 }
 
-// Channels without radar detection, which the driver offers on the boards.
-var wifiAPChannels = map[string][]int{
-	"2.4": {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
-	"5":   {36, 40, 44, 48},
+// validWifiAPChannel: a channel number of the band at all. Which ones the
+// country allows comes from the radio (apChannels); while Wi-Fi is off it is
+// unknown, and S30wifi chooses another channel at start if the country does
+// not allow the saved one.
+func validWifiAPChannel(band string, channel int) bool {
+	switch band {
+	case "2.4":
+		return channel >= 1 && channel <= 14
+	case "5":
+		return channel >= 32 && channel <= 177
+	}
+	return false
+}
+
+func readFileOrEmpty(path string) string {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(contents)
 }
 
 func readWifiAPFile(name string) string {
@@ -133,6 +151,62 @@ func validWifiAPSubnet(subnet string) error {
 	return nil
 }
 
+// allowedWifiAPChannel: the access point turned on uses a channel the country
+// allows now (allowed: apChannels), or 0 (S30wifi chooses one of them).
+// Unknown channels (nil) allow any; turning it off is always possible. A 5
+// GHz band the country allows none of is saved too: S30wifi runs the access
+// point on 2.4 GHz until a country allows it (wifiAPBandFallback).
+func allowedWifiAPChannel(ap proto.WifiAP, allowed map[string][]int) error {
+	if allowed == nil || !ap.Enabled {
+		return nil
+	}
+	channels := allowed[ap.Band]
+	if len(channels) == 0 {
+		if ap.Band == "5" {
+			return nil
+		}
+		return fmt.Errorf("the Wi-Fi country allows no access point on %s GHz", ap.Band)
+	}
+	if ap.Channel == 0 {
+		return nil
+	}
+	for _, channel := range channels {
+		if channel == ap.Channel {
+			return nil
+		}
+	}
+	return fmt.Errorf("the Wi-Fi country does not allow an access point on channel %d", ap.Channel)
+}
+
+// Why a 5 GHz access point runs on 2.4 GHz (S30wifi ap_start).
+const (
+	wifiAPFallbackCountryUnset     = "country_unset"     // no country (00)
+	wifiAPFallbackCountryDisallows = "country_disallows" // the country allows no 5 GHz channel
+)
+
+// wifiAPBandFallback: the band the access point uses, and why it is not the
+// saved one ("" when it is). running is the band S30wifi started it on ("" if
+// it is not running); otherwise it is the band it would start on, as S30wifi
+// decides: a 5 GHz one waits on 2.4 GHz without a country, or with a country
+// that allows it none of the band's channels (allowed: apChannels, nil when
+// unknown).
+func wifiAPBandFallback(band, running, country string, allowed map[string][]int) (string, string) {
+	inUse := band
+	switch {
+	case running == "2.4" || running == "5":
+		inUse = running
+	case band == "5" && (country == "00" || (allowed != nil && len(allowed["5"]) == 0)):
+		inUse = "2.4"
+	}
+	if band != "5" || inUse != "2.4" {
+		return inUse, ""
+	}
+	if country == "00" {
+		return inUse, wifiAPFallbackCountryUnset
+	}
+	return inUse, wifiAPFallbackCountryDisallows
+}
+
 func validateWifiAP(ap proto.WifiAP, keepPassword bool) error {
 	if len(ap.SSID) < 1 || len(ap.SSID) > 32 || !utf8.ValidString(ap.SSID) || strings.ContainsAny(ap.SSID, "\x00\r\n") {
 		return errors.New("the network name must be 1 to 32 bytes")
@@ -140,15 +214,10 @@ func validateWifiAP(ap proto.WifiAP, keepPassword bool) error {
 	if !keepPassword && !validWifiAPPassword(ap.Password) {
 		return errors.New("the password must be 8 to 63 characters: letters, digits or symbols")
 	}
-	channels, ok := wifiAPChannels[ap.Band]
-	if !ok {
+	if ap.Band != "2.4" && ap.Band != "5" {
 		return errors.New("the band must be 2.4 or 5 GHz")
 	}
-	valid := ap.Channel == 0
-	for _, channel := range channels {
-		valid = valid || channel == ap.Channel
-	}
-	if !valid {
+	if ap.Channel != 0 && !validWifiAPChannel(ap.Band, ap.Channel) {
 		return fmt.Errorf("channel %d is not offered on %s GHz", ap.Channel, ap.Band)
 	}
 	if len(ap.DNS) > 3 {
@@ -365,6 +434,14 @@ func (s *Service) GetWifiAP(c *gin.Context) {
 	if state.Running {
 		state.Stations = wifiAPStations()
 	}
+	if wifiControl.present() {
+		state.Channels = wifiControl.apChannels()
+	}
+	running := ""
+	if state.Running {
+		running = strings.TrimSpace(readFileOrEmpty(wifiAPBandInUse))
+	}
+	state.BandInUse, state.BandFallback = wifiAPBandFallback(ap.Band, running, wifiControl.country(), state.Channels)
 	rsp.OkRspWithData(c, &state)
 }
 
@@ -413,6 +490,12 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 		freqs := wifiControl.statusFrequencies()
 		if len(freqs["2.4"])+len(freqs["5"]) > 0 && len(freqs[req.Band]) == 0 {
 			rsp.ErrRsp(c, -1, "this Wi-Fi adapter has no "+req.Band+" GHz band")
+			return
+		}
+		// The channel the country allows now; S30wifi chooses another
+		// at start when it changes later.
+		if err := allowedWifiAPChannel(req, wifiControl.apChannels()); err != nil {
+			rsp.ErrRsp(c, -1, err.Error())
 			return
 		}
 	}

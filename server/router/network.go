@@ -36,6 +36,8 @@ func networkRouter(r *gin.Engine) {
 	admin.GET("/network/wifi/scan", service.ScanWifi)
 	admin.POST("/network/wifi/enabled", service.SetWifiEnabled)
 	admin.POST("/network/wifi/band-preference", service.SetWifiBandPreference)
+	admin.GET("/network/wifi/country", service.GetWifiCountry)
+	admin.POST("/network/wifi/country", service.SetWifiCountry)
 	admin.POST("/network/wifi/configure", service.ConfigureWifi)
 	admin.GET("/network/wifi", service.GetWifi)                    // get Wi-Fi information
 	admin.POST("/network/wifi/disconnect", service.DisconnectWifi) // disconnect Wi-Fi

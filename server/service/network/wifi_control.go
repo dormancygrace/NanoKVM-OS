@@ -28,7 +28,8 @@ var wifiMu sync.Mutex
 var wifiBusy bool
 var wifiError string
 var wifiControl = radioControl{etc: "/etc/kvm", net: "/sys/class/net/wlan0", sdio: "/sys/bus/sdio/devices",
-	runDir: wifiRunDir, run: runRadioCommand, request: wpaControl(wpaControlSocket), bands: &bandCache{ttl: 30 * time.Second}}
+	runDir: wifiRunDir, run: runRadioCommand, request: wpaControl(wpaControlSocket), bands: &bandCache{ttl: 30 * time.Second},
+	apBands: &apChannelCache{ttl: 30 * time.Second}}
 
 type radioControl struct {
 	etc, net string
@@ -42,6 +43,8 @@ type radioControl struct {
 	request func(string) (string, error)
 	// bands, when set, lets status polls reuse a recent channel list.
 	bands *bandCache
+	// apBands, when set, lets the access point page reuse its channel list.
+	apBands *apChannelCache
 }
 
 // bandCache keeps the last successful channel list of a phy. iw reports

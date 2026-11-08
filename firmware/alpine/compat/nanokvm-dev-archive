@@ -160,9 +160,10 @@ run network/link ip -s link
 run network/nft nft list ruleset
 run network/iw-dev iw dev
 run network/iw-link iw dev wlan0 link
+run network/iw-reg iw reg get
 run network/netstat netstat -tunlp
 run network/links sh -c 'for n in /sys/class/net/*; do echo "${n##*/} $(cat "$n/operstate" 2>/dev/null) carrier=$(cat "$n/carrier" 2>/dev/null) speed=$(cat "$n/speed" 2>/dev/null) mtu=$(cat "$n/mtu" 2>/dev/null)"; done'
-copy network /proc/net/dev /proc/net/snmp /etc/resolv.conf /etc/kvm/wifi.band_preference \
+copy network /proc/net/dev /proc/net/snmp /etc/resolv.conf /etc/kvm/wifi.band_preference /etc/kvm/wifi.country \
 	/etc/kvm/wifi.freq_list /etc/kvm/wifi.freq_list_2.4 /etc/kvm/wifi.freq_list_5 /etc/kvm/wifi.hidden \
 	/etc/kvm/mdns_disabled /etc/kvm/network/ipv6
 run network/vpn-presence sh -c 'for d in /var/lib/tailscale /etc/wireguard /etc/openvpn /var/lib/netbird /etc/netbird; do [ -e "$d" ] && echo "$d present"; done; true'

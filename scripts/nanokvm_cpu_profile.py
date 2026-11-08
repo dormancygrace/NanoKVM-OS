@@ -38,6 +38,11 @@ def flags(kind='userspace'):
     # -mstrict-align for portable kernels; KCFLAGS come last and override it.
     if kind == 'kernel' and not PROFILE.get('kernel_strict_align', True):
         result.append('-mno-strict-align')
+    # Kernel functions start on a 64-byte I-cache line. On the C906 (32 KiB
+    # 2-way I-cache) this cut L1I misses about 7% and CPU time 3-7% under a
+    # fixed kernel-heavy load; 16 and 32 did less, 128 raised jTLB misses.
+    if kind == 'kernel' and PROFILE.get('kernel_function_align'):
+        result.append('-falign-functions=%d' % PROFILE['kernel_function_align'])
     # Keep handwritten/vendor RVV assembly; disable compiler autovectorization.
     result += ['-fno-tree-vectorize', '-fno-tree-slp-vectorize']
     if kind == 'openssl':

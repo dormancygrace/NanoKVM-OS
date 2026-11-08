@@ -1,0 +1,261 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] RISC-V: a measured pipeline model and costs for thead-c906
+
+-mtune=thead-c906 used GCC's generic pipeline (mul 10, div 34/66 cycles) and
+costs that do not match the core. This adds a thead-c906 pipeline with
+latencies measured on a SG2002 (C906 at 1 GHz) in November 2026, with
+dependent and independent chains of each instruction:
+
+- ALU 1; load 2 (fld 3); an ALU result reaches a load address in 2; store
+  data is read late;
+- mul 3 (<= 32-bit operands) to 6 (64-bit) to the next mul, one more to the
+  ALU; div/rem about 5 + quotient bits / 2 (4 to 37), not pipelined;
+- fadd/fmul 4 (SF) / 5 (DF), fmadd 4; fdiv/fsqrt 19 / 34, not pipelined;
+  integer to FP 5, FP to integer 2; AMO 7; frm read 4, write 6.
+
+Data-dependent latencies use the middle of the measured range. Costs follow
+the same numbers (int_div 13/21: dividing by a constant stays a multiply).
+Instruction types the C906 does not have (vector) get one catch-all
+reservation, because riscv_sched_variable_issue asserts that every insn has
+one.
+
+Measured with Linux 7.3 on a NanoKVM: against stock -mtune=thead-c906, the
+kernel is within noise on system call microbenchmarks; earlier C906 models
+that used optimistic or pessimistic numbers were 3-6% slower.
+---
+--- a/gcc/config/riscv/riscv-opts.h
++++ b/gcc/config/riscv/riscv-opts.h
+@@ -65,6 +65,7 @@
+   andes_23_series,
+   andes_45_series,
+   spacemit_x60,
++  thead_c906,
+ };
+ extern enum riscv_microarchitecture_type riscv_microarchitecture;
+ 
+--- a/gcc/config/riscv/riscv.md
++++ b/gcc/config/riscv/riscv.md
+@@ -674,7 +674,7 @@
+ ;; Keep this in sync with enum riscv_microarchitecture.
+ (define_attr "tune"
+   "generic,sifive_7,sifive_p400,sifive_p600,xiangshan,generic_ooo,mips_p8700,
+-   tt_ascalon_d8,andes_25_series,andes_23_series,andes_45_series,spacemit_x60"
++   tt_ascalon_d8,andes_25_series,andes_23_series,andes_45_series,spacemit_x60,thead_c906"
+   (const (symbol_ref "((enum attr_tune) riscv_microarchitecture)")))
+ 
+ ;; Describe a user's asm statement.
+@@ -5011,3 +5011,4 @@
+ (include "andes-25-series.md")
+ (include "andes-45-series.md")
+ (include "spacemit-x60.md")
++(include "thead-c906.md")
+--- a/gcc/config/riscv/riscv-cores.def
++++ b/gcc/config/riscv/riscv-cores.def
+@@ -42,7 +42,7 @@
+ RISCV_TUNE("sifive-p600-series", sifive_p600, sifive_p600_tune_info)
+ RISCV_TUNE("tt-ascalon-x", tt_ascalon_d8, tt_ascalon_d8_tune_info)
+ RISCV_TUNE("tt-ascalon-d8", tt_ascalon_d8, tt_ascalon_d8_tune_info)
+-RISCV_TUNE("thead-c906", generic, thead_c906_tune_info)
++RISCV_TUNE("thead-c906", thead_c906, thead_c906_tune_info)
+ RISCV_TUNE("xt-c908", generic, generic_ooo_tune_info)
+ RISCV_TUNE("xt-c908v", generic, generic_ooo_tune_info)
+ RISCV_TUNE("xt-c910", generic, generic_ooo_tune_info)
+--- a/gcc/config/riscv/riscv.cc
++++ b/gcc/config/riscv/riscv.cc
+@@ -592,9 +592,9 @@
+ static const struct riscv_tune_param thead_c906_tune_info = {
+   {COSTS_N_INSNS (4), COSTS_N_INSNS (5)}, /* fp_add */
+   {COSTS_N_INSNS (4), COSTS_N_INSNS (5)}, /* fp_mul */
+-  {COSTS_N_INSNS (20), COSTS_N_INSNS (20)}, /* fp_div */
+-  {COSTS_N_INSNS (4), COSTS_N_INSNS (4)}, /* int_mul */
+-  {COSTS_N_INSNS (18), COSTS_N_INSNS (34)}, /* int_div */
++  {COSTS_N_INSNS (19), COSTS_N_INSNS (34)}, /* fp_div */
++  {COSTS_N_INSNS (4), COSTS_N_INSNS (5)}, /* int_mul */
++  {COSTS_N_INSNS (13), COSTS_N_INSNS (21)}, /* int_div */
+   1,            /* issue_rate */
+   3,            /* branch_cost */
+   5,            /* memory_cost */
+--- /dev/null
++++ b/gcc/config/riscv/thead-c906.md
+@@ -0,0 +1,181 @@
++;; Scheduling description for the T-Head C906.
++;; Copyright (C) 2026 Free Software Foundation, Inc.
++;;
++;; This file is part of GCC.
++;;
++;; GCC is free software; you can redistribute it and/or modify
++;; it under the terms of the GNU General Public License as published by
++;; the Free Software Foundation; either version 3, or (at your option)
++;; any later version.
++;;
++;; GCC is distributed in the hope that it will be useful,
++;; but WITHOUT ANY WARRANTY; without even the implied warranty of
++;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++;; GNU General Public License for more details.
++;;
++;; You should have received a copy of the GNU General Public License
++;; along with GCC; see the file COPYING3.  If not see
++;; <http://www.gnu.org/licenses/>.
++
++;; In-order, single issue.  Latencies measured on a SG2002 at 1 GHz:
++;; ALU 1; load 2 (fld 3), and an ALU result reaches a load address in 2;
++;; store data is read late; mul 3 (<= 32-bit operands) .. 6 (64-bit) to
++;; the next mul, one more to the ALU; div/rem 4..37 (about 5 + quotient
++;; bits / 2), not pipelined; fadd/fmul 4 (SF) / 5 (DF), fmadd 4;
++;; fdiv/fsqrt 19 (SF) / 34 (DF), not pipelined; integer to FP 5, FP to
++;; integer 2; fsgnj and FP conversions 4; AMO 7; frm read 4, write 6.
++
++(define_automaton "c906")
++(define_automaton "c906_div")
++(define_cpu_unit "c906_issue" "c906")
++(define_cpu_unit "c906_mem" "c906")
++(define_cpu_unit "c906_idiv" "c906_div")
++(define_cpu_unit "c906_fdivsqrt" "c906_div")
++
++(define_insn_reservation "c906_alu" 1
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "unknown,const,arith,shift,slt,multi,auipc,nop,logical,\
++			move,bitmanip,min,max,minu,maxu,clz,ctz,cpop,rotate,\
++			condmove,crypto,mvpair,zicond,clmul"))
++  "c906_issue")
++
++(define_insn_reservation "c906_sfb_alu" 2
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "sfb_alu"))
++  "c906_issue")
++
++(define_insn_reservation "c906_branch" 1
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "branch,jump,call,jalr,ret,trap"))
++  "c906_issue")
++
++(define_insn_reservation "c906_load" 2
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "load"))
++  "c906_issue+c906_mem")
++
++(define_insn_reservation "c906_fpload" 3
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "fpload"))
++  "c906_issue+c906_mem")
++
++(define_insn_reservation "c906_store" 1
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "store,fpstore"))
++  "c906_issue+c906_mem")
++
++(define_insn_reservation "c906_atomic" 7
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "atomic"))
++  "c906_issue+c906_mem,c906_mem*3")
++
++(define_insn_reservation "c906_imul_si" 4
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "imul")
++	    (eq_attr "mode" "!DI")))
++  "c906_issue")
++
++(define_insn_reservation "c906_imul_di" 5
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "imul")
++	    (eq_attr "mode" "DI")))
++  "c906_issue")
++
++(define_insn_reservation "c906_idiv_si" 13
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "idiv")
++	    (eq_attr "mode" "!DI")))
++  "c906_issue+c906_idiv,c906_idiv*12")
++
++(define_insn_reservation "c906_idiv_di" 21
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "idiv")
++	    (eq_attr "mode" "DI")))
++  "c906_issue+c906_idiv,c906_idiv*20")
++
++(define_insn_reservation "c906_fadd_sf" 4
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "fadd,fmul")
++	    (eq_attr "mode" "!DF")))
++  "c906_issue")
++
++(define_insn_reservation "c906_fadd_df" 5
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "fadd,fmul")
++	    (eq_attr "mode" "DF")))
++  "c906_issue")
++
++(define_insn_reservation "c906_fmadd" 4
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "fmadd"))
++  "c906_issue")
++
++(define_insn_reservation "c906_fmove" 4
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "fmove,fcvt"))
++  "c906_issue")
++
++(define_insn_reservation "c906_to_fp" 5
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "mtc,fcvt_i2f"))
++  "c906_issue")
++
++(define_insn_reservation "c906_from_fp" 2
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "mfc,fcvt_f2i,fcmp"))
++  "c906_issue")
++
++(define_insn_reservation "c906_rdfrm" 4
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "rdfrm"))
++  "c906_issue*3")
++
++(define_insn_reservation "c906_wrfrm" 6
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "wrfrm"))
++  "c906_issue*6")
++
++(define_insn_reservation "c906_fdiv_sf" 19
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "fdiv,fsqrt")
++	    (eq_attr "mode" "!DF")))
++  "c906_issue+c906_fdivsqrt,c906_fdivsqrt*18")
++
++(define_insn_reservation "c906_fdiv_df" 34
++  (and (eq_attr "tune" "thead_c906")
++       (and (eq_attr "type" "fdiv,fsqrt")
++	    (eq_attr "mode" "DF")))
++  "c906_issue+c906_fdivsqrt,c906_fdivsqrt*33")
++
++;; A value made by the ALU reaches a load address one cycle late.
++(define_bypass 2 "c906_alu,c906_sfb_alu,c906_from_fp" "c906_load,c906_fpload")
++
++;; Store data is read one cycle late.
++(define_bypass 1 "c906_load" "c906_store" "riscv_store_data_bypass_p")
++(define_bypass 2 "c906_fpload" "c906_store" "riscv_store_data_bypass_p")
++
++;; A multiply takes a previous multiply's result one cycle sooner.
++(define_bypass 3 "c906_imul_si" "c906_imul_si,c906_imul_di")
++(define_bypass 4 "c906_imul_di" "c906_imul_si,c906_imul_di")
++
++;; Vector and other types: not used by the C906 kernel or userspace.
++(define_insn_reservation "c906_other" 4
++  (and (eq_attr "tune" "thead_c906")
++       (eq_attr "type" "rdvlenb,rdvl,wrvxrm,vsetvl,vsetvl_pre,vlde,vste,vldm,vstm,\
++			vlds,vsts,vldux,vldox,vstux,vstox,vldff,vldr,vstr,vlsegde,\
++			vssegte,vlsegds,vssegts,vlsegdux,vlsegdox,vssegtux,vssegtox,\
++			vlsegdff,vialu,viwalu,vext,vicalu,vshift,vnshift,vicmp,\
++			viminmax,vimul,vidiv,viwmul,vimuladd,sf_vqmacc,viwmuladd,\
++			vimerge,vimov,vsalu,vaalu,vsmul,vsshift,vnclip,sf_vfnrclip,\
++			vfalu,vfwalu,vfmul,vfdiv,vfwmul,vfmuladd,vfwmuladd,vfsqrt,\
++			vfrecp,vfcmp,vfminmax,vfsgnj,vfclass,vfmerge,vfmov,vfcvtitof,\
++			vfcvtftoi,vfwcvtitof,vfwcvtftoi,vfwcvtftof,vfncvtitof,\
++			vfncvtftoi,vfncvtftof,vired,viwred,vfredu,vfredo,vfwredu,\
++			vfwredo,vmalu,vmpop,vmffs,vmsfs,vmiota,vmidx,vimovvx,vimovxv,\
++			vfmovvf,vfmovfv,vslideup,vslidedown,vislide1up,vislide1down,\
++			vfslide1up,vfslide1down,vgather,vcompress,vmov,vector,vandn,\
++			vbrev,vbrev8,vrev8,vclz,vctz,vcpop,vrol,vror,vwsll,vclmul,\
++			vclmulh,vghsh,vgmul,vaesef,vaesem,vaesdf,vaesdm,vaeskf1,\
++			vaeskf2,vaesz,vsha2ms,vsha2ch,vsha2cl,vsm4k,vsm4r,vsm3me,\
++			vsm3c,vfncvtbf16,vfwcvtbf16,vfwmaccbf16,sf_vc,sf_vc_se"))
++  "c906_issue")

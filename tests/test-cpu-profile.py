@@ -16,6 +16,7 @@ assert '-mabi=lp64d' in user and '-mabi=lp64' in kernel
 # Only the kernel and its modules drop -mstrict-align; userspace never had it.
 assert '-mno-strict-align' in kernel and '-mno-strict-align' not in user
 assert '-mno-strict-align' not in flags('bootloader') and '-mno-strict-align' not in flags('audio')
+assert '-falign-functions=64' in kernel and not any(f.startswith('-falign-functions') for f in user)
 for actual in (user, kernel, flags('audio'), flags('openssl')):
     assert '-fno-tree-vectorize' in actual and '-fno-tree-slp-vectorize' in actual
 assert flags('audio') == user

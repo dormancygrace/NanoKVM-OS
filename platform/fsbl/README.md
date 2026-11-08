@@ -39,23 +39,31 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 
 ## SD read speed
 
-BL2 loads OpenSBI and U-Boot through the boot ROM's loader
-(`p_rom_api_load_image`), which finds them inside `fip.bin` on the FAT
-partition and reads each with one SDMA multi-block command. The ROM leaves
-the bus at 1 bit with a 16.7 MHz card clock (divider 3 of the 100 MHz
-`CLK_SD0`, after `sys_pll_init`), about 1.75 MB/s: the two images
-(282 KB) took 161 ms.
+BL2 loads everything after itself through the boot ROM's loader
+(`p_rom_api_load_image`), which finds it inside `fip.bin` on the FAT
+partition. The ROM leaves the bus at 1 bit with the card clock at divider
+3 of `CLK_SD0`: 4.2 MHz from the 25 MHz crystal until `sys_pll_init()`
+(the parameter blocks: 12 KB in 32 ms), 16.7 MHz from the 100 MHz PLL
+clock after it (OpenSBI and U-Boot: 282 KB in 161 ms).
 
-Patch `0004` switches the card first: ACMD6 to a 4-bit bus, then CMD6 to
-SD High Speed and the host to divider 1 (50 MHz) with the PHY settings
-U-Boot's and Linux's `cv1800b` driver use in that mode. The card's RCA
-comes from the ROM's last command (CMD13 with RCA << 16 in the argument
-register); the ROM keeps the host settings between loads, so it goes on
-loading the same way. When the High Speed switch fails it stays at 25 MHz;
-when the 4-bit switch fails it changes nothing. A failed load is retried
-at the ROM settings. It runs only when the ROM booted from SD.
+Patch `0004` switches the card when BL2 starts loading: ACMD6 to a 4-bit
+bus, CMD6 to SD High Speed, the PHY settings U-Boot's and Linux's
+`cv1800b` driver use in that mode, and divider 1: 12.5 MHz until
+`sys_pll_init()`, 50 MHz after it. (Divider 0, the undivided 25 MHz,
+made each ROM load take seconds.) The card's RCA comes from the ROM's
+last command (CMD13 with RCA << 16 in the argument register); the ROM
+keeps the host settings between loads. When the High Speed switch fails
+the card runs at 25 MHz after the PLL switch; when the 4-bit switch fails
+nothing changes. A failed load is retried at the ROM settings. It runs
+only when the ROM booted from SD.
 
-Measured on a NanoKVM PCIe (console log, read time of each image):
+Each ROM load, timed with the microsecond counter: param2 (4 KB) 12.0 ->
+4.2 ms, DDR parameters (8 KB) 20.5 -> 5.5 ms. At 50 MHz a 512-byte load
+takes 2.2 ms, and large ones come in at about 9 MB/s, not the bus's
+~23 MB/s (Linux and U-Boot): the ROM apparently reads cluster by cluster.
+
+Measured on a NanoKVM PCIe (console log, read time of each image, the
+switch made after `sys_pll_init()` only):
 
 | Bus | OpenSBI (136 704 B) | U-Boot (145 408 B) |
 |---|---|---|
@@ -65,8 +73,9 @@ Measured on a NanoKVM PCIe (console log, read time of each image):
 | 4 bits, 50 MHz High Speed | 17 ms | 18 ms |
 
 From BL2 start to its exit (time records at `0x0E000010`): 333 ms before,
-210-211 ms after, over four boots. About 10 ms of each load is the ROM's
-own work (FAT lookup, setup), whatever the bus.
+210-211 ms with the switch after `sys_pll_init()` (four boots), 149-150 ms
+with the switch before the parameter blocks and LZ4 images (`0005`, three
+boots).
 
 A FIP loaded over the ROM's UART window does not exercise this: the ROM
 then reports UART as the boot source and BL2 leaves the SD bus alone.
@@ -74,7 +83,7 @@ then reports UART as the boot source and BL2 leaves the SD bus alone.
 ## Compression
 
 With reading at that speed, decoding dominates: U-Boot as LZMA (145 KB)
-took 39 ms to decode, as LZ4 (191 KB) 2.5 ms, for about 6 ms more
+took 39 ms to decode, as LZ4 (191 KB) 2.5 ms, for about 5 ms more
 reading. `scripts/nanokvm-fip.py` therefore packs U-Boot (`B3Z4`) and
 OpenSBI as LZ4 frames (`lz4 -12 --no-frame-crc`; the FIP CRCs cover the
 compressed bytes). BL2 loads OpenSBI into a buffer and, when it starts

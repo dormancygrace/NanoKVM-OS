@@ -8,29 +8,47 @@ mode U-Boot and Linux use, and keep using the ROM loader, which keeps
 the host settings. Measured on NanoKVM PCIe over UART: 35 ms.
 A failed load is retried at the ROM settings.
 ---
- plat/cv181x/bl2/bl2_opt.c |   7 ++
- plat/cv181x/bl2/sd_fast.c | 270 ++++++++++++++++++++++++++++++++++++++++++++++
+ plat/cv181x/bl2/bl2_opt.c |  15 ++-
+ plat/cv181x/bl2/sd_fast.c | 280 ++++++++++++++++++++++++++++++++++++++++++++++
  plat/cv181x/platform.mk   |   1 +
- 3 files changed, 278 insertions(+)
+ 3 files changed, 295 insertions(+), 1 deletion(-)
 diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
-index c73fa55..4e516ee 100644
+index c73fa55..1e9989d 100644
 --- a/plat/cv181x/bl2/bl2_opt.c
 +++ b/plat/cv181x/bl2/bl2_opt.c
-@@ -25,6 +25,9 @@ static union {
+@@ -25,6 +25,10 @@ static union {
  	uint8_t buf[BLOCK_SIZE];
  } sram_union_buf __aligned(BLOCK_SIZE);
  
 +void sd_fast_enable(void);
++void sd_fast_pll(void);
 +void sd_fast_disable(void);
 +
  int init_comm_info(int ret) __attribute__((weak));
  int init_comm_info(int ret)
  {
-@@ -384,9 +387,13 @@ int load_rest(enum CHIP_CLK_MODE mode)
+@@ -139,8 +143,13 @@ int load_ddr(void)
+ {
+ 	int retry = 0;
  
- 	// Init sys PLL and switch clocks to PLL
- 	sys_pll_init(mode);
 +	sd_fast_enable();
++
+ retry_from_flash:
+ 	for (retry = 0; retry < p_rom_api_get_number_of_retries(); retry++) {
++		if (retry)
++			sd_fast_disable();
++
+ 		if (load_param2(retry) < 0)
+ 			continue;
+ 
+@@ -382,11 +391,15 @@ int load_rest(enum CHIP_CLK_MODE mode)
+ 	uint64_t monitor_entry = 0;
+ 	uint64_t loader_2nd_entry = 0;
+ 
+-	// Init sys PLL and switch clocks to PLL
++	// Init sys PLL and switch clocks to PLL; CLK_SD0 goes from 25 to 100 MHz
++	sd_fast_pll();
+ 	sys_pll_init(mode);
  
  retry_from_flash:
  	for (retry = 0; retry < p_rom_api_get_number_of_retries(); retry++) {
@@ -42,20 +60,21 @@ index c73fa55..4e516ee 100644
  
 diff --git a/plat/cv181x/bl2/sd_fast.c b/plat/cv181x/bl2/sd_fast.c
 new file mode 100644
-index 0000000..3bb8f55
+index 0000000..1a4446e
 --- /dev/null
 +++ b/plat/cv181x/bl2/sd_fast.c
-@@ -0,0 +1,270 @@
+@@ -0,0 +1,280 @@
 +/*
-+ * Faster SD boot: the boot ROM reads fip.bin over a 1-bit bus at 16.7 MHz
-+ * (one SDMA multi-block read per image, ~1.75 MB/s). Before BL2 loads
-+ * OpenSBI and U-Boot through the same ROM API, switch the card and the
-+ * host to a 4-bit bus (ACMD6) and to SD High Speed at 50 MHz (CMD6), the
-+ * mode U-Boot and Linux use for this card; 25 MHz default speed if the
-+ * switch fails. The card's RCA is taken from the ROM's last command
-+ * (CMD13, SEND_STATUS, argument RCA << 16). The ROM keeps the host
-+ * settings between loads. If a load fails, the retry runs at the ROM's
-+ * own 1-bit settings again.
++ * Faster SD boot: the boot ROM reads fip.bin over a 1-bit bus with the card
++ * clock at divider 3: 4.2 MHz from the 25 MHz crystal before
++ * sys_pll_init(), 16.7 MHz from the 100 MHz PLL clock after it. Before BL2
++ * loads anything through the same ROM API, switch the card and the host
++ * to a 4-bit bus (ACMD6) and SD High Speed (CMD6), the mode U-Boot and
++ * Linux use for this card: 25 MHz until sys_pll_init(), 50 MHz after (25
++ * MHz default speed if the High Speed switch fails). The card's RCA is
++ * taken from the ROM's last command (CMD13, SEND_STATUS, argument
++ * RCA << 16). The ROM keeps the host settings between loads. If a load
++ * fails, the retry runs at the ROM's own 1-bit settings again.
 + *
 + * SPDX-License-Identifier: BSD-3-Clause
 + */
@@ -94,6 +113,7 @@ index 0000000..3bb8f55
 +static uint32_t sd_rom_div;
 +
 +static int sd_wait(uint32_t mask, uint32_t ms);
++void sd_fast_disable(void);
 +
 +/* SDHCI 10-bit divider: card clock = base / (2 * div); base is 100 MHz after sys_pll_init */
 +static uint32_t sd_get_div(void)
@@ -287,22 +307,30 @@ index 0000000..3bb8f55
 +	}
 +	sd_wide = 1;
 +	sd_rom_div = sd_get_div();
-+	/* 25 MHz, the default-speed maximum: no CMD6 switch, no sampling change */
-+	if (sd_rom_div > 2 && sd_set_div(2) < 0) {
-+		NOTICE("SDF/clock failed\n");
-+		sd_set_div(sd_rom_div);
-+	} else if (sd_rom_div > 1 && sd_switch_hs() == 0) {
-+		/* 50 MHz: SD High Speed, as U-Boot and Linux run this card */
++	/* SD High Speed, as U-Boot and Linux run this card */
++	if (sd_switch_hs() == 0) {
 +		sd_set_hs(1);
 +		sd_hs = 1;
-+		if (sd_set_div(1) < 0) {
-+			NOTICE("SDF/clock failed\n");
-+			sd_set_hs(0);
-+			sd_hs = 0;
-+			sd_set_div(2);
-+		}
 +	}
-+	NOTICE("SDF/4-bit, rca %x, div %u -> %u, hs %d\n", sd_rca, sd_rom_div, sd_get_div(), sd_hs);
++	/*
++	 * Before sys_pll_init() CLK_SD0 is the 25 MHz crystal (bypass):
++	 * divider 1 gives 12.5 MHz for the parameter blocks and 50 MHz once
++	 * sys_pll_init() has switched CLK_SD0 to 100 MHz. Divider 0 (the base
++	 * clock undivided) made each ROM load take seconds.
++	 */
++	if (sd_set_div(sd_hs ? 1 : 2) < 0)
++		sd_set_div(sd_rom_div);
++	NOTICE("SDF/4b/hs%d.\n", sd_hs);
++}
++
++/*
++ * Before sys_pll_init() switches CLK_SD0 from 25 MHz to 100 MHz: divider 1
++ * (12.5 MHz now, 50 MHz after) in High Speed, else 2 (25 MHz after).
++ */
++void sd_fast_pll(void)
++{
++	if (sd_wide && sd_set_div(sd_hs ? 1 : 2) < 0)
++		sd_fast_disable();
 +}
 +
 +void sd_fast_disable(void)

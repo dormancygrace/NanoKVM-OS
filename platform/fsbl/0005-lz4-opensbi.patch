@@ -44,11 +44,11 @@ index cc6a2c4..e4422c3 100644
  
  #endif /* __DECOMPRESS_H__ */
 diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
-index 4e516ee..23b4d15 100644
+index 1e9989d..8a9303c 100644
 --- a/plat/cv181x/bl2/bl2_opt.c
 +++ b/plat/cv181x/bl2/bl2_opt.c
-@@ -28,6 +28,13 @@ static union {
- void sd_fast_enable(void);
+@@ -29,6 +29,13 @@ void sd_fast_enable(void);
+ void sd_fast_pll(void);
  void sd_fast_disable(void);
  
 +// OpenSBI is loaded here first; U-Boot's compressed image is at DECOMP_BUF_ADDR.
@@ -61,7 +61,7 @@ index 4e516ee..23b4d15 100644
  int init_comm_info(int ret) __attribute__((weak));
  int init_comm_info(int ret)
  {
-@@ -259,25 +266,36 @@ int load_monitor(int retry, uint64_t *monitor_entry)
+@@ -265,25 +272,36 @@ int load_monitor(int retry, uint64_t *monitor_entry)
  		panic_handler();
  	}
  
@@ -103,7 +103,7 @@ index 4e516ee..23b4d15 100644
  	NOTICE("ME.\n");
  
  	*monitor_entry = fip_param2.monitor_runaddr;
-@@ -285,6 +303,28 @@ int load_monitor(int retry, uint64_t *monitor_entry)
+@@ -291,6 +309,28 @@ int load_monitor(int retry, uint64_t *monitor_entry)
  	return 0;
  }
  
@@ -132,7 +132,7 @@ index 4e516ee..23b4d15 100644
  int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
  {
  	struct loader_2nd_header *loader_2nd_header = &sram_union_buf.loader_2nd_header;
-@@ -403,6 +443,9 @@ retry_from_flash:
+@@ -409,6 +449,9 @@ retry_from_flash:
  		if (load_loader_2nd(retry, &loader_2nd_entry) < 0)
  			continue;
  

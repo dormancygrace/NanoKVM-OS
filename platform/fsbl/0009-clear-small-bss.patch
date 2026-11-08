@@ -1,0 +1,27 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: clear .sbss too
+
+GCC for RISC-V puts small zero-initialized variables in .sbss. The BL2
+linker script collected only .bss* into the range bl2_entrypoint.S
+clears, so .sbss landed after __BSS_END__ and kept whatever the SRAM
+held. sd_fast.c (0004) relies on zero-initialized state: sd_wide decides
+whether sd_fast_pll() and sd_fast_disable() touch the SD controller,
+including on a UART boot, where sd_fast_enable() returns at once, and
+sd_hs the divider when the High Speed switch fails.
+---
+ plat/cv181x/bl2/bl2.ld.S | 2 ++
+ 1 file changed, 2 insertions(+)
+diff --git a/plat/cv181x/bl2/bl2.ld.S b/plat/cv181x/bl2/bl2.ld.S
+index 232a7d8..06d182a 100644
+--- a/plat/cv181x/bl2/bl2.ld.S
++++ b/plat/cv181x/bl2/bl2.ld.S
+@@ -65,7 +65,9 @@ SECTIONS
+         . = ALIGN(16);
+         __BSS_START__ = .;
+         *(SORT_BY_ALIGNMENT(.bss*))
++        *(SORT_BY_ALIGNMENT(.sbss*))
+         *(COMMON)
++        *(.scommon)
+         . = ALIGN(16);
+         __BSS_END__ = .;
+     } >RAM

@@ -39,6 +39,7 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | `0006-lz4-decoder.patch` | A small LZ4 frame decoder instead of LZ4F, xxHash and LZMA (see "Size") |
 | `0007-quiet-console.patch` | Console: the banner, `DDR BIST PASS` and failures only; step marks at INFO, compiled out |
 | `0008-drop-unused-paths.patch` | No overdrive PLL path; a FIP with a small-core image is refused |
+| `0009-clear-small-bss.patch` | The startup code clears `.sbss` too (GCC's small zero-initialized variables) |
 
 ## Size and console
 

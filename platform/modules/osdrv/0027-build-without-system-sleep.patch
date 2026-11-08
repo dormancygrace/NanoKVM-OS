@@ -2,7 +2,7 @@ From: Gleb Pesin <dormancygrace@gmail.com>
 Subject: [PATCH] osdrv: build without system sleep (CONFIG_PM_SLEEP=n)
 
 A NanoKVM never suspends, and the kernel is built without SUSPEND. The
-suspend and resume callbacks of cif, vi and ive are then referenced by
+suspend and resume callbacks of cif, vi, ive and dwa are then referenced by
 nothing, and -Werror=unused-function stopped the build. They are
 __maybe_unused now; with PM_SLEEP the driver behaves as before.
 ---
@@ -64,3 +64,23 @@ __maybe_unused now; with PM_SLEEP the driver behaves as before.
  {
  	//[TODO]
  	pr_debug("[IVE] ive_resume\n");
+--- a/interdrv/dwa/common/dwa_platform.c
++++ b/interdrv/dwa/common/dwa_platform.c
+@@ -547,7 +547,7 @@
+ };
+ 
+ #ifdef CONFIG_PM_SLEEP
+-static int dwa_suspend(struct device *dev)
++static int __maybe_unused dwa_suspend(struct device *dev)
+ {
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 
+@@ -573,7 +573,7 @@
+ 	return ret;
+ }
+ 
+-static int dwa_resume(struct device *dev)
++static int __maybe_unused dwa_resume(struct device *dev)
+ {
+ 	CVI_S32 ret = CVI_SUCCESS;
+ 

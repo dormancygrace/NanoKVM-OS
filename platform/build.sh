@@ -336,7 +336,7 @@ modules() {
             "KCFLAGS=$isa $maps" M="$dir" "$@" -j"$jobs" modules)
     }
     # Not snsr_i2c: the HDMI receivers are driven from user space over /dev/i2c.
-    for name in sys base cif vi vpss ive vcodec jpeg cvi_vc_drv rgn; do
+    for name in sys base cif vi vpss ive vcodec jpeg cvi_vc_drv dwa rgn; do
         module=$src/osdrv/interdrv/$name
         build "$module" CVIARCH=CV181X CVIARCH_L=cv181x "KBUILD_EXTRA_SYMBOLS=${symbols[*]}"
         symbols+=("$module/Module.symvers")

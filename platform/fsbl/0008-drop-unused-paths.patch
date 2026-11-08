@@ -1,0 +1,102 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: drop the overdrive PLL path and the small-core loader
+
+Two paths this FSBL never takes:
+- sys_pll_od(), the overdrive PLL setup: the clock mode is fixed at build
+  time (CLK_ND without OD_CLK_SEL), but the switch in sys_pll_init() kept
+  both.
+- The small-core (C906L) loader: the FIP carries no such image, the FIP
+  validator rejects one and nothing reserves its memory. A FIP with one is
+  now refused instead of loaded.
+---
+ plat/cv181x/bl2/bl2_opt.c | 56 +++++------------------------------------------
+ plat/cv181x/platform.c    |  2 ++
+ 2 files changed, 7 insertions(+), 51 deletions(-)
+diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
+index d0ccdcc..8cc1081 100644
+--- a/plat/cv181x/bl2/bl2_opt.c
++++ b/plat/cv181x/bl2/bl2_opt.c
+@@ -190,62 +190,16 @@ retry_from_flash:
+ 
+ int load_blcp_2nd(int retry)
+ {
+-	uint32_t crc, rtos_base;
+-	int ret = -1;
+-
+-	// if no blcp_2nd, release_blcp_2nd should be ddr_init_end
++	// No small-core (C906L) image on NanoKVM: scripts/nanokvm-fip.py rejects
++	// one, and nothing reserves its memory. Refuse a FIP that has one rather
++	// than skip it.
+ 	time_records->release_blcp_2nd = time_records->ddr_init_end;
+ 
+-	INFO("C2S/0x%x/0x%x/0x%x.\n", fip_param2.blcp_2nd_loadaddr, fip_param2.blcp_2nd_runaddr,
+-	       fip_param2.blcp_2nd_size);
+-
+-	if (!fip_param2.blcp_2nd_runaddr) {
+-		INFO("No C906L image.\n");
+-		return 0;
+-	}
+-
+-	if (!IN_RANGE(fip_param2.blcp_2nd_runaddr, DRAM_BASE, DRAM_SIZE)) {
+-		ERROR("blcp_2nd_runaddr (0x%x) is not in DRAM.\n", fip_param2.blcp_2nd_runaddr);
++	if (fip_param2.blcp_2nd_runaddr) {
++		ERROR("C906L image not supported.\n");
+ 		panic_handler();
+ 	}
+ 
+-	if (!IN_RANGE(fip_param2.blcp_2nd_runaddr + fip_param2.blcp_2nd_size, DRAM_BASE, DRAM_SIZE)) {
+-		ERROR("blcp_2nd_size (0x%x) is not in DRAM.\n", fip_param2.blcp_2nd_size);
+-		panic_handler();
+-	}
+-
+-	ret = p_rom_api_load_image((void *)(uintptr_t)fip_param2.blcp_2nd_runaddr, fip_param2.blcp_2nd_loadaddr,
+-				   fip_param2.blcp_2nd_size, retry);
+-	if (ret < 0) {
+-		return ret;
+-	}
+-
+-	crc = p_rom_api_image_crc((void *)(uintptr_t)fip_param2.blcp_2nd_runaddr, fip_param2.blcp_2nd_size);
+-	if (crc != fip_param2.blcp_2nd_cksum) {
+-		ERROR("blcp_2nd_cksum (0x%x/0x%x)\n", crc, fip_param2.blcp_2nd_cksum);
+-		return -1;
+-	}
+-
+-	ret = dec_verify_image((void *)(uintptr_t)fip_param2.blcp_2nd_runaddr, fip_param2.blcp_2nd_size, 0, fip_param1);
+-	if (ret < 0) {
+-		ERROR("verify blcp 2nd (%d)\n", ret);
+-		return ret;
+-	}
+-
+-	flush_dcache_range(fip_param2.blcp_2nd_runaddr, fip_param2.blcp_2nd_size);
+-
+-	rtos_base = mmio_read_32(AXI_SRAM_RTOS_BASE);
+-	init_comm_info(0);
+-
+-	time_records->release_blcp_2nd = read_time_ms();
+-	if (rtos_base == CVI_RTOS_MAGIC_CODE) {
+-		mmio_write_32(AXI_SRAM_RTOS_BASE, fip_param2.blcp_2nd_runaddr);
+-	} else {
+-		reset_c906l(fip_param2.blcp_2nd_runaddr);
+-	}
+-
+-	INFO("C2E.\n");
+-
+ 	return 0;
+ }
+ 
+diff --git a/plat/cv181x/platform.c b/plat/cv181x/platform.c
+index 90729eb..87c1819 100644
+--- a/plat/cv181x/platform.c
++++ b/plat/cv181x/platform.c
+@@ -412,9 +412,11 @@ void sys_pll_init(enum CHIP_CLK_MODE mode)
+ 	case CLK_VC_OD:
+ 		sys_pll_nd(1);
+ 		break;
++#ifdef OD_CLK_SEL
+ 	case CLK_OD:
+ 		sys_pll_od();
+ 		break;
++#endif
+ 	case CLK_ND:
+ 	default:
+ 		sys_pll_nd(0);

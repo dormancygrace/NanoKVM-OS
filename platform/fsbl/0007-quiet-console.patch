@@ -1,0 +1,444 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: print the banner, the DDR result and failures only
+
+At 115 200 baud each console character costs BL2 87 us, and it printed
+about 1 400 of them on every boot, step marks for each load, the DDR
+package fields piece by piece, the PLL and RTC steps: BL2 ran 150 ms with
+them and 100 ms without any (LOG_LEVEL 1, on the stand).
+
+Keep the banner, "DDR BIST PASS" and every failure message; the step marks
+become INFO, and INFO is compiled out below LOG_LEVEL_INFO, strings
+included. A build with LOG_LEVEL 3 prints them all again.
+---
+ include/debug.h                 |  8 ++++++++
+ lib/cpu/riscv/bl2_helper.c      |  2 +-
+ lib/utils/decompress.c          |  2 +-
+ plat/cv181x/bl2/bl2_opt.c       | 34 +++++++++++++++++-----------------
+ plat/cv181x/bl2/sd_fast.c       |  2 +-
+ plat/cv181x/ddr/ddr.c           |  4 ++--
+ plat/cv181x/ddr/ddr_pkg_info.c  | 30 +++++++++++++++---------------
+ plat/cv181x/ddr/phy_pll_init.c  |  2 +-
+ plat/cv181x/platform.c          | 18 +++++++++---------
+ plat/cv181x/security/security.c |  4 ++--
+ 10 files changed, 57 insertions(+), 49 deletions(-)
+diff --git a/include/debug.h b/include/debug.h
+index b178363..83d8e08 100644
+--- a/include/debug.h
++++ b/include/debug.h
+@@ -39,7 +39,15 @@ int putchar_l(int c, int level);
+ #define ERROR(...) tf_printf(MSG_ERROR " E:" __VA_ARGS__)
+ #define WARN(...) tf_printf(MSG_WARN " W:" __VA_ARGS__)
+ #define NOTICE(...) tf_printf(MSG_NOTICE __VA_ARGS__)
++/*
++ * Below LOG_LEVEL_INFO, INFO() is compiled out (its strings too); the
++ * arguments stay referenced, so no variable becomes unused.
++ */
++#if LOG_LEVEL >= LOG_LEVEL_INFO
+ #define INFO(...) tf_printf(MSG_INFO " I:" __VA_ARGS__)
++#else
++#define INFO(...) do { if (0) tf_printf(MSG_INFO " I:" __VA_ARGS__); } while (0)
++#endif
+ 
+ #if LOG_LEVEL >= LOG_LEVEL_VERBOSE
+ #define VERBOSE(...) tf_printf(MSG_VERBOSE __VA_ARGS__)
+diff --git a/lib/cpu/riscv/bl2_helper.c b/lib/cpu/riscv/bl2_helper.c
+index ad72cd8..0339e17 100644
+--- a/lib/cpu/riscv/bl2_helper.c
++++ b/lib/cpu/riscv/bl2_helper.c
+@@ -56,7 +56,7 @@ void jump_to_monitor(uintptr_t monitor_entry, uintptr_t next_addr)
+ 	fw_dynamic_info.next_mode = FW_DYNAMIC_INFO_NEXT_MODE_S;
+ 	fw_dynamic_info.boot_hart = -1;
+ 
+-	NOTICE("OPENSBI: next_addr=0x%lx arg1=0x%lx", next_addr, arg1);
++	INFO("OPENSBI: next_addr=0x%lx arg1=0x%lx", next_addr, arg1);
+ 
+ 	flush_dcache_range((uintptr_t)&fw_dynamic_info, sizeof(struct fw_dynamic_info));
+ 
+diff --git a/lib/utils/decompress.c b/lib/utils/decompress.c
+index 44f9681..e6a4b90 100644
+--- a/lib/utils/decompress.c
++++ b/lib/utils/decompress.c
+@@ -177,7 +177,7 @@ int decompress(void *dst, size_t *dst_size, const void *src, size_t src_size, en
+ 	if (type == COMP_LZ4)
+ 		ret = decompress_lz4(dst, dst_size, src, src_size);
+ 
+-	NOTICE("DCP/0x%lx/%d.\n", *dst_size, ret);
++	INFO("DCP/0x%lx/%d.\n", *dst_size, ret);
+ 
+ 	return ret;
+ }
+diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
+index 8a9303c..d0ccdcc 100644
+--- a/plat/cv181x/bl2/bl2_opt.c
++++ b/plat/cv181x/bl2/bl2_opt.c
+@@ -96,7 +96,7 @@ int load_param2(int retry)
+ 	uint32_t crc;
+ 	int ret = -1;
+ 
+-	NOTICE("P2S/0x%lx/%p.\n", sizeof(fip_param2), &fip_param2);
++	INFO("P2S/0x%lx/%p.\n", sizeof(fip_param2), &fip_param2);
+ 
+ 	ret = p_rom_api_load_image(&fip_param2, fip_param1->param2_loadaddr, PARAM2_SIZE, retry);
+ 	if (ret < 0) {
+@@ -114,7 +114,7 @@ int load_param2(int retry)
+ 		return -1;
+ 	}
+ 
+-	NOTICE("P2E.\n");
++	INFO("P2E.\n");
+ 
+ 	return 0;
+ }
+@@ -124,7 +124,7 @@ int load_ddr_param(int retry)
+ 	uint32_t crc;
+ 	int ret = -1;
+ 
+-	NOTICE("DPS/0x%x/0x%x.\n", fip_param2.ddr_param_loadaddr, fip_param2.ddr_param_size);
++	INFO("DPS/0x%x/0x%x.\n", fip_param2.ddr_param_loadaddr, fip_param2.ddr_param_size);
+ 
+ 	if (fip_param2.ddr_param_size >= sizeof(sram_union_buf.ddr_param))
+ 		fip_param2.ddr_param_size = sizeof(sram_union_buf.ddr_param);
+@@ -141,7 +141,7 @@ int load_ddr_param(int retry)
+ 		return -1;
+ 	}
+ 
+-	NOTICE("DPE.\n");
++	INFO("DPE.\n");
+ 
+ 	return 0;
+ }
+@@ -196,11 +196,11 @@ int load_blcp_2nd(int retry)
+ 	// if no blcp_2nd, release_blcp_2nd should be ddr_init_end
+ 	time_records->release_blcp_2nd = time_records->ddr_init_end;
+ 
+-	NOTICE("C2S/0x%x/0x%x/0x%x.\n", fip_param2.blcp_2nd_loadaddr, fip_param2.blcp_2nd_runaddr,
++	INFO("C2S/0x%x/0x%x/0x%x.\n", fip_param2.blcp_2nd_loadaddr, fip_param2.blcp_2nd_runaddr,
+ 	       fip_param2.blcp_2nd_size);
+ 
+ 	if (!fip_param2.blcp_2nd_runaddr) {
+-		NOTICE("No C906L image.\n");
++		INFO("No C906L image.\n");
+ 		return 0;
+ 	}
+ 
+@@ -244,7 +244,7 @@ int load_blcp_2nd(int retry)
+ 		reset_c906l(fip_param2.blcp_2nd_runaddr);
+ 	}
+ 
+-	NOTICE("C2E.\n");
++	INFO("C2E.\n");
+ 
+ 	return 0;
+ }
+@@ -254,11 +254,11 @@ int load_monitor(int retry, uint64_t *monitor_entry)
+ 	uint32_t crc;
+ 	int ret = -1;
+ 
+-	NOTICE("MS/0x%x/0x%x/0x%x.\n", fip_param2.monitor_loadaddr, fip_param2.monitor_runaddr,
++	INFO("MS/0x%x/0x%x/0x%x.\n", fip_param2.monitor_loadaddr, fip_param2.monitor_runaddr,
+ 	       fip_param2.monitor_size);
+ 
+ 	if (!fip_param2.monitor_runaddr) {
+-		NOTICE("No monitor.\n");
++		INFO("No monitor.\n");
+ 		return 0;
+ 	}
+ 
+@@ -302,7 +302,7 @@ int load_monitor(int retry, uint64_t *monitor_entry)
+ 		memcpy((void *)(uintptr_t)fip_param2.monitor_runaddr, (void *)MONITOR_LOAD_BUF, fip_param2.monitor_size);
+ 		flush_dcache_range(fip_param2.monitor_runaddr, fip_param2.monitor_size);
+ 	}
+-	NOTICE("ME.\n");
++	INFO("ME.\n");
+ 
+ 	*monitor_entry = fip_param2.monitor_runaddr;
+ 
+@@ -326,7 +326,7 @@ static int finish_monitor(uint64_t monitor_entry, uint64_t loader_2nd_entry)
+ 	}
+ 
+ 	flush_dcache_range(monitor_entry, dst_size);
+-	NOTICE("MZ/0x%lx.\n", dst_size);
++	INFO("MZ/0x%lx.\n", dst_size);
+ 
+ 	return 0;
+ }
+@@ -343,7 +343,7 @@ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ 	int reading_size;
+ 	void *image_buf;
+ 
+-	NOTICE("L2/0x%x.\n", fip_param2.loader_2nd_loadaddr);
++	INFO("L2/0x%x.\n", fip_param2.loader_2nd_loadaddr);
+ 
+ 	ret = p_rom_api_load_image(loader_2nd_header, fip_param2.loader_2nd_loadaddr, BLOCK_SIZE, retry);
+ 	if (ret < 0) {
+@@ -352,7 +352,7 @@ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ 
+ 	reading_size = ROUND_UP(loader_2nd_header->size, BLOCK_SIZE);
+ 
+-	NOTICE("L2/0x%x/0x%x/0x%lx/0x%x/0x%x\n", loader_2nd_header->magic, loader_2nd_header->cksum,
++	INFO("L2/0x%x/0x%x/0x%lx/0x%x/0x%x\n", loader_2nd_header->magic, loader_2nd_header->cksum,
+ 	       loader_2nd_header->runaddr, loader_2nd_header->size, reading_size);
+ 
+ 	switch (loader_2nd_header->magic) {
+@@ -368,7 +368,7 @@ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ 	}
+ 
+ 	if (comp_type) {
+-		NOTICE("COMP/%d.\n", comp_type);
++		INFO("COMP/%d.\n", comp_type);
+ 		image_buf = (void *)DECOMP_BUF_ADDR;
+ 	} else {
+ 		image_buf = (void *)loader_2nd_header->runaddr;
+@@ -418,7 +418,7 @@ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ 
+ 	flush_dcache_range(loader_2nd_header->runaddr, reading_size);
+ 	time_records->fsbl_decomp_end = read_time_ms();
+-	NOTICE("Loader_2nd loaded.\n");
++	INFO("Loader_2nd loaded.\n");
+ 
+ 	*loader_2nd_entry = loader_2nd_header->runaddr + sizeof(struct loader_2nd_header);
+ 
+@@ -476,10 +476,10 @@ retry_from_flash:
+ 	switch_rtc_mode_2nd_stage();
+ 
+ 	if (monitor_entry) {
+-		NOTICE("Jump to monitor at 0x%lx.\n", monitor_entry);
++		INFO("Jump to monitor at 0x%lx.\n", monitor_entry);
+ 		jump_to_monitor(monitor_entry, loader_2nd_entry);
+ 	} else {
+-		NOTICE("Jump to loader_2nd at 0x%lx.\n", loader_2nd_entry);
++		INFO("Jump to loader_2nd at 0x%lx.\n", loader_2nd_entry);
+ 		jump_to_loader_2nd(loader_2nd_entry);
+ 	}
+ 
+diff --git a/plat/cv181x/bl2/sd_fast.c b/plat/cv181x/bl2/sd_fast.c
+index 2a0ea9d..459398c 100644
+--- a/plat/cv181x/bl2/sd_fast.c
++++ b/plat/cv181x/bl2/sd_fast.c
+@@ -295,7 +295,7 @@ void sd_fast_enable(void)
+ 		sd_fast_disable();
+ 		return;
+ 	}
+-	NOTICE("SDF/4b/hs%d.\n", sd_hs);
++	INFO("SDF/4b/hs%d.\n", sd_hs);
+ }
+ 
+ /*
+diff --git a/plat/cv181x/ddr/ddr.c b/plat/cv181x/ddr/ddr.c
+index 6e0f97d..de680a5 100644
+--- a/plat/cv181x/ddr/ddr.c
++++ b/plat/cv181x/ddr/ddr.c
+@@ -6,8 +6,8 @@
+ 
+ int ddr_init(const struct ddr_param *ddr_param)
+ {
+-	NOTICE("cv181x DDR init.\n");
+-	NOTICE("ddr_param[0]=0x%x.\n", ((const uint32_t *)ddr_param)[0]);
++	INFO("cv181x DDR init.\n");
++	INFO("ddr_param[0]=0x%x.\n", ((const uint32_t *)ddr_param)[0]);
+ 
+ 	// read_ddr_pkg_info();
+ 	// bldp_init((void *)ddr_param);
+diff --git a/plat/cv181x/ddr/ddr_pkg_info.c b/plat/cv181x/ddr/ddr_pkg_info.c
+index e48951f..93e2b4e 100644
+--- a/plat/cv181x/ddr/ddr_pkg_info.c
++++ b/plat/cv181x/ddr/ddr_pkg_info.c
+@@ -17,14 +17,14 @@ void read_ddr_pkg_info(void)
+ 	uint32_t chip_id;
+ 
+ #if defined(DBG_SHMOO) || defined(DBG_SHMOO_CA) || defined(DBG_SHMOO_CS)
+-	NOTICE("conf_info(0x03000004)=0x%08x\n", conf_info);
+-	NOTICE("efuse_leakage(0x03050108)=0x%08x\n", efuse_leakage);
+-	NOTICE("FTSN3=0x%08x\n", mmio_read_32(0x0305010C));
+-	NOTICE("FTSN4=0x%08x\n", mmio_read_32(0x03050110));
++	INFO("conf_info(0x03000004)=0x%08x\n", conf_info);
++	INFO("efuse_leakage(0x03050108)=0x%08x\n", efuse_leakage);
++	INFO("FTSN3=0x%08x\n", mmio_read_32(0x0305010C));
++	INFO("FTSN4=0x%08x\n", mmio_read_32(0x03050110));
+ #endif // DBG_SHMOO || DBG_SHMOO_CA || DBG_SHMOO_CS
+ 
+ 	pkg_type = FIELD_GET(conf_info, 30, 28);
+-	NOTICE("pkg_type=%x\n", pkg_type);
++	INFO("pkg_type=%x\n", pkg_type);
+ 
+ 	switch (pkg_type) {
+ 	case 0x0: //BGA 10x10, SIP 2Gb DDR3
+@@ -43,7 +43,7 @@ void read_ddr_pkg_info(void)
+ 		pkg = PKG_BGA;
+ 		break;
+ 	case 0x4: //2nd src need to read from efuse
+-		NOTICE("2nd\n");
++		INFO("2nd\n");
+ 		ddr_vendor = FIELD_GET(efuse_leakage, 25, 21);
+ 		ddr_capacity = FIELD_GET(efuse_leakage, 28, 26);
+ 		pkg = FIELD_GET(efuse_leakage, 31, 29);
+@@ -67,13 +67,13 @@ void read_ddr_pkg_info(void)
+ 		NOTICE("unknown pkg_type=0x%x\n", pkg_type);
+ 	}
+ 
+-	NOTICE("D%x_%x_%x\n", pkg, ddr_capacity, ddr_vendor);
++	INFO("D%x_%x_%x\n", pkg, ddr_capacity, ddr_vendor);
+ 
+ 	// assign ddr_type
+ 	switch (ddr_vendor) {
+ 	case DDR_VENDOR_ESMT_512M_DDR2:
+ 	case DDR_VENDOR_ETRON_512M_DDR2:
+-		NOTICE("DDR2");
++		INFO("DDR2");
+ 		ddr_type = DDR_TYPE_DDR2;
+ 		ddr_data_rate = 1333;
+ 		break;
+@@ -85,7 +85,7 @@ void read_ddr_pkg_info(void)
+ 	case DDR_VENDOR_PM_2G:
+ 	case DDR_VENDOR_PM_1G:
+ 	case DDR_VENDOR_ESMT_N25_1G:
+-		NOTICE("DDR3");
++		INFO("DDR3");
+ 		ddr_type = DDR_TYPE_DDR3;
+ 		ddr_data_rate = 1866;
+ 		break;
+@@ -96,19 +96,19 @@ void read_ddr_pkg_info(void)
+ 
+ 	switch (ddr_capacity) {
+ 	case DDR_CAPACITY_512M:
+-		NOTICE("-512M");
++		INFO("-512M");
+ 		chip_id = (pkg == PKG_QFN ? 0x1810c : 0x1810f);
+ 		break;
+ 	case DDR_CAPACITY_1G:
+-		NOTICE("-1G");
++		INFO("-1G");
+ 		chip_id = (pkg == PKG_QFN ? 0x1811c : 0x1811f);
+ 		break;
+ 	case DDR_CAPACITY_2G:
+-		NOTICE("-2G");
++		INFO("-2G");
+ 		chip_id = (pkg == PKG_QFN ? 0x1812c : 0x1812f);
+ 		break;
+ 	case DDR_CAPACITY_4G:
+-		NOTICE("-4G");
++		INFO("-4G");
+ 		chip_id = 0x1813f;
+ 		break;
+ 	default:
+@@ -119,10 +119,10 @@ void read_ddr_pkg_info(void)
+ 
+ 	switch (pkg) {
+ 	case PKG_QFN:
+-		NOTICE("-QFN\n");
++		INFO("-QFN\n");
+ 		break;
+ 	case PKG_BGA:
+-		NOTICE("-BGA\n");
++		INFO("-BGA\n");
+ 		break;
+ 	default:
+ 		NOTICE("-unknown pkg=%d", pkg);
+diff --git a/plat/cv181x/ddr/phy_pll_init.c b/plat/cv181x/ddr/phy_pll_init.c
+index 754ffba..e41bb5a 100644
+--- a/plat/cv181x/ddr/phy_pll_init.c
++++ b/plat/cv181x/ddr/phy_pll_init.c
+@@ -20,7 +20,7 @@ void pll_init(void)
+ 	freq_in = 752;
+ 	mod_freq = 100;
+ 	dev_freq = 15;
+-	NOTICE("Data rate=%d.\n", ddr_data_rate);
++	INFO("Data rate=%d.\n", ddr_data_rate);
+ #ifdef SSC_EN
+ 	tar_freq = (ddr_data_rate >> 4) * 0.985;
+ #else
+diff --git a/plat/cv181x/platform.c b/plat/cv181x/platform.c
+index 9b524cf..90729eb 100644
+--- a/plat/cv181x/platform.c
++++ b/plat/cv181x/platform.c
+@@ -80,7 +80,7 @@ void __system_reset(const char *file, unsigned int line)
+ 
+ void reset_c906l(uintptr_t reset_address)
+ {
+-	NOTICE("RSC.\n");
++	INFO("RSC.\n");
+ 
+ 	mmio_clrbits_32(0x3003024, 1 << 6);
+ 
+@@ -158,7 +158,7 @@ void sys_pll_od(void)
+ 		0x00148101, // set cam1 *10/1 (1030 MHz)
+ 	};
+ 
+-	NOTICE("PLLS/OD.\n");
++	INFO("PLLS/OD.\n");
+ 
+ 	// set vddc for OD clock
+ 	config_core_power(0x58); //1.00V
+@@ -280,7 +280,7 @@ void sys_pll_nd(int vc_overdrive)
+ 		0x00168101, // set cam1 *11/1 (1080 MHz)
+ 	};
+ 
+-	NOTICE("PLLS.\n");
++	INFO("PLLS.\n");
+ 
+ 	if (vc_overdrive) {
+ 		pll_syn_set[3] = 586388132;
+@@ -403,7 +403,7 @@ void sys_pll_nd(int vc_overdrive)
+ 	);
+ 	mmio_write_32(0x03002030, byp0_value); // REG_CLK_BYPASS_SEL0_REG
+ 	mmio_write_32(0x03002034, 0x0); // REG_CLK_BYPASS_SEL1_REG
+-	NOTICE("PLLE.\n");
++	INFO("PLLE.\n");
+ }
+ 
+ void sys_pll_init(enum CHIP_CLK_MODE mode)
+@@ -440,7 +440,7 @@ void switch_rtc_mode_1st_stage(void)
+ 	read_data = mmio_read_32(REG_RTC_CTRL_BASE + RTC_CTRL0);
+ 	rtc_mode = (read_data >> 10) & 0x1;
+ 	if (rtc_mode == 0x1) {
+-		NOTICE("By pass rtc mode switch\n");
++		INFO("By pass rtc mode switch\n");
+ 		return;
+ 	}
+ 
+@@ -490,9 +490,9 @@ void switch_rtc_mode_2nd_stage(void)
+ 		mmio_write_32(RTC_MACRO_BASE + 0x8C, 0x01);
+ 		//DA_SOC_READY = 0
+ 		mmio_write_32(RTC_MACRO_BASE + 0x8C, 0x00);
+-		NOTICE("Use internal 32k\n");
++		INFO("Use internal 32k\n");
+ 	} else
+-		NOTICE("Switch RTC mode to xtal32k\n");
++		INFO("Switch RTC mode to xtal32k\n");
+ }
+ 
+ void set_rtc_en_registers(void)
+@@ -501,9 +501,9 @@ void set_rtc_en_registers(void)
+ 	uint32_t read_data;
+ 
+ 	read_data = mmio_read_32(REG_RTC_BASE + RTC_ST_ON_REASON);
+-	NOTICE("st_on_reason=%x\n", read_data);
++	INFO("st_on_reason=%x\n", read_data);
+ 	read_data = mmio_read_32(REG_RTC_BASE + RTC_ST_OFF_REASON);
+-	NOTICE("st_off_reason=%x\n", read_data);
++	INFO("st_off_reason=%x\n", read_data);
+ 
+ 	mmio_write_32(REG_RTC_BASE + RTC_EN_SHDN_REQ, 0x01);
+ 	while (mmio_read_32(REG_RTC_BASE + RTC_EN_SHDN_REQ) != 0x01)
+diff --git a/plat/cv181x/security/security.c b/plat/cv181x/security/security.c
+index e725335..dee492b 100644
+--- a/plat/cv181x/security/security.c
++++ b/plat/cv181x/security/security.c
+@@ -83,7 +83,7 @@ int verify_rsa(const void *message, size_t n, const void *sig, void *rsa_n, size
+ {
+ 	hash_state md;
+ 
+-	NOTICE("VI/0x%lx/0x%lx\n", (uintptr_t)message, n);
++	INFO("VI/0x%lx/0x%lx\n", (uintptr_t)message, n);
+ 
+ 	mpConvFromOctets(current_pk, rsa_nbytes / sizeof(DIGIT_T), rsa_n, rsa_nbytes);
+ 	mpConvFromOctets(current_sig, rsa_nbytes / sizeof(DIGIT_T), sig, rsa_nbytes);
+@@ -119,7 +119,7 @@ int dec_verify_image(const void *image, size_t size, size_t dec_skip, struct fip
+ 		return 0;
+ 
+ 	if (security_is_tee_encrypted()) {
+-		NOTICE("DI/0x%lx/0x%lx\n", (uintptr_t)image, size);
++		INFO("DI/0x%lx/0x%lx\n", (uintptr_t)image, size);
+ 		cryptodma_aes_decrypt(image + dec_skip, image + dec_skip, size - dec_skip, fip_param1->bl_ek, iv);
+ 	}
+ 

@@ -1,0 +1,31 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vi: hand back the tuning buffers on every setup
+
+vi_tuning_buf_setup() runs on every vi_start_streaming() and on
+VI_IOCTL_GET_TUN_ADDR. The pool is allocated once and never cleared
+(vi_tuning_mempool_clear() is commented out in setup), so the second run,
+for example capture restarted while the input size is detected at boot,
+logged "tuning_buf pool already allocated" at error level and returned
+without filling the pointers. The callers kept the first pointers in
+static variables, so nothing broke, but every boot showed a kernel error.
+
+The pool has a fixed layout: return the same buffers every time.
+---
+--- a/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
++++ b/interdrv/vi/chip/cv181x/vip/vi_tun_ip_ctrl.c
+@@ -271,11 +271,10 @@
+ 	u32 offset_be = VI_ALIGN(sizeof(struct cvi_vip_isp_post_cfg));
+ 	u32 offset_fe = offset_be + VI_ALIGN(sizeof(struct cvi_vip_isp_be_cfg));
+ 
+-	if (tuning_buf_pool[raw_num].is_allocated) {
+-		vi_pr(VI_ERR, "tuning_buf pool already allocated\n");
+-		return;
+-	}
+-
++	/*
++	 * The pool has a fixed layout, so a second call (streaming restarted,
++	 * or VI_IOCTL_GET_TUN_ADDR after start) gets the same buffers back.
++	 */
+ 	*post_cfg = (struct cvi_vip_isp_post_cfg*)(tuning_buf_pool[raw_num].memory + offset_post);
+ 	*be_cfg = (struct cvi_vip_isp_be_cfg*)(tuning_buf_pool[raw_num].memory + offset_be);
+ 	*fe_cfg = (struct cvi_vip_isp_fe_cfg*)(tuning_buf_pool[raw_num].memory + offset_fe);

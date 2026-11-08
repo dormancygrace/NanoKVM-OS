@@ -81,6 +81,13 @@ exit 0
 EOF
         chmod +x "$BIN_DIR/$command"
     done
+    # The default fixture has the built-in world domain in force.
+    cat > "$BIN_DIR/iw" <<'EOF'
+#!/bin/sh
+printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
+[ "$*" != 'reg get' ] || printf '%s\n' global 'country 00: DFS-UNSET'
+exit 0
+EOF
 }
 
 run_action() (
@@ -110,7 +117,7 @@ run_action() (
     export NANOKVM_WIFI_NET_DIR="$NET_DIR"
     export NANOKVM_NFT="$BIN_DIR/nft"
     export NANOKVM_LOGGER="$BIN_DIR/logger"
-    # The stub iw reports no country in force: do not wait for one.
+    # The stub iw applies the requested domain synchronously.
     export NANOKVM_WIFI_REG_WAIT=0
     "$SCRIPT" "$@"
 )
@@ -293,6 +300,7 @@ new_case world_access_point_5ghz
 cat > "$BIN_DIR/iw" <<'EOF'
 #!/bin/sh
 printf 'iw args=%s\n' "$*" >> "$CALL_LOG"
+[ "$*" != 'reg get' ] || printf '%s\n' global 'country 00: DFS-UNSET'
 [ "$*" != 'phy phy0 info' ] || printf '%s\n' \
     '			* 2412.0 MHz [1] (20.0 dBm)' \
     '			* 5180.0 MHz [36] (20.0 dBm) (no IR)'

@@ -134,12 +134,15 @@ apply_country() {
     fi
     if [ "$country" = 00 ]; then
         echo "The world domain 00 is not in force" >&2
-        return 0
+        return 1
     fi
     message="The Wi-Fi country $country did not come into force; using the world domain 00"
     echo "$message" >&2
     "$NANOKVM_LOGGER" -t nanokvm-wifi "$message" 2>/dev/null || true
-    set_regdomain 00 || echo "The world domain 00 is not in force either" >&2
+    if ! set_regdomain 00; then
+        echo "The world domain 00 is not in force either" >&2
+        return 1
+    fi
 }
 
 prepare_run_dir() {
@@ -669,7 +672,7 @@ start() {
         "$NANOKVM_IP" link set dev wlan0 down || return 1
         return 0
     fi
-    apply_country
+    apply_country || return 1
     # The administrator's access point, instead of joining a network.
     if [ -e "$AP_PREFIX.enabled" ]; then
         ap_start user
@@ -1072,7 +1075,7 @@ case "${1:-}" in
     ap)
         load_driver || exit 1
         stop
-        apply_country
+        apply_country || exit 1
         ap_start
         ;;
     restart) restart ;;

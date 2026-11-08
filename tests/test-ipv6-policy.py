@@ -25,6 +25,9 @@ class IPv6PolicyTest(unittest.TestCase):
         for name in ("boot", "etc", "run"):
             (self.work / name).mkdir()
         self.conf = self.work / "ipv6"
+        iw = self.work / "iw"
+        iw.write_text('#!/bin/sh\n[ "$*" != "reg get" ] || printf "%s\\n" global "country 00: DFS-UNSET"\n')
+        iw.chmod(0o755)
         self.env = dict(os.environ,
             NANOKVM_IPV6_CONF=str(self.conf), NANOKVM_IPV6_RUN=str(self.work / "run"),
             NANOKVM_DHCPV6="/bin/true", NANOKVM_IPV6_INIT=str(SCRIPT),
@@ -44,7 +47,7 @@ class IPv6PolicyTest(unittest.TestCase):
             NANOKVM_WIFI_DHCP_PID=str(self.work / "run/udhcpc.wlan0.pid"),
             NANOKVM_WIFI_AP_FLAG=str(self.work / "run/ap"), NANOKVM_KILLALL="/bin/true",
             # S30wifi sets the Wi-Fi country: never the host's.
-            NANOKVM_IW="/bin/true", NANOKVM_WIFI_REG_WAIT="0")
+            NANOKVM_IW=str(iw), NANOKVM_WIFI_REG_WAIT="0")
         for name in ("eth0", "wlan0"):
             self.run_cmd("ip", "link", "add", name, "type", "dummy")
             self.addCleanup(self.run_cmd, "ip", "link", "del", name)

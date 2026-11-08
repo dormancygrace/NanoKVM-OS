@@ -1,0 +1,246 @@
+--- a/drivers/rng/Kconfig
++++ b/drivers/rng/Kconfig
+@@ -29,6 +29,13 @@
+ 	help
+ 	  Enable support for hardware random number generator
+ 	  of Microchip's PolarFire SoCs.
++
++config RNG_CV181X
++	bool "CV181x (SG2002) true random number generator"
++	depends on DM_RNG && CLK
++	help
++	  Enable the TRNG of the CV181x/SG2002 security subsystem, so that
++	  U-Boot can pass a kaslr-seed to the kernel.
+ 
+ config RNG_SANDBOX
+ 	bool "Sandbox random number generator"
+--- a/drivers/rng/Makefile
++++ b/drivers/rng/Makefile
+@@ -4,6 +4,7 @@
+ #
+ 
+ obj-$(CONFIG_$(PHASE_)DM_RNG) += rng-uclass.o
++obj-$(CONFIG_RNG_CV181X) += cv181x_trng.o
+ obj-$(CONFIG_RNG_MESON) += meson-rng.o
+ obj-$(CONFIG_RNG_MPFS) += mpfs_rng.o
+ obj-$(CONFIG_RNG_SANDBOX) += sandbox_rng.o
+--- a/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
++++ b/arch/riscv/dts/sg2002-licheerv-nano-b-u-boot.dtsi
+@@ -15,3 +15,16 @@
+ 	clock-names = "core", "bus";
+ 	max-frequency = <50000000>;
+ };
++
++/ {
++	soc {
++		/* TRNG (drivers/rng/cv181x_trng.c): behind the efuse clock
++		 * gates; a register access while they are off hangs the bus. */
++		rng@2070000 {
++			compatible = "nanokvm,cv181x-trng";
++			reg = <0x2070000 0x1000>;
++			clocks = <&clk CLK_EFUSE>, <&clk CLK_APB_EFUSE>;
++			clock-names = "efuse", "apb_efuse";
++		};
++	};
++};
+--- a/board/sophgo/licheerv_nano/board.c
++++ b/board/sophgo/licheerv_nano/board.c
+@@ -4,6 +4,11 @@
+  */
+ 
+ 
++#include <abuf.h>
++#include <dm.h>
++#include <fdt_support.h>
++#include <malloc.h>
++#include <rng.h>
+ #include <asm/io.h>
+ 
+ int board_init(void)
+@@ -36,3 +41,30 @@
+ 
+ 	return 0;
+ }
++
++#if IS_ENABLED(CONFIG_BOARD_RNG_SEED)
++/* /chosen/rng-seed from the TRNG: 32 bytes, the 256 bits Linux needs to
++ * consider its CRNG seeded (it credits bootloader seeds by default). */
++#define RNG_SEED_LEN 32
++
++int board_rng_seed(struct abuf *buf)
++{
++	struct udevice *dev;
++	void *data;
++	int ret;
++
++	ret = uclass_get_device(UCLASS_RNG, 0, &dev);
++	if (ret)
++		return ret;
++	data = malloc(RNG_SEED_LEN);
++	if (!data)
++		return -ENOMEM;
++	ret = dm_rng_read(dev, data, RNG_SEED_LEN);
++	if (ret) {
++		free(data);
++		return ret;
++	}
++	abuf_init_move(buf, data, RNG_SEED_LEN);
++	return 0;
++}
++#endif
+--- /dev/null
++++ b/drivers/rng/cv181x_trng.c
+@@ -0,0 +1,153 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * CV181x (SG2002) true random number generator, for the rng-seed and
++ * kaslr-seed U-Boot puts into /chosen (Linux has no driver for it). The
++ * command sequence is that of the former Linux driver:
++ * - the TRNG seeds a DRBG from its noise source and returns 128 bits per
++ *   GEN_RANDOM command; each command waits until STAT.BUSY is clear, runs,
++ *   and is acknowledged by writing its ISTAT bit;
++ * - a second seed on an instantiated DRBG raises the "illegal command
++ *   sequence" alarm, after which the core ignores every command until the
++ *   alarm is cleared and the core zeroized; ZEROIZE with an alarm pending
++ *   hung the bus on the stand. So the seed clears ALARMS and ISTAT,
++ *   zeroizes, and instantiates from fresh noise; every command checks
++ *   ALARMS; the core is zeroized again after the read.
++ * - the block sits behind the efuse clock gates: with them off, any access
++ *   to its registers hangs the bus. The clocks are enabled before the first
++ *   register access.
++ */
++#include <clk.h>
++#include <dm.h>
++#include <rng.h>
++#include <asm/io.h>
++#include <dm/device_compat.h>
++#include <linux/bitops.h>
++#include <linux/iopoll.h>
++#include <linux/string.h>
++
++#define TRNG_CTRL 0x00
++#define TRNG_STAT 0x0c
++#define TRNG_ISTAT 0x14
++#define TRNG_ALARMS 0x18
++#define TRNG_RAND0 0x24
++#define TRNG_RAND_WORDS 4
++
++#define CMD_GEN_NOISE 0x1
++#define CMD_CREATE_STATE 0x3
++#define CMD_GEN_RANDOM 0x6
++#define CMD_ZEROIZE 0xf
++#define STAT_BUSY BIT(31)
++#define ISTAT_ZEROIZE BIT(0)
++#define ISTAT_DONE BIT(4)
++
++#define POLL_US 10
++#define TIMEOUT_US 100000
++
++struct cv181x_trng_priv {
++	void __iomem *base;
++};
++
++/* Run one command; completion is ISTAT bit done (ZEROIZE has its own). */
++static int trng_command(struct udevice *dev, u32 cmd, u32 done)
++{
++	struct cv181x_trng_priv *priv = dev_get_priv(dev);
++	u32 val;
++	int ret;
++
++	ret = readl_poll_timeout(priv->base + TRNG_STAT, val, !(val & STAT_BUSY),
++				 TIMEOUT_US);
++	if (ret)
++		return ret;
++	writel(cmd, priv->base + TRNG_CTRL);
++	ret = readl_poll_timeout(priv->base + TRNG_ISTAT, val, val & done,
++				 TIMEOUT_US);
++	writel(done, priv->base + TRNG_ISTAT);
++	if (ret)
++		return ret;
++	val = readl(priv->base + TRNG_ALARMS);
++	if (val) {
++		dev_err(dev, "alarm %#x after command %#x\n", val, cmd);
++		return -EIO;
++	}
++	return 0;
++}
++
++/* Clear any alarm, then zeroize: the only state every command sequence
++ * can start from. */
++static int trng_zeroize(struct udevice *dev)
++{
++	struct cv181x_trng_priv *priv = dev_get_priv(dev);
++
++	writel(~0u, priv->base + TRNG_ALARMS);
++	writel(~0u, priv->base + TRNG_ISTAT);
++	return trng_command(dev, CMD_ZEROIZE, ISTAT_ZEROIZE);
++}
++
++static int cv181x_trng_read(struct udevice *dev, void *data, size_t len)
++{
++	struct cv181x_trng_priv *priv = dev_get_priv(dev);
++	u32 words[TRNG_RAND_WORDS];
++	size_t done = 0, n;
++	int ret, i;
++
++	ret = trng_zeroize(dev);
++	if (!ret)
++		ret = trng_command(dev, CMD_GEN_NOISE, ISTAT_DONE);
++	if (!ret)
++		ret = trng_command(dev, CMD_CREATE_STATE, ISTAT_DONE);
++	while (!ret && done < len) {
++		ret = trng_command(dev, CMD_GEN_RANDOM, ISTAT_DONE);
++		if (ret)
++			break;
++		for (i = 0; i < TRNG_RAND_WORDS; i++)
++			words[i] = readl(priv->base + TRNG_RAND0 + 4 * i);
++		n = min(len - done, sizeof(words));
++		memcpy(data + done, words, n);
++		done += n;
++	}
++	memset(words, 0, sizeof(words));
++	/* Leave no DRBG state behind, and the core in the state every command
++	 * sequence starts from. */
++	if (trng_zeroize(dev) && !ret)
++		ret = -EIO;
++	return ret;
++}
++
++static int cv181x_trng_probe(struct udevice *dev)
++{
++	struct cv181x_trng_priv *priv = dev_get_priv(dev);
++	struct clk_bulk clks;
++	int ret;
++
++	/* Clocks first: the registers hang the bus while they are gated. */
++	ret = clk_get_bulk(dev, &clks);
++	if (ret)
++		return ret;
++	if (!clks.count)
++		return -EINVAL;
++	ret = clk_enable_bulk(&clks);
++	if (ret)
++		return ret;
++	priv->base = dev_read_addr_ptr(dev);
++	if (!priv->base)
++		return -EINVAL;
++	return 0;
++}
++
++static const struct dm_rng_ops cv181x_trng_ops = {
++	.read = cv181x_trng_read,
++};
++
++static const struct udevice_id cv181x_trng_ids[] = {
++	{ .compatible = "nanokvm,cv181x-trng" },
++	{ }
++};
++
++U_BOOT_DRIVER(cv181x_trng) = {
++	.name = "cv181x-trng",
++	.id = UCLASS_RNG,
++	.of_match = cv181x_trng_ids,
++	.ops = &cv181x_trng_ops,
++	.probe = cv181x_trng_probe,
++	.priv_auto = sizeof(struct cv181x_trng_priv),
++};

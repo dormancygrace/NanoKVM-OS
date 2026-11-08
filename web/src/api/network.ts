@@ -364,13 +364,18 @@ export function setWifiBandPreference(preferredBand: WifiBand) {
   return http.post('/api/network/wifi/band-preference', { preferredBand });
 }
 // The regulatory country: ISO 3166-1 alpha-2 in capitals, or '00' (world).
-// active is the one in force, empty while Wi-Fi is off.
-export type WifiCountry = { country: string; active: string };
+// active is the one in force, empty while Wi-Fi is off. supported: the
+// countries of the kernel's regulatory database (missing when the device
+// cannot read it); no other comes into force.
+export type WifiCountry = { country: string; active: string; supported?: string[] };
 export function getWifiCountry() {
   return http.get<WifiCountry>('/api/network/wifi/country');
 }
 export function setWifiCountry(country: string) {
-  return http.post<WifiCountry>('/api/network/wifi/country', { country });
+  // A trial when the request came over Wi-Fi and Wi-Fi restarts.
+  return http.post<WifiCountry & { trial?: NetworkTrial }>('/api/network/wifi/country', {
+    country
+  });
 }
 export function scanWifi(band: WifiBand | 'all' = 'all') {
   return http.get<WifiNetwork[]>('/api/network/wifi/scan', { band });

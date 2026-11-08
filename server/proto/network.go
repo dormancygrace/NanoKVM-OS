@@ -66,10 +66,13 @@ type SetWifiBandPreferenceReq struct {
 
 // The regulatory country of Wi-Fi: ISO 3166-1 alpha-2 in capitals, or 00
 // (world). Country is the saved one; Active the one in force (iw reg get),
-// empty when it cannot be read (Wi-Fi off).
+// empty when it cannot be read (Wi-Fi off). Supported lists the countries
+// the kernel's regulatory database has, 00 among them; missing when it
+// cannot be read.
 type WifiCountryRsp struct {
-	Country string `json:"country"`
-	Active  string `json:"active"`
+	Country   string   `json:"country"`
+	Active    string   `json:"active"`
+	Supported []string `json:"supported,omitempty"`
 }
 
 type SetWifiCountryReq struct {

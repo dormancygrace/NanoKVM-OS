@@ -1,15 +1,19 @@
 package network
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"NanoKVM-Server/internal/networktrial"
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -31,10 +35,12 @@ func validWifiCountry(code string) bool {
 	return len(code) == 2 && code[0] >= 'A' && code[0] <= 'Z' && code[1] >= 'A' && code[1] <= 'Z'
 }
 
+func (w radioControl) countryPath() string { return filepath.Join(w.etc, wifiCountryFile) }
+
 // country is the saved country; 00 when none is saved or the file is invalid,
 // as S30wifi reads it.
 func (w radioControl) country() string {
-	data, err := os.ReadFile(filepath.Join(w.etc, wifiCountryFile))
+	data, err := os.ReadFile(w.countryPath())
 	if err != nil {
 		return "00"
 	}
@@ -49,7 +55,59 @@ func (w radioControl) saveCountry(code string) error {
 	if !validWifiCountry(code) {
 		return errors.New("invalid country")
 	}
-	return writeFileAtomic(filepath.Join(w.etc, wifiCountryFile), []byte(code+"\n"))
+	return writeFileAtomic(w.countryPath(), []byte(code+"\n"))
+}
+
+// The kernel's regulatory database, from wireless-regdb (platform/build.sh).
+// cfg80211 applies only a country it lists: "iw reg set" takes any other code
+// without an error and leaves the previous domain in force.
+var regulatoryDB = "/lib/firmware/regulatory.db"
+
+// parseRegulatoryDB lists the countries of a regulatory.db as cfg80211 reads
+// it: a header (magic "RGDB", version 20), then one 4-byte entry per country,
+// its code and a 16-bit pointer to its rules, up to an entry whose pointer
+// is 0.
+func parseRegulatoryDB(data []byte) ([]string, error) {
+	if len(data) < 8 || string(data[:4]) != "RGDB" {
+		return nil, errors.New("not a regulatory database")
+	}
+	if version := binary.BigEndian.Uint32(data[4:8]); version != 20 {
+		return nil, fmt.Errorf("regulatory database version %d", version)
+	}
+	var codes []string
+	for offset := 8; ; offset += 4 {
+		if offset+4 > len(data) {
+			return nil, errors.New("regulatory database without the end of its country list")
+		}
+		if binary.BigEndian.Uint16(data[offset+2:offset+4]) == 0 {
+			return codes, nil
+		}
+		if code := string(data[offset : offset+2]); validWifiCountry(code) {
+			codes = append(codes, code)
+		}
+	}
+}
+
+// supportedCountries: the countries cfg80211 can apply, 00 among them, from
+// the database it reads. nil when the database cannot be read, which does
+// not happen on the device: then every valid code is taken, and S30wifi
+// still falls back to the world domain for one that does not come into force.
+func supportedCountries() []string {
+	data, err := os.ReadFile(regulatoryDB)
+	if err != nil {
+		log.Warnf("cannot read the regulatory database: %s", err)
+		return nil
+	}
+	codes, err := parseRegulatoryDB(data)
+	if err != nil {
+		log.Warnf("cannot read the regulatory database %s: %s", regulatoryDB, err)
+		return nil
+	}
+	return codes
+}
+
+func countrySupported(code string, supported []string) bool {
+	return code == "00" || supported == nil || slices.Contains(supported, code)
 }
 
 // parseRegCountry reads the country of the global regulatory domain from
@@ -184,13 +242,54 @@ func (w radioControl) countryChanged() {
 
 func (s *Service) GetWifiCountry(c *gin.Context) {
 	var rsp proto.Response
-	rsp.OkRspWithData(c, &proto.WifiCountryRsp{Country: wifiControl.country(), Active: wifiControl.activeCountry()})
+	rsp.OkRspWithData(c, &proto.WifiCountryRsp{Country: wifiControl.country(), Active: wifiControl.activeCountry(),
+		Supported: supportedCountries()})
 }
 
-// SetWifiCountry saves the country and applies it: iw sets the domain, then
-// S30wifi restarts Wi-Fi so that hostapd or wpa_supplicant start with it, as
-// at boot. The reply goes out first, as both can cut off a page that reaches
-// the device over Wi-Fi. With Wi-Fi off, the next start applies it.
+// applyWifiCountry puts a country in force: iw sets the domain, then S30wifi
+// restarts Wi-Fi so that hostapd or wpa_supplicant start with it, as at boot.
+// S30wifi sets the domain again at start and waits for it; setting it first
+// lets the channel lists follow even if the restart fails.
+func applyWifiCountry(code string) error {
+	if _, err := wifiControl.run("iw", "reg", "set", code); err != nil {
+		log.Warnf("iw reg set %s failed: %v", code, err)
+	}
+	_, err := wifiControl.run(WiFiScript, "restart")
+	wifiControl.countryChanged()
+	return err
+}
+
+// restartWifiCountry applies the saved country after a trial restored it.
+// With Wi-Fi off the next start applies it.
+func restartWifiCountry() error {
+	if !wifiControl.enabled() {
+		wifiControl.countryChanged()
+		return nil
+	}
+	return applyWifiCountry(wifiControl.country())
+}
+
+// requestMayRideWifi, which tests replace: a test request has no local
+// address, and so always rides Wi-Fi.
+var countryRequestMayRideWifi = requestMayRideWifi
+
+// The reply to a change: with a trial when it runs on one.
+type wifiCountryReply struct {
+	proto.WifiCountryRsp
+	Trial *trialInfo `json:"trial,omitempty"`
+}
+
+// SetWifiCountry saves the country and applies it (applyWifiCountry). The
+// reply goes out first, as the restart can cut off a page that reaches the
+// device over Wi-Fi. With Wi-Fi off, the next start applies it.
+//
+// It is a network change like the access point's (trial.go): none while
+// another is on trial or being undone, whose revert would bring back its own
+// settings under this domain. Over Wi-Fi, or a VPN that may run over it, it
+// runs on trial itself: a domain that does not allow the channel of the
+// network the device joined, or of its access point, cuts this page off, and
+// the trial's revert restores the previous country and restarts Wi-Fi with
+// it. Over Ethernet or USB the page stays, with nothing to confirm.
 func (s *Service) SetWifiCountry(c *gin.Context) {
 	var req proto.SetWifiCountryReq
 	var rsp proto.Response
@@ -198,42 +297,84 @@ func (s *Service) SetWifiCountry(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid parameters")
 		return
 	}
+	// A country the database lacks would never come into force.
+	if !countrySupported(req.Country, supportedCountries()) {
+		rsp.ErrRsp(c, -1, "the regulatory database has no rules for the country "+req.Country)
+		return
+	}
 	if !checkRadio(c, false) {
 		return
 	}
 	previous := wifiControl.country()
-	if err := wifiControl.saveCountry(req.Country); err != nil {
-		finishWifi(err)
-		log.Errorf("failed to save the Wi-Fi country: %s", err)
-		rsp.ErrRsp(c, -1, "failed to save the Wi-Fi country")
-		return
-	}
-	log.Infof("set the Wi-Fi country: %s (was %s)", req.Country, previous)
-	if !wifiControl.present() || !wifiControl.enabled() {
-		finishWifi(nil)
-		rsp.OkRspWithData(c, &proto.WifiCountryRsp{Country: req.Country, Active: wifiControl.activeCountry()})
-		return
-	}
 	active := wifiControl.activeCountry()
-	if req.Country == previous && active == req.Country {
-		finishWifi(nil)
-		rsp.OkRspWithData(c, &proto.WifiCountryRsp{Country: req.Country, Active: active})
+	restart := wifiControl.present() && wifiControl.enabled() && (req.Country != previous || active != req.Country)
+	reply := wifiCountryReply{WifiCountryRsp: proto.WifiCountryRsp{Country: req.Country, Active: active}}
+	saveFailed := func(err error) {
+		log.Errorf("failed to save the Wi-Fi country: %s", err)
+		finishWifi(err)
+		rsp.ErrRsp(c, -2, "failed to save the Wi-Fi country")
+	}
+
+	if !restart || !countryRequestMayRideWifi(c) {
+		err := withoutTrial(func() error { return wifiControl.saveCountry(req.Country) })
+		if errors.Is(err, errTrialPending) || errors.Is(err, errTrialUndoing) {
+			finishWifi(nil)
+			rsp.ErrRsp(c, -3, err.Error())
+			return
+		}
+		if err != nil {
+			saveFailed(err)
+			return
+		}
+		_ = syncFiles()
+		log.Infof("set the Wi-Fi country: %s (was %s)", req.Country, previous)
+		if !restart {
+			finishWifi(nil)
+			if !wifiControl.present() || !wifiControl.enabled() {
+				reply.Active = wifiControl.activeCountry()
+			}
+			rsp.OkRspWithData(c, &reply)
+			return
+		}
+		// Active is still the previous domain; GET reads the new one.
+		rsp.OkRspWithData(c, &reply)
+		c.Writer.Flush()
+		// Shutdown and standby wait for the restart (networktrial.CheckIdle).
+		releaseRestart := networktrial.Begin()
+		go func() {
+			defer releaseRestart()
+			time.Sleep(restartDelay)
+			finishWifi(applyWifiCountry(req.Country))
+		}()
 		return
 	}
+
+	trial, err := beginTrial("wifi-country", []string{wifiControl.countryPath()})
+	if err != nil {
+		finishWifi(nil)
+		rsp.ErrRsp(c, -3, err.Error())
+		return
+	}
+	if err := wifiControl.saveCountry(req.Country); err != nil {
+		trial.abandon()
+		saveFailed(err)
+		return
+	}
+	_ = syncFiles()
+	trial.start()
+	info := trial.info(trialHosts("", c.Request.Host))
+	reply.Trial = &info
 	// Acknowledge before the radio changes: a channel the new country does
-	// not allow drops the association carrying this request at once. Active
-	// is still the previous domain; GET reads the new one.
-	rsp.OkRspWithData(c, &proto.WifiCountryRsp{Country: req.Country, Active: active})
+	// not allow drops the association carrying this request at once.
+	rsp.OkRspWithData(c, &reply)
 	c.Writer.Flush()
+	releaseRestart := networktrial.Begin()
 	go func() {
-		time.Sleep(300 * time.Millisecond)
-		// S30wifi sets the domain again at start and waits for it; setting it
-		// first lets the channel lists follow even if the restart fails.
-		if _, err := wifiControl.run("iw", "reg", "set", req.Country); err != nil {
-			log.Warnf("iw reg set %s failed: %v", req.Country, err)
-		}
-		_, err := wifiControl.run(WiFiScript, "restart")
-		wifiControl.countryChanged()
+		defer releaseRestart()
+		time.Sleep(restartDelay)
+		err := applyWifiCountry(req.Country)
+		trial.restarted(err)
 		finishWifi(err)
 	}()
+	log.Infof("set the Wi-Fi country on trial: %s (was %s)", req.Country, previous)
 }

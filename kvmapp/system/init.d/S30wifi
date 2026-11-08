@@ -99,6 +99,22 @@ reg_country() {
     '
 }
 
+# The country the configuration names (apply_country): the saved one once it
+# is in force, else 00, which names none. Never one that is not in force:
+# hostapd would advertise it over another domain's channels and power.
+COUNTRY_IN_FORCE=00
+
+# set_regdomain CODE: iw requests the domain; succeeds once it is in force.
+set_regdomain() {
+    "$NANOKVM_IW" reg set "$1" || return 1
+    waited=0
+    while [ "$(reg_country)" != "$1" ]; do
+        [ "$waited" -lt "$NANOKVM_WIFI_REG_WAIT" ] || return 1
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+}
+
 # apply_country: the country in force before hostapd or wpa_supplicant
 # starts. The AIC8800 driver leaves regulation to cfg80211 (0017), which
 # applies the request asynchronously: wait until it is in force, as a
@@ -106,21 +122,24 @@ reg_country() {
 # (radxa-pkg/aic8800#98). A module option (cfg80211 ieee80211_regdom) would
 # be read only when cfg80211 loads, which Bluetooth may have done already,
 # and never on a change: iw covers both.
+# A country that does not come into force (iw failed, or the regulatory
+# database lacks it and iw leaves the previous domain) falls back to the
+# world domain, so that no earlier country's rules stay either.
 apply_country() {
     country=$(wifi_country)
-    if ! "$NANOKVM_IW" reg set "$country"; then
-        echo "Could not set the Wi-Fi country $country" >&2
+    COUNTRY_IN_FORCE=00
+    if set_regdomain "$country"; then
+        COUNTRY_IN_FORCE=$country
         return 0
     fi
-    waited=0
-    while [ "$(reg_country)" != "$country" ]; do
-        if [ "$waited" -ge "$NANOKVM_WIFI_REG_WAIT" ]; then
-            echo "The Wi-Fi country $country is not in force yet" >&2
-            return 0
-        fi
-        sleep 0.1
-        waited=$((waited + 1))
-    done
+    if [ "$country" = 00 ]; then
+        echo "The world domain 00 is not in force" >&2
+        return 0
+    fi
+    message="The Wi-Fi country $country did not come into force; using the world domain 00"
+    echo "$message" >&2
+    "$NANOKVM_LOGGER" -t nanokvm-wifi "$message" 2>/dev/null || true
+    set_regdomain 00 || echo "The world domain 00 is not in force either" >&2
 }
 
 prepare_run_dir() {
@@ -155,8 +174,9 @@ gen_hostapd_conf() {
     echo "ctrl_interface=/var/run/hostapd"
     echo "ctrl_interface_group=0"
     echo "ssid2=$(hex_of "$ssid")"
-    # The country apply_country set; the world domain (00) advertises none.
-    hp_country=$(wifi_country)
+    # The country apply_country put in force; the world domain (00)
+    # advertises none.
+    hp_country=$COUNTRY_IN_FORCE
     if [ "$hp_country" != 00 ]; then
         echo "country_code=${hp_country}"
         echo "ieee80211d=1"
@@ -563,11 +583,11 @@ write_wpa_config() {
 
     skipped=0
     umask 077
-    country=$(wifi_country)
+    country=$COUNTRY_IN_FORCE
     {
         echo "ctrl_interface=/var/run/wpa_supplicant"
-        # The country apply_country set, which wpa_supplicant requests again;
-        # the world domain (00) needs none.
+        # The country apply_country put in force, which wpa_supplicant
+        # requests again; the world domain (00) needs none.
         [ "$country" = 00 ] || echo "country=$country"
         # The last chosen network first: wpa_supplicant selects the
         # higher-priority block when both match. The unrestricted
@@ -857,15 +877,18 @@ ap_start() {
     "$NANOKVM_IFCONFIG" wlan0 up || return 1
     # A channel the country no longer allows (it changed since) is chosen
     # again. With no channel listed at all (iw unavailable), as before.
-    # Without a country (00, the world domain) no 5 GHz channel allows an
-    # access point; nor in a country that allows none. It runs on 2.4 GHz
-    # meanwhile; the saved band stays, for the start after a country is set.
+    # Without a country in force (00, the world domain) no 5 GHz channel
+    # allows an access point; nor in a country that allows none. It runs on
+    # 2.4 GHz meanwhile; the saved band stays, for the start after a country
+    # is set.
     if [ "$ap_band" = 5 ]; then
         reason=
         if [ "$(wifi_country)" = 00 ]; then
             reason="no Wi-Fi country is set"
+        elif [ "$COUNTRY_IN_FORCE" = 00 ]; then
+            reason="the Wi-Fi country $(wifi_country) is not in force"
         elif [ -z "$(ap_channels 5)" ] && [ -n "$(adapter_frequencies 5)" ]; then
-            reason="the Wi-Fi country $(wifi_country) allows none of its channels"
+            reason="the Wi-Fi country $COUNTRY_IN_FORCE allows none of its channels"
         fi
         if [ -n "$reason" ]; then
             message="The 5 GHz access point runs on 2.4 GHz: $reason"
@@ -881,7 +904,7 @@ ap_start() {
             ''|0|*[!0-9]*) ;;
             *)
                 if ! channel_in "$ap_channel" "$allowed"; then
-                    echo "Channel $ap_channel is not allowed in the Wi-Fi country $(wifi_country); choosing another" >&2
+                    echo "Channel $ap_channel is not allowed in the Wi-Fi country $COUNTRY_IN_FORCE; choosing another" >&2
                     ap_channel=
                 fi
                 ;;
@@ -889,7 +912,7 @@ ap_start() {
     elif [ -n "$(adapter_frequencies "$ap_band")" ]; then
         # The band is there, but the country allows an access point on none
         # of its channels (the world domain 00 on 5 GHz).
-        echo "No channel of the $ap_band GHz band allows an access point in the Wi-Fi country $(wifi_country)" >&2
+        echo "No channel of the $ap_band GHz band allows an access point in the Wi-Fi country $COUNTRY_IN_FORCE" >&2
         return 1
     fi
     case "$ap_channel" in

@@ -39,7 +39,7 @@ var (
 
 func wifiAPFile(name string) string { return wifiAPPrefix + "." + name }
 
-// The files a change writes, which a trial restores.
+// The files a change writes.
 func wifiAPFiles() []string {
 	var files []string
 	for _, name := range []string{"enabled", "ssid", "pass", "band", "channel", "hidden", "subnet", "internet", "dns"} {
@@ -47,6 +47,11 @@ func wifiAPFiles() []string {
 	}
 	return files
 }
+
+// The files a Wi-Fi trial restores: the access point's, and the country its
+// band and channel were chosen under. A country change on trial records only
+// its own file, which is among them.
+func wifiAPTrialFiles() []string { return append(wifiAPFiles(), wifiControl.countryPath()) }
 
 // validWifiAPChannel: a channel number of the band at all. Which ones the
 // country allows comes from the radio (apChannels); while Wi-Fi is off it is
@@ -541,7 +546,7 @@ func (s *Service) SetWifiAP(c *gin.Context) {
 		log.Infof("set the Wi-Fi access point: enabled=%t band=%s channel=%d hidden=%t internet=%t", req.Enabled, req.Band, req.Channel, req.Hidden, req.Internet)
 		return
 	}
-	trial, err := beginTrial("wifi-ap", wifiAPFiles())
+	trial, err := beginTrial("wifi-ap", wifiAPTrialFiles())
 	if err != nil {
 		finishWifi(nil)
 		rsp.ErrRsp(c, -3, err.Error())

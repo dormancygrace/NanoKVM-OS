@@ -3,12 +3,18 @@ import { Alert, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/network.ts';
+import {
+  networkTrialDone,
+  startNetworkTrial,
+  type NetworkTrialResult
+} from '@/lib/network-trial.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
-// ISO 3166-1 alpha-2: the codes the kernel's regulatory database knows are
-// among them. Their names come from the browser in the page's language.
+// ISO 3166-1 alpha-2. Only those the kernel's regulatory database has are
+// offered (supported), as no other comes into force. Their names come from
+// the browser in the page's language.
 const countryCodes = `
   AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ
   BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM
@@ -67,6 +73,15 @@ export const WifiCountry = ({
     void load();
   }, [load, state.enabled, state.accessPoint, state.busy]);
 
+  // A trial that was not kept brought the previous country back: show it.
+  useEffect(() => {
+    const done = (event: Event) => {
+      if ((event as CustomEvent<NetworkTrialResult>).detail !== 'kept') void load();
+    };
+    window.addEventListener(networkTrialDone, done);
+    return () => window.removeEventListener(networkTrialDone, done);
+  }, [load]);
+
   const names = useMemo(() => regionNames(i18n.language), [i18n.language]);
   const label = useCallback(
     (code: string) => {
@@ -81,15 +96,21 @@ export const WifiCountry = ({
     },
     [names, t]
   );
-  const options = useMemo(
-    () => [
+  const supported = value?.supported;
+  const saved = value?.country;
+  const options = useMemo(() => {
+    const codes = supported
+      ? countryCodes.filter((code) => supported.includes(code))
+      : [...countryCodes];
+    // A saved country the database lacks still shows by its name.
+    if (saved && saved !== '00' && !codes.includes(saved)) codes.push(saved);
+    return [
       { value: '00', label: label('00') },
-      ...countryCodes
+      ...codes
         .map((code) => ({ value: code, label: label(code) }))
         .sort((a, b) => a.label.localeCompare(b.label, i18n.language))
-    ],
-    [label, i18n.language]
-  );
+    ];
+  }, [label, i18n.language, supported, saved]);
 
   async function change(country: string) {
     if (!value || country === value.country || saving || locked) return;
@@ -119,8 +140,12 @@ export const WifiCountry = ({
         showRequestError(rsp, 'settings.network.wifi.operationFailed');
         return;
       }
-      setValue(rsp.data);
-      if (restarts) onRestarting?.();
+      const { trial, ...reply } = rsp.data;
+      setValue((current) => ({ ...reply, supported: current?.supported }));
+      // Over Wi-Fi the country runs on trial, kept once the page reaches the
+      // device again.
+      if (trial) startNetworkTrial(trial);
+      else if (restarts) onRestarting?.();
     } catch (err) {
       showRequestError(err, 'settings.network.wifi.operationFailed');
     } finally {

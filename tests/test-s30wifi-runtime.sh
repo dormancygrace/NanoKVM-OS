@@ -330,4 +330,55 @@ assert_contains 'channel=6' "$RUN_DIR/hostapd.conf"
 assert_contains 'country_code=XX' "$RUN_DIR/hostapd.conf"
 assert_contains 'the Wi-Fi country XX allows none of its channels' "$CASE_DIR/stderr"
 
+# iw with DE in force that takes only the world domain: any other country
+# fails with IW_SET_STATUS, or (0) is accepted and never comes into force, as
+# a country the regulatory database lacks.
+fake_iw_unapplied() {
+    printf 'DE\n' > "$CASE_DIR/iw-domain"
+    cat > "$BIN_DIR/iw" <<EOF
+#!/bin/sh
+printf 'iw args=%s\n' "\$*" >> "\$CALL_LOG"
+case "\$*" in
+    'reg set 00') printf '00\n' > "$CASE_DIR/iw-domain" ;;
+    'reg set '*) exit ${IW_SET_STATUS:-0} ;;
+    'reg get') printf '%s\n' global "country \$(cat "$CASE_DIR/iw-domain"): DFS-ETSI" ;;
+    'phy phy0 info') printf '%s\n' '* 2437.0 MHz [6] (20.0 dBm)' '* 5180.0 MHz [36] (20.0 dBm)' ;;
+esac
+exit 0
+EOF
+    chmod +x "$BIN_DIR/iw"
+}
+
+# A country that does not come into force is never advertised: the world
+# domain is set instead, and a 5 GHz access point runs on 2.4 GHz as without
+# a country, saying why.
+new_case country_unapplied_access_point
+IW_SET_STATUS=0 fake_iw_unapplied
+printf 'IQ\n' > "$ETC_DIR/wifi.country"
+user_ap 36
+run_action start 2> "$CASE_DIR/stderr"
+assert_contains 'iw args=reg set IQ' "$CALL_LOG"
+assert_contains 'iw args=reg set 00' "$CALL_LOG"
+[ "$(cat "$CASE_DIR/iw-domain")" = 00 ] || fail 'the previous domain stayed in force'
+assert_not_contains 'country_code=' "$RUN_DIR/hostapd.conf"
+assert_not_contains 'ieee80211d=' "$RUN_DIR/hostapd.conf"
+assert_contains 'hw_mode=g' "$RUN_DIR/hostapd.conf"
+assert_contains 'hostapd args=' "$CALL_LOG"
+[ "$(cat "$RUN_DIR/ap-band")" = 2.4 ] || fail 'the band in use is not 2.4'
+assert_contains 'The Wi-Fi country IQ did not come into force; using the world domain 00' "$CASE_DIR/stderr"
+assert_contains 'logger args=-t nanokvm-wifi The Wi-Fi country IQ did not come into force' "$CALL_LOG"
+assert_contains 'The 5 GHz access point runs on 2.4 GHz: the Wi-Fi country IQ is not in force' "$CASE_DIR/stderr"
+
+# iw failing to set the country: wpa_supplicant is not given it either.
+new_case country_unapplied_station
+IW_SET_STATUS=1 fake_iw_unapplied
+printf Office > "$ETC_DIR/wifi.ssid"
+printf secret123 > "$ETC_DIR/wifi.pass"
+printf 'IQ\n' > "$ETC_DIR/wifi.country"
+run_action start 2> "$CASE_DIR/stderr"
+assert_contains 'iw args=reg set 00' "$CALL_LOG"
+assert_not_contains 'country=' "$RUN_DIR/wpa_supplicant.conf"
+assert_contains "wpa_supplicant args=-B -i wlan0 -c $RUN_DIR/wpa_supplicant.conf" "$CALL_LOG"
+assert_contains 'The Wi-Fi country IQ did not come into force' "$CASE_DIR/stderr"
+
 echo 'S30wifi runtime-state tests passed'

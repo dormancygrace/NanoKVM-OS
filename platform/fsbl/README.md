@@ -54,8 +54,20 @@ made each ROM load take seconds.) The card's RCA comes from the ROM's
 last command (CMD13 with RCA << 16 in the argument register); the ROM
 keeps the host settings between loads. When the High Speed switch fails
 the card runs at 25 MHz after the PLL switch; when the 4-bit switch fails
-nothing changes. A failed load is retried at the ROM settings. It runs
-only when the ROM booted from SD.
+nothing changes. It runs only when the ROM booted from SD.
+
+A failed load is retried at the ROM settings: `sd_fast_disable()` resets
+the host's command and data lines (a failed transfer can leave them
+inhibited; the PHY registers are not affected), restores the divider and
+the PHY, sends ACMD6 for 1 bit and only then switches the host back. It
+stays armed until every step has succeeded, so each retry tries again; a
+retry against a card that does not answer spends up to about 1 s in
+timeouts. If the card cannot be restored, the loads keep failing, and
+BL2's path for exhausted retries ends in the ROM's watchdog reset
+(observed with a cut `fip.bin`, `docs/BOOT.md`), after which the ROM
+identifies the card from CMD0. Forcing the rollback after
+`sys_pll_init()` on the stand gave the ROM's registers back (1 bit,
+divider 3, the same PHY values) and a normal boot, with BL2 at 301 ms.
 
 Each ROM load, timed with the microsecond counter: param2 (4 KB) 12.0 ->
 4.2 ms, DDR parameters (8 KB) 20.5 -> 5.5 ms. At 50 MHz a 512-byte load
@@ -85,8 +97,10 @@ then reports UART as the boot source and BL2 leaves the SD bus alone.
 With reading at that speed, decoding dominates: U-Boot as LZMA (145 KB)
 took 39 ms to decode, as LZ4 (191 KB) 2.5 ms, for about 5 ms more
 reading. `scripts/nanokvm-fip.py` therefore packs U-Boot (`B3Z4`) and
-OpenSBI as LZ4 frames (`lz4 -12 --no-frame-crc`; the FIP CRCs cover the
-compressed bytes). BL2 loads OpenSBI into a buffer and, when it starts
+OpenSBI as LZ4 frames (`lz4 -12 -B5 --no-frame-crc`; the FIP CRCs cover
+the compressed bytes). 256 KiB blocks: the LZ4F decoder allocates two
+buffers of the block size from a 1 MiB area, whose bound `0005` also
+fixes (the old test could never fail). BL2 loads OpenSBI into a buffer and, when it starts
 with the LZ4 frame magic, decodes it to its run address after
 `load_loader_2nd()` has switched the clocks to the PLLs, at most up to
 the U-Boot header; other content is copied as before. BL2 from start to

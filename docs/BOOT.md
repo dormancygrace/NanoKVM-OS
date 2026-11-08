@@ -83,6 +83,13 @@ partition and takes two variables from it, ignoring any other:
 The file can be edited from Linux or, with the card in a reader, from a PC.
 Images write a commented template. U-Boot from earlier images does not read it.
 
+The boot log on the serial console is short on purpose (each character costs
+87 us at 115 200 baud): the ROM's own lines, the FSBL banner and
+`DDR BIST PASS`, the U-Boot banner, then Linux. Errors still print. The
+details (FIT images and hashes, `N bytes read`, relocation) are `debug()`
+output: a U-Boot built with `DEBUG` defined in the file concerned prints
+them again, as an FSBL with `LOG_LEVEL := 3` prints its step marks.
+
 ## Boot logo
 
 After `uEnv.txt`, U-Boot loads `oled-logo.bin` from the boot partition and

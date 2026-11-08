@@ -8,8 +8,8 @@ R_RISCV_RELATIVE entries of .rela.dyn, which are in init memory.
 
 Link it as loongarch does, -static -pie --no-dynamic-linker, so no symbol is
 exported, and discard the dynamic sections, as arm64 and loongarch do. The
-four absolute R_RISCV_64 relocations, which relocate_kernel() skipped, become
-R_RISCV_RELATIVE ones. With RANDOMIZE_BASE on a NanoKVM the kernel keeps
+resulting .rela.dyn contains only R_RISCV_RELATIVE relocations, which
+relocate_kernel() handles. With RANDOMIZE_BASE on a NanoKVM the kernel keeps
 40 KB more than without RELOCATABLE instead of 0.9 MB.
 
 ---

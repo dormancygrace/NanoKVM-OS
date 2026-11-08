@@ -1,0 +1,410 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: read OpenSBI and U-Boot from SD at 4 bits, 50 MHz
+
+The boot ROM reads fip.bin over a 1-bit SD bus at 16.7 MHz, 1.75 MB/s:
+OpenSBI and U-Boot (282 KB) took 161 ms. Before loading them, switch
+the card to a 4-bit bus (ACMD6) and SD High Speed (CMD6, 50 MHz), the
+mode U-Boot and Linux use, and keep using the ROM loader, which keeps
+the host settings. Measured on NanoKVM PCIe over UART: 35 ms.
+A failed load is retried at the ROM settings.
+---
+ plat/cv181x/bl2/bl2_opt.c |  15 ++-
+ plat/cv181x/bl2/sd_fast.c | 332 ++++++++++++++++++++++++++++++++++++++++++++++
+ plat/cv181x/platform.mk   |   1 +
+ 3 files changed, 347 insertions(+), 1 deletion(-)
+diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
+index c73fa55..1e9989d 100644
+--- a/plat/cv181x/bl2/bl2_opt.c
++++ b/plat/cv181x/bl2/bl2_opt.c
+@@ -25,6 +25,10 @@ static union {
+ 	uint8_t buf[BLOCK_SIZE];
+ } sram_union_buf __aligned(BLOCK_SIZE);
+ 
++void sd_fast_enable(void);
++void sd_fast_pll(void);
++void sd_fast_disable(void);
++
+ int init_comm_info(int ret) __attribute__((weak));
+ int init_comm_info(int ret)
+ {
+@@ -139,8 +143,13 @@ int load_ddr(void)
+ {
+ 	int retry = 0;
+ 
++	sd_fast_enable();
++
+ retry_from_flash:
+ 	for (retry = 0; retry < p_rom_api_get_number_of_retries(); retry++) {
++		if (retry)
++			sd_fast_disable();
++
+ 		if (load_param2(retry) < 0)
+ 			continue;
+ 
+@@ -382,11 +391,15 @@ int load_rest(enum CHIP_CLK_MODE mode)
+ 	uint64_t monitor_entry = 0;
+ 	uint64_t loader_2nd_entry = 0;
+ 
+-	// Init sys PLL and switch clocks to PLL
++	// Init sys PLL and switch clocks to PLL; CLK_SD0 goes from 25 to 100 MHz
++	sd_fast_pll();
+ 	sys_pll_init(mode);
+ 
+ retry_from_flash:
+ 	for (retry = 0; retry < p_rom_api_get_number_of_retries(); retry++) {
++		if (retry)
++			sd_fast_disable();
++
+ 		if (load_blcp_2nd(retry) < 0)
+ 			continue;
+ 
+diff --git a/plat/cv181x/bl2/sd_fast.c b/plat/cv181x/bl2/sd_fast.c
+new file mode 100644
+index 0000000..2a0ea9d
+--- /dev/null
++++ b/plat/cv181x/bl2/sd_fast.c
+@@ -0,0 +1,332 @@
++/*
++ * Faster SD boot: the boot ROM reads fip.bin over a 1-bit bus with the card
++ * clock at divider 3: 4.2 MHz from the 25 MHz crystal before
++ * sys_pll_init(), 16.7 MHz from the 100 MHz PLL clock after it. Before BL2
++ * loads anything through the same ROM API, switch the card and the host
++ * to a 4-bit bus (ACMD6) and SD High Speed (CMD6), the mode U-Boot and
++ * Linux use for this card: 25 MHz until sys_pll_init(), 50 MHz after (25
++ * MHz default speed if the High Speed switch fails). The card's RCA is
++ * taken from the ROM's last command (CMD13, SEND_STATUS, argument
++ * RCA << 16). The ROM keeps the host settings between loads.
++ *
++ * If a load fails, sd_fast_disable() puts the ROM's settings back before
++ * the retry: it resets the host's command and data lines first (a failed
++ * transfer can leave them inhibited), and it stays armed until every step
++ * has succeeded, so the next retry tries again. If the card cannot be
++ * restored at all, the loads keep failing and BL2's existing path for
++ * exhausted retries ends in a reset, after which the ROM identifies the
++ * card from CMD0 again.
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++#include <debug.h>
++#include <mmio.h>
++#include <platform_def.h>
++#include <delay_timer.h>
++#include <rom_api.h>
++#include <bl2.h>
++
++#define SD_BLKSIZE 0x04
++#define SD_ARG 0x08
++#define SD_XFER 0x0c
++#define SD_CMD 0x0e
++#define SD_RESP0 0x10
++#define SD_BUF 0x20
++#define SD_PSTATE 0x24
++#define SD_HOST_CTRL 0x28
++#define SD_CLK_CTRL 0x2c
++#define SD_SW_RESET 0x2f
++#define SD_INT_STAT 0x30
++#define MSHC_CTRL 0x200
++#define PHY_TX_RX_DLY 0x240
++#define PHY_CONFIG 0x24c
++
++#define PSTATE_CMD_INHIBIT (1 << 0)
++#define PSTATE_DAT_INHIBIT (1 << 1)
++#define INT_CMD_COMPLETE (1 << 0)
++#define INT_XFER_COMPLETE (1 << 1)
++#define INT_BUF_READ (1 << 5)
++#define INT_ERROR (1 << 15)
++#define HOST_CTRL_4BIT (1 << 1)
++#define HOST_CTRL_HS (1 << 2)
++#define HOST_CTRL_8BIT (1 << 5)
++#define CLK_STABLE (1 << 1)
++#define CLK_SD_EN (1 << 2)
++#define RESET_CMD (1 << 1)
++#define RESET_DATA (1 << 2)
++
++/* R1: short response, CRC and index checked */
++#define CMD_R1 0x1a
++/* R1 card status error bits 31:19 */
++#define R1_ERRORS 0xfff80000
++#define R1_APP_CMD (1 << 5)
++
++static uint16_t sd_rca;
++/* set while the bus may differ from the ROM's: sd_fast_disable() has work to do */
++static int sd_wide;
++static int sd_hs;
++static uint32_t sd_rom_div;
++static uint32_t sd_rom_mshc, sd_rom_dly, sd_rom_phy;
++
++void sd_fast_disable(void);
++
++/* Reset the command and data circuits (not the host's settings) after a failed command or transfer. */
++static void sd_reset_lines(void)
++{
++	uint32_t t0 = read_time_ms();
++
++	mmio_write_8(SDIO_BASE + SD_SW_RESET, RESET_CMD | RESET_DATA);
++	while (mmio_read_8(SDIO_BASE + SD_SW_RESET) & (RESET_CMD | RESET_DATA))
++		if (read_time_ms() - t0 > 100)
++			break;
++	mmio_write_32(SDIO_BASE + SD_INT_STAT, 0xffffffff);
++}
++
++static int sd_wait(uint32_t mask, uint32_t ms)
++{
++	uint32_t t0 = read_time_ms();
++
++	while (mmio_read_32(SDIO_BASE + SD_PSTATE) & mask)
++		if (read_time_ms() - t0 > ms)
++			return -1;
++	return 0;
++}
++
++/* Wait until the lines are free; reset them once if a failed transfer left them inhibited. */
++static int sd_idle(void)
++{
++	if (sd_wait(PSTATE_CMD_INHIBIT | PSTATE_DAT_INHIBIT, 100) == 0)
++		return 0;
++	sd_reset_lines();
++	return sd_wait(PSTATE_CMD_INHIBIT | PSTATE_DAT_INHIBIT, 100);
++}
++
++/* SDHCI 10-bit divider: card clock = base / (2 * div) */
++static uint32_t sd_get_div(void)
++{
++	uint16_t c = mmio_read_16(SDIO_BASE + SD_CLK_CTRL);
++
++	return ((c >> 8) & 0xff) | (((c >> 6) & 0x3) << 8);
++}
++
++static int sd_set_div(uint32_t div)
++{
++	uint16_t c = mmio_read_16(SDIO_BASE + SD_CLK_CTRL);
++	uint32_t t0;
++	int ret = 0;
++
++	if (sd_idle() < 0)
++		return -1;
++	mmio_write_16(SDIO_BASE + SD_CLK_CTRL, c & ~CLK_SD_EN);
++	c = (c & 0x3f & ~CLK_SD_EN) | ((div & 0xff) << 8) | (((div >> 8) & 0x3) << 6);
++	mmio_write_16(SDIO_BASE + SD_CLK_CTRL, c);
++	t0 = read_time_ms();
++	while (!(mmio_read_16(SDIO_BASE + SD_CLK_CTRL) & CLK_STABLE)) {
++		if (read_time_ms() - t0 > 20) {
++			ret = -1;
++			break;
++		}
++	}
++	/* never leave the card without a clock */
++	mmio_write_16(SDIO_BASE + SD_CLK_CTRL, c | CLK_SD_EN);
++	return ret;
++}
++
++static int sd_cmd(uint32_t idx, uint32_t arg, uint32_t *resp)
++{
++	uint32_t t0, st;
++
++	if (sd_idle() < 0)
++		return -1;
++	mmio_write_32(SDIO_BASE + SD_INT_STAT, 0xffffffff);
++	mmio_write_32(SDIO_BASE + SD_ARG, arg);
++	mmio_write_16(SDIO_BASE + SD_CMD, (idx << 8) | CMD_R1);
++	t0 = read_time_ms();
++	for (;;) {
++		st = mmio_read_32(SDIO_BASE + SD_INT_STAT);
++		if (st & INT_ERROR) {
++			NOTICE("SDF/cmd %u error %08x\n", idx, st);
++			sd_reset_lines();
++			return -1;
++		}
++		if (st & INT_CMD_COMPLETE)
++			break;
++		if (read_time_ms() - t0 > 100) {
++			NOTICE("SDF/cmd %u timeout %08x\n", idx, st);
++			sd_reset_lines();
++			return -1;
++		}
++	}
++	mmio_write_32(SDIO_BASE + SD_INT_STAT, st);
++	*resp = mmio_read_32(SDIO_BASE + SD_RESP0);
++	if (*resp & R1_ERRORS) {
++		NOTICE("SDF/cmd %u status %08x\n", idx, *resp);
++		return -1;
++	}
++	return 0;
++}
++
++static int sd_int_wait(uint32_t bit, uint32_t ms)
++{
++	uint32_t t0 = read_time_ms(), st;
++
++	for (;;) {
++		st = mmio_read_32(SDIO_BASE + SD_INT_STAT);
++		if (st & INT_ERROR) {
++			NOTICE("SDF/data error %08x\n", st);
++			return -1;
++		}
++		if (st & bit) {
++			mmio_write_32(SDIO_BASE + SD_INT_STAT, bit);
++			return 0;
++		}
++		if (read_time_ms() - t0 > ms) {
++			NOTICE("SDF/data timeout %08x\n", st);
++			return -1;
++		}
++	}
++}
++
++/* CMD6 SWITCH_FUNC mode 1, group 1 = High Speed; 64-byte status read by PIO */
++static int sd_switch_hs(void)
++{
++	uint32_t st[16], blk = mmio_read_32(SDIO_BASE + SD_BLKSIZE);
++	int i, ret = -1;
++
++	if (sd_idle() < 0)
++		return -1;
++	mmio_write_32(SDIO_BASE + SD_INT_STAT, 0xffffffff);
++	mmio_write_32(SDIO_BASE + SD_BLKSIZE, (1 << 16) | 64);
++	mmio_write_32(SDIO_BASE + SD_ARG, 0x80fffff1);
++	/* transfer mode: read, single block, no DMA; command 6, R1 with data */
++	mmio_write_32(SDIO_BASE + SD_XFER, (((6 << 8) | CMD_R1 | (1 << 5)) << 16) | (1 << 4));
++	if (sd_int_wait(INT_CMD_COMPLETE, 100) < 0 || sd_int_wait(INT_BUF_READ, 100) < 0)
++		goto out;
++	for (i = 0; i < 16; i++)
++		st[i] = mmio_read_32(SDIO_BASE + SD_BUF);
++	if (sd_int_wait(INT_XFER_COMPLETE, 100) < 0)
++		goto out;
++	/* status byte 16, bits 3:0: function selected in group 1 */
++	if ((st[4] & 0xf) != 1) {
++		NOTICE("SDF/no high speed (%08x %08x)\n", st[3], st[4]);
++		goto out;
++	}
++	ret = 0;
++out:
++	if (ret < 0)
++		sd_reset_lines();
++	mmio_write_32(SDIO_BASE + SD_BLKSIZE, blk);
++	return ret;
++}
++
++static void sd_set_hs(int on)
++{
++	uint8_t hc = mmio_read_8(SDIO_BASE + SD_HOST_CTRL);
++
++	if (on) {
++		/* as U-Boot and Linux cv1800b-sdhci for legacy and SD high speed */
++		mmio_write_32(SDIO_BASE + MSHC_CTRL, sd_rom_mshc | (1 << 1));
++		mmio_write_32(SDIO_BASE + PHY_CONFIG, sd_rom_phy | (1 << 0));
++		mmio_write_32(SDIO_BASE + PHY_TX_RX_DLY, (1 << 8) | (1 << 24));
++		mmio_write_8(SDIO_BASE + SD_HOST_CTRL, hc | HOST_CTRL_HS);
++	} else {
++		mmio_write_8(SDIO_BASE + SD_HOST_CTRL, hc & ~HOST_CTRL_HS);
++		mmio_write_32(SDIO_BASE + PHY_TX_RX_DLY, sd_rom_dly);
++		mmio_write_32(SDIO_BASE + PHY_CONFIG, sd_rom_phy);
++		mmio_write_32(SDIO_BASE + MSHC_CTRL, sd_rom_mshc);
++	}
++}
++
++/* ACMD6, then the host: the host follows only a card that accepted the width */
++static int sd_set_width(int four)
++{
++	uint32_t r55, r6;
++	uint8_t hc;
++
++	if (sd_cmd(55, (uint32_t)sd_rca << 16, &r55) < 0 || !(r55 & R1_APP_CMD))
++		return -1;
++	if (sd_cmd(6, four ? 2 : 0, &r6) < 0)
++		return -1;
++	hc = mmio_read_8(SDIO_BASE + SD_HOST_CTRL);
++	mmio_write_8(SDIO_BASE + SD_HOST_CTRL, four ? hc | HOST_CTRL_4BIT : hc & ~HOST_CTRL_4BIT);
++	return 0;
++}
++
++void sd_fast_enable(void)
++{
++	uint32_t cmd = mmio_read_16(SDIO_BASE + SD_CMD) >> 8;
++	uint32_t arg = mmio_read_32(SDIO_BASE + SD_ARG);
++
++	if (p_rom_api_get_boot_src() != BOOT_SRC_SD)
++		return;
++	if ((cmd & 0x3f) != 13 || !(arg >> 16) || (arg & 0xffff)) {
++		NOTICE("SDF/no RCA (cmd %u arg %08x)\n", cmd & 0x3f, arg);
++		return;
++	}
++	if (mmio_read_8(SDIO_BASE + SD_HOST_CTRL) & (HOST_CTRL_4BIT | HOST_CTRL_8BIT | HOST_CTRL_HS))
++		return;
++	sd_rca = arg >> 16;
++	sd_rom_div = sd_get_div();
++	sd_rom_mshc = mmio_read_32(SDIO_BASE + MSHC_CTRL);
++	sd_rom_dly = mmio_read_32(SDIO_BASE + PHY_TX_RX_DLY);
++	sd_rom_phy = mmio_read_32(SDIO_BASE + PHY_CONFIG);
++
++	/* from here on the card may differ from the ROM's settings */
++	sd_wide = 1;
++	if (sd_set_width(1) < 0) {
++		NOTICE("SDF/4-bit failed\n");
++		/* the card may have switched: restore, or stay armed for the retries */
++		sd_fast_disable();
++		return;
++	}
++	/* SD High Speed, as U-Boot and Linux run this card */
++	if (sd_switch_hs() == 0) {
++		sd_set_hs(1);
++		sd_hs = 1;
++	}
++	/*
++	 * Before sys_pll_init() CLK_SD0 is the 25 MHz crystal (bypass):
++	 * divider 1 gives 12.5 MHz for the parameter blocks and 50 MHz once
++	 * sys_pll_init() has switched CLK_SD0 to 100 MHz. Divider 0 (the base
++	 * clock undivided) made each ROM load take seconds.
++	 */
++	if (sd_set_div(sd_hs ? 1 : 2) < 0) {
++		sd_fast_disable();
++		return;
++	}
++	NOTICE("SDF/4b/hs%d.\n", sd_hs);
++}
++
++/*
++ * Before sys_pll_init() switches CLK_SD0 from 25 MHz to 100 MHz: divider 1
++ * (12.5 MHz now, 50 MHz after) in High Speed, else 2 (25 MHz after).
++ */
++void sd_fast_pll(void)
++{
++	if (sd_wide && sd_set_div(sd_hs ? 1 : 2) < 0)
++		sd_fast_disable();
++}
++
++/* Back to the ROM's settings; stays armed (sd_wide) until every step succeeded. */
++void sd_fast_disable(void)
++{
++	if (!sd_wide)
++		return;
++	sd_reset_lines();
++	if (sd_set_div(sd_rom_div) < 0) {
++		NOTICE("SDF/restore clock failed\n");
++		return;
++	}
++	if (sd_hs) {
++		sd_set_hs(0);
++		sd_hs = 0;
++	}
++	/* ACMD6 travels on CMD alone: valid whatever width the card or the host is at */
++	if (sd_set_width(0) < 0) {
++		NOTICE("SDF/restore 1-bit failed\n");
++		return;
++	}
++	sd_wide = 0;
++	NOTICE("SDF/1b.\n");
++}
+diff --git a/plat/cv181x/platform.mk b/plat/cv181x/platform.mk
+index e899a17..ff5c259 100644
+--- a/plat/cv181x/platform.mk
++++ b/plat/cv181x/platform.mk
+@@ -62,6 +62,7 @@ DECOMPRESSION_SOURCES = \
+ BL2_SRCS = \
+ 	${BL_COMMON_SOURCES} \
+ 	plat/${CHIP_ARCH}/bl2/bl2_opt.c \
++	plat/${CHIP_ARCH}/bl2/sd_fast.c \
+ 	lib/utils/decompress.c \
+ 	${DECOMPRESSION_SOURCES}
+ 

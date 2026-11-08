@@ -13,6 +13,16 @@ export const Credits = () => {
   const entries = [
     { name: 'dormancygrace', contribution: tr('projectLead') },
     {
+      name: 'possiblyneal',
+      contribution: tr('possiblyneal'),
+      url: 'https://github.com/possiblyneal'
+    },
+    {
+      name: 'Lady-Galadriel',
+      contribution: tr('ladyGaladriel'),
+      url: 'https://github.com/Lady-Galadriel'
+    },
+    {
       name: 'neVERberleRfellerER',
       contribution: tr('neverberlerfellerer'),
       url: 'https://github.com/neVERberleRfellerER'

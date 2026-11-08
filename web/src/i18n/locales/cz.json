@@ -482,6 +482,8 @@
         "gxcreator": "Podrobná hlášení o problémech a průběžná zpětná vazba, která odhalila regrese a přímo utvářela opravy.",
         "translationThanks": "Uživatelsky přívětivější díky lidem, kteří překládají, kontrolují a vylepšují texty v rozhraní. Děkujeme.",
         "projectLead": "Koncept, architektura, vývoj NanoKVM OS, systémová integrace, ověřování zařízení a řízení vydávání.",
+        "possiblyneal": "Vylepšení opětovného připojení videa a prvního zachycení, podložená měřením obnovy po restartu a výpadku napájení.",
+        "ladyGaladriel": "Nahlášení nesprávných dat hostitelských klíčů SSH po studeném startu pomohlo odhalit a opravit problémy s počátečním časem a platností generovaných certifikátů HTTPS.",
         "wenjie": "Správcovství původní aplikace NanoKVM; Direct H.264, opravy spouštění a síťování v Tailscale; začlenění lokalizace do uživatelského rozhraní.",
         "z2zGuGu": "Nativní komponenty KVM, MMF a vision; nástroje pro sestavování, resetátor, nástroje pro práci s EDID a USB PID/VID; základy pro přizpůsobování si zařízení.",
         "alexanderGerReich": "Logika aplikací, aktualizací a stahování; vylepšení HID, vkládání a virtuální klávesnice; údržba textů uživatelského rozhraní v němčině a angličtině.",

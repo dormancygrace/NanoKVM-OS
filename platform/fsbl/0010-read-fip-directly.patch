@@ -1,0 +1,606 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: read fip.bin directly instead of through the ROM loader
+
+The ROM loader reads the FIP at about 9 MB/s even with the bus at 4 bits
+and 50 MHz (0004), and prints a line per load. BL2 now finds fip.bin
+itself, by name in the root directory of the first partition's FAT16 or
+FAT32 file system as the ROM does, lists the runs of sectors it is
+stored in (up to 16), and reads each part with one CMD18 per run
+(CMD17 for one block): by SDMA into DRAM (OpenSBI, U-Boot: ~23 MB/s),
+by PIO into BL2's SRAM (the parameter blocks; PIO tops out at ~8 MB/s,
+and an SDMA transfer into SRAM reported completion before all its data
+was there). The reader is used only when the first sector found is the
+PARAM1 the ROM booted this BL2 with. Every load keeps its CRC check.
+
+The SDHCI runs in version 4 mode (HOST_CONTROL2 bit 12, as the ROM left
+it): the SDMA address goes into ADMA_SA, the block count into the 32-bit
+register at 0x00, and the 16-bit count stays 0, as cv_emmc.c does.
+
+Retries: on an SD boot the ROM reports one try per load, so a failed
+load went straight to p_rom_api_flash_init() (the ROM gives up on SD for
+eMMC) and the retry at the ROM's own bus settings 0004 provides was
+never reached. An SD boot now tries each round three times: fip.bin
+read directly, then the ROM loader, then the ROM loader at the ROM's
+bus settings. The ROM's retry number (a backup copy on flash) is 0.
+---
+ plat/cv181x/bl2/bl2_opt.c |  52 +++++++++---
+ plat/cv181x/bl2/fip_fat.c | 166 ++++++++++++++++++++++++++++++++++++++
+ plat/cv181x/bl2/fip_fat.h |  29 +++++++
+ plat/cv181x/bl2/sd_fast.c | 197 ++++++++++++++++++++++++++++++++++++++++++++++
+ plat/cv181x/platform.mk   |   1 +
+ 5 files changed, 434 insertions(+), 11 deletions(-)
+diff --git a/plat/cv181x/bl2/bl2_opt.c b/plat/cv181x/bl2/bl2_opt.c
+index 8cc1081..6897a1c 100644
+--- a/plat/cv181x/bl2/bl2_opt.c
++++ b/plat/cv181x/bl2/bl2_opt.c
+@@ -28,6 +28,36 @@ static union {
+ void sd_fast_enable(void);
+ void sd_fast_pll(void);
+ void sd_fast_disable(void);
++int sd_fip_read(void *buf, uint32_t off, uint32_t size);
++
++/*
++ * On an SD boot the ROM reports one try per load, so a failed load went
++ * straight to p_rom_api_flash_init() (the ROM gives up on SD and tries
++ * eMMC). Try three times first: fip.bin read directly (sd_fast.c), then
++ * the ROM loader, then the ROM loader at the ROM's own bus settings.
++ */
++#define SD_LOAD_TRIES 3
++
++static int load_tries(void)
++{
++	int n = p_rom_api_get_number_of_retries();
++
++	return p_rom_api_get_boot_src() == BOOT_SRC_SD && n < SD_LOAD_TRIES ? SD_LOAD_TRIES : n;
++}
++
++static int fip_load(void *buf, uint32_t offset, uint32_t size, int retry)
++{
++	if (p_rom_api_get_boot_src() != BOOT_SRC_SD)
++		return p_rom_api_load_image(buf, offset, size, retry);
++	if (!retry) {
++		int ret = sd_fip_read(buf, offset, size);
++
++		if (ret <= 0)
++			return ret;
++	}
++	/* the ROM's retry number selects a backup copy on flash; fip.bin has one */
++	return p_rom_api_load_image(buf, offset, size, 0);
++}
+ 
+ // OpenSBI is loaded here first; U-Boot's compressed image is at DECOMP_BUF_ADDR.
+ #define MONITOR_LOAD_BUF (DECOMP_BUF_ADDR + (8 << 20))
+@@ -98,7 +128,7 @@ int load_param2(int retry)
+ 
+ 	INFO("P2S/0x%lx/%p.\n", sizeof(fip_param2), &fip_param2);
+ 
+-	ret = p_rom_api_load_image(&fip_param2, fip_param1->param2_loadaddr, PARAM2_SIZE, retry);
++	ret = fip_load(&fip_param2, fip_param1->param2_loadaddr, PARAM2_SIZE, retry);
+ 	if (ret < 0) {
+ 		return ret;
+ 	}
+@@ -129,7 +159,7 @@ int load_ddr_param(int retry)
+ 	if (fip_param2.ddr_param_size >= sizeof(sram_union_buf.ddr_param))
+ 		fip_param2.ddr_param_size = sizeof(sram_union_buf.ddr_param);
+ 
+-	ret = p_rom_api_load_image(&sram_union_buf.ddr_param, fip_param2.ddr_param_loadaddr, fip_param2.ddr_param_size,
++	ret = fip_load(&sram_union_buf.ddr_param, fip_param2.ddr_param_loadaddr, fip_param2.ddr_param_size,
+ 				   retry);
+ 	if (ret < 0) {
+ 		return ret;
+@@ -153,8 +183,8 @@ int load_ddr(void)
+ 	sd_fast_enable();
+ 
+ retry_from_flash:
+-	for (retry = 0; retry < p_rom_api_get_number_of_retries(); retry++) {
+-		if (retry)
++	for (retry = 0; retry < load_tries(); retry++) {
++		if (retry >= 2)
+ 			sd_fast_disable();
+ 
+ 		if (load_param2(retry) < 0)
+@@ -166,7 +196,7 @@ retry_from_flash:
+ 		break;
+ 	}
+ 
+-	if (retry >= p_rom_api_get_number_of_retries()) {
++	if (retry >= load_tries()) {
+ 		switch (p_rom_api_get_boot_src()) {
+ 		case BOOT_SRC_UART:
+ 		case BOOT_SRC_SD:
+@@ -233,7 +263,7 @@ int load_monitor(int retry, uint64_t *monitor_entry)
+ 
+ 	// Load into a buffer: an LZ4 frame is decompressed to monitor_runaddr by
+ 	// finish_monitor() after the clocks are switched to the PLLs.
+-	ret = p_rom_api_load_image((void *)MONITOR_LOAD_BUF, fip_param2.monitor_loadaddr, fip_param2.monitor_size,
++	ret = fip_load((void *)MONITOR_LOAD_BUF, fip_param2.monitor_loadaddr, fip_param2.monitor_size,
+ 				   retry);
+ 	if (ret < 0) {
+ 		return ret;
+@@ -299,7 +329,7 @@ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ 
+ 	INFO("L2/0x%x.\n", fip_param2.loader_2nd_loadaddr);
+ 
+-	ret = p_rom_api_load_image(loader_2nd_header, fip_param2.loader_2nd_loadaddr, BLOCK_SIZE, retry);
++	ret = fip_load(loader_2nd_header, fip_param2.loader_2nd_loadaddr, BLOCK_SIZE, retry);
+ 	if (ret < 0) {
+ 		return -1;
+ 	}
+@@ -328,7 +358,7 @@ int load_loader_2nd(int retry, uint64_t *loader_2nd_entry)
+ 		image_buf = (void *)loader_2nd_header->runaddr;
+ 	}
+ 
+-	ret = p_rom_api_load_image(image_buf, fip_param2.loader_2nd_loadaddr, reading_size, retry);
++	ret = fip_load(image_buf, fip_param2.loader_2nd_loadaddr, reading_size, retry);
+ 	if (ret < 0) {
+ 		return -1;
+ 	}
+@@ -390,8 +420,8 @@ int load_rest(enum CHIP_CLK_MODE mode)
+ 	sys_pll_init(mode);
+ 
+ retry_from_flash:
+-	for (retry = 0; retry < p_rom_api_get_number_of_retries(); retry++) {
+-		if (retry)
++	for (retry = 0; retry < load_tries(); retry++) {
++		if (retry >= 2)
+ 			sd_fast_disable();
+ 
+ 		if (load_blcp_2nd(retry) < 0)
+@@ -409,7 +439,7 @@ retry_from_flash:
+ 		break;
+ 	}
+ 
+-	if (retry >= p_rom_api_get_number_of_retries()) {
++	if (retry >= load_tries()) {
+ 		switch (p_rom_api_get_boot_src()) {
+ 		case BOOT_SRC_UART:
+ 		case BOOT_SRC_SD:
+diff --git a/plat/cv181x/bl2/fip_fat.c b/plat/cv181x/bl2/fip_fat.c
+new file mode 100644
+index 0000000..cf472f6
+--- /dev/null
++++ b/plat/cv181x/bl2/fip_fat.c
+@@ -0,0 +1,166 @@
++/*
++ * Find fip.bin on the SD card the way the boot ROM does (by name, in the
++ * root directory of the first partition's FAT16 or FAT32 file system) and
++ * return its first sector, if the file is stored in one run of clusters.
++ * Anything unexpected returns an error; BL2 then keeps the ROM loader.
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++#include <stdint.h>
++#include <string.h>
++#include "fip_fat.h"
++
++#define SECTOR 512
++#define MAX_ROOT_SECTORS 64 /* root directory sectors scanned at most */
++
++static inline uint16_t le16(const uint8_t *p)
++{
++	return p[0] | (p[1] << 8);
++}
++
++static inline uint32_t le32(const uint8_t *p)
++{
++	return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24);
++}
++
++struct fat {
++	fat_read_fn read;
++	uint8_t *buf;
++	uint32_t part, fat_lba, data_lba, root_lba, root_sectors, root_cluster;
++	uint32_t spc, clusters, cached;
++	int fat32;
++};
++
++/* FAT entry of cluster c; ~0 on a read error */
++static uint32_t fat_next(struct fat *f, uint32_t c)
++{
++	uint32_t off = f->fat32 ? c * 4 : c * 2;
++	uint32_t lba = f->fat_lba + off / SECTOR;
++
++	if (f->cached != lba) {
++		if (f->read(lba, f->buf) < 0)
++			return ~0u;
++		f->cached = lba;
++	}
++	off %= SECTOR;
++	return f->fat32 ? le32(f->buf + off) & 0x0fffffff : le16(f->buf + off);
++}
++
++static int is_eoc(struct fat *f, uint32_t c)
++{
++	return f->fat32 ? c >= 0x0ffffff8 : c >= 0xfff8;
++}
++
++/* 0: found (*cluster, *size), 1: end of directory, 2: not in this sector, <0: error */
++static int scan(struct fat *f, uint32_t lba, uint32_t *cluster, uint32_t *size)
++{
++	int i;
++
++	if (f->read(lba, f->buf) < 0)
++		return -1;
++	f->cached = ~0u;
++	for (i = 0; i < SECTOR; i += 32) {
++		const uint8_t *e = f->buf + i;
++
++		if (e[0] == 0)
++			return 1;
++		if (e[0] == 0xe5 || e[11] == 0x0f || (e[11] & 0x18))
++			continue; /* deleted, long name, volume label or directory */
++		if (!memcmp(e, "FIP     BIN", 11)) {
++			*cluster = (f->fat32 ? (uint32_t)le16(e + 20) << 16 : 0) | le16(e + 26);
++			*size = le32(e + 28);
++			return 0;
++		}
++	}
++	return 2;
++}
++
++int fip_fat_locate(fat_read_fn read, uint8_t *buf, struct fip_file *file)
++{
++	struct fat f = { .read = read, .buf = buf, .cached = ~0u };
++	uint32_t bps, rsv, nfat, rootent, total, fatsz, first_data, cluster = 0, c, n, need, s;
++	uint32_t *size = &file->size;
++	int r = 2;
++
++	/* MBR, first partition */
++	if (read(0, buf) < 0 || buf[510] != 0x55 || buf[511] != 0xaa)
++		return -1;
++	f.part = le32(buf + 446 + 8);
++	if (!f.part || !buf[446 + 4])
++		return -2;
++
++	/* boot sector of the file system */
++	if (read(f.part, buf) < 0 || buf[510] != 0x55 || buf[511] != 0xaa)
++		return -3;
++	bps = le16(buf + 11);
++	f.spc = buf[13];
++	rsv = le16(buf + 14);
++	nfat = buf[16];
++	rootent = le16(buf + 17);
++	total = le16(buf + 19) ? le16(buf + 19) : le32(buf + 32);
++	fatsz = le16(buf + 22) ? le16(buf + 22) : le32(buf + 36);
++	if (bps != SECTOR || !f.spc || (f.spc & (f.spc - 1)) || !rsv || !nfat || nfat > 2 || !fatsz || !total)
++		return -4;
++	f.root_sectors = (rootent * 32 + SECTOR - 1) / SECTOR;
++	first_data = rsv + nfat * fatsz + f.root_sectors;
++	if (first_data >= total)
++		return -4;
++	f.clusters = (total - first_data) / f.spc;
++	if (f.clusters < 4085)
++		return -5; /* FAT12 */
++	f.fat32 = f.clusters >= 65525;
++	if (f.fat32 != !le16(buf + 22) || (f.fat32 ? rootent != 0 : rootent == 0))
++		return -4;
++	f.fat_lba = f.part + rsv;
++	f.data_lba = f.part + first_data;
++	f.root_lba = f.fat_lba + nfat * fatsz;
++	f.root_cluster = f.fat32 ? le32(buf + 44) : 0;
++
++	/* root directory */
++	if (!f.fat32) {
++		for (s = 0; s < f.root_sectors && s < MAX_ROOT_SECTORS && r == 2; s++)
++			r = scan(&f, f.root_lba + s, &cluster, size);
++	} else {
++		c = f.root_cluster;
++		for (n = 0; r == 2 && c >= 2 && c < f.clusters + 2 && n < MAX_ROOT_SECTORS;) {
++			for (s = 0; s < f.spc && r == 2 && n < MAX_ROOT_SECTORS; s++, n++)
++				r = scan(&f, f.data_lba + (c - 2) * f.spc + s, &cluster, size);
++			if (r == 2)
++				c = fat_next(&f, c);
++		}
++	}
++	if (r < 0)
++		return -6;
++	if (r != 0)
++		return -7; /* not found */
++	if (cluster < 2 || cluster >= f.clusters + 2 || !*size)
++		return -8;
++
++	/* the cluster chain, as runs of consecutive clusters */
++	need = (*size + f.spc * SECTOR - 1) / (f.spc * SECTOR);
++	file->n = 0;
++	for (c = cluster, n = 0; n < need; n++) {
++		uint32_t next;
++
++		if (c < 2 || c >= f.clusters + 2)
++			return -8;
++		if (file->n && file->ext[file->n - 1].lba + file->ext[file->n - 1].sectors ==
++				       f.data_lba + (c - 2) * f.spc) {
++			file->ext[file->n - 1].sectors += f.spc;
++		} else {
++			if (file->n == FIP_EXTENTS)
++				return -9; /* too fragmented */
++			file->ext[file->n].lba = f.data_lba + (c - 2) * f.spc;
++			file->ext[file->n].sectors = f.spc;
++			file->n++;
++		}
++		next = fat_next(&f, c);
++		if (next == ~0u)
++			return -6;
++		if (n + 1 == need ? !is_eoc(&f, next) : is_eoc(&f, next))
++			return -8; /* chain length does not match the size */
++		c = next;
++	}
++	return 0;
++}
+diff --git a/plat/cv181x/bl2/fip_fat.h b/plat/cv181x/bl2/fip_fat.h
+new file mode 100644
+index 0000000..a1dc8e4
+--- /dev/null
++++ b/plat/cv181x/bl2/fip_fat.h
+@@ -0,0 +1,29 @@
++#ifndef FIP_FAT_H
++#define FIP_FAT_H
++
++#include <stdint.h>
++
++/* read one 512-byte sector; 0 or a negative error */
++typedef int (*fat_read_fn)(uint32_t lba, uint8_t *buf);
++
++#define FIP_EXTENTS 16
++
++/* a run of consecutive sectors of the file */
++struct fip_extent {
++	uint32_t lba, sectors;
++};
++
++struct fip_file {
++	uint32_t size, n;
++	struct fip_extent ext[FIP_EXTENTS];
++};
++
++/*
++ * Locate fip.bin in the root directory of the first partition (FAT16/FAT32)
++ * and list the runs of sectors it is stored in, in file order. buf: 512
++ * bytes of scratch. 0: done. Negative: not usable (no FAT, not found, more
++ * than FIP_EXTENTS runs, a broken cluster chain, a read error).
++ */
++int fip_fat_locate(fat_read_fn read, uint8_t *buf, struct fip_file *file);
++
++#endif
+diff --git a/plat/cv181x/bl2/sd_fast.c b/plat/cv181x/bl2/sd_fast.c
+index 459398c..3c299d5 100644
+--- a/plat/cv181x/bl2/sd_fast.c
++++ b/plat/cv181x/bl2/sd_fast.c
+@@ -26,7 +26,12 @@
+ #include <delay_timer.h>
+ #include <rom_api.h>
+ #include <bl2.h>
++#include <string.h>
++#include <platform.h>
++#include <arch_helpers.h>
++#include "fip_fat.h"
+ 
++#define SD_BLKCNT32 0x00 /* host version 4: 32-bit block count (was the SDMA address) */
+ #define SD_BLKSIZE 0x04
+ #define SD_ARG 0x08
+ #define SD_XFER 0x0c
+@@ -51,6 +56,20 @@
+ #define HOST_CTRL_4BIT (1 << 1)
+ #define HOST_CTRL_HS (1 << 2)
+ #define HOST_CTRL_8BIT (1 << 5)
++#define SD_HOST_CTRL2 0x3e
++#define HOST_VER4_ENABLE (1 << 12)
++#define PSTATE_DAT_ACTIVE (1 << 2)
++#define XFER_DMA (1 << 0)
++#define XFER_BLKCNT_EN (1 << 1)
++#define XFER_AUTO_CMD12 (1 << 2)
++#define INT_DMA_END (1 << 3)
++#define HOST_CTRL_DMA_MASK (3 << 3)
++#define SDMA_BOUNDARY_512K (7 << 12)
++#define SD_ADMA_SA_LOW 0x58
++#define SD_ADMA_SA_HIGH 0x5c
++#define XFER_READ (1 << 4)
++#define XFER_MULTI (1 << 5)
++#define CMD_DATA (1 << 5)
+ #define CLK_STABLE (1 << 1)
+ #define CLK_SD_EN (1 << 2)
+ #define RESET_CMD (1 << 1)
+@@ -220,6 +239,183 @@ out:
+ 	return ret;
+ }
+ 
++/* Program block count, size and argument, and send CMD17 or CMD18 (Auto CMD12) with data. */
++static int sd_start_read(uint32_t lba, uint32_t count, uint32_t dma)
++{
++	uint32_t mode = dma | XFER_READ | (count > 1 ? XFER_BLKCNT_EN | XFER_MULTI | XFER_AUTO_CMD12 : 0);
++
++	mmio_write_32(SDIO_BASE + SD_BLKCNT32, count);
++	mmio_write_32(SDIO_BASE + SD_BLKSIZE, SDMA_BOUNDARY_512K | 512);
++	mmio_write_32(SDIO_BASE + SD_ARG, lba);
++	mmio_write_32(SDIO_BASE + SD_XFER, ((((count > 1 ? 18 : 17) << 8) | CMD_R1 | CMD_DATA) << 16) | mode);
++	return sd_int_wait(INT_CMD_COMPLETE, 100);
++}
++
++/*
++ * PIO, for BL2's SRAM: an SDMA transfer into SRAM reported completion
++ * before all its data was visible there (seen on the stand).
++ */
++static int sd_read_pio(uint32_t lba, uint32_t count, uint32_t *p)
++{
++	uint32_t i, k;
++
++	if (sd_start_read(lba, count, 0) < 0)
++		return -1;
++	for (i = 0; i < count; i++) {
++		if (sd_int_wait(INT_BUF_READ, 100) < 0)
++			return -1;
++		for (k = 0; k < 128; k++)
++			*p++ = mmio_read_32(SDIO_BASE + SD_BUF);
++	}
++	return sd_int_wait(INT_XFER_COMPLETE, 100);
++}
++
++/*
++ * Read count 512-byte blocks from block address lba (SDHC/SDXC) by SDMA:
++ * CMD17, or CMD18 with Auto CMD12. PIO tops out at about 8 MB/s on this
++ * controller (each 32-bit read of the buffer port takes ~0.5 us), the bus
++ * gives ~23 MB/s. The host is in version 4 mode (as the ROM left it): the
++ * SDMA address is in ADMA_SA, the block count in the 32-bit register at
++ * 0x00, the 16-bit count stays 0 (as plat/cv181x/emmc/cv_emmc.c does).
++ * The registers the ROM loader relies on are restored.
++ */
++static int sd_read_dma(uint32_t lba, uint32_t count, void *dst)
++{
++	uint64_t addr = phys_to_dma((uintptr_t)dst);
++	uint32_t st, t0, limit = 100 + count / 16;
++	int ret = -1;
++
++	/* nothing dirty may be written back over the DMA data */
++	flush_dcache_range((uintptr_t)dst, count * 512);
++	mmio_write_8(SDIO_BASE + SD_HOST_CTRL, mmio_read_8(SDIO_BASE + SD_HOST_CTRL) & ~HOST_CTRL_DMA_MASK); /* SDMA */
++	mmio_write_32(SDIO_BASE + SD_ADMA_SA_LOW, (uint32_t)addr);
++	mmio_write_32(SDIO_BASE + SD_ADMA_SA_HIGH, (uint32_t)(addr >> 32));
++	if (sd_start_read(lba, count, XFER_DMA) < 0)
++		goto out;
++	t0 = read_time_ms();
++	for (;;) {
++		st = mmio_read_32(SDIO_BASE + SD_INT_STAT);
++		if (st & INT_ERROR) {
++			NOTICE("SDR/data error %08x\n", st);
++			goto out;
++		}
++		if (st & INT_XFER_COMPLETE) {
++			mmio_write_32(SDIO_BASE + SD_INT_STAT, st);
++			break;
++		}
++		if (st & INT_DMA_END) {
++			/* SDMA buffer boundary: continue from where it stopped */
++			mmio_write_32(SDIO_BASE + SD_INT_STAT, INT_DMA_END);
++			mmio_write_32(SDIO_BASE + SD_ADMA_SA_LOW, mmio_read_32(SDIO_BASE + SD_ADMA_SA_LOW));
++			mmio_write_32(SDIO_BASE + SD_ADMA_SA_HIGH, mmio_read_32(SDIO_BASE + SD_ADMA_SA_HIGH));
++		}
++		if (read_time_ms() - t0 > limit) {
++			NOTICE("SDR/data timeout %08x\n", st);
++			goto out;
++		}
++	}
++	/* and the data lines idle again */
++	ret = sd_wait(PSTATE_DAT_INHIBIT | PSTATE_DAT_ACTIVE, 10);
++out:
++	/* drop lines the core may have fetched during the transfer */
++	inv_dcache_range((uintptr_t)dst, count * 512);
++	return ret;
++}
++
++/* SDMA into DRAM (OpenSBI, U-Boot), PIO for everything else; the ROM loader's registers are restored */
++static int sd_read(uint32_t lba, uint32_t count, void *dst)
++{
++	uint32_t blk = mmio_read_32(SDIO_BASE + SD_BLKSIZE), cnt = mmio_read_32(SDIO_BASE + SD_BLKCNT32);
++	uint32_t sa_lo = mmio_read_32(SDIO_BASE + SD_ADMA_SA_LOW), sa_hi = mmio_read_32(SDIO_BASE + SD_ADMA_SA_HIGH);
++	uint8_t hc = mmio_read_8(SDIO_BASE + SD_HOST_CTRL);
++	int ret;
++
++	if (!count || ((uintptr_t)dst & 7) || !(mmio_read_16(SDIO_BASE + SD_HOST_CTRL2) & HOST_VER4_ENABLE) ||
++	    sd_idle() < 0)
++		return -1;
++	mmio_write_32(SDIO_BASE + SD_INT_STAT, 0xffffffff);
++	if (IN_RANGE((uintptr_t)dst, DRAM_BASE, DRAM_SIZE) && count >= 8)
++		ret = sd_read_dma(lba, count, dst);
++	else
++		ret = sd_read_pio(lba, count, dst);
++	if (ret < 0)
++		sd_reset_lines();
++	mmio_write_32(SDIO_BASE + SD_BLKSIZE, blk);
++	mmio_write_32(SDIO_BASE + SD_BLKCNT32, cnt);
++	mmio_write_32(SDIO_BASE + SD_ADMA_SA_LOW, sa_lo);
++	mmio_write_32(SDIO_BASE + SD_ADMA_SA_HIGH, sa_hi);
++	mmio_write_8(SDIO_BASE + SD_HOST_CTRL, hc);
++	return ret;
++}
++
++static int sd_read_sector(uint32_t lba, uint8_t *buf)
++{
++	return sd_read(lba, 1, buf);
++}
++
++/* fip.bin found by name on the FAT partition, as the ROM finds it: 1 ready, -1 not usable, 0 not looked up yet */
++static int fip_state;
++static struct fip_file fip;
++
++static int fip_ready(void)
++{
++	static uint8_t sec[512] __aligned(8);
++	int r;
++
++	if (fip_state)
++		return fip_state > 0;
++	fip_state = -1;
++	if (!sd_wide)
++		return 0;
++	r = fip_fat_locate(sd_read_sector, sec, &fip);
++	if (r < 0) {
++		INFO("SDR/ROM loader (%d)\n", r);
++		return 0;
++	}
++	/* the first sector must be the PARAM1 the ROM booted this BL2 with */
++	if (sd_read(fip.ext[0].lba, 1, sec) < 0 || memcmp(sec, (void *)PARAM1_BASE, sizeof(sec))) {
++		NOTICE("SDR/fip.bin at %u is not this FIP\n", fip.ext[0].lba);
++		return 0;
++	}
++	fip_state = 1;
++	INFO("SDR/fip.bin at %u, %u bytes, %u runs\n", fip.ext[0].lba, fip.size, fip.n);
++	return 1;
++}
++
++/*
++ * Read size bytes at offset off of fip.bin into buf, one CMD18 per run of
++ * sectors. 0: done; 1: not possible here, use the ROM loader; -1: a read
++ * failed (the reader stays off).
++ */
++int sd_fip_read(void *buf, uint32_t off, uint32_t size)
++{
++	uint32_t skip = off / 512, left = size / 512, i, n;
++	uint8_t *p = buf;
++
++	if (!fip_ready())
++		return 1;
++	if ((off | size) % 512 || !size || off > fip.size || size > fip.size - off + 511)
++		return 1;
++	for (i = 0; i < fip.n && left; i++) {
++		const struct fip_extent *e = &fip.ext[i];
++
++		if (skip >= e->sectors) {
++			skip -= e->sectors;
++			continue;
++		}
++		n = e->sectors - skip < left ? e->sectors - skip : left;
++		if (sd_read(e->lba + skip, n, p) < 0) {
++			NOTICE("SDR/read failed\n");
++			fip_state = -1;
++			return -1;
++		}
++		p += n * 512;
++		left -= n;
++		skip = 0;
++	}
++	return left ? 1 : 0;
++}
++
+ static void sd_set_hs(int on)
+ {
+ 	uint8_t hc = mmio_read_8(SDIO_BASE + SD_HOST_CTRL);
+@@ -311,6 +507,7 @@ void sd_fast_pll(void)
+ /* Back to the ROM's settings; stays armed (sd_wide) until every step succeeded. */
+ void sd_fast_disable(void)
+ {
++	fip_state = -1;
+ 	if (!sd_wide)
+ 		return;
+ 	sd_reset_lines();
+diff --git a/plat/cv181x/platform.mk b/plat/cv181x/platform.mk
+index 17f1895..c040700 100644
+--- a/plat/cv181x/platform.mk
++++ b/plat/cv181x/platform.mk
+@@ -60,6 +60,7 @@ BL2_SRCS = \
+ 	${BL_COMMON_SOURCES} \
+ 	plat/${CHIP_ARCH}/bl2/bl2_opt.c \
+ 	plat/${CHIP_ARCH}/bl2/sd_fast.c \
++	plat/${CHIP_ARCH}/bl2/fip_fat.c \
+ 	lib/utils/decompress.c \
+ 	${DECOMPRESSION_SOURCES}
+ 

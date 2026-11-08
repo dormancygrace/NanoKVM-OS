@@ -40,6 +40,7 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | `0007-quiet-console.patch` | Console: the banner, `DDR BIST PASS` and failures only; step marks at INFO, compiled out |
 | `0008-drop-unused-paths.patch` | No overdrive PLL path; a FIP with a small-core image is refused |
 | `0009-clear-small-bss.patch` | The startup code clears `.sbss` too (GCC's small zero-initialized variables) |
+| `0010-read-fip-directly.patch` | BL2 reads fip.bin itself (FAT lookup, SDMA/PIO); three tries per load on an SD boot (see below) |
 
 ## Size and console
 
@@ -110,8 +111,38 @@ From BL2 start to its exit (time records at `0x0E000010`): 333 ms before,
 with the switch before the parameter blocks and LZ4 images (`0005`, three
 boots).
 
-A FIP loaded over the ROM's UART window does not exercise this: the ROM
-then reports UART as the boot source and BL2 leaves the SD bus alone.
+A FIP loaded over the ROM's UART window does not exercise this, nor the
+direct reads below: the ROM then reports UART as the boot source and BL2
+leaves the SD bus alone.
+
+## Direct reads
+
+The ROM loader reads at about 9 MB/s whatever the bus (it appears to use
+PIO: each 32-bit read of the controller's buffer port takes ~0.5 us), and
+prints a line per load. Patch `0010` makes BL2 find fip.bin itself, by
+name in the root directory of the first partition (FAT16 or FAT32, as the
+ROM does), as up to 16 runs of sectors, and check that its first sector
+is the PARAM1 the ROM booted with; then each load is one CMD18 per run:
+SDMA into DRAM, PIO into SRAM (an SDMA transfer into SRAM reported
+completion before its data had all arrived). Each load is still
+CRC-checked. The PARAM1 compare catches a lookup that lands on anything but
+a FIP; the exact-name match is what selects fip.bin over fip.prev.
+
+| Load | ROM loader | Direct |
+|---|---|---|
+| DDR parameters, 8 KB (PIO) | 5.5 ms | 3.6 ms |
+| OpenSBI, 74 KB | 11.1 ms | 3.9 ms |
+| U-Boot header, 512 B | 2.2 ms | 0.2 ms |
+| U-Boot, 192 KB | 22.8 ms | 8.3 ms |
+
+BL2 start to exit: 103 -> 81 ms; bl2.bin grows by 2.3 KB (about 4.5 ms
+of the ROM's own read of it).
+
+On an SD boot the ROM reports one try per load, which sent any failed
+load to `p_rom_api_flash_init()` (eMMC) at once. BL2 now tries each
+round three times on SD: direct, the ROM loader, the ROM loader at the
+ROM's bus settings (`sd_fast_disable()`). A direct read forced to fail on
+the stand was loaded by the ROM loader on the second try.
 
 ## Compression
 

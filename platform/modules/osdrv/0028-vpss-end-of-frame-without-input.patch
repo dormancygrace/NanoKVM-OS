@@ -1,0 +1,39 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vpss: an end of frame without an input is not an error
+
+The server unbinds VI from VPSS and disables the channel when it parks the
+outputs without viewers (20 s after each boot, and after the last viewer
+leaves) and when it hands an output to VI-direct capture. An end of frame
+that comes after that finds no input frame in the work queue, and
+vpss_handle_frame_done() logged two kernel errors, "No more vb for dequeue"
+and "can't get vb-blk". There is nothing to give back then: the dequeue
+only failed. Say it at debug level and skip it; nothing else changes.
+---
+--- a/interdrv/vpss/common/vpss.c
++++ b/interdrv/vpss/common/vpss.c
+@@ -2952,11 +2952,21 @@
+ 
+ 	vpssExtCtx[workingGrp].grp_state = GRP_STATE_IDLE;
+ 
+-	vb_dqbuf(chn, CHN_TYPE_IN, &blk);
+-	if (blk == VB_INVALID_HANDLE) {
+-		CVI_TRACE_VPSS(CVI_DBG_ERR, "Mod(%d) can't get vb-blk.\n", chn.enModId);
++	/*
++	 * An end of frame can come after the input stopped: NanoKVM unbinds VI
++	 * and disables the channel when it parks the outputs without viewers or
++	 * hands an output to VI-direct capture. There is no input frame to give
++	 * back then, and dequeuing would only fail; that is not an error.
++	 */
++	if (base_mod_jobs_workq_empty(chn, CHN_TYPE_IN)) {
++		CVI_TRACE_VPSS(CVI_DBG_DEBUG, "Grp(%d) end of frame without an input\n", workingGrp);
+ 	} else {
+-		vb_done_handler(chn, CHN_TYPE_IN, blk);
++		vb_dqbuf(chn, CHN_TYPE_IN, &blk);
++		if (blk == VB_INVALID_HANDLE) {
++			CVI_TRACE_VPSS(CVI_DBG_ERR, "Mod(%d) can't get vb-blk.\n", chn.enModId);
++		} else {
++			vb_done_handler(chn, CHN_TYPE_IN, blk);
++		}
+ 	}
+ 
+ 	VpssChn = 0;

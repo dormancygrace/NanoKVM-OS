@@ -22,6 +22,16 @@ const hdmiCaptureWarmupDuration = time.Second
 // reload does not park and resume them.
 var hdmiCaptureParkDelay = 20 * time.Second
 
+// Until the first capture demand of this run there is no page to reload, so
+// the outputs park at once: the VPSS converted every frame for 20 s after
+// each boot with nobody reading them. Parking does not need the capture open:
+// CapturePark disables the outputs of a later start right after it creates
+// them, under the same lock, so the VPSS does not run until a reader comes.
+var hdmiCaptureFirstParkDelay time.Duration
+
+// hdmiCaptureHadDemand records the first viewer or capture lease of this run.
+var hdmiCaptureHadDemand bool
+
 // Disabled pools can remain busy until the last VPSS job returns its frame.
 var hdmiCaptureReclaimDelay = time.Second
 
@@ -383,6 +393,7 @@ func reconcileHdmiCaptureDemandLocked() {
 	stopHdmiParkTimerLocked()
 
 	if hdmiHasCaptureDemandLocked() {
+		hdmiCaptureHadDemand = true
 		resumeParkedCaptureLocked()
 		if hdmiStoppedForIdle && !isHdmiDisabled() {
 			resumeHdmiCaptureLocked()
@@ -411,6 +422,9 @@ func scheduleHdmiParkTimerLocked() {
 	}
 
 	delay := hdmiCaptureParkDelay
+	if !hdmiCaptureHadDemand {
+		delay = hdmiCaptureFirstParkDelay
+	}
 	if hdmiCaptureParked {
 		if !captureReclaimPending() {
 			return

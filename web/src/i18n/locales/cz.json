@@ -1845,7 +1845,7 @@
       "status": {
         "checking": "Hledání aktualizací…",
         "installing": "Instalace aktualizací…",
-        "available": "Jsou dostupné aktualizace"
+        "available": "Jsou k dispozici aktualizace"
       },
       "advanced": "Pokročilé"
     },
@@ -1983,7 +1983,7 @@
         "power": "hostitel byl zapnut nebo vypnut; vyžaduje ovládání ATX s připojenou LED napájení.",
         "hdmi": "obraz zmizel nebo se vrátil, i když hostitel vypne obrazovku; zjišťuje se, dokud běží záznam videa.",
         "security": "adresa zablokovaná po neúspěšných přihlášeních, příliš mnoho pokusů o přihlášení přes IPMI, přihlášení z nové adresy.",
-        "screen": "modrá obrazovka nebo kernel panic rozpoznané doplňkem TPU; text se čte, když se nikdo nedívá na video, a posílá se se snímkem obrazovky."
+        "screen": "modrá obrazovka nebo kernel panic rozpoznané doplňkem TPU; text se čte, když se nikdo nedívá na video, a posílá společně se snímkem obrazovky."
       },
       "field": {
         "token": "Token",
@@ -2106,7 +2106,7 @@
         "codeLabel": "Adresa po přihlášení",
         "finish": "Dokončit",
         "cancel": "Zrušit",
-        "failed": "Přihlášení selhalo: {{error}}",
+        "failed": "Přihlášení se nezdařilo: {{error}}",
         "authError": "Přihlášení už nefunguje: {{error}}",
         "changed": "Během přihlášení se změnila služba, ID klienta nebo tenant. Přihlaste se znovu."
       }
@@ -2568,7 +2568,7 @@
     "displayHint": "Pro celé rozhraní včetně časů handshake VPN.",
     "setFromBrowser": "Převzít čas z tohoto prohlížeče",
     "setFromBrowserHint": "Pro síť bez NTP. Čas se uloží i do hodin zařízení.",
-    "clockSet": "Čas zařízení nastaven",
+    "clockSet": "Čas na zařízení nastaven",
     "clockFailed": "Čas zařízení se nepodařilo nastavit."
   },
   "sessionControl": {
@@ -2624,7 +2624,7 @@
     "cancel": "Zrušit",
     "again": "Rozpoznat znovu",
     "newArea": "Vybrat jinou oblast",
-    "copy": "Kopírovat",
+    "copy": "Zkopírovat",
     "copied": "Text zkopírován",
     "copyFailed": "Text se nepodařilo zkopírovat; označte jej a zkopírujte ručně",
     "took": "Rozpoznáno za {{seconds}} s",

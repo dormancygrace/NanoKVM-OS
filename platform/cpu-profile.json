@@ -14,5 +14,6 @@
   "audio_optimization": "-O2",
   "kernel_lto": "none",
   "kernel_strict_align": false,
+  "kernel_function_align": 64,
   "openssl_optimization": "-O3"
 }

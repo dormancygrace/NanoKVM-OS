@@ -58,8 +58,8 @@ def require(condition, message):
 LZ4_FRAME_MAGIC = b"\x04\x22\x4d\x18"
 # The one frame layout the build produces (lz4 -12 -B5 --no-frame-crc) and the FIP accepts:
 # FLG: version 01, independent blocks, no block/content checksum, no content size, no
-# dictionary; BD: 256 KiB blocks. The FSBL's LZ4F decoder allocates two buffers of the block
-# size from its 1 MiB allocation area, so larger blocks are refused.
+# dictionary; BD: 256 KiB blocks (small enough for the reference LZ4F decoder's buffers, which
+# the FSBL used before platform/fsbl patch 0006).
 LZ4_FLG = 0x60
 LZ4_BD = 0x50
 LZ4_BLOCK_MAX = 256 << 10
@@ -310,9 +310,8 @@ def main():
         require(a.tool is not None and a.tool.is_file(), "missing pinned FIP tool")
         require(a.lz4 is not None and a.lz4.is_file(), "missing lz4 command")
         with tempfile.TemporaryDirectory(prefix="nkos-fip-", dir=a.output.parent) as directory:
-            # The FSBL decodes an LZ4 frame in one LZ4F_decompress call; no
-            # frame checksum (the FIP CRCs cover the compressed bytes); 256 KiB
-            # blocks (LZ4_BD).
+            # No frame checksum (the FIP CRCs cover the compressed bytes);
+            # 256 KiB blocks (LZ4_BD).
             lz4 = [str(a.lz4), "-12", "-B5", "--no-frame-crc", "-c", "-q"]
             monitor = Path(directory) / "fw_dynamic.bin.lz4"
             monitor.write_bytes(subprocess.run(lz4 + [str(a.monitor)], check=True, capture_output=True).stdout)

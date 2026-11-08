@@ -1,0 +1,345 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] bl2: small LZ4 decoder instead of LZ4F, xxHash and LZMA
+
+U-Boot and OpenSBI in fip.bin are LZ4 frames (0005). Replace the
+reference LZ4F decoder with xxHash, and the LZMA decoder, which nothing
+uses any more, by a small LZ4 frame decoder: bl2.bin shrinks by about
+14 KB, which the boot ROM reads over its 1-bit bus.
+
+Every read stays inside the frame and every write inside dst_size;
+checksums, if present, are skipped (the FIP CRCs cover the frame, and
+scripts/nanokvm-fip.py admits only the build's frame layout). Literals
+and matches at least 8 bytes back are copied 8 bytes at a time with
+explicit ld/sd: the C906 performs misaligned accesses in hardware
+(MXSTATUS.MM, set in bl2_entrypoint.S), while GCC's default tuning
+splits them into bytes.
+
+Tested on the C906 in Linux userspace: U-Boot and OpenSBI decode byte for
+byte; one byte less of output space is refused without a write past it;
+6000 truncated or bit-flipped frames never wrote past dst_size.
+---
+ lib/utils/decompress.c  | 265 +++++++++++++++++++++++++++---------------------
+ plat/cv181x/platform.mk |   5 +-
+ 2 files changed, 149 insertions(+), 121 deletions(-)
+diff --git a/lib/utils/decompress.c b/lib/utils/decompress.c
+index 74fb468..44f9681 100644
+--- a/lib/utils/decompress.c
++++ b/lib/utils/decompress.c
+@@ -1,130 +1,172 @@
++/*
++ * LZ4 frame decoder for BL2: U-Boot and OpenSBI in fip.bin are LZ4 frames
++ * (scripts/nanokvm-fip.py). It replaces the reference LZ4F decoder, xxHash
++ * and LZMA (about 14 KB, which the boot ROM reads at 1 bit), and copies
++ * 8 bytes at a time: the C906 performs misaligned loads and stores in
++ * hardware (MXSTATUS.MM is set in bl2_entrypoint.S), but GCC's default
++ * tuning splits misaligned accesses into bytes, so the copies use explicit
++ * ld/sd.
++ *
++ * Every read stays inside the frame and every write inside dst_size.
++ * Checksums, when present, are skipped: the FIP CRCs cover the frame.
++ *
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
+ #include <debug.h>
+ #include <errno.h>
++#include <stdint.h>
+ #include <string.h>
+ #include <decompress.h>
+-#include <LzmaDec.h>
+-#include <lz4frame.h>
+ 
+-static uintptr_t comp_alloc_buf;
+-static size_t comp_alloc_size;
++#define LZ4F_MAGIC 0x184D2204
++#define LZ4F_FLG_VERSION_MASK 0xc0
++#define LZ4F_FLG_VERSION 0x40
++#define LZ4F_FLG_BLOCK_CKSUM 0x10
++#define LZ4F_FLG_CONTENT_SIZE 0x08
++#define LZ4F_FLG_CONTENT_CKSUM 0x04
++#define LZ4F_FLG_DICT_ID 0x01
++#define LZ4F_BLOCK_RAW 0x80000000u
+ 
+-static void SzInit(void)
++static inline void copy8(uint8_t *d, const uint8_t *s)
+ {
+-	comp_alloc_buf = DECOMP_ALLOC_ADDR;
+-	comp_alloc_size = DECOMP_ALLOC_SIZE;
++#if defined(__riscv)
++	uint64_t v;
++
++	__asm__ volatile("ld %0, 0(%1)" : "=r"(v) : "r"(s) : "memory");
++	__asm__ volatile("sd %0, 0(%1)" : : "r"(v), "r"(d) : "memory");
++#else
++	/* host tests compile this file (sanitizers) */
++	memcpy(d, s, 8);
++#endif
+ }
+ 
+-static void *SzAlloc(ISzAllocPtr p, size_t size)
++static inline uint32_t le32(const uint8_t *p)
+ {
+-	void *x;
+-
+-	// The area is DECOMP_ALLOC_SIZE bytes; the old test here could never fail.
+-	if (size > DECOMP_ALLOC_ADDR + comp_alloc_size - comp_alloc_buf) {
+-		ERROR("%s can't alloc %lu bytes\n", __func__, size);
+-		return NULL;
+-	}
+-
+-	x = (void *)comp_alloc_buf;
+-	comp_alloc_buf += size;
+-
+-	return x;
++	return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24);
+ }
+ 
+-static void SzFree(ISzAllocPtr p, void *address)
++/* One LZ4 block into [*opp, oend); matches may reach back to base. */
++static int lz4_block(uint8_t *base, uint8_t **opp, uint8_t *oend, const uint8_t *ip, const uint8_t *iend)
+ {
+-}
+-
+-int decompress_lzma(void *dst, size_t *dst_size, const void *src, size_t src_size)
+-{
+-	size_t uncomp_size = 0;
+-	uint32_t tmp;
+-	int ret;
+-
+-	ISzAlloc alloc = { SzAlloc, SzFree };
+-	ELzmaStatus status = 0;
+-	const uint8_t *prop;
+-
+-	if (!dst_size) {
+-		ERROR("%s: dst_size is NULL.\n", __func__);
+-		return -EINVAL;
++	uint8_t *op = *opp;
++
++	for (;;) {
++		unsigned int token;
++		size_t len, off;
++		const uint8_t *match;
++
++		if (ip >= iend)
++			return -1;
++		token = *ip++;
++
++		len = token >> 4;
++		if (len == 15) {
++			unsigned int b;
++
++			do {
++				if (ip >= iend)
++					return -1;
++				b = *ip++;
++				len += b;
++			} while (b == 255);
++		}
++		if (len > (size_t)(iend - ip) || len > (size_t)(oend - op))
++			return -1;
++		if (len + 8 <= (size_t)(iend - ip) && len + 8 <= (size_t)(oend - op)) {
++			uint8_t *e = op + len;
++
++			for (; op < e; op += 8, ip += 8)
++				copy8(op, ip);
++			ip -= op - e;
++			op = e;
++		} else {
++			memcpy(op, ip, len);
++			op += len;
++			ip += len;
++		}
++		if (ip == iend)
++			break; /* the last sequence has literals only */
++
++		if (iend - ip < 2)
++			return -1;
++		off = ip[0] | (ip[1] << 8);
++		ip += 2;
++		if (!off || off > (size_t)(op - base))
++			return -1;
++		match = op - off;
++
++		len = token & 15;
++		if (len == 15) {
++			unsigned int b;
++
++			do {
++				if (ip >= iend)
++					return -1;
++				b = *ip++;
++				len += b;
++			} while (b == 255);
++		}
++		len += 4;
++		if (len > (size_t)(oend - op))
++			return -1;
++		if (off >= 8 && len + 8 <= (size_t)(oend - op)) {
++			/* each 8-byte load reads only bytes already written */
++			uint8_t *e = op + len;
++
++			for (; op < e; op += 8, match += 8)
++				copy8(op, match);
++			op = e;
++		} else {
++			while (len--)
++				*op++ = *match++;
++		}
+ 	}
+ 
+-	SzInit();
+-
+-	INFO("LZMA1/%p/%p.\n", dst, src);
+-
+-	prop = src;
+-	src += LZMA_PROPS_SIZE;
+-	src_size -= LZMA_PROPS_SIZE;
+-
+-	// Copy 4 bytes to uncomp_size
+-	memcpy(&tmp, src, sizeof(tmp));
+-	uncomp_size = tmp;
+-
+-	src += 8;
+-	src_size -= 8;
+-
+-	INFO("LZMA2/uncomp_size=0x%lx\n", uncomp_size);
+-	ret = LzmaDecode(dst, &uncomp_size, src, &src_size, prop, LZMA_PROPS_SIZE, LZMA_FINISH_END, &status, &alloc);
+-
+-	if (ret != SZ_OK) {
+-		ERROR("LzmaDecode ERROR: %d (status=%d)\n", ret, status);
+-		return -EFAULT;
+-	}
+-
+-	*dst_size = uncomp_size;
+-	INFO("LZMA9/0x%lx\n", *dst_size);
+-
++	*opp = op;
+ 	return 0;
+ }
+ 
+-void *LZ4_malloc(size_t s)
+-{
+-	return SzAlloc(NULL, s);
+-}
+-void *LZ4_calloc(size_t n, size_t s)
+-{
+-	void *p = LZ4_malloc(n * s);
+-
+-	if (p)
+-		memset(p, 0, n * s);
+-
+-	return p;
+-}
+-
+-void LZ4_free(void *p)
+-{
+-}
+-
+ int decompress_lz4(void *dst, size_t *dst_size, const void *src, size_t src_size)
+ {
+-	LZ4F_dctx *dctx;
+-	size_t ret;
+-	size_t dctxStatus;
+-
+-	SzInit();
+-
+-	INFO("LZ4/%p/%p.\n", dst, src);
++	const uint8_t *ip = src, *iend = ip + src_size;
++	uint8_t *base = dst, *op = base, *oend = base + *dst_size;
++	unsigned int flg;
+ 
+-	dctxStatus = LZ4F_createDecompressionContext(&dctx, LZ4F_VERSION);
+-
+-	if (LZ4F_isError(dctxStatus)) {
+-		ERROR("dctxStatus=%lu\n", dctxStatus);
+-		return -1;
+-	}
+-
+-	ret = LZ4F_decompress(dctx, dst, dst_size, src, &src_size, NULL);
+-	INFO("dst_size=%lu src_size=%lu ret=%zd\n", *dst_size, src_size, ret);
+-	// 0: the whole frame was decoded; anything else is an error or a frame
+-	// that did not fit into dst_size or was cut short.
+-	if (LZ4F_isError(ret) || ret != 0) {
+-		ERROR("LZ4F_decompress=%lu\n", ret);
+-		return -1;
++	if (src_size < 7 || le32(ip) != LZ4F_MAGIC)
++		return -EINVAL;
++	flg = ip[4];
++	if ((flg & LZ4F_FLG_VERSION_MASK) != LZ4F_FLG_VERSION)
++		return -EINVAL;
++	ip += 7 + ((flg & LZ4F_FLG_CONTENT_SIZE) ? 8 : 0) + ((flg & LZ4F_FLG_DICT_ID) ? 4 : 0);
++
++	for (;;) {
++		uint32_t bsize;
++
++		if (iend - ip < 4)
++			return -EINVAL;
++		bsize = le32(ip);
++		ip += 4;
++		if (!bsize)
++			break;
++		if ((bsize & ~LZ4F_BLOCK_RAW) > (size_t)(iend - ip))
++			return -EINVAL;
++		if (bsize & LZ4F_BLOCK_RAW) {
++			bsize &= ~LZ4F_BLOCK_RAW;
++			if (bsize > (size_t)(oend - op))
++				return -EINVAL;
++			memcpy(op, ip, bsize);
++			op += bsize;
++		} else if (lz4_block(base, &op, oend, ip, ip + bsize) < 0) {
++			ERROR("LZ4 block at 0x%lx\n", (unsigned long)(ip - (const uint8_t *)src));
++			return -EINVAL;
++		}
++		ip += bsize + ((flg & LZ4F_FLG_BLOCK_CKSUM) ? 4 : 0);
+ 	}
++	if ((flg & LZ4F_FLG_CONTENT_CKSUM) && iend - ip < 4)
++		return -EINVAL;
+ 
+-	// No need to free.
+-	// LZ4F_freeDecompressionContext(dctx);
+-
++	*dst_size = op - base;
+ 	return 0;
+ }
+ 
+@@ -132,21 +174,10 @@ int decompress(void *dst, size_t *dst_size, const void *src, size_t src_size, en
+ {
+ 	int ret = -EINVAL;
+ 
+-	NOTICE("DCP/%p/0x%lx/%p/0x%lx/%d.\n", dst, *dst_size, src, src_size, type);
+-
+-	switch (type) {
+-	case COMP_LZ4:
++	if (type == COMP_LZ4)
+ 		ret = decompress_lz4(dst, dst_size, src, src_size);
+-		break;
+-	case COMP_LZMA:
+-		ret = decompress_lzma(dst, dst_size, src, src_size);
+-		break;
+-	default:
+-		ret = -EINVAL;
+-		break;
+-	}
+ 
+ 	NOTICE("DCP/0x%lx/%d.\n", *dst_size, ret);
+ 
+ 	return ret;
+-}
+\ No newline at end of file
++}
+diff --git a/plat/cv181x/platform.mk b/plat/cv181x/platform.mk
+index ff5c259..17f1895 100644
+--- a/plat/cv181x/platform.mk
++++ b/plat/cv181x/platform.mk
+@@ -54,10 +54,7 @@ BL_COMMON_SOURCES = \
+ 	${STDLIB_SRCS} \
+ 	${CRYPT_SOURCES}
+ 
+-DECOMPRESSION_SOURCES = \
+-	lib/lzma/LzmaDec.c \
+-	lib/lz4/lz4_all.c \
+-	lib/lz4/xxhash.c
++DECOMPRESSION_SOURCES =
+ 
+ BL2_SRCS = \
+ 	${BL_COMMON_SOURCES} \

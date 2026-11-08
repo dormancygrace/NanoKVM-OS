@@ -36,6 +36,26 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | `0003-ddr3-reset-low-200us.patch` | DDR3 RESET# low for 200 us (JESD79-3), from sophgo/fsbl 2026.10.28 |
 | `0004-sd-fast-boot-read.patch` | OpenSBI and U-Boot read from SD at 4 bits and 50 MHz instead of the ROM's 1 bit (see below) |
 | `0005-lz4-opensbi.patch` | OpenSBI as an LZ4 frame, decoded after the clock switch; `decompress_lz4()` checks the decoder's result |
+| `0006-lz4-decoder.patch` | A small LZ4 frame decoder instead of LZ4F, xxHash and LZMA (see "Size") |
+| `0007-quiet-console.patch` | Console: the banner, `DDR BIST PASS` and failures only; step marks at INFO, compiled out |
+| `0008-drop-unused-paths.patch` | No overdrive PLL path; a FIP with a small-core image is refused |
+
+## Size and console
+
+The boot ROM reads `bl2.bin` itself, at its own 1 bit and 4.2 MHz, about
+2 ms per KB, before BL2 can speed anything up; and at 115 200 baud each
+console character costs BL2 87 us. Built with `-Os`, garbage-collected
+sections.
+
+| | bl2.bin | BL2 start to exit |
+|---|---|---|
+| `0005` | 35.8 KB | 149-150 ms |
+| `0006` LZ4 decoder, no LZ4F/xxHash/LZMA | 20.9 KB | 147 ms |
+| `0007` + `0008` quiet console, unused paths | 18.3 KB | 103 ms |
+
+The console now shows the banner, `DDR BIST PASS`, failures, and the
+ROM's own `SD/...` line for each load. A build with `LOG_LEVEL := 3` in
+the Makefile prints the step marks again (`P2S`, `MS`, `L2`, ...).
 
 ## SD read speed
 
@@ -98,9 +118,10 @@ With reading at that speed, decoding dominates: U-Boot as LZMA (145 KB)
 took 39 ms to decode, as LZ4 (191 KB) 2.5 ms, for about 5 ms more
 reading. `scripts/nanokvm-fip.py` therefore packs U-Boot (`B3Z4`) and
 OpenSBI as LZ4 frames (`lz4 -12 -B5 --no-frame-crc`; the FIP CRCs cover
-the compressed bytes). 256 KiB blocks: the LZ4F decoder allocates two
-buffers of the block size from a 1 MiB area, whose bound `0005` also
-fixes (the old test could never fail). BL2 loads OpenSBI into a buffer and, when it starts
+the compressed bytes). 256 KiB blocks: `0005`'s LZ4F decoder allocated
+two buffers of the block size from a 1 MiB area, whose bound it also
+fixed; `0006` replaces it with a decoder that allocates nothing and
+accepts any frame the validator does. BL2 loads OpenSBI into a buffer and, when it starts
 with the LZ4 frame magic, decodes it to its run address after
 `load_loader_2nd()` has switched the clocks to the PLLs, at most up to
 the U-Boot header; other content is copied as before. BL2 from start to
@@ -124,7 +145,6 @@ From sophgo/fsbl up to the 2026.10.28 release:
 A new BL2 can stop a board before U-Boot. Test it on a board with its SD card
 at hand: load it over the ROM's UART window first, without writing the card
 (`docs/BOOT.md`, "Testing a FIP without writing it"); the console shows the
-banner `FSBL Jb2829:nanokvm-os:sipeed-sdk <commit>`, `cv181x DDR init.` and
-`DDR BIST PASS`. A card with a FIP that does not boot is repaired on a
+banner `FSBL Jb2829:nanokvm-os:sipeed-sdk <commit>` and `DDR BIST PASS`. A card with a FIP that does not boot is repaired on a
 computer: copy `fip.prev` (left by the last bootloader update) over `fip.bin`
 on the boot partition.

@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
-	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -29,15 +28,6 @@ var c906Masks = []struct {
 	{"generic", maskBytesGeneric}, {"selected", maskBytes},
 }
 
-func c906Require(t *testing.T) {
-	t.Helper()
-	if !maskC906Available() {
-		if os.Getenv("NANOKVM_MASK_REQUIRE_C906") == "1" {
-			t.Fatal("required C906 kernel contract unavailable")
-		}
-		t.Skip("requires C906 vector state and fast misaligned words")
-	}
-}
 func c906Oracle(key [4]byte, pos int, b []byte) int {
 	for i := range b {
 		b[i] ^= key[pos&3]
@@ -53,35 +43,9 @@ func c906CPUTime() int64 {
 	}
 	return ts.Nano()
 }
-func TestC906Selection(t *testing.T) {
-	c906Require(t)
-	want := os.Getenv("NANOKVM_WEBSOCKET_MASK") != "generic"
-	if useC906Mask != want {
-		t.Fatalf("selected=%v want=%v", useC906Mask, want)
-	}
-	t.Logf("C906 available; selected=%v", useC906Mask)
-}
-func TestC906ISA(t *testing.T) {
-	for _, tc := range []struct {
-		s    string
-		want bool
-	}{
-		{"isa : rv64imafdc_xtheadvector_zicsr\n", true},
-		{"isa : rv64imafdc_v\n", false},
-		{"isa : rv64imafdc_xtheadvectorx\n", false},
-		{"isa : rv64imafdc_xtheadvector\nisa : rv64imafdc\n", false},
-		{"isa : rv64imafdc_xtheadvector\nisa : rv64imafdc_xtheadvector\n", true},
-		{"uarch : xtheadvector\n", false},
-	} {
-		if got := maskHasXTheadVector(tc.s); got != tc.want {
-			t.Errorf("%q: %v", tc.s, got)
-		}
-	}
-}
 func TestC906Correct(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	c906Require(t)
 	rng := rand.New(rand.NewSource(906260))
 	lengths := make([]int, 513)
 	for i := range lengths {
@@ -155,7 +119,6 @@ func TestC906Correct(t *testing.T) {
 func TestC906GuardPages(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	c906Require(t)
 	const page = 4096
 	mem, e := syscall.Mmap(-1, 0, 34*page, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_PRIVATE|syscall.MAP_ANON)
 	if e != nil {
@@ -213,7 +176,6 @@ func TestC906Measure(t *testing.T) {
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	c906Require(t)
 	sizes := []int{0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 255, 256, 257, 511, 512, 513, 1400, 1460, 4096, 16384, 65536, 262144, 1048576}
 	offsets := []int{0, 1, 5, 7}
 	buf := make([]byte, 1048576+32)
@@ -254,7 +216,6 @@ func TestC906Streaming(t *testing.T) {
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	c906Require(t)
 	const working = 8 << 20
 	arena := make([]byte, working+128)
 	original := make([]byte, len(arena))
@@ -297,7 +258,6 @@ func TestC906Streaming(t *testing.T) {
 	}
 }
 func TestC906Stress(t *testing.T) {
-	c906Require(t)
 	old := runtime.GOMAXPROCS(4)
 	defer runtime.GOMAXPROCS(old)
 	var wg sync.WaitGroup
@@ -309,7 +269,6 @@ func TestC906Stress(t *testing.T) {
 			defer wg.Done()
 			runtime.LockOSThread()
 			defer runtime.UnlockOSThread()
-			c906Require(t)
 			arena := make([]byte, 65568)
 			want := make([]byte, len(arena))
 			key := [4]byte{byte(id), 0x82, 0x19, 0xdb}

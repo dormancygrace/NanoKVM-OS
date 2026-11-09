@@ -1,7 +1,13 @@
 # Build against the running kernel's tree; copy the generated assembly next to this file:
 #   gen_chacha_linux.py --binutils PREFIX --output linux-test/chacha-riscv64-xtheadvector.S
 #   gen_ghash_linux.py --binutils PREFIX --output linux-test/ghash-riscv64-c906.S
+#   gen_poly1305_vector.py --binutils PREFIX --linux --output linux-test/poly1305-riscv64-xtheadvector.S
+# and, for poly1305_xtv, lib/crypto/riscv/poly1305.h of the patched tree as
+# poly1305-glue.h and the kernel build's lib/crypto/riscv/poly1305-core.S.
 obj-m += chacha_xtv.o
 chacha_xtv-y := chacha_xtv_test.o chacha-riscv64-xtheadvector.o
 obj-m += ghash_c906.o
 ghash_c906-y := ghash_c906_test.o ghash-riscv64-c906.o
+obj-m += poly1305_xtv.o
+poly1305_xtv-y := poly1305_xtv_test.o poly1305-core.o poly1305-riscv64-xtheadvector.o
+AFLAGS_poly1305-core.o += -Dpoly1305_init=poly1305_block_init

@@ -237,6 +237,7 @@ jobs:
           curl -fsSL "$(python3 gen_poly1305_c906.py --print-url)" -o "$RUNNER_TEMP/poly1305-riscv.pl"
           python3 gen_poly1305_c906.py --cryptogams "$RUNNER_TEMP/poly1305-riscv.pl" --binutils riscv64-linux-gnu- --check sum_c906_riscv64.s
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --go --check sum_vector_riscv64.s
+          python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --linux --check ../../../platform/kernel/0077-crypto-riscv-xtheadvector-poly1305.patch
       - name: OpenSSL C906 ChaCha dispatch
         run: |
           sudo apt-get install -y libssl-dev

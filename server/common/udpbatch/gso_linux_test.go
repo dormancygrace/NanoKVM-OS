@@ -43,7 +43,6 @@ func queueGSOTestPackets(t *testing.T, sender *Conn, destinationAddress string, 
 func TestGSOLoopbackWireEquality(t *testing.T) {
 	for _, network := range []string{"udp4", "udp6"} {
 		t.Run(network, func(t *testing.T) {
-			t.Setenv("NANOKVM_WEBRTC_UDP_GSO", "1")
 			sender, receiver, destination := openPair(t, network)
 			sender.flushInterval = time.Hour
 			var gsos atomic.Int32

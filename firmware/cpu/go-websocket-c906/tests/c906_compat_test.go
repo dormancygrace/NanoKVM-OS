@@ -1,6 +1,10 @@
 // Copyright 2026 NanoKVM OS contributors.
 // Use of this source code is governed by the BSD-style LICENSE in this directory.
 
+// The upstream prepared-message tests seed math/rand for a reproducible frame
+// mask; since Go 1.24 rand.Seed is a no-op unless randseednop=0.
+//go:debug randseednop=0
+
 package websocket
 
 import (
@@ -13,7 +17,6 @@ import (
 
 // Complete the old proxy fixture's CONNECT using an actual tunnel. Recent
 // net/http closes a CONNECT response unless its handler takes over the socket.
-// Prepared-message tests also need GODEBUG=randseednop=0 to honor their seeds.
 func c906ProxyTunnel(t *testing.T, w http.ResponseWriter, target string) {
 	t.Helper()
 	upstream, err := net.DialTimeout("tcp", target, 5*time.Second)

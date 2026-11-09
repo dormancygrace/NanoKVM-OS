@@ -35,7 +35,8 @@ for source in sources.values():
         p.error('Missing native library: '+str(source))
 cross = str(a.buildroot_output.resolve()/'host/bin/riscv64-buildroot-linux-musl-')
 required_native_symbols = {
-    'libkvm.so': {'kvmv_read_video_sink_v2', 'kvmv_read_mjpeg_sink', 'set_mjpeg_chroma', 'get_mjpeg_chroma_status'},
+    'libkvm.so': {'kvmv_read_video_sink_v2', 'kvmv_read_mjpeg_sink', 'kvmv_read_mjpeg_tiles_sink',
+                  'set_mjpeg_chroma', 'get_mjpeg_chroma_status'},
     'libkvm_mmf.so': {'mmf_add_venc_channel_v2', 'mmf_add_vi_channel_configured', 'mmf_vi_drop_pending'},
 }
 required_native_dependencies = {

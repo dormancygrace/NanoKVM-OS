@@ -1,6 +1,6 @@
 # NanoKVM ICE changes
 
-Base: github.com/pion/ice/v4 v4.4.8. MIT license and upstream tests retained; compare the named release from the Go module proxy.
+Base: github.com/pion/ice/v4 v4.4.9. MIT license and upstream tests retained; compare the named release from the Go module proxy.
 
 `agent.go` and `path_mtu.go` implement opt-in authenticated datagram path probing. Nomination logic is not replaced. Without `PathMTUObserver`, upstream transport behavior is retained.
 
@@ -30,3 +30,10 @@ its configured numeric server remains the source to validate. This avoids
 overrides that server. Connected TCP/TLS/DTLS adapters retain `RemoteAddr`.
 The VNet regression checks trusted and untrusted sources and successful relay
 allocation; NAT connectivity tests have bounded connection waits.
+
+The v4.4.9 refresh adds optional padded connectivity checks, deterministic
+ICE-lite address-family priorities and WithInsecureSkipVerify. NanoKVM does
+not enable either new option: its existing authenticated adaptive PMTU probes
+remain independent, and TURN certificate verification remains enabled. Local
+PMTU, TURN endpoint/source-validation and ICE-TCP framing changes are retained.
+The hash manifest covers the complete v4.4.9 Go module.

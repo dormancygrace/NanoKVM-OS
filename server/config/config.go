@@ -78,12 +78,32 @@ func readByFile() error {
 }
 
 func readValues(data []byte) error {
-	var raw map[string]any
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	parsed, err := parseValues(data)
+	if err != nil {
 		return err
 	}
-	values = normalizeValues(raw)
+	values = parsed
 	return nil
+}
+
+func parseValues(data []byte) (map[string]any, error) {
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	return normalizeValues(raw), nil
+}
+
+// ParsePorts reads the ports of server.yaml content as the server does. Other
+// readers of the file (the IPMI daemon) test against it.
+func ParsePorts(data []byte) (Port, error) {
+	parsed, err := parseValues(data)
+	if err != nil {
+		return Port{}, err
+	}
+	var ports Port
+	err = decodeValues(parsed["port"], &ports)
+	return ports, err
 }
 
 // Viper treated keys case-insensitively and interpreted dots as nested paths.

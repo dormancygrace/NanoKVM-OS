@@ -97,6 +97,13 @@ test('the draft key round-trips and orders its fields', () => {
   );
 });
 
+test('an empty fixed serial number stays fixed and invalid', () => {
+  // Switching to a fixed serial before typing it must not read as per profile.
+  const fixed = identity.identityFromKey(identity.identityKey({ ...acer, serialNumber: NaN }));
+  assert.notEqual(fixed.serialNumber, null);
+  assert.equal(identity.identityIssue(fixed), 'serialNumber');
+});
+
 test('an identity change rewrites the monitor and is sent once', () => {
   const caps = {
     input: { width: 1920, height: 1080, fps: 60, maxFps: 60 },

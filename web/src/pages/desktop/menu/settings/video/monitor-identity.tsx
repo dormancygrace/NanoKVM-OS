@@ -26,7 +26,7 @@ type NumberText = { productCode: string; serialNumber: string; week: string; yea
 const numberText = (id: MonitorIdentity | null): NumberText => ({
   productCode: id && Number.isFinite(id.productCode) ? productHex(id.productCode) : '',
   serialNumber:
-    id && id.serialNumber !== null && Number.isFinite(id.serialNumber)
+    id && id.serialNumber !== null && Number.isFinite(id.serialNumber) && id.serialNumber >= 0
       ? String(id.serialNumber)
       : '',
   week: id && Number.isFinite(id.week) ? String(id.week) : '',

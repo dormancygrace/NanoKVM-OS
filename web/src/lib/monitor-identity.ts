@@ -29,7 +29,8 @@ const printable = (s: string) => /^[\x20-\x7e]*$/.test(s);
 
 // The draft value: '' is NanoKVM's own identity, otherwise the identity as
 // JSON with a fixed key order, so equal identities compare equal. Fields the
-// form cannot parse are null.
+// form cannot parse are null, a fixed serial number it cannot parse -1 (null
+// there means each profile's own).
 export function identityKey(identity: MonitorIdentity | null | undefined): string {
   if (!identity) return '';
   return JSON.stringify({
@@ -39,7 +40,7 @@ export function identityKey(identity: MonitorIdentity | null | undefined): strin
     serialNumber:
       identity.serialNumber === null || Number.isFinite(identity.serialNumber)
         ? identity.serialNumber
-        : null,
+        : -1,
     serialText: identity.serialText,
     week: Number.isFinite(identity.week) ? identity.week : null,
     year: Number.isFinite(identity.year) ? identity.year : null

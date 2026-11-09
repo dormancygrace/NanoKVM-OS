@@ -25,6 +25,7 @@
 #include <linux/module.h>
 #include <linux/random.h>
 #include <linux/sched.h>
+#include <linux/sched/task.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/unaligned.h>
@@ -192,6 +193,7 @@ static int check_preemption(void)
 {
 	struct preempt_job j = { .len = 65520 };
 	struct hog_job h;
+	struct task_struct *hog, *victim;
 	u8 key[32];
 	unsigned long sw = current->nivcsw;
 	int fails = 0, rnd;
@@ -207,19 +209,28 @@ static int check_preemption(void)
 	init_completion(&j.done);
 	init_completion(&h.done);
 	h.deadline = j.deadline = ktime_get_ns() + (u64)preempt_ms * NSEC_PER_MSEC;
-	if (IS_ERR(kthread_run(hog_fn, &h, "poly1305_xtv_hog"))) {
+	hog = kthread_create(hog_fn, &h, "poly1305_xtv_hog");
+	if (IS_ERR(hog)) {
 		vfree(in);
 		return -ECHILD;
 	}
-	if (IS_ERR(kthread_run(victim_fn, &j, "poly1305_xtv_victim"))) {
-		/* Keep the stack job and module text alive until the hog exits. */
-		wait_for_completion(&h.done);
+	/* Hold references before waking: workers may exit before we join. */
+	get_task_struct(hog);
+	victim = kthread_create(victim_fn, &j, "poly1305_xtv_victim");
+	if (IS_ERR(victim)) {
+		kthread_stop_put(hog);
 		vfree(in);
 		return -ECHILD;
 	}
+	get_task_struct(victim);
+	wake_up_process(hog);
+	wake_up_process(victim);
 	rnd = check_random(1000, false, false);
 	wait_for_completion(&j.done);
 	wait_for_completion(&h.done);
+	/* Completion precedes return: join before this module can unload. */
+	kthread_stop_put(victim);
+	kthread_stop_put(hog);
 	pr_info("poly1305_xtv: preemption: victim %lu calls of %u bytes, %lu involuntary switches, %lu mismatches; random cases under load: %d failures, %lu involuntary switches\n",
 		j.calls, j.len, j.nivcsw, j.mismatches, rnd, current->nivcsw - sw);
 	if (j.mismatches || rnd)

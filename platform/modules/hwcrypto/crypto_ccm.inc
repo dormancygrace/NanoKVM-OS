@@ -232,7 +232,7 @@ static void sg2_ccm_work(struct work_struct *work)
 		sg2_ccm_process(req, r->encrypt);
 
 	sg2_async_leave();
-	aead_request_complete(req, err);
+	sg2_complete(aead_request_complete, req, err);
 }
 
 static int sg2_ccm_submit(struct aead_request *req, bool encrypt)

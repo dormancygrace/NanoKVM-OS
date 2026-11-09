@@ -183,7 +183,7 @@ static void sg2_cmac_work(struct work_struct *work)
 	int err = sg2_cmac_process(req, r->operation);
 
 	sg2_async_leave();
-	ahash_request_complete(req, err);
+	sg2_complete(ahash_request_complete, req, err);
 }
 
 static int sg2_cmac_submit(struct ahash_request *req, unsigned int operation)

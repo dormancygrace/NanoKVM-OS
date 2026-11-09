@@ -115,3 +115,21 @@ func encodingQuality(value string) int {
 	}
 	return q
 }
+
+// staticFiles serves existing paths and leaves absent paths to the API/router.
+// net/http retains index redirects, directory listings, HEAD, range requests
+// and conditional responses; assets handles precompressed files before this.
+func staticFiles(root string) gin.HandlerFunc {
+	serve := http.StripPrefix("/", http.FileServer(http.Dir(root)))
+	return func(c *gin.Context) {
+		name, ok := strings.CutPrefix(c.Request.URL.Path, "/")
+		if !ok {
+			return
+		}
+		if _, err := os.Stat(path.Join(root, name)); err != nil {
+			return
+		}
+		serve.ServeHTTP(c.Writer, c.Request)
+		c.Abort()
+	}
+}

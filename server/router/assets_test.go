@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +21,7 @@ func TestAssetsCacheOnlyExistingFilesUnderAssets(t *testing.T) {
 
 	r := gin.New()
 	r.Use(assets(dir))
-	r.Use(static.Serve("/", static.LocalFile(dir, true)))
+	r.Use(staticFiles(dir))
 	get := func(path, encoding string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("GET", path, nil)
 		if encoding != "" {
@@ -86,7 +85,7 @@ func TestAssetsBrotliNegotiation(t *testing.T) {
 		}
 	}
 	r := gin.New()
-	r.Use(assets(dir), static.Serve("/", static.LocalFile(dir, true)))
+	r.Use(assets(dir), staticFiles(dir))
 	for _, tc := range []struct {
 		name, file, header, coding string
 		status                     int

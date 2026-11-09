@@ -206,8 +206,13 @@ static int check_preemption(void)
 	init_completion(&j.done);
 	init_completion(&h.done);
 	h.deadline = j.deadline = ktime_get_ns() + (u64)preempt_ms * NSEC_PER_MSEC;
-	if (IS_ERR(kthread_run(hog_fn, &h, "poly1305_xtv_hog")) ||
-	    IS_ERR(kthread_run(victim_fn, &j, "poly1305_xtv_victim"))) {
+	if (IS_ERR(kthread_run(hog_fn, &h, "poly1305_xtv_hog"))) {
+		vfree(in);
+		return -ECHILD;
+	}
+	if (IS_ERR(kthread_run(victim_fn, &j, "poly1305_xtv_victim"))) {
+		/* Keep the stack job and module text alive until the hog exits. */
+		wait_for_completion(&h.done);
 		vfree(in);
 		return -ECHILD;
 	}

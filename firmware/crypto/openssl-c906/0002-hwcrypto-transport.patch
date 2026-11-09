@@ -11,159 +11,120 @@
 +ENDIF
 --- /dev/null
 +++ b/crypto/hwcrypto.c
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,113 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <errno.h>
 +#include <fcntl.h>
 +#include <stdatomic.h>
 +#include <stdint.h>
-+#include <stdlib.h>
 +#include <string.h>
-+#include <sys/stat.h>
 +#include <sys/ioctl.h>
 +#include <unistd.h>
 +#include <openssl/crypto.h>
 +#include "crypto/hwcrypto_transport.h"
 +
 +_Static_assert(sizeof(struct hwcrypto_request) == 144, "SG2002 request ABI");
-+_Static_assert(sizeof(struct hwcrypto_info) == 160, "SG2002 info ABI");
 +
++/* The module ships in the same image as this library: no ABI, capability or
++ * device-type probe. The driver keeps no per-open state and serialises every
++ * RUN under one mutex, so a process shares one close-on-exec descriptor across
++ * threads. The owner pid is kept with it: a forked child (an OpenSSH preauth
++ * sandbox, say) drops the inherited descriptor and opens its own.
++ */
 +static _Atomic int failed;
-+/* Capabilities are immutable for this ABI. Each DSO has its own cache.
-+ * Descriptors remain operation-owned, including across fork/provider unload. */
-+static _Atomic unsigned int cached_algorithms;
-+static CRYPTO_ONCE once = CRYPTO_ONCE_STATIC_INIT;
-+static int disabled;
-+static void init_options(void)
-+{
-+    const char *v = secure_getenv("NANOKVM_OPENSSL_DMA");
-+    disabled = v != NULL && strcmp(v, "off") == 0;
-+}
++static _Atomic uint64_t shared;            /* pid << 32 | (fd + 1); 0: none */
++
 +static void fault(int error)
 +{
-+    /* Retry transient resource failures/interruptions on a later operation.
-+     * Availability, access and protocol failures disable this library image. */
-+    if (error == EIO || error == ETIMEDOUT || error == ENODEV
-+        || error == ENOENT || error == ENOTDIR || error == EACCES || error == EPERM
-+        || error == ENOTTY || error == EINVAL || error == EMSGSIZE || error == EBADF)
++    /* EIO/ETIMEDOUT: the driver poisoned the engine until reboot. Absence or
++     * permission (a non-root or sandboxed process) holds for the process.
++     * Interrupted, faulting or resource-limited calls retry on a later one. */
++    if (error == EIO || error == ETIMEDOUT || error == ENOENT || error == ENODEV
++        || error == ENXIO || error == EACCES || error == EPERM
++        || error == EINVAL || error == EMSGSIZE)
 +        atomic_store_explicit(&failed, 1, memory_order_relaxed);
 +}
 +int ossl_hwcrypto_begin(unsigned int algorithm)
 +{
-+    struct hwcrypto_info info;
-+    struct stat st;
-+    unsigned int algorithms;
-+    int fd, error;
-+    if (algorithm < 1 || algorithm >= HWCRYPTO_ALG_COUNT
-+        || !CRYPTO_THREAD_run_once(&once, init_options) || disabled
-+        || atomic_load_explicit(&failed, memory_order_relaxed))
++    uint64_t pid, current, mine;
++    int fd;
++
++    (void)algorithm;
++    if (atomic_load_explicit(&failed, memory_order_relaxed))
 +        return -1;
-+    algorithms = atomic_load_explicit(&cached_algorithms, memory_order_acquire);
-+    if (algorithms != 0 && !(algorithms & (1u << algorithm)))
-+        return -1;
++    pid = (uint32_t)getpid();
++    current = atomic_load_explicit(&shared, memory_order_acquire);
++    if (current != 0 && current >> 32 == pid)
++        return (int)(uint32_t)current - 1;
++    /* Inherited across fork: this copy of the descriptor is the child's own. */
++    if (current != 0 && atomic_compare_exchange_strong(&shared, &current, 0))
++        close((int)(uint32_t)current - 1);
 +    fd = open("/dev/nanokvm-hwcrypto", O_RDWR | O_CLOEXEC);
 +    if (fd < 0) {
 +        fault(errno);
 +        return -1;
 +    }
-+    if (fstat(fd, &st) != 0) {
-+        error = errno;
-+        goto unavailable;
-+    }
-+    if (!S_ISCHR(st.st_mode)) {
-+        error = ENODEV;
-+        goto unavailable;
-+    }
-+    if (algorithms == 0) {
-+        memset(&info, 0, sizeof(info));
-+        if (ioctl(fd, HWCRYPTO_INFO, &info) != 0) {
-+            error = errno;
-+            goto unavailable;
-+        }
-+        if (info.version != HWCRYPTO_ABI || info.poisoned
-+            || info.algorithms == 0 || info.max_input < HWCRYPTO_MAX
-+            || info.max_output < HWCRYPTO_OUT_MAX) {
-+            error = info.poisoned ? EIO : EINVAL;
-+            goto unavailable;
-+        }
-+        algorithms = info.algorithms;
-+        atomic_store_explicit(&cached_algorithms, algorithms, memory_order_release);
-+    }
-+    if (!(algorithms & (1u << algorithm))) {
-+        close(fd);
-+        return -1;
-+    }
-+    return fd;
-+unavailable:
-+    fault(error);
-+    close(fd);
-+    return -1;
++    mine = pid << 32 | (uint32_t)(fd + 1);
++    current = 0;
++    if (atomic_compare_exchange_strong(&shared, &current, mine))
++        return fd;
++    close(fd);                              /* another thread opened first */
++    return current >> 32 == pid ? (int)(uint32_t)current - 1 : -1;
 +}
-+static int transaction(int fd, struct hwcrypto_request *request,
-+                       unsigned char *scratch)
++static int run(int fd, struct hwcrypto_request *request)
 +{
-+    struct hwcrypto_request r = *request;
-+    int hash = r.algorithm == HWCRYPTO_ALG_SHA1 || r.algorithm == HWCRYPTO_ALG_SHA256;
-+    unsigned int capacity = r.output_length;
-+    int ok = 0, error;
++    uint64_t current;
++    int error;
 +
-+    if (fd < 0 || atomic_load_explicit(&failed, memory_order_relaxed))
-+        goto done;
-+    if (r.version != HWCRYPTO_ABI || r.algorithm < 1
-+        || r.algorithm >= HWCRYPTO_ALG_COUNT || !r.input || !r.length
-+        || r.length > HWCRYPTO_MAX || capacity > HWCRYPTO_OUT_MAX
-+        || (hash && capacity) || (!hash && (!r.output || !scratch)))
-+        goto done;
-+    /* Commit neither chaining state nor in-place output on a syscall failure,
-+     * including a late copy_to_user fault after hardware already completed.
-+     */
-+    r.output = hash ? 0 : (uintptr_t)scratch;
-+    if (ioctl(fd, HWCRYPTO_RUN, &r) != 0) {
-+        error = errno;
-+        fault(error);
-+        goto done;
++    if (atomic_load_explicit(&failed, memory_order_relaxed))
++        return 0;
++    /* On any error the driver copies nothing back into the request. */
++    if (ioctl(fd, HWCRYPTO_RUN, request) == 0)
++        return 1;
++    error = errno;
++    if (error == EBADF || error == ENOTTY) {
++        /* The application closed the descriptor (closefrom, daemonising).
++         * Forget it without closing: the number may now be another file. */
++        current = atomic_load_explicit(&shared, memory_order_relaxed);
++        if ((uint32_t)current == (uint32_t)(fd + 1))
++            atomic_compare_exchange_strong(&shared, &current, 0);
++        return 0;
 +    }
-+    if (r.status != (hash ? 2u : 1u)
-+        || r.output_length > capacity
-+        || (hash && r.output_length != 0)
-+        || (!hash && r.algorithm != HWCRYPTO_ALG_BASE64
-+            && r.output_length != request->length)) {
-+        fault(EIO);
-+        goto done;
-+    }
-+    if (!hash)
-+        memcpy((void *)(uintptr_t)request->output, scratch, r.output_length);
-+    memcpy(request->state, r.state, sizeof(r.state));
-+    request->output_length = r.output_length;
-+    request->status = r.status;
-+    ok = 1;
-+done:
-+    OPENSSL_cleanse(&r, sizeof(r));
-+    return ok;
++    fault(error);
++    return 0;
 +}
-+/* Keep the output scratch frame off the SHA path. */
-+static __attribute__((noinline)) int output_transaction(
++/* In place, the driver could write the output before a late failure; keep the
++ * input intact for the software fallback. Off the SHA and out-of-place paths. */
++static __attribute__((noinline)) int run_in_place(
 +    int fd, struct hwcrypto_request *request)
 +{
 +    unsigned char scratch[HWCRYPTO_OUT_MAX];
++    uint64_t output = request->output;
 +    size_t capacity = request->output_length;
-+    int ok = transaction(fd, request, scratch);
-+    if (capacity <= sizeof(scratch))
-+        OPENSSL_cleanse(scratch, capacity);
++    int ok;
++
++    request->output = (uintptr_t)scratch;
++    ok = run(fd, request);
++    request->output = output;
++    if (ok)
++        memcpy((void *)(uintptr_t)output, scratch, request->output_length);
++    OPENSSL_cleanse(scratch, capacity < sizeof(scratch) ? capacity : sizeof(scratch));
 +    return ok;
 +}
 +int ossl_hwcrypto_run(int fd, struct hwcrypto_request *request)
 +{
-+    if (request->algorithm == HWCRYPTO_ALG_SHA1 || request->algorithm == HWCRYPTO_ALG_SHA256)
-+        return transaction(fd, request, NULL);
-+    return output_transaction(fd, request);
++    if (request->algorithm == HWCRYPTO_ALG_SHA1
++        || request->algorithm == HWCRYPTO_ALG_SHA256
++        || request->input != request->output)
++        return run(fd, request);
++    return run_in_place(fd, request);
 +}
 +void ossl_hwcrypto_end(int fd)
 +{
-+    if (fd >= 0)
-+        close(fd);
++    (void)fd;                               /* the process keeps it */
 +}
++
 --- /dev/null
 +++ b/include/crypto/hwcrypto_transport.h
 @@ -0,0 +1,9 @@

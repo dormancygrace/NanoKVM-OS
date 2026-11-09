@@ -50,8 +50,9 @@ def main():
         if a.negative_control:
             for name, change in [('capability', ('gcm_c906.c', '!ossl_riscv_has_xtheadvector', '0')),
                                  ('threshold', ('gcm_c906.c', 'len < 2048 ||', 'len < 16 ||')),
-                                 ('syscall-free hash path', ('gcm_c906.c', '    return vector_prefix(xi, table, in, len);',
-                                  '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    return vector_prefix(xi, table, in, len);'))]:
+                                 ('syscall-free hash path', ('gcm_c906.c', '    return vector_prefix(xi, table, kp, in, len);',
+                                  '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    return vector_prefix(xi, table, kp, in, len);')),
+                                 ('key cache', ('gcm_c906.c', 'if (kp[0] == 0)', 'if (1)'))]:
                 write(change)
                 subprocess.run(cmd,check=True)
                 run=subprocess.run([str(exe)],capture_output=True,text=True)

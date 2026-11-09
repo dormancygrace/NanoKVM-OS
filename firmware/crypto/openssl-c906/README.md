@@ -29,7 +29,8 @@ disabled. Standard RVV 1.0 alone does not enable draft XTheadVector code.
 
 Inputs below the single `OSSL_CHACHA_C906_MIN_BYTES` threshold (320 bytes, one
 five-block group; the C glue only hands whole groups to the vector code) use
-upstream code.
+upstream C code. The stock Zbb/RVV 1.0 kernels are no longer built or
+dispatched: the C906 has neither extension.
 
 There is no other check: NanoKVM OS runs only on the SG2002, and its kernel
 keeps the vector unit on for every user thread
@@ -62,15 +63,20 @@ Qualification sources and results belong to
 
 `0002-hwcrypto-transport.patch` adds the shared private ioctl client for subsequent
 per-algorithm patches. On its own it selects no hardware algorithm and changes
-no EVP result. It is compiled only for RISC-V64, outside the FIPS module. See
+no EVP result. It is compiled only for RISC-V64, outside the FIPS module. The
+module ships in the same image, so there is no ABI or capability probe; a
+process keeps one descriptor for all threads. EIO/ETIMEDOUT from a poisoned or
+hung engine still fall back to software. See
 `firmware/crypto/experimental/openssl-hwcrypto/` for fault tests and lifetime rules.
 
 ## SHA-224/256
 
 `0003-sha256-dma.patch` uses the shared direct transport for full compression
 chunks. OpenSSL owns streaming, padding, digest lengths and software fallback.
-The FIPS module is excluded. See `experimental/openssl-sha256` for qualification;
-the selected 4 KiB threshold and scalar adapter have native qualification.
+The FIPS module is excluded. The remainder goes straight to the scalar C906
+kernel; the Zvknh check of the stock dispatch is not compiled for XTheadBb
+builds. See `experimental/openssl-sha256` for qualification;
+DMA starts at 1 KiB (wall-clock break-even, see `experimental/openssl-hwcrypto`).
 
 ## AES
 
@@ -82,7 +88,9 @@ schedules.
 `0005-aes-dma.patch` adds ECB/CBC/CTR and the AES-CTR primitive used by GCM.
 OpenSSL retains streaming, padding, GHASH, authentication and TLS handling.
 The shared block helper commits only completed chunks and supports separate
-full-width and GCM counters. See `experimental/openssl-aes` for qualification.
+full-width and GCM counters. GCM installs the AES-CTR callback for every record;
+below the 512-byte DMA minimum it encrypts one AES block per call with 64-bit XOR
+and a register counter. See `experimental/openssl-aes` for qualification.
 
 The AES PR is based directly on the SHA-256 patch. SHA-1, DES, TDES and SM4
 OpenSSL offloads are not included. The AES helper rejects other algorithm IDs,
@@ -100,7 +108,9 @@ and the kernel run the same Poly1305. It is used under its BSD-3-Clause
 option; the runtime carries `CRYPTOGAMS-BSD-3-Clause.txt`. `build.info`
 selects it for `riscv64` like the other architectures' assembly; it is
 outside the FIPS module, and the dynamic symbol table is unchanged (5808
-definitions).
+definitions). The OpenSSL flags include `-mtune=thead-c906`, for which GCC
+defines `__riscv_misaligned_fast`, so the word-load input paths are built
+(no byte loads in `poly1305-riscv.o`).
 
 Stand, `openssl speed -evp chacha20-poly1305`, best of three, MB/s:
 

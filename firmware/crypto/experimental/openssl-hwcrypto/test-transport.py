@@ -45,8 +45,7 @@ def main():
         if a.negative_control:
             source = d / 'crypto/hwcrypto.c'
             original = source.read_text()
-            broken = original.replace('r.output = hash ? 0 : (uintptr_t)scratch;',
-                                      'r.output = request->output;')
+            broken = original.replace('return run_in_place(fd, request);', 'return (void)run_in_place, run(fd, request);')
             assert broken != original
             source.write_text(broken)
             subprocess.run(['cc', '-O1', '-g', '-Wall', '-Wextra', '-Werror', *flags,
@@ -54,8 +53,8 @@ def main():
                             str(Path(__file__).with_suffix('.c')), '-lcrypto', '-o', str(binary)], check=True)
             result = subprocess.run([str(binary)], capture_output=True)
             assert result.returncode != 0 and b'buf[k]' in result.stderr, (
-                'Unsafe output commit was not detected by the expected assertion', result.stderr)
-            print('PASS negative control: direct writes to caller output rejected')
+                'Unsafe in-place output commit was not detected by the expected assertion', result.stderr)
+            print('PASS negative control: in-place direct writes to caller output rejected')
 
 if __name__ == '__main__':
     main()

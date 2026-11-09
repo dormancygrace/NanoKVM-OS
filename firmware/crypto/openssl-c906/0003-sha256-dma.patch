@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/crypto/sha/sha256_hwcrypto.c
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,49 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +/* SG2002 SHA-256 compression only. OpenSSL owns buffering, padding and length. */
 +#include <stdint.h>
@@ -8,9 +8,10 @@
 +#include <openssl/sha.h>
 +#include "crypto/hwcrypto_transport.h"
 +
-+/* Native C906 qualification selects 4 KiB minimum and request chunks. */
++/* Requests of at most 4 KiB; DMA from 1 KiB (wall-clock break-even with the
++ * scalar C906 compressor), descriptor reused for tails of at least 512 B. */
 +#define DMA_BLOCKS (HWCRYPTO_MAX / SHA256_CBLOCK)
-+/* Reuse the descriptor for tails of at least 512 B, qualified on C906. */
++#define START_BLOCKS 16
 +#define CONTINUE_BLOCKS 8
 +
 +size_t ossl_sha256_hwcrypto(SHA256_CTX *ctx, const unsigned char *in, size_t blocks)
@@ -21,7 +22,7 @@
 +    size_t completed = 0;
 +    int fd;
 +
-+    if (blocks < DMA_BLOCKS)
++    if (blocks < START_BLOCKS)
 +        return 0;
 +    fd = ossl_hwcrypto_begin(HWCRYPTO_ALG_SHA256);
 +    if (fd < 0)
@@ -29,7 +30,7 @@
 +    for (unsigned int i = 0; i < 8; ++i)
 +        for (unsigned int j = 0; j < 4; ++j)
 +            r.state[4*i+j] = (unsigned char)(ctx->h[i] >> (24-8*j));
-+    while (blocks - completed >= (completed ? CONTINUE_BLOCKS : DMA_BLOCKS)) {
++    while (blocks - completed >= (completed ? CONTINUE_BLOCKS : START_BLOCKS)) {
 +        size_t n = blocks - completed < DMA_BLOCKS ? blocks - completed : DMA_BLOCKS;
 +        r.length = (uint32_t)(n * SHA256_CBLOCK);
 +        r.input = (uintptr_t)(in + completed * SHA256_CBLOCK);
@@ -65,7 +66,7 @@
 +ENDIF
 --- a/crypto/sha/sha_riscv.c
 +++ b/crypto/sha/sha_riscv.c
-@@ -19,12 +19,30 @@
+@@ -19,13 +19,32 @@
  void sha256_block_data_order_c(void *ctx, const void *in, size_t num);
  void sha256_block_data_order(void *ctx, const void *in, size_t num);
  
@@ -79,23 +80,25 @@
  void sha256_block_data_order(void *ctx, const void *in, size_t num)
  {
 +#ifndef FIPS_MODULE
-+    size_t completed = num >= 64 ? ossl_sha256_hwcrypto(ctx, in, num) : 0;
++    size_t completed = num >= 16 ? ossl_sha256_hwcrypto(ctx, in, num) : 0;
 +    num -= completed;
 +    in = (const unsigned char *)in + completed * SHA256_CBLOCK;
 +    if (num == 0)
 +        return;
 +#endif
++#if defined(__riscv_xtheadbb) && !defined(FIPS_MODULE)
++    /* SG2002 C906: no Zvknh, so the scalar XTheadBb kernel. */
++    ossl_sha256_c906_blocks(ctx, in, num);
++#else
      if (RISCV_HAS_ZVKB() && (RISCV_HAS_ZVKNHA() || RISCV_HAS_ZVKNHB()) && riscv_vlen() >= 128) {
          sha256_block_data_order_zvkb_zvknha_or_zvknhb(ctx, in, num);
      } else {
-+#if defined(__riscv_xtheadbb) && !defined(FIPS_MODULE)
-+        ossl_sha256_c906_blocks(ctx, in, num);
-+#else
          sha256_block_data_order_c(ctx, in, num);
-+#endif
      }
++#endif
  }
  
+ void sha512_block_data_order_zvkb_zvknhb(void *ctx, const void *in, size_t num);
 --- /dev/null
 +++ b/crypto/sha/sha256-c906.S
 @@ -0,0 +1,2663 @@

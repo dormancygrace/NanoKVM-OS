@@ -34,6 +34,12 @@ import (
 )
 
 func main() {
+	// nkos-totp-reset USER: the console way back into an account whose
+	// authenticator and recovery codes are lost. It edits the account file
+	// and exits; the running server reads the change on its next check.
+	if len(os.Args) > 1 && os.Args[1] == "totp-reset" {
+		os.Exit(totpReset(os.Args[2:]))
+	}
 	// Ahead of the other boot services until the first viewer is served.
 	startpriority.Raise()
 	ctx, stopMemory := context.WithCancel(context.Background())

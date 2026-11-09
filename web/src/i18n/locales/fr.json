@@ -436,6 +436,17 @@
       "change2": "Mot de passe de connexion Web",
       "change3": "Mot de passe racine du système (mot de passe de connexion SSH)",
       "change4": "Pour réinitialiser les mots de passe, appuyez et maintenez enfoncé le bouton BOOT sur le NanoKVM."
+    },
+    "totp": {
+      "title": "Authentification à deux facteurs",
+      "prompt": "Saisissez le code de votre application d'authentification ou l'un de vos codes de récupération.",
+      "placeholder": "Code d'authentification",
+      "required": "Saisissez le code",
+      "verify": "Vérifier",
+      "back": "Retour à la connexion",
+      "invalidCode": "Code d'authentification incorrect",
+      "clockNotSet": "L'horloge du NanoKVM n'est pas réglée : les codes de l'application ne peuvent pas être vérifiés. Utilisez un code de récupération ou réglez la date et l'heure de l'appareil.",
+      "expired": "La connexion a expiré. Reconnectez-vous."
     }
   },
   "wifi": {
@@ -2241,7 +2252,37 @@
         "usernameUpdated": "Nom d'utilisateur mis à jour",
         "loadFailed": "Échec du chargement des utilisateurs",
         "saveFailed": "Échec de l'enregistrement de l'utilisateur",
-        "deleteFailed": "Échec de la suppression de l'utilisateur"
+        "deleteFailed": "Échec de la suppression de l'utilisateur",
+        "totpOn": "2FA",
+        "resetTotp": "Réinitialiser la 2FA",
+        "resetTotpConfirm": "Désactiver l'authentification à deux facteurs pour cet utilisateur ? La connexion se fera avec le mot de passe seul jusqu’à une nouvelle configuration.",
+        "totpReset": "Authentification à deux facteurs désactivée"
+      },
+      "totp": {
+        "title": "Authentification à deux facteurs",
+        "description": "La connexion demande aussi un code d'une application d'authentification sur votre téléphone, comme Google Authenticator, Microsoft Authenticator ou 2FAS.",
+        "authenticator": "Application d'authentification",
+        "onDescription": "Activée. Codes de récupération restants : {{count}}.",
+        "offDescription": "Désactivée. La connexion ne demande que le mot de passe.",
+        "setUp": "Configurer",
+        "newCodes": "Nouveaux codes de récupération",
+        "turnOff": "Désactiver",
+        "fewCodes": "Il reste peu de codes de récupération. Créez-en de nouveaux pour pouvoir vous connecter si vous perdez votre téléphone.",
+        "scan": "Scannez ce QR code avec votre application d'authentification.",
+        "manual": "Ou saisissez cette clé dans l'application :",
+        "confirmCode": "Code de l'application",
+        "enable": "Activer",
+        "setupExpired": "La configuration a expiré. Recommencez.",
+        "failed": "La modification a échoué. Réessayez.",
+        "disabled": "L'authentification à deux facteurs est désactivée",
+        "codesTitle": "Codes de récupération",
+        "codesHint": "Chaque code remplace une fois un code de l'application si vous perdez votre téléphone. Conservez-les en lieu sûr : ils ne sont affichés que maintenant.",
+        "saveCodes": "Télécharger",
+        "copyCodes": "Copier",
+        "copied": "Copié",
+        "codesSaved": "Je les ai enregistrés",
+        "turnOffHint": "Saisissez votre mot de passe et un code de l'application ou un code de récupération.",
+        "newCodesHint": "Vos codes de récupération actuels cesseront de fonctionner. Saisissez votre mot de passe et un code de l'application ou un code de récupération."
       }
     },
     "security": {

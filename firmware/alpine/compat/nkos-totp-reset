@@ -1,0 +1,5 @@
+#!/bin/sh
+# nkos-totp-reset USER: turn off two-factor authentication for a NanoKVM web
+# account whose authenticator app and recovery codes are lost (as root, over
+# SSH or on the serial console).
+exec /kvmapp/server/NanoKVM-Server totp-reset "$@"

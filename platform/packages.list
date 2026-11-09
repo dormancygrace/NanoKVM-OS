@@ -158,6 +158,7 @@ app   file  /kvmapp/picoclaw/AGENT_KVM.md                 0644  kvmapp/picoclaw/
 app   file  /kvmapp/picoclaw/skills/kvm-control/SKILL.md  0644  kvmapp/picoclaw/skills/kvm-control/SKILL.md
 app   file  /kvmapp/picoclaw/skills/kvm-control/scripts/nanokvm-bridge.sh 0755 kvmapp/picoclaw/skills/kvm-control/scripts/nanokvm-bridge.sh
 app   file  /kvmapp/server/NanoKVM-Server                 0755  @server/NanoKVM-Server
+app   file  /usr/sbin/nkos-totp-reset                     0755  firmware/alpine/compat/nkos-totp-reset
 app   tree  /kvmapp/server/dl_lib                         0644  @native
 app   tree  /usr/share/licenses/nanokvm/native           0644  @native-licenses
 # Linked statically into NanoKVM-Server (server/internal/decompress).

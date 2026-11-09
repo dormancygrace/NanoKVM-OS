@@ -1,7 +1,7 @@
 # OpenSSL C906 GHASH qualification
 
 **2026-11-09:** the opt-in and the per-thread vector-state query are gone. Kernel patch
-0078 keeps the vector unit on for every user thread; the startup hwprobe is the only check
+0078 keeps the vector unit on for every user thread; there is no run-time check
 (see `../../openssl-c906/README.md`). `test-dispatch.py` and `verify-path.c` check the new
 rules; `verify-path --sandbox` (prctl, openat and hwprobe killed after load) takes the vector
 path. Text below about `NANOKVM_OPENSSL_GHASH=auto` and `prctl` describes the earlier design.

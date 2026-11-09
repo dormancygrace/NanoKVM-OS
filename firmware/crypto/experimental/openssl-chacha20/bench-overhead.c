@@ -68,7 +68,7 @@ static void *first_vector(void *arg) {
 }
 int main(int argc,char **argv) {
     double seconds=argc>1?strtod(argv[1],NULL):0.15; check(seconds>0 && seconds<=2);
-    check(ossl_riscv_has_xtheadvector && (prctl(70,0L,0L,0L,0L)&3)==2);
+    check((prctl(70,0L,0L,0L,0L)&3)==2);
     memset(input,0x37,sizeof(input));
     for(unsigned long i=0;i<20;++i) {
         pthread_t t; check(pthread_create(&t,NULL,first_vector,(void *)i)==0); check(pthread_join(t,NULL)==0);

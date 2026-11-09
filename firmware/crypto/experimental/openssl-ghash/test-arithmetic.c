@@ -13,7 +13,6 @@
 #endif
 
 size_t ossl_gcm_c906_prefix(u64 xi[2], const u128 *table, u64 kp[112], const u8 *in, size_t len);
-int ossl_riscv_has_xtheadvector=1;
 #ifdef GHASH_NATIVE
 int CRYPTO_THREAD_run_once(CRYPTO_ONCE *once, void (*fn)(void)) {return pthread_once(once,fn)==0;}
 #else

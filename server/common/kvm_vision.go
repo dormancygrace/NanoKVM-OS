@@ -498,8 +498,6 @@ func GetMjpegChromaStatus() (uint16, string) {
 		reason = "video"
 	case state&uint8(C.MJPEG_CHROMA_FRAME_DETECT) != 0:
 		reason = "frameDetection"
-	case state&uint8(C.MJPEG_CHROMA_FORCE_COPY) != 0:
-		reason = "diagnostic"
 	}
 	return active, reason
 }

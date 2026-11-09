@@ -44,8 +44,7 @@ int main(int argc,char **argv) {
     unsigned width=static_cast<unsigned>(strtoul(argv[2],nullptr,10));
     unsigned height=static_cast<unsigned>(strtoul(argv[3],nullptr,10));
     if(!width || !height || width>2560 || height>2560 || width%2 || height%2)return 2;
-    bool nv16=!strcmp(argv[1],"nv16");setenv("NANOKVM_MJPEG_422",nv16?"1":"0",1);
-    unsetenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");setvbuf(stdout,nullptr,_IONBF,0);
+    bool nv16=!strcmp(argv[1],"nv16");setvbuf(stdout,nullptr,_IONBF,0);
     kvmv_init(0);set_frame_detact(0);kvmv_hdmi_control(1);
     const int qualities[]={51,60,80,99};const double start=now();int errors=0,status=0,total_frames=0;
     struct Trial { bool nv16; unsigned width,height; };

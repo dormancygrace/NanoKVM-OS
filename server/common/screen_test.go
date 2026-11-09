@@ -122,12 +122,11 @@ func TestCustomFPSRange(t *testing.T) {
 
 func TestMjpegChromaPreference(t *testing.T) {
 	for _, tc := range []struct {
-		env, saved string
-		want       uint16
+		saved string
+		want  uint16
 	}{
-		{"", "", 422}, {"1", "", 422}, {"1", "420", 420}, {"", "422\n", 422}, {"", "421", 422}, {"0", "", 420}, {"", "420", 420}, {"0", "422", 422}, {"", "invalid", 422},
+		{"", 422}, {"422\n", 422}, {"421", 422}, {"420", 420}, {"invalid", 422},
 	} {
-		t.Setenv("NANOKVM_MJPEG_422", tc.env)
 		got := loadScreen(func(path string) ([]byte, error) {
 			if path == "/kvmapp/kvm/mjpeg_chroma" {
 				return []byte(tc.saved), nil
@@ -135,7 +134,7 @@ func TestMjpegChromaPreference(t *testing.T) {
 			return nil, errors.New("absent")
 		})
 		if got.MjpegChroma != tc.want {
-			t.Fatalf("env=%q saved=%q: got %d want %d", tc.env, tc.saved, got.MjpegChroma, tc.want)
+			t.Fatalf("saved=%q: got %d want %d", tc.saved, got.MjpegChroma, tc.want)
 		}
 	}
 }

@@ -1,5 +1,5 @@
 // Exclusive, bounded exercise of the production detector and capture library.
-// Stop nanokvm-app first. Set NANOKVM_HDMI_IRQ_TRACE=1 for sample reasons.
+// Stop nanokvm-app first.
 // Never asserts reset, flashes firmware, or writes EDID or installed files.
 #include "kvm_vision.h"
 #include <csignal>

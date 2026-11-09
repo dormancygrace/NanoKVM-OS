@@ -2421,7 +2421,6 @@
     "deviceTransportUse": "Použít {{transport}} pro zařízení",
     "fpsDelivered": "Doručováno: až {{fps}} snímků/s při {{size}}",
     "mjpegChromaFallback_video": "Pouze jeden výstup zachytávání podporuje šířky větší než 1920 pixelů. MJPEG používá 4:2:0 zatímco oba proudy jsou širší; 4:2:2 bude navráceno po skončení proudu videa nebo pokud se zmenší alespoň jeden z proudů.",
-    "mjpegChromaFallback_diagnostic": "Ve stávajícím režimu zachytávání není 4:2:2 k dispozici.",
     "mjpegChromaFallback_hardware": "Po chybě zachytávání náhradně používá 4:2:0. Pokud je signál stabilní, zkuste znovu 4:2:2.",
     "mjpegChromaFallback_pending": "4:2:2 bude použito pro příští zachycený snímek.",
     "cubeMonitorHint": "Cube/Lite: zapíše a ověří EDID. Pro použití fyzicky odpojte všechny zdroje napájení a znovu je připojte; softwarový restart nestačí. Monitor ponechá nejvyšší obnovovací frekvenci zvoleného rozlišení a snímková frekvence omezuje pouze proud.",

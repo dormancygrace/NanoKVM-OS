@@ -2,14 +2,12 @@ package auth
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
-	"NanoKVM-Server/service/notify"
 	"NanoKVM-Server/utils"
 
 	"github.com/gin-gonic/gin"
@@ -84,22 +82,12 @@ func (s *Service) Login(c *gin.Context) {
 		s.loginFailedFor(c, clientIP, req.Username, &rsp)
 		return
 	}
-
-	ClearLoginAttempt(clientIP, req.Username)
-	token, err := middleware.GenerateJWT(user.Username, user.TokenVersion)
-	if err != nil {
-		time.Sleep(loginPenalty)
-		rsp.ErrRsp(c, -3, "generate token failed")
-		return
+	if user.TOTP != nil {
+		if user = s.requireSecondFactor(c, clientIP, user, req.OTP, &rsp); user == nil {
+			return
+		}
 	}
-	setSessionCookie(c, token)
-	if strings.EqualFold(strings.TrimSpace(c.GetHeader(ReturnTokenHeader)), "true") {
-		rsp.OkRspWithData(c, &proto.LoginRsp{Token: token})
-	} else {
-		rsp.OkRsp(c)
-	}
-	log.Infof("user logged in: %s", user.Username)
-	go notify.LoginSucceeded(user.Username, clientIP)
+	s.finishLogin(c, clientIP, user, &rsp)
 }
 
 // loginFailed records the failure before the delay, so the lockout counts it
@@ -142,11 +130,16 @@ func (s *Service) GetAccount(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "get account failed")
 		return
 	}
-	rsp.OkRspWithData(c, &proto.GetAccountRsp{
+	data := &proto.GetAccountRsp{
 		Username:           principal.Username,
 		Role:               string(principal.Role),
 		MustChangePassword: principal.MustChangePassword,
-	})
+	}
+	if user, err := authn.DefaultStore.Get(principal.Username); err == nil && user.TOTP != nil {
+		data.TOTPEnabled = true
+		data.RecoveryCodesLeft = len(user.TOTP.RecoveryHashes)
+	}
+	rsp.OkRspWithData(c, data)
 }
 
 func setSessionCookie(c *gin.Context, token string) {

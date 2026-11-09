@@ -392,6 +392,17 @@
       "change2": "网页的登录密码",
       "change3": "系统 root 用户的密码（SSH 登录密码）",
       "change4": "如果您忘记了密码，需要长按 NanoKVM 上的 BOOT 按键来重置密码。"
+    },
+    "totp": {
+      "title": "双重验证",
+      "prompt": "请输入身份验证器应用中的验证码，或一个恢复码。",
+      "placeholder": "验证码",
+      "required": "请输入验证码",
+      "verify": "验证",
+      "back": "返回登录",
+      "invalidCode": "验证码无效",
+      "clockNotSet": "NanoKVM 的时钟未设置，无法校验应用验证码。请使用恢复码，或设置设备的日期和时间。",
+      "expired": "登录已过期，请重新登录。"
     }
   },
   "wifi": {
@@ -2197,7 +2208,37 @@
         "usernameUpdated": "用户名已更新",
         "loadFailed": "加载用户失败",
         "saveFailed": "保存用户失败",
-        "deleteFailed": "删除用户失败"
+        "deleteFailed": "删除用户失败",
+        "totpOn": "2FA",
+        "resetTotp": "重置 2FA",
+        "resetTotpConfirm": "要关闭此用户的双重验证吗？在重新设置之前，该用户只用密码登录。",
+        "totpReset": "双重验证已关闭"
+      },
+      "totp": {
+        "title": "双重验证",
+        "description": "登录时还需要手机上身份验证器应用（如 Google Authenticator、Microsoft Authenticator 或 2FAS）中的验证码。",
+        "authenticator": "身份验证器应用",
+        "onDescription": "已开启。剩余恢复码：{{count}}。",
+        "offDescription": "已关闭。登录只需要密码。",
+        "setUp": "设置",
+        "newCodes": "新的恢复码",
+        "turnOff": "关闭",
+        "fewCodes": "恢复码所剩不多。请创建新的恢复码，以便在丢失手机时仍能登录。",
+        "scan": "请用身份验证器应用扫描此二维码。",
+        "manual": "或在应用中输入此密钥：",
+        "confirmCode": "应用中的验证码",
+        "enable": "开启",
+        "setupExpired": "设置已过期，请重新开始。",
+        "failed": "更改失败，请重试。",
+        "disabled": "双重验证已关闭",
+        "codesTitle": "恢复码",
+        "codesHint": "如果丢失手机，每个恢复码可代替一次应用验证码。请妥善保存：它们只显示这一次。",
+        "saveCodes": "下载",
+        "copyCodes": "复制",
+        "copied": "已复制",
+        "codesSaved": "我已保存",
+        "turnOffHint": "请输入密码，以及应用中的验证码或一个恢复码。",
+        "newCodesHint": "当前的恢复码将失效。请输入密码，以及应用中的验证码或一个恢复码。"
       }
     },
     "security": {

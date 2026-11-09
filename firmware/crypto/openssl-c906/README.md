@@ -120,3 +120,48 @@ From the ChaCha20-only rate of the same build, Poly1305 goes from about 163
 to about 219 MB/s at 16 KiB (the kernel's copy measures 228). OpenSSL's
 `test_poly1305` and `experimental/openssl-c906/evp-bench.c 0` (408 AEAD
 known answers and rejected tags) pass on the device.
+
+### Vector Poly1305
+
+`0012-poly1305-c906.patch` adds the C906 vector Poly1305 that NanoKVM's Go
+runtime and kernel use: radix 2^26, four blocks in XTheadVector lanes and
+one in scalar registers per group of five. It is
+`firmware/cpu/go-crypto-c906/gen_poly1305_vector.py --openssl`, and that
+generator executes it against a big-integer Poly1305; see
+`firmware/cpu/go-crypto-c906/README.md`.
+
+- **Selection.** As for ChaCha20 and GHASH there is no run-time check (the
+  kernel keeps the vector unit on for every user thread, patch 0078):
+  `Poly1305_Init` replaces `func.blocks` with `ossl_poly1305_blocks_c906`.
+- **Split.** The vector function takes runs of at least eight whole groups
+  (640 bytes) with padbit 1. Cryptogams `poly1305_blocks` takes the rest and
+  every other call.
+- **Context.** The glue converts the Cryptogams context (h0, h1, h2; r0, r1,
+  s1) to 26-bit limbs and back, after folding h2 as `poly1305_emit` does.
+- **Threshold.** The vector function computes r^2..r^5 on every call, so
+  with `EVP_MAC`, a fresh key per message, it overtakes Cryptogams at about
+  640 bytes.
+
+`experimental/openssl-c906/test-poly1305-dispatch.py --negative-control` (CI)
+compiles the patched glue with C models of Cryptogams (h2 left unreduced)
+and of the vector function (h[1] left above 2^26). It checks 4000 cases
+against the model Poly1305 and requires that no system call is made.
+Breaking any of the following fails: the syscall-free path, the threshold, the h2 fold, h2 in the top limb, or the carry before
+radix 2^64.
+
+Stand, 2026-11-09:
+- `experimental/openssl-c906/poly1305-check.c tags` produces the same 6000
+  tags (lengths to 65 KB, offsets 0-15, update splits, all-ones keys and
+  messages) as Cryptogams (measured with the opt-in variable of an earlier
+  revision; the code path is the same).
+- `evp-bench 0` passes.
+
+MB/s, Cryptogams -> vector; `EVP_MAC` is three alternating rounds:
+
+| | 1024 B | 1400 B | 4096 B | 16 KiB |
+| --- | ---: | ---: | ---: | ---: |
+| `EVP_MAC` Poly1305, fresh key | 122-131 -> 126-149 | 126-143 -> 138-168 | 179-180 -> 240-256 | 194-200 -> 294-310 |
+| `openssl speed -evp chacha20-poly1305` (vector ChaCha20 in both) | | 62.9-63.3 -> 65.9-66.3 | | 74.0-74.2 -> 85.1-85.7 |
+
+Below 640 bytes the vector function is not called; there the rounds differ
+from each other by up to 15%, more than between the two settings.

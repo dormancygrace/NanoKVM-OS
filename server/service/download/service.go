@@ -25,6 +25,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 type downloadStatus string
@@ -162,16 +163,11 @@ func (s *Service) finishDownload(done chan struct{}, status downloadStatus) {
 func (s *Service) ImageEnabled(c *gin.Context) {
 	var rsp proto.Response
 
-	testFile := "/data/.testfile"
-	file, err := os.Create(testFile)
-	if err != nil {
-		rsp.OkRspWithData(c, &proto.ImageEnabledRsp{Enabled: false})
-		return
-	}
-	defer file.Close()
-	defer os.Remove(testFile)
-
-	rsp.OkRspWithData(c, &proto.ImageEnabledRsp{Enabled: true})
+	// access(2) answers EROFS on a read-only mount without writing. A probe
+	// file would mark the exFAT volume dirty until unmount, so every power
+	// cut after a page load left /data needing a check.
+	enabled := unix.Access(imageDirectory, unix.W_OK) == nil
+	rsp.OkRspWithData(c, &proto.ImageEnabledRsp{Enabled: enabled})
 }
 
 func (s *Service) StatusImage(c *gin.Context) {

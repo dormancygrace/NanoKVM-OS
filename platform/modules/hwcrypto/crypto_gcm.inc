@@ -151,7 +151,7 @@ static void sg2_gcm_work(struct work_struct *work)
  int err = sg2_use_fallback(ctx->fallback) ? sg2_gcm_fallback(req, r->encrypt) :
   sg2_gcm_process(req, r->encrypt);
  sg2_async_leave();
- aead_request_complete(req, err);
+ sg2_complete(aead_request_complete, req, err);
 }
 
 static int sg2_gcm_submit(struct aead_request *req, bool encrypt)

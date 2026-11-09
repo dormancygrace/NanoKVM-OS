@@ -26,6 +26,13 @@ static int sg2_async_enter(u32 flags)
 }
 static void sg2_async_leave(void) { atomic_dec(&sg2_async_queued); }
 
+/* Completion callbacks of async requests expect softirq context: ovpn sends
+ * the encrypted packet from its callback, and with TCP that takes the socket
+ * the TCP timers also use under bh_lock_sock(). From the workqueue a timer
+ * could interrupt the send (kernel oops in tcp_event_new_data_sent). Complete
+ * with bottom halves disabled, as crypto/cryptd.c does. */
+#define sg2_complete(fn, req, err) do { local_bh_disable(); fn(req, err); local_bh_enable(); } while (0)
+
 /* After the poison latch (crypto_finish_locked) the engine is never used
  * again. Requests then go to the synchronous software implementation of the
  * same algorithm, where one is built (not DES, 3DES or SM4): new and queued
@@ -99,7 +106,7 @@ static void sg2_cipher_work(struct work_struct *work)
  int err = sg2_use_fallback(ctx->fallback) ? sg2_cipher_fallback(req, r->encrypt) :
   sg2_cipher_process(req, r->encrypt);
  sg2_async_leave();
- skcipher_request_complete(req, err);
+ sg2_complete(skcipher_request_complete, req, err);
 }
 static int sg2_cipher_submit(struct skcipher_request *req, bool encrypt)
 {
@@ -274,7 +281,7 @@ static void sg2_hash_work(struct work_struct *work)
  bool consume = ctx->final != 2;
  int err = sg2_hash_process(req, ctx->final, consume);
  sg2_async_leave();
- ahash_request_complete(req, err);
+ sg2_complete(ahash_request_complete, req, err);
 }
 static int sg2_hash_submit(struct ahash_request *req, unsigned int operation)
 {

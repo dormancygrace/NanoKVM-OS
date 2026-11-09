@@ -2,8 +2,8 @@
 """Generate nanokvm_memclr_riscv64.s, the XTheadVector loop of memclrNoHeapPointers.
 
 prepare.py makes runtime.memclrNoHeapPointers jump here for at least
-nanokvmVectorMemclrMin bytes when nanokvmVectorMemclr is set (see
-nanokvm_memclr.go). Vector instructions are WORDs, encoded and checked
+nanokvmVectorMemclrMin bytes unless built with nanokvmqemu (see
+nanokvm_xtheadvector_riscv64.go). Vector instructions are WORDs, encoded and checked
 against GNU as/objdump by the encoder of ../go-crypto-c906/gen_chacha_riscv64.py.
 
 Usage: gen_memclr_c906.py --binutils PREFIX (--output FILE | --check FILE)

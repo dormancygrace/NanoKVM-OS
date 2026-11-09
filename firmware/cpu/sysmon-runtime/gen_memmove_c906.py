@@ -2,8 +2,8 @@
 """Generate nanokvm_memmove_riscv64.s, the XTheadVector copy loop of memmove.
 
 prepare.py makes runtime.memmove jump here for copies of at least
-nanokvmVectorMemmoveMin bytes when nanokvmVectorMemmove is set (see
-nanokvm_memmove.go). Vector instructions are WORDs, encoded and checked
+nanokvmVectorMemmoveMin bytes unless built with nanokvmqemu (see
+nanokvm_xtheadvector_riscv64.go). Vector instructions are WORDs, encoded and checked
 against GNU as/objdump by the encoder of ../go-crypto-c906/gen_chacha_riscv64.py.
 
 Usage: gen_memmove_c906.py --binutils PREFIX (--output FILE | --check FILE)

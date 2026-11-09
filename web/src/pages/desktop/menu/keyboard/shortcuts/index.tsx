@@ -97,7 +97,7 @@ export const Shortcuts = () => {
   }
 
   const content = (
-    <ScrollArea className="max-w-[400px] *:data-radix-scroll-area-viewport:max-h-[350px]">
+    <ScrollArea className="max-w-[400px]" viewportClassName="max-h-[350px]">
       {/* custom shortcuts */}
       {customShortcuts.length > 0 && (
         <>

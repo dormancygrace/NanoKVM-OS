@@ -118,18 +118,6 @@ Status older than twenty seconds is considered unavailable.
   API responses; independent enable/disable and waiting states. This is GUI
   qualification, not a device/Windows end-to-end test.
 
-Namespace test command (root only; uses disposable namespaces, never the device):
-
-```sh
-cd server
-go build -o ../work/nkos-usb-internet ./cmd/nkos-usb-internet
-cd ..
-sudo python3 tests/test-usb-internet-netns.py
-```
-
-Kernels without flowtable support (WSL's, for example) exercise the
-normal-forwarding fallback.
-
 On `usb0` the gadget driver rejects TSO, scatter-gather, checksum offload and
 hardware GRO, and its receive path uses `netif_rx`; software GRO has shown no
 speed gain.

@@ -147,10 +147,10 @@ unchanged.
 
 ## Host verification
 
-The production helper is exercised in an isolated x86-64 QEMU guest with real
+The production helper was exercised in an isolated x86-64 QEMU guest with real
 BusyBox init and OpenRC, F2FS root, FAT boot and exFAT data disks. It uses the
 actual prepare/acknowledge/shutdown/pivot/unmount/network/reboot code, with no
-production preflight bypass. See [the fixture instructions](../tests/manual/standby/README.md).
+production preflight bypass.
 
 The matrix covers static Ethernet and DHCP, web and UDP magic restart, a
 retained persistent mount (including one hidden by the eventual chroot), and an
@@ -176,16 +176,9 @@ events, optional watchdog sysfs state, delayed fatal recovery and read/stream
 admission during preparation. The real network-trial fixture exercises
 shutdown refusal before snapshot/staging while awaiting confirmation, during
 timer/boot rollback, a removal-sync failure with a pending retry, and a slow apply that
-outlives rollback. A real TCP/TLS listener test checks the scheme, origin,
-capability and duplicate-restart behavior. Synthetic ELF fixtures exercise
-transitive musl aliases and missing real libraries; isolated RISC-V chroot
-smoke checks run BusyBox and wpa_supplicant through QEMU user emulation,
+outlives rollback. Isolated RISC-V chroot smoke checks run BusyBox and wpa_supplicant through QEMU user emulation,
 including copies of OpenSSL patched to import libc.so.
-Executed JavaScript tests verify the page's safe-message gate, a late status
-response racing with restart, and persistent restart errors across ready polls.
-The browser fixture verifies that Enter cancels shutdown without an API request
-and explicit confirmation sends one prepare request. Standard server, web,
-cross-build and package assembly checks apply.
+Standard server, web, cross-build and package assembly checks apply.
 
 These host results do not qualify the RISC-V board kernel, SD controller,
 watchdog, USB controller or Wi-Fi driver.

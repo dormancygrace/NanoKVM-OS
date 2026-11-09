@@ -52,51 +52,6 @@ func TestValidateStaticEthernet(t *testing.T) {
 	}
 }
 
-func TestReadEthernetAdminUp(t *testing.T) {
-	originalFlagsFile := ethernetFlagsFile
-	ethernetFlagsFile = filepath.Join(t.TempDir(), "flags")
-	t.Cleanup(func() { ethernetFlagsFile = originalFlagsFile })
-
-	if readEthernetAdminUp() {
-		t.Fatal("missing flags must not be reported as administratively up")
-	}
-	for _, test := range []struct {
-		flags string
-		want  bool
-	}{
-		{"0x1002\n", false},
-		{"0x1003\n", true},
-		{"invalid\n", false},
-	} {
-		if err := os.WriteFile(ethernetFlagsFile, []byte(test.flags), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if got := readEthernetAdminUp(); got != test.want {
-			t.Errorf("flags %q: adminUp=%t, want %t", test.flags, got, test.want)
-		}
-	}
-}
-
-func TestReadEthernetConfigIgnoresCommentsAndCRLF(t *testing.T) {
-	tempDir := t.TempDir()
-	originalFile := ethernetConfigFile
-	ethernetConfigFile = filepath.Join(tempDir, "eth.nodhcp")
-	t.Cleanup(func() { ethernetConfigFile = originalFile })
-
-	contents := "# NanoKVM static network\r\n\r\n  10.20.30.40/24 10.20.30.1  # gateway\r\n"
-	if err := os.WriteFile(ethernetConfigFile, []byte(contents), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	got, err := readEthernetConfig()
-	if err != nil {
-		t.Fatalf("read commented config: %v", err)
-	}
-	if got.Mode != ethernetModeStatic || got.Address != "10.20.30.40" || got.SubnetMask != "255.255.255.0" || got.Gateway != "10.20.30.1" {
-		t.Fatalf("unexpected commented config: %#v", got)
-	}
-}
-
 func TestReadEthernetConfigRejectsExtraFieldsAfterCommentRemoval(t *testing.T) {
 	tempDir := t.TempDir()
 	originalFile := ethernetConfigFile

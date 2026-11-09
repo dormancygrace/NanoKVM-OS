@@ -12,7 +12,7 @@ in [docs/BUILD.md](../docs/BUILD.md) and [platform/README.md](../platform/README
 | `cpu/` | C906 assembly for Go's TLS ChaCha20-Poly1305 and `bytes.Index`, and opt-in Go sysmon policies |
 | `crypto/` | OpenSSL code for the C906 and the SG2002 crypto engine, and crypto benchmarks |
 | `mpi/` | Media library compatibility code and the vendor ISP object list |
-| `probes/` | Capture and encoder probes built by `scripts/build-capture-qualification.py` |
+| `probes/` | EDID profile generators (`edid120/`) used by the platform build |
 | `sensor/` | LT6911 HDMI receiver driver patches |
 | `services/` | Serial console and serial bridge services with their tests |
 | `sources/` | BusyBox 1.36.1 source, kept for the GPL while v2.0-b4 is supported |

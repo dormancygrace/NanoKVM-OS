@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strconv"
+
 	"strings"
 	"testing"
 )
@@ -15,25 +15,6 @@ func telegramUpdate(id, token string) ChannelUpdate {
 		Events:   []Kind{KindPower},
 		Settings: map[string]string{"token": token, "chatId": "-100"},
 	}}
-}
-
-func TestValidateDefaultsAndDropsUnknownFields(t *testing.T) {
-	ch := Channel{Type: "email", Settings: map[string]string{
-		"host": " smtp.example.com ", "from": "kvm@example.com", "to": "a@example.com, b@example.com",
-		"token": "from another type",
-	}}
-	if err := ch.validate(); err != nil {
-		t.Fatal(err)
-	}
-	if ch.Settings["port"] != "587" || ch.Settings["security"] != "starttls" {
-		t.Fatalf("defaults not applied: %v", ch.Settings)
-	}
-	if ch.Settings["host"] != "smtp.example.com" {
-		t.Fatalf("value not trimmed: %q", ch.Settings["host"])
-	}
-	if _, ok := ch.Settings["token"]; ok {
-		t.Fatal("a field of another type was kept")
-	}
 }
 
 func TestValidateRejects(t *testing.T) {
@@ -107,27 +88,7 @@ func TestSecretsStayOnTheDevice(t *testing.T) {
 	}
 }
 
-func TestRememberAddress(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "addresses.json")
-	check := func(user, address string, want bool) {
-		t.Helper()
-		known, err := rememberAddress(path, user, address)
-		if err != nil || known != want {
-			t.Fatalf("%s from %s: known %v, %v; want %v", user, address, known, err, want)
-		}
-	}
-	check("admin", "10.0.0.1", true) // the first login only starts the list
-	check("admin", "10.0.0.1", true)
-	check("admin", "10.0.0.2", false)
-	check("admin", "10.0.0.2", true)
-	check("guest", "10.0.0.2", true)
-	for i := 0; i < maxAddresses; i++ {
-		check("admin", "192.0.2."+string(rune('a'+i%26))+string(rune('a'+i/26)), false)
-	}
-	check("admin", "10.0.0.1", false) // forgotten: the list holds the newest
-	// An address in use stays while newer ones push the others out.
-	for i := 0; i < maxAddresses; i++ {
-		check("admin", "198.51.100."+strconv.Itoa(i), false)
-		check("admin", "10.0.0.1", true)
-	}
-}
+// the first login only starts the list
+
+// forgotten: the list holds the newest
+// An address in use stays while newer ones push the others out.

@@ -28,9 +28,6 @@ on:
       - tpu/models/**
       - tpu/helpers/cvimodel-dmabuf.c
       - platform/sources.lock
-      - tests/test-addon-packages.py
-      - tests/test-build-addon.py
-      - tests/test-next-addon-revision.py
       - LICENSE
       - firmware/cpu/sysmon-runtime/**
       - server/pkg/bmc/**

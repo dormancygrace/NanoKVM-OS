@@ -46,16 +46,12 @@ translates well under 90 % of the English keys. The language menu shows it as
 partial, and missing or empty strings fall back to English.
 
 A language without the flag must provide a non-empty translation for every key.
-`tests/i18n-keys.test.mjs`
-fails otherwise. When a partial language reaches 100 % on Weblate, a
-maintainer removes its flag. From then on CI keeps it complete: a new English
-string must be translated before the change can merge.
+When a partial language reaches 100 % on Weblate, a maintainer removes its flag.
 
 ## Without Weblate
 
 Each language is one i18next JSON file: `web/src/i18n/locales/<language>.json`.
-You can edit it in a pull request; run `pnpm test:i18n` in `web/` before
-submitting. Weblate picks up such changes from the repository.
+You can edit it in a pull request. Weblate picks up such changes from the repository.
 
 To add a new language without Weblate:
 
@@ -133,7 +129,7 @@ finish the merge, synchronize Weblate, then unlock it.
   must recognize its commits as ancestors of the upstream branch.
 - Resolve JSON conflicts by key. If a feature deliberately removed a key from
   `en.json`, keep that key removed from translations too. Preserve all other
-  translator changes and run `pnpm test:i18n` in `web/`.
+  translator changes.
 - After pushing, check that Weblate has synchronized and is unlocked. A new
   GitHub commit alone does not confirm recovery. Do not reset Weblate or discard
   pending translations to clear an alert.

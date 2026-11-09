@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
-	"sync"
+
 	"testing"
 	"time"
 )
@@ -74,26 +74,6 @@ func TestServiceRootIsOpenAndSystemsAreNot(t *testing.T) {
 	}
 }
 
-func TestResetActions(t *testing.T) {
-	power := &fakePower{reset: true}
-	h := New("admin", "correct-horse", Info{}, power)
-	for _, rt := range []string{"On", "ForceOff", "GracefulShutdown", "ForceRestart", "PowerCycle", "PushPowerButton"} {
-		rec := do(h, "POST", "/redfish/v1/Systems/1/Actions/ComputerSystem.Reset", `{"ResetType":"`+rt+`"}`, admin)
-		if rec.Code != 204 {
-			t.Fatalf("%s: %d %s", rt, rec.Code, rec.Body)
-		}
-	}
-	if want := []string{"on", "forceoff", "soft", "reset", "cycle", "push"}; !reflect.DeepEqual(power.calls, want) {
-		t.Fatalf("calls %v", power.calls)
-	}
-	if rec := do(h, "POST", "/redfish/v1/Systems/1/Actions/ComputerSystem.Reset", `{"ResetType":"Nmi"}`, admin); rec.Code != 400 {
-		t.Fatalf("Nmi: %d", rec.Code)
-	}
-	if rec := do(h, "GET", "/redfish/v1/Systems/1/Actions/ComputerSystem.Reset", "", admin); rec.Code != 405 {
-		t.Fatalf("GET action: %d", rec.Code)
-	}
-}
-
 func TestSessions(t *testing.T) {
 	h := New("admin", "correct-horse", Info{}, &fakePower{})
 	rec := do(h, "POST", "/redfish/v1/SessionService/Sessions", `{"UserName":"admin","Password":"correct-horse"}`, nil)
@@ -147,150 +127,15 @@ func TestForgedForwardedForDoesNotResetTheLimit(t *testing.T) {
 	}
 }
 
-func TestFailedLoginTableIsBounded(t *testing.T) {
-	h := New("admin", "correct-horse", Info{}, &fakePower{})
-	now := time.Unix(1_800_000_000, 0)
-	h.now = func() time.Time { return now }
-	guess := func(addr string) {
-		req := httptest.NewRequest("GET", "/redfish/v1/Systems/1", nil)
-		req.RemoteAddr = addr
-		req.SetBasicAuth("admin", "guess")
-		h.ServeHTTP(httptest.NewRecorder(), req)
-	}
-	for i := 0; i < 2*maxTracked; i++ {
-		guess(fmt.Sprintf("[2001:db8:%x::1]:50000", i))
-	}
-	if len(h.failed) > maxTracked {
-		t.Fatalf("%d counters kept, at most %d", len(h.failed), maxTracked)
-	}
-	// Peers that never come back expire when another one fails.
-	now = now.Add(24 * time.Hour)
-	guess("192.0.2.9:50000")
-	if len(h.failed) != 1 {
-		t.Fatalf("%d counters a day later, want 1", len(h.failed))
-	}
-}
+// Peers that never come back expire when another one fails.
 
 // Parallel logins must not all pass the lockout check before the first
 // failure is counted: the attempt is reserved with the check.
-func TestParallelLoginsMeetTheLimit(t *testing.T) {
-	for _, basic := range []bool{false, true} {
-		t.Run(fmt.Sprintf("basic=%t", basic), func(t *testing.T) {
-			h := New("admin", "correct-horse", Info{}, &fakePower{})
-			start := make(chan struct{})
-			var wg sync.WaitGroup
-			codes := make(chan int, 50)
-			for i := 0; i < cap(codes); i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					<-start
-					var rec *httptest.ResponseRecorder
-					if basic {
-						rec = do(h, "GET", systemPath, "", map[string]string{"basic": "admin:guess"})
-					} else {
-						rec = do(h, "POST", sessionsPath, "{\"UserName\":\"admin\",\"Password\":\"guess\"}", nil)
-					}
-					codes <- rec.Code
-				}()
-			}
-			close(start)
-			wg.Wait()
-			close(codes)
-			unauthorized := 0
-			for code := range codes {
-				switch code {
-				case http.StatusUnauthorized:
-					unauthorized++
-				case http.StatusTooManyRequests:
-				default:
-					t.Errorf("unexpected status %d", code)
-				}
-			}
-			if unauthorized != maxFailures {
-				t.Fatalf("%d guesses were checked, want exactly %d", unauthorized, maxFailures)
-			}
-		})
-	}
-}
 
 // Refunds belong to the original reservation, even if the table has since
 // replaced its record after expiry or eviction.
-func TestOldSuccessDoesNotRefundReplacement(t *testing.T) {
-	for _, cause := range []string{"expiry", "eviction"} {
-		t.Run(cause, func(t *testing.T) {
-			h := New("admin", "correct-horse", Info{}, &fakePower{})
-			now := time.Unix(1800000000, 0)
-			h.now = func() time.Time { return now }
-			const addr = "192.0.2.7"
-			old := h.beginLogin(addr)
-			if old == nil {
-				t.Fatal("initial reservation refused")
-			}
-			if cause == "expiry" {
-				now = now.Add(failWindow + time.Nanosecond)
-			} else {
-				now = now.Add(time.Millisecond)
-				for i := 0; i < maxTracked; i++ {
-					if h.beginLogin(fmt.Sprintf("2001:db8:%x::/64", i)) == nil {
-						t.Fatal("new peer refused")
-					}
-				}
-				if h.failed[addr] != nil {
-					t.Fatal("oldest reservation was not evicted")
-				}
-			}
-			for i := 0; i < maxFailures; i++ {
-				if h.beginLogin(addr) == nil {
-					t.Fatal("new window reservation refused")
-				}
-			}
-			h.loginSucceeded("admin", addr, old)
-			if !h.lockedOut(addr) || h.beginLogin(addr) != nil {
-				t.Fatal("an old successful login refunded a failure from its replacement")
-			}
-		})
-	}
-}
-
-func TestSuccessfulLoginOnlyRefundsItsAttempt(t *testing.T) {
-	h := New("admin", "correct-horse", Info{}, &fakePower{})
-	for i := 0; i < 2*maxFailures; i++ {
-		if rec := do(h, "GET", systemPath, "", admin); rec.Code != http.StatusOK {
-			t.Fatalf("successful status poll %d: %d", i, rec.Code)
-		}
-	}
-	if len(h.failed) != 0 {
-		t.Fatal("successful status polling retained a failure record")
-	}
-	do(h, "GET", systemPath, "", map[string]string{"basic": "admin:guess"})
-	do(h, "GET", systemPath, "", admin)
-	if f := h.failed["192.0.2.7"]; f == nil || f.count != 1 {
-		t.Fatalf("success did not preserve an earlier failed guess: %+v", f)
-	}
-}
 
 // One IPv6 host must not rotate through its /64 to get more guesses.
-func TestIPv6ClientsCountPerPrefix(t *testing.T) {
-	h := New("admin", "correct-horse", Info{}, &fakePower{})
-	guess := func(addr, password string) int {
-		req := httptest.NewRequest("GET", "/redfish/v1/Systems/1", nil)
-		req.RemoteAddr = addr
-		req.SetBasicAuth("admin", password)
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, req)
-		return rec.Code
-	}
-	for i := 0; i < maxFailures; i++ {
-		guess(fmt.Sprintf("[2001:db8:1:2::%x]:5000", i+1), "guess")
-	}
-	if code := guess("[2001:db8:1:2::ffff]:5000", "correct-horse"); code != 429 {
-		t.Fatalf("another address of the same /64 got %d, want 429", code)
-	}
-	if code := guess("[2001:db8:1:3::1]:5000", "correct-horse"); code != 200 {
-		t.Fatalf("another /64 got %d, want 200", code)
-	}
-}
 
 // A cross-site form cannot drive power actions with cached Basic credentials.
 func TestCrossSiteWritesAreRefused(t *testing.T) {

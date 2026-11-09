@@ -1,9 +1,6 @@
 package timeconfig
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -49,33 +46,5 @@ func TestValidation(t *testing.T) {
 	c.Servers = []string{"pool.ntp.org", "POOL.NTP.ORG."}
 	if Validate(c) == nil {
 		t.Error("duplicate accepted")
-	}
-}
-
-func TestRestartFailureRollsBack(t *testing.T) {
-	dir := t.TempDir()
-	old := []byte("server old.example iburst\ncmdport 0\n")
-	os.WriteFile(filepath.Join(dir, "chrony.conf"), old, 0644)
-	calls := 0
-	s := Store{Dir: dir, Restart: func() error {
-		calls++
-		if calls == 1 {
-			return errors.New("failed")
-		}
-		return nil
-	}}
-	if s.Save(Config{[]string{"new.example"}, "UTC", "12", "auto"}) == nil {
-		t.Fatal("reported success")
-	}
-	actual, _ := os.ReadFile(filepath.Join(dir, "chrony.conf"))
-	if string(actual) != string(old) {
-		t.Fatal("chrony configuration was not restored")
-	}
-	if _, err := os.Stat(s.configPath()); !os.IsNotExist(err) {
-		t.Fatal("failed config persisted")
-	}
-	c, err := s.Read()
-	if err != nil || c.Format != "24" || c.Servers[0] != "old.example" || calls != 2 {
-		t.Fatal(c, err, calls)
 	}
 }

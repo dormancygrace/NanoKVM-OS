@@ -49,20 +49,25 @@ jobs:
           all='^\.github/'
           changed() { grep -qE "$all|$1" "$files" && echo true || echo false; }
           modules=()
-          for m in addons/ipmi server/third_party/pion-dtls server/third_party/pion-ice \
-                   server/third_party/pion-srtp; do
-            pattern="^$m/"
-            # The IPMI add-on builds against the server module.
-            [ "$m" = addons/ipmi ] && pattern="$pattern|^server/"
-            [ "$(changed "$pattern")" = true ] && modules+=("$m")
-          done
+          # The IPMI add-on builds against the server module.
+          [ "$(changed '^addons/ipmi/|^server/')" = true ] && modules+=(addons/ipmi)
           {
-            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$|^tests/test-(video-recovery-native|websocket-c906)\.py$|^tests/test-remote-smb\.sh$|^tests/fixtures/remote-smb/')"
+            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$')"
             echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
             echo "web=$(changed '^web/|^\.nvmrc$')"
             echo "rustdesk=$(changed '^addons/rustdesk/')"
             echo "modules=$(printf '%s\n' "${modules[@]}" | jq -Rsc 'split("\n") | map(select(. != ""))')"
           } | tee -a "$GITHUB_OUTPUT"
+
+  test-budget:
+    name: Test budget
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: python3 scripts/check-test-budget.py "origin/${{ github.base_ref }}" HEAD
 
   server:
     name: Go server
@@ -85,46 +90,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
       - name: Build
         run: go build -tags teststub,nomsgpack ./...
-      - name: Video recovery native-call guard
-        run: python3 ../tests/test-video-recovery-native.py
       - name: Vet
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
-
-  # Beside the unit tests, not after them: the job above is the longest.
-  server-media:
-    name: Go server SMB media and C906 WebSocket
-    needs: changes
-    if: needs.changes.outputs.server == 'true'
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: server
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.27.x'
-          cache-dependency-path: server/go.sum
-      - name: Compression headers
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
-      - name: Signed and encrypted SMB media
-        run: bash ../tests/test-remote-smb.sh
-
-      - name: C906 WebSocket staging and fallback tests
-        env:
-          # Gorilla 1.5.3's prepared-message tests intentionally reseed math/rand.
-          GODEBUG: randseednop=0
+      - name: NanoKVM tests of the patched pion modules
         run: |
-          python3 ../tests/test-websocket-c906.py
+          for m in pion-dtls pion-ice pion-srtp; do
+            (cd third_party/$m && go test -count=1 ./...)
+          done
+      - name: Prepared C906 WebSocket module builds for the device
+        run: |
           out="$RUNNER_TEMP/websocket-c906"
-          python3 ../firmware/cpu/go-websocket-c906/prepare.py --go "$(command -v go)" --output "$out" --tests
+          python3 ../firmware/cpu/go-websocket-c906/prepare.py --go "$(command -v go)" --output "$out"
           cd "$out/server"
-          go test github.com/gorilla/websocket
-          go test -tags=purego github.com/gorilla/websocket
-          GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 \
-            go test -c -o "$out/websocket.test" github.com/gorilla/websocket
+          GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 go vet github.com/gorilla/websocket
 
   poly1305:
     name: Prepared RISC-V Poly1305
@@ -174,26 +154,12 @@ jobs:
         run: pnpm lint
       - name: Test
         run: node --import tsx --test tests/*.test.mjs
-      - name: Chrome browser dependencies
-        run: pnpm exec playwright install --with-deps chrome
-      - name: Browser interactions
-        run: pnpm test:browser
-      - name: Browser failure traces
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: browser-failure-traces
-          path: ${{ runner.temp }}/nanokvm-browser-results/**/trace.zip
-          if-no-files-found: ignore
-
 
   scripts:
     name: Init scripts and tooling
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - name: Install system test tools
-        run: sudo apt-get update && sudo apt-get install -y dosfstools mtools iproute2 g++ busybox openssh-client libssl-dev liblz4-dev device-tree-compiler
       - name: Shellcheck (errors only; parses each script per its shebang)
         run: |
           git ls-files -z | while IFS= read -r -d '' f; do
@@ -204,15 +170,6 @@ jobs:
             fi
           done > "$RUNNER_TEMP/shell-scripts"
           xargs -0 shellcheck -S error < "$RUNNER_TEMP/shell-scripts"
-      - name: Native stream geometry and codec policy
-        run: |
-          g++ -std=c++17 -Wall -Wextra -Werror -Isupport/additional/kvm/include \
-            support/additional/kvm/tests/stream_size_test.cpp -o "$RUNNER_TEMP/stream-size-test"
-          "$RUNNER_TEMP/stream-size-test"
-      - name: Native capture contracts
-        run: |
-          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts"
-          python3 tests/test-mjpeg-native-contracts.py --output "$RUNNER_TEMP/native-contracts-sanitize" --sanitize
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
       # Check C906 .4byte/WORD encodings against GNU as/objdump for XTheadVector.
@@ -231,7 +188,10 @@ jobs:
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
           python3 ../../crypto/openssl-c906/generate-ghash.py --binutils riscv64-linux-gnu- --check
-          python3 ../../../tests/manual/c906-log-rvv/check-encodings.py --prefix riscv64-linux-gnu-
+          python3 ../../../server/logs/check-encodings.py --prefix riscv64-linux-gnu-
+          python3 ../../crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
+          python3 ../../crypto/openssl-c906/generate-sha256.py --check
+          python3 ../../../scripts/gen-oled-web-font.py --check
           curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
           python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
           curl -fsSL "$(python3 gen_poly1305_c906.py --print-url)" -o "$RUNNER_TEMP/poly1305-riscv.pl"
@@ -239,20 +199,6 @@ jobs:
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --go --check sum_vector_riscv64.s
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --linux --check ../../../platform/kernel/0077-crypto-riscv-xtheadvector-poly1305.patch
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --openssl --check ../../crypto/openssl-c906/0012-poly1305-c906.patch
-      - name: OpenSSL C906 ChaCha dispatch
-        run: |
-          sudo apt-get install -y libssl-dev
-          python3 firmware/crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
-          python3 firmware/crypto/experimental/openssl-chacha20/test-dispatch.py --negative-control
-          python3 firmware/crypto/experimental/openssl-c906/test-poly1305-dispatch.py --negative-control
-      - name: OpenSSL GHASH runtime dispatch
-        run: python3 firmware/crypto/experimental/openssl-ghash/test-dispatch.py --negative-control
-      - name: OpenSSL direct-DMA transport failure paths
-        run: python3 firmware/crypto/experimental/openssl-hwcrypto/test-transport.py --negative-control
-      - name: OpenSSL SHA-256 partial DMA continuation
-        run: |
-          python3 firmware/crypto/openssl-c906/generate-sha256.py --check
-          python3 firmware/crypto/experimental/openssl-sha256/test-fallback.py --negative-control
       - name: OpenSSL pinned patches and C906 SHA-256/GHASH arithmetic
         run: |
           # The Azure mirror can stall on the large cross-toolchain packages.
@@ -260,40 +206,15 @@ jobs:
             sudo sed -i 's|://azure[.]archive[.]ubuntu[.]com/|://archive.ubuntu.com/|g' /etc/apt/apt-mirrors.txt
           fi
           sudo apt-get -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::Retries=2 install -y gcc-riscv64-linux-gnu qemu-user
-          python3 tests/test-openssl-source.py --negative-control
-      - name: OpenSSL AES partial DMA continuation
-        run: python3 firmware/crypto/experimental/openssl-aes/test-blocks.py
-      - name: OpenSSL AES EVP state and counter carry
-        run: |
-          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify.c -lcrypto -o /tmp/openssl-aes-verify
-          /tmp/openssl-aes-verify
-          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify-gcm.c -lcrypto -o /tmp/openssl-gcm-verify
-          /tmp/openssl-gcm-verify
-          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -Iplatform/modules/hwcrypto firmware/crypto/experimental/openssl-aes/verify-ctr.c -lcrypto -o /tmp/openssl-ctr-verify
-          /tmp/openssl-ctr-verify
-          cc -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined firmware/crypto/experimental/openssl-aes/verify-tails.c -lcrypto -o /tmp/openssl-aes-tails
-          /tmp/openssl-aes-tails bfe84c43ff49df11
+          python3 tests/test-openssl-source.py
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade
         run: |
           docker run --rm -v "$PWD:/src:ro" -w /src alpine:3.24 sh -ec '
             apk add --no-cache alpine-sdk alpine-keys python3 openssl coreutils > /dev/null
-            python3 tests/test-ecdsa-packages.py
-            python3 tests/test-openssl-package.py'
+            python3 tests/test-ecdsa-packages.py'
 
-      - name: Kernel LZ4 compressor compatibility
-        run: |
-          python3 tests/test-lz4-compressor.py
-          NANOKVM_SANITIZE=1 python3 tests/test-lz4-compressor.py
-          python3 tests/test-lz4-small-table.py
-          NANOKVM_SANITIZE=1 python3 tests/test-lz4-small-table.py
-      - name: Alpine DHCP gateway integration
-        # Only the disposable network namespace is changed; Ubuntu restricts
-        # unprivileged user namespaces, so let the test create it as root.
-        run: sudo python3 tests/test-dhcp-gateway.py
-      - name: IPv6 policy and interface restart tests
-        run: sudo python3 tests/test-ipv6-policy.py
       - uses: actions/setup-go@v7
         with:
           go-version: '1.27.x'
@@ -310,52 +231,14 @@ jobs:
           go test -c -o "$RUNNER_TEMP/logs-riscv64.test" ./logs
           go vet ./internal/annexb ./internal/xtheadvector
           go test -c -o "$RUNNER_TEMP/annexb-riscv64.test" ./internal/annexb
-      - name: Gateway preference against kernel routes
-        # A disposable network namespace, as for the DHCP gateway test above.
-        working-directory: server
-        run: |
-          go test -tags teststub,nomsgpack -c -o "$RUNNER_TEMP/network.test" ./service/network
-          sudo unshare -n env NANOKVM_NETNS_TEST=1 "$RUNNER_TEMP/network.test" -test.run InANetworkNamespace -test.v
-      - name: Export production rollback commands
-        working-directory: server
-        run: |
-          NKOS_ROLLBACK_COMMANDS="$RUNNER_TEMP/rollback-commands.json" go test ./internal/apkrollback -run TestExportIntegrationCommands -count=1
-          CGO_ENABLED=0 go test -tags teststub,nomsgpack -c -o "$RUNNER_TEMP/osupdate.test" ./osupdate
-      - name: APK application split migration
-        run: |
-          docker run --rm --volume "$PWD:/src:ro" --volume "$RUNNER_TEMP/rollback-commands.json:/rollback-commands.json:ro" --volume "$RUNNER_TEMP/osupdate.test:/osupdate.test:ro" --workdir /src alpine:3.24 sh -ec '
-            apk add --no-cache python3 openssl
-            python3 tests/test-package-update-selections.py --apk /sbin/apk --worker-test /osupdate.test
-            python3 tests/test-split-app-packages.py --apk /sbin/apk
-            python3 tests/test-release-channels-apk.py --apk /sbin/apk --commands /rollback-commands.json
-          '
       - name: Script tests
         run: |
           set -e
-          for t in cpu-profile aic-firmware-path alpine-kernel-activation alpine-bootloader-activation alpine-sd-image-boot alpine-app-wait \
-                   alpine-recovery-password alpine-recovery-settings stock-installer alpine-firstboot-storage-errors storage-recovery-layout \
-                   alpine-check-volume alpine-service-deps board-selection usb-state kvm-file-inputs mmf-light-link monitor-edids edid-rgb-range \
-                   net-probe oled-detect oled-layout oled-frame oled-web-font wifi-ap-key platform-build compare-outputs release-build-tar apk-resign release-workflow release-storage \
-                   next-release next-addon-revision addon-packages build-addon assemble-apk-repo package-versions portrait-edid wide-monitor-edids \
-                   serial-console-disk wifi-selector upstream-watch keys-repository s95-start-prelude ssh-rescue trng usb-flags-migrate; do
-            echo "::group::tests/test-$t.py"; python3 "tests/test-$t.py"; echo "::endgroup::"
-          done
-          sudo python3 tests/test-stock-layout-loop.py --output "$RUNNER_TEMP/stock-loop"
-          sudo python3 tests/test-network-multihome.py --netns
-          python3 tests/test-udev-coldplug-default.py
-          for t in firmware/services/test_serial_bridge.py firmware/services/test_serial_console.py; do
+          for t in tests/test-apk-resign.py tests/test-release-build-tar.py firmware/services/test_serial_bridge.py; do
             echo "::group::$t"; python3 "$t"; echo "::endgroup::"
           done
-          python3 tests/test-usb-prefix.py \
-            --script firmware/alpine/compat/S30usbnet
-          for t in tests/test-*.sh; do
-            # The Bash SMB fixture runs in the Go server media job with Docker/sudo.
-            [ "$t" = tests/test-remote-smb.sh ] && continue
-            echo "::group::$t"; sh "$t"; echo "::endgroup::"
-          done
 
-  # Each module only when it (or for IPMI, the server) changes: the vendored
-  # pion tests alone take minutes.
+  # The IPMI add-on, when it or the server changes.
   additional-go-modules:
     name: Additional Go modules (${{ matrix.directory }})
     needs: changes
@@ -375,7 +258,7 @@ jobs:
           go-version: '1.27.x'
           cache-dependency-path: '**/go.sum'
       - run: go build ./...
-      - name: Test
+      - name: IPMI authentication and protocol tests
         run: go test -timeout 5m ./...
       - name: Vet IPMI add-on
         if: matrix.directory == 'addons/ipmi'

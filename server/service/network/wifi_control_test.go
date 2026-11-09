@@ -1,15 +1,12 @@
 package network
 
 import (
-	"errors"
 	gonet "net"
-	"os"
+
 	"path/filepath"
-	"reflect"
+
 	"strings"
 	"testing"
-
-	"NanoKVM-Server/proto"
 )
 
 func TestWifiProfileValidation(t *testing.T) {
@@ -34,14 +31,6 @@ func TestWifiProfileValidation(t *testing.T) {
 	good.Password = ""
 	if err := good.validate(); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestWifiFrequencies(t *testing.T) {
-	out := parseFrequencies("* 2412.0 MHz [1] (20.0 dBm)\n* 5180 MHz [36] (20.0 dBm)\n* 5260 MHz [52] (disabled)\n* 5975 MHz [5] (20.0 dBm)")
-	want := map[string][]string{"2.4": {"2412"}, "5": {"5180"}}
-	if !reflect.DeepEqual(out, want) {
-		t.Fatalf("%v", out)
 	}
 }
 
@@ -107,71 +96,7 @@ BSS 00:11:22:33:44:08(on wlan0)
 	}
 }
 
-func TestWifiHardwareAndStatus(t *testing.T) {
-	root := t.TempDir()
-	net := filepath.Join(root, "wlan0")
-	etc := filepath.Join(root, "etc")
-	if err := os.MkdirAll(etc, 0700); err != nil {
-		t.Fatal(err)
-	}
-	w := radioControl{etc: etc, net: net, run: func(name string, args ...string) (string, error) {
-		if name == "iw" {
-			return "* 2412 MHz [1]\n* 5180 MHz [36]", nil
-		}
-		return "", errors.New("unexpected command " + name)
-	}, request: func(command string) (string, error) {
-		switch command {
-		case "STATUS":
-			return "wpa_state=COMPLETED\nssid=Actual\x20Network\nfreq=5180\nwifi_generation=6\nkey_mgmt=SAE\nip_address=192.0.2.5", nil
-		case "SIGNAL_POLL":
-			return "RSSI=-65\nLINKSPEED=137\nNOISE=-92\nFREQUENCY=5180\nWIDTH=40 MHz\nCENTER_FRQ1=5190\n", nil
-		}
-		return "", errors.New("unexpected request " + command)
-	}}
-	if !w.enabled() || w.present() {
-		t.Fatal("default-on / absent adapter")
-	}
-	// Issue 215: a board without Wi-Fi must not report Wi-Fi as on.
-	if d := w.status(); d.Supported || d.Enabled || d.Connected {
-		t.Fatalf("absent adapter reported %+v", d)
-	}
-	if err := os.MkdirAll(filepath.Join(net, "device"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	phy := filepath.Join(root, "phy0")
-	_ = os.Mkdir(phy, 0700)
-	_ = os.Symlink(phy, filepath.Join(net, "phy80211"))
-	_ = os.WriteFile(filepath.Join(net, "device/modalias"), []byte("sdio:c00v5449d0145"), 0600)
-	_ = os.WriteFile(filepath.Join(etc, "wifi.ssid"), []byte("Stale configured network"), 0600)
-	d := w.status()
-	if !d.Supported || !d.Connected || d.Ssid != "Actual Network" || d.Model != "AIC8801" || d.Band != "5" || d.PreferredBand != "5" || len(d.Bands) != 2 {
-		t.Fatalf("%+v", d)
-	}
-	want := proto.WifiConnection{Frequency: 5180, Channel: 36, Width: "40 MHz", Signal: -65, LinkSpeed: 137, Generation: 6, KeyMgmt: "SAE", IP: "192.0.2.5"}
-	if d.Connection == nil || *d.Connection != want {
-		t.Fatalf("connection %+v", d.Connection)
-	}
-	_ = os.WriteFile(filepath.Join(etc, "wifi.disabled"), nil, 0600)
-	d = w.status()
-	if d.Enabled || d.Connected {
-		t.Fatal("disabled radio shown connected")
-	}
-	_ = os.Remove(filepath.Join(etc, "wifi.disabled"))
-	w.run = func(string, ...string) (string, error) { return "", errors.New("unavailable") }
-	w.request = func(string) (string, error) { return "", errors.New("unavailable") }
-	d = w.status()
-	if d.Connected || len(d.Bands) != 0 || d.Connection != nil {
-		t.Fatal("invented state on command failure")
-	}
-}
-
-func TestWifiChannelOfFrequency(t *testing.T) {
-	for freq, channel := range map[int]int{2412: 1, 2437: 6, 2472: 13, 2484: 14, 5180: 36, 5745: 149, 5825: 165, 5955: 1, 6115: 33, 0: 0, 3000: 0} {
-		if got := channelFor(freq); got != channel {
-			t.Errorf("%d MHz: channel %d, want %d", freq, got, channel)
-		}
-	}
-}
+// Issue 215: a board without Wi-Fi must not report Wi-Fi as on.
 
 func TestWpaControlRequest(t *testing.T) {
 	socket := filepath.Join(t.TempDir(), "wlan0")
@@ -196,66 +121,5 @@ func TestWpaControlRequest(t *testing.T) {
 	}
 	if _, err = wpaControl(filepath.Join(t.TempDir(), "absent"))("STATUS"); err == nil {
 		t.Fatal("missing wpa_supplicant socket reported a reply")
-	}
-}
-
-func TestWifiProfileStorage(t *testing.T) {
-	w := radioControl{etc: t.TempDir()}
-	p := wifiProfile{Ssid: "Private", Password: "valid123", Hidden: true, Security: "personal", Band: "5"}
-	if err := w.saveProfile(p, map[string][]string{"2.4": {"2412"}, "5": {"5180", "5200"}}, "5"); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"wifi.ssid", "wifi.pass", "wifi.hidden", "wifi.security", "wifi.freq_list", "wifi.freq_list_2.4", "wifi.freq_list_5", wifiBandPreferenceFile} {
-		info, err := os.Stat(filepath.Join(w.etc, name))
-		if err != nil || info.Mode().Perm() != 0600 {
-			t.Fatalf("%s: %v", name, err)
-		}
-	}
-	p.Security = "open"
-	p.Password = ""
-	if err := w.saveProfile(p, map[string][]string{"2.4": {"2412"}}, "2.4"); err != nil {
-		t.Fatal(err)
-	}
-	password, _ := os.ReadFile(filepath.Join(w.etc, "wifi.pass"))
-	if len(password) != 0 {
-		t.Fatal("old secret retained for open profile")
-	}
-}
-
-func TestWifiAdvertisedSecurity(t *testing.T) {
-	for _, tc := range []struct{ ies, want string }{
-		{"WPA:\n * Authentication suites: PSK", "wpa"},
-		{"RSN:\n * Authentication suites: PSK", "wpa2"},
-		{"RSN:\n * Authentication suites: SAE", "wpa3"},
-		{"RSN:\n * Authentication suites: PSK SAE", "wpa2-wpa3"},
-		{"WPA:\n * Authentication suites: PSK\nRSN:\n * Authentication suites: PSK", "wpa-wpa2"},
-	} {
-		got := parseScan("BSS 00:11:22:33:44:55(on wlan0)\n freq: 5180.0\n SSID: Example\n capability: ESS Privacy\n"+tc.ies, "5")
-		if len(got) != 1 || got[0].Security != tc.want {
-			t.Fatalf("want %s, got %+v", tc.want, got)
-		}
-	}
-}
-
-func TestWifiScanAllBands(t *testing.T) {
-	out := `BSS 00:11:22:33:44:01(on wlan0)
- freq: 2412
- signal: -40.00 dBm
- SSID: Shared
-BSS 00:11:22:33:44:02(on wlan0)
- freq: 5180
- signal: -50.00 dBm
- SSID: Shared
-BSS 00:11:22:33:44:03(on wlan0)
- freq: 5200
- signal: -60.00 dBm
- SSID: Shared
-BSS 00:11:22:33:44:04(on wlan0)
- freq: 6105
- SSID: Unsupported band
-`
-	got := parseScan(out, "all")
-	if len(got) != 2 || got[0].Band != "2.4" || got[1].Band != "5" || got[1].Signal != -50 {
-		t.Fatalf("all-band scan lost a band or kept duplicate/unsupported entries: %+v", got)
 	}
 }

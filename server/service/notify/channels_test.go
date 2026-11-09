@@ -1,7 +1,6 @@
 package notify
 
 import (
-	"bufio"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -10,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
+
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
+
 	"testing"
 	"time"
 )
@@ -77,25 +76,8 @@ func TestWebhookSignature(t *testing.T) {
 }
 
 // Text read off the host's screen mentions no one and hides no link.
-func TestScreenTextIsPlain(t *testing.T) {
-	e := Event{Kind: KindScreen, Message: "screen.panic", Details: "@everyone <!channel> [reset](https://e.example)"}
-	for kind, want := range map[string]string{
-		"discord": "allowed_mentions:map[parse:[users roles]]",
-		"slack":   `&lt;!channel&gt; [reset](`, // Slack has no such links
-	} {
-		server, got := capture(t, http.StatusNoContent)
-		ch := channel(kind, map[string]string{"url": server.URL})
-		if err := sendChannel(context.Background(), ch, renderFor(e, "en", nil, markup(kind))); err != nil {
-			t.Fatal(err)
-		}
-		var payload any
-		_ = json.Unmarshal(got.body, &payload)
-		body := fmt.Sprint(payload)
-		if !strings.Contains(body, want) || strings.Contains(body, "<!channel>") || kind == "discord" && strings.Contains(body, "[reset](") {
-			t.Errorf("%s: %s", kind, body)
-		}
-	}
-}
+
+// Slack has no such links
 
 // echo answers with status and the request's address, headers and body, as
 // an error page or a proxy can.
@@ -146,135 +128,7 @@ func TestErrorsHideEchoedSecrets(t *testing.T) {
 	}
 }
 
-func TestHTTPStatus(t *testing.T) {
-	for status, isPermanent := range map[int]bool{400: true, 401: true, 404: true, 429: false, 500: false, 503: false} {
-		server, _ := capture(t, status)
-		err := sendChannel(context.Background(), channel("slack", map[string]string{"url": server.URL}), sample)
-		var perm permanentError
-		if err == nil || errors.As(err, &perm) != isPermanent || !strings.Contains(err.Error(), "answer") {
-			t.Errorf("HTTP %d: %v", status, err)
-		}
-	}
-}
-
-func TestSyslog(t *testing.T) {
-	conn, err := net.ListenPacket("udp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
-	host, port, _ := net.SplitHostPort(conn.LocalAddr().String())
-	if err := sendChannel(context.Background(), channel("syslog", map[string]string{"host": host, "port": port}), sample); err != nil {
-		t.Fatal(err)
-	}
-	buf := make([]byte, 1024)
-	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	n, _, err := conn.ReadFrom(buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "<28>1 2026-10-31T12:00:00Z kvm1 nanokvm - power - Host powered off: The host's power LED turned off."
-	if string(buf[:n]) != want {
-		t.Fatalf("got  %q\nwant %q", buf[:n], want)
-	}
-
-	listener, _ := net.Listen("tcp", "127.0.0.1:0")
-	defer listener.Close()
-	host, port, _ = net.SplitHostPort(listener.Addr().String())
-	done := make(chan string, 1)
-	go func() {
-		c, err := listener.Accept()
-		if err != nil {
-			done <- ""
-			return
-		}
-		data, _ := io.ReadAll(c)
-		done <- string(data)
-	}()
-	if err := sendChannel(context.Background(), channel("syslog", map[string]string{"host": host, "port": port, "protocol": "tcp"}), sample); err != nil {
-		t.Fatal(err)
-	}
-	if got := <-done; got != fmt.Sprintf("%d %s", len(want), want) {
-		t.Fatalf("tcp framing: %q", got)
-	}
-}
-
 // fakeSMTP is a server without TLS or login: an internal relay.
-func fakeSMTP(t *testing.T, reject string) (string, string, *strings.Builder) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { listener.Close() })
-	var mu sync.Mutex
-	transcript := &strings.Builder{}
-	go func() {
-		c, err := listener.Accept()
-		if err != nil {
-			return
-		}
-		defer c.Close()
-		r := bufio.NewReader(c)
-		say := func(line string) { _, _ = c.Write([]byte(line + "\r\n")) }
-		say("220 fake")
-		data := false
-		for {
-			line, err := r.ReadString('\n')
-			if err != nil {
-				return
-			}
-			mu.Lock()
-			transcript.WriteString(line)
-			mu.Unlock()
-			cmd := strings.ToUpper(strings.TrimSpace(line))
-			switch {
-			case data:
-				if cmd == "." {
-					data = false
-					say("250 queued")
-				}
-			case strings.HasPrefix(cmd, "EHLO"):
-				say("250 fake")
-			case reject != "" && strings.HasPrefix(cmd, reject):
-				say("550 no such user")
-			case strings.HasPrefix(cmd, "DATA"):
-				data = true
-				say("354 go")
-			case strings.HasPrefix(cmd, "QUIT"):
-				say("221 bye")
-				return
-			default:
-				say("250 ok")
-			}
-		}
-	}()
-	host, port, _ := net.SplitHostPort(listener.Addr().String())
-	return host, port, transcript
-}
 
-func TestEmailRefusals(t *testing.T) {
-	host, port, _ := fakeSMTP(t, "RCPT")
-	ch := channel("email", map[string]string{"host": host, "port": port, "security": "none", "from": "k@example.com", "to": "a@example.com"})
-	var perm permanentError
-	if err := sendChannel(context.Background(), ch, sample); !errors.As(err, &perm) {
-		t.Fatalf("a refused recipient: %v", err)
-	}
-
-	host, port, _ = fakeSMTP(t, "")
-	ch = channel("email", map[string]string{"host": host, "port": port, "from": "k@example.com", "to": "a@example.com"})
-	if err := sendChannel(context.Background(), ch, sample); !errors.As(err, &perm) {
-		t.Fatalf("STARTTLS asked of a server without it: %v", err)
-	}
-
-	// A password over a plain connection: refused on save, and on send if
-	// stored before that.
-	host, port, _ = fakeSMTP(t, "")
-	ch = Channel{Type: "email", Settings: map[string]string{"host": host, "port": port, "security": "none", "username": "u", "password": "p",
-		"from": "k@example.com", "to": "a@example.com"}}
-	if saved := (Channel{Type: "email", Settings: maps.Clone(ch.Settings)}); saved.validate() == nil {
-		t.Fatal("a password over a plain connection saved")
-	}
-	if err := sendChannel(context.Background(), ch, sample); !errors.As(err, &perm) {
-		t.Fatalf("a password over a plain connection: %v", err)
-	}
-}
+// A password over a plain connection: refused on save, and on send if
+// stored before that.

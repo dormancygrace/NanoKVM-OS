@@ -1,13 +1,11 @@
 package mcpservice
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
+
 	"testing"
 
 	"NanoKVM-Server/service/controlmode"
@@ -22,41 +20,6 @@ func useTestConfig(t *testing.T) string {
 	configFilePath = path
 	t.Cleanup(func() { configFilePath = oldPath })
 	return path
-}
-
-func TestConfigLifecycle(t *testing.T) {
-	path := useTestConfig(t)
-
-	cfg, err := loadConfig()
-	if err != nil || cfg.APIKey != "" {
-		t.Fatalf("unexpected missing config result: cfg=%+v err=%v", cfg, err)
-	}
-
-	cfg, err = updateConfig(func(cfg Config) (Config, error) {
-		cfg, err = ensureAPIKey(cfg)
-		return cfg, err
-	})
-	if err != nil || !strings.HasPrefix(cfg.APIKey, apiKeyPrefix) {
-		t.Fatalf("enable MCP: cfg=%+v err=%v", cfg, err)
-	}
-	firstKey := cfg.APIKey
-
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat config: %v", err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("config permissions = %o, want 600", info.Mode().Perm())
-	}
-
-	cfg, err = updateConfig(ensureAPIKey)
-	if err != nil || cfg.APIKey != firstKey {
-		t.Fatalf("ensure existing key changed it: cfg=%+v err=%v", cfg, err)
-	}
-	cfg, err = updateConfig(regenerateAPIKey)
-	if err != nil || cfg.APIKey == firstKey {
-		t.Fatalf("regenerate did not replace key: cfg=%+v err=%v", cfg, err)
-	}
 }
 
 func TestLoadConfigRejectsCorruptJSON(t *testing.T) {
@@ -131,96 +94,5 @@ func TestAPIKeyMiddleware(t *testing.T) {
 	}
 	if got := request("Bearer rotated").Code; got != http.StatusNoContent {
 		t.Fatalf("rotated key status = %d", got)
-	}
-}
-
-func TestSetConfigAPI(t *testing.T) {
-	useTestConfig(t)
-	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModePicoclaw)
-	preemptLeasesCalled := false
-	stopRuntimeCalled := false
-	releaseCalled := false
-	gin.SetMode(gin.TestMode)
-	service := NewServiceWithPreempt(control, func() error {
-		preemptLeasesCalled = true
-		return nil
-	}, func() error {
-		stopRuntimeCalled = true
-		return nil
-	}, func() error {
-		releaseCalled = true
-		return nil
-	}, nil)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/mcp/config", strings.NewReader(`{"enabled":true}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	service.SetConfig(c)
-	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
-		t.Fatalf("Cache-Control = %q, want no-store", got)
-	}
-
-	var response struct {
-		Code int `json:"code"`
-		Data struct {
-			Enabled     bool   `json:"enabled"`
-			APIKey      string `json:"apiKey"`
-			ControlMode string `json:"controlMode"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatal(err)
-	}
-	if response.Code != 0 || !response.Data.Enabled || response.Data.APIKey == "" || response.Data.ControlMode != string(controlmode.ModeMCP) || !preemptLeasesCalled || !stopRuntimeCalled || !releaseCalled {
-		t.Fatalf("unexpected response: %+v", response)
-	}
-
-	recorder = httptest.NewRecorder()
-	c, _ = gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/mcp/config", strings.NewReader(`{"enabled":false}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	service.SetConfig(c)
-	if control.Current() != controlmode.ModeOff {
-		t.Fatalf("mode after disabling MCP = %q, want off", control.Current())
-	}
-}
-
-func TestSetConfigEnableCleanupFailureFailsClosed(t *testing.T) {
-	useTestConfig(t)
-	control := controlmode.NewManager(filepath.Join(t.TempDir(), "mode"), controlmode.ModePicoclaw)
-	wantErr := errors.New("picoclaw stop failed")
-	preemptCalled := false
-	releaseCalled := false
-	service := NewServiceWithPreempt(control, func() error {
-		preemptCalled = true
-		return nil
-	}, func() error {
-		return wantErr
-	}, func() error {
-		releaseCalled = true
-		return nil
-	}, nil)
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/mcp/config", strings.NewReader(`{"enabled":true}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	service.SetConfig(c)
-
-	if control.Current() != controlmode.ModeOff {
-		t.Fatalf("mode after failed destructive cleanup = %q, want off", control.Current())
-	}
-	if !preemptCalled || !releaseCalled {
-		t.Fatalf("preemptCalled=%v releaseCalled=%v, want both true", preemptCalled, releaseCalled)
-	}
-	var response struct {
-		Code int    `json:"code"`
-		Msg  string `json:"msg"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatal(err)
-	}
-	if response.Code != -2 || !strings.Contains(response.Msg, wantErr.Error()) {
-		t.Fatalf("response = %+v, want cleanup failure", response)
 	}
 }

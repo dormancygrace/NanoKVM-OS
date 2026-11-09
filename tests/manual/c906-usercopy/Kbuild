@@ -1,2 +1,0 @@
-obj-m += c906_usercopy_test.o
-c906_usercopy_test-y := driver.o

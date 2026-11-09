@@ -1,3 +1,0 @@
-obj-m += c906_memory_test.o
-c906_memory_test-y := driver.o
-ccflags-y += -Werror

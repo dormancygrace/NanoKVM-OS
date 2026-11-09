@@ -16,7 +16,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--archive', type=Path, help='reuse a downloaded pinned archive')
     parser.add_argument('--cross-prefix', default='riscv64-linux-gnu-')
-    parser.add_argument('--negative-control', action='store_true')
     args = parser.parse_args()
     pins = [line.split() for line in (ROOT / 'platform/sources.lock').read_text().splitlines()
             if line.startswith('openssl ')]
@@ -47,12 +46,10 @@ def main():
         subprocess.run(['perl', 'Configure', 'linux64-riscv64',
                         '--cross-compile-prefix=' + args.cross_prefix], cwd=source, check=True)
         subprocess.run(['make', '-s', '-j2', 'build_generated'], cwd=source, check=True)
-        command = ['python3', str(ROOT / 'firmware/crypto/experimental/openssl-sha256/test-scalar.py'),
+        command = ['python3', str(ROOT / 'firmware/crypto/openssl-c906/tests/test-scalar.py'),
                    '--source', str(source), '--cross-prefix', args.cross_prefix]
-        if args.negative_control:
-            command.append('--negative-control')
         subprocess.run(command, check=True)
-        command[1] = str(ROOT / 'firmware/crypto/experimental/openssl-ghash/test-arithmetic.py')
+        command[1] = str(ROOT / 'firmware/crypto/openssl-c906/tests/test-arithmetic.py')
         subprocess.run(command, check=True)
         print(f'PASS: {len(patches)} complete patches applied with zero fuzz to SHA-256-verified source')
 

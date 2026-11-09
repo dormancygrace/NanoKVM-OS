@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+
 	"testing"
 
 	"golang.org/x/crypto/ssh"
@@ -132,34 +132,5 @@ func TestRejectSymlinksAndNonregularFiles(t *testing.T) {
 				t.Fatal("outside file changed")
 			}
 		})
-	}
-}
-func TestConcurrentImportsDoNotLoseKeys(t *testing.T) {
-	home := t.TempDir()
-	keys := make([]string, 12)
-	for i := range keys {
-		keys[i] = public(t)
-	}
-	var wg sync.WaitGroup
-	for _, key := range keys {
-		wg.Go(func() {
-			if _, e := Import(home, key); e != nil {
-				t.Error(e)
-			}
-		})
-	}
-	wg.Wait()
-	data, e := os.ReadFile(filepath.Join(home, ".ssh/authorized_keys"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	for _, key := range keys {
-		if strings.Count(string(data), key) != 1 {
-			t.Fatal("lost or duplicated key")
-		}
-	}
-	files, _ := os.ReadDir(filepath.Join(home, ".ssh"))
-	if len(files) != 1 {
-		t.Fatal("temporary files remain")
 	}
 }

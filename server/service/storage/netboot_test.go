@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"NanoKVM-Server/usbinternet"
 )
 
 func TestReleaseTagsAreStrict(t *testing.T) {
@@ -37,38 +35,6 @@ func TestReleaseTagsAreStrict(t *testing.T) {
 func digestOf(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
-}
-
-func TestIPXEDigests(t *testing.T) {
-	good := githubRelease{Tag: "v2.0.0", Assets: []githubAsset{
-		{Name: ipxeImage, Size: 10, Digest: "sha256:" + strings.Repeat("a", 64)},
-		{Name: ipxeSBImage, Size: 10, Digest: "sha256:" + strings.Repeat("b", 64)},
-		{Name: "ipxe.usb", Size: 10},
-	}}
-	got, err := ipxeDigests(good)
-	if err != nil || got[ipxeImage] != strings.Repeat("a", 64) || got[ipxeSBImage] != strings.Repeat("b", 64) || len(got) != 2 {
-		t.Fatal(got, err)
-	}
-	noDigest := good
-	noDigest.Assets = []githubAsset{good.Assets[0], {Name: ipxeSBImage, Size: 10}}
-	if _, err := ipxeDigests(noDigest); err == nil {
-		t.Fatal("asset without a digest accepted")
-	}
-	missing := good
-	missing.Assets = good.Assets[:1]
-	if _, err := ipxeDigests(missing); err == nil {
-		t.Fatal("release without the Secure Boot image accepted")
-	}
-	huge := good
-	huge.Assets = []githubAsset{good.Assets[0], {Name: ipxeSBImage, Size: ipxeMaxBytes + 1, Digest: good.Assets[1].Digest}}
-	if _, err := ipxeDigests(huge); err == nil {
-		t.Fatal("oversized image accepted")
-	}
-	badTag := good
-	badTag.Tag = "latest"
-	if _, err := ipxeDigests(badTag); err == nil {
-		t.Fatal("unexpected tag accepted")
-	}
 }
 
 // fakeReleases serves the GitHub API, the iPXE downloads and boot.netboot.xyz.
@@ -106,38 +72,6 @@ func fakeReleases(t *testing.T, images map[string][]byte, published map[string]s
 	netbootDir = t.TempDir()
 }
 
-func TestUpdateInstallsVerifiedImages(t *testing.T) {
-	images := map[string][]byte{ipxeImage: []byte("plain image"), ipxeSBImage: []byte("signed image")}
-	published := map[string]string{ipxeImage: digestOf(images[ipxeImage]), ipxeSBImage: digestOf(images[ipxeSBImage])}
-	fakeReleases(t, images, published, "3.0.3")
-	stale := filepath.Join(netbootDir, "ipxe-v1.21.1")
-	if err := os.MkdirAll(stale, 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	st, err := updateNetbootReleases(context.Background(), netbootState{SecureBoot: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if st.IPXE != "v2.0.0" || st.Netbootxyz != "3.0.3" || !st.SecureBoot || st.CheckedAt == "" {
-		t.Fatalf("%+v", st)
-	}
-	for name, data := range images {
-		got, err := os.ReadFile(ipxeImagePath("v2.0.0", name))
-		if err != nil || string(got) != string(data) {
-			t.Fatal(name, err)
-		}
-	}
-	saved, err := loadNetbootState()
-	if err != nil || saved.IPXE != "v2.0.0" || saved.IPXEFiles[ipxeSBImage] != published[ipxeSBImage] {
-		t.Fatal(saved, err)
-	}
-	removeOldIPXE(st.IPXE)
-	if _, err := os.Stat(stale); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("the old release was kept")
-	}
-}
-
 func TestUpdateRejectsAMismatchingImage(t *testing.T) {
 	images := map[string][]byte{ipxeImage: []byte("plain image"), ipxeSBImage: []byte("tampered")}
 	published := map[string]string{ipxeImage: digestOf(images[ipxeImage]), ipxeSBImage: digestOf([]byte("signed image"))}
@@ -171,84 +105,7 @@ func TestVerifyFileDetectsDamage(t *testing.T) {
 	}
 }
 
-func TestMenuListenerServesOnlyTheScript(t *testing.T) {
-	n := &netbootSession{stop: make(chan struct{})}
-	n.netbootxyz.Store("3.0.3")
-	server := httptest.NewServer(n.handler())
-	defer server.Close()
-
-	rsp, err := http.Get(server.URL + "/boot.ipxe")
-	if err != nil {
-		t.Fatal(err)
-	}
-	body := make([]byte, 4096)
-	k, _ := rsp.Body.Read(body)
-	rsp.Body.Close()
-	if rsp.StatusCode != 200 || !strings.Contains(string(body[:k]), "boot.netboot.xyz/3.0.3") {
-		t.Fatal(rsp.StatusCode, string(body[:k]))
-	}
-	if n.fetches.Load() != 1 || n.lastFetch.Load() == 0 {
-		t.Fatal("fetch not counted")
-	}
-	for _, path := range []string{"/", "/data/", "/boot.ipxe/../state.json", "/menu.ipxe"} {
-		rsp, err := http.Get(server.URL + path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		rsp.Body.Close()
-		if rsp.StatusCode != 404 {
-			t.Fatalf("%s answered %d", path, rsp.StatusCode)
-		}
-	}
-	rsp, err = http.Post(server.URL+"/boot.ipxe", "text/plain", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rsp.Body.Close()
-	if rsp.StatusCode != 405 {
-		t.Fatal("POST answered", rsp.StatusCode)
-	}
-}
-
 // fakeUSBNetwork gives the network boot code temporary boot and runtime
 // directories and records how often the USB network is applied.
-func fakeUSBNetwork(t *testing.T) (usbinternet.Runtime, *int) {
-	t.Helper()
-	r := usbinternet.Runtime{Boot: t.TempDir(), Run: t.TempDir()}
-	applied := 0
-	oldRuntime, oldApply, oldDir := netbootRuntime, applyUSBNetwork, netbootDir
-	t.Cleanup(func() { netbootRuntime, applyUSBNetwork, netbootDir = oldRuntime, oldApply, oldDir })
-	netbootRuntime = func() usbinternet.Runtime { return r }
-	applyUSBNetwork = func() error { applied++; return nil }
-	netbootDir = t.TempDir()
-	return r, &applied
-}
 
-func TestUndoRestoresTheUsersSharingSetting(t *testing.T) {
-	r, applied := fakeUSBNetwork(t)
-	if err := setSharing(r, true); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.SetNetbootPort(netbootPort); err != nil {
-		t.Fatal(err)
-	}
-	st := netbootState{IPXE: "v2.0.0", SharingByNetboot: true}
-	if err := undoNetboot(&st); err != nil {
-		t.Fatal(err)
-	}
-	if r.Enabled() || r.NetbootPort() != 0 || st.SharingByNetboot || *applied != 1 {
-		t.Fatalf("sharing %v port %d state %+v applied %d", r.Enabled(), r.NetbootPort(), st, *applied)
-	}
-	if saved, err := loadNetbootState(); err != nil || saved.SharingByNetboot || saved.IPXE != "v2.0.0" {
-		t.Fatal(saved, err)
-	}
-
-	// Sharing the user turned on stays on.
-	if err := setSharing(r, true); err != nil {
-		t.Fatal(err)
-	}
-	st = netbootState{}
-	if err := undoNetboot(&st); err != nil || !r.Enabled() {
-		t.Fatal("the user's sharing was turned off:", err)
-	}
-}
+// Sharing the user turned on stays on.

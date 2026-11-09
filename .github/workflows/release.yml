@@ -60,13 +60,9 @@ on:
       - scripts/alpine-signer.sh
       - tests/test-apk-resign.py
       - tests/test-release-build-tar.py
-      - tests/test-release-storage.py
-      - tests/test-release-workflow.py
       - scripts/build-stock-installer.py
       - scripts/install-stock.py
       - firmware/stock-install/**
-      - tests/test-stock-installer.py
-      - tests/test-stock-layout-loop.py
 
 permissions:
   contents: read

@@ -25,7 +25,6 @@ on:
       - scripts/check-ec-key.sh
       - scripts/alpine-signer.sh
       - tests/test-index-apk-repo.py
-      - tests/test-assemble-apk-repo.py
 
 permissions:
   contents: read

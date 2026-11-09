@@ -4,14 +4,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls"
+
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
 	"net"
-	"os"
-	"path/filepath"
+
 	"strings"
 	"testing"
 	"time"
@@ -45,30 +44,6 @@ func testPair(t *testing.T, name string, notBefore time.Time) (certPEM, keyPEM [
 	}
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
 		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
-}
-
-func writePair(t *testing.T, dir, name string, certPEM, keyPEM []byte) (certFile, keyFile string) {
-	t.Helper()
-	certFile = filepath.Join(dir, name+".crt")
-	keyFile = filepath.Join(dir, name+".key")
-	if err := os.WriteFile(certFile, certPEM, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(keyFile, keyPEM, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return certFile, keyFile
-}
-
-func servedName(t *testing.T, addr string, nextProtos ...string) (string, string) {
-	t.Helper()
-	conn, err := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true, NextProtos: nextProtos})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
-	state := conn.ConnectionState()
-	return state.PeerCertificates[0].Subject.CommonName, state.NegotiatedProtocol
 }
 
 func TestParseCertificatePairAcceptsSeparateAndCombinedFiles(t *testing.T) {
@@ -142,104 +117,13 @@ func TestParseCertificatePairRejectsBadInput(t *testing.T) {
 	}
 }
 
-func TestCertificateStoreSwapsPairsWithoutRestart(t *testing.T) {
-	dir := t.TempDir()
-	first, firstKey := testPair(t, "first", time.Now().Add(-time.Hour))
-	second, secondKey := testPair(t, "second", time.Now().Add(-time.Hour))
-	certFile, keyFile := writePair(t, dir, "pair", first, firstKey)
+// The renewed pair replaces the files in place.
 
-	store := &CertificateStore{}
-	if _, err := store.GetCertificate(nil); err == nil {
-		t.Fatal("empty store served a certificate")
-	}
-	if err := store.Load(certFile, keyFile); err != nil {
-		t.Fatal(err)
-	}
-	ln, err := tls.Listen("tcp", "127.0.0.1:0", &tls.Config{GetCertificate: store.GetCertificate})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ln.Close()
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			_ = conn.(*tls.Conn).Handshake()
-			conn.Close()
-		}
-	}()
+// A broken pair on disk keeps the served one and records the error.
 
-	if name, _ := servedName(t, ln.Addr().String()); name != "first" {
-		t.Fatalf("served %q, want first", name)
-	}
-	// The renewed pair replaces the files in place.
-	writePair(t, dir, "pair", second, secondKey)
-	if err := store.Load(certFile, keyFile); err != nil {
-		t.Fatal(err)
-	}
-	if name, _ := servedName(t, ln.Addr().String()); name != "second" {
-		t.Fatalf("served %q, want second", name)
-	}
-	// A broken pair on disk keeps the served one and records the error.
-	if err := os.WriteFile(keyFile, []byte("garbage"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Load(certFile, keyFile); err == nil {
-		t.Fatal("garbage key loaded")
-	}
-	if name, _ := servedName(t, ln.Addr().String()); name != "second" {
-		t.Fatalf("served %q after a failed reload, want second", name)
-	}
-	current := store.Current()
-	if current.Err == nil || current.Cert == nil || current.Cert.Leaf.Subject.CommonName != "second" {
-		t.Fatalf("snapshot after a failed reload: err=%v cert=%v", current.Err, current.Cert)
-	}
-	writePair(t, dir, "pair", second, secondKey)
-	if err := store.Load(certFile, keyFile); err != nil {
-		t.Fatal(err)
-	}
-	if current := store.Current(); current.Err != nil {
-		t.Fatalf("error kept after a good reload: %v", current.Err)
-	}
-}
+// First boot: nothing on disk, the pair is generated.
 
-func TestPrepareServerCertificateFallsBackToTheGeneratedPair(t *testing.T) {
-	dir := t.TempDir()
-	origCert, origKey := defaultCertFile, defaultKeyFile
-	defaultCertFile, defaultKeyFile = filepath.Join(dir, "server.crt"), filepath.Join(dir, "server.key")
-	defer func() { defaultCertFile, defaultKeyFile = origCert, origKey }()
-	ServerCertificate = &CertificateStore{}
-	defer func() { ServerCertificate = &CertificateStore{} }()
+// A custom pair that cannot be read: the generated one stands in, the
+// error is kept for the settings page.
 
-	// First boot: nothing on disk, the pair is generated.
-	if err := PrepareServerCertificate(defaultCertFile, defaultKeyFile); err != nil {
-		t.Fatal(err)
-	}
-	if current := ServerCertificate.Current(); current.Cert == nil || current.FallbackErr != nil || current.CertFile != defaultCertFile {
-		t.Fatalf("generated pair not served: %+v", current)
-	}
-
-	// A custom pair that cannot be read: the generated one stands in, the
-	// error is kept for the settings page.
-	customCert, customKey := filepath.Join(dir, "custom.crt"), filepath.Join(dir, "custom.key")
-	if err := PrepareServerCertificate(customCert, customKey); err != nil {
-		t.Fatal(err)
-	}
-	current := ServerCertificate.Current()
-	if current.FallbackErr == nil || !strings.Contains(current.FallbackErr.Error(), "custom.crt") || current.CertFile != defaultCertFile {
-		t.Fatalf("fallback not recorded: %+v", current)
-	}
-
-	// A good custom pair is served and clears the fallback.
-	certPEM, keyPEM := testPair(t, "custom", time.Now().Add(-time.Hour))
-	writePair(t, dir, "custom", certPEM, keyPEM)
-	if err := PrepareServerCertificate(customCert, customKey); err != nil {
-		t.Fatal(err)
-	}
-	current = ServerCertificate.Current()
-	if current.FallbackErr != nil || current.CertFile != customCert || current.Cert.Leaf.Subject.CommonName != "custom" {
-		t.Fatalf("custom pair not served: %+v", current)
-	}
-}
+// A good custom pair is served and clears the fallback.

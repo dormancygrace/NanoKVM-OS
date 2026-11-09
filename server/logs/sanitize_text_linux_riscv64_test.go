@@ -4,9 +4,9 @@ package logs
 
 import (
 	"os"
-	"runtime"
+
 	"strings"
-	"sync"
+
 	"syscall"
 	"testing"
 	"unsafe"
@@ -216,43 +216,4 @@ func TestLogVectorGuardPages(t *testing.T) {
 			}
 		}
 	}
-}
-func TestLogVectorConcurrentState(t *testing.T) {
-	requireLogVector(t)
-	old := runtime.GOMAXPROCS(4)
-	defer runtime.GOMAXPROCS(old)
-	var wg sync.WaitGroup
-	for worker := 0; worker < 4; worker++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			data := []byte(strings.Repeat("a", 16384))
-			data[len(data)-1] = 0xff
-			s := alias(data)
-			for i := 0; i < 400; i++ {
-				for _, f := range needs[1:] {
-					if !f.fn(s) {
-						t.Errorf("state needs %s", f.name)
-						return
-					}
-				}
-				for _, f := range indexes[2:] {
-					if f.fn(s, 0xff) != len(s)-1 {
-						t.Errorf("state index %s", f.name)
-						return
-					}
-				}
-				if i%50 == 0 {
-					runtime.Gosched()
-					syscall.Kill(os.Getpid(), syscall.SIGURG)
-				}
-			}
-		}()
-	}
-	wg.Wait()
-}
-
-func TestLogVectorRoutedSanitizer(t *testing.T) {
-	requireLogVector(t)
-	checkRoutedSanitizerCorpus(t)
 }

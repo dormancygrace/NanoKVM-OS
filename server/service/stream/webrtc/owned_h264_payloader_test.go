@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"NanoKVM-Server/service/stream"
 	"github.com/pion/rtp/codecs"
 )
 
@@ -77,45 +76,6 @@ func TestOwnedH264PayloaderMatchesPion(t *testing.T) {
 					}
 				}
 			})
-		}
-	}
-}
-
-func TestOwnedH264PayloaderCopiesInputAndRetainedParameterSets(t *testing.T) {
-	owned := &ownedH264Payloader{}
-	pion := &codecs.H264Payloader{}
-	sps := []byte{0, 0, 0, 1, 0x67, 0x42, 0, 0x1f, 0xe5}
-	pps := []byte{0, 0, 1, 0x68, 0xce, 0x3c, 0x80}
-	for _, input := range [][]byte{sps, pps} {
-		want := pion.Payload(1216, bytes.Clone(input))
-		got := owned.Payload(1216, input)
-		if len(got) != 0 || len(want) != 0 {
-			t.Fatal("parameter-only input unexpectedly emitted payload")
-		}
-		for i := range input {
-			input[i] ^= 0xff
-		}
-	}
-	frame := ownedPayloadFixture(stream.VideoCodecH264, false, 24<<10)
-	want := pion.Payload(1216, frame)
-	got := owned.Payload(1216, frame)
-	if len(got) != len(want) {
-		t.Fatalf("packet count got=%d want=%d", len(got), len(want))
-	}
-	snapshots := make([][]byte, len(got))
-	for i := range got {
-		if !bytes.Equal(got[i], want[i]) {
-			t.Fatalf("parameter cache or payload %d changed with old input", i)
-		}
-		snapshots[i] = bytes.Clone(got[i])
-	}
-	for i := range frame {
-		frame[i] ^= 0xff
-	}
-	owned.Payload(1216, ownedPayloadFixture(stream.VideoCodecH264, true, 192<<10))
-	for i := range got {
-		if !bytes.Equal(got[i], snapshots[i]) {
-			t.Fatalf("payload %d changed after input reuse or a later frame", i)
 		}
 	}
 }

@@ -2,44 +2,38 @@
 
 Candidate: OpenSSL 3.5.9 LTS with `0001-chacha20-c906.patch`.
 Control: PR #504, built with the same source, compiler and C906/O3 flags.
-Acceleration requires `NANOKVM_OPENSSL_CHACHA20=auto`; the image downloader sets
-this only for its curl child, preserving explicit operator overrides.
 Measurements from Go or the kernel do not replace OpenSSL measurements.
+
+**2026-11-09:** the vector path no longer has an opt-in or a per-call or
+per-thread vector-state query. Kernel patch 0078 keeps the vector unit on for
+every user thread, and the startup hwprobe is the only check (see
+`../../openssl-c906/README.md`). Sections below that mention
+`NANOKVM_OPENSSL_CHACHA20=auto` or `prctl` describe the earlier design and its
+qualification.
 
 ## Correctness and dispatch
 
 `verify.c` compares raw EVP ChaCha20 against an independent RFC 8439 scalar
 construction: 1680 cases cover offsets 0–15, block/dispatch boundaries through
 64 KiB, 32/64-bit counter rollover, split updates, in-place output, guards and
-context copies. `--native` also tests concurrent vector-off/on threads.
-`--native --hits` requires a library built with `NKOS_CHACHA_TEST` and its private
-`nkos_chacha_test_hits` export. It asserts actual assembly entries for eligible
-calls and zero entries below 640 bytes, in disabled threads, and with the generic
-override. Forked seccomp tests kill file opens/hardware probes after provider
-loading, then exercise the first cipher call with `prctl` permitted or denied.
-This covers filters installed after library startup, not arbitrary filters
-that kill syscalls during dynamic loading. A separate fresh-exec child leaves
-the opt-in unset and verifies that a fatal `prctl` rule also survives.
+context copies. It first checks the kernel contract: `PR_RISCV_V_SET_CONTROL`
+refuses to turn the vector state off, now or for the next exec. `--hits`
+requires a library built with `NKOS_CHACHA_TEST` and its private
+`nkos_chacha_test_hits` export. It asserts:
 
-`verify-load.c` loads the instrumented libcrypto with `dlopen`, and covers two
-load-order cases:
+- actual assembly entries for every call of at least 320 bytes and none below,
+  also in threads;
+- the same entries in forked children whose seccomp filter kills file opens,
+  hardware probes and `prctl` (or denies `prctl`), installed after loading.
 
-- `--worker`: the process starts with vector state off, and a worker thread
-  turns its own vector state on before loading libcrypto. With both opt-ins
-  set, the worker reaches the ChaCha and GHASH assembly. The main thread is
-  still off and stays on upstream code, because each thread asks for itself.
-- `--filter`: a seccomp filter that kills `prctl` is installed before
-  libcrypto is loaded. With the default environment, the process survives on
-  upstream code, because nothing queries without the opt-in.
-
-Both pass on the stand (2026-11-09), together with `verify --native --hits`
-with and without the opt-in, `verify-path` and `evp-bench 0`.
+The cipher path makes no system call.
 
 `test-dispatch.py --negative-control` compiles the patched C dispatcher with
-mocked hardware/syscall edges under ASan/UBSan. It checks the threshold,
-missing capability, all thread-control values, overrides and scalar tails.
-Removing the capability, per-thread or explicit opt-in gate must fail. The assembly
-generator verifies the encoded instructions against GNU binutils. Existing
+mocked hardware/syscall edges under ASan/UBSan. It checks the threshold, the
+capability and that no system call is made; removing either check, or adding
+a `prctl` call, must fail.
+
+The assembly generator verifies the encoded instructions against GNU binutils. Existing
 `../openssl-c906/evp-bench.c 0` checks AEAD known answers and bad tags/ciphertext.
 
 ## Final explicit-opt-in build

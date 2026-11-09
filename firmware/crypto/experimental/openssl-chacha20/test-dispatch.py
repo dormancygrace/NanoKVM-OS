@@ -16,8 +16,7 @@ def main():
     parser.add_argument('--negative-control', action='store_true')
     a = parser.parse_args()
     patch = (ROOT / 'firmware/crypto/openssl-c906/0001-chacha20-c906.patch').read_text()
-    files = {'chacha_c906.c': added_file(patch, 'crypto/chacha/chacha_c906.c'),
-             'crypto/riscv_c906.h': added_file(patch, 'include/crypto/riscv_c906.h')}
+    files = {'chacha_c906.c': added_file(patch, 'crypto/chacha/chacha_c906.c')}
     with tempfile.TemporaryDirectory(prefix='chacha-dispatch-') as td:
         p = Path(td)
         for name in ('crypto', 'internal'): (p / name).mkdir()
@@ -39,10 +38,10 @@ def main():
         subprocess.run([str(p / 'test')], check=True)
         if a.negative_control:
             for name, change in (
-                ('thread gate', ('crypto/riscv_c906.h', 'control >= 0 && (control & 3) == 2', 'control > -100')),
-                ('per-thread cache', ('crypto/riscv_c906.h', 'if (ossl_riscv_c906_vstate == 0)', 'if (1)')),
                 ('capability gate', ('chacha_c906.c', '!ossl_riscv_has_xtheadvector', '0')),
-                ('explicit opt-in', ('chacha_c906.c', 'override == NULL || strcmp(override, "auto") != 0', '((void)override, 0)')),
+                ('threshold', ('chacha_c906.c', 'len < OSSL_CHACHA_C906_MIN_BYTES ||', 'len < 1 ||')),
+                ('syscall-free path', ('chacha_c906.c', '    state[0] = 0x61707865;',
+                                       '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    state[0] = 0x61707865;')),
             ):
                 write(change)
                 subprocess.run(command, check=True)

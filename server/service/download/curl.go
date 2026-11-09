@@ -106,9 +106,6 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 			args = append(args, "--continue-at", strconv.FormatInt(offset, 10), "--header", "If-Range: "+resume.ETag)
 		}
 		cmd := exec.CommandContext(ctx, imageCurlPath, args...)
-		// This curl child has no seccomp filter. Opt into the C906 vector path
-		// here; shared libcrypto must stay compatible with sandboxed clients.
-		cmd.Env = imageCurlEnv()
 		// Kill the transfer if its owning server dies. Cancellation also kills
 		// curl and waits for the FD to close before cleanup or a later transfer.
 		cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
@@ -155,15 +152,4 @@ func downloadCurlTransfer(ctx context.Context, rawURL string, dst *os.File, expe
 		return fmt.Errorf("image transfer failed: %w", err)
 	}
 	return err
-}
-
-// Preserve an explicit operator override (including generic/unknown values).
-func imageCurlEnv() []string {
-	env := os.Environ()
-	for _, name := range []string{"NANOKVM_OPENSSL_CHACHA20", "NANOKVM_OPENSSL_GHASH"} {
-		if _, set := os.LookupEnv(name); !set {
-			env = append(env, name+"=auto")
-		}
-	}
-	return env
 }

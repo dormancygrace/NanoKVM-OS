@@ -297,7 +297,6 @@
     "mjpegChromaFallback_resolution": "当 H.264/H.265 使用更宽的输出时，MJPEG 宽度限制为 1920 像素以保持 4:2:2。该视频流结束后将恢复所选分辨率。",
     "mjpegChromaFallback_video": "只有一路采集输出支持超过 1920 像素的宽度。当两路视频流都更宽时，MJPEG 使用 4:2:0；视频流结束或任一视频流降低分辨率后将恢复 4:2:2。",
     "mjpegChromaFallback_frameDetection": "关闭帧差检测后才能使用 4:2:2。",
-    "mjpegChromaFallback_diagnostic": "当前采集模式下无法使用 4:2:2。",
     "mjpegChromaFallback_hardware": "采集出错后已回退到 4:2:0。请在信号稳定后重试 4:2:2。",
     "mjpegChromaFallback_h264Capture": "为让 H.264 直接读取采集画面，采集以 4:2:0 运行，因此 MJPEG 也使用 4:2:0。采集切换回来后（例如使用 H.265 或缩放的 H.264 视频流）将恢复 4:2:2。",
     "mjpegChromaFallback_pending": "4:2:2 将从下一帧采集画面开始生效。",

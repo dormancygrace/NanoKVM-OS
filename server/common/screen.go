@@ -162,10 +162,6 @@ func loadScreen(readFile func(string) ([]byte, error)) *Screen {
 		MjpegChroma: 422,
 	}
 
-	if os.Getenv("NANOKVM_MJPEG_422") == "0" {
-		target.MjpegChroma = 420
-	}
-
 	for key, path := range screenFileMap {
 		data, err := readFile(path)
 		if err != nil {

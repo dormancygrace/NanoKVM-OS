@@ -117,18 +117,16 @@ Cross-link `firmware/probes/hdmi-events-runtime.cpp` against the matching
 restoration on exit. Run for 10–180 seconds:
 
 ```sh
-NANOKVM_HDMI_IRQ_TRACE=1 ./hdmi-events-runtime 30
+./hdmi-events-runtime 30
 ```
 
 For a bounded park/resume trial (minimum 40 seconds), add park; it captures
 for five seconds, disables capture outputs for 25 seconds without reading
 frames, then resumes:
 
-    NANOKVM_HDMI_IRQ_TRACE=1 ./hdmi-events-runtime 40 park
+    ./hdmi-events-runtime 40 park
 
 The probe enables normal capture admission, never asserts receiver reset,
 discards H.265 output, and reports frame/byte/error/stall counts and input size.
-It does not flash receiver firmware or write EDID. With tracing enabled,
-`reason=initial|edge|resync|vi-fault|retry|fallback` identifies detector snapshots;
-the optional vi/fresh fields identify a fresh VI report behind a snapshot.
+It does not flash receiver firmware or write EDID.
 Normal operation logs only event-source availability changes.

@@ -2,7 +2,6 @@
 
 #define _GNU_SOURCE
 #include "jpeg_worker.h"
-#include <dlfcn.h>
 #include <errno.h>
 #include <poll.h>
 #include <pthread.h>
@@ -13,14 +12,11 @@
 
 #define MAX_JPEG_MESSAGE (64u << 20)
 
-typedef int (*tiles_fn)(uint16_t, uint16_t, uint16_t, uint8_t, uint16_t, kvmv_video_sink, uintptr_t);
-
 struct nk_jpeg_worker {
     nk_jpeg_shared shared; /* first: published to the caller */
     pthread_t thread;
     int ready_fd, doorbell_fd;
     int stopping; /* atomic */
-    tiles_fn tiles; /* NULL: the library has no tiled MJPEG (-9) */
 };
 
 static void ring(int fd) {
@@ -71,7 +67,7 @@ static void *jpeg_main(void *arg) {
         s->failed = 0;
         int result;
         if (request == NK_JPEG_TILES)
-            result = w->tiles ? w->tiles(s->width, s->height, s->quality, s->key, s->max_tiles, collect, (uintptr_t)w) : -9;
+            result = kvmv_read_mjpeg_tiles_sink(s->width, s->height, s->quality, s->key, s->max_tiles, collect, (uintptr_t)w);
         else
             result = kvmv_read_mjpeg_sink(s->width, s->height, s->quality, collect, (uintptr_t)w);
         if (s->failed) s->size = 0;
@@ -89,8 +85,6 @@ nk_jpeg_worker *nk_jpeg_create(int *ready_fd, int *doorbell_fd, nk_jpeg_shared *
     w->ready_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
     w->doorbell_fd = eventfd(0, EFD_CLOEXEC);
     if (w->ready_fd < 0 || w->doorbell_fd < 0) goto fail;
-    /* Older libraries lack tiled MJPEG; tiled requests then return -9. */
-    w->tiles = (tiles_fn)dlsym(RTLD_DEFAULT, "kvmv_read_mjpeg_tiles_sink");
     if (pthread_create(&w->thread, NULL, jpeg_main, w) != 0) goto fail;
     pthread_setname_np(w->thread, "nkos-jpeg");
     *ready_fd = w->ready_fd;

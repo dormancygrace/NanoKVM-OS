@@ -2028,16 +2028,6 @@ int mmf_enc_jpg_push_with_quality(int ch, uint8_t *data, int w, int h, int forma
     return _mmf_jpg_push_copy(ch, data, w, h, format, quality, NULL);
 }
 
-// Read once: called for every frame, and the environment does not change.
-static bool diagnostic_force_copy()
-{
-    static const bool force = [] {
-        const char *value = getenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
-        return value && strcmp(value, "1") == 0;
-    }();
-    return force;
-}
-
 /*
  * The copied-frame fallbacks (_mmf_venc_push_copy, _mmf_jpg_push_copy) take a
  * whole picture of the video pool: 5.3 MiB at 2560x1440, 11.9 MiB at
@@ -2113,7 +2103,7 @@ int mmf_enc_jpg_push_vi_with_quality(int ch, int vi_ch, int quality)
 
     const int updated = _mmf_jpg_update_quality(ch, quality);
     if (updated != CVI_SUCCESS) return updated;
-	CVI_S32 s32Ret = diagnostic_force_copy() ? CVI_FAILURE : CVI_VENC_SendFrame(ch, frame, 1000);
+	CVI_S32 s32Ret = CVI_VENC_SendFrame(ch, frame, 1000);
 	if (s32Ret != CVI_SUCCESS) {
         // The stride-aware copied fallback accepts NV21 only. Never treat
         // full-height NV16 chroma as subsampled VU; the caller reverts to NV21.
@@ -3126,7 +3116,7 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
 		return -1;
 	}
 
-	CVI_S32 ret = diagnostic_force_copy() ? CVI_FAILURE : CVI_VENC_SendFrame(ch, frame, 1000);
+	CVI_S32 ret = CVI_VENC_SendFrame(ch, frame, 1000);
 	if (ret == CVI_SUCCESS || ret == CVI_ERR_VENC_NOBUF) note_video_memory(ret != CVI_SUCCESS);
 	if (ret == CVI_ERR_VENC_NOBUF) {
 		// Without its buffers the channel cannot encode; a copy would not

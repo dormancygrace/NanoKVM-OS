@@ -821,13 +821,6 @@ static bool service_hdmi_events(Events &events, uint64_t now,
     if (vi_refreshed && !capture_park.parked()) events.observe_vi(vi_state);
     const auto request = events.next(now, receiver_retry_pending.load(std::memory_order_relaxed));
     if (!request) return false;
-    static const bool trace = [] {
-        const char *value = std::getenv("NANOKVM_HDMI_IRQ_TRACE");
-        return value && !std::strcmp(value, "1");
-    }();
-    if (trace) std::fprintf(stderr, "[hdmi] receiver sample reason=%s edge=%u resync=%u vi=%u fresh=%u\n",
-        nanokvm::hdmi_poll_reason(request.reason), unsigned(request.edge), unsigned(request.resync),
-        unsigned(vi_state), unsigned(vi_refreshed));
     const bool changed = poll_hdmi_receiver(request.edge, false, request.edge || request.resync);
     events.completed(!receiver_retry_pending.load(std::memory_order_relaxed));
     return changed;
@@ -1046,7 +1039,7 @@ bool jpg_dump(kvmv_data_t* dump_to, nanokvm::JpegBuffer *raw)
 static bool mjpeg_422_disabled = false;
 static unsigned mjpeg_422_frame_failures = 0;
 static unsigned mjpeg_422_video_failures = 0; // video encoder failures in a row
-static int mjpeg_chroma_choice = -1; // Legacy environment default until explicitly selected.
+static int mjpeg_chroma_choice = -1; // 4:2:2 until explicitly selected.
 static uint64_t mjpeg_last_video_ms = 0, mjpeg_last_jpeg_ms = 0;
 static unsigned mjpeg_last_video_width = 0, mjpeg_last_jpeg_width = 0;
 static bool mjpeg_resolution_limited = false;
@@ -1059,17 +1052,10 @@ static uint64_t mjpeg_monotonic_ms()
     clock_gettime(CLOCK_MONOTONIC, &time);
     return static_cast<uint64_t>(time.tv_sec) * 1000 + time.tv_nsec / 1000000;
 }
-// The environment switches, read on first use (-1: not read yet). The
-// server's environment does not change at runtime; callers hold vi_mutex.
-static int mjpeg_422_env = -1, mjpeg_force_copy_env = -1;
+// Callers hold vi_mutex.
 static bool mjpeg_422_requested()
 {
-    if (mjpeg_chroma_choice >= 0) return mjpeg_chroma_choice == 1;
-    if (mjpeg_422_env < 0) {
-        const char *requested = getenv("NANOKVM_MJPEG_422");
-        mjpeg_422_env = !requested || strcmp(requested, "0") != 0;
-    }
-    return mjpeg_422_env;
+    return mjpeg_chroma_choice != 0;
 }
 static bool mjpeg_video_reader_active(uint64_t now_ms)
 {
@@ -1078,14 +1064,6 @@ static bool mjpeg_video_reader_active(uint64_t now_ms)
 static bool mjpeg_jpeg_reader_active(uint64_t now_ms)
 {
     return nanokvm::reader_active(mjpeg_last_jpeg_ms, now_ms);
-}
-static bool mjpeg_force_copy()
-{
-    if (mjpeg_force_copy_env < 0) {
-        const char *copy = getenv("NANOKVM_DIAGNOSTIC_FORCE_COPY");
-        mjpeg_force_copy_env = copy && strcmp(copy, "1") == 0;
-    }
-    return mjpeg_force_copy_env;
 }
 static void disable_mjpeg_422(const char *reason)
 {
@@ -1099,7 +1077,7 @@ static nanokvm::StreamSize mjpeg_parallel_size(nanokvm::StreamSize size, uint8_t
 {
     if (codec != VENC_MJPEG) return size;
     mjpeg_resolution_limited = mjpeg_422_requested() && !mjpeg_422_disabled
-        && !frame_detect && !mjpeg_force_copy() && size.width > 1920
+        && !frame_detect && size.width > 1920
         && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms);
     return mjpeg_resolution_limited ? nanokvm::limit_stream_width(size, 1920) : size;
 }
@@ -1117,7 +1095,7 @@ static int mjpeg_capture_format(uint8_t codec, bool frame_detect, uint64_t now_m
     // output too: full-range BT.601 for JPEG decoders, the VPSS converting
     // the capture's 4:2:0 (its chroma resolution stays 4:2:0).
     if (!mjpeg_422_requested() || mjpeg_422_disabled || codec != VENC_MJPEG
-        || frame_detect || mjpeg_force_copy()
+        || frame_detect
         || (width > 1920 && mjpeg_last_video_width > 1920 && mjpeg_video_reader_active(now_ms)))
         return nanokvm::nv21_format();
     return nanokvm::nv16_format();
@@ -1147,7 +1125,6 @@ uint8_t get_mjpeg_chroma_status()
     if (mjpeg_last_jpeg_width > 1920 && mjpeg_last_video_width > 1920
         && mjpeg_video_reader_active(mjpeg_monotonic_ms())) state |= MJPEG_CHROMA_SHARED_VIDEO;
     if (kvmv_cfg.frame_detact != 0) state |= MJPEG_CHROMA_FRAME_DETECT;
-    if (mjpeg_force_copy()) state |= MJPEG_CHROMA_FORCE_COPY;
     pthread_mutex_unlock(&vi_mutex);
     return state;
 }
@@ -1793,7 +1770,7 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
         }
         const bool jpeg_active = mjpeg_jpeg_reader_active(capture_now);
         const bool remove_nv16 = !mjpeg_422_requested() || mjpeg_422_disabled
-            || kvmv_cfg.frame_detact != 0 || mjpeg_force_copy()
+            || kvmv_cfg.frame_detact != 0
             || (_type == VENC_MJPEG && capture_format == nanokvm::nv21_format())
             || ((_type == VENC_H264 || _type == VENC_H265)
                 && (!jpeg_active || (output.width > 1920 && cam->format_width(nanokvm::nv16_format()) > 1920)));

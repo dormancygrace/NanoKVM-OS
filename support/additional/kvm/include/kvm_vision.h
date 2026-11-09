@@ -73,7 +73,7 @@ int set_mjpeg_chroma(uint8_t enable_422);
 #define MJPEG_CHROMA_ACTIVE_422 1
 #define MJPEG_CHROMA_SHARED_VIDEO 2
 #define MJPEG_CHROMA_FRAME_DETECT 4
-#define MJPEG_CHROMA_FORCE_COPY 8
+// 8 is retired (was a diagnostic copy switch).
 #define MJPEG_CHROMA_FALLBACK_ERROR 16
 #define MJPEG_CHROMA_LIMIT_WIDTH 32
 // 4:2:0 capture for H.264 straight from capture: MJPEG is 4:2:0 meanwhile.

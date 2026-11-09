@@ -297,7 +297,6 @@
     "mjpegChromaFallback_resolution": "MJPEG est limité à 1920 pixels de largeur pour conserver le 4:2:2 tant que H.264/H.265 utilise une sortie plus large. La résolution sélectionnée reprend à la fin de ce flux vidéo.",
     "mjpegChromaFallback_video": "Une seule sortie de capture prend en charge des largeurs supérieures à 1920 pixels. MJPEG utilise le 4:2:0 tant que les deux flux sont plus larges ; le 4:2:2 reprend à la fin du flux vidéo ou lorsque l'un des flux est réduit.",
     "mjpegChromaFallback_frameDetection": "Désactivez la détection de trame pour utiliser le 4:2:2.",
-    "mjpegChromaFallback_diagnostic": "Le 4:2:2 n'est pas disponible dans le mode de capture actuel.",
     "mjpegChromaFallback_hardware": "La capture est revenue au 4:2:0 après une erreur. Réessayez le 4:2:2 lorsque le signal est stable.",
     "mjpegChromaFallback_h264Capture": "La capture fonctionne en 4:2:0 pour H.264 directement depuis la capture, donc MJPEG utilise aussi le 4:2:0. Le 4:2:2 reprend lorsque la capture revient, par exemple pour H.265 ou un flux H.264 mis à l'échelle.",
     "mjpegChromaFallback_pending": "Le 4:2:2 s'appliquera à la prochaine image capturée.",

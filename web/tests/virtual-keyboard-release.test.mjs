@@ -60,7 +60,7 @@ function harness() {
     'react-simple-keyboard/build/css/index.css': {},
     '@/assets/styles/keyboard.css': {},
     antd: { ConfigProvider: element, Segmented: element, Select: element, theme: {} },
-    'react-responsive': { useMediaQuery: () => true },
+    '@/hooks/useMediaQuery.ts': { useMediaQuery: () => true },
     '@/lib/keymap.ts': keymap,
     '@/lib/localstorage.ts': { getKeyboardSystem: () => 'win', getKeyboardLanguage: () => 'en' },
     '@/lib/websocket.ts': {

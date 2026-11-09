@@ -19,10 +19,10 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { ChevronLeftIcon, XIcon } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useMediaQuery } from 'react-responsive';
 
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { menuCloseSignalAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
+import { useMediaQuery } from '@/hooks/useMediaQuery.ts';
 
 import {
   MobileMenuItemContext,
@@ -256,7 +256,7 @@ export const MenuItem = ({
   onOpenChange,
   onIntent
 }: MenuItemProps) => {
-  const isBigScreen = useMediaQuery({ minWidth: 640 });
+  const isBigScreen = useMediaQuery('(min-width: 640px)');
   const setCount = useSetAtom(submenuOpenCountAtom);
   const context = useContext(MobileMenuItemContext);
   const placement = mobilePlacement ?? context.mobilePlacement;

@@ -142,7 +142,12 @@ func (s *Service) secondFactorFailed(c *gin.Context, clientIP, username string, 
 // sign in, or nil when it has answered.
 func (s *Service) requireSecondFactor(c *gin.Context, clientIP string, user *authn.User, otp string, rsp *proto.Response) *authn.User {
 	if otp != "" {
-		verified, recovery, left, err := authn.DefaultStore.VerifySecondFactor(user.Username, otp, now())
+		verified, recovery, left, err := authn.DefaultStore.VerifySecondFactor(user.Username, user.TokenVersion, otp, now())
+		if errors.Is(err, authn.ErrAccountChanged) {
+			// The password changed while it was checked: it no longer counts.
+			s.loginFailedFor(c, clientIP, user.Username, rsp)
+			return nil
+		}
 		if err != nil {
 			s.secondFactorFailed(c, clientIP, user.Username, rsp)
 			return nil
@@ -169,6 +174,9 @@ func logRecovery(username string, recovery bool, left int) {
 
 // LoginTOTP finishes a login with the second factor.
 func (s *Service) LoginTOTP(c *gin.Context) {
+	// As in Login: a client must not hold the connection with an unfinished
+	// body, also when the reply comes early (HTTP/1 drains the body first).
+	_ = http.NewResponseController(c.Writer).SetReadDeadline(time.Now().Add(loginBodyTimeout))
 	var req proto.LoginTOTPReq
 	var rsp proto.Response
 	c.Header("Cache-Control", "no-store")
@@ -197,10 +205,10 @@ func (s *Service) LoginTOTP(c *gin.Context) {
 		rsp.ErrRsp(c, -8, "the login expired; sign in again")
 		return
 	}
-	user, recovery, left, err := authn.DefaultStore.VerifySecondFactor(challenge.username, req.OTP, now())
-	if err == nil && user.TokenVersion != challenge.tokenVersion {
+	user, recovery, left, err := authn.DefaultStore.VerifySecondFactor(challenge.username, challenge.tokenVersion, req.OTP, now())
+	if errors.Is(err, authn.ErrAccountChanged) {
 		// The account changed since the password was checked (a new
-		// password, a rename, sessions revoked): start again.
+		// password, sessions revoked): start again.
 		dropChallenge(req.Challenge)
 		rsp.ErrRsp(c, -8, "the login expired; sign in again")
 		return
@@ -348,10 +356,12 @@ func (s *Service) checkPasswordAndCode(c *gin.Context, rsp *proto.Response) stri
 		return ""
 	}
 	defer release()
-	if _, authenticated, err := authn.DefaultStore.Authenticate(principal.Username, password); err != nil {
+	account, authenticated, err := authn.DefaultStore.Authenticate(principal.Username, password)
+	if err != nil {
 		rsp.ErrRsp(c, -4, "authentication unavailable")
 		return ""
-	} else if !authenticated {
+	}
+	if !authenticated {
 		locked, code, msg := RecordLoginFailureFor(clientIP, principal.Username)
 		time.Sleep(2 * loginPenalty)
 		if locked {
@@ -361,7 +371,11 @@ func (s *Service) checkPasswordAndCode(c *gin.Context, rsp *proto.Response) stri
 		}
 		return ""
 	}
-	_, recovery, left, err := authn.DefaultStore.VerifySecondFactor(principal.Username, req.OTP, now())
+	_, recovery, left, err := authn.DefaultStore.VerifySecondFactor(principal.Username, account.TokenVersion, req.OTP, now())
+	if errors.Is(err, authn.ErrAccountChanged) {
+		rsp.ErrRsp(c, -3, "current password is incorrect")
+		return ""
+	}
 	if errors.Is(err, authn.ErrTOTPNotEnabled) {
 		rsp.ErrRsp(c, -5, err.Error())
 		return ""

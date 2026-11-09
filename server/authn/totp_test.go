@@ -106,23 +106,23 @@ func TestStoreSecondFactor(t *testing.T) {
 	}
 	// The confirming code does not sign in again; the next step does, once.
 	current, _ := TOTPCode(rfcSecret, now)
-	if _, _, _, err := store.VerifySecondFactor("alice", current, now); !errors.Is(err, ErrTOTPInvalidCode) {
+	if _, _, _, err := store.VerifySecondFactor("alice", aliceVersion(t, store), current, now); !errors.Is(err, ErrTOTPInvalidCode) {
 		t.Fatalf("confirming code reused: %v", err)
 	}
 	later := now.Add(totpPeriod * time.Second)
 	next, _ := TOTPCode(rfcSecret, later)
-	user, recovery, left, err := store.VerifySecondFactor("alice", next, later)
+	user, recovery, left, err := store.VerifySecondFactor("alice", aliceVersion(t, store), next, later)
 	if err != nil || recovery || left != RecoveryCodeCount || user.Username != "alice" {
 		t.Fatalf("%v %v %d %v", user, recovery, left, err)
 	}
-	if _, _, _, err = store.VerifySecondFactor("alice", next, later); !errors.Is(err, ErrTOTPInvalidCode) {
+	if _, _, _, err = store.VerifySecondFactor("alice", aliceVersion(t, store), next, later); !errors.Is(err, ErrTOTPInvalidCode) {
 		t.Fatal("a code was accepted twice")
 	}
 	// A recovery code works once.
-	if _, recovery, left, err = store.VerifySecondFactor("alice", codes[3], later); err != nil || !recovery || left != RecoveryCodeCount-1 {
+	if _, recovery, left, err = store.VerifySecondFactor("alice", aliceVersion(t, store), codes[3], later); err != nil || !recovery || left != RecoveryCodeCount-1 {
 		t.Fatalf("recovery: %v %d %v", recovery, left, err)
 	}
-	if _, _, _, err = store.VerifySecondFactor("alice", codes[3], later); !errors.Is(err, ErrTOTPInvalidCode) {
+	if _, _, _, err = store.VerifySecondFactor("alice", aliceVersion(t, store), codes[3], later); !errors.Is(err, ErrTOTPInvalidCode) {
 		t.Fatal("a recovery code was accepted twice")
 	}
 	// New codes replace the old ones.
@@ -130,10 +130,10 @@ func TestStoreSecondFactor(t *testing.T) {
 	if err = store.ReplaceRecoveryCodes("alice", freshHashes); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err = store.VerifySecondFactor("alice", codes[0], later); err == nil {
+	if _, _, _, err = store.VerifySecondFactor("alice", aliceVersion(t, store), codes[0], later); err == nil {
 		t.Fatal("an old recovery code still works")
 	}
-	if _, _, _, err = store.VerifySecondFactor("alice", fresh[0], later); err != nil {
+	if _, _, _, err = store.VerifySecondFactor("alice", aliceVersion(t, store), fresh[0], later); err != nil {
 		t.Fatal(err)
 	}
 	// The secret stays in the file across a reload; List shows only the flag.
@@ -145,7 +145,7 @@ func TestStoreSecondFactor(t *testing.T) {
 	if was, err := store.DisableTOTP("alice"); err != nil || !was {
 		t.Fatalf("disable: %v %v", was, err)
 	}
-	if _, _, _, err = store.VerifySecondFactor("alice", fresh[1], later); !errors.Is(err, ErrTOTPNotEnabled) {
+	if _, _, _, err = store.VerifySecondFactor("alice", aliceVersion(t, store), fresh[1], later); !errors.Is(err, ErrTOTPNotEnabled) {
 		t.Fatalf("after disable: %v", err)
 	}
 	if was, err := store.DisableTOTP("alice"); err != nil || was {
@@ -191,7 +191,48 @@ func TestDisabledUserFailsSecondFactor(t *testing.T) {
 		t.Fatal(err)
 	}
 	code, _ := TOTPCode(rfcSecret, now)
-	if _, _, _, err := store.VerifySecondFactor("alice", code, now); err == nil {
+	if _, _, _, err := store.VerifySecondFactor("alice", aliceVersion(t, store), code, now); err == nil {
 		t.Fatal("a disabled account passed the second factor")
+	}
+}
+
+func aliceVersion(t *testing.T, store *Store) uint64 {
+	t.Helper()
+	user, err := store.Get("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return user.TokenVersion
+}
+
+// A password proof of an older account version consumes nothing.
+func TestSecondFactorRejectsChangedAccount(t *testing.T) {
+	store := newTOTPStore(t)
+	now := time.Unix(1111111111, 0)
+	codes, hashes, _ := NewRecoveryCodes()
+	if err := store.EnableTOTP("alice", rfcSecret, 0, hashes); err != nil {
+		t.Fatal(err)
+	}
+	old := aliceVersion(t, store)
+	if _, err := store.SetPasswordAndRunIf("alice", "a-new-password", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if aliceVersion(t, store) == old {
+		t.Fatal("a new password kept the account version")
+	}
+	code, _ := TOTPCode(rfcSecret, now)
+	if _, _, _, err := store.VerifySecondFactor("alice", old, code, now); !errors.Is(err, ErrAccountChanged) {
+		t.Fatalf("old version: %v", err)
+	}
+	if _, _, _, err := store.VerifySecondFactor("alice", old, codes[0], now); !errors.Is(err, ErrAccountChanged) {
+		t.Fatalf("old version, recovery code: %v", err)
+	}
+	// Neither the step nor the recovery code was used up.
+	current := aliceVersion(t, store)
+	if _, _, _, err := store.VerifySecondFactor("alice", current, code, now); err != nil {
+		t.Fatalf("app code after the refusal: %v", err)
+	}
+	if _, _, left, err := store.VerifySecondFactor("alice", current, codes[0], now); err != nil || left != RecoveryCodeCount-1 {
+		t.Fatalf("recovery code after the refusal: %d %v", left, err)
 	}
 }

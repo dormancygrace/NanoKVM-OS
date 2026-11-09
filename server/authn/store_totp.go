@@ -78,9 +78,17 @@ func (s *Store) ReplaceRecoveryCodes(username string, recoveryHashes []string) e
 // enabled account and consumes it: a code's time step, or the recovery code,
 // is not accepted again. It returns the account as saved, whether a recovery
 // code was used and how many remain.
-func (s *Store) VerifySecondFactor(username, code string, now time.Time) (*User, bool, int, error) {
+//
+// tokenVersion is the version of the account whose password the caller
+// checked: if the account has changed since, nothing is consumed and the
+// error is ErrAccountChanged, so an old password proof never signs in to the
+// current account.
+func (s *Store) VerifySecondFactor(username string, tokenVersion uint64, code string, now time.Time) (*User, bool, int, error) {
 	usedRecovery := false
 	user, err := s.updateTOTP(username, func(user *User) (bool, error) {
+		if user.TokenVersion != tokenVersion {
+			return false, ErrAccountChanged
+		}
 		if !user.Enabled {
 			return false, ErrTOTPInvalidCode
 		}

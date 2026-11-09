@@ -35,6 +35,9 @@ var (
 	ErrTOTPNotEnabled     = errors.New("two-factor authentication is not enabled")
 	ErrTOTPAlreadyEnabled = errors.New("two-factor authentication is already enabled")
 	ErrTOTPInvalidCode    = errors.New("invalid authentication code")
+	// ErrAccountChanged: the password was checked against an account that
+	// has since changed (a new password, sessions revoked).
+	ErrAccountChanged = errors.New("the account changed; sign in again")
 
 	base32NoPad = base32.StdEncoding.WithPadding(base32.NoPadding)
 )

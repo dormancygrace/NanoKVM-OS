@@ -29,16 +29,27 @@ disabled. Standard RVV 1.0 alone does not enable draft XTheadVector code.
 
 Inputs below the single `OSSL_CHACHA_C906_MIN_BYTES` threshold (320 bytes, one
 five-block group; the C glue only hands whole groups to the vector code) use
-upstream code. Every eligible call checks the calling thread's vector permission
-with `PR_RISCV_V_GET_CONTROL`; the result is never cached across threads.
-A failed query returning errno uses software. Fatal seccomp rules cannot be
-handled by fallback: acceleration therefore requires the explicit secure
-environment opt-in `NANOKVM_OPENSSL_CHACHA20=auto`. Missing, unknown or `generic`
-values retain upstream code without issuing the per-call query. Privileged
-execution ignores the opt-in. The image downloader enables it only for its
-qualified curl child and preserves explicit operator overrides. Other clients
-must qualify their syscall policy before opting in. The opt-in cannot force
-unsupported instructions or bypass the calling thread's vector permission.
+upstream code.
+
+The same startup probe, in libcrypto's constructor, also asks
+`PR_RISCV_V_GET_CONTROL` once, and the C906 paths (ChaCha20 and GHASH) are
+used only if vector state is enabled for the thread that loaded libcrypto.
+The cipher path itself makes no system call. Earlier versions asked on every
+call, which a seccomp filter installed later can kill: OpenSSH's
+pre-authentication filter does. So they needed an explicit opt-in that only
+the image downloader's curl set. Threads inherit their creator's vector
+control, so the load-time answer holds for the process. A thread that turns
+its own vector state off after libcrypto is loaded must not reach these paths.
+`NANOKVM_OPENSSL_CHACHA20=generic` (and `NANOKVM_OPENSSL_GHASH=generic`) keep
+upstream code; other values, including the former opt-in `auto`, are the
+default. The variables are read with `secure_getenv`, so a setuid program
+ignores them and takes the default; it no longer falls back to upstream code
+as it did under the opt-in. A process started with vector state off uses
+upstream code in every thread.
+
+On the stand, `openssl speed -evp chacha20-poly1305`, three alternating
+rounds, 1400 B records: 60.2-61.7 MB/s with the per-call query (`auto`),
+62.7-63.5 MB/s without it; 16 KiB unchanged (73.4-74.6 MB/s).
 
 `NKOS_CHACHA_TEST` adds an atomic counter at the actual assembly entry and an
 accessor for a private test-library export map. Production builds omit both

@@ -88,7 +88,7 @@ static void verify_hits(int vector_on)
     unsigned char key[32] = {0}, iv[16] = {0}, in[16384] = {0}, out[16384];
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new(); check(ctx != NULL, "counter ctx");
     const char *override = getenv("NANOKVM_OPENSSL_CHACHA20");
-    int enabled = vector_on && override && !strcmp(override, "auto");
+    int enabled = vector_on && !(override && !strcmp(override, "generic"));
     for (size_t i = 0; i < sizeof(sizes)/sizeof(sizes[0]); ++i) {
         int got; check(EVP_EncryptInit_ex2(ctx, EVP_chacha20(), key, iv, NULL) == 1, "counter init");
         unsigned long before = hits();
@@ -100,8 +100,9 @@ static void verify_hits(int vector_on)
 }
 
 /* OpenSSL and the provider are loaded before the filter. No cipher call has
- * happened yet. Kill on file opens or another hardware probe; permit or deny
- * the per-call thread-control query in separate children.
+ * happened yet. Kill on file opens or another hardware probe; permit, deny
+ * or kill prctl: the load-time check makes the cipher path syscall-free, so
+ * the vector path runs in every case.
  */
 static void sandbox_case(int allow_prctl)
 {
@@ -135,7 +136,8 @@ static void sandbox_case(int allow_prctl)
     struct sock_fprog prog = { (unsigned short)(sizeof(code)/sizeof(code[0])), code };
     check(prctl(PR_SET_NO_NEW_PRIVS, 1L, 0L, 0L, 0L) == 0, "sandbox no new privs");
     check(prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) == 0, "sandbox install");
-    verify_hits(allow_prctl == 1);
+    (void)allow_prctl;
+    verify_hits(1);
 }
 static void verify_sandbox(void)
 {
@@ -145,16 +147,18 @@ static void verify_sandbox(void)
         if (!pid) { sandbox_case(allow); _exit(0); }
         int status;
         check(waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0,
-              "sandbox first cipher: no file/probe syscalls; denied prctl falls back");
+              "sandbox first cipher: no file/probe/prctl syscalls");
     }
-    puts("PASS seccomp first cipher, with permitted and denied thread-control query");
+    puts("PASS seccomp first cipher, vector path with prctl permitted or denied");
 }
 
 static void *worker(void *v)
 {
     unsigned long id=(unsigned long)v;
     if (id == 2) { verify_hits(0); return NULL; }
-    if (id == 3) { check(prctl(69,2L,0L,0L,0L)==0,"counter thread vector on"); verify_hits(1); return NULL; }
+    /* Vector state was off when libcrypto was loaded: no thread uses the
+     * C906 path, not even one that turns its own vector state on. */
+    if (id == 3) { check(prctl(69,2L,0L,0L,0L)==0,"counter thread vector on"); verify_hits(0); return NULL; }
     /* Called in an exec child initially OFF. One thread enables its own unit. */
     if (id==1) check(prctl(69,2L,0L,0L,0L)==0,"thread vector on");
     run_cases((unsigned)id+19);
@@ -167,7 +171,7 @@ int main(int argc,char **argv)
     if (argc > 1 && !strcmp(argv[1], "--hard-sandbox")) {
         check(getenv("NANOKVM_OPENSSL_CHACHA20") == NULL, "default policy child");
         sandbox_case(-1);
-        puts("PASS default policy with fatal prctl/open/hwprobe filter");
+        puts("PASS default policy: vector path under a fatal prctl/open/hwprobe filter");
         return 0;
     }
     if (argc>1&&!strcmp(argv[1],"--off-child")) {

@@ -17,8 +17,9 @@ static void ck(int ok,const char *what){if(!ok){fprintf(stderr,"FAIL %s\n",what)
 int main(int argc, char **argv){
  unsigned long (*hits)(void)=(unsigned long (*)(void))dlsym(RTLD_DEFAULT,"nkos_ghash_test_hits");
  ck(hits!=NULL,"instrumented assembly counter");
+ /* The state libcrypto saw when it was loaded (this thread, unchanged since). */
  int control=prctl(70,0L,0L,0L,0L);ck(control>=0,"vector control");
- const char *opt=getenv("NANOKVM_OPENSSL_GHASH");int enabled=(control&3)==2&&opt&&!strcmp(opt,"auto");
+ const char *opt=getenv("NANOKVM_OPENSSL_GHASH");int enabled=(control&3)==2&&!(opt&&!strcmp(opt,"generic"));
  unsigned char key[16]={0},iv[12]={0},data[16416],tag[16];AES_KEY aes;memset(data,0x71,sizeof(data));
  ck(AES_set_encrypt_key(key,128,&aes)==0,"AES key");
  GCM128_CONTEXT *ctx=CRYPTO_gcm128_new(&aes,(block128_f)AES_encrypt);ck(ctx!=NULL,"GCM context");

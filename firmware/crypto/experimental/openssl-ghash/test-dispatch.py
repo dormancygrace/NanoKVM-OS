@@ -42,9 +42,10 @@ def main():
         cmd=['cc','-O2','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I'+td,str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(exe)]
         subprocess.run(cmd,check=True);subprocess.run([str(exe)],check=True)
         if a.negative_control:
-            for name, old, new in [('thread', 'control < 0 || (control & 3) != 2', 'control < -100'),
-                                   ('capability', '!ossl_riscv_has_xtheadvector', '0'),
-                                   ('opt-in', 'option == NULL || strcmp(option, "auto") != 0', '((void)option, 0)')]:
+            for name, old, new in [('capability', '!ossl_riscv_has_xtheadvector', '0'),
+                                   ('generic override', 'option != NULL && strcmp(option, "generic") == 0', '((void)option, 0)'),
+                                   ('syscall-free hash path', '    return vector_prefix(xi, table, in, len);',
+                                    '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    return vector_prefix(xi, table, in, len);')]:
                 assert old in source
                 (temp/'gcm_c906.c').write_text(source.replace(old, new))
                 subprocess.run(cmd,check=True)

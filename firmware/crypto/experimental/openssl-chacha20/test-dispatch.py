@@ -33,9 +33,11 @@ def main():
         subprocess.run([str(p / 'test')], check=True)
         if a.negative_control:
             for name, old, new in (
-                ('thread gate', 'control < 0 || (control & 3) != 2', 'control < -100'),
                 ('capability gate', '!ossl_riscv_has_xtheadvector', '0'),
-                ('explicit opt-in', 'override == NULL || strcmp(override, "auto") != 0', '((void)override, 0)'),
+                ('generic override', 'override != NULL && strcmp(override, "generic") == 0', '((void)override, 0)'),
+                ('threshold', 'len < OSSL_CHACHA_C906_MIN_BYTES ||', 'len < 1 ||'),
+                ('syscall-free cipher path', '    state[0] = 0x61707865;',
+                 '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    state[0] = 0x61707865;'),
             ):
                 assert old in source
                 c.write_text(source.replace(old, new))

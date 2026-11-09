@@ -47,13 +47,12 @@ diff --git a/crypto/modes/build.info b/crypto/modes/build.info
 diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 --- /dev/null
 +++ b/crypto/modes/gcm_c906.c
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,109 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <stdint.h>
 +#include <stdlib.h>
 +#include <string.h>
-+#include <sys/prctl.h>
 +#include <openssl/crypto.h>
 +#include "crypto/modes.h"
 +#include "crypto/riscv_arch.h"
@@ -81,9 +80,9 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +static void detect_override(void)
 +{
 +    const char *option = secure_getenv("NANOKVM_OPENSSL_GHASH");
-+    /* A fatal seccomp rule cannot fall back after issuing prctl.
-+     * Only qualified clients may opt into this syscall-bearing path. */
-+    disabled = option == NULL || strcmp(option, "auto") != 0;
++    /* "generic" keeps upstream code. riscvcap.c checked XTheadVector and
++     * the vector state once at load, so the hash path makes no syscall. */
++    disabled = option != NULL && strcmp(option, "generic") == 0;
 +}
 +
 +static void scalar_key(u64 kp[112], u64 lo, u64 hi)
@@ -153,15 +152,8 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +size_t ossl_gcm_c906_prefix(u64 xi[2], const u128 *table,
 +    const u8 *in, size_t len)
 +{
-+    int control;
 +    if (len < 2048 || !ossl_riscv_has_xtheadvector
 +        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled)
-+        return 0;
-+    /* The current thread may disable vectors or inherit different control.
-+     * Query on every eligible call, including after an EVP context is copied.
-+     */
-+    control = prctl(70, 0L, 0L, 0L, 0L);
-+    if (control < 0 || (control & 3) != 2)
 +        return 0;
 +    return vector_prefix(xi, table, in, len);
 +}

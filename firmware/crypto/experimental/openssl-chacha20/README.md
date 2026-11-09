@@ -1,5 +1,18 @@
 # OpenSSL C906 ChaCha20 qualification
 
+**2026-11-09: the opt-in is gone.** libcrypto's constructor now asks
+`PR_RISCV_V_GET_CONTROL` once, next to the startup `riscv_hwprobe`. The cipher
+path makes no system call. Acceleration is the default, and
+`NANOKVM_OPENSSL_CHACHA20=generic` keeps upstream code (see
+`../../openssl-c906/README.md`). `verify.c` now expects:
+- the vector path under seccomp filters that permit, deny or kill `prctl`
+  after load;
+- no vector path in any thread of a process started with vector state off,
+  including a thread that turns its own vector state on.
+
+`test-dispatch.py --negative-control` fails if a system call appears on the
+cipher path. The text below describes the earlier opt-in design.
+
 Candidate: OpenSSL 3.5.9 LTS with `0001-chacha20-c906.patch`.
 Control: PR #504, built with the same source, compiler and C906/O3 flags.
 Acceleration requires `NANOKVM_OPENSSL_CHACHA20=auto`; the image downloader sets

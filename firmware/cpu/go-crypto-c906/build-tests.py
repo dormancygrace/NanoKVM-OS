@@ -20,6 +20,7 @@ parser.add_argument('--gocache', type=Path)
 parser.add_argument('--package', action='append', choices=PACKAGES,
                     help='Build only selected packages (repeatable; default: all)')
 parser.add_argument('--poly1305-reference', action='store_true', help='compare the pinned upstream Poly1305 with existing fast unaligned loads')
+parser.add_argument('--tags', default='', help='go build tags, e.g. nanokvmqemu for binaries that run under QEMU (no XTheadVector)')
 args = parser.parse_args()
 here = Path(__file__).resolve().parent
 goroot = args.goroot.absolute()
@@ -82,12 +83,12 @@ with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
 try:
     for pkg in args.package or PACKAGES:
         out = args.output / (Path(pkg).name + '.test')
-        subprocess.run([str(goroot / 'bin/go'), 'test', '-c', '-trimpath', '-overlay', f.name, '-o', str(out),
+        subprocess.run([str(goroot / 'bin/go'), 'test', '-c', '-trimpath', '-tags', args.tags, '-overlay', f.name, '-o', str(out),
                         'vendor/golang.org/x/crypto/' + pkg], env=env, check=True)
         print(out)
     for pkg, name in STD.items():
         out = args.output / (name + '.test')
-        subprocess.run([str(goroot / 'bin/go'), 'test', '-c', '-trimpath', '-overlay', f.name, '-o', str(out), pkg],
+        subprocess.run([str(goroot / 'bin/go'), 'test', '-c', '-trimpath', '-tags', args.tags, '-overlay', f.name, '-o', str(out), pkg],
                        env=env, check=True)
         print(out)
 finally:

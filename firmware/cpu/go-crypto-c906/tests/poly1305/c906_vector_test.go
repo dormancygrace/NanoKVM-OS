@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"os"
 	"testing"
 )
 
@@ -20,22 +19,13 @@ func init() {
 	}{"scalar", updateScalar})
 }
 
-// TestC906VectorSelected fails on a T-Head core with vector state enabled
-// that does not select the vector kernel when NANOKVM_REQUIRE_XTHEADVECTOR=1.
-func TestC906VectorSelected(t *testing.T) {
-	t.Logf("vector kernel selected: %v", vectorSelected())
-	if !vectorSelected() && os.Getenv("NANOKVM_REQUIRE_XTHEADVECTOR") == "1" {
-		t.Fatal("NANOKVM_REQUIRE_XTHEADVECTOR=1, but the vector kernel is not selected")
-	}
-}
-
 // TestC906Vector compares update (vector kernel for whole groups, CRYPTOGAMS
 // for the rest) with updateScalar and a big-integer Poly1305: lengths around
 // the group and threshold boundaries, every offset mod 16, random and extreme
 // keys, accumulators up to h2 = 7 and all-ones messages.
 func TestC906Vector(t *testing.T) {
-	if !vectorSelected() {
-		t.Skip("vector kernel not selected (no XTheadVector or vector state disabled)")
+	if !useVector {
+		t.Skip("built with nanokvmqemu: no vector kernel")
 	}
 	rng := rand.New(rand.NewSource(1305))
 	p := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 130), big.NewInt(5))
@@ -100,8 +90,8 @@ func TestC906Vector(t *testing.T) {
 // of whole groups (offset 5, as in TLS records); vectorMinGroups is where
 // the vector code starts to win.
 func BenchmarkC906VectorGroups(b *testing.B) {
-	if !vectorSelected() {
-		b.Skip("vector kernel not selected")
+	if !useVector {
+		b.Skip("built with nanokvmqemu: no vector kernel")
 	}
 	var key [32]byte
 	for i := range key {

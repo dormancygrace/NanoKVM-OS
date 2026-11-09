@@ -16,7 +16,6 @@ import (
 	"runtime/pprof"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -30,31 +29,20 @@ const (
 
 var implNames = [...]string{implGeneric: "generic", implVector: "xtheadvector"}
 
-func haveVector() bool { return cpuinfoHasExtension("xtheadvector") && vectorEnabled() }
+// The build selects one implementation: the vector kernel on the device, the
+// generic code with the nanokvmqemu tag.
+func haveVector() bool { return useC906 }
 
 func selectedImpl() int {
-	if c906() {
+	if useC906 {
 		return implVector
 	}
 	return implGeneric
 }
 
-// availableImpls returns the implementations that can run on this machine.
-func availableImpls() []int {
-	if haveVector() {
-		return []int{implGeneric, implVector}
-	}
-	return []int{implGeneric}
-}
+func availableImpls() []int { return []int{selectedImpl()} }
 
-// withImpl runs f with the given implementation selected.
-func withImpl(id int, f func()) {
-	c906()
-	old := useC906
-	useC906 = id == implVector
-	defer func() { useC906 = old }()
-	f()
-}
+func withImpl(id int, f func()) { f() }
 
 // refKeyStream is a direct RFC 8439 section 2.3 block function, independent
 // of the package code. It returns n blocks starting at counter.
@@ -104,36 +92,6 @@ func xorBytes(a, b []byte) []byte {
 		out[i] = a[i] ^ b[i]
 	}
 	return out
-}
-
-func TestC906Selection(t *testing.T) {
-	env, _ := syscall.Getenv("NANOKVM_CHACHA20")
-	vec := cpuinfoHasExtension("xtheadvector")
-	en := vectorEnabled()
-	got := selectedImpl()
-	t.Logf("NANOKVM_CHACHA20=%q cpuinfo xtheadvector=%v prctl vector on=%v selected=%s", env, vec, en, implNames[got])
-	want := implGeneric
-	if env != "generic" && vec && en {
-		want = implVector
-	}
-	if got != want {
-		t.Fatalf("selected %s, want %s", implNames[got], implNames[want])
-	}
-	for _, c := range []struct {
-		isa  string
-		want bool
-	}{
-		{"rv64imafdc_zicntr_zicsr_zifencei_zihpm_zaamo_zalrsc_zca_zcd_xtheadvector", true},
-		{"rv64imafdc_xtheadvector_zicsr", true},
-		{"rv64imafdc_zicsr", false},
-		{"rv64imafdc_xtheadvectorx", false},
-		{"rv64imafdc_x_theadvector", false},
-		{"", false},
-	} {
-		if hasToken([]byte(c.isa), "xtheadvector") != c.want {
-			t.Errorf("hasToken(%q) != %v", c.isa, c.want)
-		}
-	}
 }
 
 // RFC 8439 sections 2.3.2, 2.4.2 and A.1 vectors 1 and 2.

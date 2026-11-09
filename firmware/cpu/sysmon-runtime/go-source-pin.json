@@ -23,7 +23,7 @@
   },
   "x_crypto_v0.57.0_sum_riscv64_s_sha256": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",
   "target": "linux/riscv64",
-  "activation": "NANOKVM_SYSMON_TIMER_SLACK_NS=250000 and NANOKVM_SYSMON_MIN_DELAY_US=500|1000|2000; unset or 0 leaves the original runtime policy. ChaCha20 uses XTheadVector when detected; NANOKVM_CHACHA20=generic selects the generic code",
+  "activation": "NANOKVM_SYSMON_TIMER_SLACK_NS=250000 and NANOKVM_SYSMON_MIN_DELAY_US=500|1000|2000; unset or 0 leaves the original runtime policy. memmove, memclr, ChaCha20 and Poly1305 always use XTheadVector; the nanokvmqemu build tag keeps them scalar for QEMU",
   "official_source": {
     "url": "https://go.dev/dl/go1.27.3.src.tar.gz",
     "sha256": "6e7749035cf360f06b2575d162ea79df9fda8ef671889e5c375f8e50777f26bb",

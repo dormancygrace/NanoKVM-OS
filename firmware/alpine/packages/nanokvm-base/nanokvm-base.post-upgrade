@@ -1,4 +1,12 @@
 #!/bin/sh
+# Earlier releases owned a wildcard flowtable (inet nkos_flow). The table lives
+# in the kernel after its package files are gone, and until a reboot it would
+# carry traffic past the USB local-only guard and the VPN rules. Only this
+# NanoKVM table is deleted; foreign nftables policy stays.
+if nft list table inet nkos_flow >/dev/null 2>&1; then
+    nft delete table inet nkos_flow ||
+        echo "Could not delete the legacy NanoKVM flowtable; reboot to remove it." >&2
+fi
 set -eu
 if [ -x /usr/libexec/nanokvm/console-policy ]; then
     /usr/libexec/nanokvm/console-policy

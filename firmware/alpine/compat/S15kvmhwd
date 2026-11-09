@@ -67,8 +67,17 @@ chip=
 cached_model() {
     read_file hdmi_version
     case "$value" in c|ux|d) hdmi=$value ;; *) return 1 ;; esac
+    [ -n "$chip" ] || return 1
+    # Installations from before the chip stamp have a model and no stamp. That
+    # model was identified on this board, and a start never turned a UXC into
+    # a D: keep it and stamp the chip. Probing here could store a D for a UXC
+    # whose 0x44 did not answer once, and no later start would correct it.
+    if [ ! -e "$NANOKVM_KVM_ETC/hdmi_uid" ]; then
+        publish hdmi_uid "$chip"
+        return 0
+    fi
     read_file hdmi_uid
-    [ -n "$chip" ] && [ "$value" = "$chip" ]
+    [ "$value" = "$chip" ]
 }
 probe_and_publish() {
     detect_hdmi

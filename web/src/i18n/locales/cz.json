@@ -38,7 +38,18 @@
     "invalidCurrentPassword": "Stávající heslo není správné",
     "cancelAndLogout": "Zrušit a odhlásit se",
     "passwordLength": "Je třeba, aby heslo bylo 8 až 72 znaků dlouhé",
-    "passwordChanged": "Heslo změněno. Přihlaste se novým heslem."
+    "passwordChanged": "Heslo změněno. Přihlaste se novým heslem.",
+    "totp": {
+      "title": "Dvoufázové ověření",
+      "prompt": "Zadejte kód z ověřovací aplikace nebo jeden ze záložních kódů.",
+      "placeholder": "Ověřovací kód",
+      "required": "Zadejte kód",
+      "verify": "Ověřit",
+      "back": "Zpět k přihlášení",
+      "invalidCode": "Neplatný ověřovací kód",
+      "clockNotSet": "Hodiny NanoKVM nejsou nastavené, proto nelze ověřit kódy z aplikace. Použijte záložní kód nebo nastavte datum a čas zařízení.",
+      "expired": "Přihlášení vypršelo. Přihlaste se znovu."
+    }
   },
   "wifi": {
     "title": "Wi-Fi",
@@ -1198,14 +1209,44 @@
         "loadFailed": "Nepodařilo se načíst uživatele",
         "saveFailed": "Nepodařilo se uložit uživatele",
         "deleteFailed": "Nepodařilo se smazat uživatele",
-        "deleteConfirm": "Smazat tohoto uživatele a ukončit všechny jeho relace?"
+        "deleteConfirm": "Smazat tohoto uživatele a ukončit všechny jeho relace?",
+        "totpOn": "2FA",
+        "resetTotp": "Resetovat 2FA",
+        "resetTotpConfirm": "Vypnout tomuto uživateli dvoufázové ověření? Bude se přihlašovat jen heslem, dokud ho znovu nenastaví.",
+        "totpReset": "Dvoufázové ověření vypnuto"
       },
       "roles": {
         "admin": "Správce",
         "user": "Uživatel"
       },
       "role": "Role",
-      "logoutFailed": "Odhlášení se nezdařilo – tato relace je pořád ještě přihlášená."
+      "logoutFailed": "Odhlášení se nezdařilo – tato relace je pořád ještě přihlášená.",
+      "totp": {
+        "title": "Dvoufázové ověření",
+        "description": "Přihlášení vyžaduje i kód z ověřovací aplikace v telefonu, například Google Authenticator, Microsoft Authenticator nebo 2FAS.",
+        "authenticator": "Ověřovací aplikace",
+        "onDescription": "Zapnuto. Zbývající záložní kódy: {{count}}.",
+        "offDescription": "Vypnuto. Přihlášení vyžaduje jen heslo.",
+        "setUp": "Nastavit",
+        "newCodes": "Nové záložní kódy",
+        "turnOff": "Vypnout",
+        "fewCodes": "Zbývá málo záložních kódů. Vytvořte nové, abyste se mohli přihlásit i při ztrátě telefonu.",
+        "scan": "Naskenujte tento QR kód ověřovací aplikací.",
+        "manual": "Nebo zadejte do aplikace tento klíč:",
+        "confirmCode": "Kód z aplikace",
+        "enable": "Zapnout",
+        "setupExpired": "Nastavení vypršelo. Začněte znovu.",
+        "failed": "Změna se nezdařila. Zkuste to znovu.",
+        "disabled": "Dvoufázové ověření je vypnuté",
+        "codesTitle": "Záložní kódy",
+        "codesHint": "Každý kód jednou nahradí kód z aplikace, pokud ztratíte telefon. Uložte je na bezpečné místo: zobrazují se jen teď.",
+        "saveCodes": "Stáhnout",
+        "copyCodes": "Kopírovat",
+        "copied": "Zkopírováno",
+        "codesSaved": "Mám je uložené",
+        "turnOffHint": "Zadejte heslo a kód z aplikace nebo záložní kód.",
+        "newCodesHint": "Současné záložní kódy přestanou platit. Zadejte heslo a kód z aplikace nebo záložní kód."
+      }
     },
     "security": {
       "title": "Zabezpečení"

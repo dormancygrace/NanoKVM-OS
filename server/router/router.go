@@ -32,11 +32,20 @@ var ownBodyLimitRoutes = []string{
 	picoclawBasePath + picoclawLoadImagePath,
 }
 
+// The changes allowed while settings recovery waits for its reboot: signing
+// in (both steps), signing out and the reboot itself.
+var allowedDuringRecovery = map[string]bool{
+	"/api/system/recovery/reboot": true,
+	"/api/auth/login":             true,
+	"/api/auth/login/totp":        true,
+	"/api/auth/logout":            true,
+}
+
 func Init(r *gin.Engine) {
 	r.Use(standbyAdmission())
 	standbyRouter(r)
 	r.Use(func(c *gin.Context) {
-		if c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" && (recovery.Engine{Root: "/"}).Pending() && c.Request.URL.Path != "/api/system/recovery/reboot" && c.Request.URL.Path != "/api/auth/login" && c.Request.URL.Path != "/api/auth/logout" {
+		if c.Request.Method != "GET" && c.Request.Method != "HEAD" && c.Request.Method != "OPTIONS" && !allowedDuringRecovery[c.Request.URL.Path] && (recovery.Engine{Root: "/"}).Pending() {
 			c.AbortWithStatusJSON(409, gin.H{"code": -1, "msg": "Settings recovery pending; reboot before changing settings."})
 			return
 		}

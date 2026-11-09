@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-viper/mapstructure/v2"
 	"gopkg.in/yaml.v3"
 
 	"NanoKVM-Server/internal/atomicfile"
+	"NanoKVM-Server/pkg/yamlconf"
 )
 
 var (
@@ -86,16 +86,13 @@ func readValues(data []byte) error {
 	return nil
 }
 
-func parseValues(data []byte) (map[string]any, error) {
-	var raw map[string]any
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, err
-	}
-	return normalizeValues(raw), nil
-}
+// Viper's key rules and weak conversions live in pkg/yamlconf, shared with
+// the daemons that read server.yaml.
+func parseValues(data []byte) (map[string]any, error) { return yamlconf.Parse(data) }
 
-// ParsePorts reads the ports of server.yaml content as the server does. Other
-// readers of the file (the IPMI daemon) test against it.
+func decodeValues(raw any, target any) error { return yamlconf.Decode(raw, target) }
+
+// ParsePorts reads the ports of server.yaml content as the server does.
 func ParsePorts(data []byte) (Port, error) {
 	parsed, err := parseValues(data)
 	if err != nil {
@@ -104,51 +101,6 @@ func ParsePorts(data []byte) (Port, error) {
 	var ports Port
 	err = decodeValues(parsed["port"], &ports)
 	return ports, err
-}
-
-// Viper treated keys case-insensitively and interpreted dots as nested paths.
-// Normalize only keys; credential and origin values must remain untouched.
-func normalizeValues(raw map[string]any) map[string]any {
-	out := make(map[string]any)
-	for key, value := range raw {
-		if child, ok := value.(map[string]any); ok {
-			value = normalizeValues(child)
-		}
-		if value != nil {
-			out[strings.ToLower(key)] = value
-		}
-	}
-	for key, value := range out {
-		if !strings.Contains(key, ".") {
-			continue
-		}
-		delete(out, key)
-		parts := strings.Split(key, ".")
-		node := out
-		for _, part := range parts[:len(parts)-1] {
-			child, ok := node[part].(map[string]any)
-			if !ok {
-				child = make(map[string]any)
-				node[part] = child
-			}
-			node = child
-		}
-		node[parts[len(parts)-1]] = value
-	}
-	return out
-}
-
-// Retain Viper's weak scalar conversions (quoted ports, booleans and comma
-// separated lists) without its file watching, environment and format registry.
-func decodeValues(raw any, target any) error {
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result: target, WeaklyTypedInput: true,
-		DecodeHook: mapstructure.StringToSliceHookFunc(","),
-	})
-	if err != nil {
-		return err
-	}
-	return decoder.Decode(raw)
 }
 
 func readByDefault() error {

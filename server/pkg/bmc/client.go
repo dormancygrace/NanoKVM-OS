@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"NanoKVM-Server/pkg/yamlconf"
 )
 
 const (
@@ -49,22 +49,14 @@ func NewClient() *Client {
 	return &Client{Addr: "127.0.0.1:" + strconv.Itoa(port), TokenFile: internalTokenFile, Timeout: 10 * time.Second}
 }
 
-// httpPort reads the server's YAML, including comments, flow mappings and
-// aliases. Accept numeric strings too, as the server's Viper loader does.
+// httpPort reads the server's YAML with the server's own rules (yamlconf):
+// any key case, dotted keys, quoted or hex numbers, aliases and merges.
 func httpPort(data []byte) int {
-	var config struct {
-		Port struct {
-			HTTP any `yaml:"http"`
-		} `yaml:"port"`
-	}
-	if err := yaml.Unmarshal(data, &config); err != nil {
+	ports, err := yamlconf.ReadPorts(data)
+	if err != nil || ports.HTTP < 1 || ports.HTTP > 65535 {
 		return 0
 	}
-	port, err := strconv.Atoi(fmt.Sprint(config.Port.HTTP))
-	if err != nil || port < 1 || port > 65535 {
-		return 0
-	}
-	return port
+	return ports.HTTP
 }
 
 // request sends one request on its own connection and returns the status

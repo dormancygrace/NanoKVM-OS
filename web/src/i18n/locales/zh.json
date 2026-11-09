@@ -272,7 +272,8 @@
       "portrait": "此纵向配置不支持",
       "range": "超出范围",
       "mjpeg-4k": "HDMI 输入为 3840 × 2160 时不可用，请使用 H.264 或 H.265",
-      "h264-4k": "超过 2560 × 1440 时不可用，请使用 H.265 或将视频流分辨率设为 1440p 或更低"
+      "h264-4k": "超过 2560 × 1440 时不可用，请使用 H.265 或将视频流分辨率设为 1440p 或更低",
+      "identity": "请检查显示器标识"
     },
     "mjpegChroma": "JPEG 色度采样",
     "mjpegChroma420": "4:2:0 — 帧更小",
@@ -341,7 +342,50 @@
     "advanced": "高级与恢复",
     "fpsLimited": "当前输入将采集限制为 {{fps}} fps。已保存的设置会保留，供下一个信号源模式使用。",
     "statusFailed": "无法刷新视频状态。",
-    "retry": "重试"
+    "retry": "重试",
+    "identity": {
+      "title": "显示器标识",
+      "hint": "连接的电脑看到的此显示器的制造商、型号和序列号，用来替代 NanoKVM 自身的标识。分辨率和刷新率仍为 NanoKVM 的。读取完整 EDID 的软件仍可能通过较短的模式列表识别出 NanoKVM。",
+      "custom": "自定义标识",
+      "nanokvm": "显示器以 NanoKVM 身份出现。",
+      "file": "来自显示器",
+      "fileLoad": "加载 EDID 文件…",
+      "fileHint": "从显示器的 EDID 中获取标识：Linux 上为 /sys/class/drm/*/edid；Windows 上可用 CRU 或 Monitor Asset Manager 导出。仅使用其中的标识。",
+      "fileLoaded": "已从 EDID 文件加载标识。点击应用以写入。",
+      "fileError": {
+        "not-edid": "文件中没有 EDID。",
+        "checksum": "文件中的 EDID 已损坏（校验和错误）。"
+      },
+      "manufacturer": "制造商 ID",
+      "manufacturerHint": "三个字母的 PNP ID，例如 ACR（Acer）、AUS（ASUS）、DEL（Dell）、SNY（Sony）。",
+      "productCode": "产品代码",
+      "productCodeHint": "最多四位十六进制数字。与制造商 ID 一起组成 Windows 显示的硬件 ID，例如 ACR0BF4。",
+      "name": "显示器名称",
+      "nameHint": "最多 13 个字符，即操作系统中显示的显示器名称。",
+      "serial": "序列号",
+      "serialProfile": "每个配置文件各自的（推荐）",
+      "serialFixed": "固定",
+      "serialProfileHint": "每种分辨率和刷新率都保留自己的序列号，因此 Windows 会以每个配置文件的首选模式启动。",
+      "serialFixedHint": "所有配置文件都使用此序列号，与真实显示器一样。Windows 会为所有配置文件保留同一个显示模式，切换配置文件后可能重新应用旧模式。",
+      "serialNumber": "序列号（数字）",
+      "serialText": "序列号（文本）",
+      "serialTextHint": "最多 13 个字符；留空则使用数字。",
+      "manufactured": "生产日期",
+      "week": "周",
+      "year": "年",
+      "manufacturedHint": "周为 1–54，未知为 0，若年份为型号年份则为 255。",
+      "invalid": {
+        "manufacturer": "制造商 ID 必须是三个 A–Z 字母。",
+        "productCode": "产品代码必须是 1–4 位十六进制数字。",
+        "name": "显示器名称必须为 1–13 个字符：拉丁字母、数字和标点。",
+        "serialNumber": "序列号必须在 0–4294967295 之间。",
+        "serialText": "序列号文本最多 13 个字符：拉丁字母、数字和标点。",
+        "week": "周必须为 0–54 或 255。",
+        "year": "年份必须在 1990–2245 之间。"
+      },
+      "change": "显示器将使用新的标识；电脑会重新检测它。",
+      "changeNanokvm": "显示器将重新以 NanoKVM 身份出现；电脑会重新检测它。"
+    }
   },
   "capture": {
     "downloadStatusFailed": "无法刷新下载状态，正在重新连接…",

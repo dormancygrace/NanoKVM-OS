@@ -272,7 +272,8 @@
       "portrait": "not supported by this portrait profile",
       "range": "out of range",
       "mjpeg-4k": "not available while the HDMI input is 3840 × 2160, use H.264 or H.265",
-      "h264-4k": "not available above 2560 × 1440, use H.265 or a stream resolution of 1440p or lower"
+      "h264-4k": "not available above 2560 × 1440, use H.265 or a stream resolution of 1440p or lower",
+      "identity": "check the monitor identity"
     },
     "mjpegChroma": "JPEG color sampling",
     "mjpegChroma420": "4:2:0 — smaller frames",
@@ -341,7 +342,50 @@
     "advanced": "Advanced and recovery",
     "fpsLimited": "The current input limits capture to {{fps}} fps. The saved request is kept for the next source mode.",
     "statusFailed": "Could not refresh video status.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "identity": {
+      "title": "Monitor identity",
+      "hint": "The manufacturer, model and serial number the connected computer sees for this monitor, instead of NanoKVM's own. The resolutions and refresh rates stay NanoKVM's. Software that reads the whole EDID can still recognize a NanoKVM by its short list of modes.",
+      "custom": "Custom identity",
+      "nanokvm": "The monitor identifies itself as NanoKVM.",
+      "file": "From a monitor",
+      "fileLoad": "Load EDID file…",
+      "fileHint": "Takes the identity of a monitor from its EDID: on Linux /sys/class/drm/*/edid; on Windows, export it with CRU or Monitor Asset Manager. Only the identity is used.",
+      "fileLoaded": "Identity loaded from the EDID file. Apply to write it.",
+      "fileError": {
+        "not-edid": "The file holds no EDID.",
+        "checksum": "The EDID in the file is damaged (checksum error)."
+      },
+      "manufacturer": "Manufacturer ID",
+      "manufacturerHint": "Three letters, the PNP ID: for example ACR (Acer), AUS (ASUS), DEL (Dell), SNY (Sony).",
+      "productCode": "Product code",
+      "productCodeHint": "Up to four hex digits. With the manufacturer ID it forms the hardware ID Windows shows, such as ACR0BF4.",
+      "name": "Monitor name",
+      "nameHint": "Up to 13 characters, as the operating system lists the monitor.",
+      "serial": "Serial number",
+      "serialProfile": "Own for each profile (recommended)",
+      "serialFixed": "Fixed",
+      "serialProfileHint": "Each resolution and refresh rate keeps its own serial number, so Windows starts each profile at its preferred mode.",
+      "serialFixedHint": "Every profile carries this serial number, as a real monitor does. Windows then keeps one display mode for all profiles and may reapply an old one after a profile change.",
+      "serialNumber": "Serial number (numeric)",
+      "serialText": "Serial number (text)",
+      "serialTextHint": "Up to 13 characters; when empty, the number.",
+      "manufactured": "Manufactured",
+      "week": "Week",
+      "year": "Year",
+      "manufacturedHint": "Week 1–54, 0 when unknown, 255 when the year is the model year.",
+      "invalid": {
+        "manufacturer": "The manufacturer ID must be three letters A–Z.",
+        "productCode": "The product code must be 1–4 hex digits.",
+        "name": "The monitor name must be 1–13 characters: Latin letters, digits and punctuation.",
+        "serialNumber": "The serial number must be 0–4294967295.",
+        "serialText": "The serial number text must be at most 13 characters: Latin letters, digits and punctuation.",
+        "week": "The week must be 0–54, or 255.",
+        "year": "The year must be 1990–2245."
+      },
+      "change": "The monitor gets the new identity; the computer detects it again.",
+      "changeNanokvm": "The monitor identifies itself as NanoKVM again; the computer detects it again."
+    }
   },
   "capture": {
     "downloadStatusFailed": "Could not refresh download status. Reconnecting…",

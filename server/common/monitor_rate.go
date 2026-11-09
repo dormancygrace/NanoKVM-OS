@@ -183,7 +183,8 @@ func MonitorRefreshHz() int {
 // (ProgramMonitorProfileOnFirstStart), except on boards without programmable
 // EDID or that need a power cycle (Cube).
 func programmedMonitorProfileLocked(path string, height uint16) bool {
-	want, err := fileSHA256(path)
+	id := savedMonitorIdentityLocked()
+	want, err := monitorProfileSHA256(path, id)
 	if err != nil {
 		return false
 	}
@@ -194,7 +195,7 @@ func programmedMonitorProfileLocked(path string, height uint16) bool {
 		if MonitorRequiresPowerCycle() {
 			return false
 		}
-		legacy, legacyErr := fileSHA256(monitorProfilePath(height))
+		legacy, legacyErr := monitorProfileSHA256(monitorProfilePath(height), id)
 		return legacyErr == nil && legacy == want
 	}
 	return strings.TrimSpace(string(recorded)) == want
@@ -213,25 +214,14 @@ func MonitorStockProfile() bool {
 	return errors.Is(err, os.ErrNotExist)
 }
 
-func recordMonitorProfileLocked(path string) {
-	sum, err := fileSHA256(path)
-	if err != nil {
-		_ = os.Remove(monitorEDIDHashFile)
-		return
-	}
+// recordMonitorProfileLocked records the hash of the EDID just written.
+func recordMonitorProfileLocked(data []byte) {
+	digest := sha256.Sum256(data)
+	sum := hex.EncodeToString(digest[:])
 	if atomicWriteMonitorFile(monitorEDIDHashFile, []byte(sum+"\n"), ".monitor_edid-*") != nil {
 		_ = os.Remove(monitorEDIDHashFile)
 		return
 	}
 	// nanokvm_update_edid reads the receiver back after writing it.
 	markReceiverVerifiedLocked(sum)
-}
-
-func fileSHA256(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
 }

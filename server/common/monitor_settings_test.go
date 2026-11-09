@@ -55,7 +55,7 @@ func TestMonitorSettingsProgramsOnlyFinalProfile(t *testing.T) {
 			hw := monitorSettingsBackend{
 				requireHardware: func() error { return nil }, portraitSupported: func(uint16) bool { return true },
 				powerCycle: func() bool { return false }, followsRefresh: func() bool { return true },
-				apply: func(path string) error {
+				apply: func(path string, _ *MonitorIdentity) error {
 					paths = append(paths, filepath.Base(path))
 					if tc.fail {
 						return errors.New("EDID write failed")

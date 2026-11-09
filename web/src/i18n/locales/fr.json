@@ -272,7 +272,8 @@
       "portrait": "non pris en charge par ce profil portrait",
       "range": "hors plage",
       "mjpeg-4k": "non disponible tant que l'entrée HDMI est en 3840 × 2160, utilisez H.264 ou H.265",
-      "h264-4k": "non disponible au-delà de 2560 × 1440, utilisez H.265 ou une résolution du flux de 1440p au maximum"
+      "h264-4k": "non disponible au-delà de 2560 × 1440, utilisez H.265 ou une résolution du flux de 1440p au maximum",
+      "identity": "vérifiez l'identité du moniteur"
     },
     "mjpegChroma": "Sous-échantillonnage des couleurs JPEG",
     "mjpegChroma420": "4:2:0 — images plus légères",
@@ -341,7 +342,50 @@
     "advanced": "Avancé et récupération",
     "fpsLimited": "L'entrée actuelle limite la capture à {{fps}} fps. La valeur demandée est conservée pour le prochain mode de la source.",
     "statusFailed": "Impossible d'actualiser l'état de la vidéo.",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "identity": {
+      "title": "Identité du moniteur",
+      "hint": "Le fabricant, le modèle et le numéro de série que l'ordinateur connecté voit pour ce moniteur, à la place de ceux de NanoKVM. Les résolutions et fréquences restent celles de NanoKVM. Un logiciel qui lit tout l'EDID peut encore reconnaître un NanoKVM à sa courte liste de modes.",
+      "custom": "Identité personnalisée",
+      "nanokvm": "Le moniteur s'identifie comme NanoKVM.",
+      "file": "D'un moniteur",
+      "fileLoad": "Charger un fichier EDID…",
+      "fileHint": "Reprend l'identité d'un moniteur depuis son EDID : sous Linux /sys/class/drm/*/edid ; sous Windows, exportez-le avec CRU ou Monitor Asset Manager. Seule l'identité est utilisée.",
+      "fileLoaded": "Identité chargée depuis le fichier EDID. Appliquez pour l'écrire.",
+      "fileError": {
+        "not-edid": "Le fichier ne contient pas d’EDID.",
+        "checksum": "L'EDID du fichier est endommagé (erreur de somme de contrôle)."
+      },
+      "manufacturer": "ID du fabricant",
+      "manufacturerHint": "Trois lettres, l’ID PNP : par exemple ACR (Acer), AUS (ASUS), DEL (Dell), SNY (Sony).",
+      "productCode": "Code produit",
+      "productCodeHint": "Jusqu'à quatre chiffres hexadécimaux. Avec l'ID du fabricant, il forme l'ID matériel affiché par Windows, par exemple ACR0BF4.",
+      "name": "Nom du moniteur",
+      "nameHint": "Jusqu'à 13 caractères, tel que le système d'exploitation affiche le moniteur.",
+      "serial": "Numéro de série",
+      "serialProfile": "Propre à chaque profil (recommandé)",
+      "serialFixed": "Fixe",
+      "serialProfileHint": "Chaque résolution et fréquence garde son propre numéro de série, pour que Windows démarre chaque profil dans son mode préféré.",
+      "serialFixedHint": "Tous les profils portent ce numéro de série, comme un vrai moniteur. Windows garde alors un seul mode d'affichage pour tous les profils et peut réappliquer un ancien après un changement de profil.",
+      "serialNumber": "Numéro de série (numérique)",
+      "serialText": "Numéro de série (texte)",
+      "serialTextHint": "Jusqu'à 13 caractères ; vide : le nombre.",
+      "manufactured": "Fabrication",
+      "week": "Semaine",
+      "year": "Année",
+      "manufacturedHint": "Semaine 1–54, 0 si inconnue, 255 si l'année est l'année du modèle.",
+      "invalid": {
+        "manufacturer": "L'ID du fabricant doit comporter trois lettres A–Z.",
+        "productCode": "Le code produit doit comporter 1 à 4 chiffres hexadécimaux.",
+        "name": "Le nom du moniteur doit comporter 1 à 13 caractères : lettres latines, chiffres et ponctuation.",
+        "serialNumber": "Le numéro de série doit être compris entre 0 et 4294967295.",
+        "serialText": "Le texte du numéro de série doit comporter au plus 13 caractères : lettres latines, chiffres et ponctuation.",
+        "week": "La semaine doit être comprise entre 0 et 54, ou valoir 255.",
+        "year": "L'année doit être comprise entre 1990 et 2245."
+      },
+      "change": "Le moniteur reçoit la nouvelle identité ; l'ordinateur le détecte à nouveau.",
+      "changeNanokvm": "Le moniteur s'identifie à nouveau comme NanoKVM ; l'ordinateur le détecte à nouveau."
+    }
   },
   "capture": {
     "downloadStatusFailed": "Impossible d'actualiser l'état du téléchargement. Reconnexion…",

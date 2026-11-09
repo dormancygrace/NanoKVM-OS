@@ -123,6 +123,57 @@ func TestVideoSettingsBatchesMonitorChanges(t *testing.T) {
 	}
 }
 
+func TestVideoSettingsMonitorIdentity(t *testing.T) {
+	oldApply, oldProgrammable, oldPowerCycle := applyVideoMonitorSettings, monitorProgrammable, screenMonitorRequiresPowerCycle
+	t.Cleanup(func() {
+		applyVideoMonitorSettings, monitorProgrammable, screenMonitorRequiresPowerCycle = oldApply, oldProgrammable, oldPowerCycle
+	})
+	var got []common.MonitorSettings
+	applyVideoMonitorSettings = func(update common.MonitorSettings) error {
+		got = append(got, update)
+		return nil
+	}
+	programmable, powerCycle := true, false
+	monitorProgrammable = func() bool { return programmable }
+	screenMonitorRequiresPowerCycle = func() bool { return powerCycle }
+	acer := `"monitorIdentity":{"custom":true,"manufacturer":"ACR","productCode":3060,"name":"XB271HU","serialNumber":null,"serialText":"","week":12,"year":2019}`
+
+	if code, raw := setVideoAs(t, `{"monitor":1080,`+acer+`}`, authn.RoleAdmin); code != 0 {
+		t.Fatalf("rejected: %s", raw)
+	}
+	if len(got) != 1 || !got[0].SetIdentity || got[0].Identity == nil || got[0].Identity.Manufacturer != "ACR" ||
+		got[0].Identity.ProductCode != 3060 || got[0].Resolution == nil {
+		t.Fatalf("not one combined write with the identity: %+v", got)
+	}
+	if code, raw := setVideoAs(t, `{"monitorIdentity":{"custom":false}}`, authn.RoleAdmin); code != 0 {
+		t.Fatalf("restoring rejected: %s", raw)
+	}
+	if last := got[len(got)-1]; !last.SetIdentity || last.Identity != nil {
+		t.Fatalf("restoring sent %+v", last)
+	}
+
+	calls := len(got)
+	bad := strings.Replace(acer, `"ACR"`, `"acr"`, 1)
+	if code, raw := setVideoAs(t, `{"fps":30,`+bad+`}`, authn.RoleAdmin); code == 0 {
+		t.Fatalf("invalid identity accepted: %s", raw)
+	}
+	powerCycle = true
+	if code, _ := setVideoAs(t, `{`+acer+`}`, authn.RoleAdmin); code != -5 {
+		t.Fatalf("Cube identity without power-cycle confirmation: code %d", code)
+	}
+	programmable = false
+	if code, _ := setVideoAs(t, `{"confirmPowerCycle":true,`+acer+`}`, authn.RoleAdmin); code == 0 {
+		t.Fatal("identity accepted without programmable EDID")
+	}
+	if len(got) != calls {
+		t.Fatal("a rejected identity reached the receiver")
+	}
+	programmable = true
+	if code, raw := setVideoAs(t, `{"confirmPowerCycle":true,`+acer+`}`, authn.RoleAdmin); code != 0 {
+		t.Fatalf("confirmed Cube identity rejected: %s", raw)
+	}
+}
+
 func TestVideoCapabilitiesListModeCodecs(t *testing.T) {
 	modes := videoCapabilities()["monitor"].(gin.H)["modes"].([]monitorModeCapability)
 	for _, m := range modes {

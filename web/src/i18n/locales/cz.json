@@ -2344,7 +2344,8 @@
       "portrait": "nepodporováno tímto profilem na výšku",
       "mjpeg-4k": "není k dispozici, když vstup HDMI má rozlišení 3840 × 2160 – použijte H.264 nebo H.265",
       "video-memory": "vyžaduje více videopaměti: aby byl použit aktualizovaný systém, zařízení restartujte",
-      "h264-4k": "není k dispozici nad 2560 × 1440, použijte H.265 nebo rozlišení proudu 1440p nebo nižší"
+      "h264-4k": "není k dispozici nad 2560 × 1440, použijte H.265 nebo rozlišení proudu 1440p nebo nižší",
+      "identity": "zkontrolujte identitu monitoru"
     },
     "mjpegChroma420": "4:2:0 – méně objemné snímky",
     "powerCycleTitle": "Je zapotřebí fyzicky odpojit od napájení a poté znovu připojit",
@@ -2409,7 +2410,50 @@
     },
     "viDirectH264Hint": "H.264 při velikosti a obnovovací frekvenci vstupu čte zachycený snímek samotný: zachytávání přepne na vzorkování barev 4:2:0 (při 1080p o přibližně 6ms nižší prodleva a nižší provoz v operační paměti), a MJPEG mezitím používá také 4:2:0. Při změně tohoto režimu se zachytávání nakrátko restartuje. Pokud chcete enkódovat pomocí videoprocesoru (jako dříve), vypněte.",
     "mjpegChromaFallback_h264Capture": "Toto zachytávání běží v 4:2:0 pro H.264 přímo ze zachytávání, takže MJPEG také používá 4:2:0. 4:2:2 se navrátí, když bude zachytávání přepnuto nazpět – například pro proud H.265 nebo (škálovaného) H.264.",
-    "aspect": "Poměr stran"
+    "aspect": "Poměr stran",
+    "identity": {
+      "title": "Identita monitoru",
+      "hint": "Výrobce, model a sériové číslo, které připojený počítač u tohoto monitoru vidí místo údajů NanoKVM. Rozlišení a obnovovací frekvence zůstávají od NanoKVM. Software, který čte celé EDID, může NanoKVM stále poznat podle krátkého seznamu režimů.",
+      "custom": "Vlastní identita",
+      "nanokvm": "Monitor se hlásí jako NanoKVM.",
+      "file": "Z monitoru",
+      "fileLoad": "Načíst soubor EDID…",
+      "fileHint": "Převezme identitu monitoru z jeho EDID: v Linuxu /sys/class/drm/*/edid, ve Windows export z CRU nebo Monitor Asset Manager. Použije se jen identita.",
+      "fileLoaded": "Identita načtena ze souboru EDID. Zapíšete ji tlačítkem Použít.",
+      "fileError": {
+        "not-edid": "Soubor neobsahuje EDID.",
+        "checksum": "EDID v souboru je poškozené (chyba kontrolního součtu)."
+      },
+      "manufacturer": "ID výrobce",
+      "manufacturerHint": "Tři písmena, PNP ID: například ACR (Acer), AUS (ASUS), DEL (Dell), SNY (Sony).",
+      "productCode": "Kód produktu",
+      "productCodeHint": "Až čtyři šestnáctkové číslice. S ID výrobce tvoří ID hardwaru, které zobrazuje Windows, například ACR0BF4.",
+      "name": "Název monitoru",
+      "nameHint": "Až 13 znaků, tak jak monitor zobrazuje operační systém.",
+      "serial": "Sériové číslo",
+      "serialProfile": "Vlastní pro každý profil (doporučeno)",
+      "serialFixed": "Pevné",
+      "serialProfileHint": "Každé rozlišení a frekvence má vlastní sériové číslo, takže Windows spustí každý profil v jeho preferovaném režimu.",
+      "serialFixedHint": "Všechny profily nesou toto sériové číslo jako skutečný monitor. Windows pak drží jeden režim zobrazení pro všechny profily a po změně profilu může použít starý.",
+      "serialNumber": "Sériové číslo (číselné)",
+      "serialText": "Sériové číslo (text)",
+      "serialTextHint": "Až 13 znaků; prázdné: číslo.",
+      "manufactured": "Vyrobeno",
+      "week": "Týden",
+      "year": "Rok",
+      "manufacturedHint": "Týden 1–54, 0 pokud není znám, 255 pokud je rok rokem modelu.",
+      "invalid": {
+        "manufacturer": "ID výrobce musí mít tři písmena A–Z.",
+        "productCode": "Kód produktu musí mít 1–4 šestnáctkové číslice.",
+        "name": "Název monitoru musí mít 1–13 znaků: latinská písmena, číslice a interpunkci.",
+        "serialNumber": "Sériové číslo musí být 0–4294967295.",
+        "serialText": "Text sériového čísla smí mít nejvýše 13 znaků: latinská písmena, číslice a interpunkci.",
+        "week": "Týden musí být 0–54 nebo 255.",
+        "year": "Rok musí být 1990–2245."
+      },
+      "change": "Monitor dostane novou identitu; počítač jej znovu rozpozná.",
+      "changeNanokvm": "Monitor se opět hlásí jako NanoKVM; počítač jej znovu rozpozná."
+    }
   },
   "dashboard": {
     "states": {

@@ -34,7 +34,7 @@ func TestProgrammedMonitorProfileComparesContent(t *testing.T) {
 	a, b := filepath.Join(dir, "a.bin"), filepath.Join(dir, "b.bin")
 	_ = os.WriteFile(a, []byte("same"), 0o644)
 	_ = os.WriteFile(b, []byte("other"), 0o644)
-	recordMonitorProfileLocked(a)
+	recordMonitorProfileLocked([]byte("same"))
 	if !programmedMonitorProfileLocked(a, 1080) || programmedMonitorProfileLocked(b, 1080) {
 		t.Fatal("recorded profile not recognized by content")
 	}

@@ -208,8 +208,10 @@ func videoCapabilities() gin.H {
 			"selected":           selectedMonitorResolution(),
 			"refreshHz":          common.MonitorRefreshHz(),
 			"stockProfile":       common.MonitorStockProfile(),
-			"modes":              monitorModes,
-			"aspects":            common.MonitorAspects,
+			// The identity the profiles carry instead of NanoKVM's own, or null.
+			"identity": common.SavedMonitorIdentity(),
+			"modes":    monitorModes,
+			"aspects":  common.MonitorAspects,
 			"portrait": gin.H{
 				"enabled": portrait, "resolution": common.PortraitResolution(),
 				"profiles": portraitProfiles,
@@ -258,9 +260,26 @@ type VideoSettingsReq struct {
 	PortraitResolution *int  `json:"portraitResolution"`
 	Portrait           *bool `json:"portrait"`
 	Monitor            *int  `json:"monitor"`
+	// MonitorIdentity replaces the identity the monitor profiles carry:
+	// custom false restores NanoKVM's own. It rewrites the EDID.
+	MonitorIdentity *monitorIdentityReq `json:"monitorIdentity"`
 	// Transport is the device transport (direct, webrtc or mjpeg), stored
 	// after the other settings.
 	Transport *string `json:"transport"`
+}
+
+type monitorIdentityReq struct {
+	Custom bool `json:"custom"`
+	common.MonitorIdentity
+}
+
+// identity is the requested identity, nil for NanoKVM's own.
+func (r *monitorIdentityReq) identity() *common.MonitorIdentity {
+	if !r.Custom {
+		return nil
+	}
+	id := r.MonitorIdentity
+	return &id
 }
 
 // settings lists the request in application order. The EDID is written last
@@ -309,6 +328,9 @@ func (r VideoSettingsReq) monitor() common.MonitorSettings {
 		value := uint16(*r.PortraitResolution)
 		monitor.PortraitResolution = &value
 	}
+	if r.MonitorIdentity != nil {
+		monitor.SetIdentity, monitor.Identity = true, r.MonitorIdentity.identity()
+	}
 	return monitor
 }
 
@@ -346,6 +368,10 @@ func (s *Service) SetVideoSettings(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "transport must be direct, webrtc or mjpeg")
 		return
 	}
+	if failure := validateMonitorIdentity(&req); failure != nil {
+		rsp.ErrRsp(c, failure.code, failure.msg)
+		return
+	}
 	videoSettingsMutex.Lock()
 	defer videoSettingsMutex.Unlock()
 
@@ -371,6 +397,27 @@ func (s *Service) SetVideoSettings(c *gin.Context) {
 	}
 
 	rsp.OkRspWithData(c, videoCapabilities())
+}
+
+// validateMonitorIdentity checks a requested monitor identity before any
+// setting is applied. Like a profile change, it writes the EDID: a Cube or
+// Lite that needs a power cycle afterwards needs the confirmation.
+func validateMonitorIdentity(req *VideoSettingsReq) *settingError {
+	if req.MonitorIdentity == nil {
+		return nil
+	}
+	if !monitorProgrammable() {
+		return settingFailure(-1, "EDID programming is unsupported on this board/HDMI chip")
+	}
+	if screenMonitorRequiresPowerCycle() && !req.ConfirmPowerCycle {
+		return settingFailure(-5, "Physical power cycle required after EDID programming; confirm before writing")
+	}
+	if id := req.MonitorIdentity.identity(); id != nil {
+		if err := id.Validate(); err != nil {
+			return settingFailure(-1, err.Error())
+		}
+	}
+	return nil
 }
 
 // applyStreamSettings applies the validated settings except the monitor ones,

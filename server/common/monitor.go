@@ -253,7 +253,9 @@ func savedPortraitResolutionLocked() uint16 {
 	return resolution
 }
 
-func applyMonitorProfileLocked(path string) error {
+// applyMonitorProfileLocked writes a profile with an identity (nil: the
+// profile as shipped) and records the hash of what was written.
+func applyMonitorProfileLocked(path string, id *MonitorIdentity) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("monitor profile is unavailable: %w", err)
@@ -261,10 +263,22 @@ func applyMonitorProfileLocked(path string) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("monitor profile is unavailable: %s is not a regular file", path)
 	}
-	if err = GetKvmVision().ApplyMonitorProfile(path); err != nil {
+	data, err := monitorProfileBytes(path, id)
+	if err != nil {
+		return fmt.Errorf("monitor profile is unavailable: %w", err)
+	}
+	target := path
+	if id != nil {
+		target = monitorIdentityProfileFile
+		if err := os.WriteFile(target, data, 0600); err != nil {
+			return fmt.Errorf("preparing the monitor profile failed: %w", err)
+		}
+		defer os.Remove(target)
+	}
+	if err = GetKvmVision().ApplyMonitorProfile(target); err != nil {
 		return err
 	}
-	recordMonitorProfileLocked(path)
+	recordMonitorProfileLocked(data)
 	return nil
 }
 

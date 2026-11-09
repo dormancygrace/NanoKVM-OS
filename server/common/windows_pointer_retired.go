@@ -1,8 +1,6 @@
 package common
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -55,7 +53,7 @@ func retireWindowsPointerLocked(hw monitorSettingsBackend) (string, error) {
 		} else {
 			// The marker stays until the write succeeds, so the next start
 			// tries again.
-			if err := hw.apply(path); err != nil {
+			if err := hw.apply(path, savedMonitorIdentityLocked()); err != nil {
 				return "", err
 			}
 			log.Infof("programmed %s without the retired Windows pointer block", filepath.Base(path))
@@ -73,13 +71,10 @@ func retireWindowsPointerLocked(hw monitorSettingsBackend) (string, error) {
 func shippedMonitorProfileLocked(hash string) string {
 	files, _ := filepath.Glob(filepath.Join(monitorEDIDDir, "NanoKVM-*.bin"))
 	sort.Strings(files)
+	// As written: with the saved monitor identity, if any.
+	id := savedMonitorIdentityLocked()
 	for _, path := range files {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		sum := sha256.Sum256(data)
-		if hex.EncodeToString(sum[:]) == hash {
+		if sum, err := monitorProfileSHA256(path, id); err == nil && sum == hash {
 			return path
 		}
 	}

@@ -47,7 +47,11 @@ def main():
         assembly = work / 'ghash-rvv.S'
         assembly.write_text(rvv1((source / 'crypto/modes/ghash-c906.S').read_text()))
         start = work / 'start.S'
-        start.write_text('.text\n.globl _start\n_start:\ncall main\nli a7,93\necall\n.section .note.GNU-stack,"",@progbits\n')
+        # tp points at a zeroed static TLS block (the per-thread vector answer
+        # of crypto/riscv_c906.h is a zero-initialised __thread variable).
+        start.write_text('.text\n.globl _start\n_start:\nla tp,tls_block\ncall main\nli a7,93\necall\n'
+                         '.bss\n.balign 64\ntls_block:\n.zero 256\n'
+                         '.section .note.GNU-stack,"",@progbits\n')
         binary = work / 'test'
         command = [args.cross_prefix + 'gcc', '-O2', '-static', '-nostdlib', '-ffreestanding',
                    '-fno-builtin', '-fno-stack-protector', '-fno-pie', '-no-pie',

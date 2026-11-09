@@ -47,16 +47,16 @@ diff --git a/crypto/modes/build.info b/crypto/modes/build.info
 diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 --- /dev/null
 +++ b/crypto/modes/gcm_c906.c
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,111 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <stdint.h>
 +#include <stdlib.h>
 +#include <string.h>
-+#include <sys/prctl.h>
 +#include <openssl/crypto.h>
 +#include "crypto/modes.h"
 +#include "crypto/riscv_arch.h"
++#include "crypto/riscv_c906.h"
 +
 +#ifdef NKOS_GHASH_TEST
 +#include <stdatomic.h>
@@ -153,15 +153,9 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +size_t ossl_gcm_c906_prefix(u64 xi[2], const u128 *table,
 +    const u8 *in, size_t len)
 +{
-+    int control;
 +    if (len < 2048 || !ossl_riscv_has_xtheadvector
-+        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled)
-+        return 0;
-+    /* The current thread may disable vectors or inherit different control.
-+     * Query on every eligible call, including after an EVP context is copied.
-+     */
-+    control = prctl(70, 0L, 0L, 0L, 0L);
-+    if (control < 0 || (control & 3) != 2)
++        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled
++        || !ossl_riscv_c906_thread_vector())
 +        return 0;
 +    return vector_prefix(xi, table, in, len);
 +}

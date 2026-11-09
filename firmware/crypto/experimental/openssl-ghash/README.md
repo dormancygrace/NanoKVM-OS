@@ -9,7 +9,7 @@ multiplication retain upstream code. FIPS and no-assembly paths are unchanged.
 
 Acceleration requires `NANOKVM_OPENSSL_GHASH=auto`, the all-online-CPU
 XTheadVector result from OpenSSL's startup `riscv_hwprobe`, and permission
-for the current thread on every eligible call. Unknown/missing options,
+for the current thread, asked once per thread (see `../../openssl-c906/README.md`). Unknown/missing options,
 unsupported hardware, disabled vectors and errno-returning query failures
 retain software. The image downloader opts in for its curl child and preserves
 explicit operator overrides. Scalar XTheadBb is part of the base C906 profile.

@@ -21,6 +21,20 @@ This covers filters installed after library startup, not arbitrary filters
 that kill syscalls during dynamic loading. A separate fresh-exec child leaves
 the opt-in unset and verifies that a fatal `prctl` rule also survives.
 
+`verify-load.c` loads the instrumented libcrypto with `dlopen`, and covers two
+load-order cases:
+
+- `--worker`: the process starts with vector state off, and a worker thread
+  turns its own vector state on before loading libcrypto. With both opt-ins
+  set, the worker reaches the ChaCha and GHASH assembly. The main thread is
+  still off and stays on upstream code, because each thread asks for itself.
+- `--filter`: a seccomp filter that kills `prctl` is installed before
+  libcrypto is loaded. With the default environment, the process survives on
+  upstream code, because nothing queries without the opt-in.
+
+Both pass on the stand (2026-11-09), together with `verify --native --hits`
+with and without the opt-in, `verify-path` and `evp-bench 0`.
+
 `test-dispatch.py --negative-control` compiles the patched C dispatcher with
 mocked hardware/syscall edges under ASan/UBSan. It checks the threshold,
 missing capability, all thread-control values, overrides and scalar tails.

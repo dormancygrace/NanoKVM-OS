@@ -4,7 +4,7 @@
 import { fonts } from './font.ts';
 
 export type OledPanel = 'wide' | 'narrow';
-export type OledCondition = '' | 'eth' | 'wifi' | 'hdmi' | 'hid' | 'stream' | 'wifi_module' | 'atx';
+type OledCondition = '' | 'eth' | 'wifi' | 'hdmi' | 'hid' | 'stream' | 'wifi_module' | 'atx';
 export type OledFont = 4 | 8 | 16;
 export type OledAlign = 'left' | 'center' | 'right';
 
@@ -92,8 +92,8 @@ export const maxConditions = 4;
 export const maxPages = 4;
 export const maxText = 128;
 // A {name:N} width, and the text once expanded (oled_layout.h).
-export const maxPad = 32;
-export const maxExpanded = 256;
+const maxPad = 32;
+const maxExpanded = 256;
 
 // An imported file: a layout only when every field is what the editor and
 // the server take (whole coordinates in range, known kinds and conditions,
@@ -147,7 +147,7 @@ export function checkedLayout(value: unknown): OledLayout | null {
   return value.items.every(itemOk) ? (value as OledLayout) : null;
 }
 
-export const panelSize = (panel: OledPanel) =>
+const panelSize = (panel: OledPanel) =>
   panel === 'narrow' ? { width: 64, height: 32 } : { width: 128, height: 64 };
 
 // The size the layout is drawn in: the panel as rotated.
@@ -156,7 +156,7 @@ export function logicalSize(layout: OledLayout) {
   return layout.rotation % 180 ? { width: height, height: width } : { width, height };
 }
 
-export const advance = (font: OledFont) => (font === 4 ? 4 : font === 16 ? 8 : 6);
+const advance = (font: OledFont) => (font === 4 ? 4 : font === 16 ? 8 : 6);
 
 // {name} or {name:N}, character by character as oled_layout_expand does.
 export function expand(text: string, values: OledValues): string {
@@ -233,7 +233,7 @@ export function holds(item: OledItem, values: OledValues): boolean {
 }
 
 // The text as drawn: its position and size in pixels.
-export function textBox(item: OledItem, values: OledValues) {
+function textBox(item: OledItem, values: OledValues) {
   const font = item.font ?? 8;
   const text = expand(item.text ?? '', values);
   const width = item.width || Math.max(text.length * advance(font), 1);

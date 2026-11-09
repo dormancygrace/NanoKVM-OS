@@ -2,7 +2,7 @@
 
 export const serialConsoleScript = 'nanokvm-serial-console.sh';
 
-export type SerialConsoleIdentity = {
+type SerialConsoleIdentity = {
   serialNumber: string;
   vendorId?: string;
   productId?: string;

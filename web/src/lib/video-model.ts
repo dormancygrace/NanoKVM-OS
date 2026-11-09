@@ -141,11 +141,11 @@ export type VideoDraft = {
   identity: string;
 };
 
-export const FPS_CHOICES = [120, 75, 60, 50, 40, 30];
+const FPS_CHOICES = [120, 75, 60, 50, 40, 30];
 export const BITRATE_CHOICES = [20000, 15000, 12000, 10000, 8000, 5000, 3000, 2000, 1000];
 
 // The size a monitor setting stands for (Auto included).
-export function monitorSize(mode: MonitorMode | undefined) {
+function monitorSize(mode: MonitorMode | undefined) {
   if (!mode) return { width: 0, height: 0 };
   return mode.height
     ? { width: mode.width, height: mode.height }
@@ -154,7 +154,7 @@ export function monitorSize(mode: MonitorMode | undefined) {
 export const QUALITY_CHOICES = [100, 80, 60, 50];
 
 // Server stream type: what the device encodes for this draft.
-export function streamType(draft: Pick<VideoDraft, 'transport' | 'codec'>) {
+function streamType(draft: Pick<VideoDraft, 'transport' | 'codec'>) {
   return draft.transport === 'mjpeg' ? 0 : draft.codec === 'h265' ? 2 : 1;
 }
 
@@ -205,18 +205,18 @@ export function rateLimit(tiers: RateTier[], width: number, height: number) {
   return tiers[0]?.fps ?? 120;
 }
 
-export function portraitProfile(caps: VideoCapabilities, resolution: number) {
+function portraitProfile(caps: VideoCapabilities, resolution: number) {
   return caps.monitor.portrait.profiles.find((p) => p.resolution === resolution);
 }
 
 export const DEFAULT_ASPECT = '16:9';
 
 // The monitor setting of a mode (see MonitorMode.id).
-export function modeId(mode: MonitorMode) {
+function modeId(mode: MonitorMode) {
   return mode.id ?? mode.height;
 }
 
-export function monitorMode(caps: VideoCapabilities, id: number) {
+function monitorMode(caps: VideoCapabilities, id: number) {
   return caps.monitor.modes.find((m) => modeId(m) === id);
 }
 
@@ -337,17 +337,17 @@ function portraitCodecAllowed(
   );
 }
 
-export function codecPlayable(browser: BrowserSupport, transport: Transport, codec: Codec) {
+function codecPlayable(browser: BrowserSupport, transport: Transport, codec: Codec) {
   if (transport === 'mjpeg' || codec === 'h264') return true;
   return transport === 'direct' ? browser.directH265 : browser.webrtcH265;
 }
 
-export function transportPlayable(browser: BrowserSupport, transport: Transport) {
+function transportPlayable(browser: BrowserSupport, transport: Transport) {
   return transport === 'mjpeg' || (transport === 'direct' ? browser.direct : browser.webrtc);
 }
 
 // Why a choice is unavailable for a draft; undefined when it is fine.
-export type DraftIssues = Partial<
+type DraftIssues = Partial<
   Record<'monitor' | 'portrait' | 'height' | 'fps' | 'transport' | 'codec' | 'identity', Reason>
 >;
 
@@ -425,7 +425,7 @@ export function transportChoice(
 // profiles, portrait ones from the portrait profiles; with a fixed receiver the
 // choice is the current input at the stream rates. The monitor refresh follows
 // the chosen rate (monitorTarget), so a resolution and a rate are two choices.
-export type ResolutionChoice = {
+type ResolutionChoice = {
   key: string;
   monitor: number; // the draft's monitor setting; ignored for portrait choices
   portrait: number;
@@ -438,7 +438,7 @@ export type ResolutionChoice = {
   reason?: Reason;
 };
 
-export function resolutionKey(kind: 'm' | 'p' | 'i', height: number) {
+function resolutionKey(kind: 'm' | 'p' | 'i', height: number) {
   return `${kind}${height}`;
 }
 
@@ -540,7 +540,7 @@ export function draftSize(draft: VideoDraft, caps: VideoCapabilities) {
   return streamSize(draft, prospectiveCaps(draft, caps));
 }
 
-export type DraftChange = {
+type DraftChange = {
   keys: (keyof VideoDraft)[];
   // The source re-detects the monitor (a short HDMI blackout).
   monitorRewrite: boolean;

@@ -156,7 +156,7 @@ export function userDiskDownloadUrl(path: string) {
   return getBaseUrl('http') + userFilesUrl + '/download?' + new URLSearchParams({ path });
 }
 
-export type UserDiskStatus = {
+type UserDiskStatus = {
   file: string;
   label: string;
   sizes: number[];

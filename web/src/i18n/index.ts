@@ -38,5 +38,3 @@ export const i18nReady = i18n
       escapeValue: false
     }
   });
-
-export default i18n;

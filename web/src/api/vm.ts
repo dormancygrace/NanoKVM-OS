@@ -87,7 +87,7 @@ export function getScreenText(
   });
 }
 
-export type ScreenTextSettings = {
+type ScreenTextSettings = {
   // Text recognition is on: the toolbar button, MCP and PicoClaw read.
   enabled: boolean;
   languages: { name: string; installed: boolean }[];
@@ -450,7 +450,7 @@ export function importSSHKeys(keys: string, password: string) {
   return http.post('/api/vm/ssh/keys/import', { keys, password }, { sensitive: true });
 }
 
-export type DeviceInfo = {
+type DeviceInfo = {
   ips: { type: string; addr: string }[];
   mdns: string;
   application: string;
@@ -494,7 +494,7 @@ export type ScreenStatus = {
   // Device-wide MJPEG frame detection, saved by the server.
   frameDetect: boolean;
 };
-export type CPUFrequency = {
+type CPUFrequency = {
   supported: boolean;
   throttled?: boolean;
   running: number;

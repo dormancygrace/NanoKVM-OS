@@ -26,4 +26,4 @@ export function selectEncoderCodec(codec: 'h264' | 'h265') {
   return http.post<null>('/api/stream/state', { codec });
 }
 
-export type EncoderState = { active: boolean; selected: boolean; codec: 'h264' | 'h265' | '' };
+type EncoderState = { active: boolean; selected: boolean; codec: 'h264' | 'h265' | '' };

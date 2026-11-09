@@ -40,7 +40,7 @@ export type NotifySignIn = {
 };
 
 // token is the sign-in's handle for the oauthToken field until it is saved.
-export type NotifySignInResult = {
+type NotifySignInResult = {
   pending: boolean;
   interval?: number;
   token?: string;

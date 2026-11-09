@@ -10,7 +10,7 @@ type Env = {
   later: (callback: () => void, ms: number) => () => void;
 };
 
-export const CONNECTION_WARNING_DELAY = 1000;
+const CONNECTION_WARNING_DELAY = 1000;
 
 export function createConnectionWarningGate(
   onQuietChange: (quiet: boolean) => void,

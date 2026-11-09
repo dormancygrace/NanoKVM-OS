@@ -21,7 +21,7 @@ export function imageEnabled() {
   return http.get<{ enabled: boolean }>('/api/download/image/enabled');
 }
 
-export type ImageDownloadStatus = {
+type ImageDownloadStatus = {
   downloadedBytes: number;
   totalBytes: number;
   bytesPerSecond: number;

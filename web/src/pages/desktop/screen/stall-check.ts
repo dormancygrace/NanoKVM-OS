@@ -4,7 +4,7 @@
 // heartbeat; only a heartbeat left unanswered leads to a probe with a new WebSocket.
 
 // A video with no new frame this long is checked.
-export const STALL_AFTER = 1000;
+const STALL_AFTER = 1000;
 // A live connection answers within one round trip; these floors cover a LAN, and both
 // limits grow with the time the signaling socket took to open (about three round trips),
 // so a slow link is not taken for a dead one.
@@ -12,12 +12,12 @@ const MIN_REPLY_WINDOW = 400;
 const MIN_PROBE_TIMEOUT = 800;
 // A device that refuses probes (503 in video recovery mode) costs one TLS handshake per
 // probe, so probes start at most this often: about two a second, as signaling retries.
-export const PROBE_PACE = 500;
+const PROBE_PACE = 500;
 
 export const replyWindow = (openMs: number) => Math.max(MIN_REPLY_WINDOW, openMs);
 export const probeTimeout = (openMs: number) => Math.max(MIN_PROBE_TIMEOUT, 2 * openMs);
 
-export type StallAction = 'none' | 'heartbeat' | 'probe';
+type StallAction = 'none' | 'heartbeat' | 'probe';
 
 export class StallCheck {
   private lastFrameAt = 0;
@@ -80,9 +80,9 @@ export class StallCheck {
 }
 
 // The socket a probe needs: a WebSocket in the page, a fake in tests.
-export type ProbeSocket = Pick<WebSocket, 'readyState' | 'close' | 'onopen' | 'onclose'>;
+type ProbeSocket = Pick<WebSocket, 'readyState' | 'close' | 'onopen' | 'onclose'>;
 
-export type StallProbeHost = {
+type StallProbeHost = {
   now: () => number;
   // The check runs only while this holds: signaling open, page visible, no reconnect
   // pending.

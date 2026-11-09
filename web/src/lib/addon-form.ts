@@ -1,7 +1,7 @@
 // Pure helpers of the add-on pages that core draws from manifests
 // (pages/desktop/menu/settings/addon/, docs/ADDONS.md).
 
-export type AddonText = Record<string, string>;
+type AddonText = Record<string, string>;
 
 type FormField = { key: string; type: string };
 

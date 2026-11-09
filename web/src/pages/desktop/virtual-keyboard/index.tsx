@@ -13,12 +13,12 @@ import 'react-simple-keyboard/build/css/index.css';
 import '@/assets/styles/keyboard.css';
 
 import { ConfigProvider, Segmented, Select, theme } from 'antd';
-import { useMediaQuery } from 'react-responsive';
 
 import { getKeycode, getModifierBit } from '@/lib/keymap.ts';
 import * as storage from '@/lib/localstorage.ts';
 import { client, MessageEvent } from '@/lib/websocket.ts';
 import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
+import { useMediaQuery } from '@/hooks/useMediaQuery.ts';
 
 import {
   doubleKeys,
@@ -41,7 +41,7 @@ const languages = [
 
 export const VirtualKeyboard = () => {
   const { t } = useTranslation();
-  const isBigScreen = useMediaQuery({ minWidth: 850 });
+  const isBigScreen = useMediaQuery('(min-width: 850px)');
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useAtom(isKeyboardOpenAtom);
 

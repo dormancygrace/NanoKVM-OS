@@ -287,7 +287,7 @@ export function getCenteredInputRegionByAspectRatio(
   };
 }
 
-export function isValidInputRegion(region: InputRegion | null | undefined): region is InputRegion {
+function isValidInputRegion(region: InputRegion | null | undefined): region is InputRegion {
   if (!region) {
     return false;
   }

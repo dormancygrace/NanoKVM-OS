@@ -20,7 +20,6 @@ const (
 	WiFiSSID       = "/etc/kvm/wifi.ssid"
 	WiFiPasswd     = "/etc/kvm/wifi.pass"
 	WiFiConnect    = "/kvmapp/kvm/wifi_try_connect"
-	WiFiStateFile  = "/run/nanokvm/wifi_state"
 	WiFiScript     = "/etc/init.d/S30wifi"
 	WiFiApPassFile = "/kvmapp/kvm/ap.pass"
 )
@@ -215,25 +214,6 @@ func isSupported() bool {
 func isAPMode() bool {
 	_, err := os.Stat(WiFiApModeFile)
 	return err == nil
-}
-
-func isConnected() bool {
-	content, err := os.ReadFile(WiFiStateFile)
-	if err != nil {
-		return false
-	}
-
-	state := strings.ReplaceAll(string(content), "\n", "")
-	return state == "1"
-}
-
-func getWiFiSsid() string {
-	ssidByte, err := os.ReadFile(WiFiSSID)
-	if err != nil {
-		return ""
-	}
-
-	return strings.ReplaceAll(string(ssidByte), "\n", "")
 }
 
 func getApPassword() string {

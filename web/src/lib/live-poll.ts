@@ -18,7 +18,7 @@ export type LiveStatus = {
 // the request was sent) lets a listener drop data older than its own change.
 type LiveStatusListener = (status: LiveStatus | null, startedAt: number) => void;
 
-export const liveStatusInterval = 3000;
+const liveStatusInterval = 3000;
 
 // One poll shared by every listener on the page instead of one per widget.
 export function createLiveStatus(

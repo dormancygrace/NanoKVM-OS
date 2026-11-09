@@ -10,7 +10,7 @@ export type Branding = {
   customButtonColor?: boolean;
   bannerStyle?: 'default' | 'rainbow';
 };
-export const DEFAULT_BUTTON_COLOR = '#45E9A0';
+const DEFAULT_BUTTON_COLOR = '#45E9A0';
 export const brandingAtom = atom<Branding>({
   logoRevision: '',
   faviconRevision: '',

@@ -6,7 +6,7 @@
 
 import { ConnectRecovery } from '@/lib/connect-recovery.ts';
 
-export type MjpegTile = {
+type MjpegTile = {
   x: number;
   y: number;
   width: number;
@@ -14,7 +14,7 @@ export type MjpegTile = {
   jpeg: Uint8Array<ArrayBuffer>;
 };
 
-export type MjpegTilesMessage = {
+type MjpegTilesMessage = {
   whole: boolean;
   width: number;
   height: number;
@@ -58,11 +58,11 @@ export function parseMjpegTiles(buffer: ArrayBuffer): MjpegTilesMessage | null {
   return { whole: (view.getUint8(1) & 1) !== 0, width, height, tiles };
 }
 
-export type TileSocket = Pick<
+type TileSocket = Pick<
   WebSocket,
   'binaryType' | 'onopen' | 'onmessage' | 'onclose' | 'close' | 'readyState'
 >;
-export type DecodedTile<B> = { tile: MjpegTile; bitmap: B };
+type DecodedTile<B> = { tile: MjpegTile; bitmap: B };
 
 type TileStreamOptions<B extends { close: () => void }> = {
   connect: () => TileSocket;

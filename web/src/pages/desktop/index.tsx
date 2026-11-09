@@ -4,7 +4,6 @@ import { Alert, Button, notification, Spin, Splitter } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useMediaQuery } from 'react-responsive';
 
 import { getEncoderState } from '@/api/stream.ts';
 import { getInputRegion, getScreen, getVideoCapabilities, setControlRegionMode } from '@/api/vm.ts';
@@ -27,6 +26,7 @@ import {
 } from '@/jotai/screen.ts';
 import { usbInputAtom } from '@/jotai/usb-input.ts';
 import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
+import { useMediaQuery } from '@/hooks/useMediaQuery.ts';
 import { Head } from '@/components/head.tsx';
 
 import { CaptureStatusOverlay, useCaptureStatus } from './capture-status';
@@ -120,7 +120,7 @@ export const Desktop = () => {
   const { t } = useTranslation();
   // Load the device time format once for every displayed device time.
   useDeviceTime();
-  const isBigScreen = useMediaQuery({ minWidth: 850 });
+  const isBigScreen = useMediaQuery('(min-width: 850px)');
   // The PicoClaw sidebar renders once, into a node of its own that the side
   // panel or the full-screen overlay adopts. Moving between them (a resize
   // across the breakpoint) or the video area remounting (a host resolution

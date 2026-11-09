@@ -30,7 +30,7 @@ import {
   type TimedPacket
 } from '@/lib/recording-source.ts';
 
-export type PassthroughRecording = {
+type PassthroughRecording = {
   stop: () => void;
   stopAudio: () => void;
   // Resolves when the first keyframe has started the file.

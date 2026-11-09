@@ -1,5 +1,5 @@
-export type EncoderTransport = 'direct' | 'webrtc';
-export type EncoderCodec = 'h264' | 'h265';
+type EncoderTransport = 'direct' | 'webrtc';
+type EncoderCodec = 'h264' | 'h265';
 
 const CODEC_KEY = 'nano-kvm-video-codec';
 let effectiveCodec: EncoderCodec | undefined;

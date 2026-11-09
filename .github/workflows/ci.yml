@@ -190,6 +190,8 @@ jobs:
           python3 ../../crypto/openssl-c906/generate-ghash.py --binutils riscv64-linux-gnu- --check
           python3 ../../../server/logs/check-encodings.py --prefix riscv64-linux-gnu-
           python3 ../../crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
+          curl -fsSL "$(python3 ../../crypto/openssl-c906/generate-chacha-scalar.py --print-url)" -o "$RUNNER_TEMP/chacha-riscv.pl"
+          python3 ../../crypto/openssl-c906/generate-chacha-scalar.py --cryptogams "$RUNNER_TEMP/chacha-riscv.pl" --check
           python3 ../../crypto/openssl-c906/generate-sha256.py --check
           python3 ../../../scripts/gen-oled-web-font.py --check
           curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"

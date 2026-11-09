@@ -1,3 +1,35 @@
+--- /dev/null
++++ b/include/crypto/riscv_c906.h
+@@ -0,0 +1,29 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++#ifndef OSSL_CRYPTO_RISCV_C906_H
++# define OSSL_CRYPTO_RISCV_C906_H
++# include <sys/prctl.h>
++
++/*
++ * Whether the calling thread may run XTheadVector code (NanoKVM OS). Linux
++ * keeps the vector state per thread (PR_RISCV_V_GET_CONTROL), and a thread may
++ * turn it on later, so one thread's answer says nothing about another's.
++ * Each thread asks once, on its first eligible call, and keeps the answer:
++ * "on" cannot change, because Linux refuses to turn a thread's vector state off
++ * again (arch/riscv/kernel/vector.c returns -EPERM); "off" and errors are kept
++ * conservatively, so such a thread stays on upstream code even if it enables
++ * vectors afterwards. Callers ask only after their explicit opt-in check: a
++ * seccomp filter may kill prctl, so unqualified processes never issue it.
++ * Each file that includes this header keeps its own answer.
++ */
++static __thread int ossl_riscv_c906_vstate;    /* 0 unknown, 1 on, 2 off */
++
++static inline int ossl_riscv_c906_thread_vector(void)
++{
++    if (ossl_riscv_c906_vstate == 0) {
++        int control = prctl(70, 0L, 0L, 0L, 0L);
++
++        ossl_riscv_c906_vstate = control >= 0 && (control & 3) == 2 ? 1 : 2;
++    }
++    return ossl_riscv_c906_vstate == 1;
++}
++#endif
 --- a/crypto/chacha/build.info
 +++ b/crypto/chacha/build.info
 @@ -22,7 +22,7 @@
@@ -27,7 +59,7 @@
          && (size_t)inp % sizeof(size_t) == 0) {
 --- a/include/crypto/riscv_arch.h
 +++ b/include/crypto/riscv_arch.h
-@@ -101,11 +101,17 @@
+@@ -101,11 +101,16 @@
   * hwprobe_key is copied from asm/hwprobe.h.
   * It should be updated along with riscv_arch.def.
   */
@@ -39,9 +71,8 @@
 +    { 11, 0 }, /* RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0 */
  #endif
  
-+/* Linux all-online-CPU intersection, independent of ISA environment overrides,
-+ * and vector state enabled for the thread that loaded libcrypto. Zero when
-+ * hwprobe, its T-Head key or usable build headers are unavailable. */
++/* Linux all-online-CPU intersection, independent of ISA environment overrides.
++ * Zero when hwprobe, its T-Head key or usable build headers are unavailable. */
 +extern int ossl_riscv_has_xtheadvector;
 +
  /* Extension combination tests. */
@@ -49,13 +80,7 @@
  #define RISCV_HAS_ZBKB_AND_ZKND_AND_ZKNE() (RISCV_HAS_ZBKB() && RISCV_HAS_ZKND() && RISCV_HAS_ZKNE())
 --- a/crypto/riscvcap.c
 +++ b/crypto/riscvcap.c
-@@ -22,11 +22,13 @@
- #include <sys/syscall.h>
- #include <asm/hwprobe.h>
- #include <sys/auxv.h>
-+#include <sys/prctl.h>
- #endif
- 
+@@ -27,6 +27,7 @@
  extern size_t riscv_vlen_asm(void);
  
  static size_t vlen = 0;
@@ -63,28 +88,18 @@
  
  #ifdef OSSL_RISCV_HWPROBE
  unsigned int OPENSSL_riscv_hwcap_P = 0;
-@@ -110,6 +112,24 @@
+@@ -110,6 +111,14 @@
      ret = riscv_hwprobe(pairs, OSSL_RISCV_HWPROBE_PAIR_COUNT, 0, NULL, 0);
      /* if hwprobe syscall does not exist, ret would be -ENOSYS */
      if (ret == 0) {
 +        /* Vendor key 11, XTheadVector bit 0. Unknown keys become -1.
 +         * This is the intersection over all online CPUs (cpus=NULL).
 +         * Do not infer draft vectors from the standard ISA V bit.
-+         *
-+         * The C906 paths also need vector state enabled for the thread
-+         * (PR_RISCV_V_GET_CONTROL). It is asked once, here in the library
-+         * constructor: before any seccomp filter the process installs
-+         * later (OpenSSH's pre-authentication filter kills prctl), and
-+         * threads inherit their creator's vector control. A thread that
-+         * turns its own vector state off after libcrypto is loaded must not
-+         * reach the C906 paths: NANOKVM_OPENSSL_CHACHA20=generic and
-+         * NANOKVM_OPENSSL_GHASH=generic keep upstream code.
++         * Whether a thread may use them is asked per thread, see
++         * crypto/riscv_c906.h.
 +         */
-+        if (pairs[1].key == 11 && (pairs[1].value & 1) != 0) {
-+            int control = prctl(70, 0L, 0L, 0L, 0L);
-+
-+            ossl_riscv_has_xtheadvector = control >= 0 && (control & 3) == 2;
-+        }
++        if (pairs[1].key == 11)
++            ossl_riscv_has_xtheadvector = (pairs[1].value & 1) != 0;
          for (size_t i = 0; i < kRISCVNumCaps; ++i) {
              for (size_t j = 0; j != OSSL_RISCV_HWPROBE_PAIR_COUNT; ++j) {
                  if (pairs[j].key == RISCV_capabilities[i].hwprobe_key
@@ -102,7 +117,7 @@
 +#endif
 --- /dev/null
 +++ b/crypto/chacha/chacha_c906.c
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,69 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +/* NanoKVM OS: the shared five-block ChaCha kernel; protocol, buffering and
 + * counter limits remain in OpenSSL. Hardware capability is detected by the
@@ -114,6 +129,7 @@
 +#include <openssl/crypto.h>
 +#include "crypto/chacha.h"
 +#include "crypto/riscv_arch.h"
++#include "crypto/riscv_c906.h"
 +#include "chacha_c906.h"
 +
 +static CRYPTO_ONCE once = CRYPTO_ONCE_STATIC_INIT;
@@ -122,10 +138,11 @@
 +static void detect_override(void)
 +{
 +    const char *override = secure_getenv("NANOKVM_OPENSSL_CHACHA20");
-+    /* "generic" keeps upstream code. riscvcap.c checked XTheadVector and
-+     * the vector state once at load, so the cipher path makes no syscall.
++    /* The per-thread prctl can be fatal under a caller-installed seccomp
++     * filter. Enable only in clients whose syscall policy has been qualified.
++     * An absent/unknown value, including secure execution, stays generic.
 +     */
-+    disabled = override != NULL && strcmp(override, "generic") == 0;
++    disabled = override == NULL || strcmp(override, "auto") != 0;
 +}
 +
 +#ifdef NKOS_CHACHA_TEST
@@ -150,7 +167,8 @@
 +    size_t bytes;
 +
 +    if (len < OSSL_CHACHA_C906_MIN_BYTES || !ossl_riscv_has_xtheadvector
-+        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled)
++        || !CRYPTO_THREAD_run_once(&once, detect_override) || disabled
++        || !ossl_riscv_c906_thread_vector())
 +        return 0;
 +    state[0] = 0x61707865;
 +    state[1] = 0x3320646e;

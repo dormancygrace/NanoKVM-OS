@@ -33,21 +33,29 @@ def main():
             old_guard = guard.replace('__riscv_xtheadbb', '__riscv_xtheadvector')
             assert not included(old_guard, target), 'old compiler-macro regression must be detected'
     print('PASS: C906 scalar-ISA integration guards, no-asm/FIPS exclusion')
-    source=added_file(patch,'crypto/modes/gcm_c906.c')
+    files={'gcm_c906.c':added_file(patch,'crypto/modes/gcm_c906.c'),
+           'crypto/riscv_c906.h':''.join(l[1:] for l in (ROOT/'firmware/crypto/openssl-c906/0001-chacha20-c906.patch').read_text()
+                                          .split('+++ b/include/crypto/riscv_c906.h\n',1)[1].split('\n--- ',1)[0]
+                                          .splitlines(keepends=True) if l.startswith('+'))}
     with tempfile.TemporaryDirectory(prefix='ghash-dispatch-') as td:
         temp=Path(td); (temp/'crypto').mkdir(); (temp/'crypto/riscv_arch.h').write_text('extern int ossl_riscv_has_xtheadvector;\n')
         (temp/'crypto/modes.h').write_text('#include <stdint.h>\ntypedef uint64_t u64; typedef uint32_t u32; typedef uint8_t u8; typedef struct { u64 hi, lo; } u128;\n')
-        (temp/'gcm_c906.c').write_text(source)
+        def write(change=None):
+            for name,text in files.items():
+                if change and change[0]==name:
+                    assert change[1] in text, change
+                    text=text.replace(change[1],change[2])
+                (temp/name).write_text(text)
+        write()
         exe=temp/'test'
-        cmd=['cc','-O2','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-omit-frame-pointer','-I'+td,str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(exe)]
+        cmd=['cc','-O2','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-omit-frame-pointer','-pthread','-I'+td,str(Path(__file__).with_suffix('.c')),'-lcrypto','-o',str(exe)]
         subprocess.run(cmd,check=True);subprocess.run([str(exe)],check=True)
         if a.negative_control:
-            for name, old, new in [('capability', '!ossl_riscv_has_xtheadvector', '0'),
-                                   ('generic override', 'option != NULL && strcmp(option, "generic") == 0', '((void)option, 0)'),
-                                   ('syscall-free hash path', '    return vector_prefix(xi, table, in, len);',
-                                    '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    return vector_prefix(xi, table, in, len);')]:
-                assert old in source
-                (temp/'gcm_c906.c').write_text(source.replace(old, new))
+            for name, change in [('thread', ('crypto/riscv_c906.h', 'control >= 0 && (control & 3) == 2', 'control > -100')),
+                                 ('per-thread cache', ('crypto/riscv_c906.h', 'if (ossl_riscv_c906_vstate == 0)', 'if (1)')),
+                                 ('capability', ('gcm_c906.c', '!ossl_riscv_has_xtheadvector', '0')),
+                                 ('opt-in', ('gcm_c906.c', 'option == NULL || strcmp(option, "auto") != 0', '((void)option, 0)'))]:
+                write(change)
                 subprocess.run(cmd,check=True)
                 run=subprocess.run([str(exe)],capture_output=True,text=True)
                 if run.returncode==0: raise SystemExit('negative control unexpectedly passed')

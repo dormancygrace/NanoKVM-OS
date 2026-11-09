@@ -1,14 +1,5 @@
 # OpenSSL C906 GHASH qualification
 
-**2026-11-09: the opt-in is gone.** libcrypto's constructor now asks
-`PR_RISCV_V_GET_CONTROL` once, next to the startup `riscv_hwprobe`, before
-any sandbox. The hash path makes no system call, so the OpenSSH case below no
-longer applies. GHASH acceleration is the default; `NANOKVM_OPENSSL_GHASH=generic`
-keeps upstream code (see `../../openssl-c906/README.md`). `test-dispatch.py`
-and `verify-path.c` check the new rules. On the stand, `verify-path --sandbox`
-(prctl, openat and hwprobe killed after load) takes the vector path. The
-sections below describe the earlier opt-in design.
-
 `0010-ghash-c906.patch` uses the shared C906 five-block GHASH generator under
 its BSD-3-Clause license. Four vector lanes and one scalar block process a
 prefix; the remaining 0–4 whole blocks reuse the already expanded scalar key.
@@ -18,7 +9,7 @@ multiplication retain upstream code. FIPS and no-assembly paths are unchanged.
 
 Acceleration requires `NANOKVM_OPENSSL_GHASH=auto`, the all-online-CPU
 XTheadVector result from OpenSSL's startup `riscv_hwprobe`, and permission
-for the current thread on every eligible call. Unknown/missing options,
+for the current thread, asked once per thread (see `../../openssl-c906/README.md`). Unknown/missing options,
 unsupported hardware, disabled vectors and errno-returning query failures
 retain software. The image downloader opts in for its curl child and preserves
 explicit operator overrides. Scalar XTheadBb is part of the base C906 profile.

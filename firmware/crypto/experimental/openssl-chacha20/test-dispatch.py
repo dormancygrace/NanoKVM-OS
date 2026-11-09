@@ -16,7 +16,8 @@ def main():
     parser.add_argument('--negative-control', action='store_true')
     a = parser.parse_args()
     patch = (ROOT / 'firmware/crypto/openssl-c906/0001-chacha20-c906.patch').read_text()
-    source = added_file(patch, 'crypto/chacha/chacha_c906.c')
+    files = {'chacha_c906.c': added_file(patch, 'crypto/chacha/chacha_c906.c'),
+             'crypto/riscv_c906.h': added_file(patch, 'include/crypto/riscv_c906.h')}
     with tempfile.TemporaryDirectory(prefix='chacha-dispatch-') as td:
         p = Path(td)
         for name in ('crypto', 'internal'): (p / name).mkdir()
@@ -24,23 +25,26 @@ def main():
         (p / 'crypto/riscv_arch.h').write_text('extern int ossl_riscv_has_xtheadvector;\n')
         (p / 'crypto/chacha.h').write_text('void ChaCha20_ctr32_c(unsigned char *, const unsigned char *, size_t, const unsigned int [8], const unsigned int [4]);\n')
         (p / 'chacha_c906.h').write_text(added_file(patch, 'crypto/chacha/chacha_c906.h'))
-        c = p / 'chacha_c906.c'
-        c.write_text(source)
+        def write(changed=None):
+            for name, text in files.items():
+                if changed and changed[0] == name:
+                    assert changed[1] in text, changed
+                    text = text.replace(changed[1], changed[2])
+                (p / name).write_text(text)
+        write()
         command = ['cc', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-                   '-fno-omit-frame-pointer', '-I' + td, str(Path(__file__).with_suffix('.c')),
+                   '-fno-omit-frame-pointer', '-pthread', '-I' + td, str(Path(__file__).with_suffix('.c')),
                    '-lcrypto', '-o', str(p / 'test')]
         subprocess.run(command, check=True)
         subprocess.run([str(p / 'test')], check=True)
         if a.negative_control:
-            for name, old, new in (
-                ('capability gate', '!ossl_riscv_has_xtheadvector', '0'),
-                ('generic override', 'override != NULL && strcmp(override, "generic") == 0', '((void)override, 0)'),
-                ('threshold', 'len < OSSL_CHACHA_C906_MIN_BYTES ||', 'len < 1 ||'),
-                ('syscall-free cipher path', '    state[0] = 0x61707865;',
-                 '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    state[0] = 0x61707865;'),
+            for name, change in (
+                ('thread gate', ('crypto/riscv_c906.h', 'control >= 0 && (control & 3) == 2', 'control > -100')),
+                ('per-thread cache', ('crypto/riscv_c906.h', 'if (ossl_riscv_c906_vstate == 0)', 'if (1)')),
+                ('capability gate', ('chacha_c906.c', '!ossl_riscv_has_xtheadvector', '0')),
+                ('explicit opt-in', ('chacha_c906.c', 'override == NULL || strcmp(override, "auto") != 0', '((void)override, 0)')),
             ):
-                assert old in source
-                c.write_text(source.replace(old, new))
+                write(change)
                 subprocess.run(command, check=True)
                 run = subprocess.run([str(p / 'test')], capture_output=True, text=True)
                 if run.returncode == 0 or 'Assertion' not in run.stderr:

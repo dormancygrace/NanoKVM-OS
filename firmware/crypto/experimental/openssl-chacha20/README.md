@@ -1,18 +1,5 @@
 # OpenSSL C906 ChaCha20 qualification
 
-**2026-11-09: the opt-in is gone.** libcrypto's constructor now asks
-`PR_RISCV_V_GET_CONTROL` once, next to the startup `riscv_hwprobe`. The cipher
-path makes no system call. Acceleration is the default, and
-`NANOKVM_OPENSSL_CHACHA20=generic` keeps upstream code (see
-`../../openssl-c906/README.md`). `verify.c` now expects:
-- the vector path under seccomp filters that permit, deny or kill `prctl`
-  after load;
-- no vector path in any thread of a process started with vector state off,
-  including a thread that turns its own vector state on.
-
-`test-dispatch.py --negative-control` fails if a system call appears on the
-cipher path. The text below describes the earlier opt-in design.
-
 Candidate: OpenSSL 3.5.9 LTS with `0001-chacha20-c906.patch`.
 Control: PR #504, built with the same source, compiler and C906/O3 flags.
 Acceleration requires `NANOKVM_OPENSSL_CHACHA20=auto`; the image downloader sets
@@ -33,6 +20,20 @@ loading, then exercise the first cipher call with `prctl` permitted or denied.
 This covers filters installed after library startup, not arbitrary filters
 that kill syscalls during dynamic loading. A separate fresh-exec child leaves
 the opt-in unset and verifies that a fatal `prctl` rule also survives.
+
+`verify-load.c` loads the instrumented libcrypto with `dlopen`, and covers two
+load-order cases:
+
+- `--worker`: the process starts with vector state off, and a worker thread
+  turns its own vector state on before loading libcrypto. With both opt-ins
+  set, the worker reaches the ChaCha and GHASH assembly. The main thread is
+  still off and stays on upstream code, because each thread asks for itself.
+- `--filter`: a seccomp filter that kills `prctl` is installed before
+  libcrypto is loaded. With the default environment, the process survives on
+  upstream code, because nothing queries without the opt-in.
+
+Both pass on the stand (2026-11-09), together with `verify --native --hits`
+with and without the opt-in, `verify-path` and `evp-bench 0`.
 
 `test-dispatch.py --negative-control` compiles the patched C dispatcher with
 mocked hardware/syscall edges under ASan/UBSan. It checks the threshold,

@@ -1,10 +1,4 @@
 #!/bin/sh
-# Retire the earlier package-owned wildcard flowtable before enabling
-# interface-scoped USB sharing. Never flush foreign nftables policy.
-if [ -x /usr/libexec/nanokvm/legacy/S35flowoffload ]; then
-    /usr/libexec/nanokvm/legacy/S35flowoffload start ||
-        echo "Could not retire the legacy NanoKVM flowtable; check the policy service." >&2
-fi
 set -eu
 if [ -x /usr/libexec/nanokvm/console-policy ]; then
     /usr/libexec/nanokvm/console-policy

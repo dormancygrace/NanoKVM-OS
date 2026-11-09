@@ -12,15 +12,9 @@ start() {
     # Before the application: the MSS clamp (it acts on SYN only, so it must
     # precede the first connections), memory, and the CryptoDMA modules the
     # server probes.
+    # Queueing is the kernel's default qdisc (sysctl.d/10-nanokvm-qdisc.conf).
     for script in S34mssclamp S38memory S49persistent-cron S94hwcrypto; do
         /usr/libexec/nanokvm/legacy/"$script" start || ewarn "Could not apply $script"
     done
-    # Queueing and flow offload policy do not hold the application back.
-    (
-        for script in S29qdisc S35flowoffload; do
-            /usr/libexec/nanokvm/legacy/"$script" start ||
-                logger -t nanokvm-policy "Could not apply $script"
-        done
-    ) </dev/null >/dev/null 2>&1 &
     eend 0
 }

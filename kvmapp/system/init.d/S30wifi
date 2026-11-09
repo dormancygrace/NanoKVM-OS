@@ -664,9 +664,6 @@ start() {
     else
         load_driver || return 1
     fi
-    if [ -x /etc/init.d/S29qdisc ]; then
-        /etc/init.d/S29qdisc wlan0 || echo "Could not apply fq_codel to wlan0" >&2
-    fi
     if [ -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ]; then
         echo "wifi mode: sta"
         "$NANOKVM_IP" link set dev wlan0 down || return 1
@@ -817,9 +814,6 @@ wifi_event() {
 # the wifi.ap.* settings.
 ap_start() {
     mode=${1:-setup}
-    if [ -x /etc/init.d/S29qdisc ]; then
-        /etc/init.d/S29qdisc wlan0 || echo "Could not apply fq_codel to wlan0" >&2
-    fi
     echo "wifi mode: ap ($mode)"
     prepare_run_dir || return 1
 

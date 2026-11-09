@@ -52,6 +52,8 @@ type User struct {
 	TokenVersion       uint64 `json:"tokenVersion"`
 	MustChangePassword bool   `json:"mustChangePassword,omitempty"`
 	SystemAccount      bool   `json:"systemAccount,omitempty"`
+	// TOTP is the second factor; nil when it is off.
+	TOTP *TOTP `json:"totp,omitempty"`
 }
 
 type UserInfo struct {
@@ -59,6 +61,7 @@ type UserInfo struct {
 	Role          Role   `json:"role"`
 	Enabled       bool   `json:"enabled"`
 	SystemAccount bool   `json:"systemAccount,omitempty"`
+	TOTPEnabled   bool   `json:"totpEnabled,omitempty"`
 }
 
 type UserPatch struct {
@@ -141,6 +144,7 @@ func (s *Store) List() ([]UserInfo, error) {
 			Role:          user.Role,
 			Enabled:       user.Enabled,
 			SystemAccount: user.SystemAccount,
+			TOTPEnabled:   user.TOTP != nil,
 		})
 	}
 	return users, nil
@@ -638,6 +642,7 @@ func cloneUser(user *User) *User {
 		return nil
 	}
 	copy := *user
+	copy.TOTP = user.TOTP.clone()
 	return &copy
 }
 

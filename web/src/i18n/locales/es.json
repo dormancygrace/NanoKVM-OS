@@ -436,6 +436,17 @@
       "change2": "Contraseña de acceso web",
       "change3": "Contraseña root del sistema (contraseña de acceso por SSH)",
       "change4": "Para restablecer las contraseñas, mantén pulsado el botón BOOT del NanoKVM."
+    },
+    "totp": {
+      "title": "Autenticación en dos pasos",
+      "prompt": "Introduzca el código de su aplicación de autenticación o uno de sus códigos de recuperación.",
+      "placeholder": "Código de verificación",
+      "required": "Introduzca el código",
+      "verify": "Verificar",
+      "back": "Volver al inicio de sesión",
+      "invalidCode": "Código de verificación no válido",
+      "clockNotSet": "El reloj del NanoKVM no está configurado, así que no se pueden comprobar los códigos de la aplicación. Use un código de recuperación o configure la fecha y la hora del dispositivo.",
+      "expired": "El inicio de sesión ha caducado. Vuelva a iniciar sesión."
     }
   },
   "wifi": {
@@ -2241,7 +2252,37 @@
         "usernameUpdated": "Nombre de usuario actualizado",
         "loadFailed": "No se pudieron cargar los usuarios",
         "saveFailed": "No se pudo guardar el usuario",
-        "deleteFailed": "No se pudo eliminar el usuario"
+        "deleteFailed": "No se pudo eliminar el usuario",
+        "totpOn": "2FA",
+        "resetTotp": "Restablecer 2FA",
+        "resetTotpConfirm": "¿Desactivar la autenticación en dos pasos para este usuario? Iniciará sesión solo con la contraseña hasta que la vuelva a configurar.",
+        "totpReset": "Autenticación en dos pasos desactivada"
+      },
+      "totp": {
+        "title": "Autenticación en dos pasos",
+        "description": "El inicio de sesión también pide un código de una aplicación de autenticación en su teléfono, como Google Authenticator, Microsoft Authenticator o 2FAS.",
+        "authenticator": "Aplicación de autenticación",
+        "onDescription": "Activada. Códigos de recuperación restantes: {{count}}.",
+        "offDescription": "Desactivada. El inicio de sesión solo pide la contraseña.",
+        "setUp": "Configurar",
+        "newCodes": "Nuevos códigos de recuperación",
+        "turnOff": "Desactivar",
+        "fewCodes": "Quedan pocos códigos de recuperación. Cree otros nuevos para poder iniciar sesión si pierde el teléfono.",
+        "scan": "Escanee este código QR con su aplicación de autenticación.",
+        "manual": "O introduzca esta clave en la aplicación:",
+        "confirmCode": "Código de la aplicación",
+        "enable": "Activar",
+        "setupExpired": "La configuración ha caducado. Empiece de nuevo.",
+        "failed": "El cambio ha fallado. Inténtelo de nuevo.",
+        "disabled": "La autenticación en dos pasos está desactivada",
+        "codesTitle": "Códigos de recuperación",
+        "codesHint": "Cada código sustituye una vez a un código de la aplicación si pierde el teléfono. Guárdelos en un lugar seguro: solo se muestran ahora.",
+        "saveCodes": "Descargar",
+        "copyCodes": "Copiar",
+        "copied": "Copiado",
+        "codesSaved": "Ya los he guardado",
+        "turnOffHint": "Introduzca su contraseña y un código de la aplicación o un código de recuperación.",
+        "newCodesHint": "Sus códigos de recuperación actuales dejarán de funcionar. Introduzca su contraseña y un código de la aplicación o un código de recuperación."
       }
     },
     "security": {

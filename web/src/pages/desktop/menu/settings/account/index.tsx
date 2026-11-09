@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 import { Logout } from './logout.tsx';
+import { TwoFactor } from './two-factor.tsx';
 import { Users } from './users.tsx';
 
 export const Account = () => {
@@ -34,6 +35,8 @@ export const Account = () => {
           </Button>
         </SettingRow>
       </SettingsSection>
+
+      <TwoFactor />
 
       {account.role === 'admin' && <Users />}
 

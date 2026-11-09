@@ -436,6 +436,17 @@
       "change2": "Web login password",
       "change3": "System root password (SSH login password)",
       "change4": "To reset the passwords, press and hold the BOOT button on the NanoKVM."
+    },
+    "totp": {
+      "title": "Two-factor authentication",
+      "prompt": "Enter the code from your authenticator app, or one of your recovery codes.",
+      "placeholder": "Authentication code",
+      "required": "Enter the code",
+      "verify": "Verify",
+      "back": "Back to sign in",
+      "invalidCode": "Invalid authentication code",
+      "clockNotSet": "The NanoKVM clock is not set, so app codes cannot be checked. Use a recovery code, or set the device's date and time.",
+      "expired": "The sign-in expired. Sign in again."
     }
   },
   "wifi": {
@@ -2241,7 +2252,37 @@
         "usernameUpdated": "Username updated",
         "loadFailed": "Failed to load users",
         "saveFailed": "Failed to save user",
-        "deleteFailed": "Failed to delete user"
+        "deleteFailed": "Failed to delete user",
+        "totpOn": "2FA",
+        "resetTotp": "Reset 2FA",
+        "resetTotpConfirm": "Turn off two-factor authentication for this user? They sign in with the password only until they set it up again.",
+        "totpReset": "Two-factor authentication turned off"
+      },
+      "totp": {
+        "title": "Two-factor authentication",
+        "description": "Sign-in also asks for a code from an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or 2FAS.",
+        "authenticator": "Authenticator app",
+        "onDescription": "On. Recovery codes left: {{count}}.",
+        "offDescription": "Off. Sign-in needs only the password.",
+        "setUp": "Set up",
+        "newCodes": "New recovery codes",
+        "turnOff": "Turn off",
+        "fewCodes": "Few recovery codes are left. Create new ones so you can still sign in if you lose your phone.",
+        "scan": "Scan this QR code with your authenticator app.",
+        "manual": "Or enter this key in the app:",
+        "confirmCode": "Code from the app",
+        "enable": "Turn on",
+        "setupExpired": "The setup expired. Start it again.",
+        "failed": "The change failed. Try again.",
+        "disabled": "Two-factor authentication is off",
+        "codesTitle": "Recovery codes",
+        "codesHint": "Each code signs you in once instead of an app code, if you lose your phone. Store them somewhere safe: they are shown only now.",
+        "saveCodes": "Download",
+        "copyCodes": "Copy",
+        "copied": "Copied",
+        "codesSaved": "I have saved them",
+        "turnOffHint": "Enter your password and a code from the app or a recovery code.",
+        "newCodesHint": "Your current recovery codes stop working. Enter your password and a code from the app or a recovery code."
       }
     },
     "security": {

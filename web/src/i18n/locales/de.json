@@ -436,6 +436,17 @@
       "change2": "Web Anmelde-Passwort",
       "change3": "System root Passwort (SSH Anmelde-Passwort)",
       "change4": "Um die Passwörter zurückzusetzen, drücken und halten Sie den BOOT Knopf auf dem NanoKVM."
+    },
+    "totp": {
+      "title": "Zwei-Faktor-Authentifizierung",
+      "prompt": "Geben Sie den Code aus Ihrer Authenticator-App oder einen Ihrer Wiederherstellungscodes ein.",
+      "placeholder": "Bestätigungscode",
+      "required": "Code eingeben",
+      "verify": "Bestätigen",
+      "back": "Zurück zur Anmeldung",
+      "invalidCode": "Ungültiger Bestätigungscode",
+      "clockNotSet": "Die Uhr des NanoKVM ist nicht gestellt, daher können App-Codes nicht geprüft werden. Verwenden Sie einen Wiederherstellungscode oder stellen Sie Datum und Uhrzeit des Geräts ein.",
+      "expired": "Die Anmeldung ist abgelaufen. Melden Sie sich erneut an."
     }
   },
   "wifi": {
@@ -2241,7 +2252,37 @@
         "usernameUpdated": "Benutzername aktualisiert",
         "loadFailed": "Benutzer konnten nicht geladen werden",
         "saveFailed": "Benutzer konnte nicht gespeichert werden",
-        "deleteFailed": "Benutzer konnte nicht gelöscht werden"
+        "deleteFailed": "Benutzer konnte nicht gelöscht werden",
+        "totpOn": "2FA",
+        "resetTotp": "2FA zurücksetzen",
+        "resetTotpConfirm": "Zwei-Faktor-Authentifizierung für diesen Benutzer ausschalten? Die Anmeldung erfolgt dann nur mit dem Passwort, bis sie neu eingerichtet wird.",
+        "totpReset": "Zwei-Faktor-Authentifizierung ausgeschaltet"
+      },
+      "totp": {
+        "title": "Zwei-Faktor-Authentifizierung",
+        "description": "Die Anmeldung verlangt zusätzlich einen Code aus einer Authenticator-App auf Ihrem Telefon, etwa Google Authenticator, Microsoft Authenticator oder 2FAS.",
+        "authenticator": "Authenticator-App",
+        "onDescription": "Ein. Verbleibende Wiederherstellungscodes: {{count}}.",
+        "offDescription": "Aus. Die Anmeldung braucht nur das Passwort.",
+        "setUp": "Einrichten",
+        "newCodes": "Neue Wiederherstellungscodes",
+        "turnOff": "Ausschalten",
+        "fewCodes": "Es sind nur noch wenige Wiederherstellungscodes übrig. Erstellen Sie neue, damit Sie sich bei Verlust des Telefons noch anmelden können.",
+        "scan": "Scannen Sie diesen QR-Code mit Ihrer Authenticator-App.",
+        "manual": "Oder geben Sie diesen Schlüssel in der App ein:",
+        "confirmCode": "Code aus der App",
+        "enable": "Einschalten",
+        "setupExpired": "Die Einrichtung ist abgelaufen. Beginnen Sie erneut.",
+        "failed": "Die Änderung ist fehlgeschlagen. Versuchen Sie es erneut.",
+        "disabled": "Zwei-Faktor-Authentifizierung ist aus",
+        "codesTitle": "Wiederherstellungscodes",
+        "codesHint": "Jeder Code ersetzt einmal einen App-Code, falls Sie Ihr Telefon verlieren. Bewahren Sie sie sicher auf: Sie werden nur jetzt angezeigt.",
+        "saveCodes": "Herunterladen",
+        "copyCodes": "Kopieren",
+        "copied": "Kopiert",
+        "codesSaved": "Ich habe sie gespeichert",
+        "turnOffHint": "Geben Sie Ihr Passwort und einen Code aus der App oder einen Wiederherstellungscode ein.",
+        "newCodesHint": "Ihre bisherigen Wiederherstellungscodes werden ungültig. Geben Sie Ihr Passwort und einen Code aus der App oder einen Wiederherstellungscode ein."
       }
     },
     "security": {

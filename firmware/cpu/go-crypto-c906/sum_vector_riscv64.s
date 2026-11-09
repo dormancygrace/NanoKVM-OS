@@ -245,6 +245,7 @@ TEXT ·poly1305BlocksVector(SB), NOSPLIT, $176-32
 	WORD	$0x04000737	// lui a4,0x4000
 	WORD	$0xfff7071b	// addiw a4,a4,-1
 	WORD	$0x010007b7	// lui a5,0x1000
+	WORD	$0x00400693	// li a3,4
 	WORD	$0x0005af83	// lw t6,0(a1)
 	WORD	$0x640fbf8b	// th.extu t6,t6,25,0
 	WORD	$0x01f12423	// sw t6,8(sp)
@@ -305,7 +306,7 @@ TEXT ·poly1305BlocksVector(SB), NOSPLIT, $176-32
 	WORD	$0x03c5af83	// lw t6,60(a1)
 	WORD	$0x008fdf9b	// srliw t6,t6,0x8
 	WORD	$0x05f12a23	// sw t6,84(sp)
-	WORD	$0x00807057	// th.vsetvli zero,zero,e32,m1,d1
+	WORD	$0x0086f057	// th.vsetvli zero,a3,e32,m1,d1
 	WORD	$0x5e0444d7	// th.vmv.v.x v9,s0
 	WORD	$0x5e04c557	// th.vmv.v.x v10,s1
 	WORD	$0x5e0945d7	// th.vmv.v.x v11,s2
@@ -453,7 +454,7 @@ TEXT ·poly1305BlocksVector(SB), NOSPLIT, $176-32
 	WORD	$0xf2942d57	// th.vwmaccu.vv v26,v8,v9
 	WORD	$0x744fbf8b	// th.extu t6,t6,29,4
 	WORD	$0x03f12823	// sw t6,48(sp)
-	WORD	$0x00d07057	// th.vsetvli zero,zero,e64,m2,d1
+	WORD	$0x00d6f057	// th.vsetvli zero,a3,e64,m2,d1
 	WORD	$0x21731d0b	// th.mula s10,t1,s7
 	WORD	$0xa32d3e57	// th.vsrl.vi v28,v18,26
 	WORD	$0x0795a503	// lw a0,121(a1)
@@ -481,7 +482,7 @@ TEXT ·poly1305BlocksVector(SB), NOSPLIT, $176-32
 	WORD	$0x03af0d57	// th.vadd.vv v26,v26,v30
 	WORD	$0x21639d0b	// th.mula s10,t2,s6
 	WORD	$0x0865af83	// lw t6,134(a1)
-	WORD	$0x00807057	// th.vsetvli zero,zero,e32,m1,d1
+	WORD	$0x0086f057	// th.vsetvli zero,a3,e32,m1,d1
 	WORD	$0x744fbf8b	// th.extu t6,t6,29,4
 	WORD	$0xb3203257	// th.vnsrl.vi v4,v18,0
 	WORD	$0x21739e0b	// th.mula t3,t2,s7
@@ -636,7 +637,7 @@ TEXT ·poly1305BlocksVector(SB), NOSPLIT, $176-32
 	WORD	$0xf2942d57	// th.vwmaccu.vv v26,v8,v9
 	WORD	$0x20831e8b	// th.mula t4,t1,s0
 	WORD	$0x20931f0b	// th.mula t5,t1,s1
-	WORD	$0x00d07057	// th.vsetvli zero,zero,e64,m2,d1
+	WORD	$0x00d6f057	// th.vsetvli zero,a3,e64,m2,d1
 	WORD	$0xa32d3e57	// th.vsrl.vi v28,v18,26
 	WORD	$0x21539c8b	// th.mula s9,t2,s5
 	WORD	$0x034e0a57	// th.vadd.vv v20,v20,v28
@@ -654,7 +655,7 @@ TEXT ·poly1305BlocksVector(SB), NOSPLIT, $176-32
 	WORD	$0x01fd0d33	// add s10,s10,t6
 	WORD	$0x03af0d57	// th.vadd.vv v26,v26,v30
 	WORD	$0x01ad5f93	// srli t6,s10,0x1a
-	WORD	$0x00807057	// th.vsetvli zero,zero,e32,m1,d1
+	WORD	$0x0086f057	// th.vsetvli zero,a3,e32,m1,d1
 	WORD	$0xb3203257	// th.vnsrl.vi v4,v18,0
 	WORD	$0x640d388b	// th.extu a7,s10,25,0
 	WORD	$0x01fe0e33	// add t3,t3,t6

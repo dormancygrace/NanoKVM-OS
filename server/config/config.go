@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/spf13/cast"
 	"gopkg.in/yaml.v3"
 
 	"NanoKVM-Server/internal/atomicfile"
@@ -121,7 +120,7 @@ func normalizeValues(raw map[string]any) map[string]any {
 
 // Retain Viper's weak scalar conversions (quoted ports, booleans and comma
 // separated lists) without its file watching, environment and format registry.
-func decodeValues(raw map[string]any, target *Config) error {
+func decodeValues(raw any, target any) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result: target, WeaklyTypedInput: true,
 		DecodeHook: mapstructure.StringToSliceHookFunc(","),
@@ -160,8 +159,10 @@ func create() {
 
 // Validate the configuration. This is to ensure compatibility with earlier versions.
 func validate() error {
-	ports, _ := values["port"].(map[string]any)
-	if cast.ToInt(ports["http"]) > 0 && cast.ToInt(ports["https"]) > 0 {
+	// The ports decode as the whole file will: a value the decoder rejects
+	// makes the file invalid here instead of failing the full decode later.
+	var ports Port
+	if decodeValues(values["port"], &ports) == nil && ports.Http > 0 && ports.Https > 0 {
 		return nil
 	}
 

@@ -138,3 +138,38 @@ port: {<<: *ports}`, nil},
 		}
 	}
 }
+
+// validate accepts the port forms the old loader did (quoted, hex, YAML
+// floats) and sets aside a file whose ports the decoder would reject, rather
+// than letting the full decode fail on start.
+func TestValidatePortForms(t *testing.T) {
+	original, previous := configurationFile, values
+	t.Cleanup(func() { configurationFile, values = original, previous })
+	for input, valid := range map[string]bool{
+		"port: {http: 8080, https: 443}":     true,
+		`port: {http: "8080", https: "443"}`: true,
+		`port: {http: "0x1F90", https: 443}`: true,
+		"port: {http: 8080.0, https: 443}":   true,
+		"port: {http: 8080, https: 0}":       false,
+		`port: {http: "web", https: 443}`:    false,
+		`port: {http: "8080.0", https: 443}`: false,
+		"port: {http: 8080}":                 false,
+		"port: 8080":                         false,
+		"proto: http":                        false,
+	} {
+		configurationFile = filepath.Join(t.TempDir(), "server.yaml")
+		if err := os.WriteFile(configurationFile, []byte(input), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := readValues([]byte(input)); err != nil {
+			t.Fatal(err)
+		}
+		if err := validate(); err != nil {
+			t.Fatalf("%s: %v", input, err)
+		}
+		_, err := os.Stat(configurationFile + ".bad")
+		if setAside := err == nil; setAside == valid {
+			t.Errorf("%s: set aside = %v, want %v", input, setAside, !valid)
+		}
+	}
+}

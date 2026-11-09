@@ -21,7 +21,7 @@ int ossl_hwcrypto_run(int fd,struct hwcrypto_request *r)
 int main(void)
 {
     unsigned char data[65600];for(size_t i=0;i<sizeof data;i++)data[i]=(unsigned char)(i*29+17);
-    const size_t blocks[]={0,1,63,64,65,71,72,73,127,128,129,135,136,200,256,1024};
+    const size_t blocks[]={0,1,15,16,17,63,64,65,71,72,73,127,128,129,135,136,200,256,1024};
     int count=0;
     for(int sha224=0;sha224<=1;sha224++)for(int off=0;off<16;off++)
     for(size_t z=0;z<sizeof blocks/sizeof blocks[0];z++)for(fail_after=-2;fail_after<=3;fail_after++) {
@@ -29,9 +29,9 @@ int main(void)
         if(sha224)SHA224_Init(&got);else SHA256_Init(&got);
         got.Nl=0x12345678;got.Nh=7;got.num=13;want=got;calls=opened=closed=0;
         size_t done=ossl_sha256_hwcrypto(&got,data+off,blocks[z]);
-        assert(done<=blocks[z]&&(done==0||done>=64));
-        if(fail_after==-1&&blocks[z]>=64)assert(blocks[z]-done<8);
-        if(blocks[z]<64)assert(!opened&&!calls&&!closed);
+        assert(done<=blocks[z]&&(done==0||done>=16));
+        if(fail_after==-1&&blocks[z]>=16)assert(blocks[z]-done<8);
+        if(blocks[z]<16)assert(!opened&&!calls&&!closed);
         else if(fail_after==-2)assert(opened==1&&!calls&&!closed);
         else assert(opened==1&&closed==1);
         for(size_t n=done;n<blocks[z];n++)SHA256_Transform(&got,data+off+64*n);

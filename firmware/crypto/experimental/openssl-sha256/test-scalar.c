@@ -98,8 +98,8 @@ static void one_case(size_t blocks, unsigned offset, int wrapper) {
     calls=opens=closes=0;
     if (wrapper) {
         sha256_block_data_order(&got.ctx,data+offset,blocks);
-        REQUIRE(opens==(blocks>=64));
-        REQUIRE(closes==(blocks>=64 && fail_after!=-2));
+        REQUIRE(opens==(blocks>=16));
+        REQUIRE(closes==(blocks>=16 && fail_after!=-2));
     } else REQUIRE(checked_sha256(&got.ctx,data+offset,blocks)==0);
 #ifdef NEGATIVE_DIGEST
     want.ctx.h[0]^=1;

@@ -12,7 +12,7 @@
 #include <sys/prctl.h>
 #endif
 
-size_t ossl_gcm_c906_prefix(u64 xi[2], const u128 *table, const u8 *in, size_t len);
+size_t ossl_gcm_c906_prefix(u64 xi[2], const u128 *table, u64 kp[112], const u8 *in, size_t len);
 int ossl_riscv_has_xtheadvector=1;
 #ifdef GHASH_NATIVE
 int CRYPTO_THREAD_run_once(CRYPTO_ONCE *once, void (*fn)(void)) {return pthread_once(once,fn)==0;}
@@ -76,6 +76,7 @@ int main(void) {
         if(key==2){memset(h,0,16);h[0]=0x80;}
         if(key==3)memset(h,0,16);
         u128 table[16],saved_table[16];
+        u64 kp[112];memset(kp,0,sizeof kp); /* per-key context cache */
         for(size_t i=0;i<sizeof table;i++)((u8 *)table)[i]=(u8)random_word();
         table[8].hi=big_endian(h);table[8].lo=big_endian(h+8);memcpy(saved_table,table,sizeof table);
         for(size_t li=0;li<sizeof lengths/sizeof *lengths;li++)for(int off=0;off<8;off++) {
@@ -89,7 +90,7 @@ int main(void) {
 #ifdef NEGATIVE_DIGEST
             want.xi[0]^=1;
 #endif
-            size_t done=ossl_gcm_c906_prefix(got.xi,table,input+off,len);
+            size_t done=ossl_gcm_c906_prefix(got.xi,table,kp,input+off,len);
             if(done!=len || !equal(&got,&want,sizeof got) || !equal(table,saved_table,sizeof table)
                || !equal(input,original,sizeof input)) {
 #ifdef GHASH_NATIVE

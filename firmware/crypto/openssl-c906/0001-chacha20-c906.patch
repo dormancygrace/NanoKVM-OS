@@ -5,26 +5,45 @@
    $CHACHAASM_c64xplus=chacha-c64xplus.s
  
 -  $CHACHAASM_riscv64=chacha_riscv.c chacha_enc.c chacha-riscv64-v-zbb.s chacha-riscv64-v-zbb-zvkb.s
-+  $CHACHAASM_riscv64=chacha_riscv.c chacha_c906.c chacha-c906.S chacha_enc.c chacha-riscv64-v-zbb.s chacha-riscv64-v-zbb-zvkb.s
++  $CHACHAASM_riscv64=chacha_riscv.c chacha_c906.c chacha-c906.S chacha_enc.c
    $CHACHADEF_riscv64=INCLUDE_C_CHACHA20
  
    # Now that we have defined all the arch specific variables, use the
 --- a/crypto/chacha/chacha_riscv.c
 +++ b/crypto/chacha/chacha_riscv.c
-@@ -48,9 +48,13 @@
-     size_t len, const unsigned int key[8],
-     const unsigned int counter[4]);
+@@ -40,26 +40,14 @@
+ #include "crypto/chacha.h"
+ #include "crypto/riscv_arch.h"
  
+-void ChaCha20_ctr32_v_zbb_zvkb(unsigned char *out, const unsigned char *inp,
+-    size_t len, const unsigned int key[8],
+-    const unsigned int counter[4]);
+-
+-void ChaCha20_ctr32_v_zbb(unsigned char *out, const unsigned char *inp,
+-    size_t len, const unsigned int key[8],
+-    const unsigned int counter[4]);
 +#include "chacha_c906.h"
-+
+ 
++/* SG2002 C906 has neither Zbb nor standard V: the stock vector kernels are
++ * not built. Short inputs and hosts without XTheadVector use the C code. */
  void ChaCha20_ctr32(unsigned char *out, const unsigned char *inp, size_t len,
      const unsigned int key[8], const unsigned int counter[4])
  {
+-    if (len > CHACHA_BLK_SIZE && RISCV_HAS_ZBB() && riscv_vlen() >= 128
+-        && (size_t)out % sizeof(size_t) == 0
+-        && (size_t)inp % sizeof(size_t) == 0) {
+-        if (RISCV_HAS_ZVKB()) {
+-            ChaCha20_ctr32_v_zbb_zvkb(out, inp, len, key, counter);
+-        } else {
+-            ChaCha20_ctr32_v_zbb(out, inp, len, key, counter);
+-        }
+-    } else {
+-        ChaCha20_ctr32_c(out, inp, len, key, counter);
+-    }
 +    if (len >= OSSL_CHACHA_C906_MIN_BYTES && ossl_chacha20_c906(out, inp, len, key, counter))
 +        return;
-     if (len > CHACHA_BLK_SIZE && RISCV_HAS_ZBB() && riscv_vlen() >= 128
-         && (size_t)out % sizeof(size_t) == 0
-         && (size_t)inp % sizeof(size_t) == 0) {
++    ChaCha20_ctr32_c(out, inp, len, key, counter);
+ }
 --- a/include/crypto/riscv_arch.h
 +++ b/include/crypto/riscv_arch.h
 @@ -101,11 +101,16 @@

@@ -66,15 +66,18 @@ the earlier CPU-info/broad-ISA measurements. An intermediate restricted-ISA
 build accidentally excluded the integration through a compiler macro; the
 compile-guard regression and actual-entry tests below catch that failure.
 
-The expanded key and powers live only in a temporary large-call frame.
-`GCM128_CONTEXT` remains 448 bytes and the AES provider context 984 bytes;
-256 initialized EVP contexts add 324 KiB anonymous memory in all 12 runs.
-There is no context growth or persistent key cache. Every eligible call rebuilds
-the key (four scalar multiplies plus the 576-byte vector table) and queries
-thread permission once. In the normal `GHASH_CHUNK` loop this repeats per 3 KiB.
-That setup is included in the reported throughput; it trades repeated work for
-unchanged context size. Expansion and assembly
-frames total 1376 bytes plus callers. See `native-memory.txt` for raw readings.
+The expanded key (40 scalar operand words and the 576-byte vector table for
+H^4..H, 896 bytes) is built on the first eligible call for a key and cached in
+`GCM128_CONTEXT` (`c906_kp`). `CRYPTO_gcm128_init` zeroes it with the context
+on every key change; the context's `clear_free` cleanses it. Later calls,
+including each 3 KiB `GHASH_CHUNK`, skip the four scalar multiplies and the
+table expansion. `gcm_ghash_c906` reaches the cache from `Htable` because it
+is installed only by `CRYPTO_gcm128_init` (GCM-SIV's POLYVAL uses its own
+4-bit function). The context grows by 896 bytes. The measurements in this
+report predate the cache: `GCM128_CONTEXT` was 448 bytes and the AES provider
+context 984 bytes, 256 initialized EVP contexts added 324 KiB anonymous memory
+in all 12 runs, and every eligible call rebuilt the key, which is included in
+the reported throughput. See `native-memory.txt` for raw readings.
 
 ## Verification
 
@@ -158,7 +161,7 @@ MB/s, median of three rounds:
 | CryptoDMA AES, from 3072 | 11.51 | 11.97 | 12.89 | 14.34 | 16.26 | 17.94 |
 | CryptoDMA AES, from 2048 | 11.53 | 11.83 | 12.61 | 14.48 | 16.14 | 18.01 |
 
-With software AES (no engine module, or `NANOKVM_OPENSSL_DMA=off`) 2048-2560
+With software AES (no engine module) 2048-2560
 bytes gain 4-7%; with the CryptoDMA AES the difference stays within the
 rounds' spread (main 12.82-13.50 at 2048 B). A 1024-byte prefix lost 2.6-4.3%
 in either case, so the vector path now starts at 2048 bytes.

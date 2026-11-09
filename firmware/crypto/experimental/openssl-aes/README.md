@@ -40,9 +40,10 @@ Three final rotated EVP trials give:
 These GCM columns use upstream software GHASH; the separate vector GHASH patch
 #527 is not included. A 16 KiB GCM record still reaches the CTR callback as five
 3072-byte DMA calls plus a 1024-byte software tail. The complete EVP result
-includes that transport cost. The experimental combined-record ioctl and
-persistent-descriptor design is not selected by this patch; its earlier
-service/wake-lateness measurements do not establish end-to-end SRTP latency.
+includes that transport cost. The experimental combined-record ioctl is not
+selected by this patch; its earlier service/wake-lateness measurements do not
+establish end-to-end SRTP latency. The transport has since moved to one
+descriptor per process (`openssl-hwcrypto`); the results here predate that.
 
 The full EVP benchmark reinitializes key/IV and finalizes each operation.
 Complete 16–128-byte calls can be slower than #504 despite the faster AES
@@ -60,8 +61,10 @@ and from a complete TLS connection. Three rotated trials are in
 
 ## DMA boundaries and tails
 
-Initial minima are 3072 bytes for ECB/CBC and 2048 for CTR/GCM, with a shared
-header for both CTR users. Against the selected software path, the smallest
+With one descriptor per process all AES minima are 512 bytes (wall-clock
+break-even, see `experimental/openssl-hwcrypto`). The history below was
+measured when each operation opened the device: then the minima were 3072
+bytes for ECB/CBC and 2048 for CTR/GCM, with a shared header for both CTR users. Against the selected software path, the smallest
 final measured gains across all key sizes and both directions are 8.0%, 17.7%
 and 13.2% respectively. `native-threshold-trials.jsonl` retains the three rotated
 256–4096-byte sweep with DMA forced from 256 bytes, including the 1024-byte
@@ -77,7 +80,10 @@ is zero. The helper accepts AES only; other algorithms are rejected before
 opening the device. The legacy provider no longer links the DMA transport.
 
 Provider size checks now skip the DMA helper entirely below the initial
-minimum. Request initialization occurs only after successful validation and
+minimum. The GCM CTR callback, installed for every GCM record, handles such
+records with one AES block per call, 64-bit XOR (the C906 loads misaligned
+words in hardware) and the 32-bit counter in a register, instead of byte-wise
+XOR and increment. Request initialization occurs only after successful validation and
 descriptor acquisition; the former path zeroed request storage even when
 returning immediately to software.
 

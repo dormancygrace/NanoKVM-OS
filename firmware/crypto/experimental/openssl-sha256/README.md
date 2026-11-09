@@ -1,7 +1,7 @@
 # OpenSSL SG2002 SHA-224/256 qualification
 
 `0003-sha256-dma.patch` adds the C906 scalar SHA-256 compression adapter and
-uses direct CryptoDMA for complete compression batches starting at 4096 bytes.
+uses direct CryptoDMA for complete compression batches starting at 1024 bytes.
 An opened session also processes a remaining 512–4032 B in hardware; shorter
 remainders continue through the scalar compressor. Requests remain capped at 4 KiB.
 SHA-224 shares the compressor. OpenSSL retains streaming, length, padding,
@@ -21,8 +21,8 @@ Historical threshold-selection runs measured 4 KiB DMA at 42.80 versus
 19.64 MiB/CPU-s upstream. `native-scalar-results.jsonl` and
 `native-measurement-identities.json` preserve the matched software comparison's
 actual binaries; these timings predate the restricted-ISA/sandbox-policy revision.
-The 4096-byte minimum remains a conservative measured choice, not a claim of
-fresh timing for every later binary.
+With one descriptor per process the minimum is 1024 bytes: the wall-clock
+break-even with the scalar compressor (see `experimental/openssl-hwcrypto`).
 
 Verification: 3072 host ASan/UBSan fault-continuation cases cover offsets,
 first/later failures and unchanged buffering/length fields. Final restricted-ISA
@@ -32,7 +32,7 @@ profiles. Digest fingerprint: `768fd5312ca481be`. The native data flow also
 passes real HTTPS downloads with SHA-256 file verification.
 
 `verify.c` checks the digest cases; `bench.c NAME SECONDS` reports CPU, wall
-and RSS across input sizes. `NANOKVM_OPENSSL_DMA=off` disables the hardware path.
+and RSS across input sizes. Without the engine module the software path is used.
 
 The fast CI also applies every patch to the SHA-256-verified pinned OpenSSL
 archive with zero fuzz, generates its real headers, and executes the actual

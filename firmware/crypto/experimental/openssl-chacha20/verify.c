@@ -87,21 +87,19 @@ static void verify_hits(int vector_on)
     const int sizes[] = {0,1,319,320,512,639,640,641,768,1024,1400,16384};
     unsigned char key[32] = {0}, iv[16] = {0}, in[16384] = {0}, out[16384];
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new(); check(ctx != NULL, "counter ctx");
-    const char *override = getenv("NANOKVM_OPENSSL_CHACHA20");
-    int enabled = vector_on && override && !strcmp(override, "auto");
     for (size_t i = 0; i < sizeof(sizes)/sizeof(sizes[0]); ++i) {
         int got; check(EVP_EncryptInit_ex2(ctx, EVP_chacha20(), key, iv, NULL) == 1, "counter init");
         unsigned long before = hits();
         check(EVP_EncryptUpdate(ctx, out, &got, in, sizes[i]) == 1 && got == sizes[i], "counter update");
-        check((hits() > before) == (enabled && sizes[i] >= 320), "actual assembly-entry hits");
+        check((hits() > before) == (vector_on && sizes[i] >= 320), "actual assembly-entry hits");
     }
     EVP_CIPHER_CTX_free(ctx);
     puts("PASS actual assembly-entry counts at threshold boundaries");
 }
 
-/* OpenSSL and the provider are loaded before the filter. No cipher call has
- * happened yet. Kill on file opens or another hardware probe; permit or deny
- * the per-call thread-control query in separate children.
+/* OpenSSL and the provider are loaded before the filter. Kill on file opens,
+ * hardware probes and prctl (or deny prctl): the cipher path makes no system
+ * call, so the vector path runs and the process survives in every case.
  */
 static void sandbox_case(int allow_prctl)
 {
@@ -119,23 +117,18 @@ static void sandbox_case(int allow_prctl)
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_open, 0, 1),
         BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
 #endif
-#ifdef __NR_openat2
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_openat2, 0, 1),
-        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
-#endif
 #ifdef __NR_riscv_hwprobe
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_riscv_hwprobe, 0, 1),
         BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
 #endif
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_prctl, 0, 1),
-        BPF_STMT(BPF_RET | BPF_K, allow_prctl < 0 ? SECCOMP_RET_KILL_PROCESS :
-            allow_prctl ? SECCOMP_RET_ALLOW : (SECCOMP_RET_ERRNO | EPERM)),
+        BPF_STMT(BPF_RET | BPF_K, allow_prctl ? (SECCOMP_RET_ERRNO | EPERM) : SECCOMP_RET_KILL_PROCESS),
         BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
     };
     struct sock_fprog prog = { (unsigned short)(sizeof(code)/sizeof(code[0])), code };
     check(prctl(PR_SET_NO_NEW_PRIVS, 1L, 0L, 0L, 0L) == 0, "sandbox no new privs");
     check(prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) == 0, "sandbox install");
-    verify_hits(allow_prctl == 1);
+    verify_hits(1);
 }
 static void verify_sandbox(void)
 {
@@ -145,63 +138,41 @@ static void verify_sandbox(void)
         if (!pid) { sandbox_case(allow); _exit(0); }
         int status;
         check(waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0,
-              "sandbox first cipher: no file/probe syscalls; denied prctl falls back");
+              "sandbox first cipher: no file/probe/prctl syscalls");
     }
-    puts("PASS seccomp first cipher, with permitted and denied thread-control query");
+    puts("PASS seccomp first cipher: vector path with prctl killed or denied");
+}
+
+/* Kernel patch 0078: no thread can turn its vector state off, now or for
+ * the next exec. */
+static void verify_contract(void)
+{
+    errno = 0;
+    check(prctl(69, 1L, 0L, 0L, 0L) == -1 && errno == EPERM, "vector state cannot be turned off");
+    errno = 0;
+    check(prctl(69, 4L, 0L, 0L, 0L) == -1 && errno == EPERM, "next exec cannot start off");
+    check((prctl(70, 0L, 0L, 0L, 0L) & 3) == 2, "vector state on");
+    puts("PASS kernel contract: vector state stays on (PR_RISCV_V_SET_CONTROL OFF -> EPERM)");
 }
 
 static void *worker(void *v)
 {
-    unsigned long id=(unsigned long)v;
-    if (id == 2) { verify_hits(0); return NULL; }
-    if (id == 3) { check(prctl(69,2L,0L,0L,0L)==0,"counter thread vector on"); verify_hits(1); return NULL; }
-    /* Called in an exec child initially OFF. One thread enables its own unit. */
-    if (id==1) check(prctl(69,2L,0L,0L,0L)==0,"thread vector on");
-    run_cases((unsigned)id+19);
-    long mode=prctl(70,0L,0L,0L,0L);
-    check(mode>=0&&(mode&3)==(id==1?2:1),"per-thread control");
+    run_cases((unsigned)(unsigned long)v + 19);
+    verify_hits(1);
     return NULL;
 }
 int main(int argc,char **argv)
 {
-    if (argc > 1 && !strcmp(argv[1], "--hard-sandbox")) {
-        check(getenv("NANOKVM_OPENSSL_CHACHA20") == NULL, "default policy child");
-        sandbox_case(-1);
-        puts("PASS default policy with fatal prctl/open/hwprobe filter");
-        return 0;
-    }
-    if (argc>1&&!strcmp(argv[1],"--off-child")) {
-        check((prctl(70,0L,0L,0L,0L)&3)==1,"exec vector off");
-        pthread_t proof;
-        if (argc > 2 && !strcmp(argv[2], "--hits")) {
-            for (unsigned long i = 2; i <= 3; ++i) {
-                check(pthread_create(&proof, NULL, worker, (void *)i) == 0, "counter thread create");
-                check(pthread_join(proof, NULL) == 0, "counter thread join");
-            }
-        }
-        pthread_t threads[2];
-        for(unsigned long i=0;i<2;i++) check(pthread_create(&threads[i],NULL,worker,(void *)i)==0,"thread create");
-        for(int i=0;i<2;i++) check(pthread_join(threads[i],NULL)==0,"thread join");
-        puts("PASS vector-off/vector-on threads");return 0;
-    }
-    int instrumented = argc > 2 && !strcmp(argv[2], "--hits");
-    if (instrumented) {
-        pid_t child = fork(); check(child >= 0, "hard sandbox fork");
-        if (!child) {
-            check(unsetenv("NANOKVM_OPENSSL_CHACHA20") == 0, "clear opt-in");
-            execl(argv[0], argv[0], "--hard-sandbox", NULL); _exit(3);
-        }
-        int status;
-        check(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
-              "default policy survives fatal syscall filter");
-        verify_sandbox(); verify_hits(1);
-    }
+    int instrumented = argc > 1 && !strcmp(argv[1], "--hits");
+    verify_contract();
+    if (instrumented) { verify_sandbox(); verify_hits(1); }
     run_cases(7);
     puts("PASS 1680 raw ChaCha cases: offsets, counters, split, in-place, context copy");
-    if (argc>1&&!strcmp(argv[1],"--native")) {
-        pid_t pid=fork();check(pid>=0,"fork");
-        if (!pid) { check(prctl(69,4L,0L,0L,0L)==0,"next exec off");execl(argv[0],argv[0],"--off-child",instrumented ? "--hits" : "",NULL);_exit(3); }
-        int status;check(waitpid(pid,&status,0)==pid&&WIFEXITED(status)&&WEXITSTATUS(status)==0,"child");
+    if (instrumented) {
+        pthread_t threads[2];
+        for (unsigned long i = 0; i < 2; i++) check(pthread_create(&threads[i], NULL, worker, (void *)i) == 0, "thread create");
+        for (int i = 0; i < 2; i++) check(pthread_join(threads[i], NULL) == 0, "thread join");
+        puts("PASS threads use the vector path");
     }
     return 0;
 }

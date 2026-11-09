@@ -29,22 +29,18 @@ disabled. Standard RVV 1.0 alone does not enable draft XTheadVector code.
 
 Inputs below the single `OSSL_CHACHA_C906_MIN_BYTES` threshold (320 bytes, one
 five-block group; the C glue only hands whole groups to the vector code) use
-upstream code. Each thread checks its own vector permission with
-`PR_RISCV_V_GET_CONTROL` on its first eligible call (`crypto/riscv_c906.h`) and
-keeps the answer, never across threads. "On" cannot change, because Linux
-refuses to turn a thread's vector state off again
-(`arch/riscv/kernel/vector.c`, -EPERM). "Off" and errors are kept
-conservatively: such a thread stays on upstream code even if it enables
-vectors later. Compared with a query on every call, this gives 1400-byte
-ChaCha20-Poly1305 records 2-3% (stand, `openssl speed`, three alternating
-rounds: 60.7-62.4 -> 62.6-63.6 MB/s). Fatal seccomp rules cannot be
-handled by fallback: acceleration therefore requires the explicit secure
-environment opt-in `NANOKVM_OPENSSL_CHACHA20=auto`. Missing, unknown or `generic`
-values retain upstream code without issuing the query. Privileged
-execution ignores the opt-in. The image downloader enables it only for its
-qualified curl child and preserves explicit operator overrides. Other clients
-must qualify their syscall policy before opting in. The opt-in cannot force
-unsupported instructions or bypass the calling thread's vector permission.
+upstream code.
+
+There is no other check: NanoKVM OS runs only on the SG2002, and its kernel
+keeps the vector unit on for every user thread
+(`platform/kernel/0078-riscv-user-vector-always-on.patch`: no thread can turn
+it off or start a program with it off). The ChaCha20, GHASH and Poly1305 paths
+therefore make no system call and need no environment variable, so they work
+in every process, including those under seccomp filters (OpenSSH's
+pre-authentication sandbox). Earlier versions asked `PR_RISCV_V_GET_CONTROL`
+on every call and needed the opt-in `NANOKVM_OPENSSL_CHACHA20=auto`, which only
+the image downloader's curl set. The startup hwprobe stays, so host and QEMU
+runs keep upstream code.
 
 `NKOS_CHACHA_TEST` adds an atomic counter at the actual assembly entry and an
 accessor for a private test-library export map. Production builds omit both

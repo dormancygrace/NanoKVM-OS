@@ -417,7 +417,7 @@ func (s *VideoSource) publish(session *videoSession, storage, data []byte, resul
 			return
 		}
 		if result == keyFrameResult {
-			storage, data = fixParameterSets(session.config.Codec, videoColourRewrite, storage, data, videoHeadroom)
+			storage, data = fixParameterSets(session.config.Codec, true, storage, data, videoHeadroom)
 		}
 		frame.Storage = storage
 		frame.Data = data

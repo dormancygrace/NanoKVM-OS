@@ -55,7 +55,7 @@ type peerVideoWriter struct {
 
 func newPeerVideoWriter(write func(stream.VideoFrame) error, failed func(error)) *peerVideoWriter {
 	w := &peerVideoWriter{
-		frames:           make(chan queuedVideoFrame, peerWriterQueueCapacity()),
+		frames:           make(chan queuedVideoFrame, peerVideoQueueCapacity),
 		done:             make(chan struct{}),
 		repairing:        true,
 		repairGeneration: 1,

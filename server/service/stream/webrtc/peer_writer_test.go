@@ -17,13 +17,7 @@ func receiveFrame(t *testing.T, ch <-chan stream.VideoFrame) stream.VideoFrame {
 	}
 }
 
-func useDefaultPeerWriterQueue(t *testing.T) {
-	t.Helper()
-	t.Setenv(peerVideoQueueEnv, "")
-}
-
 func TestPeerWriterSlowPeerAndRecovery(t *testing.T) {
-	useDefaultPeerWriterQueue(t)
 	entered := make(chan stream.VideoFrame, 8)
 	unblock := make(chan struct{})
 	slow := newPeerVideoWriter(func(f stream.VideoFrame) error { entered <- f; <-unblock; return nil }, func(error) { t.Error("unexpected write failure") })
@@ -76,7 +70,6 @@ func TestPeerWriterSlowPeerAndRecovery(t *testing.T) {
 // A large IDR can hold the sender while several ordinary frames arrive.
 // They must survive in order instead of forcing another one-second IDR wait.
 func TestPeerWriterPreservesIDRBurst(t *testing.T) {
-	useDefaultPeerWriterQueue(t)
 	entered := make(chan stream.VideoFrame, 16)
 	unblock := make(chan struct{})
 	w := newPeerVideoWriter(func(f stream.VideoFrame) error {

@@ -10,7 +10,6 @@ import (
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -185,17 +184,14 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 
 func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
 	settingEngine := webrtc.SettingEngine{}
-	// Keep a fixed-budget override for controlled comparisons and recovery.
-	if len(budgets) > 0 && budgets[0] != nil && os.Getenv("NANOKVM_WEBRTC_PMTU") != "0" {
+	if len(budgets) > 0 && budgets[0] != nil {
 		network, err := pathmtu.NewNet(budgets[0].receive)
 		if err != nil {
 			return nil, err
 		}
 		settingEngine.SetNet(network)
-		if os.Getenv("NANOKVM_WEBRTC_UDP_BATCH") != "0" {
-			network.EnableFrameBatching()
-			budgets[0].setBatcher(network)
-		}
+		network.EnableFrameBatching()
+		budgets[0].setBatcher(network)
 	}
 	srtpaccel.Configure(&settingEngine)
 	if err := webrtcdtls.Configure(&settingEngine); err != nil {

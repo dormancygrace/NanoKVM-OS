@@ -183,6 +183,7 @@ static int hog_fn(void *arg)
 
 	while (ktime_get_ns() < h->deadline)
 		spin++;
+	(void)spin;
 	complete(&h->done);
 	return 0;
 }

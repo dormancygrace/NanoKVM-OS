@@ -1,5 +1,6 @@
-//go:build !(linux && riscv64)
+//go:build !(linux && riscv64) || nanokvmqemu
 
 package xtheadvector
 
-func detect() bool { return false }
+// Available reports whether XTheadVector code may run (see the package doc).
+const Available = false

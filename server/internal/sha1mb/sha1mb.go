@@ -2,7 +2,7 @@
 // four at a time in XTheadVector lanes on the SG2002's C906 core (see
 // sha1mb_riscv64.s). It serves SRTP's AES128_CM_HMAC_SHA1_80 profile, which
 // authenticates every packet of a video frame with the session auth key.
-// Elsewhere, or with NANOKVM_SHA1MB=generic, it uses crypto/sha1.
+// Elsewhere (the host, QEMU builds) it uses crypto/sha1.
 package sha1mb
 
 import (

@@ -3,29 +3,12 @@
 package logs
 
 import (
-	"os"
 	"strings"
-	"sync"
 
 	"NanoKVM-Server/internal/xtheadvector"
 )
 
-var logVectorOnce sync.Once
-var logUseVector bool
-
-// The server does not change per-thread vector policy, so the answer is cached.
-func logVectorAvailable() bool {
-	logVectorOnce.Do(func() { logUseVector = detectLogVector() })
-	return logUseVector
-}
-
-func detectLogVector() bool {
-	// Diagnostic override permits a same-binary comparison in separate processes.
-	if os.Getenv("NANOKVM_LOG_TEXT") == "generic" {
-		return false
-	}
-	return xtheadvector.Available()
-}
+func logVectorAvailable() bool { return xtheadvector.Available }
 
 func sensitiveLine(line string) bool {
 	if preferScalarLogLine(line) || !logVectorAvailable() {

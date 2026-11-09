@@ -4,7 +4,6 @@ go 1.26.10
 
 require (
 	github.com/creack/pty v1.1.24
-	github.com/gin-gonic/contrib v0.0.0-20240508051311-c1c6bf0061b0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-playground/validator/v10 v10.30.6
 	github.com/go-viper/mapstructure/v2 v2.5.0

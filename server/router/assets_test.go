@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +21,7 @@ func TestAssetsCacheOnlyExistingFilesUnderAssets(t *testing.T) {
 
 	r := gin.New()
 	r.Use(assets(dir))
-	r.Use(static.Serve("/", static.LocalFile(dir, true)))
+	r.Use(staticFiles(dir))
 	get := func(path, encoding string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("GET", path, nil)
 		if encoding != "" {
@@ -86,7 +85,7 @@ func TestAssetsBrotliNegotiation(t *testing.T) {
 		}
 	}
 	r := gin.New()
-	r.Use(assets(dir), static.Serve("/", static.LocalFile(dir, true)))
+	r.Use(assets(dir), staticFiles(dir))
 	for _, tc := range []struct {
 		name, file, header, coding string
 		status                     int
@@ -169,5 +168,40 @@ func TestAssetsBrotliNegotiation(t *testing.T) {
 		ranged.Header().Get("Content-Range") != "bytes 0-3/"+strconv.Itoa(len(br)) ||
 		!bytes.Equal(ranged.Body.Bytes(), br[:4]) {
 		t.Fatalf("range: %d %v %x", ranged.Code, ranged.Header(), ranged.Body.Bytes())
+	}
+}
+
+// staticFiles serves files under the root and leaves everything else to the
+// router: absent paths, and paths that would leave the root ("/../x" must not
+// tell whether x exists outside it).
+func TestStaticFilesStayUnderRoot(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	base := t.TempDir()
+	root := filepath.Join(base, "web")
+	os.MkdirAll(filepath.Join(root, "assets"), 0755)
+	os.WriteFile(filepath.Join(root, "index.html"), []byte("<html>"), 0644)
+	os.WriteFile(filepath.Join(root, "assets", "app.js"), []byte("app"), 0644)
+	os.WriteFile(filepath.Join(base, "secret.txt"), []byte("secret"), 0644)
+
+	const fallthroughStatus = http.StatusTeapot
+	r := gin.New()
+	r.Use(staticFiles(root))
+	r.NoRoute(func(c *gin.Context) { c.Status(fallthroughStatus) })
+	for _, tc := range []struct {
+		path   string
+		status int
+		body   string
+	}{
+		{"/assets/app.js", http.StatusOK, "app"},
+		{"/", http.StatusOK, "<html>"},
+		{"/missing.js", fallthroughStatus, ""},
+		{"/../secret.txt", fallthroughStatus, ""},
+		{"/assets/../../secret.txt", fallthroughStatus, ""},
+	} {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+		if rec.Code != tc.status || (tc.body != "" && rec.Body.String() != tc.body) {
+			t.Errorf("%s: %d %q, want %d %q", tc.path, rec.Code, rec.Body.String(), tc.status, tc.body)
+		}
 	}
 }

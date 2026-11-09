@@ -11,7 +11,6 @@ import (
 	"NanoKVM-Server/service/picoclaw"
 	"NanoKVM-Server/service/storage"
 
-	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -80,7 +79,7 @@ func web(r *gin.Engine) {
 	})
 
 	r.Use(assets(webPath))
-	r.Use(static.Serve("/", static.LocalFile(webPath, true)))
+	r.Use(staticFiles(webPath))
 }
 
 func server(r *gin.Engine) {

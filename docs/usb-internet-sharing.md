@@ -73,8 +73,8 @@ options until renewing.
   offload. No `flags offload` or hardware acceleration claim is made. Kernel
   rejection of the flowtable falls back to ordinary NAT and is shown in the UI.
 - There is no generic flow offload table: acceleration is USB-scoped (the
-  wildcard `nkos_flow` of early releases is gone; reboot a device still
-  holding one). `nkos_mss` is retained.
+  wildcard `nkos_flow` of early releases is gone; the package upgrade
+  deletes one left in the kernel). `nkos_mss` is retained.
 - OpenRC `nanokvm-usb-internet` watches link/address/route/rule and foreign nft
   changes, with a five-second fallback reconciliation. Gateway/interface changes
   replace the table and discard its cached flows. Connections using a previous

@@ -109,11 +109,11 @@ func Wrap(c *net.UDPConn, onClose func()) (*Conn, bool) {
 		flushInterval: configuredFlushInterval(),
 		sendmmsg:      syscallSendmmsg,
 	}
-	if os.Getenv("NANOKVM_WEBRTC_UDP_GSO") == "1" {
-		wrapped.gsoBuffer = new([maxBatchPackets * maxPacketBytes]byte)
-		if os.Getenv("NANOKVM_WEBRTC_DIAGNOSTICS") == "1" {
-			wrapped.gsoStats = &gsoDiagnostics{}
-		}
+	// UDP GSO halves the sender's CPU per packet on the SG2002 (stand,
+	// 2026-11-09: 1200-byte RTP, 12 packets per frame at 60 fps, 9.9% -> 4.8%).
+	wrapped.gsoBuffer = new([maxBatchPackets * maxPacketBytes]byte)
+	if os.Getenv("NANOKVM_WEBRTC_DIAGNOSTICS") == "1" {
+		wrapped.gsoStats = &gsoDiagnostics{}
 	}
 	return wrapped, true
 }

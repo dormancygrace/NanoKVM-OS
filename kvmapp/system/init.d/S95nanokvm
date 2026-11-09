@@ -64,11 +64,10 @@ start_background() {
         : "${NANOKVM_SYSMON_MIN_DELAY_US:=1000}"
         export NANOKVM_SYSMON_TIMER_SLACK_NS NANOKVM_SYSMON_MIN_DELAY_US
         # Measured WebRTC packet sender settings; explicit overrides are kept.
-        # (The frame queue, UDP batching and CryptoDMA SRTP AES are built in.)
+        # (The frame queue, UDP batching with GSO and CryptoDMA SRTP AES are built in.)
         : "${NANOKVM_WEBRTC_UDP_BATCH_FLUSH_US:=1000}"
-        : "${NANOKVM_WEBRTC_UDP_GSO:=1}"
         : "${GOMAXPROCS:=1}"
-        export NANOKVM_WEBRTC_UDP_BATCH_FLUSH_US NANOKVM_WEBRTC_UDP_GSO
+        export NANOKVM_WEBRTC_UDP_BATCH_FLUSH_US
         export GOMAXPROCS
         : "${LD_LIBRARY_PATH:=/kvmapp/server/dl_lib}"
         export LD_LIBRARY_PATH

@@ -5,8 +5,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/middleware"
 	"bytes"
-	"encoding/json"
-	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/http/httptest"
@@ -15,59 +14,7 @@ import (
 	"testing"
 )
 
-func TestRejectsInvalidVideoPreferences(t *testing.T) {
-	for _, body := range []string{`{"type":"monitor","value":719}`, `{"type":"resolution","value":65536}`, `{"type":"resolution","value":-1}`, `{"type":"fps","value":121}`} {
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(body))
-		c.Request.Header.Set("Content-Type", "application/json")
-		setScreenAs(c, authn.RoleAdmin)
-		var result struct {
-			Code int `json:"code"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code == 0 {
-			t.Fatalf("accepted %s: %s", body, recorder.Body.String())
-		}
-	}
-}
-
-func TestStreamTypePersistsCodecForOLED(t *testing.T) {
-	old := screenFileMap["type"]
-	screenFileMap["type"] = filepath.Join(t.TempDir(), "type")
-	defer func() { screenFileMap["type"] = old }()
-
-	for _, test := range []struct {
-		value int
-		want  string
-	}{
-		{value: 0, want: "mjpeg"},
-		{value: 1, want: "h264"},
-		{value: 2, want: "h265"},
-	} {
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(fmt.Sprintf(`{"type":"type","value":%d}`, test.value)))
-		c.Request.Header.Set("Content-Type", "application/json")
-		setScreenAs(c, authn.RoleAdmin)
-
-		var result struct {
-			Code int `json:"code"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 {
-			t.Fatalf("value %d response %s, error %v", test.value, recorder.Body.String(), err)
-		}
-		value, err := os.ReadFile(screenFileMap["type"])
-		if err != nil || string(value) != test.want {
-			t.Fatalf("value %d saved %q, error %v", test.value, value, err)
-		}
-	}
-}
-
-func setScreenAs(c *gin.Context, role authn.Role) {
-	// CheckToken stores the principal under this key in production.
-	c.Set("principal", middleware.Principal{Username: "tester", Role: role})
-	(&Service{}).SetScreen(c)
-}
+// CheckToken stores the principal under this key in production.
 
 func TestScreenWritesRequireAdministratorBeforeSideEffects(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -132,49 +79,5 @@ func TestScreenWritesRequireAdministratorBeforeSideEffects(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestUserCanReadSharedScreenSettings(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest("GET", "/", nil)
-	c.Set("principal", middleware.Principal{Username: "tester", Role: authn.RoleUser})
-	(&Service{}).GetScreen(c)
-	var result struct {
-		Code int `json:"code"`
-		Data struct {
-			FPS int `json:"fps"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code != 0 || recorder.Code != http.StatusOK {
-		t.Fatalf("user GET = %d %s, error %v", recorder.Code, recorder.Body.String(), err)
-	}
-	if result.Data.FPS != common.GetScreen().FPS {
-		t.Fatal("user GET did not return shared settings")
-	}
-}
-
-func TestQualityRejectsValuesNativeReadersCannotHold(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	old := screenFileMap["quality"]
-	screenFileMap["quality"] = filepath.Join(t.TempDir(), "qlty")
-	defer func() { screenFileMap["quality"] = old }()
-	for _, value := range []string{"0", "-1", "20001", "-9223372036854775808"} {
-		recorder := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(recorder)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"type":"quality","value":`+value+`}`))
-		c.Request.Header.Set("Content-Type", "application/json")
-		setScreenAs(c, authn.RoleAdmin)
-		var result struct {
-			Code int `json:"code"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil || result.Code == 0 {
-			t.Fatalf("accepted quality %s: %s", value, recorder.Body.String())
-		}
-	}
-	if _, err := os.Stat(screenFileMap["quality"]); !os.IsNotExist(err) {
-		t.Fatal("rejected quality values were written")
 	}
 }

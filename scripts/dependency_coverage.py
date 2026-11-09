@@ -26,7 +26,6 @@ def dependabot_directories(text):
 # Manifests deliberately outside Dependabot, with the reason. An entry for a
 # file that no longer exists fails, so the list cannot go stale.
 UNMONITORED = {
-    'server/third_party/pion-dtls/e2e/Dockerfile': 'upstream test image of the vendored fork; never built here',
     'server/third_party/pion-ice/examples/nat-rules/Dockerfile': 'upstream example of the vendored fork; never built here',
 }
 

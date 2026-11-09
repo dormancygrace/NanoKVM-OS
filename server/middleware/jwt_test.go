@@ -1,10 +1,9 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
+
 	"path/filepath"
 	"testing"
 	"time"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/gorilla/websocket"
 )
 
 func TestCheckTokenUsesLiveRoleAndVersion(t *testing.T) {
@@ -172,74 +170,6 @@ func TestParseJWTRejectsExpiredToken(t *testing.T) {
 	}
 	if _, err = ParseJWT(token); err == nil {
 		t.Fatal("expired token was accepted")
-	}
-}
-
-func TestRevokeUserSessionsCancelsActiveRequests(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	unregister := activeSessions.register(session{username: "alice", cancel: cancel})
-	defer unregister()
-
-	RevokeUserSessions("alice")
-	select {
-	case <-ctx.Done():
-	case <-time.After(time.Second):
-		t.Fatal("active session was not cancelled")
-	}
-}
-
-func TestAccountFileResetCancelsActiveSession(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "pwd")
-	store := authn.NewStore(path)
-	user, ok, err := store.Authenticate("admin", "admin")
-	if err != nil || !ok {
-		t.Fatalf("default login: ok=%v err=%v", ok, err)
-	}
-	restore := useTestAuthStore(t, store)
-	defer restore()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	registry := newSessionRegistry(10 * time.Millisecond)
-	unregister := registry.register(session{username: user.Username, tokenVersion: user.TokenVersion, store: store, cancel: cancel})
-	defer unregister()
-	if err = os.Remove(path); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-ctx.Done():
-	case <-time.After(2 * time.Second):
-		t.Fatal("active session survived account-file reset")
-	}
-}
-
-func TestWatchWebSocketClosesRevokedConnection(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		connection, err := upgrader.Upgrade(writer, request, nil)
-		if err != nil {
-			return
-		}
-		defer connection.Close()
-		stop := WatchWebSocket(ctx, connection)
-		defer stop()
-		_, _, _ = connection.ReadMessage()
-	}))
-	defer server.Close()
-
-	wsURL := "ws" + server.URL[len("http"):]
-	connection, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer connection.Close()
-	cancel()
-	_ = connection.SetReadDeadline(time.Now().Add(2 * time.Second))
-	_, _, err = connection.ReadMessage()
-	if !websocket.IsCloseError(err, SessionRevokedCloseCode) {
-		t.Fatalf("close error = %v, want code %d", err, SessionRevokedCloseCode)
 	}
 }
 

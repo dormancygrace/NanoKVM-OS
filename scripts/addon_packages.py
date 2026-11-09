@@ -31,9 +31,7 @@ def selected_builds(paths, changed_pins=()):
     """Add-on CI targets for repository paths and changed sources.lock entries."""
     selected = set()
     common = {'.github/workflows/addon.yml', 'scripts/build-addon.py',
-              'scripts/addon_packages.py', 'scripts/next-addon-revision.py',
-              'tests/test-addon-packages.py', 'tests/test-build-addon.py',
-              'tests/test-next-addon-revision.py', 'LICENSE'}
+              'scripts/addon_packages.py', 'scripts/next-addon-revision.py', 'LICENSE'}
     calibration = {'det': 'ocr', 'latin': 'ocr-latin', 'latin-sure': 'ocr-latin',
                    'cyrillic': 'ocr-cyrillic', 'chinese': 'ocr-chinese',
                    'chinese-sure': 'ocr-chinese', 'screen': 'screen'}

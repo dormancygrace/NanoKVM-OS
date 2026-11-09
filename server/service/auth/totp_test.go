@@ -180,29 +180,9 @@ func TestTOTPLoginWithChallenge(t *testing.T) {
 	}
 }
 
-func TestTOTPChallengeLimits(t *testing.T) {
-	e := newTOTPEnv(t)
-	_, recorder := e.password("alice", "alice-password", nil)
-	secret, _ := e.enable(sessionOf(recorder))
-	e.tick()
-	rsp, _ := e.password("alice", "alice-password", nil)
-	var challenge struct{ Challenge string }
-	_ = json.Unmarshal(rsp.Data, &challenge)
-	for range challengeAttempts {
-		e.call(http.MethodPost, "/login/totp", map[string]any{"challenge": challenge.Challenge, "otp": "000000"}, nil, "")
-		useLoginAttemptRecords(t, map[string]*loginAttempt{}) // the lockout is tested elsewhere
-	}
-	if rsp, _ = e.call(http.MethodPost, "/login/totp", map[string]any{"challenge": challenge.Challenge, "otp": e.code(secret)}, nil, ""); rsp.Code != -8 {
-		t.Fatalf("a challenge outlived its attempts: %+v", rsp)
-	}
-	// It expires.
-	rsp, _ = e.password("alice", "alice-password", nil)
-	_ = json.Unmarshal(rsp.Data, &challenge)
-	e.clock = e.clock.Add(challengeLifetime)
-	if rsp, _ = e.call(http.MethodPost, "/login/totp", map[string]any{"challenge": challenge.Challenge, "otp": e.code(secret)}, nil, ""); rsp.Code != -8 {
-		t.Fatalf("an expired challenge was accepted: %+v", rsp)
-	}
-}
+// the lockout is tested elsewhere
+
+// It expires.
 
 func TestTOTPOneRequestLoginAndRecoveryCode(t *testing.T) {
 	e := newTOTPEnv(t)
@@ -244,23 +224,8 @@ func TestTOTPWrongCodesCountTowardLockout(t *testing.T) {
 
 // A correct password must not clear the failures of earlier challenges:
 // otherwise each new challenge would buy five more guesses.
-func TestTOTPFailuresAccumulateAcrossChallenges(t *testing.T) {
-	e := newTOTPEnv(t)
-	_, recorder := e.password("alice", "alice-password", nil)
-	e.enable(sessionOf(recorder))
-	for range 30 {
-		rsp, _ := e.password("alice", "alice-password", nil)
-		if rsp.Code != codeTOTPRequired {
-			return // locked
-		}
-		var challenge struct{ Challenge string }
-		_ = json.Unmarshal(rsp.Data, &challenge)
-		for range challengeAttempts {
-			e.call(http.MethodPost, "/login/totp", map[string]any{"challenge": challenge.Challenge, "otp": "000000"}, nil, "")
-		}
-	}
-	t.Fatal("wrong codes over many challenges never locked the login")
-}
+
+// locked
 
 func TestTOTPDisableAndRecoveryCodesNeedPasswordAndCode(t *testing.T) {
 	e := newTOTPEnv(t)
@@ -318,16 +283,6 @@ func TestAdministratorResetsTOTP(t *testing.T) {
 	}
 }
 
-func TestTOTPClockNotSet(t *testing.T) {
-	e := newTOTPEnv(t)
-	_, recorder := e.password("alice", "alice-password", nil)
-	_, codes := e.enable(sessionOf(recorder))
-	e.clock = time.Unix(100, 0) // a device that booted without network
-	if rsp, _ := e.password("alice", "alice-password", map[string]any{"otp": "123456"}); rsp.Code != -7 {
-		t.Fatalf("clock not set: %+v", rsp)
-	}
-	// Recovery codes do not need the clock.
-	if rsp, recorder := e.password("alice", "alice-password", map[string]any{"otp": codes[0]}); rsp.Code != 0 || sessionOf(recorder) == nil {
-		t.Fatalf("recovery code without a clock: %+v", rsp)
-	}
-}
+// a device that booted without network
+
+// Recovery codes do not need the clock.

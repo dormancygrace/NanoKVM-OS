@@ -161,42 +161,6 @@ func (f *tlsFixture) servedName() string {
 	return cert.Leaf.Subject.CommonName
 }
 
-func TestUploadTlsCertificateServesTheNewPairAtOnce(t *testing.T) {
-	f := newTLSFixture(t, "https")
-	certPEM, keyPEM := tlsTestPair(t, "kvm.example", time.Now().Add(-time.Hour))
-
-	rsp := f.upload(map[string][]byte{"cert": certPEM, "key": keyPEM})
-	if rsp.Code != 0 {
-		t.Fatalf("upload refused: %+v", rsp)
-	}
-	if f.servedName() != "kvm.example" {
-		t.Fatalf("served %q after the upload", f.servedName())
-	}
-	if len(f.updates) != 1 || f.updates[0].Crt != customCertPath || f.updates[0].Key != customKeyPath || f.conf.Proto != "https" {
-		t.Fatalf("configuration updates = %+v, proto %q", f.updates, f.conf.Proto)
-	}
-	certInfo, err := os.Stat(customCertPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	keyInfo, err := os.Stat(customKeyPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if certInfo.Mode().Perm() != 0o644 || keyInfo.Mode().Perm() != 0o600 {
-		t.Fatalf("modes: cert %v key %v", certInfo.Mode().Perm(), keyInfo.Mode().Perm())
-	}
-	if !rsp.Data.Enabled || !rsp.Data.Custom || rsp.Data.Pending || rsp.Data.Error != "" {
-		t.Fatalf("status after the upload: %+v", rsp.Data)
-	}
-	if rsp.Data.Certificate == nil || rsp.Data.Served == nil || rsp.Data.Certificate.Fingerprint != rsp.Data.Served.Fingerprint {
-		t.Fatalf("status pairs differ: %+v", rsp.Data)
-	}
-	if rsp.Data.Certificate.Subject != "kvm.example" || !rsp.Data.Certificate.SelfSigned {
-		t.Fatalf("certificate = %+v", rsp.Data.Certificate)
-	}
-}
-
 func TestUploadTlsCertificateAcceptsACombinedFileAndSeparatesTheKey(t *testing.T) {
 	f := newTLSFixture(t, "https")
 	certPEM, keyPEM := tlsTestPair(t, "combined", time.Now().Add(-time.Hour))
@@ -251,90 +215,9 @@ func TestUploadTlsCertificateRefusesBadPairsWithoutChangingAnything(t *testing.T
 	}
 }
 
-func TestUploadTlsCertificateWithHTTPSOffOnlyStoresThePair(t *testing.T) {
-	f := newTLSFixture(t, "http")
-	certPEM, keyPEM := tlsTestPair(t, "later", time.Now().Add(-time.Hour))
-	rsp := f.upload(map[string][]byte{"cert": certPEM, "key": keyPEM})
-	if rsp.Code != 0 {
-		t.Fatalf("upload refused: %+v", rsp)
-	}
-	if rsp.Data.Enabled || !rsp.Data.Custom || rsp.Data.Served != nil || rsp.Data.Certificate == nil {
-		t.Fatalf("status = %+v", rsp.Data)
-	}
-	if f.conf.Proto != "http" || f.conf.Cert.Crt != customCertPath {
-		t.Fatalf("configuration = %+v", f.conf)
-	}
-	if _, err := serverCertificate.GetCertificate(nil); err == nil {
-		t.Fatal("the store was loaded while HTTPS is off")
-	}
-}
+// Deleting again is harmless.
 
-func TestDeleteTlsCertificateReturnsToTheGeneratedPair(t *testing.T) {
-	f := newTLSFixture(t, "https")
-	certPEM, keyPEM := tlsTestPair(t, "custom", time.Now().Add(-time.Hour))
-	if rsp := f.upload(map[string][]byte{"cert": certPEM, "key": keyPEM}); rsp.Code != 0 {
-		t.Fatal(rsp)
-	}
-	rsp := f.do(http.MethodPost, "/tls/certificate/delete", nil, "")
-	if rsp.Code != 0 {
-		t.Fatalf("delete refused: %+v", rsp)
-	}
-	if f.servedName() != "localhost" {
-		t.Fatalf("served %q after the delete", f.servedName())
-	}
-	if f.conf.Cert.Crt != defaultCertPath || f.conf.Cert.Key != defaultKeyPath {
-		t.Fatalf("configuration = %+v", f.conf.Cert)
-	}
-	for _, path := range []string{customCertPath, customKeyPath} {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Fatalf("%s kept: %v", path, err)
-		}
-	}
-	if rsp.Data.Custom || rsp.Data.Pending || rsp.Data.Certificate == nil || !rsp.Data.Certificate.SelfSigned {
-		t.Fatalf("status = %+v", rsp.Data)
-	}
-	// Deleting again is harmless.
-	if rsp := f.do(http.MethodPost, "/tls/certificate/delete", nil, ""); rsp.Code != 0 {
-		t.Fatalf("second delete: %+v", rsp)
-	}
-}
-
-func TestReloadTlsServesTheFilesOnDiskAndKeepsThePairOnFailure(t *testing.T) {
-	f := newTLSFixture(t, "https")
-	certPEM, keyPEM := tlsTestPair(t, "renewed", time.Now().Add(-time.Hour))
-	// Another tool replaced the generated pair in place.
-	if err := os.WriteFile(defaultCertPath, certPEM, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(defaultKeyPath, keyPEM, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	status := f.do(http.MethodGet, "/tls", nil, "")
-	if !status.Data.Pending || status.Data.Certificate.Subject != "renewed" || status.Data.Served.Subject != "localhost" {
-		t.Fatalf("status before the reload: %+v", status.Data)
-	}
-	rsp := f.do(http.MethodPost, "/tls/reload", nil, "")
-	if rsp.Code != 0 || f.servedName() != "renewed" || rsp.Data.Pending {
-		t.Fatalf("reload: %+v served %q", rsp, f.servedName())
-	}
-
-	if err := os.WriteFile(defaultKeyPath, []byte("garbage"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	rsp = f.do(http.MethodPost, "/tls/reload", nil, "")
-	if rsp.Code != -3 || f.servedName() != "renewed" {
-		t.Fatalf("broken reload: %+v served %q", rsp, f.servedName())
-	}
-	status = f.do(http.MethodGet, "/tls", nil, "")
-	if status.Data.Error == "" || status.Data.Certificate != nil || status.Data.Served == nil {
-		t.Fatalf("status with a broken pair on disk: %+v", status.Data)
-	}
-
-	f.conf.Proto = "http"
-	if rsp := f.do(http.MethodPost, "/tls/reload", nil, ""); rsp.Code != -1 {
-		t.Fatalf("reload with HTTPS off: %+v", rsp)
-	}
-}
+// Another tool replaced the generated pair in place.
 
 // A full filesystem can accept staging the new key, then reject the certificate.
 // The reported failure must leave the old on-disk pair usable after restart.

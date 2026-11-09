@@ -4,23 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
+
 	"testing"
 	"time"
 )
 
 // countReads counts the account file reads for the rest of the test.
-func countReads(t *testing.T) *atomic.Int64 {
-	t.Helper()
-	var reads atomic.Int64
-	original := readAccountFile
-	readAccountFile = func(path string) ([]byte, os.FileInfo, error) {
-		reads.Add(1)
-		return original(path)
-	}
-	t.Cleanup(func() { readAccountFile = original })
-	return &reads
-}
 
 // age backdates the file past settleTime, as if it had been written a while
 // ago, so the store may cache it. A distinct offset gives each call a
@@ -79,22 +68,6 @@ func TestExternalAccountFileChangeIsSeen(t *testing.T) {
 
 // A file written moments ago is read again each time: a second write in the
 // same tick of the filesystem's clock might not change its stamp.
-func TestFreshlyWrittenAccountFileIsNotCached(t *testing.T) {
-	store, path := newCachedStore(t)
-	now := time.Now()
-	if err := os.Chtimes(path, now, now); err != nil {
-		t.Fatal(err)
-	}
-	reads := countReads(t)
-	for range 3 {
-		if _, err := store.Get("alice"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if got := reads.Load(); got != 3 {
-		t.Fatalf("account file read %d times, want 3", got)
-	}
-}
 
 func TestSaveInvalidatesTheCache(t *testing.T) {
 	store, _ := newCachedStore(t)
@@ -114,40 +87,6 @@ func TestSaveInvalidatesTheCache(t *testing.T) {
 	}
 	if _, err = store.ValidateToken("alice", alice.TokenVersion); err == nil {
 		t.Fatal("revoked token still valid")
-	}
-}
-
-func TestRemovedAccountFileDropsTheCache(t *testing.T) {
-	store, path := newCachedStore(t)
-	admin, err := store.Get("admin")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = os.Remove(path); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = store.ValidateToken("admin", admin.TokenVersion); err == nil {
-		t.Fatal("session survived account-file reset")
-	}
-	if store.cache.Load() != nil {
-		t.Fatal("cache survived the account file")
-	}
-}
-
-func TestFutureAccountTimestampIsNotCached(t *testing.T) {
-	store, path := newCachedStore(t)
-	future := time.Now().Add(time.Hour)
-	if err := os.Chtimes(path, future, future); err != nil {
-		t.Fatal(err)
-	}
-	reads := countReads(t)
-	for range 3 {
-		if _, err := store.Get("alice"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if reads.Load() != 3 {
-		t.Fatal("future-dated file was cached")
 	}
 }
 

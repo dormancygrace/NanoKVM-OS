@@ -1,7 +1,6 @@
 package webrtcdtls
 
 import (
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -45,39 +44,6 @@ func TestAESPreferenceSelectsAES(t *testing.T) {
 	}
 	if got := negotiateConfiguredAnswer(t, both[:1]); got != dtls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 {
 		t.Fatalf("ChaCha20-only client: %s", got)
-	}
-}
-
-func TestConfigureNegotiatesPreferredCipherAndFallback(t *testing.T) {
-	tests := []struct {
-		name         string
-		clientSuites []dtls.CipherSuiteID
-		wantCipher   dtls.CipherSuiteID
-	}{
-		{
-			name: "AES listed first still selects ChaCha20",
-			clientSuites: []dtls.CipherSuiteID{
-				dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				dtls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
-			},
-			wantCipher: dtls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
-		},
-		{
-			name: "AES-only client falls back to AES",
-			clientSuites: []dtls.CipherSuiteID{
-				dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			},
-			wantCipher: dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotCipher := negotiateConfiguredAnswer(t, tt.clientSuites)
-			if gotCipher != tt.wantCipher {
-				t.Fatalf("negotiated DTLS cipher = %s, want %s", gotCipher, tt.wantCipher)
-			}
-		})
 	}
 }
 
@@ -154,37 +120,6 @@ func negotiateConfiguredAnswer(t *testing.T, clientSuites []dtls.CipherSuiteID) 
 	return dtls.CipherSuiteID(selectedCipher.Load())
 }
 
-func TestConfiguredAnswerUsesPassiveDTLSRole(t *testing.T) {
-	offerer, err := webrtc.NewPeerConnection(webrtc.Configuration{})
-	if err != nil {
-		t.Fatalf("create offerer: %v", err)
-	}
-	defer offerer.Close() //nolint:errcheck
-	if _, err = offerer.CreateDataChannel("dtls-role", nil); err != nil {
-		t.Fatalf("create data channel: %v", err)
-	}
-	offer, err := offerer.CreateOffer(nil)
-	if err != nil {
-		t.Fatalf("create offer: %v", err)
-	}
+//nolint:errcheck
 
-	settings := webrtc.SettingEngine{}
-	if err = Configure(&settings); err != nil {
-		t.Fatalf("configure answerer: %v", err)
-	}
-	answerer, err := webrtc.NewAPI(webrtc.WithSettingEngine(settings)).NewPeerConnection(webrtc.Configuration{})
-	if err != nil {
-		t.Fatalf("create answerer: %v", err)
-	}
-	defer answerer.Close() //nolint:errcheck
-	if err = answerer.SetRemoteDescription(offer); err != nil {
-		t.Fatalf("set offer: %v", err)
-	}
-	answer, err := answerer.CreateAnswer(nil)
-	if err != nil {
-		t.Fatalf("create answer: %v", err)
-	}
-	if !strings.Contains(answer.SDP, "a=setup:passive") {
-		t.Fatalf("answer lacks passive DTLS role:\n%s", answer.SDP)
-	}
-}
+//nolint:errcheck

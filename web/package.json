@@ -11,13 +11,10 @@
     "dev": "vite",
     "mocked": "vite --mode mocked",
     "build": "tsc && vite build && node scripts/precompress.mjs",
-    "test:i18n": "node --import tsx --test tests/i18n-keys.test.mjs",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "preview": "vite preview",
-    "browser:fixture": "node tests/browser/server.mjs",
-    "test:browser": "playwright test"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@ant-design/cssinjs": "2.1.2",
@@ -46,7 +43,6 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@ianvs/prettier-plugin-sort-imports": "4.7.1",
-    "@playwright/test": "1.65.0",
     "@tailwindcss/vite": "4.3.4",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",

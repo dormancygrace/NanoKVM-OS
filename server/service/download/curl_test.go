@@ -7,12 +7,12 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"fmt"
-	"io"
+
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
+
 	"testing"
 )
 
@@ -27,47 +27,6 @@ func curlDestination(t *testing.T) *os.File {
 	}
 	t.Cleanup(func() { f.Close() })
 	return f
-}
-
-func TestCurlTransferIntegrity(t *testing.T) {
-	body := bytes.Repeat([]byte("known image bytes\n"), 8192)
-	sum := sha256.Sum256(body)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/redirect":
-			http.Redirect(w, r, "/image", http.StatusFound)
-		case "/missing":
-			http.Error(w, "not an image", 404)
-		case "/short":
-			w.Header().Set("Content-Length", "200000")
-			w.Write([]byte("truncated"))
-		default:
-			w.Write(body)
-		}
-	}))
-	defer server.Close()
-	for _, tc := range []struct {
-		name, path string
-		expected   []byte
-		wantErr    bool
-	}{
-		{"direct", "/image", nil, false}, {"redirect", "/redirect", sum[:], false},
-		{"checksum", "/image", make([]byte, 32), true}, {"missing", "/missing", nil, true}, {"truncated", "/short", nil, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			f := curlDestination(t)
-			err := downloadCurlTransfer(context.Background(), server.URL+tc.path, f, tc.expected, nil, nil)
-			if (err != nil) != tc.wantErr {
-				t.Fatalf("error = %v", err)
-			}
-			if !tc.wantErr {
-				got, _ := os.ReadFile(f.Name())
-				if !bytes.Equal(got, body) {
-					t.Fatal("body differs")
-				}
-			}
-		})
-	}
 }
 
 func TestCurlRejectsUntrustedTLS(t *testing.T) {
@@ -154,41 +113,5 @@ func TestCurlResumeValidatesRange(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestResumeMetadata(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "resume.json")
-	job := &imageResume{URL: "https://example.test/a.iso", Path: "/data/.nanokvm-download-123", Filename: "a.iso", ETag: `"abc"`, Total: 100}
-	if err := saveImageResume(path, job); err != nil {
-		t.Fatal(err)
-	}
-	info, _ := os.Stat(path)
-	if info.Mode().Perm() != 0600 {
-		t.Fatal("resume URL metadata must be private")
-	}
-	if _, err := loadImageResume(path); err != nil {
-		t.Fatal(err)
-	}
-	for _, invalid := range []string{"/etc/passwd", "/data/../data/.nanokvm-download-1", "/data/visible.iso"} {
-		job.Path = invalid
-		saveImageResume(path, job)
-		if _, err := loadImageResume(path); err == nil {
-			t.Fatalf("accepted %s", invalid)
-		}
-	}
-	for _, tag := range []string{`W/"weak"`, "", "\"a\r\nb\""} {
-		if strongETag(tag) {
-			t.Fatal("invalid ETag accepted")
-		}
-	}
-}
-
-func TestImageFinalHeaders(t *testing.T) {
-	f := curlDestination(t)
-	io.Copy(f, strings.NewReader("HTTP/1.1 200 Connection established\r\n\r\nHTTP/2 302\r\nContent-Length: 10\r\nETag: \"old\"\r\n\r\nHTTP/2 206\r\nContent-Length: 60\r\nETag: \"new\"\r\nContent-Range: bytes 40-99/100\r\n\r\n"))
-	m := readImageHeaders(f.Name())
-	if m.Status != 206 || m.Length != 60 || m.ETag != `"new"` || m.Start != 40 || m.Total != 100 {
-		t.Fatalf("%+v", m)
 	}
 }

@@ -27,6 +27,7 @@ import {
 
 import { Reset } from '../../screen/reset';
 import { applyVideoDraft, setDeviceTransport } from './apply';
+import { MonitorIdentityFields } from './monitor-identity';
 import { useSyncStreamAtoms } from './use-video-settings';
 
 type Props = {
@@ -73,6 +74,12 @@ export const VideoForm = ({
   const issues = draftIssues(draft, caps, browser);
   const valid = Object.keys(issues).length === 0;
   const changes = draftChanges(saved, draft, caps);
+  // The monitor mode changes, not only its identity.
+  const modeRewrite = draftChanges(
+    saved,
+    { ...draft, identity: saved.identity },
+    caps
+  ).monitorRewrite;
   const reason = (r?: Reason) => (r ? t(`videoSettings.reason.${r}`) : '');
   const withReason = (label: string, r?: Reason) => (r ? `${label} — ${reason(r)}` : label);
   const hz = (value: number) => t('videoSettings.hz', { value });
@@ -532,14 +539,41 @@ export const VideoForm = ({
         ]}
       />
 
+      {admin && caps.monitor.programmable && caps.monitor.identity !== undefined && (
+        <Collapse
+          ghost
+          items={[
+            {
+              key: 'identity',
+              label: t('videoSettings.identity.title'),
+              children: (
+                <MonitorIdentityFields
+                  value={draft.identity}
+                  onChange={(value) => change('identity', value)}
+                  disabled={busy}
+                  row={row}
+                />
+              )
+            }
+          ]}
+        />
+      )}
+
       <div className="border-line sticky bottom-0 z-10 space-y-2 border-t bg-neutral-900 py-3">
         {dirty && (changes.monitorRewrite || changes.reconnect) && (
           <ul className="text-warning space-y-1 text-xs" role="status">
-            {changes.monitorRewrite && (
+            {modeRewrite && (
               <li>
                 {t('videoSettings.changeMonitor', {
                   monitor: `${size(target.width, target.height) || t('videoSettings.automatic')}${target.refresh ? ` · ${hz(target.refresh)}` : ''}`
                 })}
+              </li>
+            )}
+            {draft.identity !== saved.identity && (
+              <li>
+                {draft.identity
+                  ? t('videoSettings.identity.change')
+                  : t('videoSettings.identity.changeNanokvm')}
               </li>
             )}
             {changes.reconnect && <li>{t('videoSettings.changeReload')}</li>}

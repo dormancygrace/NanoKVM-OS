@@ -1,6 +1,14 @@
 // Video settings model: device capabilities, the draft a user edits, video
 // modes, validation with reasons, and what applying a draft changes.
-// Pure functions without imports, so tests can run them directly.
+// Pure functions without hardware or page imports, so tests can run them
+// directly.
+
+import {
+  identityFromKey,
+  identityIssue,
+  identityRequest,
+  type MonitorIdentity
+} from './monitor-identity';
 
 // 'video-memory': the booted video memory cannot capture it, on a device that
 // has not restarted since the update to the shared video memory.
@@ -13,7 +21,8 @@ export type Reason =
   | 'portrait'
   | 'range'
   | 'mjpeg-4k'
-  | 'h264-4k';
+  | 'h264-4k'
+  | 'identity';
 
 export type MonitorMode = {
   // The value of the monitor setting: the height of a 16:9 or 16:10 profile,
@@ -79,6 +88,9 @@ export type VideoCapabilities = {
     // A Cube or Lite without a recorded receiver profile. Its EDID is unknown,
     // including unrecorded writes by older software. Absent on older servers.
     stockProfile?: boolean;
+    // The identity the profiles carry instead of NanoKVM's own; null for
+    // NanoKVM's, absent on older servers (which cannot change it).
+    identity?: MonitorIdentity | null;
     modes: MonitorMode[];
     // Absent on older servers, which offer 16:9 only.
     aspects?: string[];
@@ -125,6 +137,8 @@ export type VideoDraft = {
   hevcDirect: boolean | null;
   directPlayback: DirectPlayback;
   frameDetect: boolean;
+  // The monitor identity as identityKey: '' is NanoKVM's own.
+  identity: string;
 };
 
 export const FPS_CHOICES = [120, 75, 60, 50, 40, 30];
@@ -334,7 +348,7 @@ export function transportPlayable(browser: BrowserSupport, transport: Transport)
 
 // Why a choice is unavailable for a draft; undefined when it is fine.
 export type DraftIssues = Partial<
-  Record<'monitor' | 'portrait' | 'height' | 'fps' | 'transport' | 'codec', Reason>
+  Record<'monitor' | 'portrait' | 'height' | 'fps' | 'transport' | 'codec' | 'identity', Reason>
 >;
 
 export function draftIssues(
@@ -374,6 +388,8 @@ export function draftIssues(
       issues.codec = h264BlockReason(draft, caps);
     else if (!codecPlayable(browser, draft.transport, draft.codec)) issues.codec = 'browser';
   }
+  const identity = identityFromKey(draft.identity);
+  if (identity && identityIssue(identity)) issues.identity = 'identity';
   return issues;
 }
 
@@ -544,6 +560,7 @@ export function draftChanges(
     caps.monitor.programmable &&
     (draft.monitor !== saved.monitor ||
       draft.portrait !== saved.portrait ||
+      draft.identity !== saved.identity ||
       (caps.monitor.followsStreamRate && before.refresh !== after.refresh));
   const reconnect =
     draft.transport !== saved.transport ||
@@ -552,10 +569,15 @@ export function draftChanges(
   return { keys, monitorRewrite, reconnect };
 }
 
+export type VideoSettingsBody = Record<
+  string,
+  number | boolean | string | ReturnType<typeof identityRequest>
+>;
+
 // The shared part of a draft as a POST /api/vm/video body: changed fields only.
 // An administrator's transport choice is also the device transport.
 export function settingsRequest(saved: VideoDraft, draft: VideoDraft) {
-  const body: Record<string, number | boolean | string> = {};
+  const body: VideoSettingsBody = {};
   if (draft.transport !== saved.transport) body.transport = draft.transport;
   if (streamType(draft) !== streamType(saved)) body.type = streamType(draft);
   if (draft.bitRate !== saved.bitRate) body.bitRate = draft.bitRate;
@@ -570,5 +592,6 @@ export function settingsRequest(saved: VideoDraft, draft: VideoDraft) {
   if (draft.portrait && draft.portrait !== saved.portrait) body.portraitResolution = draft.portrait;
   if ((draft.portrait !== 0) !== (saved.portrait !== 0)) body.portrait = draft.portrait !== 0;
   if (draft.monitor !== saved.monitor) body.monitor = draft.monitor;
+  if (draft.identity !== saved.identity) body.monitorIdentity = identityRequest(draft.identity);
   return body;
 }

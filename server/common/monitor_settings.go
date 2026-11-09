@@ -20,6 +20,10 @@ type MonitorSettings struct {
 	Portrait           *bool
 	PortraitResolution *uint16
 	SyncRefresh        bool
+	// SetIdentity replaces the saved monitor identity with Identity (nil:
+	// NanoKVM's own) and writes the profile with it.
+	SetIdentity bool
+	Identity    *MonitorIdentity
 }
 
 // This boundary lets tests count actual programming attempts without native
@@ -29,8 +33,9 @@ type monitorSettingsBackend struct {
 	portraitSupported func(uint16) bool
 	powerCycle        func() bool
 	followsRefresh    func() bool
-	apply             func(string) error
-	read              func() ([]byte, error)
+	// apply writes a profile with a monitor identity (nil: as shipped).
+	apply func(string, *MonitorIdentity) error
+	read  func() ([]byte, error)
 	// The receiver may be read at start: HDMI capture is not disabled.
 	readAtStart bool
 }
@@ -166,7 +171,7 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 				// A profile written before the profiles declared the RGB range
 				// selectable: the same profile, current version.
 				log.Infof("the HDMI receiver holds %s without the RGB range declaration; programming the current one", filepath.Base(path))
-				if err := hw.apply(path); err != nil {
+				if err := hw.apply(path, savedMonitorIdentityLocked()); err != nil {
 					return "", err
 				}
 				return path, nil
@@ -174,7 +179,7 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 				// The receiver holds what was recorded; it is enough only when that
 				// is still what the saved setting asks for (a release may map a
 				// setting to another profile, such as a faster rate for a D).
-				want, err := fileSHA256(savedMonitorProfilePathLocked())
+				want, err := monitorProfileSHA256(savedMonitorProfilePathLocked(), savedMonitorIdentityLocked())
 				if err != nil || want == hash {
 					return "", nil
 				}
@@ -195,7 +200,7 @@ func programMonitorProfileOnFirstStartLocked(hw monitorSettingsBackend, pool Vid
 	}
 	path := savedMonitorProfilePathLocked()
 	// On failure no profile is recorded, so the next start tries again.
-	if err := hw.apply(path); err != nil {
+	if err := hw.apply(path, savedMonitorIdentityLocked()); err != nil {
 		return "", err
 	}
 	if deferred {
@@ -291,8 +296,9 @@ func heldProfileNameLocked(hash string) string {
 	files, _ := filepath.Glob(filepath.Join(monitorEDIDDir, "NanoKVM-*.bin"))
 	sort.Strings(files)
 	var names []string
+	id := savedMonitorIdentityLocked()
 	for _, path := range files {
-		if sum, err := fileSHA256(path); err == nil && sum == hash {
+		if sum, err := monitorProfileSHA256(path, id); err == nil && sum == hash {
 			names = append(names, filepath.Base(path))
 		}
 	}
@@ -366,7 +372,7 @@ func checkCubeMonitorEDIDLocked(hw monitorSettingsBackend) (path string, rgbRang
 		path = monitorProfilePath(height)
 	}
 	log.Warnf("the HDMI receiver EDID %s; programming %s, which takes effect after the next power cycle", mode, path)
-	if err := hw.apply(path); err != nil {
+	if err := hw.apply(path, savedMonitorIdentityLocked()); err != nil {
 		return "", false, err
 	}
 	if height != savedMonitorResolutionLocked() {
@@ -387,7 +393,8 @@ func markMonitorRGBRangeCheckedLocked() error {
 }
 
 func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBackend) error {
-	explicit := update.Resolution != nil || update.Portrait != nil || update.PortraitResolution != nil
+	explicit := update.Resolution != nil || update.Portrait != nil || update.PortraitResolution != nil ||
+		update.SetIdentity
 	refresh := update.SyncRefresh && hw.followsRefresh()
 	if !explicit && !refresh {
 		return nil
@@ -424,17 +431,31 @@ func applyMonitorSettingsLocked(update MonitorSettings, hw monitorSettingsBacken
 	}
 	// Saving an inactive portrait preference alone needs no HDMI write. A
 	// simultaneous FPS change must still refresh the active landscape profile.
+	identity := savedMonitorIdentityLocked()
+	if update.SetIdentity {
+		identity = update.Identity
+		if identity != nil {
+			if err := identity.Validate(); err != nil {
+				return err
+			}
+		}
+	}
 	write := update.Resolution != nil || update.Portrait != nil ||
-		(portrait && update.PortraitResolution != nil)
+		(portrait && update.PortraitResolution != nil) || update.SetIdentity
 	if write || refresh {
 		path := monitorProfilePathAt(height, GetScreen().FPS)
 		if portrait {
 			path = portraitProfilePathAt(resolution, GetScreen().FPS)
 		}
 		if write || !programmedMonitorProfileLocked(path, height) {
-			if err := hw.apply(path); err != nil {
+			if err := hw.apply(path, identity); err != nil {
 				return err
 			}
+		}
+	}
+	if update.SetIdentity {
+		if err := persistMonitorIdentityLocked(identity); err != nil {
+			return err
 		}
 	}
 	// Persist only after successful programming; a hardware error must leave

@@ -7,6 +7,7 @@ import type { ScreenStatus } from '@/api/vm';
 import { getScreen, getVideoCapabilities } from '@/api/vm';
 import { getEncoderCodec, isEncoderCodecSupported } from '@/lib/encoder';
 import * as storage from '@/lib/localstorage';
+import { identityKey } from '@/lib/monitor-identity';
 import {
   videoPath,
   type BrowserSupport,
@@ -37,7 +38,7 @@ function directCaptureOf(status: ScreenStatus): DirectCapture {
   return { h264: status.viDirectH264Supported === true, h265: status.hevcDirectSupported === true };
 }
 
-function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
+function savedDraft(status: ScreenStatus, caps: VideoCapabilities, mode: string): VideoDraft {
   return {
     monitor: status.monitor,
     portrait: status.portrait ? status.portraitResolution : 0,
@@ -53,7 +54,8 @@ function savedDraft(status: ScreenStatus, mode: string): VideoDraft {
         ? status.hevcDirect !== 0
         : null,
     directPlayback: storage.getDirectPlayback(),
-    frameDetect: status.frameDetect === true
+    frameDetect: status.frameDetect === true,
+    identity: identityKey(caps.monitor.identity)
   };
 }
 
@@ -104,7 +106,10 @@ export function useVideoSettings(pollMs = 3000) {
     };
   }, [refresh, pollMs]);
 
-  const saved = useMemo(() => (status ? savedDraft(status, mode) : undefined), [status, mode]);
+  const saved = useMemo(
+    () => (status && caps ? savedDraft(status, caps, mode) : undefined),
+    [status, caps, mode]
+  );
   const directCapture = useMemo(() => (status ? directCaptureOf(status) : undefined), [status]);
   return {
     admin: account.role === 'admin',

@@ -20,7 +20,7 @@ func firstStartBackend(hardware, powerCycle bool, applied *[]string, fail error)
 		portraitSupported: func(uint16) bool { return true },
 		powerCycle:        func() bool { return powerCycle },
 		followsRefresh:    func() bool { return false },
-		apply: func(path string) error {
+		apply: func(path string, _ *MonitorIdentity) error {
 			*applied = append(*applied, path)
 			return fail
 		},

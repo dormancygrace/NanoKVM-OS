@@ -5,7 +5,7 @@ import { inputLeaseHeaders } from '@/lib/input-lease.ts';
 import type { OledLayout } from '@/lib/oled/layout.ts';
 import type { ScreenTextResult } from '@/lib/screen-text';
 import type { TlsStatus } from '@/lib/tls-certificate';
-import type { VideoCapabilities } from '@/lib/video-model';
+import type { VideoCapabilities, VideoSettingsBody } from '@/lib/video-model';
 
 // get NanoKVM information
 export function getInfo() {
@@ -121,10 +121,7 @@ export function getVideoCapabilities() {
 }
 
 // apply several video settings together; returns the new capabilities
-export function applyVideoSettings(
-  settings: Record<string, number | boolean | string>,
-  confirmPowerCycle = false
-) {
+export function applyVideoSettings(settings: VideoSettingsBody, confirmPowerCycle = false) {
   return http.post<VideoCapabilities>('/api/vm/video', { ...settings, confirmPowerCycle });
 }
 

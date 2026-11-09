@@ -272,7 +272,8 @@
       "portrait": "von diesem Hochformatprofil nicht unterstützt",
       "range": "außerhalb des Bereichs",
       "mjpeg-4k": "nicht verfügbar, solange der HDMI-Eingang 3840 × 2160 ist, verwenden Sie H.264 oder H.265",
-      "h264-4k": "über 2560 × 1440 nicht verfügbar, verwenden Sie H.265 oder eine Stream-Auflösung von höchstens 1440p"
+      "h264-4k": "über 2560 × 1440 nicht verfügbar, verwenden Sie H.265 oder eine Stream-Auflösung von höchstens 1440p",
+      "identity": "Monitoridentität prüfen"
     },
     "mjpegChroma": "JPEG-Farbabtastung",
     "mjpegChroma420": "4:2:0 — kleinere Frames",
@@ -341,7 +342,50 @@
     "advanced": "Erweitert und Wiederherstellung",
     "fpsLimited": "Der aktuelle Eingang begrenzt die Aufnahme auf {{fps}} fps. Die gespeicherte Anforderung bleibt für den nächsten Quellmodus erhalten.",
     "statusFailed": "Videostatus konnte nicht aktualisiert werden.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "identity": {
+      "title": "Monitoridentität",
+      "hint": "Hersteller, Modell und Seriennummer, die der angeschlossene Computer für diesen Monitor sieht, statt der von NanoKVM. Auflösungen und Bildwiederholraten bleiben die von NanoKVM. Software, die das ganze EDID liest, kann einen NanoKVM weiterhin an seiner kurzen Modusliste erkennen.",
+      "custom": "Eigene Identität",
+      "nanokvm": "Der Monitor meldet sich als NanoKVM.",
+      "file": "Von einem Monitor",
+      "fileLoad": "EDID-Datei laden…",
+      "fileHint": "Übernimmt die Identität eines Monitors aus seinem EDID: unter Linux /sys/class/drm/*/edid, unter Windows mit CRU oder Monitor Asset Manager exportiert. Nur die Identität wird verwendet.",
+      "fileLoaded": "Identität aus der EDID-Datei geladen. Mit „Anwenden“ schreiben.",
+      "fileError": {
+        "not-edid": "Die Datei enthält kein EDID.",
+        "checksum": "Das EDID in der Datei ist beschädigt (Prüfsummenfehler)."
+      },
+      "manufacturer": "Hersteller-ID",
+      "manufacturerHint": "Drei Buchstaben, die PNP-ID: zum Beispiel ACR (Acer), AUS (ASUS), DEL (Dell), SNY (Sony).",
+      "productCode": "Produktcode",
+      "productCodeHint": "Bis zu vier Hexadezimalziffern. Mit der Hersteller-ID ergibt er die Hardware-ID, die Windows anzeigt, etwa ACR0BF4.",
+      "name": "Monitorname",
+      "nameHint": "Bis zu 13 Zeichen, so wie das Betriebssystem den Monitor anzeigt.",
+      "serial": "Seriennummer",
+      "serialProfile": "Eigene je Profil (empfohlen)",
+      "serialFixed": "Fest",
+      "serialProfileHint": "Jede Auflösung und Bildwiederholrate behält ihre eigene Seriennummer, damit Windows jedes Profil in seinem bevorzugten Modus startet.",
+      "serialFixedHint": "Jedes Profil trägt diese Seriennummer, wie ein echter Monitor. Windows behält dann einen Anzeigemodus für alle Profile und stellt nach einem Profilwechsel eventuell einen alten wieder her.",
+      "serialNumber": "Seriennummer (Zahl)",
+      "serialText": "Seriennummer (Text)",
+      "serialTextHint": "Bis zu 13 Zeichen; leer: die Zahl.",
+      "manufactured": "Hergestellt",
+      "week": "Woche",
+      "year": "Jahr",
+      "manufacturedHint": "Woche 1–54, 0 wenn unbekannt, 255 wenn das Jahr das Modelljahr ist.",
+      "invalid": {
+        "manufacturer": "Die Hersteller-ID muss aus drei Buchstaben A–Z bestehen.",
+        "productCode": "Der Produktcode muss 1–4 Hexadezimalziffern haben.",
+        "name": "Der Monitorname muss 1–13 Zeichen haben: lateinische Buchstaben, Ziffern und Satzzeichen.",
+        "serialNumber": "Die Seriennummer muss zwischen 0 und 4294967295 liegen.",
+        "serialText": "Der Seriennummerntext darf höchstens 13 Zeichen haben: lateinische Buchstaben, Ziffern und Satzzeichen.",
+        "week": "Die Woche muss 0–54 oder 255 sein.",
+        "year": "Das Jahr muss zwischen 1990 und 2245 liegen."
+      },
+      "change": "Der Monitor erhält die neue Identität; der Computer erkennt ihn neu.",
+      "changeNanokvm": "Der Monitor meldet sich wieder als NanoKVM; der Computer erkennt ihn neu."
+    }
   },
   "capture": {
     "downloadStatusFailed": "Download-Status konnte nicht aktualisiert werden. Verbindung wird wiederhergestellt…",

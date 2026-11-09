@@ -151,7 +151,7 @@ func TestFitMonitorToVideoPool(t *testing.T) {
 					return tc.pool.QHD() && (resolution != portraitResolutionMax || tc.pool.PortraitMax())
 				},
 				powerCycle: func() bool { return false }, followsRefresh: func() bool { return false },
-				apply: func(string) error { writes++; return nil },
+				apply: func(string, *MonitorIdentity) error { writes++; return nil },
 			}
 			changed, err := fitMonitorToVideoPoolLocked(tc.pool, hw)
 			if err != nil || changed != (tc.writes > 0) || writes != tc.writes {

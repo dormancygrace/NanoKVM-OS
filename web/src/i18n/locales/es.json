@@ -272,7 +272,8 @@
       "portrait": "no compatible con este perfil vertical",
       "range": "fuera de rango",
       "mjpeg-4k": "no disponible mientras la entrada HDMI es 3840 × 2160, usa H.264 o H.265",
-      "h264-4k": "no disponible por encima de 2560 × 1440, usa H.265 o una resolución del flujo de 1440p como máximo"
+      "h264-4k": "no disponible por encima de 2560 × 1440, usa H.265 o una resolución del flujo de 1440p como máximo",
+      "identity": "revise la identidad del monitor"
     },
     "mjpegChroma": "Muestreo de color JPEG",
     "mjpegChroma420": "4:2:0 — fotogramas más pequeños",
@@ -341,7 +342,50 @@
     "advanced": "Avanzado y recuperación",
     "fpsLimited": "La entrada actual limita la captura a {{fps}} fps. La solicitud guardada se conserva para el siguiente modo de la fuente.",
     "statusFailed": "No se pudo actualizar el estado del vídeo.",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "identity": {
+      "title": "Identidad del monitor",
+      "hint": "El fabricante, el modelo y el número de serie que el equipo conectado ve para este monitor, en lugar de los de NanoKVM. Las resoluciones y frecuencias siguen siendo las de NanoKVM. Un programa que lea todo el EDID aún puede reconocer un NanoKVM por su breve lista de modos.",
+      "custom": "Identidad personalizada",
+      "nanokvm": "El monitor se identifica como NanoKVM.",
+      "file": "De un monitor",
+      "fileLoad": "Cargar archivo EDID…",
+      "fileHint": "Toma la identidad de un monitor de su EDID: en Linux /sys/class/drm/*/edid; en Windows, expórtelo con CRU o Monitor Asset Manager. Solo se usa la identidad.",
+      "fileLoaded": "Identidad cargada del archivo EDID. Aplique para escribirla.",
+      "fileError": {
+        "not-edid": "El archivo no contiene un EDID.",
+        "checksum": "El EDID del archivo está dañado (error de suma de comprobación)."
+      },
+      "manufacturer": "ID del fabricante",
+      "manufacturerHint": "Tres letras, el ID PNP: por ejemplo ACR (Acer), AUS (ASUS), DEL (Dell), SNY (Sony).",
+      "productCode": "Código de producto",
+      "productCodeHint": "Hasta cuatro dígitos hexadecimales. Con el ID del fabricante forma el ID de hardware que muestra Windows, como ACR0BF4.",
+      "name": "Nombre del monitor",
+      "nameHint": "Hasta 13 caracteres, tal como el sistema operativo muestra el monitor.",
+      "serial": "Número de serie",
+      "serialProfile": "Propio de cada perfil (recomendado)",
+      "serialFixed": "Fijo",
+      "serialProfileHint": "Cada resolución y frecuencia conserva su propio número de serie, para que Windows inicie cada perfil en su modo preferido.",
+      "serialFixedHint": "Todos los perfiles llevan este número de serie, como un monitor real. Windows mantiene entonces un solo modo de pantalla para todos los perfiles y puede volver a aplicar uno antiguo tras un cambio de perfil.",
+      "serialNumber": "Número de serie (numérico)",
+      "serialText": "Número de serie (texto)",
+      "serialTextHint": "Hasta 13 caracteres; vacío: el número.",
+      "manufactured": "Fabricación",
+      "week": "Semana",
+      "year": "Año",
+      "manufacturedHint": "Semana 1–54, 0 si se desconoce, 255 si el año es el año del modelo.",
+      "invalid": {
+        "manufacturer": "El ID del fabricante debe tener tres letras A–Z.",
+        "productCode": "El código de producto debe tener de 1 a 4 dígitos hexadecimales.",
+        "name": "El nombre del monitor debe tener de 1 a 13 caracteres: letras latinas, dígitos y signos de puntuación.",
+        "serialNumber": "El número de serie debe estar entre 0 y 4294967295.",
+        "serialText": "El texto del número de serie debe tener como máximo 13 caracteres: letras latinas, dígitos y signos de puntuación.",
+        "week": "La semana debe estar entre 0 y 54, o ser 255.",
+        "year": "El año debe estar entre 1990 y 2245."
+      },
+      "change": "El monitor recibe la nueva identidad; el equipo lo detecta de nuevo.",
+      "changeNanokvm": "El monitor vuelve a identificarse como NanoKVM; el equipo lo detecta de nuevo."
+    }
   },
   "capture": {
     "downloadStatusFailed": "No se pudo actualizar el estado de la descarga. Reconectando…",

@@ -139,6 +139,8 @@ copy hardware /etc/kvm/hw /etc/kvm/board-profile /etc/kvm/hdmi_version /etc/kvm/
 	/etc/kvm/monitor_portrait /etc/kvm/monitor_portrait_resolution /etc/kvm/oled_exist /etc/kvm/oled_sleep /etc/kvm/oled_layout
 # Labelled: a bare 64-character hash line would be hidden as a possible key.
 run hardware/edid-hashes sh -c 'for f in monitor_edid_sha256 monitor_edid_verified; do echo "$f: $(cat /etc/kvm/$f 2>/dev/null)"; done'
+# Whether a custom monitor identity is set, not its fields: they can be a real monitor's serial number.
+run hardware/monitor-identity sh -c '[ -f /etc/kvm/monitor_identity ] && echo custom || echo nanokvm'
 run hardware/usb-gadget sh -c 'cd /sys/kernel/config/usb_gadget 2>/dev/null && find . -type f ! -name serialnumber | sort | while read -r f; do printf "%s: %s\n" "$f" "$(head -c 256 "$f" 2>/dev/null | tr "\n" " ")"; done'
 run hardware/udc sh -c 'for u in /sys/class/udc/*; do echo "$u $(cat "$u/state" 2>/dev/null) $(cat "$u/current_speed" 2>/dev/null)"; done'
 run hardware/lsusb lsusb

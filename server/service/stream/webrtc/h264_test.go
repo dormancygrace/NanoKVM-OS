@@ -12,7 +12,6 @@ import (
 
 func TestSignalingReadLimit(t *testing.T) {
 	// No media offer is made: only the actual signaling handler is exercised.
-	t.Setenv("NANOKVM_SRTP_AES", "software")
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.GET("/webrtc", Connect)

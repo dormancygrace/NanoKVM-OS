@@ -21,15 +21,18 @@ env = dict(os.environ, GOTOOLCHAIN='local', GOMAXPROCS='2')
 subprocess.run(['python3', str(ROOT / 'firmware/cpu/sysmon-runtime/prepare.py'),
                 '--base', str(args.base.resolve()), '--output', str(goroot)],
                env=env, check=True, stdout=subprocess.DEVNULL)
-subprocess.run([str(goroot / 'bin/go'), 'vet',
-                'vendor/golang.org/x/crypto/internal/poly1305'],
-               env=dict(env, GOROOT=str(goroot), GOOS='linux', GOARCH='riscv64',
-                        GORISCV64='rva20u64', CGO_ENABLED='0', GOFLAGS=''), check=True)
+vet_env = dict(env, GOROOT=str(goroot), GOOS='linux', GOARCH='riscv64',
+               GORISCV64='rva20u64', CGO_ENABLED='0', GOFLAGS='')
+for tags in ['', 'nanokvmqemu']:  # the device build and the QEMU build
+    subprocess.run([str(goroot / 'bin/go'), 'vet', '-tags', tags,
+                    'vendor/golang.org/x/crypto/internal/poly1305'], env=vet_env, check=True)
 for variant in ['selected', 'reference']:
     target = output / variant
+    # QEMU has no XTheadVector: nanokvmqemu keeps the runtime's memmove and
+    # Poly1305 scalar.
     cmd = ['python3', str(ROOT / 'firmware/cpu/go-crypto-c906/build-tests.py'),
            '--goroot', str(goroot), '--xcrypto', str(args.xcrypto.resolve()),
-           '--output', str(target), '--package', 'internal/poly1305']
+           '--output', str(target), '--package', 'internal/poly1305', '--tags', 'nanokvmqemu']
     if variant == 'reference':
         cmd.append('--poly1305-reference')
     subprocess.run(cmd, env=env, check=True)
@@ -44,7 +47,8 @@ for variant in ['selected', 'reference']:
         assert 506 in sizes, (variant, sizes, 'the pinned upstream update changed size')
     else:
         assert sizes, (variant, 'update not found')
-    # Disable standard RVV explicitly; no XTheadVector instructions are needed.
+    # Disable standard RVV explicitly; the nanokvmqemu build has no
+    # XTheadVector instructions on its paths.
     subprocess.run([args.qemu, '-cpu', 'rv64,v=false', str(binary),
                     '-test.v', '-test.timeout=5m'], env=env, check=True)
     if variant == 'selected':

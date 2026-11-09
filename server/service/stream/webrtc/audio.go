@@ -3,8 +3,6 @@ package webrtc
 import (
 	"context"
 	"errors"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -21,9 +19,6 @@ import (
 const mediaStreamID = "nanokvm"
 
 const opusPayloadType = 111
-
-// maxAudioDelay bounds NANOKVM_WEBRTC_AUDIO_DELAY_MS.
-const maxAudioDelay = 500 * time.Millisecond
 
 // audioFrame is the duration of one encoded Opus packet.
 const audioFrame = 20 * time.Millisecond
@@ -67,18 +62,6 @@ type peerAudio struct {
 	cancel   context.CancelFunc
 	done     chan struct{}
 	lastSent time.Time
-}
-
-// audioDelay holds audio back before sending, to line it up with video when
-// the browser's lip sync is off by the difference of the two capture paths.
-// Sender reports map RTP time to the time of sending, so a constant extra
-// encoder latency of the video shows as audio leading by the same amount.
-func audioDelay() time.Duration {
-	ms, err := strconv.Atoi(os.Getenv("NANOKVM_WEBRTC_AUDIO_DELAY_MS"))
-	if err != nil || ms <= 0 {
-		return 0
-	}
-	return min(time.Duration(ms)*time.Millisecond, maxAudioDelay)
 }
 
 func opusCapability() webrtc.RTPCodecCapability {
@@ -174,17 +157,11 @@ func (c *Client) stopAudio() {
 	}
 }
 
-type timedPacket struct {
-	due    time.Time
-	packet audio.Packet
-}
-
 func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.TrackLocalStaticSample, done chan struct{}) {
 	defer close(done)
 	defer audio.ReleaseSession()
 	defer sub.Close()
-	delay := audioDelay()
-	packets := make(chan timedPacket, 64)
+	packets := make(chan audio.Packet, 64)
 	readErr := make(chan error, 1)
 	go func() {
 		defer close(packets)
@@ -195,7 +172,7 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 				return
 			}
 			select {
-			case packets <- timedPacket{due: time.Now().Add(delay), packet: p}:
+			case packets <- p:
 			case <-ctx.Done():
 				readErr <- ctx.Err()
 				return
@@ -206,13 +183,7 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 	var lastAt time.Time
 	haveLast := false
 	first := true
-	for tp := range packets {
-		if wait := time.Until(tp.due); wait > 0 {
-			select {
-			case <-time.After(wait):
-			case <-ctx.Done():
-			}
-		}
+	for p := range packets {
 		if ctx.Err() != nil {
 			break
 		}
@@ -231,16 +202,16 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 			}
 		}
 		dropped := uint64(0)
-		if haveLast && tp.packet.Index > last+1 {
-			dropped = min(tp.packet.Index-last-1, 65535)
+		if haveLast && p.Index > last+1 {
+			dropped = min(p.Index-last-1, 65535)
 		}
 		if haveLast {
-			if err := audio.AdvanceTimeline(track, audio.PauseGap(tp.packet.At.Sub(lastAt), dropped)); err != nil {
+			if err := audio.AdvanceTimeline(track, audio.PauseGap(p.At.Sub(lastAt), dropped)); err != nil {
 				log.Debugf("audio timeline: %v", err)
 				break
 			}
 		}
-		if err := track.WriteSample(media.Sample{Data: tp.packet.Data, Duration: audioFrame,
+		if err := track.WriteSample(media.Sample{Data: p.Data, Duration: audioFrame,
 			PrevDroppedPackets: uint16(dropped)}); err != nil {
 			log.Debugf("audio track write: %v", err)
 			break
@@ -248,7 +219,7 @@ func (c *Client) runAudio(ctx context.Context, sub packetSource, track *webrtc.T
 		c.audio.mu.Lock()
 		c.audio.lastSent = time.Now()
 		c.audio.mu.Unlock()
-		last, lastAt, haveLast = tp.packet.Index, tp.packet.At, true
+		last, lastAt, haveLast = p.Index, p.At, true
 	}
 	if ctx.Err() == nil {
 		// Capture ended (USB audio disabled or rebound) or the track failed.

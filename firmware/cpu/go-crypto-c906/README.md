@@ -77,11 +77,9 @@ record for Seal plus Open, three alternating rounds): 16 KiB 731 -> 644 us
 (-12%), 4 KiB -10%, 1400 bytes -7.5%, 64-512 bytes -1 to -3% (the record
 overhead dominates).
 
-With `NANOKVM_CHACHA20=generic` the generic code still fills five-block
-buffers, which wastes up to four blocks per message: its key stream is about
-15% slower than upstream for 1400 byte records (Seal 8%, with the faster
-Poly1305), within noise for 16 KiB. Compare against an unpatched GOROOT for a
-baseline.
+In the `nanokvmqemu` build the generic code still fills five-block buffers,
+which wastes up to four blocks per message. Compare against an unpatched
+GOROOT for a baseline.
 
 ## Encodings
 
@@ -103,20 +101,21 @@ python3 check-binary.py --binutils $B NanoKVM-Server
 
 ## Selection
 
-On first use, `chacha_riscv64.go` selects the kernel only if every `isa`
-line of `/proc/cpuinfo` lists `xtheadvector` and
-`prctl(PR_RISCV_V_GET_CONTROL)` reports vector state enabled for the thread
-(it is off when `abi.riscv_v_default_allow` is 0). Otherwise, or with
-`NANOKVM_CHACHA20=generic`, the upstream generic code runs. Other values are
-ignored. The vector registers are saved by the kernel across context switches
-and signal delivery; the first vector instruction allocates the thread's
-vector context.
+NanoKVM OS runs only on the SG2002, and its kernel enables vector state for
+every user thread, so the kernel is selected at build time: the constant
+`useC906` (`chacha_xtheadvector_riscv64.go`) is true. There is no runtime
+detection and no environment switch. The `nanokvmqemu` build tag
+(`chacha_qemu_riscv64.go`) selects the upstream generic code for QEMU, which
+has no XTheadVector. The vector registers are saved by the kernel across
+context switches and signal delivery; the first vector instruction allocates
+the thread's vector context.
 
 ## Poly1305
 
 Go's `update` (`sum_vector_riscv64.go`) hashes runs of at least four whole
 groups of five blocks (320 bytes) with the vector kernel described below and
-everything else, and every CPU without XTheadVector, with `updateScalar`.
+everything else, and everything in the `nanokvmqemu` build, with
+`updateScalar`.
 `prepare.py` derives `sum_asm_riscv64.go` from `sum_asm.go` (the same `mac`
 wrapper, without the assembly `update` declaration).
 
@@ -141,8 +140,9 @@ reserves (g in x27, gp, tp) and anything but one final `ret`.
 - CRYPTOGAMS reduces h2 when the next block starts, so `updateScalar` folds
   5 * (h2 >> 2) into h0 at the end (as `poly1305_emit` does first): h2 <= 4,
   below the 2 * (2^130 - 5) the finalizer needs;
-- `useMisalignedLoads` (`cpu.RISCV64.HasFastMisaligned`) picks the 64-bit
-  unaligned loads or the aligned-load variant.
+- `useMisalignedLoads` picks the 64-bit unaligned loads or the aligned-load
+  variant. It is always true (the C906 accesses misaligned words natively);
+  it stays a variable so that the tests run both variants.
 
 CRYPTOGAMS saves s0-s3 in a 32-byte frame of its own. Go's ABI0 does not need
 them preserved, and an SP change the Go assembler cannot see breaks traceback
@@ -157,7 +157,7 @@ The pinned x/crypto v0.57.0 `sum_riscv64.s` remains the reference:
 an overlay. CI (`tests/test-c906-poly1305.py`) prepares the GOROOT, vets the
 package, builds both and runs the upstream, big-integer oracle (states with
 h2 up to 5 and extreme clamped keys), alignment and guard-page tests on
-scalar RISC-V QEMU; its deliberate corrupted-result control must fail.
+scalar RISC-V QEMU (built with `--tags nanokvmqemu`); its deliberate corrupted-result control must fail.
 
 Stand, 2026-11-02, against the previous C906 Poly1305 (a hand-scheduled
 radix-2^64 `update`), server stopped, thread CPU, best of five: `update`
@@ -192,9 +192,8 @@ on exit). The kernel uses neither ra (Go saves it only in non-leaf
 functions, and traceback reads it from the register in a leaf) nor g, gp or
 tp; its 176-byte frame is declared, so `TestC906ProfileUnwind` covers it too.
 
-It is selected when `riscv_hwprobe` reports XTheadVector (T-Head vendor key)
-and `PR_RISCV_V_GET_CONTROL` reports vector state enabled;
-`NANOKVM_POLY1305=generic` keeps `updateScalar`. QEMU has no XTheadVector, so
+It is selected at build time (`useVector`, `sum_xtheadvector_riscv64.go`);
+the `nanokvmqemu` build tag keeps `updateScalar`. QEMU has no XTheadVector, so
 the generator executes the kernel itself on 400 random and extreme inputs
 (clamped-maximum r, all-ones messages, accumulator limbs at their 2^27 entry
 bound) against a big-integer Poly1305. It checks on every instruction that
@@ -202,9 +201,7 @@ scalar multiplies have operands below 2^32 and that no 32-bit vector sum
 wraps, and requires a negative control (no pad bit) to fail. GNU as assembles
 the kernel into WORDs. On the device, `TestC906Vector` compares `update` with
 `updateScalar` and the big-integer oracle around the group boundaries, at
-every offset, with extreme keys and accumulators up to h2 = 7;
-`NANOKVM_REQUIRE_XTHEADVECTOR=1` makes it fail if the kernel is not selected.
-The reduction and guard-page tests run `updateScalar` as a second variant.
+every offset, with extreme keys and accumulators up to h2 = 7. The reduction and guard-page tests run `updateScalar` as a second variant.
 
 Stand, 2026-11-09, `go test -bench C906VectorGroups` (offset 5, MB/s):
 
@@ -221,7 +218,7 @@ alternating runs, server running): 1400 B 49.4 -> 53.0 MB/s (+7%), 16 KiB
 B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
 python3 gen_poly1305_vector.py --binutils $B --go --check sum_vector_riscv64.s
 # on the device, in /var/tmp:
-NANOKVM_REQUIRE_XTHEADVECTOR=1 ./poly1305.test -test.v
+./poly1305.test -test.v
 ./poly1305.test -test.run XXX -test.bench C906VectorGroups
 ```
 
@@ -257,7 +254,7 @@ build tags) plus `tests/`. Neither GOROOT is modified.
 python3 build-tests.py --goroot /path/to/prepared-goroot \
     --xcrypto /path/to/gomodcache/golang.org/x/crypto@v0.57.0 --output /tmp/cc20
 # on the device, in /var/tmp (not /data, which is noexec):
-./chacha20.test -test.v; NANOKVM_CHACHA20=generic ./chacha20.test -test.v
+./chacha20.test -test.v
 ./chacha20poly1305.test; ./poly1305.test
 ./chacha20.test -test.run=Stress -c906.stress=60s &   # twice, concurrently
 ./chacha20poly1305.test -test.run=Measure -test.v -c906.measure=5
@@ -368,9 +365,8 @@ lives in the server module, not in the prepared GOROOT.
   least loaded lane, and its outer block follows on the same lane, with the
   inner hash patched into message words 0-4 between steps. Lanes switch
   messages between steps, so one call hashes the whole batch.
-- Batches of one message use crypto/sha1, as do other CPUs, a missing
-  `xtheadvector` in `/proc/cpuinfo`, vector state disabled according to
-  `prctl(PR_RISCV_V_GET_CONTROL)`, and `NANOKVM_SHA1MB=generic`.
+- Batches of one message use crypto/sha1, as do host and `nanokvmqemu`
+  builds (`internal/xtheadvector`).
 
 Device, thread CPU time per packet, medians of 7 interleaved rounds with
 video streaming. Messages are a 12-byte header, the payload and a 4-byte
@@ -414,8 +410,8 @@ there; on the stand's stream (a zero in about 170 bytes) it never switches
 to Horspool. `annexb.Index` uses `indexStartCode` from
 `gen_annexb_riscv64.py` instead: two overlapping LMUL 8 loads compared with
 zero find each `00 00`, and a scalar load checks the third byte. Inputs
-under 64 bytes, other CPUs, a missing `xtheadvector`, vector state disabled
-(`internal/xtheadvector`) and `NANOKVM_ANNEXB=generic` use bytes.Index.
+under 64 bytes and host and `nanokvmqemu` builds (`internal/xtheadvector`)
+use bytes.Index.
 
 On the device, 9 KB access units shaped like the stand's stream: 7.5 us per
 unit, bytes.Index 21 us.
@@ -527,7 +523,7 @@ all-one states. It fails if a T-Head core does not select the C906 path.
 curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o keccak1600-riscv.pl
 python3 gen_keccak_c906.py --cryptogams keccak1600-riscv.pl --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
 python3 build-tests.py --goroot $PREPARED --xcrypto $XCRYPTO --output out   # adds fips-sha3, sha3, mlkem
-# under qemu-riscv64 -cpu thead-c906, or on the device:
+# on the device; for qemu-riscv64 -cpu thead-c906, build with --tags nanokvmqemu:
 NANOKVM_REQUIRE_XTHEADBB=1 ./out/fips-sha3.test -test.v
 ./out/sha3.test -test.skip TestCSHAKELargeS && ./out/mlkem.test -test.short  # that test needs 512 MiB
 ```

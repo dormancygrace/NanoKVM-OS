@@ -12,13 +12,11 @@ the repeated four-byte key by the input phase and returns the original phase
 plus length modulo four. Full vector groups always advance by a multiple of
 four bytes; only the last group changes VL.
 
-The firmware targets SG2002/C906. Initialization requires xtheadvector on every
-reported ISA line, fast misaligned scalar accesses from riscv_hwprobe, and
-enabled vector state from PR_RISCV_V_GET_CONTROL. Otherwise the original code
-is used. NANOKVM_WEBSOCKET_MASK=generic explicitly selects it for comparisons.
-The Go threads inherit the vector policy; applications must not disable it
-on individual threads after initialization. No vector state is live across
-calls or Go safe points. Linux preserves it across signals and task switches.
+The firmware runs only on the SG2002/C906: XTheadVector, fast native
+misaligned words, and a kernel that enables vector state for every user
+thread. linux/riscv64 builds therefore always use the C906 code; there is no
+runtime detection or environment switch. No vector state is live across calls
+or Go safe points. Linux preserves it across signals and task switches.
 
 ## Build integration
 
@@ -105,8 +103,8 @@ in the local evidence. Large memory timings have more noise than short masks.
 ## Verification and reproduction
 
 The complete upstream Gorilla suite and the added C906 tests passed on the
-stand with automatic selection and with NANOKVM_WEBSOCKET_MASK=generic.
-The latter also verifies fallback behavior. The custom suite includes:
+stand (2026-10-26, then also with the generic code selected by a switch that
+has since been removed). The custom suite includes:
 
 - 104,184 payload, guard-byte, phase and split-chunk comparisons, all offsets
   0–15, all four phases, dense sizes 0–512 and large boundary sizes.
@@ -141,17 +139,11 @@ From the repository root, with GOROOT exported to the prepared runtime and a new
 
 On the C906 stand, use one temporary executable in RAM and remove it afterwards:
 
-    GOMAXPROCS=1 GODEBUG=randseednop=0 NANOKVM_MASK_REQUIRE_C906=1 \
-      ./websocket.test -test.v
-    GOMAXPROCS=1 GODEBUG=randseednop=0 NANOKVM_MASK_REQUIRE_C906=1 \
-      NANOKVM_WEBSOCKET_MASK=generic ./websocket.test -test.v
-    NANOKVM_MASK_REQUIRE_C906=1 ./websocket.test \
-      -test.run '^TestC906Correct$' -c906.negative
-    GOMAXPROCS=1 NANOKVM_MASK_REQUIRE_C906=1 ./websocket.test \
+    GOMAXPROCS=1 GODEBUG=randseednop=0 ./websocket.test -test.v
+    ./websocket.test -test.run '^TestC906Correct$' -c906.negative
+    GOMAXPROCS=1 ./websocket.test \
       -test.run '^TestC906(Measure|Streaming)$' -c906.measure
-    GOMAXPROCS=1 NANOKVM_MASK_REQUIRE_C906=1 ./websocket.test \
-      -test.run '^TestC906ReadMessageMeasure$' -c906.api
 
 The negative-control command must fail. Run each timing command three times,
-serially. The API benchmark alone switches the selector between cases, restores
-it on exit and is skipped by ordinary tests. Production code never switches it.
+serially. The ReadMessage A/B above needed a run-time selector; it was removed
+with the selector, after its decision.

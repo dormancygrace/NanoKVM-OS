@@ -6,12 +6,6 @@
 
 package poly1305
 
-import (
-	"sync"
-	"syscall"
-	"unsafe"
-)
-
 // vectorGroup is what poly1305BlocksVector hashes per iteration: four blocks
 // in XTheadVector lanes and a fifth in scalar registers.
 const vectorGroup = 5 * TagSize
@@ -34,56 +28,11 @@ func poly1305BlocksVector(r *[5]uint64, msg *byte, groups int, h *[5]uint64)
 //go:noescape
 func updateScalar(state *macState, msg []byte)
 
-var (
-	vectorOnce sync.Once
-	useVector  bool
-)
-
-// vectorSelected reports, on first use, whether to use poly1305BlocksVector:
-// riscv_hwprobe reports XTheadVector on every CPU and the kernel enables
-// vector state for this thread (prctl PR_RISCV_V_GET_CONTROL; Go threads
-// inherit it). NANOKVM_POLY1305=generic keeps the scalar code. The kernel
-// also uses XTheadBa, XTheadBb and XTheadMac, which every T-Head core with
-// XTheadVector implements.
-func vectorSelected() bool {
-	vectorOnce.Do(func() {
-		if env, _ := syscall.Getenv("NANOKVM_POLY1305"); env == "generic" {
-			return
-		}
-		useVector = hwprobeXTheadVector() && vectorEnabled()
-	})
-	return useVector
-}
-
-func hwprobeXTheadVector() bool {
-	const (
-		sysRISCVHwprobe       = 258
-		keyVendorExtThead0    = 11
-		vendorExtXTheadVector = 1 << 0
-	)
-	pair := struct {
-		key   int64
-		value uint64
-	}{key: keyVendorExtThead0}
-	_, _, errno := syscall.RawSyscall6(sysRISCVHwprobe, uintptr(unsafe.Pointer(&pair)), 1, 0, 0, 0, 0)
-	return errno == 0 && pair.key == keyVendorExtThead0 && pair.value&vendorExtXTheadVector != 0
-}
-
-func vectorEnabled() bool {
-	const (
-		prRISCVVGetControl  = 70
-		prRISCVVCtrlCurMask = 3
-		prRISCVVCtrlOn      = 2
-	)
-	r, _, errno := syscall.RawSyscall(syscall.SYS_PRCTL, prRISCVVGetControl, 0, 0)
-	return errno == 0 && r&prRISCVVCtrlCurMask == prRISCVVCtrlOn
-}
-
 // update hashes msg into state: runs of at least vectorMinGroups whole groups
-// in the vector code (which reads the blocks with misaligned scalar loads, so
-// only where they are fast), the rest and everything elsewhere in updateScalar.
+// in the vector code (useVector, sum_xtheadvector_riscv64.go), the rest in
+// updateScalar.
 func update(state *macState, msg []byte) {
-	if groups := len(msg) / vectorGroup; groups >= vectorMinGroups && state.h[2] < 8 && useMisalignedLoads && vectorSelected() {
+	if groups := len(msg) / vectorGroup; useVector && groups >= vectorMinGroups && state.h[2] < 8 {
 		updateVector(state, msg[:groups*vectorGroup], groups)
 		msg = msg[groups*vectorGroup:]
 	}

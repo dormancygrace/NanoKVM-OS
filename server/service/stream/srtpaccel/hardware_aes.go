@@ -11,7 +11,6 @@ import (
 )
 
 var hardwareAESOnce sync.Once
-var openHardwareAES = hwcrypto.Open
 
 // The module, and until the first boot of 3.7.0 the one named before it.
 var hardwareAESCapabilityFiles = []string{"/sys/module/nanokvm_hwcrypto/parameters/out_of_place_burst4",
@@ -32,15 +31,14 @@ func initializeHardwareAES() {
 	hardwareAESOnce.Do(func() {
 		// Process-wide selection: the descriptor is retained for the server's
 		// lifetime. It is closed automatically on exit or the first ioctl error.
-		if os.Getenv("NANOKVM_SRTP_AES") != "hardware" {
-			log.Info("SRTP AES-CTR: software selected")
-			return
-		}
+		// CryptoDMA is the measured default (S95nanokvm shipped it); software
+		// remains only for a stale module before reboot, a missing device and
+		// host builds.
 		if !hardwareAESDriverReady() {
 			log.Warn("SRTP AES-CTR: loaded CryptoDMA module lacks out-of-place/burst4 support; using software until the updated module is loaded and the app restarts")
 			return
 		}
-		device, err := openHardwareAES(func(err error) {
+		device, err := hwcrypto.Open(func(err error) {
 			log.WithError(err).Warn("SRTP AES-CTR: hardware disabled; using software")
 		})
 		if err != nil {

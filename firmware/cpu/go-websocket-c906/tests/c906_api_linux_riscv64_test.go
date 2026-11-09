@@ -8,17 +8,10 @@ package websocket
 import (
 	"bytes"
 	"encoding/binary"
-	"flag"
-	"fmt"
 	"net"
-	"runtime"
-	"syscall"
 	"testing"
 	"time"
-	"unsafe"
 )
-
-var c906API = flag.Bool("c906.api", false, "measure ReadMessage with prebuilt masked frames")
 
 type c906MemoryConn struct{ *bytes.Reader }
 
@@ -57,7 +50,6 @@ func c906Reader(wire []byte) *Conn {
 	return newConn(&c906MemoryConn{bytes.NewReader(wire)}, true, 4096, 4096, nil, nil, nil)
 }
 func TestC906ReadMessage(t *testing.T) {
-	c906Require(t)
 	for _, n := range []int{0, 1, 7, 8, 16, 125, 126, 127, 1400, 4096, 16384, 65535, 65536, 262144} {
 		payload := make([]byte, n)
 		for i := range payload {
@@ -68,76 +60,6 @@ func TestC906ReadMessage(t *testing.T) {
 			kind, data, err := c.ReadMessage()
 			if err != nil || kind != BinaryMessage || !bytes.Equal(data, payload) {
 				t.Fatalf("frame n=%d i=%d type=%d err=%v", n, i, kind, err)
-			}
-		}
-	}
-}
-
-// Account for all Go threads, including GC workers. With only thread CPU time,
-// allocation-heavy ReadMessage samples can charge different shares of GC.
-func c906ProcessCPUTime() int64 {
-	var ts syscall.Timespec
-	_, _, errno := syscall.RawSyscall(syscall.SYS_CLOCK_GETTIME, 2, uintptr(unsafe.Pointer(&ts)), 0)
-	if errno != 0 {
-		panic(errno)
-	}
-	return ts.Nano()
-}
-
-func TestC906ReadMessageMeasure(t *testing.T) {
-	if !*c906API {
-		t.Skip("enable -c906.api")
-	}
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	c906Require(t)
-	// The benchmark is serial and opt-in. No other WebSocket connection runs
-	// while it switches this process's selector; normal tests never mutate it.
-	original := useC906Mask
-	defer func() { useC906Mask = original }()
-	sizes := []int{16, 64, 256, 1400, 4096, 16384, 65536, 262144}
-	const passes = 16
-	for rep := 0; rep < 3; rep++ {
-		for j := range sizes {
-			n := sizes[(j+rep*3)%len(sizes)]
-			calls := c906Max(16, c906Min(8192, (2<<20)/n))
-			payload := make([]byte, n)
-			for i := range payload {
-				payload[i] = byte(i*37 + 5)
-			}
-			wire := c906Frames(payload, calls)
-			for variant := 0; variant < 2; variant++ {
-				useC906Mask = (variant+rep+j)%2 != 0
-				mode := "generic"
-				if useC906Mask {
-					mode = "c906"
-				}
-				preflight := c906Reader(wire)
-				kind, last, err := preflight.ReadMessage()
-				if err != nil || kind != BinaryMessage || !bytes.Equal(last, payload) {
-					t.Fatal("preflight frame", n, err)
-				}
-				runtime.GC()
-				start := time.Now()
-				cpu := c906ProcessCPUTime()
-				for pass := 0; pass < passes; pass++ {
-					c := c906Reader(wire)
-					for i := 0; i < calls; i++ {
-						kind, last, err = c.ReadMessage()
-						if err != nil || kind != BinaryMessage || len(last) != n {
-							t.Fatal("timed frame", n, err)
-						}
-					}
-				}
-				// Include reclamation of the discarded messages in both variants.
-				runtime.GC()
-				cpu = c906ProcessCPUTime() - cpu
-				wall := time.Since(start).Nanoseconds()
-				runtime.KeepAlive(wire)
-				if !bytes.Equal(last, payload) {
-					t.Fatal("last frame", n)
-				}
-				fmt.Printf("API %s,%d,%d,%d,%d,%d\n", mode, n, rep, passes*calls, cpu, wall)
 			}
 		}
 	}

@@ -1,7 +1,5 @@
 package stream
 
-import "os"
-
 // The SG2002 encoders write no VUI, so H.264 and H.265 streams do not say how
 // their YUV is coded and every decoder guesses. The HDMI receiver delivers
 // limited-range (16-235) BT.709 video: Chrome's WebRTC decoders guessed
@@ -9,15 +7,12 @@ import "os"
 // other players are left to their own defaults. The SPS of each key frame is
 // rewritten to say so in its VUI (video_signal_type: limited range, BT.709
 // primaries, transfer and matrix); an SPS from another encoder that has a VUI
-// keeps its range and only gets what is missing. NANOKVM_VIDEO_VUI=0 turns
-// the rewrite off.
+// keeps its range and only gets what is missing.
 
 const (
 	vuiVideoFormatUnspecified = 5
 	colourBT709               = 1
 )
-
-var videoColourRewrite = os.Getenv("NANOKVM_VIDEO_VUI") != "0"
 
 const h264NALSPS = 7
 

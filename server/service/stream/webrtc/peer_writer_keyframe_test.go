@@ -36,7 +36,6 @@ func countKeyframeRequests(t *testing.T) *atomic.Int32 {
 // A viewer that joins while another watches starts on deltas: it asks for a
 // keyframe instead of staying black until the periodic one.
 func TestANewWriterAsksForAKeyframe(t *testing.T) {
-	useDefaultPeerWriterQueue(t)
 	requests := countKeyframeRequests(t)
 	clock := time.Unix(1000, 0)
 	w := newPeerVideoWriter(func(stream.VideoFrame) error { return nil }, func(error) {})

@@ -2,7 +2,7 @@
 
 ## Transport and discovery
 
-The server uses a local, MIT-licensed fork of Pion ICE. Other Pion ICE users retain upstream behavior unless their transport implements `PathMTUObserver`. NanoKVM enables this transport for video peers; `NANOKVM_WEBRTC_PMTU=0` selects the fixed RTP1216 budget for controlled comparisons.
+The server uses a local, MIT-licensed fork of Pion ICE. Other Pion ICE users retain upstream behavior unless their transport implements `PathMTUObserver`. NanoKVM always enables this transport, with frame batching, for video peers.
 
 Each selected UDP ICE pair starts with UDP1232 / RTP1216, or a smaller known route limit. Linux sockets use `IP_PMTUDISC_DO` / `IPV6_PMTUDISC_DO`: successful delivery must not be explained by local IP fragmentation. A source/destination RTM_GETROUTE lookup supplies the interface, gateway and route MTU; IPv6 interface MTU is also respected. Discovery is capped at IP1500. Route information is an upper bound, never delivery confirmation.
 

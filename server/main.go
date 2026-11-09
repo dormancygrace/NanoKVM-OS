@@ -211,7 +211,7 @@ func run() {
 		httpsPortStr := strconv.Itoa(conf.Port.Https)
 
 		go func() {
-			server := utils.NewHTTPServer(utils.ListenAddr(conf.Host, httpsPortStr), r, os.Getenv("NANOKVM_HTTP2") != "off")
+			server := utils.NewHTTPServer(utils.ListenAddr(conf.Host, httpsPortStr), r, true)
 			// The pair comes from ServerCertificate, so an uploaded or renewed
 			// certificate applies to new connections without a restart.
 			server.TLSConfig = &tls.Config{GetCertificate: utils.ServerCertificate.GetCertificate}

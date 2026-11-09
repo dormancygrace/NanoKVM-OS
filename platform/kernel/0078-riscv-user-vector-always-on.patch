@@ -1,0 +1,92 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: keep the vector unit on for every user thread (NanoKVM OS)
+
+NanoKVM OS runs on one SoC, the SG2002, whose C906 implements XTheadVector.
+Its user code may use the vector unit unconditionally: Go's ChaCha20,
+Poly1305 and SHA-1 kernels, and OpenSSL's C906 ChaCha20, GHASH and
+Poly1305. Upstream lets a thread turn its vector state off, or start a
+program with it off, through PR_RISCV_V_SET_CONTROL or the sysctl
+abi.riscv_v_default_allow. Such a thread would get SIGILL in that code.
+A library cannot check its own thread's state safely, because the query
+(PR_RISCV_V_GET_CONTROL) is a syscall that a seccomp filter may kill.
+
+This is a platform contract, as 0045 and 0052 are for misaligned access:
+- every user thread starts with its vector state on;
+- PR_RISCV_V_SET_CONTROL refuses OFF, for the current thread and for the
+  next exec, with -EPERM;
+- abi.riscv_v_default_allow is read-only.
+
+The vector context is still allocated on first use and saved only for
+threads that used it, so threads that never execute vector instructions
+cost nothing more.
+
+diff --git a/arch/riscv/kernel/vector.c b/arch/riscv/kernel/vector.c
+index b112166..560a8a2 100644
+--- a/arch/riscv/kernel/vector.c
++++ b/arch/riscv/kernel/vector.c
+@@ -235,21 +235,16 @@ void riscv_v_vstate_ctrl_init(struct task_struct *tsk)
+ 	if (!(has_vector() || has_xtheadvector()))
+ 		return;
+ 
+-	next = riscv_v_ctrl_get_next(tsk);
+-	if (!next) {
+-		if (READ_ONCE(riscv_v_implicit_uacc))
+-			cur = PR_RISCV_V_VSTATE_CTRL_ON;
+-		else
+-			cur = PR_RISCV_V_VSTATE_CTRL_OFF;
+-	} else {
+-		cur = next;
+-	}
+-	/* Clear next mask if inherit-bit is not set */
+-	inherit = riscv_v_ctrl_test_inherit(tsk);
+-	if (!inherit)
+-		next = PR_RISCV_V_VSTATE_CTRL_DEFAULT;
+-
+-	riscv_v_ctrl_set(tsk, cur, next, inherit);
++	/*
++	 * NanoKVM OS: every user thread may use the vector unit, from exec on;
++	 * threads and forks copy it. User code (OpenSSL's C906 paths) relies on
++	 * this instead of asking PR_RISCV_V_GET_CONTROL, which a seccomp filter
++	 * may forbid. riscv_v_set_current refuses to turn it off.
++	 */
++	(void)next;
++	(void)inherit;
++	cur = PR_RISCV_V_VSTATE_CTRL_ON;
++	riscv_v_ctrl_set(tsk, cur, PR_RISCV_V_VSTATE_CTRL_DEFAULT, false);
+ }
+ 
+ long riscv_v_vstate_ctrl_get_current(void)
+@@ -274,11 +269,8 @@ long riscv_v_vstate_ctrl_set_current(unsigned long arg)
+ 	cur = VSTATE_CTRL_GET_CUR(arg);
+ 	switch (cur) {
+ 	case PR_RISCV_V_VSTATE_CTRL_OFF:
+-		/* Do not allow user to turn off V if current is not off */
+-		if (riscv_v_ctrl_get_cur(current) != PR_RISCV_V_VSTATE_CTRL_OFF)
+-			return -EPERM;
+-
+-		break;
++		/* NanoKVM OS: the vector unit stays on for every user thread. */
++		return -EPERM;
+ 	case PR_RISCV_V_VSTATE_CTRL_ON:
+ 		break;
+ 	case PR_RISCV_V_VSTATE_CTRL_DEFAULT:
+@@ -291,8 +283,9 @@ long riscv_v_vstate_ctrl_set_current(unsigned long arg)
+ 	next = VSTATE_CTRL_GET_NEXT(arg);
+ 	inherit = VSTATE_CTRL_GET_INHERIT(arg);
+ 	switch (next) {
+-	case PR_RISCV_V_VSTATE_CTRL_DEFAULT:
+ 	case PR_RISCV_V_VSTATE_CTRL_OFF:
++		return -EPERM;	/* NanoKVM OS: no thread may start off either */
++	case PR_RISCV_V_VSTATE_CTRL_DEFAULT:
+ 	case PR_RISCV_V_VSTATE_CTRL_ON:
+ 		riscv_v_ctrl_set(current, cur, next, inherit);
+ 		return 0;
+@@ -308,7 +301,7 @@ static const struct ctl_table riscv_v_default_vstate_table[] = {
+ 		.procname	= "riscv_v_default_allow",
+ 		.data		= &riscv_v_implicit_uacc,
+ 		.maxlen		= sizeof(riscv_v_implicit_uacc),
+-		.mode		= 0644,
++		.mode		= 0444,	/* NanoKVM OS: always on, see ctrl_init */
+ 		.proc_handler	= proc_dobool,
+ 	},
+ };

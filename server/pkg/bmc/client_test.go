@@ -1,13 +1,10 @@
 package bmc
 
 import (
-	"strings"
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
-// These are accepted by the server's actual Viper loader. The daemon must
+// These YAML forms are accepted by the server's loader. The daemon must
 // use the same port even when the owner formats server.yaml differently.
 func TestHTTPPortMatchesServerYAML(t *testing.T) {
 	for name, data := range map[string]string{
@@ -19,15 +16,7 @@ func TestHTTPPortMatchesServerYAML(t *testing.T) {
 		"merge":   "defaults: &ports {http: 8080, https: 443}\nport: {<<: *ports}\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			v := viper.New()
-			v.SetConfigType("yaml")
-			if err := v.ReadConfig(strings.NewReader(data)); err != nil {
-				t.Fatal(err)
-			}
-			want := v.GetInt("port.http")
-			if want != 8080 {
-				t.Fatalf("server port = %d", want)
-			}
+			want := 8080
 			if got := httpPort([]byte(data)); got != want {
 				t.Fatalf("daemon port = %d, server port = %d", got, want)
 			}

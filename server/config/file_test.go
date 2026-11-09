@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -107,5 +108,33 @@ func TestConcurrentConfigEditsKeepBothUpdates(t *testing.T) {
 	}
 	if got.Proto != "https" || got.Cert.Crt != "cert.pem" || got.Stun != "new.example:3478" {
 		t.Fatalf("lost concurrent configuration edit: %+v", got)
+	}
+}
+
+func TestLegacyConfigDecoding(t *testing.T) {
+	previous := values
+	t.Cleanup(func() { values = previous })
+	for _, tc := range []struct {
+		input   string
+		proxies []string
+	}{
+		{`PORT: {HTTP: "8080", HTTPS: 443}
+security: {trustedProxies: "127.0.0.1,::1"}`, []string{"127.0.0.1", "::1"}},
+		{`port.http: 8080
+port.https: 443
+security: {trustedProxies: []}`, []string{}},
+		{`defaults: &ports {http: 8080, https: 443}
+port: {<<: *ports}`, nil},
+	} {
+		if err := readValues([]byte(tc.input)); err != nil {
+			t.Fatal(err)
+		}
+		var got Config
+		if err := decodeValues(values, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Port.Http != 8080 || got.Port.Https != 443 || !reflect.DeepEqual(got.Security.TrustedProxies, tc.proxies) {
+			t.Fatalf("config = %#v", got)
+		}
 	}
 }

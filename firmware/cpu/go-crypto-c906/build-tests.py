@@ -50,10 +50,23 @@ if args.poly1305_reference:
     reference_path = args.output / 'poly1305-reference_riscv64.s'
     reference_path.write_text(reference)
     overlay[str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/sum_riscv64.s')] = str(reference_path.absolute())
-    # The reference has no CRYPTOGAMS blocks functions to declare.
+    # The reference has no CRYPTOGAMS blocks functions to declare, and its
+    # update is the upstream one: the vector kernel and its update go too.
     empty = args.output / 'poly1305-reference_c906.go'
     empty.write_text('package poly1305\n')
-    overlay[str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/sum_c906_riscv64.go')] = str(empty.absolute())
+    empty_s = args.output / 'poly1305-reference_vector.s'
+    empty_s.write_text('// The upstream reference has no vector kernel.\n')
+    for name, path in [('sum_c906_riscv64.go', empty), ('sum_vector_riscv64.go', empty), ('sum_vector_riscv64.s', empty_s)]:
+        overlay[str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305' / name)] = str(path.absolute())
+    overlay.pop(str(goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305/c906_vector_test.go'), None)
+    # The upstream assembly update needs sum_asm.go's declaration on riscv64.
+    poly_dir = goroot / 'src/vendor/golang.org/x/crypto/internal/poly1305'
+    asm = (poly_dir / 'sum_asm.go').read_text()
+    tag = '//go:build gc && !purego && (amd64 || loong64 || ppc64 || ppc64le)\n'
+    assert asm.count(tag) == 1
+    asm_riscv64 = args.output / 'poly1305-reference_asm.go'
+    asm_riscv64.write_text(asm.replace(tag, '//go:build gc && !purego\n'))
+    overlay[str(poly_dir / 'sum_asm_riscv64.go')] = str(asm_riscv64.absolute())
 STD = {}
 sha3 = goroot / 'src/crypto/internal/fips140/sha3'
 if (sha3 / 'keccak_c906_riscv64.s').exists():

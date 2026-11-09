@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Check a generated XTheadVector kernel as linked into a Go linux/riscv64 binary.
 
-The function's bytes are disassembled by GNU objdump as XTheadVector and
-XTheadBb code and its th.* instructions must equal, in order, the WORD
-comments of its source:
+The function's bytes are disassembled by GNU objdump as XTheadVector,
+XTheadBa, XTheadBb and XTheadMac code; its th.* instructions must equal, in
+order, the th.* WORD comments of its source:
 xorKeyStreamC906 and chacha_riscv64.s by default, else --symbol and --source.
 Usage: check-binary.py --binutils PREFIX [--symbol SYM --source FILE] BINARY
 """
@@ -36,11 +36,11 @@ with tempfile.TemporaryDirectory() as d:
     (Path(d) / 'f.bin').write_bytes(code)
     src.write_text(f'.option norvc\n.incbin "{d}/f.bin"\n')
     obj = Path(d) / 'f.o'
-    run(args.binutils + 'as', '-march=rv64gc_xtheadvector_xtheadbb', '-o', str(obj), str(src))
+    run(args.binutils + 'as', '-march=rv64gc_xtheadvector_xtheadba_xtheadbb_xtheadmac', '-o', str(obj), str(src))
     dump = run(args.binutils + 'objdump', '-D', '-j', '.text', str(obj))
 got = [' '.join(x.split()) for x in re.findall(r'^\s*[0-9a-f]+:\s+[0-9a-f]+\s+(th\.\S+\s+\S+)', dump, re.M)]
 want = [' '.join(x.split()) for x in re.findall(r'WORD\t\$0x[0-9a-f]+\t// (.*)$',
-                                               args.source.read_text(), re.M)]
+                                               args.source.read_text(), re.M) if x.startswith("th.")]
 if got != want:
     for i, (g, w) in enumerate(zip(got, want)):
         if g != w:

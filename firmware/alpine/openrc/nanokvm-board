@@ -13,10 +13,9 @@ depend() {
     before nanokvm-network nanokvm-app
 }
 
+# The same package installs the scripts.
 run_legacy() {
-    local script="$1"
-    [ ! -x "$NANOKVM_BOARD_LEGACY_DIR/$script" ] ||
-        "$NANOKVM_BOARD_LEGACY_DIR/$script" start
+    "$NANOKVM_BOARD_LEGACY_DIR/$1" start
 }
 
 start() {

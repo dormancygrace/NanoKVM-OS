@@ -72,10 +72,9 @@ options until renewing.
   recognized as compatible; custom/additional rules in that table suppress
   offload. No `flags offload` or hardware acceleration claim is made. Kernel
   rejection of the flowtable falls back to ordinary NAT and is shown in the UI.
-- S35flowoffload now retires the earlier package-owned wildcard `nkos_flow`;
-  its broad cached flows could otherwise bypass the USB guard and VPN policy.
-  The matching base upgrade is required. This replaces the generic acceleration
-  policy with USB-scoped acceleration. `nkos_mss` is retained.
+- There is no generic flow offload table: acceleration is USB-scoped (the
+  wildcard `nkos_flow` of early releases is gone; the package upgrade
+  deletes one left in the kernel). `nkos_mss` is retained.
 - OpenRC `nanokvm-usb-internet` watches link/address/route/rule and foreign nft
   changes, with a five-second fallback reconciliation. Gateway/interface changes
   replace the table and discard its cached flows. Connections using a previous

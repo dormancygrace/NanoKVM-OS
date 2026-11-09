@@ -13,39 +13,10 @@ fi
 : "${NANOKVM_USB_NET_GADGET:=/sys/kernel/config/usb_gadget/g0}"
 : "${NANOKVM_USB_NET_CONFIG:=$NANOKVM_USB_NET_GADGET/configs/c.1}"
 : "${NANOKVM_USB_NET_UID:=/sys/class/cvi-base/base_uid}"
-: "${NANOKVM_USB_NET_PID:=/run/udhcpd.usb0.pid}"
+# The address and DHCP/DNS server for usb0 belong to this helper; the same
+# package installs it.
 : "${NANOKVM_USB_INTERNET_HELPER:=/usr/sbin/nkos-usb-internet}"
 : "${NANOKVM_USB_WATCH_SERVICE:=/etc/init.d/nanokvm-usb-internet}"
-
-conf=$NANOKVM_USB_NET_RUN/udhcpd.conf
-
-owns_daemon() {
-    [ -r "$NANOKVM_USB_NET_PID" ] || return 1
-    pid=$(cat "$NANOKVM_USB_NET_PID" 2>/dev/null) || return 1
-    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
-    [ "$pid" -gt 1 ] || return 1
-    [ -r "/proc/$pid/comm" ] || return 1
-    [ "$(cat "/proc/$pid/comm")" = udhcpd ] || return 1
-    # Accept the old path during an upgrade, but never another interface's daemon.
-    tr '\000' '\n' < "/proc/$pid/cmdline" | grep -Fqx -e "$conf" -e /etc/udhcpd.usb0.conf
-}
-
-stop_legacy() {
-    if owns_daemon; then
-        kill "$pid" || return 1
-        attempts=0
-        while owns_daemon; do
-            attempts=$((attempts + 1))
-            [ "$attempts" -lt 30 ] || { echo 'USB DHCP server did not stop' >&2; return 1; }
-            sleep 0.1
-        done
-    fi
-    rm -f "$NANOKVM_USB_NET_PID"
-    if [ -r "$NANOKVM_USB_NET_RUN/address" ]; then
-        ip address del "$(cat "$NANOKVM_USB_NET_RUN/address")" dev usb0 2>/dev/null || true
-        rm -f "$NANOKVM_USB_NET_RUN/address"
-    fi
-}
 
 # The Go helper costs about 0.3 s per call on this CPU, and boot calls this
 # script several times. With no USB network function bound and nothing
@@ -65,10 +36,7 @@ helper_idle() {
 }
 
 stop() {
-    if [ -x "$NANOKVM_USB_INTERNET_HELPER" ] && ! helper_idle; then
-        "$NANOKVM_USB_INTERNET_HELPER" stop || return 1
-    fi
-    stop_legacy
+    helper_idle || "$NANOKVM_USB_INTERNET_HELPER" stop
 }
 
 prefix() {
@@ -94,59 +62,10 @@ prefix() {
 }
 
 start() {
-    if [ -x "$NANOKVM_USB_INTERNET_HELPER" ]; then
-        # Migrate the existing usb0 DHCP owner before the Alpine helper starts.
-        # Repeated starts leave the helper's address and daemon untouched.
-        stop_legacy || return 1
-        helper_idle && return 0
-        ipv4_prefix=$(prefix) || return 1
-        "$NANOKVM_USB_INTERNET_HELPER" apply "$ipv4_prefix"
-        return
-    fi
-    if [ -e "$NANOKVM_USB_NET_BOOT/usb.internet" ]; then
-        echo 'USB internet requires the Alpine network helper' >&2
-        return 1
-    fi
-    # Boot flags alone can remain set in HID-only mode. Check actual links.
-    if [ ! -L "$NANOKVM_USB_NET_CONFIG/rndis.usb0" ] && [ ! -L "$NANOKVM_USB_NET_CONFIG/ncm.usb0" ]; then
-        stop
-        return
-    fi
-    ip link set dev usb0 up || return 1
-    if [ -e "$NANOKVM_USB_NET_BOOT/rndis.nodhcpd" ]; then
-        stop
-        return
-    fi
+    # Repeated starts leave the helper's address and daemon untouched.
+    helper_idle && return 0
     ipv4_prefix=$(prefix) || return 1
-    umask 077
-    cat > "$conf.next" <<EOF
-start $ipv4_prefix.100
-end $ipv4_prefix.200
-interface usb0
-pidfile $NANOKVM_USB_NET_PID
-lease_file $NANOKVM_USB_NET_RUN/udhcpd.leases
-option subnet 255.255.255.0
-option lease 864000
-EOF
-    if ! cmp -s "$conf.next" "$conf"; then
-        stop || return 1
-    fi
-    mv "$conf.next" "$conf"
-    # A repeated start also restores the address after a gadget rebind.
-    ip address replace "$ipv4_prefix.1/24" dev usb0 || return 1
-    printf '%s.1/24\n' "$ipv4_prefix" > "$NANOKVM_USB_NET_RUN/address"
-    owns_daemon && return 0
-    # Do not let the daemon inherit the init-script serialization lock.
-    # Own the foreground process PID, including on older BusyBox builds that
-    # ignore the pidfile option. Do not retain the caller's pipes or lock.
-    udhcpd -f -S "$conf" </dev/null >/dev/null 2>&1 9>&- &
-    printf '%s\n' "$!" > "$NANOKVM_USB_NET_PID"
-    attempts=0
-    until owns_daemon; do
-        attempts=$((attempts + 1))
-        [ "$attempts" -lt 30 ] || { echo 'USB DHCP server did not start' >&2; return 1; }
-        sleep 0.1
-    done
+    "$NANOKVM_USB_INTERNET_HELPER" apply "$ipv4_prefix"
 }
 
 mkdir -p "$NANOKVM_USB_NET_RUN"

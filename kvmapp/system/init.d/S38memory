@@ -52,7 +52,8 @@ apply_zram() {
         if [ -e /sys/block/zram0/reset ]; then echo 1 > /sys/block/zram0/reset; fi
         return
     fi
-    modprobe zram num_devices=1 || fail 'ZRAM is unavailable in this kernel.'
+    # zram is built in, with zram0; a modular one would load here.
+    [ -e /sys/block/zram0 ] || modprobe zram num_devices=1
     if [ "$ZRAM_SIZE" = auto ]; then
         # Half of the memory Linux keeps while video holds its largest buffer
         # set, in whole MiB: MemTotal outside a CMA region, plus what 2160p

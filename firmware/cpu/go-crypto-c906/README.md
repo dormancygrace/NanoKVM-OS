@@ -114,7 +114,15 @@ vector context.
 
 ## Poly1305
 
-The prepared GOROOT runs CRYPTOGAMS `poly1305_blocks` (Andy Polyakov,
+Go's `update` (`sum_vector_riscv64.go`) hashes runs of at least four whole
+groups of five blocks (320 bytes) with the vector kernel described below and
+everything else, and every CPU without XTheadVector, with `updateScalar`.
+`prepare.py` derives `sum_asm_riscv64.go` from `sum_asm.go` (the same `mac`
+wrapper, without the assembly `update` declaration).
+
+### CRYPTOGAMS (`updateScalar`)
+
+`updateScalar` runs CRYPTOGAMS `poly1305_blocks` (Andy Polyakov,
 BSD-3-Clause, see `CRYPTOGAMS-LICENSE`), the same Poly1305 as the kernel's
 `lib/crypto` and NanoKVM OpenSSL: `gen_poly1305_c906.py` takes the pinned
 `poly1305-riscv.pl` that Linux 7.3.1 builds (sha256 `9a75fc04...`), assembles
@@ -123,14 +131,14 @@ it with GNU as with and without `__riscv_misaligned_fast`, and writes both
 `sum_c906_riscv64.go` declares them. The generator rejects registers Go
 reserves (g in x27, gp, tp) and anything but one final `ret`.
 
-Go's `update`, written by the generator, adapts the state:
+`updateScalar`, written by the generator, adapts the state:
 
 - `macState` is h[3], r[2], s[2]; CRYPTOGAMS wants s1 = r1 + (r1 >> 2) where
-  Go keeps s, so `update` builds a 48-byte context in its frame and copies h
-  back;
+  Go keeps s, so `updateScalar` builds a 48-byte context in its frame and
+  copies h back;
 - `Sum` passes a final partial block: it is copied to the frame with 0x01
   and zeros after it and hashed with padbit 0, as OpenSSL does;
-- CRYPTOGAMS reduces h2 when the next block starts, so `update` folds
+- CRYPTOGAMS reduces h2 when the next block starts, so `updateScalar` folds
   5 * (h2 >> 2) into h0 at the end (as `poly1305_emit` does first): h2 <= 4,
   below the 2 * (2^130 - 5) the finalizer needs;
 - `useMisalignedLoads` (`cpu.RISCV64.HasFastMisaligned`) picks the 64-bit
@@ -156,6 +164,66 @@ radix-2^64 `update`), server stopped, thread CPU, best of five: `update`
 1408 B 178-196 -> 199-204 MB/s, 16 KiB 194-199 -> 204-209 MB/s;
 `crypto/tls` ChaCha20-Poly1305 record (Seal + Open) 1400 B 116.8 -> 116.7 us,
 4 KiB -1.5%, 16 KiB 620 -> 608 us (-2%).
+
+### Vector kernel (`gen_poly1305_vector.py`)
+
+On the C906 a `mul`, `mulhu` or `th.mula` with an operand wider than 32 bits
+takes about four cycles and blocks issue; with both operands below 2^32 it
+issues every cycle. CRYPTOGAMS works in radix 2^64, so 40 of its 76 cycles per
+block go to its 10 multiplies. `poly1305BlocksVector` keeps h and r in five
+26-bit limbs, where every product has operands below 2^32, and hashes groups
+of five blocks:
+
+- four blocks in XTheadVector lanes: 25 `th.vwmulu.vv`/`th.vwmaccu.vv`
+  (32x32 -> 64 bits, four lanes, four cycles each) per group, the carries at
+  SEW 64, narrowed back with `th.vnsrl.vi`;
+- a fifth block in scalar registers (`mul`, `th.mula`), interleaved with the
+  vector instructions: the core issues scalar instructions while a vector
+  instruction occupies the 64-bit datapath;
+- the scalar code also splits the next group's four vector blocks into limbs
+  in a frame buffer, since XTheadVector loads fault on misaligned addresses
+  and TLS ciphertext starts 5 bytes into the record.
+
+Every group multiplies the five accumulators by r^5, except the last one,
+where the lanes multiply by r^5, r^4, r^3, r^2 and the scalar block by r; the
+prologue computes the powers, and the lanes are summed at the end. Go's
+`update` converts h and r between radix 2^64 and 2^26 around the call (h2 <= 4
+on exit). The kernel uses neither ra (Go saves it only in non-leaf
+functions, and traceback reads it from the register in a leaf) nor g, gp or
+tp; its 176-byte frame is declared, so `TestC906ProfileUnwind` covers it too.
+
+It is selected when `riscv_hwprobe` reports XTheadVector (T-Head vendor key)
+and `PR_RISCV_V_GET_CONTROL` reports vector state enabled;
+`NANOKVM_POLY1305=generic` keeps `updateScalar`. QEMU has no XTheadVector, so
+the generator executes the kernel itself on 400 random and extreme inputs
+(clamped-maximum r, all-ones messages, accumulator limbs at their 2^27 entry
+bound) against a big-integer Poly1305. It checks on every instruction that
+scalar multiplies have operands below 2^32 and that no 32-bit vector sum
+wraps, and requires a negative control (no pad bit) to fail. GNU as assembles
+the kernel into WORDs. On the device, `TestC906Vector` compares `update` with
+`updateScalar` and the big-integer oracle around the group boundaries, at
+every offset, with extreme keys and accumulators up to h2 = 7;
+`NANOKVM_REQUIRE_XTHEADVECTOR=1` makes it fail if the kernel is not selected.
+The reduction and guard-page tests run `updateScalar` as a second variant.
+
+Stand, 2026-11-09, `go test -bench C906VectorGroups` (offset 5, MB/s):
+
+| bytes | 240 | 320 | 480 | 800 | 1360 | 16320 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `updateScalar` | 177 | 180 | 184 | 190 | 190 | 188 |
+| vector kernel | 165 | 190 | 216 | 252 | 276 | 288 |
+
+ChaCha20-Poly1305 Seal (`TestC906Measure`, thread CPU, medians, three
+alternating runs, server running): 1400 B 49.4 -> 53.0 MB/s (+7%), 16 KiB
+64.6 -> 73.1-78.4 MB/s (+13-21%).
+
+```sh
+B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
+python3 gen_poly1305_vector.py --binutils $B --go --check sum_vector_riscv64.s
+# on the device, in /var/tmp:
+NANOKVM_REQUIRE_XTHEADVECTOR=1 ./poly1305.test -test.v
+./poly1305.test -test.run XXX -test.bench C906VectorGroups
+```
 
 ## Earlier baseline results
 
@@ -220,9 +288,10 @@ python3 gen_chacha_linux.py --binutils $B --check ../../../platform/kernel/0040-
 `linux-test/` is a module that carries the same assembly and glue, checks
 them against `chacha_block_generic()` and times them on the device: 98 MB/s
 for a 1420-byte WireGuard packet and 116 MB/s for 16 KiB (81 and 93 with
-the three-instruction rotates), against 47-49 for the generic kernel code. Poly1305 stays scalar: at 211-249 MB/s it is not the
-limit, and a 64-bit vector datapath multiplies no faster than scalar
-`mul`/`mulhu`.
+the three-instruction rotates), against 47-49 for the generic kernel code.
+The kernel's Poly1305 is still the scalar CRYPTOGAMS code (211-249 MB/s); the
+vector kernel above multiplies 32-bit limbs, which the C906 does at one per
+cycle in both units, where CRYPTOGAMS' 64-bit multiplies block for four.
 
 ## GHASH in the Linux kernel
 

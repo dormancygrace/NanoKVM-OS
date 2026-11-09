@@ -87,19 +87,33 @@ for name, pkg in [('chacha_riscv64.go', chacha), ('chacha_riscv64.s', chacha)]:
     shutil.copyfile(crypto / name, out / 'src' / pkg / name)
     vendor_files.append(f'{pkg}/{name}')
 # Poly1305: keep the pinned upstream reference, install CRYPTOGAMS (the
-# kernel's and OpenSSL's Poly1305) behind Go's update.
+# kernel's and OpenSSL's Poly1305) and the vector kernel behind Go's update.
 poly = 'vendor/golang.org/x/crypto/internal/poly1305'
 materialize(poly)
 if sha256(crypto / 'sum_riscv64.s') != pin['x_crypto_v0.57.0_sum_riscv64_s_sha256']:
     parser.error('sum_riscv64.s differs from x/crypto v0.57.0')
 edit(f'{poly}/mac_noasm.go', '(!amd64 && !loong64 && !ppc64le && !ppc64 && !s390x)',
      '(!amd64 && !loong64 && !ppc64le && !ppc64 && !riscv64 && !s390x)')
-edit(f'{poly}/sum_asm.go', '(amd64 || loong64 || ppc64 || ppc64le)', '(amd64 || loong64 || ppc64 || ppc64le || riscv64)')
+# riscv64 gets sum_asm.go's mac wrapper, but update is Go code
+# (sum_vector_riscv64.go) that picks the vector kernel or updateScalar.
+asm_tag = '//go:build gc && !purego && (amd64 || loong64 || ppc64 || ppc64le)\n'
+update_decl = '//go:noescape\nfunc update(state *macState, msg []byte)\n\n'
+text = (out / 'src' / poly / 'sum_asm.go').read_text()
+require_once(text, asm_tag, f'{poly}/sum_asm.go')
+require_once(text, update_decl, f'{poly}/sum_asm.go')
+text = text.replace(asm_tag, '//go:build gc && !purego\n\n'
+                    '// NanoKVM: sum_asm.go for riscv64, without the update declaration\n'
+                    '// (sum_vector_riscv64.go implements it).\n').replace(update_decl, '')
+(out / 'src' / poly / 'sum_asm_riscv64.go').write_text(text)
 shutil.copyfile(crypto / 'sum_c906_riscv64.s', out / 'src' / poly / 'sum_riscv64.s')
 shutil.copyfile(crypto / 'sum_misaligned_riscv64.go', out / 'src' / poly / 'sum_misaligned_riscv64.go')
 shutil.copyfile(crypto / 'sum_c906_riscv64.go', out / 'src' / poly / 'sum_c906_riscv64.go')
-vendor_files += [f'{poly}/mac_noasm.go', f'{poly}/sum_asm.go', f'{poly}/sum_riscv64.s', f'{poly}/sum_misaligned_riscv64.go',
-                 f'{poly}/sum_c906_riscv64.go']
+# The vector kernel (radix 2^26, XTheadVector) takes long messages; update
+# (sum_vector_riscv64.go) hands the rest to the CRYPTOGAMS updateScalar.
+for name in ['sum_vector_riscv64.go', 'sum_vector_riscv64.s']:
+    shutil.copyfile(crypto / name, out / 'src' / poly / name)
+vendor_files += [f'{poly}/mac_noasm.go', f'{poly}/sum_asm_riscv64.go', f'{poly}/sum_riscv64.s', f'{poly}/sum_misaligned_riscv64.go',
+                 f'{poly}/sum_c906_riscv64.go', f'{poly}/sum_vector_riscv64.go', f'{poly}/sum_vector_riscv64.s']
 # Short substring search without Rabin-Karp (go-bytes-index): where Index
 # falls back to Rabin-Karp, a sep of at most 255 bytes uses Horspool.
 index = source.parent / 'go-bytes-index'

@@ -7,7 +7,7 @@ The same Poly1305 as the kernel's lib/crypto and NanoKVM OpenSSL (patch
 (BSD-3-Clause, see CRYPTOGAMS-LICENSE) is assembled by GNU as twice, with and
 without __riscv_misaligned_fast, and each poly1305_blocks becomes a Go
 function of WORDs with the GNU mnemonics in comments; branches are
-PC-relative and stay within the function. The Go function update, written
+PC-relative and stay within the function. The Go function updateScalar, written
 here, adapts Go's macState (h[3], r[2], s[2]; CRYPTOGAMS wants
 s1 = r1 + (r1 >> 2) where Go keeps s) through a context in its frame, pads a
 final partial block like OpenSSL does (0x01, zeros, padbit 0), and picks the
@@ -104,7 +104,7 @@ HEADER = '''\
 
 #include "textflag.h"
 
-// update hashes msg into state. Whole blocks go to CRYPTOGAMS poly1305_blocks
+// updateScalar hashes msg into state. Whole blocks go to CRYPTOGAMS poly1305_blocks
 // with a context in the frame: h0, h1, h2, r0, r1 and s1 = r1 + (r1 >> 2)
 // at 8..55(SP) (Go keeps s, the final key half, where CRYPTOGAMS keeps s1). A
 // final partial block (from Sum) is copied to 56(SP), followed by 0x01 and
@@ -114,12 +114,12 @@ HEADER = '''\
 // own s0-s3 frame are nops), so Go's traceback sees frameless leaves.
 //
 // CRYPTOGAMS reduces h2 when the next block starts, so h2 can be large after
-// the last one; finalize needs h < 2 * (2^130 - 5). update folds
+// the last one; finalize needs h < 2 * (2^130 - 5). updateScalar folds
 // 5 * (h2 >> 2) into h0 and keeps h2 & 3, as CRYPTOGAMS poly1305_emit does
 // first: then h2 <= 4.
 //
-// func update(state *macState, msg []byte)
-TEXT ·update(SB), $72-32
+// func updateScalar(state *macState, msg []byte)
+TEXT ·updateScalar(SB), $72-32
 	MOV	state+0(FP), X5
 	MOV	0(X5), X6
 	MOV	X6, 8(X2)

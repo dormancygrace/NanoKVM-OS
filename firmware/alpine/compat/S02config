@@ -5,6 +5,7 @@ set -eu
 : "${NANOKVM_CONFIG_BOOT:=/boot}"
 : "${NANOKVM_CONFIG_ETC:=/etc}"
 : "${NANOKVM_CONFIG_DATA:=/mnt/data}"
+: "${NANOKVM_CONFIG_DEFAULTS:=/usr/share/nanokvm/board-defaults}"
 
 copy_config() (
     src=$1 destination=$2 mode=$3
@@ -23,8 +24,8 @@ case "${1:-}" in
         # NanoKVM OS is a NanoKVM receiver, not an Alpha/Beta camera.
         # Keep a populated sensor configuration, seed a missing/empty one from LT.
         if [ ! -s "$NANOKVM_CONFIG_DATA/sensor_cfg.ini" ]; then
-            test -s "$NANOKVM_CONFIG_DATA/sensor_cfg.ini.LT"
-            copy_config "$NANOKVM_CONFIG_DATA/sensor_cfg.ini.LT" "$NANOKVM_CONFIG_DATA/sensor_cfg.ini" 644
+            test -s "$NANOKVM_CONFIG_DEFAULTS/sensor_cfg.ini.LT"
+            copy_config "$NANOKVM_CONFIG_DEFAULTS/sensor_cfg.ini.LT" "$NANOKVM_CONFIG_DATA/sensor_cfg.ini" 644
         fi
         echo 'NanoKVM boot configuration imported'
         ;;

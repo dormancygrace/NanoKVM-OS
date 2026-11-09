@@ -49,7 +49,6 @@ stop_services() {
     stop_process NanoKVM-Server || return 1
     server_supervisor wait || return 1
     stop_process kvm_system || return 1
-    remove_legacy_links
 }
 
 server=/kvmapp/server/NanoKVM-Server
@@ -88,27 +87,15 @@ start_background() {
     fi
 }
 
-# The stock firmware copied the programs to /tmp so that its updater could
-# overwrite /kvmapp under them; later releases left symlinks there. apk
-# replaces a file by renaming over it, so the services run from /kvmapp and
-# keep the old file open until they restart.
-remove_legacy_links() {
-    rm -rf /tmp/kvm_system /tmp/server
-}
-
-# The video settings are the device's, not a package's. Write the defaults of
-# a new installation where a setting is missing: a fresh image, or an update
-# from a release whose package owned them and so removed the unchanged ones.
-# The .apk-new copies those releases left beside changed settings go too.
+# The video settings are the device's, not a package's: write the defaults
+# where a setting is missing (a fresh image or a restored root). Shell tests
+# only, no process, when they are there.
 video_settings() {
     [ -d /kvmapp/kvm ] || mkdir -p /kvmapp/kvm
     [ -s /kvmapp/kvm/fps ] || printf '90' > /kvmapp/kvm/fps
     [ -s /kvmapp/kvm/qlty ] || printf '15000' > /kvmapp/kvm/qlty
     [ -s /kvmapp/kvm/res ] || printf '0' > /kvmapp/kvm/res
     [ -s /kvmapp/kvm/type ] || printf 'h265' > /kvmapp/kvm/type
-    for leftover in /kvmapp/kvm/*.apk-new; do
-        { [ ! -e "$leftover" ] && [ ! -L "$leftover" ]; } || rm -f "$leftover"
-    done
 }
 
 prepare_hdmi_receiver() {
@@ -116,29 +103,21 @@ prepare_hdmi_receiver() {
     # Release it before kvm_system probes I2C and the server initializes VI/MMF.
     # The server reapplies the persisted capture-disabled policy before serving
     # clients; this does not enable streaming or change the user's preference.
+    # The driver releases the reset at probe, so a boot finds it released and
+    # does not wait; a restart after a stopped capture does.
     reset_state=/sys/bus/platform/devices/hdmi-reset/asserted
-    [ -e "$reset_state" ] || return 0
     receiver_reset=
-    # read fails at a missing final newline, with the value read.
-    if ! { read -r receiver_reset < "$reset_state" || [ -n "$receiver_reset" ]; }; then
-        echo 'Cannot read HDMI receiver reset state' >&2
-        return 1
-    fi
-    case "$receiver_reset" in
-        0) return 0 ;;
-        1)
-            if ! printf '0' > "$reset_state"; then
-                echo 'Cannot release HDMI receiver reset' >&2
-                return 1
-            fi
-            # Finish the quiet window before either service can probe I2C.
-            # Keep UXC's existing startup warmup; C/D load firmware more slowly.
-            case "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" in
-                ux) sleep 1 ;;
-                *) sleep 2.5 ;;
-            esac
-            ;;
-        *) echo 'Invalid HDMI receiver reset state' >&2; return 1 ;;
+    read -r receiver_reset < "$reset_state" || return 1
+    [ "$receiver_reset" = 1 ] || return 0
+    printf '0' > "$reset_state" || return 1
+    # The receiver must see no I2C until it has loaded its firmware
+    # (docs/VIDEO.md): a minimum quiet window, so not an I2C poll. UXC keeps
+    # its one-second startup warmup; C/D load firmware more slowly.
+    model=
+    [ ! -r /etc/kvm/hdmi_version ] || read -r model < /etc/kvm/hdmi_version || true
+    case "$model" in
+        ux) sleep 1 ;;
+        *) sleep 2.5 ;;
     esac
 }
 
@@ -168,10 +147,11 @@ start_services() {
     if [ "$server_running" = 0 ]; then
         # Without a usable receiver reset the server still starts, without video.
         prepare_hdmi_receiver || echo 'Starting without video: the HDMI receiver reset is not usable' >&2
+        # The server writes it once it listens (nanokvm-app waits for it).
+        [ ! -e /run/nanokvm/listening ] || rm -f /run/nanokvm/listening
     fi
 
     video_settings
-    remove_legacy_links
     start_background "$hardware_daemon"
 
     if [ "$server_running" = 0 ]; then
@@ -183,15 +163,6 @@ case "$1" in
   start)
     # Here and below the shell reads the small files itself: each process
     # started at boot comes before the server's.
-    prefix=
-    [ ! -r /boot/hostname.prefix ] || read -r prefix < /boot/hostname.prefix || true
-    [ "$prefix" = kvm ] || printf kvm > /boot/hostname.prefix
-
-    # Copy sensor config if the file exists
-    if [ -f /mnt/data/sensor_cfg.ini.LT ] &&
-        ! cmp -s /mnt/data/sensor_cfg.ini.LT /mnt/data/sensor_cfg.ini; then
-        cp /mnt/data/sensor_cfg.ini.LT /mnt/data/sensor_cfg.ini || exit 1
-    fi
 
     # Generate unique device key: the two fields of "UID: <first>_<second>"
     # joined, as cut took them, read by the shell itself.

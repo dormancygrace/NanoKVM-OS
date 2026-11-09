@@ -219,6 +219,7 @@ func run() {
 			if err != nil {
 				panic("start https server failed")
 			}
+			markListening()
 			if err := server.ServeTLS(utils.RawListener(listener), "", ""); err != nil {
 				panic("start https server failed")
 			}
@@ -258,9 +259,23 @@ func run() {
 			}()
 		}
 
-		if err := utils.NewHTTPServer(httpAddr, r, true).ListenAndServe(); err != nil {
+		server := utils.NewHTTPServer(httpAddr, r, true)
+		listener, err := net.Listen("tcp", server.Addr)
+		if err != nil {
 			panic("start http server failed")
 		}
+		markListening()
+		if err := server.Serve(listener); err != nil {
+			panic("start http server failed")
+		}
+	}
+}
+
+// markListening tells nanokvm-app that the web server accepts connections:
+// the boot services after it wait for this file (S95nanokvm removes it).
+func markListening() {
+	if err := os.WriteFile("/run/nanokvm/listening", nil, 0o644); err != nil {
+		log.Printf("cannot mark the server listening: %v", err)
 	}
 }
 

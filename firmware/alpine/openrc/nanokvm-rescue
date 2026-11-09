@@ -9,7 +9,9 @@ description="SSH for repair when the NanoKVM server does not start"
 # $NANOKVM_RUN/ssh-rescue (the SSH settings show it) and lasts until a
 # restart. Turning SSH on or off (S50sshd) during this boot ends it.
 : "${NANOKVM_RESCUE_WAIT:=180}"
-: "${NANOKVM_APP_SERVICE:=/etc/init.d/nanokvm-app}"
+: "${NANOKVM_SERVER_CONFIG:=/etc/kvm/server.yaml}"
+: "${NANOKVM_PROC_ROOT:=/proc}"
+: "${NANOKVM_PROC_NET:=$NANOKVM_PROC_ROOT/net}"
 : "${NANOKVM_SSH_STOP:=/etc/kvm/ssh_stop}"
 : "${NANOKVM_RUN:=/run/nanokvm}"
 : "${NANOKVM_KMSG:=/dev/kmsg}"
@@ -20,12 +22,25 @@ depend() {
     after nanokvm-app nanokvm-ssh nanokvm-network
 }
 
+# The configured ports as /proc/net/tcp writes them, from the numeric block
+# the server emits. Other valid YAML (quoted numbers, flow mappings, aliases)
+# prints nothing: then any listener of the server counts.
+server_ports() {
+    local http https
+    if [ ! -e "$NANOKVM_SERVER_CONFIG" ]; then
+        printf '0050 01BB\n'
+        return 0
+    fi
+    http=$(sed -n '/^port: *$/,/^[^ ]/s/^ *http: *\([1-9][0-9]*\) *\(#.*\)\{0,1\}$/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    https=$(sed -n '/^port: *$/,/^[^ ]/s/^ *https: *\([1-9][0-9]*\) *\(#.*\)\{0,1\}$/\1/p' "$NANOKVM_SERVER_CONFIG" 2>/dev/null)
+    [ "$http" -gt 0 ] 2>/dev/null && [ "$http" -le 65535 ] 2>/dev/null &&
+        [ "$https" -gt 0 ] 2>/dev/null && [ "$https" -le 65535 ] 2>/dev/null || return 1
+    printf '%04X %04X\n' "$http" "$https"
+}
+
 # Whether NanoKVM-Server itself listens on one of its configured ports: an
 # unrelated program on the port must not count.
 server_up() (
-    # shellcheck source=/dev/null
-    . "$NANOKVM_APP_SERVICE" > /dev/null 2>&1
-    ports=$(server_ports) || ports=
     pid=$(pidof NanoKVM-Server) || exit 1
     sockets=$(ls -l "$NANOKVM_PROC_ROOT/${pid%% *}/fd" 2> /dev/null)
     [ -n "$sockets" ] || exit 1
@@ -49,7 +64,8 @@ say() {
 }
 
 rescue() {
-    local n=0 up=0
+    local n=0 up=0 ports
+    ports=$(server_ports) || ports=
     while [ "$n" -lt "$NANOKVM_RESCUE_WAIT" ]; do
         if server_up; then
             # Five checks in a row: a server that its supervisor keeps

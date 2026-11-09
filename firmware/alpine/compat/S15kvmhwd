@@ -2,66 +2,36 @@
 # NanoKVM OS counterpart of the stock S15kvmhwd. Pinmux and board reset/enable
 # ownership are in DT; do not export global GPIOs or reload i2c-gpio here.
 #
-# A previously published image declared `pcie` in its DT even when it
-# had been installed on a Cube.  The OLED address is the authoritative runtime
-# discriminator: alpha is 0x3d on I2C1, beta/Cube is 0x3d on I2C5, and PCIe is
-# 0x3c on I2C5.  Do not let a copied PCIe DT make the native OLED service probe
-# the wrong address on an otherwise running Cube.
+# The board is the DT profile that first boot selected (firmware/boards). The
+# HDMI receiver is fixed hardware: it is probed on I2C4 once for this chip and
+# kept; `re-detect` probes it again.
 set -eu
-profiled=0
+
+: "${NANOKVM_KVM_ETC:=/etc/kvm}"
+: "${NANOKVM_BOARD_REVISION:=/sys/firmware/devicetree/base/sipeed,board-revision}"
+: "${NANOKVM_CHIP_UID:=/sys/class/cvi-base/base_uid}"
 
 die() { echo "S15kvmhwd: $*" >&2; exit 1; }
-i2c_available() { [ -c "/dev/i2c-$1" ]; }
-check_board() {
-    revision=/sys/firmware/devicetree/base/sipeed,board-revision
-    [ -r "$revision" ] || die "board revision is missing from Device Tree"
-    declared_board=$(tr -d '\000' < "$revision")
-    if [ -r /sys/firmware/devicetree/base/nanokvm,profile-version ]; then profiled=1; fi
-    [ -w /sys/bus/platform/devices/hdmi-reset/pulse ] || die "HDMI reset controller is unavailable"
-    i2c_available 4 || die "HDMI I2C4 is unavailable"
-    { i2c_available 1 || i2c_available 5; } || die "OLED I2C bus is unavailable"
+
+board_profile() {
+    declared_board=$(tr -d '\000' < "$NANOKVM_BOARD_REVISION") ||
+        die "board revision is missing from Device Tree"
+    case "$declared_board" in
+        alpha|beta|pcie) board=$declared_board ;;
+        # Native OLED code keeps the beta name for base/Lite hardware.
+        lite) board=beta ;;
+        *) die "unselected or unknown boot profile: $declared_board" ;;
+    esac
 }
 
-# Preserve the stock targeted SMBus-read probes.  A successful probe with no
-# response is a normal negative result and must let HDMI detection try its
-# next address; a failed `i2cdetect` invocation is an I2C error and must stop.
-probe_address() {
-    result=$(i2cdetect -ry "$1" "$2" "$2") || return 2
-    address=${2#0x}
-    printf '%s\n' "$result" | grep -qw "$address"
-}
-# HDMI identification cannot proceed after a bus error. OLED detection is
-# advisory: a failed optional I2C1 probe must still permit I2C5 and the
-# established PCIe DT fallback to run.
+# The stock targeted SMBus-read probe. No response is a normal negative
+# result; a failed `i2cdetect` is an I2C error and stops the detection.
 responds() {
-    probe_address 4 "$1"
-    status=$?
-    [ "$status" -ne 2 ] || die "I2C4 probe failed at $1"
-    return "$status"
-}
-responds_on() { probe_address "$1" "$2"; }
-detect_board() {
-    if [ "$profiled" = 1 ]; then
-        # First boot selected this electrical profile before regular services.
-        # Keep the legacy beta name for native OLED code on base/Lite hardware.
-        case "$declared_board" in
-            alpha|beta|pcie) board=$declared_board; return ;;
-            lite) board=beta; return ;;
-            *) die "unselected or unknown boot profile: $declared_board" ;;
-        esac
-    fi
-    if i2c_available 1 && responds_on 1 0x3d; then
-        board=alpha
-    elif i2c_available 5 && responds_on 5 0x3d; then
-        board=beta
-    elif [ "$declared_board" = pcie ]; then
-        # Keep the former supported PCIe behavior when no OLED answers. This
-        # is a fallback for an explicitly PCIe-declared image, not evidence
-        # that an unknown board is a Cube.
-        board=pcie
-    else
-        die "OLED board type not identified; refusing to publish a guessed profile"
-    fi
+    result=$(i2cdetect -ry 4 "$1" "$1") || die "I2C4 probe failed at $1"
+    case " $result " in
+        *[[:space:]]"${1#0x}"[[:space:]]*) return 0 ;;
+    esac
+    return 1
 }
 detect_hdmi() {
     if responds 0x2c; then
@@ -72,68 +42,63 @@ detect_hdmi() {
         die "HDMI receiver not identified; keeping previous configuration"
     fi
 }
+
+# read_file NAME: the first line of /etc/kvm/NAME, or nothing.
+read_file() {
+    value=
+    [ ! -r "$NANOKVM_KVM_ETC/$1" ] || read -r value < "$NANOKVM_KVM_ETC/$1" || true
+}
 publish() {
-    mkdir -p /etc/kvm
-    temporary=$(mktemp "/etc/kvm/.$1.XXXXXX")
+    read_file "$1"
+    [ "$value" != "$2" ] || return 0
+    mkdir -p "$NANOKVM_KVM_ETC"
+    temporary=$(mktemp "$NANOKVM_KVM_ETC/.$1.XXXXXX")
     trap 'rm -f "$temporary"' EXIT
     printf '%s\n' "$2" > "$temporary"
     chmod 644 "$temporary"
-    mv -f "$temporary" "/etc/kvm/$1"
+    mv -f "$temporary" "$NANOKVM_KVM_ETC/$1"
     trap - EXIT
+}
+
+# The model probed on this chip before: a card moved to another board probes
+# its receiver again (the D EDID writer must never reach a UXC).
+chip=
+[ ! -r "$NANOKVM_CHIP_UID" ] || read -r chip < "$NANOKVM_CHIP_UID" || true
+cached_model() {
+    read_file hdmi_version
+    case "$value" in c|ux|d) hdmi=$value ;; *) return 1 ;; esac
+    read_file hdmi_uid
+    [ -n "$chip" ] && [ "$value" = "$chip" ]
+}
+probe_and_publish() {
+    detect_hdmi
+    publish hdmi_version "$hdmi"
+    [ -z "$chip" ] || publish hdmi_uid "$chip"
 }
 
 case "${1:-}" in
     stop) exit 0 ;;
     check)
-        check_board
-        detect_board
+        board_profile
         echo "NanoKVM OS: detected board=$board"
         ;;
     start|re-init|re-detect)
-        check_board
-        detect_board
+        board_profile
         # The board is known now: publish it before the receiver, so a receiver
         # that does not answer never costs ATX and the board-dependent paths.
         publish hw "$board"
-        if [ "$profiled" = 1 ]; then publish board-profile "$declared_board"; fi
-        # The receiver model is fixed hardware. At boot, a receiver that does
-        # not answer once (busy, a bus glitch) keeps the model identified on an
-        # earlier boot; an explicit re-detect or re-init still fails. The board
-        # itself was checked and detected above either way. ue is accepted as
-        # get_hdmi_version accepts it (earlier releases); start never writes it.
-        if [ "$1" = start ] && ! detected=$(detect_hdmi && printf '%s' "$hdmi"); then
-            cached=$(cat /etc/kvm/hdmi_version 2>/dev/null || true)
-            case "$cached" in
-                c|ux|d|ue) ;;
-                *) exit 1 ;;
-            esac
-            echo "S15kvmhwd: HDMI receiver not identified; keeping the model $cached of an earlier boot" >&2
-            logger -t nanokvm-board "HDMI receiver not identified; keeping the model $cached of an earlier boot" 2>/dev/null || true
-            detected=$cached
-        elif [ "$1" != start ]; then
-            detect_hdmi
-            detected=$hdmi
-        elif [ "$detected" = d ] && [ "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" = ux ]; then
-            # A UXC that missed one answer at 0x44 reads as a D; a receiver
-            # does not change between boots, and the D EDID writer must never
-            # reach a UXC. An explicit re-detect still reclassifies it.
-            detected=ux
+        publish board-profile "$declared_board"
+        if [ "$1" != start ] || ! cached_model; then
+            probe_and_publish
         fi
-        hdmi=$detected
-        publish hdmi_version "$hdmi"
         echo "NanoKVM OS: board=$board HDMI=$hdmi"
         ;;
     get_hdmi_version)
-        check_board
-        # The receiver model is fixed hardware. Native initialization calls this
-        # more than once, including while the detector may be using the I2C bus.
-        # A transient NACK at 0x44 must not downgrade an already identified UXC.
-        # Explicit re-detect remains available when hardware identification is needed.
-        case "$(cat /etc/kvm/hdmi_version 2>/dev/null || true)" in
-            c|ux|d|ue) exit 0 ;;
-        esac
-        detect_hdmi
-        publish hdmi_version "$hdmi"
+        # Native initialization calls this more than once, also while the
+        # detector may use the I2C bus: a published model stands.
+        read_file hdmi_version
+        case "$value" in c|ux|d) exit 0 ;; esac
+        probe_and_publish
         ;;
     *) echo "Usage: $0 {start|stop|check|re-init|re-detect|get_hdmi_version}" >&2; exit 2 ;;
 esac

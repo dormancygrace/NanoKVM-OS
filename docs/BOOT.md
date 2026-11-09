@@ -44,9 +44,10 @@ modules no longer stop them: if one fails, the board warns and the server
 still starts, without video if need be, so settings, updates, ATX power and
 the keyboard and mouse stay reachable. Before, one failed step at boot, for
 example a receiver that did not answer once, left a remote device with
-nothing listening (SSH is off by default). At boot a receiver that does not
-answer keeps the model of an earlier boot (`/etc/kvm/hdmi_version`, with a
-warning); `S15kvmhwd re-detect` still fails. The hardware watchdog needs only
+nothing listening (SSH is off by default). The receiver model is probed once
+per chip and kept (`/etc/kvm/hdmi_version`, with the chip UID in
+`/etc/kvm/hdmi_uid`); a boot does not touch I2C4 for it again, and
+`S15kvmhwd re-detect` probes it anew. The hardware watchdog needs only
 the storage setup: its daemon feeds it on its own timer, so a failed
 application does not turn into a reboot loop.
 

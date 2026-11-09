@@ -32,7 +32,7 @@ export async function captureMediaElement(element: HTMLVideoElement | HTMLImageE
   return canvasToPng(canvas);
 }
 
-export function screenshotFilename(date = new Date()) {
+function screenshotFilename(date = new Date()) {
   const pad = (value: number, length = 2) => String(value).padStart(length, '0');
   return `NanoKVM-screenshot-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}-${pad(date.getMilliseconds(), 3)}.png`;
 }

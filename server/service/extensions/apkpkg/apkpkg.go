@@ -26,19 +26,11 @@ func Run(action, name string) error {
 	return osupdate.RunSoftware(action, name)
 }
 
-// Install installs packages together from the configured repositories, after
-// refreshing the indexes, under the same lock as other package operations.
-func Install(names ...string) error {
-	return install(false, names...)
-}
-
 // InstallCommunity installs packages of Alpine's community repository, which
-// is off by default: it switches the repository on first.
+// is off by default: it switches the repository on first. The packages are
+// installed together, after refreshing the indexes, under the same lock as
+// other package operations.
 func InstallCommunity(names ...string) error {
-	return install(true, names...)
-}
-
-func install(community bool, names ...string) error {
 	if len(names) == 0 {
 		return errors.New("no APK package to install")
 	}
@@ -52,10 +44,8 @@ func install(community bool, names ...string) error {
 		return err
 	}
 	defer lock.Close()
-	if community {
-		if err = osupdate.EnableCommunityLocked(); err != nil {
-			return fmt.Errorf("cannot enable the Alpine community repository: %w", err)
-		}
+	if err = osupdate.EnableCommunityLocked(); err != nil {
+		return fmt.Errorf("cannot enable the Alpine community repository: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()

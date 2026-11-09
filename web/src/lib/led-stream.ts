@@ -1,9 +1,9 @@
 import { browserPollEnv } from './visible-poll.ts';
 
-export type LEDStatus = { pwr: boolean; hdd: boolean } | null;
+type LEDStatus = { pwr: boolean; hdd: boolean } | null;
 type Listener = (status: LEDStatus) => void;
 type FallbackListener = (status: LEDStatus, startedAt?: number) => void;
-export type LEDSource = Pick<EventSource, 'onmessage' | 'onerror' | 'close'>;
+type LEDSource = Pick<EventSource, 'onmessage' | 'onerror' | 'close'>;
 
 type Env = {
   isVisible: () => boolean;

@@ -21,7 +21,7 @@ export type MonitorIdentity = {
 };
 
 // A form field that does not hold a valid value.
-export type IdentityField =
+type IdentityField =
   'manufacturer' | 'productCode' | 'name' | 'serialNumber' | 'serialText' | 'week' | 'year';
 
 const TEXT_LENGTH = 13;
@@ -126,7 +126,7 @@ function baseBlock(data: Uint8Array): Uint8Array | undefined {
   return undefined;
 }
 
-export type EDIDImport =
+type EDIDImport =
   { ok: true; identity: MonitorIdentity } | { ok: false; error: 'not-edid' | 'checksum' };
 
 // The identity of an EDID file. The serial number is kept: the identity is

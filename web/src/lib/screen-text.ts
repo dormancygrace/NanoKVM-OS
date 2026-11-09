@@ -21,7 +21,7 @@ export type ScreenTextResult = {
 export const screenTextLanguages = ['latin', 'chinese', 'cyrillic'] as const;
 export type ScreenTextLanguage = (typeof screenTextLanguages)[number];
 
-export function isScreenTextLanguage(value: unknown): value is ScreenTextLanguage {
+function isScreenTextLanguage(value: unknown): value is ScreenTextLanguage {
   return screenTextLanguages.includes(value as ScreenTextLanguage);
 }
 

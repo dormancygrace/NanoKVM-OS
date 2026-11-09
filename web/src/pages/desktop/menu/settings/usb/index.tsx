@@ -31,7 +31,7 @@ import { UserDisk } from './user-disk';
 
 // Which part a panel shows: the composition (the toolbar's quick menu and
 // Settings > USB Gadget > Composition) or the identity (its other page).
-export type UsbPart = 'composition' | 'identity';
+type UsbPart = 'composition' | 'identity';
 
 export const Usb = ({ part }: { part: UsbPart }) => {
   const { t } = useTranslation();

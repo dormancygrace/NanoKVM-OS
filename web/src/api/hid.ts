@@ -72,5 +72,5 @@ export function setLeaderKey(key: string) {
   return http.post('/api/hid/shortcut/leader-key', { key });
 }
 
-export type ShortcutKey = { label: string; code: string };
-export type Shortcut = { id: string; keys: ShortcutKey[] };
+type ShortcutKey = { label: string; code: string };
+type Shortcut = { id: string; keys: ShortcutKey[] };

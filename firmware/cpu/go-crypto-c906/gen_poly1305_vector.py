@@ -36,8 +36,9 @@ big-integer Poly1305 and checks, on every instruction, that scalar
 multiplies have operands below 2^32 and that no 32-bit vector sum wraps. GNU as
 assembles the kernel; every word must decode back to its mnemonic.
 
-Usage: gen_poly1305_vector.py --binutils PREFIX (--go | --linux) (--output FILE | --check FILE)
-For --linux --check, FILE may also be platform/kernel/0077-*.patch.
+Usage: gen_poly1305_vector.py --binutils PREFIX (--go | --linux | --openssl) (--output FILE | --check FILE)
+With --linux or --openssl, --check also takes platform/kernel/0077-*.patch or
+firmware/crypto/openssl-c906/0012-poly1305-c906.patch.
 """
 import argparse
 import random
@@ -575,18 +576,42 @@ SYM_FUNC_START(poly1305_blocks_xtheadvector)
 '''
 
 
-def render_linux(words):
-    text = LINUX_HEADER + f'\taddi\tsp, sp, -{LINUX_FRAME}\n'
+OPENSSL_HEADER = LINUX_HEADER.replace(
+    ' * void poly1305_blocks_xtheadvector(const u64 r[5], const u8 *src,\n'
+    ' *\t\t\t\t     size_t groups, u64 h[5]);\n'
+    ' * r, h: 26-bit limbs; h\'s below 2^27 on entry, carried on exit (h[1] below\n'
+    ' * 2^26 + 2^7, the others below 2^26). groups >= 1. Needs\n'
+    ' * kernel_vector_begin().\n'
+    ' */\n'
+    '\n'
+    '#include <linux/linkage.h>\n',
+    ' * void ossl_poly1305_blocks_c906v(const uint64_t r[5], const unsigned char *in,\n'
+    ' *                                size_t groups, uint64_t h[5]);\n'
+    ' * r, h: 26-bit limbs; h\'s below 2^27 on entry, carried on exit (h[1] below\n'
+    ' * 2^26 + 2^7, the others below 2^26). groups >= 1. NanoKVM kernel patch 0078\n'
+    ' * keeps vector state enabled for every user thread.\n'
+    ' */\n'
+    '\n'
+    '/* BSD-3-Clause option; C ABI for OpenSSL. */\n'
+    '#define SYM_FUNC_START(n) .globl n; .hidden n; .type n,@function; .p2align 4; n:\n'
+    '#define SYM_FUNC_END(n) .size n,.-n\n'
+).replace('SYM_FUNC_START(poly1305_blocks_xtheadvector)', 'SYM_FUNC_START(ossl_poly1305_blocks_c906v)')
+assert 'ossl_poly1305_blocks_c906v(const' in OPENSSL_HEADER and 'linkage' not in OPENSSL_HEADER
+
+
+def render_linux(words, name='poly1305_blocks_xtheadvector', header=LINUX_HEADER):
+    text = header + f'\taddi\tsp, sp, -{LINUX_FRAME}\n'
     text += ''.join(f'\tsd\t{r}, {FRAME + 8 * i}(sp)\n' for i, r in enumerate(LINUX_SAVED))
     text += ''.join(f'\t.4byte\t0x{w:08x}\t/* {i} */\n' for w, i in words)
     text += ''.join(f'\tld\t{r}, {FRAME + 8 * i}(sp)\n' for i, r in enumerate(LINUX_SAVED))
-    return text + f'\taddi\tsp, sp, {LINUX_FRAME}\n\tret\nSYM_FUNC_END(poly1305_blocks_xtheadvector)\n'
+    return text + f'\taddi\tsp, sp, {LINUX_FRAME}\n\tret\nSYM_FUNC_END({name})\n'
 
 
-def from_patch(patch):
-    """The generated file as added by the kernel patch."""
-    marker = 'diff --git a/lib/crypto/riscv/poly1305-riscv64-xtheadvector.S'
-    lines = patch.split(marker, 1)[1].split('\ndiff --git ', 1)[0].splitlines()
+def from_patch(patch, path):
+    """The generated file as added by a kernel or OpenSSL patch."""
+    section = patch.split(f'+++ b/{path}\n', 1)[1]
+    section = section.split('\ndiff --git ', 1)[0].split('\n--- ', 1)[0]
+    lines = section.splitlines()
     start = next(i for i, line in enumerate(lines) if line.startswith('@@'))
     return ''.join(line[1:] + '\n' for line in lines[start + 1:] if line.startswith('+'))
 
@@ -598,6 +623,8 @@ def main():
     abi.add_argument('--go', action='store_true', help='Go ABI0 (sum_vector_riscv64.s)')
     abi.add_argument('--linux', action='store_true',
                      help='Linux lib/crypto (poly1305-riscv64-xtheadvector.S); --check also takes the kernel patch')
+    abi.add_argument('--openssl', action='store_true',
+                     help='OpenSSL (crypto/poly1305/poly1305-c906.S); --check also takes the OpenSSL patch')
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument('--output', type=Path)
     g.add_argument('--check', type=Path)
@@ -611,11 +638,17 @@ def main():
     except Fault as e:
         sys.exit(f'self-test: {e}')
     words = assemble(prog, a.binutils)
-    text = render_go(words) if a.go else render_linux(words)
+    if a.go:
+        text = render_go(words)
+    elif a.linux:
+        text = render_linux(words)
+    else:
+        text = render_linux(words, 'ossl_poly1305_blocks_c906v', OPENSSL_HEADER)
     if a.check:
         current = a.check.read_text()
-        if a.linux and a.check.suffix == '.patch':
-            current = from_patch(current)
+        if a.check.suffix == '.patch':
+            current = from_patch(current, 'lib/crypto/riscv/poly1305-riscv64-xtheadvector.S' if a.linux
+                                 else 'crypto/poly1305/poly1305-c906.S')
         if current != text:
             sys.exit(f'{a.check} is not up to date')
         print(f'{a.check}: up to date ({cases} simulated cases)')

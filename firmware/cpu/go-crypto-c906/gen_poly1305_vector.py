@@ -55,6 +55,7 @@ FRAME = LANES + 80
 # Scalar registers. The r and h pointers move to the frame, freeing a0 as T2.
 MSG, END = 'a1', 'a2'                 # a0 (r) and a3 (h) go to the frame
 KM, KHI = 'a4', 'a5'
+VL = 'a3'                              # 4 after the prologue: vl stays 4 at any VLEN
 H = ['a6', 'a7', 't0', 't1', 't2']
 R = ['s0', 's1', 's2', 's3', 's4']
 S = [None, 's5', 's6', 's7', 's8']           # 5 * r
@@ -134,12 +135,12 @@ def vector_block(base):
             rr = VR[k] if kind == 'r' else VS[k]
             a(f"{'th.vwmulu.vv' if first[i] else 'th.vwmaccu.vv'} {VD[i]},{VH[j]},{rr}", 4)
             first[i] = False
-    a('th.vsetvli zero,zero,e64,m2', 1)
+    a(f'th.vsetvli zero,{VL},e64,m2', 1)
     tmp = ['v28', 'v30']
     for i in range(4):
         a(f'th.vsrl.vi {tmp[i % 2]},{VD[i]},26', 4)
         a(f'th.vadd.vv {VD[i + 1]},{VD[i + 1]},{tmp[i % 2]}', 4)
-    a('th.vsetvli zero,zero,e32,m1', 1)
+    a(f'th.vsetvli zero,{VL},e32,m1', 1)
     for i in range(5):
         a(f'th.vnsrl.vi {VH[i]},{VD[i]},0', 4)
     a(f'th.vnsrl.vi v28,{VD[4]},26', 4)
@@ -220,10 +221,10 @@ def kernel(base):
     k += [f'ld {R[i]},{8 * i}(a0)' for i in range(5)]
     k += [f'th.addsl {S[i]},{R[i]},{R[i]},2' for i in range(1, 5)]
     k += powers(base)
-    k += [f'li {KM},0x3ffffff', f'li {KHI},0x1000000']
+    k += [f'li {KM},0x3ffffff', f'li {KHI},0x1000000', f'li {VL},4']
     for lane in range(4):
         k += split_block(base, 16 * lane, lane)
-    k.append('th.vsetvli zero,zero,e32,m1')
+    k.append(f'th.vsetvli zero,{VL},e32,m1')
     k += [f'th.vmv.v.x {VR[i]},{R[i]}' for i in range(5)]
     k += [f'th.vmv.v.x {VS[i]},{S[i]}' for i in range(1, 5)]
     k.append(f'ld {T2},{base + 80}(sp)')            # the powers used a3
@@ -311,6 +312,8 @@ def execute(prog, regs, mem):
         op, _, rest = ins.partition(' ')
         a = rest.split(',') if rest else []
         if op == 'th.vsetvli':
+            if a[1] == 'zero' or r(a[1]) != 4:
+                raise Fault(f'vl is not 4: {ins}')     # x0 would mean VLMAX
             sew = {'e32': 32, 'e64': 64}[a[2]]
             continue
         if op.startswith('th.v'):

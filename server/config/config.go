@@ -1,14 +1,15 @@
 package config
 
 import (
-	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
-	"github.com/spf13/viper"
+	"github.com/go-viper/mapstructure/v2"
 	"gopkg.in/yaml.v3"
 
 	"NanoKVM-Server/internal/atomicfile"
@@ -17,6 +18,7 @@ import (
 var (
 	instance Config
 	once     sync.Once
+	values   map[string]any
 )
 
 func GetInstance() *Config {
@@ -27,7 +29,7 @@ func GetInstance() *Config {
 
 func initialize() {
 	if err := readByFile(); err != nil {
-		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
+		if errors.Is(err, os.ErrNotExist) {
 			create()
 		}
 
@@ -42,7 +44,7 @@ func initialize() {
 		log.Fatalf("Failed to validate configuration!")
 	}
 
-	if err := viper.Unmarshal(&instance); err != nil {
+	if err := decodeValues(values, &instance); err != nil {
 		log.Fatalf("Failed to parse configuration: %s", err)
 	}
 
@@ -55,22 +57,106 @@ func initialize() {
 	log.Println("config loaded successfully")
 }
 
+// Read the same YAML input and historical filename candidates as the old
+// loader. SetConfigType("yaml") made even alternate extensions YAML input.
 func readByFile() error {
-	viper.SetConfigName("server")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("/etc/kvm/")
+	dir := filepath.Dir(configurationFile)
+	stem := strings.TrimSuffix(filepath.Base(configurationFile), filepath.Ext(configurationFile))
+	for _, suffix := range []string{".json", ".toml", ".yaml", ".yml", ".properties", ".props", ".prop", ".hcl", ".tfvars", ".dotenv", ".env", ".ini", ""} {
+		path := filepath.Join(dir, stem+suffix)
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return readValues(data)
+	}
+	return fmt.Errorf("%s: %w", configurationFile, os.ErrNotExist)
+}
 
-	return viper.ReadInConfig()
+func readValues(data []byte) error {
+	parsed, err := parseValues(data)
+	if err != nil {
+		return err
+	}
+	values = parsed
+	return nil
+}
+
+func parseValues(data []byte) (map[string]any, error) {
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	return normalizeValues(raw), nil
+}
+
+// ParsePorts reads the ports of server.yaml content as the server does. Other
+// readers of the file (the IPMI daemon) test against it.
+func ParsePorts(data []byte) (Port, error) {
+	parsed, err := parseValues(data)
+	if err != nil {
+		return Port{}, err
+	}
+	var ports Port
+	err = decodeValues(parsed["port"], &ports)
+	return ports, err
+}
+
+// Viper treated keys case-insensitively and interpreted dots as nested paths.
+// Normalize only keys; credential and origin values must remain untouched.
+func normalizeValues(raw map[string]any) map[string]any {
+	out := make(map[string]any)
+	for key, value := range raw {
+		if child, ok := value.(map[string]any); ok {
+			value = normalizeValues(child)
+		}
+		if value != nil {
+			out[strings.ToLower(key)] = value
+		}
+	}
+	for key, value := range out {
+		if !strings.Contains(key, ".") {
+			continue
+		}
+		delete(out, key)
+		parts := strings.Split(key, ".")
+		node := out
+		for _, part := range parts[:len(parts)-1] {
+			child, ok := node[part].(map[string]any)
+			if !ok {
+				child = make(map[string]any)
+				node[part] = child
+			}
+			node = child
+		}
+		node[parts[len(parts)-1]] = value
+	}
+	return out
+}
+
+// Retain Viper's weak scalar conversions (quoted ports, booleans and comma
+// separated lists) without its file watching, environment and format registry.
+func decodeValues(raw any, target any) error {
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result: target, WeaklyTypedInput: true,
+		DecodeHook: mapstructure.StringToSliceHookFunc(","),
+	})
+	if err != nil {
+		return err
+	}
+	return decoder.Decode(raw)
 }
 
 func readByDefault() error {
 	data, err := yaml.Marshal(defaultConfig)
 	if err != nil {
-		log.Printf("failed to marshal default config: %s", err)
 		return err
 	}
-
-	return viper.ReadConfig(bytes.NewBuffer(data))
+	return readValues(data)
 }
 
 // Create configuration file.
@@ -93,7 +179,10 @@ func create() {
 
 // Validate the configuration. This is to ensure compatibility with earlier versions.
 func validate() error {
-	if viper.GetInt("port.http") > 0 && viper.GetInt("port.https") > 0 {
+	// The ports decode as the whole file will: a value the decoder rejects
+	// makes the file invalid here instead of failing the full decode later.
+	var ports Port
+	if decodeValues(values["port"], &ports) == nil && ports.Http > 0 && ports.Https > 0 {
 		return nil
 	}
 

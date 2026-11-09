@@ -2,7 +2,7 @@
 /* Poly1305 through EVP_MAC (NanoKVM OS C906 qualification).
  *   poly1305-check tags  : print tags for random keys, lengths, offsets and
  *                          update splits (deterministic); run once with
- *                          NANOKVM_OPENSSL_POLY1305=generic and compare.
+ *                          a Cryptogams-only library build and compare.
  *   poly1305-check bench : MB/s per message size, a fresh key per message.
  * Build with -march=rv64gc so the program itself has no vector code. */
 #include <openssl/evp.h>
@@ -46,7 +46,7 @@ static double now(void)
 int main(int argc, char **argv)
 {
     static unsigned char buf[70000];
-    unsigned char key[32], out[16];
+    unsigned char key[32] = {0}, out[16];
     mac = EVP_MAC_fetch(NULL, "POLY1305", NULL);
     if (!mac)
         return 2;

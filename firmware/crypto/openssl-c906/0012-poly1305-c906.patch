@@ -148,8 +148,8 @@ diff --git a/crypto/poly1305/poly1305-c906.S b/crypto/poly1305/poly1305-c906.S
 + * void ossl_poly1305_blocks_c906v(const uint64_t r[5], const unsigned char *in,
 + *                                size_t groups, uint64_t h[5]);
 + * r, h: 26-bit limbs; h's below 2^27 on entry, carried on exit (h[1] below
-+ * 2^26 + 2^7, the others below 2^26). groups >= 1. The caller checks that
-+ * vector state is enabled (riscvcap.c, at load).
++ * 2^26 + 2^7, the others below 2^26). groups >= 1. NanoKVM kernel patch 0078
++ * keeps vector state enabled for every user thread.
 + */
 +
 +/* BSD-3-Clause option; C ABI for OpenSSL. */

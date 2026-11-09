@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
+
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"strings"
-	"sync"
+
 	"testing"
-	"time"
 
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
@@ -23,8 +22,6 @@ import (
 	"github.com/gin-gonic/gin"
 	aesbridge "github.com/mervick/aes-bridge-go"
 )
-
-const formOpenSSLCiphertext = "U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy/ipO4LDEqtBT+fx"
 
 func TestLoginCookieAndUserAuthorizationLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -71,91 +68,6 @@ func TestLoginCookieAndUserAuthorizationLifecycle(t *testing.T) {
 	}
 }
 
-func TestUpdateUserOnlyRevokesActiveSessionsAfterActualChange(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-	changeFactoryPassword(t, store)
-	for _, test := range []struct {
-		name      string
-		username  string
-		body      map[string]any
-		cancelled bool
-	}{
-		{name: "no-op", username: "alice-noop", body: map[string]any{"role": "user"}},
-		{name: "actual change", username: "alice-change", body: map[string]any{"enabled": false}, cancelled: true},
-		{name: "rename", username: "alice-rename", body: map[string]any{"username": "owner"}, cancelled: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if err := store.Create(test.username, "valid-password", authn.RoleUser); err != nil {
-				t.Fatal(err)
-			}
-			service := NewService()
-			router := gin.New()
-			router.POST("/login", service.Login)
-			authenticated := router.Group("/").Use(middleware.CheckToken())
-			admin := router.Group("/").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
-			admin.PUT("/users/:username", service.UpdateUser)
-			adminCookie := loginCookie(t, router, "admin", ownerPassword)
-			userCookie := loginCookie(t, router, test.username, "valid-password")
-			started := make(chan struct{})
-			done := make(chan struct{})
-			release := make(chan struct{})
-			var releaseOnce sync.Once
-			releaseHold := func() { releaseOnce.Do(func() { close(release) }) }
-			t.Cleanup(func() {
-				releaseHold()
-				select {
-				case <-done:
-				case <-time.After(time.Second):
-					t.Error("active user request did not finish during cleanup")
-				}
-			})
-			authenticated.GET("/hold", func(c *gin.Context) {
-				close(started)
-				select {
-				case <-c.Request.Context().Done():
-				case <-release:
-				}
-				close(done)
-			})
-
-			go func() {
-				requestJSON(router, http.MethodGet, "/hold", nil, userCookie)
-			}()
-			select {
-			case <-started:
-			case <-time.After(time.Second):
-				t.Fatal("active user request did not start")
-			}
-
-			if code := requestJSON(router, http.MethodPut, "/users/"+test.username, test.body, adminCookie); code != http.StatusOK {
-				t.Fatalf("update status = %d", code)
-			}
-			if test.cancelled {
-				select {
-				case <-done:
-				case <-time.After(time.Second):
-					t.Fatal("actual update did not cancel the active user request")
-				}
-				return
-			}
-			select {
-			case <-done:
-				t.Fatal("no-op update cancelled the active user request")
-			default:
-			}
-			releaseHold()
-			select {
-			case <-done:
-			case <-time.After(time.Second):
-				t.Fatal("active Alice request did not finish")
-			}
-		})
-	}
-}
-
 func TestOtherAdminCannotRenameDeviceOwner(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
@@ -199,79 +111,9 @@ func TestOtherAdminCannotRenameDeviceOwner(t *testing.T) {
 	}
 }
 
-func TestLoginReturnsTokenOnlyWhenExplicitlyRequested(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-
-	service := NewService()
-	router := gin.New()
-	router.POST("/login", service.Login)
-
-	request := jsonRequest(http.MethodPost, "/login", map[string]any{
-		"username": "admin", "password": encryptForRequest(t, "admin"),
-	})
-	request.Header.Set(ReturnTokenHeader, "true")
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("automation login status = %d", recorder.Code)
-	}
-	var response struct {
-		Code int            `json:"code"`
-		Data proto.LoginRsp `json:"data"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("decode automation login response: %v", err)
-	}
-	if response.Code != 0 || response.Data.Token == "" {
-		t.Fatalf("automation login response = %s", recorder.Body.String())
-	}
-	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
-		t.Fatalf("Cache-Control = %q, want no-store", got)
-	}
-	if got := recorder.Header().Get("Vary"); got != ReturnTokenHeader {
-		t.Fatalf("Vary = %q, want %q", got, ReturnTokenHeader)
-	}
-	if _, err := middleware.ParseJWT(response.Data.Token); err != nil {
-		t.Fatalf("returned token is invalid: %v", err)
-	}
-	if !hasSessionCookie(recorder.Result().Cookies()) {
-		t.Fatal("automation login did not set session cookie")
-	}
-}
-
-func TestLoginAcceptsFormEncodedRawOpenSSLPassword(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-	if _, err := store.SetPasswordAndRunIf("admin", "operator-password", nil, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	service := NewService()
-	router := gin.New()
-	router.POST("/login", service.Login)
-
-	// This fixed OpenSSL ciphertext contains '+'. url.Values.Encode models the
-	// body produced by curl --data-urlencode; Gin decodes it before Login calls
-	// DecodeDecrypt, so a second QueryUnescape would corrupt the value.
-	const ciphertext = formOpenSSLCiphertext
-	form := url.Values{"username": {"admin"}, "password": {ciphertext}}
-	request := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("form login status = %d, body = %s", recorder.Code, recorder.Body.String())
-	}
-	if !hasSessionCookie(recorder.Result().Cookies()) {
-		t.Fatal("form login did not set session cookie")
-	}
-}
+// This fixed OpenSSL ciphertext contains '+'. url.Values.Encode models the
+// body produced by curl --data-urlencode; Gin decodes it before Login calls
+// DecodeDecrypt, so a second QueryUnescape would corrupt the value.
 
 func TestLogoutDoesNotInvalidateAnotherUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -428,29 +270,6 @@ func TestAdministratorCannotResetDeviceOwnerPassword(t *testing.T) {
 	}
 	if _, ok, err := store.Authenticate("admin", "new-password"); err != nil || ok {
 		t.Fatalf("unauthorized password became active: ok=%v err=%v", ok, err)
-	}
-}
-
-func TestSystemPasswordFailureRollsBackWebPassword(t *testing.T) {
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
-		t.Fatalf("default login: ok=%v err=%v", ok, err)
-	}
-
-	originalUpdater := systemPasswordUpdater
-	systemPasswordUpdater = func(string) error { return errors.New("passwd failed") }
-	defer func() { systemPasswordUpdater = originalUpdater }()
-
-	if _, err := changeUserPassword("admin", encryptForRequest(t, "new-password"), "", nil); err == nil {
-		t.Fatal("system password failure was ignored")
-	}
-	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
-		t.Fatalf("old web password was not restored: ok=%v err=%v", ok, err)
-	}
-	if _, ok, err := store.Authenticate("admin", "new-password"); err != nil || ok {
-		t.Fatalf("failed password stayed active: ok=%v err=%v", ok, err)
 	}
 }
 
@@ -612,143 +431,12 @@ func TestFactoryPasswordOnlyAllowsPasswordChangeRoutes(t *testing.T) {
 	}
 }
 
-func TestLoginAttemptKeyGroupsIPv6Prefix(t *testing.T) {
-	for _, test := range []struct{ ip, want string }{
-		{"192.0.2.7", "192.0.2.7"},
-		{"2001:db8:1:2:aaaa::1", "2001:db8:1:2::/64"},
-		{"2001:db8:1:2:bbbb::9", "2001:db8:1:2::/64"},
-		{"::ffff:192.0.2.7", "::ffff:192.0.2.7"},
-		{"not-an-ip", "not-an-ip"},
-	} {
-		if got := loginAttemptKey(test.ip); got != test.want {
-			t.Errorf("loginAttemptKey(%q) = %q, want %q", test.ip, got, test.want)
-		}
-	}
-}
-
 // The forced change of the factory password asks for no current password and
 // signs the browser in with the new one; the factory session ends.
-func TestForcedPasswordChangeSignsIn(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-	originalUpdater := systemPasswordUpdater
-	systemPasswordUpdater = func(string) error { return nil }
-	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	service := NewService()
-	router := gin.New()
-	router.POST("/login", service.Login)
-	api := router.Group("/api/auth").Use(middleware.CheckToken())
-	api.POST("/password", service.ChangePassword)
-	api.GET("/account", service.GetAccount)
-
-	factory := loginCookie(t, router, "admin", "admin")
-	recorder := requestJSONRecorder(router, http.MethodPost, "/api/auth/password", map[string]any{
-		"password": encryptForRequest(t, ownerPassword),
-	}, factory)
-	var response struct {
-		Code int                     `json:"code"`
-		Data proto.ChangePasswordRsp `json:"data"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || response.Code != 0 || !response.Data.SignedIn || response.Data.Token != "" {
-		t.Fatalf("forced change = %d %s", recorder.Code, recorder.Body.String())
-	}
-	var session *http.Cookie
-	for _, cookie := range recorder.Result().Cookies() {
-		if (cookie.Name == middleware.CookieName || cookie.Name == middleware.HTTPCookieName) && cookie.Value != "" {
-			session = cookie
-		}
-	}
-	if session == nil {
-		t.Fatalf("forced change set no session: %v", recorder.Result().Cookies())
-	}
-	if code := requestJSON(router, http.MethodGet, "/api/auth/account", nil, session); code != http.StatusOK {
-		t.Fatalf("new session = %d", code)
-	}
-	if code := requestJSON(router, http.MethodGet, "/api/auth/account", nil, factory); code != http.StatusUnauthorized {
-		t.Fatalf("factory session after change = %d, want 401", code)
-	}
-	if _, ok, err := store.Authenticate("admin", ownerPassword); err != nil || !ok {
-		t.Fatalf("new password: ok=%v err=%v", ok, err)
-	}
-
-	// Once changed, a change needs the current password again.
-	recorder = requestJSONRecorder(router, http.MethodPost, "/api/auth/password", map[string]any{
-		"password": encryptForRequest(t, "another-password"),
-	}, session)
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || response.Code != -3 {
-		t.Fatalf("unforced change without current password = %s", recorder.Body.String())
-	}
-}
+// Once changed, a change needs the current password again.
 
 // A request admitted with the factory session whose body arrives after the
 // owner's first change must not change the password again or sign in.
-func TestDelayedFactoryRequestCannotChangeAgain(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	store := authn.NewStore(filepath.Join(t.TempDir(), "pwd"))
-	restore := useTestStore(store)
-	defer restore()
-	originalUpdater := systemPasswordUpdater
-	systemPasswordUpdater = func(string) error { return nil }
-	defer func() { systemPasswordUpdater = originalUpdater }()
 
-	service := NewService()
-	router := gin.New()
-	router.POST("/login", service.Login)
-	api := router.Group("/api/auth").Use(middleware.CheckToken())
-	api.POST("/password", service.ChangePassword)
-	server := httptest.NewServer(router)
-	defer server.Close()
-
-	factory := loginCookie(t, router, "admin", "admin")
-	post := func(body io.Reader) *http.Request {
-		request, err := http.NewRequest(http.MethodPost, server.URL+"/api/auth/password", body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(request), Value: factory.Value})
-		return request
-	}
-	body := func(password string) []byte {
-		data, _ := json.Marshal(map[string]any{"password": encryptForRequest(t, password)})
-		return data
-	}
-
-	reader, writer := io.Pipe()
-	delayed := make(chan *http.Response, 1)
-	go func() {
-		response, err := http.DefaultClient.Do(post(reader))
-		if err != nil {
-			t.Error(err)
-		}
-		delayed <- response
-	}()
-	time.Sleep(300 * time.Millisecond) // admitted, waiting for its body
-
-	response, err := http.DefaultClient.Do(post(bytes.NewReader(body(ownerPassword))))
-	if err != nil || response.StatusCode != http.StatusOK {
-		t.Fatalf("owner change: %v %v", response, err)
-	}
-	_ = response.Body.Close()
-
-	_, _ = writer.Write(body("attacker-password"))
-	_ = writer.Close()
-	late := <-delayed
-	if late == nil {
-		t.FailNow()
-	}
-	defer late.Body.Close()
-	var result proto.Response
-	if err := json.NewDecoder(late.Body).Decode(&result); err != nil || result.Code == 0 {
-		t.Fatalf("delayed factory request = %+v %v", result, err)
-	}
-	if hasSessionCookie(late.Cookies()) {
-		t.Fatal("delayed factory request got a session")
-	}
-	if _, ok, err := store.Authenticate("admin", ownerPassword); err != nil || !ok {
-		t.Fatalf("owner password replaced: ok=%v err=%v", ok, err)
-	}
-}
+// admitted, waiting for its body

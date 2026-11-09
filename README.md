@@ -259,7 +259,7 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | `support/` | Native media/board integration and device tools (`kvm_system`, MMF, `nanokvm_update_edid`) |
 | `firmware/` | Alpine recipes, OpenRC integration, retained SDK inputs and board support |
 | `platform/`, `scripts/` | Pinned platform build, patches, packaging and image generation |
-| `tests/` | Host-side tests of the init scripts, build, packaging and update tooling |
+| `tests/` | Host-side tests of the C906 Poly1305, OpenSSL source and APK packaging/release tooling |
 
 ## 🌍 Translations
 

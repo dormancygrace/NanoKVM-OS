@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["scripts/*.mjs", "tests/**/*.{mjs,ts,tsx}"],
-  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.mjs", "tests/**/*.{mjs,ts,tsx}"],
-  "ignoreBinaries": ["playwright"],
+  "entry": ["scripts/*.mjs", "tests/**/*.mjs"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.mjs", "tests/**/*.mjs"],
   "ignoreDependencies": ["tailwindcss"]
 }

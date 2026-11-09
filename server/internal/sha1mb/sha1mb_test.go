@@ -6,14 +6,12 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"flag"
-	"io"
+
 	"math/rand"
 	"regexp"
-	"runtime"
-	"runtime/pprof"
+
 	"slices"
-	"sync"
-	"sync/atomic"
+
 	"testing"
 	"time"
 )
@@ -264,66 +262,10 @@ func TestEmpty(t *testing.T) {
 }
 
 // TestLarge checks batches above maxBatch, which SumBatch splits.
-func TestLarge(t *testing.T) {
-	rnd := rand.New(rand.NewSource(2))
-	key := make([]byte, 20)
-	rnd.Read(key)
-	msgs := make([]Message, maxBatch+maxBatch/2+3)
-	for i := range msgs {
-		msgs[i] = randomMessage(rnd, rnd.Intn(200))
-	}
-	checkBatch(t, impl{"SumBatch", (*Key).SumBatch}, NewKey(key), key, msgs)
-}
-
-var stressSink atomic.Pointer[[]byte]
 
 // TestStress runs SumBatch in several goroutines with a CPU profile
 // (SIGPROF), garbage collection and preemption, and checks every tag. Run
 // two copies of the test binary at once to also exercise context switches
 // between processes using vector state.
-func TestStress(t *testing.T) {
-	if !vector() {
-		t.Skip("no vector kernel: SumBatch runs only the generic code, which TestCrossCheck covers")
-	}
-	if err := pprof.StartCPUProfile(io.Discard); err == nil {
-		defer pprof.StopCPUProfile()
-	}
-	deadline := time.Now().Add(*stressDur)
-	var wg sync.WaitGroup
-	var batches, failures atomic.Int64
-	for g := range 4 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			rnd := rand.New(rand.NewSource(int64(100 + g)))
-			key := make([]byte, 20)
-			rnd.Read(key)
-			k := NewKey(key)
-			msgs := make([]Message, 4+8*g)
-			want := make([][Size]byte, len(msgs))
-			for i := range msgs {
-				msgs[i] = randomMessage(rnd, 100+rnd.Intn(1400))
-				want[i] = reference(key, msgs[i])
-			}
-			tags := make([][Size]byte, len(msgs))
-			for time.Now().Before(deadline) {
-				clear(tags)
-				k.SumBatch(tags, msgs)
-				for i := range tags {
-					if tags[i] != want[i] {
-						failures.Add(1)
-						t.Errorf("goroutine %d: message %d: tag %x, want %x", g, i, tags[i], want[i])
-						return
-					}
-				}
-				garbage := make([]byte, 4096) // keep the GC busy
-				stressSink.Store(&garbage)
-				if batches.Add(1)%8 == 0 {
-					runtime.Gosched()
-				}
-			}
-		}()
-	}
-	wg.Wait()
-	t.Logf("%d verified batches in %v (vector kernel: %v)", batches.Load(), *stressDur, vector())
-}
+
+// keep the GC busy

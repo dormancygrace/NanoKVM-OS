@@ -324,8 +324,7 @@ when `start` follows `stop`.
 
 Unit tests cover file
 rollback (including a second rollback failure), explicit false/missing fields,
-all 128 manual selections and both budget directions; browser tests cover draft
-editing, cancellation, conflict and error recovery.
+all 128 manual selections and both budget directions.
 
 `bcdDevice` is a profile hint. If it says HID-only while configured RNDIS, NCM or
 mass-storage links exist, the server treats the profile as normal so those

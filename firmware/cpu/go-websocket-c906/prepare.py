@@ -15,7 +15,6 @@ PINS = {
     "mask.go": "964df1f35553a0893ae496fc41da0020583af35c3a3d21c6d94f6bc3f17bcc5c",
     "go.mod": "09dc8a9227a54c1069ea065d610a5f2ca195f1f5fba6e7dbb2d7eb0fd6e01df6",
 }
-TEST_PINS = {"client_server_test.go": "b58a89d3398023b2c025f86f9a27bc4d3b149bd846fe12f96be4ad028d2cb2e8"}
 PATCH_FILES = ("mask_other.go", "mask_linux_riscv64.go", "mask_linux_riscv64.s")
 
 
@@ -23,11 +22,11 @@ def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def stage_module(source, output, tests=False):
+def stage_module(source, output):
     source, output = Path(source).resolve(), Path(output).resolve()
     if output.exists() or output.is_relative_to(source) or source.is_relative_to(output):
         raise ValueError("Module output must be new and outside the module cache")
-    for name, digest in (PINS | (TEST_PINS if tests else {})).items():
+    for name, digest in PINS.items():
         if sha256(source / name) != digest:
             raise ValueError(f"{name} differs from Gorilla {VERSION}; review the patch before updating the pin")
     for name in PATCH_FILES:
@@ -39,32 +38,18 @@ def stage_module(source, output, tests=False):
         raise ValueError("Expected one original maskBytes declaration")
     output.mkdir(parents=True)
     # Only the package root is needed, not examples, repository metadata or a
-    # complete module-cache copy. Keep upstream tests when explicitly requested.
+    # complete module-cache copy.
     for path in sorted(source.iterdir()):
         if path.is_file() and (path.name in ("go.mod", "go.sum", "LICENSE") or path.suffix in (".go", ".s")):
-            if tests or not path.name.endswith("_test.go"):
+            if not path.name.endswith("_test.go"):
                 shutil.copyfile(path, output / path.name)
     (output / "mask.go").write_text(original.replace(declaration, declaration.replace("maskBytes", "maskBytesGeneric")))
     for name in PATCH_FILES:
         shutil.copyfile(HERE / name, output / name)
-    if tests:
-        # Go 1.27 closes CONNECT connections unless the handler hijacks them.
-        # Preserve upstream assertions while replacing its old 200-only fixture.
-        client_test = output / "client_server_test.go"
-        fixture = client_test.read_text()
-        old = '\t\t\t\tw.WriteHeader(http.StatusOK)\n\t\t\t\treturn'
-        if fixture.count(old) != 2:
-            raise ValueError("Expected both legacy CONNECT fixtures")
-        client_test.write_text(fixture.replace(old,
-            '\t\t\t\tc906ProxyTunnel(t, w, s.Server.Listener.Addr().String())\n\t\t\t\treturn'))
-        for path in sorted((HERE / "tests").glob("*.go")):
-            if (output / path.name).exists():
-                raise ValueError(f"Test file conflicts with upstream: {path.name}")
-            shutil.copyfile(path, output / path.name)
     return {path.name: sha256(path) for path in sorted(output.iterdir()) if path.is_file()}
 
 
-def prepare(go, project, output, tests=False):
+def prepare(go, project, output):
     project, output = Path(project).resolve(), Path(output).resolve()
     if output.exists() or project.is_relative_to(output) or output.is_relative_to(project):
         raise ValueError("Use a new build output directory outside the source project")
@@ -102,11 +87,11 @@ def prepare(go, project, output, tests=False):
     if info.get("Error") or info.get("Path") != MODULE or info.get("Version") != VERSION or not info.get("Sum"):
         raise ValueError(f"Could not obtain the checksum-verified pinned module: {info}")
     module_dir = output / "websocket"
-    hashes = stage_module(info["Dir"], module_dir, tests)
+    hashes = stage_module(info["Dir"], module_dir)
     run("mod", "edit", "-modfile=" + str(modfile), "-replace=" + MODULE + "=../websocket")
     manifest = {
         "module": MODULE, "version": VERSION, "upstream_sum": info["Sum"],
-        "upstream_pins": PINS, "files": hashes, "tests": tests,
+        "upstream_pins": PINS, "files": hashes,
         "server_mod_sha256": sha256(project / "go.mod"),
         "server_sum_sha256": sha256(project / "go.sum"),
     }
@@ -119,10 +104,9 @@ def main():
     parser.add_argument("--go", type=Path, required=True)
     parser.add_argument("--project", type=Path, default=HERE.parents[2] / "server")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--tests", action="store_true")
     args = parser.parse_args()
     try:
-        print(prepare(args.go.absolute(), args.project, args.output, args.tests))
+        print(prepare(args.go.absolute(), args.project, args.output))
     except (ValueError, OSError) as error:
         parser.exit(1, f"{error}\n")
 

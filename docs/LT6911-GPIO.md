@@ -76,7 +76,7 @@ register-service writes, and all three models retain event-only healthy reads.
 ## Verification and remaining qualification
 
 The UXC/PCIe stand (mainline 7.3.0-nanokvm-os-r3) was exercised on 2026-10-24
-with a RAM-only test library and `firmware/probes/hdmi-events-runtime.cpp`.
+with a RAM-only test library and a bounded HDMI-event capture probe.
 Installed services were stopped during exclusive capture and restored afterward.
 
 - A 100-second run checked busy-GPIO fallback, automatic GPIO reacquisition,
@@ -109,24 +109,4 @@ Installed services were stopped during exclusive capture and restored afterward.
 This verifies capture progress and event handling, not visual frame quality.
 Physical C and D qualification and a reproduction of Issue #63 remain pending.
 The change does not establish that the reported C corruption is fixed.
-
-## Bounded runtime probe
-
-Cross-link `firmware/probes/hdmi-events-runtime.cpp` against the matching
-`libkvm.so` and MMF dependencies. Stop `nanokvm-app` first and arrange service
-restoration on exit. Run for 10–180 seconds:
-
-```sh
-./hdmi-events-runtime 30
-```
-
-For a bounded park/resume trial (minimum 40 seconds), add park; it captures
-for five seconds, disables capture outputs for 25 seconds without reading
-frames, then resumes:
-
-    ./hdmi-events-runtime 40 park
-
-The probe enables normal capture admission, never asserts receiver reset,
-discards H.265 output, and reports frame/byte/error/stall counts and input size.
-It does not flash receiver firmware or write EDID.
 Normal operation logs only event-source availability changes.

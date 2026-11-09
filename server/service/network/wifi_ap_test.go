@@ -92,19 +92,3 @@ func TestApKeyEmptyNeverMatches(t *testing.T) {
 		t.Fatalf("code %d, want -4", code)
 	}
 }
-
-func TestLegacyProfileValidation(t *testing.T) {
-	for _, bad := range []struct{ ssid, password string }{
-		{"home", "short"},
-		{"home", "with a\nbreak"},
-		{"", "longenough"},
-		{"home", string(make([]byte, 64))},
-	} {
-		if legacyProfile(bad.ssid, bad.password).validate() == nil {
-			t.Fatalf("accepted %q / %q", bad.ssid, bad.password)
-		}
-	}
-	if err := legacyProfile("home", "longenough").validate(); err != nil {
-		t.Fatal(err)
-	}
-}

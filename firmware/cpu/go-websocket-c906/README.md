@@ -50,7 +50,6 @@ Each measurement has three independent processes and three rotated repetitions
 per cell. Each process first takes a median for each variant; the reported
 saving is the median of the three process ratios. Positive percentages mean
 less CPU time, not a directly measured application throughput increase.
-measurements.csv retains all process medians, including the small-buffer cases.
 
 The primitive tests use locked-thread CPU time, 34 lengths from zero to 1 MiB
 and offsets 0, 1, 5, 7. Streaming visits distinct tiles in an 8 MiB arena;
@@ -100,11 +99,11 @@ during parts of the wider investigation; encoder warnings of the same kind
 were already present before testing. Frequency and video counters are retained
 in the local evidence. Large memory timings have more noise than short masks.
 
-## Verification and reproduction
+## Verification
 
 The complete upstream Gorilla suite and the added C906 tests passed on the
 stand (2026-10-26, then also with the generic code selected by a switch that
-has since been removed). The custom suite includes:
+has since been removed). The C906 suite included:
 
 - 104,184 payload, guard-byte, phase and split-chunk comparisons, all offsets
   0–15, all four phases, dense sizes 0–512 and large boundary sizes.
@@ -118,32 +117,5 @@ The complete server was cross-built against the existing HDMI-light native
 bundle; linked vector words matched the source. Host Gorilla/default and
 purego tests, storage/stream/ws tests and Python staging tests passed.
 
-The original Gorilla tests need two test-only accommodations for Go 1.27:
-GODEBUG=randseednop=0 honors their deliberate rand.Seed calls, and the CONNECT
-fixture now hijacks the socket and forwards a real tunnel. Go 1.27 closes
-non-hijacked CONNECT responses. The original failures reproduced in generic
-mode; no assertions or tests were removed. The CONNECT source is pinned and
-modified only when --tests is requested. None of this changes production HTTP
-or random-number behavior.
-
-From the repository root, with GOROOT exported to the prepared runtime and a new output directory:
-
-    python3 firmware/cpu/go-websocket-c906/prepare.py \
-      --go "$GOROOT/bin/go" --output "$OUT" --tests
-    cd "$OUT/server"
-    GODEBUG=randseednop=0 "$GOROOT/bin/go" test \
-      github.com/gorilla/websocket
-    GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 \
-      "$GOROOT/bin/go" test -c -trimpath \
-      -o "$OUT/websocket.test" github.com/gorilla/websocket
-
-On the C906 stand, use one temporary executable in RAM and remove it afterwards:
-
-    GOMAXPROCS=1 GODEBUG=randseednop=0 ./websocket.test -test.v
-    ./websocket.test -test.run '^TestC906Correct$' -c906.negative
-    GOMAXPROCS=1 ./websocket.test \
-      -test.run '^TestC906(Measure|Streaming)$' -c906.measure
-
-The negative-control command must fail. Run each timing command three times,
-serially. The ReadMessage A/B above needed a run-time selector; it was removed
+The ReadMessage A/B above needed a run-time selector; it was removed
 with the selector, after its decision.

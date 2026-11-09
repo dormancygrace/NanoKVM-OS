@@ -1,6 +1,6 @@
 // `partial` marks locales that translate well under 90% of the English keys;
-// the rest of their interface falls back to English. tests/i18n-keys.test.mjs
-// requires every locale without the flag to be complete.
+// the rest of their interface falls back to English. Every locale without the
+// flag must be complete.
 const languages = [
   { key: 'ca', name: 'Català', partial: true },
   { key: 'nl', name: 'Nederlands', partial: true },

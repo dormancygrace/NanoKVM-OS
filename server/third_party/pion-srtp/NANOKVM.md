@@ -1,7 +1,8 @@
 # NanoKVM OS packet AES hook
 
 Base: github.com/pion/srtp/v3 v3.1.3 (release tag).
-Upstream files and MIT license are retained. UPSTREAM-SHA256.json records the
+Upstream source files and the MIT license are retained; of the tests, only the
+NanoKVM ones are kept. UPSTREAM-SHA256.json records the
 pristine module contents; this is a local Go module replacement, not upstream
 support for SG2002 hardware.
 

@@ -4,7 +4,7 @@
 // Leaf calls make no allocation or external call and preserve Go's g register.
 // Vector lengths are bounded by the remaining valid bytes. The kernel handles
 // vector context switches and signals; callers must check logVectorAvailable.
-// WORD encodings are independently checked by tests/manual/c906-log-rvv/check-encodings.py.
+// WORD encodings are independently checked by server/logs/check-encodings.py.
 
 #include "textflag.h"
 TEXT ·logNeedsM1(SB), NOSPLIT, $0-17

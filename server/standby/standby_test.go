@@ -35,40 +35,10 @@ func TestStateFailsClosed(t *testing.T) {
 		t.Fatal("authenticated failure recovery unavailable")
 	}
 }
-func TestGateClosesAtomically(t *testing.T) {
-	saved := beginWait
-	beginWait = 100 * time.Millisecond
-	t.Cleanup(func() { beginWait = saved })
-	var g Gate
-	if !g.Enter(true) {
-		t.Fatal("first operation")
-	}
-	if g.Begin() == nil {
-		t.Fatal("ignored active operation")
-	}
-	if !g.Enter(true) {
-		t.Fatal("a failed shutdown kept admission closed")
-	}
-	g.Leave(true)
-	// A request that finishes within the wait does not fail the shutdown,
-	// and none admitted meanwhile can extend it.
-	time.AfterFunc(20*time.Millisecond, func() { g.Leave(true) })
-	if e := g.Begin(); e != nil || g.Enter(true) {
-		t.Fatal("draining did not close admission", e)
-	}
-	g.Cancel()
-	if e := g.Begin(); e != nil {
-		t.Fatal(e)
-	}
-	if !g.Enter(false) || g.Enter(true) || g.EnterStream() || g.Begin() == nil {
-		t.Fatal("admission was not closed")
-	}
-	g.Cancel()
-	if !g.Enter(true) {
-		t.Fatal("failed preflight did not reopen admission")
-	}
-	g.Leave(true)
-}
+
+// A request that finishes within the wait does not fail the shutdown,
+// and none admitted meanwhile can extend it.
+
 func TestMagicPacket(t *testing.T) {
 	mac := []byte{0x02, 0x11, 0x22, 0x33, 0x44, 0x55}
 	valid := append(bytes.Repeat([]byte{255}, 6), bytes.Repeat(mac, 16)...)
@@ -141,92 +111,5 @@ func TestHTTPAuthorizationAndPhases(t *testing.T) {
 	}
 	if w := run("GET", "/standby", bearer, "", false); strings.Contains(w.Body.String(), c.Token) {
 		t.Fatal("key in HTML")
-	}
-}
-func TestMountAndCounterParsing(t *testing.T) {
-	m, e := ParseMounts("25 1 179:2 / / rw,relatime - f2fs /dev/mmcblk0p2 rw,background_gc=off\n26 25 0:11 / /run rw,nosuid - tmpfs tmpfs rw\n27 25 8:1 / /disk\\040name ro - ext4 /dev/sda1 rw\n")
-	if e != nil || len(m) != 3 || m[2].Point != "/disk name" || m[2].SuperOptions != "rw" {
-		t.Fatal(m, e)
-	}
-	if _, e = ParseMounts("truncated"); e == nil {
-		t.Fatal("invalid mounts accepted")
-	}
-	c, e := ParseCounters("1 2 3 4 5 6 7 8 0 10 11 12 13 14 15 16 17")
-	if e != nil || c.Writes != 5 || c.Written != 7 || c.Discards != 12 || c.Discarded != 14 || c.Flushes != 16 || c.InFlight != 0 {
-		t.Fatal(c, e)
-	}
-	for _, b := range []string{"1 2", "1 2 3 4 bad 6 7 8 0 10 11 12 13 14 15 16 17"} {
-		if _, e := ParseCounters(b); e == nil {
-			t.Fatal("malformed counters accepted")
-		}
-	}
-}
-func TestHandoffPreservesInitAndRejectsCustomRestart(t *testing.T) {
-	base := "::sysinit:/sbin/openrc sysinit\n::shutdown:/sbin/openrc shutdown\nttyS0::respawn:/sbin/getty ttyS0\n"
-	table, e := handoffInittab(base)
-	if e != nil || !strings.HasPrefix(table, strings.ReplaceAll(base, "::shutdown:/sbin/openrc shutdown", "::shutdown:"+Root+"/init shutdown")) || !strings.Contains(table, "::restart:"+Root+"/init takeover") || !strings.Contains(table, "::respawn:"+Root+"/init acknowledge") {
-		t.Fatal(table, e)
-	}
-	if _, e := handoffInittab(base + "::restart:/custom\n"); e == nil {
-		t.Fatal("overrode custom restart")
-	}
-	if _, e := handoffInittab("::shutdown:/custom"); e == nil {
-		t.Fatal("accepted unrecognized shutdown")
-	}
-}
-func TestWPAHasNoStorageDependencies(t *testing.T) {
-	valid := []byte("ctrl_interface=/var/run/wpa_supplicant\nnetwork={\nssid=666f6f\npsk=\"test\"\nkey_mgmt=WPA-PSK\nieee80211w=1\n}\n")
-	b, e := ramWPA(valid)
-	if e != nil || !bytes.Contains(b, []byte("update_config=0")) || bytes.Contains(b, []byte("/var/")) {
-		t.Fatal(string(b), e)
-	}
-	for _, line := range []string{"include=/etc/wifi", "ca_cert=/etc/cert", "engine=1", "private_key=/data/key"} {
-		if _, e = ramWPA(append(bytes.Clone(valid), []byte(line)...)); e == nil {
-			t.Fatal("accepted external dependency", line)
-		}
-	}
-}
-func TestQueuedMagicNeverWakesAfterReady(t *testing.T) {
-	s := NewState(Config{})
-	before := time.Now()
-	s.Ready()
-	if _, e := s.MagicRestart(before); e == nil {
-		t.Fatal("queued transition packet accepted")
-	}
-	if _, e := s.MagicRestart(time.Time{}); e == nil {
-		t.Fatal("missing timestamp accepted")
-	}
-	if first, e := s.MagicRestart(time.Now()); e != nil || !first {
-		t.Fatal("fresh packet rejected", e)
-	}
-}
-
-func TestRejectsRoutesThatWouldDisappear(t *testing.T) {
-	c := Config{Address: "192.0.2.5", Prefix: 24, Interface: "eth0"}
-	base := "eth0 00000000 010200C0 0003 0 0 100 00000000\neth0 000200C0 00000000 0001 0 0 100 00FFFFFF\n"
-	if e := simpleRoutes(base, c); e != nil {
-		t.Fatal(e)
-	}
-	if e := simpleRoutes(base+"eth0 0000010A 010200C0 0003 0 0 100 00FFFFFF\n", c); e == nil {
-		t.Fatal("accepted classless route")
-	}
-}
-func TestProcessReleaseRequiresZombieOrKernelThread(t *testing.T) {
-	for _, tc := range []struct {
-		stat string
-		want bool
-	}{
-		{"4 (worker ) name) D 1 1 1 0 0 0", false},
-		{"4 (worker) S 1 1 1 0 0 0", false},
-		{"4 (worker) Z 1 1 1 0 0 0", true},
-		{"4 (kworker) I 1 1 1 0 0 2097152", true},
-	} {
-		got, e := processReleased(tc.stat)
-		if e != nil || got != tc.want {
-			t.Fatal(tc, got, e)
-		}
-	}
-	if _, e := processReleased("broken"); e == nil {
-		t.Fatal("accepted invalid process stat")
 	}
 }

@@ -65,4 +65,4 @@ emit legacy RVV 0.7.1.
   was timed.
 - Compiler flags do not select hardware AES/SHA or change TLS algorithms.
 
-OpenSSL measurements and reproduction: [C906/OpenSSL 3.5 LTS](../firmware/crypto/experimental/openssl-c906/README.md).
+OpenSSL measurements: [C906/OpenSSL 3.5 LTS](../firmware/crypto/openssl-c906/README.md).

@@ -282,8 +282,8 @@ encoder, the vector round schedule and the GNU as/objdump check of
 python3 gen_chacha_linux.py --binutils $B --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
 ```
 
-`linux-test/` is a module that carries the same assembly and glue, checks
-them against `chacha_block_generic()` and times them on the device: 98 MB/s
+On the device, a test module with the same assembly and glue matched
+`chacha_block_generic()` and ran at 98 MB/s
 for a 1420-byte WireGuard packet and 116 MB/s for 16 KiB (81 and 93 with
 the three-instruction rotates), against 47-49 for the generic kernel code.
 
@@ -299,12 +299,12 @@ per `kernel_vector_begin()` and only where `may_use_simd()`; everything else
 stays with CRYPTOGAMS. It converts the CRYPTOGAMS state to 26-bit limbs and
 back, after folding h2 as `poly1305_emit` does.
 
-`linux-test/poly1305_xtv_test.c` links the same glue, CRYPTOGAMS and the
-generated assembly into a module and compares it with the loaded
-`libpoly1305` (CRYPTOGAMS on the stand's kernel). The cases are random
+A test module linking the same glue, CRYPTOGAMS and the generated assembly
+matched the loaded `libpoly1305` (CRYPTOGAMS on the stand's kernel). The
+cases were random
 keys, lengths, alignments and update splits, in process context and with
 bottom halves disabled, all-ones keys and messages, and a thread hashing
-inside the vector section against a CPU hog. It then times both: 2026-11-09
+inside the vector section against a CPU hog. It then timed both: 2026-11-09
 on the stand, MB/s at offset 5, CRYPTOGAMS -> vector: 320 B 151 -> 132
 (hence six groups), 480 B 160 -> 161, 640 B 166 -> 183, 1420 B (a WireGuard
 packet) 166 -> 218, 4096 B 180 -> 272, 16 KiB 178 -> 283.
@@ -329,8 +329,8 @@ checking the file:
 python3 gen_ghash_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
 ```
 
-`linux-test/ghash_c906_test.c` carries the same assembly and key preparation
-and checks them on the device: 27-29 MB/s for the scalar function and
+A test module with the same assembly and key preparation, checked on the
+device, measured 27-29 MB/s for the scalar function and
 42-53 MB/s for the vector one, against 14-15 for the kernel's generic GHASH,
 which limits `gcm(aes)` on the SG2002.
 

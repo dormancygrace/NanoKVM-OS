@@ -114,7 +114,7 @@ The TRNG of the security subsystem (SG2002 TRM, section 22.2) seeds a DRBG from 
 
 Linux clears both properties once it has read them. If the TRNG fails in U-Boot, U-Boot prints `No RNG device` or `dm_rng_read failed` and boots as before, without the seeds.
 
-The registers are those of the Synopsys NIST TRNG core, which the TRM documents only in part. A second seed on a running generator is an illegal command sequence for that core: it raises an alarm, and the core then ignores every command; a zeroize with an alarm pending hung the bus. The driver therefore clears the alarms and the status, zeroizes the core, instantiates it from fresh noise, checks the alarms after every command, and zeroizes it again after its read. Every wait has a timeout. `tests/test-trng.py` runs that code against a model with alarms and timeouts.
+The registers are those of the Synopsys NIST TRNG core, which the TRM documents only in part. A second seed on a running generator is an illegal command sequence for that core: it raises an alarm, and the core then ignores every command; a zeroize with an alarm pending hung the bus. The driver therefore clears the alarms and the status, zeroizes the core, instantiates it from fresh noise, checks the alarms after every command, and zeroizes it again after its read. Every wait has a timeout.
 
 The block sits behind the efuse clock gates. With the gates off, any access to its registers hangs the bus, and the board restarts through the watchdog. U-Boot's device tree node names both clocks, so the driver enables them before it touches a register; Linux turns them off again at boot as unused. Do not read its registers with `devmem`.
 

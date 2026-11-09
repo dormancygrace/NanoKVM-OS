@@ -51,9 +51,6 @@ python3 firmware/crypto/openssl-c906/generate-chacha.py \
   --binutils /path/to/riscv64-buildroot-linux-musl- --check
 ```
 
-Qualification sources and results belong to
-`firmware/crypto/experimental/openssl-chacha20/`.
-
 ## Direct SG2002 transport
 
 `0002-hwcrypto-transport.patch` adds the shared private ioctl client for subsequent
@@ -61,8 +58,7 @@ per-algorithm patches. On its own it selects no hardware algorithm and changes
 no EVP result. It is compiled only for RISC-V64, outside the FIPS module. The
 module ships in the same image, so there is no ABI or capability probe; a
 process keeps one descriptor for all threads. EIO/ETIMEDOUT from a poisoned or
-hung engine still fall back to software. See
-`firmware/crypto/experimental/openssl-hwcrypto/` for fault tests and lifetime rules.
+hung engine still fall back to software.
 
 ## SHA-224/256
 
@@ -70,8 +66,8 @@ hung engine still fall back to software. See
 chunks. OpenSSL owns streaming, padding, digest lengths and software fallback.
 The FIPS module is excluded. The remainder goes straight to the scalar C906
 kernel; the Zvknh check of the stock dispatch is not compiled for XTheadBb
-builds. See `experimental/openssl-sha256` for qualification;
-DMA starts at 1 KiB (wall-clock break-even, see `experimental/openssl-hwcrypto`).
+builds. `tests/test-scalar.py` runs the patched wrapper and scalar assembly on
+QEMU's C906 CPU. DMA starts at 1 KiB (wall-clock break-even).
 
 ## AES
 
@@ -85,12 +81,11 @@ OpenSSL retains streaming, padding, GHASH, authentication and TLS handling.
 The shared block helper commits only completed chunks and supports separate
 full-width and GCM counters. GCM installs the AES-CTR callback for every record;
 below the 512-byte DMA minimum it encrypts one AES block per call with 64-bit XOR
-and a register counter. See `experimental/openssl-aes` for qualification.
+and a register counter.
 
 The AES PR is based directly on the SHA-256 patch. SHA-1, DES, TDES and SM4
 OpenSSL offloads are not included. The AES helper rejects other algorithm IDs,
-and the legacy provider does not link the SG2002 transport. AES block-mode
-verification is self-contained in `experimental/openssl-aes/verify.c`.
+and the legacy provider does not link the SG2002 transport.
 
 ## Poly1305
 
@@ -118,8 +113,8 @@ Stand, `openssl speed -evp chacha20-poly1305`, best of three, MB/s:
 
 From the ChaCha20-only rate of the same build, Poly1305 goes from about 163
 to about 219 MB/s at 16 KiB (the kernel's copy measures 228). OpenSSL's
-`test_poly1305` and `experimental/openssl-c906/evp-bench.c 0` (408 AEAD
-known answers and rejected tags) pass on the device.
+`test_poly1305` and an EVP check of 408 AEAD known answers and rejected tags
+pass on the device.
 
 ### Vector Poly1305
 
@@ -142,19 +137,12 @@ generator executes it against a big-integer Poly1305; see
   with `EVP_MAC`, a fresh key per message, it overtakes Cryptogams at about
   640 bytes.
 
-`experimental/openssl-c906/test-poly1305-dispatch.py --negative-control` (CI)
-compiles the patched glue with C models of Cryptogams (h2 left unreduced)
-and of the vector function (h[1] left above 2^26). It checks 4000 cases
-against the model Poly1305 and requires that no system call is made.
-Breaking any of the following fails: the syscall-free path, the threshold, the h2 fold, h2 in the top limb, or the carry before
-radix 2^64.
-
 Stand, 2026-11-09:
-- `experimental/openssl-c906/poly1305-check.c tags` produces the same 6000
+- The vector path produces the same 6000
   tags (lengths to 65 KB, offsets 0-15, update splits, all-ones keys and
   messages) as Cryptogams (measured with the opt-in variable of an earlier
   revision; the code path is the same).
-- `evp-bench 0` passes.
+- The 408-case EVP AEAD check passes.
 
 MB/s, Cryptogams -> vector; `EVP_MAC` is three alternating rounds:
 

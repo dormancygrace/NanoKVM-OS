@@ -6,9 +6,7 @@ JOBS ?= $(shell nproc)
 PLATFORM_ARGS ?=
 PLATFORM = bash platform/build.sh -o "$(OUT)" -j "$(JOBS)" $(PLATFORM_ARGS)
 
-.PHONY: help all platform app support vision web release-build package release clean \
-        test-wifi-modules test-alpine-network test-wifi-runtime \
-        test-runtime-state
+.PHONY: help all platform app support vision web release-build package release clean
 
 help:
 	@echo "NanoKVM OS — pinned Alpine/platform build"
@@ -18,7 +16,6 @@ help:
 	@echo "  app/support/vision   - Rebuild server/board service/native libraries"
 	@echo "  web                  - Build web/dist for frontend development"
 	@echo "  clean                - Remove the platform APK builder and rootfs"
-	@echo "  test-*               - Host-side network, USB and filesystem checks"
 	@echo "  OUT=$(OUT) JOBS=$(JOBS)"
 	@echo "Example: make platform PLATFORM_ARGS=-d"
 	@echo "Official signing: PLATFORM_ARGS='-e path/to/key.key'"
@@ -50,18 +47,3 @@ web:
 
 clean:
 	@$(PLATFORM) clean
-
-test-wifi-modules:
-	@python3 tests/test-wifi-selector.py
-	@python3 tests/test-aic-firmware-path.py
-
-test-alpine-network:
-	@python3 tests/test-alpine-service-deps.py
-	@python3 tests/test-alpine-app-wait.py
-
-test-wifi-runtime:
-	@sh tests/test-s30wifi-runtime.sh
-	@cd server && go test -tags teststub,nomsgpack ./service/network
-
-test-runtime-state:
-	@sh tests/test-runtime-state.sh

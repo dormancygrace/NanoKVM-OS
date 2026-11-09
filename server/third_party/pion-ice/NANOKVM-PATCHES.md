@@ -1,6 +1,6 @@
 # NanoKVM ICE changes
 
-Base: github.com/pion/ice/v4 v4.4.9. MIT license and upstream tests retained; compare the named release from the Go module proxy.
+Base: github.com/pion/ice/v4 v4.4.9. MIT license retained; only the NanoKVM tests (`tcp_mux_*_test.go`) are kept; compare the named release from the Go module proxy.
 
 `agent.go` and `path_mtu.go` implement opt-in authenticated datagram path probing. Nomination logic is not replaced. Without `PathMTUObserver`, upstream transport behavior is retained.
 
@@ -11,13 +11,11 @@ Base: github.com/pion/ice/v4 v4.4.9. MIT license and upstream tests retained; co
 See [transport policy and qualification limits](../../../docs/webrtc-pmtu-design.md).
 
 The v4.4.5 refresh uses transport/v5. TURN endpoint metadata uses the upstream
-single UDP resolution and candidate generation checks are preserved. The UDP
-port-exhaustion test retains all sockets until cleanup, preventing GC from
-reopening a tested port.
+single UDP resolution and candidate generation checks are preserved.
 
-The v4.4.7 refresh preserves pre-created UDP mux connections on initial construction and requests the configured relay address family from TURN. Upstream regression tests are retained alongside the local PMTU/TURN metadata tests.
+The v4.4.7 refresh preserves pre-created UDP mux connections on initial construction and requests the configured relay address family from TURN.
 
-The v4.4.8 refresh sends the peer-reflexive type preference in Binding-request PRIORITY attributes, including nomination and renomination. Local PMTU probing and TURN endpoint metadata are unchanged; upstream priority regression tests are retained. The upstream hash manifest is regenerated from the complete v4.4.8 module, including entries left stale by the previous refresh.
+The v4.4.8 refresh sends the peer-reflexive type preference in Binding-request PRIORITY attributes, including nomination and renomination. Local PMTU probing and TURN endpoint metadata are unchanged. The upstream hash manifest is regenerated from the complete v4.4.8 module, including entries left stale by the previous refresh.
 
 The additional boundary test in tcp_mux_bounds_test.go covers 0, 1, 65535 and
 65536 bytes and checks that rejection writes nothing. The shared length guard
@@ -28,8 +26,6 @@ opened by `ListenPacket` is exposed to TURN through `net.PacketConn` only, so
 its configured numeric server remains the source to validate. This avoids
 `vnet.UDPConn.RemoteAddr` returning a typed-nil `*net.UDPAddr` that otherwise
 overrides that server. Connected TCP/TLS/DTLS adapters retain `RemoteAddr`.
-The VNet regression checks trusted and untrusted sources and successful relay
-allocation; NAT connectivity tests have bounded connection waits.
 
 The v4.4.9 refresh adds optional padded connectivity checks, deterministic
 ICE-lite address-family priorities and WithInsecureSkipVerify. NanoKVM does

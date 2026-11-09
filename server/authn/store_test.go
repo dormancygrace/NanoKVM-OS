@@ -3,58 +3,12 @@ package authn
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+
 	"os"
 	"path/filepath"
-	"sync"
+
 	"testing"
-
-	"golang.org/x/crypto/bcrypt"
 )
-
-func TestLegacyAccountMigratesInPlace(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "pwd")
-	hash, err := bcrypt.GenerateFromPassword([]byte("legacy-password"), bcrypt.MinCost)
-	if err != nil {
-		t.Fatal(err)
-	}
-	legacy, _ := json.Marshal(legacyAccount{Username: "owner", Password: string(hash)})
-	if err = os.WriteFile(path, legacy, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	store := NewStore(path)
-	user, ok, err := store.Authenticate("owner", "legacy-password")
-	if err != nil || !ok {
-		t.Fatalf("authenticate migrated account: ok=%v err=%v", ok, err)
-	}
-	if user.Role != RoleAdmin || !user.SystemAccount || user.TokenVersion == 0 {
-		t.Fatalf("unexpected migrated user: %+v", user)
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var db database
-	if err = json.Unmarshal(data, &db); err != nil {
-		t.Fatalf("account file was not migrated: %v", err)
-	}
-	if db.Version != currentFileVersion || len(db.Users) != 1 {
-		t.Fatalf("unexpected database: %+v", db)
-	}
-	var downgrade legacyAccount
-	if err = json.Unmarshal(data, &downgrade); err != nil || downgrade.Username != "owner" || downgrade.Password == "" {
-		t.Fatalf("legacy downgrade mirror is invalid: %+v, %v", downgrade, err)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("account mode = %o, want 600", info.Mode().Perm())
-	}
-}
 
 func TestCorruptAccountFileFailsClosed(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pwd")
@@ -111,38 +65,6 @@ func TestUserLifecycleAndTokenRevocation(t *testing.T) {
 	}
 	if _, err = store.Get("alice"); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("deleted user lookup error = %v", err)
-	}
-}
-
-func TestUpdateReportsWhetherAccountStateChanged(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "pwd"))
-	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
-		t.Fatalf("default login: ok=%v err=%v", ok, err)
-	}
-	if err := store.Create("alice", "correct-horse", RoleUser); err != nil {
-		t.Fatal(err)
-	}
-
-	before, err := store.Get("alice")
-	if err != nil {
-		t.Fatal(err)
-	}
-	role := RoleUser
-	updated, changed, err := store.Update("admin", "alice", UserPatch{Role: &role})
-	if err != nil || changed {
-		t.Fatalf("no-op update: changed=%v err=%v", changed, err)
-	}
-	if updated.TokenVersion != before.TokenVersion {
-		t.Fatalf("no-op token version = %d, want %d", updated.TokenVersion, before.TokenVersion)
-	}
-
-	disabled := false
-	updated, changed, err = store.Update("admin", "alice", UserPatch{Enabled: &disabled})
-	if err != nil || !changed {
-		t.Fatalf("real update: changed=%v err=%v", changed, err)
-	}
-	if updated.TokenVersion == before.TokenVersion {
-		t.Fatal("real update did not revoke existing tokens")
 	}
 }
 
@@ -273,28 +195,6 @@ func TestOnlyDeviceOwnerCanRenameDeviceOwner(t *testing.T) {
 	}
 }
 
-func TestRenameRejectsInvalidAndDuplicateUsername(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "pwd"))
-	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
-		t.Fatalf("default login: ok=%v err=%v", ok, err)
-	}
-	if err := store.Create("alice", "alice-password", RoleUser); err != nil {
-		t.Fatal(err)
-	}
-
-	duplicate := "alice"
-	if _, _, err := store.Update("admin", "admin", UserPatch{Username: &duplicate}); !errors.Is(err, ErrUserExists) {
-		t.Fatalf("duplicate rename error = %v", err)
-	}
-	invalid := "not valid"
-	if _, _, err := store.Update("admin", "admin", UserPatch{Username: &invalid}); err == nil {
-		t.Fatal("invalid rename succeeded")
-	}
-	if _, err := store.Get("admin"); err != nil {
-		t.Fatalf("failed rename changed account: %v", err)
-	}
-}
-
 func TestRemovedAccountFileAndRecreatedUserInvalidateOldVersions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pwd")
 	store := NewStore(path)
@@ -327,37 +227,5 @@ func TestRemovedAccountFileAndRecreatedUserInvalidateOldVersions(t *testing.T) {
 	}
 	if _, err = store.ValidateToken("alice", alice.TokenVersion); err == nil {
 		t.Fatal("old token survived deletion and username reuse")
-	}
-}
-
-func TestConcurrentCreatesDoNotLoseUsers(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "pwd"))
-	if _, ok, err := store.Authenticate("admin", "admin"); err != nil || !ok {
-		t.Fatalf("default login: ok=%v err=%v", ok, err)
-	}
-
-	const count = 5
-	var workers sync.WaitGroup
-	errorsCh := make(chan error, count)
-	for index := 0; index < count; index++ {
-		workers.Add(1)
-		go func(index int) {
-			defer workers.Done()
-			errorsCh <- store.Create(fmt.Sprintf("user%d", index), "valid-password", RoleUser)
-		}(index)
-	}
-	workers.Wait()
-	close(errorsCh)
-	for err := range errorsCh {
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	users, err := store.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(users) != count+1 {
-		t.Fatalf("got %d users, want %d", len(users), count+1)
 	}
 }

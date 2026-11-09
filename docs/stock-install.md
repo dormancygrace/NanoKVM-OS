@@ -325,16 +325,10 @@ asset bytes. Qualify the candidate on stock hardware before publishing it.
 Host checks:
 
 ```sh
-python3 tests/test-stock-installer.py
-sudo python3 tests/test-stock-layout-loop.py --output /path/to/disposable-test-output
 shellcheck firmware/stock-install/install.sh firmware/stock-install/init \
   firmware/stock-install/S95nanokvm firmware/stock-install/offline-run.sh
 ```
 
-The first suite executes the real installer/recovery shell logic with isolated
-paths and simulated mount/reboot operations, plus the real C MBR transactions
-and Python download/archive checks. The second exercises real Linux loop
-bounds and FAT formatting on a disposable sparse file. It does not open a
-physical card. These checks cannot qualify stock U-Boot compatibility, board
+These host checks cannot qualify stock U-Boot compatibility, board
 wiring, F2FS mounts on the target, networking after migration, or power cuts on
 real media. Those remain the device acceptance tests before release.

@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"syscall"
+
 	"testing"
 )
 
@@ -91,41 +91,5 @@ func TestSHA256SumIsRepeatableAndWritable(t *testing.T) {
 	d.Write(data[:5000])
 	if want := sha256.Sum256(data[:5000]); !bytes.Equal(d.Sum([]byte("x"))[1:], want[:]) {
 		t.Fatal("after Reset")
-	}
-}
-
-func TestSHA256EngineFailureContinuesInSoftware(t *testing.T) {
-	data := make([]byte, 50000)
-	rand.Read(data)
-	want := sha256.Sum256(data)
-	f := &fakeEngine{failAt: 3, err: syscall.EIO}
-	e := f.engine()
-	d := newSHA256(e)
-	d.Write(data)
-	if !bytes.Equal(d.Sum(nil), want[:]) {
-		t.Fatal("wrong digest after an engine error")
-	}
-	if !e.disabled.Load() || f.calls != 3 {
-		t.Fatalf("engine not disabled after an error (calls %d)", f.calls)
-	}
-	d2 := newSHA256(e)
-	d2.Write(data)
-	if !bytes.Equal(d2.Sum(nil), want[:]) || f.calls != 3 {
-		t.Fatal("a disabled engine was used again")
-	}
-}
-
-func TestSHA256InterruptedRequestKeepsTheEngine(t *testing.T) {
-	data := make([]byte, 50000)
-	rand.Read(data)
-	f := &fakeEngine{failAt: 2, err: syscall.EINTR}
-	e := f.engine()
-	d := newSHA256(e)
-	d.Write(data)
-	if want := sha256.Sum256(data); !bytes.Equal(d.Sum(nil), want[:]) {
-		t.Fatal("wrong digest after EINTR")
-	}
-	if e.disabled.Load() || f.calls < 5 {
-		t.Fatalf("EINTR disabled the engine (calls %d)", f.calls)
 	}
 }

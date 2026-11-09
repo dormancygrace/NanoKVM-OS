@@ -66,13 +66,12 @@ diff --git a/crypto/modes/build.info b/crypto/modes/build.info
 diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 --- /dev/null
 +++ b/crypto/modes/gcm_c906.c
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,107 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stdint.h>
 +#include <string.h>
 +#include <openssl/crypto.h>
 +#include "crypto/modes.h"
-+#include "crypto/riscv_arch.h"
 +
 +#ifdef NKOS_GHASH_TEST
 +#include <stdatomic.h>
@@ -169,8 +168,8 @@ diff --git a/crypto/modes/gcm_c906.c b/crypto/modes/gcm_c906.c
 +    const u8 *in, size_t len)
 +{
 +    /* The kernel keeps the vector unit on for every user thread (patch
-+     * 0078); only the startup hwprobe is checked, so QEMU runs stay generic. */
-+    if (len < 2048 || !ossl_riscv_has_xtheadvector)
++     * 0078): no run-time check, only the input length. */
++    if (len < 2048)
 +        return 0;
 +    return vector_prefix(xi, table, kp, in, len);
 +}

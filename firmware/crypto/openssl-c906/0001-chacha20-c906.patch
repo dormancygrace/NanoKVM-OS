@@ -44,50 +44,6 @@
 +        return;
 +    ChaCha20_ctr32_c(out, inp, len, key, counter);
  }
---- a/include/crypto/riscv_arch.h
-+++ b/include/crypto/riscv_arch.h
-@@ -101,11 +101,16 @@
-  * hwprobe_key is copied from asm/hwprobe.h.
-  * It should be updated along with riscv_arch.def.
-  */
--#define OSSL_RISCV_HWPROBE_PAIR_COUNT 1
-+#define OSSL_RISCV_HWPROBE_PAIR_COUNT 2
- #define OSSL_RISCV_HWPROBE_PAIR_CONTENT \
--    { 4, 0 },
-+    { 4, 0 }, \
-+    { 11, 0 }, /* RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0 */
- #endif
- 
-+/* Linux all-online-CPU intersection, independent of ISA environment overrides.
-+ * Zero when hwprobe, its T-Head key or usable build headers are unavailable. */
-+extern int ossl_riscv_has_xtheadvector;
-+
- /* Extension combination tests. */
- #define RISCV_HAS_ZBB_AND_ZBC() (RISCV_HAS_ZBB() && RISCV_HAS_ZBC())
- #define RISCV_HAS_ZBKB_AND_ZKND_AND_ZKNE() (RISCV_HAS_ZBKB() && RISCV_HAS_ZKND() && RISCV_HAS_ZKNE())
---- a/crypto/riscvcap.c
-+++ b/crypto/riscvcap.c
-@@ -27,6 +27,7 @@
- extern size_t riscv_vlen_asm(void);
- 
- static size_t vlen = 0;
-+int ossl_riscv_has_xtheadvector = 0;
- 
- #ifdef OSSL_RISCV_HWPROBE
- unsigned int OPENSSL_riscv_hwcap_P = 0;
-@@ -110,6 +111,12 @@
-     ret = riscv_hwprobe(pairs, OSSL_RISCV_HWPROBE_PAIR_COUNT, 0, NULL, 0);
-     /* if hwprobe syscall does not exist, ret would be -ENOSYS */
-     if (ret == 0) {
-+        /* Vendor key 11, XTheadVector bit 0. Unknown keys become -1.
-+         * This is the intersection over all online CPUs (cpus=NULL).
-+         * Do not infer draft vectors from the standard ISA V bit.
-+         */
-+        if (pairs[1].key == 11)
-+            ossl_riscv_has_xtheadvector = (pairs[1].value & 1) != 0;
-         for (size_t i = 0; i < kRISCVNumCaps; ++i) {
-             for (size_t j = 0; j != OSSL_RISCV_HWPROBE_PAIR_COUNT; ++j) {
-                 if (pairs[j].key == RISCV_capabilities[i].hwprobe_key
 --- /dev/null
 +++ b/crypto/chacha/chacha_c906.h
 @@ -0,0 +1,9 @@
@@ -102,22 +58,19 @@
 +#endif
 --- /dev/null
 +++ b/crypto/chacha/chacha_c906.c
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,54 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +/* NanoKVM OS: the shared five-block ChaCha kernel; protocol, buffering and
-+ * counter limits remain in OpenSSL. Hardware capability is detected by the
-+ * existing OpenSSL startup hwprobe, never by file I/O on the cipher path.
++ * counter limits remain in OpenSSL.
 + */
 +#include <string.h>
 +#include <openssl/crypto.h>
 +#include "crypto/chacha.h"
-+#include "crypto/riscv_arch.h"
 +#include "chacha_c906.h"
 +
 +/* NanoKVM OS runs only on the SG2002 (C906, XTheadVector) with its own kernel,
 + * which keeps the vector unit on for every user thread (kernel patch 0078).
-+ * The only check is the startup hwprobe, so host and QEMU runs stay generic;
-+ * the cipher path makes no system call.
++ * There is no run-time check: only the input length selects this path.
 + */
 +
 +#ifdef NKOS_CHACHA_TEST
@@ -141,7 +94,7 @@
 +    unsigned int state[16];
 +    size_t bytes;
 +
-+    if (len < OSSL_CHACHA_C906_MIN_BYTES || !ossl_riscv_has_xtheadvector)
++    if (len < OSSL_CHACHA_C906_MIN_BYTES)
 +        return 0;
 +    state[0] = 0x61707865;
 +    state[1] = 0x3320646e;

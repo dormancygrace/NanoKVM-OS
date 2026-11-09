@@ -6,7 +6,7 @@ Measurements from Go or the kernel do not replace OpenSSL measurements.
 
 **2026-11-09:** the vector path no longer has an opt-in or a per-call or
 per-thread vector-state query. Kernel patch 0078 keeps the vector unit on for
-every user thread, and the startup hwprobe is the only check (see
+every user thread, and there is no run-time check (see
 `../../openssl-c906/README.md`). Sections below that mention
 `NANOKVM_OPENSSL_CHACHA20=auto` or `prctl` describe the earlier design and its
 qualification.

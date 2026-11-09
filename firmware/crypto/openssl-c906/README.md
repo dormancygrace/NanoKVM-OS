@@ -20,19 +20,12 @@ the C callee-saved registers, takes a 16-word state and round count, and wipes
 its stack keystream. The Go implementation uses a different ABI and buffer
 wrapper; its timings are not OpenSSL measurements.
 
-Selection uses Linux `riscv_hwprobe` vendor key 11 (T-Head), bit 0
-(XTheadVector), through OpenSSL's existing startup probe. The query covers
-all online CPUs and uses their common capabilities. No `/proc/cpuinfo` access
-occurs on the cipher path. Missing headers, an unsupported syscall/key or
-an `OPENSSL_riscvcap` override that skips automatic probing leaves this path
-disabled. Standard RVV 1.0 alone does not enable draft XTheadVector code.
-
 Inputs below the single `OSSL_CHACHA_C906_MIN_BYTES` threshold (320 bytes, one
 five-block group; the C glue only hands whole groups to the vector code) use
 upstream C code. The stock Zbb/RVV 1.0 kernels are no longer built or
 dispatched: the C906 has neither extension.
 
-There is no other check: NanoKVM OS runs only on the SG2002, and its kernel
+There is no run-time check: NanoKVM OS runs only on the SG2002, and its kernel
 keeps the vector unit on for every user thread
 (`platform/kernel/0078-riscv-user-vector-always-on.patch`: no thread can turn
 it off or start a program with it off). The ChaCha20, GHASH and Poly1305 paths
@@ -40,8 +33,10 @@ therefore make no system call and need no environment variable, so they work
 in every process, including those under seccomp filters (OpenSSH's
 pre-authentication sandbox). Earlier versions asked `PR_RISCV_V_GET_CONTROL`
 on every call and needed the opt-in `NANOKVM_OPENSSL_CHACHA20=auto`, which only
-the image downloader's curl set. The startup hwprobe stays, so host and QEMU
-runs keep upstream code.
+the image downloader's curl set, and a startup `riscv_hwprobe` of the T-Head
+vendor key. CI does not run this library: it checks the patches, the
+generated assembly and the arithmetic of the C906 kernels in separate test
+programs.
 
 `NKOS_CHACHA_TEST` adds an atomic counter at the actual assembly entry and an
 accessor for a private test-library export map. Production builds omit both

@@ -21,7 +21,6 @@ def main():
         p = Path(td)
         for name in ('crypto', 'internal'): (p / name).mkdir()
         (p / 'internal/cryptlib.h').write_text('char *ossl_safe_getenv(const char *);\n')
-        (p / 'crypto/riscv_arch.h').write_text('extern int ossl_riscv_has_xtheadvector;\n')
         (p / 'crypto/chacha.h').write_text('void ChaCha20_ctr32_c(unsigned char *, const unsigned char *, size_t, const unsigned int [8], const unsigned int [4]);\n')
         (p / 'chacha_c906.h').write_text(added_file(patch, 'crypto/chacha/chacha_c906.h'))
         def write(changed=None):
@@ -38,8 +37,7 @@ def main():
         subprocess.run([str(p / 'test')], check=True)
         if a.negative_control:
             for name, change in (
-                ('capability gate', ('chacha_c906.c', '!ossl_riscv_has_xtheadvector', '0')),
-                ('threshold', ('chacha_c906.c', 'len < OSSL_CHACHA_C906_MIN_BYTES ||', 'len < 1 ||')),
+                ('threshold', ('chacha_c906.c', 'len < OSSL_CHACHA_C906_MIN_BYTES)', 'len < 1)')),
                 ('syscall-free path', ('chacha_c906.c', '    state[0] = 0x61707865;',
                                        '    (void)prctl(70, 0L, 0L, 0L, 0L);\n    state[0] = 0x61707865;')),
             ):

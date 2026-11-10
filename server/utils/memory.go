@@ -99,9 +99,18 @@ func (s *goMemoryLimitStore) read() (int64, error) {
 	return normalizeGoMemLimit(limit)
 }
 
-// InitGoMemLimit applies the saved limit, or the default without one. It runs
-// once at start, before anything else changes the runtime limit.
+// gcPercent lets the heap grow to three times the live data between collections.
+// This reduces collector CPU time on the C906 at the cost of some extra memory.
+// The runtime still collects earlier near GOMEMLIMIT, which is a soft limit.
+const gcPercent = 200
+
+// InitGoMemLimit applies the saved limit, or the default without one, and the
+// collection pace (a GOGC environment variable takes its place). It runs once
+// at start, before anything else changes the runtime limit.
 func InitGoMemLimit() {
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(gcPercent)
+	}
 	goMemLimit.init()
 }
 

@@ -14,6 +14,8 @@
     "runtime/memmove_riscv64.s": "a40d9599366924f1973daf98a434f1ce95e7a7b5a2507fab6d7cb6d7ca19ab70",
     "runtime/memclr_riscv64.s": "78bf3f0da5e8869fdc04ebc68c7efaa76d6a6e47dd9ce8d0a631b6fbec9a4bc2",
     "crypto/internal/fips140/sha3/sha3_noasm.go": "7d612a30f8a63ae042d3ac998bacd50744700125060893ef87580ef33be77a94",
+    "crypto/internal/fips140/aes/aes_noasm.go": "8647ca404ea9300cce387f7d5419367f8c801e7e0c9a8dd263eb1f069a9e8b24",
+    "crypto/internal/fips140/aes/gcm/gcm_noasm.go": "cfdf828aa34498dd358b86e7711abed4a6302eb1d09b0ade74951d51bedcd8b3",
     "crypto/internal/fips140/sha512/sha512block_riscv64.s": "dab438236eeb6d9723c8cd78d45cfff2c52201d85626002c62adc44697c968db"
   },
   "x_crypto_v0.57.0_sum_riscv64_s_sha256": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",

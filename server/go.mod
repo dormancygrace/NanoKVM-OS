@@ -19,13 +19,13 @@ require (
 	github.com/pion/rtcp v1.2.20
 	github.com/pion/rtp v1.10.6
 	github.com/pion/srtp/v3 v3.1.3
-	github.com/pion/transport/v5 v5.1.4
+	github.com/pion/transport/v5 v5.1.5
 	github.com/pion/webrtc/v4 v4.2.26
 	github.com/rs/cors/wrapper/gin v0.0.0-20261101222852-7ca5fe28f7d5
 	github.com/sirupsen/logrus v1.10.2
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.62.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -64,10 +64,10 @@ require (
 	github.com/ugorji/go/codec v1.3.2 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.9.3 // indirect
-	golang.org/x/arch v0.32.0 // indirect
-	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.10.0 // indirect
+	golang.org/x/arch v0.33.0 // indirect
+	golang.org/x/oauth2 v0.38.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect

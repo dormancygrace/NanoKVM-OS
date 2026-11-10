@@ -11,7 +11,7 @@
 +ENDIF
 --- /dev/null
 +++ b/crypto/hwcrypto.c
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,129 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <errno.h>
@@ -25,6 +25,7 @@
 +#include "crypto/hwcrypto_transport.h"
 +
 +_Static_assert(sizeof(struct hwcrypto_request) == 144, "SG2002 request ABI");
++_Static_assert(sizeof(struct hwcrypto_gcm_request) == 128, "SG2002 GCM ABI");
 +
 +/* The module ships in the same image as this library: no ABI, capability or
 + * device-type probe. The driver keeps no per-open state and serialises every
@@ -33,6 +34,7 @@
 + * sandbox, say) drops the inherited descriptor and opens its own.
 + */
 +static _Atomic int failed;
++static _Atomic int no_gcm;                 /* the driver has no HWCRYPTO_GCM */
 +static _Atomic uint64_t shared;            /* pid << 32 | (fd + 1); 0: none */
 +
 +static void fault(int error)
@@ -72,7 +74,7 @@
 +    close(fd);                              /* another thread opened first */
 +    return current >> 32 == pid ? (int)(uint32_t)current - 1 : -1;
 +}
-+static int run(int fd, struct hwcrypto_request *request)
++static int run(int fd, unsigned long command, void *request)
 +{
 +    uint64_t current;
 +    int error;
@@ -80,9 +82,15 @@
 +    if (atomic_load_explicit(&failed, memory_order_relaxed))
 +        return 0;
 +    /* On any error the driver copies nothing back into the request. */
-+    if (ioctl(fd, HWCRYPTO_RUN, request) == 0)
++    if (ioctl(fd, command, request) == 0)
 +        return 1;
 +    error = errno;
++    if (error == ENOTTY && command == HWCRYPTO_GCM) {
++        /* The module of the running kernel is from before HWCRYPTO_GCM: after
++         * an update, until the reboot. The callers keep the AES-CTR path. */
++        atomic_store_explicit(&no_gcm, 1, memory_order_relaxed);
++        return 0;
++    }
 +    if (error == EBADF || error == ENOTTY) {
 +        /* The application closed the descriptor (closefrom, daemonising).
 +         * Forget it without closing: the number may now be another file. */
@@ -105,7 +113,7 @@
 +    int ok;
 +
 +    request->output = (uintptr_t)scratch;
-+    ok = run(fd, request);
++    ok = run(fd, HWCRYPTO_RUN, request);
 +    request->output = output;
 +    if (ok)
 +        memcpy((void *)(uintptr_t)output, scratch, request->output_length);
@@ -117,8 +125,16 @@
 +    if (request->algorithm == HWCRYPTO_ALG_SHA1
 +        || request->algorithm == HWCRYPTO_ALG_SHA256
 +        || request->input != request->output)
-+        return run(fd, request);
++        return run(fd, HWCRYPTO_RUN, request);
 +    return run_in_place(fd, request);
++}
++/* The driver writes a chunk's output only after the engine finished it and
++ * reports the completed prefix: in place needs no scratch. */
++int ossl_hwcrypto_run_gcm(int fd, struct hwcrypto_gcm_request *request)
++{
++    if (atomic_load_explicit(&no_gcm, memory_order_relaxed))
++        return 0;
++    return run(fd, HWCRYPTO_GCM, request);
 +}
 +void ossl_hwcrypto_end(int fd)
 +{
@@ -139,7 +155,7 @@
 +#endif
 --- /dev/null
 +++ b/include/crypto/hwcrypto.h
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,51 @@
 +/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 +#ifndef HWCRYPTO_H
 +#define HWCRYPTO_H
@@ -173,6 +189,21 @@
 + __aligned_u64 submitted[HWCRYPTO_ALG_COUNT];
 + __aligned_u64 completed[HWCRYPTO_ALG_COUNT];
 +};
++/* AES-GCM bulk data: AES-CTR with GCM's 32-bit counter on the engine and, while
++ * it runs, GHASH of the ciphertext on the CPU. length is a nonzero multiple of
++ * 16. h is the hash key E_K(0^128); xi (GHASH accumulator) and ctr (counter
++ * block, big-endian 32-bit counter in the last word) are in GCM byte order and
++ * come back advanced over the returned length. If a chunk after the first
++ * fails, the call succeeds with the completed prefix in length. Associated
++ * data, partial blocks, lengths and the tag stay with the caller.
++ */
++struct hwcrypto_gcm_request {
++ __u32 version, encrypt, key_length, length;
++ __u8 key[32], h[16], xi[16], ctr[16];
++ __aligned_u64 input, output;
++ __u32 reserved[4];
++};
 +#define HWCRYPTO_RUN _IOWR('K', 0xc2, struct hwcrypto_request)
 +#define HWCRYPTO_INFO _IOR('K', 0xc3, struct hwcrypto_info)
++#define HWCRYPTO_GCM _IOWR('K', 0xc4, struct hwcrypto_gcm_request)
 +#endif

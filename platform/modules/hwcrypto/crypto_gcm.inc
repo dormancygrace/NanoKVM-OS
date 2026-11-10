@@ -13,8 +13,8 @@
  * crypto_finish_locked(); the GHASH in between reads only the caller's
  * scatterlists. GHASH is lib/crypto's (the C906 assembly with patch 0041).
  *
- * The engine lock stays held across each chunk's GHASH (up to about 0.1 ms
- * with the vector GHASH), so hardware SRTP requests wait behind a gcm(aes)
+ * The engine lock stays held across each chunk's GHASH (about 40 us for
+ * 4 KiB with the table GHASH), so hardware SRTP requests wait behind a gcm(aes)
  * request. Below about 4 KiB this gains little over the template: a
  * one-chunk encryption overlaps only the associated data.
  */
@@ -247,3 +247,115 @@ static struct aead_alg sg2_gcm_alg = {
   .cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY | CRYPTO_ALG_NEED_FALLBACK, .cra_blocksize = 1,
   .cra_ctxsize = sizeof(struct sg2_gcm_ctx), .cra_module = THIS_MODULE },
 };
+
+/*
+ * HWCRYPTO_GCM: the same overlap for user space (OpenSSL's AES-GCM records).
+ * Each chunk of up to HWCRYPTO_MAX bytes is started on the engine, and while
+ * it runs the CPU hashes ciphertext from a kernel copy: this chunk's input
+ * when decrypting, the previous chunk's output when encrypting. One caller at
+ * a time: the prepared hash key (two tables of 4 KiB) and the copy are
+ * shared, and the engine serializes callers anyway.
+ */
+static DEFINE_MUTEX(gcm_user_lock);
+static struct {
+ u8 h[GHASH_BLOCK_SIZE];	/* the key the tables were built for */
+ bool valid;
+ struct ghash_key key;
+ u8 text[HWCRYPTO_MAX];
+} gcm_user;
+
+static long crypto_gcm_ioctl(unsigned long arg)
+{
+ struct hwcrypto_gcm_request q;
+ struct hwcrypto_request r = { .version = 1, .algorithm = HWCRYPTO_ALG_AES,
+  .mode = HWCRYPTO_MODE_CTR, .encrypt = 1 };
+ const u8 __user *in;
+ u8 __user *out;
+ struct ghash_ctx g, saved;
+ unsigned int pos = 0, pending = 0;	/* pending: encrypted bytes in gcm_user.text not hashed yet */
+ int err = -EINVAL;
+
+ if (copy_from_user(&q, (void __user *)arg, sizeof(q))) { err = -EFAULT; goto clear; }
+ if (q.version != HWCRYPTO_ABI || q.encrypt > 1 || !q.input || !q.output ||
+     (q.key_length != 16 && q.key_length != 24 && q.key_length != 32) ||
+     !q.length || q.length % 16 || memchr_inv(q.reserved, 0, sizeof(q.reserved))) goto clear;
+ r.key_length = q.key_length;
+ memcpy(r.key, q.key, q.key_length);
+ memcpy(r.iv, q.ctr, 16);
+ in = u64_to_user_ptr(q.input);
+ out = u64_to_user_ptr(q.output);
+ err = mutex_lock_interruptible(&gcm_user_lock);
+ if (err) goto clear;
+ /* A TLS connection sends all its records with one key. */
+ if (!gcm_user.valid || crypto_memneq(gcm_user.h, q.h, GHASH_BLOCK_SIZE)) {
+  ghash_preparekey(&gcm_user.key, q.h);
+  memcpy(gcm_user.h, q.h, GHASH_BLOCK_SIZE);
+  gcm_user.valid = true;
+ }
+ ghash_init(&g, &gcm_user.key);
+ /* GHASH byte order to the POLYVAL-format accumulator of lib/crypto. */
+ g.acc.lo = cpu_to_le64(get_unaligned_be64(&q.xi[8]));
+ g.acc.hi = cpu_to_le64(get_unaligned_be64(&q.xi[0]));
+
+ do {
+  /* GCM's counter is the last 32 bits; a chunk never wraps it. */
+  u64 room = (1ULL << 32) - get_unaligned_be32(r.iv + 12);
+  unsigned int n = min_t(u64, min_t(u64, HWCRYPTO_MAX, room * 16), q.length - pos);
+  struct crypto_sizes s = {};
+  bool hashed = false;
+
+  /* Decryption hashes its input: copy it where a page fault is allowed. */
+  if (!q.encrypt && copy_from_user(gcm_user.text, in + pos, n)) { err = -EFAULT; break; }
+  saved = g;
+  r.length = r.output_length = n;
+  sg2_own();
+  if (poisoned) { err = -EIO; goto unlock; }
+  if (q.encrypt) {
+   if (copy_from_user(cur->in, in + pos, n)) { err = -EFAULT; goto clean; }
+  } else {
+   memcpy(cur->in, gcm_user.text, n);
+  }
+  err = crypto_start_locked(&r, &s);
+  if (err) goto clean;
+  /* While the engine runs: kernel memory only. */
+  ghash_update(&g, gcm_user.text, q.encrypt ? pending : n);
+  pending = 0;
+  hashed = true;
+  err = crypto_finish_locked(&r, &s);
+  if (err) goto unlock;	/* engine state uncertain: leave its buffers alone */
+  if (copy_to_user(out + pos, cur->out, n)) {
+   err = -EFAULT;
+  } else {
+   if (q.encrypt) { memcpy(gcm_user.text, cur->out, n); pending = n; }
+   put_unaligned_be32(get_unaligned_be32(r.iv + 12) + n / 16, r.iv + 12);
+  }
+clean:
+  crypto_clean_locked(&r);
+unlock:
+  sg2_disown();
+  if (err) {
+   /* A failed decryption chunk is not done: take its ciphertext back out. */
+   if (hashed && !q.encrypt) g = saved;
+   break;
+  }
+  pos += n;
+  /* cond_resched() is empty with PREEMPT_LAZY: a task woken by the unlock
+   * (an SRTP packet waiting for the engine) would otherwise wait for the
+   * tick or for the return to user space, several chunks later. */
+  if (need_resched() || test_thread_flag(TIF_NEED_RESCHED_LAZY)) schedule();
+  /* A killed caller stops at a chunk boundary; the prefix is complete. */
+ } while (pos < q.length && !fatal_signal_pending(current));
+ /* The last encrypted chunk, or the one before a failed chunk. */
+ if (q.encrypt && pending) ghash_update(&g, gcm_user.text, pending);
+ if (pos) {
+  q.length = pos;
+  ghash_final(&g, q.xi);
+  memcpy(q.ctr, r.iv, 16);
+  err = copy_to_user((void __user *)arg, &q, sizeof(q)) ? -EFAULT : 0;
+ }
+ mutex_unlock(&gcm_user_lock);
+clear:
+ memzero_explicit(&q, sizeof(q)); memzero_explicit(&r, sizeof(r));
+ memzero_explicit(&g, sizeof(g)); memzero_explicit(&saved, sizeof(saved));
+ return err;
+}

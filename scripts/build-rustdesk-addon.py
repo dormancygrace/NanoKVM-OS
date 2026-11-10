@@ -143,14 +143,14 @@ stream_integration=stage/"app-stream-integration"
 stream_integration.mkdir()
 vm_integration=stage/"app-usb-integration"
 vm_integration.mkdir()
-for name in ["usb-composition.go","usb-composition_test.go","virtual-device.go"]:
+for name in ["usb-composition.go","virtual-device.go"]:
     shutil.copyfile(root/"server/service/vm"/name,vm_integration/(name+".integration"))
 shutil.copyfile(root/"server/service/rustdesk/service.go",vm_integration/"rustdesk-service.go.integration")
 
-for name in ["encoder_config.go","video_source.go","video_source_test.go","state.go","state_test.go"]:
+for name in ["encoder_config.go","video_source.go","state.go","state_test.go"]:
     shutil.copyfile(root/"server/service/stream"/name,stream_integration/(name+".integration"))
 
-for name in ["audio.go","audio_test.go","bridge_test.go","pointer.go","pointer_test.go"]:
+for name in ["audio.go","pointer.go"]:
     shutil.copyfile(root/"server/service/rustdesk"/name,go_transport/(name+".integration"))
 hid_integration=stage/"app-hid-integration"
 hid_integration.mkdir()
@@ -160,8 +160,7 @@ for path in sorted((root/"server/service/hid").glob("*.go")):
 (go_transport/"go.mod").write_text((root/"server/go.mod").read_text())
 shared_audio=go_transport/"service/stream/audio"
 shared_audio.mkdir(parents=True)
-for name in ["audio.go","audio_test.go"]:
-    shutil.copyfile(root/"server/service/stream/audio"/name,shared_audio/name)
+shutil.copyfile(root/"server/service/stream/audio/audio.go",shared_audio/"audio.go")
 shutil.copyfile(root/"server/go.sum",go_transport/"go.sum")
 # Preserve all local Pion replacements: these are production C906 changes.
 for line in (root/"server/go.mod").read_text().splitlines():

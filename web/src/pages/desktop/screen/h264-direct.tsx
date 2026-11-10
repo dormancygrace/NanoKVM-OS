@@ -12,6 +12,7 @@ import {
   type RecordingPacket
 } from '@/lib/recording-source.ts';
 import { getBaseUrl } from '@/lib/service.ts';
+import { client } from '@/lib/websocket.ts';
 import { mouseStyleAtom } from '@/jotai/mouse';
 import { screenshotSourceAtom } from '@/jotai/screen.ts';
 
@@ -48,6 +49,22 @@ export const H264Direct = ({
   useEffect(() => {
     translationRef.current = t;
   }, [t]);
+
+  // /api/ws sends heartbeats, so after a power cut it learns of the loss and comes
+  // back well before the silent Direct socket does; the worker then checks its socket.
+  useEffect(() => {
+    let previous = client.getConnectionStatus();
+    let lost = false;
+    return client.subscribeConnectionStatus(() => {
+      const status = client.getConnectionStatus();
+      if (previous === 'connected' && status !== 'connected') lost = true;
+      if (status === 'connected' && lost) {
+        workerRef.current?.postMessage({ type: 'check' });
+        lost = false;
+      }
+      previous = status;
+    });
+  }, []);
 
   useEffect(() => {
     let disposed = false;

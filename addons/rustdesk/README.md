@@ -322,6 +322,12 @@ that buffer in place. The existing tag-prefix wire format, KX directions and
 nonce counter rules are retained. Buffers above 1 MiB are released after the
 frame; the maximum wire frame is 8 MiB.
 
+A video frame is not copied on its way: the bridge reader allocates its buffer
+with room around the payload and reads into it without filling it first, the
+session writes the RustDesk message headers into that room, and the same
+buffer is encrypted and sent. A test compares the message with what prost
+encodes.
+
 An explicit RVV 0.7.1 Salsa prototype was correct on C906 but mostly slower
 than the scalar in-place path. Production uses the scalar XSalsa20-Poly1305 of
 `src/frame_crypto.rs`, plain Rust: Salsa20 with the 16 state words in

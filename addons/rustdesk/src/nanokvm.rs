@@ -1,5 +1,5 @@
 // NanoKVM OS transport adaptation, 2026-10-03. SPDX-License-Identifier: AGPL-3.0-only
-use bytes::Bytes;
+use bytes::BufMut;
 use std::io;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
@@ -53,7 +53,56 @@ pub struct MediaFrame {
     pub height: u16,
     pub codec: Codec,
     pub keyframe: bool,
-    pub payload: Bytes,
+    pub payload: MediaPayload,
+}
+
+/// A frame's bytes with room around them: the session's writer puts the
+/// protocol's headers and trailer around the payload and sends the buffer as
+/// it is. Reads as the payload.
+#[derive(Debug)]
+pub struct MediaPayload(Vec<u8>);
+impl MediaPayload {
+    /// Unused bytes before the payload.
+    pub const FRONT: usize = 64;
+    /// Capacity kept after the payload.
+    pub const BACK: usize = 16;
+
+    // Reads `length` bytes into a new buffer, without filling it first.
+    async fn read<R>(reader: &mut R, length: usize) -> io::Result<Self>
+    where
+        R: AsyncRead + Unpin,
+    {
+        let mut buffer = Vec::with_capacity(Self::FRONT + length + Self::BACK);
+        buffer.resize(Self::FRONT, 0);
+        let mut payload = (&mut buffer).limit(length);
+        while payload.has_remaining_mut() {
+            if reader.read_buf(&mut payload).await? == 0 {
+                return Err(io::ErrorKind::UnexpectedEof.into());
+            }
+        }
+        Ok(Self(buffer))
+    }
+
+    /// The buffer: the payload starts at FRONT and BACK more bytes fit
+    /// after it without a new allocation.
+    pub fn into_buffer(self) -> Vec<u8> {
+        self.0
+    }
+}
+impl std::ops::Deref for MediaPayload {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        &self.0[Self::FRONT..]
+    }
+}
+#[cfg(test)]
+impl From<Vec<u8>> for MediaPayload {
+    fn from(payload: Vec<u8>) -> Self {
+        let mut buffer = vec![0; Self::FRONT];
+        buffer.extend_from_slice(&payload);
+        buffer.reserve(Self::BACK);
+        Self(buffer)
+    }
 }
 
 pub struct MediaSubscriber {
@@ -152,8 +201,7 @@ where
             "media frame is too large",
         ));
     }
-    let mut payload = vec![0; payload_length];
-    reader.read_exact(&mut payload).await?;
+    let payload = MediaPayload::read(reader, payload_length).await?;
     Ok(MediaFrame {
         sequence: u64::from_be_bytes(header[8..16].try_into().unwrap()),
         pts_usec: i64::from_be_bytes(header[16..24].try_into().unwrap()),
@@ -162,7 +210,7 @@ where
         height: u16::from_be_bytes(header[30..32].try_into().unwrap()),
         codec,
         keyframe: header[6] & 1 != 0,
-        payload: payload.into(),
+        payload,
     })
 }
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate the SHA-1 or SHA-256 block of Go for T-Head cores.
+"""Generate the SHA-1 block of Go for the T-Head C906.
 
-Go builds riscv64 for rva20u64, where each RORW of Go's riscv64 SHA-1 and
-SHA-256 assembly is three instructions (srliw, slliw, or) and each message
+Go builds riscv64 for rva20u64, where each RORW of its SHA-1 assembly is
+three instructions (srliw, slliw, or) and each message
 word is assembled from four byte loads. T-Head cores have XTheadBb and fast
 misaligned loads: th.srriw rotates a word in one instruction and th.revw
 reverses its bytes. This expands the macros of Go's file (from the pinned
@@ -12,7 +12,6 @@ GOROOT) and writes
 as WORD directives, under the same name block. Each word comes from GNU as
 (-march=rv64imac_xtheadbb) and must disassemble back to its mnemonic.
 
-  python3 gen_sha_c906.py --binutils $B --goroot $GOROOT --algo sha256 [--check] sha256block_c906_riscv64.s
   python3 gen_sha_c906.py --binutils $B --goroot $GOROOT --algo sha1 [--check] sha1block_riscv64.s
 """
 import argparse

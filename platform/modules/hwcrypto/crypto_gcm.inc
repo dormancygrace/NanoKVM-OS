@@ -9,8 +9,8 @@
  * ciphertext is the input). E(J0) for the tag comes from the first chunk, as
  * in the template: 16 zero bytes in front of the data, counter J0.
  *
- * The engine owns buffer, crypto_output and desc between crypto_start_locked()
- * and crypto_finish_locked(); the GHASH in between reads only the caller's
+ * The engine owns the caller's DMA set between crypto_start_locked() and
+ * crypto_finish_locked(); the GHASH in between reads only the caller's
  * scatterlists. GHASH is lib/crypto's (the C906 assembly with patch 0041).
  *
  * The engine lock stays held across each chunk's GHASH (up to about 0.1 ms
@@ -28,7 +28,8 @@ struct sg2_gcm_ctx { u8 key[32]; u32 keylen; struct ghash_key ghash; struct cryp
 /* fallback_req is last: the fallback's own request context follows it. */
 struct sg2_gcm_req { struct work_struct work; struct aead_request *req; bool encrypt; struct aead_request fallback_req; };
 
-/* The software gcm(aes) after the poison latch (crypto_linux_api.inc). */
+/* The software gcm(aes): for short requests and after the poison latch
+ * (crypto_linux_api.inc). */
 static int sg2_gcm_fallback(struct aead_request *req, bool encrypt)
 {
  struct sg2_gcm_ctx *ctx = crypto_aead_ctx(crypto_aead_reqtfm(req));
@@ -92,10 +93,10 @@ static int sg2_gcm_process(struct aead_request *req, bool encrypt)
 
   r.length = lead + n;
   r.output_length = r.length;
-  mutex_lock(&lock);
+  sg2_own();
   if (poisoned) { err = -EIO; goto unlock; }
-  memset(buffer, 0, lead);
-  if (n && sg_pcopy_to_buffer(req->src, in_nents, buffer + lead, n, assoclen + pos) != n) {
+  memset(cur->in, 0, lead);
+  if (n && sg_pcopy_to_buffer(req->src, in_nents, cur->in + lead, n, assoclen + pos) != n) {
    err = -EINVAL; goto clean;
   }
   err = crypto_start_locked(&r, &s);
@@ -111,17 +112,17 @@ static int sg2_gcm_process(struct aead_request *req, bool encrypt)
    sg2_ghash_sg(&g, req->src, assoclen + pos, n);
   err = crypto_finish_locked(&r, &s);
   if (err) goto unlock;	/* engine state uncertain: leave its buffers alone */
-  if (first) memcpy(ej0, crypto_output, 16);
-  if (n && sg_pcopy_from_buffer(req->dst, out_nents, crypto_output + lead, n, assoclen + pos) != n)
+  if (first) memcpy(ej0, cur->out, 16);
+  if (n && sg_pcopy_from_buffer(req->dst, out_nents, cur->out + lead, n, assoclen + pos) != n)
    err = -EINVAL;
   sg2_inc_counter(r.iv, 16, DIV_ROUND_UP(r.length, 16));
 clean:
   crypto_clean_locked(&r);
 unlock:
-  mutex_unlock(&lock);
+  sg2_disown();
   if (err) goto out;
   prev_pos = pos; prev_len = n; pos += n; first = false;
-  cond_resched();
+  sg2_resched();
  } while (pos < cryptlen);
 
  if (encrypt)
@@ -163,7 +164,9 @@ static int sg2_gcm_submit(struct aead_request *req, bool encrypt)
  if (!ctx->keylen) return -ENOKEY;
  if (!encrypt && req->cryptlen < crypto_aead_authsize(tfm)) return -EINVAL;
  if (sg2_use_fallback(ctx->fallback)) return sg2_gcm_fallback(req, encrypt);
- if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_gcm_process(req, encrypt);
+ if (ctx->fallback && req->cryptlen - (encrypt ? 0 : crypto_aead_authsize(tfm)) <= SG2_GCM_SOFT_MAX)
+  return sg2_gcm_fallback(req, encrypt);
+ if ((req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) || sg2_inline()) return sg2_gcm_process(req, encrypt);
  err = sg2_async_enter(req->base.flags);
  if (err) return err;
  r->req = req; r->encrypt = encrypt; INIT_WORK(&r->work, sg2_gcm_work);
@@ -191,15 +194,15 @@ static int sg2_gcm_setkey(struct crypto_aead *tfm, const u8 *key, unsigned int l
  }
  memcpy(r.key, key, len);
  /* H = AES_K(0^128), on the engine. */
- mutex_lock(&lock);
+ sg2_own();
  if (poisoned) { err = -EIO; goto unlock; }
- memset(buffer, 0, 16);
+ memset(cur->in, 0, 16);
  err = crypto_run_locked(&r);
  if (err) goto unlock;
- memcpy(h, crypto_output, 16);
+ memcpy(h, cur->out, 16);
  crypto_clean_locked(&r);
 unlock:
- mutex_unlock(&lock);
+ sg2_disown();
  if (!err) {
   ghash_preparekey(&ctx->ghash, h);
   memcpy(ctx->key, key, len); ctx->keylen = len;

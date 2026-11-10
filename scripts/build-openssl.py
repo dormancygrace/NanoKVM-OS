@@ -13,7 +13,7 @@ from nanokvm_cpu_profile import flags, record
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ['linux64-riscv64', '--prefix=/usr', '--libdir=lib', '--openssldir=/etc/ssl',
-          'enable-fips', 'enable-ktls', 'shared', 'no-zlib', 'no-async', 'no-comp',
+          'enable-fips', 'enable-ktls', 'enable-ec_nistp_64_gcc_128', 'shared', 'no-zlib', 'no-async', 'no-comp',
           'no-idea', 'no-mdc2', 'no-rc5', 'no-ec2m', 'no-ssl3', 'no-seed',
           'no-weak-ssl-ciphers']
 
@@ -41,10 +41,14 @@ def build(archive, output, cross, jobs):
     patches = sorted((ROOT / 'firmware/crypto/openssl-c906').glob('*.patch'))
     subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-chacha.py'),
                     '--binutils', str(cross), '--check'], check=True)
-    subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-sha256.py'),
-                    '--check'], check=True)
-    subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-ghash.py'),
-                    '--binutils', str(cross), '--check'], check=True)
+    for bits in ('256', '512'):
+        subprocess.run(['python3', str(ROOT / 'firmware/cpu/go-crypto-c906/gen_sha2_c906.py'), '--bits', bits,
+                        '--name', 'ossl_sha%s_c906_blocks' % bits, '--check',
+                        str(ROOT / 'firmware/crypto/openssl-c906/0003-sha256-dma.patch'),
+                        'crypto/sha/sha%s-c906.S' % bits], check=True)
+    subprocess.run(['python3', str(ROOT / 'firmware/cpu/go-crypto-c906/gen_ghash_table.py'),
+                    '--flavor', 'openssl', '--tables', '2', '--name', 'ossl_ghash_blocks_c906', '--check',
+                    str(ROOT / 'firmware/crypto/openssl-c906/0010-ghash-c906.patch')], check=True)
     subprocess.run(['python3', str(ROOT / 'firmware/cpu/go-crypto-c906/gen_poly1305_vector.py'),
                     '--binutils', str(cross), '--openssl', '--check',
                     str(ROOT / 'firmware/crypto/openssl-c906/0012-poly1305-c906.patch')], check=True)
@@ -58,6 +62,13 @@ def build(archive, output, cross, jobs):
     cflags = flags('openssl') + ['-g0', '-fstack-protector-strong',
                                '-fstack-clash-protection', '-Wformat',
                                '-Werror=format-security', '-D_FORTIFY_SOURCE=2']
+    # One section per function, so that the linker can place the functions of
+    # a TLS record next to each other (hot-sections.ld). The C906 has a 2-way
+    # 32 KiB instruction cache and no L2: hot code spread over the library
+    # evicted itself (1.2M to 2.0M misses per run of the record benchmark,
+    # depending on unrelated layout changes; 0.5M once grouped).
+    cflags.append('-ffunction-sections')
+    order = ROOT / 'firmware/crypto/openssl-c906/hot-sections.ld'
     record(output / 'cpu-profile.json', compiler, 'openssl', cflags)
     env = dict(os.environ)
     for key in ('CC', 'CXX', 'CPP', 'AR', 'RANLIB', 'CROSS_COMPILE', 'CFLAGS',
@@ -65,7 +76,7 @@ def build(archive, output, cross, jobs):
         env.pop(key, None)
     env.update(PATH=str(compiler.parent) + os.pathsep + env.get('PATH', ''),
                CC='gcc', AR='ar', RANLIB='ranlib', CFLAGS=' '.join(cflags),
-               LDFLAGS='-Wl,--as-needed,-O1,--sort-common,-z,relro,-z,now',
+               LDFLAGS='-Wl,--as-needed,-O1,--sort-common,-z,relro,-z,now,--section-ordering-file=' + str(order),
                # Upstream release date; unrelated commits must not change libcrypto.
                SOURCE_DATE_EPOCH='1790640000')
     prefix = Path(cross).name
@@ -77,6 +88,7 @@ def build(archive, output, cross, jobs):
                     ['make', 'DESTDIR=' + str(output / 'install'), 'install_sw', 'install_ssldirs']):
             subprocess.run(cmd, cwd=source, env=env, stdout=stream,
                            stderr=subprocess.STDOUT, check=True)
+    check_hot_layout(order, source / 'libcrypto.so.3', str(cross) + 'nm')
     install = output / 'install'
     runtime = output / 'runtime'
     # Development/static/FIPS artifacts are not part of this runtime package.
@@ -111,6 +123,23 @@ def build(archive, output, cross, jobs):
                 'cryptodma': any(p['file'].endswith('-dma.patch') for p in patch_records)}
     (info_dir / 'source.json').write_text(json.dumps(metadata, indent=2) + '\n')
     return runtime
+
+
+def check_hot_layout(order, library, nm):
+    """hot-sections.ld names functions; a new OpenSSL may rename or inline
+    them, and the linker ignores a pattern that matches nothing. Most names
+    must still be functions of libcrypto, next to each other."""
+    names = {line.strip()[8:-1] for line in order.read_text().splitlines()
+             if line.strip().startswith('*(.text.')}
+    out = subprocess.run([nm, '-n', str(library)], check=True, capture_output=True, text=True).stdout
+    hot = [int(row[0], 16) for row in (line.split() for line in out.splitlines())
+           if len(row) == 3 and row[1] in 'tT' and row[2] in names]
+    found = len({row[2] for row in (line.split() for line in out.splitlines())
+                 if len(row) == 3 and row[1] in 'tT' and row[2] in names})
+    if found < len(names) * 0.6 or max(hot) - min(hot) > 320 * 1024:
+        raise SystemExit('hot-sections.ld no longer matches libcrypto: %d of %d functions, span %d KiB; '
+                         'regenerate it (firmware/crypto/openssl-c906/README.md)'
+                         % (found, len(names), (max(hot) - min(hot)) // 1024))
 
 
 def main():

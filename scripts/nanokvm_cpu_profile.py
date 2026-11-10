@@ -49,6 +49,9 @@ def flags(kind='userspace'):
         # C906 memcpy and HTTPS measurements favor scalar inlining. Tree
         # vectorization flags alone do not control inline memory operations.
         result.append('-mstringop-strategy=scalar')
+        # Part of the measured layout of the hot functions
+        # (firmware/crypto/openssl-c906/README.md, "Function order").
+        result += ['-falign-functions=4', '-falign-jumps=4', '-falign-loops=4', '-falign-labels=4']
     return result
 
 

@@ -62,6 +62,10 @@ li t0, 1307
 bne s11, t0, .Lbad
 ld t0, 104(sp)
 beqz t0, .Lrestore
+ld t0, -128(sp)
+bnez t0, .Lbad
+ld t0, -120(sp)
+bnez t0, .Lbad
 ld t0, -112(sp)
 bnez t0, .Lbad
 ld t0, -104(sp)
@@ -73,10 +77,6 @@ bnez t0, .Lbad
 ld t0, -80(sp)
 bnez t0, .Lbad
 ld t0, -72(sp)
-bnez t0, .Lbad
-ld t0, -64(sp)
-bnez t0, .Lbad
-ld t0, -56(sp)
 bnez t0, .Lbad
 j .Lrestore
 .Lbad:

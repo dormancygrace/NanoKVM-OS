@@ -42,11 +42,7 @@ Stand, ns per call, best of five (`bench-chacha.c`, 2026-11-10):
 40.8, 256 B 34.8 -> 58.1, 1400 B 81 -> 87; chacha20-poly1305 64 B 24.3 -> 30.2,
 256 B 28.4 -> 42.6, 1400 B 61 -> 63; 8 KiB unchanged.
 
-GHASH keeps its 2 KiB vector threshold. Below it the vector code was 1.6x
-the 4-bit table alone, but inside AES-GCM records it gained 1-2 us at
-1400 bytes and lost 3-4 us at 128-256 bytes, with or without CryptoDMA.
-The scalar C906 GHASH is only 10% faster than the table (27.5 against
-25 MB/s), so the table stays for short inputs. CRYPTOGAMS SHA-512 (33.2
+GHASH uses 8-bit tables, see "GHASH" below. CRYPTOGAMS SHA-512 (33.2
 MB/s) and SHA-256 (22.1) were within noise of OpenSSL's C SHA-512 (32.7)
 and our C906 SHA-256 (21.8), so neither replaced them.
 
@@ -76,6 +72,83 @@ python3 firmware/crypto/openssl-c906/generate-chacha.py \
   --binutils /path/to/riscv64-buildroot-linux-musl- --check
 ```
 
+## GHASH
+
+`0010-ghash-c906.patch` replaces the 4-bit table GHASH (26 MB/s on the C906)
+by the 8-bit table code of `firmware/cpu/go-crypto-c906/gen_ghash_table.py`
+(two tables of 4 KiB per key, 114 MB/s; not constant-time, like the 4-bit
+table). Both the block function and the single multiplication of
+`CRYPTO_gcm128_*` use it.
+
+Building the tables costs about 9 us, as much as hashing 300 bytes with the
+4-bit table. A key therefore hashes its first 512 bytes with the 4-bit table
+and builds the tables after that. They are the last member of
+`GCM128_CONTEXT`, and `CRYPTO_gcm128_init` zeroes only the members before
+them.
+
+TLS-like records (one key, a new IV, 13 bytes of AAD and a tag per record;
+`openssl speed -aead` sets the key again for every record and does not show
+this), time to encrypt one record on the SG2002, before -> after, together
+with the function order below: AES-128-GCM 256 B 24.0 -> 17.0 us, 1400 B
+80 -> 44 us, 16 KiB 568 -> 331 us; AES-256-GCM 1400 B 82 -> 46 us. Records
+that set the key every time are about 1 us slower up to 256 bytes (the
+larger context).
+
+## Function order
+
+The C906 has a 2-way 32 KiB instruction cache and no L2 cache. OpenSSL's hot
+functions are spread over a 2 MiB text segment, and the ones a TLS record
+calls evict each other depending on where unrelated code happens to move
+them: the same 773 million instructions of a ChaCha20-Poly1305 record
+benchmark took 1.16 or 1.30 billion cycles in two builds that differed only
+in the GHASH code, with 1.2 and 2.0 million instruction-cache misses (about
+170 cycles each).
+
+`scripts/build-openssl.py` therefore compiles with `-ffunction-sections` and
+links with `--section-ordering-file=hot-sections.ld`. The file lists the
+assembly kernels and about 530 C functions by workload class, so that the
+code one workload touches is contiguous: functions common to several classes,
+ChaCha20-Poly1305 records, AES-GCM records, SHA-256, the other hashes, TLS
+connections. A single block ordered by call count alone was worse than this.
+After the build the script checks that most listed names are still functions
+of libcrypto and close together; a new OpenSSL version that renames or inlines
+them fails the build instead of silently losing the order.
+
+Measured: ChaCha20-Poly1305 records 256 B 12.3 -> 10.4 us, 1400 B 28.5 ->
+24.6 us (0.5-1.0 million misses instead of 1.2); `openssl speed -evp`, 16 /
+64 / 1024 bytes, MB/s: sha1 2.5 / 4.6 / 34.9 -> 4.8 / 10.3 / 47.3, md5
+3.9 / 14.0 / 71.5 -> 4.7 / 14.5 / 73, sha256 and sha512 unchanged. A 16-byte
+SHA-1 digest takes 1-4 instruction-cache misses instead of 13-21. The address
+of libc relative to libcrypto changes from run to run and still moves a
+record by about 0.5 us.
+
+The order is measured, not proven. The build also passes
+`-falign-functions=4 -falign-jumps=4 -falign-loops=4 -falign-labels=4`
+(`scripts/nanokvm_cpu_profile.py`): with the same list and without these
+flags a 16-byte SHA-256 digest (4300 instructions over about a hundred
+functions) took 27-31 instruction-cache misses instead of 10 and was a third
+slower than before the change, while records were unaffected. After a change
+of OpenSSL, of the patches or of the flags, measure records and small digests
+again.
+
+To regenerate `hot-sections.ld`: build OpenSSL with `-finstrument-functions`
+and link `hot-sections/callcount.c` into it (it counts calls per function and
+writes "module offset count" lines at exit), run the workloads on a device,
+turn each output into "calls symbol" lines with `nm`, and run
+`hot-sections/mkorder.py OUT` in the directory holding `chacha.txt`,
+`gcm.txt` (records), `hash1.txt`... (`openssl speed` of sha256, sha1, sha512,
+HMAC, md5 at 64 and 1024 bytes) and `tls*.txt` (`openssl s_time`).
+
+## NIST curves
+
+The build enables `enable-ec_nistp_64_gcc_128`: OpenSSL has no RISC-V
+assembly for P-256 and otherwise uses its generic big-number code. On the
+SG2002: ECDSA P-256 sign 13.8 -> 1.8 ms, verify 11.0 -> 3.8 ms; ECDH P-256
+13.0 -> 2.5 ms; ECDH P-384 27.2 -> 6.8 ms. Full TLS 1.3 handshakes per second
+with client and server both on the device (`openssl s_time -new`): ECDSA
+certificate with X25519 22 -> 36, with P-256 10.8 -> 29; RSA-2048 certificate
+with X25519 20 -> 20 (the 31 ms RSA signature), with P-256 10.4 -> 17.6.
+
 ## Direct SG2002 transport
 
 `0002-hwcrypto-transport.patch` adds the shared private ioctl client for subsequent
@@ -93,6 +166,21 @@ The FIPS module is excluded. The remainder goes straight to the scalar C906
 kernel; the Zvknh check of the stock dispatch is not compiled for XTheadBb
 builds. `tests/test-scalar.py` runs the patched wrapper and scalar assembly on
 QEMU's C906 CPU. DMA starts at 1 KiB (wall-clock break-even).
+
+The scalar kernels come from `firmware/cpu/go-crypto-c906/gen_sha2_c906.py`:
+SHA-256 (`sha256-c906.S`) and SHA-512 (`sha512-c906.S`, also SHA-384 and
+SHA-512/256). Rounds 0 to 15 are emitted once and one body of 16 rounds runs
+three (SHA-256) or four (SHA-512) times, 4.5 KiB of code each. The previous
+SHA-256, unrolled from the Go core, was 9 KiB, more than a quarter of the
+instruction cache. A loaded value is used no sooner than two instructions
+later; w[i-1], w[i-2] and w[i-16] stay in registers. On the SG2002: SHA-256
+2451 ns per block against 2610 unrolled (26.1 against 24.5 MB/s); SHA-512
+3103 ns per block against 4240 for C (41.2 against 30.2 MB/s in the same test
+program; OpenSSL's own C build did 36.6). `openssl speed -evp`, MB/s at 16 /
+64 / 1024 / 16384 bytes, before -> after: sha256 2.4 / 6.9 / 32.5 / 156 ->
+2.9 / 8.0 / 37-43 / 161; sha512 1.9 / 7.6 / 28.9 / 36.6 -> 2.0 / 8.1 / 31.4 /
+40.6. The generator checks itself against a plain implementation anchored to
+hashlib.
 
 ## AES
 

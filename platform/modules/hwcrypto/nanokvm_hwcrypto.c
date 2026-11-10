@@ -163,6 +163,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  struct aes_scratch header = {};
  u32 status = 0, size = 0;
  int err;
+ if (cmd == HWCRYPTO_GCM) return crypto_gcm_ioctl(arg);
  if (cmd != HWCRYPTO_AES_CTR) return crypto_ioctl(cmd, arg);
  /* Snapshot the fixed header once. The payload copy below uses this length and
   * never rereads userspace metadata, even if the caller races with the ioctl. */
@@ -369,6 +370,7 @@ device:
 static void __exit aes_exit(void)
 {
  misc_deregister(&misc);
+ memzero_explicit(&gcm_user, sizeof(gcm_user));
  crypto_unregister_aead(&sg2_ccm_alg);
  crypto_unregister_aead(&sg2_gcm_alg);
  crypto_unregister_ahash(&sg2_cmac_alg);

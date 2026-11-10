@@ -196,6 +196,65 @@ full-width and GCM counters. GCM installs the AES-CTR callback for every record;
 below the 512-byte DMA minimum it encrypts one AES block per call with 64-bit XOR
 and a register counter.
 
+From 4 KiB, a GCM update hands its whole blocks to the driver's
+`HWCRYPTO_GCM` ioctl instead (the driver's ABI header is copied into
+`0002`). The driver runs AES-CTR on the engine in 4 KiB chunks and, while
+each chunk runs, the kernel's C906 GHASH over the previous chunk's
+ciphertext (encryption) or the same chunk's input (decryption), as its
+`gcm(aes)` does. The request carries the key, H, the GHASH accumulator Xi and
+the counter block, and the driver returns Xi and the counter advanced over the
+completed prefix. As for `AES_GCM_ASM`, `CRYPTO_gcm128` first finishes the
+associated data and any partial block, and keeps the lengths, the last partial
+block and the tag. If a call fails or stops early, the rest takes the CTR
+callback path. One call costs about 2.4 us more than `HWCRYPTO_RUN`, and
+below 4 KiB the overlap does not pay for it: 512 to 1400-byte records were
+about 10 us slower with the limit at 512 bytes.
+
+Stand (NanoKVM PCIe), `openssl speed -elapsed -evp` with one key (`-decrypt`
+for decryption), application stopped, two alternating rounds, MB/s, without ->
+with `HWCRYPTO_GCM`; 1408 bytes take the unchanged path:
+
+| | 1408 B | 4096 B | 16384 B |
+| --- | ---: | ---: | ---: |
+| AES-128-GCM encrypt | 22-25 -> 24 | 35-37 -> 45 | 46-47 -> 64-65 |
+| AES-128-GCM decrypt | 22-24 -> 22-23 | 37-38 -> 45 | 46-49 -> 64 |
+| AES-256-GCM encrypt | 23-25 -> 22-24 | 32-36 -> 42 | 44-45 -> 63 |
+| AES-256-GCM decrypt | 22-23 -> 21 | 35-37 -> 45-46 | 45-47 -> 64 |
+
+TLS-like records (new IV, 13 bytes of associated data, tag; one key), time per
+record to encrypt / decrypt in us, AES-128-GCM: 4096 bytes 98 / 95 -> 96 / 85,
+16 KiB 344 / 341 -> 272 / 259. The output of every size is identical.
+
+The engine is shared with the server's SRTP. Latency of SRTP-sized engine
+requests (1188 bytes, 1250 a second, application running) while
+`openssl speed` runs 16 KiB records, two runs each of an encrypting and a
+decrypting load, in us:
+
+| | p50 | p90 | p99 | p99.9 |
+| --- | ---: | ---: | ---: | ---: |
+| no load | 18 | 48-50 | 62-66 | 125-206 |
+| load without `HWCRYPTO_GCM` | 20-21 | 21-61 | 22-78 | 122-219 |
+| load with `HWCRYPTO_GCM` | 20-21 | 22-61 | 57-115 | 125-165 |
+
+A WebRTC session in Chrome showed 60 frames a second under either load, with
+52 to 55 frames in 8 s dropped by the browser without and 53 to 73 with the
+ioctl (none when idle): the load competes for the CPU either way. The load
+itself ran at 21 MB/s without and 28 MB/s with it beside that session.
+
+OpenVPN data channel offload shares the engine from softirq. With the
+application stopped, received / sent in Mbit/s: AES-256-GCM 87 / 77 with the
+previous driver and 86 / 75 with this one; ChaCha20-Poly1305 90 / 88 both.
+With a 16 KiB AES-GCM encryption loop beside the tunnel: AES-256-GCM 81 / 40
+whether the loop uses the ioctl or not, the loop at 20.8 MB/s without and
+29.9 MB/s with it. The digest of 24544 AES-GCM operations through the ioctl
+path (split updates, IV and key lengths, tampered tags) stays the one of the
+previous library, also while the tunnel is loaded.
+
+A driver from before `HWCRYPTO_GCM` answers ENOTTY: the module of the running
+kernel is older than the library after an update, until the reboot. The
+library remembers that and keeps the AES-CTR path (same speed and output as
+before).
+
 The AES PR is based directly on the SHA-256 patch. SHA-1, DES, TDES and SM4
 OpenSSL offloads are not included. The AES helper rejects other algorithm IDs,
 and the legacy provider does not link the SG2002 transport.

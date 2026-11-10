@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/crypto/hwcrypto_cipher.c
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,121 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stdint.h>
 +#include <string.h>
@@ -81,6 +81,47 @@
 +    OPENSSL_cleanse(saved_iv, sizeof(saved_iv));
 +    return done;
 +}
++
++size_t ossl_hwcrypto_gcm(int enc, const unsigned char *key, size_t keylen,
++    const unsigned char h[16], unsigned char xi[16], unsigned char ctr[16],
++    const unsigned char *in, unsigned char *out, size_t len)
++{
++    struct hwcrypto_gcm_request r;
++    size_t done = 0;
++    int fd;
++
++    if (keylen > sizeof(r.key))
++        return 0;
++    fd = ossl_hwcrypto_begin(HWCRYPTO_ALG_AES);
++    if (fd < 0)
++        return 0;
++    memset(&r, 0, sizeof(r));
++    len -= len % 16;
++    while (len - done != 0) {
++        /* The kernel splits a call into engine chunks itself. */
++        size_t chunk = len - done < (1u << 30) ? len - done : (1u << 30);
++        r.version = HWCRYPTO_ABI;
++        r.encrypt = enc != 0;
++        r.key_length = (unsigned int)keylen;
++        r.length = (unsigned int)chunk;
++        memcpy(r.key, key, keylen);
++        memcpy(r.h, h, 16);
++        memcpy(r.xi, xi, 16);
++        memcpy(r.ctr, ctr, 16);
++        r.input = (uintptr_t)(in + done);
++        r.output = (uintptr_t)(out + done);
++        if (!ossl_hwcrypto_run_gcm(fd, &r))
++            break;
++        memcpy(xi, r.xi, 16);
++        memcpy(ctr, r.ctr, 16);
++        done += r.length;
++        if (r.length != chunk)
++            break;
++    }
++    ossl_hwcrypto_end(fd);
++    OPENSSL_cleanse(&r, sizeof(r));
++    return done;
++}
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_hwcrypto.inc
 @@ -0,0 +1,47 @@
@@ -133,7 +174,7 @@
 +#define AES_GENERIC_CIPHER(mode) cipher_hwcrypto_aes_##mode
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_gcm_hwcrypto.inc
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,77 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stddef.h>
 +#include <stdint.h>
@@ -174,9 +215,46 @@
 +    OPENSSL_cleanse(&stream, sizeof(stream));
 +    OPENSSL_cleanse(iv, sizeof(iv));
 +}
++
++/* The whole blocks of an update through HWCRYPTO_GCM, where the driver runs
++ * the engine's AES-CTR and the C906 GHASH at the same time. As for
++ * AES_GCM_ASM, CRYPTO_gcm128 first finishes the associated data and any
++ * partial block, and keeps the lengths, the last partial block and the tag.
++ * Returns the prefix of in done; the caller's usual path does the rest.
++ */
++static size_t aes_hwcrypto_gcm_bulk(PROV_GCM_CTX *ctx, const unsigned char *in,
++    unsigned char *out, size_t len)
++{
++    const PROV_AES_GCM_CTX *a = (const PROV_AES_GCM_CTX *)ctx;
++    GCM128_CONTEXT *g = &ctx->gcm;
++    unsigned char h[16];
++    size_t res, bulk;
++    int i;
++
++    if (len < HWCRYPTO_AES_GCM_MIN)
++        return 0;
++    res = (16 - g->mres) % 16;
++    if ((ctx->enc ? CRYPTO_gcm128_encrypt_ctr32 : CRYPTO_gcm128_decrypt_ctr32)(
++            g, in, out, res, ctx->ctr))
++        return 0;
++    bulk = (len - res) & ~(size_t)15;
++    /* Over the message limit: CRYPTO_gcm128 refuses the rest. */
++    if (bulk > (((uint64_t)1 << 36) - 32) - g->len.u[1])
++        return res;
++    /* H is kept in host order. */
++    for (i = 0; i < 8; i++) {
++        h[i] = (unsigned char)(g->H.u[0] >> (56 - 8 * i));
++        h[8 + i] = (unsigned char)(g->H.u[1] >> (56 - 8 * i));
++    }
++    bulk = ossl_hwcrypto_gcm(ctx->enc, a->plat.hwcrypto.key, ctx->keylen, h,
++        g->Xi.c, g->Yi.c, in + res, out + res, bulk);
++    g->len.u[1] += bulk;
++    OPENSSL_cleanse(h, sizeof(h));
++    return res + bulk;
++}
 --- a/include/crypto/hwcrypto_transport.h
 +++ b/include/crypto/hwcrypto_transport.h
-@@ -1,9 +1,19 @@
+@@ -1,9 +1,25 @@
  /* SPDX-License-Identifier: Apache-2.0 */
  #ifndef OSSL_NANOKVM_HWCRYPTO_TRANSPORT_H
  #define OSSL_NANOKVM_HWCRYPTO_TRANSPORT_H
@@ -196,6 +274,12 @@
 +    const unsigned char *key, size_t keylen, unsigned char *iv,
 +    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
 +    size_t len, size_t minimum, size_t continuation_minimum);
++int ossl_hwcrypto_run_gcm(int fd, struct hwcrypto_gcm_request *request);
++/* AES-GCM whole blocks (HWCRYPTO_GCM): returns the prefix done, with the GHASH
++ * accumulator xi and counter block ctr (GCM byte order) advanced over it. */
++size_t ossl_hwcrypto_gcm(int enc, const unsigned char *key, size_t keylen,
++    const unsigned char h[16], unsigned char xi[16], unsigned char ctr[16],
++    const unsigned char *in, unsigned char *out, size_t len);
  #endif
 --- a/crypto/build.info
 +++ b/crypto/build.info
@@ -260,18 +344,18 @@
      PROV_CIPHER_HW_declare(mode)                        \
 --- a/providers/implementations/ciphers/cipher_aes_gcm_hw.c
 +++ b/providers/implementations/ciphers/cipher_aes_gcm_hw.c
-@@ -16,6 +16,10 @@
- #include "internal/deprecated.h"
+@@ -17,6 +17,10 @@
  
  #include "cipher_aes_gcm.h"
-+
+ 
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
 +#include "cipher_aes_gcm_hwcrypto.inc"
 +#endif
- 
++
  static int aes_gcm_initkey(PROV_GCM_CTX *ctx, const unsigned char *key,
      size_t keylen)
-@@ -55,6 +59,10 @@
+ {
+@@ -55,12 +59,23 @@
          GCM_HW_SET_KEY_CTR_FN(ks, AES_set_encrypt_key, AES_encrypt, NULL);
  #endif /* AES_CTR_ASM */
      }
@@ -282,9 +366,22 @@
      return 1;
  }
  
+ static int generic_aes_gcm_cipher_update(PROV_GCM_CTX *ctx, const unsigned char *in,
+     size_t len, unsigned char *out)
+ {
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
++    size_t hw = aes_hwcrypto_gcm_bulk(ctx, in, out, len);
++
++    in += hw;
++    out += hw;
++    len -= hw;
++#endif
+     if (ctx->enc) {
+         if (ctx->ctr != NULL) {
+ #if defined(AES_GCM_ASM)
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_hwcrypto.h
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,13 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#ifndef OSSL_NANOKVM_AES_HWCRYPTO_H
 +#define OSSL_NANOKVM_AES_HWCRYPTO_H
@@ -292,4 +389,9 @@
 +#define HWCRYPTO_AES_BLOCK_MIN 512
 +#define HWCRYPTO_AES_CTR_MIN 512
 +#define HWCRYPTO_AES_CONTINUE_MIN 512
++/* GCM updates from here go to HWCRYPTO_GCM. GHASH (C906, about 35 MB/s in
++ * both user space and the kernel) dominates, so the overlap hides only the
++ * engine's AES-CTR: 4 KiB is about even, 16 KiB 15-20% faster; below, the
++ * per-call cost wins over the overlap. */
++#define HWCRYPTO_AES_GCM_MIN 4096
 +#endif

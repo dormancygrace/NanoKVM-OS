@@ -32,5 +32,20 @@ struct hwcrypto_info {
  __aligned_u64 completed[HWCRYPTO_ALG_COUNT];
 };
 #define HWCRYPTO_RUN _IOWR('K', 0xc2, struct hwcrypto_request)
+/* AES-GCM bulk data: AES-CTR with GCM's 32-bit counter on the engine and, while
+ * it runs, GHASH of the ciphertext on the CPU. length is a nonzero multiple of
+ * 16. h is the hash key E_K(0^128); xi (GHASH accumulator) and ctr (counter
+ * block, big-endian 32-bit counter in the last word) are in GCM byte order and
+ * come back advanced over the returned length. If a chunk after the first
+ * fails, the call succeeds with the completed prefix in length. Associated
+ * data, partial blocks, lengths and the tag stay with the caller.
+ */
+struct hwcrypto_gcm_request {
+ __u32 version, encrypt, key_length, length;
+ __u8 key[32], h[16], xi[16], ctr[16];
+ __aligned_u64 input, output;
+ __u32 reserved[4];
+};
+#define HWCRYPTO_GCM _IOWR('K', 0xc4, struct hwcrypto_gcm_request)
 #define HWCRYPTO_INFO _IOR('K', 0xc3, struct hwcrypto_info)
 #endif

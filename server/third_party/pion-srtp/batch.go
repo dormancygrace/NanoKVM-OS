@@ -102,6 +102,37 @@ func (s *srtpCipherAesCmHmacSha1) encryptRTPBatch(items []rtpBatchItem, out [][]
 	if err != nil {
 		return nil, err
 	}
+	done := 0
+	if s.srtpFrame != nil {
+		// The packets a frame protector takes, from the first; the others
+		// go the way of encryptRTPBatchCPU.
+		s.framePackets = s.framePackets[:0]
+		for i := range items {
+			it := &items[i]
+			s.framePackets = append(s.framePackets, FramePacket{
+				Buf: it.buf, N: it.n, HeaderLen: it.headerLen, ROC: it.roc,
+				IV: generateCounter(it.seq, it.roc, it.ssrc, s.srtpSessionSalt),
+			})
+		}
+		done = s.srtpFrame.ProtectFrame(s.framePackets)
+		for i := range done {
+			it := &items[i]
+			copy(it.buf[it.n:], s.framePackets[i].Tag[:tagLen])
+			out[i] = it.buf[:it.n+tagLen]
+		}
+		clear(s.framePackets)
+	}
+	if done < len(items) {
+		if _, err := s.encryptRTPBatchCPU(items[done:], out[done:], tagLen); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// encryptRTPBatchCPU: the cipher per packet (through the optional
+// AESCTRAccelerator), the tags of all of them by the batch authenticator.
+func (s *srtpCipherAesCmHmacSha1) encryptRTPBatchCPU(items []rtpBatchItem, out [][]byte, tagLen int) ([][]byte, error) {
 	n := len(items)
 	if s.srtpEncrypted {
 		// Per packet, through the optional AESCTRAccelerator as encryptRTP does.

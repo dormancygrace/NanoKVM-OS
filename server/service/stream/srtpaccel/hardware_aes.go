@@ -24,6 +24,11 @@ func initializeHardwareAES() {
 			return
 		}
 		srtp.SetAESCTRAccelerator(device)
+		// A frame's packets go to the engine whole, cipher and hash; the
+		// per-packet accelerator above serves what that leaves.
+		srtp.SetAESCMSHA1FrameProtectorFactory(func(encryptionKey, authKey []byte) srtp.AESCMSHA1FrameProtector {
+			return newFrameProtector(device, encryptionKey, authKey)
+		})
 		log.Info("SRTP AES-CTR: SG2002 packet accelerator enabled")
 	})
 }

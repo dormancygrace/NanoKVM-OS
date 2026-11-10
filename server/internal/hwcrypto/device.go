@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"sync"
 	"syscall"
+	"unsafe"
 )
 
 const MaxPayload = 4096
@@ -28,16 +29,57 @@ type request struct {
 	Data             [MaxPayload]byte
 }
 
+// MaxCTRSHA1 is the largest batch of Device.CTRSHA1 (HWCRYPTO_CTR_SHA1_MAX).
+const MaxCTRSHA1 = 64
+
+// CTRSHA1Packet is one message of Device.CTRSHA1: Data is hashed whole (its
+// length a multiple of 64, at most MaxPayload) after CryptLength bytes (a
+// nonzero multiple of 16) at CryptOffset (a multiple of 4) were encrypted in
+// place with IV as the first counter block. State returns the SHA-1 state
+// after Data.
+type CTRSHA1Packet struct {
+	Data        []byte
+	CryptOffset int
+	CryptLength int
+	IV          [16]byte
+	State       [20]byte
+}
+
+// Keep these in sync with platform/modules/hwcrypto/hwcrypto.h.
+type ctrSHA1Packet struct {
+	data                                       uint64
+	length, cryptOffset, cryptLength, reserved uint32
+	iv                                         [16]byte
+	state                                      [20]byte
+	reserved2                                  uint32
+}
+
+type ctrSHA1Request struct {
+	version, count uint32
+	key            [16]byte
+	state          [20]byte
+	reserved       uint32
+	packets        uint64
+	reserved2      [4]uint32
+}
+
 // Device serializes access to one reusable request buffer. No packet/key data
 // are exposed in errors. The first device failure permanently disables this
 // instance; the kernel may have pinned DMA buffers pending a reboot.
 type Device struct {
-	mu       sync.Mutex
-	req      request
-	submit   func(*request) error
-	closeFD  func() error
-	onError  func(error)
-	disabled bool
+	mu     sync.Mutex
+	req    request
+	submit func(*request) error
+	// submitChain runs HWCRYPTO_CTR_SHA1; noChain is set when the loaded
+	// module does not know it (an application update before the reboot into
+	// its kernel modules).
+	submitChain func(*ctrSHA1Request) error
+	chain       [MaxCTRSHA1]ctrSHA1Packet
+	chainReq    ctrSHA1Request
+	noChain     bool
+	closeFD     func() error
+	onError     func(error)
+	disabled    bool
 }
 
 // TryXORKeyStream implements srtp.AESCTRAccelerator. Hardware writes only to the
@@ -84,6 +126,62 @@ func (d *Device) TryXORKeyStream(key, iv, dst, src []byte) bool {
 		onError(err)
 	}
 	return err == nil && !interrupted
+}
+
+// CTRSHA1 runs AES-128-CTR and then SHA-1 from state over each packet on the
+// engine, one chain of two descriptors per packet (HWCRYPTO_CTR_SHA1), and
+// returns how many packets, from the first, it completed. The packets after
+// those are untouched. It completes none when the device is disabled, the
+// module does not have the request or a signal arrived first.
+func (d *Device) CTRSHA1(key *[16]byte, state *[20]byte, packets []CTRSHA1Packet) int {
+	if len(packets) == 0 || len(packets) > MaxCTRSHA1 {
+		return 0
+	}
+	d.mu.Lock()
+	if d.disabled || d.noChain || d.submitChain == nil {
+		d.mu.Unlock()
+		return 0
+	}
+	for i := range packets {
+		p := &packets[i]
+		d.chain[i] = ctrSHA1Packet{
+			data:   uint64(uintptr(unsafe.Pointer(unsafe.SliceData(p.Data)))),
+			length: uint32(len(p.Data)), cryptOffset: uint32(p.CryptOffset), cryptLength: uint32(p.CryptLength),
+			iv: p.IV,
+		}
+	}
+	r := &d.chainReq
+	*r = ctrSHA1Request{version: 1, count: uint32(len(packets)), key: *key, state: *state,
+		packets: uint64(uintptr(unsafe.Pointer(&d.chain[0])))}
+	err := d.submitChain(r)
+	runtime.KeepAlive(packets)
+	done := 0
+	switch {
+	case err == nil:
+		done = min(int(r.count), len(packets))
+		for i := range done {
+			packets[i].State = d.chain[i].state
+		}
+	case errors.Is(err, syscall.ENOTTY):
+		d.noChain = true
+		err = nil
+	case errors.Is(err, syscall.EINTR):
+		err = nil
+	default:
+		d.disabled = true
+		if d.closeFD != nil {
+			_ = d.closeFD()
+			d.closeFD = nil
+		}
+	}
+	clear(r.key[:])
+	clear(d.chain[:len(packets)])
+	onError := d.onError
+	d.mu.Unlock()
+	if err != nil && onError != nil {
+		onError(err)
+	}
+	return done
 }
 
 // Close releases the process's descriptor and disables further requests.

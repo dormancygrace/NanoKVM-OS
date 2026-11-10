@@ -29,6 +29,12 @@ first. Counters and rollover state are advanced per packet in order, exactly
 as encryptRTP does; payloads are encrypted per packet (through the optional
 AES-CTR accelerator) and the frame is authenticated in one batch call.
 Cryptex, MKI, RCC modes and other profiles take the per-packet path.
+
+Frame protector (frame_protector.go, used in batch.go): when an
+AESCMSHA1FrameProtector factory is set, the frame's packets are first offered
+to it; it encrypts and authenticates a prefix of them (NanoKVM: the CryptoDMA
+engine, AES-CTR and SHA-1 as one chain per packet) and the rest take the path
+above. A protector must leave the packets it does not take unchanged.
 Close marks the batch closed before it closes the transport and only then drops
 the queue, so a flush blocked in a transport write cannot hold up shutdown;
 after Close nothing is enqueued, flushed or written.

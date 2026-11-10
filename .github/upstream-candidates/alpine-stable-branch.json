@@ -1,0 +1,12 @@
+{
+  "component": "Alpine stable branch",
+  "current": "3.24",
+  "candidate": "3.25",
+  "candidate_key": "3.25",
+  "status": "pending-review",
+  "upstream": "https://dl-cdn.alpinelinux.org/alpine/",
+  "source_path": "scripts/build-alpine-packages.sh",
+  "strategy": "review",
+  "evidence": {},
+  "pin_files_updated": []
+}

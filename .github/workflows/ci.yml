@@ -198,6 +198,7 @@ jobs:
           python3 gen_sha2_c906.py --bits 512 --name ossl_sha512_c906_blocks --check ../../crypto/openssl-c906/0003-sha256-dma.patch crypto/sha/sha512-c906.S
           python3 gen_sha2_c906.py --bits 256 --name sha256_blocks_c906 --flavor linux --check ../../../platform/kernel/0079-crypto-riscv-c906-sha2.patch lib/crypto/riscv/sha256-riscv64-c906.S
           python3 gen_sha2_c906.py --bits 512 --name sha512_blocks_c906 --flavor linux --check ../../../platform/kernel/0079-crypto-riscv-c906-sha2.patch lib/crypto/riscv/sha512-riscv64-c906.S
+          python3 gen_aes_c906.py --selftest 30 --name aes_c906 --flavor linux --check ../../../platform/kernel/0080-crypto-riscv-c906-aes.patch lib/crypto/riscv/aes-riscv64-c906.S
           python3 ../../../scripts/gen-oled-web-font.py --check
           curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
           python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s

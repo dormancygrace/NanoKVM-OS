@@ -164,7 +164,7 @@ static int sg2_gcm_submit(struct aead_request *req, bool encrypt)
  if (!ctx->keylen) return -ENOKEY;
  if (!encrypt && req->cryptlen < crypto_aead_authsize(tfm)) return -EINVAL;
  if (sg2_use_fallback(ctx->fallback)) return sg2_gcm_fallback(req, encrypt);
- if (ctx->fallback && req->cryptlen - (encrypt ? 0 : crypto_aead_authsize(tfm)) <= SG2_GCM_SOFT_MAX)
+ if (ctx->fallback && req->cryptlen - (encrypt ? 0 : crypto_aead_authsize(tfm)) <= sg2_gcm_soft_max(ctx->keylen))
   return sg2_gcm_fallback(req, encrypt);
  if ((req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) || sg2_inline()) return sg2_gcm_process(req, encrypt);
  err = sg2_async_enter(req->base.flags);

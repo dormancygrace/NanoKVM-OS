@@ -52,12 +52,28 @@ static bool sg2_use_fallback(const void *fallback) { return fallback && READ_ONC
  * needs interrupts on. */
 static bool sg2_inline(void) { return !in_hardirq() && !irqs_disabled(); }
 
-/* A request costs the engine about 4.5 us before the first byte (SG2002,
- * AES-128): the software AES is faster up to five blocks of ECB, CBC or CTR
- * (1.2 us for 16 bytes, 4.6 us for 80), and up to 47 bytes of GCM text
- * (AES-256: 5.9 us against 6.7 for 32 bytes, 8.7 against 7.5 for 64). */
-#define SG2_AES_SOFT_MAX 80
-#define SG2_GCM_SOFT_MAX 47
+/* A request costs the engine about 4.5 us before the first byte (SG2002); the
+ * kernel's AES block code for the C906 takes 0.6 us per block with a 128-bit
+ * key and 0.82 us with a 256-bit key. Up to these lengths the software
+ * version is faster. Measured, software against engine, in us:
+ * ECB-128 112 bytes 4.6 / 5.0, 128 bytes 5.2 / 5.0; ECB-256 96 bytes
+ * 5.3 / 5.4, 112 bytes 6.1 / 5.1; CTR-128 144 bytes 5.9 / 6.6, 160 bytes
+ * 6.6 / 6.3; CTR-256 112 bytes 6.2 / 6.2, 128 bytes 7.0 / 6.3. The kernel has
+ * no software cbc(aes), so CBC requests have no fallback and use the engine
+ * at any length. */
+static unsigned int sg2_aes_soft_max(u32 mode, u32 keylen)
+{
+ if (mode == HWCRYPTO_MODE_CTR) return keylen == 16 ? 144 : keylen == 24 ? 128 : 112;
+ return keylen == 16 ? 112 : 96;
+}
+/* GCM text. The engine's time for a short GCM request differed by 2 us
+ * between two loads of this module (128 bytes: 10.5 or 12.7 us to encrypt),
+ * so these are the lengths up to which the software version won in both.
+ * Encrypting / decrypting, in us: AES-128 software 96 bytes 9.7 / 8.2, 112
+ * bytes 10.4 / 9.0, engine 112 bytes 9.6 to 11.6 / 7.8 to 8.6; AES-256
+ * software 64 bytes 8.8 / 7.0, 80 bytes 10.2 / 8.7, engine 80 bytes 11.0 /
+ * 8.5 at its slower, 112 bytes 9.6 / 7.8 at its faster. */
+static unsigned int sg2_gcm_soft_max(u32 keylen) { return keylen == 16 ? 96 : keylen == 24 ? 80 : 64; }
 
 struct sg2_cipher_alg {
  struct skcipher_alg alg;
@@ -133,7 +149,8 @@ static int sg2_cipher_submit(struct skcipher_request *req, bool encrypt)
  if (!ctx->keylen || (ctx->alg->mode != HWCRYPTO_MODE_CTR && req->cryptlen % ctx->alg->block)) return -EINVAL;
  if (!req->cryptlen) return 0;
  if (sg2_use_fallback(ctx->fallback)) return sg2_cipher_fallback(req, encrypt);
- if (ctx->fallback && ctx->alg->hardware == HWCRYPTO_ALG_AES && req->cryptlen <= SG2_AES_SOFT_MAX)
+ if (ctx->fallback && ctx->alg->hardware == HWCRYPTO_ALG_AES &&
+     req->cryptlen <= sg2_aes_soft_max(ctx->alg->mode, ctx->keylen))
   return sg2_cipher_fallback(req, encrypt);
  if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_cipher_process(req, encrypt);
  if (ctx->alg->hardware == HWCRYPTO_ALG_AES && sg2_inline()) return sg2_cipher_process(req, encrypt);

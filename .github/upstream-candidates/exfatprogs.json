@@ -1,0 +1,17 @@
+{
+  "component": "exfatprogs",
+  "current": "1.4.3",
+  "candidate": "1.4.4",
+  "candidate_key": "1.4.4",
+  "status": "pending-review",
+  "upstream": "https://github.com/exfatprogs/exfatprogs/tags",
+  "source_path": "platform/sources.lock",
+  "strategy": "archive-pin",
+  "evidence": {
+    "archive": "https://github.com/exfatprogs/exfatprogs/releases/download/1.4.4/exfatprogs-1.4.4.tar.xz",
+    "sha256": "102bbdfd934776c12c6d83743a31ec648f8c2f1ddfa1832b6e13b6efd09412cb"
+  },
+  "pin_files_updated": [
+    "platform/sources.lock"
+  ]
+}

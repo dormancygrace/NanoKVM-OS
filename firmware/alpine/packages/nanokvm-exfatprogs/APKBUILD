@@ -8,7 +8,7 @@ license="GPL-2.0-or-later"
 # In place of Alpine's exfatprogs from the community repository, which the image
 # does not use: installing this package removes it, and a dependency on
 # exfatprogs is satisfied by this one.
-provides="exfatprogs=1.4.3-r100"
+provides="exfatprogs=1.4.4-r100"
 # mkfs.exfat probes devices with libblkid; the programs link it and musl.
 depends="libblkid"
 replaces="exfatprogs"

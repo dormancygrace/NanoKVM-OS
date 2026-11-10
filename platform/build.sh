@@ -668,9 +668,13 @@ server() {
     mkdir -p "$s" "$img/server" "$dl/go-mod"
     tar -xzf "$dl/go1.27.3.linux-amd64.tar.gz" -C "$s"
     "$host/python3" "$repo/firmware/cpu/sysmon-runtime/prepare.py" --base "$s/go" --output "$s/goroot" > /dev/null
+    # The server's hot functions are linked first, together
+    # (firmware/cpu/go-hot-order): the linker gets the option for that.
+    GOCACHE=$s/gocache "$host/python3" "$repo/firmware/cpu/go-hot-order/prepare-linker.py" --goroot "$s/goroot" > /dev/null
     GOMODCACHE=$dl/go-mod GOPATH=$s/gopath GOCACHE=$s/gocache GOFLAGS=-mod=readonly GOTOOLCHAIN=local \
         "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
-        --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out"
+        --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out" \
+        --hot-order "$repo/firmware/cpu/go-hot-order/server-webrtc.txt"
     cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
     cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-standby" "$img/server/"
 }

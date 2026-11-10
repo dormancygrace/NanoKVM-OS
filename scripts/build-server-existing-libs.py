@@ -16,6 +16,8 @@ p.add_argument('--compression', type=Path, required=True,
                help='zlib-ng headers (include/) and static library (lib/) from the tools step')
 p.add_argument('--buildroot-output', type=Path, required=True)
 p.add_argument('--go', type=Path, required=True)
+p.add_argument('--hot-order', type=Path,
+               help='function order for the linker (firmware/cpu/go-hot-order); needs its prepared linker')
 p.add_argument('--output', type=Path, required=True)
 a = p.parse_args()
 repo = Path(__file__).resolve().parents[1]
@@ -100,7 +102,10 @@ subprocess.run([sys.executable, str(repo / 'firmware/cpu/go-websocket-c906/prepa
 websocket_modfile = str(websocket / 'server/go.mod')
 # Go action IDs include the output-specific CGO library search path.
 # Omit the Go build ID; manifest SHA-256 values identify the exact binaries.
-subprocess.run([go, 'build', '-modfile=' + websocket_modfile, '-tags=nomsgpack', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode=external -buildid=', '-o',
+# The hot functions first, together: firmware/cpu/go-hot-order. The linker
+# must be the one prepare-linker.py built.
+hot_order = f' -hotorder={a.hot_order.resolve()}' if a.hot_order else ''
+subprocess.run([go, 'build', '-modfile=' + websocket_modfile, '-tags=nomsgpack', '-trimpath', '-buildvcs=false', '-ldflags=-linkmode=external -buildid=' + hot_order, '-o',
                 str(out/'NanoKVM-Server'), '.'], cwd=websocket/'server', env=env, check=True)
 info = subprocess.check_output([go, 'version', '-m', str(out/'NanoKVM-Server')], env=env, text=True)
 symbols = subprocess.check_output([go, 'tool', 'nm', str(out/'NanoKVM-Server')], env=env, text=True)

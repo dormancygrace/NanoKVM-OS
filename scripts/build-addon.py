@@ -60,11 +60,10 @@ def recipe(name, addons=ADDONS):
     if 'models' in r and not r['models']:
         raise ValueError(f'{name}: no models')
     go = r.get('go', {})
-    if not set(go) <= {'package', 'path', 'tags', 'experiment', 'stamps', 'x_crypto'}:
+    if not set(go) <= {'package', 'path', 'tags', 'stamps', 'x_crypto'}:
         raise ValueError(f'{name}: unknown "go" key')
-    for key in ('tags', 'experiment'):
-        if not re.fullmatch(r'[a-z0-9_]+(,[a-z0-9_]+)*', go.get(key, 'x')):
-            raise ValueError(f'{name}: bad go.{key}')
+    if not re.fullmatch(r'[a-z0-9_]+(,[a-z0-9_]+)*', go.get('tags', 'x')):
+        raise ValueError(f'{name}: bad go.tags')
     for symbol, value in go.get('stamps', {}).items():
         if not re.fullmatch(r'[A-Za-z0-9_./-]+', symbol) or not re.fullmatch(r'[A-Za-z0-9_.{}-]+', value):
             raise ValueError(f'{name}: bad go.stamps entry {symbol}')
@@ -126,8 +125,6 @@ def build_go(r, go, output, version):
     env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='0',
                GOEXPERIMENT='', GOROOT=str(go_root), GOTOOLCHAIN='local')
     recipe = r['go']
-    if 'experiment' in recipe:
-        env['GOEXPERIMENT'] = recipe['experiment']
     binary = output / Path(recipe['path']).name
     ldflags = '-s -w -buildid=' + ''.join(f' -X {symbol}={value.format(version=version)}'
                                           for symbol, value in sorted(recipe.get('stamps', {}).items()))
@@ -262,7 +259,7 @@ def main():
         binary = None
         if 'go' in r:
             binary, source['go'] = build_go(r, args.go, stage, r['version'])
-            source.update({key: r['go'][key] for key in ('tags', 'experiment', 'x_crypto') if key in r['go']})
+            source.update({key: r['go'][key] for key in ('tags', 'x_crypto') if key in r['go']})
         else:
             source['converter'] = converter()
             source['models'] = model_files(r, args.models.resolve())

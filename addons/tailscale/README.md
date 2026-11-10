@@ -1,6 +1,6 @@
 # Tailscale add-on (`nanokvm-tailscale`)
 
-Tailscale, at the release Alpine 3.24 ships, built for the T-Head C906 of the
+Tailscale, built from its own source release for the T-Head C906 of the
 SG2002. Settings → VPN → Tailscale installs it; it provides and replaces
 Alpine's `tailscale` and `tailscale-openrc`.
 
@@ -15,15 +15,16 @@ into the `golang.org/x/crypto` module as well.
 
 Measured on a NanoKVM PCIe (the application stopped):
 
-| | Alpine's build of the code | this build |
+| | stock Go and module | this build |
 |---|---|---|
-| ChaCha20-Poly1305, one 1280-byte packet | 64.9 µs | 23.7 µs |
+| ChaCha20-Poly1305, one 1280-byte packet | 56.6 µs | 23.5 µs |
 | userspace WireGuard, device receives | 29.2 Mbit/s | 32.0 Mbit/s |
 | userspace WireGuard, device sends | 38.8 Mbit/s | 48.6 Mbit/s |
 
 The tunnel rows are Tailscale's WireGuard (`github.com/tailscale/wireguard-go`
-at the version this release pins) as a standalone program against a kernel
-WireGuard peer, MTU 1280, iperf3 TCP. Rebuilding with the NanoKVM Go runtime
+as Tailscale 1.98.10 pins it) as a standalone program against a kernel
+WireGuard peer, MTU 1280, iperf3 TCP; the cipher row is
+`golang.org/x/crypto` v0.58.0, which Tailscale 1.104.5 pins. Rebuilding with the NanoKVM Go runtime
 alone, without the module replacement, changes nothing.
 
 ## What is in the directory
@@ -45,8 +46,6 @@ alone, without the module replacement, changes nothing.
 
 - No cgo, so name resolution is Go's own resolver (Alpine builds with
   `netcgo`).
-- `GOEXPERIMENT=nojsonv2`: a module of this Tailscale release does not compile
-  with the JSON v2 packages of Go 1.27.
 - The service runs as root; there is no `tailscale` user, doas rule or
   resolvconf wrapper.
 - No shell completions and no systemd unit.
@@ -55,5 +54,6 @@ alone, without the module replacement, changes nothing.
 
 Set the release in `go.mod` (`require tailscale.com`) and in `addon.json`
 (`version`, `provides`), run `go mod tidy`, and set `go.x_crypto` to the
-`golang.org/x/crypto` version `go.mod` then names. Follow Alpine 3.24's
-`community/tailscale`: its security fixes arrive there first.
+`golang.org/x/crypto` version `go.mod` then names. The daily upstream watch
+(`.github/upstream-watch.json`) reports a newer stable release of
+`tailscale/tailscale` (even minor version).

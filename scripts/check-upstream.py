@@ -229,12 +229,6 @@ def check(source, root=ROOT):
             result.update(latest=', '.join(versions), link='https://launchpad.net/ubuntu/' + source['series'] + '/+package/' + source['package'],
                           status='review package versions' if any(v != current for v in versions) else 'current',
                           detail='Published amd64 versions in the selected Ubuntu series; compare with dpkg before repinning')
-        elif kind == 'alpine-package':
-            # A program built here at the release Alpine packages: Alpine's
-            # update (its security fixes) is the signal to rebuild.
-            url = 'https://dl-cdn.alpinelinux.org/alpine/' + source['channel'] + '/riscv64/APKINDEX.tar.gz'
-            latest = alpine_index(request_bytes(url), 'riscv64')[source['package']].rsplit('-r', 1)[0]
-            result.update(latest=latest, link=url, status='current' if latest == current else 'update available')
         elif kind == 'alpine-rootfs':
             branch = '.'.join(current.split('.')[:2])
             arch = source.get('arch', 'riscv64')

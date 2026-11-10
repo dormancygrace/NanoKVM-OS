@@ -1,19 +1,18 @@
 {
   "name": "nanokvm-tailscale",
-  "version": "1.98.10",
+  "version": "1.104.5",
   "license": "BSD-3-Clause",
   "description": "Tailscale built with the NanoKVM Go runtime: ChaCha20-Poly1305 for the C906",
   "url": "https://github.com/dormancygrace/NanoKVM-OS/blob/main/addons/tailscale/README.md",
   "os": "4.1.0",
   "depends": "openrc cmd:resolvconf",
-  "provides": "tailscale=1.98.10-r100 tailscale-openrc=1.98.10-r100",
+  "provides": "tailscale=1.104.5-r100 tailscale-openrc=1.104.5-r100",
   "replaces": "tailscale tailscale-openrc",
   "go": {
     "package": "tailscale.com/cmd/tailscaled",
     "path": "/usr/sbin/tailscaled",
     "tags": "ts_omit_aws,ts_omit_kube,ts_include_cli",
-    "experiment": "nojsonv2",
-    "x_crypto": "v0.54.0",
+    "x_crypto": "v0.58.0",
     "stamps": {
       "tailscale.com/version.shortStamp": "{version}",
       "tailscale.com/version.longStamp": "{version}-NanoKVM",

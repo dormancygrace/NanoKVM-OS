@@ -11,6 +11,37 @@ use zeroize::{Zeroize, Zeroizing};
 
 const SIGMA: [u32; 4] = [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574];
 
+// The C906 kernels (generated assembly, vector instructions as words): five
+// blocks at a time, four of them in XTheadVector lanes. The plain Rust below
+// does what is left over, and everything on other machines (the host tests).
+#[cfg(target_arch = "riscv64")]
+mod c906 {
+    core::arch::global_asm!(include_str!("salsa20_c906.S"), options(raw));
+    core::arch::global_asm!(include_str!("poly1305_c906.S"), options(raw));
+    extern "C" {
+        // XORs groups * 320 bytes with the key stream from block `counter`.
+        pub fn nanokvm_salsa20_xor_c906(
+            state: *const u32,
+            input: *const u8,
+            output: *mut u8,
+            groups: usize,
+            counter: u32,
+        );
+        // Hashes groups * 80 bytes into h; r and h are 26-bit limbs.
+        pub fn nanokvm_poly1305_blocks_c906(
+            r: *const u64,
+            message: *const u8,
+            groups: usize,
+            h: *mut u64,
+        );
+    }
+    pub const SALSA_GROUP: usize = 320;
+    pub const POLY_GROUP: usize = 80;
+    // The Poly1305 kernel first computes r^2..r^5: below this many groups
+    // the scalar code is as fast.
+    pub const POLY_MIN_GROUPS: usize = 4;
+}
+
 pub struct FrameCipher([u32; 8]);
 impl FrameCipher {
     pub fn new(key: &Key) -> Self {
@@ -114,7 +145,21 @@ fn xor_stream(state: &mut [u32; 16], first: &[u8; 64], buffer: &mut [u8]) {
     if buffer.len() <= 32 {
         return;
     }
-    let (blocks, rest) = buffer[32..].as_chunks_mut::<64>();
+    #[allow(unused_mut)]
+    let mut rest = &mut buffer[32..];
+    #[cfg(target_arch = "riscv64")]
+    {
+        let groups = rest.len() / c906::SALSA_GROUP;
+        if groups > 0 {
+            let data = rest.as_mut_ptr();
+            // SAFETY: the kernel reads 16 state words and reads and writes
+            // groups * 320 bytes at `data`, all inside `rest`.
+            unsafe { c906::nanokvm_salsa20_xor_c906(state.as_ptr(), data, data, groups, 1) };
+            state[8] = (5 * groups) as u32;
+            rest = &mut rest[groups * c906::SALSA_GROUP..];
+        }
+    }
+    let (blocks, rest) = rest.as_chunks_mut::<64>();
     for chunk in blocks {
         state[8] += 1;
         let x = rounds(state);
@@ -140,6 +185,38 @@ fn tag(key: &[u8; 64], message: &[u8]) -> [u8; 16] {
     let r1 = le64(key, 8) & 0x0fff_fffc_0fff_fffc;
     let s1 = r1 + (r1 >> 2); // r1 * 5 / 4, exact: 2^130 = 5 mod p
     let (mut h0, mut h1, mut h2) = (0u64, 0u64, 0u64);
+    #[allow(unused_mut)]
+    let mut message = message;
+    #[cfg(target_arch = "riscv64")]
+    {
+        let groups = message.len() / c906::POLY_GROUP;
+        if groups >= c906::POLY_MIN_GROUPS {
+            const M26: u64 = (1 << 26) - 1;
+            let r = [
+                r0 & M26,
+                (r0 >> 26) & M26,
+                ((r0 >> 52) | (r1 << 12)) & M26,
+                (r1 >> 14) & M26,
+                r1 >> 40,
+            ];
+            let mut h = [0u64; 5];
+            // SAFETY: the kernel reads five limbs of r and groups * 80
+            // bytes of the message and writes five limbs of h.
+            unsafe {
+                c906::nanokvm_poly1305_blocks_c906(r.as_ptr(), message.as_ptr(), groups, h.as_mut_ptr())
+            };
+            // From 26-bit limbs (h[4] reaches bit 130) to radix 2^64.
+            let low = h[0] as u128
+                + ((h[1] as u128) << 26)
+                + ((h[2] as u128) << 52)
+                + ((h[3] as u128) << 78);
+            let (sum, carry) = low.overflowing_add(((h[4] & 0xff_ffff) as u128) << 104);
+            h0 = sum as u64;
+            h1 = (sum >> 64) as u64;
+            h2 = (h[4] >> 24) + carry as u64;
+            message = &message[groups * c906::POLY_GROUP..];
+        }
+    }
     // h = (h + m + high 2^128) r mod p, partly reduced.
     let mut absorb = |m0: u64, m1: u64, high: u64| {
         let t = h0 as u128 + m0 as u128;

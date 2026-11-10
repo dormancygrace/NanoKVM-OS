@@ -3,7 +3,9 @@
 # stores (the C906 executes them itself; without unaligned-scalar-mem LLVM
 # reads a word at an unknown alignment byte by byte). Cargo applies these
 # to every build for these targets, so the cross build and the native Alpine
-# recipe both produce the qualified binary. No RVV 0.7.1 code is generated;
+# recipe both produce the qualified binary. The compiler generates no RVV
+# 0.7.1 code (LLVM has none); the frame cipher's two vector kernels are
+# generated assembly (src/*_c906.S);
 # host builds and tests are unaffected. Build with an explicit --target, so the
 # flags reach only target code and not build scripts or proc-macros.
 #

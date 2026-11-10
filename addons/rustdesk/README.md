@@ -166,7 +166,8 @@ CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=/path/to/riscv64-linux-gcc CARG
 
 Install the Rust riscv64gc-unknown-linux-musl target first. Keep the linker
 symlink name intact for Buildroot wrappers. The builder produces a static RV64GC
-binary without vector instructions and root:root payload ownership. It exports
+binary (its only vector instructions are the frame cipher's two C906 kernels)
+and root:root payload ownership. It exports
 adapted source, Cargo.lock, vendored dependencies and packaging recipes as a
 separate source archive, kept with the build; it is not published. The APK installs only
 LICENSE, NOTICE, upstream.json and source.json (the Git tree URL), alongside
@@ -310,7 +311,7 @@ implemented in this version.
 
 ## C906 build
 
-The release build is the qualified C906 build: `cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl` with the existing cross-linker environment (the native Alpine recipe uses `--target riscv64-alpine-linux-musl`). The release profile selects optimization level 3, full LTO and one codegen unit; `.cargo/config.toml` enables static CRT, the scalar T-Head extensions every C906 implements and unaligned loads and stores (the C906 executes them itself; without the flag LLVM reads a word at an unknown alignment byte by byte) for both targets, so no extra option is needed. Keep the explicit `--target`: it confines the flags to target code (build scripts and proc-macros are built for the host). The former separate generic and performance profiles are gone; the settings above now apply to every release build. The packaging builder records the exact flags and compiler identity in build-profile.json. This Rust backend does not implement RVV 0.7.1; the build is scalar.
+The release build is the qualified C906 build: `cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl` with the existing cross-linker environment (the native Alpine recipe uses `--target riscv64-alpine-linux-musl`). The release profile selects optimization level 3, full LTO and one codegen unit; `.cargo/config.toml` enables static CRT, the scalar T-Head extensions every C906 implements and unaligned loads and stores (the C906 executes them itself; without the flag LLVM reads a word at an unknown alignment byte by byte) for both targets, so no extra option is needed. Keep the explicit `--target`: it confines the flags to target code (build scripts and proc-macros are built for the host). The former separate generic and performance profiles are gone; the settings above now apply to every release build. The packaging builder records the exact flags and compiler identity in build-profile.json. This Rust backend does not implement RVV 0.7.1, so compiled code is scalar; the only vector instructions are the two generated kernels of the frame cipher (see "C906 framing and Salsa qualification").
 
 Local unpublished APK/source pairs can be built with --local-only instead of --source-url; source.json records the local archive digest and publication state. This avoids claiming a public download exists before publication.
 
@@ -328,26 +329,55 @@ session writes the RustDesk message headers into that room, and the same
 buffer is encrypted and sent. A test compares the message with what prost
 encodes.
 
-An explicit RVV 0.7.1 Salsa prototype was correct on C906 but mostly slower
-than the scalar in-place path. Production uses the scalar XSalsa20-Poly1305 of
-`src/frame_crypto.rs`, plain Rust: Salsa20 with the 16 state words in
-registers and whole-word XOR, Poly1305 in radix 2^64 with 128-bit products. No
-vector feature or extra assembly compiler is required. It is tested byte for
-byte against `crypto_secretbox`, which it replaced, and like it wipes the key
-when the session ends and the per-frame key material after each frame.
+Production uses the XSalsa20-Poly1305 of `src/frame_crypto.rs`. Its plain
+Rust part (Salsa20 with the 16 state words in registers and whole-word XOR,
+Poly1305 in radix 2^64 with 128-bit products) does short frames, what is left
+over of long ones, and everything in the host tests. On the device, whole
+groups of five blocks go to two generated C906 kernels, the designs of the
+OS's ChaCha20 and Poly1305: four blocks in XTheadVector lanes and a fifth in
+scalar registers, their instructions interleaved.
+
+- `src/salsa20_c906.S` (`firmware/cpu/go-crypto-c906/gen_salsa20_c906.py`):
+  320 bytes per group, from the first whole group after the frame's first 32
+  bytes.
+- `src/poly1305_c906.S` (`gen_poly1305_vector.py --rust`): 80 bytes per group
+  in radix 2^26, from four groups on.
+
+Their vector and XTheadBb instructions are `.4byte` words that the generators
+check against GNU as, so rustc's own assembler builds them; CI checks that the
+files are what the generators write. An earlier RVV 0.7.1 Salsa prototype,
+four blocks in lanes without the scalar fifth and the multiply rotate, was
+mostly slower than scalar code.
+
+The kernels execute vector instructions without asking the kernel first, as
+the server's Go code does. Every NanoKVM OS kernel starts a program with
+vector state enabled (`CONFIG_RISCV_ISA_V_DEFAULT_ENABLE=y` since the kernel
+is built in this repository, 2026-10-02, which is before the bridge this
+add-on depends on existed), and neither the daemon nor its service turns it
+off. Since kernel patch 0078 it cannot be turned off at all. So the add-on
+needs no kernel newer than the one of the OS it can be installed on, and its
+start need not wait for a reboot.
+
+The cipher is tested byte for byte against `crypto_secretbox`, which it
+replaced, and like it wipes the key when the session ends and the per-frame
+key material after each frame. The host tests run the plain Rust; on the
+device 1319 lengths from 0 to 262221 bytes at odd alignments gave the
+reference's bytes, with changed tags and frames refused.
 
 Measured on a NanoKVM PCIe, one frame in place, encrypt (decrypt is the same):
 
-| frame | `crypto_secretbox` | + unaligned loads | `frame_crypto.rs` + unaligned loads |
-| --- | ---: | ---: | ---: |
-| 64 bytes | 5.7 us | 5.4 us | 4.3 us |
-| 1400 bytes | 56.8 us | 49.5 us | 34.6 us |
-| 16 KiB | 625 us (26 MB/s) | 540 us (30 MB/s) | 370 us (44 MB/s) |
-| 256 KiB | 10.7 ms | 9.4 ms | 6.0 ms |
+| frame | `crypto_secretbox` | + unaligned loads | plain Rust | with the C906 kernels |
+| --- | ---: | ---: | ---: | ---: |
+| 64 bytes | 5.7 us | 5.4 us | 4.3 us | 4.4 us |
+| 352 bytes | | | 10.2 us | 7.2 us |
+| 1400 bytes | 56.8 us | 49.5 us | 34.6 us | 20.7 us |
+| 4096 bytes | 158.8 us | 138.0 us | 94.8 us | 51.5 us |
+| 16 KiB | 625 us (26 MB/s) | 540 us (30 MB/s) | 370 us (44 MB/s) | 186 us (88 MB/s) |
+| 256 KiB | 10.7 ms | 9.4 ms | 6.0 ms | 3.0 ms |
 
-Of the 370 us, Poly1305 takes 86 us (149 us in RustCrypto's) and Salsa20 the
-rest: 1.1 us per 64-byte block, about one instruction per cycle on its 960
-round instructions.
+In plain Rust, Poly1305 takes 86 us of the 370 (149 us in RustCrypto's) and
+Salsa20 the rest: 1.1 us per 64-byte block, about one instruction per cycle
+on its 960 round instructions.
 
 On the qualified C906 build (then the `performance` profile), the actual writer benchmark measured
 34–37% less process CPU time for 16–256 KiB messages than the previous

@@ -480,6 +480,58 @@ python3 gen_aes_c906.py --selftest 30 --name aes_c906 --flavor linux --check ../
 then executes the emitted instructions against it for all three key lengths,
 with `in` and `out` unaligned.
 
+### AES-GCM in Go
+
+Go has no AES or GHASH assembly for riscv64: `crypto/aes` ran the generic
+block (about 0.9 us) and `crypto/cipher`'s GCM the generic GHASH, which
+multiplies with integer multiplications and takes the C906 about 8 us per
+block. A TLS record of 16 KiB with AES-128-GCM took 11.7 ms to write and read.
+
+`prepare.py` puts three things into `crypto/internal/fips140/aes`, used
+always (NanoKVM OS runs on this CPU only):
+
+- `aes_c906_riscv64.s` (`gen_aes_c906.py --flavor go`) with `aes_riscv64.go`:
+  the block functions above in Go assembler syntax. Go keeps the round keys as
+  big-endian words; `newBlock` stores them once more with the bytes of each
+  word reversed, which is the form the assembly takes. The tables are built at
+  start from Go's S-boxes.
+- `ctr32BlocksC906` in the same file: the block loop of GCM's counter mode.
+  The first three words of the counter block stay in registers, already xored
+  with the first round key; the 32-bit counter is a register. Go's generic
+  loop costs 1.4 us per block around the block function.
+- `gcm/ghash_c906_riscv64.s` (`gen_ghash_table.py --flavor go`) with
+  `gcm/gcm_riscv64.go`: GHASH with two tables of 4 KiB per key, as in the
+  kernel and OpenSSL. The tables are part of the GCM object and are built
+  when it is made.
+
+In Go assembly the T-Head instructions are `WORD`s, each checked against GNU
+as (`goasm_c906.py`, `--binutils`). X8, X9, X18 and X20 take the place of s0,
+s1 and t6, and nothing is saved: Go's ABI0 has no callee-saved registers.
+
+Time to write and read one TLS record through `crypto/tls` on the device, in
+us (stock Go / with only the block functions / with GHASH tables / with the
+counter-mode loop):
+
+| | 16 B | 1400 B | 16 KiB |
+|---|---|---|---|
+| AES-128-GCM | 101 / 89 / 66 / 76 | 1074 / 872 / 254 / 212 | 11680 / 9400 / 2270 / 1700 |
+| AES-256-GCM | 108 / 87 / 70 / 76 | 1184 / 909 / 296 / 257 | 12880 / 9850 / 2710 / 2160 |
+| ChaCha20-Poly1305, for comparison | 63 | 121 | 548 |
+
+Like the kernel and OpenSSL versions, the table GHASH and the AES tables are
+not constant-time; Go's generic GHASH was.
+
+The tests of `crypto/aes`, `crypto/cipher` (39) and the AES, GCM, CTR, CBC,
+CMAC and self-test parts of `crypto/internal/fips140test` pass on the device,
+run one test at a time: the whole `crypto/cipher` binary needs 178 MiB for
+one of its CTR tests, which hangs the 247 MiB device until the watchdog
+resets it.
+
+```sh
+python3 gen_aes_c906.py --name aes_c906 --flavor go --selftest 30 --binutils $B --check-file aes_c906_riscv64.s
+python3 gen_ghash_table.py --flavor go --tables 2 --name ghashBlocksC906 --selftest 20 --binutils $B --check-file ghash_c906_riscv64.s
+```
+
 ## SHA-256 and SHA-512 blocks (`gen_sha2_c906.py`)
 
 `--flavor linux` writes the same blocks for the kernel's `lib/crypto`

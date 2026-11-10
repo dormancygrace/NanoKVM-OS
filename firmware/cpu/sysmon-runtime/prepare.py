@@ -166,6 +166,22 @@ edit(f'{sha3}/sha3_noasm.go', '//go:build (!amd64 && !arm64 && !s390x) || purego
 for name in ['sha3_riscv64.go', 'keccak_c906_riscv64.s']:
     shutil.copyfile(crypto / name, out / 'src' / sha3 / name)
 vendor_files += [f'{sha3}/sha3_noasm.go', f'{sha3}/sha3_riscv64.go', f'{sha3}/keccak_c906_riscv64.s']
+# AES block functions for the C906 (go-crypto-c906/gen_aes_c906.py), always:
+# CTR, CBC and GCM of the generic code call them a block at a time.
+aes = 'crypto/internal/fips140/aes'
+materialize(aes)
+edit(f'{aes}/aes_noasm.go', '//go:build (!amd64 && !s390x && !ppc64 && !ppc64le && !arm64) || purego\n',
+     '//go:build (!amd64 && !s390x && !ppc64 && !ppc64le && !arm64 && !riscv64) || purego\n')
+for name in ['aes_riscv64.go', 'aes_c906_riscv64.s']:
+    shutil.copyfile(crypto / name, out / 'src' / aes / name)
+vendor_files += [f'{aes}/aes_noasm.go', f'{aes}/aes_riscv64.go', f'{aes}/aes_c906_riscv64.s']
+# GHASH with 8-bit tables for the C906 (go-crypto-c906/gen_ghash_table.py),
+# always: Go's generic GHASH multiplies with integer multiplications.
+edit(f'{aes}/gcm/gcm_noasm.go', '//go:build (!amd64 && !s390x && !ppc64 && !ppc64le && !arm64) || purego\n',
+     '//go:build (!amd64 && !s390x && !ppc64 && !ppc64le && !arm64 && !riscv64) || purego\n')
+for name in ['gcm_riscv64.go', 'ghash_c906_riscv64.s']:
+    shutil.copyfile(crypto / name, out / 'src' / aes / 'gcm' / name)
+vendor_files += [f'{aes}/gcm/gcm_noasm.go', f'{aes}/gcm/gcm_riscv64.go', f'{aes}/gcm/ghash_c906_riscv64.s']
 vendor_files += [f'{sha}/sha256block_riscv64.s', f'{sha512}/sha512block_riscv64.s', 'crypto/sha1/sha1block_riscv64.s']
 text = original.decode()
 anchor = 'func sysmon() {\n'

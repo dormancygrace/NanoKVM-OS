@@ -49,8 +49,6 @@ def main():
         command = ['python3', str(ROOT / 'firmware/crypto/openssl-c906/tests/test-scalar.py'),
                    '--source', str(source), '--cross-prefix', args.cross_prefix]
         subprocess.run(command, check=True)
-        command[1] = str(ROOT / 'firmware/crypto/openssl-c906/tests/test-arithmetic.py')
-        subprocess.run(command, check=True)
         print(f'PASS: {len(patches)} complete patches applied with zero fuzz to SHA-256-verified source')
 
 

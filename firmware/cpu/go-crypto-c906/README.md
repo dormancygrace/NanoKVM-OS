@@ -310,11 +310,12 @@ on the stand, MB/s at offset 5, CRYPTOGAMS -> vector: 320 B 151 -> 132
 packet) 166 -> 218, 4096 B 180 -> 272, 16 KiB 178 -> 283.
 `kernel_vector_begin()` plus `kernel_vector_end()` costs about 210 ns.
 
-## GHASH in the Linux kernel
+## GHASH in the Linux kernel and in OpenSSL
 
 `gen_ghash_table.py` emits GHASH with 8-bit tables (Shoup's method) for
 `platform/kernel/0041-crypto-riscv-c906-ghash.patch`
-(`lib/crypto/riscv/ghash-riscv64-c906.S`). The C906 has no
+(`lib/crypto/riscv/ghash-riscv64-c906.S`) and for
+`firmware/crypto/openssl-c906/0010-ghash-c906.patch`. The C906 has no
 carry-less multiply. Per key, two tables of 4 KiB hold `b * H` and
 `b * H * x^64` for every byte `b`; a block is two interleaved Horner chains of
 eight steps, each step two table lookups and one lookup in a constant
@@ -332,15 +333,17 @@ Measured on the SG2002, 1408 bytes, tables in the L1 data cache: one table
 142 MB/s (113). There is no L2 cache, and a table line evicted between
 messages costs about 110 ns to bring back: with the L1 data cache emptied
 before every message, 1408 bytes took 31 us with one or two tables and 42 us
-with four (12.7 and 10.9 us when cached). The kernel uses two.
+with four (12.7 and 10.9 us when cached). Inside AES-GCM records of OpenSSL
+two and four tables measured the same and one table was slower from 4 KiB, so
+both consumers use two.
 
 The generator runs every variant it can emit on random keys and messages
 against a bit-serial GHASH (an interpreter of the instructions it uses), and
-checks that the patch contains the generated file. OpenSSL still uses the
-multiply-based code of `gen_ghash_linux.py` (`0010-ghash-c906.patch`):
+checks that a patch contains the generated file:
 
 ```sh
 python3 gen_ghash_table.py --selftest 50 --flavor linux --tables 2 --name ghash_blocks_c906 --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+python3 gen_ghash_table.py --flavor openssl --tables 2 --name ossl_ghash_blocks_c906 --check ../../crypto/openssl-c906/0010-ghash-c906.patch
 ```
 
 In the kernel, with the engine driver running AES-CTR and this GHASH on the
@@ -440,41 +443,30 @@ GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o annexb.test ./internal/ann
 ./annexb.test -test.v && ./annexb.test -test.run XXX -test.bench .
 ```
 
-## SHA-256 and SHA-512 blocks (`gen_sha2_c906.py`)
+## SHA-1 and SHA-256 blocks (`gen_sha_c906.py`)
 
-`--flavor linux` writes the same blocks for the kernel's `lib/crypto`
-(`platform/kernel/0079-crypto-riscv-c906-sha2.patch`), which had only the
-generic C code on the C906: its RISC-V backends need the vector crypto
-extensions. One `sha256` digest of 4096 bytes through the kernel API takes
-160.3 us instead of 173.5 us.
+Go builds riscv64 for rva20u64. As a result, each `RORW` in its riscv64 SHA-1 and SHA-256 assembly becomes three instructions (`srliw`, `slliw`, `or`), and each message word is assembled from four byte loads.
 
-`gen_sha2_c906.py --flavor go` writes `sha256block_riscv64.s` and `sha512block_riscv64.s`, which `prepare.py` puts in place of Go's riscv64 assembly under the same name `block`: there is no selection at run time. It is the generator of OpenSSL's blocks (`firmware/crypto/openssl-c906`): rounds 0 to 15 once, then one body of 16 rounds run three or four times, about 4.5 KiB of code; w[i-1], w[i-2] and w[i-16] stay in registers and a loaded value is used no sooner than two instructions later. The XTheadBb instructions are `WORD`s, each checked against GNU as (`--binutils`); the instruction stream is the one the generator executes against a plain implementation in `--selftest`.
+`gen_sha_c906.py` expands the macros of Go's `sha1block_riscv64.s` and `sha256block_riscv64.s` from the pinned GOROOT. It writes `blockC906` copies that use:
 
-Measured on the device (`sha256.Sum256` and `sha512.Sum512`, MB/s at 16 / 64 / 1024 / 16384 bytes): SHA-256 with Go's block 3.1 / 7.2 / 15.1 / 16.0, with the previous unrolled C906 block 4.2 / 10.0 / 22.3 / 23.8, now 4.4 / 10.6 / 23.8 / 25.4; SHA-512 with Go's block 2.3 / 9.0 / 21.2 / 24.1, now 2.7 / 12.8 / 33.0 / 39.2. The tests of `crypto/sha256`, `crypto/sha512` and `crypto/hmac` pass on the device.
-
-```sh
-B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
-python3 gen_sha2_c906.py --selftest 40 --bits 256 --name block --flavor go --binutils $B --check-file sha256block_riscv64.s
-python3 gen_sha2_c906.py --bits 512 --name block --flavor go --binutils $B --check-file sha512block_riscv64.s
-```
-
-## SHA-1 block (`gen_sha_c906.py`)
-
-Go builds riscv64 for rva20u64. As a result, each `RORW` in its riscv64 SHA-1 assembly becomes three instructions (`srliw`, `slliw`, `or`), and each message word is assembled from four byte loads.
-
-`gen_sha_c906.py` expands the macros of Go's `sha1block_riscv64.s` from the pinned GOROOT. It writes `sha1block_riscv64.s`, the same function `block` with:
-
-- `th.srriw` (XTheadBb) for every `RORW`: 224 per SHA-1 block;
+- `th.srriw` (XTheadBb) for every `RORW`: 224 per SHA-1 block and 576 per SHA-256 block;
 - `lwu` + `th.revw` for each message word, because misaligned loads are fast on the C906.
 
-Each instruction is a `WORD` that GNU as produced from the mnemonic, and objdump must decode it back. `--check` regenerates the file and compares.
+Each instruction is a `WORD` that GNU as produced from the mnemonic, and objdump must decode it back. `--check` regenerates the file and compares. A SHA-256 block goes from 3848 to 2568 instructions.
 
-`prepare.py` puts the file in place of Go's. NanoKVM OS runs only on the C906, so there is no selection at run time and no `internal/cpu` flag for XTheadBb (Linux reports it neither in `riscv_hwprobe` nor in `/proc/cpuinfo`).
+`prepare.py` renames Go's block to `blockRV64` and adds `sha256block_riscv64.go` and `sha1block_riscv64.go`, which choose `blockC906` when `cpu.RISCV64.HasXTheadBb` is set.
 
-Measured on the device with `go test -bench` when both blocks were in one binary: 1 s per benchmark, median of 3 interleaved runs. Rates are in MB/s.
+- Linux reports XTheadBb neither in `riscv_hwprobe` nor in `/proc/cpuinfo`. `internal/cpu` therefore sets it from the `mvendorid` that `riscv_hwprobe` returns: every T-Head RISC-V core (0x5b7) implements XTheadBb.
+- `GODEBUG=cpu.xtheadbb=off` selects Go's block.
+- Both blocks are registered with `crypto/internal/impl`, so the crypto tests run each of them.
+
+Measured on the device with `go test -bench`: 1 s per benchmark, median of 3 interleaved runs, the same binary with and without `GODEBUG=cpu.xtheadbb=off`. Rates are in MB/s.
 
 | | Go's block | C906 block | |
 | --- | ---: | ---: | ---: |
+| SHA-256, 8 bytes | 1.35 | 2.01 | 1.49x |
+| SHA-256, 1 KiB | 14.34 | 21.48 | 1.50x |
+| SHA-256, 8 KiB | 15.30 | 23.08 | 1.51x |
 | SHA-1, 8 bytes | 1.97 | 3.45 | 1.75x |
 | SHA-1, 1 KiB | 29.00 | 40.26 | 1.39x |
 | SHA-1, 8 KiB | 30.62 | 42.80 | 1.40x |
@@ -483,11 +475,13 @@ SRTP keeps the multi-buffer HMAC-SHA1 described above. crypto/sha1 covers single
 
 ```sh
 B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
-python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha1 --check sha1block_riscv64.s
-# Also build test binaries for crypto/sha1, crypto/hmac and crypto/tls (needs its testdata).
-GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha1.test crypto/sha1
+python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha256 --check sha256block_c906_riscv64.s
+python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha1 --check sha1block_c906_riscv64.s
+# Also build test binaries for crypto/sha1, crypto/hmac, crypto/tls (needs its testdata) and internal/cpu.
+GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha256.test crypto/sha256
 # on the device:
-./sha1.test -test.short
+./sha256.test -test.v -test.short | grep XTheadBb
+GODEBUG=cpu.xtheadbb=off ./sha256.test -test.run XXX -test.bench Hash
 ```
 
 ## Keccak-f[1600] (`gen_keccak_c906.py`)
@@ -526,19 +520,23 @@ alternating runs of each binary, medians:
 | ML-KEM-768 encapsulation | 2.026 ms | 1.778 ms | −12% |
 | ML-KEM-768 decapsulation | 1.903 ms | 1.801 ms | −5% |
 
-The permutation is measured in one binary. The other rows compared the C906
-permutation with the generic one in the same binary. A TLS server
+The permutation is measured in one binary. The other rows compare the default
+with `GODEBUG=cpu.xtheadbb=off` in the same binary. A TLS server
 encapsulates once per `X25519MLKEM768` handshake, so the saving is about
 0.25 ms of CPU per handshake, around 1% of a full handshake.
 
 `--binutils` checks every `th.srri` WORD against GNU as. `--check`
 regenerates the file and compares. CI does both.
 
-`prepare.py` adds `sha3_riscv64.go`, which calls `keccakF1600C906` always;
-the generic permutation stays in the package for the test below.
+`prepare.py` adds `sha3_riscv64.go`:
+
+- It selects `keccakF1600C906` when `cpu.RISCV64.HasXTheadBb` is set, and
+  registers it with `crypto/internal/impl`, so the crypto tests run both
+  permutations.
+- `GODEBUG=cpu.xtheadbb=off` selects the generic permutation.
 
 `tests/sha3` compares both permutations on 20,000 random, all-zero and
-all-one states.
+all-one states. It fails if a T-Head core does not select the C906 path.
 
 ```sh
 curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o keccak1600-riscv.pl

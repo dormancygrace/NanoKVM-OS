@@ -99,9 +99,30 @@ func (s *goMemoryLimitStore) read() (int64, error) {
 	return normalizeGoMemLimit(limit)
 }
 
-// InitGoMemLimit applies the saved limit, or the default without one. It runs
-// once at start, before anything else changes the runtime limit.
+// gcPercent is how far the heap may grow past the live data before the next
+// collection, in percent of the live data (the runtime's default is 100).
+//
+// A collection walks the whole live heap, which is cache and TLB misses on a
+// core with 64 KiB of data cache and no second level. Streaming 2560x1440 at
+// 60 fps over WebRTC (21 Mbit/s), the collector took about a sixth of the
+// server's own CPU time at 100. Measured on a NanoKVM PCIe, the busy share of
+// the core and the server's anonymous memory:
+//
+//	100: 44.5 to 46.4%, 18 to 19 MiB
+//	200: 40.0 to 40.3%, 25 MiB
+//	400: 39.5 to 40.6%, 31 MiB
+//
+// 200 has the whole gain for 7 MiB. The memory limit still bounds the heap: the
+// runtime collects earlier when the limit is near.
+const gcPercent = 200
+
+// InitGoMemLimit applies the saved limit, or the default without one, and the
+// collection pace (a GOGC environment variable takes its place). It runs once
+// at start, before anything else changes the runtime limit.
 func InitGoMemLimit() {
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(gcPercent)
+	}
 	goMemLimit.init()
 }
 

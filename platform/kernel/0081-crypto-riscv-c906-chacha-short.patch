@@ -1,0 +1,58 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] crypto: riscv - XTheadVector ChaCha from four blocks, short remainders generic
+
+Measured on the SG2002 (T-Head C906), chacha20 through the kernel API: a
+generic block takes 1.2 us, the first vector group of five blocks 3.8 to
+5.0 us (entering kernel-mode vector costs a state save), each further group
+3.1 us.
+
+- The vector code started at three blocks, where the generic code is as
+  fast or faster: it now starts at four.
+- A remainder after the whole groups was computed as one more group padded to
+  five blocks, also for one or two blocks: 8.0 us for 384 bytes. One or two
+  blocks now run the generic code: 5.0 us.
+
+diff --git a/lib/crypto/riscv/chacha.h b/lib/crypto/riscv/chacha.h
+--- a/lib/crypto/riscv/chacha.h
++++ b/lib/crypto/riscv/chacha.h
+@@ -61,9 +61,11 @@
+ 
+ /*
+  * Shorter messages stay generic: a group computes five blocks, and entering
+- * kernel-mode vector costs a vector state save.
++ * kernel-mode vector costs a vector state save. Measured on the SG2002: a
++ * generic block takes 1.2 us, the first group 3.8 to 5.0 us, each further
++ * group 3.1 us.
+  */
+-#define CHACHA_XTHEADVECTOR_MIN_BYTES	(2 * CHACHA_BLOCK_SIZE + 1)
++#define CHACHA_XTHEADVECTOR_MIN_BYTES	(3 * CHACHA_BLOCK_SIZE + 1)
+ 
+ asmlinkage void chacha_xtheadvector(struct chacha_state *state, const u8 *in,
+ 				    u8 *out, size_t ngroups, int nrounds);
+@@ -75,6 +77,8 @@
+ 	u8 buffer[CHACHA_XTHEADVECTOR_GROUP];
+ 	unsigned int groups = bytes / CHACHA_XTHEADVECTOR_GROUP;
+ 	unsigned int tail = bytes % CHACHA_XTHEADVECTOR_GROUP;
++	/* One or two blocks more are cheaper generic than as a padded group. */
++	bool generic_tail = tail && tail <= 2 * CHACHA_BLOCK_SIZE;
+ 
+ 	kernel_vector_begin();
+ 	if (groups) {
+@@ -82,7 +86,7 @@
+ 		src += groups * CHACHA_XTHEADVECTOR_GROUP;
+ 		dst += groups * CHACHA_XTHEADVECTOR_GROUP;
+ 	}
+-	if (tail) {
++	if (tail && !generic_tail) {
+ 		/* One more group; the counter advances by the blocks used. */
+ 		u32 counter = state->x[12];
+ 
+@@ -94,6 +98,8 @@
+ 		memzero_explicit(buffer, sizeof(buffer));
+ 	}
+ 	kernel_vector_end();
++	if (generic_tail)
++		chacha_crypt_generic(state, dst, src, tail, nrounds);
+ }
+ #endif
+ 
